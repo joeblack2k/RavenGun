@@ -110,10 +110,11 @@ bool all_hex(const std::string& s) {
     return true;
 }
 
-// Zet een JSON-body om in een IPC-verzoekregel voor set_filter/set_aim. Alleen bekende sleutels met
-// een bool of getal; de waardebereiken controleert de IPC-parser (één bron van waarheid).
+// Zet een JSON-body om in een IPC-verzoekregel (set_filter, set_aim, set_led, set_camera, ...).
+// Alleen bekende sleutels met een bool of getal (of een korte tekst bij 'string_keys'); de
+// waardebereiken controleert de IPC-parser (één bron van waarheid).
 bool build_set_request(const char* cmd, const std::string& body, std::initializer_list<const char*> keys,
-                       std::string& line, std::string& err) {
+                       std::string& line, std::string& err, std::initializer_list<const char*> string_keys = {}) {
     auto pr = json::parse(body);
     if (!pr.ok) { err = "ongeldige JSON: " + pr.error; return false; }
     if (!pr.value.is_object()) { err = "verwacht een JSON-object"; return false; }
@@ -122,8 +123,13 @@ bool build_set_request(const char* cmd, const std::string& body, std::initialize
     for (const auto& kv : pr.value.obj) {
         bool known = false;
         for (const char* k : keys) if (kv.first == k) known = true;
-        if (!known) { err = "onbekend veld '" + kv.first + "'"; return false; }
-        if (kv.second.is_number()) w.key(kv.first).value(kv.second.num);
+        bool is_str_key = false;
+        for (const char* k : string_keys) if (kv.first == k) is_str_key = true;
+        if (!known && !is_str_key) { err = "onbekend veld '" + kv.first + "'"; return false; }
+        if (is_str_key) {
+            if (!kv.second.is_string()) { err = "'" + kv.first + "' moet een tekst zijn"; return false; }
+            w.key(kv.first).value(kv.second.str);
+        } else if (kv.second.is_number()) w.key(kv.first).value(kv.second.num);
         else if (kv.second.is_bool()) w.key(kv.first).value(kv.second.b);
         else { err = "'" + kv.first + "' moet een getal of true/false zijn"; return false; }
     }
@@ -327,7 +333,7 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
     };
 
     if (p.rfind("/api/", 0) == 0) {
-        if (p == "/api/status" || p == "/api/camera" || p == "/api/sample") {
+        if (p == "/api/status" || p == "/api/sample" || p == "/api/info" || p == "/api/settings") {
             if (!get) return wrong_method("GET");
             return api_command(std::string("{\"v\":1,\"cmd\":\"") + (p.c_str() + 5) + "\"}");
         }
@@ -336,6 +342,53 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (!get) return wrong_method("GET");
             return api_command(p == "/api/record" ? "{\"v\":1,\"cmd\":\"record\",\"action\":\"status\"}"
                                                   : "{\"v\":1,\"cmd\":\"calib_mag\",\"action\":\"status\"}");
+        }
+        if (p == "/api/diagnostics") {
+            // Diagnose-export (geredigeerd): als download aangeboden.
+            if (!get) return wrong_method("GET");
+            HttpResponse o = api_command("{\"v\":1,\"cmd\":\"diagnostics\"}");
+            if (o.status == 200) o.headers.push_back({"Content-Disposition", "attachment; filename=\"ravengun-diagnose.json\""});
+            return o;
+        }
+        if (p == "/api/camera") {
+            if (get) return api_command("{\"v\":1,\"cmd\":\"camera\"}");
+            std::string line, err;
+            if (!build_set_request("set_camera", r.body, {"exposure", "gain", "auto_exposure", "auto_gain", "auto_awb"}, line, err, {"mode"}))
+                return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
+        if (p == "/api/led") {
+            if (get) return wrong_method("POST");
+            std::string line, err;
+            if (!build_set_request("set_led", r.body, {"r", "g", "b"}, line, err, {"preset"})) return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
+        if (p == "/api/web") {
+            if (get) return wrong_method("POST");
+            std::string line, err;
+            if (!build_set_request("set_web", r.body, {"port"}, line, err)) return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
+        if (p == "/api/arm" || p == "/api/disarm") {
+            if (get) return wrong_method("POST");
+            return api_command(std::string("{\"v\":1,\"cmd\":\"") + (p.c_str() + 5) + "\"}");
+        }
+        if (p == "/api/test-pattern") {
+            if (get) return wrong_method("POST");
+            std::string line, err;
+            if (!build_set_request("test_pattern", r.body, {"dwell_ms", "duration_s", "margin", "x", "y", "rate_hz"}, line, err, {"pattern"}))
+                return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
+        if (p == "/api/output") {
+            // GET: uitvoerstatus; POST: transformatie-instellingen (set_output).
+            if (get) return api_command("{\"v\":1,\"cmd\":\"output\"}");
+            std::string line, err;
+            if (!build_set_request("set_output", r.body,
+                                   {"invert_x", "invert_y", "scale_x", "scale_y", "offset_x", "offset_y", "viewport_x0", "viewport_y0",
+                                    "viewport_x1", "viewport_y1", "screen_aspect", "content_aspect"}, line, err))
+                return error_json(400, "bad_request", err);
+            return api_command(line);
         }
         if (p == "/api/csrf") {
             if (!get) return wrong_method("GET");

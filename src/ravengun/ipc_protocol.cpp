@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <initializer_list>
 
+#include "ravengun/config/settings.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 
@@ -25,8 +26,13 @@ const char* to_string(Cmd c) {
         case Cmd::OutputButton: return "output_button";
         case Cmd::SetOutput: return "set_output";
         case Cmd::Record: return "record";
-        case Cmd::SetLed: return "set_led";
         case Cmd::CalibMag: return "calib_mag";
+        case Cmd::SetLed: return "set_led";
+        case Cmd::SetCamera: return "set_camera";
+        case Cmd::SetWeb: return "set_web";
+        case Cmd::Info: return "info";
+        case Cmd::Settings: return "settings";
+        case Cmd::Diagnostics: return "diagnostics";
     }
     return "?";
 }
@@ -59,6 +65,16 @@ bool opt_number(const json::Value& o, const char* key, double lo, double hi, std
     }
     out = v->num;
     return true;
+}
+
+// Optioneel geheel getal binnen [lo, hi].
+bool opt_int(const json::Value& o, const char* key, int lo, int hi, std::optional<double>& out, Error& e, const std::string& id) {
+    const json::Value* v = o.find(key);
+    if (v && v->is_number() && std::floor(v->num) != v->num) {
+        e = err("invalid_argument", std::string("'") + key + "' moet een geheel getal zijn", id);
+        return false;
+    }
+    return opt_number(o, key, lo, hi, out, e, id);
 }
 
 bool opt_bool(const json::Value& o, const char* key, std::optional<bool>& out, Error& e, const std::string& id) {
@@ -226,15 +242,40 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         }
     } else if (cmd == "set_led") {
         r.cmd = Cmd::SetLed;
-        if (!allowed(o, {"rgb"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
-        const json::Value* a = o.find("rgb");
-        if (!a || !a->is_array() || a->arr.size() != 3) return err("invalid_argument", "'rgb' moet [r,g,b] zijn", r.id_json);
-        for (int i = 0; i < 3; ++i) {
-            const json::Value& c = a->arr[static_cast<size_t>(i)];
-            if (!c.is_number() || std::floor(c.num) != c.num || c.num < 0 || c.num > 255)
-                return err("invalid_argument", "'rgb' moet drie gehele getallen 0..255 bevatten", r.id_json);
-            r.rgb[i] = static_cast<int>(c.num);
+        if (!allowed(o, {"preset", "r", "g", "b"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "preset", r.led_preset, e, r.id_json)) return e;
+        if (!opt_int(o, "r", 0, 255, r.led_r, e, r.id_json)) return e;
+        if (!opt_int(o, "g", 0, 255, r.led_g, e, r.id_json)) return e;
+        if (!opt_int(o, "b", 0, 255, r.led_b, e, r.id_json)) return e;
+        bool any_rgb = r.led_r || r.led_g || r.led_b, all_rgb = r.led_r && r.led_g && r.led_b;
+        if (!r.led_preset.empty() && any_rgb) return err("invalid_argument", "geef een 'preset' of r,g,b, niet allebei", r.id_json);
+        if (r.led_preset.empty() && !all_rgb)
+            return err("invalid_argument", "geef een 'preset' (cyaan, magenta, rood, groen, blauw, wit) of alle drie r, g en b (0..255)", r.id_json);
+    } else if (cmd == "set_camera") {
+        r.cmd = Cmd::SetCamera;
+        if (!allowed(o, {"exposure", "gain", "auto_exposure", "auto_gain", "auto_awb", "mode"}, bad))
+            return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_int(o, "exposure", 0, 255, r.exposure, e, r.id_json)) return e;
+        if (!opt_int(o, "gain", 0, 63, r.gain, e, r.id_json)) return e;
+        if (!opt_bool(o, "auto_exposure", r.auto_exposure, e, r.id_json)) return e;
+        if (!opt_bool(o, "auto_gain", r.auto_gain, e, r.id_json)) return e;
+        if (!opt_bool(o, "auto_awb", r.auto_awb, e, r.id_json)) return e;
+        if (!opt_string(o, "mode", r.mode, e, r.id_json)) return e;
+        if (!r.mode.empty()) {
+            config::CameraMode m{};
+            if (!config::parse_camera_mode(r.mode, m))
+                return err("invalid_argument", "'mode' moet 640x480@60, 320x240@125 of 320x240@187 zijn", r.id_json);
         }
+        if (!r.exposure && !r.gain && !r.auto_exposure && !r.auto_gain && !r.auto_awb && r.mode.empty())
+            return err("invalid_argument", "set_camera zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "set_web") {
+        r.cmd = Cmd::SetWeb;
+        if (!allowed(o, {"port"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_int(o, "port", 1, 65535, r.web_port, e, r.id_json)) return e;
+        if (!r.web_port) return err("invalid_argument", "set_web zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
+        r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else {
         return err("unknown_command", "onbekend commando '" + cmd + "'", r.id_json);
     }
@@ -325,8 +366,25 @@ std::string make_request(const Request& r) {
             if (r.duration_s) w.key("duration_s").value(*r.duration_s);
             break;
         case Cmd::SetLed:
-            w.key("rgb").begin_array().value(r.rgb[0].value_or(0)).value(r.rgb[1].value_or(0)).value(r.rgb[2].value_or(0)).end_array();
+            if (!r.led_preset.empty()) w.key("preset").value(r.led_preset);
+            if (r.led_r) w.key("r").value(*r.led_r);
+            if (r.led_g) w.key("g").value(*r.led_g);
+            if (r.led_b) w.key("b").value(*r.led_b);
             break;
+        case Cmd::SetCamera:
+            if (r.exposure) w.key("exposure").value(*r.exposure);
+            if (r.gain) w.key("gain").value(*r.gain);
+            if (r.auto_exposure) w.key("auto_exposure").value(*r.auto_exposure);
+            if (r.auto_gain) w.key("auto_gain").value(*r.auto_gain);
+            if (r.auto_awb) w.key("auto_awb").value(*r.auto_awb);
+            if (!r.mode.empty()) w.key("mode").value(r.mode);
+            break;
+        case Cmd::SetWeb:
+            if (r.web_port) w.key("port").value(*r.web_port);
+            break;
+        case Cmd::Info:
+        case Cmd::Settings:
+        case Cmd::Diagnostics:
         case Cmd::Recenter:
         case Cmd::Camera:
         case Cmd::Arm:

@@ -473,7 +473,7 @@ int cmd_led(bool json, const std::string& arg) {
     }
     ipc::Request rq;
     rq.cmd = ipc::Cmd::SetLed;
-    rq.rgb[0] = c.r; rq.rgb[1] = c.g; rq.rgb[2] = c.b;
+    rq.led_r = c.r; rq.led_g = c.g; rq.led_b = c.b;
     Res x = simple(rq);
     if (x.code != kExitOk) return x.code;
     if (json) std::printf("%s\n", x.r.line.c_str());

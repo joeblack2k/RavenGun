@@ -33,8 +33,9 @@ public:
     virtual void set_aim(const ravengun::core::AimConfig& c) = 0;
     // Fase 0/1/3. Resultaat: JSON, of "!code|melding" bij een fout.
     virtual std::string record(const ravengun::ipc::Request& r) = 0;
-    virtual std::string set_led(int r, int g, int b) = 0;
     virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;
+    // LED-kleur van de bol (getypeerd; de HID-thread stuurt hem meteen en daarna elke led_refresh_ms).
+    virtual void set_led(bool enabled, uint8_t r, uint8_t g, uint8_t b) = 0;
 };
 
 // Draait tot shared.running false wordt. Eigenaar van de PSMoveAPI-handle en de pijplijn.

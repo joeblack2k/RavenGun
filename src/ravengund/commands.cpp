@@ -2,9 +2,16 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <unistd.h>
 
+#include "build_info.hpp"
+#include "camera.hpp"
 #include "hid_thread.hpp"
 #include "output_service.hpp"
+#include "ravengun/config/led_color.hpp"
+#include "ravengun/config/settings.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/json.hpp"
 
@@ -25,6 +32,258 @@ std::string run_job(SharedState& sh, SharedState::Job j, std::string& err) {
         err = e.what();
         return {};
     }
+}
+
+// Status (HID-thread) plus camera en uitvoer als extra sleutels. Leeg resultaat bij een fout (err gevuld).
+std::string status_result(SharedState& sh, bool full_ids, std::string& err) {
+    std::string res = run_job(sh, [full_ids](HidContext& h) { return h.status_json(full_ids); }, err);
+    if (!err.empty()) return {};
+    if (sh.camera_status && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"camera\":" + sh.camera_status() + "}";
+    }
+    if (sh.output && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"output\":" + sh.output->status_json() + "}";
+    }
+    return res;
+}
+
+// Vervangt de thuismap door "~" (geen gebruikersnaam in exports).
+std::string tilde(std::string path) {
+    const char* h = std::getenv("HOME");
+    if (h && *h && path.rfind(h, 0) == 0) path.replace(0, std::string(h).size(), "~");
+    return path;
+}
+
+void write_strings(json::Writer& w, const std::vector<std::string>& v) {
+    w.begin_array();
+    for (const auto& s : v) w.value(s);
+    w.end_array();
+}
+
+std::string settings_info_json(SharedState& sh) {
+    json::Writer w;
+    w.begin_object();
+    if (!sh.settings) {
+        w.key("available").value(false).end_object();
+        return w.str();
+    }
+    config::LoadInfo li = sh.settings->info();
+    w.key("available").value(true);
+    w.key("path").value(tilde(sh.settings->path()));
+    w.key("file_present").value(sh.settings->file_present());
+    w.key("state").value(config::to_string(li.state));
+    w.key("message").value(li.message);
+    w.key("warnings");
+    write_strings(w, li.warnings);
+    std::string se = sh.settings->last_save_error();
+    if (se.empty()) w.key("last_save_error").null(); else w.key("last_save_error").value(tilde(se));
+    w.key("schema").value(config::kSchemaVersion);
+    w.end_object();
+    return w.str();
+}
+
+std::string info_json(SharedState& sh) {
+    json::Writer w;
+    w.begin_object();
+    w.key("version").begin_object();
+    w.key("daemon").value(RAVENGUN_VERSION).key("git_commit").value(RAVENGUN_GIT_COMMIT);
+    w.key("psmoveapi_pin").value(RAVENGUN_PSMOVEAPI_PIN);
+#ifdef RAVENGUN_NO_PSMOVEAPI
+    w.key("psmoveapi_linked").value(false);
+#else
+    w.key("psmoveapi_linked").value(true);
+#endif
+    w.key("ipc_protocol").value(ipc::kProtocolVersion).key("input_schema").value(core::kInputSchemaVersion);
+    w.end_object();
+    w.key("daemon").begin_object();
+    w.key("pid").value(static_cast<long long>(::getpid()));
+    w.key("uptime_s").value(static_cast<double>(mono_ns() - sh.start_ns) / 1e9);
+    w.key("web_port").value(sh.web_port).key("web_lan").value(sh.web_lan);
+    w.end_object();
+    w.key("settings").raw(settings_info_json(sh));
+    w.end_object();
+    return w.str();
+}
+
+void write_led_tracker(json::Writer& w, const config::LedChoice& c, double hue, double tol, bool changed, bool live) {
+    w.key("led").begin_object().key("preset").value(c.preset);
+    w.key("rgb").begin_array().value(c.r).value(c.g).value(c.b).end_array();
+    w.key("custom").value(c.preset == "custom").end_object();
+    w.key("tracker").begin_object().key("hue_deg").value(hue).key("hue_tol_deg").value(tol);
+    w.key("source").value(c.hue_source).key("changed").value(changed).key("applied_live").value(live).end_object();
+}
+
+std::string handle_set_led(SharedState& sh, const ipc::Request& r) {
+    config::LedChoice c;
+    if (!r.led_preset.empty()) {
+        if (!config::resolve_led_preset(r.led_preset, c))
+            return ipc::error_response({"invalid_argument", "onbekende preset '" + r.led_preset + "' (cyaan, magenta, rood, groen, blauw, wit)", r.id_json});
+    } else {
+        c = config::resolve_led_rgb(static_cast<int>(*r.led_r), static_cast<int>(*r.led_g), static_cast<int>(*r.led_b));
+    }
+    std::string err;
+    uint8_t cr = static_cast<uint8_t>(c.r), cg = static_cast<uint8_t>(c.g), cb = static_cast<uint8_t>(c.b);
+    run_job(sh, [=](HidContext& h) { h.set_led(true, cr, cg, cb); return std::string("1"); }, err);
+    if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+
+    // De tracker zoekt op tint: de tint (en tolerantie) volgt de LED-kleur, ook zonder camera (voor de volgende start).
+    double hue = -75, tol = 30;
+    bool live = false;
+    if (sh.settings) { auto st = sh.settings->get(); hue = st.tracker.hue_deg; tol = st.tracker.hue_tol_deg; }
+    if (sh.camera && sh.camera->enabled()) {
+        auto tc = sh.camera->tracker();
+        hue = tc.hue_deg; tol = tc.hue_tol_deg;
+        if (c.hue_known) {
+            tc.hue_deg = c.hue_deg;
+            tc.hue_tol_deg = c.hue_tol_deg;
+            sh.camera->set_tracker(tc);
+            live = true;
+        }
+    }
+    if (c.hue_known) { hue = c.hue_deg; tol = c.hue_tol_deg; }
+
+    config::SaveResult sr{true, {}};
+    if (sh.settings) {
+        sr = sh.settings->update([&](config::Settings& s) {
+            s.led.enabled = true; s.led.preset = c.preset; s.led.r = c.r; s.led.g = c.g; s.led.b = c.b;
+            if (c.hue_known) { s.tracker.hue_deg = c.hue_deg; s.tracker.hue_tol_deg = c.hue_tol_deg; }
+        });
+    }
+    json::Writer w;
+    w.begin_object();
+    write_led_tracker(w, c, hue, tol, c.hue_known, live);
+    w.key("warnings");
+    write_strings(w, c.warnings);
+    w.key("saved").value(sr.ok && sh.settings != nullptr);
+    if (sr.ok) w.key("save_error").null(); else w.key("save_error").value(tilde(sr.message));
+    w.end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+std::string handle_set_camera(SharedState& sh, const ipc::Request& r) {
+    if (!sh.camera) return ipc::error_response({"unavailable", "geen camera-service", r.id_json});
+    CameraChange ch;
+    if (r.exposure) ch.exposure = static_cast<int>(*r.exposure);
+    if (r.gain) ch.gain = static_cast<int>(*r.gain);
+    ch.auto_exposure = r.auto_exposure;
+    ch.auto_gain = r.auto_gain;
+    ch.auto_awb = r.auto_awb;
+    if (!r.mode.empty()) {
+        config::CameraMode m{};
+        if (!config::parse_camera_mode(r.mode, m))
+            return ipc::error_response({"invalid_argument", "'mode' moet 640x480@60, 320x240@125 of 320x240@187 zijn", r.id_json});
+        ch.width = m.width; ch.height = m.height; ch.fps = m.fps;
+    }
+    CameraApplyResult res = sh.camera->apply(ch);
+    if (!res.ok) return ipc::error_response({res.code.empty() ? "internal" : res.code, res.message, r.id_json});
+
+    config::SaveResult sr{true, {}};
+    if (sh.settings) {
+        sr = sh.settings->update([&](config::Settings& s) {
+            if (ch.width) { s.camera.width = *ch.width; s.camera.height = *ch.height; s.camera.fps = *ch.fps; }
+            if (ch.exposure) s.camera.exposure = *ch.exposure;
+            if (ch.gain) s.camera.gain = *ch.gain;
+            if (res.controls.readable) {
+                s.camera.auto_exposure = res.controls.auto_exposure;
+                s.camera.auto_gain = res.controls.auto_gain;
+                s.camera.auto_awb = res.controls.auto_awb;
+            } else {
+                if (ch.auto_exposure) s.camera.auto_exposure = *ch.auto_exposure;
+                if (ch.auto_gain) s.camera.auto_gain = *ch.auto_gain;
+                if (ch.auto_awb) s.camera.auto_awb = *ch.auto_awb;
+            }
+        });
+    }
+    json::Writer w;
+    w.begin_object();
+    w.key("mode").begin_object().key("width").value(res.width).key("height").value(res.height).key("fps").value(res.fps);
+    w.key("driver_fps").value(res.driver_fps).end_object();
+    w.key("restarted").value(res.restarted);
+    w.key("controls").begin_object().key("readable").value(res.controls.readable);
+    w.key("exposure").value(res.controls.exposure).key("gain").value(res.controls.gain);
+    w.key("auto_exposure").value(res.controls.auto_exposure).key("auto_gain").value(res.controls.auto_gain);
+    w.key("auto_awb").value(res.controls.auto_awb).end_object();
+    w.key("warnings");
+    write_strings(w, res.warnings);
+    w.key("saved").value(sr.ok && sh.settings != nullptr);
+    if (sr.ok) w.key("save_error").null(); else w.key("save_error").value(tilde(sr.message));
+    w.end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+std::string handle_set_web(SharedState& sh, const ipc::Request& r) {
+    if (!sh.settings) return ipc::error_response({"unavailable", "geen instellingenopslag", r.id_json});
+    int port = static_cast<int>(*r.web_port);
+    config::SaveResult sr = sh.settings->update([&](config::Settings& s) { s.web.port = port; });
+    if (!sr.ok) return ipc::error_response({"internal", tilde(sr.message), r.id_json});
+    json::Writer w;
+    w.begin_object().key("port").value(port).key("active_port").value(sh.web_port);
+    w.key("applies").value("bij de volgende start van ravengund (een --web-port op de opdrachtregel gaat voor)").key("saved").value(true).end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+std::string handle_settings(SharedState& sh, const ipc::Request& r) {
+    json::Writer w;
+    w.begin_object();
+    w.key("info").raw(settings_info_json(sh));
+    if (sh.settings) w.key("values").raw(config::to_json(sh.settings->get(), false)); else w.key("values").null();
+    w.key("presets").begin_array();
+    for (const auto& p : config::led_presets()) {
+        config::LedChoice c;
+        config::resolve_led_preset(p.name, c);
+        w.begin_object().key("name").value(p.name).key("rgb").begin_array().value(p.r).value(p.g).value(p.b).end_array();
+        if (c.hue_known) w.key("hue_deg").value(c.hue_deg); else w.key("hue_deg").null();
+        w.key("hue_tol_deg").value(c.hue_tol_deg).key("source").value(c.hue_source).key("warnings");
+        write_strings(w, c.warnings);
+        w.end_object();
+    }
+    w.end_array();
+    w.key("camera_modes").begin_array();
+    for (const auto& m : config::camera_modes()) w.value(config::camera_mode_string(m.width, m.height, m.fps));
+    w.end_array();
+    w.end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+std::string handle_diagnostics(SharedState& sh, const ipc::Request& r) {
+    std::string err;
+    std::string st = status_result(sh, false, err);  // controller-ID geredigeerd
+    if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+    json::Writer w;
+    w.begin_object();
+    w.key("kind").value("ravengun-diagnostics").key("generated_unix").value(static_cast<long long>(std::time(nullptr)));
+    w.key("redaction").value("controller-ID geredigeerd, thuismap als ~, geen camerabeelden");
+    w.key("info").raw(info_json(sh));
+    w.key("status").raw(st);
+    if (sh.settings) w.key("settings").raw(config::to_json(sh.settings->get(), false)); else w.key("settings").null();
+    w.end_object();
+    // Thuismap overal vervangen (ook paden in de status: opnamen, kalibratiebestanden).
+    std::string out = w.str();
+    if (const char* h = std::getenv("HOME"); h && h[0] == '/' && h[1]) {
+        std::string home(h);
+        for (size_t pos = 0; (pos = out.find(home, pos)) != std::string::npos;) { out.replace(pos, home.size(), "~"); pos += 1; }
+    }
+    return ipc::ok_response(r.id_json, out);
+}
+
+// Bewaart gewijzigde filter/aim-waarden (na een geslaagd commando) in config.json.
+void persist_filter(SharedState& sh, const ipc::Request& r) {
+    if (!sh.settings) return;
+    sh.settings->update([&](config::Settings& s) {
+        if (r.filter_enabled) s.filter.enabled = *r.filter_enabled;
+        if (r.min_cutoff_hz) s.filter.min_cutoff_hz = *r.min_cutoff_hz;
+        if (r.beta) s.filter.beta = *r.beta;
+        if (r.d_cutoff_hz) s.filter.d_cutoff_hz = *r.d_cutoff_hz;
+    });
+}
+void persist_aim(SharedState& sh, const ipc::Request& r) {
+    if (!sh.settings) return;
+    sh.settings->update([&](config::Settings& s) {
+        if (r.h_edge_deg) s.aim.h_edge_deg = *r.h_edge_deg;
+        if (r.v_edge_deg) s.aim.v_edge_deg = *r.v_edge_deg;
+    });
 }
 
 std::string output_reply(const ipc::Request& r, const OutputResult& res, SharedState& sh) {
@@ -96,18 +355,8 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
     std::string err;
     switch (r.cmd) {
         case ipc::Cmd::Status: {
-            bool full = r.full_ids;
-            std::string res = run_job(sh, [full](HidContext& h) { return h.status_json(full); }, err);
+            std::string res = status_result(sh, r.full_ids, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
-            // Camerastatus (uit de camera-service, niet uit de HID-thread) als extra sleutel.
-            if (sh.camera_status && !res.empty() && res.back() == '}') {
-                res.pop_back();
-                res += ",\"camera\":" + sh.camera_status() + "}";
-            }
-            if (sh.output && !res.empty() && res.back() == '}') {
-                res.pop_back();
-                res += ",\"output\":" + sh.output->status_json() + "}";
-            }
             return ipc::ok_response(r.id_json, res);
         }
         case ipc::Cmd::Camera: {
@@ -149,6 +398,7 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
                 return w.str();
             }, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            persist_filter(sh, r);
             return ipc::ok_response(r.id_json, res);
         }
         case ipc::Cmd::SetAim: {
@@ -163,8 +413,15 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
                 return w.str();
             }, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            persist_aim(sh, r);
             return ipc::ok_response(r.id_json, res);
         }
+        case ipc::Cmd::SetLed: return handle_set_led(sh, r);
+        case ipc::Cmd::SetCamera: return handle_set_camera(sh, r);
+        case ipc::Cmd::SetWeb: return handle_set_web(sh, r);
+        case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
+        case ipc::Cmd::Settings: return handle_settings(sh, r);
+        case ipc::Cmd::Diagnostics: return handle_diagnostics(sh, r);
         case ipc::Cmd::Arm:
         case ipc::Cmd::Disarm:
         case ipc::Cmd::Output:
@@ -180,11 +437,6 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         case ipc::Cmd::CalibMag: {
             ipc::Request rq = r;
             std::string res = run_job(sh, [rq](HidContext& h) { return h.calib_mag(rq); }, err);
-            return context_reply(r, res, err);
-        }
-        case ipc::Cmd::SetLed: {
-            int c0 = r.rgb[0].value_or(0), c1 = r.rgb[1].value_or(0), c2 = r.rgb[2].value_or(0);
-            std::string res = run_job(sh, [c0, c1, c2](HidContext& h) { return h.set_led(c0, c1, c2); }, err);
             return context_reply(r, res, err);
         }
     }

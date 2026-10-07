@@ -9,7 +9,9 @@
 //  - tracker: neemt altijd het nieuwste frame, draait de boltracker en publiceert de optische
 //    meting. Frames worden nooit naar schijf geschreven.
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "ravengun/vision/ball_tracker.hpp"
 #include "shared.hpp"
@@ -21,11 +23,38 @@ struct CameraOptions {
     std::string device;        // leeg = automatisch: de enige ov534-camera onder /dev/v4l/by-id
     int width = 640, height = 480, fps = 60;
     int queue_capacity = 2;
-    bool manual = true;        // auto-exposure, auto-gain en AWB uitzetten
-    int exposure = 50;         // ov534: 0..255 (zie docs/decisions.md)
-    int gain = 0;              // ov534: 0..63
+    bool auto_exposure = false;  // standaard handmatig: AE, AGC en AWB uit (zie docs/decisions.md)
+    bool auto_gain = false;
+    bool auto_awb = false;
+    int exposure = 50;         // ov534: 0..255 (zie docs/decisions.md); alleen bij auto_exposure uit
+    int gain = 0;              // ov534: 0..63; alleen bij auto_gain uit
     ravengun::vision::TrackerConfig tracker{};
     int scene_every_frames = 30;  // scènestatistiek elke N verwerkte frames
+};
+
+// Een live wijziging (set_camera). Niet-gezette velden blijven zoals ze zijn.
+struct CameraChange {
+    std::optional<int> exposure, gain;
+    std::optional<bool> auto_exposure, auto_gain, auto_awb;
+    std::optional<int> width, height, fps;  // alle drie of geen: een toegestane modus (herstart de capture)
+};
+
+// Wat de driver na het zetten daadwerkelijk meldt.
+struct CameraControls {
+    bool readable = false;
+    int exposure = 0, gain = 0;
+    bool auto_exposure = false, auto_gain = false, auto_awb = false;
+};
+
+struct CameraApplyResult {
+    bool ok = false;
+    std::string code;     // unavailable (geen camera / niet actief), internal
+    std::string message;  // Nederlands
+    bool restarted = false;
+    int width = 0, height = 0, fps = 0;
+    double driver_fps = 0;
+    CameraControls controls;  // teruggelezen waarden
+    std::vector<std::string> warnings;  // bijv. een waarde die de driver niet overnam
 };
 
 class CameraService {
@@ -35,6 +64,15 @@ public:
     void start();
     void stop();
     std::string status_json() const;
+
+    // Past instellingen live toe in de capture-thread en leest de werkelijke waarden terug. Een
+    // moduswissel herstart de capture (en bij een fout wordt de oude modus hersteld). Blokkeert
+    // hoogstens ~5 s. Zonder camera (uit of niet actief) volgt een nette foutmelding.
+    CameraApplyResult apply(const CameraChange& change);
+    // Nieuwe tint/tolerantie/min_chroma voor de tracker (bij een andere LED-kleur); werkt direct.
+    void set_tracker(const ravengun::vision::TrackerConfig& cfg);
+    ravengun::vision::TrackerConfig tracker() const;
+    bool enabled() const;
 
 private:
     struct Impl;

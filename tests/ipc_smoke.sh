@@ -5,7 +5,7 @@
 set -u
 D="$1"; C="$2"
 T=$(mktemp -d) || exit 1
-export XDG_RUNTIME_DIR="$T" XDG_STATE_HOME="$T/state" XDG_CONFIG_HOME="$T/config"
+export XDG_RUNTIME_DIR="$T" XDG_STATE_HOME="$T/state" XDG_CONFIG_HOME="$T/cfg" HOME="$T"
 fail() { echo "FAIL: $*"; kill "$PID" 2>/dev/null; rm -rf "$T"; exit 1; }
 
 "$D" --no-hid --no-camera 2>"$T/log" &

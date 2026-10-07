@@ -570,10 +570,10 @@ static void test_protocol() {
     CHECK(ok(R"({"v":1,"cmd":"calib_mag","action":"start","holder":"sharp_shooter"})"));
     CHECK(ok(R"({"v":1,"cmd":"calib_mag","action":"status"})"));
     CHECK(code(R"({"v":1,"cmd":"calib_mag","action":"start","tag":"x"})") == "bad_request");
-    CHECK(ok(R"({"v":1,"cmd":"set_led","rgb":[0,255,255]})"));
-    CHECK(code(R"({"v":1,"cmd":"set_led","rgb":[0,256,255]})") == "invalid_argument");
-    CHECK(code(R"({"v":1,"cmd":"set_led","rgb":[0,1.5,255]})") == "invalid_argument");
-    CHECK(code(R"({"v":1,"cmd":"set_led","rgb":[0,1]})") == "invalid_argument");
+    CHECK(ok(R"({"v":1,"cmd":"set_led","r":0,"g":255,"b":255})"));
+    CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":256,"b":255})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1.5,"b":255})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1})") == "invalid_argument");
     // Rondgang client -> server
     Request r;
     r.cmd = Cmd::Record;
@@ -584,9 +584,9 @@ static void test_protocol() {
     CHECK(std::holds_alternative<Request>(p) && std::get<Request>(p).tag == "led_test" && *std::get<Request>(p).duration_s == 120);
     Request l;
     l.cmd = Cmd::SetLed;
-    l.rgb[0] = 255; l.rgb[1] = 0; l.rgb[2] = 7;
+    l.led_r = 255; l.led_g = 0; l.led_b = 7;
     p = parse_request(make_request(l));
-    CHECK(std::holds_alternative<Request>(p) && *std::get<Request>(p).rgb[2] == 7);
+    CHECK(std::holds_alternative<Request>(p) && *std::get<Request>(p).led_b == 7);
 }
 
 int main() {

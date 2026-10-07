@@ -16,7 +16,25 @@ include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
   index.html app.css app.js)
 
+# Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
+set(RAVENGUN_PSMOVEAPI_PIN "256b6299e6076fe7b113e7277ed67016903f067a" CACHE STRING "Gepinde PSMoveAPI-commit (docs/build.md)")
+find_package(Git QUIET)
+set(RAVENGUN_GIT_COMMIT "onbekend")
+if(GIT_FOUND)
+  execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" describe --always --dirty --abbrev=12
+    OUTPUT_VARIABLE _rg_commit OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE _git_rc)
+  if(_git_rc EQUAL 0 AND NOT _rg_commit STREQUAL "")
+    set(RAVENGUN_GIT_COMMIT "${_rg_commit}")
+  endif()
+endif()
+set(RAVENGUN_BUILD_DEFS
+  "RAVENGUN_VERSION=\"${PROJECT_VERSION}\""
+  "RAVENGUN_GIT_COMMIT=\"${RAVENGUN_GIT_COMMIT}\""
+  "RAVENGUN_PSMOVEAPI_PIN=\"${RAVENGUN_PSMOVEAPI_PIN}\"")
+
 add_library(ravengun STATIC
+  src/ravengun/config/settings.cpp
+  src/ravengun/config/led_color.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -68,6 +86,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/hid_aux.cpp
     src/ravengund/recorder.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
+  target_compile_definitions(ravengund PRIVATE ${RAVENGUN_BUILD_DEFS})
   if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
     message(STATUS "PSMoveAPI: ${PSMOVEAPI_LIBRARY}")
     target_include_directories(ravengund SYSTEM PRIVATE "${PSMOVEAPI_INCLUDE_DIR}")
@@ -102,6 +121,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_vision_tests tests/test_vision.cpp)
   target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_vision_tests COMMAND ravengun_vision_tests)
+  add_executable(ravengun_config_tests tests/test_config.cpp)
+  target_link_libraries(ravengun_config_tests PRIVATE ravengun Threads::Threads)
+  add_test(NAME ravengun_config_tests COMMAND ravengun_config_tests)
   add_executable(ravengun_web_tests tests/test_web.cpp)
   target_link_libraries(ravengun_web_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_web_tests COMMAND ravengun_web_tests)
@@ -109,6 +131,13 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_phase013_tests PRIVATE ravengun)
   add_test(NAME ravengun_phase013_tests COMMAND ravengun_phase013_tests)
   if(RAVENGUN_BUILD_DAEMON)
+    # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
+    add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp
+      src/ravengund/camera.cpp src/ravengund/output_service.cpp)
+    target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
+    target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
+    add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
     add_test(NAME ravengund_web
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/web_smoke.sh" "$<TARGET_FILE:ravengund>")
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.

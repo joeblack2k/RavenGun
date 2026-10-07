@@ -257,15 +257,6 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             int led[3] = {opt.led_r, opt.led_g, opt.led_b};
             return aux.record(r, opt.led_enabled, led, mono_ns());
         }
-        std::string set_led(int r, int g, int b) override {
-            opt.led_enabled = true;
-            opt.led_r = static_cast<uint8_t>(r); opt.led_g = static_cast<uint8_t>(g); opt.led_b = static_cast<uint8_t>(b);
-            led_dirty = true;  // direct versturen (in de lus), daarna weer elke led_refresh_ms
-            json::Writer w;
-            w.begin_object().key("rgb").begin_array().value(r).value(g).value(b).end_array();
-            w.key("connected").value(ci.open).end_object();
-            return w.str();
-        }
         std::string calib_mag(const ravengun::ipc::Request& r) override { return aux.calib_mag(r, mono_ns()); }
         bool recenter() override {
             bool ok = p.recenter();
@@ -276,6 +267,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
         AimConfig aim() const override { return p.config().aim; }
         void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
+        void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; led_dirty = true; }
     } ctx(pipe, ci, ps, opt, start, shared, aux);
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
 
