@@ -2,6 +2,7 @@
 #include <string>
 
 #include "ravengun/core/pipeline.hpp"
+#include "ravengun/ipc_protocol.hpp"
 #include "shared.hpp"
 
 namespace ravengund {
@@ -17,6 +18,7 @@ struct HidOptions {
     bool led_enabled = false;
     uint8_t led_r = 0, led_g = 0, led_b = 0;
     int led_refresh_ms = 1000;
+    class Recorder* recorder = nullptr;     // fase 0: opnamen (eigendom van main)
 };
 
 // Wat de IPC-thread via SharedState::post() in de HID-thread mag doen.
@@ -29,6 +31,10 @@ public:
     virtual void set_filter(const ravengun::core::OneEuroConfig& c) = 0;
     virtual ravengun::core::AimConfig aim() const = 0;
     virtual void set_aim(const ravengun::core::AimConfig& c) = 0;
+    // Fase 0/1/3. Resultaat: JSON, of "!code|melding" bij een fout.
+    virtual std::string record(const ravengun::ipc::Request& r) = 0;
+    virtual std::string set_led(int r, int g, int b) = 0;
+    virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;
 };
 
 // Draait tot shared.running false wordt. Eigenaar van de PSMoveAPI-handle en de pijplijn.

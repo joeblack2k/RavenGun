@@ -43,6 +43,14 @@ struct RawReport {
     uint32_t buttons = 0;     // PSMoveAPI-bitveld
     uint8_t trigger = 0;      // 0..255
     int battery_raw = -1;     // PSMove_Battery_Level
+    // Uit het ruwe hidraw-rapport (eigen parsing, zie move_report.hpp). has_stamp = false als het
+    // rapport niet aan een hidraw-rapport gekoppeld kon worden (dan geldt de ontvangsttijd).
+    bool has_stamp = false;
+    uint16_t stamp = 0;       // interne 16-bit tijdstempel van de Move (10 us per tick, gemeten)
+    int temperature_raw = -1; // 12-bit ruwe temperatuur (psmove_get_temperature), -1 = onbekend
+    bool has_raw = false;     // accel_raw/gyro_raw gevuld (ruwe sensorwaarden, voor opnamen)
+    int accel_raw[2][3]{};
+    int gyro_raw[2][3]{};
 };
 
 // Optische meting van de bol: 2D-positie in het camerabeeld. Geen diepte en geen 3D: daarvoor

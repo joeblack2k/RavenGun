@@ -12,6 +12,7 @@
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/core/fusion.hpp"
 #include "ravengun/core/input_model.hpp"
+#include "ravengun/core/move_clock.hpp"
 #include "ravengun/core/one_euro.hpp"
 
 namespace ravengun::core {
@@ -24,6 +25,10 @@ struct PipelineConfig {
     BiasConfig bias{};
     AimConfig aim{};
     OneEuroConfig filter{};
+    // Integratie-dt uit de interne tijdstempel van de Move (fase 1) in plaats van de ontvangsttijd.
+    // Alleen als dit én het vorige rapport een stempel hebben; anders de ontvangst-dt.
+    bool use_move_clock = true;
+    ClockConfig clock{};
 };
 
 // Statistiek over de ontvangst van rapporten (alleen gemeten waarden).
@@ -80,6 +85,13 @@ public:
     const GyroBiasEstimator& bias() const { return bias_; }
     uint64_t auto_center_count() const { return auto_centers_; }
     uint64_t user_center_count() const { return user_centers_; }
+    // Tijdbasis (fase 1).
+    const MoveClock& clock() const { return clock_; }
+    const ResidualStats& clock_residuals() const { return clock_res_; }
+    const ClockSample& last_clock() const { return last_clock_; }
+    uint64_t dt_from_move_clock() const { return dt_move_; }
+    uint64_t dt_from_rx() const { return dt_rx_; }
+    int last_temperature_raw() const { return last_temp_; }
 
 private:
     InputSample make_sample(int64_t t_eval);
@@ -103,6 +115,12 @@ private:
     bool auto_centered_once_ = false;
     uint64_t auto_centers_ = 0, user_centers_ = 0;
     bool reset_filter_ = true;
+    MoveClock clock_;
+    ResidualStats clock_res_;
+    ClockSample last_clock_{};
+    bool prev_had_stamp_ = false;
+    uint64_t dt_move_ = 0, dt_rx_ = 0;
+    int last_temp_ = -1;
 };
 
 }  // namespace ravengun::core

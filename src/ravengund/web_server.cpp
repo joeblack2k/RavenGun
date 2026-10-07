@@ -37,7 +37,7 @@ struct Conn {
     bool sse = false;
     SseBuffer sse_buf;
     Throttle throttle{kStreamHz};
-    uint64_t last_seq = 0, last_optical = 0;
+    uint64_t last_seq = 0, last_optical = 0, last_progress_seq = 0;
     int64_t last_keepalive = 0;
     bool sent_any_frame = false;
 };
@@ -77,6 +77,7 @@ std::string stream_frame(const Snapshot& snap, uint64_t skipped) {
     w.begin_object().key("sample");
     core::write_sample_json(w, snap.sample, false);  // controller-ID geredigeerd
     w.key("skipped_frames").value(static_cast<unsigned long long>(skipped));
+    if (!snap.progress.empty()) w.key("progress").raw(snap.progress);  // opname/magnetometerkalibratie
     w.end_object();
     return sse_frame("sample", w.str());
 }
@@ -194,7 +195,8 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
             if (!c.sse || c.closing || !c.out.empty()) continue;
             if (!c.throttle.due(now)) continue;
             if (!have_snap) { snap = sh.get(); have_snap = true; }
-            bool fresh = !c.sent_any_frame || snap.sample.seq != c.last_seq || snap.optical_updates != c.last_optical;
+            bool fresh = !c.sent_any_frame || snap.sample.seq != c.last_seq || snap.optical_updates != c.last_optical ||
+                         snap.progress_seq != c.last_progress_seq;
             if (fresh) {
                 auto res = c.sse_buf.push(stream_frame(snap, c.sse_buf.skipped()));
                 if (res == SseBuffer::Push::Overflow) { c.closing = true; continue; }
@@ -202,6 +204,7 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
                     c.sent_any_frame = true;
                     c.last_seq = snap.sample.seq;
                     c.last_optical = snap.optical_updates;
+                    c.last_progress_seq = snap.progress_seq;
                     c.last_keepalive = now;
                 } else {
                     ++total_skipped;

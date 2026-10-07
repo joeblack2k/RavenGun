@@ -50,6 +50,7 @@ bool led_color_by_name(const std::string& n, Rgb& out) {
     else if (n == "groen" || n == "green") out = {0, 255, 0};
     else if (n == "blauw" || n == "blue") out = {0, 0, 255};
     else if (n == "geel" || n == "yellow") out = {255, 255, 0};
+    else if (n == "wit" || n == "white") out = {255, 255, 255};
     else if (n == "uit" || n == "off") out = {0, 0, 0};
     else return false;
     return true;

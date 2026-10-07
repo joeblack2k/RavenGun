@@ -14,7 +14,8 @@ inline constexpr size_t kMaxLineBytes = 64 * 1024;
 inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
 
-enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera };
+enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
+                 Record, SetLed, CalibMag };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -25,6 +26,13 @@ struct Request {
     std::optional<bool> filter_enabled;
     std::optional<double> min_cutoff_hz, beta, d_cutoff_hz;
     std::optional<double> h_edge_deg, v_edge_deg;
+    // record (start|stop|status|mark), calib_mag (start|stop|abort|status), set_led
+    std::string action;
+    std::string tag;     // record start: [a-z0-9_-]{1,40}
+    std::string label;   // record mark: max. 80 tekens, geen stuurtekens
+    std::string holder;  // calib_mag start: houder, bijv. "sharp_shooter" of "los"
+    std::optional<double> max_mb, duration_s;
+    std::optional<int> rgb[3];
 };
 
 struct Error {

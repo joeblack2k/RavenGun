@@ -54,7 +54,7 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), clock_(cfg.clock) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
@@ -72,6 +72,11 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     reset_filter_ = true;
     link_ = LinkState::Stale;  // verbonden, maar nog geen rapport
     last_rx_ns_ = now_ns;
+    clock_.reset();
+    clock_res_.reset();
+    last_clock_ = {};
+    prev_had_stamp_ = false;
+    dt_move_ = dt_rx_ = 0;
 }
 
 InputSample Pipeline::make_sample(int64_t t_eval) {
@@ -132,15 +137,31 @@ InputSample Pipeline::on_report(const RawReport& r) {
     }
     if (r.hid_seq >= 0) last_hid_seq_ = r.hid_seq;
 
+    // Integratie-dt: uit de Move-stempel als dit en het vorige rapport er een hebben (fase 1),
+    // anders de ontvangst-dt. report_dt_s in het sample blijft de ontvangst-dt.
+    double dt_int = dt;
+    bool used_move = false;
+    if (r.has_stamp) {
+        last_clock_ = clock_.add(r.stamp, r.t_rx_ns);
+        if (!last_clock_.first) clock_res_.add(last_clock_.residual_ms);
+        if (cfg_.use_move_clock && have_rx_ && prev_had_stamp_ && !last_clock_.first) {
+            dt_int = last_clock_.dt_s;
+            used_move = true;
+        }
+    }
+    if (have_rx_) { if (used_move) ++dt_move_; else ++dt_rx_; }
+    prev_had_stamp_ = r.has_stamp;
+    if (r.temperature_raw >= 0) last_temp_ = r.temperature_raw;
+
     int n = std::clamp(r.subsamples, 1, 2);
-    double sub_dt = dt / n;
-    if (dt > cfg_.fusion.max_dt_s) {
+    double sub_dt = dt_int / n;
+    if (dt_int > cfg_.fusion.max_dt_s) {
         // Te lang gat: rotatie in het gat is onbekend. Niet integreren, wel zichtbaar maken.
         ++stats_.gap_not_integrated;
         if (yaw_ref_ == YawReference::Continuous) yaw_ref_ = YawReference::Interrupted;
         reset_filter_ = true;
         sub_dt = 0;
-    } else if (dt > kLongDtS) {
+    } else if (dt_int > kLongDtS) {
         ++stats_.long_dt;
     }
 

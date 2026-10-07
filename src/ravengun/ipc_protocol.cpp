@@ -18,6 +18,9 @@ const char* to_string(Cmd c) {
         case Cmd::SetFilter: return "set_filter";
         case Cmd::SetAim: return "set_aim";
         case Cmd::Camera: return "camera";
+        case Cmd::Record: return "record";
+        case Cmd::SetLed: return "set_led";
+        case Cmd::CalibMag: return "calib_mag";
     }
     return "?";
 }
@@ -126,6 +129,52 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!opt_number(o, "h_edge_deg", 1, 89, r.h_edge_deg, e, r.id_json)) return e;
         if (!opt_number(o, "v_edge_deg", 1, 89, r.v_edge_deg, e, r.id_json)) return e;
         if (!r.h_edge_deg && !r.v_edge_deg) return err("invalid_argument", "set_aim zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "record" || cmd == "calib_mag") {
+        bool recd = cmd == "record";
+        r.cmd = recd ? Cmd::Record : Cmd::CalibMag;
+        if (!allowed(o, recd ? std::initializer_list<const char*>{"action", "tag", "label", "max_mb", "duration_s"}
+                             : std::initializer_list<const char*>{"action", "holder"}, bad))
+            return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* a = o.find("action");
+        if (!a || !a->is_string()) return err("invalid_argument", "'action' (string) ontbreekt", r.id_json);
+        r.action = a->str;
+        bool ok_action = recd ? (r.action == "start" || r.action == "stop" || r.action == "status" || r.action == "mark")
+                              : (r.action == "start" || r.action == "stop" || r.action == "abort" || r.action == "status");
+        if (!ok_action) return err("invalid_argument", "onbekende action '" + r.action + "'", r.id_json);
+        auto ident = [](const std::string& t) {
+            if (t.empty() || t.size() > 40) return false;
+            for (char ch : t)
+                if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) return false;
+            return true;
+        };
+        if (const json::Value* t = o.find(recd ? "tag" : "holder")) {
+            if (!t->is_string() || !ident(t->str))
+                return err("invalid_argument", std::string("'") + (recd ? "tag" : "holder") + "' mag alleen a-z, 0-9, _ en - bevatten (max. 40)", r.id_json);
+            (recd ? r.tag : r.holder) = t->str;
+        }
+        if (const json::Value* l = o.find("label")) {
+            if (!l->is_string() || l->str.empty() || l->str.size() > 80)
+                return err("invalid_argument", "'label' moet een string van 1..80 tekens zijn", r.id_json);
+            for (unsigned char ch : l->str)
+                if (ch < 0x20 || ch == 0x7f) return err("invalid_argument", "'label' bevat stuurtekens", r.id_json);
+            r.label = l->str;
+        }
+        if (recd) {
+            if (!opt_number(o, "max_mb", 1, 1024, r.max_mb, e, r.id_json)) return e;
+            if (!opt_number(o, "duration_s", 1, 7200, r.duration_s, e, r.id_json)) return e;
+            if (r.action == "mark" && r.label.empty()) return err("invalid_argument", "mark vereist 'label'", r.id_json);
+        }
+    } else if (cmd == "set_led") {
+        r.cmd = Cmd::SetLed;
+        if (!allowed(o, {"rgb"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* a = o.find("rgb");
+        if (!a || !a->is_array() || a->arr.size() != 3) return err("invalid_argument", "'rgb' moet [r,g,b] zijn", r.id_json);
+        for (int i = 0; i < 3; ++i) {
+            const json::Value& c = a->arr[static_cast<size_t>(i)];
+            if (!c.is_number() || std::floor(c.num) != c.num || c.num < 0 || c.num > 255)
+                return err("invalid_argument", "'rgb' moet drie gehele getallen 0..255 bevatten", r.id_json);
+            r.rgb[i] = static_cast<int>(c.num);
+        }
     } else {
         return err("unknown_command", "onbekend commando '" + cmd + "'", r.id_json);
     }
@@ -179,6 +228,18 @@ std::string make_request(const Request& r) {
         case Cmd::SetAim:
             if (r.h_edge_deg) w.key("h_edge_deg").value(*r.h_edge_deg);
             if (r.v_edge_deg) w.key("v_edge_deg").value(*r.v_edge_deg);
+            break;
+        case Cmd::Record:
+        case Cmd::CalibMag:
+            w.key("action").value(r.action);
+            if (!r.tag.empty()) w.key("tag").value(r.tag);
+            if (!r.label.empty()) w.key("label").value(r.label);
+            if (!r.holder.empty()) w.key("holder").value(r.holder);
+            if (r.max_mb) w.key("max_mb").value(*r.max_mb);
+            if (r.duration_s) w.key("duration_s").value(*r.duration_s);
+            break;
+        case Cmd::SetLed:
+            w.key("rgb").begin_array().value(r.rgb[0].value_or(0)).value(r.rgb[1].value_or(0)).value(r.rgb[2].value_or(0)).end_array();
             break;
         case Cmd::Recenter:
         case Cmd::Camera: break;

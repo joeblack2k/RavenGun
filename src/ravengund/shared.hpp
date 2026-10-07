@@ -43,6 +43,9 @@ struct Snapshot {
     std::array<uint64_t, 32> press_total{};
     std::array<uint64_t, 32> release_total{};
     uint64_t optical_updates = 0;  // telt elke gepubliceerde optische meting
+    // Voortgang van opname en magnetometerkalibratie (JSON-object of leeg), voor de SSE-stroom.
+    std::string progress;
+    uint64_t progress_seq = 0;
 };
 
 class SharedState {
@@ -59,10 +62,19 @@ public:
     // Vanuit de tracker-thread: laatste optische meting. Komt in elk volgend sample en in de
     // huidige momentopname (ook als er geen Move verbonden is).
     void publish_optical(const ravengun::core::OpticalSample& o) {
+        {
+            std::lock_guard<std::mutex> g(m_);
+            optical_ = o;
+            snap_.sample.optical = o;
+            ++snap_.optical_updates;
+        }
+        if (optical_hook) optical_hook(o);  // bijv. de recorder (niet-blokkerend)
+    }
+    // Vanuit de HID-thread: voortgang van opname/kalibratie (zie Snapshot::progress).
+    void set_progress(std::string json) {
         std::lock_guard<std::mutex> g(m_);
-        optical_ = o;
-        snap_.sample.optical = o;
-        ++snap_.optical_updates;
+        snap_.progress = std::move(json);
+        ++snap_.progress_seq;
     }
     Snapshot get() const {
         std::lock_guard<std::mutex> g(m_);
@@ -90,6 +102,9 @@ public:
     std::atomic<bool> running{true};
     // Levert de camerastatus als JSON-object (thread-safe); leeg = geen camera-service.
     std::function<std::string()> camera_status;
+    // Wordt na elke optische meting aangeroepen (in de tracker-thread); vóór het starten van de
+    // threads gezet en daarna niet meer gewijzigd.
+    std::function<void(const ravengun::core::OpticalSample&)> optical_hook;
 
 private:
     mutable std::mutex m_;

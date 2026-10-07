@@ -16,6 +16,8 @@
 #include "camera.hpp"
 #include "hid_thread.hpp"
 #include "ipc_server.hpp"
+#include "recorder.hpp"
+#include "ravengun/rec/recording.hpp"
 #include "ravengun/ipc_client.hpp"
 #include "shared.hpp"
 #include "web_server.hpp"
@@ -40,6 +42,8 @@ void usage(FILE* f) {
         "  --v-edge-deg G                   pitch tot de boven/onderrand (standaard 11.25)\n"
         "  --no-auto-center                 geen automatisch midden bij de eerste oriëntatie\n"
         "  --no-hid                         geen PSMoveAPI openen (alleen IPC; voor tests)\n"
+        "  --dt-source move|rx              integratie-dt uit de interne Move-stempel (standaard) of de\n"
+        "                                   ontvangsttijd\n"
         "\n"
         "camera en boltracking (beelden blijven in RAM, nooit op schijf):\n"
         "  --camera PAD                     camera-apparaat (bv. /dev/v4l/by-path/...); standaard: de enige\n"
@@ -98,6 +102,11 @@ int main(int argc, char** argv) {
         else if (a == "--no-hid") opt.enabled = false;
         else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
+        else if (a == "--dt-source" && i + 1 < argc) {
+            std::string v = argv[++i];
+            if (v != "move" && v != "rx") { std::fprintf(stderr, "ravengund: --dt-source verwacht move of rx\n"); return 64; }
+            opt.pipeline.use_move_clock = v == "move";
+        }
         else if (a == "--min-cutoff") need(0.001, 100, opt.pipeline.filter.min_cutoff_hz);
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
         else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
@@ -215,6 +224,11 @@ int main(int argc, char** argv) {
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit");
 
     SharedState shared;
+    // Opnamen (fase 0): de recorder leeft tot het einde van main; de HID-thread stopt hem bij het
+    // afsluiten. De tracker-thread levert optische metingen via de hook.
+    Recorder recorder(ravengun::rec::default_recordings_dir());
+    opt.recorder = &recorder;
+    shared.optical_hook = [&recorder](const ravengun::core::OpticalSample& o) { recorder.push_optical(o); };
     CameraService camera(shared, cam);
     shared.camera_status = [&camera] { return camera.status_json(); };
     if (cam.enabled)

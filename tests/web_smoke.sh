@@ -6,7 +6,7 @@ set -u
 D="$1"
 command -v curl >/dev/null 2>&1 || { echo "SKIP: curl ontbreekt"; exit 0; }
 T=$(mktemp -d) || exit 1
-export XDG_RUNTIME_DIR="$T/run" HOME="$T/home" XDG_CONFIG_HOME="$T/home/.config"
+export XDG_RUNTIME_DIR="$T/run" HOME="$T/home" XDG_CONFIG_HOME="$T/home/.config" XDG_STATE_HOME="$T/home/.local/state"
 mkdir -p "$HOME" "$T/run" && chmod 700 "$T/run"
 PORT=$((20000 + $$ % 20000))
 B="http://127.0.0.1:$PORT"
@@ -29,6 +29,9 @@ curl -s "$B/api/status" | grep -q '"ok":true' || fail "status"
 curl -s "$B/api/status" | grep -q '"connected":false' || fail "status moet 'geen Move' tonen"
 curl -s "$B/api/camera" | grep -q '"enabled":false' || fail "camera"
 curl -s "$B/api/sample" | grep -q '"schema_version"' || fail "sample"
+curl -s "$B/api/record" | grep -q '"active":false' || fail "record-status"
+curl -s "$B/api/magnetometer" | grep -q '"mag_calibration"' || fail "magnetometer-status"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/record")" = 405 ] || fail "record is alleen GET"
 curl -s "$B/" | grep -q "name=\"csrf-token\" content=\"$CSRF\"" || fail "index zonder csrf-token"
 [ "$(code "$B/app.js")" = 200 ] || fail "app.js"
 [ "$(code "$B/app.css")" = 200 ] || fail "app.css"

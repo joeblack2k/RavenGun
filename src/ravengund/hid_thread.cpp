@@ -3,8 +3,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <poll.h>
 #include <unistd.h>
 #include <vector>
+
+#include "hid_aux.hpp"
 
 #include "ravengun/json.hpp"
 #include "ravengun/parse.hpp"
@@ -73,7 +76,7 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("model").value(ci.model);
     w.key("connection").value(ci.connection);
     w.key("has_calibration").value(ci.has_calibration);
-    w.key("magnetometer").value(ci.model == "ZCM1" ? "aanwezig, niet gebruikt (niet gekalibreerd)" : "afwezig of onbekend");
+    w.key("magnetometer").value(ci.model == "ZCM1" ? "aanwezig, niet in de fusie gebruikt (zie magnetometer)" : "afwezig of onbekend");
     w.key("connected_s").value(ci.open ? static_cast<double>(now - ci.connected_at_ns) / 1e9 : 0.0);
     w.key("connects").value(static_cast<unsigned long long>(ci.connects));
     w.key("led").begin_object();
@@ -188,7 +191,7 @@ PSMove* try_connect(const std::string& preferred, ControllerInfo& ci) {
     return nullptr;
 }
 
-RawReport read_report(PSMove* m, int poll_ret, bool zcm2, int64_t t) {
+RawReport read_report(PSMove* m, int poll_ret, bool zcm2, int64_t t, HidrawTap& tap) {
     RawReport r;
     r.t_rx_ns = t;
     r.hid_seq = poll_ret - 1;  // psmove_poll geeft 1 + volgnummer
@@ -207,6 +210,20 @@ RawReport read_report(PSMove* m, int poll_ret, bool zcm2, int64_t t) {
     r.buttons = psmove_get_buttons(m);
     r.trigger = psmove_get_trigger(m);
     r.battery_raw = static_cast<int>(psmove_get_battery(m));
+    r.temperature_raw = psmove_get_temperature(m);
+    if (tap.is_open()) {
+        // Hetzelfde rapport via de eigen hidraw-descriptor: interne stempel en ruwe waarden.
+        int avg[3];
+        psmove_get_accelerometer(m, &avg[0], &avg[1], &avg[2]);
+        if (auto in = tap.take(r.hid_seq, avg)) {
+            r.has_stamp = true;
+            r.stamp = in->stamp;
+            r.temperature_raw = in->temperature_raw;
+            r.has_raw = true;
+            std::memcpy(r.accel_raw, in->accel_raw, sizeof r.accel_raw);
+            std::memcpy(r.gyro_raw, in->gyro_raw, sizeof r.gyro_raw);
+        }
+    }
     return r;
 }
 #endif
@@ -223,13 +240,33 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     ControllerInfo ci;
     ProcStats ps;
     const int64_t start = mono_ns();
+    HidAux aux(shared, opt.recorder, opt.pipeline.use_move_clock);
 
     // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
     struct Ctx final : HidContext {
-        Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh;
-        Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_)
-            : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_) {}
-        std::string status_json(bool full) override { return ravengund::status_json(p, ci, ps, opt, start, full, sh.get().sample.optical); }
+        Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh; HidAux& aux;
+        bool led_dirty = false;
+        Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_, HidAux& a_)
+            : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_), aux(a_) {}
+        std::string status_json(bool full) override {
+            std::string s = ravengund::status_json(p, ci, ps, opt, start, full, sh.get().sample.optical);
+            if (!s.empty() && s.back() == '}') { s.pop_back(); s += aux.status_blocks(p, mono_ns()) + "}"; }
+            return s;
+        }
+        std::string record(const ravengun::ipc::Request& r) override {
+            int led[3] = {opt.led_r, opt.led_g, opt.led_b};
+            return aux.record(r, opt.led_enabled, led, mono_ns());
+        }
+        std::string set_led(int r, int g, int b) override {
+            opt.led_enabled = true;
+            opt.led_r = static_cast<uint8_t>(r); opt.led_g = static_cast<uint8_t>(g); opt.led_b = static_cast<uint8_t>(b);
+            led_dirty = true;  // direct versturen (in de lus), daarna weer elke led_refresh_ms
+            json::Writer w;
+            w.begin_object().key("rgb").begin_array().value(r).value(g).value(b).end_array();
+            w.key("connected").value(ci.open).end_object();
+            return w.str();
+        }
+        std::string calib_mag(const ravengun::ipc::Request& r) override { return aux.calib_mag(r, mono_ns()); }
         bool recenter() override {
             bool ok = p.recenter();
             if (ok) { sh.publish(p.last()); logf("info", "recenter door gebruiker"); }
@@ -239,7 +276,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
         AimConfig aim() const override { return p.config().aim; }
         void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
-    } ctx(pipe, ci, ps, opt, start, shared);
+    } ctx(pipe, ci, ps, opt, start, shared, aux);
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
@@ -271,33 +308,38 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                         ci.connected_at_ns = mono_ns();
                         ++ci.connects;
                         pipe.on_connect(ci.id, ci.connected_at_ns);
+                        aux.on_connect(ci.id, ci.model, ci.connected_at_ns);
                         shared.publish(pipe.last());
                         logf("info", "Move verbonden: %s, model %s, kalibratie %s", redact_mac(ci.id).c_str(),
                              ci.model.c_str(), ci.has_calibration ? "ja" : "NEE (waarden ongekalibreerd)");
                     }
                 }
+                aux.periodic(now);
                 sleep_us(20000);
                 continue;
             }
+            if (ctx.led_dirty) { next_led = 0; ctx.led_dirty = false; }
             if (opt.led_enabled && now >= next_led) {
                 // Alleen hier (HID-thread) wordt de LED aangestuurd. set_leds markeert de waarde als
                 // gewijzigd, zodat update_leds hem echt verstuurt (PSMoveAPI zou anders pas na 4 s
                 // herhalen, en dat is te krap voor de time-out van de Move).
                 psmove_set_leds(move, opt.led_r, opt.led_g, opt.led_b);
                 if (psmove_update_leds(move) == Update_Failed) ++led_failures;
-                else ++led_updates;
+                else { ++led_updates; aux.on_led_sent(now, opt.led_r, opt.led_g, opt.led_b); }
                 next_led = now + static_cast<int64_t>(opt.led_refresh_ms) * 1'000'000;
             }
             bool zcm2 = ci.model == "ZCM2";
             bool got = false;
+            aux.tap.drain();
             for (int k = 0; k < 64; ++k) {  // wachtrij leegmaken; elk rapport apart verwerken
                 int ret = psmove_poll(move);
                 if (ret <= 0) break;
                 int64_t t = mono_ns();
-                RawReport r = read_report(move, ret, zcm2, t);
+                RawReport r = read_report(move, ret, zcm2, t, aux.tap);
                 InputSample s = pipe.on_report(r);
                 shared.publish(s);
                 ps.add(static_cast<double>(mono_ns() - t) / 1e3);
+                aux.on_report(r, pipe, static_cast<double>(psmove_get_temperature_in_celsius(move)));
                 got = true;
             }
             now = mono_ns();
@@ -311,6 +353,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 logf("waarschuwing", "Move %s: %.1f s geen rapporten, verbinding gesloten; opnieuw zoeken",
                      redact_mac(ci.id).c_str(), static_cast<double>(now - last_rx) / 1e9);
                 shared.publish(pipe.on_disconnect(now));
+                aux.on_disconnect(now);
                 psmove_disconnect(move);
                 move = nullptr;
                 ci.open = false;
@@ -318,10 +361,24 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 next_scan = now + 500'000'000;
                 continue;
             }
-            if (!got) sleep_us(opt.idle_sleep_us);
+            aux.periodic(now);
+            if (!got) {
+                // Wachten op het volgende rapport: met de hidraw-tap via poll() (wordt direct wakker
+                // bij een nieuw rapport), anders de oude slaap van idle_sleep_us.
+                if (aux.tap.is_open()) {
+                    pollfd pf{aux.tap.fd(), POLLIN, 0};
+                    if (::poll(&pf, 1, 2) > 0 && (pf.revents & (POLLERR | POLLHUP | POLLNVAL))) {
+                        aux.tap.close();
+                        logf("waarschuwing", "hidraw-tap gesloten (apparaat weg?); terug naar polling");
+                    }
+                } else {
+                    sleep_us(opt.idle_sleep_us);
+                }
+            }
             continue;
         }
 #endif
+        aux.periodic(mono_ns());
         sleep_us(5000);
     }
 
@@ -336,6 +393,8 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         move = nullptr;
     }
 #endif
+    aux.on_disconnect(mono_ns());
+    if (opt.recorder) opt.recorder->stop("shutdown");
     handle_jobs();
     logf("info", "HID-thread gestopt");
 }
