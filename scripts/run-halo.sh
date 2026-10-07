@@ -73,6 +73,12 @@ if [[ -z "$RES" ]] && command -v xrandr >/dev/null; then
 fi
 RES="${RES:-1920x1080}"
 
+# Eén instantie tegelijk; pidfile zodat stop-halo.sh precies deze launcher kan stoppen.
+IPC="$RUNDIR/ravengun"; mkdir -p "$IPC"; chmod 700 "$IPC"
+exec 9>"$IPC/halo.lock"
+flock -n 9 || die "er draait al een Halo-launcher (zie $IPC/halo.pid); stop die eerst met stop-halo.sh"
+echo $$ > "$IPC/halo.pid"
+
 TS=$(date +%Y%m%d-%H%M%S)
 LOG="$LOGDIR/halo-$TS.log"
 echo "run-halo: log $LOG"
@@ -131,6 +137,7 @@ CHILD=$!
 wait "$CHILD"; RC=$?
 set -e
 echo "== exit $RC" >>"$LOG"
+rm -f "$IPC/halo.pid"
 echo "run-halo: game beëindigd met exitcode $RC (log: $LOG)"
 (( DEBUG )) && tail -40 "$LOG"
 exit "$RC"
