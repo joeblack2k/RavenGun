@@ -67,6 +67,17 @@ Move via Bluetooth (op echte hardware getest, 2026-10-07 15:11)
 - Resultaat: de PS-knop verbindt binnen 2 s. Kernel: "BLUETOOTH HID … Motion Controller" (hidraw9). `psmove list`: Bluetooth, batterij 100%.
 - `src/tools/movetest` (15 s): 76,9 rapporten/s (ongeveer 154 Hz IMU, twee subsamples per rapport), grootste gat 36 ms. Accelerometer, gyro en magnetometer reageren op alle assen; trigger 0–255; knoppen Driehoek, Cirkel, Kruis, Vierkant, PS, Move en T gezien. Select en Start nog niet getest.
 
+ravengund-kern (Opus-subagent, door orchestrator geverifieerd: build schoon, 3 CTest-suites groen)
+- Docs: `docs/architecture.md` en een nieuwe sectie in `docs/decisions.md`.
+- Opbouw: één eigenaar van de hardware, met een HID-thread, een IPC-thread (Unix-socket 0600 in `$XDG_RUNTIME_DIR/ravengun/`, getypeerde JSON) en een signal-thread.
+- Inputmodel v1. IMU: twee subsamples per rapport, Mahony-fusie (IMU-only), gyro-bias alleen in stilstand.
+- Aim: voorlopige oriëntatiemodus (rand bij 20° horizontaal en 11,25° verticaal), met unclamped en clamped waarden, plus een 1€-filter.
+- Stale en disconnect: na 50 ms ongeldig, na 250 ms knoppen vrijgegeven, na 1,5 s reconnect-loop.
+- CLI: `ravengunctl status|recenter|watch|filter`.
+- Hardwaremeting (85 s, Move stil): 76,6 rapporten/s; gaten p95 21 ms, max 36,8 ms; verwerkingstijd p95 2,6 µs. Yaw-drift +2,1° in 60 s (ruim boven het doel), pitch +0,19°. Stilstandsjitter p95 met 1€: x 0,07 %, y 0,12 % van het bereik. Het volgnummer sloeg 1010 keer over (betekenis nog onbevestigd).
+- Conclusie: alleen de IMU is niet genoeg voor richten. Een optische referentie (camera) is nodig tegen yaw-drift.
+- Bekend: PSMoveAPI logt het volledige BT-adres naar stderr; filter dat voordat je logs deelt.
+
 ## Laatste werkende commando
 
     TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch
