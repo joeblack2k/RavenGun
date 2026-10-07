@@ -613,8 +613,22 @@
     }).catch(function () { setConn(false, 'daemon niet bereikbaar'); });
   }
 
+  // ---- Kalibratie op de tv ----
+  function refreshCal() {
+    api('/api/calibrate/ui').then(function (j) {
+      $('cal-state').textContent = j.ok ? j.result.message : 'Kalibratiescherm: ' + errText(j);
+    }).catch(function () {});
+  }
+  $('cal-open').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Kalibratiescherm geopend op de tv', e.target, refreshCal);
+  });
+  $('cal-close').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Kalibratiescherm gesloten', e.target, refreshCal);
+  });
+
   // ---- Navigatie ----
   var handlers = {
+    kalibratie: { show: refreshCal, poll: refreshCal, ms: 3000 },
     overzicht: { show: refreshOverview, poll: refreshOverview, ms: 1000 },
     live: { show: function () { drawAim(); drawMini(); startStream(); } },
     apparaten: { show: refreshDevices, poll: refreshDevices, ms: 1000 },

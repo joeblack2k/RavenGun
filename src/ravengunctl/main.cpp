@@ -132,7 +132,7 @@ struct Reply {
 };
 
 // Eén verzoek, één antwoord.
-Reply call(ipc::Client& c, const ipc::Request& rq) {
+Reply call(ipc::Client& c, const ipc::Request& rq, int read_timeout_ms = 3000) {
     Reply r;
     std::string sock = ipc::socket_path();
     if (sock.empty()) { std::fprintf(stderr, "ravengunctl: XDG_RUNTIME_DIR is niet gezet\n"); r.code = kExitDaemonUnavailable; return r; }
@@ -143,7 +143,7 @@ Reply call(ipc::Client& c, const ipc::Request& rq) {
         return r;
     }
     if (!c.send_line(ipc::make_request(rq))) { std::fprintf(stderr, "ravengunctl: verzenden mislukt: %s\n", c.error().c_str()); r.code = kExitDaemonUnavailable; return r; }
-    auto line = c.read_line(3000);
+    auto line = c.read_line(read_timeout_ms);
     if (!line) { std::fprintf(stderr, "ravengunctl: geen antwoord: %s\n", c.error().c_str()); r.code = kExitProtocol; return r; }
     r.line = *line;
     auto pr = json::parse(*line);
@@ -370,10 +370,10 @@ struct Res {
     Reply r;
     const json::Value* result() const { return path(r.v, {"result"}); }
 };
-Res simple(const ipc::Request& rq) {
+Res simple(const ipc::Request& rq, int read_timeout_ms = 3000) {
     ipc::Client c;
     Res x;
-    x.r = call(c, rq);
+    x.r = call(c, rq, read_timeout_ms);
     x.code = x.r.code;
     return x;
 }
@@ -502,7 +502,7 @@ int cmd_calibrate_ui(bool json, const std::string& action) {
     ipc::Request rq;
     rq.cmd = ipc::Cmd::CalibrateUi;
     rq.action = action;
-    Res x = simple(rq);
+    Res x = simple(rq, 10000);  // browser starten of sluiten kan enkele seconden duren
     if (x.code != kExitOk) return x.code;
     if (json) std::printf("%s\n", x.r.line.c_str());
     else std::printf("%s\n", str(*x.result(), {"message"}).c_str());

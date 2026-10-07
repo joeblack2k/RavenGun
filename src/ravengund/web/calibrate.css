@@ -110,7 +110,7 @@ h1 { margin:0 0 16px; font-size:88px; line-height:1.05; font-weight:700; letter-
 #targets .t .v { left:-2px; top:-44px; width:4px; height:88px; }
 #targets .t .ring { left:-26px; top:-26px; width:52px; height:52px; border:4px solid #fff; border-radius:50%; background:transparent; }
 #targets .t em { position:absolute; left:34px; top:34px; font-style:normal; font-size:30px; color:var(--muted); }
-#screen-text { position:absolute; left:360px; right:360px; top:230px; text-align:center; }
+#screen-text { position:absolute; left:360px; right:360px; top:196px; text-align:center; }
 #screen-text h1 { font-size:84px; }
 #screen-text .lead { font-size:40px; }
 #screen-foot { position:absolute; left:0; right:0; top:760px; bottom:auto; text-align:center; font-size:44px; }

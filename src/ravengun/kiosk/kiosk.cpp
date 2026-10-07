@@ -37,6 +37,7 @@ std::vector<std::string> flatpak_args(const std::string& url, const std::string&
             "--user-data-dir=" + profile,
             "--kiosk",
             "--app=" + url,
+            "--lang=nl",
             "--no-first-run",
             "--no-default-browser-check",
             "--noerrdialogs",
@@ -106,6 +107,23 @@ std::string find_xauthority() {
     return found;
 }
 
+// Alleen bij een nieuw profiel: Brave-meldingsbalken (analyse, vertalen) staan uit, zodat de pagina
+// de hele tv vult. Een bestaand bestand wordt nooit overschreven.
+void seed_profile(const std::string& prof) {
+    auto put = [](const std::string& path, const char* text) {
+        if (fs::exists(path)) return;
+        std::ofstream f(path, std::ios::binary);
+        f << text;
+    };
+    std::error_code ec;
+    fs::create_directories(prof + "/Default", ec);
+    put(prof + "/Local State",
+        "{\"brave\":{\"p3a\":{\"enabled\":false,\"notice_acknowledged\":true},\"stats\":{\"reporting_enabled\":false}}}");
+    put(prof + "/Default/Preferences",
+        "{\"translate\":{\"enabled\":false},\"intl\":{\"accept_languages\":\"nl,en\"},"
+        "\"translate_blocked_languages\":[\"nl\",\"en\"],\"profile\":{\"exit_type\":\"Normal\",\"exited_cleanly\":true}}");
+}
+
 void pause_ms(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 }  // namespace
 
@@ -147,6 +165,7 @@ Result open(int port) {
     fs::create_directories(prof, ec);
     if (ec) { r.message = "kan " + prof + " niet maken: " + ec.message(); return r; }
     ::chmod(prof.c_str(), 0700);
+    seed_profile(prof);
 
     // Sessievariabelen: de daemon draait niet per se in de grafische sessie.
     std::string uid = std::to_string(::getuid());
@@ -192,7 +211,7 @@ Result open(int port) {
     }
     int st = 0;
     ::waitpid(p1, &st, 0);
-    for (int i = 0; i < 30 && scan(prof).empty(); ++i) pause_ms(100);  // zodat 'status' direct klopt
+    for (int i = 0; i < 20 && scan(prof).empty(); ++i) pause_ms(100);  // zodat 'status' direct klopt
     r.processes = static_cast<int>(scan(prof).size());
     r.running = r.processes > 0;
     r.ok = r.running;
@@ -207,11 +226,11 @@ Result close() {
     auto pids = scan(prof);
     if (pids.empty()) { r.ok = true; r.message = "kalibratiescherm was niet open"; return r; }
     for (int p : pids) ::kill(p, SIGTERM);
-    for (int i = 0; i < 40 && !scan(prof).empty(); ++i) pause_ms(100);
+    for (int i = 0; i < 25 && !scan(prof).empty(); ++i) pause_ms(100);
     auto left = scan(prof);
     for (int p : left) ::kill(p, SIGKILL);
     if (!left.empty())
-        for (int i = 0; i < 20 && !scan(prof).empty(); ++i) pause_ms(100);
+        for (int i = 0; i < 10 && !scan(prof).empty(); ++i) pause_ms(100);
     r.processes = static_cast<int>(scan(prof).size());
     r.running = r.processes > 0;
     r.ok = !r.running;
