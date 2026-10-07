@@ -6,7 +6,8 @@
 # De lokale gamekopie wordt read-only gebruikt; schrijfacties van de game gaan naar
 # een aparte overlay (upper), zodat de originele bestanden onaangetast blijven.
 #
-# Gebruik: run-halo.sh [--debug] [--res BREEDTExHOOGTE] [--no-preload] [-- extra game-args]
+# Gebruik: run-halo.sh [--debug] [--stub-audio] [--res BREEDTExHOOGTE] [--no-preload] [-- extra game-args]
+#   --stub-audio  gebruik de diagnostische FMOD-stub (geen geluid) i.p.v. echte FMOD
 set -euo pipefail
 
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun"
@@ -22,8 +23,9 @@ while [[ $# -gt 0 ]]; do
     --debug) DEBUG=1 ;;
     --res) RES="$2"; shift ;;
     --no-preload) PRELOAD=0 ;;
+    --stub-audio) LIBDIR="$DATA/runtime/lib-fmodstub" ;;
     --) shift; EXTRA=("$@"); break ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
     *) echo "Onbekende optie: $1" >&2; exit 2 ;;
   esac
   shift

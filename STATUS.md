@@ -62,7 +62,7 @@ Na de keuze voor de halo.so-route
 
 1. De gebruiker start zelf vanuit een terminal in Desktop Mode (of met `! ` in Claude Code):
 
-       RAVENGUN_HALO_LIBDIR=~/.local/share/ravengun/runtime/lib-fmodstub ~/projects/ravengun/scripts/run-halo.sh --debug
+       ~/projects/ravengun/scripts/run-halo.sh --stub-audio --debug
 
    Bekijk het resultaat op de tv. Log: `~/.local/state/ravengun/logs/halo-*.log`.
 2. Voor geluid: FMOD Studio API 1.10.x voor Linux (bij voorkeur 1.10.20) van fmod.com (gratis account vereist). `libfmod.so.10` en `libfmodstudio.so.10` (x86_64) komen in `~/.local/share/ravengun/runtime/lib`.
