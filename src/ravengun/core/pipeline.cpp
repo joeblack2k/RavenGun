@@ -88,7 +88,6 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.still = bias_.still();
     s.gyro_bias = bias_.bias();
     s.yaw_ref = yaw_ref_;
-    s.position_valid = false;
     s.center_source = aim_.center_source();
     s.filter_enabled = fx_.config().enabled;
     s.buttons = edges_.state();

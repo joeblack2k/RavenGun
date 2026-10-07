@@ -42,6 +42,7 @@ struct Snapshot {
     ravengun::core::InputSample sample;
     std::array<uint64_t, 32> press_total{};
     std::array<uint64_t, 32> release_total{};
+    uint64_t optical_updates = 0;  // telt elke gepubliceerde optische meting
 };
 
 class SharedState {
@@ -49,10 +50,19 @@ public:
     void publish(const ravengun::core::InputSample& s) {
         std::lock_guard<std::mutex> g(m_);
         snap_.sample = s;
+        snap_.sample.optical = optical_;  // optische meting komt uit de tracker-thread
         for (int b = 0; b < 32; ++b) {
             if (s.pressed & (1u << b)) ++snap_.press_total[b];
             if (s.released & (1u << b)) ++snap_.release_total[b];
         }
+    }
+    // Vanuit de tracker-thread: laatste optische meting. Komt in elk volgend sample en in de
+    // huidige momentopname (ook als er geen Move verbonden is).
+    void publish_optical(const ravengun::core::OpticalSample& o) {
+        std::lock_guard<std::mutex> g(m_);
+        optical_ = o;
+        snap_.sample.optical = o;
+        ++snap_.optical_updates;
     }
     Snapshot get() const {
         std::lock_guard<std::mutex> g(m_);
@@ -78,10 +88,13 @@ public:
     }
 
     std::atomic<bool> running{true};
+    // Levert de camerastatus als JSON-object (thread-safe); leeg = geen camera-service.
+    std::function<std::string()> camera_status;
 
 private:
     mutable std::mutex m_;
     Snapshot snap_;
+    ravengun::core::OpticalSample optical_{};
     std::mutex jm_;
     std::deque<std::packaged_task<std::string(HidContext&)>> jobs_;
 };

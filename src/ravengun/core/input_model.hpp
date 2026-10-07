@@ -12,7 +12,7 @@ namespace ravengun::json { class Writer; }
 
 namespace ravengun::core {
 
-inline constexpr int kInputSchemaVersion = 1;
+inline constexpr int kInputSchemaVersion = 2;  // 2: position = optische 2D-beeldpositie
 
 // Welke bron de aim bepaalt. Alleen Orientation is geïmplementeerd.
 enum class TrackingMode { None, Orientation, OpticalDiagnostic, Hybrid, GeometricRay };
@@ -45,6 +45,23 @@ struct RawReport {
     int battery_raw = -1;     // PSMove_Battery_Level
 };
 
+// Optische meting van de bol: 2D-positie in het camerabeeld. Geen diepte en geen 3D: daarvoor
+// is een gekalibreerd cameramodel nodig, dat er (nog) niet is.
+struct OpticalSample {
+    bool camera_active = false;    // camera levert frames
+    const char* camera_state = "disabled";  // disabled, opening, streaming, error
+    bool valid = false;
+    const char* reason = "no_camera";       // "none" als geldig, zie BallTracker (vision::Reason)
+    const char* track_state = "searching";  // searching, tracking
+    uint64_t frame_seq = 0;        // V4L2-volgnummer van het verwerkte frame
+    uint64_t processed = 0;        // aantal verwerkte frames in deze daemon-run
+    int64_t t_frame_ns = 0;        // V4L2-timestamp (CLOCK_MONOTONIC, einde van het frame)
+    int64_t t_processed_ns = 0;    // einde van de verwerking
+    int width = 0, height = 0;
+    double x_px = 0, y_px = 0, x_norm = 0, y_norm = 0, radius_px = 0;
+    int candidates = 0;
+};
+
 struct InputSample {
     int schema_version = kInputSchemaVersion;
     uint64_t seq = 0;            // oplopend per gepubliceerd sample in deze daemon-run
@@ -64,8 +81,9 @@ struct InputSample {
     Vec3 gyro_bias{};            // rad/s
     YawReference yaw_ref = YawReference::None;
 
-    // Positie: nog geen camera; altijd ongeldig.
-    bool position_valid = false;
+    // Positie: laatste optische meting van de camera (2D-beeldpositie, geen 3D). Wordt door de
+    // daemon bij het publiceren ingevuld vanuit de tracker-thread; de pijplijn raakt dit niet.
+    OpticalSample optical{};
 
     // Aim (genormaliseerd, zie aim.hpp)
     bool aim_valid = false;
@@ -86,6 +104,9 @@ struct InputSample {
     Vec3 gyro_rad_s{};
     int battery_raw = -1;
 };
+
+// Schrijft "position": {...} (sleutel plus object) voor een optische meting.
+void write_optical_json(json::Writer& w, const OpticalSample& o);
 
 // Schrijft een sample als JSON-object. full_ids=false redigeert het controller-ID.
 void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids);

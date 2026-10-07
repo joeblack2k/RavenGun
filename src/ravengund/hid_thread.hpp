@@ -12,6 +12,11 @@ struct HidOptions {
     int64_t disconnect_ns = 1'500'000'000;  // geen rapport: handle sluiten en opnieuw zoeken
     int idle_sleep_us = 1000;               // slaap als psmove_poll() niets nieuws had
     ravengun::core::PipelineConfig pipeline{};
+    // LED van de bol (voor de optische tracking). De Move dooft de LED na ~4-5 s zonder nieuwe
+    // opdracht, dus de HID-thread stuurt de kleur elke led_refresh_ms opnieuw.
+    bool led_enabled = false;
+    uint8_t led_r = 0, led_g = 0, led_b = 0;
+    int led_refresh_ms = 1000;
 };
 
 // Wat de IPC-thread via SharedState::post() in de HID-thread mag doen.

@@ -37,6 +37,7 @@ struct Client {
     int64_t period_ns = 0;
     int64_t next_due = 0;
     uint64_t last_seq = 0;
+    uint64_t last_optical = 0;
     uint64_t skipped = 0;
     std::array<uint64_t, 32> press_base{}, release_base{};
     bool closing = false;  // na het legen van out sluiten
@@ -73,7 +74,16 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
             bool full = r.full_ids;
             std::string res = run_job(sh, [full](HidContext& h) { return h.status_json(full); }, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            // Camerastatus (uit de camera-service, niet uit de HID-thread) als extra sleutel.
+            if (sh.camera_status && !res.empty() && res.back() == '}') {
+                res.pop_back();
+                res += ",\"camera\":" + sh.camera_status() + "}";
+            }
             return ipc::ok_response(r.id_json, res);
+        }
+        case ipc::Cmd::Camera: {
+            if (!sh.camera_status) return ipc::error_response({"unavailable", "geen camera-service", r.id_json});
+            return ipc::ok_response(r.id_json, sh.camera_status());
         }
         case ipc::Cmd::Sample: {
             Snapshot s = sh.get();
@@ -100,6 +110,7 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
             c.period_ns = static_cast<int64_t>(1e9 / r.rate_hz);
             c.next_due = 0;
             c.last_seq = 0;
+            c.last_optical = 0;
             c.press_base = s.press_total;
             c.release_base = s.release_total;
             json::Writer w;
@@ -248,7 +259,8 @@ void ipc_thread_main(SharedState& sh, int lfd, int wake_fd) {
             if (!c.watching || c.closing || now < c.next_due) continue;
             if (!have_snap) { snap = sh.get(); have_snap = true; }
             c.next_due = now + c.period_ns;
-            if (snap.sample.seq == c.last_seq) continue;  // niets nieuws
+            // Niets nieuws: geen nieuw HID-sample en geen nieuwe optische meting.
+            if (snap.sample.seq == c.last_seq && snap.optical_updates == c.last_optical) continue;
             if (c.out.size() > kWatchSkipAbove) { ++c.skipped; continue; }  // trage client: frame overslaan
             json::Writer w;
             w.begin_object().key("sample");
@@ -264,6 +276,7 @@ void ipc_thread_main(SharedState& sh, int lfd, int wake_fd) {
             c.press_base = snap.press_total;
             c.release_base = snap.release_total;
             c.last_seq = snap.sample.seq;
+            c.last_optical = snap.optical_updates;
             c.out += ipc::event_line("sample", w.str());
             c.out += '\n';
         }

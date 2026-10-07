@@ -67,6 +67,29 @@ static void write_buttons(json::Writer& w, uint32_t mask) {
     w.end_array();
 }
 
+void write_optical_json(json::Writer& w, const OpticalSample& o) {
+    w.key("position").begin_object();
+    w.key("kind").value("image_2d");
+    w.key("valid").value(o.valid);
+    w.key("reason").value(o.valid ? "none" : o.reason);
+    w.key("camera").value(o.camera_state);
+    w.key("track_state").value(o.track_state);
+    w.key("frame_seq").value(static_cast<unsigned long long>(o.frame_seq));
+    w.key("t_frame_ns").value(static_cast<long long>(o.t_frame_ns));
+    w.key("t_processed_ns").value(static_cast<long long>(o.t_processed_ns));
+    w.key("image_w").value(o.width).key("image_h").value(o.height);
+    if (o.valid) {
+        w.key("x_px").value(o.x_px).key("y_px").value(o.y_px);
+        w.key("x_norm").value(o.x_norm).key("y_norm").value(o.y_norm);
+        w.key("radius_px").value(o.radius_px);
+    } else {
+        for (const char* k : {"x_px", "y_px", "x_norm", "y_norm", "radius_px"}) w.key(k).null();
+    }
+    w.key("candidates").value(o.candidates);
+    w.key("depth").null();  // onbekend: geen gekalibreerd cameramodel
+    w.end_object();
+}
+
 void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids) {
     w.begin_object();
     w.key("schema_version").value(s.schema_version);
@@ -93,10 +116,7 @@ void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids) {
     w.key("yaw_reference").value(to_string(s.yaw_ref));
     w.end_object();
 
-    w.key("position").begin_object();
-    w.key("valid").value(s.position_valid);
-    w.key("reason").value("geen camera-pijplijn");
-    w.end_object();
+    write_optical_json(w, s.optical);
 
     w.key("aim").begin_object();
     w.key("valid").value(s.aim_valid);

@@ -14,7 +14,7 @@ inline constexpr size_t kMaxLineBytes = 64 * 1024;
 inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
 
-enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim };
+enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera };
 const char* to_string(Cmd c);
 
 struct Request {

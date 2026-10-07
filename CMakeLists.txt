@@ -44,7 +44,8 @@ if(RAVENGUN_BUILD_DAEMON)
   add_executable(ravengund
     src/ravengund/main.cpp
     src/ravengund/hid_thread.cpp
-    src/ravengund/ipc_server.cpp)
+    src/ravengund/ipc_server.cpp
+    src/ravengund/camera.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
     message(STATUS "PSMoveAPI: ${PSMOVEAPI_LIBRARY}")

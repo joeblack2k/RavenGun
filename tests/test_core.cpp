@@ -381,7 +381,7 @@ static void test_stale_disconnect() {
     r.buttons = kBtnCross;
     p.on_report(r);
     InputSample d = p.on_disconnect(1'500'000'000);
-    CHECK(d.link == LinkState::Disconnected && !d.orientation_valid && !d.aim_valid && !d.position_valid);
+    CHECK(d.link == LinkState::Disconnected && !d.orientation_valid && !d.aim_valid && !d.optical.valid);
     CHECK(d.buttons == 0 && d.released == kBtnCross && d.trigger == 0);
     CHECK(!p.tick(9'000'000'000).has_value());
     // Herverbinden met dezelfde controller: oriëntatie en midden blijven, maar onderbroken.

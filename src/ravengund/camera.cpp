@@ -1,0 +1,616 @@
+// Camera-acquisitie (V4L2 mmap) en boltracking. Dit is de enige plek in RavenGun die de camera
+// opent. Beeldinhoud blijft in RAM en wordt nooit opgeslagen.
+#include "camera.hpp"
+
+#include <dirent.h>
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
+#include <cstring>
+#include <thread>
+#include <vector>
+
+#include "ravengun/json.hpp"
+#include "ravengun/vision/frame_timing.hpp"
+#include "ravengun/vision/latest_queue.hpp"
+
+namespace ravengund {
+
+using namespace ravengun;
+using namespace ravengun::vision;
+
+namespace {
+
+int xioctl(int fd, unsigned long req, void* arg) {
+    int r;
+    do { r = ::ioctl(fd, req, arg); } while (r == -1 && errno == EINTR);
+    return r;
+}
+
+std::string real(const std::string& p) {
+    char buf[PATH_MAX];
+    if (!::realpath(p.c_str(), buf)) return {};
+    return buf;
+}
+
+std::vector<std::string> list_dir(const char* dir) {
+    std::vector<std::string> r;
+    DIR* d = ::opendir(dir);
+    if (!d) return r;
+    while (dirent* e = ::readdir(d)) {
+        if (e->d_name[0] == '.') continue;
+        r.push_back(std::string(dir) + "/" + e->d_name);
+    }
+    ::closedir(d);
+    std::sort(r.begin(), r.end());
+    return r;
+}
+
+struct Identity {
+    std::string requested, path, node, by_id, by_path, driver, card, bus;
+};
+
+bool query_cap(const std::string& path, std::string& driver, std::string& card, std::string& bus) {
+    int fd = ::open(path.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return false;
+    v4l2_capability cap{};
+    bool ok = xioctl(fd, VIDIOC_QUERYCAP, &cap) == 0;
+    ::close(fd);
+    if (!ok) return false;
+    driver = reinterpret_cast<const char*>(cap.driver);
+    card = reinterpret_cast<const char*>(cap.card);
+    bus = reinterpret_cast<const char*>(cap.bus_info);
+    return true;
+}
+
+// Kiest de camera op stabiele identiteit. Leeg verzoek: de enige ov534-camera onder by-id.
+bool resolve(const std::string& requested, Identity& id, std::string& err) {
+    id = Identity{};
+    id.requested = requested.empty() ? "auto (ov534 onder /dev/v4l/by-id)" : requested;
+    if (!requested.empty()) {
+        id.path = requested;
+    } else {
+        std::vector<std::string> found;
+        for (const auto& p : list_dir("/dev/v4l/by-id")) {
+            if (p.size() < 13 || p.compare(p.size() - 13, 13, "-video-index0") != 0) continue;
+            std::string drv, card, bus;
+            if (query_cap(p, drv, card, bus) && drv == "ov534") found.push_back(p);
+        }
+        if (found.empty()) { err = "geen PS3 Eye (driver ov534) gevonden onder /dev/v4l/by-id; geef --camera PAD"; return false; }
+        if (found.size() > 1) { err = "meerdere ov534-camera's; kies er een met --camera /dev/v4l/by-path/..."; return false; }
+        id.path = found[0];
+    }
+    id.node = real(id.path);
+    if (id.node.empty()) { err = "camerapad bestaat niet: " + id.path; return false; }
+    for (const auto& p : list_dir("/dev/v4l/by-id")) if (real(p) == id.node) { id.by_id = p; break; }
+    for (const auto& p : list_dir("/dev/v4l/by-path")) if (real(p) == id.node) { id.by_path = p; break; }
+    if (!query_cap(id.node, id.driver, id.card, id.bus)) { err = "kan " + id.node + " niet openen of bevragen: " + std::strerror(errno); return false; }
+    return true;
+}
+
+struct CtrlInfo {
+    std::string name;
+    uint32_t id = 0;
+    uint32_t type = 0;
+    int64_t min = 0, max = 0, step = 0, def = 0;
+    int64_t before = 0, after = 0;
+    bool readable_before = false, readable_after = false;
+    uint32_t flags_after = 0;
+    std::string requested;  // leeg = niet aangepast
+    std::string set_error;
+};
+
+const char* ctrl_type(uint32_t t) {
+    switch (t) {
+        case V4L2_CTRL_TYPE_INTEGER: return "int";
+        case V4L2_CTRL_TYPE_BOOLEAN: return "bool";
+        case V4L2_CTRL_TYPE_MENU: return "menu";
+        case V4L2_CTRL_TYPE_BUTTON: return "button";
+        case V4L2_CTRL_TYPE_INTEGER_MENU: return "intmenu";
+    }
+    return "other";
+}
+
+bool get_ctrl(int fd, uint32_t id, int64_t& v) {
+    v4l2_control c{};
+    c.id = id;
+    if (xioctl(fd, VIDIOC_G_CTRL, &c) != 0) return false;
+    v = c.value;
+    return true;
+}
+
+std::vector<CtrlInfo> enum_ctrls(int fd) {
+    std::vector<CtrlInfo> r;
+    v4l2_query_ext_ctrl q{};
+    q.id = V4L2_CTRL_FLAG_NEXT_CTRL;
+    while (xioctl(fd, VIDIOC_QUERY_EXT_CTRL, &q) == 0) {
+        if (q.type != V4L2_CTRL_TYPE_CTRL_CLASS && !(q.flags & V4L2_CTRL_FLAG_DISABLED)) {
+            CtrlInfo c;
+            c.name = q.name;
+            c.id = q.id;
+            c.type = q.type;
+            c.min = q.minimum; c.max = q.maximum; c.step = static_cast<int64_t>(q.step); c.def = q.default_value;
+            c.readable_before = get_ctrl(fd, q.id, c.before);
+            r.push_back(c);
+        }
+        q.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+    }
+    return r;
+}
+
+struct Frame {
+    std::vector<uint8_t> data;
+    int width = 0, height = 0, stride = 0;
+    uint32_t seq = 0;
+    int64_t t_frame_ns = 0, t_dq_ns = 0;
+};
+
+}  // namespace
+
+struct CameraService::Impl {
+    SharedState& sh;
+    CameraOptions opt;
+    std::thread cap, trk;
+    std::atomic<bool> run{false};
+    LatestQueue<Frame> q;
+
+    mutable std::mutex m;  // beschermt alles hieronder
+    std::string state = "disabled";
+    std::string error;
+    Identity ident;
+    uint32_t fourcc = 0;
+    int width = 0, height = 0, stride = 0;
+    uint32_t sizeimage = 0;
+    double driver_fps = 0;
+    uint32_t ts_flags = 0;
+    bool ts_known = false;
+    std::vector<CtrlInfo> ctrls;
+    FrameTiming timing;
+    uint64_t error_frames = 0, short_frames = 0, opens = 0, stream_errors = 0, poll_timeouts = 0;
+    // Tracker
+    uint64_t processed = 0, valid = 0, roi_hits = 0, full_frame = 0;
+    std::array<uint64_t, kReasonCount> reasons{};
+    Ring radius{8192};
+    TrackResult last;
+    SceneStats scene;
+    bool have_scene = false;
+
+    Impl(SharedState& s, CameraOptions o) : sh(s), opt(std::move(o)), q(static_cast<size_t>(std::max(1, opt.queue_capacity))) {}
+
+    void set_state(const char* st, const std::string& err = {}) {
+        {
+            std::lock_guard<std::mutex> g(m);
+            state = st;
+            error = err;
+        }
+        if (std::strcmp(st, "streaming") != 0) {
+            core::OpticalSample o;
+            o.camera_active = false;
+            o.camera_state = st;
+            o.reason = std::strcmp(st, "error") == 0 ? "camera_error" : "no_frames";
+            sh.publish_optical(o);
+        }
+    }
+
+    // Open + configureren + mmap + streamon. -1 bij een fout (error gezet).
+    int open_device(std::vector<std::pair<void*, size_t>>& maps) {
+        Identity id;
+        std::string err;
+        if (!resolve(opt.device, id, err)) { set_state("error", err); return -1; }
+        int fd = ::open(id.path.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0) { set_state("error", "open " + id.path + ": " + std::strerror(errno)); return -1; }
+        auto fail = [&](const std::string& what) {
+            std::string e = what + ": " + std::strerror(errno);
+            if (errno == EBUSY) e += " (camera al in gebruik door een ander proces?)";
+            for (auto& mp : maps) ::munmap(mp.first, mp.second);
+            maps.clear();
+            ::close(fd);
+            set_state("error", e);
+            return -1;
+        };
+        v4l2_format fmt{};
+        fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        fmt.fmt.pix.width = static_cast<uint32_t>(opt.width);
+        fmt.fmt.pix.height = static_cast<uint32_t>(opt.height);
+        fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+        fmt.fmt.pix.field = V4L2_FIELD_NONE;
+        if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0) return fail("VIDIOC_S_FMT");
+        if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_YUYV || static_cast<int>(fmt.fmt.pix.width) != opt.width ||
+            static_cast<int>(fmt.fmt.pix.height) != opt.height) {
+            errno = EINVAL;
+            return fail("camera ondersteunt " + std::to_string(opt.width) + "x" + std::to_string(opt.height) + " YUYV niet");
+        }
+        v4l2_streamparm parm{};
+        parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        parm.parm.capture.timeperframe.numerator = 1;
+        parm.parm.capture.timeperframe.denominator = static_cast<uint32_t>(opt.fps);
+        if (xioctl(fd, VIDIOC_S_PARM, &parm) < 0) return fail("VIDIOC_S_PARM");
+        double dfps = parm.parm.capture.timeperframe.numerator
+                          ? static_cast<double>(parm.parm.capture.timeperframe.denominator) / parm.parm.capture.timeperframe.numerator
+                          : 0;
+
+        // Controls: eerst alles lezen, dan de automatiek uitzetten en vaste waarden zetten.
+        std::vector<CtrlInfo> cs = enum_ctrls(fd);
+        auto set = [&](uint32_t cid, int64_t v) {
+            for (auto& c : cs) {
+                if (c.id != cid) continue;
+                c.requested = std::to_string(v);
+                v4l2_control vc{};
+                vc.id = cid;
+                vc.value = static_cast<int32_t>(v);
+                if (xioctl(fd, VIDIOC_S_CTRL, &vc) != 0) c.set_error = std::strerror(errno);
+                return;
+            }
+        };
+        if (opt.manual) {
+            set(V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
+            set(V4L2_CID_AUTOGAIN, 0);
+            set(V4L2_CID_AUTO_WHITE_BALANCE, 0);
+            set(V4L2_CID_EXPOSURE, opt.exposure);
+            set(V4L2_CID_GAIN, opt.gain);
+        } else {
+            // Expliciet terug naar de automatiek (de driver onthoudt eerdere handmatige waarden).
+            set(V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
+            set(V4L2_CID_AUTOGAIN, 1);
+            set(V4L2_CID_AUTO_WHITE_BALANCE, 1);
+        }
+
+        v4l2_requestbuffers req{};
+        req.count = 4;
+        req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        req.memory = V4L2_MEMORY_MMAP;
+        if (xioctl(fd, VIDIOC_REQBUFS, &req) < 0) return fail("VIDIOC_REQBUFS");
+        for (uint32_t i = 0; i < req.count; ++i) {
+            v4l2_buffer b{};
+            b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            b.memory = V4L2_MEMORY_MMAP;
+            b.index = i;
+            if (xioctl(fd, VIDIOC_QUERYBUF, &b) < 0) return fail("VIDIOC_QUERYBUF");
+            void* p = ::mmap(nullptr, b.length, PROT_READ, MAP_SHARED, fd, b.m.offset);
+            if (p == MAP_FAILED) return fail("mmap");
+            maps.emplace_back(p, b.length);
+            if (xioctl(fd, VIDIOC_QBUF, &b) < 0) return fail("VIDIOC_QBUF");
+        }
+        v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        if (xioctl(fd, VIDIOC_STREAMON, &type) < 0) return fail("VIDIOC_STREAMON");
+        // Na streamon nogmaals de controls lezen: gspca zet ze bij de start opnieuw.
+        for (auto& c : cs) {
+            c.readable_after = get_ctrl(fd, c.id, c.after);
+            v4l2_query_ext_ctrl qq{};
+            qq.id = c.id;
+            if (xioctl(fd, VIDIOC_QUERY_EXT_CTRL, &qq) == 0) c.flags_after = qq.flags;
+        }
+        {
+            std::lock_guard<std::mutex> g(m);
+            ident = id;
+            fourcc = fmt.fmt.pix.pixelformat;
+            width = static_cast<int>(fmt.fmt.pix.width);
+            height = static_cast<int>(fmt.fmt.pix.height);
+            stride = static_cast<int>(fmt.fmt.pix.bytesperline);
+            sizeimage = fmt.fmt.pix.sizeimage;
+            driver_fps = dfps;
+            ctrls = cs;
+            ++opens;
+            timing.reset();
+            ts_known = false;
+        }
+        std::string cl;
+        for (const auto& c : cs) {
+            if (!c.requested.empty()) cl += " " + c.name + "=" + std::to_string(c.after) + (c.set_error.empty() ? "" : "(FOUT " + c.set_error + ")");
+        }
+        logf("info", "camera %s (%s, %s) %dx%d YUYV, driver %.2f fps; controls:%s", id.by_id.empty() ? id.path.c_str() : id.by_id.c_str(),
+             id.node.c_str(), id.driver.c_str(), width, height, dfps, cl.c_str());
+        set_state("streaming");
+        return fd;
+    }
+
+    void capture_main() {
+        std::vector<std::pair<void*, size_t>> maps;
+        int fd = -1;
+        int64_t next_try = 0;
+        int64_t last_frame = 0;
+        while (run.load()) {
+            if (fd < 0) {
+                int64_t now = mono_ns();
+                if (now < next_try) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); continue; }
+                set_state("opening");
+                fd = open_device(maps);
+                if (fd < 0) {
+                    std::string e;
+                    { std::lock_guard<std::mutex> g(m); e = error; }
+                    logf("waarschuwing", "camera: %s; opnieuw over 2 s", e.c_str());
+                    next_try = mono_ns() + 2'000'000'000;
+                    continue;
+                }
+                last_frame = mono_ns();
+            }
+            pollfd pf{fd, POLLIN, 0};
+            int pr = ::poll(&pf, 1, 200);
+            if (pr < 0 && errno != EINTR) break;
+            bool broken = false;
+            if (pr == 0 || !(pf.revents & POLLIN)) {
+                if (pf.revents & (POLLERR | POLLHUP | POLLNVAL)) broken = true;
+                else if (mono_ns() - last_frame > 2'000'000'000) {
+                    std::lock_guard<std::mutex> g(m);
+                    ++poll_timeouts;
+                    broken = true;
+                }
+            }
+            while (!broken && (pf.revents & POLLIN)) {
+                v4l2_buffer b{};
+                b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                b.memory = V4L2_MEMORY_MMAP;
+                if (xioctl(fd, VIDIOC_DQBUF, &b) < 0) {
+                    if (errno == EAGAIN) break;
+                    broken = true;
+                    break;
+                }
+                int64_t t_dq = mono_ns();
+                last_frame = t_dq;
+                int64_t t_frame = static_cast<int64_t>(b.timestamp.tv_sec) * 1'000'000'000 + static_cast<int64_t>(b.timestamp.tv_usec) * 1000;
+                bool monotonic = (b.flags & V4L2_BUF_FLAG_TIMESTAMP_MASK) == V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+                if (!monotonic) t_frame = t_dq;  // geen bruikbare klok: ontvangsttijd (zichtbaar in status)
+                bool bad = (b.flags & V4L2_BUF_FLAG_ERROR) != 0;
+                bool shrt = b.bytesused < static_cast<uint32_t>(stride) * static_cast<uint32_t>(height);
+                {
+                    std::lock_guard<std::mutex> g(m);
+                    if (!ts_known) { ts_flags = b.flags; ts_known = true; }
+                    timing.on_frame(t_frame, b.sequence, t_dq);
+                    if (bad) ++error_frames;
+                    if (shrt) ++short_frames;
+                }
+                if (!bad && !shrt && b.index < maps.size()) {
+                    Frame f = q.acquire();
+                    const uint8_t* p = static_cast<const uint8_t*>(maps[b.index].first);
+                    f.data.assign(p, p + static_cast<size_t>(stride) * static_cast<size_t>(height));
+                    f.width = width; f.height = height; f.stride = stride;
+                    f.seq = b.sequence; f.t_frame_ns = t_frame; f.t_dq_ns = t_dq;
+                    if (xioctl(fd, VIDIOC_QBUF, &b) < 0) broken = true;
+                    q.push(std::move(f));
+                } else if (xioctl(fd, VIDIOC_QBUF, &b) < 0) {
+                    broken = true;
+                }
+            }
+            if (broken) {
+                {
+                    std::lock_guard<std::mutex> g(m);
+                    ++stream_errors;
+                }
+                logf("waarschuwing", "camera: stream onderbroken (%s); opnieuw openen", std::strerror(errno));
+                v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                xioctl(fd, VIDIOC_STREAMOFF, &type);
+                for (auto& mp : maps) ::munmap(mp.first, mp.second);
+                maps.clear();
+                ::close(fd);
+                fd = -1;
+                set_state("error", "stream onderbroken");
+                next_try = mono_ns() + 1'000'000'000;
+            }
+        }
+        if (fd >= 0) {
+            v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            xioctl(fd, VIDIOC_STREAMOFF, &type);
+            for (auto& mp : maps) ::munmap(mp.first, mp.second);
+            ::close(fd);
+        }
+        q.close();
+        set_state("disabled");
+        logf("info", "camera-thread gestopt");
+    }
+
+    void tracker_main() {
+        BallTracker tracker(opt.tracker);
+        while (run.load()) {
+            auto f = q.pop_latest(std::chrono::milliseconds(200));
+            if (!f) continue;
+            int64_t t0 = mono_ns();
+            ImageView v{f->data.data(), f->width, f->height, f->stride, PixelFormat::YUYV};
+            TrackResult r = tracker.process(v);
+            bool do_scene = opt.scene_every_frames > 0 && (processed % static_cast<uint64_t>(opt.scene_every_frames)) == 0;
+            SceneStats sc;
+            if (do_scene) sc = tracker.scene_stats(v, 4);
+            int64_t t1 = mono_ns();
+
+            core::OpticalSample o;
+            o.camera_active = true;
+            o.camera_state = "streaming";
+            o.valid = r.valid;
+            o.reason = to_string(r.reason);
+            o.track_state = to_string(r.state);
+            o.frame_seq = f->seq;
+            o.t_frame_ns = f->t_frame_ns;
+            o.t_processed_ns = t1;
+            o.width = r.width; o.height = r.height;
+            o.x_px = r.x_px; o.y_px = r.y_px; o.x_norm = r.x_norm; o.y_norm = r.y_norm; o.radius_px = r.radius_px;
+            o.candidates = r.candidates;
+            {
+                std::lock_guard<std::mutex> g(m);
+                ++processed;
+                o.processed = processed;
+                timing.on_processed(t0 - f->t_frame_ns, static_cast<double>(t1 - t0) / 1e3);
+                if (r.valid) { ++valid; radius.add(r.radius_px); }
+                if (r.used_roi) ++roi_hits;
+                if (r.full_frame_searched) ++full_frame;
+                ++reasons[static_cast<size_t>(r.reason)];
+                last = r;
+                if (do_scene) { scene = sc; have_scene = true; }
+            }
+            sh.publish_optical(o);
+            q.recycle(std::move(*f));
+        }
+        logf("info", "tracker-thread gestopt");
+    }
+};
+
+CameraService::CameraService(SharedState& shared, CameraOptions opt) : d_(std::make_unique<Impl>(shared, std::move(opt))) {}
+CameraService::~CameraService() { stop(); }
+
+void CameraService::start() {
+    if (!d_->opt.enabled || d_->run.load()) return;
+    d_->run.store(true);
+    d_->cap = std::thread([this] { d_->capture_main(); });
+    d_->trk = std::thread([this] { d_->tracker_main(); });
+}
+
+void CameraService::stop() {
+    if (!d_->run.exchange(false)) return;
+    d_->q.close();
+    if (d_->cap.joinable()) d_->cap.join();
+    if (d_->trk.joinable()) d_->trk.join();
+}
+
+std::string CameraService::status_json() const {
+    const Impl& d = *d_;
+    auto qc = d.q.counters();
+    std::lock_guard<std::mutex> g(d.m);
+    json::Writer w;
+    w.begin_object();
+    w.key("enabled").value(d.opt.enabled);
+    w.key("state").value(d.state);
+    if (d.error.empty()) w.key("error").null(); else w.key("error").value(d.error);
+    w.key("device").begin_object();
+    w.key("requested").value(d.ident.requested).key("path").value(d.ident.path).key("node").value(d.ident.node);
+    w.key("by_id").value(d.ident.by_id).key("by_path").value(d.ident.by_path);
+    w.key("driver").value(d.ident.driver).key("card").value(d.ident.card).key("bus_info").value(d.ident.bus);
+    w.key("opens").value(static_cast<unsigned long long>(d.opens));
+    w.end_object();
+
+    w.key("mode").begin_object();
+    w.key("format").value(d.fourcc == V4L2_PIX_FMT_YUYV ? "YUYV" : (d.fourcc ? "?" : ""));
+    w.key("width").value(d.width).key("height").value(d.height);
+    w.key("bytesperline").value(d.stride).key("sizeimage").value(static_cast<unsigned long long>(d.sizeimage));
+    w.key("requested_fps").value(d.opt.fps).key("driver_fps").value(d.driver_fps);
+    w.key("v4l2_buffers").value(4).key("queue_capacity").value(static_cast<unsigned long long>(d.q.capacity()));
+    w.end_object();
+
+    w.key("timestamps").begin_object();
+    if (d.ts_known) {
+        uint32_t t = d.ts_flags & V4L2_BUF_FLAG_TIMESTAMP_MASK, s = d.ts_flags & V4L2_BUF_FLAG_TSTAMP_SRC_MASK;
+        w.key("type").value(t == V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC ? "monotonic" : t == V4L2_BUF_FLAG_TIMESTAMP_COPY ? "copy" : "unknown");
+        w.key("source").value(s == V4L2_BUF_FLAG_TSTAMP_SRC_SOE ? "SOE" : "EOF");
+    } else {
+        w.key("type").null().key("source").null();
+    }
+    w.key("meaning").value("t_frame = V4L2-buffertimestamp (CLOCK_MONOTONIC, einde van het frame); geen belichtingstijd");
+    w.end_object();
+
+    const FrameTiming& t = d.timing;
+    w.key("frames").begin_object();
+    w.key("received").value(static_cast<unsigned long long>(t.frames));
+    w.key("fps_total").value(t.fps_total()).key("fps_5s").value(t.fps_window(5.0));
+    w.key("missed_by_sequence").value(static_cast<unsigned long long>(t.missed));
+    w.key("gap_events").value(static_cast<unsigned long long>(t.gap_events));
+    w.key("non_monotonic").value(static_cast<unsigned long long>(t.non_monotonic));
+    w.key("sequence_resets").value(static_cast<unsigned long long>(t.sequence_reset));
+    w.key("error_frames").value(static_cast<unsigned long long>(d.error_frames));
+    w.key("short_frames").value(static_cast<unsigned long long>(d.short_frames));
+    w.key("stream_errors").value(static_cast<unsigned long long>(d.stream_errors));
+    w.end_object();
+    auto ring = [&](const char* k, const Ring& r) {
+        w.key(k).begin_object();
+        w.key("n").value(static_cast<unsigned long long>(r.size()));
+        w.key("mean").value(r.mean()).key("p50").value(r.percentile(0.5)).key("p95").value(r.percentile(0.95));
+        w.key("p99").value(r.percentile(0.99)).key("max").value(r.max());
+        w.end_object();
+    };
+    ring("interval_ms", t.intervals_ms());
+    w.key("interval_histogram").begin_array();
+    double lo = 0;
+    for (size_t i = 0; i < t.buckets.size(); ++i) {
+        w.begin_object().key("from_ms").value(lo);
+        if (i + 1 < t.buckets.size()) w.key("to_ms").value(FrameTiming::kBucketUpperMs[i]); else w.key("to_ms").null();
+        w.key("count").value(static_cast<unsigned long long>(t.buckets[i])).end_object();
+        lo = FrameTiming::kBucketUpperMs[i];
+    }
+    w.end_array();
+    ring("dequeue_delay_ms", t.dequeue_delay_ms());
+    ring("age_at_processing_ms", t.age_ms());
+    ring("processing_us", t.processing_us());
+
+    w.key("queue").begin_object();
+    w.key("capacity").value(static_cast<unsigned long long>(d.q.capacity()));
+    w.key("pushed").value(static_cast<unsigned long long>(qc.pushed)).key("popped").value(static_cast<unsigned long long>(qc.popped));
+    w.key("dropped_full").value(static_cast<unsigned long long>(qc.dropped_full));
+    w.key("dropped_stale").value(static_cast<unsigned long long>(qc.dropped_stale));
+    w.key("depth").value(static_cast<unsigned long long>(qc.depth));
+    w.end_object();
+
+    w.key("controls").begin_array();
+    for (const auto& c : d.ctrls) {
+        w.begin_object();
+        w.key("name").value(c.name).key("type").value(ctrl_type(c.type));
+        w.key("min").value(static_cast<long long>(c.min)).key("max").value(static_cast<long long>(c.max));
+        w.key("default").value(static_cast<long long>(c.def));
+        if (c.readable_before) w.key("before").value(static_cast<long long>(c.before)); else w.key("before").null();
+        if (c.readable_after) w.key("value").value(static_cast<long long>(c.after)); else w.key("value").null();
+        if (c.requested.empty()) w.key("requested").null(); else w.key("requested").value(c.requested);
+        if (c.set_error.empty()) w.key("set_error").null(); else w.key("set_error").value(c.set_error);
+        w.key("inactive").value((c.flags_after & V4L2_CTRL_FLAG_INACTIVE) != 0);
+        w.end_object();
+    }
+    w.end_array();
+
+    const TrackerConfig& tc = d.opt.tracker;
+    w.key("tracker").begin_object();
+    w.key("config").begin_object();
+    w.key("color_space").value("YUYV-chroma (U,V), tint = atan2(V-128, U-128)");
+    w.key("hue_deg").value(tc.hue_deg).key("hue_tol_deg").value(tc.hue_tol_deg);
+    w.key("min_chroma").value(tc.min_chroma).key("min_luma").value(tc.min_luma).key("sat_luma").value(tc.sat_luma);
+    w.key("min_area_px").value(tc.min_area_px).key("min_color_frac").value(tc.min_color_frac);
+    w.key("max_elongation").value(tc.max_elongation).key("fill").begin_array().value(tc.min_fill).value(tc.max_fill).end_array();
+    w.key("confirm_frames").value(tc.confirm_frames).key("lost_after_frames").value(tc.lost_after_frames);
+    w.end_object();
+    w.key("processed").value(static_cast<unsigned long long>(d.processed));
+    w.key("valid").value(static_cast<unsigned long long>(d.valid));
+    w.key("roi_hits").value(static_cast<unsigned long long>(d.roi_hits));
+    w.key("full_frame_searches").value(static_cast<unsigned long long>(d.full_frame));
+    w.key("reasons").begin_object();
+    for (int i = 0; i < kReasonCount; ++i)
+        if (d.reasons[static_cast<size_t>(i)]) w.key(to_string(static_cast<Reason>(i))).value(static_cast<unsigned long long>(d.reasons[static_cast<size_t>(i)]));
+    w.end_object();
+    w.key("radius_px").begin_object();
+    w.key("n").value(static_cast<unsigned long long>(d.radius.size()));
+    w.key("p5").value(d.radius.percentile(0.05)).key("p50").value(d.radius.percentile(0.5)).key("p95").value(d.radius.percentile(0.95));
+    w.end_object();
+    const TrackResult& l = d.last;
+    w.key("last").begin_object();
+    w.key("valid").value(l.valid).key("reason").value(to_string(l.reason)).key("state").value(to_string(l.state));
+    w.key("candidates").value(l.candidates).key("components").value(l.components);
+    if (l.valid) {
+        w.key("x_px").value(l.x_px).key("y_px").value(l.y_px).key("radius_px").value(l.radius_px);
+        w.key("area_px").value(l.area_px).key("color_px").value(l.color_px).key("sat_px").value(l.sat_px);
+        w.key("elongation").value(l.elongation).key("fill").value(l.fill);
+        w.key("mean_luma").value(l.mean_luma).key("mean_hue_deg").value(l.mean_hue_deg).key("mean_chroma").value(l.mean_chroma);
+    }
+    w.end_object();
+    w.end_object();
+
+    w.key("scene").begin_object();
+    w.key("available").value(d.have_scene);
+    if (d.have_scene) {
+        const SceneStats& s = d.scene;
+        w.key("samples").value(s.samples);
+        w.key("mean_yuv").begin_array().value(s.mean_y).value(s.mean_u).value(s.mean_v).end_array();
+        w.key("mean_rgb").begin_array().value(s.mean_r).value(s.mean_g).value(s.mean_b).end_array();
+        w.key("y_p50").value(s.p50_y).key("y_p99").value(s.p99_y);
+        w.key("saturated_frac").value(s.sat_frac);
+        w.key("color_match_frac").value(s.color_match_frac);
+        w.key("chromatic_frac").value(s.chromatic_frac);
+        w.key("hue_hist_30deg_from_-180").begin_array();
+        for (double h : s.hue_hist_frac) w.value(h);
+        w.end_array();
+    }
+    w.end_object();
+    w.end_object();
+    return w.str();
+}
+
+}  // namespace ravengund

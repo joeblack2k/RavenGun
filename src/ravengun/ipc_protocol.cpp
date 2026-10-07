@@ -17,6 +17,7 @@ const char* to_string(Cmd c) {
         case Cmd::Watch: return "watch";
         case Cmd::SetFilter: return "set_filter";
         case Cmd::SetAim: return "set_aim";
+        case Cmd::Camera: return "camera";
     }
     return "?";
 }
@@ -94,6 +95,9 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         std::optional<bool> f;
         if (!opt_bool(o, "full_ids", f, e, r.id_json)) return e;
         r.full_ids = f.value_or(false);
+    } else if (cmd == "camera") {
+        r.cmd = Cmd::Camera;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else if (cmd == "recenter") {
         r.cmd = Cmd::Recenter;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -176,7 +180,8 @@ std::string make_request(const Request& r) {
             if (r.h_edge_deg) w.key("h_edge_deg").value(*r.h_edge_deg);
             if (r.v_edge_deg) w.key("v_edge_deg").value(*r.v_edge_deg);
             break;
-        case Cmd::Recenter: break;
+        case Cmd::Recenter:
+        case Cmd::Camera: break;
     }
     w.end_object();
     return w.str();

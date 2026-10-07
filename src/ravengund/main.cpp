@@ -1,5 +1,6 @@
 // ravengund: RavenGun-daemon. Voorgrondproces; enige eigenaar van de Move-hardware.
 #include <cerrno>
+#include <cmath>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +13,7 @@
 #include <thread>
 #include <unistd.h>
 
+#include "camera.hpp"
 #include "hid_thread.hpp"
 #include "ipc_server.hpp"
 #include "ravengun/ipc_client.hpp"
@@ -37,6 +39,20 @@ void usage(FILE* f) {
         "  --v-edge-deg G                   pitch tot de boven/onderrand (standaard 11.25)\n"
         "  --no-auto-center                 geen automatisch midden bij de eerste oriëntatie\n"
         "  --no-hid                         geen PSMoveAPI openen (alleen IPC; voor tests)\n"
+        "\n"
+        "camera en boltracking (beelden blijven in RAM, nooit op schijf):\n"
+        "  --camera PAD                     camera-apparaat (bv. /dev/v4l/by-path/...); standaard: de enige\n"
+        "                                   PS3 Eye (driver ov534) onder /dev/v4l/by-id\n"
+        "  --no-camera                      geen camera openen\n"
+        "  --camera-mode BxH@FPS            standaard 640x480@60 (YUYV)\n"
+        "  --exposure N                     vaste belichting 0..255 (standaard 50)\n"
+        "  --gain N                         vaste gain 0..63 (standaard 0)\n"
+        "  --camera-auto                    automatische belichting/gain/witbalans laten staan\n"
+        "  --led KLEUR|R,G,B                LED-kleur: cyaan (standaard met camera), magenta, rood, groen,\n"
+        "                                   blauw, geel, uit, of drie getallen 0..255\n"
+        "  --hue-deg G, --hue-tol-deg G     tint-sector van de tracker (standaard: gemeten tint van de\n"
+        "                                   LED-kleur, anders nominaal; tolerantie 30)\n"
+        "  --min-chroma N                   minimale chroma van een kleurpixel (standaard 28)\n"
         "  -h, --help                       deze tekst\n"
         "\n"
         "exitcodes: 0 normaal gestopt, 64 verkeerd gebruik, 69 al actief of geen runtime-map,\n"
@@ -57,6 +73,9 @@ bool parse_double(const char* s, double lo, double hi, double& out) {
 
 int main(int argc, char** argv) {
     HidOptions opt;
+    CameraOptions cam;
+    std::string led_arg;
+    double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto need = [&](double lo, double hi, double& out) {
@@ -73,6 +92,24 @@ int main(int argc, char** argv) {
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
         else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
         else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
+        else if (a == "--no-camera") cam.enabled = false;
+        else if (a == "--camera-auto") cam.manual = false;
+        else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
+        else if (a == "--camera-mode" && i + 1 < argc) {
+            int w = 0, h = 0, f = 0;
+            char tail = 0;
+            if (std::sscanf(argv[++i], "%dx%d@%d%c", &w, &h, &f, &tail) != 3 || w < 16 || h < 16 || f < 1 || f > 300) {
+                std::fprintf(stderr, "ravengund: ongeldige --camera-mode (verwacht bv. 640x480@60)\n");
+                return 64;
+            }
+            cam.width = w; cam.height = h; cam.fps = f;
+        }
+        else if (a == "--exposure") { double v; need(0, 255, v); cam.exposure = static_cast<int>(v); }
+        else if (a == "--gain") { double v; need(0, 63, v); cam.gain = static_cast<int>(v); }
+        else if (a == "--led" && i + 1 < argc) led_arg = argv[++i];
+        else if (a == "--hue-deg") need(-180, 180, hue);
+        else if (a == "--hue-tol-deg") need(1, 90, hue_tol);
+        else if (a == "--min-chroma") need(1, 180, min_chroma);
         else if (a == "--controller" && i + 1 < argc) {
             std::string id = argv[++i];
             for (auto& ch : id) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -83,6 +120,34 @@ int main(int argc, char** argv) {
             return 64;
         }
     }
+
+    // LED-kleur en tint-sector van de tracker.
+    ravengun::vision::Rgb led{};
+    bool led_on = false;
+    if (!led_arg.empty()) {
+        int r = 0, g = 0, b = 0;
+        char tail = 0;
+        if (std::sscanf(led_arg.c_str(), "%d,%d,%d%c", &r, &g, &b, &tail) == 3 && r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+            led = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b)};
+        } else if (!ravengun::vision::led_color_by_name(led_arg, led)) {
+            std::fprintf(stderr, "ravengund: onbekende LED-kleur '%s'\n", led_arg.c_str());
+            return 64;
+        }
+        led_on = true;  // ook "uit" (0,0,0) wordt dan actief gezet
+    } else if (cam.enabled) {
+        led_arg = "cyaan";  // zie docs/decisions.md (kleurkeuze)
+        ravengun::vision::led_color_by_name(led_arg, led);
+        led_on = true;
+    }
+    opt.led_enabled = led_on;
+    opt.led_r = led.r; opt.led_g = led.g; opt.led_b = led.b;
+    if (led.r || led.g || led.b) {
+        double mh = ravengun::vision::measured_hue_deg(led_arg);
+        cam.tracker.hue_deg = std::isnan(mh) ? ravengun::vision::nominal_hue_deg(led) : mh;
+    }
+    if (!std::isnan(hue)) cam.tracker.hue_deg = hue;
+    if (!std::isnan(hue_tol)) cam.tracker.hue_tol_deg = hue_tol;
+    if (!std::isnan(min_chroma)) cam.tracker.min_chroma = static_cast<int>(min_chroma);
 
     std::string dir = ravengun::ipc::runtime_dir();
     if (dir.empty()) { std::fprintf(stderr, "ravengund: XDG_RUNTIME_DIR is niet gezet\n"); return 69; }
@@ -131,8 +196,16 @@ int main(int argc, char** argv) {
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit");
 
     SharedState shared;
+    CameraService camera(shared, cam);
+    shared.camera_status = [&camera] { return camera.status_json(); };
+    if (cam.enabled)
+        logf("info", "camera aan (%s, %dx%d@%d, %s), LED %s (%d,%d,%d), tracker-tint %.0f +- %.0f graden",
+             cam.device.empty() ? "automatisch" : cam.device.c_str(), cam.width, cam.height, cam.fps,
+             cam.manual ? ("belichting " + std::to_string(cam.exposure) + ", gain " + std::to_string(cam.gain) + ", AWB uit").c_str() : "automatisch",
+             led_on ? "aan" : "uit", led.r, led.g, led.b, cam.tracker.hue_deg, cam.tracker.hue_tol_deg);
     std::thread hid(hid_thread_main, std::ref(shared), opt);
     std::thread ipc(ipc_thread_main, std::ref(shared), sfd, wake);
+    camera.start();
 
     int sig = 0;
     sigwait(&set, &sig);
@@ -140,6 +213,7 @@ int main(int argc, char** argv) {
     shared.running.store(false);
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
+    camera.stop();
     hid.join();
     ipc.join();
     ::close(sfd);

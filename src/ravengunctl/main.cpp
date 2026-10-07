@@ -36,6 +36,7 @@ void usage(FILE* f) {
         "  recenter    legt de huidige richting van de Move vast als midden van het scherm\n"
         "  watch       toont live aim en knoppen (rate-limited) tot Ctrl-C of --duration\n"
         "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B\n"
+        "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
         "\n"
         "opties:\n"
         "  --json             machineleesbare uitvoer (JSON op stdout; bij watch één regel per frame)\n"
@@ -136,6 +137,69 @@ std::string fmt(double v, const char* f) {
     return b;
 }
 
+// Optische meting als korte tekst (2D-beeldpositie, geen diepte).
+std::string optical_text(const json::Value& s) {
+    const json::Value* p = path(s, {"position"});
+    if (!p) return "-";
+    if (boolean(*p, {"valid"}))
+        return "bol op (" + fmt(num(*p, {"x_px"}), "%.1f") + ", " + fmt(num(*p, {"y_px"}), "%.1f") + ") px, genormaliseerd (" +
+               fmt(num(*p, {"x_norm"}), "%.3f") + ", " + fmt(num(*p, {"y_norm"}), "%.3f") + "), straal " +
+               fmt(num(*p, {"radius_px"}), "%.1f") + " px (2D-beeldpositie, diepte onbekend)";
+    return "ongeldig: " + str(*p, {"reason"}) + " (camera " + str(*p, {"camera"}) + ")";
+}
+
+void print_camera(const json::Value& c) {
+    std::printf("Toestand:     %s%s%s\n", str(c, {"state"}).c_str(), path(c, {"error"}) && path(c, {"error"})->is_string() ? ": " : "",
+                path(c, {"error"}) && path(c, {"error"})->is_string() ? str(c, {"error"}).c_str() : "");
+    std::printf("Apparaat:     %s\n              by-path %s -> %s (driver %s, %s)\n", str(c, {"device", "by_id"}).c_str(),
+                str(c, {"device", "by_path"}).c_str(), str(c, {"device", "node"}).c_str(), str(c, {"device", "driver"}).c_str(),
+                str(c, {"device", "bus_info"}).c_str());
+    std::printf("Modus:        %s %.0fx%.0f, gevraagd %.0f fps, driver %s fps; timestamps %s/%s\n", str(c, {"mode", "format"}).c_str(),
+                num(c, {"mode", "width"}, 0), num(c, {"mode", "height"}, 0), num(c, {"mode", "requested_fps"}, 0),
+                fmt(num(c, {"mode", "driver_fps"}), "%.2f").c_str(), str(c, {"timestamps", "type"}, "-").c_str(),
+                str(c, {"timestamps", "source"}, "-").c_str());
+    std::printf("Frames:       %.0f ontvangen, gemeten %s fps (totaal) / %s fps (5 s), gemist (sequence) %.0f, fout %.0f, kort %.0f\n",
+                num(c, {"frames", "received"}, 0), fmt(num(c, {"frames", "fps_total"}), "%.2f").c_str(),
+                fmt(num(c, {"frames", "fps_5s"}), "%.2f").c_str(), num(c, {"frames", "missed_by_sequence"}, 0),
+                num(c, {"frames", "error_frames"}, 0), num(c, {"frames", "short_frames"}, 0));
+    auto ring = [&](const char* label, const char* k, const char* unit) {
+        std::printf("%-14sp50 %s, p95 %s, p99 %s, max %s %s\n", label, fmt(num(c, {k, "p50"}), "%.3f").c_str(),
+                    fmt(num(c, {k, "p95"}), "%.3f").c_str(), fmt(num(c, {k, "p99"}), "%.3f").c_str(), fmt(num(c, {k, "max"}), "%.3f").c_str(), unit);
+    };
+    ring("Interval:", "interval_ms", "ms");
+    ring("Leeftijd:", "age_at_processing_ms", "ms (start verwerking - frametimestamp)");
+    ring("Verwerking:", "processing_us", "us per frame");
+    std::printf("Wachtrij:     capaciteit %.0f, weggegooid vol %.0f / verouderd %.0f\n", num(c, {"queue", "capacity"}, 0),
+                num(c, {"queue", "dropped_full"}, 0), num(c, {"queue", "dropped_stale"}, 0));
+    std::printf("Controls:    ");
+    if (const json::Value* a = path(c, {"controls"}); a && a->is_array())
+        for (const auto& e : a->arr)
+            std::printf(" %s=%s%s;", str(e, {"name"}).c_str(), fmt(num(e, {"value"}), "%.0f").c_str(),
+                        path(e, {"requested"}) && path(e, {"requested"})->is_string() ? "*" : "");
+    std::printf("\n              (* = door ravengund gezet)\n");
+    std::printf("Tracker:      %.0f verwerkt, %.0f geldig; ROI %.0f, volledig beeld %.0f; straal p50 %s px\n", num(c, {"tracker", "processed"}, 0),
+                num(c, {"tracker", "valid"}, 0), num(c, {"tracker", "roi_hits"}, 0), num(c, {"tracker", "full_frame_searches"}, 0),
+                fmt(num(c, {"tracker", "radius_px", "p50"}), "%.1f").c_str());
+    std::printf("Redenen:     ");
+    if (const json::Value* o = path(c, {"tracker", "reasons"}); o && o->is_object())
+        for (const auto& kv : o->obj) std::printf(" %s %.0f;", kv.first.c_str(), kv.second.num);
+    std::printf("\n");
+    std::printf("Laatste:      %s (%s), kandidaten %.0f, componenten %.0f\n", boolean(c, {"tracker", "last", "valid"}) ? "geldig" : "ongeldig",
+                str(c, {"tracker", "last", "reason"}).c_str(), num(c, {"tracker", "last", "candidates"}, 0),
+                num(c, {"tracker", "last", "components"}, 0));
+    if (boolean(c, {"scene", "available"})) {
+        auto at = [&](std::initializer_list<const char*> k, size_t i) {
+            const json::Value* a = path(c, k);
+            return a && a->is_array() && a->arr.size() > i && a->arr[i].is_number() ? a->arr[i].num : NAN;
+        };
+        std::printf("Scène:        Y gem %s p50 %s p99 %s, verzadigd %s %%, RGB gem %s/%s/%s, kleurmatch %s %%\n",
+                    fmt(at({"scene", "mean_yuv"}, 0), "%.0f").c_str(), fmt(num(c, {"scene", "y_p50"}), "%.0f").c_str(),
+                    fmt(num(c, {"scene", "y_p99"}), "%.0f").c_str(), fmt(num(c, {"scene", "saturated_frac"}) * 100, "%.2f").c_str(),
+                    fmt(at({"scene", "mean_rgb"}, 0), "%.0f").c_str(), fmt(at({"scene", "mean_rgb"}, 1), "%.0f").c_str(),
+                    fmt(at({"scene", "mean_rgb"}, 2), "%.0f").c_str(), fmt(num(c, {"scene", "color_match_frac"}) * 100, "%.3f").c_str());
+    }
+}
+
 void print_sample_line(const json::Value& s, const json::Value* edges) {
     bool av = boolean(s, {"aim", "valid"});
     std::string aim = av ? "x " + fmt(num(s, {"aim", "x"}), "%6.3f") + " y " + fmt(num(s, {"aim", "y"}), "%6.3f") +
@@ -147,9 +211,13 @@ void print_sample_line(const json::Value& s, const json::Value* edges) {
         if (!p.empty()) e += " +" + p;
         if (!r.empty()) e += " -" + r;
     }
-    std::printf("%-8s %s  yaw %7s pitch %7s  trig %3d  knoppen %s%s\n", str(s, {"link"}).c_str(), aim.c_str(),
+    const json::Value* p = path(s, {"position"});
+    std::string opt = p && boolean(*p, {"valid"})
+                          ? "bol " + fmt(num(*p, {"x_px"}), "%6.1f") + "," + fmt(num(*p, {"y_px"}), "%6.1f") + " r" + fmt(num(*p, {"radius_px"}), "%4.1f")
+                          : "bol " + (p ? str(*p, {"reason"}) : std::string("-"));
+    std::printf("%-8s %s  yaw %7s pitch %7s  trig %3d  %-24s knoppen %s%s\n", str(s, {"link"}).c_str(), aim.c_str(),
                 fmt(num(s, {"aim", "yaw_rel_deg"}), "%+.2f").c_str(), fmt(num(s, {"aim", "pitch_rel_deg"}), "%+.2f").c_str(),
-                static_cast<int>(num(s, {"trigger"}, 0)), names(path(s, {"buttons", "down"})).c_str(), e.c_str());
+                static_cast<int>(num(s, {"trigger"}, 0)), opt.c_str(), names(path(s, {"buttons", "down"})).c_str(), e.c_str());
     std::fflush(stdout);
 }
 
@@ -192,7 +260,11 @@ void print_status(const json::Value& r) {
                 boolean(s, {"orientation", "still"}) ? " (stil)" : "", str(s, {"orientation", "yaw_reference"}).c_str(),
                 fmt(num(s, {"orientation", "world_yaw_deg"}), "%.2f").c_str(),
                 fmt(num(s, {"orientation", "world_pitch_deg"}), "%.2f").c_str());
-    std::printf("Positie:      ongeldig (nog geen camera)\n");
+    std::printf("Positie:      %s\n", optical_text(s).c_str());
+    if (const json::Value* cam = path(r, {"camera"}); cam && cam->is_object())
+        std::printf("Camera:       %s, %s/s (5 s), gemist %.0f, bol geldig %.0f van %.0f frames\n", str(*cam, {"state"}).c_str(),
+                    fmt(num(*cam, {"frames", "fps_5s"}), "%.2f").c_str(), num(*cam, {"frames", "missed_by_sequence"}, 0),
+                    num(*cam, {"tracker", "valid"}, 0), num(*cam, {"tracker", "processed"}, 0));
     if (boolean(s, {"aim", "valid"})) {
         std::printf("Aim:          x %.3f y %.3f (ongefilterd %.3f %.3f)%s, yaw %+.2f pitch %+.2f graden, midden: %s\n",
                     num(s, {"aim", "x"}), num(s, {"aim", "y"}), num(s, {"aim", "x_raw"}), num(s, {"aim", "y_raw"}),
@@ -272,6 +344,15 @@ int main(int argc, char** argv) {
             if (r.code != kExitOk) return r.code;
             if (json) std::printf("%s\n", r.line.c_str());
             else if (const json::Value* res = path(r.v, {"result"}); res && path(*res, {"sample"})) print_status(*res);
+            else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "camera") {
+            rq.cmd = ipc::Cmd::Camera;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) print_camera(*res);
             else return kExitProtocol;
             return kExitOk;
         }
