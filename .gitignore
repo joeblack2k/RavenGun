@@ -14,3 +14,4 @@ secrets*
 # CMake-builds
 /build/
 src/tools/movetest/movetest
+/.claude/
