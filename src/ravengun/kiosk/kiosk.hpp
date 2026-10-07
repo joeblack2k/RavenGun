@@ -31,7 +31,8 @@ struct Result {
 
 Result status();
 // Opent http://127.0.0.1:<port>/calibrate fullscreen op de tv. Al open: ok, "al geopend".
-Result open(int port);
+// step: leeg of "practice" (opent /calibrate?step=practice); een andere waarde wordt genegeerd.
+Result open(int port, const std::string& step = "");
 // SIGTERM naar de kioskprocessen, na 4 s SIGKILL voor wat overblijft.
 Result close();
 

@@ -22,7 +22,6 @@ namespace {
 
 constexpr int kMaxConns = 32;
 constexpr int kMaxSse = 8;
-constexpr double kStreamHz = 30.0;
 constexpr int64_t kReadTimeoutNs = 10'000'000'000;   // verzoek moet binnen 10 s compleet zijn
 constexpr int64_t kStallTimeoutNs = 15'000'000'000;  // SSE-client die 15 s niets afneemt
 constexpr int64_t kKeepaliveNs = 15'000'000'000;
@@ -36,7 +35,7 @@ struct Conn {
     bool closing = false;       // sluiten zodra out leeg is
     bool sse = false;
     SseBuffer sse_buf;
-    Throttle throttle{kStreamHz};
+    Throttle throttle{kDefaultStreamHz};
     uint64_t last_seq = 0, last_optical = 0, last_progress_seq = 0;
     int64_t last_keepalive = 0;
     bool sent_any_frame = false;
@@ -185,6 +184,7 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
                     resp.body = "{\"v\":1,\"ok\":false,\"error\":{\"code\":\"unavailable\",\"message\":\"te veel open streams\"}}";
                 } else {
                     c.sse = true;
+                    if (resp.sse_hz > 0) c.throttle = Throttle(resp.sse_hz);  // alleen de throttle van deze client
                     ++sse_count;
                     c.out = serialize(resp) + "retry: 2000\n\n";
                     c.last_keepalive = now;
@@ -195,7 +195,7 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
             c.closing = true;
         }
 
-        // SSE: hoogstens 30 Hz, alleen bij nieuwe data; een trage client krijgt frames overgeslagen.
+        // SSE: standaard hoogstens 30 Hz (een client kan tot 60 Hz vragen), alleen bij nieuwe data; een trage client krijgt frames overgeslagen.
         Snapshot snap;
         bool have_snap = false;
         for (auto& c : conns) {

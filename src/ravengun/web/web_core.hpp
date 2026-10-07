@@ -35,6 +35,7 @@ struct HttpResponse {
     std::string body;
     std::vector<std::pair<std::string, std::string>> headers;
     bool sse = false;  // de server opent hierna een Server-Sent-Events-stroom
+    double sse_hz = 0;  // gevraagde streamsnelheid van deze ene client (0 = standaard)
 };
 
 // Serialiseert statusregel, vaste beveiligingsheaders, Content-Length en body.
@@ -92,6 +93,12 @@ std::string default_token_path();
 // Ingebakken statische bestanden (gegenereerd door CMake uit src/ravengund/web/).
 struct Asset { const char* path; const char* content_type; const char* data; };
 const Asset* find_asset(std::string_view path);
+
+// Streamsnelheden: standaard 30 Hz; één client mag via /api/stream?hz=N om 1..60 Hz vragen (alleen zijn eigen
+// throttle verandert). Alles buiten het bereik of geen geheel getal geeft de standaard.
+inline constexpr double kDefaultStreamHz = 30.0;
+inline constexpr double kMaxStreamHz = 60.0;
+double stream_hz_from_query(const std::string& query);
 
 // SSE-hulp.
 std::string sse_frame(std::string_view event, std::string_view data_json);

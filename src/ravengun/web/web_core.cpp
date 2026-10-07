@@ -401,9 +401,12 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
                 auto pr = json::parse(r.body);
                 if (!pr.ok || !pr.value.is_object()) return error_json(400, "bad_request", "verwacht een JSON-object");
                 const json::Value* a = pr.value.find("action");
-                if (pr.value.obj.size() != 1 || !a || !a->is_string() || (a->str != "open" && a->str != "close"))
-                    return error_json(400, "bad_request", "alleen {\"action\":\"open\"} of {\"action\":\"close\"}");
-                return api_command("{\"v\":1,\"cmd\":\"calibrate_ui\",\"action\":\"" + a->str + "\"}");
+                const json::Value* st = pr.value.find("step");
+                bool step_ok = !st || (st->is_string() && st->str == "practice" && a && a->is_string() && a->str == "open");
+                if (pr.value.obj.size() != (st ? 2u : 1u) || !a || !a->is_string() || (a->str != "open" && a->str != "close") || !step_ok)
+                    return error_json(400, "bad_request", "alleen {\"action\":\"open\"} (eventueel met \"step\":\"practice\") of {\"action\":\"close\"}");
+                return api_command("{\"v\":1,\"cmd\":\"calibrate_ui\",\"action\":\"" + a->str + "\"" +
+                                   (st ? ",\"step\":\"practice\"" : "") + "}");
             }
             if (get) return wrong_method("POST");
             if (sub == "mag/start" || sub == "mag/stop" || sub == "mag/abort") {
@@ -437,6 +440,7 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (!get) return wrong_method("GET");
             HttpResponse o;
             o.sse = true;
+            o.sse_hz = stream_hz_from_query(r.query);
             return o;
         }
         if (p == "/api/recenter") {
@@ -546,6 +550,24 @@ std::string load_or_create_token(const std::string& path, std::string& err) {
     }
     err = "token-bestand niet te lezen of te maken";
     return {};
+}
+
+double stream_hz_from_query(const std::string& q) {
+    size_t pos = 0;
+    while (pos <= q.size()) {
+        size_t amp = q.find('&', pos);
+        std::string part = q.substr(pos, amp == std::string::npos ? std::string::npos : amp - pos);
+        if (part.rfind("hz=", 0) == 0) {
+            std::string v = part.substr(3);
+            if (v.empty() || v.size() > 3) return kDefaultStreamHz;
+            int n = 0;
+            for (char c : v) { if (c < '0' || c > '9') return kDefaultStreamHz; n = n * 10 + (c - '0'); }
+            return n >= 1 && n <= static_cast<int>(kMaxStreamHz) ? static_cast<double>(n) : kDefaultStreamHz;
+        }
+        if (amp == std::string::npos) break;
+        pos = amp + 1;
+    }
+    return kDefaultStreamHz;
 }
 
 std::string sse_frame(std::string_view event, std::string_view data_json) {

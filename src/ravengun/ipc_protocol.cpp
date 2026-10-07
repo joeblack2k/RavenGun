@@ -292,11 +292,16 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (r.button_map.empty()) return err("invalid_argument", "set_buttons zonder te wijzigen velden", r.id_json);
     } else if (cmd == "calibrate_ui") {
         r.cmd = Cmd::CalibrateUi;
-        if (!allowed(o, {"action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"action", "step"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         const json::Value* a = o.find("action");
         if (!a || !a->is_string() || (a->str != "open" && a->str != "close" && a->str != "status"))
             return err("invalid_argument", "'action' moet open, close of status zijn", r.id_json);
         r.action = a->str;
+        if (const json::Value* st = o.find("step")) {
+            if (!st->is_string() || st->str != "practice" || r.action != "open")
+                return err("invalid_argument", "'step' mag alleen \"practice\" zijn, bij open", r.id_json);
+            r.step = st->str;
+        }
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -411,6 +416,7 @@ std::string make_request(const Request& r) {
             break;
         case Cmd::CalibrateUi:
             w.key("action").value(r.action);
+            if (!r.step.empty()) w.key("step").value(r.step);
             break;
         case Cmd::Info:
         case Cmd::Settings:

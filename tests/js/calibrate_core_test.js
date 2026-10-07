@@ -229,4 +229,122 @@ t('stageFit: letterbox van het 16:9-podium', () => {
   assert.ok(Math.abs(f.scale - 1280 / 1920) < 1e-12 && f.left === 0 && f.top > 0);
 });
 
+t('aimView: geldig, ongeldig en off-screen', () => {
+  assert.strictEqual(C.aimView(null), null);
+  assert.strictEqual(C.aimView({ aim: { valid: false, x: null, y: null } }), null);
+  const v = C.aimView({ aim: { valid: true, x: 0.25, y: 0.75, x_raw: 0.3, y_raw: 0.7, x_clamped: 0.25, y_clamped: 0.75, off_screen: false } });
+  assert.deepStrictEqual([v.x, v.y, v.rx, v.ry, v.off], [0.25, 0.75, 0.3, 0.7, false]);
+  const o = C.aimView({ aim: { valid: true, x: 1.2, y: 0.5, x_raw: 1.25, y_raw: 0.5, x_clamped: 1, y_clamped: 0.5, off_screen: true } });
+  assert.ok(o.off && o.cx === 1);
+});
+
+t('offscreenArrow: alleen buiten 0..1, aan de rand, richting klopt', () => {
+  assert.strictEqual(C.offscreenArrow(0.5, 0.5, 1920, 1080), null);
+  assert.strictEqual(C.offscreenArrow(0, 1, 1920, 1080), null);   // precies op de rand is nog op het scherm
+  const r = C.offscreenArrow(1.3, 0.5, 1920, 1080, 60);
+  assert.strictEqual(r.px, 1860); assert.strictEqual(r.py, 540);
+  assert.ok(Math.abs(r.angle) < 1e-9 && Math.abs(r.over - 0.3) < 1e-9);
+  const l = C.offscreenArrow(-0.2, 0.5, 1920, 1080, 60);
+  assert.strictEqual(l.px, 60); assert.ok(Math.abs(Math.abs(l.angle) - Math.PI) < 1e-9);
+  const u = C.offscreenArrow(0.5, -0.4, 1920, 1080, 60);
+  assert.strictEqual(u.py, 60); assert.ok(Math.abs(u.angle + Math.PI / 2) < 1e-9);
+  const d = C.offscreenArrow(0.5, 1.4, 1920, 1080, 60);
+  assert.strictEqual(d.py, 1020); assert.ok(Math.abs(d.angle - Math.PI / 2) < 1e-9);
+  const h = C.offscreenArrow(2, -1, 1920, 1080, 60);   // hoek: geklemd op beide assen
+  assert.deepStrictEqual([h.px, h.py], [1860, 60]);
+});
+
+t('Interpolator: glijdt in één interval, geen doorschieten, snapt bij sprong en ongeldig', () => {
+  const ip = new C.Interpolator({ dt: 20 });
+  assert.strictEqual(ip.at(0), null);
+  ip.push(1000, [0.5, 0.5]);
+  assert.deepStrictEqual(ip.at(1000), [0.5, 0.5]);          // eerste punt: geen glijden
+  ip.push(1020, [0.6, 0.5]);
+  assert.ok(Math.abs(ip.at(1020)[0] - 0.5) < 1e-9);        // begint bij het vorige punt
+  assert.ok(Math.abs(ip.at(1030)[0] - 0.55) < 0.01);       // halverwege (dt ~20)
+  assert.ok(Math.abs(ip.at(1500)[0] - 0.6) < 1e-9);        // blijft op het laatste punt staan
+  ip.push(1040, [0.9, 0.9]);                               // sprong (> 0.25): meteen
+  assert.deepStrictEqual(ip.at(1040), [0.9, 0.9]);
+  ip.push(1060, null);
+  assert.strictEqual(ip.at(1060), null);
+  ip.push(1080, [0.1, 0.1]);
+  assert.deepStrictEqual(ip.at(1080), [0.1, 0.1]);         // na ongeldig: geen glijden vanaf oud punt
+  const mid = new C.Interpolator({ dt: 20 }); mid.push(0, [0, 0]); mid.push(20, [0.1, 0]);
+  assert.ok(mid.at(30)[0] > 0.049 && mid.at(30)[0] < 0.051 && mid.at(10)[0] === 0);   // nooit voor het vorige punt
+});
+
+t('Interpolator: leert het frame-interval', () => {
+  const ip = new C.Interpolator({ dt: 33 });
+  let tt = 0;
+  for (let i = 0; i < 60; i++) { ip.push(tt, [0.5 + i * 0.001, 0.5]); tt += 16.7; }
+  assert.ok(ip.dt > 16 && ip.dt < 19, 'dt=' + ip.dt);
+});
+
+t('RateMeter: frames per seconde in een glijdend venster', () => {
+  const m = new C.RateMeter(1000);
+  assert.strictEqual(m.hz(0), 0);
+  for (let i = 0; i < 120; i++) m.add(i * (1000 / 60));
+  assert.ok(Math.abs(m.hz(119 * 1000 / 60) - 60) < 1);
+  const k = new C.RateMeter(1000);
+  for (let i = 0; i < 40; i++) k.add(i * (1000 / 30));
+  assert.ok(Math.abs(k.hz(39 * 1000 / 30) - 30) < 1);
+  assert.strictEqual(k.hz(1e6), 0);   // niets meer ontvangen
+});
+
+t('nextTarget: binnen de rand en ver genoeg van het vorige', () => {
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  let prev = null;
+  for (let i = 0; i < 200; i++) {
+    const g = C.nextTarget(rnd, prev, 1920, 1080, { r: 60, edge: 0.12, edgeBottom: 0.18, minDist: 400 });
+    assert.ok(g.x >= 230 && g.x <= 1690 && g.y >= 129 && g.y <= 886, JSON.stringify(g));
+    if (prev) assert.ok(Math.hypot(g.x - prev.x, g.y - prev.y) >= 400);
+    assert.strictEqual(g.r, 60);
+    prev = g;
+  }
+});
+
+t('shotResult en PracticeStats: treffer, mis, gemiddelde afstand in px en %', () => {
+  const tg = { x: 960, y: 540, r: 60 };
+  const a = C.shotResult(960, 540, tg, 1920);
+  assert.ok(a.hit && a.distPx === 0 && a.distPct === 0);
+  const b = C.shotResult(960 + 60, 540, tg, 1920);          // precies op de rand telt als treffer
+  assert.ok(b.hit && b.distPx === 60);
+  const c = C.shotResult(960 + 300, 540 + 400, tg, 1920);   // 3-4-5: 500 px
+  assert.ok(!c.hit && Math.abs(c.distPx - 500) < 1e-9 && Math.abs(c.distPct - 500 / 1920 * 100) < 1e-9);
+  const st = new C.PracticeStats();
+  assert.deepStrictEqual(st.summary(), { shots: 0, hits: 0, misses: 0, avgPx: null, avgPct: null });
+  st.add(a); st.add(b); st.add(c);
+  const s = st.summary();
+  assert.deepStrictEqual([s.shots, s.hits, s.misses], [3, 2, 1]);
+  assert.ok(Math.abs(s.avgPx - 560 / 3) < 1e-9 && Math.abs(s.avgPct - (560 / 3) / 1920 * 100) < 1e-9);
+  st.reset();
+  assert.strictEqual(st.summary().shots, 0);
+  const off = C.shotResult(-300, 540, tg, 1920);            // schot buiten het scherm: echte afstand, mis
+  assert.ok(!off.hit && Math.abs(off.distPx - 1260) < 1e-9);
+});
+
+t('PracticeButtons: toewijzing, baseline en debounce', () => {
+  const pb = new C.PracticeButtons();
+  assert.deepStrictEqual(pb.feed(counts({ 20: 3 }), 0), []);                       // baseline: oude drukken tellen niet
+  assert.deepStrictEqual(pb.feed(counts({ 20: 4 }), 100), ['shoot']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 5 }), 150), []);                     // denderen binnen 120 ms
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6 }), 260), ['shoot']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1 }), 270), ['recenter']);    // Move-knop: midden, geen schot
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1 }), 300), ['back']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1, 11: 1 }), 320), ['close']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1, 11: 1, 8: 1 }), 340), ['toggle_raw']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 2, 5: 1, 11: 1, 8: 1 }), 400), []);   // recenter binnen 350 ms
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 3, 5: 1, 11: 1, 8: 1 }), 700), ['recenter']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 7, 19: 3, 6: 1, 5: 1, 11: 1, 8: 1 }), 800), ['shoot']);   // kruis: genegeerd
+  pb.reset();
+  assert.deepStrictEqual(pb.feed(counts({ 20: 9 }), 900), []);                     // na reset weer baseline
+  assert.deepStrictEqual(pb.feed(counts({ 20: 10, 19: 1 }), 1500), ['recenter', 'shoot']);
+});
+
+t('aimModeText: modus en middenbron', () => {
+  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'auto_initial' } }), 'oriëntatie (voorlopig), auto-midden');
+  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'user' } }), 'oriëntatie (voorlopig), midden door jou gezet');
+  assert.ok(C.aimModeText(null).indexOf('onbekend') === 0);
+});
 console.log('JS_TESTS_OK ' + n);

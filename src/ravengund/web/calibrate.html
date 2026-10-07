@@ -27,6 +27,7 @@
       <li><b>Stil richten</b> <span>zeven keer vijf seconden stilhouden op het kruis</span></li>
       <li><b>Knoppen</b> <span>testen en vastleggen welke knop welke is</span></li>
       <li><b>Scherm</b> <span>de negen doelen (de berekening komt later)</span></li>
+      <li><b>Oefenen</b> <span>een vizier en doelen schieten, om te voelen hoe het mikt</span></li>
     </ol>
     <p class="muted">De knoppen die je nu kunt gebruiken staan onderaan het scherm.</p>
     <p id="welcome-note" class="note" hidden></p>
@@ -152,9 +153,19 @@
 
   <!-- 7. Klaar -->
   <section id="s-done" class="scr" hidden>
-    <h1>Klaar</h1>
+    <h1>Klaar met kalibreren</h1>
     <ul id="summary" class="tips"></ul>
-    <p class="prompt">Trekker: scherm sluiten <span class="sep">&middot;</span> Cirkel: terug</p>
+    <p class="prompt">Trekker: oefenen <span class="sep">&middot;</span> Cirkel: terug <span class="sep">&middot;</span> Select: sluiten</p>
+  </section>
+
+  <!-- 8. Oefenen: vizier en doelen (alleen weergave, geen invoer naar de game) -->
+  <section id="s-practice" class="scr screen" hidden>
+    <canvas id="pr-canvas" width="1920" height="1080"></canvas>
+    <div id="pr-score"></div>
+    <div id="pr-msg" hidden></div>
+    <div id="pr-none" hidden>Geen geldige richting</div>
+    <div id="pr-keys"><span><b>Trekker</b> schieten</span><span><b>Move</b> midden zetten</span><span><b>Select</b> ruwe stip</span><span><b>Cirkel</b> terug</span><span><b>Start</b> sluiten</span></div>
+    <div id="pr-status"></div>
   </section>
 
   <div id="overlay" hidden><div id="overlay-text">...</div></div>

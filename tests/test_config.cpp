@@ -420,6 +420,14 @@ static void test_sharp_shooter_buttons() {
         rq = parse_ok(std::string(R"({"v":1,"cmd":"calibrate_ui","action":")") + a + "\"}", ok);
         CHECK(ok && rq.action == a);
     }
+    rq = parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"open","step":"practice"})", ok);
+    CHECK(ok && rq.step == "practice");
+    rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.step == "practice");
+    parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"open","step":"mag"})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"close","step":"practice"})", ok, &err);
+    CHECK(!ok);
     parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"verwijder"})", ok, &err);
     CHECK(!ok);
     parse_ok(R"({"v":1,"cmd":"calibrate_ui"})", ok, &err);

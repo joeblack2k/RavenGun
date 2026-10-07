@@ -153,7 +153,7 @@ Result status() {
     return r;
 }
 
-Result open(int port) {
+Result open(int port, const std::string& step) {
     Result r;
     std::string prof = profile_dir();
     if (prof.empty()) { r.message = "geen HOME of XDG_STATE_HOME bekend"; return r; }
@@ -185,7 +185,7 @@ Result open(int port) {
     std::string xa = find_xauthority();
     if (!xa.empty()) env.push_back("XAUTHORITY=" + xa);
 
-    std::string url = "http://127.0.0.1:" + std::to_string(port) + "/calibrate";
+    std::string url = "http://127.0.0.1:" + std::to_string(port) + "/calibrate" + (step == "practice" ? "?step=practice" : "");
     std::vector<std::string> args{"flatpak"};
     for (auto& a : flatpak_args(url, prof)) args.push_back(a);
     std::vector<char*> argv, envp;

@@ -622,6 +622,9 @@
   $('cal-open').addEventListener('click', function (e) {
     submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Kalibratiescherm geopend op de tv', e.target, refreshCal);
   });
+  $('cal-practice').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'open', step: 'practice' }, $('cal-err'), 'Oefenscherm geopend op de tv', e.target, refreshCal);
+  });
   $('cal-close').addEventListener('click', function (e) {
     submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Kalibratiescherm gesloten', e.target, refreshCal);
   });
