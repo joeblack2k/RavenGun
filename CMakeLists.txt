@@ -22,6 +22,8 @@ add_library(ravengun STATIC
   src/ravengun/core/fusion.cpp
   src/ravengun/core/input_model.cpp
   src/ravengun/core/pipeline.cpp
+  src/ravengun/vision/ball_tracker.cpp
+  src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
   src/ravengun/probe.cpp
   src/ravengun/doctor.cpp
@@ -33,6 +35,7 @@ target_link_libraries(ravengunctl PRIVATE ravengun)
 
 # ravengund: de daemon. PSMoveAPI wordt user-local verwacht (zie docs/build.md).
 option(RAVENGUN_BUILD_DAEMON "Bouw ravengund" ON)
+find_package(Threads REQUIRED)
 set(PSMOVEAPI_ROOT "$ENV{HOME}/.local/share/ravengun/psmoveapi" CACHE PATH "Prefix van de PSMoveAPI-installatie")
 if(RAVENGUN_BUILD_DAEMON)
   find_package(Threads REQUIRED)
@@ -67,6 +70,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_core_tests tests/test_core.cpp)
   target_link_libraries(ravengun_core_tests PRIVATE ravengun)
   add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
+  add_executable(ravengun_vision_tests tests/test_vision.cpp)
+  target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)
+  add_test(NAME ravengun_vision_tests COMMAND ravengun_vision_tests)
   if(RAVENGUN_BUILD_DAEMON)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
