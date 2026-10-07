@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include "commands.hpp"
 #include "hid_thread.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/ipc_protocol.hpp"
@@ -27,7 +28,6 @@ namespace {
 constexpr size_t kMaxOut = 256 * 1024;      // daarboven wordt een client verbroken
 constexpr size_t kWatchSkipAbove = 16 * 1024;  // watch-frame overslaan als er nog zoveel wacht
 constexpr int kMaxClients = 16;
-constexpr auto kJobTimeout = std::chrono::milliseconds(500);
 
 struct Client {
     int fd = -1;
@@ -43,17 +43,6 @@ struct Client {
     bool closing = false;  // na het legen van out sluiten
 };
 
-std::string run_job(SharedState& sh, SharedState::Job j, std::string& err) {
-    auto f = sh.post(std::move(j));
-    if (f.wait_for(kJobTimeout) != std::future_status::ready) { err = "HID-thread reageert niet binnen 500 ms"; return {}; }
-    try {
-        return f.get();
-    } catch (const std::exception& e) {
-        err = e.what();
-        return {};
-    }
-}
-
 void write_edges(json::Writer& w, const std::array<uint64_t, 32>& now, const std::array<uint64_t, 32>& base) {
     w.begin_object();
     for (const auto& b : core::kButtonNames) {
@@ -68,88 +57,19 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
     auto pr = ipc::parse_request(line);
     if (auto* e = std::get_if<ipc::Error>(&pr)) return ipc::error_response(*e);
     const ipc::Request& r = std::get<ipc::Request>(pr);
-    std::string err;
-    switch (r.cmd) {
-        case ipc::Cmd::Status: {
-            bool full = r.full_ids;
-            std::string res = run_job(sh, [full](HidContext& h) { return h.status_json(full); }, err);
-            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
-            // Camerastatus (uit de camera-service, niet uit de HID-thread) als extra sleutel.
-            if (sh.camera_status && !res.empty() && res.back() == '}') {
-                res.pop_back();
-                res += ",\"camera\":" + sh.camera_status() + "}";
-            }
-            return ipc::ok_response(r.id_json, res);
-        }
-        case ipc::Cmd::Camera: {
-            if (!sh.camera_status) return ipc::error_response({"unavailable", "geen camera-service", r.id_json});
-            return ipc::ok_response(r.id_json, sh.camera_status());
-        }
-        case ipc::Cmd::Sample: {
-            Snapshot s = sh.get();
-            json::Writer w;
-            core::write_sample_json(w, s.sample, r.full_ids);
-            return ipc::ok_response(r.id_json, w.str());
-        }
-        case ipc::Cmd::Recenter: {
-            std::string res = run_job(sh, [](HidContext& h) { return std::string(h.recenter() ? "1" : "0"); }, err);
-            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
-            if (res != "1")
-                return ipc::error_response({"unavailable", "geen geldige, actuele oriëntatie: is de Move verbonden?", r.id_json});
-            Snapshot s = sh.get();
-            json::Writer w;
-            w.begin_object().key("recentered").value(true).key("sample");
-            core::write_sample_json(w, s.sample, false);
-            w.end_object();
-            return ipc::ok_response(r.id_json, w.str());
-        }
-        case ipc::Cmd::Watch: {
-            Snapshot s = sh.get();
-            c.watching = true;
-            c.full_ids = r.full_ids;
-            c.period_ns = static_cast<int64_t>(1e9 / r.rate_hz);
-            c.next_due = 0;
-            c.last_seq = 0;
-            c.last_optical = 0;
-            c.press_base = s.press_total;
-            c.release_base = s.release_total;
-            json::Writer w;
-            w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).end_object();
-            return ipc::ok_response(r.id_json, w.str());
-        }
-        case ipc::Cmd::SetFilter: {
-            ipc::Request rq = r;
-            std::string res = run_job(sh, [rq](HidContext& h) {
-                core::OneEuroConfig f = h.filter();
-                if (rq.filter_enabled) f.enabled = *rq.filter_enabled;
-                if (rq.min_cutoff_hz) f.min_cutoff_hz = *rq.min_cutoff_hz;
-                if (rq.beta) f.beta = *rq.beta;
-                if (rq.d_cutoff_hz) f.d_cutoff_hz = *rq.d_cutoff_hz;
-                h.set_filter(f);
-                json::Writer w;
-                w.begin_object().key("enabled").value(f.enabled).key("min_cutoff_hz").value(f.min_cutoff_hz)
-                    .key("beta").value(f.beta).key("d_cutoff_hz").value(f.d_cutoff_hz).end_object();
-                return w.str();
-            }, err);
-            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
-            return ipc::ok_response(r.id_json, res);
-        }
-        case ipc::Cmd::SetAim: {
-            ipc::Request rq = r;
-            std::string res = run_job(sh, [rq](HidContext& h) {
-                core::AimConfig a = h.aim();
-                if (rq.h_edge_deg) a.h_edge_deg = *rq.h_edge_deg;
-                if (rq.v_edge_deg) a.v_edge_deg = *rq.v_edge_deg;
-                h.set_aim(a);
-                json::Writer w;
-                w.begin_object().key("h_edge_deg").value(a.h_edge_deg).key("v_edge_deg").value(a.v_edge_deg).end_object();
-                return w.str();
-            }, err);
-            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
-            return ipc::ok_response(r.id_json, res);
-        }
-    }
-    return ipc::error_response({"internal", "onbekende toestand", r.id_json});
+    if (r.cmd != ipc::Cmd::Watch) return execute_command(sh, r);  // gedeeld met de webinterface
+    Snapshot s = sh.get();
+    c.watching = true;
+    c.full_ids = r.full_ids;
+    c.period_ns = static_cast<int64_t>(1e9 / r.rate_hz);
+    c.next_due = 0;
+    c.last_seq = 0;
+    c.last_optical = 0;
+    c.press_base = s.press_total;
+    c.release_base = s.release_total;
+    json::Writer w;
+    w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).end_object();
+    return ipc::ok_response(r.id_json, w.str());
 }
 
 void flush(Client& c) {

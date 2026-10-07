@@ -18,6 +18,7 @@
 #include "ipc_server.hpp"
 #include "ravengun/ipc_client.hpp"
 #include "shared.hpp"
+#include "web_server.hpp"
 
 using namespace ravengund;
 
@@ -53,6 +54,13 @@ void usage(FILE* f) {
         "  --hue-deg G, --hue-tol-deg G     tint-sector van de tracker (standaard: gemeten tint van de\n"
         "                                   LED-kleur, anders nominaal; tolerantie 30)\n"
         "  --min-chroma N                   minimale chroma van een kleurpixel (standaard 28)\n"
+        "\n"
+        "webinterface (in de daemon; standaard aan, alleen op 127.0.0.1):\n"
+        "  --web / --no-web                 webinterface aan (standaard) of uit\n"
+        "  --web-port N                     poort (standaard 8765)\n"
+        "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
+        "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
+        "\n"
         "  -h, --help                       deze tekst\n"
         "\n"
         "exitcodes: 0 normaal gestopt, 64 verkeerd gebruik, 69 al actief of geen runtime-map,\n"
@@ -75,6 +83,8 @@ int main(int argc, char** argv) {
     HidOptions opt;
     CameraOptions cam;
     std::string led_arg;
+    bool web_on = true, web_lan = false;
+    double web_port = ravengun::web::kDefaultPort;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -92,6 +102,10 @@ int main(int argc, char** argv) {
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
         else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
         else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
+        else if (a == "--web") web_on = true;
+        else if (a == "--no-web") web_on = false;
+        else if (a == "--web-lan") web_lan = true;
+        else if (a == "--web-port") need(1, 65535, web_port);
         else if (a == "--no-camera") cam.enabled = false;
         else if (a == "--camera-auto") cam.manual = false;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
@@ -148,6 +162,11 @@ int main(int argc, char** argv) {
     if (!std::isnan(hue)) cam.tracker.hue_deg = hue;
     if (!std::isnan(hue_tol)) cam.tracker.hue_tol_deg = hue_tol;
     if (!std::isnan(min_chroma)) cam.tracker.min_chroma = static_cast<int>(min_chroma);
+
+    if (web_lan && !web_on) {
+        std::fprintf(stderr, "ravengund: --web-lan samen met --no-web is tegenstrijdig\n");
+        return 64;
+    }
 
     std::string dir = ravengun::ipc::runtime_dir();
     if (dir.empty()) { std::fprintf(stderr, "ravengund: XDG_RUNTIME_DIR is niet gezet\n"); return 69; }
@@ -207,6 +226,40 @@ int main(int argc, char** argv) {
     std::thread ipc(ipc_thread_main, std::ref(shared), sfd, wake);
     camera.start();
 
+    // Webinterface: een eigen thread; als hij niet kan starten draait de daemon gewoon door.
+    std::thread web;
+    int wfd = -1;
+    if (web_on) {
+        ravengun::web::WebConfig wc;
+        wc.port = static_cast<int>(web_port);
+        wc.lan = web_lan;
+        wc.csrf = ravengun::web::random_hex(16);
+        std::string werr;
+        if (web_lan) {
+            std::string tpath = ravengun::web::default_token_path();
+            wc.token = ravengun::web::load_or_create_token(tpath, werr);
+            char hn[256] = {0};
+            if (::gethostname(hn, sizeof hn - 1) == 0) wc.hostname = hn;
+            if (!wc.token.empty())
+                logf("info", "web: LAN-toegang aan; token staat in %s (niet in deze log)", tpath.c_str());
+        }
+        if (werr.empty()) werr = ravengun::web::validate(wc);
+        if (!werr.empty()) {
+            logf("fout", "web-interface niet gestart: %s", werr.c_str());
+        } else if ((wfd = web_listen(wc)) >= 0) {
+            if (web_lan)
+                logf("info", "web-interface op http://%s:%d/ (LAN; open eenmalig /?token=<token uit het tokenbestand>)",
+                     wc.hostname.empty() ? "<dit-apparaat>" : wc.hostname.c_str(), wc.port);
+            else
+                logf("info", "web-interface op http://127.0.0.1:%d/ (alleen localhost)", wc.port);
+            web = std::thread(web_thread_main, std::ref(shared), wc, wfd, wake);
+        } else {
+            logf("fout", "web-interface niet gestart (poort bezet?); de daemon draait verder zonder");
+        }
+    } else {
+        logf("info", "web-interface uit (--no-web)");
+    }
+
     int sig = 0;
     sigwait(&set, &sig);
     logf("info", "signaal %s ontvangen, stoppen", sig == SIGINT ? "SIGINT" : "SIGTERM");
@@ -216,6 +269,8 @@ int main(int argc, char** argv) {
     camera.stop();
     hid.join();
     ipc.join();
+    if (web.joinable()) web.join();
+    if (wfd >= 0) ::close(wfd);
     ::close(sfd);
     ::unlink(sock.c_str());
     ::close(wake);

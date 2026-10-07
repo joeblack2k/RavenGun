@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{CSRF}}">
+<meta name="color-scheme" content="dark">
+<title>RavenGun</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <h1>RavenGun</h1>
+  <span id="conn" class="pill" title="Verbinding met de daemon">verbinden...</span>
+</header>
+<nav id="nav">
+  <a href="#/overzicht" data-page="overzicht">Overzicht</a>
+  <a href="#/live" data-page="live">Live</a>
+  <a href="#/instellingen" data-page="instellingen">Instellingen</a>
+  <a href="#/kalibratie" data-page="kalibratie">Kalibratie</a>
+  <a href="#/apparaten" data-page="apparaten">Apparaten</a>
+  <a href="#/games" data-page="games">Games</a>
+</nav>
+<main>
+
+<section id="p-overzicht" class="page">
+  <h2>Overzicht</h2>
+  <div class="grid">
+    <div class="card"><h3>Move-controller</h3><dl id="ov-move"></dl></div>
+    <div class="card"><h3>Camera en bol</h3><dl id="ov-cam"></dl></div>
+    <div class="card"><h3>Tracking</h3><dl id="ov-track"></dl></div>
+    <div class="card"><h3>Daemon</h3><dl id="ov-daemon"></dl></div>
+  </div>
+  <p class="note">Deze pagina toont alleen getallen en toestanden. Er worden nooit camerabeelden getoond of opgeslagen.</p>
+</section>
+
+<section id="p-live" class="page">
+  <h2>Live</h2>
+  <div class="grid">
+    <div class="card wide">
+      <h3>Aim-punt</h3>
+      <canvas id="aim" width="480" height="270" aria-label="Aim-punt op het scherm"></canvas>
+      <p class="legend"><span class="dot raw"></span> ruw <span class="dot filt"></span> gefilterd <span id="aim-note" class="muted"></span></p>
+    </div>
+    <div class="card">
+      <h3>Bol in het camerabeeld</h3>
+      <canvas id="mini" width="240" height="180" aria-label="Positie van de bol in het camerabeeld"></canvas>
+      <p id="mini-note" class="muted">Alleen coördinaten, geen beeld.</p>
+    </div>
+    <div class="card">
+      <h3>Knoppen en trekker</h3>
+      <div class="bar"><div id="trig" class="fill"></div></div>
+      <p>Trekker: <b id="trig-v">0</b> / 255</p>
+      <p id="btns" class="chips"></p>
+      <p class="muted" id="stream-state">stroom niet verbonden</p>
+    </div>
+  </div>
+</section>
+
+<section id="p-instellingen" class="page">
+  <h2>Instellingen</h2>
+  <div class="grid">
+    <form id="f-filter" class="card" novalidate>
+      <h3>1€-filter</h3>
+      <label class="row"><input type="checkbox" id="flt-enabled"> Filter aan</label>
+      <label>Minimale afsnijfrequentie (Hz) <small>0,001 tot 100</small>
+        <input type="number" id="flt-min" step="any" inputmode="decimal"></label>
+      <label>Beta <small>0 tot 1000</small>
+        <input type="number" id="flt-beta" step="any" inputmode="decimal"></label>
+      <label>Afsnijfrequentie snelheid (Hz) <small>0,001 tot 100</small>
+        <input type="number" id="flt-d" step="any" inputmode="decimal"></label>
+      <p class="err" id="flt-err" role="alert"></p>
+      <button type="submit">Filter toepassen</button>
+    </form>
+    <form id="f-aim" class="card" novalidate>
+      <h3>Aim-schaal</h3>
+      <p class="muted">Hoeveel graden de Move draait tot de rand van het scherm. Kleiner betekent gevoeliger.</p>
+      <label>Horizontaal tot de rand (graden) <small>1 tot 89</small>
+        <input type="number" id="aim-h" step="any" inputmode="decimal"></label>
+      <label>Verticaal tot de rand (graden) <small>1 tot 89</small>
+        <input type="number" id="aim-v" step="any" inputmode="decimal"></label>
+      <p class="err" id="aim-err" role="alert"></p>
+      <button type="submit">Schaal toepassen</button>
+    </form>
+    <div class="card">
+      <h3>Recenter</h3>
+      <p class="muted">Zet het huidige richtpunt van de Move als midden van het scherm. Vereist een verbonden Move.</p>
+      <p class="err" id="rc-err" role="alert"></p>
+      <button type="button" id="recenter">Recenter</button>
+    </div>
+  </div>
+  <p id="toast" class="toast" role="status"></p>
+</section>
+
+<section id="p-kalibratie" class="page">
+  <h2>Kalibratie</h2>
+  <div class="card"><p>Komt later. De kalibratiedoelen verschijnen dan op de televisie, niet op dit beheerscherm.</p></div>
+</section>
+<section id="p-apparaten" class="page">
+  <h2>Apparaten en pairing</h2>
+  <div class="card"><p>Komt later: Move-controllers koppelen en beheren. Voorlopig gaat dat via <code>ravengunctl</code>.</p></div>
+</section>
+<section id="p-games" class="page">
+  <h2>Games en profielen</h2>
+  <div class="card"><p>Komt later: profielen per game kiezen en games starten.</p></div>
+</section>
+
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

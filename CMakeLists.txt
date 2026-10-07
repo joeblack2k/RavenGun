@@ -12,11 +12,17 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 option(RAVENGUN_BUILD_TESTS "Bouw de unittests" ON)
 option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 
+include(cmake/EmbedWebAssets.cmake)
+embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
+  index.html app.css app.js)
+
 add_library(ravengun STATIC
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
   src/ravengun/ipc_client.cpp
+  src/ravengun/web/web_core.cpp
+  "${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp"
   src/ravengun/core/aim.cpp
   src/ravengun/core/buttons.cpp
   src/ravengun/core/fusion.cpp
@@ -45,6 +51,8 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/main.cpp
     src/ravengund/hid_thread.cpp
     src/ravengund/ipc_server.cpp
+    src/ravengund/commands.cpp
+    src/ravengund/web_server.cpp
     src/ravengund/camera.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
@@ -74,7 +82,12 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_vision_tests tests/test_vision.cpp)
   target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_vision_tests COMMAND ravengun_vision_tests)
+  add_executable(ravengun_web_tests tests/test_web.cpp)
+  target_link_libraries(ravengun_web_tests PRIVATE ravengun Threads::Threads)
+  add_test(NAME ravengun_web_tests COMMAND ravengun_web_tests)
   if(RAVENGUN_BUILD_DAEMON)
+    add_test(NAME ravengund_web
+      COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/web_smoke.sh" "$<TARGET_FILE:ravengund>")
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")

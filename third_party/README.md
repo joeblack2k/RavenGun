@@ -18,3 +18,7 @@ Er wordt geen externe code in deze repo gevendord. Bronnen en builds staan buite
 ## Overige afhankelijkheden van ravengund (2026-10-07)
 
 Er is niets gevendord. De daemon gebruikt naast PSMoveAPI alleen de C++-standaardbibliotheek, pthreads en Linux-systeemaanroepen. JSON lezen en schrijven gebeurt met eigen code (`src/ravengun/json.*`, `src/ravengun/json_parse.*`). Het 1€-filter is een eigen implementatie op basis van het artikel van Casiez, Roussel en Vogel (CHI 2012). Het Mahony-filter is een eigen implementatie op basis van de gepubliceerde vergelijkingen.
+
+## Webinterface (2026-10-07)
+
+Geen externe HTTP-bibliotheek: de webserver van ravengund is eigen code (zie `docs/decisions.md`, "Webinterface in de daemon"). Er is geen frontend-bibliotheek en geen CDN; HTML, CSS en JS staan in `src/ravengund/web/` en worden bij het configureren in de binary gebakken.

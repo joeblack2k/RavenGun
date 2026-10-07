@@ -1,0 +1,369 @@
+// Tests van de webkern: parser, routing, beveiliging, JSON-respons, token-opslag en SSE-throttling.
+// Eigen CHECK-macro (actief bij NDEBUG), zoals de andere tests.
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
+#include <mutex>
+
+#include "ravengun/json.hpp"
+#include "ravengun/json_parse.hpp"
+#include "ravengun/web/web_core.hpp"
+
+using namespace ravengun;
+using namespace ravengun::web;
+namespace fs = std::filesystem;
+
+static int g_failures = 0;
+static int g_checks = 0;
+#define CHECK(cond)                                                              \
+    do {                                                                         \
+        ++g_checks;                                                              \
+        if (!(cond)) {                                                           \
+            ++g_failures;                                                        \
+            std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); \
+        }                                                                        \
+    } while (0)
+
+static bool contains(const std::string& s, const std::string& n) { return s.find(n) != std::string::npos; }
+
+static const char* kCsrf = "0123456789abcdef0123456789abcdef";
+static const char* kToken = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+struct Fake {
+    std::string last_line;
+    int calls = 0;
+    std::string reply = R"({"v":1,"ok":true,"result":{"hello":"wereld"}})";
+};
+
+static WebApp make_app(Fake& f, bool lan = false, int port = 8765) {
+    WebConfig c;
+    c.port = port;
+    c.lan = lan;
+    c.csrf = kCsrf;
+    if (lan) { c.token = kToken; c.hostname = "steamdeck"; }
+    Backend b;
+    b.command = [&f](const std::string& line) { f.last_line = line; ++f.calls; return f.reply; };
+    return WebApp(c, b);
+}
+
+static HttpRequest get(const std::string& path, const std::string& host = "127.0.0.1:8765") {
+    HttpRequest r;
+    r.method = "GET";
+    r.path = path;
+    r.headers["host"] = host;
+    return r;
+}
+
+static HttpRequest post(const std::string& path, const std::string& body, bool csrf = true) {
+    HttpRequest r = get(path);
+    r.method = "POST";
+    r.body = body;
+    r.headers["content-type"] = "application/json";
+    r.headers["origin"] = "http://127.0.0.1:8765";
+    if (csrf) r.headers["x-csrf-token"] = kCsrf;
+    return r;
+}
+
+static void test_parser() {
+    auto ok = parse_http("GET /api/status?x=1 HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nX-Test:  waarde \r\n\r\n");
+    CHECK(ok.state == ParseState::Complete);
+    CHECK(ok.request.method == "GET" && ok.request.path == "/api/status" && ok.request.query == "x=1");
+    CHECK(ok.request.header("x-test") == "waarde");
+
+    CHECK(parse_http("GET /x HTTP/1.1\r\nHost: a\r\n").state == ParseState::Incomplete);
+    auto body = parse_http("POST /api/filter HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\n\r\n{\"a\"");
+    CHECK(body.state == ParseState::Incomplete);
+    auto full = parse_http("POST /api/filter HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\n\r\n{}");
+    CHECK(full.state == ParseState::Complete && full.request.body == "{}" && full.consumed > 10);
+
+    CHECK(parse_http("GET /x HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n").state == ParseState::Bad);
+    CHECK(parse_http("POST /x HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n").state == ParseState::Bad);
+    CHECK(parse_http("GET x HTTP/1.1\r\nHost: a\r\n\r\n").state == ParseState::Bad);
+    CHECK(parse_http("GET /x HTTP/2\r\nHost: a\r\n\r\n").state == ParseState::Bad);
+    CHECK(parse_http("GET /x HTTP/1.1\r\n Host: a\r\n\r\n").state == ParseState::Bad);
+    CHECK(parse_http("POST /x HTTP/1.1\r\nHost: a\r\nContent-Length: 99999\r\n\r\n").state == ParseState::TooLarge);
+    CHECK(parse_http(std::string(kMaxHeaderBytes + 10, 'a')).state == ParseState::TooLarge);
+}
+
+static void test_routing_and_json() {
+    Fake f;
+    WebApp app = make_app(f);
+
+    HttpResponse r = app.handle(get("/api/status"));
+    CHECK(r.status == 200 && f.calls == 1);
+    CHECK(f.last_line == R"({"v":1,"cmd":"status"})");
+    auto pr = json::parse(r.body);
+    CHECK(pr.ok && pr.value.find("ok") && pr.value.find("ok")->b);
+    CHECK(r.content_type.rfind("application/json", 0) == 0);
+    app.handle(get("/api/camera"));
+    CHECK(f.last_line == R"({"v":1,"cmd":"camera"})");
+    app.handle(get("/api/sample"));
+    CHECK(f.last_line == R"({"v":1,"cmd":"sample"})");
+
+    r = app.handle(get("/api/csrf"));
+    CHECK(contains(r.body, kCsrf));
+
+    CHECK(app.handle(get("/api/bestaatniet")).status == 404);
+    CHECK(app.handle(get("/geheim.txt")).status == 404);
+    CHECK(app.handle(get("/api/recenter")).status == 405);
+    HttpRequest put = get("/api/status");
+    put.method = "PUT";
+    CHECK(app.handle(put).status == 405);
+    HttpRequest opt = get("/api/status");
+    opt.method = "OPTIONS";  // geen CORS-preflight
+    CHECK(app.handle(opt).status == 405);
+    CHECK(app.handle(post("/api/status", "{}")).status == 405);
+
+    // Statische pagina met ingevuld CSRF-token, zonder externe bronnen.
+    r = app.handle(get("/"));
+    CHECK(r.status == 200 && r.content_type.rfind("text/html", 0) == 0);
+    CHECK(contains(r.body, kCsrf) && !contains(r.body, "{{CSRF}}"));
+    CHECK(!contains(r.body, "http://") && !contains(r.body, "https://") && !contains(r.body, "//cdn"));
+    CHECK(app.handle(get("/app.js")).status == 200);
+    CHECK(app.handle(get("/app.css")).status == 200);
+    CHECK(app.handle(get("/api/stream")).sse);
+
+    // Foutafbeelding: IPC-foutcodes worden HTTP-statussen.
+    f.reply = R"({"v":1,"ok":false,"error":{"code":"unavailable","message":"geen Move"}})";
+    r = app.handle(post("/api/recenter", "{}"));
+    CHECK(r.status == 503 && contains(r.body, "geen Move"));
+    f.reply = R"({"v":1,"ok":false,"error":{"code":"invalid_argument","message":"te groot"}})";
+    CHECK(app.handle(post("/api/aim", R"({"h_edge_deg":500})")).status == 400);
+    f.reply = "geen json";
+    CHECK(app.handle(get("/api/status")).status == 500);
+}
+
+static void test_post_mapping() {
+    Fake f;
+    WebApp app = make_app(f);
+    HttpResponse r = app.handle(post("/api/filter", R"({"enabled":true,"min_cutoff_hz":1.5,"beta":0.25})"));
+    CHECK(r.status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_filter","enabled":true,"min_cutoff_hz":1.5,"beta":0.25})");
+    r = app.handle(post("/api/aim", R"({"h_edge_deg":25,"v_edge_deg":14})"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_aim","h_edge_deg":25,"v_edge_deg":14})");
+    int calls = f.calls;
+    // Geen injectie van cmd/v of onbekende velden; geen niet-scalaire waarden; geen rommel.
+    CHECK(app.handle(post("/api/filter", R"({"cmd":"recenter"})")).status == 400);
+    CHECK(app.handle(post("/api/filter", R"({"beta":"hoog"})")).status == 400);
+    CHECK(app.handle(post("/api/aim", R"({"h_edge_deg":[1]})")).status == 400);
+    CHECK(app.handle(post("/api/filter", "{kapot")).status == 400);
+    CHECK(app.handle(post("/api/filter", "[1]")).status == 400);
+    CHECK(f.calls == calls);  // niets bereikte de backend
+    r = app.handle(post("/api/recenter", ""));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"recenter"})");
+}
+
+static void test_security_local() {
+    Fake f;
+    WebApp app = make_app(f);
+
+    // Host
+    CHECK(app.handle(get("/api/status", "evil.example:8765")).status == 403);
+    CHECK(app.handle(get("/api/status", "127.0.0.1:9999")).status == 403);
+    CHECK(app.handle(get("/api/status", "192.168.1.5:8765")).status == 403);  // IP-literal alleen in LAN-modus
+    CHECK(app.handle(get("/api/status", "")).status == 403);
+    CHECK(app.handle(get("/api/status", "localhost:8765")).status == 200);
+    CHECK(app.handle(get("/api/status", "[::1]:8765")).status == 200);
+    CHECK(app.handle(get("/", "evil.example:8765")).status == 403);
+    CHECK(f.calls == 2);
+
+    // Origin
+    HttpRequest p = post("/api/recenter", "{}");
+    p.headers["origin"] = "http://evil.example";
+    CHECK(app.handle(p).status == 403);
+    p.headers["origin"] = "null";
+    CHECK(app.handle(p).status == 403);
+    p.headers["origin"] = "https://127.0.0.1:8765";
+    CHECK(app.handle(p).status == 403);
+    p.headers["origin"] = "http://127.0.0.1:8765";
+    CHECK(app.handle(p).status == 200);
+    p.headers.erase("origin");  // curl: geen Origin, maar wel CSRF-token
+    CHECK(app.handle(p).status == 200);
+    p.headers["sec-fetch-site"] = "cross-site";
+    CHECK(app.handle(p).status == 403);
+    p.headers["sec-fetch-site"] = "same-origin";
+    CHECK(app.handle(p).status == 200);
+
+    // CSRF
+    int calls = f.calls;
+    CHECK(app.handle(post("/api/recenter", "{}", false)).status == 403);
+    HttpRequest q = post("/api/recenter", "{}");
+    q.headers["x-csrf-token"] = "fout";
+    CHECK(app.handle(q).status == 403);
+    q.headers["x-csrf-token"] = "";
+    CHECK(app.handle(q).status == 403);
+    CHECK(f.calls == calls);
+
+    // Content-Type
+    HttpRequest t = post("/api/recenter", "{}");
+    t.headers["content-type"] = "text/plain";
+    CHECK(app.handle(t).status == 415);
+    t.headers["content-type"] = "application/x-www-form-urlencoded";
+    CHECK(app.handle(t).status == 415);
+    CHECK(f.calls == calls);
+
+    // Een token in de URL doet in localhost-modus niets; geen CORS-headers in welk antwoord dan ook.
+    for (const HttpRequest& rq : {get("/api/status"), get("/api/nope", "evil:1"), post("/api/recenter", "{}", false), get("/")}) {
+        std::string wire = serialize(app.handle(rq));
+        CHECK(!contains(wire, "Access-Control-"));
+        CHECK(contains(wire, "X-Content-Type-Options: nosniff") && contains(wire, "frame-ancestors 'none'"));
+        CHECK(contains(wire, "Cache-Control: no-store"));
+    }
+}
+
+static void test_security_lan() {
+    WebConfig bad;
+    bad.lan = true;
+    bad.csrf = kCsrf;
+    CHECK(!validate(bad).empty());  // LAN zonder token: geweigerd
+    bad.token = "kort";
+    CHECK(!validate(bad).empty());
+    bad.token = kToken;
+    CHECK(validate(bad).empty());
+    WebConfig loc;
+    loc.csrf = kCsrf;
+    CHECK(validate(loc).empty());
+    loc.port = 0;
+    CHECK(!validate(loc).empty());
+
+    Fake f;
+    WebApp app = make_app(f, true);
+    const std::string lan_host = "192.168.1.5:8765";
+    CHECK(app.handle(get("/api/status", lan_host)).status == 401);
+    CHECK(app.handle(get("/", lan_host)).status == 401);
+    CHECK(f.calls == 0);
+    HttpRequest a = get("/api/status", lan_host);
+    a.headers["authorization"] = "Bearer " + std::string(kToken);
+    CHECK(app.handle(a).status == 200);
+    a.headers["authorization"] = "Bearer fout";
+    CHECK(app.handle(a).status == 401);
+    HttpRequest h = get("/api/status", lan_host);
+    h.headers["x-ravengun-token"] = kToken;
+    CHECK(app.handle(h).status == 200);
+    HttpRequest ck = get("/api/status", "steamdeck.local:8765");
+    ck.headers["cookie"] = std::string("x=1; rg_token=") + kToken;
+    CHECK(app.handle(ck).status == 200);
+    CHECK(app.handle(get("/api/status", "evil.example:8765")).status == 403);  // Host eerst
+    HttpRequest wt = get("/api/status", "evil.example:8765");
+    wt.headers["authorization"] = "Bearer " + std::string(kToken);
+    CHECK(app.handle(wt).status == 403);
+
+    // Aanmelden via /?token=...: cookie en doorsturen.
+    HttpRequest login = get("/", lan_host);
+    login.query = std::string("token=") + kToken;
+    HttpResponse r = app.handle(login);
+    std::string wire = serialize(r);
+    CHECK(r.status == 303 && contains(wire, "HttpOnly") && contains(wire, "SameSite=Strict") && contains(wire, "Location: /"));
+    login.query = "token=aaaa";
+    CHECK(app.handle(login).status == 401);
+
+    // POST in LAN-modus: token én CSRF én Origin.
+    HttpRequest p = post("/api/recenter", "{}");
+    p.headers["host"] = lan_host;
+    p.headers["origin"] = "http://" + lan_host;
+    CHECK(app.handle(p).status == 401);
+    p.headers["authorization"] = "Bearer " + std::string(kToken);
+    CHECK(app.handle(p).status == 200);
+    p.headers["origin"] = "http://evil.example";
+    CHECK(app.handle(p).status == 403);
+    p.headers["origin"] = "http://" + lan_host;
+    p.headers.erase("x-csrf-token");
+    CHECK(app.handle(p).status == 403);
+}
+
+static void test_token_file() {
+    fs::path d = fs::temp_directory_path() / ("rg_web_test_" + std::to_string(::getpid()));
+    fs::remove_all(d);
+    std::string path = (d / "cfg" / "web-token").string();
+    std::string err;
+    std::string t = load_or_create_token(path, err);
+    CHECK(err.empty() && t.size() == 64);
+    struct stat st{};
+    CHECK(::stat(path.c_str(), &st) == 0 && (st.st_mode & 0777) == 0600);
+    CHECK(::stat((d / "cfg").c_str(), &st) == 0 && (st.st_mode & 0777) == 0700);
+    CHECK(load_or_create_token(path, err) == t);  // blijft gelijk
+    ::chmod(path.c_str(), 0644);
+    CHECK(load_or_create_token(path, err).empty() && !err.empty());
+    ::chmod(path.c_str(), 0600);
+    { std::ofstream o(path, std::ios::trunc); o << "geen-hex-token\n"; }
+    err.clear();
+    CHECK(load_or_create_token(path, err).empty() && !err.empty());
+    fs::remove_all(d);
+    CHECK(random_hex(16) != random_hex(16));
+    CHECK(constant_time_equal("abc", "abc") && !constant_time_equal("abc", "abd") && !constant_time_equal("abc", "ab"));
+}
+
+static void test_sse() {
+    CHECK(sse_frame("sample", "{\"a\":1}") == "event: sample\ndata: {\"a\":1}\n\n");
+
+    // Throttle: op 1 kHz aangeboden, hoogstens ~30 per seconde doorgelaten.
+    Throttle th(30.0);
+    int passed = 0;
+    for (int64_t t = 0; t < 1'000'000'000; t += 1'000'000) if (th.due(t)) ++passed;
+    CHECK(passed >= 29 && passed <= 31);
+
+    // Trage consumer: de buffer blijft begrensd en push blokkeert nooit.
+    SseBuffer buf(32 * 1024, 256 * 1024);
+    std::string frame(1000, 'x');
+    auto t0 = std::chrono::steady_clock::now();
+    size_t queued = 0, skipped = 0;
+    for (int i = 0; i < 1'000'000; ++i) {
+        auto p = buf.push(frame);
+        if (p == SseBuffer::Push::Queued) ++queued;
+        else if (p == SseBuffer::Push::Skipped) ++skipped;
+    }
+    double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    CHECK(buf.pending().size() <= 33 * 1024 + 1000);
+    CHECK(queued <= 40 && skipped > 999'000 && buf.skipped() == skipped);
+    CHECK(dt < 2.0);
+    buf.consume(buf.pending().size());
+    CHECK(buf.empty() && buf.push(frame) == SseBuffer::Push::Queued);  // herstelt na afname
+    SseBuffer tiny(10, 100);
+    CHECK(tiny.push(std::string(200, 'x')) == SseBuffer::Push::Overflow);
+
+    // Producer-thread (stand-in voor HID/tracker) ongehinderd terwijl een webthread met een
+    // trage consumer op 30 Hz leest: de producer mag niet merkbaar vertragen.
+    std::mutex m;
+    uint64_t counter = 0;
+    std::atomic<bool> stop{false};
+    std::thread web([&] {
+        SseBuffer b;
+        Throttle th2(30.0);
+        while (!stop.load()) {
+            auto now = std::chrono::steady_clock::now().time_since_epoch();
+            int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+            if (th2.due(ns)) {
+                uint64_t c;
+                { std::lock_guard<std::mutex> g(m); c = counter; }
+                b.push(sse_frame("sample", std::to_string(c)));
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));  // trage afnemer
+        }
+    });
+    auto p0 = std::chrono::steady_clock::now();
+    for (int i = 0; i < 300'000; ++i) { std::lock_guard<std::mutex> g(m); ++counter; }
+    double pd = std::chrono::duration<double>(std::chrono::steady_clock::now() - p0).count();
+    stop = true;
+    web.join();
+    CHECK(pd < 1.0);
+    CHECK(counter == 300'000);
+}
+
+int main() {
+    test_parser();
+    test_routing_and_json();
+    test_post_mapping();
+    test_security_local();
+    test_security_lan();
+    test_token_file();
+    test_sse();
+    std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
+    return g_failures ? 1 : 0;
+}
