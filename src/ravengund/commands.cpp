@@ -14,6 +14,7 @@
 #include "ravengun/config/settings.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/json.hpp"
+#include "ravengun/kiosk/kiosk.hpp"
 
 namespace ravengund {
 
@@ -224,6 +225,40 @@ std::string handle_set_web(SharedState& sh, const ipc::Request& r) {
     return ipc::ok_response(r.id_json, w.str());
 }
 
+// Legt vast welke Move-knop elke fysieke Sharp Shooter-knop oplevert (kalibratie-UI, stap Knoppen-test).
+std::string handle_set_buttons(SharedState& sh, const ipc::Request& r) {
+    if (!sh.settings) return ipc::error_response({"unavailable", "geen instellingenopslag", r.id_json});
+    config::SaveResult sr = sh.settings->update([&](config::Settings& s) {
+        for (const auto& kv : r.button_map) {
+            if (kv.second.empty()) s.sharp_shooter.buttons.erase(kv.first);
+            else s.sharp_shooter.buttons[kv.first] = kv.second;
+        }
+    });
+    if (!sr.ok) return ipc::error_response({"internal", tilde(sr.message), r.id_json});
+    json::Writer w;
+    w.begin_object().key("saved").value(true).key("buttons").begin_object();
+    for (const auto& kv : sh.settings->get().sharp_shooter.buttons) w.key(kv.first).value(kv.second);
+    w.end_object().end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+// Kiosk-browser op de tv (zie src/ravengun/kiosk/kiosk.hpp). Alleen een vaste opdracht, nooit een pad of URL van buiten.
+std::string handle_calibrate_ui(SharedState& sh, const ipc::Request& r) {
+    kiosk::Result res;
+    if (r.action == "open") {
+        if (sh.web_port <= 0) return ipc::error_response({"unavailable", "de webinterface staat uit: het kalibratiescherm heeft die nodig", r.id_json});
+        res = kiosk::open(sh.web_port);
+    } else if (r.action == "close") {
+        res = kiosk::close();
+    } else {
+        res = kiosk::status();
+    }
+    if (!res.ok) return ipc::error_response({"unavailable", res.message, r.id_json});
+    json::Writer w;
+    w.begin_object().key("running").value(res.running).key("processes").value(res.processes).key("message").value(res.message).end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
 std::string handle_settings(SharedState& sh, const ipc::Request& r) {
     json::Writer w;
     w.begin_object();
@@ -419,6 +454,8 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         case ipc::Cmd::SetLed: return handle_set_led(sh, r);
         case ipc::Cmd::SetCamera: return handle_set_camera(sh, r);
         case ipc::Cmd::SetWeb: return handle_set_web(sh, r);
+        case ipc::Cmd::SetButtons: return handle_set_buttons(sh, r);
+        case ipc::Cmd::CalibrateUi: return handle_calibrate_ui(sh, r);
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);
         case ipc::Cmd::Diagnostics: return handle_diagnostics(sh, r);

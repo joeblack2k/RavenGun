@@ -7,6 +7,7 @@
 // - Atomisch schrijven: tijdelijk bestand (0600) in dezelfde map, fsync, rename.
 // - De opdrachtregel van de daemon heeft voorrang op dit bestand (zie docs/web-ui.md).
 #include <functional>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -51,6 +52,15 @@ struct WebSettings {
     int port = 8765;  // gebruikt bij de volgende start
 };
 
+// Welke Move-knop een fysieke knop van de Sharp Shooter oplevert (gemeten door de kalibratie-UI op de tv).
+// Sleutels: sharp_shooter_roles(). Waarde: naam van een Move-knop (triangle, circle, cross, square, select,
+// start, ps, move, t) of leeg = niet gemeten of niet aanwezig.
+const std::vector<std::string>& sharp_shooter_roles();
+bool move_button_name_valid(const std::string& name);  // false voor een lege naam
+struct SharpShooterSettings {
+    std::map<std::string, std::string> buttons;  // rol -> Move-knop
+};
+
 struct Settings {
     LedSettings led;
     TrackerSettings tracker;
@@ -58,6 +68,7 @@ struct Settings {
     FilterSettings filter;
     AimSettings aim;
     WebSettings web;
+    SharpShooterSettings sharp_shooter;
 };
 
 // Controleert alle bereiken; leeg = geldig, anders een Nederlandse melding.

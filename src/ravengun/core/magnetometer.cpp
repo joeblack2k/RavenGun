@@ -395,15 +395,19 @@ bool MagCollector::add(const int raw[3], Vec3 accel, double t) {
     return true;
 }
 
-double MagCollector::coverage(int min_count) const {
-    if (s_.empty()) return 0;
+MagCoverageDetail MagCollector::detail(int min_count) const {
+    MagCoverageDetail d;
+    if (s_.empty()) return d;
     Vec3 c = (lo_ + hi_) * 0.5;
     Vec3 h = (hi_ - lo_) * 0.5;
     SphereCoverage cov;
     double mean_norm = 0;
+    auto unit = [&](const Vec3& raw) {
+        Vec3 v = raw - c;
+        return Vec3{h.x > 1 ? v.x / h.x : 0, h.y > 1 ? v.y / h.y : 0, h.z > 1 ? v.z / h.z : 0};
+    };
     for (const auto& x : s_) {
-        Vec3 d = x.raw - c;
-        cov.add({h.x > 1 ? d.x / h.x : 0, h.y > 1 ? d.y / h.y : 0, h.z > 1 ? d.z / h.z : 0});
+        cov.add(unit(x.raw));
         mean_norm += norm(x.raw);
     }
     mean_norm /= static_cast<double>(s_.size());
@@ -411,9 +415,16 @@ double MagCollector::coverage(int min_count) const {
     // "volle bol". Een echte rondgang geeft per as een halve spreiding in de orde van de veldsterkte;
     // daarom telt de dekking pas volledig mee als elke as minstens ~60 % daarvan bestrijkt.
     double need = 0.6 * mean_norm;
-    double spread = need > 0 ? std::min({1.0, h.x / need, h.y / need, h.z / need}) : 0.0;
-    return cov.fraction(min_count) * spread;
+    d.spread = need > 0 ? std::min({1.0, h.x / need, h.y / need, h.z / need}) : 0.0;
+    d.counts = cov.counts();
+    d.coverage = cov.fraction(min_count) * d.spread;
+    Vec3 l = unit(s_.back().raw);
+    double n = norm(l);
+    if (n > 1e-9) { d.dir = l * (1 / n); d.has_dir = true; }
+    return d;
 }
+
+double MagCollector::coverage(int min_count) const { return detail(min_count).coverage; }
 
 // ---------------- Opslag ----------------
 

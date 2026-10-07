@@ -110,6 +110,15 @@ MagFitResult fit_magnetometer(const std::vector<MagSample>& s, const MagFitOptio
 
 // Verzamelt samples tijdens het ronddraaien (live, in de HID-thread). Dunt uit: een sample wordt
 // alleen bewaard als hij genoeg van de vorige afwijkt, zodat stilhouden de fit niet scheeftrekt.
+// Dekking per richting plus de laatste meetrichting, voor de kalibratie-UI op de tv.
+struct MagCoverageDetail {
+    std::array<int, SphereCoverage::kBins> counts{};  // samples per richting (zelfde indeling als SphereCoverage::directions())
+    Vec3 dir{};          // laatste sample, genormaliseerd op de eigen omvang (eenheidsvector); alleen geldig met has_dir
+    bool has_dir = false;
+    double spread = 0;   // 0..1: hoe groot de rondgang per as is t.o.v. de veldsterkte
+    double coverage = 0; // zoals MagCollector::coverage()
+};
+
 class MagCollector {
 public:
     void reset();
@@ -119,6 +128,7 @@ public:
     int seen() const { return seen_; }
     // Voortgang met een voorlopig middelpunt (midden van min/max per as).
     double coverage(int min_count = 3) const;
+    MagCoverageDetail detail(int min_count = 3) const;
     double elapsed_s() const { return have_ ? last_t_ - t0_ : 0; }
     static constexpr size_t kMaxSamples = 20000;
 

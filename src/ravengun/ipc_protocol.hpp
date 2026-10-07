@@ -2,6 +2,7 @@
 // Beheerprotocol tussen ravengund en clients (ravengunctl, later de webinterface).
 // Transport: Unix-stream-socket, één JSON-object per regel (UTF-8, afgesloten met '\n').
 // Specificatie: docs/architecture.md, sectie "IPC".
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -17,7 +18,8 @@ inline constexpr double kWatchRateMax = 250.0;
 enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
-                 SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics };
+                 SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
+                 SetButtons, CalibrateUi };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -51,6 +53,10 @@ struct Request {
     std::string mode;
     // set_web: poort voor de volgende start.
     std::optional<double> web_port;
+    // set_buttons: rol (zie config::sharp_shooter_roles()) -> Move-knop of "" (wissen).
+    std::map<std::string, std::string> button_map;
+    // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp).
+    // Gedeeld veld: 'action' bij record/calib_mag.
 };
 
 struct Error {

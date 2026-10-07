@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{CSRF}}">
+<meta name="color-scheme" content="dark">
+<title>RavenGun kalibreren</title>
+<link rel="stylesheet" href="/calibrate.css">
+</head>
+<body>
+<div id="stage">
+  <header id="top">
+    <div id="crumb">Kalibreren</div>
+    <div id="pills">
+      <span id="pill-move" class="pill">Move: ...</span>
+      <span id="pill-link" class="pill">Daemon: ...</span>
+    </div>
+  </header>
+
+  <!-- 0. Welkom -->
+  <section id="s-welcome" class="scr" hidden>
+    <h1>Kalibreren</h1>
+    <p class="lead">Dit scherm leidt je door de metingen. Alles gaat met het geweer.</p>
+    <ol class="steps big">
+      <li><b>Magnetometer</b> <span>langzaam rondjes draaien, ongeveer een minuut</span></li>
+      <li><b>Stil richten</b> <span>zeven keer vijf seconden stilhouden op het kruis</span></li>
+      <li><b>Knoppen</b> <span>testen en vastleggen welke knop welke is</span></li>
+      <li><b>Scherm</b> <span>de negen doelen (de berekening komt later)</span></li>
+    </ol>
+    <p class="muted">De knoppen die je nu kunt gebruiken staan onderaan het scherm.</p>
+    <p id="welcome-note" class="note" hidden></p>
+  </section>
+
+  <!-- 1. Magnetometer: uitleg -->
+  <section id="s-mag-intro" class="scr" hidden>
+    <h1>Magnetometer</h1>
+    <ol class="steps">
+      <li><b>Vasthouden</b> <span>zoals bij het spelen, de Move zit in de Sharp Shooter</span></li>
+      <li><b>Waar staan</b> <span>minstens 1 meter van metaal, speakers en de tv</span></li>
+      <li><b>Draaien</b> <span>langzaam alle kanten op: achtjes, loop omhoog en omlaag, rollen om de loop, ook ondersteboven</span></li>
+      <li><b>Hoe lang</b> <span>minstens 40 seconden, tot de bol groen is. Niet schudden.</span></li>
+    </ol>
+    <p id="mag-intro-err" class="err" hidden></p>
+    <p class="prompt">Druk op de trekker om te starten</p>
+  </section>
+
+  <!-- 2. Magnetometer: draaien -->
+  <section id="s-mag-run" class="scr" hidden>
+    <div id="mag-spheres">
+      <figure><canvas id="sph-front" width="400" height="400"></canvas><figcaption>voorkant</figcaption></figure>
+      <figure><canvas id="sph-back" width="400" height="400"></canvas><figcaption>achterkant</figcaption></figure>
+    </div>
+    <div id="mag-legend">
+      <p><i class="chip c-done"></i> gedekt <i class="chip c-part"></i> begonnen <i class="chip c-empty"></i> nog leeg</p>
+      <p class="muted">Elk vlak is een richting van het magneetveld. Maak alle vlakken groen. De ring is waar je nu bent.</p>
+    </div>
+    <div id="mag-side">
+      <div class="big-pct"><span id="mag-pct">0</span><small>%</small></div>
+      <div class="bar"><div id="mag-bar" class="fill"></div></div>
+      <dl class="kv">
+        <dt>Dekking</dt><dd><span id="mag-cov">0</span> % <em>(doel 80 %)</em></dd>
+        <dt>Tijd</dt><dd><span id="mag-time">0</span> s <em>(minimaal 40 s)</em></dd>
+        <dt>Metingen</dt><dd><span id="mag-smp">0</span> <em>(minstens 300)</em></dd>
+      </dl>
+      <div class="tempo">
+        <div class="tempo-label"><span>Tempo</span><b id="tempo-text">-</b></div>
+        <div class="tempo-track"><div class="zone z-slow"></div><div class="zone z-good"></div><div class="zone z-fast"></div><div class="zone z-bad"></div><div id="tempo-mark"></div></div>
+      </div>
+      <p id="mag-hint" class="hint">Draai rustig alle kanten op.</p>
+    </div>
+  </section>
+
+  <!-- 3. Magnetometer: resultaat -->
+  <section id="s-mag-result" class="scr" hidden>
+    <h1 id="mag-verdict" class="verdict">-</h1>
+    <ul id="mag-tips" class="tips"></ul>
+    <p id="mag-metrics" class="muted"></p>
+    <p class="prompt"><span id="mag-result-next">Trekker: verder</span> <span class="sep">&middot;</span> <span>Cirkel: opnieuw</span></p>
+  </section>
+
+  <!-- 4. Stil richten -->
+  <section id="s-still" class="scr" hidden>
+    <div id="still-top">
+      <h1 id="still-title">Richt op het kruis</h1>
+      <p id="still-sub" class="lead">Druk de trekker, houd dan vijf seconden stil.</p>
+    </div>
+    <div id="cross" class="cross"><i class="h"></i><i class="v"></i><i class="ring"></i></div>
+    <div id="still-count" class="count">&nbsp;</div>
+    <div id="still-meter" class="meter" hidden><div id="still-fill" class="fill"></div></div>
+    <p id="still-live" class="live">&nbsp;</p>
+    <div id="still-dots" class="dots"></div>
+  </section>
+
+  <!-- 4b. Stil richten: klaar -->
+  <section id="s-still-done" class="scr" hidden>
+    <h1>Stil richten klaar</h1>
+    <p class="lead" id="still-done-text">-</p>
+    <p id="still-done-err" class="err" hidden></p>
+    <p class="prompt"><span>Trekker: verder</span> <span class="sep">&middot;</span> <span>Cirkel: opnieuw</span></p>
+  </section>
+
+  <!-- 4a. Stil richten: uitleg -->
+  <section id="s-still-intro" class="scr" hidden>
+    <h1>Stil richten</h1>
+    <ol class="steps">
+      <li><b>Kruis</b> <span>in het midden van de tv staat een kruis; houd het geweer in speelhouding</span></li>
+      <li><b>Vijf keer</b> <span>richt op het kruis, druk de trekker en houd vijf seconden stil</span></li>
+      <li><b>Links en rechts</b> <span>daarna een halve meter naar links, en naar rechts, en weer hetzelfde</span></li>
+      <li><b>Opname</b> <span>de daemon legt alles vast met labels. Te onrustig? Dan doe je die meting opnieuw.</span></li>
+    </ol>
+    <p id="still-intro-err" class="err" hidden></p>
+    <p class="prompt">Druk op de trekker om te starten</p>
+  </section>
+
+  <!-- 5. Knoppen -->
+  <section id="s-btn-live" class="scr" hidden>
+    <h1>Knoppen testen</h1>
+    <p class="lead">Druk op alle knoppen: ze lichten op. Alleen lang indrukken (1,5 s) bedient dit scherm.</p>
+    <div id="btn-tiles" class="tiles"></div>
+    <div class="trig"><span>Trekker</span><div class="bar"><div id="trig-fill" class="fill"></div></div><b id="trig-val">0</b></div>
+    <p class="prompt small"><span id="hold-next" class="hold">Trekker 1,5 s: knoppen vastleggen</span> <span class="sep">&middot;</span> <span id="hold-back" class="hold">Cirkel 1,5 s: terug</span> <span class="sep">&middot;</span> <span id="hold-skip" class="hold">Select 1,5 s: overslaan</span></p>
+  </section>
+
+  <section id="s-btn-map" class="scr" hidden>
+    <p id="map-count" class="muted">Knop 1 van 10</p>
+    <h1 id="map-title">Druk nu op ...</h1>
+    <p id="map-sub" class="lead">...</p>
+    <div class="bar wide"><div id="map-timer" class="fill"></div></div>
+    <p id="map-msg" class="hint">&nbsp;</p>
+    <div id="map-list" class="maplist"></div>
+    <p class="prompt small"><span id="map-abort" class="hold">Start 1,5 s: afbreken</span></p>
+  </section>
+
+  <section id="s-btn-done" class="scr" hidden>
+    <h1>Knoppen vastgelegd</h1>
+    <div id="done-list" class="maplist big"></div>
+    <p id="btn-save-msg" class="lead">-</p>
+    <p class="prompt"><span>Trekker: verder</span> <span class="sep">&middot;</span> <span>Cirkel: opnieuw meten</span></p>
+  </section>
+
+  <!-- 6. Scherm (fase 5, plaatshouder) -->
+  <section id="s-screen" class="scr screen" hidden>
+    <div id="edge"></div>
+    <div id="targets"></div>
+    <div id="screen-text">
+      <h1>Scherm kalibreren</h1>
+      <p class="lead">Fase 5: de berekening komt later. Dit zijn de negen doelen op hun echte plek (10 % van de randen). Controleer of niets wordt afgesneden.</p>
+    </div>
+    <p id="screen-foot" class="prompt">Trekker: verder <span class="sep">&middot;</span> Cirkel: terug</p>
+  </section>
+
+  <!-- 7. Klaar -->
+  <section id="s-done" class="scr" hidden>
+    <h1>Klaar</h1>
+    <ul id="summary" class="tips"></ul>
+    <p class="prompt">Trekker: scherm sluiten <span class="sep">&middot;</span> Cirkel: terug</p>
+  </section>
+
+  <div id="overlay" hidden><div id="overlay-text">...</div></div>
+
+  <footer id="legend">
+    <span class="key" id="k-next"><b>Trekker</b> volgende</span>
+    <span class="key" id="k-back"><b>Cirkel</b> terug</span>
+    <span class="key" id="k-skip"><b>Select</b> overslaan</span>
+    <span class="key" id="k-abort"><b>Start</b> afbreken</span>
+  </footer>
+</div>
+<script src="/calibrate-core.js"></script>
+<script src="/calibrate.js"></script>
+</body>
+</html>

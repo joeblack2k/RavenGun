@@ -47,6 +47,8 @@ void usage(FILE* f) {
         "  calibrate   calibrate mag [--holder H] [--duration S]: magnetometer kalibreren (ronddraaien;\n"
         "              stopt zelf bij >= 80 % dekking en >= 300 samples), of --start|--stop|--abort|--status;\n"
         "              calibrate mag --check [--duration 3]: veldcheck (norm en dip t.o.v. de kalibratie)\n"
+        "  calibrate-ui  opent het fullscreen kalibratiescherm (stappenwizard, bediening met de controller) in een\n"
+        "              kiosk-Brave op de tv; --close sluit alleen dat kioskproces, --status toont of het open is\n"
         "\n"
         "uitvoer (virtueel lightgun-apparaat; standaard DISARMED en dan gaan er geen events heen):\n"
         "  arm         schakelt de uitvoer in en maakt het apparaat aan (RavenGun Virtual Lightgun, 1209:7202)\n"
@@ -496,6 +498,17 @@ void print_fit(const json::Value& f) {
         for (const auto& e : p->arr) std::printf("  - %s\n", e.str.c_str());
 }
 
+int cmd_calibrate_ui(bool json, const std::string& action) {
+    ipc::Request rq;
+    rq.cmd = ipc::Cmd::CalibrateUi;
+    rq.action = action;
+    Res x = simple(rq);
+    if (x.code != kExitOk) return x.code;
+    if (json) std::printf("%s\n", x.r.line.c_str());
+    else std::printf("%s\n", str(*x.result(), {"message"}).c_str());
+    return kExitOk;
+}
+
 int cmd_calibrate_mag(bool json, const std::string& action, const std::string& holder, double duration) {
     ipc::Request rq;
     rq.cmd = ipc::Cmd::CalibMag;
@@ -623,6 +636,7 @@ int main(int argc, char** argv) {
             else if (a == "--letterbox") { lb_screen = need(i, "--letterbox", 0.1, 10); lb_content = need(i, "--letterbox", 0.1, 10); }
             else if (a == "--on") filter_on = 1;
             else if (a == "--max-mb") max_mb = need(i, "--max-mb", 1, 1024);
+            else if (a == "--close") { if (!action.empty()) { std::fprintf(stderr, "ravengunctl: kies één actie\n"); return kExitUsage; } action = "close"; }
             else if (a == "--start" || a == "--stop" || a == "--status" || a == "--abort" || a == "--check") {
                 if (!action.empty()) { std::fprintf(stderr, "ravengunctl: kies één van --start/--stop/--status/--abort/--check\n"); return kExitUsage; }
                 action = a.substr(2);
@@ -783,6 +797,10 @@ int main(int argc, char** argv) {
         }
         if (cmd == "record") return cmd_record(json, action, tag, mark, duration, max_mb);
         if (cmd == "led") return cmd_led(json, arg2);
+        if (cmd == "calibrate-ui") {
+            if (!action.empty() && action != "close" && action != "status") { std::fprintf(stderr, "ravengunctl: calibrate-ui kent alleen --close en --status\n"); return kExitUsage; }
+            return cmd_calibrate_ui(json, action.empty() ? "open" : action);
+        }
         if (cmd == "calibrate") {
             if (arg2 != "mag") { std::fprintf(stderr, "ravengunctl: alleen 'calibrate mag' bestaat (nog)\n"); return kExitUsage; }
             return cmd_calibrate_mag(json, action, holder, duration);
