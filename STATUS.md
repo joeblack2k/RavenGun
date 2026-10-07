@@ -46,18 +46,30 @@ Na de keuze voor de halo.so-route
 - Invoer: de game leest het toetsenbord via X11 (XQueryKeymap/XLookupKeysym), maar via XTEST geïnjecteerde toetsen (1, Return, space, 5, 9, F1, F2, t, s) geven geen reactie. XTEST werkt aantoonbaar voor de muis. Dat de toetsen het venster bereiken is niet hard bewezen (xinput ontbreekt).
 - De game bevat een FTDI/libusb-verbindingsbeheer (`cmgr_*`, `ftdi_usb_open_desc`, "Did not find exactly one FTDI chip"). Hypothese: START, TEST, munten en gun-invoer komen op een echte kast via een I/O-bord met een FTDI-USB-chip. halo.so emuleert alleen de HASP-dongle, niet dit I/O-bord.
 
+TeknoParrot-route (gebruiker heeft een abonnement; uitgevoerd door de Sonnet-subagent op 2026-10-07, gecontroleerd door de orchestrator)
+- Componenten via de UI-updater: TeknoParrot core 1.0.0.3761, TeknoParrotElfLdr2 core 1.0.0.1434 (`ElfLdr2/x64/BudgieLoader_x64.exe`), OpenParrot 1.0.0.787. GE-Proton11-7 via Linux Setup in `~/.local/share/TeknoParrotUI/proton/`, gedeelde prefix `~/.local/share/TeknoParrotUI/prefixes/shared/proton/pfx`. Geen root gebruikt.
+- Abonnement geactiveerd ("Subscribed", "Activated on this device"). De sleutel is niet gelogd.
+- Eigen gamekopie voor TeknoParrot: `~/.local/share/ravengun/runtime/halo-g7-tp`. Profiel: `<TP-UI>/UserProfiles/Halo.xml`, met STANDARD TETHERED, CustomResolution 1920x1080, Windowed uit, HideCursor aan, BypassFilesystemIntegrityTest aan (een TeknoParrot-profielinstelling, geen patch). ExitKey Esc.
+- Resultaat (screenshots sa_23 t/m sa_35): Halo start via ElfLdr2 onder Proton op 1920x1080. Zonder bypass verschijnt hetzelfde FileTest-scherm. Met bypass komt het gun-kalibratiescherm: "Player 1 gun (left): Pull trigger when ready to calibrate. Press the TEST button to skip calibration".
+- Invoer: de knoppen zijn niet gebonden, omdat de subagent X11-toetsen injecteerde (xdotool) en TeknoParrot evdev leest. Het fysieke toetsenbord (Cooler Master ARES, event2) is al leesbaar voor deck via de SteamOS-ACL, dus voor het toetsenbord is geen udev-wijziging nodig. `/dev/uinput` heeft een ACL `deck:rw`, dus een virtueel RavenGun-apparaat kan zonder root.
+- Linux Setup meldt dat winetricks, cabextract en gtk3/webkit2gtk ontbreken (alleen nodig voor TeknoParrot Online / redistributables). Niet geïnstalleerd.
+
+Move en camera (subagent 2, tussenrapport)
+- Move CECH-ZCM1 (054c:03d5) via USB op hidraw9; PSMoveAPI 4.0.12-206-g256b629 is user-local gebouwd (zonder tracker; OpenCV 5 is incompatibel). Via USB komen geen sensor- of knoprapporten binnen.
+- Camera PS3 Eye (1415:2000, ov534, /dev/video0): 640x480@60 gemeten op 60,02 fps (p95 16,68 ms, 0 gemist); 320x240@187 gemeten op 187,3 fps. Een aanvraag van 120 levert 100 fps.
+- Pairing: `psmove pair` vraagt root (schrijft `/var/lib/bluetooth/<host>/<move>/info` en herstart bluetooth.service). Kanttekening: `/etc` is op deze SteamOS een schrijfbare overlay, anders dan de subagent dacht. ClassicBondedOnly staat standaard true en kan de ZCM1 weigeren. Dat is nog te testen.
+
 ## Laatste werkende commando
 
-    ~/projects/ravengun/scripts/run-halo.sh --debug
-    (door de gebruiker gestart; FMOD-stub automatisch, geen geluid; Halo zichtbaar op de tv)
+    TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch
+    Resultaat: kalibratiescherm van de gun op de tv, wacht op Test/trigger.
 
 ## Actuele fout / afhankelijkheid
 
-Het integriteitsscherm wacht op START of TEST. Die komen waarschijnlijk alleen via het (ontbrekende) FTDI-I/O-bord binnen. Zonder emulatie van dat bord is er geen voortgang voorbij dit scherm en is er ook geen attract mode.
-
-Openstaand: FMOD 1.10 voor geluid (fmod.com, account nodig). TeknoParrot-route (Patreon, ElfLdr2 + Proton) als alternatief; die emuleert het I/O-bord wel.
+Knoppen in TeknoParrot zijn nog niet gebonden. Dat vraagt een fysieke toetsdruk op het echte toetsenbord in Controller Setup. Pairing van de Move wacht op de root-actie van de gebruiker (`sudo psmove pair`).
 
 ## Volgende uitvoerbare stap
 
-1. De gebruiker drukt fysiek op een toetsenbord met het Halo-venster in focus (bijvoorbeeld 1, 5, Enter, F2, 9) om hypothese 1 (XTEST komt niet aan) definitief uit te sluiten.
-2. Bij geen reactie: beslissing van de gebruiker over de route voor het I/O-bord (zie docs/decisions.md).
+1. De gebruiker bindt in TeknoParrot (Halo > Controller Setup) met het echte toetsenbord: Test, Service, Coin, Start P1, Trigger P1, Reload P1, Grenade P1.
+2. Opnieuw starten, met Test door de kalibratie, en controleren of attract mode of het titelscherm verschijnt (G1).
+3. In parallel: Move-pairing, en daarna sensortest via Bluetooth.
