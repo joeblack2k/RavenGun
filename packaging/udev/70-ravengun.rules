@@ -1,0 +1,4 @@
+# RavenGun: alleen de eigen virtuele uinput-apparaten (pid.codes-test-VID 1209, PID 7201/7202).
+# Geeft de actieve seat-gebruiker leesrecht (uaccess) en stabiele symlinks; raakt geen andere apparaten.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7201", TAG+="uaccess", SYMLINK+="input/ravengun-kbd"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7202", TAG+="uaccess", SYMLINK+="input/ravengun-gun"
