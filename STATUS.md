@@ -1,6 +1,6 @@
 # RavenGun — status
 
-Actuele fase: 1 (Halo op de televisie). G1 is nog niet gehaald.
+Actuele fase: 1 (Halo op de televisie). G1 is nog niet gehaald: Halo draait zichtbaar op de tv, maar blijft hangen op het opstartscherm van de integriteitscontrole, omdat START/TEST niet te geven zijn.
 
 ## Bewezen resultaten (op deze host vastgesteld, 2026-10-07)
 
@@ -38,31 +38,26 @@ Na de keuze voor de halo.so-route
 - `scripts/run-halo.sh`: een bubblewrap-sandbox met `/pm/g7/halo` als overlay (schrijfacties gaan naar `~/.local/share/ravengun/halo-overlay`), `/pm/g7/dump` read-only, geen netwerk (unshare-net), alleen het X11-socket en Xauthority van de sessie, en pulse/pipewire. De sessievariabelen worden uit de kwin_wayland-opdrachtregel gelezen.
 - Startpoging 2 (zonder FMOD): faalt in de dynamic loader met `libfmod.so.10: cannot open shared object file`, exitcode 127.
 - `tools/fmod-stub`: een diagnostische stub (geen FMOD-code; elke functie geeft een foutcode). Met deze stub zijn alle libraries en symbolen opgelost (loader-trace, exit 0, geen undefined symbols). De game zelf is er nog niet mee gestart.
-- Startpoging 3 (met de stub op de tv) is niet uitgevoerd: de auto-mode-beveiliging van Claude Code heeft het starten van de game met halo.so geweigerd. Daarvoor is een beslissing van de gebruiker nodig.
+- Startpoging 3 (met de stub op de tv): de auto-mode-beveiliging van Claude Code weigerde mij de game te starten, dus de gebruiker startte hem zelf (14:14:47).
+- Resultaat (op echte hardware, screenshot van de tv): Halo zelf draait fullscreen op 1920x1080 via Xwayland (vensternaam "Halo") en rendert OpenGL-tekst. Het proces blijft stabiel draaien.
+- Eigen log van de game (`halo-overlay/upper/pmuser/gamelog.txt`): "Welcome to Halo v03.11", Game Rev 57529, Library Rev 1412, Country Code 48. FileTest Failure op `game`, `utils/rtinit` en `utils/run_game.sh`. Alle data-bestanden zijn in orde.
+- Op het scherm: "FileSystem integrity test failed! ... Press START or TEST to continue."
+- Oplossing voor 2 van de 3 FileTest-fouten (voorbereid, nog niet getest): de launcher toont binnen de sandbox `rtinit_original` en `run_game.sh_original` op de oorspronkelijke paden. `game` blijft afwijken, omdat de halo.so-route het aangepaste programma nodig heeft. De controle wordt niet gepatcht.
+- Invoer: de game leest het toetsenbord via X11 (XQueryKeymap/XLookupKeysym), maar via XTEST geïnjecteerde toetsen (1, Return, space, 5, 9, F1, F2, t, s) geven geen reactie. XTEST werkt aantoonbaar voor de muis. Dat de toetsen het venster bereiken is niet hard bewezen (xinput ontbreekt).
+- De game bevat een FTDI/libusb-verbindingsbeheer (`cmgr_*`, `ftdi_usb_open_desc`, "Did not find exactly one FTDI chip"). Hypothese: START, TEST, munten en gun-invoer komen op een echte kast via een I/O-bord met een FTDI-USB-chip. halo.so emuleert alleen de HASP-dongle, niet dit I/O-bord.
 
 ## Laatste werkende commando
 
-    systemd-run --user --unit=ravengun-tpui --collect --same-dir \
-      -E XDG_RUNTIME_DIR=/run/user/1000 -E WAYLAND_DISPLAY=wayland-0 -E DISPLAY=:0 \
-      -E XAUTHORITY=<actuele /run/user/1000/xauth_*> \
-      -E DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-      /bin/sh -c 'exec ./TeknoParrotUi >>~/.local/state/ravengun/logs/tpui-<tijd>.log 2>&1'
-    (uitgevoerd vanuit ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)
+    ~/projects/ravengun/scripts/run-halo.sh --debug
+    (door de gebruiker gestart; FMOD-stub automatisch, geen geluid; Halo zichtbaar op de tv)
 
-## Actuele afhankelijkheden
+## Actuele fout / afhankelijkheid
 
-(De punten hieronder gelden voor de TeknoParrot-route, die niet gekozen is; ze blijven staan als referentie.)
+Het integriteitsscherm wacht op START of TEST. Die komen waarschijnlijk alleen via het (ontbrekende) FTDI-I/O-bord binnen. Zonder emulatie van dat bord is er geen voortgang voorbij dit scherm en is er ook geen attract mode.
 
-1. Privacymelding van TeknoParrotUI: toestemming voor het verzamelen van gebruiksgegevens. Dit is jouw keuze.
-2. Halo is een Patreon-titel: een TeknoParrot-abonnementssleutel is nodig. Die voer je zelf in de UI in; niet in chat, code of logs.
-3. ElfLdr2 en een Proton/Wine-runtime moeten via de officiële updater van de UI binnenkomen, in de lokale kopie.
-4. FMOD 1.10 (`libfmod.so.10`, `libfmodstudio.so.10`) ontbreekt. Nog vast te stellen of het ElfLdr2-pakket dit levert.
+Openstaand: FMOD 1.10 voor geluid (fmod.com, account nodig). TeknoParrot-route (Patreon, ElfLdr2 + Proton) als alternatief; die emuleert het I/O-bord wel.
 
 ## Volgende uitvoerbare stap
 
-1. De gebruiker start zelf vanuit een terminal in Desktop Mode (of met `! ` in Claude Code):
-
-       ~/projects/ravengun/scripts/run-halo.sh --stub-audio --debug
-
-   Bekijk het resultaat op de tv. Log: `~/.local/state/ravengun/logs/halo-*.log`.
-2. Voor geluid: FMOD Studio API 1.10.x voor Linux (bij voorkeur 1.10.20) van fmod.com (gratis account vereist). `libfmod.so.10` en `libfmodstudio.so.10` (x86_64) komen in `~/.local/share/ravengun/runtime/lib`.
+1. De gebruiker drukt fysiek op een toetsenbord met het Halo-venster in focus (bijvoorbeeld 1, 5, Enter, F2, 9) om hypothese 1 (XTEST komt niet aan) definitief uit te sluiten.
+2. Bij geen reactie: beslissing van de gebruiker over de route voor het I/O-bord (zie docs/decisions.md).

@@ -94,6 +94,10 @@ BW=(bwrap
   --ro-bind-try "$RUNDIR/pipewire-0" "$RUNDIR/pipewire-0"
   --overlay-src "$G7/halo" --overlay "$OVL/upper" "$OVL/work" /pm/g7/halo
   --ro-bind "$G7/dump" /pm/g7/dump
+  # Toon binnen de sandbox de originele versies van niet-gebruikte, in de dump aangepaste
+  # hulpbestanden, zodat de FileTest van de game alleen nog afwijkt op 'game' zelf.
+  --ro-bind "$G7/halo/utils/rtinit_original" /pm/g7/halo/utils/rtinit
+  --ro-bind "$G7/halo/utils/run_game.sh_original" /pm/g7/halo/utils/run_game.sh
   --ro-bind "$LIBDIR" /pm/lib
   --chdir /pm/g7/halo
   --clearenv
