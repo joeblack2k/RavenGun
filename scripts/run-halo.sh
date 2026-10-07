@@ -39,6 +39,12 @@ die() { echo "run-halo: $*" >&2; exit 1; }
 (( PRELOAD == 0 )) || [[ -f "$G7/halo/halo.so" ]] || die "halo.so ontbreekt"
 command -v bwrap >/dev/null || die "bwrap niet gevonden"
 mkdir -p "$OVL/upper" "$OVL/work" "$LIBDIR" "$LOGDIR"
+if [[ ! -e "$LIBDIR/libfmod.so.10" || ! -e "$LIBDIR/libfmodstudio.so.10" ]]; then
+  STUB="$DATA/runtime/lib-fmodstub"
+  [[ -e "$STUB/libfmod.so.10" ]] || die "FMOD 1.10 ontbreekt in $LIBDIR en er is geen stub in $STUB"
+  echo "run-halo: LET OP: echte FMOD ontbreekt in $LIBDIR — diagnostische stub gebruikt, GEEN geluid" >&2
+  LIBDIR="$STUB"
+fi
 
 # --- grafische sessie bepalen (niets hardcoden) -------------------------------
 RUNDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
