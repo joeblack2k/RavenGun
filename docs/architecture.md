@@ -164,21 +164,19 @@ Gemeten met `ravengunctl test-pattern point X Y` (aim = het gegeven punt), een s
 
 Fout (gemeten min verwacht, px; x/y; % van de breedte 1920 / hoogte 1080):
 
-| aim | verwacht | gemeten | fout px | fout % |
-|---|---|---|---|---|
-| (0,5; 0,5) | 960; 540 | 963,5; 542,0 | +3,5; +2,0 | 0,18 / 0,19 |
-| (0,1; 0,1) | 192; 108 | 195,5; 110,0 | +3,5; +2,0 | 0,18 / 0,19 |
-| (0,5; 0,1) | 960; 108 | 963,5; 110,0 | +3,5; +2,0 | 0,18 / 0,19 |
-| (0,9; 0,1) | 1728; 108 | 1723,5; 110,0 | -4,5; +2,0 | 0,23 / 0,19 |
-| (0,1; 0,5) | 192; 540 | 195,5; 542,0 | +3,5; +2,0 | 0,18 / 0,19 |
-| (0,9; 0,5) | 1728; 540 | 1723,5; 542,0 | -4,5; +2,0 | 0,23 / 0,19 |
-| (0,1; 0,9) | 192; 972 | 195,0; 969,5 | +3,0; -2,5 | 0,16 / 0,23 |
-| (0,5; 0,9) | 960; 972 | 963,0; 969,0 | +3,0; -3,0 | 0,16 / 0,28 |
-| (0,9; 0,9) | 1728; 972 | 1723,5; 969,5 | -4,5; -2,5 | 0,23 / 0,23 |
-| hoek (0;0) | 0; 0 | 1,2; 1,9 | +1,2; +1,9 | 0,06 / 0,18 |
-| hoek (1;0) | 1920; 0 | 1917,6; 1,9 | -2,4; +1,9 | 0,13 / 0,18 |
-| hoek (1;1) | 1920; 1080 | 1917,6; 1077,2 | -2,4; -2,8 | 0,13 / 0,26 |
-| hoek (0;1) | 0; 1080 | 1,2; 1077,3 | +1,2; -2,7 | 0,06 / 0,25 |
+- (0,5; 0,5): verwacht 960; 540; gemeten 963,5; 542,0; fout px +3,5; +2,0; fout % 0,18 / 0,19
+- (0,1; 0,1): verwacht 192; 108; gemeten 195,5; 110,0; fout px +3,5; +2,0; fout % 0,18 / 0,19
+- (0,5; 0,1): verwacht 960; 108; gemeten 963,5; 110,0; fout px +3,5; +2,0; fout % 0,18 / 0,19
+- (0,9; 0,1): verwacht 1728; 108; gemeten 1723,5; 110,0; fout px -4,5; +2,0; fout % 0,23 / 0,19
+- (0,1; 0,5): verwacht 192; 540; gemeten 195,5; 542,0; fout px +3,5; +2,0; fout % 0,18 / 0,19
+- (0,9; 0,5): verwacht 1728; 540; gemeten 1723,5; 542,0; fout px -4,5; +2,0; fout % 0,23 / 0,19
+- (0,1; 0,9): verwacht 192; 972; gemeten 195,0; 969,5; fout px +3,0; -2,5; fout % 0,16 / 0,23
+- (0,5; 0,9): verwacht 960; 972; gemeten 963,0; 969,0; fout px +3,0; -3,0; fout % 0,16 / 0,28
+- (0,9; 0,9): verwacht 1728; 972; gemeten 1723,5; 969,5; fout px -4,5; -2,5; fout % 0,23 / 0,23
+- hoek (0;0): verwacht 0; 0; gemeten 1,2; 1,9; fout px +1,2; +1,9; fout % 0,06 / 0,18
+- hoek (1;0): verwacht 1920; 0; gemeten 1917,6; 1,9; fout px -2,4; +1,9; fout % 0,13 / 0,18
+- hoek (1;1): verwacht 1920; 1080; gemeten 1917,6; 1077,2; fout px -2,4; -2,8; fout % 0,13 / 0,26
+- hoek (0;1): verwacht 0; 1080; gemeten 1,2; 1077,3; fout px +1,2; -2,7; fout % 0,06 / 0,25
 
 De hoeken zijn schattingen met een cirkelfit (ongeveer 2 px onzekerheid). De uitkomst is hetzelfde in drie reeksen (twee sessies, waarvan een met een ander eventN). Grootste fout 4,5 px = 0,23 % van de breedte, ruim binnen de eis van 1 %, en gelijk aan de kwantisatie van het spel. Er was dus geen correctie nodig: de standaardtransformatie (geen inversie, viewport = scherm, schaal 1, offset 0) is de juiste. De correctie-instrumenten (`invert_*`, `scale_*`, `offset_*`, viewport) bestaan voor een ander spel, een andere tv-verhouding of een uitgevoerde spelkalibratie.
 
