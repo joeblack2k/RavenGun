@@ -86,6 +86,12 @@ G1 via TeknoParrot (Sonnet-subagent, 15:33–15:55; screenshots jv_08–jv_18 do
 - Invoerpad nog niet bevestigd: de JVS-pipe verbond in geen enkele sessie, maar BudgieLoader had `/dev/input/event31` (vinput) open. Waarschijnlijk leest de loader evdev zelf (RawInput).
 - Open: de bindingen staan op `/dev/input/eventN` en zijn dus niet stabiel. Geluid is nog niet bevestigd (er is wel een PipeWire-stream naar de LG TV). Wine-Mono is niet geïnstalleerd (niet nodig).
 
+Camera en bol-tracking in ravengund (Opus-subagent; door orchestrator geverifieerd: schone build, 4 CTest-suites groen)
+- Camera: PS3 Eye op 640x480@60 YUYV, gekozen via /dev/v4l/by-id (ov534). Handmatige exposure 50, gain 0, AWB en auto-gain uit. LED cyaan, elke seconde ververst.
+- Tracker: eigen code, met tint- en chroma-drempel, ROI met fallback naar het volledige beeld, vorm- en vullingscriteria, bevestiging na een sprong, en ongeldig bij twee of meer kandidaten (nooit blind de grootste). Uitvoer: 2D-beeldpositie en straal, zonder diepte en zonder confidence. Inputschema v2 (`image_2d`), `ravengunctl camera`.
+- Hardwaremeting (60 s, Move stil op ongeveer 0,5–0,75 m): 60,022 fps, 0 gemiste frames, intervallen p95 16,685 ms. Bol gevonden in 99,97 % van de frames. Straal 19,1 px. Jitter p95 0,040 px. Verwerking p95 146 µs (volledig beeld ongeveer 600 µs). HID ongestoord (77,4/s).
+- Nog niet getest: speelafstand 2–3 m, beweging en onscherpte, een hand om de controller, daglicht en tv-licht. IMU-koppeling tegen drift: alleen een voorstel in decisions.md.
+
 ## Laatste werkende commando
 
     TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch,
