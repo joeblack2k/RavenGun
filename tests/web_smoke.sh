@@ -81,6 +81,24 @@ for p in Overzicht Live Apparaten Camera LED Uitvoer Instellingen Info Kalibrati
   curl -s "$B/" | grep -q ">$p</a>" || fail "tab $p ontbreekt"
 done
 
+# Kalibratie-UI op de tv
+curl -s "$B/calibrate" | grep -q "name=\"csrf-token\" content=\"$CSRF\"" || fail "/calibrate zonder csrf-token"
+curl -si "$B/calibrate" | grep -qi "^content-security-policy: default-src 'none'; script-src 'self'" || fail "/calibrate zonder CSP"
+for f in calibrate.js calibrate-core.js calibrate.css; do [ "$(code "$B/$f")" = 200 ] || fail "$f"; done
+curl -s "$B/calibrate" | grep -qE 'https?://' && fail "/calibrate verwijst naar een externe bron"
+curl -s "$B/api/calibrate/ui" | grep -q '"running":false' || fail "kiosk-status"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"trekker":"t","cirkel":"circle"}' "$B/api/calibrate/buttons")" = 200 ] || fail "knoppenmapping"
+curl -s "$B/api/settings" | grep -q '"sharp_shooter":{"buttons":{"cirkel":"circle","trekker":"t"}}' || fail "mapping niet in de instellingen"
+grep -q '"cirkel": *"circle"' "$XDG_CONFIG_HOME/ravengun/config.json" || fail "mapping niet bewaard in config.json"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"trekker":"l2"}' "$B/api/calibrate/buttons")" = 400 ] || fail "mapping met onbekende knop"
+[ "$(code -X POST -H "$J" -d '{"trekker":"t"}' "$B/api/calibrate/buttons")" = 403 ] || fail "mapping zonder CSRF"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -H 'Origin: http://evil.example' -d '{}' "$B/api/calibrate/mag/start")" = 403 ] || fail "mag/start vreemde Origin"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/calibrate/mag/start")" = 503 ] || fail "mag/start zonder Move moet 503 geven"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"tag":"stil-test"}' "$B/api/calibrate/rec/start")" = 200 ] || fail "rec/start"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"label":"stil_midden_1"}' "$B/api/calibrate/rec/mark")" = 200 ] || fail "rec/mark"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/calibrate/rec/stop")" = 200 ] || fail "rec/stop"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"action":"rm"}' "$B/api/calibrate/ui")" = 400 ] || fail "ui met onbekende actie"
+
 # Beveiliging
 [ "$(code -X POST -H "$J" -d '{}' "$B/api/recenter")" = 403 ] || fail "POST zonder CSRF"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -H 'Origin: http://evil.example' -d '{}' "$B/api/recenter")" = 403 ] || fail "vreemde Origin"
@@ -90,6 +108,7 @@ done
 # SSE: een paar frames, daarna sluiten.
 SSE=$(curl -s -N --max-time 1 "$B/api/stream")
 echo "$SSE" | grep -q '^event: sample' || fail "geen SSE-sample"
+echo "$SSE" | grep -q '"edges":{"press":\[' || fail "SSE zonder cumulatieve knopflanken (edges)"
 
 kill -TERM "$PID"; wait "$PID" 2>/dev/null; PID=""
 grep -q 'web-interface op http://127.0.0.1' "$T/log" || fail "URL niet gelogd"

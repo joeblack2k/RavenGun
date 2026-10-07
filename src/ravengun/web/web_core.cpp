@@ -114,12 +114,14 @@ bool all_hex(const std::string& s) {
 // Alleen bekende sleutels met een bool of getal (of een korte tekst bij 'string_keys'); de
 // waardebereiken controleert de IPC-parser (één bron van waarheid).
 bool build_set_request(const char* cmd, const std::string& body, std::initializer_list<const char*> keys,
-                       std::string& line, std::string& err, std::initializer_list<const char*> string_keys = {}) {
+                       std::string& line, std::string& err, std::initializer_list<const char*> string_keys = {},
+                       const char* action = nullptr) {
     auto pr = json::parse(body);
     if (!pr.ok) { err = "ongeldige JSON: " + pr.error; return false; }
     if (!pr.value.is_object()) { err = "verwacht een JSON-object"; return false; }
     json::Writer w;
     w.begin_object().key("v").value(1).key("cmd").value(cmd);
+    if (action) w.key("action").value(action);
     for (const auto& kv : pr.value.obj) {
         bool known = false;
         for (const char* k : keys) if (kv.first == k) known = true;
@@ -390,6 +392,39 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
                 return error_json(400, "bad_request", err);
             return api_command(line);
         }
+        // Kalibratie-UI op de tv (docs/calibration-ui.md): alleen vaste acties, geen paden of programma's.
+        if (p.rfind("/api/calibrate/", 0) == 0) {
+            std::string line, err;
+            const std::string sub = p.substr(15);
+            if (sub == "ui") {
+                if (get) return api_command("{\"v\":1,\"cmd\":\"calibrate_ui\",\"action\":\"status\"}");
+                auto pr = json::parse(r.body);
+                if (!pr.ok || !pr.value.is_object()) return error_json(400, "bad_request", "verwacht een JSON-object");
+                const json::Value* a = pr.value.find("action");
+                if (pr.value.obj.size() != 1 || !a || !a->is_string() || (a->str != "open" && a->str != "close"))
+                    return error_json(400, "bad_request", "alleen {\"action\":\"open\"} of {\"action\":\"close\"}");
+                return api_command("{\"v\":1,\"cmd\":\"calibrate_ui\",\"action\":\"" + a->str + "\"}");
+            }
+            if (get) return wrong_method("POST");
+            if (sub == "mag/start" || sub == "mag/stop" || sub == "mag/abort") {
+                if (!build_set_request("calib_mag", r.body, {}, line, err, {"holder"}, sub.c_str() + 4)) return error_json(400, "bad_request", err);
+                return api_command(line);
+            }
+            if (sub == "rec/start" || sub == "rec/mark" || sub == "rec/stop") {
+                bool ok = sub == "rec/start" ? build_set_request("record", r.body, {"duration_s", "max_mb"}, line, err, {"tag"}, "start")
+                          : sub == "rec/mark" ? build_set_request("record", r.body, {}, line, err, {"label"}, "mark")
+                                              : build_set_request("record", r.body, {}, line, err, {}, "stop");
+                if (!ok) return error_json(400, "bad_request", err);
+                return api_command(line);
+            }
+            if (sub == "buttons") {
+                if (!build_set_request("set_buttons", r.body, {}, line, err,
+                                       {"trekker", "pomp", "driehoek", "cirkel", "kruis", "vierkant", "start", "select", "move", "ps"}))
+                    return error_json(400, "bad_request", err);
+                return api_command(line);
+            }
+            return error_json(404, "not_found", "onbekend eindpunt");
+        }
         if (p == "/api/csrf") {
             if (!get) return wrong_method("GET");
             HttpResponse o;
@@ -421,13 +456,13 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
     }
 
     if (!get) return wrong_method("GET");
-    std::string name = p == "/" ? "index.html" : p.substr(1);
+    std::string name = p == "/" ? "index.html" : p == "/calibrate" ? "calibrate.html" : p.substr(1);
     const Asset* a = find_asset(name);
     if (!a) return error_json(404, "not_found", "niet gevonden");
     HttpResponse o;
     o.content_type = a->content_type;
     o.body = a->data;
-    if (name == "index.html") {
+    if (name == "index.html" || name == "calibrate.html") {
         const std::string ph = "{{CSRF}}";
         size_t at = o.body.find(ph);
         if (at != std::string::npos) o.body.replace(at, ph.size(), cfg_.csrf);

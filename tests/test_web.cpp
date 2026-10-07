@@ -14,6 +14,7 @@
 
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/kiosk/kiosk.hpp"
 #include "ravengun/web/web_core.hpp"
 
 using namespace ravengun;
@@ -446,7 +447,133 @@ static void test_sse() {
     CHECK(counter == 300'000);
 }
 
+static void test_calibrate_ui() {
+    Fake f;
+    WebApp app = make_app(f);
+
+    // De pagina zelf: ingebakken, met CSRF-token, zonder externe bronnen of inline code (CSP).
+    HttpResponse r = app.handle(get("/calibrate"));
+    CHECK(r.status == 200 && r.content_type.rfind("text/html", 0) == 0);
+    CHECK(contains(r.body, kCsrf) && !contains(r.body, "{{CSRF}}"));
+    CHECK(!contains(r.body, "http://") && !contains(r.body, "https://") && !contains(r.body, " style=") && !contains(r.body, " onclick="));
+    CHECK(contains(r.body, "/calibrate.js") && contains(r.body, "/calibrate-core.js") && contains(r.body, "/calibrate.css"));
+    for (const char* a : {"/calibrate.js", "/calibrate-core.js", "/calibrate.css"}) {
+        HttpResponse x = app.handle(get(a));
+        CHECK(x.status == 200 && !x.body.empty() && !contains(x.body, "//cdn") && !contains(x.body, "https://"));
+    }
+    std::string ser = serialize(r);
+    CHECK(contains(ser, "Content-Security-Policy: default-src 'none'; script-src 'self'") && contains(ser, "Cache-Control: no-store"));
+    CHECK(app.handle(post("/calibrate", "{}")).status == 405);
+    CHECK(app.handle(get("/calibrate", "evil.example:8765")).status == 403);
+
+    // Endpoints: vaste omzetting naar IPC-commando's.
+    struct E { const char* path; const char* body; const char* line; };
+    const E ok[] = {
+        {"/api/calibrate/mag/start", R"({"holder":"sharp_shooter"})", R"({"v":1,"cmd":"calib_mag","action":"start","holder":"sharp_shooter"})"},
+        {"/api/calibrate/mag/start", "{}", R"({"v":1,"cmd":"calib_mag","action":"start"})"},
+        {"/api/calibrate/mag/stop", "{}", R"({"v":1,"cmd":"calib_mag","action":"stop"})"},
+        {"/api/calibrate/mag/abort", "{}", R"({"v":1,"cmd":"calib_mag","action":"abort"})"},
+        {"/api/calibrate/rec/start", R"({"tag":"stil-herhaalbaarheid","duration_s":900})", R"({"v":1,"cmd":"record","action":"start","tag":"stil-herhaalbaarheid","duration_s":900})"},
+        {"/api/calibrate/rec/mark", R"({"label":"stil_midden_1"})", R"({"v":1,"cmd":"record","action":"mark","label":"stil_midden_1"})"},
+        {"/api/calibrate/rec/stop", "{}", R"({"v":1,"cmd":"record","action":"stop"})"},
+        {"/api/calibrate/buttons", R"({"trekker":"t","pomp":"move"})", R"({"v":1,"cmd":"set_buttons","trekker":"t","pomp":"move"})"},
+        {"/api/calibrate/ui", R"({"action":"open"})", R"({"v":1,"cmd":"calibrate_ui","action":"open"})"},
+        {"/api/calibrate/ui", R"({"action":"close"})", R"({"v":1,"cmd":"calibrate_ui","action":"close"})"},
+    };
+    for (const E& e : ok) {
+        HttpResponse x = app.handle(post(e.path, e.body));
+        CHECK(x.status == 200);
+        if (f.last_line != e.line) std::fprintf(stderr, "want %s\n got %s\n", e.line, f.last_line.c_str());
+        CHECK(f.last_line == e.line);
+    }
+    CHECK(app.handle(get("/api/calibrate/ui")).status == 200 && f.last_line == R"({"v":1,"cmd":"calibrate_ui","action":"status"})");
+
+    // Ongeldige invoer bereikt de backend nooit.
+    int calls = f.calls;
+    const E bad[] = {
+        {"/api/calibrate/mag/start", R"({"cmd":"recenter"})", ""},
+        {"/api/calibrate/mag/start", R"({"holder":5})", ""},
+        {"/api/calibrate/mag/stop", R"({"action":"abort"})", ""},
+        {"/api/calibrate/rec/mark", R"({"label":5})", ""},
+        {"/api/calibrate/rec/mark", R"({"path":"/tmp/x"})", ""},
+        {"/api/calibrate/rec/start", R"({"duration_s":"lang"})", ""},
+        {"/api/calibrate/buttons", R"({"laser":"t"})", ""},
+        {"/api/calibrate/buttons", R"({"trekker":["t"]})", ""},
+        {"/api/calibrate/buttons", "[1]", ""},
+        {"/api/calibrate/ui", R"({"action":"verwijder"})", ""},
+        {"/api/calibrate/ui", R"({"action":"open","url":"http://evil.example"})", ""},
+        {"/api/calibrate/ui", R"({"action":"status"})", ""},
+        {"/api/calibrate/ui", "{kapot", ""},
+    };
+    for (const E& e : bad) CHECK(app.handle(post(e.path, e.body)).status == 400);
+    CHECK(app.handle(post("/api/calibrate/onbekend", "{}")).status == 404);
+    CHECK(f.calls == calls);
+
+    // Beveiliging van elk POST-endpoint: CSRF, Origin, Sec-Fetch-Site, Content-Type en Host.
+    const char* posts[] = {"/api/calibrate/mag/start", "/api/calibrate/mag/stop", "/api/calibrate/mag/abort", "/api/calibrate/rec/start",
+                           "/api/calibrate/rec/mark", "/api/calibrate/rec/stop", "/api/calibrate/buttons", "/api/calibrate/ui"};
+    for (const char* p : posts) {
+        CHECK(app.handle(post(p, R"({"label":"x"})", false)).status == 403);  // zonder CSRF-token
+        HttpRequest o = post(p, "{}");
+        o.headers["origin"] = "http://evil.example";
+        CHECK(app.handle(o).status == 403);
+        HttpRequest cs = post(p, "{}");
+        cs.headers["sec-fetch-site"] = "cross-site";
+        CHECK(app.handle(cs).status == 403);
+        HttpRequest ct = post(p, "{}");
+        ct.headers["content-type"] = "text/plain";
+        CHECK(app.handle(ct).status == 415);
+        HttpRequest h = post(p, "{}");
+        h.headers["host"] = "evil.example:8765";
+        CHECK(app.handle(h).status == 403);
+        HttpRequest wc = post(p, "{}");
+        wc.headers["x-csrf-token"] = "00000000000000000000000000000000";
+        CHECK(app.handle(wc).status == 403);
+        if (std::string(p) != "/api/calibrate/ui") CHECK(app.handle(get(p)).status == 405);
+    }
+    CHECK(f.calls == calls);
+
+    // LAN: zonder token 401, ook voor de pagina en de nieuwe endpoints.
+    Fake fl;
+    WebApp lan = make_app(fl, true);
+    const std::string host = "192.168.1.5:8765";
+    CHECK(lan.handle(get("/calibrate", host)).status == 401);
+    HttpRequest lp = post("/api/calibrate/mag/start", "{}");
+    lp.headers["host"] = host;
+    lp.headers["origin"] = "http://" + host;
+    CHECK(lan.handle(lp).status == 401 && fl.calls == 0);
+    lp.headers["authorization"] = "Bearer " + std::string(kToken);
+    CHECK(lan.handle(lp).status == 200 && fl.calls == 1);
+}
+
+static void test_kiosk_helpers() {
+    using namespace ravengun::kiosk;
+    const std::string prof = "/home/deck/.local/state/ravengun/kiosk";
+    auto args = flatpak_args("http://127.0.0.1:8765/calibrate", prof);
+    CHECK(args[0] == "run" && args[1] == "--filesystem=" + prof && args[2] == kBrowserAppId);
+    bool dd = false, kiosk = false, app = false;
+    for (const auto& a : args) {
+        if (a == "--user-data-dir=" + prof) dd = true;
+        if (a == "--kiosk") kiosk = true;
+        if (a == "--app=http://127.0.0.1:8765/calibrate") app = true;
+    }
+    CHECK(dd && kiosk && app);
+    // Sluiten raakt alleen processen met precies dit profiel.
+    auto nul = [](std::initializer_list<std::string> v) { std::string s; for (const auto& a : v) { s += a; s += '\0'; } return s; };
+    CHECK(cmdline_is_kiosk(nul({"flatpak", "run", "com.brave.Browser", "--user-data-dir=" + prof}), prof));
+    CHECK(cmdline_is_kiosk(nul({"/app/brave/brave", "--user-data-dir=" + prof, "--type=renderer"}), prof));
+    CHECK(!cmdline_is_kiosk(nul({"/app/brave/brave", "--user-data-dir=/home/deck/.var/app/com.brave.Browser/config"}), prof));
+    CHECK(!cmdline_is_kiosk(nul({"/app/brave/brave", "--user-data-dir=" + prof + "2"}), prof));
+    CHECK(!cmdline_is_kiosk(nul({"vim", prof}), prof));
+    CHECK(!cmdline_is_kiosk(nul({"brave"}), prof) && !cmdline_is_kiosk("", prof) && !cmdline_is_kiosk(nul({"x"}), ""));
+    CHECK(xauthority_from_cmdline(nul({"kwin_wayland", "--xwayland", "--xwayland-xauthority", "/run/user/1000/xauth_abc", "--other"})) == "/run/user/1000/xauth_abc");
+    CHECK(xauthority_from_cmdline(nul({"kwin_wayland", "--xwayland-xauthority"})).empty());
+    CHECK(xauthority_from_cmdline("").empty());
+}
+
 int main() {
+    test_calibrate_ui();
+    test_kiosk_helpers();
     test_parser();
     test_routing_and_json();
     test_post_mapping();

@@ -33,7 +33,8 @@ Schema (versie 1), alle secties optioneel:
 - `camera`: `mode` (`640x480@60`, `320x240@125` of `320x240@187`), `auto_exposure`, `auto_gain`, `auto_awb` (bool), `exposure` (0 tot 255) en `gain` (0 tot 63).
 - `filter`: `enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz` (zelfde bereiken als `set_filter`).
 - `aim`: `h_edge_deg` en `v_edge_deg` (1 tot 89).
-- `web`: `port` (1 tot 65535, geldt na een herstart). LAN-toegang staat bewust niet in het bestand en niet in de interface: alleen `--web-lan` met een token.
+- `web`: `port` (1 tot 65535, geldt na een herstart).
+- `sharp_shooter`: `buttons`, een object van fysieke Sharp Shooter-knop (trekker, pomp, driehoek, cirkel, kruis, vierkant, start, select, move, ps) naar Move-knop (triangle, circle, cross, square, select, start, ps, move, t), gemeten door de kalibratie-UI. LAN-toegang staat bewust niet in het bestand en niet in de interface: alleen `--web-lan` met een token.
 
 Schrijven en fouten: het bestand wordt atomisch vervangen (tijdelijk bestand 0600 in dezelfde map, fsync, rename), dus een crash laat nooit een half bestand achter. Vóór het vervangen wordt een geldig bestaand bestand de laatst-goede kopie `config.json.bak`. Bij het laden wordt alles gevalideerd (bereiken, typen, schemaversie; onbekende sleutels worden genegeerd met een waarschuwing). Een ongeldig bestand wordt nooit half toegepast: de daemon gebruikt de kopie (toestand `recovered`) of anders de standaardwaarden (`invalid`), meldt dat in de log en op de pagina Instellingen, en zet het corrupte bestand bij de eerstvolgende wijziging opzij als `config.json.corrupt`.
 
@@ -70,9 +71,11 @@ Alle antwoorden zijn JSON in dezelfde envelop als de IPC: `{"v":1,"ok":true,"res
 - `POST /api/arm` en `POST /api/disarm`: lege body of `{}`.
 - `POST /api/test-pattern`: `pattern` (center, corners, grid, sweep, point, stop) met optioneel `dwell_ms`, `duration_s`, `margin`, `x`, `y`, `rate_hz`.
 - `POST /api/output`: transformatie (`set_output`): `invert_x`, `invert_y`, `scale_x`, `scale_y`, `offset_x`, `offset_y`, `viewport_x0`, `viewport_y0`, `viewport_x1`, `viewport_y1`, `screen_aspect`, `content_aspect`.
-- `GET /api/stream`: Server-Sent Events. Per frame een `event: sample` met `{"sample":...,"skipped_frames":N}`. Hoogstens 30 frames per seconde, en alleen als er nieuwe data is; elke 15 seconden een keepalive-commentaarregel.
+- `GET /api/stream`: Server-Sent Events. Per frame een `event: sample` met `{"sample":...,"skipped_frames":N,"edges":{"press":[...],"release":[...]}}` (cumulatieve flankentellers per knopbit) en, zodra er opname of kalibratie loopt, `progress`. Hoogstens 30 frames per seconde, en alleen als er nieuwe data is; elke 15 seconden een keepalive-commentaarregel.
 
-Dezelfde commando's bestaan op de IPC-socket: `set_led`, `set_camera`, `set_web`, `info`, `settings` en `diagnostics`. Alle nieuwe POST-endpoints zitten achter dezelfde Host-, Origin-, Sec-Fetch-Site-, Content-Type- en CSRF-controles als de bestaande, en in LAN-modus achter het token. Onbekende velden en verkeerde typen geven 400 voordat de daemon iets ziet.
+- Kalibratie-UI op de tv (zie `docs/calibration-ui.md`): de pagina `GET /calibrate` en `POST /api/calibrate/mag/start|stop|abort`, `POST /api/calibrate/rec/start|mark|stop`, `POST /api/calibrate/buttons`, `GET` en `POST /api/calibrate/ui` (open of close de kiosk-browser).
+
+Dezelfde commando's bestaan op de IPC-socket: `set_led`, `set_camera`, `set_web`, `info`, `settings`, `diagnostics`, `set_buttons` en `calibrate_ui`. Alle nieuwe POST-endpoints zitten achter dezelfde Host-, Origin-, Sec-Fetch-Site-, Content-Type- en CSRF-controles als de bestaande, en in LAN-modus achter het token. Onbekende velden en verkeerde typen geven 400 voordat de daemon iets ziet.
 
 ## LED-kleur en tracker-tint
 
@@ -109,7 +112,7 @@ De pagina's zijn Nederlands, donker en bruikbaar op een telefoon. Er worden geen
 - Uitvoer: arm en disarm (inschakelen vraagt een bevestiging), de testpatronen midden, hoeken, raster, sweep en stop (uitgeschakeld zolang de uitvoer niet armed is), en de transformatie (spiegelen, schaal, offset, viewport).
 - Instellingen: het 1€-filter, de aim-schaal, recenter, de webpoort voor de volgende start en de toestand van het instellingenbestand, met controle van de invoer in de browser (bereiken zoals hierboven) en daarna nogmaals door de daemon. Fouten van de daemon staan bij het formulier.
 - Info: versies (daemon, git-commit, PSMoveAPI-pin), apparaten, uptime, de IMU-rapportfrequentie met intervallen en gaten, camera-fps en gemiste frames, verwerkingstijden en de knop "Diagnose exporteren".
-- Kalibratie en Games: tijdelijke pagina's met uitleg dat ze later komen. De kalibratiedoelen komen op de televisie, niet op dit beheerscherm of op een telefoon.
+- Kalibratie: een knop "Kalibreren op de tv" (en een knop om het scherm weer te sluiten). De kalibratie zelf draait fullscreen op de televisie en wordt met het geweer bediend, zie `docs/calibration-ui.md`. Games: tijdelijke pagina met uitleg dat ze later komt.
 
 ## Bouwen en testen
 

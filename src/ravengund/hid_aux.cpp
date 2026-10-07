@@ -72,6 +72,7 @@ void HidAux::on_report(const RawReport& r, const Pipeline& p, double temp_c) {
     for (int i = 0; i < n; ++i) { accel = accel + r.accel[i]; gyro = gyro + r.gyro[i]; }
     accel = accel * (1.0 / n);
     gyro = gyro * (1.0 / n) - p.bias().bias();
+    gyro_dps_ += 0.2 * (norm(gyro) * kDegPerRad - gyro_dps_);  // gladgemaakte rotatiesnelheid (graden/s)
     double dt = last_rx_ ? static_cast<double>(r.t_rx_ns - last_rx_) / 1e9 : 0;
     last_rx_ = r.t_rx_ns;
     if (cal_loaded_) {
@@ -234,7 +235,8 @@ std::string HidAux::progress_json(int64_t now) const {
     w.key("mag_calibration").begin_object();
     w.key("active").value(collecting_);
     if (collecting_) {
-        double cov = coll_.coverage();
+        MagCoverageDetail cd = coll_.detail();
+        double cov = cd.coverage;
         int n = static_cast<int>(coll_.samples().size());
         w.key("holder").value(holder_);
         w.key("samples").value(n);
@@ -246,6 +248,15 @@ std::string HidAux::progress_json(int64_t now) const {
         double el = static_cast<double>(now - collect_start_ns_) / 1e9;
         w.key("min_seconds").value(kMagMinSeconds);
         w.key("ready").value(cov >= kMagTargetCoverage && n >= kMagTargetSamples && el >= kMagMinSeconds);
+        // Dekking per richting (20 vlakken, SphereCoverage::directions()) voor de kalibratie-UI op de tv:
+        // een vlak telt mee vanaf cell_min_count samples. 'dir' is de laatste meetrichting.
+        w.key("cell_min_count").value(3);
+        w.key("cells").begin_array();
+        for (int c : cd.counts) w.value(c);
+        w.end_array();
+        w.key("spread").value(cd.spread);
+        if (cd.has_dir) w.key("dir").begin_array().value(cd.dir.x).value(cd.dir.y).value(cd.dir.z).end_array();
+        w.key("gyro_dps").value(gyro_dps_);
     }
     if (!last_fit_json_.empty()) w.key("last_result").raw(last_fit_json_);
     w.end_object();

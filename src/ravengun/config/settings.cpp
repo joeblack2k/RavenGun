@@ -1,5 +1,6 @@
 #include "ravengun/config/settings.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -11,6 +12,7 @@
 #include <unistd.h>
 
 #include "ravengun/config/led_color.hpp"
+#include "ravengun/core/buttons.hpp"
 #include "ravengun/json.hpp"
 
 namespace ravengun::config {
@@ -123,6 +125,17 @@ bool parse_camera_mode(const std::string& s, CameraMode& out) {
     return true;
 }
 
+const std::vector<std::string>& sharp_shooter_roles() {
+    static const std::vector<std::string> r{"trekker", "pomp", "driehoek", "cirkel", "kruis", "vierkant", "start", "select", "move", "ps"};
+    return r;
+}
+
+bool move_button_name_valid(const std::string& name) {
+    for (const auto& b : core::kButtonNames)
+        if (name == b.name) return true;
+    return false;
+}
+
 std::string validate(const Settings& s) {
     auto in = [](double v, double lo, double hi) { return std::isfinite(v) && v >= lo && v <= hi; };
     static const char* kPresets[] = {"cyaan", "magenta", "rood", "groen", "blauw", "wit", "custom"};
@@ -141,6 +154,12 @@ std::string validate(const Settings& s) {
     if (!in(s.filter.d_cutoff_hz, 0.001, 100)) return "filter.d_cutoff_hz moet tussen 0,001 en 100 liggen";
     if (!in(s.aim.h_edge_deg, 1, 89) || !in(s.aim.v_edge_deg, 1, 89)) return "aim.h_edge_deg en aim.v_edge_deg moeten tussen 1 en 89 liggen";
     if (s.web.port < 1 || s.web.port > 65535) return "web.port moet tussen 1 en 65535 liggen";
+    for (const auto& kv : s.sharp_shooter.buttons) {
+        const auto& roles = sharp_shooter_roles();
+        if (std::find(roles.begin(), roles.end(), kv.first) == roles.end()) return "sharp_shooter.buttons." + kv.first + " is een onbekende knop";
+        if (!kv.second.empty() && !move_button_name_valid(kv.second))
+            return "sharp_shooter.buttons." + kv.first + " is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
+    }
     return {};
 }
 
@@ -174,7 +193,12 @@ std::string to_json(const Settings& s, bool pretty) {
     out += section("aim", [&](json::Writer& w) {
         w.key("h_edge_deg").value(s.aim.h_edge_deg).key("v_edge_deg").value(s.aim.v_edge_deg);
     }) + "," + nl;
-    out += section("web", [&](json::Writer& w) { w.key("port").value(s.web.port); }) + nl + "}" + nl;
+    out += section("web", [&](json::Writer& w) { w.key("port").value(s.web.port); }) + "," + nl;
+    out += section("sharp_shooter", [&](json::Writer& w) {
+        w.key("buttons").begin_object();
+        for (const auto& kv : s.sharp_shooter.buttons) w.key(kv.first).value(kv.second);
+        w.end_object();
+    }) + nl + "}" + nl;
     return out;
 }
 
@@ -209,7 +233,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (warnings) {
         for (const auto& kv : root.obj) {
-            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "web"};
+            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "web", "sharp_shooter"};
             bool k = false;
             for (const char* n : known) if (kv.first == n) k = true;
             if (!k) warnings->push_back("onbekende sleutel '" + kv.first + "' genegeerd");
@@ -266,6 +290,18 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
         Section c{*o, "web", e, warnings};
         c.integer("port", 1, 65535, s.web.port);
         c.unknown({"port"});
+    }
+    if (const json::Value* o = sec("sharp_shooter")) {
+        Section c{*o, "sharp_shooter", e, warnings};
+        c.unknown({"buttons"});
+        if (const json::Value* b = o->find("buttons")) {
+            if (!b->is_object()) c.fail("sharp_shooter.buttons moet een object zijn");
+            else
+                for (const auto& kv : b->obj) {
+                    if (!kv.second.is_string() || kv.second.str.size() > 32) { c.fail("sharp_shooter.buttons." + kv.first + " moet een korte tekst zijn"); break; }
+                    s.sharp_shooter.buttons[kv.first] = kv.second.str;
+                }
+        }
     }
     if (e.empty()) e = validate(s);  // o.a. de presetnaam
     if (!e.empty()) { err = e; return false; }

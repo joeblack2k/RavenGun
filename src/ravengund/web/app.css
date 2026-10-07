@@ -73,3 +73,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dot.ok { background:var(--ok); } .dot.off { background:#555; }
 .dot.on { background:var(--ok); }
 .led-chip { display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid #fff4; vertical-align:-2px; margin-right:6px; }
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin:.6rem 0; }

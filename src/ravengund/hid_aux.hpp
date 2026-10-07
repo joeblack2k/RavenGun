@@ -49,6 +49,7 @@ private:
     std::string id_, model_, tap_err_;
     int last_led_[3]{-1, -1, -1};
     double temp_c_ = std::nan("");
+    double gyro_dps_ = 0;  // gladgemaakte |gyro| (bias-gecorrigeerd), voor de tempo-indicator
     int64_t next_progress_ = 0;
     bool progress_dirty_ = false;
 

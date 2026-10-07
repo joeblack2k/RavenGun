@@ -77,6 +77,13 @@ std::string stream_frame(const Snapshot& snap, uint64_t skipped) {
     w.begin_object().key("sample");
     core::write_sample_json(w, snap.sample, false);  // controller-ID geredigeerd
     w.key("skipped_frames").value(static_cast<unsigned long long>(skipped));
+    // Cumulatieve flankentellers per knopbit: een client die frames mist (30 Hz) verliest zo nooit een druk.
+    w.key("edges").begin_object();
+    w.key("press").begin_array();
+    for (uint64_t v : snap.press_total) w.value(static_cast<unsigned long long>(v));
+    w.end_array().key("release").begin_array();
+    for (uint64_t v : snap.release_total) w.value(static_cast<unsigned long long>(v));
+    w.end_array().end_object();
     if (!snap.progress.empty()) w.key("progress").raw(snap.progress);  // opname/magnetometerkalibratie
     w.end_object();
     return sse_frame("sample", w.str());

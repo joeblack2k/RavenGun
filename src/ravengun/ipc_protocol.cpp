@@ -1,5 +1,6 @@
 #include "ravengun/ipc_protocol.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <initializer_list>
@@ -33,6 +34,8 @@ const char* to_string(Cmd c) {
         case Cmd::Info: return "info";
         case Cmd::Settings: return "settings";
         case Cmd::Diagnostics: return "diagnostics";
+        case Cmd::SetButtons: return "set_buttons";
+        case Cmd::CalibrateUi: return "calibrate_ui";
     }
     return "?";
 }
@@ -273,6 +276,27 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!allowed(o, {"port"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         if (!opt_int(o, "port", 1, 65535, r.web_port, e, r.id_json)) return e;
         if (!r.web_port) return err("invalid_argument", "set_web zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "set_buttons") {
+        r.cmd = Cmd::SetButtons;
+        for (const auto& kv : o.obj) {
+            if (kv.first == "v" || kv.first == "cmd" || kv.first == "id") continue;
+            const auto& roles = config::sharp_shooter_roles();
+            if (std::find(roles.begin(), roles.end(), kv.first) == roles.end())
+                return err("bad_request", "onbekend veld '" + kv.first + "'", r.id_json);
+            if (!kv.second.is_string())
+                return err("invalid_argument", "'" + kv.first + "' moet een tekst zijn (Move-knop of leeg)", r.id_json);
+            if (!kv.second.str.empty() && !config::move_button_name_valid(kv.second.str))
+                return err("invalid_argument", "'" + kv.first + "': onbekende Move-knop '" + kv.second.str + "' (triangle, circle, cross, square, select, start, ps, move, t)", r.id_json);
+            r.button_map[kv.first] = kv.second.str;
+        }
+        if (r.button_map.empty()) return err("invalid_argument", "set_buttons zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "calibrate_ui") {
+        r.cmd = Cmd::CalibrateUi;
+        if (!allowed(o, {"action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* a = o.find("action");
+        if (!a || !a->is_string() || (a->str != "open" && a->str != "close" && a->str != "status"))
+            return err("invalid_argument", "'action' moet open, close of status zijn", r.id_json);
+        r.action = a->str;
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -381,6 +405,12 @@ std::string make_request(const Request& r) {
             break;
         case Cmd::SetWeb:
             if (r.web_port) w.key("port").value(*r.web_port);
+            break;
+        case Cmd::SetButtons:
+            for (const auto& kv : r.button_map) w.key(kv.first).value(kv.second);
+            break;
+        case Cmd::CalibrateUi:
+            w.key("action").value(r.action);
             break;
         case Cmd::Info:
         case Cmd::Settings:

@@ -258,6 +258,38 @@ static void test_persist_and_info(const std::string& dir) {
     CHECK(!ok && code == "unavailable");
 }
 
+static void test_buttons_and_ui(const std::string& dir) {
+    Rig rig;
+    config::SettingsStore store(dir + "/btn/config.json");
+    store.load();
+    rig.sh.settings = &store;
+    bool ok = false;
+    std::string code, msg;
+    json::Value r = rig.call(R"({"v":1,"cmd":"set_buttons","trekker":"t","pomp":"move","driehoek":"triangle"})", &ok);
+    CHECK(ok && r.find("saved")->b && r.find("buttons")->find("pomp")->str == "move");
+    CHECK(store.get().sharp_shooter.buttons.size() == 3 && store.get().sharp_shooter.buttons.at("trekker") == "t");
+    CHECK(contains(slurp(dir + "/btn/config.json"), "\"pomp\":\"move\"") || contains(slurp(dir + "/btn/config.json"), "\"pomp\": \"move\""));
+    // Een lege waarde wist de koppeling.
+    rig.call(R"({"v":1,"cmd":"set_buttons","pomp":""})", &ok);
+    CHECK(ok && store.get().sharp_shooter.buttons.count("pomp") == 0 && store.get().sharp_shooter.buttons.size() == 2);
+    // Ongeldig: onbekende rol of Move-knop gaat niet eens door de parser.
+    rig.call(R"({"v":1,"cmd":"set_buttons","laser":"t"})", &ok, &code);
+    CHECK(!ok && code == "bad_request");
+    rig.call(R"({"v":1,"cmd":"set_buttons","trekker":"l2"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    CHECK(store.get().sharp_shooter.buttons.size() == 2);
+    // Zonder instellingenopslag: nette fout.
+    Rig bare;
+    bare.call(R"({"v":1,"cmd":"set_buttons","trekker":"t"})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+
+    // Kiosk: status werkt altijd; openen vereist een webpoort (hier 0), dus er start nooit een browser in de test.
+    r = rig.call(R"({"v":1,"cmd":"calibrate_ui","action":"status"})", &ok);
+    CHECK(ok && r.find("running") && r.find("message"));
+    rig.call(R"({"v":1,"cmd":"calibrate_ui","action":"open"})", &ok, &code, &msg);
+    CHECK(!ok && code == "unavailable" && contains(msg, "webinterface"));
+}
+
 int main() {
     std::string dir = (fs::temp_directory_path() / ("rg-cmd-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(dir);
@@ -265,6 +297,7 @@ int main() {
     test_set_led(dir);
     test_set_camera(dir);
     test_persist_and_info(dir);
+    test_buttons_and_ui(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

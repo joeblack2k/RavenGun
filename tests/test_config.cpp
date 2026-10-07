@@ -71,6 +71,7 @@ static Settings modified() {
     s.filter = {false, 2.5, 0.25, 3.0};
     s.aim = {25, 14};
     s.web.port = 18999;
+    s.sharp_shooter.buttons = {{"trekker", "t"}, {"pomp", "move"}, {"cirkel", "circle"}};
     return s;
 }
 
@@ -382,7 +383,53 @@ static void test_ipc_new_commands() {
     CHECK(ok && *r2.led_g == 8);
 }
 
+static void test_sharp_shooter_buttons() {
+    Settings m = modified();
+    Settings out;
+    std::string err;
+    CHECK(contains(to_json(m, false), "\"sharp_shooter\":{\"buttons\":{"));
+    CHECK(parse_settings(to_json(m), out, err) && out.sharp_shooter.buttons.size() == 3 && out.sharp_shooter.buttons["pomp"] == "move");
+    // Zonder sectie: leeg. Onbekende rol, onbekende Move-knop en verkeerd type worden geweigerd.
+    CHECK(parse_settings(R"({"schema":1})", out, err) && out.sharp_shooter.buttons.empty());
+    CHECK(!parse_settings(R"({"schema":1,"sharp_shooter":{"buttons":{"laser":"t"}}})", out, err) && contains(err, "onbekende knop"));
+    CHECK(!parse_settings(R"({"schema":1,"sharp_shooter":{"buttons":{"trekker":"l2"}}})", out, err) && contains(err, "geen Move-knop"));
+    CHECK(!parse_settings(R"({"schema":1,"sharp_shooter":{"buttons":{"trekker":5}}})", out, err));
+    CHECK(!parse_settings(R"({"schema":1,"sharp_shooter":{"buttons":[1]}})", out, err));
+    CHECK(parse_settings(R"({"schema":1,"sharp_shooter":{"buttons":{"trekker":""}}})", out, err));  // leeg = niet gemeten
+    CHECK(config::sharp_shooter_roles().size() == 10 && config::move_button_name_valid("t") && !config::move_button_name_valid(""));
+
+    bool ok = false;
+    auto rq = parse_ok(R"({"v":1,"cmd":"set_buttons","trekker":"t","pomp":"move","ps":""})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::SetButtons && rq.button_map.size() == 3 && rq.button_map["pomp"] == "move" && rq.button_map["ps"].empty());
+    auto rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.button_map == rq.button_map);
+    parse_ok(R"({"v":1,"cmd":"set_buttons"})", ok, &err);
+    CHECK(!ok && contains(err, "zonder"));
+    parse_ok(R"({"v":1,"cmd":"set_buttons","laser":"t"})", ok, &err);
+    CHECK(!ok && contains(err, "onbekend veld"));
+    parse_ok(R"({"v":1,"cmd":"set_buttons","trekker":"l2"})", ok, &err);
+    CHECK(!ok && contains(err, "onbekende Move-knop"));
+    parse_ok(R"({"v":1,"cmd":"set_buttons","trekker":3})", ok, &err);
+    CHECK(!ok);
+
+    rq = parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"open"})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::CalibrateUi && rq.action == "open");
+    rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.action == "open");
+    for (const char* a : {"close", "status"}) {
+        rq = parse_ok(std::string(R"({"v":1,"cmd":"calibrate_ui","action":")") + a + "\"}", ok);
+        CHECK(ok && rq.action == a);
+    }
+    parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"verwijder"})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"calibrate_ui"})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"open","url":"http://x"})", ok, &err);
+    CHECK(!ok && contains(err, "onbekend veld"));
+}
+
 int main() {
+    test_sharp_shooter_buttons();
     test_roundtrip_and_validation();
     test_migration_hook();
     test_store_files();

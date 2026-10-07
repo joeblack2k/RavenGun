@@ -14,7 +14,7 @@ option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 
 include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
-  index.html app.css app.js)
+  index.html app.css app.js calibrate.html calibrate.css calibrate-core.js calibrate.js)
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
 set(RAVENGUN_PSMOVEAPI_PIN "256b6299e6076fe7b113e7277ed67016903f067a" CACHE STRING "Gepinde PSMoveAPI-commit (docs/build.md)")
@@ -35,6 +35,7 @@ set(RAVENGUN_BUILD_DEFS
 add_library(ravengun STATIC
   src/ravengun/config/settings.cpp
   src/ravengun/config/led_color.cpp
+  src/ravengun/kiosk/kiosk.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -138,6 +139,10 @@ if(RAVENGUN_BUILD_TESTS)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
     add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
+    # JS-unittests van de kalibratie-UI (node in een wegwerp-container); overgeslagen (77) zonder podman of netwerk.
+    add_test(NAME ravengun_calibrate_js COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tools/test-js.sh"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(ravengun_calibrate_js PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
     add_test(NAME ravengund_web
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/web_smoke.sh" "$<TARGET_FILE:ravengund>")
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
