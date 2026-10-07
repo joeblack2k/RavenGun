@@ -14,6 +14,7 @@
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/json.hpp"
+#include "ravengun/output/key_table.hpp"
 
 namespace ravengun::config {
 
@@ -136,6 +137,24 @@ bool move_button_name_valid(const std::string& name) {
     return false;
 }
 
+const std::vector<std::string>& gun_map_buttons() {
+    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move"};
+    return b;
+}
+
+std::string check_gun_action(const std::string& action, std::string& canon) {
+    if (action.empty() || action == "none") { canon = "none"; return {}; }
+    for (const char* a : {"reload", "grenade", "aux1", "aux2", "recenter"})
+        if (action == a) { canon = action; return {}; }
+    if (action.compare(0, 4, "key:") == 0) {
+        int code = output::key_code(action.substr(4));
+        if (code < 0) return "onbekende toets '" + action.substr(4) + "' (zie de toetsnamen in docs/architecture.md)";
+        canon = std::string("key:") + output::key_name(code);
+        return {};
+    }
+    return "onbekende actie '" + action + "' (reload, grenade, aux1, aux2, recenter, key:<naam> of none)";
+}
+
 std::string validate(const Settings& s) {
     auto in = [](double v, double lo, double hi) { return std::isfinite(v) && v >= lo && v <= hi; };
     static const char* kPresets[] = {"cyaan", "magenta", "rood", "groen", "blauw", "wit", "custom"};
@@ -164,14 +183,16 @@ std::string validate(const Settings& s) {
     const auto& g = s.gun_buttons;
     if (g.trigger_on < 1 || g.trigger_on > 255 || g.trigger_off < 0 || g.trigger_off >= g.trigger_on)
         return "gun_buttons: 0 <= trigger_off < trigger_on <= 255";
-    for (const auto* b : {&g.reload, &g.grenade, &g.recenter})
-        if (!b->empty() && !move_button_name_valid(*b))
-            return "gun_buttons: '" + *b + "' is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
-    if (!g.reload.empty() && g.reload == g.grenade) return "gun_buttons: reload en grenade gebruiken dezelfde knop";
-    for (const auto* b : {&g.reload, &g.grenade})
-        if (!b->empty() && *b == g.recenter) return "gun_buttons: recenter gebruikt dezelfde knop als reload of grenade";
-    for (const auto* b : {&g.reload, &g.grenade, &g.recenter})
-        if (*b == "t") return "gun_buttons: T is de trekker en kan geen andere functie hebben";
+    for (const auto& kv : g.map) {
+        if (kv.first == "ps") return "gun_buttons.map: 'ps' kan niet worden ingedeeld: de PS-knop is altijd recenter (vast)";
+        if (kv.first == "t") return "gun_buttons.map: 't' kan niet worden ingedeeld: T is altijd de analoge trekker";
+        const auto& bs = gun_map_buttons();
+        if (std::find(bs.begin(), bs.end(), kv.first) == bs.end())
+            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move)";
+        std::string canon;
+        std::string m = check_gun_action(kv.second, canon);
+        if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;
+    }
     return {};
 }
 
@@ -214,7 +235,14 @@ std::string to_json(const Settings& s, bool pretty) {
     out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode); }) + "," + nl;
     out += section("gun_buttons", [&](json::Writer& w) {
         w.key("trigger_on").value(s.gun_buttons.trigger_on).key("trigger_off").value(s.gun_buttons.trigger_off);
-        w.key("reload").value(s.gun_buttons.reload).key("grenade").value(s.gun_buttons.grenade).key("recenter").value(s.gun_buttons.recenter);
+        w.key("map").begin_object();
+        for (const auto& b : gun_map_buttons()) {
+            auto it = s.gun_buttons.map.find(b);
+            std::string canon = "none";
+            if (it != s.gun_buttons.map.end()) check_gun_action(it->second, canon);
+            w.key(b).value(canon);
+        }
+        w.end_object();
     }) + nl + "}" + nl;
     return out;
 }
@@ -329,10 +357,29 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
         Section c{*o, "gun_buttons", e, warnings};
         c.integer("trigger_on", 1, 255, s.gun_buttons.trigger_on);
         c.integer("trigger_off", 0, 254, s.gun_buttons.trigger_off);
-        c.string("reload", s.gun_buttons.reload);
-        c.string("grenade", s.gun_buttons.grenade);
-        c.string("recenter", s.gun_buttons.recenter);
-        c.unknown({"trigger_on", "trigger_off", "reload", "grenade", "recenter"});
+        c.unknown({"trigger_on", "trigger_off", "map", "reload", "grenade", "recenter"});
+        // Oud formaat (reload/grenade/recenter = Move-knopnaam): vertaald naar map-items die de defaults voor die knop overschrijven.
+        for (const char* old : {"reload", "grenade", "recenter"}) {
+            const json::Value* v = o->find(old);
+            if (!v) continue;
+            if (!v->is_string() || v->str.size() > 32) { c.fail(std::string("gun_buttons.") + old + " moet een korte tekst zijn"); break; }
+            if (v->str.empty()) continue;
+            if (v->str == "ps" && std::string(old) == "recenter") {
+                if (warnings) warnings->push_back("gun_buttons.recenter 'ps' genegeerd: de PS-knop is altijd recenter");
+                continue;
+            }
+            if (v->str == "ps" || v->str == "t") { c.fail("gun_buttons." + std::string(old) + ": '" + v->str + "' kan niet worden ingedeeld (PS is altijd recenter, T is de trekker)"); break; }
+            if (!move_button_name_valid(v->str)) { c.fail("gun_buttons." + std::string(old) + ": '" + v->str + "' is geen Move-knop"); break; }
+            s.gun_buttons.map[v->str] = old;
+        }
+        if (const json::Value* m = o->find("map")) {
+            if (!m->is_object()) c.fail("gun_buttons.map moet een object zijn");
+            else
+                for (const auto& kv : m->obj) {
+                    if (!kv.second.is_string() || kv.second.str.size() > 32) { c.fail("gun_buttons.map." + kv.first + " moet een korte tekst zijn"); break; }
+                    s.gun_buttons.map[kv.first] = kv.second.str;  // validate() controleert knop en actie
+                }
+        }
     }
     if (e.empty()) e = validate(s);  // o.a. de presetnaam
     if (!e.empty()) { err = e; return false; }

@@ -288,10 +288,10 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         shared.publish(s);
         if (!shared.output) return;
         ravengun::output::LiveAction a = live.update(s);
-        if (a.recenter && shared.output->armed()) {
+        if (a.recenter) {  // PS-knop altijd (ook ongewapend), anders een Move-knop uit de indeling
             if (pipe.recenter()) {
                 shared.publish(pipe.last());
-                logf("info", "recenter met de Move-knop");
+                logf("info", a.recenter_ps ? "recenter met de PS-knop" : "recenter met de Move-knop");
                 a = live.update(pipe.last());
                 a.recenter = false;
             }

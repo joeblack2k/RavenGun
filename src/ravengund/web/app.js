@@ -463,6 +463,7 @@
       var rows = outRows(o);
       rows.push(['Laatste positie', typeof pos.nx === 'number' ? fmt(pos.nx, 3) + ', ' + fmt(pos.ny, 3) : '-']);
       rows.push(['Knoppen ingedrukt', o.buttons_down && o.buttons_down.length ? o.buttons_down.join(', ') : 'geen']);
+      rows.push(['Toetsen ingedrukt', o.keys_down && o.keys_down.length ? o.keys_down.join(', ') : 'geen']);
       fill($('out-state'), rows);
       var prow = [['Toestand', p.state || '-']];
       if (p.kind) prow.push(['Patroon', p.kind + (p.steps ? ' (stap ' + p.step + ' van ' + p.steps + ')' : '')]);

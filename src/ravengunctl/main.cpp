@@ -352,6 +352,13 @@ void print_output(const json::Value& o, const std::string& what) {
     std::printf("Positie:      aim %s,%s -> abs %s,%s; knoppen: %s\n", fmt(num(o, {"position", "nx"}), "%.3f").c_str(),
                 fmt(num(o, {"position", "ny"}), "%.3f").c_str(), fmt(num(o, {"position", "abs_x"}), "%.0f").c_str(),
                 fmt(num(o, {"position", "abs_y"}), "%.0f").c_str(), names(path(o, {"buttons_down"})).c_str());
+    std::printf("Toetsenbord:  %s, toetsen: %s\n", boolean(o, {"keyboard", "created"}) ? "aangemaakt" : "niet aangemaakt",
+                names(path(o, {"keys_down"})).c_str());
+    if (const json::Value* m = path(o, {"map"}); m && m->is_object() && !m->obj.empty()) {
+        std::string line;
+        for (const auto& kv : m->obj) line += (line.empty() ? "" : ", ") + kv.first + "=" + (kv.second.is_string() ? kv.second.str : "?");
+        std::printf("Indeling:     %s\n", line.c_str());
+    }
     std::printf("Transformatie: invert %d/%d, schaal %.3f/%.3f, offset %.3f/%.3f, viewport (%.3f,%.3f)-(%.3f,%.3f)\n",
                 boolean(o, {"transform", "invert_x"}), boolean(o, {"transform", "invert_y"}), num(o, {"transform", "scale_x"}),
                 num(o, {"transform", "scale_y"}), num(o, {"transform", "offset_x"}), num(o, {"transform", "offset_y"}),

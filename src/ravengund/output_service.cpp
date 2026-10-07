@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "ravengun/json.hpp"
+#include "ravengun/output/key_table.hpp"
 #include "shared.hpp"
 
 namespace ravengund {
@@ -11,7 +12,7 @@ using namespace ravengun::output;
 using std::chrono::duration;
 using std::chrono::steady_clock;
 
-OutputService::OutputService() : out_(dev_) {}
+OutputService::OutputService() : out_(dev_, &kbd_) {}
 
 OutputService::~OutputService() { shutdown(); }
 
@@ -44,7 +45,11 @@ OutputResult OutputService::arm() {
         logf("fout", "arm mislukt: %s", err.c_str());
         return {false, "unavailable", err};
     }
-    if (!was_armed) logf("info", "uitvoer GEWAPEND: virtueel lightgun-apparaat %s (%s)", kDeviceName, dev_.event_node().c_str());
+    if (!was_armed) {
+        logf("info", "uitvoer GEWAPEND: virtueel lightgun-apparaat %s (%s), toetsenbord %s (%s)", kDeviceName, dev_.event_node().c_str(),
+             kKbdDeviceName, kbd_.event_node().c_str());
+        if (!out_.keyboard_error().empty()) logf("fout", "virtueel toetsenbord niet beschikbaar: %s", out_.keyboard_error().c_str());
+    }
     return {};
 }
 
@@ -73,6 +78,11 @@ bool OutputService::armed() const {
     return out_.armed();
 }
 
+void OutputService::set_layout(const std::vector<std::pair<std::string, std::string>>& layout) {
+    std::lock_guard<std::mutex> g(m_);
+    layout_ = layout;
+}
+
 void OutputService::feed_live(const LiveAction& a) {
     std::lock_guard<std::mutex> g(m_);
     if (shut_) return;
@@ -81,6 +91,7 @@ void OutputService::feed_live(const LiveAction& a) {
         live_aim_valid_ = false;
         bool any = false;
         for (int i = 0; i < kGunButtonCount; ++i) any = any || out_.button_down(static_cast<GunButton>(i));
+        any = any || !out_.keys_down().empty();
         if (any) { out_.release_all(); ++live_releases_; }
         return;
     }
@@ -97,6 +108,9 @@ void OutputService::feed_live(const LiveAction& a) {
         out_.set_button(GunButton::Trigger, a.trigger);
         out_.set_button(GunButton::Reload, a.reload);
         out_.set_button(GunButton::Grenade, a.grenade);
+        out_.set_button(GunButton::Aux1, a.aux1);
+        out_.set_button(GunButton::Aux2, a.aux2);
+        for (const auto& k : a.keys) out_.set_key(k.first, k.second);
     }
 }
 
@@ -187,6 +201,14 @@ std::string OutputService::status_json() const {
     w.key("event_node").value(dev_.event_node());
     w.key("abs_min").value(kAbsMin).key("abs_max").value(kAbsMax);
     w.end_object();
+    w.key("keyboard").begin_object();
+    w.key("name").value(kKbdDeviceName).key("vendor").value("1209").key("product").value("7201");
+    w.key("created").value(out_.keyboard_created());
+    w.key("stable_link").value(kKbdStableLink);
+    w.key("event_node").value(kbd_.event_node());
+    if (out_.keyboard_error().empty()) w.key("error").null();
+    else w.key("error").value(out_.keyboard_error());
+    w.end_object();
     w.key("position").begin_object();
     if (out_.have_position()) {
         w.key("nx").value(out_.last_nx()).key("ny").value(out_.last_ny());
@@ -199,6 +221,12 @@ std::string OutputService::status_json() const {
     for (int i = 0; i < kGunButtonCount; ++i)
         if (out_.button_down(static_cast<GunButton>(i))) w.value(to_string(static_cast<GunButton>(i)));
     w.end_array();
+    w.key("keys_down").begin_array();
+    for (int code : out_.keys_down()) w.value(ravengun::output::key_name(code));
+    w.end_array();
+    w.key("map").begin_object();
+    for (const auto& kv : layout_) w.key(kv.first).value(kv.second);
+    w.end_object();
     w.key("transform").begin_object();
     w.key("invert_x").value(t.invert_x).key("invert_y").value(t.invert_y);
     w.key("scale_x").value(t.scale_x).key("scale_y").value(t.scale_y);

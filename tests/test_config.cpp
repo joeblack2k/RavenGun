@@ -439,26 +439,63 @@ static void test_sharp_shooter_buttons() {
 static void test_fusion_and_gun_buttons() {
     config::Settings s;
     CHECK(s.fusion.mode == "mahony");
-    CHECK(s.gun_buttons.reload == "cross" && s.gun_buttons.grenade == "square" && s.gun_buttons.recenter == "move");
+    CHECK(s.gun_buttons.map.at("move") == "grenade" && s.gun_buttons.map.at("cross") == "reload");
+    CHECK(s.gun_buttons.map.at("triangle") == "key:5" && s.gun_buttons.map.at("square") == "key:1");
+    CHECK(s.gun_buttons.map.at("select") == "key:5" && s.gun_buttons.map.at("start") == "key:1" && s.gun_buttons.map.at("circle") == "none");
     CHECK(s.gun_buttons.trigger_on == 140 && s.gun_buttons.trigger_off == 100);
+    CHECK(config::validate(s).empty());
     s.fusion.mode = "mahony_mag";
-    s.gun_buttons.reload = "circle";
-    s.gun_buttons.recenter = "";
+    s.gun_buttons.map["circle"] = "key:Space";
+    s.gun_buttons.map["cross"] = "";
     std::string text = config::to_json(s);
+    CHECK(text.find("\"map\"") != std::string::npos && text.find("\"reload\":") == std::string::npos && text.find("\"recenter\"") == std::string::npos);
     config::Settings b;
     std::string err;
     CHECK(config::parse_settings(text, b, err));
-    CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.reload == "circle" && b.gun_buttons.recenter.empty());
-    // Bestand zonder de nieuwe secties (schema 1 van vóór fase 4): standaardwaarden.
+    CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.map.at("circle") == "key:space" && b.gun_buttons.map.at("cross") == "none");
+    CHECK(b.gun_buttons.map.size() == 7 && b.gun_buttons.map.at("move") == "grenade");
+    CHECK(config::to_json(b) == text);  // stabiel
+    // Bestand zonder de nieuwe secties: standaardwaarden.
     config::Settings c;
-    CHECK(config::parse_settings(R"({"schema":1})", c, err) && c.fusion.mode == "mahony" && c.gun_buttons.grenade == "square");
-    // Ongeldig: onbekende modus, dubbele knoppen, T als knop, hysterese verkeerd om.
-    CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"mode":"eskf"}})", c, err));
-    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"cross","grenade":"cross"}})", c, err));
-    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"recenter":"square"}})", c, err));
+    CHECK(config::parse_settings(R"({"schema":1})", c, err) && c.fusion.mode == "mahony" && c.gun_buttons.map.at("move") == "grenade");
+    // Nieuw formaat: gedeeltelijke map vult de defaults aan; meerdere knoppen op dezelfde actie mag.
+    CHECK(config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"circle":"reload","cross":"reload","square":"aux1","start":"none"}}})", c, err));
+    CHECK(c.gun_buttons.map.at("circle") == "reload" && c.gun_buttons.map.at("cross") == "reload" && c.gun_buttons.map.at("square") == "aux1");
+    CHECK(c.gun_buttons.map.at("start") == "none" && c.gun_buttons.map.at("move") == "grenade" && c.gun_buttons.map.at("select") == "key:5");
+    CHECK(config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"triangle":"recenter","circle":"key:KEY_F1"}}})", c, err));
+    CHECK(c.gun_buttons.map.at("triangle") == "recenter" && config::to_json(c).find("\"circle\":\"key:f1\"") != std::string::npos);
+    // Oud formaat (reload/grenade/recenter = knopnaam): vertaald, overschrijft de default voor die knop; opslaan = nieuw formaat.
+    std::vector<std::string> w;
+    CHECK(config::parse_settings(R"({"schema":1,"gun_buttons":{"trigger_on":150,"reload":"circle","grenade":"square","recenter":"select"}})", c, err, &w));
+    CHECK(c.gun_buttons.map.at("circle") == "reload" && c.gun_buttons.map.at("square") == "grenade" && c.gun_buttons.map.at("select") == "recenter");
+    CHECK(c.gun_buttons.map.at("cross") == "reload" && c.gun_buttons.map.at("start") == "key:1" && c.gun_buttons.trigger_on == 150);
+    CHECK(w.empty());
+    std::string saved = config::to_json(c);
+    CHECK(saved.find("\"reload\":") == std::string::npos && saved.find("\"grenade\":") == std::string::npos && saved.find("\"recenter\":") == std::string::npos);
+    CHECK(config::parse_settings(saved, b, err) && b.gun_buttons.map == c.gun_buttons.map);
+    // Oud, leeg = geen wijziging; oud recenter "ps" wordt genegeerd (PS is altijd recenter).
+    w.clear();
+    CHECK(config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"","recenter":"ps"}})", c, err, &w));
+    CHECK(c.gun_buttons.map == config::GunButtonSettings{}.map && !w.empty());
+    // Ongeldig: ps in de map (duidelijke tekst), t, onbekende knop, onbekende toets, onbekende actie, hysterese.
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"ps":"key:1"}}})", c, err));
+    CHECK(contains(err, "PS-knop") && contains(err, "recenter") && contains(err, "ps"));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"ps":"none"}}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"t":"reload"}}})", c, err) && contains(err, "trekker"));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"knop":"reload"}}})", c, err) && contains(err, "knop"));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"cross":"key:hyper"}}})", c, err) && contains(err, "hyper"));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"cross":"vuur"}}})", c, err) && contains(err, "vuur"));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":{"cross":5}}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"map":[]}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"ps"}})", c, err));
     CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"t"}})", c, err));
-    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"trigger_on":100,"trigger_off":120}})", c, err));
     CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"knop"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"mode":"eskf"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"trigger_on":100,"trigger_off":120}})", c, err));
+    // validate() op een rechtstreeks aangepaste struct.
+    config::Settings v;
+    v.gun_buttons.map["ps"] = "recenter";
+    CHECK(contains(config::validate(v), "PS-knop"));
 }
 
 int main() {

@@ -33,7 +33,14 @@ bool GunOutput::arm(std::string& err) {
             return false;
         }
     }
+    kbd_error_.clear();
+    if (kbd_ && !kbd_->created()) {
+        // Het toetsenbord hoort te bestaan zodra de gun bestaat (TeknoParrot opent evdev-apparaten bij de gamestart).
+        std::string e;
+        if (!kbd_->create(e)) kbd_error_ = e.empty() ? "toetsenbord aanmaken mislukt" : e;
+    }
     down_.fill(false);
+    keys_down_.clear();
     have_last_ = false;  // het apparaat kent nog geen positie; de eerste positie wordt altijd verstuurd
     armed_ = true;
     ++stats_.arms;
@@ -42,8 +49,13 @@ bool GunOutput::arm(std::string& err) {
 }
 
 void GunOutput::release_all() {
-    if (!dev_.created()) { down_.fill(false); return; }
     bool any = false;
+    for (int code : keys_down_) {
+        any = true;
+        if (!kbd_ || !kbd_->write_key(code, false)) ++stats_.write_errors;
+    }
+    keys_down_.clear();  // intern altijd los, ook als de write faalt
+    if (!dev_.created()) { down_.fill(false); if (any) ++stats_.releases; return; }
     for (int i = 0; i < kGunButtonCount; ++i) {
         if (!down_[static_cast<size_t>(i)]) continue;
         any = true;
@@ -60,6 +72,7 @@ void GunOutput::disarm() {
 
 void GunOutput::shutdown() {
     disarm();
+    if (kbd_) kbd_->destroy();
     dev_.destroy();  // ook zonder events: de kernel geeft eventuele resterende toestand vrij
     have_last_ = false;
 }
@@ -69,6 +82,7 @@ void GunOutput::fail(const char* what) {
     last_error_ = what;
     release_all();   // best effort; schrijft naar een mogelijk kapot apparaat
     armed_ = false;
+    if (kbd_) kbd_->destroy();
     dev_.destroy();  // verwijderen geeft alle toestand vrij; een nieuwe arm maakt het opnieuw aan
     have_last_ = false;
 }
@@ -95,6 +109,15 @@ bool GunOutput::set_button(GunButton b, bool down) {
     if (down_[i] == down) return true;
     if (!dev_.write_button(b, down)) { fail("schrijven van knop mislukt"); return false; }
     down_[i] = down;
+    ++stats_.button_events;
+    return true;
+}
+
+bool GunOutput::set_key(int code, bool down) {
+    if (!armed_ || !kbd_) { ++stats_.rejected; return false; }
+    if ((keys_down_.count(code) != 0) == down) return true;
+    if (!kbd_->write_key(code, down)) { fail("schrijven van toets mislukt"); return false; }
+    if (down) keys_down_.insert(code); else keys_down_.erase(code);
     ++stats_.button_events;
     return true;
 }

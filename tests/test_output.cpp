@@ -15,7 +15,9 @@
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/core/pipeline.hpp"
+#include "ravengun/output/key_table.hpp"
 #include "ravengun/output/test_pattern.hpp"
+#include "ravengun/output/uinput_kbd.hpp"
 
 using namespace ravengun;
 using namespace ravengun::output;
@@ -562,11 +564,11 @@ static void test_live_feed() {
     p.on_connect("aa:bb:cc:dd:ee:ff", 1'000'000'000);
     FakeDevice d;
     GunOutput o(d);
-    LiveButtonMap m;
-    m.reload = move_button_bit("cross");
-    m.grenade = move_button_bit("square");
-    m.recenter = move_button_bit("move");
-    CHECK(m.reload == core::kBtnCross && m.grenade == core::kBtnSquare && m.recenter == core::kBtnMove);
+    config::GunButtonSettings gs;  // oude indeling uit fase 4: Kruis = reload, Vierkant = grenade, Move = recenter
+    gs.map = {{"cross", "reload"}, {"square", "grenade"}, {"move", "recenter"}};
+    LiveButtonMap m = build_live_map(gs);
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == core::kBtnCross && m.gun[static_cast<int>(GunButton::Grenade)] == core::kBtnSquare &&
+          m.recenter == core::kBtnMove && m.keys.empty());
     CHECK(move_button_bit("") == 0 && move_button_bit("onzin") == 0);
     LiveGunFeed feed(m);
     int64_t t = 1'000'000'000;
@@ -647,7 +649,195 @@ static void test_live_feed() {
     CHECK(d.pressed.empty());
 }
 
+// ---------------- Algemene knoppenindeling en virtueel toetsenbord ----------------
+
+// Nep-toetsenbord: onthoudt welke toetsen volgens de schrijfacties nu ingedrukt zijn.
+struct FakeKbd : KeyDevice {
+    bool exists = false, fail_create = false, fail_write = false;
+    int creates = 0, destroys = 0, writes = 0;
+    std::set<int> pressed;
+    bool create(std::string& err) override {
+        if (exists) return true;
+        if (fail_create) { err = "nep: toetsenbord"; return false; }
+        exists = true; ++creates; return true;
+    }
+    void destroy() override { if (exists) { exists = false; ++destroys; pressed.clear(); } }
+    bool created() const override { return exists; }
+    bool write_key(int code, bool down) override {
+        if (!exists || fail_write) return false;
+        ++writes;
+        if (down) pressed.insert(code); else pressed.erase(code);
+        return true;
+    }
+};
+
+static void test_key_table() {
+    // Dezelfde toetsen en codes als src/tools/vinput/vinput.c (C-kopie van de tabel; hier de verwachte inhoud).
+    CHECK(kKeyNames.size() == 60);
+    CHECK(key_code("esc") == KEY_ESC && key_code("enter") == KEY_ENTER && key_code("space") == KEY_SPACE);
+    CHECK(key_code("lshift") == KEY_LEFTSHIFT && key_code("lctrl") == KEY_LEFTCTRL && key_code("lalt") == KEY_LEFTALT);
+    CHECK(key_code("up") == KEY_UP && key_code("f12") == KEY_F12 && key_code("f1") == KEY_F1);
+    CHECK(key_code("1") == KEY_1 && key_code("5") == KEY_5 && key_code("0") == KEY_0 && key_code("z") == KEY_Z);
+    CHECK(key_code("KEY_5") == KEY_5 && key_code("Key_A") == KEY_A);
+    CHECK(key_code("") == -1 && key_code("onzin") == -1 && key_code("f13") == -1);
+    CHECK(std::string(key_name(KEY_5)) == "5" && std::string(key_name(KEY_LEFTSHIFT)) == "lshift");
+    // Alle namen uniek en terug te vinden.
+    std::set<std::string> names;
+    for (const auto& k : kKeyNames) { names.insert(k.name); CHECK(key_code(k.name) == k.code); }
+    CHECK(names.size() == kKeyNames.size());
+    // Identiteit van het toetsenbord = vinput kbd.
+    CHECK(std::string(kKbdDeviceName) == "RavenGun Virtual Keyboard" && kKbdVendorId == 0x1209 && kKbdProductId == 0x7201);
+}
+
+static void test_live_map_defaults() {
+    config::GunButtonSettings gs;
+    LiveButtonMap m = build_live_map(gs);
+    CHECK(config::validate(config::Settings{}) == "");
+    CHECK(m.gun[static_cast<int>(GunButton::Grenade)] == core::kBtnMove);
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == core::kBtnCross);
+    // key:5 = triangle OR select; key:1 = square OR start (OR van twee knoppen).
+    CHECK(m.keys.size() == 2);
+    for (const auto& k : m.keys) {
+        if (k.code == KEY_5) CHECK(k.bits == (core::kBtnTriangle | core::kBtnSelect));
+        else if (k.code == KEY_1) CHECK(k.bits == (core::kBtnSquare | core::kBtnStart));
+        else CHECK(false);
+    }
+    CHECK(m.recenter == 0);
+    CHECK(describe_layout(m).find("move=grenade") != std::string::npos && describe_layout(m).find("ps=recenter (vast)") != std::string::npos);
+}
+
+static core::InputSample sample(uint32_t buttons, uint32_t pressed = 0, uint8_t trig = 0,
+                                core::LinkState link = core::LinkState::Fresh) {
+    core::InputSample s;
+    s.link = link;
+    s.buttons = buttons;
+    s.pressed = pressed;
+    s.trigger = trig;
+    return s;
+}
+
+static void test_live_feed_layout() {
+    LiveGunFeed feed(build_live_map(config::GunButtonSettings{}));
+    auto find = [](const LiveAction& a, int code) {
+        for (const auto& k : a.keys) if (k.first == code) return k.second;
+        return false;
+    };
+    LiveAction a = feed.update(sample(0));
+    CHECK(a.keys.size() == 2 && !find(a, KEY_5) && !find(a, KEY_1) && !a.reload && !a.grenade);
+    a = feed.update(sample(core::kBtnTriangle));
+    CHECK(find(a, KEY_5) && !find(a, KEY_1));
+    a = feed.update(sample(core::kBtnTriangle | core::kBtnSelect));  // OR: twee knoppen, een toets
+    CHECK(find(a, KEY_5));
+    a = feed.update(sample(core::kBtnSelect));
+    CHECK(find(a, KEY_5));
+    a = feed.update(sample(core::kBtnStart | core::kBtnCross | core::kBtnMove));
+    CHECK(find(a, KEY_1) && !find(a, KEY_5) && a.reload && a.grenade);
+    a = feed.update(sample(core::kBtnCircle));  // circle = none
+    CHECK(!find(a, KEY_1) && !find(a, KEY_5) && !a.reload && !a.grenade);
+    // PS: recenter, ook zonder gewapende uitvoer (de feed weet daar niets van); geen gunknop of toets.
+    a = feed.update(sample(core::kBtnPS, core::kBtnPS));
+    CHECK(a.recenter && a.recenter_ps && !a.reload && !a.grenade && !find(a, KEY_1));
+    a = feed.update(sample(core::kBtnPS, 0));  // alleen de down-flank
+    CHECK(!a.recenter);
+    // Een Move-knop als recenter uit de map.
+    config::GunButtonSettings gs;
+    gs.map["circle"] = "recenter";
+    LiveGunFeed f2(build_live_map(gs));
+    a = f2.update(sample(core::kBtnCircle, core::kBtnCircle));
+    CHECK(a.recenter && !a.recenter_ps);
+    // aux1/aux2 naar de gun-knoppen.
+    gs.map["circle"] = "aux1";
+    gs.map["triangle"] = "aux2";
+    LiveGunFeed f3(build_live_map(gs));
+    a = f3.update(sample(core::kBtnCircle));
+    CHECK(a.aux1 && !a.aux2);
+    a = f3.update(sample(core::kBtnTriangle));
+    CHECK(!a.aux1 && a.aux2 && a.keys.size() == 2 /* select=key:5 en square/start=key:1 */);
+    // Verlies: release_all.
+    a = feed.update(sample(core::kBtnStart, 0, 0, core::LinkState::Lost));
+    CHECK(a.release_all);
+}
+
+// Zoals OutputService::feed_live: toetsen alleen als gewapend; release_all altijd.
+static void apply_keys(GunOutput& o, const LiveAction& a) {
+    if (a.release_all) { o.release_all(); return; }
+    if (!o.armed()) return;
+    for (const auto& k : a.keys) o.set_key(k.first, k.second);
+}
+
+static void test_keyboard_output() {
+    FakeDevice d;
+    FakeKbd kb;
+    {
+        GunOutput o(d, &kb);
+        LiveGunFeed feed(build_live_map(config::GunButtonSettings{}));
+        // Ongewapend: geen toetsenbord, geen events.
+        CHECK(!kb.exists && !o.set_key(KEY_5, true));
+        apply_keys(o, feed.update(sample(core::kBtnSquare)));
+        CHECK(kb.writes == 0 && kb.pressed.empty());
+        std::string err;
+        CHECK(o.arm(err));
+        CHECK(kb.exists && d.exists && o.keyboard_created());  // het toetsenbord bestaat zodra de gun bestaat
+        // Key down/up-flanken, zonder dubbele events.
+        apply_keys(o, feed.update(sample(core::kBtnSquare)));
+        CHECK(kb.pressed == std::set<int>{KEY_1} && kb.writes == 1);
+        apply_keys(o, feed.update(sample(core::kBtnSquare | core::kBtnStart)));
+        CHECK(kb.pressed == std::set<int>{KEY_1} && kb.writes == 1);
+        apply_keys(o, feed.update(sample(core::kBtnStart | core::kBtnTriangle)));
+        CHECK(kb.pressed == (std::set<int>{KEY_1, KEY_5}) && kb.writes == 2);
+        CHECK(o.key_down(KEY_1) && o.key_down(KEY_5));
+        apply_keys(o, feed.update(sample(0)));
+        CHECK(kb.pressed.empty() && kb.writes == 4);
+        // Bronuitval: release_all laat toetsen los, en blijft gewapend.
+        apply_keys(o, feed.update(sample(core::kBtnStart | core::kBtnTriangle)));
+        CHECK(kb.pressed.size() == 2);
+        apply_keys(o, feed.update(sample(0, 0, 0, core::LinkState::Lost)));
+        CHECK(kb.pressed.empty() && o.armed() && o.keys_down().empty());
+        // Disarm laat toetsen los; het toetsenbord blijft bestaan (net als de gun).
+        apply_keys(o, feed.update(sample(core::kBtnStart)));
+        CHECK(kb.pressed.size() == 1);
+        o.disarm();
+        CHECK(kb.pressed.empty() && kb.exists && !o.set_key(KEY_1, true));
+        // Opnieuw wapenen, toets in, dan afsluiten: apparaat weg.
+        CHECK(o.arm(err));
+        apply_keys(o, feed.update(sample(core::kBtnStart)));
+        CHECK(kb.pressed.size() == 1);
+        o.shutdown();
+        CHECK(kb.pressed.empty() && !kb.exists && !d.exists);
+        // Schrijffout op het toetsenbord: disarm + apparaten weg.
+        CHECK(o.arm(err));
+        kb.fail_write = true;
+        CHECK(!o.set_key(KEY_1, true));
+        CHECK(!o.armed() && !kb.exists);
+    }
+    // Destructor zonder shutdown: toetsen los.
+    {
+        FakeDevice d2;
+        FakeKbd k2;
+        {
+            GunOutput o(d2, &k2);
+            std::string err;
+            CHECK(o.arm(err));
+            CHECK(o.set_key(KEY_5, true) && k2.pressed.size() == 1);
+        }
+        CHECK(k2.pressed.empty() && !k2.exists);
+    }
+    // Toetsenbord niet aan te maken: arm lukt (gun werkt), fout zichtbaar.
+    {
+        FakeDevice d3;
+        FakeKbd k3;
+        k3.fail_create = true;
+        GunOutput o(d3, &k3);
+        std::string err;
+        CHECK(o.arm(err) && o.armed() && !o.keyboard_error().empty() && !o.set_key(KEY_1, true));
+    }
+}
+
 int main() {
+    test_key_table();
+    test_live_map_defaults();
+    test_live_feed_layout();
+    test_keyboard_output();
     test_live_feed();
     test_transform_basic();
     test_transform_invert();

@@ -67,17 +67,27 @@ struct FusionSettings {
     std::string mode = "mahony";  // opt-in: de replay toont winst op 1 van 2 handsporen (zie aim-fusion-design.md, fase 4)
 };
 
-// Fase 4: welke Move-knop welke gun-knop wordt (de live koppeling aan de virtuele lightgun). Waarden zijn
-// namen van Move-knoppen (triangle, circle, cross, square, select, start, ps, move, t) of leeg = uit.
-// De trekker komt altijd uit de analoge T-waarde met drempel en hysterese. De mapping uit
-// sharp_shooter.buttons (kalibratie-UI) wordt hier bewust NIET gebruikt (de eerste meting was fout).
+// Knoppenindeling van de virtuele lightgun (live koppeling): `map` koppelt een Move-knopnaam aan een actie.
+// Acties: "reload", "grenade", "aux1", "aux2" (gun-knoppen), "recenter", "key:<naam>" (toets op het
+// virtuele toetsenbord, namen uit output/key_table.hpp) of "none". Meerdere Move-knoppen mogen dezelfde
+// actie hebben (OR). Knoppen: triangle, circle, cross, square, select, start, move. T is altijd de analoge
+// trekker (drempel met hysterese) en PS is altijd recenter (hard bedraad): beide staan niet in de map.
+// De mapping uit sharp_shooter.buttons (kalibratie-UI) wordt hier bewust NIET gebruikt.
 struct GunButtonSettings {
     int trigger_on = 140;     // T-waarde (0..255) waarbij de trekker ingedrukt wordt
     int trigger_off = 100;    // en waaronder hij weer loslaat (hysterese)
-    std::string reload = "cross";
-    std::string grenade = "square";
-    std::string recenter = "move";
+    // Move-knopnaam -> actie; altijd alle indelbare knoppen aanwezig ("none" = niets). Standaard geschikt voor Halo.
+    std::map<std::string, std::string> map = default_gun_map();
+    static std::map<std::string, std::string> default_gun_map() {
+        return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"},
+                {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}};
+    }
 };
+
+// Indelbare Move-knoppen (in vaste volgorde) en de toegestane vaste acties.
+const std::vector<std::string>& gun_map_buttons();
+// Leeg = geldige actie, anders een Nederlandse foutmelding. Geeft de canonieke vorm terug in 'canon'.
+std::string check_gun_action(const std::string& action, std::string& canon);
 
 struct Settings {
     LedSettings led;

@@ -125,11 +125,7 @@ int main(int argc, char** argv) {
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
-    opt.gun_buttons.trigger_on = cfg.gun_buttons.trigger_on;
-    opt.gun_buttons.trigger_off = cfg.gun_buttons.trigger_off;
-    opt.gun_buttons.reload = ravengun::output::move_button_bit(cfg.gun_buttons.reload);
-    opt.gun_buttons.grenade = ravengun::output::move_button_bit(cfg.gun_buttons.grenade);
-    opt.gun_buttons.recenter = ravengun::output::move_button_bit(cfg.gun_buttons.recenter);
+    opt.gun_buttons = ravengun::output::build_live_map(cfg.gun_buttons);
     cam.width = cfg.camera.width; cam.height = cfg.camera.height; cam.fps = cfg.camera.fps;
     cam.auto_exposure = cfg.camera.auto_exposure; cam.auto_gain = cfg.camera.auto_gain; cam.auto_awb = cfg.camera.auto_awb;
     cam.exposure = cfg.camera.exposure; cam.gain = cfg.camera.gain;
@@ -303,9 +299,9 @@ int main(int argc, char** argv) {
 
     logf("info", "ravengund gestart (pid %d), socket %s, HID %s, filter %s, schatter %s", static_cast<int>(::getpid()), sock.c_str(),
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit", ravengun::core::to_string(opt.pipeline.fusion_mode));
-    logf("info", "gun-knoppen (live, alleen als de uitvoer gewapend is): trekker = analoge T (in %d / uit %d), reload = %s, grenade = %s, recenter = %s",
-         cfg.gun_buttons.trigger_on, cfg.gun_buttons.trigger_off, cfg.gun_buttons.reload.empty() ? "-" : cfg.gun_buttons.reload.c_str(),
-         cfg.gun_buttons.grenade.empty() ? "-" : cfg.gun_buttons.grenade.c_str(), cfg.gun_buttons.recenter.empty() ? "-" : cfg.gun_buttons.recenter.c_str());
+    logf("info", "gun-knoppen (live; PS-knop altijd recenter, ook ongewapend; de rest alleen als de uitvoer gewapend is): trekker = analoge T (in %d / uit %d)",
+         cfg.gun_buttons.trigger_on, cfg.gun_buttons.trigger_off);
+    logf("info", "knoppenindeling: %s", ravengun::output::describe_layout(opt.gun_buttons).c_str());
 
     SharedState shared;
     shared.settings = &settings_store;
@@ -324,6 +320,7 @@ int main(int argc, char** argv) {
     }
     OutputService output;  // standaard disarmed; maakt pas bij 'arm' het uinput-apparaat
     output.set_initial_transform(out_transform);
+    output.set_layout(opt.gun_buttons.layout);
     shared.output = &output;
     // Opnamen (fase 0): de recorder leeft tot het einde van main; de HID-thread stopt hem bij het
     // afsluiten. De tracker-thread levert optische metingen via de hook.

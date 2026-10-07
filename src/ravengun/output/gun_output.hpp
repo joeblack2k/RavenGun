@@ -4,14 +4,16 @@
 // Afspraken (agentprompt sectie 13):
 //  - Standaard DISARMED: er gaan geen events naar het apparaat (set_position/set_button weigeren).
 //  - Bij disarm, schrijffouten, shutdown en een door de aanroeper gemelde bronuitval
-//    (release_all) worden alle ingedrukte knoppen vrijgegeven.
+//    (release_all) worden alle ingedrukte knoppen en toetsen vrijgegeven.
 //  - Geen feedbackloop: deze laag leest nooit uit het apparaat (GunDevice heeft geen leesfunctie).
 //  - Eén eigenaar tegelijk: de klasse is niet thread-safe; de daemon serialiseert met een mutex.
 #include <array>
 #include <cstdint>
+#include <set>
 #include <string>
 
 #include "ravengun/output/gun_transform.hpp"
+#include "ravengun/output/uinput_kbd.hpp"
 
 namespace ravengun::output {
 
@@ -44,7 +46,9 @@ struct GunOutputStats {
 
 class GunOutput {
 public:
-    explicit GunOutput(GunDevice& dev) : dev_(dev) {}
+    // 'kbd' (optioneel) is het virtuele toetsenbord: het wordt samen met de gun aangemaakt (arm) en
+    // verwijderd (shutdown/fout); toetsen gaan alleen door als de uitvoer gewapend is.
+    explicit GunOutput(GunDevice& dev, KeyDevice* kbd = nullptr) : dev_(dev), kbd_(kbd) {}
     ~GunOutput() { shutdown(); }
     GunOutput(const GunOutput&) = delete;
     GunOutput& operator=(const GunOutput&) = delete;
@@ -64,6 +68,14 @@ public:
     bool set_position(double nx, double ny);
     // Knop in/uit. Alleen events bij een werkelijke wijziging.
     bool set_button(GunButton b, bool down);
+    // Toets (evdev-code) in/uit op het virtuele toetsenbord. Alleen events bij een wijziging; false bij
+    // disarmed of zonder toetsenbord.
+    bool set_key(int code, bool down);
+    bool key_down(int code) const { return keys_down_.count(code) != 0; }
+    const std::set<int>& keys_down() const { return keys_down_; }
+    bool keyboard_created() const { return kbd_ && kbd_->created(); }
+    // Fout bij het aanmaken van het toetsenbord bij de laatste arm (leeg = goed of geen toetsenbord).
+    const std::string& keyboard_error() const { return kbd_error_; }
     // Bronuitval (Move weg, patroon gestopt): alle ingedrukte knoppen vrijgeven; blijft armed.
     void release_all();
 
@@ -83,6 +95,9 @@ private:
     void fail(const char* what);  // schrijffout: knoppen vrijgeven (best effort), apparaat weg, disarmed
 
     GunDevice& dev_;
+    KeyDevice* kbd_ = nullptr;
+    std::set<int> keys_down_;
+    std::string kbd_error_;
     GunTransform t_;
     bool armed_ = false;
     std::array<bool, kGunButtonCount> down_{};

@@ -166,21 +166,58 @@ Alle bestandsnamen zijn onder `TeknoParrotUi.Common/InputListening/` (tenzij and
 
 ### Apparaatidentiteit
 
-Naam `RavenGun Virtual Lightgun`, bus USB, VID 1209 (pid.codes-testbereik), PID 7202, versie 1. Het toetsenbord is 1209:7201. `EV_ABS` `ABS_X`/`ABS_Y` met bereik 0..32767 op beide assen (`kAbsMin`, `kAbsMax` in `output/gun_transform.hpp`); `EV_KEY` `BTN_LEFT` (trigger), `BTN_RIGHT` (reload), `BTN_MIDDLE` (grenade), `BTN_SIDE` en `BTN_EXTRA` (aux). Geen `EV_REL`, en bewust geen `INPUT_PROP_DIRECT` (dat markeert een touchscreen) en geen `BTN_TOUCH` (dan gedraagt het apparaat zich als tablet). Udev (`packaging/udev/70-ravengun.rules`) geeft de seat-gebruiker leesrecht (uaccess), maakt `/dev/input/ravengun-gun` en `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`, en zet `LIBINPUT_IGNORE_DEVICE=1` op de gun. De keuze berust op: de udev-regel selecteert op VID/PID, de TeknoParrot-binding op het by-id-pad, en nergens op `eventN`.
+Naam `RavenGun Virtual Lightgun`, bus USB, VID 1209 (pid.codes-testbereik), PID 7202, versie 1. Het toetsenbord is 1209:7201 (zie "Virtueel toetsenbord in de daemon"). `EV_ABS` `ABS_X`/`ABS_Y` met bereik 0..32767 op beide assen (`kAbsMin`, `kAbsMax` in `output/gun_transform.hpp`); `EV_KEY` `BTN_LEFT` (trigger), `BTN_RIGHT` (reload), `BTN_MIDDLE` (grenade), `BTN_SIDE` en `BTN_EXTRA` (aux). Geen `EV_REL`, en bewust geen `INPUT_PROP_DIRECT` (dat markeert een touchscreen) en geen `BTN_TOUCH` (dan gedraagt het apparaat zich als tablet). Udev (`packaging/udev/70-ravengun.rules`) geeft de seat-gebruiker leesrecht (uaccess), maakt `/dev/input/ravengun-gun` en `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`, en zet `LIBINPUT_IGNORE_DEVICE=1` op de gun. De keuze berust op: de udev-regel selecteert op VID/PID, de TeknoParrot-binding op het by-id-pad, en nergens op `eventN`.
 
 ### Live Move als bron (fase 4)
 
 De HID-thread geeft elk gepubliceerd sample ook aan de uitvoer (`src/ravengun/output/live_feed.*`, `OutputService::feed_live`), maar alleen als de uitvoer gewapend is en er geen testpatroon loopt:
 
 - Positie: de gefilterde, ongeclampte aim (`aim.x/y`) van dat rapport, alleen als `aim.valid`. Bij een ongeldige aim (stale, geen midden) stopt het bewegen; de cursor blijft staan, zonder sprong naar een hoek.
-- Trekker: de analoge T-waarde met hysterese (in bij ≥ 140, los bij ≤ 100; `gun_buttons.trigger_on/off`). Reload en grenade: Move-knoppen uit `config.json` `gun_buttons` (standaard Kruis en Vierkant). Recenter: standaard de Move-knop (down-flank, alleen als de uitvoer gewapend is); de pijplijn legt dan een nieuw midden vast (`center_source: user`). De mapping `sharp_shooter.buttons` uit de kalibratie-UI wordt bewust niet gebruikt: de eerste meting was fout (de gebruiker drukte in het donker verkeerde knoppen).
-- Knoppen volgen de link: bij `stale` (tot 250 ms) blijven ze staan (anders zou een Bluetooth-gat een automatisch dubbelschot geven), bij `lost`, `disconnected` en het afsluiten worden alle gun-knoppen vrijgegeven.
+- Trekker: de analoge T-waarde met hysterese (in bij ≥ 140, los bij ≤ 100; `gun_buttons.trigger_on/off`). De overige knoppen volgen de indeling uit "Knoppenindeling" hieronder. Recenter: een down-flank van de PS-knop (altijd, ook als de uitvoer niet gewapend is, zolang de HID-pijplijn loopt) of van een Move-knop die in de map op `recenter` staat (alleen gewapend); de pijplijn legt dan een nieuw midden vast (`center_source: user`). De mapping `sharp_shooter.buttons` uit de kalibratie-UI wordt bewust niet gebruikt: de eerste meting was fout (de gebruiker drukte in het donker verkeerde knoppen).
+- Knoppen volgen de link: bij `stale` (tot 250 ms) blijven ze staan (anders zou een Bluetooth-gat een automatisch dubbelschot geven), bij `lost`, `disconnected` en het afsluiten worden alle gun-knoppen en toetsen vrijgegeven.
 - Geen eigen uitvoerklok: één positie per rapport (gemiddeld ~77/s, gaten tot ~50 ms). De 250 Hz-klok met gyro-extrapolatie (ontwerp 5.2) is fase 6; die vraagt een voorspelde oriëntatie per tik en het 1€-filter op de uitvoertik, en is daarom nu niet gebouwd.
 - Status: `output.live` (samples, posities, ongeldige aim, vrijgaven, onderdrukt door een patroon).
 
+### Knoppenindeling (`gun_buttons`)
+
+De indeling staat in `config.json` onder `gun_buttons` en geldt voor elke game (eerst Halo in TeknoParrot). Vaste regels, niet configureerbaar:
+
+- T is altijd de analoge trekker (drempel met hysterese) en staat niet in de map.
+- PS is altijd recenter (`pipe.recenter()`, log "recenter met de PS-knop"), ook als de uitvoer niet gewapend is. `ps` in de map geeft een validatiefout.
+
+Formaat: `trigger_on`, `trigger_off` en een object `map` van Move-knopnaam naar actie.
+
+- Knoppen: `triangle`, `circle`, `cross`, `square`, `select`, `start`, `move`.
+- Acties: `reload`, `grenade`, `aux1`, `aux2` (de gun-knoppen BTN_RIGHT, BTN_MIDDLE, BTN_SIDE, BTN_EXTRA), `recenter`, `key:<naam>` (toets op het virtuele toetsenbord) of `none` (ook `""`).
+- Meerdere Move-knoppen mogen dezelfde actie hebben: de actie is actief zolang minstens een van die knoppen ingedrukt is (OR).
+- Een `map` die maar enkele knoppen noemt, laat de defaults voor de andere knoppen staan.
+- Standaard (geschikt voor Halo; TeknoParrot-bindingen: Coin = toets 5, Start P1 = toets 1, Reload = BTN_RIGHT, Grenade = BTN_MIDDLE): `move` = grenade, `cross` = reload, `triangle` = key:5, `square` = key:1, `select` = key:5, `start` = key:1, `circle` = none.
+- Toetsnamen: `esc`, `enter`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `lshift`, `lctrl`, `lalt`, `f1` tot `f12`, `0` tot `9`, `a` tot `z` (tabel in `output/key_table.hpp`; hoofdletters en een voorvoegsel `key_` worden genegeerd).
+- Oud formaat: de sleutels `reload`, `grenade` en `recenter` (waarde = Move-knopnaam) blijven leesbaar en worden vertaald naar map-items die de default voor die knop overschrijven (`recenter: "ps"` wordt genegeerd met een waarschuwing). Bij opslaan wordt alleen het nieuwe formaat geschreven.
+- Onbekende knop- of toetsnamen, `ps` en `t` in de map zijn validatiefouten met een duidelijke tekst; het bestand wordt dan niet toegepast.
+
+Voorbeeld:
+
+    "gun_buttons": {
+      "trigger_on": 140, "trigger_off": 100,
+      "map": {"triangle": "key:5", "circle": "none", "cross": "reload", "square": "key:1",
+              "select": "key:5", "start": "key:1", "move": "grenade"}
+    }
+
+Zichtbaarheid: `ravengunctl output [--json]` toont `map` (inclusief `ps` = "recenter (vast)"), `keys_down`, `buttons_down` en het blok `keyboard`; het startlog van ravengund toont de indeling ("knoppenindeling: ..."). De web-UI toont `keys_down` in het uitvoerblok; de indeling is daar niet bewerkbaar (bewerk `config.json`; de daemon leest die bij de start).
+
+### Virtueel toetsenbord in de daemon
+
+`output/uinput_kbd.*` (`UinputKeyboard`, achter de abstractie `KeyDevice` zodat tests een nep-apparaat gebruiken) maakt hetzelfde apparaat als het losse hulpprogramma `src/tools/vinput/vinput.c kbd`: naam `RavenGun Virtual Keyboard`, bus USB, VID 1209, PID 7201, versie 1, dezelfde toetsenset. TeknoParrot bindt op `/dev/input/by-id/usb-RavenGun_Virtual_Keyboard-event-kbd` (udev-regel bestaat al). Alles zit zo in een applicatie; `vinput` blijft bestaan voor diagnose maar is niet meer nodig. Twee apparaten met dezelfde identiteit tegelijk (daemon en een lopende `vinput kbd`) geven twee eventN-nodes; stop `vinput kbd` voordat je de daemon wapent.
+
+- Levenscyclus gelijk aan die van de gun: `GunOutput` maakt het toetsenbord aan bij de eerste `arm` (zodra de gun bestaat; TeknoParrot opent evdev-apparaten bij de gamestart) en verwijdert het bij afsluiten of een schrijffout. Kan het toetsenbord niet worden gemaakt, dan werkt de gun wel; de fout staat in het log en in `output.keyboard.error`.
+- Toetsen gaan alleen door als de uitvoer gewapend is (`GunOutput::set_key`). Alleen wijzigingen leveren een event op.
+- Bij `disarm`, bronuitval (`release_all`: link `lost`/`disconnected`), een schrijffout en afsluiten worden alle ingedrukte toetsen losgelaten.
+- De toetsnamentabel staat in `output/key_table.hpp` (C++). `vinput.c` is C en heeft een eigen kopie; `tests/test_output.cpp` (`test_key_table`) controleert de namen, codes en de apparaatidentiteit.
+
 ### Arm/disarm en veiligheid
 
-De daemon start disarmed: er gaan geen events naar het apparaat en `test_pattern`/`output_button` weigeren. `arm` maakt het apparaat aan (bij de eerste keer) en schakelt events in. `disarm` geeft eerst alle knoppen vrij (up-events) en schakelt dan events uit; het apparaat blijft bestaan zodat een binding en een lopende game niet breken. Alle knoppen worden ook vrijgegeven bij een schrijffout (het apparaat wordt dan verwijderd en de uitvoer disarmed; een nieuwe `arm` maakt het opnieuw aan), bij `release_all` (bronuitval, later de Move) en bij afsluiten (SIGTERM/SIGINT: eerst up-events, dan het apparaat verwijderen). Na een crash (SIGKILL) verwijdert de kernel het apparaat en geeft daarbij de knoppen vrij (getest). De daemon opent zijn eigen apparaat nooit voor lezen; er is in de code geen leesfunctie voor het uitvoerapparaat, dus geen feedbackloop. Het apparaat bestaat pas na de eerste `arm` en blijft tot het afsluiten van de daemon.
+De daemon start disarmed: er gaan geen events naar het apparaat en `test_pattern`/`output_button` weigeren. `arm` maakt het apparaat aan (bij de eerste keer) en schakelt events in. `disarm` geeft eerst alle knoppen vrij (up-events) en schakelt dan events uit; het apparaat blijft bestaan zodat een binding en een lopende game niet breken. Alle knoppen worden ook vrijgegeven bij een schrijffout (het apparaat wordt dan verwijderd en de uitvoer disarmed; een nieuwe `arm` maakt het opnieuw aan), bij `release_all` (bronuitval, ook voor de toetsen van het virtuele toetsenbord) en bij afsluiten (SIGTERM/SIGINT: eerst up-events, dan het apparaat verwijderen). Na een crash (SIGKILL) verwijdert de kernel het apparaat en geeft daarbij de knoppen vrij (getest). De daemon opent zijn eigen apparaat nooit voor lezen; er is in de code geen leesfunctie voor het uitvoerapparaat, dus geen feedbackloop. Het apparaat bestaat pas na de eerste `arm` en blijft tot het afsluiten van de daemon.
 
 ### Coördinaatruimtes en transformatie
 

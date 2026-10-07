@@ -13,6 +13,7 @@
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/output/test_pattern.hpp"
 #include "ravengun/output/uinput_gun.hpp"
+#include "ravengun/output/uinput_kbd.hpp"
 
 namespace ravengund {
 
@@ -40,6 +41,8 @@ public:
     // loopt; release_all werkt altijd. Zie ravengun/output/live_feed.hpp.
     void feed_live(const ravengun::output::LiveAction& a);
     bool armed() const;
+    // Actieve knoppenindeling (voor status/startlog); de live koppeling zelf zit in de HID-thread.
+    void set_layout(const std::vector<std::pair<std::string, std::string>>& layout);
     // Stopt patroon, geeft knoppen vrij en verwijdert het apparaat. Idempotent.
     void shutdown();
 
@@ -56,6 +59,8 @@ private:
     mutable std::mutex m_;
     std::condition_variable cv_;
     ravengun::output::UinputGun dev_;
+    ravengun::output::UinputKeyboard kbd_;
+    std::vector<std::pair<std::string, std::string>> layout_;
     ravengun::output::GunOutput out_;
 
     std::thread pattern_thread_;
