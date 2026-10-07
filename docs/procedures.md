@@ -72,3 +72,15 @@ Doel: meten wat de omgeving en de Sharp Shooter met de magnetometer doen. Dit vr
 ## Door de agent zelf uitgevoerd (ter referentie)
 
 De opnamen "5 minuten stil" (tag `stil5min`) en "LED-reeks bij stilstand" (tag `ledmag`: steeds 20 seconden cyaan, uit, rood, uit, groen, uit, blauw, uit, cyaan, wit, uit en cyaan) vragen geen handeling van de gebruiker. De Move moet alleen verbonden zijn en stil liggen. `ravengunctl led <kleur>` wisselt de LED-kleur. Let op: de tracker blijft de tint van de opstartkleur zoeken, dus de bol is bij een andere kleur niet in beeld.
+
+## Live proef fase 4: magnetometer-yaw en de Move als lightgun (ongeveer 15 minuten)
+
+Voorwaarden: de daemon is na de merge opnieuw gebouwd en gestart (`ravengund`), de Move zit in de Sharp Shooter, de magnetometerkalibratie staat in `~/.config/ravengun/magnetometer/` (oude bestanden worden automatisch omgezet: de dip wordt dan positief, ongeveer +60°). De orchestrator bedient de commando's; de gebruiker richt.
+
+1. Controle (`./build/ravengunctl status`): "Magnetometer: gekalibreerd ..., dip +60 graden (ref +60)" op de speelplek, toestand ok; "Yaw-correctie: mahony, schaduw". Op tafel mag "disturbed" staan (gemeten: het veld bij de tafel is anders).
+2. Nulmeting IMU-only (3 minuten): `./build/ravengunctl record --start --tag fase4-mahony --duration 400`. De gebruiker richt 10 s stil op het midden van de tv (label `./build/ravengunctl record --mark stil_midden_1`, na 5 s `--mark stil_midden_1_einde`), richt 30 s vrij, weer 10 s midden (`stil_midden_2`), enzovoort tot 5 keer, en de laatste minuut vrij. Noteer per keer hoe ver de cursor van het midden staat (gevoel/schatting). Daarna `--stop`.
+3. Omschakelen: `./build/ravengunctl fusion mahony_mag`. Status: "Yaw-correctie: mahony_mag, wacht op vergrendeling" en na 2 tot 10 s "actief"; `yaw_source` in de SSE/watch wordt `magnetometer`.
+4. Zelfde opname als stap 2 met tag `fase4-mahony-mag`. Let op: geen zichtbare sprongen of een vizier dat in stilstand zelf wegglijdt. `correction_rate_deg_s` in stilstand hooguit 0,02 (0,08 vlak boven de bewegingsgrens), `vertical_bias_deg_s` binnen ±0,3.
+5. Offline: `./build/ravengun-analyze fusion <opname> --cal ~/.config/ravengun/magnetometer/<sleutel>.json` voor beide opnamen. Winst = kleinere "afwijking van de start" en kleinere helling bij mahony_mag. Pas bij aantoonbare winst `fusion.mode` zo laten (het commando bewaart het al); anders `ravengunctl fusion mahony`.
+6. Lightgun (alleen met de gun-binding in TeknoParrot; eerst de daemon, dan de game): `./build/ravengunctl arm`. Controle zonder game: `./build/ravengunctl output --json` toont `live.positions` oplopend en `buttons_down` bij het overhalen. Trekker overhalen: `trigger` down, loslaten: weg. Kruis = reload, Vierkant = grenade (instelbaar in `config.json` `gun_buttons`). Move-knop: nieuw midden (log "recenter met de Move-knop"). Bol afdekken of Move uitzetten: na 250 ms zijn alle knoppen los (`buttons_down` leeg) en beweegt de cursor niet meer.
+7. In Halo: richten op het midden, overhalen, zwaaien; let op vertraging (1€ met beta 10 is de referentie) en drift. `./build/ravengunctl disarm` aan het eind.

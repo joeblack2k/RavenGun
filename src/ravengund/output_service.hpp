@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ravengun/output/gun_output.hpp"
+#include "ravengun/output/live_feed.hpp"
 #include "ravengun/output/test_pattern.hpp"
 #include "ravengun/output/uinput_gun.hpp"
 
@@ -35,6 +36,10 @@ public:
 
     // Geeft alle knoppen vrij (bronuitval) zonder te disarmen.
     void release_all();
+    // Fase 4: de live Move (HID-thread, per sample). Alleen als de uitvoer gewapend is en er geen testpatroon
+    // loopt; release_all werkt altijd. Zie ravengun/output/live_feed.hpp.
+    void feed_live(const ravengun::output::LiveAction& a);
+    bool armed() const;
     // Stopt patroon, geeft knoppen vrij en verwijdert het apparaat. Idempotent.
     void shutdown();
 
@@ -63,6 +68,9 @@ private:
     double pattern_length_s_ = 0;
     std::string pattern_state_ = "none";  // none, running, done, stopped
     bool shut_ = false;
+    // Live-bron (fase 4)
+    uint64_t live_samples_ = 0, live_positions_ = 0, live_invalid_ = 0, live_releases_ = 0, live_suspended_ = 0;
+    bool live_aim_valid_ = false;
 };
 
 }  // namespace ravengund

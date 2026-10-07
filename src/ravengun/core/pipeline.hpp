@@ -12,6 +12,7 @@
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/core/fusion.hpp"
 #include "ravengun/core/input_model.hpp"
+#include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/move_clock.hpp"
 #include "ravengun/core/one_euro.hpp"
 
@@ -29,6 +30,16 @@ struct PipelineConfig {
     // Alleen als dit én het vorige rapport een stempel hebben; anders de ontvangst-dt.
     bool use_move_clock = true;
     ClockConfig clock{};
+    // Fase 4: oriëntatieschatter. mahony = IMU-only (terugval); mahony_mag = met yaw-correctie van de
+    // magnetometer (vereist een kalibratie via set_mag_calibration; zonder blijft het IMU-only).
+    FusionMode fusion_mode = FusionMode::Mahony;
+    // Verloren rapporten (fase 4, ~13 % via Bluetooth): bij een stempel-dt boven 1,5 rapportperiode
+    // wordt het deel vóór de twee subsamples van het nieuwe rapport geïntegreerd met het gemiddelde van
+    // de laatste hoeksnelheid vóór het gat en de eerste erna (lineaire interpolatie), en krijgt elk
+    // subsample zijn nominale halve periode. Zonder: elk subsample de helft van het gat (oud gedrag).
+    bool interpolate_gaps = true;
+    double nominal_report_s = 0.01127;  // gemeten: 1127 ticks per rapport
+    MagYawConfig mag{};
 };
 
 // Statistiek over de ontvangst van rapporten (alleen gemeten waarden).
@@ -43,6 +54,7 @@ public:
     uint64_t dropped_seq = 0;          // gemiste rapporten volgens het 4-bit volgnummer
     uint64_t non_monotonic = 0;        // t_rx kleiner dan vorige (zou niet mogen)
     uint64_t long_dt = 0;              // 50..250 ms: geïntegreerd met constante hoeksnelheid
+    uint64_t gap_interpolated = 0;     // verloren rapporten overbrugd met geïnterpoleerde hoeksnelheid
     uint64_t gap_not_integrated = 0;   // > max_dt: niet geïntegreerd, yaw-referentie onderbroken
     uint64_t still_samples = 0;
     std::array<uint64_t, 9> buckets{};
@@ -78,6 +90,12 @@ public:
 
     void set_filter(const OneEuroConfig& c);
     void set_aim(const AimConfig& c);
+    // Fase 4: magnetometer en schatter.
+    void set_mag_calibration(const MagCalibration& c) { mag_.set_calibration(c); }
+    void clear_mag_calibration() { mag_.clear_calibration(); }
+    void set_fusion_mode(FusionMode m);
+    FusionMode fusion_mode() const { return cfg_.fusion_mode; }
+    const MagYawCorrector& mag() const { return mag_; }
     const PipelineConfig& config() const { return cfg_; }
     const InputSample& last() const { return last_; }
     const ReportStats& stats() const { return stats_; }
@@ -100,6 +118,7 @@ private:
     PipelineConfig cfg_;
     GyroBiasEstimator bias_;
     OrientationFilter fusion_;
+    MagYawCorrector mag_;
     AimMapper aim_;
     OneEuro fx_, fy_;
     EdgeAccumulator edges_;
@@ -121,6 +140,8 @@ private:
     bool prev_had_stamp_ = false;
     uint64_t dt_move_ = 0, dt_rx_ = 0;
     int last_temp_ = -1;
+    Vec3 prev_gyro_{};          // laatste (ruwe) subsample van het vorige rapport
+    bool have_prev_gyro_ = false;
 };
 
 }  // namespace ravengun::core

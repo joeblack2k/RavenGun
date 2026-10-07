@@ -1,6 +1,6 @@
 # Ontwerp: sensorfusie en richtgeometrie (Move ZCM1 in Sharp Shooter + PS3 Eye)
 
-Status: ontwerp; fase 0, 1 en het bouwdeel van fase 3 zijn gebouwd (7 okt 2026, metingen onderaan). Dit document beschrijft hoe RavenGun van de Move-IMU, de magnetometer en de optisch gevolgde bol een snelle en nauwkeurige cursor maakt. Het bouwt voort op `docs/architecture.md` (wat er nu draait), `docs/hardware.md` (metingen) en het voorstel "optische positie in een hybride modus" in `docs/decisions.md`. Het volgt sectie 10, 11 en 13 van de opdracht: geen homography als algemene oplossing, een expliciete aim-ray (p, d, s, n), geen 6DoF-claims, geen stille recentering.
+Status: ontwerp; fase 0, 1, het bouwdeel van fase 3 en fase 4 (schatter mahony_mag, opt-in; zie "Metingen en bouw fase 4") zijn gebouwd (7 okt 2026, metingen onderaan). Dit document beschrijft hoe RavenGun van de Move-IMU, de magnetometer en de optisch gevolgde bol een snelle en nauwkeurige cursor maakt. Het bouwt voort op `docs/architecture.md` (wat er nu draait), `docs/hardware.md` (metingen) en het voorstel "optische positie in een hybride modus" in `docs/decisions.md`. Het volgt sectie 10, 11 en 13 van de opdracht: geen homography als algemene oplossing, een expliciete aim-ray (p, d, s, n), geen 6DoF-claims, geen stille recentering.
 
 Labels: "gemeten" betekent op deze host gemeten (bron erbij). "Uit de broncode" betekent gecontroleerd in de genoemde bron. "Schatting" is een berekening of aanname die nog gemeten moet worden.
 
@@ -571,6 +571,68 @@ Fase 3, magnetometer (zonder kalibratie; die vraagt ronddraaien door de gebruike
 - LED: de verschillen zijn klein, maar wel systematisch. Elke "aan"-fase vergeleken met de omliggende "uit"-fasen, X-as (standaardfout ongeveer 0,25 counts): rood +0,3, groen +0,5, blauw +1,0, cyaan +1,1 tot +1,4 en wit +1,6 counts. Op Y en Z is er geen duidelijk effect boven een langzame drift. Z liep tijdens de opname 1,8 counts op, gelijk op met de temperatuur (ruw 2148 naar 2161). Het effect groeit met de LED-stroom (wit > cyaan > blauw > groen > rood).
 - Gevolg: de LED moet tijdens kalibratie en spel dezelfde kleur en helderheid hebben (vast cyaan, zoals nu). Een wissel van uit naar wit is ongeveer 1,6 counts, en de betekenis in graden hangt af van de veldsterkte in counts (nog te meten bij de kalibratie). Een LED-wissel tijdens het spel is daarom uitgesloten. De temperatuurdrift van de magnetometer (ongeveer 1,8 counts in 4 minuten) moet bij de fase 3-beslissing meegenomen worden.
 - Nog niet gemeten (vraagt de gebruiker, zie `docs/procedures.md`): de ellipsoïdefit en veldsterkte in de Sharp Shooter, de veldcheck over het speelgebied, pomp en trekker, muziek, de tv aan en uit, en de magnetometer-yaw tegen de kalibratie-yaw. De rumble wordt door de daemon nog niet aangestuurd en is dus niet gemeten.
+
+## Metingen en bouw fase 4 (7 okt 2026)
+
+Alles offline op de opnamen van fase 0/1/3 en de nieuwe opname `20261007-185157-stil-herhaalbaarheid` (Move in de Sharp Shooter, kalibratie `37b2de54e4ef26ba.json`, marginaal, veld 174 counts). Gereedschap: `ravengun-analyze fusion OPNAME --cal KAL [--dip-tol G] [--norm-tol F] [--freeze-bias S] [--set k=v]` (mahony, mahony_mag en de magnetometer alleen naast elkaar), en de scratch-analyses die hieronder genoemd zijn. Geen live proef (de daemon van de gebruiker bleef ongemoeid).
+
+### Assenstelsel (gemeten)
+
+- Gyro tegen accelerometer: tussen twee stille perioden (|a| binnen 0,03 g) de zwaartekrachtrichting met de gyro meedraaien (dv/dt = −ω × v) en vergelijken met de gemeten richting. Alle 8 tekencombinaties van de gyro-assen getest; alleen (+,+,+) klopt: mediaanfout 1,6° (stil5min, 9 overgangen van ~20°), 0,5° (richttest), tegen 4 tot 42° voor de andere combinaties. De gyro en de accelerometer zitten dus in hetzelfde rechtshandige stelsel B, met de gebruikte integratie q ← q ⊗ exp(ω dt/2).
+- Magnetometer tegen gyro: in vensters van 0,4 s met meer dan 15° rotatie m(t) met de gyro meedraaien en vergelijken met de gemeten m. Alle 48 afbeeldingen (permutaties × tekens) getest op `174725-magcal` (76 vensters, gemiddeld 44° rotatie): alleen diag(1,−1,1) of diag(−1,1,−1) klopt (mediaan 2,7°; de volgende beste 19,5°). De Y-flip van PSMoveAPI is dus juist ten opzichte van X en Z.
+- Het globale teken: met alleen de Y-flip is de dip −54 tot −67° (het veld wijst omhoog), terwijl het aardveld in Nederland ongeveer 67° naar beneden wijst. Met diag(−1,+1,−1) is de dip positief. Die afbeelding is bovendien een echte rotatie (180° om Y, det +1), de Y-flip alleen een spiegeling. Conventie vanaf fase 4: `m_B = diag(−1,+1,−1) · A (m_ruw − b)` (veld `b_map` in het kalibratiebestand). Oude bestanden zonder `b_map` worden bij het laden omgezet (vector en `dip_ref_deg` omgedraaid). Voor de yaw maakt het teken niets uit (180° constante), voor de dip wel.
+- `tools/mag_vs_gyro.py` had een tekenfout: de magnetometer-heading telde met de klok mee (oost = noord × omhoog), de gyro-heading tegen de klok in. Elke draai verdubbelde daardoor in het verschil: de −11 tot +17° tijdens bewegen. Na de correctie (oost = omhoog × noord) is het verschil een gladde helling van ongeveer +9,7°/min: de gyro-biasfout van het script zelf (bias uit de eerste 5 s in de hand), geen asfout. In stilstand blijft ±5° per sample: dat is de ruis van één magnetometersample.
+- Vastgelegd in `tests/test_fusion.cpp` (`test_axis_convention`: gyro-integratie tegen dv/dt = −ω × v, afbeelding ruw → B, dip-teken, en de detector wijst een gespiegelde afbeelding af op gyro-consistentie) en `tests/test_phase013.cpp` (omzetting van oude kalibratiebestanden).
+
+### Dip-referentie en "disturbed" op tafel
+
+- De dip hangt sterk van de plek af: op tafel −67° (ledmag, stil5min; met de nieuwe conventie +67°), in de draaiopname −51 tot −56° (de Move lag daar lang stil op een andere plek), op de speelplek uit de hand −60,3° (herhaalbaarheid). Ook |m| verschilt: 1,046 op tafel, 1,006 op de speelplek. Het veld bij de tafel is dus echt anders (metaal in of bij de tafel, of een andere plek in de kamer); de melding "disturbed (norm/dip)" bij standen op tafel is terecht.
+- De dip-referentie van een kalibratie is het gemiddelde over de rustige samples van die sessie. Twee oorzaken voor het verschil tussen kalibraties (−54,9 tegenover −60,2): waar de gebruiker stond of het geweer neerlegde (zie hierboven), en versnellingen tijdens het draaien: |a| binnen 0,05 g laat een dwarsversnelling van 0,3 g toe, die de richting van "omhoog" 17° verdraait. Met |ω| > 40°/s is de dip-spreiding 7 tot 13° tegen 1,4 tot 1,6° in rust. Daarom telt de dip in de fit nu alleen bij |ω| ≤ 20°/s (`MagFitOptions::dip_max_gyro_dps`, de kalibratiesessie geeft |ω| mee) en in de detector bij |ω| ≤ 30°/s.
+- Detectorfouten gevonden en hersteld: (1) de gyro-consistentietest vergeleek twee losse samples over 0,5 s; met ~2,5° ruis per sample is dat ~7°/s ruis, en in rust werd ~80 % afgewezen (gemeten). Nu de helling (kleinste kwadraten) over 1,5 s (ruis ~0,5°/s). (2) Norm en dip werden per sample getoetst; met 1,3 tot 1,6° dip-ruis wees een poort van 2° ~10 % af, en het herstel na een verstoring (2 s aaneengesloten goed) lukte daardoor vrijwel nooit. Nu na een glad gemiddelde van 0,15 s.
+
+### Gekozen schatter: mahony_mag
+
+Niet de volledige ESKF uit 2.2, maar de terugvaloptie uit 2.2 ("Mahony-variant met yaw-only magnetometer en PI-bias"), uitgewerkt als een klein Kalman-filter op alleen de yaw (`src/ravengun/core/mag_yaw.*`). Motivatie:
+
+- De tilt van Mahony is op hardware bewezen; de meetbare problemen zitten alleen in de yaw. Een yaw-only filter kan per constructie geen magnetometerfout in pitch of roll brengen (2.3 punt 3).
+- Het filter heeft twee toestanden: de yaw-fout f en de drift d (de resterende gyro-bias om de verticaal), met gemeten ruis (2,5° per sample, gyro-random-walk 0,08°/√s, verandering van de drift 0,02°/s per √s, afgestemd op `ledmag`). Dat is precies het bias-gedeelte waar de ESKF om gekozen was, met een NIS-poort (χ², 99 %) en een σ voor de status.
+- De snelheidsbegrenzing en de verstoringspoorten zijn niet-Gaussisch; een volledige ESKF zou na elke begrensde correctie toch handmatig moeten worden bijgestuurd. Hier is dat expliciet: de hoekcorrectie wordt begrensd, de bias niet in snelheid maar wel in verandering.
+- De ESKF blijft mogelijk als het yaw-filter tekortschiet; de vergelijkingstool staat klaar.
+
+Hoe de drift begrensd wordt (de opmerking van de gebruiker: drift ≥ 0,035°/s, terwijl de hoekcorrectie in stilstand maar 0,02°/s mag):
+
+1. De drift zelf wordt weggeregeld: de geschatte drift d gaat in een extra bias b_v om de verticaal. Die verandert hooguit 0,01°/s per seconde (de cursor versnelt nooit zichtbaar) en is begrensd tot 0,3°/s. Daarmee staat de yaw ook in stilstand stil, zonder dat de hoek verschuift.
+2. Het openstaande verschil f wordt als hoek weggewerkt, begrensd in snelheid: 0,02°/s als |ω| < 3°/s, daarboven 2 % van de eigen draaisnelheid van de hand, tot 0,3°/s. Een correctie die met een vaste fractie van de beweging gaat, valt in die beweging weg.
+3. Nooit een sprong. Alleen na een onderbroken integratie (gat > 250 ms of herverbinding, de aim was toen ongeldig) mag de hoek met 5°/s glad terug.
+
+De meting van de yaw-fout gebruikt de accelerometer als "omhoog" (TRIAD) en niet de tilt van q: een tiltfout van Mahony (resterende X/Y-bias gedeeld door kp) werkt bij een dip van 60° 1,7 keer door in de heading, en is langzaam, dus niet weg te middelen (gemeten op tafel met bevroren bias: 1,4° wegloop van de magnetometer-heading die het filter dan "volgde"). Samples met | |a| − 1 | > 0,05 g of |ω| > 120°/s tellen niet.
+
+Verder in deze fase:
+
+- Vergrendeling pas als de stilstandsbias een schatting heeft (of na 10 s), gemiddeld over 2 s: anders drijft de referentie mee met de onbekende beginbias.
+- De stilstandsbiasschatter nam een langzame zwaai tot 5,7°/s als stilstand op (gevonden met een synthetisch spoor). Na "estimated" mag het venstergemiddelde nu nog maar 0,6°/s van de bias afwijken.
+- Verloren rapporten (13 %): bij een stempel-dt boven 1,5 rapportperiode wordt het ontbrekende deel geïntegreerd met het gemiddelde van de laatste hoeksnelheid vóór het gat en de eerste erna, en krijgt elk subsample zijn eigen halve periode. Synthetisch (30 s zwaaien ±20° op 0,5 Hz, 13 % verlies, gaten tot ~56 ms): yaw-fout 3,2° met het oude "elk subsample de helft van het gat", 0,08° nu (0,004° zonder verlies).
+
+### Replay-getallen (standaard: detectorpoorten norm 5 %, dip 2°)
+
+"Afwijking" is fusie min de magnetometer-heading (TRIAD, alleen stille samples), 5 s glad, ten opzichte van de eerste 10 s. TRIAD is in de hand zelf niet de waarheid: ruis, de richtfout van de hand en de oriëntatieafhankelijke fitfout (restfout 2,35 %) zitten erin.
+
+| opname | duur | magnetometer gebruikt | mahony: max / eind | mahony_mag: max / eind |
+|---|---|---|---|---|
+| herhaalbaarheid (hand, speelplek) | 65 s | 74 % (verstoord 10 %) | 2,36 / −2,35° (−2,06°/min) | 1,12 / −1,10° (−0,43°/min) |
+| richttest (hand, onrustig) | 68 s | 59 % (verstoord 36 %) | 3,34 / +0,22° (−1,39°/min) | 3,85 / −1,52° (−3,29°/min) |
+| ledmag (tafel) | 240 s | 0 % (verstoord 99,6 %) | 1,40 / −0,41° | gelijk (gyro) |
+| stil5min-deel (tafel) | 108 s | 0 % (verstoord 99 %) | 1,01 / +0,66° | gelijk (gyro) |
+| magcal 174725 / 174540 (draaien + tafel) | 439 / 120 s | 0 % (verstoord 98 / 81 %) | — | gelijk (gyro) |
+
+- Drift over de langste stilstand: ledmag 237,7 s, mahony −0,58° (−0,15°/min), mahony_mag gelijk (magnetometer op tafel verstoord, terugval op de gyro), magnetometer alleen −0,98°. stil5min-deel 96,9 s: +0,63° (+0,39°/min), gelijk; magnetometer alleen −0,30°. Op tafel werkt de stilstandsbias, daar is de drift klein.
+- Om de magnetometer bij een vaste maar afwijkende tafel-ligging toch te beoordelen: poorten ruimer (dip 10°, norm 8 %) en de stilstandsbias na 20 s bevroren (zoals in de hand, waar bijna nooit stilstand is): ledmag max-afwijking mahony 3,17° tegen mahony_mag 1,06°, eind −0,36 tegen +0,27°; stil5min-deel 0,86 tegen 0,96° (gelijk binnen de magnetometerruis).
+- Herhaalbaarheid, middensegmenten (5 keer op het midden gericht, eerste seconde weg): spreiding van de yaw mahony sd 0,42° (bereik 1,05°), mahony_mag sd 0,34° (0,85°), magnetometer alleen sd 0,46° (1,13°). Afwijking van de hand-heading (fusie − TRIAD per segment): mahony sd 0,23° (bereik 0,59°), mahony_mag sd 0,32° (0,71°). Links/rechts: mahony +17,6/−15,9°, mahony_mag +19,0/−14,7°, TRIAD +18,7/−13,7°.
+- Draaiopname: tijdens het draaien wijst de detector bijna alles af (gyro-consistentie, dip in beweging) en wordt niets gecorrigeerd; de schatting is dan gelijk aan mahony. Dat is bedoeld (geen correctie op een onzeker veld), maar betekent ook dat de draaiopname niets over de correctie zegt.
+- Synthetisch (120 s richten met een onbekende extra verticale bias van 0,15°/s, 13 % verlies, ruis zoals gemeten): mahony eindfout 22,4°, mahony_mag 0,05° (max 0,70° na de inregeltijd), b_v geleerd 0,199°/s. Een stap in de bias van 0,1°/s geeft een tijdelijke fout tot ~2°.
+- Correctiesnelheden in de replays: in stilstand max 0,02°/s (0,08°/s rond de grens van 3°/s), in beweging max 0,25°/s; grootste stap per rapport 0,012° (synthetisch, met gaten).
+
+Conclusie: winst op drift in het rustigste handspoor (de enige echte hand-opname op de speelplek: drift tegen de magnetometer van −2,06 naar −0,43°/min, max-afwijking gehalveerd) en in het tafelspoor met bevroren bias; verlies in de onrustige richttest (36 % van de tijd verstoord; de fusie volgt daar een magnetometer die zelf ±2-3° varieert). Op tafel en tijdens draaien valt hij terug op de gyro. Dat is geen eenduidig aangetoonde winst, dus **mahony blijft de standaard en mahony_mag is opt-in** (`ravengunctl fusion mahony_mag`, `--fusion`, `config.json` `fusion.mode`). Een langere hand-opname op de speelplek (5 min richten, met een paar keer "stil midden") is de meting die de keuze moet maken. Haalbaarheid van 0,3° (G2): niet aangetoond; de magnetometer-heading zelf varieert in de hand ±2-3° met de stand.
 
 ## Bronnen
 

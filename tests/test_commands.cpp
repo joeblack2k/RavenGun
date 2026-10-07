@@ -60,6 +60,9 @@ struct FakeHid final : HidContext {
     void set_led(bool en, uint8_t rr, uint8_t gg, uint8_t bb) override { ++led_calls; led_enabled = en; r = rr; g = gg; b = bb; }
     std::string record(const ipc::Request&) override { return "{}"; }
     std::string calib_mag(const ipc::Request&) override { return "{}"; }
+    core::FusionMode fm = core::FusionMode::Mahony;
+    core::FusionMode fusion() const override { return fm; }
+    void set_fusion(core::FusionMode m) override { fm = m; }
 };
 
 // Voert opdrachten uit; de HID-jobs draaien in een eigen thread (zoals in de daemon).
@@ -220,6 +223,16 @@ static void test_persist_and_info(const std::string& dir) {
     json::Value r = rig.call(R"({"v":1,"cmd":"set_web","port":18999})", &ok);
     CHECK(ok && store.get().web.port == 18999 && num(r, "active_port") == 18766);
     CHECK(contains(slurp(dir + "/p/config.json"), "\"port\":18999"));
+    // Fase 4: oriëntatieschatter omschakelen en bewaren.
+    CHECK(store.get().fusion.mode == "mahony");  // standaard (opt-in)
+    r = rig.call(R"({"v":1,"cmd":"set_fusion","mode":"mahony"})", &ok);
+    CHECK(ok && rig.hid.fm == core::FusionMode::Mahony && store.get().fusion.mode == "mahony");
+    CHECK(r.find("mode") && r.find("mode")->str == "mahony");
+    CHECK(contains(slurp(dir + "/p/config.json"), "\"mode\":\"mahony\""));
+    rig.call(R"({"v":1,"cmd":"set_fusion","mode":"mahony_mag"})", &ok);
+    CHECK(ok && rig.hid.fm == core::FusionMode::MahonyMag && store.get().fusion.mode == "mahony_mag");
+    rig.call(R"({"v":1,"cmd":"set_fusion","mode":"eskf"})", &ok);
+    CHECK(!ok && store.get().fusion.mode == "mahony_mag");
     // Ongeldige filterwaarde: niets veranderd of bewaard.
     rig.call(R"({"v":1,"cmd":"set_filter","beta":5000})", &ok);
     CHECK(!ok && store.get().filter.beta == 0.9);

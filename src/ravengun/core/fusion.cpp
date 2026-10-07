@@ -20,6 +20,7 @@ void GyroBiasEstimator::reset() {
     bias_ = {};
     still_ = false;
     still_total_ = 0;
+    age_ = 0;
 }
 
 BiasState GyroBiasEstimator::state() const {
@@ -30,6 +31,8 @@ BiasState GyroBiasEstimator::state() const {
 
 bool GyroBiasEstimator::update(Vec3 gyro, Vec3 accel, double dt) {
     if (!(dt > 0) || !std::isfinite(dt)) return still_;
+    age_ += dt;
+    if (cfg_.freeze_after_s > 0 && age_ > cfg_.freeze_after_s) { still_ = false; return false; }
     // Venster bijhouden op basis van echte dt (leeftijd per sample).
     for (auto& s : win_) s.age += dt;
     win_.push_back({0.0, gyro, norm(accel)});
@@ -54,7 +57,8 @@ bool GyroBiasEstimator::update(Vec3 gyro, Vec3 accel, double dt) {
         double smax = std::sqrt(std::max({var.x, var.y, var.z}));
         Vec3 off = mean - bias_;
         // Voor de eerste schatting is de bias nog 0: dan geldt dezelfde grens op |mean|.
-        if (acc_ok && smax <= cfg_.gyro_std_max && norm(off) <= cfg_.gyro_mean_max) {
+        double mean_max = state() == BiasState::Estimated ? cfg_.gyro_mean_max_settled : cfg_.gyro_mean_max;
+        if (acc_ok && smax <= cfg_.gyro_std_max && norm(off) <= mean_max) {
             still_ = true;
             still_total_ += dt;
             double a = dt / std::min(still_total_, cfg_.tau_s);

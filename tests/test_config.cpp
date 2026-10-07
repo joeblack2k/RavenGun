@@ -436,7 +436,33 @@ static void test_sharp_shooter_buttons() {
     CHECK(!ok && contains(err, "onbekend veld"));
 }
 
+static void test_fusion_and_gun_buttons() {
+    config::Settings s;
+    CHECK(s.fusion.mode == "mahony");
+    CHECK(s.gun_buttons.reload == "cross" && s.gun_buttons.grenade == "square" && s.gun_buttons.recenter == "move");
+    CHECK(s.gun_buttons.trigger_on == 140 && s.gun_buttons.trigger_off == 100);
+    s.fusion.mode = "mahony_mag";
+    s.gun_buttons.reload = "circle";
+    s.gun_buttons.recenter = "";
+    std::string text = config::to_json(s);
+    config::Settings b;
+    std::string err;
+    CHECK(config::parse_settings(text, b, err));
+    CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.reload == "circle" && b.gun_buttons.recenter.empty());
+    // Bestand zonder de nieuwe secties (schema 1 van vóór fase 4): standaardwaarden.
+    config::Settings c;
+    CHECK(config::parse_settings(R"({"schema":1})", c, err) && c.fusion.mode == "mahony" && c.gun_buttons.grenade == "square");
+    // Ongeldig: onbekende modus, dubbele knoppen, T als knop, hysterese verkeerd om.
+    CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"mode":"eskf"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"cross","grenade":"cross"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"recenter":"square"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"t"}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"trigger_on":100,"trigger_off":120}})", c, err));
+    CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"knop"}})", c, err));
+}
+
 int main() {
+    test_fusion_and_gun_buttons();
     test_sharp_shooter_buttons();
     test_roundtrip_and_validation();
     test_migration_hook();

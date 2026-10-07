@@ -19,12 +19,19 @@ struct BiasConfig {
     double window_s = 0.5;               // lengte van het stilstandsvenster
     double gyro_std_max = 0.035;         // rad/s (2 graden/s), max standaardafwijking per as binnen het venster
     double gyro_mean_max = 0.10;         // rad/s, max |gemiddelde - bias| (echte rotatie afwijzen)
+    // Fase 4: zodra de bias "estimated" is, alleen nog vensters waarvan het gemiddelde hooguit zoveel van
+    // de bias afwijkt (0,6 graden/s; de bias zelf verloopt veel trager). Daarvoor nam de schatter een
+    // langzame zwaai tot 5,7 graden/s als stilstand op (synthetische test en richten met de hand).
+    double gyro_mean_max_settled = 0.0105;
     double accel_norm_tol = 0.08;        // g, | |a| - 1 | binnen het hele venster
     // Bijwerken: tot tau_s aan stilstand gezien is een lopend gemiddelde over alle stille samples
     // (snelste convergentie), daarna een exponentieel gemiddelde met tijdconstante tau_s
     // (volgt langzame temperatuurdrift).
     double tau_s = 30.0;
     double settled_after_s = 3.0;        // cumulatieve stilstand voordat de schatting "estimated" heet
+    // Alleen voor analyse (ravengun-analyze --freeze-bias): na zoveel seconden niet meer bijwerken, zoals
+    // in de hand waar bijna nooit stilstand is. <= 0: uit.
+    double freeze_after_s = -1;
 };
 
 enum class BiasState { None, Estimating, Estimated };
@@ -53,6 +60,7 @@ private:
     Vec3 bias_{};
     bool still_ = false;
     double still_total_ = 0;
+    double age_ = 0;
 };
 
 struct FusionConfig {
@@ -70,6 +78,8 @@ public:
     bool update(Vec3 gyro_unbiased, Vec3 accel, double dt);
     bool initialized() const { return init_; }
     Quat q() const { return q_; }  // q_wb: controller -> wereld (Z omhoog)
+    // Alleen voor de yaw-correctie van de magnetometer (rotatie om wereld-Z, zie mag_yaw.hpp).
+    void set_q(Quat q) { if (init_) q_ = normalized(q); }
     void reset() { init_ = false; q_ = Quat{}; }
     bool last_accel_used() const { return last_accel_used_; }
     const FusionConfig& config() const { return cfg_; }

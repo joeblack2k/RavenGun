@@ -160,6 +160,18 @@ std::string validate(const Settings& s) {
         if (!kv.second.empty() && !move_button_name_valid(kv.second))
             return "sharp_shooter.buttons." + kv.first + " is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
     }
+    if (s.fusion.mode != "mahony" && s.fusion.mode != "mahony_mag") return "fusion.mode moet mahony of mahony_mag zijn";
+    const auto& g = s.gun_buttons;
+    if (g.trigger_on < 1 || g.trigger_on > 255 || g.trigger_off < 0 || g.trigger_off >= g.trigger_on)
+        return "gun_buttons: 0 <= trigger_off < trigger_on <= 255";
+    for (const auto* b : {&g.reload, &g.grenade, &g.recenter})
+        if (!b->empty() && !move_button_name_valid(*b))
+            return "gun_buttons: '" + *b + "' is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
+    if (!g.reload.empty() && g.reload == g.grenade) return "gun_buttons: reload en grenade gebruiken dezelfde knop";
+    for (const auto* b : {&g.reload, &g.grenade})
+        if (!b->empty() && *b == g.recenter) return "gun_buttons: recenter gebruikt dezelfde knop als reload of grenade";
+    for (const auto* b : {&g.reload, &g.grenade, &g.recenter})
+        if (*b == "t") return "gun_buttons: T is de trekker en kan geen andere functie hebben";
     return {};
 }
 
@@ -198,6 +210,11 @@ std::string to_json(const Settings& s, bool pretty) {
         w.key("buttons").begin_object();
         for (const auto& kv : s.sharp_shooter.buttons) w.key(kv.first).value(kv.second);
         w.end_object();
+    }) + "," + nl;
+    out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode); }) + "," + nl;
+    out += section("gun_buttons", [&](json::Writer& w) {
+        w.key("trigger_on").value(s.gun_buttons.trigger_on).key("trigger_off").value(s.gun_buttons.trigger_off);
+        w.key("reload").value(s.gun_buttons.reload).key("grenade").value(s.gun_buttons.grenade).key("recenter").value(s.gun_buttons.recenter);
     }) + nl + "}" + nl;
     return out;
 }
@@ -233,7 +250,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (warnings) {
         for (const auto& kv : root.obj) {
-            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "web", "sharp_shooter"};
+            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "web", "sharp_shooter", "fusion", "gun_buttons"};
             bool k = false;
             for (const char* n : known) if (kv.first == n) k = true;
             if (!k) warnings->push_back("onbekende sleutel '" + kv.first + "' genegeerd");
@@ -302,6 +319,20 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
                     s.sharp_shooter.buttons[kv.first] = kv.second.str;
                 }
         }
+    }
+    if (const json::Value* o = sec("fusion")) {
+        Section c{*o, "fusion", e, warnings};
+        c.string("mode", s.fusion.mode);
+        c.unknown({"mode"});
+    }
+    if (const json::Value* o = sec("gun_buttons")) {
+        Section c{*o, "gun_buttons", e, warnings};
+        c.integer("trigger_on", 1, 255, s.gun_buttons.trigger_on);
+        c.integer("trigger_off", 0, 254, s.gun_buttons.trigger_off);
+        c.string("reload", s.gun_buttons.reload);
+        c.string("grenade", s.gun_buttons.grenade);
+        c.string("recenter", s.gun_buttons.recenter);
+        c.unknown({"trigger_on", "trigger_off", "reload", "grenade", "recenter"});
     }
     if (e.empty()) e = validate(s);  // o.a. de presetnaam
     if (!e.empty()) { err = e; return false; }

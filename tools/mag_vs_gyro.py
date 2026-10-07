@@ -3,6 +3,10 @@
 
 Gebruik: python3 -I tools/mag_vs_gyro.py OPNAME.jsonl KALIBRATIE.json [--bias-s 5] [--axis 1]
 
+Let op: beide headings tellen tegen de klok in (om +Z); het verschil is alleen zinvol als beide
+hetzelfde draaizin hebben (fase 4: tekenfout hersteld). Het globale teken van de magnetometer (b_map)
+maakt voor dit verschil niets uit. De C++-variant met de echte fusie: ravengun-analyze fusion.
+
 De gyro (bias geschat uit de eerste --bias-s seconden stilstand) geeft over ~1 minuut een betrouwbare
 relatieve oriëntatie. 'Omhoog' komt uit diezelfde integratie (niet uit de accelerometer, die tijdens
 bewegen versnellingen ziet). Het verschil mag-heading min gyro-heading, rond nul gezet, is de fout van
@@ -82,7 +86,11 @@ def main():
         if math.sqrt(dot(vh, vh)) < 0.5:  # as te steil: heading slecht bepaald
             continue
         # heading van de as t.o.v. magnetisch noorden (in wereld) ...
-        n = unit(mh); e = cross(n, up_w)
+        # Oost = omhoog x noord (rechtshandig, Z omhoog): kompasrichting met de klok mee, net als hd_gyr
+        # hieronder (x0 -> y0 = omhoog x x0). Fase 4: hier stond cross(n, up_w); dan draaide de
+        # magnetometer-heading tegengesteld aan de gyro-heading en verdubbelde elke draai in het verschil
+        # (de -11..+17 graden tijdens bewegen in 175604-richttest).
+        n = unit(mh); e = cross(up_w, n)
         hd_mag = math.degrees(math.atan2(dot(vh, e), dot(vh, n)))
         # ... en t.o.v. een vaste wereldrichting (gyro)
         x0 = unit([1 - up_w[0]*up_w[0], -up_w[0]*up_w[1], -up_w[0]*up_w[2]]) if abs(up_w[0]) < 0.9 else unit([-up_w[1]*up_w[0], 1-up_w[1]*up_w[1], -up_w[1]*up_w[2]])

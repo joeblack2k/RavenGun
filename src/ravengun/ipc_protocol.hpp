@@ -19,7 +19,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
-                 SetButtons, CalibrateUi };
+                 SetButtons, CalibrateUi, SetFusion };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -50,7 +50,7 @@ struct Request {
     // set_camera: geheel getal exposure 0..255, gain 0..63; auto-vlaggen; modus "BxH@FPS" uit de toegestane lijst.
     std::optional<double> exposure, gain;
     std::optional<bool> auto_exposure, auto_gain, auto_awb;
-    std::string mode;
+    std::string mode;     // set_camera: cameramodus; set_fusion: mahony | mahony_mag
     // set_web: poort voor de volgende start.
     std::optional<double> web_port;
     // set_buttons: rol (zie config::sharp_shooter_roles()) -> Move-knop of "" (wissen).

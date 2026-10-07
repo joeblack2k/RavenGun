@@ -61,6 +61,24 @@ struct SharpShooterSettings {
     std::map<std::string, std::string> buttons;  // rol -> Move-knop
 };
 
+// Fase 4: oriëntatieschatter. "mahony" (IMU-only, terugval) of "mahony_mag" (met yaw-correctie van de
+// magnetometer; zonder geldige kalibratie gedraagt die zich als mahony).
+struct FusionSettings {
+    std::string mode = "mahony";  // opt-in: de replay toont winst op 1 van 2 handsporen (zie aim-fusion-design.md, fase 4)
+};
+
+// Fase 4: welke Move-knop welke gun-knop wordt (de live koppeling aan de virtuele lightgun). Waarden zijn
+// namen van Move-knoppen (triangle, circle, cross, square, select, start, ps, move, t) of leeg = uit.
+// De trekker komt altijd uit de analoge T-waarde met drempel en hysterese. De mapping uit
+// sharp_shooter.buttons (kalibratie-UI) wordt hier bewust NIET gebruikt (de eerste meting was fout).
+struct GunButtonSettings {
+    int trigger_on = 140;     // T-waarde (0..255) waarbij de trekker ingedrukt wordt
+    int trigger_off = 100;    // en waaronder hij weer loslaat (hysterese)
+    std::string reload = "cross";
+    std::string grenade = "square";
+    std::string recenter = "move";
+};
+
 struct Settings {
     LedSettings led;
     TrackerSettings tracker;
@@ -69,6 +87,8 @@ struct Settings {
     AimSettings aim;
     WebSettings web;
     SharpShooterSettings sharp_shooter;
+    FusionSettings fusion;
+    GunButtonSettings gun_buttons;
 };
 
 // Controleert alle bereiken; leeg = geldig, anders een Nederlandse melding.

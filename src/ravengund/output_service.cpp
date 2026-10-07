@@ -68,6 +68,38 @@ void OutputService::release_all() {
     out_.release_all();
 }
 
+bool OutputService::armed() const {
+    std::lock_guard<std::mutex> g(m_);
+    return out_.armed();
+}
+
+void OutputService::feed_live(const LiveAction& a) {
+    std::lock_guard<std::mutex> g(m_);
+    if (shut_) return;
+    ++live_samples_;
+    if (a.release_all) {
+        live_aim_valid_ = false;
+        bool any = false;
+        for (int i = 0; i < kGunButtonCount; ++i) any = any || out_.button_down(static_cast<GunButton>(i));
+        if (any) { out_.release_all(); ++live_releases_; }
+        return;
+    }
+    if (!out_.armed()) return;
+    if (pattern_running_) { ++live_suspended_; return; }  // testpatroon heeft voorrang
+    live_aim_valid_ = a.move;
+    if (a.move) {
+        out_.set_position(a.x, a.y);
+        ++live_positions_;
+    } else {
+        ++live_invalid_;  // ongeldige aim: niet bewegen (cursor blijft staan)
+    }
+    if (a.buttons) {
+        out_.set_button(GunButton::Trigger, a.trigger);
+        out_.set_button(GunButton::Reload, a.reload);
+        out_.set_button(GunButton::Grenade, a.grenade);
+    }
+}
+
 void OutputService::shutdown() {
     std::unique_lock<std::mutex> lk(m_);
     if (shut_) return;
@@ -182,6 +214,15 @@ std::string OutputService::status_json() const {
         w.key("steps").value(static_cast<unsigned long long>(pattern_steps_total_));
         w.key("length_s").value(pattern_length_s_);
     }
+    w.end_object();
+    w.key("live").begin_object();
+    w.key("source").value("move (pijplijn-aim per rapport, geen 250 Hz-klok)");
+    w.key("aim_valid").value(live_aim_valid_);
+    w.key("samples").value(static_cast<unsigned long long>(live_samples_));
+    w.key("positions").value(static_cast<unsigned long long>(live_positions_));
+    w.key("invalid_aim").value(static_cast<unsigned long long>(live_invalid_));
+    w.key("releases").value(static_cast<unsigned long long>(live_releases_));
+    w.key("suspended_by_pattern").value(static_cast<unsigned long long>(live_suspended_));
     w.end_object();
     w.key("stats").begin_object();
     w.key("position_events").value(static_cast<unsigned long long>(s.position_events));

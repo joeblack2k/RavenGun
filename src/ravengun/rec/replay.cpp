@@ -33,10 +33,15 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
             case Kind::Header:
                 res.header = rc.header;
                 p.on_connect(rc.header.controller.empty() ? "opname" : rc.header.controller, rc.header.t0_ns);
+                if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
                 connected = true;
                 break;
             case Kind::Report: {
-                if (!connected) { p.on_connect("opname", rc.report.t_rx_ns); connected = true; }
+                if (!connected) {
+                    p.on_connect("opname", rc.report.t_rx_ns);
+                    if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
+                    connected = true;
+                }
                 if (o.tick_before_report)
                     if (auto t = p.tick(rc.report.t_rx_ns)) emit(*t, nullptr);
                 emit(p.on_report(rc.report), &rc.report);

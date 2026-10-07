@@ -166,6 +166,7 @@ const char* to_string(MagFitKind k) {
 Vec3 mag_apply(const MagCalibration& c, Vec3 raw) {
     Vec3 m = mul(c.soft, raw - c.offset);
     if (c.y_flip) m.y = -m.y;
+    if (c.negate) m = m * -1.0;
     return m;
 }
 
@@ -313,6 +314,7 @@ MagFitResult fit_magnetometer(const std::vector<MagSample>& s, const MagFitOptio
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j) cal.soft.m[i][j] = A.m[i][j] / sc;
     cal.y_flip = o.y_flip;
+    cal.negate = o.negate;
     double d = det3(cal.soft);
     cal.field_counts = d > 0 ? std::cbrt(1 / d) : 0;
     cal.samples = static_cast<int>(n);
@@ -330,7 +332,7 @@ MagFitResult fit_magnetometer(const std::vector<MagSample>& s, const MagFitOptio
         Vec3 mr = mul(cal.soft, x.raw - cal.offset);
         cov.add(mr);
         double an = norm(x.accel);
-        if (std::fabs(an - 1) <= o.accel_static_tol) {
+        if (std::fabs(an - 1) <= o.accel_static_tol && (x.gyro_dps < 0 || x.gyro_dps <= o.dip_max_gyro_dps)) {
             dips.push_back(dip_deg(m, x.accel));
             Vec3 nf = mr;
             if (!cal.y_flip) nf.y = -nf.y;  // de andere hypothese
@@ -378,7 +380,7 @@ MagFitResult fit_magnetometer(const std::vector<MagSample>& s, const MagFitOptio
 
 void MagCollector::reset() { *this = MagCollector{}; }
 
-bool MagCollector::add(const int raw[3], Vec3 accel, double t) {
+bool MagCollector::add(const int raw[3], Vec3 accel, double t, double gyro_dps) {
     Vec3 r{static_cast<double>(raw[0]), static_cast<double>(raw[1]), static_cast<double>(raw[2])};
     ++seen_;
     if (!have_) t0_ = t;
@@ -391,7 +393,7 @@ bool MagCollector::add(const int raw[3], Vec3 accel, double t) {
     if (s_.size() >= kMaxSamples) return false;
     have_ = true;
     last_ = r;
-    s_.push_back({r, accel});
+    s_.push_back({r, accel, gyro_dps});
     return true;
 }
 
@@ -466,6 +468,7 @@ std::string mag_calibration_to_json(const MagCalibration& c) {
     }
     w.end_array();
     w.key("y_flip").value(c.y_flip);
+    w.key("b_map").value(c.y_flip ? (c.negate ? "diag(-1,1,-1)" : "diag(1,-1,1)") : (c.negate ? "diag(-1,-1,-1)" : "diag(1,1,1)"));
     w.key("field_counts").value(c.field_counts);
     w.key("dip_ref_deg").value(c.dip_ref_deg);
     w.key("marginal").value(c.marginal);
@@ -521,9 +524,22 @@ bool mag_calibration_from_json(const std::string& text, MagCalibration& out, std
     }
     if (!(det3(c.soft) > 0)) { err = "beschadigd: soft-iron-matrix niet positief"; return false; }
     if (const json::Value* y = o.find("y_flip"); y && y->is_bool()) c.y_flip = y->b;
+    // Fase 4: "b_map" legt de afbeelding ruw -> B vast. Zonder (bestand van vóór fase 4) gold alleen
+    // y_flip; die vector wees tegen het aardveld in. Omzetten naar de nieuwe conventie: vector en
+    // dip-referentie omdraaien (de fit zelf, A en b, blijft gelijk).
+    bool legacy = true;
+    if (const json::Value* bm = o.find("b_map"); bm && bm->is_string()) {
+        legacy = false;
+        if (bm->str == "diag(-1,1,-1)") { c.y_flip = true; c.negate = true; }
+        else if (bm->str == "diag(1,-1,1)") { c.y_flip = true; c.negate = false; }
+        else if (bm->str == "diag(-1,-1,-1)") { c.y_flip = false; c.negate = true; }
+        else if (bm->str == "diag(1,1,1)") { c.y_flip = false; c.negate = false; }
+        else { err = "beschadigd: onbekende b_map"; return false; }
+    }
     if (const json::Value* mg = o.find("marginal"); mg && mg->is_bool()) c.marginal = mg->b;
     num(o.find("field_counts"), c.field_counts);
     num(o.find("dip_ref_deg"), c.dip_ref_deg);
+    if (legacy) { c.negate = true; c.dip_ref_deg = -c.dip_ref_deg; }
     double t = 0;
     if (num(o.find("created_unix"), t)) c.created_unix = static_cast<int64_t>(t);
     if (num(o.find("temperature_raw"), t)) c.temperature_raw = static_cast<int>(t);
@@ -640,14 +656,21 @@ MagCheck MagDisturbanceDetector::update(Vec3 m, Vec3 accel, Vec3 gyro, double dt
     c.norm = norm(m);
     c.dip_deg = std::nan("");
     c.rate_err_deg_s = std::nan("");
-    if (std::fabs(c.norm - 1) > cfg_.norm_tol) c.reasons |= kRejectNorm;
+    double a_s = cfg_.smooth_tau_s > 0 ? std::min(1.0, dt / cfg_.smooth_tau_s) : 1.0;
+    if (!norm_init_) { norm_f_ = c.norm; norm_init_ = true; }
+    else norm_f_ += a_s * (c.norm - norm_f_);
+    if (std::fabs(norm_f_ - 1) > cfg_.norm_tol) c.reasons |= kRejectNorm;
     double an = norm(accel);
-    if (an > 1e-6 && std::fabs(an - 1) <= cfg_.accel_static_tol) {
+    double gyro_dps = norm(gyro) * kDegPerRad;
+    if (an > 1e-6 && std::fabs(an - 1) <= cfg_.accel_static_tol && gyro_dps <= cfg_.dip_max_gyro_dps) {
         c.dip_deg = dip_deg(m, accel);
-        if (std::fabs(c.dip_deg - dip_ref_) > cfg_.dip_tol_deg) c.reasons |= kRejectDip;
+        if (!dip_init_) { dip_f_ = c.dip_deg; dip_init_ = true; }
+        else dip_f_ += a_s * (c.dip_deg - dip_f_);
+        if (std::fabs(dip_f_ - dip_ref_) > cfg_.dip_tol_deg) c.reasons |= kRejectDip;
     }
     // Magnetometer-yaw tegen de gyro: de horizontale component van m draait (in B) tegengesteld
-    // aan de draaiing om de verticaal; Δψ_m + ∫ω·â dt ≈ 0 als het veld homogeen en stil is.
+    // aan de draaiing om de verticaal; e = ψ_m + ∫ω·â dt is constant als het veld homogeen en stil
+    // is. Getoetst wordt de helling van e (kleinste kwadraten) over het venster.
     bool psi_ok = false;
     if (an > 0.5) {
         Vec3 up = accel * (1 / an);
@@ -664,12 +687,19 @@ MagCheck MagDisturbanceDetector::update(Vec3 m, Vec3 accel, Vec3 gyro, double dt
     }
     if (!psi_ok) { have_psi_ = false; win_.clear(); }
     else {
-        win_.push_back({t_, psi_unwrapped_, yaw_g_});
-        while (win_.size() > 1 && t_ - win_[1].t >= cfg_.rate_window_s) win_.pop_front();
+        win_.push_back({t_, psi_unwrapped_ + yaw_g_});
+        while (win_.size() > 1 && t_ - win_.front().t > cfg_.rate_window_s) win_.pop_front();
         double span = t_ - win_.front().t;
-        if (span >= cfg_.rate_window_s * 0.8) {
-            double err = ((psi_unwrapped_ - win_.front().psi) + (yaw_g_ - win_.front().yaw_g)) / span;
-            c.rate_err_deg_s = err * kDegPerRad;
+        if (span >= cfg_.rate_window_s * 0.8 && win_.size() >= 8) {
+            double n = 0, st = 0, se = 0, stt = 0, ste = 0;
+            double t0 = win_.front().t, e0 = win_.front().e;
+            for (const auto& x : win_) {
+                double tt = x.t - t0, ee = x.e - e0;
+                n += 1; st += tt; se += ee; stt += tt * tt; ste += tt * ee;
+            }
+            double den = n * stt - st * st;
+            double slope = den > 0 ? (n * ste - st * se) / den : 0;
+            c.rate_err_deg_s = slope * kDegPerRad;
             if (std::fabs(c.rate_err_deg_s) > cfg_.rate_tol_deg_s) c.reasons |= kRejectRate;
         }
     }

@@ -340,7 +340,7 @@ struct MagWorld {
     void sample(Quat q, Lcg& rng, double noise, MagSample& out) const {
         Vec3 mw{0, std::cos(dip), -std::sin(dip)};
         Vec3 mb = rotate(conj(q), mw);
-        Vec3 sens{mb.x, -mb.y, mb.z};  // B -> ruw sensorstelsel (Y omgedraaid)
+        Vec3 sens{-mb.x, mb.y, -mb.z};  // B -> ruw sensorstelsel: diag(-1,+1,-1), gemeten op de ZCM1 (fase 4)
         Vec3 raw = mul(S, sens) * field + b;
         out.raw = {std::round(raw.x + rng.gauss() * noise), std::round(raw.y + rng.gauss() * noise), std::round(raw.z + rng.gauss() * noise)};
         out.accel = rotate(conj(q), Vec3{0, 0, 1});
@@ -472,7 +472,24 @@ static void test_mag_storage() {
     MagCalibration l;
     CHECK(load_mag_calibration(sub, c.controller_key, l, err));
     CHECK(l.kind == MagFitKind::Full && l.offset.y == -2.25 && l.soft.m[0][1] == 0.01 && l.holder == "sharp_shooter" && l.dip_ref_deg == 66.9);
+    CHECK(l.y_flip && l.negate);
     CHECK(!load_mag_calibration(sub, "0000000000000000", l, err) && err == "ontbreekt");
+    // Bestand van voor fase 4 (zonder b_map, alleen y_flip): omgezet naar diag(-1,+1,-1), dip-referentie
+    // omgedraaid, zodat de gekalibreerde vector en de dip blijven kloppen met de nieuwe conventie.
+    {
+        FILE* lf = std::fopen((sub + "/legacy.json").c_str(), "w");
+        std::fputs("{\"format\":\"ravengun-mag-calibration\",\"version\":1,\"kind\":\"full\",\"offset\":[0,0,0],"
+                   "\"soft\":[[0.01,0,0],[0,0.01,0],[0,0,0.01]],\"y_flip\":true,\"dip_ref_deg\":-60.0}", lf);
+        std::fclose(lf);
+        MagCalibration lc;
+        CHECK(load_mag_calibration(sub, "legacy", lc, err));
+        CHECK(lc.y_flip && lc.negate && lc.dip_ref_deg == 60.0);
+        Vec3 v = mag_apply(lc, Vec3{10, 20, 30});
+        CHECK_NEAR(v.x, -0.1, 1e-12);
+        CHECK_NEAR(v.y, 0.2, 1e-12);
+        CHECK_NEAR(v.z, -0.3, 1e-12);
+        std::remove((sub + "/legacy.json").c_str());
+    }
     // Beschadigd bestand
     FILE* f = std::fopen((sub + "/bad.json").c_str(), "w");
     std::fputs("{\"format\":\"ravengun-mag-calibration\",\"version\":1,\"kind\":\"full\",\"offset\":[1,2]}", f);
@@ -515,7 +532,7 @@ static void test_mag_disturbance() {
     CHECK(c.state == MagState::Ok);
     // Dip 5 graden anders (zelfde norm): afgewezen op dip.
     Vec3 mw2{0, std::cos(dip - 5 * kRadPerDeg), -std::sin(dip - 5 * kRadPerDeg)};
-    c = d.update(rotate(conj(q), mw2), acc, {0, 0, 0}, dt);
+    for (int i = 0; i < 20; ++i) c = d.update(rotate(conj(q), mw2), acc, {0, 0, 0}, dt);  // na ~0,26 s (glad)
     CHECK(!c.accepted && (c.reasons & kRejectDip) && !(c.reasons & kRejectNorm));
     // Kort (< 1 s) afwijken maakt de toestand niet "verstoord".
     CHECK(d.state() == MagState::Ok);
@@ -571,6 +588,18 @@ static void test_protocol() {
     CHECK(ok(R"({"v":1,"cmd":"calib_mag","action":"status"})"));
     CHECK(code(R"({"v":1,"cmd":"calib_mag","action":"start","tag":"x"})") == "bad_request");
     CHECK(ok(R"({"v":1,"cmd":"set_led","r":0,"g":255,"b":255})"));
+    CHECK(ok(R"({"v":1,"cmd":"set_fusion","mode":"mahony"})"));
+    CHECK(ok(R"({"v":1,"cmd":"set_fusion","mode":"mahony_mag"})"));
+    CHECK(code(R"({"v":1,"cmd":"set_fusion","mode":"eskf"})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_fusion"})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_fusion","mode":"mahony","x":1})") == "bad_request");
+    {
+        Request f;
+        f.cmd = Cmd::SetFusion;
+        f.mode = "mahony_mag";
+        auto pf = parse_request(make_request(f));
+        CHECK(std::holds_alternative<Request>(pf) && std::get<Request>(pf).mode == "mahony_mag");
+    }
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":256,"b":255})") == "invalid_argument");
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1.5,"b":255})") == "invalid_argument");
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1})") == "invalid_argument");

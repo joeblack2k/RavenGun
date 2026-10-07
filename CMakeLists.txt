@@ -51,9 +51,11 @@ add_library(ravengun STATIC
   src/ravengun/output/gun_output.cpp
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
+  src/ravengun/output/live_feed.cpp
   src/ravengun/core/move_report.cpp
   src/ravengun/core/move_clock.cpp
   src/ravengun/core/magnetometer.cpp
+  src/ravengun/core/mag_yaw.cpp
   src/ravengun/rec/recording.cpp
   src/ravengun/rec/replay.cpp
   src/ravengun/vision/ball_tracker.cpp
@@ -131,6 +133,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_phase013_tests tests/test_phase013.cpp)
   target_link_libraries(ravengun_phase013_tests PRIVATE ravengun)
   add_test(NAME ravengun_phase013_tests COMMAND ravengun_phase013_tests)
+  add_executable(ravengun_fusion_tests tests/test_fusion.cpp)
+  target_link_libraries(ravengun_fusion_tests PRIVATE ravengun)
+  add_test(NAME ravengun_fusion_tests COMMAND ravengun_fusion_tests)
   if(RAVENGUN_BUILD_DAEMON)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
     add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp

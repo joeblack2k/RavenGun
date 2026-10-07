@@ -12,6 +12,9 @@
 #include "ravengun/ipc_protocol.hpp"
 #include "ravengun/output/gun_output.hpp"
 #include "ravengun/output/gun_transform.hpp"
+#include "ravengun/output/live_feed.hpp"
+#include "ravengun/core/buttons.hpp"
+#include "ravengun/core/pipeline.hpp"
 #include "ravengun/output/test_pattern.hpp"
 
 using namespace ravengun;
@@ -549,7 +552,103 @@ static void test_ipc() {
     CHECK(parse_ok(ipc::make_request(ar), ok).cmd == ipc::Cmd::Arm && ok);
 }
 
+// ---------------- Live Move -> virtuele lightgun (fase 4) ----------------
+
+// Pijplijn met synthetische rapporten -> LiveGunFeed -> GunOutput (nep-apparaat), zoals in de HID-thread.
+static void test_live_feed() {
+    core::PipelineConfig pc;
+    pc.filter.enabled = false;
+    core::Pipeline p(pc);
+    p.on_connect("aa:bb:cc:dd:ee:ff", 1'000'000'000);
+    FakeDevice d;
+    GunOutput o(d);
+    LiveButtonMap m;
+    m.reload = move_button_bit("cross");
+    m.grenade = move_button_bit("square");
+    m.recenter = move_button_bit("move");
+    CHECK(m.reload == core::kBtnCross && m.grenade == core::kBtnSquare && m.recenter == core::kBtnMove);
+    CHECK(move_button_bit("") == 0 && move_button_bit("onzin") == 0);
+    LiveGunFeed feed(m);
+    int64_t t = 1'000'000'000;
+    auto report = [&](uint8_t trig, uint32_t buttons, double yaw_rate = 0) {
+        core::RawReport r;
+        t += 11'270'000;
+        r.t_rx_ns = t;
+        r.subsamples = 2;
+        for (int i = 0; i < 2; ++i) { r.accel[i] = {0, 0, 1}; r.gyro[i] = {0, 0, yaw_rate}; }
+        r.trigger = trig;
+        r.buttons = buttons;
+        return p.on_report(r);
+    };
+    auto apply = [&](const core::InputSample& s) {
+        LiveAction a = feed.update(s);
+        if (a.release_all) { o.release_all(); return a; }
+        if (!o.armed()) return a;
+        if (a.move) o.set_position(a.x, a.y);
+        if (a.buttons) {
+            o.set_button(GunButton::Trigger, a.trigger);
+            o.set_button(GunButton::Reload, a.reload);
+            o.set_button(GunButton::Grenade, a.grenade);
+        }
+        return a;
+    };
+    // Disarmed: niets naar het apparaat.
+    apply(report(200, core::kBtnCross));
+    CHECK(d.log.empty());
+    std::string err;
+    CHECK(o.arm(err));
+    // Trekker met hysterese: 150 in, 120 blijft in, 90 los.
+    apply(report(0, 0));
+    CHECK(d.count("pos") >= 1);
+    apply(report(150, 0));
+    CHECK(o.button_down(GunButton::Trigger));
+    apply(report(120, 0));
+    CHECK(o.button_down(GunButton::Trigger));
+    apply(report(90, 0));
+    CHECK(!o.button_down(GunButton::Trigger));
+    // Reload/grenade uit Kruis/Vierkant; de Move-trekkerknop (T-bit) doet niets extra.
+    apply(report(0, core::kBtnCross | core::kBtnT));
+    CHECK(o.button_down(GunButton::Reload) && !o.button_down(GunButton::Grenade) && !o.button_down(GunButton::Trigger));
+    apply(report(0, core::kBtnSquare));
+    CHECK(!o.button_down(GunButton::Reload) && o.button_down(GunButton::Grenade));
+    // Recenter alleen op de down-flank van de Move-knop.
+    LiveAction a = apply(report(0, core::kBtnMove));
+    CHECK(a.recenter);
+    a = apply(report(0, core::kBtnMove));
+    CHECK(!a.recenter);
+    // Beweging: de aim verandert en gaat naar het apparaat.
+    int x0 = d.last_x;
+    for (int i = 0; i < 20; ++i) apply(report(160, core::kBtnCross, 0.5));
+    CHECK(d.last_x != x0);
+    CHECK(o.button_down(GunButton::Trigger) && o.button_down(GunButton::Reload));
+    // Stale (60 ms geen rapport): aim ongeldig -> niet meer bewegen; knoppen blijven (gat tot 250 ms).
+    int npos = d.count("pos");
+    auto st = p.tick(t + 60'000'000);
+    CHECK(st && st->link == core::LinkState::Stale && !st->aim_valid);
+    a = apply(*st);
+    CHECK(!a.move);
+    CHECK(d.count("pos") == npos);
+    CHECK(o.button_down(GunButton::Trigger) && o.button_down(GunButton::Reload));
+    // Lost (> 250 ms): alle gun-knoppen los, cursor blijft staan (geen sprong).
+    auto lost = p.tick(t + 300'000'000);
+    CHECK(lost && lost->link == core::LinkState::Lost);
+    a = apply(*lost);
+    CHECK(a.release_all);
+    CHECK(d.pressed.empty());
+    CHECK(!o.button_down(GunButton::Trigger) && !o.button_down(GunButton::Reload) && !o.button_down(GunButton::Grenade));
+    CHECK(d.count("pos") == npos);
+    // Na herstel geen "hangende" trekker uit de oude toestand: eerst onder de drempel.
+    apply(report(110, 0));
+    CHECK(!o.button_down(GunButton::Trigger));
+    // Disconnect geeft ook alles vrij.
+    apply(report(200, core::kBtnSquare));
+    CHECK(o.button_down(GunButton::Trigger) && o.button_down(GunButton::Grenade));
+    apply(p.on_disconnect(t + 1'000'000));
+    CHECK(d.pressed.empty());
+}
+
 int main() {
+    test_live_feed();
     test_transform_basic();
     test_transform_invert();
     test_transform_scale_offset_clamp();
