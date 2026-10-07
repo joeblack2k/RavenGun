@@ -5,8 +5,15 @@
 //
 // Stelsels: de fit gebeurt in het ruwe sensorstelsel van de magnetometer. m_cal = A (m_raw - b)
 // is daarna ongeveer een eenheidsvector. Naar het controllerstelsel B (dat van accelerometer en
-// gyro) gaat het met een omgedraaide Y-as (y_flip, zoals PSMoveAPI dat doet); dat is op hardware
-// te controleren met de spreiding van de dip (zie FitQuality::dip_std_noflip_deg).
+// gyro) gaat het met diag(-1, +1, -1): een rotatie van 180 graden om Y (fase 4, gemeten op de ZCM1,
+// zie docs/aim-fusion-design.md "Metingen fase 4"):
+//  - de gyro-consistentie d m/dt = -ω × m klopt alleen met een omgedraaide Y ten opzichte van X en Z
+//    (wat PSMoveAPI ook doet: y_flip); dat legt de afbeelding vast op een globaal teken na;
+//  - het globale teken volgt uit de dip: met alleen y_flip wijst het veld in Nederland OMHOOG
+//    (dip −60°), met diag(-1,+1,-1) omlaag (+60°), zoals het aardveld. diag(-1,+1,-1) is bovendien
+//    een echte rotatie (det +1), y_flip alleen een spiegeling.
+// Oude kalibratiebestanden (zonder "b_map") gebruikten alleen y_flip; die worden bij het laden
+// omgezet (teken van de vector en van dip_ref omgedraaid), zodat ze geldig blijven.
 // Dip (inclinatie) = asin(m̂ · (-â)) in graden: positief als het veld naar beneden wijst
 // (Nederland: ongeveer 67°). â is de accelerometerrichting ("omhoog" in rust).
 #include <array>
@@ -38,6 +45,7 @@ struct MagCalibration {
     Vec3 offset{};            // hard iron b (ruwe counts)
     Mat3 soft{};              // A, symmetrisch: m_cal = A (m_raw - b)
     bool y_flip = true;       // ruw -> B: Y omdraaien
+    bool negate = true;       // ruw -> B: daarna de hele vector omdraaien (samen: diag(-1,+1,-1))
     double field_counts = 0;  // veldsterkte in ruwe counts (geometrisch gemiddelde straal)
     double dip_ref_deg = 0;   // gemiddelde dip tijdens de kalibratie
     double rms_norm_err = 0;  // RMS van |m_cal| - 1
@@ -76,6 +84,7 @@ private:
 struct MagSample {
     Vec3 raw{};     // ruwe counts (sensorstelsel)
     Vec3 accel{};   // g, controllerstelsel
+    double gyro_dps = -1;  // |ω| (graden/s) op dat moment; < 0 = onbekend
 };
 
 struct MagFitOptions {
@@ -91,7 +100,11 @@ struct MagFitOptions {
     double ridge = 1e-6;                // regularisatie van de kruistermen (genormaliseerde data)
     double accel_static_tol = 0.05;     // g: alleen quasi-statische samples voor de dip
     int coverage_min_count = 3;
+    // Dip alleen uit langzame samples: tijdens draaien vervalst een versnelling loodrecht op g de
+    // richting van â zonder |a| veel te veranderen (0,3 g dwars: |a| +4 %, richting 17°).
+    double dip_max_gyro_dps = 20.0;
     bool y_flip = true;
+    bool negate = true;
 };
 
 struct MagFitResult {
@@ -123,7 +136,7 @@ class MagCollector {
 public:
     void reset();
     // Geeft true als het sample bewaard is.
-    bool add(const int raw[3], Vec3 accel, double t_s);
+    bool add(const int raw[3], Vec3 accel, double t_s, double gyro_dps = -1);
     const std::vector<MagSample>& samples() const { return s_; }
     int seen() const { return seen_; }
     // Voortgang met een voorlopig middelpunt (midden van min/max per as).
@@ -155,9 +168,17 @@ bool atomic_write_file(const std::string& path, const std::string& content, std:
 // Verstoringsdetectie per sample (ontwerp 2.3 punt 5). De NIS-poort volgt pas met de ESKF (fase 4).
 struct MagDisturbanceConfig {
     double norm_tol = 0.05;           // |m_cal| mag 5 % van 1,0 afwijken
+    // Norm en dip worden getoetst na een kort exponentieel gemiddelde (fase 4): per sample is de ruis
+    // ~2 % (norm) en ~1,3-1,6° (dip, gemeten in rust), zodat een poort van 2° per los sample ~10-20 %
+    // vals afwees en het herstel (2 s aaneengesloten) vrijwel nooit lukte.
+    double smooth_tau_s = 0.15;
     double dip_tol_deg = 2.0;         // dip t.o.v. de referentie
-    double rate_tol_deg_s = 2.0;      // magnetometer-yaw t.o.v. de gyro over rate_window_s
-    double rate_window_s = 0.5;
+    // Magnetometer-yaw t.o.v. de gyro: helling (kleinste kwadraten) van (ψ_mag + ∫ω·up) over
+    // rate_window_s. Fase 4: 1,5 s in plaats van de eindpunten over 0,5 s; met ~2,5° ruis per sample
+    // gaf dat een ruis van ~7°/s en werd in rust ~80 % van de samples afgewezen (gemeten).
+    double rate_tol_deg_s = 2.0;
+    double rate_window_s = 1.5;
+    double dip_max_gyro_dps = 30.0;   // dip-test alleen bij langzame rotatie (zie MagFitOptions)
     double disturb_after_s = 1.0;     // aaneengesloten afwijzing -> "verstoord"
     double recover_after_s = 2.0;     // aaneengesloten consistent -> weer "ok"
     double accel_static_tol = 0.10;   // g; daarbuiten geen dip-test (versnelling vervalst â)
@@ -197,9 +218,11 @@ public:
     uint64_t disturbed_episodes() const { return episodes_; }
 
 private:
-    struct W { double t, psi, yaw_g; };
+    struct W { double t, e; };
     MagDisturbanceConfig cfg_;
     double dip_ref_ = 0;
+    double norm_f_ = 0, dip_f_ = 0;
+    bool norm_init_ = false, dip_init_ = false;
     double t_ = 0, yaw_g_ = 0, psi_prev_ = 0, psi_unwrapped_ = 0;
     bool have_psi_ = false;
     std::deque<W> win_;

@@ -15,6 +15,9 @@ namespace ravengun::rec {
 
 struct ReplayOptions {
     core::PipelineConfig pipeline{};
+    // Fase 4: magnetometerkalibratie voor de fusie (zoals de daemon die bij het verbinden laadt).
+    bool have_mag_cal = false;
+    core::MagCalibration mag_cal{};
     bool tick_before_report = true;  // pijplijn.tick(t_rx) vóór elk rapport (stale/lost zoals live)
     bool keep_json = false;          // alle sample-JSON bewaren (tests)
     // Optioneel: na elk sample (bijv. voor analyse).

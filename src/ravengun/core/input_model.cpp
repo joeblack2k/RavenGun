@@ -114,6 +114,18 @@ void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids) {
         .value(s.gyro_bias.x * kDegPerRad).value(s.gyro_bias.y * kDegPerRad).value(s.gyro_bias.z * kDegPerRad)
         .end_array();
     w.key("yaw_reference").value(to_string(s.yaw_ref));
+    w.key("fusion").begin_object();
+    w.key("mode").value(s.fusion_mode);
+    w.key("yaw_source").value(s.yaw_source);
+    w.key("magnetometer").value(s.mag_state);
+    w.key("mag_locked").value(s.mag_locked);
+    w.key("yaw_pending_deg").value(s.yaw_pending_deg);
+    w.key("correction_rate_deg_s").value(s.yaw_corr_rate_deg_s);
+    w.key("correction_limit_deg_s").value(s.yaw_corr_limit_deg_s);
+    w.key("correction_total_deg").value(s.yaw_corr_total_deg);
+    w.key("vertical_bias_deg_s").value(s.yaw_vertical_bias_deg_s);
+    w.key("mag_unusable_s").value(s.mag_unusable_s);
+    w.end_object();
     w.end_object();
 
     write_optical_json(w, s.optical);

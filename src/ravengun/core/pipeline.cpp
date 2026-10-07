@@ -54,7 +54,7 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), clock_(cfg.clock) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), clock_(cfg.clock) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
@@ -64,6 +64,9 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
         aim_.clear_center();
         yaw_ref_ = YawReference::None;
         auto_centered_once_ = false;
+        mag_.clear_calibration();  // de kalibratie hoort bij de controller; de daemon zet de nieuwe
+    } else {
+        mag_.on_interrupt();  // zelfde controller: de yaw-integratie was onderbroken
     }
     controller_id_ = id;
     stats_.reset();
@@ -77,6 +80,7 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     last_clock_ = {};
     prev_had_stamp_ = false;
     dt_move_ = dt_rx_ = 0;
+    have_prev_gyro_ = false;
 }
 
 InputSample Pipeline::make_sample(int64_t t_eval) {
@@ -93,6 +97,19 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.still = bias_.still();
     s.gyro_bias = bias_.bias();
     s.yaw_ref = yaw_ref_;
+    const MagYawStatus& ms = mag_.status();
+    s.fusion_mode = to_string(cfg_.fusion_mode);
+    s.mag_state = mag_.calibrated() ? to_string(ms.state) : "none";
+    s.mag_locked = ms.locked;
+    bool mag_active = cfg_.fusion_mode == FusionMode::MahonyMag && mag_.calibrated() && ms.locked &&
+                      ms.state == MagState::Ok && ms.unusable_s < 1.0;
+    s.yaw_source = mag_active ? "magnetometer" : "gyro";
+    s.yaw_pending_deg = ms.pending_deg;
+    s.yaw_corr_rate_deg_s = ms.rate_dps;
+    s.yaw_corr_limit_deg_s = ms.rate_limit_dps;
+    s.yaw_corr_total_deg = ms.total_deg;
+    s.yaw_vertical_bias_deg_s = ms.vertical_bias_dps;
+    s.mag_unusable_s = ms.unusable_s;
     s.center_source = aim_.center_source();
     s.filter_enabled = fx_.config().enabled;
     s.buttons = edges_.state();
@@ -161,14 +178,43 @@ InputSample Pipeline::on_report(const RawReport& r) {
         if (yaw_ref_ == YawReference::Continuous) yaw_ref_ = YawReference::Interrupted;
         reset_filter_ = true;
         sub_dt = 0;
+        have_prev_gyro_ = false;
+        mag_.on_interrupt();
     } else if (dt_int > kLongDtS) {
         ++stats_.long_dt;
     }
 
     if (!fusion_.initialized()) fusion_.init_from_accel(r.accel[0]);
+    const bool mag_apply_now = cfg_.fusion_mode == FusionMode::MahonyMag && mag_.calibrated();
+    // Integratietijd per subsample; bij een gat (verloren rapporten) eerst het ontbrekende deel met de
+    // geïnterpoleerde hoeksnelheid (zie PipelineConfig::interpolate_gaps).
+    double fuse_dt = sub_dt, gap_dt = 0;
+    if (cfg_.interpolate_gaps && n == 2 && have_prev_gyro_ && sub_dt > 0 && dt_int > 1.5 * cfg_.nominal_report_s) {
+        gap_dt = dt_int - cfg_.nominal_report_s;
+        fuse_dt = cfg_.nominal_report_s / 2;
+        ++stats_.gap_interpolated;
+    }
+    Vec3 g_sum{}, a_sum{};
     for (int i = 0; i < n; ++i) {
         if (bias_.update(r.gyro[i], r.accel[i], sub_dt)) ++stats_.still_samples;
-        fusion_.update(r.gyro[i] - bias_.bias(), r.accel[i], sub_dt);
+        Vec3 extra = mag_apply_now ? mag_.bias_body(fusion_.q()) : Vec3{};
+        if (i == 0 && gap_dt > 0) {
+            Vec3 gm = (prev_gyro_ + r.gyro[0]) * 0.5 - bias_.bias() - extra;
+            fusion_.update(gm, r.accel[0], gap_dt);
+        }
+        Vec3 g = r.gyro[i] - bias_.bias() - extra;
+        fusion_.update(g, r.accel[i], fuse_dt);
+        g_sum = g_sum + g;
+        a_sum = a_sum + r.accel[i];
+    }
+    prev_gyro_ = r.gyro[n - 1];
+    have_prev_gyro_ = true;
+    if (mag_.calibrated()) {
+        // Eén magnetometersample per rapport, na de integratie (zie mag_yaw.hpp).
+        Quat q = fusion_.q();
+        mag_.update(q, r.mag_raw, a_sum * (1.0 / n), g_sum * (1.0 / n), sub_dt * n, mag_apply_now,
+                    bias_.state() == BiasState::Estimated);
+        if (mag_apply_now) fusion_.set_q(q);
     }
 
     ButtonEdges e = edges_.update(r.buttons);
@@ -252,6 +298,15 @@ void Pipeline::set_filter(const OneEuroConfig& c) {
     fx_.set_config(c);
     fy_.set_config(c);
     reset_filter_ = true;
+}
+
+void Pipeline::set_fusion_mode(FusionMode m) {
+    if (m == cfg_.fusion_mode) return;
+    cfg_.fusion_mode = m;
+    // Inschakelen: de huidige stand wordt de referentie (de drift uit de schaduwperiode wordt niet
+    // alsnog teruggedraaid). Uitschakelen: de geleerde verticale bias vervalt via een nieuwe
+    // vergrendeling bij een volgende inschakeling; q blijft staan (geen sprong).
+    mag_.relock();
 }
 
 void Pipeline::set_aim(const AimConfig& c) {

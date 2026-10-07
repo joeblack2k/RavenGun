@@ -88,6 +88,17 @@ struct InputSample {
     bool still = false;
     Vec3 gyro_bias{};            // rad/s
     YawReference yaw_ref = YawReference::None;
+    // Fusie (fase 4): welke schatter, waar de yaw vandaan komt en wat de magnetometer doet.
+    const char* fusion_mode = "mahony";   // mahony | mahony_mag
+    const char* yaw_source = "gyro";      // gyro | magnetometer (mahony_mag, vergrendeld en gebruikt < 1 s geleden)
+    const char* mag_state = "none";       // none (geen kalibratie) | unknown | ok | disturbed
+    bool mag_locked = false;              // referentie vastgelegd
+    double yaw_pending_deg = 0;           // openstaand verschil volgens de magnetometer (bij mahony: drift sinds vergrendeling)
+    double yaw_corr_rate_deg_s = 0;       // toegepaste correctiesnelheid in dit rapport
+    double yaw_corr_limit_deg_s = 0;      // de grens die daarbij gold
+    double yaw_corr_total_deg = 0;        // som van alle toegepaste yaw-correcties
+    double yaw_vertical_bias_deg_s = 0;   // door de magnetometer geleerde extra bias om de verticaal
+    double mag_unusable_s = 0;            // sinds het laatst gebruikte magnetometersample
 
     // Positie: laatste optische meting van de camera (2D-beeldpositie, geen 3D). Wordt door de
     // daemon bij het publiceren ingevuld vanuit de tracker-thread; de pijplijn raakt dit niet.
