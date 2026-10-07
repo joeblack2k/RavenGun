@@ -160,6 +160,96 @@ static void test_post_mapping() {
     CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"recenter"})");
 }
 
+static void test_new_endpoints() {
+    Fake f;
+    WebApp app = make_app(f);
+
+    // GET: info, instellingen, uitvoerstatus en de diagnose-export (als download).
+    CHECK(app.handle(get("/api/info")).status == 200 && f.last_line == R"({"v":1,"cmd":"info"})");
+    CHECK(app.handle(get("/api/settings")).status == 200 && f.last_line == R"({"v":1,"cmd":"settings"})");
+    CHECK(app.handle(get("/api/output")).status == 200 && f.last_line == R"({"v":1,"cmd":"output"})");
+    HttpResponse d = app.handle(get("/api/diagnostics"));
+    CHECK(d.status == 200 && f.last_line == R"({"v":1,"cmd":"diagnostics"})");
+    bool disp = false;
+    for (const auto& h : d.headers) if (h.first == "Content-Disposition" && contains(h.second, "attachment")) disp = true;
+    CHECK(disp);
+    CHECK(app.handle(post("/api/diagnostics", "{}")).status == 405);
+    CHECK(app.handle(post("/api/info", "{}")).status == 405);
+
+    // POST: getypeerde commando's met bewaakte velden.
+    CHECK(app.handle(post("/api/led", R"({"preset":"cyaan"})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_led","preset":"cyaan"})");
+    CHECK(app.handle(post("/api/led", R"({"r":1,"g":2,"b":3})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_led","r":1,"g":2,"b":3})");
+    CHECK(app.handle(post("/api/camera", R"({"exposure":60,"gain":4,"auto_gain":false,"mode":"320x240@125"})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_camera","exposure":60,"gain":4,"auto_gain":false,"mode":"320x240@125"})");
+    CHECK(app.handle(post("/api/web", R"({"port":18766})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_web","port":18766})");
+    CHECK(app.handle(post("/api/arm", "{}")).status == 200 && f.last_line == R"({"v":1,"cmd":"arm"})");
+    CHECK(app.handle(post("/api/disarm", "")).status == 200 && f.last_line == R"({"v":1,"cmd":"disarm"})");
+    CHECK(app.handle(post("/api/test-pattern", R"({"pattern":"grid","dwell_ms":300})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"test_pattern","dwell_ms":300,"pattern":"grid"})" ||
+          f.last_line == R"({"v":1,"cmd":"test_pattern","pattern":"grid","dwell_ms":300})");
+    CHECK(app.handle(post("/api/output", R"({"invert_x":true,"scale_x":1.1})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_output","invert_x":true,"scale_x":1.1})");
+
+    // Ongeldige of gevaarlijke bodies bereiken de backend niet: geen cmd-injectie, geen verkeerde typen,
+    // geen paden of programma's als argument.
+    int calls = f.calls;
+    CHECK(app.handle(post("/api/led", R"({"preset":5})")).status == 400);
+    CHECK(app.handle(post("/api/led", R"({"r":"255","g":0,"b":0})")).status == 400);
+    CHECK(app.handle(post("/api/led", R"({"cmd":"recenter"})")).status == 400);
+    CHECK(app.handle(post("/api/camera", R"({"device":"/dev/video0"})")).status == 400);
+    CHECK(app.handle(post("/api/camera", R"({"mode":640})")).status == 400);
+    CHECK(app.handle(post("/api/camera", R"({"exposure":"50"})")).status == 400);
+    CHECK(app.handle(post("/api/web", R"({"lan":true})")).status == 400);  // LAN-modus nooit via de web
+    CHECK(app.handle(post("/api/test-pattern", R"({"pattern":["a"]})")).status == 400);
+    CHECK(app.handle(post("/api/test-pattern", R"({"command":"ls"})")).status == 400);
+    CHECK(app.handle(post("/api/output", R"({"path":"/etc/passwd"})")).status == 400);
+    CHECK(f.calls == calls);
+
+    // Alle muterende endpoints: zonder CSRF, met vreemde Origin of cross-site 403; verkeerd content-type 415; GET 405.
+    const char* writers[] = {"/api/led", "/api/camera", "/api/web", "/api/arm", "/api/disarm", "/api/test-pattern", "/api/output", "/api/recenter",
+                             "/api/filter", "/api/aim"};
+    for (const char* w : writers) {
+        CHECK(app.handle(post(w, "{}", false)).status == 403);
+        HttpRequest o = post(w, "{}");
+        o.headers["origin"] = "http://evil.example";
+        CHECK(app.handle(o).status == 403);
+        HttpRequest x = post(w, "{}");
+        x.headers["sec-fetch-site"] = "cross-site";
+        CHECK(app.handle(x).status == 403);
+        HttpRequest t = post(w, "{}");
+        t.headers["content-type"] = "text/plain";
+        CHECK(app.handle(t).status == 415);
+        HttpRequest h = post(w, "{}");
+        h.headers["host"] = "evil.example:8765";
+        CHECK(app.handle(h).status == 403);
+        if (std::string(w) != "/api/camera" && std::string(w) != "/api/output") CHECK(app.handle(get(w)).status == 405);
+    }
+    CHECK(f.calls == calls);
+
+    // Foutafbeelding: zonder camera geeft set_camera een 503 met de melding.
+    f.reply = R"X({"v":1,"ok":false,"error":{"code":"unavailable","message":"de camera staat uit (ravengund draait met --no-camera)"}})X";
+    HttpResponse r = app.handle(post("/api/camera", R"({"exposure":60})"));
+    CHECK(r.status == 503 && contains(r.body, "--no-camera"));
+    f.reply = R"({"v":1,"ok":false,"error":{"code":"invalid_argument","message":"'exposure' moet tussen 0 en 255 liggen"}})";
+    CHECK(app.handle(post("/api/camera", R"({"exposure":300})")).status == 400);
+
+    // LAN: ook de nieuwe endpoints vragen om een token.
+    Fake fl;
+    WebApp lan = make_app(fl, true);
+    const std::string host = "192.168.1.5:8765";
+    for (const char* g : {"/api/info", "/api/settings", "/api/output", "/api/diagnostics"}) CHECK(lan.handle(get(g, host)).status == 401);
+    HttpRequest lp = post("/api/led", R"({"preset":"rood"})");
+    lp.headers["host"] = host;
+    lp.headers["origin"] = "http://" + host;
+    CHECK(lan.handle(lp).status == 401);
+    lp.headers["authorization"] = "Bearer " + std::string(kToken);
+    CHECK(lan.handle(lp).status == 200);
+    CHECK(fl.calls == 1);
+}
+
 static void test_security_local() {
     Fake f;
     WebApp app = make_app(f);
@@ -360,6 +450,7 @@ int main() {
     test_parser();
     test_routing_and_json();
     test_post_mapping();
+    test_new_endpoints();
     test_security_local();
     test_security_lan();
     test_token_file();

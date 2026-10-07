@@ -239,6 +239,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
         AimConfig aim() const override { return p.config().aim; }
         void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
+        void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; }
     } ctx(pipe, ci, ps, opt, start, shared);
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
 
@@ -246,6 +247,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     PSMove* move = nullptr;
     int64_t next_scan = 0;
     int64_t next_led = 0;
+    uint8_t shown_led[3] = {opt.led_r, opt.led_g, opt.led_b};
     if (opt.enabled) {
         psmove_set_remote_config(PSMove_OnlyLocal);  // geen netwerk (moved) gebruiken
         if (!psmove_init(PSMOVE_CURRENT_VERSION)) {
@@ -278,6 +280,10 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 }
                 sleep_us(20000);
                 continue;
+            }
+            if (opt.led_r != shown_led[0] || opt.led_g != shown_led[1] || opt.led_b != shown_led[2]) {
+                shown_led[0] = opt.led_r; shown_led[1] = opt.led_g; shown_led[2] = opt.led_b;
+                next_led = 0;  // nieuwe kleur (set_led): meteen sturen
             }
             if (opt.led_enabled && now >= next_led) {
                 // Alleen hier (HID-thread) wordt de LED aangestuurd. set_leds markeert de waarde als

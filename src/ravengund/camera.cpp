@@ -15,6 +15,8 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <condition_variable>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -146,6 +148,44 @@ std::vector<CtrlInfo> enum_ctrls(int fd) {
     return r;
 }
 
+// Zet een control; noteert gevraagde waarde en eventuele fout bij de bijbehorende CtrlInfo.
+void set_ctrl(int fd, std::vector<CtrlInfo>& cs, uint32_t cid, int64_t v) {
+    for (auto& c : cs) {
+        if (c.id != cid) continue;
+        c.requested = std::to_string(v);
+        c.set_error.clear();
+        v4l2_control vc{};
+        vc.id = cid;
+        vc.value = static_cast<int32_t>(v);
+        if (xioctl(fd, VIDIOC_S_CTRL, &vc) != 0) c.set_error = std::strerror(errno);
+        return;
+    }
+}
+
+void refresh_after(int fd, std::vector<CtrlInfo>& cs) {
+    for (auto& c : cs) {
+        c.readable_after = get_ctrl(fd, c.id, c.after);
+        v4l2_query_ext_ctrl qq{};
+        qq.id = c.id;
+        if (xioctl(fd, VIDIOC_QUERY_EXT_CTRL, &qq) == 0) c.flags_after = qq.flags;
+    }
+}
+
+CameraControls read_controls(int fd) {
+    CameraControls r;
+    int64_t ae = 0, ag = 0, wb = 0, ex = 0, ga = 0;
+    bool a = get_ctrl(fd, V4L2_CID_EXPOSURE_AUTO, ae), b = get_ctrl(fd, V4L2_CID_AUTOGAIN, ag),
+         c = get_ctrl(fd, V4L2_CID_AUTO_WHITE_BALANCE, wb), d = get_ctrl(fd, V4L2_CID_EXPOSURE, ex),
+         e = get_ctrl(fd, V4L2_CID_GAIN, ga);
+    r.readable = a && b && c && d && e;
+    r.auto_exposure = ae != V4L2_EXPOSURE_MANUAL;
+    r.auto_gain = ag != 0;
+    r.auto_awb = wb != 0;
+    r.exposure = static_cast<int>(ex);
+    r.gain = static_cast<int>(ga);
+    return r;
+}
+
 struct Frame {
     std::vector<uint8_t> data;
     int width = 0, height = 0, stride = 0;
@@ -183,7 +223,20 @@ struct CameraService::Impl {
     SceneStats scene;
     bool have_scene = false;
 
-    Impl(SharedState& s, CameraOptions o) : sh(s), opt(std::move(o)), q(static_cast<size_t>(std::max(1, opt.queue_capacity))) {}
+    // Live wijzigingen (set_camera): de capture-thread haalt ze op en voert ze uit.
+    struct Pending { CameraChange ch; bool done = false; CameraApplyResult res; };
+    std::mutex pm;
+    std::condition_variable pcv;
+    std::shared_ptr<Pending> pending;
+    std::atomic<bool> has_pending{false};
+    // Nieuwe trackerconfiguratie (andere LED-kleur): de tracker-thread neemt hem over.
+    std::mutex tm;
+    TrackerConfig pending_tracker;
+    std::atomic<uint64_t> tracker_gen{0};
+
+    Impl(SharedState& s, CameraOptions o) : sh(s), opt(std::move(o)), q(static_cast<size_t>(std::max(1, opt.queue_capacity))) {
+        pending_tracker = opt.tracker;
+    }
 
     void set_state(const char* st, const std::string& err = {}) {
         {
@@ -198,6 +251,110 @@ struct CameraService::Impl {
             o.reason = std::strcmp(st, "error") == 0 ? "camera_error" : "no_frames";
             sh.publish_optical(o);
         }
+    }
+
+    // Zet de controls volgens opt (alleen aanroepen uit de capture-thread). De driver onthoudt eerdere
+    // waarden, dus de auto-vlaggen worden altijd expliciet gezet; vaste waarden alleen bij auto uit.
+    void apply_controls(int fd, std::vector<CtrlInfo>& cs) {
+        set_ctrl(fd, cs, V4L2_CID_EXPOSURE_AUTO, opt.auto_exposure ? V4L2_EXPOSURE_AUTO : V4L2_EXPOSURE_MANUAL);
+        set_ctrl(fd, cs, V4L2_CID_AUTOGAIN, opt.auto_gain ? 1 : 0);
+        set_ctrl(fd, cs, V4L2_CID_AUTO_WHITE_BALANCE, opt.auto_awb ? 1 : 0);
+        if (!opt.auto_exposure) set_ctrl(fd, cs, V4L2_CID_EXPOSURE, opt.exposure);
+        if (!opt.auto_gain) set_ctrl(fd, cs, V4L2_CID_GAIN, opt.gain);
+    }
+
+    void close_device(int& fd, std::vector<std::pair<void*, size_t>>& maps) {
+        if (fd >= 0) {
+            v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            xioctl(fd, VIDIOC_STREAMOFF, &type);
+        }
+        for (auto& mp : maps) ::munmap(mp.first, mp.second);
+        maps.clear();
+        if (fd >= 0) ::close(fd);
+        fd = -1;
+    }
+
+    // Voert een set_camera-wijziging uit (capture-thread). fd < 0: geen actieve camera.
+    CameraApplyResult do_apply(const CameraChange& ch, int& fd, std::vector<std::pair<void*, size_t>>& maps) {
+        CameraApplyResult r;
+        if (fd < 0) {
+            std::string st, er;
+            { std::lock_guard<std::mutex> g(m); st = state; er = error; }
+            r.code = "unavailable";
+            r.message = "camera niet actief (toestand: " + st + (er.empty() ? "" : ", " + er) + ")";
+            return r;
+        }
+        const CameraOptions old = opt;  // alleen voor het terugdraaien van modus en controls
+        bool mode_change = ch.width && ch.height && ch.fps && (*ch.width != opt.width || *ch.height != opt.height || *ch.fps != opt.fps);
+        {
+            std::lock_guard<std::mutex> g(m);
+            if (ch.exposure) opt.exposure = *ch.exposure;
+            if (ch.gain) opt.gain = *ch.gain;
+            if (ch.auto_exposure) opt.auto_exposure = *ch.auto_exposure;
+            if (ch.auto_gain) opt.auto_gain = *ch.auto_gain;
+            if (ch.auto_awb) opt.auto_awb = *ch.auto_awb;
+            if (mode_change) { opt.width = *ch.width; opt.height = *ch.height; opt.fps = *ch.fps; }
+        }
+        if (mode_change) {
+            r.restarted = true;
+            close_device(fd, maps);
+            fd = open_device(maps);
+            if (fd < 0) {
+                std::string e;
+                {
+                    std::lock_guard<std::mutex> g(m);
+                    e = error;
+                    opt.width = old.width; opt.height = old.height; opt.fps = old.fps;
+                    opt.exposure = old.exposure; opt.gain = old.gain;
+                    opt.auto_exposure = old.auto_exposure; opt.auto_gain = old.auto_gain; opt.auto_awb = old.auto_awb;
+                }
+                logf("waarschuwing", "camera: nieuwe modus %dx%d@%d mislukt (%s); oude modus herstellen", *ch.width, *ch.height, *ch.fps, e.c_str());
+                fd = open_device(maps);
+                r.code = "internal";
+                r.message = "nieuwe modus mislukt: " + e + (fd >= 0 ? "; de oude modus is hersteld" : "; de camera is ook niet hersteld, er volgt automatisch een nieuwe poging");
+                return r;
+            }
+        } else {
+            std::vector<CtrlInfo> cs;
+            { std::lock_guard<std::mutex> g(m); cs = ctrls; }
+            apply_controls(fd, cs);
+            refresh_after(fd, cs);
+            std::lock_guard<std::mutex> g(m);
+            ctrls = cs;
+        }
+        r.ok = true;
+        {
+            std::lock_guard<std::mutex> g(m);
+            r.width = width; r.height = height; r.fps = opt.fps; r.driver_fps = driver_fps;
+        }
+        r.controls = read_controls(fd);
+        if (!r.controls.readable) r.warnings.push_back("de driver liet niet alle controls teruglezen");
+        if (r.controls.auto_exposure != opt.auto_exposure) r.warnings.push_back("auto-belichting: de driver meldt een andere stand dan gevraagd");
+        if (r.controls.auto_gain != opt.auto_gain) r.warnings.push_back("auto-gain: de driver meldt een andere stand dan gevraagd");
+        if (r.controls.auto_awb != opt.auto_awb) r.warnings.push_back("auto-witbalans: de driver meldt een andere stand dan gevraagd");
+        if (!opt.auto_exposure && r.controls.exposure != opt.exposure)
+            r.warnings.push_back("belichting: gevraagd " + std::to_string(opt.exposure) + ", de driver meldt " + std::to_string(r.controls.exposure));
+        if (!opt.auto_gain && r.controls.gain != opt.gain)
+            r.warnings.push_back("gain: gevraagd " + std::to_string(opt.gain) + ", de driver meldt " + std::to_string(r.controls.gain));
+        return r;
+    }
+
+    void handle_pending(int& fd, std::vector<std::pair<void*, size_t>>& maps) {
+        std::shared_ptr<Pending> p;
+        {
+            std::lock_guard<std::mutex> g(pm);
+            p = pending;
+            pending.reset();
+            has_pending.store(false);
+        }
+        if (!p) return;
+        CameraApplyResult r = do_apply(p->ch, fd, maps);
+        {
+            std::lock_guard<std::mutex> g(pm);
+            p->res = std::move(r);
+            p->done = true;
+        }
+        pcv.notify_all();
     }
 
     // Open + configureren + mmap + streamon. -1 bij een fout (error gezet).
@@ -237,31 +394,9 @@ struct CameraService::Impl {
                           ? static_cast<double>(parm.parm.capture.timeperframe.denominator) / parm.parm.capture.timeperframe.numerator
                           : 0;
 
-        // Controls: eerst alles lezen, dan de automatiek uitzetten en vaste waarden zetten.
+        // Controls: eerst alles lezen, dan de automatiek en vaste waarden volgens de opties zetten.
         std::vector<CtrlInfo> cs = enum_ctrls(fd);
-        auto set = [&](uint32_t cid, int64_t v) {
-            for (auto& c : cs) {
-                if (c.id != cid) continue;
-                c.requested = std::to_string(v);
-                v4l2_control vc{};
-                vc.id = cid;
-                vc.value = static_cast<int32_t>(v);
-                if (xioctl(fd, VIDIOC_S_CTRL, &vc) != 0) c.set_error = std::strerror(errno);
-                return;
-            }
-        };
-        if (opt.manual) {
-            set(V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL);
-            set(V4L2_CID_AUTOGAIN, 0);
-            set(V4L2_CID_AUTO_WHITE_BALANCE, 0);
-            set(V4L2_CID_EXPOSURE, opt.exposure);
-            set(V4L2_CID_GAIN, opt.gain);
-        } else {
-            // Expliciet terug naar de automatiek (de driver onthoudt eerdere handmatige waarden).
-            set(V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_AUTO);
-            set(V4L2_CID_AUTOGAIN, 1);
-            set(V4L2_CID_AUTO_WHITE_BALANCE, 1);
-        }
+        apply_controls(fd, cs);
 
         v4l2_requestbuffers req{};
         req.count = 4;
@@ -318,6 +453,12 @@ struct CameraService::Impl {
         int64_t next_try = 0;
         int64_t last_frame = 0;
         while (run.load()) {
+            if (has_pending.load()) {
+                handle_pending(fd, maps);
+                last_frame = mono_ns();
+                if (fd < 0) next_try = mono_ns() + 2'000'000'000;
+                continue;
+            }
             if (fd < 0) {
                 int64_t now = mono_ns();
                 if (now < next_try) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); continue; }
@@ -403,14 +544,38 @@ struct CameraService::Impl {
         }
         q.close();
         set_state("disabled");
+        {
+            std::lock_guard<std::mutex> g(pm);
+            if (pending) {
+                pending->res.code = "unavailable";
+                pending->res.message = "camera gestopt";
+                pending->done = true;
+                pending.reset();
+                has_pending.store(false);
+            }
+        }
+        pcv.notify_all();
         logf("info", "camera-thread gestopt");
     }
 
     void tracker_main() {
-        BallTracker tracker(opt.tracker);
+        TrackerConfig tc0;
+        { std::lock_guard<std::mutex> g(tm); tc0 = pending_tracker; }
+        BallTracker tracker(tc0);
+        uint64_t seen_gen = tracker_gen.load();
+        int seen_w = 0, seen_h = 0;
         while (run.load()) {
+            if (tracker_gen.load() != seen_gen) {
+                std::lock_guard<std::mutex> g(tm);
+                tracker.set_config(pending_tracker);  // andere LED-kleur: nieuwe tint, volgtoestand gewist
+                seen_gen = tracker_gen.load();
+            }
             auto f = q.pop_latest(std::chrono::milliseconds(200));
             if (!f) continue;
+            if (f->width != seen_w || f->height != seen_h) {  // modus gewisseld: oude volgtoestand is ongeldig
+                if (seen_w) tracker.reset();
+                seen_w = f->width; seen_h = f->height;
+            }
             int64_t t0 = mono_ns();
             ImageView v{f->data.data(), f->width, f->height, f->stride, PixelFormat::YUYV};
             TrackResult r = tracker.process(v);
@@ -465,6 +630,42 @@ void CameraService::stop() {
     d_->q.close();
     if (d_->cap.joinable()) d_->cap.join();
     if (d_->trk.joinable()) d_->trk.join();
+}
+
+bool CameraService::enabled() const { return d_->opt.enabled; }
+
+vision::TrackerConfig CameraService::tracker() const {
+    std::lock_guard<std::mutex> g(d_->m);
+    return d_->opt.tracker;
+}
+
+void CameraService::set_tracker(const vision::TrackerConfig& cfg) {
+    {
+        std::lock_guard<std::mutex> g(d_->tm);
+        d_->pending_tracker = cfg;
+        d_->tracker_gen.fetch_add(1);
+    }
+    std::lock_guard<std::mutex> g(d_->m);
+    d_->opt.tracker = cfg;
+}
+
+CameraApplyResult CameraService::apply(const CameraChange& ch) {
+    CameraApplyResult r;
+    r.code = "unavailable";
+    if (!d_->opt.enabled) { r.message = "de camera staat uit (ravengund draait met --no-camera)"; return r; }
+    if (!d_->run.load()) { r.message = "de camera-service draait niet"; return r; }
+    auto p = std::make_shared<Impl::Pending>();
+    p->ch = ch;
+    std::unique_lock<std::mutex> lk(d_->pm);
+    if (d_->pending) { r.message = "er loopt al een camerawijziging; probeer het zo opnieuw"; return r; }
+    d_->pending = p;
+    d_->has_pending.store(true);
+    if (!d_->pcv.wait_for(lk, std::chrono::seconds(5), [&] { return p->done; })) {
+        if (d_->pending == p) { d_->pending.reset(); d_->has_pending.store(false); }
+        r.message = "de camera reageerde niet binnen 5 s";
+        return r;
+    }
+    return p->res;
 }
 
 std::string CameraService::status_json() const {

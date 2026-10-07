@@ -29,6 +29,8 @@ public:
     virtual void set_filter(const ravengun::core::OneEuroConfig& c) = 0;
     virtual ravengun::core::AimConfig aim() const = 0;
     virtual void set_aim(const ravengun::core::AimConfig& c) = 0;
+    // LED-kleur van de bol (getypeerd; de HID-thread stuurt hem meteen en daarna elke led_refresh_ms).
+    virtual void set_led(bool enabled, uint8_t r, uint8_t g, uint8_t b) = 0;
 };
 
 // Draait tot shared.running false wordt. Eigenaar van de PSMoveAPI-handle en de pijplijn.

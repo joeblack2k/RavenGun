@@ -15,7 +15,8 @@ inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
 
 enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
-                 Arm, Disarm, Output, TestPattern, OutputButton, SetOutput };
+                 Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
+                 SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -35,6 +36,15 @@ struct Request {
     std::optional<double> scale_x, scale_y, offset_x, offset_y;
     std::optional<double> vp_x0, vp_y0, vp_x1, vp_y1;          // set_output: viewport (aim-ruimte)
     std::optional<double> screen_aspect, content_aspect;      // set_output: letterbox, beide of geen
+    // set_led: een preset (cyaan, magenta, rood, groen, blauw, wit) OF alle drie r,g,b (gehele getallen 0..255).
+    std::string led_preset;
+    std::optional<double> led_r, led_g, led_b;
+    // set_camera: geheel getal exposure 0..255, gain 0..63; auto-vlaggen; modus "BxH@FPS" uit de toegestane lijst.
+    std::optional<double> exposure, gain;
+    std::optional<bool> auto_exposure, auto_gain, auto_awb;
+    std::string mode;
+    // set_web: poort voor de volgende start.
+    std::optional<double> web_port;
 };
 
 struct Error {

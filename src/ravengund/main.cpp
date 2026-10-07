@@ -14,6 +14,8 @@
 #include <unistd.h>
 
 #include "camera.hpp"
+#include "ravengun/config/led_color.hpp"
+#include "ravengun/config/settings.hpp"
 #include "hid_thread.hpp"
 #include "ipc_server.hpp"
 #include "output_service.hpp"
@@ -70,6 +72,11 @@ void usage(FILE* f) {
         "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
         "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
         "\n"
+        "instellingen (bewaard in ~/.config/ravengun/config.json; wijzigingen in de webinterface worden daar\n"
+        "opgeslagen en bij de volgende start toegepast; opties op de opdrachtregel gaan altijd voor):\n"
+        "  --config PAD                     ander instellingenbestand\n"
+        "  --no-config                      geen instellingenbestand lezen of schrijven\n"
+        "\n"
         "  -h, --help                       deze tekst\n"
         "\n"
         "exitcodes: 0 normaal gestopt, 64 verkeerd gebruik, 69 al actief of geen runtime-map,\n"
@@ -89,13 +96,38 @@ bool parse_double(const char* s, double lo, double hi, double& out) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    // Instellingenbestand: eerst lezen, dan de standaardwaarden ervan afleiden; de opdrachtregel
+    // hieronder overschrijft daarna elke waarde (opdrachtregel gaat voor).
+    std::string config_path = ravengun::config::SettingsStore::default_path();
+    bool use_config = true;
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--no-config") use_config = false;
+        else if (a == "--config" && i + 1 < argc) config_path = argv[++i];
+    }
+    ravengun::config::SettingsStore settings_store(use_config ? config_path : std::string());
+    ravengun::config::LoadInfo settings_load;
+    if (use_config) settings_load = settings_store.load();
+    const ravengun::config::Settings cfg = settings_store.get();
+
     HidOptions opt;
     CameraOptions cam;
+    opt.pipeline.filter.enabled = cfg.filter.enabled;
+    opt.pipeline.filter.min_cutoff_hz = cfg.filter.min_cutoff_hz;
+    opt.pipeline.filter.beta = cfg.filter.beta;
+    opt.pipeline.filter.d_cutoff_hz = cfg.filter.d_cutoff_hz;
+    opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
+    opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
+    cam.width = cfg.camera.width; cam.height = cfg.camera.height; cam.fps = cfg.camera.fps;
+    cam.auto_exposure = cfg.camera.auto_exposure; cam.auto_gain = cfg.camera.auto_gain; cam.auto_awb = cfg.camera.auto_awb;
+    cam.exposure = cfg.camera.exposure; cam.gain = cfg.camera.gain;
+    cam.tracker.hue_deg = cfg.tracker.hue_deg; cam.tracker.hue_tol_deg = cfg.tracker.hue_tol_deg;
+    cam.tracker.min_chroma = cfg.tracker.min_chroma;
     ravengun::output::GunTransform out_transform;
     double content_aspect = NAN, screen_aspect = 16.0 / 9.0;
     std::string led_arg;
     bool web_on = true, web_lan = false;
-    double web_port = ravengun::web::kDefaultPort;
+    double web_port = cfg.web.port;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -106,6 +138,8 @@ int main(int argc, char** argv) {
             }
         };
         if (a == "-h" || a == "--help") { usage(stdout); return 0; }
+        else if (a == "--no-config") { /* al verwerkt */ }
+        else if (a == "--config" && i + 1 < argc) ++i;  // al verwerkt
         else if (a == "--no-hid") opt.enabled = false;
         else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
@@ -133,7 +167,7 @@ int main(int argc, char** argv) {
             (a == "--out-content-aspect" ? content_aspect : screen_aspect) = static_cast<double>(bw) / bh;
         }
         else if (a == "--no-camera") cam.enabled = false;
-        else if (a == "--camera-auto") cam.manual = false;
+        else if (a == "--camera-auto") cam.auto_exposure = cam.auto_gain = cam.auto_awb = true;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
         else if (a == "--camera-mode" && i + 1 < argc) {
             int w = 0, h = 0, f = 0;
@@ -161,7 +195,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    // LED-kleur en tint-sector van de tracker.
+    // LED-kleur en tint-sector van de tracker. Voorrang: --led, dan het instellingenbestand, dan de
+    // standaard (cyaan, alleen met camera). De tint volgt de LED-kleur (de tracker zoekt op tint).
     ravengun::vision::Rgb led{};
     bool led_on = false;
     if (!led_arg.empty()) {
@@ -174,6 +209,15 @@ int main(int argc, char** argv) {
             return 64;
         }
         led_on = true;  // ook "uit" (0,0,0) wordt dan actief gezet
+        if (led.r || led.g || led.b) {
+            double mh = ravengun::vision::measured_hue_deg(led_arg);
+            cam.tracker.hue_deg = std::isnan(mh) ? ravengun::vision::nominal_hue_deg(led) : mh;
+            cam.tracker.hue_tol_deg = ravengun::config::kPresetHueTolDeg;
+        }
+    } else if (cfg.led.enabled) {
+        led = {static_cast<uint8_t>(cfg.led.r), static_cast<uint8_t>(cfg.led.g), static_cast<uint8_t>(cfg.led.b)};
+        led_on = true;  // tint en tolerantie komen al uit cfg.tracker
+        led_arg = cfg.led.preset;
     } else if (cam.enabled) {
         led_arg = "cyaan";  // zie docs/decisions.md (kleurkeuze)
         ravengun::vision::led_color_by_name(led_arg, led);
@@ -181,10 +225,6 @@ int main(int argc, char** argv) {
     }
     opt.led_enabled = led_on;
     opt.led_r = led.r; opt.led_g = led.g; opt.led_b = led.b;
-    if (led.r || led.g || led.b) {
-        double mh = ravengun::vision::measured_hue_deg(led_arg);
-        cam.tracker.hue_deg = std::isnan(mh) ? ravengun::vision::nominal_hue_deg(led) : mh;
-    }
     if (!std::isnan(hue)) cam.tracker.hue_deg = hue;
     if (!std::isnan(hue_tol)) cam.tracker.hue_tol_deg = hue_tol;
     if (!std::isnan(min_chroma)) cam.tracker.min_chroma = static_cast<int>(min_chroma);
@@ -242,15 +282,31 @@ int main(int argc, char** argv) {
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit");
 
     SharedState shared;
+    shared.settings = &settings_store;
+    shared.web_port = web_on ? static_cast<int>(web_port) : 0;
+    shared.web_lan = web_lan;
+    if (use_config) {
+        if (settings_load.state == ravengun::config::LoadInfo::State::Missing)
+            logf("info", "instellingen: %s bestaat nog niet (standaardwaarden; het bestand wordt bij de eerste wijziging gemaakt)", config_path.c_str());
+        else if (settings_load.state == ravengun::config::LoadInfo::State::Loaded)
+            logf("info", "instellingen geladen uit %s", config_path.c_str());
+        else
+            logf("waarschuwing", "instellingen: %s", settings_load.message.c_str());
+        for (const auto& w : settings_load.warnings) logf("waarschuwing", "instellingen: %s", w.c_str());
+    } else {
+        logf("info", "instellingen: --no-config, er wordt niets gelezen of bewaard");
+    }
     OutputService output;  // standaard disarmed; maakt pas bij 'arm' het uinput-apparaat
     output.set_initial_transform(out_transform);
     shared.output = &output;
     CameraService camera(shared, cam);
+    shared.camera = &camera;
     shared.camera_status = [&camera] { return camera.status_json(); };
     if (cam.enabled)
         logf("info", "camera aan (%s, %dx%d@%d, %s), LED %s (%d,%d,%d), tracker-tint %.0f +- %.0f graden",
              cam.device.empty() ? "automatisch" : cam.device.c_str(), cam.width, cam.height, cam.fps,
-             cam.manual ? ("belichting " + std::to_string(cam.exposure) + ", gain " + std::to_string(cam.gain) + ", AWB uit").c_str() : "automatisch",
+             (std::string("belichting ") + (cam.auto_exposure ? "auto" : std::to_string(cam.exposure).c_str()) + ", gain " +
+             (cam.auto_gain ? "auto" : std::to_string(cam.gain).c_str()) + ", AWB " + (cam.auto_awb ? "auto" : "uit")).c_str(),
              led_on ? "aan" : "uit", led.r, led.g, led.b, cam.tracker.hue_deg, cam.tracker.hue_tol_deg);
     std::thread hid(hid_thread_main, std::ref(shared), opt);
     std::thread ipc(ipc_thread_main, std::ref(shared), sfd, wake);

@@ -15,8 +15,11 @@
 
 #include "ravengun/core/input_model.hpp"
 
+namespace ravengun::config { class SettingsStore; }
+
 namespace ravengund {
 
+class CameraService;  // gedefinieerd in camera.hpp
 class HidContext;     // gedefinieerd in hid_thread.hpp
 class OutputService;  // gedefinieerd in output_service.hpp
 
@@ -93,6 +96,13 @@ public:
     std::function<std::string()> camera_status;
     // Uitvoer (virtueel lightgun-apparaat); niet-eigenaar, geset door main vóór de threads starten.
     OutputService* output = nullptr;
+    // Instellingenopslag (config.json) en camera-service (voor set_camera/set_led); niet-eigenaar, geset
+    // door main vóór de threads starten. nullptr = niet beschikbaar (bijv. in tests).
+    ravengun::config::SettingsStore* settings = nullptr;
+    CameraService* camera = nullptr;
+    const int64_t start_ns = mono_ns();  // start van de daemon (uptime)
+    int web_port = 0;                    // 0 = webinterface uit; door main gezet
+    bool web_lan = false;
 
 private:
     mutable std::mutex m_;
