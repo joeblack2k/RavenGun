@@ -19,6 +19,7 @@
 #define PID_ABS 0x7202
 
 static int fd;
+static int joy_mode; /* VINPUT_JOY gezet: knoppen als BTN_TRIGGER/THUMB/THUMB2 i.p.v. BTN_LEFT/RIGHT/MIDDLE */
 
 static void emit(int type, int code, int val) {
   struct input_event e;
@@ -70,9 +71,14 @@ static int setup(int abs_mode) {
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
     ioctl(fd, UI_SET_EVBIT, EV_ABS);
     ioctl(fd, UI_SET_EVBIT, EV_SYN);
-    ioctl(fd, UI_SET_KEYBIT, BTN_LEFT);
-    ioctl(fd, UI_SET_KEYBIT, BTN_RIGHT);
-    ioctl(fd, UI_SET_KEYBIT, BTN_MIDDLE);
+    if (!joy_mode) {
+      ioctl(fd, UI_SET_KEYBIT, BTN_LEFT);
+      ioctl(fd, UI_SET_KEYBIT, BTN_RIGHT);
+      ioctl(fd, UI_SET_KEYBIT, BTN_MIDDLE);
+    } else { /* BTN_MOUSE-bits zouden de udev-classificatie op "mouse" vastzetten (geen uaccess) */
+      ioctl(fd, UI_SET_KEYBIT, BTN_THUMB);
+      ioctl(fd, UI_SET_KEYBIT, BTN_THUMB2);
+    }
     ioctl(fd, UI_SET_ABSBIT, ABS_X);
     ioctl(fd, UI_SET_ABSBIT, ABS_Y);
     /* Geen INPUT_PROP_DIRECT: dat markeert een touchscreen en laat libinput/kwin het als
@@ -84,15 +90,35 @@ static int setup(int abs_mode) {
       ioctl(fd, UI_ABS_SETUP, &as);
     }
   }
+  if (getenv("VINPUT_JOY")) {
+    /* Optioneel: laat udev het apparaat als joystick classificeren (ID_INPUT_JOYSTICK), zodat
+     * 70-uaccess er een ACL voor de ingelogde gebruiker op zet. Zonder dit is /dev/input/eventN
+     * van een uinput-apparaat root:input 0660 en voor TeknoParrot (gebruiker deck) onleesbaar. */
+    ioctl(fd, UI_SET_EVBIT, EV_KEY);
+    ioctl(fd, UI_SET_KEYBIT, BTN_TRIGGER);
+    ioctl(fd, UI_SET_KEYBIT, BTN_SOUTH);
+    {
+      ioctl(fd, UI_SET_EVBIT, EV_ABS);
+      static const int ax[] = {ABS_X, ABS_Y, ABS_RX, ABS_RY, ABS_THROTTLE, ABS_HAT0X};
+      for (unsigned i = abs_mode ? 2 : 0; i < sizeof ax / sizeof *ax; i++) ioctl(fd, UI_SET_ABSBIT, ax[i]);
+      for (unsigned i = abs_mode ? 2 : 0; i < sizeof ax / sizeof *ax; i++) {
+        int a = ax[i];
+        struct uinput_abs_setup as;
+        memset(&as, 0, sizeof as);
+        as.code = a; as.absinfo.minimum = -32768; as.absinfo.maximum = 32767;
+        ioctl(fd, UI_ABS_SETUP, &as);
+      }
+    }
+  }
   if (ioctl(fd, UI_DEV_SETUP, &us) < 0 || ioctl(fd, UI_DEV_CREATE) < 0) { perror("uinput create"); return -1; }
   usleep(500000); /* even wachten tot consumenten het apparaat zien */
   return 0;
 }
 
 static int btncode(const char *s) {
-  if (!strcmp(s, "left")) return BTN_LEFT;
-  if (!strcmp(s, "right")) return BTN_RIGHT;
-  if (!strcmp(s, "middle")) return BTN_MIDDLE;
+  if (!strcmp(s, "left")) return joy_mode ? BTN_TRIGGER : BTN_LEFT;
+  if (!strcmp(s, "right")) return joy_mode ? BTN_THUMB : BTN_RIGHT;
+  if (!strcmp(s, "middle")) return joy_mode ? BTN_THUMB2 : BTN_MIDDLE;
   return -1;
 }
 
@@ -130,6 +156,7 @@ int main(int argc, char **argv) {
     return 2;
   }
   int abs_mode = !strcmp(argv[1], "abs");
+  joy_mode = getenv("VINPUT_JOY") != NULL;
   int hold = (argc >= 4 && !strcmp(argv[2], "--hold")) ? atoi(argv[3]) : 0;
   if (setup(abs_mode)) return 1;
   fprintf(stderr, "apparaat aangemaakt (%s)\n", abs_mode ? "lightgun" : "keyboard");
