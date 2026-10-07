@@ -331,6 +331,12 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (!get) return wrong_method("GET");
             return api_command(std::string("{\"v\":1,\"cmd\":\"") + (p.c_str() + 5) + "\"}");
         }
+        // Fase 0/3: alleen-lezen voortgang van opname en magnetometerkalibratie (voor de web-UI).
+        if (p == "/api/record" || p == "/api/magnetometer") {
+            if (!get) return wrong_method("GET");
+            return api_command(p == "/api/record" ? "{\"v\":1,\"cmd\":\"record\",\"action\":\"status\"}"
+                                                  : "{\"v\":1,\"cmd\":\"calib_mag\",\"action\":\"status\"}");
+        }
         if (p == "/api/csrf") {
             if (!get) return wrong_method("GET");
             HttpResponse o;

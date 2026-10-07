@@ -136,3 +136,32 @@ Afgewezen:
 - De gun automatisch aan de live Move koppelen in deze stap: de opdracht was de uitvoerkant en de testpatronen. De koppeling (aim, trigger, knoppen en `release_all` bij bronuitval) is een kleine volgende stap.
 
 Open (beslissing nodig, zie architectuur "Stabiliteit"): TeknoParrot heropent het apparaat niet, dus de daemon moet blijven draaien zolang de game draait. Voorstel: de uinput-fd door systemd-user laten bewaren (fd store) of een apart apparaathouder-proces. Ook open: `LIBINPUT_IGNORE_DEVICE` voor het virtuele toetsenbord (7201), zodat toetsen niet naar het gefocuste venster gaan.
+
+## 2026-10-07 — Fase 0/1/3 (bouw): opnemen, tijdbasis van de Move, magnetometer
+
+Uitgewerkt in `docs/aim-fusion-design.md` (sectie "Metingen fase 0/1/3") en `docs/procedures.md`.
+
+Tijdstempel en temperatuur: eigen parsing via een tweede hidraw-descriptor, geen patch op PSMoveAPI.
+- De kernel levert elk inputrapport aan iedere open hidraw-descriptor. De HID-thread opent de hidraw-node van de verbonden ZCM1 (gevonden via `HID_UNIQ` = Bluetooth-adres en `HID_ID` 0005:054c:03d5 in sysfs) een tweede keer, alleen-lezend en niet-blokkerend. PSMoveAPI blijft de rapporten lezen en kalibreren. De tap levert wat PSMoveAPI niet publiek maakt: de interne 16-bit stempel (byte 0x0B hoog, 0x2B laag), de 12-bit temperatuur en de ruwe accel- en gyrowaarden (`src/ravengun/core/move_report.*`).
+- Koppeling per rapport: hetzelfde 4-bit volgnummer en hetzelfde door PSMoveAPI gemiddelde ruwe accelerometerpaar. Lukt dat niet, dan krijgt dat rapport geen stempel en geldt de ontvangsttijd. Tellers (`hidraw.matched/unmatched/discarded`) staan in de status; een verkeerde byte-indeling valt daar direct op.
+- Waarom geen patch: een patch vraagt een nieuwe containerbouw en vervangt de gedeelde `libpsmoveapi.so` onder `~/.local/share/ravengun/psmoveapi`, ook voor andere checkouts. De tweede descriptor levert daarnaast een fd voor `poll()`. PSMoveAPI zelf geeft geen fd.
+- Licentie: PSMoveAPI is BSD-2-clause (Thomas Perl). Er is geen code overgenomen, alleen de byte-offsets uit de struct-commentaren van `src/psmove.c` op de gepinde revisie 256b6299e6076fe7b113e7277ed67016903f067a. Bij een andere PSMoveAPI-revisie moet de indeling opnieuw gecontroleerd worden (de koppeltellers tonen dat).
+- De HID-thread wacht nu met `poll()` (maximaal 2 ms) op de tap-descriptor in plaats van 1 ms te slapen. Zonder tap blijft de oude slaap van 1 ms.
+
+Tijdbasis (`src/ravengun/core/move_clock.*`):
+- De stempel wordt ontrold met de hosttijd (aantal wraps = afgerond (Δt_host − Δstempel)/65536). Dat is eenduidig zolang de Bluetooth-jitter kleiner is dan een halve wrap (0,33 s).
+- Klokkoppeling met de ondergrensmethode: het minimum van (t_rx − t_stempel) per bak van 1 s, een rechte door de minima van de laatste 20 s (zonder de lopende bak), daarna omlaag geschoven tot onder alle minima. De gekoppelde tijd is "stempel plus de kleinste transportvertraging", niet het samplemoment van de sensor.
+- De pijplijn integreert standaard met de stempel-dt (`--dt-source move`). Dat gebeurt alleen als dit én het vorige rapport een stempel hebben, anders met de ontvangst-dt. `report_dt_ms` in het sample blijft de ontvangst-dt (geen schemawijziging). `--dt-source rx` geeft het oude gedrag.
+- Afgewezen: de rapporttijd vervangen door volgnummer × periode. Overgeslagen volgnummers zijn echte gaten in de stempel (zie de metingen), maar de stempel meet die gaten direct, en het volgnummer wrapt al na 16.
+
+Opnameformaat en recorder:
+- JSON Lines, één object per regel (header, rapport, optische meting, LED, label, einde). Alleen getallen en korte codes, nooit beelden. Tijden staan relatief t.o.v. t0, en t0 staat als string in de header. Getallen gebruiken de kortste exact terugleesbare notatie (`std::to_chars`). De rondgang is dus bit-exact, en afspelen is aantoonbaar deterministisch (digest over alle samples). Gekozen boven binair: leesbaar met standaardgereedschap, en ongeveer 42 kB/s met camera (12,5 MB per 5 minuten, gemeten) is geen probleem.
+- De recorder zit in de daemon, met een eigen schrijfthread en een begrensde wachtrij (8 MiB). De HID- en tracker-thread blokkeren nooit op schijf-I/O. De grootte is strikt begrensd (standaard 64 MiB, max. 1 GiB), net als de duur (standaard 600 s, max. 2 uur). Bestanden komen in `~/.local/state/ravengun/recordings/` (0700/0600, `O_EXCL|O_NOFOLLOW`). De naam komt uit tijdstip en tag (`[a-z0-9_-]`). Er is geen commando dat een pad aanneemt.
+- Het controller-ID staat alleen geredigeerd in de opname (`xx:xx:xx:xx:xx:ac`). Een hash is bewust niet gebruikt: met een bekende OUI is een hash van een MAC-adres in seconden terug te rekenen, dus die zou alleen schijnveiligheid geven.
+
+Magnetometer (`src/ravengun/core/magnetometer.*`):
+- Ellipsoïdefit als lineaire kleinste kwadraten op genormaliseerde data. Eerst asgericht (6 parameters). Ligt de dekking rond dat middelpunt boven 50 %, dan volgt de volledige fit (9 parameters, met een lichte regularisatie van de kruistermen). Het resultaat is `m_cal = A(m_raw − b)` met een symmetrische A (matrixwortel via Jacobi). Kwaliteit: de RMS van |m_cal| − 1 (≤ 2 %), de dekking van de bol (20 richtingen, minstens 3 samples per richting, ≥ 80 %), het aantal samples (≥ 300), de veldsterkte in counts en de spreiding van de dip (≤ 1,5°, alleen quasi-statische samples). Ter controle van de assen wordt ook de dipspreiding zonder Y-flip gerapporteerd.
+- Verzamelen dunt uit (een nieuw sample alleen bij een verschil van minstens 3 % van het bereik), zodat stilhouden de fit niet scheeftrekt.
+- Opslag per controller (sleutel FNV-1a-64 van het adres, alleen als bestandsnaam) in `~/.config/ravengun/magnetometer/`. De opslag is atomisch (tijdelijk bestand, fsync, rename, fsync van de map), met 0600, versie 1 en een controle bij het laden (ontbreekt, beschadigd, andere versie). Een kalibratie die de eisen niet haalt, wordt niet opgeslagen en niet geactiveerd.
+- Verstoringsdetector: de norm (5 %), de dip (2°, alleen bij |a| binnen 0,1 g van 1 g), de magnetometer-yaw tegen de gyro over 0,5 s (2°/s) en de rumble. "Verstoord" na 1 s aaneengesloten afwijzing, herstel na 2 s. De NIS-poort volgt met de ESKF (fase 4). De detector draait live in de status mee, maar de magnetometer gaat nog niet de fusie in.
+- Web: alleen-lezen `GET /api/record` en `GET /api/magnetometer`, plus een veld `progress` in de SSE-frames. Starten en stoppen gaat voorlopig alleen via de IPC (CLI). De web-UI-HTML is niet gewijzigd.

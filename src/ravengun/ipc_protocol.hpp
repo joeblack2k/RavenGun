@@ -15,7 +15,8 @@ inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
 
 enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
-                 Arm, Disarm, Output, TestPattern, OutputButton, SetOutput };
+                 Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
+                 Record, SetLed, CalibMag };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -35,6 +36,12 @@ struct Request {
     std::optional<double> scale_x, scale_y, offset_x, offset_y;
     std::optional<double> vp_x0, vp_y0, vp_x1, vp_y1;          // set_output: viewport (aim-ruimte)
     std::optional<double> screen_aspect, content_aspect;      // set_output: letterbox, beide of geen
+    // record (start|stop|status|mark), calib_mag (start|stop|abort|status), set_led
+    std::string tag;     // record start: [a-z0-9_-]{1,40}
+    std::string label;   // record mark: max. 80 tekens, geen stuurtekens
+    std::string holder;  // calib_mag start: houder, bijv. "sharp_shooter" of "los"
+    std::optional<double> max_mb;  // duration_s/action: gedeeld met uitvoer
+    std::optional<int> rgb[3];
 };
 
 struct Error {

@@ -32,6 +32,11 @@ add_library(ravengun STATIC
   src/ravengun/output/gun_output.cpp
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
+  src/ravengun/core/move_report.cpp
+  src/ravengun/core/move_clock.cpp
+  src/ravengun/core/magnetometer.cpp
+  src/ravengun/rec/recording.cpp
+  src/ravengun/rec/replay.cpp
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
@@ -58,7 +63,10 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/commands.cpp
     src/ravengund/web_server.cpp
     src/ravengund/output_service.cpp
-    src/ravengund/camera.cpp)
+    src/ravengund/camera.cpp
+    src/ravengund/hidraw_tap.cpp
+    src/ravengund/hid_aux.cpp
+    src/ravengund/recorder.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
     message(STATUS "PSMoveAPI: ${PSMOVEAPI_LIBRARY}")
@@ -71,6 +79,10 @@ if(RAVENGUN_BUILD_DAEMON)
     target_compile_definitions(ravengund PRIVATE RAVENGUN_NO_PSMOVEAPI=1)
   endif()
 endif()
+
+# Offline analyse van opnamen (fase 0/1/3); opent nooit hardware.
+add_executable(ravengun-analyze src/tools/analyze/ravengun_analyze.cpp)
+target_link_libraries(ravengun-analyze PRIVATE ravengun)
 
 if(RAVENGUN_BUILD_CAMPROBE)
   add_executable(camprobe src/tools/camprobe/camprobe.cpp)
@@ -93,6 +105,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_web_tests tests/test_web.cpp)
   target_link_libraries(ravengun_web_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_web_tests COMMAND ravengun_web_tests)
+  add_executable(ravengun_phase013_tests tests/test_phase013.cpp)
+  target_link_libraries(ravengun_phase013_tests PRIVATE ravengun)
+  add_test(NAME ravengun_phase013_tests COMMAND ravengun_phase013_tests)
   if(RAVENGUN_BUILD_DAEMON)
     add_test(NAME ravengund_web
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/web_smoke.sh" "$<TARGET_FILE:ravengund>")

@@ -34,6 +34,8 @@ Opties van ravengund: zie `ravengund --help` (`--no-filter`, `--h-edge-deg`, `--
 
 Tests: `ctest --test-dir build` draait vijf tests, onder andere: `ravengun_tests` (88 controles), `ravengun_core_tests` (279 controles: quaternions, assen, eenheden, fusie, bias, aim, 1€, knoppen, stale/disconnect, JSON en protocol) en `ravengund_ipc` (`tests/ipc_smoke.sh`: daemon zonder hardware, rechten 0700/0600, enkele instantie, CLI, SIGTERM). Alle slagen op deze host. `ravengun_output_tests` (188 controles) dekt de coördinaattransformaties (inversie, schaal, offset, clamp, letterboxing precies één keer), arm/disarm, het vrijgeven van knoppen bij disarm, schrijffouten en afsluiten (met een nep-apparaat), de testpatronen en de nieuwe IPC-commando's. Op echte hardware getest: zie `docs/hardware.md`, de meting met ravengund.
 
+Fase 0/1/3 voegt `ravengun_phase013_tests` toe (rapportparsing, Move-klok, stempel-dt, opnameformaat, deterministisch afspelen, ellipsoïdefit, kwaliteitspoorten, opslag, verstoringsdetectie en de nieuwe IPC-commando's), en breidt `ravengund_ipc` en `ravengund_web` uit met opnemen, LED en magnetometerstatus. Het analyseprogramma `ravengun-analyze` (replay, timebase, mag, magfit) leest alleen opnamebestanden en opent geen hardware. Nieuwe CLI-commando's: `ravengunctl record`, `led` en `calibrate mag` (zie `docs/procedures.md`).
+
 ## PSMoveAPI (in een container)
 
 SteamOS levert geen ontwikkel-headers voor hidapi, libusb, OpenCV, glm en BlueZ. Daarom wordt PSMoveAPI gebouwd in een rootless, niet-geprivilegeerde podman-container (geen distrobox: die start met `--privileged` en mount de hele host).

@@ -17,6 +17,7 @@
 #include "ravengun/json_parse.hpp"
 #include "ravengun/probe.hpp"
 #include "ravengun/report.hpp"
+#include "ravengun/vision/ball_tracker.hpp"
 
 namespace {
 
@@ -39,6 +40,13 @@ void usage(FILE* f) {
         "  watch       toont live aim en knoppen (rate-limited) tot Ctrl-C of --duration\n"
         "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B\n"
         "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
+        "  record      opname (alleen getallen) naar ~/.local/state/ravengun/recordings/:\n"
+        "                record [--tag T] [--duration S] [--max-mb N]   opnemen tot S s of Ctrl-C\n"
+        "                record --start|--stop|--status, record --mark LABEL\n"
+        "  led         LED-kleur: led cyaan|rood|groen|blauw|wit|magenta|geel|uit of led R,G,B\n"
+        "  calibrate   calibrate mag [--holder H] [--duration S]: magnetometer kalibreren (ronddraaien;\n"
+        "              stopt zelf bij >= 80 % dekking en >= 300 samples), of --start|--stop|--abort|--status;\n"
+        "              calibrate mag --check [--duration 3]: veldcheck (norm en dip t.o.v. de kalibratie)\n"
         "\n"
         "uitvoer (virtueel lightgun-apparaat; standaard DISARMED en dan gaan er geen events heen):\n"
         "  arm         schakelt de uitvoer in en maakt het apparaat aan (RavenGun Virtual Lightgun, 1209:7202)\n"
@@ -54,9 +62,12 @@ void usage(FILE* f) {
         "  --json             machineleesbare uitvoer (JSON op stdout; bij watch één regel per frame)\n"
         "  --full-addresses   toon volledige Bluetooth-adressen (standaard geredigeerd)\n"
         "  --rate HZ          watch: max. frames per seconde (1..250, standaard 10; --json: 30)\n"
-        "  --duration S       watch: stop na S seconden; test-pattern sweep: duur (standaard 12)\n"
+        "  --duration S       watch/record/calibrate: stop na S seconden; test-pattern sweep: duur (standaard 12)\n"
         "  --dwell MS         test-pattern corners/grid: tijd per punt (standaard 2000)\n"
         "  --margin M         test-pattern: marge vanaf de rand (corners 0, grid 0,1, sweep 0,05)\n"
+        "  --tag T            record: label in de bestandsnaam (a-z, 0-9, _ en -)\n"
+        "  --max-mb N         record: maximale bestandsgrootte (standaard 64)\n"
+        "  --holder H         calibrate mag: houder, bijv. sharp_shooter of los\n"
         "  -h, --help         deze tekst\n"
         "\n"
         "exitcodes:\n"
@@ -235,6 +246,8 @@ void print_sample_line(const json::Value& s, const json::Value* edges) {
     std::fflush(stdout);
 }
 
+void print_record_status(const json::Value& v);
+
 void print_status(const json::Value& r) {
     const json::Value& s = *path(r, {"sample"});
     bool con = boolean(r, {"controller", "connected"});
@@ -294,6 +307,29 @@ void print_status(const json::Value& r) {
                        fmt(num(r, {"config", "filter", "beta"}), "%.2f") + ")").c_str()
                     : "uit");
     std::printf("Knoppen:      %s, trigger %.0f\n", names(path(s, {"buttons", "down"})).c_str(), num(s, {"trigger"}, 0));
+    if (const json::Value* tb = path(r, {"timebase"})) {
+        std::printf("Tijdbasis:    %s; %.0f stempels, %s, skew %s ppm, restvertraging p50 %s / p95 %s / max %s ms; temperatuur %s (ruw %.0f)\n",
+                    str(*tb, {"integration_dt"}).c_str(), num(*tb, {"stamps"}, 0), boolean(*tb, {"coupled"}) ? "gekoppeld" : "nog niet gekoppeld",
+                    fmt(num(*tb, {"skew_ppm"}), "%.1f").c_str(), fmt(num(*tb, {"residual_ms", "p50"}), "%.2f").c_str(),
+                    fmt(num(*tb, {"residual_ms", "p95"}), "%.2f").c_str(), fmt(num(*tb, {"residual_ms", "max"}), "%.2f").c_str(),
+                    fmt(num(*tb, {"temperature_c"}), "%.1f C").c_str(), num(*tb, {"temperature_raw"}, -1));
+    }
+    if (const json::Value* h = path(r, {"hidraw"}))
+        std::printf("hidraw-tap:   %s %s, gekoppeld %.0f, niet gekoppeld %.0f, weggegooid %.0f\n", boolean(*h, {"open"}) ? "open" : "dicht",
+                    str(*h, {"node"}, "").c_str(), num(*h, {"matched"}, 0), num(*h, {"unmatched"}, 0), num(*h, {"discarded"}, 0));
+    if (const json::Value* m = path(r, {"magnetometer"})) {
+        if (boolean(*m, {"calibrated"}))
+            std::printf("Magnetometer: gekalibreerd (%s, houder %s), |m| %.3f, dip %s graden (ref %.2f), toestand %s%s%s; niet in de fusie\n",
+                        str(*m, {"calibration", "kind"}).c_str(), str(*m, {"calibration", "holder"}).c_str(), num(*m, {"live", "norm"}, 0),
+                        fmt(num(*m, {"live", "dip_deg"}), "%.2f").c_str(), num(*m, {"calibration", "dip_ref_deg"}, 0),
+                        str(*m, {"live", "state"}).c_str(), str(*m, {"live", "reasons"}, "").empty() ? "" : ", afgewezen: ",
+                        str(*m, {"live", "reasons"}, "").c_str());
+        else
+            std::printf("Magnetometer: niet gekalibreerd (%s)\n", str(*m, {"calibration_error"}).c_str());
+        if (const json::Value* c = path(*m, {"session", "mag_calibration"}); c && boolean(*c, {"active"}))
+            std::printf("              kalibratie loopt: dekking %.0f %%, %.0f samples\n", num(*c, {"coverage_pct"}, 0), num(*c, {"samples"}, 0));
+    }
+    if (const json::Value* rc = path(r, {"recording"}); rc && rc->is_object()) print_record_status(*rc);
 }
 
 void print_output(const json::Value& o, const std::string& what) {
@@ -326,6 +362,228 @@ double now_s() {
     return static_cast<double>(t.tv_sec) + static_cast<double>(t.tv_nsec) / 1e9;
 }
 
+// Eén verzoek; geeft het "result"-object (of nullptr) en zet code.
+struct Res {
+    int code = kExitOk;
+    Reply r;
+    const json::Value* result() const { return path(r.v, {"result"}); }
+};
+Res simple(const ipc::Request& rq) {
+    ipc::Client c;
+    Res x;
+    x.r = call(c, rq);
+    x.code = x.r.code;
+    return x;
+}
+
+void print_record_status(const json::Value& v) {
+    if (boolean(v, {"active"})) {
+        std::printf("Opname:       loopt, %s, %.0f s, %.2f MiB van %.0f MiB, %.0f rapporten, %.0f optisch, %.0f LED, %.0f labels, %.0f verloren\n",
+                    str(v, {"file"}).c_str(), num(v, {"elapsed_s"}, 0), num(v, {"bytes"}, 0) / 1048576.0,
+                    num(v, {"max_bytes"}, 0) / 1048576.0, num(v, {"reports"}, 0), num(v, {"optical"}, 0),
+                    num(v, {"led_events"}, 0), num(v, {"marks"}, 0), num(v, {"dropped"}, 0));
+    } else if (const json::Value* l = path(v, {"last"})) {
+        std::printf("Opname:       geen actief; laatste %s/%s (%s), %.1f s, %.2f MiB, %.0f rapporten, %.0f optisch, %.0f verloren\n",
+                    str(v, {"dir"}).c_str(), str(*l, {"file"}).c_str(), str(*l, {"reason"}).c_str(), num(*l, {"duration_s"}, 0),
+                    num(*l, {"bytes"}, 0) / 1048576.0, num(*l, {"reports"}, 0), num(*l, {"optical"}, 0), num(*l, {"dropped"}, 0));
+    } else {
+        std::printf("Opname:       geen\n");
+    }
+}
+
+void print_record_summary(const json::Value& l) {
+    std::printf("Opname gestopt (%s): %s/%s\n  %.1f s, %.2f MiB, %.0f rapporten, %.0f optische metingen, %.0f LED-wissels, %.0f labels, %.0f verloren, schrijffouten %.0f\n",
+                str(l, {"reason"}).c_str(), str(l, {"dir"}).c_str(), str(l, {"file"}).c_str(), num(l, {"duration_s"}, 0),
+                num(l, {"bytes"}, 0) / 1048576.0, num(l, {"reports"}, 0), num(l, {"optical"}, 0), num(l, {"led_events"}, 0),
+                num(l, {"marks"}, 0), num(l, {"dropped"}, 0), num(l, {"write_errors"}, 0));
+}
+
+int cmd_record(bool json, const std::string& action, const std::string& tag, const std::string& mark, double duration, double max_mb) {
+    ipc::Request rq;
+    rq.cmd = ipc::Cmd::Record;
+    if (action == "stop" || action == "status" || action == "mark") {
+        rq.action = action;
+        rq.label = mark;
+        Res x = simple(rq);
+        if (x.code != kExitOk) return x.code;
+        if (json) { std::printf("%s\n", x.r.line.c_str()); return kExitOk; }
+        if (action == "stop") print_record_summary(*x.result());
+        else if (action == "mark") std::printf("Label '%s' toegevoegd.\n", mark.c_str());
+        else print_record_status(*x.result());
+        return kExitOk;
+    }
+    if (!action.empty() && action != "start") { std::fprintf(stderr, "ravengunctl: record kent --start, --stop, --status en --mark\n"); return kExitUsage; }
+    rq.action = "start";
+    rq.tag = tag;
+    if (duration > 0) rq.duration_s = std::min(duration, 7200.0);
+    if (max_mb > 0) rq.max_mb = max_mb;
+    Res x = simple(rq);
+    if (x.code != kExitOk) return x.code;
+    if (action == "start") {
+        if (json) std::printf("%s\n", x.r.line.c_str());
+        else std::printf("Opname gestart: %s/%s (stoppen: ravengunctl record --stop)\n", str(*x.result(), {"dir"}).c_str(),
+                         str(*x.result(), {"file"}).c_str());
+        return kExitOk;
+    }
+    // Blokkerend: voortgang tonen tot de daemon zelf stopt (duur/grootte) of Ctrl-C.
+    if (!json) std::printf("Opname gestart: %s/%s; Ctrl-C stopt.\n", str(*x.result(), {"dir"}).c_str(), str(*x.result(), {"file"}).c_str());
+    std::signal(SIGINT, on_signal);
+    std::signal(SIGTERM, on_signal);
+    while (!g_stop.load()) {
+        timespec ts{1, 0};
+        nanosleep(&ts, nullptr);
+        ipc::Request st;
+        st.cmd = ipc::Cmd::Record;
+        st.action = "status";
+        Res y = simple(st);
+        if (y.code != kExitOk) return y.code;
+        const json::Value* v = y.result();
+        if (!v) return kExitProtocol;
+        if (!boolean(*v, {"active"})) {
+            if (json) std::printf("%s\n", y.r.line.c_str());
+            else if (const json::Value* l = path(*v, {"last"})) print_record_summary(*l);
+            return kExitOk;
+        }
+        if (!json) {
+            std::printf("\r  %.0f s, %.2f MiB, %.0f rapporten, %.0f optisch   ", num(*v, {"elapsed_s"}, 0), num(*v, {"bytes"}, 0) / 1048576.0,
+                        num(*v, {"reports"}, 0), num(*v, {"optical"}, 0));
+            std::fflush(stdout);
+        }
+    }
+    if (!json) std::printf("\n");
+    ipc::Request sp;
+    sp.cmd = ipc::Cmd::Record;
+    sp.action = "stop";
+    Res z = simple(sp);
+    if (z.code != kExitOk) return z.code;
+    if (json) std::printf("%s\n", z.r.line.c_str());
+    else print_record_summary(*z.result());
+    return kExitOk;
+}
+
+int cmd_led(bool json, const std::string& arg) {
+    vision::Rgb c{};
+    int r = 0, g = 0, b = 0;
+    char tail = 0;
+    if (std::sscanf(arg.c_str(), "%d,%d,%d%c", &r, &g, &b, &tail) == 3 && r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+        c = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b)};
+    } else if (!vision::led_color_by_name(arg, c)) {
+        std::fprintf(stderr, "ravengunctl: onbekende LED-kleur '%s'\n", arg.c_str());
+        return kExitUsage;
+    }
+    ipc::Request rq;
+    rq.cmd = ipc::Cmd::SetLed;
+    rq.rgb[0] = c.r; rq.rgb[1] = c.g; rq.rgb[2] = c.b;
+    Res x = simple(rq);
+    if (x.code != kExitOk) return x.code;
+    if (json) std::printf("%s\n", x.r.line.c_str());
+    else std::printf("LED: %d,%d,%d%s\n", c.r, c.g, c.b, boolean(*x.result(), {"connected"}) ? "" : " (geen Move verbonden; geldt bij verbinden)");
+    std::printf("%s", json ? "" : "Let op: de tracker zoekt nog de tint van de opstartkleur.\n");
+    return kExitOk;
+}
+
+void print_fit(const json::Value& f) {
+    std::printf("Resultaat:    %s%s\n", boolean(f, {"ok"}) ? "GESLAAGD" : "NIET GESLAAGD",
+                boolean(f, {"saved"}) ? (", opgeslagen in " + str(f, {"file"})).c_str() : ", niet opgeslagen");
+    std::printf("Fit:          %s, %.0f samples (%.0f gezien), %.0f s\n", str(f, {"kind"}).c_str(), num(f, {"samples"}, 0),
+                num(f, {"samples_seen"}, 0), num(f, {"duration_s"}, 0));
+    std::printf("Kwaliteit:    dekking %.0f %%, restfout |m|-1 RMS %.2f %% (max %.2f %%), veldsterkte %.1f counts\n",
+                num(f, {"coverage"}, 0) * 100, num(f, {"rms_norm_err"}, 0) * 100, num(f, {"max_norm_err"}, 0) * 100,
+                num(f, {"field_counts"}, 0));
+    std::printf("Dip:          gemiddeld %.2f graden, spreiding %.2f graden (zonder Y-flip %.2f), %.0f rustige samples\n",
+                num(f, {"dip_mean_deg"}, 0), num(f, {"dip_std_deg"}, 0), num(f, {"dip_std_noflip_deg"}, 0), num(f, {"dip_samples"}, 0));
+    if (const json::Value* p = path(f, {"problems"}); p && p->is_array())
+        for (const auto& e : p->arr) std::printf("  - %s\n", e.str.c_str());
+}
+
+int cmd_calibrate_mag(bool json, const std::string& action, const std::string& holder, double duration) {
+    ipc::Request rq;
+    rq.cmd = ipc::Cmd::CalibMag;
+    if (action == "check") {
+        // Veldcheck: norm en dip t.o.v. de opgeslagen kalibratie, gemiddeld over de duur.
+        double dur = duration > 0 ? duration : 3.0;
+        rq.action = "status";
+        double sn = 0, sd = 0, maxn = 0, maxd = 0, ref = NAN;
+        int n = 0, nd = 0, disturbed = 0;
+        double t0 = now_s();
+        while (now_s() - t0 < dur) {
+            Res x = simple(rq);
+            if (x.code != kExitOk) return x.code;
+            const json::Value* v = x.result();
+            if (!v || !boolean(*v, {"calibrated"})) {
+                std::fprintf(stderr, "ravengunctl: geen magnetometerkalibratie geladen (%s)\n", v ? str(*v, {"calibration_error"}).c_str() : "?");
+                return kExitTempFail;
+            }
+            ref = num(*v, {"calibration", "dip_ref_deg"});
+            double nm = num(*v, {"live", "norm"}), dp = num(*v, {"live", "dip_deg"});
+            if (!std::isnan(nm)) { sn += nm; maxn = std::max(maxn, std::fabs(nm - 1)); ++n; }
+            if (!std::isnan(dp)) { sd += dp; maxd = std::max(maxd, std::fabs(dp - ref)); ++nd; }
+            if (str(*v, {"live", "state"}) == "disturbed") ++disturbed;
+            timespec ts{0, 100'000'000};
+            nanosleep(&ts, nullptr);
+        }
+        double mn = n ? sn / n : NAN, md = nd ? sd / nd : NAN;
+        bool ok = n > 0 && nd > 0 && std::fabs(mn - 1) <= 0.05 && std::fabs(md - ref) <= 2.0 && disturbed == 0;
+        if (json) {
+            std::printf("{\"ok\":%s,\"norm_mean\":%.5f,\"norm_max_dev\":%.5f,\"dip_mean_deg\":%.3f,\"dip_ref_deg\":%.3f,\"dip_max_dev_deg\":%.3f,\"samples\":%d,\"disturbed_samples\":%d}\n",
+                        ok ? "true" : "false", mn, maxn, md, ref, maxd, n, disturbed);
+        } else {
+            std::printf("Veldcheck (%.0f s): %s\n  norm gemiddeld %.4f (max afwijking %.1f %%; grens 5 %%)\n  dip gemiddeld %.2f graden, referentie %.2f (max afwijking %.2f; grens 2)\n  verstoord in %d van %d metingen\n",
+                        dur, ok ? "IN ORDE" : "NIET IN ORDE (magnetometer hier onbetrouwbaar)", mn, maxn * 100, md, ref, maxd, disturbed, n);
+        }
+        return ok ? kExitOk : 1;
+    }
+    if (!action.empty()) {
+        rq.action = action;
+        rq.holder = holder;
+        Res x = simple(rq);
+        if (x.code != kExitOk) return x.code;
+        if (json) { std::printf("%s\n", x.r.line.c_str()); return kExitOk; }
+        if (action == "stop") print_fit(*x.result());
+        else std::printf("%s\n", x.r.line.c_str());
+        return kExitOk;
+    }
+    // Interactief: starten, voortgang tonen, zelf stoppen bij voldoende dekking (of na de duur).
+    rq.action = "start";
+    rq.holder = holder;
+    Res x = simple(rq);
+    if (x.code != kExitOk) return x.code;
+    double max_s = duration > 0 ? duration : 180.0;
+    if (!json) std::printf("Magnetometerkalibratie gestart. Draai het geweer langzaam in alle richtingen (achtjes, kolf omhoog\nen omlaag, rol om de loop). Stopt zelf bij >= 80 %% dekking en >= 300 samples; Ctrl-C breekt af.\n");
+    std::signal(SIGINT, on_signal);
+    std::signal(SIGTERM, on_signal);
+    double t0 = now_s();
+    bool ready = false;
+    while (!g_stop.load() && now_s() - t0 < max_s) {
+        timespec ts{0, 500'000'000};
+        nanosleep(&ts, nullptr);
+        ipc::Request st;
+        st.cmd = ipc::Cmd::CalibMag;
+        st.action = "status";
+        Res y = simple(st);
+        if (y.code != kExitOk) return y.code;
+        const json::Value* s = y.result() ? path(*y.result(), {"session", "mag_calibration"}) : nullptr;
+        if (!s || !boolean(*s, {"active"})) { std::fprintf(stderr, "\nravengunctl: kalibratie niet meer actief (verbinding weg?)\n"); return kExitTempFail; }
+        if (json) std::printf("%s\n", y.r.line.c_str());
+        else std::printf("\r  dekking %3.0f %%, %4.0f samples, %3.0f s   ", num(*s, {"coverage_pct"}, 0), num(*s, {"samples"}, 0), num(*s, {"elapsed_s"}, 0));
+        std::fflush(stdout);
+        if (boolean(*s, {"ready"})) { ready = true; break; }
+    }
+    if (!json) std::printf("\n");
+    ipc::Request sp;
+    sp.cmd = ipc::Cmd::CalibMag;
+    sp.action = g_stop.load() ? "abort" : "stop";
+    Res z = simple(sp);
+    if (z.code != kExitOk) return z.code;
+    if (g_stop.load()) { std::printf("Afgebroken; er is niets opgeslagen.\n"); return kExitOk; }
+    if (json) std::printf("%s\n", z.r.line.c_str());
+    else {
+        if (!ready) std::printf("Tijd op (%.0f s) zonder voldoende dekking; er wordt toch gefit.\n", max_s);
+        print_fit(*z.result());
+    }
+    return boolean(*z.result(), {"ok"}) ? kExitOk : 1;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -333,10 +591,11 @@ int main(int argc, char** argv) {
     try {
         std::string cmd;
         bool json = false, full = false;
-        double rate = -1, duration = -1, min_cutoff = -1, beta = -1, dwell = -1, margin = -1;
+        double rate = -1, duration = -1, min_cutoff = -1, beta = -1, dwell = -1, margin = -1, max_mb = -1;
         double inv_x = -1, inv_y = -1, sc_x = -1, sc_y = -1, off_x = NAN, off_y = NAN, lb_screen = -1, lb_content = -1;
         std::vector<std::string> pos;
         int filter_on = -1;
+        std::string arg2, tag, holder, mark, action;
         auto need = [&](int& i, const char* name, double lo, double hi) -> double {
             if (i + 1 >= argc) { std::fprintf(stderr, "ravengunctl: %s mist een waarde\n", name); std::exit(kExitUsage); }
             char* end = nullptr;
@@ -363,10 +622,22 @@ int main(int argc, char** argv) {
             else if (a == "--offset-y") off_y = need(i, "--offset-y", -1, 1);
             else if (a == "--letterbox") { lb_screen = need(i, "--letterbox", 0.1, 10); lb_content = need(i, "--letterbox", 0.1, 10); }
             else if (a == "--on") filter_on = 1;
+            else if (a == "--max-mb") max_mb = need(i, "--max-mb", 1, 1024);
+            else if (a == "--start" || a == "--stop" || a == "--status" || a == "--abort" || a == "--check") {
+                if (!action.empty()) { std::fprintf(stderr, "ravengunctl: kies één van --start/--stop/--status/--abort/--check\n"); return kExitUsage; }
+                action = a.substr(2);
+            }
+            else if ((a == "--tag" || a == "--holder" || a == "--mark") && i + 1 < argc) {
+                std::string v = argv[++i];
+                if (a == "--tag") tag = v;
+                else if (a == "--holder") holder = v;
+                else { mark = v; action = "mark"; }
+            }
             else if (a == "--off") filter_on = 0;
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
             else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
+            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
         if (cmd.empty()) { usage(stderr); return kExitUsage; }
@@ -509,6 +780,12 @@ int main(int argc, char** argv) {
             else if (const json::Value* res = path(r.v, {"result"})) print_output(*res, cmd);
             else return kExitProtocol;
             return kExitOk;
+        }
+        if (cmd == "record") return cmd_record(json, action, tag, mark, duration, max_mb);
+        if (cmd == "led") return cmd_led(json, arg2);
+        if (cmd == "calibrate") {
+            if (arg2 != "mag") { std::fprintf(stderr, "ravengunctl: alleen 'calibrate mag' bestaat (nog)\n"); return kExitUsage; }
+            return cmd_calibrate_mag(json, action, holder, duration);
         }
         std::fprintf(stderr, "ravengunctl: onbekend commando '%s'\n\n", cmd.c_str());
         usage(stderr);

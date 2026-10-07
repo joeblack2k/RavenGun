@@ -78,6 +78,18 @@ std::string handle_output(SharedState& sh, const ipc::Request& r) {
     return ipc::error_response({"internal", "onbekend uitvoercommando", r.id_json});
 }
 
+// Resultaat van een HidContext-opdracht uit fase 0/1/3: JSON, of "!code|melding".
+std::string context_reply(const ipc::Request& r, const std::string& res, const std::string& err) {
+    if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+    if (!res.empty() && res[0] == '!') {
+        size_t bar = res.find('|');
+        std::string code = res.substr(1, bar == std::string::npos ? std::string::npos : bar - 1);
+        std::string msg = bar == std::string::npos ? std::string() : res.substr(bar + 1);
+        return ipc::error_response({code, msg, r.id_json});
+    }
+    return ipc::ok_response(r.id_json, res);
+}
+
 }  // namespace
 
 std::string execute_command(SharedState& sh, const ipc::Request& r) {
@@ -160,6 +172,21 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         case ipc::Cmd::OutputButton:
         case ipc::Cmd::SetOutput:
             return handle_output(sh, r);
+        case ipc::Cmd::Record: {
+            ipc::Request rq = r;
+            std::string res = run_job(sh, [rq](HidContext& h) { return h.record(rq); }, err);
+            return context_reply(r, res, err);
+        }
+        case ipc::Cmd::CalibMag: {
+            ipc::Request rq = r;
+            std::string res = run_job(sh, [rq](HidContext& h) { return h.calib_mag(rq); }, err);
+            return context_reply(r, res, err);
+        }
+        case ipc::Cmd::SetLed: {
+            int c0 = r.rgb[0].value_or(0), c1 = r.rgb[1].value_or(0), c2 = r.rgb[2].value_or(0);
+            std::string res = run_job(sh, [c0, c1, c2](HidContext& h) { return h.set_led(c0, c1, c2); }, err);
+            return context_reply(r, res, err);
+        }
     }
     return ipc::error_response({"internal", "onbekende toestand", r.id_json});
 }
