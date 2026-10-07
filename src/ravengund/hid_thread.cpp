@@ -1,0 +1,318 @@
+// HID-inname via PSMoveAPI. Dit is de enige plek in RavenGun die PSMoveAPI aanroept.
+#include "hid_thread.hpp"
+
+#include <algorithm>
+#include <cstring>
+#include <unistd.h>
+#include <vector>
+
+#include "ravengun/json.hpp"
+#include "ravengun/parse.hpp"
+
+#ifndef RAVENGUN_NO_PSMOVEAPI
+#include <psmoveapi/psmove.h>
+#endif
+
+namespace ravengund {
+
+using namespace ravengun;
+using namespace ravengun::core;
+
+namespace {
+
+struct ControllerInfo {
+    bool open = false;
+    std::string id;
+    std::string model;
+    std::string connection;
+    bool has_calibration = false;
+    int64_t connected_at_ns = 0;
+    uint64_t connects = 0, disconnects = 0;
+};
+
+class ProcStats {
+public:
+    void add(double us) {
+        if (v_.size() < 4096) v_.push_back(us);
+        else { v_[pos_] = us; pos_ = (pos_ + 1) % 4096; }
+    }
+    double pct(double p) const {
+        if (v_.empty()) return 0;
+        auto c = v_;
+        size_t k = static_cast<size_t>(p * static_cast<double>(c.size() - 1) + 0.5);
+        std::nth_element(c.begin(), c.begin() + static_cast<long>(k), c.end());
+        return c[k];
+    }
+    double max() const { return v_.empty() ? 0 : *std::max_element(v_.begin(), v_.end()); }
+
+private:
+    std::vector<double> v_;
+    size_t pos_ = 0;
+};
+
+std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcStats& ps, const HidOptions& opt,
+                        int64_t start_ns, bool full_ids) {
+    int64_t now = mono_ns();
+    const ReportStats& st = p.stats();
+    const InputSample& s = p.last();
+    json::Writer w;
+    w.begin_object();
+    w.key("daemon").begin_object();
+    w.key("pid").value(static_cast<long long>(getpid()));
+    w.key("uptime_s").value(static_cast<double>(now - start_ns) / 1e9);
+    w.key("hid_enabled").value(opt.enabled);
+    w.key("input_schema_version").value(kInputSchemaVersion);
+    w.end_object();
+
+    w.key("controller").begin_object();
+    w.key("connected").value(ci.open);
+    w.key("id").value(full_ids ? ci.id : redact_mac(ci.id));
+    w.key("model").value(ci.model);
+    w.key("connection").value(ci.connection);
+    w.key("has_calibration").value(ci.has_calibration);
+    w.key("magnetometer").value(ci.model == "ZCM1" ? "aanwezig, niet gebruikt (niet gekalibreerd)" : "afwezig of onbekend");
+    w.key("connected_s").value(ci.open ? static_cast<double>(now - ci.connected_at_ns) / 1e9 : 0.0);
+    w.key("connects").value(static_cast<unsigned long long>(ci.connects));
+    w.key("disconnects").value(static_cast<unsigned long long>(ci.disconnects));
+    BatteryInfo b = battery_info(s.battery_raw);
+    w.key("battery").begin_object();
+    if (s.battery_raw >= 0) w.key("raw").value(s.battery_raw); else w.key("raw").null();
+    w.key("code").value(b.code).key("text").value(b.text).key("charging").value(b.charging);
+    w.key("resolution").value("6 niveaus (<20, >=20, >=40, >=60, >=80 %, vol) plus laden/vol aan lader");
+    w.end_object();
+    w.end_object();
+
+    w.key("reports").begin_object();
+    w.key("total").value(static_cast<unsigned long long>(st.reports));
+    w.key("rate_hz_5s").value(ci.open ? st.rate(now, 5.0) : 0.0);
+    double span = st.last_t_ns > st.first_t_ns ? static_cast<double>(st.last_t_ns - st.first_t_ns) / 1e9 : 0;
+    w.key("rate_hz_since_connect").value(span > 0 ? static_cast<double>(st.intervals) / span : 0.0);
+    w.key("imu_subsamples_per_report").value(ci.model == "ZCM2" ? 1 : 2);
+    w.key("interval_ms").begin_object();
+    w.key("p50").value(st.percentile(0.50)).key("p95").value(st.percentile(0.95));
+    w.key("p99").value(st.percentile(0.99)).key("max").value(st.max_ms);
+    w.end_object();
+    w.key("interval_histogram").begin_array();
+    double lo = 0;
+    for (size_t i = 0; i < st.buckets.size(); ++i) {
+        w.begin_object().key("from_ms").value(lo);
+        if (i + 1 < st.buckets.size()) w.key("to_ms").value(ReportStats::kBucketUpperMs[i]);
+        else w.key("to_ms").null();
+        w.key("count").value(static_cast<unsigned long long>(st.buckets[i])).end_object();
+        lo = ReportStats::kBucketUpperMs[i];
+    }
+    w.end_array();
+    w.key("dropped_by_seq").value(static_cast<unsigned long long>(st.dropped_seq));
+    w.key("non_monotonic").value(static_cast<unsigned long long>(st.non_monotonic));
+    w.key("long_dt_50_250ms").value(static_cast<unsigned long long>(st.long_dt));
+    w.key("gaps_not_integrated").value(static_cast<unsigned long long>(st.gap_not_integrated));
+    w.end_object();
+
+    w.key("processing_us").begin_object();
+    w.key("p50").value(ps.pct(0.5)).key("p95").value(ps.pct(0.95)).key("max").value(ps.max());
+    w.key("meaning").value("t_publish - t_rx per rapport (fusie, aim, filter, publiceren)");
+    w.end_object();
+
+    const PipelineConfig& c = p.config();
+    w.key("config").begin_object();
+    w.key("filter").begin_object();
+    w.key("enabled").value(c.filter.enabled).key("min_cutoff_hz").value(c.filter.min_cutoff_hz);
+    w.key("beta").value(c.filter.beta).key("d_cutoff_hz").value(c.filter.d_cutoff_hz);
+    w.end_object();
+    w.key("aim").begin_object();
+    w.key("mode").value("orientation (voorlopig, geen aim-ray)");
+    w.key("h_edge_deg").value(c.aim.h_edge_deg).key("v_edge_deg").value(c.aim.v_edge_deg);
+    w.end_object();
+    w.key("fusion").begin_object();
+    w.key("algorithm").value("mahony_p_imu");
+    w.key("kp").value(c.fusion.kp).key("accel_gate_g").value(c.fusion.accel_gate).key("max_dt_s").value(c.fusion.max_dt_s);
+    w.key("magnetometer").value(false);
+    w.end_object();
+    w.key("bias").begin_object();
+    w.key("window_s").value(c.bias.window_s).key("gyro_std_max_rad_s").value(c.bias.gyro_std_max);
+    w.key("gyro_mean_max_rad_s").value(c.bias.gyro_mean_max).key("accel_norm_tol_g").value(c.bias.accel_norm_tol);
+    w.key("tau_s").value(c.bias.tau_s);
+    w.key("still_time_total_s").value(p.bias().still_time_total());
+    w.end_object();
+    w.key("stale_ms").value(static_cast<double>(c.stale_ns) / 1e6);
+    w.key("release_ms").value(static_cast<double>(c.release_ns) / 1e6);
+    w.key("disconnect_ms").value(static_cast<double>(opt.disconnect_ns) / 1e6);
+    w.end_object();
+
+    w.key("centers").begin_object();
+    w.key("auto_initial").value(static_cast<unsigned long long>(p.auto_center_count()));
+    w.key("user").value(static_cast<unsigned long long>(p.user_center_count()));
+    w.end_object();
+
+    w.key("sample");
+    write_sample_json(w, s, full_ids);
+    w.end_object();
+    return w.str();
+}
+
+#ifndef RAVENGUN_NO_PSMOVEAPI
+std::string serial_of(PSMove* m) {
+    char* s = psmove_get_serial(m);
+    std::string r = s ? s : "";
+    if (s) psmove_free_mem(s);
+    for (auto& ch : r) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return r;
+}
+
+// Zoekt een via Bluetooth verbonden Move (USB levert geen inputrapporten).
+PSMove* try_connect(const std::string& preferred, ControllerInfo& ci) {
+    int n = psmove_count_connected();
+    for (int i = 0; i < n; ++i) {
+        PSMove* m = psmove_connect_by_id(i);
+        if (!m) continue;
+        if (psmove_connection_type(m) != Conn_Bluetooth) { psmove_disconnect(m); continue; }
+        std::string id = serial_of(m);
+        if (!preferred.empty() && id != preferred) { psmove_disconnect(m); continue; }
+        ci.open = true;
+        ci.id = id;
+        ci.model = psmove_get_model(m) == Model_ZCM1 ? "ZCM1" : psmove_get_model(m) == Model_ZCM2 ? "ZCM2" : "onbekend";
+        ci.connection = "bluetooth";
+        ci.has_calibration = psmove_has_calibration(m);
+        return m;
+    }
+    return nullptr;
+}
+
+RawReport read_report(PSMove* m, int poll_ret, bool zcm2, int64_t t) {
+    RawReport r;
+    r.t_rx_ns = t;
+    r.hid_seq = poll_ret - 1;  // psmove_poll geeft 1 + volgnummer
+    r.subsamples = zcm2 ? 1 : 2;
+    float x, y, z;
+    for (int i = 0; i < r.subsamples; ++i) {
+        // ZCM1: Frame_FirstHalf is het oudere subsample, Frame_SecondHalf het nieuwere (psmove.h).
+        // ZCM2: één subsample; PSMoveAPI negeert daar de frame-parameter.
+        PSMove_Frame f = i == 0 ? Frame_FirstHalf : Frame_SecondHalf;
+        psmove_get_accelerometer_frame(m, f, &x, &y, &z);
+        r.accel[i] = {x, y, z};
+        psmove_get_gyroscope_frame(m, f, &x, &y, &z);
+        r.gyro[i] = {x, y, z};
+    }
+    psmove_get_magnetometer(m, &r.mag_raw[0], &r.mag_raw[1], &r.mag_raw[2]);
+    r.buttons = psmove_get_buttons(m);
+    r.trigger = psmove_get_trigger(m);
+    r.battery_raw = static_cast<int>(psmove_get_battery(m));
+    return r;
+}
+#endif
+
+void sleep_us(int us) {
+    timespec ts{0, static_cast<long>(us) * 1000};
+    nanosleep(&ts, nullptr);
+}
+
+}  // namespace
+
+void hid_thread_main(SharedState& shared, HidOptions opt) {
+    Pipeline pipe(opt.pipeline);
+    ControllerInfo ci;
+    ProcStats ps;
+    const int64_t start = mono_ns();
+
+    // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
+    struct Ctx final : HidContext {
+        Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh;
+        Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_)
+            : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_) {}
+        std::string status_json(bool full) override { return ravengund::status_json(p, ci, ps, opt, start, full); }
+        bool recenter() override {
+            bool ok = p.recenter();
+            if (ok) { sh.publish(p.last()); logf("info", "recenter door gebruiker"); }
+            return ok;
+        }
+        OneEuroConfig filter() const override { return p.config().filter; }
+        void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
+        AimConfig aim() const override { return p.config().aim; }
+        void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
+    } ctx(pipe, ci, ps, opt, start, shared);
+    auto handle_jobs = [&] { shared.run_jobs(ctx); };
+
+#ifndef RAVENGUN_NO_PSMOVEAPI
+    PSMove* move = nullptr;
+    int64_t next_scan = 0;
+    if (opt.enabled) {
+        psmove_set_remote_config(PSMove_OnlyLocal);  // geen netwerk (moved) gebruiken
+        if (!psmove_init(PSMOVE_CURRENT_VERSION)) {
+            logf("fout", "psmove_init() faalde (verkeerde PSMoveAPI-versie?)");
+            opt.enabled = false;
+        }
+    }
+#else
+    opt.enabled = false;
+#endif
+
+    while (shared.running.load()) {
+        handle_jobs();
+#ifndef RAVENGUN_NO_PSMOVEAPI
+        if (opt.enabled) {
+            int64_t now = mono_ns();
+            if (!move) {
+                if (now >= next_scan) {
+                    move = try_connect(opt.preferred_controller, ci);
+                    next_scan = now + 1'000'000'000;
+                    if (move) {
+                        ci.connected_at_ns = mono_ns();
+                        ++ci.connects;
+                        pipe.on_connect(ci.id, ci.connected_at_ns);
+                        shared.publish(pipe.last());
+                        logf("info", "Move verbonden: %s, model %s, kalibratie %s", redact_mac(ci.id).c_str(),
+                             ci.model.c_str(), ci.has_calibration ? "ja" : "NEE (waarden ongekalibreerd)");
+                    }
+                }
+                sleep_us(20000);
+                continue;
+            }
+            bool zcm2 = ci.model == "ZCM2";
+            bool got = false;
+            for (int k = 0; k < 64; ++k) {  // wachtrij leegmaken; elk rapport apart verwerken
+                int ret = psmove_poll(move);
+                if (ret <= 0) break;
+                int64_t t = mono_ns();
+                RawReport r = read_report(move, ret, zcm2, t);
+                InputSample s = pipe.on_report(r);
+                shared.publish(s);
+                ps.add(static_cast<double>(mono_ns() - t) / 1e3);
+                got = true;
+            }
+            now = mono_ns();
+            if (auto s = pipe.tick(now)) {
+                shared.publish(*s);
+                if (s->link == LinkState::Lost) logf("waarschuwing", "geen rapporten sinds %.0f ms: knoppen vrijgegeven", static_cast<double>(opt.pipeline.release_ns) / 1e6);
+            }
+            const InputSample& last = pipe.last();
+            int64_t last_rx = last.t_rx_ns ? last.t_rx_ns : ci.connected_at_ns;
+            if (now - last_rx > opt.disconnect_ns) {
+                logf("waarschuwing", "Move %s: %.1f s geen rapporten, verbinding gesloten; opnieuw zoeken",
+                     redact_mac(ci.id).c_str(), static_cast<double>(now - last_rx) / 1e9);
+                shared.publish(pipe.on_disconnect(now));
+                psmove_disconnect(move);
+                move = nullptr;
+                ci.open = false;
+                ++ci.disconnects;
+                next_scan = now + 500'000'000;
+                continue;
+            }
+            if (!got) sleep_us(opt.idle_sleep_us);
+            continue;
+        }
+#endif
+        sleep_us(5000);
+    }
+
+#ifndef RAVENGUN_NO_PSMOVEAPI
+    if (move) {
+        shared.publish(pipe.on_disconnect(mono_ns()));  // alle knoppen vrij
+        psmove_disconnect(move);
+        move = nullptr;
+    }
+#endif
+    handle_jobs();
+    logf("info", "HID-thread gestopt");
+}
+
+}  // namespace ravengund

@@ -31,6 +31,30 @@ target_include_directories(ravengun PUBLIC src)
 add_executable(ravengunctl src/ravengunctl/main.cpp)
 target_link_libraries(ravengunctl PRIVATE ravengun)
 
+# ravengund: de daemon. PSMoveAPI wordt user-local verwacht (zie docs/build.md).
+option(RAVENGUN_BUILD_DAEMON "Bouw ravengund" ON)
+set(PSMOVEAPI_ROOT "$ENV{HOME}/.local/share/ravengun/psmoveapi" CACHE PATH "Prefix van de PSMoveAPI-installatie")
+if(RAVENGUN_BUILD_DAEMON)
+  find_package(Threads REQUIRED)
+  find_path(PSMOVEAPI_INCLUDE_DIR psmoveapi/psmove.h HINTS "${PSMOVEAPI_ROOT}/include" NO_DEFAULT_PATH)
+  find_library(PSMOVEAPI_LIBRARY psmoveapi HINTS "${PSMOVEAPI_ROOT}/lib" NO_DEFAULT_PATH)
+  add_executable(ravengund
+    src/ravengund/main.cpp
+    src/ravengund/hid_thread.cpp
+    src/ravengund/ipc_server.cpp)
+  target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
+  if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
+    message(STATUS "PSMoveAPI: ${PSMOVEAPI_LIBRARY}")
+    target_include_directories(ravengund SYSTEM PRIVATE "${PSMOVEAPI_INCLUDE_DIR}")
+    target_link_libraries(ravengund PRIVATE "${PSMOVEAPI_LIBRARY}")
+    get_filename_component(_psm_libdir "${PSMOVEAPI_LIBRARY}" DIRECTORY)
+    set_target_properties(ravengund PROPERTIES BUILD_RPATH "${_psm_libdir}" INSTALL_RPATH "${_psm_libdir}")
+  else()
+    message(WARNING "PSMoveAPI niet gevonden onder ${PSMOVEAPI_ROOT}: ravengund wordt zonder HID gebouwd")
+    target_compile_definitions(ravengund PRIVATE RAVENGUN_NO_PSMOVEAPI=1)
+  endif()
+endif()
+
 if(RAVENGUN_BUILD_CAMPROBE)
   add_executable(camprobe src/tools/camprobe/camprobe.cpp)
 endif()
@@ -43,4 +67,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_core_tests tests/test_core.cpp)
   target_link_libraries(ravengun_core_tests PRIVATE ravengun)
   add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
+  if(RAVENGUN_BUILD_DAEMON)
+    # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
+    add_test(NAME ravengund_ipc
+      COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
+  endif()
 endif()
