@@ -1,6 +1,6 @@
 # RavenGun — status
 
-Actuele fase: G1 is op screenshots aangetoond (titel- en attract-scherm, speelsessie, 3 cycli). Nog te doen: fysieke bevestiging op de tv en een geluidscheck door de gebruiker. Parallel loopt fase 2 (Move, camera).
+Actuele fase: G1 gehaald en fysiek bevestigd door de gebruiker (2026-10-07 ~16:35): Halo draait op de LG-tv met beeld en geluid via HDMI, en een speelsessie is gestart (Coin/Start via vinput). Getest in Desktop Mode; Gaming Mode en de Steam-snelkoppeling zijn nog niet getest. Fase 2 (Move, camera) loopt.
 
 ## Bewezen resultaten (op deze host vastgesteld, 2026-10-07)
 
@@ -91,6 +91,11 @@ Camera en bol-tracking in ravengund (Opus-subagent; door orchestrator geverifiee
 - Tracker: eigen code, met tint- en chroma-drempel, ROI met fallback naar het volledige beeld, vorm- en vullingscriteria, bevestiging na een sprong, en ongeldig bij twee of meer kandidaten (nooit blind de grootste). Uitvoer: 2D-beeldpositie en straal, zonder diepte en zonder confidence. Inputschema v2 (`image_2d`), `ravengunctl camera`.
 - Hardwaremeting (60 s, Move stil op ongeveer 0,5–0,75 m): 60,022 fps, 0 gemiste frames, intervallen p95 16,685 ms. Bol gevonden in 99,97 % van de frames. Straal 19,1 px. Jitter p95 0,040 px. Verwerking p95 146 µs (volledig beeld ongeveer 600 µs). HID ongestoord (77,4/s).
 - Nog niet getest: speelafstand 2–3 m, beweging en onscherpte, een hand om de controller, daglicht en tv-licht. IMU-koppeling tegen drift: alleen een voorstel in decisions.md.
+
+G1-bevestiging (16:31–16:35, orchestrator)
+- Halo gestopt via `wineserver -k` van de Halo-prefix (gericht) en opnieuw gestart met LAUNCH GAME, terwijl vinput al actief was (event31, gehouden via een FIFO). BudgieLoader opent invoerapparaten alleen bij de start: event31 staat in de open fds als het apparaat vóór de start bestaat.
+- F2 tweemaal: kalibratie overgeslagen, attract "Insert Cash / Cost to play $1.00". 4× Coin en Start: "CHOOSE A GAME MODE". Volgens de gebruiker speelt de game daarna met geluid op de tv.
+- Gevolg voor de launcher: het virtuele invoerapparaat moet vóór de gamestart bestaan, met een stabiel eventN of een binding die daar niet van afhangt.
 
 ## Laatste werkende commando
 
