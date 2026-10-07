@@ -28,6 +28,10 @@ add_library(ravengun STATIC
   src/ravengun/core/fusion.cpp
   src/ravengun/core/input_model.cpp
   src/ravengun/core/pipeline.cpp
+  src/ravengun/output/gun_transform.cpp
+  src/ravengun/output/gun_output.cpp
+  src/ravengun/output/test_pattern.cpp
+  src/ravengun/output/uinput_gun.cpp
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
@@ -53,6 +57,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/ipc_server.cpp
     src/ravengund/commands.cpp
     src/ravengund/web_server.cpp
+    src/ravengund/output_service.cpp
     src/ravengund/camera.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   if(PSMOVEAPI_INCLUDE_DIR AND PSMOVEAPI_LIBRARY)
@@ -79,6 +84,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_core_tests tests/test_core.cpp)
   target_link_libraries(ravengun_core_tests PRIVATE ravengun)
   add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
+  add_executable(ravengun_output_tests tests/test_output.cpp)
+  target_link_libraries(ravengun_output_tests PRIVATE ravengun)
+  add_test(NAME ravengun_output_tests COMMAND ravengun_output_tests)
   add_executable(ravengun_vision_tests tests/test_vision.cpp)
   target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_vision_tests COMMAND ravengun_vision_tests)

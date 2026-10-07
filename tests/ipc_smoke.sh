@@ -39,6 +39,23 @@ OUT=$("$C" camera --json) || fail "camera faalde"
 echo "$OUT" | grep -q '"enabled":false' || fail "camera niet uit bij --no-camera"
 "$C" status --json | grep -q '"position":{"kind":"image_2d","valid":false' || fail "position (image_2d) ontbreekt"
 
+# Uitvoer: standaard disarmed, geen apparaat; patronen en knoppen worden geweigerd zonder arm.
+# (Arm zelf maakt een uinput-apparaat en hoort niet in deze test: de test raakt geen invoerapparaten.)
+OUT=$("$C" output --json) || fail "output faalde"
+echo "$OUT" | grep -q '"armed":false' || fail "uitvoer niet standaard disarmed"
+echo "$OUT" | grep -q '"created":false' || fail "apparaat bestaat al zonder arm"
+"$C" status --json | grep -q '"output":{"armed":false' || fail "status mist de uitvoer"
+"$C" test-pattern center 2>/dev/null
+[ $? -eq 75 ] || fail "test-pattern zonder arm moet exit 75 geven"
+"$C" output-button trigger tap 2>/dev/null
+[ $? -eq 75 ] || fail "output-button zonder arm moet exit 75 geven"
+"$C" test-pattern bogus 2>/dev/null
+[ $? -ne 0 ] || fail "onbekend patroon moet falen"
+"$C" set-output --invert-y 1 --scale-x 1.1 >/dev/null || fail "set-output faalde"
+"$C" output --json | grep -q '"invert_y":true' || fail "set-output niet toegepast"
+"$C" disarm >/dev/null || fail "disarm faalde"
+"$C" output --json | grep -q '"created":false' || fail "disarm maakte een apparaat aan"
+
 kill -TERM "$PID"
 wait "$PID"
 RC=$?

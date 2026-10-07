@@ -18,6 +18,8 @@
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/ipc_protocol.hpp"
 #include "ravengun/json.hpp"
+#include "ravengun/output/gun_output.hpp"
+#include "ravengun/output/test_pattern.hpp"
 
 namespace ravengund {
 
@@ -52,6 +54,7 @@ void write_edges(json::Writer& w, const std::array<uint64_t, 32>& now, const std
     }
     w.end_object();
 }
+
 
 std::string handle(SharedState& sh, Client& c, const std::string& line) {
     auto pr = ipc::parse_request(line);

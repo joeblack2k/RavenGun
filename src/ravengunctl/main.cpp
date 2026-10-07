@@ -1,5 +1,6 @@
 // ravengunctl: diagnose (alleen-lezen) en beheer van ravengund via de Unix-socket.
 #include <atomic>
+#include <cctype>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -8,6 +9,7 @@
 #include <exception>
 #include <string>
 #include <time.h>
+#include <vector>
 
 #include "ravengun/doctor.hpp"
 #include "ravengun/ipc_client.hpp"
@@ -38,11 +40,23 @@ void usage(FILE* f) {
         "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B\n"
         "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
         "\n"
+        "uitvoer (virtueel lightgun-apparaat; standaard DISARMED en dan gaan er geen events heen):\n"
+        "  arm         schakelt de uitvoer in en maakt het apparaat aan (RavenGun Virtual Lightgun, 1209:7202)\n"
+        "  disarm      stopt een patroon, geeft alle knoppen vrij en schakelt de uitvoer uit\n"
+        "  output      status van de uitvoer (armed, apparaat, positie, knoppen, transformatie, patroon)\n"
+        "  test-pattern center|corners|grid|sweep|stop   synthetische posities zonder Move (vereist arm)\n"
+        "  test-pattern point X Y                         één punt, X en Y in [0,1] (linksboven 0 0)\n"
+        "  output-button trigger|reload|grenade|aux1|aux2 [down|up|tap]   testknop (standaard tap)\n"
+        "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
+        "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
+        "\n"
         "opties:\n"
         "  --json             machineleesbare uitvoer (JSON op stdout; bij watch één regel per frame)\n"
         "  --full-addresses   toon volledige Bluetooth-adressen (standaard geredigeerd)\n"
         "  --rate HZ          watch: max. frames per seconde (1..250, standaard 10; --json: 30)\n"
-        "  --duration S       watch: stop na S seconden\n"
+        "  --duration S       watch: stop na S seconden; test-pattern sweep: duur (standaard 12)\n"
+        "  --dwell MS         test-pattern corners/grid: tijd per punt (standaard 2000)\n"
+        "  --margin M         test-pattern: marge vanaf de rand (corners 0, grid 0,1, sweep 0,05)\n"
         "  -h, --help         deze tekst\n"
         "\n"
         "exitcodes:\n"
@@ -282,6 +296,30 @@ void print_status(const json::Value& r) {
     std::printf("Knoppen:      %s, trigger %.0f\n", names(path(s, {"buttons", "down"})).c_str(), num(s, {"trigger"}, 0));
 }
 
+void print_output(const json::Value& o, const std::string& what) {
+    if (what == "arm") std::printf("Uitvoer GEWAPEND.\n");
+    else if (what == "disarm") std::printf("Uitvoer ontwapend; alle knoppen vrijgegeven.\n");
+    std::printf("Uitvoer:      %s; apparaat %s%s (%s:%s), event %s, abs %.0f..%.0f\n", boolean(o, {"armed"}) ? "GEWAPEND" : "ontwapend",
+                boolean(o, {"device", "created"}) ? "aangemaakt" : "niet aangemaakt", "", str(o, {"device", "vendor"}).c_str(),
+                str(o, {"device", "product"}).c_str(), str(o, {"device", "event_node"}, "-").c_str(), num(o, {"device", "abs_min"}, 0),
+                num(o, {"device", "abs_max"}, 0));
+    std::printf("Positie:      aim %s,%s -> abs %s,%s; knoppen: %s\n", fmt(num(o, {"position", "nx"}), "%.3f").c_str(),
+                fmt(num(o, {"position", "ny"}), "%.3f").c_str(), fmt(num(o, {"position", "abs_x"}), "%.0f").c_str(),
+                fmt(num(o, {"position", "abs_y"}), "%.0f").c_str(), names(path(o, {"buttons_down"})).c_str());
+    std::printf("Transformatie: invert %d/%d, schaal %.3f/%.3f, offset %.3f/%.3f, viewport (%.3f,%.3f)-(%.3f,%.3f)\n",
+                boolean(o, {"transform", "invert_x"}), boolean(o, {"transform", "invert_y"}), num(o, {"transform", "scale_x"}),
+                num(o, {"transform", "scale_y"}), num(o, {"transform", "offset_x"}), num(o, {"transform", "offset_y"}),
+                num(o, {"transform", "viewport", "x0"}), num(o, {"transform", "viewport", "y0"}), num(o, {"transform", "viewport", "x1"}),
+                num(o, {"transform", "viewport", "y1"}));
+    std::printf("Patroon:      %s", str(o, {"pattern", "state"}).c_str());
+    if (str(o, {"pattern", "state"}) != "none")
+        std::printf(" (%s, stap %.0f/%.0f, %.1f s)", str(o, {"pattern", "kind"}).c_str(), num(o, {"pattern", "step"}, 0),
+                    num(o, {"pattern", "steps"}, 0), num(o, {"pattern", "length_s"}, 0));
+    std::printf("\nTellers:      %.0f positie-events, %.0f knop-events, %.0f geweigerd, %.0f schrijffouten, %.0f vrijgaves\n",
+                num(o, {"stats", "position_events"}, 0), num(o, {"stats", "button_events"}, 0), num(o, {"stats", "rejected"}, 0),
+                num(o, {"stats", "write_errors"}, 0), num(o, {"stats", "releases"}, 0));
+}
+
 double now_s() {
     timespec t{};
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -295,7 +333,9 @@ int main(int argc, char** argv) {
     try {
         std::string cmd;
         bool json = false, full = false;
-        double rate = -1, duration = -1, min_cutoff = -1, beta = -1;
+        double rate = -1, duration = -1, min_cutoff = -1, beta = -1, dwell = -1, margin = -1;
+        double inv_x = -1, inv_y = -1, sc_x = -1, sc_y = -1, off_x = NAN, off_y = NAN, lb_screen = -1, lb_content = -1;
+        std::vector<std::string> pos;
         int filter_on = -1;
         auto need = [&](int& i, const char* name, double lo, double hi) -> double {
             if (i + 1 >= argc) { std::fprintf(stderr, "ravengunctl: %s mist een waarde\n", name); std::exit(kExitUsage); }
@@ -313,10 +353,20 @@ int main(int argc, char** argv) {
             else if (a == "--duration") duration = need(i, "--duration", 0.1, 1e7);
             else if (a == "--min-cutoff") min_cutoff = need(i, "--min-cutoff", 0.001, 100);
             else if (a == "--beta") beta = need(i, "--beta", 0, 1000);
+            else if (a == "--dwell") dwell = need(i, "--dwell", 50, 60000);
+            else if (a == "--margin") margin = need(i, "--margin", 0, 0.499);
+            else if (a == "--invert-x") inv_x = need(i, "--invert-x", 0, 1);
+            else if (a == "--invert-y") inv_y = need(i, "--invert-y", 0, 1);
+            else if (a == "--scale-x") sc_x = need(i, "--scale-x", 0.05, 20);
+            else if (a == "--scale-y") sc_y = need(i, "--scale-y", 0.05, 20);
+            else if (a == "--offset-x") off_x = need(i, "--offset-x", -1, 1);
+            else if (a == "--offset-y") off_y = need(i, "--offset-y", -1, 1);
+            else if (a == "--letterbox") { lb_screen = need(i, "--letterbox", 0.1, 10); lb_content = need(i, "--letterbox", 0.1, 10); }
             else if (a == "--on") filter_on = 1;
             else if (a == "--off") filter_on = 0;
-            else if (!a.empty() && a[0] == '-') { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
+            else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
+            else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
         if (cmd.empty()) { usage(stderr); return kExitUsage; }
@@ -399,6 +449,65 @@ int main(int argc, char** argv) {
                 const json::Value* s = path(*d, {"sample"});
                 if (s) print_sample_line(*s, path(*d, {"edges_since_last_frame"}));
             }
+            return kExitOk;
+        }
+        if (cmd == "arm" || cmd == "disarm" || cmd == "output") {
+            rq.cmd = cmd == "arm" ? ipc::Cmd::Arm : cmd == "disarm" ? ipc::Cmd::Disarm : ipc::Cmd::Output;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) print_output(*res, cmd);
+            else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "test-pattern") {
+            if (pos.empty()) { std::fprintf(stderr, "ravengunctl: test-pattern vereist center, corners, grid, sweep, point X Y of stop\n"); return kExitUsage; }
+            rq.cmd = ipc::Cmd::TestPattern;
+            rq.pattern = pos[0];
+            if (pos[0] == "point") {
+                char *e1 = nullptr, *e2 = nullptr;
+                if (pos.size() != 3) { std::fprintf(stderr, "ravengunctl: test-pattern point vereist X en Y (0..1)\n"); return kExitUsage; }
+                double px = std::strtod(pos[1].c_str(), &e1), py = std::strtod(pos[2].c_str(), &e2);
+                if (*e1 || *e2 || !(px >= 0 && px <= 1 && py >= 0 && py <= 1)) { std::fprintf(stderr, "ravengunctl: X en Y moeten in [0,1] liggen\n"); return kExitUsage; }
+                rq.x = px;
+                rq.y = py;
+            } else if (pos.size() != 1) { std::fprintf(stderr, "ravengunctl: onverwacht argument bij test-pattern\n"); return kExitUsage; }
+            if (dwell > 0) rq.dwell_ms = dwell;
+            if (duration > 0) rq.duration_s = duration;
+            if (margin >= 0) rq.margin = margin;
+            if (rate > 0) rq.rate_hz_pattern = rate;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) print_output(*res, cmd);
+            else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "output-button") {
+            if (pos.empty() || pos.size() > 2) { std::fprintf(stderr, "ravengunctl: output-button vereist een knop en optioneel down, up of tap\n"); return kExitUsage; }
+            rq.cmd = ipc::Cmd::OutputButton;
+            rq.button = pos[0];
+            rq.action = pos.size() > 1 ? pos[1] : "tap";
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else std::printf("Knop %s: %s.\n", rq.button.c_str(), rq.action.c_str());
+            return kExitOk;
+        }
+        if (cmd == "set-output") {
+            rq.cmd = ipc::Cmd::SetOutput;
+            if (inv_x >= 0) rq.invert_x = inv_x > 0.5;
+            if (inv_y >= 0) rq.invert_y = inv_y > 0.5;
+            if (sc_x > 0) rq.scale_x = sc_x;
+            if (sc_y > 0) rq.scale_y = sc_y;
+            if (!std::isnan(off_x)) rq.offset_x = off_x;
+            if (!std::isnan(off_y)) rq.offset_y = off_y;
+            if (lb_screen > 0) { rq.screen_aspect = lb_screen; rq.content_aspect = lb_content; }
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) print_output(*res, cmd);
+            else return kExitProtocol;
             return kExitOk;
         }
         std::fprintf(stderr, "ravengunctl: onbekend commando '%s'\n\n", cmd.c_str());
