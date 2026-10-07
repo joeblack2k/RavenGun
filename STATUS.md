@@ -97,6 +97,15 @@ G1-bevestiging (16:31–16:35, orchestrator)
 - F2 tweemaal: kalibratie overgeslagen, attract "Insert Cash / Cost to play $1.00". 4× Coin en Start: "CHOOSE A GAME MODE". Volgens de gebruiker speelt de game daarna met geluid op de tv.
 - Gevolg voor de launcher: het virtuele invoerapparaat moet vóór de gamestart bestaan, met een stabiel eventN of een binding die daar niet van afhangt.
 
+Nieuwe eisen van de gebruiker (2026-10-07): de Move moet accuraat en goed aanvoelen. Eén applicatie (ravengund) met een ingebouwde website. Spelen met de PlayStation Sharp Shooter (de Move zit erin) plus de Navigation Controller. Sensoren slim combineren. Sudo is toegestaan.
+
+Stand na de parallelle subagents (gemerged in main, orchestrator: schone build, 7/7 CTest-suites groen)
+- Web-UI: ingebouwd in ravengund op `127.0.0.1:8765` (eigen HTTP-server, SSE ≤30 Hz, Host/Origin/CSRF-controle, LAN alleen met token). JS nog niet in een browser getest.
+- Uitvoer: virtuele lightgun "RavenGun Virtual Lightgun" (1209:7202, ABS 0..32767 plus BTN_LEFT/RIGHT/MIDDLE…), standaard disarmed (`ravengunctl arm`), plus `test-pattern`. TP bindt "P1 Light Gun" via een by-id-pad (stabiel na herstart). In Halo is de fout ≤4,5 px (0,23 %), wat overeenkomt met de 8-bits kwantisatie van de game. LIBINPUT_IGNORE_DEVICE zorgt dat de desktopcursor niet meebeweegt. Beperking: de daemon moet draaien vóór LAUNCH GAME en mag tijdens de game niet herstarten.
+- udev: `packaging/udev/70-ravengun.rules` (uaccess, symlinks, by-id, libinput-ignore voor de gun), via `scripts/udev-ravengun.sh` (met rollback).
+- Fusieontwerp: `docs/aim-fusion-design.md`. De gyro bepaalt het gevoel, de camera alleen de positie, en de magnetometer is het beslispunt tegen yaw-drift. Fasering 0–7. Fase 0/1/3 (bouw) loopt in een Opus-subagent.
+- Navigation Controller: master-adres via USB naar deze host gezet (feature 0xF5, BlueZ-sixaxis-formaat). Bij BlueZ geregistreerd met `scripts/bt-register-hid.sh` (rollback mogelijk). Bluetooth-verbinding nog niet getest.
+
 ## Laatste werkende commando
 
     TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch,
