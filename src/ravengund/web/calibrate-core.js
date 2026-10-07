@@ -307,12 +307,158 @@
     return { scale: s, left: (winW - stageW * s) / 2, top: (winH - stageH * s) / 2 };
   }
 
+  // ---- Oefenen: vizier, doelen, treffers (stap "practice") ----
+
+  // Aim uit een sample, genormaliseerd (0..1 = scherm). null als de richting ongeldig is.
+  // x,y: gefilterd en unclamped; rx,ry: ruw (ongefilterd); cx,cy: gefilterd en geclampt.
+  function aimView(sample) {
+    var a = sample && sample.aim;
+    if (!a || !a.valid || typeof a.x !== 'number' || typeof a.y !== 'number') return null;
+    function n(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+    if (!isFinite(a.x) || !isFinite(a.y)) return null;
+    return {
+      x: a.x, y: a.y,
+      rx: n(a.x_raw, a.x), ry: n(a.y_raw, a.y),
+      cx: n(a.x_clamped, Math.min(1, Math.max(0, a.x))), cy: n(a.y_clamped, Math.min(1, Math.max(0, a.y))),
+      off: !!a.off_screen || a.x < 0 || a.x > 1 || a.y < 0 || a.y > 1
+    };
+  }
+
+  // Pijl aan de rand voor een richting buiten het scherm (x,y genormaliseerd, unclamped).
+  // null als het punt op het scherm ligt. margin in px: afstand van de pijlpunt tot de rand.
+  // angle: richting vanaf het schermmidden naar het punt (radialen, 0 = rechts, pi/2 = omlaag).
+  function offscreenArrow(x, y, w, h, margin) {
+    if (x >= 0 && x <= 1 && y >= 0 && y <= 1) return null;
+    var m = margin === undefined ? 60 : margin;
+    var dx = (x - 0.5) * w, dy = (y - 0.5) * h;
+    var px = Math.min(w - m, Math.max(m, x * w)), py = Math.min(h - m, Math.max(m, y * h));
+    var over = Math.max(x < 0 ? -x : (x > 1 ? x - 1 : 0), y < 0 ? -y : (y > 1 ? y - 1 : 0));
+    return { px: px, py: py, angle: Math.atan2(dy, dx), over: over };
+  }
+
+  // Interpolatie tussen SSE-frames voor een vloeiend vizier bij rAF-weergave. De weergave glijdt na elk
+  // nieuw frame in precies één (gemeten) frame-interval van het vorige naar het nieuwe punt: één frame
+  // vertraging (~17 ms bij 60 Hz), geen extrapolatie (geen doorschieten). Sprongen (bijv. recenter) en
+  // een ongeldige richting zetten het punt meteen.
+  function Interpolator(opts) {
+    opts = opts || {};
+    this.snapDist = opts.snapDist === undefined ? 0.25 : opts.snapDist;   // genormaliseerd
+    this.minDt = opts.minDt || 8; this.maxDt = opts.maxDt || 80;
+    this.dt = opts.dt || 33;
+    this.prev = null; this.cur = null; this.tCur = 0;
+  }
+  Interpolator.prototype.push = function (tMs, p) {
+    if (!p) { this.prev = this.cur = null; return; }
+    if (this.cur) {
+      var d = tMs - this.tCur;
+      if (d > 0) {
+        var c = Math.min(this.maxDt, Math.max(this.minDt, d));
+        this.dt += (c - this.dt) * 0.2;
+      }
+      if (Math.hypot(p[0] - this.cur[0], p[1] - this.cur[1]) > this.snapDist) this.prev = p;
+      else this.prev = this.cur;
+    } else {
+      this.prev = p;
+    }
+    this.cur = p;
+    this.tCur = tMs;
+  };
+  Interpolator.prototype.at = function (tMs) {
+    if (!this.cur) return null;
+    var a = Math.min(1, Math.max(0, (tMs - this.tCur) / this.dt));
+    return [this.prev[0] + (this.cur[0] - this.prev[0]) * a, this.prev[1] + (this.cur[1] - this.prev[1]) * a];
+  };
+
+  // Frames per seconde over een glijdend venster (SSE-frames die de pagina echt ontvangt).
+  function RateMeter(windowMs) { this.win = windowMs || 1000; this.t = []; }
+  RateMeter.prototype.add = function (tMs) { this.t.push(tMs); this.trim(tMs); };
+  RateMeter.prototype.trim = function (tMs) { while (this.t.length && this.t[0] < tMs - this.win) this.t.shift(); };
+  RateMeter.prototype.hz = function (tMs) {
+    this.trim(tMs);
+    if (this.t.length < 2) return 0;
+    var span = this.t[this.t.length - 1] - this.t[0];
+    return span > 0 ? (this.t.length - 1) * 1000 / span : 0;
+  };
+  RateMeter.prototype.reset = function () { this.t = []; };
+
+  // Volgend doel: willekeurig, binnen een rand (fractie van het scherm; onderaan breder voor de knoppenbalk) en minstens minDist px van het vorige.
+  // rnd: functie die 0..1 geeft (Math.random of een vaste reeks in de test).
+  function nextTarget(rnd, prev, w, h, opts) {
+    opts = opts || {};
+    var r = opts.r || 60, edge = opts.edge === undefined ? 0.12 : opts.edge, minDist = opts.minDist || 400;
+    var edgeBottom = opts.edgeBottom === undefined ? 0.18 : opts.edgeBottom;   // onder: ruimte voor de knoppenbalk
+    var x = w / 2, y = h / 2;
+    for (var i = 0; i < 30; i++) {
+      x = Math.round(w * edge + rnd() * w * (1 - 2 * edge));
+      y = Math.round(h * edge + rnd() * h * (1 - edge - edgeBottom));
+      if (!prev || Math.hypot(x - prev.x, y - prev.y) >= minDist) break;
+    }
+    return { x: x, y: y, r: r };
+  }
+
+  // Een schot (px op het podium, unclamped) tegen het doel. Treffer als de afstand tot het doelmidden <= straal.
+  function shotResult(sx, sy, target, w) {
+    var d = Math.hypot(sx - target.x, sy - target.y);
+    return { hit: d <= target.r, distPx: d, distPct: d / (w || 1920) * 100 };
+  }
+
+  // Treffers, missers en gemiddelde afstand van de inslag tot het doelmidden (alle schoten).
+  function PracticeStats() { this.reset(); }
+  PracticeStats.prototype.reset = function () { this.hits = 0; this.misses = 0; this.sumPx = 0; this.sumPct = 0; };
+  PracticeStats.prototype.add = function (res) {
+    if (res.hit) this.hits++; else this.misses++;
+    this.sumPx += res.distPx; this.sumPct += res.distPct;
+  };
+  PracticeStats.prototype.summary = function () {
+    var n = this.hits + this.misses;
+    return { shots: n, hits: this.hits, misses: this.misses, avgPx: n ? this.sumPx / n : null, avgPct: n ? this.sumPct / n : null };
+  };
+
+  // Knoppen in de oefenstap: trekker = schieten, Move = midden zetten, Cirkel = terug, Start = sluiten,
+  // Select = ruwe stip aan/uit. Zelfde flankentellers en baseline als ButtonNav (drukken vóór het verbinden of
+  // tijdens een onderbreking tellen nooit), met een eigen debounce per actie (schieten is korter dan de rest).
+  function PracticeButtons(opts) {
+    opts = opts || {};
+    this.lock = { shoot: 120, recenter: 350, back: 350, close: 350, toggle_raw: 350 };
+    if (opts.lockoutMs) for (var k in opts.lockoutMs) this.lock[k] = opts.lockoutMs[k];
+    this.prev = null; this.until = {};
+  }
+  PracticeButtons.prototype.reset = function () { this.prev = null; this.until = {}; };
+  PracticeButtons.prototype.feed = function (press, nowMs) {
+    if (!this.prev) { this.prev = press.slice(); return []; }
+    var bits = pressedBits(this.prev, press);
+    this.prev = press.slice();
+    var map = [[BIT.start, 'close'], [BIT.circle, 'back'], [BIT.select, 'toggle_raw'], [BIT.move, 'recenter'], [BIT.t, 'shoot']];
+    var out = [];
+    for (var i = 0; i < map.length; i++) {
+      var act = map[i][1];
+      if (bits.indexOf(map[i][0]) < 0) continue;
+      if (nowMs < (this.until[act] === undefined ? -Infinity : this.until[act])) continue;
+      this.until[act] = nowMs + this.lock[act];
+      out.push(act);
+    }
+    return out;
+  };
+
+  // Statusregel: aim-modus en middenbron uit het sample.
+  function aimModeText(sample) {
+    var m = sample && sample.tracking_mode;
+    var c = sample && sample.aim && sample.aim.center_source;
+    var mt = m === 'orientation' ? 'oriëntatie (voorlopig)' : (m === 'hybrid' ? 'hybride' : (m === 'geometric_ray' ? 'geometrische straal' :
+             (m === 'optical_diagnostic' ? 'optisch (diagnose)' : (m ? String(m) : 'onbekend'))));
+    var ct = c === 'auto_initial' ? 'auto-midden' : (c === 'user' ? 'midden door jou gezet' : 'nog geen midden');
+    return mt + ', ' + ct;
+  }
+
   return {
     BIT: BIT, BIT_NAME: BIT_NAME, LABEL: LABEL, DIRS: DIRS, TEMPO: TEMPO,
     pressedBits: pressedBits, actionFor: actionFor, ButtonNav: ButtonNav, HoldTracker: HoldTracker,
     MappingCollector: MappingCollector, gyroDps: gyroDps, Ema: Ema, classifyTempo: classifyTempo,
     tempoPosition: tempoPosition, StillTracker: StillTracker, stillPlan: stillPlan, stillLabel: stillLabel,
     rotate: rotate, unrotate: unrotate, nearestCell: nearestCell, renderSphere: renderSphere, projectDir: projectDir,
-    magProgress: magProgress, fitVerdict: fitVerdict, actionTip: actionTip, screenTargets: screenTargets, stageFit: stageFit
+    magProgress: magProgress, fitVerdict: fitVerdict, actionTip: actionTip, screenTargets: screenTargets, stageFit: stageFit,
+    aimView: aimView, offscreenArrow: offscreenArrow, Interpolator: Interpolator, RateMeter: RateMeter,
+    nextTarget: nextTarget, shotResult: shotResult, PracticeStats: PracticeStats, PracticeButtons: PracticeButtons,
+    aimModeText: aimModeText
   };
 });

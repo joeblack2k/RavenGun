@@ -55,7 +55,9 @@ struct Request {
     std::optional<double> web_port;
     // set_buttons: rol (zie config::sharp_shooter_roles()) -> Move-knop of "" (wissen).
     std::map<std::string, std::string> button_map;
-    // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp).
+    // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp), bij open
+    // optioneel step="practice" (opent direct de oefenstap).
+    std::string step;
     // Gedeeld veld: 'action' bij record/calib_mag.
 };
 

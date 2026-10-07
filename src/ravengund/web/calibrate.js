@@ -73,7 +73,7 @@
 
   // ---- Stap-definities ----
   var ST = {};
-  var SECTIONS = ['s-welcome', 's-mag-intro', 's-mag-run', 's-mag-result', 's-still', 's-still-done', 's-still-intro', 's-btn-live', 's-btn-map', 's-btn-done', 's-screen', 's-done'];
+  var SECTIONS = ['s-welcome', 's-mag-intro', 's-mag-run', 's-mag-result', 's-still', 's-still-done', 's-still-intro', 's-btn-live', 's-btn-map', 's-btn-done', 's-screen', 's-done', 's-practice'];
   var closing = false;
 
   function def(name, d) { ST[name] = d; }
@@ -86,7 +86,7 @@
   });
 
   def('mag_intro', {
-    sec: 's-mag-intro', crumb: 'Stap 1 van 4: Magnetometer', move: true,
+    sec: 's-mag-intro', crumb: 'Stap 1 van 5: Magnetometer', move: true,
     allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Starten', back: 'Terug', skip: 'Overslaan', abort: 'Afbreken' },
     enter: function () { show('mag-intro-err', false); },
     next: function () {
@@ -106,7 +106,7 @@
 
   var magWasActive = false, trail = [], lastDirKey = '';
   def('mag_run', {
-    sec: 's-mag-run', crumb: 'Stap 1 van 4: Magnetometer draaien', move: true,
+    sec: 's-mag-run', crumb: 'Stap 1 van 5: Magnetometer draaien', move: true,
     allow: { next: 1, abort: 1 }, keys: { next: 'Afronden (als de balk vol is)', abort: 'Afbreken' },
     enter: function () { magWasActive = false; trail = []; lastDirKey = ''; gyroEma.reset(); },
     next: function () {
@@ -125,7 +125,7 @@
   });
 
   def('mag_result', {
-    sec: 's-mag-result', crumb: 'Stap 1 van 4: Resultaat', move: false,
+    sec: 's-mag-result', crumb: 'Stap 1 van 5: Resultaat', move: false,
     allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw', skip: 'Verder', abort: 'Afbreken' },
     enter: function () {
       var v = results.mag, r = results.magRaw || {};
@@ -168,7 +168,7 @@
   function currentLabel(end) { var k = plan[si].key; return C.stillLabel(k, attempts[k] || 1, end); }
 
   def('still_intro', {
-    sec: 's-still-intro', crumb: 'Stap 2 van 4: Stil richten', move: true,
+    sec: 's-still-intro', crumb: 'Stap 2 van 5: Stil richten', move: true,
     allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Starten', back: 'Terug', skip: 'Overslaan', abort: 'Afbreken' },
     enter: function () { show('still-intro-err', false); stillReset(); },
     next: function () {
@@ -198,7 +198,7 @@
   function crossClass(c) { $('cross').className = 'cross' + (c ? ' ' + c : ''); }
 
   def('still_aim', {
-    sec: 's-still', crumb: 'Stap 2 van 4: Stil richten', move: true,
+    sec: 's-still', crumb: 'Stap 2 van 5: Stil richten', move: true,
     allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Start de meting', back: 'Vorige opnieuw', abort: 'Afbreken' },
     enter: function () {
       var p = plan[si];
@@ -240,7 +240,7 @@
   var stillMsg = '';
 
   def('still_count', {
-    sec: 's-still', crumb: 'Stap 2 van 4: Houd stil', move: true,
+    sec: 's-still', crumb: 'Stap 2 van 5: Houd stil', move: true,
     allow: { abort: 1 }, keys: { abort: 'Afbreken' },
     enter: function () {
       setText('still-title', 'Houd stil');
@@ -278,12 +278,12 @@
     }
   }
   def('still_flash', {
-    sec: 's-still', crumb: 'Stap 2 van 4: Stil richten', move: true, allow: { abort: 1 }, keys: { abort: 'Afbreken' },
+    sec: 's-still', crumb: 'Stap 2 van 5: Stil richten', move: true, allow: { abort: 1 }, keys: { abort: 'Afbreken' },
     abort: function () { stopRec(); go('welcome'); }
   });
 
   def('still_done', {
-    sec: 's-still-done', crumb: 'Stap 2 van 4: Klaar', move: false,
+    sec: 's-still-done', crumb: 'Stap 2 van 5: Klaar', move: false,
     allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw', abort: 'Afbreken' },
     enter: function () {
       show('still-done-err', false);
@@ -337,7 +337,7 @@
     });
   }
   def('btn_live', {
-    sec: 's-btn-live', crumb: 'Stap 3 van 4: Knoppen', move: true,
+    sec: 's-btn-live', crumb: 'Stap 3 van 5: Knoppen', move: true,
     allow: {}, keys: { next: 'Lang: vastleggen', back: 'Lang: terug', skip: 'Lang: overslaan', abort: 'Lang: stoppen' },
     enter: function () {
       buildTiles();
@@ -356,7 +356,7 @@
 
   var mi = 0, mapped = {}, mapStart = 0;
   def('btn_map', {
-    sec: 's-btn-map', crumb: 'Stap 3 van 4: Knoppen vastleggen', move: true,
+    sec: 's-btn-map', crumb: 'Stap 3 van 5: Knoppen vastleggen', move: true,
     allow: {}, keys: { abort: 'Lang: afbreken' },
     enter: function () { mi = 0; mapped = {}; armHold(); mapc.reset(); promptMap(); },
     hold: function (bit) { if (bit === C.BIT.start && ROLES[mi] && ROLES[mi].k !== 'start') go('welcome'); }
@@ -404,7 +404,7 @@
     });
   }
   def('btn_done', {
-    sec: 's-btn-done', crumb: 'Stap 3 van 4: Knoppen', move: false,
+    sec: 's-btn-done', crumb: 'Stap 3 van 5: Knoppen', move: false,
     allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw meten', skip: 'Verder', abort: 'Afbreken' },
     enter: function () { renderMapList($('done-list')); },
     next: function () { go('screen'); },
@@ -416,7 +416,7 @@
   // ---- Scherm (fase 5, plaatshouder) ----
   var targetsBuilt = false;
   def('screen', {
-    sec: 's-screen', crumb: 'Stap 4 van 4: Scherm (fase 5)', move: false, fs: true,
+    sec: 's-screen', crumb: 'Stap 4 van 5: Scherm (fase 5)', move: false, fs: true,
     allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Terug', abort: 'Afbreken' },
     enter: function () {
       if (targetsBuilt) return;
@@ -441,7 +441,7 @@
 
   def('done', {
     sec: 's-done', crumb: 'Klaar', move: false,
-    allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Scherm sluiten', back: 'Terug', abort: 'Naar begin' },
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Oefenen', back: 'Terug', skip: 'Sluiten', abort: 'Naar begin' },
     enter: function () {
       var ul = $('summary');
       ul.textContent = '';
@@ -451,10 +451,154 @@
       ul.appendChild(el('li', '', 'Knoppen: ' + (b ? b.found + ' van ' + b.total + ' vastgelegd' + (b.saved ? '' : ' (niet opgeslagen)') : 'overgeslagen')));
       ul.appendChild(el('li', '', 'Scherm: volgt in fase 5'));
     },
-    next: function () { closeUi(); },
+    next: function () { go('practice'); },
+    skip: function () { closeUi(); },
     back: function () { go('screen'); },
     abort: function () { go('welcome'); }
   });
+
+  // ---- Oefenen: vizier, doelen, treffers ----
+  // Alleen weergave en meting op deze pagina: er gaat niets naar de game en er wordt niets (de)armed.
+  // Trekker = schieten, Move-knop = recenter, Cirkel = terug, Start = sluiten, Select = ruwe stip aan/uit.
+  var PW = 1920, PH = 1080, STREAM_HZ_PRACTICE = 60;
+  var pbtn = new C.PracticeButtons();
+  var pStats = new C.PracticeStats();
+  var pFilt = new C.Interpolator(), pRaw = new C.Interpolator();
+  var pRate = new C.RateMeter(1000);
+  var pAim = null, pTarget = null, pShots = [], pFlash = 0, pHitFx = null, pMsgUntil = 0, pRawOn = true, pRaf = 0;
+  var pCtx = null, pLast = { score: '', status: '', msg: '' };
+
+  function pNewTarget() { pTarget = C.nextTarget(Math.random, pTarget, PW, PH, { r: 60 }); }
+  function pMsg(text, ms) { setText('pr-msg', text); show('pr-msg', true); pMsgUntil = now() + (ms || 1200); }
+
+  def('practice', {
+    sec: 's-practice', crumb: 'Stap 5 van 5: Oefenen', move: true, fs: true,
+    allow: {}, keys: {},
+    enter: function () {
+      pbtn.reset(); pStats.reset(); pShots = []; pFlash = 0; pHitFx = null; pAim = null;
+      pFilt.push(0, null); pRaw.push(0, null); pRate.reset();
+      show('pr-msg', false); show('pr-none', false);
+      if (!pTarget || !isDemo) pNewTarget();
+      pCtx = $('pr-canvas').getContext('2d');
+      if (!pRaf) pRaf = requestAnimationFrame(pFrame);
+    },
+    back: function () { nav.reset(); go('done'); },
+    close: function () { closeUi(); },
+    shoot: function () {
+      if (!pAim) return;
+      var sx = pAim.x * PW, sy = pAim.y * PH;
+      var res = C.shotResult(sx, sy, pTarget, PW);
+      pStats.add(res);
+      pShots.push({ x: pAim.cx * PW, y: pAim.cy * PH, hit: res.hit, t: now() });
+      if (pShots.length > 14) pShots.shift();
+      pFlash = now();
+      if (res.hit) { pHitFx = { x: pTarget.x, y: pTarget.y, t: now() }; pNewTarget(); }
+    },
+    recenter: function () {
+      api('/api/recenter', {}).then(function (j) { if (state === 'practice') pMsg(j.ok ? 'Midden gezet' : errText(j), j.ok ? 1200 : 2500); });
+    },
+    toggle_raw: function () { pRawOn = !pRawOn; pMsg(pRawOn ? 'Ruwe stip aan' : 'Ruwe stip uit', 900); }
+  });
+
+  // Elke SSE-frame in de oefenstap: aim voor de weergave, knoppen voor de acties.
+  function practiceFrame(t, press) {
+    pRate.add(t);
+    pAim = C.aimView(sample);
+    pFilt.push(t, pAim ? [pAim.x, pAim.y] : null);
+    pRaw.push(t, pAim ? [pAim.rx, pAim.ry] : null);
+    if (press) {
+      var acts = pbtn.feed(press, t), d = ST.practice;
+      for (var i = 0; i < acts.length; i++) {
+        if (state !== 'practice') break;
+        d[acts[i]]();
+      }
+    }
+  }
+
+  function pArrow(ctx, a) {
+    ctx.save();
+    ctx.translate(a.px, a.py); ctx.rotate(a.angle);
+    ctx.fillStyle = '#ffb454'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(-24, -34); ctx.lineTo(-8, 0); ctx.lineTo(-24, 34); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  function pReticle(ctx, x, y, color) {
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(x, y, 30, 0, 6.2832); ctx.moveTo(x - 52, y); ctx.lineTo(x - 14, y); ctx.moveTo(x + 14, y); ctx.lineTo(x + 52, y);
+    ctx.moveTo(x, y - 52); ctx.lineTo(x, y - 14); ctx.moveTo(x, y + 14); ctx.lineTo(x, y + 52); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.stroke();
+  }
+
+  function pDraw(t) {
+    var ctx = pCtx;
+    ctx.clearRect(0, 0, PW, PH);
+    ctx.fillStyle = '#05080d'; ctx.fillRect(0, 0, PW, PH);
+    ctx.strokeStyle = '#1b2434'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, PW - 2, PH - 2);
+    // Doel
+    if (pTarget) {
+      var r = pTarget.r;
+      ctx.lineWidth = 6;
+      ctx.fillStyle = '#3a1a1a'; ctx.strokeStyle = '#ff6b6b';
+      ctx.beginPath(); ctx.arc(pTarget.x, pTarget.y, r, 0, 6.2832); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd0d0'; ctx.strokeStyle = '#ff6b6b';
+      ctx.beginPath(); ctx.arc(pTarget.x, pTarget.y, r * 0.55, 0, 6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.arc(pTarget.x, pTarget.y, 7, 0, 6.2832); ctx.fill();
+    }
+    if (pHitFx && t - pHitFx.t < 450) {
+      var k = (t - pHitFx.t) / 450;
+      ctx.strokeStyle = 'rgba(61,220,151,' + (1 - k) + ')'; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(pHitFx.x, pHitFx.y, 60 + k * 90, 0, 6.2832); ctx.stroke();
+    }
+    // Inslagmarkeringen (vervagen na enkele seconden)
+    for (var i = 0; i < pShots.length; i++) {
+      var s = pShots[i], age = t - s.t;
+      if (age > 6000) continue;
+      var al = Math.min(1, Math.max(0.25, 1 - age / 6000));
+      ctx.strokeStyle = (s.hit ? 'rgba(61,220,151,' : 'rgba(255,107,107,') + al + ')'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 14, 0, 6.2832); ctx.moveTo(s.x - 22, s.y); ctx.lineTo(s.x + 22, s.y); ctx.moveTo(s.x, s.y - 22); ctx.lineTo(s.x, s.y + 22); ctx.stroke();
+    }
+    // Vizier
+    var f = pFilt.at(t), rw = pRaw.at(t);
+    var none = !f;
+    if (f) {
+      if (pRawOn && rw) {
+        var rxp = rw[0] * PW, ryp = rw[1] * PH;
+        if (rxp > -40 && rxp < PW + 40 && ryp > -40 && ryp < PH + 40) {
+          ctx.fillStyle = '#9aa3b5'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(rxp, ryp, 8, 0, 6.2832); ctx.fill(); ctx.stroke();
+        }
+      }
+      var arrow = C.offscreenArrow(f[0], f[1], PW, PH, 60);
+      if (arrow) pArrow(ctx, arrow);
+      else pReticle(ctx, f[0] * PW, f[1] * PH, '#5ab8ff');
+    }
+    // Schotflits
+    if (pFlash && t - pFlash < 160 && f) {
+      var q = (t - pFlash) / 160, fx = Math.min(PW, Math.max(0, f[0] * PW)), fy = Math.min(PH, Math.max(0, f[1] * PH));
+      ctx.strokeStyle = 'rgba(255,255,255,' + (1 - q) + ')'; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.arc(fx, fy, 30 + q * 70, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.18 * (1 - q)) + ')'; ctx.fillRect(0, 0, PW, PH);
+    }
+    if ($('pr-none').hidden !== !none) show('pr-none', none);
+  }
+
+  function pFrame() {
+    pRaf = 0;
+    if (state !== 'practice') return;
+    var t = now();
+    pDraw(t);
+    var st = pStats.summary();
+    var sc = st.shots ? 'Treffers ' + st.hits + '   Missers ' + st.misses + '   Gemiddelde afstand ' + Math.round(st.avgPx) + ' px (' + fmt1(st.avgPct) + ' % van de breedte)'
+                      : 'Raak de doelen met de trekker';
+    if (sc !== pLast.score) { setText('pr-score', sc); pLast.score = sc; }
+    var hz = isDemo ? 60 : pRate.hz(t);
+    var stt = 'Aim: ' + C.aimModeText(sample) + '   |   Filter: ' + (sample && sample.aim && sample.aim.filter_enabled ? 'aan' : 'uit') +
+              '   |   ' + (streamHz > 30 ? 'stream ' + streamHz + ' Hz' : 'stream 30 Hz') + ', ontvangen ' + Math.round(hz) + ' frames/s';
+    if (stt !== pLast.status) { setText('pr-status', stt); pLast.status = stt; }
+    if (!$('pr-msg').hidden && t > pMsgUntil) show('pr-msg', false);
+    pRaf = requestAnimationFrame(pFrame);
+  }
 
   // ---- Navigatie ----
   function closeUi() {
@@ -482,6 +626,8 @@
     setKey('k-back', k.back);
     setKey('k-skip', k.skip);
     setKey('k-abort', k.abort);
+    wantHz = name === 'practice' ? STREAM_HZ_PRACTICE : 30;
+    if (es && wantHz !== streamHz && !isDemo) startStream();
     if (d.enter) d.enter();
     updateOverlay();
   }
@@ -506,11 +652,14 @@
   function flashHint(t) { setText('mag-hint', t); hintUntil = now() + 3500; }
 
   // ---- Stroom ----
-  var es = null;
+  var es = null, wantHz = 30;
+  // De oefenstap vraagt 60 Hz voor alleen deze verbinding (/api/stream?hz=60); de rest blijft op 30 Hz.
+  var streamHz = 30;
   function startStream() {
     if (es) es.close();
-    es = new EventSource('/api/stream');
-    es.onopen = function () { streamUp = true; nav.reset(); lastPress = null; updateOverlay(); };
+    streamHz = wantHz;
+    es = new EventSource(streamHz > 30 ? '/api/stream?hz=' + streamHz : '/api/stream');
+    es.onopen = function () { streamUp = true; nav.reset(); pbtn.reset(); pRate.reset(); lastPress = null; updateOverlay(); };
     es.onerror = function () { streamUp = false; updateOverlay(); };
     es.addEventListener('sample', onSample);
   }
@@ -538,10 +687,13 @@
     if (press) {
       bits = lastPress ? C.pressedBits(lastPress, press) : [];
       lastPress = press.slice();
-      var act = nav.feed(press, t, (ST[state] || {}).allow);
-      if (act) dispatch(act);
+      if (state !== 'practice') {
+        var act = nav.feed(press, t, (ST[state] || {}).allow);
+        if (act) dispatch(act);
+      }
     }
-    onFrame(t, bits, g);
+    if (state === 'practice') practiceFrame(t, press);
+    else onFrame(t, bits, g);
   }
 
   // Per frame: live weergave van de huidige stap.
@@ -728,12 +880,29 @@
       $('trig-fill').style.width = '72%'; setText('trig-val', '184');
     }
     if (name === 'btn_done') renderMapList($('done-list'));
+    if (name === 'practice') {
+      // Vaste voorbeeldgegevens: doel, vizier iets naast het doel, ruwe stip, een paar eerdere schoten.
+      sample = { tracking_mode: 'orientation', aim: { valid: true, center_source: 'auto_initial', filter_enabled: true } };
+      pTarget = { x: 1290, y: 400, r: 60 };
+      pAim = { x: 0.62, y: 0.40, rx: 0.655, ry: 0.372, cx: 0.62, cy: 0.40, off: false };
+      pFilt.push(now(), [0.62, 0.40]); pRaw.push(now(), [0.655, 0.372]);
+      [[1000, 700, 0], [1500, 300, 1], [420, 760, 0], [980, 560, 1]].forEach(function (s) {
+        var tg = { x: s[0], y: s[1], r: 60 };
+        var rs = C.shotResult(s[0] + (s[2] ? 18 : 130), s[1] - (s[2] ? 12 : 70), tg, PW);
+        pStats.add(rs);
+        pShots.push({ x: s[0] + (s[2] ? 18 : 130), y: s[1] - (s[2] ? 12 : 70), hit: rs.hit, t: now() + 1e7 });
+      });
+      pRate.reset();
+    }
   }
 
   // ---- Start ----
   function init() {
-    var dm = new URLSearchParams(window.location.search).get('demo');
+    var qs = new URLSearchParams(window.location.search);
+    var dm = qs.get('demo');
     if (dm && ST[dm]) { demo(dm); return; }
+    // ?step=practice: direct naar de oefenstap (knop in de web-UI), met de hogere streamsnelheid vanaf het begin.
+    if (qs.get('step') === 'practice') { wantHz = STREAM_HZ_PRACTICE; startStream(); go('practice'); return; }
     startStream();
     // Liep er al een kalibratiesessie (pagina herladen)? Dan daar verder.
     api('/api/magnetometer').then(function (j) {

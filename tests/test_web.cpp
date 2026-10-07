@@ -130,6 +130,12 @@ static void test_routing_and_json() {
     CHECK(app.handle(get("/app.js")).status == 200);
     CHECK(app.handle(get("/app.css")).status == 200);
     CHECK(app.handle(get("/api/stream")).sse);
+    CHECK(app.handle(get("/api/stream")).sse_hz == 30.0);
+    {
+        HttpRequest q = get("/api/stream");
+        q.query = "hz=60";
+        CHECK(app.handle(q).sse_hz == 60.0);
+    }
 
     // Foutafbeelding: IPC-foutcodes worden HTTP-statussen.
     f.reply = R"({"v":1,"ok":false,"error":{"code":"unavailable","message":"geen Move"}})";
@@ -394,6 +400,17 @@ static void test_token_file() {
 static void test_sse() {
     CHECK(sse_frame("sample", "{\"a\":1}") == "event: sample\ndata: {\"a\":1}\n\n");
 
+    // Streamsnelheid per client: 1..60 geheel, anders de standaard 30.
+    CHECK(stream_hz_from_query("") == 30.0 && stream_hz_from_query("hz=60") == 60.0 && stream_hz_from_query("x=1&hz=45") == 45.0);
+    CHECK(stream_hz_from_query("hz=61") == 30.0 && stream_hz_from_query("hz=0") == 30.0 && stream_hz_from_query("hz=abc") == 30.0);
+    CHECK(stream_hz_from_query("hz=") == 30.0 && stream_hz_from_query("hz=-5") == 30.0 && stream_hz_from_query("hz=1000") == 30.0);
+    {
+        Throttle t60(60.0);
+        int n60 = 0;
+        for (int64_t t = 0; t < 1'000'000'000; t += 1'000'000) if (t60.due(t)) ++n60;
+        CHECK(n60 >= 59 && n60 <= 61);
+    }
+
     // Throttle: op 1 kHz aangeboden, hoogstens ~30 per seconde doorgelaten.
     Throttle th(30.0);
     int passed = 0;
@@ -479,6 +496,7 @@ static void test_calibrate_ui() {
         {"/api/calibrate/buttons", R"({"trekker":"t","pomp":"move"})", R"({"v":1,"cmd":"set_buttons","trekker":"t","pomp":"move"})"},
         {"/api/calibrate/ui", R"({"action":"open"})", R"({"v":1,"cmd":"calibrate_ui","action":"open"})"},
         {"/api/calibrate/ui", R"({"action":"close"})", R"({"v":1,"cmd":"calibrate_ui","action":"close"})"},
+        {"/api/calibrate/ui", R"({"action":"open","step":"practice"})", R"({"v":1,"cmd":"calibrate_ui","action":"open","step":"practice"})"},
     };
     for (const E& e : ok) {
         HttpResponse x = app.handle(post(e.path, e.body));
@@ -503,6 +521,9 @@ static void test_calibrate_ui() {
         {"/api/calibrate/ui", R"({"action":"verwijder"})", ""},
         {"/api/calibrate/ui", R"({"action":"open","url":"http://evil.example"})", ""},
         {"/api/calibrate/ui", R"({"action":"status"})", ""},
+        {"/api/calibrate/ui", R"({"action":"open","step":"mag"})", ""},
+        {"/api/calibrate/ui", R"({"action":"close","step":"practice"})", ""},
+        {"/api/calibrate/ui", R"({"step":"practice"})", ""},
         {"/api/calibrate/ui", "{kapot", ""},
     };
     for (const E& e : bad) CHECK(app.handle(post(e.path, e.body)).status == 400);

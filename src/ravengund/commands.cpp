@@ -247,7 +247,9 @@ std::string handle_calibrate_ui(SharedState& sh, const ipc::Request& r) {
     kiosk::Result res;
     if (r.action == "open") {
         if (sh.web_port <= 0) return ipc::error_response({"unavailable", "de webinterface staat uit: het kalibratiescherm heeft die nodig", r.id_json});
-        res = kiosk::open(sh.web_port);
+        // Een gevraagde stap op een al open scherm: eerst sluiten, anders blijft de browser op de oude pagina.
+        if (!r.step.empty() && kiosk::status().running) kiosk::close();
+        res = kiosk::open(sh.web_port, r.step);
     } else if (r.action == "close") {
         res = kiosk::close();
     } else {

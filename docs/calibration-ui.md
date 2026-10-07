@@ -8,7 +8,7 @@ De kalibratie draait niet op een telefoon of in het beheerscherm, maar fullscree
     ravengunctl calibrate-ui --status   # draait het?
     ravengunctl calibrate-ui --close    # sluit alleen het kioskproces
 
-In de web-UI staat hetzelfde als knoppen op de pagina Kalibratie ("Kalibreren op de tv" en "Kalibratiescherm sluiten"). Beide gaan via het IPC-commando `calibrate_ui` (open, close, status) naar de daemon, die de browser start. Er gaat nooit een pad, programma of URL van buiten mee: de URL is `http://127.0.0.1:<webpoort>/calibrate`.
+In de web-UI staat hetzelfde als knoppen op de pagina Kalibratie ("Kalibreren op de tv" en "Kalibratiescherm sluiten"). Beide gaan via het IPC-commando `calibrate_ui` (open, close, status; bij open optioneel `step` `practice`) naar de daemon, die de browser start. Er gaat nooit een pad, programma of URL van buiten mee: de URL is `http://127.0.0.1:<webpoort>/calibrate`.
 
 De browser is Brave als flatpak (`com.brave.Browser`), gestart met `--kiosk --app=URL` en een eigen, apart profiel in `~/.local/state/ravengun/kiosk` (via `--user-data-dir`, met `--filesystem` voor alleen die map). Het profiel van de gebruiker wordt niet geraakt. Bij een nieuw profiel worden de meldingsbalken van Brave (analyse, vertalen) uitgezet en staat de taal op Nederlands, zodat de pagina de hele tv vult. De sessievariabelen komen van de kiosk zelf, omdat de daemon niet per se in de grafische sessie draait: `WAYLAND_DISPLAY=wayland-0`, `XDG_RUNTIME_DIR=/run/user/<uid>`, `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus`, `DISPLAY=:0` en `XAUTHORITY`, dat uit de opdrachtregel van `kwin_wayland` (`--xwayland-xauthority`) wordt gelezen.
 
@@ -65,7 +65,18 @@ De negen doelen van `docs/aim-fusion-design.md` 4.4 staan op de exacte tv-coörd
 
 ### Klaar
 
-Een samenvatting en trekker sluit het kalibratiescherm (`POST /api/calibrate/ui` met `close`).
+Een samenvatting. Trekker gaat naar het oefenen, Select sluit het kalibratiescherm (`POST /api/calibrate/ui` met `close`).
+
+### 5. Oefenen
+
+Een vrije oefen- en testweergave, ook los te openen via `/calibrate?step=practice` en met de knop "Oefenen op de tv" in de web-UI (`POST /api/calibrate/ui` met `{"action":"open","step":"practice"}`; staat het scherm al open, dan sluit de daemon het eerst, anders blijft de browser op de oude pagina). Dit is alleen een weergave: er gaat niets naar de uitvoer of de game en er wordt niets (de)armed.
+
+- **Vizier:** een blauw vizier op de gefilterde aim (`aim.x`, `aim.y`) op het vaste 1920 bij 1080 podium, en een klein grijs puntje op de ongefilterde positie (`x_raw`, `y_raw`), met Select aan en uit. Is de aim ongeldig, dan verdwijnt het vizier en staat er "Geen geldige richting". Ligt de aim buiten het scherm (unclamped buiten 0 tot 1), dan staat er een oranje pijl aan de rand in die richting.
+- **Knoppen:** Trekker schiet (korte witte flits en een inslagmarkering op de plek van dat sample, groen bij een treffer en rood bij een misser, ze vervagen na enkele seconden), de Move-knop doet recenter (`POST /api/recenter`, "Midden gezet"), Cirkel gaat terug naar Klaar, Start sluit. De drukken komen uit dezelfde cumulatieve flankentellers (`edges.press`) als de rest, met dezelfde baseline na (her)verbinden en een debounce per actie: 120 ms voor schieten, 350 ms voor de rest.
+- **Doelen:** steeds één doel (cirkel, straal 60 px) op een willekeurige plek, minstens 400 px van het vorige, met onderaan ruimte voor de knoppenbalk. Een schot telt als treffer als de afstand tot het doelmidden hoogstens de straal is; een treffer geeft meteen een nieuw doel. Bovenaan staan treffers, missers en de gemiddelde afstand van de inslag tot het doelmidden over alle schoten, in pixels en als percentage van de schermbreedte. Een schot telt met de ongeklemde positie, dus een schot buiten het scherm is een misser met zijn echte afstand.
+- **Statusregel:** aim-modus (nu "oriëntatie (voorlopig)" met "auto-midden", of "midden door jou gezet" na recenter), filter aan of uit, de gevraagde streamsnelheid en het aantal SSE-frames per seconde dat de pagina echt ontvangt (glijdend venster van een seconde).
+- **Weergave:** `requestAnimationFrame` op het canvas. Tussen twee SSE-frames glijdt het vizier in precies één gemeten frame-interval van het vorige naar het nieuwe punt (geen extrapolatie, dus geen doorschieten; kost één frame vertraging, ongeveer 17 ms bij 60 Hz). Een sprong (meer dan 25 % van het scherm, bijvoorbeeld na recenter) en een ongeldige aim zetten het punt direct.
+- **Streamsnelheid:** de oefenstap opent `/api/stream?hz=60` en alleen die verbinding krijgt tot 60 Hz; zie `docs/web-ui.md`. Bij het verlaten van de stap gaat de pagina terug naar de standaard 30 Hz.
 
 ## Daemon-kant
 
@@ -85,7 +96,7 @@ De rate-limits blijven gelden: de SSE-stroom blijft op hoogstens 30 frames per s
 
 ## Voorbeeldmodus
 
-`/calibrate?demo=<stap>` toont een stap met vaste voorbeeldgegevens, zonder daemon-gegevens. De stappen heten `welcome`, `mag_intro`, `mag_run`, `mag_result`, `still_intro`, `still_aim`, `still_count`, `still_done`, `btn_live`, `btn_map`, `btn_done`, `screen` en `done`. Dit is bedoeld voor schermcontrole en screenshots (headless of op de tv); in de voorbeeldmodus start de pagina de stroom niet en stuurt ze niets naar de daemon.
+`/calibrate?demo=<stap>` toont een stap met vaste voorbeeldgegevens, zonder daemon-gegevens. De stappen heten `welcome`, `mag_intro`, `mag_run`, `mag_result`, `still_intro`, `still_aim`, `still_count`, `still_done`, `btn_live`, `btn_map`, `btn_done`, `screen`, `done` en `practice`. Dit is bedoeld voor schermcontrole en screenshots (headless of op de tv); in de voorbeeldmodus start de pagina de stroom niet en stuurt ze niets naar de daemon.
 
 ## Tests
 
