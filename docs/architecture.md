@@ -4,7 +4,7 @@ Dit document beschrijft wat nu gebouwd is en welke afspraken vastliggen. Statusl
 
 ## Processen en eigendom van hardware
 
-Er is één daemon, `ravengund`, en die is de enige eigenaar van de live hardware: de Move (via PSMoveAPI) en de camera (V4L2). Later komt het virtuele uitvoerapparaat (uinput) erbij. Clients (`ravengunctl`, later de webinterface en de kalibratieclient) praten alleen via de socket met de daemon en openen zelf nooit hardware. Ze mogen op elk moment stoppen zonder dat de verwerking stopt.
+Er is één daemon, `ravengund`, en die is de enige eigenaar van de live hardware: de Move (via PSMoveAPI) en de camera (V4L2). Ook het virtuele uitvoerapparaat (uinput-lightgun, zie "Uitvoer") is van de daemon. Clients (`ravengunctl`, later de webinterface en de kalibratieclient) praten alleen via de socket met de daemon en openen zelf nooit hardware. Ze mogen op elk moment stoppen zonder dat de verwerking stopt.
 
 `ravengund` draait op de voorgrond (bedoeld voor een terminal of later een systemd-userdienst). Eén instantie per gebruiker wordt afgedwongen met `flock` op `$XDG_RUNTIME_DIR/ravengun/ravengund.lock`. Het slot vervalt vanzelf als het proces stopt, ook na een crash. Een tweede instantie stopt met exitcode 69. SIGINT en SIGTERM worden in de hoofdthread met `sigwait` afgehandeld: de threads stoppen, de Move wordt gesloten nadat alle knoppen zijn vrijgegeven, en de socket wordt verwijderd.
 
@@ -35,11 +35,15 @@ De library `libravengun` bevat alle logica zonder hardware:
 - `vision/latest_queue.hpp`: de begrensde wachtrij die altijd het nieuwste frame levert.
 - `vision/frame_timing.*`: fps, frame-intervallen, gemiste frames en leeftijd.
 - `vision/ball_tracker.*`: de boltracker (eigen code, geen OpenCV).
+- `output/gun_transform.*`: de enige plek voor inversie, letterboxing, schaal en clamp naar de apparaatassen.
+- `output/gun_output.*`: arm/disarm, knoppentoestand en vrijgeven bij disarm/fout/afsluiten, los van uinput (nep-apparaat in tests).
+- `output/test_pattern.*`: synthetische patronen (center, corners, grid, sweep, point).
+- `output/uinput_gun.*`: het uinput-apparaat zelf.
 - `json_parse.*`, `ipc_protocol.*` en `ipc_client.*`: het beheerprotocol.
 
 De daemon voegt daar alleen de hardware-, thread- en socketcode aan toe. Tests voeren synthetische rapporten rechtstreeks aan de pijplijn.
 
-Nog niet gebouwd (latere fasen): het gebruik van de optische meting in de aim (hybride modus), cameramodel en kalibratie, persistente configuratie, de outputbackend (uinput), Bluetooth-onboarding in de daemon en de webinterface.
+Nog niet gebouwd (latere fasen): het gebruik van de optische meting in de aim (hybride modus), cameramodel en kalibratie, persistente configuratie, het koppelen van de live aim en Move-knoppen aan de uitvoer (de backend zelf staat er, zie "Uitvoer"), Bluetooth-onboarding in de daemon en de webinterface.
 
 ## Tijdbases
 
@@ -122,10 +126,77 @@ Een verzoek heeft de vorm `{"v":1,"cmd":"<commando>","id":<optioneel getal of st
 - `recenter`: legt het midden vast. Zonder actuele oriëntatie geeft het de fout `unavailable`.
 - `watch` (`rate_hz` 1..250, standaard 30): daarna stuurt de daemon `{"v":1,"event":"sample","data":{"sample":…,"edges_since_last_frame":{"pressed":{…},"released":{…}},"skipped_frames":n}}`, alleen als er een nieuw sample of een nieuwe optische meting is (ook zonder verbonden Move).
 - `set_filter` (`enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz`) en `set_aim` (`h_edge_deg`, `v_edge_deg`): deze gelden alleen voor de lopende run, want persistente configuratie volgt later.
+- Uitvoer (zie "Uitvoer"): `arm`, `disarm`, `output` (alleen status), `test_pattern` (`pattern` center|corners|grid|sweep|point|stop, optioneel `dwell_ms`, `duration_s`, `margin`, `x`, `y`, `rate_hz`), `output_button` (`button` trigger|reload|grenade|aux1|aux2, `action` down|up|tap) en `set_output` (`invert_x`, `invert_y`, `scale_x/y`, `offset_x/y`, `viewport_x0/y0/x1/y1` of `screen_aspect` plus `content_aspect`). `status` bevat daarnaast de sleutel `output`. Zonder `arm` weigeren `test_pattern` en `output_button` met `unavailable`.
 
 Een antwoord is `{"v":1,"ok":true,"id":…,"result":…}` of `{"v":1,"ok":false,"id":…,"error":{"code":…,"message":…}}`. De foutcodes zijn `parse_error`, `bad_request`, `unsupported_version`, `unknown_command`, `invalid_argument`, `line_too_long`, `unavailable` en `internal`.
 
-## Camera en boltracking (fase 2D)
+## Uitvoer (virtueel lightgun-apparaat, fase 2A/2H)
+
+Statuslabels: de backend, de transformatie en arm/disarm zijn geïmplementeerd en automatisch getest (`tests/test_output.cpp`, 188 controles, en `tests/ipc_smoke.sh`). Het apparaat is op echte Halo/TeknoParrot gebonden en gemeten (7 okt 2026, 1920x1080 op de tv). Wat niet getest is: de live Move als bron (de backend is nog niet aan de aim gekoppeld), spelen in Gaming Mode en een reboot.
+
+### Wat TeknoParrot als lightgun ziet (uit de broncode, branch net8-migration)
+
+Alle bestandsnamen zijn onder `TeknoParrotUi.Common/InputListening/` (tenzij anders gezegd). Op Linux leest de UI zelf evdev; er is geen RawInput.
+
+1. Opsomming: `Mouse/EvdevInterop.cs:199` (`EnumerateMice`) en `:206` (`EnumerateDevices`) lezen `/proc/bus/input/devices` en nemen elk apparaat waarvan de regel `H: Handlers=` het woord `mouse` bevat (`:223`). Er wordt dus niet naar capabilities gekeken, alleen naar de kernel-handler. Die `mouseN`-handler (kernel-mousedev) krijgt een apparaat met `BTN_LEFT` plus `ABS_X`/`ABS_Y` (absolute muis), of `BTN_LEFT` plus `REL_X`/`REL_Y`. Zonder `BTN_LEFT` (de oude vinput-variant met joystick-knoppen) krijgt het apparaat alleen een `jsN`-handler en is het voor TeknoParrot geen muis: dat is waarom "P1 Light Gun" de virtuele gun niet aanbood.
+2. Leesbaarheid: `Mouse/EvdevInterop.cs:137` (`CheckAccess`, een `open(O_RDONLY)`) en `Avalonia/Services/RawInputCaptureService.cs:335-345` (`GetMouseDeviceList` filtert op leesbaar). Een onleesbaar apparaat staat niet in de lijst. `InputListenersManager.cs:71-83` valt dan terug op X11 (één muis, geen lightgun). De udev-regel (uaccess) lost de leesbaarheid op; het `VINPUT_JOY`-trucje is niet meer nodig.
+3. Naam en pad in de binding: `Avalonia/Services/RawInputCaptureService.cs:355-361` (`GetMouseDevicePathByName`) geeft het `DevicePath` van het eerste apparaat met die naam. `EvdevInterop.cs:293` (`BuildStablePathMap`) kent alleen symlinks onder `/dev/input/by-id`; zonder zo'n link is het pad `/dev/input/eventN`. Een uinput-apparaat heeft `ID_SERIAL=noserial`, dus udev maakt zelf geen by-id-link. De RavenGun-udev-regel maakt `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`, en dat pad staat nu in `Halo.xml`/`Halo.json`.
+4. Doorgeven aan de game: de UI-listener (`Mouse/EvdevMouseListener.cs`) opent het apparaat (`:263` `DeviceLoop`), leest bij `EV_ABS` ABS_X/ABS_Y en normaliseert met de min/max uit `EVIOCGABS` (`EvdevInterop.cs:90-93`, gebruik in `EvdevMouseListener.cs:300-305`: `(waarde - min) / (max - min)`). Dat gaat naar `UpdateGunPosition` (`:319`) en `Mouse/GunAnalogMath.cs:52` (`ToGameUnits`: `min + factor * (max - min)`, afgerond; Halo: `xAxisMin/Max` en `yAxisMin/Max` 0..255, 8 bit) en `:70` (`Write`). Met `InvertedMouseAxis=true` (Halo-profiel) staan x en y ongewijzigd in de analoge bytes (`GunAnalogMath.cs:100-103`); zonder die vlag wordt `~x` en `~y` geschreven. De listener kent geen venster of letterbox: de factor 0..1 is de volledige apparaatrange. Een apparaat zonder `ABS_X`-bereik (`maximum <= minimum`) wordt als relatieve muis behandeld (`:274-275`; REL_X/REL_Y bewegen dan een positie op een canvas van 1920x1080).
+5. Knoppen: `EvdevMouseListener.cs:335-353` (`HandleButtonEvent`). `BTN_LEFT` en `BTN_TOUCH` zijn linkermuisknop, `BTN_RIGHT` rechts, `BTN_MIDDLE` midden, `BTN_SIDE` en `BTN_EXTRA` knop 4 en 5. Een binding in `Halo.xml` heeft `DevicePath` plus `MouseButton`; een ongebonden muis krijgt een standaardmapping links=Button1, rechts=Button2, midden=Button3.
+6. Spelerstoewijzing: `EvdevMouseListener.cs:249` (`PlayerForBoundDevice`) en `:126`: het apparaat waarvan `DevicePath` gelijk is aan het pad van de `P1 Light Gun`-binding wordt speler 1. Overige muizen vullen de resterende spelers (max. 4 in totaal) op volgorde.
+7. Het apparaat wordt bij de start van de game geopend en nooit opnieuw (`DeviceLoop` leest tot het einde van de sessie, zonder heropenen). Zie "Stabiliteit".
+
+### Apparaatidentiteit
+
+Naam `RavenGun Virtual Lightgun`, bus USB, VID 1209 (pid.codes-testbereik), PID 7202, versie 1. Het toetsenbord is 1209:7201. `EV_ABS` `ABS_X`/`ABS_Y` met bereik 0..32767 op beide assen (`kAbsMin`, `kAbsMax` in `output/gun_transform.hpp`); `EV_KEY` `BTN_LEFT` (trigger), `BTN_RIGHT` (reload), `BTN_MIDDLE` (grenade), `BTN_SIDE` en `BTN_EXTRA` (aux). Geen `EV_REL`, en bewust geen `INPUT_PROP_DIRECT` (dat markeert een touchscreen) en geen `BTN_TOUCH` (dan gedraagt het apparaat zich als tablet). Udev (`packaging/udev/70-ravengun.rules`) geeft de seat-gebruiker leesrecht (uaccess), maakt `/dev/input/ravengun-gun` en `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`, en zet `LIBINPUT_IGNORE_DEVICE=1` op de gun. De keuze berust op: de udev-regel selecteert op VID/PID, de TeknoParrot-binding op het by-id-pad, en nergens op `eventN`.
+
+### Arm/disarm en veiligheid
+
+De daemon start disarmed: er gaan geen events naar het apparaat en `test_pattern`/`output_button` weigeren. `arm` maakt het apparaat aan (bij de eerste keer) en schakelt events in. `disarm` geeft eerst alle knoppen vrij (up-events) en schakelt dan events uit; het apparaat blijft bestaan zodat een binding en een lopende game niet breken. Alle knoppen worden ook vrijgegeven bij een schrijffout (het apparaat wordt dan verwijderd en de uitvoer disarmed; een nieuwe `arm` maakt het opnieuw aan), bij `release_all` (bronuitval, later de Move) en bij afsluiten (SIGTERM/SIGINT: eerst up-events, dan het apparaat verwijderen). Na een crash (SIGKILL) verwijdert de kernel het apparaat en geeft daarbij de knoppen vrij (getest). De daemon opent zijn eigen apparaat nooit voor lezen; er is in de code geen leesfunctie voor het uitvoerapparaat, dus geen feedbackloop. Het apparaat bestaat pas na de eerste `arm` en blijft tot het afsluiten van de daemon.
+
+### Coördinaatruimtes en transformatie
+
+Aim-ruimte: genormaliseerd fysiek scherm, (0,0) linksboven, y omlaag, ongeclampt en ongespiegeld (zo komt de aim uit de pijplijn). `output/gun_transform.cpp` doet daarna, in deze volgorde en precies één keer: viewport-normalisatie (letterbox/pillarbox, `letterbox_viewport(scherm_aspect, content_aspect)`; standaard het hele scherm), inversie per as, schaal rond het midden met offset (kalibratiecorrectie, standaard 1 en 0), clamp naar [0,1] en afronden op `abs_max`. Niet-eindige invoer geeft geen event. Verder in de keten gebeurt niets meer: uinput en TeknoParrot schalen alleen lineair naar de game-bytes (zie hierboven). De `GunTransform` staat in de daemon (`--out-*` opties) en is live te wijzigen met `set_output` (alleen voor de lopende run).
+
+### Meting in Halo (G1-omgeving, 1920x1080, backend zonder correctie)
+
+Gemeten met `ravengunctl test-pattern point X Y` (aim = het gegeven punt), een screenshot, en een eigen meetscript dat de groene ring met kruis van het spelvizier zoekt (volledige ring: midden van de bounding box; bij een deels buiten beeld staand vizier een cirkelfit met vaste straal 55 px). Halo toont het vizier op de volledige 16:9-tv zonder letterbox, met `byte = round(255·u)` en `pixel = byte·1920/255` (x) of `byte·1080/255` (y). Dat verklaart alle metingen: een lineaire afbeelding zonder inversie, offset of schaalfout, met een raster van 7,5 px (0,39 % van de breedte) door de 8-bits as van het spel. De spelkalibratie (scherm "Pull trigger when ready to calibrate") is overgeslagen met Test; een uitgevoerde spelkalibratie zou dit veranderen.
+
+Fout (gemeten min verwacht, px; x/y; % van de breedte 1920 / hoogte 1080):
+
+| aim | verwacht | gemeten | fout px | fout % |
+|---|---|---|---|---|
+| (0,5; 0,5) | 960; 540 | 963,5; 542,0 | +3,5; +2,0 | 0,18 / 0,19 |
+| (0,1; 0,1) | 192; 108 | 195,5; 110,0 | +3,5; +2,0 | 0,18 / 0,19 |
+| (0,5; 0,1) | 960; 108 | 963,5; 110,0 | +3,5; +2,0 | 0,18 / 0,19 |
+| (0,9; 0,1) | 1728; 108 | 1723,5; 110,0 | -4,5; +2,0 | 0,23 / 0,19 |
+| (0,1; 0,5) | 192; 540 | 195,5; 542,0 | +3,5; +2,0 | 0,18 / 0,19 |
+| (0,9; 0,5) | 1728; 540 | 1723,5; 542,0 | -4,5; +2,0 | 0,23 / 0,19 |
+| (0,1; 0,9) | 192; 972 | 195,0; 969,5 | +3,0; -2,5 | 0,16 / 0,23 |
+| (0,5; 0,9) | 960; 972 | 963,0; 969,0 | +3,0; -3,0 | 0,16 / 0,28 |
+| (0,9; 0,9) | 1728; 972 | 1723,5; 969,5 | -4,5; -2,5 | 0,23 / 0,23 |
+| hoek (0;0) | 0; 0 | 1,2; 1,9 | +1,2; +1,9 | 0,06 / 0,18 |
+| hoek (1;0) | 1920; 0 | 1917,6; 1,9 | -2,4; +1,9 | 0,13 / 0,18 |
+| hoek (1;1) | 1920; 1080 | 1917,6; 1077,2 | -2,4; -2,8 | 0,13 / 0,26 |
+| hoek (0;1) | 0; 1080 | 1,2; 1077,3 | +1,2; -2,7 | 0,06 / 0,25 |
+
+De hoeken zijn schattingen met een cirkelfit (ongeveer 2 px onzekerheid). De uitkomst is hetzelfde in drie reeksen (twee sessies, waarvan een met een ander eventN). Grootste fout 4,5 px = 0,23 % van de breedte, ruim binnen de eis van 1 %, en gelijk aan de kwantisatie van het spel. Er was dus geen correctie nodig: de standaardtransformatie (geen inversie, viewport = scherm, schaal 1, offset 0) is de juiste. De correctie-instrumenten (`invert_*`, `scale_*`, `offset_*`, viewport) bestaan voor een ander spel, een andere tv-verhouding of een uitgevoerde spelkalibratie.
+
+Sweep (20 s, 100 stappen/s: horizontaal, verticaal, cirkel): het vizier volgt het pad in alle legs zonder sprongen of stilstand. Met de bestandstijd van het screenshot als klok en de beste vaste meetvertraging (260 ms, een eigenschap van de screenshottool) is de afwijking rms 10,7 px (0,56 %) en max. 35 px (1,8 %, tijdruis van ±50 ms bij 400 px/s). Een filmopname (spectacle -R) was niet beschikbaar zonder interactieve portal-toestemming; de beeldsnelheid van het vizier is dus niet frame voor frame gemeten (schermfoto's ongeveer eens per 0,9 s).
+
+Trigger: `output_button trigger tap` op de kaart "Mission Select" van het modemenu selecteert die kaart. De knoppen zijn gebonden als Trigger P1 = `LeftButton`, Reload P1 = `RightButton` en Grenade P1 = `MiddleButton` op het by-id-pad van de gun (de toetsenbord-bindingen zijn naar het by-id-pad van het virtuele toetsenbord verplaatst).
+
+### Desktopcursor
+
+KWin (libinput) beschouwt een absolute muis met `BTN_LEFT` en `ABS_X`/`ABS_Y` als pointer en beweegt de desktopcursor. Controle-experiment: een identiek apparaat met een ander PID (7299, buiten de udev-regel) staat als `/org/kde/KWin/InputDevice/event258` in KWin en verplaatste de cursor van (1794,900) naar o.a. (703,396); de RavenGun-gun ontbreekt in die lijst en de cursor bleef 120 metingen (7 s sweep plus trigger) op (1794,900). Dat komt door `LIBINPUT_IGNORE_DEVICE=1` in de udev-regel. TeknoParrot leest `/dev/input/eventN` rechtstreeks en merkt dat niet. Het geldt ook als de game niet draait, omdat KWin het apparaat nooit opent. Meetmethode: een tijdelijk KWin-QML-script (`Workspace.cursorPos`, loggen elke 100 ms), daarna weer uitgeladen. Het virtuele toetsenbord (7201) heeft deze regel niet: toetsen als `5`, `1` en F2 gaan ook naar het venster dat focus heeft. Voorstel: ook daar `LIBINPUT_IGNORE_DEVICE=1`, maar dat is niet toegepast omdat de lopende kbd-sessie van de orchestrator er dan pas na herstarten door verandert.
+
+### Stabiliteit
+
+De binding in TeknoParrot gebruikt het by-id-pad, niet `eventN`. Getest: de gun kreeg na een daemon-herstart een ander nummer (event30 eerst, daarna event258 doordat een ander apparaat event30 bezette) en Halo volgde de gun zonder herbinden; de metingen zijn identiek. De daemon is meerdere keren herstart (SIGTERM en SIGKILL) en Halo is drie keer opnieuw gestart.
+
+Beperking (uit de broncode en bevestigd): TeknoParrot opent het apparaat bij de start van de game en heropent het niet. Herstart je de daemon terwijl Halo draait, dan wijst de open handle van de UI naar het verwijderde apparaat (`/proc/<pid>/fd`: `event258 (deleted)`) en volgt de game het nieuwe apparaat niet. Volgorde dus: eerst de daemon met `arm`, dan pas de game (virtueel toetsenbord en gun moeten vóór `LAUNCH GAME` bestaan); en de daemon blijft actief zolang de game draait.
+
+Structurele oplossing (niet gebouwd, vraagt een beslissing): het apparaat moet een daemon-herstart overleven. Systemd-user kan de `/dev/uinput`-filedescriptor bewaren (`FileDescriptorStoreMax=`, `sd_pid_notify_with_fds`) en bij het herstarten teruggeven, waarmee het uinput-apparaat blijft bestaan zolang de service-eenheid bestaat. Alternatief: een minimaal apart "apparaathouder"-proces dat het uinput-apparaat bezit en de events via een socket van de daemon krijgt. Beide horen bij fase 3 (startvolgorde en service). Zonder dat: elk apparaat zo vroeg en in vaste volgorde aanmaken (toetsenbord, dan gun) vóór de game start.
 
 Statuslabels in deze sectie: geïmplementeerd, automatisch getest (CTest, synthetische frames) en op echte hardware getest (PS3 Eye en Move ZCM1 op deze host, 7 okt 2026). Wat bij de hardwaretest niet gevarieerd is (speelafstand, beweging, hand), staat als "nog te bevestigen".
 

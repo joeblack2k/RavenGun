@@ -71,7 +71,7 @@ public:
     void set_transform(const GunTransform& t) { t_ = t; have_last_ = false; }
 
     bool button_down(GunButton b) const { return down_[static_cast<size_t>(b)]; }
-    bool have_position() const { return have_last_ || last_valid_; }
+    bool have_position() const { return last_valid_; }  // er is ooit een geldige positie gezet
     double last_nx() const { return last_nx_; }
     double last_ny() const { return last_ny_; }
     int last_abs_x() const { return last_x_; }

@@ -105,3 +105,22 @@ Voorstel in drie stappen, elk afzonderlijk aan of uit te zetten en elk met een z
 Een betere absolute yaw-referentie dan stap 3 is de magnetometer van de ZCM1 (na kalibratie en een controle op lokale verstoring), of een tweede optisch kenmerk. Een enkele bol maakt de yaw principieel niet waarneembaar.
 
 Benodigde kalibratie (nog niet gebouwd): intrinsieken en vervorming van de camera (dambordpatroon in de container met OpenCV, of een eigen fit) per cameramodus, de fysieke boldiameter, de pose van het scherm ten opzichte van de camera, en de offset van controller naar richtas. Opslag volgens sectie 11: met camera-identiteit (by-id of by-path), modus en exposure-instellingen. Bij een andere modus volstaat het om de intrinsieken te schalen. Een verplaatste camera vraagt een nieuwe extrinsieke kalibratie.
+
+## 2026-10-07 — Outputbackend: virtuele uinput-lightgun voor TeknoParrot
+
+Uitgewerkt in `docs/architecture.md` (sectie "Uitvoer"), met de TeknoParrot-bronverwijzingen en de meettabel.
+
+Gekozen:
+- Een absolute muis via uinput: `ABS_X`/`ABS_Y` 0..32767, `BTN_LEFT/RIGHT/MIDDLE/SIDE/EXTRA`, geen `INPUT_PROP_DIRECT`, geen `BTN_TOUCH`. Reden: TeknoParrot (Linux) leest evdev zelf en toont alleen apparaten met een `mouseN`-handler in `/proc/bus/input/devices` (kernel-mousedev). Dat vraagt `BTN_LEFT` bij een absolute as. Dit is het enige apparaattype dat in de lijst "P1 Light Gun" verschijnt, en het is getest: de gun is aangeboden, gebonden en Halo volgt hem.
+- Identiteit 1209:7202, naam "RavenGun Virtual Lightgun", plus twee udev-symlinks (`/dev/input/ravengun-gun` en `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`). Het by-id-pad is het pad dat TeknoParrot als stabiele binding opslaat (`BuildStablePathMap` kent alleen `/dev/input/by-id`). Zonder die link zou de binding op `/dev/input/eventN` staan, en dat nummer veranderde in de proef (event30 naar event258).
+- `LIBINPUT_IGNORE_DEVICE=1` op de gun in de udev-regel: KWin ziet het apparaat dan niet (gemeten: het staat niet in `/org/kde/KWin/InputDevice`, de desktopcursor beweegt niet; een identiek controle-apparaat met een ander PID deed dat wel).
+- Standaard disarmed; het apparaat bestaat pas na de eerste `arm` en blijft daarna tot het afsluiten (zodat een binding en een lopende game stabiel zijn); `disarm`, schrijffouten en afsluiten geven knoppen vrij. De daemon leest zijn eigen apparaat nooit.
+- Alle geometrie (viewport/letterbox, inversie, schaal, offset, clamp) staat op één plek (`output/gun_transform.cpp`) en is live instelbaar. Meting: voor Halo (16:9, 1920x1080, `InvertedMouseAxis=true`) is de standaard (niets doen) juist; de fout is maximaal 4,5 px (0,23 %), het 8-bits raster van het spel.
+- Trigger, reload en grenade gaan via de muisknoppen van de gun (TeknoParrot biedt die aan); start, coin en test blijven op het virtuele toetsenbord.
+
+Afgewezen:
+- De `VINPUT_JOY`-route (joystick-capabilities zodat udev het apparaat leesbaar maakt): onnodig door de udev-regel, en zonder `BTN_LEFT` toont TeknoParrot het apparaat niet als muis.
+- Auto-arm bij het starten van de daemon: botst met "standaard geen globale injectie".
+- De gun automatisch aan de live Move koppelen in deze stap: de opdracht was de uitvoerkant en de testpatronen. De koppeling (aim, trigger, knoppen en `release_all` bij bronuitval) is een kleine volgende stap.
+
+Open (beslissing nodig, zie architectuur "Stabiliteit"): TeknoParrot heropent het apparaat niet, dus de daemon moet blijven draaien zolang de game draait. Voorstel: de uinput-fd door systemd-user laten bewaren (fd store) of een apart apparaathouder-proces. Ook open: `LIBINPUT_IGNORE_DEVICE` voor het virtuele toetsenbord (7201), zodat toetsen niet naar het gefocuste venster gaan.
