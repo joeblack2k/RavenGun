@@ -106,6 +106,14 @@ Stand na de parallelle subagents (gemerged in main, orchestrator: schone build, 
 - Fusieontwerp: `docs/aim-fusion-design.md`. De gyro bepaalt het gevoel, de camera alleen de positie, en de magnetometer is het beslispunt tegen yaw-drift. Fasering 0–7. Fase 0/1/3 (bouw) loopt in een Opus-subagent.
 - Navigation Controller: master-adres via USB naar deze host gezet (feature 0xF5, BlueZ-sixaxis-formaat). Bij BlueZ geregistreerd met `scripts/bt-register-hid.sh` (rollback mogelijk). Bluetooth-verbinding nog niet getest.
 
+Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
+- Fullscreen kalibratie-app op de tv (`ravengunctl calibrate-ui`, pagina `/calibrate`): magnetometer met live dekkingsbol, stil richten met labels, knoppenmapping en een 9-doelenraster. De gebruiker heeft alles met de Sharp Shooter doorlopen en vond het "erg goed".
+- Magnetometerkalibratie: marginaal (RMS ≈ ruisvloer van de sensor, 2,2–2,8 %). Stopcriteria gerepareerd: eerst stopte hij na 3 s, nu minimaal 40 s plus een spreidingseis.
+- Herhaalbaarheid (`stil-herhaalbaarheid`, 5× midden, TRIAD-heading): sd 0,46°, bereik 1,07°, inclusief de handfout. Links +18,9° en rechts −13,9°. Beslispunt fase 3 POSITIEF: de magnetometer is bruikbaar als yaw-referentie.
+- Knoppenmapping (`config.json` `sharp_shooter.buttons`) bevat dubbelingen (cirkel/kruis → cross, driehoek/vierkant → square, pomp/trekker → T, start/select omgewisseld). Navragen bij de gebruiker.
+- Open: de asconventie tussen gyro en magnetometer (tools/mag_vs_gyro.py gaf inconsistente resultaten). De Navigation Controller wacht op opladen (batterij leeg).
+- Lopend: subagent "Oefenen-stap" (cursor plus doelen in de kalibratie-app) en subagent "fase 4" (oriëntatie met magnetometer-yaw, asverificatie, en de koppeling van de aim aan de uinput-gun).
+
 ## Laatste werkende commando
 
     TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch,
