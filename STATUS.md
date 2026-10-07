@@ -31,6 +31,15 @@ TeknoParrot
 - De UI-build bevat geen ElfLdr2. De UI-strings tonen dat ElfLdr2 (BudgieLoader.exe) op Linux via Wine/Proton draait en dat abonnementsactivatie via BudgieLoader in de Wine-prefix gebeurt. Een native Linux-route voor ElfLdr2-games is in deze build niet gevonden.
 - Startpoging 1: de UI start en is zichtbaar op de tv (screenshot). Ze wacht op de privacymelding (Accept/Quit) en toont status "Free" (geen abonnement).
 
+Gekozen route (beslissing gebruiker, 2026-10-07): Halo native starten met de meegeleverde halo.so-shim, buiten TeknoParrot om. Zie docs/decisions.md.
+
+Na de keuze voor de halo.so-route
+- De game is lokaal gestaged in `~/.local/share/ravengun/runtime/halo-g7/{halo,dump}` (9,9 GB). Een rsync-vergelijking op grootte en tijd toont 0 verschillen met de NAS.
+- `scripts/run-halo.sh`: een bubblewrap-sandbox met `/pm/g7/halo` als overlay (schrijfacties gaan naar `~/.local/share/ravengun/halo-overlay`), `/pm/g7/dump` read-only, geen netwerk (unshare-net), alleen het X11-socket en Xauthority van de sessie, en pulse/pipewire. De sessievariabelen worden uit de kwin_wayland-opdrachtregel gelezen.
+- Startpoging 2 (zonder FMOD): faalt in de dynamic loader met `libfmod.so.10: cannot open shared object file`, exitcode 127.
+- `tools/fmod-stub`: een diagnostische stub (geen FMOD-code; elke functie geeft een foutcode). Met deze stub zijn alle libraries en symbolen opgelost (loader-trace, exit 0, geen undefined symbols). De game zelf is er nog niet mee gestart.
+- Startpoging 3 (met de stub op de tv) is niet uitgevoerd: de auto-mode-beveiliging van Claude Code heeft het starten van de game met halo.so geweigerd. Daarvoor is een beslissing van de gebruiker nodig.
+
 ## Laatste werkende commando
 
     systemd-run --user --unit=ravengun-tpui --collect --same-dir \
@@ -42,6 +51,8 @@ TeknoParrot
 
 ## Actuele afhankelijkheden
 
+(De punten hieronder gelden voor de TeknoParrot-route, die niet gekozen is; ze blijven staan als referentie.)
+
 1. Privacymelding van TeknoParrotUI: toestemming voor het verzamelen van gebruiksgegevens. Dit is jouw keuze.
 2. Halo is een Patreon-titel: een TeknoParrot-abonnementssleutel is nodig. Die voer je zelf in de UI in; niet in chat, code of logs.
 3. ElfLdr2 en een Proton/Wine-runtime moeten via de officiële updater van de UI binnenkomen, in de lokale kopie.
@@ -49,4 +60,9 @@ TeknoParrot
 
 ## Volgende uitvoerbare stap
 
-Na jouw beslissing over 1 en 2: in de UI ElfLdr2 en Proton laten installeren, Halo toevoegen met gamepad naar de gestagede gamemap, cabinet "STANDARD TETHERED" bij 1920x1080, en starten op de tv.
+1. De gebruiker start zelf vanuit een terminal in Desktop Mode (of met `! ` in Claude Code):
+
+       RAVENGUN_HALO_LIBDIR=~/.local/share/ravengun/runtime/lib-fmodstub ~/projects/ravengun/scripts/run-halo.sh --debug
+
+   Bekijk het resultaat op de tv. Log: `~/.local/state/ravengun/logs/halo-*.log`.
+2. Voor geluid: FMOD Studio API 1.10.x voor Linux (bij voorkeur 1.10.20) van fmod.com (gratis account vereist). `libfmod.so.10` en `libfmodstudio.so.10` (x86_64) komen in `~/.local/share/ravengun/runtime/lib`.
