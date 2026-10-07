@@ -13,7 +13,7 @@ Geïmplementeerd en automatisch getest (`tests/ipc_smoke.sh`). Op echte hardware
 ## Threads
 
 1. De hoofdthread doet de opstart, het slot en de signalen.
-2. De HID-thread (`src/ravengund/hid_thread.cpp`) is de enige code die PSMoveAPI aanroept. Ze bezit de Move-handle en de verwerkingspijplijn. Ze leest elk beschikbaar rapport (`psmove_poll` tot er niets meer is, max. 64 per ronde) en verwerkt elk rapport afzonderlijk. Als er niets nieuws is, slaapt ze 1 ms. PSMoveAPI geeft geen file descriptor om op te wachten. Daardoor komt er 0 tot ongeveer 1 ms wachttijd bovenop de Bluetooth-latentie.
+2. De HID-thread (`src/ravengund/hid_thread.cpp`) is de enige code die PSMoveAPI aanroept. Ze bezit de Move-handle en de verwerkingspijplijn. Ze leest elk beschikbaar rapport (`psmove_poll` tot er niets meer is, max. 64 per ronde) en verwerkt elk rapport afzonderlijk. Daarnaast opent ze de hidraw-node van dezelfde ZCM1 een tweede keer, alleen-lezend (de "hidraw-tap", `src/ravengund/hidraw_tap.*`). Die levert per rapport de interne tijdstempel, de temperatuur en de ruwe sensorwaarden, en een descriptor om op te wachten: als er niets nieuws is, wacht de thread met `poll()` (maximaal 2 ms) en wordt hij direct wakker bij een nieuw rapport. Zonder tap slaapt ze, zoals eerder, 1 ms. De fase 0/1/3-uitbreidingen (tap, recorder, magnetometer) staan in `src/ravengund/hid_aux.*`.
 3. De IPC-thread (`src/ravengund/ipc_server.cpp`) draait een `poll()`-lus over de luistersocket en alle clients, met niet-blokkerende sockets. Opdrachten die de pijplijn veranderen (recenter, filter, aim-schaal) of die statistiek nodig hebben (status) gaan via een wachtrij naar de HID-thread, met een time-out van 500 ms. Zo heeft de pijplijn één eigenaar en zijn er geen locks in de rekenroute. Live samples leest de IPC-thread uit een momentopname die de HID-thread na elk sample onder een korte mutex publiceert.
 
 4. De capture-thread (`src/ravengund/camera.cpp`) is de enige code die de camera opent (zie "Camera en boltracking").
@@ -31,6 +31,9 @@ De library `libravengun` bevat alle logica zonder hardware:
 - `core/one_euro.hpp`: het 1€-filter.
 - `core/buttons.*`: knopstatus en -flanken.
 - `core/pipeline.*`: koppelt dit alles. Rapport in, `InputSample` uit, plus staleness en statistiek.
+- `core/move_report.*` en `core/move_clock.*`: parsing van het ruwe ZCM1-rapport, het ontrollen van de Move-stempel en de klokkoppeling.
+- `core/magnetometer.*`: ellipsoïdefit, dekking, opslag van de kalibratie en de verstoringsdetector.
+- `rec/recording.*` en `rec/replay.*`: het opnameformaat en het deterministisch afspelen door de pijplijn.
 - `core/input_model.*`: het inputmodel en de JSON-vorm daarvan.
 - `vision/latest_queue.hpp`: de begrensde wachtrij die altijd het nieuwste frame levert.
 - `vision/frame_timing.*`: fps, frame-intervallen, gemiste frames en leeftijd.
@@ -45,7 +48,8 @@ Nog niet gebouwd (latere fasen): het gebruik van de optische meting in de aim (h
 
 Alle tijden komen uit `CLOCK_MONOTONIC` (nanoseconden), dezelfde klok als de V4L2-timestamps van de PS3 Eye (die zijn ook monotonic). Ze zijn dus later direct vergelijkbaar.
 
-- `t_rx_ns` is de ontvangsttijd. Dit is het moment direct nadat `psmove_poll()` in de HID-thread een nieuw rapport opleverde. Het is GEEN sensor- of belichtingstijd. Het bevat de Bluetooth-overdracht, de kernel/hidraw-buffer en tot ongeveer 1 ms van onze poll-lus. Het rapport bevat ook een eigen tijdteller van de Move, maar PSMoveAPI (commit 256b629) maakt die niet beschikbaar via de publieke API. Daarom wordt die niet gebruikt (nog te onderzoeken).
+- `t_rx_ns` is de ontvangsttijd. Dit is het moment direct nadat `psmove_poll()` in de HID-thread een nieuw rapport opleverde. Het is GEEN sensor- of belichtingstijd. Het bevat de Bluetooth-overdracht, de kernel/hidraw-buffer en tot ongeveer 1 ms van onze poll-lus. Het rapport bevat ook een eigen tijdteller van de Move (16 bit, 10 µs per tick, gemeten). PSMoveAPI maakt die niet publiek; de daemon leest hem via de hidraw-tap.
+- `stamp` (in `RawReport`, niet in het sample) is die interne tijdstempel. De pijplijn ontrolt hem en koppelt hem aan de hostklok (`MoveClock`, ondergrensmethode). Standaard is de integratie-dt van de fusie het stempelverschil (`--dt-source move`); zonder stempel bij dit of het vorige rapport is het de ontvangst-dt. De status toont onder `timebase` de koppeling (skew, restvertraging) en de temperatuur.
 - `t_eval_ns` is het moment waarop de toestand is geëvalueerd. Bij een rapport is dat gelijk aan `t_rx_ns`. Bij een toestandswissel zonder rapport (stale, lost, disconnect) is het het moment van die evaluatie.
 - `report_dt_ms` is `t_rx` min `t_rx` van het vorige rapport. Dit is de delta-t die de fusie en het filter gebruiken. Per rapport zijn er twee IMU-subsamples (ZCM1). Elk krijgt de helft van die dt, de oudste (`Frame_FirstHalf`) eerst. De som van de dt's is gelijk aan de verstreken tijd, dus bij Bluetooth-bursts (korte en lange intervallen door elkaar) gaat netto geen rotatie verloren. Een kleinere `t_rx` dan de vorige wordt geteld (`non_monotonic`) en krijgt dt 0.
 - In de status staat `processing_us`: de tijd van `t_rx` tot het publiceren van het sample (fusie, aim, filter en publicatie). Dat is geen end-to-end-latentie.
@@ -122,6 +126,9 @@ Een verzoek heeft de vorm `{"v":1,"cmd":"<commando>","id":<optioneel getal of st
 - `recenter`: legt het midden vast. Zonder actuele oriëntatie geeft het de fout `unavailable`.
 - `watch` (`rate_hz` 1..250, standaard 30): daarna stuurt de daemon `{"v":1,"event":"sample","data":{"sample":…,"edges_since_last_frame":{"pressed":{…},"released":{…}},"skipped_frames":n}}`, alleen als er een nieuw sample of een nieuwe optische meting is (ook zonder verbonden Move).
 - `set_filter` (`enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz`) en `set_aim` (`h_edge_deg`, `v_edge_deg`): deze gelden alleen voor de lopende run, want persistente configuratie volgt later.
+- `record` (`action` start, stop, status of mark; `tag`, `label`, `max_mb`, `duration_s`): opnamen (fase 0), zie `docs/procedures.md`.
+- `set_led` (`rgb` [r,g,b]): de LED-kleur voor de lopende run (de trackertint verandert niet mee).
+- `calib_mag` (`action` start, stop, abort of status; `holder`): de magnetometerkalibratie (fase 3). `stop` fit en slaat alleen bij voldoende kwaliteit op.
 
 Een antwoord is `{"v":1,"ok":true,"id":…,"result":…}` of `{"v":1,"ok":false,"id":…,"error":{"code":…,"message":…}}`. De foutcodes zijn `parse_error`, `bad_request`, `unsupported_version`, `unknown_command`, `invalid_argument`, `line_too_long`, `unavailable` en `internal`.
 
