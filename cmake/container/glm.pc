@@ -1,0 +1,4 @@
+Name: glm
+Description: GLM headers (header-only), pc shim voor RavenGun-build
+Version: 1.0.0
+Cflags: -I/usr/include

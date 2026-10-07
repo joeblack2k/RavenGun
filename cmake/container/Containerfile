@@ -1,0 +1,7 @@
+# Build-omgeving voor RavenGun (niet-geprivilegeerd, rootless podman).
+# Zie docs/build.md.
+FROM docker.io/library/archlinux:latest
+RUN pacman -Syu --noconfirm --needed base-devel cmake ninja pkgconf git \
+      hidapi libusb libusb-compat glm dbus bluez-libs systemd-libs opencv \
+      v4l-utils linux-api-headers \
+    && pacman -Scc --noconfirm
