@@ -1,5 +1,5 @@
 #pragma once
-// Minimale JSON-schrijver (alleen uitvoer, geen parser).
+// Minimale JSON-schrijver. De parser staat in ravengun/json_parse.hpp.
 #include <string>
 #include <string_view>
 
@@ -23,6 +23,14 @@ public:
     Writer& value(bool v);
     Writer& value(long long v);
     Writer& value(int v) { return value(static_cast<long long>(v)); }
+    Writer& value(unsigned long long v);
+    Writer& value(long v) { return value(static_cast<long long>(v)); }
+    Writer& value(unsigned long v) { return value(static_cast<unsigned long long>(v)); }
+    Writer& value(unsigned v) { return value(static_cast<unsigned long long>(v)); }
+    // Niet-eindige getallen worden null (JSON kent geen NaN/Inf).
+    Writer& value(double v);
+    // Voegt een al geldige JSON-tekst ongewijzigd in (bijv. een eerder geschreven object).
+    Writer& raw(std::string_view json_text);
     Writer& null();
     const std::string& str() const { return out_; }
 

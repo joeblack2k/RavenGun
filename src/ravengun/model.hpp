@@ -84,5 +84,8 @@ constexpr int kExitWarn = 1;
 constexpr int kExitFail = 2;
 constexpr int kExitUsage = 64;
 constexpr int kExitInternal = 70;
+constexpr int kExitDaemonUnavailable = 69;  // ravengund niet bereikbaar
+constexpr int kExitTempFail = 75;           // daemon weigert tijdelijk (bijv. recenter zonder Move)
+constexpr int kExitProtocol = 76;           // onverwacht antwoord van de daemon
 
 }  // namespace ravengun

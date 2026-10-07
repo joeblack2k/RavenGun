@@ -14,6 +14,14 @@ option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 
 add_library(ravengun STATIC
   src/ravengun/json.cpp
+  src/ravengun/json_parse.cpp
+  src/ravengun/ipc_protocol.cpp
+  src/ravengun/ipc_client.cpp
+  src/ravengun/core/aim.cpp
+  src/ravengun/core/buttons.cpp
+  src/ravengun/core/fusion.cpp
+  src/ravengun/core/input_model.cpp
+  src/ravengun/core/pipeline.cpp
   src/ravengun/parse.cpp
   src/ravengun/probe.cpp
   src/ravengun/doctor.cpp
@@ -32,4 +40,7 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_tests tests/test_main.cpp)
   target_link_libraries(ravengun_tests PRIVATE ravengun)
   add_test(NAME ravengun_tests COMMAND ravengun_tests)
+  add_executable(ravengun_core_tests tests/test_core.cpp)
+  target_link_libraries(ravengun_core_tests PRIVATE ravengun)
+  add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
 endif()

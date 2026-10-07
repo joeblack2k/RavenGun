@@ -1,5 +1,6 @@
 #include "ravengun/json.hpp"
 
+#include <cmath>
 #include <cstdio>
 
 namespace ravengun::json {
@@ -44,6 +45,15 @@ Writer& Writer::key(std::string_view k) { sep(); out_ += quote(k); out_ += ':'; 
 Writer& Writer::value(std::string_view v) { sep(); out_ += quote(v); need_comma_ = true; return *this; }
 Writer& Writer::value(bool v) { sep(); out_ += v ? "true" : "false"; need_comma_ = true; return *this; }
 Writer& Writer::value(long long v) { sep(); out_ += std::to_string(v); need_comma_ = true; return *this; }
+Writer& Writer::value(unsigned long long v) { sep(); out_ += std::to_string(v); need_comma_ = true; return *this; }
+Writer& Writer::value(double v) {
+    sep();
+    if (!std::isfinite(v)) { out_ += "null"; }
+    else { char buf[32]; std::snprintf(buf, sizeof buf, "%.9g", v); out_ += buf; }
+    need_comma_ = true;
+    return *this;
+}
+Writer& Writer::raw(std::string_view t) { sep(); out_ += t; need_comma_ = true; return *this; }
 Writer& Writer::null() { sep(); out_ += "null"; need_comma_ = true; return *this; }
 
 }  // namespace ravengun::json
