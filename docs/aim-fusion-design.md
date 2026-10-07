@@ -1,6 +1,6 @@
 # Ontwerp: sensorfusie en richtgeometrie (Move ZCM1 in Sharp Shooter + PS3 Eye)
 
-Status: ontwerp, nog niet gebouwd (7 okt 2026). Dit document beschrijft hoe RavenGun van de Move-IMU, de magnetometer en de optisch gevolgde bol een snelle en nauwkeurige cursor maakt. Het bouwt voort op `docs/architecture.md` (wat er nu draait), `docs/hardware.md` (metingen) en het voorstel "optische positie in een hybride modus" in `docs/decisions.md`. Het volgt sectie 10, 11 en 13 van de opdracht: geen homography als algemene oplossing, een expliciete aim-ray (p, d, s, n), geen 6DoF-claims, geen stille recentering.
+Status: ontwerp; fase 0, 1 en het bouwdeel van fase 3 zijn gebouwd (7 okt 2026, metingen onderaan). Dit document beschrijft hoe RavenGun van de Move-IMU, de magnetometer en de optisch gevolgde bol een snelle en nauwkeurige cursor maakt. Het bouwt voort op `docs/architecture.md` (wat er nu draait), `docs/hardware.md` (metingen) en het voorstel "optische positie in een hybride modus" in `docs/decisions.md`. Het volgt sectie 10, 11 en 13 van de opdracht: geen homography als algemene oplossing, een expliciete aim-ray (p, d, s, n), geen 6DoF-claims, geen stille recentering.
 
 Labels: "gemeten" betekent op deze host gemeten (bron erbij). "Uit de broncode" betekent gecontroleerd in de genoemde bron. "Schatting" is een berekening of aanname die nog gemeten moet worden.
 
@@ -541,6 +541,36 @@ Fundamenteel:
   1. een tweede optisch kenmerk op de Sharp Shooter (bijvoorbeeld een tweede lichtbron op bekende afstand langs de loop). Twee punten maken yaw en pitch optisch waarneembaar;
   2. een GUN4IR-achtige IR-camera in de Sharp Shooter met IR-leds bij de tv. Dat geeft een absolute, driftvrije schermpositie, maar is dan geen Move-tracking meer.
 - Er wordt geen driftvrije 6DoF-tracking geclaimd.
+
+## Metingen fase 0/1/3 (7 okt 2026)
+
+Gemeten op deze host met de ZCM1 via Bluetooth en de daemon van fase 0/1/3 (`ravengun-analyze`). De Move lag in de Sharp Shooter op tafel. Opnamen in `~/.local/state/ravengun/recordings/`:
+
+- `20261007-172400-stil5min` (300 s). De gebruiker heeft het geweer daarin tussen ongeveer 50 en 190 s opgepakt en teruggelegd (gyro tot 340°/s), en bij ongeveer 10 s kort aangeraakt. Voor stilstandsanalyses geldt daarom alleen de uitsnede `20261007-172400-stil5min-deel192-300` (108 s; rapporten en optische metingen van 192 tot 300 s, de rest ongewijzigd). De volledige opname blijft bruikbaar als kort bewegingsspoor.
+- `20261007-172901-ledmag` (240 s, volledig stil: |ω| ≤ 6,5°/s, dat is ruis plus bias). LED steeds 20 s per kleur: cyaan, uit, rood, uit, groen, uit, blauw, uit, cyaan, wit, uit, cyaan.
+
+Fase 0, opnemen en afspelen:
+
+- Opnamegrootte: ongeveer 42 kB/s met camera (76,6 rapporten/s plus 60 optische metingen/s). 0 verloren regels, 0 schrijffouten.
+- Deterministisch: tweemaal afspelen van `stil5min` geeft dezelfde digest (`e55bec310db7fcdd`, 22 986 samples).
+
+Fase 1, tijdbasis van de Move:
+
+- De interne stempel is 16 bit (`timehigh` op 0x0B, `timelow` op 0x2B, zoals PSMoveService). De eenheid is nominaal 10 µs (100 kHz). Gemeten tegen CLOCK_MONOTONIC loopt de Move-klok ongeveer 400 ppm langzaam: 99 960 ticks/s; kleinste kwadraten +402 en +407 ppm, ondergrens-koppeling +405 tot +430 ppm in twee opnamen. De wrap ligt na 65 536 ticks, dat is 0,656 s. In 18 400 rapporten koppelde de hidraw-tap elk rapport (0 niet gekoppeld, 0 weggegooid).
+- De Move maakt een rapport per 1127 ticks (mediaan), dat is 11,27 ms of 88,7 rapporten/s. Met 2 subsamples is dat 177 subsamples/s, met een afstand van 5,64 ms als de subsamples gelijk verdeeld zijn. Die verdeling binnen het rapport is niet waarneembaar met één stempel per rapport en blijft dus een aanname.
+- Overgeslagen volgnummers: elke sprong van het volgnummer valt samen met een even grote sprong in de stempel (dseq 2 = 2,00 perioden, dseq 3 = 3,00, dseq 4 ≈ 4,06). Volgens het volgnummer ontbraken 3446 rapporten in 300 s, volgens de stempel precies evenveel. Dat zijn dus echt verloren rapporten (ongeveer 13 %; ontvangen 76,6/s van 88,7/s). Ze kunnen zowel in de radio als in de Move verloren gaan. De data van die perioden is weg; de stempel maakt het gat wel exact meetbaar.
+- Spreiding van de sampletijd, vóór de koppeling (t_rx): intervallen p5 4,0, p50 17,0, p95 21,0, max 54 ms. De afwijking van t_rx van een rechte door de stempels: sd 4,4 ms, p95 |·| 7,4 ms.
+- Na de koppeling: de stempel zelf ligt op een vast raster met sd 0,24 ms (p5 −0,12, p95 +0,74 ms). De restvertraging t_rx − gekoppelde tijd is p50 8,3, p95 15,6, p99 18,0 en max 50 ms. De integratie-dt komt nu uit de stempel en is daarmee ongeveer 20 keer nauwkeuriger dan de ontvangsttijd.
+- Bias per subsample (`ledmag`, 18 379 stille rapporten), frame 0 en frame 1: X +1,42 en +1,67, Y −2,39 en −2,59, Z +0,85 en +1,11°/s. Het verschil is ongeveer 0,25°/s op alle drie de assen, en `stil5min-deel` geeft hetzelfde (+0,24, −0,21, +0,29). De eerdere waarde van 1,73 tegenover 1,25°/s op Z (0,48) is dus niet bevestigd: het subsampleverschil is kleiner en zit op alle assen. De ruis per subsample is 0,47 (X, Y) en 1,07°/s (Z).
+- Temperatuur: de ruwe waarde liep van 1960 (27 °C volgens PSMoveAPI) bij het verbinden naar 2163 (31 °C) na 15 minuten. In `ledmag` (ruw 2144 tot 2162) steeg de Z-bias van ongeveer 0,87 naar ongeveer 1,07°/s. Dat is te kort en te ruisig voor een model; de koudstartmeting van 20 minuten blijft open.
+- Drift bij stilstand, puur informatief (de bias wordt bij stilstand continu bijgewerkt, dus dit is geen maat voor drift in de hand): `ledmag` 240 s, yaw −0,36° met de stempel-dt en −0,70° met de ontvangst-dt.
+
+Fase 3, magnetometer (zonder kalibratie; die vraagt ronddraaien door de gebruiker):
+
+- Ruis per sample (één meting per rapport): sd 3,8 counts op elke as. De ruis uit opeenvolgende verschillen is gelijk (3,8), dus het is witte ruis zonder korte-termijncorrelatie. Kwantisatie: 1 count. Ruwe gemiddelde vector in deze houding (−149, −54, +79), inclusief de onbekende hard-iron-offset. De veldsterkte in counts volgt pas uit de ellipsoïdefit.
+- LED: de verschillen zijn klein, maar wel systematisch. Elke "aan"-fase vergeleken met de omliggende "uit"-fasen, X-as (standaardfout ongeveer 0,25 counts): rood +0,3, groen +0,5, blauw +1,0, cyaan +1,1 tot +1,4 en wit +1,6 counts. Op Y en Z is er geen duidelijk effect boven een langzame drift. Z liep tijdens de opname 1,8 counts op, gelijk op met de temperatuur (ruw 2148 naar 2161). Het effect groeit met de LED-stroom (wit > cyaan > blauw > groen > rood).
+- Gevolg: de LED moet tijdens kalibratie en spel dezelfde kleur en helderheid hebben (vast cyaan, zoals nu). Een wissel van uit naar wit is ongeveer 1,6 counts, en de betekenis in graden hangt af van de veldsterkte in counts (nog te meten bij de kalibratie). Een LED-wissel tijdens het spel is daarom uitgesloten. De temperatuurdrift van de magnetometer (ongeveer 1,8 counts in 4 minuten) moet bij de fase 3-beslissing meegenomen worden.
+- Nog niet gemeten (vraagt de gebruiker, zie `docs/procedures.md`): de ellipsoïdefit en veldsterkte in de Sharp Shooter, de veldcheck over het speelgebied, pomp en trekker, muziek, de tv aan en uit, en de magnetometer-yaw tegen de kalibratie-yaw. De rumble wordt door de daemon nog niet aangestuurd en is dus niet gemeten.
 
 ## Bronnen
 

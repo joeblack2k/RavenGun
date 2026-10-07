@@ -171,14 +171,14 @@ int cmd_timebase(const char* path) {
             if (dseq >= 1 && cs.dticks < 3 * period * dseq)
                 stamp_jit.add((static_cast<double>(cs.dticks) - period * dseq) / tps * 1e3);
         }
-        pts.push_back({static_cast<double>(cs.ticks) / tps, static_cast<double>(st[i]->t_rx_ns - t0) / 1e9});
+        pts.push_back({static_cast<double>(cs.ticks) / kMoveTicksPerSecond, static_cast<double>(st[i]->t_rx_ns - t0) / 1e9});
     }
     // Lineaire fit t_rx = a + b * stempel (kleinste kwadraten) -> skew en afwijking van t_rx.
     double sx = 0, sy = 0, sxx = 0, sxy = 0, n = static_cast<double>(pts.size());
     for (auto& [x, y] : pts) { sx += x; sy += y; sxx += x * x; sxy += x * y; }
     double b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a = (sy - b * sx) / n;
     for (auto& [x, y] : pts) rx_dev.add((y - (a + b * x)) * 1e3);
-    std::printf("Klok:          skew Move t.o.v. host %+.1f ppm (kleinste kwadraten), ondergrens-koppeling %+.1f ppm\n", (b - 1) * 1e6,
+    std::printf("Klok:          host-s per nominale Move-s - 1: %+.1f ppm (kleinste kwadraten), %+.1f ppm (ondergrens-koppeling, laatste 20 s)\n", (b - 1) * 1e6,
                 clk.skew_ppm());
     std::printf("Vóór (t_rx):   interval p5 %.2f / p50 %.2f / p95 %.2f / max %.2f ms; afwijking van de rechte sd %.2f ms, p95 |.| %.2f ms\n",
                 rx_int.pct(0.05), rx_int.pct(0.5), rx_int.pct(0.95), rx_int.max(), rx_dev.sd(), [&] {
