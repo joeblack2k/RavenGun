@@ -1,6 +1,6 @@
 # RavenGun — status
 
-Actuele fase: 1 (Halo op de televisie). G1 is nog niet gehaald: Halo draait zichtbaar op de tv, maar blijft hangen op het opstartscherm van de integriteitscontrole, omdat START/TEST niet te geven zijn.
+Actuele fase: 1 (Halo op de televisie) met parallel fase 2 (Move). G1 is nog niet gehaald: Halo via TeknoParrot staat op het gun-kalibratiescherm en wacht op Test/trigger (knoppen nog niet gebonden).
 
 ## Bewezen resultaten (op deze host vastgesteld, 2026-10-07)
 
@@ -59,6 +59,14 @@ Move en camera (subagent 2, tussenrapport)
 - Camera PS3 Eye (1415:2000, ov534, /dev/video0): 640x480@60 gemeten op 60,02 fps (p95 16,68 ms, 0 gemist); 320x240@187 gemeten op 187,3 fps. Een aanvraag van 120 levert 100 fps.
 - Pairing: `psmove pair` vraagt root (schrijft `/var/lib/bluetooth/<host>/<move>/info` en herstart bluetooth.service). Kanttekening: `/etc` is op deze SteamOS een schrijfbare overlay, anders dan de subagent dacht. ClassicBondedOnly staat standaard true en kan de ZCM1 weigeren. Dat is nog te testen.
 
+Move via Bluetooth (op echte hardware getest, 2026-10-07 15:11)
+- Pairing: `psmove pair` (controllerkant gelukt, host-adres in de Move geverifieerd via feature report 0x04). btmon toonde eerst "Connection Rejected due to Unacceptable BD_ADDR" (de Move staat niet op de kernel-toelatingslijst), en na `scripts/move-bt-bond.sh --apply` "Authentication Failure" op L2CAP PSM 17 (ClassicBondedOnly=true eist authenticatie).
+- Hostwijzigingen (met toestemming van de gebruiker, met back-up/rollback):
+  1. `scripts/move-bt-bond.sh --apply`: een [LinkKey] in `/var/lib/bluetooth/<host>/<move>/info`. Back-up: `info.ravengun-backup`. Rollback: `--rollback`.
+  2. `scripts/bluez-classic-bonded.sh --apply`: `ClassicBondedOnly=false` in `/etc/bluetooth/input.conf`. Dit is een globale verlaging voor Bluetooth-HID. Back-up: `input.conf.ravengun-backup`. Rollback: `--rollback`. Na een SteamOS-update opnieuw controleren.
+- Resultaat: de PS-knop verbindt binnen 2 s. Kernel: "BLUETOOTH HID … Motion Controller" (hidraw9). `psmove list`: Bluetooth, batterij 100%.
+- `src/tools/movetest` (15 s): 76,9 rapporten/s (ongeveer 154 Hz IMU, twee subsamples per rapport), grootste gat 36 ms. Accelerometer, gyro en magnetometer reageren op alle assen; trigger 0–255; knoppen Driehoek, Cirkel, Kruis, Vierkant, PS, Move en T gezien. Select en Start nog niet getest.
+
 ## Laatste werkende commando
 
     TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch
@@ -66,10 +74,10 @@ Move en camera (subagent 2, tussenrapport)
 
 ## Actuele fout / afhankelijkheid
 
-Knoppen in TeknoParrot zijn nog niet gebonden. Dat vraagt een fysieke toetsdruk op het echte toetsenbord in Controller Setup. Pairing van de Move wacht op de root-actie van de gebruiker (`sudo psmove pair`).
+Knoppen in TeknoParrot zijn nog niet gebonden (TeknoParrot leest evdev; X11-injectie werkt niet). Oplossing in uitvoering: een virtueel uinput-toetsenbord (echte evdev-events) of een fysieke toetsdruk.
 
 ## Volgende uitvoerbare stap
 
 1. De gebruiker bindt in TeknoParrot (Halo > Controller Setup) met het echte toetsenbord: Test, Service, Coin, Start P1, Trigger P1, Reload P1, Grenade P1.
 2. Opnieuw starten, met Test door de kalibratie, en controleren of attract mode of het titelscherm verschijnt (G1).
-3. In parallel: Move-pairing, en daarna sensortest via Bluetooth.
+3. Move: gedaan (Bluetooth werkt). Volgende stap: de daemon-kern (HID-inname en IMU-oriëntatie) en een uinput-lightgun-backend testen in TeknoParrot.
