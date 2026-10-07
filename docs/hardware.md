@@ -74,3 +74,27 @@ Alles OK behalve waarschuwing "geen Move gekoppeld bij BlueZ" (exitcode 1).
 4. Druk kort op de PS-knop (middelste ronde knop vooraan). De controller knippert en verbindt.
 5. Controle: `~/.local/share/ravengun/psmoveapi/bin/psmove list` toont Bluetooth, en `ravengunctl doctor`.
 6. Verbindt hij niet: wijziging 2 en opnieuw stap 4.
+
+## Meting met ravengund (op echte hardware getest, 7 okt 2026, ongeveer 15:40)
+
+Methode: `ravengund` met de standaardinstellingen (1€ aan, h_edge 20 graden, v_edge 11,25 graden, automatisch midden bij het eerste rapport). Na 3 s is 85 s opgenomen met `ravengunctl watch --json --rate 250`, dus elk sample (6438 samples, gemiddeld 75,7 per s). Daarna volgde `ravengunctl status --json`, en tot slot is de daemon gestopt (exit 0). De Move lag gedurende de hele meting volgens de bias-detector stil (100 % van de vensters "still"; accelerometer-sd ongeveer 0,002 g). De houding was gekanteld: a ≈ (0,70; 0,07; 0,76) g, dus de Move lag waarschijnlijk schuin op tafel. Of hij helemaal onaangeraakt lag, is niet gecontroleerd: de gebruiker was aanwezig, maar is niets gevraagd. De camera is niet gebruikt.
+
+Rapporten (daemonstatistiek, 88 s verbonden):
+- 6742 rapporten, 76,6 per s sinds verbinden (75,6 per s over de laatste 5 s), twee IMU-subsamples per rapport (ongeveer 153 Hz).
+- Intervallen (ontvangsttijd): p50 16,8 ms, p95 21,0 ms, p99 21,1 ms, max 36,8 ms. De verdeling is tweetoppig. Telling per bereik: 0–5 ms 377, 5–10 ms 2943, 10–15 ms 26, 15–20 ms 2205, 20–30 ms 1183, 30–50 ms 7, niets boven 50 ms. Het gemiddelde is ongeveer 13 ms. De korte en lange intervallen wisselen elkaar af (bijvoorbeeld 6 en 20 ms), wat past bij Bluetooth-planning. De stale-drempel (50 ms) is in deze meting nooit gehaald.
+- Het 4-bitsvolgnummer sloeg 1010 keer een nummer over (ongeveer 15 %). De betekenis daarvan (verloren rapporten of firmwaregedrag) is nog te bevestigen.
+- Verwerkingstijd van ontvangst tot publicatie: p50 1,9 µs, p95 2,6 µs, max 20,9 µs.
+- Batterij: `Batt_MAX` ("vol, niet aan de lader").
+
+Gyro in stilstand (laatste subsample): gemiddeld (1,15; −2,17; 1,11) graden/s, sd (0,51; 0,48; 1,07) graden/s. Een aparte proef van 10 s met beide subsamples liet een systematisch verschil tussen `Frame_FirstHalf` en `Frame_SecondHalf` zien op de Z-as: gemiddeld 1,73 tegenover 1,25 graden/s. X en Y verschillen minder dan 0,05 graden/s. De biasschatter middelt over beide subsamples (eindwaarde Z 1,42 graden/s). Een bias per subsample is een mogelijke verbetering, nog niet gebouwd.
+
+Drift over 60 s, na de biasschatting (venster 5,5 tot 65,5 s na de start van de opname; `bias_state` was al "estimated"):
+- Yaw: +2,1 graden aan het eind van het venster, met tussentijdse uitslagen van −0,9 tot +1,75 graden t.o.v. het midden. De helling per 10 s varieerde van +3,1 tot −1,4 graden per minuut. De Z-bias zakte in de eerste 50 s nog van 1,50 naar 1,40 graden/s (het lopende gemiddelde convergeert). Daarbij komt de random walk van de gyroruis: met ongeveer 1 graad/s ruis per subsample is dat in theorie ongeveer 0,7 graden (1σ) per minuut.
+- Pitch: +0,19 graden (helling 0,02 graden per minuut). De pitch wordt door de accelerometer gecorrigeerd.
+- Omgerekend met de standaardschaal (1 graad yaw = 2,5 % van de breedte) is 2,1 graden yaw ongeveer 5 % van de schermbreedte per minuut. Dat haalt het doel (ongeveer 1 % over 5 minuten) duidelijk niet. IMU-only heeft yaw geen absolute referentie. Zie de open punten.
+
+Stilstandsjitter van de aim, in procent van het genormaliseerde bereik (breedte of hoogte = 100 %). De p95 is die van de absolute afwijking van een gecentreerd voortschrijdend gemiddelde van 1 s, zodat langzame drift er niet in zit:
+- Ongefilterd: x 0,11 %, y 0,19 %.
+- Met 1€ (min_cutoff 1 Hz, beta 0,5): x 0,07 %, y 0,12 %.
+- Ter vergelijking, de p95-afwijking van het gemiddelde over 60 s (drift telt hier wel mee): x 3,0 %, y 0,7 %.
+- De jitter in procenten hangt rechtstreeks af van de schaal (h_edge en v_edge). Met een andere schaal veranderen deze getallen evenredig.

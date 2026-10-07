@@ -20,6 +20,20 @@ Exitcodes van `ravengunctl`: 0 alles in orde (of `devices` gelukt), 1 minstens e
 
     ./build/camprobe --format YUYV --width 640 --height 480 --fps 60 --seconds 10 [--json]
 
+## ravengund (de daemon)
+
+`cmake -S . -B build` zoekt PSMoveAPI onder `~/.local/share/ravengun/psmoveapi` (`-DPSMOVEAPI_ROOT=…` voor een andere plek). Gevonden: ravengund wordt ertegen gelinkt, met een rpath naar `…/psmoveapi/lib`. Niet gevonden: ravengund wordt zonder HID gebouwd (waarschuwing bij cmake). `-DRAVENGUN_BUILD_DAEMON=OFF` slaat de daemon over. Op de host is alleen g++ nodig; de PSMoveAPI-headers en -library komen uit de containerbouw hieronder.
+
+    ./build/ravengund                 # voorgrond; Ctrl-C of SIGTERM stopt netjes
+    ./build/ravengunctl status        # of --json
+    ./build/ravengunctl recenter
+    ./build/ravengunctl watch --rate 10 [--duration 30] [--json]
+    ./build/ravengunctl filter --off | --on [--min-cutoff 1.0] [--beta 0.5]
+
+Opties van ravengund: zie `ravengund --help` (`--no-filter`, `--h-edge-deg`, `--v-edge-deg`, `--controller <adres>`, `--no-auto-center`, `--no-hid`). Exitcodes van ravengund: 0 normaal gestopt, 64 verkeerd gebruik, 69 al actief of geen `XDG_RUNTIME_DIR`, 71 socket- of systeemfout. Nieuwe exitcodes van ravengunctl: 69 daemon niet bereikbaar, 75 daemon weigert tijdelijk (bijvoorbeeld recenter zonder Move), 76 onverwacht antwoord.
+
+Tests: `ctest --test-dir build` draait drie tests: `ravengun_tests` (88 controles), `ravengun_core_tests` (279 controles: quaternions, assen, eenheden, fusie, bias, aim, 1€, knoppen, stale/disconnect, JSON en protocol) en `ravengund_ipc` (`tests/ipc_smoke.sh`: daemon zonder hardware, rechten 0700/0600, enkele instantie, CLI, SIGTERM). Alle drie slagen op deze host. Op echte hardware getest: zie `docs/hardware.md`, de meting met ravengund.
+
 ## PSMoveAPI (in een container)
 
 SteamOS levert geen ontwikkel-headers voor hidapi, libusb, OpenCV, glm en BlueZ. Daarom wordt PSMoveAPI gebouwd in een rootless, niet-geprivilegeerde podman-container (geen distrobox: die start met `--privileged` en mount de hele host).
