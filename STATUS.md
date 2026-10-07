@@ -1,6 +1,6 @@
 # RavenGun — status
 
-Actuele fase: 1 (Halo op de televisie) met parallel fase 2 (Move). G1 is nog niet gehaald: Halo via TeknoParrot staat op het gun-kalibratiescherm en wacht op Test/trigger (knoppen nog niet gebonden).
+Actuele fase: G1 is op screenshots aangetoond (titel- en attract-scherm, speelsessie, 3 cycli). Nog te doen: fysieke bevestiging op de tv en een geluidscheck door de gebruiker. Parallel loopt fase 2 (Move, camera).
 
 ## Bewezen resultaten (op deze host vastgesteld, 2026-10-07)
 
@@ -78,10 +78,19 @@ ravengund-kern (Opus-subagent, door orchestrator geverifieerd: build schoon, 3 C
 - Conclusie: alleen de IMU is niet genoeg voor richten. Een optische referentie (camera) is nodig tegen yaw-drift.
 - Bekend: PSMoveAPI logt het volledige BT-adres naar stderr; filter dat voordat je logs deelt.
 
+G1 via TeknoParrot (Sonnet-subagent, 15:33–15:55; screenshots jv_08–jv_18 door de orchestrator bekeken)
+- Oorzaak van de eerdere blokkade (uit de TPUI-broncode, net8-migration): onder een Proton-script-runner wacht de JVS-brug op een proces met comm == bestandsnaam van GamePath ("game"). Onder ElfLdr2 draait alleen BudgieLoader_x64.exe, dus de detectie faalt. Dat is een upstream-bug. Met een plain-wine-runner start de UI de helper direct ("eager helper start").
+- Oplossing: alleen Halo gebruikt de plain-wine-runner `~/.local/share/ravengun/wine/proton-11.0-2/bin/wine` (Kron4ek wine-proton-11.0-2-amd64, SHA-256 51e1b540…77e9b, PROVENANCE.txt aanwezig), ingesteld via `<WineRunnerPath>` in `UserProfiles/Halo.xml` (back-up: `~/.local/state/ravengun/Halo.xml.bak`). Prefix: `~/.local/share/TeknoParrotUI/prefixes/shared/wine`. Kron4ek wine 11.19 (vanilla) gaf geen venster en is afgewezen.
+- Resultaat: venster na ongeveer 20 s, F2 (Test) slaat de kalibratie over, dan het Play Mechanix-logo en het Halo Fireteam Raven-titelscherm ("Insert Cash"), met bewegend attract-beeld. Coin (5) geeft $0,25 per druk; Start (1) leidt naar modus- en missiekeuze en daarna de game. Trigger (munitie 60→59), Grenade (2→1) en Reload werken. Richten is niet getest.
+- 3 start-stopcycli: venster na 19, 20 en 19 s, attract-scherm na ongeveer 53 s, telkens zonder achtergebleven processen (Esc = ExitKey).
+- Invoerpad nog niet bevestigd: de JVS-pipe verbond in geen enkele sessie, maar BudgieLoader had `/dev/input/event31` (vinput) open. Waarschijnlijk leest de loader evdev zelf (RawInput).
+- Open: de bindingen staan op `/dev/input/eventN` en zijn dus niet stabiel. Geluid is nog niet bevestigd (er is wel een PipeWire-stream naar de LG TV). Wine-Mono is niet geïnstalleerd (niet nodig).
+
 ## Laatste werkende commando
 
-    TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch
-    Resultaat: kalibratiescherm van de gun op de tv, wacht op Test/trigger.
+    TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch,
+    met `VINPUT_JOY=1 src/tools/vinput/vinput kbd` als invoer (F2 Test, 5 Coin, 1 Start, Z/X/C).
+    Resultaat: titel- en attract-scherm en een speelsessie op de tv.
 
 ## Actuele fout / afhankelijkheid
 
