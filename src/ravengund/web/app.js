@@ -137,13 +137,25 @@
         ['Aim geldig', yn(p.aim.valid), p.aim.valid ? 'ok' : 'warn'],
         ['Midden bepaald door', p.aim.center_source],
         ['Filter', p.aim.filter_enabled ? 'aan' : 'uit']
-      ]);
+      ].concat(fusionRows(p.orientation.fusion)));
       fill($('ov-daemon'), [
         ['PID', String(s.daemon.pid)],
         ['Looptijd', dur(s.daemon.uptime_s)],
         ['HID', s.daemon.hid_enabled ? 'aan' : 'uit (--no-hid)']
       ]);
     }).catch(function () { setConn(false, 'daemon niet bereikbaar'); });
+  }
+  // Fase 4: schatter, bron van de yaw en wat de magnetometer doet (uit het sample).
+  function fusionRows(f) {
+    if (!f) return [];
+    return [
+      ['Schatter', f.mode],
+      ['Yaw-bron', f.yaw_source === 'magnetometer' ? 'magnetometer-gecorrigeerd' : 'gyro', f.yaw_source === 'magnetometer' ? 'ok' : ''],
+      ['Magnetometer', f.magnetometer + (f.mag_locked ? ', vergrendeld' : ''), f.magnetometer === 'disturbed' ? 'warn' : ''],
+      ['Openstaande yaw-fout', fmt(f.yaw_pending_deg, 2) + ' graden'],
+      ['Correctie', fmt(f.correction_rate_deg_s, 3) + ' graden/s (grens ' + fmt(f.correction_limit_deg_s, 3) + '), totaal ' + fmt(f.correction_total_deg, 2) + ' graden'],
+      ['Verticale bias (magnetometer)', fmt(f.vertical_bias_deg_s, 3) + ' graden/s']
+    ];
   }
   function showLedRows(dl, s) {
     var led = s.controller.led, tc = ((s.camera || {}).tracker || {}).config || {};

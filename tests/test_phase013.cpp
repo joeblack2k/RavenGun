@@ -588,6 +588,18 @@ static void test_protocol() {
     CHECK(ok(R"({"v":1,"cmd":"calib_mag","action":"status"})"));
     CHECK(code(R"({"v":1,"cmd":"calib_mag","action":"start","tag":"x"})") == "bad_request");
     CHECK(ok(R"({"v":1,"cmd":"set_led","r":0,"g":255,"b":255})"));
+    CHECK(ok(R"({"v":1,"cmd":"set_fusion","mode":"mahony"})"));
+    CHECK(ok(R"({"v":1,"cmd":"set_fusion","mode":"mahony_mag"})"));
+    CHECK(code(R"({"v":1,"cmd":"set_fusion","mode":"eskf"})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_fusion"})") == "invalid_argument");
+    CHECK(code(R"({"v":1,"cmd":"set_fusion","mode":"mahony","x":1})") == "bad_request");
+    {
+        Request f;
+        f.cmd = Cmd::SetFusion;
+        f.mode = "mahony_mag";
+        auto pf = parse_request(make_request(f));
+        CHECK(std::holds_alternative<Request>(pf) && std::get<Request>(pf).mode == "mahony_mag");
+    }
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":256,"b":255})") == "invalid_argument");
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1.5,"b":255})") == "invalid_argument");
     CHECK(code(R"({"v":1,"cmd":"set_led","r":0,"g":1})") == "invalid_argument");

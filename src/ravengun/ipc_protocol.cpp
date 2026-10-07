@@ -36,6 +36,7 @@ const char* to_string(Cmd c) {
         case Cmd::Diagnostics: return "diagnostics";
         case Cmd::SetButtons: return "set_buttons";
         case Cmd::CalibrateUi: return "calibrate_ui";
+        case Cmd::SetFusion: return "set_fusion";
     }
     return "?";
 }
@@ -290,6 +291,12 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             r.button_map[kv.first] = kv.second.str;
         }
         if (r.button_map.empty()) return err("invalid_argument", "set_buttons zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "set_fusion") {
+        r.cmd = Cmd::SetFusion;
+        if (!allowed(o, {"mode"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "mode", r.mode, e, r.id_json)) return e;
+        if (r.mode != "mahony" && r.mode != "mahony_mag")
+            return err("invalid_argument", "'mode' moet mahony of mahony_mag zijn", r.id_json);
     } else if (cmd == "calibrate_ui") {
         r.cmd = Cmd::CalibrateUi;
         if (!allowed(o, {"action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -411,6 +418,9 @@ std::string make_request(const Request& r) {
             break;
         case Cmd::CalibrateUi:
             w.key("action").value(r.action);
+            break;
+        case Cmd::SetFusion:
+            w.key("mode").value(r.mode);
             break;
         case Cmd::Info:
         case Cmd::Settings:

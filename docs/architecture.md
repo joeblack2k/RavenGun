@@ -74,7 +74,16 @@ De richtas is controller +Y. Of de fysieke richtas bij de gebruiker (los in de h
 
 ## Oriëntatieschatting
 
-Het algoritme is een Mahony-complementair filter met alleen een proportionele term (`kp` = 0,5 per s), IMU-only. De accelerometer corrigeert alleen roll en pitch, en alleen als `| |a| - 1 g |` ≤ 0,15 g is. Bij een sterke versnelling (een schot, een zwaai) wordt dat sample niet gebruikt voor correctie. Er is bewust geen integrator-term. De gyro-bias wordt apart en zichtbaar geschat. De magnetometer van de ZCM1 wordt niet gebruikt: PSMoveAPI meldt "not yet calibrated", en lokale verstoring is niet onderzocht. Yaw drift dus met de restbias en met de ruis (random walk).
+Er zijn twee schatters, te kiezen met `--fusion`, `ravengunctl fusion mahony|mahony_mag`, IPC `set_fusion` (`mode`) of `config.json` (`fusion.mode`; bewaard bij `set_fusion`). Standaard: `mahony`.
+
+- `mahony`: een Mahony-complementair filter met alleen een proportionele term (`kp` = 0,5 per s), IMU-only. De accelerometer corrigeert alleen roll en pitch, en alleen als `| |a| - 1 g |` ≤ 0,15 g is. Bij een sterke versnelling (een schot, een zwaai) wordt dat sample niet gebruikt voor correctie. Er is bewust geen integrator-term. De gyro-bias wordt apart en zichtbaar geschat. Yaw drift met de restbias en met de ruis (random walk).
+- `mahony_mag` (fase 4, `src/ravengun/core/mag_yaw.*`): dezelfde Mahony voor de tilt, plus een yaw-correctie met de gekalibreerde magnetometer. Een klein Kalman-filter schat de yaw-fout en de drift om de verticaal uit de kompasrichting van de richtas (accelerometer + veld). De drift gaat in een extra bias om de verticaal (verandering hooguit 0,01°/s per s, |b_v| ≤ 0,3°/s); de resterende hoekfout wordt hooguit met 0,02°/s (stil, |ω| < 3°/s) tot 2 % van de draaisnelheid (max 0,3°/s) weggewerkt. Nooit een sprong; alleen na een onderbroken integratie (gat > 250 ms, herverbinding) glad terug met max 5°/s. Verstoorde samples (de detector: norm, dip, gyro-consistentie; plus een χ²-innovatiepoort) tellen niet. Zonder kalibratie, of als de magnetometer verstoord is, is het gedrag dat van `mahony`. In de modus `mahony` draait dezelfde berekening in de schaduw, zodat de status de opgebouwde drift toont. Ontwerp, motivatie en replay-getallen: `docs/aim-fusion-design.md`, "Metingen en bouw fase 4".
+
+Magnetometer naar B: `m_B = diag(-1,+1,-1) · A (m_ruw - b)` (gemeten, zie het ontwerp; oude kalibratiebestanden zonder `b_map` worden bij het laden omgezet). De pijplijn bezit de verstoringsdetector (de status leest hem uit).
+
+Verloren rapporten: bij een stempel-dt boven 1,5 rapportperiode (11,27 ms) wordt het ontbrekende deel met de gemiddelde hoeksnelheid van vóór en na het gat geïntegreerd (`gaps_interpolated` in de status), daarna elk subsample zijn halve periode.
+
+De stilstandsbiasschatter accepteert na de eerste schatting alleen nog vensters waarvan het gemiddelde hooguit 0,6°/s van de bias afwijkt (daarvoor 5,7°/s; een langzame zwaai werd als stilstand opgenomen).
 
 Gyro-biasschatting: per subsample wordt een venster van 0,5 s bijgehouden. Het venster telt als stil als de standaardafwijking per as ≤ 0,035 rad/s is (2 graden/s; de gemeten ruis van deze ZCM1 is ongeveer 0,5 graden/s op X en Y en 1,1 graden/s op Z), het gemiddelde minder dan 0,10 rad/s van de huidige bias afwijkt en `|a|` overal binnen 0,08 g van 1 g blijft. Tijdens stilstand is de bias het lopende gemiddelde van alle stille vensters, tot er 30 s stilstand is gezien. Daarna is het een exponentieel gemiddelde met een tijdconstante van 30 s. `bias_state` is "none" (nog geen stilstand), "estimating" (minder dan 3 s stilstand) of "estimated". Beperking: een zeer gelijkmatige, langzame rotatie (onder de drempels) is niet van bias te onderscheiden en wordt langzaam als bias opgenomen. In de hand is er vaak geen stilstand, en dan blijft de laatste schatting staan. De daemon verbergt geen drift: er is geen automatische recenter en geen extra filter op de oriëntatie.
 
@@ -110,6 +119,7 @@ Elk HID-rapport bevat een volledige knopstatus en wordt afzonderlijk verwerkt. E
 - `controller_id`: het Bluetooth-adres (stabiel, anders dan `/dev/hidrawN`). Standaard geredigeerd tot `xx:xx:xx:xx:xx:ac`, volledig alleen met `full_ids`.
 - `tracking_mode`: nu altijd "orientation". Gereserveerd zijn "optical_diagnostic", "hybrid" en "geometric_ray".
 - `link`: "disconnected", "fresh", "stale" of "lost".
+- `orientation.fusion` (fase 4, nieuwe velden, verder ongewijzigde betekenis): `mode` (mahony, mahony_mag), `yaw_source` (gyro of magnetometer: mahony_mag, vergrendeld, toestand ok en minder dan 1 s geleden een bruikbaar sample), `magnetometer` (none zonder kalibratie, unknown, ok, disturbed), `mag_locked`, `yaw_pending_deg` (openstaande yaw-fout volgens de magnetometer; bij mahony de opgebouwde drift), `correction_rate_deg_s` en `correction_limit_deg_s` (toegepaste hoekcorrectie en de grens), `correction_total_deg`, `vertical_bias_deg_s` (door de magnetometer geleerde bias) en `mag_unusable_s`. Ook in de SSE-stroom (het sample). De status bevat onder `magnetometer.yaw_correction` daarnaast σ en de geschatte drift.
 - `orientation`: `valid`, `q_wb`, `world_yaw_deg` en `world_pitch_deg` (zonder midden, alleen diagnose), `bias_state`, `still`, `gyro_bias_deg_s` en `yaw_reference`.
 - `position`: de laatste optische meting (schema 2). `kind` is altijd "image_2d": een 2D-beeldpositie, geen 3D-positie. Velden: `valid`, `reason` ("none" als geldig, anders de reden van de tracker, of "no_camera", "no_frames", "camera_error"), `camera` (disabled, opening, streaming, error), `track_state` (searching, tracking), `frame_seq` (V4L2-volgnummer), `t_frame_ns` (V4L2-timestamp), `t_processed_ns`, `image_w`/`image_h`, `x_px`/`y_px` (zwaartepunt, pixelmiddens op +0,5), `x_norm`/`y_norm` (gedeeld door breedte/hoogte, links-boven 0,0), `radius_px`, `candidates`, en `depth` (altijd null: zonder gekalibreerd cameramodel is diepte onbekend). Is `valid` false, dan zijn de positievelden null. De positie wordt (nog) niet gebruikt voor de aim.
 - `aim`: `valid`, `center_source`, `filter_enabled`, `yaw_rel_deg`, `pitch_rel_deg`, `x_raw`/`y_raw` (ongefilterd, unclamped), `x`/`y` (gefilterd, unclamped), `x_clamped`/`y_clamped` en `off_screen` (unclamped buiten [0,1]).
@@ -134,6 +144,7 @@ Een verzoek heeft de vorm `{"v":1,"cmd":"<commando>","id":<optioneel getal of st
 - `record` (`action` start, stop, status of mark; `tag`, `label`, `max_mb`, `duration_s`): opnamen (fase 0), zie `docs/procedures.md`.
 - `set_led` (`rgb` [r,g,b]): de LED-kleur voor de lopende run (de trackertint verandert niet mee).
 - `calib_mag` (`action` start, stop, abort of status; `holder`): de magnetometerkalibratie (fase 3). `stop` fit en slaat alleen bij voldoende kwaliteit op.
+- `set_fusion` (`mode` mahony of mahony_mag): de oriëntatieschatter, direct en bewaard in `config.json`. Omschakelen geeft geen sprong; bij inschakelen wordt de huidige stand de referentie.
 
 Een antwoord is `{"v":1,"ok":true,"id":…,"result":…}` of `{"v":1,"ok":false,"id":…,"error":{"code":…,"message":…}}`. De foutcodes zijn `parse_error`, `bad_request`, `unsupported_version`, `unknown_command`, `invalid_argument`, `line_too_long`, `unavailable` en `internal`.
 
@@ -156,6 +167,16 @@ Alle bestandsnamen zijn onder `TeknoParrotUi.Common/InputListening/` (tenzij and
 ### Apparaatidentiteit
 
 Naam `RavenGun Virtual Lightgun`, bus USB, VID 1209 (pid.codes-testbereik), PID 7202, versie 1. Het toetsenbord is 1209:7201. `EV_ABS` `ABS_X`/`ABS_Y` met bereik 0..32767 op beide assen (`kAbsMin`, `kAbsMax` in `output/gun_transform.hpp`); `EV_KEY` `BTN_LEFT` (trigger), `BTN_RIGHT` (reload), `BTN_MIDDLE` (grenade), `BTN_SIDE` en `BTN_EXTRA` (aux). Geen `EV_REL`, en bewust geen `INPUT_PROP_DIRECT` (dat markeert een touchscreen) en geen `BTN_TOUCH` (dan gedraagt het apparaat zich als tablet). Udev (`packaging/udev/70-ravengun.rules`) geeft de seat-gebruiker leesrecht (uaccess), maakt `/dev/input/ravengun-gun` en `/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse`, en zet `LIBINPUT_IGNORE_DEVICE=1` op de gun. De keuze berust op: de udev-regel selecteert op VID/PID, de TeknoParrot-binding op het by-id-pad, en nergens op `eventN`.
+
+### Live Move als bron (fase 4)
+
+De HID-thread geeft elk gepubliceerd sample ook aan de uitvoer (`src/ravengun/output/live_feed.*`, `OutputService::feed_live`), maar alleen als de uitvoer gewapend is en er geen testpatroon loopt:
+
+- Positie: de gefilterde, ongeclampte aim (`aim.x/y`) van dat rapport, alleen als `aim.valid`. Bij een ongeldige aim (stale, geen midden) stopt het bewegen; de cursor blijft staan, zonder sprong naar een hoek.
+- Trekker: de analoge T-waarde met hysterese (in bij ≥ 140, los bij ≤ 100; `gun_buttons.trigger_on/off`). Reload en grenade: Move-knoppen uit `config.json` `gun_buttons` (standaard Kruis en Vierkant). Recenter: standaard de Move-knop (down-flank, alleen als de uitvoer gewapend is); de pijplijn legt dan een nieuw midden vast (`center_source: user`). De mapping `sharp_shooter.buttons` uit de kalibratie-UI wordt bewust niet gebruikt: de eerste meting was fout (de gebruiker drukte in het donker verkeerde knoppen).
+- Knoppen volgen de link: bij `stale` (tot 250 ms) blijven ze staan (anders zou een Bluetooth-gat een automatisch dubbelschot geven), bij `lost`, `disconnected` en het afsluiten worden alle gun-knoppen vrijgegeven.
+- Geen eigen uitvoerklok: één positie per rapport (gemiddeld ~77/s, gaten tot ~50 ms). De 250 Hz-klok met gyro-extrapolatie (ontwerp 5.2) is fase 6; die vraagt een voorspelde oriëntatie per tik en het 1€-filter op de uitvoertik, en is daarom nu niet gebouwd.
+- Status: `output.live` (samples, posities, ongeldige aim, vrijgaven, onderdrukt door een patroon).
 
 ### Arm/disarm en veiligheid
 

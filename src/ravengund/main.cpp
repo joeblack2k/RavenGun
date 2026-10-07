@@ -47,6 +47,8 @@ void usage(FILE* f) {
         "  --no-hid                         geen PSMoveAPI openen (alleen IPC; voor tests)\n"
         "  --dt-source move|rx              integratie-dt uit de interne Move-stempel (standaard) of de\n"
         "                                   ontvangsttijd\n"
+        "  --fusion mahony|mahony_mag       oriëntatieschatter (standaard uit config.json, anders mahony;\n"
+        "                                   mahony_mag = Mahony plus yaw-correctie met de magnetometer)\n"
         "\n"
         "uitvoer (virtueel lightgun-apparaat 1209:7202; standaard DISARMED, geen events; 'ravengunctl arm'):\n"
         "  --out-invert-x, --out-invert-y   spiegel de as vóór het apparaat\n"
@@ -122,6 +124,12 @@ int main(int argc, char** argv) {
     opt.pipeline.filter.d_cutoff_hz = cfg.filter.d_cutoff_hz;
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
+    ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
+    opt.gun_buttons.trigger_on = cfg.gun_buttons.trigger_on;
+    opt.gun_buttons.trigger_off = cfg.gun_buttons.trigger_off;
+    opt.gun_buttons.reload = ravengun::output::move_button_bit(cfg.gun_buttons.reload);
+    opt.gun_buttons.grenade = ravengun::output::move_button_bit(cfg.gun_buttons.grenade);
+    opt.gun_buttons.recenter = ravengun::output::move_button_bit(cfg.gun_buttons.recenter);
     cam.width = cfg.camera.width; cam.height = cfg.camera.height; cam.fps = cfg.camera.fps;
     cam.auto_exposure = cfg.camera.auto_exposure; cam.auto_gain = cfg.camera.auto_gain; cam.auto_awb = cfg.camera.auto_awb;
     cam.exposure = cfg.camera.exposure; cam.gain = cfg.camera.gain;
@@ -151,6 +159,12 @@ int main(int argc, char** argv) {
             std::string v = argv[++i];
             if (v != "move" && v != "rx") { std::fprintf(stderr, "ravengund: --dt-source verwacht move of rx\n"); return 64; }
             opt.pipeline.use_move_clock = v == "move";
+        }
+        else if (a == "--fusion" && i + 1 < argc) {
+            if (!ravengun::core::parse_fusion_mode(argv[++i], opt.pipeline.fusion_mode)) {
+                std::fprintf(stderr, "ravengund: --fusion verwacht mahony of mahony_mag\n");
+                return 64;
+            }
         }
         else if (a == "--min-cutoff") need(0.001, 100, opt.pipeline.filter.min_cutoff_hz);
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
@@ -287,8 +301,11 @@ int main(int argc, char** argv) {
     int wake = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (wake < 0) { logf("fout", "eventfd: %s", std::strerror(errno)); return 71; }
 
-    logf("info", "ravengund gestart (pid %d), socket %s, HID %s, filter %s", static_cast<int>(::getpid()), sock.c_str(),
-         opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit");
+    logf("info", "ravengund gestart (pid %d), socket %s, HID %s, filter %s, schatter %s", static_cast<int>(::getpid()), sock.c_str(),
+         opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit", ravengun::core::to_string(opt.pipeline.fusion_mode));
+    logf("info", "gun-knoppen (live, alleen als de uitvoer gewapend is): trekker = analoge T (in %d / uit %d), reload = %s, grenade = %s, recenter = %s",
+         cfg.gun_buttons.trigger_on, cfg.gun_buttons.trigger_off, cfg.gun_buttons.reload.empty() ? "-" : cfg.gun_buttons.reload.c_str(),
+         cfg.gun_buttons.grenade.empty() ? "-" : cfg.gun_buttons.grenade.c_str(), cfg.gun_buttons.recenter.empty() ? "-" : cfg.gun_buttons.recenter.c_str());
 
     SharedState shared;
     shared.settings = &settings_store;

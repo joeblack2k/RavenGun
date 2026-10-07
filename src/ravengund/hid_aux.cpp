@@ -43,10 +43,16 @@ void HidAux::on_connect(const std::string& id, const std::string& model, int64_t
     } else if (load_mag_calibration(mag_dir_, controller_key(id), cal_, cal_err_)) {
         cal_loaded_ = true;
         cal_err_.clear();
-        det_.reset();
-        det_.set_reference_dip(cal_.dip_ref_deg);
         logf("info", "magnetometerkalibratie geladen (%s, houder %s, restfout %.2f %%)", to_string(cal_.kind),
              cal_.holder.c_str(), cal_.rms_norm_err * 100);
+    }
+    if (pipe_) {
+        // Dezelfde kalibratie bij een herverbinding niet opnieuw zetten: dan blijft de vergrendeling van de
+        // yaw-referentie staan (de pijplijn doet zelf een gladde terugkeer na de onderbreking).
+        if (!cal_loaded_) pipe_->clear_mag_calibration();
+        else if (!pipe_->mag().calibrated() || pipe_->mag().calibration().created_unix != cal_.created_unix ||
+                 pipe_->mag().calibration().controller_key != cal_.controller_key)
+            pipe_->set_mag_calibration(cal_);
     }
     (void)now;
     progress_dirty_ = true;
@@ -73,18 +79,17 @@ void HidAux::on_report(const RawReport& r, const Pipeline& p, double temp_c) {
     accel = accel * (1.0 / n);
     gyro = gyro * (1.0 / n) - p.bias().bias();
     gyro_dps_ += 0.2 * (norm(gyro) * kDegPerRad - gyro_dps_);  // gladgemaakte rotatiesnelheid (graden/s)
-    double dt = last_rx_ ? static_cast<double>(r.t_rx_ns - last_rx_) / 1e9 : 0;
     last_rx_ = r.t_rx_ns;
-    if (cal_loaded_) {
-        Vec3 m = mag_apply(cal_, r.mag_raw);
-        last_check_ = det_.update(m, accel, gyro, dt);
+    if (cal_loaded_ && p.mag().calibrated()) {
+        // De detector draait in de pijplijn (fase 4); hier alleen de getoonde gemiddelden.
+        last_check_ = p.mag().status().last;
         double a = ema_init_ ? 0.1 : 1.0;
         norm_ema_ += a * (last_check_.norm - norm_ema_);
         if (!std::isnan(last_check_.dip_deg)) dip_ema_ += (ema_init_ ? 0.1 : 1.0) * (last_check_.dip_deg - dip_ema_);
         ema_init_ = true;
     }
     if (collecting_) {
-        coll_.add(r.mag_raw, accel, static_cast<double>(r.t_rx_ns) / 1e9);
+        coll_.add(r.mag_raw, accel, static_cast<double>(r.t_rx_ns) / 1e9, norm(gyro) * kDegPerRad);
         if (r.temperature_raw >= 0) collect_temp_ = r.temperature_raw;
         progress_dirty_ = true;
     }
@@ -188,8 +193,7 @@ std::string HidAux::calib_mag(const ipc::Request& rq, int64_t now) {
             cal_ = c;
             cal_loaded_ = true;
             cal_err_.clear();
-            det_.reset();
-            det_.set_reference_dip(cal_.dip_ref_deg);
+            if (pipe_) pipe_->set_mag_calibration(cal_);
             ema_init_ = false;
         }
     }
@@ -268,7 +272,8 @@ std::string HidAux::mag_json(int64_t now) const {
     json::Writer w;
     w.begin_object();
     w.key("present").value(model_ == "ZCM1");
-    w.key("used_in_fusion").value(false);
+    const bool fused = pipe_ && pipe_->fusion_mode() == FusionMode::MahonyMag && pipe_->mag().calibrated();
+    w.key("used_in_fusion").value(fused);
     w.key("calibrated").value(cal_loaded_);
     if (!cal_loaded_) w.key("calibration_error").value(cal_err_);
     if (cal_loaded_) {
@@ -283,6 +288,7 @@ std::string HidAux::mag_json(int64_t now) const {
         w.key("coverage").value(cal_.coverage);
         w.key("samples").value(cal_.samples);
         w.key("y_flip").value(cal_.y_flip);
+        w.key("b_map").value(cal_.negate ? "diag(-1,1,-1)" : "diag(1,-1,1)");
         w.end_object();
         w.key("live").begin_object();
         w.key("norm").value(last_check_.norm);
@@ -292,17 +298,43 @@ std::string HidAux::mag_json(int64_t now) const {
         if (std::isnan(last_check_.rate_err_deg_s)) w.key("rate_err_deg_s").null(); else w.key("rate_err_deg_s").value(last_check_.rate_err_deg_s);
         w.key("accepted").value(last_check_.accepted);
         w.key("reasons").value(reject_names(last_check_.reasons));
-        w.key("state").value(to_string(det_.state()));
+        static const MagDisturbanceDetector kNone;
+        const MagDisturbanceDetector& det = pipe_ ? pipe_->mag().detector() : kNone;
+        w.key("state").value(to_string(det.state()));
         w.end_object();
         w.key("detector").begin_object();
-        w.key("samples").value(static_cast<unsigned long long>(det_.total()));
-        w.key("accepted").value(static_cast<unsigned long long>(det_.accepted()));
-        w.key("rejected_norm").value(static_cast<unsigned long long>(det_.rejected(kRejectNorm)));
-        w.key("rejected_dip").value(static_cast<unsigned long long>(det_.rejected(kRejectDip)));
-        w.key("rejected_rate").value(static_cast<unsigned long long>(det_.rejected(kRejectRate)));
-        w.key("disturbed_episodes").value(static_cast<unsigned long long>(det_.disturbed_episodes()));
-        w.key("thresholds").value("norm 5 %, dip 2 graden, gyro-consistentie 2 graden/s over 0,5 s; verstoord na 1 s, herstel na 2 s");
+        w.key("samples").value(static_cast<unsigned long long>(det.total()));
+        w.key("accepted").value(static_cast<unsigned long long>(det.accepted()));
+        w.key("rejected_norm").value(static_cast<unsigned long long>(det.rejected(kRejectNorm)));
+        w.key("rejected_dip").value(static_cast<unsigned long long>(det.rejected(kRejectDip)));
+        w.key("rejected_rate").value(static_cast<unsigned long long>(det.rejected(kRejectRate)));
+        w.key("disturbed_episodes").value(static_cast<unsigned long long>(det.disturbed_episodes()));
+        w.key("thresholds").value("norm 5 %, dip 2 graden (beide na 0,15 s glad), gyro-consistentie 2 graden/s (helling over 1,5 s); verstoord na 1 s, herstel na 2 s");
         w.end_object();
+        if (pipe_) {
+            const MagYawStatus& ms = pipe_->mag().status();
+            w.key("yaw_correction").begin_object();
+            w.key("mode").value(to_string(pipe_->fusion_mode()));
+            w.key("applied").value(fused);
+            w.key("locked").value(ms.locked);
+            w.key("reacquire").value(ms.reacquire);
+            w.key("pending_deg").value(ms.pending_deg);
+            w.key("sigma_deg").value(ms.sigma_deg);
+            w.key("drift_deg_s").value(ms.drift_dps);
+            w.key("vertical_bias_deg_s").value(ms.vertical_bias_dps);
+            w.key("rate_deg_s").value(ms.rate_dps);
+            w.key("rate_limit_deg_s").value(ms.rate_limit_dps);
+            w.key("total_deg").value(ms.total_deg);
+            w.key("max_step_deg").value(ms.max_step_deg);
+            w.key("unusable_s").value(ms.unusable_s);
+            w.key("samples_used").value(static_cast<unsigned long long>(ms.used_samples));
+            w.key("innovation_rejected").value(static_cast<unsigned long long>(ms.innov_rejected));
+            w.key("accel_skipped").value(static_cast<unsigned long long>(ms.accel_skipped));
+            w.key("fast_skipped").value(static_cast<unsigned long long>(ms.fast_skipped));
+            w.key("meaning").value("pending = openstaande yaw-fout volgens de magnetometer; de hoek wordt hooguit met rate_limit gecorrigeerd "
+                                   "(0,02 graden/s stil, 2 % van de draaisnelheid in beweging, max 0,3); de drift via de verticale bias");
+            w.end_object();
+        }
     }
     w.key("session").raw(progress_json(now));
     w.end_object();

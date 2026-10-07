@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "hid_aux.hpp"
+#include "output_service.hpp"
 
 #include "ravengun/json.hpp"
 #include "ravengun/parse.hpp"
@@ -76,7 +77,7 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("model").value(ci.model);
     w.key("connection").value(ci.connection);
     w.key("has_calibration").value(ci.has_calibration);
-    w.key("magnetometer").value(ci.model == "ZCM1" ? "aanwezig, niet in de fusie gebruikt (zie magnetometer)" : "afwezig of onbekend");
+    w.key("magnetometer").value(ci.model == "ZCM1" ? (p.fusion_mode() == FusionMode::MahonyMag && p.mag().calibrated() ? "aanwezig, in de fusie (yaw-correctie, zie magnetometer)" : "aanwezig, niet in de fusie gebruikt (zie magnetometer)") : "afwezig of onbekend");
     w.key("connected_s").value(ci.open ? static_cast<double>(now - ci.connected_at_ns) / 1e9 : 0.0);
     w.key("connects").value(static_cast<unsigned long long>(ci.connects));
     w.key("led").begin_object();
@@ -137,9 +138,12 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("h_edge_deg").value(c.aim.h_edge_deg).key("v_edge_deg").value(c.aim.v_edge_deg);
     w.end_object();
     w.key("fusion").begin_object();
-    w.key("algorithm").value("mahony_p_imu");
+    w.key("algorithm").value(p.fusion_mode() == FusionMode::MahonyMag ? "mahony_mag (Mahony + yaw-Kalman met magnetometer)" : "mahony_p_imu");
+    w.key("mode").value(to_string(p.fusion_mode()));
     w.key("kp").value(c.fusion.kp).key("accel_gate_g").value(c.fusion.accel_gate).key("max_dt_s").value(c.fusion.max_dt_s);
-    w.key("magnetometer").value(false);
+    w.key("magnetometer").value(p.fusion_mode() == FusionMode::MahonyMag && p.mag().calibrated());
+    w.key("gap_interpolation").value(c.interpolate_gaps);
+    w.key("gaps_interpolated").value(static_cast<unsigned long long>(st.gap_interpolated));
     w.end_object();
     w.key("bias").begin_object();
     w.key("window_s").value(c.bias.window_s).key("gyro_std_max_rad_s").value(c.bias.gyro_std_max);
@@ -241,6 +245,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     ProcStats ps;
     const int64_t start = mono_ns();
     HidAux aux(shared, opt.recorder, opt.pipeline.use_move_clock);
+    aux.attach(&pipe);
 
     // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
     struct Ctx final : HidContext {
@@ -268,8 +273,31 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         AimConfig aim() const override { return p.config().aim; }
         void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
         void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; led_dirty = true; }
+        FusionMode fusion() const override { return p.fusion_mode(); }
+        void set_fusion(FusionMode m) override {
+            if (m == p.fusion_mode()) return;
+            p.set_fusion_mode(m);
+            opt.pipeline.fusion_mode = m;
+            logf("info", "oriëntatieschatter: %s", to_string(m));
+        }
     } ctx(pipe, ci, ps, opt, start, shared, aux);
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
+    // Fase 4: elk gepubliceerd sample gaat ook naar de virtuele lightgun (alleen als die gewapend is).
+    ravengun::output::LiveGunFeed live(opt.gun_buttons);
+    auto emit = [&](const InputSample& s) {
+        shared.publish(s);
+        if (!shared.output) return;
+        ravengun::output::LiveAction a = live.update(s);
+        if (a.recenter && shared.output->armed()) {
+            if (pipe.recenter()) {
+                shared.publish(pipe.last());
+                logf("info", "recenter met de Move-knop");
+                a = live.update(pipe.last());
+                a.recenter = false;
+            }
+        }
+        shared.output->feed_live(a);
+    };
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
     PSMove* move = nullptr;
@@ -329,14 +357,14 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 int64_t t = mono_ns();
                 RawReport r = read_report(move, ret, zcm2, t, aux.tap);
                 InputSample s = pipe.on_report(r);
-                shared.publish(s);
+                emit(s);
                 ps.add(static_cast<double>(mono_ns() - t) / 1e3);
                 aux.on_report(r, pipe, static_cast<double>(psmove_get_temperature_in_celsius(move)));
                 got = true;
             }
             now = mono_ns();
             if (auto s = pipe.tick(now)) {
-                shared.publish(*s);
+                emit(*s);
                 if (s->link == LinkState::Lost) logf("waarschuwing", "geen rapporten sinds %.0f ms: knoppen vrijgegeven", static_cast<double>(opt.pipeline.release_ns) / 1e6);
             }
             const InputSample& last = pipe.last();
@@ -344,7 +372,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             if (now - last_rx > opt.disconnect_ns) {
                 logf("waarschuwing", "Move %s: %.1f s geen rapporten, verbinding gesloten; opnieuw zoeken",
                      redact_mac(ci.id).c_str(), static_cast<double>(now - last_rx) / 1e9);
-                shared.publish(pipe.on_disconnect(now));
+                emit(pipe.on_disconnect(now));
                 aux.on_disconnect(now);
                 psmove_disconnect(move);
                 move = nullptr;
@@ -376,7 +404,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
     if (move) {
-        shared.publish(pipe.on_disconnect(mono_ns()));  // alle knoppen vrij
+        emit(pipe.on_disconnect(mono_ns()));  // alle knoppen vrij (ook op de virtuele lightgun)
         if (opt.led_enabled) {
             psmove_set_leds(move, 0, 0, 0);
             psmove_update_leds(move);

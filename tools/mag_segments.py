@@ -13,15 +13,20 @@ import json, math, sys
 
 def load_cal(p):
     c = json.load(open(p))
-    return c['offset'], c['soft'], c.get('y_flip', True)
+    # Fase 4: B = diag(-1,+1,-1) * A (ruw - b) ("b_map"); oude bestanden (alleen y_flip) zijn het
+    # tegengestelde teken. Alleen de dip hangt daarvan af (positief = veld omlaag).
+    neg = c.get('b_map', 'diag(-1,1,-1)') in ('diag(-1,1,-1)', 'diag(-1,-1,-1)')
+    return c['offset'], c['soft'], c.get('y_flip', True), neg
 
 
 def apply(cal, raw):
-    off, A, yf = cal
+    off, A, yf, neg = cal
     d = [raw[i] - off[i] for i in range(3)]
     m = [sum(A[i][j] * d[j] for j in range(3)) for i in range(3)]
     if yf:
         m[1] = -m[1]
+    if neg:
+        m = [-x for x in m]
     return m
 
 

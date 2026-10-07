@@ -456,6 +456,19 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         case ipc::Cmd::SetWeb: return handle_set_web(sh, r);
         case ipc::Cmd::SetButtons: return handle_set_buttons(sh, r);
         case ipc::Cmd::CalibrateUi: return handle_calibrate_ui(sh, r);
+        case ipc::Cmd::SetFusion: {
+            core::FusionMode m = core::FusionMode::Mahony;
+            core::parse_fusion_mode(r.mode.c_str(), m);
+            std::string res = run_job(sh, [m](HidContext& h) { h.set_fusion(m); return std::string(core::to_string(h.fusion())); }, err);
+            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            config::SaveResult sr{true, {}};
+            if (sh.settings) sr = sh.settings->update([&](config::Settings& s) { s.fusion.mode = r.mode; });
+            json::Writer w;
+            w.begin_object().key("mode").value(res).key("saved").value(sr.ok && sh.settings != nullptr);
+            if (sr.ok) w.key("save_error").null(); else w.key("save_error").value(tilde(sr.message));
+            w.end_object();
+            return ipc::ok_response(r.id_json, w.str());
+        }
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);
         case ipc::Cmd::Diagnostics: return handle_diagnostics(sh, r);

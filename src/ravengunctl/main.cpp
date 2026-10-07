@@ -44,6 +44,8 @@ void usage(FILE* f) {
         "                record [--tag T] [--duration S] [--max-mb N]   opnemen tot S s of Ctrl-C\n"
         "                record --start|--stop|--status, record --mark LABEL\n"
         "  led         LED-kleur: led cyaan|rood|groen|blauw|wit|magenta|geel|uit of led R,G,B\n"
+        "  fusion      oriëntatieschatter: fusion mahony (IMU-only) of fusion mahony_mag (met magnetometer-yaw);\n"
+        "              wordt bewaard in config.json\n"
         "  calibrate   calibrate mag [--holder H] [--duration S]: magnetometer kalibreren (ronddraaien;\n"
         "              stopt zelf bij >= 80 % dekking en >= 300 samples), of --start|--stop|--abort|--status;\n"
         "              calibrate mag --check [--duration 3]: veldcheck (norm en dip t.o.v. de kalibratie)\n"
@@ -321,13 +323,19 @@ void print_status(const json::Value& r) {
                     str(*h, {"node"}, "").c_str(), num(*h, {"matched"}, 0), num(*h, {"unmatched"}, 0), num(*h, {"discarded"}, 0));
     if (const json::Value* m = path(r, {"magnetometer"})) {
         if (boolean(*m, {"calibrated"}))
-            std::printf("Magnetometer: gekalibreerd (%s, houder %s), |m| %.3f, dip %s graden (ref %.2f), toestand %s%s%s; niet in de fusie\n",
+            std::printf("Magnetometer: gekalibreerd (%s, houder %s), |m| %.3f, dip %s graden (ref %.2f), toestand %s%s%s; %s\n",
                         str(*m, {"calibration", "kind"}).c_str(), str(*m, {"calibration", "holder"}).c_str(), num(*m, {"live", "norm"}, 0),
                         fmt(num(*m, {"live", "dip_deg"}), "%.2f").c_str(), num(*m, {"calibration", "dip_ref_deg"}, 0),
                         str(*m, {"live", "state"}).c_str(), str(*m, {"live", "reasons"}, "").empty() ? "" : ", afgewezen: ",
-                        str(*m, {"live", "reasons"}, "").c_str());
+                        str(*m, {"live", "reasons"}, "").c_str(), boolean(*m, {"used_in_fusion"}) ? "in de fusie" : "niet in de fusie");
         else
             std::printf("Magnetometer: niet gekalibreerd (%s)\n", str(*m, {"calibration_error"}).c_str());
+        if (const json::Value* y = path(*m, {"yaw_correction"}))
+            std::printf("Yaw-correctie: %s, %s; openstaand %+.2f graden (σ %.2f), drift %+.3f graden/s, verticale bias %+.3f graden/s, "
+                        "correctie nu %+.3f graden/s (grens %.3f), totaal %+.2f graden\n",
+                        str(*y, {"mode"}).c_str(), boolean(*y, {"applied"}) ? (boolean(*y, {"locked"}) ? "actief" : "wacht op vergrendeling") : "schaduw (niet toegepast)",
+                        num(*y, {"pending_deg"}, 0), num(*y, {"sigma_deg"}, 0), num(*y, {"drift_deg_s"}, 0), num(*y, {"vertical_bias_deg_s"}, 0),
+                        num(*y, {"rate_deg_s"}, 0), num(*y, {"rate_limit_deg_s"}, 0), num(*y, {"total_deg"}, 0));
         if (const json::Value* c = path(*m, {"session", "mag_calibration"}); c && boolean(*c, {"active"}))
             std::printf("              kalibratie loopt: dekking %.0f %%, %.0f samples\n", num(*c, {"coverage_pct"}, 0), num(*c, {"samples"}, 0));
     }
@@ -651,7 +659,7 @@ int main(int argc, char** argv) {
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
             else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
-            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led")) arg2 = a;
+            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
         if (cmd.empty()) { usage(stderr); return kExitUsage; }
@@ -797,6 +805,20 @@ int main(int argc, char** argv) {
         }
         if (cmd == "record") return cmd_record(json, action, tag, mark, duration, max_mb);
         if (cmd == "led") return cmd_led(json, arg2);
+        if (cmd == "fusion") {
+            if (arg2 != "mahony" && arg2 != "mahony_mag" && arg2 != "mahony-mag") {
+                std::fprintf(stderr, "ravengunctl: fusion verwacht mahony of mahony_mag\n");
+                return kExitUsage;
+            }
+            rq.cmd = ipc::Cmd::SetFusion;
+            rq.mode = arg2 == "mahony" ? "mahony" : "mahony_mag";
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else std::printf("Oriëntatieschatter: %s%s\n", str(r.v, {"result", "mode"}).c_str(),
+                             boolean(r.v, {"result", "saved"}) ? " (bewaard in config.json)" : " (niet bewaard)");
+            return kExitOk;
+        }
         if (cmd == "calibrate-ui") {
             if (!action.empty() && action != "close" && action != "status") { std::fprintf(stderr, "ravengunctl: calibrate-ui kent alleen --close en --status\n"); return kExitUsage; }
             return cmd_calibrate_ui(json, action.empty() ? "open" : action);

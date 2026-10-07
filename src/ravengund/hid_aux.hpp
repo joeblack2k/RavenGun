@@ -19,6 +19,8 @@ namespace ravengund {
 class HidAux {
 public:
     HidAux(SharedState& sh, Recorder* rec, bool use_move_clock) : sh_(sh), rec_(rec), move_clock_(use_move_clock) {}
+    // De pijplijn van de HID-thread: de magnetometerkalibratie gaat daarin (fase 4: fusie en detector).
+    void attach(ravengun::core::Pipeline* p) { pipe_ = p; }
 
     void on_connect(const std::string& id, const std::string& model, int64_t now_ns);
     void on_disconnect(int64_t now_ns);
@@ -58,7 +60,7 @@ private:
     bool cal_loaded_ = false;
     std::string cal_err_ = "geen controller";
     ravengun::core::MagCalibration cal_;
-    ravengun::core::MagDisturbanceDetector det_;
+    ravengun::core::Pipeline* pipe_ = nullptr;
     ravengun::core::MagCheck last_check_{};
     double norm_ema_ = 0, dip_ema_ = 0;
     bool ema_init_ = false;

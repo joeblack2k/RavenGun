@@ -51,6 +51,7 @@ add_library(ravengun STATIC
   src/ravengun/output/gun_output.cpp
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
+  src/ravengun/output/live_feed.cpp
   src/ravengun/core/move_report.cpp
   src/ravengun/core/move_clock.cpp
   src/ravengun/core/magnetometer.cpp

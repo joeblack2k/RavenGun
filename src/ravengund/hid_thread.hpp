@@ -2,6 +2,7 @@
 #include <string>
 
 #include "ravengun/core/pipeline.hpp"
+#include "ravengun/output/live_feed.hpp"
 #include "ravengun/ipc_protocol.hpp"
 #include "shared.hpp"
 
@@ -19,6 +20,8 @@ struct HidOptions {
     uint8_t led_r = 0, led_g = 0, led_b = 0;
     int led_refresh_ms = 1000;
     class Recorder* recorder = nullptr;     // fase 0: opnamen (eigendom van main)
+    // Fase 4: live koppeling aan de virtuele lightgun (trekker/reload/grenade/recenter).
+    ravengun::output::LiveButtonMap gun_buttons{};
 };
 
 // Wat de IPC-thread via SharedState::post() in de HID-thread mag doen.
@@ -36,6 +39,9 @@ public:
     virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;
     // LED-kleur van de bol (getypeerd; de HID-thread stuurt hem meteen en daarna elke led_refresh_ms).
     virtual void set_led(bool enabled, uint8_t r, uint8_t g, uint8_t b) = 0;
+    // Fase 4: oriëntatieschatter (mahony | mahony_mag).
+    virtual ravengun::core::FusionMode fusion() const = 0;
+    virtual void set_fusion(ravengun::core::FusionMode m) = 0;
 };
 
 // Draait tot shared.running false wordt. Eigenaar van de PSMoveAPI-handle en de pijplijn.
