@@ -98,3 +98,21 @@ Stilstandsjitter van de aim, in procent van het genormaliseerde bereik (breedte 
 - Met 1€ (min_cutoff 1 Hz, beta 0,5): x 0,07 %, y 0,12 %.
 - Ter vergelijking, de p95-afwijking van het gemiddelde over 60 s (drift telt hier wel mee): x 3,0 %, y 0,7 %.
 - De jitter in procenten hangt rechtstreeks af van de schaal (h_edge en v_edge). Met een andere schaal veranderen deze getallen evenredig.
+
+## Meting camera en boltracking in ravengund (op echte hardware getest, 7 okt 2026, ongeveer 15:50)
+
+Methode: `ravengund` met de standaardinstellingen (camera automatisch gekozen via by-id, 640x480@60 YUYV, AE, AGC en AWB uit, exposure 50, gain 0, LED cyaan, tracker-tint −75 ± 30°). Na 3 s is 60 s opgenomen met `ravengunctl watch --json --rate 250`, gevolgd door `ravengunctl camera --json` en `status --json`. Daarna is de daemon gestopt (exit 0) en was de camera weer vrij. De Move lag stil, met de bol in beeld op ongeveer (359, 287) px. Er is geen beeld opgeslagen, alleen getallen.
+
+- Camera: 3728 frames, 60,022 fps (totaal en over 5 s). Intervallen: gemiddeld 16,660 ms, p50 16,657, p95 16,685, p99 16,688 en max 16,689 ms, allemaal in de bak 12–18 ms. 0 gemiste frames (sequence), 0 fout- en 0 korte frames, 0 streamfouten.
+- Wachtrij (capaciteit 2): 3728 erin en 3728 verwerkt, 0 weggegooid.
+- Dequeue-vertraging (ontvangst min V4L2-timestamp): p50 0,008 ms, p95 0,021 ms. Leeftijd bij de start van de verwerking: p50 0,041 ms, p95 0,058 ms, max 0,23 ms. Dit telt vanaf EOF. De belichting en de USB-overdracht vóór EOF zitten er niet in.
+- Verwerkingstijd per frame (tracker, binnen de ROI): p50 119 µs, p95 146 µs, p99 208 µs, max 962 µs. Doorzoeken van het volledige beeld (zonder bol) kost ongeveer 600 µs (p50).
+- Bol gevonden: 3727 van de 3728 frames (99,97 %). Het ene ongeldige frame is het eerste (`acquire_pending`, bevestiging nodig). 3726 keer gevonden binnen de ROI, 2 keer is het volledige beeld doorzocht. In de watch-stroom (3603 unieke frames) was 100 % geldig.
+- Straal: p5 19,07, p50 19,10, p95 19,12 px. Oppervlak 1144 px, 0 verzadigde pixels, gemiddelde Y van de bol 102, tint −74°, chroma 67, langgerektheid 1,004, vulling 0,999.
+- Positiejitter in stilstand: sd x 0,018 px en y 0,015 px. Radiale afwijking van het gemiddelde p50 0,020 px, p95 0,040 px, max 0,071 px. Ten opzichte van een voortschrijdend gemiddelde van 1 s is p95 0,036 px. De drift tussen de eerste en de laatste 5 s is (+0,018; +0,024) px.
+- De HID-verwerking draaide ongestoord door: 77,4 rapporten per s, verwerking p95 2,3 µs. Er waren 63 LED-updates en 0 mislukte.
+- Scène bij deze belichting: gemiddelde Y 4, p99 16, 0 % verzadigd. 0,38 % van de pixels matcht de bolkleur, en dat is de bol zelf.
+
+Kortere vergelijkingen (15 s, verder dezelfde instellingen): 320x240@187 gaf 187,35 fps, 0 gemist, straal 8,8 px, jitter p95 0,071 px en verwerking p95 40 µs. 320x240@125 gaf 124,90 fps, 0 gemist, straal 9,4 px, jitter p95 0,039 px en verwerking p95 44 µs. LED uit en een magenta LED bij een cyaan-instelling gaven allebei 0 kandidaten in ongeveer 300 frames (geen valse detecties).
+
+Nog te bevestigen: het gedrag op de echte speelafstand (2 tot 3 m), met beweging (bewegingsonscherpte, de ROI-voorspelling), met een hand rond de controller, overdag of bij ander licht, en met tv-licht in beeld. Bij het lezen in de automatische modus gaf de gain-control waarde 241 terug, buiten het opgegeven bereik 0..63. Die waarde komt waarschijnlijk uit een sensorregister (de control is volatile) en wordt niet gebruikt.

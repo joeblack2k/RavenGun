@@ -1,10 +1,10 @@
-# Architectuur van ravengund (fase 2B/2F-kern)
+# Architectuur van ravengund (fase 2B/2F-kern, 2D-camera)
 
 Dit document beschrijft wat nu gebouwd is en welke afspraken vastliggen. Statuslabels: "geïmplementeerd" (code bestaat), "automatisch getest" (CTest), "op echte hardware getest" (op deze host met de Move), "nog te bevestigen".
 
 ## Processen en eigendom van hardware
 
-Er is één daemon, `ravengund`, en die is de enige eigenaar van de live hardware. Nu is dat alleen de Move (via PSMoveAPI). Later komen daar de camera (V4L2) en het virtuele uitvoerapparaat (uinput) bij. Clients (`ravengunctl`, later de webinterface en de kalibratieclient) praten alleen via de socket met de daemon en openen zelf nooit hardware. Ze mogen op elk moment stoppen zonder dat de verwerking stopt.
+Er is één daemon, `ravengund`, en die is de enige eigenaar van de live hardware: de Move (via PSMoveAPI) en de camera (V4L2). Later komt het virtuele uitvoerapparaat (uinput) erbij. Clients (`ravengunctl`, later de webinterface en de kalibratieclient) praten alleen via de socket met de daemon en openen zelf nooit hardware. Ze mogen op elk moment stoppen zonder dat de verwerking stopt.
 
 `ravengund` draait op de voorgrond (bedoeld voor een terminal of later een systemd-userdienst). Eén instantie per gebruiker wordt afgedwongen met `flock` op `$XDG_RUNTIME_DIR/ravengun/ravengund.lock`. Het slot vervalt vanzelf als het proces stopt, ook na een crash. Een tweede instantie stopt met exitcode 69. SIGINT en SIGTERM worden in de hoofdthread met `sigwait` afgehandeld: de threads stoppen, de Move wordt gesloten nadat alle knoppen zijn vrijgegeven, en de socket wordt verwijderd.
 
@@ -15,6 +15,9 @@ Geïmplementeerd en automatisch getest (`tests/ipc_smoke.sh`). Op echte hardware
 1. De hoofdthread doet de opstart, het slot en de signalen.
 2. De HID-thread (`src/ravengund/hid_thread.cpp`) is de enige code die PSMoveAPI aanroept. Ze bezit de Move-handle en de verwerkingspijplijn. Ze leest elk beschikbaar rapport (`psmove_poll` tot er niets meer is, max. 64 per ronde) en verwerkt elk rapport afzonderlijk. Als er niets nieuws is, slaapt ze 1 ms. PSMoveAPI geeft geen file descriptor om op te wachten. Daardoor komt er 0 tot ongeveer 1 ms wachttijd bovenop de Bluetooth-latentie.
 3. De IPC-thread (`src/ravengund/ipc_server.cpp`) draait een `poll()`-lus over de luistersocket en alle clients, met niet-blokkerende sockets. Opdrachten die de pijplijn veranderen (recenter, filter, aim-schaal) of die statistiek nodig hebben (status) gaan via een wachtrij naar de HID-thread, met een time-out van 500 ms. Zo heeft de pijplijn één eigenaar en zijn er geen locks in de rekenroute. Live samples leest de IPC-thread uit een momentopname die de HID-thread na elk sample onder een korte mutex publiceert.
+
+4. De capture-thread (`src/ravengund/camera.cpp`) is de enige code die de camera opent (zie "Camera en boltracking").
+5. De tracker-thread verwerkt het nieuwste cameraframe en publiceert de optische meting. Camera en tracker staan los van de HID-thread: een trage of haperende camera vertraagt de IMU-verwerking niet.
 
 Een trage client kan de verwerking niet ophouden. Staat er bij een watch-client nog meer dan 16 KiB te wachten, dan wordt dat frame overgeslagen (en geteld). Boven 256 KiB wordt de client verbroken.
 
@@ -29,11 +32,14 @@ De library `libravengun` bevat alle logica zonder hardware:
 - `core/buttons.*`: knopstatus en -flanken.
 - `core/pipeline.*`: koppelt dit alles. Rapport in, `InputSample` uit, plus staleness en statistiek.
 - `core/input_model.*`: het inputmodel en de JSON-vorm daarvan.
+- `vision/latest_queue.hpp`: de begrensde wachtrij die altijd het nieuwste frame levert.
+- `vision/frame_timing.*`: fps, frame-intervallen, gemiste frames en leeftijd.
+- `vision/ball_tracker.*`: de boltracker (eigen code, geen OpenCV).
 - `json_parse.*`, `ipc_protocol.*` en `ipc_client.*`: het beheerprotocol.
 
 De daemon voegt daar alleen de hardware-, thread- en socketcode aan toe. Tests voeren synthetische rapporten rechtstreeks aan de pijplijn.
 
-Nog niet gebouwd (latere fasen): de camera-acquisitie en boltracking, kalibratie en persistente configuratie, de outputbackend (uinput), Bluetooth-onboarding in de daemon en de webinterface.
+Nog niet gebouwd (latere fasen): het gebruik van de optische meting in de aim (hybride modus), cameramodel en kalibratie, persistente configuratie, de outputbackend (uinput), Bluetooth-onboarding in de daemon en de webinterface.
 
 ## Tijdbases
 
@@ -88,7 +94,7 @@ De cursor springt nooit naar een hoek. Afnemers krijgen `aim.valid = false` en d
 
 Elk HID-rapport bevat een volledige knopstatus en wordt afzonderlijk verwerkt. Elke wisseling tussen twee rapporten wordt dus een flank in dat sample (`pressed`, `released`). De gepubliceerde momentopname houdt per knop een cumulatieve teller van down- en up-flanken bij. Iedere afnemer (watch-client, later de outputbackend) onthoudt zijn eigen tellerstand, zodat ook een druk+los tussen twee leesmomenten en meerdere drukken zichtbaar blijven, ongeacht de leessnelheid. De bitposities volgen `enum PSMove_Button` van PSMoveAPI. Een druk die korter is dan één rapportinterval en volledig tussen twee rapporten valt, zit niet in de hardwaredata.
 
-## Inputmodel (schema-versie 1)
+## Inputmodel (schema-versie 2)
 
 `InputSample` (`src/ravengun/core/input_model.hpp`) heeft in JSON de volgende velden. Een nieuwe of gewijzigde betekenis verhoogt `schema_version`.
 
@@ -97,7 +103,7 @@ Elk HID-rapport bevat een volledige knopstatus en wordt afzonderlijk verwerkt. E
 - `tracking_mode`: nu altijd "orientation". Gereserveerd zijn "optical_diagnostic", "hybrid" en "geometric_ray".
 - `link`: "disconnected", "fresh", "stale" of "lost".
 - `orientation`: `valid`, `q_wb`, `world_yaw_deg` en `world_pitch_deg` (zonder midden, alleen diagnose), `bias_state`, `still`, `gyro_bias_deg_s` en `yaw_reference`.
-- `position`: altijd `valid: false` (nog geen camera).
+- `position`: de laatste optische meting (schema 2). `kind` is altijd "image_2d": een 2D-beeldpositie, geen 3D-positie. Velden: `valid`, `reason` ("none" als geldig, anders de reden van de tracker, of "no_camera", "no_frames", "camera_error"), `camera` (disabled, opening, streaming, error), `track_state` (searching, tracking), `frame_seq` (V4L2-volgnummer), `t_frame_ns` (V4L2-timestamp), `t_processed_ns`, `image_w`/`image_h`, `x_px`/`y_px` (zwaartepunt, pixelmiddens op +0,5), `x_norm`/`y_norm` (gedeeld door breedte/hoogte, links-boven 0,0), `radius_px`, `candidates`, en `depth` (altijd null: zonder gekalibreerd cameramodel is diepte onbekend). Is `valid` false, dan zijn de positievelden null. De positie wordt (nog) niet gebruikt voor de aim.
 - `aim`: `valid`, `center_source`, `filter_enabled`, `yaw_rel_deg`, `pitch_rel_deg`, `x_raw`/`y_raw` (ongefilterd, unclamped), `x`/`y` (gefilterd, unclamped), `x_clamped`/`y_clamped` en `off_screen` (unclamped buiten [0,1]).
 - `trigger` (0..255; bij de ZCM1 het gemiddelde van twee triggerbytes, zoals PSMoveAPI dat geeft) en `buttons` (`mask`, `down`, `pressed`, `released`).
 - `source`: de laatste ruwe, gekalibreerde accelerometerwaarde (g) en gyrowaarde (graden/s, vóór de biascorrectie), om dubbele inversies of verkeerde eenheden te kunnen opsporen.
@@ -110,13 +116,50 @@ De socket is `$XDG_RUNTIME_DIR/ravengun/ravengund.sock` (Unix stream). De map he
 
 Een verzoek heeft de vorm `{"v":1,"cmd":"<commando>","id":<optioneel getal of string>, ...}`. Onbekende velden, verkeerde types en waarden buiten het bereik worden geweigerd. Er bestaat geen commando dat paden of shellopdrachten aanneemt. De commando's zijn:
 
-- `status` (optioneel `full_ids`): de daemon, de controller (inclusief batterij), de rapportstatistiek, de verwerkingstijd, de configuratie en het laatste sample.
+- `status` (optioneel `full_ids`): de daemon, de controller (inclusief batterij en LED), de rapportstatistiek, de verwerkingstijd, de configuratie, het laatste sample en onder `camera` hetzelfde object als het commando `camera`.
+- `camera`: de camerastatus: identiteit (by-id, by-path, node, driver, bus), modus, betekenis van de timestamps, frames (ontvangen, fps totaal en over 5 s, gemist volgens sequence, fout- en korte frames), verdelingen van interval, dequeue-vertraging, leeftijd bij verwerking en verwerkingstijd, de wachtrijtellers, alle V4L2-controls (waarde vóór en na, wat ravengund zette), de trackerconfiguratie en -statistiek (geldig, ROI of volledig beeld, redenen, straalverdeling, laatste meting) en scènestatistiek (alleen getallen).
 - `sample`: het laatste sample.
 - `recenter`: legt het midden vast. Zonder actuele oriëntatie geeft het de fout `unavailable`.
-- `watch` (`rate_hz` 1..250, standaard 30): daarna stuurt de daemon `{"v":1,"event":"sample","data":{"sample":…,"edges_since_last_frame":{"pressed":{…},"released":{…}},"skipped_frames":n}}`, alleen als er een nieuw sample is.
+- `watch` (`rate_hz` 1..250, standaard 30): daarna stuurt de daemon `{"v":1,"event":"sample","data":{"sample":…,"edges_since_last_frame":{"pressed":{…},"released":{…}},"skipped_frames":n}}`, alleen als er een nieuw sample of een nieuwe optische meting is (ook zonder verbonden Move).
 - `set_filter` (`enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz`) en `set_aim` (`h_edge_deg`, `v_edge_deg`): deze gelden alleen voor de lopende run, want persistente configuratie volgt later.
 
 Een antwoord is `{"v":1,"ok":true,"id":…,"result":…}` of `{"v":1,"ok":false,"id":…,"error":{"code":…,"message":…}}`. De foutcodes zijn `parse_error`, `bad_request`, `unsupported_version`, `unknown_command`, `invalid_argument`, `line_too_long`, `unavailable` en `internal`.
+
+## Camera en boltracking (fase 2D)
+
+Statuslabels in deze sectie: geïmplementeerd, automatisch getest (CTest, synthetische frames) en op echte hardware getest (PS3 Eye en Move ZCM1 op deze host, 7 okt 2026). Wat bij de hardwaretest niet gevarieerd is (speelafstand, beweging, hand), staat als "nog te bevestigen".
+
+### Acquisitie
+
+Geïmplementeerd en op echte hardware getest. De camera wordt gekozen op stabiele identiteit: met `--camera PAD` (bijvoorbeeld een `/dev/v4l/by-path/...`-link), of automatisch de enige camera met driver `ov534` onder `/dev/v4l/by-id`. Bij nul of meer dan één zo'n camera start de camera niet en staat de reden in de status. `/dev/video0` wordt nergens aangenomen. Het formaat is YUYV (de chroma komt kant-en-klaar van de camera, zonder eigen debayering). De modus is instelbaar met `--camera-mode BxH@FPS`, standaard 640x480@60.
+
+De capture-thread gebruikt V4L2-mmap met 4 driverbuffers. Bij elk `poll()`-signaal haalt hij alle klaarstaande buffers op (DQBUF tot EAGAIN), noteert timestamp, volgnummer en ontvangsttijd, kopieert de inhoud naar een framebuffer in RAM en geeft de driverbuffer direct terug. Zo stapelen de driverbuffers niet op. Het frame gaat in een begrensde wachtrij met capaciteit 2. Is die vol, dan valt het oudste weg (`dropped_full`). De tracker-thread neemt altijd het nieuwste frame en gooit oudere weg (`dropped_stale`). Framebuffers worden hergebruikt. Er is één eigenaar van de camera (de daemon met zijn lockfile; een tweede streamer krijgt EBUSY, en dat staat dan als fout in de status). Valt de stream weg (fout, 2 s geen frame), dan sluit de capture-thread het apparaat en probeert hij het na 1 tot 2 s opnieuw.
+
+Beelden blijven in RAM en worden nergens opgeslagen. Er is geen opname- of previewfunctie. De status bevat alleen getallen.
+
+### Tijd
+
+`t_frame_ns` is de V4L2-buffertimestamp. Op deze camera is het type monotonic (dezelfde klok als `t_rx_ns` van de Move) met bron EOF: het moment waarop het frame volledig binnen was, niet het moment van belichting. Is de timestamp niet monotonic, dan valt de daemon terug op de ontvangsttijd (zichtbaar in de status onder `timestamps`). De status meet per frame het interval tussen timestamps, de gaten in het V4L2-volgnummer (gemiste frames), de dequeue-vertraging (ontvangst min timestamp), de leeftijd bij de start van de verwerking (start min timestamp) en de verwerkingstijd. De belichtings- en overdrachtstijd vóór EOF zit in geen van die getallen.
+
+### Controls
+
+Geïmplementeerd en op echte hardware getest. Bij het openen leest de daemon alle V4L2-controls. Standaard zet hij `auto_exposure` op handmatig (1), `gain_automatic` op 0, `white_balance_automatic` op 0, `exposure` op 50 en `gain` op 0. Na STREAMON leest hij alles opnieuw. In de status staan per control de waarde vóór en na, en wat ravengund zette. Met `--camera-auto` zet de daemon de automatiek juist expliciet aan (de driver onthoudt eerdere handmatige waarden). Een aparte witbalans per kanaal biedt de ov534-driver niet. Bij uitgeschakelde AWB blijft de huidige toestand van de sensor staan. De keuze van de waarden staat in `docs/decisions.md`.
+
+### LED
+
+Geïmplementeerd en op echte hardware getest. De HID-thread stuurt de LED-kleur (standaard cyaan, `--led`) elke 1000 ms opnieuw met `psmove_set_leds` en `psmove_update_leds`. Zonder herhaling dooft de Move de LED na ongeveer 4 tot 5 s. Bij het stoppen zet de daemon de LED uit. De status toont onder `controller.led` de kleur en het aantal geslaagde en mislukte updates.
+
+### Tracker
+
+Geïmplementeerd en automatisch getest. Op echte hardware getest met een stilliggende Move. Het algoritme staat in `src/ravengun/vision/ball_tracker.hpp`:
+
+1. Een pixel telt mee als kleurpixel als zijn chroma (U−128, V−128) binnen de tint-sector valt (standaard −75 ± 30 graden voor cyaan, de gemeten tint), met chroma-sterkte ≥ 28 en Y ≥ 40. Hij telt mee als verzadigde pixel als Y ≥ 245 (een overbelichte kern is wit). De sector staat in een opzoektabel van 64 KiB.
+2. Connected components (8-buren, union-find) in een ROI rond de voorspelde positie (vorige positie plus snelheid). Raakt een component de rand van de ROI, of staat er geen geschikte kandidaat binnen de poort, dan wordt in hetzelfde frame het volledige beeld doorzocht.
+3. Per component: oppervlak, aandeel kleurpixels, zwaartepunt, tweede momenten, straal (gelijk oppervlak), langgerektheid (√(λ1/λ2) ≤ 1,8) en vulling (0,70 tot 1,35; een schijf is 1). Verworpen worden: te weinig kleur (< 25 %, bijvoorbeeld een witte lamp), te klein (< 12 px), te groot (straal > ¼ beeldhoogte) en niet rond.
+4. Keuze: tijdens het volgen de geschikte kandidaat het dichtst bij de voorspelling, binnen een poort van max(24 px × breedte/640, 4 × straal) plus de snelheid. Zonder voorgeschiedenis wordt nooit de grootste gekozen: zijn er meerdere geschikte kandidaten, dan is de meting ongeldig (`multiple_candidates`).
+5. Uitbijters: een sprong buiten de poort of een straalverandering van meer dan een factor 1,8 wordt pas geldig als het volgende frame hem bevestigt (`jump_unconfirmed`). Een nieuwe acquisitie vraagt ook een tweede frame (`acquire_pending`). Na 8 frames zonder geaccepteerde meting wordt de toestand `searching`.
+
+Redenen van ongeldigheid: `no_candidate`, `too_small`, `too_large`, `not_round`, `too_little_color`, `multiple_candidates`, `jump_unconfirmed`, `acquire_pending` en `bad_frame`. Er is geen confidence-getal. Bekende beperkingen: bij gedeeltelijke afdekking verschuift het zwaartepunt naar het zichtbare deel, en tot ongeveer een kwart afdekking blijft de meting geldig (getest). Een bol die minder dan ongeveer 12 px beslaat, wordt verworpen. Een reflectie die rond en even helder is als de bol, kan bij de acquisitie `multiple_candidates` geven.
 
 ## Batterij
 
@@ -126,4 +169,5 @@ PSMoveAPI geeft zes niveaus (`Batt_MIN` minder dan 20 %, en daarna ten minste 20
 
 - PSMoveAPI schrijft bij het verbinden zelf een waarschuwing met het volledige Bluetooth-adres naar stderr ("Magnetometer in … not yet calibrated"). Die tekst valt buiten de redactie van RavenGun. Logs van `ravengund` die gedeeld worden, moeten daarom gefilterd worden (nog te regelen bij logging naar bestand).
 - De ontvangsttijd is geen sensortijd (zie Tijdbases).
+- De optische positie is een 2D-beeldpositie. Diepte, een cameramodel (intrinsieken, lensvervorming) en de koppeling met het schermvlak ontbreken nog.
 - Het 4-bitsvolgnummer meldt regelmatig een overgeslagen nummer (`dropped_by_seq`). Of dat werkelijk verloren rapporten zijn of een eigenschap van de firmware, is nog te bevestigen. De rapportfrequentie zelf wordt los daarvan gemeten.
