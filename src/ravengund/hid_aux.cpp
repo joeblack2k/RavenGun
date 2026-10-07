@@ -181,7 +181,7 @@ std::string HidAux::calib_mag(const ipc::Request& rq, int64_t now) {
     c.temperature_raw = collect_temp_;
     bool saved = false;
     std::string save_err;
-    if (res.ok) {
+    if (res.ok || res.marginal) {
         saved = save_mag_calibration(mag_dir_, c, save_err);
         if (saved) {
             cal_ = c;
@@ -196,6 +196,7 @@ std::string HidAux::calib_mag(const ipc::Request& rq, int64_t now) {
     w.begin_object();
     w.key("fitted").value(res.fitted);
     w.key("ok").value(res.ok);
+    w.key("marginal").value(res.marginal);
     w.key("saved").value(saved);
     if (!save_err.empty()) w.key("save_error").value(save_err);
     if (saved) w.key("file").value(mag_dir_ + "/" + c.controller_key + ".json");

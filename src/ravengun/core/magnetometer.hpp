@@ -49,6 +49,7 @@ struct MagCalibration {
     std::string controller;      // geredigeerd
     std::string controller_key;  // hash van het adres (bestandsnaam)
     std::string holder;          // bijv. "sharp_shooter" of "los"
+    bool marginal = false;       // strenge eisen niet gehaald, ruime wel; pas na veldcheck bruikbaar
 };
 
 // Gekalibreerde vector in het controllerstelsel B.
@@ -82,6 +83,10 @@ struct MagFitOptions {
     double min_coverage = 0.80;
     double max_rms = 0.02;              // RMS van |m_cal| - 1
     double max_dip_std_deg = 1.5;
+    // Ruime grenzen: de ruis per sample is ~2 % van het veld (3,8 counts op ~175), dus de strenge
+    // eisen liggen op de ruisvloer. Daarbinnen wordt opgeslagen als "marginaal" (zie veldcheck).
+    double marginal_max_rms = 0.04;
+    double marginal_max_dip_std_deg = 8.0;
     double full_fit_min_coverage = 0.5; // daaronder: alleen asgericht (minder vrijheidsgraden)
     double ridge = 1e-6;                // regularisatie van de kruistermen (genormaliseerde data)
     double accel_static_tol = 0.05;     // g: alleen quasi-statische samples voor de dip
@@ -97,6 +102,7 @@ struct MagFitResult {
     double dip_std_noflip_deg = 0;  // dezelfde spreiding zonder Y-flip (assencontrole)
     int dip_samples = 0;
     double max_norm_err = 0;
+    bool marginal = false;      // !ok, maar binnen de ruime grenzen (opslaan met markering)
     std::vector<std::string> problems;  // Nederlands, concreet
 };
 

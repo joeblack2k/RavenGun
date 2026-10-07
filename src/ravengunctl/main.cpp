@@ -483,7 +483,7 @@ int cmd_led(bool json, const std::string& arg) {
 }
 
 void print_fit(const json::Value& f) {
-    std::printf("Resultaat:    %s%s\n", boolean(f, {"ok"}) ? "GESLAAGD" : "NIET GESLAAGD",
+    std::printf("Resultaat:    %s%s\n", boolean(f, {"ok"}) ? "GESLAAGD" : boolean(f, {"marginal"}) ? "MARGINAAL (bruikbaarheid volgt uit de veldcheck)" : "NIET GESLAAGD",
                 boolean(f, {"saved"}) ? (", opgeslagen in " + str(f, {"file"})).c_str() : ", niet opgeslagen");
     std::printf("Fit:          %s, %.0f samples (%.0f gezien), %.0f s\n", str(f, {"kind"}).c_str(), num(f, {"samples"}, 0),
                 num(f, {"samples_seen"}, 0), num(f, {"duration_s"}, 0));

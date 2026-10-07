@@ -368,6 +368,9 @@ MagFitResult fit_magnetometer(const std::vector<MagSample>& s, const MagFitOptio
         res.problems.push_back("dip spreidt " + deg(cal.dip_std_deg) + " (max " + deg(o.max_dip_std_deg) +
                                "): veld niet homogeen of te snel gedraaid; langzamer draaien, weg van metaal");
     res.ok = res.problems.empty();
+    res.marginal = !res.ok && cal.coverage >= o.min_coverage && cal.samples >= o.min_samples &&
+                   cal.rms_norm_err <= o.marginal_max_rms && cal.dip_std_deg <= o.marginal_max_dip_std_deg;
+    cal.marginal = res.marginal;
     return res;
 }
 
@@ -454,6 +457,7 @@ std::string mag_calibration_to_json(const MagCalibration& c) {
     w.key("y_flip").value(c.y_flip);
     w.key("field_counts").value(c.field_counts);
     w.key("dip_ref_deg").value(c.dip_ref_deg);
+    w.key("marginal").value(c.marginal);
     w.key("quality").begin_object();
     w.key("rms_norm_err").value(c.rms_norm_err);
     w.key("dip_std_deg").value(c.dip_std_deg);
@@ -506,6 +510,7 @@ bool mag_calibration_from_json(const std::string& text, MagCalibration& out, std
     }
     if (!(det3(c.soft) > 0)) { err = "beschadigd: soft-iron-matrix niet positief"; return false; }
     if (const json::Value* y = o.find("y_flip"); y && y->is_bool()) c.y_flip = y->b;
+    if (const json::Value* mg = o.find("marginal"); mg && mg->is_bool()) c.marginal = mg->b;
     num(o.find("field_counts"), c.field_counts);
     num(o.find("dip_ref_deg"), c.dip_ref_deg);
     double t = 0;
