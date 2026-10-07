@@ -15,6 +15,7 @@ namespace {
 constexpr int64_t kProgressPeriodNs = 200'000'000;  // 5 Hz
 constexpr double kMagTargetCoverage = 0.80;
 constexpr int kMagTargetSamples = 300;
+constexpr double kMagMinSeconds = 40.0;  // minimaal zo lang draaien, ook als de dekking eerder lijkt te kloppen
 
 std::string fail(const char* code, const std::string& msg) { return std::string("!") + code + "|" + msg; }
 }  // namespace
@@ -241,7 +242,9 @@ std::string HidAux::progress_json(int64_t now) const {
         w.key("elapsed_s").value(static_cast<double>(now - collect_start_ns_) / 1e9);
         w.key("target_coverage_pct").value(kMagTargetCoverage * 100);
         w.key("target_samples").value(kMagTargetSamples);
-        w.key("ready").value(cov >= kMagTargetCoverage && n >= kMagTargetSamples);
+        double el = static_cast<double>(now - collect_start_ns_) / 1e9;
+        w.key("min_seconds").value(kMagMinSeconds);
+        w.key("ready").value(cov >= kMagTargetCoverage && n >= kMagTargetSamples && el >= kMagMinSeconds);
     }
     if (!last_fit_json_.empty()) w.key("last_result").raw(last_fit_json_);
     w.end_object();

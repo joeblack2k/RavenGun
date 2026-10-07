@@ -397,11 +397,19 @@ double MagCollector::coverage(int min_count) const {
     Vec3 c = (lo_ + hi_) * 0.5;
     Vec3 h = (hi_ - lo_) * 0.5;
     SphereCoverage cov;
+    double mean_norm = 0;
     for (const auto& x : s_) {
         Vec3 d = x.raw - c;
         cov.add({h.x > 1 ? d.x / h.x : 0, h.y > 1 ? d.y / h.y : 0, h.z > 1 ? d.z / h.z : 0});
+        mean_norm += norm(x.raw);
     }
-    return cov.fraction(min_count);
+    mean_norm /= static_cast<double>(s_.size());
+    // Normaliseren op de eigen omvang maakt van een klein wolkje (nauwelijks gedraaid) al een
+    // "volle bol". Een echte rondgang geeft per as een halve spreiding in de orde van de veldsterkte;
+    // daarom telt de dekking pas volledig mee als elke as minstens ~60 % daarvan bestrijkt.
+    double need = 0.6 * mean_norm;
+    double spread = need > 0 ? std::min({1.0, h.x / need, h.y / need, h.z / need}) : 0.0;
+    return cov.fraction(min_count) * spread;
 }
 
 // ---------------- Opslag ----------------

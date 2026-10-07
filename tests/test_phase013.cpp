@@ -435,6 +435,19 @@ static void test_mag_fit_quality_gates() {
     for (int i = 0; i < 100; ++i) col.add(raw, {0, 0, 1}, i * 0.013);
     CHECK(col.samples().size() == 1);
     CHECK(col.seen() == 100);
+    // Een klein wolkje rond een veld van ~180 counts (nauwelijks gedraaid) mag geen hoge dekking
+    // geven; een volledige rondgang wel (regressie: dekking 100 % na 3 s op echte hardware).
+    MagCollector small, full;
+    for (int i = 0; i < 400; ++i) {
+        Vec3 d{rng.gauss(), rng.gauss(), rng.gauss()};
+        double n = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+        int s3[3] = {static_cast<int>(-150 + 15 * d.x / n), static_cast<int>(-50 + 15 * d.y / n), static_cast<int>(80 + 15 * d.z / n)};
+        small.add(s3, {0, 0, 1}, i * 0.013);
+        int f3[3] = {static_cast<int>(10 + 180 * d.x / n), static_cast<int>(-20 + 180 * d.y / n), static_cast<int>(5 + 180 * d.z / n)};
+        full.add(f3, {0, 0, 1}, i * 0.013);
+    }
+    CHECK(small.coverage() < 0.3);
+    CHECK(full.coverage() > 0.8);
 }
 
 static void test_mag_storage() {
