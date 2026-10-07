@@ -16,6 +16,7 @@
 #include "camera.hpp"
 #include "hid_thread.hpp"
 #include "ipc_server.hpp"
+#include "output_service.hpp"
 #include "ravengun/ipc_client.hpp"
 #include "shared.hpp"
 
@@ -39,6 +40,14 @@ void usage(FILE* f) {
         "  --v-edge-deg G                   pitch tot de boven/onderrand (standaard 11.25)\n"
         "  --no-auto-center                 geen automatisch midden bij de eerste oriëntatie\n"
         "  --no-hid                         geen PSMoveAPI openen (alleen IPC; voor tests)\n"
+        "\n"
+        "uitvoer (virtueel lightgun-apparaat 1209:7202; standaard DISARMED, geen events; 'ravengunctl arm'):\n"
+        "  --out-invert-x, --out-invert-y   spiegel de as vóór het apparaat\n"
+        "  --out-scale-x S, --out-scale-y S schaal rond het midden (standaard 1)\n"
+        "  --out-offset-x D, --out-offset-y D  verschuiving in viewport-eenheden (standaard 0)\n"
+        "  --out-content-aspect B/H         aspect van het gamebeeld; samen met --out-screen-aspect (standaard\n"
+        "                                   16/9) wordt een letterbox/pillarbox-viewport berekend\n"
+        "  --out-screen-aspect B/H          aspect van het scherm (standaard 16/9)\n"
         "\n"
         "camera en boltracking (beelden blijven in RAM, nooit op schijf):\n"
         "  --camera PAD                     camera-apparaat (bv. /dev/v4l/by-path/...); standaard: de enige\n"
@@ -74,6 +83,8 @@ bool parse_double(const char* s, double lo, double hi, double& out) {
 int main(int argc, char** argv) {
     HidOptions opt;
     CameraOptions cam;
+    ravengun::output::GunTransform out_transform;
+    double content_aspect = NAN, screen_aspect = 16.0 / 9.0;
     std::string led_arg;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     for (int i = 1; i < argc; ++i) {
@@ -92,6 +103,21 @@ int main(int argc, char** argv) {
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
         else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
         else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
+        else if (a == "--out-invert-x") out_transform.invert_x = true;
+        else if (a == "--out-invert-y") out_transform.invert_y = true;
+        else if (a == "--out-scale-x") need(0.05, 20, out_transform.scale_x);
+        else if (a == "--out-scale-y") need(0.05, 20, out_transform.scale_y);
+        else if (a == "--out-offset-x") need(-1, 1, out_transform.offset_x);
+        else if (a == "--out-offset-y") need(-1, 1, out_transform.offset_y);
+        else if ((a == "--out-content-aspect" || a == "--out-screen-aspect") && i + 1 < argc) {
+            int bw = 0, bh = 0;
+            char tail = 0;
+            if (std::sscanf(argv[++i], "%d/%d%c", &bw, &bh, &tail) != 2 || bw < 1 || bh < 1) {
+                std::fprintf(stderr, "ravengund: ongeldige %s (verwacht B/H, bv. 4/3)\n", a.c_str());
+                return 64;
+            }
+            (a == "--out-content-aspect" ? content_aspect : screen_aspect) = static_cast<double>(bw) / bh;
+        }
         else if (a == "--no-camera") cam.enabled = false;
         else if (a == "--camera-auto") cam.manual = false;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
@@ -149,6 +175,8 @@ int main(int argc, char** argv) {
     if (!std::isnan(hue_tol)) cam.tracker.hue_tol_deg = hue_tol;
     if (!std::isnan(min_chroma)) cam.tracker.min_chroma = static_cast<int>(min_chroma);
 
+    if (!std::isnan(content_aspect)) out_transform.viewport = ravengun::output::letterbox_viewport(screen_aspect, content_aspect);
+
     std::string dir = ravengun::ipc::runtime_dir();
     if (dir.empty()) { std::fprintf(stderr, "ravengund: XDG_RUNTIME_DIR is niet gezet\n"); return 69; }
     if (::mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
@@ -196,6 +224,9 @@ int main(int argc, char** argv) {
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit");
 
     SharedState shared;
+    OutputService output;  // standaard disarmed; maakt pas bij 'arm' het uinput-apparaat
+    output.set_initial_transform(out_transform);
+    shared.output = &output;
     CameraService camera(shared, cam);
     shared.camera_status = [&camera] { return camera.status_json(); };
     if (cam.enabled)
@@ -216,6 +247,7 @@ int main(int argc, char** argv) {
     camera.stop();
     hid.join();
     ipc.join();
+    output.shutdown();  // patroon stoppen, alle knoppen vrijgeven, apparaat verwijderen
     ::close(sfd);
     ::unlink(sock.c_str());
     ::close(wake);

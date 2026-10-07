@@ -14,7 +14,8 @@ inline constexpr size_t kMaxLineBytes = 64 * 1024;
 inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
 
-enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera };
+enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
+                 Arm, Disarm, Output, TestPattern, OutputButton, SetOutput };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -25,6 +26,15 @@ struct Request {
     std::optional<bool> filter_enabled;
     std::optional<double> min_cutoff_hz, beta, d_cutoff_hz;
     std::optional<double> h_edge_deg, v_edge_deg;
+    // Uitvoer (arm/disarm/output/test_pattern/output_button/set_output).
+    std::string pattern;   // test_pattern: center|corners|grid|sweep|point|stop
+    std::optional<double> dwell_ms, duration_s, margin, x, y, rate_hz_pattern;
+    std::string button;    // output_button: trigger|reload|grenade|aux1|aux2
+    std::string action;    // output_button: down|up|tap
+    std::optional<bool> invert_x, invert_y;
+    std::optional<double> scale_x, scale_y, offset_x, offset_y;
+    std::optional<double> vp_x0, vp_y0, vp_x1, vp_y1;          // set_output: viewport (aim-ruimte)
+    std::optional<double> screen_aspect, content_aspect;      // set_output: letterbox, beide of geen
 };
 
 struct Error {

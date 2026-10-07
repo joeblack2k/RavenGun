@@ -18,6 +18,12 @@ const char* to_string(Cmd c) {
         case Cmd::SetFilter: return "set_filter";
         case Cmd::SetAim: return "set_aim";
         case Cmd::Camera: return "camera";
+        case Cmd::Arm: return "arm";
+        case Cmd::Disarm: return "disarm";
+        case Cmd::Output: return "output";
+        case Cmd::TestPattern: return "test_pattern";
+        case Cmd::OutputButton: return "output_button";
+        case Cmd::SetOutput: return "set_output";
     }
     return "?";
 }
@@ -57,6 +63,14 @@ bool opt_bool(const json::Value& o, const char* key, std::optional<bool>& out, E
     if (!v) return true;
     if (!v->is_bool()) { e = err("invalid_argument", std::string("'") + key + "' moet true of false zijn", id); return false; }
     out = v->b;
+    return true;
+}
+
+bool opt_string(const json::Value& o, const char* key, std::string& out, Error& e, const std::string& id) {
+    const json::Value* v = o.find(key);
+    if (!v) return true;
+    if (!v->is_string() || v->str.size() > 32) { e = err("invalid_argument", std::string("'") + key + "' moet een korte string zijn", id); return false; }
+    out = v->str;
     return true;
 }
 
@@ -126,6 +140,52 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!opt_number(o, "h_edge_deg", 1, 89, r.h_edge_deg, e, r.id_json)) return e;
         if (!opt_number(o, "v_edge_deg", 1, 89, r.v_edge_deg, e, r.id_json)) return e;
         if (!r.h_edge_deg && !r.v_edge_deg) return err("invalid_argument", "set_aim zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "arm" || cmd == "disarm" || cmd == "output") {
+        r.cmd = cmd == "arm" ? Cmd::Arm : cmd == "disarm" ? Cmd::Disarm : Cmd::Output;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "test_pattern") {
+        r.cmd = Cmd::TestPattern;
+        if (!allowed(o, {"pattern", "dwell_ms", "duration_s", "margin", "x", "y", "rate_hz"}, bad))
+            return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "pattern", r.pattern, e, r.id_json)) return e;
+        if (r.pattern.empty()) return err("invalid_argument", "'pattern' ontbreekt (center, corners, grid, sweep, point of stop)", r.id_json);
+        if (!opt_number(o, "dwell_ms", 50, 60000, r.dwell_ms, e, r.id_json)) return e;
+        if (!opt_number(o, "duration_s", 0.5, 600, r.duration_s, e, r.id_json)) return e;
+        if (!opt_number(o, "margin", 0, 0.499, r.margin, e, r.id_json)) return e;
+        if (!opt_number(o, "x", 0, 1, r.x, e, r.id_json)) return e;
+        if (!opt_number(o, "y", 0, 1, r.y, e, r.id_json)) return e;
+        if (!opt_number(o, "rate_hz", 1, 1000, r.rate_hz_pattern, e, r.id_json)) return e;
+    } else if (cmd == "output_button") {
+        r.cmd = Cmd::OutputButton;
+        if (!allowed(o, {"button", "action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "button", r.button, e, r.id_json)) return e;
+        if (!opt_string(o, "action", r.action, e, r.id_json)) return e;
+        if (r.button.empty()) return err("invalid_argument", "'button' ontbreekt", r.id_json);
+        if (r.action.empty()) r.action = "tap";
+        if (r.action != "down" && r.action != "up" && r.action != "tap")
+            return err("invalid_argument", "'action' moet down, up of tap zijn", r.id_json);
+    } else if (cmd == "set_output") {
+        r.cmd = Cmd::SetOutput;
+        if (!allowed(o, {"invert_x", "invert_y", "scale_x", "scale_y", "offset_x", "offset_y", "viewport_x0", "viewport_y0",
+                         "viewport_x1", "viewport_y1", "screen_aspect", "content_aspect"}, bad))
+            return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_bool(o, "invert_x", r.invert_x, e, r.id_json)) return e;
+        if (!opt_bool(o, "invert_y", r.invert_y, e, r.id_json)) return e;
+        if (!opt_number(o, "scale_x", 0.05, 20, r.scale_x, e, r.id_json)) return e;
+        if (!opt_number(o, "scale_y", 0.05, 20, r.scale_y, e, r.id_json)) return e;
+        if (!opt_number(o, "offset_x", -1, 1, r.offset_x, e, r.id_json)) return e;
+        if (!opt_number(o, "offset_y", -1, 1, r.offset_y, e, r.id_json)) return e;
+        if (!opt_number(o, "viewport_x0", 0, 1, r.vp_x0, e, r.id_json)) return e;
+        if (!opt_number(o, "viewport_y0", 0, 1, r.vp_y0, e, r.id_json)) return e;
+        if (!opt_number(o, "viewport_x1", 0, 1, r.vp_x1, e, r.id_json)) return e;
+        if (!opt_number(o, "viewport_y1", 0, 1, r.vp_y1, e, r.id_json)) return e;
+        if (!opt_number(o, "screen_aspect", 0.1, 10, r.screen_aspect, e, r.id_json)) return e;
+        if (!opt_number(o, "content_aspect", 0.1, 10, r.content_aspect, e, r.id_json)) return e;
+        if (r.screen_aspect.has_value() != r.content_aspect.has_value())
+            return err("invalid_argument", "screen_aspect en content_aspect horen samen", r.id_json);
+        bool any = r.invert_x || r.invert_y || r.scale_x || r.scale_y || r.offset_x || r.offset_y || r.vp_x0 || r.vp_y0 || r.vp_x1 ||
+                   r.vp_y1 || r.screen_aspect;
+        if (!any) return err("invalid_argument", "set_output zonder te wijzigen velden", r.id_json);
     } else {
         return err("unknown_command", "onbekend commando '" + cmd + "'", r.id_json);
     }
@@ -180,8 +240,37 @@ std::string make_request(const Request& r) {
             if (r.h_edge_deg) w.key("h_edge_deg").value(*r.h_edge_deg);
             if (r.v_edge_deg) w.key("v_edge_deg").value(*r.v_edge_deg);
             break;
+        case Cmd::TestPattern:
+            w.key("pattern").value(r.pattern);
+            if (r.dwell_ms) w.key("dwell_ms").value(*r.dwell_ms);
+            if (r.duration_s) w.key("duration_s").value(*r.duration_s);
+            if (r.margin) w.key("margin").value(*r.margin);
+            if (r.x) w.key("x").value(*r.x);
+            if (r.y) w.key("y").value(*r.y);
+            if (r.rate_hz_pattern) w.key("rate_hz").value(*r.rate_hz_pattern);
+            break;
+        case Cmd::OutputButton:
+            w.key("button").value(r.button).key("action").value(r.action.empty() ? "tap" : r.action);
+            break;
+        case Cmd::SetOutput:
+            if (r.invert_x) w.key("invert_x").value(*r.invert_x);
+            if (r.invert_y) w.key("invert_y").value(*r.invert_y);
+            if (r.scale_x) w.key("scale_x").value(*r.scale_x);
+            if (r.scale_y) w.key("scale_y").value(*r.scale_y);
+            if (r.offset_x) w.key("offset_x").value(*r.offset_x);
+            if (r.offset_y) w.key("offset_y").value(*r.offset_y);
+            if (r.vp_x0) w.key("viewport_x0").value(*r.vp_x0);
+            if (r.vp_y0) w.key("viewport_y0").value(*r.vp_y0);
+            if (r.vp_x1) w.key("viewport_x1").value(*r.vp_x1);
+            if (r.vp_y1) w.key("viewport_y1").value(*r.vp_y1);
+            if (r.screen_aspect) w.key("screen_aspect").value(*r.screen_aspect);
+            if (r.content_aspect) w.key("content_aspect").value(*r.content_aspect);
+            break;
         case Cmd::Recenter:
-        case Cmd::Camera: break;
+        case Cmd::Camera:
+        case Cmd::Arm:
+        case Cmd::Disarm:
+        case Cmd::Output: break;
     }
     w.end_object();
     return w.str();

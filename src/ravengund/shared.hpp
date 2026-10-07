@@ -17,7 +17,8 @@
 
 namespace ravengund {
 
-class HidContext;  // gedefinieerd in hid_thread.hpp
+class HidContext;     // gedefinieerd in hid_thread.hpp
+class OutputService;  // gedefinieerd in output_service.hpp
 
 inline int64_t mono_ns() {
     timespec t{};
@@ -90,6 +91,8 @@ public:
     std::atomic<bool> running{true};
     // Levert de camerastatus als JSON-object (thread-safe); leeg = geen camera-service.
     std::function<std::string()> camera_status;
+    // Uitvoer (virtueel lightgun-apparaat); niet-eigenaar, geset door main vóór de threads starten.
+    OutputService* output = nullptr;
 
 private:
     mutable std::mutex m_;
