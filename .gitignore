@@ -1,0 +1,12 @@
+# Geen gamebestanden, proprietary runtimes, credentials of logs in Git
+*.so
+*.so.*
+*.exe
+*.dll
+/runtime/
+/logs/
+/state/
+*.log
+.env
+secrets*
+*.key
