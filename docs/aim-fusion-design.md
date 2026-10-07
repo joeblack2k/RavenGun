@@ -617,13 +617,11 @@ Verder in deze fase:
 
 "Afwijking" is fusie min de magnetometer-heading (TRIAD, alleen stille samples), 5 s glad, ten opzichte van de eerste 10 s. TRIAD is in de hand zelf niet de waarheid: ruis, de richtfout van de hand en de oriëntatieafhankelijke fitfout (restfout 2,35 %) zitten erin.
 
-| opname | duur | magnetometer gebruikt | mahony: max / eind | mahony_mag: max / eind |
-|---|---|---|---|---|
-| herhaalbaarheid (hand, speelplek) | 65 s | 74 % (verstoord 10 %) | 2,36 / −2,35° (−2,06°/min) | 1,12 / −1,10° (−0,43°/min) |
-| richttest (hand, onrustig) | 68 s | 59 % (verstoord 36 %) | 3,34 / +0,22° (−1,39°/min) | 3,85 / −1,52° (−3,29°/min) |
-| ledmag (tafel) | 240 s | 0 % (verstoord 99,6 %) | 1,40 / −0,41° | gelijk (gyro) |
-| stil5min-deel (tafel) | 108 s | 0 % (verstoord 99 %) | 1,01 / +0,66° | gelijk (gyro) |
-| magcal 174725 / 174540 (draaien + tafel) | 439 / 120 s | 0 % (verstoord 98 / 81 %) | — | gelijk (gyro) |
+- herhaalbaarheid (hand, speelplek): duur 65 s; magnetometer gebruikt 74 % (verstoord 10 %); mahony: max / eind 2,36 / −2,35° (−2,06°/min); mahony_mag: max / eind 1,12 / −1,10° (−0,43°/min)
+- richttest (hand, onrustig): duur 68 s; magnetometer gebruikt 59 % (verstoord 36 %); mahony: max / eind 3,34 / +0,22° (−1,39°/min); mahony_mag: max / eind 3,85 / −1,52° (−3,29°/min)
+- ledmag (tafel): duur 240 s; magnetometer gebruikt 0 % (verstoord 99,6 %); mahony: max / eind 1,40 / −0,41°; mahony_mag: max / eind gelijk (gyro)
+- stil5min-deel (tafel): duur 108 s; magnetometer gebruikt 0 % (verstoord 99 %); mahony: max / eind 1,01 / +0,66°; mahony_mag: max / eind gelijk (gyro)
+- magcal 174725 / 174540 (draaien + tafel): duur 439 / 120 s; magnetometer gebruikt 0 % (verstoord 98 / 81 %); mahony: max / eind —; mahony_mag: max / eind gelijk (gyro)
 
 - Drift over de langste stilstand: ledmag 237,7 s, mahony −0,58° (−0,15°/min), mahony_mag gelijk (magnetometer op tafel verstoord, terugval op de gyro), magnetometer alleen −0,98°. stil5min-deel 96,9 s: +0,63° (+0,39°/min), gelijk; magnetometer alleen −0,30°. Op tafel werkt de stilstandsbias, daar is de drift klein.
 - Om de magnetometer bij een vaste maar afwijkende tafel-ligging toch te beoordelen: poorten ruimer (dip 10°, norm 8 %) en de stilstandsbias na 20 s bevroren (zoals in de hand, waar bijna nooit stilstand is): ledmag max-afwijking mahony 3,17° tegen mahony_mag 1,06°, eind −0,36 tegen +0,27°; stil5min-deel 0,86 tegen 0,96° (gelijk binnen de magnetometerruis).
