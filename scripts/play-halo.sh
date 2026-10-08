@@ -6,6 +6,8 @@
 # Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move]
 #          scripts/play-halo.sh --stop        (game stoppen, opname stoppen, uitvoer ontwapenen)
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
+# --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
+#            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CTL="$ROOT/build/ravengunctl"
@@ -29,14 +31,15 @@ stop_all() {
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1; PROFILE=Halo
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
     --profile) PROFILE="${2:?--profile vereist een naam}"; shift 2 ;;
+    --env) [[ "${2:-}" == *=* ]] || { echo "--env vereist K=V" >&2; exit 2; }; EXTRA_ENV+=("$2"); shift 2 ;;
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--no-wait-move] | --stop" >&2; exit 2 ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--no-wait-move] | --stop" >&2; exit 2 ;;
   esac
 done
 
@@ -69,10 +72,21 @@ if [[ -z "${XAUTHORITY:-}" ]]; then
   fi
 fi
 
+# Per-profiel omgevingsvariabelen: UserProfiles/<PROFIEL>.env, daarna --env (laatste wint).
+ENVFILE="$TP/UserProfiles/$PROFILE.env"
+if [[ -f "$ENVFILE" ]]; then
+  while IFS= read -r L || [[ -n "$L" ]]; do
+    L="${L%%#*}"; L="${L#"${L%%[![:space:]]*}"}"; L="${L%"${L##*[![:space:]]}"}"
+    [[ "$L" == *=* ]] && EXTRA_ENV=("$L" "${EXTRA_ENV[@]}")
+  done < "$ENVFILE"
+fi
+SDENV=(); for E in "${EXTRA_ENV[@]}"; do SDENV+=(-E "$E"); done
+[[ ${#EXTRA_ENV[@]} -gt 0 ]] && echo "Extra omgeving: ${EXTRA_ENV[*]}"
+
 mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" \
-  -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} \
+  -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
   /bin/sh -c "exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
 for _ in $(seq 1 90); do game_running && break; sleep 1; done
