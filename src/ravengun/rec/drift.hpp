@@ -24,6 +24,7 @@ struct DriftOptions {
     core::Vec3 bias_init{};
     int bias_init_tc = -1;
     double min_interval_s = 2.0;     // kortere intervallen worden overgeslagen
+    uint32_t marker_mask = 0;        // knopbits die als meetpunt tellen; 0 = alleen PS (zie drift.cpp)
     int saturation_raw = 32000;      // |ruwe gyrowaarde| >= dit telt als "nabij de int16-grens" (max 32767)
 };
 

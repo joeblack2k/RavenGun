@@ -54,7 +54,7 @@ void usage(FILE* f) {
         "                                        oriëntatieschatters vergelijken: drift in de langste stilstand,\n"
         "                                        segmenten met labels, fusie tegen de magnetometer-heading\n"
         "  buttons FILE                          trekker (fire-bit), pomp (T zonder fire-bit) en schoten uit de opname\n"
-        "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]\n"
+        "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json] [--marker ps|move|both]\n"
         "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
         "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
         "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n"
@@ -772,11 +772,15 @@ std::string fnum(double v, const char* f) {
     return b;
 }
 
+// --marker ps|move|both: welke knop als 'richt op het midden'-meetpunt telt (0 = alleen PS).
+uint32_t g_drift_marker = 0;
+
 int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     std::vector<rec::Record> recs;
     if (!load(path, recs)) return 2;
     rec::DriftOptions o;
     o.bias = g_bias_cfg;
+    o.marker_mask = g_drift_marker;
     o.have_bias_init = g_bias_init;
     o.bias_init = g_bias_init_v;
     if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony of mahony_mag\n"); return 64; }
@@ -853,6 +857,10 @@ int main(int argc, char** argv) {
         else if (a == "--dt" && i + 1 < argc) dt_move = std::string(argv[++i]) != "rx";
         else if (a == "--cal" && i + 1 < argc) cal = argv[++i];
         else if (a == "--mode" && i + 1 < argc) mode = argv[++i];
+        else if (a == "--marker" && i + 1 < argc) {
+            std::string m = argv[++i];
+            g_drift_marker = m == "move" ? kBtnMove : m == "both" ? (kBtnPS | kBtnMove) : kBtnPS;
+        }
         else if (a == "--out" && i + 1 < argc) out = argv[++i];
         else if (a == "--settle" && i + 1 < argc) settle = std::atof(argv[++i]);
         else if (a == "--dip-tol" && i + 1 < argc) dip_tol = std::atof(argv[++i]);

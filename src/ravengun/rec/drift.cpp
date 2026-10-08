@@ -108,7 +108,7 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
             acc.temp_end = r->temperature_raw;
         }
 
-        if (!(s.pressed & kBtnPS)) return;
+        if (!(s.pressed & (opt.marker_mask ? opt.marker_mask : static_cast<uint32_t>(kBtnPS)))) return;
         ++res.presses;
         if (!s.orientation_valid) return;  // geen oriëntatie: dit is geen bruikbaar meetpunt
         AimAngles wa = world_angles(s.q_wb);
