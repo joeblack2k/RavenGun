@@ -114,18 +114,24 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Open: de asconventie tussen gyro en magnetometer (tools/mag_vs_gyro.py gaf inconsistente resultaten). De Navigation Controller wacht op opladen (batterij leeg).
 - Lopend: subagent "Oefenen-stap" (cursor plus doelen in de kalibratie-app) en subagent "fase 4" (oriëntatie met magnetometer-yaw, asverificatie, en de koppeling van de aim aan de uinput-gun).
 
+- Knoppenindeling in de daemon (2026-10-07/08): PS centreert altijd (ook ongewapend); `gun_buttons.map` in config.json koppelt elke Move-knop aan een gun-knop of toets. Het virtuele toetsenbord (1209:7201) zit nu in de daemon; het losse `vinput kbd` is niet meer nodig. Halo-indeling: T schieten, Move granaat, Kruis herladen, Driehoek/Select Coin, Vierkant/Start Start, Cirkel TEST.
+- Halo met de Move in de Sharp Shooter gespeeld (gebruiker: "werkt heel goed"). Probleem: het vizier driftt snel tijdens het spelen; steeds centreren met PS nodig.
+- Oorzaak (uit de data): de magnetometer-correctie deed niet mee (99,8 % "verstoord"). De referentie uit de marginale kalibratie klopt niet met het gemeten veld (veldsterkte 1,074x, dip 64,7 tegen 60,2 graden). Zie `docs/verbeterplan.md`.
+- Uitbreidingsdata van de Move (Sharp Shooter): ext-vlag en 5 bytes worden geparset, opgenomen (`xc`, `x`) en getoond; knoppen `pump`, `ss_fire`, `sel1..3` in de indeling (pump = herladen). Nog niet op echte hardware bevestigd.
+- `ravengun-analyze drift <opname>`: drift per PS-interval (elke PS-druk is een meetpunt), met gedraaide hoek, max snelheid, verloren rapporten, verzadiging en temperatuur.
+- Vaste gebruikersservice `ravengund.service` (start bij inloggen; `scripts/install-service.sh`). `scripts/play-halo.sh [--record TAG]` wapent, neemt op en start Halo via `TeknoParrotUi --profile=Halo.xml`; `--stop` stopt alles. Getest tot het kalibratiescherm van de game.
+- Na een wissel van Gaming Mode naar de desktop (2026-10-08) draaide er geen Xwayland: `/tmp/.X11-unix` was van deck met mode 755, waardoor kwin weigerde. Hersteld met root:root 1777 en een herstart van kwin_wayland (via de wrapper; vensters bleven intact). Oorzaak van de verkeerde rechten onbekend; kan terugkomen.
+
 ## Laatste werkende commando
 
-    TeknoParrot-UI (unit ravengun-tpui) > Library > HALO Fireteam Raven > Launch,
-    met `VINPUT_JOY=1 src/tools/vinput/vinput kbd` als invoer (F2 Test, 5 Coin, 1 Start, Z/X/C).
-    Resultaat: titel- en attract-scherm en een speelsessie op de tv.
+    scripts/play-halo.sh --record TAG     (Move aan met PS; start daemon-uitvoer, opname en Halo)
+    scripts/play-halo.sh --stop
 
 ## Actuele fout / afhankelijkheid
 
-Knoppen in TeknoParrot zijn nog niet gebonden (TeknoParrot leest evdev; X11-injectie werkt niet). Oplossing in uitvoering: een virtueel uinput-toetsenbord (echte evdev-events) of een fysieke toetsdruk.
+Drift van het vizier tijdens het spelen (magnetometer doet niet mee). Er is nog geen opname van echt spelen.
 
 ## Volgende uitvoerbare stap
 
-1. De gebruiker bindt in TeknoParrot (Halo > Controller Setup) met het echte toetsenbord: Test, Service, Coin, Start P1, Trigger P1, Reload P1, Grenade P1.
-2. Opnieuw starten, met Test door de kalibratie, en controleren of attract mode of het titelscherm verschijnt (G1).
-3. Move: gedaan (Bluetooth werkt). Volgende stap: de daemon-kern (HID-inname en IMU-oriëntatie) en een uinput-lightgun-backend testen in TeknoParrot.
+1. Meetsessie met de gebruiker (stap 1 uit `docs/verbeterplan.md`): `scripts/play-halo.sh --record halo-drift`, 10 minuten spelen, bij drift op het midden richten en PS drukken; tien keer pompen en de vuurstand omzetten.
+2. `ravengun-analyze drift <opname>` en de ext-bytes bekijken; daarna stap 2 en 3 van het plan (oorzaak, magnetometer-referentie leren op de speelplek).
