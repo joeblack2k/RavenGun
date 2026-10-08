@@ -66,9 +66,12 @@ struct SharpShooterSettings {
 };
 
 // Fase 4: oriëntatieschatter. "mahony" (IMU-only, terugval) of "mahony_mag" (met yaw-correctie van de
-// magnetometer; zonder geldige kalibratie gedraagt die zich als mahony).
+// magnetometer; zonder geldige kalibratie gedraagt die zich als mahony), of "vqf" / "vqf_mag" (VQF 6D / 9D).
 struct FusionSettings {
     std::string mode = "mahony";  // opt-in: de replay toont winst op 1 van 2 handsporen (zie aim-fusion-design.md, fase 4)
+    // Alleen voor vqf en vqf_mag: welke gyro-bias VQF gebruikt. "external" (standaard): die van onze schatter;
+    // "own": VQF schat zelf (en onze wordt dan niet toegepast). Gelezen bij het starten van de daemon.
+    std::string vqf_bias = "external";
 };
 
 // Knoppenindeling van de virtuele lightgun (live koppeling): `map` koppelt een Move-knopnaam aan een actie.

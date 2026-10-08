@@ -39,3 +39,9 @@ Vervolg, in deze volgorde:
 3. VQF naast Mahony als A/B (leert de magnetometerreferentie zelf), gemeten met `analyze drift`.
 4. Voorspelling tegen de Bluetooth-latentie (instelbaar, 20 tot 40 ms).
 5. Daarna de eerdere punten: schermkalibratie met de camera, gemak, overige games.
+
+## Stand na de VQF- en oorzaakmeting van 2026-10-08
+
+- De yaw-drift van 0,19 graden/s in de Halo-opname B is geen bewegingsafhankelijk probleem van de integratie (kp, gatvulling, dt, schaal, kruiskoppeling, yaw-definitie zijn allemaal doorgemeten) maar een gyro-z-bias die tijdens het spelen ongeveer 0,2 graden/s boven de schatting kwam en niet waarneembaar is zonder absolute yaw. Cijfers en bewijs: `docs/decisions.md`, "VQF en de oorzaak van de Halo-drift".
+- Stap 3 (VQF naast Mahony) is gebouwd: `vqf` en `vqf_mag` (standaard blijft `mahony`). Cumulatief A / B in graden/min: mahony -0,36 / -11,60, mahony_mag -0,36 / -1,40, vqf -0,41 / -11,58, vqf_mag -2,69 / -2,38. `vqf_mag` heeft de magnetometer in beide opnames bruikbaar (4,3 % en 0,3 % verstoord) zonder aanpassing van de kalibratie; `mahony_mag` alleen in B (99 % afgewezen in A).
+- Vervolg: live test van `vqf_mag` in Halo (met opname) tegen `mahony`, dan de standaard kiezen.

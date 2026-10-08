@@ -46,6 +46,8 @@ public:
     bool has_center() const { return has_center_; }
     CenterSource center_source() const { return src_; }
     AimAngles relative(Quat q_wb) const;
+    // Het midden verschuiven (bij het omschakelen van oriëntatieschatter: de aim blijft op dezelfde plek).
+    void shift_center(double dyaw_rad, double dpitch_rad) { center_.yaw_rad = wrap_pi(center_.yaw_rad + dyaw_rad); center_.pitch_rad += dpitch_rad; }
     AimPoint map(double yaw_rad, double pitch_rad) const;
     static AimPoint clamp(double x, double y);
     void set_config(const AimConfig& c) { cfg_ = c; }

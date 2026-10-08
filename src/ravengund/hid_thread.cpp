@@ -77,7 +77,7 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("model").value(ci.model);
     w.key("connection").value(ci.connection);
     w.key("has_calibration").value(ci.has_calibration);
-    w.key("magnetometer").value(ci.model == "ZCM1" ? (p.fusion_mode() == FusionMode::MahonyMag && p.mag().calibrated() ? "aanwezig, in de fusie (yaw-correctie, zie magnetometer)" : "aanwezig, niet in de fusie gebruikt (zie magnetometer)") : "afwezig of onbekend");
+    w.key("magnetometer").value(ci.model == "ZCM1" ? ((p.fusion_mode() == FusionMode::MahonyMag || p.fusion_mode() == FusionMode::VqfMag) && p.mag().calibrated() ? "aanwezig, in de fusie (yaw-correctie, zie magnetometer)" : "aanwezig, niet in de fusie gebruikt (zie magnetometer)") : "afwezig of onbekend");
     w.key("connected_s").value(ci.open ? static_cast<double>(now - ci.connected_at_ns) / 1e9 : 0.0);
     w.key("connects").value(static_cast<unsigned long long>(ci.connects));
     w.key("led").begin_object();
@@ -138,10 +138,10 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("h_edge_deg").value(c.aim.h_edge_deg).key("v_edge_deg").value(c.aim.v_edge_deg);
     w.end_object();
     w.key("fusion").begin_object();
-    w.key("algorithm").value(p.fusion_mode() == FusionMode::MahonyMag ? "mahony_mag (Mahony + yaw-Kalman met magnetometer)" : "mahony_p_imu");
+    w.key("algorithm").value(p.fusion_mode() == FusionMode::MahonyMag ? "mahony_mag (Mahony + yaw-Kalman met magnetometer)" : is_vqf(p.fusion_mode()) ? (p.fusion_mode() == FusionMode::VqfMag ? "vqf_mag (VQF 9D)" : "vqf (VQF 6D)") : "mahony_p_imu");
     w.key("mode").value(to_string(p.fusion_mode()));
     w.key("kp").value(c.fusion.kp).key("accel_gate_g").value(c.fusion.accel_gate).key("max_dt_s").value(c.fusion.max_dt_s);
-    w.key("magnetometer").value(p.fusion_mode() == FusionMode::MahonyMag && p.mag().calibrated());
+    w.key("magnetometer").value((p.fusion_mode() == FusionMode::MahonyMag || p.fusion_mode() == FusionMode::VqfMag) && p.mag().calibrated());
     w.key("gap_interpolation").value(c.interpolate_gaps);
     w.key("gaps_interpolated").value(static_cast<unsigned long long>(st.gap_interpolated));
     w.end_object();

@@ -56,6 +56,16 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
             case Kind::End: res.ended = true; res.end_reason = rc.end.reason; break;
         }
     }
+    const core::VqfEstimator& v = p.vqf();
+    res.vqf_reports = v.reports();
+    res.vqf_mag_samples = v.mag_samples();
+    res.vqf_mag_disturbed = v.mag_disturbed_samples();
+    res.vqf_rest_samples = v.rest_samples();
+    res.vqf_filled = v.filled_reports();
+    res.vqf_bias = v.bias();
+    res.vqf_ref_norm = v.mag_ref_norm();
+    res.vqf_ref_dip_deg = v.mag_ref_dip_deg();
+    res.vqf_heading_corr_deg = v.heading_correction_deg();
     res.ok = true;
     return res;
 }

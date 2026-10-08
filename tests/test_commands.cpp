@@ -231,6 +231,12 @@ static void test_persist_and_info(const std::string& dir) {
     CHECK(contains(slurp(dir + "/p/config.json"), "\"mode\":\"mahony\""));
     rig.call(R"({"v":1,"cmd":"set_fusion","mode":"mahony_mag"})", &ok);
     CHECK(ok && rig.hid.fm == core::FusionMode::MahonyMag && store.get().fusion.mode == "mahony_mag");
+    rig.call(R"({"v":1,"cmd":"set_fusion","mode":"vqf_mag"})", &ok);
+    CHECK(ok && rig.hid.fm == core::FusionMode::VqfMag && store.get().fusion.mode == "vqf_mag");
+    rig.call(R"({"v":1,"cmd":"set_fusion","mode":"vqf"})", &ok);
+    CHECK(ok && rig.hid.fm == core::FusionMode::Vqf && store.get().fusion.mode == "vqf");
+    rig.call(R"({"v":1,"cmd":"set_fusion","mode":"mahony_mag"})", &ok);
+    CHECK(ok && rig.hid.fm == core::FusionMode::MahonyMag);
     rig.call(R"({"v":1,"cmd":"set_fusion","mode":"eskf"})", &ok);
     CHECK(!ok && store.get().fusion.mode == "mahony_mag");
     // Ongeldige filterwaarde: niets veranderd of bewaard.

@@ -295,8 +295,8 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         r.cmd = Cmd::SetFusion;
         if (!allowed(o, {"mode"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         if (!opt_string(o, "mode", r.mode, e, r.id_json)) return e;
-        if (r.mode != "mahony" && r.mode != "mahony_mag")
-            return err("invalid_argument", "'mode' moet mahony of mahony_mag zijn", r.id_json);
+        if (r.mode != "mahony" && r.mode != "mahony_mag" && r.mode != "vqf" && r.mode != "vqf_mag")
+            return err("invalid_argument", "'mode' moet mahony, mahony_mag, vqf of vqf_mag zijn", r.id_json);
     } else if (cmd == "calibrate_ui") {
         r.cmd = Cmd::CalibrateUi;
         if (!allowed(o, {"action", "step"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);

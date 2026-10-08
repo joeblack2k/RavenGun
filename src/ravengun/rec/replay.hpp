@@ -40,6 +40,10 @@ struct ReplayResult {
     core::InputSample first_valid{}, last{};
     bool have_first_valid = false;
     std::vector<std::string> json;
+    // VQF-diagnose aan het eind van de opname (de schatter draait altijd mee, zie PipelineConfig::vqf).
+    uint64_t vqf_reports = 0, vqf_mag_samples = 0, vqf_mag_disturbed = 0, vqf_rest_samples = 0, vqf_filled = 0;
+    core::Vec3 vqf_bias{};
+    double vqf_ref_norm = 0, vqf_ref_dip_deg = 0, vqf_heading_corr_deg = 0;
 };
 
 ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions& o);

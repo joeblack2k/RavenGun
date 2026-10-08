@@ -15,6 +15,7 @@
 #include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/move_clock.hpp"
 #include "ravengun/core/one_euro.hpp"
+#include "ravengun/core/vqf_estimator.hpp"
 
 namespace ravengun::core {
 
@@ -33,6 +34,9 @@ struct PipelineConfig {
     // Fase 4: oriëntatieschatter. mahony = IMU-only (terugval); mahony_mag = met yaw-correctie van de
     // magnetometer (vereist een kalibratie via set_mag_calibration; zonder blijft het IMU-only).
     FusionMode fusion_mode = FusionMode::Mahony;
+    // VQF (modes vqf en vqf_mag): draait altijd mee in de schaduw (ook in mahony-modes), zodat omschakelen
+    // een warme schatter geeft; de uitvoer wordt bij het omschakelen op dezelfde richtas uitgelijnd.
+    VqfConfig vqf{};
     // Verloren rapporten (fase 4, ~13 % via Bluetooth): bij een stempel-dt boven 1,5 rapportperiode
     // wordt het deel vóór de twee subsamples van het nieuwe rapport geïntegreerd met het gemiddelde van
     // de laatste hoeksnelheid vóór het gat en de eerste erna (lineaire interpolatie), en krijgt elk
@@ -95,11 +99,16 @@ public:
     void set_filter(const OneEuroConfig& c);
     void set_aim(const AimConfig& c);
     // Fase 4: magnetometer en schatter.
-    void set_mag_calibration(const MagCalibration& c) { mag_.set_calibration(c); }
+    void set_mag_calibration(const MagCalibration& c);
     void clear_mag_calibration() { mag_.clear_calibration(); }
     void set_fusion_mode(FusionMode m);
     FusionMode fusion_mode() const { return cfg_.fusion_mode; }
     const MagYawCorrector& mag() const { return mag_; }
+    const VqfEstimator& vqf() const { return vqf_; }
+    // De oriëntatie die de aim gebruikt: van het actieve filter (Mahony of VQF).
+    Quat orientation() const { return q_out(); }
+    // Yaw/pitch van de richtas t.o.v. het aim-midden volgens de actieve schatter (zonder 1€-filter); (0,0) zonder midden.
+    AimAngles aim_relative() const { return aim_.relative(q_out()); }
     const PipelineConfig& config() const { return cfg_; }
     const InputSample& last() const { return last_; }
     const ReportStats& stats() const { return stats_; }
@@ -121,6 +130,8 @@ public:
     int last_temperature_raw() const { return last_temp_; }
 
 private:
+    Quat q_out() const { return is_vqf(cfg_.fusion_mode) && vqf_.initialized() ? vqf_.q() : fusion_.q(); }
+    bool vqf_mag_active() const;
     InputSample make_sample(int64_t t_eval);
     void fill_aim(InputSample& s, double dt);
 
@@ -128,6 +139,7 @@ private:
     GyroBiasEstimator bias_;
     OrientationFilter fusion_;
     MagYawCorrector mag_;
+    VqfEstimator vqf_;
     AimMapper aim_;
     OneEuro fx_, fy_;
     EdgeAccumulator edges_;

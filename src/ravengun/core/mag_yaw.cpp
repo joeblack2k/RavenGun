@@ -12,6 +12,8 @@ const char* to_string(FusionMode m) {
     switch (m) {
         case FusionMode::Mahony: return "mahony";
         case FusionMode::MahonyMag: return "mahony_mag";
+        case FusionMode::Vqf: return "vqf";
+        case FusionMode::VqfMag: return "vqf_mag";
     }
     return "mahony";
 }
@@ -20,6 +22,8 @@ bool parse_fusion_mode(const char* s, FusionMode& out) {
     if (!s) return false;
     if (!std::strcmp(s, "mahony")) { out = FusionMode::Mahony; return true; }
     if (!std::strcmp(s, "mahony_mag") || !std::strcmp(s, "mahony-mag")) { out = FusionMode::MahonyMag; return true; }
+    if (!std::strcmp(s, "vqf")) { out = FusionMode::Vqf; return true; }
+    if (!std::strcmp(s, "vqf_mag") || !std::strcmp(s, "vqf-mag")) { out = FusionMode::VqfMag; return true; }
     return false;
 }
 

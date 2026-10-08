@@ -288,7 +288,7 @@ std::string HidAux::mag_json(int64_t now) const {
     json::Writer w;
     w.begin_object();
     w.key("present").value(model_ == "ZCM1");
-    const bool fused = pipe_ && pipe_->fusion_mode() == FusionMode::MahonyMag && pipe_->mag().calibrated();
+    const bool fused = pipe_ && (pipe_->fusion_mode() == FusionMode::MahonyMag || pipe_->fusion_mode() == FusionMode::VqfMag) && pipe_->mag().calibrated();
     w.key("used_in_fusion").value(fused);
     w.key("calibrated").value(cal_loaded_);
     if (!cal_loaded_) w.key("calibration_error").value(cal_err_);

@@ -9,11 +9,12 @@
 //   ravengun-analyze fusion FILE --cal CAL.json [--dip-tol G] [--norm-tol F] [--still-dps W]
 //                                                               fase 4: mahony, mahony_mag en de magnetometer
 //                                                               alleen (TRIAD) naast elkaar
-//   ravengun-analyze drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]
+//   ravengun-analyze drift FILE [--mode mahony|mahony_mag|vqf|vqf_mag] [--cal CAL.json]
 //                                                               drift per PS-interval (PS = meetpunt)
 //   ravengun-analyze buttons FILE                               trekker- en pomptellingen uit de Sharp Shooter-bytes
 // Gyro-bias voor replay, fusion en drift: --bias-mode legacy|new, --bias-init X,Y,Z (graden/s) of warm
 // (twee keer afspelen; de eindbias van de eerste ronde is de beginbias van de tweede; circulair), --bias-set sleutel=waarde.
+// VQF (drift): --vqf-bias external|own|hybrid (standaard external: de bias van onze schatter), --vqf-set sleutel=waarde.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -40,6 +41,7 @@ BiasConfig g_bias_cfg;        // --bias-mode / --bias-set
 bool g_bias_init = false;     // --bias-init X,Y,Z
 Vec3 g_bias_init_v{};
 bool g_bias_warm = false;     // --bias-init warm
+VqfConfig g_vqf_cfg;          // --vqf-bias / --vqf-set
 
 void usage(FILE* f) {
     std::fputs(
@@ -54,7 +56,8 @@ void usage(FILE* f) {
         "                                        oriëntatieschatters vergelijken: drift in de langste stilstand,\n"
         "                                        segmenten met labels, fusie tegen de magnetometer-heading\n"
         "  buttons FILE                          trekker (fire-bit), pomp (T zonder fire-bit) en schoten uit de opname\n"
-        "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json] [--marker ps|move|both]\n"
+        "  drift FILE [--mode mahony|mahony_mag|vqf|vqf_mag] [--cal CAL.json] [--marker ps|move|both]\n"
+        "                                        [--vqf-bias external|own|hybrid] [--vqf-set sleutel=waarde]\n"
         "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
         "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
         "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n"
@@ -452,6 +455,25 @@ bool set_bias_param(const std::string& kv) {
     return true;
 }
 
+bool set_vqf_param(const std::string& kv) {
+    size_t eq = kv.find('=');
+    if (eq == std::string::npos) return false;
+    std::string k = kv.substr(0, eq);
+    double v = std::atof(kv.c_str() + eq + 1);
+    VqfConfig& c = g_vqf_cfg;
+    if (k == "tau_acc") c.tau_acc_s = v;
+    else if (k == "tau_mag") c.tau_mag_s = v;
+    else if (k == "rest_th_gyr") c.rest_th_gyr_dps = v;
+    else if (k == "rest_th_acc") c.rest_th_acc = v;
+    else if (k == "bias_clip") c.bias_clip_dps = v;
+    else if (k == "motion_bias") c.motion_bias = v != 0;
+    else if (k == "rest_bias") c.rest_bias = v != 0;
+    else if (k == "mag_rejection") c.mag_dist_rejection = v != 0;
+    else if (k == "seed_ref") c.seed_mag_ref = v != 0;
+    else return false;
+    return true;
+}
+
 bool parse_bias_init(const std::string& v) {
     if (v == "warm") { g_bias_warm = true; return true; }
     double x, y, z;
@@ -780,15 +802,16 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     if (!load(path, recs)) return 2;
     rec::DriftOptions o;
     o.bias = g_bias_cfg;
+    o.vqf = g_vqf_cfg;
     o.marker_mask = g_drift_marker;
     o.have_bias_init = g_bias_init;
     o.bias_init = g_bias_init_v;
-    if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony of mahony_mag\n"); return 64; }
+    if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony, mahony_mag, vqf of vqf_mag\n"); return 64; }
     if (cal_path) {
         if (!load_cal_file(cal_path, o.cal)) return 2;
         o.have_cal = true;
-    } else if (o.mode == FusionMode::MahonyMag) {
-        std::fprintf(stderr, "ravengun-analyze: let op: mahony_mag zonder --cal gedraagt zich als mahony\n");
+    } else if (o.mode == FusionMode::MahonyMag || o.mode == FusionMode::VqfMag) {
+        std::fprintf(stderr, "ravengun-analyze: let op: %s zonder --cal gedraagt zich als %s\n", to_string(o.mode), o.mode == FusionMode::VqfMag ? "vqf" : "mahony");
     }
     if (g_bias_warm) {  // eerste ronde: koud; de eindbias is de beginbias van de tweede (circulair, optimistisch)
         rec::DriftResult cold = rec::compute_drift(recs, o);
@@ -807,6 +830,20 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
         std::printf(" (%+.2f %+.2f %+.2f graden/s)", o.bias_init.x * kDegPerRad, o.bias_init.y * kDegPerRad, o.bias_init.z * kDegPerRad);
     std::printf("; eind %+.2f %+.2f %+.2f graden/s (%s, bron %s)\n", r.final_bias.x * kDegPerRad, r.final_bias.y * kDegPerRad,
                 r.final_bias.z * kDegPerRad, to_string(r.final_state), to_string(r.final_source));
+    if (is_vqf(o.mode)) {
+        if (o.vqf.bias == VqfBias::External)
+            std::printf("VQF:           bias external (de bias van onze schatter; VQF schat zelf niets); %llu verloren rapporten opgevuld\n",
+                        static_cast<unsigned long long>(r.vqf_filled));
+        else
+            std::printf("VQF:           bias %s; eigen biasschatting eind %+.2f %+.2f %+.2f graden/s; rust herkend in %.1f %% van de subsamples; %llu verloren rapporten opgevuld\n",
+                        to_string(o.vqf.bias), r.vqf_bias.x * kDegPerRad, r.vqf_bias.y * kDegPerRad, r.vqf_bias.z * kDegPerRad,
+                        100.0 * static_cast<double>(r.vqf_rest_samples) / std::max(1.0, 2.0 * static_cast<double>(r.vqf_reports)),
+                        static_cast<unsigned long long>(r.vqf_filled));
+        if (o.mode == FusionMode::VqfMag)
+            std::printf("               magnetometer: %llu samples, %llu door VQF als verstoord afgewezen (%.1f %%); referentie |m| %.3f, dip %.1f graden\n",
+                        static_cast<unsigned long long>(r.vqf_mag_samples), static_cast<unsigned long long>(r.vqf_mag_disturbed),
+                        100.0 * static_cast<double>(r.vqf_mag_disturbed) / std::max(1.0, static_cast<double>(r.vqf_mag_samples)), r.vqf_ref_norm, r.vqf_ref_dip_deg);
+    }
     if (r.intervals.empty()) {
         std::printf("Geen bruikbare intervallen: er zijn minstens twee PS-drukken met >= %.0f s ertussen nodig.\n", o.min_interval_s);
         return 0;
@@ -872,6 +909,12 @@ int main(int argc, char** argv) {
         }
         else if (a == "--bias-init" && i + 1 < argc) {
             if (!parse_bias_init(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: --bias-init verwacht X,Y,Z (graden/s) of warm\n"); return 64; }
+        }
+        else if (a == "--vqf-bias" && i + 1 < argc) {
+            if (!parse_vqf_bias(argv[++i], g_vqf_cfg.bias)) { std::fprintf(stderr, "ravengun-analyze: --vqf-bias verwacht external, own of hybrid\n"); return 64; }
+        }
+        else if (a == "--vqf-set" && i + 1 < argc) {
+            if (!set_vqf_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --vqf-set '%s'\n", argv[i]); return 64; }
         }
         else if (a == "--bias-set" && i + 1 < argc) {
             if (!set_bias_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --bias-set '%s'\n", argv[i]); return 64; }

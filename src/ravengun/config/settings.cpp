@@ -179,7 +179,9 @@ std::string validate(const Settings& s) {
         if (!kv.second.empty() && !move_button_name_valid(kv.second))
             return "sharp_shooter.buttons." + kv.first + " is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
     }
-    if (s.fusion.mode != "mahony" && s.fusion.mode != "mahony_mag") return "fusion.mode moet mahony of mahony_mag zijn";
+    if (s.fusion.mode != "mahony" && s.fusion.mode != "mahony_mag" && s.fusion.mode != "vqf" && s.fusion.mode != "vqf_mag")
+        return "fusion.mode moet mahony, mahony_mag, vqf of vqf_mag zijn";
+    if (s.fusion.vqf_bias != "external" && s.fusion.vqf_bias != "own") return "fusion.vqf_bias moet external of own zijn";
     if (s.sharp_shooter.extension != "auto" && s.sharp_shooter.extension != "sharp_shooter" && s.sharp_shooter.extension != "none")
         return "sharp_shooter.extension moet auto, sharp_shooter of none zijn";
     const auto& g = s.gun_buttons;
@@ -235,7 +237,7 @@ std::string to_json(const Settings& s, bool pretty) {
         w.end_object();
         w.key("extension").value(s.sharp_shooter.extension);
     }) + "," + nl;
-    out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode); }) + "," + nl;
+    out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode).key("vqf_bias").value(s.fusion.vqf_bias); }) + "," + nl;
     out += section("gun_buttons", [&](json::Writer& w) {
         w.key("trigger_on").value(s.gun_buttons.trigger_on).key("trigger_off").value(s.gun_buttons.trigger_off);
         w.key("map").begin_object();
@@ -355,6 +357,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     if (const json::Value* o = sec("fusion")) {
         Section c{*o, "fusion", e, warnings};
         c.string("mode", s.fusion.mode);
+        c.string("vqf_bias", s.fusion.vqf_bias);
         c.unknown({"mode"});
     }
     if (const json::Value* o = sec("gun_buttons")) {

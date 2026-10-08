@@ -54,6 +54,7 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     ReplayOptions ro;
     ro.pipeline.fusion_mode = opt.mode;
     ro.pipeline.bias = opt.bias;
+    ro.pipeline.vqf = opt.vqf;
     ro.have_bias_init = opt.have_bias_init;
     ro.bias_init = opt.bias_init;
     ro.bias_init_tc = opt.bias_init_tc;
@@ -153,6 +154,9 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     res.final_bias = rr.last.gyro_bias;
     res.final_state = rr.last.bias_state;
     res.final_source = rr.last.bias_source;
+    res.vqf_reports = rr.vqf_reports; res.vqf_mag_samples = rr.vqf_mag_samples; res.vqf_mag_disturbed = rr.vqf_mag_disturbed;
+    res.vqf_rest_samples = rr.vqf_rest_samples; res.vqf_filled = rr.vqf_filled; res.vqf_bias = rr.vqf_bias;
+    res.vqf_ref_norm = rr.vqf_ref_norm; res.vqf_ref_dip_deg = rr.vqf_ref_dip_deg;
     res.final_tc = last_tc;
 
     // Samenvatting.

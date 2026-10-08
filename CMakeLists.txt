@@ -58,6 +58,8 @@ add_library(ravengun STATIC
   src/ravengun/core/move_clock.cpp
   src/ravengun/core/magnetometer.cpp
   src/ravengun/core/mag_yaw.cpp
+  src/ravengun/core/vqf_estimator.cpp
+  third_party/vqf/vqf.cpp
   src/ravengun/rec/recording.cpp
   src/ravengun/rec/replay.cpp
   src/ravengun/rec/drift.cpp
@@ -68,6 +70,9 @@ add_library(ravengun STATIC
   src/ravengun/doctor.cpp
   src/ravengun/report.cpp)
 target_include_directories(ravengun PUBLIC src)
+# VQF (gevendord, MIT, zie third_party/vqf/README.md): alleen intern; eigen waarschuwingsniveau uit voor de externe bron.
+target_include_directories(ravengun PRIVATE third_party/vqf)
+set_source_files_properties(third_party/vqf/vqf.cpp PROPERTIES COMPILE_OPTIONS "-w")
 
 add_executable(ravengunctl src/ravengunctl/main.cpp)
 target_link_libraries(ravengunctl PRIVATE ravengun)
@@ -109,6 +114,10 @@ endif()
 add_executable(ravengun-analyze src/tools/analyze/ravengun_analyze.cpp)
 target_link_libraries(ravengun-analyze PRIVATE ravengun)
 
+# Experimenten naar de oorzaak van bewegingsafhankelijke yaw-drift (varianten van de integratie, zelfde meetlat).
+add_executable(ravengun-driftlab src/tools/analyze/driftlab.cpp)
+target_link_libraries(ravengun-driftlab PRIVATE ravengun)
+
 if(RAVENGUN_BUILD_CAMPROBE)
   add_executable(camprobe src/tools/camprobe/camprobe.cpp)
 endif()
@@ -139,6 +148,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_fusion_tests tests/test_fusion.cpp)
   target_link_libraries(ravengun_fusion_tests PRIVATE ravengun)
   add_test(NAME ravengun_fusion_tests COMMAND ravengun_fusion_tests)
+  add_executable(ravengun_vqf_tests tests/test_vqf.cpp)
+  target_link_libraries(ravengun_vqf_tests PRIVATE ravengun)
+  add_test(NAME ravengun_vqf_tests COMMAND ravengun_vqf_tests)
   add_executable(ravengun_bias_tests tests/test_bias.cpp)
   target_link_libraries(ravengun_bias_tests PRIVATE ravengun)
   add_test(NAME ravengun_bias_tests COMMAND ravengun_bias_tests)

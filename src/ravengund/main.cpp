@@ -53,8 +53,12 @@ void usage(FILE* f) {
         "  --no-bias-store                  gyro-bias niet laden en niet bewaren\n"
         "  --bias-mode new|legacy           biasschatter: stilstand + bewaarde waarde + quasi-stil (standaard) of\n"
         "                                   alleen stilstand (oud gedrag)\n"
-        "  --fusion mahony|mahony_mag       oriëntatieschatter (standaard uit config.json, anders mahony;\n"
-        "                                   mahony_mag = Mahony plus yaw-correctie met de magnetometer)\n"
+        "  --fusion mahony|mahony_mag|vqf|vqf_mag\n"
+        "                                   oriëntatieschatter (standaard uit config.json, anders mahony;\n"
+        "                                   mahony_mag = Mahony plus yaw-correctie met de magnetometer;\n"
+        "                                   vqf = VQF 6D, vqf_mag = VQF 9D met de magnetometer)\n"
+        "  --vqf-bias external|own          gyro-bias voor vqf/vqf_mag: die van onze schatter (standaard, of\n"
+        "                                   fusion.vqf_bias in config.json) of VQF's eigen schatting\n"
         "\n"
         "uitvoer (virtueel lightgun-apparaat 1209:7202; standaard DISARMED, geen events; 'ravengunctl arm'):\n"
         "  --out-invert-x, --out-invert-y   spiegel de as vóór het apparaat\n"
@@ -131,6 +135,7 @@ int main(int argc, char** argv) {
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
+    ravengun::core::parse_vqf_bias(cfg.fusion.vqf_bias.c_str(), opt.pipeline.vqf.bias);
     opt.bias_dir = ravengun::core::default_bias_dir();
     ravengun::core::parse_ext_mode(cfg.sharp_shooter.extension.c_str(), opt.pipeline.ext_mode);
     opt.pipeline.pump.on = cfg.gun_buttons.trigger_on;
@@ -176,7 +181,13 @@ int main(int argc, char** argv) {
         }
         else if (a == "--fusion" && i + 1 < argc) {
             if (!ravengun::core::parse_fusion_mode(argv[++i], opt.pipeline.fusion_mode)) {
-                std::fprintf(stderr, "ravengund: --fusion verwacht mahony of mahony_mag\n");
+                std::fprintf(stderr, "ravengund: --fusion verwacht mahony, mahony_mag, vqf of vqf_mag\n");
+                return 64;
+            }
+        }
+        else if (a == "--vqf-bias" && i + 1 < argc) {
+            if (!ravengun::core::parse_vqf_bias(argv[++i], opt.pipeline.vqf.bias) || opt.pipeline.vqf.bias == ravengun::core::VqfBias::Hybrid) {
+                std::fprintf(stderr, "ravengund: --vqf-bias verwacht external of own\n");
                 return 64;
             }
         }

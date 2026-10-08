@@ -55,13 +55,14 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), vqf_(cfg.vqf), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
         // Andere controller: geen enkele toestand van de vorige hergebruiken.
         bias_.reset();
         fusion_.reset();
+        vqf_.reset();
         aim_.clear_center();
         yaw_ref_ = YawReference::None;
         auto_centered_once_ = false;
@@ -83,6 +84,17 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     prev_had_stamp_ = false;
     dt_move_ = dt_rx_ = 0;
     have_prev_gyro_ = false;
+    vqf_.on_interrupt();
+}
+
+void Pipeline::set_mag_calibration(const MagCalibration& c) {
+    mag_.set_calibration(c);
+    // VQF accepteert anders pas na 5 s draaien met >= 20 graden/s een veldreferentie (zie VqfEstimator).
+    if (cfg_.vqf.seed_mag_ref) vqf_.set_mag_reference(1.0, c.dip_ref_deg);
+}
+
+bool Pipeline::vqf_mag_active() const {
+    return cfg_.fusion_mode == FusionMode::VqfMag && mag_.calibrated() && vqf_.mag_samples() > 0 && !vqf_.mag_disturbed();
 }
 
 bool Pipeline::mag_yaw_active() const {
@@ -100,7 +112,7 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.link = link_;
     s.mode = TrackingMode::Orientation;
     s.orientation_valid = fusion_.initialized() && link_ == LinkState::Fresh;
-    s.q_wb = fusion_.q();
+    s.q_wb = q_out();
     s.bias_state = bias_.state();
     s.still = bias_.still();
     s.gyro_bias = bias_.bias();
@@ -109,10 +121,10 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.yaw_ref = yaw_ref_;
     const MagYawStatus& ms = mag_.status();
     s.fusion_mode = to_string(cfg_.fusion_mode);
-    s.mag_state = mag_.calibrated() ? to_string(ms.state) : "none";
+    s.mag_state = mag_.calibrated() ? (is_vqf(cfg_.fusion_mode) ? (vqf_.mag_disturbed() ? "disturbed" : "ok") : to_string(ms.state)) : "none";
     s.mag_locked = ms.locked;
     const bool mag_active = mag_yaw_active();
-    s.yaw_source = mag_active ? "magnetometer" : "gyro";
+    s.yaw_source = (mag_active || vqf_mag_active()) ? "magnetometer" : "gyro";
     s.yaw_pending_deg = ms.pending_deg;
     s.yaw_corr_rate_deg_s = ms.rate_dps;
     s.yaw_corr_limit_deg_s = ms.rate_limit_dps;
@@ -138,7 +150,7 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
 void Pipeline::fill_aim(InputSample& s, double dt) {
     s.aim_valid = false;
     if (!s.orientation_valid || !aim_.has_center()) return;
-    AimAngles rel = aim_.relative(fusion_.q());
+    AimAngles rel = aim_.relative(q_out());
     s.yaw_rel_deg = rel.yaw_rad * kDegPerRad;
     s.pitch_rel_deg = rel.pitch_rad * kDegPerRad;
     AimPoint raw = aim_.map(rel.yaw_rad, rel.pitch_rad);
@@ -193,6 +205,7 @@ InputSample Pipeline::on_report(const RawReport& r) {
         sub_dt = 0;
         have_prev_gyro_ = false;
         mag_.on_interrupt();
+        vqf_.on_interrupt();
     } else if (dt_int > kLongDtS) {
         ++stats_.long_dt;
     }
@@ -226,6 +239,14 @@ InputSample Pipeline::on_report(const RawReport& r) {
     }
     prev_gyro_ = r.gyro[n - 1];
     have_prev_gyro_ = true;
+    {
+        // VQF: zelfde dt (Move-stempel), eigen gatvulling; de bias van de pijplijn gaat mee (bias external, standaard).
+        Vec3 mb{};
+        const bool with_mag = mag_.calibrated();
+        if (with_mag) mb = mag_apply(mag_.calibration(), r.mag_raw);
+        vqf_.set_use_mag(cfg_.fusion_mode == FusionMode::VqfMag);
+        vqf_.feed(r, dt_int, bias_.bias(), with_mag ? &mb : nullptr);
+    }
     if (mag_.calibrated()) {
         // Eén magnetometersample per rapport, na de integratie (zie mag_yaw.hpp).
         Quat q = fusion_.q();
@@ -242,7 +263,7 @@ InputSample Pipeline::on_report(const RawReport& r) {
     last_rx_ns_ = r.t_rx_ns;
 
     if (cfg_.auto_center_on_start && !auto_centered_once_ && !aim_.has_center()) {
-        aim_.recenter(fusion_.q(), CenterSource::AutoInitial);
+        aim_.recenter(q_out(), CenterSource::AutoInitial);
         auto_centered_once_ = true;
         ++auto_centers_;
         yaw_ref_ = YawReference::Continuous;
@@ -307,7 +328,7 @@ InputSample Pipeline::on_disconnect(int64_t now_ns) {
 
 bool Pipeline::recenter() {
     if (!fusion_.initialized() || link_ != LinkState::Fresh) return false;
-    aim_.recenter(fusion_.q(), CenterSource::User);
+    aim_.recenter(q_out(), CenterSource::User);
     yaw_ref_ = YawReference::Continuous;
     reset_filter_ = true;
     ++user_centers_;
@@ -327,7 +348,24 @@ void Pipeline::set_filter(const OneEuroConfig& c) {
 
 void Pipeline::set_fusion_mode(FusionMode m) {
     if (m == cfg_.fusion_mode) return;
+    // Omschakelen tussen Mahony en VQF: het inkomende filter wordt op de huidige uitvoer uitgelijnd, en wat
+    // aan pitch overblijft (de tilt van de twee filters verschilt een fractie van een graad) schuift het
+    // aim-midden mee. De aim springt dus niet; het midden dat de speler zette blijft in de praktijk staan.
+    const bool live = fusion_.initialized() && vqf_.initialized();
+    const Quat before = live ? q_out() : Quat{};
+    AimAngles rel_before{};
+    const bool had_center = live && aim_.has_center();
+    if (had_center) rel_before = aim_.relative(before);
     cfg_.fusion_mode = m;
+    vqf_.set_use_mag(m == FusionMode::VqfMag);
+    if (live) {
+        if (is_vqf(m)) vqf_.align_yaw_to(before);
+        else fusion_.set_q(before);
+        if (had_center) {
+            const AimAngles rel_after = aim_.relative(q_out());
+            aim_.shift_center(rel_after.yaw_rad - rel_before.yaw_rad, rel_after.pitch_rad - rel_before.pitch_rad);
+        }
+    }
     // Inschakelen: de huidige stand wordt de referentie (de drift uit de schaduwperiode wordt niet
     // alsnog teruggedraaid). Uitschakelen: de geleerde verticale bias vervalt via een nieuwe
     // vergrendeling bij een volgende inschakeling; q blijft staan (geen sprong).

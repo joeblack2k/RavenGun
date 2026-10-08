@@ -11,6 +11,7 @@
 #include <time.h>
 #include <vector>
 
+#include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/doctor.hpp"
 #include "ravengun/ipc_client.hpp"
 #include "ravengun/ipc_protocol.hpp"
@@ -44,8 +45,8 @@ void usage(FILE* f) {
         "                record [--tag T] [--duration S] [--max-mb N]   opnemen tot S s of Ctrl-C\n"
         "                record --start|--stop|--status, record --mark LABEL\n"
         "  led         LED-kleur: led cyaan|rood|groen|blauw|wit|magenta|geel|uit of led R,G,B\n"
-        "  fusion      oriëntatieschatter: fusion mahony (IMU-only) of fusion mahony_mag (met magnetometer-yaw);\n"
-        "              wordt bewaard in config.json\n"
+        "  fusion      oriëntatieschatter: fusion mahony (IMU-only), mahony_mag (met magnetometer-yaw), vqf (VQF 6D)\n"
+        "              of vqf_mag (VQF 9D met magnetometer); wordt bewaard in config.json\n"
         "  calibrate   calibrate mag [--holder H] [--duration S]: magnetometer kalibreren (ronddraaien;\n"
         "              stopt zelf bij >= 80 % dekking en >= 300 samples), of --start|--stop|--abort|--status;\n"
         "              calibrate mag --check [--duration 3]: veldcheck (norm en dip t.o.v. de kalibratie)\n"
@@ -853,12 +854,13 @@ int main(int argc, char** argv) {
         if (cmd == "record") return cmd_record(json, action, tag, mark, duration, max_mb);
         if (cmd == "led") return cmd_led(json, arg2);
         if (cmd == "fusion") {
-            if (arg2 != "mahony" && arg2 != "mahony_mag" && arg2 != "mahony-mag") {
-                std::fprintf(stderr, "ravengunctl: fusion verwacht mahony of mahony_mag\n");
+            core::FusionMode fm;
+            if (!core::parse_fusion_mode(arg2.c_str(), fm)) {
+                std::fprintf(stderr, "ravengunctl: fusion verwacht mahony, mahony_mag, vqf of vqf_mag\n");
                 return kExitUsage;
             }
             rq.cmd = ipc::Cmd::SetFusion;
-            rq.mode = arg2 == "mahony" ? "mahony" : "mahony_mag";
+            rq.mode = core::to_string(fm);
             Reply r = call(c, rq);
             if (r.code != kExitOk) return r.code;
             if (json) std::printf("%s\n", r.line.c_str());

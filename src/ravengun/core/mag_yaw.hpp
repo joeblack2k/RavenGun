@@ -34,9 +34,12 @@
 
 namespace ravengun::core {
 
-enum class FusionMode { Mahony, MahonyMag };
-const char* to_string(FusionMode m);                       // "mahony", "mahony_mag"
-bool parse_fusion_mode(const char* s, FusionMode& out);    // ook "mahony-mag"
+// mahony, mahony_mag: Mahony met (mag) yaw-Kalman hierboven. vqf, vqf_mag: VQF (Laidig & Seel, core/vqf_estimator.hpp),
+// 6D zonder respectievelijk 9D met de gekalibreerde magnetometer.
+enum class FusionMode { Mahony, MahonyMag, Vqf, VqfMag };
+const char* to_string(FusionMode m);                       // "mahony", "mahony_mag", "vqf", "vqf_mag"
+bool parse_fusion_mode(const char* s, FusionMode& out);    // ook "mahony-mag" en "vqf-mag"
+inline bool is_vqf(FusionMode m) { return m == FusionMode::Vqf || m == FusionMode::VqfMag; }
 
 struct MagYawConfig {
     // Kalman-filter (hoeken in graden in de configuratie).

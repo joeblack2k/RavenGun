@@ -20,6 +20,7 @@ struct DriftOptions {
     bool have_cal = false;
     core::MagCalibration cal{};
     core::BiasConfig bias{};         // mode legacy|new en parameters van de biasschatter
+    core::VqfConfig vqf{};           // parameters van VQF (modes vqf en vqf_mag)
     bool have_bias_init = false;     // beginbias (rad/s) zoals uit het bewaarde bestand; anders koude start
     core::Vec3 bias_init{};
     int bias_init_tc = -1;
@@ -60,6 +61,10 @@ struct DriftResult {
     int final_tc = -1;
     core::BiasState final_state = core::BiasState::None;
     core::BiasSource final_source = core::BiasSource::None;
+    // VQF aan het eind (zie ReplayResult): hoe vaak de magnetometer als verstoord werd afgewezen, rustdetectie.
+    uint64_t vqf_reports = 0, vqf_mag_samples = 0, vqf_mag_disturbed = 0, vqf_rest_samples = 0, vqf_filled = 0;
+    core::Vec3 vqf_bias{};
+    double vqf_ref_norm = 0, vqf_ref_dip_deg = 0;
     std::string error;
     size_t presses = 0;                // aantal PS-down-flanken
     size_t skipped_short = 0;          // intervallen korter dan min_interval_s

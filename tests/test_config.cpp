@@ -491,6 +491,11 @@ static void test_fusion_and_gun_buttons() {
     CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"t"}})", c, err));
     CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"reload":"knop"}})", c, err));
     CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"mode":"eskf"}})", c, err));
+    // VQF-modi en de biasbron.
+    CHECK(config::parse_settings(R"({"schema":1,"fusion":{"mode":"vqf_mag","vqf_bias":"own"}})", c, err) && c.fusion.mode == "vqf_mag" && c.fusion.vqf_bias == "own");
+    CHECK(config::parse_settings(R"({"schema":1,"fusion":{"mode":"vqf"}})", c, err) && c.fusion.mode == "vqf" && c.fusion.vqf_bias == "external");
+    CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"mode":"vqf","vqf_bias":"beide"}})", c, err));
+    CHECK(config::parse_settings(config::to_json(c), c, err) && c.fusion.mode == "vqf");
     CHECK(!config::parse_settings(R"({"schema":1,"gun_buttons":{"trigger_on":100,"trigger_off":120}})", c, err));
     // validate() op een rechtstreeks aangepaste struct.
     config::Settings v;
