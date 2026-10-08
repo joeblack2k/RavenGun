@@ -3,8 +3,9 @@
 # daemon actief -> uitvoer wapenen (gun + toetsenbord bestaan) -> optioneel opnemen -> game starten.
 # TeknoParrot opent de invoerapparaten alleen bij de gamestart; daarom eerst wapenen.
 #
-# Gebruik: scripts/play-halo.sh [--record TAG] [--no-wait-move]
+# Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move]
 #          scripts/play-halo.sh --stop        (game stoppen, opname stoppen, uitvoer ontwapenen)
+# --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CTL="$ROOT/build/ravengunctl"
@@ -15,7 +16,8 @@ LOGDIR="$HOME/.local/state/ravengun/logs"
 UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-game_running() { pgrep -x BudgieLoader_x6 >/dev/null; }
+# BudgieLoader_x64.exe (64-bit games) of BudgieLoader.exe (32-bit); comm is afgekapt op 15 tekens.
+game_running() { pgrep -x "BudgieLoader_x6|BudgieLoader.ex" >/dev/null; }
 
 stop_all() {
   if game_running; then WINEPREFIX="$PREFIX" "$WINE/wineserver" -k || true; fi
@@ -27,17 +29,19 @@ stop_all() {
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
+    --profile) PROFILE="${2:?--profile vereist een naam}"; shift 2 ;;
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
-    *) echo "Gebruik: $0 [--record TAG] [--no-wait-move] | --stop" >&2; exit 2 ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--no-wait-move] | --stop" >&2; exit 2 ;;
   esac
 done
 
-game_running && { echo "Halo draait al; eerst '$0 --stop'." >&2; exit 1; }
+[[ -f "$TP/UserProfiles/$PROFILE.xml" ]] || { echo "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)" >&2; exit 1; }
+game_running && { echo "Er draait al een game; eerst '$0 --stop'." >&2; exit 1; }
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
 
@@ -69,8 +73,8 @@ mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} \
-  /bin/sh -c "exec ./TeknoParrotUi --profile=Halo.xml >>'$LOG' 2>&1"
+  /bin/sh -c "exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
 for _ in $(seq 1 90); do game_running && break; sleep 1; done
 game_running || { echo "De game is niet gestart; zie $LOG" >&2; exit 1; }
-echo "Halo gestart. Stoppen: $0 --stop"
+echo "$PROFILE gestart. Stoppen: $0 --stop"
