@@ -122,16 +122,27 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Vaste gebruikersservice `ravengund.service` (start bij inloggen; `scripts/install-service.sh`). `scripts/play-halo.sh [--record TAG]` wapent, neemt op en start Halo via `TeknoParrotUi --profile=Halo.xml`; `--stop` stopt alles. Getest tot het kalibratiescherm van de game.
 - Na een wissel van Gaming Mode naar de desktop (2026-10-08) draaide er geen Xwayland: `/tmp/.X11-unix` was van deck met mode 755, waardoor kwin weigerde. Hersteld met root:root 1777 en een herstart van kwin_wayland (via de wrapper; vensters bleven intact). Oorzaak van de verkeerde rechten onbekend; kan terugkomen.
 
+- Meetsessies drift (2026-10-08, Halo, centreerdruk = meetpunt, `ravengun-analyze drift`): sessie A 26 graden/min (bias liep mee met opwarming), sessie B 11,6 graden/min (z-bias stapte ca. 0,19 graden/s bij het oppakken). Oorzakenonderzoek met `ravengun-driftlab`: integratie, Mahony-versterking, gatvulling, dt, schaal en kruiskoppeling uitgesloten; de gyro-z-bias zwerft, ook in rust. Conclusie: een absolute yaw-referentie is nodig.
+- Gebouwd: bias-modus `new` (temperatuurcompensatie, quasi-stil, bewaarde bias), optisch biasbewijs (bol stil in beeld), lerende yaw-trim uit centreerdrukken (begint elke sessie op nul), VQF (`vqf`, `vqf_mag`; third_party/vqf, MIT). 15 ctest-suites groen.
+- Live bevestigd (sessie C, `vqf_mag`, 6 minuten Halo): cumulatieve yaw-drift -0,19 graden/min; intervallen van 100 tot 128 s zonder centreren met -0,7, +1,0 en -2,7 graden. VQF wees 0,2 % van de magnetometersamples af. Dezelfde opname in replay: mahony -1,24, mahony met lerende trim -1,85, mahony_mag -0,66 graden/min. `fusion.mode` staat nu op `vqf_mag`.
+- Sharp Shooter bevestigd op hardware: ext-byte 0 bit 0x40 = fire (trekker), pomp = T zonder fire-bit (herladen), knop onder de trekker = Move-knop (centreren), vuurstand in bits 0..2.
+- Meer games in TeknoParrot via `scripts/tp-add-game.py` (profiel uit de sjabloon, bindingen naar de RavenGun-apparaten, GamePath op de NAS; niets gekopieerd): JurassicPark, TombRaider, LuigisMansion. `scripts/play-halo.sh --profile NAAM`.
+- Jurassic Park (32-bit ElfLdr2): TeknoParrot zoekt `ElfLdr2/BudgieLoader.exe` relatief aan de gamemap; opgelost met een lokale symlink-view (`~/.local/share/ravengun/runtime/views/JurassicPark`). Venstermodus: exit 255 na 14 s. Volledig scherm: de game draait (JVS verbonden, invoerapparaten open, intro-audio open) maar het beeld blijft zwart. Vermoeden: AMD-GPU (RX 6950 XT; TeknoParrot-metadata: NVIDIA OK, AMD geen info). Open.
+- Gevolg van draaien vanaf de NAS: TeknoParrot schrijft `teknoparrot.ini` in de gamemap en de game schrijft in `pmuser/`. De gebruiker is hierover geïnformeerd.
+- De NAS-mount faalde na een netwerkonderbreking (start-limit-hit); hersteld met `systemctl reset-failed` en het starten van de automount.
+
 ## Laatste werkende commando
 
-    scripts/play-halo.sh --record TAG     (Move aan met PS; start daemon-uitvoer, opname en Halo)
+    scripts/play-halo.sh --record TAG     (Move aan met PS; daemon-uitvoer, opname en Halo)
     scripts/play-halo.sh --stop
 
 ## Actuele fout / afhankelijkheid
 
-Drift van het vizier tijdens het spelen (magnetometer doet niet mee). Er is nog geen opname van echt spelen.
+Jurassic Park geeft zwart beeld (zie boven). Tomb Raider en Luigi's Mansion zijn toegevoegd maar nog niet gestart.
 
 ## Volgende uitvoerbare stap
 
-1. Meetsessie met de gebruiker (stap 1 uit `docs/verbeterplan.md`): `scripts/play-halo.sh --record halo-drift`, 10 minuten spelen, bij drift op het midden richten en PS drukken; tien keer pompen en de vuurstand omzetten.
-2. `ravengun-analyze drift <opname>` en de ext-bytes bekijken; daarna stap 2 en 3 van het plan (oorzaak, magnetometer-referentie leren op de speelplek).
+1. Gevoel van `vqf_mag` navragen bij de gebruiker (scheef of stroperig richten bij de tv?).
+2. Jurassic Park: zwart beeld onderzoeken (subagent; heeft de tv nodig).
+3. Voorspelling tegen de Bluetooth-latentie (instelbaar, 20 tot 40 ms).
+4. Schermkalibratie met de camera, Gaming Mode/Steam-snelkoppeling, overige games.
