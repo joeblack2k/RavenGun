@@ -35,6 +35,7 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
                 p.on_connect(rc.header.controller.empty() ? "opname" : rc.header.controller, rc.header.t0_ns);
                 if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
                 if (o.have_bias_init) p.restore_bias(o.bias_init, o.bias_init_tc);
+                if (o.have_trim_init) p.set_trim(o.trim_init_dps);
                 connected = true;
                 break;
             case Kind::Report: {
@@ -42,15 +43,21 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
                     p.on_connect("opname", rc.report.t_rx_ns);
                     if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
                     if (o.have_bias_init) p.restore_bias(o.bias_init, o.bias_init_tc);
+                    if (o.have_trim_init) p.set_trim(o.trim_init_dps);
                     connected = true;
                 }
                 if (o.tick_before_report)
                     if (auto t = p.tick(rc.report.t_rx_ns)) emit(*t, nullptr);
-                emit(p.on_report(rc.report), &rc.report);
+                const core::InputSample s = p.on_report(rc.report);
+                emit(s, &rc.report);
+                if (o.trim_marker_mask && (s.pressed & o.trim_marker_mask)) {
+                    p.note_recenter_press();
+                    if (o.on_marker) o.on_marker(p, s);
+                }
                 ++res.reports;
                 break;
             }
-            case Kind::Optical: optical = rc.optical; ++res.optical; break;
+            case Kind::Optical: optical = rc.optical; p.on_optical(rc.optical); ++res.optical; break;
             case Kind::Led: ++res.leds; break;
             case Kind::Mark: ++res.marks; break;
             case Kind::End: res.ended = true; res.end_reason = rc.end.reason; break;
@@ -66,6 +73,12 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
     res.vqf_ref_norm = v.mag_ref_norm();
     res.vqf_ref_dip_deg = v.mag_ref_dip_deg();
     res.vqf_heading_corr_deg = v.heading_correction_deg();
+    res.trim_dps = p.trim().rate_dps();
+    res.trim_learned = p.trim().learned();
+    res.optical_s = p.bias().optical_time_total();
+    res.optical_windows = p.bias().optical_accepted();
+    res.optical_still = p.bias().optical_still_windows();
+    res.optical_rejected = p.bias().optical_rejected();
     res.ok = true;
     return res;
 }

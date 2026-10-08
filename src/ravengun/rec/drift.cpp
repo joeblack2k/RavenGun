@@ -59,6 +59,12 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     ro.bias_init = opt.bias_init;
     ro.bias_init_tc = opt.bias_init_tc;
     if (opt.have_cal) { ro.have_mag_cal = true; ro.mag_cal = opt.cal; }
+    ro.pipeline.trim = opt.trim;
+    ro.trim_marker_mask = opt.marker_mask ? opt.marker_mask : static_cast<uint32_t>(kBtnPS);
+    ro.have_trim_init = opt.have_trim_init;
+    ro.trim_init_dps = opt.trim_init_dps;
+    double cur_trim = opt.have_trim_init ? opt.trim_init_dps : 0.0;
+    ro.on_marker = [&](const Pipeline& p, const InputSample&) { cur_trim = p.trim().rate_dps(); };
 
     bool have_ref = false;
     double ref_yaw = 0, ref_pitch = 0, ref_t = 0;
@@ -139,6 +145,7 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
                 d.saturated = acc.saturated;
                 d.temp_begin = acc.temp_begin;
                 d.temp_end = acc.temp_end;
+                d.trim_dps = cur_trim;
                 res.intervals.push_back(d);
             }
         }
@@ -158,6 +165,12 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     res.vqf_rest_samples = rr.vqf_rest_samples; res.vqf_filled = rr.vqf_filled; res.vqf_bias = rr.vqf_bias;
     res.vqf_ref_norm = rr.vqf_ref_norm; res.vqf_ref_dip_deg = rr.vqf_ref_dip_deg;
     res.final_tc = last_tc;
+    res.final_trim_dps = rr.trim_dps;
+    res.trim_learned = rr.trim_learned;
+    res.optical_s = rr.optical_s;
+    res.optical_windows = rr.optical_windows;
+    res.optical_still = rr.optical_still;
+    res.optical_rejected = rr.optical_rejected;
 
     // Samenvatting.
     DriftSummary& sm = res.summary;

@@ -24,6 +24,8 @@ public:
     void attach(ravengun::core::Pipeline* p) { pipe_ = p; }
     // Map voor de bewaarde gyro-bias; leeg = uit (niet laden, niet bewaren).
     void set_bias_dir(std::string d) { bias_store_.set_dir(std::move(d)); }
+    // De yaw-trim is gewist: het bewaarde bestand moet de nul krijgen.
+    void note_trim_cleared() { bias_store_.note_trim_cleared(); }
 
     void on_connect(const std::string& id, const std::string& model, int64_t now_ns);
     void on_disconnect(int64_t now_ns);

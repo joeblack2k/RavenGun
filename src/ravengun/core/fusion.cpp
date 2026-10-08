@@ -24,6 +24,7 @@ const char* to_string(BiasSource s) {
         case BiasSource::Restored: return "restored";
         case BiasSource::Still: return "still";
         case BiasSource::Quasi: return "quasi-still";
+        case BiasSource::Optical: return "optical-still";
     }
     return "none";
 }
@@ -74,6 +75,14 @@ void GyroBiasEstimator::reset() {
     q_sum_ = q_sq_ = q_asum_ = {};
     q_adev_ = 0;
     q_last_update_t_ = 0;
+    optical_acquired_ = false;
+    optical_total_ = optical_last_update_t_ = 0;
+    optical_accepted_ = optical_rejected_ = optical_still_windows_ = 0;
+    oframes_.clear();
+    oimu_.clear();
+    opending_.clear();
+    owin_.clear();
+    oimu_latest_ = -1;
     tev_.clear();
     slope_ = {};
     shift_since_anchor_ = {};
@@ -82,7 +91,7 @@ void GyroBiasEstimator::reset() {
 }
 
 void GyroBiasEstimator::restore(Vec3 bias, int tc) {
-    if (still_total_ > 0 || quasi_acquired_) return;  // er is al gemeten; een oude waarde is dan slechter
+    if (still_total_ > 0 || quasi_acquired_ || optical_acquired_) return;  // er is al gemeten; een oude waarde is dan slechter
     bias_ = bias;
     restored_ = true;
     restored_tc_ = tc;
@@ -91,13 +100,19 @@ void GyroBiasEstimator::restore(Vec3 bias, int tc) {
 
 BiasState GyroBiasEstimator::state() const {
     if (settled()) return BiasState::Estimated;
-    if (still_total_ > 0 || quasi_total_ > 0) return BiasState::Estimating;
+    if (still_total_ > 0 || quasi_total_ > 0 || optical_total_ > 0) return BiasState::Estimating;
     return restored_ ? BiasState::Restored : BiasState::None;
 }
 
-bool GyroBiasEstimator::update(Vec3 gyro, Vec3 accel, double dt) {
+bool GyroBiasEstimator::update(Vec3 gyro, Vec3 accel, double dt, double t_s) {
     if (!(dt > 0) || !std::isfinite(dt)) return still_;
     age_ += dt;
+    if (t_s >= 0 && cfg_.mode == BiasMode::New && cfg_.optical && optical_enabled_) {
+        oimu_.push_back({t_s, gyro, accel});
+        oimu_latest_ = t_s;
+        while (!oimu_.empty() && oimu_.front().t < t_s - 3.0) oimu_.pop_front();
+        if (!opending_.empty()) optical_try_eval();
+    }
     if (cfg_.freeze_after_s > 0 && age_ > cfg_.freeze_after_s) { still_ = false; return false; }
     if (cfg_.mode == BiasMode::New && cfg_.temp_comp && tc_ >= 0) {
         if (prev_tc_ >= 0 && tc_ != prev_tc_ && std::abs(tc_ - prev_tc_) <= 20 && settled()) {
@@ -220,6 +235,118 @@ void GyroBiasEstimator::quasi_window_done() {
         if (!quasi_acquire()) return;
     }
     quasi_track();
+}
+
+// ---- optische stilstand ----
+
+void GyroBiasEstimator::optical_frame(double t_s, bool valid, double x, double y, double r) {
+    if (cfg_.mode != BiasMode::New || !cfg_.optical || !optical_enabled_) return;
+    if (cfg_.freeze_after_s > 0 && age_ > cfg_.freeze_after_s) return;
+    if (!valid || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(r)) { oframes_.clear(); return; }
+    t_s += cfg_.optical_lag_s;
+    if (!oframes_.empty() && (t_s <= oframes_.back().t || t_s - oframes_.back().t > cfg_.optical_frame_gap_s)) oframes_.clear();
+    oframes_.push_back({t_s, x, y, r});
+    if (oframes_.back().t - oframes_.front().t < cfg_.optical_window_s) return;
+    // Het venster is vol: alle frames binnen optical_window_s van het eerste.
+    size_t n = 0;
+    while (n < oframes_.size() && oframes_[n].t - oframes_.front().t < cfg_.optical_window_s) ++n;
+    double mx = 0, my = 0, mr = 0;
+    for (size_t i = 0; i < n; ++i) { mx += oframes_[i].x; my += oframes_[i].y; mr += oframes_[i].r; }
+    mx /= static_cast<double>(n); my /= static_cast<double>(n); mr /= static_cast<double>(n);
+    double vx = 0, vy = 0, vr = 0;
+    for (size_t i = 0; i < n; ++i) {
+        vx += (oframes_[i].x - mx) * (oframes_[i].x - mx);
+        vy += (oframes_[i].y - my) * (oframes_[i].y - my);
+        vr += (oframes_[i].r - mr) * (oframes_[i].r - mr);
+    }
+    const double sd = std::sqrt(std::max({vx, vy, vr}) / static_cast<double>(n));
+    const double t0 = oframes_.front().t, t1 = oframes_[n - 1].t;
+    if (static_cast<int>(n) >= cfg_.optical_min_frames && sd < cfg_.optical_still_px) {
+        ++optical_still_windows_;
+        if (opending_.size() >= 8) opending_.pop_front();
+        opending_.push_back({t0, t1});
+        // Niet-overlappend: een geaccepteerd venster begint opnieuw bij het volgende frame.
+        OFrame last = oframes_.back();
+        oframes_.clear();
+        oframes_.push_back(last);
+        optical_try_eval();
+    } else {
+        // Beweging of te weinig frames: een kwart van het venster opschuiven.
+        const double cut = oframes_.front().t + cfg_.optical_window_s * 0.25;
+        while (!oframes_.empty() && oframes_.front().t < cut) oframes_.pop_front();
+    }
+}
+
+// Evalueert de wachtende optisch-stille vensters zodra de IMU-tijd het einde van het venster gehaald heeft.
+void GyroBiasEstimator::optical_try_eval() {
+    while (!opending_.empty()) {
+        const OWin w = opending_.front();
+        if (oimu_latest_ < w.t1) return;   // de IMU is er nog niet
+        opending_.pop_front();
+        if (oimu_.empty() || oimu_.front().t > w.t0 + 0.1 * cfg_.optical_window_s) { ++optical_rejected_; continue; }  // IMU-data ontbreekt
+        Vec3 sum{}, asum{}, sq{};
+        int n = 0;
+        double prev_t = -1, max_gap = 0, amax = 0;
+        for (const auto& s : oimu_) {
+            if (s.t < w.t0) continue;
+            if (s.t > w.t1) break;
+            if (prev_t >= 0) max_gap = std::max(max_gap, s.t - prev_t);
+            prev_t = s.t;
+            sum = sum + s.g;
+            asum = asum + s.a;
+            sq = sq + Vec3{s.g.x * s.g.x, s.g.y * s.g.y, s.g.z * s.g.z};
+            amax = std::max(amax, std::fabs(norm(s.a) - 1.0));
+            ++n;
+        }
+        const double span = w.t1 - w.t0;
+        if (n < 20 || max_gap > 0.1 || span <= 0) { ++optical_rejected_; continue; }
+        const double dn = static_cast<double>(n);
+        Vec3 mean = sum * (1.0 / dn);
+        Vec3 var{sq.x / dn - mean.x * mean.x, sq.y / dn - mean.y * mean.y, sq.z / dn - mean.z * mean.z};
+        const double sd = std::sqrt(std::max({var.x, var.y, var.z, 0.0}));
+        const double amean = norm(asum * (1.0 / dn));
+        if (sd > cfg_.optical_std_max || amax > cfg_.optical_accel_tol || std::fabs(amean - 1.0) > cfg_.optical_accel_mean_tol) {
+            ++optical_rejected_;
+            continue;
+        }
+        optical_window_done(mean);
+    }
+}
+
+void GyroBiasEstimator::optical_window_done(Vec3 mean) {
+    if (still_) return;   // echte stilstand is leidend
+    const bool known = settled() || restored_;
+    if (norm(mean - bias_) > (known ? cfg_.optical_gate : cfg_.optical_gate_acquire)) { ++optical_rejected_; return; }
+    owin_.push_back({age_, mean, 1.0});
+    while (!owin_.empty() && owin_.front().t < age_ - cfg_.optical_horizon_s) owin_.pop_front();
+    // if (known) temp_add(mean, 0.5);
+    if (static_cast<int>(owin_.size()) < cfg_.optical_min_windows) return;
+    std::vector<std::pair<double, double>> vx, vy, vz;
+    for (const auto& q : owin_) {
+        double w = std::exp(-(age_ - q.t) / cfg_.optical_recency_s);
+        vx.emplace_back(q.mean.x, w); vy.emplace_back(q.mean.y, w); vz.emplace_back(q.mean.z, w);
+    }
+    Vec3 target{weighted_median(vx), weighted_median(vy), weighted_median(vz)};
+    if (!known && !optical_acquired_) {
+        // Eerste meting zonder bewaarde waarde: pas als er genoeg vensters zijn, in een keer naar het doel.
+        if (static_cast<int>(owin_.size()) < cfg_.optical_acquire_windows) return;
+        bias_ = target;
+        optical_acquired_ = true;
+    } else {
+        double since = optical_last_update_t_ > 0 ? std::min(age_ - optical_last_update_t_, 5.0) : cfg_.optical_window_s;
+        since = std::max(since, cfg_.optical_window_s);
+        const double k = std::min(1.0, since / cfg_.optical_tau_s);
+        const double lim = cfg_.optical_slew * since;
+        Vec3 step = (target - bias_) * k;
+        auto clampv = [&](double v) { return std::max(-lim, std::min(lim, v)); };
+        bias_ = bias_ + Vec3{clampv(step.x), clampv(step.y), clampv(step.z)};
+    }
+    shift_since_anchor_ = {};
+    optical_last_update_t_ = age_;
+    optical_total_ += cfg_.optical_window_s;
+    ++optical_accepted_;
+    if (static_cast<int>(optical_accepted_) >= cfg_.optical_acquire_windows) optical_acquired_ = true;
+    source_ = BiasSource::Optical;
 }
 
 void GyroBiasEstimator::temp_add(Vec3 mean, double w) {

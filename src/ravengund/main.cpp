@@ -53,6 +53,8 @@ void usage(FILE* f) {
         "  --no-bias-store                  gyro-bias niet laden en niet bewaren\n"
         "  --bias-mode new|legacy           biasschatter: stilstand + bewaarde waarde + quasi-stil (standaard) of\n"
         "                                   alleen stilstand (oud gedrag)\n"
+        "  --no-recenter-learning           yaw-trim niet bijwerken uit centreerdrukken (standaard aan, of\n"
+        "                                   fusion.recenter_learning in config.json)\n"
         "  --fusion mahony|mahony_mag|vqf|vqf_mag\n"
         "                                   oriëntatieschatter (standaard uit config.json, anders mahony;\n"
         "                                   mahony_mag = Mahony plus yaw-correctie met de magnetometer;\n"
@@ -136,6 +138,7 @@ int main(int argc, char** argv) {
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
     ravengun::core::parse_vqf_bias(cfg.fusion.vqf_bias.c_str(), opt.pipeline.vqf.bias);
+    opt.pipeline.trim.enabled = cfg.fusion.recenter_learning;
     opt.bias_dir = ravengun::core::default_bias_dir();
     ravengun::core::parse_ext_mode(cfg.sharp_shooter.extension.c_str(), opt.pipeline.ext_mode);
     opt.pipeline.pump.on = cfg.gun_buttons.trigger_on;
@@ -174,6 +177,7 @@ int main(int argc, char** argv) {
         }
         else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
+        else if (a == "--no-recenter-learning") opt.pipeline.trim.enabled = false;
         else if (a == "--dt-source" && i + 1 < argc) {
             std::string v = argv[++i];
             if (v != "move" && v != "rx") { std::fprintf(stderr, "ravengund: --dt-source verwacht move of rx\n"); return 64; }

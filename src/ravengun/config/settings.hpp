@@ -72,6 +72,8 @@ struct FusionSettings {
     // Alleen voor vqf en vqf_mag: welke gyro-bias VQF gebruikt. "external" (standaard): die van onze schatter;
     // "own": VQF schat zelf (en onze wordt dan niet toegepast). Gelezen bij het starten van de daemon.
     std::string vqf_bias = "external";
+    // Lerende yaw-trim uit centreerdrukken van de speler (yaw_trim.hpp); gelezen bij het starten van de daemon.
+    bool recenter_learning = true;
 };
 
 // Knoppenindeling van de virtuele lightgun (live koppeling): `map` koppelt een Move-knopnaam aan een actie.

@@ -37,6 +37,7 @@ const char* to_string(Cmd c) {
         case Cmd::SetButtons: return "set_buttons";
         case Cmd::CalibrateUi: return "calibrate_ui";
         case Cmd::SetFusion: return "set_fusion";
+        case Cmd::ClearTrim: return "clear_trim";
     }
     return "?";
 }
@@ -134,6 +135,9 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         r.full_ids = f.value_or(false);
     } else if (cmd == "camera") {
         r.cmd = Cmd::Camera;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "clear_trim") {
+        r.cmd = Cmd::ClearTrim;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else if (cmd == "recenter") {
         r.cmd = Cmd::Recenter;
@@ -432,6 +436,7 @@ std::string make_request(const Request& r) {
         case Cmd::Settings:
         case Cmd::Diagnostics:
         case Cmd::Recenter:
+        case Cmd::ClearTrim:
         case Cmd::Camera:
         case Cmd::Arm:
         case Cmd::Disarm:

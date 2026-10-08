@@ -19,7 +19,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
-                 SetButtons, CalibrateUi, SetFusion };
+                 SetButtons, CalibrateUi, SetFusion, ClearTrim };
 const char* to_string(Cmd c);
 
 struct Request {

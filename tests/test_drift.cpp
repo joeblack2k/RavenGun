@@ -139,6 +139,33 @@ static void test_drift_edge_cases() {
     CHECK(r.ok && r.intervals.size() == 3 && r.intervals[0].saturated == -1 && r.intervals[0].temp_begin == -1);
 }
 
+// Leren uit de markerdrukken: een constante extra rotatie van 0,5 graden/s rond omhoog (yaw loopt met -0,5 graden/s weg)
+// wordt na een paar drukken deels weggetrokken; zonder leren verandert er niets; met de juiste begintrim is de drift weg.
+static void test_drift_trim_learning() {
+    auto recs = make_recording(0.5);
+    rec::DriftOptions off;
+    rec::DriftResult r0 = rec::compute_drift(recs, off);
+    rec::DriftOptions on;
+    on.trim.enabled = true;
+    rec::DriftResult r1 = rec::compute_drift(recs, on);
+    CHECK(r0.ok && r1.ok && r0.intervals.size() == 3 && r1.intervals.size() == 3);
+    if (r0.intervals.size() != 3 || r1.intervals.size() != 3) return;
+    CHECK(r0.final_trim_dps == 0 && r0.trim_learned == 0);
+    CHECK(r1.trim_learned >= 2 && r1.final_trim_dps > 0.1 && r1.final_trim_dps <= on.trim.limit_dps);
+    CHECK_NEAR(r1.intervals[0].trim_dps, 0, 1e-12);                       // eerste interval: nog niets geleerd
+    CHECK(r1.intervals[1].trim_dps > 0);                                  // trim tijdens het volgende interval
+    CHECK(std::fabs(r1.intervals[0].yaw_deg - r0.intervals[0].yaw_deg) < 0.2);   // het eerste interval is ongewijzigd
+    CHECK(std::fabs(r1.intervals[2].yaw_deg) < 0.7 * std::fabs(r0.intervals[2].yaw_deg));   // later: duidelijk minder drift
+    rec::DriftOptions init;
+    init.have_trim_init = true;
+    init.trim_init_dps = 0.5;
+    rec::DriftResult r2 = rec::compute_drift(recs, init);
+    CHECK(r2.ok && r2.intervals.size() == 3 && r2.final_trim_dps == 0.5 && r2.trim_learned == 0);
+    for (const auto& d : r2.intervals) CHECK(std::fabs(d.yaw_deg) < 1.0);
+    // De cumulatieve yaw (eerste -> laatste druk) wordt kleiner met de juiste begintrim.
+    CHECK(std::fabs(r2.summary.total_yaw_deg) < 0.2 * std::fabs(r0.summary.total_yaw_deg));
+}
+
 static void test_pearson() {
     CHECK_NEAR(rec::pearson({1, 2, 3, 4}, {2, 4, 6, 8}), 1.0, 1e-12);
     CHECK_NEAR(rec::pearson({1, 2, 3, 4}, {8, 6, 4, 2}), -1.0, 1e-12);
@@ -152,6 +179,7 @@ int main() {
     test_drift_known_bias();
     test_drift_zero_bias_and_scaling();
     test_drift_edge_cases();
+    test_drift_trim_learning();
     test_pearson();
     std::printf("%d controles, %d fouten\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

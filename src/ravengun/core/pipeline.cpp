@@ -55,7 +55,7 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), vqf_(cfg.vqf), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), vqf_(cfg.vqf), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock), trim_(cfg.trim) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
@@ -66,11 +66,14 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
         aim_.clear_center();
         yaw_ref_ = YawReference::None;
         auto_centered_once_ = false;
+        trim_.clear();             // de trim hoort bij de controller
         mag_.clear_calibration();  // de kalibratie hoort bij de controller; de daemon zet de nieuwe
     } else {
         mag_.on_interrupt();  // zelfde controller: de yaw-integratie was onderbroken
     }
     controller_id_ = id;
+    trim_.invalidate();
+    last_optical_t_ = -1;
     pump_.reset();
     stats_.reset();
     have_rx_ = false;
@@ -117,7 +120,7 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.still = bias_.still();
     s.gyro_bias = bias_.bias();
     s.bias_source = bias_.source();
-    s.bias_evidence_s = std::max(bias_.still_time_total(), 0.0) + bias_.quasi_time_total();
+    s.bias_evidence_s = std::max(bias_.still_time_total(), 0.0) + bias_.quasi_time_total() + bias_.optical_time_total();
     s.yaw_ref = yaw_ref_;
     const MagYawStatus& ms = mag_.status();
     s.fusion_mode = to_string(cfg_.fusion_mode);
@@ -206,6 +209,7 @@ InputSample Pipeline::on_report(const RawReport& r) {
         have_prev_gyro_ = false;
         mag_.on_interrupt();
         vqf_.on_interrupt();
+        trim_.invalidate();
     } else if (dt_int > kLongDtS) {
         ++stats_.long_dt;
     }
@@ -225,15 +229,22 @@ InputSample Pipeline::on_report(const RawReport& r) {
     // Zolang de magnetometer de yaw corrigeert, leert die zelf een verticale bias: dan geen quasi-stille
     // bijsturing (niet dubbel corrigeren). Echte stilstand telt altijd mee.
     bias_.set_quasi_enabled(!mag_yaw_active());
+    // De yaw-trim wordt niet toegepast en er wordt niet van geleerd zolang de magnetometer de yaw corrigeert.
+    // Dat geldt ook voor vqf_mag (VQF corrigeert de heading dan zelf met de magnetometer).
+    const bool vqf_mag_mode = cfg_.fusion_mode == FusionMode::VqfMag && mag_.calibrated();
+    const bool trim_on = !mag_apply_now && !vqf_mag_mode;
+    if (!trim_on) { trim_mag_seen_ = true; trim_.invalidate(); }
+    const double t_rx_s = static_cast<double>(r.t_rx_ns) / 1e9;
     for (int i = 0; i < n; ++i) {
-        if (bias_.update(r.gyro[i], r.accel[i], sub_dt)) ++stats_.still_samples;
-        Vec3 extra = mag_apply_now ? mag_.bias_body(fusion_.q()) : Vec3{};
+        if (bias_.update(r.gyro[i], r.accel[i], sub_dt, t_rx_s - (n - 1 - i) * sub_dt)) ++stats_.still_samples;
+        Vec3 extra = mag_apply_now ? mag_.bias_body(fusion_.q()) : (trim_on ? trim_.body_rate(fusion_.q()) : Vec3{});
         if (i == 0 && gap_dt > 0) {
             Vec3 gm = (prev_gyro_ + r.gyro[0]) * 0.5 - bias_.bias() - extra;
             fusion_.update(gm, r.accel[0], gap_dt);
         }
         Vec3 g = r.gyro[i] - bias_.bias() - extra;
         fusion_.update(g, r.accel[i], fuse_dt);
+        if (trim_on) trim_.advance(fuse_dt + (i == 0 ? gap_dt : 0.0));
         g_sum = g_sum + g;
         a_sum = a_sum + r.accel[i];
     }
@@ -245,7 +256,9 @@ InputSample Pipeline::on_report(const RawReport& r) {
         const bool with_mag = mag_.calibrated();
         if (with_mag) mb = mag_apply(mag_.calibration(), r.mag_raw);
         vqf_.set_use_mag(cfg_.fusion_mode == FusionMode::VqfMag);
-        vqf_.feed(r, dt_int, bias_.bias(), with_mag ? &mb : nullptr);
+        // De yaw-trim (indien actief) gaat als extra bias mee, net als bij Mahony.
+        const Vec3 vqf_bias = trim_on ? bias_.bias() + trim_.body_rate(fusion_.q()) : bias_.bias();
+        vqf_.feed(r, dt_int, vqf_bias, with_mag ? &mb : nullptr);
     }
     if (mag_.calibrated()) {
         // Eén magnetometersample per rapport, na de integratie (zie mag_yaw.hpp).
@@ -314,6 +327,7 @@ InputSample Pipeline::on_disconnect(int64_t now_ns) {
     ButtonEdges e = edges_.release_all();
     pump_.reset();
     link_ = LinkState::Disconnected;
+    trim_.invalidate();
     if (yaw_ref_ == YawReference::Continuous) yaw_ref_ = YawReference::Interrupted;
     have_rx_ = false;
     last_hid_seq_ = -1;
@@ -326,8 +340,23 @@ InputSample Pipeline::on_disconnect(int64_t now_ns) {
     return s;
 }
 
-bool Pipeline::recenter() {
+bool Pipeline::note_recenter_press() {
     if (!fusion_.initialized() || link_ != LinkState::Fresh) return false;
+    const bool valid = !trim_mag_seen_;
+    trim_mag_seen_ = false;
+    trim_.press(static_cast<double>(last_rx_ns_) / 1e9, world_angles(q_out()).yaw_rad, valid);
+    return true;
+}
+
+void Pipeline::on_optical(const OpticalSample& o) {
+    if (o.t_frame_ns <= 0 || o.t_frame_ns == last_optical_t_) return;
+    last_optical_t_ = o.t_frame_ns;
+    bias_.optical_frame(static_cast<double>(o.t_frame_ns) / 1e9, o.camera_active && o.valid, o.x_px, o.y_px, o.radius_px);
+}
+
+bool Pipeline::recenter(bool from_controller) {
+    if (!fusion_.initialized() || link_ != LinkState::Fresh) return false;
+    if (from_controller) note_recenter_press();
     aim_.recenter(q_out(), CenterSource::User);
     yaw_ref_ = YawReference::Continuous;
     reset_filter_ = true;
@@ -370,6 +399,7 @@ void Pipeline::set_fusion_mode(FusionMode m) {
     // alsnog teruggedraaid). Uitschakelen: de geleerde verticale bias vervalt via een nieuwe
     // vergrendeling bij een volgende inschakeling; q blijft staan (geen sprong).
     mag_.relock();
+    trim_.invalidate();
 }
 
 void Pipeline::set_aim(const AimConfig& c) {
