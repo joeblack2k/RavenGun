@@ -8,6 +8,7 @@
 #include <string>
 
 #include "hidraw_tap.hpp"
+#include "ravengun/core/bias_store.hpp"
 #include "ravengun/core/magnetometer.hpp"
 #include "ravengun/core/pipeline.hpp"
 #include "ravengun/ipc_protocol.hpp"
@@ -21,6 +22,8 @@ public:
     HidAux(SharedState& sh, Recorder* rec, bool use_move_clock) : sh_(sh), rec_(rec), move_clock_(use_move_clock) {}
     // De pijplijn van de HID-thread: de magnetometerkalibratie gaat daarin (fase 4: fusie en detector).
     void attach(ravengun::core::Pipeline* p) { pipe_ = p; }
+    // Map voor de bewaarde gyro-bias; leeg = uit (niet laden, niet bewaren).
+    void set_bias_dir(std::string d) { bias_store_.set_dir(std::move(d)); }
 
     void on_connect(const std::string& id, const std::string& model, int64_t now_ns);
     void on_disconnect(int64_t now_ns);
@@ -55,6 +58,8 @@ private:
     int64_t next_progress_ = 0;
     bool progress_dirty_ = false;
 
+    // Bewaarde gyro-bias
+    ravengun::core::BiasPersistence bias_store_;
     // Magnetometer
     std::string mag_dir_;
     bool cal_loaded_ = false;

@@ -75,8 +75,9 @@ struct FusionSettings {
 // Acties: "reload", "grenade", "aux1", "aux2" (gun-knoppen), "recenter", "key:<naam>" (toets op het
 // virtuele toetsenbord, namen uit output/key_table.hpp) of "none". Meerdere Move-knoppen mogen dezelfde
 // actie hebben (OR). Knoppen: triangle, circle, cross, square, select, start, move en (alleen als EXT verbonden is) de Sharp Shooter-knoppen
-// pump (RL, standaard reload), ss_fire, sel1, sel2, sel3 (standaard none). T is altijd de analoge
-// trekker (drempel met hysterese) en PS is altijd recenter (hard bedraad): beide staan niet in de map.
+// pump (de afgeleide pomp: T zonder fire-bit; standaard reload), ss_rl (het RL-bit 0x80, in de praktijk nooit gezien; standaard
+// reload), ss_fire, sel1, sel2, sel3 (standaard none). Zonder uitbreiding is T de analoge trekker (drempel met hysterese);
+// met uitbreiding is de trekker het fire-bit. T zelf en PS staan niet in de map (PS is altijd recenter, hard bedraad).
 // De mapping uit sharp_shooter.buttons (kalibratie-UI) wordt hier bewust NIET gebruikt.
 struct GunButtonSettings {
     int trigger_on = 140;     // T-waarde (0..255) waarbij de trekker ingedrukt wordt
@@ -86,7 +87,7 @@ struct GunButtonSettings {
     static std::map<std::string, std::string> default_gun_map() {
         return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"},
                 {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}, {"pump", "reload"},
-                {"ss_fire", "none"}, {"sel1", "none"}, {"sel2", "none"}, {"sel3", "none"}};
+                {"ss_rl", "reload"}, {"ss_fire", "none"}, {"sel1", "none"}, {"sel2", "none"}, {"sel3", "none"}};
     }
 };
 

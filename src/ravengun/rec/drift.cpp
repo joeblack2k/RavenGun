@@ -53,6 +53,10 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
 
     ReplayOptions ro;
     ro.pipeline.fusion_mode = opt.mode;
+    ro.pipeline.bias = opt.bias;
+    ro.have_bias_init = opt.have_bias_init;
+    ro.bias_init = opt.bias_init;
+    ro.bias_init_tc = opt.bias_init_tc;
     if (opt.have_cal) { ro.have_mag_cal = true; ro.mag_cal = opt.cal; }
 
     bool have_ref = false;
@@ -64,6 +68,9 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     bool have_prev_rx = false;
     Acc acc;
     uint64_t reports_seen = 0;
+    int last_tc = -1;
+    double cum_yaw = 0, cum_first_t = 0, cum_last_t = 0, cum_prev_yaw = 0;
+    size_t cum_n = 0;
 
     ro.on_sample = [&](const InputSample& s, const RawReport* r) {
         if (!r) return;
@@ -96,6 +103,7 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
                     if (std::abs(r->gyro_raw[f][a]) >= opt.saturation_raw) { ++acc.saturated; break; }
         }
         if (r->temperature_raw >= 0) {
+            last_tc = r->temperature_raw;
             if (acc.temp_begin < 0) acc.temp_begin = r->temperature_raw;
             acc.temp_end = r->temperature_raw;
         }
@@ -105,6 +113,11 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
         if (!s.orientation_valid) return;  // geen oriëntatie: dit is geen bruikbaar meetpunt
         AimAngles wa = world_angles(s.q_wb);
         const double yaw = wa.yaw_rad * kDegPerRad, pitch = wa.pitch_rad * kDegPerRad;
+        if (cum_n == 0) cum_first_t = t;
+        else cum_yaw += wrap_pi((yaw - cum_prev_yaw) * kRadPerDeg) * kDegPerRad;
+        cum_prev_yaw = yaw;
+        cum_last_t = t;
+        ++cum_n;
         if (have_ref) {
             const double dur = t - ref_t;
             if (dur < opt.min_interval_s) {
@@ -137,6 +150,10 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
     ReplayResult rr = replay_records(recs, ro);
     if (!rr.ok) { res.error = rr.error.empty() ? "replay mislukt" : rr.error; return res; }
     res.ok = true;
+    res.final_bias = rr.last.gyro_bias;
+    res.final_state = rr.last.bias_state;
+    res.final_source = rr.last.bias_source;
+    res.final_tc = last_tc;
 
     // Samenvatting.
     DriftSummary& sm = res.summary;
@@ -150,6 +167,11 @@ DriftResult compute_drift(const std::vector<Record>& recs, const DriftOptions& o
         rate.push_back(d.max_rate_dps);
         lost.push_back(static_cast<double>(d.lost));
         dur.push_back(d.duration_s);
+    }
+    if (cum_n >= 2 && cum_last_t > cum_first_t) {
+        sm.total_yaw_deg = cum_yaw;
+        sm.total_s = cum_last_t - cum_first_t;
+        sm.total_yaw_per_min = cum_yaw / sm.total_s * 60;
     }
     sm.median_abs_per_min = percentile(absall, 0.5);
     sm.p90_abs_per_min = percentile(absall, 0.9);

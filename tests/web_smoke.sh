@@ -14,7 +14,7 @@ PID=""
 fail() { echo "FAIL: $*"; [ -n "$PID" ] && kill "$PID" 2>/dev/null; cat "$T/log" 2>/dev/null | tail -5; rm -rf "$T"; exit 1; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
-"$D" --no-hid --no-camera --web-port "$PORT" 2>"$T/log" &
+"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" 2>"$T/log" &
 PID=$!
 i=0
 until curl -s -o /dev/null "$B/api/csrf"; do
@@ -115,7 +115,7 @@ grep -q 'web-interface op http://127.0.0.1' "$T/log" || fail "URL niet gelogd"
 
 # Herstart: bewaarde instellingen worden toegepast; de opdrachtregel gaat voor; een corrupt bestand geeft een melding.
 start_d() {
-  "$D" --no-hid --no-camera --web-port "$PORT" "$@" 2>"$T/log" &
+  "$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" "$@" 2>"$T/log" &
   PID=$!
   i=0
   until curl -s -o /dev/null "$B/api/csrf"; do i=$((i+1)); [ $i -gt 50 ] && fail "daemon start niet ($*)"; sleep 0.1; done
@@ -144,7 +144,7 @@ stop_d
 rm -f "$CFG" "$CFG.bak" "$CFG.corrupt"
 
 # LAN: token wordt gemaakt (0600), staat niet in de log, en zonder token is er 401.
-"$D" --no-hid --no-camera --web-port "$PORT" --web-lan 2>"$T/log" &
+"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --web-lan 2>"$T/log" &
 PID=$!
 i=0
 until [ -f "$HOME/.config/ravengun/web-token" ] && curl -s -o /dev/null -H "Host: 127.0.0.1:$PORT" "$B/api/csrf"; do

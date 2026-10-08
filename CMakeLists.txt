@@ -45,6 +45,7 @@ add_library(ravengun STATIC
   src/ravengun/core/aim.cpp
   src/ravengun/core/buttons.cpp
   src/ravengun/core/fusion.cpp
+  src/ravengun/core/bias_store.cpp
   src/ravengun/core/input_model.cpp
   src/ravengun/core/pipeline.cpp
   src/ravengun/output/gun_transform.cpp
@@ -138,6 +139,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_fusion_tests tests/test_fusion.cpp)
   target_link_libraries(ravengun_fusion_tests PRIVATE ravengun)
   add_test(NAME ravengun_fusion_tests COMMAND ravengun_fusion_tests)
+  add_executable(ravengun_bias_tests tests/test_bias.cpp)
+  target_link_libraries(ravengun_bias_tests PRIVATE ravengun)
+  add_test(NAME ravengun_bias_tests COMMAND ravengun_bias_tests)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)

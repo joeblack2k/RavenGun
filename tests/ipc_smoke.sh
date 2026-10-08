@@ -8,7 +8,7 @@ T=$(mktemp -d) || exit 1
 export XDG_RUNTIME_DIR="$T" XDG_STATE_HOME="$T/state" XDG_CONFIG_HOME="$T/cfg" HOME="$T"
 fail() { echo "FAIL: $*"; kill "$PID" 2>/dev/null; rm -rf "$T"; exit 1; }
 
-"$D" --no-hid --no-camera 2>"$T/log" &
+"$D" --no-hid --no-bias-store --no-camera 2>"$T/log" &
 PID=$!
 i=0
 while [ ! -S "$T/ravengun/ravengund.sock" ]; do
@@ -18,7 +18,7 @@ done
 [ "$(stat -c %a "$T/ravengun")" = "700" ] || fail "map niet 0700"
 [ "$(stat -c %a "$T/ravengun/ravengund.sock")" = "600" ] || fail "socket niet 0600"
 
-"$D" --no-hid --no-camera 2>/dev/null
+"$D" --no-hid --no-bias-store --no-camera 2>/dev/null
 [ $? -eq 69 ] || fail "tweede instantie niet geweigerd (verwacht exit 69)"
 
 OUT=$("$C" status --json) || fail "status faalde"

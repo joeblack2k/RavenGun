@@ -146,6 +146,7 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("gaps_interpolated").value(static_cast<unsigned long long>(st.gap_interpolated));
     w.end_object();
     w.key("bias").begin_object();
+    w.key("mode").value(to_string(c.bias.mode));
     w.key("window_s").value(c.bias.window_s).key("gyro_std_max_rad_s").value(c.bias.gyro_std_max);
     w.key("gyro_mean_max_rad_s").value(c.bias.gyro_mean_max).key("accel_norm_tol_g").value(c.bias.accel_norm_tol);
     w.key("tau_s").value(c.bias.tau_s);
@@ -255,6 +256,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     const int64_t start = mono_ns();
     HidAux aux(shared, opt.recorder, opt.pipeline.use_move_clock);
     aux.attach(&pipe);
+    aux.set_bias_dir(opt.bias_dir);
 
     // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
     struct Ctx final : HidContext {

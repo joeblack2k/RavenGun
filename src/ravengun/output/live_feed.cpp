@@ -57,9 +57,15 @@ LiveAction LiveGunFeed::update(const core::InputSample& s) {
         a.release_all = true;
         return a;
     }
-    // Trekker met hysterese op de analoge waarde.
-    if (!trigger_down_ && s.trigger >= map_.trigger_on) trigger_down_ = true;
-    else if (trigger_down_ && s.trigger <= map_.trigger_off) trigger_down_ = false;
+    if (s.ext_active) {
+        // Sharp Shooter: de trekker is het fire-bit van de uitbreiding (valt in de opname altijd samen met T, zonder
+        // extra rapport vertraging); T zonder fire is de pomp (knop "pump", afgeleid in de pijplijn) en geeft geen schot.
+        trigger_down_ = (s.buttons & core::kBtnSsFire) != 0;
+    } else {
+        // Zonder uitbreiding: de analoge T met hysterese.
+        if (!trigger_down_ && s.trigger >= map_.trigger_on) trigger_down_ = true;
+        else if (trigger_down_ && s.trigger <= map_.trigger_off) trigger_down_ = false;
+    }
     a.buttons = true;
     a.trigger = trigger_down_;
     a.reload = s.buttons & map_.gun[static_cast<int>(GunButton::Reload)];

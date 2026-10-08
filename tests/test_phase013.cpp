@@ -17,6 +17,7 @@
 #include "ravengun/core/pipeline.hpp"
 #include "ravengun/ipc_protocol.hpp"
 #include "ravengun/rec/recording.hpp"
+#include "ravengun/output/live_feed.hpp"
 #include "ravengun/rec/replay.hpp"
 
 using namespace ravengun;
@@ -334,22 +335,157 @@ static void test_ext_pipeline() {
             return p.on_report(r);
         };
         InputSample s = feed(false, 0x80);  // data zonder vlag telt niet
-        CHECK(!(s.buttons & kBtnPump) && !s.ext_connected && s.ext_known && !s.ext_active);
+        CHECK(!(s.buttons & kBtnSsRl) && !s.ext_connected && s.ext_known && !s.ext_active);
         s = feed(true, 0x80 | 0x04);
         if (cfg.ext_mode == ExtMode::None) {
             CHECK(!(s.buttons & kAllExtButtons) && !s.ext_active && s.ext_connected && s.ext[0] == 0x84);
         } else {
-            CHECK((s.buttons & kBtnPump) && (s.pressed & kBtnPump) && (s.buttons & kBtnSel3) && !(s.buttons & kBtnSel1));
+            CHECK((s.buttons & kBtnSsRl) && (s.pressed & kBtnSsRl) && (s.buttons & kBtnSel3) && !(s.buttons & kBtnSel1));
             CHECK(s.ext_active && s.ext[0] == 0x84);
             s = feed(true, 0x40 | 0x01);
-            CHECK((s.buttons & kBtnSsFire) && (s.buttons & kBtnSel1) && !(s.buttons & kBtnPump) && (s.released & kBtnPump));
+            CHECK((s.buttons & kBtnSsFire) && (s.buttons & kBtnSel1) && !(s.buttons & kBtnSsRl) && (s.released & kBtnSsRl));
             s = feed(false, 0);
             CHECK(!(s.buttons & kAllExtButtons));
         }
     }
     ExtMode m;
     CHECK(parse_ext_mode("sharp_shooter", m) && m == ExtMode::SharpShooter && !parse_ext_mode("x", m));
-    CHECK(buttons_to_string(kBtnPump | kBtnSel2) == "pump,sel2");
+    CHECK(buttons_to_string(kBtnSsRl | kBtnSel2) == "ss_rl,sel2");
+}
+
+// Fragmenten in de vorm van de Halo-opname van 2026-10-08 (270 s, 131 schoten, 5 pompen): (T, fire) per rapport.
+struct SsFrag { int t; bool fire; };
+static std::vector<InputSample> run_ss(const std::vector<SsFrag>& frag, ExtMode mode = ExtMode::Auto) {
+    PipelineConfig cfg;
+    cfg.ext_mode = mode;
+    Pipeline p(cfg);
+    p.on_connect("aa:bb:cc:dd:ee:ff", 0);
+    int64_t t = 1'000'000'000;
+    std::vector<InputSample> out;
+    for (const auto& f : frag) {
+        RawReport r;
+        t += 13'000'000;
+        r.t_rx_ns = t;
+        r.accel[0] = r.accel[1] = {0, 0, 1};
+        r.has_ext = true;
+        r.ext_connected = true;
+        r.ext[0] = static_cast<uint8_t>(0x04 | (f.fire ? 0x40 : 0));   // vuurstand 3, zoals in de opname
+        r.trigger = static_cast<uint8_t>(f.t);
+        if (f.t >= 128) r.buttons |= kBtnT;
+        out.push_back(p.on_report(r));
+    }
+    return out;
+}
+static int count_press(const std::vector<InputSample>& v, uint32_t bit) { int n = 0; for (const auto& s : v) if (s.pressed & bit) ++n; return n; }
+static int first_press(const std::vector<InputSample>& v, uint32_t bit) { for (size_t i = 0; i < v.size(); ++i) if (v[i].pressed & bit) return static_cast<int>(i); return -1; }
+
+static void test_sharpshooter_pump() {
+    const std::vector<SsFrag> idle(3, {0, false});
+    auto cat = [](std::vector<SsFrag> a, const std::vector<SsFrag>& b) { a.insert(a.end(), b.begin(), b.end()); return a; };
+    // 1. Trekkeroverhaal met scheefloop bij het loslaten: T en fire samen omhoog, fire 1 rapport eerder omlaag dan T
+    //    (T dan 1 rapport 127). Geen pomp.
+    auto shot = cat(idle, {{255, true}, {255, true}, {255, true}, {127, false}, {0, false}, {0, false}, {0, false}});
+    auto a = run_ss(shot);
+    CHECK(count_press(a, kBtnSsFire) == 1);
+    CHECK(count_press(a, kBtnPump) == 0);
+    CHECK(first_press(a, kBtnSsFire) == 3);   // meteen in het rapport waarin fire omhoog gaat
+    // 2. Een pomp: T glooit omhoog zonder fire, 14 rapporten 255, glooit omlaag. Een pomp, geen schot.
+    auto pump = cat(idle, {{0, false}, {27, false}, {69, false}, {102, false}, {255, false}, {255, false}, {255, false}, {255, false}, {255, false},
+                           {255, false}, {255, false}, {255, false}, {255, false}, {255, false}, {255, false}, {255, false}, {189, false},
+                           {81, false}, {24, false}, {0, false}, {0, false}});
+    auto b = run_ss(pump);
+    CHECK(count_press(b, kBtnPump) == 1);
+    CHECK(count_press(b, kBtnSsFire) == 0);
+    int pi = first_press(b, kBtnPump);
+    CHECK(pi == 3 + 4 + 1);                    // 2e rapport met T >= 140: 1 rapport na het eerste (ontdendering 2)
+    int pump_len = 0;
+    for (const auto& s : b) if (s.buttons & kBtnPump) ++pump_len;
+    CHECK(pump_len >= 10 && pump_len <= 14);
+    CHECK(!(b.back().buttons & kBtnPump));
+    // 3. Een pomp direct na een schot: fire los met T=127 (scheefloop), daarna meteen de pomp. Eerst een schot, dan een pomp.
+    auto both = cat(idle, {{255, true}, {255, true}, {127, false}, {255, false}, {255, false}, {255, false}, {255, false}, {255, false},
+                           {255, false}, {255, false}, {255, false}, {255, false}, {255, false}, {120, false}, {0, false}, {0, false}});
+    auto c = run_ss(both);
+    CHECK(count_press(c, kBtnSsFire) == 1);
+    CHECK(count_press(c, kBtnPump) == 1);
+    CHECK(first_press(c, kBtnPump) > first_press(c, kBtnSsFire));
+    for (const auto& s : c) CHECK(!((s.buttons & kBtnPump) && (s.buttons & kBtnSsFire)));   // nooit tegelijk
+    // 4. T 1 rapport voor fire (omgekeerde scheefloop): geen pomp; het schot komt in het fire-rapport.
+    auto lead = cat(idle, {{255, false}, {255, true}, {255, true}, {255, true}, {0, false}, {0, false}});
+    auto d = run_ss(lead);
+    CHECK(count_press(d, kBtnPump) == 0);
+    CHECK(count_press(d, kBtnSsFire) == 1);
+    CHECK(first_press(d, kBtnSsFire) == 4);
+    // 5. T met fire 1 rapport later (fire na T op 255) en meteen weer los: geen pomp, een schot.
+    auto lag = cat(idle, {{255, true}, {255, false}, {0, false}, {0, false}});
+    auto e = run_ss(lag);
+    CHECK(count_press(e, kBtnPump) == 0 && count_press(e, kBtnSsFire) == 1);
+    // 6. Een rij van 20 schoten zonder pomp (zoals vuren in Halo): nooit een pomp.
+    std::vector<SsFrag> burst = idle;
+    for (int i = 0; i < 20; ++i) for (SsFrag f : std::vector<SsFrag>{{255, true}, {255, true}, {255, true}, {127, false}, {0, false}, {0, false}}) burst.push_back(f);
+    auto g = run_ss(burst);
+    CHECK(count_press(g, kBtnSsFire) == 20 && count_press(g, kBtnPump) == 0);
+    // 7. Zonder uitbreiding (modus none) bestaat er geen pomp en geen fire-knop.
+    auto n = run_ss(pump, ExtMode::None);
+    CHECK(count_press(n, kBtnPump) == 0 && count_press(n, kBtnSsFire) == 0);
+    // 8. Bij verlies van de verbinding valt een ingedrukte pomp los.
+    {
+        PipelineConfig cfg;
+        Pipeline p(cfg);
+        p.on_connect("aa:bb:cc:dd:ee:ff", 0);
+        int64_t t = 1'000'000'000;
+        InputSample s;
+        for (int i = 0; i < 5; ++i) {
+            RawReport r;
+            t += 13'000'000;
+            r.t_rx_ns = t;
+            r.accel[0] = r.accel[1] = {0, 0, 1};
+            r.has_ext = r.ext_connected = true;
+            r.trigger = 255;
+            s = p.on_report(r);
+        }
+        CHECK(s.buttons & kBtnPump);
+        auto lost = p.tick(t + 400'000'000);
+        CHECK(lost && !(lost->buttons & kBtnPump) && (lost->released & kBtnPump));
+    }
+    // De ontdendering zelf (eenheid): 1 rapport T hoog zonder fire is geen pomp, 2 wel.
+    SharpShooterPump sp;
+    CHECK(!sp.update(true, 255, false));
+    CHECK(sp.update(true, 255, false));
+    CHECK(!sp.update(true, 255, true));        // fire beëindigt de pomp meteen
+    CHECK(!sp.update(true, 255, false));
+    CHECK(!sp.update(true, 130, false));       // onder de drempel: teller terug
+    CHECK(!sp.update(true, 255, false));
+    CHECK(sp.update(true, 255, false));
+    CHECK(sp.update(true, 120, false));        // hysterese: boven 100 blijft hij in
+    CHECK(!sp.update(true, 100, false));
+}
+
+// Controle op de echte Halo-opname (alleen als hij op deze machine staat; $RAVENGUN_HALO_RECORDING of de standaardmap):
+// ongeveer 131 schoten (fire-bit) en 5 pompen. Overgeslagen in een schone checkout.
+static void test_real_halo_recording() {
+    std::string path;
+    if (const char* e = std::getenv("RAVENGUN_HALO_RECORDING")) path = e;
+    else if (const char* h = std::getenv("HOME")) path = std::string(h) + "/.local/state/ravengun/recordings/20261008-193534-halo-drift.rgrec.jsonl";
+    std::vector<rec::Record> recs;
+    std::string err;
+    if (path.empty() || !rec::load_file(path, recs, err)) { std::printf("echte Halo-opname niet gevonden, overgeslagen\n"); return; }
+    rec::ReplayOptions o;
+    int shots = 0, pumps = 0;
+    bool prev_trigger = false;
+    output::LiveGunFeed feed{output::LiveButtonMap{}};
+    o.on_sample = [&](const InputSample& s, const RawReport* r) {
+        if (!r) return;
+        if (s.pressed & kBtnPump) ++pumps;
+        bool t = feed.update(s).trigger;
+        if (t && !prev_trigger) ++shots;
+        prev_trigger = t;
+    };
+    rec::ReplayResult rr = rec::replay_records(recs, o);
+    CHECK(rr.ok);
+    std::printf("echte Halo-opname: %d schoten, %d pompen\n", shots, pumps);
+    CHECK(shots >= 129 && shots <= 133);
+    CHECK(pumps == 5);
 }
 
 static void test_replay_deterministic() {
@@ -681,6 +817,8 @@ int main() {
     test_pipeline_move_dt();
     test_recording_roundtrip();
     test_ext_pipeline();
+    test_sharpshooter_pump();
+    test_real_halo_recording();
     test_replay_deterministic();
     test_mag_fit();
     test_mag_fit_quality_gates();

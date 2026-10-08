@@ -694,7 +694,7 @@ static void test_live_map_defaults() {
     LiveButtonMap m = build_live_map(gs);
     CHECK(config::validate(config::Settings{}) == "");
     CHECK(m.gun[static_cast<int>(GunButton::Grenade)] == core::kBtnMove);
-    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == (core::kBtnCross | core::kBtnPump));
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == (core::kBtnCross | core::kBtnPump | core::kBtnSsRl));
     // key:5 = triangle OR select; key:1 = square OR start (OR van twee knoppen).
     CHECK(m.keys.size() == 2);
     for (const auto& k : m.keys) {
@@ -705,7 +705,7 @@ static void test_live_map_defaults() {
     CHECK(m.recenter == 0);
     CHECK(describe_layout(m).find("move=grenade") != std::string::npos && describe_layout(m).find("ps=recenter (vast)") != std::string::npos);
     // Sharp Shooter-pomp (pump) is standaard reload; de overige EXT-knoppen doen niets.
-    CHECK(m.gun[static_cast<int>(GunButton::Reload)] & core::kBtnPump);
+    CHECK((m.gun[static_cast<int>(GunButton::Reload)] & core::kBtnPump) && (m.gun[static_cast<int>(GunButton::Reload)] & core::kBtnSsRl));
     CHECK(describe_layout(m).find("pump=reload") != std::string::npos && describe_layout(m).find("ss_fire=none") != std::string::npos);
     for (const auto& k : m.keys) CHECK(!(k.bits & core::kAllExtButtons));
     gs = config::GunButtonSettings{};
@@ -768,6 +768,57 @@ static void test_live_feed_layout() {
     // Verlies: release_all.
     a = feed.update(sample(core::kBtnStart, 0, 0, core::LinkState::Lost));
     CHECK(a.release_all);
+}
+
+// Met een actieve Sharp Shooter-uitbreiding is de trekker het fire-bit; T zonder fire is de pomp (reload) en geeft geen schot.
+// Zonder uitbreiding blijft de analoge T met hysterese de trekker.
+static void test_live_feed_sharpshooter() {
+    LiveGunFeed feed(build_live_map(config::GunButtonSettings{}));
+    auto ext_sample = [](uint32_t buttons, uint8_t trig) {
+        core::InputSample s = sample(buttons, 0, trig);
+        s.ext_active = true;
+        s.ext_connected = true;
+        return s;
+    };
+    // Schot: fire-bit en T tegelijk; loslaten met 1 rapport scheefloop (fire los, T nog 127).
+    LiveAction a = feed.update(ext_sample(0, 0));
+    CHECK(!a.trigger);
+    a = feed.update(ext_sample(core::kBtnSsFire | core::kBtnT, 255));
+    CHECK(a.trigger && !a.reload);                       // meteen, geen extra rapport
+    a = feed.update(ext_sample(core::kBtnSsFire | core::kBtnT, 255));
+    CHECK(a.trigger);
+    a = feed.update(ext_sample(core::kBtnT, 127));       // fire los, T nog niet: de trekker is los
+    CHECK(!a.trigger);
+    // Pomp: T 255 zonder fire. De pijplijn zet de afgeleide knop "pump"; de feed maakt er reload van, geen schot.
+    a = feed.update(ext_sample(core::kBtnT, 255));
+    CHECK(!a.trigger && !a.reload);                      // eerste rapport: nog ontdenderen (in de pijplijn)
+    a = feed.update(ext_sample(core::kBtnT | core::kBtnPump, 255));
+    CHECK(!a.trigger && a.reload);
+    a = feed.update(ext_sample(0, 0));
+    CHECK(!a.trigger && !a.reload);
+    // T hoog zonder fire geeft ook zonder pomp-knop nooit een schot (met uitbreiding).
+    a = feed.update(ext_sample(core::kBtnT, 255));
+    CHECK(!a.trigger);
+    // Het RL-bit is een eigen knop met dezelfde standaardactie.
+    a = feed.update(ext_sample(core::kBtnSsRl, 0));
+    CHECK(a.reload);
+    // Zonder uitbreiding: de analoge T met hysterese 140/100.
+    LiveGunFeed plain(build_live_map(config::GunButtonSettings{}));
+    a = plain.update(sample(0, 0, 139));
+    CHECK(!a.trigger);
+    a = plain.update(sample(core::kBtnT, 0, 140));
+    CHECK(a.trigger);
+    a = plain.update(sample(core::kBtnT, 0, 101));
+    CHECK(a.trigger);
+    a = plain.update(sample(0, 0, 100));
+    CHECK(!a.trigger);
+    // Verlies: trekker los.
+    a = feed.update(ext_sample(core::kBtnSsFire, 255));
+    CHECK(a.trigger);
+    core::InputSample lost = ext_sample(core::kBtnSsFire, 255);
+    lost.link = core::LinkState::Lost;
+    a = feed.update(lost);
+    CHECK(a.release_all && !feed.trigger_down());
 }
 
 // Zoals OutputService::feed_live: toetsen alleen als gewapend; release_all altijd.
@@ -849,6 +900,7 @@ int main() {
     test_key_table();
     test_live_map_defaults();
     test_live_feed_layout();
+    test_live_feed_sharpshooter();
     test_keyboard_output();
     test_live_feed();
     test_transform_basic();

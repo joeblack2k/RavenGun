@@ -24,12 +24,27 @@ uint32_t ext_buttons(ExtMode mode, bool connected, const uint8_t ext[5]) {
     if (mode == ExtMode::None || !connected || !ext) return 0;
     // Sharp Shooter (PSMoveAPI src/utils/test_extension.c): byte 0, bits 0x01/0x02/0x04 = vuurstand, 0x40 fire, 0x80 RL.
     uint32_t b = 0;
-    if (ext[0] & 0x80) b |= kBtnPump;
+    if (ext[0] & 0x80) b |= kBtnSsRl;
     if (ext[0] & 0x40) b |= kBtnSsFire;
     if (ext[0] & 0x01) b |= kBtnSel1;
     if (ext[0] & 0x02) b |= kBtnSel2;
     if (ext[0] & 0x04) b |= kBtnSel3;
     return b;
+}
+
+bool SharpShooterPump::update(bool ext_active, uint8_t t_value, bool fire) {
+    if (!ext_active || fire) {  // een schot is nooit een pomp; zonder uitbreiding bestaat de pomp niet
+        reset();
+        return false;
+    }
+    if (down_) {
+        if (t_value <= cfg_.off) { down_ = false; count_ = 0; }
+    } else if (t_value >= cfg_.on) {
+        if (++count_ >= cfg_.debounce_reports) down_ = true;
+    } else {
+        count_ = 0;
+    }
+    return down_;
 }
 
 ButtonEdges EdgeAccumulator::update(uint32_t state) {

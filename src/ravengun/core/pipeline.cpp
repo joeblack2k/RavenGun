@@ -55,7 +55,7 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), clock_(cfg.clock) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
@@ -70,6 +70,7 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
         mag_.on_interrupt();  // zelfde controller: de yaw-integratie was onderbroken
     }
     controller_id_ = id;
+    pump_.reset();
     stats_.reset();
     have_rx_ = false;
     last_hid_seq_ = -1;
@@ -82,6 +83,12 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     prev_had_stamp_ = false;
     dt_move_ = dt_rx_ = 0;
     have_prev_gyro_ = false;
+}
+
+bool Pipeline::mag_yaw_active() const {
+    const MagYawStatus& ms = mag_.status();
+    return cfg_.fusion_mode == FusionMode::MahonyMag && mag_.calibrated() && ms.locked && ms.state == MagState::Ok &&
+           ms.unusable_s < 1.0;
 }
 
 InputSample Pipeline::make_sample(int64_t t_eval) {
@@ -97,13 +104,14 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.bias_state = bias_.state();
     s.still = bias_.still();
     s.gyro_bias = bias_.bias();
+    s.bias_source = bias_.source();
+    s.bias_evidence_s = std::max(bias_.still_time_total(), 0.0) + bias_.quasi_time_total();
     s.yaw_ref = yaw_ref_;
     const MagYawStatus& ms = mag_.status();
     s.fusion_mode = to_string(cfg_.fusion_mode);
     s.mag_state = mag_.calibrated() ? to_string(ms.state) : "none";
     s.mag_locked = ms.locked;
-    bool mag_active = cfg_.fusion_mode == FusionMode::MahonyMag && mag_.calibrated() && ms.locked &&
-                      ms.state == MagState::Ok && ms.unusable_s < 1.0;
+    const bool mag_active = mag_yaw_active();
     s.yaw_source = mag_active ? "magnetometer" : "gyro";
     s.yaw_pending_deg = ms.pending_deg;
     s.yaw_corr_rate_deg_s = ms.rate_dps;
@@ -200,6 +208,10 @@ InputSample Pipeline::on_report(const RawReport& r) {
         ++stats_.gap_interpolated;
     }
     Vec3 g_sum{}, a_sum{};
+    bias_.set_temperature(last_temp_);
+    // Zolang de magnetometer de yaw corrigeert, leert die zelf een verticale bias: dan geen quasi-stille
+    // bijsturing (niet dubbel corrigeren). Echte stilstand telt altijd mee.
+    bias_.set_quasi_enabled(!mag_yaw_active());
     for (int i = 0; i < n; ++i) {
         if (bias_.update(r.gyro[i], r.accel[i], sub_dt)) ++stats_.still_samples;
         Vec3 extra = mag_apply_now ? mag_.bias_body(fusion_.q()) : Vec3{};
@@ -223,7 +235,8 @@ InputSample Pipeline::on_report(const RawReport& r) {
     }
 
     const bool ext_on = r.has_ext && r.ext_connected && cfg_.ext_mode != ExtMode::None;
-    ButtonEdges e = edges_.update(r.buttons | ext_buttons(cfg_.ext_mode, r.has_ext && r.ext_connected, r.ext));
+    const bool pump = pump_.update(ext_on, r.trigger, ext_on && (r.ext[0] & 0x40));
+    ButtonEdges e = edges_.update(r.buttons | ext_buttons(cfg_.ext_mode, r.has_ext && r.ext_connected, r.ext) | (pump ? kBtnPump : 0u));
     link_ = LinkState::Fresh;
     have_rx_ = true;
     last_rx_ns_ = r.t_rx_ns;
@@ -266,6 +279,7 @@ std::optional<InputSample> Pipeline::tick(int64_t now_ns) {
     ButtonEdges e{};
     if (link_ == LinkState::Lost) {
         e = edges_.release_all();
+        pump_.reset();
         reset_filter_ = true;
     }
     InputSample s = make_sample(now_ns);
@@ -277,6 +291,7 @@ std::optional<InputSample> Pipeline::tick(int64_t now_ns) {
 
 InputSample Pipeline::on_disconnect(int64_t now_ns) {
     ButtonEdges e = edges_.release_all();
+    pump_.reset();
     link_ = LinkState::Disconnected;
     if (yaw_ref_ == YawReference::Continuous) yaw_ref_ = YawReference::Interrupted;
     have_rx_ = false;

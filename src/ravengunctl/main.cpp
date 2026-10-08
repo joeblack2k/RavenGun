@@ -309,6 +309,27 @@ void print_status(const json::Value& r) {
                 boolean(s, {"orientation", "still"}) ? " (stil)" : "", str(s, {"orientation", "yaw_reference"}).c_str(),
                 fmt(num(s, {"orientation", "world_yaw_deg"}), "%.2f").c_str(),
                 fmt(num(s, {"orientation", "world_pitch_deg"}), "%.2f").c_str());
+    {
+        const json::Value* gb = path(s, {"orientation", "gyro_bias_deg_s"});
+        std::string vals = "-";
+        if (gb && gb->is_array() && gb->arr.size() == 3)
+            vals = fmt(gb->arr[0].num, "%+.2f") + " " + fmt(gb->arr[1].num, "%+.2f") + " " + fmt(gb->arr[2].num, "%+.2f");
+        std::printf("Gyro-bias:    %s (bron %s), %s graden/s (x y z); stilstand %s s, quasi-stil %s s", str(s, {"orientation", "bias_state"}).c_str(),
+                    str(s, {"orientation", "bias_source"}, "-").c_str(), vals.c_str(), fmt(num(r, {"gyro_bias", "still_s"}), "%.0f").c_str(),
+                    fmt(num(r, {"gyro_bias", "quasi_s"}), "%.0f").c_str());
+        if (const json::Value* sl = path(r, {"gyro_bias", "temp_slope_deg_s_per_count"}); sl && sl->is_array() && sl->arr.size() == 3 &&
+            (sl->arr[0].num != 0 || sl->arr[1].num != 0 || sl->arr[2].num != 0))
+            std::printf("; temperatuurhelling %s %s %s graden/s per telling", fmt(sl->arr[0].num, "%+.4f").c_str(), fmt(sl->arr[1].num, "%+.4f").c_str(),
+                        fmt(sl->arr[2].num, "%+.4f").c_str());
+        std::printf("; modus %s\n", str(r, {"gyro_bias", "mode"}, "-").c_str());
+        if (const json::Value* st = path(r, {"gyro_bias", "store"}); st && boolean(*st, {"enabled"})) {
+            std::string ld = boolean(*st, {"loaded"}) ? "hersteld bij start (tc " + fmt(num(*st, {"loaded_tc"}), "%.0f") + ")" : "niets hersteld";
+            std::printf("              bewaard: %s; %.0f keer bewaard in deze run%s\n", ld.c_str(), num(*st, {"saves"}, 0),
+                        str(*st, {"error"}, "").empty() ? "" : (", FOUT: " + str(*st, {"error"}, "")).c_str());
+        } else if (st) {
+            std::printf("              bewaren uit (--no-bias-store)\n");
+        }
+    }
     std::printf("Positie:      %s\n", optical_text(s).c_str());
     if (const json::Value* cam = path(r, {"camera"}); cam && cam->is_object())
         std::printf("Camera:       %s, %s/s (5 s), gemist %.0f, bol geldig %.0f van %.0f frames\n", str(*cam, {"state"}).c_str(),

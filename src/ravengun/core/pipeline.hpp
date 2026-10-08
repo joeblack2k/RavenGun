@@ -42,6 +42,8 @@ struct PipelineConfig {
     MagYawConfig mag{};
     // Sharp Shooter via de EXT-connector van de Move (zie buttons.hpp, ExtMode).
     ExtMode ext_mode = ExtMode::Auto;
+    // De pomp (afgeleid uit T en het fire-bit, zie SharpShooterPump). on/off volgen gun_buttons.trigger_on/off.
+    PumpConfig pump{};
 };
 
 // Statistiek over de ontvangst van rapporten (alleen gemeten waarden).
@@ -103,6 +105,11 @@ public:
     const ReportStats& stats() const { return stats_; }
     EdgeAccumulator& edges() { return edges_; }
     const GyroBiasEstimator& bias() const { return bias_; }
+    // Bewaarde gyro-bias als beginwaarde (rad/s, controllerstelsel; tc = ruwe temperatuur of -1). Doet niets als
+    // er al gemeten is. Aanroepen na on_connect().
+    void restore_bias(Vec3 bias, int tc) { bias_.restore(bias, tc); }
+    // Corrigeert de magnetometer nu de yaw (mahony_mag, vergrendeld, toestand ok)?
+    bool mag_yaw_active() const;
     uint64_t auto_center_count() const { return auto_centers_; }
     uint64_t user_center_count() const { return user_centers_; }
     // Tijdbasis (fase 1).
@@ -124,6 +131,7 @@ private:
     AimMapper aim_;
     OneEuro fx_, fy_;
     EdgeAccumulator edges_;
+    SharpShooterPump pump_;
     ReportStats stats_;
     InputSample last_{};
     std::string controller_id_;

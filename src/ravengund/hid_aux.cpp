@@ -1,6 +1,7 @@
 #include "hid_aux.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <ctime>
 
 #include "ravengun/json.hpp"
@@ -54,11 +55,21 @@ void HidAux::on_connect(const std::string& id, const std::string& model, int64_t
                  pipe_->mag().calibration().controller_key != cal_.controller_key)
             pipe_->set_mag_calibration(cal_);
     }
-    (void)now;
+    // Bewaarde gyro-bias als beginwaarde (alleen als de pijplijn nog niets gemeten heeft, bv. bij een herverbinding).
+    if (pipe_) {
+        std::string info;
+        bias_store_.on_connect(*pipe_, id, static_cast<double>(now) / 1e9, static_cast<int64_t>(std::time(nullptr)), &info);
+        if (!info.empty()) logf(info.find("niet gebruikt") != std::string::npos ? "waarschuwing" : "info", "%s", info.c_str());
+    }
     progress_dirty_ = true;
 }
 
 void HidAux::on_disconnect(int64_t) {
+    if (pipe_ && connected_) {
+        std::string info;
+        bias_store_.on_disconnect(*pipe_, static_cast<double>(mono_ns()) / 1e9, static_cast<int64_t>(std::time(nullptr)), &info);
+        if (!info.empty()) logf(info.find("mislukt") != std::string::npos ? "waarschuwing" : "info", "%s", info.c_str());
+    }
     tap.close();
     connected_ = false;
     if (collecting_) {
@@ -71,6 +82,11 @@ void HidAux::on_disconnect(int64_t) {
 
 void HidAux::on_report(const RawReport& r, const Pipeline& p, double temp_c) {
     if (rec_) rec_->push_report(r);
+    if (bias_store_.enabled()) {
+        std::string info;
+        if (bias_store_.on_report(p, static_cast<double>(r.t_rx_ns) / 1e9, static_cast<int64_t>(std::time(nullptr)), &info) && !info.empty())
+            logf(info.find("mislukt") != std::string::npos ? "waarschuwing" : "info", "%s", info.c_str());
+    }
     temp_c_ = temp_c;
     if (model_ != "ZCM1") return;
     int n = std::clamp(r.subsamples, 1, 2);
@@ -374,6 +390,37 @@ std::string HidAux::status_blocks(const Pipeline& p, int64_t now) const {
     w.key("discarded").value(static_cast<unsigned long long>(tap.discarded));
     w.key("parse_errors").value(static_cast<unsigned long long>(tap.parse_errors));
     w.key("overflow").value(static_cast<unsigned long long>(tap.overflow));
+    w.end_object();
+    w.key("gyro_bias").begin_object();
+    w.key("mode").value(to_string(p.config().bias.mode));
+    w.key("state").value(to_string(p.bias().state()));
+    w.key("source").value(to_string(p.bias().source()));
+    {
+        Vec3 b = p.bias().bias();
+        w.key("bias_deg_s").begin_array().value(b.x * kDegPerRad).value(b.y * kDegPerRad).value(b.z * kDegPerRad).end_array();
+        Vec3 sl = p.bias().temp_slope();
+        w.key("temp_slope_deg_s_per_count").begin_array().value(sl.x * kDegPerRad).value(sl.y * kDegPerRad).value(sl.z * kDegPerRad).end_array();
+    }
+    w.key("still_s").value(p.bias().still_time_total());
+    w.key("quasi_s").value(p.bias().quasi_time_total());
+    w.key("quasi_windows_used").value(static_cast<unsigned long long>(p.bias().quasi_accepted()));
+    w.key("quasi_windows_rejected").value(static_cast<unsigned long long>(p.bias().quasi_rejected()));
+    w.key("quasi_enabled").value(!p.mag_yaw_active());
+    w.key("temperature_raw").value(p.last_temperature_raw());
+    w.key("store").begin_object();
+    w.key("enabled").value(bias_store_.enabled());
+    w.key("dir").value(bias_store_.dir());
+    w.key("loaded").value(bias_store_.loaded());
+    if (bias_store_.loaded()) {
+        const SavedBias& lv = bias_store_.loaded_value();
+        w.key("loaded_deg_s").begin_array().value(lv.bias.x * kDegPerRad).value(lv.bias.y * kDegPerRad).value(lv.bias.z * kDegPerRad).end_array();
+        w.key("loaded_tc").value(lv.tc);
+        w.key("loaded_unix_s").value(static_cast<long long>(lv.unix_s));
+    }
+    w.key("saves").value(static_cast<unsigned long long>(bias_store_.saves()));
+    w.key("last_saved_unix_s").value(static_cast<long long>(bias_store_.last_saved_unix()));
+    if (!bias_store_.error().empty()) w.key("error").value(bias_store_.error());
+    w.end_object();
     w.end_object();
     w.key("magnetometer").raw(mag_json(now));
     w.key("recording");

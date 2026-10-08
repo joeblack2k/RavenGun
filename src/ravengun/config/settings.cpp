@@ -138,7 +138,7 @@ bool move_button_name_valid(const std::string& name) {
 }
 
 const std::vector<std::string>& gun_map_buttons() {
-    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move", "pump", "ss_fire", "sel1", "sel2", "sel3"};
+    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move", "pump", "ss_rl", "ss_fire", "sel1", "sel2", "sel3"};
     return b;
 }
 
@@ -190,7 +190,7 @@ std::string validate(const Settings& s) {
         if (kv.first == "t") return "gun_buttons.map: 't' kan niet worden ingedeeld: T is altijd de analoge trekker";
         const auto& bs = gun_map_buttons();
         if (std::find(bs.begin(), bs.end(), kv.first) == bs.end())
-            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move, pump, ss_fire, sel1, sel2, sel3)";
+            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move, pump, ss_rl, ss_fire, sel1, sel2, sel3)";
         std::string canon;
         std::string m = check_gun_action(kv.second, canon);
         if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;

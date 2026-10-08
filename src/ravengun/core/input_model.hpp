@@ -92,6 +92,8 @@ struct InputSample {
     BiasState bias_state = BiasState::None;
     bool still = false;
     Vec3 gyro_bias{};            // rad/s
+    BiasSource bias_source = BiasSource::None;   // laatste bron van de bias: restored, still, quasi-still
+    double bias_evidence_s = 0;  // seconden stilstand + quasi-stil bewijs waarop de bias rust
     YawReference yaw_ref = YawReference::None;
     // Fusie (fase 4): welke schatter, waar de yaw vandaan komt en wat de magnetometer doet.
     const char* fusion_mode = "mahony";   // mahony | mahony_mag

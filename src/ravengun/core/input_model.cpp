@@ -110,6 +110,8 @@ void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids) {
     w.key("world_pitch_deg").value(wa.pitch_rad * kDegPerRad);
     w.key("bias_state").value(to_string(s.bias_state));
     w.key("still").value(s.still);
+    w.key("bias_source").value(to_string(s.bias_source));
+    w.key("bias_evidence_s").value(s.bias_evidence_s);
     w.key("gyro_bias_deg_s").begin_array()
         .value(s.gyro_bias.x * kDegPerRad).value(s.gyro_bias.y * kDegPerRad).value(s.gyro_bias.z * kDegPerRad)
         .end_array();

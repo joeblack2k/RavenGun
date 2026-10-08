@@ -19,6 +19,8 @@ struct HidOptions {
     bool led_enabled = false;
     uint8_t led_r = 0, led_g = 0, led_b = 0;
     int led_refresh_ms = 1000;
+    // Bewaarde gyro-bias per controller (map met <controller_key>.json). Leeg = uit (geen laden, geen schrijven).
+    std::string bias_dir;
     class Recorder* recorder = nullptr;     // fase 0: opnamen (eigendom van main)
     // Fase 4: live koppeling aan de virtuele lightgun (trekker/reload/grenade/recenter).
     ravengun::output::LiveButtonMap gun_buttons{};

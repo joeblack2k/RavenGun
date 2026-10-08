@@ -34,12 +34,14 @@ ReplayResult replay_records(const std::vector<Record>& recs, const ReplayOptions
                 res.header = rc.header;
                 p.on_connect(rc.header.controller.empty() ? "opname" : rc.header.controller, rc.header.t0_ns);
                 if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
+                if (o.have_bias_init) p.restore_bias(o.bias_init, o.bias_init_tc);
                 connected = true;
                 break;
             case Kind::Report: {
                 if (!connected) {
                     p.on_connect("opname", rc.report.t_rx_ns);
                     if (o.have_mag_cal) p.set_mag_calibration(o.mag_cal);
+                    if (o.have_bias_init) p.restore_bias(o.bias_init, o.bias_init_tc);
                     connected = true;
                 }
                 if (o.tick_before_report)

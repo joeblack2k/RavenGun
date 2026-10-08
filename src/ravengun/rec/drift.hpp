@@ -19,6 +19,10 @@ struct DriftOptions {
     core::FusionMode mode = core::FusionMode::Mahony;
     bool have_cal = false;
     core::MagCalibration cal{};
+    core::BiasConfig bias{};         // mode legacy|new en parameters van de biasschatter
+    bool have_bias_init = false;     // beginbias (rad/s) zoals uit het bewaarde bestand; anders koude start
+    core::Vec3 bias_init{};
+    int bias_init_tc = -1;
     double min_interval_s = 2.0;     // kortere intervallen worden overgeslagen
     int saturation_raw = 32000;      // |ruwe gyrowaarde| >= dit telt als "nabij de int16-grens" (max 32767)
 };
@@ -41,12 +45,20 @@ struct DriftSummary {
     double median_abs_per_min = NAN;   // mediaan van |drift|/min, met |drift| = hoek tussen (yaw, pitch)-verschil als vector
     double p90_abs_per_min = NAN;
     double median_yaw_abs_per_min = NAN, p90_yaw_abs_per_min = NAN;
+    // Cumulatieve yaw-drift van de eerste tot de laatste bruikbare PS-druk (som van de gewikkelde verschillen tussen
+    // opeenvolgende drukken, ook de te korte). Het richtinstrument van de speler (ongeveer 1-2 graden per druk) telt
+    // dan maar twee keer mee in plaats van bij elk interval; NaN bij minder dan twee drukken.
+    double total_yaw_deg = NAN, total_s = NAN, total_yaw_per_min = NAN;
     // Pearson-correlatie van |yaw-drift| (graden) met: gedraaide hoek, max snelheid, verloren rapporten, duur. NaN als < 3 intervallen of geen spreiding.
     double r_rotated = NAN, r_max_rate = NAN, r_lost = NAN, r_duration = NAN;
 };
 
 struct DriftResult {
     bool ok = false;
+    core::Vec3 final_bias{};           // gyro-bias aan het eind van de opname (rad/s), te gebruiken als warme start
+    int final_tc = -1;
+    core::BiasState final_state = core::BiasState::None;
+    core::BiasSource final_source = core::BiasSource::None;
     std::string error;
     size_t presses = 0;                // aantal PS-down-flanken
     size_t skipped_short = 0;          // intervallen korter dan min_interval_s

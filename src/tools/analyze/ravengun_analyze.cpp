@@ -11,6 +11,9 @@
 //                                                               alleen (TRIAD) naast elkaar
 //   ravengun-analyze drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]
 //                                                               drift per PS-interval (PS = meetpunt)
+//   ravengun-analyze buttons FILE                               trekker- en pomptellingen uit de Sharp Shooter-bytes
+// Gyro-bias voor replay, fusion en drift: --bias-mode legacy|new, --bias-init X,Y,Z (graden/s) of warm
+// (twee keer afspelen; de eindbias van de eerste ronde is de beginbias van de tweede; circulair), --bias-set sleutel=waarde.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -24,6 +27,7 @@
 #include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/magnetometer.hpp"
 #include "ravengun/core/move_clock.hpp"
+#include "ravengun/output/live_feed.hpp"
 #include "ravengun/rec/drift.hpp"
 #include "ravengun/rec/replay.hpp"
 
@@ -31,6 +35,11 @@ using namespace ravengun;
 using namespace ravengun::core;
 
 namespace {
+
+BiasConfig g_bias_cfg;        // --bias-mode / --bias-set
+bool g_bias_init = false;     // --bias-init X,Y,Z
+Vec3 g_bias_init_v{};
+bool g_bias_warm = false;     // --bias-init warm
 
 void usage(FILE* f) {
     std::fputs(
@@ -44,10 +53,14 @@ void usage(FILE* f) {
         "  fusion FILE --cal CAL.json [--dip-tol G] [--norm-tol F] [--still-dps W]\n"
         "                                        oriëntatieschatters vergelijken: drift in de langste stilstand,\n"
         "                                        segmenten met labels, fusie tegen de magnetometer-heading\n"
+        "  buttons FILE                          trekker (fire-bit), pomp (T zonder fire-bit) en schoten uit de opname\n"
         "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]\n"
         "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
         "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
-        "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n",
+        "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n"
+        "Gyro-bias (replay, fusion, drift): --bias-mode legacy|new (standaard new), --bias-init X,Y,Z (graden/s)\n"
+        "  of warm (twee ronden: de eindbias van de eerste is de beginbias van de tweede; circulair),\n"
+        "  --bias-set sleutel=waarde (bijv. quasi_gate_dps=1.2; zie set_bias_param)\n",
         f);
 }
 
@@ -98,6 +111,9 @@ int cmd_replay(const char* path, bool dt_move, bool as_json) {
     rec::ReplayOptions o;
     o.pipeline.use_move_clock = dt_move;
     o.pipeline.auto_center_on_start = true;
+    o.pipeline.bias = g_bias_cfg;
+    o.have_bias_init = g_bias_init;
+    o.bias_init = g_bias_init_v;
     rec::ReplayResult r = rec::replay_file(path, o);
     if (!r.ok) { std::fprintf(stderr, "ravengun-analyze: %s\n", r.error.c_str()); return 2; }
     double dur = static_cast<double>(r.last.t_eval_ns - r.header.t0_ns) / 1e9;
@@ -120,8 +136,9 @@ int cmd_replay(const char* path, bool dt_move, bool as_json) {
     std::printf("Duur:          %.1f s\n", dur);
     std::printf("Oriëntatie:    yaw-verandering %+.3f graden (%.3f graden/min), pitch %+.3f graden, bias %s\n", dyaw,
                 dur > 0 ? dyaw / dur * 60 : 0.0, dpitch, to_string(r.last.bias_state));
-    std::printf("Bias (eind):   %.3f %.3f %.3f graden/s\n", r.last.gyro_bias.x * kDegPerRad, r.last.gyro_bias.y * kDegPerRad,
-                r.last.gyro_bias.z * kDegPerRad);
+    std::printf("Bias (eind):   %.3f %.3f %.3f graden/s (%s, bron %s, modus %s)\n", r.last.gyro_bias.x * kDegPerRad,
+                r.last.gyro_bias.y * kDegPerRad, r.last.gyro_bias.z * kDegPerRad, to_string(r.last.bias_state),
+                to_string(r.last.bias_source), to_string(g_bias_cfg.mode));
     return 0;
 }
 
@@ -402,12 +419,57 @@ bool set_mag_param(const std::string& kv) {
     return true;
 }
 
+bool set_bias_param(const std::string& kv) {
+    size_t eq = kv.find('=');
+    if (eq == std::string::npos) return false;
+    std::string k = kv.substr(0, eq);
+    double v = std::atof(kv.c_str() + eq + 1);
+    BiasConfig& c = g_bias_cfg;
+    const double r = kRadPerDeg;
+    if (k == "quasi_gate_dps") c.quasi_gate = v * r;
+    else if (k == "quasi_std_dps") c.quasi_std_max = v * r;
+    else if (k == "quasi_accel_tol") c.quasi_accel_tol = v;
+    else if (k == "quasi_horizon_s") c.quasi_horizon_s = v;
+    else if (k == "quasi_recency_s") c.quasi_recency_s = v;
+    else if (k == "quasi_min_windows") c.quasi_min_windows = static_cast<int>(v);
+    else if (k == "quasi_tau_s") c.quasi_tau_s = v;
+    else if (k == "quasi_slew_dps2") c.quasi_slew = v * r;
+    else if (k == "acquire_gate_dps") c.acquire_gate = v * r;
+    else if (k == "acquire_windows") c.acquire_windows = static_cast<int>(v);
+    else if (k == "acquire_cluster_dps") c.acquire_cluster = v * r;
+    else if (k == "acquire_fraction") c.acquire_fraction = v;
+    else if (k == "reacquire_s") c.reacquire_s = v;
+    else if (k == "temp_comp") c.temp_comp = v != 0;
+    else if (k == "temp_min_range") c.temp_min_range = static_cast<int>(v);
+    else if (k == "temp_min_entries") c.temp_min_entries = static_cast<int>(v);
+    else if (k == "temp_horizon_s") c.temp_horizon_s = v;
+    else if (k == "temp_recency_s") c.temp_recency_s = v;
+    else if (k == "temp_slope_max_dps") c.temp_slope_max = v * r;
+    else if (k == "restored_gate_dps") c.restored_gate = v * r;
+    else if (k == "restored_weight_s") c.restored_weight_s = v;
+    else if (k == "settled_mean_dps") c.gyro_mean_max_settled = v * r;
+    else return false;
+    return true;
+}
+
+bool parse_bias_init(const std::string& v) {
+    if (v == "warm") { g_bias_warm = true; return true; }
+    double x, y, z;
+    if (std::sscanf(v.c_str(), "%lf,%lf,%lf", &x, &y, &z) != 3) return false;
+    g_bias_init = true;
+    g_bias_init_v = Vec3{x, y, z} * kRadPerDeg;
+    return true;
+}
+
 std::vector<FusPt> run_fusion(const std::vector<rec::Record>& recs, FusionMode mode, const MagCalibration* cal,
                               const MagDisturbanceConfig& det) {
     rec::ReplayOptions o;
     o.pipeline.fusion_mode = mode;
     o.pipeline.mag = g_mag_cfg;
+    o.pipeline.bias = g_bias_cfg;
     o.pipeline.bias.freeze_after_s = g_freeze_bias_s;
+    o.have_bias_init = g_bias_init;
+    o.bias_init = g_bias_init_v;
     o.pipeline.mag.detector = det;
     if (cal) { o.have_mag_cal = true; o.mag_cal = *cal; }
     std::vector<FusPt> out;
@@ -642,6 +704,67 @@ int cmd_fusion(const char* path, const char* cal_path, double dip_tol, double no
     return 0;
 }
 
+// ---------------- buttons ----------------
+
+// Trekker en pomp van de Sharp Shooter uit de ruwe EXT-bytes en T-waarde van een opname (zie SharpShooterPump).
+// Vergelijkt de oude trekker (T-hysterese 140/100) met de nieuwe (fire-bit) en telt de afgeleide pomp.
+int cmd_buttons(const char* path) {
+    std::vector<rec::Record> recs;
+    if (!load(path, recs)) return 2;
+    rec::ReplayOptions o;
+    o.pipeline.use_move_clock = true;
+    size_t reports = 0, with_ext = 0;
+    int fire_up = 0, t_up = 0, pump_up = 0, shots_live = 0, shots_old = 0;
+    size_t pump_reports = 0, skew_release = 0, lead_up = 0, lag_up = 0, same_up = 0;
+    size_t max_pump_run = 0, run = 0;
+    bool prev_fire = false, t_hyst = false, prev_t_hyst = false, prev_pump = false;
+    output::LiveButtonMap map;
+    output::LiveGunFeed feed(map);
+    bool prev_live = false;
+    std::vector<int> fire_rise_idx, t_rise_idx;
+    size_t k = 0;
+    int pump_min_run = 1 << 30;
+    o.on_sample = [&](const InputSample& s, const RawReport* r) {
+        if (!r) return;
+        ++reports;
+        ++k;
+        if (!s.ext_active) return;
+        ++with_ext;
+        const bool fire = (r->ext[0] & 0x40) != 0;
+        if (!t_hyst && r->trigger >= 140) t_hyst = true;
+        else if (t_hyst && r->trigger <= 100) t_hyst = false;
+        if (fire && !prev_fire) { ++fire_up; fire_rise_idx.push_back(static_cast<int>(k)); }
+        if (!fire && prev_fire && t_hyst) ++skew_release;   // fire al los, T nog niet (scheefloop bij het loslaten)
+        if (t_hyst && !prev_t_hyst) { ++t_up; ++shots_old; t_rise_idx.push_back(static_cast<int>(k)); }
+        const bool pump = (s.buttons & kBtnPump) != 0;
+        if (pump && !prev_pump) ++pump_up;
+        if (pump) { ++pump_reports; ++run; max_pump_run = std::max(max_pump_run, run); }
+        else { if (run) pump_min_run = std::min<int>(pump_min_run, static_cast<int>(run)); run = 0; }
+        output::LiveAction a = feed.update(s);
+        if (a.trigger && !prev_live) ++shots_live;
+        prev_live = a.trigger;
+        prev_fire = fire;
+        prev_t_hyst = t_hyst;
+        prev_pump = pump;
+    };
+    rec::ReplayResult rr = rec::replay_records(recs, o);
+    if (!rr.ok) { std::fprintf(stderr, "ravengun-analyze: %s\n", rr.error.c_str()); return 1; }
+    // Volgorde van T en fire bij het indrukken: verschil in rapporten tussen de eerste T-stijging en de fire-stijging.
+    for (int fi : fire_rise_idx) {
+        int best = 1 << 20;
+        for (int ti : t_rise_idx) if (std::abs(ti - fi) < std::abs(best)) best = ti - fi;
+        if (best == 0) ++same_up; else if (best < 0) ++lead_up; else ++lag_up;
+    }
+    std::printf("Opname: %s: %zu rapporten, %zu met actieve uitbreiding\n", path, reports, with_ext);
+    std::printf("Schoten:       fire-bit omhoog %d keer; oude trekker (T 140/100) %d keer; nieuwe trekker (LiveGunFeed) %d keer\n", fire_up, shots_old, shots_live);
+    std::printf("Volgorde:      bij het indrukken T tegelijk met fire in %zu gevallen, T eerder in %zu, T later in %zu (rapporten)\n", same_up, lead_up, lag_up);
+    std::printf("Loslaten:      fire al los terwijl T nog boven de drempel staat (1 rapport scheef): %zu keer\n", skew_release);
+    std::printf("Pomp:          %d pompen (T boven 140 zonder fire gedurende minstens 2 rapporten), %zu rapporten ingedrukt, langste %zu, kortste %d rapporten\n", pump_up,
+                pump_reports, max_pump_run, pump_up ? pump_min_run : 0);
+    std::printf("Extra latentie voor het schot: 0 rapporten (trekker = fire-bit); voor de pomp: 1 rapport (ontdendering 2)\n");
+    return 0;
+}
+
 std::string fnum(double v, const char* f) {
     if (std::isnan(v)) return "n.v.t.";
     char b[48];
@@ -653,6 +776,9 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     std::vector<rec::Record> recs;
     if (!load(path, recs)) return 2;
     rec::DriftOptions o;
+    o.bias = g_bias_cfg;
+    o.have_bias_init = g_bias_init;
+    o.bias_init = g_bias_init_v;
     if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony of mahony_mag\n"); return 64; }
     if (cal_path) {
         if (!load_cal_file(cal_path, o.cal)) return 2;
@@ -660,10 +786,23 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     } else if (o.mode == FusionMode::MahonyMag) {
         std::fprintf(stderr, "ravengun-analyze: let op: mahony_mag zonder --cal gedraagt zich als mahony\n");
     }
+    if (g_bias_warm) {  // eerste ronde: koud; de eindbias is de beginbias van de tweede (circulair, optimistisch)
+        rec::DriftResult cold = rec::compute_drift(recs, o);
+        if (!cold.ok) { std::fprintf(stderr, "ravengun-analyze: %s\n", cold.error.c_str()); return 1; }
+        o.have_bias_init = true;
+        o.bias_init = cold.final_bias;
+        o.bias_init_tc = cold.final_tc;
+    }
     rec::DriftResult r = rec::compute_drift(recs, o);
     if (!r.ok) { std::fprintf(stderr, "ravengun-analyze: %s\n", r.error.c_str()); return 1; }
     std::printf("Opname: %s; fusie %s%s; %zu PS-drukken, %zu intervallen (%zu korter dan %.0f s overgeslagen)\n", path, to_string(o.mode),
                 o.have_cal ? " met kalibratie" : "", r.presses, r.intervals.size(), r.skipped_short, o.min_interval_s);
+    std::printf("Gyro-bias:     modus %s, start %s", to_string(o.bias.mode),
+                o.have_bias_init ? (g_bias_warm ? "WARM (uit eerdere ronde van dezelfde opname; circulair)" : "met beginbias") : "koud");
+    if (o.have_bias_init)
+        std::printf(" (%+.2f %+.2f %+.2f graden/s)", o.bias_init.x * kDegPerRad, o.bias_init.y * kDegPerRad, o.bias_init.z * kDegPerRad);
+    std::printf("; eind %+.2f %+.2f %+.2f graden/s (%s, bron %s)\n", r.final_bias.x * kDegPerRad, r.final_bias.y * kDegPerRad,
+                r.final_bias.z * kDegPerRad, to_string(r.final_state), to_string(r.final_source));
     if (r.intervals.empty()) {
         std::printf("Geen bruikbare intervallen: er zijn minstens twee PS-drukken met >= %.0f s ertussen nodig.\n", o.min_interval_s);
         return 0;
@@ -687,6 +826,9 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
                 fnum(s.p90_abs_per_min, "%.2f").c_str());
     std::printf("  |yaw-drift| per minuut:                  mediaan %s, p90 %s graden/min\n", fnum(s.median_yaw_abs_per_min, "%.2f").c_str(),
                 fnum(s.p90_yaw_abs_per_min, "%.2f").c_str());
+    if (!std::isnan(s.total_yaw_deg))
+        std::printf("  Cumulatief eerste->laatste PS (%.0f s): yaw %+.2f graden = %+.2f graden/min (per druk telt het richten van de speler maar tweemaal mee)\n",
+                    s.total_s, s.total_yaw_deg, s.total_yaw_per_min);
     std::printf("  Pearson r van |yaw-drift| (graden) met: gedraaide hoek %s, max snelheid %s, verloren rapporten %s, duur %s\n",
                 fnum(s.r_rotated, "%+.2f").c_str(), fnum(s.r_max_rate, "%+.2f").c_str(), fnum(s.r_lost, "%+.2f").c_str(),
                 fnum(s.r_duration, "%+.2f").c_str());
@@ -717,6 +859,15 @@ int main(int argc, char** argv) {
         else if (a == "--norm-tol" && i + 1 < argc) norm_tol = std::atof(argv[++i]);
         else if (a == "--still-dps" && i + 1 < argc) still_dps = std::atof(argv[++i]);
         else if (a == "--freeze-bias" && i + 1 < argc) g_freeze_bias_s = std::atof(argv[++i]);
+        else if (a == "--bias-mode" && i + 1 < argc) {
+            if (!parse_bias_mode(argv[++i], g_bias_cfg.mode)) { std::fprintf(stderr, "ravengun-analyze: --bias-mode verwacht legacy of new\n"); return 64; }
+        }
+        else if (a == "--bias-init" && i + 1 < argc) {
+            if (!parse_bias_init(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: --bias-init verwacht X,Y,Z (graden/s) of warm\n"); return 64; }
+        }
+        else if (a == "--bias-set" && i + 1 < argc) {
+            if (!set_bias_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --bias-set '%s'\n", argv[i]); return 64; }
+        }
         else if (a == "--set" && i + 1 < argc) {
             if (!set_mag_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --set '%s'\n", argv[i]); return 64; }
         }
@@ -728,6 +879,7 @@ int main(int argc, char** argv) {
     if (cmd == "magfit") return cmd_magfit(file, out);
     if (cmd == "fusion") return cmd_fusion(file, cal, dip_tol, norm_tol, still_dps);
     if (cmd == "drift") return cmd_drift(file, mode, cal);
+    if (cmd == "buttons") return cmd_buttons(file);
     usage(stderr);
     return 64;
 }

@@ -5,8 +5,9 @@
 // Regels:
 //  - De aim gaat alleen naar de uitvoer als hij geldig is (aim.valid: verse link, oriëntatie en midden).
 //    Is hij ongeldig, dan stopt het bewegen (geen positie, geen sprong naar een hoek).
-//  - De trekker komt uit de analoge T-waarde (0..255) met drempel en hysterese; reload en grenade uit
-//    instelbare Move-knoppen (standaard Kruis en Vierkant). Knoppen volgen de pijplijn: bij "stale" (gat
+//  - De trekker komt uit de analoge T-waarde (0..255) met drempel en hysterese; met een actieve Sharp Shooter-
+//    uitbreiding (ext_active) is hij het fire-bit van de uitbreiding en is T zonder fire de pomp (knop "pump").
+//    Reload en grenade uit instelbare Move-knoppen (standaard Kruis en Vierkant). Knoppen volgen de pijplijn: bij "stale" (gat
 //    tot 250 ms) blijven ze staan, bij "lost" en "disconnected" worden alle gun-knoppen vrijgegeven.
 //  - Knoppenindeling: LiveButtonMap koppelt Move-knoppen aan gun-knoppen (reload/grenade/aux1/aux2),
 //    toetsen van het virtuele toetsenbord en recenter; meerdere knoppen op dezelfde actie tellen als OR.

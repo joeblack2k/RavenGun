@@ -18,6 +18,11 @@ struct ReplayOptions {
     // Fase 4: magnetometerkalibratie voor de fusie (zoals de daemon die bij het verbinden laadt).
     bool have_mag_cal = false;
     core::MagCalibration mag_cal{};
+    // Beginwaarde voor de gyro-bias (rad/s), zoals de daemon die uit het bewaarde bestand haalt. Standaard geen:
+    // een koude start.
+    bool have_bias_init = false;
+    core::Vec3 bias_init{};
+    int bias_init_tc = -1;
     bool tick_before_report = true;  // pijplijn.tick(t_rx) vóór elk rapport (stale/lost zoals live)
     bool keep_json = false;          // alle sample-JSON bewaren (tests)
     // Optioneel: na elk sample (bijv. voor analyse).

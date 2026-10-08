@@ -17,6 +17,7 @@
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
 #include "hid_thread.hpp"
+#include "ravengun/core/bias_store.hpp"
 #include "ipc_server.hpp"
 #include "output_service.hpp"
 #include "recorder.hpp"
@@ -47,6 +48,11 @@ void usage(FILE* f) {
         "  --no-hid                         geen PSMoveAPI openen (alleen IPC; voor tests)\n"
         "  --dt-source move|rx              integratie-dt uit de interne Move-stempel (standaard) of de\n"
         "                                   ontvangsttijd\n"
+        "  --bias-dir MAP                   bewaarde gyro-bias per controller (standaard\n"
+        "                                   ~/.local/state/ravengun/gyro-bias)\n"
+        "  --no-bias-store                  gyro-bias niet laden en niet bewaren\n"
+        "  --bias-mode new|legacy           biasschatter: stilstand + bewaarde waarde + quasi-stil (standaard) of\n"
+        "                                   alleen stilstand (oud gedrag)\n"
         "  --fusion mahony|mahony_mag       oriëntatieschatter (standaard uit config.json, anders mahony;\n"
         "                                   mahony_mag = Mahony plus yaw-correctie met de magnetometer)\n"
         "\n"
@@ -125,7 +131,10 @@ int main(int argc, char** argv) {
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
+    opt.bias_dir = ravengun::core::default_bias_dir();
     ravengun::core::parse_ext_mode(cfg.sharp_shooter.extension.c_str(), opt.pipeline.ext_mode);
+    opt.pipeline.pump.on = cfg.gun_buttons.trigger_on;
+    opt.pipeline.pump.off = cfg.gun_buttons.trigger_off;
     opt.gun_buttons = ravengun::output::build_live_map(cfg.gun_buttons);
     cam.width = cfg.camera.width; cam.height = cfg.camera.height; cam.fps = cfg.camera.fps;
     cam.auto_exposure = cfg.camera.auto_exposure; cam.auto_gain = cfg.camera.auto_gain; cam.auto_awb = cfg.camera.auto_awb;
@@ -150,6 +159,14 @@ int main(int argc, char** argv) {
         else if (a == "--no-config") { /* al verwerkt */ }
         else if (a == "--config" && i + 1 < argc) ++i;  // al verwerkt
         else if (a == "--no-hid") opt.enabled = false;
+        else if (a == "--bias-dir" && i + 1 < argc) opt.bias_dir = argv[++i];
+        else if (a == "--no-bias-store") opt.bias_dir.clear();
+        else if (a == "--bias-mode" && i + 1 < argc) {
+            if (!ravengun::core::parse_bias_mode(argv[++i], opt.pipeline.bias.mode)) {
+                std::fprintf(stderr, "ravengund: --bias-mode verwacht new of legacy\n");
+                return 64;
+            }
+        }
         else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
         else if (a == "--dt-source" && i + 1 < argc) {
@@ -300,7 +317,7 @@ int main(int argc, char** argv) {
 
     logf("info", "ravengund gestart (pid %d), socket %s, HID %s, filter %s, schatter %s", static_cast<int>(::getpid()), sock.c_str(),
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit", ravengun::core::to_string(opt.pipeline.fusion_mode));
-    logf("info", "gun-knoppen (live; PS-knop altijd recenter, ook ongewapend; de rest alleen als de uitvoer gewapend is): trekker = analoge T (in %d / uit %d)",
+    logf("info", "gun-knoppen (live; PS-knop altijd recenter, ook ongewapend; de rest alleen als de uitvoer gewapend is): trekker = fire-bit van de Sharp Shooter, anders analoge T (in %d / uit %d); pomp = T zonder fire-bit",
          cfg.gun_buttons.trigger_on, cfg.gun_buttons.trigger_off);
     logf("info", "knoppenindeling: %s", ravengun::output::describe_layout(opt.gun_buttons).c_str());
 
