@@ -23,3 +23,19 @@
 6. Camera als tweede anker (fase 5): schermkalibratie (vier hoeken aanwijzen) en een geometrische aim-ray vanuit de bolpositie, zodat afstand en zijwaartse verplaatsing kloppen.
 7. Gemak: één commando of Steam-snelkoppeling dat de daemon wapent en Halo start; Gaming Mode; de kalibratie-app noemt PS als centreerknop.
 8. Later: Navigation Controller, profielen voor MAME, House of the Dead Remake en Dolphin, 250 Hz-uitvoer.
+
+## Stand na de meetsessie van 2026-10-08
+
+- Gemeten in Halo (270 s, 8 PS-intervallen): yaw-drift altijd dezelfde kant op, mediaan 25,8 graden/min, cumulatief -62,6 graden in 164 s.
+- Oorzaak: de gyro-bias om de verticale as loopt mee met de opwarming van de Move (ongeveer 0,05 graden/s koud tot 0,85 warm); de oude schatter vond tijdens het spelen bijna geen echte rust en bleef op de koude waarde staan.
+- Gebouwd: bias-modus `new` (temperatuurcompensatie, quasi-stille vensters, bewaarde bias per controller). Replay op dezelfde opname: cumulatief -1,0 graad in 164 s (-0,36 graden/min); mediaan per interval 8,0 graden/min, waarvan een groot deel de richtfout van de speler per PS-druk is. Dit is op de opname waarop het is afgesteld; de live test moet het bevestigen. Op de opname stil5min is `new` tijdens beweging slechter dan `legacy` (+13,6 tegen +6,6 graden); nog uitzoeken.
+- Sharp Shooter: trekker = fire-bit, pomp = T zonder fire-bit (herladen), knop onder de trekker = Move-knop (centreren).
+- Besluit van de gebruiker: voorlopig alleen softwareoplossingen; het tweede lichtpunt op de kolf is geparkeerd.
+
+Vervolg, in deze volgorde:
+
+1. Live test van de bias-modus `new` in Halo, met opname.
+2. Camera als bewaker van de gyro: staat de bol stil in beeld, dan is de gemeten draaisnelheid bias. Eerst narekenen op de opname (was de bol in beeld?), daarna inbouwen. Plus een bewaarde bias-tegen-temperatuurcurve per controller, zodat een koude start zonder stilleggen ook klopt.
+3. VQF naast Mahony als A/B (leert de magnetometerreferentie zelf), gemeten met `analyze drift`.
+4. Voorspelling tegen de Bluetooth-latentie (instelbaar, 20 tot 40 ms).
+5. Daarna de eerdere punten: schermkalibratie met de camera, gemak, overige games.
