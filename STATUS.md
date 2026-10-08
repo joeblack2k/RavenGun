@@ -131,6 +131,10 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Gevolg van draaien vanaf de NAS: TeknoParrot schrijft `teknoparrot.ini` in de gamemap en de game schrijft in `pmuser/`. De gebruiker is hierover geïnformeerd.
 - De NAS-mount faalde na een netwerkonderbreking (start-limit-hit); hersteld met `systemctl reset-failed` en het starten van de automount.
 
+- Fase 6 (2026-10-08): voorspelling van de aim (`aim.predict_ms`, standaard 40 ms, live met `ravengunctl predict`), uitvoerklok 250 Hz met extrapolatie tot 40 ms na het laatste rapport, sneller 1-euro-filter (0,3 Hz / beta 10 / d_cutoff 20) en `ravengun-analyze latency`. Replay op drie opnames: uitvoervertraging t.o.v. het snelste transport 21 -> 6 ms; sprong na een gat p95 37 -> 13 px (zonder voorspelling). Live in Halo getest met 40 ms; reactie van de gebruiker: "dit is zoooo goed". De echte totale latentie (Bluetooth, game, tv) is niet gemeten.
+- Trillen bij schieten (`rumble`-sectie, `ravengunctl rumble`, web-UI): puls per schot, herhaling bij vasthouden, zwakkere puls bij de pomp; 17 ctest-suites groen. Testpuls naar de Move gestuurd; nog niet in een game bevestigd.
+- Jurassic Park: het zwarte beeld is geen GPU/Mesa-kwestie. Bewezen met WINEDEBUG: op volledig scherm maakt de game nooit een GL-context op het hoofdvenster en doet geen GL-aanroepen (Halo in dezelfde Wine wel); in venstermodus een access violation (exit 255). Vermoeden: fout in de X11/GLX-emulatie van de 32-bit loader onder Wine. Nog te proberen: andere Wine/Proton-runner, andere TeknoParrot-versie. `play-halo.sh` kan nu omgevingsvariabelen per profiel meegeven (`--env`, `UserProfiles/<profiel>.env`).
+
 ## Laatste werkende commando
 
     scripts/play-halo.sh --record TAG     (Move aan met PS; daemon-uitvoer, opname en Halo)
@@ -138,11 +142,11 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 
 ## Actuele fout / afhankelijkheid
 
-Jurassic Park geeft zwart beeld (zie boven). Tomb Raider en Luigi's Mansion zijn toegevoegd maar nog niet gestart.
+Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven). Tomb Raider en Luigi's Mansion zijn toegevoegd maar nog niet gestart.
 
 ## Volgende uitvoerbare stap
 
-1. Gevoel van `vqf_mag` navragen bij de gebruiker (scheef of stroperig richten bij de tv?).
-2. Jurassic Park: zwart beeld onderzoeken (subagent; heeft de tv nodig).
-3. Voorspelling tegen de Bluetooth-latentie (instelbaar, 20 tot 40 ms).
-4. Schermkalibratie met de camera, Gaming Mode/Steam-snelkoppeling, overige games.
+1. Trillen in Halo bevestigen en op gevoel afstellen (sterkte, pulsduur, herhaling).
+2. Tomb Raider en Luigi's Mansion starten (Windows-games via TeknoParrot; nog niet geprobeerd).
+3. Jurassic Park: andere Wine/Proton-runner of TeknoParrot-versie proberen.
+4. Schermkalibratie met de camera, Gaming Mode/Steam-snelkoppeling, Navigation Controller, overige emulators.
