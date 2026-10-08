@@ -526,6 +526,10 @@
       $('flt-d').value = f.d_cutoff_hz;
       $('aim-h').value = a.h_edge_deg;
       $('aim-v').value = a.v_edge_deg;
+      $('lat-predict').value = a.predict_ms;
+      $('lat-predict-r').value = Math.min(120, a.predict_ms);
+      var ck = j.result.output && j.result.output.live && j.result.output.live.clock;
+      if (ck) { $('lat-clock').value = ck.enabled ? ck.hz : 0; $('lat-extrap').value = ck.extrapolate_ms; }
     });
     Promise.all([api('/api/settings'), api('/api/info')]).then(function (res) {
       if (!res[0].ok || !res[1].ok) return;
@@ -568,6 +572,26 @@
     $('aim-err').textContent = errs.join('. ');
     if (errs.length) return;
     submit('/api/aim', { h_edge_deg: h, v_edge_deg: v }, $('aim-err'), 'Schaal toegepast en bewaard', e.target.querySelector('button'), loadSettings);
+  });
+  // Latentie: de schuifregelaar en het getal horen bij elkaar; toepassen stuurt de voorspelling en de uitvoerklok apart.
+  $('lat-predict-r').addEventListener('input', function () { $('lat-predict').value = $('lat-predict-r').value; });
+  $('lat-predict').addEventListener('input', function () {
+    var v = Number($('lat-predict').value.replace(',', '.'));
+    if (isFinite(v)) $('lat-predict-r').value = Math.min(120, Math.max(0, v));
+  });
+  $('f-latency').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var errs = [];
+    var p = num('lat-predict', 0, 200, 'Voorspelling', errs);
+    var c = num('lat-clock', 0, 1000, 'Uitvoerklok', errs);
+    var x = num('lat-extrap', 0, 100, 'Extrapolatie', errs);
+    if (c !== null && c > 0 && c < 20) { errs.push('Uitvoerklok moet 0 (uit) zijn of tussen 20 en 1000 liggen'); $('lat-clock').classList.add('invalid'); }
+    $('lat-err').textContent = errs.join('. ');
+    if (errs.length) return;
+    var btn = e.target.querySelector('button');
+    submit('/api/aim', { predict_ms: p }, $('lat-err'), null, btn, function () {
+      submit('/api/clock', { clock_hz: c, extrapolate_ms: x }, $('lat-err'), 'Latentie toegepast en bewaard', btn, loadSettings);
+    });
   });
   $('recenter').addEventListener('click', function (e) {
     submit('/api/recenter', {}, $('rc-err'), 'Recenter gedaan', e.target);

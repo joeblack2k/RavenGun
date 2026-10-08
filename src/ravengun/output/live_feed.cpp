@@ -79,6 +79,10 @@ LiveAction LiveGunFeed::update(const core::InputSample& s) {
         a.move = true;
         a.x = s.aim.x;
         a.y = s.aim.y;
+        a.vx = s.aim_vx;
+        a.vy = s.aim_vy;
+        a.age_ms = s.age_ms;
+        a.t_ns = s.t_eval_ns;
     }
     return a;
 }

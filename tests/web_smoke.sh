@@ -44,6 +44,12 @@ curl -s "$B/api/status" | grep -q '"min_cutoff_hz":2' || fail "filter niet doorg
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"h_edge_deg":25,"v_edge_deg":14}' "$B/api/aim")" = 200 ] || fail "aim"
 curl -s "$B/api/status" | grep -q '"h_edge_deg":25' || fail "aim niet doorgevoerd"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"h_edge_deg":500}' "$B/api/aim")" = 400 ] || fail "aim-validatie"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"predict_ms":55}' "$B/api/aim")" = 200 ] || fail "predict_ms"
+curl -s "$B/api/status" | grep -q '"predict_ms":55' || fail "predict_ms niet doorgevoerd"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"predict_ms":999}' "$B/api/aim")" = 400 ] || fail "predict_ms-validatie"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"clock_hz":125,"extrapolate_ms":30}' "$B/api/clock")" = 200 ] || fail "clock"
+curl -s "$B/api/status" | grep -q '"clock":{"enabled":true,"hz":125' || fail "clock niet doorgevoerd"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"clock_hz":7}' "$B/api/clock")" = 400 ] || fail "clock-validatie"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/recenter")" = 503 ] || fail "recenter zonder Move moet 503 geven"
 
 # Nieuwe endpoints: info, instellingen, diagnose, LED, camera zonder camera, uitvoer, web-poort

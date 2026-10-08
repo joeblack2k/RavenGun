@@ -19,7 +19,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
-                 SetButtons, CalibrateUi, SetFusion, ClearTrim };
+                 SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -30,6 +30,8 @@ struct Request {
     std::optional<bool> filter_enabled;
     std::optional<double> min_cutoff_hz, beta, d_cutoff_hz;
     std::optional<double> h_edge_deg, v_edge_deg;
+    std::optional<double> predict_ms;                       // set_aim: voorspelhorizon (ms, 0 = uit)
+    std::optional<double> clock_hz, extrapolate_ms;         // set_clock: uitvoerklok (Hz, 0 = uit) en extrapolatielimiet (ms)
     // Uitvoer (arm/disarm/output/test_pattern/output_button/set_output).
     std::string pattern;   // test_pattern: center|corners|grid|sweep|point|stop
     std::optional<double> dwell_ms, duration_s, margin, x, y, rate_hz_pattern;

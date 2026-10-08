@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "ravengun/ipc_protocol.hpp"
+#include "ravengun/output/aim_clock.hpp"
 #include "ravengun/output/gun_output.hpp"
 #include "ravengun/output/gun_transform.hpp"
 #include "ravengun/output/live_feed.hpp"
@@ -896,6 +897,181 @@ static void test_keyboard_output() {
     }
 }
 
+// ---------------- Uitvoerklok (fase 6) ----------------
+
+static core::InputSample clock_sample(int64_t t_ns, double x, double y, double vx, double vy, double age_ms = 0) {
+    core::InputSample s;
+    s.aim_valid = true;
+    s.t_eval_ns = t_ns;
+    s.aim.x = x;
+    s.aim.y = y;
+    s.aim_vx = vx;
+    s.aim_vy = vy;
+    s.age_ms = age_ms;
+    return s;
+}
+
+static void test_aim_clock_extrapolation_limit() {
+    OutputClockConfig c;
+    c.hz = 250;
+    c.max_extrap_ms = 40;
+    AimClock k(c);
+    CHECK(!k.at(0).has_value() && !k.tick(0).has_value());  // geen anker
+    k.on_sample(clock_sample(1'000'000'000, 0.5, 0.4, 0.5, -0.25));
+    auto p0 = k.at(1'000'000'000);
+    CHECK(p0 && p0->x == 0.5 && p0->y == 0.4 && !p0->extrapolating);
+    auto p10 = k.at(1'010'000'000);
+    CHECK(p10 && p10->extrapolating && !p10->held);
+    CHECK_NEAR(p10->x, 0.5 + 0.5 * 0.010, 1e-9);
+    CHECK_NEAR(p10->y, 0.4 - 0.25 * 0.010, 1e-9);
+    // Op de limiet en daarna: vastgehouden op anker + v * 40 ms, hoe lang het gat ook duurt.
+    auto p40 = k.at(1'040'000'000);
+    CHECK(p40 && p40->extrapolating);
+    CHECK_NEAR(p40->x, 0.5 + 0.5 * 0.040, 1e-9);
+    for (int64_t ms : {41, 60, 250, 5000}) {
+        auto q = k.at(1'000'000'000 + ms * 1'000'000);
+        CHECK(q && q->held && !q->extrapolating);
+        CHECK_NEAR(q->x, 0.5 + 0.5 * 0.040, 1e-9);
+        CHECK_NEAR(q->y, 0.4 - 0.25 * 0.040, 1e-9);
+    }
+    // Een tijd vóór het anker: geen terugextrapolatie.
+    auto before = k.at(900'000'000);
+    CHECK(before && before->x == 0.5);
+    // Een ongeldige aim (stale/lost) wist het anker: de cursor blijft staan, er wordt niets geëxtrapoleerd.
+    core::InputSample bad = clock_sample(1'020'000'000, 0.9, 0.9, 1, 1);
+    bad.aim_valid = false;
+    k.on_sample(bad);
+    CHECK(!k.at(1'030'000'000).has_value());
+    // Klok uit (hz = 0): tick geeft niets; at() blijft werken voor de analyse.
+    OutputClockConfig off;
+    off.hz = 0;
+    AimClock k0(off);
+    k0.on_sample(clock_sample(0, 0.5, 0.5, 1, 1));
+    CHECK(!k0.tick(10'000'000).has_value() && k0.at(10'000'000).has_value());
+    // Taper: de snelheid loopt lineair naar 0 op de limiet; verplaatsing op de limiet is dan v * limiet / 2.
+    OutputClockConfig tc = c;
+    tc.taper = 1.0;
+    AimClock kt(tc);
+    kt.on_sample(clock_sample(0, 0.0, 0.0, 1.0, 0.0));
+    CHECK_NEAR(kt.at(40'000'000)->x, 0.020, 1e-9);
+    CHECK_NEAR(kt.at(500'000'000)->x, 0.020, 1e-9);
+    CHECK(kt.at(20'000'000)->x < 0.020 && kt.at(20'000'000)->x > 0.010);
+    // Leeftijdscompensatie: een rapport dat 15 ms later binnenkwam, wordt 15 ms verder geëxtrapoleerd.
+    AimClock ka(c);
+    ka.on_sample(clock_sample(1'000'000'000, 0.5, 0.5, 1.0, 0.0, 15.0));
+    CHECK_NEAR(ka.at(1'000'000'000)->x, 0.5 + 0.015, 1e-9);
+    OutputClockConfig nc = c;
+    nc.age_comp = false;
+    AimClock kn(nc);
+    kn.on_sample(clock_sample(1'000'000'000, 0.5, 0.5, 1.0, 0.0, 15.0));
+    CHECK_NEAR(kn.at(1'000'000'000)->x, 0.5, 1e-12);
+}
+
+static void test_aim_clock_grid() {
+    OutputClockConfig c;
+    c.hz = 250;
+    AimClock k(c);
+    CHECK(k.period_ns() == 4'000'000);
+    // Het eerste tikmoment legt het raster vast; elk volgend moment ligt exact één periode verder.
+    int64_t t = k.next_tick_after(1'000'000'000);
+    CHECK(t == 1'004'000'000);
+    int64_t prev = t;
+    for (int i = 0; i < 100; ++i) {
+        const int64_t nx = k.next_tick_after(prev);
+        CHECK(nx - prev == 4'000'000);
+        prev = nx;
+    }
+    // Te laat (klokthread kreeg geen CPU): gemiste tikken worden overgeslagen, het raster blijft liggen.
+    const int64_t late = k.next_tick_after(1'000'000'000 + 4'000'000 * 200 + 1'500'000);
+    CHECK(late == 1'000'000'000 + 4'000'000 * 201);
+    // Klok uit: geen raster (af en toe kijken).
+    OutputClockConfig off;
+    off.hz = 0;
+    AimClock k0(off);
+    CHECK(k0.period_ns() == 0 && k0.next_tick_after(5) > 5);
+    // set_config met rare waarden wordt veilig genomen.
+    OutputClockConfig bad;
+    bad.hz = -3;
+    bad.max_extrap_ms = std::nan("");
+    bad.taper = 7;
+    k.set_config(bad);
+    CHECK(!k.config().enabled() && k.config().max_extrap_ms == 0 && k.config().taper == 1.0);
+}
+
+// Gelijkmatige events: rapporten met 14 % verlies en bursts, een positie die lineair beweegt (v constant), klok op 250 Hz.
+// Elke tik geeft een nieuwe, monotone positie met een stap van hooguit v * periode; in een gat langer dan de limiet stopt de beweging.
+static void test_clock_smooth_and_stops() {
+    FakeDevice dev;
+    GunOutput o(dev);
+    std::string err;
+    CHECK(o.arm(err));
+    OutputClockConfig c;
+    c.hz = 250;
+    c.max_extrap_ms = 40;
+    c.age_comp = false;
+    AimClock clk(c);
+    const double v = 0.5;                   // schermen/s
+    const double pos0 = 0.2;
+    auto truth = [&](int64_t t_ns) { return pos0 + v * static_cast<double>(t_ns) / 1e9; };
+    // Rapporten elke 11,27 ms; elk 7e verloren; een lang gat van 200 ms rond t = 1,0 s.
+    std::vector<int64_t> arrivals;
+    int n = 0;
+    for (int64_t t = 0; t < 1'500'000'000; t += 11'270'000, ++n) {
+        if (n % 7 == 3) continue;
+        if (t > 1'000'000'000 && t < 1'200'000'000) continue;
+        arrivals.push_back(t);
+    }
+    size_t ai = 0;
+    std::vector<double> tick_pos;
+    std::vector<int64_t> tick_t;
+    int64_t tk = clk.next_tick_after(0);
+    double max_step = 0, last_x = -1;
+    uint64_t events_after_limit = 0;
+    bool prev_held = false;
+    while (tk < 1'500'000'000) {
+        while (ai < arrivals.size() && arrivals[ai] <= tk) {
+            clk.on_sample(clock_sample(arrivals[ai], truth(arrivals[ai]), 0.5, v, 0));
+            ++ai;
+        }
+        auto p = clk.tick(tk);
+        if (p) {
+            const uint64_t before = o.stats().position_events;
+            o.set_position(p->x, p->y);
+            if (p->held && prev_held && o.stats().position_events != before) ++events_after_limit;
+            // De grote stap na het lange gat (het nieuwe rapport) telt hier niet mee; die meet de analyse.
+            if (last_x >= 0 && tk < 1'040'000'000) max_step = std::max(max_step, std::fabs(p->x - last_x));
+            prev_held = p->held;
+            last_x = p->x;
+            tick_pos.push_back(p->x);
+            tick_t.push_back(tk);
+        }
+        const int64_t nx = clk.next_tick_after(tk);
+        CHECK(nx - tk == 4'000'000);
+        tk = nx;
+    }
+    CHECK(tick_pos.size() > 300);
+    // De getoonde positie springt nergens meer dan één tikstap plus de maximale afwijking van de lineaire baan (hier 0: exact).
+    CHECK(max_step <= v * 0.004 * 1.01 + 1e-9);
+    // Gat > limiet: tussen 1,04 s en 1,2 s staat de positie stil: geen enkel nieuw event.
+    CHECK(events_after_limit == 0);
+    int64_t last_before_gap = 0;
+    for (int64_t a : arrivals) if (a <= 1'000'000'000) last_before_gap = a;
+    double frozen = -1;
+    int frozen_n = 0;
+    for (size_t i = 0; i < tick_t.size(); ++i) {
+        if (tick_t[i] > last_before_gap + 41'000'000 && tick_t[i] < 1'190'000'000) {
+            if (frozen < 0) frozen = tick_pos[i];
+            CHECK_NEAR(tick_pos[i], frozen, 1e-12);
+            ++frozen_n;
+        }
+    }
+    CHECK(frozen_n > 20);
+    // De positie volgt de waarheid binnen de limiet nauwkeurig (constante snelheid): fout < 1e-9 schermen tijdens extrapolatie.
+    for (size_t i = 0; i < tick_t.size(); ++i) {
+        if (tick_t[i] < 900'000'000 && tick_t[i] > 100'000'000) CHECK_NEAR(tick_pos[i], truth(tick_t[i]), 1e-9);
+    }
+}
+
 int main() {
     test_key_table();
     test_live_map_defaults();
@@ -919,6 +1095,9 @@ int main() {
     test_patterns();
     test_pattern_through_output();
     test_ipc();
+    test_aim_clock_extrapolation_limit();
+    test_aim_clock_grid();
+    test_clock_smooth_and_stops();
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

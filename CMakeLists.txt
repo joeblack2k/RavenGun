@@ -48,12 +48,14 @@ add_library(ravengun STATIC
   src/ravengun/core/bias_store.cpp
   src/ravengun/core/input_model.cpp
   src/ravengun/core/pipeline.cpp
+  src/ravengun/core/predict.cpp
   src/ravengun/output/gun_transform.cpp
   src/ravengun/output/gun_output.cpp
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
   src/ravengun/output/uinput_kbd.cpp
   src/ravengun/output/live_feed.cpp
+  src/ravengun/output/aim_clock.cpp
   src/ravengun/core/move_report.cpp
   src/ravengun/core/move_clock.cpp
   src/ravengun/core/magnetometer.cpp
@@ -63,6 +65,7 @@ add_library(ravengun STATIC
   src/ravengun/rec/recording.cpp
   src/ravengun/rec/replay.cpp
   src/ravengun/rec/drift.cpp
+  src/ravengun/rec/latency.cpp
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
@@ -148,6 +151,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_fusion_tests tests/test_fusion.cpp)
   target_link_libraries(ravengun_fusion_tests PRIVATE ravengun)
   add_test(NAME ravengun_fusion_tests COMMAND ravengun_fusion_tests)
+  add_executable(ravengun_predict_tests tests/test_predict.cpp)
+  target_link_libraries(ravengun_predict_tests PRIVATE ravengun)
+  add_test(NAME ravengun_predict_tests COMMAND ravengun_predict_tests)
   add_executable(ravengun_vqf_tests tests/test_vqf.cpp)
   target_link_libraries(ravengun_vqf_tests PRIVATE ravengun)
   add_test(NAME ravengun_vqf_tests COMMAND ravengun_vqf_tests)

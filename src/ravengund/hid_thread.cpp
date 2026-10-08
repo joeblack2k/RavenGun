@@ -136,6 +136,14 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("aim").begin_object();
     w.key("mode").value("orientation (voorlopig, geen aim-ray)");
     w.key("h_edge_deg").value(c.aim.h_edge_deg).key("v_edge_deg").value(c.aim.v_edge_deg);
+    w.key("predict_ms").value(c.predict.horizon_ms);
+    w.end_object();
+    w.key("predict").begin_object();
+    w.key("horizon_ms").value(c.predict.horizon_ms).key("rate_tau_ms").value(c.predict.rate_tau_ms);
+    w.key("accel_gain").value(c.predict.accel_gain).key("speed_lo_dps").value(c.predict.speed_lo_dps).key("speed_hi_dps").value(c.predict.speed_hi_dps);
+    w.key("max_angle_deg").value(c.predict.max_angle_deg);
+    w.key("rate_dps").value(norm(p.predictor().rate()) * kDegPerRad).key("gain").value(p.predictor().gain());
+    w.key("angle_deg").value(s.pred_deg).key("report_age_ms").value(s.age_ms);
     w.end_object();
     w.key("fusion").begin_object();
     w.key("algorithm").value(p.fusion_mode() == FusionMode::MahonyMag ? "mahony_mag (Mahony + yaw-Kalman met magnetometer)" : is_vqf(p.fusion_mode()) ? (p.fusion_mode() == FusionMode::VqfMag ? "vqf_mag (VQF 9D)" : "vqf (VQF 6D)") : "mahony_p_imu");
@@ -289,6 +297,8 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
         AimConfig aim() const override { return p.config().aim; }
         void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
+        PredictConfig predict() const override { return p.config().predict; }
+        void set_predict(const PredictConfig& c) override { p.set_predict(c); opt.pipeline.predict = c; }
         void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; led_dirty = true; }
         FusionMode fusion() const override { return p.fusion_mode(); }
         void set_fusion(FusionMode m) override {

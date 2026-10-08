@@ -15,6 +15,7 @@
 #include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/move_clock.hpp"
 #include "ravengun/core/one_euro.hpp"
+#include "ravengun/core/predict.hpp"
 #include "ravengun/core/vqf_estimator.hpp"
 #include "ravengun/core/yaw_trim.hpp"
 
@@ -28,6 +29,11 @@ struct PipelineConfig {
     BiasConfig bias{};
     AimConfig aim{};
     OneEuroConfig filter{};
+    // dt voor het 1€-filter uit de Move-stempel (fysieke tijd tussen twee rapporten) in plaats van de ontvangsttijd. De rapporten
+    // komen via Bluetooth in paren binnen (afwisselend ~5 en ~20 ms), de stempels staan regelmatig op 11,3 ms.
+    bool filter_dt_move = true;
+    // Voorspelling van de oriëntatie vóór de aim-omrekening (predict.hpp); horizon_ms = 0 is uit.
+    PredictConfig predict{};
     // Integratie-dt uit de interne tijdstempel van de Move (fase 1) in plaats van de ontvangsttijd.
     // Alleen als dit én het vorige rapport een stempel hebben; anders de ontvangst-dt.
     bool use_move_clock = true;
@@ -110,6 +116,9 @@ public:
 
     void set_filter(const OneEuroConfig& c);
     void set_aim(const AimConfig& c);
+    // Voorspelling live instellen (geen herstart, geen reset van de schatters).
+    void set_predict(const PredictConfig& c);
+    const RatePredictor& predictor() const { return pred_; }
     // Fase 4: magnetometer en schatter.
     void set_mag_calibration(const MagCalibration& c);
     void clear_mag_calibration() { mag_.clear_calibration(); }
@@ -145,7 +154,7 @@ private:
     Quat q_out() const { return is_vqf(cfg_.fusion_mode) && vqf_.initialized() ? vqf_.q() : fusion_.q(); }
     bool vqf_mag_active() const;
     InputSample make_sample(int64_t t_eval);
-    void fill_aim(InputSample& s, double dt);
+    void fill_aim(InputSample& s, double dt, double dt_move = 0);
 
     PipelineConfig cfg_;
     GyroBiasEstimator bias_;
@@ -154,6 +163,9 @@ private:
     VqfEstimator vqf_;
     AimMapper aim_;
     OneEuro fx_, fy_;
+    RatePredictor pred_;
+    bool have_out_ = false;       // vorige gefilterde uitvoer bekend (voor de snelheid van de uitvoerklok)
+    double out_x_ = 0, out_y_ = 0;
     EdgeAccumulator edges_;
     SharpShooterPump pump_;
     ReportStats stats_;

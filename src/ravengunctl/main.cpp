@@ -40,7 +40,11 @@ void usage(FILE* f) {
         "  recenter    legt de huidige richting van de Move vast als midden van het scherm\n"
         "  trim        toont de geleerde yaw-trim (uit centreerdrukken); 'trim reset' wist hem\n"
         "  watch       toont live aim en knoppen (rate-limited) tot Ctrl-C of --duration\n"
-        "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B\n"
+        "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B, --d-cutoff HZ\n"
+        "  predict     voorspel de oriëntatie MS vooruit (latentiecompensatie; 0 = uit): 'predict 40'; zonder waarde\n"
+        "              toont de huidige; live en bewaard in config.json (aim.predict_ms)\n"
+        "  clock       uitvoerklok: 'clock 250' (Hz, 0 = uit: positie alleen per rapport), optioneel\n"
+        "              --extrapolate-ms MS (max. extrapolatie na het laatste rapport); zonder waarde toont de huidige\n"
         "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
         "  record      opname (alleen getallen) naar ~/.local/state/ravengun/recordings/:\n"
         "                record [--tag T] [--duration S] [--max-mb N]   opnemen tot S s of Ctrl-C\n"
@@ -357,6 +361,14 @@ void print_status(const json::Value& r) {
                     ? ("1€ (min_cutoff " + fmt(num(r, {"config", "filter", "min_cutoff_hz"}), "%.2f") + " Hz, beta " +
                        fmt(num(r, {"config", "filter", "beta"}), "%.2f") + ")").c_str()
                     : "uit");
+    std::printf("Voorspelling: %s; huidige draaisnelheid %.0f graden/s, gewicht %.2f, voorspelde hoek %.2f graden, rapportleeftijd %.1f ms\n",
+                num(r, {"config", "aim", "predict_ms"}, 0) > 0 ? (fmt(num(r, {"config", "aim", "predict_ms"}), "%.0f") + " ms vooruit").c_str() : "uit",
+                num(r, {"config", "predict", "rate_dps"}, 0), num(r, {"config", "predict", "gain"}, 0), num(r, {"config", "predict", "angle_deg"}, 0),
+                num(r, {"config", "predict", "report_age_ms"}, 0));
+    if (const json::Value* ck = path(r, {"output", "live", "clock"}))
+        std::printf("Uitvoerklok:  %s; extrapolatie max. %.0f ms; %.0f tikken, %.0f geëxtrapoleerd, %.0f vastgehouden, %.0f positie-events\n",
+                    boolean(*ck, {"enabled"}) ? (fmt(num(*ck, {"hz"}), "%.0f") + " Hz").c_str() : "uit (positie per rapport)", num(*ck, {"extrapolate_ms"}, 0),
+                    num(*ck, {"ticks"}, 0), num(*ck, {"extrapolated"}, 0), num(*ck, {"held"}, 0), num(*ck, {"events"}, 0));
     std::printf("Knoppen:      %s, trigger %.0f\n", names(path(s, {"buttons", "down"})).c_str(), num(s, {"trigger"}, 0));
     std::printf("Uitbreiding:  ext verbonden: %s\n", ext_text(s).c_str());
     if (const json::Value* tb = path(r, {"timebase"})) {
@@ -667,7 +679,7 @@ int main(int argc, char** argv) {
     try {
         std::string cmd;
         bool json = false, full = false;
-        double rate = -1, duration = -1, min_cutoff = -1, beta = -1, dwell = -1, margin = -1, max_mb = -1;
+        double rate = -1, duration = -1, min_cutoff = -1, beta = -1, d_cutoff = -1, extrap_ms = -1, dwell = -1, margin = -1, max_mb = -1;
         double inv_x = -1, inv_y = -1, sc_x = -1, sc_y = -1, off_x = NAN, off_y = NAN, lb_screen = -1, lb_content = -1;
         std::vector<std::string> pos;
         int filter_on = -1;
@@ -688,6 +700,8 @@ int main(int argc, char** argv) {
             else if (a == "--duration") duration = need(i, "--duration", 0.1, 1e7);
             else if (a == "--min-cutoff") min_cutoff = need(i, "--min-cutoff", 0.001, 100);
             else if (a == "--beta") beta = need(i, "--beta", 0, 1000);
+            else if (a == "--d-cutoff") d_cutoff = need(i, "--d-cutoff", 0.001, 100);
+            else if (a == "--extrapolate-ms") extrap_ms = need(i, "--extrapolate-ms", 0, 100);
             else if (a == "--dwell") dwell = need(i, "--dwell", 50, 60000);
             else if (a == "--margin") margin = need(i, "--margin", 0, 0.499);
             else if (a == "--invert-x") inv_x = need(i, "--invert-x", 0, 1);
@@ -714,7 +728,7 @@ int main(int argc, char** argv) {
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
             else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
-            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim")) arg2 = a;
+            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim" || cmd == "predict" || cmd == "clock")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
         if (cmd.empty()) { usage(stderr); return kExitUsage; }
@@ -776,12 +790,55 @@ int main(int argc, char** argv) {
             else std::printf("Midden vastgelegd op de huidige richting van de Move.\n");
             return kExitOk;
         }
+        if (cmd == "predict" || cmd == "clock") {
+            const bool pr = cmd == "predict";
+            double v = -1;
+            if (!arg2.empty()) {
+                char* end = nullptr;
+                v = std::strtod(arg2.c_str(), &end);
+                if (!end || *end || !std::isfinite(v) || v < 0 || v > (pr ? 200 : 1000) || (!pr && v > 0 && v < 20)) {
+                    std::fprintf(stderr, pr ? "ravengunctl: predict verwacht een aantal ms tussen 0 (uit) en 200\n"
+                                            : "ravengunctl: clock verwacht 0 (uit) of een frequentie tussen 20 en 1000 Hz\n");
+                    return kExitUsage;
+                }
+            }
+            if (v < 0 && extrap_ms < 0) {  // zonder waarde: tonen
+                rq.cmd = ipc::Cmd::Status;
+                Reply r = call(c, rq);
+                if (r.code != kExitOk) return r.code;
+                if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+                if (pr) std::printf("Voorspelling: %.0f ms (0 = uit)\n", num(r.v, {"result", "config", "aim", "predict_ms"}, 0));
+                else std::printf("Uitvoerklok: %.0f Hz (0 = uit), extrapolatie max. %.0f ms\n", num(r.v, {"result", "output", "live", "clock", "hz"}, 0),
+                                 num(r.v, {"result", "output", "live", "clock", "extrapolate_ms"}, 0));
+                return kExitOk;
+            }
+            if (pr) { rq.cmd = ipc::Cmd::SetAim; rq.predict_ms = v; }
+            else {
+                rq.cmd = ipc::Cmd::SetClock;
+                if (v >= 0) rq.clock_hz = v;
+                if (extrap_ms >= 0) rq.extrapolate_ms = extrap_ms;
+            }
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (pr) {
+                const double ms = num(r.v, {"result", "predict_ms"}, 0);
+                if (ms > 0) std::printf("Voorspelling: %.0f ms vooruit (live toegepast en bewaard in config.json).\n", ms);
+                else std::printf("Voorspelling uit (live toegepast en bewaard in config.json).\n");
+            } else {
+                const double hz = num(r.v, {"result", "clock_hz"}, 0);
+                if (hz > 0) std::printf("Uitvoerklok: %.0f Hz, extrapolatie max. %.0f ms (live toegepast en bewaard).\n", hz, num(r.v, {"result", "extrapolate_ms"}, 0));
+                else std::printf("Uitvoerklok uit: de positie volgt alleen de rapporten (live toegepast en bewaard).\n");
+            }
+            return kExitOk;
+        }
         if (cmd == "filter") {
-            if (filter_on < 0 && min_cutoff < 0 && beta < 0) { std::fprintf(stderr, "ravengunctl: filter vereist --on, --off, --min-cutoff of --beta\n"); return kExitUsage; }
+            if (filter_on < 0 && min_cutoff < 0 && beta < 0 && d_cutoff < 0) { std::fprintf(stderr, "ravengunctl: filter vereist --on, --off, --min-cutoff, --beta of --d-cutoff\n"); return kExitUsage; }
             rq.cmd = ipc::Cmd::SetFilter;
             if (filter_on >= 0) rq.filter_enabled = filter_on == 1;
             if (min_cutoff >= 0) rq.min_cutoff_hz = min_cutoff;
             if (beta >= 0) rq.beta = beta;
+            if (d_cutoff >= 0) rq.d_cutoff_hz = d_cutoff;
             Reply r = call(c, rq);
             if (r.code != kExitOk) return r.code;
             std::printf("%s\n", json ? r.line.c_str() : "Filterinstelling toegepast (alleen voor deze daemon-run).");

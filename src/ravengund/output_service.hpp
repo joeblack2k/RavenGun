@@ -9,6 +9,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/output/aim_clock.hpp"
 #include "ravengun/output/gun_output.hpp"
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/output/test_pattern.hpp"
@@ -41,6 +42,9 @@ public:
     // loopt; release_all werkt altijd. Zie ravengun/output/live_feed.hpp.
     void feed_live(const ravengun::output::LiveAction& a);
     bool armed() const;
+    // Uitvoerklok (fase 6): live instelbaar; hz = 0 zet hem uit (positie alleen per rapport).
+    ravengun::output::OutputClockConfig clock_config() const;
+    void set_clock(const ravengun::output::OutputClockConfig& c);
     // Actieve knoppenindeling (voor status/startlog); de live koppeling zelf zit in de HID-thread.
     void set_layout(const std::vector<std::pair<std::string, std::string>>& layout);
     // Stopt patroon, geeft knoppen vrij en verwijdert het apparaat. Idempotent.
@@ -55,6 +59,7 @@ public:
 private:
     void pattern_main(std::vector<ravengun::output::PatternStep> steps, ravengun::output::PatternParams p, uint64_t run_id);
     void stop_pattern_locked(std::unique_lock<std::mutex>& lk);
+    void clock_main();
 
     mutable std::mutex m_;
     std::condition_variable cv_;
@@ -62,6 +67,13 @@ private:
     ravengun::output::UinputKeyboard kbd_;
     std::vector<std::pair<std::string, std::string>> layout_;
     ravengun::output::GunOutput out_;
+    // Uitvoerklok: eigen thread, schrijft onder m_ de geëxtrapoleerde positie tussen de rapporten (zie aim_clock.hpp).
+    ravengun::output::AimClock clock_;
+    std::thread clock_thread_;
+    std::condition_variable clock_cv_;
+    bool clock_changed_ = false;
+    bool clock_idle_ = false;   // vastgehouden na de extrapolatielimiet: de klokthread slaapt tot het volgende rapport
+    uint64_t clock_ticks_ = 0, clock_extrapolated_ = 0, clock_held_ = 0, clock_events_ = 0;
 
     std::thread pattern_thread_;
     bool pattern_running_ = false;

@@ -116,7 +116,18 @@ struct InputSample {
     CenterSource center_source = CenterSource::None;
     double yaw_rel_deg = 0, pitch_rel_deg = 0;   // t.o.v. het midden
     double x_raw = 0.5, y_raw = 0.5;             // ongefilterd, unclamped
-    AimPoint aim{};                               // na het (optionele) 1€-filter; unclamped + clamped
+    AimPoint aim{};                               // na voorspelling en het (optionele) 1€-filter; unclamped + clamped
+    // Voorspelling en uitvoerklok (niet in de JSON): x_pred/y_pred = aim na de voorspelling, vóór het 1€-filter
+    // (gelijk aan x_raw/y_raw als de voorspelling uit staat). aim_vx/aim_vy = snelheid van de gefilterde aim
+    // (genormaliseerd per seconde, uit de Move-tijd tussen twee rapporten), waarmee de uitvoerklok tussen
+    // rapporten extrapoleert; 0 na een reset of een te groot gat. pred_deg = voorspelde draaihoek (graden).
+    double x_pred = 0.5, y_pred = 0.5;
+    double aim_vx = 0, aim_vy = 0;
+    double pred_deg = 0;
+    // Extra transportvertraging van dit rapport boven het kleinste waargenomen transport (ms; ontvangsttijd min de gekoppelde
+    // Move-klok, zie move_clock.hpp), 0 zonder stempel. De uitvoerklok verankert het rapport op t_rx - age_ms en extrapoleert
+    // zo de Bluetooth-jitter weg (de rapporten komen in paren binnen, ~5 en ~20 ms na elkaar).
+    double age_ms = 0;
     bool filter_enabled = false;
 
     // Knoppen en trigger

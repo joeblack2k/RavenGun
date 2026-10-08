@@ -38,6 +38,9 @@ public:
     virtual void set_filter(const ravengun::core::OneEuroConfig& c) = 0;
     virtual ravengun::core::AimConfig aim() const = 0;
     virtual void set_aim(const ravengun::core::AimConfig& c) = 0;
+    // Voorspelling van de oriëntatie (live, geen reset): de horizon staat in horizon_ms.
+    virtual ravengun::core::PredictConfig predict() const { return {}; }
+    virtual void set_predict(const ravengun::core::PredictConfig&) {}
     // Fase 0/1/3. Resultaat: JSON, of "!code|melding" bij een fout.
     virtual std::string record(const ravengun::ipc::Request& r) = 0;
     virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;

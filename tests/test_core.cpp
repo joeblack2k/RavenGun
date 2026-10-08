@@ -447,6 +447,27 @@ static void test_protocol() {
     CHECK(as_req(r) && as_req(r)->rate_hz == 60 && as_req(r)->full_ids && as_req(r)->id_json == "\"abc\"");
     r = ipc::parse_request(R"({"v":1,"cmd":"set_filter","enabled":false})");
     CHECK(as_req(r) && as_req(r)->filter_enabled && !*as_req(r)->filter_enabled);
+    r = ipc::parse_request(R"({"v":1,"cmd":"set_aim","predict_ms":35})");
+    CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::SetAim && as_req(r)->predict_ms && *as_req(r)->predict_ms == 35 && !as_req(r)->h_edge_deg);
+    r = ipc::parse_request(R"({"v":1,"cmd":"set_aim","predict_ms":0})");
+    CHECK(as_req(r) && as_req(r)->predict_ms && *as_req(r)->predict_ms == 0);
+    r = ipc::parse_request(R"({"v":1,"cmd":"set_clock","clock_hz":250,"extrapolate_ms":30})");
+    CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::SetClock && *as_req(r)->clock_hz == 250 && *as_req(r)->extrapolate_ms == 30);
+    r = ipc::parse_request(R"({"v":1,"cmd":"set_clock","clock_hz":0})");
+    CHECK(as_req(r) && *as_req(r)->clock_hz == 0 && !as_req(r)->extrapolate_ms);
+    {   // client-kant: make_request en parse_request zijn elkaars inverse
+        ipc::Request q;
+        q.cmd = ipc::Cmd::SetAim;
+        q.predict_ms = 42;
+        auto back = ipc::parse_request(ipc::make_request(q));
+        CHECK(as_req(back) && as_req(back)->predict_ms && *as_req(back)->predict_ms == 42);
+        ipc::Request k;
+        k.cmd = ipc::Cmd::SetClock;
+        k.clock_hz = 125;
+        k.extrapolate_ms = 20;
+        auto b2 = ipc::parse_request(ipc::make_request(k));
+        CHECK(as_req(b2) && as_req(b2)->cmd == ipc::Cmd::SetClock && *as_req(b2)->clock_hz == 125 && *as_req(b2)->extrapolate_ms == 20);
+    }
     r = ipc::parse_request(R"({"v":1,"cmd":"recenter"})");
     CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::Recenter);
     r = ipc::parse_request(R"({"v":1,"cmd":"clear_trim"})");
@@ -471,6 +492,14 @@ static void test_protocol() {
              {R"({"v":1,"cmd":"set_filter"})", "invalid_argument"},
              {R"({"v":1,"cmd":"set_filter","beta":-1})", "invalid_argument"},
              {R"({"v":1,"cmd":"set_aim","h_edge_deg":0})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_aim","predict_ms":-5})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_aim","predict_ms":201})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_aim","predict_ms":"40"})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_clock"})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_clock","clock_hz":10})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_clock","clock_hz":2000})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_clock","extrapolate_ms":-1})", "invalid_argument"},
+             {R"({"v":1,"cmd":"set_clock","hz":250})", "bad_request"},
              {R"({"v":1,"cmd":"status","id":[1]})", "bad_request"},
              {R"({"v":1,"cmd":"status","id":1.5})", "bad_request"},
          }) {

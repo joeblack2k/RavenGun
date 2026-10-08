@@ -486,11 +486,93 @@ Fase 5: geometrie en schermkalibratie
 - Tests: synthetische scènes met een bekende waarheid (fit herstelt de parameters, ongeldige geometrie geeft de juiste redenen).
 - Hardware: de laservalidatie (6.1), leave-one-position-out en de kanteltest.
 
-Fase 6: uitvoer en gevoel
+Fase 6: uitvoer en gevoel (gebouwd op 8 oktober 2026: voorspelling, uitvoerklok en latentiemeting)
 
-- Bouw: de uitvoerklok van 250 Hz in de HID-lus, de begrensde predictie met remdetectie, het 1€-filter verplaatst naar de schermcoördinaat, de optionele stilstandsvergrendeling, en de uinput-backend (`/dev/input/ravengun-gun`).
-- Hergebruik: `OneEuro` en `EdgeAccumulator`.
-- Hardware: de latentieketen (5.1), doorschot (6.6), jitter (6.3) en een gevoelstest door de gebruiker in de standalone richttest.
+Het oorspronkelijke plan (uitvoerklok van 250 Hz, begrensde predictie met remdetectie, 1€-filter naar de schermcoördinaat, optionele stilstandsvergrendeling, uinput-backend) is gedeeltelijk uitgevoerd. De uinput-backend bestond al (fase 2). Nieuw: de voorspelling, de uitvoerklok en `ravengun-analyze latency`. Niet gebouwd: het 1€-filter blijft per rapport op de aim staan (niet op de uitvoertik) en er is geen stilstandsvergrendeling; zie "Wat niet gedaan is" hieronder.
+
+Ontwerp van de voorspelling (`src/ravengun/core/predict.*`, `aim.predict_ms`, `ravengunctl predict MS`, web-UI Instellingen)
+
+- Per rapport wordt de bias-gecorrigeerde draaisnelheid (gemiddelde van de twee subsamples, in het wereldstelsel) met een exponentieel filter (tijdconstante 10 ms, met de echte Move-dt) gladgestreken. De richtas wordt daarna `predict_ms` vooruit gedraaid, vóór de omrekening naar de aim en dus vóór het 1€-filter. De schatter zelf (`q`) en `x_raw/y_raw` blijven ongewijzigd; het sample krijgt `x_pred/y_pred` (alleen in het interne model, niet in de sample-JSON).
+- Hoekversnellingsterm: wel. Een tweede exponentieel filter (10 ms) schat de hoekversnelling; die compenseert de vertraging van het snelheidsfilter in een versnelling en laat een afremmende beweging op het punt stoppen waar ze volgens het model tot stilstand komt (nooit terugdraaien). Onderbouwing uit de opnames (filter 0,3/10/20, horizon 40 ms): zonder versnellingsterm is de RMS-fout bij 50 ms latentie 42,2 px en het surplus-overshoot p95 22,5 px; met volle versnellingsterm 34,7 px en 19,9 px (met tijdconstanten 15 ms), en met 10 ms 33,8 px en 15,9 px. De kosten zijn ruis: bij een synthetische gyroruis van 0,57 graden/s per subsample en 10 graden/s snelheid is de spreiding van de voorspelde voorsprong 1,15 px met en 0,80 px zonder versnellingsterm; in de opnames is de jitter bij rustig houden gelijk tot op 0,04 px.
+- Rustig houden: het gewicht van de voorspelling gaat met een smoothstep van 0 bij 3 graden/s naar 1 bij 15 graden/s. Handtrilling en ruis in stilstand krijgen dus nooit een voorspelling (getest: de uitvoer is dan bit-voor-bit gelijk aan de uitvoer zonder voorspelling). De voorspelde draaihoek is begrensd op 8 graden.
+- Een eerste versie gaf bij een abrupte stop een zwiep terug: het versnellingsfilter loopt achter, waardoor de gecorrigeerde snelheid van teken wisselde. Dat is gevonden met een synthetische stop-test en opgelost door de gecorrigeerde snelheid op nul te zetten zodra ze omdraait.
+- Het 1€-filter gebruikt voortaan de Move-tijd tussen twee rapporten (`filter_dt_move`, standaard aan) in plaats van de ontvangsttijd. De rapporten komen via Bluetooth in paren binnen (zie transport), dus de ontvangst-dt is afwisselend 5 en 20 ms terwijl de sensortijd regelmatig 11,3 ms is. Effect in de meting: ongeveer 0,7 ms minder vertraging.
+
+Ontwerp van de uitvoerklok (`src/ravengun/output/aim_clock.*`, `output.clock_hz`, `output.extrapolate_ms`, `ravengunctl clock HZ`)
+
+- Eigen thread in `OutputService`, 250 Hz op een vast raster (gemiste tikken worden overgeslagen). De HID-thread levert na elk rapport het anker: de gefilterde aim, zijn snelheid (uit de Move-tijd tussen twee rapporten) en de extra transportvertraging van dat rapport. Alles onder dezelfde mutex als de uinput-schrijfacties; de critical sections zijn microseconden en de HID-thread wacht nooit op een schrijfactie van betekenis.
+- Tussen rapporten en tijdens gaten wordt anker + snelheid * min(Δt, 40 ms) geschreven; daarna wordt vastgehouden. Een ongeldige aim (stale, lost, disconnect, geen midden), disarm of een lopend testpatroon wist het anker. Het rapport zelf schrijft de positie meteen (geen wachttijd tot de volgende tik); knoppen blijven direct per rapport. `GunOutput` stuurt alleen een event als de gehele uinput-waarde verandert, dus vasthouden kost geen events.
+- Leeftijdscompensatie (`age_comp`, standaard aan): het anker ligt op `t_rx - age`, met `age` de restvertraging van het rapport boven het snelste waargenomen transport (ondergrenskoppeling van de Move-klok). Een rapport dat 15 ms later aankomt dan het snelste, wordt 15 ms verder geëxtrapoleerd. `hz = 0` geeft het oude gedrag (positie alleen per rapport).
+
+Meetmethode (`ravengun-analyze latency FILE... --cal CAL.json`, `src/ravengun/rec/latency.*`)
+
+- Elke opname wordt met een instelling (voorspelhorizon, filter) door de echte `Pipeline` afgespeeld (schatter vqf_mag met de kalibratie). De waarheid is de ongefilterde, niet-voorspelde aim van dezelfde ronde op sensortijd (Move-stempel). De uitvoer op tijd t wordt vergeleken met de waarheid op t + L. Pixels: 1920 x 1080 voor aim 0 tot 1.
+- Effectieve vertraging: de L waarbij de RMS-fout tijdens beweging (waarheidssnelheid boven 300 px/s) minimaal is, met parabolische verfijning; vertraging = -L. Negatief betekent dat de uitvoer voorloopt. Ook per snelheidsband: traag (300 tot 1000 px/s), middel (1000 tot 3000) en snel (boven 3000).
+- RMS-fout bij een aangenomen totale latentie Λ (standaard 50 ms): uitvoer(t) tegen waarheid(t + Λ).
+- Jitter: RMS van de hoogfrequente component (uitvoer min een lopend gemiddelde van ±125 ms), in stilstand (waarheidssnelheid onder 100 px/s, minstens 0,6 s) en bij rustig houden (onder 250 px/s).
+- Overshoot: bij abrupte stops (snelheid ~70 ms eerder boven 700 px/s, daarna onder 300 px/s en 0,2 s rustig) hoever de uitvoer voorbij het rustpunt van de waarheid komt, langs de bewegingsrichting, in px. Daarnaast het surplus boven de overshoot van de hand zelf (de waarheid): dat is wat de voorspelling toevoegt.
+- Sprong na een gat: het verschil tussen de positie net vóór en net na aankomst van een rapport waar volgens de Move-stempel rapporten aan voorafgingen die verloren zijn, met en zonder extrapolatie van de uitvoerklok.
+- Uitvoermodi in het tijdsdomein: de getoonde positie op een raster van 4 ms (per rapport vasthouden, klok met anker op de ontvangsttijd, klok met leeftijdscompensatie) tegen de waarheid op "minimumtransport-tijd" (`t_rx - age`).
+
+Gemeten (3 Halo-opnames, samen 914 s, 69 780 rapporten met aim, 129 abrupte stops; beweging 29 tot 49 % van de tijd; 64 tot 74 % van de bewegingsrapporten is traag)
+
+Transport, voor zover uit de opname te zien (in alle drie hetzelfde):
+- 76,3 rapporten/s ontvangen, nominaal 88,7 (Move-stempel 11,28 ms): ongeveer 13,9 % verloren. De ontvangst komt in paren: intervallen van afwisselend ~5 en ~20 ms (p50 17,0, p95 21,0, max 53 ms), terwijl de Move-stempel regelmatig 11,3 ms geeft. Elke Bluetooth-verbindingsgebeurtenis levert dus twee rapporten tegelijk af.
+- Extra vertraging boven het kleinste waargenomen transport (ontvangsttijd min gekoppelde Move-klok): p50 8,4 tot 8,7 ms, p95 15,6 tot 16,0, p99 17,5 tot 18,5, max 44 tot 48 ms.
+- Gemiddelde leeftijd van de getoonde waarde bij uitvoer per rapport: 8,5 ms (de houdtijd tot het volgende rapport).
+- Eerste subsample van een rapport is een halve rapportperiode (5,6 ms) ouder dan het tweede; de oriëntatie hoort bij het tweede.
+- Niet meetbaar met deze data: het absolute moment van de sensor ten opzichte van de stempel, de vaste Bluetooth-latentie (radio, controllerbuffer, hostcontroller), de game-latentie (poll- en framesteek van TeknoParrot/Halo) en de tv-latentie. Ook meten we alleen tegen onze eigen schatter: de afwijking van de schatter t.o.v. de echte richting (drift, schaal) zit er niet in.
+
+Filtervertraging bij de oude instelling (min_cutoff 1, beta 10, d_cutoff 1, zonder voorspelling): 8,7 ms gemiddeld tijdens beweging; 24,2 ms bij traag richten, 14,8 ms bij middelsnel en 4,9 ms bij snel. Het 1€-filter is dus bij langzame bewegingen de grootste vertragingsbron die wij zelf toevoegen. De vertraging hangt vooral aan beta en d_cutoff, de jitter vooral aan beta; min_cutoff speelt in beweging nauwelijks mee.
+
+Per filterinstelling en horizon (vertraging alle beweging in ms, fout in px bij Λ = 50 ms, jitter stil/houd in px, surplus-overshoot p95 in px; waarheid zelf: jitter 1,23/2,47 px, overshoot van de hand p95 71,8 px):
+
+Filter uit:
+- 0 ms: 0,0; 84,6; 1,23/2,47; 0
+- 10 ms: -9,8; 68,2; 1,23/2,47; 5,0
+- 20 ms: -19,9; 51,9; 1,23/2,49; 10,3
+- 30 ms: -29,9; 36,8; 1,23/2,52; 20,3
+- 40 ms: -39,5; 26,5; 1,23/2,57; 31,5
+- 60 ms: -56,5; 39,8; 1,24/2,78; 60,1
+
+Oude instelling (1 Hz, beta 10, d_cutoff 1 Hz):
+- 0 ms: 8,7; 100,3; 0,65/1,74; 0
+- 10 ms: -1,0; 84,5; 0,65/1,74; 0
+- 20 ms: -10,7; 68,7; 0,65/1,74; 0
+- 30 ms: -20,7; 53,3; 0,65/1,74; 3,4
+- 40 ms: -30,3; 40,0; 0,65/1,75; 8,6
+- 60 ms: -47,4; 34,2; 0,65/1,79; 34,2
+
+Nieuwe standaard (0,3 Hz, beta 10, d_cutoff 20 Hz):
+- 0 ms: 5,4; 94,1; 0,66/1,83; 0
+- 10 ms: -4,3; 78,0; 0,66/1,83; 0
+- 20 ms: -14,3; 61,8; 0,66/1,83; 0
+- 30 ms: -24,3; 46,2; 0,66/1,84; 7,5
+- 40 ms: -34,1; 33,8; 0,66/1,87; 15,9
+- 60 ms: -51,6; 36,9; 0,66/2,00; 44,2
+
+Waarom die filterwaarden: bij gelijke jitter in stilstand (0,65 tegen 0,66 px) en 5 % meer jitter bij rustig houden (1,74 tegen 1,83 px) valt de vertraging van 8,7 naar 5,4 ms (traag 24,2 naar 17,4 ms). Hogere beta geeft minder vertraging maar meer jitter (beta 20 met d_cutoff 20: 3,3 ms, jitter 0,78/2,03). Op een scherm van 1920 px zijn dit sub-pixel verschillen; wie veel inzoomt (scope) wil misschien meer filtering. De voorspelling compenseert vertraging bij bewegen, niet bij langzaam richten, dus een lagere filtervertraging is geen dubbelop.
+
+Fout bij andere aangenomen latenties (nieuwe filter): bij Λ = 30, 50, 70 en 90 ms is de RMS-fout zonder voorspelling 61,9; 94,1; 125,4 en 155,6 px, met 40 ms voorspelling 20,8; 33,8; 64,7 en 96,9 px, met 60 ms 53,1; 36,9; 49,0 en 76,4 px. De fout is minimaal bij een horizon ongeveer gelijk aan Λ (iets lager bij grote Λ); verder doorvoorspellen maakt het slechter (vormfouten en overshoot).
+
+Uitvoermodi (nieuw filter, voorspelling 0; vertraging t.o.v. een rapport via het snelste waargenomen transport; sluit de filtervertraging van 5,4 ms in):
+- per rapport vasthouden: 21,1 ms
+- klok met anker op de ontvangsttijd: 13,0 ms (de houdtijd van 8,5 ms is weg)
+- klok met leeftijdscompensatie: 6,1 ms (ook de aankomstjitter van gemiddeld 8,5 ms is weg)
+
+Sprong bij aankomst na een gat (px; nieuwe filter): zonder voorspelling p95 37,3 en max 840 zonder extrapolatie, 12,8 en 594 met; tijdens beweging 63,2/840 tegen 21,2/594. Bij 40 ms voorspelling 49,5/1263 tegen 31,8/738, tijdens beweging 80,0/1263 tegen 58,1/738. Over alle rapportintervallen daalt p95 van 22,6 naar 7,1 px (zonder voorspelling) en van 28,3 naar 19,8 px (40 ms). Met voorspelling zijn de sprongen groter omdat de snelheid van de voorspelde aim ruwer is; extrapoleren blijft beter dan stilstaan. De maxima komen uit enkele snelle zwaaien in een gat en zijn niet te voorspellen. Extrapolatielimiet 25 of 40 ms geeft hetzelfde; 15 ms is duidelijk slechter. Een taper (snelheid lineair naar 0 op de limiet) maakt het niet beter.
+
+Gekozen standaardwaarden en onzekerheid
+- `aim.predict_ms` = 40. Onderbouwing: de gemeten eigen vertraging van de keten (filter 5 ms, na de klok geen houdtijd en geen aankomstjitter meer) laat de vaste Bluetooth-latentie, de game en de tv over. Dat zijn aannames, geen metingen: Bluetooth naar schatting 10 tot 30 ms, de game een tot twee frames bij 60 Hz (17 tot 33 ms) en de tv 10 tot 40 ms, samen ongeveer 40 tot 100 ms. 40 ms compenseert het onderste deel zonder merkbaar doorschieten: het surplus-overshoot p95 is 16 px (0,3 graden), de mediaan 0, en de jitter bij rustig houden stijgt 2 %. Bij 60 ms is het surplus 44 px (p95) en stijgt de jitter 9 %; voorbij Λ wordt de fout groter. De echte Λ is niet meetbaar: staat de tv in spelmodus en loopt het spel op 60 fps, dan is 30 ms genoeg; met een trage tv kan 60 ms beter voelen. De gebruiker stelt op gevoel bij met `ravengunctl predict MS` of de web-UI.
+- `output.clock_hz` = 250, `output.extrapolate_ms` = 40, leeftijdscompensatie aan.
+- Filter: min_cutoff 0,3, beta 10, d_cutoff 20 (nu code-standaard in `config::FilterSettings`). Het bestaande `~/.config/ravengun/config.json` van de gebruiker bevat expliciet 1/10/1 en wordt niet overschreven; toepassen met `ravengunctl filter --min-cutoff 0.3 --beta 10 --d-cutoff 20`.
+- Statistisch: de drie opnames zijn van één speler, één sessie en één Bluetooth-verbinding, met dezelfde Sharp Shooter. De stops zijn met 129 niet veel; het p95 van het overshoot rust op de grootste zes of zeven waarden. De vergelijking tussen instellingen binnen dezelfde opnames is wel scherp, de absolute getallen zijn dat niet.
+
+Wat niet gedaan is of niet gehaald
+- Het 1€-filter staat nog per rapport; het verplaatsen naar de uitvoertik (zoals het oorspronkelijke plan) is niet gedaan. De klok extrapoleert de gefilterde aim.
+- Geen stilstandsvergrendeling.
+- De klokthread en de uinput-schrijfacties zijn niet live getest met een gewapend apparaat (er was een andere agent met een game bezig); getest zijn de klasse `AimClock` met een nep-apparaat, de configuratie, IPC, CLI en web-API, en de thread zelf alleen in ontwapende toestand. De echte werking op de tv is dus nog te bevestigen: `ravengunctl arm`, bewegen en `ravengunctl status` (sectie Uitvoerklok: tikken, geëxtrapoleerd, vastgehouden, positie-events).
+- Het echte gevoel (en de totale motion-to-photon-latentie) is niet gemeten. Dat kan alleen met een camera of fotodiode op het scherm.
 
 Fase 7: robuustheid en de G2-sessie
 

@@ -37,6 +37,20 @@ echo "$OUT" | grep -q '"schema_version":2' || fail "schema_version ontbreekt"
 "$C" filter --off >/dev/null || fail "filter --off faalde"
 "$C" status --json | grep -q '"filter":{"enabled":false' || fail "filter niet uit"
 
+# Voorspelling en uitvoerklok: live instelbaar, zichtbaar in de status.
+"$C" predict 35 >/dev/null || fail "predict faalde"
+"$C" predict | grep -q "35 ms" || fail "predict toont de horizon niet"
+"$C" status --json | grep -q '"predict_ms":35' || fail "predict_ms niet in de status"
+"$C" predict 300 2>/dev/null
+[ $? -eq 64 ] || fail "predict 300 moet een gebruiksfout geven"
+"$C" predict 0 >/dev/null || fail "predict 0 faalde"
+"$C" clock 125 --extrapolate-ms 30 >/dev/null || fail "clock faalde"
+"$C" status --json | grep -q '"clock":{"enabled":true,"hz":125' || fail "klok niet in de status"
+"$C" clock 0 >/dev/null || fail "clock 0 faalde"
+"$C" clock 10 2>/dev/null
+[ $? -eq 64 ] || fail "clock 10 moet een gebruiksfout geven"
+"$C" filter --d-cutoff 5 >/dev/null || fail "filter --d-cutoff faalde"
+
 "$C" watch --duration 0.5 --json >/dev/null || fail "watch faalde"
 
 OUT=$("$C" camera --json) || fail "camera faalde"

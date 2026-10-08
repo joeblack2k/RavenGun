@@ -10,6 +10,8 @@ namespace {
 constexpr size_t kIntervalRing = 16384;
 constexpr size_t kTimeRing = 4096;
 constexpr double kLongDtS = 0.05;
+constexpr double kMaxAgeMs = 40.0;
+constexpr double kMaxExtrapDtS = 0.06;  // snelheid voor de uitvoerklok alleen uit rapporten niet verder uit elkaar
 }  // namespace
 
 // ---------------- ReportStats ----------------
@@ -55,7 +57,7 @@ double ReportStats::rate(int64_t now_ns, double window_s) const {
 // ---------------- Pipeline ----------------
 
 Pipeline::Pipeline(PipelineConfig cfg)
-    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), vqf_(cfg.vqf), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pump_(cfg.pump), clock_(cfg.clock), trim_(cfg.trim) {}
+    : cfg_(cfg), bias_(cfg.bias), fusion_(cfg.fusion), mag_(cfg.mag), vqf_(cfg.vqf), aim_(cfg.aim), fx_(cfg.filter), fy_(cfg.filter), pred_(cfg.predict), pump_(cfg.pump), clock_(cfg.clock), trim_(cfg.trim) {}
 
 void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     if (!controller_id_.empty() && id != controller_id_) {
@@ -79,6 +81,7 @@ void Pipeline::on_connect(const std::string& id, int64_t now_ns) {
     have_rx_ = false;
     last_hid_seq_ = -1;
     reset_filter_ = true;
+    pred_.reset();
     link_ = LinkState::Stale;  // verbonden, maar nog geen rapport
     last_rx_ns_ = now_ns;
     clock_.reset();
@@ -150,19 +153,42 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     return s;
 }
 
-void Pipeline::fill_aim(InputSample& s, double dt) {
+void Pipeline::fill_aim(InputSample& s, double dt, double dt_move) {
     s.aim_valid = false;
-    if (!s.orientation_valid || !aim_.has_center()) return;
-    AimAngles rel = aim_.relative(q_out());
+    if (!s.orientation_valid || !aim_.has_center()) { have_out_ = false; return; }
+    const Quat q = q_out();
+    AimAngles rel = aim_.relative(q);
     s.yaw_rel_deg = rel.yaw_rad * kDegPerRad;
     s.pitch_rel_deg = rel.pitch_rad * kDegPerRad;
     AimPoint raw = aim_.map(rel.yaw_rad, rel.pitch_rad);
     s.x_raw = raw.x;
     s.y_raw = raw.y;
-    if (reset_filter_) { fx_.reset(); fy_.reset(); reset_filter_ = false; }
-    double x = fx_.filter(raw.x, dt), y = fy_.filter(raw.y, dt);
+    // Voorspelling: de richtas een horizon vooruit, vóór de omrekening naar het scherm.
+    AimPoint pr = raw;
+    s.pred_deg = 0;
+    if (cfg_.predict.enabled() && pred_.primed()) {
+        const Vec3 phi = pred_.rotation(cfg_.predict.horizon_ms * 1e-3);
+        s.pred_deg = norm(phi) * kDegPerRad;
+        if (s.pred_deg > 0) {
+            AimAngles rp = aim_.relative(pred_.apply(q, cfg_.predict.horizon_ms * 1e-3));
+            pr = aim_.map(rp.yaw_rad, rp.pitch_rad);
+        }
+    }
+    s.x_pred = pr.x;
+    s.y_pred = pr.y;
+    if (reset_filter_) { fx_.reset(); fy_.reset(); reset_filter_ = false; have_out_ = false; }
+    const double fdt = (cfg_.filter_dt_move && dt_move > 0) ? dt_move : dt;
+    double x = fx_.filter(pr.x, fdt), y = fy_.filter(pr.y, fdt);
     s.aim = AimMapper::clamp(x, y);
     s.aim_valid = true;
+    s.aim_vx = s.aim_vy = 0;
+    if (have_out_ && dt_move > 0 && dt_move <= kMaxExtrapDtS) {
+        s.aim_vx = (x - out_x_) / dt_move;
+        s.aim_vy = (y - out_y_) / dt_move;
+    }
+    out_x_ = x;
+    out_y_ = y;
+    have_out_ = true;
 }
 
 InputSample Pipeline::on_report(const RawReport& r) {
@@ -268,6 +294,10 @@ InputSample Pipeline::on_report(const RawReport& r) {
         if (mag_apply_now) fusion_.set_q(q);
     }
 
+    // Draaisnelheid voor de voorspelling: gemiddelde bias-gecorrigeerde gyro van dit rapport, in het wereldstelsel.
+    if (dt_int > cfg_.fusion.max_dt_s) pred_.reset();
+    else if (fusion_.initialized()) pred_.update(rotate(q_out(), g_sum * (1.0 / n)), dt_int);
+
     const bool ext_on = r.has_ext && r.ext_connected && cfg_.ext_mode != ExtMode::None;
     const bool pump = pump_.update(ext_on, r.trigger, ext_on && (r.ext[0] & 0x40));
     ButtonEdges e = edges_.update(r.buttons | ext_buttons(cfg_.ext_mode, r.has_ext && r.ext_connected, r.ext) | (pump ? kBtnPump : 0u));
@@ -297,7 +327,8 @@ InputSample Pipeline::on_report(const RawReport& r) {
     s.report_dt_s = dt;
     s.pressed = e.pressed;
     s.released = e.released;
-    fill_aim(s, dt);
+    s.age_ms = (r.has_stamp && !last_clock_.first) ? std::clamp(last_clock_.residual_ms, 0.0, kMaxAgeMs) : 0.0;
+    fill_aim(s, dt, dt_int);
     last_ = s;
     return s;
 }
@@ -400,6 +431,11 @@ void Pipeline::set_fusion_mode(FusionMode m) {
     // vergrendeling bij een volgende inschakeling; q blijft staan (geen sprong).
     mag_.relock();
     trim_.invalidate();
+}
+
+void Pipeline::set_predict(const PredictConfig& c) {
+    cfg_.predict = c;
+    pred_.set_config(c);
 }
 
 void Pipeline::set_aim(const AimConfig& c) {

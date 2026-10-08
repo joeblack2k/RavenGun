@@ -320,6 +320,7 @@ void persist_aim(SharedState& sh, const ipc::Request& r) {
     sh.settings->update([&](config::Settings& s) {
         if (r.h_edge_deg) s.aim.h_edge_deg = *r.h_edge_deg;
         if (r.v_edge_deg) s.aim.v_edge_deg = *r.v_edge_deg;
+        if (r.predict_ms) s.aim.predict_ms = *r.predict_ms;
     });
 }
 
@@ -448,16 +449,33 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             ipc::Request rq = r;
             std::string res = run_job(sh, [rq](HidContext& h) {
                 core::AimConfig a = h.aim();
-                if (rq.h_edge_deg) a.h_edge_deg = *rq.h_edge_deg;
-                if (rq.v_edge_deg) a.v_edge_deg = *rq.v_edge_deg;
-                h.set_aim(a);
+                // Alleen de randen herstellen het filter; de voorspelhorizon verandert live zonder reset.
+                if (rq.h_edge_deg || rq.v_edge_deg) {
+                    if (rq.h_edge_deg) a.h_edge_deg = *rq.h_edge_deg;
+                    if (rq.v_edge_deg) a.v_edge_deg = *rq.v_edge_deg;
+                    h.set_aim(a);
+                }
+                core::PredictConfig pc = h.predict();
+                if (rq.predict_ms) { pc.horizon_ms = *rq.predict_ms; h.set_predict(pc); }
                 json::Writer w;
-                w.begin_object().key("h_edge_deg").value(a.h_edge_deg).key("v_edge_deg").value(a.v_edge_deg).end_object();
+                w.begin_object().key("h_edge_deg").value(a.h_edge_deg).key("v_edge_deg").value(a.v_edge_deg)
+                    .key("predict_ms").value(pc.horizon_ms).end_object();
                 return w.str();
             }, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
             persist_aim(sh, r);
             return ipc::ok_response(r.id_json, res);
+        }
+        case ipc::Cmd::SetClock: {
+            if (!sh.output) return ipc::error_response({"unavailable", "geen uitvoerservice", r.id_json});
+            ravengun::output::OutputClockConfig c = sh.output->clock_config();
+            if (r.clock_hz) c.hz = *r.clock_hz;
+            if (r.extrapolate_ms) c.max_extrap_ms = *r.extrapolate_ms;
+            sh.output->set_clock(c);
+            if (sh.settings) sh.settings->update([&](config::Settings& s) { s.output.clock_hz = c.hz; s.output.extrapolate_ms = c.max_extrap_ms; });
+            json::Writer w;
+            w.begin_object().key("clock_hz").value(c.hz).key("extrapolate_ms").value(c.max_extrap_ms).end_object();
+            return ipc::ok_response(r.id_json, w.str());
         }
         case ipc::Cmd::SetLed: return handle_set_led(sh, r);
         case ipc::Cmd::SetCamera: return handle_set_camera(sh, r);

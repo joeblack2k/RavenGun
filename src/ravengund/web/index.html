@@ -217,6 +217,19 @@
       <p class="err" id="aim-err" role="alert"></p>
       <button type="submit">Schaal toepassen</button>
     </form>
+    <form id="f-latency" class="card" novalidate>
+      <h3>Latentie</h3>
+      <p class="muted">Voorspelt waar de Move over zoveel milliseconden wijst, zodat de cursor niet achterloopt op uw hand (Bluetooth, game en tv). Werkt direct, zonder herstart. 0 is uit. Te hoog geeft doorschieten bij een abrupte stop; stel op gevoel bij.</p>
+      <label>Voorspelling (ms vooruit) <small>0 tot 200</small>
+        <input type="number" id="lat-predict" step="any" inputmode="decimal"></label>
+      <input type="range" id="lat-predict-r" min="0" max="120" step="1" aria-label="Voorspelling schuifregelaar">
+      <label>Uitvoerklok (Hz) <small>0 (uit, positie alleen per rapport) of 20 tot 1000</small>
+        <input type="number" id="lat-clock" step="any" inputmode="decimal"></label>
+      <label>Extrapolatie na het laatste rapport (ms) <small>0 tot 100, daarna vasthouden</small>
+        <input type="number" id="lat-extrap" step="any" inputmode="decimal"></label>
+      <p class="err" id="lat-err" role="alert"></p>
+      <button type="submit">Latentie toepassen</button>
+    </form>
     <div class="card">
       <h3>Recenter</h3>
       <p class="muted">Zet het huidige richtpunt van de Move als midden van het scherm. Vereist een verbonden Move.</p>

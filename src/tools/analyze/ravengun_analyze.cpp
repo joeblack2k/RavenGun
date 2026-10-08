@@ -30,6 +30,7 @@
 #include "ravengun/core/move_clock.hpp"
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/rec/drift.hpp"
+#include "ravengun/rec/latency.hpp"
 #include "ravengun/rec/replay.hpp"
 
 using namespace ravengun;
@@ -62,6 +63,13 @@ void usage(FILE* f) {
         "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
         "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
         "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n"
+        "  latency FILE [FILE...] [--cal CAL.json] [--mode vqf_mag] [--horizons 0,10,20,30,40,60] [--assume-ms 50]\n"
+        "                                        [--filter off|MIN:BETA[:DCUT]]... [--predict-set sleutel=waarde]\n"
+        "                                        [--clock-hz 250] [--extrap-ms 40] [--extrap-taper 0..1] [--short]\n"
+        "                                        latentie en gladheid: de uitgevoerde aim tegen de ongefilterde, niet-voorspelde\n"
+        "                                        aim op t + L (de toekomst uit de opname), per voorspelhorizon en filterinstelling:\n"
+        "                                        effectieve vertraging, RMS-fout (px), jitter in stilstand, overshoot bij stops,\n"
+        "                                        sprong na een gat met en zonder extrapolatie, en wat van het transport te zien is\n"
         "Gyro-bias (replay, fusion, drift): --bias-mode legacy|new (standaard new), --bias-init X,Y,Z (graden/s)\n"
         "  of warm (twee ronden: de eindbias van de eerste is de beginbias van de tweede; circulair),\n"
         "  --bias-set sleutel=waarde (bijv. quasi_gate_dps=1.2; zie set_bias_param)\n",
@@ -914,6 +922,227 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     return 0;
 }
 
+// ---------------- latency (fase 6) ----------------
+
+struct LatFilter { std::string name; OneEuroConfig cfg; };
+std::vector<LatFilter> g_lat_filters;
+std::vector<double> g_lat_horizons{0, 10, 20, 30, 40, 60};
+PredictConfig g_lat_predict;        // --predict-set
+rec::LatencyParams g_lat_params;
+bool g_lat_short = false;
+bool g_lat_filter_dt_move = true;
+
+bool set_predict_param(const std::string& kv) {
+    size_t eq = kv.find('=');
+    if (eq == std::string::npos) return false;
+    std::string k = kv.substr(0, eq);
+    double v = std::atof(kv.c_str() + eq + 1);
+    if (k == "rate_tau_ms") g_lat_predict.rate_tau_ms = v;
+    else if (k == "accel_gain") g_lat_predict.accel_gain = v;
+    else if (k == "accel_tau_ms") g_lat_predict.accel_tau_ms = v;
+    else if (k == "speed_lo_dps") g_lat_predict.speed_lo_dps = v;
+    else if (k == "speed_hi_dps") g_lat_predict.speed_hi_dps = v;
+    else if (k == "max_angle_deg") g_lat_predict.max_angle_deg = v;
+    else return false;
+    return true;
+}
+
+bool parse_lat_filter(const std::string& v) {
+    LatFilter f;
+    f.name = v;
+    if (v == "off") { f.cfg.enabled = false; g_lat_filters.push_back(f); return true; }
+    double a = 0, b = 0, c = 1;
+    int n = std::sscanf(v.c_str(), "%lf:%lf:%lf", &a, &b, &c);
+    if (n < 2) return false;
+    f.cfg.enabled = true;
+    f.cfg.min_cutoff_hz = a;
+    f.cfg.beta = b;
+    f.cfg.d_cutoff_hz = c;
+    g_lat_filters.push_back(f);
+    return true;
+}
+
+bool parse_horizons(const std::string& v) {
+    g_lat_horizons.clear();
+    size_t i = 0;
+    while (i < v.size()) {
+        size_t e = v.find(',', i);
+        if (e == std::string::npos) e = v.size();
+        g_lat_horizons.push_back(std::atof(v.substr(i, e - i).c_str()));
+        i = e + 1;
+    }
+    return !g_lat_horizons.empty();
+}
+
+std::string f1(double v) { return fnum(v, "%.1f"); }
+
+int cmd_latency(const std::vector<std::string>& files, const char* mode_s, const char* cal_path) {
+    FusionMode mode = FusionMode::VqfMag;
+    if (mode_s && !parse_fusion_mode(mode_s, mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony, mahony_mag, vqf of vqf_mag\n"); return 64; }
+    rec::ReplayOptions ro;
+    ro.pipeline.bias = g_bias_cfg;
+    ro.pipeline.vqf = g_vqf_cfg;
+    ro.pipeline.fusion_mode = mode;
+    ro.pipeline.predict = g_lat_predict;
+    ro.pipeline.filter_dt_move = g_lat_filter_dt_move;
+    ro.have_bias_init = g_bias_init;
+    ro.bias_init = g_bias_init_v;
+    if (cal_path) {
+        if (!load_cal_file(cal_path, ro.mag_cal)) return 2;
+        ro.have_mag_cal = true;
+    } else if (mode == FusionMode::MahonyMag || mode == FusionMode::VqfMag) {
+        std::fprintf(stderr, "ravengun-analyze: let op: %s zonder --cal gedraagt zich als %s\n", to_string(mode), mode == FusionMode::VqfMag ? "vqf" : "mahony");
+    }
+    if (g_lat_filters.empty()) {
+        parse_lat_filter("off");
+        parse_lat_filter("1:10:1");      // huidige instelling (config.json)
+        parse_lat_filter("1:10:5");
+        parse_lat_filter("1:10:10");
+        parse_lat_filter("1:20:5");
+        parse_lat_filter("1.5:10:5");
+        parse_lat_filter("2:10:5");
+    }
+    std::vector<std::vector<rec::Record>> recs(files.size());
+    for (size_t i = 0; i < files.size(); ++i)
+        if (!load(files[i].c_str(), recs[i])) return 2;
+
+    const rec::LatencyParams& lp = g_lat_params;
+    // Waarheid per opname: uit een ronde met voorspelling en filter uit.
+    std::vector<rec::Track> base(files.size());
+    std::vector<rec::TruthInfo> info(files.size());
+    {
+        rec::ReplayOptions b = ro;
+        b.pipeline.filter.enabled = false;
+        b.pipeline.predict.horizon_ms = 0;
+        for (size_t i = 0; i < files.size(); ++i) {
+            base[i] = rec::collect_track(recs[i], b);
+            info[i] = rec::analyze_truth(base[i], lp);
+        }
+    }
+
+    // ---- kop ----
+    std::printf("Latentiemeting: schatter %s%s; aangenomen totale latentie %.0f ms (transport + game + tv; onbekend, instelbaar met --assume-ms)\n",
+                to_string(mode), ro.have_mag_cal ? " met kalibratie" : "", lp.assume_ms);
+    std::printf("Waarheid = ongefilterde, niet-voorspelde aim van dezelfde schatter op sensortijd (Move-stempel); schermpixels 1920 x 1080.\n");
+    std::printf("Voorspelling: rate_tau %.0f ms, accel_gain %.2f, accel_tau %.0f ms, gewicht %.0f..%.0f graden/s, max %.0f graden\n", g_lat_predict.rate_tau_ms,
+                g_lat_predict.accel_gain, g_lat_predict.accel_tau_ms, g_lat_predict.speed_lo_dps, g_lat_predict.speed_hi_dps, g_lat_predict.max_angle_deg);
+    for (size_t i = 0; i < files.size(); ++i) {
+        const rec::TruthInfo& ti = info[i];
+        const double dur = base[i].t.size() > 1 ? base[i].t.back() - base[i].t.front() : 0;
+        std::printf("Opname %zu: %s\n  %.0f s, %zu rapporten met aim; beweging (> %.0f px/s) %.1f %% van de tijd, stilstand (< %.0f px/s, >= %.1f s) %.1f %%, %zu abrupte stops\n",
+                    i + 1, files[i].c_str(), dur, base[i].t.size(), lp.motion_px_s,
+                    100.0 * static_cast<double>(ti.n_motion) / std::max<size_t>(1, base[i].t.size()),
+                    lp.still_px_s, lp.still_min_s,
+                    100.0 * static_cast<double>(ti.n_still) / std::max<size_t>(1, base[i].t.size()), ti.stops.size());
+        size_t nb[4] = {0, 0, 0, 0};
+        for (char b : ti.band) ++nb[static_cast<int>(b)];
+        const double m = static_cast<double>(std::max<size_t>(1, ti.n_motion));
+        std::printf("  snelheidsbanden: traag %.0f %%, middel %.0f %%, snel %.0f %% van de bewegingsrapporten\n", 100.0 * static_cast<double>(nb[1]) / m,
+                    100.0 * static_cast<double>(nb[2]) / m, 100.0 * static_cast<double>(nb[3]) / m);
+    }
+
+    // ---- transport ----
+    std::printf("\nTransport (alleen wat de opname laat zien):\n");
+    for (size_t i = 0; i < files.size(); ++i) {
+        rec::TransportStats t = rec::transport_stats(recs[i]);
+        std::printf("  opname %zu: %llu rapporten in %.0f s (%.1f /s), nominaal %.2f ms, ~%llu verloren (%.1f %%); ontvangstinterval p50 %.1f, p95 %.1f, max %.1f ms; gaten > 1,5 x nominaal: %.1f %% van de intervallen\n",
+                    i + 1, static_cast<unsigned long long>(t.reports), t.duration_s, t.duration_s > 0 ? static_cast<double>(t.reports) / t.duration_s : 0.0,
+                    t.stamp_interval_p50_ms, static_cast<unsigned long long>(t.lost_est),
+                    100.0 * static_cast<double>(t.lost_est) / std::max(1.0, static_cast<double>(t.reports + t.lost_est)), t.rx_interval_p50_ms, t.rx_interval_p95_ms,
+                    t.rx_interval_max_ms, 100.0 * t.gap_fraction);
+        std::printf("            extra vertraging boven het minimum (ontvangsttijd min Move-klok, ondergrenskoppeling): p50 %.1f, p95 %.1f, p99 %.1f, max %.1f ms\n",
+                    t.residual_p50_ms, t.residual_p95_ms, t.residual_p99_ms, t.residual_max_ms);
+        std::printf("            gemiddelde leeftijd van de getoonde waarde bij uitvoer per rapport (houdtijd): %.1f ms\n", t.hold_age_ms);
+    }
+    std::printf("  Leeftijd van de subsamples: het eerste subsample van een rapport is ongeveer één halve rapportperiode (%.1f ms) ouder dan het tweede;\n"
+                "  de oriëntatie hoort bij het tweede (nieuwste) subsample. Het absolute moment van de sensor t.o.v. de stempel en de vaste\n"
+                "  Bluetooth-, game- en tv-latentie zijn uit de opname NIET te halen: de 'extra vertraging' hierboven is alleen de spreiding\n"
+                "  boven het kleinste waargenomen transport.\n",
+                11.27 / 2);
+
+    // ---- sweep ----
+    struct Row { size_t fi; double h; rec::LatencyAccum acc; };
+    std::vector<Row> rows;
+    for (size_t fi = 0; fi < g_lat_filters.size(); ++fi) {
+        for (double h : g_lat_horizons) {
+            rec::ReplayOptions c = ro;
+            c.pipeline.filter = g_lat_filters[fi].cfg;
+            c.pipeline.predict = g_lat_predict;
+            c.pipeline.predict.horizon_ms = h;
+            Row row{fi, h, {}};
+            for (size_t i = 0; i < files.size(); ++i) {
+                rec::Track t = rec::collect_track(recs[i], c);
+                row.acc.merge(rec::evaluate(t, base[i], info[i], lp));
+            }
+            rows.push_back(std::move(row));
+        }
+    }
+    // Referentie: filter uit, geen voorspelling.
+    const rec::LatencyAccum& ref = rows[0].acc;
+    std::printf("\nWaarheid zelf: jitter in stilstand %.2f px, bij rustig houden (< %.0f px/s) %.2f px; overshoot bij stops p95 %.1f px (de hand zelf), mediaan %.1f px\n", rec::truth_jitter_px(ref), lp.hold_px_s, rec::hold_truth_jitter_px(ref),
+                rec::lat_percentile(ref.overshoot_truth, 0.95), rec::lat_percentile(ref.overshoot_truth, 0.5));
+    std::printf("\nPer filterinstelling en voorspelhorizon (alle opnames samen; vertraging = -L* waarbij uitvoer(t) het best past op waarheid(t+L*), tijdens beweging;\n"
+                "negatief = loopt voor). 'fout@%.0f' = RMS-fout tegen waarheid(t+%.0f ms). jit = RMS hoogfrequent, in stilstand (stil) of bij rustig houden (houd). overshoot (px voorbij het rustpunt) over %zu stops; ovs+ = surplus boven de overshoot van de hand zelf.\n",
+                lp.assume_ms, lp.assume_ms, ref.overshoot_out.size());
+    std::printf("%-12s %6s | %8s %8s %8s %8s | %8s %8s | %8s %8s | %8s %8s %8s\n", "filter", "pred", "vertr.", "traag", "middel", "snel", "fout@L", "fout min", "jit stil", "jit houd", "ovs p95", "ovs+ p95", "ovs+ p50");
+    for (const Row& r : rows) {
+        const rec::DelayResult d0 = rec::delay_of(r.acc, 0, lp.assume_ms), d1 = rec::delay_of(r.acc, 1, lp.assume_ms),
+                               d2 = rec::delay_of(r.acc, 2, lp.assume_ms), d3 = rec::delay_of(r.acc, 3, lp.assume_ms);
+        std::printf("%-12s %4.0fms | %8s %8s %8s %8s | %8s %8s | %8s %8s | %8s %8s %8s\n", g_lat_filters[r.fi].name.c_str(), r.h, f1(d0.delay_ms).c_str(),
+                    f1(d1.delay_ms).c_str(), f1(d2.delay_ms).c_str(), f1(d3.delay_ms).c_str(), f1(d0.rmse_at_assume_px).c_str(), f1(d0.rmse_at_best_px).c_str(),
+                    fnum(rec::jitter_px(r.acc), "%.2f").c_str(), fnum(rec::hold_jitter_px(r.acc), "%.2f").c_str(), f1(rec::lat_percentile(r.acc.overshoot_out, 0.95)).c_str(), f1(rec::lat_percentile(r.acc.overshoot_excess, 0.95)).c_str(),
+                    f1(rec::lat_percentile(r.acc.overshoot_excess, 0.5)).c_str());
+        if (&r != &rows.back() && (&r - rows.data() + 1) % static_cast<long>(g_lat_horizons.size()) == 0) std::printf("\n");
+    }
+
+    // ---- gaten en uitvoerklok ----
+    std::printf("\nSprong bij aankomst van een rapport (px), huidige filterinstelling %s, voorspelling per horizon; uitvoerklok %.0f Hz, extrapolatie max. %.0f ms, taper %.2f:\n",
+                g_lat_filters.size() > 1 ? g_lat_filters[1].name.c_str() : g_lat_filters[0].name.c_str(), lp.clock.hz > 0 ? lp.clock.hz : 250.0, lp.clock.max_extrap_ms, lp.clock.taper);
+    std::printf("%-6s | %-26s | %-26s | %-26s | %s\n", "pred", "na gat, zonder extrapolatie", "na gat, met extrapolatie", "gat tijdens beweging, met", "alle intervallen, zonder / met (p95)");
+    const size_t fcur = g_lat_filters.size() > 1 ? 1 : 0;
+    for (const Row& r : rows) {
+        if (r.fi != fcur) continue;
+        const auto& a = r.acc;
+        std::printf("%4.0fms | n=%-5zu p95 %6s max %6s | p95 %6s max %6s        | n=%-5zu p95 %6s max %6s | %6s / %6s\n", r.h, a.jump_gap_plain.size(),
+                    f1(rec::lat_percentile(a.jump_gap_plain, 0.95)).c_str(),
+                    f1(a.jump_gap_plain.empty() ? NAN : *std::max_element(a.jump_gap_plain.begin(), a.jump_gap_plain.end())).c_str(),
+                    f1(rec::lat_percentile(a.jump_gap_extrap, 0.95)).c_str(),
+                    f1(a.jump_gap_extrap.empty() ? NAN : *std::max_element(a.jump_gap_extrap.begin(), a.jump_gap_extrap.end())).c_str(),
+                    a.jump_gap_move_extrap.size(), f1(rec::lat_percentile(a.jump_gap_move_extrap, 0.95)).c_str(),
+                    f1(a.jump_gap_move_extrap.empty() ? NAN : *std::max_element(a.jump_gap_move_extrap.begin(), a.jump_gap_move_extrap.end())).c_str(),
+                    f1(rec::lat_percentile(a.jump_all_plain, 0.95)).c_str(), f1(rec::lat_percentile(a.jump_all_extrap, 0.95)).c_str());
+        std::printf("       (zonder extrapolatie, gat tijdens beweging: p95 %s max %s)\n", f1(rec::lat_percentile(a.jump_gap_move_plain, 0.95)).c_str(),
+                    f1(a.jump_gap_move_plain.empty() ? NAN : *std::max_element(a.jump_gap_move_plain.begin(), a.jump_gap_move_plain.end())).c_str());
+    }
+    std::printf("\nHoudtijd (gemiddelde leeftijd van de getoonde waarde): per rapport %.1f ms; met uitvoerklok (alleen voorbij de limiet) %.1f ms\n",
+                ref.hold_total > 0 ? ref.hold_sq / ref.hold_total * 1e3 : 0.0, ref.hold_total > 0 ? ref.hold_sq_clk / ref.hold_total * 1e3 : 0.0);
+
+    // ---- uitvoermodi in het tijdsdomein ----
+    {
+        const size_t fi = fcur;
+        rec::ReplayOptions c = ro;
+        c.pipeline.filter = g_lat_filters[fi].cfg;
+        c.pipeline.predict.horizon_ms = 0;
+        std::vector<rec::ModeAccum> total;
+        for (size_t i = 0; i < files.size(); ++i) {
+            rec::Track t = rec::collect_track(recs[i], c);
+            std::vector<rec::ModeAccum> m = rec::evaluate_modes(t, base[i], info[i], lp);
+            if (total.empty()) total = std::move(m);
+            else for (size_t q = 0; q < m.size() && q < total.size(); ++q) total[q].acc.merge(m[q].acc);
+        }
+        std::printf("\nUitvoermodi in het tijdsdomein (filter %s, voorspelling 0; getoonde positie op een raster van 4 ms tegen de waarheid op\n"
+                    "minimumtransport-tijd t_rx - leeftijd; vertraging t.o.v. een rapport dat via het snelste waargenomen transport kwam):\n",
+                    g_lat_filters[fi].name.c_str());
+        std::printf("%-34s %10s %12s %12s\n", "modus", "vertraging", "fout@L px", "fout min px");
+        for (const auto& m : total) {
+            const rec::DelayResult d = rec::delay_of(m.acc, 0, lp.assume_ms);
+            std::printf("%-34s %8s ms %12s %12s\n", m.name.c_str(), f1(d.delay_ms).c_str(), f1(d.rmse_at_assume_px).c_str(), f1(d.rmse_at_best_px).c_str());
+        }
+    }
+    (void)g_lat_short;
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -924,6 +1153,7 @@ int main(int argc, char** argv) {
     const char *cal = nullptr, *out = nullptr;
     bool dt_move = true, js = false;
     double settle = 1.0;
+    std::vector<std::string> extra_files;
     double dip_tol = NAN, norm_tol = NAN, still_dps = 3.0;
     for (int i = 3; i < argc; ++i) {
         std::string a = argv[i];
@@ -961,6 +1191,34 @@ int main(int argc, char** argv) {
         else if (a == "--bias-set" && i + 1 < argc) {
             if (!set_bias_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --bias-set '%s'\n", argv[i]); return 64; }
         }
+        else if (a == "--horizons" && i + 1 < argc) { if (!parse_horizons(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: --horizons verwacht ms,ms,...\n"); return 64; } }
+        else if (a == "--filter" && i + 1 < argc) { if (!parse_lat_filter(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: --filter verwacht off of MIN:BETA[:DCUT]\n"); return 64; } }
+        else if (a == "--predict-set" && i + 1 < argc) {
+            if (!set_predict_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --predict-set '%s'\n", argv[i]); return 64; }
+        }
+        else if (a == "--assume-ms" && i + 1 < argc) g_lat_params.assume_ms = std::atof(argv[++i]);
+        else if (a == "--lat-set" && i + 1 < argc) {
+            std::string kv = argv[++i];
+            size_t eq = kv.find('=');
+            double v = eq == std::string::npos ? 0 : std::atof(kv.c_str() + eq + 1);
+            std::string k = kv.substr(0, eq);
+            rec::LatencyParams& lp = g_lat_params;
+            if (k == "motion_px_s") lp.motion_px_s = v;
+            else if (k == "still_px_s") lp.still_px_s = v;
+            else if (k == "still_min_s") lp.still_min_s = v;
+            else if (k == "hold_px_s") lp.hold_px_s = v;
+            else if (k == "stop_from_px_s") lp.stop_from_px_s = v;
+            else if (k == "stop_to_px_s") lp.stop_to_px_s = v;
+            else if (k == "stop_rest_s") lp.stop_rest_s = v;
+            else if (k == "stop_window_s") lp.stop_window_s = v;
+            else { std::fprintf(stderr, "ravengun-analyze: onbekende --lat-set '%s'\n", kv.c_str()); return 64; }
+        }
+        else if (a == "--clock-hz" && i + 1 < argc) g_lat_params.clock.hz = std::atof(argv[++i]);
+        else if (a == "--extrap-ms" && i + 1 < argc) g_lat_params.clock.max_extrap_ms = std::atof(argv[++i]);
+        else if (a == "--extrap-taper" && i + 1 < argc) g_lat_params.clock.taper = std::atof(argv[++i]);
+        else if (a == "--short") g_lat_short = true;
+        else if (a == "--filter-dt" && i + 1 < argc) g_lat_filter_dt_move = std::string(argv[++i]) != "rx";
+        else if (cmd == "latency" && !a.empty() && a[0] != '-') extra_files.push_back(a);
         else if (a == "--set" && i + 1 < argc) {
             if (!set_mag_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --set '%s'\n", argv[i]); return 64; }
         }
@@ -973,6 +1231,11 @@ int main(int argc, char** argv) {
     if (cmd == "fusion") return cmd_fusion(file, cal, dip_tol, norm_tol, still_dps);
     if (cmd == "drift") return cmd_drift(file, mode, cal);
     if (cmd == "buttons") return cmd_buttons(file);
+    if (cmd == "latency") {
+        std::vector<std::string> files{file};
+        files.insert(files.end(), extra_files.begin(), extra_files.end());
+        return cmd_latency(files, mode, cal);
+    }
     usage(stderr);
     return 64;
 }

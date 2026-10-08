@@ -40,8 +40,12 @@ void usage(FILE* f) {
         "opties:\n"
         "  --controller AA:BB:CC:DD:EE:FF   alleen deze Move gebruiken (standaard: eerste via Bluetooth)\n"
         "  --no-filter                      1€-filter uit (ruwe aim)\n"
-        "  --min-cutoff HZ                  1€ min_cutoff (standaard 1.0)\n"
-        "  --beta B                         1€ beta (standaard 0.5)\n"
+        "  --min-cutoff HZ                  1€ min_cutoff (standaard uit config.json, anders 0.3)\n"
+        "  --beta B                         1€ beta (standaard uit config.json, anders 10)\n"
+        "  --predict-ms MS                  voorspel de oriëntatie zoveel ms vooruit (0 = uit; standaard uit config.json,\n"
+        "                                   anders 40); live instelbaar met 'ravengunctl predict'\n"
+        "  --clock-hz HZ                    uitvoerklok in Hz (0 = uit: positie alleen per rapport; standaard 250)\n"
+        "  --extrapolate-ms MS              de klok extrapoleert maximaal zo lang na het laatste rapport (standaard 40)\n"
         "  --h-edge-deg G                   yaw tot de linker/rechter rand (standaard 20)\n"
         "  --v-edge-deg G                   pitch tot de boven/onderrand (standaard 11.25)\n"
         "  --no-auto-center                 geen automatisch midden bij de eerste oriëntatie\n"
@@ -136,6 +140,10 @@ int main(int argc, char** argv) {
     opt.pipeline.filter.d_cutoff_hz = cfg.filter.d_cutoff_hz;
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
+    opt.pipeline.predict.horizon_ms = cfg.aim.predict_ms;
+    ravengun::output::OutputClockConfig out_clock;
+    out_clock.hz = cfg.output.clock_hz;
+    out_clock.max_extrap_ms = cfg.output.extrapolate_ms;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
     ravengun::core::parse_vqf_bias(cfg.fusion.vqf_bias.c_str(), opt.pipeline.vqf.bias);
     opt.pipeline.trim.enabled = cfg.fusion.recenter_learning;
@@ -197,6 +205,9 @@ int main(int argc, char** argv) {
         }
         else if (a == "--min-cutoff") need(0.001, 100, opt.pipeline.filter.min_cutoff_hz);
         else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
+        else if (a == "--predict-ms") need(0, 200, opt.pipeline.predict.horizon_ms);
+        else if (a == "--clock-hz") need(0, 1000, out_clock.hz);
+        else if (a == "--extrapolate-ms") need(0, 100, out_clock.max_extrap_ms);
         else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
         else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
         else if (a == "--web") web_on = true;
@@ -334,6 +345,8 @@ int main(int argc, char** argv) {
          opt.enabled ? "aan" : "uit (--no-hid)", opt.pipeline.filter.enabled ? "1€" : "uit", ravengun::core::to_string(opt.pipeline.fusion_mode));
     logf("info", "gun-knoppen (live; PS-knop altijd recenter, ook ongewapend; de rest alleen als de uitvoer gewapend is): trekker = fire-bit van de Sharp Shooter, anders analoge T (in %d / uit %d); pomp = T zonder fire-bit",
          cfg.gun_buttons.trigger_on, cfg.gun_buttons.trigger_off);
+    logf("info", "voorspelling %.0f ms, uitvoerklok %s", opt.pipeline.predict.horizon_ms,
+         out_clock.enabled() ? (std::to_string(static_cast<int>(out_clock.hz)) + " Hz, extrapolatie max. " + std::to_string(static_cast<int>(out_clock.max_extrap_ms)) + " ms").c_str() : "uit");
     logf("info", "knoppenindeling: %s", ravengun::output::describe_layout(opt.gun_buttons).c_str());
 
     SharedState shared;
@@ -354,6 +367,7 @@ int main(int argc, char** argv) {
     OutputService output;  // standaard disarmed; maakt pas bij 'arm' het uinput-apparaat
     output.set_initial_transform(out_transform);
     output.set_layout(opt.gun_buttons.layout);
+    output.set_clock(out_clock);
     shared.output = &output;
     // Opnamen (fase 0): de recorder leeft tot het einde van main; de HID-thread stopt hem bij het
     // afsluiten. De tracker-thread levert optische metingen via de hook.

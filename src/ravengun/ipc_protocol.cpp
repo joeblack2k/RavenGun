@@ -38,6 +38,7 @@ const char* to_string(Cmd c) {
         case Cmd::CalibrateUi: return "calibrate_ui";
         case Cmd::SetFusion: return "set_fusion";
         case Cmd::ClearTrim: return "clear_trim";
+        case Cmd::SetClock: return "set_clock";
     }
     return "?";
 }
@@ -163,10 +164,18 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             return err("invalid_argument", "set_filter zonder te wijzigen velden", r.id_json);
     } else if (cmd == "set_aim") {
         r.cmd = Cmd::SetAim;
-        if (!allowed(o, {"h_edge_deg", "v_edge_deg"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"h_edge_deg", "v_edge_deg", "predict_ms"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         if (!opt_number(o, "h_edge_deg", 1, 89, r.h_edge_deg, e, r.id_json)) return e;
         if (!opt_number(o, "v_edge_deg", 1, 89, r.v_edge_deg, e, r.id_json)) return e;
-        if (!r.h_edge_deg && !r.v_edge_deg) return err("invalid_argument", "set_aim zonder te wijzigen velden", r.id_json);
+        if (!opt_number(o, "predict_ms", 0, 200, r.predict_ms, e, r.id_json)) return e;
+        if (!r.h_edge_deg && !r.v_edge_deg && !r.predict_ms) return err("invalid_argument", "set_aim zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "set_clock") {
+        r.cmd = Cmd::SetClock;
+        if (!allowed(o, {"clock_hz", "extrapolate_ms"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_number(o, "clock_hz", 0, 1000, r.clock_hz, e, r.id_json)) return e;
+        if (!opt_number(o, "extrapolate_ms", 0, 100, r.extrapolate_ms, e, r.id_json)) return e;
+        if (!r.clock_hz && !r.extrapolate_ms) return err("invalid_argument", "set_clock zonder te wijzigen velden", r.id_json);
+        if (r.clock_hz && *r.clock_hz != 0 && *r.clock_hz < 20) return err("invalid_argument", "'clock_hz' moet 0 (uit) zijn of tussen 20 en 1000 liggen", r.id_json);
     } else if (cmd == "arm" || cmd == "disarm" || cmd == "output") {
         r.cmd = cmd == "arm" ? Cmd::Arm : cmd == "disarm" ? Cmd::Disarm : Cmd::Output;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -369,6 +378,11 @@ std::string make_request(const Request& r) {
         case Cmd::SetAim:
             if (r.h_edge_deg) w.key("h_edge_deg").value(*r.h_edge_deg);
             if (r.v_edge_deg) w.key("v_edge_deg").value(*r.v_edge_deg);
+            if (r.predict_ms) w.key("predict_ms").value(*r.predict_ms);
+            break;
+        case Cmd::SetClock:
+            if (r.clock_hz) w.key("clock_hz").value(*r.clock_hz);
+            if (r.extrapolate_ms) w.key("extrapolate_ms").value(*r.extrapolate_ms);
             break;
         case Cmd::TestPattern:
             w.key("pattern").value(r.pattern);

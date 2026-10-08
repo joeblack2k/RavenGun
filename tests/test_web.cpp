@@ -155,6 +155,12 @@ static void test_post_mapping() {
     CHECK(f.last_line == R"({"v":1,"cmd":"set_filter","enabled":true,"min_cutoff_hz":1.5,"beta":0.25})");
     r = app.handle(post("/api/aim", R"({"h_edge_deg":25,"v_edge_deg":14})"));
     CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_aim","h_edge_deg":25,"v_edge_deg":14})");
+    r = app.handle(post("/api/aim", R"({"predict_ms":35})"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_aim","predict_ms":35})");
+    r = app.handle(post("/api/clock", R"({"clock_hz":250,"extrapolate_ms":40})"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_clock","clock_hz":250,"extrapolate_ms":40})");
+    CHECK(app.handle(post("/api/clock", R"({"hz":250})")).status == 400);
+    CHECK(app.handle(get("/api/clock")).status == 405);
     int calls = f.calls;
     // Geen injectie van cmd/v of onbekende velden; geen niet-scalaire waarden; geen rommel.
     CHECK(app.handle(post("/api/filter", R"({"cmd":"recenter"})")).status == 400);

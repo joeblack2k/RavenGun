@@ -31,8 +31,9 @@ Schema (versie 1), alle secties optioneel:
 - `led`: `enabled` (bool, waar zodra een kleur gekozen is; pas dan stuurt de daemon de LED ook zonder camera aan), `preset` (cyaan, magenta, rood, groen, blauw, wit of custom) en `r`, `g`, `b` (0 tot 255).
 - `tracker`: `hue_deg` (-180 tot 180), `hue_tol_deg` (1 tot 90) en `min_chroma` (1 tot 180). De tint volgt de LED-kleur.
 - `camera`: `mode` (`640x480@60`, `320x240@125` of `320x240@187`), `auto_exposure`, `auto_gain`, `auto_awb` (bool), `exposure` (0 tot 255) en `gain` (0 tot 63).
-- `filter`: `enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz` (zelfde bereiken als `set_filter`).
-- `aim`: `h_edge_deg` en `v_edge_deg` (1 tot 89).
+- `filter`: `enabled`, `min_cutoff_hz`, `beta`, `d_cutoff_hz` (zelfde bereiken als `set_filter`; standaard 0,3 / 10 / 20).
+- `aim`: `h_edge_deg` en `v_edge_deg` (1 tot 89) en `predict_ms` (0 tot 200, standaard 40; voorspelhorizon, 0 is uit).
+- `output`: `clock_hz` (0 is uit, anders 20 tot 1000; standaard 250) en `extrapolate_ms` (0 tot 100, standaard 40): de uitvoerklok die tussen rapporten en tijdens gaten de aim extrapoleert.
 - `web`: `port` (1 tot 65535, geldt na een herstart).
 - `sharp_shooter`: `buttons`, een object van fysieke Sharp Shooter-knop (trekker, pomp, driehoek, cirkel, kruis, vierkant, start, select, move, ps) naar Move-knop (triangle, circle, cross, square, select, start, ps, move, t), gemeten door de kalibratie-UI. LAN-toegang staat bewust niet in het bestand en niet in de interface: alleen `--web-lan` met een token.
 
@@ -60,7 +61,8 @@ Alle antwoorden zijn JSON in dezelfde envelop als de IPC: `{"v":1,"ok":true,"res
 - `GET /api/csrf`: het CSRF-token.
 - `POST /api/recenter`: lege body of `{}`.
 - `POST /api/filter`: JSON met een of meer van `enabled` (bool), `min_cutoff_hz` (0,001 tot 100), `beta` (0 tot 1000) en `d_cutoff_hz` (0,001 tot 100).
-- `POST /api/aim`: JSON met `h_edge_deg` en/of `v_edge_deg` (1 tot 89 graden tot de schermrand; kleiner is gevoeliger).
+- `POST /api/aim`: JSON met `h_edge_deg` en/of `v_edge_deg` (1 tot 89 graden tot de schermrand; kleiner is gevoeliger) en/of `predict_ms` (0 tot 200; de voorspelhorizon, direct en zonder reset, bewaard).
+- `POST /api/clock`: JSON met `clock_hz` (0 of 20 tot 1000) en/of `extrapolate_ms` (0 tot 100): de uitvoerklok, direct en bewaard.
 - `GET /api/info`: versies (daemon, git-commit, PSMoveAPI-pin, of PSMoveAPI gelinkt is), uptime, webpoort en de toestand van het instellingenbestand.
 - `GET /api/settings`: de bewaarde waarden, de toestand van het bestand, de LED-presets met hun gemeten tint en de toegestane cameramodi.
 - `GET /api/diagnostics`: een JSON-export (info, status, instellingen) met geredigeerd controller-ID en `~` voor de thuismap, als download (`Content-Disposition: attachment`). Nooit camerabeelden.
@@ -110,7 +112,7 @@ De pagina's zijn Nederlands, donker en bruikbaar op een telefoon. Er worden geen
 - Camera: modus, automatische belichting, gain en witbalans, schuiven voor belichting en gain, de teruggelezen werkelijke waarden en de camerastatus (fps, gemiste frames, verwerkingstijden).
 - LED: de zes presets met hun gemeten tint, een eigen kleur met RGB-velden en een waarschuwing, en het resultaat van de laatste wijziging (tint, tolerantie, waarschuwingen).
 - Uitvoer: arm en disarm (inschakelen vraagt een bevestiging), de testpatronen midden, hoeken, raster, sweep en stop (uitgeschakeld zolang de uitvoer niet armed is), en de transformatie (spiegelen, schaal, offset, viewport).
-- Instellingen: het 1€-filter, de aim-schaal, recenter, de webpoort voor de volgende start en de toestand van het instellingenbestand, met controle van de invoer in de browser (bereiken zoals hierboven) en daarna nogmaals door de daemon. Fouten van de daemon staan bij het formulier.
+- Instellingen: het 1€-filter, de aim-schaal, de latentie (voorspelling in ms met schuifregelaar en getal, de uitvoerklok in Hz en de extrapolatielimiet; direct toegepast en bewaard), recenter, de webpoort voor de volgende start en de toestand van het instellingenbestand, met controle van de invoer in de browser (bereiken zoals hierboven) en daarna nogmaals door de daemon. Fouten van de daemon staan bij het formulier.
 - Info: versies (daemon, git-commit, PSMoveAPI-pin), apparaten, uptime, de IMU-rapportfrequentie met intervallen en gaten, camera-fps en gemiste frames, verwerkingstijden en de knop "Diagnose exporteren".
 - Kalibratie: een knop "Kalibreren op de tv", een knop "Oefenen op de tv" (opent direct de oefenstap) en een knop om het scherm weer te sluiten. De kalibratie zelf draait fullscreen op de televisie en wordt met het geweer bediend, zie `docs/calibration-ui.md`. Games: tijdelijke pagina met uitleg dat ze later komt.
 
@@ -120,6 +122,6 @@ De bestanden in `src/ravengund/web/` worden door `cmake/EmbedWebAssets.cmake` bi
 
 `ravengun_web_tests` (`tests/test_web.cpp`) test de parser, de routing, de JSON-respons, de weigeringen (Host, Origin, CSRF, content-type, LAN zonder token), de tokenopslag en de SSE-throttling met een trage afnemer. `ravengund_web` (`tests/web_smoke.sh`) start de daemon zonder hardware en loopt met curl alle endpoints en weigeringen door, inclusief LAN-modus.
 
-Aanvullend: `ravengun_config_tests` (`tests/test_config.cpp`) test het schema, de validatie, de migratiehaak, het atomisch schrijven, het herstel na een corrupt bestand, de LED-presets met hun tint en de parser van de nieuwe IPC-commando's. `ravengund_command_tests` (`tests/test_commands.cpp`) draait de opdrachtlaag van de daemon met een nep-HID-context, zonder hardware: `set_led` inclusief de tracker-tint, `set_camera` (grenzen en de melding zonder camera), het bewaren van filter, aim en poort, `info`, `settings` en `diagnostics`. De live werking van `set_camera` op een echte camera is niet automatisch getest. `ravengun_web_tests` dekt ook de nieuwe endpoints en de beveiliging ervan, en `ravengund_web` loopt ze met curl door, inclusief een herstart waarbij bewaarde instellingen worden toegepast, de opdrachtregel voorrang krijgt en een corrupt bestand wordt gemeld.
+Aanvullend: `ravengun_config_tests` (`tests/test_config.cpp`) test het schema, de validatie, de migratiehaak, het atomisch schrijven, het herstel na een corrupt bestand, de LED-presets met hun tint en de parser van de nieuwe IPC-commando's. `ravengund_command_tests` (`tests/test_commands.cpp`) draait de opdrachtlaag van de daemon met een nep-HID-context, zonder hardware: `set_led` inclusief de tracker-tint, `set_camera` (grenzen en de melding zonder camera), het bewaren van filter, aim (ook de voorspelhorizon, zonder filterreset), uitvoerklok en poort, `info`, `settings` en `diagnostics`. De live werking van `set_camera` op een echte camera is niet automatisch getest. `ravengun_web_tests` dekt ook de nieuwe endpoints en de beveiliging ervan, en `ravengund_web` loopt ze met curl door, inclusief een herstart waarbij bewaarde instellingen worden toegepast, de opdrachtregel voorrang krijgt en een corrupt bestand wordt gemeld.
 
 JavaScript-syntaxis: er is geen `node` op de host. `tools/check-js.sh src/ravengund/web/app.js` installeert `nodejs` in een wegwerp-container (rootless podman, `localhost/ravengun-build`, geen mounts, de image blijft ongewijzigd) en draait `node --check`. Daarnaast voert een headless browser de pagina's echt uit, bijvoorbeeld `flatpak run com.brave.Browser --headless --virtual-time-budget=6000 --screenshot=uit.png URL`.

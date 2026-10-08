@@ -447,12 +447,13 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (get) return wrong_method("POST");
             return api_command("{\"v\":1,\"cmd\":\"recenter\"}");
         }
-        if (p == "/api/filter" || p == "/api/aim") {
+        if (p == "/api/filter" || p == "/api/aim" || p == "/api/clock") {
             if (get) return wrong_method("POST");
             std::string line, err;
             bool ok = p == "/api/filter"
                           ? build_set_request("set_filter", r.body, {"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz"}, line, err)
-                          : build_set_request("set_aim", r.body, {"h_edge_deg", "v_edge_deg"}, line, err);
+                          : p == "/api/clock" ? build_set_request("set_clock", r.body, {"clock_hz", "extrapolate_ms"}, line, err)
+                                              : build_set_request("set_aim", r.body, {"h_edge_deg", "v_edge_deg", "predict_ms"}, line, err);
             if (!ok) return error_json(400, "bad_request", err);
             return api_command(line);
         }

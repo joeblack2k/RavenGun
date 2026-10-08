@@ -42,11 +42,20 @@ struct CameraSettings {
     int gain = 0;       // 0..63
 };
 struct FilterSettings {
+    // Standaard uit de latentiemeting (docs/aim-fusion-design.md, fase 6): zelfde jitter in stilstand als 1 Hz / 10 / 1 Hz,
+    // maar ongeveer 40 % minder vertraging door de hogere afsnijfrequentie van de snelheidsschatting.
     bool enabled = true;
-    double min_cutoff_hz = 1.0, beta = 0.5, d_cutoff_hz = 1.0;
+    double min_cutoff_hz = 0.3, beta = 10.0, d_cutoff_hz = 20.0;
 };
 struct AimSettings {
     double h_edge_deg = 20.0, v_edge_deg = 11.25;
+    // Voorspelling van de oriëntatie (ms vooruit, 0 = uit); zie core/predict.hpp. Live instelbaar.
+    double predict_ms = 40.0;
+};
+// Uitvoerklok (fase 6): tussen rapporten en tijdens gaten extrapoleert de uitvoer de aim (output/aim_clock.hpp).
+struct OutputSettings {
+    double clock_hz = 250.0;       // 0 = uit: de uitvoer volgt alleen de rapporten
+    double extrapolate_ms = 40.0;  // daarna wordt de laatste positie vastgehouden
 };
 struct WebSettings {
     int port = 8765;  // gebruikt bij de volgende start
@@ -107,6 +116,7 @@ struct Settings {
     CameraSettings camera;
     FilterSettings filter;
     AimSettings aim;
+    OutputSettings output;
     WebSettings web;
     SharpShooterSettings sharp_shooter;
     FusionSettings fusion;

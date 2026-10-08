@@ -53,6 +53,9 @@ uint32_t move_button_bit(const std::string& name);
 struct LiveAction {
     bool move = false;          // positie zetten
     double x = 0.5, y = 0.5;    // aim-ruimte, ongeclampt
+    // Voor de uitvoerklok (aim_clock.hpp): snelheid van de aim (per seconde), ontvangsttijd en extra transportvertraging.
+    double vx = 0, vy = 0, age_ms = 0;
+    int64_t t_ns = 0;
     bool buttons = false;       // knoptoestand hieronder toepassen
     bool trigger = false, reload = false, grenade = false, aux1 = false, aux2 = false;
     std::vector<std::pair<int, bool>> keys;  // elke gebonden toets (evdev-code) met zijn gewenste toestand

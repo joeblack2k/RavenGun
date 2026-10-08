@@ -69,7 +69,8 @@ static Settings modified() {
     s.camera.width = 320; s.camera.height = 240; s.camera.fps = 125;
     s.camera.auto_exposure = true; s.camera.exposure = 77; s.camera.gain = 12;
     s.filter = {false, 2.5, 0.25, 3.0};
-    s.aim = {25, 14};
+    s.aim = {25, 14, 55};
+    s.output = {120, 25};
     s.web.port = 18999;
     s.sharp_shooter.buttons = {{"trekker", "t"}, {"pomp", "move"}, {"cirkel", "circle"}};
     return s;
@@ -113,6 +114,12 @@ static void test_roundtrip_and_validation() {
     bad(R"({"schema":1,"tracker":{"hue_tol_deg":0}})", "tracker.hue_tol_deg");
     bad(R"({"schema":1,"filter":{"beta":-1}})", "filter.beta");
     bad(R"({"schema":1,"aim":{"h_edge_deg":90}})", "aim.h_edge_deg");
+    bad(R"({"schema":1,"aim":{"predict_ms":-1}})", "aim.predict_ms");
+    bad(R"({"schema":1,"aim":{"predict_ms":500}})", "aim.predict_ms");
+    bad(R"({"schema":1,"aim":{"predict_ms":"veel"}})", "aim.predict_ms");
+    bad(R"({"schema":1,"output":{"clock_hz":5}})", "output.clock_hz");
+    bad(R"({"schema":1,"output":{"clock_hz":5000}})", "output.clock_hz");
+    bad(R"({"schema":1,"output":{"extrapolate_ms":250}})", "output.extrapolate_ms");
     bad(R"({"schema":1,"web":{"port":0}})", "web.port");
     bad(R"({"schema":1,"web":{"port":70000}})", "web.port");
     bad(R"({"schema":1,"web":5})", "web");

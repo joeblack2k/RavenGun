@@ -14,6 +14,7 @@
 #include "camera.hpp"
 #include "commands.hpp"
 #include "hid_thread.hpp"
+#include "output_service.hpp"
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
 #include "ravengun/json.hpp"
@@ -49,6 +50,8 @@ struct FakeHid final : HidContext {
     uint8_t r = 0, g = 0, b = 0;
     core::OneEuroConfig f;
     core::AimConfig a;
+    core::PredictConfig pc;
+    int predict_calls = 0, aim_calls = 0;
     std::string status_json(bool full) override {
         return std::string("{\"daemon\":{\"uptime_s\":1},\"controller\":{\"id\":\"") + (full ? "00:11:22:33:44:55" : "00:11:22:xx:xx:xx") + "\"}}";
     }
@@ -56,7 +59,9 @@ struct FakeHid final : HidContext {
     core::OneEuroConfig filter() const override { return f; }
     void set_filter(const core::OneEuroConfig& c) override { f = c; }
     core::AimConfig aim() const override { return a; }
-    void set_aim(const core::AimConfig& c) override { a = c; }
+    void set_aim(const core::AimConfig& c) override { a = c; ++aim_calls; }
+    core::PredictConfig predict() const override { return pc; }
+    void set_predict(const core::PredictConfig& c) override { pc = c; ++predict_calls; }
     void set_led(bool en, uint8_t rr, uint8_t gg, uint8_t bb) override { ++led_calls; led_enabled = en; r = rr; g = gg; b = bb; }
     std::string record(const ipc::Request&) override { return "{}"; }
     std::string calib_mag(const ipc::Request&) override { return "{}"; }
@@ -206,6 +211,59 @@ static void test_set_camera(const std::string& dir) {
     }
 }
 
+
+// Voorspelling en uitvoerklok: live toegepast, bewaard, en een ongeldige waarde verandert niets.
+static void test_predict_and_clock(const std::string& dir) {
+    Rig rig;
+    config::SettingsStore store(dir + "/pc/config.json");
+    store.load();
+    rig.sh.settings = &store;
+    OutputService out;  // niet gewapend: er wordt niets naar een apparaat geschreven
+    rig.sh.output = &out;
+    bool ok = false;
+    std::string code;
+    CHECK(store.get().aim.predict_ms == 40 && store.get().output.clock_hz == 250 && store.get().output.extrapolate_ms == 40);  // standaardwaarden
+
+    json::Value r = rig.call(R"({"v":1,"cmd":"set_aim","predict_ms":55})", &ok);
+    CHECK(ok && num(r, "predict_ms") == 55 && rig.hid.pc.horizon_ms == 55 && rig.hid.predict_calls == 1);
+    CHECK(rig.hid.aim_calls == 0);  // de voorspelling verandert live, zonder het filter te resetten
+    CHECK(store.get().aim.predict_ms == 55 && store.get().aim.h_edge_deg == 20);
+    CHECK(contains(slurp(dir + "/pc/config.json"), "\"predict_ms\":55"));
+    rig.call(R"({"v":1,"cmd":"set_aim","h_edge_deg":25})", &ok);
+    CHECK(ok && rig.hid.aim_calls == 1 && rig.hid.pc.horizon_ms == 55 && store.get().aim.predict_ms == 55);  // randen raken de horizon niet
+    rig.call(R"({"v":1,"cmd":"set_aim","predict_ms":0})", &ok);
+    CHECK(ok && rig.hid.pc.horizon_ms == 0 && store.get().aim.predict_ms == 0);
+    rig.call(R"({"v":1,"cmd":"set_aim","predict_ms":900})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument" && store.get().aim.predict_ms == 0);
+
+    // Uitvoerklok.
+    CHECK(out.clock_config().hz == 250 && out.clock_config().max_extrap_ms == 40);  // standaard van de klasse
+    r = rig.call(R"({"v":1,"cmd":"set_clock","clock_hz":125,"extrapolate_ms":30})", &ok);
+    CHECK(ok && num(r, "clock_hz") == 125 && num(r, "extrapolate_ms") == 30);
+    CHECK(out.clock_config().hz == 125 && out.clock_config().max_extrap_ms == 30);
+    CHECK(store.get().output.clock_hz == 125 && store.get().output.extrapolate_ms == 30);
+    CHECK(contains(slurp(dir + "/pc/config.json"), "\"clock_hz\":125"));
+    rig.call(R"({"v":1,"cmd":"set_clock","clock_hz":0})", &ok);
+    CHECK(ok && !out.clock_config().enabled() && store.get().output.clock_hz == 0 && store.get().output.extrapolate_ms == 30);
+    rig.call(R"({"v":1,"cmd":"set_clock","clock_hz":15})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument" && store.get().output.clock_hz == 0);
+    // Status van de uitvoer toont de klok.
+    json::Value st = rig.call(R"({"v":1,"cmd":"output"})", &ok);
+    CHECK(ok);
+    const json::Value* live = st.find("live");
+    const json::Value* ck = live ? live->find("clock") : nullptr;
+    CHECK(ck && ck->find("enabled") && !ck->find("enabled")->b && num(*ck, "extrapolate_ms") == 30);
+    rig.call(R"({"v":1,"cmd":"set_clock","clock_hz":250})", &ok);
+    st = rig.call(R"({"v":1,"cmd":"output"})", &ok);
+    ck = st.find("live")->find("clock");
+    CHECK(ck && ck->find("enabled")->b && num(*ck, "hz") == 250);
+
+    // Zonder uitvoerservice: nette fout.
+    rig.sh.output = nullptr;
+    rig.call(R"({"v":1,"cmd":"set_clock","clock_hz":250})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+}
+
 static void test_persist_and_info(const std::string& dir) {
     Rig rig;
     config::SettingsStore store(dir + "/p/config.json");
@@ -217,7 +275,7 @@ static void test_persist_and_info(const std::string& dir) {
     // Filter, aim en web-poort worden bewaard.
     rig.call(R"({"v":1,"cmd":"set_filter","enabled":false,"beta":0.9})", &ok);
     CHECK(ok && !rig.hid.f.enabled);
-    CHECK(!store.get().filter.enabled && store.get().filter.beta == 0.9 && store.get().filter.min_cutoff_hz == 1.0);
+    CHECK(!store.get().filter.enabled && store.get().filter.beta == 0.9 && store.get().filter.min_cutoff_hz == 0.3);  // standaard uit de latentiemeting
     rig.call(R"({"v":1,"cmd":"set_aim","h_edge_deg":30})", &ok);
     CHECK(ok && store.get().aim.h_edge_deg == 30 && store.get().aim.v_edge_deg == 11.25);
     json::Value r = rig.call(R"({"v":1,"cmd":"set_web","port":18999})", &ok);
@@ -316,6 +374,7 @@ int main() {
     test_set_led(dir);
     test_set_camera(dir);
     test_persist_and_info(dir);
+    test_predict_and_clock(dir);
     test_buttons_and_ui(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

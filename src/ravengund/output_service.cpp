@@ -12,9 +12,50 @@ using namespace ravengun::output;
 using std::chrono::duration;
 using std::chrono::steady_clock;
 
-OutputService::OutputService() : out_(dev_, &kbd_) {}
+OutputService::OutputService() : out_(dev_, &kbd_) { clock_thread_ = std::thread(&OutputService::clock_main, this); }
 
 OutputService::~OutputService() { shutdown(); }
+
+ravengun::output::OutputClockConfig OutputService::clock_config() const {
+    std::lock_guard<std::mutex> g(m_);
+    return clock_.config();
+}
+
+void OutputService::set_clock(const ravengun::output::OutputClockConfig& c) {
+    std::lock_guard<std::mutex> g(m_);
+    clock_.set_config(c);
+    clock_idle_ = false;
+    clock_changed_ = true;
+    clock_cv_.notify_all();
+}
+
+// Klokthread: tikt op een vast raster en zet de geëxtrapoleerde aim. Houdt m_ alleen tijdens de berekening en de
+// (niet-blokkerende) uinput-schrijfactie; de HID-thread levert het anker via feed_live.
+void OutputService::clock_main() {
+    std::unique_lock<std::mutex> lk(m_);
+    while (!shut_) {
+        // Niets te doen (klok uit, ongewapend, patroon, geen anker, of de limiet is bereikt en er is vastgehouden): slapen tot
+        // een rapport, een instelling of het afsluiten haar wakker maakt (met een time-out als vangnet).
+        if (!clock_.config().enabled() || !out_.armed() || pattern_running_ || !clock_.anchor().valid || clock_idle_) {
+            clock_cv_.wait_for(lk, std::chrono::milliseconds(50), [&] { return shut_ || clock_changed_; });
+            clock_changed_ = false;
+            continue;
+        }
+        const int64_t next = clock_.next_tick_after(mono_ns());
+        const auto tp = steady_clock::time_point(std::chrono::nanoseconds(next));
+        if (clock_cv_.wait_until(lk, tp, [&] { return shut_ || clock_changed_; })) { clock_changed_ = false; continue; }
+        if (shut_) break;
+        if (!out_.armed() || pattern_running_) continue;
+        auto p = clock_.tick(mono_ns());
+        if (!p) continue;
+        ++clock_ticks_;
+        if (p->extrapolating) ++clock_extrapolated_;
+        else if (p->held) { ++clock_held_; clock_idle_ = true; }  // positie staat vast: pas weer tikken na een nieuw rapport
+        const uint64_t before = out_.stats().position_events;
+        out_.set_position(p->x, p->y);
+        if (out_.stats().position_events != before) ++clock_events_;
+    }
+}
 
 void OutputService::set_initial_transform(const GunTransform& t) {
     std::lock_guard<std::mutex> g(m_);
@@ -58,6 +99,7 @@ OutputResult OutputService::disarm() {
     stop_pattern_locked(lk);
     if (out_.armed()) logf("info", "uitvoer ontwapend: knoppen vrijgegeven");
     out_.disarm();
+    clock_.clear();
     return {};
 }
 
@@ -93,15 +135,26 @@ void OutputService::feed_live(const LiveAction& a) {
         for (int i = 0; i < kGunButtonCount; ++i) any = any || out_.button_down(static_cast<GunButton>(i));
         any = any || !out_.keys_down().empty();
         if (any) { out_.release_all(); ++live_releases_; }
+        clock_.clear();
         return;
     }
-    if (!out_.armed()) return;
+    if (!out_.armed()) { clock_.clear(); return; }
     if (pattern_running_) { ++live_suspended_; return; }  // testpatroon heeft voorrang
     live_aim_valid_ = a.move;
     if (a.move) {
-        out_.set_position(a.x, a.y);
+        if (clock_.config().enabled()) {
+            // Anker voor de uitvoerklok en meteen de positie op dit moment (anker + snelheid * leeftijd): geen wachttijd tot de volgende tik.
+            const bool wake = clock_idle_ || !clock_.anchor().valid;
+            clock_.on_report(a.t_ns ? a.t_ns : mono_ns(), a.x, a.y, a.vx, a.vy, a.age_ms);
+            if (wake) { clock_idle_ = false; clock_changed_ = true; clock_cv_.notify_one(); }
+            const auto p = clock_.at(mono_ns());
+            out_.set_position(p ? p->x : a.x, p ? p->y : a.y);
+        } else {
+            out_.set_position(a.x, a.y);
+        }
         ++live_positions_;
     } else {
+        clock_.clear();
         ++live_invalid_;  // ongeldige aim: niet bewegen (cursor blijft staan)
     }
     if (a.buttons) {
@@ -118,6 +171,11 @@ void OutputService::shutdown() {
     std::unique_lock<std::mutex> lk(m_);
     if (shut_) return;
     shut_ = true;
+    clock_cv_.notify_all();
+    std::thread ct = std::move(clock_thread_);
+    lk.unlock();
+    if (ct.joinable()) ct.join();
+    lk.lock();
     stop_pattern_locked(lk);
     out_.shutdown();  // knoppen vrij, apparaat weg
 }
@@ -130,6 +188,7 @@ OutputResult OutputService::start_pattern(const PatternParams& p) {
     if (!out_.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
     stop_pattern_locked(lk);
     if (!out_.armed()) return {false, "unavailable", "uitvoer is niet gewapend"};
+    clock_.clear();  // het patroon heeft voorrang; geen verouderd anker dat daarna terugspringt
     pattern_stop_ = false;
     pattern_running_ = true;
     pattern_state_ = "running";
@@ -244,13 +303,22 @@ std::string OutputService::status_json() const {
     }
     w.end_object();
     w.key("live").begin_object();
-    w.key("source").value("move (pijplijn-aim per rapport, geen 250 Hz-klok)");
+    const auto& cc = clock_.config();
+    w.key("source").value(cc.enabled() ? "move (pijplijn-aim per rapport, uitvoerklok met extrapolatie)" : "move (pijplijn-aim per rapport, uitvoerklok uit)");
     w.key("aim_valid").value(live_aim_valid_);
     w.key("samples").value(static_cast<unsigned long long>(live_samples_));
     w.key("positions").value(static_cast<unsigned long long>(live_positions_));
     w.key("invalid_aim").value(static_cast<unsigned long long>(live_invalid_));
     w.key("releases").value(static_cast<unsigned long long>(live_releases_));
     w.key("suspended_by_pattern").value(static_cast<unsigned long long>(live_suspended_));
+    w.key("clock").begin_object();
+    w.key("enabled").value(cc.enabled()).key("hz").value(cc.hz).key("extrapolate_ms").value(cc.max_extrap_ms);
+    w.key("age_comp").value(cc.age_comp);
+    w.key("ticks").value(static_cast<unsigned long long>(clock_ticks_));
+    w.key("extrapolated").value(static_cast<unsigned long long>(clock_extrapolated_));
+    w.key("held").value(static_cast<unsigned long long>(clock_held_));
+    w.key("events").value(static_cast<unsigned long long>(clock_events_));
+    w.end_object();
     w.end_object();
     w.key("stats").begin_object();
     w.key("position_events").value(static_cast<unsigned long long>(s.position_events));
