@@ -56,6 +56,7 @@ add_library(ravengun STATIC
   src/ravengun/output/uinput_kbd.cpp
   src/ravengun/output/live_feed.cpp
   src/ravengun/output/aim_clock.cpp
+  src/ravengun/output/rumble.cpp
   src/ravengun/core/move_report.cpp
   src/ravengun/core/move_clock.cpp
   src/ravengun/core/magnetometer.cpp
@@ -154,6 +155,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_predict_tests tests/test_predict.cpp)
   target_link_libraries(ravengun_predict_tests PRIVATE ravengun)
   add_test(NAME ravengun_predict_tests COMMAND ravengun_predict_tests)
+  add_executable(ravengun_rumble_tests tests/test_rumble.cpp)
+  target_link_libraries(ravengun_rumble_tests PRIVATE ravengun)
+  add_test(NAME ravengun_rumble_tests COMMAND ravengun_rumble_tests)
   add_executable(ravengun_vqf_tests tests/test_vqf.cpp)
   target_link_libraries(ravengun_vqf_tests PRIVATE ravengun)
   add_test(NAME ravengun_vqf_tests COMMAND ravengun_vqf_tests)

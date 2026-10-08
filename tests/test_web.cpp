@@ -161,6 +161,14 @@ static void test_post_mapping() {
     CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_clock","clock_hz":250,"extrapolate_ms":40})");
     CHECK(app.handle(post("/api/clock", R"({"hz":250})")).status == 400);
     CHECK(app.handle(get("/api/clock")).status == 405);
+    r = app.handle(post("/api/rumble", R"({"enabled":true,"strength":200,"pulse_ms":80,"repeat_hz":0,"pump_strength":40})"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"set_rumble","enabled":true,"strength":200,"pulse_ms":80,"repeat_hz":0,"pump_strength":40})");
+    r = app.handle(post("/api/rumble-test", R"({"ms":250})"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"rumble_test","ms":250})");
+    r = app.handle(post("/api/rumble-test", "{}"));
+    CHECK(r.status == 200 && f.last_line == R"({"v":1,"cmd":"rumble_test"})");
+    CHECK(app.handle(post("/api/rumble", R"({"volume":3})")).status == 400);
+    CHECK(app.handle(get("/api/rumble")).status == 405);
     int calls = f.calls;
     // Geen injectie van cmd/v of onbekende velden; geen niet-scalaire waarden; geen rommel.
     CHECK(app.handle(post("/api/filter", R"({"cmd":"recenter"})")).status == 400);

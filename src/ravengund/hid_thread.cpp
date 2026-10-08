@@ -25,6 +25,8 @@ using namespace ravengun::core;
 namespace {
 
 uint64_t led_updates = 0, led_failures = 0;  // alleen in de HID-thread geschreven en gelezen
+// Trillen: tellers en de laatst verstuurde waarde voor de status (ook alleen in de HID-thread).
+uint64_t rumble_reports = 0, rumble_pulses = 0, rumble_failures = 0, rumble_sent = 0;
 
 struct ControllerInfo {
     bool open = false;
@@ -86,6 +88,14 @@ std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcS
     w.key("refresh_ms").value(opt.led_refresh_ms);
     w.key("updates").value(static_cast<unsigned long long>(led_updates));
     w.key("failures").value(static_cast<unsigned long long>(led_failures));
+    w.end_object();
+    w.key("rumble").begin_object();
+    w.key("enabled").value(opt.rumble.enabled).key("strength").value(opt.rumble.strength).key("pulse_ms").value(opt.rumble.pulse_ms);
+    w.key("repeat_hz").value(opt.rumble.repeat_hz).key("pump_strength").value(opt.rumble.pump_strength);
+    w.key("current").value(static_cast<int>(rumble_sent));
+    w.key("pulses").value(static_cast<unsigned long long>(rumble_pulses));
+    w.key("reports").value(static_cast<unsigned long long>(rumble_reports));
+    w.key("failures").value(static_cast<unsigned long long>(rumble_failures));
     w.end_object();
     w.key("disconnects").value(static_cast<unsigned long long>(ci.disconnects));
     BatteryInfo b = battery_info(s.battery_raw);
@@ -265,11 +275,18 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     HidAux aux(shared, opt.recorder, opt.pipeline.use_move_clock);
     aux.attach(&pipe);
     aux.set_bias_dir(opt.bias_dir);
+    // Trillen: toestandsmachine (kernlogica) plus de poort die het aantal uitvoerrapporten begrenst.
+    ravengun::output::RumbleEngine rumble;
+    ravengun::output::ReportGate gate;
+    ravengun::output::RumbleInput rin;
+    rumble.set_config(opt.rumble);
+    rumble_reports = rumble_pulses = rumble_failures = rumble_sent = 0;
 
     // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
     struct Ctx final : HidContext {
         Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh; HidAux& aux;
         bool led_dirty = false;
+        ravengun::output::RumbleEngine* engine = nullptr;
         Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_, HidAux& a_)
             : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_), aux(a_) {}
         std::string status_json(bool full) override {
@@ -300,6 +317,13 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         PredictConfig predict() const override { return p.config().predict; }
         void set_predict(const PredictConfig& c) override { p.set_predict(c); opt.pipeline.predict = c; }
         void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; led_dirty = true; }
+        ravengun::output::RumbleConfig rumble() const override { return opt.rumble; }
+        void set_rumble(const ravengun::output::RumbleConfig& c) override { opt.rumble = c; if (engine) engine->set_config(c); }
+        std::string rumble_test(int ms) override {
+            if (!opt.rumble.enabled) return "!unavailable|rumble staat uit (ravengunctl rumble on)";
+            if (!ci.open || !engine) return "!unavailable|geen Move verbonden";
+            return engine->test(mono_ns(), ms) ? "1" : "!unavailable|rumble staat uit";
+        }
         FusionMode fusion() const override { return p.fusion_mode(); }
         void set_fusion(FusionMode m) override {
             if (m == p.fusion_mode()) return;
@@ -308,9 +332,21 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             logf("info", "oriëntatieschatter: %s", to_string(m));
         }
     } ctx(pipe, ci, ps, opt, start, shared, aux);
+    ctx.engine = &rumble;
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
     // Fase 4: elk gepubliceerd sample gaat ook naar de virtuele lightgun (alleen als die gewapend is).
     ravengun::output::LiveGunFeed live(opt.gun_buttons);
+    // Voedt de rumble-toestandsmachine met de trekker (uit de live koppeling) en de pomp; ook elke lusronde (de tijd loopt door).
+    // Of de uitvoer gewapend is, wordt hoogstens elke 20 ms gevraagd (neemt een slot van de uitvoerservice).
+    int64_t armed_checked = 0;
+    auto rumble_step = [&](int64_t now) {
+        if (now - armed_checked >= 20'000'000 || armed_checked == 0) {
+            rin.armed = shared.output && shared.output->armed();
+            armed_checked = now;
+        }
+        rumble.update(now, rin);
+        rumble_pulses = rumble.pulses();
+    };
     auto emit = [&](const InputSample& s) {
         shared.publish(s);
         if (!shared.output) return;
@@ -324,6 +360,10 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             }
         }
         shared.output->feed_live(a);
+        rin.connected = s.link != LinkState::Lost && s.link != LinkState::Disconnected;
+        rin.trigger = rin.connected && live.trigger_down();
+        rin.pump = rin.connected && (s.buttons & kBtnPump) != 0;
+        rumble_step(mono_ns());
     };
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
@@ -353,6 +393,9 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                     next_scan = now + 1'000'000'000;
                     if (move) {
                         next_led = 0;
+                        rumble.reset();
+                        gate.reset();
+                        rumble_sent = 0;
                         ci.connected_at_ns = mono_ns();
                         ++ci.connects;
                         pipe.on_connect(ci.id, ci.connected_at_ns);
@@ -367,14 +410,28 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 continue;
             }
             if (ctx.led_dirty) { next_led = 0; ctx.led_dirty = false; }
-            if (opt.led_enabled && now >= next_led) {
-                // Alleen hier (HID-thread) wordt de LED aangestuurd. set_leds markeert de waarde als
-                // gewijzigd, zodat update_leds hem echt verstuurt (PSMoveAPI zou anders pas na 4 s
-                // herhalen, en dat is te krap voor de time-out van de Move).
-                psmove_set_leds(move, opt.led_r, opt.led_g, opt.led_b);
-                if (psmove_update_leds(move) == Update_Failed) ++led_failures;
-                else { ++led_updates; aux.on_led_sent(now, opt.led_r, opt.led_g, opt.led_b); }
-                next_led = now + static_cast<int64_t>(opt.led_refresh_ms) * 1'000'000;
+            rumble_step(now);
+            {
+                // Eén uitvoerrapport voor LED en rumble samen (PSMove_Data_LEDs: kleur op byte 2..4, rumble op byte 6). Alleen bij een
+                // gewijzigde rumblewaarde (hoogstens elke 20 ms), een gewijzigde LED of de LED-keepalive. Zonder wijziging weigert
+                // PSMoveAPI zelf een rapport tot 4 s na het vorige (PSMOVE_MAX_LED_INHIBIT_MS); dat is de keepalive van de Move.
+                const uint8_t want = rumble.value();
+                const bool led_due = opt.led_enabled && now >= next_led;
+                if (gate.due(now, want, led_due)) {
+                    if (opt.led_enabled) psmove_set_leds(move, opt.led_r, opt.led_g, opt.led_b);
+                    else psmove_set_leds(move, 0, 0, 0);
+                    psmove_set_rumble(move, want);
+                    auto res = psmove_update_leds(move);
+                    const bool changed = want != gate.last_sent();
+                    gate.sent(now, want, res == Update_Success);
+                    if (res == Update_Failed) { ++led_failures; if (changed) ++rumble_failures; }
+                    else if (res == Update_Success) {
+                        rumble_sent = want;
+                        if (changed) ++rumble_reports;
+                        if (opt.led_enabled) { ++led_updates; aux.on_led_sent(now, opt.led_r, opt.led_g, opt.led_b); }
+                    }
+                    if (led_due) next_led = now + static_cast<int64_t>(opt.led_refresh_ms) * 1'000'000;
+                }
             }
             bool zcm2 = ci.model == "ZCM2";
             bool got = false;
@@ -405,6 +462,8 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 logf("waarschuwing", "Move %s: %.1f s geen rapporten, verbinding gesloten; opnieuw zoeken",
                      redact_mac(ci.id).c_str(), static_cast<double>(now - last_rx) / 1e9);
                 emit(pipe.on_disconnect(now));
+                rin.connected = false;
+                rumble_step(now);
                 aux.on_disconnect(now);
                 psmove_disconnect(move);
                 move = nullptr;
@@ -437,10 +496,10 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
 #ifndef RAVENGUN_NO_PSMOVEAPI
     if (move) {
         emit(pipe.on_disconnect(mono_ns()));  // alle knoppen vrij (ook op de virtuele lightgun)
-        if (opt.led_enabled) {
-            psmove_set_leds(move, 0, 0, 0);
-            psmove_update_leds(move);
-        }
+        // Rumble uit (en de LED, als wij die aanstuurden); alleen een rapport als er iets te doen is.
+        psmove_set_rumble(move, 0);
+        if (opt.led_enabled) psmove_set_leds(move, 0, 0, 0);
+        if (opt.led_enabled || gate.last_sent() != 0) psmove_update_leds(move);
         psmove_disconnect(move);
         move = nullptr;
     }

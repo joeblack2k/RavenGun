@@ -528,6 +528,14 @@
       $('aim-v').value = a.v_edge_deg;
       $('lat-predict').value = a.predict_ms;
       $('lat-predict-r').value = Math.min(120, a.predict_ms);
+      var rm = j.result.controller && j.result.controller.rumble;
+      if (rm) {
+        $('rum-enabled').checked = rm.enabled;
+        $('rum-strength').value = rm.strength;
+        $('rum-pulse').value = rm.pulse_ms;
+        $('rum-repeat').value = rm.repeat_hz;
+        $('rum-pump').value = rm.pump_strength;
+      }
       var ck = j.result.output && j.result.output.live && j.result.output.live.clock;
       if (ck) { $('lat-clock').value = ck.enabled ? ck.hz : 0; $('lat-extrap').value = ck.extrapolate_ms; }
     });
@@ -592,6 +600,22 @@
     submit('/api/aim', { predict_ms: p }, $('lat-err'), null, btn, function () {
       submit('/api/clock', { clock_hz: c, extrapolate_ms: x }, $('lat-err'), 'Latentie toegepast en bewaard', btn, loadSettings);
     });
+  });
+  $('f-rumble').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var errs = [];
+    var st = num('rum-strength', 0, 255, 'Sterkte', errs, true);
+    var pm = num('rum-pulse', 10, 500, 'Pulsduur', errs, true);
+    var rp = num('rum-repeat', 0, 30, 'Herhaling', errs);
+    var ps = num('rum-pump', 0, 255, 'Sterkte bij de pomp', errs, true);
+    if (rp !== null && rp > 0 && rp < 1) { errs.push('Herhaling moet 0 (uit) zijn of tussen 1 en 30 liggen'); $('rum-repeat').classList.add('invalid'); }
+    $('rum-err').textContent = errs.join('. ');
+    if (errs.length) return;
+    submit('/api/rumble', { enabled: $('rum-enabled').checked, strength: st, pulse_ms: pm, repeat_hz: rp, pump_strength: ps },
+           $('rum-err'), 'Trillen toegepast en bewaard', e.target.querySelector('button[type=submit]'), loadSettings);
+  });
+  $('rum-test').addEventListener('click', function (e) {
+    submit('/api/rumble-test', {}, $('rum-err'), 'Testpuls gestuurd', e.target);
   });
   $('recenter').addEventListener('click', function (e) {
     submit('/api/recenter', {}, $('rc-err'), 'Recenter gedaan', e.target);

@@ -19,7 +19,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
-                 SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock };
+                 SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -32,6 +32,9 @@ struct Request {
     std::optional<double> h_edge_deg, v_edge_deg;
     std::optional<double> predict_ms;                       // set_aim: voorspelhorizon (ms, 0 = uit)
     std::optional<double> clock_hz, extrapolate_ms;         // set_clock: uitvoerklok (Hz, 0 = uit) en extrapolatielimiet (ms)
+    // set_rumble: trillen bij schieten (alle velden optioneel, minstens een); rumble_test: een testpuls van `rumble_ms` ms.
+    std::optional<bool> rumble_enabled;
+    std::optional<double> rumble_strength, rumble_pulse_ms, rumble_repeat_hz, rumble_pump_strength, rumble_ms;
     // Uitvoer (arm/disarm/output/test_pattern/output_button/set_output).
     std::string pattern;   // test_pattern: center|corners|grid|sweep|point|stop
     std::optional<double> dwell_ms, duration_s, margin, x, y, rate_hz_pattern;

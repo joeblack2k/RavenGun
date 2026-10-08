@@ -324,6 +324,52 @@ void persist_aim(SharedState& sh, const ipc::Request& r) {
     });
 }
 
+std::string context_reply(const ipc::Request& r, const std::string& res, const std::string& err);
+
+json::Writer& write_rumble(json::Writer& w, const output::RumbleConfig& c) {
+    return w.key("enabled").value(c.enabled).key("strength").value(c.strength).key("pulse_ms").value(c.pulse_ms)
+        .key("repeat_hz").value(c.repeat_hz).key("pump_strength").value(c.pump_strength);
+}
+
+std::string handle_set_rumble(SharedState& sh, const ipc::Request& r) {
+    std::string err;
+    ipc::Request rq = r;
+    std::string res = run_job(sh, [rq](HidContext& h) {
+        output::RumbleConfig c = h.rumble();
+        if (rq.rumble_enabled) c.enabled = *rq.rumble_enabled;
+        if (rq.rumble_strength) c.strength = static_cast<int>(*rq.rumble_strength);
+        if (rq.rumble_pulse_ms) c.pulse_ms = static_cast<int>(*rq.rumble_pulse_ms);
+        if (rq.rumble_repeat_hz) c.repeat_hz = *rq.rumble_repeat_hz;
+        if (rq.rumble_pump_strength) c.pump_strength = static_cast<int>(*rq.rumble_pump_strength);
+        std::string bad = output::validate_rumble(c);
+        if (!bad.empty()) return "!invalid_argument|" + bad;
+        h.set_rumble(c);
+        json::Writer w;
+        w.begin_object();
+        write_rumble(w, c);
+        w.end_object();
+        return w.str();
+    }, err);
+    if (!err.empty() || (!res.empty() && res[0] == '!')) return context_reply(r, res, err);
+    config::SaveResult sr{true, {}};
+    if (sh.settings) {
+        sr = sh.settings->update([&](config::Settings& s) {
+            if (r.rumble_enabled) s.rumble.enabled = *r.rumble_enabled;
+            if (r.rumble_strength) s.rumble.strength = static_cast<int>(*r.rumble_strength);
+            if (r.rumble_pulse_ms) s.rumble.pulse_ms = static_cast<int>(*r.rumble_pulse_ms);
+            if (r.rumble_repeat_hz) s.rumble.repeat_hz = *r.rumble_repeat_hz;
+            if (r.rumble_pump_strength) s.rumble.pump_strength = static_cast<int>(*r.rumble_pump_strength);
+        });
+    }
+    // Het resultaat: de actieve instelling plus of hij bewaard is.
+    std::string out = res;
+    if (!out.empty() && out.back() == '}') {
+        out.pop_back();
+        out += std::string(",\"saved\":") + (sr.ok && sh.settings ? "true" : "false") + "}";
+    }
+    return ipc::ok_response(r.id_json, out);
+}
+
 std::string output_reply(const ipc::Request& r, const OutputResult& res, SharedState& sh) {
     if (!res.ok) return ipc::error_response({res.code.empty() ? "internal" : res.code, res.message, r.id_json});
     return ipc::ok_response(r.id_json, sh.output->status_json());
@@ -476,6 +522,13 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             json::Writer w;
             w.begin_object().key("clock_hz").value(c.hz).key("extrapolate_ms").value(c.max_extrap_ms).end_object();
             return ipc::ok_response(r.id_json, w.str());
+        }
+        case ipc::Cmd::SetRumble: return handle_set_rumble(sh, r);
+        case ipc::Cmd::RumbleTest: {
+            const int ms = r.rumble_ms ? static_cast<int>(*r.rumble_ms) : 300;
+            std::string res = run_job(sh, [ms](HidContext& h) { return h.rumble_test(ms); }, err);
+            if (!err.empty() || (!res.empty() && res[0] == '!')) return context_reply(r, res, err);
+            return ipc::ok_response(r.id_json, "{\"pulse_ms\":" + std::to_string(ms) + "}");
         }
         case ipc::Cmd::SetLed: return handle_set_led(sh, r);
         case ipc::Cmd::SetCamera: return handle_set_camera(sh, r);

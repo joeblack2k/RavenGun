@@ -49,6 +49,19 @@ echo "$OUT" | grep -q '"schema_version":2' || fail "schema_version ontbreekt"
 "$C" clock 0 >/dev/null || fail "clock 0 faalde"
 "$C" clock 10 2>/dev/null
 [ $? -eq 64 ] || fail "clock 10 moet een gebruiksfout geven"
+"$C" rumble | grep -q "aan, sterkte 180, puls 60 ms, 9 Hz bij vasthouden, pomp 90" || fail "rumble-standaard niet in de status"
+"$C" rumble --strength 200 --pulse-ms 80 --repeat-hz 0 --pump-strength 0 >/dev/null || fail "rumble instellen faalde"
+"$C" status --json | grep -q '"rumble":{"enabled":true,"strength":200,"pulse_ms":80,"repeat_hz":0,"pump_strength":0' || fail "rumble niet in de status-JSON"
+"$C" rumble | grep -q "puls 80 ms, één puls per schot, pomp uit" || fail "rumble-tekst klopt niet"
+"$C" rumble off >/dev/null || fail "rumble off faalde"
+"$C" status --json | grep -q '"rumble":{"enabled":false,"strength":200' || fail "rumble niet uit"
+rc=0; "$C" rumble test 2>/dev/null || rc=$?
+[ "$rc" -ne 0 ] || fail "rumble test zonder Move moet falen"
+"$C" rumble on >/dev/null || fail "rumble on faalde"
+"$C" rumble --strength 300 2>/dev/null
+[ $? -eq 64 ] || fail "rumble --strength 300 moet een gebruiksfout geven"
+"$C" rumble bla 2>/dev/null
+[ $? -eq 64 ] || fail "rumble bla moet een gebruiksfout geven"
 "$C" filter --d-cutoff 5 >/dev/null || fail "filter --d-cutoff faalde"
 
 "$C" watch --duration 0.5 --json >/dev/null || fail "watch faalde"

@@ -365,6 +365,14 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (!build_set_request("set_led", r.body, {"r", "g", "b"}, line, err, {"preset"})) return error_json(400, "bad_request", err);
             return api_command(line);
         }
+        if (p == "/api/rumble" || p == "/api/rumble-test") {
+            if (get) return wrong_method("POST");
+            std::string line, err;
+            bool ok = p == "/api/rumble" ? build_set_request("set_rumble", r.body, {"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"}, line, err)
+                                         : build_set_request("rumble_test", r.body, {"ms"}, line, err);
+            if (!ok) return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
         if (p == "/api/web") {
             if (get) return wrong_method("POST");
             std::string line, err;

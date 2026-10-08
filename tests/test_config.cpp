@@ -120,6 +120,12 @@ static void test_roundtrip_and_validation() {
     bad(R"({"schema":1,"output":{"clock_hz":5}})", "output.clock_hz");
     bad(R"({"schema":1,"output":{"clock_hz":5000}})", "output.clock_hz");
     bad(R"({"schema":1,"output":{"extrapolate_ms":250}})", "output.extrapolate_ms");
+    bad(R"({"schema":1,"rumble":{"strength":300}})", "rumble.strength");
+    bad(R"({"schema":1,"rumble":{"pulse_ms":5}})", "rumble.pulse_ms");
+    bad(R"({"schema":1,"rumble":{"repeat_hz":0.5}})", "rumble.repeat_hz");
+    bad(R"({"schema":1,"rumble":{"repeat_hz":99}})", "rumble.repeat_hz");
+    bad(R"({"schema":1,"rumble":{"pump_strength":-1}})", "rumble.pump_strength");
+    bad(R"({"schema":1,"rumble":{"enabled":"ja"}})", "rumble.enabled");
     bad(R"({"schema":1,"web":{"port":0}})", "web.port");
     bad(R"({"schema":1,"web":{"port":70000}})", "web.port");
     bad(R"({"schema":1,"web":5})", "web");
@@ -141,6 +147,30 @@ static void test_roundtrip_and_validation() {
     s = Settings{};
     s.camera.fps = 61;
     CHECK(contains(validate(s), "camera.mode"));
+}
+
+static void test_rumble_settings() {
+    Settings d;
+    CHECK(d.rumble.enabled && d.rumble.strength == 180 && d.rumble.pulse_ms == 60 && d.rumble.repeat_hz == 9 && d.rumble.pump_strength == 90);
+    // Bestand zonder rumble-sectie (oude config): standaardwaarden.
+    Settings o;
+    std::string e;
+    std::vector<std::string> warn;
+    CHECK(parse_settings(R"({"schema":1,"led":{"enabled":false}})", o, e, &warn) && o.rumble.enabled && o.rumble.strength == 180);
+    // Rondgang van aangepaste waarden.
+    Settings m;
+    m.rumble.enabled = false; m.rumble.strength = 220; m.rumble.pulse_ms = 45; m.rumble.repeat_hz = 0; m.rumble.pump_strength = 0;
+    std::string txt = to_json(m);
+    Settings back;
+    CHECK(parse_settings(txt, back, e, &warn) && e.empty());
+    CHECK(!back.rumble.enabled && back.rumble.strength == 220 && back.rumble.pulse_ms == 45 && back.rumble.repeat_hz == 0 && back.rumble.pump_strength == 0);
+    CHECK(txt.find("\"rumble\"") != std::string::npos && txt.find("\"pump_strength\"") != std::string::npos);
+    // Onbekende sleutel in de sectie: waarschuwing; validate weigert een ongeldige struct.
+    warn.clear();
+    CHECK(parse_settings(R"({"schema":1,"rumble":{"volume":3}})", o, e, &warn) && !warn.empty());
+    Settings v;
+    v.rumble.strength = 999;
+    CHECK(!validate(v).empty());
 }
 
 static void test_migration_hook() {
@@ -520,6 +550,7 @@ int main() {
     test_fusion_and_gun_buttons();
     test_sharp_shooter_buttons();
     test_roundtrip_and_validation();
+    test_rumble_settings();
     test_migration_hook();
     test_store_files();
     test_atomic_write();

@@ -45,6 +45,9 @@ void usage(FILE* f) {
         "              toont de huidige; live en bewaard in config.json (aim.predict_ms)\n"
         "  clock       uitvoerklok: 'clock 250' (Hz, 0 = uit: positie alleen per rapport), optioneel\n"
         "              --extrapolate-ms MS (max. extrapolatie na het laatste rapport); zonder waarde toont de huidige\n"
+        "  rumble      trillen bij schieten: 'rumble on|off', 'rumble --strength 0..255 --pulse-ms 10..500 --repeat-hz 0..30\n"
+        "              --pump-strength 0..255' (repeat-hz 0 = één puls per schot; pump-strength 0 = geen pomppuls),\n"
+        "              'rumble test [ms]' (één puls, ook ongewapend); zonder argumenten toont de instelling; live en bewaard\n"
         "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
         "  record      opname (alleen getallen) naar ~/.local/state/ravengun/recordings/:\n"
         "                record [--tag T] [--duration S] [--max-mb N]   opnemen tot S s of Ctrl-C\n"
@@ -187,6 +190,15 @@ std::string fmt(double v, const char* f) {
     char b[64];
     std::snprintf(b, sizeof b, f, v);
     return b;
+}
+
+// Eén regel over het trillen bij schieten, uit controller.rumble van de status.
+std::string rumble_text(const json::Value& rm, bool counters = true) {
+    if (!boolean(rm, {"enabled"})) return "uit";
+    std::string rep = num(rm, {"repeat_hz"}, 0) > 0 ? fmt(num(rm, {"repeat_hz"}), "%.0f") + " Hz bij vasthouden" : "één puls per schot";
+    return "aan, sterkte " + fmt(num(rm, {"strength"}), "%.0f") + ", puls " + fmt(num(rm, {"pulse_ms"}), "%.0f") + " ms, " + rep + ", pomp " +
+           (num(rm, {"pump_strength"}, 0) > 0 ? fmt(num(rm, {"pump_strength"}), "%.0f") : std::string("uit")) +
+           (counters ? "; " + fmt(num(rm, {"pulses"}, 0), "%.0f") + " pulsen, " + fmt(num(rm, {"reports"}, 0), "%.0f") + " rapporten" : std::string());
 }
 
 // Optische meting als korte tekst (2D-beeldpositie, geen diepte).
@@ -365,6 +377,8 @@ void print_status(const json::Value& r) {
                 num(r, {"config", "aim", "predict_ms"}, 0) > 0 ? (fmt(num(r, {"config", "aim", "predict_ms"}), "%.0f") + " ms vooruit").c_str() : "uit",
                 num(r, {"config", "predict", "rate_dps"}, 0), num(r, {"config", "predict", "gain"}, 0), num(r, {"config", "predict", "angle_deg"}, 0),
                 num(r, {"config", "predict", "report_age_ms"}, 0));
+    if (const json::Value* rm = path(r, {"controller", "rumble"}); rm && rm->is_object())
+        std::printf("Trillen:      %s\n", rumble_text(*rm).c_str());
     if (const json::Value* ck = path(r, {"output", "live", "clock"}))
         std::printf("Uitvoerklok:  %s; extrapolatie max. %.0f ms; %.0f tikken, %.0f geëxtrapoleerd, %.0f vastgehouden, %.0f positie-events\n",
                     boolean(*ck, {"enabled"}) ? (fmt(num(*ck, {"hz"}), "%.0f") + " Hz").c_str() : "uit (positie per rapport)", num(*ck, {"extrapolate_ms"}, 0),
@@ -680,6 +694,7 @@ int main(int argc, char** argv) {
         std::string cmd;
         bool json = false, full = false;
         double rate = -1, duration = -1, min_cutoff = -1, beta = -1, d_cutoff = -1, extrap_ms = -1, dwell = -1, margin = -1, max_mb = -1;
+        double r_strength = -1, r_pulse = -1, r_repeat = -1, r_pump = -1;
         double inv_x = -1, inv_y = -1, sc_x = -1, sc_y = -1, off_x = NAN, off_y = NAN, lb_screen = -1, lb_content = -1;
         std::vector<std::string> pos;
         int filter_on = -1;
@@ -702,6 +717,10 @@ int main(int argc, char** argv) {
             else if (a == "--beta") beta = need(i, "--beta", 0, 1000);
             else if (a == "--d-cutoff") d_cutoff = need(i, "--d-cutoff", 0.001, 100);
             else if (a == "--extrapolate-ms") extrap_ms = need(i, "--extrapolate-ms", 0, 100);
+            else if (a == "--strength") r_strength = need(i, "--strength", 0, 255);
+            else if (a == "--pulse-ms") r_pulse = need(i, "--pulse-ms", 10, 500);
+            else if (a == "--repeat-hz") r_repeat = need(i, "--repeat-hz", 0, 30);
+            else if (a == "--pump-strength") r_pump = need(i, "--pump-strength", 0, 255);
             else if (a == "--dwell") dwell = need(i, "--dwell", 50, 60000);
             else if (a == "--margin") margin = need(i, "--margin", 0, 0.499);
             else if (a == "--invert-x") inv_x = need(i, "--invert-x", 0, 1);
@@ -727,7 +746,7 @@ int main(int argc, char** argv) {
             else if (a == "--off") filter_on = 0;
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
-            else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
+            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble") pos.push_back(a);
             else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim" || cmd == "predict" || cmd == "clock")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
@@ -830,6 +849,50 @@ int main(int argc, char** argv) {
                 if (hz > 0) std::printf("Uitvoerklok: %.0f Hz, extrapolatie max. %.0f ms (live toegepast en bewaard).\n", hz, num(r.v, {"result", "extrapolate_ms"}, 0));
                 else std::printf("Uitvoerklok uit: de positie volgt alleen de rapporten (live toegepast en bewaard).\n");
             }
+            return kExitOk;
+        }
+        if (cmd == "rumble") {
+            const bool any = r_strength >= 0 || r_pulse >= 0 || r_repeat >= 0 || r_pump >= 0;
+            const std::string sub = pos.empty() ? "" : pos[0];
+            if (pos.size() > 2 || (!sub.empty() && sub != "on" && sub != "off" && sub != "test") || (sub == "test" && any) || (sub != "test" && pos.size() > 1)) {
+                std::fprintf(stderr, "ravengunctl: rumble verwacht on, off, test [ms] of --strength/--pulse-ms/--repeat-hz/--pump-strength\n");
+                return kExitUsage;
+            }
+            if (sub == "test") {
+                if (pos.size() == 2) {
+                    char* end = nullptr;
+                    double ms = std::strtod(pos[1].c_str(), &end);
+                    if (!end || *end || !(ms >= 10 && ms <= 1000)) { std::fprintf(stderr, "ravengunctl: rumble test verwacht 10 tot 1000 ms\n"); return kExitUsage; }
+                    rq.rumble_ms = ms;
+                }
+                rq.cmd = ipc::Cmd::RumbleTest;
+                Reply r = call(c, rq);
+                if (r.code != kExitOk) return r.code;
+                if (json) std::printf("%s\n", r.line.c_str());
+                else std::printf("Testpuls van %.0f ms gestuurd (ook ongewapend).\n", num(r.v, {"result", "pulse_ms"}, 0));
+                return kExitOk;
+            }
+            if (sub.empty() && !any && filter_on < 0) {  // tonen
+                rq.cmd = ipc::Cmd::Status;
+                Reply r = call(c, rq);
+                if (r.code != kExitOk) return r.code;
+                if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+                const json::Value* rm = path(r.v, {"result", "controller", "rumble"});
+                std::printf("Trillen: %s\n", rm && rm->is_object() ? rumble_text(*rm).c_str() : "onbekend");
+                return kExitOk;
+            }
+            rq.cmd = ipc::Cmd::SetRumble;
+            if (sub == "on" || filter_on == 1) rq.rumble_enabled = true;
+            if (sub == "off" || filter_on == 0) rq.rumble_enabled = false;
+            if (r_strength >= 0) rq.rumble_strength = r_strength;
+            if (r_pulse >= 0) rq.rumble_pulse_ms = r_pulse;
+            if (r_repeat >= 0) rq.rumble_repeat_hz = r_repeat;
+            if (r_pump >= 0) rq.rumble_pump_strength = r_pump;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            json::Value rm = r.v.find("result") ? *r.v.find("result") : json::Value();
+            std::printf("Trillen: %s (live toegepast%s).\n", rumble_text(rm, false).c_str(), boolean(r.v, {"result", "saved"}) ? " en bewaard" : ", NIET bewaard");
             return kExitOk;
         }
         if (cmd == "filter") {

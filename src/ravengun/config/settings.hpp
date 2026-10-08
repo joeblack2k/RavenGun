@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ravengun/json_parse.hpp"
+#include "ravengun/output/rumble.hpp"
 
 namespace ravengun::config {
 
@@ -121,6 +122,8 @@ struct Settings {
     SharpShooterSettings sharp_shooter;
     FusionSettings fusion;
     GunButtonSettings gun_buttons;
+    // Trillen bij schieten (output/rumble.hpp); live instelbaar.
+    output::RumbleConfig rumble;
 };
 
 // Controleert alle bereiken; leeg = geldig, anders een Nederlandse melding.

@@ -230,6 +230,22 @@
       <p class="err" id="lat-err" role="alert"></p>
       <button type="submit">Latentie toepassen</button>
     </form>
+    <form id="f-rumble" class="card" novalidate>
+      <h3>Trillen bij schieten</h3>
+      <p class="muted">De Move trilt bij elke trekkerhaal (terugslag) en bij ingedrukt houden herhaald; de pomp geeft een korte, zwakkere puls. Alleen als de uitvoer gewapend is. Werkt direct, zonder herstart.</p>
+      <label class="row"><input type="checkbox" id="rum-enabled"> Trillen aan</label>
+      <label>Sterkte <small>0 tot 255</small>
+        <input type="number" id="rum-strength" step="1" inputmode="numeric"></label>
+      <label>Pulsduur (ms) <small>10 tot 500</small>
+        <input type="number" id="rum-pulse" step="1" inputmode="numeric"></label>
+      <label>Herhaling bij vasthouden (Hz) <small>0 (één puls per schot) of 1 tot 30</small>
+        <input type="number" id="rum-repeat" step="any" inputmode="decimal"></label>
+      <label>Sterkte bij de pomp <small>0 (uit) tot 255</small>
+        <input type="number" id="rum-pump" step="1" inputmode="numeric"></label>
+      <p class="err" id="rum-err" role="alert"></p>
+      <button type="submit">Trillen toepassen</button>
+      <button type="button" id="rum-test">Testpuls</button>
+    </form>
     <div class="card">
       <h3>Recenter</h3>
       <p class="muted">Zet het huidige richtpunt van de Move als midden van het scherm. Vereist een verbonden Move.</p>

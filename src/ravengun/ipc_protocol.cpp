@@ -39,6 +39,8 @@ const char* to_string(Cmd c) {
         case Cmd::SetFusion: return "set_fusion";
         case Cmd::ClearTrim: return "clear_trim";
         case Cmd::SetClock: return "set_clock";
+        case Cmd::SetRumble: return "set_rumble";
+        case Cmd::RumbleTest: return "rumble_test";
     }
     return "?";
 }
@@ -176,6 +178,22 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!opt_number(o, "extrapolate_ms", 0, 100, r.extrapolate_ms, e, r.id_json)) return e;
         if (!r.clock_hz && !r.extrapolate_ms) return err("invalid_argument", "set_clock zonder te wijzigen velden", r.id_json);
         if (r.clock_hz && *r.clock_hz != 0 && *r.clock_hz < 20) return err("invalid_argument", "'clock_hz' moet 0 (uit) zijn of tussen 20 en 1000 liggen", r.id_json);
+    } else if (cmd == "set_rumble") {
+        r.cmd = Cmd::SetRumble;
+        if (!allowed(o, {"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_bool(o, "enabled", r.rumble_enabled, e, r.id_json)) return e;
+        if (!opt_int(o, "strength", 0, 255, r.rumble_strength, e, r.id_json)) return e;
+        if (!opt_int(o, "pulse_ms", 10, 500, r.rumble_pulse_ms, e, r.id_json)) return e;
+        if (!opt_number(o, "repeat_hz", 0, 30, r.rumble_repeat_hz, e, r.id_json)) return e;
+        if (!opt_int(o, "pump_strength", 0, 255, r.rumble_pump_strength, e, r.id_json)) return e;
+        if (!r.rumble_enabled && !r.rumble_strength && !r.rumble_pulse_ms && !r.rumble_repeat_hz && !r.rumble_pump_strength)
+            return err("invalid_argument", "set_rumble zonder te wijzigen velden", r.id_json);
+        if (r.rumble_repeat_hz && *r.rumble_repeat_hz != 0 && *r.rumble_repeat_hz < 1)
+            return err("invalid_argument", "'repeat_hz' moet 0 (geen herhaling) zijn of tussen 1 en 30 liggen", r.id_json);
+    } else if (cmd == "rumble_test") {
+        r.cmd = Cmd::RumbleTest;
+        if (!allowed(o, {"ms"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_int(o, "ms", 10, 1000, r.rumble_ms, e, r.id_json)) return e;
     } else if (cmd == "arm" || cmd == "disarm" || cmd == "output") {
         r.cmd = cmd == "arm" ? Cmd::Arm : cmd == "disarm" ? Cmd::Disarm : Cmd::Output;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -383,6 +401,16 @@ std::string make_request(const Request& r) {
         case Cmd::SetClock:
             if (r.clock_hz) w.key("clock_hz").value(*r.clock_hz);
             if (r.extrapolate_ms) w.key("extrapolate_ms").value(*r.extrapolate_ms);
+            break;
+        case Cmd::SetRumble:
+            if (r.rumble_enabled) w.key("enabled").value(*r.rumble_enabled);
+            if (r.rumble_strength) w.key("strength").value(*r.rumble_strength);
+            if (r.rumble_pulse_ms) w.key("pulse_ms").value(*r.rumble_pulse_ms);
+            if (r.rumble_repeat_hz) w.key("repeat_hz").value(*r.rumble_repeat_hz);
+            if (r.rumble_pump_strength) w.key("pump_strength").value(*r.rumble_pump_strength);
+            break;
+        case Cmd::RumbleTest:
+            if (r.rumble_ms) w.key("ms").value(*r.rumble_ms);
             break;
         case Cmd::TestPattern:
             w.key("pattern").value(r.pattern);

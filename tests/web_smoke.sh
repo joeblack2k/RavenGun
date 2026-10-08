@@ -50,6 +50,10 @@ curl -s "$B/api/status" | grep -q '"predict_ms":55' || fail "predict_ms niet doo
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"clock_hz":125,"extrapolate_ms":30}' "$B/api/clock")" = 200 ] || fail "clock"
 curl -s "$B/api/status" | grep -q '"clock":{"enabled":true,"hz":125' || fail "clock niet doorgevoerd"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"clock_hz":7}' "$B/api/clock")" = 400 ] || fail "clock-validatie"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"enabled":true,"strength":150,"pulse_ms":70,"repeat_hz":6,"pump_strength":50}' "$B/api/rumble")" = 200 ] || fail "rumble"
+curl -s "$B/api/status" | grep -q '"rumble":{"enabled":true,"strength":150,"pulse_ms":70,"repeat_hz":6,"pump_strength":50' || fail "rumble niet doorgevoerd"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"strength":300}' "$B/api/rumble")" = 400 ] || fail "rumble-validatie"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/rumble-test")" = 503 ] || fail "rumble test zonder Move moet 503 geven"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/recenter")" = 503 ] || fail "recenter zonder Move moet 503 geven"
 
 # Nieuwe endpoints: info, instellingen, diagnose, LED, camera zonder camera, uitvoer, web-poort

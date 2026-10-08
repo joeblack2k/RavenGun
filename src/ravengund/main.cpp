@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
     ravengun::core::parse_vqf_bias(cfg.fusion.vqf_bias.c_str(), opt.pipeline.vqf.bias);
     opt.pipeline.trim.enabled = cfg.fusion.recenter_learning;
     opt.bias_dir = ravengun::core::default_bias_dir();
+    opt.rumble = cfg.rumble;
     ravengun::core::parse_ext_mode(cfg.sharp_shooter.extension.c_str(), opt.pipeline.ext_mode);
     opt.pipeline.pump.on = cfg.gun_buttons.trigger_on;
     opt.pipeline.pump.off = cfg.gun_buttons.trigger_off;

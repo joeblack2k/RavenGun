@@ -3,6 +3,7 @@
 
 #include "ravengun/core/pipeline.hpp"
 #include "ravengun/output/live_feed.hpp"
+#include "ravengun/output/rumble.hpp"
 #include "ravengun/ipc_protocol.hpp"
 #include "shared.hpp"
 
@@ -19,6 +20,8 @@ struct HidOptions {
     bool led_enabled = false;
     uint8_t led_r = 0, led_g = 0, led_b = 0;
     int led_refresh_ms = 1000;
+    // Trillen bij schieten (output/rumble.hpp), live instelbaar.
+    ravengun::output::RumbleConfig rumble{};
     // Bewaarde gyro-bias per controller (map met <controller_key>.json). Leeg = uit (geen laden, geen schrijven).
     std::string bias_dir;
     class Recorder* recorder = nullptr;     // fase 0: opnamen (eigendom van main)
@@ -46,6 +49,11 @@ public:
     virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;
     // LED-kleur van de bol (getypeerd; de HID-thread stuurt hem meteen en daarna elke led_refresh_ms).
     virtual void set_led(bool enabled, uint8_t r, uint8_t g, uint8_t b) = 0;
+    // Trillen bij schieten: huidige instelling, live wijzigen, en een testpuls (ook ongewapend). rumble_test geeft "1"
+    // of "!code|melding" (uitgeschakeld, geen Move).
+    virtual ravengun::output::RumbleConfig rumble() const { return {}; }
+    virtual void set_rumble(const ravengun::output::RumbleConfig&) {}
+    virtual std::string rumble_test(int /*ms*/) { return "!unavailable|rumble niet beschikbaar"; }
     // Fase 4: oriëntatieschatter (mahony | mahony_mag).
     virtual ravengun::core::FusionMode fusion() const = 0;
     virtual void set_fusion(ravengun::core::FusionMode m) = 0;

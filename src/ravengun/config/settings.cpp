@@ -187,6 +187,7 @@ std::string validate(const Settings& s) {
     if (s.fusion.vqf_bias != "external" && s.fusion.vqf_bias != "own") return "fusion.vqf_bias moet external of own zijn";
     if (s.sharp_shooter.extension != "auto" && s.sharp_shooter.extension != "sharp_shooter" && s.sharp_shooter.extension != "none")
         return "sharp_shooter.extension moet auto, sharp_shooter of none zijn";
+    if (std::string m = output::validate_rumble(s.rumble); !m.empty()) return m;
     const auto& g = s.gun_buttons;
     if (g.trigger_on < 1 || g.trigger_on > 255 || g.trigger_off < 0 || g.trigger_off >= g.trigger_on)
         return "gun_buttons: 0 <= trigger_off < trigger_on <= 255";
@@ -246,6 +247,10 @@ std::string to_json(const Settings& s, bool pretty) {
     out += section("fusion", [&](json::Writer& w) {
         w.key("mode").value(s.fusion.mode).key("vqf_bias").value(s.fusion.vqf_bias).key("recenter_learning").value(s.fusion.recenter_learning);
     }) + "," + nl;
+    out += section("rumble", [&](json::Writer& w) {
+        w.key("enabled").value(s.rumble.enabled).key("strength").value(s.rumble.strength).key("pulse_ms").value(s.rumble.pulse_ms);
+        w.key("repeat_hz").value(s.rumble.repeat_hz).key("pump_strength").value(s.rumble.pump_strength);
+    }) + "," + nl;
     out += section("gun_buttons", [&](json::Writer& w) {
         w.key("trigger_on").value(s.gun_buttons.trigger_on).key("trigger_off").value(s.gun_buttons.trigger_off);
         w.key("map").begin_object();
@@ -291,7 +296,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (warnings) {
         for (const auto& kv : root.obj) {
-            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons"};
+            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons", "rumble"};
             bool k = false;
             for (const char* n : known) if (kv.first == n) k = true;
             if (!k) warnings->push_back("onbekende sleutel '" + kv.first + "' genegeerd");
@@ -375,6 +380,15 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
         c.string("vqf_bias", s.fusion.vqf_bias);
         c.boolean("recenter_learning", s.fusion.recenter_learning);
         c.unknown({"mode", "vqf_bias", "recenter_learning"});
+    }
+    if (const json::Value* o = sec("rumble")) {
+        Section c{*o, "rumble", e, warnings};
+        c.boolean("enabled", s.rumble.enabled);
+        c.integer("strength", 0, 255, s.rumble.strength);
+        c.integer("pulse_ms", 10, 500, s.rumble.pulse_ms);
+        c.number("repeat_hz", 0, 30, s.rumble.repeat_hz, false);
+        c.integer("pump_strength", 0, 255, s.rumble.pump_strength);
+        c.unknown({"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"});
     }
     if (const json::Value* o = sec("gun_buttons")) {
         Section c{*o, "gun_buttons", e, warnings};

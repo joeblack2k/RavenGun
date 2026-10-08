@@ -65,6 +65,17 @@ struct FakeHid final : HidContext {
     void set_led(bool en, uint8_t rr, uint8_t gg, uint8_t bb) override { ++led_calls; led_enabled = en; r = rr; g = gg; b = bb; }
     std::string record(const ipc::Request&) override { return "{}"; }
     std::string calib_mag(const ipc::Request&) override { return "{}"; }
+    output::RumbleConfig rc;
+    int rumble_sets = 0, rumble_tests = 0, last_test_ms = 0;
+    bool connected = true;
+    output::RumbleConfig rumble() const override { return rc; }
+    void set_rumble(const output::RumbleConfig& c) override { rc = c; ++rumble_sets; }
+    std::string rumble_test(int ms) override {
+        if (!rc.enabled) return "!unavailable|rumble staat uit";
+        if (!connected) return "!unavailable|geen Move verbonden";
+        ++rumble_tests; last_test_ms = ms;
+        return "1";
+    }
     core::FusionMode fm = core::FusionMode::Mahony;
     core::FusionMode fusion() const override { return fm; }
     void set_fusion(core::FusionMode m) override { fm = m; }
@@ -264,6 +275,46 @@ static void test_predict_and_clock(const std::string& dir) {
     CHECK(!ok && code == "unavailable");
 }
 
+static void test_rumble(const std::string& dir) {
+    Rig rig;
+    config::SettingsStore store(dir + "/rb/config.json");
+    store.load();
+    rig.sh.settings = &store;
+    bool ok = false;
+    std::string code, msg;
+    CHECK(store.get().rumble.enabled && store.get().rumble.strength == 180);
+    json::Value r = rig.call(R"({"v":1,"cmd":"set_rumble","strength":220,"pulse_ms":80,"repeat_hz":6,"pump_strength":30})", &ok);
+    CHECK(ok && num(r, "strength") == 220 && num(r, "pulse_ms") == 80 && num(r, "repeat_hz") == 6 && num(r, "pump_strength") == 30);
+    CHECK(r.find("enabled")->b && r.find("saved")->b);
+    CHECK(rig.hid.rumble_sets == 1 && rig.hid.rc.strength == 220 && rig.hid.rc.pulse_ms == 80 && rig.hid.rc.repeat_hz == 6 && rig.hid.rc.pump_strength == 30);
+    CHECK(store.get().rumble.strength == 220 && store.get().rumble.pulse_ms == 80 && store.get().rumble.repeat_hz == 6 && store.get().rumble.pump_strength == 30);
+    CHECK(contains(slurp(dir + "/rb/config.json"), "\"pulse_ms\":80"));
+    // Een deel wijzigen laat de rest staan; aan/uit.
+    rig.call(R"({"v":1,"cmd":"set_rumble","enabled":false})", &ok);
+    CHECK(ok && !rig.hid.rc.enabled && rig.hid.rc.strength == 220 && !store.get().rumble.enabled && store.get().rumble.strength == 220);
+    rig.call(R"({"v":1,"cmd":"set_rumble","repeat_hz":0})", &ok);
+    CHECK(ok && rig.hid.rc.repeat_hz == 0 && store.get().rumble.repeat_hz == 0 && !store.get().rumble.enabled);
+    // Ongeldig: niets verandert (ook niet in config.json).
+    int sets = rig.hid.rumble_sets;
+    rig.call(R"({"v":1,"cmd":"set_rumble","strength":300})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument" && rig.hid.rumble_sets == sets && store.get().rumble.strength == 220);
+    // Testpuls: uitgeschakeld geeft een fout, aan werkt (standaard 300 ms), ook zonder Move een nette fout.
+    rig.call(R"({"v":1,"cmd":"rumble_test"})", &ok, &code, &msg);
+    CHECK(!ok && code == "unavailable" && contains(msg, "uit") && rig.hid.rumble_tests == 0);
+    rig.call(R"({"v":1,"cmd":"set_rumble","enabled":true})", &ok);
+    r = rig.call(R"({"v":1,"cmd":"rumble_test"})", &ok);
+    CHECK(ok && rig.hid.rumble_tests == 1 && rig.hid.last_test_ms == 300 && num(r, "pulse_ms") == 300);
+    rig.call(R"({"v":1,"cmd":"rumble_test","ms":120})", &ok);
+    CHECK(ok && rig.hid.last_test_ms == 120);
+    rig.hid.connected = false;
+    rig.call(R"({"v":1,"cmd":"rumble_test"})", &ok, &code, &msg);
+    CHECK(!ok && code == "unavailable" && contains(msg, "Move"));
+    // Zonder instellingenopslag: wel toegepast, niet bewaard.
+    rig.sh.settings = nullptr;
+    r = rig.call(R"({"v":1,"cmd":"set_rumble","strength":100})", &ok);
+    CHECK(ok && !r.find("saved")->b && rig.hid.rc.strength == 100);
+}
+
 static void test_persist_and_info(const std::string& dir) {
     Rig rig;
     config::SettingsStore store(dir + "/p/config.json");
@@ -375,6 +426,7 @@ int main() {
     test_set_camera(dir);
     test_persist_and_info(dir);
     test_predict_and_clock(dir);
+    test_rumble(dir);
     test_buttons_and_ui(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
