@@ -30,6 +30,10 @@ echo "$OUT" | grep -q '"schema_version":2' || fail "schema_version ontbreekt"
 "$C" recenter 2>/dev/null
 [ $? -eq 75 ] || fail "recenter zonder Move moet exit 75 geven"
 
+"$C" status --json | grep -q '"yaw_trim":{"learning":true,"trim_deg_s":0' || fail "yaw_trim ontbreekt in de status"
+"$C" trim >/dev/null || fail "trim faalde"
+"$C" trim reset >/dev/null || fail "trim reset faalde"
+
 "$C" filter --off >/dev/null || fail "filter --off faalde"
 "$C" status --json | grep -q '"filter":{"enabled":false' || fail "filter niet uit"
 

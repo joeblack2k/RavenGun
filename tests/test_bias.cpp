@@ -19,6 +19,7 @@
 #include "ravengun/core/fusion.hpp"
 #include "ravengun/core/magnetometer.hpp"
 #include "ravengun/core/pipeline.hpp"
+#include "ravengun/core/yaw_trim.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/rec/drift.hpp"
 #include "ravengun/rec/replay.hpp"
@@ -415,6 +416,376 @@ static void test_pipeline_restore_and_json() {
     CHECK(lp.bias().config().mode == BiasMode::Legacy);
 }
 
+// ---------------- Optische stilstand: de camera als bewaker van de bias ----------------
+
+// Voert estimator of pijplijn met een IMU-stroom (90 Hz rapporten, 2 subsamples) en een cameraframe-stroom (60 fps).
+enum class Ball { Still, Moving, Dropouts };
+
+struct OptFeed {
+    Hand h;
+    Lcg orng;
+    double t = 100.0;          // seconden, gedeelde klok van IMU en camera
+    double next_frame = 100.0;
+    int frame_n = 0;
+    double accel_scale = 1.0;  // 1,3 = de gun wordt geschud (|a| ver van 1 g)
+    static constexpr double period = 0.01127;
+    // Geeft de frames die in (t_prev, t] vallen.
+    template <typename Imu, typename Cam>
+    void run(double seconds, Ball b, Imu&& imu, Cam&& cam) {
+        const double end = t + seconds;
+        while (t < end) {
+            t += period;
+            for (int i = 0; i < 2; ++i) {
+                Vec3 g, a;
+                h.sample({}, period / 2, g, a);
+                imu(g, a * accel_scale, period / 2, t - (1 - i) * period / 2);
+            }
+            while (next_frame <= t) {
+                bool valid = true;
+                double x = 320, y = 240, r = 12;
+                if (b == Ball::Still) {
+                    x += orng.gauss() * 0.05; y += orng.gauss() * 0.05; r += orng.gauss() * 0.03;
+                } else if (b == Ball::Moving) {
+                    x += 60 * std::sin(2 * kPi * 0.8 * next_frame); y += 20 * std::cos(2 * kPi * 0.8 * next_frame);
+                } else {
+                    x += orng.gauss() * 0.05; y += orng.gauss() * 0.05; r += orng.gauss() * 0.03;
+                    valid = (frame_n % 25) < 20;     // 20 frames (0,33 s) in beeld, dan 5 weg
+                }
+                cam(next_frame, valid, x, y, r);
+                next_frame += 1.0 / 60;
+                ++frame_n;
+            }
+        }
+    }
+};
+
+// Een estimator waarvan stilstand en quasi-stil blind zijn: alleen het optische bewijs kan de bias nog bijsturen.
+static BiasConfig blind_cfg() {
+    BiasConfig c;
+    c.gyro_std_max = 1e-6;
+    c.quasi_std_max = 1e-6;
+    return c;
+}
+
+static void test_optical_corrects_wrong_bias() {
+    const Vec3 truth = dps(1.5, -2.2, 0.9);
+    const Vec3 wrong = truth + dps(1.4, -1.0, 0.8);   // 1,9 graden/s ernaast, buiten de poort van de stilstandsvensters
+    for (int variant = 0; variant < 2; ++variant) {
+        GyroBiasEstimator e(blind_cfg());
+        e.set_quasi_enabled(false);
+        e.restore(wrong, 2050);
+        if (variant == 1) e.set_optical_enabled(false);
+        OptFeed f;
+        f.h.bias = truth;
+        f.h.tremor_dps = 0.6;
+        double err_at_20 = 0, max_step = 0;
+        Vec3 prev = e.bias();
+        auto imu = [&](Vec3 g, Vec3 a, double dt, double ts) {
+            e.update(g, a, dt, ts);
+            max_step = std::max(max_step, dist_dps(e.bias(), prev));
+            prev = e.bias();
+        };
+        auto cam = [&](double ts, bool v, double x, double y, double r) { e.optical_frame(ts, v, x, y, r); };
+        f.run(20.0, Ball::Still, imu, cam);
+        err_at_20 = dist_dps(e.bias(), truth);
+        std::printf("test optisch %d: bias-fout %.3f graden/s na 20 s (begin %.2f), %llu vensters gebruikt, bron %s\n", variant,
+                    err_at_20, dist_dps(wrong, truth), static_cast<unsigned long long>(e.optical_accepted()), to_string(e.source()));
+        if (variant == 0) {
+            CHECK(err_at_20 < 0.25);
+            CHECK(e.optical_accepted() > 10);
+            CHECK(e.source() == BiasSource::Optical);
+            CHECK(e.optical_time_total() > 5);
+            CHECK(max_step < 0.15);   // geleidelijk: nooit een sprong (hooguit de slew per venster en as: 0,075 graden/s)
+            CHECK(e.measured());
+        } else {
+            CHECK(err_at_20 > 1.5);    // uit: de bias blijft fout (de rest is blind)
+            CHECK(e.optical_accepted() == 0);
+        }
+    }
+}
+
+static void test_optical_moving_ball_no_evidence() {
+    const Vec3 truth = dps(1.5, -2.2, 0.9);
+    const Vec3 wrong = truth + dps(1.4, -1.0, 0.8);
+    for (int variant = 0; variant < 3; ++variant) {
+        GyroBiasEstimator e(blind_cfg());
+        e.set_quasi_enabled(false);
+        e.restore(wrong, 2050);
+        OptFeed f;
+        f.h.bias = truth;
+        f.h.tremor_dps = 0.6;
+        if (variant == 2) f.accel_scale = 1.3;   // bol stil, maar de IMU zegt: geschud
+        auto imu = [&](Vec3 g, Vec3 a, double dt, double ts) { e.update(g, a, dt, ts); };
+        auto cam = [&](double ts, bool v, double x, double y, double r) { e.optical_frame(ts, v, x, y, r); };
+        f.run(30.0, variant == 0 ? Ball::Moving : variant == 1 ? Ball::Dropouts : Ball::Still, imu, cam);
+        std::printf("test optisch geen bewijs %d: %llu gebruikt, %llu stilstaande vensters, bias-fout %.3f\n", variant,
+                    static_cast<unsigned long long>(e.optical_accepted()), static_cast<unsigned long long>(e.optical_still_windows()),
+                    dist_dps(e.bias(), truth));
+        CHECK(e.optical_accepted() == 0);
+        CHECK_NEAR(dist_dps(e.bias(), wrong), 0, 1e-9);   // de bias is niet aangeraakt
+        CHECK(e.source() == BiasSource::Restored);
+        if (variant != 2) CHECK(e.optical_still_windows() == 0);
+    }
+}
+
+// Pijplijn: cameraframes via on_optical, tijdbasis gedeeld met de rapporten (t_rx_ns en t_frame_ns).
+static void test_optical_pipeline() {
+    const Vec3 truth = dps(1.5, -2.2, 0.9);
+    const Vec3 wrong = truth + dps(1.4, -1.0, 0.8);
+    for (int variant = 0; variant < 2; ++variant) {
+        PipelineConfig cfg;
+        cfg.bias = blind_cfg();
+        cfg.bias.optical = variant == 0;
+        PipeRun r(cfg);
+        r.h.bias = truth;
+        r.h.tremor_dps = 0.6;
+        r.p.restore_bias(wrong, 2050);
+        Lcg orng;
+        double next_frame = 0;
+        const int64_t t0 = r.t_ns;
+        for (double t = 0; t < 25; t += 0.01127) {
+            r.step(0);
+            while (next_frame <= static_cast<double>(r.t_ns - t0) / 1e9) {
+                OpticalSample o;
+                o.camera_active = true;
+                o.valid = true;
+                o.t_frame_ns = t0 + static_cast<int64_t>(next_frame * 1e9);
+                o.x_px = 320 + orng.gauss() * 0.05; o.y_px = 240 + orng.gauss() * 0.05; o.radius_px = 12 + orng.gauss() * 0.03;
+                r.p.on_optical(o);
+                r.p.on_optical(o);   // dubbel aanbieden telt eenmaal (zelfde frame)
+                next_frame += 1.0 / 60;
+            }
+        }
+        const double err = dist_dps(r.p.bias().bias(), truth);
+        std::printf("test optisch pijplijn %d: bias-fout %.3f graden/s, bron %s\n", variant, err, to_string(r.p.bias().source()));
+        if (variant == 0) {
+            CHECK(err < 0.3);
+            CHECK(r.p.last().bias_source == BiasSource::Optical);
+            CHECK(r.p.last().bias_evidence_s > 5);
+            json::Writer w;
+            write_sample_json(w, r.p.last(), false);
+            CHECK(w.str().find("\"bias_source\":\"optical-still\"") != std::string::npos);
+        } else {
+            CHECK(err > 1.5);
+        }
+    }
+}
+
+// ---------------- Yaw-trim uit centreerdrukken ----------------
+
+// Pijplijn met een vaste, bekende bias (bevroren schatter) en een constante extra gyro-fout rond omhoog. De speler
+// richt vóór elke druk met een richtfout (sd aim_noise graden) op het midden; de draai ernaartoe zit gewoon in de gyro.
+struct TrimRun {
+    PipeRun r;
+    Lcg rng;
+    double heading = 0;   // huidige richting t.o.v. het midden (graden, yaw naar rechts)
+    static PipelineConfig cfg(bool learn) {
+        PipelineConfig c;
+        c.bias.freeze_after_s = 0.02;
+        c.bias.optical = false;
+        c.trim.enabled = learn;
+        return c;
+    }
+    explicit TrimRun(bool learn = true) : r(cfg(learn)) {
+        r.h.bias = dps(1.5, -2.2, 0.9);
+        r.p.restore_bias(r.h.bias, 2050);
+    }
+    double press(double hold_s, double err_z_dps, double aim_err_deg) {
+        for (double t = 0; t < hold_s; t += 0.01127) r.step(0, dps(0, 0, err_z_dps));
+        const double delta = aim_err_deg - heading;
+        const int n = 27;   // ~0,3 s
+        for (int i = 0; i < n; ++i) r.step(delta / (n * 0.01127), dps(0, 0, err_z_dps));
+        heading = aim_err_deg;
+        r.p.recenter(true);
+        return r.p.trim().rate_dps();
+    }
+};
+
+static void test_trim_learns_constant_error() {
+    const double err = 0.2;   // graden/s extra rotatie rond +Z: de yaw loopt met -0,2 graden/s weg; trim hoort +0,2 te worden
+    TrimRun a(true), off(false);
+    std::vector<double> trims;
+    for (int k = 0; k < 14; ++k) {
+        const double noise = k == 0 ? 0.0 : 1.5 * a.rng.gauss();
+        const double hold = k == 0 ? 5.0 : 25.0 + 15.0 * a.rng.uniform();   // 25..40 s tussen de drukken
+        trims.push_back(a.press(hold, err, noise));
+    }
+    std::string line;
+    for (double t : trims) { char b[24]; std::snprintf(b, sizeof b, " %+.3f", t); line += b; }
+    std::printf("test trim: trim na elke druk (doel +0.200):%s\n", line.c_str());
+    // Na een paar drukken ligt de resterende fout onder 0,04 graden/s en blijft hij daar.
+    for (size_t k = 6; k < trims.size(); ++k) CHECK(std::fabs(err - trims[k]) < 0.04);
+    CHECK(std::fabs(err - trims[3]) < 0.12);
+    CHECK(a.r.p.trim().learned() >= 10);
+    CHECK(a.r.p.trim().rate_dps() <= a.r.p.config().trim.limit_dps);
+    // Zonder leren verandert er niets: de trim blijft 0 en de drukken worden alleen geteld.
+    for (int k = 0; k < 4; ++k) off.press(k == 0 ? 5.0 : 30.0, err, 0.0);
+    CHECK(off.r.p.trim().rate_dps() == 0 && off.r.p.trim().learned() == 0 && off.r.p.trim().presses() == 4);
+}
+
+static void test_trim_outlier_press() {
+    const double err = 0.2;
+    // Dezelfde ruisreeks met en zonder een rare druk (20 graden ernaast) bij druk 8.
+    std::vector<double> clean, dirty;
+    for (int variant = 0; variant < 2; ++variant) {
+        TrimRun a(true);
+        auto& out = variant == 0 ? clean : dirty;
+        for (int k = 0; k < 16; ++k) {
+            double noise = k == 0 ? 0.0 : 1.5 * a.rng.gauss();
+            if (variant == 1 && k == 8) noise += 20.0;
+            out.push_back(a.press(k == 0 ? 5.0 : 30.0, err, noise));
+        }
+    }
+    double max_dev = 0, dev_after = 0;
+    for (size_t k = 8; k < clean.size(); ++k) max_dev = std::max(max_dev, std::fabs(dirty[k] - clean[k]));
+    dev_after = std::fabs(dirty.back() - clean.back());
+    std::printf("test trim rare druk: grootste afwijking %.3f graden/s, na 7 drukken %.3f (stap begrensd op %.2f)\n", max_dev, dev_after,
+                YawTrimConfig{}.step_max_dps);
+    CHECK(max_dev <= 0.10);          // hooguit een begrensde stap (en wat ruimte voor de gevolgen in de volgende paren)
+    CHECK(dev_after < 0.05);         // en het wordt weer rechtgetrokken
+    CHECK(std::fabs(err - dirty.back()) < 0.05);
+    // Direct na de rare druk: niet meer dan step_max verplaatst ten opzichte van de schone run.
+    CHECK(std::fabs(dirty[8] - clean[8]) <= YawTrimConfig{}.step_max_dps + 1e-9);
+}
+
+static void test_trim_rules() {
+    YawTrim t;
+    // Eerste druk: alleen een referentie. Te korte en te lange tussentijden en grote sprongen tellen niet.
+    CHECK(!t.press(0, 0.0).learned);
+    CHECK(!t.press(3, 0.01).learned);                         // 3 s: te kort
+    CHECK(!t.press(300, 0.02).learned);                       // 297 s: te lang
+    CHECK(!t.press(330, 0.02 + 30.0 * kRadPerDeg).learned);   // 30 graden: geen drift maar een sprong
+    CHECK(t.rate_dps() == 0 && t.learned() == 0);
+    // Gewone druk: yaw 3 graden naar rechts in 30 s -> trim wordt positief (extra +Z-rotatie wordt afgetrokken)... en begrensd.
+    YawTrim u;
+    u.press(0, 0.0);
+    YawTrimUpdate up = u.press(30, 3.0 * kRadPerDeg);
+    CHECK(up.learned);
+    CHECK_NEAR(up.drift_deg, 3.0, 1e-6);
+    CHECK(u.rate_dps() < 0 && std::fabs(up.step_dps) <= u.config().step_max_dps + 1e-12);   // yaw stijgt -> trim negatief
+    YawTrim v;
+    v.press(0, 0.0);
+    for (int k = 1; k < 40; ++k) v.press(k * 30.0, 0.0);   // geen drift: de trim blijft nul
+    CHECK(std::fabs(v.rate_dps()) < 1e-9);
+    // Grens van de trim zelf.
+    YawTrimConfig big;
+    big.step_max_dps = 1.0;
+    YawTrim w(big);
+    w.press(0, 0.0);
+    for (int k = 1; k < 30; ++k) w.press(k * 30.0, -20.0 * kRadPerDeg * k);   // 20 graden per 30 s, steeds dezelfde kant
+    CHECK(w.rate_dps() <= big.limit_dps + 1e-12 && w.rate_dps() > 0.55);
+    // Uit: geen leren; invalidate: de volgende druk is weer een eerste druk; wissen zet alles terug.
+    YawTrimConfig offc;
+    offc.enabled = false;
+    YawTrim x(offc);
+    x.press(0, 0.0);
+    CHECK(!x.press(30, 0.05).learned && x.rate_dps() == 0);
+    u.invalidate();
+    CHECK(!u.press(100, 0.0).learned);
+    u.clear();
+    CHECK(u.rate_dps() == 0 && u.learned() == 0 && u.presses() == 0);
+    u.set(5.0, 3);   // begrensd
+    CHECK_NEAR(u.rate_dps(), u.config().limit_dps, 1e-12);
+    CHECK(u.learned() == 3);
+    // Toepassen: Z omhoog in de wereld; bij een controller die rechtop staat is het body-Z.
+    YawTrim y;
+    y.set(0.5);
+    Vec3 b = y.body_rate(Quat{});
+    CHECK_NEAR(b.z, 0.5 * kRadPerDeg, 1e-12);
+    CHECK_NEAR(b.x, 0, 1e-12);
+}
+
+// Niet toepassen en niet leren zolang de magnetometer de yaw corrigeert; een gat breekt de referentie.
+static void test_trim_pipeline_rules() {
+    TrimRun a(true);
+    a.press(5, 0.0, 0.0);
+    CHECK(a.r.p.trim().presses() == 1);
+    // Een recenter van ravengunctl (niet van de Move) telt niet als meetpunt.
+    for (double t = 0; t < 20; t += 0.01127) a.r.step(0);
+    a.r.p.recenter(false);
+    CHECK(a.r.p.trim().presses() == 1);
+    // Een andere controller wist de trim; reconnect van dezelfde behoudt hem.
+    a.r.p.set_trim(0.3, 4);
+    a.r.p.on_connect("aa:bb:cc:dd:ee:ff", a.r.t_ns + 1'000'000);
+    CHECK_NEAR(a.r.p.trim().rate_dps(), 0.3, 1e-12);
+    a.r.p.on_connect("11:22:33:44:55:66", a.r.t_ns + 2'000'000);
+    CHECK(a.r.p.trim().rate_dps() == 0 && a.r.p.trim().learned() == 0);
+    // Het toegepaste effect: een bekende trim draait de yaw weg met precies die snelheid.
+    TrimRun b(false);
+    b.r.p.set_trim(0.4, 1);
+    for (double t = 0; t < 5; t += 0.01127) b.r.step(0);
+    const double y0 = b.r.yaw();
+    for (double t = 0; t < 50; t += 0.01127) b.r.step(0);
+    CHECK_NEAR(b.r.yaw() - y0, 0.4 * 50, 1.0);   // trim +0,4 om +Z afgetrokken -> yaw (rechts) stijgt met 0,4 graden/s
+}
+
+// De trim staat in hetzelfde bestand als de bias: heen en terug, laden bij de start, wissen.
+static void test_trim_persistence() {
+    std::string d = tmpdir();
+    CHECK(!d.empty());
+    const std::string dir = d + "/gyro-bias";
+    const std::string id = "aa:bb:cc:dd:ee:ff";
+    const Vec3 truth = dps(1.5, -2.2, 0.9);
+    const int64_t unix_s = 1791480934;
+    std::string err;
+    // Bestandsformaat: met trim, zonder trim (oude bestanden) en een trim buiten bereik.
+    SavedBias b;
+    b.bias = truth; b.key = "37b2de54e4ef26ba"; b.source = "optical-still"; b.has_trim = true; b.trim_dps = 0.173; b.trim_learned = 7;
+    SavedBias l;
+    CHECK(bias_from_json(bias_to_json(b), l, err) && l.has_trim && std::fabs(l.trim_dps - 0.173) < 1e-9 && l.trim_learned == 7);
+    CHECK(l.source == "optical-still");
+    b.has_trim = false;
+    CHECK(bias_from_json(bias_to_json(b), l, err) && !l.has_trim);
+    CHECK(bias_from_json("{\"format\":\"ravengun-gyro-bias\",\"version\":1,\"bias_deg_s\":[1,2,3],\"yaw_trim_deg_s\":9}", l, err) && !l.has_trim);
+    {
+        PipeRun r;
+        r.h.bias = truth;
+        BiasPersistence bp;
+        bp.set_dir(dir);
+        std::string info;
+        bp.on_connect(r.p, id, 0, unix_s, &info);
+        for (double t = 0; t < 40; t += 0.01127) { r.step(0); bp.on_report(r.p, r.t, unix_s, &info); }
+        CHECK(bp.saves() >= 1);
+        const uint64_t before = bp.saves();
+        r.p.set_trim(0.21, 6);
+        for (double t = 0; t < 8; t += 0.01127) { r.step(0); bp.on_report(r.p, r.t, unix_s, &info); }
+        CHECK(bp.saves() == before + 1);   // eenmaal, bij de verandering
+        SavedBias on_disk;
+        CHECK(load_bias(dir, controller_key(id), on_disk, err) && on_disk.has_trim);
+        CHECK_NEAR(on_disk.trim_dps, 0.21, 1e-6);
+        CHECK(on_disk.trim_learned == 6 && dist_dps(on_disk.bias, truth) < 0.1);
+    }
+    {
+        // Nieuwe sessie: bias en trim worden hersteld; wissen schrijft nul (de bias blijft staan).
+        Pipeline p;
+        p.on_connect(id, 1'000'000'000);
+        BiasPersistence bp;
+        bp.set_dir(dir);
+        std::string info;
+        CHECK(bp.on_connect(p, id, 0, unix_s + 100, &info));
+        CHECK(info.find("yaw-trim hersteld") != std::string::npos && info.find("gyro-bias hersteld") != std::string::npos);
+        CHECK_NEAR(p.trim().rate_dps(), 0.21, 1e-6);
+        CHECK(p.trim().learned() == 6);
+        CHECK(!bp.on_report(p, 1.0, unix_s + 101, &info));   // niets veranderd: niets schrijven
+        p.clear_trim();
+        bp.note_trim_cleared();
+        CHECK(bp.on_report(p, 100.0, unix_s + 200, &info));
+        SavedBias on_disk;
+        CHECK(load_bias(dir, controller_key(id), on_disk, err) && on_disk.has_trim && on_disk.trim_dps == 0);
+        CHECK(dist_dps(on_disk.bias, truth) < 0.1);          // de bewaarde bias is ongemoeid
+        // Herverbinding van dezelfde pijplijn: een al geleerde trim wordt niet door het bestand overschreven.
+        p.set_trim(0.1, 2);
+        p.note_recenter_press();
+        BiasPersistence bp2;
+        bp2.set_dir(dir);
+        bp2.on_connect(p, id, 0, unix_s + 300, &info);
+        CHECK_NEAR(p.trim().rate_dps(), 0.1, 1e-12);
+    }
+    ::unlink((dir + "/" + controller_key(id) + ".json").c_str());
+    ::rmdir(dir.c_str());
+    ::rmdir(d.c_str());
+}
+
 // ---------------- Opslag ----------------
 
 static void test_store() {
@@ -640,9 +1011,17 @@ int main() {
     test_turn_then_hold_pipeline();
     test_no_jump_on_bias_update();
     test_pipeline_restore_and_json();
+    test_optical_corrects_wrong_bias();
+    test_optical_moving_ball_no_evidence();
+    test_optical_pipeline();
+    test_trim_rules();
+    test_trim_learns_constant_error();
+    test_trim_outlier_press();
+    test_trim_pipeline_rules();
     test_store();
     test_saver_policy();
     test_persistence_cycle();
+    test_trim_persistence();
     test_replay_bias_init_and_mode();
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

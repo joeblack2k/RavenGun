@@ -87,12 +87,37 @@ struct BiasConfig {
     double temp_sigma_floor = 0.0044;    // rad/s (0,25 graden/s): ondergrens voor de spreiding van een venstergemiddelde
     double temp_max_shift = 0.035;       // rad/s (2 graden/s): grootste stap per temperatuurwijziging (glitchbeveiliging)
     double temp_max_total = 0.0175;      // rad/s (1 graden/s): meer dan dit schuift het model niet op sinds de laatste meting
+
+    // ---- optische stilstand (mode new): de camera als bewaker van de bias ----
+    // Staat de bol optische_window_s stil in beeld (spreiding van x, y en straal < optical_still_px, minstens
+    // optical_min_frames geldige frames, geen gat tussen frames boven optical_frame_gap_s), dan beweegt de Move niet
+    // en is het gemiddelde van de gyro in dat venster de bias (gemeten spreiding ongeveer 0,19 graden/s per venster),
+    // ook als de speler de gun vasthoudt en de IMU zelf nooit "stil" ziet. De IMU moet dat venster bevestigen: de
+    // accelerometer dicht bij 1 g en een kleine spreiding van de gyro. De vensters sturen de bias als het gewogen
+    // medium van de laatste optical_horizon_s, geleidelijk (tijdconstante en maximale snelheid, geen sprong).
+    bool optical = true;
+    double optical_still_px = 0.2;        // sd van x, y en straal binnen het venster (pixels)
+    int optical_min_frames = 24;          // geldige frames per venster van 0,5 s
+    double optical_window_s = 0.5;
+    double optical_frame_gap_s = 0.05;    // een gat tussen twee geldige frames (bol weg) breekt het venster
+    double optical_lag_s = 0.0;           // cameraframe-tijd + dit = IMU-tijd (V4L2 en HID delen CLOCK_MONOTONIC)
+    double optical_std_max = 0.0436;      // rad/s (2,5 graden/s) per as: de IMU bevestigt dat het venster rustig was
+    double optical_accel_tol = 0.10;      // g, | |a| - 1 | per sample
+    double optical_accel_mean_tol = 0.05; // g, | |gemiddelde a| - 1 |
+    double optical_gate = 0.0698;         // rad/s (4 graden/s) rond de bias als die bekend is
+    double optical_gate_acquire = 0.14;   // rad/s (8 graden/s) zolang er niets gemeten is
+    int optical_min_windows = 4;          // minimaal aantal vensters voordat de bias beweegt
+    int optical_acquire_windows = 8;      // zoveel vensters nodig om de bias te "vestigen" (eerste meting)
+    double optical_horizon_s = 60.0;
+    double optical_recency_s = 20.0;
+    double optical_tau_s = 5.0;           // de bias loopt naar het doel met deze tijdconstante
+    double optical_slew = 0.0026;         // rad/s per s (0,15 graden/s per s): grootste snelheid van verandering
 };
 
 enum class BiasState { None, Restored, Estimating, Estimated };
 const char* to_string(BiasState s);
-// Waar de huidige bias vandaan komt (laatste wijziging): bewaarde waarde, echte stilstand of quasi-stil.
-enum class BiasSource { None, Restored, Still, Quasi };
+// Waar de huidige bias vandaan komt (laatste wijziging): bewaarde waarde, echte stilstand, quasi-stil of optisch stil (camera).
+enum class BiasSource { None, Restored, Still, Quasi, Optical };
 const char* to_string(BiasSource s);
 
 // Schat de gyro-offset (rad/s) uit perioden van stilstand en (mode new) uit quasi-stille vensters.
@@ -102,7 +127,18 @@ class GyroBiasEstimator {
 public:
     explicit GyroBiasEstimator(BiasConfig cfg = {}) : cfg_(cfg) {}
     // Verwerk één subsample. Geeft true als het venster op dit moment als stil telt.
-    bool update(Vec3 gyro, Vec3 accel, double dt);
+    // t_s: tijd van dit subsample (CLOCK_MONOTONIC, seconden) voor het optische bewijs; < 0 = onbekend (dan telt
+    // het subsample niet mee als optisch bewijs).
+    bool update(Vec3 gyro, Vec3 accel, double dt, double t_s = -1);
+    // Een cameraframe-meting (tijd van het frame, geldig, positie en straal in pixels). Niet geldig = de bol is weg.
+    void optical_frame(double t_s, bool valid, double x, double y, double r);
+    // Totale duur (s) van de optisch-stille vensters die de bias mochten sturen.
+    double optical_time_total() const { return optical_total_; }
+    uint64_t optical_accepted() const { return optical_accepted_; }
+    uint64_t optical_rejected() const { return optical_rejected_; }
+    // Vensters waarin de bol stil stond (voor de IMU-bevestiging).
+    uint64_t optical_still_windows() const { return optical_still_windows_; }
+    void set_optical_enabled(bool on) { optical_enabled_ = on; }
     Vec3 bias() const { return bias_; }
     BiasState state() const;
     BiasSource source() const { return source_; }
@@ -125,7 +161,7 @@ public:
     uint64_t quasi_accepted() const { return quasi_accepted_; }
     uint64_t quasi_rejected() const { return quasi_rejected_; }
     // Is de bias betrouwbaar genoeg om te bewaren (eigen meting, geen kale herstelde waarde)?
-    bool measured() const { return still_total_ >= cfg_.settled_after_s || quasi_acquired_; }
+    bool measured() const { return still_total_ >= cfg_.settled_after_s || quasi_acquired_ || optical_acquired_; }
     void reset();
     const BiasConfig& config() const { return cfg_; }
 
@@ -133,13 +169,18 @@ private:
     struct S { double age; Vec3 g; double an; };
     struct QWin { double t; Vec3 mean; double w; };
     struct TEv { double t; int tc; Vec3 mean; double w; };
-    bool settled() const { return still_total_ >= cfg_.settled_after_s || quasi_acquired_; }
+    bool settled() const { return still_total_ >= cfg_.settled_after_s || quasi_acquired_ || optical_acquired_; }
     void quasi_sample(Vec3 gyro, Vec3 accel, double dt);
     void quasi_window_done();
     void quasi_track();
     void temp_add(Vec3 mean, double w);
     void temp_fit();
     bool quasi_acquire();
+    void optical_try_eval();
+    void optical_window_done(Vec3 mean);
+    struct OFrame { double t, x, y, r; };
+    struct OImu { double t; Vec3 g, a; };
+    struct OWin { double t0, t1; };
     BiasConfig cfg_;
     std::deque<S> win_;
     double win_span_ = 0;
@@ -164,6 +205,16 @@ private:
     Vec3 q_sum_{}, q_sq_{}, q_asum_{};
     double q_adev_ = 0;
     double q_last_update_t_ = 0;
+    // Optisch
+    bool optical_enabled_ = true;
+    bool optical_acquired_ = false;
+    double optical_total_ = 0, optical_last_update_t_ = 0;
+    uint64_t optical_accepted_ = 0, optical_rejected_ = 0, optical_still_windows_ = 0;
+    std::deque<OFrame> oframes_;
+    std::deque<OImu> oimu_;
+    std::deque<OWin> opending_;
+    std::deque<QWin> owin_;
+    double oimu_latest_ = -1;
     // Temperatuur
     std::deque<TEv> tev_;
     Vec3 slope_{};

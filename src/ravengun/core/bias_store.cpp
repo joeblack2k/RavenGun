@@ -1,5 +1,6 @@
 #include "ravengun/core/bias_store.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -29,6 +30,7 @@ std::string bias_to_json(const SavedBias& b) {
     w.key("tc").value(b.tc);
     w.key("unix_s").value(static_cast<long long>(b.unix_s));
     w.key("source").value(b.source);
+    if (b.has_trim) w.key("yaw_trim_deg_s").value(b.trim_dps).key("trim_learned").value(b.trim_learned);
     w.end_object();
     return w.str();
 }
@@ -56,6 +58,11 @@ bool bias_from_json(const std::string& text, SavedBias& out, std::string& err) {
     if (const json::Value* t = o.find("tc"); t && t->is_number() && std::isfinite(t->num)) s.tc = static_cast<int>(t->num);
     if (const json::Value* u = o.find("unix_s"); u && u->is_number() && std::isfinite(u->num)) s.unix_s = static_cast<int64_t>(u->num);
     if (const json::Value* sr = o.find("source"); sr && sr->is_string()) s.source = sr->str;
+    if (const json::Value* t = o.find("yaw_trim_deg_s"); t && t->is_number() && std::isfinite(t->num) && std::fabs(t->num) <= 2.0) {
+        s.has_trim = true;
+        s.trim_dps = t->num;
+        if (const json::Value* n = o.find("trim_learned"); n && n->is_number() && std::isfinite(n->num)) s.trim_learned = static_cast<int>(n->num);
+    }
     out = s;
     return true;
 }
@@ -112,6 +119,16 @@ bool BiasPersistence::on_connect(Pipeline& p, const std::string& id, double now_
         return false;
     }
     loaded_ = true;
+    saved_trim_ = loaded_val_.has_trim ? loaded_val_.trim_dps : 0.0;
+    saved_trim_learned_ = loaded_val_.has_trim ? loaded_val_.trim_learned : 0;
+    if (loaded_val_.has_trim && p.trim().learned() == 0 && p.trim().presses() == 0 && p.trim().rate_dps() == 0 && loaded_val_.trim_dps != 0) {
+        p.set_trim(loaded_val_.trim_dps, static_cast<uint32_t>(std::max(0, loaded_val_.trim_learned)));
+        if (info) {
+            char b[160];
+            std::snprintf(b, sizeof b, "yaw-trim hersteld: %+.3f graden/s (%d drukken geleerd)", loaded_val_.trim_dps, loaded_val_.trim_learned);
+            *info = b;
+        }
+    }
     if (p.bias().state() != BiasState::None) return false;   // er is al gemeten (herverbinding): die waarde is nieuwer
     p.restore_bias(loaded_val_.bias, loaded_val_.tc);
     saver_.saved(p.bias(), now_s);   // niet meteen terugschrijven
@@ -122,22 +139,41 @@ bool BiasPersistence::on_connect(Pipeline& p, const std::string& id, double now_
         char b[256];
         std::snprintf(b, sizeof b, "gyro-bias hersteld uit %s: %+.2f %+.2f %+.2f graden/s (tc %d, %s)", dir_.c_str(),
                       loaded_val_.bias.x * kDegPerRad, loaded_val_.bias.y * kDegPerRad, loaded_val_.bias.z * kDegPerRad, loaded_val_.tc, age);
-        *info = b;
+        *info = (info->empty() ? std::string() : *info + "; ") + b;
     }
     return true;
 }
 
+bool BiasPersistence::trim_due(const Pipeline& p, double now_s, bool final) const {
+    if (!final && now_s - last_trim_save_t_ < 5.0) return false;
+    if (trim_dirty_) return true;
+    return std::fabs(p.trim().rate_dps() - saved_trim_) >= 0.005;
+}
+
 bool BiasPersistence::save(const Pipeline& p, double now_s, int64_t unix_s, const char* why, std::string* info) {
     SavedBias sb;
-    sb.bias = p.bias().bias();
-    sb.tc = p.last_temperature_raw();
-    sb.unix_s = unix_s;
+    if (BiasSaver::eligible_public(p.bias())) {
+        sb.bias = p.bias().bias();
+        sb.tc = p.last_temperature_raw();
+        sb.unix_s = unix_s;
+        sb.source = to_string(p.bias().source());
+    } else if (loaded_) {   // alleen de trim is veranderd: de bewaarde bias ongewijzigd laten staan
+        sb = loaded_val_;
+    } else {
+        return false;
+    }
     sb.key = key_;
-    sb.source = to_string(p.bias().source());
+    sb.has_trim = true;
+    sb.trim_dps = p.trim().rate_dps();
+    sb.trim_learned = static_cast<int>(p.trim().learned());
     std::string err;
     const bool ok = save_bias(dir_, sb, err);
-    saver_.saved(p.bias(), now_s);   // ook na een fout: pas na de volgende termijn opnieuw proberen
+    if (BiasSaver::eligible_public(p.bias())) saver_.saved(p.bias(), now_s);   // ook na een fout: pas na de volgende termijn opnieuw proberen
+    last_trim_save_t_ = now_s;
+    trim_dirty_ = false;
     if (ok) {
+        saved_trim_ = sb.trim_dps;
+        saved_trim_learned_ = sb.trim_learned;
         ++saves_;
         last_saved_unix_ = unix_s;
         err_.clear();
@@ -155,12 +191,15 @@ bool BiasPersistence::save(const Pipeline& p, double now_s, int64_t unix_s, cons
 }
 
 bool BiasPersistence::on_report(const Pipeline& p, double now_s, int64_t unix_s, std::string* info) {
-    if (dir_.empty() || key_.empty() || !saver_.due(p.bias(), now_s)) return false;
-    return save(p, now_s, unix_s, "meting", info);
+    if (dir_.empty() || key_.empty()) return false;
+    const bool bias_due = saver_.due(p.bias(), now_s);
+    if (!bias_due && !trim_due(p, now_s)) return false;
+    return save(p, now_s, unix_s, bias_due ? "meting" : "yaw-trim", info);
 }
 
 bool BiasPersistence::on_disconnect(const Pipeline& p, double now_s, int64_t unix_s, std::string* info) {
-    if (dir_.empty() || key_.empty() || !saver_.due_final(p.bias())) return false;
+    if (dir_.empty() || key_.empty()) return false;
+    if (!saver_.due_final(p.bias()) && !trim_due(p, now_s, true)) return false;
     return save(p, now_s, unix_s, "verbroken", info);
 }
 

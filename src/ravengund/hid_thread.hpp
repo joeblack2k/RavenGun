@@ -32,6 +32,8 @@ public:
     virtual ~HidContext() = default;
     virtual std::string status_json(bool full_ids) = 0;
     virtual bool recenter() = 0;
+    // Wist de geleerde yaw-trim (het bewaarde bestand volgt). false = niet beschikbaar.
+    virtual bool clear_trim() { return false; }
     virtual ravengun::core::OneEuroConfig filter() const = 0;
     virtual void set_filter(const ravengun::core::OneEuroConfig& c) = 0;
     virtual ravengun::core::AimConfig aim() const = 0;

@@ -406,6 +406,11 @@ std::string HidAux::status_blocks(const Pipeline& p, int64_t now) const {
     w.key("quasi_windows_used").value(static_cast<unsigned long long>(p.bias().quasi_accepted()));
     w.key("quasi_windows_rejected").value(static_cast<unsigned long long>(p.bias().quasi_rejected()));
     w.key("quasi_enabled").value(!p.mag_yaw_active());
+    w.key("optical_enabled").value(p.config().bias.optical && p.config().bias.mode == BiasMode::New);
+    w.key("optical_s").value(p.bias().optical_time_total());
+    w.key("optical_windows_used").value(static_cast<unsigned long long>(p.bias().optical_accepted()));
+    w.key("optical_windows_rejected").value(static_cast<unsigned long long>(p.bias().optical_rejected()));
+    w.key("optical_still_windows").value(static_cast<unsigned long long>(p.bias().optical_still_windows()));
     w.key("temperature_raw").value(p.last_temperature_raw());
     w.key("store").begin_object();
     w.key("enabled").value(bias_store_.enabled());
@@ -421,6 +426,14 @@ std::string HidAux::status_blocks(const Pipeline& p, int64_t now) const {
     w.key("last_saved_unix_s").value(static_cast<long long>(bias_store_.last_saved_unix()));
     if (!bias_store_.error().empty()) w.key("error").value(bias_store_.error());
     w.end_object();
+    w.end_object();
+    w.key("yaw_trim").begin_object();
+    w.key("learning").value(p.config().trim.enabled && !p.mag_yaw_active());
+    w.key("trim_deg_s").value(p.trim().rate_dps());
+    w.key("presses").value(static_cast<unsigned long long>(p.trim().presses()));
+    w.key("learned").value(static_cast<unsigned long long>(p.trim().learned()));
+    w.key("skipped").value(static_cast<unsigned long long>(p.trim().skipped()));
+    w.key("limit_deg_s").value(p.config().trim.limit_dps);
     w.end_object();
     w.key("magnetometer").raw(mag_json(now));
     w.key("recording");

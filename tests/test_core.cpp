@@ -449,6 +449,8 @@ static void test_protocol() {
     CHECK(as_req(r) && as_req(r)->filter_enabled && !*as_req(r)->filter_enabled);
     r = ipc::parse_request(R"({"v":1,"cmd":"recenter"})");
     CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::Recenter);
+    r = ipc::parse_request(R"({"v":1,"cmd":"clear_trim"})");
+    CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::ClearTrim);
 
     struct Case { const char* line; const char* code; };
     for (const Case& c : std::initializer_list<Case>{

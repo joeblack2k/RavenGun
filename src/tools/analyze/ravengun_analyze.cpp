@@ -55,6 +55,7 @@ void usage(FILE* f) {
         "                                        segmenten met labels, fusie tegen de magnetometer-heading\n"
         "  buttons FILE                          trekker (fire-bit), pomp (T zonder fire-bit) en schoten uit de opname\n"
         "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json] [--marker ps|move|both]\n"
+        "             [--no-recenter-learning] [--trim-init GRADEN/S] [--trim-set sleutel=waarde]\n"
         "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
         "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
         "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n"
@@ -448,6 +449,15 @@ bool set_bias_param(const std::string& kv) {
     else if (k == "restored_gate_dps") c.restored_gate = v * r;
     else if (k == "restored_weight_s") c.restored_weight_s = v;
     else if (k == "settled_mean_dps") c.gyro_mean_max_settled = v * r;
+    else if (k == "optical") c.optical = v != 0;
+    else if (k == "optical_still_px") c.optical_still_px = v;
+    else if (k == "optical_min_frames") c.optical_min_frames = static_cast<int>(v);
+    else if (k == "optical_lag_s") c.optical_lag_s = v;
+    else if (k == "optical_min_windows") c.optical_min_windows = static_cast<int>(v);
+    else if (k == "optical_tau_s") c.optical_tau_s = v;
+    else if (k == "optical_slew_dps2") c.optical_slew = v * r;
+    else if (k == "optical_gate_dps") c.optical_gate = v * r;
+    else if (k == "optical_std_dps") c.optical_std_max = v * r;
     else return false;
     return true;
 }
@@ -774,6 +784,26 @@ std::string fnum(double v, const char* f) {
 
 // --marker ps|move|both: welke knop als 'richt op het midden'-meetpunt telt (0 = alleen PS).
 uint32_t g_drift_marker = 0;
+// Yaw-trim (drift): --no-recenter-learning, --trim-init DPS, --trim-set sleutel=waarde.
+YawTrimConfig g_trim_cfg;
+bool g_trim_init = false;
+double g_trim_init_dps = 0;
+
+bool set_trim_param(const std::string& kv) {
+    size_t eq = kv.find('=');
+    if (eq == std::string::npos) return false;
+    std::string k = kv.substr(0, eq);
+    double v = std::atof(kv.c_str() + eq + 1);
+    if (k == "gain") g_trim_cfg.gain = v;
+    else if (k == "short_s") g_trim_cfg.short_s = v;
+    else if (k == "step_max_dps") g_trim_cfg.step_max_dps = v;
+    else if (k == "limit_dps") g_trim_cfg.limit_dps = v;
+    else if (k == "min_interval_s") g_trim_cfg.min_interval_s = v;
+    else if (k == "max_interval_s") g_trim_cfg.max_interval_s = v;
+    else if (k == "max_drift_deg") g_trim_cfg.max_drift_deg = v;
+    else return false;
+    return true;
+}
 
 int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     std::vector<rec::Record> recs;
@@ -781,6 +811,9 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     rec::DriftOptions o;
     o.bias = g_bias_cfg;
     o.marker_mask = g_drift_marker;
+    o.trim = g_trim_cfg;
+    o.have_trim_init = g_trim_init;
+    o.trim_init_dps = g_trim_init_dps;
     o.have_bias_init = g_bias_init;
     o.bias_init = g_bias_init_v;
     if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony of mahony_mag\n"); return 64; }
@@ -807,22 +840,26 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
         std::printf(" (%+.2f %+.2f %+.2f graden/s)", o.bias_init.x * kDegPerRad, o.bias_init.y * kDegPerRad, o.bias_init.z * kDegPerRad);
     std::printf("; eind %+.2f %+.2f %+.2f graden/s (%s, bron %s)\n", r.final_bias.x * kDegPerRad, r.final_bias.y * kDegPerRad,
                 r.final_bias.z * kDegPerRad, to_string(r.final_state), to_string(r.final_source));
+    std::printf("Optisch bewijs: %s, %.1f s in %llu vensters die de bias stuurden (%llu stilstaande-bol-vensters, %llu afgewezen)\n", o.bias.optical ? "aan" : "uit", r.optical_s,
+                static_cast<unsigned long long>(r.optical_windows), static_cast<unsigned long long>(r.optical_still), static_cast<unsigned long long>(r.optical_rejected));
+    std::printf("Yaw-trim:      leren %s, start %+.3f; eind %+.3f graden/s (%u drukken geleerd)\n", o.trim.enabled ? "aan" : "uit",
+                o.have_trim_init ? o.trim_init_dps : 0.0, r.final_trim_dps, static_cast<unsigned>(r.trim_learned));
     if (r.intervals.empty()) {
         std::printf("Geen bruikbare intervallen: er zijn minstens twee PS-drukken met >= %.0f s ertussen nodig.\n", o.min_interval_s);
         return 0;
     }
     std::printf("Drift = oriëntatie bij deze PS-druk min die bij de vorige (yaw positief naar rechts, pitch positief omhoog).\n");
-    std::printf("%3s %7s %7s %8s %8s %8s %8s %8s %7s %6s %7s %5s %5s %9s\n", "#", "van s", "duur s", "yaw gr", "yaw/min", "pit gr", "pit/min",
-                "gedraaid", "max gr/s", "verl.", "verl %", "gat ms", "sat", "temp");
+    std::printf("%3s %7s %7s %8s %8s %8s %8s %8s %7s %6s %7s %5s %5s %9s %7s\n", "#", "van s", "duur s", "yaw gr", "yaw/min", "pit gr", "pit/min",
+                "gedraaid", "max gr/s", "verl.", "verl %", "gat ms", "sat", "temp", "trim");
     int i = 0;
     for (const auto& d : r.intervals) {
         char temp[32] = "-";
         if (d.temp_begin >= 0) std::snprintf(temp, sizeof temp, "%d>%d", d.temp_begin, d.temp_end);
         char sat[16] = "-";
         if (d.saturated >= 0) std::snprintf(sat, sizeof sat, "%lld", static_cast<long long>(d.saturated));
-        std::printf("%3d %7.1f %7.1f %+8.2f %+8.2f %+8.2f %+8.2f %8.0f %7.0f %6llu %6.1f%% %5.0f %5s %9s\n", ++i, d.t0_s, d.duration_s, d.yaw_deg,
+        std::printf("%3d %7.1f %7.1f %+8.2f %+8.2f %+8.2f %+8.2f %8.0f %7.0f %6llu %6.1f%% %5.0f %5s %9s %+7.3f\n", ++i, d.t0_s, d.duration_s, d.yaw_deg,
                     d.yaw_per_min, d.pitch_deg, d.pitch_per_min, d.rotated_deg, d.max_rate_dps, static_cast<unsigned long long>(d.lost), d.lost_pct,
-                    d.longest_gap_ms, sat, temp);
+                    d.longest_gap_ms, sat, temp, d.trim_dps);
     }
     const auto& s = r.summary;
     std::printf("Samenvatting (%zu intervallen):\n", s.intervals);
@@ -860,6 +897,11 @@ int main(int argc, char** argv) {
         else if (a == "--marker" && i + 1 < argc) {
             std::string m = argv[++i];
             g_drift_marker = m == "move" ? kBtnMove : m == "both" ? (kBtnPS | kBtnMove) : kBtnPS;
+        }
+        else if (a == "--no-recenter-learning") g_trim_cfg.enabled = false;
+        else if (a == "--trim-init" && i + 1 < argc) { g_trim_init = true; g_trim_init_dps = std::atof(argv[++i]); }
+        else if (a == "--trim-set" && i + 1 < argc) {
+            if (!set_trim_param(argv[++i])) { std::fprintf(stderr, "ravengun-analyze: onbekende --trim-set '%s'\n", argv[i]); return 64; }
         }
         else if (a == "--out" && i + 1 < argc) out = argv[++i];
         else if (a == "--settle" && i + 1 < argc) settle = std::atof(argv[++i]);

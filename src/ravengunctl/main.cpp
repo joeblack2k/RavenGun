@@ -37,6 +37,7 @@ void usage(FILE* f) {
         "commando's (via ravengund):\n"
         "  status      verbinding, batterij, oriëntatie, aim, geldigheid, rapportfrequentie en gaten\n"
         "  recenter    legt de huidige richting van de Move vast als midden van het scherm\n"
+        "  trim        toont de geleerde yaw-trim (uit centreerdrukken); 'trim reset' wist hem\n"
         "  watch       toont live aim en knoppen (rate-limited) tot Ctrl-C of --duration\n"
         "  filter      zet het 1€-filter: --on/--off, --min-cutoff HZ, --beta B\n"
         "  camera      camera-identiteit, modus, gemeten fps en intervallen, controls en trackerstatistiek\n"
@@ -321,7 +322,13 @@ void print_status(const json::Value& r) {
             (sl->arr[0].num != 0 || sl->arr[1].num != 0 || sl->arr[2].num != 0))
             std::printf("; temperatuurhelling %s %s %s graden/s per telling", fmt(sl->arr[0].num, "%+.4f").c_str(), fmt(sl->arr[1].num, "%+.4f").c_str(),
                         fmt(sl->arr[2].num, "%+.4f").c_str());
+        if (num(r, {"gyro_bias", "optical_s"}, 0) > 0 || num(r, {"gyro_bias", "optical_still_windows"}, 0) > 0)
+            std::printf("; optisch-stil %.0f s (%.0f vensters gebruikt, %.0f afgewezen)", num(r, {"gyro_bias", "optical_s"}, 0),
+                        num(r, {"gyro_bias", "optical_windows_used"}, 0), num(r, {"gyro_bias", "optical_windows_rejected"}, 0));
         std::printf("; modus %s\n", str(r, {"gyro_bias", "mode"}, "-").c_str());
+        if (const json::Value* yt = path(r, {"yaw_trim"}); yt && yt->is_object())
+            std::printf("Yaw-trim:     %+.3f graden/s (%s; %.0f drukken gezien, %.0f geleerd, %.0f overgeslagen)\n", num(*yt, {"trim_deg_s"}, 0),
+                        boolean(*yt, {"learning"}) ? "leert" : "leren uit", num(*yt, {"presses"}, 0), num(*yt, {"learned"}, 0), num(*yt, {"skipped"}, 0));
         if (const json::Value* st = path(r, {"gyro_bias", "store"}); st && boolean(*st, {"enabled"})) {
             std::string ld = boolean(*st, {"loaded"}) ? "hersteld bij start (tc " + fmt(num(*st, {"loaded_tc"}), "%.0f") + ")" : "niets hersteld";
             std::printf("              bewaard: %s; %.0f keer bewaard in deze run%s\n", ld.c_str(), num(*st, {"saves"}, 0),
@@ -706,7 +713,7 @@ int main(int argc, char** argv) {
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
             else if (cmd == "test-pattern" || cmd == "output-button") pos.push_back(a);
-            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion")) arg2 = a;
+            else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
         }
         if (cmd.empty()) { usage(stderr); return kExitUsage; }
@@ -735,6 +742,20 @@ int main(int argc, char** argv) {
             if (json) std::printf("%s\n", r.line.c_str());
             else if (const json::Value* res = path(r.v, {"result"}); res && path(*res, {"sample"})) print_status(*res);
             else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "trim") {
+            if (!arg2.empty() && arg2 != "reset") { std::fprintf(stderr, "ravengunctl: trim kent alleen 'reset'\n"); return kExitUsage; }
+            rq.cmd = arg2 == "reset" ? ipc::Cmd::ClearTrim : ipc::Cmd::Status;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            if (arg2 == "reset") { std::printf("Yaw-trim gewist (ook in het bewaarde bestand, zodra de bias bewaard wordt).\n"); return kExitOk; }
+            const json::Value* yt = path(r.v, {"result", "yaw_trim"});
+            if (!yt || !yt->is_object()) return kExitProtocol;
+            std::printf("Yaw-trim: %+.3f graden/s (%s; %.0f drukken gezien, %.0f geleerd, %.0f overgeslagen; grens %.1f)\n", num(*yt, {"trim_deg_s"}, 0),
+                        boolean(*yt, {"learning"}) ? "leert" : "leren uit", num(*yt, {"presses"}, 0), num(*yt, {"learned"}, 0), num(*yt, {"skipped"}, 0),
+                        num(*yt, {"limit_deg_s"}, 0));
             return kExitOk;
         }
         if (cmd == "camera") {

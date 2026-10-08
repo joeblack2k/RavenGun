@@ -279,6 +279,12 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             if (ok) { sh.publish(p.last()); logf("info", "recenter door gebruiker"); }
             return ok;
         }
+        bool clear_trim() override {
+            p.clear_trim();
+            aux.note_trim_cleared();
+            logf("info", "yaw-trim gewist door gebruiker");
+            return true;
+        }
         OneEuroConfig filter() const override { return p.config().filter; }
         void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
         AimConfig aim() const override { return p.config().aim; }
@@ -300,7 +306,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         if (!shared.output) return;
         ravengun::output::LiveAction a = live.update(s);
         if (a.recenter) {  // PS-knop altijd (ook ongewapend), anders een Move-knop uit de indeling
-            if (pipe.recenter()) {
+            if (pipe.recenter(true)) {   // van de Move: de speler richt op het midden, telt mee voor de yaw-trim
                 shared.publish(pipe.last());
                 logf("info", a.recenter_ps ? "recenter met de PS-knop" : "recenter met de Move-knop");
                 a = live.update(pipe.last());
@@ -314,6 +320,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
     PSMove* move = nullptr;
     int64_t next_scan = 0;
     int64_t next_led = 0;
+    uint64_t optical_seen = 0;
     if (opt.enabled) {
         psmove_set_remote_config(PSMove_OnlyLocal);  // geen netwerk (moved) gebruiken
         if (!psmove_init(PSMOVE_CURRENT_VERSION)) {
@@ -367,6 +374,10 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
                 if (ret <= 0) break;
                 int64_t t = mono_ns();
                 RawReport r = read_report(move, ret, zcm2, t, aux.tap);
+                {   // nieuwe cameraframes eerst: de bol-stilstand is bewijs voor de gyro-bias
+                    OpticalSample o;
+                    if (shared.optical_if_new(optical_seen, o)) pipe.on_optical(o);
+                }
                 InputSample s = pipe.on_report(r);
                 emit(s);
                 ps.add(static_cast<double>(mono_ns() - t) / 1e3);

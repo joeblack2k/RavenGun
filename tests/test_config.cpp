@@ -455,6 +455,12 @@ static void test_fusion_and_gun_buttons() {
     CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.map.at("circle") == "key:space" && b.gun_buttons.map.at("cross") == "none");
     CHECK(b.gun_buttons.map.size() == 13 && b.gun_buttons.map.at("move") == "grenade");
     CHECK(config::to_json(b) == text);  // stabiel
+    // Lerende yaw-trim: standaard aan, uit te zetten, onzin geweigerd.
+    CHECK(s.fusion.recenter_learning && b.fusion.recenter_learning);
+    config::Settings rl;
+    CHECK(config::parse_settings(R"({"schema":1,"fusion":{"recenter_learning":false}})", rl, err) && !rl.fusion.recenter_learning);
+    CHECK(text.find("\"recenter_learning\":true") != std::string::npos);
+    CHECK(!config::parse_settings(R"({"schema":1,"fusion":{"recenter_learning":"ja"}})", rl, err));
     // Bestand zonder de nieuwe secties: standaardwaarden.
     config::Settings c;
     CHECK(config::parse_settings(R"({"schema":1})", c, err) && c.fusion.mode == "mahony" && c.gun_buttons.map.at("move") == "grenade");

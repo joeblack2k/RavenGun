@@ -8,7 +8,8 @@
 // Bewaarbeleid (BiasSaver, pure logica, geen threads): alleen een eigen meting (stilstand of quasi-stil, geen kale
 // herstelde waarde), de eerste keer 20 s na het verbinden of zodra de bias ten minste 3 s is gemeten, daarna bij een
 // verschil van 0,15 graden/s (niet vaker dan elke 30 s) of van 0,03 graden/s (niet vaker dan elke 300 s), en bij het
-// afsluiten of verbreken als er iets veranderd is.
+// afsluiten of verbreken als er iets veranderd is. De yaw-trim staat in hetzelfde bestand en wordt bewaard zodra hij
+// verandert (hoogstens elke 5 s; drukken zijn zeldzaam).
 #include <cstdint>
 #include <string>
 
@@ -25,7 +26,11 @@ struct SavedBias {
     int tc = -1;               // ruwe temperatuur op het moment van bewaren; -1 onbekend
     int64_t unix_s = 0;        // wandklok bij het bewaren
     std::string key;           // controller_key
-    std::string source;        // "still" of "quasi-still"
+    std::string source;        // "still", "quasi-still" of "optical-still"
+    // Lerende yaw-trim (yaw_trim.hpp) in hetzelfde bestand; oudere bestanden hebben dit niet.
+    bool has_trim = false;
+    double trim_dps = 0;       // graden/s om de wereld-verticaal
+    int trim_learned = 0;      // aantal drukken waarmee de trim is bijgewerkt
 };
 
 std::string default_bias_dir();   // $XDG_STATE_HOME/ravengun/gyro-bias; leeg zonder HOME
@@ -47,6 +52,7 @@ public:
     bool due_final(const GyroBiasEstimator& e) const;
     bool have_saved() const { return have_; }
     Vec3 last_saved() const { return last_; }
+    static bool eligible_public(const GyroBiasEstimator& e) { return eligible(e); }
 
 private:
     static bool eligible(const GyroBiasEstimator& e);
@@ -70,6 +76,8 @@ public:
     // Verbroken of afsluiten: nog bewaren als er iets veranderd is. true als er geschreven is.
     bool on_disconnect(const Pipeline& p, double now_s, int64_t unix_s, std::string* info = nullptr);
 
+    // Opdracht "trim wissen": de volgende ronde schrijft het bestand met trim 0 (ook zonder gemeten bias).
+    void note_trim_cleared() { trim_dirty_ = true; }
     bool loaded() const { return loaded_; }
     const SavedBias& loaded_value() const { return loaded_val_; }
     uint64_t saves() const { return saves_; }
@@ -78,12 +86,18 @@ public:
 
 private:
     bool save(const Pipeline& p, double now_s, int64_t unix_s, const char* why, std::string* info);
+    bool trim_due(const Pipeline& p, double now_s, bool final = false) const;
     std::string dir_, key_, err_;
     BiasSaver saver_;
     bool loaded_ = false;
     SavedBias loaded_val_;
     uint64_t saves_ = 0;
     int64_t last_saved_unix_ = 0;
+    // Laatst bewaarde trim (alleen na een schrijfactie of een lading).
+    double saved_trim_ = 0;
+    int saved_trim_learned_ = 0;
+    bool trim_dirty_ = false;
+    double last_trim_save_t_ = -1e9;
 };
 
 }  // namespace ravengun::core

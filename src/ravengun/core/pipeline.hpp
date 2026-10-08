@@ -15,6 +15,7 @@
 #include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/move_clock.hpp"
 #include "ravengun/core/one_euro.hpp"
+#include "ravengun/core/yaw_trim.hpp"
 
 namespace ravengun::core {
 
@@ -44,6 +45,8 @@ struct PipelineConfig {
     ExtMode ext_mode = ExtMode::Auto;
     // De pomp (afgeleid uit T en het fire-bit, zie SharpShooterPump). on/off volgen gun_buttons.trigger_on/off.
     PumpConfig pump{};
+    // Lerende yaw-trim uit gebruikers-centreerdrukken (zie yaw_trim.hpp).
+    YawTrimConfig trim{};
 };
 
 // Statistiek over de ontvangst van rapporten (alleen gemeten waarden).
@@ -89,8 +92,17 @@ public:
     std::optional<InputSample> tick(int64_t now_ns);
     // Controller weg: knoppen vrij, alles ongeldig.
     InputSample on_disconnect(int64_t now_ns);
-    // Expliciete recenter. false als er geen geldige oriëntatie is.
-    bool recenter();
+    // Expliciete recenter. false als er geen geldige oriëntatie is. from_controller: de druk komt van de Move (PS of een
+    // knop met actie recenter): de speler richt dan op het schermmidden en de druk telt als meetpunt voor de yaw-trim.
+    bool recenter(bool from_controller = false);
+    // Alleen het meetpunt voor de yaw-trim (zonder het midden te verleggen), voor replay: een markerdruk in een opname.
+    bool note_recenter_press();
+    const YawTrim& trim() const { return trim_; }
+    void set_trim(double dps, uint32_t learned = 0) { trim_.set(dps, learned); }
+    void clear_trim() { trim_.clear(); }
+    void set_trim_learning(bool on) { cfg_.trim.enabled = on; trim_.set_enabled(on); }
+    // Optische meting van de bol (uit de camera); alleen het bewijs voor de gyro-bias (stilstand in beeld).
+    void on_optical(const OpticalSample& o);
 
     void set_filter(const OneEuroConfig& c);
     void set_aim(const AimConfig& c);
@@ -150,6 +162,9 @@ private:
     bool prev_had_stamp_ = false;
     uint64_t dt_move_ = 0, dt_rx_ = 0;
     int last_temp_ = -1;
+    YawTrim trim_;
+    bool trim_mag_seen_ = false;      // sinds de vorige druk corrigeerde de magnetometer de yaw
+    int64_t last_optical_t_ = -1;
     Vec3 prev_gyro_{};          // laatste (ruwe) subsample van het vorige rapport
     bool have_prev_gyro_ = false;
 };

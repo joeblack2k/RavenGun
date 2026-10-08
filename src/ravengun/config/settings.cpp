@@ -235,7 +235,9 @@ std::string to_json(const Settings& s, bool pretty) {
         w.end_object();
         w.key("extension").value(s.sharp_shooter.extension);
     }) + "," + nl;
-    out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode); }) + "," + nl;
+    out += section("fusion", [&](json::Writer& w) {
+        w.key("mode").value(s.fusion.mode).key("recenter_learning").value(s.fusion.recenter_learning);
+    }) + "," + nl;
     out += section("gun_buttons", [&](json::Writer& w) {
         w.key("trigger_on").value(s.gun_buttons.trigger_on).key("trigger_off").value(s.gun_buttons.trigger_off);
         w.key("map").begin_object();
@@ -355,7 +357,8 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     if (const json::Value* o = sec("fusion")) {
         Section c{*o, "fusion", e, warnings};
         c.string("mode", s.fusion.mode);
-        c.unknown({"mode"});
+        c.boolean("recenter_learning", s.fusion.recenter_learning);
+        c.unknown({"mode", "recenter_learning"});
     }
     if (const json::Value* o = sec("gun_buttons")) {
         Section c{*o, "gun_buttons", e, warnings};

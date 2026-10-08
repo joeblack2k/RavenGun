@@ -74,6 +74,15 @@ public:
         }
         if (optical_hook) optical_hook(o);  // bijv. de recorder (niet-blokkerend)
     }
+    // Vanuit de HID-thread: de laatste optische meting als die nieuw is sinds `seen` (teller van publish_optical).
+    // Goedkoop: geen momentopname-kopie. true en `out`/`seen` bijgewerkt bij een nieuwe meting.
+    bool optical_if_new(uint64_t& seen, ravengun::core::OpticalSample& out) const {
+        std::lock_guard<std::mutex> g(m_);
+        if (snap_.optical_updates == seen) return false;
+        seen = snap_.optical_updates;
+        out = optical_;
+        return true;
+    }
     // Vanuit de HID-thread: voortgang van opname/kalibratie (zie Snapshot::progress).
     void set_progress(std::string json) {
         std::lock_guard<std::mutex> g(m_);

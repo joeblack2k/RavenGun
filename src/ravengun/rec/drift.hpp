@@ -25,6 +25,11 @@ struct DriftOptions {
     int bias_init_tc = -1;
     double min_interval_s = 2.0;     // kortere intervallen worden overgeslagen
     uint32_t marker_mask = 0;        // knopbits die als meetpunt tellen; 0 = alleen PS (zie drift.cpp)
+    // Yaw-trim: de markerdrukken zijn de centreerdrukken voor de lerende trim (trim.enabled = leren aan). have_trim_init:
+    // beginwaarde in graden/s (anders 0).
+    core::YawTrimConfig trim = [] { core::YawTrimConfig c; c.enabled = false; return c; }();   // de analysetool zet leren standaard aan
+    bool have_trim_init = false;
+    double trim_init_dps = 0;
     int saturation_raw = 32000;      // |ruwe gyrowaarde| >= dit telt als "nabij de int16-grens" (max 32767)
 };
 
@@ -39,6 +44,7 @@ struct DriftInterval {
     double longest_gap_ms = 0;                   // langste tijd tussen twee opeenvolgende rapporten
     int64_t saturated = -1;                      // subsamples met een as nabij de int16-grens; -1 = geen ruwe waarden in de opname
     int temp_begin = -1, temp_end = -1;          // ruwe temperatuur ("tc"); -1 = onbekend
+    double trim_dps = 0;                         // yaw-trim tijdens dit interval (graden/s, om de wereld-verticaal)
 };
 
 struct DriftSummary {
@@ -58,6 +64,11 @@ struct DriftResult {
     bool ok = false;
     core::Vec3 final_bias{};           // gyro-bias aan het eind van de opname (rad/s), te gebruiken als warme start
     int final_tc = -1;
+    double final_trim_dps = 0;         // yaw-trim aan het eind (graden/s)
+    uint32_t trim_learned = 0;         // drukken waarmee de trim is bijgewerkt
+    uint64_t optical_windows = 0;      // optisch-stille vensters die de bias stuurden
+    uint64_t optical_still = 0, optical_rejected = 0;   // vensters met stilstaande bol; daarvan door de IMU/poort afgewezen
+    double optical_s = 0;
     core::BiasState final_state = core::BiasState::None;
     core::BiasSource final_source = core::BiasSource::None;
     std::string error;

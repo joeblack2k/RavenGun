@@ -69,6 +69,8 @@ struct SharpShooterSettings {
 // magnetometer; zonder geldige kalibratie gedraagt die zich als mahony).
 struct FusionSettings {
     std::string mode = "mahony";  // opt-in: de replay toont winst op 1 van 2 handsporen (zie aim-fusion-design.md, fase 4)
+    // Lerende yaw-trim uit centreerdrukken van de speler (yaw_trim.hpp); gelezen bij het starten van de daemon.
+    bool recenter_learning = true;
 };
 
 // Knoppenindeling van de virtuele lightgun (live koppeling): `map` koppelt een Move-knopnaam aan een actie.

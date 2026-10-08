@@ -418,6 +418,12 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             w.end_object();
             return ipc::ok_response(r.id_json, w.str());
         }
+        case ipc::Cmd::ClearTrim: {
+            std::string res = run_job(sh, [](HidContext& h) { return std::string(h.clear_trim() ? "1" : "0"); }, err);
+            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            if (res != "1") return ipc::error_response({"unavailable", "yaw-trim wissen niet beschikbaar", r.id_json});
+            return ipc::ok_response(r.id_json, "{\"trim_cleared\":true}");
+        }
         case ipc::Cmd::Watch:
             return ipc::error_response({"bad_request", "watch hoort bij een IPC-verbinding", r.id_json});
         case ipc::Cmd::SetFilter: {
