@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace ravengun::core {
 
@@ -114,11 +115,15 @@ InputSample Pipeline::make_sample(int64_t t_eval) {
     s.filter_enabled = fx_.config().enabled;
     s.buttons = edges_.state();
     s.trigger = last_.trigger;
+    s.ext_known = last_.ext_known;
+    s.ext_connected = last_.ext_connected;
+    s.ext_active = last_.ext_active;
+    std::memcpy(s.ext, last_.ext, sizeof s.ext);
     s.accel_g = last_.accel_g;
     s.gyro_rad_s = last_.gyro_rad_s;
     s.battery_raw = last_.battery_raw;
     s.hid_seq = last_.hid_seq;
-    if (link_ == LinkState::Disconnected || link_ == LinkState::Lost) s.trigger = 0;
+    if (link_ == LinkState::Disconnected || link_ == LinkState::Lost) { s.trigger = 0; s.ext_active = false; }
     return s;
 }
 
@@ -217,7 +222,8 @@ InputSample Pipeline::on_report(const RawReport& r) {
         if (mag_apply_now) fusion_.set_q(q);
     }
 
-    ButtonEdges e = edges_.update(r.buttons);
+    const bool ext_on = r.has_ext && r.ext_connected && cfg_.ext_mode != ExtMode::None;
+    ButtonEdges e = edges_.update(r.buttons | ext_buttons(cfg_.ext_mode, r.has_ext && r.ext_connected, r.ext));
     link_ = LinkState::Fresh;
     have_rx_ = true;
     last_rx_ns_ = r.t_rx_ns;
@@ -231,6 +237,10 @@ InputSample Pipeline::on_report(const RawReport& r) {
     }
 
     last_.trigger = r.trigger;
+    last_.ext_known = r.has_ext;
+    last_.ext_connected = r.has_ext && r.ext_connected;
+    last_.ext_active = ext_on;
+    std::memcpy(last_.ext, r.ext, sizeof last_.ext);
     last_.accel_g = r.accel[n - 1];
     last_.gyro_rad_s = r.gyro[n - 1];
     last_.battery_raw = r.battery_raw;

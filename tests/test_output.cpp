@@ -694,7 +694,7 @@ static void test_live_map_defaults() {
     LiveButtonMap m = build_live_map(gs);
     CHECK(config::validate(config::Settings{}) == "");
     CHECK(m.gun[static_cast<int>(GunButton::Grenade)] == core::kBtnMove);
-    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == core::kBtnCross);
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == (core::kBtnCross | core::kBtnPump));
     // key:5 = triangle OR select; key:1 = square OR start (OR van twee knoppen).
     CHECK(m.keys.size() == 2);
     for (const auto& k : m.keys) {
@@ -704,6 +704,18 @@ static void test_live_map_defaults() {
     }
     CHECK(m.recenter == 0);
     CHECK(describe_layout(m).find("move=grenade") != std::string::npos && describe_layout(m).find("ps=recenter (vast)") != std::string::npos);
+    // Sharp Shooter-pomp (pump) is standaard reload; de overige EXT-knoppen doen niets.
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] & core::kBtnPump);
+    CHECK(describe_layout(m).find("pump=reload") != std::string::npos && describe_layout(m).find("ss_fire=none") != std::string::npos);
+    for (const auto& k : m.keys) CHECK(!(k.bits & core::kAllExtButtons));
+    gs = config::GunButtonSettings{};
+    gs.map["sel2"] = "key:5";
+    gs.map["ss_fire"] = "aux1";
+    LiveButtonMap m2 = build_live_map(gs);
+    CHECK(m2.gun[static_cast<int>(GunButton::Aux1)] == core::kBtnSsFire);
+    bool found = false;
+    for (const auto& k : m2.keys) if (k.code == KEY_5) found = (k.bits & core::kBtnSel2) != 0;
+    CHECK(found);
 }
 
 static core::InputSample sample(uint32_t buttons, uint32_t pressed = 0, uint8_t trig = 0,

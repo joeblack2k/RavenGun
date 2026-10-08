@@ -107,6 +107,23 @@ bool boolean(const json::Value& v, std::initializer_list<const char*> keys) {
     const json::Value* x = path(v, keys);
     return x && x->is_bool() && x->b;
 }
+
+// "ja [80 00 00 00 00]" / "nee" / "onbekend" voor de uitbreidingsconnector (Sharp Shooter) van een sample.
+std::string ext_text(const json::Value& s) {
+    const json::Value* x = path(s, {"ext"});
+    if (!x || !x->is_object()) return "onbekend";
+    if (!boolean(*x, {"known"})) return "onbekend";
+    if (!boolean(*x, {"connected"})) return "nee";
+    std::string t = "ja [";
+    if (const json::Value* b = path(*x, {"bytes"}); b && b->is_array()) {
+        char h[8];
+        for (size_t i = 0; i < b->arr.size(); ++i) {
+            std::snprintf(h, sizeof h, "%s%02X", i ? " " : "", static_cast<unsigned>(b->arr[i].num) & 0xFF);
+            t += h;
+        }
+    }
+    return t + "]";
+}
 std::string names(const json::Value* arr) {
     std::string r;
     if (!arr || !arr->is_array()) return r;
@@ -244,9 +261,10 @@ void print_sample_line(const json::Value& s, const json::Value* edges) {
     std::string opt = p && boolean(*p, {"valid"})
                           ? "bol " + fmt(num(*p, {"x_px"}), "%6.1f") + "," + fmt(num(*p, {"y_px"}), "%6.1f") + " r" + fmt(num(*p, {"radius_px"}), "%4.1f")
                           : "bol " + (p ? str(*p, {"reason"}) : std::string("-"));
-    std::printf("%-8s %s  yaw %7s pitch %7s  trig %3d  %-24s knoppen %s%s\n", str(s, {"link"}).c_str(), aim.c_str(),
+    std::string xt = ext_text(s);
+    std::printf("%-8s %s  yaw %7s pitch %7s  trig %3d  %-24s ext %s  knoppen %s%s\n", str(s, {"link"}).c_str(), aim.c_str(),
                 fmt(num(s, {"aim", "yaw_rel_deg"}), "%+.2f").c_str(), fmt(num(s, {"aim", "pitch_rel_deg"}), "%+.2f").c_str(),
-                static_cast<int>(num(s, {"trigger"}, 0)), opt.c_str(), names(path(s, {"buttons", "down"})).c_str(), e.c_str());
+                static_cast<int>(num(s, {"trigger"}, 0)), opt.c_str(), xt.c_str(), names(path(s, {"buttons", "down"})).c_str(), e.c_str());
     std::fflush(stdout);
 }
 
@@ -311,6 +329,7 @@ void print_status(const json::Value& r) {
                        fmt(num(r, {"config", "filter", "beta"}), "%.2f") + ")").c_str()
                     : "uit");
     std::printf("Knoppen:      %s, trigger %.0f\n", names(path(s, {"buttons", "down"})).c_str(), num(s, {"trigger"}, 0));
+    std::printf("Uitbreiding:  ext verbonden: %s\n", ext_text(s).c_str());
     if (const json::Value* tb = path(r, {"timebase"})) {
         std::printf("Tijdbasis:    %s; %.0f stempels, %s, skew %s ppm, restvertraging p50 %s / p95 %s / max %s ms; temperatuur %s (ruw %.0f)\n",
                     str(*tb, {"integration_dt"}).c_str(), num(*tb, {"stamps"}, 0), boolean(*tb, {"coupled"}) ? "gekoppeld" : "nog niet gekoppeld",

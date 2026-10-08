@@ -414,12 +414,13 @@
     return { shots: n, hits: this.hits, misses: this.misses, avgPx: n ? this.sumPx / n : null, avgPct: n ? this.sumPct / n : null };
   };
 
-  // Knoppen in de oefenstap: trekker = schieten, Move = midden zetten, Cirkel = terug, Start = sluiten,
-  // Select = ruwe stip aan/uit. Zelfde flankentellers en baseline als ButtonNav (drukken vóór het verbinden of
+  // Knoppen in de oefenstap: trekker = schieten, PS = midden zetten (dat doet de daemon zelf; hier alleen een
+  // melding, zodat het nooit dubbel gebeurt), Cirkel = terug, Start = sluiten, Select = ruwe stip aan/uit.
+  // De Move-knop doet in deze stap niets. Zelfde flankentellers en baseline als ButtonNav (drukken vóór het verbinden of
   // tijdens een onderbreking tellen nooit), met een eigen debounce per actie (schieten is korter dan de rest).
   function PracticeButtons(opts) {
     opts = opts || {};
-    this.lock = { shoot: 120, recenter: 350, back: 350, close: 350, toggle_raw: 350 };
+    this.lock = { shoot: 120, centered: 350, back: 350, close: 350, toggle_raw: 350 };
     if (opts.lockoutMs) for (var k in opts.lockoutMs) this.lock[k] = opts.lockoutMs[k];
     this.prev = null; this.until = {};
   }
@@ -428,7 +429,7 @@
     if (!this.prev) { this.prev = press.slice(); return []; }
     var bits = pressedBits(this.prev, press);
     this.prev = press.slice();
-    var map = [[BIT.start, 'close'], [BIT.circle, 'back'], [BIT.select, 'toggle_raw'], [BIT.move, 'recenter'], [BIT.t, 'shoot']];
+    var map = [[BIT.start, 'close'], [BIT.circle, 'back'], [BIT.select, 'toggle_raw'], [BIT.ps, 'centered'], [BIT.t, 'shoot']];
     var out = [];
     for (var i = 0; i < map.length; i++) {
       var act = map[i][1];

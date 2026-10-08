@@ -88,7 +88,7 @@ for f in calibrate.js calibrate-core.js calibrate.css; do [ "$(code "$B/$f")" = 
 curl -s "$B/calibrate" | grep -qE 'https?://' && fail "/calibrate verwijst naar een externe bron"
 curl -s "$B/api/calibrate/ui" | grep -q '"running":false' || fail "kiosk-status"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"trekker":"t","cirkel":"circle"}' "$B/api/calibrate/buttons")" = 200 ] || fail "knoppenmapping"
-curl -s "$B/api/settings" | grep -q '"sharp_shooter":{"buttons":{"cirkel":"circle","trekker":"t"}}' || fail "mapping niet in de instellingen"
+curl -s "$B/api/settings" | grep -q '"sharp_shooter":{"buttons":{"cirkel":"circle","trekker":"t"},"extension":"auto"}' || fail "mapping niet in de instellingen"
 grep -q '"cirkel": *"circle"' "$XDG_CONFIG_HOME/ravengun/config.json" || fail "mapping niet bewaard in config.json"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"trekker":"l2"}' "$B/api/calibrate/buttons")" = 400 ] || fail "mapping met onbekende knop"
 [ "$(code -X POST -H "$J" -d '{"trekker":"t"}' "$B/api/calibrate/buttons")" = 403 ] || fail "mapping zonder CSRF"

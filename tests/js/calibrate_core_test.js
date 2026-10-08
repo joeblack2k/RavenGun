@@ -330,16 +330,17 @@ t('PracticeButtons: toewijzing, baseline en debounce', () => {
   assert.deepStrictEqual(pb.feed(counts({ 20: 4 }), 100), ['shoot']);
   assert.deepStrictEqual(pb.feed(counts({ 20: 5 }), 150), []);                     // denderen binnen 120 ms
   assert.deepStrictEqual(pb.feed(counts({ 20: 6 }), 260), ['shoot']);
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1 }), 270), ['recenter']);    // Move-knop: midden, geen schot
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1 }), 300), ['back']);
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1, 11: 1 }), 320), ['close']);
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 1, 5: 1, 11: 1, 8: 1 }), 340), ['toggle_raw']);
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 2, 5: 1, 11: 1, 8: 1 }), 400), []);   // recenter binnen 350 ms
-  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 19: 3, 5: 1, 11: 1, 8: 1 }), 700), ['recenter']);
-  assert.deepStrictEqual(pb.feed(counts({ 20: 7, 19: 3, 6: 1, 5: 1, 11: 1, 8: 1 }), 800), ['shoot']);   // kruis: genegeerd
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 1 }), 270), ['centered']);    // PS: de daemon centreert, hier alleen melding
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 1, 19: 1 }), 280), []);       // Move-knop doet in de oefenstap niets
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 1, 19: 1, 5: 1 }), 300), ['back']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 1, 19: 1, 5: 1, 11: 1 }), 320), ['close']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 1, 19: 1, 5: 1, 11: 1, 8: 1 }), 340), ['toggle_raw']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 2, 19: 1, 5: 1, 11: 1, 8: 1 }), 400), []);   // PS binnen 350 ms
+  assert.deepStrictEqual(pb.feed(counts({ 20: 6, 16: 3, 19: 1, 5: 1, 11: 1, 8: 1 }), 700), ['centered']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 7, 16: 3, 19: 1, 6: 1, 5: 1, 11: 1, 8: 1 }), 800), ['shoot']);   // kruis: genegeerd
   pb.reset();
   assert.deepStrictEqual(pb.feed(counts({ 20: 9 }), 900), []);                     // na reset weer baseline
-  assert.deepStrictEqual(pb.feed(counts({ 20: 10, 19: 1 }), 1500), ['recenter', 'shoot']);
+  assert.deepStrictEqual(pb.feed(counts({ 20: 10, 16: 1 }), 1500), ['centered', 'shoot']);
 });
 
 t('aimModeText: modus en middenbron', () => {

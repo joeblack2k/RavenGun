@@ -453,7 +453,7 @@ static void test_fusion_and_gun_buttons() {
     std::string err;
     CHECK(config::parse_settings(text, b, err));
     CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.map.at("circle") == "key:space" && b.gun_buttons.map.at("cross") == "none");
-    CHECK(b.gun_buttons.map.size() == 7 && b.gun_buttons.map.at("move") == "grenade");
+    CHECK(b.gun_buttons.map.size() == 12 && b.gun_buttons.map.at("move") == "grenade");
     CHECK(config::to_json(b) == text);  // stabiel
     // Bestand zonder de nieuwe secties: standaardwaarden.
     config::Settings c;

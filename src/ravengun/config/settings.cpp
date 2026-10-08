@@ -138,7 +138,7 @@ bool move_button_name_valid(const std::string& name) {
 }
 
 const std::vector<std::string>& gun_map_buttons() {
-    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move"};
+    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move", "pump", "ss_fire", "sel1", "sel2", "sel3"};
     return b;
 }
 
@@ -180,6 +180,8 @@ std::string validate(const Settings& s) {
             return "sharp_shooter.buttons." + kv.first + " is geen Move-knop (triangle, circle, cross, square, select, start, ps, move of t)";
     }
     if (s.fusion.mode != "mahony" && s.fusion.mode != "mahony_mag") return "fusion.mode moet mahony of mahony_mag zijn";
+    if (s.sharp_shooter.extension != "auto" && s.sharp_shooter.extension != "sharp_shooter" && s.sharp_shooter.extension != "none")
+        return "sharp_shooter.extension moet auto, sharp_shooter of none zijn";
     const auto& g = s.gun_buttons;
     if (g.trigger_on < 1 || g.trigger_on > 255 || g.trigger_off < 0 || g.trigger_off >= g.trigger_on)
         return "gun_buttons: 0 <= trigger_off < trigger_on <= 255";
@@ -188,7 +190,7 @@ std::string validate(const Settings& s) {
         if (kv.first == "t") return "gun_buttons.map: 't' kan niet worden ingedeeld: T is altijd de analoge trekker";
         const auto& bs = gun_map_buttons();
         if (std::find(bs.begin(), bs.end(), kv.first) == bs.end())
-            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move)";
+            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move, pump, ss_fire, sel1, sel2, sel3)";
         std::string canon;
         std::string m = check_gun_action(kv.second, canon);
         if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;
@@ -231,6 +233,7 @@ std::string to_json(const Settings& s, bool pretty) {
         w.key("buttons").begin_object();
         for (const auto& kv : s.sharp_shooter.buttons) w.key(kv.first).value(kv.second);
         w.end_object();
+        w.key("extension").value(s.sharp_shooter.extension);
     }) + "," + nl;
     out += section("fusion", [&](json::Writer& w) { w.key("mode").value(s.fusion.mode); }) + "," + nl;
     out += section("gun_buttons", [&](json::Writer& w) {
@@ -338,7 +341,8 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (const json::Value* o = sec("sharp_shooter")) {
         Section c{*o, "sharp_shooter", e, warnings};
-        c.unknown({"buttons"});
+        c.string("extension", s.sharp_shooter.extension);
+        c.unknown({"buttons", "extension"});
         if (const json::Value* b = o->find("buttons")) {
             if (!b->is_object()) c.fail("sharp_shooter.buttons moet een object zijn");
             else

@@ -126,6 +126,12 @@ std::string format_report(const core::RawReport& r, int64_t g_t0) {
         s += ",\"ar\":"; ivec2(s, r.accel_raw, 2);
         s += ",\"gr\":"; ivec2(s, r.gyro_raw, 2);
     }
+    if (r.has_ext) {
+        s += ",\"xc\":"; num(s, r.ext_connected ? 1 : 0);
+        s += ",\"x\":["; 
+        for (int i = 0; i < 5; ++i) { if (i) s += ','; num(s, static_cast<int>(r.ext[i])); }
+        s += ']';
+    }
     s += '}';
     return s;
 }
@@ -244,6 +250,14 @@ bool parse_line(const std::string& line, Record& out, std::string& err, int64_t&
                 r.accel_raw[i / 3][i % 3] = static_cast<int>(ar[i]);
                 r.gyro_raw[i / 3][i % 3] = static_cast<int>(gr[i]);
             }
+        }
+        double xa[5];
+        if (numarr(get(o, "x"), xa, 5)) {  // oude opnames hebben dit niet
+            int64_t xc = 0;
+            getint(o, "xc", xc);
+            r.has_ext = true;
+            r.ext_connected = xc != 0;
+            for (int i = 0; i < 5; ++i) r.ext[i] = static_cast<uint8_t>(static_cast<int>(xa[i]) & 0xFF);
         }
         out.report = r;
         return true;

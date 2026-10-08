@@ -59,6 +59,10 @@ const std::vector<std::string>& sharp_shooter_roles();
 bool move_button_name_valid(const std::string& name);  // false voor een lege naam
 struct SharpShooterSettings {
     std::map<std::string, std::string> buttons;  // rol -> Move-knop
+    // Uitbreidingsconnector van de Move: "auto" (een verbonden EXT-apparaat is de Sharp Shooter; het device-id
+    // wordt nog niet gelezen), "sharp_shooter" (idem, expliciet) of "none" (EXT-bytes negeren). Gelezen bij
+    // het starten van de daemon. Nog te bevestigen op echte hardware aan de hand van de ruwe bytes in de opname.
+    std::string extension = "auto";
 };
 
 // Fase 4: oriëntatieschatter. "mahony" (IMU-only, terugval) of "mahony_mag" (met yaw-correctie van de
@@ -70,7 +74,8 @@ struct FusionSettings {
 // Knoppenindeling van de virtuele lightgun (live koppeling): `map` koppelt een Move-knopnaam aan een actie.
 // Acties: "reload", "grenade", "aux1", "aux2" (gun-knoppen), "recenter", "key:<naam>" (toets op het
 // virtuele toetsenbord, namen uit output/key_table.hpp) of "none". Meerdere Move-knoppen mogen dezelfde
-// actie hebben (OR). Knoppen: triangle, circle, cross, square, select, start, move. T is altijd de analoge
+// actie hebben (OR). Knoppen: triangle, circle, cross, square, select, start, move en (alleen als EXT verbonden is) de Sharp Shooter-knoppen
+// pump (RL, standaard reload), ss_fire, sel1, sel2, sel3 (standaard none). T is altijd de analoge
 // trekker (drempel met hysterese) en PS is altijd recenter (hard bedraad): beide staan niet in de map.
 // De mapping uit sharp_shooter.buttons (kalibratie-UI) wordt hier bewust NIET gebruikt.
 struct GunButtonSettings {
@@ -80,7 +85,8 @@ struct GunButtonSettings {
     std::map<std::string, std::string> map = default_gun_map();
     static std::map<std::string, std::string> default_gun_map() {
         return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"},
-                {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}};
+                {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}, {"pump", "reload"},
+                {"ss_fire", "none"}, {"sel1", "none"}, {"sel2", "none"}, {"sel3", "none"}};
     }
 };
 

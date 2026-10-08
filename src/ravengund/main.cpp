@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
     opt.pipeline.aim.h_edge_deg = cfg.aim.h_edge_deg;
     opt.pipeline.aim.v_edge_deg = cfg.aim.v_edge_deg;
     ravengun::core::parse_fusion_mode(cfg.fusion.mode.c_str(), opt.pipeline.fusion_mode);
+    ravengun::core::parse_ext_mode(cfg.sharp_shooter.extension.c_str(), opt.pipeline.ext_mode);
     opt.gun_buttons = ravengun::output::build_live_map(cfg.gun_buttons);
     cam.width = cfg.camera.width; cam.height = cfg.camera.height; cam.fps = cfg.camera.fps;
     cam.auto_exposure = cfg.camera.auto_exposure; cam.auto_gain = cfg.camera.auto_gain; cam.auto_awb = cfg.camera.auto_awb;

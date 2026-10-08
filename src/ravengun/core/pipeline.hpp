@@ -40,6 +40,8 @@ struct PipelineConfig {
     bool interpolate_gaps = true;
     double nominal_report_s = 0.01127;  // gemeten: 1127 ticks per rapport
     MagYawConfig mag{};
+    // Sharp Shooter via de EXT-connector van de Move (zie buttons.hpp, ExtMode).
+    ExtMode ext_mode = ExtMode::Auto;
 };
 
 // Statistiek over de ontvangst van rapporten (alleen gemeten waarden).

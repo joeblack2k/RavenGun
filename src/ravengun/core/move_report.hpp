@@ -17,6 +17,10 @@
 //   25..36 gyroscoop, idem
 //   37, 38 temperatuur (12 bit: byte37 << 4 | byte38 >> 4); byte38 bits 0-3: magnetometer X hoog
 //   39..42 magnetometer (12 bit signed per as)
+//   4      bit 0x10 (buttons4): uitbreidingsconnector (EXT) heeft een apparaat (psmove_is_ext_connected)
+//   44..48 5 bytes uitbreidingsdata (PSMove_ZCM1_Data_Input.extdata, PSMOVE_EXT_DATA_BUF_SIZE = 5);
+//          het volledige ZCM1-rapport is 49 bytes. Sharp Shooter, byte 44: 0x01/0x02/0x04 = vuurstand-
+//          bits (bits 0-2, `c & 7`), 0x40 = fire, 0x80 = RL (pomp/herladen) volgens test_extension.c.
 #include <cstddef>
 #include <cstdint>
 
@@ -28,6 +32,8 @@ inline constexpr double kMoveTicksPerSecond = 100000.0;
 inline constexpr int64_t kMoveNsPerTick = 10'000;
 inline constexpr int kMoveStampModulo = 65536;
 inline constexpr size_t kZcm1ReportMinBytes = 44;
+inline constexpr size_t kZcm1ReportFullBytes = 49;  // met de 5 EXT-bytes
+inline constexpr int kExtDataBytes = 5;
 
 struct MoveRawInput {
     int seq = -1;               // 0..15
@@ -38,6 +44,9 @@ struct MoveRawInput {
     int gyro_raw[2][3]{};
     int battery = 0;
     uint8_t trigger[2]{0, 0};
+    bool has_ext = false;       // rapport was lang genoeg (49 bytes) voor de EXT-bytes
+    bool ext_connected = false; // buttons4 & 0x10
+    uint8_t ext[kExtDataBytes]{0, 0, 0, 0, 0};
 };
 
 // false bij een te kort rapport of een verkeerd report-type.

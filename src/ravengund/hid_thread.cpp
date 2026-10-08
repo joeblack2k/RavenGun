@@ -215,6 +215,15 @@ RawReport read_report(PSMove* m, int poll_ret, bool zcm2, int64_t t, HidrawTap& 
     r.trigger = psmove_get_trigger(m);
     r.battery_raw = static_cast<int>(psmove_get_battery(m));
     r.temperature_raw = psmove_get_temperature(m);
+    if (!zcm2) {
+        // EXT-connector (Sharp Shooter): vlag uit buttons4 bit 0x10 en 5 bytes extdata (psmove.c).
+        PSMove_Ext_Data xd;
+        if (psmove_get_ext_data(m, &xd)) {
+            r.has_ext = true;
+            r.ext_connected = psmove_is_ext_connected(m);
+            std::memcpy(r.ext, xd, sizeof r.ext);
+        }
+    }
     if (tap.is_open()) {
         // Hetzelfde rapport via de eigen hidraw-descriptor: interne stempel en ruwe waarden.
         int avg[3];

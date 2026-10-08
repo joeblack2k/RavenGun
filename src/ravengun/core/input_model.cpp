@@ -151,6 +151,14 @@ void write_sample_json(json::Writer& w, const InputSample& s, bool full_ids) {
     w.end_object();
 
     w.key("trigger").value(static_cast<int>(s.trigger));
+    w.key("ext").begin_object();
+    w.key("known").value(s.ext_known);
+    w.key("connected").value(s.ext_connected);
+    w.key("active").value(s.ext_active);
+    w.key("bytes").begin_array();
+    for (uint8_t b : s.ext) w.value(static_cast<int>(b));
+    w.end_array();
+    w.end_object();
     w.key("buttons").begin_object();
     w.key("mask").value(s.buttons);
     w.key("down");

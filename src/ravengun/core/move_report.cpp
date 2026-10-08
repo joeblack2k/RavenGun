@@ -23,6 +23,9 @@ bool parse_zcm1_report(const uint8_t* b, size_t len, MoveRawInput& o) {
     o.mag[0] = twelve_bit_signed(((b[38] & 0x0F) << 8) | b[39]);
     o.mag[1] = twelve_bit_signed((b[40] << 4) | ((b[41] & 0xF0) >> 4));
     o.mag[2] = twelve_bit_signed(((b[41] & 0x0F) << 8) | b[42]);
+    o.ext_connected = (b[4] & 0x10) != 0;
+    o.has_ext = len >= kZcm1ReportFullBytes;
+    for (int i = 0; i < kExtDataBytes; ++i) o.ext[i] = o.has_ext ? b[44 + i] : 0;
     return true;
 }
 

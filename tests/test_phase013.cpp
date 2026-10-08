@@ -78,6 +78,18 @@ static void test_parse_report() {
     int avg[3];
     psmoveapi_accel_average(in, avg);
     CHECK(avg[0] == ((0x8ac1 + 0x8acc) / 2 - 0x8000));
+    // EXT-connector: dit echte rapport heeft geen apparaat; vlag zit in byte 4 bit 0x10, data in 44..48.
+    CHECK(in.has_ext && !in.ext_connected && in.ext[0] == 0 && in.ext[4] == 0);
+    {
+        std::vector<uint8_t> x = b;
+        x[4] |= 0x10;
+        x[44] = 0x85;  // RL + vuurstand 1 + 4
+        x[48] = 0xAB;
+        MoveRawInput ix;
+        CHECK(parse_zcm1_report(x.data(), x.size(), ix));
+        CHECK(ix.ext_connected && ix.has_ext && ix.ext[0] == 0x85 && ix.ext[4] == 0xAB && ix.seq == 1);
+        CHECK(parse_zcm1_report(x.data(), 44, ix) && !ix.has_ext && ix.ext[0] == 0);  // kort rapport: geen EXT-bytes
+    }
     CHECK(!parse_zcm1_report(b.data(), 20, in));
     b[0] = 0x02;
     CHECK(!parse_zcm1_report(b.data(), b.size(), in));
@@ -173,7 +185,11 @@ static void test_pipeline_move_dt() {
 static bool same(const RawReport& a, const RawReport& b) {
     bool ok = a.t_rx_ns == b.t_rx_ns && a.hid_seq == b.hid_seq && a.subsamples == b.subsamples && a.buttons == b.buttons &&
               a.trigger == b.trigger && a.battery_raw == b.battery_raw && a.has_stamp == b.has_stamp &&
-              a.temperature_raw == b.temperature_raw && a.has_raw == b.has_raw;
+              a.temperature_raw == b.temperature_raw && a.has_raw == b.has_raw && a.has_ext == b.has_ext;
+    if (a.has_ext) {
+        ok = ok && a.ext_connected == b.ext_connected;
+        for (int i = 0; i < 5; ++i) ok = ok && a.ext[i] == b.ext[i];
+    }
     if (!a.has_stamp) ok = ok && b.stamp == 0; else ok = ok && a.stamp == b.stamp;
     for (int i = 0; i < a.subsamples; ++i)
         ok = ok && a.accel[i].x == b.accel[i].x && a.accel[i].y == b.accel[i].y && a.accel[i].z == b.accel[i].z &&
@@ -219,7 +235,11 @@ static void test_recording_roundtrip() {
         r.temperature_raw = k % 5 ? 2179 : -1;
         r.has_raw = k % 2 == 0;
         for (int f = 0; f < 2; ++f) for (int i = 0; i < 3; ++i) { r.accel_raw[f][i] = -32768 + k + i; r.gyro_raw[f][i] = 32767 - k - f; }
+        r.has_ext = k % 4 != 0;
+        r.ext_connected = k % 3 == 0;
+        for (int i = 0; i < 5; ++i) r.ext[i] = static_cast<uint8_t>(r.has_ext ? k * 7 + i * 51 : 0);
         std::string line = rec::format_report(r, h.t0_ns);
+        CHECK((line.find("\"x\":[") != std::string::npos) == r.has_ext);
         rec::Record o;
         CHECK(rec::parse_line(line, o, err, t0));
         CHECK(o.kind == rec::Kind::Report);
@@ -293,6 +313,43 @@ static std::string write_synthetic_recording(const std::string& dir) {
     std::fprintf(f, "%s\n", rec::format_end({t, "stop", 3000, 750, 0}, h.t0_ns).c_str());
     std::fclose(f);
     return path;
+}
+
+static void test_ext_pipeline() {
+    // Sharp Shooter: ext byte 0 -> pump/ss_fire/sel1..3; alleen als EXT verbonden is en de modus het toestaat.
+    for (int mode = 0; mode < 3; ++mode) {
+        PipelineConfig cfg;
+        cfg.ext_mode = mode == 0 ? ExtMode::Auto : mode == 1 ? ExtMode::SharpShooter : ExtMode::None;
+        Pipeline p(cfg);
+        p.on_connect("aa:bb:cc:dd:ee:ff", 0);
+        int64_t t = 1'000'000'000;
+        auto feed = [&](bool connected, uint8_t b0) {
+            RawReport r;
+            t += 11'000'000;
+            r.t_rx_ns = t;
+            r.accel[0] = r.accel[1] = {0, 0, 1};
+            r.has_ext = true;
+            r.ext_connected = connected;
+            r.ext[0] = b0;
+            return p.on_report(r);
+        };
+        InputSample s = feed(false, 0x80);  // data zonder vlag telt niet
+        CHECK(!(s.buttons & kBtnPump) && !s.ext_connected && s.ext_known && !s.ext_active);
+        s = feed(true, 0x80 | 0x04);
+        if (cfg.ext_mode == ExtMode::None) {
+            CHECK(!(s.buttons & kAllExtButtons) && !s.ext_active && s.ext_connected && s.ext[0] == 0x84);
+        } else {
+            CHECK((s.buttons & kBtnPump) && (s.pressed & kBtnPump) && (s.buttons & kBtnSel3) && !(s.buttons & kBtnSel1));
+            CHECK(s.ext_active && s.ext[0] == 0x84);
+            s = feed(true, 0x40 | 0x01);
+            CHECK((s.buttons & kBtnSsFire) && (s.buttons & kBtnSel1) && !(s.buttons & kBtnPump) && (s.released & kBtnPump));
+            s = feed(false, 0);
+            CHECK(!(s.buttons & kAllExtButtons));
+        }
+    }
+    ExtMode m;
+    CHECK(parse_ext_mode("sharp_shooter", m) && m == ExtMode::SharpShooter && !parse_ext_mode("x", m));
+    CHECK(buttons_to_string(kBtnPump | kBtnSel2) == "pump,sel2");
 }
 
 static void test_replay_deterministic() {
@@ -623,6 +680,7 @@ int main() {
     test_move_clock();
     test_pipeline_move_dt();
     test_recording_roundtrip();
+    test_ext_pipeline();
     test_replay_deterministic();
     test_mag_fit();
     test_mag_fit_quality_gates();

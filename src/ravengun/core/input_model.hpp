@@ -51,6 +51,11 @@ struct RawReport {
     bool has_raw = false;     // accel_raw/gyro_raw gevuld (ruwe sensorwaarden, voor opnamen)
     int accel_raw[2][3]{};
     int gyro_raw[2][3]{};
+    // Uitbreidingsconnector (EXT) van de Move, zie move_report.hpp. has_ext = bekend (uit de PSMoveAPI of de
+    // hidraw-tap); oude opnames hebben dit niet.
+    bool has_ext = false;
+    bool ext_connected = false;
+    uint8_t ext[5]{0, 0, 0, 0, 0};
 };
 
 // Optische meting van de bol: 2D-positie in het camerabeeld. Geen diepte en geen 3D: daarvoor
@@ -122,6 +127,13 @@ struct InputSample {
     Vec3 accel_g{};
     Vec3 gyro_rad_s{};
     int battery_raw = -1;
+
+    // Uitbreidingsconnector: vlag en 5 ruwe bytes (Sharp Shooter: byte 0, zie buttons.hpp). De afgeleide
+    // knoppen (pump, ss_fire, sel1..3) zitten in `buttons` zolang ext_active.
+    bool ext_known = false;
+    bool ext_connected = false;
+    bool ext_active = false;       // verbonden én modus niet "none"
+    uint8_t ext[5]{0, 0, 0, 0, 0};
 };
 
 // Schrijft "position": {...} (sleutel plus object) voor een optische meting.

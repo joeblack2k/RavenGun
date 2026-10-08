@@ -107,6 +107,10 @@ Een rapport komt normaal elke 13 ms gemiddeld (gemeten, met pieken tot ongeveer 
 
 De cursor springt nooit naar een hoek. Afnemers krijgen `aim.valid = false` en de aimvelden zijn dan `null`.
 
+## Driftmeting uit een opname (`ravengun-analyze drift`)
+
+`ravengun-analyze drift OPNAME [--mode mahony|mahony_mag] [--cal KALIBRATIE.json]` (code in `src/ravengun/rec/drift.*`) gebruikt elke down-flank van de PS-knop als meetpunt: de speler richt dan op het schermmidden. De opname gaat door de pijplijn (zonder recenter); het yaw- en pitchverschil met de vorige PS-druk is de drift in dat interval. Intervallen korter dan 2 s worden overgeslagen. Per interval: duur, yaw/pitch in graden en graden per minuut, totaal gedraaide hoek, maximale draaisnelheid, verloren rapporten (4-bit seq-gaten; een gat van precies 16 is onzichtbaar), langste gat tussen rapporten (ontvangsttijd), subsamples met een gyro-as op of boven 32000 van 32767 (alleen met ruwe waarden) en de ruwe temperatuur (`tc`) begin en eind. Samenvatting: mediaan en p90 van |drift| per minuut en Pearson-correlaties van |yaw-drift| met gedraaide hoek, maximale snelheid, verloren rapporten en duur (pas zinvol bij 5 of meer intervallen).
+
 ## Knopflanken
 
 Elk HID-rapport bevat een volledige knopstatus en wordt afzonderlijk verwerkt. Elke wisseling tussen twee rapporten wordt dus een flank in dat sample (`pressed`, `released`). De gepubliceerde momentopname houdt per knop een cumulatieve teller van down- en up-flanken bij. Iedere afnemer (watch-client, later de outputbackend) onthoudt zijn eigen tellerstand, zodat ook een druk+los tussen twee leesmomenten en meerdere drukken zichtbaar blijven, ongeacht de leessnelheid. De bitposities volgen `enum PSMove_Button` van PSMoveAPI. Een druk die korter is dan één rapportinterval en volledig tussen twee rapporten valt, zit niet in de hardwaredata.
@@ -187,11 +191,11 @@ De indeling staat in `config.json` onder `gun_buttons` en geldt voor elke game (
 
 Formaat: `trigger_on`, `trigger_off` en een object `map` van Move-knopnaam naar actie.
 
-- Knoppen: `triangle`, `circle`, `cross`, `square`, `select`, `start`, `move`.
+- Knoppen: `triangle`, `circle`, `cross`, `square`, `select`, `start`, `move` en de Sharp Shooter-knoppen `pump`, `ss_fire`, `sel1`, `sel2`, `sel3` (zie "Uitbreidingsconnector" hieronder).
 - Acties: `reload`, `grenade`, `aux1`, `aux2` (de gun-knoppen BTN_RIGHT, BTN_MIDDLE, BTN_SIDE, BTN_EXTRA), `recenter`, `key:<naam>` (toets op het virtuele toetsenbord) of `none` (ook `""`).
 - Meerdere Move-knoppen mogen dezelfde actie hebben: de actie is actief zolang minstens een van die knoppen ingedrukt is (OR).
 - Een `map` die maar enkele knoppen noemt, laat de defaults voor de andere knoppen staan.
-- Standaard (geschikt voor Halo; TeknoParrot-bindingen: Coin = toets 5, Start P1 = toets 1, Reload = BTN_RIGHT, Grenade = BTN_MIDDLE): `move` = grenade, `cross` = reload, `triangle` = key:5, `square` = key:1, `select` = key:5, `start` = key:1, `circle` = none.
+- Standaard (geschikt voor Halo; TeknoParrot-bindingen: Coin = toets 5, Start P1 = toets 1, Reload = BTN_RIGHT, Grenade = BTN_MIDDLE): `move` = grenade, `cross` = reload, `triangle` = key:5, `square` = key:1, `select` = key:5, `start` = key:1, `circle` = none, `pump` = reload, `ss_fire`, `sel1`, `sel2` en `sel3` = none.
 - Toetsnamen: `esc`, `enter`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `lshift`, `lctrl`, `lalt`, `f1` tot `f12`, `0` tot `9`, `a` tot `z` (tabel in `output/key_table.hpp`; hoofdletters en een voorvoegsel `key_` worden genegeerd).
 - Oud formaat: de sleutels `reload`, `grenade` en `recenter` (waarde = Move-knopnaam) blijven leesbaar en worden vertaald naar map-items die de default voor die knop overschrijven (`recenter: "ps"` wordt genegeerd met een waarschuwing). Bij opslaan wordt alleen het nieuwe formaat geschreven.
 - Onbekende knop- of toetsnamen, `ps` en `t` in de map zijn validatiefouten met een duidelijke tekst; het bestand wordt dan niet toegepast.
@@ -205,6 +209,18 @@ Voorbeeld:
     }
 
 Zichtbaarheid: `ravengunctl output [--json]` toont `map` (inclusief `ps` = "recenter (vast)"), `keys_down`, `buttons_down` en het blok `keyboard`; het startlog van ravengund toont de indeling ("knoppenindeling: ..."). De web-UI toont `keys_down` in het uitvoerblok; de indeling is daar niet bewerkbaar (bewerk `config.json`; de daemon leest die bij de start).
+
+### Uitbreidingsconnector (Sharp Shooter)
+
+De Move zit in een PlayStation Sharp Shooter, die extra knoppen via de EXT-connector van de Move levert. Bron: PSMoveAPI `src/psmove.c` en `src/utils/test_extension.c` (alleen offsets en bitmaskers; er is geen code overgenomen).
+
+- Het ZCM1-invoerrapport is 49 bytes. Byte 4 (`buttons4`) bit `0x10` is "ext verbonden" (`psmove_is_ext_connected`). Bytes 44 tot en met 48 zijn de 5 EXT-databytes (`PSMove_ZCM1_Data_Input.extdata`, `PSMOVE_EXT_DATA_BUF_SIZE` = 5). Op de ZCM2 bestaat dit niet.
+- Sharp Shooter (device-id 0x8081): byte 0, bits `0x01`, `0x02` en `0x04` = vuurstand 1, 2 en 3 (bits 0 tot 2, `c & 7`), `0x40` = fire, `0x80` = RL (pomp/herladen). Bytes 1 tot 4 zijn onbekend en worden alleen vastgelegd.
+- `RawReport` en `InputSample` hebben `has_ext`/`ext_known`, `ext_connected` en `ext[5]`. De daemon leest ze via `psmove_is_ext_connected` en `psmove_get_ext_data` (onafhankelijk van de hidraw-tap); `core/move_report.*` parseert dezelfde bytes uit een ruw rapport.
+- De pijplijn voegt virtuele knopbits toe aan `buttons` (bits 24 tot 28): `pump` (RL), `ss_fire`, `sel1`, `sel2`, `sel3`. Ze verschijnen als gewone knoppen in `buttons.down`/`pressed`/`released`, in de flankenteller en in `gun_buttons.map`. Ze zijn alleen actief als EXT verbonden is en de modus niet `none` is. De analoge T-waarde blijft de trekker; `ss_fire` is een aparte knop (standaard `none`).
+- Instelling `sharp_shooter.extension` in `config.json`: `auto` (standaard), `sharp_shooter` of `none`. Het device-id (I2C via feature-rapporten, `psmove_get_ext_device_info`) wordt nog niet gelezen: `auto` en `sharp_shooter` nemen aan dat een verbonden EXT-apparaat de Sharp Shooter is. Wordt gelezen bij het starten van de daemon. Nog te bevestigen op echte hardware: de ruwe bytes in de opname zijn het bewijs.
+- Opname (`"k":"r"`): extra velden `"xc"` (EXT verbonden, 0 of 1) en `"x"` (array van 5 bytes, 0 tot 255). Alleen aanwezig als de daemon ze kende; oude opnames zonder deze velden blijven leesbaar (`has_ext` is dan onwaar).
+- Status-JSON (sample): blok `ext` met `known`, `connected`, `active` en `bytes`. `ravengunctl status` toont "Uitbreiding: ext verbonden: ja [80 00 00 00 00]" en `watch` toont `ext ...` in elke regel.
 
 ### Virtueel toetsenbord in de daemon
 

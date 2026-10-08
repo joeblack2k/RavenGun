@@ -459,7 +459,7 @@
 
   // ---- Oefenen: vizier, doelen, treffers ----
   // Alleen weergave en meting op deze pagina: er gaat niets naar de game en er wordt niets (de)armed.
-  // Trekker = schieten, Move-knop = recenter, Cirkel = terug, Start = sluiten, Select = ruwe stip aan/uit.
+  // Trekker = schieten, PS = midden zetten (door de daemon zelf; hier alleen een melding), Cirkel = terug, Start = sluiten, Select = ruwe stip aan/uit.
   var PW = 1920, PH = 1080, STREAM_HZ_PRACTICE = 60;
   var pbtn = new C.PracticeButtons();
   var pStats = new C.PracticeStats();
@@ -494,9 +494,8 @@
       pFlash = now();
       if (res.hit) { pHitFx = { x: pTarget.x, y: pTarget.y, t: now() }; pNewTarget(); }
     },
-    recenter: function () {
-      api('/api/recenter', {}).then(function (j) { if (state === 'practice') pMsg(j.ok ? 'Midden gezet' : errText(j), j.ok ? 1200 : 2500); });
-    },
+    // De daemon centreert bij elke PS-druk zelf; hier géén /api/recenter erbij (dubbel centreren).
+    centered: function () { pMsg('Midden gezet', 1200); },
     toggle_raw: function () { pRawOn = !pRawOn; pMsg(pRawOn ? 'Ruwe stip aan' : 'Ruwe stip uit', 900); }
   });
 

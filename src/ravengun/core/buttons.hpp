@@ -23,14 +23,30 @@ enum Button : uint32_t {
     kBtnPS = 1u << 16,
     kBtnMove = 1u << 19,
     kBtnT = 1u << 20,
+    // Virtuele knoppen van de Sharp Shooter (uit de EXT-bytes, zie ext_buttons()); niet in PSMoveAPI.
+    kBtnPump = 1u << 24,     // RL (pomp/herladen), ext byte 0 bit 0x80
+    kBtnSsFire = 1u << 25,   // fire van de Sharp Shooter, bit 0x40
+    kBtnSel1 = 1u << 26,     // vuurstand 1, bit 0x01
+    kBtnSel2 = 1u << 27,     // vuurstand 2, bit 0x02
+    kBtnSel3 = 1u << 28,     // vuurstand 3, bit 0x04
 };
+constexpr uint32_t kAllExtButtons = kBtnPump | kBtnSsFire | kBtnSel1 | kBtnSel2 | kBtnSel3;
+
+// Uitbreidingsmodus: "auto" (een verbonden EXT-apparaat is de Sharp Shooter; het device-id wordt nog niet
+// gelezen), "sharp_shooter" (idem, expliciet) of "none" (EXT-bytes worden genegeerd).
+enum class ExtMode { Auto, SharpShooter, None };
+const char* to_string(ExtMode m);
+bool parse_ext_mode(const char* s, ExtMode& out);
+// Virtuele knopbits uit de EXT-bytes; 0 als niet verbonden of modus none.
+uint32_t ext_buttons(ExtMode mode, bool connected, const uint8_t ext[5]);
 constexpr uint32_t kAllMoveButtons =
     kBtnTriangle | kBtnCircle | kBtnCross | kBtnSquare | kBtnSelect | kBtnStart | kBtnPS | kBtnMove | kBtnT;
 
 struct ButtonName { uint32_t bit; const char* name; };
-inline constexpr std::array<ButtonName, 9> kButtonNames{{
+inline constexpr std::array<ButtonName, 14> kButtonNames{{
     {kBtnTriangle, "triangle"}, {kBtnCircle, "circle"}, {kBtnCross, "cross"}, {kBtnSquare, "square"},
-    {kBtnSelect, "select"}, {kBtnStart, "start"}, {kBtnPS, "ps"}, {kBtnMove, "move"}, {kBtnT, "t"}}};
+    {kBtnSelect, "select"}, {kBtnStart, "start"}, {kBtnPS, "ps"}, {kBtnMove, "move"}, {kBtnT, "t"},
+    {kBtnPump, "pump"}, {kBtnSsFire, "ss_fire"}, {kBtnSel1, "sel1"}, {kBtnSel2, "sel2"}, {kBtnSel3, "sel3"}}};
 
 struct ButtonEdges {
     uint32_t pressed = 0;   // knoppen met minstens één down-flank

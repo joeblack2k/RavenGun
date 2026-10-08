@@ -5,7 +5,8 @@
 //   header  eerste regel: formaat, versie, tag, geredigeerd controller-ID, model, t0, LED.
 //   r       één HID-rapport: t_rx, volgnummer, beide subsamples (g en rad/s na de USB-kalibratie
 //           van PSMoveAPI), ruwe magnetometer, knoppen, trigger, batterij, en (als het rapport aan
-//           hidraw gekoppeld is) de interne stempel, temperatuur en ruwe accel/gyro.
+//           hidraw gekoppeld is) de interne stempel, temperatuur en ruwe accel/gyro, en (optioneel, van
+//           na de Sharp Shooter-uitbreiding) "xc" (EXT verbonden, 0/1) en "x" (5 ruwe EXT-bytes).
 //   o       één optische meting (2D-beeldpositie en straal, nooit pixels).
 //   led     LED-kleur gewijzigd (op het moment van versturen).
 //   mark    een vrij label van de gebruiker (bijv. "pomp ingedrukt").

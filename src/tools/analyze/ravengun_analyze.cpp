@@ -9,6 +9,8 @@
 //   ravengun-analyze fusion FILE --cal CAL.json [--dip-tol G] [--norm-tol F] [--still-dps W]
 //                                                               fase 4: mahony, mahony_mag en de magnetometer
 //                                                               alleen (TRIAD) naast elkaar
+//   ravengun-analyze drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]
+//                                                               drift per PS-interval (PS = meetpunt)
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -22,6 +24,7 @@
 #include "ravengun/core/mag_yaw.hpp"
 #include "ravengun/core/magnetometer.hpp"
 #include "ravengun/core/move_clock.hpp"
+#include "ravengun/rec/drift.hpp"
 #include "ravengun/rec/replay.hpp"
 
 using namespace ravengun;
@@ -40,7 +43,11 @@ void usage(FILE* f) {
         "  magfit FILE [--out CAL.json]          ellipsoïdefit (hard/soft iron) met kwaliteitsmaten\n"
         "  fusion FILE --cal CAL.json [--dip-tol G] [--norm-tol F] [--still-dps W]\n"
         "                                        oriëntatieschatters vergelijken: drift in de langste stilstand,\n"
-        "                                        segmenten met labels, fusie tegen de magnetometer-heading\n",
+        "                                        segmenten met labels, fusie tegen de magnetometer-heading\n"
+        "  drift FILE [--mode mahony|mahony_mag] [--cal CAL.json]\n"
+        "                                        drift per interval tussen PS-drukken (PS = richten op het midden):\n"
+        "                                        yaw/pitch, graden/min, gedraaide hoek, max snelheid, verloren\n"
+        "                                        rapporten, gyro-verzadiging, temperatuur, samenvatting en correlaties\n",
         f);
 }
 
@@ -635,11 +642,64 @@ int cmd_fusion(const char* path, const char* cal_path, double dip_tol, double no
     return 0;
 }
 
+std::string fnum(double v, const char* f) {
+    if (std::isnan(v)) return "n.v.t.";
+    char b[48];
+    std::snprintf(b, sizeof b, f, v);
+    return b;
+}
+
+int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
+    std::vector<rec::Record> recs;
+    if (!load(path, recs)) return 2;
+    rec::DriftOptions o;
+    if (mode_s && !parse_fusion_mode(mode_s, o.mode)) { std::fprintf(stderr, "ravengun-analyze: --mode verwacht mahony of mahony_mag\n"); return 64; }
+    if (cal_path) {
+        if (!load_cal_file(cal_path, o.cal)) return 2;
+        o.have_cal = true;
+    } else if (o.mode == FusionMode::MahonyMag) {
+        std::fprintf(stderr, "ravengun-analyze: let op: mahony_mag zonder --cal gedraagt zich als mahony\n");
+    }
+    rec::DriftResult r = rec::compute_drift(recs, o);
+    if (!r.ok) { std::fprintf(stderr, "ravengun-analyze: %s\n", r.error.c_str()); return 1; }
+    std::printf("Opname: %s; fusie %s%s; %zu PS-drukken, %zu intervallen (%zu korter dan %.0f s overgeslagen)\n", path, to_string(o.mode),
+                o.have_cal ? " met kalibratie" : "", r.presses, r.intervals.size(), r.skipped_short, o.min_interval_s);
+    if (r.intervals.empty()) {
+        std::printf("Geen bruikbare intervallen: er zijn minstens twee PS-drukken met >= %.0f s ertussen nodig.\n", o.min_interval_s);
+        return 0;
+    }
+    std::printf("Drift = oriëntatie bij deze PS-druk min die bij de vorige (yaw positief naar rechts, pitch positief omhoog).\n");
+    std::printf("%3s %7s %7s %8s %8s %8s %8s %8s %7s %6s %7s %5s %5s %9s\n", "#", "van s", "duur s", "yaw gr", "yaw/min", "pit gr", "pit/min",
+                "gedraaid", "max gr/s", "verl.", "verl %", "gat ms", "sat", "temp");
+    int i = 0;
+    for (const auto& d : r.intervals) {
+        char temp[32] = "-";
+        if (d.temp_begin >= 0) std::snprintf(temp, sizeof temp, "%d>%d", d.temp_begin, d.temp_end);
+        char sat[16] = "-";
+        if (d.saturated >= 0) std::snprintf(sat, sizeof sat, "%lld", static_cast<long long>(d.saturated));
+        std::printf("%3d %7.1f %7.1f %+8.2f %+8.2f %+8.2f %+8.2f %8.0f %7.0f %6llu %6.1f%% %5.0f %5s %9s\n", ++i, d.t0_s, d.duration_s, d.yaw_deg,
+                    d.yaw_per_min, d.pitch_deg, d.pitch_per_min, d.rotated_deg, d.max_rate_dps, static_cast<unsigned long long>(d.lost), d.lost_pct,
+                    d.longest_gap_ms, sat, temp);
+    }
+    const auto& s = r.summary;
+    std::printf("Samenvatting (%zu intervallen):\n", s.intervals);
+    std::printf("  |drift| per minuut (yaw en pitch samen): mediaan %s, p90 %s graden/min\n", fnum(s.median_abs_per_min, "%.2f").c_str(),
+                fnum(s.p90_abs_per_min, "%.2f").c_str());
+    std::printf("  |yaw-drift| per minuut:                  mediaan %s, p90 %s graden/min\n", fnum(s.median_yaw_abs_per_min, "%.2f").c_str(),
+                fnum(s.p90_yaw_abs_per_min, "%.2f").c_str());
+    std::printf("  Pearson r van |yaw-drift| (graden) met: gedraaide hoek %s, max snelheid %s, verloren rapporten %s, duur %s\n",
+                fnum(s.r_rotated, "%+.2f").c_str(), fnum(s.r_max_rate, "%+.2f").c_str(), fnum(s.r_lost, "%+.2f").c_str(),
+                fnum(s.r_duration, "%+.2f").c_str());
+    if (s.intervals < 5) std::printf("  (weinig intervallen: correlaties zijn nog nauwelijks betekenisvol)\n");
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
     if (argc < 3) { usage(stderr); return 64; }
     std::string cmd = argv[1];
+    const char* mode = nullptr;
     const char* file = argv[2];
     const char *cal = nullptr, *out = nullptr;
     bool dt_move = true, js = false;
@@ -650,6 +710,7 @@ int main(int argc, char** argv) {
         if (a == "--json") js = true;
         else if (a == "--dt" && i + 1 < argc) dt_move = std::string(argv[++i]) != "rx";
         else if (a == "--cal" && i + 1 < argc) cal = argv[++i];
+        else if (a == "--mode" && i + 1 < argc) mode = argv[++i];
         else if (a == "--out" && i + 1 < argc) out = argv[++i];
         else if (a == "--settle" && i + 1 < argc) settle = std::atof(argv[++i]);
         else if (a == "--dip-tol" && i + 1 < argc) dip_tol = std::atof(argv[++i]);
@@ -666,6 +727,7 @@ int main(int argc, char** argv) {
     if (cmd == "mag") return cmd_mag(file, cal, settle);
     if (cmd == "magfit") return cmd_magfit(file, out);
     if (cmd == "fusion") return cmd_fusion(file, cal, dip_tol, norm_tol, still_dps);
+    if (cmd == "drift") return cmd_drift(file, mode, cal);
     usage(stderr);
     return 64;
 }

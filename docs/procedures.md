@@ -87,4 +87,11 @@ Voorwaarden: de daemon is na de merge opnieuw gebouwd en gestart (`ravengund`), 
    - Driehoek en Select = toets 5 (coin), Vierkant en Start = toets 1 (start P1), Cirkel = niets.
    - PS = altijd recenter (nieuw midden, log "recenter met de PS-knop"), ook als de uitvoer niet gewapend is.
    De indeling staat in `config.json` onder `gun_buttons.map` (zie docs/architecture.md, "Knoppenindeling"); na een wijziging de daemon herstarten (orchestrator). Bol afdekken of Move uitzetten: na 250 ms zijn alle knoppen en toetsen los (`buttons_down` en `keys_down` leeg) en beweegt de cursor niet meer.
+   - Sharp Shooter (alleen als EXT verbonden is): pomp (`pump`) = reload; `ss_fire`, `sel1`, `sel2`, `sel3` = niets. Controle: `./build/ravengunctl status` toont "Uitbreiding: ext verbonden: ja [..]" en `watch` de ruwe bytes; pomp en schakelaar moeten de bytes (byte 0: 0x80 pomp, 0x40 fire, 0x01/0x02/0x04 vuurstand) laten wisselen. Dit is nog niet op echte hardware bevestigd; leg het vast met een opname en `record --mark pomp` en kijk naar `"xc"` en `"x"` in de JSONL. Met `sharp_shooter.extension` = `none` wordt de uitbreiding genegeerd.
 7. In Halo: richten op het midden, overhalen, zwaaien; let op vertraging (1€ met beta 10 is de referentie) en drift. `./build/ravengunctl disarm` aan het eind.
+
+## Driftmeting tijdens het spelen
+
+1. Neem op terwijl de gebruiker Halo speelt: `./build/ravengunctl record --start --tag halo-drift --duration 600`. Elke keer dat het vizier niet meer op het midden staat richt de gebruiker op het midden van het scherm en drukt PS (dat is gratis een meetpunt). Zet eventueel `record --mark pomp` bij het testen van de pomp.
+2. Offline: `./build/ravengun-analyze drift <opname> [--mode mahony_mag --cal ~/.config/ravengun/magnetometer/<sleutel>.json]`. Lees per interval de drift in graden per minuut naast gedraaide hoek, maximale snelheid, verloren rapporten en gyro-verzadiging; de samenvatting geeft mediaan, p90 en de correlaties.
+3. Een lage correlatie bij weinig intervallen zegt weinig: doe er minstens 10.
