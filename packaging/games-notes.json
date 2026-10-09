@@ -2,13 +2,13 @@
   "schema": 1,
   "games": {
     "Halo": "Werkt volledig: lightgun, knoppen, trillen.",
-    "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed.",
+    "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed, ook via de IO-brug (tp-shm, 'play-halo.sh --route tp-shm').",
     "TombRaider": "Werkt zonder TeknoParrot: lightgun, herladen, munt en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
     "RabbidsHollywood": "Werkt zonder TeknoParrot: lightgun, munt (viermaal) en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
     "JurassicPark": "Werkt nog niet: de game stopt kort na de start (crash in de ElfLdr2-laag). Geparkeerd.",
     "LuigisMansion": "Start nog niet (stopt direct of crasht bij de start). Geparkeerd.",
     "LGS": "Start nog niet (proces wacht zonder venster). Geparkeerd.",
-    "TC5": "De echte game start (F11 maakt hem beeldvullend), maar munt, start en richten komen niet aan. Nog niet speelbaar.",
-    "TransformersShadowsRising": "Start en toont beeld, maar de lightgun-besturing werkt nog niet (X-as dood, richtkruis in de hoek, start/trekker niet betrouwbaar). Nog niet speelbaar."
+    "TC5": "Speelbaar via de IO-brug (tp-shm): richten, trekker en linker pedaal (middenknop) werken; munt = Move-knop voor toets 5 (de daemon geeft de game daarvoor Shift+T). Schiet in het menu om '1-player solo' te kiezen. Rechter pedaal nog niet apart gecontroleerd.",
+    "TransformersShadowsRising": "Start en toont beeld, maar start en trekker komen niet aan, ook niet via de IO-brug (de game haalt ze waarschijnlijk uit een HID-IO-bord dat onder Wine ontbreekt). Nog niet speelbaar."
   }
 }

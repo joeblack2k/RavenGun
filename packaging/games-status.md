@@ -1,5 +1,14 @@
 # Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
+# Vierde ronde (2026-10-09, avond): IO-brug (tp-shm)
+
+Samenvatting: de daemon heeft nu een eigen IO-brug (docs/architecture.md, "IO-brug"; docs/decisions.md, "IO-brug: tp-shm"). Time Crisis 5 is hiermee speelbaar geworden; Transformers: Shadows Rising niet. De route per game staat in `packaging/io-routes.json`; `scripts/play-halo.sh --profile PROFIEL [--route evdev|tp-shm|unity-tcp]` kiest hem.
+
+- Terminator Salvation via tp-shm (live): start (toets 1 -> Control 0x10), aim (testpunt 0,1/0,1 -> vizier op 0,10/0,10), herladen (video overslaan), trekker (munitie loopt terug) en een herstart van de daemon midden in het spel (de brug hervat en wapent opnieuw; het spel loopt door). Halo en Terminator blijven standaard op evdev; Halo en Terminator via evdev opnieuw gecontroleerd (de bytes die TeknoParrotUi schrijft komen exact overeen met de indeling in `packaging/tp-shm-profiles.json`).
+- Time Crisis 5 (route tp-shm, nu de standaard): de kern zit in het gameproces en leest het bestand van de daemon. Gemeten op de tv: het vizier staat op het gevraagde punt, schieten in het menu kiest "1-PLAYER SOLO", de linker pedaal (granaat/middenknop) licht in de tutorial op en de game gaat verder, en de munt geeft "CREDIT(S) 1 / 1" en bij een tweede munt "2 / 1". Belangrijk: de munt van deze game is Shift+T op het toetsenbord (niet het gedeelde geheugen); de route `coin_keys` laat de daemon die toetsen vasthouden zolang de munt (toets 5, Move-knop driehoek) ingedrukt is. Een snelkoppeling is gemaakt (`scripts/make-game-shortcut.sh TC5 "Time Crisis 5"`). Niet apart gecontroleerd: de rechter pedaal en nauwkeurigheid van het vizier over het hele scherm. Op de NAS veranderd: niets nieuws (de game schrijft zijn eigen state; `teknoparrot.ini` bestond al).
+- Transformers: Shadows Rising (route tp-shm): nog niet speelbaar. Gemeten dat het niet aan de brug ligt: de bytes zijn goed (ook TeknoParrotUi schrijft in een gewone sessie exact start 0x01, trekker 0x02, hendel 0x10, munt 0x40, aim als complement op offset 12 en 16), en de TeknoParrot-kern zit alleen in `Shell.exe`, niet in `Transformers2.exe`, dat zelf `hid.dll`, `setupapi.dll` en `dinput8.dll` laadt. `ioboard - <datum>.log` meldt in elke sessie "Couldn't find IOBoard device", ook in de twee sessies waarin de start wel doorkwam; X11-toetsen en -klikken doen niets. De eerdere conclusie "de aim komt niet door" was een meetfout: tijdens een testpunt neemt de live Move het na enkele milliseconden weer over (gebruik `test-pattern grid --dwell MS`, dat houdt de punten vast). Twee losse sessies van Transformers stopten met "Unexpect Game termination" kort na de start (de game of de shell viel uit, niet reproduceerbaar). Vervolgstap: een virtueel HID-IO-bord (uhid) nadat VID/PID en rapportindeling zijn gemeten.
+- Overige games: geen wijziging (Jurassic Park, Luigi's Mansion, Let's Go Safari blijven geparkeerd). Unity-route (Tomb Raider, Rabbids) draait nu als dialect unity-tcp van de brug: Rabbids Hollywood live gecontroleerd (verbonden, 120 pakketten/s, vizier, munten en start, schoten tellen mee voor de trilling).
+
 # Derde ronde (2026-10-09, avond): resterende games
 
 Samenvatting: geen enkele extra game is speelbaar geworden; Transformers (snelkoppeling weggehaald), Time Crisis 5, Jurassic Park, Luigi's Mansion en Let's Go Safari zijn geparkeerd met de bevindingen hieronder. De profielen zijn teruggezet naar de toestand van voor deze ronde (back-ups: `~/.local/state/ravengun/*.bak-ronde3`).
@@ -56,8 +65,8 @@ Een profiel (re)maken: `python3 -I scripts/tp-add-game.py PROFIEL "PAD/NAAR/EXE"
 | --- | --- | --- |
 | Halo | werkt volledig | `--profile Halo` |
 | Terminator Salvation (Terminator) | werkt beeldvullend, richten en schieten goed | `--profile Terminator` (gamescope staat in de .env) |
-| Transformers: Shadows Rising (TransformersShadowsRising) | beeld en attract goed; besturing werkt niet (zie derde ronde); snelkoppeling verwijderd | `--profile TransformersShadowsRising` (prefix-kopie met native DLL's, zie onder) |
-| Time Crisis 5 (TC5) | start direct de echte game: attract-scherm "INSERT 1 CREDIT(S)"; invoer nog niet verbonden | `--profile TC5` (plain wine) |
+| Transformers: Shadows Rising (TransformersShadowsRising) | beeld en attract goed; start en trekker komen niet aan, ook niet via tp-shm (zie vierde ronde); snelkoppeling verwijderd | `--profile TransformersShadowsRising` (prefix-kopie met native DLL's, zie onder) |
+| Time Crisis 5 (TC5) | speelbaar via de IO-brug (tp-shm): richten, trekker, pedaal en munt (Shift+T via de daemon) | `--profile TC5` (plain wine) |
 | Tomb Raider (TombRaider) | beeld, "IO BOARD ERROR"; geparkeerd (eigen route met de daemon) | |
 | Rabbids Hollywood (RabbidsHollywood) | titelscherm, stopt na ongeveer 45 s, knoppen werken niet; geparkeerd (eigen route met de daemon) | |
 | Jurassic Park (JurassicPark) | nog niet: zwart/wit beeld; geparkeerd | |
