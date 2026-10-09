@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "aagames_service.hpp"
+#include "iobridge_service.hpp"
 #include "build_info.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
@@ -113,6 +114,10 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err, int 
     if (sh.aagames && !res.empty() && res.back() == '}') {
         res.pop_back();
         res += ",\"aagames\":" + sh.aagames->status_json() + "}";
+    }
+    if (sh.iobridge && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"iobridge\":" + sh.iobridge->status_json() + "}";
     }
     if (sh.output && !res.empty() && res.back() == '}') {
         res.pop_back();
@@ -896,6 +901,23 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
                 sh.aagames->stop();
             }
             return ipc::ok_response(r.id_json, sh.aagames->status_json());
+        }
+        case ipc::Cmd::Iobridge: {
+            if (!sh.iobridge) return ipc::error_response({"unavailable", "de IO-brug is niet beschikbaar in deze daemon", r.id_json});
+            if (r.action == "route") {
+                ravengun::json::Writer w;
+                w.begin_object().key("game").value(r.game).key("route").value(sh.iobridge->route_for(r.game)).end_object();
+                return ipc::ok_response(r.id_json, w.str());
+            }
+            if (r.action == "start") {
+                if (!sh.output) return ipc::error_response({"unavailable", "geen uitvoerservice", r.id_json});
+                const std::string msg = sh.iobridge->start(r.game, r.route);
+                if (!msg.empty()) return ipc::error_response({"invalid_argument", msg, r.id_json});
+            } else if (r.action == "stop") {
+                sh.iobridge->stop();
+                if (sh.aagames) sh.aagames->stop();
+            }
+            return ipc::ok_response(r.id_json, sh.iobridge->status_json());
         }
         case ipc::Cmd::OutputKey: {
             if (!sh.output) return ipc::error_response({"unavailable", "geen uitvoerservice", r.id_json});

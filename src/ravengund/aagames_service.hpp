@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "ravengun/games/aagames.hpp"
+#include "ravengun/iobridge/unity_tcp.hpp"
 #include "shared.hpp"
 
 namespace ravengund {
@@ -38,7 +39,7 @@ private:
     SharedState& sh_;
     ravengun::games::AaConfig cfg_;
     mutable std::mutex m_;
-    std::unique_ptr<ravengun::games::AaClient> client_;
+    std::unique_ptr<ravengun::iobridge::UnityTcpDialect> client_;   // dialect unity-tcp van de IO-brug
     int grace_ms_ = 8000, never_ms_ = 15 * 60 * 1000;
     bool quit_ = false;
     std::condition_variable cv_;

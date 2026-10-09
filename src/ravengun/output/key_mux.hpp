@@ -26,6 +26,8 @@ public:
     KeyDevice& port(int player) { return ports_[static_cast<size_t>(clamp(player) - 1)]; }
     bool down(int code) const { auto it = count_.find(code); return it != count_.end() && it->second > 0; }
     int holders(int code) const { auto it = count_.find(code); return it == count_.end() ? 0 : it->second; }
+    // Houdt speler 1..4 deze toets nu vast?
+    bool held_by(int player, int code) const { return ports_[static_cast<size_t>(clamp(player) - 1)].holds(code); }
     // Alle ports los en het echte apparaat weg (afsluiten).
     void shutdown();
 
@@ -39,6 +41,7 @@ private:
         bool created() const override { return created_ && mux_->real_.created(); }
         bool write_key(int code, bool down) override;
         void release();
+        bool holds(int code) const { return held_.count(code) != 0; }
     private:
         KeyMux* mux_ = nullptr;
         bool created_ = false;

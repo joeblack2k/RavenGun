@@ -52,6 +52,7 @@ const char* to_string(Cmd c) {
         case Cmd::Unpair: return "unpair";
         case Cmd::Pair: return "pair";
         case Cmd::Aagames: return "aagames";
+        case Cmd::Iobridge: return "iobridge";
         case Cmd::OutputKey: return "output_key";
     }
     return "?";
@@ -442,6 +443,19 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             return err("invalid_argument", "'action' moet start, stop of status zijn", r.id_json);
         if (r.action == "start" && !games::valid_profile_name(r.game))
             return err("invalid_argument", "'game' ontbreekt of is ongeldig (letters, cijfers, _ en -)", r.id_json);
+    } else if (cmd == "iobridge") {
+        r.cmd = Cmd::Iobridge;
+        if (!allowed(o, {"action", "game", "route"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "action", r.action, e, r.id_json)) return e;
+        if (!opt_string(o, "game", r.game, e, r.id_json)) return e;
+        if (!opt_string(o, "route", r.route, e, r.id_json)) return e;
+        if (r.action.empty()) r.action = "status";
+        if (r.action != "start" && r.action != "stop" && r.action != "status" && r.action != "route")
+            return err("invalid_argument", "'action' moet start, stop, status of route zijn", r.id_json);
+        if ((r.action == "start" || r.action == "route") && !games::valid_profile_name(r.game))
+            return err("invalid_argument", "'game' ontbreekt of is ongeldig (letters, cijfers, _ en -)", r.id_json);
+        if (!r.route.empty() && r.route != "evdev" && r.route != "tp-shm" && r.route != "unity-tcp")
+            return err("invalid_argument", "'route' moet evdev, tp-shm of unity-tcp zijn", r.id_json);
     } else if (cmd == "output_key") {
         r.cmd = Cmd::OutputKey;
         if (!allowed(o, {"key", "action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -640,6 +654,11 @@ std::string make_request(const Request& r) {
         case Cmd::Aagames:
             w.key("action").value(r.action.empty() ? "status" : r.action);
             if (!r.game.empty()) w.key("game").value(r.game);
+            break;
+        case Cmd::Iobridge:
+            w.key("action").value(r.action.empty() ? "status" : r.action);
+            if (!r.game.empty()) w.key("game").value(r.game);
+            if (!r.route.empty()) w.key("route").value(r.route);
             break;
         case Cmd::OutputKey:
             w.key("key").value(r.key_name).key("action").value(r.action.empty() ? "tap" : r.action);

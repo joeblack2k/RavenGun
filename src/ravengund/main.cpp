@@ -14,9 +14,12 @@
 #include <unistd.h>
 
 #include "aagames_service.hpp"
+#include "iobridge_service.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
 #include "ravengun/games/aagames.hpp"
+#include "ravengun/iobridge/routes.hpp"
+#include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
@@ -477,8 +480,40 @@ int main(int argc, char** argv) {
     std::string aa_err;
     ravengun::games::AaConfig aa_cfg = ravengun::games::parse_aagames_config(aa_text, aa_err);
     if (!aa_err.empty()) logf("waarschuwing", "Unity-route: %s (alleen de ingebouwde lijst ontbreekt dan; geen games)", aa_err.c_str());
+    // IO-brug: routes per game en de tp-shm-indelingen (JSON naast het startscript, anders ingebouwd).
+    auto load_text = [&](const std::string& file, const std::string& asset) {
+        std::string text;
+        std::string cand = play_script;
+        for (int up = 0; up < 2 && !cand.empty(); ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) { cand.clear(); break; } cand.resize(sl); }
+        if (!cand.empty()) {
+            cand += "/packaging/" + file;
+            if (FILE* f = std::fopen(cand.c_str(), "rb")) {
+                char buf[4096];
+                size_t n;
+                while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
+                std::fclose(f);
+            }
+        }
+        if (text.empty())
+            if (const auto* a = ravengun::web::find_asset(asset.c_str())) text = a->data;
+        return text;
+    };
+    IoBridgeService::Config io_cfg;
+    {
+        std::string e1, e2;
+        io_cfg.routes = ravengun::iobridge::parse_io_routes(load_text("io-routes.json", "io-routes.json"), e1);
+        io_cfg.profiles = ravengun::iobridge::parse_tp_shm_profiles(load_text("tp-shm-profiles.json", "tp-shm-profiles.json"), e2);
+        if (!e1.empty()) logf("waarschuwing", "IO-brug: %s (alle games gebruiken evdev)", e1.c_str());
+        if (!e2.empty()) logf("waarschuwing", "IO-brug: %s (geen tp-shm-indelingen)", e2.c_str());
+        size_t sl = sock.rfind('/');
+        if (sl != std::string::npos) io_cfg.state_path = sock.substr(0, sl) + "/iobridge.json";
+        io_cfg.tpui_procs = games_cfg.tpui_procs;
+    }
     AagamesService aagames(shared, std::move(aa_cfg));
     shared.aagames = &aagames;
+    IoBridgeService iobridge(shared, std::move(io_cfg));
+    shared.iobridge = &iobridge;
+    iobridge.resume();   // na een herstart: een lopende tp-shm-route weer oppakken
     // Controllers: lijst, koppelwizard, verwijderen (BlueZ via busctl, de hulp met rootrechten via sudo -n).
     std::unique_ptr<ControllerOps> ctl_ops;
     if (!controllers_fake.empty()) {
@@ -562,6 +597,7 @@ int main(int argc, char** argv) {
     camera.stop();
     controllers.stop();
     aagames.stop();
+    iobridge.shutdown();   // invoer neutraal; de route blijft staan voor een herstart
     hid.join();
     ipc.join();
     if (web.joinable()) web.join();

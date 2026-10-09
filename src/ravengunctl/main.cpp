@@ -87,6 +87,8 @@ void usage(FILE* f) {
         "              --player N kiest de speler; vereist arm\n"
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
+        "  iobridge start GAME [--route evdev|tp-shm|unity-tcp] | stop | status | route GAME   IO-brug van de daemon: de\n"
+        "              route van een game (packaging/io-routes.json) starten of stoppen, de actieve route tonen\n"
         "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
         "\n"
@@ -231,6 +233,27 @@ std::string optical_text(const json::Value& s) {
                fmt(num(*p, {"x_norm"}), "%.3f") + ", " + fmt(num(*p, {"y_norm"}), "%.3f") + "), straal " +
                fmt(num(*p, {"radius_px"}), "%.1f") + " px (2D-beeldpositie, diepte onbekend)";
     return "ongeldig: " + str(*p, {"reason"}) + " (camera " + str(*p, {"camera"}) + ")";
+}
+
+// Eén regel over de IO-brug (status.iobridge): route, game, dialect en de laatst geschreven waarden.
+std::string iobridge_text(const json::Value& a) {
+    if (!boolean(a, {"active"})) return "geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)";
+    std::string t = "route " + str(a, {"route"}) + " voor " + str(a, {"game"}) + ", dialect " + str(a, {"dialect"});
+    if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("layout")) {
+        t += ", indeling " + str(*d, {"layout"}) + ", " + fmt(num(*d, {"writes"}, 0), "%.0f") + " schrijfacties";
+        const std::string bytes = str(*d, {"bytes"}, "");
+        if (bytes.size() >= 56) t += ", bytes 8..27: " + bytes.substr(16, 40);
+        if (const json::Value* ps = path(*d, {"players"}); ps && ps->is_array() && !ps->arr.empty()) {
+            const json::Value& p = ps->arr[0];
+            if (boolean(p, {"valid"})) t += ", P1 aim " + fmt(num(p, {"x"}, 0), "%.3f") + "," + fmt(num(p, {"y"}, 0), "%.3f");
+            const std::string b = str(p, {"buttons"}, "");
+            if (!b.empty()) t += " knoppen " + b;
+        }
+        const std::string sysb = str(*d, {"system"}, "");
+        if (!sysb.empty()) t += ", systeem " + sysb;
+        if (boolean(a, {"resumes"}) || num(a, {"resumes"}, 0) > 0) t += ", " + fmt(num(a, {"resumes"}, 0), "%.0f") + "x hervat na een herstart";
+    }
+    return t;
 }
 
 // Eén regel over de Unity-route (status van de klant van de BepInEx-plugin).
@@ -398,6 +421,8 @@ void print_status(const json::Value& r) {
         std::printf("Camera:       %s, %s/s (5 s), gemist %.0f, bol geldig %.0f van %.0f frames\n", str(*cam, {"state"}).c_str(),
                     fmt(num(*cam, {"frames", "fps_5s"}), "%.2f").c_str(), num(*cam, {"frames", "missed_by_sequence"}, 0),
                     num(*cam, {"tracker", "valid"}, 0), num(*cam, {"tracker", "processed"}, 0));
+    if (const json::Value* ib = path(r, {"iobridge"}); ib && ib->is_object())
+        std::printf("IO-brug:      %s\n", iobridge_text(*ib).c_str());
     if (const json::Value* aa = path(r, {"aagames"}); aa && aa->is_object() && boolean(*aa, {"active"}))
         std::printf("Unity-game:   %s\n", aagames_text(*aa).c_str());
     if (boolean(s, {"aim", "valid"})) {
@@ -916,6 +941,7 @@ int main(int argc, char** argv) {
         int filter_on = -1;
         std::string arg2, tag, holder, mark, action;
         std::string ctl_name, ctl_led;
+        std::string io_route;   // iobridge start: route afdwingen
         bool ctl_reset = false, ctl_blink = false, ctl_forget = false;
         auto need = [&](int& i, const char* name, double lo, double hi) -> double {
             if (i + 1 >= argc) { std::fprintf(stderr, "ravengunctl: %s mist een waarde\n", name); std::exit(kExitUsage); }
@@ -963,6 +989,7 @@ int main(int argc, char** argv) {
             }
             else if (a == "--off") filter_on = 0;
             else if (a == "--player") g_player = static_cast<int>(need(i, "--player", 1, 4));
+            else if (a == "--route" && i + 1 < argc) io_route = argv[++i];
             else if (a == "--name" && i + 1 < argc) ctl_name = argv[++i];
             else if (a == "--led" && i + 1 < argc) ctl_led = argv[++i];
             else if (a == "--reset") ctl_reset = true;
@@ -970,7 +997,7 @@ int main(int argc, char** argv) {
             else if (a == "--forget") ctl_forget = true;
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
-            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble" || cmd == "key" || cmd == "aagames") pos.push_back(a);
+            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble" || cmd == "key" || cmd == "aagames" || cmd == "iobridge") pos.push_back(a);
             else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim" || cmd == "predict" || cmd == "clock" ||
                                       cmd == "unpair" || cmd == "controller")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
@@ -1192,6 +1219,25 @@ int main(int argc, char** argv) {
             if (json) std::printf("%s\n", r.line.c_str());
             else if (const json::Value* res = path(r.v, {"result"})) std::printf("%s\n", aagames_text(*res).c_str());
             else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "iobridge") {
+            rq.cmd = ipc::Cmd::Iobridge;
+            rq.action = pos.empty() ? "status" : pos[0];
+            if (pos.size() > 1) rq.game = pos[1];
+            rq.route = io_route;
+            if (pos.size() > 2 || (rq.action != "start" && rq.action != "stop" && rq.action != "status" && rq.action != "route") ||
+                ((rq.action == "start" || rq.action == "route") && rq.game.empty())) {
+                std::fprintf(stderr, "ravengunctl: iobridge start GAME [--route R] | stop | status | route GAME\n");
+                return kExitUsage;
+            }
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            const json::Value* res = path(r.v, {"result"});
+            if (!res) return kExitProtocol;
+            if (rq.action == "route") std::printf("%s\n", str(*res, {"route"}).c_str());
+            else std::printf("IO-brug: %s\n", iobridge_text(*res).c_str());
             return kExitOk;
         }
         if (cmd == "test-pattern") {

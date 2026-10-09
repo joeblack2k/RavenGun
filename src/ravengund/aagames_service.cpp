@@ -2,6 +2,7 @@
 
 #include <chrono>
 
+#include "iobridge_service.hpp"
 #include "output_service.hpp"
 #include "ravengun/json.hpp"
 
@@ -44,27 +45,19 @@ std::string AagamesService::start(const std::string& game_key) {
     const AaGame* g = cfg_.find(game_key);
     if (!g) return "onbekende game '" + game_key + "' (zie packaging/aagames-games.json)";
     std::lock_guard<std::mutex> lk(m_);
-    if (client_) { client_->stop(); client_.reset(); }
-    auto c = std::make_unique<AaClient>();
+    if (client_) { client_->close(); client_.reset(); }
     SharedState& sh = sh_;
     // Alle spelers: de rumble komt uit de game zolang deze route actief is.
     sh.game_rumble_mask.store((1u << kPlayers) - 1u);
-    c->start(*g, cfg_.port,
-        [&sh](AaInputs& in) {
-            if (!sh.output) return;
-            for (int p = 1; p <= kAaPlayers; ++p) {
-                OutputService::AimSnapshot s;
-                auto& o = in[static_cast<size_t>(p - 1)];
-                if (!sh.output->aim_snapshot(p, s) || !s.have_position) continue;
-                o.active = true;
-                o.u = s.u;
-                o.v = s.v;
-                o.trigger = s.trigger;
-                o.reload = s.reload;
-            }
-        },
+    // De toestand komt uit dezelfde bron als bij de andere dialecten van de IO-brug (OutputService::io_snapshot).
+    auto c = std::make_unique<ravengun::iobridge::UnityTcpDialect>(
+        *g, cfg_.port,
+        [&sh](ravengun::iobridge::IoState& s) { return sh.output && sh.output->io_snapshot(s); },
         [&sh](int player) { sh.game_recoil[static_cast<size_t>(player - 1)].fetch_add(1, std::memory_order_relaxed); });
+    std::string oerr;
+    c->open(oerr);
     client_ = std::move(c);
+    if (sh_.iobridge) sh_.iobridge->set_external(ravengun::iobridge::kRouteUnityTcp, g->key);
     logf("info", "Unity-route: %s, klant naar 127.0.0.1:%d (%dx%d, %d Hz)", g->name.c_str(), cfg_.port, g->width, g->height, g->send_hz);
     return {};
 }
@@ -76,9 +69,10 @@ void AagamesService::stop() {
 
 void AagamesService::stop_locked() {
     if (!client_) return;
-    client_->stop();
+    client_->close();
     client_.reset();
     sh_.game_rumble_mask.store(0);
+    if (sh_.iobridge) sh_.iobridge->clear_external(ravengun::iobridge::kRouteUnityTcp);
     logf("info", "Unity-route gestopt");
 }
 

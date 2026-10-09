@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/iobridge/io_state.hpp"
 #include "ravengun/output/aim_clock.hpp"
 #include "ravengun/output/gun_output.hpp"
 #include "ravengun/output/key_mux.hpp"
@@ -64,6 +65,10 @@ public:
         bool have_position = false, trigger = false, reload = false;
     };
     bool aim_snapshot(int player, AimSnapshot& s) const;
+    // Dezelfde bron voor de IO-brug (alle spelers, knoppen en toetsen): aim als fractie, trekker/herladen/granaat/extra,
+    // start (toets n van speler n), munt (toets 5 vastgehouden door speler n), test (F2 of 0) en service (F3). false =
+    // uitvoer niet gewapend: s is dan neutraal en s.armed false.
+    bool io_snapshot(ravengun::iobridge::IoState& s) const;
     // Drukt een toets op het gedeelde virtuele toetsenbord (down|up|tap) voor speler `player`; vereist gewapend. Voor munt,
     // start en test vanuit ravengunctl/de webinterface.
     OutputResult key(int player, int code, const std::string& action);

@@ -1,0 +1,39 @@
+{
+ "schema": 1,
+ "comment": "Welke invoerroute geldt per game. evdev = virtuele gun en toetsenbord, TeknoParrotUi leest ze; tp-shm = de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern (layout = naam in tp-shm-profiles.json); unity-tcp = de daemon is klant van de BepInEx-plugin (zie aagames-games.json). scripts/play-halo.sh --route R overschrijft dit voor een start.",
+ "default": "evdev",
+ "games": {
+  "Halo": {
+   "route": "evdev",
+   "layout": "WartranTroopers",
+   "note": "werkt via evdev; tp-shm uitgeprobeerd, zie docs/decisions.md"
+  },
+  "Terminator": {
+   "route": "evdev",
+   "layout": "RawThrillsGUN",
+   "note": "werkt via evdev; tp-shm uitgeprobeerd, zie docs/decisions.md"
+  },
+  "JurassicPark": {
+   "route": "evdev",
+   "layout": "RawThrillsGUN"
+  },
+  "TransformersShadowsRising": {
+   "route": "tp-shm",
+   "layout": "TransformersShadowsRising"
+  },
+  "TC5": {
+   "route": "tp-shm",
+   "layout": "TimeCrisis5"
+  },
+  "LGS": {
+   "route": "evdev",
+   "layout": "LGS"
+  },
+  "TombRaider": {
+   "route": "unity-tcp"
+  },
+  "RabbidsHollywood": {
+   "route": "unity-tcp"
+  }
+ }
+}

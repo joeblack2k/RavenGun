@@ -16,7 +16,9 @@ include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
   index.html app.css app-core.js app.js calibrate.html calibrate.css calibrate-core.js calibrate.js
   "games-notes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/games-notes.json"
-  "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json")
+  "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
+  "io-routes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/io-routes.json"
+  "tp-shm-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/tp-shm-profiles.json")
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
 set(RAVENGUN_PSMOVEAPI_PIN "256b6299e6076fe7b113e7277ed67016903f067a" CACHE STRING "Gepinde PSMoveAPI-commit (docs/build.md)")
@@ -40,6 +42,10 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/games/aagames.cpp
+  src/ravengun/iobridge/io_state.cpp
+  src/ravengun/iobridge/tp_shm.cpp
+  src/ravengun/iobridge/routes.cpp
+  src/ravengun/iobridge/unity_tcp.cpp
   src/ravengun/sysinfo/navcon.cpp
   src/ravengun/sysinfo/hidraw_scan.cpp
   src/ravengun/pairing/pairing.cpp
@@ -106,6 +112,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/web_server.cpp
     src/ravengund/output_service.cpp
     src/ravengund/aagames_service.cpp
+    src/ravengund/iobridge_service.cpp
     src/ravengund/camera.cpp
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
@@ -199,17 +206,23 @@ if(RAVENGUN_BUILD_TESTS)
   if(RAVENGUN_BUILD_DAEMON)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
     add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp src/ravengund/controllers.cpp
-      src/ravengund/camera.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp)
+      src/ravengund/camera.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp)
     target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
     add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
     add_executable(ravengund_players_tests tests/test_players.cpp src/ravengund/move_slot.cpp src/ravengund/hid_aux.cpp
       src/ravengund/hidraw_tap.cpp src/ravengund/recorder.cpp src/ravengund/output_service.cpp
-      src/ravengund/aagames_service.cpp)
+      src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp)
     target_include_directories(ravengund_players_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_players_tests PRIVATE ravengun Threads::Threads)
     add_test(NAME ravengund_players_tests COMMAND ravengund_players_tests)
+    add_executable(ravengun_iobridge_tests tests/test_iobridge.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp
+      src/ravengund/iobridge_service.cpp)
+    target_include_directories(ravengun_iobridge_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengun_iobridge_tests PRIVATE ravengun Threads::Threads)
+    target_compile_definitions(ravengun_iobridge_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+    add_test(NAME ravengun_iobridge_tests COMMAND ravengun_iobridge_tests)
     # JS-unittests van de kalibratie-UI (node in een wegwerp-container); overgeslagen (77) zonder podman of netwerk.
     add_test(NAME ravengun_calibrate_js COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tools/test-js.sh"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -1,0 +1,493 @@
+{
+ "schema": 1,
+ "comment": "Indeling van het gedeelde geheugen van de TeknoParrot-kern (/dev/shm/TeknoParrot_JvsState, 64 bytes) per EmulationProfile, voor het dialect tp-shm van de IO-brug. Bits: bit N van het little-endian bitveld dat op 'offset' begint. Assen: fractie 0..1 (na 'invert') naar min..max. Bron: beschrijving van de indeling uit de open TeknoParrotUI-bron (feiten, geen code overgenomen; zie docs/decisions.md).",
+ "profiles": {
+  "WartranTroopers": {
+   "description": "Vier-spelers-shooterindeling (Halo: Fireteam Raven, Tomb Raider, Rabbids Hollywood; 51 profielen). Control (32 bit, offset 8): test, service, munt 1 en 2, menu omhoog/omlaag, per speler start, trekker (Button1), herladen (Button2), granaat (Button3) en een extra knop (Button4). Aim: 1 byte per as op offset 12..19 (P1X, P1Y, P2X, P2Y, ...), links/boven = 0 (InvertedMouseAxis).",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "coin2",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 11
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 12
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 13
+    },
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 14
+    },
+    {
+     "signal": "p2.aux1",
+     "offset": 8,
+     "bit": 15
+    },
+    {
+     "signal": "p3.start",
+     "offset": 8,
+     "bit": 16
+    },
+    {
+     "signal": "p3.trigger",
+     "offset": 8,
+     "bit": 17
+    },
+    {
+     "signal": "p3.reload",
+     "offset": 8,
+     "bit": 18
+    },
+    {
+     "signal": "p3.grenade",
+     "offset": 8,
+     "bit": 19
+    },
+    {
+     "signal": "p3.aux1",
+     "offset": 8,
+     "bit": 20
+    },
+    {
+     "signal": "p4.start",
+     "offset": 8,
+     "bit": 21
+    },
+    {
+     "signal": "p4.trigger",
+     "offset": 8,
+     "bit": 22
+    },
+    {
+     "signal": "p4.reload",
+     "offset": 8,
+     "bit": 23
+    },
+    {
+     "signal": "p4.grenade",
+     "offset": 8,
+     "bit": 24
+    },
+    {
+     "signal": "p4.aux1",
+     "offset": 8,
+     "bit": 25
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 13,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 14,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 15,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.x",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.y",
+     "offset": 17,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.x",
+     "offset": 18,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.y",
+     "offset": 19,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
+  "RawThrillsGUN": {
+   "description": "Raw Thrills-gunindeling (Terminator Salvation, Jurassic Park, 19 profielen). Control: test, service, munt 1 en 2, per speler (twee) start, trekker, granaat (Button2), herladen (Button3), daarna volume omhoog/omlaag. Aim: 1 byte per as op offset 12 (P1X), 16 (P1Y), 20 (P2X), 24 (P2Y), links/boven = 0.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "coin2",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 11
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 12
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 13
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
+  "TimeCrisis5": {
+   "description": "Time Crisis 5. Control: test (0x1), service (0x4), munt (0x8), trekker (0x10), gunknop (0x20; bij ons herladen), linker pedaal (0x40; bij ons granaat/middenknop), rechter pedaal (0x80; extra knop 1), omhoog/omlaag-selectieschakelaar (0x100, 0x200; niet gekoppeld) en Enter (0x400; bij ons start). Aim: offset 12 = X, 16 = Y, 1 byte, links/boven = 0.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 10
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
+  "TransformersShadowsRising": {
+   "description": "Transformers: Shadows Rising. Control: P1 start (0x1), P1 trekker (0x2), P2 start (0x4), P2 trekker (0x8), hyperenergie-hendel aanval (0x10; bij ons herladen), verdediging (0x20; bij ons granaat) en munt (0x40). Aim: complement van de byte (255 aan links/boven): P1 Y = offset 12, P1 X = offset 16, P2 Y = 20, P2 X = 24 (InvertedMouseAxis = false in het profiel).",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 6
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.y",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": true
+    },
+    {
+     "signal": "p1.x",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": true
+    },
+    {
+     "signal": "p2.y",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": true
+    },
+    {
+     "signal": "p2.x",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": true
+    }
+   ]
+  },
+  "LGS": {
+   "description": "Let's Go Safari. De open bron schrijft in het gedeelde geheugen alleen het stuurwiel (offset 12, 1 byte); schakelaars, munt en de rest lopen via echte JVS-pakketten (de JVS-pipe van TeknoParrotUi) en staan dus niet in deze indeling. Alleen als as P1 X (het stuurwiel); de game start bovendien nog niet.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  }
+ }
+}

@@ -177,6 +177,36 @@ bool OutputService::aim_snapshot(int player, AimSnapshot& s) const {
     return true;
 }
 
+bool OutputService::io_snapshot(ravengun::iobridge::IoState& s) const {
+    using ravengun::iobridge::IoPlayer;
+    s = {};
+    std::lock_guard<std::mutex> g(m_);
+    if (shut_ || !armed_) return false;
+    s.armed = true;
+    for (int n = 1; n <= kPlayers; ++n) {
+        const Player& p = players_[static_cast<size_t>(n - 1)];
+        if (!should_exist(n) || !p.out->armed()) continue;
+        IoPlayer& o = s.player[static_cast<size_t>(n - 1)];
+        o.valid = p.out->have_position();
+        if (o.valid) {
+            o.x = static_cast<double>(p.out->last_abs_x()) / kAbsMax;
+            o.y = static_cast<double>(p.out->last_abs_y()) / kAbsMax;
+            o.offscreen = p.out->last_nx() < 0 || p.out->last_nx() > 1 || p.out->last_ny() < 0 || p.out->last_ny() > 1;
+        }
+        o.trigger = p.out->button_down(GunButton::Trigger);
+        o.reload = p.out->button_down(GunButton::Reload);
+        o.grenade = p.out->button_down(GunButton::Grenade);
+        o.aux1 = p.out->button_down(GunButton::Aux1);
+        o.aux2 = p.out->button_down(GunButton::Aux2);
+        // Start van speler n = toets n (de standaardindeling), door elke speler vast te houden.
+        o.start = mux_.down(KEY_1 + (n - 1));
+        s.sys.coin[static_cast<size_t>(n - 1)] = mux_.held_by(n, KEY_5);
+    }
+    s.sys.test = mux_.down(KEY_F2) || mux_.down(KEY_0);
+    s.sys.service = mux_.down(KEY_F3);
+    return true;
+}
+
 OutputResult OutputService::key(int player, int code, const std::string& action) {
     if (player < 1 || player > kPlayers) return {false, "invalid_argument", "ongeldige speler"};
     if (action != "down" && action != "up" && action != "tap") return {false, "invalid_argument", "actie moet down, up of tap zijn"};
