@@ -137,9 +137,20 @@ Eenmalig (al gedaan op deze machine): de officiële DemulShooter-release staat i
 
 ## Een game met de IO-brug starten (tp-shm) en de brug controleren
 
-De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp). `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf; `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.
+De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp, hid-board). `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf; `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.
 
 - Starten met tp-shm: `scripts/play-halo.sh --profile TC5` (of `--route tp-shm` voor een game waarvan de standaard evdev is, bv. `--profile Terminator --route tp-shm`). Het script start de brug (`ravengunctl iobridge start PROFIEL --route tp-shm`), maakt `/dev/shm/ravengun_JvsState` en laat `scripts/tp-shm-swap.sh` in de unit de helper van TeknoParrotUi vervangen. Log: `~/.local/state/ravengun/logs/tpshm-*.log` ("pipehelper.exe pid N vervangen" en "shm mirror active ... [created fresh]").
 - Controleren: `ravengunctl status` toont de regel "IO-brug" (route, game, dialect, indeling, laatst geschreven bytes 8..27, P1-aim en knoppen); `ravengunctl iobridge status` alleen die regel; `xxd /dev/shm/ravengun_JvsState` het bestand zelf. Testpunten houden: `ravengunctl test-pattern grid --dwell 20000` (een puntpatroon houdt zichzelf niet vast terwijl de Move live is). Knoppen: `output-button trigger|reload|grenade|aux1|aux2 down|up`, munt `key 5`, start `key 1`.
 - Daemon herstarten tijdens een spel: `systemctl --user restart ravengund`. De brug schrijft neutrale invoer, de nieuwe daemon pakt de route weer op (`ravengunctl iobridge status` meldt "1x hervat na een herstart"), wapent de uitvoer opnieuw en het spel loopt door. Een vastgehouden knop laat los.
 - Stoppen: `scripts/play-halo.sh --stop` stopt ook de brug (invoer neutraal, bestand weg).
+
+## Transformers: Shadows Rising met de IO-brug (hid-board)
+
+De route staat in `packaging/io-routes.json` (`hid-board`, bord `SaeGunBoard` in `packaging/hid-boards.json`). Starten: `scripts/play-halo.sh --profile TransformersShadowsRising` (of de snelkoppeling uit `scripts/make-game-shortcut.sh TransformersShadowsRising "Transformers Shadows Rising"`). Het script wapent de uitvoer, laat de daemon het virtuele bord maken ("RavenGun SAE Gun Board", 1209:72F0), zet het bord in de Wine-prefix op joystick-id 0 (`scripts/wine-joyid.sh`) en start dan TeknoParrot met de shell, die de game start.
+
+- Controle: `ravengunctl status` (regel "IO-brug": bord, aantal beelden, assen, knoppenmasker). Het apparaat: `ls -l /dev/input/by-id | grep -i sae` of `evtest` op het eventnummer; knoppen en assen volgen `output-button trigger down` en `test-pattern grid --dwell MS`.
+- De game moet dit bord zien als eerste joystick: zie het Wine-logboek met `WINEDEBUG=-all,+dinput` (regel `hid_joystick_create_device ... GUID_Joystick`, `Assigned joy_id`). Staat de PS Move of een Steam-controller op id 0, draai dan `scripts/wine-joyid.sh ~/.local/share/TeknoParrotUI/prefixes/ravengun-test-tsr 1209:72F0` (zonder draaiende game in die prefix).
+- Niet doen: de daemon herstarten terwijl de game draait (het apparaat verdwijnt; de game herstelt dat niet).
+- Het transport `uhid` (echt HID-apparaat) vraagt schrijfrecht op `/dev/uhid` (standaard alleen root). Eenmalig, met sudo: `sudo ~/projects/ravengun/scripts/udev-ravengun.sh --apply` (installeert ook `71-ravengun-uhid.rules`; controle zonder sudo: `scripts/udev-ravengun.sh --check`). Daarna `"transport": "uhid"` in het bord. Voor Transformers is dat niet nodig.
+- Een nieuw bord toevoegen: een object in `packaging/hid-boards.json` (assen en knoppen met signaalnamen), `board` bij de game in `io-routes.json`, daemon herstarten (of `--help` van `ravengunctl iobridge`), `ctest` draaien (de test valideert het bestand).
+
