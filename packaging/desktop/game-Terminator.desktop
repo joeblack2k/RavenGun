@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Terminator Salvation
+Comment=Start Terminator Salvation met de Move als lightgun (RavenGun)
+Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile Terminator
+Icon=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/Icons/Terminator.png
+Terminal=false
+Categories=Game;

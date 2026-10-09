@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Rabbids Hollywood
+Comment=Start Rabbids Hollywood met de Move als lightgun (RavenGun)
+Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile RabbidsHollywood
+Icon=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/Icons/RabbidsHollywood.png
+Terminal=false
+Categories=Game;
