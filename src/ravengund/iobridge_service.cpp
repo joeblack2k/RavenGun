@@ -12,6 +12,7 @@
 #include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/output/key_table.hpp"
 
 namespace ravengund {
 
@@ -48,12 +49,26 @@ bool IoBridgeService::snapshot(IoState& s) const {
     return sh_.output && sh_.output->io_snapshot(s);
 }
 
+// Games die hun munt uit het toetsenbord lezen: zolang de munt van speler n ingedrukt is (toets 5), houdt de daemon ook de
+// toetsen van coin_keys vast (op de poort van die speler). Aangeroepen met m_ vast.
+void IoBridgeService::apply_coin_keys(const IoState& s) {
+    if (coin_codes_.empty() || !sh_.output) return;
+    for (int p = 0; p < kIoPlayers; ++p) {
+        const bool now = s.sys.coin[static_cast<size_t>(p)];
+        if (now == coin_prev_[static_cast<size_t>(p)]) continue;
+        coin_prev_[static_cast<size_t>(p)] = now;
+        if (now) for (int c : coin_codes_) sh_.output->key(p + 1, c, "down");
+        else for (auto it = coin_codes_.rbegin(); it != coin_codes_.rend(); ++it) sh_.output->key(p + 1, *it, "up");
+    }
+}
+
 void IoBridgeService::tick_once() {
     std::lock_guard<std::mutex> lk(m_);
     if (!dialect_) return;
     IoState s;
     snapshot(s);   // niet gewapend: s blijft neutraal
     dialect_->write(s);
+    apply_coin_keys(s);
     ++ticks_;
 }
 
@@ -71,6 +86,7 @@ void IoBridgeService::main_loop() {
         IoState s;
         snapshot(s);
         dialect_->write(s);
+        apply_coin_keys(s);
         ++ticks_;
         // Bewaking: de game is weg (de unit ravengun-tpui is leeg) of verscheen nooit.
         const int64_t now = steady_ms();
@@ -131,6 +147,9 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     std::lock_guard<std::mutex> lk(m_);
     if (dialect_) { dialect_->neutral(); dialect_->close(); }
     dialect_ = std::move(d);
+    coin_codes_.clear();
+    coin_prev_ = {};
+    for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
     game_ = game;
     route_ = kRouteTpShm;
     seen_alive_ = false;
@@ -166,16 +185,23 @@ bool IoBridgeService::resume() {
         ++resumes_;
         seen_alive_ = true;
     }
+    // De herstarte daemon begint ontwapend; de game draait nog en heeft zijn invoer nodig: opnieuw wapenen.
+    if (sh_.output) {
+        const OutputResult a = sh_.output->arm();
+        if (!a.ok) logf("warn", "IO-brug: opnieuw wapenen na de herstart mislukt: %s", a.message.c_str());
+    }
     logf("info", "IO-brug: tp-shm voor %s hervat na een herstart", g->str.c_str());
     return true;
 }
 
 void IoBridgeService::stop_locked() {
     if (!dialect_) return;
+    apply_coin_keys(IoState{});   // vastgehouden munttoetsen loslaten
     dialect_->neutral();
     dialect_->close();
     if (route_ == kRouteTpShm) ::unlink(cfg_.shm_path.c_str());
     dialect_.reset();
+    coin_codes_.clear();
     route_.clear();
     game_.clear();
     if (!cfg_.state_path.empty()) ::unlink(cfg_.state_path.c_str());

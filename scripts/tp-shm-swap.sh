@@ -32,7 +32,13 @@ done
 [[ -n "$FOUND" ]] || { log "geen pipehelper.exe gezien: niets vervangen"; exit 1; }
 
 mapfile -d '' ARGS < "/proc/$FOUND/cmdline"
-mapfile -d '' ENVV < "/proc/$FOUND/environ"
+mapfile -d '' ENVRAW < "/proc/$FOUND/environ"
+# De omgeving van een lopend wine-proces bevat dingen die wine zelf zet na het starten (de socket naar de wineserver als
+# bestandsnummer, de preload-reserve): die horen niet in een nieuw proces.
+ENVV=()
+for e in "${ENVRAW[@]}"; do
+  case "$e" in WINESERVERSOCKET=*|WINELOADERNOEXEC=*|WINEPRELOADRESERVE=*) ;; *) ENVV+=("$e") ;; esac
+done
 EXE=$(readlink "/proc/$FOUND/exe")
 WINE="${EXE%/lib/wine/*}/bin/wine"
 [[ -x "$WINE" ]] || { log "wine niet gevonden bij $EXE: niets vervangen"; exit 1; }

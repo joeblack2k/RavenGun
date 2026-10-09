@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -54,10 +55,15 @@ struct FakeGun : output::GunDevice {
 };
 struct FakeKbd : output::KeyDevice {
     bool exists = false;
+    std::atomic<bool> shift{false}, t{false};
     bool create(std::string&) override { exists = true; return true; }
     void destroy() override { exists = false; }
     bool created() const override { return exists; }
-    bool write_key(int, bool) override { return exists; }
+    bool write_key(int code, bool down) override {
+        if (code == KEY_LEFTSHIFT) shift = down;
+        if (code == KEY_T) t = down;
+        return exists;
+    }
 };
 
 TpShmProfiles load_profiles() {
@@ -259,6 +265,9 @@ void test_routes() {
     CHECK(!err.empty());                                 // tp-shm zonder layout
     parse_io_routes(R"({"games":{"A":{"route":"bluetooth"}}})", err);
     CHECK(!err.empty());
+    CHECK(r.find("TC5")->coin_keys.size() == 2 && r.find("TC5")->coin_keys[0] == "lshift");
+    parse_io_routes(R"({"games":{"A":{"route":"evdev","coin_keys":["bestaatniet"]}}})", err);
+    CHECK(!err.empty());
     parse_io_routes(R"({"default":"tp-shm","games":{}})", err);
     CHECK(err.empty());
     IoRoutes d = parse_io_routes(R"({"default":"tp-shm","games":{}})", err);
@@ -330,11 +339,13 @@ void test_service(const std::string& dir) {
     SharedState sh;
     fs::create_directories(dir + "/svc");
     FakeGun* gun1 = nullptr;
+    auto kb = std::make_unique<FakeKbd>();
+    FakeKbd* kbp = kb.get();
     OutputService out([&](int p) -> std::unique_ptr<output::GunDevice> {
         auto g = std::make_unique<FakeGun>();
         if (p == 1) gun1 = g.get();
         return g;
-    }, std::make_unique<FakeKbd>());
+    }, std::move(kb));
     (void)gun1;
     sh.output = &out;
 
@@ -413,7 +424,16 @@ void test_service(const std::string& dir) {
         CHECK(!br2.resume());
         // Route evdev stopt een actieve brug.
         CHECK(br2.start("TC5").empty() && br2.active());
-        CHECK(br2.start("Halo").empty() && !br2.active());
+        // TC5 leest zijn munt uit het toetsenbord: toets 5 (munt) houdt ook Shift+T vast, en laat ze samen los.
+        CHECK(out.key(1, KEY_5, "down").ok);
+        CHECK(wait_for([&] { return kbp->shift.load() && kbp->t.load(); }));
+        CHECK(out.key(1, KEY_5, "up").ok);
+        CHECK(wait_for([&] { return !kbp->shift.load() && !kbp->t.load(); }));
+        CHECK(out.key(1, KEY_5, "down").ok);
+        CHECK(wait_for([&] { return kbp->t.load(); }));
+        CHECK(br2.start("Halo").empty() && !br2.active());   // stoppen laat vastgehouden munttoetsen los
+        CHECK(!kbp->shift.load() && !kbp->t.load());
+        out.key(1, KEY_5, "up");
         // Een toestandsbestand met een route die niet te hervatten is wordt opgeruimd.
         { std::ofstream f(state); f << R"({"route":"unity-tcp","game":"TombRaider"})"; }
         CHECK(!br2.resume() && !fs::exists(state));

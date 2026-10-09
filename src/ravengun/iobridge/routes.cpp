@@ -1,6 +1,7 @@
 #include "ravengun/iobridge/routes.hpp"
 
 #include "ravengun/json_parse.hpp"
+#include "ravengun/output/key_table.hpp"
 
 namespace ravengun::iobridge {
 
@@ -42,6 +43,13 @@ IoRoutes parse_io_routes(const std::string& text, std::string& err) {
         r.route = rt->str;
         if (const json::Value* l = kv.second.find("layout"); l && l->is_string()) r.layout = l->str;
         if (const json::Value* n = kv.second.find("note"); n && n->is_string()) r.note = n->str;
+        if (const json::Value* ck = kv.second.find("coin_keys")) {
+            if (!ck->is_array()) { err = "io-routes.json: " + kv.first + ": 'coin_keys' moet een lijst zijn"; return {}; }
+            for (const auto& k : ck->arr) {
+                if (!k.is_string() || ravengun::output::key_code(k.str) < 0) { err = "io-routes.json: " + kv.first + ": onbekende toets in 'coin_keys'"; return {}; }
+                r.coin_keys.push_back(k.str);
+            }
+        }
         if (r.route == kRouteTpShm && r.layout.empty()) { err = "io-routes.json: " + kv.first + ": route tp-shm vraagt een 'layout'"; return {}; }
         out.games.push_back(std::move(r));
     }

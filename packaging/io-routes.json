@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "comment": "Welke invoerroute geldt per game. evdev = virtuele gun en toetsenbord, TeknoParrotUi leest ze; tp-shm = de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern (layout = naam in tp-shm-profiles.json); unity-tcp = de daemon is klant van de BepInEx-plugin (zie aagames-games.json). scripts/play-halo.sh --route R overschrijft dit voor een start.",
+ "comment": "Welke invoerroute geldt per game. evdev = virtuele gun en toetsenbord, TeknoParrotUi leest ze; tp-shm = de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern (layout = naam in tp-shm-profiles.json); unity-tcp = de daemon is klant van de BepInEx-plugin (zie aagames-games.json). scripts/play-halo.sh --route R overschrijft dit voor een start. coin_keys: toetsen die de daemon ook vasthoudt zolang de munt (toets 5) van een speler ingedrukt is.",
  "default": "evdev",
  "games": {
   "Halo": {
@@ -23,7 +23,12 @@
   },
   "TC5": {
    "route": "tp-shm",
-   "layout": "TimeCrisis5"
+   "layout": "TimeCrisis5",
+   "coin_keys": [
+    "lshift",
+    "t"
+   ],
+   "note": "de game leest zijn munt uit het toetsenbord (Shift+T); aim, trekker en pedalen komen via tp-shm"
   },
   "LGS": {
    "route": "evdev",

@@ -19,6 +19,9 @@ struct IoRoute {
     std::string route;    // evdev | tp-shm | unity-tcp
     std::string layout;   // tp-shm: naam van het profiel in tp-shm-profiles.json (de EmulationProfile)
     std::string note;
+    // Toetsen die de daemon ook indrukt zolang de munt van een speler ingedrukt is (games die hun munt uit het toetsenbord lezen,
+    // bv. Time Crisis 5: Shift+T). Namen uit ravengun/output/key_table.hpp.
+    std::vector<std::string> coin_keys;
 };
 
 struct IoRoutes {

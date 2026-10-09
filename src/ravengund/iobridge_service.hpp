@@ -9,12 +9,14 @@
 // toestand naar het actieve dialect. Herstart van de daemon: de route staat in een toestandsbestand in
 // $XDG_RUNTIME_DIR; bij het opstarten pakt de brug hem weer op als de game nog draait (unit ravengun-tpui), en het
 // bestand met de invoer blijft staan, zodat de game niets merkt behalve hooguit een paar milliseconden neutrale invoer.
+#include <array>
 #include <condition_variable>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "ravengun/iobridge/dialect.hpp"
 #include "ravengun/iobridge/routes.hpp"
@@ -68,6 +70,7 @@ public:
 
 private:
     void main_loop();
+    void apply_coin_keys(const ravengun::iobridge::IoState& s);
     void write_state_file(const std::string& route, const std::string& game);
     void stop_locked();
     SharedState& sh_;
@@ -76,6 +79,8 @@ private:
     std::condition_variable cv_;
     std::unique_ptr<ravengun::iobridge::IoDialect> dialect_;
     std::string game_, route_;
+    std::vector<int> coin_codes_;                       // evdev-codes van coin_keys van de actieve game
+    std::array<bool, ravengun::iobridge::kIoPlayers> coin_prev_{};
     bool quit_ = false;
     std::thread th_;
     uint64_t ticks_ = 0, resumes_ = 0;
