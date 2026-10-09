@@ -126,7 +126,7 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err, int 
         else {
             const auto& e = s.controllers.at(a);
             w.key("controller").begin_object().key("key").value(core::controller_key(a)).key("address").value(full_ids ? a : redact_mac(a));
-            w.key("name").value(e.name).key("overrides").value(static_cast<int>(e.keys.size())).end_object();
+            w.key("name").value(e.name).key("overrides").value(config::own_overrides(s, a)).end_object();
         }
         w.key("players").begin_array();
         for (int p = 1; p <= kPlayers; ++p) {
@@ -673,7 +673,7 @@ std::string handle_set_controller(SharedState& sh, const ipc::Request& r) {
     const auto& e = now.controllers.at(a);
     json::Writer w;
     w.begin_object().key("key").value(core::controller_key(a)).key("name").value(e.name).key("player").value(e.player);
-    w.key("overrides").value(static_cast<int>(e.keys.size()));
+    w.key("overrides").value(config::own_overrides(now, a));
     if (swapped.empty()) w.key("swapped_with").null();
     else w.key("swapped_with").value(now.controllers.at(swapped).name);
     w.key("saved").value(sr.ok);

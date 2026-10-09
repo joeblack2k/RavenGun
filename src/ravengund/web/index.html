@@ -15,22 +15,18 @@
 </header>
 <nav id="tabs" class="tabs" aria-label="Onderdelen"></nav>
 <main>
+<!-- Spelerkeuze: de instellingen op deze tabbladen gelden voor de controller van de gekozen speler. -->
+<section id="playerbar" class="playerbar" aria-label="Speler" hidden>
+  <span class="pb-label">Instellingen van</span>
+  <div id="pb-choices" class="segments" role="radiogroup" aria-label="Speler"></div>
+  <span id="pb-note" class="muted"></span>
+</section>
 
 <!-- ============ Overzicht ============ -->
 <section id="p-overzicht" class="page" aria-label="Overzicht">
+  <!-- Alle controllers met batterij (Moves en Navigation Controllers). -->
+  <div class="cards" id="ov-ctrls" aria-label="Controllers"></div>
   <div class="cards">
-    <article class="card status">
-      <h2>Move</h2>
-      <div id="ov-move-bat" class="batwrap"></div>
-      <p class="big" id="ov-move-state">-</p>
-      <p class="sub" id="ov-move-sub"></p>
-    </article>
-    <article class="card status">
-      <h2>Navigation Controller</h2>
-      <div id="ov-nav-bat" class="batwrap"></div>
-      <p class="big" id="ov-nav-state">-</p>
-      <p class="sub" id="ov-nav-sub"></p>
-    </article>
     <article class="card status">
       <h2>Camera</h2>
       <p class="bigicon" id="ov-cam-icon" aria-hidden="true"></p>
@@ -207,6 +203,31 @@
   </section>
   <div id="game-list" class="games"></div>
   <p class="hint" id="game-hint">Spelen zet de lightgun aan en start de game. Heb je de Move nog niet aangezet, druk dan op de PS-knop.</p>
+</section>
+
+<!-- ============ Controllers ============ -->
+<section id="p-controllers" class="page" aria-label="Controllers">
+  <section class="card wizard" id="pair-card">
+    <h2>Nieuwe controller koppelen</h2>
+    <ol id="pair-steps" class="steps"></ol>
+    <p class="big" id="pair-text">-</p>
+    <p class="sub" id="pair-msg"></p>
+    <div id="pair-install" class="warnbox" hidden>
+      <p>Voer dit eenmalig uit in een terminal (vraagt het beheerwachtwoord):</p>
+      <p><code id="pair-cmd"></code></p>
+      <p class="hint">Daarna kan de app voortaan zelf koppelen en verwijderen, zonder wachtwoord.</p>
+    </div>
+    <p class="actions">
+      <button type="button" id="pair-start">Nieuwe controller koppelen</button>
+      <button type="button" id="pair-confirm" hidden>Opnieuw koppelen</button>
+      <button type="button" id="pair-cancel" class="secondary" hidden>Annuleren</button>
+    </p>
+    <p class="err" id="pair-err" role="alert"></p>
+  </section>
+  <h2 class="pagehead">Bekende controllers</h2>
+  <div id="ctrl-list" class="ctrls"></div>
+  <p class="err" id="ctrl-err" role="alert"></p>
+  <p class="hint" id="ctrl-hint">Elke Move is een speler met een eigen pistool in de game en eigen instellingen. Een Navigation Controller hoort bij een speler: zijn knoppen kies je bij Knoppen van die speler.</p>
 </section>
 
 <!-- ============ Info (technisch) ============ -->

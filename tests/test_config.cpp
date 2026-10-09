@@ -717,6 +717,13 @@ static void test_controllers() {
     apply_player_defaults(p, B, 1, 2);
     CHECK(effective(p, B).led.preset == "rood" && effective(p, B).gun_buttons.map.at("start") == "key:2");
     CHECK(player_led(2).preset == "magenta" && player_led(1).preset == "cyaan" && player_start_key(3) == "3");
+    // Eigen keuzes tellen; de spelergebonden standaarden niet.
+    Settings q;
+    config::register_controller(q, A, "move", "ZCM1", 1);
+    config::register_controller(q, B, "move", "ZCM1", 2);
+    CHECK(!q.controllers.at(B).keys.empty() && own_overrides(q, B) == 0 && own_overrides(q, A) == 0);
+    modify_for(q, B, {"filter.beta", "led.preset", "led.r", "led.g", "led.b"}, [](Settings& e) { e.filter.beta = 3; e.led = {true, "rood", 255, 0, 0}; });
+    CHECK(own_overrides(q, B) == 3);  // beta, preset en b (r en g zijn bij rood en magenta gelijk)
 
     // Adressen en namen.
     CHECK(address_valid("00:07:04:8C:70:AC") && normalize_address("00:07:04:8C:70:AC") == A);

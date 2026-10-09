@@ -10,6 +10,11 @@
   var es = null;
   var lastStatus = null;   // laatste /api/status
   var defaults = null;     // fabrieksinstellingen uit /api/settings
+  // Gekozen speler (spelerbalk): de instellingen op Overzicht, Richten, Trillen, Knoppen en LED gelden voor de controller van
+  // deze speler. Onthouden in localStorage (met try/catch; zonder opslag gewoon speler 1).
+  var player = A.pickPlayer((function () { try { return window.localStorage.getItem('rg.player'); } catch (e) { return null; } })());
+  function pq() { return '?player=' + player; }
+  function P(body) { return A.withPlayer(body, player); }
 
   // ---- Hulpfuncties ----
   function api(path, body) {
@@ -99,7 +104,41 @@
     });
   }
   function getStatus() {
-    return call('/api/status').then(function (j) { lastStatus = j.result; return j.result; });
+    return call('/api/status' + pq()).then(function (j) { lastStatus = j.result; renderPlayerBar(j.result); return j.result; });
+  }
+
+  // ---- Spelerbalk ----
+  var pbSig = '';
+  function renderPlayerBar(st) {
+    var players = st && st.assignment && st.assignment.players;
+    if (!players) return;
+    var opts = A.playerOptions(players, player);
+    var sig = JSON.stringify(opts) + '|' + player;
+    if (sig === pbSig) return;
+    pbSig = sig;
+    var box = $('pb-choices');
+    box.textContent = '';
+    opts.forEach(function (o) {
+      var lab = el('label');
+      var r = el('input');
+      r.type = 'radio'; r.name = 'player'; r.value = String(o.player);
+      r.checked = o.player === player;
+      var seg = el('span', 'seg', o.label);
+      seg.appendChild(el('small', '', o.sub));
+      lab.appendChild(r); lab.appendChild(seg);
+      box.appendChild(lab);
+      r.addEventListener('change', function () { choosePlayer(o.player); });
+    });
+    var mine = null;
+    players.forEach(function (x) { if (x.player === player) mine = x; });
+    $('pb-note').textContent = mine && !mine.controller ? 'Deze speler heeft nog geen Move: wijzigingen gelden voor nieuwe controllers.' : '';
+  }
+  function choosePlayer(n) {
+    player = A.pickPlayer(n);
+    try { window.localStorage.setItem('rg.player', String(player)); } catch (e) { /* geen opslag */ }
+    btnBase = {}; btnEdit = {};   // de knoppenindeling hoort bij de vorige speler
+    activeLed = null;
+    show(true);
   }
 
   // ---- Bouwstenen: schakelaar, schuifje ----
@@ -217,34 +256,24 @@
 
   // ---- Overzicht ----
   var gamesCache = null;
+  var lastSample = null;
   function gameName(profile) {
     var list = (gamesCache && gamesCache.games) || [];
     for (var i = 0; i < list.length; i++) if (list[i].profile === profile) return list[i].name;
     return profile;
   }
   function refreshOverview() {
-    Promise.all([api('/api/status'), api('/api/sample'), api('/api/games')]).then(function (res) {
-      var st = res[0], sm = res[1], gm = res[2];
+    Promise.all([api('/api/status' + pq()), api('/api/sample' + pq()), api('/api/games'), api('/api/controllers')]).then(function (res) {
+      var st = res[0], sm = res[1], gm = res[2], ct = res[3];
       if (!st.ok || !sm.ok) { setConn(false); return; }
       lastStatus = st.result;
-      var s = st.result, p = sm.result, c = s.controller, cam = s.camera || {}, nav = s.navigation || { connected: false, battery: {} };
+      renderPlayerBar(st.result);
+      var s = st.result, p = sm.result, c = s.controller, cam = s.camera || {};
       if (gm.ok) gamesCache = gm.result;
-      // Move
-      var bv = A.batteryView(c.battery && c.battery.code, c.connected);
-      drawBattery($('ov-move-bat'), bv);
-      $('ov-move-state').textContent = c.connected ? 'Verbonden' : 'Niet verbonden';
-      $('ov-move-state').className = 'big ' + (c.connected ? 'ok' : 'warn');
-      var sub = c.connected ? batteryText(bv, true) + '.' : 'Zet de Move aan met de PS-knop.';
-      if (c.connected && p.ext && p.ext.connected) sub += ' Sharp Shooter aangesloten.';
-      $('ov-move-sub').textContent = sub;
-      // Navigation Controller
-      var nb = nav.battery || {};
-      var nv = A.batteryView(nb.code, nav.connected, typeof nb.percent === 'number' ? nb.percent : undefined);
-      drawBattery($('ov-nav-bat'), nv);
-      $('ov-nav-state').textContent = nav.connected ? 'Verbonden' : 'Niet verbonden';
-      $('ov-nav-state').className = 'big ' + (nav.connected ? 'ok' : 'warn');
-      $('ov-nav-sub').textContent = nav.connected ? batteryText(nv, true) : 'Geen Navigation Controller gevonden.';
+      // Alle controllers met batterij (Moves en Navigation Controllers).
+      renderOverviewControllers(ct.ok ? ct.result.controllers : null, s);
       // Camera
+      lastSample = p;
       var pos = p.position || {};
       var streaming = cam.enabled && cam.state === 'streaming';
       if (!cam.enabled) { glyph($('ov-cam-icon'), 'no', '✖'); $('ov-cam-state').textContent = 'Camera staat uit'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = ''; }
@@ -270,6 +299,48 @@
       fill($('ov-settings'), A.plainSettings(s));
     }).catch(function () { setConn(false); });
   }
+  function ledChip(rgb, cls) {
+    var d = el('span', cls + (rgb ? '' : ' none'));
+    if (rgb) d.style.background = rgbCss(rgb[0], rgb[1], rgb[2]);
+    d.setAttribute('aria-hidden', 'true');
+    return d;
+  }
+  function renderOverviewControllers(list, s) {
+    var box = $('ov-ctrls');
+    box.textContent = '';
+    var shown = (list || []).filter(function (c) { return !c.removed; });
+    if (!list) {
+      // Geen controllerlijst (oude daemon): de Move van deze speler uit de status.
+      shown = [{ name: 'Move', type: 'move', player: player, connected: s.controller.connected,
+        battery: { known: s.controller.connected, code: s.controller.battery && s.controller.battery.code } }];
+    }
+    if (!shown.length) {
+      var e = el('article', 'card status ovctrl');
+      e.appendChild(el('h2', '', 'Controllers'));
+      e.appendChild(el('p', 'big warn', 'Nog geen controller'));
+      var a = el('a', 'button secondary', 'Controller koppelen');
+      a.href = '#/controllers';
+      var pa = el('p', 'actions'); pa.appendChild(a); e.appendChild(pa);
+      box.appendChild(e);
+      return;
+    }
+    shown.forEach(function (c) {
+      var card = el('article', 'card status ovctrl');
+      var h = el('h2');
+      if (c.type === 'move') h.appendChild(ledChip(c.led && c.led.rgb, 'led-chip'));
+      h.appendChild(document.createTextNode(c.name + (c.player ? ' · speler ' + c.player : '')));
+      card.appendChild(h);
+      var bw = el('div', 'batwrap');
+      var bv = A.controllerBattery(c);
+      drawBattery(bw, bv);
+      card.appendChild(bw);
+      card.appendChild(el('p', 'big ' + (c.connected ? 'ok' : 'warn'), c.connected ? 'Verbonden' : 'Niet verbonden'));
+      var sub = c.connected ? batteryText(bv, true) : (c.type === 'move' ? 'Zet de Move aan met de PS-knop.' : 'Niet in gebruik.');
+      if (c.type === 'move' && c.connected && c.player === player && lastSample && lastSample.ext && lastSample.ext.connected) sub += '. Sharp Shooter aangesloten.';
+      card.appendChild(el('p', 'sub', A.controllerTypeLabel(c.type) + '. ' + sub));
+      box.appendChild(card);
+    });
+  }
   $('ov-gun-btn').addEventListener('click', function (e) {
     var armed = lastStatus && lastStatus.output && lastStatus.output.armed;
     if (!armed && !window.confirm('De lightgun aanzetten? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
@@ -279,10 +350,10 @@
     var m = $('center-msg');
     m.textContent = ''; m.className = 'msg';
     e.target.disabled = true;
-    api('/api/recenter', {}).then(function (j) {
+    api('/api/recenter', P({})).then(function (j) {
       e.target.disabled = false;
       if (j.ok) { m.textContent = 'Gecentreerd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
-      else { m.className = 'msg bad'; m.textContent = j.httpStatus === 503 ? 'Centreren lukt nog niet: is de Move aan en verbonden?' : errText(j); }
+      else { m.className = 'msg bad'; m.textContent = j.httpStatus === 503 ? 'Centreren lukt nog niet: is de Move van speler ' + player + ' aan en verbonden?' : errText(j); }
     }).catch(function () { e.target.disabled = false; m.className = 'msg bad'; m.textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
   });
 
@@ -296,44 +367,44 @@
     var err = $('rich-err');
     switches.filter = makeSwitch($('sw-filter'), {
       label: 'Richtpunt gladstrijken', help: 'Haalt het trillen van je hand uit de cursor.', errEl: err,
-      apply: function (on) { return call('/api/filter', { enabled: on }).then(function (j) { return j.result.enabled; }); }
+      apply: function (on) { return call('/api/filter', P({ enabled: on })).then(function (j) { return j.result.enabled; }); }
     });
     var sl = $('sl-richten');
     sliders.predict = makeSlider(sl, {
       name: 'Vooruitkijken', help: 'De cursor kijkt zoveel milliseconden vooruit, zodat hij niet achterloopt op je hand. 0 is uit.',
       min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' ms'; },
-      send: function (v) { return call('/api/aim', { predict_ms: v }); },
+      send: function (v) { return call('/api/aim', P({ predict_ms: v })); },
       actual: function (r) { return r.predict_ms; }
     });
     sliders.mincut = makeSlider(sl, {
       name: 'Rust bij stilhouden', help: 'Lager = een rustiger richtpunt, maar het volgt je hand wat trager.',
       scale: A.logScale(0.05, 5, 1000), fmt: function (v) { return fmt(v, 2); },
-      send: function (v) { return call('/api/filter', { min_cutoff_hz: v }); },
+      send: function (v) { return call('/api/filter', P({ min_cutoff_hz: v })); },
       actual: function (r) { return r.min_cutoff_hz; }
     });
     sliders.beta = makeSlider(sl, {
       name: 'Reactiesnelheid bij snel richten', help: 'Hoger = minder vertraging als je snel zwaait, maar iets onrustiger.',
       min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0); },
-      send: function (v) { return call('/api/filter', { beta: v }); },
+      send: function (v) { return call('/api/filter', P({ beta: v })); },
       actual: function (r) { return r.beta; }
     });
     var adv = $('sl-richten-adv');
     sliders.hedge = makeSlider(adv, {
       name: 'Draaihoek tot de rand, links en rechts', help: 'Hoeveel graden je de Move draait van het midden tot de zijkant van het scherm. Kleiner = gevoeliger.',
       min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
-      send: function (v) { return call('/api/aim', { h_edge_deg: v }); },
+      send: function (v) { return call('/api/aim', P({ h_edge_deg: v })); },
       actual: function (r) { return r.h_edge_deg; }
     });
     sliders.vedge = makeSlider(adv, {
       name: 'Draaihoek tot de rand, boven en onder', help: 'Zelfde, voor omhoog en omlaag.',
       min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
-      send: function (v) { return call('/api/aim', { v_edge_deg: v }); },
+      send: function (v) { return call('/api/aim', P({ v_edge_deg: v })); },
       actual: function (r) { return r.v_edge_deg; }
     });
     sliders.dcut = makeSlider(adv, {
       name: 'Snelheidsfilter', help: 'Hoe vloeiend de snelheid van je hand wordt gemeten (afsnijfrequentie in Hz).',
       min: 1, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' Hz'; },
-      send: function (v) { return call('/api/filter', { d_cutoff_hz: v }); },
+      send: function (v) { return call('/api/filter', P({ d_cutoff_hz: v })); },
       actual: function (r) { return r.d_cutoff_hz; }
     });
     sliders.extrap = makeSlider(adv, {
@@ -355,13 +426,13 @@
       box.appendChild(lab);
       r.addEventListener('change', function () {
         $('fusion-err').textContent = '';
-        call('/api/fusion', { mode: c.id }).then(function (j) { setFusionChoice(j.result.mode); toast('Driftcorrectie: ' + A.fusionLabel(j.result.mode)); },
+        call('/api/fusion', P({ mode: c.id })).then(function (j) { setFusionChoice(j.result.mode); toast('Driftcorrectie: ' + A.fusionLabel(j.result.mode)); },
           function (e) { $('fusion-err').textContent = errMsg(e); getStatus().then(function (s) { setFusionChoice(s.config.fusion.mode); }); });
       });
     });
     switches.learn = makeSwitch($('sw-learn'), {
       label: 'Leren van centreren', help: 'Elke keer dat je centreert leert de Move bij hoe hij wegdraait en corrigeert dat zelf.', errEl: $('fusion-err'),
-      apply: function (on) { return call('/api/fusion', { recenter_learning: on }).then(function (j) { return j.result.recenter_learning; }); }
+      apply: function (on) { return call('/api/fusion', P({ recenter_learning: on })).then(function (j) { return j.result.recenter_learning; }); }
     });
     $('rich-reset').addEventListener('click', function (e) {
       var d = defaults || {};
@@ -369,8 +440,8 @@
       if (!d.filter) { $('rich-err').textContent = 'De standaardwaarden zijn niet beschikbaar.'; return; }
       $('rich-err').textContent = '';
       e.target.disabled = true;
-      call('/api/filter', { enabled: f.enabled, min_cutoff_hz: f.min_cutoff_hz, beta: f.beta, d_cutoff_hz: f.d_cutoff_hz })
-        .then(function () { return call('/api/aim', { predict_ms: a.predict_ms }); })
+      call('/api/filter', P({ enabled: f.enabled, min_cutoff_hz: f.min_cutoff_hz, beta: f.beta, d_cutoff_hz: f.d_cutoff_hz }))
+        .then(function () { return call('/api/aim', P({ predict_ms: a.predict_ms })); })
         .then(function () { toast('Standaardwaarden hersteld'); return refreshRichten(true); })
         .catch(function (er) { $('rich-err').textContent = errMsg(er); })
         .then(function () { e.target.disabled = false; });
@@ -490,7 +561,7 @@
   function startStream() {
     stopStream();
     if (!window.EventSource || /[?&]nostream\b/.test(location.search)) return;  // ?nostream: voor schermafdrukken en tests
-    es = new EventSource('/api/stream');
+    es = new EventSource('/api/stream' + pq());
     es.addEventListener('sample', onSample);
     es.onopen = function () { setConn(true); };
   }
@@ -501,32 +572,32 @@
     var err = $('rum-err');
     switches.rumble = makeSwitch($('sw-rumble'), {
       label: 'Trillen aan', help: 'Zet het trillen van de Move bij schieten aan of uit.', errEl: err,
-      apply: function (on) { return call('/api/rumble', { enabled: on }).then(function (j) { return j.result.enabled; }); }
+      apply: function (on) { return call('/api/rumble', P({ enabled: on })).then(function (j) { return j.result.enabled; }); }
     });
     var sl = $('sl-trillen');
     function pct(v) { return A.percent255(v) + ' %'; }
     sliders.rstrength = makeSlider(sl, {
       name: 'Sterkte', help: 'Hoe hard de Move trilt bij een schot.', min: 0, max: 255, step: 1, fmt: pct,
-      send: function (v) { return call('/api/rumble', { strength: Math.round(v) }); }, actual: function (r) { return r.strength; }
+      send: function (v) { return call('/api/rumble', P({ strength: Math.round(v) })); }, actual: function (r) { return r.strength; }
     });
     sliders.rpulse = makeSlider(sl, {
       name: 'Pulsduur', help: 'Hoe lang elke trilling duurt.', min: 10, max: 500, step: 5, fmt: function (v) { return fmt(v, 0) + ' ms'; },
-      send: function (v) { return call('/api/rumble', { pulse_ms: Math.round(v) }); }, actual: function (r) { return r.pulse_ms; }
+      send: function (v) { return call('/api/rumble', P({ pulse_ms: Math.round(v) })); }, actual: function (r) { return r.pulse_ms; }
     });
     sliders.rrepeat = makeSlider(sl, {
       name: 'Ritme bij vasthouden', help: 'Hoe vaak de Move trilt als je de trekker ingedrukt houdt. 0 is een enkele trilling per schot.',
       min: 0, max: 30, step: 1, fmt: function (v) { return v === 0 ? 'enkel' : fmt(v, 0) + ' per seconde'; },
-      send: function (v) { return call('/api/rumble', { repeat_hz: v }); }, actual: function (r) { return r.repeat_hz; }
+      send: function (v) { return call('/api/rumble', P({ repeat_hz: v })); }, actual: function (r) { return r.repeat_hz; }
     });
     sliders.rpump = makeSlider(sl, {
       name: 'Sterkte bij de pomp', help: 'Hoe hard de Move trilt als je de Sharp Shooter pompt. 0 is uit.', min: 0, max: 255, step: 1, fmt: pct,
-      send: function (v) { return call('/api/rumble', { pump_strength: Math.round(v) }); }, actual: function (r) { return r.pump_strength; }
+      send: function (v) { return call('/api/rumble', P({ pump_strength: Math.round(v) })); }, actual: function (r) { return r.pump_strength; }
     });
     $('rum-test').addEventListener('click', function (e) {
       var m = $('rum-msg');
       err.textContent = ''; m.textContent = '';
       e.target.disabled = true;
-      api('/api/rumble-test', {}).then(function (j) {
+      api('/api/rumble-test', P({})).then(function (j) {
         e.target.disabled = false;
         if (j.ok) { m.textContent = 'Testpuls gestuurd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
         else err.textContent = j.httpStatus === 503 ? 'Geen trilling: ' + errText(j) : errText(j);
@@ -591,6 +662,10 @@
     A.BUTTONS.forEach(function (b) {
       if (b.group === 'sharp') row(b.id, b.label);
     });
+    box.appendChild(el('p', 'btnsep', 'Knoppen van de Navigation Controller (als die bij deze speler hoort)'));
+    A.BUTTONS.forEach(function (b) {
+      if (b.group === 'nav') row(b.id, b.label);
+    });
     btnBuilt = true;
   }
   function applyEditToSelects() {
@@ -618,8 +693,8 @@
   function loadKnoppen(force) {
     if (!btnBuilt) buildKnoppen();
     if (!force && A.mapChanges(btnBase, btnEdit).count > 0) return Promise.resolve();
-    return call('/api/output').then(function (j) {
-      btnBase = copyMap(j.result.map || {});
+    return getStatus().then(function (st) {
+      btnBase = copyMap((st.gun_buttons && st.gun_buttons.map) || {});
       btnEdit = copyMap(btnBase);
       applyEditToSelects();
     }).catch(function (e) { $('btn-err').textContent = errMsg(e); });
@@ -628,13 +703,13 @@
     var down = A.pressedSet(last && last.buttons && last.buttons.down, last ? last.trigger : 0);
     Object.keys(btnRows).forEach(function (id) { btnRows[id].classList.toggle('down', !!down[id]); });
     var linked = last && last.link && last.link !== 'disconnected' && last.link !== 'lost';
-    $('btn-live').textContent = linked ? 'De Move is verbonden: druk op een knop om te zien welke regel oplicht.' : 'Zet de Move aan (PS-knop) om de knoppen uit te proberen.';
+    $('btn-live').textContent = linked ? 'De Move van speler ' + player + ' is verbonden: druk op een knop om te zien welke regel oplicht.' : 'Zet de Move van speler ' + player + ' aan (PS-knop) om de knoppen uit te proberen.';
   }
   $('btn-save').addEventListener('click', function (e) {
     var ch = A.mapChanges(btnBase, btnEdit);
     if (!ch.count) return;
     $('btn-err').textContent = ''; $('btn-msg').textContent = '';
-    submit('/api/gun-buttons', { map: ch.changes }, $('btn-err'), null, e.target, function (r) {
+    submit('/api/gun-buttons', P({ map: ch.changes }), $('btn-err'), null, e.target, function (r) {
       btnBase = copyMap(r.map || {});
       btnEdit = copyMap(btnBase);
       applyEditToSelects();
@@ -693,7 +768,7 @@
     box.appendChild(el('p', 'muted', r.saved ? 'Bewaard.' : 'Niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.'));
   }
   function applyLed(body, errEl, btn) {
-    submit('/api/led', body, errEl, 'LED ingesteld', btn, function (r) {
+    submit('/api/led', P(body), errEl, 'LED ingesteld voor speler ' + player, btn, function (r) {
       activeLed = r.led.rgb;
       renderPresets();
       showLedResult(r);
@@ -888,6 +963,184 @@
   }
   $('game-stop-all').addEventListener('click', function (e) { gameStop(e.target); });
 
+  // ---- Controllers: lijst, koppelwizard, naam/speler, knipperen, verwijderen ----
+  var ctrlSig = '';
+  var ctrlCards = {};
+  var ctrlEditing = {};   // sleutel -> naamveld heeft de focus of is gewijzigd (niet overschrijven)
+  var pairActive = false;
+  function renderPair(p, helper) {
+    var v = A.pairView(p);
+    pairActive = v.active;
+    var ol = $('pair-steps');
+    ol.textContent = '';
+    A.PAIR_STEPS.forEach(function (name, i) {
+      ol.appendChild(el('li', i < v.step ? 'done' : (i === v.step && v.state !== 'idle' && v.state !== 'cancelled' && v.state !== 'failed' ? 'now' : ''), name));
+    });
+    $('pair-text').textContent = v.text;
+    $('pair-text').className = 'big ' + (v.tone === 'ok' ? 'ok' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'warn' : '');
+    var sub = v.message;
+    if (v.state === 'done' && p && p.player) sub = 'De controller is speler ' + p.player + '. Je kunt de naam en de speler hieronder aanpassen.';
+    if (v.busy) sub = sub || 'Even geduld...';
+    $('pair-msg').textContent = sub;
+    $('pair-install').hidden = !v.showInstall;
+    $('pair-cmd').textContent = (p && p.helper && p.helper.install_command) || (helper && helper.install_command) || '';
+    $('pair-start').hidden = !v.canStart;
+    $('pair-start').textContent = v.startLabel;
+    $('pair-confirm').hidden = !v.canConfirm;
+    $('pair-confirm').textContent = v.confirmLabel || 'Doorgaan';
+    $('pair-cancel').hidden = !v.canCancel;
+  }
+  function pairAction(action, btn) {
+    $('pair-err').textContent = '';
+    if (btn) btn.disabled = true;
+    api('/api/controllers/pair', { action: action }).then(function (j) {
+      if (btn) btn.disabled = false;
+      if (!j.ok) { $('pair-err').textContent = errText(j); return; }
+      renderPair(j.result, null);
+      restartCtrlPoll();
+    }).catch(function () { if (btn) btn.disabled = false; $('pair-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+  }
+  $('pair-start').addEventListener('click', function (e) { pairAction('start', e.target); });
+  $('pair-confirm').addEventListener('click', function (e) { pairAction('confirm', e.target); });
+  $('pair-cancel').addEventListener('click', function (e) { pairAction('cancel', e.target); });
+
+  function ctrlUpdate(c, body, okMsg, errEl, btn) {
+    var b = { controller: c.key };
+    Object.keys(body).forEach(function (k) { b[k] = body[k]; });
+    return submit('/api/controllers/update', b, errEl, okMsg, btn, function () { ctrlSig = ''; refreshControllers(); });
+  }
+  function buildCtrlCard(c, nowS) {
+    var card = el('article', 'card ctrl' + (c.removed ? ' removed' : ''));
+    var head = el('div', 'chead');
+    head.appendChild(ledChip(c.type === 'move' && c.led ? c.led.rgb : null, 'ledbig'));
+    var name = el('p', 'cname', c.name);
+    head.appendChild(name);
+    head.appendChild(el('span', 'ctype', A.controllerTypeLabel(c.type) + (c.model ? ' (' + c.model + ')' : '')));
+    card.appendChild(head);
+    var bv = A.controllerBattery(c);
+    var dl = el('dl');
+    var rows = [
+      ['Speler', c.removed ? 'geen (verwijderd)' : (c.player ? (c.type === 'move' ? 'speler ' + c.player : 'hoort bij speler ' + c.player) : 'geen'), ''],
+      ['Verbonden', c.connected ? 'ja' + (c.connection === 'usb' ? ' (USB)' : '') : 'nee', c.connected ? 'ok' : 'warn'],
+      ['Batterij', c.connected ? bv.label + (bv.detail ? ' (' + bv.detail + ')' : '') : '-', bv.level === 'low' ? 'bad' : ''],
+      ['Laatst gezien', c.connected ? 'nu' : A.lastSeenText(c.last_seen_unix, nowS), ''],
+      ['Gekoppeld aan deze pc', c.paired ? 'ja' : 'nee', c.paired ? '' : 'warn']
+    ];
+    if (c.overrides) rows.push(['Eigen instellingen', c.overrides + ' afwijkend van de standaard', '']);
+    fill(dl, rows);
+    card.appendChild(dl);
+    var err = el('p', 'err');
+    err.setAttribute('role', 'alert');
+    if (!c.known) {
+      card.appendChild(el('p', 'hint', 'Bluetooth kent deze controller, maar RavenGun nog niet. Zet hem aan met de PS-knop.'));
+    }
+    if (c.known && !c.removed) {
+      // Naam en speler.
+      var form = el('div', 'rowform');
+      var lab = el('label', '', 'Naam');
+      var inp = el('input');
+      inp.type = 'text'; inp.maxLength = 32; inp.value = c.name;
+      inp.addEventListener('input', function () { ctrlEditing[c.key] = true; });
+      lab.appendChild(inp);
+      form.appendChild(lab);
+      var save = el('button', 'secondary', 'Naam bewaren');
+      save.type = 'button';
+      save.addEventListener('click', function () {
+        var v = inp.value.trim();
+        if (!v) { err.textContent = 'Geef een naam van 1 tot 32 tekens.'; return; }
+        ctrlEditing[c.key] = false;
+        ctrlUpdate(c, { name: v }, 'Naam bewaard', err, save);
+      });
+      form.appendChild(save);
+      card.appendChild(form);
+      var pl = el('label', '', c.type === 'move' ? 'Speler (een bezette speler wordt geruild)' : 'Hoort bij speler');
+      var sel = el('select');
+      for (var i = 1; i <= A.MAX_PLAYERS; i++) sel.appendChild(new Option('Speler ' + i, String(i)));
+      sel.value = String(c.player || 1);
+      sel.addEventListener('change', function () {
+        ctrlUpdate(c, { new_player: Number(sel.value) }, 'Spelernummer aangepast', err, sel);
+      });
+      pl.appendChild(sel);
+      card.appendChild(pl);
+    }
+    var acts = el('p', 'actions');
+    if (c.type === 'move' && c.known && !c.removed) {
+      var blink = el('button', 'secondary', 'Knipperen');
+      blink.type = 'button';
+      blink.title = 'De LED van deze Move knippert 3 seconden wit, zodat je ziet welke het is.';
+      blink.addEventListener('click', function () {
+        err.textContent = '';
+        submit('/api/controllers/blink', { controller: c.key }, err, 'De LED knippert', blink);
+      });
+      acts.appendChild(blink);
+    }
+    if (c.overrides && c.known && !c.removed) {
+      var reset = el('button', 'secondary', 'Standaardinstellingen');
+      reset.type = 'button';
+      reset.addEventListener('click', function () {
+        if (!window.confirm('De eigen instellingen van ' + c.name + ' wissen? Dan gelden weer de standaardinstellingen.')) return;
+        ctrlUpdate(c, { reset_settings: true }, 'Standaardinstellingen hersteld', err, reset);
+      });
+      acts.appendChild(reset);
+    }
+    var del = el('button', 'danger', 'Verwijderen');
+    del.type = 'button';
+    acts.appendChild(del);
+    card.appendChild(acts);
+    // Verwijderen met bevestiging: instellingen bewaren of wissen.
+    var conf = el('div', 'confirm');
+    conf.hidden = true;
+    conf.appendChild(el('p', '', c.name + ' verwijderen? De controller wordt bij Bluetooth ontkoppeld. Bewaar je de instellingen, dan krijgt hij ze terug als je hem opnieuw koppelt.'));
+    var ca = el('p', 'actions');
+    var keep = el('button', 'danger', 'Verwijderen, instellingen bewaren');
+    var forget = el('button', 'danger', 'Verwijderen en instellingen wissen');
+    var no = el('button', 'secondary', 'Annuleren');
+    [keep, forget, no].forEach(function (b) { b.type = 'button'; ca.appendChild(b); });
+    conf.appendChild(ca);
+    card.appendChild(conf);
+    del.addEventListener('click', function () { conf.hidden = false; del.hidden = true; });
+    no.addEventListener('click', function () { conf.hidden = true; del.hidden = false; });
+    function remove(keepSettings, btn) {
+      submit('/api/controllers/unpair', { controller: c.key, keep_settings: keepSettings }, err,
+        keepSettings ? 'Verwijderd; instellingen bewaard' : 'Verwijderd', btn, function () { ctrlSig = ''; refreshControllers(); });
+    }
+    keep.addEventListener('click', function () { remove(true, keep); });
+    forget.addEventListener('click', function () { remove(false, forget); });
+    card.appendChild(err);
+    return card;
+  }
+  function refreshControllers() {
+    return api('/api/controllers').then(function (j) {
+      if (!j.ok) { $('ctrl-err').textContent = errText(j); return; }
+      $('ctrl-err').textContent = '';
+      var r = j.result;
+      renderPair(r.pairing, r.helper);
+      // Opnieuw opbouwen als er iets veranderd is, maar niet terwijl iemand een naam aan het typen is.
+      var typing = Object.keys(ctrlEditing).some(function (k) { return ctrlEditing[k]; });
+      var sig = JSON.stringify(r.controllers.map(function (c) {
+        return [c.key, c.name, c.player, c.connected, c.removed, c.paired, c.known, c.battery && c.battery.code, c.overrides, c.led && c.led.rgb, Math.floor((c.last_seen_unix || 0) / 60)];
+      }));
+      if (sig !== ctrlSig && !typing) {
+        ctrlSig = sig;
+        var box = $('ctrl-list');
+        box.textContent = '';
+        var nowS = Date.now() / 1000;
+        r.controllers.forEach(function (c) { box.appendChild(buildCtrlCard(c, nowS)); });
+        if (!r.controllers.length) box.appendChild(el('p', 'muted', 'Nog geen controllers. Koppel er een met de knop hierboven.'));
+      }
+      var notes = [];
+      if (!r.adapter.found) notes.push('Er is geen Bluetooth-adapter gevonden' + (r.adapter.error ? ' (' + r.adapter.error + ')' : '') + '.');
+      if (!r.helper.installed) notes.push('Koppelen vraagt eenmalig een hulpprogramma met beheerrechten; de wizard laat zien hoe.');
+      $('ctrl-hint').textContent = (notes.length ? notes.join(' ') + ' ' : '') +
+        'Elke Move is een speler met een eigen pistool in de game en eigen instellingen. Een Navigation Controller hoort bij een speler: zijn knoppen kies je bij Knoppen van die speler.';
+    }).catch(function () { setConn(false); });
+  }
+  function restartCtrlPoll() {
+    if (current !== 'controllers') return;
+    clearInterval(pollTimer);
+    pollTimer = setInterval(refreshControllers, pairActive ? 700 : 3000);
+  }
+
   // ---- Info (technisch) ----
   function moveRows(s) {
     var c = s.controller;
@@ -1080,6 +1333,7 @@
     knoppen: { show: function () { loadKnoppen(false).then(lightButtons); startStream(); } },
     led: { build: buildCamera, show: function () { renderPresets(); refreshLed(); drawMini(); startStream(); }, poll: refreshLed, ms: 3000 },
     games: { show: refreshGames, poll: refreshGames, ms: 2000 },
+    controllers: { show: function () { ctrlSig = ''; refreshControllers().then(restartCtrlPoll); } },
     info: { show: function () { outFormFilled = false; refreshInfo(); }, poll: refreshInfo, ms: 2500 }
   };
   function remember(name) { try { window.localStorage.setItem('rg.tab', name); } catch (e) { /* geen opslag: dan onthouden we niets */ } }
@@ -1108,6 +1362,7 @@
     clearInterval(pollTimer);
     pollTimer = null;
     stopStream();
+    $('playerbar').hidden = !A.hasPlayerBar(name);
     var h = handlers[name];
     if (h) {
       if (h.build && !built[name]) { built[name] = true; h.build(); }

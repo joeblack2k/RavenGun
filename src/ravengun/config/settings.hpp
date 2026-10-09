@@ -190,6 +190,8 @@ std::string move_for_player(const Settings& s, int player);
 // spelernummer (0 = geen vrije plek of een Navigation Controller zonder speler); `added` = nieuw of teruggehaald.
 int register_controller(Settings& s, const std::string& address, const std::string& type, const std::string& model, int64_t now_unix,
                         bool* added = nullptr);
+// Aantal eigen keuzes van een controller: afwijkingen die niet alleen de spelergebonden standaarden (kleur, Start-toets) zijn.
+int own_overrides(const Settings& s, const std::string& address);
 // Standaardnaam: "Move 2", "Navigation Controller".
 std::string default_controller_name(const Settings& s, const std::string& type);
 

@@ -352,6 +352,28 @@ std::string move_for_player(const Settings& s, int player) {
     return {};
 }
 
+int own_overrides(const Settings& s, const std::string& address) {
+    const std::string a = normalize_address(address);
+    auto it = s.controllers.find(a);
+    if (it == s.controllers.end()) return 0;
+    // Wat de controller zou hebben met alleen de spelergebonden standaarden.
+    Settings base = s;
+    ControllerEntry& be = base.controllers.at(a);
+    clear_overrides(be);
+    if (be.type == "move" && be.player > 1) apply_player_defaults(base, a, 1, be.player);
+    const Settings mine = effective(s, a), plain = effective(base, a);
+    int n = 0;
+    for (const auto& k : it->second.keys) {
+        Settings x, y;
+        copy_controller_value(k, x, mine);
+        copy_controller_value(k, y, plain);
+        x.controllers.clear();
+        y.controllers.clear();
+        if (to_json(x, false) != to_json(y, false)) ++n;
+    }
+    return n;
+}
+
 std::string default_controller_name(const Settings& s, const std::string& type) {
     if (type == "navigation") {
         int n = 0;

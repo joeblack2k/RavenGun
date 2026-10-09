@@ -721,7 +721,7 @@ std::string ControllerService::list_json(bool full_ids) {
             w.key("enabled").value(false).key("rgb").null();
         }
         w.end_object();
-        w.key("overrides").value(e ? static_cast<int>(e->keys.size()) : 0);
+        w.key("overrides").value(e ? config::own_overrides(s, a) : 0);
         w.end_object();
     }
     w.end_array();
