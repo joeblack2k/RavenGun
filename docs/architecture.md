@@ -100,7 +100,7 @@ Geïmplementeerd en automatisch getest (`ravengun_iobridge_tests`); het dialect 
 
 ### Dialect hid-board (virtuele joystick/HID als invoerbord)
 
-Geïmplementeerd en getest (`ravengun_hid_board_tests`: bytes van rapportbeschrijving en rapport, schaal, neutraal, opruimen, uhid tegen een FIFO; `ravengun_iobridge_tests`: de route met een nep-apparaat). Besluit en achtergrond: `docs/decisions.md`, "IO-brug stap 2". Meting aan de game: `docs/research/teknoparrot-io.md`, hoofdstuk 6.
+Geïmplementeerd, live gezien bij Transformers: Shadows Rising (start, trekker, richtrichting) en getest (`ravengun_hid_board_tests`: bytes van rapportbeschrijving en rapport, schaal, neutraal, opruimen, uhid tegen een FIFO; `ravengun_iobridge_tests`: de route met een nep-apparaat). Besluit en achtergrond: `docs/decisions.md`, "IO-brug stap 2". Meting aan de game: `docs/research/teknoparrot-io.md`, hoofdstuk 6.
 
 - Beschrijving van een bord: `packaging/hid-boards.json` (ook ingebouwd in de daemon): `transport` (uinput of uhid), `name`, `vendor`, `product`, `button_count`, `axes` (naam X/Y/Z/RX/RY/RZ, `signal`, `invert`, `min`/`max`, `idle`) en `buttons` (`index`, `signal`). Signaalnamen als in `io_state.hpp`. Een bord is geldig als `validate_hid_board` leeg teruggeeft (onbekende as of signaal, dubbele as of knop, knopindex buiten het bereik, uinput maximaal 16 knoppen).
 - Zuivere kern: `hid_board_frame` (toestand naar assen en een knoppenbitveld; speler zonder geldige aim blijft op ruststand, niet gewapend is alles neutraal), `hid_board_descriptor` en `hid_board_report` (uhid: knoppen als bitveld, daarna elke as als little-endian int16; geen rapport-ID).
