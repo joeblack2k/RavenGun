@@ -19,6 +19,11 @@ UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
 # BudgieLoader_x64.exe (64-bit games) of BudgieLoader.exe (32-bit); comm is afgekapt op 15 tekens.
+# Meldingen: in een terminal op stdout/stderr; gestart vanaf het bureaublad of Steam (geen terminal) ook als
+# bureaubladmelding, zodat de speler ziet wat er gebeurt (bv. "druk op PS").
+say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
+fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -u critical -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
+
 game_running() { pgrep -x "BudgieLoader_x6|BudgieLoader.ex" >/dev/null; }
 
 stop_all() {
@@ -43,21 +48,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -f "$TP/UserProfiles/$PROFILE.xml" ]] || { echo "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)" >&2; exit 1; }
-game_running && { echo "Er draait al een game; eerst '$0 --stop'." >&2; exit 1; }
+[[ -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
+game_running && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
 
 if [[ $WAIT_MOVE -eq 1 ]]; then
-  echo "Wachten op de Move (druk op de PS-knop)..."
+  say "Zet de Move aan: druk op de PS-knop."
   for _ in $(seq 1 120); do "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' && break; sleep 1; done
-  "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' || { echo "Geen Move binnen 2 minuten." >&2; exit 1; }
+  "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' || fail "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."
 fi
 
 "$CTL" arm >/dev/null
 for L in usb-RavenGun_Virtual_Lightgun-event-mouse usb-RavenGun_Virtual_Keyboard-event-kbd; do
   for _ in $(seq 1 20); do [[ -e /dev/input/by-id/$L ]] && break; sleep 0.25; done
-  [[ -e /dev/input/by-id/$L ]] || { echo "Invoerapparaat ontbreekt: $L" >&2; exit 1; }
+  [[ -e /dev/input/by-id/$L ]] || fail "Invoerapparaat ontbreekt: $L"
 done
 [[ -n "$RECORD" ]] && "$CTL" record --start --tag "$RECORD" --duration 3600 >/dev/null && echo "Opname gestart ($RECORD)."
 
@@ -90,5 +95,5 @@ systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" \
   /bin/sh -c "exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
 for _ in $(seq 1 90); do game_running && break; sleep 1; done
-game_running || { echo "De game is niet gestart; zie $LOG" >&2; exit 1; }
-echo "$PROFILE gestart. Stoppen: $0 --stop"
+game_running || fail "$PROFILE is niet gestart; zie $LOG"
+say "$PROFILE start. Move verbonden, lightgun klaar."

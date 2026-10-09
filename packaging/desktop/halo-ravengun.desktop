@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Halo Fireteam Raven
+Comment=Start Halo met de Move als lightgun
+Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile Halo
+Icon=/home/deck/projects/ravengun/packaging/icons/halo.png
+Terminal=false
+Categories=Game;

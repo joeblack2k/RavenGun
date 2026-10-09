@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TeknoParrot
+Comment=TeknoParrot-instellingen en games
+Exec=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrotUi
+Path=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64
+Icon=/home/deck/projects/ravengun/packaging/icons/teknoparrot.png
+Terminal=false
+Categories=Game;
