@@ -6,6 +6,8 @@
 # Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move]
 #          scripts/play-halo.sh --stop        (game stoppen, opname stoppen, uitvoer ontwapenen)
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
+# --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
+#              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
@@ -80,9 +82,10 @@ while [[ $# -gt 0 ]]; do
     --stop) stop_all; exit 0 ;;
     --profile) PROFILE="${2:?--profile vereist een naam}"; shift 2 ;;
     --env) [[ "${2:-}" == *=* ]] || { echo "--env vereist K=V" >&2; exit 2; }; EXTRA_ENV+=("$2"); shift 2 ;;
+    --gamescope) EXTRA_ENV+=(TP_GAMESCOPE=1 TP_GAMESCOPE_PATH=/usr/bin/gamescope); shift ;;
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--no-wait-move] | --stop" >&2; exit 2 ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] | --stop" >&2; exit 2 ;;
   esac
 done
 

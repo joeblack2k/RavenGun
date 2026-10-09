@@ -8,6 +8,7 @@ Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-r
 
 --env K=V: (herhaalbaar) schrijft UserProfiles/<PROFIEL>.env voor play-halo.sh. Zonder --env krijgen Windows-games
 (EmulatorType TeknoParrot) TP_POSTSTART_REMOTETHREAD_MS=3000 als er nog geen .env is.
+--gamescope: schrijft TP_GAMESCOPE=1 (+ pad) in de .env: TeknoParrotUI draait de game in gamescope (schermvullend).
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
 --view: maakt een lokale map met alleen symlinks naar de bestanden van de game (er wordt niets gekopieerd en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
@@ -125,6 +126,8 @@ def main():
     # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games (OpenParrot/TeknoParrot-loader)
     # hebben onder Wine de injectiemethode "na 3 s" nodig; de standaardmethode faalt met "Failed to find kernel32.dll".
     envf = dst[:-4] + '.env'
+    if '--gamescope' in sys.argv:
+        envs = envs + ['TP_GAMESCOPE=1', 'TP_GAMESCOPE_PATH=/usr/bin/gamescope']
     if envs or (not os.path.exists(envf) and '<EmulatorType>TeknoParrot</EmulatorType>' in s):
         lines = envs or ['TP_POSTSTART_REMOTETHREAD_MS=3000']
         open(envf, 'w', encoding='utf-8').write('# door tp-add-game.py; zie packaging/games-status.md\n' + '\n'.join(lines) + '\n')

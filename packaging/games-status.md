@@ -1,14 +1,81 @@
-# Games in TeknoParrot: status eerste ronde (2026-10-09)
+# Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
-Testomgeving: SteamOS Desktop Mode, KDE Wayland met Xwayland :0, AMD RX 6950 XT, tv op 1920x1080, TeknoParrotUI 2.0.0.130 (Linux/Avalonia). Games staan op de NAS (`~/mnt/spidernas_emulation/Teknoparrot/<map>`) en zijn niet gekopieerd. Dit is een snelle eerste ronde (maximaal ongeveer 10 minuten per game), geen diepgaand debuggen.
+Testomgeving: SteamOS Desktop Mode, KDE Wayland met Xwayland :0, AMD RX 6950 XT, tv op 1920x1080, TeknoParrotUI 2.0.0.130 (Linux/Avalonia). Games staan op de NAS (`~/mnt/spidernas_emulation/Teknoparrot/<map>`) en zijn niet gekopieerd.
 
 Starten en stoppen (voor elke game hetzelfde):
 
     cd ~/projects/ravengun
-    scripts/play-halo.sh --profile PROFIEL            (wacht op de Move; voeg --no-wait-move toe om dat over te slaan)
+    scripts/play-halo.sh --profile PROFIEL [--no-wait-move] [--gamescope] [--env K=V]...
     scripts/play-halo.sh --stop
 
-Een profiel (re)maken: `python3 -I scripts/tp-add-game.py PROFIEL "PAD/NAAR/EXE" [--wine-runner PAD] [--view] [--env K=V]... [--force]`. Voor Windows-games schrijft dit script nu ook `UserProfiles/<PROFIEL>.env` met de loader-instelling die onder Wine nodig is (zie hieronder).
+Een profiel (re)maken: `python3 -I scripts/tp-add-game.py PROFIEL "PAD/NAAR/EXE" [--wine-runner PAD] [--view] [--gamescope] [--env K=V]... [--force]`. Extra omgeving per profiel staat in `UserProfiles/<PROFIEL>.env`.
+
+## Overzicht
+
+| Game (profiel) | Status | Hoe |
+| --- | --- | --- |
+| Halo | werkt volledig | `--profile Halo` |
+| Terminator Salvation (Terminator) | werkt beeldvullend, richten en schieten goed | `--profile Terminator` (gamescope staat in de .env) |
+| Transformers: Shadows Rising (TransformersShadowsRising) | werkt: attract, free play, stage select met de trekker | `--profile TransformersShadowsRising` (prefix-kopie met native DLL's, zie onder) |
+| Time Crisis 5 (TC5) | start direct de echte game: attract-scherm "INSERT 1 CREDIT(S)"; invoer nog niet verbonden | `--profile TC5` (plain wine) |
+| Tomb Raider (TombRaider) | beeld, "IO BOARD ERROR"; geparkeerd (eigen route met de daemon) | |
+| Rabbids Hollywood (RabbidsHollywood) | titelscherm, stopt na ongeveer 45 s, knoppen werken niet; geparkeerd (eigen route met de daemon) | |
+| Jurassic Park (JurassicPark) | nog niet: zwart/wit beeld; geparkeerd | |
+| Luigi's Mansion (LuigisMansion) | geparkeerd: VACUUM.exe stopt na enkele seconden | |
+| Let's Go Safari (LGS) | geparkeerd: proces hangt zonder venster | |
+
+## Tweede ronde: wat is veranderd
+
+### Terminator Salvation: schermvullend via TeknoParrotUI-gamescope (werkt)
+- Oplossing: `UserProfiles/Terminator.env` met `TP_GAMESCOPE=1` en `TP_GAMESCOPE_PATH=/usr/bin/gamescope` (of `--gamescope` bij `play-halo.sh`). TPUI wrapt dan de wine-aanroep zelf (`gamescope -W 1920 -H 1080 -S fit -f --backend wayland -- wine BudgieLoader.exe ...`) ondanks de tekst "External emulator profile"; het profielveld `FullscreenScalingMode` hoeft niet gezet (de modus wordt dan "AutomaticFit" via de omgevingsvariabele). Windowed blijft 1.
+- Resultaat (eerste poging): beeldvullend attract-scherm (FREEPLAY), JVS verbonden ("GAME CONNECTED"), de trekker uit `ravengunctl output-button trigger` start het spel, het crosshair is zichtbaar. TeknoParrotUi zelf heeft de virtuele lightgun (event31) en het toetsenbord (event256) open (de invoer loopt via de JVS-brug); het spelproces BudgieLoader heeft ze in deze opstelling niet zelf open.
+- Lightgun-uitlijning (testpatroon, gemeten op schermafdrukken van de tv): hoeken (0,05/0,95) kwamen binnen ongeveer 1 % (bv. doel 0,95/0,05 -> crosshair op 0,944/0,051; doel 0,05/0,95 -> 0,051/0,949); rasterpunt (0,15/0,15) -> 0,148/0,149; (0,85/0,85) -> 0,849/0,849. Daarna heeft de eigenaar enkele minuten met de echte Move gespeeld: "ging goed", richten en schieten werkten.
+- Op de NAS veranderd: niets nieuws t.o.v. ronde 1 (de game schrijft zijn eigen state in `T4User`).
+
+### Jurassic Park: nog geen beeld (geparkeerd)
+- (a) Wine-virtueel bureaublad via wrapper `scripts/wine-vdesktop.sh` (alleen BudgieLoader krijgt `explorer /desktop=RavenGun,1920x1080`; Unix-pad moet naar `Z:\` voor explorer): het bureaublad komt wel op de tv en de JVS verbindt, maar de game stopt na ongeveer 13 s zonder iets te tonen (zelfde gedrag als de venstermodus: waarschijnlijk dezelfde crash).
+- (c) gamescope (`TP_GAMESCOPE=1`, Windowed=0): de game draait (CPU 160 %, JVS verbonden), in gamescope bestaat een venster "SDL_app" van 1368x768, maar het blijft effen wit; er komt geen enkele uitvoer van de game in het log. Zonder gamescope is het beeld zwart (venster van 14x14).
+- (b) CustomResolution 1360x768 op volledig scherm zonder gamescope: hetzelfde zwarte beeld als daarvoor.
+- Het profiel is teruggezet naar de oorspronkelijke staat (back-up: `~/.local/state/ravengun/JurassicPark.xml.bak-ronde2`; variant met CustomResolution aan: `JurassicPark.xml.ronde2-custom1360`). Volgende stap: de uitvoer van het ELF binnen BudgieLoader zichtbaar maken (WINEDEBUG +loaddll,+x11drv of een GL-trace) om te zien waar na "Starting Game" niets meer gebeurt; geen verband met Proton (plain wine).
+
+### Transformers: Shadows Rising: werkt met native DirectX-DLL's in een prefix-kopie
+- De shaderfout ("fx_2_0 ... not yet implemented") is weg met de native `d3dx9_43`, `d3dcompiler_43` en `d3dcompiler_47` (Microsoft DirectX-redistributable Juni 2010 en `d3dcompiler_47`, door winetricks gedownload) in een eigen kopie van de plain-wine-prefix.
+- Prefix-kopie: `~/.local/share/TeknoParrotUI/prefixes/ravengun-test-tsr` (kopie van `shared/wine`; de symlink `drive_c/Sega` naar de NAS is mee gekopieerd als symlink). De gedeelde prefix is niet gewijzigd.
+- winetricks: het losse script van github.com/Winetricks/winetricks (gecontroleerd als shellscript) is gebruikt met `WINE`/`WINESERVER` van de Kron4ek proton-11.0-2-runner. `cabextract` ontbreekt en kan niet worden geinstalleerd (geen sudo): een kleine vervanger op basis van `7z` staat in `~/.local/share/ravengun/tools/cabextract-shim/cabextract` (alleen voor winetricks, via PATH). Downloads staan in `~/.cache/winetricks`.
+- Het profiel gebruikt de wrapper `scripts/wine-prefix.sh` (WineRunnerPath `~/.local/share/ravengun/wrappers/wine-prefix`, een symlink naar het script) die `RG_WINEPREFIX` (staat in `UserProfiles/TransformersShadowsRising.env`) als prefix zet voor zowel de game als pipehelper.exe.
+- Resultaat: Game Shell -> Transformers2.exe draait stabiel, attract met "FREE PLAY"; een trekker-tik (`ravengunctl output-button trigger tap`) brengt het spel naar STAGE SELECT. De core zit in het proces en heeft de virtuele gun en het toetsenbord zelf open (zoals bij Halo). De JVS-brug verbindt niet (niet nodig). Niet getest: coin, schieten tijdens het spel, geluid.
+- Op de NAS veranderd (door game en shell): logbestanden in `Sega/shell` en `Sega/Transformers2`, `shell/teknoparrot.ini`, `shell/variables/*`.
+
+### Time Crisis 5: de echte game start direct (plain wine) - invoer nog open
+- RSLauncher.exe start de echte game en sluit af; direct starten werkt: `GamePath` = `TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe`, `ExecutableName` hetzelfde, `TP_GAME_WORKING_DIRECTORY` = die map (`UserProfiles/TC5.env`, ook `TP_POSTSTART_REMOTETHREAD_MS=3000`).
+- Zowel onder het standaard Proton-script als onder plain wine (nu ingesteld, `WineRunnerPath` = Kron4ek proton-11.0-2): venster "TimeCrisis Game (64-bit, DX9)" met de TeknoParrot-core geladen ("Have fun :)"), attract-video en "INSERT 1 CREDIT(S)". COM4 is niet nodig gebleken (de plain-wine-prefix heeft com1-com33, de Proton-prefix alleen com33; beide startten).
+- JVS verbindt niet ("GAME CONNECTED" ontbreekt); een toets 5 via xdotool gaf geen credit. Het venster is een gewoon venster (niet schermvullend); mogelijk werkt `--gamescope` (niet geprobeerd).
+- Op de NAS veranderd: `teknoparrot.ini` (bestond al), verder niets.
+
+### Windows-games onder Proton: JVS-brug (TeknoParrotUI-issue #1443)
+- "Bad server socket 11" staat in geen enkel log. Maar: onder het standaard Proton-script (GE-Proton11-7) is `pipehelper.exe` nooit een lopend proces; het bridge-log meldt alleen "helper launched" (de uitvoer van de helper wordt onder Proton niet gelogd). Een met de hand gestarte `proton run pipehelper.exe ...` (schone omgeving, dezelfde prefix) blijft wel draaien, ook met de echte bridge-poort. De omgeving van TeknoParrotUi bevat geen `WINESERVERSOCKET`. Conclusie: de helper sterft onder Proton bij het starten door TPUI (oorzaak niet vastgesteld, waarschijnlijk #1443-achtig), onder plain wine werkt hij altijd ("pipe created, waiting for game").
+- Maar de JVS-pipe is niet de oorzaak van "IO BOARD ERROR" bij Tomb Raider: ook met een met de hand voorgestarte helper (pipe bestond voor de gamestart) blijft de fout. Geen nieuwe Proton-versies gedownload; in `~/.local/share/TeknoParrotUI/proton/` staat alleen GE-Proton11-7-x86_64 (de "Linux Setup" is niet geopend).
+
+### Tomb Raider en Rabbids Hollywood: geparkeerd
+- Tomb Raider: er is geen BepInEx; de map heeft Doorstop (`winhttp.dll`) met een eigen `Doorstop.dll` (Harmony-patch `HarmonyPatch_GunControl`) en `Assembly-CSharp.dll` heeft `CheckIOBoard` en gebruikt `libusb`/`ftdi.dll`/`usb.dll` uit `Game_Data/Plugins` voor het I/O-bord ("GetVersionDRV_USB"); het `Gun_*.log` zegt "ERROR: 1001: Base not found" (de lichtgun-basis). De TP-core zit in Game.exe (TeknoParrot64.dll geladen). De fout is dus het eigen USB-I/O-bord van de game, niet de JVS-pipe. Geen Unity-log gevonden; `-logFile` in ExtraParameters breekt de loader ("Please use the following format").
+- Rabbids Hollywood: `BepInEx/LogOutput.log` toont alleen een normale start ("RHA Mouse Plugin" geladen, geen fout); de plugin leest toetsen (C/V/B/N = coin, Numpad 1/3/7/9 = start). Een `c` via xdotool (met Num_Lock) gaf "Press START to Play" in plaats van "FREE MODE" (er was een credit), maar de game sloot toch na 45-70 s af, onder Proton en plain wine, met en zonder `TP_POSTSTART_REMOTETHREAD_MS`. Op de tv probeerde de eigenaar de Move-knoppen: geen reactie (past bij ontbrekende JVS; de knoppen worden door de plugin niet uit de JVS gelezen). Beide games komen later via een eigen route met de daemon (rol van DemulShooter).
+- Veranderd t.o.v. ronde 1 bij Rabbids: alleen de runner (tijdelijk plain wine) en de credit-toets via xdotool; het profiel is teruggezet.
+
+### Luigi's Mansion en Let's Go Safari: geparkeerd
+- Luigi's Mansion: ook met de prefix-kopie met redistributables stopt VACUUM.exe na ongeveer 6 s.
+- Let's Go Safari: met de prefix-kopie (en ook met `TP_POSTSTART_REMOTETHREAD_MS=8000`) blijft het proces hangen zonder venster, zoals in ronde 1.
+- Beide profielen zijn teruggezet naar het standaard Proton-script.
+
+## Scripts en bestanden (ronde 2)
+- `scripts/play-halo.sh`: nieuwe optie `--gamescope`.
+- `scripts/tp-add-game.py`: nieuwe optie `--gamescope` (schrijft de .env).
+- `scripts/wine-vdesktop.sh`: WineRunnerPath-wrapper voor een Wine-virtueel bureaublad (alleen loader-aanroepen); zie Jurassic Park.
+- `scripts/wine-prefix.sh`: WineRunnerPath-wrapper met een eigen prefix via `RG_WINEPREFIX`.
+- Lokaal buiten de repo: `~/.local/share/ravengun/wrappers/{wine-vdesktop,wine-prefix}` (symlinks), `~/.local/share/ravengun/tools/cabextract-shim/cabextract`, prefix-kopie `~/.local/share/TeknoParrotUI/prefixes/ravengun-test-tsr` (604 MB), back-ups van profielen `~/.local/state/ravengun/*.bak-ronde2`.
+- Profielen: Terminator (.env met gamescope), TC5 (direct de echte exe, plain wine, .env), TransformersShadowsRising (wrapper en .env); overige profielen ongewijzigd.
+
+
+# Ronde 1 (eerste ronde, ter referentie; waar ze afwijken geldt hierboven)
 
 ## Gemeenschappelijke bevindingen
 

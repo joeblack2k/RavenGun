@@ -2,13 +2,13 @@
   "schema": 1,
   "games": {
     "Halo": "Werkt volledig: lightgun, knoppen, trillen.",
-    "Terminator": "Werkt in een venster (volledig scherm geeft nog geen beeld). Schieten en geluid nog niet getest.",
-    "TombRaider": "Start met beeld, maar toont 'IO BOARD ERROR'. Nog niet speelbaar.",
-    "RabbidsHollywood": "Toont het titelscherm, maar sluit na ongeveer 45 seconden af. Nog niet speelbaar.",
-    "JurassicPark": "Werkt nog niet: zwart beeld op volledig scherm.",
+    "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed.",
+    "TombRaider": "Start met beeld, maar toont 'IO BOARD ERROR'. Komt later via een eigen route.",
+    "RabbidsHollywood": "Toont het titelscherm, maar de knoppen werken niet en de game sluit na ongeveer 45 seconden af. Komt later via een eigen route.",
+    "JurassicPark": "Werkt nog niet: wit of zwart beeld. Geparkeerd.",
     "LuigisMansion": "Start nog niet (sluit direct af). Geparkeerd.",
     "LGS": "Start nog niet (geen venster). Geparkeerd.",
-    "TC5": "Start nog niet (launcher sluit direct af). Geparkeerd.",
-    "TransformersShadowsRising": "Start nog niet (shaderfout). Geparkeerd."
+    "TC5": "De echte game start, maar de besturing werkt nog niet. Nog niet speelbaar.",
+    "TransformersShadowsRising": "Werkt: attract en stage select met de trekker. Coin en schieten nog niet getest."
   }
 }
