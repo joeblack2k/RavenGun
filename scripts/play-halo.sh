@@ -8,6 +8,8 @@
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
 #              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
+# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp); standaard uit packaging/io-routes.json. tp-shm: de daemon schrijft
+#            zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
@@ -71,13 +73,14 @@ stop_all() {
   systemctl --user stop "$UNIT.service" 2>/dev/null || true
   for _ in $(seq 1 15); do unit_alive || break; sleep 1; done
   "$CTL" record --stop >/dev/null 2>&1 || true
+  "$CTL" iobridge stop >/dev/null 2>&1 || true  # IO-brug (tp-shm): invoer neutraal, bestand en route weg
   "$CTL" aagames stop >/dev/null 2>&1 || true   # Unity-route (play-unity.sh): de rumble gaat weer terug naar de trekker
   "$CTL" disarm >/dev/null 2>&1 || true
   if unit_alive; then echo "Er draaien nog processen van de test: $(unit_pids | tr '\n' ' ')" >&2; exit 1; fi
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0; ROUTE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
@@ -87,12 +90,28 @@ while [[ $# -gt 0 ]]; do
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
     --teknoparrot) USE_TP=1; shift ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] | --stop" >&2; exit 2 ;;
+    --route) ROUTE="${2:?--route vereist evdev, tp-shm of unity-tcp}"; shift 2 ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--route R] | --stop" >&2; exit 2 ;;
   esac
 done
 
+# Invoerroute: --route, anders uit packaging/io-routes.json (standaard evdev). --teknoparrot forceert evdev.
+if [[ -z "$ROUTE" ]]; then
+  ROUTE=$(python3 -I - "$ROOT/packaging/io-routes.json" "$PROFILE" <<'PY' 2>/dev/null || echo evdev
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print(d.get("games", {}).get(sys.argv[2], {}).get("route", d.get("default", "evdev")))
+except Exception:
+    print("evdev")
+PY
+)
+fi
+[[ $USE_TP -eq 1 ]] && ROUTE=evdev
+case "$ROUTE" in evdev|tp-shm|unity-tcp) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm of unity-tcp)";; esac
+
 # Unity-route (zonder TeknoParrot): het profiel staat in packaging/aagames-games.json.
-if [[ $USE_TP -eq 0 ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
+if [[ $USE_TP -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
   UARGS=(--game "$PROFILE")
   [[ $WAIT_MOVE -eq 0 ]] && UARGS+=(--no-wait-move)
   for E in "${EXTRA_ENV[@]}"; do UARGS+=(--env "$E"); done
@@ -116,6 +135,15 @@ for L in usb-RavenGun_Virtual_Lightgun-event-mouse usb-RavenGun_Virtual_Keyboard
   for _ in $(seq 1 20); do [[ -e /dev/input/by-id/$L ]] && break; sleep 0.25; done
   [[ -e /dev/input/by-id/$L ]] || fail "Invoerapparaat ontbreekt: $L"
 done
+# tp-shm: de daemon neemt de invoer van de TeknoParrot-kern over (bestand maken voor de game start).
+SWAP=""
+if [[ "$ROUTE" == tp-shm ]]; then
+  "$CTL" iobridge start "$PROFILE" --route tp-shm >/dev/null || fail "IO-brug (tp-shm) starten mislukt voor $PROFILE"
+  SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
+  say "Invoerroute: tp-shm (de daemon schrijft de invoer)."
+else
+  "$CTL" iobridge stop >/dev/null 2>&1 || true   # een rest van een eerdere tp-shm-sessie
+fi
 [[ -n "$RECORD" ]] && "$CTL" record --start --tag "$RECORD" --duration 3600 >/dev/null && echo "Opname gestart ($RECORD)."
 
 # Schermomgeving van de ingelogde sessie (ook bij starten via SSH).
@@ -144,7 +172,7 @@ mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
-  /bin/sh -c "exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
+  /bin/sh -c "$SWAP exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
 for _ in $(seq 1 "${RAVENGUN_START_WAIT:-120}"); do game_running && break; sleep 1; done
 game_running || fail "$PROFILE is niet gestart; zie $LOG"
