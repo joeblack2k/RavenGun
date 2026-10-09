@@ -3,12 +3,17 @@
 GameProfiles/, met het pad naar de game (blijft staan waar hij staat, bv. op de NAS), Input API RawInput en
 de bindingen naar de virtuele RavenGun-apparaten (gun 1209:7202, toetsenbord 1209:7201).
 
-Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-runner PAD] [--view] [--force]
+Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-runner PAD] [--view] [--fullscreen] [--force]
   bv.    python3 -I scripts/tp-add-game.py JurassicPark "/pad/naar/Jurassic Park/game" --wine-runner ~/.../bin/wine
 
+--env K=V: (herhaalbaar) schrijft UserProfiles/<PROFIEL>.env voor play-halo.sh. Zonder --env krijgen Windows-games
+(EmulatorType TeknoParrot) TP_POSTSTART_REMOTETHREAD_MS=3000 als er nog geen .env is.
+--fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
 --view: maakt een lokale map met alleen symlinks naar de bestanden van de game (er wordt niets gekopieerd en
-de bron blijft ongewijzigd) plus een link ElfLdr2 naar de loader van TeknoParrot. Nodig voor 32-bit
-ElfLdr2-games: TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relatief aan de gamemap.
+de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
+nodig voor 32-bit ElfLdr2-games, want TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relatief aan de
+gamemap. Ook nodig als de gamemap een spatie aan het eind heeft (Wine: "Directory name invalid"). Let op: nieuwe
+bestanden die de game in de view maakt blijven lokaal; bestaande bestanden en submappen zijn links naar de NAS.
 
 Vaste afspraak voor de gun-knoppen: trekker = LeftButton, herladen = RightButton, granaat = MiddleButton;
 toetsen: Coin = 5, Start P1 = 1, Test = F2, Service = F3. Bestaande profielen worden niet overschreven
@@ -25,11 +30,14 @@ def binding(name):
     n = name.lower()
     p1 = not re.search(r'\b(p[2-4]|player [2-4])\b', n)
     if n == 'test': return ('kbd', 'F2')
-    if n == 'service': return ('kbd', 'F3')
-    if n in ('coin', 'coin 1', 'coin1'): return ('kbd', 'D5')
+    if n in ('service', 'service sw'): return ('kbd', 'F3')
+    if n in ('coin', 'coin 1', 'coin1', 'credit'): return ('kbd', 'D5')
     if not p1: return None
     if 'light gun' in n: return ('gun', None)
-    if 'start' in n: return ('kbd', 'D1')
+    if 'start' in n or n == 'enter sw': return ('kbd', 'D1')
+    if n == 'gun trigger': return ('gun', 'LeftButton')
+    if n == 'gun button': return ('gun', 'RightButton')
+    if n == 'left pedal': return ('gun', 'MiddleButton')
     if 'trigger' in n or n.endswith('vacuum button'): return ('gun', 'LeftButton')
     if 'reload' in n or n.endswith('vacuum lever'): return ('gun', 'RightButton')
     if 'grenade' in n or n.endswith('screen out'): return ('gun', 'MiddleButton')
@@ -53,6 +61,9 @@ def main():
     if '--wine-runner' in sys.argv:
         runner = os.path.expanduser(sys.argv[sys.argv.index('--wine-runner') + 1])
         args = [a for a in args if os.path.expanduser(a) != runner]
+    argv = sys.argv[1:]
+    envs = [argv[i + 1] for i, a in enumerate(argv) if a == '--env' and i + 1 < len(argv)]
+    args = [a for a in args if a not in envs]
     if len(args) != 2:
         sys.exit(__doc__)
     prof, game = args[0], os.path.abspath(os.path.expanduser(args[1]))
@@ -69,7 +80,8 @@ def main():
             if os.path.islink(pth): os.unlink(pth)
         for e in os.listdir(gdir):
             os.symlink(os.path.join(gdir, e), os.path.join(view, e))
-        os.symlink(os.path.join(TP, 'ElfLdr2'), os.path.join(view, 'ElfLdr2'))
+        if '<EmulatorType>ElfLdr2</EmulatorType>' in open(src, encoding='utf-8-sig').read():
+            os.symlink(os.path.join(TP, 'ElfLdr2'), os.path.join(view, 'ElfLdr2'))
         game = os.path.join(view, os.path.basename(game))
     if os.path.exists(dst):
         if not force: sys.exit(f'bestaat al: {dst} (gebruik --force)')
@@ -84,6 +96,11 @@ def main():
         if '<FieldValue>' in blk: return re.sub(r'<FieldValue>.*?</FieldValue>', '<FieldValue>RawInput</FieldValue>', blk, count=1)
         return blk.replace('</FieldName>', '</FieldName><FieldValue>RawInput</FieldValue>', 1)
     s = re.sub(r'<FieldInformation>(?:(?!</FieldInformation>).)*?<FieldName>Input API</FieldName>.*?</FieldInformation>', api, s, count=1, flags=re.S)
+    if '--fullscreen' in sys.argv:
+        for name, val in (('Windowed', '0'), ('Use Custom Resolution', '1'), ('Custom Resolution Width', '1920'),
+                          ('Custom Resolution Height', '1080')):
+            s = re.sub(r'(<FieldName>' + name + r'</FieldName>\s*<FieldValue>).*?(</FieldValue>)',
+                       lambda m: m.group(1) + val + m.group(2), s, count=1, flags=re.S)
     bound = []
     def btn(m):
         blk = m.group(0)
@@ -101,6 +118,13 @@ def main():
         s = s.replace('</GameProfile>', f'<WineRunnerPath>{runner}</WineRunnerPath>\n</GameProfile>')
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(s)
+    # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games (OpenParrot/TeknoParrot-loader)
+    # hebben onder Wine de injectiemethode "na 3 s" nodig; de standaardmethode faalt met "Failed to find kernel32.dll".
+    envf = dst[:-4] + '.env'
+    if envs or (not os.path.exists(envf) and '<EmulatorType>TeknoParrot</EmulatorType>' in s):
+        lines = envs or ['TP_POSTSTART_REMOTETHREAD_MS=3000']
+        open(envf, 'w', encoding='utf-8').write('# door tp-add-game.py; zie packaging/games-status.md\n' + '\n'.join(lines) + '\n')
+        print(f'  omgeving: {envf}: ' + ' '.join(lines))
     print(f'geschreven: {dst}\n  game: {game}\n  bindingen:\n    ' + '\n    '.join(bound))
 
 

@@ -18,21 +18,59 @@ LOGDIR="$HOME/.local/state/ravengun/logs"
 UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-# BudgieLoader_x64.exe (64-bit games) of BudgieLoader.exe (32-bit); comm is afgekapt op 15 tekens.
 # Meldingen: in een terminal op stdout/stderr; gestart vanaf het bureaublad of Steam (geen terminal) ook als
 # bureaubladmelding, zodat de speler ziet wat er gebeurt (bv. "druk op PS").
 say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
 fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -u critical -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
 
-game_running() { pgrep -x "BudgieLoader_x6|BudgieLoader.ex" >/dev/null; }
+# Alle processen van een test leven in de cgroup van de transient user-unit ravengun-tpui (TeknoParrotUi, de
+# Proton-/Wine-processen, wineserver, de game). Daardoor kun je ze per profiel herkennen en allemaal in een keer
+# stoppen, zonder een andere TeknoParrot-sessie of wineserver van de speler aan te raken.
+unit_pids() {
+  local cg; cg=$(systemctl --user show -p ControlGroup --value "$UNIT.service" 2>/dev/null) || return 0
+  [[ -n "$cg" && -r "/sys/fs/cgroup$cg/cgroup.procs" ]] && cat "/sys/fs/cgroup$cg/cgroup.procs" || true
+}
+
+# Procesnamen (comm: kleine letters, afgekapt op 15 tekens) die "de game draait" betekenen voor dit profiel:
+# de loaders (BudgieLoader*, OpenParrotLoade*) plus de bestandsnamen uit ExecutableName, GamePath en GamePath2.
+GAME_COMMS=""
+build_game_comms() {
+  local f="$TP/UserProfiles/$PROFILE.xml" v n
+  GAME_COMMS="|budgieloader_x6|budgieloader.ex|openparrotloade|"
+  [[ -f "$f" ]] || return 0
+  while IFS= read -r v; do
+    IFS=';' read -ra parts <<< "$v"
+    for n in "${parts[@]}"; do
+      n="${n//\\//}"; n="${n##*/}"; n="${n,,}"; n="${n:0:15}"
+      [[ -n "$n" ]] && GAME_COMMS+="$n|"
+    done
+  done < <(sed -n 's|.*<\(ExecutableName\|GamePath2\?\)>\(.*\)</\1>.*|\2|p' "$f")
+}
+
+game_running() {
+  local p c
+  [[ -n "$GAME_COMMS" ]] || build_game_comms
+  for p in $(unit_pids); do
+    { read -r c < "/proc/$p/comm"; } 2>/dev/null || continue
+    c="${c,,}"
+    [[ "$GAME_COMMS" == *"|$c|"* ]] && return 0
+  done
+  return 1
+}
+
+# Nog iets van de test over (welk proces dan ook in de unit-cgroup)?
+unit_alive() { [[ -n "$(unit_pids)" ]]; }
 
 stop_all() {
-  if game_running; then WINEPREFIX="$PREFIX" "$WINE/wineserver" -k || true; fi
-  for _ in $(seq 1 20); do game_running || break; sleep 1; done
+  # Oude route voor Halo: een BudgieLoader buiten de unit (bv. met de hand gestart) via de wineserver van de
+  # plain-wine-prefix, die alleen Halo gebruikt.
+  if pgrep -x "BudgieLoader_x6|BudgieLoader.ex" >/dev/null; then WINEPREFIX="$PREFIX" "$WINE/wineserver" -k 2>/dev/null || true; fi
+  # De unit stoppen beeindigt TeknoParrotUi en alles wat het startte (wine, wineserver, game), met SIGKILL na 10 s.
   systemctl --user stop "$UNIT.service" 2>/dev/null || true
+  for _ in $(seq 1 15); do unit_alive || break; sleep 1; done
   "$CTL" record --stop >/dev/null 2>&1 || true
   "$CTL" disarm >/dev/null 2>&1 || true
-  game_running && { echo "De game draait nog." >&2; exit 1; }
+  if unit_alive; then echo "Er draaien nog processen van de test: $(unit_pids | tr '\n' ' ')" >&2; exit 1; fi
   echo "Game gestopt, uitvoer ontwapend."
 }
 
@@ -90,10 +128,10 @@ SDENV=(); for E in "${EXTRA_ENV[@]}"; do SDENV+=(-E "$E"); done
 
 mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true
-systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" \
+systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
   /bin/sh -c "exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
-for _ in $(seq 1 90); do game_running && break; sleep 1; done
+for _ in $(seq 1 "${RAVENGUN_START_WAIT:-120}"); do game_running && break; sleep 1; done
 game_running || fail "$PROFILE is niet gestart; zie $LOG"
 say "$PROFILE start. Move verbonden, lightgun klaar."
