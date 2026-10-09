@@ -96,6 +96,21 @@ void MoveSlot::rumble_step(int64_t now) {
         rin_.armed = sh_.output && sh_.output->armed();
         armed_checked_ = now;
     }
+    // Unity-route: de game bepaalt wanneer er geschoten wordt (Recoil-vlag van de plugin). De trekker-gedreven rumble gaat dan
+    // uit, zodat een lege trekker niet trilt en schoten niet dubbel trillen; elk schot geeft een puls van pulse_ms.
+    if ((sh_.game_rumble_mask.load(std::memory_order_relaxed) >> (player_ - 1)) & 1u) {
+        const uint64_t rc = sh_.game_recoil[static_cast<size_t>(player_ - 1)].load(std::memory_order_relaxed);
+        if (rc != recoil_seen_) {
+            recoil_seen_ = rc;
+            if (rin_.connected && rin_.armed) rumble_.test(now, opt_.rumble.pulse_ms);
+        }
+        output::RumbleInput gated = rin_;
+        gated.trigger = false;
+        gated.pump = false;
+        rumble_.update(now, gated);
+        return;
+    }
+    recoil_seen_ = sh_.game_recoil[static_cast<size_t>(player_ - 1)].load(std::memory_order_relaxed);
     rumble_.update(now, rin_);
 }
 

@@ -21,7 +21,8 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
                  SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
                  SetGunButtons, Games, GameStart, GameStop,
-                 Controllers, SetController, Blink, Unpair, Pair };
+                 Controllers, SetController, Blink, Unpair, Pair,
+                 Aagames, OutputKey };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -71,6 +72,9 @@ struct Request {
     std::map<std::string, std::string> gun_map;
     // game_start: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
     std::string profile;
+    // aagames (Unity-route zonder TeknoParrot): action = start | stop | status, game = sleutel uit packaging/aagames-games.json.
+    // output_key: een toets op het virtuele toetsenbord (key = naam uit output/key_table.hpp, action down|up|tap, player 1..4).
+    std::string game, key_name;
     // set_fusion: yaw-trim leren uit centreerdrukken aan/uit (live).
     std::optional<bool> recenter_learning;
     // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp), bij open

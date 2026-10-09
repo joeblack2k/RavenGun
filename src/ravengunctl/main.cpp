@@ -83,6 +83,10 @@ void usage(FILE* f) {
         "  test-pattern center|corners|grid|sweep|stop   synthetische posities zonder Move (vereist arm)\n"
         "  test-pattern point X Y                         één punt, X en Y in [0,1] (linksboven 0 0)\n"
         "  output-button trigger|reload|grenade|aux1|aux2 [down|up|tap]   testknop (standaard tap)\n"
+        "  key NAAM [down|up|tap]    toets op het virtuele toetsenbord (munt 5, start 1..4, test 0), standaard tap;\n"
+        "              --player N kiest de speler; vereist arm\n"
+        "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
+        "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
         "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
         "\n"
@@ -227,6 +231,24 @@ std::string optical_text(const json::Value& s) {
                fmt(num(*p, {"x_norm"}), "%.3f") + ", " + fmt(num(*p, {"y_norm"}), "%.3f") + "), straal " +
                fmt(num(*p, {"radius_px"}), "%.1f") + " px (2D-beeldpositie, diepte onbekend)";
     return "ongeldig: " + str(*p, {"reason"}) + " (camera " + str(*p, {"camera"}) + ")";
+}
+
+// Eén regel over de Unity-route (status van de klant van de BepInEx-plugin).
+std::string aagames_text(const json::Value& a) {
+    if (!boolean(a, {"active"})) return "uit";
+    std::string t = str(a, {"name"}, str(a, {"game"}).c_str()) + ": " + (boolean(a, {"connected"}) ? "VERBONDEN met de game" : "wacht op de game (127.0.0.1:33610)");
+    if (boolean(a, {"connected"})) {
+        t += ", " + fmt(num(a, {"packets_per_s"}, 0), "%.0f") + " pakketten/s, " + fmt(num(a, {"output_frames"}, 0), "%.0f") + " uitvoerberichten";
+        if (const json::Value* ps = path(a, {"players"}); ps && ps->is_array())
+            for (const auto& p : ps->arr) {
+                const json::Value* pl = p.find("playing");
+                if (!pl || !pl->is_bool() || !pl->b) continue;
+                t += "; P" + fmt(num(p, {"player"}, 0), "%.0f") + " ammo " + fmt(num(p, {"ammo"}, 0), "%.0f") + " leven " + fmt(num(p, {"life"}, 0), "%.2f") +
+                     " schoten " + fmt(num(p, {"recoils"}, 0), "%.0f");
+            }
+    }
+    if (!str(a, {"last_error"}, "").empty()) t += " (" + str(a, {"last_error"}, "") + ")";
+    return t;
 }
 
 void print_camera(const json::Value& c) {
@@ -376,6 +398,8 @@ void print_status(const json::Value& r) {
         std::printf("Camera:       %s, %s/s (5 s), gemist %.0f, bol geldig %.0f van %.0f frames\n", str(*cam, {"state"}).c_str(),
                     fmt(num(*cam, {"frames", "fps_5s"}), "%.2f").c_str(), num(*cam, {"frames", "missed_by_sequence"}, 0),
                     num(*cam, {"tracker", "valid"}, 0), num(*cam, {"tracker", "processed"}, 0));
+    if (const json::Value* aa = path(r, {"aagames"}); aa && aa->is_object() && boolean(*aa, {"active"}))
+        std::printf("Unity-game:   %s\n", aagames_text(*aa).c_str());
     if (boolean(s, {"aim", "valid"})) {
         std::printf("Aim:          x %.3f y %.3f (ongefilterd %.3f %.3f)%s, yaw %+.2f pitch %+.2f graden, midden: %s\n",
                     num(s, {"aim", "x"}), num(s, {"aim", "y"}), num(s, {"aim", "x_raw"}), num(s, {"aim", "y_raw"}),
@@ -946,7 +970,7 @@ int main(int argc, char** argv) {
             else if (a == "--forget") ctl_forget = true;
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
-            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble") pos.push_back(a);
+            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble" || cmd == "key" || cmd == "aagames") pos.push_back(a);
             else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim" || cmd == "predict" || cmd == "clock" ||
                                       cmd == "unpair" || cmd == "controller")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
@@ -1140,6 +1164,33 @@ int main(int argc, char** argv) {
             if (r.code != kExitOk) return r.code;
             if (json) std::printf("%s\n", r.line.c_str());
             else if (const json::Value* res = path(r.v, {"result"})) print_output(*res, cmd);
+            else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "key") {
+            if (pos.empty() || pos.size() > 2) { std::fprintf(stderr, "ravengunctl: key vereist een toetsnaam en optioneel down, up of tap\n"); return kExitUsage; }
+            rq.cmd = ipc::Cmd::OutputKey;
+            rq.key_name = pos[0];
+            rq.action = pos.size() > 1 ? pos[1] : "tap";
+            if (g_player > 0) rq.player = g_player;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else std::printf("Toets %s: %s.\n", rq.key_name.c_str(), rq.action.c_str());
+            return kExitOk;
+        }
+        if (cmd == "aagames") {
+            rq.cmd = ipc::Cmd::Aagames;
+            rq.action = pos.empty() ? "status" : pos[0];
+            if (pos.size() > 1) rq.game = pos[1];
+            if (pos.size() > 2 || (rq.action != "start" && rq.action != "stop" && rq.action != "status") || (rq.action == "start" && rq.game.empty())) {
+                std::fprintf(stderr, "ravengunctl: aagames start GAME | stop | status\n");
+                return kExitUsage;
+            }
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) std::printf("%s\n", aagames_text(*res).c_str());
             else return kExitProtocol;
             return kExitOk;
         }

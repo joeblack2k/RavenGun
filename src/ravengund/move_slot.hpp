@@ -148,6 +148,7 @@ private:
     ravengun::output::RumbleInput rin_;
     ravengun::output::LiveGunFeed live_;
     int64_t armed_checked_ = 0;
+    uint64_t recoil_seen_ = 0;  // Unity-route: laatst verwerkte stand van SharedState::game_recoil
     int64_t next_led_ = 0;
     bool led_dirty_ = false;
     uint64_t optical_seen_ = 0;

@@ -135,6 +135,8 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Trillen bij schieten (`rumble`-sectie, `ravengunctl rumble`, web-UI): puls per schot, herhaling bij vasthouden, zwakkere puls bij de pomp; 17 ctest-suites groen. Testpuls naar de Move gestuurd; nog niet in een game bevestigd.
 - Jurassic Park: het zwarte beeld is geen GPU/Mesa-kwestie. Bewezen met WINEDEBUG: op volledig scherm maakt de game nooit een GL-context op het hoofdvenster en doet geen GL-aanroepen (Halo in dezelfde Wine wel); in venstermodus een access violation (exit 255). Vermoeden: fout in de X11/GLX-emulatie van de 32-bit loader onder Wine. Nog te proberen: andere Wine/Proton-runner, andere TeknoParrot-versie. `play-halo.sh` kan nu omgevingsvariabelen per profiel meegeven (`--env`, `UserProfiles/<profiel>.env`).
 
+- Unity-route zonder TeknoParrot (2026-10-09, branch worktree-agent-a2b906b4c44dd18a9): Tomb Raider Arcade en Rabbids Hollywood Arcade draaien direct onder GE-Proton in een eigen prefix met de BepInEx-plugin van DemulShooter v17.9; ravengund is de TCP-klant (127.0.0.1:33610) met een clean-room implementatie van het protocol (`src/ravengun/games/aagames.*`, `AagamesService`). Live bewezen met `ravengun-aagames-probe` tegen de draaiende daemon (beide games): plugin laadt, luistert, vizier volgt de aim (Y-oorsprong onderaan), trekker en herladen werken, munt en start via toetsen, uitvoer (ammo, leven, credits, recoil) komt binnen, recoil geeft een rumble-puls. De daemon moet na het mergen herstart worden voor `ravengunctl aagames` en `key`. Zie docs/decisions.md, docs/architecture.md en packaging/games-status.md.
+
 ## Laatste werkende commando
 
     scripts/play-halo.sh --record TAG     (Move aan met PS; daemon-uitvoer, opname en Halo)
@@ -142,7 +144,7 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 
 ## Actuele fout / afhankelijkheid
 
-Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven). Tomb Raider en Luigi's Mansion zijn toegevoegd maar nog niet gestart.
+Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven). Tomb Raider en Rabbids Hollywood werken nu zonder TeknoParrot (Unity-route); Luigi's Mansion is toegevoegd maar start niet.
 
 ## Volgende uitvoerbare stap
 

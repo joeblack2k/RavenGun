@@ -56,6 +56,17 @@ public:
     void feed_live(const ravengun::output::LiveAction& a) { feed_live(1, a); }
     void feed_live(int player, const ravengun::output::LiveAction& a);
     bool armed() const;
+    // Momentopname van de aim en knoppen van een speler, zoals de virtuele gun ze nu heeft (na transformatie, voorspelling en
+    // uitvoerklok): voor de Unity-route (aagames_service), die dezelfde aim als pixels naar de game stuurt. u/v zijn de
+    // absolute assen van de gun als fractie (0,0 = linksboven). false = speler bestaat niet of de uitvoer is niet gewapend.
+    struct AimSnapshot {
+        double u = 0.5, v = 0.5;
+        bool have_position = false, trigger = false, reload = false;
+    };
+    bool aim_snapshot(int player, AimSnapshot& s) const;
+    // Drukt een toets op het gedeelde virtuele toetsenbord (down|up|tap) voor speler `player`; vereist gewapend. Voor munt,
+    // start en test vanuit ravengunctl/de webinterface.
+    OutputResult key(int player, int code, const std::string& action);
     // Welke spelers 2..4 een Move hebben (bit p-1 voor speler p; speler 1 telt altijd). Een gewapende uitvoer maakt de gun van
     // een nieuwe speler meteen; een speler die wegvalt houdt zijn apparaat tot het afsluiten (een lopende game blijft het zien).
     void set_active_players(unsigned mask);

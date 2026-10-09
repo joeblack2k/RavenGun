@@ -25,21 +25,27 @@ Mapnamen met een spatie aan het eind ("Rabbids Hollywood ", "Terminator Salvatio
 
 Proton-logging: onder Proton staat de console van de loader alleen op het scherm (conhost-venster), niet in het log. Voor diagnose is de plain-wine-runner handiger, want dan staat alles in `~/.local/state/ravengun/logs/tpui-*.log`.
 
-JVS-brug: bij geen enkele Windows-game verbond de JVS-pipe (alleen Terminator Salvation, ElfLdr2, verbond: "GAME CONNECTED"). Bij Tomb Raider en Rabbids Hollywood draait de game wel met de TeknoParrot-core geladen, maar opent hij de pipe niet.
+JVS-brug: bij geen enkele Windows-game verbond de JVS-pipe (alleen Terminator Salvation, ElfLdr2, verbond: "GAME CONNECTED"). Bij Tomb Raider en Rabbids Hollywood draait de game wel met de TeknoParrot-core geladen, maar opent hij de pipe niet. Die twee games starten nu zonder TeknoParrot (zie hun secties).
 
 Stoppen: `scripts/play-halo.sh --stop` stopt nu de hele transient unit `ravengun-tpui` (TeknoParrotUi, Proton/Wine, wineserver, de game) en meldt een fout als er nog processen van de test in die cgroup zitten. Een TeknoParrotUi-venster of wineserver dat de speler zelf vanaf het bureaublad startte (andere cgroup) blijft met opzet ongemoeid. Als zo'n wineserver al op de Proton-prefix draait, komen nieuwe wine-processen daarvan buiten de unit terecht; stop die sessie dan eerst.
 
-## Tomb Raider (profiel TombRaider): werkt deels
+## Tomb Raider (profiel TombRaider): werkt zonder TeknoParrot (Unity-route)
 
-Status: Game.exe start onder Proton met beeld op de tv, maar toont "WARNING - IO BOARD ERROR - PLEASE SEE ATTENDANT". De JVS-brug verbindt niet.
+Status (2026-10-09, tweede ronde): speelbaar zonder TeknoParrot en zonder DemulShooter.exe. De game draait direct onder GE-Proton in een eigen prefix met de BepInEx-plugin van DemulShooter (v17.9); ravengund is de TCP-klant van de plugin (127.0.0.1:33610). Geen "IO BOARD ERROR" meer: de plugin vervangt het I/O-bord. Op de tv gezien: spelmodus kiezen, hoofdstukken, filmpje ("Hold Trigger to Skip"), gameplay met vizier, ammo, score en credits.
 
-Startcommando: `scripts/play-halo.sh --profile TombRaider`
+Startcommando: `scripts/play-halo.sh --profile TombRaider` (stuurt door naar `scripts/play-unity.sh --game TombRaider`; `--teknoparrot` forceert de oude, niet werkende TeknoParrot-route). Stoppen: `scripts/play-halo.sh --stop`. Procedure: `docs/procedures.md`.
 
-Runner: Proton (standaard). Plain wine gaf hetzelfde resultaat. `.env`: `TP_POSTSTART_REMOTETHREAD_MS=3000` en `WINEDLLOVERRIDES=winhttp=n,b` (de Doorstop-proxy `winhttp.dll` in de gamemap wordt dan geladen; de Mono-runtime van de game start).
+Live gemeten (met `ravengun-aagames-probe` tegen de draaiende, nog niet herstarte daemon; de echte Move leverde de aim):
+- a. BepInEx en plugin laden: `BepInEx/LogOutput.log` in de view meldt "Loading [TombRaider_BepInEx_DemulShooter_Plugin 17.0.0.0]", "TCP Server is listening on Port 33610", "Chainloader startup complete".
+- b. De plugin luistert op 33610 (`ss -ltnp`), de klant verbindt.
+- c. Het vizier staat op de opgegeven plek (u=0,25 v=0,25 geeft het vizier op 480/270 pixels van linksboven; met de echte Move als bron stond het vizier binnen ongeveer 20 pixels van de uitgelezen aim, niet nauwkeuriger bepaald omdat de Move bewoog); de trekker schiet (10 schoten, ammo 10 naar 0, recoil 10) en slaat het filmpje over; Herladen laadt bij.
+- d. Munt en start: toets 6 en 7 geven credits voor speler 2 en 3 ("1/4 CREDITS" op de tv, Credits in de uitvoer); speler 1 had al credits en startte.
+- e. Uitvoer komt binnen: ammo, leven (float), credits, speelt, recoil per schot; de recoil-koppeling naar de rumble is bij Rabbids op de echte Move gemeten (zie daar); bij Tomb Raider alleen de recoil-vlaggen.
+- Niet getest: geluid beluisterd, twee of meer spelers tegelijk, een lange speelsessie, een volledig spel tot het einde.
 
-Log van de game (`Gun_*.log` in de gamemap): "ERROR: 1001: Base not found". Dat is de lichtgun-basis (echte hardware). Beste vermoeden: de Unity-game verwacht via de patch (Doorstop/Harmony) of via de TeknoParrot-core een emulatie van het I/O-bord die hier niet aankomt (de JVS-pipe wordt niet geopend). Volgende stap: de Doorstop-assembly en de Unity-uitvoer bekijken (output_log in `Game_Data`), en nagaan of er een apart emulatieprofiel of een hardware-instelling in de TP-UI nodig is.
+Runner: GE-Proton11-7 (DXVK), prefix `~/.local/share/ravengun/prefixes/unity-aagames`. Omgeving: `WINEDLLOVERRIDES=winhttp=n,b` (doorstop), `-popupwindow` (randloos), resolutie 1920x1080 via de plugin-ini.
 
-Veranderd op de NAS (map "Tomb Raider"): `teknoparrot.ini` (nieuw), `Gun_<datum>_0.log` (nieuw), `Game.run` en `ForceReboot` (nieuwe lege bestanden), `ControllerBaseConfig.json` (herschreven door de game).
+Veranderd op de NAS (map "Tomb Raider"): niets door deze route. De view is een lokale map met links; wat de game schrijft (NVRAM, logs, `ControllerBaseConfig.json`) staat lokaal in `~/.local/share/ravengun/runtime/views-aagames/TombRaider`. (Bestanden van 17:39 op de NAS, `teknoparrot.ini`, `ControllerBaseConfig.json` en `Gun_*.log`, zijn van de eerdere TeknoParrot-ronde.)
 
 ## Luigi's Mansion Arcade (profiel LuigisMansion): geparkeerd
 
@@ -65,17 +71,21 @@ Laatste log: de core laadt, daarna alleen enkele EXCEPTION_SINGLE_STEP (de anti-
 
 Veranderd op de NAS (map "Let's Go Safari"): `teknoparrot.ini` (nieuw).
 
-## Rabbids Hollywood (profiel RabbidsHollywood): werkt deels
+## Rabbids Hollywood (profiel RabbidsHollywood): werkt zonder TeknoParrot (Unity-route)
 
-Status: titelscherm met animatie ("Rabbids Hollywood - FREE MODE") staat op de tv. De game sluit zichzelf na ongeveer 45 s af (schone exit, "Game session ended"). JVS-pipe niet verbonden; de input loopt via de BepInEx-plugin (RHA Mouse Plugin), de game opende geen RavenGun-event-nodes (alleen TeknoParrotUi heeft ze open). Toetsen (c, KP_1) via xdotool veranderden niets.
+Status (2026-10-09, tweede ronde): speelbaar zonder TeknoParrot en zonder DemulShooter.exe, zelfde route als Tomb Raider. De game sluit niet meer na 45 s af. Op de tv gezien: titelscherm (nu in het Engels), "Insérer/Insert credits" per speler met kwartmunten, na vier munten en Start het laadscherm en het spel met vizier, wapen en levensbalk.
 
-Startcommando: `scripts/play-halo.sh --profile RabbidsHollywood`
+Startcommando: `scripts/play-halo.sh --profile RabbidsHollywood` (naar `scripts/play-unity.sh --game RabbidsHollywood`). De map op de NAS heeft een spatie aan het eind van de naam; de lokale view lost dat op (het pad in `aagames-games.json` bevat die spatie).
 
-Runner: Proton (standaard). `--view` is nodig: de mapnaam eindigt op een spatie ("Directory name invalid"). `.env`: `TP_POSTSTART_REMOTETHREAD_MS=3000` en `WINEDLLOVERRIDES=winhttp=n,b` (BepInEx/Doorstop laadt dan: "Chainloader startup complete", "Plugin Loaded"). In `BepInEx/LogOutput.log` staat geen foutmelding.
+Live gemeten (zelfde methode):
+- a. `BepInEx/LogOutput.log`: BepInEx 5.4.21 onder Unity 2017.2, "Loading [RabbidsHollywood_BepInEx_DemulShooter_Plugin 17.0.0.0]", "Plugin Loaded".
+- b. De plugin luistert op 33610, de klant verbindt.
+- c. Het vizier volgt de opgegeven positie (u=0,3 v=0,3 geeft het vizier op 576/324 pixels van linksboven); de trekker schiet (recoil loopt op, tientallen schoten bij ingedrukt houden).
+- d. Munt en start: viermaal toets 5 geeft credits 4, toets 1 start; daarna credits 0 en speler 1 speelt (StartLamp).
+- e. Uitvoer: ammo, leven, credits, recoil, StartLamp binnen; recoil gaf een rumble-puls (zie Tomb Raider). Let op: bij Rabbids staat StartLamp als laatste veld (andere veldvolgorde dan Tomb Raider).
+- Niet getest: geluid beluisterd, meerdere spelers, een volledig spel; Herladen bestaat bij Rabbids niet (geen Reload-byte in het pakket).
 
-Open vraag: waarom de game na ongeveer 45 s stopt. Vermoeden: de gun-module (`Gun_*.log`: "ERROR: 1001: Base not found", dezelfde als bij Tomb Raider) of de operator/launcher-flow (GameLauncher.exe, `Game.run`/`ForceReboot`) die onder Wine niet bestaat, of een afsluitsignaal van het I/O-bord. Probeer: de operatorinstellingen (RabbidsHollywood_Operator.exe) en de vensterinstellingen uit de README aanpassen en kijken of de game blijft staan.
-
-Veranderd op de NAS (map "Rabbids Hollywood ", via de symlink-view): `teknoparrot.ini` (nieuw), `ControllerBaseConfig.json` (herschreven), `BepInEx/LogOutput.log`, `BepInEx/config/BepInEx.cfg`, `BepInEx/cache/harmony_interop_cache.dat` en `chainloader_typeloader.dat`. Nieuwe bestanden in de view zelf (bv. `Gun_*.log`) blijven lokaal in `~/.local/share/ravengun/runtime/views/RabbidsHollywood`.
+Veranderd op de NAS (map "Rabbids Hollywood "): niets door deze route (alleen de eerdere TeknoParrot-ronde schreef daar). De plugin-bestanden en het BepInEx-log staan lokaal in `~/.local/share/ravengun/runtime/views-aagames/RabbidsHollywood`.
 
 ## Terminator Salvation (profiel Terminator): werkt (in venster)
 

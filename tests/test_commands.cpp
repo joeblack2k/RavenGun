@@ -22,7 +22,9 @@
 #include "output_service.hpp"
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
+#include "ravengun/games/aagames.hpp"
 #include "ravengun/games/games.hpp"
+#include "aagames_service.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 
@@ -569,6 +571,62 @@ static void test_games_commands(const std::string& dir) {
     CHECK(!ok && code == "unavailable");
 }
 
+// Unity-route: IPC-opdrachten aagames en output_key, en de status.
+static void test_aagames_commands() {
+    // Zonder service of uitvoer: nette fouten.
+    {
+        Rig bare;
+        bool ok = true;
+        std::string code;
+        bare.call(R"({"v":1,"cmd":"aagames","action":"status"})", &ok, &code);
+        CHECK(!ok && code == "unavailable");
+        bare.call(R"({"v":1,"cmd":"output_key","key":"5"})", &ok, &code);
+        CHECK(!ok && code == "unavailable");
+    }
+    Rig rig;
+    OutputService out;   // niet gewapend: er wordt geen apparaat gemaakt
+    games::AaConfig cfg;
+    cfg.port = 9;        // niets luistert hier: de klant blijft proberen
+    games::AaGame g;
+    g.key = "TombRaider";
+    g.name = "Tomb Raider Arcade";
+    cfg.games.push_back(g);
+    AagamesService svc(rig.sh, cfg);
+    rig.sh.output = &out;
+    rig.sh.aagames = &svc;
+    bool ok = false;
+    std::string code, msg;
+    json::Value r = rig.call(R"({"v":1,"cmd":"aagames"})", &ok);       // standaard: status
+    CHECK(ok && !r.find("active")->b && r.find("games")->arr.size() == 1 && r.find("games")->arr[0].str == "TombRaider");
+    rig.call(R"({"v":1,"cmd":"aagames","action":"start","game":"Bestaat niet"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"aagames","action":"start"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"aagames","action":"bogus"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"aagames","extra":1})", &ok, &code);
+    CHECK(!ok && code == "bad_request");
+    CHECK(rig.sh.game_rumble_mask.load() == 0);
+    r = rig.call(R"({"v":1,"cmd":"aagames","action":"start","game":"TombRaider"})", &ok);
+    CHECK(ok && r.find("active")->b && r.find("game")->str == "TombRaider" && !r.find("connected")->b);
+    CHECK(rig.sh.game_rumble_mask.load() == 0xF);
+    r = rig.call(R"({"v":1,"cmd":"status"})", &ok);                     // de status noemt de route
+    CHECK(ok && r.find("aagames") && r.find("aagames")->find("active")->b);
+    r = rig.call(R"({"v":1,"cmd":"aagames","action":"stop"})", &ok);
+    CHECK(ok && !r.find("active")->b && rig.sh.game_rumble_mask.load() == 0);
+    // output_key: onbekende toets, ongeldige actie, en niet gewapend.
+    rig.call(R"({"v":1,"cmd":"output_key","key":"bestaatniet"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"output_key","key":"5","action":"bogus"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"output_key","key":"5"})", &ok, &code, &msg);
+    CHECK(!ok && code == "unavailable" && contains(msg, "arm"));
+    rig.call(R"({"v":1,"cmd":"output_key","key":"5","player":5})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.sh.aagames = nullptr;
+    rig.sh.output = nullptr;
+}
+
 // Meerdere spelers: per-controller-instellingen via de spelerkeuze, de standaard, spelernummers ruilen en de controllerlijst,
 // het koppelen en verwijderen met een nep-systeem (geen Bluetooth of hidraw).
 struct SelectHid final : HidContext {
@@ -737,6 +795,7 @@ int main() {
     test_set_gun_buttons(dir);
     test_fusion_and_learning(dir);
     test_games_commands(dir);
+    test_aagames_commands();
     test_controllers(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

@@ -13,8 +13,10 @@
 #include <thread>
 #include <unistd.h>
 
+#include "aagames_service.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
+#include "ravengun/games/aagames.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
@@ -105,6 +107,8 @@ void usage(FILE* f) {
         "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
         "                                   ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)\n"
         "  --play-script PAD                startscript (standaard scripts/play-halo.sh naast de repo van ravengund)\n"
+        "  --aagames-config PAD             instellingen van de Unity-route (Tomb Raider, Rabbids Hollywood zonder TeknoParrot;\n"
+        "                                   standaard packaging/aagames-games.json naast het startscript, anders ingebouwd)\n"
         "  --games-dry-run                  nooit echt starten of stoppen (voor tests): alleen de opdrachtregel loggen;\n"
         "                                   draaiende processen op de host tellen dan niet mee\n"
         "\n"
@@ -182,6 +186,7 @@ int main(int argc, char** argv) {
     const std::string home = home_env ? home_env : "";
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     std::string play_script;
+    std::string aagames_config;
     bool games_dry_run = false;
     std::string controllers_fake;  // nep-systeem voor de controllerlijst en het koppelen (tests, schermafdrukken)
     for (int i = 1; i < argc; ++i) {
@@ -254,6 +259,7 @@ int main(int argc, char** argv) {
         }
         else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
         else if (a == "--play-script" && i + 1 < argc) play_script = argv[++i];
+        else if (a == "--aagames-config" && i + 1 < argc) aagames_config = argv[++i];
         else if (a == "--games-dry-run") games_dry_run = true;
         else if (a == "--controllers-fake" && i + 1 < argc) controllers_fake = argv[++i];
         else if (a == "--no-camera") cam.enabled = false;
@@ -445,6 +451,29 @@ int main(int argc, char** argv) {
     }
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
+    // Unity-route: instellingen per game (resolutie, kalibratie) uit het JSON-bestand naast het startscript, anders ingebouwd.
+    if (aagames_config.empty() && !play_script.empty()) {
+        std::string cand = play_script;
+        for (int up = 0; up < 2; ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) break; cand.resize(sl); }
+        cand += "/packaging/aagames-games.json";
+        if (::access(cand.c_str(), R_OK) == 0) aagames_config = cand;
+    }
+    std::string aa_text;
+    if (!aagames_config.empty()) {
+        if (FILE* f = std::fopen(aagames_config.c_str(), "rb")) {
+            char buf[4096];
+            size_t n;
+            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && aa_text.size() < 256 * 1024) aa_text.append(buf, n);
+            std::fclose(f);
+        }
+    }
+    if (aa_text.empty())
+        if (const auto* a = ravengun::web::find_asset("aagames-games.json")) aa_text = a->data;
+    std::string aa_err;
+    ravengun::games::AaConfig aa_cfg = ravengun::games::parse_aagames_config(aa_text, aa_err);
+    if (!aa_err.empty()) logf("waarschuwing", "Unity-route: %s (alleen de ingebouwde lijst ontbreekt dan; geen games)", aa_err.c_str());
+    AagamesService aagames(shared, std::move(aa_cfg));
+    shared.aagames = &aagames;
     // Controllers: lijst, koppelwizard, verwijderen (BlueZ via busctl, de hulp met rootrechten via sudo -n).
     std::unique_ptr<ControllerOps> ctl_ops;
     if (!controllers_fake.empty()) {
@@ -521,6 +550,7 @@ int main(int argc, char** argv) {
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
     camera.stop();
     controllers.stop();
+    aagames.stop();
     hid.join();
     ipc.join();
     if (web.joinable()) web.join();

@@ -69,12 +69,13 @@ stop_all() {
   systemctl --user stop "$UNIT.service" 2>/dev/null || true
   for _ in $(seq 1 15); do unit_alive || break; sleep 1; done
   "$CTL" record --stop >/dev/null 2>&1 || true
+  "$CTL" aagames stop >/dev/null 2>&1 || true   # Unity-route (play-unity.sh): de rumble gaat weer terug naar de trekker
   "$CTL" disarm >/dev/null 2>&1 || true
   if unit_alive; then echo "Er draaien nog processen van de test: $(unit_pids | tr '\n' ' ')" >&2; exit 1; fi
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=()
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
@@ -82,10 +83,20 @@ while [[ $# -gt 0 ]]; do
     --env) [[ "${2:-}" == *=* ]] || { echo "--env vereist K=V" >&2; exit 2; }; EXTRA_ENV+=("$2"); shift 2 ;;
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--no-wait-move] | --stop" >&2; exit 2 ;;
+    --teknoparrot) USE_TP=1; shift ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--no-wait-move] [--teknoparrot] | --stop" >&2; exit 2 ;;
   esac
 done
 
+# Unity-route (zonder TeknoParrot): het profiel staat in packaging/aagames-games.json.
+if [[ $USE_TP -eq 0 ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
+  UARGS=(--game "$PROFILE")
+  [[ $WAIT_MOVE -eq 0 ]] && UARGS+=(--no-wait-move)
+  for E in "${EXTRA_ENV[@]}"; do UARGS+=(--env "$E"); done
+  # Geen exec: de webapp herkent een lopende start aan het proces van dit script (games.cpp, script_state).
+  "$ROOT/scripts/play-unity.sh" "${UARGS[@]}"
+  exit $?
+fi
 [[ -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
 game_running && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
