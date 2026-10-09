@@ -1,5 +1,45 @@
 # Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
+# Derde ronde (2026-10-09, avond): resterende games
+
+Samenvatting: geen enkele extra game is speelbaar geworden; Transformers (snelkoppeling weggehaald), Time Crisis 5, Jurassic Park, Luigi's Mansion en Let's Go Safari zijn geparkeerd met de bevindingen hieronder. De profielen zijn teruggezet naar de toestand van voor deze ronde (back-ups: `~/.local/state/ravengun/*.bak-ronde3`).
+
+## Gemeenschappelijk: invoer bij TeknoParrot-Windows-games (Transformers, Time Crisis 5)
+- De eigenaar speelde Transformers met de echte Move: beeld goed, maar "lightgun staat boven in de hoek, X-as doet niets". Met `ravengunctl` (testpatroon, toets 1/5, trekker) kreeg ik in de attract-modus van Transformers geen enkele reactie van de game, terwijl de events wel op het virtuele toetsenbord (event256) en de lightgun (event31) staan (uitgelezen met een Python-evdev-lezer). In de game-log van de shell (`Sega/shell/GameStateMachine - <datum>.log`, tijden in UTC) staat `GAME_MSG_START_PRESSED` alleen om 15:58:56 (ronde 2) en 17:54:44 (de eigenaar, 2,5 minuten gespeeld); in alle latere sessies, ook zonder profielwijziging, kwam er geen start door.
+- TeknoParrotUI schrijft de invoerstatus in `/dev/shm/TeknoParrot_JvsState` (64 bytes; wordt via pipehelper naar `Z:\dev\shm\...` gespiegeld). Gemeten tijdens Transformers: een teller op offset 0x0c loopt op bij toets 5 en toets 1, maar de knopbits blijven 0 en de drie analoge waarden (offset 0x10/0x14/0x18 = 0x7e/0x7f/0x7f, midden) veranderen niet bij `test-pattern point 0.9 0.1` of 0.1 0.9. Dat past bij de symptomen: de aim komt niet in de game. Waarom is niet vastgesteld; de TeknoParrot-core is gepakt en strace/ptrace op de gameprocessen mag niet ("Operation not permitted"). Niet geprobeerd: de profielbindingen "Player 1 Gun X/Y" (Analog2/Analog0, ongebonden) expliciet aan de gun-assen koppelen, en de assen X=Analog0/Y=Analog2 zoals bij Terminator en TC5 in plaats van de sjabloonwaarden bij Transformers.
+- Mijn eerdere meting van het vizier in de attract-demo van Transformers is waardeloos: de demo stuurt zelf twee richtkruizen aan.
+
+## Transformers: Shadows Rising (geparkeerd, snelkoppeling verwijderd)
+- Start nog steeds stabiel en beeldvullend (1920x1080, fullscreen, venster `TF2_Gun | Release`), FREE PLAY, attract met "How to play". Laden duurt ongeveer 75 s.
+- De Test-/Service-knoppen ontbreken in de sjabloon van dit profiel. Ik voegde `Test` (F2) en `Service 1` (F3) toe (back-up van het profiel zonder die knoppen: `TransformersShadowsRising.xml.bak-ronde3`, variant met knoppen: `...xml.test-service`); de game opende er geen testmenu mee en de start bleef uit, dus weer teruggezet. De game heeft een eigen kalibratiemenu ("CALIBRATION START"/"DEFAULT SETTING" in `Sega/shell/testcalibrate.xml`, "PLAYER 1 CONTROLLER X/Y" in `testinputs.xml`); daar is de oorzaak van een gecomprimeerde X-as te zoeken zodra de test-knop werkt.
+- Voor de eigenaar: opnieuw proberen met `scripts/play-halo.sh --profile TransformersShadowsRising`; de snelkoppeling kan terug met `scripts/make-game-shortcut.sh TransformersShadowsRising "Transformers: Shadows Rising"` zodra de besturing werkt.
+
+## Time Crisis 5 (geparkeerd)
+- Start direct (`--profile TC5`, plain wine), na ongeveer 60 s het attract-scherm met "INSERT 1 CREDIT(S)"; geen venster-randloos: 1774x998 met titelbalk. De TeknoParrot-core zit in het proces (`TeknoParrot64.dll` in de maps), de game heeft een `GunPeripheral`- en `DongleThread`, maar de JVS-pipe wordt niet geopend ("GAME CONNECTED" ontbreekt).
+- Beeldvullend: de eigen sneltoets F11 van de game werkt via het virtuele toetsenbord (`ravengunctl key f11 tap`): het venster wordt 1920x1080 op 0,0 zonder rand. Een gamescope-poging is niet gedaan omdat F11 volstaat; niet in een script gezet omdat het zonder invoer geen zin heeft.
+- Invoer: toets 5 (munt) en toets 1 geven geen credit, ook niet met de sjabloonoptie FreePlay=1 (die is in `TC5/Binaries/Win64/teknoparrot.ini` terechtgekomen en door de game genegeerd; profiel teruggezet). De eigen toetsen van de game (F11) werken wel. `README.txt` noemt Shift+H (richtkruis) en Ctrl+Q; Shift+H via xdotool toonde niets. Profielbindingen: Coin=D5, Test=F2, Service=F3, Gun Trigger/Button/Left Pedal = links/rechts/midden, Enter Sw = D1 (P2Button3), assen Analog0/Analog2. DemulShooter doet voor TC5 geheugenschrijven (`Game_Es3Tc5.cs`, standalone-modus), geen route voor ons.
+- Op de NAS veranderd: `TC5/Binaries/Win64/teknoparrot.ini` (door TeknoParrot geschreven).
+
+## Jurassic Park (geparkeerd)
+- Vergelijking met Terminator (zelfde loader, werkt): `game` van Jurassic Park is een ELF zonder sectieheaders (`file`: "no section header"; Terminator: "stripped" met headers), en de loader meldt alleen bij JP "Warning SHT_DYNSYM not found in section headers / aborting symbol parsing due to invalid name ptr". JP gebruikt SDL 1.2, libudev en libX11 (Terminator: glut, geen SDL); in `ElfLdr2/libs` staat geen `libSDL-1.2.so.0` (wel `SDL.dll`).
+- Crash gevangen (`WINEDEBUG=err+all,+seh` via `--env`): `EXCEPTION_ACCESS_VIOLATION` met eip=0x00058000 (leestoegang op 0x58000), met esi=0x550 (1360) en edi=0x300 (768) in de registers: de game roept na het doorgeven van de resolutie 1360x768 een functie aan op een niet-gemapt adres, waarschijnlijk een niet-opgeloste of niet-gealloceerde thunk van de loader (SDL-videopad). Dit gebeurt ~13-30 s na de start, vaak voor er een venster is. De SIGSYS-/single-step-meldingen ervoor zijn de anti-debug van de loader (normaal).
+- Geprobeerd in deze ronde (4 starts): (1) Windowed=1 + gamescope; (2) `game_original` (de loader stopt na 1 s; Sentinel-envelope); (3) Windowed=1 + CustomResolution 1360x768 + gamescope; (4) idem zonder gamescope met `SDL_VIDEODRIVER=windib`: het proces leeft ~30 s zonder venster en crasht dan. De JVS-brug verbindt bij elke start ("GAME CONNECTED"). Profiel teruggezet (back-up `JurassicPark.xml.bak-ronde3`).
+- `pmuser/gamelog.txt` blijft leeg: de game komt niet tot zijn eerste logregel. Online niets gevonden over deze combinatie (het enige gevonden issue, teknogods/TeknoParrot #83, beschrijft Windows en geen oplossing). Mogelijke vervolgstap voor de eigenaar: een andere dump van Jurassic Park (met sectieheaders) of een nieuwere ElfLdr2-versie met SDL-1.2-ondersteuning onder Wine.
+
+## Luigi's Mansion Arcade (geparkeerd)
+- Nieuw: met `TP_POSTSTART_REMOTETHREAD_MS=` leeg en `TP_ENTRYPOINT_REMOTETHREAD_MS=3000` (Proton, `WINEDEBUG=err+all`) laadt de core wel in VACUUM.exe (`teknoparrot64` staat in de modulelijst), maar daarna: "Unhandled illegal instruction at address ...3125 (thread 0198)". Dat adres is exact het entrypoint van VACUUM.exe (RVA 0xF23125, sectie `.capcom1`; de packer van Capcom). Het eerste byte-paar op het entrypoint is `eb 08` (een gewone jmp); de illegal instruction ontstaat dus doordat het geparkeerde entrypoint na de injectie niet netjes wordt hersteld onder Wine, of door de packer zelf. Niet opgelost.
+- Online niets over vereisten gevonden (twee zoekopdrachten zonder relevante treffers).
+
+## Let's Go Safari (geparkeerd)
+- Onder Proton draait `GameSampR_RingWide.exe` met precies 1 thread, 185 MB, wachtend (kernel `ntsync_schedule`, status S, CPU zakt van 54 % naar 9 % in 90 s) en maakt nooit een venster. Dat is een wachtende hoofdthread, geen rekenwerk (laden). `game.bat` draait eerst `mxGetHwInfo.exe -s mxGetHwInfo.ini` (hardwarecontrole: RingWide, PCI-ids 1002:94cb en 10ec:0883, OS 0045.03.01, 1280x720) en alleen bij exitcode 0 de game; de TeknoParrot-core vervangt dat niet. `firewall.cfg` verwijst naar `GameOrg\GameSampR_RingWide.exe`, een map die niet in de dump zit.
+- Niet geprobeerd (ruimte/tijd): `mxGetHwInfo.exe` los draaien om zijn exitcode te zien; een eigen prefix met redistributables.
+
+## Wat er in deze ronde aan scripts is veranderd
+- Niets in `scripts/`. Bestanden: `packaging/games-notes.json` (spelersnotities), dit bestand; snelkoppeling Transformers weggehaald.
+- Buiten de repo: back-ups `~/.local/state/ravengun/{TC5,JurassicPark,TransformersShadowsRising}.xml.bak-ronde3` en `TransformersShadowsRising.xml.test-service`.
+- Op de NAS veranderd door games/TeknoParrot (geaccepteerd): `Sega/shell/*` (logs, `variables/*`), `TC5/Binaries/Win64/teknoparrot.ini`; verder niets.
+
+
 Testomgeving: SteamOS Desktop Mode, KDE Wayland met Xwayland :0, AMD RX 6950 XT, tv op 1920x1080, TeknoParrotUI 2.0.0.130 (Linux/Avalonia). Games staan op de NAS (`~/mnt/spidernas_emulation/Teknoparrot/<map>`) en zijn niet gekopieerd.
 
 Starten en stoppen (voor elke game hetzelfde):
@@ -16,7 +56,7 @@ Een profiel (re)maken: `python3 -I scripts/tp-add-game.py PROFIEL "PAD/NAAR/EXE"
 | --- | --- | --- |
 | Halo | werkt volledig | `--profile Halo` |
 | Terminator Salvation (Terminator) | werkt beeldvullend, richten en schieten goed | `--profile Terminator` (gamescope staat in de .env) |
-| Transformers: Shadows Rising (TransformersShadowsRising) | werkt: attract, free play, stage select met de trekker | `--profile TransformersShadowsRising` (prefix-kopie met native DLL's, zie onder) |
+| Transformers: Shadows Rising (TransformersShadowsRising) | beeld en attract goed; besturing werkt niet (zie derde ronde); snelkoppeling verwijderd | `--profile TransformersShadowsRising` (prefix-kopie met native DLL's, zie onder) |
 | Time Crisis 5 (TC5) | start direct de echte game: attract-scherm "INSERT 1 CREDIT(S)"; invoer nog niet verbonden | `--profile TC5` (plain wine) |
 | Tomb Raider (TombRaider) | beeld, "IO BOARD ERROR"; geparkeerd (eigen route met de daemon) | |
 | Rabbids Hollywood (RabbidsHollywood) | titelscherm, stopt na ongeveer 45 s, knoppen werken niet; geparkeerd (eigen route met de daemon) | |

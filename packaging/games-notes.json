@@ -5,10 +5,10 @@
     "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed.",
     "TombRaider": "Werkt zonder TeknoParrot: lightgun, herladen, munt en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
     "RabbidsHollywood": "Werkt zonder TeknoParrot: lightgun, munt (viermaal) en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
-    "JurassicPark": "Werkt nog niet: wit of zwart beeld. Geparkeerd.",
-    "LuigisMansion": "Start nog niet (sluit direct af). Geparkeerd.",
-    "LGS": "Start nog niet (geen venster). Geparkeerd.",
-    "TC5": "De echte game start, maar de besturing werkt nog niet. Nog niet speelbaar.",
-    "TransformersShadowsRising": "Werkt: attract en stage select met de trekker. Coin en schieten nog niet getest."
+    "JurassicPark": "Werkt nog niet: de game stopt kort na de start (crash in de ElfLdr2-laag). Geparkeerd.",
+    "LuigisMansion": "Start nog niet (stopt direct of crasht bij de start). Geparkeerd.",
+    "LGS": "Start nog niet (proces wacht zonder venster). Geparkeerd.",
+    "TC5": "De echte game start (F11 maakt hem beeldvullend), maar munt, start en richten komen niet aan. Nog niet speelbaar.",
+    "TransformersShadowsRising": "Start en toont beeld, maar de lightgun-besturing werkt nog niet (X-as dood, richtkruis in de hoek, start/trekker niet betrouwbaar). Nog niet speelbaar."
   }
 }
