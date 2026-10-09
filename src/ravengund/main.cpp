@@ -96,8 +96,9 @@ void usage(FILE* f) {
         "webinterface (in de daemon; standaard aan, alleen op 127.0.0.1):\n"
         "  --web / --no-web                 webinterface aan (standaard) of uit\n"
         "  --web-port N                     poort (standaard 8765)\n"
-        "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
-        "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
+        "  --web-lan                        ook op het thuisnetwerk (0.0.0.0); ook via web.lan in config.json\n"
+        "  --web-require-token              met LAN: apparaten op het netwerk moeten het token uit\n"
+        "                                   ~/.config/ravengun/web-token meegeven (ook via web.require_token)\n"
         "\n"
         "controllers (koppelen en verwijderen vanuit de webinterface en ravengunctl):\n"
         "  --controllers-fake PAD           nep-systeem (JSON) voor de controllerlijst en de koppelwizard; voor tests en\n"
@@ -179,7 +180,7 @@ int main(int argc, char** argv) {
     ravengun::output::GunTransform out_transform;
     double content_aspect = NAN, screen_aspect = 16.0 / 9.0;
     std::string led_arg;
-    bool web_on = true, web_lan = false;
+    bool web_on = true, web_lan = false, web_require_token = false;
     double web_port = cfg.web.port;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     const char* home_env = std::getenv("HOME");
@@ -241,6 +242,7 @@ int main(int argc, char** argv) {
         else if (a == "--web") web_on = true;
         else if (a == "--no-web") web_on = false;
         else if (a == "--web-lan") web_lan = true;
+        else if (a == "--web-require-token") web_require_token = true;
         else if (a == "--web-port") need(1, 65535, web_port);
         else if (a == "--out-invert-x") out_transform.invert_x = true;
         else if (a == "--out-invert-y") out_transform.invert_y = true;
@@ -329,6 +331,9 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "ravengund: --web-lan samen met --no-web is tegenstrijdig\n");
         return 64;
     }
+    // Zonder vlag bepaalt config.json (web.lan, web.require_token) de netwerktoegang.
+    if (web_on && cfg.web.lan) web_lan = true;
+    if (cfg.web.require_token) web_require_token = true;
     if (!std::isnan(content_aspect)) out_transform.viewport = ravengun::output::letterbox_viewport(screen_aspect, content_aspect);
 
     std::string dir = ravengun::ipc::runtime_dir();
@@ -515,23 +520,29 @@ int main(int argc, char** argv) {
         ravengun::web::WebConfig wc;
         wc.port = static_cast<int>(web_port);
         wc.lan = web_lan;
+        wc.token_required = web_require_token;
         wc.csrf = ravengun::web::random_hex(16);
         std::string werr;
         if (web_lan) {
-            std::string tpath = ravengun::web::default_token_path();
-            wc.token = ravengun::web::load_or_create_token(tpath, werr);
             char hn[256] = {0};
             if (::gethostname(hn, sizeof hn - 1) == 0) wc.hostname = hn;
-            if (!wc.token.empty())
-                logf("info", "web: LAN-toegang aan; token staat in %s (niet in deze log)", tpath.c_str());
+            if (web_require_token) {
+                std::string tpath = ravengun::web::default_token_path();
+                wc.token = ravengun::web::load_or_create_token(tpath, werr);
+                if (!wc.token.empty())
+                    logf("info", "web: LAN-toegang aan met token; het token staat in %s (niet in deze log)", tpath.c_str());
+            } else {
+                logf("info", "web: LAN-toegang aan zonder token (web.require_token staat uit)");
+            }
         }
         if (werr.empty()) werr = ravengun::web::validate(wc);
         if (!werr.empty()) {
             logf("fout", "web-interface niet gestart: %s", werr.c_str());
         } else if ((wfd = web_listen(wc)) >= 0) {
             if (web_lan)
-                logf("info", "web-interface op http://%s:%d/ (LAN; open eenmalig /?token=<token uit het tokenbestand>)",
-                     wc.hostname.empty() ? "<dit-apparaat>" : wc.hostname.c_str(), wc.port);
+                logf("info", "web-interface op http://%s:%d/ (LAN%s)",
+                     wc.hostname.empty() ? "<dit-apparaat>" : wc.hostname.c_str(), wc.port,
+                     web_require_token ? "; open eenmalig /?token=<token uit het tokenbestand>" : ", zonder token");
             else
                 logf("info", "web-interface op http://127.0.0.1:%d/ (alleen localhost)", wc.port);
             web = std::thread(web_thread_main, std::ref(shared), wc, wfd, wake);

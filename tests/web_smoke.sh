@@ -211,7 +211,7 @@ stop_d
 rm -f "$CFG" "$CFG.bak" "$CFG.corrupt"
 
 # LAN: token wordt gemaakt (0600), staat niet in de log, en zonder token is er 401.
-"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --web-lan 2>"$T/log" &
+"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --web-lan --web-require-token 2>"$T/log" &
 PID=$!
 i=0
 until [ -f "$HOME/.config/ravengun/web-token" ] && curl -s -o /dev/null -H "Host: 127.0.0.1:$PORT" "$B/api/csrf"; do

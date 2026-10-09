@@ -56,7 +56,8 @@ struct ParseResult {
 ParseResult parse_http(std::string_view buf);
 
 struct WebConfig {
-    bool lan = false;           // bind op alle interfaces; vereist token
+    bool lan = false;           // bind op alle interfaces
+    bool token_required = true; // LAN: verbindingen van buiten deze computer moeten het token meesturen
     int port = kDefaultPort;
     std::string token;          // LAN-token (hex); leeg bij localhost
     std::string csrf;           // per proces gegenereerd CSRF-token

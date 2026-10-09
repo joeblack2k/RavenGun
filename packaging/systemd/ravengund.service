@@ -6,7 +6,7 @@ After=graphical-session.target bluetooth.target
 [Service]
 Type=simple
 WorkingDirectory=%h/projects/ravengun
-ExecStart=%h/projects/ravengun/build/ravengund --web-lan
+ExecStart=%h/projects/ravengun/build/ravengund
 Restart=on-failure
 RestartSec=2
 StandardOutput=append:%h/.local/state/ravengun/logs/ravengund.log

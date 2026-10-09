@@ -220,7 +220,7 @@ ParseResult parse_http(std::string_view buf) {
 
 std::string validate(const WebConfig& c) {
     if (c.port < 1 || c.port > 65535) return "poort moet tussen 1 en 65535 liggen";
-    if (c.lan && c.token.size() < 32) return "LAN-toegang vereist een token van minstens 32 tekens; web-interface niet gestart";
+    if (c.lan && c.token_required && c.token.size() < 32) return "LAN-toegang vereist een token van minstens 32 tekens; web-interface niet gestart";
     if (c.csrf.size() < 16) return "CSRF-token ontbreekt";
     return {};
 }
@@ -289,7 +289,7 @@ HttpResponse WebApp::handle(const HttpRequest& r) const {
     // Host: tegen DNS-rebinding, voor elke request.
     if (!host_allowed(r.header("host"))) return error_json(403, "bad_host", "Host-header niet toegestaan");
 
-    if (cfg_.lan && !r.from_loopback) {
+    if (cfg_.lan && cfg_.token_required && !r.from_loopback) {
         // Eenmalige aanmelding: /?token=... zet een HttpOnly-cookie en stuurt door naar /.
         if (r.method == "GET" && r.path == "/") {
             std::string t = query_token(r.query);

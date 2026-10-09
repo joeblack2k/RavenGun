@@ -613,7 +613,7 @@ std::string to_json(const Settings& s, bool pretty, bool redact) {
     out += section("output", [&](json::Writer& w) {
         w.key("clock_hz").value(s.output.clock_hz).key("extrapolate_ms").value(s.output.extrapolate_ms);
     }) + "," + nl;
-    out += section("web", [&](json::Writer& w) { w.key("port").value(s.web.port); }) + "," + nl;
+    out += section("web", [&](json::Writer& w) { w.key("port").value(s.web.port).key("lan").value(s.web.lan).key("require_token").value(s.web.require_token); }) + "," + nl;
     out += section("sharp_shooter", [&](json::Writer& w) {
         w.key("buttons").begin_object();
         for (const auto& kv : s.sharp_shooter.buttons) w.key(kv.first).value(kv.second);
@@ -763,7 +763,9 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     if (const json::Value* o = sec("web")) {
         Section c{*o, "web", e, warnings};
         c.integer("port", 1, 65535, s.web.port);
-        c.unknown({"port"});
+        c.boolean("lan", s.web.lan);
+        c.boolean("require_token", s.web.require_token);
+        c.unknown({"port", "lan", "require_token"});
     }
     if (const json::Value* o = sec("sharp_shooter")) {
         Section c{*o, "sharp_shooter", e, warnings};

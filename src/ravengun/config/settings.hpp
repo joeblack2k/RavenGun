@@ -65,6 +65,10 @@ struct OutputSettings {
 };
 struct WebSettings {
     int port = 8765;  // gebruikt bij de volgende start
+    // Bereikbaar vanaf het thuisnetwerk (telefoon, tablet); anders alleen vanaf deze computer. Bij de volgende start.
+    bool lan = false;
+    // Alleen met lan: apparaten op het netwerk moeten eenmalig het token meegeven (/?token=...). Standaard uit.
+    bool require_token = false;
 };
 
 // Welke Move-knop een fysieke knop van de Sharp Shooter oplevert (gemeten door de kalibratie-UI op de tv).
