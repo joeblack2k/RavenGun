@@ -22,8 +22,8 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
 # Meldingen: in een terminal op stdout/stderr; gestart vanaf het bureaublad of Steam (geen terminal) ook als
 # bureaubladmelding, zodat de speler ziet wat er gebeurt (bv. "druk op PS").
-say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
-fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -u critical -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
+say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -t 8000 -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
+fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -t 20000 -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
 
 # Alle processen van een test leven in de cgroup van de transient user-unit ravengun-tpui (TeknoParrotUi, de
 # Proton-/Wine-processen, wineserver, de game). Daardoor kun je ze per profiel herkennen en allemaal in een keer

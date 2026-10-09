@@ -20,8 +20,8 @@ LOGDIR="$HOME/.local/state/ravengun/logs"
 UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
-fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -u critical -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
+say()  { echo "$*"; [[ -t 1 ]] || notify-send -a RavenGun -t 8000 -i input-gaming "RavenGun" "$*" 2>/dev/null || true; }
+fail() { echo "$*" >&2; [[ -t 2 ]] || notify-send -a RavenGun -t 20000 -i dialog-error "RavenGun" "$*" 2>/dev/null || true; exit 1; }
 
 unit_pids() {
   local cg; cg=$(systemctl --user show -p ControlGroup --value "$UNIT.service" 2>/dev/null) || return 0
