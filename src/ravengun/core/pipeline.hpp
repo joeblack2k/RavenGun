@@ -187,6 +187,9 @@ private:
     uint64_t dt_move_ = 0, dt_rx_ = 0;
     int last_temp_ = -1;
     YawTrim trim_;
+    // vqf_mag: tijdstip (ontvangsttijd, s) waarop VQF de magnetometer voor het laatst NIET als verstoord zag. Is dat
+    // langer dan kVqfMagGraceS geleden, dan corrigeert niets de yaw en neemt de lerende yaw-trim het over (vangnet).
+    double vqf_mag_last_ok_s_ = -1e18;
     bool trim_mag_seen_ = false;      // sinds de vorige druk corrigeerde de magnetometer de yaw
     int64_t last_optical_t_ = -1;
     Vec3 prev_gyro_{};          // laatste (ruwe) subsample van het vorige rapport

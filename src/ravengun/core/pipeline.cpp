@@ -257,7 +257,12 @@ InputSample Pipeline::on_report(const RawReport& r) {
     bias_.set_quasi_enabled(!mag_yaw_active());
     // De yaw-trim wordt niet toegepast en er wordt niet van geleerd zolang de magnetometer de yaw corrigeert.
     // Dat geldt ook voor vqf_mag (VQF corrigeert de heading dan zelf met de magnetometer).
-    const bool vqf_mag_mode = cfg_.fusion_mode == FusionMode::VqfMag && mag_.calibrated();
+    // Alleen zolang VQF de magnetometer ook echt gebruikt. Wijst VQF hem langer dan 10 s af (verstoord veld, bv.
+    // 2026-10-09: |m| 1,4 en dip 74 graden bij de speelplek), dan valt de yaw terug op de gyro en moet de trim werken.
+    constexpr double kVqfMagGraceS = 10.0;
+    const double now_trim_s = static_cast<double>(r.t_rx_ns) / 1e9;
+    if (vqf_mag_active()) vqf_mag_last_ok_s_ = now_trim_s;
+    const bool vqf_mag_mode = cfg_.fusion_mode == FusionMode::VqfMag && mag_.calibrated() && (now_trim_s - vqf_mag_last_ok_s_) < kVqfMagGraceS;
     const bool trim_on = !mag_apply_now && !vqf_mag_mode;
     if (!trim_on) { trim_mag_seen_ = true; trim_.invalidate(); }
     const double t_rx_s = static_cast<double>(r.t_rx_ns) / 1e9;
