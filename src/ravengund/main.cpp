@@ -500,9 +500,11 @@ int main(int argc, char** argv) {
     };
     IoBridgeService::Config io_cfg;
     {
-        std::string e1, e2;
+        std::string e1, e2, e3;
         io_cfg.routes = ravengun::iobridge::parse_io_routes(load_text("io-routes.json", "io-routes.json"), e1);
         io_cfg.profiles = ravengun::iobridge::parse_tp_shm_profiles(load_text("tp-shm-profiles.json", "tp-shm-profiles.json"), e2);
+        io_cfg.boards = ravengun::iobridge::parse_hid_boards(load_text("hid-boards.json", "hid-boards.json"), e3);
+        if (!e3.empty()) logf("waarschuwing", "IO-brug: %s (geen hid-borden)", e3.c_str());
         if (!e1.empty()) logf("waarschuwing", "IO-brug: %s (alle games gebruiken evdev)", e1.c_str());
         if (!e2.empty()) logf("waarschuwing", "IO-brug: %s (geen tp-shm-indelingen)", e2.c_str());
         size_t sl = sock.rfind('/');

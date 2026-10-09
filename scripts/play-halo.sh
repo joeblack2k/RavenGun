@@ -8,8 +8,10 @@
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
 #              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
-# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp); standaard uit packaging/io-routes.json. tp-shm: de daemon schrijft
-#            zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
+# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board); standaard uit packaging/io-routes.json. tp-shm: de
+#            daemon schrijft zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
+#            hid-board: de daemon maakt het invoerbord van de game na als virtuele joystick (Transformers; hid-boards.json)
+#            en zet dat apparaat in de Wine-prefix van het profiel op joystick-id 0 (scripts/wine-joyid.sh).
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
@@ -90,7 +92,7 @@ while [[ $# -gt 0 ]]; do
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
     --teknoparrot) USE_TP=1; shift ;;
-    --route) ROUTE="${2:?--route vereist evdev, tp-shm of unity-tcp}"; shift 2 ;;
+    --route) ROUTE="${2:?--route vereist evdev, tp-shm, unity-tcp of hid-board}"; shift 2 ;;
     *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--route R] | --stop" >&2; exit 2 ;;
   esac
 done
@@ -108,7 +110,7 @@ PY
 )
 fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
-case "$ROUTE" in evdev|tp-shm|unity-tcp) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm of unity-tcp)";; esac
+case "$ROUTE" in evdev|tp-shm|unity-tcp|hid-board) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm, unity-tcp of hid-board)";; esac
 
 # Unity-route (zonder TeknoParrot): het profiel staat in packaging/aagames-games.json.
 if [[ $USE_TP -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
@@ -141,6 +143,22 @@ if [[ "$ROUTE" == tp-shm ]]; then
   "$CTL" iobridge start "$PROFILE" --route tp-shm >/dev/null || fail "IO-brug (tp-shm) starten mislukt voor $PROFILE"
   SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
   say "Invoerroute: tp-shm (de daemon schrijft de invoer)."
+elif [[ "$ROUTE" == hid-board ]]; then
+  # Het bord moet bestaan voordat de game start (DirectInput telt de joysticks bij het openen). Eerst de prefix: het bord
+  # krijgt daar joystick-id 0, want GUID_Joystick is de eerste joystick (anders de Move zelf).
+  WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
+  VIDPID=$(python3 -I - "$ROOT/packaging" "$PROFILE" <<'PY' 2>/dev/null || true
+import json, sys
+d = sys.argv[1]
+r = json.load(open(d + "/io-routes.json"))["games"][sys.argv[2]]
+b = json.load(open(d + "/hid-boards.json"))["boards"][r["board"]]
+v = lambda x: int(x, 0) if isinstance(x, str) else x
+print("%04X:%04X" % (v(b["vendor"]), v(b["product"])))
+PY
+)
+  "$CTL" iobridge start "$PROFILE" --route hid-board >/dev/null || fail "IO-brug (hid-board) starten mislukt voor $PROFILE"
+  if [[ -n "$WPFX" && -n "$VIDPID" ]]; then "$ROOT/scripts/wine-joyid.sh" "$WPFX" "$VIDPID" || true; fi
+  say "Invoerroute: hid-board (de daemon is het invoerbord van de game)."
 else
   "$CTL" iobridge stop >/dev/null 2>&1 || true   # een rest van een eerdere tp-shm-sessie
 fi

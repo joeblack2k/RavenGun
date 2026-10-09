@@ -3,6 +3,7 @@
 //   evdev       zoals voorheen: de virtuele gun en het toetsenbord, TeknoParrotUi leest ze (geen brug in de daemon)
 //   tp-shm      de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern zelf (dialect tp-shm)
 //   unity-tcp   de daemon is TCP-klant van de BepInEx-plugin in een Unity-game (dialect unity-tcp)
+//   hid-board   de daemon maakt het invoerbord van de game na als virtuele joystick/HID (dialect hid-board, hid-boards.json)
 #include <string>
 #include <vector>
 
@@ -11,12 +12,14 @@ namespace ravengun::iobridge {
 inline constexpr const char* kRouteEvdev = "evdev";
 inline constexpr const char* kRouteTpShm = "tp-shm";
 inline constexpr const char* kRouteUnityTcp = "unity-tcp";
+inline constexpr const char* kRouteHidBoard = "hid-board";
 
 bool valid_route(const std::string& r);
 
 struct IoRoute {
     std::string game;     // TeknoParrot-profielnaam, bv. Halo
-    std::string route;    // evdev | tp-shm | unity-tcp
+    std::string route;    // evdev | tp-shm | unity-tcp | hid-board
+    std::string board;    // hid-board: naam van het bord in hid-boards.json
     std::string layout;   // tp-shm: naam van het profiel in tp-shm-profiles.json (de EmulationProfile)
     std::string note;
     // Toetsen die de daemon ook indrukt zolang de munt van een speler ingedrukt is (games die hun munt uit het toetsenbord lezen,

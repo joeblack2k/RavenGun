@@ -9,12 +9,15 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <thread>
 
 #include "iobridge_service.hpp"
 #include "output_service.hpp"
+#include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/routes.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/json_parse.hpp"
@@ -253,7 +256,10 @@ void test_routes() {
     std::string err;
     IoRoutes r = parse_io_routes(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/io-routes.json"), err);
     CHECK(err.empty());
-    CHECK(r.route_for("TransformersShadowsRising") == "tp-shm" && r.route_for("TC5") == "tp-shm");
+    CHECK(r.route_for("TransformersShadowsRising") == "hid-board" && r.route_for("TC5") == "tp-shm");
+    CHECK(r.find("TransformersShadowsRising")->board == "SaeGunBoard");
+    parse_io_routes(R"({"games":{"A":{"route":"hid-board"}}})", err);
+    CHECK(!err.empty());                                 // hid-board zonder board
     CHECK(r.route_for("Halo") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
     CHECK(r.route_for("OnbekendeGame") == "evdev");     // standaardroute
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
@@ -375,7 +381,7 @@ void test_service(const std::string& dir) {
         CHECK(!br.start("OnbekendeGame", "tp-shm").empty());
         CHECK(!fs::exists(sdir + "/shm"));
         // Start tp-shm voor Transformers: bestand ontstaat neutraal, ook zonder gewapende uitvoer.
-        CHECK(br.start("TransformersShadowsRising").empty());
+        CHECK(br.start("TransformersShadowsRising", "tp-shm").empty());   // de standaardroute is hid-board; tp-shm blijft kiesbaar
         CHECK(br.active() && br.active_route() == "tp-shm" && fs::exists(state));
         CHECK(wait_for([&] { return br.status_json().find("\"ticks\":0,") == std::string::npos; }));
         auto b = read_file();
@@ -437,6 +443,53 @@ void test_service(const std::string& dir) {
         // Een toestandsbestand met een route die niet te hervatten is wordt opgeruimd.
         { std::ofstream f(state); f << R"({"route":"unity-tcp","game":"TombRaider"})"; }
         CHECK(!br2.resume() && !fs::exists(state));
+        sh.iobridge = nullptr;
+    }
+    {
+        // Route hid-board: een nep-apparaat vangt de beelden op (geen /dev/uinput nodig).
+        struct Rec {
+            std::mutex m;
+            std::vector<HidBoardFrame> frames;
+            bool created = false, destroyed = false;
+        };
+        struct FakeBoard : HidBoardDevice {
+            explicit FakeBoard(std::shared_ptr<Rec> r) : rec(std::move(r)) {}
+            bool create(const HidBoard&, std::string&) override { std::lock_guard<std::mutex> l(rec->m); rec->created = true; return true; }
+            bool send(const HidBoardFrame& f) override { std::lock_guard<std::mutex> l(rec->m); rec->frames.push_back(f); return true; }
+            void destroy() override { std::lock_guard<std::mutex> l(rec->m); rec->created = false; rec->destroyed = true; }
+            bool created() const override { std::lock_guard<std::mutex> l(rec->m); return rec->created; }
+            std::shared_ptr<Rec> rec;
+        };
+        auto rec = std::make_shared<Rec>();
+        IoBridgeService::Config c3 = cfg;
+        std::string e3;
+        c3.boards = parse_hid_boards(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/hid-boards.json"), e3);
+        CHECK(e3.empty() && c3.boards.find("SaeGunBoard"));
+        c3.board_device = [rec](const HidBoard&) { return std::make_unique<FakeBoard>(rec); };
+        IoBridgeService br3(sh, c3);
+        sh.iobridge = &br3;
+        CHECK(br3.start("TransformersShadowsRising").empty());
+        CHECK(br3.active() && br3.active_route() == "hid-board" && fs::exists(state));
+        { std::lock_guard<std::mutex> l(rec->m); CHECK(rec->created && !rec->frames.empty()); }   // het apparaat bestaat vóór de eerste tik
+        auto last = [&] { std::lock_guard<std::mutex> l(rec->m); return rec->frames.empty() ? HidBoardFrame{} : rec->frames.back(); };
+        CHECK(out.arm().ok);
+        output::PatternParams pp;
+        pp.kind = output::PatternKind::Point;
+        pp.x = 0.0;
+        pp.y = 1.0;
+        CHECK(out.start_pattern(pp).ok);
+        CHECK(out.button(output::GunButton::Trigger, "down").ok);
+        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == -1000 && f.axis[1] == 1000 && (f.buttons & (1u << 2)); }));
+        auto js3 = json::parse(br3.status_json());
+        CHECK(js3.ok && js3.value.find("route")->str == "hid-board" && js3.value.find("detail")->find("board")->str == "SaeGunBoard");
+        CHECK(js3.value.find("detail")->find("created")->b);
+        out.disarm();   // neutraal: as in het midden, geen knoppen
+        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 0 && f.axis[1] == 0 && f.buttons == 0; }));
+        br3.stop();
+        { std::lock_guard<std::mutex> l(rec->m); CHECK(rec->destroyed && !rec->created); }
+        CHECK(!br3.active() && !fs::exists(state));
+        // Een bord dat niet bestaat of een game zonder bord: nette fout.
+        CHECK(!br3.start("Halo", "hid-board").empty());
         sh.iobridge = nullptr;
     }
     // Zonder gewapende uitvoer is de toestand neutraal; de bron meldt dat.

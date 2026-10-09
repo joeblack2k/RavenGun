@@ -125,7 +125,7 @@ void IoBridgeService::write_state_file(const std::string& route, const std::stri
 
 std::string IoBridgeService::start(const std::string& game, const std::string& route_override) {
     std::string route = route_override.empty() ? cfg_.routes.route_for(game) : route_override;
-    if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm of unity-tcp)";
+    if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp of hid-board)";
     if (route == kRouteEvdev) {
         stop();
         if (sh_.aagames) sh_.aagames->stop();
@@ -136,6 +136,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
         stop();
         return sh_.aagames->start(game);
     }
+    if (route == kRouteHidBoard) return start_hid_board(game);
     // tp-shm
     const IoRoute* r = cfg_.routes.find(game);
     if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling in io-routes.json";
@@ -161,6 +162,35 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     return {};
 }
 
+// Route hid-board: een virtueel joystick/HID-apparaat dat het bord van de game nabootst (hid_board.hpp).
+std::string IoBridgeService::start_hid_board(const std::string& game) {
+    const IoRoute* r = cfg_.routes.find(game);
+    if (!r || r->board.empty()) return "game '" + game + "' heeft geen 'board' in io-routes.json";
+    const HidBoard* b = cfg_.boards.find(r->board);
+    if (!b) return "bord '" + r->board + "' ontbreekt in hid-boards.json";
+    std::unique_ptr<HidBoardDevice> dev;
+    if (cfg_.board_device) dev = cfg_.board_device(*b);
+    else dev = b->transport == "uhid" ? make_uhid_board_device(cfg_.uhid_path) : make_uinput_board_device();
+    auto d = std::make_unique<HidBoardDialect>(*b, game, std::move(dev));
+    std::string err;
+    if (!d->open(err)) return err;
+    std::lock_guard<std::mutex> lk(m_);
+    if (dialect_) { apply_coin_keys(IoState{}); dialect_->neutral(); dialect_->close(); }
+    dialect_ = std::move(d);
+    coin_codes_.clear();
+    coin_prev_ = {};
+    for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
+    game_ = game;
+    route_ = kRouteHidBoard;
+    seen_alive_ = false;
+    gone_since_ms_ = 0;
+    started_ms_ = steady_ms();
+    write_state_file(route_, game_);
+    logf("info", "IO-brug: hid-board voor %s (bord %s via %s)", game.c_str(), b->name.c_str(), b->transport.c_str());
+    cv_.notify_all();
+    return {};
+}
+
 bool IoBridgeService::resume() {
     if (cfg_.state_path.empty()) return false;
     std::ifstream f(cfg_.state_path);
@@ -172,13 +202,13 @@ bool IoBridgeService::resume() {
     if (!pr.ok || !pr.value.is_object()) { remove_state(); return false; }
     const json::Value* rt = pr.value.find("route");
     const json::Value* g = pr.value.find("game");
-    if (!rt || !g || !rt->is_string() || !g->is_string() || rt->str != kRouteTpShm) { remove_state(); return false; }
+    if (!rt || !g || !rt->is_string() || !g->is_string() || (rt->str != kRouteTpShm && rt->str != kRouteHidBoard)) { remove_state(); return false; }
     if (!cfg_.tpui_procs.empty() && !ravengun::games::unit_alive(cfg_.tpui_procs)) {
         logf("info", "IO-brug: toestandsbestand voor %s, maar de game draait niet meer; niet hervat", g->str.c_str());
         remove_state();
         return false;
     }
-    const std::string err = start(g->str, kRouteTpShm);
+    const std::string err = start(g->str, rt->str);
     if (!err.empty()) { logf("warn", "IO-brug: hervatten mislukt: %s", err.c_str()); return false; }
     {
         std::lock_guard<std::mutex> lk(m_);
@@ -190,7 +220,7 @@ bool IoBridgeService::resume() {
         const OutputResult a = sh_.output->arm();
         if (!a.ok) logf("warn", "IO-brug: opnieuw wapenen na de herstart mislukt: %s", a.message.c_str());
     }
-    logf("info", "IO-brug: tp-shm voor %s hervat na een herstart", g->str.c_str());
+    logf("info", "IO-brug: %s voor %s hervat na een herstart", rt->str.c_str(), g->str.c_str());
     return true;
 }
 

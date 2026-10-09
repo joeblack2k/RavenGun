@@ -87,7 +87,7 @@ void usage(FILE* f) {
         "              --player N kiest de speler; vereist arm\n"
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
-        "  iobridge start GAME [--route evdev|tp-shm|unity-tcp] | stop | status | route GAME   IO-brug van de daemon: de\n"
+        "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board] | stop | status | route GAME   IO-brug van de daemon: de\n"
         "              route van een game (packaging/io-routes.json) starten of stoppen, de actieve route tonen\n"
         "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
@@ -239,7 +239,17 @@ std::string optical_text(const json::Value& s) {
 std::string iobridge_text(const json::Value& a) {
     if (!boolean(a, {"active"})) return "geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)";
     std::string t = "route " + str(a, {"route"}) + " voor " + str(a, {"game"}) + ", dialect " + str(a, {"dialect"});
-    if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("layout")) {
+    if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("board")) {
+        t += ", bord " + str(*d, {"board"}) + " (" + str(*d, {"transport"}) + (boolean(*d, {"created"}) ? ", apparaat aanwezig" : ", GEEN apparaat") + "), " +
+             fmt(num(*d, {"frames_sent"}, 0), "%.0f") + " beelden";
+        if (const json::Value* ax = path(*d, {"axes"}); ax && ax->is_array()) {
+            t += ", assen";
+            for (const auto& v : ax->arr) t += " " + fmt(v.num, "%.0f");
+        }
+        t += ", knoppenmasker " + fmt(num(*d, {"buttons"}, 0), "%.0f");
+        if (!str(*d, {"error"}, "").empty()) t += " (" + str(*d, {"error"}, "") + ")";
+        if (num(a, {"resumes"}, 0) > 0) t += ", " + fmt(num(a, {"resumes"}, 0), "%.0f") + "x hervat na een herstart";
+    } else if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("layout")) {
         t += ", indeling " + str(*d, {"layout"}) + ", " + fmt(num(*d, {"writes"}, 0), "%.0f") + " schrijfacties";
         const std::string bytes = str(*d, {"bytes"}, "");
         if (bytes.size() >= 56) t += ", bytes 8..27: " + bytes.substr(16, 40);

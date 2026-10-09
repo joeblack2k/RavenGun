@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "comment": "Invoerborden die de daemon als virtuele joystick/HID-apparaat nabootst (dialect hid-board, route hid-board in io-routes.json). Per bord: transport (uinput = evdev-joystick, geen root nodig; uhid = echt HID-apparaat via /dev/uhid, vraagt de udev-regel uit packaging/udev), vendor/product (decimaal of '0x..'), assen (name X Y Z RX RY RZ, signal uit io_state.hpp, invert, min/max, idle) en knoppen (index 0..button_count-1, signal). Knop n krijgt in DirectInput knop n (evdev: BTN_JOYSTICK+n; HID: gebruik Button n+1).",
+ "boards": {
+  "SaeGunBoard": {
+   "description": "Het 'SAE'-bord van Transformers: Shadows Rising (CSAEBoard in Transformers2.exe, saebd.obj). Gemeten uit de game-exe: DirectInput 8, GUID_Joystick (eerste joystick van het systeem), c_dfDIJoystick, assen -1000..1000, 6 knoppen gelezen (spelknop 0..5 = DirectInput-knop 0,1,2,3,5,4). Speler 1 = X (horizontaal) en Y (verticaal), speler 2 = Z (horizontaal) en RX (verticaal). De game zet elke as om met (1000 - waarde) * 255 / 1000, dus links/boven = laag. Of de functies van de knoppen kloppen (start/trekker) en het bereik is op de tv bepaald; zie docs/research/teknoparrot-io.md.",
+   "transport": "uinput",
+   "name": "RavenGun SAE Gun Board",
+   "vendor": 4617,
+   "product": 29424,
+   "version": 1,
+   "button_count": 16,
+   "axes": [
+    { "name": "X", "signal": "p1.x", "min": -1000, "max": 1000 },
+    { "name": "Y", "signal": "p1.y", "min": -1000, "max": 1000 },
+    { "name": "Z", "signal": "p2.x", "min": -1000, "max": 1000 },
+    { "name": "RX", "signal": "p2.y", "min": -1000, "max": 1000 }
+   ],
+   "buttons": [
+    { "index": 0, "signal": "p1.start" },
+    { "index": 1, "signal": "p2.start" },
+    { "index": 2, "signal": "p1.trigger" },
+    { "index": 3, "signal": "p2.trigger" },
+    { "index": 4, "signal": "p1.grenade" },
+    { "index": 5, "signal": "p1.reload" },
+    { "index": 12, "signal": "test" },
+    { "index": 13, "signal": "service" }
+   ]
+  }
+ }
+}
