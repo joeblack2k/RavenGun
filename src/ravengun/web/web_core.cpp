@@ -289,7 +289,7 @@ HttpResponse WebApp::handle(const HttpRequest& r) const {
     // Host: tegen DNS-rebinding, voor elke request.
     if (!host_allowed(r.header("host"))) return error_json(403, "bad_host", "Host-header niet toegestaan");
 
-    if (cfg_.lan) {
+    if (cfg_.lan && !r.from_loopback) {
         // Eenmalige aanmelding: /?token=... zet een HttpOnly-cookie en stuurt door naar /.
         if (r.method == "GET" && r.path == "/") {
             std::string t = query_token(r.query);

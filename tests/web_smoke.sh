@@ -221,8 +221,17 @@ TOKF="$HOME/.config/ravengun/web-token"
 [ "$(stat -c %a "$TOKF")" = 600 ] || fail "tokenbestand niet 0600"
 TOK=$(cat "$TOKF")
 grep -q "$TOK" "$T/log" && fail "token staat in de log"
-[ "$(code "$B/api/status")" = 401 ] || fail "LAN zonder token moet 401 geven"
-[ "$(code -H "Authorization: Bearer $TOK" "$B/api/status")" = 200 ] || fail "LAN met token"
+# Vanaf deze computer zelf (127.0.0.1) is geen token nodig: de app op het bureaublad moet blijven werken.
+[ "$(code "$B/api/status")" = 200 ] || fail "LAN: lokale verbinding zonder token moet werken"
+# Vanaf het netwerk (hier: het eigen LAN-adres, dan is de afzender niet 127.x) is het token verplicht.
+LANIP=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+if [ -n "$LANIP" ]; then
+  LB="http://$LANIP:$PORT"
+  [ "$(code "$LB/api/status")" = 401 ] || fail "LAN zonder token moet 401 geven"
+  [ "$(code -H "Authorization: Bearer $TOK" "$LB/api/status")" = 200 ] || fail "LAN met token"
+else
+  echo "geen LAN-adres: tokencontrole vanaf het netwerk overgeslagen"
+fi
 kill -TERM "$PID"; wait "$PID" 2>/dev/null; PID=""
 
 echo "OK"

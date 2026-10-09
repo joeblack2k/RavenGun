@@ -34,6 +34,7 @@ struct Conn {
     int64_t created = 0;
     int64_t last_progress = 0;  // laatste keer dat er bytes verstuurd zijn
     bool closing = false;       // sluiten zodra out leeg is
+    bool loopback = false;      // de client is deze computer zelf (127.0.0.0/8)
     bool sse = false;
     SseBuffer sse_buf;
     Throttle throttle{kDefaultStreamHz};
@@ -142,13 +143,16 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
 
         if (pf[0].revents & POLLIN) {
             while (true) {
-                int cfd = ::accept4(lfd, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
+                sockaddr_in peer{};
+                socklen_t peer_len = sizeof peer;
+                int cfd = ::accept4(lfd, reinterpret_cast<sockaddr*>(&peer), &peer_len, SOCK_CLOEXEC | SOCK_NONBLOCK);
                 if (cfd < 0) break;
                 if (static_cast<int>(conns.size()) >= kMaxConns) { ::close(cfd); continue; }
                 int one = 1;
                 ::setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
                 Conn c;
                 c.fd = cfd;
+                c.loopback = peer.sin_family == AF_INET && (ntohl(peer.sin_addr.s_addr) >> 24) == 127;
                 c.created = c.last_progress = now;
                 conns.push_back(std::move(c));
             }
@@ -182,6 +186,7 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
                 c.closing = true;
                 continue;
             }
+            pr.request.from_loopback = c.loopback;
             resp = app.handle(pr.request);
             if (resp.sse) {
                 if (sse_count >= kMaxSse) {

@@ -23,6 +23,9 @@ struct HttpRequest {
     std::string query;  // zonder '?'
     std::map<std::string, std::string> headers;  // namen in kleine letters
     std::string body;
+    // De verbinding komt van deze computer zelf (127.0.0.0/8). In LAN-modus hoeft die geen token: de app op het
+    // bureaublad en het kalibratiescherm blijven dan werken; de Host-, Origin- en CSRF-controles gelden wel.
+    bool from_loopback = false;
     std::string header(const std::string& lower_name) const {
         auto it = headers.find(lower_name);
         return it == headers.end() ? std::string() : it->second;
