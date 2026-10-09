@@ -6,9 +6,11 @@
 //   terug op de laatst-goede kopie (config.json.bak) of op de standaardwaarden, en meldt dat.
 // - Atomisch schrijven: tijdelijk bestand (0600) in dezelfde map, fsync, rename.
 // - De opdrachtregel van de daemon heeft voorrang op dit bestand (zie docs/web-ui.md).
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -17,7 +19,10 @@
 
 namespace ravengun::config {
 
-inline constexpr int kSchemaVersion = 1;
+// Schema 2 (2026-10-09): per-controller-afwijkingen onder "controllers" (zie ControllerEntry). Schema 1 migreert verliesvrij:
+// alle waarden worden de standaard (en gelden zo ook voor de Move die al gekoppeld was).
+inline constexpr int kSchemaVersion = 2;
+inline constexpr int kMaxPlayers = 4;
 
 struct CameraMode { int width, height, fps; };
 // De modi die de UI en set_camera toestaan (gemeten in docs/decisions.md).
@@ -102,7 +107,11 @@ struct GunButtonSettings {
     static std::map<std::string, std::string> default_gun_map() {
         return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"},
                 {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}, {"pump", "reload"},
-                {"ss_rl", "reload"}, {"ss_fire", "none"}, {"sel1", "none"}, {"sel2", "none"}, {"sel3", "none"}};
+                {"ss_rl", "reload"}, {"ss_fire", "none"}, {"sel1", "none"}, {"sel2", "none"}, {"sel3", "none"},
+                // Navigation Controller van dezelfde speler (alleen als hij aan deze speler is toegewezen).
+                {"nav_cross", "none"}, {"nav_circle", "none"}, {"nav_l1", "reload"}, {"nav_l2", "grenade"}, {"nav_l3", "none"},
+                {"nav_ps", "none"}, {"nav_up", "none"}, {"nav_down", "none"}, {"nav_left", "none"}, {"nav_right", "none"},
+                {"nav_stick_up", "none"}, {"nav_stick_down", "none"}, {"nav_stick_left", "none"}, {"nav_stick_right", "none"}};
     }
 };
 
@@ -111,33 +120,84 @@ const std::vector<std::string>& gun_map_buttons();
 // Leeg = geldige actie, anders een Nederlandse foutmelding. Geeft de canonieke vorm terug in 'canon'.
 std::string check_gun_action(const std::string& action, std::string& canon);
 
-struct Settings {
+// De instellingen die per controller kunnen afwijken (LED en trackertint, richten, filter, voorspelling, fusie, trillen,
+// knoppenindeling). De globale waarden in Settings zijn de standaard voor elke controller.
+struct ControllerValues {
     LedSettings led;
     TrackerSettings tracker;
-    CameraSettings camera;
     FilterSettings filter;
     AimSettings aim;
-    OutputSettings output;
-    WebSettings web;
-    SharpShooterSettings sharp_shooter;
     FusionSettings fusion;
     GunButtonSettings gun_buttons;
     // Trillen bij schieten (output/rumble.hpp); live instelbaar.
     output::RumbleConfig rumble;
 };
 
+// Een bekende controller (Move of Navigation Controller), sleutel = Bluetooth-adres in kleine letters.
+// `keys` noemt de velden die afwijken van de standaard ("filter.beta", "led.r", "gun_buttons.map.cross", ...); de
+// waarden staan in `values`. Alles wat niet in `keys` staat, volgt de globale standaard.
+struct ControllerEntry {
+    std::string type = "move";   // move | navigation
+    std::string model;           // ZCM1, ZCM2 of leeg (onbekend)
+    std::string name;            // door de gebruiker te kiezen, max. 32 tekens
+    int player = 0;              // 1..4 (een Move: zijn gun; een Navigation Controller: de speler die hij aanvult); 0 = geen
+    bool removed = false;        // ontkoppeld, maar de instellingen zijn bewaard voor als hij terugkomt
+    int64_t added_unix = 0, last_seen_unix = 0;
+    std::set<std::string> keys;
+    ControllerValues values;
+};
+
+struct Settings : ControllerValues {
+    CameraSettings camera;
+    OutputSettings output;
+    WebSettings web;
+    SharpShooterSettings sharp_shooter;
+    std::map<std::string, ControllerEntry> controllers;  // adres (kleine letters) -> controller
+};
+
+// ---- Per-controller-instellingen ----
+// Alle sleutels die per controller mogen afwijken (zonder de "gun_buttons.map.<knop>"-sleutels, die per knop gelden).
+const std::vector<std::string>& controller_value_keys();
+bool controller_key_valid(const std::string& key);
+// Kopieert het veld `key` van src naar dst. false bij een onbekende sleutel.
+bool copy_controller_value(const std::string& key, ControllerValues& dst, const ControllerValues& src);
+// De instellingen zoals ze voor deze controller gelden (standaard plus afwijkingen). Onbekend adres = de standaard.
+Settings effective(const Settings& s, const std::string& address);
+// Past fn toe op de instellingen van `address` (leeg = de standaard). Bij een controller worden daarna precies de sleutels in
+// `keys` als afwijking bewaard (met de nieuwe waarde). Geeft false als het adres onbekend is.
+bool modify_for(Settings& s, const std::string& address, const std::vector<std::string>& keys, const std::function<void(Settings&)>& fn);
+// Wist afwijkingen van een controller (alle, of alleen die met een van de voorvoegsels, bv. "filter.").
+void clear_overrides(ControllerEntry& e, const std::vector<std::string>& prefixes = {});
+
+// Adressen: AA:BB:CC:DD:EE:FF (hoofd- of kleine letters); normalize geeft kleine letters of leeg bij een ongeldig adres.
+bool address_valid(const std::string& a);
+std::string normalize_address(const std::string& a);
+// Naam: 1..32 tekens, geen stuurtekens.
+bool controller_name_valid(const std::string& n);
+// Standaardkleur van een speler (1 cyaan, 2 magenta, 3 groen, 4 geel; zie docs/decisions.md) en zijn Start-toets.
+LedSettings player_led(int player);
+std::string player_start_key(int player);  // "1".."4"
+// Zet de spelergebonden standaarden (LED-kleur, Start-toets) van een controller over van speler `from` naar `to`, maar alleen
+// waar de controller nog de standaard van `from` gebruikte. Een eigen keuze van de gebruiker blijft staan.
+void apply_player_defaults(Settings& s, const std::string& address, int from, int to);
+// Laagste vrije spelernummer voor een Move (1..4), 0 als alles bezet is.
+int free_player(const Settings& s, const std::string& except_address = {});
+// Het adres van de (niet-verwijderde) Move met dit spelernummer, leeg als er geen is.
+std::string move_for_player(const Settings& s, int player);
+
 // Controleert alle bereiken; leeg = geldig, anders een Nederlandse melding.
 std::string validate(const Settings& s);
 
 // Serialisering (met schemaversie). Leesbaar opgemaakt: een sectie per regel.
-// pretty=false: compact op een regel (voor de IPC, die regelgebaseerd is).
-std::string to_json(const Settings& s, bool pretty = true);
+// pretty=false: compact op een regel (voor de IPC, die regelgebaseerd is). redact=true: de controller-adressen afgeschermd
+// (sleutel = controller_key, adres als xx:xx:xx:xx:xx:ac), voor de web-API en de diagnose-export.
+std::string to_json(const Settings& s, bool pretty = true, bool redact = false);
 
 struct MigrationStep {
     int from;  // zet schema 'from' om naar 'from + 1'
     std::function<bool(json::Value&, std::string&)> apply;
 };
-// De ingebouwde migraties (nu geen: schema 1 is de eerste versie).
+// De ingebouwde migraties: 1 -> 2 (controllers erbij; alle bestaande waarden blijven de standaard).
 const std::vector<MigrationStep>& builtin_migrations();
 
 // Parseert en valideert een configuratietekst. Bij ok=false blijft 'out' ongemoeid.

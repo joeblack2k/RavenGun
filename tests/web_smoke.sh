@@ -107,7 +107,7 @@ done
 [ "$(code "$B/app-core.js")" = 200 ] || fail "app-core.js"
 curl -s "$B/" | grep -qE 'https?://' && fail "index verwijst naar een externe bron"
 curl -s "$B/app.js" | grep -qE "https?://" && fail "app.js verwijst naar een externe bron"
-curl -s "$B/api/settings" | grep -q '"defaults":{"schema":1' || fail "settings mist de fabrieksinstellingen"
+curl -s "$B/api/settings" | grep -q '"defaults":{"schema":2' || fail "settings mist de fabrieksinstellingen"
 
 # Games: lijst (alleen geldige profielnamen), notities, iconen, start/stop met dry-run en weigeringen.
 curl -s "$B/api/games" | grep -q '"profile":"Halo","name":"HALO Test","icon":"/api/game-icon/Halo.png"' || fail "games: Halo ontbreekt"

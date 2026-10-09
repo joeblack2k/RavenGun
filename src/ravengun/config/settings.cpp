@@ -13,6 +13,8 @@
 
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/core/buttons.hpp"
+#include "ravengun/core/magnetometer.hpp"  // controller_key
+#include "ravengun/parse.hpp"               // redact_mac
 #include "ravengun/json.hpp"
 #include "ravengun/output/key_table.hpp"
 
@@ -138,7 +140,9 @@ bool move_button_name_valid(const std::string& name) {
 }
 
 const std::vector<std::string>& gun_map_buttons() {
-    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move", "pump", "ss_rl", "ss_fire", "sel1", "sel2", "sel3"};
+    static const std::vector<std::string> b{"triangle", "circle", "cross", "square", "select", "start", "move", "pump", "ss_rl", "ss_fire", "sel1", "sel2", "sel3",
+                                            "nav_cross", "nav_circle", "nav_l1", "nav_l2", "nav_l3", "nav_ps", "nav_up", "nav_down", "nav_left", "nav_right",
+                                            "nav_stick_up", "nav_stick_down", "nav_stick_left", "nav_stick_right"};
     return b;
 }
 
@@ -154,6 +158,222 @@ std::string check_gun_action(const std::string& action, std::string& canon) {
     }
     return "onbekende actie '" + action + "' (reload, grenade, aux1, aux2, recenter, key:<naam> of none)";
 }
+
+std::string validate_controllers(const Settings& s);
+
+// ---------------- Per-controller-instellingen ----------------
+
+namespace {
+
+using Copier = void (*)(ControllerValues&, const ControllerValues&);
+struct KeyCopier { const char* key; Copier fn; };
+
+#define RG_FIELD(sec, f) {#sec "." #f, [](ControllerValues& d, const ControllerValues& s) { d.sec.f = s.sec.f; }}
+const std::vector<KeyCopier>& copiers() {
+    static const std::vector<KeyCopier> c = {
+        RG_FIELD(led, enabled), RG_FIELD(led, preset), RG_FIELD(led, r), RG_FIELD(led, g), RG_FIELD(led, b),
+        RG_FIELD(tracker, hue_deg), RG_FIELD(tracker, hue_tol_deg), RG_FIELD(tracker, min_chroma),
+        RG_FIELD(filter, enabled), RG_FIELD(filter, min_cutoff_hz), RG_FIELD(filter, beta), RG_FIELD(filter, d_cutoff_hz),
+        RG_FIELD(aim, h_edge_deg), RG_FIELD(aim, v_edge_deg), RG_FIELD(aim, predict_ms),
+        RG_FIELD(fusion, mode), RG_FIELD(fusion, vqf_bias), RG_FIELD(fusion, recenter_learning),
+        RG_FIELD(rumble, enabled), RG_FIELD(rumble, strength), RG_FIELD(rumble, pulse_ms), RG_FIELD(rumble, repeat_hz),
+        RG_FIELD(rumble, pump_strength),
+        RG_FIELD(gun_buttons, trigger_on), RG_FIELD(gun_buttons, trigger_off),
+    };
+    return c;
+}
+#undef RG_FIELD
+
+const char* const kMapPrefix = "gun_buttons.map.";
+
+bool is_map_key(const std::string& k, std::string& button) {
+    if (k.rfind(kMapPrefix, 0) != 0) return false;
+    button = k.substr(std::strlen(kMapPrefix));
+    const auto& bs = gun_map_buttons();
+    return std::find(bs.begin(), bs.end(), button) != bs.end();
+}
+
+bool same_led(const LedSettings& a, const LedSettings& b) { return a.r == b.r && a.g == b.g && a.b == b.b; }
+
+// Tint en tolerantie bij een spelerkleur (gemeten tinten; geel nominaal met een smalle sector).
+void tracker_for_led(const LedSettings& l, TrackerSettings& t) {
+    if (l.preset == "custom" && l.r == 255 && l.g == 255 && l.b == 0) { t.hue_deg = 171; t.hue_tol_deg = 20; return; }
+    LedChoice c;
+    if (resolve_led_preset(l.preset, c) && c.hue_known) { t.hue_deg = c.hue_deg; t.hue_tol_deg = c.hue_tol_deg; }
+}
+
+}  // namespace
+
+const std::vector<std::string>& controller_value_keys() {
+    static const std::vector<std::string> k = [] {
+        std::vector<std::string> v;
+        for (const auto& c : copiers()) v.emplace_back(c.key);
+        return v;
+    }();
+    return k;
+}
+
+bool controller_key_valid(const std::string& key) {
+    std::string b;
+    if (is_map_key(key, b)) return true;
+    for (const auto& c : copiers()) if (key == c.key) return true;
+    return false;
+}
+
+bool copy_controller_value(const std::string& key, ControllerValues& dst, const ControllerValues& src) {
+    std::string b;
+    if (is_map_key(key, b)) {
+        auto it = src.gun_buttons.map.find(b);
+        dst.gun_buttons.map[b] = it == src.gun_buttons.map.end() ? std::string("none") : it->second;
+        return true;
+    }
+    for (const auto& c : copiers())
+        if (key == c.key) { c.fn(dst, src); return true; }
+    return false;
+}
+
+Settings effective(const Settings& s, const std::string& address) {
+    Settings e = s;
+    auto it = s.controllers.find(normalize_address(address));
+    if (it == s.controllers.end()) return e;
+    for (const auto& k : it->second.keys) copy_controller_value(k, e, it->second.values);
+    return e;
+}
+
+bool modify_for(Settings& s, const std::string& address, const std::vector<std::string>& keys, const std::function<void(Settings&)>& fn) {
+    if (address.empty()) { fn(s); return true; }
+    const std::string a = normalize_address(address);
+    auto it = s.controllers.find(a);
+    if (it == s.controllers.end()) return false;
+    Settings e = effective(s, a);
+    fn(e);
+    for (const auto& k : keys) {
+        if (!controller_key_valid(k)) continue;
+        copy_controller_value(k, it->second.values, e);
+        it->second.keys.insert(k);
+    }
+    return true;
+}
+
+void clear_overrides(ControllerEntry& e, const std::vector<std::string>& prefixes) {
+    if (prefixes.empty()) { e.keys.clear(); e.values = ControllerValues{}; return; }
+    for (auto it = e.keys.begin(); it != e.keys.end();) {
+        bool hit = false;
+        for (const auto& p : prefixes) if (it->rfind(p, 0) == 0) hit = true;
+        it = hit ? e.keys.erase(it) : std::next(it);
+    }
+}
+
+bool address_valid(const std::string& a) {
+    if (a.size() != 17) return false;
+    for (size_t i = 0; i < 17; ++i) {
+        char c = a[i];
+        if (i % 3 == 2) { if (c != ':') return false; }
+        else if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
+    }
+    std::string l = a;
+    for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return l != "00:00:00:00:00:00" && l != "ff:ff:ff:ff:ff:ff";
+}
+
+std::string normalize_address(const std::string& a) {
+    if (!address_valid(a)) return {};
+    std::string r = a;
+    for (auto& c : r) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return r;
+}
+
+bool controller_name_valid(const std::string& n) {
+    if (n.empty() || n.size() > 32) return false;
+    for (unsigned char c : n) if (c < 0x20 || c == 0x7f) return false;
+    return true;
+}
+
+LedSettings player_led(int player) {
+    LedSettings l;
+    l.enabled = true;
+    switch (player) {
+        case 2: l.preset = "magenta"; l.r = 255; l.g = 0; l.b = 255; break;
+        case 3: l.preset = "groen"; l.r = 0; l.g = 255; l.b = 0; break;
+        case 4: l.preset = "custom"; l.r = 255; l.g = 255; l.b = 0; break;  // geel: niet gemeten, zie docs/decisions.md
+        default: l.preset = "cyaan"; l.r = 0; l.g = 255; l.b = 255; break;
+    }
+    return l;
+}
+
+std::string player_start_key(int player) { return std::to_string(player >= 1 && player <= kMaxPlayers ? player : 1); }
+
+void apply_player_defaults(Settings& s, const std::string& address, int from, int to) {
+    const std::string a = normalize_address(address);
+    auto it = s.controllers.find(a);
+    if (it == s.controllers.end() || from == to) return;
+    ControllerEntry& e = it->second;
+    if (e.type != "move") return;
+    const Settings eff = effective(s, a);
+    // LED: alleen als hij nog de kleur van `from` had (speler 1 of geen speler: de globale standaard).
+    const LedSettings from_led = from >= 2 ? player_led(from) : s.led;
+    if (same_led(eff.led, from_led)) {
+        clear_overrides(e, {"led.", "tracker.hue_deg", "tracker.hue_tol_deg"});
+        if (to >= 2) {
+            e.values.led = player_led(to);
+            tracker_for_led(e.values.led, e.values.tracker);
+            for (const char* k : {"led.enabled", "led.preset", "led.r", "led.g", "led.b", "tracker.hue_deg", "tracker.hue_tol_deg"}) e.keys.insert(k);
+        }
+    }
+    // Start-toets: knoppen die de Start-toets van `from` gaven, geven nu die van `to` (Coin blijft gelijk).
+    const std::string old_key = "key:" + player_start_key(from), new_key = "key:" + player_start_key(to);
+    if (old_key == new_key) return;
+    for (const auto& b : gun_map_buttons()) {
+        auto m = eff.gun_buttons.map.find(b);
+        if (m == eff.gun_buttons.map.end() || m->second != old_key) continue;
+        const std::string k = std::string(kMapPrefix) + b;
+        auto d = s.gun_buttons.map.find(b);
+        if (d != s.gun_buttons.map.end() && d->second == new_key) { e.keys.erase(k); continue; }
+        e.values.gun_buttons.map[b] = new_key;
+        e.keys.insert(k);
+    }
+}
+
+int free_player(const Settings& s, const std::string& except) {
+    const std::string ex = normalize_address(except);
+    for (int p = 1; p <= kMaxPlayers; ++p) {
+        bool used = false;
+        for (const auto& kv : s.controllers)
+            if (kv.first != ex && kv.second.type == "move" && !kv.second.removed && kv.second.player == p) used = true;
+        if (!used) return p;
+    }
+    return 0;
+}
+
+std::string move_for_player(const Settings& s, int player) {
+    if (player < 1) return {};
+    for (const auto& kv : s.controllers)
+        if (kv.second.type == "move" && !kv.second.removed && kv.second.player == player) return kv.first;
+    return {};
+}
+
+std::string validate_controllers(const Settings& s) {
+    std::set<int> players;
+    for (const auto& kv : s.controllers) {
+        const std::string where = "controllers." + redact_mac(kv.first);
+        if (normalize_address(kv.first) != kv.first) return where + ": ongeldig adres (verwacht aa:bb:cc:dd:ee:ff in kleine letters)";
+        const ControllerEntry& e = kv.second;
+        if (e.type != "move" && e.type != "navigation") return where + ".type moet move of navigation zijn";
+        if (!e.name.empty() && !controller_name_valid(e.name)) return where + ".name moet 1 tot 32 gewone tekens zijn";
+        if (e.player < 0 || e.player > kMaxPlayers) return where + ".player moet tussen 0 en 4 liggen";
+        if (e.type == "move" && !e.removed && e.player > 0) {
+            if (players.count(e.player)) return where + ".player: speler " + std::to_string(e.player) + " heeft al een Move";
+            players.insert(e.player);
+        }
+        for (const auto& k : e.keys)
+            if (!controller_key_valid(k)) return where + ": onbekende instelling '" + k + "'";
+        Settings eff = effective(s, kv.first);
+        eff.controllers.clear();
+        if (std::string m = validate(eff); !m.empty()) return where + ": " + m;
+    }
+    return {};
+}
+
 
 std::string validate(const Settings& s) {
     auto in = [](double v, double lo, double hi) { return std::isfinite(v) && v >= lo && v <= hi; };
@@ -196,15 +416,95 @@ std::string validate(const Settings& s) {
         if (kv.first == "t") return "gun_buttons.map: 't' kan niet worden ingedeeld: T is altijd de analoge trekker";
         const auto& bs = gun_map_buttons();
         if (std::find(bs.begin(), bs.end(), kv.first) == bs.end())
-            return "gun_buttons.map: '" + kv.first + "' is geen Move-knop (triangle, circle, cross, square, select, start, move, pump, ss_rl, ss_fire, sel1, sel2, sel3)";
+            return "gun_buttons.map: '" + kv.first + "' is geen indeelbare knop (triangle, circle, cross, square, select, start, move, pump, ss_rl, ss_fire, sel1, sel2, sel3, nav_...)";
         std::string canon;
         std::string m = check_gun_action(kv.second, canon);
         if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;
     }
-    return {};
+    return validate_controllers(s);
 }
 
-std::string to_json(const Settings& s, bool pretty) {
+namespace {
+
+// Schrijft de afwijkingen van een controller als geneste secties ({"filter":{"beta":4},"gun_buttons":{"map":{...}}}).
+void write_overrides(json::Writer& w, const ControllerEntry& e) {
+    const ControllerValues& v = e.values;
+    auto has = [&](const char* k) { return e.keys.count(k) != 0; };
+    auto any = [&](const char* prefix) {
+        for (const auto& k : e.keys) if (k.rfind(prefix, 0) == 0) return true;
+        return false;
+    };
+    w.begin_object();
+    if (any("led.")) {
+        w.key("led").begin_object();
+        if (has("led.enabled")) w.key("enabled").value(v.led.enabled);
+        if (has("led.preset")) w.key("preset").value(v.led.preset);
+        if (has("led.r")) w.key("r").value(v.led.r);
+        if (has("led.g")) w.key("g").value(v.led.g);
+        if (has("led.b")) w.key("b").value(v.led.b);
+        w.end_object();
+    }
+    if (any("tracker.")) {
+        w.key("tracker").begin_object();
+        if (has("tracker.hue_deg")) w.key("hue_deg").value(v.tracker.hue_deg);
+        if (has("tracker.hue_tol_deg")) w.key("hue_tol_deg").value(v.tracker.hue_tol_deg);
+        if (has("tracker.min_chroma")) w.key("min_chroma").value(v.tracker.min_chroma);
+        w.end_object();
+    }
+    if (any("filter.")) {
+        w.key("filter").begin_object();
+        if (has("filter.enabled")) w.key("enabled").value(v.filter.enabled);
+        if (has("filter.min_cutoff_hz")) w.key("min_cutoff_hz").value(v.filter.min_cutoff_hz);
+        if (has("filter.beta")) w.key("beta").value(v.filter.beta);
+        if (has("filter.d_cutoff_hz")) w.key("d_cutoff_hz").value(v.filter.d_cutoff_hz);
+        w.end_object();
+    }
+    if (any("aim.")) {
+        w.key("aim").begin_object();
+        if (has("aim.h_edge_deg")) w.key("h_edge_deg").value(v.aim.h_edge_deg);
+        if (has("aim.v_edge_deg")) w.key("v_edge_deg").value(v.aim.v_edge_deg);
+        if (has("aim.predict_ms")) w.key("predict_ms").value(v.aim.predict_ms);
+        w.end_object();
+    }
+    if (any("fusion.")) {
+        w.key("fusion").begin_object();
+        if (has("fusion.mode")) w.key("mode").value(v.fusion.mode);
+        if (has("fusion.vqf_bias")) w.key("vqf_bias").value(v.fusion.vqf_bias);
+        if (has("fusion.recenter_learning")) w.key("recenter_learning").value(v.fusion.recenter_learning);
+        w.end_object();
+    }
+    if (any("rumble.")) {
+        w.key("rumble").begin_object();
+        if (has("rumble.enabled")) w.key("enabled").value(v.rumble.enabled);
+        if (has("rumble.strength")) w.key("strength").value(v.rumble.strength);
+        if (has("rumble.pulse_ms")) w.key("pulse_ms").value(v.rumble.pulse_ms);
+        if (has("rumble.repeat_hz")) w.key("repeat_hz").value(v.rumble.repeat_hz);
+        if (has("rumble.pump_strength")) w.key("pump_strength").value(v.rumble.pump_strength);
+        w.end_object();
+    }
+    if (any("gun_buttons.")) {
+        w.key("gun_buttons").begin_object();
+        if (has("gun_buttons.trigger_on")) w.key("trigger_on").value(v.gun_buttons.trigger_on);
+        if (has("gun_buttons.trigger_off")) w.key("trigger_off").value(v.gun_buttons.trigger_off);
+        if (any(kMapPrefix)) {
+            w.key("map").begin_object();
+            for (const auto& b : gun_map_buttons()) {
+                if (!e.keys.count(std::string(kMapPrefix) + b)) continue;
+                auto it = v.gun_buttons.map.find(b);
+                std::string canon = "none";
+                if (it != v.gun_buttons.map.end()) check_gun_action(it->second, canon);
+                w.key(b).value(canon);
+            }
+            w.end_object();
+        }
+        w.end_object();
+    }
+    w.end_object();
+}
+
+}  // namespace
+
+std::string to_json(const Settings& s, bool pretty, bool redact) {
     const char* nl = pretty ? "\n" : "";
     const char* ind = pretty ? "  " : "";
     auto section = [&](const char* name, auto&& fill) {
@@ -261,13 +561,40 @@ std::string to_json(const Settings& s, bool pretty) {
             w.key(b).value(canon);
         }
         w.end_object();
-    }) + nl + "}" + nl;
+    }) + "," + nl;
+    // Controllers: een regel per controller (leesbaar en met de hand te herstellen).
+    out += std::string(ind) + "\"controllers\":" + (pretty ? " " : "") + "{";
+    bool first = true;
+    for (const auto& kv : s.controllers) {
+        const ControllerEntry& e = kv.second;
+        json::Writer w;
+        w.begin_object();
+        if (redact) w.key("address").value(redact_mac(kv.first));
+        w.key("type").value(e.type).key("model").value(e.model).key("name").value(e.name).key("player").value(e.player);
+        w.key("removed").value(e.removed);
+        w.key("added_unix").value(static_cast<long long>(e.added_unix)).key("last_seen_unix").value(static_cast<long long>(e.last_seen_unix));
+        w.key("settings");
+        write_overrides(w, e);
+        w.end_object();
+        out += std::string(first ? "" : ",") + nl + ind + ind + json::quote(redact ? core::controller_key(kv.first) : kv.first) + ":" +
+               (pretty ? " " : "") + w.str();
+        first = false;
+    }
+    out += std::string(first ? "" : std::string(nl) + ind) + "}" + nl + "}" + nl;
     return out;
 }
 
 const std::vector<MigrationStep>& builtin_migrations() {
-    static const std::vector<MigrationStep> none;
-    return none;
+    // 1 -> 2: er komt alleen de sectie "controllers" bij (leeg). Alle bestaande waarden blijven staan en zijn vanaf nu de
+    // standaard; een Move zonder eigen afwijkingen gebruikt precies die waarden, dus er gaat niets verloren. De Move die al
+    // gekoppeld was, komt bij het eerste verbinden (of uit de BlueZ-lijst) als speler 1 in "controllers".
+    static const std::vector<MigrationStep> steps = {
+        {1, [](json::Value& root, std::string& err) {
+             if (root.find("controllers")) { err = "schema 1 hoort geen 'controllers' te hebben"; return false; }
+             return true;
+         }},
+    };
+    return steps;
 }
 
 bool parse_settings(const std::string& text, Settings& out, std::string& err, std::vector<std::string>* warnings,
@@ -289,6 +616,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     while (ver < kSchemaVersion) {
         const MigrationStep* st = nullptr;
         for (const auto& m : steps) if (m.from == ver) st = &m;
+        if (!st) for (const auto& m : builtin_migrations()) if (m.from == ver) st = &m;  // eigen lijst eerst, dan de ingebouwde
         if (!st) { err = "geen migratie van schema " + std::to_string(ver); return false; }
         std::string merr;
         if (!st->apply(root, merr)) { err = "migratie van schema " + std::to_string(ver) + " mislukt: " + merr; return false; }
@@ -296,7 +624,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (warnings) {
         for (const auto& kv : root.obj) {
-            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons", "rumble"};
+            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons", "rumble", "controllers"};
             bool k = false;
             for (const char* n : known) if (kv.first == n) k = true;
             if (!k) warnings->push_back("onbekende sleutel '" + kv.first + "' genegeerd");
@@ -416,6 +744,110 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
                     if (!kv.second.is_string() || kv.second.str.size() > 32) { c.fail("gun_buttons.map." + kv.first + " moet een korte tekst zijn"); break; }
                     s.gun_buttons.map[kv.first] = kv.second.str;  // validate() controleert knop en actie
                 }
+        }
+    }
+    if (const json::Value* cs = sec("controllers"); cs && e.empty()) {
+        for (const auto& kv : cs->obj) {
+            const std::string where = "controllers." + redact_mac(kv.first);
+            const std::string addr = normalize_address(kv.first);
+            if (addr.empty() || addr != kv.first) { e = where + ": ongeldig adres (verwacht aa:bb:cc:dd:ee:ff in kleine letters)"; break; }
+            if (!kv.second.is_object()) { e = where + " moet een object zijn"; break; }
+            const json::Value& o = kv.second;
+            ControllerEntry ce;
+            Section c{o, where, e, warnings};
+            c.string("type", ce.type);
+            c.string("model", ce.model);
+            c.string("name", ce.name);
+            c.integer("player", 0, kMaxPlayers, ce.player);
+            c.boolean("removed", ce.removed);
+            double au = 0, ls = 0;
+            c.number("added_unix", 0, 1e11, au, true);
+            c.number("last_seen_unix", 0, 1e11, ls, true);
+            ce.added_unix = static_cast<int64_t>(au);
+            ce.last_seen_unix = static_cast<int64_t>(ls);
+            c.unknown({"type", "model", "name", "player", "removed", "added_unix", "last_seen_unix", "settings"});
+            ce.values = static_cast<const ControllerValues&>(s);  // basis; alleen de genoemde sleutels tellen
+            if (const json::Value* st = o.find("settings")) {
+                if (!st->is_object()) { c.fail(where + ".settings moet een object zijn"); break; }
+                ControllerValues& v = ce.values;
+                auto read = [&](const char* name, auto&& fn) {
+                    const json::Value* x = st->find(name);
+                    if (!x) return;
+                    if (!x->is_object()) { c.fail(where + ".settings." + name + " moet een object zijn"); return; }
+                    Section d{*x, where + ".settings." + name, e, warnings};
+                    fn(d, *x, std::string(name) + ".");
+                };
+                auto mark = [&](const json::Value& x, const std::string& pre, std::initializer_list<const char*> ks) {
+                    for (const char* k : ks) if (x.find(k)) ce.keys.insert(pre + k);
+                };
+                read("led", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.boolean("enabled", v.led.enabled); d.string("preset", v.led.preset);
+                    d.integer("r", 0, 255, v.led.r); d.integer("g", 0, 255, v.led.g); d.integer("b", 0, 255, v.led.b);
+                    d.unknown({"enabled", "preset", "r", "g", "b"});
+                    mark(x, pre, {"enabled", "preset", "r", "g", "b"});
+                });
+                read("tracker", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.number("hue_deg", -180, 180, v.tracker.hue_deg, false);
+                    d.number("hue_tol_deg", 1, 90, v.tracker.hue_tol_deg, false);
+                    d.integer("min_chroma", 1, 180, v.tracker.min_chroma);
+                    d.unknown({"hue_deg", "hue_tol_deg", "min_chroma"});
+                    mark(x, pre, {"hue_deg", "hue_tol_deg", "min_chroma"});
+                });
+                read("filter", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.boolean("enabled", v.filter.enabled);
+                    d.number("min_cutoff_hz", 0.001, 100, v.filter.min_cutoff_hz, false);
+                    d.number("beta", 0, 1000, v.filter.beta, false);
+                    d.number("d_cutoff_hz", 0.001, 100, v.filter.d_cutoff_hz, false);
+                    d.unknown({"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz"});
+                    mark(x, pre, {"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz"});
+                });
+                read("aim", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.number("h_edge_deg", 1, 89, v.aim.h_edge_deg, false);
+                    d.number("v_edge_deg", 1, 89, v.aim.v_edge_deg, false);
+                    d.number("predict_ms", 0, 200, v.aim.predict_ms, false);
+                    d.unknown({"h_edge_deg", "v_edge_deg", "predict_ms"});
+                    mark(x, pre, {"h_edge_deg", "v_edge_deg", "predict_ms"});
+                });
+                read("fusion", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.string("mode", v.fusion.mode); d.string("vqf_bias", v.fusion.vqf_bias);
+                    d.boolean("recenter_learning", v.fusion.recenter_learning);
+                    d.unknown({"mode", "vqf_bias", "recenter_learning"});
+                    mark(x, pre, {"mode", "vqf_bias", "recenter_learning"});
+                });
+                read("rumble", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.boolean("enabled", v.rumble.enabled);
+                    d.integer("strength", 0, 255, v.rumble.strength);
+                    d.integer("pulse_ms", 10, 500, v.rumble.pulse_ms);
+                    d.number("repeat_hz", 0, 30, v.rumble.repeat_hz, false);
+                    d.integer("pump_strength", 0, 255, v.rumble.pump_strength);
+                    d.unknown({"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"});
+                    mark(x, pre, {"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"});
+                });
+                read("gun_buttons", [&](Section& d, const json::Value& x, const std::string& pre) {
+                    d.integer("trigger_on", 1, 255, v.gun_buttons.trigger_on);
+                    d.integer("trigger_off", 0, 254, v.gun_buttons.trigger_off);
+                    d.unknown({"trigger_on", "trigger_off", "map"});
+                    mark(x, pre, {"trigger_on", "trigger_off"});
+                    if (const json::Value* m = x.find("map")) {
+                        if (!m->is_object()) { d.fail(where + ".settings.gun_buttons.map moet een object zijn"); return; }
+                        for (const auto& mk : m->obj) {
+                            if (!mk.second.is_string() || mk.second.str.size() > 32) { d.fail(where + ".settings.gun_buttons.map." + mk.first + " moet een korte tekst zijn"); return; }
+                            const auto& bs = gun_map_buttons();
+                            if (std::find(bs.begin(), bs.end(), mk.first) == bs.end()) { d.fail(where + ".settings.gun_buttons.map: '" + mk.first + "' is geen indeelbare knop"); return; }
+                            v.gun_buttons.map[mk.first] = mk.second.str;
+                            ce.keys.insert(pre + "map." + mk.first);
+                        }
+                    }
+                });
+                for (const auto& sk : st->obj) {
+                    static const char* known[] = {"led", "tracker", "filter", "aim", "fusion", "rumble", "gun_buttons"};
+                    bool k = false;
+                    for (const char* n : known) if (sk.first == n) k = true;
+                    if (!k && warnings) warnings->push_back("onbekende sleutel '" + where + ".settings." + sk.first + "' genegeerd");
+                }
+            }
+            if (!e.empty()) break;
+            s.controllers[addr] = std::move(ce);
         }
     }
     if (e.empty()) e = validate(s);  // o.a. de presetnaam
