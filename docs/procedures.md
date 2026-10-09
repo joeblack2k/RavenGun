@@ -97,3 +97,27 @@ Voorwaarden: de daemon is na de merge opnieuw gebouwd en gestart (`ravengund`), 
 3. Een lage correlatie bij weinig intervallen zegt weinig: doe er minstens 10. De per-interval-mediaan wordt begrensd door het richten van de speler (1 tot 2 graden per PS-druk, bij intervallen van 13 s al 6 tot 8 graden/min); kijk daarom ook naar de cumulatieve drift en wissel de PS-drukken af met intervallen van minstens 30 s.
 4. Begin de speelsessie met de Move 10 tot 60 s stil op tafel (de daemon leert de temperatuurhelling en de bias) en druk pas daarna PS; doe je dat niet, noteer het in de tag (bijvoorbeeld `halo-drift-koud`).
 5. Controle van de bewaarde bias: `./build/ravengunctl status` ("Gyro-bias: ... bewaard: hersteld bij start (tc ..); N keer bewaard in deze run"). Het bestand staat in `~/.local/state/ravengun/gyro-bias/`; verwijderen mag altijd (de volgende sessie begint dan koud). `ravengund --no-bias-store` zet laden en bewaren uit, `--bias-mode legacy` schakelt de nieuwe schatter uit.
+
+## Hulp voor het koppelen installeren (eenmalig, met sudo)
+
+Nodig om vanuit de app of `ravengunctl pair` te koppelen. Niet nodig voor spelen of verwijderen. Zie `docs/decisions.md` ("Koppelen zonder terminal").
+
+1. Controleren wat er gebeurt: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --dry-run`.
+2. Installeren: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --apply`. Dit zet `scripts/ravengun-bt-helper` als `/opt/ravengun/bin/ravengun-bt-helper` (root:root 0755) en schrijft `/etc/sudoers.d/ravengun-bt-helper` (0440, eerst met `visudo -cf` gecontroleerd) die alleen dat pad zonder wachtwoord toestaat.
+3. Controleren zonder sudo: `~/projects/ravengun/scripts/install-bt-helper.sh --check` (verwacht: "Hulp actueel" en "sudo: toegestaan zonder wachtwoord").
+4. Terugdraaien: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --rollback`.
+
+Na een wijziging van `scripts/ravengun-bt-helper` stap 2 opnieuw. De hulp logt naar de journal (`journalctl -t ravengun-bt-helper`) en naar `/var/log/ravengun-bt-helper.log`.
+
+Daarnaast (nieuw voor speler 2 tot 4) moet de udev-regel opnieuw: `sudo ~/projects/ravengun/scripts/udev-ravengun.sh --apply` (controle zonder sudo: `scripts/udev-ravengun.sh --check`). Zonder die regel heeft de gun van speler 2 geen by-id-link en geen leesrecht, en beweegt hij de desktopcursor.
+
+## Tweede Move koppelen en met twee spelers testen (ongeveer 15 minuten)
+
+1. App, tabblad Controllers, Nieuwe controller koppelen; de nieuwe Move via USB aansluiten; de stappen volgen tot "Klaar". Of in een terminal: `ravengunctl pair`.
+2. `ravengunctl controllers`: de nieuwe Move staat er als speler 2, verbonden, met LED 255,0,255 (magenta).
+3. Knipperen (app) of `ravengunctl controller <sleutel> --blink`: de juiste Move knippert.
+4. `ravengunctl status --player 2` en `ravengunctl watch --player 2`: de aim van speler 2 beweegt met de tweede Move, die van speler 1 niet (`ravengunctl watch`).
+5. `ravengunctl arm`, dan `ls -l /dev/input/by-id/ | grep RavenGun`: drie links (toetsenbord, Lightgun, Lightgun_P2). `ravengunctl output --json`: `players[1].device.product` is 7203 en `active` is true.
+6. `ravengunctl camera --json`: onder `tracker.players` zien speler 1 en 2 elk hun bol (`last.valid`) met beide Moves stil in beeld.
+7. In een game met twee spelers (eerst met `scripts/tp-add-game.py --force` de bindingen van speler 2 laten zetten): Start speler 2 met toets 2 (Start of Vierkant op de tweede Move), schieten met elke Move op zijn eigen vizier.
+8. Verwijderen testen kan met een Move die je daarna opnieuw koppelt: Controllers, Verwijderen, "instellingen bewaren"; daarna opnieuw koppelen: de eigen instellingen zijn terug.

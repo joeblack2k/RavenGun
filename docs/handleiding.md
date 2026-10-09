@@ -1,6 +1,6 @@
 # Handleiding voor de speler
 
-Dit is de gewone gebruiksaanwijzing van RavenGun. Er komt geen technische kennis aan te pas. Open de app met de snelkoppeling "RavenGun" op het bureaublad. Bovenaan staan zeven tabbladen. De app onthoudt het tabblad waar je het laatst was.
+Dit is de gewone gebruiksaanwijzing van RavenGun. Er komt geen technische kennis aan te pas. Open de app met de snelkoppeling "RavenGun" op het bureaublad. Bovenaan staan acht tabbladen. De app onthoudt het tabblad waar je het laatst was.
 
 ## Een game starten
 
@@ -11,6 +11,41 @@ Dit is de gewone gebruiksaanwijzing van RavenGun. Er komt geen technische kennis
 5. Klaar met spelen? Sluit de game zoals gewoonlijk in de game zelf, of druk in de app op Stoppen.
 
 Onder sommige games staat een kleine opmerking, bijvoorbeeld dat ze nog niet getest zijn of nog niet werken. Die games kun je wel proberen, maar het kan misgaan.
+
+## Met twee spelers
+
+Elke Move is een speler: de eerste Move is speler 1, de volgende die je koppelt speler 2. Elke speler heeft in de game een eigen pistool. De bol van speler 1 is cyaan (lichtblauw), die van speler 2 magenta (roze-paars), zodat de camera ze uit elkaar houdt. Speler 2 start in het spelmenu met toets 2 (de knop Start of Vierkant op zijn Move); Coin is voor iedereen toets 5.
+
+Op de tabbladen Overzicht, Richten, Trillen, Knoppen en LED en camera staat bovenaan "Instellingen van: Speler 1 / Speler 2". Kies eerst de speler; alles wat je daarna verandert, geldt alleen voor de Move van die speler. Zo kan speler 2 bijvoorbeeld zachter trillen of een andere knoppenindeling hebben.
+
+Weet je niet welke Move welke is? Ga naar Controllers en druk bij een Move op Knipperen: die Move knippert dan drie seconden wit en trilt even.
+
+In TeknoParrot moet een game de pistolen van beide spelers kennen. Voor games die met `scripts/tp-add-game.py` zijn toegevoegd, staat speler 2 meteen goed ("RavenGun Virtual Lightgun P2"). Het pistool van speler 2 bestaat pas als speler 2 een Move heeft; start een game daarom pas nadat beide Moves gekoppeld zijn.
+
+## Een controller koppelen
+
+Een nieuwe Move (of een Navigation Controller) koppel je zelf, op het tabblad Controllers:
+
+1. Druk op Nieuwe controller koppelen.
+2. Sluit de controller met een USB-kabel aan op de pc. Gebruik een kabel die data doorgeeft; een los laadkabeltje werkt niet.
+3. De app koppelt hem aan deze pc. Bluetooth start daarvoor even opnieuw; een Move die al aan staat, valt een paar seconden weg en komt vanzelf terug.
+4. Staat er "Haal de USB-kabel eruit": doe dat.
+5. Staat er "Druk nu kort op de PS-knop": druk op de ronde PS-knop. Als hij verbonden is staat er "Klaar", en hij staat in de lijst met zijn spelernummer.
+
+Staat er dat de controller al gekoppeld is, dan kun je kiezen: Opnieuw koppelen, of gewoon de kabel eruit halen en op de PS-knop drukken.
+
+De allereerste keer vraagt de app om eenmalig een hulpprogramma te installeren. Daarvoor is het beheerwachtwoord nodig: laat iemand die het weet het getoonde commando in een terminal uitvoeren, en druk daarna op Opnieuw proberen. Daarna kan de app voortaan zonder wachtwoord koppelen.
+
+## Een controller verwijderen of een andere naam geven
+
+Op het tabblad Controllers staat elke bekende controller met zijn naam, speler, batterij en wanneer hij het laatst gezien is.
+
+- Naam: typ een nieuwe naam en druk op Naam bewaren.
+- Speler: kies een ander spelernummer. Heeft een andere Move dat nummer, dan ruilen ze.
+- Verwijderen: als je een Move wegdoet of als hij kapot is. De app vraagt of de instellingen bewaard moeten blijven. Kies "instellingen bewaren" als hij misschien terugkomt (bijvoorbeeld na een reparatie); hij krijgt ze dan terug als je hem opnieuw koppelt. Kies "wissen" als hij voorgoed weg is.
+- Standaardinstellingen: wist de eigen instellingen van die controller; dan gelden weer dezelfde instellingen als voor een nieuwe controller.
+
+Een Navigation Controller hoort bij een speler. Zijn knoppen kies je bij Knoppen van die speler (onderaan de lijst), bijvoorbeeld L1 voor herladen en L2 voor een granaat. Hij werkt alleen als de Move van die speler ook aan staat.
 
 ## Richten: de cursor goed krijgen
 
@@ -43,9 +78,11 @@ De camera volgt de gloeiende bol bovenop de Move. Op dit tabblad kies je de kleu
 
 ## Wat betekenen de meldingen?
 
-- Niet verbonden (bij de Move): de Move staat uit of is niet gekoppeld. Druk op de PS-knop.
+- Niet verbonden (bij de Move): de Move staat uit of is niet gekoppeld. Druk op de PS-knop. Werkt dat niet, koppel hem dan opnieuw op het tabblad Controllers.
 - Batterij: bijna leeg (rood), laag (oranje), halfvol, goed, bijna vol of vol. Laadt: de Move ligt aan de lader. De Move meldt geen precies percentage, alleen deze stappen. Laad hem op voor een lange speelsessie.
 - Navigation Controller: niet verbonden betekent dat de joystick niet gevonden is. Dat is geen probleem als je hem niet gebruikt.
+- "Deze speler heeft nog geen Move" (bij de spelerkeuze): er is voor die speler nog geen Move gekoppeld. Wat je dan verandert, geldt voor nieuwe controllers.
+- "Koppelen is niet gelukt" met een tekst eronder: lees de tekst. Verbindt hij niet via Bluetooth, laad hem dan eerst op en probeer het opnieuw.
 - Camera: Ziet de bol betekent dat het richten kan werken. Ziet de bol niet: houd de Move voor de camera en let op andere lichtjes of de kleur van de bol. Camera werkt niet: controleer de USB-kabel van de camera.
 - Lightgun: Klaar betekent dat een game de Move als pistool ziet. Uit betekent dat de games niets van de Move merken. Bij Spelen gaat hij vanzelf aan.
 - "Wacht op de Move: druk op de PS-knop.": de game wil beginnen, maar de Move is nog niet gevonden. Druk op de PS-knop. Na twee minuten zonder Move geeft de app op.
