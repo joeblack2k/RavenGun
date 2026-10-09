@@ -675,7 +675,51 @@ static void test_kiosk_helpers() {
     CHECK(xauthority_from_cmdline("").empty());
 }
 
+// Controllers en spelers: de nieuwe endpoints, de spelerkeuze en dezelfde beveiliging als elke POST.
+static void test_controller_endpoints() {
+    Fake f;
+    WebApp app = make_app(f);
+    CHECK(app.handle(get("/api/controllers")).status == 200 && f.last_line == R"({"v":1,"cmd":"controllers"})");
+    CHECK(app.handle(post("/api/controllers", "{}")).status == 405);
+    CHECK(app.handle(post("/api/controllers/pair", R"({"action":"start"})")).status == 200 && f.last_line == R"({"v":1,"cmd":"pair","action":"start"})");
+    CHECK(app.handle(post("/api/controllers/unpair", R"({"controller":"37b2de54e4ef26ba","keep_settings":false})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"unpair","controller":"37b2de54e4ef26ba","keep_settings":false})");
+    CHECK(app.handle(post("/api/controllers/update", R"({"controller":"37b2de54e4ef26ba","name":"Move 2","new_player":2})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_controller","controller":"37b2de54e4ef26ba","name":"Move 2","new_player":2})");
+    CHECK(app.handle(post("/api/controllers/blink", R"({"player":2})")).status == 200 && f.last_line == R"({"v":1,"cmd":"blink","player":2})");
+    // Spelerkeuze op de bestaande endpoints.
+    CHECK(app.handle(post("/api/filter", R"({"beta":4,"player":2})")).status == 200 && f.last_line == R"({"v":1,"cmd":"set_filter","beta":4,"player":2})");
+    CHECK(app.handle(post("/api/led", R"({"preset":"magenta","controller":"default"})")).status == 200);
+    CHECK(app.handle(post("/api/recenter", "")).status == 200 && f.last_line == R"({"v":1,"cmd":"recenter"})");
+    CHECK(app.handle(post("/api/recenter", R"({"player":2})")).status == 200 && f.last_line == R"({"v":1,"cmd":"recenter","player":2})");
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":{"cross":"key:2"},"player":2})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_gun_buttons","player":2,"map":{"cross":"key:2"}})");
+    auto getq = [](const std::string& path, const std::string& q) { HttpRequest r = get(path); r.query = q; return r; };
+    CHECK(app.handle(getq("/api/status", "player=2")).status == 200 && f.last_line == R"({"v":1,"cmd":"status","player":2})");
+    CHECK(app.handle(getq("/api/sample", "player=3")).status == 200 && f.last_line == R"({"v":1,"cmd":"sample","player":3})");
+    CHECK(app.handle(getq("/api/status", "player=9")).status == 200 && f.last_line == R"({"v":1,"cmd":"status"})");  // ongeldig: speler 1
+    CHECK(app.handle(getq("/api/stream", "player=2")).sse_player == 2 && app.handle(getq("/api/stream", "player=x")).sse_player == 1);
+    CHECK(player_from_query("hz=60&player=4") == 4 && player_from_query("player=12") == 0 && player_from_query("player=0") == 0);
+    // Weigeringen vóór de daemon iets ziet: onbekende velden, verkeerde typen, onbekend sub-endpoint, GET.
+    f.calls = 0;
+    CHECK(app.handle(post("/api/controllers/unpair", R"({"controller":"x","rm":"-rf"})")).status == 400);
+    CHECK(app.handle(post("/api/controllers/unpair", R"({"controller":5})")).status == 400);
+    CHECK(app.handle(post("/api/controllers/update", R"({"controller":"x","path":"/etc"})")).status == 400);
+    CHECK(app.handle(post("/api/controllers/pair", R"({"action":"start","cmd":"x"})")).status == 400);
+    CHECK(app.handle(post("/api/controllers/shell", R"({})")).status == 404);
+    CHECK(app.handle(get("/api/controllers/pair")).status == 405);
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":{"cross":"reload"},"player":"twee"})")).status == 400);
+    CHECK(f.calls == 0);
+    // Zelfde beveiliging: zonder CSRF of van een andere origin geweigerd.
+    CHECK(app.handle(post("/api/controllers/unpair", R"({"controller":"37b2de54e4ef26ba"})", false)).status == 403);
+    HttpRequest evil = post("/api/controllers/pair", R"({"action":"start"})");
+    evil.headers["origin"] = "http://evil.example";
+    CHECK(app.handle(evil).status == 403);
+    CHECK(f.calls == 0);
+}
+
 int main() {
+    test_controller_endpoints();
     test_games_and_buttons_endpoints();
     test_calibrate_ui();
     test_kiosk_helpers();

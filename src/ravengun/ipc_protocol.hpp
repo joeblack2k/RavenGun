@@ -20,11 +20,17 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
                  SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
-                 SetGunButtons, Games, GameStart, GameStop };
+                 SetGunButtons, Games, GameStart, GameStop,
+                 Controllers, SetController, Blink, Unpair, Pair };
 const char* to_string(Cmd c);
 
 struct Request {
     Cmd cmd = Cmd::Status;
+    // Meerdere spelers: voor welke speler of controller dit verzoek geldt (per-controller-opdrachten). `player` 1..4, of
+    // `controller` = Bluetooth-adres, controller_key (16 hex) of "default" (de standaard voor elke controller). Zonder beide:
+    // speler 1 (en, als speler 1 een Move heeft, diens instellingen). Nooit allebei.
+    std::optional<int> player;
+    std::string controller;
     std::string id_json;   // id van de client als JSON-tekst (getal of string), leeg = geen id
     bool full_ids = false; // status/sample/watch: controller-ID ongeredigeerd
     double rate_hz = 30;   // watch
@@ -70,8 +76,18 @@ struct Request {
     // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp), bij open
     // optioneel step="practice" (opent direct de oefenstap).
     std::string step;
-    // Gedeeld veld: 'action' bij record/calib_mag.
+    // Gedeeld veld: 'action' bij record/calib_mag, en bij pair: start | status | confirm | cancel.
+    // set_controller: nieuwe naam (1..32 tekens), spelernummer (1..4) en/of alle afwijkingen wissen.
+    std::string name;
+    std::optional<int> new_player;
+    bool reset_settings = false;
+    // unpair: de instellingen bewaren voor als de controller terugkomt (standaard waar).
+    bool keep_settings = true;
+    // blink: duur in ms (200..10000, standaard 3000).
+    std::optional<double> blink_ms;
 };
+// Commando's met een spelerkeuze (player/controller).
+bool takes_selector(Cmd c);
 
 struct Error {
     std::string code;     // parse_error, bad_request, unsupported_version, unknown_command,

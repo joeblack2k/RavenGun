@@ -107,6 +107,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
     src/ravengund/move_slot.cpp
+    src/ravengund/controllers.cpp
     src/ravengund/recorder.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengund PRIVATE ${RAVENGUN_BUILD_DEFS})
@@ -186,7 +187,7 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
   if(RAVENGUN_BUILD_DAEMON)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
-    add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp
+    add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp src/ravengund/controllers.cpp
       src/ravengund/camera.cpp src/ravengund/output_service.cpp)
     target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)

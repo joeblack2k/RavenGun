@@ -36,6 +36,7 @@ struct Client {
     std::string in, out;
     bool watching = false;
     bool full_ids = false;
+    int player = 1;  // watch: de speler wiens samples deze client volgt
     int64_t period_ns = 0;
     int64_t next_due = 0;
     uint64_t last_seq = 0;
@@ -61,7 +62,9 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
     if (auto* e = std::get_if<ipc::Error>(&pr)) return ipc::error_response(*e);
     const ipc::Request& r = std::get<ipc::Request>(pr);
     if (r.cmd != ipc::Cmd::Watch) return execute_command(sh, r);  // gedeeld met de webinterface
-    Snapshot s = sh.get();
+    if (!r.controller.empty()) return ipc::error_response({"invalid_argument", "watch kent alleen 'player'", r.id_json});
+    c.player = r.player.value_or(1);
+    Snapshot s = sh.get(c.player);
     c.watching = true;
     c.full_ids = r.full_ids;
     c.period_ns = static_cast<int64_t>(1e9 / r.rate_hz);
@@ -71,7 +74,7 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
     c.press_base = s.press_total;
     c.release_base = s.release_total;
     json::Writer w;
-    w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).end_object();
+    w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).key("player").value(c.player).end_object();
     return ipc::ok_response(r.id_json, w.str());
 }
 
@@ -176,11 +179,13 @@ void ipc_thread_main(SharedState& sh, int lfd, int wake_fd) {
         }
 
         now = mono_ns();
-        Snapshot snap;
-        bool have_snap = false;
+        std::array<Snapshot, kPlayers> snaps;
+        std::array<bool, kPlayers> have_snap{};
         for (auto& c : clients) {
             if (!c.watching || c.closing || now < c.next_due) continue;
-            if (!have_snap) { snap = sh.get(); have_snap = true; }
+            const size_t pi = static_cast<size_t>(SharedState::clamp_player(c.player) - 1);
+            if (!have_snap[pi]) { snaps[pi] = sh.get(c.player); have_snap[pi] = true; }
+            const Snapshot& snap = snaps[pi];
             c.next_due = now + c.period_ns;
             // Niets nieuws: geen nieuw HID-sample en geen nieuwe optische meting.
             if (snap.sample.seq == c.last_seq && snap.optical_updates == c.last_optical) continue;

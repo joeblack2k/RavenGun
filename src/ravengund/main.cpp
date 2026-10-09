@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "camera.hpp"
+#include "controllers.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
@@ -95,6 +96,10 @@ void usage(FILE* f) {
         "  --web-port N                     poort (standaard 8765)\n"
         "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
         "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
+        "\n"
+        "controllers (koppelen en verwijderen vanuit de webinterface en ravengunctl):\n"
+        "  --controllers-fake PAD           nep-systeem (JSON) voor de controllerlijst en de koppelwizard; voor tests en\n"
+        "                                   schermafdrukken zonder hardware (raakt Bluetooth en hidraw niet)\n"
         "\n"
         "games (starten vanuit de webinterface via systemd-run en scripts/play-halo.sh):\n"
         "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
@@ -178,6 +183,7 @@ int main(int argc, char** argv) {
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     std::string play_script;
     bool games_dry_run = false;
+    std::string controllers_fake;  // nep-systeem voor de controllerlijst en het koppelen (tests, schermafdrukken)
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto need = [&](double lo, double hi, double& out) {
@@ -249,6 +255,7 @@ int main(int argc, char** argv) {
         else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
         else if (a == "--play-script" && i + 1 < argc) play_script = argv[++i];
         else if (a == "--games-dry-run") games_dry_run = true;
+        else if (a == "--controllers-fake" && i + 1 < argc) controllers_fake = argv[++i];
         else if (a == "--no-camera") cam.enabled = false;
         else if (a == "--camera-auto") cam.auto_exposure = cam.auto_gain = cam.auto_awb = true;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
@@ -438,6 +445,26 @@ int main(int argc, char** argv) {
     }
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
+    // Controllers: lijst, koppelwizard, verwijderen (BlueZ via busctl, de hulp met rootrechten via sudo -n).
+    std::unique_ptr<ControllerOps> ctl_ops;
+    if (!controllers_fake.empty()) {
+        std::string text, ferr;
+        if (FILE* f = std::fopen(controllers_fake.c_str(), "rb")) {
+            char buf[4096];
+            size_t n;
+            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
+            std::fclose(f);
+        }
+        ctl_ops = make_fake_controller_ops(text, ferr);
+        if (!ctl_ops) { std::fprintf(stderr, "ravengund: --controllers-fake: %s\n", ferr.c_str()); return 64; }
+        logf("info", "controllers: nep-systeem uit %s (geen Bluetooth of hidraw)", controllers_fake.c_str());
+    } else {
+        ctl_ops = make_system_controller_ops();
+    }
+    ControllerService controllers(shared, std::move(ctl_ops));
+    // Zonder HID (tests): de gekoppelde controllers van deze pc niet in het instellingenbestand opnemen.
+    controllers.set_auto_register(opt.enabled || !controllers_fake.empty());
+    shared.controllers = &controllers;
     CameraService camera(shared, cam);
     shared.camera = &camera;
     shared.camera_status = [&camera] { return camera.status_json(); };
@@ -450,6 +477,7 @@ int main(int argc, char** argv) {
     std::thread hid(hid_thread_main, std::ref(shared), opt);
     std::thread ipc(ipc_thread_main, std::ref(shared), sfd, wake);
     camera.start();
+    controllers.start();
 
     // Webinterface: een eigen thread; als hij niet kan starten draait de daemon gewoon door.
     std::thread web;
@@ -492,6 +520,7 @@ int main(int argc, char** argv) {
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
     camera.stop();
+    controllers.stop();
     hid.join();
     ipc.join();
     if (web.joinable()) web.join();

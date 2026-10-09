@@ -46,8 +46,23 @@ const char* to_string(Cmd c) {
         case Cmd::Games: return "games";
         case Cmd::GameStart: return "game_start";
         case Cmd::GameStop: return "game_stop";
+        case Cmd::Controllers: return "controllers";
+        case Cmd::SetController: return "set_controller";
+        case Cmd::Blink: return "blink";
+        case Cmd::Unpair: return "unpair";
+        case Cmd::Pair: return "pair";
     }
     return "?";
+}
+
+bool takes_selector(Cmd c) {
+    switch (c) {
+        case Cmd::Status: case Cmd::Sample: case Cmd::Recenter: case Cmd::ClearTrim: case Cmd::Watch: case Cmd::SetFilter:
+        case Cmd::SetAim: case Cmd::SetRumble: case Cmd::RumbleTest: case Cmd::SetLed: case Cmd::SetFusion: case Cmd::SetGunButtons:
+        case Cmd::Record: case Cmd::CalibMag: case Cmd::Blink:
+            return true;
+        default: return false;
+    }
 }
 
 namespace {
@@ -57,6 +72,7 @@ Error err(const char* code, std::string msg, const std::string& id = {}) { retur
 bool allowed(const json::Value& o, std::initializer_list<const char*> extra, std::string& bad) {
     for (const auto& kv : o.obj) {
         if (kv.first == "v" || kv.first == "cmd" || kv.first == "id") continue;
+        if (kv.first == "player" || kv.first == "controller") continue;  // spelerkeuze: apart gecontroleerd (takes_selector)
         bool ok = false;
         for (const char* e : extra) if (kv.first == e) ok = true;
         if (!ok) { bad = kv.first; return false; }
@@ -376,12 +392,71 @@ std::variant<Request, Error> parse_request(std::string_view line) {
                 return err("invalid_argument", "'step' mag alleen \"practice\" zijn, bij open", r.id_json);
             r.step = st->str;
         }
+    } else if (cmd == "controllers") {
+        r.cmd = Cmd::Controllers;
+        if (!allowed(o, {"full_ids"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        std::optional<bool> f;
+        if (!opt_bool(o, "full_ids", f, e, r.id_json)) return e;
+        r.full_ids = f.value_or(false);
+    } else if (cmd == "set_controller") {
+        r.cmd = Cmd::SetController;
+        if (!allowed(o, {"name", "new_player", "reset_settings"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (const json::Value* n = o.find("name")) {
+            if (!n->is_string() || !config::controller_name_valid(n->str))
+                return err("invalid_argument", "'name' moet 1 tot 32 gewone tekens zijn", r.id_json);
+            r.name = n->str;
+        }
+        std::optional<double> np;
+        if (!opt_int(o, "new_player", 1, 4, np, e, r.id_json)) return e;
+        if (np) r.new_player = static_cast<int>(*np);
+        std::optional<bool> rs;
+        if (!opt_bool(o, "reset_settings", rs, e, r.id_json)) return e;
+        r.reset_settings = rs.value_or(false);
+        if (r.name.empty() && !r.new_player && !r.reset_settings) return err("invalid_argument", "set_controller zonder te wijzigen velden", r.id_json);
+    } else if (cmd == "blink") {
+        r.cmd = Cmd::Blink;
+        if (!allowed(o, {"ms"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_int(o, "ms", 200, 10000, r.blink_ms, e, r.id_json)) return e;
+    } else if (cmd == "unpair") {
+        r.cmd = Cmd::Unpair;
+        if (!allowed(o, {"keep_settings"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        std::optional<bool> k;
+        if (!opt_bool(o, "keep_settings", k, e, r.id_json)) return e;
+        r.keep_settings = k.value_or(true);
+    } else if (cmd == "pair") {
+        r.cmd = Cmd::Pair;
+        if (!allowed(o, {"action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* a = o.find("action");
+        if (!a || !a->is_string() || (a->str != "start" && a->str != "status" && a->str != "confirm" && a->str != "cancel"))
+            return err("invalid_argument", "'action' moet start, status, confirm of cancel zijn", r.id_json);
+        r.action = a->str;
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else {
         return err("unknown_command", "onbekend commando '" + cmd + "'", r.id_json);
     }
+    // Spelerkeuze: alleen bij per-controller-opdrachten; set_controller en unpair hebben een controller nodig.
+    const json::Value* pv = o.find("player");
+    const json::Value* cv = o.find("controller");
+    const bool needs_controller = r.cmd == Cmd::SetController || r.cmd == Cmd::Unpair;
+    if ((pv || cv) && !takes_selector(r.cmd) && !needs_controller)
+        return err("bad_request", "onbekend veld '" + std::string(pv ? "player" : "controller") + "'", r.id_json);
+    if (pv && needs_controller) return err("bad_request", "onbekend veld 'player' (gebruik 'controller')", r.id_json);
+    if (pv && cv) return err("invalid_argument", "geef 'player' of 'controller', niet allebei", r.id_json);
+    if (pv) {
+        if (!pv->is_number() || std::floor(pv->num) != pv->num || pv->num < 1 || pv->num > 4)
+            return err("invalid_argument", "'player' moet een geheel getal van 1 tot 4 zijn", r.id_json);
+        r.player = static_cast<int>(pv->num);
+    }
+    if (cv) {
+        bool hex16 = cv->is_string() && cv->str.size() == 16;
+        if (hex16) for (char ch : cv->str) if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) hex16 = false;
+        const bool ok = cv->is_string() && (config::address_valid(cv->str) || hex16 || (cv->str == "default" && !needs_controller));
+        if (!ok) return err("invalid_argument", "'controller' moet een Bluetooth-adres (AA:BB:CC:DD:EE:FF), een controller-sleutel of 'default' zijn", r.id_json);
+        r.controller = cv->str;
+    }
+    if (needs_controller && r.controller.empty()) return err("invalid_argument", "'controller' (adres of sleutel) ontbreekt", r.id_json);
     return r;
 }
 
@@ -414,6 +489,8 @@ std::string make_request(const Request& r) {
     json::Writer w;
     w.begin_object().key("v").value(kProtocolVersion).key("cmd").value(to_string(r.cmd));
     if (!r.id_json.empty()) w.key("id").raw(r.id_json);
+    if (r.player) w.key("player").value(*r.player);
+    if (!r.controller.empty()) w.key("controller").value(r.controller);
     switch (r.cmd) {
         case Cmd::Status:
         case Cmd::Sample:
@@ -521,6 +598,23 @@ std::string make_request(const Request& r) {
             break;
         case Cmd::Games:
         case Cmd::GameStop:
+            break;
+        case Cmd::Controllers:
+            if (r.full_ids) w.key("full_ids").value(true);
+            break;
+        case Cmd::SetController:
+            if (!r.name.empty()) w.key("name").value(r.name);
+            if (r.new_player) w.key("new_player").value(*r.new_player);
+            if (r.reset_settings) w.key("reset_settings").value(true);
+            break;
+        case Cmd::Blink:
+            if (r.blink_ms) w.key("ms").value(*r.blink_ms);
+            break;
+        case Cmd::Unpair:
+            w.key("keep_settings").value(r.keep_settings);
+            break;
+        case Cmd::Pair:
+            w.key("action").value(r.action);
             break;
         case Cmd::Info:
         case Cmd::Settings:

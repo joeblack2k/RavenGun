@@ -1,0 +1,16 @@
+{
+  "adapter": "1c:ce:51:98:5d:6b",
+  "helper": false,
+  "bluez": [
+    {"address": "00:07:04:8c:70:ac", "type": "move", "model": "ZCM1", "name": "Motion Controller", "paired": true, "connected": true},
+    {"address": "00:06:f7:0e:c1:93", "type": "navigation", "name": "Navigation Controller", "paired": true, "connected": false}
+  ],
+  "hidraw": [
+    {"node": "/dev/hidraw10", "bus": 5, "type": "move", "model": "ZCM1", "uniq": "00:07:04:8c:70:ac"},
+    {"node": "/dev/hidraw20", "bus": 3, "type": "move", "model": "ZCM1", "own": "00:07:04:11:22:33", "master": "aa:bb:cc:dd:ee:01"}
+  ],
+  "battery": {
+    "00:07:04:8c:70:ac": {"percent": 100, "status": "Discharging"},
+    "00:06:f7:0e:c1:93": {"percent": 40, "status": "Discharging"}
+  }
+}

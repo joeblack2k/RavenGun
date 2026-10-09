@@ -40,6 +40,7 @@ struct Conn {
     uint64_t last_seq = 0, last_optical = 0, last_progress_seq = 0;
     int64_t last_keepalive = 0;
     bool sent_any_frame = false;
+    int player = 1;             // de speler wiens samples deze stroom volgt (?player=N)
 };
 
 void send_some(Conn& c, int64_t now) {
@@ -190,6 +191,7 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
                 } else {
                     c.sse = true;
                     if (resp.sse_hz > 0) c.throttle = Throttle(resp.sse_hz);  // alleen de throttle van deze client
+                    c.player = resp.sse_player;
                     ++sse_count;
                     c.out = serialize(resp) + "retry: 2000\n\n";
                     c.last_keepalive = now;
@@ -201,12 +203,14 @@ void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
         }
 
         // SSE: standaard hoogstens 30 Hz (een client kan tot 60 Hz vragen), alleen bij nieuwe data; een trage client krijgt frames overgeslagen.
-        Snapshot snap;
-        bool have_snap = false;
+        std::array<Snapshot, kPlayers> snaps;
+        std::array<bool, kPlayers> have_snap{};
         for (auto& c : conns) {
             if (!c.sse || c.closing || !c.out.empty()) continue;
             if (!c.throttle.due(now)) continue;
-            if (!have_snap) { snap = sh.get(); have_snap = true; }
+            const size_t pi = static_cast<size_t>(SharedState::clamp_player(c.player) - 1);
+            if (!have_snap[pi]) { snaps[pi] = sh.get(c.player); have_snap[pi] = true; }
+            const Snapshot& snap = snaps[pi];
             bool fresh = !c.sent_any_frame || snap.sample.seq != c.last_seq || snap.optical_updates != c.last_optical ||
                          snap.progress_seq != c.last_progress_seq;
             if (fresh) {
