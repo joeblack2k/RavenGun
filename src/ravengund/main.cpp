@@ -198,33 +198,35 @@ int main(int argc, char** argv) {
                 return 64;
             }
         }
-        else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
+        else if (a == "--no-filter") { opt.pipeline.filter.enabled = false; opt.cli_keys.insert("filter.enabled"); }
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
-        else if (a == "--no-recenter-learning") opt.pipeline.trim.enabled = false;
+        else if (a == "--no-recenter-learning") { opt.pipeline.trim.enabled = false; opt.cli_keys.insert("fusion.recenter_learning"); }
         else if (a == "--dt-source" && i + 1 < argc) {
             std::string v = argv[++i];
             if (v != "move" && v != "rx") { std::fprintf(stderr, "ravengund: --dt-source verwacht move of rx\n"); return 64; }
             opt.pipeline.use_move_clock = v == "move";
         }
         else if (a == "--fusion" && i + 1 < argc) {
+            opt.cli_keys.insert("fusion.mode");
             if (!ravengun::core::parse_fusion_mode(argv[++i], opt.pipeline.fusion_mode)) {
                 std::fprintf(stderr, "ravengund: --fusion verwacht mahony, mahony_mag, vqf of vqf_mag\n");
                 return 64;
             }
         }
         else if (a == "--vqf-bias" && i + 1 < argc) {
+            opt.cli_keys.insert("fusion.vqf_bias");
             if (!ravengun::core::parse_vqf_bias(argv[++i], opt.pipeline.vqf.bias) || opt.pipeline.vqf.bias == ravengun::core::VqfBias::Hybrid) {
                 std::fprintf(stderr, "ravengund: --vqf-bias verwacht external of own\n");
                 return 64;
             }
         }
-        else if (a == "--min-cutoff") need(0.001, 100, opt.pipeline.filter.min_cutoff_hz);
-        else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
-        else if (a == "--predict-ms") need(0, 200, opt.pipeline.predict.horizon_ms);
+        else if (a == "--min-cutoff") { need(0.001, 100, opt.pipeline.filter.min_cutoff_hz); opt.cli_keys.insert("filter.min_cutoff_hz"); }
+        else if (a == "--beta") { need(0, 1000, opt.pipeline.filter.beta); opt.cli_keys.insert("filter.beta"); }
+        else if (a == "--predict-ms") { need(0, 200, opt.pipeline.predict.horizon_ms); opt.cli_keys.insert("aim.predict_ms"); }
         else if (a == "--clock-hz") need(0, 1000, out_clock.hz);
         else if (a == "--extrapolate-ms") need(0, 100, out_clock.max_extrap_ms);
-        else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
-        else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
+        else if (a == "--h-edge-deg") { need(1, 89, opt.pipeline.aim.h_edge_deg); opt.cli_keys.insert("aim.h_edge_deg"); }
+        else if (a == "--v-edge-deg") { need(1, 89, opt.pipeline.aim.v_edge_deg); opt.cli_keys.insert("aim.v_edge_deg"); }
         else if (a == "--web") web_on = true;
         else if (a == "--no-web") web_on = false;
         else if (a == "--web-lan") web_lan = true;
@@ -261,10 +263,10 @@ int main(int argc, char** argv) {
         }
         else if (a == "--exposure") { double v; need(0, 255, v); cam.exposure = static_cast<int>(v); }
         else if (a == "--gain") { double v; need(0, 63, v); cam.gain = static_cast<int>(v); }
-        else if (a == "--led" && i + 1 < argc) led_arg = argv[++i];
-        else if (a == "--hue-deg") need(-180, 180, hue);
-        else if (a == "--hue-tol-deg") need(1, 90, hue_tol);
-        else if (a == "--min-chroma") need(1, 180, min_chroma);
+        else if (a == "--led" && i + 1 < argc) { led_arg = argv[++i]; for (const char* k : {"led.r", "tracker.hue_deg", "tracker.hue_tol_deg"}) opt.cli_keys.insert(k); }
+        else if (a == "--hue-deg") { need(-180, 180, hue); opt.cli_keys.insert("tracker.hue_deg"); }
+        else if (a == "--hue-tol-deg") { need(1, 90, hue_tol); opt.cli_keys.insert("tracker.hue_tol_deg"); }
+        else if (a == "--min-chroma") { need(1, 180, min_chroma); opt.cli_keys.insert("tracker.min_chroma"); }
         else if (a == "--controller" && i + 1 < argc) {
             std::string id = argv[++i];
             for (auto& ch : id) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -391,7 +393,10 @@ int main(int argc, char** argv) {
     // afsluiten. De tracker-thread levert optische metingen via de hook.
     Recorder recorder(ravengun::rec::default_recordings_dir());
     opt.recorder = &recorder;
-    shared.optical_hook = [&recorder](const ravengun::core::OpticalSample& o) { recorder.push_optical(o); };
+    // Een opname is per controller: alleen de optische metingen van de speler die opneemt.
+    shared.optical_hook = [&recorder, &shared](int player, const ravengun::core::OpticalSample& o) {
+        if (player == shared.recording_player.load()) recorder.push_optical(o);
+    };
     // Games: het startscript staat in de repo naast build/ (build/ravengund -> ../scripts/play-halo.sh).
     if (play_script.empty()) {
         char exe[4096];

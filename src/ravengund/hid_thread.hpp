@@ -1,4 +1,5 @@
 #pragma once
+#include <set>
 #include <string>
 
 #include "ravengun/core/pipeline.hpp"
@@ -27,12 +28,25 @@ struct HidOptions {
     class Recorder* recorder = nullptr;     // fase 0: opnamen (eigendom van main)
     // Fase 4: live koppeling aan de virtuele lightgun (trekker/reload/grenade/recenter).
     ravengun::output::LiveButtonMap gun_buttons{};
+    // Velden die de opdrachtregel voor deze run vastlegde (sleutels zoals in config.json, bv. "filter.beta"); die gaan voor
+    // config.json, ook voor de afwijkingen per controller. LED en trackertint van de opdrachtregel gelden alleen voor speler 1.
+    std::set<std::string> cli_keys;
+    // Sysfs-wortel voor het zoeken naar controllers (tests: een nepmap).
+    std::string hidraw_root = "/sys/class/hidraw";
 };
 
 // Wat de IPC-thread via SharedState::post() in de HID-thread mag doen.
 class HidContext {
 public:
     virtual ~HidContext() = default;
+    // Meerdere spelers: de opdrachten hierna gelden voor de pijplijn van speler `player` (1..4). Zonder aanroep: speler 1.
+    // false = geen geldige speler (de nep-context in tests kent er maar één en accepteert alles).
+    virtual bool select_player(int /*player*/) { return true; }
+    // Spelertoewijzing of instellingen in config.json gewijzigd (koppelen, verwijderen, spelernummer): alle spelers opnieuw
+    // instellen; een Move die nu bij een andere speler hoort, wordt losgekoppeld en opnieuw aan de juiste speler gekoppeld.
+    virtual void reconfigure() {}
+    // De LED van de geselecteerde speler laten knipperen (wit/uit) en kort laten trillen. "1" of "!code|melding".
+    virtual std::string blink(int /*ms*/) { return "!unavailable|knipperen niet beschikbaar"; }
     virtual std::string status_json(bool full_ids) = 0;
     virtual bool recenter() = 0;
     // Wist de geleerde yaw-trim (het bewaarde bestand volgt). false = niet beschikbaar.

@@ -39,6 +39,7 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/sysinfo/navcon.cpp
+  src/ravengun/sysinfo/hidraw_scan.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -104,6 +105,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/camera.cpp
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
+    src/ravengund/move_slot.cpp
     src/ravengund/recorder.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengund PRIVATE ${RAVENGUN_BUILD_DEFS})
@@ -184,6 +186,11 @@ if(RAVENGUN_BUILD_TESTS)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
     add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
+    add_executable(ravengund_players_tests tests/test_players.cpp src/ravengund/move_slot.cpp src/ravengund/hid_aux.cpp
+      src/ravengund/hidraw_tap.cpp src/ravengund/recorder.cpp src/ravengund/output_service.cpp)
+    target_include_directories(ravengund_players_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengund_players_tests PRIVATE ravengun Threads::Threads)
+    add_test(NAME ravengund_players_tests COMMAND ravengund_players_tests)
     # JS-unittests van de kalibratie-UI (node in een wegwerp-container); overgeslagen (77) zonder podman of netwerk.
     add_test(NAME ravengun_calibrate_js COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tools/test-js.sh"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

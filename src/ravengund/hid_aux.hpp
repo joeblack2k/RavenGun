@@ -26,6 +26,12 @@ public:
     void set_bias_dir(std::string d) { bias_store_.set_dir(std::move(d)); }
     // De yaw-trim is gewist: het bewaarde bestand moet de nul krijgen.
     void note_trim_cleared() { bias_store_.note_trim_cleared(); }
+    // Meerdere spelers: alleen de speler die opneemt voert de recorder (rapporten, LED); alleen één speler publiceert de
+    // voortgang van opname en magnetometerkalibratie (die met een lopende kalibratie, anders speler 1).
+    void set_recording_owner(bool on) { rec_feed_ = on; }
+    bool recording_owner() const { return rec_feed_; }
+    void set_progress_owner(bool on) { if (on && !progress_owner_) progress_dirty_ = true; progress_owner_ = on; }
+    bool calibrating() const { return collecting_; }
 
     void on_connect(const std::string& id, const std::string& model, int64_t now_ns);
     void on_disconnect(int64_t now_ns);
@@ -51,6 +57,8 @@ private:
 
     SharedState& sh_;
     Recorder* rec_;
+    bool rec_feed_ = true;
+    bool progress_owner_ = true;
     bool move_clock_;
     bool connected_ = false;
     std::string id_, model_, tap_err_;

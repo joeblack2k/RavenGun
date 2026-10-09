@@ -184,6 +184,14 @@ void apply_player_defaults(Settings& s, const std::string& address, int from, in
 int free_player(const Settings& s, const std::string& except_address = {});
 // Het adres van de (niet-verwijderde) Move met dit spelernummer, leeg als er geen is.
 std::string move_for_player(const Settings& s, int player);
+// Neemt een controller op (eerste keer gezien via Bluetooth, BlueZ of de koppelwizard) of haalt een verwijderde terug.
+// Een Move krijgt het laagste vrije spelernummer en de spelergebonden standaarden (kleur, Start-toets); een Navigation
+// Controller vult standaard speler 1 aan. Een bekende controller verandert niet (alleen model en last_seen). Geeft het
+// spelernummer (0 = geen vrije plek of een Navigation Controller zonder speler); `added` = nieuw of teruggehaald.
+int register_controller(Settings& s, const std::string& address, const std::string& type, const std::string& model, int64_t now_unix,
+                        bool* added = nullptr);
+// Standaardnaam: "Move 2", "Navigation Controller".
+std::string default_controller_name(const Settings& s, const std::string& type);
 
 // Controleert alle bereiken; leeg = geldig, anders een Nederlandse melding.
 std::string validate(const Settings& s);

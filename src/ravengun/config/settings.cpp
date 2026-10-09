@@ -352,6 +352,60 @@ std::string move_for_player(const Settings& s, int player) {
     return {};
 }
 
+std::string default_controller_name(const Settings& s, const std::string& type) {
+    if (type == "navigation") {
+        int n = 0;
+        for (const auto& kv : s.controllers) if (kv.second.type == "navigation" && !kv.second.removed) ++n;
+        return n ? "Navigation Controller " + std::to_string(n + 1) : "Navigation Controller";
+    }
+    for (int i = 1; i < 100; ++i) {
+        const std::string name = "Move " + std::to_string(i);
+        bool used = false;
+        for (const auto& kv : s.controllers) if (kv.second.name == name) used = true;
+        if (!used) return name;
+    }
+    return "Move";
+}
+
+int register_controller(Settings& s, const std::string& address, const std::string& type, const std::string& model, int64_t now_unix,
+                        bool* added) {
+    if (added) *added = false;
+    const std::string a = normalize_address(address);
+    if (a.empty() || (type != "move" && type != "navigation")) return 0;
+    auto it = s.controllers.find(a);
+    if (it != s.controllers.end() && !it->second.removed) {
+        if (!model.empty()) it->second.model = model;
+        if (now_unix) it->second.last_seen_unix = now_unix;
+        return it->second.player;
+    }
+    if (it == s.controllers.end()) {
+        ControllerEntry e;
+        e.type = type;
+        e.model = model;
+        e.added_unix = now_unix;
+        e.last_seen_unix = now_unix;
+        e.name = default_controller_name(s, type);
+        it = s.controllers.emplace(a, std::move(e)).first;
+    } else {  // teruggekomen na verwijderen met bewaarde instellingen
+        it->second.removed = false;
+        it->second.type = type;
+        if (!model.empty()) it->second.model = model;
+        it->second.last_seen_unix = now_unix;
+    }
+    if (added) *added = true;
+    if (type == "navigation") {
+        if (it->second.player == 0) it->second.player = 1;
+        return it->second.player;
+    }
+    const int old = it->second.player;
+    it->second.player = 0;
+    const int p = free_player(s, a);
+    it->second.player = p;
+    // Bewaarde instellingen van een eerdere speler: de spelergebonden standaarden meeverhuizen.
+    if (p > 0) apply_player_defaults(s, a, old > 0 ? old : 1, p);
+    return p;
+}
+
 std::string validate_controllers(const Settings& s) {
     std::set<int> players;
     for (const auto& kv : s.controllers) {
