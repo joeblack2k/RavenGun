@@ -1,0 +1,162 @@
+#!/bin/bash -p
+# ravengun-bt-helper: registreert of verwijdert een PS Move of Navigation Controller bij BlueZ. Het ENIGE dat RavenGun met
+# rootrechten doet (via sudo, alleen dit pad; zie scripts/install-bt-helper.sh en docs/decisions.md).
+#
+#   ravengun-bt-helper register   AA:BB:CC:DD:EE:FF move|move2|navigation
+#   ravengun-bt-helper unregister AA:BB:CC:DD:EE:FF
+#
+# register: schrijft /var/lib/bluetooth/<adapter>/<ADRES>/info (Name, Class, Trusted=true, HID-service, DeviceID 054c/<product>
+#   en een koppelsleutel, zodat BlueZ de inkomende verbinding van een controller zonder eigen authenticatie accepteert; zie
+#   scripts/move-bt-bond.sh) en de SDP-cache (HID-beschrijving), en herstart bluetooth.service. Een bestaande registratie wordt
+#   alleen overschreven als het een Sony-controller is (DeviceID Vendor=1356); de eerste versie gaat naar info.ravengun-backup.
+# unregister: verwijdert de map en de cache, maar alleen als het een Sony-HID-registratie is (Vendor=1356, product 981, 3166
+#   of 1071). Normaal ontkoppelt de daemon zonder root via D-Bus (Adapter1.RemoveDevice); dit is de terugval.
+#
+# Gehard: alleen deze twee acties, een adres als AA:BB:CC:DD:EE:FF (hoofdletters, geen nul- of broadcastadres, niet het
+# adres van de adapter), een type uit een vaste lijst, geen andere argumenten, geen omgevingsvariabelen (bash -p, vaste PATH,
+# sudo wist de omgeving), umask 077, atomisch schrijven, logging naar de journal (logger) en /var/log/ravengun-bt-helper.log.
+# Exitcodes: 0 gelukt, 1 mislukt, 2 ongeldige argumenten, 3 niet als root gestart, 4 geweigerd (geen Sony-registratie,
+# geen of meer dan één adapter, adres van de adapter).
+#
+# De SDP-record hieronder (de HID-beschrijving van een Sixaxis-achtige controller; de kernel, hid-sony, vervangt de
+# beschrijving voor de Move en de Navigation Controller door een eigen) komt uit PSMoveAPI, src/platform/psmove_port_linux.cpp
+# (BLUEZ5_CACHE_ENTRY). PSMoveAPI: Copyright (c) 2011, 2012 Thomas Perl <m@thp.io>, BSD-2-Clause:
+#   Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+#   following conditions are met: 1. Redistributions of source code must retain the above copyright notice, this list of
+#   conditions and the following disclaimer. 2. Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation and/or other materials provided with the
+#   distribution. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DAMAGES ARISING IN ANY WAY OUT OF
+#   THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+set -euo pipefail
+umask 077
+export PATH=/usr/bin:/usr/sbin:/bin:/sbin
+export LC_ALL=C
+IFS=$' \t\n'
+
+readonly BTDIR=/var/lib/bluetooth
+readonly LOG=/var/log/ravengun-bt-helper.log
+readonly ADDR_RE='^([0-9A-F]{2}:){5}[0-9A-F]{2}$'
+readonly SDP='3601920900000A000100000900013503191124090004350D35061901000900113503190011090006350909656E09006A0901000900093508350619112409010009000D350F350D350619010009001335031900110901002513576972656C65737320436F6E74726F6C6C65720901012513576972656C65737320436F6E74726F6C6C6572090102251B536F6E7920436F6D707574657220456E7465727461696E6D656E740902000901000902010901000902020800090203082109020428010902052801090206359A35980822259405010904A101A102850175089501150026FF00810375019513150025013500450105091901291381027501950D0600FF8103150026FF0005010901A10075089504350046FF0009300931093209358102C0050175089527090181027508953009019102750895300901B102C0A1028502750895300901B102C0A10285EE750895300901B102C0A10285EF750895300901B102C0C0090207350835060904090901000902082800090209280109020A280109020B09010009020C093E8009020D280009020E2800'
+
+usage() { echo "gebruik: ravengun-bt-helper register AA:BB:CC:DD:EE:FF move|move2|navigation | unregister AA:BB:CC:DD:EE:FF" >&2; exit 2; }
+
+log() {
+    local msg="$*"
+    logger -t ravengun-bt-helper -- "$msg" 2>/dev/null || true
+    if [[ $EUID -eq 0 ]]; then printf '%s %s\n' "$(date -Is)" "$msg" >>"$LOG" 2>/dev/null || true; fi
+}
+
+# ---- Invoer (vóór alles; ook zonder root te controleren) ----
+[[ $# -ge 2 && $# -le 3 ]] || usage
+ACTION=$1
+ADDR=$2
+TYPE=${3-}
+case "$ACTION" in
+    register) [[ $# -eq 3 ]] || usage ;;
+    unregister) [[ $# -eq 2 ]] || usage ;;
+    *) usage ;;
+esac
+[[ $ADDR =~ $ADDR_RE ]] || { echo "ongeldig adres (verwacht AA:BB:CC:DD:EE:FF, hoofdletters)" >&2; exit 2; }
+[[ $ADDR != 00:00:00:00:00:00 && $ADDR != FF:FF:FF:FF:FF:FF ]] || { echo "ongeldig adres" >&2; exit 2; }
+if [[ $ACTION == register ]]; then
+    case "$TYPE" in
+        move)       NAME="Motion Controller";     CLASS=0x002508; SOURCE=1; PRODUCT=981;  VERSION=1 ;;
+        move2)      NAME="Motion Controller";     CLASS=0x002508; SOURCE=1; PRODUCT=3166; VERSION=1 ;;
+        navigation) NAME="Navigation Controller"; CLASS=0x000508; SOURCE=2; PRODUCT=1071; VERSION=0 ;;
+        *) echo "onbekend type (move, move2 of navigation)" >&2; exit 2 ;;
+    esac
+fi
+
+[[ $EUID -eq 0 ]] || { echo "ravengun-bt-helper moet als root draaien (via sudo)" >&2; exit 3; }
+
+# ---- De adapter: precies één map met een adres onder /var/lib/bluetooth ----
+ADAPTERS=()
+for d in "$BTDIR"/*/; do
+    a=$(basename "$d")
+    [[ $a =~ $ADDR_RE && -d $d && ! -L ${d%/} ]] && ADAPTERS+=("$a")
+done
+if [[ ${#ADAPTERS[@]} -ne 1 ]]; then log "geweigerd: ${#ADAPTERS[@]} adapters gevonden"; echo "verwacht precies één Bluetooth-adapter, gevonden: ${#ADAPTERS[@]}" >&2; exit 4; fi
+HOST=${ADAPTERS[0]}
+[[ $ADDR != "$HOST" ]] || { log "geweigerd: $ADDR is de adapter zelf"; echo "dat is het adres van de adapter zelf" >&2; exit 4; }
+DIR="$BTDIR/$HOST/$ADDR"
+INFO="$DIR/info"
+CACHE="$BTDIR/$HOST/cache/$ADDR"
+[[ ! -L $DIR && ! -L $INFO && ! -L $CACHE ]] || { log "geweigerd: symlink bij $ADDR"; echo "geweigerd: symlink" >&2; exit 4; }
+
+is_sony() {  # $1 = info-bestand; true als het een Sony-HID-registratie is
+    [[ -f $1 ]] || return 1
+    local vendor product
+    vendor=$(sed -n '/^\[DeviceID\]/,/^\[/{s/^Vendor=\([0-9]*\)$/\1/p}' "$1" | head -1)
+    product=$(sed -n '/^\[DeviceID\]/,/^\[/{s/^Product=\([0-9]*\)$/\1/p}' "$1" | head -1)
+    [[ $vendor == 1356 && ( $product == 981 || $product == 3166 || $product == 1071 ) ]]
+}
+
+STOPPED=0
+start_bt() { if [[ $STOPPED -eq 1 ]]; then systemctl start bluetooth.service || true; STOPPED=0; fi; }
+trap start_bt EXIT
+stop_bt() { systemctl stop bluetooth.service; STOPPED=1; }
+
+write_atomic() {  # $1 = doel, inhoud op stdin
+    local tmp
+    tmp=$(mktemp "$(dirname "$1")/.ravengun.XXXXXX")
+    cat >"$tmp"
+    chmod 600 "$tmp"
+    mv -f "$tmp" "$1"
+}
+
+case "$ACTION" in
+register)
+    if [[ -e $INFO ]] && ! is_sony "$INFO" && ! grep -qE '^Name=(Motion|Navigation) Controller$' "$INFO"; then
+        log "geweigerd: $ADDR is al geregistreerd als een ander apparaat"; echo "er staat al een ander apparaat op dit adres" >&2; exit 4
+    fi
+    KEY=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n' | tr a-f A-F)
+    [[ $KEY =~ ^[0-9A-F]{32}$ ]] || { log "mislukt: geen koppelsleutel"; exit 1; }
+    stop_bt
+    mkdir -p "$DIR" "$BTDIR/$HOST/cache"
+    chmod 700 "$DIR"
+    [[ -e $INFO && ! -e $INFO.ravengun-backup ]] && cp -p "$INFO" "$INFO.ravengun-backup"
+    write_atomic "$INFO" <<EOF
+[General]
+Name=$NAME
+Class=$CLASS
+SupportedTechnologies=BR/EDR
+Trusted=true
+Blocked=false
+Services=00001124-0000-1000-8000-00805f9b34fb;
+
+[DeviceID]
+Source=$SOURCE
+Vendor=1356
+Product=$PRODUCT
+Version=$VERSION
+
+[LinkKey]
+Key=$KEY
+Type=0
+PINLength=0
+EOF
+    [[ -e $CACHE && ! -e $CACHE.ravengun-backup ]] && cp -p "$CACHE" "$CACHE.ravengun-backup"
+    write_atomic "$CACHE" <<EOF
+[General]
+Name=$NAME
+
+[ServiceRecords]
+0x00010000=$SDP
+EOF
+    start_bt
+    log "geregistreerd: $ADDR ($TYPE) op adapter $HOST"
+    echo "geregistreerd: $ADDR ($NAME)"
+    ;;
+unregister)
+    if [[ ! -e $INFO ]]; then log "niets te doen: $ADDR is niet geregistreerd"; echo "niet geregistreerd: $ADDR"; exit 0; fi
+    is_sony "$INFO" || { log "geweigerd: $ADDR is geen Sony-HID-registratie"; echo "geweigerd: geen Sony-controller" >&2; exit 4; }
+    stop_bt
+    rm -rf -- "$DIR"
+    rm -f -- "$CACHE" "$CACHE.ravengun-backup"
+    start_bt
+    log "verwijderd: $ADDR van adapter $HOST"
+    echo "verwijderd: $ADDR"
+    ;;
+esac

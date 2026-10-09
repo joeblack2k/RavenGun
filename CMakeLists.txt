@@ -40,6 +40,7 @@ add_library(ravengun STATIC
   src/ravengun/games/games.cpp
   src/ravengun/sysinfo/navcon.cpp
   src/ravengun/sysinfo/hidraw_scan.cpp
+  src/ravengun/pairing/pairing.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -175,6 +176,11 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_bias_tests tests/test_bias.cpp)
   target_link_libraries(ravengun_bias_tests PRIVATE ravengun)
   add_test(NAME ravengun_bias_tests COMMAND ravengun_bias_tests)
+  add_executable(ravengun_pairing_tests tests/test_pairing.cpp)
+  target_link_libraries(ravengun_pairing_tests PRIVATE ravengun)
+  add_test(NAME ravengun_pairing_tests COMMAND ravengun_pairing_tests)
+  add_test(NAME ravengun_bt_helper COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/bt_helper_test.sh")
+  set_tests_properties(ravengun_bt_helper PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
