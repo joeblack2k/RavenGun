@@ -13,36 +13,40 @@ ElfLdr2-games: TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relat
 Vaste afspraak voor de gun-knoppen: trekker = LeftButton, herladen = RightButton, granaat = MiddleButton;
 toetsen: Coin = 5, Start P1 = 1, Test = F2, Service = F3. Bestaande profielen worden niet overschreven
 zonder --force (dan eerst een back-up ernaast).
+Speler 2..4 (P2 Light Gun, Trigger P2, Reload P2, Start P2, ...) gaan naar de gun van die speler
+("RavenGun Virtual Lightgun P2", 1209:7203, by-id ..._P2-event-mouse) en Start Pn = toets n; Coin blijft 5.
 """
 import os, re, shutil, sys, time
 
 TP = os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
 GUN = '/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse'
+# Speler 2..4: een eigen gun (packaging/udev/70-ravengun.rules); speler 1 houdt GUN.
+GUNS = {1: GUN, **{n: f'/dev/input/by-id/usb-RavenGun_Virtual_Lightgun_P{n}-event-mouse' for n in (2, 3, 4)}}
 KBD = '/dev/input/by-id/usb-RavenGun_Virtual_Keyboard-event-kbd'
 
 
 def binding(name):
     n = name.lower()
-    p1 = not re.search(r'\b(p[2-4]|player [2-4])\b', n)
-    if n == 'test': return ('kbd', 'F2')
-    if n == 'service': return ('kbd', 'F3')
-    if n in ('coin', 'coin 1', 'coin1'): return ('kbd', 'D5')
-    if not p1: return None
-    if 'light gun' in n: return ('gun', None)
-    if 'start' in n: return ('kbd', 'D1')
-    if 'trigger' in n or n.endswith('vacuum button'): return ('gun', 'LeftButton')
-    if 'reload' in n or n.endswith('vacuum lever'): return ('gun', 'RightButton')
-    if 'grenade' in n or n.endswith('screen out'): return ('gun', 'MiddleButton')
+    m = re.search(r'\b(?:p|player )([2-4])\b', n)
+    pl = int(m.group(1)) if m else 1
+    if n == 'test': return ('kbd', 'F2', 1)
+    if n == 'service': return ('kbd', 'F3', 1)
+    if re.fullmatch(r'coin ?[1-4]?', n): return ('kbd', 'D5', 1)
+    if 'light gun' in n: return ('gun', None, pl)
+    if 'start' in n: return ('kbd', f'D{pl}', pl)
+    if 'trigger' in n or n.endswith('vacuum button'): return ('gun', 'LeftButton', pl)
+    if 'reload' in n or n.endswith('vacuum lever'): return ('gun', 'RightButton', pl)
+    if 'grenade' in n or n.endswith('screen out'): return ('gun', 'MiddleButton', pl)
     return None
 
 
-def raw_xml(kind, key):
+def raw_xml(kind, key, pl=1):
     if kind == 'kbd':
         bind = f'RavenGun Virtual Keyboard {key}'
         return (f'<RawInputButton><DevicePath>{KBD}</DevicePath><DeviceType>Keyboard</DeviceType>'
                 f'<MouseButton>None</MouseButton><KeyboardKey>{key}</KeyboardKey></RawInputButton>', bind)
-    bind = 'RavenGun Virtual Lightgun' + (f' {key}' if key else '')
-    return (f'<RawInputButton><DevicePath>{GUN}</DevicePath><DeviceType>Mouse</DeviceType>'
+    bind = 'RavenGun Virtual Lightgun' + (f' P{pl}' if pl > 1 else '') + (f' {key}' if key else '')
+    return (f'<RawInputButton><DevicePath>{GUNS[pl]}</DevicePath><DeviceType>Mouse</DeviceType>'
             f'<MouseButton>{key or "None"}</MouseButton><KeyboardKey>None</KeyboardKey></RawInputButton>', bind)
 
 
