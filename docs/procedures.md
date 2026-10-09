@@ -134,3 +134,12 @@ Eenmalig (al gedaan op deze machine): de officiële DemulShooter-release staat i
 6. Stoppen: Esc in de game, of de Stop-knop in de app, of `scripts/play-halo.sh --stop` (zelfde als `scripts/play-unity.sh --stop`). De daemon stopt de route zelf een paar seconden nadat de game weg is.
 7. Zonder daemonherstart proberen: `build/ravengun-aagames-probe --game TombRaider` (aim van de echte Move via de draaiende daemon; `--key 5@1 --key 1@3` voor munt en start; `--source fixed --u 0.5 --v 0.5 --trigger` voor een vast punt).
 8. Bij een probleem: `~/.local/state/ravengun/logs/unity-<Game>-*.log` (Proton), `~/.local/share/ravengun/runtime/views-aagames/<Game>/BepInEx/LogOutput.log` (staat de regel "TCP Server is listening on Port 33610", dan werkt de plugin), `ss -ltnp | grep 33610`.
+
+## Een game met de IO-brug starten (tp-shm) en de brug controleren
+
+De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp). `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf; `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.
+
+- Starten met tp-shm: `scripts/play-halo.sh --profile TC5` (of `--route tp-shm` voor een game waarvan de standaard evdev is, bv. `--profile Terminator --route tp-shm`). Het script start de brug (`ravengunctl iobridge start PROFIEL --route tp-shm`), maakt `/dev/shm/ravengun_JvsState` en laat `scripts/tp-shm-swap.sh` in de unit de helper van TeknoParrotUi vervangen. Log: `~/.local/state/ravengun/logs/tpshm-*.log` ("pipehelper.exe pid N vervangen" en "shm mirror active ... [created fresh]").
+- Controleren: `ravengunctl status` toont de regel "IO-brug" (route, game, dialect, indeling, laatst geschreven bytes 8..27, P1-aim en knoppen); `ravengunctl iobridge status` alleen die regel; `xxd /dev/shm/ravengun_JvsState` het bestand zelf. Testpunten houden: `ravengunctl test-pattern grid --dwell 20000` (een puntpatroon houdt zichzelf niet vast terwijl de Move live is). Knoppen: `output-button trigger|reload|grenade|aux1|aux2 down|up`, munt `key 5`, start `key 1`.
+- Daemon herstarten tijdens een spel: `systemctl --user restart ravengund`. De brug schrijft neutrale invoer, de nieuwe daemon pakt de route weer op (`ravengunctl iobridge status` meldt "1x hervat na een herstart"), wapent de uitvoer opnieuw en het spel loopt door. Een vastgehouden knop laat los.
+- Stoppen: `scripts/play-halo.sh --stop` stopt ook de brug (invoer neutraal, bestand weg).
