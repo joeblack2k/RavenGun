@@ -64,6 +64,9 @@ std::string validate(const WebConfig& c);
 struct Backend {
     // Voert één IPC-verzoek (JSON-regel) uit en geeft het IPC-antwoord (JSON-object) terug.
     std::function<std::string(const std::string& request_line)> command;
+    // Leest een spelicoon uit de Icons-map (alleen een geldige bestandsnaam, nooit een pad). Leeg resultaat = gelukt;
+    // anders "invalid" of "not_found". Leeg = geen icoon-ondersteuning.
+    std::function<std::string(const std::string& file, std::string& content_type, std::string& data)> icon;
 };
 
 class WebApp {

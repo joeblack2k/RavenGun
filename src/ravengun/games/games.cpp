@@ -1,0 +1,486 @@
+#include "ravengun/games/games.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <filesystem>
+#include <fstream>
+#include <signal.h>
+#include <spawn.h>
+#include <sstream>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include "ravengun/json.hpp"
+#include "ravengun/json_parse.hpp"
+
+extern char** environ;
+
+namespace ravengun::games {
+
+namespace fs = std::filesystem;
+
+namespace {
+
+bool ident_char(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+}
+
+int64_t now_ms() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+std::string read_head(const std::string& path, size_t max_bytes) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return {};
+    std::string s(max_bytes, '\0');
+    f.read(s.data(), static_cast<std::streamsize>(max_bytes));
+    s.resize(static_cast<size_t>(f.gcount()));
+    return s;
+}
+
+std::string trim(std::string s) {
+    while (!s.empty() && (std::isspace(static_cast<unsigned char>(s.back())) || s.back() == '\0')) s.pop_back();
+    size_t i = 0;
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) ++i;
+    return s.substr(i);
+}
+
+std::string xml_unescape(const std::string& s) {
+    static const std::pair<const char*, const char*> ent[] = {
+        {"&amp;", "&"}, {"&lt;", "<"}, {"&gt;", ">"}, {"&quot;", "\""}, {"&apos;", "'"}};
+    std::string out;
+    for (size_t i = 0; i < s.size();) {
+        bool done = false;
+        if (s[i] == '&')
+            for (const auto& e : ent) {
+                size_t n = std::strlen(e.first);
+                if (s.compare(i, n, e.first) == 0) { out += e.second; i += n; done = true; break; }
+            }
+        if (!done) out += s[i++];
+    }
+    return out;
+}
+
+// Tekst tussen <tag> en </tag>; leeg als de tag ontbreekt of leeg is.
+std::string xml_tag(const std::string& xml, const std::string& tag) {
+    size_t a = xml.find("<" + tag + ">");
+    if (a == std::string::npos) return {};
+    a += tag.size() + 2;
+    size_t b = xml.find("</" + tag + ">", a);
+    if (b == std::string::npos) return {};
+    std::string v = xml_unescape(trim(xml.substr(a, b - a)));
+    std::string clean;
+    for (unsigned char c : v) if (c >= 0x20 && c != 0x7f) clean += static_cast<char>(c);
+    if (clean.size() > 80) clean.resize(80);
+    return clean;
+}
+
+// "JurassicPark" -> "Jurassic Park", "tomb_raider" -> "tomb raider".
+std::string humanize(const std::string& id) {
+    std::string out;
+    for (size_t i = 0; i < id.size(); ++i) {
+        char c = id[i];
+        if (c == '_' || c == '-') { out += ' '; continue; }
+        if (i > 0 && std::isupper(static_cast<unsigned char>(c)) && std::islower(static_cast<unsigned char>(id[i - 1]))) out += ' ';
+        out += c;
+    }
+    return out;
+}
+
+std::string icon_content_type(const std::string& file) {
+    std::string ext = file.substr(file.rfind('.') + 1);
+    if (ext == "png") return "image/png";
+    if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+    if (ext == "gif") return "image/gif";
+    return "image/webp";
+}
+
+std::string last_line(const std::string& path) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return {};
+    std::streamoff size = f.tellg();
+    std::streamoff from = size > 4096 ? size - 4096 : 0;
+    f.seekg(from);
+    std::string tail(static_cast<size_t>(size - from), '\0');
+    f.read(tail.data(), static_cast<std::streamsize>(tail.size()));
+    tail.resize(static_cast<size_t>(f.gcount()));
+    std::istringstream is(tail);
+    std::string line, last;
+    while (std::getline(is, line)) {
+        line = trim(line);
+        if (!line.empty()) last = line;
+    }
+    std::string clean;
+    for (unsigned char c : last) if (c >= 0x20 && c != 0x7f) clean += static_cast<char>(c);
+    if (clean.size() > 300) clean.resize(300);
+    return clean;
+}
+
+bool ends_with(const std::string& s, const std::string& suf) {
+    return s.size() >= suf.size() && s.compare(s.size() - suf.size(), suf.size(), suf) == 0;
+}
+
+constexpr const char* kSuccessMarker = "lightgun klaar.";  // laatste regel van scripts/play-halo.sh bij succes
+
+}  // namespace
+
+bool valid_profile_name(std::string_view s) {
+    if (s.empty() || s.size() > 64) return false;
+    for (char c : s) if (!ident_char(c)) return false;
+    return true;
+}
+
+bool valid_icon_file(std::string_view s) {
+    size_t dot = s.rfind('.');
+    if (dot == std::string_view::npos || dot == 0) return false;
+    if (!valid_profile_name(s.substr(0, dot))) return false;
+    std::string_view ext = s.substr(dot + 1);
+    return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp";
+}
+
+std::vector<std::pair<std::string, std::string>> parse_notes(const std::string& text) {
+    std::vector<std::pair<std::string, std::string>> out;
+    if (text.empty()) return out;
+    auto pr = json::parse(text);
+    if (!pr.ok || !pr.value.is_object()) return out;
+    const json::Value* g = pr.value.find("games");
+    if (!g || !g->is_object()) return out;
+    for (const auto& kv : g->obj)
+        if (valid_profile_name(kv.first) && kv.second.is_string() && kv.second.str.size() <= 300) out.emplace_back(kv.first, kv.second.str);
+    return out;
+}
+
+std::vector<Game> list_games(const Config& c) {
+    std::vector<Game> out;
+    if (c.tp_dir.empty()) return out;
+    std::error_code ec;
+    fs::path profiles = fs::path(c.tp_dir) / "UserProfiles";
+    auto notes = parse_notes(c.notes_json);
+    for (fs::directory_iterator it(profiles, ec), end; !ec && it != end; it.increment(ec)) {
+        const fs::path& p = it->path();
+        if (p.extension() != ".xml") continue;
+        std::string stem = p.stem().string();
+        if (!valid_profile_name(stem)) continue;
+        std::error_code e2;
+        if (!fs::is_regular_file(p, e2) || e2) continue;
+        auto sz = fs::file_size(p, e2);
+        if (e2 || sz > 4u * 1024 * 1024) continue;
+        std::string head = read_head(p.string(), 64 * 1024);
+        Game g;
+        g.profile = stem;
+        g.name = xml_tag(head, "GameNameInternal");
+        if (g.name.empty()) g.name = humanize(stem);
+        std::string icon = xml_tag(head, "IconName");
+        size_t slash = icon.find_last_of("/\\");
+        if (slash != std::string::npos) icon = icon.substr(slash + 1);
+        if (valid_icon_file(icon)) {
+            std::error_code e3;
+            if (fs::is_regular_file(fs::path(c.tp_dir) / "Icons" / icon, e3) && !e3) g.icon_file = icon;
+        }
+        for (const auto& n : notes) if (n.first == stem) g.note = n.second;
+        out.push_back(std::move(g));
+    }
+    std::sort(out.begin(), out.end(), [](const Game& a, const Game& b) {
+        std::string x = a.name, y = b.name;
+        for (auto& ch : x) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        for (auto& ch : y) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return x != y ? x < y : a.profile < b.profile;
+    });
+    return out;
+}
+
+bool profile_exists(const Config& c, const std::string& profile) {
+    if (!valid_profile_name(profile) || c.tp_dir.empty()) return false;
+    std::error_code ec;
+    fs::path p = fs::path(c.tp_dir) / "UserProfiles" / (profile + ".xml");
+    return fs::is_regular_file(p, ec) && !ec;
+}
+
+std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data) {
+    if (!valid_icon_file(file) || c.tp_dir.empty()) return "invalid";
+    std::error_code ec;
+    fs::path dir = fs::weakly_canonical(fs::path(c.tp_dir) / "Icons", ec);
+    if (ec) return "not_found";
+    fs::path full = fs::weakly_canonical(dir / file, ec);
+    if (ec) return "not_found";
+    // Het opgeloste pad (symlinks gevolgd) moet rechtstreeks in de Icons-map liggen.
+    if (full.parent_path() != dir) return "invalid";
+    struct stat st{};
+    if (::stat(full.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) return "not_found";
+    if (static_cast<size_t>(st.st_size) > kMaxIconBytes) return "invalid";
+    std::ifstream f(full, std::ios::binary);
+    if (!f) return "not_found";
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    data = ss.str();
+    content_type = icon_content_type(file);
+    return {};
+}
+
+bool game_process_running(const std::string& proc_root) {
+    std::error_code ec;
+    for (fs::directory_iterator it(proc_root, ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string name = it->path().filename().string();
+        if (name.empty() || !std::all_of(name.begin(), name.end(), [](char ch) { return ch >= '0' && ch <= '9'; })) continue;
+        std::ifstream f(it->path() / "comm");
+        std::string comm;
+        if (f && std::getline(f, comm) && (comm == "BudgieLoader_x6" || comm == "BudgieLoader.ex")) return true;
+    }
+    return false;
+}
+
+bool unit_alive(const std::string& cgroup_procs) {
+    if (cgroup_procs.empty()) return false;
+    std::ifstream f(cgroup_procs);
+    std::string line;
+    while (f && std::getline(f, line)) if (!trim(line).empty()) return true;
+    return false;
+}
+
+std::string default_tpui_procs(unsigned uid) {
+    const std::string u = std::to_string(uid);
+    return "/sys/fs/cgroup/user.slice/user-" + u + ".slice/user@" + u + ".service/app.slice/ravengun-tpui.service/cgroup.procs";
+}
+
+int script_state(const std::string& proc_root, const std::string& script) {
+    int found = 0;
+    std::error_code ec;
+    for (fs::directory_iterator it(proc_root, ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string name = it->path().filename().string();
+        if (name.empty() || !std::all_of(name.begin(), name.end(), [](char ch) { return ch >= '0' && ch <= '9'; })) continue;
+        std::string raw = read_head((it->path() / "cmdline").string(), 8192);
+        if (raw.empty()) continue;
+        std::vector<std::string> args;
+        std::string cur;
+        for (char ch : raw) { if (ch == '\0') { args.push_back(cur); cur.clear(); } else cur += ch; }
+        if (!cur.empty()) args.push_back(cur);
+        size_t at = args.size();
+        // Het script zelf, of een shell die het uitvoert (geen editor of ander programma met het pad als argument).
+        std::string prog = args.empty() ? std::string() : args[0].substr(args[0].rfind('/') == std::string::npos ? 0 : args[0].rfind('/') + 1);
+        if (!args.empty() && args[0] == script) at = 0;
+        else if (args.size() > 1 && args[1] == script && (prog == "bash" || prog == "sh" || prog == "dash" || prog == "env")) at = 1;
+        if (at == args.size()) continue;
+        bool stop = false;
+        for (size_t i = at + 1; i < args.size(); ++i) if (args[i] == "--stop") stop = true;
+        if (stop) return 2;
+        found = 1;
+    }
+    return found;
+}
+
+std::vector<std::string> start_argv(const Config& c, const std::string& profile) {
+    std::vector<std::string> a{c.systemd_run, "--user", std::string("--unit=") + kPlayUnit, "--collect", "--quiet",
+                               "--description=RavenGun: game starten"};
+    bool plain = !c.log_path.empty();
+    for (unsigned char ch : c.log_path) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
+    if (plain) a.push_back("--property=StandardOutput=file:" + c.log_path);
+    a.push_back("--");
+    a.push_back(c.play_script);
+    a.push_back("--profile");
+    a.push_back(profile);
+    return a;
+}
+
+std::vector<std::string> stop_unit_argv(const Config& c) {
+    return {c.systemctl, "--user", "stop", std::string(kPlayUnit) + ".service"};
+}
+
+std::vector<std::string> stop_script_argv(const Config& c) {
+    return {c.systemd_run, "--user", std::string("--unit=") + kStopUnit, "--collect", "--quiet",
+            "--description=RavenGun: game stoppen", "--", c.play_script, "--stop"};
+}
+
+int run_process(const std::vector<std::string>& argv, std::string& err) {
+    if (argv.empty()) { err = "geen programma"; return -1; }
+    std::vector<char*> av;
+    for (const auto& s : argv) av.push_back(const_cast<char*>(s.c_str()));
+    av.push_back(nullptr);
+    posix_spawn_file_actions_t fa;
+    posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&fa, 2, "/dev/null", O_WRONLY, 0);
+    pid_t pid = 0;
+    int rc = ::posix_spawnp(&pid, av[0], &fa, nullptr, av.data(), environ);
+    posix_spawn_file_actions_destroy(&fa);
+    if (rc != 0) { err = argv[0] + ": " + std::strerror(rc); return -1; }
+    for (int i = 0; i < 500; ++i) {  // hoogstens 10 s
+        int status = 0;
+        pid_t w = ::waitpid(pid, &status, WNOHANG);
+        if (w == pid) return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        if (w < 0) { err = "waitpid mislukt"; return -1; }
+        ::usleep(20000);
+    }
+    ::kill(pid, SIGKILL);
+    ::waitpid(pid, nullptr, 0);
+    err = argv[0] + " reageerde niet binnen 10 s";
+    return -1;
+}
+
+GameService::GameService(Config c, Spawner s) : c_(std::move(c)), spawn_(std::move(s)) {}
+
+GameService::~GameService() { join_worker(); }
+
+void GameService::join_worker() {
+    if (worker_.joinable()) worker_.join();
+}
+
+Result GameService::start(const std::string& profile) {
+    if (!valid_profile_name(profile)) return {false, "invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -)"};
+    if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen bestand " + profile + ".xml in UserProfiles"};
+    std::error_code ec;
+    if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
+        return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
+    // Toestand nu bepalen: er mag niets lopen.
+    const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
+    const int sc = script_state(c_.proc_root, c_.play_script);
+    std::lock_guard<std::mutex> g(m_);
+    if (busy_.load() || sc != 0 || (launched_ && now_ms() - launched_ms_ < c_.start_grace_ms))
+        return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even of druk op Stoppen"};
+    if (game_run) return {false, "unavailable", "er draait al een game; stop die eerst"};
+    join_worker();
+    if (!c_.log_path.empty()) {
+        fs::create_directories(fs::path(c_.log_path).parent_path(), ec);
+        std::ofstream trunc(c_.log_path, std::ios::trunc);  // oude melding niet voor een nieuwe aanzien
+    }
+    profile_ = profile;
+    launched_ = false;
+    failed_ = false;
+    failed_msg_.clear();
+    failed_profile_.clear();
+    busy_.store(true);
+    busy_stop_ = false;
+    std::vector<std::string> argv = start_argv(c_, profile);
+    worker_ = std::thread([this, argv, profile] {
+        std::string err;
+        int rc = spawn_(argv, err);
+        std::lock_guard<std::mutex> lk(m_);
+        if (rc == 0) {
+            launched_ = true;
+            launched_ms_ = now_ms();
+        } else {
+            failed_ = true;
+            failed_profile_ = profile;
+            failed_msg_ = rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + "); draait er al een start?"
+                                 : "het starten mislukte: " + err;
+        }
+        busy_.store(false);
+    });
+    return {};
+}
+
+Result GameService::stop() {
+    const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
+    const int sc = script_state(c_.proc_root, c_.play_script);
+    std::lock_guard<std::mutex> g(m_);
+    if (busy_.load()) return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even"};
+    if (!game_run && sc == 0 && !launched_) return {true, "", "er draait geen game"};
+    if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
+        return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
+    join_worker();
+    launched_ = false;
+    failed_ = false;
+    busy_.store(true);
+    busy_stop_ = true;
+    std::vector<std::string> a1 = stop_unit_argv(c_), a2 = stop_script_argv(c_);
+    worker_ = std::thread([this, a1, a2] {
+        std::string err;
+        spawn_(a1, err);  // een start die nog op de Move wacht afbreken; geen unit is geen fout
+        err.clear();
+        int rc = spawn_(a2, err);
+        std::lock_guard<std::mutex> lk(m_);
+        if (rc != 0) {
+            failed_ = true;
+            failed_profile_.clear();
+            failed_msg_ = "het stoppen mislukte: " + (rc > 0 ? "code " + std::to_string(rc) : err);
+        }
+        busy_.store(false);
+    });
+    return {};
+}
+
+std::string GameService::status_json() {
+    const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
+    const int sc = script_state(c_.proc_root, c_.play_script);
+    const bool move = c_.move_connected ? c_.move_connected() : true;
+    std::string state, text, profile, message;
+    bool have_profile = false;
+    {
+        std::lock_guard<std::mutex> g(m_);
+        if (busy_.load()) {
+            state = busy_stop_ ? "stopping" : "starting";
+            text = busy_stop_ ? "De game wordt gestopt..." : "De game wordt gestart...";
+            have_profile = !busy_stop_;
+            profile = profile_;
+        } else if (sc == 2) {
+            state = "stopping";
+            text = "De game wordt gestopt...";
+        } else if (sc == 1 || (launched_ && now_ms() - launched_ms_ < c_.start_grace_ms)) {
+            // Het script draait nog (het wacht op de Move, op de game of controleert iets): de game telt nog niet als draaiend.
+            state = move ? "starting" : "waiting_move";
+            text = move ? "De game wordt gestart..." : "Wacht op de Move: druk op de PS-knop.";
+            have_profile = true;
+            profile = profile_;
+        } else {
+            if (launched_) {  // het script is klaar: de laatste regel van het script beslist of de start gelukt is
+                launched_ = false;
+                std::string last = c_.log_path.empty() ? std::string() : last_line(c_.log_path);
+                if (!ends_with(last, kSuccessMarker) && !(game_run && c_.log_path.empty())) {
+                    failed_ = true;
+                    failed_profile_ = profile_;
+                    failed_msg_ = last.empty() ? "het startscript stopte zonder melding" : last;
+                }
+            }
+            if (failed_) {
+                state = "failed";
+                text = "Starten is mislukt.";
+                message = failed_msg_;
+                have_profile = !failed_profile_.empty();
+                profile = failed_profile_;
+            } else if (game_run) {
+                state = "running";
+                have_profile = !profile_.empty();
+                profile = profile_;
+                text = "De game draait.";
+            } else {
+                state = "idle";
+                text = "Er draait geen game.";
+            }
+        }
+    }
+    json::Writer w;
+    w.begin_object().key("state").value(state).key("text").value(text);
+    w.key("running").value(state == "running");
+    w.key("busy").value(state == "starting" || state == "waiting_move" || state == "stopping");
+    w.key("stoppable").value(game_run || state == "starting" || state == "waiting_move");
+    if (have_profile && !profile.empty()) w.key("profile").value(profile); else w.key("profile").null();
+    if (message.empty()) w.key("message").null(); else w.key("message").value(message);
+    w.end_object();
+    return w.str();
+}
+
+std::string GameService::list_json() {
+    std::error_code ec;
+    const bool avail = !c_.tp_dir.empty() && fs::is_directory(fs::path(c_.tp_dir) / "UserProfiles", ec);
+    json::Writer w;
+    w.begin_object().key("available").value(avail);
+    if (!avail) w.key("message").value("De TeknoParrot-profielen zijn niet gevonden. Controleer of TeknoParrot is geinstalleerd.");
+    w.key("games").begin_array();
+    for (const auto& g : list_games(c_)) {
+        w.begin_object().key("profile").value(g.profile).key("name").value(g.name);
+        if (g.icon_file.empty()) w.key("icon").null(); else w.key("icon").value("/api/game-icon/" + g.icon_file);
+        if (g.note.empty()) w.key("note").null(); else w.key("note").value(g.note);
+        w.end_object();
+    }
+    w.end_array();
+    w.key("status").raw(status_json());
+    w.end_object();
+    return w.str();
+}
+
+}  // namespace ravengun::games

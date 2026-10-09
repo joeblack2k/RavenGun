@@ -373,6 +373,55 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             if (!ok) return error_json(400, "bad_request", err);
             return api_command(line);
         }
+        if (p == "/api/games") {
+            if (!get) return wrong_method("GET");
+            return api_command("{\"v\":1,\"cmd\":\"games\"}");
+        }
+        if (p == "/api/games/start" || p == "/api/games/stop") {
+            if (get) return wrong_method("POST");
+            if (p == "/api/games/stop") return api_command("{\"v\":1,\"cmd\":\"game_stop\"}");
+            std::string line, err;
+            // Alleen {"profile":"<naam>"}; de IPC-parser en de daemon controleren de naam (bestaand profielbestand).
+            if (!build_set_request("game_start", r.body, {}, line, err, {"profile"})) return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
+        if (p.rfind("/api/game-icon/", 0) == 0) {
+            if (!get) return wrong_method("GET");
+            // De rest van het pad is een kale bestandsnaam; de backend weigert alles wat geen [A-Za-z0-9_-]+.png|jpg|... is.
+            // Niets wordt gedecodeerd, dus %2e%2e en dergelijke vallen af op het patroon.
+            if (!be_.icon) return error_json(404, "not_found", "geen iconen beschikbaar");
+            std::string ct, data;
+            std::string e = be_.icon(p.substr(15), ct, data);
+            if (e == "invalid") return error_json(400, "bad_request", "ongeldige bestandsnaam");
+            if (!e.empty()) return error_json(404, "not_found", "icoon niet gevonden");
+            HttpResponse o;
+            o.content_type = ct;
+            o.body = std::move(data);
+            return o;
+        }
+        if (p == "/api/gun-buttons") {
+            if (get) return wrong_method("POST");
+            // {"map":{"<knop>":"<actie>",...}}: nesting, dus geen build_set_request. Namen en acties controleert de IPC-parser.
+            auto pr = json::parse(r.body);
+            if (!pr.ok || !pr.value.is_object()) return error_json(400, "bad_request", "verwacht een JSON-object");
+            const json::Value* m = pr.value.find("map");
+            if (pr.value.obj.size() != 1 || !m || !m->is_object() || m->obj.size() > 32)
+                return error_json(400, "bad_request", "verwacht alleen {\"map\":{knop: actie}}");
+            json::Writer w;
+            w.begin_object().key("v").value(1).key("cmd").value("set_gun_buttons").key("map").begin_object();
+            for (const auto& kv : m->obj) {
+                if (!kv.second.is_string()) return error_json(400, "bad_request", "'" + kv.first + "' moet een tekst zijn");
+                w.key(kv.first).value(kv.second.str);
+            }
+            w.end_object().end_object();
+            return api_command(w.str());
+        }
+        if (p == "/api/fusion") {
+            if (get) return wrong_method("POST");
+            std::string line, err;
+            if (!build_set_request("set_fusion", r.body, {"recenter_learning"}, line, err, {"mode"})) return error_json(400, "bad_request", err);
+            return api_command(line);
+        }
         if (p == "/api/web") {
             if (get) return wrong_method("POST");
             std::string line, err;

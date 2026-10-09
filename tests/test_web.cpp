@@ -478,6 +478,75 @@ static void test_sse() {
     CHECK(counter == 300'000);
 }
 
+// Games, iconen, knoppenindeling en schatter via de web-API (alleen de vertaling en de weigeringen; de daemon is nep).
+static void test_games_and_buttons_endpoints() {
+    Fake f;
+    WebConfig c;
+    c.port = 8765;
+    c.csrf = kCsrf;
+    Backend b;
+    b.command = [&f](const std::string& line) { f.last_line = line; ++f.calls; return f.reply; };
+    std::string asked_icon;
+    b.icon = [&asked_icon](const std::string& file, std::string& ct, std::string& data) {
+        asked_icon = file;
+        if (file == "Halo.png") { ct = "image/png"; data = std::string("\x89PNG\0\1", 6); return std::string(); }
+        if (file == "weg.png") return std::string("not_found");
+        return std::string("invalid");
+    };
+    WebApp app(c, b);
+
+    CHECK(app.handle(get("/api/games")).status == 200 && f.last_line == R"({"v":1,"cmd":"games"})");
+    CHECK(app.handle(post("/api/games", "{}")).status == 405);
+    CHECK(app.handle(post("/api/games/start", R"({"profile":"Halo"})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"game_start","profile":"Halo"})");
+    f.calls = 0;
+    CHECK(app.handle(post("/api/games/start", R"({"profile":"Halo","extra":1})")).status == 400);
+    CHECK(app.handle(post("/api/games/start", R"({"profile":5})")).status == 400);
+    CHECK(app.handle(post("/api/games/start", R"({"path":"/bin/sh"})")).status == 400);
+    CHECK(app.handle(post("/api/games/start", "[]")).status == 400);
+    CHECK(f.calls == 0);  // niets onbekends bereikt de daemon
+    CHECK(app.handle(get("/api/games/start")).status == 405);
+    CHECK(app.handle(post("/api/games/stop", "{}")).status == 200 && f.last_line == R"({"v":1,"cmd":"game_stop"})");
+    // Zonder CSRF-token geen start en geen stop.
+    CHECK(app.handle(post("/api/games/start", R"({"profile":"Halo"})", false)).status == 403);
+    CHECK(app.handle(post("/api/games/stop", "{}", false)).status == 403);
+
+    // Icoon: alleen GET en alleen een kale, geldige bestandsnaam (de backend weigert de rest).
+    HttpResponse ic = app.handle(get("/api/game-icon/Halo.png"));
+    CHECK(ic.status == 200 && ic.content_type == "image/png" && ic.body.size() == 6);
+    CHECK(app.handle(get("/api/game-icon/weg.png")).status == 404);
+    CHECK(app.handle(get("/api/game-icon/..%2fUserProfiles%2fHalo.xml")).status == 400);
+    CHECK(app.handle(get("/api/game-icon/../UserProfiles/Halo.xml")).status == 400 && asked_icon == "../UserProfiles/Halo.xml");
+    CHECK(app.handle(get("/api/game-icon/")).status == 400);
+    CHECK(app.handle(post("/api/game-icon/Halo.png", "{}")).status == 405);
+    // Een host die niet klopt krijgt ook geen icoon (DNS-rebinding).
+    CHECK(app.handle(get("/api/game-icon/Halo.png", "evil.example:8765")).status == 403);
+
+    // Knoppenindeling: alleen {"map":{knop:actie}}.
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":{"cross":"reload","circle":"key:f2"}})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"reload","circle":"key:f2"}})");
+    f.calls = 0;
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":{"cross":5}})")).status == 400);
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":[1]})")).status == 400);
+    CHECK(app.handle(post("/api/gun-buttons", R"({"cross":"reload"})")).status == 400);
+    CHECK(app.handle(post("/api/gun-buttons", R"({"map":{"cross":"reload"},"x":1})")).status == 400);
+    CHECK(app.handle(get("/api/gun-buttons")).status == 405);
+    CHECK(f.calls == 0);
+
+    // Schatter en leren van centreren.
+    CHECK(app.handle(post("/api/fusion", R"({"mode":"vqf_mag"})")).status == 200 && f.last_line == R"({"v":1,"cmd":"set_fusion","mode":"vqf_mag"})");
+    CHECK(app.handle(post("/api/fusion", R"({"recenter_learning":false})")).status == 200);
+    CHECK(f.last_line == R"({"v":1,"cmd":"set_fusion","recenter_learning":false})");
+    CHECK(app.handle(post("/api/fusion", R"({"mode":3})")).status == 400);
+    CHECK(app.handle(post("/api/fusion", R"({"bias":"own"})")).status == 400);
+
+    // Zonder icoon-ondersteuning is het endpoint gewoon 404.
+    Backend nob;
+    nob.command = b.command;
+    WebApp app2(c, nob);
+    CHECK(app2.handle(get("/api/game-icon/Halo.png")).status == 404);
+}
+
 static void test_calibrate_ui() {
     Fake f;
     WebApp app = make_app(f);
@@ -607,6 +676,7 @@ static void test_kiosk_helpers() {
 }
 
 int main() {
+    test_games_and_buttons_endpoints();
     test_calibrate_ui();
     test_kiosk_helpers();
     test_parser();

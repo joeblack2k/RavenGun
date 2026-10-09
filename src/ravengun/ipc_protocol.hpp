@@ -19,7 +19,8 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
-                 SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest };
+                 SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
+                 SetGunButtons, Games, GameStart, GameStop };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -60,6 +61,12 @@ struct Request {
     std::optional<double> web_port;
     // set_buttons: rol (zie config::sharp_shooter_roles()) -> Move-knop of "" (wissen).
     std::map<std::string, std::string> button_map;
+    // set_gun_buttons: Move-knop (config::gun_map_buttons()) -> actie (canonieke vorm, zie config::check_gun_action()).
+    std::map<std::string, std::string> gun_map;
+    // game_start: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
+    std::string profile;
+    // set_fusion: yaw-trim leren uit centreerdrukken aan/uit (live).
+    std::optional<bool> recenter_learning;
     // calibrate_ui: open | close | status (kiosk-browser op de tv, zie src/ravengun/kiosk/kiosk.hpp), bij open
     // optioneel step="practice" (opent direct de oefenstap).
     std::string step;

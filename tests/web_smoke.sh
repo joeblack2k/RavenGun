@@ -14,7 +14,17 @@ PID=""
 fail() { echo "FAIL: $*"; [ -n "$PID" ] && kill "$PID" 2>/dev/null; cat "$T/log" 2>/dev/null | tail -5; rm -rf "$T"; exit 1; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
-"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" 2>"$T/log" &
+# Nep-TeknoParrot in de eigen HOME (standaardlocatie) en een nep-startscript; --games-dry-run start nooit echt iets.
+TP="$HOME/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64"
+mkdir -p "$TP/UserProfiles" "$TP/Icons"
+printf '<GameProfile><GameNameInternal>HALO Test</GameNameInternal><IconName>Icons/Halo.png</IconName></GameProfile>' > "$TP/UserProfiles/Halo.xml"
+printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/JurassicPark.xml"
+printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/Slecht naam.xml"
+printf 'PNGDATA' > "$TP/Icons/Halo.png"
+printf 'GEHEIM' > "$TP/geheim.png"
+printf '#!/bin/sh\nexit 0\n' > "$T/play.sh"; chmod +x "$T/play.sh"
+
+"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --play-script "$T/play.sh" --games-dry-run 2>"$T/log" &
 PID=$!
 i=0
 until curl -s -o /dev/null "$B/api/csrf"; do
@@ -87,9 +97,56 @@ grep -q '"min_cutoff_hz":2' "$CFG" || fail "filter niet bewaard"
 grep -q '"preset":"custom"' "$CFG" || fail "LED niet bewaard"
 grep -q '"port":18999' "$CFG" || fail "web-poort niet bewaard"
 ls "$XDG_CONFIG_HOME/ravengun" | grep -q '\.tmp\.' && fail "tijdelijk bestand achtergebleven"
-for p in Overzicht Live Apparaten Camera LED Uitvoer Instellingen Info Kalibratie Games; do
-  curl -s "$B/" | grep -q ">$p</a>" || fail "tab $p ontbreekt"
+# De tabbladen worden door de app-code gebouwd; de pagina laadt app-core.js voor app.js en bevat alle zeven vlakken.
+for p in "Overzicht" "Richten" "Trillen" "Knoppen" "LED en camera" "Games" "Info (technisch)"; do
+  curl -s "$B/app-core.js" | grep -q "label: '$p'" || fail "tab $p ontbreekt"
 done
+for p in overzicht richten trillen knoppen led games info; do
+  curl -s "$B/" | grep -q "id=\"p-$p\"" || fail "pagina p-$p ontbreekt"
+done
+[ "$(code "$B/app-core.js")" = 200 ] || fail "app-core.js"
+curl -s "$B/" | grep -qE 'https?://' && fail "index verwijst naar een externe bron"
+curl -s "$B/app.js" | grep -qE "https?://" && fail "app.js verwijst naar een externe bron"
+curl -s "$B/api/settings" | grep -q '"defaults":{"schema":1' || fail "settings mist de fabrieksinstellingen"
+
+# Games: lijst (alleen geldige profielnamen), notities, iconen, start/stop met dry-run en weigeringen.
+curl -s "$B/api/games" | grep -q '"profile":"Halo","name":"HALO Test","icon":"/api/game-icon/Halo.png"' || fail "games: Halo ontbreekt"
+curl -s "$B/api/games" | grep -q '"profile":"JurassicPark","name":"Jurassic Park","icon":null,"note":"Werkt nog niet: zwart beeld."' || fail "games: notitie ontbreekt"
+curl -s "$B/api/games" | grep -q 'Slecht' && fail "games: ongeldige profielnaam in de lijst"
+[ "$(curl -s "$B/api/game-icon/Halo.png")" = PNGDATA ] || fail "icoon"
+[ "$(code "$B/api/game-icon/Halo.png")" = 200 ] || fail "icoon status"
+for bad in '../geheim.png' '..%2fgeheim.png' '%2e%2e%2fgeheim.png' 'Halo.xml' 'geheim' ''; do
+  c=$(code --path-as-is "$B/api/game-icon/$bad"); [ "$c" = 400 ] || [ "$c" = 404 ] || fail "icoon-pad '$bad' gaf $c"
+done
+curl -s --path-as-is "$B/api/game-icon/../geheim.png" | grep -q GEHEIM && fail "icoon buiten de Icons-map geserveerd"
+[ "$(code -X POST -H "$J" -d '{"profile":"Halo"}' "$B/api/games/start")" = 403 ] || fail "game start zonder CSRF"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -H 'Origin: http://evil.example' -d '{"profile":"Halo"}' "$B/api/games/start")" = 403 ] || fail "game start vreemde Origin"
+for bad in 'Nope' '../UserProfiles/Halo' 'Halo;id' 'Halo.xml' 'Slecht naam' '$(id)' ''; do
+  [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d "{\"profile\":\"$bad\"}" "$B/api/games/start")" = 400 ] || fail "game start met '$bad' moet 400 geven"
+done
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"Halo","cmd":"x"}' "$B/api/games/start")" = 400 ] || fail "game start met extra veld"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"Halo"}' "$B/api/games/start")" = 200 ] || fail "game start (dry-run)"
+grep -q 'games (dry-run): systemd-run --user --unit=ravengun-play .* -- .*/play.sh --profile Halo$' "$T/log" || fail "games: opdrachtregel niet zoals verwacht"
+curl -s "$B/api/games" | grep -q '"state":"waiting_move"' || fail "games: toestand na de start"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"JurassicPark"}' "$B/api/games/start")" = 503 ] || fail "tweede start tijdens de eerste"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/games/stop")" = 200 ] || fail "game stop"
+
+# Knoppenindeling live aanpassen en bewaren
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"map":{"cross":"key:f3","circle":"aux1"}}' "$B/api/gun-buttons")" = 200 ] || fail "gun-buttons"
+curl -s "$B/api/output" | grep -q '"cross":"key:f3"' || fail "gun-buttons niet live toegepast"
+grep -q '"cross": *"key:f3"' "$XDG_CONFIG_HOME/ravengun/config.json" || fail "gun-buttons niet bewaard"
+for bad in '{"map":{"cross":"vliegen"}}' '{"map":{"ps":"reload"}}' '{"map":{"t":"reload"}}' '{"map":{"cross":"key:f99"}}' '{"map":{"laser":"reload"}}' '{"cross":"reload"}' '{"map":{}}'; do
+  [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d "$bad" "$B/api/gun-buttons")" = 400 ] || fail "gun-buttons $bad moet 400 geven"
+done
+curl -s "$B/api/output" | grep -q '"cross":"key:f3"' || fail "ongeldige indeling heeft de oude indeling aangetast"
+[ "$(code -X POST -H "$J" -d '{"map":{"cross":"reload"}}' "$B/api/gun-buttons")" = 403 ] || fail "gun-buttons zonder CSRF"
+
+# Schatter en leren van centreren
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"mode":"vqf_mag","recenter_learning":false}' "$B/api/fusion")" = 200 ] || fail "fusion"
+curl -s "$B/api/status" | grep -q '"learning":false' || fail "leren niet uitgezet"
+curl -s "$B/api/status" | grep -q '"mode":"vqf_mag"' || fail "schatter niet gewijzigd"
+curl -s "$B/api/status" | grep -q '"navigation":{"connected":false' || fail "status mist de Navigation Controller"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"mode":"kompas"}' "$B/api/fusion")" = 400 ] || fail "fusion-validatie"
 
 # Kalibratie-UI op de tv
 curl -s "$B/calibrate" | grep -q "name=\"csrf-token\" content=\"$CSRF\"" || fail "/calibrate zonder csrf-token"

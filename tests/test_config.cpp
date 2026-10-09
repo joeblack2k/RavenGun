@@ -449,6 +449,64 @@ static void test_sharp_shooter_buttons() {
     parse_ok(R"({"v":1,"cmd":"set_buttons","trekker":3})", ok, &err);
     CHECK(!ok);
 
+    // set_gun_buttons: knoppen en acties worden gevalideerd en canoniek opgeslagen; PS en T kunnen niet.
+    rq = parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"reload","circle":"key:KEY_F2","pump":"none","triangle":""}})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::SetGunButtons && rq.gun_map.size() == 4 && rq.gun_map["circle"] == "key:f2" && rq.gun_map["triangle"] == "none");
+    rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.gun_map == rq.gun_map);
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"ps":"reload"}})", ok, &err);
+    CHECK(!ok && contains(err, "PS-knop"));
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"t":"reload"}})", ok, &err);
+    CHECK(!ok && contains(err, "trekker"));
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"laser":"reload"}})", ok, &err);
+    CHECK(!ok && contains(err, "geen indeelbare knop"));
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"vliegen"}})", ok, &err);
+    CHECK(!ok && contains(err, "onbekende actie"));
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"key:f99"}})", ok, &err);
+    CHECK(!ok && contains(err, "onbekende toets"));
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":7}})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{}})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons"})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"reload"},"trigger_on":3})", ok, &err);
+    CHECK(!ok && contains(err, "onbekend veld"));
+
+    // set_fusion: modus en/of leren van centreren.
+    rq = parse_ok(R"({"v":1,"cmd":"set_fusion","recenter_learning":false})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::SetFusion && rq.mode.empty() && rq.recenter_learning && !*rq.recenter_learning);
+    rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.recenter_learning && !*rt.recenter_learning && rt.mode.empty());
+    rq = parse_ok(R"({"v":1,"cmd":"set_fusion","mode":"vqf","recenter_learning":true})", ok);
+    CHECK(ok && rq.mode == "vqf" && *rq.recenter_learning);
+    parse_ok(R"({"v":1,"cmd":"set_fusion"})", ok, &err);
+    CHECK(!ok && contains(err, "zonder"));
+    parse_ok(R"({"v":1,"cmd":"set_fusion","mode":"kompas"})", ok, &err);
+    CHECK(!ok);
+
+    // games: lijst, start (alleen een geldige profielnaam) en stop.
+    rq = parse_ok(R"({"v":1,"cmd":"games"})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::Games);
+    rq = parse_ok(R"({"v":1,"cmd":"game_stop"})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::GameStop);
+    rq = parse_ok(R"({"v":1,"cmd":"game_start","profile":"Halo_2-b"})", ok);
+    CHECK(ok && rq.cmd == ipc::Cmd::GameStart && rq.profile == "Halo_2-b");
+    rt = parse_ok(ipc::make_request(rq), ok);
+    CHECK(ok && rt.profile == "Halo_2-b");
+    for (const char* bad : {"", "../Halo", "Halo.xml", "Ha lo", "Halo;ls", "$(id)", "Halo\\n", "/etc/passwd", "a`b`"}) {
+        parse_ok(std::string(R"({"v":1,"cmd":"game_start","profile":")") + bad + "\"}", ok, &err);
+        CHECK(!ok);
+    }
+    parse_ok(R"({"v":1,"cmd":"game_start","profile":"Halo","script":"/bin/sh"})", ok, &err);
+    CHECK(!ok && contains(err, "onbekend veld"));
+    parse_ok(R"({"v":1,"cmd":"game_start"})", ok, &err);
+    CHECK(!ok);
+    parse_ok(R"({"v":1,"cmd":"game_start","profile":7})", ok, &err);
+    CHECK(!ok);
+    parse_ok(std::string(R"({"v":1,"cmd":"game_start","profile":")") + std::string(65, 'a') + "\"}", ok, &err);
+    CHECK(!ok);
+
     rq = parse_ok(R"({"v":1,"cmd":"calibrate_ui","action":"open"})", ok);
     CHECK(ok && rq.cmd == ipc::Cmd::CalibrateUi && rq.action == "open");
     rt = parse_ok(ipc::make_request(rq), ok);

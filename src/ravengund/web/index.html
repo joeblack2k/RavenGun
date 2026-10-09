@@ -9,305 +9,294 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<header>
+<header class="top">
   <h1>RavenGun</h1>
-  <span id="conn" class="pill" title="Verbinding met de daemon">verbinden...</span>
+  <span id="conn" class="pill" title="Verbinding met het programma op de achtergrond (de daemon)">verbinden...</span>
 </header>
-<nav id="nav" aria-label="Pagina's">
-  <a href="#/overzicht" data-page="overzicht">Overzicht</a>
-  <a href="#/live" data-page="live">Live</a>
-  <a href="#/apparaten" data-page="apparaten">Apparaten</a>
-  <a href="#/camera" data-page="camera">Camera</a>
-  <a href="#/led" data-page="led">LED</a>
-  <a href="#/uitvoer" data-page="uitvoer">Uitvoer</a>
-  <a href="#/instellingen" data-page="instellingen">Instellingen</a>
-  <a href="#/info" data-page="info">Info</a>
-  <a href="#/kalibratie" data-page="kalibratie">Kalibratie</a>
-  <a href="#/games" data-page="games">Games</a>
-</nav>
+<nav id="tabs" class="tabs" aria-label="Onderdelen"></nav>
 <main>
 
-<section id="p-overzicht" class="page">
-  <h2>Overzicht</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>Batterij</h3>
-      <div id="ov-batt-seg" class="batt" role="img" aria-label="Batterijniveau"></div>
-      <p id="ov-batt-text" class="big">-</p>
-      <p id="ov-batt-note" class="muted"></p>
-    </div>
-    <div class="card"><h3>Move-controller</h3><dl id="ov-move"></dl></div>
-    <div class="card"><h3>Camera en bol</h3><dl id="ov-cam"></dl></div>
-    <div class="card"><h3>LED</h3><dl id="ov-led"></dl></div>
-    <div class="card"><h3>Tracking</h3><dl id="ov-track"></dl></div>
-    <div class="card"><h3>Daemon</h3><dl id="ov-daemon"></dl></div>
+<!-- ============ Overzicht ============ -->
+<section id="p-overzicht" class="page" aria-label="Overzicht">
+  <div class="cards">
+    <article class="card status">
+      <h2>Move</h2>
+      <div id="ov-move-bat" class="batwrap"></div>
+      <p class="big" id="ov-move-state">-</p>
+      <p class="sub" id="ov-move-sub"></p>
+    </article>
+    <article class="card status">
+      <h2>Navigation Controller</h2>
+      <div id="ov-nav-bat" class="batwrap"></div>
+      <p class="big" id="ov-nav-state">-</p>
+      <p class="sub" id="ov-nav-sub"></p>
+    </article>
+    <article class="card status">
+      <h2>Camera</h2>
+      <p class="bigicon" id="ov-cam-icon" aria-hidden="true"></p>
+      <p class="big" id="ov-cam-state">-</p>
+      <p class="sub" id="ov-cam-sub"></p>
+    </article>
+    <article class="card status">
+      <h2>Lightgun</h2>
+      <p class="bigicon" id="ov-gun-icon" aria-hidden="true"></p>
+      <p class="big" id="ov-gun-state">-</p>
+      <p class="sub" id="ov-gun-sub">Met de lightgun aan gebruikt een game de Move als pistool.</p>
+      <p class="actions"><button type="button" id="ov-gun-btn" class="secondary">Aanzetten</button></p>
+      <p class="err" id="ov-gun-err" role="alert"></p>
+    </article>
+    <article class="card status">
+      <h2>Game</h2>
+      <p class="bigicon" id="ov-game-icon" aria-hidden="true"></p>
+      <p class="big" id="ov-game-state">-</p>
+      <p class="sub" id="ov-game-sub"></p>
+      <p class="actions"><a class="button secondary" href="#/games">Naar de games</a></p>
+    </article>
   </div>
-  <p class="note">Deze pagina toont alleen getallen en toestanden. Er worden nooit camerabeelden getoond of opgeslagen.</p>
+  <div class="center-row">
+    <button type="button" id="btn-center" class="giant">Centreren</button>
+    <p class="hint">Richt de Move op het midden van het scherm en druk hierop. De PS-knop op de Move doet hetzelfde.</p>
+    <p class="msg" id="center-msg" role="status"></p>
+  </div>
+  <section class="card">
+    <h2>Zo staat het ingesteld</h2>
+    <dl id="ov-settings" class="plain"></dl>
+    <p class="hint">Dit zijn de instellingen die de lightgun nu gebruikt, ook als de Move uit staat. Aanpassen kan bij Richten en Trillen.</p>
+  </section>
 </section>
 
-<section id="p-live" class="page">
-  <h2>Live</h2>
-  <div class="grid">
-    <div class="card wide">
-      <h3>Aim-punt</h3>
-      <canvas id="aim" width="480" height="270" aria-label="Aim-punt op het scherm"></canvas>
-      <p class="legend"><span class="dot raw"></span> ruw <span class="dot filt"></span> gefilterd <span id="aim-note" class="muted"></span></p>
-    </div>
-    <div class="card">
-      <h3>Bol in het camerabeeld</h3>
-      <canvas id="mini" width="240" height="180" aria-label="Positie van de bol in het camerabeeld"></canvas>
-      <p id="mini-note" class="muted">Alleen coördinaten, geen beeld.</p>
-    </div>
-    <div class="card">
-      <h3>Knoppen en trekker</h3>
-      <div class="bar"><div id="trig" class="fill"></div></div>
-      <p>Trekker: <b id="trig-v">0</b> / 255</p>
-      <p id="btns" class="chips"></p>
-      <p class="muted" id="stream-state">stroom niet verbonden</p>
-    </div>
+<!-- ============ Richten ============ -->
+<section id="p-richten" class="page" aria-label="Richten">
+  <div class="cards">
+    <section class="card">
+      <h2>Hoe het richtpunt reageert</h2>
+      <div id="sw-filter"></div>
+      <div id="sl-richten"></div>
+      <p class="actions"><button type="button" id="rich-reset" class="secondary">Standaard herstellen</button></p>
+      <p class="err" id="rich-err" role="alert"></p>
+    </section>
+    <section class="card">
+      <h2>Zo wijst de Move</h2>
+      <canvas id="aim" width="480" height="270" aria-label="Het richtpunt op het scherm"></canvas>
+      <p class="legend"><span class="dot raw"></span> ruw <span class="dot filt"></span> gladgestreken <span id="aim-note" class="muted"></span></p>
+      <p class="hint">Beweeg de Move en let op de blauwe stip terwijl je de schuifjes verandert.</p>
+    </section>
+    <section class="card">
+      <h2>Wegdraaien tegengaan</h2>
+      <p class="hint">Een Move draait na een tijd langzaam weg van het midden. Kies hoe dat gecorrigeerd wordt.</p>
+      <div id="fusion-choices" class="choices" role="radiogroup" aria-label="Driftcorrectie"></div>
+      <div id="sw-learn"></div>
+      <p class="err" id="fusion-err" role="alert"></p>
+    </section>
+    <section class="card">
+      <h2>Hoe vaak de cursor wordt bijgewerkt</h2>
+      <p class="hint">Hoger geeft een soepelere cursor. 250 is voor de meeste games prima.</p>
+      <div id="clock-choices" class="segments" role="radiogroup" aria-label="Uitvoerklok"></div>
+      <p class="err" id="clock-err" role="alert"></p>
+    </section>
+    <section class="card">
+      <h2>Kalibreren op de tv</h2>
+      <p>Het kalibratiescherm komt op de tv. Je bedient het met het pistool zelf.</p>
+      <p class="actions">
+        <button type="button" id="cal-open">Kalibratiescherm op de tv openen</button>
+        <button type="button" id="cal-practice" class="secondary">Oefenen op de tv</button>
+        <button type="button" id="cal-close" class="secondary">Scherm sluiten</button>
+      </p>
+      <p id="cal-state" class="muted"></p>
+      <p class="err" id="cal-err" role="alert"></p>
+    </section>
+  </div>
+  <details class="more">
+    <summary>Meer opties (technisch)</summary>
+    <div class="cards inner"><section class="card"><div id="sl-richten-adv"></div></section></div>
+  </details>
+</section>
+
+<!-- ============ Trillen ============ -->
+<section id="p-trillen" class="page" aria-label="Trillen">
+  <div class="cards">
+    <section class="card wide">
+      <h2>Trillen bij schieten</h2>
+      <p class="hint">De Move trilt als je schiet. Wijzigingen gelden meteen, ook terwijl je speelt.</p>
+      <div id="sw-rumble"></div>
+      <div id="sl-trillen"></div>
+      <p class="actions">
+        <button type="button" id="rum-test">Test</button>
+      </p>
+      <p class="msg" id="rum-msg" role="status"></p>
+      <p class="err" id="rum-err" role="alert"></p>
+      <p class="hint">Het trillen werkt zodra de lightgun aan staat. De knop Test werkt altijd, als de Move verbonden is.</p>
+    </section>
   </div>
 </section>
 
-<section id="p-apparaten" class="page">
-  <h2>Apparaten</h2>
-  <div class="grid">
-    <div class="card"><h3>Move-controller</h3><dl id="dev-move"></dl></div>
-    <div class="card"><h3>Camera</h3><dl id="dev-cam"></dl></div>
-    <div class="card"><h3>Lightgun-uitvoer</h3><dl id="dev-out"></dl></div>
-    <div class="card">
-      <h3>Koppelen (pairing)</h3>
-      <p class="muted">Het koppelen van Move-controllers volgt later in deze interface. Voorlopig gaat dat via <code>ravengunctl</code> en de scripts in <code>scripts/</code>.</p>
+<!-- ============ Knoppen ============ -->
+<section id="p-knoppen" class="page" aria-label="Knoppen">
+  <section class="card">
+    <h2>Wat doet welke knop?</h2>
+    <p class="hint">Kies per knop wat er gebeurt. Druk op een knop van de Move: de bijbehorende regel licht op.</p>
+    <p class="msg" id="btn-live" role="status"></p>
+    <div id="btn-rows" class="btnrows"></div>
+    <div class="savebar" id="btn-savebar" hidden>
+      <span id="btn-pending"></span>
+      <button type="button" id="btn-save">Opslaan</button>
+      <button type="button" id="btn-undo" class="secondary">Ongedaan maken</button>
     </div>
-  </div>
+    <p class="actions"><button type="button" id="btn-defaults" class="secondary">Standaardindeling herstellen</button></p>
+    <p class="err" id="btn-err" role="alert"></p>
+    <p class="msg" id="btn-msg" role="status"></p>
+    <p class="hint">Opslaan werkt meteen, ook terwijl een game draait. De PS-knop en de trekker staan vast.</p>
+  </section>
 </section>
 
-<section id="p-camera" class="page">
-  <h2>Camera</h2>
-  <div class="grid">
-    <form id="f-camera" class="card" novalidate>
-      <h3>Instellingen</h3>
-      <p class="muted">Wijzigingen gaan direct naar de camera en worden bewaard. Een andere modus herstart de opname even.</p>
-      <label>Modus
-        <select id="cam-mode">
-          <option value="640x480@60">640x480 bij 60 fps (standaard)</option>
-          <option value="320x240@125">320x240 bij 125 fps</option>
-          <option value="320x240@187">320x240 bij 187 fps</option>
-        </select></label>
-      <label class="row"><input type="checkbox" id="cam-ae"> Automatische belichting</label>
-      <label>Belichting <small>0 tot 255 (alleen bij automatisch uit)</small>
-        <span class="pair"><input type="range" id="cam-exp-r" min="0" max="255" step="1"><input type="number" id="cam-exp" min="0" max="255" step="1" inputmode="numeric"></span></label>
-      <label class="row"><input type="checkbox" id="cam-ag"> Automatische gain</label>
-      <label>Gain <small>0 tot 63 (alleen bij automatisch uit)</small>
-        <span class="pair"><input type="range" id="cam-gain-r" min="0" max="63" step="1"><input type="number" id="cam-gain" min="0" max="63" step="1" inputmode="numeric"></span></label>
-      <label class="row"><input type="checkbox" id="cam-awb"> Automatische witbalans</label>
-      <p class="muted">Voor boltracking horen belichting, gain en witbalans vast te staan (docs/decisions.md): met de automatiek aan wordt de bol wit en onbruikbaar.</p>
-      <p class="err" id="cam-err" role="alert"></p>
-      <button type="submit">Toepassen</button>
-    </form>
-    <div class="card">
-      <h3>Werkelijke waarden</h3>
-      <p class="muted">Na het toepassen gelezen uit de driver.</p>
-      <dl id="cam-readback"></dl>
-      <p id="cam-warn" class="warnbox" hidden></p>
-    </div>
-    <div class="card"><h3>Status</h3><dl id="cam-status"></dl></div>
-  </div>
-</section>
-
-<section id="p-led" class="page">
-  <h2>LED</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>Kleur van de bol</h3>
-      <p class="muted">De tracker zoekt op tint. Een andere kleur past daarom ook de tracker-tint en de tolerantie aan, met de gemeten tinten uit de proefopstelling.</p>
+<!-- ============ LED en camera ============ -->
+<section id="p-led" class="page" aria-label="LED en camera">
+  <div class="cards">
+    <section class="card">
+      <h2>Kleur van de bol</h2>
+      <p class="hint">De camera volgt de gloeiende bol op de Move. Kies een kleur die niet in de kamer voorkomt.</p>
       <div id="led-presets" class="swatches"></div>
       <p class="err" id="led-err" role="alert"></p>
-    </div>
-    <form id="f-led" class="card" novalidate>
-      <h3>Eigen kleur (custom)</h3>
-      <p class="warnbox">Een eigen kleur heeft geen gemeten tint. De tracker gebruikt de nominale tint met een ruimere tolerantie (45 graden) en kan de bol missen. Controleer op het tabblad Camera of de bol gevonden wordt.</p>
-      <label>Kleur <input type="color" id="led-color" value="#00ffff"></label>
-      <div class="rgb">
-        <label>R <input type="number" id="led-r" min="0" max="255" step="1" inputmode="numeric" value="0"></label>
-        <label>G <input type="number" id="led-g" min="0" max="255" step="1" inputmode="numeric" value="255"></label>
-        <label>B <input type="number" id="led-b" min="0" max="255" step="1" inputmode="numeric" value="255"></label>
-      </div>
-      <p class="err" id="led-cerr" role="alert"></p>
-      <button type="submit">Eigen kleur toepassen</button>
-    </form>
-    <div class="card">
-      <h3>Huidige stand</h3>
-      <dl id="led-now"></dl>
+      <details class="more small">
+        <summary>Eigen kleur</summary>
+        <p class="warnbox">Een eigen kleur is niet uitgemeten: de camera kan de bol dan missen. Controleer hieronder of de bol gevonden wordt.</p>
+        <form id="f-led" novalidate>
+          <label>Kleur <input type="color" id="led-color" value="#00ffff"></label>
+          <div class="rgb">
+            <label>Rood <input type="number" id="led-r" min="0" max="255" step="1" inputmode="numeric" value="0"></label>
+            <label>Groen <input type="number" id="led-g" min="0" max="255" step="1" inputmode="numeric" value="255"></label>
+            <label>Blauw <input type="number" id="led-b" min="0" max="255" step="1" inputmode="numeric" value="255"></label>
+          </div>
+          <p class="err" id="led-cerr" role="alert"></p>
+          <button type="submit">Eigen kleur toepassen</button>
+        </form>
+      </details>
       <div id="led-result" class="result" hidden></div>
-    </div>
+    </section>
+    <section class="card">
+      <h2>Ziet de camera de bol?</h2>
+      <p class="big" id="cam-see">-</p>
+      <canvas id="mini" width="240" height="180" aria-label="Positie van de bol in het camerabeeld"></canvas>
+      <p id="mini-note" class="muted">Alleen een stip, nooit een camerabeeld.</p>
+    </section>
+    <section class="card">
+      <h2>Camera</h2>
+      <p class="hint">Voor het volgen van de bol staan belichting, gain en witbalans het beste vast. Wijzigingen gelden meteen en worden bewaard.</p>
+      <label>Beeldformaat
+        <select id="cam-mode">
+          <option value="640x480@60">Scherp: 640x480, 60 beelden per seconde (standaard)</option>
+          <option value="320x240@125">Snel: 320x240, 125 beelden per seconde</option>
+          <option value="320x240@187">Zeer snel: 320x240, 187 beelden per seconde</option>
+        </select></label>
+      <div id="sw-cam"></div>
+      <div id="sl-camera"></div>
+      <p class="err" id="cam-err" role="alert"></p>
+      <p id="cam-warn" class="warnbox" hidden></p>
+      <p class="muted" id="cam-state"></p>
+    </section>
   </div>
 </section>
 
-<section id="p-uitvoer" class="page">
-  <h2>Uitvoer</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>Virtuele lightgun</h3>
-      <p class="muted">Standaard uit (disarmed): er worden dan geen invoerevents verstuurd. Inschakelen stuurt de aim naar games.</p>
-      <dl id="out-state"></dl>
-      <p class="err" id="out-err" role="alert"></p>
-      <p class="actions">
-        <button type="button" id="out-arm">Inschakelen (arm)</button>
-        <button type="button" id="out-disarm" class="secondary">Uitschakelen (disarm)</button>
-      </p>
-    </div>
-    <div class="card">
-      <h3>Testpatronen</h3>
-      <p class="muted">Beweegt de gun volgens een vast patroon, zonder Move. Vereist arm. Een patroon stopt vanzelf.</p>
-      <p class="actions">
-        <button type="button" class="pat" data-pattern="center">Midden</button>
-        <button type="button" class="pat" data-pattern="corners">Hoeken</button>
-        <button type="button" class="pat" data-pattern="grid">Raster</button>
-        <button type="button" class="pat" data-pattern="sweep">Sweep</button>
-        <button type="button" class="pat secondary" data-pattern="stop">Stop</button>
-      </p>
-      <dl id="out-pattern"></dl>
-      <p class="err" id="pat-err" role="alert"></p>
-    </div>
-    <form id="f-output" class="card" novalidate>
-      <h3>Transformatie</h3>
-      <p class="muted">Inversie, schaal en offset op de aim-coördinaten (0 tot 1) vóór het apparaat. De viewport is het deel van het scherm waarin de game staat.</p>
-      <label class="row"><input type="checkbox" id="o-ix"> Horizontaal spiegelen</label>
-      <label class="row"><input type="checkbox" id="o-iy"> Verticaal spiegelen</label>
-      <div class="rgb">
-        <label>Schaal X <small>0,05 tot 20</small><input type="number" id="o-sx" step="any" inputmode="decimal"></label>
-        <label>Schaal Y <small>0,05 tot 20</small><input type="number" id="o-sy" step="any" inputmode="decimal"></label>
-        <label>Offset X <small>-1 tot 1</small><input type="number" id="o-ox" step="any" inputmode="decimal"></label>
-        <label>Offset Y <small>-1 tot 1</small><input type="number" id="o-oy" step="any" inputmode="decimal"></label>
-      </div>
-      <div class="rgb">
-        <label>Viewport links <small>0 tot 1</small><input type="number" id="o-x0" step="any" inputmode="decimal"></label>
-        <label>Viewport boven <small>0 tot 1</small><input type="number" id="o-y0" step="any" inputmode="decimal"></label>
-        <label>Viewport rechts <small>0 tot 1</small><input type="number" id="o-x1" step="any" inputmode="decimal"></label>
-        <label>Viewport onder <small>0 tot 1</small><input type="number" id="o-y1" step="any" inputmode="decimal"></label>
-      </div>
-      <p class="err" id="o-err" role="alert"></p>
-      <button type="submit">Toepassen</button>
-    </form>
-  </div>
+<!-- ============ Games ============ -->
+<section id="p-games" class="page" aria-label="Games">
+  <section class="card gamebanner">
+    <p class="big" id="game-banner">-</p>
+    <p class="sub" id="game-banner-sub"></p>
+    <p class="actions"><button type="button" id="game-stop-all" class="danger">Stoppen</button></p>
+    <p class="err" id="game-err" role="alert"></p>
+  </section>
+  <div id="game-list" class="games"></div>
+  <p class="hint" id="game-hint">Spelen zet de lightgun aan en start de game. Heb je de Move nog niet aangezet, druk dan op de PS-knop.</p>
 </section>
 
-<section id="p-instellingen" class="page">
-  <h2>Instellingen</h2>
-  <div class="grid">
-    <form id="f-filter" class="card" novalidate>
-      <h3>1€-filter</h3>
-      <label class="row"><input type="checkbox" id="flt-enabled"> Filter aan</label>
-      <label>Minimale afsnijfrequentie (Hz) <small>0,001 tot 100</small>
-        <input type="number" id="flt-min" step="any" inputmode="decimal"></label>
-      <label>Beta <small>0 tot 1000</small>
-        <input type="number" id="flt-beta" step="any" inputmode="decimal"></label>
-      <label>Afsnijfrequentie snelheid (Hz) <small>0,001 tot 100</small>
-        <input type="number" id="flt-d" step="any" inputmode="decimal"></label>
-      <p class="err" id="flt-err" role="alert"></p>
-      <button type="submit">Filter toepassen</button>
-    </form>
-    <form id="f-aim" class="card" novalidate>
-      <h3>Aim-schaal</h3>
-      <p class="muted">Hoeveel graden de Move draait tot de rand van het scherm. Kleiner betekent gevoeliger.</p>
-      <label>Horizontaal tot de rand (graden) <small>1 tot 89</small>
-        <input type="number" id="aim-h" step="any" inputmode="decimal"></label>
-      <label>Verticaal tot de rand (graden) <small>1 tot 89</small>
-        <input type="number" id="aim-v" step="any" inputmode="decimal"></label>
-      <p class="err" id="aim-err" role="alert"></p>
-      <button type="submit">Schaal toepassen</button>
-    </form>
-    <form id="f-latency" class="card" novalidate>
-      <h3>Latentie</h3>
-      <p class="muted">Voorspelt waar de Move over zoveel milliseconden wijst, zodat de cursor niet achterloopt op uw hand (Bluetooth, game en tv). Werkt direct, zonder herstart. 0 is uit. Te hoog geeft doorschieten bij een abrupte stop; stel op gevoel bij.</p>
-      <label>Voorspelling (ms vooruit) <small>0 tot 200</small>
-        <input type="number" id="lat-predict" step="any" inputmode="decimal"></label>
-      <input type="range" id="lat-predict-r" min="0" max="120" step="1" aria-label="Voorspelling schuifregelaar">
-      <label>Uitvoerklok (Hz) <small>0 (uit, positie alleen per rapport) of 20 tot 1000</small>
-        <input type="number" id="lat-clock" step="any" inputmode="decimal"></label>
-      <label>Extrapolatie na het laatste rapport (ms) <small>0 tot 100, daarna vasthouden</small>
-        <input type="number" id="lat-extrap" step="any" inputmode="decimal"></label>
-      <p class="err" id="lat-err" role="alert"></p>
-      <button type="submit">Latentie toepassen</button>
-    </form>
-    <form id="f-rumble" class="card" novalidate>
-      <h3>Trillen bij schieten</h3>
-      <p class="muted">De Move trilt bij elke trekkerhaal (terugslag) en bij ingedrukt houden herhaald; de pomp geeft een korte, zwakkere puls. Alleen als de uitvoer gewapend is. Werkt direct, zonder herstart.</p>
-      <label class="row"><input type="checkbox" id="rum-enabled"> Trillen aan</label>
-      <label>Sterkte <small>0 tot 255</small>
-        <input type="number" id="rum-strength" step="1" inputmode="numeric"></label>
-      <label>Pulsduur (ms) <small>10 tot 500</small>
-        <input type="number" id="rum-pulse" step="1" inputmode="numeric"></label>
-      <label>Herhaling bij vasthouden (Hz) <small>0 (één puls per schot) of 1 tot 30</small>
-        <input type="number" id="rum-repeat" step="any" inputmode="decimal"></label>
-      <label>Sterkte bij de pomp <small>0 (uit) tot 255</small>
-        <input type="number" id="rum-pump" step="1" inputmode="numeric"></label>
-      <p class="err" id="rum-err" role="alert"></p>
-      <button type="submit">Trillen toepassen</button>
-      <button type="button" id="rum-test">Testpuls</button>
-    </form>
-    <div class="card">
-      <h3>Recenter</h3>
-      <p class="muted">Zet het huidige richtpunt van de Move als midden van het scherm. Vereist een verbonden Move.</p>
-      <p class="err" id="rc-err" role="alert"></p>
-      <button type="button" id="recenter">Recenter</button>
-    </div>
-    <form id="f-web" class="card" novalidate>
-      <h3>Webinterface</h3>
-      <dl id="web-now"></dl>
-      <label>Poort bij de volgende start <small>1 tot 65535</small>
-        <input type="number" id="web-port" min="1" max="65535" step="1" inputmode="numeric"></label>
-      <p class="muted">LAN-toegang staat nooit aan via deze pagina: alleen met <code>--web-lan</code> en een token. Een <code>--web-port</code> op de opdrachtregel gaat voor het bewaarde getal.</p>
-      <p class="err" id="web-err" role="alert"></p>
-      <button type="submit">Poort bewaren</button>
-    </form>
-    <div class="card">
-      <h3>Instellingenbestand</h3>
+<!-- ============ Info (technisch) ============ -->
+<section id="p-info" class="page" aria-label="Info (technisch)">
+  <p class="hint">Technische gegevens voor als er iets niet werkt. Voor gewoon spelen heb je dit tabblad niet nodig.</p>
+  <div class="cards">
+    <section class="card"><h2>Versies</h2><dl id="inf-ver"></dl></section>
+    <section class="card"><h2>Apparaten</h2><dl id="inf-dev"></dl></section>
+    <section class="card"><h2>Programma op de achtergrond</h2><dl id="inf-daemon"></dl></section>
+    <section class="card"><h2>Move-rapporten</h2><dl id="inf-imu"></dl></section>
+    <section class="card"><h2>Camera-gegevens</h2><dl id="inf-cam"></dl></section>
+    <section class="card"><h2>Richten en driftcorrectie</h2><dl id="inf-track"></dl></section>
+    <section class="card">
+      <h2>Diagnose exporteren</h2>
+      <p class="hint">Een bestand met versies, status en instellingen om te delen als er iets mis is. Geen camerabeelden; het controller-ID is afgeschermd.</p>
+      <p class="actions"><a class="button" href="/api/diagnostics" download="ravengun-diagnose.json">Diagnose exporteren</a></p>
+    </section>
+    <section class="card">
+      <h2>Instellingenbestand</h2>
       <dl id="cfg-info"></dl>
       <p id="cfg-msg" class="warnbox" hidden></p>
-      <p class="muted">Wat u hier wijzigt wordt bewaard en bij de volgende start toegepast. Opties op de opdrachtregel van <code>ravengund</code> gaan altijd voor.</p>
-    </div>
+    </section>
   </div>
-</section>
 
-<section id="p-info" class="page">
-  <h2>Info</h2>
-  <div class="grid">
-    <div class="card"><h3>Versies</h3><dl id="inf-ver"></dl></div>
-    <div class="card"><h3>Apparaten</h3><dl id="inf-dev"></dl></div>
-    <div class="card"><h3>Daemon</h3><dl id="inf-daemon"></dl></div>
-    <div class="card"><h3>Move-rapporten (IMU)</h3><dl id="inf-imu"></dl></div>
-    <div class="card"><h3>Camera</h3><dl id="inf-cam"></dl></div>
-    <div class="card">
-      <h3>Diagnose exporteren</h3>
-      <p class="muted">Een JSON-bestand met versies, status en instellingen. Het controller-ID is geredigeerd, de thuismap staat als ~ en er zitten geen camerabeelden in.</p>
-      <p class="actions"><a class="button" href="/api/diagnostics" download="ravengun-diagnose.json">Diagnose exporteren</a></p>
+  <details class="more">
+    <summary>Lightgun-uitvoer en testpatronen</summary>
+    <div class="cards inner">
+      <section class="card">
+        <h3>Virtuele lightgun</h3>
+        <dl id="out-state"></dl>
+        <p class="err" id="out-err" role="alert"></p>
+        <p class="actions">
+          <button type="button" id="out-arm">Inschakelen</button>
+          <button type="button" id="out-disarm" class="secondary">Uitschakelen</button>
+        </p>
+      </section>
+      <section class="card">
+        <h3>Testpatronen</h3>
+        <p class="hint">Beweegt de cursor volgens een vast patroon, zonder Move. De lightgun moet aan staan.</p>
+        <p class="actions">
+          <button type="button" class="pat" data-pattern="center">Midden</button>
+          <button type="button" class="pat" data-pattern="corners">Hoeken</button>
+          <button type="button" class="pat" data-pattern="grid">Raster</button>
+          <button type="button" class="pat" data-pattern="sweep">Heen en weer</button>
+          <button type="button" class="pat secondary" data-pattern="stop">Stop</button>
+        </p>
+        <dl id="out-pattern"></dl>
+        <p class="err" id="pat-err" role="alert"></p>
+      </section>
+      <form id="f-output" class="card" novalidate>
+        <h3>Beeld spiegelen, schalen en verschuiven</h3>
+        <p class="hint">Alleen nodig als de cursor in een game gespiegeld of verschoven staat. Waarden zijn coordinaten van 0 tot 1.</p>
+        <label class="row"><input type="checkbox" id="o-ix"> Links en rechts omdraaien</label>
+        <label class="row"><input type="checkbox" id="o-iy"> Boven en onder omdraaien</label>
+        <div class="rgb">
+          <label>Schaal X <small>0,05 tot 20</small><input type="number" id="o-sx" step="any" inputmode="decimal"></label>
+          <label>Schaal Y <small>0,05 tot 20</small><input type="number" id="o-sy" step="any" inputmode="decimal"></label>
+          <label>Verschuiving X <small>-1 tot 1</small><input type="number" id="o-ox" step="any" inputmode="decimal"></label>
+          <label>Verschuiving Y <small>-1 tot 1</small><input type="number" id="o-oy" step="any" inputmode="decimal"></label>
+        </div>
+        <div class="rgb">
+          <label>Beeld links <small>0 tot 1</small><input type="number" id="o-x0" step="any" inputmode="decimal"></label>
+          <label>Beeld boven <small>0 tot 1</small><input type="number" id="o-y0" step="any" inputmode="decimal"></label>
+          <label>Beeld rechts <small>0 tot 1</small><input type="number" id="o-x1" step="any" inputmode="decimal"></label>
+          <label>Beeld onder <small>0 tot 1</small><input type="number" id="o-y1" step="any" inputmode="decimal"></label>
+        </div>
+        <p class="err" id="o-err" role="alert"></p>
+        <button type="submit">Toepassen</button>
+      </form>
     </div>
-  </div>
-</section>
+  </details>
 
-<section id="p-kalibratie" class="page">
-  <h2>Kalibratie</h2>
-  <div class="card">
-    <h3>Kalibreren op de tv</h3>
-    <p>De kalibratie draait fullscreen op de tv en wordt bediend met het geweer zelf: trekker of Move-knop is volgende, Cirkel is terug, Select slaat een stap over en Start breekt af. Op dit scherm hoeft u niets te doen.</p>
-    <p class="muted">Stappen: magnetometer (met live dekking en tempo), stil richten (herhaalbaarheid), knoppen testen en vastleggen, het scherm met de negen doelen (de berekening komt later) en een oefenstap met vizier en doelen. "Oefenen op de tv" opent die oefenstap direct.</p>
-    <div class="actions">
-      <button id="cal-open" type="button">Kalibreren op de tv</button>
-      <button id="cal-practice" type="button" class="secondary">Oefenen op de tv</button>
-      <button id="cal-close" type="button" class="secondary">Kalibratiescherm sluiten</button>
+  <details class="more">
+    <summary>Webadres van het bedieningspaneel</summary>
+    <div class="cards inner">
+      <form id="f-web" class="card" novalidate>
+        <dl id="web-now"></dl>
+        <label>Poort bij de volgende start <small>1 tot 65535</small>
+          <input type="number" id="web-port" min="1" max="65535" step="1" inputmode="numeric"></label>
+        <p class="hint">Toegang vanaf andere apparaten staat nooit aan via deze pagina.</p>
+        <p class="err" id="web-err" role="alert"></p>
+        <button type="submit">Poort bewaren</button>
+      </form>
     </div>
-    <p id="cal-state" class="muted"></p>
-    <p id="cal-err" class="err"></p>
-  </div>
-</section>
-<section id="p-games" class="page">
-  <h2>Games en profielen</h2>
-  <div class="card"><p>Komt later: profielen per game kiezen (uitvoer, aim-schaal, LED-kleur) en games starten.</p></div>
+  </details>
 </section>
 
 </main>
 <p id="toast" class="toast" role="status"></p>
+<script src="/app-core.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -287,6 +287,7 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh; HidAux& aux;
         bool led_dirty = false;
         ravengun::output::RumbleEngine* engine = nullptr;
+        ravengun::output::LiveGunFeed* live = nullptr;
         Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_, HidAux& a_)
             : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_), aux(a_) {}
         std::string status_json(bool full) override {
@@ -331,11 +332,23 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             opt.pipeline.fusion_mode = m;
             logf("info", "oriëntatieschatter: %s", to_string(m));
         }
+        bool recenter_learning() const override { return p.trim().config().enabled; }
+        void set_recenter_learning(bool on) override {
+            p.set_trim_learning(on);
+            opt.pipeline.trim.enabled = on;
+            logf("info", "leren van centreren: %s", on ? "aan" : "uit");
+        }
+        void set_gun_buttons(const ravengun::output::LiveButtonMap& m) override {
+            opt.gun_buttons = m;
+            if (live) live->set_map(m);
+            logf("info", "knoppenindeling gewijzigd: %s", ravengun::output::describe_layout(m).c_str());
+        }
     } ctx(pipe, ci, ps, opt, start, shared, aux);
     ctx.engine = &rumble;
     auto handle_jobs = [&] { shared.run_jobs(ctx); };
     // Fase 4: elk gepubliceerd sample gaat ook naar de virtuele lightgun (alleen als die gewapend is).
     ravengun::output::LiveGunFeed live(opt.gun_buttons);
+    ctx.live = &live;
     // Voedt de rumble-toestandsmachine met de trekker (uit de live koppeling) en de pomp; ook elke lusronde (de tijd loopt door).
     // Of de uitvoer gewapend is, wordt hoogstens elke 20 ms gevraagd (neemt een slot van de uitvoerservice).
     int64_t armed_checked = 0;

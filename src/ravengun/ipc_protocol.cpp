@@ -6,6 +6,7 @@
 #include <initializer_list>
 
 #include "ravengun/config/settings.hpp"
+#include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 
@@ -41,6 +42,10 @@ const char* to_string(Cmd c) {
         case Cmd::SetClock: return "set_clock";
         case Cmd::SetRumble: return "set_rumble";
         case Cmd::RumbleTest: return "rumble_test";
+        case Cmd::SetGunButtons: return "set_gun_buttons";
+        case Cmd::Games: return "games";
+        case Cmd::GameStart: return "game_start";
+        case Cmd::GameStop: return "game_stop";
     }
     return "?";
 }
@@ -324,10 +329,41 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (r.button_map.empty()) return err("invalid_argument", "set_buttons zonder te wijzigen velden", r.id_json);
     } else if (cmd == "set_fusion") {
         r.cmd = Cmd::SetFusion;
-        if (!allowed(o, {"mode"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"mode", "recenter_learning"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         if (!opt_string(o, "mode", r.mode, e, r.id_json)) return e;
-        if (r.mode != "mahony" && r.mode != "mahony_mag" && r.mode != "vqf" && r.mode != "vqf_mag")
+        if (!opt_bool(o, "recenter_learning", r.recenter_learning, e, r.id_json)) return e;
+        if (r.mode.empty() && !r.recenter_learning) return err("invalid_argument", "set_fusion zonder te wijzigen velden", r.id_json);
+        if (!r.mode.empty() && r.mode != "mahony" && r.mode != "mahony_mag" && r.mode != "vqf" && r.mode != "vqf_mag")
             return err("invalid_argument", "'mode' moet mahony, mahony_mag, vqf of vqf_mag zijn", r.id_json);
+    } else if (cmd == "set_gun_buttons") {
+        r.cmd = Cmd::SetGunButtons;
+        if (!allowed(o, {"map"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* m = o.find("map");
+        if (!m || !m->is_object() || m->obj.empty()) return err("invalid_argument", "'map' (object met Move-knop -> actie) ontbreekt", r.id_json);
+        const auto& buttons = config::gun_map_buttons();
+        for (const auto& kv : m->obj) {
+            if (kv.first == "ps") return err("invalid_argument", "de PS-knop is altijd centreren en kan niet worden ingedeeld", r.id_json);
+            if (kv.first == "t") return err("invalid_argument", "de trekker (T) kan niet worden ingedeeld", r.id_json);
+            if (std::find(buttons.begin(), buttons.end(), kv.first) == buttons.end())
+                return err("invalid_argument", "'" + kv.first + "' is geen indeelbare knop", r.id_json);
+            if (!kv.second.is_string() || kv.second.str.size() > 40)
+                return err("invalid_argument", "de actie van '" + kv.first + "' moet een korte tekst zijn", r.id_json);
+            std::string canon;
+            std::string msg = config::check_gun_action(kv.second.str, canon);
+            if (!msg.empty()) return err("invalid_argument", kv.first + ": " + msg, r.id_json);
+            r.gun_map[kv.first] = canon;
+        }
+    } else if (cmd == "games" || cmd == "game_stop") {
+        r.cmd = cmd == "games" ? Cmd::Games : Cmd::GameStop;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "game_start") {
+        r.cmd = Cmd::GameStart;
+        if (!allowed(o, {"profile"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* p = o.find("profile");
+        if (!p || !p->is_string()) return err("invalid_argument", "'profile' (profielnaam) ontbreekt", r.id_json);
+        if (!games::valid_profile_name(p->str))
+            return err("invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -, hoogstens 64 tekens)", r.id_json);
+        r.profile = p->str;
     } else if (cmd == "calibrate_ui") {
         r.cmd = Cmd::CalibrateUi;
         if (!allowed(o, {"action", "step"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -472,7 +508,19 @@ std::string make_request(const Request& r) {
             if (!r.step.empty()) w.key("step").value(r.step);
             break;
         case Cmd::SetFusion:
-            w.key("mode").value(r.mode);
+            if (!r.mode.empty()) w.key("mode").value(r.mode);
+            if (r.recenter_learning) w.key("recenter_learning").value(*r.recenter_learning);
+            break;
+        case Cmd::SetGunButtons:
+            w.key("map").begin_object();
+            for (const auto& kv : r.gun_map) w.key(kv.first).value(kv.second);
+            w.end_object();
+            break;
+        case Cmd::GameStart:
+            w.key("profile").value(r.profile);
+            break;
+        case Cmd::Games:
+        case Cmd::GameStop:
             break;
         case Cmd::Info:
         case Cmd::Settings:

@@ -1,12 +1,15 @@
 'use strict';
-// RavenGun-webinterface: geen externe bronnen, geen inline code (CSP). Alle tekst via textContent.
+// RavenGun-app: tabbladen, schuifjes, schakelaars. Geen externe bronnen, geen inline code (CSP).
+// Alle tekst gaat via textContent. De logica zonder DOM staat in app-core.js (RGApp).
 (function () {
+  var A = window.RGApp;
   var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
   var $ = function (id) { return document.getElementById(id); };
-  var pages = ['overzicht', 'live', 'apparaten', 'camera', 'led', 'uitvoer', 'instellingen', 'info', 'kalibratie', 'games'];
   var current = '';
   var pollTimer = null;
   var es = null;
+  var lastStatus = null;   // laatste /api/status
+  var defaults = null;     // fabrieksinstellingen uit /api/settings
 
   // ---- Hulpfuncties ----
   function api(path, body) {
@@ -17,33 +20,46 @@
       opt.body = JSON.stringify(body);
     }
     return fetch(path, opt).then(function (r) {
-      return r.json().then(function (j) { j.httpStatus = r.status; setConn(true, 'verbonden met daemon'); return j; });
-    }, function (e) { setConn(false, 'daemon niet bereikbaar'); throw e; });
+      return r.json().then(function (j) { j.httpStatus = r.status; setConn(true); return j; });
+    }, function (e) { setConn(false); throw e; });
+  }
+  // Als api(), maar een geweigerd verzoek is een fout met de melding van de daemon.
+  function call(path, body) {
+    return api(path, body).then(function (j) {
+      if (!j.ok) throw new Error(errText(j));
+      return j;
+    });
   }
   function errText(j) { return j && j.error ? j.error.message : 'onbekende fout'; }
-  function setConn(ok, text) {
+  function errMsg(e) { return e && e.message === 'Failed to fetch' ? 'het programma op de achtergrond is niet bereikbaar' : (e && e.message) || 'onbekende fout'; }
+  function setConn(ok) {
     var c = $('conn');
-    c.textContent = text;
+    c.textContent = ok ? 'verbonden' : 'niet bereikbaar';
     c.className = 'pill ' + (ok ? 'ok' : 'bad');
   }
-  function fmt(v, d) { return typeof v === 'number' && isFinite(v) ? v.toFixed(d === undefined ? 1 : d) : '-'; }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function fmt(v, d) { return A.fmtNl(v, d); }
   function yn(b) { return b ? 'ja' : 'nee'; }
   function fill(dl, rows) {
     dl.textContent = '';
     rows.forEach(function (r) {
-      var dt = document.createElement('dt'), dd = document.createElement('dd');
-      dt.textContent = r[0];
-      dd.textContent = r[1];
-      if (r[2]) dd.className = r[2];
-      dl.appendChild(dt);
+      var dd = el('dd', r[2] || '', r[1]);
+      dl.appendChild(el('dt', '', r[0]));
       dl.appendChild(dd);
     });
   }
+  var toastTimer = null;
   function toast(msg) {
     var t = $('toast');
     t.textContent = msg;
     t.className = 'toast show';
-    setTimeout(function () { t.className = 'toast'; }, 2500);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = 'toast'; }, 2600);
   }
   function dur(s) {
     if (typeof s !== 'number' || !isFinite(s)) return '-';
@@ -51,17 +67,19 @@
     var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
     return (d ? d + ' d ' : '') + (h || d ? h + ' u ' : '') + m + ' min ' + (s % 60) + ' s';
   }
-  function setHidden(el, hidden, text) {
-    el.hidden = hidden;
-    if (!hidden) el.textContent = text;
+  function setHidden(e, hidden, text) {
+    e.hidden = hidden;
+    if (!hidden) e.textContent = text;
   }
+  function rgbCss(r, g, b) { return 'rgb(' + r + ',' + g + ',' + b + ')'; }
+  function hex2(n) { var s = n.toString(16); return s.length < 2 ? '0' + s : s; }
   function num(id, lo, hi, name, errs, integer) {
-    var el = $(id), raw = el.value.trim().replace(',', '.');
-    el.classList.remove('invalid');
+    var e = $(id), raw = e.value.trim().replace(',', '.');
+    e.classList.remove('invalid');
     var v = raw === '' ? NaN : Number(raw);
     if (!isFinite(v) || v < lo || v > hi || (integer && Math.floor(v) !== v)) {
       errs.push(name + ' moet ' + (integer ? 'een geheel getal' : 'een getal') + ' tussen ' + lo + ' en ' + hi + ' zijn');
-      el.classList.add('invalid');
+      e.classList.add('invalid');
       return null;
     }
     return v;
@@ -77,108 +95,351 @@
       return j;
     }).catch(function () {
       if (btn) btn.disabled = false;
-      errEl.textContent = 'daemon niet bereikbaar';
+      errEl.textContent = 'het programma op de achtergrond is niet bereikbaar';
     });
   }
-  function el(tag, cls, text) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
+  function getStatus() {
+    return call('/api/status').then(function (j) { lastStatus = j.result; return j.result; });
   }
-  function rgbCss(r, g, b) { return 'rgb(' + r + ',' + g + ',' + b + ')'; }
-  function hex2(n) { var s = n.toString(16); return s.length < 2 ? '0' + s : s; }
 
-  // ---- Batterij: grove niveaus van PSMoveAPI (PSMove_Battery_Level), geen percentage ----
-  var BATT = { min: 1, ge20: 2, ge40: 3, ge60: 4, ge80: 5, max: 5 };
-  function showBattery(c) {
-    var box = $('ov-batt-seg'), text = $('ov-batt-text'), note = $('ov-batt-note');
+  // ---- Bouwstenen: schakelaar, schuifje ----
+  // apply(checked) geeft een belofte met de werkelijke stand uit de daemon.
+  function makeSwitch(box, o) {
+    var lab = el('label', 'switch');
+    var inp = el('input');
+    inp.type = 'checkbox';
+    var track = el('span', 'track');
+    var txt = el('span', 'label', o.label);
+    if (o.help) { txt.appendChild(el('span', 'help', o.help)); }
+    lab.appendChild(inp); lab.appendChild(track); lab.appendChild(txt);
+    box.appendChild(lab);
+    var busy = false;
+    inp.addEventListener('change', function () {
+      var want = inp.checked;
+      busy = true; inp.disabled = true;
+      if (o.errEl) o.errEl.textContent = '';
+      Promise.resolve(o.apply(want)).then(function (actual) {
+        inp.checked = !!actual;
+      }, function (e) {
+        inp.checked = !want;
+        if (o.errEl) o.errEl.textContent = errMsg(e);
+      }).then(function () { busy = false; inp.disabled = false; });
+    });
+    return {
+      set: function (v) { if (!busy) inp.checked = !!v; },
+      setDisabled: function (d) { inp.disabled = !!d; }
+    };
+  }
+
+  // o: { name, help, min, max, step, scale, fmt(v), send(v) -> belofte met antwoord, actual(result, v) -> getal }
+  function makeSlider(box, o) {
+    var wrap = el('div', 'slider');
+    var head = el('div', 'head');
+    var name = el('span', 'name', o.name), val = el('span', 'val', '-');
+    head.appendChild(name); head.appendChild(val);
+    var inp = el('input');
+    inp.type = 'range';
+    if (o.scale) { inp.min = 0; inp.max = o.scale.steps; inp.step = 1; }
+    else { inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; }
+    inp.setAttribute('aria-label', o.name);
+    var st = el('div', 'st');
+    wrap.appendChild(head); wrap.appendChild(inp);
+    if (o.help) wrap.appendChild(el('div', 'help', o.help));
+    wrap.appendChild(st);
+    box.appendChild(wrap);
+    var known = null, dragging = false, stTimer = null;
+    function valueOf(pos) { return o.scale ? o.scale.toValue(Number(pos)) : Number(pos); }
+    function show(v) {
+      val.textContent = o.fmt(v);
+      inp.value = o.scale ? o.scale.toPos(v) : Math.min(Math.max(v, o.min), o.max);
+    }
+    function message(text, cls) {
+      st.textContent = text; st.className = 'st ' + (cls || '');
+      clearTimeout(stTimer);
+      if (cls === 'ok') stTimer = setTimeout(function () { st.textContent = ''; st.className = 'st'; }, 2200);
+    }
+    var sender = A.createLiveSender({
+      delay: 150,
+      send: function (v) { message('Bezig...', ''); return o.send(v); },
+      onDone: function (j, v) {
+        // Bevestiging: de werkelijke waarde uit de daemon (die kan afwijken van wat gevraagd is).
+        var a = o.actual(j.result, v);
+        if (typeof a === 'number' && isFinite(a)) { known = a; if (!dragging) show(a); }
+        message('Toegepast', 'ok');
+      },
+      onError: function (e) {
+        message(errMsg(e), 'bad');
+        if (known !== null && !dragging) show(known);
+      }
+    });
+    inp.addEventListener('input', function () {
+      var v = valueOf(inp.value);
+      val.textContent = o.fmt(v);
+      sender.input(v);
+    });
+    inp.addEventListener('change', function () { sender.commit(valueOf(inp.value)); });
+    inp.addEventListener('pointerdown', function () { dragging = true; });
+    inp.addEventListener('pointerup', function () { dragging = false; });
+    inp.addEventListener('pointercancel', function () { dragging = false; });
+    inp.addEventListener('blur', function () { dragging = false; });
+    return {
+      // Waarde uit de daemon (poll); wordt genegeerd zolang de speler het schuifje vasthoudt of er iets onderweg is.
+      set: function (v) {
+        if (typeof v !== 'number' || !isFinite(v)) return;
+        known = v;
+        if (dragging || sender.busy()) return;
+        show(v);
+      },
+      setDisabled: function (d) { inp.disabled = !!d; },
+      value: function () { return known; }
+    };
+  }
+
+  // ---- Batterij-icoon ----
+  function drawBattery(box, view) {
     box.textContent = '';
-    var code = c && c.connected ? c.battery.code : 'unknown';
-    var segs = BATT[code] || 0;
-    var charging = code === 'charging' || code === 'charged';
-    if (code === 'charged') segs = 5;
-    for (var i = 0; i < 5; i++) box.appendChild(el('span', i < segs ? 'on' : ''));
-    box.className = 'batt' + (code === 'charging' ? ' charging' : '') + (segs <= 1 && !charging && segs > 0 ? ' low' : (segs === 2 && !charging ? ' mid' : ''));
-    if (!c || !c.connected) { text.textContent = 'Geen Move verbonden'; note.textContent = ''; return; }
-    var label = c.battery.text;
-    if (BATT[code]) label = 'niveau ' + Math.min(segs, 5) + ' van 5: ' + c.battery.text;
-    text.textContent = label.charAt(0).toUpperCase() + label.slice(1);
-    note.textContent = 'Grove meting: de Move meldt zes niveaus plus laden en vol, geen percentage. Elk segment is een band van 20%.';
+    var b = el('div', 'battery ' + (view.level === 'full' ? '' : view.level));
+    b.setAttribute('role', 'img');
+    b.setAttribute('aria-label', 'Batterij: ' + view.label + (view.detail ? ', ' + view.detail : ''));
+    var body = el('div', 'body');
+    for (var i = 0; i < 5; i++) body.appendChild(el('span', 'cell' + (i < view.segments ? ' on' : '')));
+    b.appendChild(body); b.appendChild(el('div', 'tip'));
+    box.appendChild(b);
+  }
+  function batteryText(view, connected) {
+    if (!connected) return '';
+    return 'Batterij: ' + view.label + (view.detail ? ' (' + view.detail + ')' : '');
+  }
+  function glyph(box, kind, text) {
+    box.textContent = '';
+    box.appendChild(el('span', kind, text));
   }
 
   // ---- Overzicht ----
+  var gamesCache = null;
+  function gameName(profile) {
+    var list = (gamesCache && gamesCache.games) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].profile === profile) return list[i].name;
+    return profile;
+  }
   function refreshOverview() {
-    Promise.all([api('/api/status'), api('/api/sample')]).then(function (res) {
-      var st = res[0], sm = res[1];
-      if (!st.ok || !sm.ok) { setConn(false, 'daemon geeft een fout'); return; }
-      setConn(true, 'verbonden met daemon');
-      var s = st.result, p = sm.result, c = s.controller, cam = s.camera || {};
-      showBattery(c);
-      fill($('ov-move'), [
-        ['Verbonden', c.connected ? 'ja (' + c.model + ', ' + c.connection + ')' : 'nee, geen Move gevonden', c.connected ? 'ok' : 'warn'],
-        ['IMU-rapporten', fmt(s.reports.rate_hz_5s) + ' per seconde'],
-        ['Controller-ID', c.id || '-']
-      ]);
-      var fr = cam.frames || {};
-      var pos = p.position;
-      fill($('ov-cam'), [
-        ['Camera', cam.enabled ? cam.state : 'uit', cam.state === 'streaming' ? 'ok' : (cam.enabled ? 'warn' : 'muted')],
-        ['Camera-fps', cam.enabled ? fmt(fr.fps_5s) : '-'],
-        ['Bol gevonden', yn(pos.valid), pos.valid ? 'ok' : 'warn'],
-        ['Reden', pos.valid ? '-' : pos.reason],
-        ['Volgstatus', pos.track_state],
-        ['Fout', cam.error || '-', cam.error ? 'bad' : '']
-      ]);
-      showLedRows($('ov-led'), s);
-      fill($('ov-track'), [
-        ['Modus', p.tracking_mode],
-        ['Oriëntatie geldig', yn(p.orientation.valid), p.orientation.valid ? 'ok' : 'warn'],
-        ['Aim geldig', yn(p.aim.valid), p.aim.valid ? 'ok' : 'warn'],
-        ['Midden bepaald door', p.aim.center_source],
-        ['Filter', p.aim.filter_enabled ? 'aan' : 'uit']
-      ].concat(fusionRows(p.orientation.fusion)));
-      fill($('ov-daemon'), [
-        ['PID', String(s.daemon.pid)],
-        ['Looptijd', dur(s.daemon.uptime_s)],
-        ['HID', s.daemon.hid_enabled ? 'aan' : 'uit (--no-hid)']
-      ]);
-    }).catch(function () { setConn(false, 'daemon niet bereikbaar'); });
+    Promise.all([api('/api/status'), api('/api/sample'), api('/api/games')]).then(function (res) {
+      var st = res[0], sm = res[1], gm = res[2];
+      if (!st.ok || !sm.ok) { setConn(false); return; }
+      lastStatus = st.result;
+      var s = st.result, p = sm.result, c = s.controller, cam = s.camera || {}, nav = s.navigation || { connected: false, battery: {} };
+      if (gm.ok) gamesCache = gm.result;
+      // Move
+      var bv = A.batteryView(c.battery && c.battery.code, c.connected);
+      drawBattery($('ov-move-bat'), bv);
+      $('ov-move-state').textContent = c.connected ? 'Verbonden' : 'Niet verbonden';
+      $('ov-move-state').className = 'big ' + (c.connected ? 'ok' : 'warn');
+      var sub = c.connected ? batteryText(bv, true) + '.' : 'Zet de Move aan met de PS-knop.';
+      if (c.connected && p.ext && p.ext.connected) sub += ' Sharp Shooter aangesloten.';
+      $('ov-move-sub').textContent = sub;
+      // Navigation Controller
+      var nb = nav.battery || {};
+      var nv = A.batteryView(nb.code, nav.connected, typeof nb.percent === 'number' ? nb.percent : undefined);
+      drawBattery($('ov-nav-bat'), nv);
+      $('ov-nav-state').textContent = nav.connected ? 'Verbonden' : 'Niet verbonden';
+      $('ov-nav-state').className = 'big ' + (nav.connected ? 'ok' : 'warn');
+      $('ov-nav-sub').textContent = nav.connected ? batteryText(nv, true) : 'Geen Navigation Controller gevonden.';
+      // Camera
+      var pos = p.position || {};
+      var streaming = cam.enabled && cam.state === 'streaming';
+      if (!cam.enabled) { glyph($('ov-cam-icon'), 'no', '✖'); $('ov-cam-state').textContent = 'Camera staat uit'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = ''; }
+      else if (!streaming) { glyph($('ov-cam-icon'), 'bad', '✖'); $('ov-cam-state').textContent = 'Camera werkt niet'; $('ov-cam-state').className = 'big bad'; $('ov-cam-sub').textContent = cam.error || 'Is de camera aangesloten?'; }
+      else if (pos.valid) { glyph($('ov-cam-icon'), 'yes', '✔'); $('ov-cam-state').textContent = 'Ziet de bol'; $('ov-cam-state').className = 'big ok'; $('ov-cam-sub').textContent = ''; }
+      else { glyph($('ov-cam-icon'), 'warn', '✖'); $('ov-cam-state').textContent = 'Ziet de bol niet'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = c.connected ? 'Houd de Move in beeld van de camera.' : 'De bol licht alleen op als de Move aan staat.'; }
+      // Lightgun
+      var armed = !!(s.output && s.output.armed);
+      glyph($('ov-gun-icon'), armed ? 'yes' : 'no', armed ? '✔' : '✖');
+      $('ov-gun-state').textContent = armed ? 'Klaar' : 'Uit';
+      $('ov-gun-state').className = 'big ' + (armed ? 'ok' : 'warn');
+      $('ov-gun-btn').textContent = armed ? 'Uitzetten' : 'Aanzetten';
+      $('ov-gun-btn').className = armed ? 'secondary' : '';
+      // Game
+      var g = gm.ok ? gm.result.status : null;
+      var gv = A.gameStateView(g);
+      var running = g && g.state === 'running';
+      glyph($('ov-game-icon'), running ? 'yes' : (g && g.state === 'failed' ? 'bad' : 'no'), running ? '▶' : (g && g.state === 'failed' ? '✖' : '—'));
+      var gt = running ? (g.profile ? gameName(g.profile) + ' draait' : 'Er draait een game') : (g && g.state === 'idle' ? 'Geen game actief' : (g ? g.text : '-'));
+      $('ov-game-state').textContent = gt;
+      $('ov-game-state').className = 'big ' + (running ? 'ok' : (g && g.state === 'failed' ? 'bad' : ''));
+      $('ov-game-sub').textContent = g && g.state === 'failed' && g.message ? g.message : (gv.busy ? gv.text : '');
+      fill($('ov-settings'), A.plainSettings(s));
+    }).catch(function () { setConn(false); });
   }
-  // Fase 4: schatter, bron van de yaw en wat de magnetometer doet (uit het sample).
-  function fusionRows(f) {
-    if (!f) return [];
-    return [
-      ['Schatter', f.mode],
-      ['Yaw-bron', f.yaw_source === 'magnetometer' ? 'magnetometer-gecorrigeerd' : 'gyro', f.yaw_source === 'magnetometer' ? 'ok' : ''],
-      ['Magnetometer', f.magnetometer + (f.mag_locked ? ', vergrendeld' : ''), f.magnetometer === 'disturbed' ? 'warn' : ''],
-      ['Openstaande yaw-fout', fmt(f.yaw_pending_deg, 2) + ' graden'],
-      ['Correctie', fmt(f.correction_rate_deg_s, 3) + ' graden/s (grens ' + fmt(f.correction_limit_deg_s, 3) + '), totaal ' + fmt(f.correction_total_deg, 2) + ' graden'],
-      ['Verticale bias (magnetometer)', fmt(f.vertical_bias_deg_s, 3) + ' graden/s']
-    ];
-  }
-  function showLedRows(dl, s) {
-    var led = s.controller.led, tc = ((s.camera || {}).tracker || {}).config || {};
-    dl.textContent = '';
-    var dt = el('dt', '', 'LED-kleur'), dd = el('dd');
-    var chip = el('span', 'led-chip');
-    if (led.enabled) chip.style.background = rgbCss(led.rgb[0], led.rgb[1], led.rgb[2]);
-    dd.appendChild(chip);
-    dd.appendChild(document.createTextNode(led.enabled ? led.rgb.join(', ') : 'niet aangestuurd'));
-    dl.appendChild(dt); dl.appendChild(dd);
-    var rows = [
-      ['Tracker-tint', typeof tc.hue_deg === 'number' ? fmt(tc.hue_deg, 0) + ' graden, tolerantie ' + fmt(tc.hue_tol_deg, 0) : '-'],
-      ['LED-updates', String(led.updates) + (led.failures ? ' (' + led.failures + ' mislukt)' : '')]
-    ];
-    rows.forEach(function (r) { dl.appendChild(el('dt', '', r[0])); dl.appendChild(el('dd', '', r[1])); });
-  }
+  $('ov-gun-btn').addEventListener('click', function (e) {
+    var armed = lastStatus && lastStatus.output && lastStatus.output.armed;
+    if (!armed && !window.confirm('De lightgun aanzetten? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
+    submit(armed ? '/api/disarm' : '/api/arm', {}, $('ov-gun-err'), armed ? 'Lightgun staat uit' : 'Lightgun staat aan', e.target, refreshOverview);
+  });
+  $('btn-center').addEventListener('click', function (e) {
+    var m = $('center-msg');
+    m.textContent = ''; m.className = 'msg';
+    e.target.disabled = true;
+    api('/api/recenter', {}).then(function (j) {
+      e.target.disabled = false;
+      if (j.ok) { m.textContent = 'Gecentreerd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
+      else { m.className = 'msg bad'; m.textContent = j.httpStatus === 503 ? 'Centreren lukt nog niet: is de Move aan en verbonden?' : errText(j); }
+    }).catch(function () { e.target.disabled = false; m.className = 'msg bad'; m.textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+  });
 
-  // ---- Live ----
+  // ---- Richten ----
+  var sliders = {};
+  var switches = {};
+  function defaultsOf(section, key, fallback) {
+    return defaults && defaults[section] && typeof defaults[section][key] === 'number' ? defaults[section][key] : fallback;
+  }
+  function buildRichten() {
+    var err = $('rich-err');
+    switches.filter = makeSwitch($('sw-filter'), {
+      label: 'Richtpunt gladstrijken', help: 'Haalt het trillen van je hand uit de cursor.', errEl: err,
+      apply: function (on) { return call('/api/filter', { enabled: on }).then(function (j) { return j.result.enabled; }); }
+    });
+    var sl = $('sl-richten');
+    sliders.predict = makeSlider(sl, {
+      name: 'Vooruitkijken', help: 'De cursor kijkt zoveel milliseconden vooruit, zodat hij niet achterloopt op je hand. 0 is uit.',
+      min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' ms'; },
+      send: function (v) { return call('/api/aim', { predict_ms: v }); },
+      actual: function (r) { return r.predict_ms; }
+    });
+    sliders.mincut = makeSlider(sl, {
+      name: 'Rust bij stilhouden', help: 'Lager = een rustiger richtpunt, maar het volgt je hand wat trager.',
+      scale: A.logScale(0.05, 5, 1000), fmt: function (v) { return fmt(v, 2); },
+      send: function (v) { return call('/api/filter', { min_cutoff_hz: v }); },
+      actual: function (r) { return r.min_cutoff_hz; }
+    });
+    sliders.beta = makeSlider(sl, {
+      name: 'Reactiesnelheid bij snel richten', help: 'Hoger = minder vertraging als je snel zwaait, maar iets onrustiger.',
+      min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0); },
+      send: function (v) { return call('/api/filter', { beta: v }); },
+      actual: function (r) { return r.beta; }
+    });
+    var adv = $('sl-richten-adv');
+    sliders.hedge = makeSlider(adv, {
+      name: 'Draaihoek tot de rand, links en rechts', help: 'Hoeveel graden je de Move draait van het midden tot de zijkant van het scherm. Kleiner = gevoeliger.',
+      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
+      send: function (v) { return call('/api/aim', { h_edge_deg: v }); },
+      actual: function (r) { return r.h_edge_deg; }
+    });
+    sliders.vedge = makeSlider(adv, {
+      name: 'Draaihoek tot de rand, boven en onder', help: 'Zelfde, voor omhoog en omlaag.',
+      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
+      send: function (v) { return call('/api/aim', { v_edge_deg: v }); },
+      actual: function (r) { return r.v_edge_deg; }
+    });
+    sliders.dcut = makeSlider(adv, {
+      name: 'Snelheidsfilter', help: 'Hoe vloeiend de snelheid van je hand wordt gemeten (afsnijfrequentie in Hz).',
+      min: 1, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' Hz'; },
+      send: function (v) { return call('/api/filter', { d_cutoff_hz: v }); },
+      actual: function (r) { return r.d_cutoff_hz; }
+    });
+    sliders.extrap = makeSlider(adv, {
+      name: 'Doorlopen bij een haperende verbinding', help: 'Hoe lang de cursor doorloopt als de Move even geen gegevens stuurt (daarna blijft hij staan).',
+      min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' ms'; },
+      send: function (v) { return call('/api/clock', { extrapolate_ms: v }); },
+      actual: function (r) { return r.extrapolate_ms; }
+    });
+    // Driftcorrectie: keuzerondjes met uitleg.
+    var box = $('fusion-choices');
+    A.FUSION_CHOICES.forEach(function (c) {
+      var lab = el('label', 'choice');
+      var r = el('input');
+      r.type = 'radio'; r.name = 'fusion'; r.value = c.id;
+      var t = el('span');
+      t.appendChild(el('span', 't', c.label));
+      t.appendChild(el('span', 'd', c.help));
+      lab.appendChild(r); lab.appendChild(t);
+      box.appendChild(lab);
+      r.addEventListener('change', function () {
+        $('fusion-err').textContent = '';
+        call('/api/fusion', { mode: c.id }).then(function (j) { setFusionChoice(j.result.mode); toast('Driftcorrectie: ' + A.fusionLabel(j.result.mode)); },
+          function (e) { $('fusion-err').textContent = errMsg(e); getStatus().then(function (s) { setFusionChoice(s.config.fusion.mode); }); });
+      });
+    });
+    switches.learn = makeSwitch($('sw-learn'), {
+      label: 'Leren van centreren', help: 'Elke keer dat je centreert leert de Move bij hoe hij wegdraait en corrigeert dat zelf.', errEl: $('fusion-err'),
+      apply: function (on) { return call('/api/fusion', { recenter_learning: on }).then(function (j) { return j.result.recenter_learning; }); }
+    });
+    $('rich-reset').addEventListener('click', function (e) {
+      var d = defaults || {};
+      var f = d.filter || {}, a = d.aim || {};
+      if (!d.filter) { $('rich-err').textContent = 'De standaardwaarden zijn niet beschikbaar.'; return; }
+      $('rich-err').textContent = '';
+      e.target.disabled = true;
+      call('/api/filter', { enabled: f.enabled, min_cutoff_hz: f.min_cutoff_hz, beta: f.beta, d_cutoff_hz: f.d_cutoff_hz })
+        .then(function () { return call('/api/aim', { predict_ms: a.predict_ms }); })
+        .then(function () { toast('Standaardwaarden hersteld'); return refreshRichten(true); })
+        .catch(function (er) { $('rich-err').textContent = errMsg(er); })
+        .then(function () { e.target.disabled = false; });
+    });
+  }
+  function setFusionChoice(mode) {
+    Array.prototype.forEach.call(document.querySelectorAll('#fusion-choices input'), function (r) {
+      r.checked = r.value === mode;
+      r.parentNode.className = 'choice' + (r.checked ? ' sel' : '');
+    });
+  }
+  function renderClock(hz) {
+    var box = $('clock-choices');
+    var wantSig = A.clockChoices(hz).map(function (c) { return c.hz; }).join();
+    if (box.getAttribute('data-sig') !== wantSig) {
+      box.setAttribute('data-sig', wantSig);
+      box.textContent = '';
+      A.clockChoices(hz).forEach(function (c) {
+        var lab = el('label');
+        var r = el('input');
+        r.type = 'radio'; r.name = 'clock'; r.value = String(c.hz);
+        lab.appendChild(r); lab.appendChild(el('span', 'seg', c.label));
+        box.appendChild(lab);
+        r.addEventListener('change', function () {
+          $('clock-err').textContent = '';
+          call('/api/clock', { clock_hz: c.hz }).then(function (j) { renderClock(j.result.clock_hz); toast('Uitvoerklok: ' + (c.hz ? c.hz + ' Hz' : 'uit')); },
+            function (e) { $('clock-err').textContent = errMsg(e); refreshRichten(true); });
+        });
+      });
+    }
+    Array.prototype.forEach.call(box.querySelectorAll('input'), function (r) { r.checked = Number(r.value) === hz; });
+  }
+  function refreshRichten() {
+    return getStatus().then(function (s) {
+      var f = s.config.filter, a = s.config.aim, ck = s.output && s.output.live && s.output.live.clock;
+      switches.filter.set(f.enabled);
+      sliders.predict.set(a.predict_ms);
+      sliders.mincut.set(f.min_cutoff_hz);
+      sliders.beta.set(f.beta);
+      sliders.dcut.set(f.d_cutoff_hz);
+      sliders.hedge.set(a.h_edge_deg);
+      sliders.vedge.set(a.v_edge_deg);
+      if (ck) { sliders.extrap.set(ck.extrapolate_ms); renderClock(ck.enabled ? ck.hz : 0); }
+      setFusionChoice(s.config.fusion.mode);
+      switches.learn.set(s.yaw_trim ? s.yaw_trim.learning : true);
+    }).catch(function () {});
+  }
+  // Kalibratie op de tv
+  function refreshCal() {
+    api('/api/calibrate/ui').then(function (j) {
+      $('cal-state').textContent = j.ok ? j.result.message : 'Kalibratiescherm: ' + errText(j);
+    }).catch(function () {});
+  }
+  $('cal-open').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Kalibratiescherm geopend op de tv', e.target, refreshCal);
+  });
+  $('cal-practice').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'open', step: 'practice' }, $('cal-err'), 'Oefenscherm geopend op de tv', e.target, refreshCal);
+  });
+  $('cal-close').addEventListener('click', function (e) {
+    submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Scherm gesloten', e.target, refreshCal);
+  });
+
+  // ---- Live richtpunt en bol (stroom) ----
   var last = null;
   function drawAim() {
     var cv = $('aim'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
     g.clearRect(0, 0, w, h);
-    g.strokeStyle = '#2a3242';
+    g.strokeStyle = '#2c3547';
     g.lineWidth = 1;
     g.strokeRect(0.5, 0.5, w - 1, h - 1);
     g.beginPath();
@@ -186,199 +447,214 @@
     g.moveTo(0, h / 2); g.lineTo(w, h / 2);
     g.stroke();
     var a = last && last.aim;
-    if (!a || !a.valid) { $('aim-note').textContent = 'geen geldige aim (Move verbonden?)'; return; }
+    if (!a || !a.valid) { $('aim-note').textContent = 'Zet de Move aan om te zien waar hij wijst.'; return; }
     $('aim-note').textContent = a.off_screen ? 'buiten het scherm' : '';
     function dot(x, y, color, r) {
       var px = Math.max(0, Math.min(1, x)) * w, py = Math.max(0, Math.min(1, y)) * h;
       g.fillStyle = color;
       g.beginPath(); g.arc(px, py, r, 0, 6.2832); g.fill();
     }
-    dot(a.x_raw, a.y_raw, '#7d8799', 5);
-    dot(a.x, a.y, '#4fb3ff', 8);
+    dot(a.x_raw, a.y_raw, '#7d8799', 6);
+    dot(a.x, a.y, '#4fb3ff', 10);
   }
   function drawMini() {
     var cv = $('mini'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
     g.clearRect(0, 0, w, h);
-    g.strokeStyle = '#2a3242';
+    g.strokeStyle = '#2c3547';
     g.strokeRect(0.5, 0.5, w - 1, h - 1);
     var p = last && last.position;
     if (!p || !p.valid) {
-      $('mini-note').textContent = 'Geen bol gevonden' + (p && p.reason && p.reason !== 'none' ? ' (' + p.reason + ')' : '') + '. Alleen coördinaten, geen beeld.';
+      $('cam-see').textContent = 'Nee, de bol is niet in beeld';
+      $('cam-see').className = 'big warn';
+      $('mini-note').textContent = 'Alleen een stip, nooit een camerabeeld.' + (p && p.reason && p.reason !== 'none' ? ' (' + p.reason + ')' : '');
       return;
     }
-    $('mini-note').textContent = 'x ' + fmt(p.x_norm, 3) + ', y ' + fmt(p.y_norm, 3) + ' (genormaliseerd, links-boven 0,0). Alleen coördinaten, geen beeld.';
-    var r = Math.max(4, (p.radius_px / p.image_w) * w);
+    $('cam-see').textContent = 'Ja, de bol is in beeld';
+    $('cam-see').className = 'big ok';
+    $('mini-note').textContent = 'Alleen een stip, nooit een camerabeeld.';
+    var r = Math.max(5, (p.radius_px / p.image_w) * w);
     g.strokeStyle = '#5ad19a';
     g.lineWidth = 2;
     g.beginPath(); g.arc(p.x_norm * w, p.y_norm * h, r, 0, 6.2832); g.stroke();
     g.fillStyle = '#5ad19a';
-    g.beginPath(); g.arc(p.x_norm * w, p.y_norm * h, 2, 0, 6.2832); g.fill();
-  }
-  function showButtons() {
-    if (!last) return;
-    $('trig').style.width = (last.trigger / 255 * 100) + '%';
-    $('trig-v').textContent = String(last.trigger);
-    var b = $('btns');
-    b.textContent = '';
-    last.buttons.down.forEach(function (n) { b.appendChild(el('span', '', n)); });
-    if (!last.buttons.down.length) b.textContent = 'geen knoppen ingedrukt';
+    g.beginPath(); g.arc(p.x_norm * w, p.y_norm * h, 3, 0, 6.2832); g.fill();
   }
   function onSample(ev) {
     var d;
     try { d = JSON.parse(ev.data); } catch (e) { return; }
     last = d.sample;
-    drawAim(); drawMini(); showButtons();
+    if (current === 'richten') drawAim();
+    else if (current === 'led') drawMini();
+    else if (current === 'knoppen') lightButtons();
   }
   function startStream() {
     stopStream();
-    if (!window.EventSource) { $('stream-state').textContent = 'deze browser ondersteunt geen live stroom'; return; }
+    if (!window.EventSource || /[?&]nostream\b/.test(location.search)) return;  // ?nostream: voor schermafdrukken en tests
     es = new EventSource('/api/stream');
     es.addEventListener('sample', onSample);
-    es.onopen = function () { $('stream-state').textContent = 'stroom actief (max 30 Hz)'; setConn(true, 'verbonden met daemon'); };
-    es.onerror = function () { $('stream-state').textContent = 'stroom verbroken, opnieuw proberen...'; };
+    es.onopen = function () { setConn(true); };
   }
   function stopStream() { if (es) { es.close(); es = null; } }
 
-  // ---- Apparaten ----
-  function moveRows(s) {
-    var c = s.controller;
-    return [
-      ['Verbonden', c.connected ? 'ja' : 'nee, geen Move gevonden', c.connected ? 'ok' : 'warn'],
-      ['Model', c.model || '-'],
-      ['Verbinding', c.connection || '-'],
-      ['Controller-ID (geredigeerd)', c.id || '-'],
-      ['Kalibratie in de controller', c.connected ? yn(c.has_calibration) : '-'],
-      ['Magnetometer', c.magnetometer]
-    ];
-  }
-  function camRows(s) {
-    var cam = s.camera || {}, d = cam.device || {}, m = cam.mode || {};
-    if (!cam.enabled) return [['Camera', 'uit (--no-camera)', 'muted']];
-    return [
-      ['Toestand', cam.state, cam.state === 'streaming' ? 'ok' : 'warn'],
-      ['Model', d.card || '-'],
-      ['Driver', d.driver || '-'],
-      ['Stabiel pad', d.by_id || d.by_path || d.node || '-'],
-      ['Modus', m.width ? m.width + 'x' + m.height + ' ' + (m.format || '') + ' @ ' + fmt(m.driver_fps, 0) + ' fps' : '-']
-    ];
-  }
-  function outRows(o) {
-    var d = o.device || {};
-    return [
-      ['Armed', o.armed ? 'ja (stuurt invoer)' : 'nee (stuurt niets)', o.armed ? 'warn' : ''],
-      ['Apparaat', d.name || '-'],
-      ['Stabiele link', d.stable_link || '-'],
-      ['Event-node', d.created ? (d.event_node || '-') : 'nog niet aangemaakt (eerste arm maakt het)'],
-      ['USB-id', d.vendor ? d.vendor + ':' + d.product : '-']
-    ];
-  }
-  function refreshDevices() {
-    api('/api/status').then(function (st) {
-      if (!st.ok) return;
-      var s = st.result, c = s.controller;
-      var rows = moveRows(s);
-      rows.push(['Batterij', c.connected ? c.battery.text : '-']);
-      rows.push(['Verbonden sinds', c.connected ? dur(c.connected_s) : '-']);
-      rows.push(['Verbindingen / verbroken', c.connects + ' / ' + c.disconnects]);
-      fill($('dev-move'), rows);
-      var cr = camRows(s);
-      fill($('dev-cam'), cr);
-      fill($('dev-out'), outRows(s.output || {}));
+  // ---- Trillen ----
+  function buildTrillen() {
+    var err = $('rum-err');
+    switches.rumble = makeSwitch($('sw-rumble'), {
+      label: 'Trillen aan', help: 'Zet het trillen van de Move bij schieten aan of uit.', errEl: err,
+      apply: function (on) { return call('/api/rumble', { enabled: on }).then(function (j) { return j.result.enabled; }); }
     });
+    var sl = $('sl-trillen');
+    function pct(v) { return A.percent255(v) + ' %'; }
+    sliders.rstrength = makeSlider(sl, {
+      name: 'Sterkte', help: 'Hoe hard de Move trilt bij een schot.', min: 0, max: 255, step: 1, fmt: pct,
+      send: function (v) { return call('/api/rumble', { strength: Math.round(v) }); }, actual: function (r) { return r.strength; }
+    });
+    sliders.rpulse = makeSlider(sl, {
+      name: 'Pulsduur', help: 'Hoe lang elke trilling duurt.', min: 10, max: 500, step: 5, fmt: function (v) { return fmt(v, 0) + ' ms'; },
+      send: function (v) { return call('/api/rumble', { pulse_ms: Math.round(v) }); }, actual: function (r) { return r.pulse_ms; }
+    });
+    sliders.rrepeat = makeSlider(sl, {
+      name: 'Ritme bij vasthouden', help: 'Hoe vaak de Move trilt als je de trekker ingedrukt houdt. 0 is een enkele trilling per schot.',
+      min: 0, max: 30, step: 1, fmt: function (v) { return v === 0 ? 'enkel' : fmt(v, 0) + ' per seconde'; },
+      send: function (v) { return call('/api/rumble', { repeat_hz: v }); }, actual: function (r) { return r.repeat_hz; }
+    });
+    sliders.rpump = makeSlider(sl, {
+      name: 'Sterkte bij de pomp', help: 'Hoe hard de Move trilt als je de Sharp Shooter pompt. 0 is uit.', min: 0, max: 255, step: 1, fmt: pct,
+      send: function (v) { return call('/api/rumble', { pump_strength: Math.round(v) }); }, actual: function (r) { return r.pump_strength; }
+    });
+    $('rum-test').addEventListener('click', function (e) {
+      var m = $('rum-msg');
+      err.textContent = ''; m.textContent = '';
+      e.target.disabled = true;
+      api('/api/rumble-test', {}).then(function (j) {
+        e.target.disabled = false;
+        if (j.ok) { m.textContent = 'Testpuls gestuurd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
+        else err.textContent = j.httpStatus === 503 ? 'Geen trilling: ' + errText(j) : errText(j);
+      }).catch(function () { e.target.disabled = false; err.textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+    });
+  }
+  function refreshTrillen() {
+    return getStatus().then(function (s) {
+      var r = s.controller && s.controller.rumble;
+      if (!r) return;
+      switches.rumble.set(r.enabled);
+      sliders.rstrength.set(r.strength);
+      sliders.rpulse.set(r.pulse_ms);
+      sliders.rrepeat.set(r.repeat_hz);
+      sliders.rpump.set(r.pump_strength);
+    }).catch(function () {});
   }
 
-  // ---- Camera ----
-  function findCtrl(cam, test) {
-    var list = cam.controls || [];
-    for (var i = 0; i < list.length; i++) {
-      if (test(list[i].name.toLowerCase())) return list[i];
+  // ---- Knoppen ----
+  var btnBase = {};      // de indeling zoals de daemon hem heeft
+  var btnEdit = {};      // wat er nu in de keuzelijsten staat
+  var btnBuilt = false;
+  var btnSelects = {};
+  var btnRows = {};
+  function buildKnoppen() {
+    var box = $('btn-rows');
+    box.textContent = '';
+    btnSelects = {}; btnRows = {};
+    function row(id, label, fixedText) {
+      var r = el('div', 'btnrow' + (fixedText ? ' fixed' : ''));
+      var l = el('div', 'lbl');
+      l.appendChild(el('span', 'led'));
+      l.appendChild(el('span', '', label));
+      r.appendChild(l);
+      var sel = el('select');
+      sel.setAttribute('aria-label', label);
+      if (fixedText) {
+        sel.disabled = true;
+        sel.appendChild(new Option(fixedText, fixedText));
+      } else {
+        A.actionGroups().forEach(function (g) {
+          var og = document.createElement('optgroup');
+          og.label = g.label;
+          g.options.forEach(function (o) { og.appendChild(new Option(o.label, o.value)); });
+          sel.appendChild(og);
+        });
+        sel.addEventListener('change', function () { btnEdit[id] = sel.value; updateBtnPending(); });
+        btnSelects[id] = sel;
+      }
+      r.appendChild(sel);
+      box.appendChild(r);
+      btnRows[id] = r;
     }
-    return null;
-  }
-  function refreshCameraStatus() {
-    api('/api/camera').then(function (j) {
-      if (!j.ok) return;
-      var cam = j.result, fr = cam.frames || {}, m = cam.mode || {};
-      if (!cam.enabled) { fill($('cam-status'), [['Camera', 'uit (ravengund draait met --no-camera)', 'muted']]); return; }
-      var pu = cam.processing_us || {}, age = cam.age_at_processing_ms || {};
-      fill($('cam-status'), [
-        ['Toestand', cam.state, cam.state === 'streaming' ? 'ok' : 'warn'],
-        ['Fout', cam.error || '-', cam.error ? 'bad' : ''],
-        ['Modus', m.width ? m.width + 'x' + m.height + ' @ ' + fmt(m.driver_fps, 0) + ' fps' : '-'],
-        ['Frames per seconde (5 s)', fmt(fr.fps_5s)],
-        ['Gemiste frames', String(fr.missed_by_sequence)],
-        ['Foutframes / streamfouten', fr.error_frames + ' / ' + fr.stream_errors],
-        ['Verwerking p50 / p95 / max (µs)', fmt(pu.p50, 0) + ' / ' + fmt(pu.p95, 0) + ' / ' + fmt(pu.max, 0)],
-        ['Leeftijd bij verwerking p95 (ms)', fmt(age.p95, 1)]
-      ]);
+    box.appendChild(el('p', 'btnsep', 'Vaste knoppen'));
+    row('t', 'Trekker', 'Schieten (vast)');
+    row('ps', 'PS-knop', 'Centreren (vast)');
+    box.appendChild(el('p', 'btnsep', 'Knoppen van de Move'));
+    A.BUTTONS.forEach(function (b) {
+      if (b.group === 'move') row(b.id, b.label);
     });
-  }
-  function syncPair(rangeId, numId) {
-    $(rangeId).addEventListener('input', function () { $(numId).value = $(rangeId).value; });
-    $(numId).addEventListener('input', function () { $(rangeId).value = $(numId).value; });
-  }
-  function camAuto() {
-    $('cam-exp').disabled = $('cam-exp-r').disabled = $('cam-ae').checked;
-    $('cam-gain').disabled = $('cam-gain-r').disabled = $('cam-ag').checked;
-  }
-  function initCameraForm() {
-    Promise.all([api('/api/camera'), api('/api/settings')]).then(function (res) {
-      var cam = res[0].ok ? res[0].result : {}, cfg = res[1].ok ? res[1].result.values : null;
-      var cc = (cfg && cfg.camera) || {};
-      var ex = findCtrl(cam, function (n) { return n.indexOf('exposure') >= 0 && n.indexOf('auto') < 0; });
-      var ga = findCtrl(cam, function (n) { return n.indexOf('gain') >= 0 && n.indexOf('auto') < 0; });
-      var ag = findCtrl(cam, function (n) { return n.indexOf('gain') >= 0 && n.indexOf('auto') >= 0; });
-      var ae = findCtrl(cam, function (n) { return n.indexOf('exposure') >= 0 && n.indexOf('auto') >= 0; });
-      var wb = findCtrl(cam, function (n) { return n.indexOf('white') >= 0 && n.indexOf('auto') >= 0; });
-      var live = cam.enabled && cam.state === 'streaming';
-      var m = cam.mode || {};
-      if (live && m.width) $('cam-mode').value = m.width + 'x' + m.height + '@' + m.requested_fps;
-      else if (cc.mode) $('cam-mode').value = cc.mode;
-      var exp = live && ex && ex.value !== null ? ex.value : (cc.exposure !== undefined ? cc.exposure : 50);
-      var gain = live && ga && ga.value !== null ? ga.value : (cc.gain !== undefined ? cc.gain : 0);
-      $('cam-exp').value = $('cam-exp-r').value = exp;
-      $('cam-gain').value = $('cam-gain-r').value = gain;
-      // auto_exposure is een menu: 0 = automatisch, 1 = handmatig.
-      $('cam-ae').checked = live && ae && ae.value !== null ? ae.value !== 1 : !!cc.auto_exposure;
-      $('cam-ag').checked = live && ag && ag.value !== null ? ag.value !== 0 : !!cc.auto_gain;
-      $('cam-awb').checked = live && wb && wb.value !== null ? wb.value !== 0 : !!cc.auto_awb;
-      camAuto();
+    box.appendChild(el('p', 'btnsep', 'Knoppen van de Sharp Shooter (alleen als hij aangesloten is)'));
+    A.BUTTONS.forEach(function (b) {
+      if (b.group === 'sharp') row(b.id, b.label);
     });
+    btnBuilt = true;
   }
-  function showReadback(r) {
-    var c = r.controls, m = r.mode;
-    fill($('cam-readback'), [
-      ['Modus', m.width + 'x' + m.height + ' @ ' + fmt(m.driver_fps, 0) + ' fps (driver)'],
-      ['Capture herstart', yn(r.restarted)],
-      ['Automatische belichting', c.readable ? yn(c.auto_exposure) : '?'],
-      ['Belichting', c.readable ? String(c.exposure) : '?'],
-      ['Automatische gain', c.readable ? yn(c.auto_gain) : '?'],
-      ['Gain', c.readable ? String(c.gain) : '?'],
-      ['Automatische witbalans', c.readable ? yn(c.auto_awb) : '?'],
-      ['Bewaard', r.saved ? 'ja' : 'nee' + (r.save_error ? ': ' + r.save_error : '')]
-    ]);
-    setHidden($('cam-warn'), !r.warnings.length, r.warnings.join('. '));
+  function applyEditToSelects() {
+    A.BUTTONS.forEach(function (b) {
+      var sel = btnSelects[b.id];
+      if (!sel) return;
+      var v = btnEdit[b.id] || 'none';
+      // Een actie die niet in de lijst staat (handmatig in config.json gezet) blijft zichtbaar.
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) found = true;
+      if (!found) sel.insertBefore(new Option(v, v), sel.firstChild);
+      sel.value = v;
+    });
+    updateBtnPending();
   }
-  $('f-camera').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var errs = [];
-    var exp = num('cam-exp', 0, 255, 'Belichting', errs, true);
-    var gain = num('cam-gain', 0, 63, 'Gain', errs, true);
-    $('cam-err').textContent = errs.join('. ');
-    if (errs.length) return;
-    var body = { mode: $('cam-mode').value, auto_exposure: $('cam-ae').checked, auto_gain: $('cam-ag').checked,
-                 auto_awb: $('cam-awb').checked, exposure: exp, gain: gain };
-    submit('/api/camera', body, $('cam-err'), 'Camera ingesteld', e.target.querySelector('button'), function (r) {
-      showReadback(r);
-      refreshCameraStatus();
+  function updateBtnPending() {
+    var ch = A.mapChanges(btnBase, btnEdit);
+    A.BUTTONS.forEach(function (b) {
+      if (btnRows[b.id]) btnRows[b.id].classList.toggle('changed', ch.changes[b.id] !== undefined);
+    });
+    $('btn-savebar').hidden = ch.count === 0;
+    $('btn-pending').textContent = ch.count === 1 ? '1 wijziging nog niet opgeslagen' : ch.count + ' wijzigingen nog niet opgeslagen';
+  }
+  function copyMap(m) { var o = {}; A.BUTTONS.forEach(function (b) { o[b.id] = m[b.id] || 'none'; }); return o; }
+  function loadKnoppen(force) {
+    if (!btnBuilt) buildKnoppen();
+    if (!force && A.mapChanges(btnBase, btnEdit).count > 0) return Promise.resolve();
+    return call('/api/output').then(function (j) {
+      btnBase = copyMap(j.result.map || {});
+      btnEdit = copyMap(btnBase);
+      applyEditToSelects();
+    }).catch(function (e) { $('btn-err').textContent = errMsg(e); });
+  }
+  function lightButtons() {
+    var down = A.pressedSet(last && last.buttons && last.buttons.down, last ? last.trigger : 0);
+    Object.keys(btnRows).forEach(function (id) { btnRows[id].classList.toggle('down', !!down[id]); });
+    var linked = last && last.link && last.link !== 'disconnected' && last.link !== 'lost';
+    $('btn-live').textContent = linked ? 'De Move is verbonden: druk op een knop om te zien welke regel oplicht.' : 'Zet de Move aan (PS-knop) om de knoppen uit te proberen.';
+  }
+  $('btn-save').addEventListener('click', function (e) {
+    var ch = A.mapChanges(btnBase, btnEdit);
+    if (!ch.count) return;
+    $('btn-err').textContent = ''; $('btn-msg').textContent = '';
+    submit('/api/gun-buttons', { map: ch.changes }, $('btn-err'), null, e.target, function (r) {
+      btnBase = copyMap(r.map || {});
+      btnEdit = copyMap(btnBase);
+      applyEditToSelects();
+      $('btn-msg').textContent = r.saved ? 'Opgeslagen. De nieuwe indeling werkt meteen.' : 'De nieuwe indeling werkt, maar is niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.';
+      $('btn-msg').className = r.saved ? 'msg' : 'msg bad';
+      toast('Knoppen opgeslagen');
     });
   });
-  syncPair('cam-exp-r', 'cam-exp');
-  syncPair('cam-gain-r', 'cam-gain');
-  $('cam-ae').addEventListener('change', camAuto);
-  $('cam-ag').addEventListener('change', camAuto);
+  $('btn-undo').addEventListener('click', function () { btnEdit = copyMap(btnBase); applyEditToSelects(); $('btn-err').textContent = ''; });
+  $('btn-defaults').addEventListener('click', function () {
+    var d = defaults && defaults.gun_buttons && defaults.gun_buttons.map;
+    if (!d) { $('btn-err').textContent = 'De standaardindeling is niet beschikbaar.'; return; }
+    btnEdit = copyMap(d);
+    applyEditToSelects();
+    $('btn-err').textContent = '';
+    $('btn-msg').textContent = 'Standaardindeling klaargezet: kies Opslaan om hem te gebruiken.';
+    $('btn-msg').className = 'msg';
+  });
 
-  // ---- LED ----
+  // ---- LED en camera ----
   var presetList = [
     { name: 'cyaan', rgb: [0, 255, 255], hue_deg: -75, label: 'Cyaan' },
     { name: 'magenta', rgb: [255, 0, 255], hue_deg: 86, label: 'Magenta' },
@@ -398,9 +674,8 @@
       chip.style.background = rgbCss(p.rgb[0], p.rgb[1], p.rgb[2]);
       var t = el('span');
       t.appendChild(document.createTextNode(p.label));
-      t.appendChild(el('small', '', p.hue_deg === null ? 'geen tint (tracker blind)' : 'tint ' + p.hue_deg + ' graden'));
-      b.appendChild(chip);
-      b.appendChild(t);
+      t.appendChild(el('small', '', p.hue_deg === null ? 'camera ziet de bol niet' : ''));
+      b.appendChild(chip); b.appendChild(t);
       b.addEventListener('click', function () { applyLed({ preset: p.name }, $('led-err'), b); });
       box.appendChild(b);
     });
@@ -409,34 +684,25 @@
     var box = $('led-result');
     box.textContent = '';
     box.hidden = false;
-    var led = r.led, tr = r.tracker;
-    box.appendChild(el('p', '', 'LED: ' + (led.custom ? 'eigen kleur ' : led.preset + ' ') + led.rgb.join(', ')));
+    var tr = r.tracker;
+    box.appendChild(el('p', '', 'De LED staat op ' + (r.led.custom ? 'een eigen kleur' : r.led.preset) + '.'));
     box.appendChild(el('p', '', tr.changed
-      ? 'Tracker-tint: ' + fmt(tr.hue_deg, 0) + ' graden, tolerantie ' + fmt(tr.hue_tol_deg, 0) + ' (' + tr.source + ')' + (tr.applied_live ? ', direct toegepast' : ', bewaard voor de volgende start (geen camera actief)')
-      : 'Tracker-tint niet gewijzigd (' + fmt(tr.hue_deg, 0) + ' graden).'));
+      ? 'De camera zoekt nu naar die kleur' + (tr.applied_live ? '.' : ' (geldt bij de volgende start: de camera is niet actief).')
+      : 'De zoekkleur van de camera is niet veranderd.'));
     r.warnings.forEach(function (w) { box.appendChild(el('p', 'warnbox', w)); });
-    box.appendChild(el('p', 'muted', r.saved ? 'Bewaard in het instellingenbestand.' : 'Niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.'));
+    box.appendChild(el('p', 'muted', r.saved ? 'Bewaard.' : 'Niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.'));
   }
   function applyLed(body, errEl, btn) {
     submit('/api/led', body, errEl, 'LED ingesteld', btn, function (r) {
       activeLed = r.led.rgb;
       renderPresets();
       showLedResult(r);
-      refreshLedNow();
-    });
-  }
-  function refreshLedNow() {
-    api('/api/status').then(function (st) {
-      if (!st.ok) return;
-      var s = st.result;
-      showLedRows($('led-now'), s);
-      var led = s.controller.led;
-      if (led.enabled && (!activeLed || activeLed.join() !== led.rgb.join())) { activeLed = led.rgb; renderPresets(); }
     });
   }
   function syncColor() {
     var r = Number($('led-r').value) || 0, g = Number($('led-g').value) || 0, b = Number($('led-b').value) || 0;
-    $('led-color').value = '#' + hex2(Math.max(0, Math.min(255, r))) + hex2(Math.max(0, Math.min(255, g))) + hex2(Math.max(0, Math.min(255, b)));
+    function c(x) { return hex2(Math.max(0, Math.min(255, x))); }
+    $('led-color').value = '#' + c(r) + c(g) + c(b);
   }
   $('led-color').addEventListener('input', function () {
     var v = $('led-color').value;
@@ -454,48 +720,330 @@
     applyLed({ r: r, g: g, b: b }, $('led-cerr'), e.target.querySelector('button'));
   });
 
-  // ---- Uitvoer ----
-  var outFormFilled = false;
-  function refreshOutput() {
-    api('/api/output').then(function (j) {
-      if (!j.ok) return;
-      var o = j.result, p = o.pattern || {}, pos = o.position || {};
-      var rows = outRows(o);
-      rows.push(['Laatste positie', typeof pos.nx === 'number' ? fmt(pos.nx, 3) + ', ' + fmt(pos.ny, 3) : '-']);
-      rows.push(['Knoppen ingedrukt', o.buttons_down && o.buttons_down.length ? o.buttons_down.join(', ') : 'geen']);
-      rows.push(['Toetsen ingedrukt', o.keys_down && o.keys_down.length ? o.keys_down.join(', ') : 'geen']);
-      fill($('out-state'), rows);
-      var prow = [['Toestand', p.state || '-']];
-      if (p.kind) prow.push(['Patroon', p.kind + (p.steps ? ' (stap ' + p.step + ' van ' + p.steps + ')' : '')]);
-      fill($('out-pattern'), prow);
-      $('out-arm').disabled = !!o.armed;
-      $('out-disarm').disabled = !o.armed;
-      Array.prototype.forEach.call(document.querySelectorAll('.pat'), function (b) {
-        b.disabled = !o.armed && b.getAttribute('data-pattern') !== 'stop';
-      });
-      if (!outFormFilled && o.transform) {
-        var t = o.transform, v = t.viewport || {};
-        $('o-ix').checked = !!t.invert_x; $('o-iy').checked = !!t.invert_y;
-        $('o-sx').value = t.scale_x; $('o-sy').value = t.scale_y;
-        $('o-ox').value = t.offset_x; $('o-oy').value = t.offset_y;
-        $('o-x0').value = v.x0; $('o-y0').value = v.y0; $('o-x1').value = v.x1; $('o-y1').value = v.y1;
-        outFormFilled = true;
-      }
+  function findCtrl(cam, test) {
+    var list = cam.controls || [];
+    for (var i = 0; i < list.length; i++) if (test(list[i].name.toLowerCase())) return list[i];
+    return null;
+  }
+  var camState = { ae: false, ag: false };
+  function camApply(body) {
+    return call('/api/camera', body).then(function (j) {
+      var r = j.result;
+      setHidden($('cam-warn'), !r.warnings.length, r.warnings.join('. '));
+      return r;
     });
   }
+  function buildCamera() {
+    switches.cam_ae = makeSwitch($('sw-cam'), {
+      label: 'Belichting automatisch', errEl: $('cam-err'),
+      apply: function (on) { return camApply({ auto_exposure: on }).then(function (r) { camState.ae = r.controls.auto_exposure; camAuto(); return r.controls.auto_exposure; }); }
+    });
+    switches.cam_ag = makeSwitch($('sw-cam'), {
+      label: 'Gain automatisch', errEl: $('cam-err'),
+      apply: function (on) { return camApply({ auto_gain: on }).then(function (r) { camState.ag = r.controls.auto_gain; camAuto(); return r.controls.auto_gain; }); }
+    });
+    switches.cam_awb = makeSwitch($('sw-cam'), {
+      label: 'Witbalans automatisch', errEl: $('cam-err'),
+      apply: function (on) { return camApply({ auto_awb: on }).then(function (r) { return r.controls.auto_awb; }); }
+    });
+    var sl = $('sl-camera');
+    sliders.cexp = makeSlider(sl, {
+      name: 'Belichting', help: 'Hoe lang de camera licht opvangt. Te hoog: de bol wordt wit. Alleen als de belichting niet automatisch is.',
+      min: 0, max: 255, step: 1, fmt: function (v) { return fmt(v, 0); },
+      send: function (v) { return camApply({ exposure: Math.round(v) }); }, actual: function (r) { return r.controls.exposure; }
+    });
+    sliders.cgain = makeSlider(sl, {
+      name: 'Gain', help: 'Versterking van het camerabeeld. Houd dit laag. Alleen als de gain niet automatisch is.',
+      min: 0, max: 63, step: 1, fmt: function (v) { return fmt(v, 0); },
+      send: function (v) { return camApply({ gain: Math.round(v) }); }, actual: function (r) { return r.controls.gain; }
+    });
+    $('cam-mode').addEventListener('change', function () {
+      var m = $('cam-mode');
+      $('cam-err').textContent = '';
+      m.disabled = true;
+      camApply({ mode: m.value }).then(function (r) { m.value = r.mode.width + 'x' + r.mode.height + '@' + r.mode.fps; toast('Beeldformaat aangepast'); },
+        function (e) { $('cam-err').textContent = errMsg(e); initCamera(); }).then(function () { m.disabled = false; });
+    });
+  }
+  function camAuto() {
+    sliders.cexp.setDisabled(camState.ae);
+    sliders.cgain.setDisabled(camState.ag);
+  }
+  function refreshCamera() {
+    return api('/api/camera').then(function (j) {
+      if (!j.ok) return;
+      var cam = j.result, fr = cam.frames || {}, m = cam.mode || {};
+      var live = cam.enabled && cam.state === 'streaming';
+      $('cam-state').textContent = !cam.enabled ? 'De camera staat uit (de daemon draait zonder camera).' :
+        (live ? 'Camera werkt: ' + fmt(fr.fps_5s, 0) + ' beelden per seconde.' : 'De camera werkt nu niet' + (cam.error ? ': ' + cam.error : '') + '.');
+      if (!live) return;
+      var ex = findCtrl(cam, function (n) { return n.indexOf('exposure') >= 0 && n.indexOf('auto') < 0; });
+      var ga = findCtrl(cam, function (n) { return n.indexOf('gain') >= 0 && n.indexOf('auto') < 0; });
+      var ag = findCtrl(cam, function (n) { return n.indexOf('gain') >= 0 && n.indexOf('auto') >= 0; });
+      var ae = findCtrl(cam, function (n) { return n.indexOf('exposure') >= 0 && n.indexOf('auto') >= 0; });
+      var wb = findCtrl(cam, function (n) { return n.indexOf('white') >= 0 && n.indexOf('auto') >= 0; });
+      if (m.width && !$('cam-mode').disabled) $('cam-mode').value = m.width + 'x' + m.height + '@' + m.requested_fps;
+      if (ex && ex.value !== null) sliders.cexp.set(ex.value);
+      if (ga && ga.value !== null) sliders.cgain.set(ga.value);
+      // auto_exposure is een menu: 0 = automatisch, 1 = handmatig.
+      if (ae && ae.value !== null) { camState.ae = ae.value !== 1; switches.cam_ae.set(camState.ae); }
+      if (ag && ag.value !== null) { camState.ag = ag.value !== 0; switches.cam_ag.set(camState.ag); }
+      if (wb && wb.value !== null) switches.cam_awb.set(wb.value !== 0);
+      camAuto();
+    }).catch(function () {});
+  }
+  function initCamera() { return refreshCamera(); }
+  function refreshLed() {
+    getStatus().then(function (s) {
+      var led = s.controller.led;
+      if (led.enabled && (!activeLed || activeLed.join() !== led.rgb.join())) { activeLed = led.rgb; renderPresets(); }
+    }).catch(function () {});
+    refreshCamera();
+  }
+
+  // ---- Games ----
+  var gamesSig = '';
+  var gameCards = {};
+  var gameBusy = false;
+  function buildGames(list) {
+    var box = $('game-list');
+    box.textContent = '';
+    gameCards = {};
+    list.forEach(function (g) {
+      var card = el('article', 'card game');
+      var icon = el('div', 'icon');
+      if (g.icon) {
+        var img = el('img');
+        img.alt = '';
+        img.src = g.icon;
+        img.addEventListener('error', function () { icon.textContent = g.name.charAt(0).toUpperCase(); });
+        icon.appendChild(img);
+      } else icon.textContent = g.name.charAt(0).toUpperCase();
+      var body = el('div');
+      body.appendChild(el('p', 'gname', g.name));
+      if (g.note) body.appendChild(el('p', 'gnote', g.note));
+      var state = el('p', 'gstate', '');
+      var actions = el('p', 'actions');
+      var play = el('button', '', 'Spelen');
+      play.type = 'button';
+      var stop = el('button', 'danger', 'Stoppen');
+      stop.type = 'button';
+      play.addEventListener('click', function () { gameStart(g.profile, play); });
+      stop.addEventListener('click', function () { gameStop(stop); });
+      actions.appendChild(play); actions.appendChild(stop);
+      body.appendChild(state);
+      card.appendChild(icon); card.appendChild(body); card.appendChild(actions);
+      box.appendChild(card);
+      gameCards[g.profile] = { card: card, state: state, play: play, stop: stop };
+    });
+    if (!list.length) box.appendChild(el('p', 'muted', 'Er zijn geen games gevonden.'));
+  }
+  function updateGames(status) {
+    var v = A.gameStateView(status);
+    $('game-banner').textContent = (status && status.text) || v.text;
+    $('game-banner').className = 'big ' + (v.tone === 'ok' ? 'ok' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'warn' : '');
+    $('game-banner-sub').textContent = status && status.state === 'failed' ? (status.message || '') : (status && status.profile ? gameName(status.profile) : '');
+    $('game-stop-all').hidden = !v.canStop;
+    $('game-stop-all').disabled = false;
+    Object.keys(gameCards).forEach(function (p) {
+      var c = gameCards[p], cs = A.gameCardState(status, p);
+      c.card.className = 'card game' + (cs.active ? ' active' : cs.failed ? ' failed' : '');
+      c.state.textContent = cs.active ? v.text : (cs.failed ? v.text : '');
+      c.state.className = 'gstate ' + (cs.active ? (v.tone === 'ok' ? 'ok' : 'warn') : cs.failed ? 'bad' : '');
+      c.play.disabled = !v.canStart || gameBusy;
+      var mine = cs.active || (status && !status.profile);
+      c.stop.hidden = !(v.canStop && mine);
+    });
+  }
+  function refreshGames() {
+    return api('/api/games').then(function (j) {
+      if (!j.ok) { $('game-err').textContent = errText(j); return; }
+      var r = j.result;
+      gamesCache = r;
+      var sig = JSON.stringify(r.games);
+      if (sig !== gamesSig) { gamesSig = sig; buildGames(r.games); }
+      $('game-hint').textContent = r.available ? 'Spelen zet de lightgun aan en start de game. Heb je de Move nog niet aangezet, druk dan op de PS-knop.' : (r.message || '');
+      updateGames(r.status);
+    }).catch(function () {});
+  }
+  function gameStart(profile, btn) {
+    $('game-err').textContent = '';
+    gameBusy = true; btn.disabled = true;
+    api('/api/games/start', { profile: profile }).then(function (j) {
+      gameBusy = false;
+      if (!j.ok) $('game-err').textContent = errText(j);
+      else updateGames(j.result);
+      refreshGames();
+    }).catch(function () { gameBusy = false; $('game-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+  }
+  function gameStop(btn) {
+    $('game-err').textContent = '';
+    btn.disabled = true;
+    api('/api/games/stop', {}).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) $('game-err').textContent = errText(j);
+      else updateGames(j.result);
+      refreshGames();
+    }).catch(function () { btn.disabled = false; $('game-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+  }
+  $('game-stop-all').addEventListener('click', function (e) { gameStop(e.target); });
+
+  // ---- Info (technisch) ----
+  function moveRows(s) {
+    var c = s.controller;
+    return [
+      ['Verbonden', c.connected ? 'ja' : 'nee, geen Move gevonden', c.connected ? 'ok' : 'warn'],
+      ['Model', c.model || '-'],
+      ['Verbinding', c.connection || '-'],
+      ['Controller-ID (afgeschermd)', c.id || '-'],
+      ['Kalibratie in de controller', c.connected ? yn(c.has_calibration) : '-'],
+      ['Magnetometer', c.magnetometer],
+      ['Batterij', c.connected ? c.battery.text : '-'],
+      ['Verbonden sinds', c.connected ? dur(c.connected_s) : '-'],
+      ['Verbindingen / verbroken', c.connects + ' / ' + c.disconnects]
+    ];
+  }
+  function camRows(s) {
+    var cam = s.camera || {}, d = cam.device || {}, m = cam.mode || {};
+    if (!cam.enabled) return [['Camera', 'uit (--no-camera)', 'muted']];
+    return [
+      ['Camera: toestand', cam.state, cam.state === 'streaming' ? 'ok' : 'warn'],
+      ['Camera: model', d.card || '-'],
+      ['Camera: driver', d.driver || '-'],
+      ['Camera: vast pad', d.by_id || d.by_path || d.node || '-'],
+      ['Camera: modus', m.width ? m.width + 'x' + m.height + ' ' + (m.format || '') + ' @ ' + fmt(m.driver_fps, 0) + ' fps' : '-']
+    ];
+  }
+  function outRows(o) {
+    var d = o.device || {};
+    return [
+      ['Lightgun aan', o.armed ? 'ja (stuurt invoer)' : 'nee (stuurt niets)', o.armed ? 'warn' : ''],
+      ['Apparaat', d.name || '-'],
+      ['Vaste link', d.stable_link || '-'],
+      ['Event-node', d.created ? (d.event_node || '-') : 'nog niet aangemaakt (eerste keer aanzetten maakt het)'],
+      ['USB-id', d.vendor ? d.vendor + ':' + d.product : '-']
+    ];
+  }
+  function fusionRows(f) {
+    if (!f) return [];
+    return [
+      ['Schatter (in de sample)', f.mode],
+      ['Yaw-bron', f.yaw_source === 'magnetometer' ? 'kompas-gecorrigeerd' : 'gyro', f.yaw_source === 'magnetometer' ? 'ok' : ''],
+      ['Magnetometer', f.magnetometer + (f.mag_locked ? ', vergrendeld' : ''), f.magnetometer === 'disturbed' ? 'warn' : ''],
+      ['Openstaande yaw-fout', fmt(f.yaw_pending_deg, 2) + ' graden'],
+      ['Correctie', fmt(f.correction_rate_deg_s, 3) + ' graden/s (grens ' + fmt(f.correction_limit_deg_s, 3) + '), totaal ' + fmt(f.correction_total_deg, 2) + ' graden'],
+      ['Verticale bias (magnetometer)', fmt(f.vertical_bias_deg_s, 3) + ' graden/s']
+    ];
+  }
+  var outFormFilled = false;
+  function refreshInfo() {
+    Promise.all([api('/api/status'), api('/api/info'), api('/api/sample'), api('/api/settings'), api('/api/output')]).then(function (res) {
+      if (!res[0].ok || !res[1].ok) return;
+      var s = res[0].result, inf = res[1].result, v = inf.version, cam = s.camera || {}, fr = cam.frames || {}, r = s.reports;
+      var p = res[2].ok ? res[2].result : null;
+      fill($('inf-ver'), [
+        ['Daemon', v.daemon], ['Git-commit', v.git_commit], ['PSMoveAPI-pin', v.psmoveapi_pin],
+        ['PSMoveAPI gelinkt', yn(v.psmoveapi_linked), v.psmoveapi_linked ? 'ok' : 'warn'],
+        ['IPC-protocol', String(v.ipc_protocol)], ['Invoerschema', String(v.input_schema)]
+      ]);
+      fill($('inf-dev'), moveRows(s).concat(camRows(s)));
+      fill($('inf-daemon'), [
+        ['Looptijd', dur(inf.daemon.uptime_s)], ['PID', String(inf.daemon.pid)],
+        ['Webpoort', inf.daemon.web_port ? String(inf.daemon.web_port) : 'uit'],
+        ['LAN-toegang', inf.daemon.web_lan ? 'aan (token vereist)' : 'uit (alleen deze computer)']
+      ]);
+      var iv = r.interval_ms || {}, hp = s.processing_us || {};
+      fill($('inf-imu'), [
+        ['Rapporten per seconde (5 s)', fmt(r.rate_hz_5s)],
+        ['Interval p50 / p95 / max (ms)', fmt(iv.p50, 2) + ' / ' + fmt(iv.p95, 2) + ' / ' + fmt(iv.max, 1)],
+        ['Gaten (volgnummer overgeslagen)', String(r.dropped_by_seq)],
+        ['Lange tussenpozen (50 tot 250 ms)', String(r.long_dt_50_250ms)],
+        ['Gaten niet geintegreerd', String(r.gaps_not_integrated)],
+        ['Verwerking p50 / p95 / max (µs)', fmt(hp.p50, 0) + ' / ' + fmt(hp.p95, 0) + ' / ' + fmt(hp.max, 0)]
+      ]);
+      if (!cam.enabled) fill($('inf-cam'), [['Camera', 'uit (--no-camera)', 'muted']]);
+      else {
+        var pu = cam.processing_us || {}, age = cam.age_at_processing_ms || {}, q = cam.queue || {};
+        fill($('inf-cam'), [
+          ['Beelden per seconde (5 s)', fmt(fr.fps_5s)], ['Beelden ontvangen', String(fr.received)],
+          ['Gemiste beelden', String(fr.missed_by_sequence)], ['Foutbeelden / streamfouten', fr.error_frames + ' / ' + fr.stream_errors],
+          ['Weggegooid door de wachtrij', String((q.dropped_full || 0) + (q.dropped_stale || 0))],
+          ['Verwerking p50 / p95 / max (µs)', fmt(pu.p50, 0) + ' / ' + fmt(pu.p95, 0) + ' / ' + fmt(pu.max, 0)],
+          ['Leeftijd bij verwerking p95 (ms)', fmt(age.p95, 1)]
+        ]);
+      }
+      var tr = s.yaw_trim || {};
+      var trackRows = [
+        ['Driftcorrectie (ingesteld)', A.fusionLabel(s.config.fusion.mode)],
+        ['Filter (ingesteld)', s.config.filter.enabled ? 'aan' : 'uit'],
+        ['Leren van centreren', tr.learning ? 'aan' : 'uit'],
+        ['Geleerde correctie', typeof tr.trim_deg_s === 'number' ? fmt(tr.trim_deg_s, 3) + ' graden/s' : '-'],
+        ['Centreerdrukken gezien / geleerd', (tr.presses !== undefined ? tr.presses : '-') + ' / ' + (tr.learned !== undefined ? tr.learned : '-')]
+      ];
+      if (p) {
+        trackRows.push(['Midden bepaald door', p.aim.center_source]);
+        trackRows.push(['Oriëntatie geldig', yn(p.orientation.valid)]);
+        trackRows.push(['Aim geldig', yn(p.aim.valid)]);
+        trackRows = trackRows.concat(fusionRows(p.orientation.fusion));
+      }
+      fill($('inf-track'), trackRows);
+      if (res[3].ok) {
+        var i = res[3].result.info;
+        if (res[3].result.values) $('web-port').value = $('web-port').matches(':focus') ? $('web-port').value : res[3].result.values.web.port;
+        fill($('cfg-info'), [
+          ['Bestand', i.available ? i.path : 'geen (--no-config)'], ['Aanwezig', yn(i.file_present)],
+          ['Toestand', i.state, i.state === 'loaded' ? 'ok' : (i.state === 'missing' ? '' : 'warn')], ['Schemaversie', String(i.schema)]
+        ]);
+        var msgs = [];
+        if (i.message) msgs.push(i.message);
+        (i.warnings || []).forEach(function (m) { msgs.push(m); });
+        if (i.last_save_error) msgs.push('Laatste opslagfout: ' + i.last_save_error);
+        setHidden($('cfg-msg'), !msgs.length, msgs.join('. '));
+      }
+      fill($('web-now'), [
+        ['Actieve poort', inf.daemon.web_port ? String(inf.daemon.web_port) : 'uit'],
+        ['LAN-toegang', inf.daemon.web_lan ? 'aan (token vereist)' : 'uit (alleen deze computer)']
+      ]);
+      if (res[4].ok) showOutput(res[4].result);
+    }).catch(function () { setConn(false); });
+  }
+  function showOutput(o) {
+    var p = o.pattern || {}, pos = o.position || {};
+    var rows = outRows(o);
+    rows.push(['Laatste positie', typeof pos.nx === 'number' ? fmt(pos.nx, 3) + ', ' + fmt(pos.ny, 3) : '-']);
+    rows.push(['Knoppen ingedrukt', o.buttons_down && o.buttons_down.length ? o.buttons_down.join(', ') : 'geen']);
+    rows.push(['Toetsen ingedrukt', o.keys_down && o.keys_down.length ? o.keys_down.join(', ') : 'geen']);
+    fill($('out-state'), rows);
+    var prow = [['Toestand', p.state || '-']];
+    if (p.kind) prow.push(['Patroon', p.kind + (p.steps ? ' (stap ' + p.step + ' van ' + p.steps + ')' : '')]);
+    fill($('out-pattern'), prow);
+    $('out-arm').disabled = !!o.armed;
+    $('out-disarm').disabled = !o.armed;
+    Array.prototype.forEach.call(document.querySelectorAll('.pat'), function (b) {
+      b.disabled = !o.armed && b.getAttribute('data-pattern') !== 'stop';
+    });
+    if (!outFormFilled && o.transform) {
+      var t = o.transform, v = t.viewport || {};
+      $('o-ix').checked = !!t.invert_x; $('o-iy').checked = !!t.invert_y;
+      $('o-sx').value = t.scale_x; $('o-sy').value = t.scale_y;
+      $('o-ox').value = t.offset_x; $('o-oy').value = t.offset_y;
+      $('o-x0').value = v.x0; $('o-y0').value = v.y0; $('o-x1').value = v.x1; $('o-y1').value = v.y1;
+      outFormFilled = true;
+    }
+  }
   $('out-arm').addEventListener('click', function (e) {
-    if (!window.confirm('De virtuele lightgun inschakelen? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
-    submit('/api/arm', {}, $('out-err'), 'Uitvoer ingeschakeld', e.target, refreshOutput);
+    if (!window.confirm('De lightgun inschakelen? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
+    submit('/api/arm', {}, $('out-err'), 'Lightgun staat aan', e.target, refreshInfo);
   });
   $('out-disarm').addEventListener('click', function (e) {
-    submit('/api/disarm', {}, $('out-err'), 'Uitvoer uitgeschakeld', e.target, refreshOutput);
+    submit('/api/disarm', {}, $('out-err'), 'Lightgun staat uit', e.target, refreshInfo);
   });
   Array.prototype.forEach.call(document.querySelectorAll('.pat'), function (b) {
     b.addEventListener('click', function () {
       var name = b.getAttribute('data-pattern');
       var body = { pattern: name };
       if (name === 'grid' || name === 'corners') body.dwell_ms = 600;
-      submit('/api/test-pattern', body, $('pat-err'), name === 'stop' ? 'Patroon gestopt' : 'Patroon gestart', b, refreshOutput);
+      submit('/api/test-pattern', body, $('pat-err'), name === 'stop' ? 'Patroon gestopt' : 'Patroon gestart', b, refreshInfo);
     });
   });
   $('f-output').addEventListener('submit', function (e) {
@@ -504,121 +1052,15 @@
     var body = { invert_x: $('o-ix').checked, invert_y: $('o-iy').checked };
     body.scale_x = num('o-sx', 0.05, 20, 'Schaal X', errs);
     body.scale_y = num('o-sy', 0.05, 20, 'Schaal Y', errs);
-    body.offset_x = num('o-ox', -1, 1, 'Offset X', errs);
-    body.offset_y = num('o-oy', -1, 1, 'Offset Y', errs);
-    body.viewport_x0 = num('o-x0', 0, 1, 'Viewport links', errs);
-    body.viewport_y0 = num('o-y0', 0, 1, 'Viewport boven', errs);
-    body.viewport_x1 = num('o-x1', 0, 1, 'Viewport rechts', errs);
-    body.viewport_y1 = num('o-y1', 0, 1, 'Viewport onder', errs);
+    body.offset_x = num('o-ox', -1, 1, 'Verschuiving X', errs);
+    body.offset_y = num('o-oy', -1, 1, 'Verschuiving Y', errs);
+    body.viewport_x0 = num('o-x0', 0, 1, 'Beeld links', errs);
+    body.viewport_y0 = num('o-y0', 0, 1, 'Beeld boven', errs);
+    body.viewport_x1 = num('o-x1', 0, 1, 'Beeld rechts', errs);
+    body.viewport_y1 = num('o-y1', 0, 1, 'Beeld onder', errs);
     $('o-err').textContent = errs.join('. ');
     if (errs.length) return;
-    submit('/api/output', body, $('o-err'), 'Transformatie toegepast', e.target.querySelector('button'), refreshOutput);
-  });
-
-  // ---- Instellingen ----
-  function loadSettings() {
-    api('/api/status').then(function (j) {
-      if (!j.ok) return;
-      var f = j.result.config.filter, a = j.result.config.aim;
-      $('flt-enabled').checked = f.enabled;
-      $('flt-min').value = f.min_cutoff_hz;
-      $('flt-beta').value = f.beta;
-      $('flt-d').value = f.d_cutoff_hz;
-      $('aim-h').value = a.h_edge_deg;
-      $('aim-v').value = a.v_edge_deg;
-      $('lat-predict').value = a.predict_ms;
-      $('lat-predict-r').value = Math.min(120, a.predict_ms);
-      var rm = j.result.controller && j.result.controller.rumble;
-      if (rm) {
-        $('rum-enabled').checked = rm.enabled;
-        $('rum-strength').value = rm.strength;
-        $('rum-pulse').value = rm.pulse_ms;
-        $('rum-repeat').value = rm.repeat_hz;
-        $('rum-pump').value = rm.pump_strength;
-      }
-      var ck = j.result.output && j.result.output.live && j.result.output.live.clock;
-      if (ck) { $('lat-clock').value = ck.enabled ? ck.hz : 0; $('lat-extrap').value = ck.extrapolate_ms; }
-    });
-    Promise.all([api('/api/settings'), api('/api/info')]).then(function (res) {
-      if (!res[0].ok || !res[1].ok) return;
-      var s = res[0].result, inf = res[1].result, i = s.info, w = inf.daemon;
-      if (s.values) $('web-port').value = s.values.web.port;
-      fill($('web-now'), [
-        ['Actieve poort', w.web_port ? String(w.web_port) : 'uit'],
-        ['LAN-toegang', w.web_lan ? 'aan (token vereist)' : 'uit (alleen localhost)']
-      ]);
-      fill($('cfg-info'), [
-        ['Bestand', i.available ? i.path : 'geen (--no-config)'],
-        ['Aanwezig', yn(i.file_present)],
-        ['Toestand', i.state, i.state === 'loaded' ? 'ok' : (i.state === 'missing' ? '' : 'warn')],
-        ['Schemaversie', String(i.schema)]
-      ]);
-      var msgs = [];
-      if (i.message) msgs.push(i.message);
-      (i.warnings || []).forEach(function (m) { msgs.push(m); });
-      if (i.last_save_error) msgs.push('Laatste opslagfout: ' + i.last_save_error);
-      setHidden($('cfg-msg'), !msgs.length, msgs.join('. '));
-    });
-  }
-  $('f-filter').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var errs = [];
-    var body = { enabled: $('flt-enabled').checked };
-    var a = num('flt-min', 0.001, 100, 'Minimale afsnijfrequentie', errs);
-    var b = num('flt-beta', 0, 1000, 'Beta', errs);
-    var c = num('flt-d', 0.001, 100, 'Afsnijfrequentie snelheid', errs);
-    $('flt-err').textContent = errs.join('. ');
-    if (errs.length) return;
-    body.min_cutoff_hz = a; body.beta = b; body.d_cutoff_hz = c;
-    submit('/api/filter', body, $('flt-err'), 'Filter toegepast en bewaard', e.target.querySelector('button'), loadSettings);
-  });
-  $('f-aim').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var errs = [];
-    var h = num('aim-h', 1, 89, 'Horizontale hoek', errs);
-    var v = num('aim-v', 1, 89, 'Verticale hoek', errs);
-    $('aim-err').textContent = errs.join('. ');
-    if (errs.length) return;
-    submit('/api/aim', { h_edge_deg: h, v_edge_deg: v }, $('aim-err'), 'Schaal toegepast en bewaard', e.target.querySelector('button'), loadSettings);
-  });
-  // Latentie: de schuifregelaar en het getal horen bij elkaar; toepassen stuurt de voorspelling en de uitvoerklok apart.
-  $('lat-predict-r').addEventListener('input', function () { $('lat-predict').value = $('lat-predict-r').value; });
-  $('lat-predict').addEventListener('input', function () {
-    var v = Number($('lat-predict').value.replace(',', '.'));
-    if (isFinite(v)) $('lat-predict-r').value = Math.min(120, Math.max(0, v));
-  });
-  $('f-latency').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var errs = [];
-    var p = num('lat-predict', 0, 200, 'Voorspelling', errs);
-    var c = num('lat-clock', 0, 1000, 'Uitvoerklok', errs);
-    var x = num('lat-extrap', 0, 100, 'Extrapolatie', errs);
-    if (c !== null && c > 0 && c < 20) { errs.push('Uitvoerklok moet 0 (uit) zijn of tussen 20 en 1000 liggen'); $('lat-clock').classList.add('invalid'); }
-    $('lat-err').textContent = errs.join('. ');
-    if (errs.length) return;
-    var btn = e.target.querySelector('button');
-    submit('/api/aim', { predict_ms: p }, $('lat-err'), null, btn, function () {
-      submit('/api/clock', { clock_hz: c, extrapolate_ms: x }, $('lat-err'), 'Latentie toegepast en bewaard', btn, loadSettings);
-    });
-  });
-  $('f-rumble').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var errs = [];
-    var st = num('rum-strength', 0, 255, 'Sterkte', errs, true);
-    var pm = num('rum-pulse', 10, 500, 'Pulsduur', errs, true);
-    var rp = num('rum-repeat', 0, 30, 'Herhaling', errs);
-    var ps = num('rum-pump', 0, 255, 'Sterkte bij de pomp', errs, true);
-    if (rp !== null && rp > 0 && rp < 1) { errs.push('Herhaling moet 0 (uit) zijn of tussen 1 en 30 liggen'); $('rum-repeat').classList.add('invalid'); }
-    $('rum-err').textContent = errs.join('. ');
-    if (errs.length) return;
-    submit('/api/rumble', { enabled: $('rum-enabled').checked, strength: st, pulse_ms: pm, repeat_hz: rp, pump_strength: ps },
-           $('rum-err'), 'Trillen toegepast en bewaard', e.target.querySelector('button[type=submit]'), loadSettings);
-  });
-  $('rum-test').addEventListener('click', function (e) {
-    submit('/api/rumble-test', {}, $('rum-err'), 'Testpuls gestuurd', e.target);
-  });
-  $('recenter').addEventListener('click', function (e) {
-    submit('/api/recenter', {}, $('rc-err'), 'Recenter gedaan', e.target);
+    submit('/api/output', body, $('o-err'), 'Toegepast', e.target.querySelector('button'), refreshInfo);
   });
   $('f-web').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -626,113 +1068,68 @@
     var port = num('web-port', 1, 65535, 'Poort', errs, true);
     $('web-err').textContent = errs.join('. ');
     if (errs.length) return;
-    submit('/api/web', { port: port }, $('web-err'), 'Poort bewaard (geldt na een herstart)', e.target.querySelector('button'), loadSettings);
-  });
-
-  // ---- Info ----
-  function refreshInfo() {
-    Promise.all([api('/api/status'), api('/api/info')]).then(function (res) {
-      if (!res[0].ok || !res[1].ok) return;
-      var s = res[0].result, inf = res[1].result, v = inf.version, cam = s.camera || {}, fr = cam.frames || {}, r = s.reports;
-      fill($('inf-ver'), [
-        ['Daemon', v.daemon],
-        ['Git-commit', v.git_commit],
-        ['PSMoveAPI-pin', v.psmoveapi_pin],
-        ['PSMoveAPI gelinkt', yn(v.psmoveapi_linked), v.psmoveapi_linked ? 'ok' : 'warn'],
-        ['IPC-protocol', String(v.ipc_protocol)],
-        ['Invoerschema', String(v.input_schema)]
-      ]);
-      var rows = moveRows(s).slice(0, 4).map(function (x, i) { return i === 0 ? ['Move', x[1], x[2]] : [i === 1 ? 'Move-model' : (i === 2 ? 'Move-verbinding' : 'Controller-ID'), x[1]]; });
-      camRows(s).forEach(function (x) { rows.push([x[0] === 'Camera' ? 'Camera' : 'Camera: ' + x[0].toLowerCase(), x[1], x[2]]); });
-      outRows(s.output || {}).slice(0, 3).forEach(function (x) { rows.push(['Uitvoer: ' + x[0].toLowerCase(), x[1], x[2]]); });
-      fill($('inf-dev'), rows);
-      fill($('inf-daemon'), [
-        ['Looptijd', dur(inf.daemon.uptime_s)],
-        ['PID', String(inf.daemon.pid)],
-        ['Webpoort', inf.daemon.web_port ? String(inf.daemon.web_port) : 'uit'],
-        ['Instellingen', inf.settings.available ? inf.settings.path + ' (' + inf.settings.state + ')' : 'geen']
-      ]);
-      var iv = r.interval_ms || {}, hp = s.processing_us || {};
-      fill($('inf-imu'), [
-        ['Rapportfrequentie (5 s)', fmt(r.rate_hz_5s) + ' Hz'],
-        ['Interval p50 / p95 / max (ms)', fmt(iv.p50, 2) + ' / ' + fmt(iv.p95, 2) + ' / ' + fmt(iv.max, 1)],
-        ['Gaten (volgnummer overgeslagen)', String(r.dropped_by_seq)],
-        ['Lange tussenpozen (50 tot 250 ms)', String(r.long_dt_50_250ms)],
-        ['Gaten niet geïntegreerd', String(r.gaps_not_integrated)],
-        ['Verwerking p50 / p95 / max (µs)', fmt(hp.p50, 0) + ' / ' + fmt(hp.p95, 0) + ' / ' + fmt(hp.max, 0)]
-      ]);
-      if (!cam.enabled) { fill($('inf-cam'), [['Camera', 'uit (--no-camera)', 'muted']]); return; }
-      var pu = cam.processing_us || {}, age = cam.age_at_processing_ms || {}, q = cam.queue || {};
-      fill($('inf-cam'), [
-        ['Frames per seconde (5 s)', fmt(fr.fps_5s)],
-        ['Frames ontvangen', String(fr.received)],
-        ['Gemiste frames', String(fr.missed_by_sequence)],
-        ['Weggegooid door de wachtrij', String((q.dropped_full || 0) + (q.dropped_stale || 0))],
-        ['Verwerking p50 / p95 / max (µs)', fmt(pu.p50, 0) + ' / ' + fmt(pu.p95, 0) + ' / ' + fmt(pu.max, 0)],
-        ['Leeftijd bij verwerking p95 (ms)', fmt(age.p95, 1)]
-      ]);
-    }).catch(function () { setConn(false, 'daemon niet bereikbaar'); });
-  }
-
-  // ---- Kalibratie op de tv ----
-  function refreshCal() {
-    api('/api/calibrate/ui').then(function (j) {
-      $('cal-state').textContent = j.ok ? j.result.message : 'Kalibratiescherm: ' + errText(j);
-    }).catch(function () {});
-  }
-  $('cal-open').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Kalibratiescherm geopend op de tv', e.target, refreshCal);
-  });
-  $('cal-practice').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'open', step: 'practice' }, $('cal-err'), 'Oefenscherm geopend op de tv', e.target, refreshCal);
-  });
-  $('cal-close').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Kalibratiescherm gesloten', e.target, refreshCal);
+    submit('/api/web', { port: port }, $('web-err'), 'Poort bewaard (geldt na een herstart)', e.target.querySelector('button'), refreshInfo);
   });
 
   // ---- Navigatie ----
+  var built = {};
   var handlers = {
-    kalibratie: { show: refreshCal, poll: refreshCal, ms: 3000 },
-    overzicht: { show: refreshOverview, poll: refreshOverview, ms: 1000 },
-    live: { show: function () { drawAim(); drawMini(); startStream(); } },
-    apparaten: { show: refreshDevices, poll: refreshDevices, ms: 1000 },
-    camera: { show: function () { initCameraForm(); refreshCameraStatus(); }, poll: refreshCameraStatus, ms: 1000 },
-    led: { show: function () { renderPresets(); refreshLedNow(); }, poll: refreshLedNow, ms: 2000 },
-    uitvoer: { show: function () { outFormFilled = false; refreshOutput(); }, poll: refreshOutput, ms: 1000 },
-    instellingen: { show: loadSettings },
-    info: { show: refreshInfo, poll: refreshInfo, ms: 2000 }
+    overzicht: { show: refreshOverview, poll: refreshOverview, ms: 1500 },
+    richten: { build: buildRichten, show: function () { refreshRichten(); refreshCal(); drawAim(); startStream(); }, poll: function () { refreshRichten(); refreshCal(); }, ms: 3000 },
+    trillen: { build: buildTrillen, show: refreshTrillen, poll: refreshTrillen, ms: 3000 },
+    knoppen: { show: function () { loadKnoppen(false).then(lightButtons); startStream(); } },
+    led: { build: buildCamera, show: function () { renderPresets(); refreshLed(); drawMini(); startStream(); }, poll: refreshLed, ms: 3000 },
+    games: { show: refreshGames, poll: refreshGames, ms: 2000 },
+    info: { show: function () { outFormFilled = false; refreshInfo(); }, poll: refreshInfo, ms: 2500 }
   };
-  function show() {
-    var name = (location.hash.replace(/^#\//, '') || 'overzicht');
-    if (pages.indexOf(name) < 0) name = 'overzicht';
-    if (name === current) return;
-    current = name;
-    pages.forEach(function (p) {
-      $('p-' + p).className = 'page' + (p === name ? ' active' : '');
+  function remember(name) { try { window.localStorage.setItem('rg.tab', name); } catch (e) { /* geen opslag: dan onthouden we niets */ } }
+  function recall() { try { return window.localStorage.getItem('rg.tab'); } catch (e) { return null; } }
+  function renderTabs() {
+    var nav = $('tabs');
+    A.TABS.forEach(function (t) {
+      var a = el('a', '', t.label);
+      a.href = '#/' + t.id;
+      a.setAttribute('data-page', t.id);
+      nav.appendChild(a);
     });
-    Array.prototype.forEach.call(document.querySelectorAll('#nav a'), function (a) {
-      a.className = a.getAttribute('data-page') === name ? 'active' : '';
+  }
+  function show(force) {
+    var name = A.pickTab(location.hash, recall());
+    if (name === current && !force) return;
+    var changed = name !== current;
+    current = name;
+    remember(name);
+    A.TABS.forEach(function (t) { $('p-' + t.id).className = 'page' + (t.id === name ? ' active' : ''); });
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs a'), function (a) {
+      var on = a.getAttribute('data-page') === name;
+      a.className = on ? 'active' : '';
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     clearInterval(pollTimer);
     pollTimer = null;
     stopStream();
     var h = handlers[name];
     if (h) {
+      if (h.build && !built[name]) { built[name] = true; h.build(); }
       h.show();
       if (h.poll) pollTimer = setInterval(h.poll, h.ms);
     }
+    if (changed) window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', show);
+  window.addEventListener('hashchange', function () { show(false); });
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) { stopStream(); clearInterval(pollTimer); pollTimer = null; }
-    else { var n = current; current = ''; location.hash = location.hash || '#/' + n; show(); }
+    else show(true);
   });
+  renderTabs();
   api('/api/settings').then(function (j) {
-    if (j.ok && j.result.presets) {
-      presetList = j.result.presets.map(function (p) {
-        var l = p.name.charAt(0).toUpperCase() + p.name.slice(1);
-        return { name: p.name, rgb: p.rgb, hue_deg: p.hue_deg, label: l };
-      });
+    if (j.ok) {
+      defaults = j.result.defaults || null;
+      if (j.result.presets) {
+        presetList = j.result.presets.map(function (p) {
+          return { name: p.name, rgb: p.rgb, hue_deg: p.hue_deg, label: p.name.charAt(0).toUpperCase() + p.name.slice(1) };
+        });
+      }
     }
-  }).catch(function () {}).then(show);
+  }).catch(function () {}).then(function () { show(true); });
 })();

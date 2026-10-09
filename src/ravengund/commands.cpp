@@ -13,6 +13,9 @@
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
 #include "ravengun/core/buttons.hpp"
+#include "ravengun/games/games.hpp"
+#include "ravengun/output/live_feed.hpp"
+#include "ravengun/sysinfo/navcon.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/kiosk/kiosk.hpp"
 
@@ -46,6 +49,10 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err) {
     if (sh.output && !res.empty() && res.back() == '}') {
         res.pop_back();
         res += ",\"output\":" + sh.output->status_json() + "}";
+    }
+    if (!res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"navigation\":" + sysinfo::navcon_json(sysinfo::read_navcon()) + "}";
     }
     return res;
 }
@@ -242,6 +249,38 @@ std::string handle_set_buttons(SharedState& sh, const ipc::Request& r) {
     return ipc::ok_response(r.id_json, w.str());
 }
 
+// Knoppenindeling live wijzigen en bewaren. De gevraagde knoppen worden over de huidige indeling heen gelegd.
+std::string handle_set_gun_buttons(SharedState& sh, const ipc::Request& r) {
+    config::GunButtonSettings g;
+    if (sh.settings) g = sh.settings->get().gun_buttons;
+    for (const auto& kv : r.gun_map) g.map[kv.first] = kv.second;
+    // Dezelfde validatie als bij het laden van config.json, vóór er iets live verandert.
+    config::Settings probe;
+    probe.gun_buttons = g;
+    if (std::string bad = config::validate(probe); !bad.empty()) return ipc::error_response({"invalid_argument", bad, r.id_json});
+    output::LiveButtonMap m = output::build_live_map(g);
+    std::string err;
+    run_job(sh, [m](HidContext& h) { h.set_gun_buttons(m); return std::string("1"); }, err);
+    if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+    if (sh.output) {
+        sh.output->set_layout(m.layout);
+        sh.output->release_all();  // een toets die net een andere functie kreeg mag niet blijven hangen
+    }
+    config::SaveResult sr{true, {}};
+    if (sh.settings) sr = sh.settings->update([&](config::Settings& s) { s.gun_buttons.map = g.map; });
+    json::Writer w;
+    w.begin_object().key("map").begin_object();
+    for (const auto& kv : m.layout) w.key(kv.first).value(kv.second);
+    w.end_object().key("saved").value(sr.ok && sh.settings != nullptr);
+    if (sr.ok) w.key("save_error").null(); else w.key("save_error").value(tilde(sr.message));
+    w.end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
+std::string game_error(const ipc::Request& r, const games::Result& res) {
+    return ipc::error_response({res.code.empty() ? "internal" : res.code, res.message, r.id_json});
+}
+
 // Kiosk-browser op de tv (zie src/ravengun/kiosk/kiosk.hpp). Alleen een vaste opdracht, nooit een pad of URL van buiten.
 std::string handle_calibrate_ui(SharedState& sh, const ipc::Request& r) {
     kiosk::Result res;
@@ -277,6 +316,8 @@ std::string handle_settings(SharedState& sh, const ipc::Request& r) {
         w.end_object();
     }
     w.end_array();
+    // Fabrieksinstellingen, voor "standaard herstellen" in de app (zelfde bron als de daemon, niet in de JS nagebootst).
+    w.key("defaults").raw(config::to_json(config::Settings{}, false));
     w.key("camera_modes").begin_array();
     for (const auto& m : config::camera_modes()) w.value(config::camera_mode_string(m.width, m.height, m.fps));
     w.end_array();
@@ -537,16 +578,46 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         case ipc::Cmd::CalibrateUi: return handle_calibrate_ui(sh, r);
         case ipc::Cmd::SetFusion: {
             core::FusionMode m = core::FusionMode::Mahony;
-            core::parse_fusion_mode(r.mode.c_str(), m);
-            std::string res = run_job(sh, [m](HidContext& h) { h.set_fusion(m); return std::string(core::to_string(h.fusion())); }, err);
+            if (!r.mode.empty()) core::parse_fusion_mode(r.mode.c_str(), m);
+            const bool set_mode = !r.mode.empty();
+            const std::optional<bool> learn = r.recenter_learning;
+            std::string res = run_job(sh, [m, set_mode, learn](HidContext& h) {
+                if (set_mode) h.set_fusion(m);
+                if (learn) h.set_recenter_learning(*learn);
+                return std::string(core::to_string(h.fusion())) + (h.recenter_learning() ? "|1" : "|0");
+            }, err);
             if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            const size_t bar = res.find('|');
+            const std::string mode_now = res.substr(0, bar);
+            const bool learn_now = bar != std::string::npos && res.substr(bar + 1) == "1";
             config::SaveResult sr{true, {}};
-            if (sh.settings) sr = sh.settings->update([&](config::Settings& s) { s.fusion.mode = r.mode; });
+            if (sh.settings) sr = sh.settings->update([&](config::Settings& s) {
+                if (set_mode) s.fusion.mode = r.mode;
+                if (learn) s.fusion.recenter_learning = *learn;
+            });
             json::Writer w;
-            w.begin_object().key("mode").value(res).key("saved").value(sr.ok && sh.settings != nullptr);
+            w.begin_object().key("mode").value(mode_now).key("recenter_learning").value(learn_now)
+                .key("saved").value(sr.ok && sh.settings != nullptr);
             if (sr.ok) w.key("save_error").null(); else w.key("save_error").value(tilde(sr.message));
             w.end_object();
             return ipc::ok_response(r.id_json, w.str());
+        }
+        case ipc::Cmd::SetGunButtons: return handle_set_gun_buttons(sh, r);
+        case ipc::Cmd::Games: {
+            if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});
+            return ipc::ok_response(r.id_json, sh.games->list_json());
+        }
+        case ipc::Cmd::GameStart: {
+            if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});
+            games::Result res = sh.games->start(r.profile);
+            if (!res.ok) return game_error(r, res);
+            return ipc::ok_response(r.id_json, sh.games->status_json());
+        }
+        case ipc::Cmd::GameStop: {
+            if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});
+            games::Result res = sh.games->stop();
+            if (!res.ok) return game_error(r, res);
+            return ipc::ok_response(r.id_json, sh.games->status_json());
         }
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);

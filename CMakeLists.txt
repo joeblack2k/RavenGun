@@ -14,7 +14,8 @@ option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 
 include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
-  index.html app.css app.js calibrate.html calibrate.css calibrate-core.js calibrate.js)
+  index.html app.css app-core.js app.js calibrate.html calibrate.css calibrate-core.js calibrate.js
+  "games-notes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/games-notes.json")
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
 set(RAVENGUN_PSMOVEAPI_PIN "256b6299e6076fe7b113e7277ed67016903f067a" CACHE STRING "Gepinde PSMoveAPI-commit (docs/build.md)")
@@ -36,6 +37,8 @@ add_library(ravengun STATIC
   src/ravengun/config/settings.cpp
   src/ravengun/config/led_color.cpp
   src/ravengun/kiosk/kiosk.cpp
+  src/ravengun/games/games.cpp
+  src/ravengun/sysinfo/navcon.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -146,6 +149,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_web_tests tests/test_web.cpp)
   target_link_libraries(ravengun_web_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_web_tests COMMAND ravengun_web_tests)
+  add_executable(ravengun_games_tests tests/test_games.cpp)
+  target_link_libraries(ravengun_games_tests PRIVATE ravengun Threads::Threads)
+  add_test(NAME ravengun_games_tests COMMAND ravengun_games_tests)
   add_executable(ravengun_phase013_tests tests/test_phase013.cpp)
   target_link_libraries(ravengun_phase013_tests PRIVATE ravengun)
   add_test(NAME ravengun_phase013_tests COMMAND ravengun_phase013_tests)

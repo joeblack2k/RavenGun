@@ -257,7 +257,7 @@ Voorbeeld:
               "select": "key:5", "start": "key:1", "move": "grenade"}
     }
 
-Zichtbaarheid: `ravengunctl output [--json]` toont `map` (inclusief `ps` = "recenter (vast)"), `keys_down`, `buttons_down` en het blok `keyboard`; het startlog van ravengund toont de indeling ("knoppenindeling: ..."). De web-UI toont `keys_down` in het uitvoerblok; de indeling is daar niet bewerkbaar (bewerk `config.json`; de daemon leest die bij de start).
+Zichtbaarheid: `ravengunctl output [--json]` toont `map` (inclusief `ps` = "recenter (vast)"), `keys_down`, `buttons_down` en het blok `keyboard`; het startlog van ravengund toont de indeling ("knoppenindeling: ..."). De web-UI (tabblad Knoppen) toont en wijzigt de indeling live via `set_gun_buttons` (`POST /api/gun-buttons`): gevalideerd met dezelfde code als bij het laden, zonder herstart toegepast in de HID-thread en bewaard in `config.json`. Bewerken van `config.json` met de hand blijft kunnen; de daemon leest het bij de start.
 
 ### Uitbreidingsconnector (Sharp Shooter)
 

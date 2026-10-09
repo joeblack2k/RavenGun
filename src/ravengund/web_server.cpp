@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "commands.hpp"
+#include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
 
 namespace ravengund {
@@ -111,6 +112,10 @@ int web_listen(const WebConfig& cfg) {
 void web_thread_main(SharedState& sh, WebConfig cfg, int lfd, int wake_fd) {
     Backend be;
     be.command = [&sh](const std::string& line) { return execute_line(sh, line); };
+    be.icon = [&sh](const std::string& file, std::string& ct, std::string& data) {
+        if (!sh.games) return std::string("not_found");
+        return ravengun::games::read_icon(sh.games->config(), file, ct, data);
+    };
     WebApp app(cfg, be);
     std::list<Conn> conns;
     int sse_count = 0;

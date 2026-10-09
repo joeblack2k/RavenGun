@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <mutex>
 #include <thread>
 #include <unistd.h>
 
@@ -17,6 +18,7 @@
 #include "output_service.hpp"
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
+#include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 
@@ -79,6 +81,12 @@ struct FakeHid final : HidContext {
     core::FusionMode fm = core::FusionMode::Mahony;
     core::FusionMode fusion() const override { return fm; }
     void set_fusion(core::FusionMode m) override { fm = m; }
+    bool learning = true;
+    bool recenter_learning() const override { return learning; }
+    void set_recenter_learning(bool on) override { learning = on; }
+    output::LiveButtonMap gun_map;
+    int gun_map_sets = 0;
+    void set_gun_buttons(const output::LiveButtonMap& m) override { gun_map = m; ++gun_map_sets; }
 };
 
 // Voert opdrachten uit; de HID-jobs draaien in een eigen thread (zoals in de daemon).
@@ -418,6 +426,145 @@ static void test_buttons_and_ui(const std::string& dir) {
     CHECK(!ok && code == "unavailable" && contains(msg, "webinterface"));
 }
 
+static std::string layout_of(const output::LiveButtonMap& m, const std::string& button) {
+    for (const auto& kv : m.layout) if (kv.first == button) return kv.second;
+    return "?";
+}
+
+// Knoppenindeling live wijzigen: validatie, live toepassen, bewaren, en niets half toepassen bij een fout.
+static void test_set_gun_buttons(const std::string& dir) {
+    Rig rig;
+    config::SettingsStore store(dir + "/gun/config.json");
+    store.load();
+    rig.sh.settings = &store;
+    OutputService out;
+    rig.sh.output = &out;
+    bool ok = false;
+    std::string code, msg;
+    json::Value r = rig.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"grenade","circle":"key:f2","move":"recenter"}})", &ok);
+    CHECK(ok && r.find("saved")->b);
+    CHECK(rig.hid.gun_map_sets == 1);
+    CHECK(layout_of(rig.hid.gun_map, "cross") == "grenade" && layout_of(rig.hid.gun_map, "circle") == "key:f2");
+    CHECK(layout_of(rig.hid.gun_map, "move") == "recenter" && layout_of(rig.hid.gun_map, "ps") == "recenter (vast)");
+    CHECK(layout_of(rig.hid.gun_map, "square") == "key:1");  // niet genoemd: blijft zoals het was
+    CHECK(r.find("map")->find("cross")->str == "grenade");
+    CHECK(store.get().gun_buttons.map.at("circle") == "key:f2" && store.get().gun_buttons.map.at("move") == "recenter");
+    CHECK(contains(slurp(dir + "/gun/config.json"), "key:f2"));
+    // De uitvoerstatus toont dezelfde indeling.
+    CHECK(contains(out.status_json(), "\"circle\":\"key:f2\""));
+    // Een tweede wijziging legt zich over de eerste heen.
+    rig.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"none"}})", &ok);
+    CHECK(ok && store.get().gun_buttons.map.at("cross") == "none" && store.get().gun_buttons.map.at("circle") == "key:f2");
+    // Ongeldig: geen enkele wijziging bereikt de HID-thread of het bestand.
+    const int sets = rig.hid.gun_map_sets;
+    const std::string before = slurp(dir + "/gun/config.json");
+    rig.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"reload","ps":"reload"}})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"reload","circle":"key:f99"}})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "toets"));
+    rig.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"`id`"}})", &ok, &code);
+    CHECK(!ok);
+    CHECK(rig.hid.gun_map_sets == sets && slurp(dir + "/gun/config.json") == before);
+    // Zonder instellingenopslag werkt het live, maar is niets bewaard.
+    Rig bare;
+    r = bare.call(R"({"v":1,"cmd":"set_gun_buttons","map":{"cross":"aux1"}})", &ok);
+    CHECK(ok && !r.find("saved")->b && layout_of(bare.hid.gun_map, "cross") == "aux1");
+}
+
+static void test_fusion_and_learning(const std::string& dir) {
+    Rig rig;
+    config::SettingsStore store(dir + "/fus/config.json");
+    store.load();
+    rig.sh.settings = &store;
+    bool ok = false;
+    std::string code;
+    json::Value r = rig.call(R"({"v":1,"cmd":"set_fusion","mode":"vqf_mag"})", &ok);
+    CHECK(ok && r.find("mode")->str == "vqf_mag" && r.find("recenter_learning")->b && r.find("saved")->b);
+    CHECK(store.get().fusion.mode == "vqf_mag" && rig.hid.fm == core::FusionMode::VqfMag);
+    r = rig.call(R"({"v":1,"cmd":"set_fusion","recenter_learning":false})", &ok);
+    CHECK(ok && !r.find("recenter_learning")->b && r.find("mode")->str == "vqf_mag");  // modus blijft zoals hij was
+    CHECK(!rig.hid.learning && !store.get().fusion.recenter_learning && store.get().fusion.mode == "vqf_mag");
+    rig.call(R"({"v":1,"cmd":"set_fusion"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+}
+
+// Games: de lijst, het starten (alleen bestaande profielen, vaste opdrachtregel) en het stoppen, met een nep-spawner.
+static void test_games_commands(const std::string& dir) {
+    fs::create_directories(dir + "/tp/UserProfiles");
+    fs::create_directories(dir + "/tp/Icons");
+    { std::ofstream f(dir + "/tp/UserProfiles/Halo.xml"); f << "<GameProfile><GameNameInternal>HALO Test</GameNameInternal><IconName>Icons/Halo.png</IconName></GameProfile>"; }
+    { std::ofstream f(dir + "/tp/UserProfiles/TombRaider.xml"); f << "<GameProfile></GameProfile>"; }
+    { std::ofstream f(dir + "/tp/Icons/Halo.png", std::ios::binary); f << "png"; }
+    { std::ofstream f(dir + "/play.sh"); f << "#!/bin/sh\n"; }
+    fs::permissions(dir + "/play.sh", fs::perms::owner_all);
+    fs::create_directories(dir + "/proc");
+
+    games::Config gc;
+    gc.tp_dir = dir + "/tp";
+    gc.play_script = dir + "/play.sh";
+    gc.log_path = dir + "/logs/play-last.log";
+    gc.proc_root = dir + "/proc";  // lege nep-procesmap: er draait niets
+    gc.notes_json = R"({"schema":1,"games":{"TombRaider":"Nog niet getest."}})";
+    std::vector<std::vector<std::string>> spawned;
+    std::mutex sm;
+    games::GameService svc(gc, [&](const std::vector<std::string>& argv, std::string&) {
+        std::lock_guard<std::mutex> g(sm);
+        spawned.push_back(argv);
+        return 0;
+    });
+    Rig rig;
+    rig.sh.games = &svc;
+    bool ok = false;
+    std::string code, msg;
+    json::Value r = rig.call(R"({"v":1,"cmd":"games"})", &ok);
+    CHECK(ok && r.find("available")->b && r.find("games")->arr.size() == 2);
+    CHECK(r.find("games")->arr[0].find("profile")->str == "Halo" && r.find("games")->arr[0].find("name")->str == "HALO Test");
+    CHECK(r.find("games")->arr[0].find("icon")->str == "/api/game-icon/Halo.png");
+    CHECK(r.find("games")->arr[1].find("note")->str == "Nog niet getest.");
+    CHECK(r.find("status")->find("state")->str == "idle");
+
+    // Onbekende of ongeldige profielen worden geweigerd zonder dat er iets gespawnd wordt.
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"Bestaatniet"})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "onbekend profiel"));
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"../UserProfiles/Halo"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo;touch x"})", &ok, &code);
+    CHECK(!ok);
+    { std::lock_guard<std::mutex> g(sm); CHECK(spawned.empty()); }
+
+    // Een bestaand profiel start met een vaste opdrachtregel: elk argument is los, de profielnaam is het laatste.
+    r = rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo"})", &ok);
+    CHECK(ok);
+    for (int i = 0; i < 200; ++i) { std::lock_guard<std::mutex> g(sm); if (!spawned.empty()) break; std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    {
+        std::lock_guard<std::mutex> g(sm);
+        CHECK(spawned.size() == 1);
+        if (!spawned.empty()) {
+            const auto& a = spawned[0];
+            CHECK(a.size() >= 8 && a[0] == "systemd-run" && a[1] == "--user" && a[2] == "--unit=ravengun-play");
+            CHECK(a[a.size() - 3] == gc.play_script && a[a.size() - 2] == "--profile" && a.back() == "Halo");
+            bool dash = false;
+            for (const auto& x : a) if (x == "--") dash = true;
+            CHECK(dash);
+            for (const auto& x : a) CHECK(x.find("sh -c") == std::string::npos && x != "/bin/sh" && x != "bash");
+        }
+    }
+    // Direct daarna: toestand 'starting' (binnen de coulance), dubbel starten wordt geweigerd.
+    for (int i = 0; i < 200; ++i) { r = rig.call(R"({"v":1,"cmd":"games"})", &ok); if (!r.find("status")->find("busy")->b || r.find("status")->find("state")->str == "starting") break; }
+    r = rig.call(R"({"v":1,"cmd":"games"})", &ok);
+    CHECK(r.find("status")->find("state")->str == "starting" && r.find("status")->find("profile")->str == "Halo");
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"TombRaider"})", &ok, &code, &msg);
+    CHECK(!ok && code == "unavailable" && contains(msg, "al een game"));
+    { std::lock_guard<std::mutex> g(sm); CHECK(spawned.size() == 1); }
+
+    // Zonder instellingen/games-service: nette fout.
+    Rig bare;
+    bare.call(R"({"v":1,"cmd":"games"})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+    bare.call(R"({"v":1,"cmd":"game_start","profile":"Halo"})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+}
+
 int main() {
     std::string dir = (fs::temp_directory_path() / ("rg-cmd-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(dir);
@@ -428,6 +575,9 @@ int main() {
     test_predict_and_clock(dir);
     test_rumble(dir);
     test_buttons_and_ui(dir);
+    test_set_gun_buttons(dir);
+    test_fusion_and_learning(dir);
+    test_games_commands(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

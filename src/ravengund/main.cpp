@@ -14,6 +14,8 @@
 #include <unistd.h>
 
 #include "camera.hpp"
+#include "ravengun/games/games.hpp"
+#include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
 #include "hid_thread.hpp"
@@ -94,6 +96,13 @@ void usage(FILE* f) {
         "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
         "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
         "\n"
+        "games (starten vanuit de webinterface via systemd-run en scripts/play-halo.sh):\n"
+        "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
+        "                                   ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)\n"
+        "  --play-script PAD                startscript (standaard scripts/play-halo.sh naast de repo van ravengund)\n"
+        "  --games-dry-run                  nooit echt starten of stoppen (voor tests): alleen de opdrachtregel loggen;\n"
+        "                                   draaiende processen op de host tellen dan niet mee\n"
+        "\n"
         "instellingen (bewaard in ~/.config/ravengun/config.json; wijzigingen in de webinterface worden daar\n"
         "opgeslagen en bij de volgende start toegepast; opties op de opdrachtregel gaan altijd voor):\n"
         "  --config PAD                     ander instellingenbestand\n"
@@ -164,6 +173,11 @@ int main(int argc, char** argv) {
     bool web_on = true, web_lan = false;
     double web_port = cfg.web.port;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
+    const char* home_env = std::getenv("HOME");
+    const std::string home = home_env ? home_env : "";
+    std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+    std::string play_script;
+    bool games_dry_run = false;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto need = [&](double lo, double hi, double& out) {
@@ -230,6 +244,9 @@ int main(int argc, char** argv) {
             }
             (a == "--out-content-aspect" ? content_aspect : screen_aspect) = static_cast<double>(bw) / bh;
         }
+        else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
+        else if (a == "--play-script" && i + 1 < argc) play_script = argv[++i];
+        else if (a == "--games-dry-run") games_dry_run = true;
         else if (a == "--no-camera") cam.enabled = false;
         else if (a == "--camera-auto") cam.auto_exposure = cam.auto_gain = cam.auto_awb = true;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
@@ -375,6 +392,47 @@ int main(int argc, char** argv) {
     Recorder recorder(ravengun::rec::default_recordings_dir());
     opt.recorder = &recorder;
     shared.optical_hook = [&recorder](const ravengun::core::OpticalSample& o) { recorder.push_optical(o); };
+    // Games: het startscript staat in de repo naast build/ (build/ravengund -> ../scripts/play-halo.sh).
+    if (play_script.empty()) {
+        char exe[4096];
+        ssize_t n = ::readlink("/proc/self/exe", exe, sizeof exe - 1);
+        if (n > 0) {
+            exe[n] = 0;
+            std::string cand = std::string(exe);
+            for (int up = 0; up < 2; ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) break; cand.resize(sl); }
+            cand += "/scripts/play-halo.sh";
+            if (::access(cand.c_str(), X_OK) == 0) play_script = cand;
+        }
+        if (play_script.empty() && !home.empty()) play_script = home + "/projects/ravengun/scripts/play-halo.sh";
+    }
+    ravengun::games::Config games_cfg;
+    games_cfg.tp_dir = tp_dir;
+    games_cfg.play_script = play_script;
+    games_cfg.tpui_procs = ravengun::games::default_tpui_procs(static_cast<unsigned>(::getuid()));
+    {
+        const char* xs = std::getenv("XDG_STATE_HOME");
+        std::string state = xs && *xs ? xs : (home.empty() ? std::string() : home + "/.local/state");
+        if (!state.empty()) games_cfg.log_path = state + "/ravengun/logs/play-last.log";
+    }
+    if (const auto* notes = ravengun::web::find_asset("games-notes.json")) games_cfg.notes_json = notes->data;
+    games_cfg.move_connected = [&shared] {
+        auto l = shared.get().sample.link;
+        return l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
+    };
+    ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
+    if (games_dry_run) {
+        // Geen invloed van echte processen op de host (tests): geen cgroup van de unit, een niet-bestaande procesmap.
+        games_cfg.tpui_procs.clear();
+        games_cfg.proc_root = "/nonexistent-ravengun-proc";
+        spawner = [](const std::vector<std::string>& argv, std::string&) {
+            std::string line;
+            for (const auto& a : argv) line += (line.empty() ? "" : " ") + a;
+            logf("info", "games (dry-run): %s", line.c_str());
+            return 0;
+        };
+    }
+    ravengun::games::GameService games(games_cfg, spawner);
+    shared.games = &games;
     CameraService camera(shared, cam);
     shared.camera = &camera;
     shared.camera_status = [&camera] { return camera.status_json(); };

@@ -16,6 +16,7 @@
 #include "ravengun/core/input_model.hpp"
 
 namespace ravengun::config { class SettingsStore; }
+namespace ravengun::games { class GameService; }
 
 namespace ravengund {
 
@@ -124,6 +125,8 @@ public:
     // door main vóór de threads starten. nullptr = niet beschikbaar (bijv. in tests).
     ravengun::config::SettingsStore* settings = nullptr;
     CameraService* camera = nullptr;
+    // Games starten/stoppen (TeknoParrot-profielen); nullptr = niet beschikbaar.
+    ravengun::games::GameService* games = nullptr;
     const int64_t start_ns = mono_ns();  // start van de daemon (uptime)
     int web_port = 0;                    // 0 = webinterface uit; door main gezet
     bool web_lan = false;

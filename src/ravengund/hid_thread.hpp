@@ -57,6 +57,11 @@ public:
     // Fase 4: oriëntatieschatter (mahony | mahony_mag).
     virtual ravengun::core::FusionMode fusion() const = 0;
     virtual void set_fusion(ravengun::core::FusionMode m) = 0;
+    // Yaw-trim leren uit centreerdrukken (live aan/uit).
+    virtual bool recenter_learning() const { return true; }
+    virtual void set_recenter_learning(bool) {}
+    // Knoppenindeling van de live koppeling (zie output/live_feed.hpp), zonder herstart.
+    virtual void set_gun_buttons(const ravengun::output::LiveButtonMap&) {}
 };
 
 // Draait tot shared.running false wordt. Eigenaar van de PSMoveAPI-handle en de pijplijn.
