@@ -143,6 +143,14 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon is TCP-client (127.0.0.1:33610) van de BepInEx-plugin uit DemulShooter v17.9 (lokaal, niet in de repo; DemulShooter.exe draait nooit); eigen prefix, lokale symlink-view, `scripts/play-unity.sh` (via `play-halo.sh --profile`). Live met de nieuwe daemon: Tomb Raider verbonden, munt en Start via de Move-knoppen ontvangen, vizier in beeld na centreren. Besluit van de eigenaar: daarna route 2 (eigen plugin) voor volledige controle.
 - Bluetooth: het rapportverlies is van ongeveer 13 % naar onder 1 % gegaan (88 rapporten/s); oorzaak van de verbetering niet vastgesteld (vermoeden: het continue zoeken naar apparaten is gestopt).
 
+- IO-brug (2026-10-09, stap 1): één toestandsmodel in de daemon (`src/ravengun/iobridge/`) met dialecten `tp-shm` (de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern; `scripts/tp-shm-swap.sh` laat de Wine-hulp het bestand van de daemon spiegelen) en `unity-tcp` (de bestaande Unity-route). Route per game in `packaging/io-routes.json`, indelingen in `packaging/tp-shm-profiles.json`. Live: Terminator via tp-shm inclusief een daemon-herstart midden in het spel; Time Crisis 5 speelbaar via tp-shm (munt = Shift+T via `coin_keys`; snelkoppeling gemaakt; nog niet met de echte Move gespeeld). 23 ctest-suites groen.
+- Transformers: Shadows Rising: de kern van TeknoParrot zit alleen in Shell.exe; Transformers2.exe zoekt zelf een HID-IO-bord ("Couldn't find IOBoard device") en reageert niet op tp-shm. Vervolg: virtueel HID-bord via uhid.
+- Netwerktoegang tot de app: `web.lan` (aan op deze pc) en `web.require_token` (standaard uit) in config.json; verbindingen vanaf de pc zelf hebben nooit een token nodig. Adres: http://<ip-van-de-pc>:8765.
+- OLED-bescherming: user-unit `ravengun-oled-saver` (zwart scherm met bewegend klokje na 10 minuten zonder game).
+- Bureaublad: RavenGun (app), Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Game stoppen, TeknoParrot (`scripts/make-game-shortcut.sh`).
+- Onderzoek (docs/research/): `zonder-teknoparrot.md` (open-source alternatieven dekken geen van de negen games), `teknoparrot-io.md` (I/O-dialect per game, voorstel IO-brug), `demulshooter-integratie.md`, `teknoparrot-windows-games-linux.md`, `elfldr2-zwart-beeld.md`.
+- Open: drift in de Tomb Raider-sessie van 2026-10-09 doordat VQF de magnetometer afwees (veldsterkte tot 1,4, dip tot 74 graden; oorzaak in de omgeving onbekend, eigenaar nog niet bevraagd). Vangnet gebouwd: de lerende yaw-trim neemt het over na 10 s afwijzing (nog niet live bevestigd).
+
 ## Laatste werkende commando
 
     scripts/play-halo.sh --record TAG     (Move aan met PS; daemon-uitvoer, opname en Halo)
@@ -154,7 +162,7 @@ Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven).
 
 ## Volgende uitvoerbare stap
 
-1. Trillen in Halo bevestigen en op gevoel afstellen (sterkte, pulsduur, herhaling).
-2. Tomb Raider en Luigi's Mansion starten (Windows-games via TeknoParrot; nog niet geprobeerd).
-3. Jurassic Park: andere Wine/Proton-runner of TeknoParrot-versie proberen.
-4. Schermkalibratie met de camera, Gaming Mode/Steam-snelkoppeling, Navigation Controller, overige emulators.
+1. Transformers: virtueel HID-IO-bord (uhid) als nieuw dialect van de IO-brug.
+2. Route 2 voor de Unity-games: eigen BepInEx-plugin (clean-room) in plaats van de DemulShooter-plugin.
+3. Met de eigenaar: Time Crisis 5 en Rabbids met de echte Move spelen; tweede Move koppelen via het tabblad Controllers; kompasverstoring uitzoeken.
+4. Jurassic Park (native Linux-route), Let's Go Safari, Luigi's Mansion; Gaming Mode/Steam-snelkoppelingen.
