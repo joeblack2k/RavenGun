@@ -12,6 +12,7 @@
 // touchscreen). BTN_LEFT plus ABS_X/ABS_Y laat de kernel een mousedev-handler ("mouseN") koppelen:
 // alleen dan toont TeknoParrot het apparaat in de lijst "P1 Light Gun" (zie docs/architecture.md).
 #include <string>
+#include <utility>
 
 #include "ravengun/output/gun_output.hpp"
 
@@ -22,9 +23,25 @@ inline constexpr unsigned short kProductId = 0x7202;
 inline constexpr const char* kDeviceName = "RavenGun Virtual Lightgun";
 inline constexpr const char* kStableLink = "/dev/input/ravengun-gun";
 
+// Identiteit van de virtuele gun van een speler. Speler 1 is EXACT de oorspronkelijke gun (1209:7202, "RavenGun Virtual
+// Lightgun", by-id ...Virtual_Lightgun-event-mouse), zodat bestaande TeknoParrot-bindingen blijven werken. Speler 2..4 krijgen
+// PID 7203..7205, naam "RavenGun Virtual Lightgun P<n>" en by-id ...Virtual_Lightgun_P<n>-event-mouse (packaging/udev/70-ravengun.rules).
+struct GunIdentity {
+    int player = 1;
+    unsigned short vendor = kVendorId, product = kProductId;
+    std::string name = kDeviceName;
+    std::string stable_link = kStableLink;                                       // eigen symlink (udev)
+    std::string by_id_link = "/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse";  // wat TeknoParrot bewaart
+};
+inline constexpr int kMaxGunPlayers = 4;
+// player 1..4 (buiten dat bereik: speler 1).
+GunIdentity gun_identity(int player);
+
 class UinputGun : public GunDevice {
 public:
     UinputGun() = default;
+    explicit UinputGun(GunIdentity id) : id_(std::move(id)) {}
+    const GunIdentity& identity() const { return id_; }
     ~UinputGun() override { destroy(); }
     UinputGun(const UinputGun&) = delete;
     UinputGun& operator=(const UinputGun&) = delete;
@@ -42,6 +59,7 @@ public:
 
 private:
     bool emit(int type, int code, int value);
+    GunIdentity id_{};
     int fd_ = -1;
     std::string sysname_;
 };

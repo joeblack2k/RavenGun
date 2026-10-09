@@ -3,13 +3,15 @@
 #include <cmath>
 
 #include "ravengun/core/buttons.hpp"
+#include "ravengun/core/navcon.hpp"
 #include "ravengun/output/key_table.hpp"
 
 namespace ravengun::output {
 
-uint32_t move_button_bit(const std::string& name) {
+uint64_t move_button_bit(const std::string& name) {
     for (const auto& b : core::kButtonNames)
         if (name == b.name) return b.bit;
+    if (uint32_t n = core::nav_button_bit(name)) return static_cast<uint64_t>(n) << kNavBitShift;
     return 0;
 }
 
@@ -21,7 +23,7 @@ LiveButtonMap build_live_map(const config::GunButtonSettings& g) {
         auto it = g.map.find(b);
         std::string canon = "none";
         if (it != g.map.end()) config::check_gun_action(it->second, canon);
-        uint32_t bit = move_button_bit(b);
+        uint64_t bit = move_button_bit(b);
         m.layout.emplace_back(b, canon);
         if (canon == "none" || !bit) continue;
         if (canon == "recenter") { m.recenter |= bit; continue; }
@@ -50,13 +52,17 @@ std::string describe_layout(const LiveButtonMap& m) {
     return s;
 }
 
-LiveAction LiveGunFeed::update(const core::InputSample& s) {
+LiveAction LiveGunFeed::update(const core::InputSample& s, uint32_t nav) {
     LiveAction a;
     if (s.link == core::LinkState::Lost || s.link == core::LinkState::Disconnected) {
         trigger_down_ = false;
+        prev_nav_ = nav;
         a.release_all = true;
         return a;
     }
+    const uint64_t all = static_cast<uint64_t>(s.buttons) | (static_cast<uint64_t>(nav) << kNavBitShift);
+    const uint64_t pressed = static_cast<uint64_t>(s.pressed) | (static_cast<uint64_t>(nav & ~prev_nav_) << kNavBitShift);
+    prev_nav_ = nav;
     if (s.ext_active) {
         // Sharp Shooter: de trekker is het fire-bit van de uitbreiding (valt in de opname altijd samen met T, zonder
         // extra rapport vertraging); T zonder fire is de pomp (knop "pump", afgeleid in de pijplijn) en geeft geen schot.
@@ -68,13 +74,13 @@ LiveAction LiveGunFeed::update(const core::InputSample& s) {
     }
     a.buttons = true;
     a.trigger = trigger_down_;
-    a.reload = s.buttons & map_.gun[static_cast<int>(GunButton::Reload)];
-    a.grenade = s.buttons & map_.gun[static_cast<int>(GunButton::Grenade)];
-    a.aux1 = s.buttons & map_.gun[static_cast<int>(GunButton::Aux1)];
-    a.aux2 = s.buttons & map_.gun[static_cast<int>(GunButton::Aux2)];
-    for (const auto& k : map_.keys) a.keys.emplace_back(k.code, (s.buttons & k.bits) != 0);
+    a.reload = (all & map_.gun[static_cast<int>(GunButton::Reload)]) != 0;
+    a.grenade = (all & map_.gun[static_cast<int>(GunButton::Grenade)]) != 0;
+    a.aux1 = (all & map_.gun[static_cast<int>(GunButton::Aux1)]) != 0;
+    a.aux2 = (all & map_.gun[static_cast<int>(GunButton::Aux2)]) != 0;
+    for (const auto& k : map_.keys) a.keys.emplace_back(k.code, (all & k.bits) != 0);
     a.recenter_ps = (s.pressed & core::kBtnPS) != 0;
-    a.recenter = a.recenter_ps || (s.pressed & map_.recenter) != 0;
+    a.recenter = a.recenter_ps || (pressed & map_.recenter) != 0;
     if (s.aim_valid && std::isfinite(s.aim.x) && std::isfinite(s.aim.y)) {
         a.move = true;
         a.x = s.aim.x;

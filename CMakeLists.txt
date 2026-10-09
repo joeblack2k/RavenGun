@@ -57,6 +57,8 @@ add_library(ravengun STATIC
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
   src/ravengun/output/uinput_kbd.cpp
+  src/ravengun/output/key_mux.cpp
+  src/ravengun/core/navcon.cpp
   src/ravengun/output/live_feed.cpp
   src/ravengun/output/aim_clock.cpp
   src/ravengun/output/rumble.cpp
@@ -139,6 +141,7 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
   add_executable(ravengun_output_tests tests/test_output.cpp)
   target_link_libraries(ravengun_output_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_output_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_output_tests COMMAND ravengun_output_tests)
   add_executable(ravengun_vision_tests tests/test_vision.cpp)
   target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)

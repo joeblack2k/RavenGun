@@ -26,17 +26,21 @@
 
 namespace ravengun::output {
 
+// Knopbits in de live koppeling: de lage 32 bits zijn de Move-knoppen (core/buttons.hpp), de hoge 32 de knoppen van de
+// Navigation Controller van dezelfde speler (core/navcon.hpp, naam "nav_..."), zodat beide in één indeling staan.
+inline constexpr int kNavBitShift = 32;
+
 struct KeyBinding {
     int code = 0;          // evdev-toetscode
     std::string name;      // canonieke naam ("5")
-    uint32_t bits = 0;     // Move-knopbits die deze toets indrukken (OR)
+    uint64_t bits = 0;     // knopbits die deze toets indrukken (OR)
 };
 
 struct LiveButtonMap {
     int trigger_on = 140;
     int trigger_off = 100;
-    uint32_t gun[kGunButtonCount] = {};   // per GunButton (Trigger ongebruikt): Move-knopbits (OR); 0 = geen
-    uint32_t recenter = 0;                // Move-knopbits uit de map (PS komt er altijd bij, zie hierboven)
+    uint64_t gun[kGunButtonCount] = {};   // per GunButton (Trigger ongebruikt): knopbits (OR); 0 = geen
+    uint64_t recenter = 0;                // knopbits uit de map (PS komt er altijd bij, zie hierboven)
     std::vector<KeyBinding> keys;
     // Voor weergave (status, startlog): knopnaam -> actie in vaste volgorde, inclusief "ps" -> "recenter (vast)".
     std::vector<std::pair<std::string, std::string>> layout;
@@ -47,8 +51,9 @@ LiveButtonMap build_live_map(const config::GunButtonSettings& g);
 // Een regel voor het startlog, bv. "move=grenade cross=reload ... ps=recenter(vast)".
 std::string describe_layout(const LiveButtonMap& m);
 
-// Move-knopnaam (triangle, circle, cross, square, select, start, ps, move, t) -> bit; 0 bij leeg/onbekend.
-uint32_t move_button_bit(const std::string& name);
+// Knopnaam -> bit in het gecombineerde masker: Move-knoppen (triangle, circle, ..., t) in de lage 32 bits, "nav_..." in de
+// hoge 32; 0 bij leeg/onbekend.
+uint64_t move_button_bit(const std::string& name);
 
 struct LiveAction {
     bool move = false;          // positie zetten
@@ -67,8 +72,9 @@ struct LiveAction {
 class LiveGunFeed {
 public:
     explicit LiveGunFeed(LiveButtonMap m = {}) : map_(std::move(m)) {}
-    LiveAction update(const core::InputSample& s);
-    void reset() { trigger_down_ = false; }
+    // nav = de knoppen (core::NavButton) van de Navigation Controller die aan deze speler is toegewezen (0 = geen).
+    LiveAction update(const core::InputSample& s, uint32_t nav = 0);
+    void reset() { trigger_down_ = false; prev_nav_ = 0; }
     const LiveButtonMap& map() const { return map_; }
     void set_map(const LiveButtonMap& m) { map_ = m; }
     bool trigger_down() const { return trigger_down_; }
@@ -76,6 +82,7 @@ public:
 private:
     LiveButtonMap map_;
     bool trigger_down_ = false;
+    uint32_t prev_nav_ = 0;  // voor de flank van een nav-knop met actie recenter
 };
 
 }  // namespace ravengun::output
