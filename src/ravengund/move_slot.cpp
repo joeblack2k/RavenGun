@@ -119,9 +119,7 @@ void MoveSlot::emit(const InputSample& s) {
 }
 
 void MoveSlot::connect(const ControllerInfo& ci, int64_t now) {
-    const bool counted = ci_.connects;
-    const uint64_t connects = ci_.connects + 1, disconnects = ci_.disconnects;
-    (void)counted;
+    const uint64_t connects = ci_.connects + 1, disconnects = ci_.disconnects;  // tellers blijven per speler doorlopen
     ci_ = ci;
     ci_.open = true;
     ci_.connected_at_ns = now;
