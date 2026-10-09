@@ -111,7 +111,7 @@ curl -s "$B/api/settings" | grep -q '"defaults":{"schema":1' || fail "settings m
 
 # Games: lijst (alleen geldige profielnamen), notities, iconen, start/stop met dry-run en weigeringen.
 curl -s "$B/api/games" | grep -q '"profile":"Halo","name":"HALO Test","icon":"/api/game-icon/Halo.png"' || fail "games: Halo ontbreekt"
-curl -s "$B/api/games" | grep -q '"profile":"JurassicPark","name":"Jurassic Park","icon":null,"note":"Werkt nog niet: zwart beeld."' || fail "games: notitie ontbreekt"
+curl -s "$B/api/games" | grep -q '"profile":"JurassicPark","name":"Jurassic Park","icon":null,"note":"Werkt nog niet: zwart beeld op volledig scherm."' || fail "games: notitie ontbreekt"
 curl -s "$B/api/games" | grep -q 'Slecht' && fail "games: ongeldige profielnaam in de lijst"
 [ "$(curl -s "$B/api/game-icon/Halo.png")" = PNGDATA ] || fail "icoon"
 [ "$(code "$B/api/game-icon/Halo.png")" = 200 ] || fail "icoon status"
