@@ -51,6 +51,8 @@ const char* to_string(Cmd c) {
         case Cmd::Blink: return "blink";
         case Cmd::Unpair: return "unpair";
         case Cmd::Pair: return "pair";
+        case Cmd::Aagames: return "aagames";
+        case Cmd::OutputKey: return "output_key";
     }
     return "?";
 }
@@ -59,7 +61,7 @@ bool takes_selector(Cmd c) {
     switch (c) {
         case Cmd::Status: case Cmd::Sample: case Cmd::Recenter: case Cmd::ClearTrim: case Cmd::Watch: case Cmd::SetFilter:
         case Cmd::SetAim: case Cmd::SetRumble: case Cmd::RumbleTest: case Cmd::SetLed: case Cmd::SetFusion: case Cmd::SetGunButtons:
-        case Cmd::Record: case Cmd::CalibMag: case Cmd::Blink:
+        case Cmd::Record: case Cmd::CalibMag: case Cmd::Blink: case Cmd::OutputKey:
             return true;
         default: return false;
     }
@@ -430,6 +432,25 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!a || !a->is_string() || (a->str != "start" && a->str != "status" && a->str != "confirm" && a->str != "cancel"))
             return err("invalid_argument", "'action' moet start, status, confirm of cancel zijn", r.id_json);
         r.action = a->str;
+    } else if (cmd == "aagames") {
+        r.cmd = Cmd::Aagames;
+        if (!allowed(o, {"action", "game"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "action", r.action, e, r.id_json)) return e;
+        if (!opt_string(o, "game", r.game, e, r.id_json)) return e;
+        if (r.action.empty()) r.action = "status";
+        if (r.action != "start" && r.action != "stop" && r.action != "status")
+            return err("invalid_argument", "'action' moet start, stop of status zijn", r.id_json);
+        if (r.action == "start" && !games::valid_profile_name(r.game))
+            return err("invalid_argument", "'game' ontbreekt of is ongeldig (letters, cijfers, _ en -)", r.id_json);
+    } else if (cmd == "output_key") {
+        r.cmd = Cmd::OutputKey;
+        if (!allowed(o, {"key", "action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!opt_string(o, "key", r.key_name, e, r.id_json)) return e;
+        if (!opt_string(o, "action", r.action, e, r.id_json)) return e;
+        if (r.key_name.empty()) return err("invalid_argument", "'key' ontbreekt", r.id_json);
+        if (r.action.empty()) r.action = "tap";
+        if (r.action != "down" && r.action != "up" && r.action != "tap")
+            return err("invalid_argument", "'action' moet down, up of tap zijn", r.id_json);
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -615,6 +636,13 @@ std::string make_request(const Request& r) {
             break;
         case Cmd::Pair:
             w.key("action").value(r.action);
+            break;
+        case Cmd::Aagames:
+            w.key("action").value(r.action.empty() ? "status" : r.action);
+            if (!r.game.empty()) w.key("game").value(r.game);
+            break;
+        case Cmd::OutputKey:
+            w.key("key").value(r.key_name).key("action").value(r.action.empty() ? "tap" : r.action);
             break;
         case Cmd::Info:
         case Cmd::Settings:

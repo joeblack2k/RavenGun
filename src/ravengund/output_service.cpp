@@ -162,6 +162,39 @@ bool OutputService::armed() const {
     return armed_ && p1().out->armed();
 }
 
+bool OutputService::aim_snapshot(int player, AimSnapshot& s) const {
+    if (player < 1 || player > kPlayers) return false;
+    std::lock_guard<std::mutex> g(m_);
+    const Player& p = players_[static_cast<size_t>(player - 1)];
+    if (shut_ || !armed_ || !should_exist(player) || !p.out->armed()) return false;
+    s.have_position = p.out->have_position();
+    if (s.have_position) {
+        s.u = static_cast<double>(p.out->last_abs_x()) / kAbsMax;
+        s.v = static_cast<double>(p.out->last_abs_y()) / kAbsMax;
+    }
+    s.trigger = p.out->button_down(GunButton::Trigger);
+    s.reload = p.out->button_down(GunButton::Reload);
+    return true;
+}
+
+OutputResult OutputService::key(int player, int code, const std::string& action) {
+    if (player < 1 || player > kPlayers) return {false, "invalid_argument", "ongeldige speler"};
+    if (action != "down" && action != "up" && action != "tap") return {false, "invalid_argument", "actie moet down, up of tap zijn"};
+    std::unique_lock<std::mutex> lk(m_);
+    GunOutput& out = *players_[static_cast<size_t>(player - 1)].out;
+    if (!armed_ || !out.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
+    if (action == "up") {
+        if (!out.set_key(code, false)) return {false, "internal", "toets schrijven mislukt"};
+        return {};
+    }
+    if (!out.set_key(code, true)) return {false, "internal", "toets schrijven mislukt"};
+    if (action == "tap") {
+        cv_.wait_for(lk, std::chrono::milliseconds(80), [&] { return !out.armed(); });
+        out.set_key(code, false);
+    }
+    return {};
+}
+
 void OutputService::set_active_players(unsigned mask) {
     std::lock_guard<std::mutex> g(m_);
     const unsigned now = (mask | 1u) & ((1u << kPlayers) - 1);

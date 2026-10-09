@@ -10,6 +10,14 @@
 #include <string>
 #include <unistd.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <cstring>
+#include <vector>
+
+#include "aagames_service.hpp"
 #include "move_slot.hpp"
 #include "output_service.hpp"
 #include "ravengun/config/settings.hpp"
@@ -159,6 +167,32 @@ int main() {
         p2.set_nav(0, t);
         CHECK(guns[2]->down.empty());
 
+        // Unity-route: aim-momentopname, toets via de service, en rumble uit de Recoil-vlag van de game (niet uit de trekker).
+        {
+            OutputService::AimSnapshot as;
+            CHECK(out.aim_snapshot(2, as) && as.have_position && as.u > 0.5 && as.v >= 0 && as.v <= 1);
+            CHECK(as.reload == false && as.trigger == false);
+            CHECK(!out.aim_snapshot(4, as));          // speler 4 bestaat niet
+            CHECK(out.key(2, output::key_code("5"), "down").ok && kb->pressed.count(output::key_code("5")));
+            CHECK(out.key(2, output::key_code("5"), "up").ok && !kb->pressed.count(output::key_code("5")));
+            CHECK(!out.key(2, output::key_code("5"), "bogus").ok && !out.key(9, output::key_code("5"), "tap").ok);
+            sh.game_rumble_mask.store(0b10);           // speler 2: rumble komt uit de game
+            t += 5'000'000;
+            p2.tick(t);
+            auto q0 = p2.due_output(t);
+            CHECK(!q0 || q0->rumble == 0);             // zonder Recoil geen trilling
+            sh.game_recoil[1].fetch_add(1);
+            t += 5'000'000;
+            p2.tick(t);
+            auto q1 = p2.due_output(t + 30'000'000);
+            CHECK(q1 && q1->rumble == 180);            // een schot: puls met de ingestelde sterkte
+            t += 2'000'000'000;  // ruim voorbij de puls (de testklok loopt iets voor op de echte klok die emit() gebruikt)
+            p2.tick(t);
+            auto q2 = p2.due_output(t + 30'000'000);
+            CHECK(q2 && q2->rumble == 0);              // de puls is afgelopen
+            sh.game_rumble_mask.store(0);
+        }
+
         // LED/rumble-rapport per speler: elk zijn eigen kleur; knipperen geeft wit.
         auto o1 = p1.due_output(t), o2 = p2.due_output(t);
         CHECK(o1 && o2 && o1->led_due && o1->g == 255 && o1->r == 0 && o2->r == 255 && o2->g == 0);
@@ -189,6 +223,68 @@ int main() {
         CHECK(pl[0].find("device")->find("product")->str == "7202" && pl[1].find("device")->find("product")->str == "7203");
         CHECK(pl[1].find("device")->find("name")->str == "RavenGun Virtual Lightgun P2" && pl[1].find("active")->b && !pl[2].find("active")->b);
         CHECK(os.value.find("device")->find("product")->str == "7202");  // speler 1 ook op het hoogste niveau (zoals voorheen)
+
+        // Unity-route: de service stuurt de aim van speler 2 als pixels naar een nep-plugin en geeft Recoil door aan SharedState.
+        {
+            int lfd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+            sockaddr_in a{};
+            a.sin_family = AF_INET;
+            a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            ::bind(lfd, reinterpret_cast<sockaddr*>(&a), sizeof a);
+            ::listen(lfd, 1);
+            socklen_t al = sizeof a;
+            ::getsockname(lfd, reinterpret_cast<sockaddr*>(&a), &al);
+            games::AaConfig acfg;
+            acfg.port = ntohs(a.sin_port);
+            games::AaGame ag;
+            ag.key = "T";
+            ag.type = games::AaType::TombRaider;
+            ag.send_hz = 200;
+            acfg.games.push_back(ag);
+            AagamesService svc(sh, acfg);
+            svc.set_timeouts(400, 5000);
+            CHECK(!svc.start("Bestaat niet").empty() && !svc.active());
+            CHECK(svc.start("T").empty() && svc.active() && sh.game_rumble_mask.load() == 0xF);
+            pollfd pf{lfd, POLLIN, 0};
+            CHECK(::poll(&pf, 1, 2000) > 0);
+            int cfd = ::accept(lfd, nullptr, nullptr);
+            CHECK(cfd >= 0);
+            std::vector<uint8_t> got;
+            for (int i = 0; i < 100 && got.size() < 42 * 20; ++i) {
+                pollfd rp{cfd, POLLIN, 0};
+                if (::poll(&rp, 1, 50) > 0) { uint8_t b[512]; ssize_t r = ::recv(cfd, b, sizeof b, 0); if (r <= 0) break; got.insert(got.end(), b, b + r); }
+            }
+            CHECK(got.size() >= 42 * 20);
+            const size_t base = (got.size() / 42 - 1) * 42;     // het laatste volledige pakket (de stroom heeft geen kaders)
+            float x2, y2, x1;
+            std::memcpy(&x1, &got[base], 4);
+            std::memcpy(&x2, &got[base + 4], 4);                // Axis_X speler 2
+            std::memcpy(&y2, &got[base + 16 + 4], 4);           // Axis_Y speler 2
+            OutputService::AimSnapshot as2;
+            CHECK(out.aim_snapshot(2, as2));
+            CHECK(std::fabs(x2 - as2.u * 1919) < 1.0f);
+            CHECK(std::fabs(y2 - (1.0 - as2.v) * 1079) < 1.0f);  // Y-oorsprong onderaan (Unity)
+            OutputService::AimSnapshot as1;
+            CHECK(out.aim_snapshot(1, as1) && std::fabs(x1 - as1.u * 1919) < 1.0f);   // speler 1: de laatste positie blijft staan
+            CHECK(got[base + 32] == 1);                          // EnableInputsHack
+            // Recoil van speler 2 (60-byte uitvoer): de teller van SharedState gaat omhoog.
+            const uint64_t rc0 = sh.game_recoil[1].load();      // staat al op 1 door het rumble-blok hierboven
+            std::vector<uint8_t> fr(65, 0);
+            const int32_t len = 61;
+            std::memcpy(fr.data(), &len, 4);
+            fr[4] = 2;
+            fr[5 + 56 + 1] = 1;                                  // Recoil[1]
+            ::send(cfd, fr.data(), fr.size(), MSG_NOSIGNAL);
+            for (int i = 0; i < 100 && sh.game_recoil[1].load() == rc0; ++i) ::usleep(10000);
+            CHECK(sh.game_recoil[1].load() == rc0 + 1 && sh.game_recoil[0].load() == 0);
+            auto js = json::parse(svc.status_json());
+            CHECK(js.ok && js.value.find("active")->b && js.value.find("connected")->b);
+            // De game verdwijnt: de route stopt vanzelf (en de rumble is weer aan de trekker).
+            ::close(cfd);
+            for (int i = 0; i < 300 && svc.active(); ++i) ::usleep(10000);
+            CHECK(!svc.active() && sh.game_rumble_mask.load() == 0);
+            ::close(lfd);
+        }
 
         // Een nieuwe speler terwijl de uitvoer gewapend is: zijn gun komt er meteen.
         out.set_active_players(0b111);

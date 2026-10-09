@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "comment": "Unity-games (Tomb Raider Arcade, Rabbids Hollywood Arcade) zonder TeknoParrot: de daemon praat als TCP-client met de BepInEx-plugin in de game. Zie docs/decisions.md (route 1) en docs/research/demulshooter-integratie.md.",
+  "port": 33610,
+  "demulshooter_version": "v17.9",
+  "games": {
+    "TombRaider": {
+      "name": "Tomb Raider Arcade",
+      "type": "tomb_raider",
+      "nas_dir": "~/mnt/spidernas_emulation/Teknoparrot/Tomb Raider",
+      "exe": "Game.exe",
+      "plugin_dir": "TombRaider",
+      "width": 1920,
+      "height": 1080,
+      "offset_x": 0.0,
+      "offset_y": 0.0,
+      "scale_x": 1.0,
+      "scale_y": 1.0,
+      "y_origin": "bottom",
+      "send_hz": 120
+    },
+    "RabbidsHollywood": {
+      "name": "Rabbids Hollywood Arcade",
+      "type": "rabbids_hollywood",
+      "nas_dir": "~/mnt/spidernas_emulation/Teknoparrot/Rabbids Hollywood ",
+      "exe": "Game.exe",
+      "plugin_dir": "RabbidsHollywood",
+      "language": "EN",
+      "width": 1920,
+      "height": 1080,
+      "offset_x": 0.0,
+      "offset_y": 0.0,
+      "scale_x": 1.0,
+      "scale_y": 1.0,
+      "y_origin": "bottom",
+      "send_hz": 120
+    }
+  }
+}

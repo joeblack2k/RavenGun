@@ -24,6 +24,7 @@ class CameraService;  // gedefinieerd in camera.hpp
 class HidContext;     // gedefinieerd in hid_thread.hpp
 class OutputService;  // gedefinieerd in output_service.hpp
 class ControllerService;  // gedefinieerd in controllers.hpp
+class AagamesService;     // gedefinieerd in aagames_service.hpp
 
 inline int64_t mono_ns() {
     timespec t{};
@@ -171,6 +172,13 @@ public:
 
     // Controllers (koppelen, verwijderen, Navigation Controller, BlueZ); nullptr = niet beschikbaar (tests).
     class ControllerService* controllers = nullptr;
+
+    // Unity-route (Tomb Raider / Rabbids Hollywood zonder TeknoParrot); nullptr = niet beschikbaar.
+    AagamesService* aagames = nullptr;
+    // Bit p-1 gezet: de rumble van speler p komt uit de game (Recoil-vlag van de plugin) in plaats van uit de trekker.
+    std::atomic<unsigned> game_rumble_mask{0};
+    // Aantal Recoil-vlaggen per speler (door de klantthread opgehoogd, door de HID-thread gelezen).
+    std::array<std::atomic<uint64_t>, kPlayers> game_recoil{};
 
 private:
     mutable std::mutex m_;

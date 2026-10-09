@@ -6,6 +6,7 @@
 #include <ctime>
 #include <unistd.h>
 
+#include "aagames_service.hpp"
 #include "build_info.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
@@ -15,6 +16,7 @@
 #include "ravengun/config/settings.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/games/games.hpp"
+#include "ravengun/output/key_table.hpp"
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/sysinfo/navcon.hpp"
 #include "ravengun/json.hpp"
@@ -107,6 +109,10 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err, int 
     if (sh.camera_status && !res.empty() && res.back() == '}') {
         res.pop_back();
         res += ",\"camera\":" + sh.camera_status() + "}";
+    }
+    if (sh.aagames && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"aagames\":" + sh.aagames->status_json() + "}";
     }
     if (sh.output && !res.empty() && res.back() == '}') {
         res.pop_back();
@@ -879,6 +885,23 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             games::Result res = sh.games->stop();
             if (!res.ok) return game_error(r, res);
             return ipc::ok_response(r.id_json, sh.games->status_json());
+        }
+        case ipc::Cmd::Aagames: {
+            if (!sh.aagames) return ipc::error_response({"unavailable", "de Unity-route is niet beschikbaar in deze daemon", r.id_json});
+            if (r.action == "start") {
+                if (!sh.output) return ipc::error_response({"unavailable", "geen uitvoerservice", r.id_json});
+                const std::string msg = sh.aagames->start(r.game);
+                if (!msg.empty()) return ipc::error_response({"invalid_argument", msg, r.id_json});
+            } else if (r.action == "stop") {
+                sh.aagames->stop();
+            }
+            return ipc::ok_response(r.id_json, sh.aagames->status_json());
+        }
+        case ipc::Cmd::OutputKey: {
+            if (!sh.output) return ipc::error_response({"unavailable", "geen uitvoerservice", r.id_json});
+            const int code = output::key_code(r.key_name);
+            if (code < 0) return ipc::error_response({"invalid_argument", "onbekende toets '" + r.key_name + "'", r.id_json});
+            return output_reply(r, sh.output->key(r.player.value_or(1), code, r.action), sh);
         }
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);

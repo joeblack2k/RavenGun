@@ -3,8 +3,8 @@
   "games": {
     "Halo": "Werkt volledig: lightgun, knoppen, trillen.",
     "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed.",
-    "TombRaider": "Start met beeld, maar toont 'IO BOARD ERROR'. Komt later via een eigen route.",
-    "RabbidsHollywood": "Toont het titelscherm, maar de knoppen werken niet en de game sluit na ongeveer 45 seconden af. Komt later via een eigen route.",
+    "TombRaider": "Werkt zonder TeknoParrot: lightgun, herladen, munt en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
+    "RabbidsHollywood": "Werkt zonder TeknoParrot: lightgun, munt (viermaal) en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
     "JurassicPark": "Werkt nog niet: wit of zwart beeld. Geparkeerd.",
     "LuigisMansion": "Start nog niet (sluit direct af). Geparkeerd.",
     "LGS": "Start nog niet (geen venster). Geparkeerd.",
