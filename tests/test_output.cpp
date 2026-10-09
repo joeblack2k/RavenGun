@@ -2,6 +2,9 @@
 // precies één keer), arm/disarm, het vrijgeven van knoppen bij disarm/fouten/shutdown, testpatronen
 // en de nieuwe IPC-commando's. Geen hardware: een nep-apparaat registreert wat er geschreven wordt.
 #include <array>
+#include <cstring>
+#include <fstream>
+#include <sstream>
 #include <cmath>
 #include <cstdio>
 #include <set>
@@ -13,12 +16,15 @@
 #include "ravengun/output/aim_clock.hpp"
 #include "ravengun/output/gun_output.hpp"
 #include "ravengun/output/gun_transform.hpp"
+#include "ravengun/core/navcon.hpp"
 #include "ravengun/output/live_feed.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/core/pipeline.hpp"
 #include "ravengun/output/key_table.hpp"
 #include "ravengun/output/test_pattern.hpp"
 #include "ravengun/output/uinput_kbd.hpp"
+#include "ravengun/output/key_mux.hpp"
+#include "ravengun/output/uinput_gun.hpp"
 
 using namespace ravengun;
 using namespace ravengun::output;
@@ -694,8 +700,10 @@ static void test_live_map_defaults() {
     config::GunButtonSettings gs;
     LiveButtonMap m = build_live_map(gs);
     CHECK(config::validate(config::Settings{}) == "");
-    CHECK(m.gun[static_cast<int>(GunButton::Grenade)] == core::kBtnMove);
-    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == (core::kBtnCross | core::kBtnPump | core::kBtnSsRl));
+    // Lage 32 bits: de Move; hoge 32: de Navigation Controller van dezelfde speler (L1 herladen, L2 granaat).
+    const uint64_t nav_l1 = static_cast<uint64_t>(core::kNavL1) << kNavBitShift, nav_l2 = static_cast<uint64_t>(core::kNavL2) << kNavBitShift;
+    CHECK(m.gun[static_cast<int>(GunButton::Grenade)] == (core::kBtnMove | nav_l2));
+    CHECK(m.gun[static_cast<int>(GunButton::Reload)] == (core::kBtnCross | core::kBtnPump | core::kBtnSsRl | nav_l1));
     // key:5 = triangle OR select; key:1 = square OR start (OR van twee knoppen).
     CHECK(m.keys.size() == 2);
     for (const auto& k : m.keys) {
@@ -1072,7 +1080,142 @@ static void test_clock_smooth_and_stops() {
     }
 }
 
+// Speler 1 houdt exact de oude identiteit (bestaande TeknoParrot-bindingen); speler 2..4 een eigen PID, naam en by-id-link.
+static void test_gun_identity() {
+    GunIdentity p1 = gun_identity(1);
+    CHECK(p1.vendor == 0x1209 && p1.product == 0x7202 && p1.name == "RavenGun Virtual Lightgun");
+    CHECK(p1.stable_link == "/dev/input/ravengun-gun" && p1.by_id_link == "/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse");
+    CHECK(UinputGun().identity().product == 0x7202 && UinputGun().identity().name == kDeviceName);
+    GunIdentity p2 = gun_identity(2);
+    CHECK(p2.player == 2 && p2.vendor == 0x1209 && p2.product == 0x7203 && p2.name == "RavenGun Virtual Lightgun P2");
+    CHECK(p2.stable_link == "/dev/input/ravengun-gun-p2" && p2.by_id_link == "/dev/input/by-id/usb-RavenGun_Virtual_Lightgun_P2-event-mouse");
+    CHECK(gun_identity(4).product == 0x7205 && gun_identity(4).name == "RavenGun Virtual Lightgun P4");
+    CHECK(gun_identity(0).product == 0x7202 && gun_identity(9).product == 0x7202);  // buiten bereik: speler 1
+    // De udev-regel kent elke PID en zijn by-id-link (de naam van de link volgt de identiteit).
+    std::ifstream f(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/udev/70-ravengun.rules");
+    std::stringstream ss;
+    ss << f.rdbuf();
+    const std::string rules = ss.str();
+    for (int p = 1; p <= 4; ++p) {
+        GunIdentity g = gun_identity(p);
+        char pid[8];
+        std::snprintf(pid, sizeof pid, "%04x", g.product);
+        const std::string by_id = g.by_id_link.substr(std::string("/dev/").size());
+        const std::string link = g.stable_link.substr(std::string("/dev/").size());
+        size_t at = rules.find(std::string("ATTRS{id/product}==\"") + pid + "\"");
+        CHECK(at != std::string::npos);
+        if (at == std::string::npos) continue;
+        std::string line = rules.substr(at, rules.find('\n', at) - at);
+        CHECK(line.find("TAG+=\"uaccess\"") != std::string::npos && line.find(by_id) != std::string::npos && line.find(link + " ") != std::string::npos);
+        CHECK(line.find("LIBINPUT_IGNORE_DEVICE}=\"1\"") != std::string::npos);
+    }
+}
+
+// Eén toetsenbord voor alle spelers: een toets blijft ingedrukt zolang een speler hem vasthoudt.
+static void test_key_mux() {
+    FakeKbd real;
+    KeyMux mux(real);
+    std::string err;
+    KeyDevice& a = mux.port(1);
+    KeyDevice& b = mux.port(2);
+    CHECK(!a.created() && a.create(err) && b.create(err) && real.creates == 1 && a.created() && b.created());
+    CHECK(a.write_key(6, true) && real.pressed.count(6) && real.writes == 1);   // speler 1 drukt Coin
+    CHECK(b.write_key(6, true) && real.writes == 1 && mux.holders(6) == 2);     // speler 2 ook: geen tweede event
+    CHECK(a.write_key(6, false) && real.pressed.count(6) && real.writes == 1);   // speler 1 laat los: blijft ingedrukt
+    CHECK(a.write_key(6, false) && mux.holders(6) == 1);                         // dubbel loslaten telt niet
+    CHECK(b.write_key(6, false) && !real.pressed.count(6) && real.writes == 2);  // laatste laat los: up-event
+    // Een port vrijgeven (bronuitval van een speler) laat alleen diens toetsen los.
+    a.write_key(2, true); b.write_key(3, true); b.write_key(2, true);
+    a.destroy();
+    CHECK(!a.created() && real.pressed.count(2) && real.pressed.count(3) && real.exists);
+    b.destroy();
+    CHECK(real.pressed.empty() && real.exists);
+    CHECK(!a.write_key(4, true));  // vrijgegeven port schrijft niet
+    // Een schrijffout van het echte apparaat: niet als ingedrukt tellen.
+    CHECK(a.create(err));
+    real.fail_write = true;
+    CHECK(!a.write_key(7, true) && mux.holders(7) == 0);
+    real.fail_write = false;
+    mux.shutdown();
+    CHECK(!real.exists && real.destroys == 1);
+    // Via GunOutput: twee spelers met dezelfde toets.
+    FakeKbd r2;
+    KeyMux m2(r2);
+    FakeDevice g1, g2;
+    GunOutput o1(g1, &m2.port(1)), o2(g2, &m2.port(2));
+    CHECK(o1.arm(err) && o2.arm(err) && r2.creates == 1);
+    o1.set_key(6, true); o2.set_key(6, true);
+    o1.release_all();
+    CHECK(r2.pressed.count(6) && o2.key_down(6) && !o1.key_down(6));
+    o2.disarm();
+    CHECK(r2.pressed.empty());
+}
+
+// Navigation Controller: rapport naar knoppen (Sixaxis-indeling) en de stick met hysterese.
+static void test_nav_report() {
+    uint8_t r[49] = {};
+    r[0] = 0x01; r[6] = 128; r[7] = 128;
+    core::NavState s, prev;
+    CHECK(core::parse_nav_report(r, sizeof r, prev, s) && s.buttons == 0);
+    r[3] = 0x04 | 0x40;  // L1 + kruis
+    r[2] = 0x10 | 0x02;  // omhoog + L3
+    r[4] = 0x01;         // PS
+    r[18] = 200;
+    CHECK(core::parse_nav_report(r, sizeof r, prev, s));
+    CHECK(s.buttons == (core::kNavL1 | core::kNavCross | core::kNavUp | core::kNavL3 | core::kNavPS) && s.l2 == 200);
+    // Stick: omhoog voorbij de drempel, terug tot binnen de hysterese.
+    std::memset(r + 2, 0, 3);
+    r[7] = 128 - 70;
+    CHECK(core::parse_nav_report(r, sizeof r, s, s) && s.buttons == core::kNavStickUp);
+    r[7] = 128 - 50;  // tussen uit (40) en aan (64): blijft aan
+    CHECK(core::parse_nav_report(r, sizeof r, s, s) && s.buttons == core::kNavStickUp);
+    r[7] = 128 - 30;
+    CHECK(core::parse_nav_report(r, sizeof r, s, s) && s.buttons == 0);
+    r[7] = 128 - 50;  // vanuit uit: nog niet aan
+    CHECK(core::parse_nav_report(r, sizeof r, s, s) && s.buttons == 0);
+    r[6] = 255; r[7] = 128;
+    CHECK(core::parse_nav_report(r, sizeof r, s, s) && s.buttons == core::kNavStickRight);
+    // Te kort of een ander rapport-ID: geweigerd, uitvoer ongewijzigd.
+    core::NavState keep = s;
+    CHECK(!core::parse_nav_report(r, 10, s, s) && s.buttons == keep.buttons);
+    r[0] = 0x02;
+    CHECK(!core::parse_nav_report(r, sizeof r, s, s));
+    CHECK(core::nav_button_bit("nav_l2") == core::kNavL2 && core::nav_button_bit("l2") == 0);
+    CHECK(move_button_bit("nav_cross") == (static_cast<uint64_t>(core::kNavCross) << kNavBitShift) && move_button_bit("cross") == core::kBtnCross);
+}
+
+// Knoppen van de Navigation Controller in de indeling van een speler: acties, toetsen en recenter op de flank.
+static void test_live_feed_nav() {
+    config::GunButtonSettings gs;
+    gs.map["nav_cross"] = "key:2";
+    gs.map["nav_ps"] = "recenter";
+    gs.map["nav_stick_left"] = "key:left";
+    LiveGunFeed feed(build_live_map(gs));
+    core::InputSample s = sample(0);
+    LiveAction a = feed.update(s, core::kNavL1 | core::kNavCross);
+    CHECK(a.reload && !a.grenade && !a.recenter);
+    bool two = false;
+    for (const auto& k : a.keys) if (k.first == key_code("2")) two = k.second;
+    CHECK(two);
+    a = feed.update(s, core::kNavL2 | core::kNavPS);
+    CHECK(a.grenade && !a.reload && a.recenter && !a.recenter_ps);
+    a = feed.update(s, core::kNavPS);  // vastgehouden: geen nieuwe flank
+    CHECK(!a.recenter);
+    a = feed.update(s, core::kNavStickLeft);
+    bool left = false;
+    for (const auto& k : a.keys) if (k.first == key_code("left")) left = k.second;
+    CHECK(left && !a.recenter);
+    // Bronuitval van de Move: alles los, ook de nav-acties.
+    core::InputSample lost = s;
+    lost.link = core::LinkState::Lost;
+    CHECK(feed.update(lost, core::kNavL1).release_all);
+}
+
 int main() {
+    test_gun_identity();
+    test_key_mux();
+    test_nav_report();
+    test_live_feed_nav();
     test_key_table();
     test_live_map_defaults();
     test_live_feed_layout();

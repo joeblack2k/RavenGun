@@ -14,8 +14,12 @@
     { id: 'knoppen', label: 'Knoppen' },
     { id: 'led', label: 'LED en camera' },
     { id: 'games', label: 'Games' },
+    { id: 'controllers', label: 'Controllers' },
     { id: 'info', label: 'Info (technisch)' }
   ];
+  // Tabbladen met een spelerkeuze bovenaan (de instellingen gelden per controller).
+  var PLAYER_TABS = ['overzicht', 'richten', 'trillen', 'knoppen', 'led'];
+  function hasPlayerBar(tab) { return PLAYER_TABS.indexOf(tab) >= 0; }
   function isTab(id) {
     for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return true;
     return false;
@@ -122,17 +126,31 @@
     { id: 'ss_fire', label: 'Vuurknop', group: 'sharp' },
     { id: 'sel1', label: 'Vuurstand 1', group: 'sharp' },
     { id: 'sel2', label: 'Vuurstand 2', group: 'sharp' },
-    { id: 'sel3', label: 'Vuurstand 3', group: 'sharp' }
+    { id: 'sel3', label: 'Vuurstand 3', group: 'sharp' },
+    { id: 'nav_l1', label: 'L1', group: 'nav' },
+    { id: 'nav_l2', label: 'L2', group: 'nav' },
+    { id: 'nav_cross', label: 'Kruis', group: 'nav' },
+    { id: 'nav_circle', label: 'Cirkel', group: 'nav' },
+    { id: 'nav_ps', label: 'PS-knop', group: 'nav' },
+    { id: 'nav_l3', label: 'Stick indrukken (L3)', group: 'nav' },
+    { id: 'nav_up', label: 'Pijltje omhoog', group: 'nav' },
+    { id: 'nav_down', label: 'Pijltje omlaag', group: 'nav' },
+    { id: 'nav_left', label: 'Pijltje links', group: 'nav' },
+    { id: 'nav_right', label: 'Pijltje rechts', group: 'nav' },
+    { id: 'nav_stick_up', label: 'Stick omhoog', group: 'nav' },
+    { id: 'nav_stick_down', label: 'Stick omlaag', group: 'nav' },
+    { id: 'nav_stick_left', label: 'Stick naar links', group: 'nav' },
+    { id: 'nav_stick_right', label: 'Stick naar rechts', group: 'nav' }
   ];
   var KEY_LABELS = {
-    '5': 'Coin (toets 5)', '1': 'Start (toets 1)', f2: 'Test (toets F2)', f3: 'Service (toets F3)',
+    '5': 'Coin (toets 5)', '1': 'Start speler 1 (toets 1)', '2': 'Start speler 2 (toets 2)', f2: 'Test (toets F2)', f3: 'Service (toets F3)',
     esc: 'Esc', enter: 'Enter', space: 'Spatiebalk', tab: 'Tab', backspace: 'Backspace',
     up: 'Pijl omhoog', down: 'Pijl omlaag', left: 'Pijl links', right: 'Pijl rechts',
     lshift: 'Linker Shift', lctrl: 'Linker Ctrl', lalt: 'Linker Alt'
   };
-  var MAIN_KEYS = ['5', '1', 'f2', 'f3'];
+  var MAIN_KEYS = ['5', '1', '2', 'f2', 'f3'];
   var OTHER_KEYS = ['esc', 'enter', 'space', 'tab', 'backspace', 'up', 'down', 'left', 'right', 'lshift', 'lctrl', 'lalt',
-    'f1', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '0', '2', '3', '4', '6', '7', '8', '9',
+    'f1', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '0', '3', '4', '6', '7', '8', '9',
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
   function keyLabel(k) {
     if (KEY_LABELS[k]) return KEY_LABELS[k];
@@ -236,8 +254,75 @@
     return lines;
   }
 
+  // ---- Spelers en controllers ----
+  var MAX_PLAYERS = 4;
+  // Het onthouden spelernummer (1..4), anders 1.
+  function pickPlayer(stored) {
+    var n = Number(stored);
+    return n >= 1 && n <= MAX_PLAYERS && Math.floor(n) === n ? n : 1;
+  }
+  // Keuzes voor de spelerbalk uit status.assignment.players: [{player, controller: naam|null}]. Speler 1 staat er altijd;
+  // spelers zonder Move alleen als ze gekozen zijn (dan ziet de gebruiker dat er geen Move is).
+  function playerOptions(players, current) {
+    var out = [];
+    (players || []).forEach(function (p) {
+      if (p.player === 1 || p.controller || p.player === current)
+        out.push({ player: p.player, label: 'Speler ' + p.player, sub: p.controller || 'geen Move' });
+    });
+    if (!out.length) out.push({ player: 1, label: 'Speler 1', sub: 'geen Move' });
+    return out;
+  }
+  // Voegt de gekozen speler toe aan een verzoek (een kopie; het origineel blijft ongewijzigd).
+  function withPlayer(body, player) {
+    var o = {};
+    Object.keys(body || {}).forEach(function (k) { o[k] = body[k]; });
+    o.player = pickPlayer(player);
+    return o;
+  }
+  function controllerTypeLabel(type) { return type === 'navigation' ? 'Navigation Controller' : 'Move'; }
+  // "Laatst gezien" in gewone taal; nowS en unixS in seconden.
+  function lastSeenText(unixS, nowS) {
+    if (typeof unixS !== 'number' || !(unixS > 0)) return 'nog nooit';
+    var d = Math.max(0, Math.round(nowS - unixS));
+    if (d < 90) return 'zojuist';
+    if (d < 3600) return Math.round(d / 60) + ' minuten geleden';
+    if (d < 2 * 3600) return 'een uur geleden';
+    if (d < 86400) return Math.round(d / 3600) + ' uur geleden';
+    if (d < 2 * 86400) return 'gisteren';
+    return Math.round(d / 86400) + ' dagen geleden';
+  }
+  // Batterij van een controller uit de lijst (/api/controllers): dezelfde weergave als bij de Move.
+  function controllerBattery(c) {
+    var b = (c && c.battery) || {};
+    return batteryView(b.code, !!(c && c.connected && b.known), typeof b.percent === 'number' ? b.percent : undefined);
+  }
+  // De koppelwizard: stap (0 kabel erin, 1 koppelen, 2 kabel eruit, 3 PS-knop, 4 klaar), wat er te zien en te doen is.
+  var PAIR_STEPS = ['Kabel erin', 'Koppelen', 'Kabel eruit', 'PS-knop'];
+  function pairView(p) {
+    p = p || {};
+    var st = p.state || 'idle';
+    var v = { state: st, step: 0, tone: 'info', busy: !!p.busy, active: !!p.active, canStart: false, startLabel: 'Nieuwe controller koppelen',
+      canConfirm: false, confirmLabel: '', canCancel: false, showInstall: false, text: p.instruction || '', message: p.message || '' };
+    switch (st) {
+      case 'wait_usb': v.step = 0; v.canCancel = true; break;
+      case 'already_paired': v.step = 1; v.canConfirm = true; v.confirmLabel = 'Opnieuw koppelen'; v.canCancel = true; v.tone = 'warn'; break;
+      case 'set_master': case 'register': v.step = 1; v.busy = true; v.canCancel = false; break;
+      case 'need_helper': v.step = 1; v.showInstall = true; v.canConfirm = true; v.confirmLabel = 'Opnieuw proberen'; v.canCancel = true; v.tone = 'warn'; break;
+      case 'wait_unplug': v.step = 2; v.canCancel = true; break;
+      case 'wait_bluetooth': v.step = 3; v.canCancel = true; break;
+      case 'done': v.step = 4; v.tone = 'ok'; v.canStart = true; v.startLabel = 'Nog een controller koppelen'; break;
+      case 'failed': v.step = 0; v.tone = 'bad'; v.canStart = true; v.startLabel = 'Opnieuw beginnen'; break;
+      default: v.step = 0; v.canStart = true;  // idle, cancelled
+    }
+    if (st === 'cancelled' || st === 'idle') v.text = 'Sluit een nieuwe Move of Navigation Controller met een USB-kabel aan en druk op Nieuwe controller koppelen.';
+    return v;
+  }
+
   return {
-    TABS: TABS, isTab: isTab, pickTab: pickTab,
+    TABS: TABS, isTab: isTab, pickTab: pickTab, hasPlayerBar: hasPlayerBar,
+    MAX_PLAYERS: MAX_PLAYERS, pickPlayer: pickPlayer, playerOptions: playerOptions, withPlayer: withPlayer,
+    controllerTypeLabel: controllerTypeLabel, lastSeenText: lastSeenText, controllerBattery: controllerBattery,
+    PAIR_STEPS: PAIR_STEPS, pairView: pairView,
     clamp: clamp, fmtNl: fmtNl, niceRound: niceRound, percent255: percent255, logScale: logScale,
     batteryView: batteryView, createLiveSender: createLiveSender,
     BUTTONS: BUTTONS, actionGroups: actionGroups, actionLabel: actionLabel, keyLabel: keyLabel, mapChanges: mapChanges,

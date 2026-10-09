@@ -89,7 +89,7 @@ static void test_roundtrip_and_validation() {
     CHECK(parse_settings(to_json(m), out, err) && same(m, out));
     CHECK(parse_settings(to_json(m, false), out, err) && same(m, out));  // compacte vorm
     CHECK(to_json(m, false).find('\n') == std::string::npos);            // IPC is regelgebaseerd
-    CHECK(contains(to_json(m), "\"schema\": 1") && contains(to_json(m), "\"mode\":\"320x240@125\""));
+    CHECK(contains(to_json(m), "\"schema\": 2") && contains(to_json(m), "\"mode\":\"320x240@125\""));
 
     // Alleen een schema: alle secties vallen terug op de standaardwaarden.
     CHECK(parse_settings(R"({"schema":1})", out, err) && same(d, out));
@@ -132,7 +132,7 @@ static void test_roundtrip_and_validation() {
     bad(R"([1,2])", "JSON-object");
     bad(R"({"schema":1,)", "JSON");
     bad(R"({"led":{}})", "schema");
-    bad(R"({"schema":2})", "nieuwer");
+    bad(R"({"schema":3})", "nieuwer");
     bad(R"({"schema":"1"})", "schema");
 
     // Onbekende sleutels worden genegeerd, met een waarschuwing.
@@ -548,7 +548,7 @@ static void test_fusion_and_gun_buttons() {
     std::string err;
     CHECK(config::parse_settings(text, b, err));
     CHECK(b.fusion.mode == "mahony_mag" && b.gun_buttons.map.at("circle") == "key:space" && b.gun_buttons.map.at("cross") == "none");
-    CHECK(b.gun_buttons.map.size() == 13 && b.gun_buttons.map.at("move") == "grenade");
+    CHECK(b.gun_buttons.map.size() == 27 && b.gun_buttons.map.at("move") == "grenade");
     CHECK(config::to_json(b) == text);  // stabiel
     // Lerende yaw-trim: standaard aan, uit te zetten, onzin geweigerd.
     CHECK(s.fusion.recenter_learning && b.fusion.recenter_learning);
@@ -604,7 +604,160 @@ static void test_fusion_and_gun_buttons() {
     CHECK(contains(config::validate(v), "PS-knop"));
 }
 
+// Schema 1 -> 2: een bestaand bestand migreert verliesvrij (alle waarden worden de standaard, er komen geen afwijkingen
+// bij) en de laatst-goede kopie bewaart het oude bestand byte voor byte.
+static void test_migration_lossless() {
+    Settings m = modified();
+    m.rumble.strength = 210;
+    m.fusion.mode = "vqf_mag";
+    m.gun_buttons.map["circle"] = "key:f2";
+    std::string v2 = to_json(m);
+    // Het oude formaat: schema 1, zonder controllers en zonder de knoppen van de Navigation Controller.
+    std::string v1 = v2;
+    v1.replace(v1.find("\"schema\": 2"), 11, "\"schema\": 1");
+    v1.erase(v1.find(",\n  \"controllers\""), std::string::npos);
+    v1 += "\n}\n";
+    for (const char* nb : {"nav_cross", "nav_circle", "nav_l1", "nav_l2", "nav_l3", "nav_ps", "nav_up", "nav_down", "nav_left", "nav_right",
+                           "nav_stick_up", "nav_stick_down", "nav_stick_left", "nav_stick_right"}) {
+        size_t at = v1.find(std::string(",\"") + nb + "\":");
+        if (at == std::string::npos) continue;
+        size_t end = v1.find('"', v1.find(':', at) + 2);
+        v1.erase(at, end + 1 - at);
+    }
+    CHECK(v1.find("controllers") == std::string::npos && v1.find("nav_") == std::string::npos && v1.find("\"schema\": 1") != std::string::npos);
+    Settings out;
+    std::string err;
+    std::vector<std::string> w;
+    CHECK(parse_settings(v1, out, err, &w) && err.empty() && w.empty());
+    CHECK(same(out, m) && out.controllers.empty());
+    CHECK(out.rumble.strength == 210 && out.fusion.mode == "vqf_mag" && out.gun_buttons.map.at("circle") == "key:f2");
+    // Een Move die daarna verschijnt (zonder afwijkingen), krijgt precies de gemigreerde waarden.
+    out.controllers["00:07:04:8c:70:ac"].player = 1;
+    Settings eff = effective(out, "00:07:04:8C:70:AC");
+    eff.controllers.clear();
+    CHECK(same(eff, m));
+
+    // Via de opslag: laden, een wijziging bewaart schema 2, het oude bestand staat ongewijzigd in .bak.
+    std::string dir = tmpdir() + "/mig";
+    spit(dir + "/config.json", v1);
+    SettingsStore st(dir + "/config.json");
+    LoadInfo li = st.load();
+    CHECK(li.state == LoadInfo::State::Loaded && li.warnings.empty());
+    CHECK(same(st.get(), m));
+    CHECK(slurp(dir + "/config.json") == v1);  // laden schrijft niets
+    CHECK(st.update([](Settings& s) { s.web.port = 18001; }).ok);
+    CHECK(slurp(dir + "/config.json.bak") == v1);
+    std::string now = slurp(dir + "/config.json");
+    CHECK(contains(now, "\"schema\": 2") && contains(now, "\"controllers\": {}") && contains(now, "\"strength\":210"));
+    Settings back;
+    CHECK(parse_settings(now, back, err) && back.web.port == 18001 && back.rumble.strength == 210);
+    fs::remove_all(dir);
+}
+
+// Per-controller-afwijkingen, spelertoewijzing en de controllersectie in het bestand.
+static void test_controllers() {
+    const std::string A = "00:07:04:8c:70:ac", B = "00:07:04:11:22:33", N = "00:06:f7:0e:c1:93";
+    Settings s;
+    s.filter.beta = 10;
+    s.controllers[A].player = 1;
+    s.controllers[A].name = "Move 1";
+    s.controllers[B].player = 2;
+    s.controllers[N].type = "navigation";
+    s.controllers[N].player = 1;
+    CHECK(validate(s).empty());
+
+    // Een wijziging voor B raakt alleen B; de standaard en A blijven gelijk.
+    CHECK(modify_for(s, "00:07:04:11:22:33", {"filter.beta", "gun_buttons.map.cross"}, [](Settings& e) {
+        e.filter.beta = 3; e.gun_buttons.map["cross"] = "grenade"; e.filter.min_cutoff_hz = 99;  // min_cutoff staat niet in de sleutels
+    }));
+    CHECK(effective(s, B).filter.beta == 3 && effective(s, B).gun_buttons.map.at("cross") == "grenade");
+    CHECK(effective(s, B).filter.min_cutoff_hz == 0.3);
+    CHECK(effective(s, A).filter.beta == 10 && s.filter.beta == 10 && effective(s, A).gun_buttons.map.at("cross") == "reload");
+    CHECK(s.controllers[B].keys.size() == 2);
+    // Onbekend adres: niets gewijzigd.
+    CHECK(!modify_for(s, "00:00:00:00:00:01", {"filter.beta"}, [](Settings& e) { e.filter.beta = 1; }));
+    // Een standaardwijziging geldt voor A (geen afwijking), niet voor B (eigen waarde).
+    CHECK(modify_for(s, "", {}, [](Settings& e) { e.filter.beta = 20; }));
+    CHECK(effective(s, A).filter.beta == 20 && effective(s, B).filter.beta == 3);
+
+    // Rondgang door het bestand, ook met afwijkingen; de afgeschermde vorm noemt geen volledig adres.
+    std::string text = to_json(s);
+    Settings back;
+    std::string err;
+    CHECK(parse_settings(text, back, err));
+    CHECK(same(back, s) && back.controllers.size() == 3 && back.controllers.at(B).keys == s.controllers.at(B).keys);
+    CHECK(effective(back, B).filter.beta == 3 && effective(back, A).filter.beta == 20 && back.controllers.at(A).name == "Move 1");
+    std::string red = to_json(s, false, true);
+    CHECK(!contains(red, A) && !contains(red, B) && contains(red, "xx:xx:xx:xx:xx:ac"));
+
+    // Wissen van afwijkingen.
+    clear_overrides(s.controllers[B], {"filter."});
+    CHECK(effective(s, B).filter.beta == 20 && effective(s, B).gun_buttons.map.at("cross") == "grenade");
+
+    // Spelers: vrije plek, dubbele speler geweigerd, een Navigation Controller telt niet mee.
+    CHECK(free_player(s) == 3 && free_player(s, A) == 1 && move_for_player(s, 2) == B && move_for_player(s, 3).empty());
+    Settings d = s;
+    d.controllers[B].player = 1;
+    CHECK(contains(validate(d), "speler 1"));
+    d.controllers[B].removed = true;  // verwijderd met bewaarde instellingen: bezet geen speler
+    CHECK(validate(d).empty() && free_player(d) == 2);
+
+    // Spelergebonden standaarden: speler 2 krijgt magenta (met de gemeten tint) en Start-toets 2; terug naar 1 wist dat weer.
+    Settings p;
+    p.controllers[B].player = 2;
+    apply_player_defaults(p, B, 1, 2);
+    Settings e2 = effective(p, B);
+    CHECK(e2.led.preset == "magenta" && e2.tracker.hue_deg == 86 && e2.gun_buttons.map.at("start") == "key:2" && e2.gun_buttons.map.at("square") == "key:2");
+    CHECK(e2.gun_buttons.map.at("triangle") == "key:5" && e2.gun_buttons.map.at("select") == "key:5");  // Coin blijft 5
+    p.controllers[B].player = 1;
+    apply_player_defaults(p, B, 2, 1);
+    CHECK(p.controllers[B].keys.empty() && effective(p, B).led.preset == "cyaan");
+    // Een eigen kleur blijft staan bij een spelerwissel.
+    modify_for(p, B, {"led.preset", "led.r", "led.g", "led.b"}, [](Settings& e) { e.led = {true, "rood", 255, 0, 0}; });
+    apply_player_defaults(p, B, 1, 2);
+    CHECK(effective(p, B).led.preset == "rood" && effective(p, B).gun_buttons.map.at("start") == "key:2");
+    CHECK(player_led(2).preset == "magenta" && player_led(1).preset == "cyaan" && player_start_key(3) == "3");
+    // Eigen keuzes tellen; de spelergebonden standaarden niet.
+    Settings q;
+    config::register_controller(q, A, "move", "ZCM1", 1);
+    config::register_controller(q, B, "move", "ZCM1", 2);
+    CHECK(!q.controllers.at(B).keys.empty() && own_overrides(q, B) == 0 && own_overrides(q, A) == 0);
+    modify_for(q, B, {"filter.beta", "led.preset", "led.r", "led.g", "led.b"}, [](Settings& e) { e.filter.beta = 3; e.led = {true, "rood", 255, 0, 0}; });
+    CHECK(own_overrides(q, B) == 3);  // beta, preset en b (r en g zijn bij rood en magenta gelijk)
+
+    // Adressen en namen.
+    CHECK(address_valid("00:07:04:8C:70:AC") && normalize_address("00:07:04:8C:70:AC") == A);
+    for (const char* bad : {"", "00:07:04:8c:70", "00-07-04-8c-70-ac", "00:07:04:8c:70:ag", "00:00:00:00:00:00", "ff:ff:ff:ff:ff:ff",
+                            "00:07:04:8c:70:ac;rm", " 00:07:04:8c:70:ac"})
+        CHECK(!address_valid(bad));
+    CHECK(controller_name_valid("Move van Jeroen") && !controller_name_valid("") && !controller_name_valid(std::string(33, 'x')) &&
+          !controller_name_valid("a\nb"));
+
+    // Ongeldige controllers in het bestand worden geweigerd (en niets half toegepast).
+    auto bad = [&](const std::string& ctrl, const std::string& frag) {
+        Settings o;
+        std::string e;
+        CHECK(!parse_settings(std::string(R"({"schema":2,"controllers":)") + ctrl + "}", o, e));
+        CHECK(contains(e, frag));
+    };
+    bad(R"({"00:07:04:8C:70:AC":{}})", "ongeldig adres");
+    bad(R"({"bla":{}})", "ongeldig adres");
+    bad(R"({"00:07:04:8c:70:ac":{"type":"dualshock"}})", "type");
+    bad(R"({"00:07:04:8c:70:ac":{"player":5}})", "player");
+    bad(R"({"00:07:04:8c:70:ac":{"player":1},"00:07:04:8c:70:ad":{"player":1}})", "speler 1");
+    bad(R"({"00:07:04:8c:70:ac":{"settings":{"filter":{"beta":-3}}}})", "beta");
+    bad(R"({"00:07:04:8c:70:ac":{"settings":{"gun_buttons":{"map":{"ps":"reload"}}}}})", "indeelbare knop");
+    bad(R"({"00:07:04:8c:70:ac":{"settings":{"led":{"preset":"paars"}}}})", "led.preset");
+    // Onbekende sleutels: waarschuwing, geen fout.
+    Settings o;
+    std::vector<std::string> w;
+    CHECK(parse_settings(R"({"schema":2,"controllers":{"00:07:04:8c:70:ac":{"player":1,"kleur":"x","settings":{"geluid":{}}}}})", o, err, &w));
+    CHECK(w.size() == 2 && o.controllers.at(A).player == 1);
+}
+
 int main() {
+    test_migration_lossless();
+    test_controllers();
     test_fusion_and_gun_buttons();
     test_sharp_shooter_buttons();
     test_roundtrip_and_validation();

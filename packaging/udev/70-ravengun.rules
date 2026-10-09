@@ -1,13 +1,17 @@
-# RavenGun: alleen de eigen virtuele uinput-apparaten (pid.codes-test-VID 1209, PID 7201/7202).
+# RavenGun: alleen de eigen virtuele uinput-apparaten (pid.codes-test-VID 1209, PID 7201..7205).
 # Geeft de actieve seat-gebruiker leesrecht (uaccess) en stabiele symlinks; raakt geen andere apparaten.
 #
-# 7201 = virtueel toetsenbord (vinput kbd), 7202 = virtuele lightgun (ravengund, uinput_gun).
-# - /dev/input/ravengun-kbd en ravengun-gun: stabiele symlinks voor eigen tools.
+# 7201 = virtueel toetsenbord (ravengund, uinput_kbd; ook vinput kbd), 7202 = virtuele lightgun van speler 1 (ravengund,
+# uinput_gun; ongewijzigde identiteit, bestaande TeknoParrot-bindingen), 7203/7204/7205 = lightgun van speler 2/3/4
+# ("RavenGun Virtual Lightgun P2" enz.).
+# - /dev/input/ravengun-kbd, ravengun-gun en ravengun-gun-p2..p4: stabiele symlinks voor eigen tools.
 # - /dev/input/by-id/usb-RavenGun_*: dit pad slaat TeknoParrot op als DevicePath van een binding
 #   (EvdevInterop.BuildStablePathMap leest alleen /dev/input/by-id). uinput-apparaten hebben geen
 #   ID_SERIAL, dus udev maakt zelf geen by-id-link; zonder deze regel bindt TeknoParrot op /dev/input/eventN.
-# - LIBINPUT_IGNORE_DEVICE op de lightgun: KWin/libinput negeert het apparaat, zodat het de
-#   desktopcursor niet verplaatst en niet klikt. TeknoParrot leest /dev/input/eventN rechtstreeks en
-#   merkt hier niets van.
+# - LIBINPUT_IGNORE_DEVICE op de lightguns: KWin/libinput negeert ze, zodat ze de desktopcursor niet
+#   verplaatsen en niet klikken. TeknoParrot leest /dev/input/eventN rechtstreeks en merkt hier niets van.
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7201", TAG+="uaccess", SYMLINK+="input/ravengun-kbd input/by-id/usb-RavenGun_Virtual_Keyboard-event-kbd"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7202", TAG+="uaccess", SYMLINK+="input/ravengun-gun input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7203", TAG+="uaccess", SYMLINK+="input/ravengun-gun-p2 input/by-id/usb-RavenGun_Virtual_Lightgun_P2-event-mouse", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7204", TAG+="uaccess", SYMLINK+="input/ravengun-gun-p3 input/by-id/usb-RavenGun_Virtual_Lightgun_P3-event-mouse", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="7205", TAG+="uaccess", SYMLINK+="input/ravengun-gun-p4 input/by-id/usb-RavenGun_Virtual_Lightgun_P4-event-mouse", ENV{LIBINPUT_IGNORE_DEVICE}="1"

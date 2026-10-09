@@ -23,6 +23,7 @@ namespace ravengund {
 class CameraService;  // gedefinieerd in camera.hpp
 class HidContext;     // gedefinieerd in hid_thread.hpp
 class OutputService;  // gedefinieerd in output_service.hpp
+class ControllerService;  // gedefinieerd in controllers.hpp
 
 inline int64_t mono_ns() {
     timespec t{};
@@ -53,46 +54,81 @@ struct Snapshot {
     uint64_t progress_seq = 0;
 };
 
+inline constexpr int kPlayers = 4;
+
+// Korte samenvatting van wat er in de pijplijn van een speler zit (voor de controllerlijst en het overzicht), door de
+// HID-thread bijgewerkt bij verbinden, verbreken en een andere batterijstand.
+struct SlotInfo {
+    bool connected = false;
+    std::string address;        // volledig adres (kleine letters); leeg = geen Move
+    std::string model;          // ZCM1 / ZCM2
+    int battery_raw = -1;       // PSMove_Battery_Level
+    int64_t connected_at_ns = 0;
+    bool led_enabled = false;
+    int led[3] = {0, 0, 0};
+};
+
 class SharedState {
 public:
-    void publish(const ravengun::core::InputSample& s) {
+    static int clamp_player(int p) { return p < 1 ? 1 : p > kPlayers ? kPlayers : p; }
+    // Sample van speler 1 (zoals voorheen) of van speler `player` (1..4).
+    void publish(const ravengun::core::InputSample& s) { publish(1, s); }
+    void publish(int player, const ravengun::core::InputSample& s) {
+        const size_t i = static_cast<size_t>(clamp_player(player) - 1);
         std::lock_guard<std::mutex> g(m_);
-        snap_.sample = s;
-        snap_.sample.optical = optical_;  // optische meting komt uit de tracker-thread
+        Snapshot& sn = snap_[i];
+        sn.sample = s;
+        sn.sample.optical = optical_[i];  // optische meting komt uit de tracker-thread
         for (int b = 0; b < 32; ++b) {
-            if (s.pressed & (1u << b)) ++snap_.press_total[b];
-            if (s.released & (1u << b)) ++snap_.release_total[b];
+            if (s.pressed & (1u << b)) ++sn.press_total[b];
+            if (s.released & (1u << b)) ++sn.release_total[b];
         }
     }
-    // Vanuit de tracker-thread: laatste optische meting. Komt in elk volgend sample en in de
+    // Vanuit de tracker-thread: laatste optische meting van de bol van speler `player`. Komt in elk volgend sample en in de
     // huidige momentopname (ook als er geen Move verbonden is).
-    void publish_optical(const ravengun::core::OpticalSample& o) {
+    void publish_optical(const ravengun::core::OpticalSample& o) { publish_optical(1, o); }
+    void publish_optical(int player, const ravengun::core::OpticalSample& o) {
+        const int p = clamp_player(player);
+        const size_t i = static_cast<size_t>(p - 1);
         {
             std::lock_guard<std::mutex> g(m_);
-            optical_ = o;
-            snap_.sample.optical = o;
-            ++snap_.optical_updates;
+            optical_[i] = o;
+            snap_[i].sample.optical = o;
+            ++snap_[i].optical_updates;
         }
-        if (optical_hook) optical_hook(o);  // bijv. de recorder (niet-blokkerend)
+        if (optical_hook) optical_hook(p, o);  // bijv. de recorder (niet-blokkerend)
     }
-    // Vanuit de HID-thread: de laatste optische meting als die nieuw is sinds `seen` (teller van publish_optical).
-    // Goedkoop: geen momentopname-kopie. true en `out`/`seen` bijgewerkt bij een nieuwe meting.
-    bool optical_if_new(uint64_t& seen, ravengun::core::OpticalSample& out) const {
+    // Vanuit de HID-thread: de laatste optische meting van speler `player` als die nieuw is sinds `seen`.
+    bool optical_if_new(uint64_t& seen, ravengun::core::OpticalSample& out) const { return optical_if_new(1, seen, out); }
+    bool optical_if_new(int player, uint64_t& seen, ravengun::core::OpticalSample& out) const {
+        const size_t i = static_cast<size_t>(clamp_player(player) - 1);
         std::lock_guard<std::mutex> g(m_);
-        if (snap_.optical_updates == seen) return false;
-        seen = snap_.optical_updates;
-        out = optical_;
+        if (snap_[i].optical_updates == seen) return false;
+        seen = snap_[i].optical_updates;
+        out = optical_[i];
         return true;
     }
-    // Vanuit de HID-thread: voortgang van opname/kalibratie (zie Snapshot::progress).
+    // Vanuit de HID-thread: voortgang van opname/kalibratie (zie Snapshot::progress); geldt voor alle spelers.
     void set_progress(std::string json) {
         std::lock_guard<std::mutex> g(m_);
-        snap_.progress = std::move(json);
-        ++snap_.progress_seq;
+        progress_ = std::move(json);
+        ++progress_seq_;
     }
-    Snapshot get() const {
+    Snapshot get(int player = 1) const {
+        const size_t i = static_cast<size_t>(clamp_player(player) - 1);
         std::lock_guard<std::mutex> g(m_);
-        return snap_;
+        Snapshot s = snap_[i];
+        s.progress = progress_;
+        s.progress_seq = progress_seq_;
+        return s;
+    }
+    void set_slot_info(int player, const SlotInfo& si) {
+        std::lock_guard<std::mutex> g(m_);
+        slots_[static_cast<size_t>(clamp_player(player) - 1)] = si;
+    }
+    std::array<SlotInfo, kPlayers> slot_infos() const {
+        std::lock_guard<std::mutex> g(m_);
+        return slots_;
     }
 
     // Opdrachten die in de HID-thread moeten draaien (pijplijn heeft één eigenaar).
@@ -114,13 +150,15 @@ public:
     }
 
     std::atomic<bool> running{true};
+    // De speler wiens Move wordt opgenomen (een opname is per controller); door de HID-thread gezet bij record start.
+    std::atomic<int> recording_player{1};
     // Levert de camerastatus als JSON-object (thread-safe); leeg = geen camera-service.
     std::function<std::string()> camera_status;
     // Uitvoer (virtueel lightgun-apparaat); niet-eigenaar, geset door main vóór de threads starten.
     OutputService* output = nullptr;
-    // Wordt na elke optische meting aangeroepen (in de tracker-thread); vóór het starten van de
+    // Wordt na elke optische meting aangeroepen (in de tracker-thread) met het spelernummer; vóór het starten van de
     // threads gezet en daarna niet meer gewijzigd.
-    std::function<void(const ravengun::core::OpticalSample&)> optical_hook;
+    std::function<void(int, const ravengun::core::OpticalSample&)> optical_hook;
     // Instellingenopslag (config.json) en camera-service (voor set_camera/set_led); niet-eigenaar, geset
     // door main vóór de threads starten. nullptr = niet beschikbaar (bijv. in tests).
     ravengun::config::SettingsStore* settings = nullptr;
@@ -131,10 +169,16 @@ public:
     int web_port = 0;                    // 0 = webinterface uit; door main gezet
     bool web_lan = false;
 
+    // Controllers (koppelen, verwijderen, Navigation Controller, BlueZ); nullptr = niet beschikbaar (tests).
+    class ControllerService* controllers = nullptr;
+
 private:
     mutable std::mutex m_;
-    Snapshot snap_;
-    ravengun::core::OpticalSample optical_{};
+    std::array<Snapshot, kPlayers> snap_{};
+    std::array<ravengun::core::OpticalSample, kPlayers> optical_{};
+    std::array<SlotInfo, kPlayers> slots_{};
+    std::string progress_;
+    uint64_t progress_seq_ = 0;
     std::mutex jm_;
     std::deque<std::packaged_task<std::string(HidContext&)>> jobs_;
 };

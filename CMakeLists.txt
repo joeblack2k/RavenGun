@@ -39,6 +39,8 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/sysinfo/navcon.cpp
+  src/ravengun/sysinfo/hidraw_scan.cpp
+  src/ravengun/pairing/pairing.cpp
   src/ravengun/json.cpp
   src/ravengun/json_parse.cpp
   src/ravengun/ipc_protocol.cpp
@@ -57,6 +59,8 @@ add_library(ravengun STATIC
   src/ravengun/output/test_pattern.cpp
   src/ravengun/output/uinput_gun.cpp
   src/ravengun/output/uinput_kbd.cpp
+  src/ravengun/output/key_mux.cpp
+  src/ravengun/core/navcon.cpp
   src/ravengun/output/live_feed.cpp
   src/ravengun/output/aim_clock.cpp
   src/ravengun/output/rumble.cpp
@@ -102,6 +106,8 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/camera.cpp
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
+    src/ravengund/move_slot.cpp
+    src/ravengund/controllers.cpp
     src/ravengund/recorder.cpp)
   target_link_libraries(ravengund PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengund PRIVATE ${RAVENGUN_BUILD_DEFS})
@@ -139,6 +145,7 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_core_tests COMMAND ravengun_core_tests)
   add_executable(ravengun_output_tests tests/test_output.cpp)
   target_link_libraries(ravengun_output_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_output_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_output_tests COMMAND ravengun_output_tests)
   add_executable(ravengun_vision_tests tests/test_vision.cpp)
   target_link_libraries(ravengun_vision_tests PRIVATE ravengun Threads::Threads)
@@ -170,17 +177,27 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_bias_tests tests/test_bias.cpp)
   target_link_libraries(ravengun_bias_tests PRIVATE ravengun)
   add_test(NAME ravengun_bias_tests COMMAND ravengun_bias_tests)
+  add_executable(ravengun_pairing_tests tests/test_pairing.cpp)
+  target_link_libraries(ravengun_pairing_tests PRIVATE ravengun)
+  add_test(NAME ravengun_pairing_tests COMMAND ravengun_pairing_tests)
+  add_test(NAME ravengun_bt_helper COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/bt_helper_test.sh")
+  set_tests_properties(ravengun_bt_helper PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
   if(RAVENGUN_BUILD_DAEMON)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
-    add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp
+    add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp src/ravengund/controllers.cpp
       src/ravengund/camera.cpp src/ravengund/output_service.cpp)
     target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
     add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
+    add_executable(ravengund_players_tests tests/test_players.cpp src/ravengund/move_slot.cpp src/ravengund/hid_aux.cpp
+      src/ravengund/hidraw_tap.cpp src/ravengund/recorder.cpp src/ravengund/output_service.cpp)
+    target_include_directories(ravengund_players_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengund_players_tests PRIVATE ravengun Threads::Threads)
+    add_test(NAME ravengund_players_tests COMMAND ravengund_players_tests)
     # JS-unittests van de kalibratie-UI (node in een wegwerp-container); overgeslagen (77) zonder podman of netwerk.
     add_test(NAME ravengun_calibrate_js COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tools/test-js.sh"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

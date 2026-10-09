@@ -337,7 +337,27 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
     if (p.rfind("/api/", 0) == 0) {
         if (p == "/api/status" || p == "/api/sample" || p == "/api/info" || p == "/api/settings") {
             if (!get) return wrong_method("GET");
-            return api_command(std::string("{\"v\":1,\"cmd\":\"") + (p.c_str() + 5) + "\"}");
+            // Status en sample per speler: ?player=N (1..4); zonder: speler 1.
+            const int pl = (p == "/api/status" || p == "/api/sample") ? player_from_query(r.query) : 0;
+            return api_command(std::string("{\"v\":1,\"cmd\":\"") + (p.c_str() + 5) + "\"" + (pl ? ",\"player\":" + std::to_string(pl) : std::string()) + "}");
+        }
+        // Controllers: lijst, koppelen, verwijderen, naam/speler wijzigen, knipperen (zie docs/web-ui.md).
+        if (p == "/api/controllers") {
+            if (!get) return wrong_method("GET");
+            return api_command("{\"v\":1,\"cmd\":\"controllers\"}");
+        }
+        if (p.rfind("/api/controllers/", 0) == 0) {
+            if (get) return wrong_method("POST");
+            const std::string sub = p.substr(17);
+            std::string line, err;
+            bool ok = false;
+            if (sub == "pair") ok = build_set_request("pair", r.body, {}, line, err, {"action"});
+            else if (sub == "unpair") ok = build_set_request("unpair", r.body, {"keep_settings"}, line, err, {"controller"});
+            else if (sub == "update") ok = build_set_request("set_controller", r.body, {"new_player", "reset_settings"}, line, err, {"controller", "name"});
+            else if (sub == "blink") ok = build_set_request("blink", r.body, {"ms", "player"}, line, err, {"controller"});
+            else return error_json(404, "not_found", "onbekend eindpunt");
+            if (!ok) return error_json(400, "bad_request", err);
+            return api_command(line);
         }
         // Fase 0/3: alleen-lezen voortgang van opname en magnetometerkalibratie (voor de web-UI).
         if (p == "/api/record" || p == "/api/magnetometer") {
@@ -362,14 +382,14 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
         if (p == "/api/led") {
             if (get) return wrong_method("POST");
             std::string line, err;
-            if (!build_set_request("set_led", r.body, {"r", "g", "b"}, line, err, {"preset"})) return error_json(400, "bad_request", err);
+            if (!build_set_request("set_led", r.body, {"r", "g", "b", "player"}, line, err, {"preset", "controller"})) return error_json(400, "bad_request", err);
             return api_command(line);
         }
         if (p == "/api/rumble" || p == "/api/rumble-test") {
             if (get) return wrong_method("POST");
             std::string line, err;
-            bool ok = p == "/api/rumble" ? build_set_request("set_rumble", r.body, {"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength"}, line, err)
-                                         : build_set_request("rumble_test", r.body, {"ms"}, line, err);
+            bool ok = p == "/api/rumble" ? build_set_request("set_rumble", r.body, {"enabled", "strength", "pulse_ms", "repeat_hz", "pump_strength", "player"}, line, err, {"controller"})
+                                         : build_set_request("rumble_test", r.body, {"ms", "player"}, line, err, {"controller"});
             if (!ok) return error_json(400, "bad_request", err);
             return api_command(line);
         }
@@ -405,10 +425,16 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             auto pr = json::parse(r.body);
             if (!pr.ok || !pr.value.is_object()) return error_json(400, "bad_request", "verwacht een JSON-object");
             const json::Value* m = pr.value.find("map");
-            if (pr.value.obj.size() != 1 || !m || !m->is_object() || m->obj.size() > 32)
-                return error_json(400, "bad_request", "verwacht alleen {\"map\":{knop: actie}}");
+            const json::Value* pl = pr.value.find("player");
+            const json::Value* ct = pr.value.find("controller");
+            if (pr.value.obj.size() != 1u + (pl ? 1u : 0u) + (ct ? 1u : 0u) || !m || !m->is_object() || m->obj.size() > 48)
+                return error_json(400, "bad_request", "verwacht alleen {\"map\":{knop: actie}} (eventueel met \"player\" of \"controller\")");
+            if ((pl && !pl->is_number()) || (ct && !ct->is_string())) return error_json(400, "bad_request", "'player' moet een getal en 'controller' een tekst zijn");
             json::Writer w;
-            w.begin_object().key("v").value(1).key("cmd").value("set_gun_buttons").key("map").begin_object();
+            w.begin_object().key("v").value(1).key("cmd").value("set_gun_buttons");
+            if (pl) w.key("player").value(pl->num);
+            if (ct) w.key("controller").value(ct->str);
+            w.key("map").begin_object();
             for (const auto& kv : m->obj) {
                 if (!kv.second.is_string()) return error_json(400, "bad_request", "'" + kv.first + "' moet een tekst zijn");
                 w.key(kv.first).value(kv.second.str);
@@ -419,7 +445,7 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
         if (p == "/api/fusion") {
             if (get) return wrong_method("POST");
             std::string line, err;
-            if (!build_set_request("set_fusion", r.body, {"recenter_learning"}, line, err, {"mode"})) return error_json(400, "bad_request", err);
+            if (!build_set_request("set_fusion", r.body, {"recenter_learning", "player"}, line, err, {"mode", "controller"})) return error_json(400, "bad_request", err);
             return api_command(line);
         }
         if (p == "/api/web") {
@@ -467,11 +493,11 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             }
             if (get) return wrong_method("POST");
             if (sub == "mag/start" || sub == "mag/stop" || sub == "mag/abort") {
-                if (!build_set_request("calib_mag", r.body, {}, line, err, {"holder"}, sub.c_str() + 4)) return error_json(400, "bad_request", err);
+                if (!build_set_request("calib_mag", r.body, {"player"}, line, err, {"holder"}, sub.c_str() + 4)) return error_json(400, "bad_request", err);
                 return api_command(line);
             }
             if (sub == "rec/start" || sub == "rec/mark" || sub == "rec/stop") {
-                bool ok = sub == "rec/start" ? build_set_request("record", r.body, {"duration_s", "max_mb"}, line, err, {"tag"}, "start")
+                bool ok = sub == "rec/start" ? build_set_request("record", r.body, {"duration_s", "max_mb", "player"}, line, err, {"tag"}, "start")
                           : sub == "rec/mark" ? build_set_request("record", r.body, {}, line, err, {"label"}, "mark")
                                               : build_set_request("record", r.body, {}, line, err, {}, "stop");
                 if (!ok) return error_json(400, "bad_request", err);
@@ -498,19 +524,24 @@ HttpResponse WebApp::route(const HttpRequest& r) const {
             HttpResponse o;
             o.sse = true;
             o.sse_hz = stream_hz_from_query(r.query);
+            const int pl = player_from_query(r.query);
+            o.sse_player = pl ? pl : 1;
             return o;
         }
         if (p == "/api/recenter") {
             if (get) return wrong_method("POST");
-            return api_command("{\"v\":1,\"cmd\":\"recenter\"}");
+            std::string line, err;
+            const std::string body = r.body.empty() ? std::string("{}") : r.body;
+            if (!build_set_request("recenter", body, {"player"}, line, err, {"controller"})) return error_json(400, "bad_request", err);
+            return api_command(line);
         }
         if (p == "/api/filter" || p == "/api/aim" || p == "/api/clock") {
             if (get) return wrong_method("POST");
             std::string line, err;
             bool ok = p == "/api/filter"
-                          ? build_set_request("set_filter", r.body, {"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz"}, line, err)
+                          ? build_set_request("set_filter", r.body, {"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz", "player"}, line, err, {"controller"})
                           : p == "/api/clock" ? build_set_request("set_clock", r.body, {"clock_hz", "extrapolate_ms"}, line, err)
-                                              : build_set_request("set_aim", r.body, {"h_edge_deg", "v_edge_deg", "predict_ms"}, line, err);
+                                              : build_set_request("set_aim", r.body, {"h_edge_deg", "v_edge_deg", "predict_ms", "player"}, line, err, {"controller"});
             if (!ok) return error_json(400, "bad_request", err);
             return api_command(line);
         }
@@ -626,6 +657,18 @@ double stream_hz_from_query(const std::string& q) {
         pos = amp + 1;
     }
     return kDefaultStreamHz;
+}
+
+int player_from_query(const std::string& q) {
+    size_t pos = 0;
+    while (pos <= q.size()) {
+        size_t amp = q.find('&', pos);
+        std::string part = q.substr(pos, amp == std::string::npos ? std::string::npos : amp - pos);
+        if (part.size() == 8 && part.rfind("player=", 0) == 0 && part[7] >= '1' && part[7] <= '4') return part[7] - '0';
+        if (amp == std::string::npos) break;
+        pos = amp + 1;
+    }
+    return 0;
 }
 
 std::string sse_frame(std::string_view event, std::string_view data_json) {

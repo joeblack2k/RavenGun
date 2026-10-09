@@ -36,6 +36,7 @@ struct HttpResponse {
     std::vector<std::pair<std::string, std::string>> headers;
     bool sse = false;  // de server opent hierna een Server-Sent-Events-stroom
     double sse_hz = 0;  // gevraagde streamsnelheid van deze ene client (0 = standaard)
+    int sse_player = 1; // de speler wiens samples deze stroom volgt (?player=N, 1..4)
 };
 
 // Serialiseert statusregel, vaste beveiligingsheaders, Content-Length en body.
@@ -102,6 +103,8 @@ const Asset* find_asset(std::string_view path);
 inline constexpr double kDefaultStreamHz = 30.0;
 inline constexpr double kMaxStreamHz = 60.0;
 double stream_hz_from_query(const std::string& query);
+// ?player=N (geheel getal 1..4) uit de query; 0 als er geen (geldige) speler in staat.
+int player_from_query(const std::string& query);
 
 // SSE-hulp.
 std::string sse_frame(std::string_view event, std::string_view data_json);

@@ -69,9 +69,14 @@ public:
     // moduswissel herstart de capture (en bij een fout wordt de oude modus hersteld). Blokkeert
     // hoogstens ~5 s. Zonder camera (uit of niet actief) volgt een nette foutmelding.
     CameraApplyResult apply(const CameraChange& change);
-    // Nieuwe tint/tolerantie/min_chroma voor de tracker (bij een andere LED-kleur); werkt direct.
-    void set_tracker(const ravengun::vision::TrackerConfig& cfg);
-    ravengun::vision::TrackerConfig tracker() const;
+    // Nieuwe tint/tolerantie/min_chroma voor de tracker (bij een andere LED-kleur); werkt direct. Zonder speler: speler 1.
+    // Er draait een tracker per speler op hetzelfde beeld, elk op de tint van de bol van die speler (docs/decisions.md).
+    void set_tracker(const ravengun::vision::TrackerConfig& cfg) { set_tracker(1, cfg); }
+    void set_tracker(int player, const ravengun::vision::TrackerConfig& cfg);
+    ravengun::vision::TrackerConfig tracker(int player = 1) const;
+    // De tracker van speler 2..4 zoekt alleen als die speler een Move heeft (speler 1 zoekt altijd).
+    void set_tracker_enabled(int player, bool on);
+    bool tracker_enabled(int player) const;
     bool enabled() const;
 
 private:

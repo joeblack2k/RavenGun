@@ -13,6 +13,10 @@
 #include <unistd.h>
 
 #include "camera.hpp"
+#include "controllers.hpp"
+#include "ravengun/core/magnetometer.hpp"
+#include <map>
+#include <vector>
 #include "commands.hpp"
 #include "hid_thread.hpp"
 #include "output_service.hpp"
@@ -565,6 +569,161 @@ static void test_games_commands(const std::string& dir) {
     CHECK(!ok && code == "unavailable");
 }
 
+// Meerdere spelers: per-controller-instellingen via de spelerkeuze, de standaard, spelernummers ruilen en de controllerlijst,
+// het koppelen en verwijderen met een nep-systeem (geen Bluetooth of hidraw).
+struct SelectHid final : HidContext {
+    int cur = 1;
+    std::map<int, core::OneEuroConfig> f;
+    std::vector<int> selected;
+    int reconfigs = 0;
+    bool select_player(int p) override { cur = p; selected.push_back(p); return p >= 1 && p <= 4; }
+    void reconfigure() override { ++reconfigs; }
+    std::string blink(int ms) override { return cur == 2 ? "1" : "!unavailable|niet verbonden (" + std::to_string(ms) + ")"; }
+    std::string status_json(bool) override { return "{\"player\":" + std::to_string(cur) + "}"; }
+    bool recenter() override { return true; }
+    core::OneEuroConfig filter() const override { auto it = f.find(cur); return it == f.end() ? core::OneEuroConfig{} : it->second; }
+    void set_filter(const core::OneEuroConfig& c) override { f[cur] = c; }
+    core::AimConfig aim() const override { return {}; }
+    void set_aim(const core::AimConfig&) override {}
+    void set_led(bool, uint8_t, uint8_t, uint8_t) override {}
+    std::string record(const ipc::Request&) override { return "{}"; }
+    std::string calib_mag(const ipc::Request&) override { return "{}"; }
+    core::FusionMode fusion() const override { return core::FusionMode::Mahony; }
+    void set_fusion(core::FusionMode) override {}
+};
+
+static void test_controllers(const std::string& dir) {
+    const std::string A = "00:07:04:8c:70:ac", B = "00:07:04:11:22:33", N = "00:06:f7:0e:c1:93";
+    SharedState sh;
+    SelectHid hid;
+    std::atomic<bool> stop{false};
+    std::thread t([&] { while (!stop.load()) { sh.run_jobs(hid); std::this_thread::sleep_for(std::chrono::milliseconds(1)); } });
+    auto call = [&](const std::string& line, bool* ok = nullptr, std::string* code = nullptr, std::string* msg = nullptr) {
+        auto pr = json::parse(execute_line(sh, line));
+        const json::Value* okv = pr.value.find("ok");
+        bool good = pr.ok && okv && okv->b;
+        if (ok) *ok = good;
+        if (!good && pr.ok)
+            if (const json::Value* e = pr.value.find("error")) {
+                if (code) *code = e->find("code")->str;
+                if (msg) *msg = e->find("message")->str;
+            }
+        return good ? *pr.value.find("result") : pr.value;
+    };
+    config::SettingsStore store(dir + "/ctl/config.json");
+    store.load();
+    sh.settings = &store;
+    store.update([&](config::Settings& s) {
+        config::register_controller(s, A, "move", "ZCM1", 1);
+        config::register_controller(s, B, "move", "ZCM1", 2);
+        config::register_controller(s, N, "navigation", "", 3);
+    });
+    bool ok = false;
+    std::string code, msg;
+
+    // Speler 2: live bij speler 2, bewaard als afwijking van B.
+    json::Value r = call(R"({"v":1,"cmd":"set_filter","beta":4,"player":2})", &ok);
+    CHECK(ok && num(r, "beta") == 4 && hid.f[2].beta == 4 && hid.selected.back() == 2);
+    CHECK(config::effective(store.get(), B).filter.beta == 4 && store.get().filter.beta == 10 && config::effective(store.get(), A).filter.beta == 10);
+    // Zonder keuze: speler 1 (A).
+    call(R"({"v":1,"cmd":"set_filter","beta":7})", &ok);
+    CHECK(ok && hid.f[1].beta == 7 && config::effective(store.get(), A).filter.beta == 7 && store.get().filter.beta == 10);
+    // Op adres of sleutel.
+    call(std::string(R"({"v":1,"cmd":"set_aim","predict_ms":20,"controller":")") + core::controller_key(B) + "\"}", &ok);
+    CHECK(ok && config::effective(store.get(), B).aim.predict_ms == 20 && config::effective(store.get(), A).aim.predict_ms == 40);
+    call(R"({"v":1,"cmd":"set_rumble","strength":99,"controller":"00:07:04:11:22:33"})", &ok);
+    CHECK(ok && config::effective(store.get(), B).rumble.strength == 99 && store.get().rumble.strength == 180);
+    // De standaard: geldt live voor elke speler zonder eigen waarde (niet A en B, wel de lege spelers 3 en 4).
+    hid.selected.clear();
+    call(R"({"v":1,"cmd":"set_filter","beta":12,"controller":"default"})", &ok);
+    CHECK(ok && store.get().filter.beta == 12 && config::effective(store.get(), B).filter.beta == 4);
+    CHECK(hid.selected == std::vector<int>({3, 4}));
+    // Knoppen voor speler 2.
+    call(R"({"v":1,"cmd":"set_gun_buttons","player":2,"map":{"cross":"key:2"}})", &ok);
+    CHECK(ok && config::effective(store.get(), B).gun_buttons.map.at("cross") == "key:2" && config::effective(store.get(), A).gun_buttons.map.at("cross") == "reload");
+
+    // Ongeldige keuzes: geweigerd (parser of daemon), niets bewaard.
+    const std::string before = slurp(dir + "/ctl/config.json");
+    for (const char* bad : {R"({"v":1,"cmd":"set_filter","beta":1,"player":5})", R"({"v":1,"cmd":"set_filter","beta":1,"player":1.5})",
+                            R"({"v":1,"cmd":"set_filter","beta":1,"controller":"bla"})", R"({"v":1,"cmd":"set_filter","beta":1,"controller":"00:07:04:8c:70:ac;id"})",
+                            R"({"v":1,"cmd":"set_filter","beta":1,"player":1,"controller":"default"})", R"({"v":1,"cmd":"set_filter","beta":1,"controller":"00:00:00:00:00:00"})",
+                            R"({"v":1,"cmd":"set_web","port":9000,"player":2})", R"({"v":1,"cmd":"unpair","controller":"default"})",
+                            R"({"v":1,"cmd":"unpair","player":1})", R"({"v":1,"cmd":"set_controller","controller":"../etc","name":"x"})",
+                            R"({"v":1,"cmd":"set_controller","controller":"00:07:04:8c:70:ac","name":"a\nb"})",
+                            R"({"v":1,"cmd":"set_controller","controller":"00:07:04:8c:70:ac","new_player":5})"}) {
+        call(bad, &ok, &code);
+        CHECK(!ok && (code == "invalid_argument" || code == "bad_request"));
+    }
+    call(R"({"v":1,"cmd":"set_filter","beta":1,"controller":"00:07:04:99:99:99"})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "onbekende"));
+    call(R"({"v":1,"cmd":"set_filter","beta":1,"controller":"00:06:f7:0e:c1:93"})", &ok, &code, &msg);  // Navigation: geen pijplijn
+    CHECK(!ok && contains(msg, "Navigation"));
+    CHECK(slurp(dir + "/ctl/config.json") == before);
+
+    // Naam en spelernummer: ruilen met de Move die dat nummer had; de spelerkleur gaat mee.
+    hid.reconfigs = 0;
+    r = call(R"({"v":1,"cmd":"set_controller","controller":"00:07:04:8c:70:ac","name":"Rode Move","new_player":2})", &ok);
+    CHECK(ok && r.find("player")->num == 2 && r.find("swapped_with")->str == "Move 2" && r.find("name")->str == "Rode Move");
+    CHECK(store.get().controllers.at(A).player == 2 && store.get().controllers.at(B).player == 1 && hid.reconfigs == 1);
+    CHECK(config::effective(store.get(), A).led.preset == "magenta" && config::effective(store.get(), B).led.preset == "cyaan");
+    CHECK(config::effective(store.get(), A).gun_buttons.map.at("start") == "key:2" && config::effective(store.get(), B).gun_buttons.map.at("start") == "key:1");
+    CHECK(config::effective(store.get(), B).filter.beta == 4);  // de eigen instellingen blijven bij de controller
+    // Afwijkingen wissen.
+    call(R"({"v":1,"cmd":"set_controller","controller":"00:07:04:11:22:33","reset_settings":true})", &ok);
+    CHECK(ok && config::effective(store.get(), B).filter.beta == 12 && store.get().controllers.at(B).keys.empty());
+
+    // Blink en status per speler.
+    call(R"({"v":1,"cmd":"blink","player":2})", &ok);
+    CHECK(ok);
+    call(R"({"v":1,"cmd":"blink","player":3})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+    r = call(R"({"v":1,"cmd":"status","player":2})", &ok);
+    CHECK(ok && num(r, "player") == 2 && r.find("assignment")->find("controller")->find("name")->str == "Rode Move");
+    CHECK(!contains(execute_line(sh, R"({"v":1,"cmd":"status","player":2})"), A));  // adres afgeschermd
+
+    // Controllerlijst, koppelen en verwijderen met een nep-systeem.
+    CHECK(call(R"({"v":1,"cmd":"controllers"})", &ok, &code).is_object() && !ok && code == "unavailable");
+    std::string ferr;
+    auto ops = make_fake_controller_ops(R"({"adapter":"1c:ce:51:98:5d:6b","helper":true,
+        "bluez":[{"address":"00:07:04:8c:70:ac","type":"move","model":"ZCM1","paired":true,"connected":true}],
+        "hidraw":[{"node":"/dev/hidraw10","bus":5,"type":"move","uniq":"00:07:04:8c:70:ac"},
+                  {"node":"/dev/hidraw21","bus":3,"type":"move","own":"00:07:04:55:66:77","master":"aa:bb:cc:dd:ee:01"}]})", ferr);
+    CHECK(ops != nullptr);
+    ControllerService svc(sh, std::move(ops));
+    sh.controllers = &svc;
+    r = call(R"({"v":1,"cmd":"controllers"})", &ok);
+    CHECK(ok && r.find("controllers")->arr.size() == 3 && r.find("adapter")->find("found")->b);
+    const std::string list = execute_line(sh, R"({"v":1,"cmd":"controllers"})");
+    CHECK(!contains(list, A) && !contains(list, B) && contains(list, core::controller_key(A)));
+    CHECK(contains(execute_line(sh, R"({"v":1,"cmd":"controllers","full_ids":true})"), A));
+    // Wizard: start, de USB-Move wordt gezien, master gezet, geregistreerd (nep), kabel eruit, verbonden.
+    r = call(R"({"v":1,"cmd":"pair","action":"start"})", &ok);
+    CHECK(ok && r.find("state")->str == "wait_usb");
+    call(R"({"v":1,"cmd":"pair","action":"start"})", &ok, &code);
+    CHECK(!ok && code == "unavailable");  // er loopt al een koppeling
+    for (int i = 0; i < 6; ++i) svc.tick_for_test();
+    r = call(R"({"v":1,"cmd":"pair","action":"status"})", &ok);
+    CHECK(ok && r.find("state")->str == "wait_unplug" && r.find("player")->num == 3);
+    CHECK(store.get().controllers.count("00:07:04:55:66:77") && store.get().controllers.at("00:07:04:55:66:77").player == 3);
+    CHECK(config::effective(store.get(), "00:07:04:55:66:77").led.preset == "groen");
+    r = call(R"({"v":1,"cmd":"pair","action":"cancel"})", &ok);
+    CHECK(ok && r.find("state")->str == "cancelled");
+    // Verwijderen: met bewaarde instellingen (speler vrij, instellingen blijven), daarna helemaal.
+    r = call(R"({"v":1,"cmd":"unpair","controller":"00:07:04:8c:70:ac","keep_settings":true})", &ok);
+    CHECK(ok && r.find("settings_kept")->b && store.get().controllers.at(A).removed && store.get().controllers.at(A).player == 0);
+    CHECK(config::effective(store.get(), A).led.preset == "magenta");  // bewaard voor als hij terugkomt
+    r = call(std::string(R"({"v":1,"cmd":"unpair","keep_settings":false,"controller":")") + core::controller_key(B) + "\"}", &ok);
+    CHECK(ok && !store.get().controllers.count(B));
+    call(R"({"v":1,"cmd":"unpair","controller":"00:07:04:99:99:99"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    // Een teruggekomen Move krijgt een vrije speler en zijn oude instellingen terug.
+    store.update([&](config::Settings& s) { config::register_controller(s, A, "move", "ZCM1", 9); });
+    CHECK(!store.get().controllers.at(A).removed && store.get().controllers.at(A).player >= 1);
+    sh.controllers = nullptr;
+    stop.store(true);
+    t.join();
+}
+
 int main() {
     std::string dir = (fs::temp_directory_path() / ("rg-cmd-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(dir);
@@ -578,6 +737,7 @@ int main() {
     test_set_gun_buttons(dir);
     test_fusion_and_learning(dir);
     test_games_commands(dir);
+    test_controllers(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

@@ -30,6 +30,18 @@ void sleep_ms(int ms) {
 
 }  // namespace
 
+GunIdentity gun_identity(int player) {
+    GunIdentity g;
+    if (player < 2 || player > kMaxGunPlayers) return g;  // speler 1: de oorspronkelijke identiteit
+    const std::string n = std::to_string(player);
+    g.player = player;
+    g.product = static_cast<unsigned short>(kProductId + (player - 1));  // 7203, 7204, 7205
+    g.name = std::string(kDeviceName) + " P" + n;
+    g.stable_link = std::string(kStableLink) + "-p" + n;
+    g.by_id_link = "/dev/input/by-id/usb-RavenGun_Virtual_Lightgun_P" + n + "-event-mouse";
+    return g;
+}
+
 bool UinputGun::create(std::string& err) {
     if (fd_ >= 0) return true;
     int fd = ::open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
@@ -49,10 +61,10 @@ bool UinputGun::create(std::string& err) {
     }
     uinput_setup us{};
     us.id.bustype = BUS_USB;
-    us.id.vendor = kVendorId;
-    us.id.product = kProductId;
+    us.id.vendor = id_.vendor;
+    us.id.product = id_.product;
     us.id.version = 1;
-    std::strncpy(us.name, kDeviceName, UINPUT_MAX_NAME_SIZE - 1);
+    std::strncpy(us.name, id_.name.c_str(), UINPUT_MAX_NAME_SIZE - 1);
     ok = ok && ioctl(fd, UI_DEV_SETUP, &us) == 0 && ioctl(fd, UI_DEV_CREATE) == 0;
     if (!ok) {
         err = std::string("uinput instellen mislukt: ") + std::strerror(errno);
@@ -97,7 +109,7 @@ bool UinputGun::write_button(GunButton b, bool down) {
 
 std::string UinputGun::event_node() const {
     char buf[256];
-    ssize_t n = ::readlink(kStableLink, buf, sizeof buf - 1);
+    ssize_t n = ::readlink(id_.stable_link.c_str(), buf, sizeof buf - 1);
     if (n <= 0) return {};
     buf[n] = 0;
     std::string t = buf;

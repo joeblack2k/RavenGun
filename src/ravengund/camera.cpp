@@ -231,11 +231,18 @@ struct CameraService::Impl {
     std::atomic<bool> has_pending{false};
     // Nieuwe trackerconfiguratie (andere LED-kleur): de tracker-thread neemt hem over.
     std::mutex tm;
-    TrackerConfig pending_tracker;
+    // Een tracker per speler (kleur van zijn bol); speler 1 staat altijd aan, 2..4 alleen met een Move.
+    std::array<TrackerConfig, kPlayers> pending_tracker{};
+    std::array<bool, kPlayers> tracker_on{{true, false, false, false}};
     std::atomic<uint64_t> tracker_gen{0};
+    // Per speler (onder m): geldige metingen en het laatste resultaat (speler 1 staat ook in de bestaande velden).
+    std::array<uint64_t, kPlayers> p_processed{}, p_valid{};
+    std::array<TrackResult, kPlayers> p_last{};
+    std::array<TrackerConfig, kPlayers> p_cfg{};
 
     Impl(SharedState& s, CameraOptions o) : sh(s), opt(std::move(o)), q(static_cast<size_t>(std::max(1, opt.queue_capacity))) {
-        pending_tracker = opt.tracker;
+        pending_tracker[0] = opt.tracker;
+        p_cfg[0] = opt.tracker;
     }
 
     void set_state(const char* st, const std::string& err = {}) {
@@ -249,7 +256,7 @@ struct CameraService::Impl {
             o.camera_active = false;
             o.camera_state = st;
             o.reason = std::strcmp(st, "error") == 0 ? "camera_error" : "no_frames";
-            sh.publish_optical(o);
+            for (int p = 1; p <= kPlayers; ++p) sh.publish_optical(p, o);
         }
     }
 
@@ -559,56 +566,78 @@ struct CameraService::Impl {
     }
 
     void tracker_main() {
-        TrackerConfig tc0;
-        { std::lock_guard<std::mutex> g(tm); tc0 = pending_tracker; }
-        BallTracker tracker(tc0);
+        std::array<TrackerConfig, kPlayers> cfg;
+        std::array<bool, kPlayers> on;
+        { std::lock_guard<std::mutex> g(tm); cfg = pending_tracker; on = tracker_on; }
+        std::vector<BallTracker> trackers;
+        for (const auto& c : cfg) trackers.emplace_back(c);
         uint64_t seen_gen = tracker_gen.load();
         int seen_w = 0, seen_h = 0;
         while (run.load()) {
             if (tracker_gen.load() != seen_gen) {
                 std::lock_guard<std::mutex> g(tm);
-                tracker.set_config(pending_tracker);  // andere LED-kleur: nieuwe tint, volgtoestand gewist
+                for (int i = 0; i < kPlayers; ++i) {
+                    // Andere LED-kleur: nieuwe tint, volgtoestand gewist. Een speler die erbij komt begint ook schoon.
+                    if (pending_tracker[i].hue_deg != cfg[i].hue_deg || pending_tracker[i].hue_tol_deg != cfg[i].hue_tol_deg ||
+                        pending_tracker[i].min_chroma != cfg[i].min_chroma || (tracker_on[i] && !on[i]))
+                        trackers[static_cast<size_t>(i)].set_config(pending_tracker[i]);
+                }
+                cfg = pending_tracker;
+                on = tracker_on;
                 seen_gen = tracker_gen.load();
             }
             auto f = q.pop_latest(std::chrono::milliseconds(200));
             if (!f) continue;
             if (f->width != seen_w || f->height != seen_h) {  // modus gewisseld: oude volgtoestand is ongeldig
-                if (seen_w) tracker.reset();
+                if (seen_w) for (auto& t : trackers) t.reset();
                 seen_w = f->width; seen_h = f->height;
             }
-            int64_t t0 = mono_ns();
             ImageView v{f->data.data(), f->width, f->height, f->stride, PixelFormat::YUYV};
-            TrackResult r = tracker.process(v);
-            bool do_scene = opt.scene_every_frames > 0 && (processed % static_cast<uint64_t>(opt.scene_every_frames)) == 0;
-            SceneStats sc;
-            if (do_scene) sc = tracker.scene_stats(v, 4);
-            int64_t t1 = mono_ns();
+            for (int i = 0; i < kPlayers; ++i) {
+                if (!on[static_cast<size_t>(i)]) continue;
+                BallTracker& tracker = trackers[static_cast<size_t>(i)];
+                int64_t t0 = mono_ns();
+                TrackResult r = tracker.process(v);
+                // Scènestatistiek alleen voor speler 1 (zoals voorheen).
+                bool do_scene = i == 0 && opt.scene_every_frames > 0 && (processed % static_cast<uint64_t>(opt.scene_every_frames)) == 0;
+                SceneStats sc;
+                if (do_scene) sc = tracker.scene_stats(v, 4);
+                int64_t t1 = mono_ns();
 
-            core::OpticalSample o;
-            o.camera_active = true;
-            o.camera_state = "streaming";
-            o.valid = r.valid;
-            o.reason = to_string(r.reason);
-            o.track_state = to_string(r.state);
-            o.frame_seq = f->seq;
-            o.t_frame_ns = f->t_frame_ns;
-            o.t_processed_ns = t1;
-            o.width = r.width; o.height = r.height;
-            o.x_px = r.x_px; o.y_px = r.y_px; o.x_norm = r.x_norm; o.y_norm = r.y_norm; o.radius_px = r.radius_px;
-            o.candidates = r.candidates;
-            {
-                std::lock_guard<std::mutex> g(m);
-                ++processed;
-                o.processed = processed;
-                timing.on_processed(t0 - f->t_frame_ns, static_cast<double>(t1 - t0) / 1e3);
-                if (r.valid) { ++valid; radius.add(r.radius_px); }
-                if (r.used_roi) ++roi_hits;
-                if (r.full_frame_searched) ++full_frame;
-                ++reasons[static_cast<size_t>(r.reason)];
-                last = r;
-                if (do_scene) { scene = sc; have_scene = true; }
+                core::OpticalSample o;
+                o.camera_active = true;
+                o.camera_state = "streaming";
+                o.valid = r.valid;
+                o.reason = to_string(r.reason);
+                o.track_state = to_string(r.state);
+                o.frame_seq = f->seq;
+                o.t_frame_ns = f->t_frame_ns;
+                o.t_processed_ns = t1;
+                o.width = r.width; o.height = r.height;
+                o.x_px = r.x_px; o.y_px = r.y_px; o.x_norm = r.x_norm; o.y_norm = r.y_norm; o.radius_px = r.radius_px;
+                o.candidates = r.candidates;
+                {
+                    std::lock_guard<std::mutex> g(m);
+                    ++p_processed[static_cast<size_t>(i)];
+                    if (r.valid) ++p_valid[static_cast<size_t>(i)];
+                    p_last[static_cast<size_t>(i)] = r;
+                    p_cfg[static_cast<size_t>(i)] = cfg[static_cast<size_t>(i)];
+                    if (i == 0) {
+                        ++processed;
+                        o.processed = processed;
+                        timing.on_processed(t0 - f->t_frame_ns, static_cast<double>(t1 - t0) / 1e3);
+                        if (r.valid) { ++valid; radius.add(r.radius_px); }
+                        if (r.used_roi) ++roi_hits;
+                        if (r.full_frame_searched) ++full_frame;
+                        ++reasons[static_cast<size_t>(r.reason)];
+                        last = r;
+                        if (do_scene) { scene = sc; have_scene = true; }
+                    } else {
+                        o.processed = p_processed[static_cast<size_t>(i)];
+                    }
+                }
+                sh.publish_optical(i + 1, o);
             }
-            sh.publish_optical(o);
             q.recycle(std::move(*f));
         }
         logf("info", "tracker-thread gestopt");
@@ -634,19 +663,40 @@ void CameraService::stop() {
 
 bool CameraService::enabled() const { return d_->opt.enabled; }
 
-vision::TrackerConfig CameraService::tracker() const {
-    std::lock_guard<std::mutex> g(d_->m);
-    return d_->opt.tracker;
+vision::TrackerConfig CameraService::tracker(int player) const {
+    if (player <= 1) {
+        std::lock_guard<std::mutex> g(d_->m);
+        return d_->opt.tracker;
+    }
+    std::lock_guard<std::mutex> g(d_->tm);
+    return d_->pending_tracker[static_cast<size_t>(SharedState::clamp_player(player) - 1)];
 }
 
-void CameraService::set_tracker(const vision::TrackerConfig& cfg) {
+void CameraService::set_tracker(int player, const vision::TrackerConfig& cfg) {
+    const size_t i = static_cast<size_t>(SharedState::clamp_player(player) - 1);
     {
         std::lock_guard<std::mutex> g(d_->tm);
-        d_->pending_tracker = cfg;
+        d_->pending_tracker[i] = cfg;
         d_->tracker_gen.fetch_add(1);
     }
-    std::lock_guard<std::mutex> g(d_->m);
-    d_->opt.tracker = cfg;
+    if (i == 0) {
+        std::lock_guard<std::mutex> g(d_->m);
+        d_->opt.tracker = cfg;
+    }
+}
+
+void CameraService::set_tracker_enabled(int player, bool on) {
+    if (player <= 1) return;  // speler 1 zoekt altijd
+    const size_t i = static_cast<size_t>(SharedState::clamp_player(player) - 1);
+    std::lock_guard<std::mutex> g(d_->tm);
+    if (d_->tracker_on[i] == on) return;
+    d_->tracker_on[i] = on;
+    d_->tracker_gen.fetch_add(1);
+}
+
+bool CameraService::tracker_enabled(int player) const {
+    std::lock_guard<std::mutex> g(d_->tm);
+    return d_->tracker_on[static_cast<size_t>(SharedState::clamp_player(player) - 1)];
 }
 
 CameraApplyResult CameraService::apply(const CameraChange& ch) {
@@ -793,6 +843,31 @@ std::string CameraService::status_json() const {
     }
     w.end_object();
     w.end_object();
+
+    // Alle spelers: een tracker per bolkleur (speler 1 staat ook hierboven).
+    {
+        std::array<bool, kPlayers> on;
+        std::array<TrackerConfig, kPlayers> pc;
+        {
+            std::lock_guard<std::mutex> tg(d_->tm);
+            on = d.tracker_on;
+            pc = d.pending_tracker;
+        }
+        w.key("players").begin_array();
+        for (int i = 0; i < kPlayers; ++i) {
+            const size_t k = static_cast<size_t>(i);
+            const TrackerConfig& c = i == 0 ? tc : pc[k];
+            const TrackResult& lr = d.p_last[k];
+            w.begin_object().key("player").value(i + 1).key("enabled").value(on[k]);
+            w.key("hue_deg").value(c.hue_deg).key("hue_tol_deg").value(c.hue_tol_deg).key("min_chroma").value(c.min_chroma);
+            w.key("processed").value(static_cast<unsigned long long>(d.p_processed[k]));
+            w.key("valid").value(static_cast<unsigned long long>(d.p_valid[k]));
+            w.key("last").begin_object().key("valid").value(lr.valid).key("reason").value(to_string(lr.reason));
+            if (lr.valid) w.key("x_px").value(lr.x_px).key("y_px").value(lr.y_px).key("radius_px").value(lr.radius_px).key("mean_hue_deg").value(lr.mean_hue_deg);
+            w.end_object().end_object();
+        }
+        w.end_array();
+    }
 
     w.key("scene").begin_object();
     w.key("available").value(d.have_scene);

@@ -82,7 +82,7 @@ void HidAux::on_disconnect(int64_t) {
 }
 
 void HidAux::on_report(const RawReport& r, const Pipeline& p, double temp_c) {
-    if (rec_) rec_->push_report(r);
+    if (rec_ && rec_feed_) rec_->push_report(r);
     if (bias_store_.enabled()) {
         std::string info;
         if (bias_store_.on_report(p, static_cast<double>(r.t_rx_ns) / 1e9, static_cast<int64_t>(std::time(nullptr)), &info) && !info.empty())
@@ -113,7 +113,7 @@ void HidAux::on_report(const RawReport& r, const Pipeline& p, double temp_c) {
 }
 
 void HidAux::periodic(int64_t now) {
-    if (rec_) {
+    if (rec_ && rec_feed_) {
         std::string why = rec_->check_limits(now);
         if (!why.empty()) {
             logf("info", "opname gestopt: %s", why.c_str());
@@ -121,7 +121,7 @@ void HidAux::periodic(int64_t now) {
         }
         if (rec_->active()) progress_dirty_ = true;
     }
-    if (progress_dirty_ && now >= next_progress_) {
+    if (progress_owner_ && progress_dirty_ && now >= next_progress_) {
         sh_.set_progress(progress_json(now));
         next_progress_ = now + kProgressPeriodNs;
         progress_dirty_ = false;
@@ -131,7 +131,7 @@ void HidAux::periodic(int64_t now) {
 void HidAux::on_led_sent(int64_t t, int r, int g, int b) {
     if (r == last_led_[0] && g == last_led_[1] && b == last_led_[2]) return;
     last_led_[0] = r; last_led_[1] = g; last_led_[2] = b;
-    if (rec_) rec_->push_led(t, r, g, b);
+    if (rec_ && rec_feed_) rec_->push_led(t, r, g, b);
 }
 
 std::string HidAux::record(const ipc::Request& rq, bool led_enabled, const int led[3], int64_t now) {

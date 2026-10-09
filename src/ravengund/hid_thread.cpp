@@ -1,17 +1,33 @@
 // HID-inname via PSMoveAPI. Dit is de enige plek in RavenGun die PSMoveAPI aanroept.
+//
+// Meerdere Moves: per speler (1..4) een MoveSlot met een eigen pijplijn (move_slot.hpp). De thread zoekt elke seconde in
+// sysfs naar via Bluetooth verbonden Moves (goedkoop, geen PSMoveAPI) en opent alleen een nieuwe Move met PSMoveAPI. Een Move
+// gaat naar de speler die hij in config.json heeft (controllers); een onbekende Move wordt opgenomen met het laagste vrije
+// spelernummer. Daarnaast leest de thread de Navigation Controllers (hidraw, alleen lezen) en geeft hun knoppen aan de speler
+// die ze aanvullen.
 #include "hid_thread.hpp"
 
-#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <cmath>
 #include <cstring>
+#include <ctime>
+#include <fcntl.h>
+#include <linux/hidraw.h>
+#include <map>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <vector>
 
-#include "hid_aux.hpp"
+#include "camera.hpp"
+#include "move_slot.hpp"
 #include "output_service.hpp"
-
+#include "ravengun/config/settings.hpp"
+#include "ravengun/core/navcon.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/parse.hpp"
+#include "ravengun/sysinfo/hidraw_scan.hpp"
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
 #include <psmoveapi/psmove.h>
@@ -24,168 +40,6 @@ using namespace ravengun::core;
 
 namespace {
 
-uint64_t led_updates = 0, led_failures = 0;  // alleen in de HID-thread geschreven en gelezen
-// Trillen: tellers en de laatst verstuurde waarde voor de status (ook alleen in de HID-thread).
-uint64_t rumble_reports = 0, rumble_pulses = 0, rumble_failures = 0, rumble_sent = 0;
-
-struct ControllerInfo {
-    bool open = false;
-    std::string id;
-    std::string model;
-    std::string connection;
-    bool has_calibration = false;
-    int64_t connected_at_ns = 0;
-    uint64_t connects = 0, disconnects = 0;
-};
-
-class ProcStats {
-public:
-    void add(double us) {
-        if (v_.size() < 4096) v_.push_back(us);
-        else { v_[pos_] = us; pos_ = (pos_ + 1) % 4096; }
-    }
-    double pct(double p) const {
-        if (v_.empty()) return 0;
-        auto c = v_;
-        size_t k = static_cast<size_t>(p * static_cast<double>(c.size() - 1) + 0.5);
-        std::nth_element(c.begin(), c.begin() + static_cast<long>(k), c.end());
-        return c[k];
-    }
-    double max() const { return v_.empty() ? 0 : *std::max_element(v_.begin(), v_.end()); }
-
-private:
-    std::vector<double> v_;
-    size_t pos_ = 0;
-};
-
-std::string status_json(const Pipeline& p, const ControllerInfo& ci, const ProcStats& ps, const HidOptions& opt,
-                        int64_t start_ns, bool full_ids, const OpticalSample& optical) {
-    int64_t now = mono_ns();
-    const ReportStats& st = p.stats();
-    InputSample s = p.last();
-    s.optical = optical;  // laatste optische meting (uit de tracker-thread)
-    json::Writer w;
-    w.begin_object();
-    w.key("daemon").begin_object();
-    w.key("pid").value(static_cast<long long>(getpid()));
-    w.key("uptime_s").value(static_cast<double>(now - start_ns) / 1e9);
-    w.key("hid_enabled").value(opt.enabled);
-    w.key("input_schema_version").value(kInputSchemaVersion);
-    w.end_object();
-
-    w.key("controller").begin_object();
-    w.key("connected").value(ci.open);
-    w.key("id").value(full_ids ? ci.id : redact_mac(ci.id));
-    w.key("model").value(ci.model);
-    w.key("connection").value(ci.connection);
-    w.key("has_calibration").value(ci.has_calibration);
-    w.key("magnetometer").value(ci.model == "ZCM1" ? ((p.fusion_mode() == FusionMode::MahonyMag || p.fusion_mode() == FusionMode::VqfMag) && p.mag().calibrated() ? "aanwezig, in de fusie (yaw-correctie, zie magnetometer)" : "aanwezig, niet in de fusie gebruikt (zie magnetometer)") : "afwezig of onbekend");
-    w.key("connected_s").value(ci.open ? static_cast<double>(now - ci.connected_at_ns) / 1e9 : 0.0);
-    w.key("connects").value(static_cast<unsigned long long>(ci.connects));
-    w.key("led").begin_object();
-    w.key("enabled").value(opt.led_enabled);
-    w.key("rgb").begin_array().value(static_cast<int>(opt.led_r)).value(static_cast<int>(opt.led_g)).value(static_cast<int>(opt.led_b)).end_array();
-    w.key("refresh_ms").value(opt.led_refresh_ms);
-    w.key("updates").value(static_cast<unsigned long long>(led_updates));
-    w.key("failures").value(static_cast<unsigned long long>(led_failures));
-    w.end_object();
-    w.key("rumble").begin_object();
-    w.key("enabled").value(opt.rumble.enabled).key("strength").value(opt.rumble.strength).key("pulse_ms").value(opt.rumble.pulse_ms);
-    w.key("repeat_hz").value(opt.rumble.repeat_hz).key("pump_strength").value(opt.rumble.pump_strength);
-    w.key("current").value(static_cast<int>(rumble_sent));
-    w.key("pulses").value(static_cast<unsigned long long>(rumble_pulses));
-    w.key("reports").value(static_cast<unsigned long long>(rumble_reports));
-    w.key("failures").value(static_cast<unsigned long long>(rumble_failures));
-    w.end_object();
-    w.key("disconnects").value(static_cast<unsigned long long>(ci.disconnects));
-    BatteryInfo b = battery_info(s.battery_raw);
-    w.key("battery").begin_object();
-    if (s.battery_raw >= 0) w.key("raw").value(s.battery_raw); else w.key("raw").null();
-    w.key("code").value(b.code).key("text").value(b.text).key("charging").value(b.charging);
-    w.key("resolution").value("6 niveaus (<20, >=20, >=40, >=60, >=80 %, vol) plus laden/vol aan lader");
-    w.end_object();
-    w.end_object();
-
-    w.key("reports").begin_object();
-    w.key("total").value(static_cast<unsigned long long>(st.reports));
-    w.key("rate_hz_5s").value(ci.open ? st.rate(now, 5.0) : 0.0);
-    double span = st.last_t_ns > st.first_t_ns ? static_cast<double>(st.last_t_ns - st.first_t_ns) / 1e9 : 0;
-    w.key("rate_hz_since_connect").value(span > 0 ? static_cast<double>(st.intervals) / span : 0.0);
-    w.key("imu_subsamples_per_report").value(ci.model == "ZCM2" ? 1 : 2);
-    w.key("interval_ms").begin_object();
-    w.key("p50").value(st.percentile(0.50)).key("p95").value(st.percentile(0.95));
-    w.key("p99").value(st.percentile(0.99)).key("max").value(st.max_ms);
-    w.end_object();
-    w.key("interval_histogram").begin_array();
-    double lo = 0;
-    for (size_t i = 0; i < st.buckets.size(); ++i) {
-        w.begin_object().key("from_ms").value(lo);
-        if (i + 1 < st.buckets.size()) w.key("to_ms").value(ReportStats::kBucketUpperMs[i]);
-        else w.key("to_ms").null();
-        w.key("count").value(static_cast<unsigned long long>(st.buckets[i])).end_object();
-        lo = ReportStats::kBucketUpperMs[i];
-    }
-    w.end_array();
-    w.key("dropped_by_seq").value(static_cast<unsigned long long>(st.dropped_seq));
-    w.key("non_monotonic").value(static_cast<unsigned long long>(st.non_monotonic));
-    w.key("long_dt_50_250ms").value(static_cast<unsigned long long>(st.long_dt));
-    w.key("gaps_not_integrated").value(static_cast<unsigned long long>(st.gap_not_integrated));
-    w.end_object();
-
-    w.key("processing_us").begin_object();
-    w.key("p50").value(ps.pct(0.5)).key("p95").value(ps.pct(0.95)).key("max").value(ps.max());
-    w.key("meaning").value("t_publish - t_rx per rapport (fusie, aim, filter, publiceren)");
-    w.end_object();
-
-    const PipelineConfig& c = p.config();
-    w.key("config").begin_object();
-    w.key("filter").begin_object();
-    w.key("enabled").value(c.filter.enabled).key("min_cutoff_hz").value(c.filter.min_cutoff_hz);
-    w.key("beta").value(c.filter.beta).key("d_cutoff_hz").value(c.filter.d_cutoff_hz);
-    w.end_object();
-    w.key("aim").begin_object();
-    w.key("mode").value("orientation (voorlopig, geen aim-ray)");
-    w.key("h_edge_deg").value(c.aim.h_edge_deg).key("v_edge_deg").value(c.aim.v_edge_deg);
-    w.key("predict_ms").value(c.predict.horizon_ms);
-    w.end_object();
-    w.key("predict").begin_object();
-    w.key("horizon_ms").value(c.predict.horizon_ms).key("rate_tau_ms").value(c.predict.rate_tau_ms);
-    w.key("accel_gain").value(c.predict.accel_gain).key("speed_lo_dps").value(c.predict.speed_lo_dps).key("speed_hi_dps").value(c.predict.speed_hi_dps);
-    w.key("max_angle_deg").value(c.predict.max_angle_deg);
-    w.key("rate_dps").value(norm(p.predictor().rate()) * kDegPerRad).key("gain").value(p.predictor().gain());
-    w.key("angle_deg").value(s.pred_deg).key("report_age_ms").value(s.age_ms);
-    w.end_object();
-    w.key("fusion").begin_object();
-    w.key("algorithm").value(p.fusion_mode() == FusionMode::MahonyMag ? "mahony_mag (Mahony + yaw-Kalman met magnetometer)" : is_vqf(p.fusion_mode()) ? (p.fusion_mode() == FusionMode::VqfMag ? "vqf_mag (VQF 9D)" : "vqf (VQF 6D)") : "mahony_p_imu");
-    w.key("mode").value(to_string(p.fusion_mode()));
-    w.key("kp").value(c.fusion.kp).key("accel_gate_g").value(c.fusion.accel_gate).key("max_dt_s").value(c.fusion.max_dt_s);
-    w.key("magnetometer").value((p.fusion_mode() == FusionMode::MahonyMag || p.fusion_mode() == FusionMode::VqfMag) && p.mag().calibrated());
-    w.key("gap_interpolation").value(c.interpolate_gaps);
-    w.key("gaps_interpolated").value(static_cast<unsigned long long>(st.gap_interpolated));
-    w.end_object();
-    w.key("bias").begin_object();
-    w.key("mode").value(to_string(c.bias.mode));
-    w.key("window_s").value(c.bias.window_s).key("gyro_std_max_rad_s").value(c.bias.gyro_std_max);
-    w.key("gyro_mean_max_rad_s").value(c.bias.gyro_mean_max).key("accel_norm_tol_g").value(c.bias.accel_norm_tol);
-    w.key("tau_s").value(c.bias.tau_s);
-    w.key("still_time_total_s").value(p.bias().still_time_total());
-    w.end_object();
-    w.key("stale_ms").value(static_cast<double>(c.stale_ns) / 1e6);
-    w.key("release_ms").value(static_cast<double>(c.release_ns) / 1e6);
-    w.key("disconnect_ms").value(static_cast<double>(opt.disconnect_ns) / 1e6);
-    w.end_object();
-
-    w.key("centers").begin_object();
-    w.key("auto_initial").value(static_cast<unsigned long long>(p.auto_center_count()));
-    w.key("user").value(static_cast<unsigned long long>(p.user_center_count()));
-    w.end_object();
-
-    w.key("sample");
-    write_sample_json(w, s, full_ids);
-    w.end_object();
-    return w.str();
-}
-
 #ifndef RAVENGUN_NO_PSMOVEAPI
 std::string serial_of(PSMove* m) {
     char* s = psmove_get_serial(m);
@@ -195,17 +49,16 @@ std::string serial_of(PSMove* m) {
     return r;
 }
 
-// Zoekt een via Bluetooth verbonden Move (USB levert geen inputrapporten).
-PSMove* try_connect(const std::string& preferred, ControllerInfo& ci) {
+// Opent de via Bluetooth verbonden Move met dit adres (USB levert geen inputrapporten).
+PSMove* connect_move(const std::string& address, ControllerInfo& ci) {
     int n = psmove_count_connected();
     for (int i = 0; i < n; ++i) {
         PSMove* m = psmove_connect_by_id(i);
         if (!m) continue;
-        if (psmove_connection_type(m) != Conn_Bluetooth) { psmove_disconnect(m); continue; }
-        std::string id = serial_of(m);
-        if (!preferred.empty() && id != preferred) { psmove_disconnect(m); continue; }
+        if (psmove_connection_type(m) != Conn_Bluetooth || serial_of(m) != address) { psmove_disconnect(m); continue; }
+        ci = ControllerInfo{};
         ci.open = true;
-        ci.id = id;
+        ci.id = address;
         ci.model = psmove_get_model(m) == Model_ZCM1 ? "ZCM1" : psmove_get_model(m) == Model_ZCM2 ? "ZCM2" : "onbekend";
         ci.connection = "bluetooth";
         ci.has_calibration = psmove_has_calibration(m);
@@ -265,125 +118,172 @@ void sleep_us(int us) {
     nanosleep(&ts, nullptr);
 }
 
+// Een Navigation Controller (USB of Bluetooth), alleen-lezen via hidraw.
+struct NavReader {
+    std::string node, address;
+    int fd = -1;
+    int player = 0;
+    NavState st;
+    uint64_t reports = 0;
+};
+
+// Het eigen adres van een Navigation Controller via USB: feature-rapport 0xF2, bytes 4..9 (alleen lezen; zie BlueZ
+// plugins/sixaxis.c en hid-sony). Leeg bij een fout.
+std::string nav_usb_address(int fd) {
+    uint8_t buf[18] = {0xF2};
+    if (::ioctl(fd, HIDIOCGFEATURE(sizeof buf), buf) < 10) return {};
+    char a[24];
+    std::snprintf(a, sizeof a, "%02x:%02x:%02x:%02x:%02x:%02x", buf[4], buf[5], buf[6], buf[7], buf[8], buf[9]);
+    return config::normalize_address(a);
+}
+
 }  // namespace
 
 void hid_thread_main(SharedState& shared, HidOptions opt) {
-    Pipeline pipe(opt.pipeline);
-    ControllerInfo ci;
-    ProcStats ps;
     const int64_t start = mono_ns();
-    HidAux aux(shared, opt.recorder, opt.pipeline.use_move_clock);
-    aux.attach(&pipe);
-    aux.set_bias_dir(opt.bias_dir);
-    // Trillen: toestandsmachine (kernlogica) plus de poort die het aantal uitvoerrapporten begrenst.
-    ravengun::output::RumbleEngine rumble;
-    ravengun::output::ReportGate gate;
-    ravengun::output::RumbleInput rin;
-    rumble.set_config(opt.rumble);
-    rumble_reports = rumble_pulses = rumble_failures = rumble_sent = 0;
+    std::array<std::unique_ptr<MoveSlot>, kPlayers> slots;
+    for (int p = 1; p <= kPlayers; ++p) slots[static_cast<size_t>(p - 1)] = std::make_unique<MoveSlot>(p, shared, opt);
+    auto slot = [&](int p) -> MoveSlot& { return *slots[static_cast<size_t>(SharedState::clamp_player(p) - 1)]; };
+#ifndef RAVENGUN_NO_PSMOVEAPI
+    std::array<PSMove*, kPlayers> handles{};
+#endif
+    std::vector<NavReader> navs;
+    std::map<std::string, int64_t> failed_until;  // adres -> niet opnieuw proberen voor dit moment
 
-    // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijn één eigenaar heeft.
-    struct Ctx final : HidContext {
-        Pipeline& p; ControllerInfo& ci; ProcStats& ps; HidOptions& opt; int64_t start; SharedState& sh; HidAux& aux;
-        bool led_dirty = false;
-        ravengun::output::RumbleEngine* engine = nullptr;
-        ravengun::output::LiveGunFeed* live = nullptr;
-        Ctx(Pipeline& p_, ControllerInfo& c_, ProcStats& s_, HidOptions& o_, int64_t t_, SharedState& h_, HidAux& a_)
-            : p(p_), ci(c_), ps(s_), opt(o_), start(t_), sh(h_), aux(a_) {}
-        std::string status_json(bool full) override {
-            std::string s = ravengund::status_json(p, ci, ps, opt, start, full, sh.get().sample.optical);
-            if (!s.empty() && s.back() == '}') { s.pop_back(); s += aux.status_blocks(p, mono_ns()) + "}"; }
-            return s;
-        }
-        std::string record(const ravengun::ipc::Request& r) override {
-            int led[3] = {opt.led_r, opt.led_g, opt.led_b};
-            return aux.record(r, opt.led_enabled, led, mono_ns());
-        }
-        std::string calib_mag(const ravengun::ipc::Request& r) override { return aux.calib_mag(r, mono_ns()); }
-        bool recenter() override {
-            bool ok = p.recenter();
-            if (ok) { sh.publish(p.last()); logf("info", "recenter door gebruiker"); }
-            return ok;
-        }
-        bool clear_trim() override {
-            p.clear_trim();
-            aux.note_trim_cleared();
-            logf("info", "yaw-trim gewist door gebruiker");
-            return true;
-        }
-        OneEuroConfig filter() const override { return p.config().filter; }
-        void set_filter(const OneEuroConfig& c) override { p.set_filter(c); opt.pipeline.filter = c; }
-        AimConfig aim() const override { return p.config().aim; }
-        void set_aim(const AimConfig& c) override { p.set_aim(c); opt.pipeline.aim = c; }
-        PredictConfig predict() const override { return p.config().predict; }
-        void set_predict(const PredictConfig& c) override { p.set_predict(c); opt.pipeline.predict = c; }
-        void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { opt.led_enabled = en; opt.led_r = r; opt.led_g = g; opt.led_b = b; led_dirty = true; }
-        ravengun::output::RumbleConfig rumble() const override { return opt.rumble; }
-        void set_rumble(const ravengun::output::RumbleConfig& c) override { opt.rumble = c; if (engine) engine->set_config(c); }
-        std::string rumble_test(int ms) override {
-            if (!opt.rumble.enabled) return "!unavailable|rumble staat uit (ravengunctl rumble on)";
-            if (!ci.open || !engine) return "!unavailable|geen Move verbonden";
-            return engine->test(mono_ns(), ms) ? "1" : "!unavailable|rumble staat uit";
-        }
-        FusionMode fusion() const override { return p.fusion_mode(); }
-        void set_fusion(FusionMode m) override {
-            if (m == p.fusion_mode()) return;
-            p.set_fusion_mode(m);
-            opt.pipeline.fusion_mode = m;
-            logf("info", "oriëntatieschatter: %s", to_string(m));
-        }
-        bool recenter_learning() const override { return p.trim().config().enabled; }
-        void set_recenter_learning(bool on) override {
-            p.set_trim_learning(on);
-            opt.pipeline.trim.enabled = on;
-            logf("info", "leren van centreren: %s", on ? "aan" : "uit");
-        }
-        void set_gun_buttons(const ravengun::output::LiveButtonMap& m) override {
-            opt.gun_buttons = m;
-            if (live) live->set_map(m);
-            logf("info", "knoppenindeling gewijzigd: %s", ravengun::output::describe_layout(m).c_str());
-        }
-    } ctx(pipe, ci, ps, opt, start, shared, aux);
-    ctx.engine = &rumble;
-    auto handle_jobs = [&] { shared.run_jobs(ctx); };
-    // Fase 4: elk gepubliceerd sample gaat ook naar de virtuele lightgun (alleen als die gewapend is).
-    ravengun::output::LiveGunFeed live(opt.gun_buttons);
-    ctx.live = &live;
-    // Voedt de rumble-toestandsmachine met de trekker (uit de live koppeling) en de pomp; ook elke lusronde (de tijd loopt door).
-    // Of de uitvoer gewapend is, wordt hoogstens elke 20 ms gevraagd (neemt een slot van de uitvoerservice).
-    int64_t armed_checked = 0;
-    auto rumble_step = [&](int64_t now) {
-        if (now - armed_checked >= 20'000'000 || armed_checked == 0) {
-            rin.armed = shared.output && shared.output->armed();
-            armed_checked = now;
-        }
-        rumble.update(now, rin);
-        rumble_pulses = rumble.pulses();
+    // Instellingen per speler uit config.json (de Move die die speler heeft, anders de standaard), plus de spelers met een
+    // Move voor de uitvoer en de camera.
+    auto close_handle = [&](int p, int64_t now) {
+#ifndef RAVENGUN_NO_PSMOVEAPI
+        PSMove*& h = handles[static_cast<size_t>(p - 1)];
+        if (!h) return;
+        slot(p).disconnect(now);
+        psmove_disconnect(h);
+        h = nullptr;
+#else
+        (void)p; (void)now;
+#endif
     };
-    auto emit = [&](const InputSample& s) {
-        shared.publish(s);
-        if (!shared.output) return;
-        ravengun::output::LiveAction a = live.update(s);
-        if (a.recenter) {  // PS-knop altijd (ook ongewapend), anders een Move-knop uit de indeling
-            if (pipe.recenter(true)) {   // van de Move: de speler richt op het midden, telt mee voor de yaw-trim
-                shared.publish(pipe.last());
-                logf("info", a.recenter_ps ? "recenter met de PS-knop" : "recenter met de Move-knop");
-                a = live.update(pipe.last());
-                a.recenter = false;
+    auto reconfigure = [&] {
+        config::Settings s = shared.settings ? shared.settings->get() : config::Settings{};
+        unsigned active = 1;
+        for (int p = 1; p <= kPlayers; ++p) {
+            const std::string addr = config::move_for_player(s, p);
+            MoveSlot& sl = slot(p);
+            if (sl.connected() && sl.info().id != addr) {
+                logf("info", "speler %d: Move %s hoort niet meer bij deze speler; opnieuw koppelen", p, redact_mac(sl.info().id).c_str());
+                close_handle(p, mono_ns());
+            }
+            const config::Settings eff = config::effective(s, addr);
+            // LED en trackertint van de opdrachtregel gelden alleen voor speler 1.
+            std::set<std::string> keep = opt.cli_keys;
+            if (p != 1) for (auto it = keep.begin(); it != keep.end();) it = (it->rfind("led.", 0) == 0 || it->rfind("tracker.", 0) == 0) ? keep.erase(it) : std::next(it);
+            sl.configure(addr, eff, keep);
+            if (!addr.empty() && p > 1) active |= 1u << (p - 1);
+            if (shared.camera) {
+                if (p > 1 || !opt.cli_keys.count("tracker.hue_deg")) {
+                    auto tc = shared.camera->tracker(p);
+                    // Speler 2..4 zonder eigen keuze: de tint van zijn spelerkleur (config::player_led).
+                    const bool own = s.controllers.count(addr) && s.controllers.at(addr).keys.count("tracker.hue_deg");
+                    if (p == 1 || own) { tc.hue_deg = eff.tracker.hue_deg; tc.hue_tol_deg = eff.tracker.hue_tol_deg; tc.min_chroma = eff.tracker.min_chroma; }
+                    else if (p == 2) { tc.hue_deg = 86; tc.hue_tol_deg = 30; }
+                    else if (p == 3) { tc.hue_deg = -145; tc.hue_tol_deg = 30; }
+                    else { tc.hue_deg = 171; tc.hue_tol_deg = 20; }
+                    if (p > 1 || tc.hue_deg != shared.camera->tracker(1).hue_deg || tc.hue_tol_deg != shared.camera->tracker(1).hue_tol_deg)
+                        shared.camera->set_tracker(p, tc);
+                }
+                shared.camera->set_tracker_enabled(p, p == 1 || !addr.empty());
             }
         }
-        shared.output->feed_live(a);
-        rin.connected = s.link != LinkState::Lost && s.link != LinkState::Disconnected;
-        rin.trigger = rin.connected && live.trigger_down();
-        rin.pump = rin.connected && (s.buttons & kBtnPump) != 0;
-        rumble_step(mono_ns());
+        if (shared.output) shared.output->set_active_players(active);
+        for (auto& n : navs) {
+            auto it = s.controllers.find(n.address);
+            n.player = it != s.controllers.end() && !it->second.removed ? it->second.player : 0;
+        }
+    };
+    // Speler voor een controller (en zo nodig opnemen in config.json).
+    auto player_for = [&](const std::string& addr, const std::string& type, const std::string& model) -> int {
+        if (!shared.settings) return type == "move" ? 1 : 1;
+        config::Settings s = shared.settings->get();
+        auto it = s.controllers.find(addr);
+        if (it != s.controllers.end() && !it->second.removed && it->second.type == type) return it->second.player;
+        int player = 0;
+        bool added = false;
+        shared.settings->update([&](config::Settings& st) { player = config::register_controller(st, addr, type, model, static_cast<int64_t>(std::time(nullptr)), &added); });
+        if (added) {
+            logf("info", "%s %s opgenomen als %s", type == "move" ? "Move" : "Navigation Controller", redact_mac(addr).c_str(),
+                 player ? ("speler " + std::to_string(player)).c_str() : "geen speler (alle plekken bezet)");
+            reconfigure();
+        }
+        return player;
+    };
+    auto touch_last_seen = [&](const std::string& addr) {
+        if (shared.settings)
+            shared.settings->update([&](config::Settings& st) {
+                auto it = st.controllers.find(addr);
+                if (it != st.controllers.end()) it->second.last_seen_unix = static_cast<int64_t>(std::time(nullptr));
+            });
     };
 
+    // Opdrachten uit de IPC-thread draaien hier, zodat de pijplijnen één eigenaar hebben.
+    struct Ctx final : HidContext {
+        std::function<MoveSlot&(int)> slot_of;
+        std::function<void()> reconf;
+        int cur = 1;
+        int64_t start;
+        std::atomic<int>* recording_player;
+        std::array<std::unique_ptr<MoveSlot>, kPlayers>* all;
+        MoveSlot& s() { return slot_of(cur); }
+        const MoveSlot& s() const { return const_cast<Ctx*>(this)->slot_of(cur); }
+        bool select_player(int p) override {
+            if (p < 1 || p > kPlayers) return false;
+            cur = p;
+            return true;
+        }
+        void reconfigure() override { reconf(); }
+        std::string blink(int ms) override {
+            if (!s().connected()) return "!unavailable|de Move van speler " + std::to_string(cur) + " is niet verbonden";
+            s().blink(mono_ns(), ms);
+            return "1";
+        }
+        std::string status_json(bool full) override { return s().status_json(full, start); }
+        std::string record(const ravengun::ipc::Request& r) override {
+            if (r.action == "start") {
+                // Een opname is per controller: alleen deze speler voert de recorder.
+                *recording_player = cur;
+                for (auto& sl : *all) sl->set_recording_owner(sl->player() == cur);
+            }
+            return slot_of(r.action == "start" ? cur : recording_player->load()).record(r);
+        }
+        std::string calib_mag(const ravengun::ipc::Request& r) override { return s().calib_mag(r); }
+        bool recenter() override { return s().recenter(); }
+        bool clear_trim() override { return s().clear_trim(); }
+        OneEuroConfig filter() const override { return s().filter(); }
+        void set_filter(const OneEuroConfig& c) override { s().set_filter(c); }
+        AimConfig aim() const override { return s().aim(); }
+        void set_aim(const AimConfig& c) override { s().set_aim(c); }
+        PredictConfig predict() const override { return s().predict(); }
+        void set_predict(const PredictConfig& c) override { s().set_predict(c); }
+        void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { s().set_led(en, r, g, b); }
+        ravengun::output::RumbleConfig rumble() const override { return s().rumble(); }
+        void set_rumble(const ravengun::output::RumbleConfig& c) override { s().set_rumble(c); }
+        std::string rumble_test(int ms) override { return s().rumble_test(ms); }
+        FusionMode fusion() const override { return s().fusion(); }
+        void set_fusion(FusionMode m) override { s().set_fusion(m); }
+        bool recenter_learning() const override { return s().recenter_learning(); }
+        void set_recenter_learning(bool on) override { s().set_recenter_learning(on); }
+        void set_gun_buttons(const ravengun::output::LiveButtonMap& m) override { s().set_gun_buttons(m); }
+    } ctx;
+    ctx.slot_of = slot;
+    ctx.reconf = reconfigure;
+    ctx.start = start;
+    ctx.recording_player = &shared.recording_player;
+    ctx.all = &slots;
+    auto handle_jobs = [&] { ctx.cur = 1; shared.run_jobs(ctx); ctx.cur = 1; };
+
+    reconfigure();
+
 #ifndef RAVENGUN_NO_PSMOVEAPI
-    PSMove* move = nullptr;
     int64_t next_scan = 0;
-    int64_t next_led = 0;
-    uint64_t optical_seen = 0;
     if (opt.enabled) {
         psmove_set_remote_config(PSMove_OnlyLocal);  // geen netwerk (moved) gebruiken
         if (!psmove_init(PSMOVE_CURRENT_VERSION)) {
@@ -400,100 +300,134 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
 #ifndef RAVENGUN_NO_PSMOVEAPI
         if (opt.enabled) {
             int64_t now = mono_ns();
-            if (!move) {
-                if (now >= next_scan) {
-                    move = try_connect(opt.preferred_controller, ci);
-                    next_scan = now + 1'000'000'000;
-                    if (move) {
-                        next_led = 0;
-                        rumble.reset();
-                        gate.reset();
-                        rumble_sent = 0;
-                        ci.connected_at_ns = mono_ns();
-                        ++ci.connects;
-                        pipe.on_connect(ci.id, ci.connected_at_ns);
-                        aux.on_connect(ci.id, ci.model, ci.connected_at_ns);
-                        shared.publish(pipe.last());
-                        logf("info", "Move verbonden: %s, model %s, kalibratie %s", redact_mac(ci.id).c_str(),
-                             ci.model.c_str(), ci.has_calibration ? "ja" : "NEE (waarden ongekalibreerd)");
+            if (now >= next_scan) {
+                next_scan = now + 1'000'000'000;
+                // Nieuwe Moves (Bluetooth) en Navigation Controllers (Bluetooth of USB) zoeken in sysfs.
+                const auto devs = sysinfo::scan_sony_hidraw(opt.hidraw_root);
+                for (const auto& d : devs) {
+                    if (d.type() != "move" || !d.bluetooth()) continue;
+                    const std::string addr = config::normalize_address(d.uniq);
+                    if (addr.empty()) continue;
+                    if (!opt.preferred_controller.empty() && addr != opt.preferred_controller) continue;
+                    bool open = false;
+                    for (auto& sl : slots) open = open || (sl->connected() && sl->info().id == addr);
+                    if (open) continue;
+                    if (auto f = failed_until.find(addr); f != failed_until.end() && now < f->second) continue;
+                    const int p = player_for(addr, "move", d.model());
+                    if (p < 1) continue;
+                    if (slot(p).connected()) continue;  // speler bezet (zou niet mogen: spelernummers zijn uniek)
+                    ControllerInfo ci;
+                    PSMove* m = connect_move(addr, ci);
+                    if (!m) { failed_until[addr] = now + 3'000'000'000; continue; }
+                    handles[static_cast<size_t>(p - 1)] = m;
+                    slot(p).connect(ci, mono_ns());
+                    touch_last_seen(addr);
+                }
+                // Navigation Controllers: nieuw openen, verdwenen sluiten.
+                for (auto it = navs.begin(); it != navs.end();) {
+                    bool present = false;
+                    for (const auto& d : devs) present = present || d.node == it->node;
+                    if (!present) {
+                        logf("info", "Navigation Controller %s weg", redact_mac(it->address).c_str());
+                        if (it->player) slot(it->player).set_nav(0, now);
+                        ::close(it->fd);
+                        it = navs.erase(it);
+                    } else {
+                        ++it;
                     }
                 }
-                aux.periodic(now);
-                sleep_us(20000);
-                continue;
+                for (const auto& d : devs) {
+                    if (d.type() != "navigation") continue;
+                    bool have = false;
+                    for (const auto& n : navs) have = have || n.node == d.node;
+                    if (have) continue;
+                    if (auto f = failed_until.find(d.node); f != failed_until.end() && now < f->second) continue;
+                    int fd = ::open(d.node.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                    if (fd < 0) { failed_until[d.node] = now + 10'000'000'000; continue; }
+                    NavReader n;
+                    n.node = d.node;
+                    n.fd = fd;
+                    n.address = d.bluetooth() ? config::normalize_address(d.uniq) : nav_usb_address(fd);
+                    if (n.address.empty()) { ::close(fd); failed_until[d.node] = now + 10'000'000'000; continue; }
+                    n.player = player_for(n.address, "navigation", "");
+                    logf("info", "Navigation Controller %s via %s, speler %d", redact_mac(n.address).c_str(), d.usb() ? "USB" : "Bluetooth", n.player);
+                    navs.push_back(n);
+                    touch_last_seen(n.address);
+                }
             }
-            if (ctx.led_dirty) { next_led = 0; ctx.led_dirty = false; }
-            rumble_step(now);
-            {
-                // Eén uitvoerrapport voor LED en rumble samen (PSMove_Data_LEDs: kleur op byte 2..4, rumble op byte 6). Alleen bij een
-                // gewijzigde rumblewaarde (hoogstens elke 20 ms), een gewijzigde LED of de LED-keepalive. Zonder wijziging weigert
-                // PSMoveAPI zelf een rapport tot 4 s na het vorige (PSMOVE_MAX_LED_INHIBIT_MS); dat is de keepalive van de Move.
-                const uint8_t want = rumble.value();
-                const bool led_due = opt.led_enabled && now >= next_led;
-                if (gate.due(now, want, led_due)) {
-                    if (opt.led_enabled) psmove_set_leds(move, opt.led_r, opt.led_g, opt.led_b);
-                    else psmove_set_leds(move, 0, 0, 0);
-                    psmove_set_rumble(move, want);
+            bool any_open = false, any_tap = false, got_any = false;
+            std::vector<pollfd> pfds;
+            for (int p = 1; p <= kPlayers; ++p) {
+                PSMove* move = handles[static_cast<size_t>(p - 1)];
+                if (!move) continue;
+                MoveSlot& sl = slot(p);
+                any_open = true;
+                now = mono_ns();
+                if (auto rep = sl.due_output(now)) {
+                    // Eén uitvoerrapport voor LED en rumble samen; zonder wijziging weigert PSMoveAPI zelf een rapport tot 4 s na
+                    // het vorige (PSMOVE_MAX_LED_INHIBIT_MS): dat is de keepalive van de Move.
+                    psmove_set_leds(move, rep->r, rep->g, rep->b);
+                    psmove_set_rumble(move, rep->rumble);
                     auto res = psmove_update_leds(move);
-                    const bool changed = want != gate.last_sent();
-                    gate.sent(now, want, res == Update_Success);
-                    if (res == Update_Failed) { ++led_failures; if (changed) ++rumble_failures; }
-                    else if (res == Update_Success) {
-                        rumble_sent = want;
-                        if (changed) ++rumble_reports;
-                        if (opt.led_enabled) { ++led_updates; aux.on_led_sent(now, opt.led_r, opt.led_g, opt.led_b); }
-                    }
-                    if (led_due) next_led = now + static_cast<int64_t>(opt.led_refresh_ms) * 1'000'000;
+                    sl.output_sent(now, *rep, res == Update_Success, res == Update_Ignored);
                 }
+                const bool zcm2 = sl.info().model == "ZCM2";
+                HidrawTap& tap = sl.aux().tap;
+                tap.drain();
+                for (int k = 0; k < 64; ++k) {  // wachtrij leegmaken; elk rapport apart verwerken
+                    int ret = psmove_poll(move);
+                    if (ret <= 0) break;
+                    int64_t t = mono_ns();
+                    RawReport r = read_report(move, ret, zcm2, t, tap);
+                    sl.on_report(r, static_cast<double>(psmove_get_temperature_in_celsius(move)));
+                    got_any = true;
+                }
+                if (sl.tick(mono_ns())) {
+                    close_handle(p, mono_ns());
+                    touch_last_seen(sl.info().id);
+                    continue;
+                }
+                if (tap.is_open()) { any_tap = true; pfds.push_back({tap.fd(), POLLIN, 0}); }
             }
-            bool zcm2 = ci.model == "ZCM2";
-            bool got = false;
-            aux.tap.drain();
-            for (int k = 0; k < 64; ++k) {  // wachtrij leegmaken; elk rapport apart verwerken
-                int ret = psmove_poll(move);
-                if (ret <= 0) break;
-                int64_t t = mono_ns();
-                RawReport r = read_report(move, ret, zcm2, t, aux.tap);
-                {   // nieuwe cameraframes eerst: de bol-stilstand is bewijs voor de gyro-bias
-                    OpticalSample o;
-                    if (shared.optical_if_new(optical_seen, o)) pipe.on_optical(o);
+            // Navigation Controllers: alle wachtende rapporten lezen.
+            for (auto& n : navs) {
+                uint8_t buf[64];
+                for (int k = 0; k < 32; ++k) {
+                    ssize_t len = ::read(n.fd, buf, sizeof buf);
+                    if (len <= 0) break;
+                    NavState st;
+                    if (!parse_nav_report(buf, static_cast<size_t>(len), n.st, st)) continue;
+                    ++n.reports;
+                    if (st.buttons != n.st.buttons && n.player) slot(n.player).set_nav(st.buttons, mono_ns());
+                    n.st = st;
+                    got_any = true;
                 }
-                InputSample s = pipe.on_report(r);
-                emit(s);
-                ps.add(static_cast<double>(mono_ns() - t) / 1e3);
-                aux.on_report(r, pipe, static_cast<double>(psmove_get_temperature_in_celsius(move)));
-                got = true;
+                pfds.push_back({n.fd, POLLIN, 0});
             }
             now = mono_ns();
-            if (auto s = pipe.tick(now)) {
-                emit(*s);
-                if (s->link == LinkState::Lost) logf("waarschuwing", "geen rapporten sinds %.0f ms: knoppen vrijgegeven", static_cast<double>(opt.pipeline.release_ns) / 1e6);
-            }
-            const InputSample& last = pipe.last();
-            int64_t last_rx = last.t_rx_ns ? last.t_rx_ns : ci.connected_at_ns;
-            if (now - last_rx > opt.disconnect_ns) {
-                logf("waarschuwing", "Move %s: %.1f s geen rapporten, verbinding gesloten; opnieuw zoeken",
-                     redact_mac(ci.id).c_str(), static_cast<double>(now - last_rx) / 1e9);
-                emit(pipe.on_disconnect(now));
-                rin.connected = false;
-                rumble_step(now);
-                aux.on_disconnect(now);
-                psmove_disconnect(move);
-                move = nullptr;
-                ci.open = false;
-                ++ci.disconnects;
-                next_scan = now + 500'000'000;
+            // Voortgang (opname/kalibratie): de speler met een lopende kalibratie, anders speler 1.
+            int prog = 1;
+            for (auto& sl : slots) if (sl->calibrating()) prog = sl->player();
+            for (auto& sl : slots) { sl->set_progress_owner(sl->player() == prog); sl->periodic(now); }
+            if (!any_open) {
+                if (!pfds.empty()) ::poll(pfds.data(), pfds.size(), 20);
+                else sleep_us(20000);
                 continue;
             }
-            aux.periodic(now);
-            if (!got) {
-                // Wachten op het volgende rapport: met de hidraw-tap via poll() (wordt direct wakker
-                // bij een nieuw rapport), anders de oude slaap van idle_sleep_us.
-                if (aux.tap.is_open()) {
-                    pollfd pf{aux.tap.fd(), POLLIN, 0};
-                    if (::poll(&pf, 1, 2) > 0 && (pf.revents & (POLLERR | POLLHUP | POLLNVAL))) {
-                        aux.tap.close();
-                        logf("waarschuwing", "hidraw-tap gesloten (apparaat weg?); terug naar polling");
+            if (!got_any) {
+                // Wachten op het volgende rapport: met de hidraw-taps via poll() (direct wakker bij een nieuw rapport), anders
+                // de oude slaap van idle_sleep_us.
+                if (any_tap) {
+                    if (::poll(pfds.data(), pfds.size(), 2) > 0) {
+                        for (int p = 1; p <= kPlayers; ++p) {
+                            HidrawTap& tap = slot(p).aux().tap;
+                            if (!tap.is_open()) continue;
+                            for (const auto& pf : pfds)
+                                if (pf.fd == tap.fd() && (pf.revents & (POLLERR | POLLHUP | POLLNVAL))) {
+                                    tap.close();
+                                    logf("waarschuwing", "speler %d: hidraw-tap gesloten (apparaat weg?); terug naar polling", p);
+                                }
+                        }
                     }
                 } else {
                     sleep_us(opt.idle_sleep_us);
@@ -502,22 +436,28 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
             continue;
         }
 #endif
-        aux.periodic(mono_ns());
+        for (auto& sl : slots) sl->periodic(mono_ns());
         sleep_us(5000);
     }
 
 #ifndef RAVENGUN_NO_PSMOVEAPI
-    if (move) {
-        emit(pipe.on_disconnect(mono_ns()));  // alle knoppen vrij (ook op de virtuele lightgun)
-        // Rumble uit (en de LED, als wij die aanstuurden); alleen een rapport als er iets te doen is.
-        psmove_set_rumble(move, 0);
-        if (opt.led_enabled) psmove_set_leds(move, 0, 0, 0);
-        if (opt.led_enabled || gate.last_sent() != 0) psmove_update_leds(move);
+    for (int p = 1; p <= kPlayers; ++p) {
+        PSMove*& move = handles[static_cast<size_t>(p - 1)];
+        if (!move) continue;
+        MoveSlot& sl = slot(p);
+        auto fin = sl.final_output();
+        sl.disconnect(mono_ns());  // alle knoppen vrij (ook op de virtuele lightgun)
+        if (fin) {  // rumble uit (en de LED, als wij die aanstuurden)
+            psmove_set_rumble(move, 0);
+            psmove_set_leds(move, 0, 0, 0);
+            psmove_update_leds(move);
+        }
         psmove_disconnect(move);
         move = nullptr;
     }
 #endif
-    aux.on_disconnect(mono_ns());
+    for (auto& n : navs) ::close(n.fd);
+    for (auto& sl : slots) sl->aux().on_disconnect(mono_ns());
     if (opt.recorder) opt.recorder->stop("shutdown");
     handle_jobs();
     logf("info", "HID-thread gestopt");

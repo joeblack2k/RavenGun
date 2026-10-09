@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "camera.hpp"
+#include "controllers.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
@@ -95,6 +96,10 @@ void usage(FILE* f) {
         "  --web-port N                     poort (standaard 8765)\n"
         "  --web-lan                        ook op het LAN (0.0.0.0); vereist het token uit\n"
         "                                   ~/.config/ravengun/web-token (0600, wordt gemaakt)\n"
+        "\n"
+        "controllers (koppelen en verwijderen vanuit de webinterface en ravengunctl):\n"
+        "  --controllers-fake PAD           nep-systeem (JSON) voor de controllerlijst en de koppelwizard; voor tests en\n"
+        "                                   schermafdrukken zonder hardware (raakt Bluetooth en hidraw niet)\n"
         "\n"
         "games (starten vanuit de webinterface via systemd-run en scripts/play-halo.sh):\n"
         "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
@@ -178,6 +183,7 @@ int main(int argc, char** argv) {
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     std::string play_script;
     bool games_dry_run = false;
+    std::string controllers_fake;  // nep-systeem voor de controllerlijst en het koppelen (tests, schermafdrukken)
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto need = [&](double lo, double hi, double& out) {
@@ -198,33 +204,35 @@ int main(int argc, char** argv) {
                 return 64;
             }
         }
-        else if (a == "--no-filter") opt.pipeline.filter.enabled = false;
+        else if (a == "--no-filter") { opt.pipeline.filter.enabled = false; opt.cli_keys.insert("filter.enabled"); }
         else if (a == "--no-auto-center") opt.pipeline.auto_center_on_start = false;
-        else if (a == "--no-recenter-learning") opt.pipeline.trim.enabled = false;
+        else if (a == "--no-recenter-learning") { opt.pipeline.trim.enabled = false; opt.cli_keys.insert("fusion.recenter_learning"); }
         else if (a == "--dt-source" && i + 1 < argc) {
             std::string v = argv[++i];
             if (v != "move" && v != "rx") { std::fprintf(stderr, "ravengund: --dt-source verwacht move of rx\n"); return 64; }
             opt.pipeline.use_move_clock = v == "move";
         }
         else if (a == "--fusion" && i + 1 < argc) {
+            opt.cli_keys.insert("fusion.mode");
             if (!ravengun::core::parse_fusion_mode(argv[++i], opt.pipeline.fusion_mode)) {
                 std::fprintf(stderr, "ravengund: --fusion verwacht mahony, mahony_mag, vqf of vqf_mag\n");
                 return 64;
             }
         }
         else if (a == "--vqf-bias" && i + 1 < argc) {
+            opt.cli_keys.insert("fusion.vqf_bias");
             if (!ravengun::core::parse_vqf_bias(argv[++i], opt.pipeline.vqf.bias) || opt.pipeline.vqf.bias == ravengun::core::VqfBias::Hybrid) {
                 std::fprintf(stderr, "ravengund: --vqf-bias verwacht external of own\n");
                 return 64;
             }
         }
-        else if (a == "--min-cutoff") need(0.001, 100, opt.pipeline.filter.min_cutoff_hz);
-        else if (a == "--beta") need(0, 1000, opt.pipeline.filter.beta);
-        else if (a == "--predict-ms") need(0, 200, opt.pipeline.predict.horizon_ms);
+        else if (a == "--min-cutoff") { need(0.001, 100, opt.pipeline.filter.min_cutoff_hz); opt.cli_keys.insert("filter.min_cutoff_hz"); }
+        else if (a == "--beta") { need(0, 1000, opt.pipeline.filter.beta); opt.cli_keys.insert("filter.beta"); }
+        else if (a == "--predict-ms") { need(0, 200, opt.pipeline.predict.horizon_ms); opt.cli_keys.insert("aim.predict_ms"); }
         else if (a == "--clock-hz") need(0, 1000, out_clock.hz);
         else if (a == "--extrapolate-ms") need(0, 100, out_clock.max_extrap_ms);
-        else if (a == "--h-edge-deg") need(1, 89, opt.pipeline.aim.h_edge_deg);
-        else if (a == "--v-edge-deg") need(1, 89, opt.pipeline.aim.v_edge_deg);
+        else if (a == "--h-edge-deg") { need(1, 89, opt.pipeline.aim.h_edge_deg); opt.cli_keys.insert("aim.h_edge_deg"); }
+        else if (a == "--v-edge-deg") { need(1, 89, opt.pipeline.aim.v_edge_deg); opt.cli_keys.insert("aim.v_edge_deg"); }
         else if (a == "--web") web_on = true;
         else if (a == "--no-web") web_on = false;
         else if (a == "--web-lan") web_lan = true;
@@ -247,6 +255,7 @@ int main(int argc, char** argv) {
         else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
         else if (a == "--play-script" && i + 1 < argc) play_script = argv[++i];
         else if (a == "--games-dry-run") games_dry_run = true;
+        else if (a == "--controllers-fake" && i + 1 < argc) controllers_fake = argv[++i];
         else if (a == "--no-camera") cam.enabled = false;
         else if (a == "--camera-auto") cam.auto_exposure = cam.auto_gain = cam.auto_awb = true;
         else if (a == "--camera" && i + 1 < argc) cam.device = argv[++i];
@@ -261,10 +270,10 @@ int main(int argc, char** argv) {
         }
         else if (a == "--exposure") { double v; need(0, 255, v); cam.exposure = static_cast<int>(v); }
         else if (a == "--gain") { double v; need(0, 63, v); cam.gain = static_cast<int>(v); }
-        else if (a == "--led" && i + 1 < argc) led_arg = argv[++i];
-        else if (a == "--hue-deg") need(-180, 180, hue);
-        else if (a == "--hue-tol-deg") need(1, 90, hue_tol);
-        else if (a == "--min-chroma") need(1, 180, min_chroma);
+        else if (a == "--led" && i + 1 < argc) { led_arg = argv[++i]; for (const char* k : {"led.r", "tracker.hue_deg", "tracker.hue_tol_deg"}) opt.cli_keys.insert(k); }
+        else if (a == "--hue-deg") { need(-180, 180, hue); opt.cli_keys.insert("tracker.hue_deg"); }
+        else if (a == "--hue-tol-deg") { need(1, 90, hue_tol); opt.cli_keys.insert("tracker.hue_tol_deg"); }
+        else if (a == "--min-chroma") { need(1, 180, min_chroma); opt.cli_keys.insert("tracker.min_chroma"); }
         else if (a == "--controller" && i + 1 < argc) {
             std::string id = argv[++i];
             for (auto& ch : id) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -391,7 +400,10 @@ int main(int argc, char** argv) {
     // afsluiten. De tracker-thread levert optische metingen via de hook.
     Recorder recorder(ravengun::rec::default_recordings_dir());
     opt.recorder = &recorder;
-    shared.optical_hook = [&recorder](const ravengun::core::OpticalSample& o) { recorder.push_optical(o); };
+    // Een opname is per controller: alleen de optische metingen van de speler die opneemt.
+    shared.optical_hook = [&recorder, &shared](int player, const ravengun::core::OpticalSample& o) {
+        if (player == shared.recording_player.load()) recorder.push_optical(o);
+    };
     // Games: het startscript staat in de repo naast build/ (build/ravengund -> ../scripts/play-halo.sh).
     if (play_script.empty()) {
         char exe[4096];
@@ -433,6 +445,26 @@ int main(int argc, char** argv) {
     }
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
+    // Controllers: lijst, koppelwizard, verwijderen (BlueZ via busctl, de hulp met rootrechten via sudo -n).
+    std::unique_ptr<ControllerOps> ctl_ops;
+    if (!controllers_fake.empty()) {
+        std::string text, ferr;
+        if (FILE* f = std::fopen(controllers_fake.c_str(), "rb")) {
+            char buf[4096];
+            size_t n;
+            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
+            std::fclose(f);
+        }
+        ctl_ops = make_fake_controller_ops(text, ferr);
+        if (!ctl_ops) { std::fprintf(stderr, "ravengund: --controllers-fake: %s\n", ferr.c_str()); return 64; }
+        logf("info", "controllers: nep-systeem uit %s (geen Bluetooth of hidraw)", controllers_fake.c_str());
+    } else {
+        ctl_ops = make_system_controller_ops();
+    }
+    ControllerService controllers(shared, std::move(ctl_ops));
+    // Zonder HID (tests): de gekoppelde controllers van deze pc niet in het instellingenbestand opnemen.
+    controllers.set_auto_register(opt.enabled || !controllers_fake.empty());
+    shared.controllers = &controllers;
     CameraService camera(shared, cam);
     shared.camera = &camera;
     shared.camera_status = [&camera] { return camera.status_json(); };
@@ -445,6 +477,7 @@ int main(int argc, char** argv) {
     std::thread hid(hid_thread_main, std::ref(shared), opt);
     std::thread ipc(ipc_thread_main, std::ref(shared), sfd, wake);
     camera.start();
+    controllers.start();
 
     // Webinterface: een eigen thread; als hij niet kan starten draait de daemon gewoon door.
     std::thread web;
@@ -487,6 +520,7 @@ int main(int argc, char** argv) {
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
     camera.stop();
+    controllers.stop();
     hid.join();
     ipc.join();
     if (web.joinable()) web.join();
