@@ -36,6 +36,7 @@ struct Request {
     std::string id_json;   // id van de client als JSON-tekst (getal of string), leeg = geen id
     bool full_ids = false; // status/sample/watch: controller-ID ongeredigeerd
     double rate_hz = 30;   // watch
+    bool lite = false;     // watch: compacte frames (alleen aim, trekker en knoppen; voor de fullscreen-modus van de app)
     std::optional<bool> filter_enabled;
     std::optional<double> min_cutoff_hz, beta, d_cutoff_hz;
     std::optional<double> h_edge_deg, v_edge_deg;

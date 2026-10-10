@@ -65,6 +65,18 @@ rc=0; "$C" rumble test 2>/dev/null || rc=$?
 "$C" filter --d-cutoff 5 >/dev/null || fail "filter --d-cutoff faalde"
 
 "$C" watch --duration 0.5 --json >/dev/null || fail "watch faalde"
+# watch met lite (compacte frames voor de fullscreen-modus van de app): het antwoord bevestigt "lite"; een onbekend veld blijft een fout.
+if command -v python3 >/dev/null 2>&1; then
+  OUT=$(python3 -I -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX); s.connect(sys.argv[1]); s.settimeout(2)
+s.sendall(b"{\"v\":1,\"cmd\":\"watch\",\"rate_hz\":60,\"lite\":true,\"id\":1}\n{\"v\":1,\"cmd\":\"watch\",\"liet\":true,\"id\":2}\n")
+buf = b""
+while buf.count(b"\n") < 2: buf += s.recv(4096)
+print(buf.decode())' "$T/ravengun/ravengund.sock") || fail "watch lite: geen antwoord"
+  echo "$OUT" | grep -q '"watching":true,"rate_hz":60,"player":1,"lite":true' || fail "watch lite niet bevestigd: $OUT"
+  echo "$OUT" | grep -q '"code":"bad_request"' || fail "watch met onbekend veld niet geweigerd"
+fi
 
 OUT=$("$C" camera --json) || fail "camera faalde"
 echo "$OUT" | grep -q '"enabled":false' || fail "camera niet uit bij --no-camera"

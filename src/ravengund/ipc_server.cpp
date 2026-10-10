@@ -35,6 +35,7 @@ struct Client {
     int fd = -1;
     std::string in, out;
     bool watching = false;
+    bool lite = false;     // watch met lite: compacte frames (event "aim")
     bool full_ids = false;
     int player = 1;  // watch: de speler wiens samples deze client volgt
     int64_t period_ns = 0;
@@ -67,6 +68,7 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
     Snapshot s = sh.get(c.player);
     c.watching = true;
     c.full_ids = r.full_ids;
+    c.lite = r.lite;
     c.period_ns = static_cast<int64_t>(1e9 / r.rate_hz);
     c.next_due = 0;
     c.last_seq = 0;
@@ -74,7 +76,9 @@ std::string handle(SharedState& sh, Client& c, const std::string& line) {
     c.press_base = s.press_total;
     c.release_base = s.release_total;
     json::Writer w;
-    w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).key("player").value(c.player).end_object();
+    w.begin_object().key("watching").value(true).key("rate_hz").value(r.rate_hz).key("player").value(c.player);
+    if (c.lite) w.key("lite").value(true);
+    w.end_object();
     return ipc::ok_response(r.id_json, w.str());
 }
 
@@ -191,6 +195,35 @@ void ipc_thread_main(SharedState& sh, int lfd, int wake_fd) {
             if (snap.sample.seq == c.last_seq && snap.optical_updates == c.last_optical) continue;
             if (c.out.size() > kWatchSkipAbove) { ++c.skipped; continue; }  // trage client: frame overslaan
             json::Writer w;
+            if (c.lite) {
+                // Compact (lite): wat een menu met een vizier nodig heeft, ongeveer 200 bytes per frame.
+                const core::InputSample& s = snap.sample;
+                w.begin_object();
+                w.key("seq").value(static_cast<unsigned long long>(s.seq));
+                w.key("link").value(core::to_string(s.link));
+                w.key("aim").begin_object().key("valid").value(s.aim_valid);
+                if (s.aim_valid) {
+                    w.key("x").value(s.aim.x_clamped).key("y").value(s.aim.y_clamped).key("off_screen").value(s.aim.off_screen);
+                }
+                w.end_object();
+                w.key("trigger").value(static_cast<int>(s.trigger));
+                w.key("down").begin_array();
+                for (const auto& b : core::kButtonNames) if (s.buttons & b.bit) w.value(b.name);
+                w.end_array();
+                w.key("pressed");
+                write_edges(w, snap.press_total, c.press_base);
+                w.key("released");
+                write_edges(w, snap.release_total, c.release_base);
+                w.key("skipped_frames").value(static_cast<unsigned long long>(c.skipped));
+                w.end_object();
+                c.press_base = snap.press_total;
+                c.release_base = snap.release_total;
+                c.last_seq = snap.sample.seq;
+                c.last_optical = snap.optical_updates;
+                c.out += ipc::event_line("aim", w.str());
+                c.out += '\n';
+                continue;
+            }
             w.begin_object().key("sample");
             core::write_sample_json(w, snap.sample, c.full_ids);
             w.key("edges_since_last_frame").begin_object();

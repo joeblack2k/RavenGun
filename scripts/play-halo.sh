@@ -8,7 +8,8 @@
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
 #              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
-# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board); standaard uit packaging/io-routes.json. tp-shm: de
+# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board | jvs); standaard de keuze in de app
+#            (~/.config/ravengun/io-routes.json) over packaging/io-routes.json (scripts/io-route.py). tp-shm: de
 #            daemon schrijft zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
 #            hid-board: de daemon maakt het invoerbord van de game na als virtuele joystick (Transformers; hid-boards.json)
 #            en zet dat apparaat in de Wine-prefix van het profiel op joystick-id 0 (scripts/wine-joyid.sh).
@@ -139,17 +140,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Invoerroute: --route, anders uit packaging/io-routes.json (standaard evdev). --teknoparrot forceert evdev.
+# Invoerroute: --route, anders de keuze van de gebruiker (~/.config/ravengun/io-routes.json, gezet door de app) over
+# packaging/io-routes.json (standaard evdev); zie scripts/io-route.py. --teknoparrot forceert evdev.
 if [[ -z "$ROUTE" ]]; then
-  ROUTE=$(python3 -I - "$ROOT/packaging/io-routes.json" "$PROFILE" <<'PY' 2>/dev/null || echo evdev
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-    print(d.get("games", {}).get(sys.argv[2], {}).get("route", d.get("default", "evdev")))
-except Exception:
-    print("evdev")
-PY
-)
+  ROUTE=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" route 2>/dev/null || echo evdev)
+  [[ -n "$ROUTE" ]] || ROUTE=evdev
 fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
 case "$ROUTE" in evdev|tp-shm|unity-tcp|hid-board|jvs) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm, unity-tcp, hid-board of jvs)";; esac
@@ -189,15 +184,7 @@ elif [[ "$ROUTE" == hid-board ]]; then
   # Het bord moet bestaan voordat de game start (DirectInput telt de joysticks bij het openen). Eerst de prefix: het bord
   # krijgt daar joystick-id 0, want GUID_Joystick is de eerste joystick (anders de Move zelf).
   WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
-  VIDPID=$(python3 -I - "$ROOT/packaging" "$PROFILE" <<'PY' 2>/dev/null || true
-import json, sys
-d = sys.argv[1]
-r = json.load(open(d + "/io-routes.json"))["games"][sys.argv[2]]
-b = json.load(open(d + "/hid-boards.json"))["boards"][r["board"]]
-v = lambda x: int(x, 0) if isinstance(x, str) else x
-print("%04X:%04X" % (v(b["vendor"]), v(b["product"])))
-PY
-)
+  VIDPID=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" hid_vidpid 2>/dev/null || true)
   "$CTL" iobridge start "$PROFILE" --route hid-board >/dev/null || fail "IO-brug (hid-board) starten mislukt voor $PROFILE"
   if [[ -n "$WPFX" && -n "$VIDPID" ]]; then "$ROOT/scripts/wine-joyid.sh" "$WPFX" "$VIDPID" || true; fi
   say "Invoerroute: hid-board (de daemon is het invoerbord van de game)."
@@ -206,11 +193,8 @@ elif [[ "$ROUTE" == jvs ]]; then
   # laat GetCommModemStatus op die pty slagen (een pty kent TIOCMGET niet). Eerst het env-bestand lezen: de prefix staat daar.
   WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
   [[ -n "$WPFX" ]] || fail "Route jvs vraagt RG_WINEPREFIX=<eigen prefix> in $TP/UserProfiles/$PROFILE.env (en WineRunnerPath = wrappers/wine-prefix)."
-  COMPORT=$(python3 -I - "$ROOT/packaging/io-routes.json" "$PROFILE" <<'PY' 2>/dev/null || echo COM4
-import json, sys
-print(json.load(open(sys.argv[1]))["games"][sys.argv[2]].get("com_port", "COM4"))
-PY
-)
+  COMPORT=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" com_port 2>/dev/null || echo COM4)
+  [[ -n "$COMPORT" ]] || COMPORT=COM4
   say "Wine-prefix voorbereiden (wineboot), daarna de poort koppelen..."
   jvs_prewarm_prefix "$WPFX" || fail "Kon de wineserver van $WPFX niet starten."
   "$CTL" iobridge start "$PROFILE" --route jvs >/dev/null || { jvs_unlink_prefix; fail "IO-brug (jvs) starten mislukt voor $PROFILE"; }
