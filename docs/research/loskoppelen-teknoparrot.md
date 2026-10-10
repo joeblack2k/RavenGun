@@ -1,4 +1,4 @@
-# Loskoppelen van TeknoParrot: wat er nodig is (stand 2026-10-10)
+# Loskoppelen van TeknoParrot: wat er nodig is (stand 2026-10-11)
 
 Feitelijk overzicht voor het team. Per onderdeel: wat TeknoParrot nu levert, wat RavenGun daarvan al zelf doet, en wat
 nodig is om het te vervangen. Bronnen: de RavenGun-code (`scripts/launch-direct.py`, `scripts/play-halo.sh`,
@@ -82,12 +82,12 @@ Platform en route uit `packaging/io-routes.json` en `packaging/games-status.md`;
 | Tomb Raider Arcade | speelbaar | geen (alleen Proton uit de TP-map) | — |
 | Rabbids Hollywood | speelbaar | geen (alleen Proton uit de TP-map) | — |
 | NERF Arcade | deels (geen invoer) | lader, gesloten kern | Patreon=true |
-| Gashaaaan | attract (2026-10-10, standaardroute van de lader) | lader, gesloten kern | Patreon=false |
-| Gashaaaan Refill, Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern onder Wine); standaardroute nog te testen | lader, gesloten kern | Gashaaaan Refill en Otomedius: Patreon=true |
+| Gashaaaan, Gashaaaan Refill | speelbaar, direct (2026-10-11, standaardroute van de lader) | lader, gesloten kern | Gashaaaan Refill: Patreon=true |
+| Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern start nu wel; per game een eigen oorzaak: films, ACIO op COM2, activering, ontbrekende bestanden, Kaboom-bibliotheek) | lader, gesloten kern | Otomedius: Patreon=true |
 | Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (zwart beeld) | OpenParrot (open kern) | regiokeuze |
 | Jurassic Park | geparkeerd | ElfLdr2, gesloten kern | ja (integriteitscontrole) |
 | Let's Go Safari, Sega Ring-games | geparkeerd (poort 40100) | lader, gesloten kern | deels (dongle regio/PCB) |
-| Luigi's Mansion | geparkeerd | lader, gesloten kern | Capcom-packer op de exe |
+| Luigi's Mansion | speelbaar, direct (2026-10-10) | lader, gesloten kern | Capcom-packer op de exe |
 
 ## 5. Volgorde van werk als het team besluit los te koppelen (feitelijk: afhankelijkheden)
 
