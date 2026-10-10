@@ -1,0 +1,7 @@
+# Bouwomgeving voor de BepInEx-plugin van RavenGun (plugins/unity/): Mono-compiler en hulpmiddelen op Arch Linux.
+# Bouwen:  podman build -t localhost/ravengun-unity-build -f packaging/containers/unity-plugin/Containerfile packaging/containers/unity-plugin
+# Gebruik: scripts/build-unity-plugin.sh (hangt de bronmap en de BepInEx- en game-assemblies read-only in).
+# De image bevat geen BepInEx en geen game-bestanden; die worden bij het bouwen read-only gemount.
+FROM docker.io/library/archlinux:latest
+RUN pacman -Sy --noconfirm --needed mono && pacman -Scc --noconfirm
+WORKDIR /work

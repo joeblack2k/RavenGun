@@ -3,11 +3,13 @@
 # de game draait direct onder Proton met de BepInEx-plugin van DemulShooter, en ravengund is de TCP-klant van die plugin
 # (127.0.0.1:33610). Zie docs/decisions.md (route 1) en docs/procedures.md.
 #
-# Gebruik: scripts/play-unity.sh --game TombRaider|RabbidsHollywood [--no-wait-move] [--wine] [--windowed] [--env K=V]...
+# Gebruik: scripts/play-unity.sh --game TombRaider|RabbidsHollywood [--plugin ravengun|demulshooter] [--no-wait-move] [--wine] [--windowed] [--env K=V]...
 #          scripts/play-unity.sh --stop      (game stoppen, Unity-route in de daemon stoppen, uitvoer ontwapenen)
 # Volgorde: view en prefix klaarzetten (aagames-setup.py) -> daemon actief -> Move -> uitvoer wapenen -> game starten ->
 # daemon vertellen welke game actief is (aagames start). De game draait in de transient user-unit ravengun-tpui, net als
 # de TeknoParrot-games, zodat de webapp (Games-lijst) en play-halo.sh --stop hem herkennen.
+#   --plugin P  ravengun: onze eigen plugin (route 2, standaard) of demulshooter: de plugin van DemulShooter (route 1, terugval);
+#               standaard uit aagames-games.json (veld plugin) of de omgevingsvariabele RAVENGUN_UNITY_PLUGIN
 #   --wine      de plain-wine-runner (proton-11.0-2) in plaats van GE-Proton met DXVK
 #   --windowed  zonder -popupwindow (standaard: randloos schermvullend venster)
 set -euo pipefail
@@ -46,17 +48,18 @@ stop_all() {
   echo "Game gestopt, Unity-route en uitvoer uit."
 }
 
-GAME=""; WAIT_MOVE=1; USE_WINE=0; POPUP=1; EXTRA_ENV=()
+GAME=""; WAIT_MOVE=1; USE_WINE=0; POPUP=1; PLUGIN=""; EXTRA_ENV=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
     --game|--profile) GAME="${2:?$1 vereist een naam}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
+    --plugin) PLUGIN="${2:?--plugin vereist ravengun of demulshooter}"; shift 2 ;;
     --wine) USE_WINE=1; shift ;;
     --windowed) POPUP=0; shift ;;
     --env) [[ "${2:-}" == *=* ]] || { echo "--env vereist K=V" >&2; exit 2; }; EXTRA_ENV+=("$2"); shift 2 ;;
     --record) shift 2 ;;   # alleen voor compatibiliteit met play-halo.sh (opnemen hoort daar)
-    *) echo "Gebruik: $0 --game TombRaider|RabbidsHollywood [--no-wait-move] [--wine] [--windowed] [--env K=V]... | --stop" >&2; exit 2 ;;
+    *) echo "Gebruik: $0 --game TombRaider|RabbidsHollywood [--plugin ravengun|demulshooter] [--no-wait-move] [--wine] [--windowed] [--env K=V]... | --stop" >&2; exit 2 ;;
   esac
 done
 [[ -n "$GAME" ]] || { echo "Gebruik: $0 --game TombRaider|RabbidsHollywood | --stop" >&2; exit 2; }
@@ -65,8 +68,10 @@ done
 unit_alive && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
 
 # View en prefix (geen .exe van DemulShooter; alleen de plugin-bestanden uit de lokale map).
-VIEW=$(python3 -I "$ROOT/scripts/aagames-setup.py" "$GAME" --no-prefix --print-view) || fail "View maken mislukt voor $GAME (zie scripts/aagames-setup.py)"
-python3 -I "$ROOT/scripts/aagames-setup.py" "$GAME" >/dev/null || fail "Prefix maken mislukt"
+SETUP=(python3 -I "$ROOT/scripts/aagames-setup.py" "$GAME")
+[[ -n "$PLUGIN" ]] && SETUP+=(--plugin "$PLUGIN")
+VIEW=$("${SETUP[@]}" --no-prefix --print-view) || fail "View maken mislukt voor $GAME (zie scripts/aagames-setup.py)"
+"${SETUP[@]}" --no-build >/dev/null || fail "Prefix maken mislukt"
 PFX_ROOT="$PREFIXES/unity-aagames"
 [[ -f "$VIEW/Game.exe" ]] || fail "Game.exe ontbreekt in $VIEW"
 

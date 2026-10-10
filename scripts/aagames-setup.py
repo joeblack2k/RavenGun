@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
 """Zet een Unity-game (Tomb Raider Arcade, Rabbids Hollywood Arcade) klaar om zonder TeknoParrot en zonder
-DemulShooter.exe te draaien: lokale game-view + eigen Wine-prefix. Zie docs/decisions.md (route 1).
+DemulShooter.exe te draaien: lokale game-view + eigen Wine-prefix. Zie docs/decisions.md (route 1 en route 2).
 
-Gebruik: python3 -I scripts/aagames-setup.py GAME [--version V] [--no-prefix] [--print-view]
+Gebruik: python3 -I scripts/aagames-setup.py GAME [--plugin ravengun|demulshooter] [--version V] [--no-prefix]
+                                              [--print-view] [--reset-config] [--no-build]
   GAME     sleutel uit packaging/aagames-games.json (TombRaider, RabbidsHollywood)
-  --version  map onder ~/.local/share/ravengun/demulshooter/ (standaard uit het JSON-bestand)
+  --plugin  welke BepInEx-plugin in de game komt: "ravengun" (route 2, onze eigen plugin uit plugins/unity/, standaard)
+            of "demulshooter" (route 1, terugval). Standaard: de omgevingsvariabele RAVENGUN_UNITY_PLUGIN, anders het
+            veld "plugin" van de game in het JSON-bestand, anders "ravengun".
+  --version  map onder ~/.local/share/ravengun/demulshooter/ (standaard uit het JSON-bestand; alleen demulshooter)
   --no-prefix  alleen de view (geen Wine-prefix aanmaken)
   --print-view  druk alleen het pad van de view af (voor play-unity.sh)
+  --reset-config  (ravengun) schrijf het plugin-configuratiebestand opnieuw uit het JSON-bestand
+  --no-build  (ravengun) bouw de plugin niet automatisch als hij ontbreekt of verouderd is
 
-De DemulShooter-release staat NIET in de repository (geen licentie): download hem apart naar
+Route 2 (ravengun): BepInEx 5.4.21 komt van github.com/BepInEx (LGPL-2.1) uit ~/.local/share/ravengun/bepinex/<versie>/
+(zie PROVENANCE.txt daar), de plugin-DLL uit build/unity-plugin/<GAME>/ (scripts/build-unity-plugin.sh). Het configuratie-
+bestand BepInEx/config/nl.studiodamon.ravengun.<game>.cfg wordt alleen aangemaakt als het ontbreekt (de waarden komen dan uit
+het JSON-bestand: poort, resolutie, beeldvullend); daarna beheert de eigenaar het zelf (of --reset-config).
+
+Route 1 (demulshooter): de DemulShooter-release staat NIET in de repository (geen licentie): download hem apart naar
 ~/.local/share/ravengun/demulshooter/<versie>/ (zie PROVENANCE.txt daar). Dit script voert geen enkel .exe uit de
 release uit en haalt alleen de plugin-bestanden uit Unity/<plugin_dir>.
 
@@ -23,12 +34,15 @@ De view (~/.local/share/ravengun/runtime/views-aagames/<GAME>) bevat symlinks na
 Bestaande lokale bestanden in de view blijven bij een nieuwe aanroep staan (bijv. NVRAM, de plugin-ini wordt opnieuw
 uit het sjabloon gemaakt met de resolutie uit het JSON-bestand).
 """
-import json, os, re, shutil, subprocess, sys
+import glob, json, os, re, shutil, subprocess, sys
 
 HOME = os.path.expanduser('~')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG = os.path.join(ROOT, 'packaging', 'aagames-games.json')
 DS = os.path.join(HOME, '.local/share/ravengun/demulshooter')
+BEPINEX = os.path.join(HOME, '.local/share/ravengun/bepinex')
+PLUGIN_SRC = os.path.join(ROOT, 'plugins', 'unity', 'src')
+BUILD_OUT = os.path.join(ROOT, 'build', 'unity-plugin')
 VIEWS = os.path.join(HOME, '.local/share/ravengun/runtime/views-aagames')
 PREFIXES = os.path.join(HOME, '.local/share/ravengun/prefixes')
 PROTON = os.path.join(HOME, '.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64')
@@ -79,36 +93,110 @@ def plugin_ini(template, g):
     return s
 
 
-def build_view(game, g, version):
+def choose_plugin(g, override):
+    p = override or os.environ.get('RAVENGUN_UNITY_PLUGIN') or g.get('plugin') or 'ravengun'
+    if p not in ('ravengun', 'demulshooter'):
+        die(f'onbekende plugin {p!r}; kies ravengun of demulshooter')
+    return p
+
+
+def enable_disk_log(view):
+    """BepInEx schrijft in de DemulShooter-release standaard geen logbestand: aanzetten (BepInEx/LogOutput.log)."""
+    cfg = os.path.join(view, 'BepInEx/config/BepInEx.cfg')
+    os.makedirs(os.path.dirname(cfg), exist_ok=True)
+    if not os.path.isfile(cfg):
+        open(cfg, 'w', encoding='utf-8').write('[Logging.Disk]\n\nEnabled = true\n')
+        return
+    t = open(cfg, encoding='utf-8-sig').read()
+    t2 = re.sub(r'(\[Logging\.Disk\][^\[]*?^Enabled\s*=\s*)false', r'\1true', t, count=1, flags=re.S | re.M)
+    if t2 != t:
+        open(cfg, 'w', encoding='utf-8').write(t2)
+
+
+def link_game(game, g):
     nas = os.path.expanduser(g['nas_dir'])
     if not os.path.isfile(os.path.join(nas, g['exe'])):
         die(f'{g["exe"]} niet gevonden in {nas} (NAS gekoppeld?)')
-    pl = os.path.join(DS, version, 'Unity', g['plugin_dir'])
-    if not os.path.isfile(os.path.join(pl, 'winhttp.dll')):
-        die(f'plugin-bestanden ontbreken in {pl}: download DemulShooter {version} (zie PROVENANCE.txt)')
     view = os.path.join(VIEWS, game)
     link_all(nas, view, SKIP, True)
     # Game_Data: echte map met links (nieuwe bestanden van de game blijven lokaal).
     link_all(os.path.join(nas, 'Game_Data'), os.path.join(view, 'Game_Data'), set(), False)
-    # De plugin: BepInEx/ (kopie, de game of BepInEx schrijft daarin: logs, cache), winhttp.dll en doorstop_config.ini.
+    return view
+
+
+def install_demulshooter(view, g, version):
+    pl = os.path.join(DS, version, 'Unity', g['plugin_dir'])
+    if not os.path.isfile(os.path.join(pl, 'winhttp.dll')):
+        die(f'plugin-bestanden ontbreken in {pl}: download DemulShooter {version} (zie PROVENANCE.txt)')
+    # onze eigen plugin eruit (route 1 kiest uitsluitend DemulShooter)
+    for f in glob.glob(os.path.join(view, 'BepInEx/plugins/RavenGun.*')):
+        os.unlink(f)
+    # BepInEx/ (kopie, de game of BepInEx schrijft daarin: logs, cache), winhttp.dll en doorstop_config.ini.
     for e in os.listdir(pl):
         s, d = os.path.join(pl, e), os.path.join(view, e)
         if os.path.isdir(s):
             shutil.copytree(s, d, dirs_exist_ok=True)
         else:
             shutil.copyfile(s, d)
-    # BepInEx schrijft standaard geen logbestand (Disk-logging staat in de release uit): aanzetten, zodat
-    # BepInEx/LogOutput.log in de view laat zien of BepInEx en de plugin laden.
-    cfg = os.path.join(view, 'BepInEx/config/BepInEx.cfg')
-    if os.path.isfile(cfg):
-        t = open(cfg, encoding='utf-8-sig').read()
-        t2 = re.sub(r'(\[Logging\.Disk\][^\[]*?^Enabled\s*=\s*)false', r'\1true', t, count=1, flags=re.S | re.M)
-        if t2 != t:
-            open(cfg, 'w', encoding='utf-8').write(t2)
+    enable_disk_log(view)
     ini = [f for f in os.listdir(os.path.join(pl, 'BepInEx/plugins')) if f.endswith('.ini')]
     for f in ini:
         open(os.path.join(view, 'BepInEx/plugins', f), 'w', encoding='utf-8').write(
             plugin_ini(os.path.join(pl, 'BepInEx/plugins', f), g))
+
+
+def plugin_stale(dll):
+    if not os.path.isfile(dll):
+        return True
+    newest = max(os.path.getmtime(p) for p in glob.glob(os.path.join(PLUGIN_SRC, '**', '*.cs'), recursive=True))
+    return os.path.getmtime(dll) < newest
+
+
+def ravengun_cfg_text(cfg_root, g):
+    """Beginwaarden van het plugin-configuratiebestand (BepInEx-indeling), uit het JSON-bestand."""
+    b = lambda v: 'true' if v else 'false'
+    return ('[Kanaal]\n\nPoort = %d\n\n[Scherm]\n\nBreedte = %d\nHoogte = %d\nBeeldvullend = %s\nResolutieAfdwingen = true\n'
+            % (cfg_root.get('port', 33610), g['width'], g['height'], b(g.get('fullscreen', True))))
+
+
+def install_ravengun(view, game, g, cfg_root, reset_config, build):
+    bver = cfg_root.get('bepinex_version', '5.4.21.0')
+    bep = os.path.join(BEPINEX, bver, 'x64')
+    if not os.path.isfile(os.path.join(bep, 'BepInEx/core/BepInEx.dll')):
+        die(f'BepInEx {bver} ontbreekt in {bep}: zie plugins/unity/README.md (download van github.com/BepInEx)')
+    dll = os.path.join(BUILD_OUT, game, f'RavenGun.{game}.dll')
+    if plugin_stale(dll):
+        if not build:
+            die(f'{dll} ontbreekt of is verouderd; draai scripts/build-unity-plugin.sh {game}')
+        print('plugin bouwen...', file=sys.stderr, flush=True)
+        r = subprocess.run([os.path.join(ROOT, 'scripts', 'build-unity-plugin.sh'), game], stdout=sys.stderr)
+        if r.returncode != 0 or not os.path.isfile(dll):
+            die('bouwen van de plugin mislukt')
+    # BepInEx zelf: core en doorstop uit de officiele release
+    shutil.copytree(os.path.join(bep, 'BepInEx/core'), os.path.join(view, 'BepInEx/core'), dirs_exist_ok=True)
+    for f in ('winhttp.dll', 'doorstop_config.ini'):
+        shutil.copyfile(os.path.join(bep, f), os.path.join(view, f))
+    for d in ('plugins', 'config', 'patchers', 'cache'):
+        os.makedirs(os.path.join(view, 'BepInEx', d), exist_ok=True)
+    # DemulShooter eruit (route 2 kiest uitsluitend onze plugin) en onze plugin erin
+    for f in glob.glob(os.path.join(view, 'BepInEx/plugins/*DemulShooter*')):
+        os.unlink(f)
+    for f in glob.glob(os.path.join(view, 'BepInEx/plugins/RavenGun.*')):
+        os.unlink(f)
+    shutil.copyfile(dll, os.path.join(view, 'BepInEx/plugins', os.path.basename(dll)))
+    enable_disk_log(view)
+    cfgf = os.path.join(view, 'BepInEx/config', f'nl.studiodamon.ravengun.{game.lower()}.cfg')
+    if reset_config or not os.path.isfile(cfgf):
+        open(cfgf, 'w', encoding='utf-8').write(ravengun_cfg_text(cfg_root, g))
+        print(f'plugin-configuratie geschreven: {cfgf}', file=sys.stderr)
+
+
+def build_view(game, g, version, plugin='ravengun', cfg_root=None, reset_config=False, build=True):
+    view = link_game(game, g)
+    if plugin == 'demulshooter':
+        install_demulshooter(view, g, version)
+    else:
+        install_ravengun(view, game, g, cfg_root or {}, reset_config, build)
     return view
 
 
@@ -135,11 +223,13 @@ def main():
     version = cfg['demulshooter_version']
     if '--version' in a:
         version = a[a.index('--version') + 1]
-    view = build_view(game, g, version)
+    override = a[a.index('--plugin') + 1] if '--plugin' in a else None
+    plugin = choose_plugin(g, override)
+    view = build_view(game, g, version, plugin, cfg, '--reset-config' in a, '--no-build' not in a)
     if '--print-view' in a:
         print(view)
         return
-    print(f'view: {view}')
+    print(f'view: {view} (plugin: {plugin})')
     if '--no-prefix' not in a:
         print(f'prefix: {build_prefix("unity-aagames")}')
 
