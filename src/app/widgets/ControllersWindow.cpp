@@ -108,11 +108,13 @@ void ControllersWindow::CreateLayout() {
     auto* buttons = new QHBoxLayout;
     auto* pair = new NonDefaultQPushButton(tr("Pair New Controller..."));
     m_rename = new NonDefaultQPushButton(tr("Rename..."));
+    m_player = new NonDefaultQPushButton(tr("Player..."));
     m_blink = new NonDefaultQPushButton(tr("Blink"));
     m_remove = new NonDefaultQPushButton(tr("Remove..."));
     buttons->addWidget(pair);
     buttons->addStretch(1);
     buttons->addWidget(m_rename);
+    buttons->addWidget(m_player);
     buttons->addWidget(m_blink);
     buttons->addWidget(m_remove);
     kl->addLayout(buttons);
@@ -126,11 +128,13 @@ void ControllersWindow::CreateLayout() {
         const QJsonObject c = ControllerByKey(SelectedControllerKey());
         const bool any = !c.isEmpty();
         m_rename->setEnabled(any);
+        m_player->setEnabled(any);
         m_remove->setEnabled(any);
         m_blink->setEnabled(any && c.value(QStringLiteral("type")).toString() == QStringLiteral("move") &&
                             c.value(QStringLiteral("connected")).toBool());
     });
     m_rename->setEnabled(false);
+    m_player->setEnabled(false);
     m_blink->setEnabled(false);
     m_remove->setEnabled(false);
     connect(pair, &QPushButton::clicked, this, [this] {
@@ -150,6 +154,24 @@ void ControllersWindow::CreateLayout() {
                                  {{QStringLiteral("controller"), c.value(QStringLiteral("key")).toString()}, {QStringLiteral("name"), name.left(32)}},
                                  [this](const rg::EngineReply& r) {
                                      if (!r.ok) QMessageBox::warning(this, tr("Rename Controller"), r.errorMessage);
+                                     core_->engine()->refreshNow();
+                                 });
+    });
+    // Speler kiezen, ook voor een Navigation Controller (die vult de Move van die speler aan). Bezet = ruilen (engine).
+    connect(m_player, &QPushButton::clicked, this, [this] {
+        const QJsonObject c = ControllerByKey(SelectedControllerKey());
+        if (c.isEmpty()) return;
+        const QStringList players{tr("Player 1"), tr("Player 2"), tr("Player 3"), tr("Player 4")};
+        bool ok = false;
+        const int cur = std::clamp(c.value(QStringLiteral("player")).toInt(1), 1, 4) - 1;
+        const QString pick = QInputDialog::getItem(this, tr("Player"), tr("Player for \"%1\":").arg(c.value(QStringLiteral("name")).toString()),
+                                                   players, cur, false, &ok);
+        if (!ok) return;
+        core_->engine()->request(QStringLiteral("set_controller"),
+                                 {{QStringLiteral("controller"), c.value(QStringLiteral("key")).toString()},
+                                  {QStringLiteral("new_player"), static_cast<int>(players.indexOf(pick)) + 1}},
+                                 [this](const rg::EngineReply& r) {
+                                     if (!r.ok) QMessageBox::warning(this, tr("Player"), r.errorMessage);
                                      core_->engine()->refreshNow();
                                  });
     });

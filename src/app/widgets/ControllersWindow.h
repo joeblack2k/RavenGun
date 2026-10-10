@@ -45,6 +45,7 @@ private:
     std::array<QLabel*, kPlayers> m_state{};
     QTreeWidget* m_list = nullptr;
     QPushButton* m_rename = nullptr;
+    QPushButton* m_player = nullptr;
     QPushButton* m_blink = nullptr;
     QPushButton* m_remove = nullptr;
     QLabel* m_mouse_note = nullptr;

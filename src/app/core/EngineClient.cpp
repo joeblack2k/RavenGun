@@ -24,6 +24,18 @@ EngineClient::EngineClient(QString socketPath, QObject* parent)
     connect(&poll_, &QTimer::timeout, this, &EngineClient::poll);
 }
 
+QString EngineReply::englishFor(const QString& code) {
+    // De engine meldt in het Nederlands; de app toont een Engelse tekst per foutcode (het origineel staat in het log).
+    if (code.isEmpty()) return {};
+    if (code == QStringLiteral("unavailable"))
+        return QStringLiteral("Not possible right now. Is the PS Move switched on and connected, and is nothing else busy?");
+    if (code == QStringLiteral("invalid_argument")) return QStringLiteral("The engine did not accept this value or name.");
+    if (code == QStringLiteral("unknown_command")) return QStringLiteral("The engine is too old for this function. Update and restart it.");
+    if (code == QStringLiteral("bad_request") || code == QStringLiteral("parse_error") || code == QStringLiteral("unsupported_version"))
+        return QStringLiteral("The engine did not understand the request (%1).").arg(code);
+    return QStringLiteral("The engine reported an error (%1).").arg(code);
+}
+
 EngineClient::~EngineClient() {
     // Eerst de socket loskoppelen: zijn destructor meldt "disconnected" terwijl pending_ al weg zou zijn.
     QObject::disconnect(&sock_, nullptr, this, nullptr);
@@ -144,7 +156,9 @@ void EngineClient::onReadyRead() {
         r.result = o.value(QStringLiteral("result"));
         const QJsonObject e = o.value(QStringLiteral("error")).toObject();
         r.errorCode = e.value(QStringLiteral("code")).toString();
-        r.errorMessage = e.value(QStringLiteral("message")).toString();
+        r.engineMessage = e.value(QStringLiteral("message")).toString();
+        r.errorMessage = EngineReply::englishFor(r.errorCode);
+        if (!r.ok) qInfo("engine: %s: %s", qPrintable(r.errorCode), qPrintable(r.engineMessage));
         if (p.cb) p.cb(r);
     }
 }
