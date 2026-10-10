@@ -125,6 +125,12 @@
    "layout": "GoGoStrike",
    "note": "start direct (zonder TeknoParrotUi) via tp-shm met de eigen indeling GoGoStrike (munt = Coin2, trackball uit de gun-assen); gamescope voor 4:3 in beeld",
    "launch": "direct"
+  },
+  "LuigisMansion": {
+   "route": "tp-shm",
+   "layout": "LuigisMansion",
+   "note": "Speelbaar (2026-10-10): standaardroute van de lader (TP_REMOTETHREAD=off), symlink-view (Data -> DataGlobal/EN/Data), werkmap exe/x64, GStreamer asf+libav voor de wmv-films (scripts/fetch-gst-wmv.sh). Select switch = aux1.",
+   "launch": "direct"
   }
  }
 }

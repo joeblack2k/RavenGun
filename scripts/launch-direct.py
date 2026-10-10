@@ -729,6 +729,14 @@ def run(plan):
     for path, text in plan["files"]:
         st, why = place_file(path, text)
         log("bestand: " + why)
+    # 1b. Extra GStreamer-plug-ins (wmv-films, Luigi's Mansion): ontbreken ze, dan eenmalig ophalen (fetch-gst-wmv.sh).
+    gst = env.get("GST_PLUGIN_PATH", "")
+    if gst and not os.path.isfile(os.path.join(gst, "libgstasf.so")):
+        fetch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fetch-gst-wmv.sh")
+        log("GStreamer-plug-ins ontbreken in %s; ophalen met %s" % (gst, fetch))
+        rc = subprocess.call([fetch, os.path.dirname(gst.rstrip("/"))])
+        if rc != 0:
+            log("ophalen mislukt (exitcode %d); de films van de game spelen dan niet af" % rc)
     # 2. Gedeeld geheugen en bron voor de helper.
     ensure_shm()
     src = plan["shm_source"]

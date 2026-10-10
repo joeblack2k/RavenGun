@@ -5,19 +5,20 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Playable (7)
+## Playable (8)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **HALO Fireteam Raven**: Fully working: lightgun, buttons and rumble.
+- **Luigi's Mansion Arcade**: Works: title, attract (free play), start (key 1), aiming the vacuum and sucking with the trigger; test menu with key 0, select switch on aux1. Loading takes about 45 s; press start once the attract mode runs.
 - **Rabbids Hollywood Arcade**: Works without the TeknoParrot UI: lightgun, coin (four times) and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Terminator Salvation**: Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Tomb Raider Arcade**: Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes ("SYSTEM INITIALIZING"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs.
 
-## Not working yet (20)
+## Not working yet (19)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
@@ -32,7 +33,6 @@ These games do not start, or are blocked by something RavenGun does not work aro
 - **Jurassic Park Arcade**: Does not work yet: the game stops shortly after starting (crash in the ElfLdr2 layer). Parked.
 - **Let's Go Safari**: Does not start yet: the game waits without a window for a Sega network service on 127.0.0.1:40100 and never opens its JVS port. The engine can already act as its JVS board (jvs route). Parked.
 - **Lethal Enforcers 3**: Does not start yet: the 32-bit runtime core stops the game under Wine. Parked.
-- **Luigi's Mansion Arcade**: Does not start yet (stops at once or crashes at start). Parked.
 - **Music GunGun 2**: Does not start yet: the game reports that Direct3D failed to start. Parked.
 - **NERF Arcade**: Partly works: the game starts and shows its attract mode, but start and trigger do not arrive yet.
 - **Omatsuri Yasan - Ganso Takoyaki**: Does not start yet: the 32-bit runtime core stops the game under Wine. Parked.
