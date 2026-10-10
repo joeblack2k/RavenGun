@@ -36,6 +36,31 @@ Tests: `ctest --test-dir build` draait vijf tests, onder andere: `ravengun_tests
 
 Fase 0/1/3 voegt `ravengun_phase013_tests` toe (rapportparsing, Move-klok, stempel-dt, opnameformaat, deterministisch afspelen, ellipsoïdefit, kwaliteitspoorten, opslag, verstoringsdetectie en de nieuwe IPC-commando's), en breidt `ravengund_ipc` en `ravengund_web` uit met opnemen, LED en magnetometerstatus. Het analyseprogramma `ravengun-analyze` (replay, timebase, mag, magfit) leest alleen opnamebestanden en opent geen hardware. Nieuwe CLI-commando's: `ravengunctl record`, `led` en `calibrate mag` (zie `docs/procedures.md`).
 
+## De app `ravengun` (Qt 6, in een container)
+
+SteamOS heeft Qt 6.11.1 als systeembibliotheek maar geen headers en geen CMake-bestanden. De app wordt daarom gebouwd in een rootless podman-container met dezelfde Qt (besluit en achtergrond: `docs/decisions.md`, "De Qt-app: Qt 6.11 uit een container"):
+
+    scripts/build-app.sh            # image maken als die ontbreekt, configureren en bouwen
+    scripts/build-app.sh --test     # plus de app-tests, in de container en daarna op de host
+    scripts/build-app.sh --clean    # build-app/ eerst leegmaken
+    build-app/ravengun              # starten (op het bureaublad)
+
+- Image: `localhost/ravengun-qt-build` uit `packaging/containers/qt-app/Containerfile` (`--rebuild-image` bouwt hem opnieuw). Basis `archlinux:latest`, teruggezet naar het Arch Linux Archive van 2026-07-01: `qt6-base` 6.11.1, glibc 2.43, GCC 16.1.1, gelijk aan de host. De container heeft geen netwerk tijdens het bouwen en mount alleen de repo, op hetzelfde pad.
+- Configuratie: `cmake -G Ninja -DRAVENGUN_BUILD_DAEMON=OFF -DRAVENGUN_BUILD_CAMPROBE=OFF` in `build-app/`, doelen `ravengun_app` (binary `ravengun`) en `ravengun_app_tests`. In de gewone host-build (`build/`) vindt CMake geen Qt en slaat de app over (melding "Qt 6 (met headers) niet gevonden"); alle andere doelen en ctest-suites blijven gelijk.
+- Controle: het script draait `ldd build-app/ravengun` op de host en stopt bij een ontbrekende bibliotheek; `libQt6Core.so.6` en `libQt6Widgets.so.6` komen uit `/usr/lib` (de systeem-Qt). De app-tests draaien daarna nog eens op de host tegen de systeem-Qt (`QT_QPA_PLATFORM=offscreen`).
+- Installeren: de installatieregels zetten `bin/ravengun` naast `bin/ravengunctl` en `bin/ravengund` (`cmake --install`, na een volledige build van die map; `build-app/` bouwt alleen de app, dus daar volstaat kopiëren van `build-app/ravengun`). De bureaubladsnelkoppeling is `packaging/desktop/ravengun-qt.desktop` (start `~/projects/ravengun/build-app/ravengun`).
+
+Schermafdrukken voor ontwikkelaars (nooit op de tv; tegen een eigen test-engine):
+
+    XDG_RUNTIME_DIR=/tmp/rg/run HOME=/tmp/rg/home XDG_CONFIG_HOME=/tmp/rg/cfg \
+      build/ravengund --no-hid --no-camera --web-port 18765 --controllers-fake tests/fake_controllers.json \
+      --tp-dir /tmp/rg/tp --games-dry-run &
+    XDG_RUNTIME_DIR=/tmp/rg/run HOME=/tmp/rg/home XDG_CONFIG_HOME=/tmp/rg/cfg XDG_DATA_HOME=/tmp/rg/home/.local/share \
+      QT_QPA_PLATFORM=offscreen RAVENGUN_SYSTEMCTL=/bin/false \
+      build-app/ravengun --screenshot-dir /tmp/rg/shots --screenshot-game tp:TC5
+
+`--screenshot-dir` opent na elkaar het hoofdvenster (lijst en raster), Properties (alle panelen), Controllers, de Move-instellingen (alle tabbladen), de koppelwizard en Settings (alle panelen), slaat ze op met `QWidget::grab()` en stopt. Er wordt niets aangeklikt; `RAVENGUN_SYSTEMCTL=/bin/false` zorgt dat ook een vergissing geen echte unit raakt.
+
 ## PSMoveAPI (in een container)
 
 SteamOS levert geen ontwikkel-headers voor hidapi, libusb, OpenCV, glm en BlueZ. Daarom wordt PSMoveAPI gebouwd in een rootless, niet-geprivilegeerde podman-container (geen distrobox: die start met `--privileged` en mount de hele host).
