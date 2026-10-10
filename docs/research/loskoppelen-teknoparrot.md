@@ -3,7 +3,7 @@
 Feitelijk overzicht voor het team. Per onderdeel: wat TeknoParrot nu levert, wat RavenGun daarvan al zelf doet, en wat
 nodig is om het te vervangen. Bronnen: de RavenGun-code (`scripts/launch-direct.py`, `scripts/play-halo.sh`,
 `scripts/play-unity.sh`, `packaging/io-routes.json`), de antwoorden van Johan (`findings/antwoorden*.md`) en
-`docs/research/zonder-teknoparrot.md`. Open vragen aan het TeknoParrot-team staan in `findings/vragen.txt` (17 t/m 22).
+`docs/research/zonder-teknoparrot.md`. Vragen 17 t/m 22 aan het TeknoParrot-team zijn beantwoord in `findings/antwoorden_ronde4.md`: de soorten aanpassingen van de kern (11 categorieën, geen lijst per game; oogsten door te starten), Terminator, Transformers: Shadows Rising en Raccoon Rampage hebben alleen invoer en aanpassingen nodig, Go Go Strike is een abonneetitel, de openbare OpenParrot-bron (GPL-3.0) is gelijk aan de lader in de runtime, `pipehelper.exe` zit niet in de bron, het draadprotocol van de Raw Thrills-gunborden is niet gedocumenteerd (vraagt een USB-opname).
 
 Projectafspraak die hier geldt: dongle-, keychip-, regio-, integriteits- en abonnementsafhandeling bouwt RavenGun niet.
 Die onderdelen staan hieronder wel genoemd (zodat het overzicht compleet is), maar zonder uitwerking.
@@ -74,15 +74,16 @@ Platform en route uit `packaging/io-routes.json` en `packaging/games-status.md`;
 | Game | Nu | TP-onderdelen nu | Beschermingsveld in profiel |
 |---|---|---|---|
 | Halo: Fireteam Raven | speelbaar, direct | ElfLdr2-lader, gesloten kern, prefix | ja (HASP-bestand, integriteitscontrole, Patreon) |
-| Terminator Salvation | speelbaar, direct | ElfLdr2-lader, gesloten kern, prefix | niet in de tabel van vraag 10 (vraag 18) |
+| Terminator Salvation | speelbaar, direct | ElfLdr2-lader, gesloten kern, prefix | geen (antwoorden_ronde4 vraag 18) |
 | Time Crisis 5 | speelbaar, direct | OpenParrotLoader, gesloten kern, pipehelper, prefix | ja (HASP) |
-| Transformers: Shadows Rising | speelbaar, direct | OpenParrotLoader, gesloten kern, prefix | niet in de tabel (vraag 18) |
-| Go Go Strike | speelbaar, direct | lader, gesloten kern, prefix | niet in de tabel (vraag 18) |
-| Raccoon Rampage | deels (kalibratie in testmenu) | lader, gesloten kern, prefix | Patreon=false |
+| Transformers: Shadows Rising | speelbaar, direct | OpenParrotLoader, gesloten kern, prefix | geen (antwoorden_ronde4 vraag 18) |
+| Go Go Strike | speelbaar, direct | lader, gesloten kern, prefix | Patreon=true (antwoorden_ronde4 vraag 18) |
+| Raccoon Rampage | deels (kalibratie in testmenu) | lader, gesloten kern, prefix | geen, Patreon=false (antwoorden_ronde4 vraag 18) |
 | Tomb Raider Arcade | speelbaar | geen (alleen Proton uit de TP-map) | — |
 | Rabbids Hollywood | speelbaar | geen (alleen Proton uit de TP-map) | — |
 | NERF Arcade | deels (geen invoer) | lader, gesloten kern | Patreon=true |
-| Gashaaaan, Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern onder Wine) | lader, gesloten kern | Gashaaaan Refill en Otomedius: Patreon=true |
+| Gashaaaan | attract (2026-10-10, standaardroute van de lader) | lader, gesloten kern | Patreon=false |
+| Gashaaaan Refill, Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern onder Wine); standaardroute nog te testen | lader, gesloten kern | Gashaaaan Refill en Otomedius: Patreon=true |
 | Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (zwart beeld) | OpenParrot (open kern) | regiokeuze |
 | Jurassic Park | geparkeerd | ElfLdr2, gesloten kern | ja (integriteitscontrole) |
 | Let's Go Safari, Sega Ring-games | geparkeerd (poort 40100) | lader, gesloten kern | deels (dongle regio/PCB) |
