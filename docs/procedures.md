@@ -135,6 +135,20 @@ Eenmalig (al gedaan op deze machine): de officiële DemulShooter-release staat i
 7. Zonder daemonherstart proberen: `build/ravengun-aagames-probe --game TombRaider` (aim van de echte Move via de draaiende daemon; `--key 5@1 --key 1@3` voor munt en start; `--source fixed --u 0.5 --v 0.5 --trigger` voor een vast punt).
 8. Bij een probleem: `~/.local/state/ravengun/logs/unity-<Game>-*.log` (Proton), `~/.local/share/ravengun/runtime/views-aagames/<Game>/BepInEx/LogOutput.log` (staat de regel "TCP Server is listening on Port 33610", dan werkt de plugin), `ss -ltnp | grep 33610`.
 
+
+## De eigen plugin (route 2) bouwen en installeren
+
+De Unity-games draaien standaard met onze eigen BepInEx-plugin (`plugins/unity/`). Eenmalig per machine:
+
+1. BepInEx 5.4.21.0 (x64, Mono) alleen van github.com/BepInEx: `curl -L -o BepInEx_x64_5.4.21.0.zip https://github.com/BepInEx/BepInEx/releases/download/v5.4.21/BepInEx_x64_5.4.21.0.zip` in `~/.local/share/ravengun/bepinex/5.4.21.0/zip/`, uitpakken naar `.../5.4.21.0/x64/` en `PROVENANCE.txt` ernaast zetten met herkomst en SHA-256 (verwacht 2af69fe0aaf821e95c4cd3e4d53860e667c54648f97dca6f971a5bcd3c22aa34).
+2. De NAS moet gekoppeld zijn (de bouw refereert aan `<nas_dir>/Game_Data/Managed/Assembly-CSharp.dll`; er wordt niets gekopieerd of gewijzigd).
+3. `scripts/build-unity-plugin.sh` (eerste keer bouwt het de image `localhost/ravengun-unity-build` uit `packaging/containers/unity-plugin/Containerfile`; daarna een paar seconden). `scripts/build-unity-plugin.sh TombRaider` bouwt een game.
+4. Starten: `scripts/play-halo.sh --profile TombRaider|RabbidsHollywood`. `aagames-setup.py` bouwt de plugin zelf opnieuw als de bron nieuwer is dan de DLL en zet de view klaar. De eerste keer schrijft het `BepInEx/config/nl.studiodamon.ravengun.<game>.cfg` in de view (met uitleg bij elke instelling); pas die aan, of `python3 -I scripts/aagames-setup.py GAME --reset-config` maakt hem opnieuw uit `aagames-games.json`.
+5. Controle: `BepInEx/LogOutput.log` in de view meldt "Loading [RavenGun ...]", "TCP-server luistert op 127.0.0.1:33610", "Daemon verbonden." en "Invoer van de daemon actief." en géén "DemulShooter". Zet `Log/Uitgebreid = true` voor extra regels (trekker, toestand, patches).
+6. Terugval op DemulShooter: `RAVENGUN_UNITY_PLUGIN=demulshooter scripts/play-halo.sh --profile TombRaider`, of `"plugin": "demulshooter"` in `aagames-games.json`.
+
+Eerste hulp: de game sluit af met "Gun not found" (zet `Bord/GeweerFoutenOnderdrukken = true`); "IO BOARD ERROR" (zet `Bord/IOBordUitschakelen = true`); vizier weg of op de verkeerde plek (`Vizier/Modus`, of de kalibratie in `aagames-games.json`); poort bezet (`Kanaal/Poort` en `port` in `aagames-games.json` samen wijzigen).
+
 ## Een game met de IO-brug starten (tp-shm) en de brug controleren
 
 De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp, hid-board). `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf; `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.

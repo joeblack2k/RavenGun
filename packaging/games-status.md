@@ -174,6 +174,24 @@ Runner: GE-Proton11-7 (DXVK), prefix `~/.local/share/ravengun/prefixes/unity-aag
 
 Veranderd op de NAS (map "Tomb Raider"): niets door deze route. De view is een lokale map met links; wat de game schrijft (NVRAM, logs, `ControllerBaseConfig.json`) staat lokaal in `~/.local/share/ravengun/runtime/views-aagames/TombRaider`. (Bestanden van 17:39 op de NAS, `teknoparrot.ini`, `ControllerBaseConfig.json` en `Gun_*.log`, zijn van de eerdere TeknoParrot-ronde.)
 
+
+## Tomb Raider en Rabbids Hollywood: eigen plugin (route 2)
+
+Status (2026-10-09/10): beide games draaien standaard met onze eigen BepInEx-plugin (`plugins/unity/`, `docs/decisions.md` "Route 2"); DemulShooter is de terugval (`RAVENGUN_UNITY_PLUGIN=demulshooter` of `plugin` in `aagames-games.json`). Het BepInEx-log toont "Loading [RavenGun ...]" en bevat geen DemulShooter. Geen bordfout; de daemon is ongewijzigd (zelfde draadprotocol).
+
+Live gemeten met de eigen plugin, Tomb Raider (op de tv, met `ravengunctl arm`, `key`, `test-pattern`, `output-button`):
+- start zonder "IO BOARD ERROR", resolutie 1920x1080 beeldvullend; munt (toets 5 vier keer geeft 4 credits) en start (toets 1) tot en met het spel; trekker slaat de filmpjes over (houd vast) en schiet; ammo loopt terug (10 naar 9 en lager), herladen zet het weer op het volle magazijn; recoil per schot bij de daemon (schoten tellen mee voor de trilling); leven en credits in de uitvoer.
+- vizier op de testpunten (raster 3x3): linksboven (0,1/0,1) en bovenaan het midden (0,5/0,1) stonden op de verwachte plek van het scherm, beide assen; Y-oorsprong onderaan.
+- vizier verbergen (`Vizier/Modus = Hide`): in het spel geen vizier meer zichtbaar, schieten werkt.
+- daemon weg (`iobridge stop`) en terug: de game loopt door, het log meldt "Daemon losgekoppeld" en later "Daemon verbonden" en "Invoer van de daemon actief".
+- gevonden en opgelost tijdens het testen: een korte trekkerdruk (korter dan een frame) ging verloren (latch in de server); munitie via `PlayerWeapon.ClipRemaining` in plaats van het HUD.
+
+Rabbids Hollywood met de eigen plugin: start zonder bordfout, 4 munten en start (StartLamp in de uitvoer), de game komt tot het kiezen van de wereld, recoil-vlaggen komen bij de daemon. Zonder `GunFatalError`-onderdrukking meldde de game "Gun not found" en stopte hij; met onderdrukking niet meer. Niet beoordeeld op de tv: vizier op de testpunten, schieten en trilling in een lopend level van Rabbids met de eigen plugin (een andere agent startte telkens zijn eigen game in dezelfde unit `ravengun-tpui`, waardoor mijn sessies werden afgebroken).
+
+Met alleen de terugval (DemulShooter) bevestigd: beide games starten, de plugin luistert op 33610 en de daemon verbindt.
+
+Niet getest: twee of meer spelers, geluid, een lang spel, "treffer"-vlag (Damaged) bij Tomb Raider, de startlamp-koppeling bij Tomb Raider (`IsPlaying` komt uit de speltoestand).
+
 ## Luigi's Mansion Arcade (profiel LuigisMansion): geparkeerd
 
 Status: VACUUM.exe sluit zichzelf binnen een paar seconden af (zonder core), en dan faalt de loader met "Failed to find kernel32.dll in target process". Er is nooit beeld geweest.

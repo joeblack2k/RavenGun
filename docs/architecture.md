@@ -84,6 +84,15 @@ Geïmplementeerd; de protocolkant, de klant en de probe zijn live op echte hardw
 - Testprogramma `ravengun-aagames-probe` (`src/tools/aagames_probe`): dezelfde klant, maar de aim komt uit de IPC (`output`) van een draaiende daemon (of een vast punt of cirkel), en recoil wordt een `rumble_test`. Daarmee is de daemon niet herstart voor de proef. Eigen virtueel toetsenbord (1209:72f0) voor munt, start en test.
 - Starten: `scripts/play-unity.sh --game TombRaider|RabbidsHollywood` (view en prefix via `scripts/aagames-setup.py`, daemon wapenen, game in de unit `ravengun-tpui`, daarna `aagames start`) en `play-halo.sh --profile TombRaider|RabbidsHollywood` gaat daar automatisch heen (het profiel staat in `aagames-games.json`; `--teknoparrot` forceert de oude route). De webapp (Games-lijst) start `play-halo.sh` en ziet de game via dezelfde unit, dus de lijst werkt zonder aanpassing (zie docs/decisions.md).
 
+
+### Route 2: eigen plugin (2026-10-09)
+
+De plugin in de game is sinds route 2 standaard onze eigen (`plugins/unity/`); de DemulShooter-plugin blijft als terugval (`plugin: "demulshooter"` in `aagames-games.json`, `--plugin demulshooter`, of `RAVENGUN_UNITY_PLUGIN`). De daemon merkt het verschil niet: het draadprotocol is gelijk. Besluit en clean-room-verklaring: `docs/decisions.md`; broncode, instellingen en licentie: `plugins/unity/README.md`.
+
+- Bouw: `scripts/build-unity-plugin.sh` (Mono-compiler `mcs` in een podman-container, `packaging/containers/unity-plugin/Containerfile`); refereert read-only aan BepInEx 5.4.21 en de eigen `Game_Data/Managed` op de NAS. Uitvoer: `build/unity-plugin/<GAME>/RavenGun.<GAME>.dll`.
+- Opbouw: `Core` (Unity-frame-tik, toetsen, scherm, vizier, uitvoer), `Server` (TCP op 127.0.0.1, een klant, nieuwe verbinding vervangt de oude, trekker-latch), `Protocol` (bytes), `Settings` (BepInEx-config per game) en per game een `IGame`-adapter met Harmony-patches. De netwerkthread raakt de gamethread alleen via een korte lock; de gamethread blokkeert nooit op het netwerk.
+- View: `aagames-setup.py` zet bij `ravengun` BepInEx (uit `~/.local/share/ravengun/bepinex/<versie>/x64`), `winhttp.dll`, de plugin-DLL en bij het eerste gebruik `BepInEx/config/nl.studiodamon.ravengun.<game>.cfg` in de lokale view; DemulShooter-bestanden worden daarbij uit de view gehaald en omgekeerd. De NAS blijft ongewijzigd.
+
 ## IO-brug: één toestandsmodel, meerdere dialecten (2026-10-09)
 
 Geïmplementeerd en automatisch getest (`ravengun_iobridge_tests`); het dialect tp-shm is live op echte hardware getest met Terminator Salvation (start, aim, herladen, trekker, herstart van de daemon tijdens het spel) en de Unity-route draait als dialect unity-tcp (Rabbids Hollywood, live gecontroleerd). Besluit van de eigenaar: "we bouwen het in 1 keer en overal hergebruiken". Keuzes en bevindingen: `docs/decisions.md`, "IO-brug: tp-shm".
