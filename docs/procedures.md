@@ -158,6 +158,17 @@ De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp,
 - Daemon herstarten tijdens een spel: `systemctl --user restart ravengund`. De brug schrijft neutrale invoer, de nieuwe daemon pakt de route weer op (`ravengunctl iobridge status` meldt "1x hervat na een herstart"), wapent de uitvoer opnieuw en het spel loopt door. Een vastgehouden knop laat los.
 - Stoppen: `scripts/play-halo.sh --stop` stopt ook de brug (invoer neutraal, bestand weg).
 
+## Een game direct starten, zonder TeknoParrotUi (A10), en de aanpassingen oogsten (A11; ongeveer 2 minuten per game)
+
+Voor Halo, Terminator, Time Crisis 5, Transformers, Go Go Strike en Raccoon Rampage is dit de standaard (`"launch": "direct"` in `packaging/io-routes.json`); de app start zo in de stand "Automatic" (Settings > Paths > Launch games with).
+
+- Kijken wat er zou gebeuren, zonder iets te starten: `python3 -I scripts/launch-direct.py PROFIEL --plan` (lader, argumenten, werkmap, omgeving, prefix, `teknoparrot.ini` met "gelijk"/"schrijven"/"nas"). `--check` geeft exit 0 als direct kan, 3 als de activering niet in de prefix staat (dan eerst eenmaal `--tpui`), 4 als het profiel niet direct gaat.
+- Starten: `scripts/play-halo.sh --profile PROFIEL` (direct als het profiel dat zegt) of geforceerd `--direct`; het oude pad met `--tpui`. Controle: `pgrep -x TeknoParrotUi` geeft niets; het logboek is `~/.local/state/ravengun/logs/direct-*.log` (startplan, "pipehelper: ... created", "JVS-pipe: game verbonden" bij de ElfLdr2-games, de uitvoer van de lader). Een game met route evdev schakelt bij direct over op tp-shm.
+- Invoer proberen: munt `ravengunctl key 5`, start `key 1`, test `key 0`, aim `ravengunctl test-pattern grid --dwell 3000` (met schermafdrukken: `spectacle -b -n -f -o bestand.png`), trekker `output-button trigger tap`. Met een verbonden Move zet elk Move-rapport de knoppen terug; houd een knop dus vast door `key 1 down` een paar keer te herhalen, en kijk naar de regel "IO-brug" in `ravengunctl status`.
+- Aanpassingen oogsten (A11): start met `--log-full`. Na het stoppen staat in `~/.local/state/ravengun/a11/PROFIEL-<tijd>.txt` wat de kern meldde (toegepast, overgeslagen, koppelingen, versies, fouten); de volledige uitvoer staat in het logboek (bij ElfLdr2-games ook in `teknoparrot_log.txt` in de map van de game).
+- Stoppen: `scripts/play-halo.sh --stop` (of Esc in de game), zoals altijd.
+- Terugvallen: lukt direct niet (activering, profiel), dan start `play-halo.sh` vanzelf via TeknoParrotUi en zegt dat. Met `--direct` stopt het dan met een melding.
+
 ## Transformers: Shadows Rising met de IO-brug (hid-board)
 
 De route staat in `packaging/io-routes.json` (`hid-board`, bord `SaeGunBoard` in `packaging/hid-boards.json`). Starten: `scripts/play-halo.sh --profile TransformersShadowsRising` (of de snelkoppeling uit `scripts/make-game-shortcut.sh TransformersShadowsRising "Transformers Shadows Rising"`). Het script wapent de uitvoer, laat de daemon het virtuele bord maken ("RavenGun SAE Gun Board", 1209:72F0), zet het bord in de Wine-prefix op joystick-id 0 (`scripts/wine-joyid.sh`) en start dan TeknoParrot met de shell, die de game start.
