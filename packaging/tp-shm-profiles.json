@@ -903,6 +903,212 @@
      "invert": false
     }
    ]
+  },
+  "WartranTroopersKonami": {
+   "description": "Zoals WartranTroopers, met P1 aux1 op de plaats van de start van speler 3 (bit 16): de Konami-PC-Based-testmenu's (Gashaaaan Refill) voeren een item uit met de start van speler 3 en er is maar een Move. Vier-spelers-shooterindeling (Halo: Fireteam Raven, Tomb Raider, Rabbids Hollywood; 51 profielen). Control (32 bit, offset 8): test, service, munt 1 en 2, menu omhoog/omlaag, per speler start, trekker (Button1), herladen (Button2), granaat (Button3) en een extra knop (Button4). Aim: 1 byte per as op offset 12..19 (P1X, P1Y, P2X, P2Y, ...), links/boven = 0 (InvertedMouseAxis). Offscreen-regel: de kern leest een as <= 1 of >= 254 als buiten beeld; binnen het scherm blijven de assen daarom op 2..253 (offscreen_margin), 0 of 255 alleen als de speler buiten het scherm mikt.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "coin2",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 11
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 12
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 13
+    },
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 14
+    },
+    {
+     "signal": "p2.aux1",
+     "offset": 8,
+     "bit": 15
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 16
+    },
+    {
+     "signal": "p3.trigger",
+     "offset": 8,
+     "bit": 17
+    },
+    {
+     "signal": "p3.reload",
+     "offset": 8,
+     "bit": 18
+    },
+    {
+     "signal": "p3.grenade",
+     "offset": 8,
+     "bit": 19
+    },
+    {
+     "signal": "p3.aux1",
+     "offset": 8,
+     "bit": 20
+    },
+    {
+     "signal": "p4.start",
+     "offset": 8,
+     "bit": 21
+    },
+    {
+     "signal": "p4.trigger",
+     "offset": 8,
+     "bit": 22
+    },
+    {
+     "signal": "p4.reload",
+     "offset": 8,
+     "bit": 23
+    },
+    {
+     "signal": "p4.grenade",
+     "offset": 8,
+     "bit": 24
+    },
+    {
+     "signal": "p4.aux1",
+     "offset": 8,
+     "bit": 25
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 13,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 14,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 15,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.x",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.y",
+     "offset": 17,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.x",
+     "offset": 18,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.y",
+     "offset": 19,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
   }
  }
 }

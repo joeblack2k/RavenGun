@@ -71,33 +71,35 @@
   },
   "Gashaaaan": {
    "route": "tp-shm",
-   "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "layout": "WartranTroopersKonami",
+   "note": "start direct (zonder TeknoParrotUi) via tp-shm; UserProfiles/Gashaaaan.env heeft TP_REMOTETHREAD=off; P1 aux1 is ook start van speler 3 (testmenu: uitvoeren)",
+   "launch": "direct"
   },
   "Gashaaaan2": {
    "route": "tp-shm",
-   "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "layout": "WartranTroopersKonami",
+   "note": "start direct (zonder TeknoParrotUi) via tp-shm; UserProfiles/Gashaaaan2.env heeft TP_REMOTETHREAD=off; P1 aux1 is ook start van speler 3 (testmenu: uitvoeren)",
+   "launch": "direct"
   },
   "LethalEnforcers3": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "note": "geparkeerd: de game crasht bij het openen van een .m1v-film (geen 32-bit GStreamer voor Wine); zie games-status.md, tiende ronde"
   },
   "Otomedius": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "note": "geparkeerd: de game wacht op een ACIO-micom op COM2 (open-fout) en blijft op een wit scherm; zie games-status.md, tiende ronde"
   },
   "OmatsuriYasanGansoTakoyaki": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "note": "geparkeerd: wit venster, de game maakt geen D3D-apparaat; zie games-status.md, tiende ronde"
   },
   "OmatsuriYasanKingyoSukui": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "note": "geparkeerd: de game stopt (exitcode 8) na het zoeken naar rqrdlist.rqr/campaign*.bmp op schijfletters; zie games-status.md, tiende ronde"
   },
   "RaccoonRampage": {
    "route": "tp-shm",
@@ -118,7 +120,7 @@
   "InfinityBladeFX": {
    "route": "tp-shm",
    "layout": "TimeCrisis5",
-   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+   "note": "geparkeerd: UE3 start (Wine Mono + eerste-start-dialoog nodig), daarna wit/zwart beeld; zie games-status.md, tiende ronde"
   },
   "GoGoStrike": {
    "route": "tp-shm",
