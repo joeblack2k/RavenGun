@@ -95,6 +95,8 @@ for f in g.get("files", []):
     print("FILE\t%s\t%s" % (ex(f["src"]), f["dst"]))
 for l in g.get("libs", []):
     print("LIB\t%s" % ex(l))
+for e in g.get("extra_ro", []):
+    print("EXTRA\t%s" % ex(e))
 for l in g.get("libdirs", []):
     print("LIBDIR\t%s\t%s" % (ex(l["src"]), l["dst"]))
 for a in g.get("args", []):
@@ -145,7 +147,7 @@ if [[ "$ACTION" == stop ]]; then
 fi
 
 [[ -n "$GAME" ]] || die "--game vereist (zie --list)"
-declare -A V=(); MOUNTS=(); FILES=(); LIBS=(); LIBDIRS=(); GARGS=(); GENV=()
+declare -A V=(); EXTRAS=(); MOUNTS=(); FILES=(); LIBS=(); LIBDIRS=(); GARGS=(); GENV=()
 while IFS=$'\t' read -r kind a b c; do
   case "$kind" in
     ERR) die "$a" ;;
@@ -154,6 +156,7 @@ while IFS=$'\t' read -r kind a b c; do
     FILE) FILES+=("$a"$'\t'"$b") ;;
     LIB) LIBS+=("$a") ;;
     LIBDIR) LIBDIRS+=("$a"$'\t'"$b") ;;
+    EXTRA) EXTRAS+=("$a") ;;
     ARG) GARGS+=("$a") ;;
     ENV) GENV+=("$a=$b") ;;
   esac
@@ -211,6 +214,7 @@ if (( ${#LIBS[@]} )); then
   LDPATH+="${LDPATH:+:}/rg/lib"
 fi
 
+for x in "${EXTRAS[@]}"; do BW+=(--ro-bind-try "$x" "$x"); done
 for ((i = 0; i < ${#BINDS[@]}; i += 2)); do BW+=(--ro-bind "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
 
 # --- scherm en geluid ---------------------------------------------------------

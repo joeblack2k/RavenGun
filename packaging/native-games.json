@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | geparkeerd | niet-getest, met reden in note.",
+ "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). extra_ro: bestanden van de host die read-only in de sandbox verschijnen (het gedeelde geheugen van de IO-brug voor rg_rt_input). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | geparkeerd | niet-getest, met reden in note.",
  "defaults": {
   "res": "1920x1080"
  },
@@ -9,7 +9,7 @@
    "title": "Halo: Fireteam Raven",
    "enabled": false,
    "status": "geparkeerd",
-   "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game (START bewezen). Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game bij het gun-kalibratiescherm (\"Press the TEST button to skip\"); daar blijft hij: TEST via de hulp en een virtuele SDL-gun werken niet (niet verder uitgezocht). Geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
+   "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen (TEST/START) in de attract-lus; munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
    "arch": "x86_64",
    "mounts": [
     {
@@ -48,9 +48,12 @@
     "-f{res}",
     "-n"
    ],
-   "route": "evdev",
+   "route": "tp-shm",
    "libs": [
     "@build/librg_rt_input.so"
+   ],
+   "extra_ro": [
+    "/dev/shm/TeknoParrot_JvsState"
    ]
   },
   "JurassicPark": {
