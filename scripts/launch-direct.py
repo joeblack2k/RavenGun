@@ -625,6 +625,13 @@ JVS_IDENT = b"SEGA ENTERPRISES,LTD.;I/O BD JVS;837-13551 ;Ver1.00;98/10\x00"
 JVS_FEATURES = bytes([0x01, 4, 16, 0, 0x02, 2, 0, 0, 0x03, 8, 16, 0, 0x06, 10, 10, 4, 0x12, 18, 0, 0, 0x00])
 
 
+# Proefinstellingen (A10): RG_JVS_IDENT (tekst) en RG_JVS_FEATURES (hex van de functielijst, inclusief eindbyte 00) in <P>.env.
+if os.environ.get("RG_JVS_IDENT"):
+    JVS_IDENT = os.environ["RG_JVS_IDENT"].encode("latin-1") + b"\x00"
+if os.environ.get("RG_JVS_FEATURES"):
+    JVS_FEATURES = bytes.fromhex(os.environ["RG_JVS_FEATURES"])
+
+
 def jvs_pack(body):
     """Antwoordpakket naar de host: sync, adres 0 (host), lengte, gegevens, som; E0 en D0 in de inhoud met escape."""
     raw = bytes([0x00, len(body) + 1]) + bytes(body)
