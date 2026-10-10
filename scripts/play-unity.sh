@@ -14,7 +14,8 @@
 #   --windowed  zonder -popupwindow (standaard: randloos schermvullend venster)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CTL="${RAVENGUN_CTL:-$ROOT/build/ravengunctl}"
+. "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
+CTL="${RAVENGUN_CTL:-$RG_BIN/ravengunctl}"
 GE="$HOME/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64"
 WINE="$HOME/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
 PREFIXES="$HOME/.local/share/ravengun/prefixes"

@@ -27,6 +27,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+. "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
 JSON="$ROOT/packaging/native-games.json"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
@@ -69,7 +70,7 @@ done
 
 # Het gegevensbestand als regels voor de shell: soort<TAB>veld1<TAB>veld2<TAB>veld3. Paden met @nas, @tpui, @data en @lib32 worden hier ingevuld.
 emit() {
-  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" "$ROOT/build" <<'PY'
+  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" "$RG_LIB" <<'PY'
 import json, sys
 path, game, nas, tpui, data, lib32, build = sys.argv[1:8]
 d = json.load(open(path))

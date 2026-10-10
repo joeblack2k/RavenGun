@@ -13,5 +13,5 @@ if [[ "${1:-}" == --wait ]]; then
 fi
 if busy; then echo "Er draait een game; daemon NIET herstart." >&2; exit 3; fi
 systemctl --user restart ravengund.service
-for _ in $(seq 1 30); do "$(dirname "$0")/../build/ravengunctl" status >/dev/null 2>&1 && { echo "Daemon herstart."; exit 0; }; sleep 0.5; done
+for _ in $(seq 1 30); do "${RAVENGUN_BIN_DIR:-$(dirname "$0")/../build}/ravengunctl" status >/dev/null 2>&1 && { echo "Daemon herstart."; exit 0; }; sleep 0.5; done
 echo "Daemon herstart, maar antwoordt (nog) niet." >&2; exit 1
