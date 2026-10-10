@@ -692,8 +692,9 @@ def jvs_answer(data, inputs=None):
 class JvsPipeServer(threading.Thread):
     """TCP-kant van \\\\.\\pipe\\TeknoParrot_JVS (pipehelper.exe verbindt hierheen zodra de game de pipe opent)."""
 
-    def __init__(self, board=False, f1_once=False):
+    def __init__(self, board=False, f1_once=False, debug=False):
         self.f1_once = f1_once
+        self.debug = debug          # RG_JVS_DEBUG=true: de eerste 300 pakketten en antwoorden in het log
         super().__init__(daemon=True)
         self.board = board          # RG_JVS_BOARD=true in <P>.env: standaard JVS-bord achter de pipe (A10)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -707,6 +708,7 @@ class JvsPipeServer(threading.Thread):
         self.answered = 0
         self.address = 1
         self.assigned = False
+        self.rest_logged = 0
         self.connected = False
 
     def run(self):
@@ -715,6 +717,7 @@ class JvsPipeServer(threading.Thread):
         except OSError:
             return
         self.connected = True
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         log("JVS-pipe: game verbonden (pipehelper via TCP)")
         buf = b""
         seen = set()
@@ -727,18 +730,28 @@ class JvsPipeServer(threading.Thread):
                 break
             self.bytes_in += len(data)
             frames, buf = jvs_frames(buf + data)
+            if buf and self.rest_logged < 10:
+                self.rest_logged += 1
+                log("JVS-pipe: onvolledig pakket in de buffer: %s" % buf.hex())
             for fr in frames:
                 if len(fr) < 3:
                     continue
                 self.packets += 1
                 node, cmd = fr[0], fr[2]
-                if self.packets <= 300:
+                if self.debug and self.packets <= 300:
                     log("JVS-pipe: #%d van de game: %s" % (self.packets, fr.hex()))
                 if cmd == 0xF0:       # reset: verbind-vlag uit
                     set_connect_flag(0)
                     self.assigned = False
                 elif cmd == 0xF1 and self.f1_once and self.assigned:
-                    self.unanswered += 1   # RG_JVS_F1_ONCE=true: alleen het eerste adres toekennen (einde van de keten)
+                    # RG_JVS_F1_ONCE=true: alleen het eerste adres toekennen (einde van de keten). Een echt bord zwijgt dan;
+                    # de game wacht zonder time-out, dus sturen we statusbyte 2 (onbekende opdracht) als "geen bord meer".
+                    body = bytes([0x00, 0x02, 0x02])
+                    try:
+                        conn.sendall(b"\xe0" + body + bytes([sum(body) & 0xFF]))
+                    except OSError:
+                        pass
+                    self.unanswered += 1
                 elif cmd == 0xF1:     # adres: verbind-vlag aan, en het gewone antwoord (status 1, rapport 1)
                     set_connect_flag(1)
                     self.assigned = True
@@ -753,7 +766,7 @@ class JvsPipeServer(threading.Thread):
                     # Op een echte JVS-bus antwoordt alleen het bord met het toegekende adres (de game probeert alle knopen).
                     ans = jvs_answer(fr[2:-1]) if (self.board and 1 <= node <= self.address) else None
                     if ans is not None:
-                        if self.packets <= 300:
+                        if self.debug and self.packets <= 300:
                             log("JVS-pipe: antwoord: %s" % jvs_pack(ans).hex())
                         try:
                             conn.sendall(jvs_pack(ans))
@@ -871,7 +884,8 @@ def run(plan):
         return 1
     # 3. JVS-pipe en pipehelper.exe in de prefix (vóór de game, zoals TeknoParrotUi).
     server = JvsPipeServer(board=truthy(plan["env"].get("RG_JVS_BOARD", "0")),
-                           f1_once=truthy(plan["env"].get("RG_JVS_F1_ONCE", "0")))
+                           f1_once=truthy(plan["env"].get("RG_JVS_F1_ONCE", "0")),
+                           debug=truthy(plan["env"].get("RG_JVS_DEBUG", "0")))
     server.start()
     hargs = [plan["wine"], plan["pipehelper"]]
     if plan["pipe_mode"] == "pipe":
