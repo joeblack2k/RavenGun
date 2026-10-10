@@ -13,6 +13,12 @@ mkdir -p "$DEST/dl" "$DEST/x" "$DEST/plugins"
 for p in gst-libav gst-plugins-ugly; do
   f="$p-$VER-x86_64.pkg.tar.zst"
   [[ -f "$DEST/dl/$f" ]] || curl -fsSL -o "$DEST/dl/$f" "$BASE/$f"
+  # Controle tegen de SHA-256 uit de (door pacman geverifieerde) sync-database van het systeem.
+  want=$(tar -xOf "$(pacman-conf DBPath)/sync/$REPO.db" --wildcards "$p-$VER/desc" | awk '/^%SHA256SUM%/{getline; print; exit}')
+  have=$(sha256sum "$DEST/dl/$f" | awk '{print $1}')
+  if [[ -z "$want" || "$want" != "$have" ]]; then
+    rm -f "$DEST/dl/$f"; echo "SHA-256 van $f klopt niet met de pacman-database; afgebroken" >&2; exit 1
+  fi
   tar --zstd -xf "$DEST/dl/$f" -C "$DEST/x"
 done
 cp "$DEST"/x/usr/lib/gstreamer-1.0/libgstlibav.so "$DEST"/x/usr/lib/gstreamer-1.0/libgstasf.so "$DEST/plugins/"
