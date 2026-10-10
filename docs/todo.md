@@ -29,7 +29,14 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
 - [x] Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Transformers: starten en zijn speelbaar (deels nog niet met de echte Move bevestigd).
 - [~] B1 JVS-board in de IO-brug + Let's Go Safari (COM4 als pty).
 - [~] B2 Eigen Unity-plugin (Tomb Raider, Rabbids) ter vervanging van de DemulShooter-plugin.
-- [ ] B3 Overige games uit de backups toevoegen en per route afwerken (lijst volgt uit de digest).
+- [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
+  - [ ] B3a tp-shm-indelingen MusicGunGun2, HOTDSD en FarCry toevoegen; offscreen-regel (as <= 1 of >= 254) in tp_shm_render controleren.
+  - [ ] B3b Taito Type X2 via OpenParrot: Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2 (JVS-pipe op COM2 voor munt/test/service).
+  - [ ] B3c WartranTroopers/TC5-indeling: Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX, Raccoon Rampage, NERF Arcade, Pigs Might Fly.
+  - [ ] B3d Raw Thrills Linux: GhostBusters, Go Go Strike (evdev); Galaga Assault en Pacman Chomp-Mania (herschreven ELF, zelfde klasse als Jurassic Park; DirectInput).
+  - [ ] B3e Sega Ring/JVS (na B1): Let's Go Island, Let's Go Island 3D, Operation G.H.O.S.T., Medaru No Gunman.
+  - [ ] B3f House of the Dead: Scarlet Dawn (ALLS, AM Daemon, geheugeneisen), Rainbow Bombergirl (touch via muis), Rampage (Unity zonder BepInEx).
+  - [ ] B3g Geen lightgun: Mario Kart Arcade GP DX (2 versies), Mighty Moto — laagste prioriteit.
 - [ ] B4 Jurassic Park: zwart beeld/crash (geparkeerd; nieuwe aanknopingspunten uit antwoorden.md).
 - [ ] B5 Luigi's Mansion: COM1 + LMAIO-flashstap + board; de Capcom-afscherming zelf wordt niet omzeild.
 - [ ] B6 Speler 2..4 per game (bindingen, tweede JVS-node voor Halo).
