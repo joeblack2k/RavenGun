@@ -248,8 +248,20 @@ static void test_service(const std::string& d) {
     c2.play_script = d + "/bestaat-niet.sh";
     GameService svc2(c2, [&](const std::vector<std::string>&, std::string&) { return 0; });
     CHECK(svc2.start("Halo").code == "unavailable");
+    // Startwijze (A10): direct -> --direct, teknoparrot-ui -> --tpui, leeg/auto -> niets extra (het script kiest per profiel).
+    {
+        auto a = start_argv(c, "Halo", "direct");
+        CHECK(a.size() >= 3 && a[a.size() - 2] == "Halo" && a.back() == "--direct");
+        a = start_argv(c, "Halo", "teknoparrot-ui");
+        CHECK(a.back() == "--tpui");
+        CHECK(start_argv(c, "Halo").back() == "Halo" && start_argv(c, "Halo", "").back() == "Halo");
+        CHECK(valid_launch("direct") && valid_launch("teknoparrot-ui") && valid_launch("auto") && valid_launch(""));
+        CHECK(!valid_launch("Direct") && !valid_launch("--direct") && !valid_launch("x"));
+        GameService svc3(c, [&](const std::vector<std::string>&, std::string&) { return 0; });
+        CHECK(svc3.start("Halo", "--tpui;rm").code == "invalid_argument");
+    }
     // De opdrachtregels bevatten nooit een shell.
-    for (const auto& a : {start_argv(c, "Halo"), stop_unit_argv(c), stop_script_argv(c)})
+    for (const auto& a : {start_argv(c, "Halo"), start_argv(c, "Halo", "direct"), stop_unit_argv(c), stop_script_argv(c)})
         for (const auto& x : a) CHECK(x != "sh" && x != "bash" && x != "-c" && x != "/bin/sh");
 }
 

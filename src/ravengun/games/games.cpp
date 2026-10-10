@@ -273,7 +273,9 @@ int script_state(const std::string& proc_root, const std::string& script) {
     return found;
 }
 
-std::vector<std::string> start_argv(const Config& c, const std::string& profile) {
+bool valid_launch(std::string_view s) { return s.empty() || s == "auto" || s == "direct" || s == "teknoparrot-ui"; }
+
+std::vector<std::string> start_argv(const Config& c, const std::string& profile, const std::string& launch) {
     std::vector<std::string> a{c.systemd_run, "--user", std::string("--unit=") + kPlayUnit, "--collect", "--quiet",
                                "--description=RavenGun: game starten"};
     bool plain = !c.log_path.empty();
@@ -283,6 +285,8 @@ std::vector<std::string> start_argv(const Config& c, const std::string& profile)
     a.push_back(c.play_script);
     a.push_back("--profile");
     a.push_back(profile);
+    if (launch == "direct") a.push_back("--direct");
+    else if (launch == "teknoparrot-ui") a.push_back("--tpui");
     return a;
 }
 
@@ -330,8 +334,9 @@ void GameService::join_worker() {
     if (worker_.joinable()) worker_.join();
 }
 
-Result GameService::start(const std::string& profile) {
+Result GameService::start(const std::string& profile, const std::string& launch) {
     if (!valid_profile_name(profile)) return {false, "invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -)"};
+    if (!valid_launch(launch)) return {false, "invalid_argument", "ongeldige startwijze '" + launch + "'"};
     if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
     if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
@@ -355,7 +360,7 @@ Result GameService::start(const std::string& profile) {
     failed_profile_.clear();
     busy_.store(true);
     busy_stop_ = false;
-    std::vector<std::string> argv = start_argv(c_, profile);
+    std::vector<std::string> argv = start_argv(c_, profile, launch);
     worker_ = std::thread([this, argv, profile] {
         std::string err;
         int rc = spawn_(argv, err);

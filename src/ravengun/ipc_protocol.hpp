@@ -74,6 +74,9 @@ struct Request {
     std::map<std::string, std::string> gun_map;
     // game_start: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
     std::string profile;
+    // game_start: startwijze (A10), optioneel: "direct" (zonder TeknoParrotUi, play-halo.sh --direct), "teknoparrot-ui"
+    // (--tpui) of leeg/"auto" (play-halo.sh kiest per profiel, "launch" in io-routes.json).
+    std::string launch;
     // aagames (Unity-route zonder TeknoParrot): action = start | stop | status, game = sleutel uit packaging/aagames-games.json.
     // output_key: een toets op het virtuele toetsenbord (key = naam uit output/key_table.hpp, action down|up|tap, player 1..4).
     std::string game, key_name;

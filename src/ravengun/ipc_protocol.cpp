@@ -385,12 +385,17 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else if (cmd == "game_start") {
         r.cmd = Cmd::GameStart;
-        if (!allowed(o, {"profile"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"profile", "launch"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         const json::Value* p = o.find("profile");
         if (!p || !p->is_string()) return err("invalid_argument", "'profile' (profielnaam) ontbreekt", r.id_json);
         if (!games::valid_profile_name(p->str))
             return err("invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -, hoogstens 64 tekens)", r.id_json);
         r.profile = p->str;
+        if (const json::Value* l = o.find("launch")) {
+            if (!l->is_string() || !games::valid_launch(l->str))
+                return err("invalid_argument", "'launch' moet direct, teknoparrot-ui of auto zijn", r.id_json);
+            r.launch = l->str == "auto" ? std::string() : l->str;
+        }
     } else if (cmd == "calibrate_ui") {
         r.cmd = Cmd::CalibrateUi;
         if (!allowed(o, {"action", "step"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);

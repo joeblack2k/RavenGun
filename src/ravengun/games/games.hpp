@@ -26,6 +26,8 @@ inline constexpr size_t kMaxIconBytes = 3 * 1024 * 1024;
 
 // [A-Za-z0-9_-]{1,64}
 bool valid_profile_name(std::string_view s);
+// Startwijze van game_start: "direct", "teknoparrot-ui" of "auto" (leeg = auto).
+bool valid_launch(std::string_view s);
 // [A-Za-z0-9_-]{1,64}.(png|jpg|jpeg|gif|webp), alleen kleine letters in de extensie.
 bool valid_icon_file(std::string_view s);
 
@@ -70,7 +72,7 @@ std::string default_tpui_procs(unsigned uid);
 int script_state(const std::string& proc_root, const std::string& script);
 
 // Argumenten (zonder shell) voor het starten/stoppen. Alleen aanroepen met een gevalideerde profielnaam.
-std::vector<std::string> start_argv(const Config& c, const std::string& profile);
+std::vector<std::string> start_argv(const Config& c, const std::string& profile, const std::string& launch = "");
 std::vector<std::string> stop_unit_argv(const Config& c);   // systemctl --user stop ravengun-play.service
 std::vector<std::string> stop_script_argv(const Config& c); // systemd-run ... play-halo.sh --stop
 
@@ -91,7 +93,8 @@ public:
     GameService(const GameService&) = delete;
     GameService& operator=(const GameService&) = delete;
 
-    Result start(const std::string& profile);
+    // launch: "" (play-halo.sh kiest per profiel), "direct" (--direct) of "teknoparrot-ui" (--tpui).
+    Result start(const std::string& profile, const std::string& launch = "");
     Result stop();
     std::string status_json();  // {"state":...,"text":...,"profile":...,"message":...}
     std::string list_json();    // {"available":..,"games":[...],"status":{...}}

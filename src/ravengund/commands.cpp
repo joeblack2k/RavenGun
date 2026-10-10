@@ -886,7 +886,7 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
         }
         case ipc::Cmd::GameStart: {
             if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});
-            games::Result res = sh.games->start(r.profile);
+            games::Result res = sh.games->start(r.profile, r.launch);
             if (!res.ok) return game_error(r, res);
             return ipc::ok_response(r.id_json, sh.games->status_json());
         }

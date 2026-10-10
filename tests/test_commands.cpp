@@ -537,6 +537,11 @@ static void test_games_commands(const std::string& dir) {
     CHECK(!ok && code == "invalid_argument");
     rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo;touch x"})", &ok, &code);
     CHECK(!ok);
+    // Startwijze (A10): alleen direct, teknoparrot-ui of auto.
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo","launch":"--direct"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo","launch":3})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
     { std::lock_guard<std::mutex> g(sm); CHECK(spawned.empty()); }
 
     // Een bestaand profiel start met een vaste opdrachtregel: elk argument is los, de profielnaam is het laatste.
