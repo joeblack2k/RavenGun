@@ -1,10 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=RavenGun
-Comment=Games starten, instellingen, batterij, trillen en knoppen van de lightgun
-Exec=/home/deck/projects/ravengun/scripts/ravengun-app.sh
+GenericName=Lightgun Games
+Comment=Play arcade lightgun games with the PlayStation Move: games, controllers and settings in one app
+Exec=/home/deck/projects/ravengun/build-app/ravengun
 Icon=input-gaming
 Terminal=false
 Categories=Game;
-Keywords=lightgun;Move;games;trillen;batterij;
-StartupWMClass=RavenGun
+Keywords=lightgun;Move;arcade;games;controllers;
+StartupWMClass=ravengun-qt
