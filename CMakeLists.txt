@@ -256,6 +256,11 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
+  # docs/compatibility.md moet bij packaging/games-notes.json passen (scripts/gen-compatibility.py).
+  find_package(Python3 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-compatibility.py" --check)
+  endif()
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
   add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
@@ -326,7 +331,7 @@ endif()
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
   PATTERN "build-app.sh" EXCLUDE PATTERN "make-release.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
 install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURCE_PERMISSIONS
-  PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE
+  PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE
   PATTERN "desktop/game-*.desktop" EXCLUDE PATTERN "desktop/halo-ravengun.desktop" EXCLUDE
   PATTERN "desktop/teknoparrot.desktop" EXCLUDE PATTERN "desktop/ravengun-stop.desktop" EXCLUDE
   PATTERN "desktop/ravengun.desktop" EXCLUDE PATTERN "desktop/ravengun-qt.desktop" EXCLUDE PATTERN "desktop/ravengun-web.desktop" EXCLUDE)
