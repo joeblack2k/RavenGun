@@ -1,11 +1,12 @@
 # OLED-bescherming: zwart scherm met bewegend klokje als er 10 minuten geen game draait (scripts/oled-saver.sh).
+# Sjabloon: scripts/install-user.sh vult @DATADIR@ in (de datamap met scripts/: <prefix>/share/ravengun of de repo).
 [Unit]
 Description=RavenGun OLED-bescherming
 After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/projects/ravengun/scripts/oled-saver.sh --loop
+ExecStart=@DATADIR@/scripts/oled-saver.sh --loop
 Restart=on-failure
 RestartSec=5
 

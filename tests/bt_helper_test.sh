@@ -67,11 +67,11 @@ n=$((n + 1))
 n=$((n + 1))
 "$I" --apply >/dev/null 2>&1 && { echo "FAIL: --apply zonder root"; fails=$((fails + 1)); }
 
-# scripts/install-permissions.sh (de wizard start dit via pkexec): alleen --apply/--check, zonder root exit 3, nooit iets doen.
+# scripts/install-permissions.sh (de wizard en de uninstall starten dit via pkexec): alleen --apply/--rollback/--check, zonder root exit 3, nooit iets doen.
 P="$ROOT/scripts/install-permissions.sh"
 n=$((n + 1))
 bash -n "$P" || { echo "FAIL: syntaxfout in install-permissions.sh"; fails=$((fails + 1)); }
-for args in "" "--rollback" "--apply extra" "--apply;id"; do
+for args in "" "--rollback extra" "--apply extra" "--apply;id"; do
     n=$((n + 1))
     # shellcheck disable=SC2086
     env -i PATH=/usr/bin:/bin /bin/bash "$P" $args >/dev/null 2>&1
@@ -80,6 +80,9 @@ done
 n=$((n + 1))
 env -i PATH=/usr/bin:/bin PKEXEC_UID=1000 /bin/bash "$P" --apply >/dev/null 2>&1
 [ $? = 3 ] || { echo "FAIL: install-permissions.sh --apply zonder root moet exit 3 geven"; fails=$((fails + 1)); }
+n=$((n + 1))
+env -i PATH=/usr/bin:/bin PKEXEC_UID=1000 /bin/bash "$P" --rollback >/dev/null 2>&1
+[ $? = 3 ] || { echo "FAIL: install-permissions.sh --rollback zonder root moet exit 3 geven"; fails=$((fails + 1)); }
 
 echo "$n controles, $fails mislukt"
 [ "$fails" = 0 ]
