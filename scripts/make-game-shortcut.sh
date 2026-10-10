@@ -6,8 +6,11 @@
 # scripts/play-halo.sh --profile PROFIEL (die zelf de juiste route kiest: TeknoParrot of de Unity-route).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+. "$ROOT/scripts/rg-paths.sh"   # RG_PREFIX is gevuld bij een installatie
 TP="$HOME/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64"
 DESK="$HOME/Desktop"; OUT="$ROOT/packaging/desktop"
+# Bij een installatie hoort het bestand niet in de installatiemap (die wordt bij een update vervangen): onder de gebruikersdata.
+[[ -z $RG_PREFIX ]] || OUT="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/shortcuts"
 if [[ "${1:-}" == --remove ]]; then
   P="${2:?profiel}"; rm -f "$DESK/game-$P.desktop" "$OUT/game-$P.desktop"; echo "Verwijderd: $P"; exit 0
 fi

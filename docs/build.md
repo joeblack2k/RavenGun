@@ -22,7 +22,7 @@ Exitcodes van `ravengunctl`: 0 alles in orde (of `devices` gelukt), 1 minstens e
 
 ## ravengund (de daemon)
 
-`cmake -S . -B build` zoekt PSMoveAPI onder `~/.local/share/ravengun/psmoveapi` (`-DPSMOVEAPI_ROOT=…` voor een andere plek). Gevonden: ravengund wordt ertegen gelinkt, met een rpath naar `…/psmoveapi/lib`. Niet gevonden: ravengund wordt zonder HID gebouwd (waarschuwing bij cmake). `-DRAVENGUN_BUILD_DAEMON=OFF` slaat de daemon over. Op de host is alleen g++ nodig; de PSMoveAPI-headers en -library komen uit de containerbouw hieronder.
+`cmake -S . -B build` zoekt PSMoveAPI onder `~/.local/share/ravengun/psmoveapi` (`-DPSMOVEAPI_ROOT=…` voor een andere plek). Gevonden: ravengund wordt ertegen gelinkt, met een rpath naar `…/psmoveapi/lib` (na `cmake --install`: `$ORIGIN/../lib`, zie "Installatie-indeling"). Niet gevonden: ravengund wordt zonder HID gebouwd (waarschuwing bij cmake). `-DRAVENGUN_BUILD_DAEMON=OFF` slaat de daemon over. Op de host is alleen g++ nodig; de PSMoveAPI-headers en -library komen uit de containerbouw hieronder.
 
     ./build/ravengund                 # voorgrond; Ctrl-C of SIGTERM stopt netjes
     ./build/ravengunctl status        # of --json
@@ -48,7 +48,7 @@ SteamOS heeft Qt 6.11.1 als systeembibliotheek maar geen headers en geen CMake-b
 - Image: `localhost/ravengun-qt-build` uit `packaging/containers/qt-app/Containerfile` (`--rebuild-image` bouwt hem opnieuw). Basis `archlinux:latest`, teruggezet naar het Arch Linux Archive van 2026-07-01: `qt6-base` 6.11.1, glibc 2.43, GCC 16.1.1, gelijk aan de host. De container heeft geen netwerk tijdens het bouwen en mount alleen de repo, op hetzelfde pad.
 - Configuratie: `cmake -G Ninja -DRAVENGUN_BUILD_DAEMON=OFF -DRAVENGUN_BUILD_CAMPROBE=OFF` in `build-app/`, doelen `ravengun_app` (binary `ravengun`) en `ravengun_app_tests`. In de gewone host-build (`build/`) vindt CMake geen Qt en slaat de app over (melding "Qt 6 (met headers) niet gevonden"); alle andere doelen en ctest-suites blijven gelijk.
 - Controle: het script draait `ldd build-app/ravengun` op de host en stopt bij een ontbrekende bibliotheek; `libQt6Core.so.6` en `libQt6Widgets.so.6` komen uit `/usr/lib` (de systeem-Qt). De app-tests draaien daarna nog eens op de host tegen de systeem-Qt (`QT_QPA_PLATFORM=offscreen`).
-- Installeren: de installatieregels zetten `bin/ravengun` naast `bin/ravengunctl` en `bin/ravengund` (`cmake --install`, na een volledige build van die map; `build-app/` bouwt alleen de app, dus daar volstaat kopiëren van `build-app/ravengun`). De bureaubladsnelkoppeling is `packaging/desktop/ravengun-qt.desktop` (start `~/projects/ravengun/build-app/ravengun`).
+- Installeren: zie "Installatie-indeling" verderop (`scripts/install-user.sh`, `cmake --install`; de app-build installeert met `cmake --install build-app --component app`). De snelkoppeling komt uit het sjabloon `packaging/desktop/ravengun-qt.desktop.in`; de oude `packaging/desktop/ravengun.desktop` en `ravengun-qt.desktop` (vaste repopaden) zijn alleen nog voor de bestaande installatie op deze machine.
 
 Schermafdrukken voor ontwikkelaars (nooit op de tv; tegen een eigen test-engine):
 
@@ -114,3 +114,66 @@ De daemon maakt het uinput-apparaat pas na `arm`. Zonder Move en camera, voor de
     ./build/ravengunctl disarm
 
 De udev-regel (`packaging/udev/70-ravengun.rules`, installeren met `sudo scripts/udev-ravengun.sh --apply`, terugdraaien met `--rollback`) is nodig voor leesbaarheid, de stabiele by-id-symlink en het negeren door libinput. Volgorde voor een spelsessie: eerst de daemon met `arm` (en het virtuele toetsenbord), dan TeknoParrot/Halo starten; de daemon moet blijven draaien zolang de game draait.
+
+
+## Installatie-indeling (A9)
+
+Engine en app hangen niet meer van `~/projects/ravengun` af. Standaardprefix: `~/.local/opt/ravengun` (geen root; de thuispartitie overleeft SteamOS-updates).
+
+- `bin/`: `ravengun` (de Qt-app), `ravengund` (de engine), `ravengunctl`. Rpath `$ORIGIN/../lib`.
+- `lib/`: `libpsmoveapi.so` (de enige niet-systeembibliotheek) en de LD_PRELOAD-hulpen `librg_comm_shim.so`, `lib32/librg_comm_shim.so` en `librg_rt_input.so`. Qt, hidapi, BlueZ, dbus en libudev komen van het systeem (Qt 6.11 of nieuwer).
+- `share/ravengun/` (de "datamap"): `scripts/`, `packaging/` (JSON-gegevens, sjablonen voor units en snelkoppelingen, udev-regels, icons, `containers/unity-plugin`), `docs/user-guide.md`, `plugins/unity/`, `tools/fmod-stub/`, `third_party/` (readmes en licenties), `LICENSE`, `THIRD_PARTY.md`, `VERSION` (versie en commit) en bij een releasebouw `REQUIRES` (de glibc-eis) en `licenses/`. Niet mee: `scripts/build-app.sh`, `scripts/make-release.sh`, de containers van de Qt-app en de release, en de per-game snelkoppelingen van deze machine.
+
+Zoekvolgorde voor de datamap (engine: `src/ravengun/paths.*`, app: `AppPaths::dataRoot`, scripts: `scripts/rg-paths.sh`; beide C++-kanten hebben tests: `ravengun_paths_tests` en `AppCoreTest::dataRootOrder`):
+
+1. `$RAVENGUN_DATA_DIR` (als die scripts/play-halo.sh en packaging/ bevat),
+2. `<prefix>/share/ravengun`, met `<prefix>` = de map boven de map van het programma (`bin/..`),
+3. de repo bij ontwikkeling: `$RAVENGUN_ROOT`, de map boven `build/` of `build-app/`, en als laatste `~/projects/ravengun`.
+
+De engine meldt bij het starten welke datamap hij gebruikt ("datamap: ... (installatie ...)"); `ravengun --print-paths` toont datamap, programmamap en engine. De scripts leiden `ROOT` (de datamap) af uit hun eigen pad; `scripts/rg-paths.sh` geeft `RG_BIN` en `RG_LIB`: in de repo `<repo>/build`, bij een installatie `<prefix>/bin` en `<prefix>/lib` (`RAVENGUN_BIN_DIR` en `RAVENGUN_LIB_DIR` gaan voor). De Unity-plugin wordt bij een installatie naar `~/.local/share/ravengun/unity-plugin` gebouwd (`RAVENGUN_UNITY_PLUGIN_OUT` gaat voor). Snelkoppelingen per game (`make-game-shortcut.sh`) komen bij een installatie onder `~/.local/share/ravengun/shortcuts`, zodat een update ze niet meeneemt.
+
+Installeren vanuit de repo (na `cmake --build build` en `scripts/build-app.sh`):
+
+    scripts/install-user.sh                      # naar ~/.local/opt/ravengun
+    scripts/install-user.sh --prefix /andere/map --no-start --no-desktop
+
+Het script doet `cmake --install` van `build-app/` (alleen de app, `--component app`) en `build/` naar een tijdelijke map naast de prefix, controleert de eisen (glibc uit `REQUIRES`, `ldd` op ontbrekende bibliotheken), verwisselt die met de bestaande installatie en vult daarna de sjablonen in: `~/.config/systemd/user/ravengund.service` (via `install-service.sh`; geactiveerd en gestart), `ravengun-oled-saver.service` (alleen het bestand; aan/uit doet de app) en `ravengun-qt.desktop` in het menu en op het bureaublad, plus koppelingen `ravengun` en `ravengunctl` in `~/.local/bin`. Het weigert root, een prefix die geen RavenGun-installatie is en onverstandige mappen (`/usr`, de thuismap zelf). Draait er al een engine, dan wordt die alleen herstart als er geen game draait (`safe-restart-daemon.sh`); `--no-start` slaat dat over. Vanuit een uitgepakt releasearchief (of een eerdere installatie) werkt hetzelfde script: het kopieert dan de boom. `$RAVENGUN_SYSTEMCTL` vervangt `systemctl` (tests).
+
+Root-onderdelen (udev-regels 70 en 71, Bluetooth-hulp met sudoers-regel) blijven apart: `pkexec <prefix>/share/ravengun/scripts/install-permissions.sh --apply` (de wizard doet dit; `--check` zonder root, `--rollback` voor de uninstall). Die scripts lezen hun bronnen naast zichzelf, dus uit de geïnstalleerde kopie. Let op: pkexec voert een script uit een map uit die de gebruiker kan schrijven. Wizard en uninstall vragen daarom altijd om het beheerderswachtwoord, maar wie het script wijzigt kan er root-code in kwijt. Dat was vóór A9 hetzelfde (toen vanuit de repo); wil je het dichten, kopieer de scripts dan naar een rootmap (zoals `/opt/ravengun`) en roep ze daar aan.
+
+Verwijderen: `scripts/uninstall-user.sh` (in de geïnstalleerde kopie; `--help` voor opties): stopt en verwijdert de units, snelkoppelingen en koppelingen, roept `pkexec install-permissions.sh --rollback` aan als er systeemonderdelen staan (`--keep-root` slaat dat over), verwijdert de prefix en bewaart standaard de instellingen (`--remove-config` verwijdert `~/.config/ravengun` en `~/.local/state/ravengun`). `~/.local/share/ravengun` (TeknoParrot-runtime, Wine, native overlays) wordt nooit automatisch verwijderd.
+
+## Release-artefact (A9)
+
+`scripts/make-release.sh` bouwt `dist/ravengun-<versie>-x86_64-steamos.tar.gz` plus `ravengun-<versie>-x86_64-steamos.sha256` (SHA-256 van het archief en van `ravengun-<versie>-source.tar.gz`, de broncode van dezelfde commit, voor de GPL):
+
+    scripts/make-release.sh                  # alles in containers; --no-test slaat ctest over, --rebuild-image bouwt de images opnieuw
+
+- Alleen de gecommitte bronnen (`git archive HEAD`) plus PSMoveAPI op de gepinde commit (uit `~/.cache/ravengun/src/psmoveapi`, anders gekloond; eenmalig netwerk op de host). Met niet-gecommitte wijzigingen weigert het script tenzij `--allow-dirty` (die wijzigingen komen er dan toch niet in).
+- Image `localhost/ravengun-release-build` (`packaging/containers/release/Containerfile`) bovenop `localhost/ravengun-qt-build` (Arch Linux Archive van 2026-07-01: Qt 6.11.1, glibc 2.43, GCC 16.1.1), met hidapi, libusb, glm, dbus, BlueZ- en systemd-headers. Het bouwen zelf draait zonder netwerk en mount alleen een tijdelijke werkmap (`/work`).
+- In de container: PSMoveAPI (alleen `libpsmoveapi.so`, dezelfde opties als hierboven), daarna RavenGun volledig (engine, CLI, hulpen en de Qt-app), de ctest-suites (de installatietest en de JS-test slaan zichzelf over), `cmake --install` en `share/ravengun/REQUIRES` (de hoogste glibc-symboolversie in de programma's; `install-user.sh` weigert een oudere glibc met een duidelijke melding).
+- Daarna op de host: `install.sh` (roept `install-user.sh` aan), `README.md`, `LICENSE` en `share/ravengun/licenses/PSMoveAPI-COPYING` erbij, rechten genormaliseerd, `tar --sort=name --mtime=@<commit-tijd> --owner=0 --group=0 --numeric-owner` en `gzip -n -9`.
+- Reproduceerbaar: vaste containerpaden, `SOURCE_DATE_EPOCH` = de commit-tijd van HEAD, vaste volgorde, eigenaar en tijdstempels, de commit in de binary vastgelegd met `-DRAVENGUN_GIT_COMMIT_OVERRIDE`. Twee keer bouwen van dezelfde commit met dezelfde images geeft dezelfde SHA-256 (zie `docs/todo.md`, A9, voor de controle). Verandert een image (andere pacman-momentopname), dan verandert het resultaat.
+
+Inhoud van het archief (`ravengun-<versie>-x86_64-steamos/`, ongeveer 3 MB gecomprimeerd): `install.sh`, `README.md`, `LICENSE`, `bin/`, `lib/` en `share/ravengun/` zoals hierboven. Wat de gebruiker doet staat in `README.md`.
+
+### AppImage: onderzocht en niet gekozen
+
+Gekozen voor de tarball met `install.sh`. Een AppImage past slecht bij dit programma:
+
+- Systemd-gebruikersunits en `systemd-run`-scripts: de engine is een service die bij het inloggen start, en de scripts (`play-halo.sh` e.d.) worden door de engine via `systemd-run` gestart. Een AppImage koppelt zichzelf bij elk proces op een wisselend pad `/tmp/.mount_XXXX` (FUSE) en dat pad bestaat alleen zolang dat proces leeft. Een unit met `ExecStart=` op het AppImage-bestand zou bij elke start een FUSE-koppeling maken, en de scripts en JSON-bestanden die de engine later nodig heeft staan op een pad dat niet blijft.
+- `pkexec` en root: de wizard voert `install-permissions.sh` uit als root. Root kan een gebruikers-FUSE-koppeling standaard niet lezen (geen `allow_other`), dus die scripts, de udev-regels en de Bluetooth-hulp moeten sowieso uitgepakt op een gewoon pad staan.
+- FUSE op SteamOS: libfuse2 staat nu op de Deck (`/usr/lib/libfuse.so.2`), maar het is geen gegarandeerd onderdeel van SteamOS; zonder moet de gebruiker `--appimage-extract-and-run` kennen, en dan is het in feite een uitgepakte tarball.
+- Qt: de app is gebouwd tegen Qt 6.11, dezelfde hoofd/minor-versie als de systeem-Qt van SteamOS (zie "De app `ravengun`"). Een AppImage zou Qt, de platformplugins en ICU zelf moeten meeleveren (grofweg 60 MB of meer, gebundeld met `linuxdeploy`, dus met netwerkdownloads en slecht reproduceerbaar). Een meegeleverde Qt laadt bovendien de KDE-platformthema-plugin van het systeem (Breeze, Plasma-integratie) niet en ziet er in Desktop Mode anders uit dan de rest. Met de systeem-Qt gebruikt de app het thema en de dialogen van de gebruiker en blijft de download klein. Binaire compatibiliteit: een bouw tegen Qt 6.11 draait op elke latere 6.x; een nieuwere glibc op de bouwmachine wordt door `REQUIRES` afgevangen.
+- Werk: een AppImage zou alleen de app dekken (geen units, udev, hulp, engine als service), dus er is toch een installer naast nodig.
+
+Een Flatpak valt om dezelfde redenen af, en doordat de sandbox uinput, udev, BlueZ en `systemctl --user` blokkeert. Later eventueel een AppImage alleen voor het venster, als de engine los geïnstalleerd is; niet nodig voor het doel "downloaden, starten, werkt".
+
+## Tests van de installatie (A9)
+
+`ctest` bevat `ravengun_paths_tests` (zoekvolgorde van de datamap), `ravengun_compat_list` (docs/compatibility.md is actueel; zie `scripts/gen-compatibility.py`) en `ravengun_install` (`tests/install_test.sh`; overgeslagen met exit 77 zolang `build-app/ravengun` ontbreekt). De installatietest werkt in een tijdelijke HOME met alle XDG-mappen daarbinnen, een namaak-`systemctl` en -`pkexec` die alleen loggen (`RAVENGUN_SYSTEMCTL`, `RAVENGUN_PKEXEC`) en draait de engine met een eigen `XDG_RUNTIME_DIR`:
+
+- installeren vanuit de repo; controle van de bestanden, units en snelkoppelingen (geen repopad erin), rpath en `ldd`;
+- `ravengun --print-paths`, de engine (`--no-hid --no-camera`) en `ravengunctl status` vanuit de installatie, en de app offscreen met `--screenshot-dir` tegen die engine (minstens tien schermafdrukken);
+- bijwerken, doorzetten naar een tweede prefix (de route van het releasearchief), weigeren van een vreemde map en van `/usr/local`;
+- uninstall: units, snelkoppelingen en prefix weg; instellingen en `~/.local/share/ravengun` blijven; `--remove-config` en `--keep-root`; de aanroep `pkexec ... install-permissions.sh --rollback`.
