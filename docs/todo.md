@@ -30,7 +30,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
 
 - [x] Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Transformers: starten en zijn speelbaar (deels nog niet met de echte Move bevestigd).
 - [x] B1 JVS-board in de IO-brug (kern, borden LGS en SegaGun2P, pty als COM-poort, 119 tests). Let's Go Safari zelf geparkeerd: de game wacht op een antwoord op 127.0.0.1:40100 (Sega PCP) vóór hij COM4 opent; vraag 11 aan het TeknoParrot-team.
-- [~] B2 Eigen Unity-plugin (Tomb Raider, Rabbids) ter vervanging van de DemulShooter-plugin.
+- [x] B2 Eigen Unity-plugin: Tomb Raider draait met de eigen plugin (munt, start, aim, schieten, herladen, recoil). Rabbids blijft op de DemulShooter-plugin: met de eigen plugin sluit de game zichzelf af door zijn dongle-controle ("DONGLE NOT FOUND"); die omzeilen we niet zelf.
 - [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
   - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
   - [ ] B3b Taito Type X2 via OpenParrot: Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2 (JVS-pipe op COM2 voor munt/test/service).
@@ -41,6 +41,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
   - [ ] B3g Geen lightgun: Mario Kart Arcade GP DX (2 versies), Mighty Moto — laagste prioriteit.
 - [ ] B4 Jurassic Park: zwart beeld/crash (geparkeerd; nieuwe aanknopingspunten uit antwoorden.md).
 - [ ] B5 Luigi's Mansion: COM1 + LMAIO-flashstap + board; de Capcom-afscherming zelf wordt niet omzeild.
+- [ ] B7 Eén game tegelijk afdwingen: een tweede start (unit ravengun-tpui) stopt nu stil de lopende game; de launcher moet weigeren of netjes wisselen.
 - [ ] B6 Speler 2..4 per game (bindingen, tweede JVS-node voor Halo).
 
 ## Spoor C — met de eigenaar
