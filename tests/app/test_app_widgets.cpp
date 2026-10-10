@@ -14,6 +14,8 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -23,6 +25,7 @@
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
 #include "widgets/PropertiesDialog.h"
+#include "widgets/SaverWindow.h"
 #include "widgets/SetupWizard.h"
 #include "widgets/SteamIntegration.h"
 
@@ -61,6 +64,7 @@ private Q_SLOTS:
     void wizardWithFakePkexec();
     void artwork();
     void addToSteamOnCopy();
+    void saverWindow();
 
 private:
     QTemporaryDir tmp_;
@@ -380,6 +384,36 @@ void AppWidgetTest::addToSteamOnCopy() {
     QCOMPARE(QDir(cfg).entryList({QStringLiteral("shortcuts.vdf.ravengun-bak-*")}, QDir::Files).size(), 1);
     // Onbekende gebruiker: nette melding.
     QVERIFY(!ui::AddToSteamQuiet(QStringLiteral("999")).ok);
+}
+
+void AppWidgetTest::saverWindow() {
+    // OLED-saver: schermvullend, zonder rand, zwart, met een klokje dat bijwerkt en verspringt.
+    ui::SaverWindow w;
+    w.Open();
+    QVERIFY(w.isFullScreen());
+    QVERIFY(w.windowFlags() & Qt::FramelessWindowHint);
+    QVERIFY(w.windowFlags() & Qt::WindowStaysOnTopHint);
+    QCOMPARE(w.cursor().shape(), Qt::BlankCursor);
+    QCOMPARE(w.palette().color(QPalette::Window), QColor(Qt::black));
+    QVERIFY(QTest::qWaitForWindowExposed(&w));
+    const QImage img = w.grab().toImage();
+    QVERIFY(!img.isNull());
+    // Alleen zwart en het gedimde klokje: geen pixel helderder dan 45.
+    int maxLevel = 0;
+    for (int y = 0; y < img.height(); ++y)
+        for (int x = 0; x < img.width(); ++x) maxLevel = qMax(maxLevel, qGray(img.pixel(x, y)));
+    QVERIFY2(maxLevel <= 45, qPrintable(QString::number(maxLevel)));
+    QVERIFY(QRegularExpression(QStringLiteral("^\\d\\d:\\d\\d$")).match(w.ClockText()).hasMatch());
+    QVERIFY(QRect(QPoint(0, 0), w.size()).contains(w.ClockGeometry()));
+    // Het klokje springt naar steeds andere plekken, altijd binnen beeld.
+    QSet<QPair<int, int>> seen;
+    for (int i = 0; i < 20; ++i) {
+        w.Reposition();
+        QVERIFY(QRect(QPoint(0, 0), w.size()).contains(w.ClockGeometry()));
+        seen.insert({w.ClockGeometry().x(), w.ClockGeometry().y()});
+    }
+    QVERIFY(seen.size() > 1);
+    if (const QString out = qEnvironmentVariable("RAVENGUN_SAVER_SHOT"); !out.isEmpty()) QVERIFY(w.grab().save(out));
 }
 
 QTEST_MAIN(AppWidgetTest)

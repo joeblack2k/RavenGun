@@ -55,6 +55,7 @@ add_library(ravengun_app_widgets STATIC
   widgets/PropertiesDialog.cpp
   widgets/QtUtils.cpp
   widgets/Resources.cpp
+  widgets/SaverWindow.cpp
   widgets/Screenshots.cpp
   widgets/SearchBar.cpp
   widgets/SettingsWindow.cpp
