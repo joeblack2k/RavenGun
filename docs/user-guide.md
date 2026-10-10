@@ -32,7 +32,7 @@ During play, the PS button recenters the aim: point at the middle of the screen 
 
 **Properties** has five pages:
 
-- **General**: name, folders, input route and your own note.
+- **General**: name, folders, input route and your own note. The **Input route** is how the lightgun reaches the game. The recommended route is preselected; some games offer another one (for example the virtual lightgun instead of the I/O bridge). Your choice is saved at once and used the next time the game starts. Choose the recommended route again to undo it.
 - **Options**: game settings such as free play or language. Click **Apply**; they take effect the next time the game starts. Settings of games stored on the NAS can only be changed when the game runs from a local view; otherwise they show "read-only (on NAS)".
 - **Display**: resolution, window or full screen, and gamescope.
 - **Memory Card**: save data, NVRAM and high scores. Select files and press **Delete...** to reset them. Files on the NAS and files the game needs are read-only.
@@ -51,6 +51,35 @@ During play, the PS button recenters the aim: point at the middle of the screen 
 **Pair New Controller...** walks you through connecting a new Move or Navigation Controller: cable in, pair, cable out, press PS. **Remove...** unpairs a controller.
 
 A mouse as lightgun moves the gun of that player (the desktop pointer moves too); the left button shoots, right reloads.
+
+## Big Picture Mode (TV and Steam Game Mode)
+
+**View > Big Picture Mode** (F11), or start RavenGun from Steam, opens a full-screen menu made for the TV: a black screen with big game icons.
+
+- **With the lightgun**: aim at a game and shoot. The game is selected ("Shoot again to start"). Shoot it again within 3 seconds, or hold the trigger for a second, to start it. The PS button centers the aim, as always.
+- **With a mouse, keyboard or gamepad**: click a game, or use the arrow keys (D-pad) and Enter (A). Escape (B) asks whether to exit.
+- Only games known to work well are shown. **Show All Games** at the bottom shows every game that is set up; **Show Playable Games** goes back.
+- While a game runs, the menu hides. When the game ends, it comes back. **Stop Game** appears while a game is starting or running.
+- The top right corner shows your PS Moves: player, battery and whether they are on.
+- To protect OLED TVs, the screen stays black. After a while without input the icons dim and move slowly; after five minutes only a small moving text remains. Shoot or press a key to wake it.
+- **Exit** closes RavenGun (you are asked first).
+
+## Setup Wizard
+
+The first time you start RavenGun on the desktop, a wizard helps you set everything up. You can open it again with **Tools > Setup Wizard**. It checks this PC, then walks you through:
+
+1. **Permissions**: one password prompt installs the device rules (so games see the virtual lightgun) and the Bluetooth helper (so you can pair Moves without a password). Skip it if the check says everything is installed.
+2. **Engine**: install the engine as a service that starts when you log in.
+3. **Controllers**: pair your PS Move.
+4. **Calibration**: calibrate the compass of the Move on the TV.
+5. **Games**: add your game folder.
+6. **Steam**: add RavenGun to your Steam library.
+
+When you are done: reboot into Game Mode and start RavenGun from your library.
+
+## Add to Steam
+
+**Tools > Add to Steam** adds RavenGun to your Steam library as a non-Steam game that opens Big Picture Mode, with its own artwork. Steam has to be closed for a moment: RavenGun asks before it closes Steam. A backup of your list of non-Steam games is kept next to it. Doing it again updates the entry instead of adding a second one.
 
 ## Settings
 
