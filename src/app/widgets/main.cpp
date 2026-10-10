@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // RavenGun: de app (Qt 6 Widgets). Opties:
 //   --fullscreen           fullscreen-modus ("big picture") voor Steam Game Mode en de tv, zonder het hoofdvenster
+//   --saver                OLED-bescherming: zwart schermvullend venster met bewegend klokje (geen engine; stopt bij SIGTERM/SIGINT)
 //   --add-to-steam         RavenGun als niet-Steam-game toevoegen (zonder vragen; weigert als Steam draait) en stoppen
 //   --steam-account ID     bij --add-to-steam: deze Steam-gebruiker (map onder userdata/) in plaats van de laatst ingelogde
 //   --list-steam-shortcuts de niet-Steam-games van de laatst ingelogde gebruiker tonen (alleen lezen) en stoppen
@@ -16,7 +17,10 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QIcon>
+#include <QSocketNotifier>
 #include <QTimer>
+#include <csignal>
+#include <unistd.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -29,9 +33,19 @@
 #include "widgets/ControllersWindow.h"
 #include "widgets/MainWindow.h"
 #include "widgets/Resources.h"
+#include "widgets/SaverWindow.h"
 #include "widgets/Screenshots.h"
 #include "widgets/SetupWizard.h"
 #include "widgets/SteamIntegration.h"
+
+namespace {
+int g_sigPipe[2] = {-1, -1};
+// Signaalhandler: alleen een byte in de pipe schrijven (async-signal-safe); de Qt-lus sluit de app daarna netjes af.
+void onSignal(int) {
+    const char c = 1;
+    if (g_sigPipe[1] >= 0) (void)!write(g_sigPipe[1], &c, 1);
+}
+}  // namespace
 
 int main(int argc, char** argv) {
     // Onder gamescope (Steam Game Mode) is Xwayland de betrouwbare weg: Qt kiest anders misschien de eigen Wayland-socket
@@ -62,7 +76,8 @@ int main(int argc, char** argv) {
     const QCommandLineOption socket(QStringLiteral("socket"), QStringLiteral("Engine socket path."), QStringLiteral("PATH"));
     const QCommandLineOption library(QStringLiteral("library"), QStringLiteral("Library file."), QStringLiteral("PATH"));
     const QCommandLineOption noScan(QStringLiteral("no-scan"), QStringLiteral("Do not scan the game folders at start."));
-    p.addOptions({fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
+    const QCommandLineOption saver(QStringLiteral("saver"), QStringLiteral("OLED screen saver: black full-screen window with a dim moving clock."));
+    p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
     // Iconen uit het bureaubladthema (KDE: breeze) ook buiten een Plasma-sessie (bv. offscreen).
@@ -98,6 +113,22 @@ int main(int argc, char** argv) {
         const rg::ui::SteamAddOutcome o = rg::ui::AddToSteamQuiet(p.value(steamAccount));
         std::fprintf(o.ok ? stdout : stderr, "%s\n", qPrintable(o.message));
         return o.ok ? 0 : 3;
+    }
+
+    if (p.isSet(saver)) {
+        // Zonder engine, hoofdvenster of tray. SIGTERM/SIGINT sluiten de lus.
+        if (pipe(g_sigPipe) == 0) {
+            auto* sn = new QSocketNotifier(g_sigPipe[0], QSocketNotifier::Read, &app);
+            QObject::connect(sn, &QSocketNotifier::activated, &app, [] { QApplication::quit(); });
+            struct sigaction sa {};
+            sa.sa_handler = onSignal;
+            sigemptyset(&sa.sa_mask);
+            sigaction(SIGTERM, &sa, nullptr);
+            sigaction(SIGINT, &sa, nullptr);
+        }
+        rg::ui::SaverWindow saverWin;
+        saverWin.Open();
+        return app.exec();
     }
 
     rg::AppCore core(nullptr, p.value(socket), p.value(library));

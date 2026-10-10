@@ -2,9 +2,12 @@
 # OLED-bescherming: staat er langer dan IDLE_S geen game op de tv, dan komt er een zwart scherm met een klein,
 # langzaam bewegend klokje (zwarte pixels staan op een OLED uit). Zodra er een game start, verdwijnt het binnen
 # enkele seconden. De tv kan niet uit vanwege de HDMI-handshake; daarom geen DPMS/blanking.
+# Het zwarte scherm is `ravengun --saver` (eigen Qt-venster).
 # Gebruik: scripts/oled-saver.sh --start | --stop | --status | --stop-view      (draait als user-unit ravengun-oled-saver)
 set -euo pipefail
 IDLE_S="${RG_SAVER_IDLE_S:-600}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/scripts/rg-paths.sh"
 UNIT=ravengun-oled-saver; VIEW=ravengun-oled-view
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
@@ -15,24 +18,19 @@ game_running() {
 }
 view_on() { systemctl --user is-active --quiet "$VIEW.service"; }
 view_start() {
-  # Geen '#' in de data-URL (dat begint een fragment): kleuren als naam/rgb().
-  local html='<body style="margin:0;background:black;overflow:hidden;cursor:none"><div id=c style="position:absolute;color:rgb(45,45,45);font:28px sans-serif"></div><script>function m(){var c=document.getElementById("c"),d=new Date();c.textContent=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);c.style.left=Math.random()*85+"%25";c.style.top=Math.random()*90+"%25"}m();setInterval(m,20000)</script>'
-  # Eigen browserprofiel, met de Brave-meldingen vooraf uitgezet (anders staat er een statische balk in beeld).
-  local prof="$HOME/.local/state/ravengun/saver-browser"
-  mkdir -p "$prof"
-  [[ -f "$prof/Local State" ]] || printf '%s' '{"brave":{"p3a":{"enabled":false,"notice_acknowledged":true},"stats":{"reporting_enabled":false}}}' > "$prof/Local State"
+  # Eigen Qt-venster (geen browser: die kan een balk tonen die inbrandt). Geïnstalleerd: <prefix>/bin/ravengun; in de repo
+  # de app-build (scripts/build-app.sh).
+  local bin="$RG_BIN/ravengun"
+  [[ -x "$bin" ]] || bin="$ROOT/build-app/ravengun"
+  [[ -x "$bin" ]] || { echo "ravengun-app niet gevonden (scripts/build-app.sh)" >&2; return 0; }
   systemd-run --user --unit="$VIEW" --collect --quiet \
     -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" -E DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}" \
-    flatpak run com.brave.Browser --user-data-dir="$HOME/.local/state/ravengun/saver-browser" --kiosk \
-    --app="data:text/html,$html" --ozone-platform-hint=auto --no-first-run --no-default-browser-check --noerrdialogs \
-    --disable-infobars --disable-session-crashed-bubble --hide-crash-restore-bubble \
-    --disable-features=Translate,MediaRouter,BraveRewards,BraveVPN,BraveWallet,BraveNews --disable-sync \
-    --disable-background-networking --disable-component-update >/dev/null 2>&1 || true
+    "$bin" --saver >/dev/null 2>&1 || true
 }
 view_stop() {
   systemctl --user stop "$VIEW.service" 2>/dev/null || true
-  # flatpak start Brave buiten de cgroup van de unit; ruim daarom ook de processen met ons eigen profiel op
-  # (alleen die: andere Brave-vensters van de gebruiker blijven staan).
+  # Oude installaties: de Brave-kiosk (flatpak start Brave buiten de cgroup van de unit). Ruim de processen met het
+  # oude saver-profiel op (alleen die: andere Brave-vensters van de gebruiker blijven staan).
   local prof="--user-data-dir=$HOME/.local/state/ravengun/saver-browser" pid
   for pid in $(pgrep -u "$(id -u)" -f -- "$prof" || true); do [[ $pid != $$ ]] && kill "$pid" 2>/dev/null || true; done
 }
