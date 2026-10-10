@@ -1,12 +1,13 @@
-# Gebruikersservice voor ravengund (geen root). Installeren: scripts/install-service.sh
+# Gebruikersservice voor ravengund (geen root). Sjabloon: scripts/install-service.sh (en install-user.sh) vult @BINDIR@ in
+# (de map met ravengund: <prefix>/bin of <repo>/build) en schrijft het resultaat naar ~/.config/systemd/user/ravengund.service.
 [Unit]
 Description=RavenGun daemon (PS Move naar virtuele lightgun)
 After=graphical-session.target bluetooth.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/projects/ravengun
-ExecStart=%h/projects/ravengun/build/ravengund
+WorkingDirectory=%h
+ExecStart=@BINDIR@/ravengund
 Restart=on-failure
 RestartSec=2
 StandardOutput=append:%h/.local/state/ravengun/logs/ravengund.log

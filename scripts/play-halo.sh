@@ -31,7 +31,8 @@
 #           komen in ~/.local/state/ravengun/a11/ (A11).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CTL="$ROOT/build/ravengunctl"
+. "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
+CTL="$RG_BIN/ravengunctl"
 TP="$HOME/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64"
 WINE="$HOME/.local/share/ravengun/wine/proton-11.0-2/bin"
 PREFIX="$HOME/.local/share/TeknoParrotUI/prefixes/shared/wine"
@@ -40,7 +41,7 @@ UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 JVS_LINK="$XDG_RUNTIME_DIR/ravengun/jvs-com"            # symlink van de daemon naar de pty (jvs-route)
 JVS_STATE="$XDG_RUNTIME_DIR/ravengun/jvs-prefix.state"  # welke prefix/poort wij gekoppeld hebben, voor het opruimen
-SHIM="$ROOT/build/librg_comm_shim.so:$ROOT/build/lib32/librg_comm_shim.so"   # LD_PRELOAD-hulp, 64 en 32 bit (tools/wine-comm-shim/)
+SHIM="$RG_LIB/librg_comm_shim.so:$RG_LIB/lib32/librg_comm_shim.so"   # LD_PRELOAD-hulp, 64 en 32 bit (tools/wine-comm-shim/)
 
 # Meldingen: in een terminal op stdout/stderr; gestart vanaf het bureaublad of Steam (geen terminal) ook als
 # bureaubladmelding, zodat de speler ziet wat er gebeurt (bv. "druk op PS").
@@ -272,7 +273,7 @@ elif [[ "$ROUTE" == jvs ]]; then
   "$CTL" iobridge start "$PROFILE" --route jvs >/dev/null || { jvs_unlink_prefix; fail "IO-brug (jvs) starten mislukt voor $PROFILE"; }
   [[ -L "$JVS_LINK" ]] || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "De daemon maakte geen pty-symlink ($JVS_LINK)."; }
   jvs_link_prefix "$WPFX" "$COMPORT" || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "Kon $COMPORT in $WPFX niet koppelen."; }
-  if [[ -r "$ROOT/build/lib32/librg_comm_shim.so" && -r "$ROOT/build/librg_comm_shim.so" ]]; then EXTRA_ENV+=("RG_LD_PRELOAD=$SHIM"); else echo "Let op: de LD_PRELOAD-hulp ontbreekt (cmake --build build); GetCommModemStatus faalt dan op de pty." >&2; fi
+  if [[ -r "$RG_LIB/lib32/librg_comm_shim.so" && -r "$RG_LIB/librg_comm_shim.so" ]]; then EXTRA_ENV+=("RG_LD_PRELOAD=$SHIM"); else echo "Let op: de LD_PRELOAD-hulp ontbreekt (cmake --build build); GetCommModemStatus faalt dan op de pty." >&2; fi
   say "Invoerroute: jvs (de daemon is het JVS-bord op $COMPORT)."
 else
   "$CTL" iobridge stop >/dev/null 2>&1 || true   # een rest van een eerdere tp-shm-sessie

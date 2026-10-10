@@ -12,9 +12,10 @@
 # De image wordt gebouwd uit packaging/containers/unity-plugin/Containerfile als hij nog niet bestaat.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+. "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
 IMAGE="${RAVENGUN_UNITY_IMAGE:-localhost/ravengun-unity-build}"
 BEPINEX="${RAVENGUN_BEPINEX:-$HOME/.local/share/ravengun/bepinex/5.4.21.0/x64/BepInEx/core}"
-OUT="$ROOT/build/unity-plugin"
+OUT="$RG_PLUGIN_OUT"
 
 WHICH="${1:-all}"
 [[ "$WHICH" == --* ]] && WHICH=all

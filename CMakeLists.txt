@@ -33,6 +33,9 @@ if(GIT_FOUND)
     set(RAVENGUN_GIT_COMMIT "${_rg_commit}")
   endif()
 endif()
+if(RAVENGUN_GIT_COMMIT_OVERRIDE)  # releasebouw uit een archief zonder .git (scripts/make-release.sh)
+  set(RAVENGUN_GIT_COMMIT "${RAVENGUN_GIT_COMMIT_OVERRIDE}")
+endif()
 set(RAVENGUN_BUILD_DEFS
   "RAVENGUN_VERSION=\"${PROJECT_VERSION}\""
   "RAVENGUN_GIT_COMMIT=\"${RAVENGUN_GIT_COMMIT}\""
@@ -92,6 +95,7 @@ add_library(ravengun STATIC
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
+  src/ravengun/paths.cpp
   src/ravengun/probe.cpp
   src/ravengun/doctor.cpp
   src/ravengun/report.cpp)
@@ -134,7 +138,10 @@ if(RAVENGUN_BUILD_DAEMON)
     target_include_directories(ravengund SYSTEM PRIVATE "${PSMOVEAPI_INCLUDE_DIR}")
     target_link_libraries(ravengund PRIVATE "${PSMOVEAPI_LIBRARY}")
     get_filename_component(_psm_libdir "${PSMOVEAPI_LIBRARY}" DIRECTORY)
-    set_target_properties(ravengund PROPERTIES BUILD_RPATH "${_psm_libdir}" INSTALL_RPATH "${_psm_libdir}")
+    # Gebouwd: rpath naar de PSMoveAPI-map. Geïnstalleerd (docs/build.md, "Installatie-indeling"): libpsmoveapi.so staat in
+    # <prefix>/lib naast <prefix>/bin, dus $ORIGIN/../lib.
+    set_target_properties(ravengund PROPERTIES BUILD_RPATH "${_psm_libdir}" INSTALL_RPATH "$ORIGIN/../lib")
+    set(RAVENGUN_PSMOVEAPI_LIB_FILE "${PSMOVEAPI_LIBRARY}")
   else()
     message(WARNING "PSMoveAPI niet gevonden onder ${PSMOVEAPI_ROOT}: ravengund wordt zonder HID gebouwd")
     target_compile_definitions(ravengund PRIVATE RAVENGUN_NO_PSMOVEAPI=1)
@@ -252,6 +259,14 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
+  # docs/compatibility.md moet bij packaging/games-notes.json passen (scripts/gen-compatibility.py).
+  find_package(Python3 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-compatibility.py" --check)
+  endif()
+  add_executable(ravengun_paths_tests tests/test_paths.cpp)
+  target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
+  add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
@@ -287,17 +302,49 @@ if(RAVENGUN_BUILD_TESTS)
     set_tests_properties(ravengun_calibrate_js PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
     add_test(NAME ravengund_web
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/web_smoke.sh" "$<TARGET_FILE:ravengund>")
+    # Installatietest (A9): installeren in een tijdelijke prefix/HOME, engine en app daaruit starten, uninstall. Overgeslagen
+    # (77) zolang de app niet gebouwd is (scripts/build-app.sh). Zie tests/install_test.sh.
+    add_test(NAME ravengun_install
+      COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/build-app")
+    set_tests_properties(ravengun_install PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
   endif()
 endif()
 
-# Installeren (bin/): de daemon, de CLI en, als die gebouwd wordt, de app.
+# Installeren (docs/build.md, "Installatie-indeling"): `cmake --install build --prefix ~/.local/opt/ravengun` (of via
+# scripts/install-user.sh). Indeling: bin/ (ravengun, ravengund, ravengunctl), lib/ (libpsmoveapi.so, de LD_PRELOAD-hulpen, rpath
+# $ORIGIN/../lib) en share/ravengun/ (de "datamap": scripts/, packaging/, docs/, plugins/, licenties). Engine en app zoeken de
+# datamap in vaste volgorde (RAVENGUN_DATA_DIR, <prefix>/share/ravengun, de repo; src/ravengun/paths.hpp).
+set(RAVENGUN_DATADIR "share/ravengun")
 install(TARGETS ravengunctl RUNTIME DESTINATION bin)
 if(RAVENGUN_BUILD_DAEMON)
   install(TARGETS ravengund RUNTIME DESTINATION bin)
+  if(RAVENGUN_PSMOVEAPI_LIB_FILE)
+    install(FILES "${RAVENGUN_PSMOVEAPI_LIB_FILE}" DESTINATION lib)
+  endif()
 endif()
+if(TARGET rg_comm_shim)
+  install(TARGETS rg_comm_shim rg_rt_input LIBRARY DESTINATION lib)
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" DESTINATION lib/lib32 OPTIONAL)
+endif()
+# De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
+install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
+  PATTERN "build-app.sh" EXCLUDE PATTERN "make-release.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
+install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURCE_PERMISSIONS
+  PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE
+  PATTERN "desktop/game-*.desktop" EXCLUDE PATTERN "desktop/halo-ravengun.desktop" EXCLUDE
+  PATTERN "desktop/teknoparrot.desktop" EXCLUDE PATTERN "desktop/ravengun-stop.desktop" EXCLUDE
+  PATTERN "desktop/ravengun.desktop" EXCLUDE PATTERN "desktop/ravengun-qt.desktop" EXCLUDE PATTERN "desktop/ravengun-web.desktop" EXCLUDE)
+install(DIRECTORY plugins/unity DESTINATION ${RAVENGUN_DATADIR}/plugins)
+install(DIRECTORY tools/fmod-stub DESTINATION ${RAVENGUN_DATADIR}/tools)
+install(FILES docs/user-guide.md DESTINATION ${RAVENGUN_DATADIR}/docs)
+install(FILES LICENSE THIRD_PARTY.md DESTINATION ${RAVENGUN_DATADIR})
+install(DIRECTORY third_party/ DESTINATION ${RAVENGUN_DATADIR}/third_party FILES_MATCHING PATTERN "README.md" PATTERN "LICENSE*")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/VERSION" "${PROJECT_VERSION}\n${RAVENGUN_GIT_COMMIT}\n")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/VERSION" DESTINATION ${RAVENGUN_DATADIR})
 
 # De Qt-app `ravengun` (src/app; CMake-doel ravengun_app, want `ravengun` is al de naam van de bibliotheek). Alleen als
 # Qt 6 met headers en CMake-bestanden beschikbaar is. SteamOS heeft wel de systeem-Qt maar geen headers; daar bouwt

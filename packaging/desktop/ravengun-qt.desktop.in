@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=RavenGun
+GenericName=Lightgun Games
+Comment=Play arcade lightgun games with the PlayStation Move: games, controllers and settings in one app
+Exec=@BINDIR@/ravengun
+Icon=input-gaming
+Terminal=false
+Categories=Game;
+Keywords=lightgun;Move;arcade;games;controllers;
+StartupWMClass=ravengun-qt

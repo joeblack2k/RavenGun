@@ -72,7 +72,9 @@ add_executable(ravengun_app
 set_target_properties(ravengun_app PROPERTIES OUTPUT_NAME ravengun RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 target_link_libraries(ravengun_app PRIVATE ravengun_app_widgets)
 target_compile_definitions(ravengun_app PRIVATE "RAVENGUN_APP_VERSION=\"${PROJECT_VERSION}\"")
-install(TARGETS ravengun_app RUNTIME DESTINATION bin)
+# Geïnstalleerd (docs/build.md, "Installatie-indeling"): bibliotheken van RavenGun in <prefix>/lib.
+set_target_properties(ravengun_app PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+install(TARGETS ravengun_app RUNTIME DESTINATION bin COMPONENT app)
 
 if(RAVENGUN_BUILD_TESTS)
   find_package(Qt6 QUIET COMPONENTS Test)

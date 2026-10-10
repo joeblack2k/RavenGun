@@ -14,7 +14,13 @@ namespace rg {
 bool SetupChecks::QFileInfoExists(const QString& path) { return QFileInfo::exists(path); }
 
 QString SetupChecks::engineBinary() {
-    const QString root = AppPaths::repoRoot();
+    // Installatie: ravengund staat naast de app (<prefix>/bin). Ontwikkeling: <repo>/build/ravengund. Anders in PATH.
+    const QString bin = AppPaths::binDir();
+    if (!bin.isEmpty()) {
+        const QString p = bin + QStringLiteral("/ravengund");
+        if (QFileInfo(p).isExecutable()) return p;
+    }
+    const QString root = AppPaths::dataRoot();
     if (!root.isEmpty()) {
         const QString p = root + QStringLiteral("/build/ravengund");
         if (QFileInfo(p).isExecutable()) return p;
@@ -62,7 +68,7 @@ bool SetupChecks::isGameMode() {
 
 namespace {
 QString script(const QString& name) {
-    const QString root = AppPaths::repoRoot();
+    const QString root = AppPaths::dataRoot();
     if (root.isEmpty()) return {};
     const QString p = QDir(root).absoluteFilePath(QStringLiteral("scripts/") + name);
     return QFileInfo(p).isFile() ? QDir::cleanPath(p) : QString();

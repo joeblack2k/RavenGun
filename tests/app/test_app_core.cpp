@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "core/AppPaths.h"
 #include "core/FileSafety.h"
 #include "core/GameData.h"
 #include "core/GameLibrary.h"
@@ -94,6 +95,7 @@ private Q_SLOTS:
     void steamUsersAndRunning();
     // A6: commando's van de wizard
     void setupCommands();
+    void dataRootOrder();
 
 private:
     QTemporaryDir tmp_;
@@ -1233,6 +1235,46 @@ void AppCoreTest::setupCommands() {
     QCOMPARE(cam.device, QStringLiteral("/dev/video0"));
     QVERIFY(!SetupChecks::camera(sys + QStringLiteral("/geen")).found);
     qunsetenv("RAVENGUN_ROOT");
+}
+
+// --- A9: de datamap vinden (installatie zonder repo) ------------------------------------------------------------------
+
+void AppCoreTest::dataRootOrder() {
+    auto makeData = [&](const QString& d) {
+        writeFile(d + QStringLiteral("/scripts/play-halo.sh"), "#!/bin/sh\n");
+        QDir().mkpath(d + QStringLiteral("/packaging"));
+    };
+    const QString base = tmp_.filePath(QStringLiteral("a9"));
+    const QString prefix = base + QStringLiteral("/opt/ravengun");
+    const QString bin = prefix + QStringLiteral("/bin");
+    QDir().mkpath(bin);
+    const QString home = base + QStringLiteral("/home");
+    QDir().mkpath(home);
+    // Niets aanwezig.
+    QVERIFY(AppPaths::findDataRoot({}, {}, bin, home).isEmpty());
+    // Installatie: <prefix>/share/ravengun.
+    makeData(prefix + QStringLiteral("/share/ravengun"));
+    QCOMPARE(AppPaths::findDataRoot({}, {}, bin, home), prefix + QStringLiteral("/share/ravengun"));
+    // RAVENGUN_DATA_DIR gaat voor; een ongeldige wordt overgeslagen.
+    const QString other = base + QStringLiteral("/andere");
+    makeData(other);
+    QCOMPARE(AppPaths::findDataRoot(other, {}, bin, home), other);
+    QCOMPARE(AppPaths::findDataRoot(base + QStringLiteral("/bestaat-niet"), {}, bin, home), prefix + QStringLiteral("/share/ravengun"));
+    // Repo bij ontwikkeling: build-app/ naast scripts/ en packaging/.
+    const QString repo = base + QStringLiteral("/repo");
+    makeData(repo);
+    QDir().mkpath(repo + QStringLiteral("/build-app"));
+    QCOMPARE(AppPaths::findDataRoot({}, {}, repo + QStringLiteral("/build-app"), home), repo);
+    // RAVENGUN_ROOT vindt de repo als de binary elders staat; de installatie gaat voor de repo.
+    QCOMPARE(AppPaths::findDataRoot({}, repo, base + QStringLiteral("/elders/bin"), home), repo);
+    QCOMPARE(AppPaths::findDataRoot({}, repo, bin, home), prefix + QStringLiteral("/share/ravengun"));
+    // ~/projects/ravengun als laatste redmiddel.
+    makeData(home + QStringLiteral("/projects/ravengun"));
+    QCOMPARE(AppPaths::findDataRoot({}, {}, base + QStringLiteral("/elders/bin"), home), home + QStringLiteral("/projects/ravengun"));
+    // Zelfde volgorde als de engine.
+    QCOMPARE(AppPaths::dataRootCandidates(QStringLiteral("/d"), QStringLiteral("/r"), QStringLiteral("/p/bin"), QStringLiteral("/h")),
+             (QStringList{QStringLiteral("/d"), QStringLiteral("/p/share/ravengun"), QStringLiteral("/r"), QStringLiteral("/p"),
+                          QStringLiteral("/h/projects/ravengun")}));
 }
 
 QTEST_GUILESS_MAIN(AppCoreTest)

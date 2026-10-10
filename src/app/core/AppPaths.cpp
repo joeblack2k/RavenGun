@@ -27,22 +27,45 @@ QString AppPaths::dataDir() { return envDir("XDG_DATA_HOME", QStringLiteral(".lo
 QString AppPaths::defaultTpDir() { return dataDir() + QStringLiteral("/runtime/TeknoParrotUi-2.0.0.130-linux-x64"); }
 QString AppPaths::viewsDir() { return dataDir() + QStringLiteral("/runtime/views"); }
 
-QString AppPaths::repoRoot() {
-    auto looksLikeRepo = [](const QString& d) {
-        return !d.isEmpty() && QFileInfo::exists(d + QStringLiteral("/scripts/play-halo.sh")) &&
-               QFileInfo::exists(d + QStringLiteral("/packaging"));
+bool AppPaths::looksLikeDataRoot(const QString& d) {
+    return !d.isEmpty() && QDir::isAbsolutePath(d) && QFileInfo::exists(d + QStringLiteral("/scripts/play-halo.sh")) &&
+           QFileInfo::exists(d + QStringLiteral("/packaging"));
+}
+
+QStringList AppPaths::dataRootCandidates(const QString& dataDirEnv, const QString& rootEnv, const QString& appDir, const QString& home) {
+    // Dezelfde volgorde als de engine (src/ravengun/paths.cpp): RAVENGUN_DATA_DIR, <prefix>/share/ravengun, de repo.
+    QStringList c;
+    if (!dataDirEnv.isEmpty()) c << dataDirEnv;
+    // Pure padbewerking (de mappen hoeven niet te bestaan); "/" heeft geen bovenliggende map.
+    auto parentOf = [](const QString& d) {
+        const QString p = QDir::cleanPath(d + QStringLiteral("/.."));
+        return (p == d || p == QStringLiteral("/") || p == QStringLiteral(".")) ? QString() : p;
     };
-    const QString env = qEnvironmentVariable("RAVENGUN_ROOT");
-    if (looksLikeRepo(env)) return QDir(env).absolutePath();
-    if (QCoreApplication::instance()) {
-        QDir d(QCoreApplication::applicationDirPath());
-        for (int i = 0; i < 3; ++i) {
-            if (looksLikeRepo(d.absolutePath())) return d.absolutePath();
-            if (!d.cdUp()) break;
-        }
+    const QString prefix = appDir.isEmpty() ? QString() : parentOf(QDir::cleanPath(appDir));
+    if (!prefix.isEmpty()) c << prefix + QStringLiteral("/share/ravengun");
+    if (!rootEnv.isEmpty()) c << rootEnv;
+    if (!prefix.isEmpty()) {
+        c << prefix;  // build/ of build-app/ -> de repo
+        const QString up = parentOf(prefix);
+        if (!up.isEmpty()) c << up;
     }
-    const QString def = QDir::homePath() + QStringLiteral("/projects/ravengun");
-    return looksLikeRepo(def) ? def : QString();
+    if (!home.isEmpty()) c << home + QStringLiteral("/projects/ravengun");
+    return c;
+}
+
+QString AppPaths::findDataRoot(const QString& dataDirEnv, const QString& rootEnv, const QString& appDir, const QString& home) {
+    for (const QString& c : dataRootCandidates(dataDirEnv, rootEnv, appDir, home))
+        if (looksLikeDataRoot(c)) return QDir(c).absolutePath();
+    return {};
+}
+
+QString AppPaths::dataRoot() {
+    const QString appDir = QCoreApplication::instance() ? QCoreApplication::applicationDirPath() : QString();
+    return findDataRoot(qEnvironmentVariable("RAVENGUN_DATA_DIR"), qEnvironmentVariable("RAVENGUN_ROOT"), appDir, QDir::homePath());
+}
+
+QString AppPaths::binDir() {
+    return QCoreApplication::instance() ? QCoreApplication::applicationDirPath() : QString();
 }
 
 QString AppPaths::socketPath() {
@@ -54,7 +77,7 @@ QString AppPaths::socketPath() {
 }
 
 QString AppPaths::packagingFile(const QString& name) {
-    const QString root = repoRoot();
+    const QString root = dataRoot();
     if (!root.isEmpty()) {
         const QString p = root + QStringLiteral("/packaging/") + name;
         if (QFileInfo::exists(p)) return p;

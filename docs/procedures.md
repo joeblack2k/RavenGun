@@ -234,3 +234,34 @@ De wizard verschijnt bij de eerste start van de app in Desktop Mode (niet in Gam
 ## De fullscreen-modus proberen (A7)
 
 `build-app/ravengun --fullscreen` (of View > Big Picture Mode, F11). Bediening: met de Move richten (het vizier komt uit de engine, speler 1), een game raken kiest hem ("Shoot again to start"), een tweede schot binnen 3 s of 1 s de trekker vasthouden start hem; PS centreert. Pijltjes/Enter/Escape en een gamepad (D-pad, A, B) werken ook; Escape vraagt "Exit RavenGun?". Tijdens de game verbergt het venster zich; het komt terug als de game stopt. Na 45 s zonder invoer dimt alles en beweegt de inhoud langzaam, na 5 minuten blijft alleen een klein bewegend tekstje. Onder gamescope kiest de app zelf Xwayland (xcb), tenzij `QT_QPA_PLATFORM` gezet is.
+
+
+## RavenGun installeren, bijwerken en verwijderen (A9)
+
+Achtergrond en indeling: `docs/build.md`, "Installatie-indeling" en "Release-artefact". Voor de gebruiker staat het in `README.md`.
+
+### Een release maken (beheerder)
+
+1. Alles committen (het archief bevat alleen HEAD) en de versie in `CMakeLists.txt` (`project(RavenGun VERSION ...)`) goed zetten.
+2. `scripts/make-release.sh` (containers; duurt enkele minuten; de eerste keer wordt het image `localhost/ravengun-release-build` gebouwd). Resultaat in `dist/`: `ravengun-<versie>-x86_64-steamos.tar.gz`, `ravengun-<versie>-source.tar.gz` en `ravengun-<versie>-x86_64-steamos.sha256`.
+3. Proberen in een tijdelijke HOME voordat je publiceert: archief uitpakken en `HOME=$(mktemp -d) XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share XDG_STATE_HOME=$HOME/.local/state RAVENGUN_SYSTEMCTL=/bin/true ./install.sh --no-start` (geen systemd-unit van de echte sessie; zie ook `tests/install_test.sh`).
+4. Publiceren op GitHub: een release met de drie bestanden (bijvoorbeeld `gh release create v<versie> dist/*`), met de SHA-256 in de beschrijving.
+
+### Bijwerken en verwijderen (gebruiker)
+
+- Bijwerken: nieuw archief uitpakken en `./install.sh` opnieuw draaien. De prefix wordt vervangen (de oude blijft pas weg als de nieuwe klaarstaat), instellingen blijven. Een draaiende engine wordt alleen herstart als er geen game draait; anders meldt het script dat de oude versie nog draait.
+- Verwijderen: `~/.local/opt/ravengun/share/ravengun/scripts/uninstall-user.sh` (opties: `--remove-config`, `--keep-root`, `--yes`). De systeemonderdelen gaan via één pkexec-prompt (`install-permissions.sh --rollback`).
+
+### De echte installatie op deze machine overzetten (orchestrator)
+
+Nu draait de engine nog uit `~/projects/ravengun/build/ravengund` met een unit die daarheen wijst; de bureaubladkoppeling `~/Desktop/ravengun.desktop` is een symlink naar de repo. Overzetten naar `~/.local/opt/ravengun` (niets hiervan is gedaan):
+
+1. Na het mergen van de A9-branch: `cmake -S . -B build && cmake --build build -j` en `scripts/build-app.sh` in de hoofdrepo (de nieuwe install-regels, `ravengund` met rpath `$ORIGIN/../lib` en `libpsmoveapi.so` in `lib/`).
+2. Wachten tot er geen game draait. Dan `scripts/install-user.sh`. Dit schrijft de units opnieuw (ExecStart naar `~/.local/opt/ravengun/bin/ravengund`), zet `ravengun-qt.desktop` in het menu en op het bureaublad en maakt koppelingen in `~/.local/bin`. De draaiende engine wordt alleen herstart als er geen game draait (`safe-restart-daemon.sh`); met `--no-start` blijft hij ongemoeid tot de volgende herstart (dan pas draait de engine uit de installatie).
+3. `~/Desktop/ravengun.desktop` (symlink naar de repo) verwijderen; de nieuwe `ravengun-qt.desktop` komt ervoor in de plaats. De snelkoppelingen per game (`game-*.desktop`, `halo-ravengun.desktop`, `ravengun-stop.desktop`) werken door het repopad; maak ze opnieuw met `scripts/make-game-shortcut.sh` vanuit de installatie als de repo weg mag (ze komen dan onder `~/.local/share/ravengun/shortcuts`).
+4. De rechten laten verwijzen naar de installatie: `pkexec ~/.local/opt/ravengun/share/ravengun/scripts/install-permissions.sh --apply` (de inhoud is gelijk, dus `--check` meldt al "actueel"; dit is alleen nodig om `/opt/ravengun/bin/ravengun-bt-helper` en de udev-regels uit de installatie te laten komen). Uitstellen mag.
+5. Add to Steam opnieuw doen, vanuit de geïnstalleerde app (`~/.local/opt/ravengun/bin/ravengun --add-to-steam`, Steam dicht): het bestaande item "RavenGun" wordt bijgewerkt, zodat Steam de geïnstalleerde app start in plaats van `build-app/ravengun`.
+6. Controleren: `~/.local/opt/ravengun/bin/ravengun --print-paths` (datamap `…/share/ravengun`), `systemctl --user cat ravengund` (ExecStart in de prefix), `ravengunctl status`, een game starten via de app.
+7. Terugdraaien: `scripts/install-service.sh --apply` vanuit de repo (unit weer naar `build/ravengund`) en `scripts/uninstall-user.sh --keep-root --yes`. De repo hoeft niet te verdwijnen; `~/.local/share/ravengun` blijft altijd staan.
+
+Bij het mergen met het werk aan direct starten (`scripts/play-halo.sh`, `scripts/launch-direct*`, engine-launchcode, Launcher): mijn wijzigingen in die bestanden zijn alleen padopzoeking en staan in aparte commits. In `scripts/play-halo.sh`: de regels met `CTL=`, `SHIM=` en de controle op `librg_comm_shim.so` (nu `$RG_BIN` en `$RG_LIB` uit `scripts/rg-paths.sh`, bovenaan ingelezen); in `src/ravengund/main.cpp`: het blok "Games: het startscript staat in de datamap" en de twee plaatsen die `packaging/` uit het startscript afleidden (nu `data_root`). `play-unity.sh`, `play-native.sh` en `aagames-setup.py` volgen hetzelfde idee (`RG_BIN`, `RG_LIB`, `RG_PLUGIN_OUT`). Nieuwe scripts die de binaries of `packaging/` zoeken moeten `. "$ROOT/scripts/rg-paths.sh"` gebruiken in plaats van `$ROOT/build`.

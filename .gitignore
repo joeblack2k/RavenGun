@@ -16,3 +16,4 @@ secrets*
 /build-app/
 src/tools/movetest/movetest
 /.claude/
+/dist/

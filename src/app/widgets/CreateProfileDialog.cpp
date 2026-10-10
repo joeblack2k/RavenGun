@@ -107,13 +107,13 @@ void CreateProfileDialog::UpdateState() {
     const bool exists = !p.isEmpty() && QFileInfo::exists(rg::AppPaths::defaultTpDir() + QStringLiteral("/UserProfiles/") + p + QStringLiteral(".xml"));
     m_force->setVisible(exists);
     m_exists->setText(exists ? tr("A launch profile \"%1\" already exists.").arg(p) : QString());
-    const bool scriptOk = QFileInfo::exists(rg::AppPaths::repoRoot() + QStringLiteral("/scripts/tp-add-game.py"));
+    const bool scriptOk = QFileInfo::exists(rg::AppPaths::dataRoot() + QStringLiteral("/scripts/tp-add-game.py"));
     m_create->setEnabled(!p.isEmpty() && QFileInfo(m_exe->text()).isFile() && scriptOk);
-    if (!scriptOk) m_exists->setText(tr("scripts/tp-add-game.py was not found (RavenGun folder: %1).").arg(rg::AppPaths::repoRoot()));
+    if (!scriptOk) m_exists->setText(tr("scripts/tp-add-game.py was not found (RavenGun folder: %1).").arg(rg::AppPaths::dataRoot()));
 }
 
 void CreateProfileDialog::Run() {
-    const QString script = rg::AppPaths::repoRoot() + QStringLiteral("/scripts/tp-add-game.py");
+    const QString script = rg::AppPaths::dataRoot() + QStringLiteral("/scripts/tp-add-game.py");
     const QStringList args = QStringList{QStringLiteral("-I"), script} +
                              BuildArguments(m_profile->currentData().toString(), m_exe->text(), m_view->isChecked(), m_fullscreen->isChecked(),
                                             m_gamescope->isChecked(), m_force->isVisible() && m_force->isChecked());

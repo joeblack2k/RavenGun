@@ -42,7 +42,12 @@ CFG = os.path.join(ROOT, 'packaging', 'aagames-games.json')
 DS = os.path.join(HOME, '.local/share/ravengun/demulshooter')
 BEPINEX = os.path.join(HOME, '.local/share/ravengun/bepinex')
 PLUGIN_SRC = os.path.join(ROOT, 'plugins', 'unity', 'src')
-BUILD_OUT = os.path.join(ROOT, 'build', 'unity-plugin')
+# Uitvoer van de plugin: in de repo build/unity-plugin; bij een installatie (<prefix>/share/ravengun) onder de gebruikersdata.
+if os.path.basename(os.path.dirname(ROOT)) == 'share' and os.path.isdir(os.path.join(ROOT, '..', '..', 'bin')):
+    BUILD_OUT = os.path.join(os.environ.get('XDG_DATA_HOME') or os.path.join(HOME, '.local/share'), 'ravengun', 'unity-plugin')
+else:
+    BUILD_OUT = os.path.join(ROOT, 'build', 'unity-plugin')
+BUILD_OUT = os.environ.get('RAVENGUN_UNITY_PLUGIN_OUT') or BUILD_OUT
 VIEWS = os.path.join(HOME, '.local/share/ravengun/runtime/views-aagames')
 PREFIXES = os.path.join(HOME, '.local/share/ravengun/prefixes')
 PROTON = os.path.join(HOME, '.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64')

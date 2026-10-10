@@ -372,7 +372,7 @@ QWidget* SettingsWindow::MakePathsPane() {
     };
     addPath(tr("Library file:"), core_->library()->file());
     addPath(tr("Engine settings:"), rg::AppPaths::engineConfigFile());
-    addPath(tr("RavenGun folder:"), rg::AppPaths::repoRoot());
+    addPath(tr("RavenGun folder:"), rg::AppPaths::dataRoot());
     layout->addWidget(other);
     layout->addStretch(1);
     RefreshFolders();

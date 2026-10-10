@@ -142,7 +142,7 @@ QWizardPage* SetupWizard::MakeWelcome() {
 void SetupWizard::RefreshChecks() {
     const QString engine = rg::SetupChecks::engineBinary();
     check_engine_->setText(mark(engine.isEmpty() ? 0 : 1) +
-                           (engine.isEmpty() ? tr("<b>Engine program</b>: not found. Build it first (see docs/build.md).")
+                           (engine.isEmpty() ? tr("<b>Engine program</b>: not found. Reinstall RavenGun or build it (see docs/build.md).")
                                              : tr("<b>Engine program</b>: %1").arg(engine.toHtmlEscaped())));
     const bool running = core_->engine()->isConnected();
     check_running_->setText(mark(running ? 1 : 0) + (running ? tr("<b>Engine</b>: running") : tr("<b>Engine</b>: not running (step 3 starts it)")));
@@ -192,8 +192,8 @@ QWizardPage* SetupWizard::MakePermissions() {
                          "<li><b>Bluetooth helper</b> (/opt/ravengun/bin/ravengun-bt-helper) with a rule in "
                          "/etc/sudoers.d/ravengun-bt-helper: RavenGun may pair and unpair PS Move controllers without asking "
                          "for a password. The rule allows only this one helper, nothing else.</li></ul>"
-                         "These survive SteamOS updates. To remove them later: <tt>sudo scripts/udev-ravengun.sh --rollback</tt> "
-                         "and <tt>sudo scripts/install-bt-helper.sh --rollback</tt>.")));
+                         "These survive SteamOS updates. To remove them later, run <tt>uninstall-user.sh</tt> (in the scripts folder "
+                         "of RavenGun), or <tt>install-permissions.sh --rollback</tt> with administrator rights.")));
     perms_status_ = para(mark(-1) + tr("Checking..."));
     v->addWidget(perms_status_);
     perms_install_ = new NonDefaultQPushButton(tr("Install (asks for your password)"));

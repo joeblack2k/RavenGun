@@ -21,6 +21,7 @@
 #include "ravengun/iobridge/routes.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/games/games.hpp"
+#include "ravengun/paths.hpp"
 #include "ravengun/web/web_core.hpp"
 #include "ravengun/config/led_color.hpp"
 #include "ravengun/config/settings.hpp"
@@ -111,7 +112,8 @@ void usage(FILE* f) {
         "games (starten vanuit de webinterface via systemd-run en scripts/play-halo.sh):\n"
         "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
         "                                   ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)\n"
-        "  --play-script PAD                startscript (standaard scripts/play-halo.sh naast de repo van ravengund)\n"
+        "  --play-script PAD                startscript (standaard scripts/play-halo.sh in de datamap: $RAVENGUN_DATA_DIR,\n"
+        "                                   <prefix>/share/ravengun of de repo)\n"
         "  --aagames-config PAD             instellingen van de Unity-route (Tomb Raider, Rabbids Hollywood zonder TeknoParrot;\n"
         "                                   standaard packaging/aagames-games.json naast het startscript, anders ingebouwd)\n"
         "  --games-dry-run                  nooit echt starten of stoppen (voor tests): alleen de opdrachtregel loggen;\n"
@@ -423,18 +425,21 @@ int main(int argc, char** argv) {
     shared.optical_hook = [&recorder, &shared](int player, const ravengun::core::OpticalSample& o) {
         if (player == shared.recording_player.load()) recorder.push_optical(o);
     };
-    // Games: het startscript staat in de repo naast build/ (build/ravengund -> ../scripts/play-halo.sh).
+    // Games: het startscript staat in de datamap (RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo bij ontwikkeling,
+    // zie src/ravengun/paths.hpp). Met --play-script bepaalt dat script waar packaging/ staat (twee mappen omhoog).
+    std::string data_root;
     if (play_script.empty()) {
-        char exe[4096];
-        ssize_t n = ::readlink("/proc/self/exe", exe, sizeof exe - 1);
-        if (n > 0) {
-            exe[n] = 0;
-            std::string cand = std::string(exe);
-            for (int up = 0; up < 2; ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) break; cand.resize(sl); }
-            cand += "/scripts/play-halo.sh";
-            if (::access(cand.c_str(), X_OK) == 0) play_script = cand;
+        const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process());
+        if (dd) {
+            data_root = dd.path;
+            play_script = dd.path + "/scripts/play-halo.sh";
+            logf("info", "datamap: %s (%s)", dd.path.c_str(), ravengun::paths::source_name(dd.source));
+        } else {
+            logf("waarschuwing", "datamap met scripts/ en packaging/ niet gevonden (RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo): games starten werkt niet");
         }
-        if (play_script.empty() && !home.empty()) play_script = home + "/projects/ravengun/scripts/play-halo.sh";
+    } else {
+        data_root = play_script;
+        for (int up = 0; up < 2; ++up) { size_t sl = data_root.rfind('/'); if (sl == std::string::npos) { data_root.clear(); break; } data_root.resize(sl); }
     }
     ravengun::games::Config games_cfg;
     games_cfg.tp_dir = tp_dir;
@@ -465,10 +470,8 @@ int main(int argc, char** argv) {
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
     // Unity-route: instellingen per game (resolutie, kalibratie) uit het JSON-bestand naast het startscript, anders ingebouwd.
-    if (aagames_config.empty() && !play_script.empty()) {
-        std::string cand = play_script;
-        for (int up = 0; up < 2; ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) break; cand.resize(sl); }
-        cand += "/packaging/aagames-games.json";
+    if (aagames_config.empty() && !data_root.empty()) {
+        const std::string cand = data_root + "/packaging/aagames-games.json";
         if (::access(cand.c_str(), R_OK) == 0) aagames_config = cand;
     }
     std::string aa_text;
@@ -488,8 +491,7 @@ int main(int argc, char** argv) {
     // IO-brug: routes per game en de tp-shm-indelingen (JSON naast het startscript, anders ingebouwd).
     auto load_text = [&](const std::string& file, const std::string& asset) {
         std::string text;
-        std::string cand = play_script;
-        for (int up = 0; up < 2 && !cand.empty(); ++up) { size_t sl = cand.rfind('/'); if (sl == std::string::npos) { cand.clear(); break; } cand.resize(sl); }
+        std::string cand = data_root;
         if (!cand.empty()) {
             cand += "/packaging/" + file;
             if (FILE* f = std::fopen(cand.c_str(), "rb")) {
