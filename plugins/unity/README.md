@@ -57,9 +57,9 @@ Resultaat: `build/unity-plugin/<GAME>/RavenGun.<GAME>.dll` (door git genegeerd).
 
 ## Licentie
 
-De repository heeft nog geen licentie. Wat dat voor deze plugin betekent:
+De repository valt onder GPL-3.0-or-later (zie `LICENSE` in de hoofdmap). Wat dat voor deze plugin betekent:
 
-- Onze eigen broncode in `plugins/unity/` is auteursrechtelijk van de eigenaar; kies een licentie voordat je publiceert.
+- Onze eigen broncode in `plugins/unity/` valt daar ook onder.
 - BepInEx is LGPL-2.1. De plugin linkt er dynamisch tegen (de plugin-DLL verwijst naar `BepInEx.dll`, die niet wordt
   meegeleverd in deze repository maar apart wordt gedownload). Dat is toegestaan zonder dat de plugin zelf LGPL wordt;
   wie BepInEx zelf herverspreidt moet de LGPL-voorwaarden volgen (licentietekst, bron van BepInEx op verzoek, geen
@@ -67,4 +67,4 @@ De repository heeft nog geen licentie. Wat dat voor deze plugin betekent:
 - HarmonyX (`0Harmony.dll`) is MIT: vrij te gebruiken en te herverspreiden met de licentietekst.
 - De game-assemblies zijn auteursrechtelijk beschermd en komen nooit in deze repository; ze zijn alleen een referentie bij het
   compileren (interoperabiliteit).
-- Er is geen code van DemulShooter gebruikt (clean-room, zie `docs/decisions.md`). De plugin mag dus onder elke gekozen licentie.
+- Er is geen code van DemulShooter gebruikt (clean-room, zie `docs/decisions.md`). Er zit dus geen licentiebeperking van DemulShooter op.
