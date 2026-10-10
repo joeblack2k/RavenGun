@@ -168,3 +168,16 @@ De route staat in `packaging/io-routes.json` (`hid-board`, bord `SaeGunBoard` in
 - Het transport `uhid` (echt HID-apparaat) vraagt schrijfrecht op `/dev/uhid` (standaard alleen root). Eenmalig, met sudo: `sudo ~/projects/ravengun/scripts/udev-ravengun.sh --apply` (installeert ook `71-ravengun-uhid.rules`; controle zonder sudo: `scripts/udev-ravengun.sh --check`). Daarna `"transport": "uhid"` in het bord. Voor Transformers is dat niet nodig.
 - Een nieuw bord toevoegen: een object in `packaging/hid-boards.json` (assen en knoppen met signaalnamen), `board` bij de game in `io-routes.json`, daemon herstarten (of `--help` van `ravengunctl iobridge`), `ctest` draaien (de test valideert het bestand).
 
+
+
+## Let's Go Safari en de jvs-route (stand 2026-10-10: de game start niet; ongeveer 5 minuten voor een proef)
+
+Doel: de daemon is het JVS-bord van de game (`docs/architecture.md`, "Dialect jvs"). Let's Go Safari komt nog niet zo ver dat hij de poort opent (hij wacht op 127.0.0.1:40100, zie `docs/decisions.md`, "IO-brug stap 3: dialect jvs"); de stappen hieronder zetten de keten wel klaar en zijn de basis om verder te meten.
+
+1. Eenmalig: de eigen prefix `~/.local/share/TeknoParrotUI/prefixes/ravengun-test-lgs` (kopie van `shared/wine`; bestaat al), `UserProfiles/LGS.xml` met `WineRunnerPath` = `~/.local/share/ravengun/wrappers/wine-prefix` en `UserProfiles/LGS.env` met `RG_WINEPREFIX=<die prefix>` en `TP_POSTSTART_REMOTETHREAD_MS=3000` (back-ups van de oude profielbestanden: `~/.local/state/ravengun/LGS.{xml,env}.bak-jvs`). `cmake --build build` bouwt ook `build/librg_comm_shim.so`, `build/lib32/librg_comm_shim.so` en `build/ravengun-jvs-probe`.
+2. Controleren dat er geen andere game draait (`systemctl --user is-active ravengun-tpui`, `pgrep -x wineserver`) en starten: `scripts/play-halo.sh --profile LGS --no-wait-move`. Het script start de wineserver van de prefix, laat wineboot lopen, laat de daemon de pty maken (`ravengunctl iobridge start LGS --route jvs`), zet `dosdevices/com4` naar `$XDG_RUNTIME_DIR/ravengun/jvs-com` (bewaart wat er stond) en start TeknoParrot met `RG_LD_PRELOAD`.
+3. Kijken: `ravengunctl status` (regel "IO-brug": lijn, packets, identificaties, schakelaar- en analoogpolls, adres van de node) en `ravengunctl iobridge status` (JSON met de laatste 16 packets); in het daemon-logboek (`journalctl --user -u ravengund`) staan nieuwe soorten packets als "JVS: ...". Zolang er "0 packets" staat, heeft de game de poort niet geopend.
+4. Stoppen: `scripts/play-halo.sh --stop` (zet de COM-poort terug, stopt de wineserver van de testprefix en de brug).
+5. Een proef zonder daemon en zonder game: `build/ravengun-jvs-probe --board LGS --link /run/user/1000/ravengun-probe-com --seconds 60` en in een andere terminal een Wine-proces tegen die link (de wineserver moet al draaien: `WINEPREFIX=<prefix> wineserver -p; wine cmd /c exit`, daarna `ln -sfn <link> <prefix>/dosdevices/com4`). Zie de kop van `src/tools/jvs_probe/jvs_probe.cpp` voor de opties.
+
+Als er een ander JVS-spel komt: een bord in `packaging/jvs-boards.json` (ID-string en versies uit het TeknoParrot-profiel, kalibratievenster uit het profiel), een route met `board` en `com_port` in `packaging/io-routes.json`, en een `.env` met `RG_WINEPREFIX`. Wat de game verder nodig heeft (dongle, netwerkdienst) is per game apart te meten.
