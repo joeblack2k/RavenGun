@@ -1,0 +1,35 @@
+<!-- Thema "Clean" van Dolphin (Data/Sys/Themes/Clean, GPL-2.0-or-later, commit e6f3ae17627e4344da95b13424af5baf4c892b08). -->
+<RCC>
+  <qresource prefix="/themes/clean">
+    <file alias="browse.png">themes/clean/browse.png</file>
+    <file alias="browse@2x.png">themes/clean/browse@2x.png</file>
+    <file alias="browse@4x.png">themes/clean/browse@4x.png</file>
+    <file alias="classic.png">themes/clean/classic.png</file>
+    <file alias="classic@2x.png">themes/clean/classic@2x.png</file>
+    <file alias="classic@4x.png">themes/clean/classic@4x.png</file>
+    <file alias="config.png">themes/clean/config.png</file>
+    <file alias="config@2x.png">themes/clean/config@2x.png</file>
+    <file alias="config@4x.png">themes/clean/config@4x.png</file>
+    <file alias="fullscreen.png">themes/clean/fullscreen.png</file>
+    <file alias="fullscreen@2x.png">themes/clean/fullscreen@2x.png</file>
+    <file alias="fullscreen@4x.png">themes/clean/fullscreen@4x.png</file>
+    <file alias="gcpad.png">themes/clean/gcpad.png</file>
+    <file alias="gcpad@2x.png">themes/clean/gcpad@2x.png</file>
+    <file alias="gcpad@4x.png">themes/clean/gcpad@4x.png</file>
+    <file alias="graphics.png">themes/clean/graphics.png</file>
+    <file alias="graphics@2x.png">themes/clean/graphics@2x.png</file>
+    <file alias="graphics@4x.png">themes/clean/graphics@4x.png</file>
+    <file alias="open.png">themes/clean/open.png</file>
+    <file alias="open@2x.png">themes/clean/open@2x.png</file>
+    <file alias="open@4x.png">themes/clean/open@4x.png</file>
+    <file alias="play.png">themes/clean/play.png</file>
+    <file alias="play@2x.png">themes/clean/play@2x.png</file>
+    <file alias="play@4x.png">themes/clean/play@4x.png</file>
+    <file alias="refresh.png">themes/clean/refresh.png</file>
+    <file alias="refresh@2x.png">themes/clean/refresh@2x.png</file>
+    <file alias="refresh@4x.png">themes/clean/refresh@4x.png</file>
+    <file alias="stop.png">themes/clean/stop.png</file>
+    <file alias="stop@2x.png">themes/clean/stop@2x.png</file>
+    <file alias="stop@4x.png">themes/clean/stop@4x.png</file>
+  </qresource>
+</RCC>

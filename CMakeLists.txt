@@ -249,3 +249,23 @@ if(RAVENGUN_BUILD_TESTS)
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
   endif()
 endif()
+
+# Installeren (bin/): de daemon, de CLI en, als die gebouwd wordt, de app.
+install(TARGETS ravengunctl RUNTIME DESTINATION bin)
+if(RAVENGUN_BUILD_DAEMON)
+  install(TARGETS ravengund RUNTIME DESTINATION bin)
+endif()
+
+# De Qt-app `ravengun` (src/app; CMake-doel ravengun_app, want `ravengun` is al de naam van de bibliotheek). Alleen als
+# Qt 6 met headers en CMake-bestanden beschikbaar is. SteamOS heeft wel de systeem-Qt maar geen headers; daar bouwt
+# scripts/build-app.sh de app in een container (docs/build.md). Zonder Qt blijven de gewone build en ctest ongewijzigd.
+option(RAVENGUN_BUILD_APP "Bouw de Qt-app (ravengun) als Qt 6 beschikbaar is" ON)
+if(RAVENGUN_BUILD_APP)
+  find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Widgets Network)
+  if(Qt6_FOUND AND Qt6Widgets_FOUND AND Qt6Network_FOUND)
+    message(STATUS "Qt ${Qt6_VERSION}: de app (ravengun) wordt gebouwd")
+    add_subdirectory(src/app)
+  else()
+    message(STATUS "Qt 6 (met headers) niet gevonden: de app (ravengun) wordt niet gebouwd; zie docs/build.md")
+  endif()
+endif()

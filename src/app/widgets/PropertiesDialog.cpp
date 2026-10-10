@@ -1,0 +1,628 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "widgets/PropertiesDialog.h"
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QCompleter>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QJsonObject>
+#include <QLabel>
+#include <QLineEdit>
+#include <QLocale>
+#include <QMessageBox>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QRegularExpression>
+#include <QSpinBox>
+#include <QTreeWidget>
+#include <QUrl>
+#include <QVBoxLayout>
+#include <memory>
+
+#include "core/AppPaths.h"
+#include "core/FileSafety.h"
+#include "core/GameOptions.h"
+#include "core/Launcher.h"
+#include "core/TextConfig.h"
+#include "widgets/QtUtils.h"
+
+namespace rg::ui {
+
+namespace {
+
+const QRegularExpression& displayFieldRe() {
+    static const QRegularExpression re(QStringLiteral("windowed|resolution|width|height|fullscreen|full screen|displaymode|stretch|borderless"),
+                                       QRegularExpression::CaseInsensitiveOption);
+    return re;
+}
+
+// Velden die de app zelf bepaalt (de invoer loopt altijd via de virtuele RavenGun-apparaten).
+bool managedField(const QString& name) { return name == QStringLiteral("Input API"); }
+
+QLabel* hintLabel(const QString& text) {
+    auto* l = new QLabel(text);
+    l->setWordWrap(true);
+    l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QFont f = l->font();
+    f.setItalic(true);
+    l->setFont(f);
+    return l;
+}
+
+QLineEdit* readOnlyEdit(const QString& text) {
+    auto* e = new QLineEdit(text);
+    e->setReadOnly(true);
+    e->setCursorPosition(0);
+    return e;
+}
+
+bool isTrue(const QString& v) { return v == QStringLiteral("1") || v.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0; }
+
+QString groupOf(const rg::GameOption& o) {
+    if (!o.category.isEmpty()) return o.category;
+    if (o.target.kind == rg::OptionTarget::Kind::TpField && !o.target.category.isEmpty()) return o.target.category;
+    if (o.target.kind == rg::OptionTarget::Kind::Env || o.target.kind == rg::OptionTarget::Kind::TpTag) return QObject::tr("Launch");
+    const int dot = o.key.indexOf(QLatin1Char('.'));
+    if (dot > 0) {
+        QString g = o.key.left(dot);
+        g.replace(QLatin1Char('_'), QLatin1Char(' '));
+        if (g == QStringLiteral("adj")) return QObject::tr("Operator settings");
+        if (g == QStringLiteral("arg")) return QObject::tr("Arguments");
+        g[0] = g[0].toUpper();
+        return g;
+    }
+    return QObject::tr("Game options");
+}
+
+}  // namespace
+
+// --- TpFieldEditor ----------------------------------------------------------------------------------------------------
+
+QString TpFieldEditor::Row::current() const {
+    if (auto* c = qobject_cast<QCheckBox*>(widget)) return c->isChecked() ? QStringLiteral("1") : QStringLiteral("0");
+    if (auto* c = qobject_cast<QComboBox*>(widget)) return c->currentText();
+    if (auto* s = qobject_cast<QSpinBox*>(widget)) return QString::number(s->value());
+    if (auto* e = qobject_cast<QLineEdit*>(widget)) return e->text();
+    return field.value;
+}
+
+TpFieldEditor::TpFieldEditor(const QString& profilePath, const QList<rg::TpField>& fields, const QVariantMap& stored, QWidget* parent)
+    : QWidget(parent), path_(profilePath) {
+    const rg::WriteCheck w = rg::checkWritable(profilePath);
+    writable_ = w.ok;
+    auto* form = new QFormLayout(this);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    for (rg::TpField f : fields) {
+        if (stored.contains(keyOf(f))) f.value = stored.value(keyOf(f)).toString();
+        Row r;
+        r.field = f;
+        const QString type = f.type.toLower();
+        if (type == QStringLiteral("bool")) {
+            auto* c = new QCheckBox;
+            c->setChecked(isTrue(f.value));
+            r.widget = c;
+        } else if (type == QStringLiteral("dropdown") && !f.options.isEmpty()) {
+            auto* c = new QComboBox;
+            c->addItems(f.options);
+            if (!f.options.contains(f.value)) c->addItem(f.value);
+            c->setCurrentText(f.value);
+            r.widget = c;
+        } else if ((type == QStringLiteral("slider") || type == QStringLiteral("numeric")) && f.hasMin && f.hasMax) {
+            auto* s = new QSpinBox;
+            s->setRange(f.min, f.max);
+            s->setValue(f.value.toInt());
+            r.widget = s;
+        } else {
+            r.widget = new QLineEdit(f.value);
+        }
+        r.widget->setEnabled(writable_);
+        QString tip = f.hint;
+        if (!writable_) tip += (tip.isEmpty() ? QString() : QStringLiteral("\n")) + w.reason;
+        r.widget->setToolTip(tip);
+        QString label = f.name;
+        if (!f.category.isEmpty() && f.category != QStringLiteral("General")) label = f.category + QStringLiteral(" / ") + f.name;
+        form->addRow(label + QLatin1Char(':'), r.widget);
+        rows_ << r;
+    }
+    if (!writable_) form->addRow(hintLabel(tr("These settings are read-only: %1").arg(w.reason)));
+}
+
+QVariantMap TpFieldEditor::changedValues() const {
+    QVariantMap m;
+    for (const Row& r : rows_)
+        if (r.current() != r.field.value) m.insert(keyOf(r.field), r.current());
+    return m;
+}
+
+void TpFieldEditor::markSaved() {
+    for (Row& r : rows_) r.field.value = r.current();
+}
+
+// --- PropertiesDialog ------------------------------------------------------------------------------------------------
+
+PropertiesDialog::PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game, QWidget* parent)
+    : StackedSettingsWindow(parent), core_(core), game_(game) {
+    setWindowTitle(tr("Properties: %1").arg(game_.displayName()));
+    ctx_ = core_->gameData()->context(game_, core_->library()->tpDir());
+    if (game_.kind == rg::GameKind::TeknoParrot || (game_.kind == rg::GameKind::Unity && !game_.profile.isEmpty()))
+        profilePath_ = core_->library()->tpDir() + QStringLiteral("/UserProfiles/") + game_.profile + QStringLiteral(".xml");
+    if (!QFileInfo::exists(profilePath_)) profilePath_.clear();
+
+    AddWrappedPane(MakeGeneralPane(), tr("General"));
+    AddWrappedPane(MakeOptionsPane(), tr("Options"));
+    AddWrappedPane(MakeDisplayPane(), tr("Display"));
+    AddPane(MakeMemoryCardPane(), tr("Memory Card"));
+    AddWrappedPane(MakeInfoPane(), tr("Info"));
+    connect(this, &QDialog::finished, this, &PropertiesDialog::SaveGeneral);
+    OnDoneCreatingPanes();
+    resize(std::max(width(), 900), std::max(height(), 620));
+}
+
+QWidget* PropertiesDialog::MakeGeneralPane() {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    auto* box = new QGroupBox(tr("Game"));
+    auto* form = new QFormLayout(box);
+    const rg::GameOverride ov = core_->library()->override_(game_.id);
+    name_edit_ = new QLineEdit(game_.displayName());
+    name_edit_->setPlaceholderText(game_.name);
+    form->addRow(tr("Name:"), name_edit_);
+    form->addRow(tr("Type:"), new QLabel(rg::kindLabel(game_.kind)));
+    form->addRow(tr("Game folder:"), readOnlyEdit(game_.folder));
+    form->addRow(tr("Executable:"), readOnlyEdit(game_.exePath));
+    form->addRow(tr("Game profile:"), readOnlyEdit(game_.profile.isEmpty() ? tr("(not set up yet)") : game_.profile));
+    v->addWidget(box);
+
+    if (game_.kind == rg::GameKind::Detected || game_.kind == rg::GameKind::Unconfigured) {
+        auto* link = new QGroupBox(tr("Link to a known game"));
+        auto* lf = new QFormLayout(link);
+        template_combo_ = new QComboBox;
+        template_combo_->setEditable(true);
+        template_combo_->setInsertPolicy(QComboBox::NoInsert);
+        template_combo_->addItem(tr("(not linked)"), QString());
+        // Eerst de voorgestelde, dan alle bekende games (alfabetisch op naam).
+        const QString tp = core_->library()->tpDir();
+        QStringList seen;
+        for (const QString& c : game_.candidates) {
+            const rg::TemplateInfo t = rg::LibraryScanner::templateInfo(tp, c);
+            template_combo_->addItem(tr("%1 (%2) - suggested").arg(t.name, t.profile), t.profile);
+            seen << c;
+        }
+        QList<rg::TemplateInfo> all = rg::LibraryScanner::loadTemplates(tp);
+        std::sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.name.compare(b.name, Qt::CaseInsensitive) < 0; });
+        for (const auto& t : all) {
+            if (seen.contains(t.profile)) continue;
+            template_combo_->addItem(QStringLiteral("%1 (%2)%3").arg(t.name, t.profile, t.gunGame ? tr(" - lightgun") : QString()), t.profile);
+        }
+        template_combo_->completer()->setFilterMode(Qt::MatchContains);
+        template_combo_->completer()->setCompletionMode(QCompleter::PopupCompletion);
+        const QString cur = ov.templateProfile.isEmpty() ? game_.templateProfile : ov.templateProfile;
+        const int idx = template_combo_->findData(cur);
+        template_combo_->setCurrentIndex(idx >= 0 ? idx : 0);
+        lf->addRow(tr("Game:"), template_combo_);
+        lf->addRow(hintLabel(tr("RavenGun recognises games by comparing the files in the folder with the known games of the "
+                                "game runtime. Pick the right game if the guess is wrong, then use \"Set Up Game...\" in the "
+                                "game's context menu.")));
+        v->addWidget(link);
+    }
+
+    auto* route = new QGroupBox(tr("Input route"));
+    auto* rf = new QFormLayout(route);
+    const QString prof = ctx_.profile;
+    const rg::RouteInfo ri = core_->gameData()->route(prof);
+    rf->addRow(tr("Route:"), new QLabel(rg::GameData::routeLabel(ri.route) + (ri.explicitRoute ? QString() : tr(" (default)"))));
+    if (!ri.layout.isEmpty()) rf->addRow(tr("I/O layout:"), new QLabel(ri.layout));
+    if (!ri.board.isEmpty()) rf->addRow(tr("Gun board:"), new QLabel(ri.board));
+    rf->addRow(hintLabel(tr("The route is chosen per game in packaging/io-routes.json and used by the engine when the game "
+                            "starts.")));
+    v->addWidget(route);
+
+    auto* notes = new QGroupBox(tr("Notes"));
+    auto* nl = new QVBoxLayout(notes);
+    const QString projectNote = core_->gameData()->note(prof);
+    if (!projectNote.isEmpty()) nl->addWidget(hintLabel(projectNote));
+    note_edit_ = new QPlainTextEdit(ov.note);
+    note_edit_->setPlaceholderText(tr("Your own note for this game (shown in the game list)"));
+    note_edit_->setMaximumHeight(90);
+    nl->addWidget(note_edit_);
+    v->addWidget(notes);
+    v->addStretch(1);
+    return w;
+}
+
+void PropertiesDialog::SaveGeneral() {
+    rg::GameOverride ov = core_->library()->override_(game_.id);
+    const QString name = name_edit_->text().trimmed();
+    ov.name = (name == game_.name) ? QString() : name;
+    ov.note = note_edit_->toPlainText().trimmed();
+    if (template_combo_) ov.templateProfile = template_combo_->currentData().toString();
+    core_->library()->setOverride(game_.id, ov);
+}
+
+QWidget* PropertiesDialog::MakeOptionsPane() {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    const rg::GameOptionsEntry* entry = core_->gameData()->entryFor(game_);
+    const rg::GameOverride stored = core_->library()->override_(game_.id);
+    if (core_->gameData()->gameOptionsPath().isEmpty())
+        v->addWidget(hintLabel(tr("No packaging/game-options.json was found, so there are no game-specific options yet.")));
+    else if (!entry || entry->options.isEmpty())
+        v->addWidget(hintLabel(tr("There are no options for this game in game-options.json.")));
+    struct OptRow {
+        rg::GameOption opt;
+        QWidget* widget;
+        QString initial;
+    };
+    auto rows = std::make_shared<QList<OptRow>>();
+    QStringList coveredFields;  // "Categorie/Veld" die al een optie hebben
+    if (entry) {
+        QMap<QString, QFormLayout*> groups;
+        for (const rg::GameOption& o : entry->options) {
+            const bool tpField = o.target.kind == rg::OptionTarget::Kind::TpField;
+            if (tpField) coveredFields << o.target.category + QLatin1Char('/') + o.target.field;
+            // Resolutie/venster en gamescope staan onder Display; de invoer-API regelt de app zelf.
+            if (tpField && (displayFieldRe().match(o.target.field).hasMatch() || managedField(o.target.field))) continue;
+            if (o.target.kind == rg::OptionTarget::Kind::Env && o.target.field == QStringLiteral("TP_GAMESCOPE")) continue;
+            const QString cat = groupOf(o);
+            if (!groups.contains(cat)) {
+                auto* box = new QGroupBox(cat);
+                auto* form = new QFormLayout(box);
+                form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+                groups.insert(cat, form);
+                v->addWidget(box);
+            }
+            QFormLayout* form = groups.value(cat);
+            QString reason;
+            const bool writable = rg::OptionStore::writable(o, ctx_, &reason);
+            // De bibliotheek is de bron van waarheid; anders de huidige waarde in het doelbestand (of de standaard).
+            const QString value = stored.options.contains(o.key) ? stored.options.value(o.key).toString() : rg::OptionStore::read(o, ctx_);
+            QWidget* widget = nullptr;
+            if (o.type == QStringLiteral("bool")) {
+                auto* c = new QCheckBox;
+                c->setChecked(value == o.trueValue || isTrue(value));
+                widget = c;
+            } else if (o.type == QStringLiteral("enum")) {
+                auto* c = new QComboBox;
+                for (int i = 0; i < o.values.size(); ++i) c->addItem(o.labels.value(i, o.values[i]), o.values[i]);
+                int idx = c->findData(value);
+                if (idx < 0) {
+                    c->addItem(value, value);
+                    idx = c->count() - 1;
+                }
+                c->setCurrentIndex(idx);
+                widget = c;
+            } else if (o.type == QStringLiteral("int")) {
+                auto* s = new QSpinBox;
+                s->setRange(o.hasRange ? static_cast<int>(o.min) : -1000000, o.hasRange ? static_cast<int>(std::min(o.max, 2.0e9)) : 1000000);
+                s->setSingleStep(std::max(1, static_cast<int>(o.step)));
+                s->setValue(value.toInt());
+                widget = s;
+            } else {
+                widget = new QLineEdit(value);
+            }
+            QString tip = o.description;
+            if (o.target.kind != rg::OptionTarget::Kind::Unsupported)
+                tip += (tip.isEmpty() ? QString() : QStringLiteral("\n\n")) + tr("Written to: %1").arg(o.target.describe());
+            widget->setToolTip(tip);
+            widget->setEnabled(writable);
+            QWidget* field = widget;
+            if (!writable) {
+                auto* box = new QWidget;
+                auto* h = new QHBoxLayout(box);
+                h->setContentsMargins(0, 0, 0, 0);
+                h->addWidget(widget, 1);
+                auto* why = new QLabel(QStringLiteral("<i>%1</i>").arg(reason.toHtmlEscaped()));
+                why->setToolTip(rg::OptionStore::targetFile(o.target, ctx_));
+                h->addWidget(why);
+                field = box;
+            }
+            form->addRow(o.name + QLatin1Char(':'), field);
+            rows->append({o, widget, value});
+        }
+    }
+
+    // Overige velden van het launch-profiel die game-options.json (nog) niet noemt.
+    TpFieldEditor* tpEditor = nullptr;
+    if (!profilePath_.isEmpty()) {
+        rg::TpProfile p;
+        if (p.load(profilePath_)) {
+            QList<rg::TpField> fields;
+            for (const rg::TpField& f : p.fields())
+                if (!displayFieldRe().match(f.name).hasMatch() && !managedField(f.name) &&
+                    !coveredFields.contains(f.category + QLatin1Char('/') + f.name))
+                    fields << f;
+            if (!fields.isEmpty()) {
+                auto* box = new QGroupBox(tr("More game settings"));
+                auto* bl = new QVBoxLayout(box);
+                tpEditor = new TpFieldEditor(profilePath_, fields, stored.tpFields);
+                bl->addWidget(tpEditor);
+                v->addWidget(box);
+            }
+        }
+    }
+
+    auto* buttons = new QHBoxLayout;
+    auto* status = new QLabel;
+    status->setWordWrap(true);
+    auto* apply = new NonDefaultQPushButton(tr("Apply"));
+    auto* defaults = new NonDefaultQPushButton(tr("Restore Defaults"));
+    defaults->setEnabled(!rows->isEmpty());
+    buttons->addWidget(status, 1);
+    buttons->addWidget(defaults);
+    buttons->addWidget(apply);
+    v->addLayout(buttons);
+    v->addStretch(1);
+    apply->setEnabled(!rows->isEmpty() || tpEditor);
+
+    auto currentOf = [](const OptRow& r) -> QString {
+        if (auto* c = qobject_cast<QCheckBox*>(r.widget)) return c->isChecked() ? r.opt.trueValue : r.opt.falseValue;
+        if (auto* c = qobject_cast<QComboBox*>(r.widget)) return c->currentData().toString();
+        if (auto* s = qobject_cast<QSpinBox*>(r.widget)) return QString::number(s->value());
+        if (auto* e = qobject_cast<QLineEdit*>(r.widget)) return e->text();
+        return r.initial;
+    };
+    connect(defaults, &QPushButton::clicked, this, [rows] {
+        for (const OptRow& r : *rows) {
+            if (!r.widget->isEnabled() || r.opt.defaultValue.isEmpty()) continue;
+            if (auto* c = qobject_cast<QCheckBox*>(r.widget)) c->setChecked(r.opt.defaultValue == r.opt.trueValue || isTrue(r.opt.defaultValue));
+            else if (auto* c = qobject_cast<QComboBox*>(r.widget)) c->setCurrentIndex(std::max(0, c->findData(r.opt.defaultValue)));
+            else if (auto* s = qobject_cast<QSpinBox*>(r.widget)) s->setValue(r.opt.defaultValue.toInt());
+            else if (auto* e = qobject_cast<QLineEdit*>(r.widget)) e->setText(r.opt.defaultValue);
+        }
+    });
+    connect(apply, &QPushButton::clicked, this, [this, rows, status, tpEditor, currentOf] {
+        // Eerst in de bibliotheek (bron van waarheid), dan naar de uitvoerbestanden van de launcher (ProfileSync).
+        int changed = 0;
+        rg::GameOverride ov = core_->library()->override_(game_.id);
+        for (OptRow& r : *rows) {
+            if (!r.widget->isEnabled()) continue;
+            const QString val = currentOf(r);
+            if (val == r.initial) continue;
+            ov.options.insert(r.opt.key, val);
+            r.initial = val;
+            ++changed;
+        }
+        if (tpEditor) {
+            const QVariantMap ch = tpEditor->changedValues();
+            for (auto it = ch.begin(); it != ch.end(); ++it) ov.tpFields.insert(it.key(), it.value());
+            changed += static_cast<int>(ch.size());
+            tpEditor->markSaved();
+        }
+        if (changed) core_->library()->setOverride(game_.id, ov);
+        QStringList errors;
+        rg::ProfileSync::apply(game_, *core_->library(), *core_->gameData(), &errors);
+        if (!errors.isEmpty())
+            status->setText(QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(errors.join(QStringLiteral("<br>")).toHtmlEscaped()));
+        else status->setText(changed ? tr("Saved. The new settings apply the next time the game starts.") : tr("Nothing changed."));
+    });
+    return w;
+}
+
+QWidget* PropertiesDialog::MakeDisplayPane() {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    const rg::GameOverride stored = core_->library()->override_(game_.id);
+    TpFieldEditor* editor = nullptr;
+    if (!profilePath_.isEmpty()) {
+        rg::TpProfile p;
+        p.load(profilePath_);
+        QList<rg::TpField> fields;
+        for (const rg::TpField& f : p.fields())
+            if (displayFieldRe().match(f.name).hasMatch()) fields << f;
+        auto* box = new QGroupBox(tr("Resolution and window"));
+        auto* bl = new QVBoxLayout(box);
+        if (fields.isEmpty()) {
+            bl->addWidget(hintLabel(tr("This game has no resolution or window settings.")));
+        } else {
+            editor = new TpFieldEditor(profilePath_, fields, stored.tpFields);
+            bl->addWidget(editor);
+        }
+        v->addWidget(box);
+    } else if (game_.kind == rg::GameKind::Unity) {
+        v->addWidget(hintLabel(tr("Unity games use the resolution from packaging/aagames-games.json.")));
+    } else {
+        v->addWidget(hintLabel(tr("This game is not set up yet, so there are no display settings.")));
+    }
+
+    // Gamescope: opgeslagen in de bibliotheek, bij het starten naar UserProfiles/<P>.env (TP_GAMESCOPE) geschreven.
+    QCheckBox* gamescope = nullptr;
+    const QString envPath = ctx_.envPath();
+    if (!profilePath_.isEmpty() && !envPath.isEmpty()) {
+        auto* box = new QGroupBox(tr("Gamescope"));
+        auto* bl = new QVBoxLayout(box);
+        QFile f(envPath);
+        QString text;
+        if (f.open(QIODevice::ReadOnly)) text = QString::fromUtf8(f.readAll());
+        bool found = false;
+        QString val = rg::keyvalue::get(text, QStringLiteral("TP_GAMESCOPE"), &found);
+        if (stored.options.contains(QStringLiteral("display.gamescope"))) {
+            val = stored.options.value(QStringLiteral("display.gamescope")).toString();
+            found = true;
+        }
+        gamescope = new QCheckBox(tr("Run the game in gamescope (scales a windowed game to full screen)"));
+        gamescope->setChecked(found && val == QStringLiteral("1"));
+        const rg::WriteCheck wc = rg::checkWritable(envPath);
+        gamescope->setEnabled(wc.ok);
+        if (!wc.ok) gamescope->setToolTip(wc.reason);
+        bl->addWidget(gamescope);
+        v->addWidget(box);
+    }
+
+    auto* buttons = new QHBoxLayout;
+    auto* status = new QLabel;
+    status->setWordWrap(true);
+    auto* apply = new NonDefaultQPushButton(tr("Apply"));
+    apply->setEnabled(editor || gamescope);
+    buttons->addWidget(status, 1);
+    buttons->addWidget(apply);
+    v->addLayout(buttons);
+    v->addStretch(1);
+    auto initialGs = std::make_shared<bool>(gamescope && gamescope->isChecked());
+    connect(apply, &QPushButton::clicked, this, [this, editor, gamescope, status, initialGs] {
+        rg::GameOverride ov = core_->library()->override_(game_.id);
+        if (editor) {
+            const QVariantMap ch = editor->changedValues();
+            for (auto it = ch.begin(); it != ch.end(); ++it) ov.tpFields.insert(it.key(), it.value());
+            editor->markSaved();
+        }
+        if (gamescope && gamescope->isEnabled() && gamescope->isChecked() != *initialGs) {
+            ov.options.insert(QStringLiteral("display.gamescope"), gamescope->isChecked() ? QStringLiteral("1") : QStringLiteral("0"));
+            *initialGs = gamescope->isChecked();
+        }
+        core_->library()->setOverride(game_.id, ov);
+        QStringList errors;
+        rg::ProfileSync::apply(game_, *core_->library(), *core_->gameData(), &errors);
+        status->setText(errors.isEmpty() ? tr("Saved. The new settings apply the next time the game starts.")
+                                         : QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(errors.join(QStringLiteral("; ")).toHtmlEscaped()));
+    });
+    return w;
+}
+
+QWidget* PropertiesDialog::MakeMemoryCardPane() {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    v->addWidget(hintLabel(tr("Save data, NVRAM and high scores of this game. Only files on this PC can be deleted; files on the "
+                              "NAS and files the game needs are shown read-only.")));
+    if (const rg::GameOptionsEntry* e = core_->gameData()->entryFor(game_); e && !e->memoryNotes.isEmpty()) v->addWidget(hintLabel(e->memoryNotes));
+    mc_tree_ = new QTreeWidget;
+    mc_tree_->setHeaderLabels({tr("File"), tr("Type"), tr("Size"), tr("Modified"), tr("Location")});
+    mc_tree_->setRootIsDecorated(false);
+    mc_tree_->setAlternatingRowColors(true);
+    mc_tree_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    mc_tree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    v->addWidget(mc_tree_, 1);
+    auto* h = new QHBoxLayout;
+    auto* refresh = new NonDefaultQPushButton(tr("Refresh"));
+    auto* open = new NonDefaultQPushButton(tr("Open Folder"));
+    mc_delete_ = new NonDefaultQPushButton(tr("Delete..."));
+    mc_delete_->setEnabled(false);
+    h->addWidget(refresh);
+    h->addWidget(open);
+    h->addStretch(1);
+    h->addWidget(mc_delete_);
+    v->addLayout(h);
+    connect(refresh, &QPushButton::clicked, this, &PropertiesDialog::RefreshMemoryCard);
+    connect(mc_tree_, &QTreeWidget::itemSelectionChanged, this, [this] {
+        bool any = false;
+        for (QTreeWidgetItem* it : mc_tree_->selectedItems()) any = any || mc_files_.value(it->data(0, Qt::UserRole).toInt()).deletable;
+        mc_delete_->setEnabled(any);
+    });
+    connect(open, &QPushButton::clicked, this, [this] {
+        const auto sel = mc_tree_->selectedItems();
+        const int i = sel.isEmpty() ? -1 : sel.first()->data(0, Qt::UserRole).toInt();
+        const QString dir = i >= 0 ? QFileInfo(mc_files_.value(i).path).path() : (ctx_.viewDir.isEmpty() ? ctx_.rootDir : ctx_.viewDir);
+        if (!dir.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    });
+    connect(mc_delete_, &QPushButton::clicked, this, [this] {
+        QList<rg::MemoryCardFile> del;
+        for (QTreeWidgetItem* it : mc_tree_->selectedItems()) {
+            const rg::MemoryCardFile f = mc_files_.value(it->data(0, Qt::UserRole).toInt());
+            if (f.deletable) del << f;
+        }
+        if (del.isEmpty()) return;
+        QStringList lines;
+        bool unknown = false;
+        for (const auto& f : del) {
+            lines << f.path + (f.eraseEffect.isEmpty() ? QString() : QStringLiteral("\n    ") + f.eraseEffect);
+            unknown = unknown || f.safeToErase == QStringLiteral("unknown");
+        }
+        QString text = tr("Delete %n file(s)? This cannot be undone.", nullptr, static_cast<int>(del.size())) + QStringLiteral("\n\n") +
+                       lines.join(QLatin1Char('\n'));
+        if (unknown) text += tr("\n\nFor some files it is not known whether the game can recreate them. Make a backup first.");
+        if (QMessageBox::warning(this, tr("Delete Save Data"), text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return;
+        QStringList errors;
+        for (const auto& f : del) {
+            QString err;
+            if (!rg::MemoryCard::remove(f, &err)) errors << err;
+        }
+        if (!errors.isEmpty()) QMessageBox::warning(this, tr("Delete Save Data"), errors.join(QLatin1Char('\n')));
+        RefreshMemoryCard();
+    });
+    RefreshMemoryCard();
+    return w;
+}
+
+void PropertiesDialog::RefreshMemoryCard() {
+    QList<rg::MemoryCardSpec> specs;
+    if (const rg::GameOptionsEntry* e = core_->gameData()->entryFor(game_)) specs = e->memoryCard;
+    mc_files_ = rg::MemoryCard::list(ctx_, specs);
+    mc_tree_->clear();
+    const QLocale loc;
+    for (int i = 0; i < mc_files_.size(); ++i) {
+        const rg::MemoryCardFile& f = mc_files_[i];
+        auto* it = new QTreeWidgetItem(mc_tree_);
+        // Relatief aan de gamemap of de view (korter); het volledige pad staat in de tooltip.
+        QString shown = f.path;
+        for (const QString& base : {ctx_.viewDir, ctx_.rootDir})
+            if (!base.isEmpty() && f.path.startsWith(base + QLatin1Char('/'))) {
+                shown = QDir(base).relativeFilePath(f.path);
+                break;
+            }
+        it->setText(0, shown);
+        it->setToolTip(0, f.path + QStringLiteral("\n") + f.label + (f.eraseEffect.isEmpty() ? QString() : QStringLiteral("\n") + tr("If deleted: %1").arg(f.eraseEffect)));
+        it->setText(1, f.kind.isEmpty() ? f.label : f.kind);
+        it->setToolTip(1, f.label);
+        it->setText(2, loc.formattedDataSize(f.size));
+        it->setText(3, loc.toString(f.modified, QLocale::ShortFormat));
+        it->setText(4, f.onNas ? tr("NAS (read-only)") : f.deletable ? tr("This PC") : tr("This PC (protected)"));
+        if (!f.reason.isEmpty()) it->setToolTip(4, f.reason);
+        it->setData(0, Qt::UserRole, i);
+    }
+    if (mc_files_.isEmpty()) {
+        auto* it = new QTreeWidgetItem(mc_tree_);
+        it->setText(0, tr("No save data found."));
+        it->setFlags(Qt::NoItemFlags);
+        it->setData(0, Qt::UserRole, -1);
+    }
+    for (int c = 1; c < 5; ++c) mc_tree_->resizeColumnToContents(c);
+}
+
+QWidget* PropertiesDialog::MakeInfoPane() {
+    auto* w = new QWidget;
+    auto* form = new QFormLayout(w);
+    const QString prof = ctx_.profile;
+    QString emulationProfile, is64;
+    if (!profilePath_.isEmpty()) {
+        rg::TpProfile p;
+        if (p.load(profilePath_)) {
+            emulationProfile = p.tag(QStringLiteral("EmulationProfile"));
+            is64 = p.tag(QStringLiteral("Is64Bit"));
+        }
+    }
+    const rg::RouteInfo ri = core_->gameData()->route(prof);
+    const rg::GameOptionsEntry* e = core_->gameData()->entryFor(game_);
+    auto add = [form](const QString& k, const QString& v) {
+        auto* l = new QLabel(v.isEmpty() ? QStringLiteral("-") : v);
+        l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        l->setWordWrap(true);
+        form->addRow(k, l);
+    };
+    add(tr("Name:"), game_.displayName());
+    add(tr("Platform:"), e && !e->platform.isEmpty() ? e->platform : game_.platform);
+    add(tr("Genre:"), game_.genre);
+    add(tr("Lightgun game:"), game_.gunGame ? tr("Yes") : tr("No / unknown"));
+    add(tr("I/O board:"), !ri.board.isEmpty() ? ri.board : !ri.layout.isEmpty() ? ri.layout : emulationProfile);
+    add(tr("Input route:"), rg::GameData::routeLabel(ri.route));
+    add(tr("Status:"), core_->gameListModel()->statusText(game_));
+    add(tr("Notes:"), core_->gameData()->note(prof));
+    add(tr("Game folder:"), ctx_.rootDir + (rg::isOnNetwork(ctx_.rootDir) ? tr("  (NAS)") : QString()));
+    add(tr("Executable:"), game_.exePath);
+    add(tr("Local view:"), ctx_.viewDir);
+    // Technische gegevens van de runtime (TeknoParrot), alleen hier en in Settings > Paths.
+    add(tr("TeknoParrot emulator:"), game_.emulator + (is64.isEmpty() ? QString() : (is64 == QStringLiteral("true") ? tr(" (64-bit)") : tr(" (32-bit)"))));
+    add(tr("TeknoParrot profile:"), prof.isEmpty() ? QString() : prof + (profilePath_.isEmpty() ? tr(" (no user profile yet)") : QStringLiteral(" - ") + profilePath_));
+    add(tr("TeknoParrot emulation profile:"), emulationProfile);
+    add(tr("Launcher:"), core_->launcher()->backend() ? core_->launcher()->backend()->id() : QString());
+    add(tr("Library ID:"), game_.id);
+    return w;
+}
+
+}  // namespace rg::ui
