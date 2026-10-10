@@ -29,7 +29,7 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 Bronnen: docs/research/findings-digest.md (per game platform, board, route, moeite) en packaging/games-status.md.
 
 - [x] Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Transformers: starten en zijn speelbaar (deels nog niet met de echte Move bevestigd).
-- [~] B1 JVS-board in de IO-brug + Let's Go Safari (COM4 als pty).
+- [x] B1 JVS-board in de IO-brug (kern, borden LGS en SegaGun2P, pty als COM-poort, 119 tests). Let's Go Safari zelf geparkeerd: de game wacht op een antwoord op 127.0.0.1:40100 (Sega PCP) vóór hij COM4 opent; vraag 11 aan het TeknoParrot-team.
 - [~] B2 Eigen Unity-plugin (Tomb Raider, Rabbids) ter vervanging van de DemulShooter-plugin.
 - [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
   - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
