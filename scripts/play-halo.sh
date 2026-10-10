@@ -230,7 +230,11 @@ if [[ "$LAUNCH" == direct ]]; then
   RC=0; CHK=$(python3 -I "$ROOT/scripts/launch-direct.py" "$PROFILE" --check 2>&1) || RC=$?
   [[ $RC -eq 0 ]] || direct_fallback "${CHK##*$'\n'}"
 fi
-game_running && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
+# Eén game tegelijk: game_running kent alleen de processen van het profiel dat nu start; elke levende
+# unit-cgroup betekent dat er al iets draait (anders zou de stop hieronder die game stil afbreken).
+if game_running || unit_alive; then
+  fail "There is already a game running; stop it first (Esc, or 'Stop' in RavenGun). / Er draait al een game; stop die eerst."
+fi
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
 
