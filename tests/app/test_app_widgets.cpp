@@ -11,11 +11,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QLocalServer>
+#include <QLocalSocket>
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QtTest>
 
 #include "core/AppCore.h"
+#include "core/BigPicture.h"
 #include "core/FileSafety.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
@@ -54,6 +57,7 @@ private Q_SLOTS:
     void routeChoiceInProperties();
     void bigPictureLightgun();
     void bigPictureKeys();
+    void aimStreamFallback();
     void wizardWithFakePkexec();
     void artwork();
     void addToSteamOnCopy();
@@ -247,6 +251,61 @@ void AppWidgetTest::bigPictureKeys() {
     QTest::keyClick(&w, Qt::Key_Left);
     QTest::keyClick(&w, Qt::Key_Return);
     QVERIFY(exited);
+}
+
+void AppWidgetTest::aimStreamFallback() {
+    // Een nep-engine die `lite` niet kent (zoals de engine van vóór deze wijziging): AimStream valt terug op de volledige watch
+    // en leest dan de samples. Daarna een nieuwe engine met lite.
+    for (const bool supportsLite : {false, true}) {
+        const QString path = tmp_.filePath(supportsLite ? QStringLiteral("lite.sock") : QStringLiteral("old.sock"));
+        QLocalServer server;
+        QVERIFY(server.listen(path));
+        QStringList requests;
+        QLocalSocket* client = nullptr;
+        connect(&server, &QLocalServer::newConnection, this, [&] {
+            client = server.nextPendingConnection();
+            connect(client, &QLocalSocket::readyRead, this, [&, supportsLite] {
+                while (client->canReadLine()) {
+                    const QJsonObject r = QJsonDocument::fromJson(client->readLine()).object();
+                    requests << QString::fromUtf8(QJsonDocument(r).toJson(QJsonDocument::Compact));
+                    const QJsonValue id = r.value(QStringLiteral("id"));
+                    if (r.contains(QStringLiteral("lite")) && !supportsLite) {
+                        client->write(QJsonDocument(QJsonObject{{QStringLiteral("v"), 1}, {QStringLiteral("ok"), false}, {QStringLiteral("id"), id},
+                                                                {QStringLiteral("error"), QJsonObject{{QStringLiteral("code"), QStringLiteral("bad_request")},
+                                                                                                      {QStringLiteral("message"), QStringLiteral("onbekend veld 'lite'")}}}})
+                                          .toJson(QJsonDocument::Compact) + '\n');
+                        continue;
+                    }
+                    client->write(QJsonDocument(QJsonObject{{QStringLiteral("v"), 1}, {QStringLiteral("ok"), true}, {QStringLiteral("id"), id}})
+                                      .toJson(QJsonDocument::Compact) + '\n');
+                    if (supportsLite)
+                        client->write(R"({"v":1,"event":"aim","data":{"seq":1,"link":"fresh","aim":{"valid":true,"x":0.2,"y":0.8,"off_screen":false},"trigger":0,"down":["t"],"pressed":{"t":1},"released":{}}})"
+                                      "\n");
+                    else
+                        client->write(R"({"v":1,"event":"sample","data":{"sample":{"link":"fresh","aim":{"valid":true,"x_clamped":0.2,"y_clamped":0.8,"off_screen":false},"buttons":{"down":["t"]}},"edges_since_last_frame":{"pressed":{"t":1},"released":{}}}})"
+                                      "\n");
+                }
+            });
+        });
+        AimStream s(path);
+        rg::bigpicture::AimState got;
+        int events = 0;
+        connect(&s, &AimStream::aimChanged, this, [&](const rg::bigpicture::AimState& a) {
+            if (a.valid) {
+                got = a;
+                ++events;
+            }
+        });
+        s.start();
+        QTRY_VERIFY_WITH_TIMEOUT(events > 0, 5000);
+        QVERIFY(got.trigger);
+        QCOMPARE(got.pos, QPointF(0.2, 0.8));
+        QCOMPARE(s.liteSupported(), supportsLite);
+        QCOMPARE(requests.size(), supportsLite ? 1 : 2);
+        QVERIFY(requests.first().contains(QStringLiteral("\"lite\":true")));
+        if (!supportsLite) QVERIFY(!requests.last().contains(QStringLiteral("lite")));
+        s.stop();
+    }
 }
 
 void AppWidgetTest::wizardWithFakePkexec() {
