@@ -29,7 +29,13 @@ view_start() {
     --disable-features=Translate,MediaRouter,BraveRewards,BraveVPN,BraveWallet,BraveNews --disable-sync \
     --disable-background-networking --disable-component-update >/dev/null 2>&1 || true
 }
-view_stop() { systemctl --user stop "$VIEW.service" 2>/dev/null || true; }
+view_stop() {
+  systemctl --user stop "$VIEW.service" 2>/dev/null || true
+  # flatpak start Brave buiten de cgroup van de unit; ruim daarom ook de processen met ons eigen profiel op
+  # (alleen die: andere Brave-vensters van de gebruiker blijven staan).
+  local prof="--user-data-dir=$HOME/.local/state/ravengun/saver-browser" pid
+  for pid in $(pgrep -u "$(id -u)" -f -- "$prof" || true); do [[ $pid != $$ ]] && kill "$pid" 2>/dev/null || true; done
+}
 
 case "${1:-}" in
   --start)
