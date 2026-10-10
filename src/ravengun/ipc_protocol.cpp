@@ -176,13 +176,16 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
     } else if (cmd == "watch") {
         r.cmd = Cmd::Watch;
-        if (!allowed(o, {"rate_hz", "full_ids"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"rate_hz", "full_ids", "lite"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         std::optional<double> rate;
         if (!opt_number(o, "rate_hz", kWatchRateMin, kWatchRateMax, rate, e, r.id_json)) return e;
         r.rate_hz = rate.value_or(30.0);
         std::optional<bool> f;
         if (!opt_bool(o, "full_ids", f, e, r.id_json)) return e;
         r.full_ids = f.value_or(false);
+        std::optional<bool> lite;
+        if (!opt_bool(o, "lite", lite, e, r.id_json)) return e;
+        r.lite = lite.value_or(false);
     } else if (cmd == "set_filter") {
         r.cmd = Cmd::SetFilter;
         if (!allowed(o, {"enabled", "min_cutoff_hz", "beta", "d_cutoff_hz"}, bad))
@@ -555,6 +558,7 @@ std::string make_request(const Request& r) {
         case Cmd::Watch:
             w.key("rate_hz").value(r.rate_hz);
             if (r.full_ids) w.key("full_ids").value(true);
+            if (r.lite) w.key("lite").value(true);
             break;
         case Cmd::SetFilter:
             if (r.filter_enabled) w.key("enabled").value(*r.filter_enabled);

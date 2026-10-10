@@ -123,8 +123,31 @@ void IoBridgeService::write_state_file(const std::string& route, const std::stri
     f << w.str() << "\n";
 }
 
+IoRoutes IoBridgeService::effective_routes() const {
+    IoRoutes r = cfg_.routes;
+    if (!cfg_.user_routes_path.empty()) {
+        std::string text, err;
+        if (FILE* f = std::fopen(cfg_.user_routes_path.c_str(), "rb")) {
+            char buf[4096];
+            size_t n;
+            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
+            std::fclose(f);
+        }
+        if (!apply_io_routes_override(r, text, err)) {
+            std::lock_guard<std::mutex> lk(routes_m_);
+            if (err != routes_err_) logf("waarschuwing", "IO-brug: %s (%s genegeerd)", err.c_str(), cfg_.user_routes_path.c_str());
+            routes_err_ = err;
+        } else {
+            std::lock_guard<std::mutex> lk(routes_m_);
+            routes_err_.clear();
+        }
+    }
+    return r;
+}
+
 std::string IoBridgeService::start(const std::string& game, const std::string& route_override) {
-    std::string route = route_override.empty() ? cfg_.routes.route_for(game) : route_override;
+    const IoRoutes routes = effective_routes();
+    std::string route = route_override.empty() ? routes.route_for(game) : route_override;
     if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp, hid-board of jvs)";
     if (route == kRouteEvdev) {
         stop();
@@ -136,10 +159,10 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
         stop();
         return sh_.aagames->start(game);
     }
-    if (route == kRouteHidBoard) return start_hid_board(game);
-    if (route == kRouteJvs) return start_jvs(game);
+    if (route == kRouteHidBoard) return start_hid_board(game, routes.find(game));
+    if (route == kRouteJvs) return start_jvs(game, routes.find(game));
     // tp-shm
-    const IoRoute* r = cfg_.routes.find(game);
+    const IoRoute* r = routes.find(game);
     if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling in io-routes.json";
     const TpShmProfile* prof = cfg_.profiles.find(r->layout);
     if (!prof) return "tp-shm-indeling '" + r->layout + "' ontbreekt in tp-shm-profiles.json";
@@ -164,8 +187,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
 }
 
 // Route hid-board: een virtueel joystick/HID-apparaat dat het bord van de game nabootst (hid_board.hpp).
-std::string IoBridgeService::start_hid_board(const std::string& game) {
-    const IoRoute* r = cfg_.routes.find(game);
+std::string IoBridgeService::start_hid_board(const std::string& game, const IoRoute* r) {
     if (!r || r->board.empty()) return "game '" + game + "' heeft geen 'board' in io-routes.json";
     const HidBoard* b = cfg_.boards.find(r->board);
     if (!b) return "bord '" + r->board + "' ontbreekt in hid-boards.json";
@@ -194,8 +216,7 @@ std::string IoBridgeService::start_hid_board(const std::string& game) {
 
 // Route jvs: de daemon is de JVS-bord(en) aan het eind van een seriële lijn (pty, jvs_dialect.hpp). Een herstart van de daemon
 // kan de lijn niet meenemen (de game houdt de oude pty vast), daarom staat deze route niet in het toestandsbestand.
-std::string IoBridgeService::start_jvs(const std::string& game) {
-    const IoRoute* r = cfg_.routes.find(game);
+std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r) {
     if (!r) return "game '" + game + "' staat niet in io-routes.json";
     std::vector<std::string> names = r->boards;
     if (names.empty() && !r->board.empty()) names.push_back(r->board);
@@ -302,6 +323,12 @@ void IoBridgeService::clear_external(const std::string& route) {
 }
 
 std::string IoBridgeService::status_json() const {
+    const IoRoutes routes = effective_routes();   // buiten m_: leest het gebruikersbestand
+    std::string routes_err;
+    {
+        std::lock_guard<std::mutex> rl(routes_m_);
+        routes_err = routes_err_;
+    }
     std::lock_guard<std::mutex> lk(m_);
     json::Writer w;
     w.begin_object();
@@ -318,9 +345,10 @@ std::string IoBridgeService::status_json() const {
         w.key("dialect").value(ext_route_);
     }
     w.key("routes").begin_object();
-    w.key("default").value(cfg_.routes.default_route);
-    for (const auto& g : cfg_.routes.games) w.key(g.game).value(g.route);
+    w.key("default").value(routes.default_route);
+    for (const auto& g : routes.games) w.key(g.game).value(g.route);
     w.end_object();
+    if (!routes_err.empty()) w.key("user_routes_error").value(routes_err);
     w.end_object();
     return w.str();
 }

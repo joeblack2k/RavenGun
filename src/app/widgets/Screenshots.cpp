@@ -18,6 +18,12 @@
 #include "widgets/PairWizardDialog.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SettingsWindow.h"
+#include "widgets/BigPictureWindow.h"
+#include "widgets/SetupWizard.h"
+
+#include <QAbstractItemView>
+#include <QComboBox>
+#include <QKeyEvent>
 
 namespace rg::ui {
 
@@ -120,6 +126,125 @@ void RunScreenshots(MainWindow* w, const QString& dir, const QString& gameId) {
                               if (*settings) save(*settings, dir, QStringLiteral("settings-") + slug((*settings)->PaneName(i)));
                           }});
     }
+    // A3: Options en de route-keuze voor een paar games ($RAVENGUN_SCREENSHOT_GAMES, komma's; standaard vier).
+    QStringList extra = qEnvironmentVariable("RAVENGUN_SCREENSHOT_GAMES").split(QLatin1Char(','), Qt::SkipEmptyParts);
+    if (extra.isEmpty()) extra = {QStringLiteral("tp:TC5"), QStringLiteral("tp:Terminator"), QStringLiteral("tp:TransformersShadowsRising"),
+                                  QStringLiteral("tp:JurassicPark")};
+    auto extraProps = std::make_shared<QPointer<PropertiesDialog>>();
+    for (const QString& id : extra) {
+        const QString tag = slug(id.section(QLatin1Char(':'), 1));
+        steps->push_back({300, [w, extraProps, id] {
+                              if (*extraProps) (*extraProps)->close();
+                              w->ShowPropertiesFor(id, 1, false);
+                              *extraProps = nullptr;
+                              for (QWidget* top : QApplication::topLevelWidgets())
+                                  if (auto* p = qobject_cast<PropertiesDialog*>(top); p && p->isVisible()) *extraProps = p;
+                          }});
+        steps->push_back({700, [extraProps, dir, tag] {
+                              if (*extraProps) save(*extraProps, dir, QStringLiteral("options-") + tag);
+                          }});
+        steps->push_back({200, [extraProps] {
+                              if (*extraProps) (*extraProps)->ActivatePane(0);
+                          }});
+        steps->push_back({500, [extraProps, dir, tag] {
+                              if (*extraProps) save(*extraProps, dir, QStringLiteral("route-") + tag);
+                          }});
+    }
+    // De keuzelijst van de route open (de lijst is een eigen venster).
+    steps->push_back({200, [extraProps] {
+                          if (*extraProps && (*extraProps)->RouteCombo()) (*extraProps)->RouteCombo()->showPopup();
+                      }});
+    steps->push_back({600, [extraProps, dir] {
+                          if (!*extraProps || !(*extraProps)->RouteCombo()) return;
+                          QComboBox* c = (*extraProps)->RouteCombo();
+                          save(c->view()->window(), dir, QStringLiteral("route-choice-popup"));
+                          c->hidePopup();
+                      }});
+    steps->push_back({100, [extraProps] {
+                          if (*extraProps) (*extraProps)->close();
+                      }});
+
+    // A6: de wizard, alle acht stappen (er wordt niets aangeklikt).
+    auto wiz = std::make_shared<QPointer<SetupWizard>>();
+    steps->push_back({300, [w, wiz] {
+                          *wiz = new SetupWizard(w->core(), w);
+                          (*wiz)->setAttribute(Qt::WA_DeleteOnClose);
+                          (*wiz)->show();
+                      }});
+    for (int i = 0; i < SetupWizard::Count; ++i) {
+        steps->push_back({i == 0 ? 2500 : 900, [wiz, dir, i] {
+                              if (*wiz) save(*wiz, dir, QStringLiteral("wizard-%1").arg(i + 1));
+                          }});
+        steps->push_back({100, [wiz] {
+                              if (*wiz) (*wiz)->next();
+                          }});
+    }
+    steps->push_back({100, [wiz] {
+                          if (*wiz) (*wiz)->hide();
+                      }});
+
+    // A7: de fullscreen-modus (1920x1080): menu zonder vizier, met vizier, gekozen (wacht op het tweede schot), alles tonen,
+    // gedimd na inactiviteit, schermbeveiliging en de vraag bij Exit.
+    auto big = std::make_shared<QPointer<BigPictureWindow>>();
+    steps->push_back({300, [w, big] {
+                          *big = new BigPictureWindow(w->core());
+                          (*big)->setAttribute(Qt::WA_DeleteOnClose);
+                          (*big)->resize(1920, 1080);
+                          (*big)->show();
+                      }});
+    steps->push_back({1200, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-menu"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (*big) (*big)->InjectAim((*big)->TileCenterNorm(2) + QPointF(0.012, 0.02), true);
+                      }});
+    steps->push_back({500, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-crosshair"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (*big) (*big)->InjectAim((*big)->TileCenterNorm(1), true, true);
+                      }});
+    steps->push_back({100, [big] {
+                          if (*big) (*big)->InjectAim((*big)->TileCenterNorm(1), true, false);
+                      }});
+    steps->push_back({400, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-armed"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (!*big) return;
+                          (*big)->InjectAim(QPointF(0.5, 0.5), false);
+                          QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+                          for (int i = 0; i < 6; ++i) QApplication::sendEvent(*big, &down);
+                          QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+                          QApplication::sendEvent(*big, &enter);  // de eerste knop: Show All Games
+                      }});
+    steps->push_back({600, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-all-games"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (!*big) return;
+                          QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+                          QApplication::sendEvent(*big, &enter);  // terug naar alleen speelbare games
+                          (*big)->SetIdleForScreenshot(BigPictureWindow::kIdleDimMs + 20000);
+                      }});
+    steps->push_back({500, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-dimmed"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (*big) (*big)->SetIdleForScreenshot(BigPictureWindow::kIdleSaverMs + 1000);
+                      }});
+    steps->push_back({500, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-saver"));
+                      }});
+    steps->push_back({100, [big] {
+                          if (!*big) return;
+                          QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                          QApplication::sendEvent(*big, &esc);  // wekt alleen het scherm
+                          QApplication::sendEvent(*big, &esc);  // de vraag bij Exit
+                      }});
+    steps->push_back({500, [big, dir] {
+                          if (*big) save(*big, dir, QStringLiteral("fullscreen-exit"));
+                      }});
     steps->push_back({200, [] { QApplication::quit(); }});
 
     auto run = std::make_shared<std::function<void(size_t)>>();

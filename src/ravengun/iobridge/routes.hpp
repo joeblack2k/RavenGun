@@ -42,4 +42,13 @@ struct IoRoutes {
 // Leest packaging/io-routes.json. Bij een fout is het resultaat leeg en staat er een Nederlandse melding in err.
 IoRoutes parse_io_routes(const std::string& json_text, std::string& err);
 
+// Keuze van de gebruiker (de app, Properties > General > Input route): $XDG_CONFIG_HOME/ravengun/io-routes.json (standaard
+// ~/.config/ravengun/io-routes.json), zelfde vorm als packaging/io-routes.json maar alleen met wat afwijkt, bv.
+// {"schema":1,"games":{"TC5":{"route":"evdev"}}}. Per game vervangen de genoemde velden die van de basis (ondiep); een game
+// die de basis niet kent, krijgt de standaardroute als begin. Daarna gelden dezelfde controles als bij parse_io_routes.
+// Bij een fout blijft `base` ongewijzigd en staat de melding in err. Lege tekst = niets te doen.
+bool apply_io_routes_override(IoRoutes& base, const std::string& override_json, std::string& err);
+// $XDG_CONFIG_HOME/ravengun/io-routes.json, anders $HOME/.config/ravengun/io-routes.json; leeg als beide ontbreken.
+std::string default_user_io_routes_path();
+
 }  // namespace ravengun::iobridge

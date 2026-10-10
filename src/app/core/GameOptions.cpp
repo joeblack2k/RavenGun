@@ -155,8 +155,16 @@ OptionTarget GameOptionsDb::parseTarget(const QVariant& v) {
         if (t.file.isEmpty() && kind == QStringLiteral("tp_ini")) t.file = QStringLiteral("teknoparrot.ini");
         t.field = firstString(m, {"key", "name", "field"});
         if (format == QStringLiteral("ini")) t.kind = OptionTarget::Kind::Ini;
-        else if (format == QStringLiteral("keyvalue") || format == QStringLiteral("cfg")) t.kind = OptionTarget::Kind::KeyValue;
-        else t.readOnlyReason = QStringLiteral("file format \"%1\" is not editable here").arg(format);
+        else if (format == QStringLiteral("ini_onoff") || format == QStringLiteral("ini_yesno")) {
+            t.kind = OptionTarget::Kind::Ini;
+            const bool onoff = format == QStringLiteral("ini_onoff");
+            t.trueWord = onoff ? QStringLiteral("ON") : QStringLiteral("YES");
+            t.falseWord = onoff ? QStringLiteral("OFF") : QStringLiteral("NO");
+        } else if (format == QStringLiteral("keyvalue") || format == QStringLiteral("cfg")) t.kind = OptionTarget::Kind::KeyValue;
+        else if (format == QStringLiteral("tab_ini") || format == QStringLiteral("space_ini") || format == QStringLiteral("colon")) {
+            t.kind = OptionTarget::Kind::KeyValue;
+            t.sep = format == QStringLiteral("tab_ini") ? QLatin1Char('\t') : format == QStringLiteral("space_ini") ? QLatin1Char(' ') : QLatin1Char(':');
+        } else t.readOnlyReason = QStringLiteral("file format \"%1\" is not editable here").arg(format);
         if (!base.isEmpty() && base != QStringLiteral("game_dir")) {
             if (base == QStringLiteral("view_dir") || base == QStringLiteral("tp_dir") || base == QStringLiteral("home")) t.file = QLatin1Char('{') + base + QStringLiteral("}/") + t.file;
             else t.readOnlyReason = QStringLiteral("location \"%1\" is not supported yet").arg(base);
@@ -260,6 +268,11 @@ bool GameOptionsDb::loadData(const QByteArray& json, QString* err) {
             const QVariant def = firstValue(om, {"default", "default_value"});
             if (def.isValid()) o.defaultValue = valueToText(def, o);
             o.target = parseTarget(firstValue(om, {"target", "where", "destination"}));
+            if (o.type == QStringLiteral("bool") && !o.target.trueWord.isEmpty() && !om.contains(QStringLiteral("true_value"))) {
+                o.trueValue = o.target.trueWord;
+                o.falseValue = o.target.falseWord;
+                if (def.isValid()) o.defaultValue = valueToText(def, o);
+            }
             if (o.key.isEmpty()) {
                 warnings_ << QStringLiteral("%1: option without key skipped").arg(id);
                 continue;
@@ -420,7 +433,7 @@ QString OptionStore::read(const GameOption& o, const GameContext& c, bool* prese
         const QString text = readText(file, &ok);
         if (!ok) return o.defaultValue;
         if (o.target.kind == OptionTarget::Kind::Ini) v = ini::get(text, o.target.section, o.target.field, &found);
-        else v = keyvalue::get(text, o.target.field, &found);
+        else v = keyvalue::get(text, o.target.field, &found, o.target.sep);
         // Een bool in .env: afwezig = uit.
         if (o.target.kind == OptionTarget::Kind::Env && o.type == QStringLiteral("bool") && !found) {
             found = true;
@@ -486,7 +499,7 @@ bool OptionStore::write(const GameOption& o, const GameContext& c, const QString
             if (!compKey.isEmpty()) out = keyvalue::remove(out, compKey);
         }
     } else {
-        out = keyvalue::set(text, o.target.field, value);
+        out = keyvalue::set(text, o.target.field, value, o.target.sep);
     }
     if (ok && out == text) return true;
     return writeTextAtomic(file, out.toUtf8(), err, ok ? QStringLiteral(".ravengun-bak") : QString());

@@ -416,7 +416,7 @@ Productbesluit van de eigenaar: "onze app vervangt TeknoParrot uiteraard." Uitwe
 - De gebruiker opent TeknoParrotUi nooit meer: bibliotheek, opties per game, invoer en starten/stoppen gebeuren in RavenGun. De TeknoParrot-runtime (de laders BudgieLoader/OpenParrotLoader en de cores, onderdeel van het abonnement van de eigenaar) blijft een afhankelijkheid, zoals een frontend een emulatorcore nodig heeft. De app laat de map kiezen en controleert hem (Settings > Paths > "TeknoParrot runtime": laders, GameProfiles/ en TeknoParrotUi, met een duidelijke melding als iets ontbreekt).
 - Starten gaat via een launcher-abstractie in de app-kern (`src/app/core/Launcher.*`) met backends: `teknoparrot-ui` (nu: de engine start `scripts/play-halo.sh`, dat TeknoParrotUi `--profile` headless als lader gebruikt, zoals tot nu toe) en `direct` (later: de engine start de lader zelf met de juiste argumenten en omgeving en levert zelf JVS-pipe en gedeeld geheugen; nu meldt hij "not available yet"). De keuze staat in `library.json` (`launcher`) en in Settings > Paths. De rest van de UI praat alleen met `GameLauncher` en neemt nergens aan dat TeknoParrotUi draait; de voortgang komt uit de engine.
 - Opties per game, paden en de keuze van het spel komen uit onze eigen bibliotheek en config: `library.json` (per game `overrides.<id>.options` en `profile_fields`) plus `packaging/game-options.json`. De TeknoParrot-gebruikersprofielen (`UserProfiles/<P>.xml` en `<P>.env`) zijn alleen een uitvoerformaat voor de backend `teknoparrot-ui`: `ProfileSync` schrijft de bewaarde waarden erin bij Apply en vóór elke start. Bestaande profielen zijn de beginwaarden zolang de gebruiker niets gewijzigd heeft. Een nieuw profiel maken gaat (op verzoek) met het bestaande `scripts/tp-add-game.py` ("Set Up Game...").
-- Geen "TeknoParrot" in de hoofd-UI: de lijst toont neutrale platformnamen ("Windows PC", "Linux PC", of de naam uit Metadata), het type "Arcade", de route "I/O bridge (shared memory)"; menu's en dialogen spreken van "Set Up Game" en "game profile". Alleen Settings > Paths en het paneel Info noemen TeknoParrot. Uitzondering die blijft: notities uit `packaging/games-notes.json` (Nederlandse projecttekst) kunnen het woord bevatten; game-options.json (`status_en`) gaat voor.
+- Geen "TeknoParrot" in de hoofd-UI: de lijst toont neutrale platformnamen ("Windows PC", "Linux PC", of de naam uit Metadata), het type "Arcade", de route "I/O bridge (shared memory)"; menu's en dialogen spreken van "Set Up Game" en "game profile". Alleen Settings > Paths en het paneel Info noemen TeknoParrot. Uitzondering die blijft: de spelersnotities (`games_en` in `packaging/games-notes.json`, of `status_en` uit game-options.json) kunnen het woord bevatten.
 
 ## 2026-10-10 — De app schrijft nooit naar de NAS
 
@@ -448,3 +448,48 @@ Gemeten voor de andere games (headless, native):
 - Go Go Strike (`bowling_usa`, Allegro 4, PAOKAI): laadt zijn beelddata en crasht dan op NULL; het wil ook de kastapparaten `/dev/w040101_*`. Geparkeerd.
 
 Gevolgen: B4 blijft open als onderzoek; native is alleen haalbaar als TeknoParrot een Linux-laag voor ElfLdr2 uitbrengt (vraag aan het team: levert hun Linux-preload ook RIO2-invoer, webcams en FMOD, en bestaat er een vergelijkbare preload voor Jurassic Park, Galaga en Pacman?). De gebruikte TeknoParrot-onderdelen zijn alleen `halo.so` (preload) en de gewone bibliotheken uit `ElfLdr2/libs`; er is niets van de dongle-, keychip- of integriteitslaag nagebouwd of omzeild.
+
+## 2026-10-10 — Invoerroute per game kiezen: een gebruikersbestand over packaging/io-routes.json
+
+Aanleiding: A3, de route moest in Properties te wijzigen zijn in plaats van alleen in de repo.
+
+Gekozen:
+- De keuze staat in `~/.config/ravengun/io-routes.json` (`$XDG_CONFIG_HOME`), niet in `packaging/io-routes.json` en niet in `library.json`. De repo blijft de aanbevolen route per game (wat wij getest hebben); de gebruiker wijkt daar per game van af. Engine, startscript en app lezen hetzelfde bestand, dus `library.json` (alleen van de app) was niet genoeg.
+- Zelfde vorm als het basisbestand met alleen de afwijkingen; per game vervangen de genoemde velden die van de basis (ondiep), zodat een keuze "evdev" de indeling en munttoetsen van de basis houdt voor als de gebruiker teruggaat. Dezelfde controles als de basis (tp-shm vraagt een indeling, enzovoort). Alles of niets: één fout maakt het hele gebruikersbestand ongeldig (melding in de status en het log), want een half toegepaste keuze is moeilijker te begrijpen dan geen.
+- De engine leest het bestand bij elke `iobridge start`, `route` en `status` opnieuw (klein bestand, geen herstart nodig). `play-halo.sh` gebruikt `scripts/io-route.py` met dezelfde regels (getest in `tests/io_route_test.sh`). Een `--route` op de opdrachtregel gaat nog steeds voor alles.
+- De app biedt alleen routes aan waarvoor een indeling of bord bestaat; de aanbevolen route kiezen haalt de keuze weg. Unity-games hebben één route (`play-halo.sh` stuurt ze altijd naar de plugin).
+
+## 2026-10-10 — Spelersnotities tweetalig
+
+`packaging/games-notes.json` houdt `games` (Nederlands, max. 300 tekens, voor de webpagina en de engine; formaat ongewijzigd, dus `parse_notes`, `web_smoke.sh` en de webapp blijven werken) en krijgt `games_en` (Engels, voor de app) en `status` (playable, parked; ontbreekt = untested). De app toont `games_en`, anders `status_en` uit game-options.json, anders de Nederlandse tekst. `status` bepaalt welke games de fullscreen-modus standaard toont; het staat bij de notities omdat het dezelfde kennis is ("start dit spel en is het speelbaar?").
+
+## 2026-10-10 — Fullscreen-modus: de lightgun via de engine, niet via het invoerapparaat
+
+Aanleiding: A7, kiezen en starten met de lightgun in Steam Game Mode.
+
+Gekozen:
+- De virtuele gun is een absolute muis, maar met `LIBINPUT_IGNORE_DEVICE` bewust onzichtbaar voor de desktop en gamescope (anders beweegt de cursor mee tijdens een game). Het venster leest daarom de aim en de knoppen van speler 1 rechtstreeks uit de engine en tekent een eigen vizier. Daarvoor heeft `watch` een optie `lite` gekregen (compacte frames van ongeveer 200 bytes in plaats van het volledige sample van enkele kilobytes, 60 Hz). Een engine zonder die optie weigert hem (`bad_request`); de app valt dan terug op de volledige frames, zodat de app ook vóór een herstart van de engine werkt. De aim is die van het sample (geklemd, 0..1), niet de uitvoer van de gun: die bestaat alleen als de uitvoer gewapend is.
+- Bevestiging: een schot kiest een tegel, een tweede schot op dezelfde tegel binnen 3 s of 1 s de trekker vasthouden start hem. Eén schot zou te makkelijk per ongeluk een game starten (de Move ligt vaak in de hand terwijl je praat); twee schoten passen bij een lightgun en vasthouden is voor wie liever niet twee keer schiet. Een mis wist de keuze; het vizier van de tegel halen breekt het vasthouden af. Muisklik en Enter starten meteen (bewuste handelingen).
+- Tijdens de game verbergt het venster zich (zo komt de game onder gamescope in beeld) en stopt de aim-stroom en de gamepadlezer; het komt terug bij `idle` of `failed`. Een trekker die nog ingedrukt is na de game telt pas na loslaten.
+- Gamepads: Qt 6 heeft geen gamepadmodule meer en SDL zit niet in de bouwcontainer. De app leest gamepads daarom zelf via evdev, alleen-lezen en zonder `EVIOCGRAB` (een uitzondering op "de app opent geen hardware", die voor de Move en de camera blijft gelden). De eigen virtuele apparaten en de Move worden overgeslagen; de Navigation Controller en de virtuele pad van Steam werken. Met Steam Input als toetsenbord komen pijltjes en Enter gewoon als toetsen binnen.
+- OLED: puur zwart, gedempte tekst en lijnen, geen gevulde lichte vlakken; dimmen en langzaam bewegen na 45 s, alleen een klein bewegend tekstje na 5 minuten. Onder gamescope kiest de app Xwayland (`xcb`), tenzij `QT_QPA_PLATFORM` gezet is: de Wayland-socket van gamescope heeft niet alle protocollen die Qt gebruikt. Nog niet onder gamescope zelf geprobeerd.
+
+## 2026-10-10 — Eerste-gebruik-wizard: rechten met één pkexec en een vast script
+
+Aanleiding: A6. De rechten (udev-regels, Bluetooth-hulp met sudoers-regel) vragen root; de gebruiker moet dat met één prompt kunnen doen.
+
+Gekozen:
+- Eén nieuw script, `scripts/install-permissions.sh --apply`, dat de twee bestaande installatiescripts uitvoert. De app start het met `pkexec <absoluut pad> --apply`: een vast programma met vaste argumenten via `QProcess` (geen shell, geen tekst van de gebruiker). De gebruiker voor de sudoers-regel komt uit `PKEXEC_UID` (door pkexec gezet), niet uit een argument. Controle zonder root met `--check` (de `--check` van beide scripts); is alles in orde, dan is de stap over te slaan.
+- Kanttekening: het script ligt in de repo van de gebruiker, dus een programma met de rechten van de gebruiker zou het kunnen aanpassen vóór de gebruiker zijn wachtwoord geeft. Dat geeft geen extra rechten (de gebruiker geeft zelf beheerdersrechten voor wat er dan staat), maar voor de verpakking (A9) horen de installatiescripts op een plek die alleen root kan wijzigen, met een eigen polkit-actie.
+- De wizard verschijnt alleen in Desktop Mode, bij de eerste start of via Tools > Setup Wizard; afbreken telt ook als "gedaan", zodat hij niet blijft terugkomen. Hij voert niets uit zonder klik.
+
+## 2026-10-10 — Steam-integratie: eigen binaire VDF en een vaste shortcut-id
+
+Aanleiding: A8, RavenGun als niet-Steam-game in de bibliotheek, zodat het in Game Mode te starten is.
+
+Gekozen:
+- Eigen lezer en schrijver voor binaire VDF (`core/SteamShortcuts.*`, geen code van derden). Alle waarden worden als ruwe bytes bewaard, zodat andere items na het schrijven byte voor byte gelijk zijn (getest op een synthetisch voorbeeld en op een kopie van een echte `shortcuts.vdf` met 29 items). Een bestand met een onbekend type wordt niet aangeraakt.
+- Het eigen item wordt herkend aan de naam "RavenGun" of hetzelfde programma en bijgewerkt (geen dubbel item); keuzes die de gebruiker in Steam maakte (bijvoorbeeld de controllerinstelling) blijven staan. Altijd eerst een back-up met tijdstempel; schrijven via `QSaveFile` na een controle dat het resultaat weer te lezen is.
+- appid: `crc32("\"<exe>\"" + "RavenGun") | 0x80000000`, de formule van de bekende hulpprogramma's, en in het item geschreven. Nieuwere Steam-versies kiezen zelf een willekeurig appid voor nieuwe items, maar gebruiken een opgeslagen appid; de grid-afbeeldingen heten naar dezelfde waarde, dus die horen er zeker bij.
+- Steam overschrijft het bestand bij het afsluiten. Daarom alleen schrijven als er geen proces `steam` is; de app vraagt de gebruiker Steam te sluiten en doet dat alleen na bevestiging, netjes met `steam -shutdown`. `--add-to-steam` (zonder vragen) weigert als Steam draait. `$RAVENGUN_STEAM_ROOT` laat alles op een kopie draaien (dan zonder die controle).
+- De afbeeldingen (staand, liggend, hero, logo, icoon) worden getekend: zwart met een rood vizier, passend bij de fullscreen-modus.

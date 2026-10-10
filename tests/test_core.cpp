@@ -445,6 +445,12 @@ static void test_protocol() {
     CHECK(as_req(r) && as_req(r)->cmd == ipc::Cmd::Status && as_req(r)->id_json == "7");
     r = ipc::parse_request(R"({"v":1,"cmd":"watch","rate_hz":60,"full_ids":true,"id":"abc"})");
     CHECK(as_req(r) && as_req(r)->rate_hz == 60 && as_req(r)->full_ids && as_req(r)->id_json == "\"abc\"");
+    CHECK(as_req(r) && !as_req(r)->lite);
+    r = ipc::parse_request(R"({"v":1,"cmd":"watch","rate_hz":60,"lite":true})");
+    CHECK(as_req(r) && as_req(r)->lite);
+    CHECK(as_req(r) && ipc::make_request(*as_req(r)).find("\"lite\":true") != std::string::npos);
+    r = ipc::parse_request(R"({"v":1,"cmd":"watch","lite":"ja"})");
+    CHECK(as_err(r) && as_err(r)->code == "invalid_argument");
     r = ipc::parse_request(R"({"v":1,"cmd":"set_filter","enabled":false})");
     CHECK(as_req(r) && as_req(r)->filter_enabled && !*as_req(r)->filter_enabled);
     r = ipc::parse_request(R"({"v":1,"cmd":"set_aim","predict_ms":35})");

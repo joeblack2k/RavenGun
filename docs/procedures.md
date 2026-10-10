@@ -151,7 +151,7 @@ Eerste hulp: de game sluit af met "Gun not found" (zet `Bord/GeweerFoutenOnderdr
 
 ## Een game met de IO-brug starten (tp-shm) en de brug controleren
 
-De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp, hid-board). `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf; `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.
+De route per game staat in `packaging/io-routes.json` (evdev, tp-shm, unity-tcp, hid-board, jvs); een keuze in de app (Properties > General > Input route) staat in `~/.config/ravengun/io-routes.json` en gaat voor. `scripts/play-halo.sh --profile PROFIEL` kiest die route zelf (`scripts/io-route.py PROFIEL route` laat zien welke); `--route R` overschrijft hem voor een start. De app (Games-lijst) start hetzelfde script.
 
 - Starten met tp-shm: `scripts/play-halo.sh --profile TC5` (of `--route tp-shm` voor een game waarvan de standaard evdev is, bv. `--profile Terminator --route tp-shm`). Het script start de brug (`ravengunctl iobridge start PROFIEL --route tp-shm`), maakt `/dev/shm/ravengun_JvsState` en laat `scripts/tp-shm-swap.sh` in de unit de helper van TeknoParrotUi vervangen. Log: `~/.local/state/ravengun/logs/tpshm-*.log` ("pipehelper.exe pid N vervangen" en "shm mirror active ... [created fresh]").
 - Controleren: `ravengunctl status` toont de regel "IO-brug" (route, game, dialect, indeling, laatst geschreven bytes 8..27, P1-aim en knoppen); `ravengunctl iobridge status` alleen die regel; `xxd /dev/shm/ravengun_JvsState` het bestand zelf. Testpunten houden: `ravengunctl test-pattern grid --dwell 20000` (een puntpatroon houdt zichzelf niet vast terwijl de Move live is). Knoppen: `output-button trigger|reload|grenade|aux1|aux2 down|up`, munt `key 5`, start `key 1`.
@@ -193,3 +193,33 @@ Doel: een Raw Thrills-game zonder Wine en zonder BudgieLoader starten, in een bu
 4. Halo en de kastschakelaars: de invoerhulp `build/librg_rt_input.so` (cmake bouwt hem; of `gcc -shared -fPIC -O2 -o build/librg_rt_input.so tools/rt-input-shim/rg_rt_input.c -lpthread`) staat in `native-games.json` als preload van Halo. Hij leest `/dev/shm/TeknoParrot_JvsState`: start de IO-brug met `ravengunctl iobridge start Halo --route tp-shm` (of zet in een test de bits zelf met `RG_RT_SHM=/pad`, `--bind-ro`, en een bestand van 64 bytes waarin je op offset 8 een 32-bit getal schrijft: bit 6 = start, bit 0 = test, bit 1 = service, bit 2 = munt 1). De FileTest van Halo duurt op de NAS ongeveer 25 minuten; START slaat hem over.
 5. Op de tv (alleen als er geen andere game draait): `scripts/play-halo.sh --profile Halo --native`. Een profiel dat in `native-games.json` op `enabled` staat, gaat vanzelf native; nu staat er geen. Stoppen: `scripts/play-halo.sh --stop` (of `scripts/play-native.sh --stop`).
 6. Een nieuwe game toevoegen: een object in `native-games.json` (mounts, libs, exe, cwd, args, res); eerst `--headless --seconds 30 --strace` om te zien welke bibliotheken ontbreken (`ld.so --list` van `/usr/lib32/ld-linux.so.2` met `LD_LIBRARY_PATH` op lib32 geeft de ontbrekende).
+
+## RavenGun aan Steam toevoegen en controleren (A8; ongeveer 5 minuten, in Desktop Mode)
+
+Steam leest en overschrijft `~/.local/share/Steam/userdata/<id>/config/shortcuts.vdf` zelf: Steam moet dicht zijn terwijl RavenGun wordt toegevoegd. De app voegt alleen toe of werkt het eigen item bij ("RavenGun", zelfde naam of zelfde programma); alle andere items blijven byte voor byte gelijk, en er komt eerst een back-up `shortcuts.vdf.ravengun-bak-JJJJMMDD-HHMMSS`.
+
+1. Eerst op een kopie (verandert niets aan Steam):
+
+       S=/tmp/rg-steamcopy; ID=$(ls ~/.local/share/Steam/userdata | grep -vx 0 | head -1)
+       mkdir -p $S/userdata/$ID/config $S/config
+       cp ~/.local/share/Steam/userdata/$ID/config/shortcuts.vdf $S/userdata/$ID/config/
+       cp ~/.local/share/Steam/config/loginusers.vdf $S/config/
+       RAVENGUN_STEAM_ROOT=$S QT_QPA_PLATFORM=offscreen build-app/ravengun --add-to-steam
+       RAVENGUN_STEAM_ROOT=$S QT_QPA_PLATFORM=offscreen build-app/ravengun --list-steam-shortcuts
+
+   Verwacht: "RavenGun was added ...", in de lijst alle oude items plus `RavenGun ... options --fullscreen`, en in `$S/userdata/$ID/config/grid/` vijf PNG's (`<id>p.png`, `<id>.png`, `<id>_hero.png`, `<id>_logo.png`, `<id>_icon.png`). Met `RAVENGUN_STEAM_ROOT` geldt de controle "Steam draait" niet. De byte-voor-byte-test op zo'n kopie: `RAVENGUN_TEST_SHORTCUTS_VDF=$S/userdata/$ID/config/shortcuts.vdf build-app/ravengun_app_tests vdfRoundTripRealCopy` (op een kopie van vóór de toevoeging).
+2. Echt: Steam afsluiten (Steam > Exit; controle: `pgrep -x steam` geeft niets), dan `build-app/ravengun --add-to-steam` (weigert met exitcode 3 zolang Steam draait), of in de app Tools > Add to Steam (vraagt om Steam te sluiten en doet dat alleen na bevestiging, met `steam -shutdown`). Daarna `build-app/ravengun --list-steam-shortcuts`.
+3. Steam weer starten: RavenGun staat in de bibliotheek (Niet-Steam), met de rode vizier-afbeeldingen. Starten opent de fullscreen-modus. In Game Mode (na een herstart naar Game Mode) hetzelfde controleren: zwarte achtergrond, iconen, vizier volgt de Move, tweede schot start een game, na de game komt het menu terug.
+4. Terugdraaien: Steam dicht, de back-up terugzetten (`cp shortcuts.vdf.ravengun-bak-... shortcuts.vdf`), of RavenGun in Steam zelf verwijderen. De grid-afbeeldingen mogen blijven staan.
+
+## De eerste-gebruik-wizard en de rechten (A6)
+
+De wizard verschijnt bij de eerste start van de app in Desktop Mode (niet in Game Mode, niet bij `--fullscreen`) en staat in Tools > Setup Wizard (`build-app/ravengun --setup-wizard`). "Do not show this wizard at start again" staat in `~/.config/ravengun/ravengun-app.conf` (`wizard/done`).
+
+- Rechten: de knop "Install" start `pkexec <repo>/scripts/install-permissions.sh --apply` (één beheerdersprompt). Dat script doet `scripts/udev-ravengun.sh --apply` en `scripts/install-bt-helper.sh --apply` voor de gebruiker uit `PKEXEC_UID`. Controle zonder root: `scripts/install-permissions.sh --check` (exit 0 = alles actueel). Met de hand kan het ook: `sudo scripts/install-permissions.sh --apply`.
+- Engine-service: "Install and Start" is `scripts/install-service.sh --apply` (geen root).
+- Voor tests: `RAVENGUN_PKEXEC=<nep-programma>` vervangt pkexec, `RAVENGUN_SYSTEMCTL=/bin/false` systemctl.
+
+## De fullscreen-modus proberen (A7)
+
+`build-app/ravengun --fullscreen` (of View > Big Picture Mode, F11). Bediening: met de Move richten (het vizier komt uit de engine, speler 1), een game raken kiest hem ("Shoot again to start"), een tweede schot binnen 3 s of 1 s de trekker vasthouden start hem; PS centreert. Pijltjes/Enter/Escape en een gamepad (D-pad, A, B) werken ook; Escape vraagt "Exit RavenGun?". Tijdens de game verbergt het venster zich; het komt terug als de game stopt. Na 45 s zonder invoer dimt alles en beweegt de inhoud langzaam, na 5 minuten blijft alleen een klein bewegend tekstje. Onder gamescope kiest de app zelf Xwayland (xcb), tenzij `QT_QPA_PLATFORM` gezet is.

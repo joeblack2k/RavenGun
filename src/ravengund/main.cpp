@@ -517,6 +517,8 @@ int main(int argc, char** argv) {
         if (!e2.empty()) logf("waarschuwing", "IO-brug: %s (geen tp-shm-indelingen)", e2.c_str());
         size_t sl = sock.rfind('/');
         if (sl != std::string::npos) io_cfg.state_path = sock.substr(0, sl) + "/iobridge.json";
+        // Routekeuze van de gebruiker (de app): ~/.config/ravengun/io-routes.json, bij elke start opnieuw gelezen.
+        if (use_config) io_cfg.user_routes_path = ravengun::iobridge::default_user_io_routes_path();
         if (sl != std::string::npos) io_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";
         io_cfg.tpui_procs = games_cfg.tpui_procs;
     }

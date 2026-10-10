@@ -110,7 +110,12 @@ QString set(const QString& text, const QString& key, const QString& value, QChar
     QStringList lines = splitLines(text, &eol);
     for (QString& l : lines) {
         if (keyLine(l.trimmed(), key, sep, nullptr)) {
-            l = key + sep + value;
+            // Opmaak bewaren: alles tot en met het scheidingsteken en de witruimte erna blijft staan ("Key: waarde").
+            int at = static_cast<int>(l.indexOf(sep));
+            if (sep == QLatin1Char(' ') || sep == QLatin1Char('\t')) at = static_cast<int>(l.indexOf(sep, l.indexOf(key, 0, Qt::CaseInsensitive) + key.size()));
+            int v = at + 1;
+            while (v < l.size() && (l[v] == QLatin1Char(' ') || l[v] == QLatin1Char('\t'))) ++v;
+            l = l.left(v) + value;
             return lines.join(eol);
         }
     }

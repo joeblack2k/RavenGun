@@ -17,15 +17,29 @@
 namespace rg {
 
 void SystemControl::run(const QString& program, const QStringList& args, QObject* context, Done done, int timeoutMs) {
-    auto* p = new QProcess(context);
+    // Het proces is geen kind van `context`: anders roept ~QProcess (tijdens het afbreken van een venster) de callback nog aan
+    // terwijl de widgets van dat venster al weg zijn. Verdwijnt de context, dan stopt het proces zonder callback.
+    auto* p = new QProcess;
     p->setProcessChannelMode(QProcess::MergedChannels);
-    QPointer<QObject> ctx(context);
+    auto alive = std::make_shared<bool>(true);
     auto finished = std::make_shared<bool>(false);
-    auto finish = [p, done, ctx, finished](int code) {
+    if (context) {
+        QObject::connect(context, &QObject::destroyed, p, [p, alive, finished] {
+            *alive = false;
+            *finished = true;
+            QObject::disconnect(p, nullptr, nullptr, nullptr);
+            if (p->state() != QProcess::NotRunning) {
+                p->kill();
+                p->waitForFinished(1000);
+            }
+            p->deleteLater();
+        });
+    }
+    auto finish = [p, done, alive, finished](int code) {
         if (*finished) return;
         *finished = true;
         const QString out = QString::fromUtf8(p->readAll());
-        if (ctx && done) done(code, out);
+        if (*alive && done) done(code, out);
         p->deleteLater();
     };
     QObject::connect(p, &QProcess::finished, p, [finish](int code, QProcess::ExitStatus st) { finish(st == QProcess::NormalExit ? code : -1); });

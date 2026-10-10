@@ -69,6 +69,12 @@ QString groupOf(const rg::GameOption& o) {
     if (!o.category.isEmpty()) return o.category;
     if (o.target.kind == rg::OptionTarget::Kind::TpField && !o.target.category.isEmpty()) return o.target.category;
     if (o.target.kind == rg::OptionTarget::Kind::Env || o.target.kind == rg::OptionTarget::Kind::TpTag) return QObject::tr("Launch");
+    // Opties in een configuratiebestand van de game: gegroepeerd per bestand.
+    if (!o.target.file.isEmpty() && o.target.kind != rg::OptionTarget::Kind::TpField) {
+        const QString name = QFileInfo(o.target.file).fileName();
+        if (!name.isEmpty() && name.compare(QStringLiteral("teknoparrot.ini"), Qt::CaseInsensitive) != 0)
+            return QObject::tr("Game file: %1").arg(name);
+    }
     const int dot = o.key.indexOf(QLatin1Char('.'));
     if (dot > 0) {
         QString g = o.key.left(dot);
@@ -217,11 +223,48 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     auto* rf = new QFormLayout(route);
     const QString prof = ctx_.profile;
     const rg::RouteInfo ri = core_->gameData()->route(prof);
-    rf->addRow(tr("Route:"), new QLabel(rg::GameData::routeLabel(ri.route) + (ri.explicitRoute ? QString() : tr(" (default)"))));
-    if (!ri.layout.isEmpty()) rf->addRow(tr("I/O layout:"), new QLabel(ri.layout));
-    if (!ri.board.isEmpty()) rf->addRow(tr("Gun board:"), new QLabel(ri.board));
-    rf->addRow(hintLabel(tr("The route is chosen per game in packaging/io-routes.json and used by the engine when the game "
-                            "starts.")));
+    // Keuze per game: de aanbevolen route (packaging/io-routes.json) of een andere die voor deze game kan; bewaard in
+    // ~/.config/ravengun/io-routes.json, dat de engine en play-halo.sh bij de volgende start lezen.
+    route_combo_ = new QComboBox;
+    const QStringList routes = core_->gameData()->availableRoutes(prof);
+    for (const QString& r : routes) {
+        QString label = rg::GameData::routeLabel(r);
+        if (r == ri.baseRoute) label += tr(" - recommended");
+        route_combo_->addItem(label, r);
+        route_combo_->setItemData(route_combo_->count() - 1, rg::GameData::routeDescription(r), Qt::ToolTipRole);
+    }
+    route_combo_->setCurrentIndex(std::max(0, route_combo_->findData(ri.route)));
+    route_combo_->setEnabled(!prof.isEmpty() && routes.size() > 1 && game_.hasProfile());
+    rf->addRow(tr("Route:"), route_combo_);
+    auto* routeInfo = new QLabel;
+    routeInfo->setWordWrap(true);
+    rf->addRow(QString(), routeInfo);
+    auto showRoute = [this, routeInfo, prof] {
+        const QString r = route_combo_->currentData().toString();
+        const rg::RouteInfo cur = core_->gameData()->route(prof);
+        QStringList lines{rg::GameData::routeDescription(r)};
+        if (r == QStringLiteral("tp-shm") && !cur.layout.isEmpty()) lines << tr("I/O layout: %1").arg(cur.layout);
+        if ((r == QStringLiteral("hid-board") || r == QStringLiteral("jvs")) && !cur.board.isEmpty()) lines << tr("Gun board: %1").arg(cur.board);
+        if (cur.userChoice) lines << tr("Your choice (the recommended route is: %1).").arg(rg::GameData::routeLabel(cur.baseRoute));
+        routeInfo->setText(lines.join(QLatin1Char('\n')));
+    };
+    showRoute();
+    connect(route_combo_, &QComboBox::activated, this, [this, prof, showRoute, routeInfo](int) {
+        QString err;
+        const QString r = route_combo_->currentData().toString();
+        if (!core_->gameData()->setUserRoute(prof, r, &err)) {
+            QMessageBox::warning(this, tr("Input route"), tr("Could not save the input route: %1").arg(err));
+            route_combo_->setCurrentIndex(std::max(0, route_combo_->findData(core_->gameData()->route(prof).route)));
+        }
+        showRoute();
+        core_->gameListModel()->reload();
+        if (core_->launcher()->canStop() && core_->launcher()->runningProfile() == prof)
+            routeInfo->setText(routeInfo->text() + QLatin1Char('\n') + tr("The game is running: the new route applies from the next start."));
+    });
+    QString routeHint = tr("Saved at once; the engine uses it the next time the game starts.");
+    if (!core_->gameData()->userRoutesError().isEmpty()) routeHint += QLatin1Char('\n') + core_->gameData()->userRoutesError();
+    if (routes.size() <= 1) routeHint = tr("This game has only one input route.");
+    rf->addRow(hintLabel(routeHint));
     v->addWidget(route);
 
     auto* notes = new QGroupBox(tr("Notes"));
@@ -268,8 +311,11 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
             const bool tpField = o.target.kind == rg::OptionTarget::Kind::TpField;
             if (tpField) coveredFields << o.target.category + QLatin1Char('/') + o.target.field;
             // Resolutie/venster en gamescope staan onder Display; de invoer-API regelt de app zelf.
-            if (tpField && (displayFieldRe().match(o.target.field).hasMatch() || managedField(o.target.field))) continue;
-            if (o.target.kind == rg::OptionTarget::Kind::Env && o.target.field == QStringLiteral("TP_GAMESCOPE")) continue;
+            if ((tpField && (displayFieldRe().match(o.target.field).hasMatch() || managedField(o.target.field))) ||
+                (o.target.kind == rg::OptionTarget::Kind::Env && o.target.field == QStringLiteral("TP_GAMESCOPE"))) {
+                ++options_elsewhere_;
+                continue;
+            }
             const QString cat = groupOf(o);
             if (!groups.contains(cat)) {
                 auto* box = new QGroupBox(cat);
@@ -286,7 +332,7 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
             QWidget* widget = nullptr;
             if (o.type == QStringLiteral("bool")) {
                 auto* c = new QCheckBox;
-                c->setChecked(value == o.trueValue || isTrue(value));
+                c->setChecked(value.compare(o.trueValue, Qt::CaseInsensitive) == 0 || isTrue(value));
                 widget = c;
             } else if (o.type == QStringLiteral("enum")) {
                 auto* c = new QComboBox;
@@ -325,6 +371,7 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
             }
             form->addRow(o.name + QLatin1Char(':'), field);
             rows->append({o, widget, value});
+            ++options_shown_;
         }
     }
 

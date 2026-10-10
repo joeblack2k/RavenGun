@@ -423,6 +423,26 @@ void test_routes() {
     CHECK(err.empty());
     IoRoutes d = parse_io_routes(R"({"default":"tp-shm","games":{}})", err);
     CHECK(d.route_for("x") == "tp-shm");
+
+    // Gebruikersbestand (~/.config/ravengun/io-routes.json) over de basis: alleen de genoemde velden veranderen.
+    IoRoutes o = r;
+    CHECK(apply_io_routes_override(o, "", err) && err.empty() && o.route_for("TC5") == "tp-shm");   // leeg = niets
+    CHECK(apply_io_routes_override(o, R"({"schema":1,"games":{"TC5":{"route":"evdev"},"Halo":{"route":"tp-shm"}}})", err));
+    CHECK(err.empty() && o.route_for("TC5") == "evdev" && o.route_for("Halo") == "tp-shm");
+    CHECK(o.find("TC5")->layout == "TimeCrisis5" && o.find("TC5")->coin_keys.size() == 2);   // de rest blijft uit de basis
+    CHECK(o.find("Halo")->layout == "WartranTroopers");
+    CHECK(r.route_for("TC5") == "tp-shm");                                                      // de basis zelf is ongewijzigd
+    IoRoutes o2 = r;
+    CHECK(apply_io_routes_override(o2, R"({"games":{"NieuweGame":{"route":"evdev"}}})", err) && o2.route_for("NieuweGame") == "evdev");
+    // Ongeldig: hele bestand genegeerd, de basis blijft.
+    IoRoutes o3 = r;
+    CHECK(!apply_io_routes_override(o3, R"({"games":{"TC5":{"route":"bluetooth"}}})", err) && !err.empty());
+    CHECK(o3.route_for("TC5") == "tp-shm");
+    CHECK(!apply_io_routes_override(o3, R"({"games":{"TC5":{"route":"evdev"},"Nieuw":{"route":"hid-board"}}})", err));
+    CHECK(o3.route_for("TC5") == "tp-shm");                                                     // niets half toegepast
+    CHECK(!apply_io_routes_override(o3, "kapot", err) && o3.route_for("TC5") == "tp-shm");
+    CHECK(!apply_io_routes_override(o3, R"({"games":[1]})", err));
+    CHECK(apply_io_routes_override(o3, R"({"default":"tp-shm"})", err) && o3.route_for("Onbekend") == "tp-shm");
 }
 
 // Dialect op een echt bestand: aanmaken, schrijven, neutraal, sluiten; overname van TeknoParrotUi's vlag-bytes.
@@ -486,6 +506,40 @@ bool wait_for(const std::function<bool()>& f, int ms = 3000) {
 }
 
 // De brug in de daemon: uitvoer (nep-guns) -> toestand -> bestand; routekeuze; herstart neemt het bestand over.
+// De brug leest het gebruikersbestand bij elke vraag opnieuw: een keuze in de app geldt zonder herstart van de daemon.
+void test_user_routes(const std::string& dir) {
+    SharedState sh;
+    IoBridgeService::Config cfg;
+    std::string err;
+    cfg.routes = parse_io_routes(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/io-routes.json"), err);
+    cfg.profiles = load_profiles();
+    cfg.shm_path = dir + "/ur-shm";
+    cfg.tpui_shm_path = dir + "/ur-geen-tpui";
+    cfg.user_routes_path = dir + "/user-io-routes.json";
+    auto put = [&](const std::string& text) {
+        std::FILE* f = std::fopen(cfg.user_routes_path.c_str(), "wb");
+        if (f) { std::fwrite(text.data(), 1, text.size(), f); std::fclose(f); }
+    };
+    fs::remove(cfg.user_routes_path);
+    IoBridgeService br(sh, cfg);
+    CHECK(br.route_for("TC5") == "tp-shm");                       // bestand ontbreekt: de basis
+    put(R"({"games":{"TC5":{"route":"evdev"}}})");
+    CHECK(br.route_for("TC5") == "evdev");                        // meteen, zonder herstart
+    CHECK(br.start("TC5").empty() && !br.active());               // evdev: geen brug
+    auto js = json::parse(br.status_json());
+    CHECK(js.ok && js.value.find("routes")->find("TC5")->str == "evdev" && !js.value.find("user_routes_error"));
+    put(R"({"games":{"Halo":{"route":"tp-shm"}}})");
+    CHECK(br.start("Halo").empty() && br.active() && br.active_route() == "tp-shm");   // layout uit de basis
+    br.stop();
+    put(R"({"games":{"TC5":{"route":"onzin"}}})");
+    CHECK(br.route_for("TC5") == "tp-shm");                       // ongeldig: genegeerd
+    js = json::parse(br.status_json());
+    CHECK(js.ok && js.value.find("user_routes_error") != nullptr);
+    fs::remove(cfg.user_routes_path);
+    CHECK(br.route_for("TC5") == "tp-shm");
+    br.shutdown();
+}
+
 void test_service(const std::string& dir) {
     SharedState sh;
     fs::create_directories(dir + "/svc");
@@ -519,6 +573,7 @@ void test_service(const std::string& dir) {
         IoBridgeService br(sh, cfg);
         sh.iobridge = &br;
         CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("Halo") == "evdev");
+        // Zonder gebruikersbestand-pad: alleen de basis (de pad-test volgt onderaan in test_user_routes).
         CHECK(!br.active());
         // Route evdev: niets te doen. Onbekende override: fout. tp-shm zonder layout: fout.
         CHECK(br.start("Halo").empty() && !br.active());
@@ -710,6 +765,7 @@ int main() {
     test_routes();
     test_dialect_file(dir);
     test_service(dir);
+    test_user_routes(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

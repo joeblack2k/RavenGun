@@ -31,7 +31,10 @@ namespace ravengund {
 class IoBridgeService {
 public:
     struct Config {
-        ravengun::iobridge::IoRoutes routes;
+        ravengun::iobridge::IoRoutes routes;   // uit packaging/io-routes.json (de basis)
+        // Keuze van de gebruiker (~/.config/ravengun/io-routes.json, zie routes.hpp): bij elke start en route-vraag opnieuw
+        // gelezen en over `routes` gelegd, dus zonder herstart van de daemon. Leeg = alleen de basis.
+        std::string user_routes_path;
         ravengun::iobridge::TpShmProfiles profiles;
         ravengun::iobridge::HidBoards boards;
         ravengun::iobridge::JvsBoards jvs_boards;
@@ -65,7 +68,9 @@ public:
     void stop();
     bool active() const;
     std::string active_route() const;
-    std::string route_for(const std::string& game) const { return cfg_.routes.route_for(game); }
+    std::string route_for(const std::string& game) const { return effective_routes().route_for(game); }
+    // De basis plus het gebruikersbestand (opnieuw gelezen); een onleesbaar of ongeldig gebruikersbestand wordt gemeld en genegeerd.
+    ravengun::iobridge::IoRoutes effective_routes() const;
     std::string status_json() const;
     // Na een herstart van de daemon: pakt een eerdere tp-shm-route weer op als de game nog draait.
     bool resume();
@@ -82,13 +87,15 @@ public:
 
 private:
     void main_loop();
-    std::string start_hid_board(const std::string& game);
-    std::string start_jvs(const std::string& game);
+    std::string start_hid_board(const std::string& game, const ravengun::iobridge::IoRoute* r);
+    std::string start_jvs(const std::string& game, const ravengun::iobridge::IoRoute* r);
     void apply_coin_keys(const ravengun::iobridge::IoState& s);
     void write_state_file(const std::string& route, const std::string& game);
     void stop_locked();
     SharedState& sh_;
     Config cfg_;
+    mutable std::mutex routes_m_;
+    mutable std::string routes_err_;                    // laatste fout in het gebruikersbestand (één keer gelogd)
     mutable std::mutex m_;
     std::condition_variable cv_;
     std::unique_ptr<ravengun::iobridge::IoDialect> dialect_;

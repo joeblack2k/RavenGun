@@ -57,6 +57,9 @@ void MenuBar::AddToolsMenu() {
     m->addSeparator();
     m->addAction(tr("&Set Up Game..."), this, &MenuBar::CreateProfile);
     m->addSeparator();
+    m->addAction(tr("Setup &Wizard..."), this, &MenuBar::SetupWizard);
+    m->addAction(tr("Add to &Steam..."), this, &MenuBar::AddToSteam);
+    m->addSeparator();
     m->addAction(Resources::GetThemeIcon("folder"), tr("Open C&onfiguration Folder"), this, &MenuBar::OpenConfigFolder);
     m->addSeparator();
     m->addAction(tr("Show &Log..."), this, &MenuBar::ShowLog);
@@ -68,6 +71,7 @@ void MenuBar::AddViewMenu() {
     m_show_toolbar->setCheckable(true);
     m_show_toolbar->setChecked(true);
     connect(m_show_toolbar, &QAction::toggled, this, &MenuBar::ToggleToolBar);
+    view_menu->addAction(Resources::GetThemeIcon("fullscreen"), tr("&Big Picture Mode"), QKeySequence(Qt::Key_F11), this, &MenuBar::BigPicture);
     view_menu->addSeparator();
     AddGameListTypeSection(view_menu);
     view_menu->addSeparator();

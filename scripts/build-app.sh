@@ -28,13 +28,13 @@ fi
 mkdir -p "$BUILD"
 
 TARGETS="ravengun_app"
-[[ $TEST -eq 1 ]] && TARGETS="ravengun_app ravengun_app_tests"
+[[ $TEST -eq 1 ]] && TARGETS="ravengun_app ravengun_app_tests ravengun_app_widget_tests"
 # Alleen de repo wordt (op hetzelfde pad) gemount; geen netwerk nodig, de image blijft ongewijzigd.
 podman run --rm --network=none --userns=keep-id -v "$ROOT:$ROOT" -w "$ROOT" -e HOME=/tmp "$IMAGE" sh -c "
   set -e
   cmake -S '$ROOT' -B '$BUILD' -G Ninja -DCMAKE_BUILD_TYPE=Release -DRAVENGUN_BUILD_DAEMON=OFF -DRAVENGUN_BUILD_CAMPROBE=OFF >/dev/null
   cmake --build '$BUILD' --target $TARGETS -- -k 0
-  if [ $TEST -eq 1 ]; then QT_QPA_PLATFORM=offscreen '$BUILD/ravengun_app_tests'; fi
+  if [ $TEST -eq 1 ]; then QT_QPA_PLATFORM=offscreen '$BUILD/ravengun_app_tests' && QT_QPA_PLATFORM=offscreen RAVENGUN_NO_GAMEPAD=1 '$BUILD/ravengun_app_widget_tests'; fi
 "
 echo "Gebouwd: $BUILD/ravengun"
 
@@ -48,4 +48,5 @@ ldd "$BUILD/ravengun" | grep -E 'libQt6(Core|Widgets)' || true
 if [[ $TEST -eq 1 ]]; then
   echo "App-tests op de host (systeem-Qt):"
   QT_QPA_PLATFORM=offscreen "$BUILD/ravengun_app_tests"
+  QT_QPA_PLATFORM=offscreen RAVENGUN_NO_GAMEPAD=1 "$BUILD/ravengun_app_widget_tests"
 fi

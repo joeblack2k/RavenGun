@@ -18,6 +18,7 @@ class SearchBar;
 class ToolBar;
 class ControllersWindow;
 class SettingsWindow;
+class BigPictureWindow;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -36,6 +37,8 @@ public:
 
     void Play();
     void Stop();
+    void ShowSetupWizard();
+    void ShowBigPicture();
 
 private:
     void CreateComponents();
@@ -66,6 +69,7 @@ private:
     QLabel* m_game_label = nullptr;
     QPointer<ControllersWindow> m_controllers_window;
     QPointer<SettingsWindow> m_settings_window;
+    QPointer<BigPictureWindow> m_big_picture;
     rg::GameEntry m_selected;
 };
 

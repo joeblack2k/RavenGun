@@ -18,6 +18,11 @@
 #include "core/MemoryCard.h"
 #include "core/TextConfig.h"
 #include "core/TpProfile.h"
+#include "core/BigPicture.h"
+#include "core/SetupChecks.h"
+#include "core/SteamShortcuts.h"
+
+#include <linux/input.h>
 
 using namespace rg;
 
@@ -66,6 +71,29 @@ private Q_SLOTS:
     void memoryCardList();
     void profileSyncFromLibrary();
     void runtimeCheck();
+    // A3: echte game-options.json, invoerroute van de gebruiker, notities
+    void realGameOptions();
+    void extraIniFormats();
+    void routeOverride();
+    void routeOverrideInvalid();
+    void notesEnglish();
+    // A7: fullscreen-logica
+    void bigPictureLayoutAndHit();
+    void bigPictureNavigate();
+    void shotConfirm();
+    void aimEvents();
+    void gamepadMapping();
+    void bigPictureGameFilter();
+    // A8: binaire VDF en Steam
+    void vdfRoundTripSample();
+    void vdfRoundTripRealCopy();
+    void vdfRejectsBroken();
+    void steamShortcutId();
+    void steamAddOrUpdate();
+    void steamNewFile();
+    void steamUsersAndRunning();
+    // A6: commando's van de wizard
+    void setupCommands();
 
 private:
     QTemporaryDir tmp_;
@@ -564,6 +592,624 @@ void AppCoreTest::runtimeCheck() {
     QString why;
     QVERIFY(!direct.available(&why));
     QVERIFY(!why.isEmpty());
+}
+
+// --- A3: echte game-options.json, invoerroute van de gebruiker, notities ------------------------------------------------
+
+namespace {
+QString repoFile(const QString& rel) { return QStringLiteral(RAVENGUN_SOURCE_DIR "/") + rel; }
+}  // namespace
+
+void AppCoreTest::realGameOptions() {
+    // Het echte bestand uit de repo: 37 games, 564 opties, 76 memory-card-items (de tellers in het bestand zelf).
+    GameOptionsDb db;
+    QString err;
+    QVERIFY2(db.load(repoFile(QStringLiteral("packaging/game-options.json")), &err), qPrintable(err));
+    const QJsonObject counts = QJsonDocument::fromJson([] {
+                                   QFile f(repoFile(QStringLiteral("packaging/game-options.json")));
+                                   if (!f.open(QIODevice::ReadOnly)) return QByteArray();
+                                   return f.readAll();
+                               }()).object().value(QStringLiteral("counts")).toObject();
+    QCOMPARE(db.entries().size(), counts.value(QStringLiteral("games")).toInt());
+    int options = 0, items = 0, editable = 0, readOnly = 0;
+    for (const GameOptionsEntry& e : db.entries()) {
+        options += static_cast<int>(e.options.size());
+        items += static_cast<int>(e.memoryCard.size());
+        for (const GameOption& o : e.options) {
+            QVERIFY2(!o.key.isEmpty() && !o.name.isEmpty(), qPrintable(e.id));
+            QVERIFY2(o.type == QStringLiteral("bool") || o.type == QStringLiteral("int") || o.type == QStringLiteral("enum") ||
+                         o.type == QStringLiteral("string"),
+                     qPrintable(e.id + QLatin1Char('/') + o.key));
+            if (o.target.kind == OptionTarget::Kind::Unsupported) {
+                QVERIFY2(!o.target.readOnlyReason.isEmpty(), qPrintable(e.id + QLatin1Char('/') + o.key));  // altijd met reden
+                ++readOnly;
+            } else {
+                ++editable;
+            }
+        }
+    }
+    QCOMPARE(options, counts.value(QStringLiteral("options")).toInt());
+    QCOMPARE(items, counts.value(QStringLiteral("memory_card_items")).toInt());
+    QVERIFY2(db.warnings().isEmpty(), qPrintable(db.warnings().join(QLatin1Char('\n'))));
+    QVERIFY(editable > 450);
+    qInfo("game-options.json: %d games, %d options (%d editable, %d read-only), %d memory-card items", static_cast<int>(db.entries().size()),
+          options, editable, readOnly, items);
+    // Steekproef: profielveld, element, env met companion, INI met woorden (ON/OFF).
+    const GameOptionsEntry* halo = db.find(QStringLiteral("Halo"));
+    QVERIFY(halo);
+    QCOMPARE(halo->options[0].target.kind, OptionTarget::Kind::TpField);
+    const GameOptionsEntry* tsr = db.find(QStringLiteral("TransformersShadowsRising"));
+    QVERIFY(tsr);
+    bool sawOnOff = false;
+    for (const GameOption& o : tsr->options)
+        if (o.key == QStringLiteral("gs.revival")) {
+            sawOnOff = true;
+            QCOMPARE(o.target.kind, OptionTarget::Kind::Ini);
+            QCOMPARE(o.trueValue, QStringLiteral("ON"));
+            QCOMPARE(o.defaultValue, QStringLiteral("ON"));
+        }
+    QVERIFY(sawOnOff);
+}
+
+void AppCoreTest::extraIniFormats() {
+    const QString dir = tmp_.filePath(QStringLiteral("formats"));
+    writeFile(dir + QStringLiteral("/MINIGUN.INI"), "REGION\tE\r\nLANG\tEN\r\n");
+    writeFile(dir + QStringLiteral("/op.conf"), "Language: EN\nVolume: 5\n");
+    writeFile(dir + QStringLiteral("/GameSettings.ini"), "[GameSettings]\nREVIVAL=ON\n");
+    const QByteArray json = R"({"games":{"X":{"tp_profile":"X","options":[
+      {"key":"r","type":"enum","values":["A","E"],"target":{"kind":"game_config_file","path":"MINIGUN.INI","format":"tab_ini","key":"REGION"}},
+      {"key":"l","type":"enum","values":["EN","FR"],"target":{"kind":"game_config_file","path":"op.conf","format":"colon","key":"Language"}},
+      {"key":"v","type":"bool","default":true,"target":{"kind":"game_config_file","path":"GameSettings.ini","format":"ini_onoff","section":"GameSettings","key":"REVIVAL"}},
+      {"key":"a","type":"int","target":{"kind":"game_config_file","path":"x.txt","format":"rtdt_adjval","key":"a"}}]}}})";
+    GameOptionsDb db;
+    QVERIFY(db.loadData(json));
+    const GameOptionsEntry* e = db.find(QStringLiteral("X"));
+    QVERIFY(e && e->options.size() == 4);
+    GameContext c;
+    c.profile = QStringLiteral("X");
+    c.rootDir = dir;
+    c.gameDir = dir;
+    QString err;
+    QCOMPARE(OptionStore::read(e->options[0], c), QStringLiteral("E"));
+    QVERIFY2(OptionStore::write(e->options[0], c, QStringLiteral("A"), &err), qPrintable(err));
+    QCOMPARE(readAll(dir + QStringLiteral("/MINIGUN.INI")), QStringLiteral("REGION\tA\r\nLANG\tEN\r\n"));  // tab en CRLF blijven
+    QCOMPARE(OptionStore::read(e->options[1], c), QStringLiteral("EN"));
+    QVERIFY(OptionStore::write(e->options[1], c, QStringLiteral("FR"), &err));
+    QCOMPARE(readAll(dir + QStringLiteral("/op.conf")), QStringLiteral("Language: FR\nVolume: 5\n"));      // spatie na ':' blijft
+    QCOMPARE(OptionStore::read(e->options[2], c), QStringLiteral("ON"));
+    QVERIFY(OptionStore::write(e->options[2], c, e->options[2].falseValue, &err));
+    QVERIFY(readAll(dir + QStringLiteral("/GameSettings.ini")).contains(QStringLiteral("REVIVAL=OFF")));
+    QString reason;
+    QVERIFY(!OptionStore::writable(e->options[3], c, &reason));
+    QVERIFY(reason.contains(QStringLiteral("test menu")) || reason.contains(QStringLiteral("rtdt_adjval")));
+}
+
+void AppCoreTest::routeOverride() {
+    const QString user = tmp_.filePath(QStringLiteral("routes/io-routes.json"));
+    GameData d;
+    d.setRouteSources(user, repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")),
+                      repoFile(QStringLiteral("packaging/aagames-games.json")));
+    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
+    QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
+    // Keuzes per game: de aanbevolen route eerst, alleen routes waarvoor er een indeling of bord is.
+    QCOMPARE(d.availableRoutes(QStringLiteral("TC5")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
+    QCOMPARE(d.availableRoutes(QStringLiteral("Halo")), (QStringList{QStringLiteral("evdev"), QStringLiteral("tp-shm")}));
+    QVERIFY(d.availableRoutes(QStringLiteral("TransformersShadowsRising")).contains(QStringLiteral("hid-board")));
+    QVERIFY(d.availableRoutes(QStringLiteral("LGS")).contains(QStringLiteral("jvs")));
+    QCOMPARE(d.availableRoutes(QStringLiteral("TombRaider")), QStringList{QStringLiteral("unity-tcp")});
+    QCOMPARE(d.availableRoutes(QStringLiteral("OnbekendeGame")), QStringList{QStringLiteral("evdev")});
+    // Kiezen: het gebruikersbestand ontstaat; de basis (packaging) verandert niet.
+    QString err;
+    QVERIFY2(d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("evdev"), &err), qPrintable(err));
+    QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
+    QVERIFY(d.route(QStringLiteral("TC5")).userChoice);
+    QCOMPARE(d.route(QStringLiteral("TC5")).layout, QStringLiteral("TimeCrisis5"));  // de rest uit de basis
+    QCOMPARE(d.route(QStringLiteral("TC5")).baseRoute, QStringLiteral("tp-shm"));
+    QJsonObject o = readJson(user).object();
+    QCOMPARE(o.value(QStringLiteral("games")).toObject().value(QStringLiteral("TC5")).toObject().value(QStringLiteral("route")).toString(),
+             QStringLiteral("evdev"));
+    QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("tp-shm"), &err));
+    // Een tweede GameData (een herstart van de app) leest dezelfde keuzes.
+    GameData d2;
+    d2.setRouteSources(user, {}, {}, {});
+    d2.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QCOMPARE(d2.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
+    QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("tp-shm"));
+    // Niet beschikbaar: geweigerd. Terug naar de aanbevolen route: de keuze verdwijnt uit het bestand.
+    QVERIFY(!d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("hid-board"), &err));
+    QVERIFY(!err.isEmpty());
+    QVERIFY(d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("tp-shm"), &err));
+    QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
+    QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
+    o = readJson(user).object();
+    QVERIFY(!o.value(QStringLiteral("games")).toObject().contains(QStringLiteral("TC5")));
+    QVERIFY(o.value(QStringLiteral("games")).toObject().contains(QStringLiteral("Halo")));
+    QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QString(), &err));
+    QVERIFY(readJson(user).object().value(QStringLiteral("games")).toObject().isEmpty());
+}
+
+void AppCoreTest::routeOverrideInvalid() {
+    // Zelfde regels als de engine: een ongeldig gebruikersbestand wordt helemaal genegeerd.
+    const QString user = tmp_.filePath(QStringLiteral("routes-bad/io-routes.json"));
+    writeFile(user, R"({"games":{"TC5":{"route":"evdev"},"Nieuw":{"route":"tp-shm"}}})");
+    GameData d;
+    d.setRouteSources(user, {}, {}, {});
+    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
+    QVERIFY(!d.userRoutesError().isEmpty());
+    writeFile(user, "kapot");
+    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
+    QVERIFY(!d.userRoutesError().isEmpty());
+    writeFile(user, R"({"games":{"NieuweGame":{"route":"evdev"}}})");
+    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QVERIFY(d.userRoutesError().isEmpty());
+    QCOMPARE(d.route(QStringLiteral("NieuweGame")).route, QStringLiteral("evdev"));
+}
+
+void AppCoreTest::notesEnglish() {
+    GameData d;
+    d.loadFrom({}, repoFile(QStringLiteral("packaging/games-notes.json")), {});
+    // De app toont Engels; de Nederlandse tekst blijft voor de webpagina en de engine ("games").
+    QVERIFY(d.note(QStringLiteral("TC5")).startsWith(QStringLiteral("Playable")));
+    QVERIFY(d.note(QStringLiteral("Halo")).startsWith(QStringLiteral("Fully working")));
+    QCOMPARE(d.playState(QStringLiteral("TC5")), QStringLiteral("playable"));
+    QCOMPARE(d.playState(QStringLiteral("JurassicPark")), QStringLiteral("parked"));
+    QCOMPARE(d.playState(QStringLiteral("GaiaAttack4")), QStringLiteral("untested"));
+    const QJsonObject root = readJson(repoFile(QStringLiteral("packaging/games-notes.json"))).object();
+    const QJsonObject nl = root.value(QStringLiteral("games")).toObject();
+    const QJsonObject en = root.value(QStringLiteral("games_en")).toObject();
+    QCOMPARE(nl.keys(), en.keys());  // elke notitie in beide talen
+    for (auto it = nl.begin(); it != nl.end(); ++it) QVERIFY(it->isString());  // formaat van de engine (parse_notes)
+    for (const QString& k : root.value(QStringLiteral("status")).toObject().keys()) QVERIFY(nl.contains(k));
+    // Zonder Engelse notitie: de Engelse status uit game-options.json gaat voor de Nederlandse tekst.
+    writeFile(tmp_.filePath(QStringLiteral("notes-nl.json")), R"({"games":{"TC5":"Nederlands"}})");
+    GameData d2;
+    d2.loadFrom({}, tmp_.filePath(QStringLiteral("notes-nl.json")), dataFile(QStringLiteral("game-options.json")));
+    QVERIFY(d2.note(QStringLiteral("TC5")) != QStringLiteral("Nederlands"));
+    GameData d3;
+    d3.loadFrom({}, tmp_.filePath(QStringLiteral("notes-nl.json")), {});
+    QCOMPARE(d3.note(QStringLiteral("TC5")), QStringLiteral("Nederlands"));
+}
+
+// --- A7: fullscreen-logica --------------------------------------------------------------------------------------------
+
+void AppCoreTest::bigPictureLayoutAndHit() {
+    using namespace bigpicture;
+    const QRectF area(96, 140, 1728, 712);
+    const Layout l = layout(area, 6, 300, 110);
+    QCOMPARE(l.tiles.size(), 6);
+    QVERIFY(l.tile >= 200);  // zes games: grote iconen
+    for (int i = 0; i < l.tiles.size(); ++i) {
+        QVERIFY2(area.contains(l.tiles[i]), qPrintable(QString::number(i)));
+        for (int j = i + 1; j < l.tiles.size(); ++j) QVERIFY(!l.tiles[i].intersects(l.tiles[j]));
+        QCOMPARE(hitTest(l.tiles, l.tiles[i].center()), i);  // vizier in het midden: die tegel
+    }
+    // Iets naast de rand (marge) telt nog mee; ver ernaast niet; de titel onder het icoon hoort erbij.
+    QCOMPARE(hitTest(l.tiles, l.tiles[0].topLeft() - QPointF(6, 6), 12), 0);
+    QCOMPARE(hitTest(l.tiles, QPointF(1, 1)), -1);
+    QCOMPARE(hitTest(l.tiles, QPointF(l.tiles[0].center().x(), l.tiles[0].bottom() + l.tiles[0].height() * 0.2)), 0);
+    // Veel games: kleinere tegels, alles nog in beeld; 37 games past op een 1080p-tv.
+    const Layout many = layout(area, 37, 300, 110);
+    QCOMPARE(many.tiles.size(), 37);
+    for (const QRectF& r : many.tiles) QVERIFY(!r.isNull() && area.contains(r));
+    // Te veel voor het scherm: rijen buiten beeld krijgen een lege rect, en scrollen schuift.
+    const Layout tooMany = layout(QRectF(0, 0, 800, 300), 40, 300, 110);
+    int hidden = 0;
+    for (const QRectF& r : tooMany.tiles) hidden += r.isNull() ? 1 : 0;
+    QVERIFY(hidden > 0);
+    QCOMPARE(hitTest(tooMany.tiles, QPointF(-50, -50)), -1);
+    // Geen games of geen ruimte: niets.
+    QVERIFY(layout(area, 0).tiles.isEmpty());
+    QVERIFY(layout(QRectF(), 3).tiles.isEmpty());
+}
+
+void AppCoreTest::bigPictureNavigate() {
+    using namespace bigpicture;
+    // 7 games in 3 kolommen: 0 1 2 / 3 4 5 / 6
+    QCOMPARE(navigate(0, Move::Right, 3, 7), 1);
+    QCOMPARE(navigate(0, Move::Left, 3, 7), 0);
+    QCOMPARE(navigate(1, Move::Down, 3, 7), 4);
+    QCOMPARE(navigate(4, Move::Down, 3, 7), 6);   // naar het laatste item in de onvolledige rij
+    QCOMPARE(navigate(6, Move::Down, 3, 7), 6);   // onderste rij: blijft (het venster gaat dan naar de knoppen)
+    QCOMPARE(navigate(6, Move::Up, 3, 7), 3);
+    QCOMPARE(navigate(6, Move::Right, 3, 7), 6);
+    QCOMPARE(navigate(-1, Move::Right, 3, 7), 0);
+    QCOMPARE(navigate(0, Move::Right, 3, 0), -1);
+    QCOMPARE(scrollRowFor(9, 3, 2, 0), 2);         // rij 3 zichtbaar maken bij 2 zichtbare rijen
+    QCOMPARE(scrollRowFor(0, 3, 2, 2), 0);
+    QCOMPARE(scrollRowFor(4, 3, 2, 1), 1);
+}
+
+void AppCoreTest::shotConfirm() {
+    using bigpicture::ShotConfirm;
+    ShotConfirm c;
+    // Eerste schot op tegel 2 kiest hem (armed), tweede schot binnen de tijd start hem.
+    auto r = c.update(2, true, 1000);
+    QCOMPARE(r.armed, 2);
+    QCOMPARE(r.launch, -1);
+    r = c.update(2, false, 1100);
+    QCOMPARE(r.launch, -1);
+    r = c.update(2, true, 1900);
+    QCOMPARE(r.launch, 2);
+    r = c.update(2, false, 2000);
+    QCOMPARE(r.armed, -1);
+    // Tweede schot op een andere tegel: die wordt gekozen, er start niets.
+    c.reset();
+    c.update(1, true, 0);
+    c.update(1, false, 50);
+    r = c.update(3, true, 400);
+    QCOMPARE(r.launch, -1);
+    QCOMPARE(r.armed, 3);
+    c.update(3, false, 450);
+    // Te laat (na kConfirmMs vanaf het loslaten): opnieuw kiezen.
+    r = c.update(3, true, 450 + ShotConfirm::kConfirmMs + 10);
+    QCOMPARE(r.launch, -1);
+    QCOMPARE(r.armed, 3);
+    c.update(3, false, 5000);
+    // Vasthouden: na kHoldMs start hij, met voortgang ertussen; maar één keer per druk.
+    c.reset();
+    c.update(0, true, 10000);
+    r = c.update(0, true, 10500);
+    QVERIFY(r.hold > 0.4 && r.hold < 0.6);
+    QCOMPARE(r.launch, -1);
+    r = c.update(0, true, 10000 + ShotConfirm::kHoldMs);
+    QCOMPARE(r.launch, 0);
+    r = c.update(0, true, 12000);
+    QCOMPARE(r.launch, -1);
+    c.update(0, false, 12100);
+    // Vizier verlaat de tegel tijdens het vasthouden: geen start.
+    c.reset();
+    c.update(4, true, 20000);
+    c.update(-1, true, 20300);
+    r = c.update(4, true, 21500);
+    QCOMPARE(r.launch, -1);
+    c.update(4, false, 21600);
+    // Mis (naast elke tegel): de keuze vervalt.
+    c.reset();
+    c.update(5, true, 30000);
+    c.update(5, false, 30050);
+    r = c.update(-1, true, 30500);
+    QCOMPARE(r.armed, -1);
+    c.update(-1, false, 30600);
+    r = c.update(5, true, 30700);
+    QCOMPARE(r.launch, -1);  // opnieuw kiezen nodig
+}
+
+void AppCoreTest::aimEvents() {
+    using bigpicture::AimState;
+    AimState s;
+    // Compact (watch met lite).
+    QJsonObject lite = QJsonDocument::fromJson(R"({"v":1,"event":"aim","data":{"seq":5,"link":"fresh","aim":{"valid":true,"x":0.25,"y":1.3,
+        "off_screen":true},"trigger":200,"down":["t","ps"],"pressed":{"t":2},"released":{}}})").object();
+    QVERIFY(bigpicture::parseAimEvent(lite, &s));
+    QVERIFY(s.valid && s.trigger && s.ps && s.offScreen);
+    QCOMPARE(s.pos, QPointF(0.25, 1.0));  // geklemd
+    QCOMPARE(s.triggerPresses, 2);
+    // Volledig sample (oudere engine zonder lite).
+    QJsonObject full = QJsonDocument::fromJson(R"({"v":1,"event":"sample","data":{"sample":{"link":"fresh","aim":{"valid":true,
+        "x":0.5,"y":0.5,"x_clamped":0.6,"y_clamped":0.4,"off_screen":false},"buttons":{"down":["move"]}},
+        "edges_since_last_frame":{"pressed":{"t":1},"released":{"t":1}}}})").object();
+    QVERIFY(bigpicture::parseAimEvent(full, &s));
+    QVERIFY(s.valid && !s.trigger && !s.ps);
+    QCOMPARE(s.pos, QPointF(0.6, 0.4));
+    QCOMPARE(s.triggerPresses, 1);  // een snelle tik tussen twee frames
+    // Zonder verbonden Move: niet geldig. Geen aim-event: false.
+    QJsonObject lost = QJsonDocument::fromJson(R"({"event":"aim","data":{"link":"lost","aim":{"valid":true,"x":0.5,"y":0.5}}})").object();
+    QVERIFY(bigpicture::parseAimEvent(lost, &s));
+    QVERIFY(!s.valid);
+    QVERIFY(!bigpicture::parseAimEvent(QJsonObject{{QStringLiteral("ok"), true}}, &s));
+}
+
+void AppCoreTest::gamepadMapping() {
+    using A = GamepadInput::Action;
+    GamepadInput::AxisState st;
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_SOUTH, 1, &st), A::Accept);
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_SOUTH, 0, &st), A::None);   // loslaten
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_SOUTH, 2, &st), A::None);   // herhaling
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_EAST, 1, &st), A::Back);
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_START, 1, &st), A::Menu);
+    QCOMPARE(GamepadInput::map(EV_KEY, BTN_DPAD_LEFT, 1, &st), A::Left);
+    // D-pad als hat: één actie per richting tot hij terug in het midden is.
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_HAT0X, -1, &st), A::Left);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_HAT0X, -1, &st), A::None);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_HAT0X, 0, &st), A::None);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_HAT0Y, 1, &st), A::Down);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_HAT0Y, 0, &st), A::None);
+    // Stick met hysterese (-32768..32767).
+    GamepadInput::AxisState s2;
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 15000, &s2), A::None);   // minder dan 0,6
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 25000, &s2), A::Right);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 15000, &s2), A::None);   // nog boven 0,35: geen nieuwe actie
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 2000, &s2), A::None);    // terug in het midden
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 30000, &s2), A::Right);
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_Y, -30000, &s2), A::Up);
+    // Stick 0..255 (bv. een oudere pad).
+    GamepadInput::AxisState s3;
+    QCOMPARE(GamepadInput::map(EV_ABS, ABS_X, 10, &s3, 0, 255), A::Left);
+    // Welke apparaten: eigen virtuele apparaten en de Move niet, een gewone pad wel, geen knoppen = niet.
+    QVERIFY(!GamepadInput::wanted(0x1209, 0x7201, true));
+    QVERIFY(!GamepadInput::wanted(0x1209, 0x7202, true));
+    QVERIFY(!GamepadInput::wanted(0x054c, 0x03d5, true));
+    QVERIFY(GamepadInput::wanted(0x054c, 0x042f, true));   // Navigation Controller: wel
+    QVERIFY(GamepadInput::wanted(0x28de, 0x11ff, true));   // virtuele pad van Steam
+    QVERIFY(!GamepadInput::wanted(0x046d, 0xc52b, false));
+}
+
+void AppCoreTest::bigPictureGameFilter() {
+    GameData d;
+    d.loadFrom({}, repoFile(QStringLiteral("packaging/games-notes.json")), {});
+    auto mk = [](const QString& prof, const QString& name, GameKind k = GameKind::TeknoParrot) {
+        GameEntry g;
+        g.id = QStringLiteral("tp:") + prof;
+        g.profile = k == GameKind::Detected ? QString() : prof;
+        g.name = name;
+        g.kind = k;
+        return g;
+    };
+    QList<GameEntry> all{mk(QStringLiteral("TC5"), QStringLiteral("Time Crisis 5")), mk(QStringLiteral("JurassicPark"), QStringLiteral("Jurassic Park")),
+                         mk(QStringLiteral("Halo"), QStringLiteral("Halo")), mk(QStringLiteral("GaiaAttack4"), QStringLiteral("Gaia Attack 4")),
+                         mk(QStringLiteral("LGI"), QStringLiteral("Let's Go Island"), GameKind::Detected)};
+    GameEntry missing = mk(QStringLiteral("Terminator"), QStringLiteral("Terminator"));
+    missing.exeExists = false;
+    all << missing;
+    const QList<GameEntry> playable = bigpicture::games(all, d, false);
+    QCOMPARE(playable.size(), 2);
+    QCOMPARE(playable[0].profile, QStringLiteral("Halo"));  // op naam
+    QCOMPARE(playable[1].profile, QStringLiteral("TC5"));
+    const QList<GameEntry> every = bigpicture::games(all, d, true);
+    QCOMPARE(every.size(), 4);  // niet opgezet en ontbrekende bestanden nooit
+    QCOMPARE(every[0].profile, QStringLiteral("Halo"));  // speelbaar eerst
+    QCOMPARE(every[2].profile, QStringLiteral("GaiaAttack4"));
+}
+
+// --- A8: binaire VDF en Steam -----------------------------------------------------------------------------------------
+
+void AppCoreTest::vdfRoundTripSample() {
+    QFile f(dataFile(QStringLiteral("shortcuts-sample.vdf")));
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    VdfNode root;
+    QString err;
+    QVERIFY2(vdf::parseBinary(data, &root, &err), qPrintable(err));
+    QCOMPARE(vdf::writeBinary(root), data);  // byte voor byte
+    const VdfNode* sc = root.child("shortcuts");
+    QVERIFY(sc && sc->children.size() == 2);
+    QCOMPARE(sc->children[0].child("appname")->text(), QStringLiteral("Emulator Frontend"));
+    QCOMPARE(sc->children[0].child("AppName")->text(), QStringLiteral("Emulator Frontend"));  // hoofdletterongevoelig
+    QCOMPARE(sc->children[0].child("appid")->toInt32(), -1208917406);
+    QCOMPARE(sc->children[0].child("tags")->children[0].text(), QStringLiteral("favorite"));
+    QCOMPARE(sc->children[1].child("BigNumber")->type, VdfNode::UInt64);
+    QCOMPARE(sc->children[1].child("Ratio")->type, VdfNode::Float);
+    const auto list = SteamShortcuts::list(dataFile(QStringLiteral("shortcuts-sample.vdf")));
+    QCOMPARE(list.size(), 2);
+    QCOMPARE(list[1].exe, QStringLiteral("\"/home/user/Games/Some Game/run.sh\""));
+    QCOMPARE(list[0].appId, static_cast<quint32>(-1208917406));
+}
+
+void AppCoreTest::vdfRoundTripRealCopy() {
+    // Een KOPIE van een echte shortcuts.vdf (nooit het origineel): RAVENGUN_TEST_SHORTCUTS_VDF=<pad naar de kopie>.
+    const QString path = qEnvironmentVariable("RAVENGUN_TEST_SHORTCUTS_VDF");
+    if (path.isEmpty()) QSKIP("RAVENGUN_TEST_SHORTCUTS_VDF is not set (a copy of a real shortcuts.vdf)");
+    QFile f(path);
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    VdfNode root;
+    QString err;
+    QVERIFY2(vdf::parseBinary(data, &root, &err), qPrintable(err));
+    QCOMPARE(vdf::writeBinary(root), data);
+    const QString copy = tmp_.filePath(QStringLiteral("realcopy/shortcuts.vdf"));
+    writeFile(copy, data);
+    const int before = static_cast<int>(SteamShortcuts::list(copy).size());
+    ShortcutSpec s;
+    s.exe = QStringLiteral("/opt/ravengun/bin/ravengun");
+    s.startDir = QStringLiteral("/opt/ravengun/bin");
+    const ShortcutResult r = SteamShortcuts::addOrUpdate(copy, s);
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QCOMPARE(static_cast<int>(SteamShortcuts::list(copy).size()), before + 1);
+    // Alle bestaande items onveranderd (byte voor byte).
+    QFile g(copy);
+    QVERIFY(g.open(QIODevice::ReadOnly));
+    VdfNode after;
+    QVERIFY(vdf::parseBinary(g.readAll(), &after, &err));
+    for (int i = 0; i < before; ++i) {
+        VdfNode a, b;
+        a.children = {root.child("shortcuts")->children[i]};
+        b.children = {after.child("shortcuts")->children[i]};
+        QCOMPARE(vdf::writeBinary(a), vdf::writeBinary(b));
+    }
+    qInfo("real copy: %d shortcuts, RavenGun added as #%d", before, before);
+}
+
+void AppCoreTest::vdfRejectsBroken() {
+    QFile f(dataFile(QStringLiteral("shortcuts-sample.vdf")));
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    VdfNode root;
+    QString err;
+    QVERIFY(!vdf::parseBinary(data.left(data.size() / 2), &root, &err));  // afgekapt
+    QVERIFY(!err.isEmpty());
+    QByteArray bad = data;
+    bad[bad.indexOf("\x01" "appname")] = '\x09';  // onbekend type
+    QVERIFY(!vdf::parseBinary(bad, &root, &err));
+    QVERIFY(!vdf::parseBinary(data + QByteArray("xx"), &root, &err));  // rommel na het einde
+    QVERIFY(vdf::parseBinary(QByteArray("\x08", 1), &root, &err));    // leeg maar geldig
+    QVERIFY(root.children.isEmpty());
+    // Een kapot bestand wordt nooit overschreven.
+    const QString path = tmp_.filePath(QStringLiteral("broken/shortcuts.vdf"));
+    writeFile(path, data.left(100));
+    ShortcutSpec s;
+    s.exe = QStringLiteral("/x/ravengun");
+    const ShortcutResult r = SteamShortcuts::addOrUpdate(path, s);
+    QVERIFY(!r.ok);
+    QFile chk(path);
+    QVERIFY(chk.open(QIODevice::ReadOnly));
+    QCOMPARE(chk.readAll(), data.left(100));
+    QVERIFY(QDir(tmp_.filePath(QStringLiteral("broken"))).entryList(QDir::Files).size() == 1);  // ook geen back-up
+}
+
+void AppCoreTest::steamShortcutId() {
+    QCOMPARE(SteamShortcuts::crc32("123456789"), 0xCBF43926u);  // de standaard-controlewaarde van CRC-32
+    // crc32("\"/opt/ravengun/bin/ravengun\"RavenGun") | 0x80000000 (zelfde formule als bekende hulpprogramma's)
+    QCOMPARE(SteamShortcuts::shortcutId(QStringLiteral("/opt/ravengun/bin/ravengun"), QStringLiteral("RavenGun")), 0xca8338f6u);
+    QVERIFY(SteamShortcuts::shortcutId(QStringLiteral("/a"), QStringLiteral("b")) & 0x80000000u);
+}
+
+void AppCoreTest::steamAddOrUpdate() {
+    const QString cfg = tmp_.filePath(QStringLiteral("steam/userdata/12345/config"));
+    const QString vdfPath = cfg + QStringLiteral("/shortcuts.vdf");
+    QFile src(dataFile(QStringLiteral("shortcuts-sample.vdf")));
+    QVERIFY(src.open(QIODevice::ReadOnly));
+    const QByteArray original = src.readAll();
+    writeFile(vdfPath, original);
+    ShortcutSpec s;
+    s.exe = QStringLiteral("/opt/ravengun/bin/ravengun");
+    s.startDir = QStringLiteral("/opt/ravengun/bin");
+    s.icon = QStringLiteral("/opt/ravengun/icon.png");
+    ShortcutResult r = SteamShortcuts::addOrUpdate(vdfPath, s);
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(!r.updated);
+    QCOMPARE(r.appId, 0xca8338f6u);
+    // Back-up = het oude bestand.
+    QVERIFY(QFileInfo::exists(r.backup));
+    QFile b(r.backup);
+    QVERIFY(b.open(QIODevice::ReadOnly));
+    QCOMPARE(b.readAll(), original);
+    auto list = SteamShortcuts::list(vdfPath);
+    QCOMPARE(list.size(), 3);
+    QCOMPARE(list[2].appName, QStringLiteral("RavenGun"));
+    QCOMPARE(list[2].exe, QStringLiteral("\"/opt/ravengun/bin/ravengun\""));
+    QCOMPARE(list[2].startDir, QStringLiteral("\"/opt/ravengun/bin\""));
+    QCOMPARE(list[2].launchOptions, QStringLiteral("--fullscreen"));
+    QCOMPARE(list[2].icon, QStringLiteral("/opt/ravengun/icon.png"));
+    QCOMPARE(list[2].appId, 0xca8338f6u);
+    // De bestaande items zijn byte voor byte gelijk; het nieuwe item heet "2" en heeft alle gebruikelijke velden.
+    VdfNode before, after;
+    QVERIFY(vdf::parseBinary(original, &before));
+    QFile a(vdfPath);
+    QVERIFY(a.open(QIODevice::ReadOnly));
+    QVERIFY(vdf::parseBinary(a.readAll(), &after));
+    for (int i = 0; i < 2; ++i) {
+        VdfNode x, y;
+        x.children = {before.child("shortcuts")->children[i]};
+        y.children = {after.child("shortcuts")->children[i]};
+        QCOMPARE(vdf::writeBinary(x), vdf::writeBinary(y));
+    }
+    const VdfNode& e = after.child("shortcuts")->children[2];
+    QCOMPARE(e.key, QByteArray("2"));
+    for (const char* k : {"appid", "appname", "exe", "StartDir", "icon", "ShortcutPath", "LaunchOptions", "IsHidden", "AllowDesktopConfig",
+                          "AllowOverlay", "OpenVR", "Devkit", "DevkitGameID", "DevkitOverrideAppID", "LastPlayTime", "FlatpakAppID", "tags"})
+        QVERIFY2(e.child(k), k);
+    QCOMPARE(e.child("AllowDesktopConfig")->toInt32(), 1);
+    QCOMPARE(e.child("tags")->type, VdfNode::Map);
+    // Nog een keer: bijwerken, geen dubbel item; een door de gebruiker in Steam gezette waarde blijft staan.
+    {
+        VdfNode tweak = after;
+        tweak.child("shortcuts")->children[2].set(VdfNode::int32("AllowDesktopConfig", 0));
+        writeFile(vdfPath, vdf::writeBinary(tweak));
+    }
+    s.launchOptions = QStringLiteral("--fullscreen --no-scan");
+    r = SteamShortcuts::addOrUpdate(vdfPath, s);
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(r.updated);
+    list = SteamShortcuts::list(vdfPath);
+    QCOMPARE(list.size(), 3);
+    QCOMPARE(list[2].launchOptions, QStringLiteral("--fullscreen --no-scan"));
+    QFile c(vdfPath);
+    QVERIFY(c.open(QIODevice::ReadOnly));
+    VdfNode again;
+    QVERIFY(vdf::parseBinary(c.readAll(), &again));
+    QCOMPARE(again.child("shortcuts")->children[2].child("AllowDesktopConfig")->toInt32(), 0);
+    // Relatief pad: geweigerd.
+    ShortcutSpec rel;
+    rel.exe = QStringLiteral("ravengun");
+    QVERIFY(!SteamShortcuts::addOrUpdate(vdfPath, rel).ok);
+}
+
+void AppCoreTest::steamNewFile() {
+    // Nog geen shortcuts.vdf: een nieuw bestand met alleen RavenGun, geen back-up.
+    const QString vdfPath = tmp_.filePath(QStringLiteral("steam-new/userdata/1/config/shortcuts.vdf"));
+    QDir().mkpath(QFileInfo(vdfPath).path());
+    ShortcutSpec s;
+    s.exe = QStringLiteral("/home/u/ravengun/build-app/ravengun");
+    s.startDir = QStringLiteral("/home/u/ravengun/build-app");
+    const ShortcutResult r = SteamShortcuts::addOrUpdate(vdfPath, s);
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(r.backup.isEmpty());
+    const auto list = SteamShortcuts::list(vdfPath);
+    QCOMPARE(list.size(), 1);
+    QCOMPARE(list[0].appName, QStringLiteral("RavenGun"));
+    QFile f(vdfPath);
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    const QByteArray d = f.readAll();
+    QVERIFY(d.startsWith(QByteArray("\x00shortcuts\x00\x00" "0\x00", 14)));
+    QVERIFY(d.endsWith(QByteArray("\x08\x08\x08\x08", 4)));  // tags, item, shortcuts, wortel
+}
+
+void AppCoreTest::steamUsersAndRunning() {
+    const QString root = tmp_.filePath(QStringLiteral("steam-users"));
+    for (const char* id : {"0", "111", "222", "notanumber"}) QDir().mkpath(root + QStringLiteral("/userdata/") + QLatin1String(id) + QStringLiteral("/config"));
+    // 222 = 76561197960265950; die is MostRecent.
+    writeFile(root + QStringLiteral("/config/loginusers.vdf"), R"("users"
+{
+	"76561197960265839"
+	{
+		"AccountName"		"een"
+		"PersonaName"		"Speler Een"
+		"MostRecent"		"0"
+	}
+	"76561197960265950"
+	{
+		"AccountName"		"twee"
+		"PersonaName"		"Speler \"Twee\""
+		"MostRecent"		"1"
+	}
+}
+)");
+    const QList<SteamUser> users = SteamShortcuts::users(root);
+    QCOMPARE(users.size(), 2);  // 0 en niet-numeriek tellen niet
+    QCOMPARE(users[0].accountId, QStringLiteral("222"));
+    QVERIFY(users[0].mostRecent);
+    QCOMPARE(users[0].name, QStringLiteral("Speler \"Twee\""));
+    QCOMPARE(users[1].name, QStringLiteral("Speler Een"));
+    // Steam draait? Een nep-/proc.
+    const QString proc = tmp_.filePath(QStringLiteral("proc"));
+    writeFile(proc + QStringLiteral("/100/comm"), "bash\n");
+    writeFile(proc + QStringLiteral("/101/comm"), "steamwebhelper\n");
+    writeFile(proc + QStringLiteral("/self/comm"), "steam\n");  // geen pid
+    QVERIFY(!SteamShortcuts::steamRunning(proc));
+    writeFile(proc + QStringLiteral("/102/comm"), "steam\n");
+    QVERIFY(SteamShortcuts::steamRunning(proc));
+}
+
+// --- A6: commando's van de wizard -------------------------------------------------------------------------------------
+
+void AppCoreTest::setupCommands() {
+    qputenv("RAVENGUN_ROOT", QByteArray(RAVENGUN_SOURCE_DIR));
+    qputenv("RAVENGUN_PKEXEC", "/nep/pkexec");
+    const CommandLine c = SetupChecks::permissionsInstall();
+    QCOMPARE(c.program, QStringLiteral("/nep/pkexec"));
+    // Vast programma met absoluut pad en vaste argumenten; niets van de gebruiker.
+    QCOMPARE(c.args, (QStringList{QDir::cleanPath(QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/install-permissions.sh")), QStringLiteral("--apply")}));
+    QVERIFY(QDir::isAbsolutePath(c.args[0]));
+    qunsetenv("RAVENGUN_PKEXEC");
+    QCOMPARE(SetupChecks::permissionsInstall().program, QStringLiteral("pkexec"));
+    QCOMPARE(SetupChecks::permissionsCheck().args.last(), QStringLiteral("--check"));
+    QCOMPARE(SetupChecks::serviceInstall().args, (QStringList{QDir::cleanPath(QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/install-service.sh")),
+                                                              QStringLiteral("--apply")}));
+    // Camera via een nep-sysfs: PS3 Eye (1415:2000) wordt herkend.
+    const QString sys = tmp_.filePath(QStringLiteral("sys"));
+    writeFile(sys + QStringLiteral("/usb/1-1/idVendor"), "1415\n");
+    writeFile(sys + QStringLiteral("/usb/1-1/idProduct"), "2000\n");
+    QDir().mkpath(sys + QStringLiteral("/usb/1-1/1-1:1.0"));
+    writeFile(sys + QStringLiteral("/v4l/video0/name"), "USB Camera-B4.09.24.1\n");
+    QVERIFY(QFile::link(sys + QStringLiteral("/usb/1-1/1-1:1.0"), sys + QStringLiteral("/v4l/video0/device")));
+    const auto cam = SetupChecks::camera(sys + QStringLiteral("/v4l"));
+    QVERIFY(cam.found && cam.ps3eye);
+    QCOMPARE(cam.device, QStringLiteral("/dev/video0"));
+    QVERIFY(!SetupChecks::camera(sys + QStringLiteral("/geen")).found);
+    qunsetenv("RAVENGUN_ROOT");
 }
 
 QTEST_GUILESS_MAIN(AppCoreTest)
