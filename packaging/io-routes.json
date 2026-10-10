@@ -52,22 +52,22 @@
   "GaiaAttack4": {
    "route": "tp-shm",
    "layout": "MusicGunGun2Pipe",
-   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+   "note": "geparkeerd (elfde ronde): geen beeld; vereist RG_LOADER_FPFIX/RG_JVS_BOARD in UserProfiles/<P>.env (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
   },
   "HauntedMuseum": {
    "route": "tp-shm",
    "layout": "MusicGunGun2Pipe",
-   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+   "note": "geparkeerd (elfde ronde): geen beeld; vereist RG_LOADER_FPFIX/RG_JVS_BOARD in UserProfiles/<P>.env (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
   },
   "HauntedMuseumII": {
    "route": "tp-shm",
    "layout": "MusicGunGun2Pipe",
-   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+   "note": "geparkeerd (elfde ronde): geen beeld; vereist RG_LOADER_FPFIX/RG_JVS_BOARD in UserProfiles/<P>.env (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
   },
   "MusicGunGun2": {
    "route": "tp-shm",
    "layout": "MusicGunGun2Pipe",
-   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+   "note": "geparkeerd (elfde ronde): eigen D3D-foutvenster van de game; vereist RG_LOADER_FPFIX in UserProfiles/<P>.env (zie games-status.md)"
   },
   "Gashaaaan": {
    "route": "tp-shm",

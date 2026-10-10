@@ -147,6 +147,31 @@ check(frames == [bytes([0x01, 0x03, 0xE0, 0x10, 0x00])] and rest == b"", "JVS: e
 frames, rest = ld.jvs_frames(bytes([0xE0, 0x01, 0x05, 0x10, 0xE0, 0xFF, 0x03, 0xF0, 0xD9, 0xF2]))   # afgebroken pakket
 check(frames == [bytes([0xFF, 0x03, 0xF0, 0xD9, 0xF2])], "JVS: afgebroken pakket vervalt")
 check(ld.decode_console("Loading game...\n".encode("utf-16-le")) == "Loading game...", "UTF-16-console")
+# JVS-bord achter de pipe (A10): antwoordpakket (E0 00 lengte status rapport(en) som) en de lader-kopie zonder FLOATING_POINT.
+ans = ld.jvs_answer(bytes([0x11]))
+check(ans == bytes([0x01, 0x01, 0x13]), "JVS-antwoord revisie: %r" % ans)
+check(ld.jvs_pack(ans) == bytes([0xE0, 0x00, 0x04, 0x01, 0x01, 0x13, 0x19]), "JVS-pakket: %r" % ld.jvs_pack(ans))
+check(ld.jvs_answer(bytes([0xF0, 0xD9])) is None, "JVS: reset zonder antwoord")
+check(ld.jvs_answer(bytes([0x20, 0x02, 0x02]))[:2] == bytes([0x01, 0x01]) and len(ld.jvs_answer(bytes([0x20, 0x02, 0x02]))) == 2 + 1 + 4, "JVS: schakelaars 2 spelers x 2 bytes")
+check(ld.jvs_answer(bytes([0x7F]))[-1] == 0x02, "JVS: onbekende opdracht = rapport 2")
+loader_src = os.path.join(tmp, "OpenParrotLoader.exe")
+orig = b"MZ" + b"\x00" * 10 + ld.FPFIX_PATTERN + b"\x00" * 10
+with open(loader_src, "wb") as f:
+    f.write(orig)
+saved_home = ld.HOME
+ld.HOME = os.path.join(tmp, "fpfix-home")
+fixed = ld.fpfix_loader(loader_src)
+data = open(fixed, "rb").read()
+check(data.replace(bytes([0x17]), bytes([0x1F]), 1) == orig and data.count(ld.FPFIX_PATTERN) == 0 and len(data) == len(orig), "FPFIX: alleen 0x1F -> 0x17")
+check(open(loader_src, "rb").read() == orig, "FPFIX: de originele lader blijft onaangeroerd")
+with open(loader_src, "wb") as f:
+    f.write(b"MZ geen patroon")
+try:
+    ld.fpfix_loader(loader_src)
+    check(False, "FPFIX: andere lader moet weigeren")
+except ld.Unsupported:
+    pass
+ld.HOME = saved_home
 c = ld.A11Collector("x")
 for line in ["patch 'NoDongle' @0x0804A000", "patch 'X' @0x10 skipped: unexpected original bytes 90 90",
              "RUNNING Terminator 1.25 US", "[gamescope] RUNNING nee"]:

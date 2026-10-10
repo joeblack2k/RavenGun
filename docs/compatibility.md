@@ -24,16 +24,16 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
-- **Gaia Attack 4**: Does not start yet: black screen under Wine after the I/O handshake. Parked.
+- **Gaia Attack 4**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Galaga Assault**: Does not start yet: font files are missing from the dump. Parked.
 - **Ghostbusters**: Does not start yet: the loader rejects the game path (a file seems to be missing from the dump). Parked.
-- **Haunted Museum**: Does not start yet: black screen under Wine after the I/O handshake. Parked.
-- **Haunted Museum II**: Does not start yet: black screen under Wine. Parked.
+- **Haunted Museum**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
+- **Haunted Museum II**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
 - **Jurassic Park Arcade**: Does not work yet: the game stops shortly after starting (crash in the ElfLdr2 layer). Parked.
 - **Let's Go Safari**: Does not start yet: the game waits without a window for a Sega network service on 127.0.0.1:40100 and never opens its JVS port. The engine can already act as its JVS board (jvs route). Parked.
 - **Lethal Enforcers 3**: Does not start yet: the game crashes when it opens a .m1v movie; Wine has no 32-bit GStreamer (lib32-gstreamer plus an MPEG-1 decoder), which the SteamOS repos do not offer. Parked.
-- **Music GunGun 2**: Does not start yet: the game reports that Direct3D failed to start. Parked.
+- **Music GunGun 2**: Does not start yet: the Wine crash is worked around (RG_LOADER_FPFIX), but the game shows its own 'Direct3D initialisation failed' window (also with DXVK) and does not open the JVS pipe. Parked.
 - **NERF Arcade**: Partly works: the game starts and shows its attract mode, but start and trigger do not arrive yet.
 - **Omatsuri Yasan - Ganso Takoyaki**: Does not start yet: white window (1024x768), the game never creates a D3D device; the core makes an online activation request at start. Parked.
 - **Omatsuri Yasan - Kingyo Sukui**: Does not start yet: the game exits with code 8 after scanning all drive letters for rqrdlist.rqr and campaign*.bmp. Parked.

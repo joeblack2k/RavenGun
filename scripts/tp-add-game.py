@@ -199,13 +199,21 @@ def main():
     open(dst, 'w', encoding='utf-8').write(s)
     # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games met de TeknoParrot-kern hebben onder
     # Wine de injectiemethode "na 3 s" nodig; de standaardmethode faalt met "Failed to find kernel32.dll". Niet voor OpenParrot
-    # (Taito Type X2): daarmee verbindt de game de JVS-pipe niet (gemeten bij Gaia Attack 4, 2026-10-10).
+    # (Taito Type X2): daarmee verbindt de game de JVS-pipe niet (gemeten bij Gaia Attack 4, 2026-10-10); die krijgen de
+    # standaardroute van de lader plus de Wine-omwegen van de elfde ronde.
     envf = dst[:-4] + '.env'
     if '--gamescope' in sys.argv:
         envs = envs + ['TP_GAMESCOPE=1', 'TP_GAMESCOPE_PATH=/usr/bin/gamescope']
     tp_core = '<EmulatorType>TeknoParrot</EmulatorType>' in s
-    if envs or (not os.path.exists(envf) and tp_core):
+    op_core = '<EmulatorType>OpenParrot</EmulatorType>' in s      # Taito Type X2: zie packaging/games-status.md (elfde ronde)
+    if envs or (not os.path.exists(envf) and (tp_core or op_core)):
         lines = list(envs)
+        if op_core:
+            # Standaardroute van de lader (geen TP_REMOTETHREAD), Wine's ingebouwde d3d9, lader-kopie zonder
+            # CONTEXT_FLOATING_POINT (Wine zet dan MXCSR op 0) en een standaard JVS-bord achter de pipe.
+            for l in ('TP_REMOTETHREAD=off', 'WINEDLLOVERRIDES=d3d9=b', 'RG_LOADER_FPFIX=true', 'RG_JVS_BOARD=true'):
+                if not any(e.split('=', 1)[0] == l.split('=', 1)[0] for e in lines):
+                    lines.append(l)
         # De standaard injectiemethode voor de TeknoParrot-kern blijft staan tenzij de aanroeper er zelf een kiest.
         if tp_core and not any(l.startswith(('TP_POSTSTART_REMOTETHREAD_MS=', 'TP_ENTRYPOINT_REMOTETHREAD_MS=', 'TP_REMOTETHREAD=')) for l in lines):
             lines.insert(0, 'TP_POSTSTART_REMOTETHREAD_MS=3000')

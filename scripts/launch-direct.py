@@ -305,6 +305,32 @@ def resolve_loader(p, tp):
     return exe, dll, is64
 
 
+# Wine-bug (9.0, 10.0, 11.0, 11.19 gemeten): SetThreadContext op een 32-bit thread met CONTEXT_FLOATING_POINT maar zonder
+# CONTEXT_EXTENDED_REGISTERS zet MXCSR op 0 (alle SSE-uitzonderingen ongemaskeerd). De OpenParrot-lader doet dat met
+# ContextFlags 0x1001F op de hoofdthread van de game (instructie "mov [0x429bc0], 0x1001f"), waarna Mesa in de D3D9-init op de
+# eerste inexacte conversie met c00002b5 (STATUS_FLOAT_MULTIPLE_TRAPS) valt (Type X2: Gaia Attack 4, Haunted Museum, ...).
+# Opt-in per profiel (RG_LOADER_FPFIX=true in UserProfiles/<P>.env): een kopie van de lader met 0x1001F -> 0x10017 (zonder
+# FLOATING_POINT). De lader in de runtime blijft onaangetast; de kopie staat onder ~/.local/share/ravengun/loaders/.
+FPFIX_PATTERN = bytes.fromhex("C705C09B42001F000100")
+
+
+def fpfix_loader(src):
+    with open(src, "rb") as f:
+        data = bytearray(f.read())
+    if data.count(FPFIX_PATTERN) != 1:
+        raise Unsupported("RG_LOADER_FPFIX: lader %s heeft niet de verwachte instructie (andere versie?)" % src)
+    sha = hashlib.sha256(bytes(data)).hexdigest()[:12]
+    dst_dir = os.path.join(HOME, ".local/share/ravengun/loaders")
+    dst = os.path.join(dst_dir, "%s-fpfix-%s.exe" % (os.path.splitext(os.path.basename(src))[0], sha))
+    if not os.path.isfile(dst):
+        data[data.find(FPFIX_PATTERN) + 6] = 0x17
+        os.makedirs(dst_dir, exist_ok=True)
+        with open(dst + ".tmp", "wb") as f:
+            f.write(data)
+        os.replace(dst + ".tmp", dst)
+    return dst
+
+
 def resolve_wine(p, env):
     wine = p.get("WineRunnerPath", "")
     if not (wine and os.path.isfile(wine)):
@@ -416,6 +442,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     prof_env = read_env_file(os.path.join(tp, "UserProfiles", name + ".env"))
     env.update(prof_env)
     env.update(extra_env or {})
+    if truthy(env.get("RG_LOADER_FPFIX", "0")) and loader.lower().endswith("openparrotloader.exe"):
+        loader = fpfix_loader(loader)
     wine = resolve_wine(p, env)
     prefix, set_prefix = resolve_prefix(p, env, wine)
 
@@ -591,11 +619,83 @@ def jvs_frames(buf):
             return frames, buf
 
 
+JVS_IDENT = b"SEGA ENTERPRISES,LTD.;I/O BD JVS;837-13551 ;Ver1.00;98/10\x00"
+# Kenmerken van het nagebootste bord (code, p1, p2, p3): 4 spelers van 2 bytes schakelaars, 2 muntslots, 8 analoge
+# kanalen van 16 bit, scherm-positie (x/y 10 bit, 4 kanalen) en 18 uitgangen. Het bord is een eerste gok voor Type X2 (A10).
+JVS_FEATURES = bytes([0x01, 4, 16, 0, 0x02, 2, 0, 0, 0x03, 8, 16, 0, 0x06, 10, 10, 4, 0x12, 18, 0, 0, 0x00])
+
+
+def jvs_pack(body):
+    """Antwoordpakket naar de host: sync, adres 0 (host), lengte, gegevens, som; E0 en D0 in de inhoud met escape."""
+    raw = bytes([0x00, len(body) + 1]) + bytes(body)
+    raw += bytes([sum(raw) & 0xFF])
+    out = bytearray(b"\xe0")
+    for b in raw:
+        if b in (0xE0, 0xD0):
+            out += bytes([0xD0, (b - 1) & 0xFF])
+        else:
+            out.append(b)
+    return bytes(out)
+
+
+def jvs_answer(data, inputs=None):
+    """Beantwoordt een pakket met standaard JVS-opdrachten (data = opdrachten zonder node/lengte/som). Geeft het antwoord
+    (zonder sync/adres/lengte/som: status 1 + rapporten) of None als er niets te antwoorden valt (alleen reset)."""
+    inputs = inputs or {}
+    out = bytearray([0x01])           # status: normaal
+    i, known = 0, True
+    while i < len(data):
+        c = data[i]
+        if c == 0xF0:                  # reset: geen antwoord
+            return None
+        elif c == 0x10:
+            out += bytes([1]) + JVS_IDENT; i += 1
+        elif c == 0x11:
+            out += bytes([1, 0x13]); i += 1
+        elif c == 0x12:
+            out += bytes([1, 0x30]); i += 1
+        elif c == 0x13:
+            out += bytes([1, 0x10]); i += 1
+        elif c == 0x14:
+            out += bytes([1]) + JVS_FEATURES; i += 1
+        elif c == 0x15:
+            out += bytes([1]); i += 2
+        elif c == 0x20 and i + 2 < len(data) + 0:
+            players, nbytes = data[i + 1], data[i + 2]
+            out += bytes([1, inputs.get("sys", 0) & 0xFF])
+            for pl in range(players):
+                out += bytes((inputs.get("p%d" % (pl + 1), 0) >> (8 * k)) & 0xFF for k in range(nbytes))
+            i += 3
+        elif c == 0x21 and i + 1 < len(data):
+            out += bytes([1]) + bytes([0, 0]) * data[i + 1]; i += 2
+        elif c == 0x22 and i + 1 < len(data):
+            out += bytes([1]) + bytes([0x80, 0x00]) * data[i + 1]; i += 2
+        elif c == 0x23 and i + 1 < len(data):
+            out += bytes([1]) + bytes([0, 0]) * data[i + 1]; i += 2
+        elif c == 0x24:
+            out += bytes([1, 0]); i += 1
+        elif c == 0x25 and i + 1 < len(data):
+            out += bytes([1, 0, 0, 0, 0]); i += 2
+        elif c == 0x26:
+            out += bytes([1, 0, 0]); i += 1
+        elif c in (0x30, 0x31) and i + 3 < len(data) + 1:
+            out += bytes([1]); i += 4
+        elif c == 0x32 and i + 1 < len(data):
+            out += bytes([1]); i += 2 + data[i + 1]
+        elif c == 0x35 and i + 1 < len(data):
+            out += bytes([1]); i += 2 + data[i + 1]
+        else:
+            out += bytes([2]); known = False; break   # rapport 2: onbekende opdracht
+    return bytes(out)
+
+
 class JvsPipeServer(threading.Thread):
     """TCP-kant van \\\\.\\pipe\\TeknoParrot_JVS (pipehelper.exe verbindt hierheen zodra de game de pipe opent)."""
 
-    def __init__(self):
+    def __init__(self, board=False, f1_once=False):
+        self.f1_once = f1_once
         super().__init__(daemon=True)
+        self.board = board          # RG_JVS_BOARD=true in <P>.env: standaard JVS-bord achter de pipe (A10)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(("127.0.0.1", 0))
@@ -604,6 +704,9 @@ class JvsPipeServer(threading.Thread):
         self.bytes_in = 0
         self.packets = 0
         self.unanswered = 0
+        self.answered = 0
+        self.address = 1
+        self.assigned = False
         self.connected = False
 
     def run(self):
@@ -629,24 +732,43 @@ class JvsPipeServer(threading.Thread):
                     continue
                 self.packets += 1
                 node, cmd = fr[0], fr[2]
+                if self.packets <= 300:
+                    log("JVS-pipe: #%d van de game: %s" % (self.packets, fr.hex()))
                 if cmd == 0xF0:       # reset: verbind-vlag uit
                     set_connect_flag(0)
+                    self.assigned = False
+                elif cmd == 0xF1 and self.f1_once and self.assigned:
+                    self.unanswered += 1   # RG_JVS_F1_ONCE=true: alleen het eerste adres toekennen (einde van de keten)
                 elif cmd == 0xF1:     # adres: verbind-vlag aan, en het gewone antwoord (status 1, rapport 1)
                     set_connect_flag(1)
+                    self.assigned = True
+                    if len(fr) > 3:
+                        self.address = fr[3]
                     body = bytes([0x00, 0x03, 0x01, 0x01])
                     try:
                         conn.sendall(b"\xe0" + body + bytes([sum(body) & 0xFF]))
                     except OSError:
                         pass
                 else:
-                    self.unanswered += 1
+                    # Op een echte JVS-bus antwoordt alleen het bord met het toegekende adres (de game probeert alle knopen).
+                    ans = jvs_answer(fr[2:-1]) if (self.board and 1 <= node <= self.address) else None
+                    if ans is not None:
+                        if self.packets <= 300:
+                            log("JVS-pipe: antwoord: %s" % jvs_pack(ans).hex())
+                        try:
+                            conn.sendall(jvs_pack(ans))
+                        except OSError:
+                            pass
+                        self.answered += 1
+                    else:
+                        self.unanswered += 1
                 key = (node, cmd)
                 if key not in seen:
                     seen.add(key)
                     log("JVS-pipe: pakket node %02X commando %02X (%d bytes)%s" % (
-                        node, cmd, len(fr), "" if cmd in (0xF0, 0xF1) else " - niet beantwoord (geen JVS-bord in de directe start)"))
-        log("JVS-pipe: verbinding dicht (%d bytes van de game, %d pakketten, %d niet beantwoord)"
-            % (self.bytes_in, self.packets, self.unanswered))
+                        node, cmd, len(fr), "" if cmd in (0xF0, 0xF1) else (" - beantwoord met het standaard JVS-bord (A10)" if self.board else " - niet beantwoord (geen JVS-bord in de directe start)")))
+        log("JVS-pipe: verbinding dicht (%d bytes van de game, %d pakketten, %d beantwoord, %d niet beantwoord)"
+            % (self.bytes_in, self.packets, self.answered, self.unanswered))
 
     def close(self):
         try:
@@ -748,7 +870,8 @@ def run(plan):
         log("bronbestand %s bestaat niet (start de IO-brug eerst)" % src)
         return 1
     # 3. JVS-pipe en pipehelper.exe in de prefix (vóór de game, zoals TeknoParrotUi).
-    server = JvsPipeServer()
+    server = JvsPipeServer(board=truthy(plan["env"].get("RG_JVS_BOARD", "0")),
+                           f1_once=truthy(plan["env"].get("RG_JVS_F1_ONCE", "0")))
     server.start()
     hargs = [plan["wine"], plan["pipehelper"]]
     if plan["pipe_mode"] == "pipe":
