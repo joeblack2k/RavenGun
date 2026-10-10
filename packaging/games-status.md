@@ -1,5 +1,16 @@
 # Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
+# Zevende ronde (2026-10-10): B4, Raw Thrills native op Linux
+
+Samenvatting: geen enkele Raw Thrills-game draait volledig native; Halo komt het verst (zie `docs/decisions.md`, "B4: Raw Thrills native"). Alles is gemeten met `scripts/play-native.sh` (bubblewrap, NAS alleen-lezen, `--headless` zonder de tv te gebruiken). De route blijft TeknoParrot/BudgieLoader; `packaging/native-games.json` heeft per game de status en reden, en `play-halo.sh --native` start een game native als experiment.
+
+- Halo: native startpunt. Beeld, eigen FileTest en "Welcome to Halo v03.11" werken op de NAS; de SDL-joystick wordt als gun gevonden. `halo.so` is alleen de dongle (hasp-hooks), geen invoer: de aanname dat het onderdeel het gedeelde geheugen van de daemon leest, klopt niet. De kastschakelaars (start, test, munt, service, volume) komen van het RIO2-bord; `tools/rt-input-shim` zet ze uit de IO-brug in de schakelaartabel van de game (START slaat de FileTest over: bewezen). Daarna blijft de game steken: geen geluid (FMOD 1.10 ontbreekt), webcams voor de guns ("Webcam Init"), en een crash op een aanroep naar adres 0. Aim en trekker zijn dus native niet getest.
+- Jurassic Park, Galaga Assault, Pacman Chomp-Mania: herschreven ELF; native SIGSEGV voor `main` (sprong naar een vast adres uit de dump). Geen preload in de gamemappen. Jurassic Park laadt wel met libSDL-1.2 (sdl12-compat, i386), PhysX en theora; de dongle-bibliotheken `libhasp_linux_*.so` staan in `utils/pmrtdata`.
+- Terminator Salvation: native exit 255 (de game wil een HASP-dongle); via TeknoParrot+gamescope werkt hij zoals eerder.
+- GhostBusters: wil `/usr/lib/libcsv.so` (absoluut pad), `libesd.so.0` (i386) en een dongle. Go Go Strike: Allegro 4 crasht op NULL na het laden; wil `/dev/w040101_*`.
+- Op de NAS veranderd: niets (alle schrijfacties van de games gaan naar `~/.local/share/ravengun/native/<PROFIEL>/`, gecontroleerd op bestanden jonger dan 90 minuten in de gamemappen).
+- Voor de eigenaar: een TeknoParrot-Linux-preload met RIO2, webcam en FMOD zou native Halo mogelijk maken; vraag het team of die er is, en of er voor Jurassic Park, Galaga en Pacman een vergelijkbare vooraf te laden bibliotheek bestaat.
+
 # Zesde ronde (2026-10-10): IO-brug stap 3, dialect jvs, Let's Go Safari
 
 Samenvatting: de daemon kan nu een JVS-bord zijn (dialect jvs, `docs/architecture.md`); Let's Go Safari (LGS) is daarmee nog niet speelbaar, omdat de game vastloopt op iets wat eerder komt dan de JVS-poort. Time Crisis 5 blijft via tp-shm (het TeknoParrot-team bevestigt dat TC5 geen JVS gebruikt; ook onze eigen meting: 0 bytes op de pipe).

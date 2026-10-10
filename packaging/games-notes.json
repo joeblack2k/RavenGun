@@ -5,7 +5,7 @@
   "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed, ook via de IO-brug (tp-shm, 'play-halo.sh --route tp-shm').",
   "TombRaider": "Werkt zonder TeknoParrot: lightgun, herladen, munt en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
   "RabbidsHollywood": "Werkt zonder TeknoParrot: lightgun, munt (viermaal) en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
-  "JurassicPark": "Werkt nog niet: de game stopt kort na de start (crash in de ElfLdr2-laag). Geparkeerd.",
+  "JurassicPark": "Werkt nog niet. Ook native (play-native.sh) niet: de herschreven game springt voor main naar een vast adres uit de dump; de beveiligingslaag van BudgieLoader ontbreekt. Geparkeerd.",
   "LuigisMansion": "Start nog niet (stopt direct of crasht bij de start). Geparkeerd.",
   "LGS": "Start nog niet: de game wacht zonder venster op een Sega-netwerkdienst op 127.0.0.1:40100 en komt daardoor niet bij zijn JVS-poort. De daemon kan het JVS-bord al spelen (route jvs). Geparkeerd.",
   "TC5": "Speelbaar via de IO-brug (tp-shm): richten, trekker en linker pedaal (middenknop) werken; munt = Move-knop voor toets 5 (de daemon geeft de game daarvoor Shift+T). Schiet in het menu om '1-player solo' te kiezen. Rechter pedaal nog niet apart gecontroleerd.",
