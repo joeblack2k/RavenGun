@@ -21,7 +21,8 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 - [ ] A6 Eerste-gebruik-wizard (Desktop Mode): rechten installeren (udev/Bluetooth-hulp via één beheerdersprompt), Moves koppelen, kalibratie, gamemap, toevoegen aan Steam.
 - [ ] A7 Fullscreen-modus voor Steam Game Mode: zwarte achtergrond, game-iconen, kiezen en starten met de lightgun; terug na afsluiten van de game.
 - [ ] A8 Steam-integratie: app als niet-Steam-game toevoegen (shortcuts.vdf) met fullscreen-argument; controleren in Game Mode.
-- [ ] A10 Zonder TeknoParrot waar dat kan: per game de eigen route (Unity-plugin; OpenParrot-code (GPL-3) voor Taito Type X2; Raw Thrills native op Linux met eigen I/O), en de TeknoParrot-runtime alleen nog waar de core dongle/keychip/integriteit afhandelt (dat bouwen we niet zelf na). Vragen 8-10 aan het TeknoParrot-team staan in findings/vragen.txt.
+- [ ] A10 Direct starten zonder TeknoParrotUi (antwoorden_ronde2.md vraag 8: de UI roept alleen een loader aan; door het team akkoord bevonden). De engine/app start per game de loader zelf (`<loader> <core> <exe>` volgens de startvoorschriften in AndroidLaunchRecipes/ (154 stuks) en de GameProfiles), levert zelf gedeeld geheugen en JVS-pipe, en schrijft de spelinstellingen die de UI anders schreef. Eerst Terminator, TC5 en Transformers (werken nu via de UI), dan de rest. De loaders en cores blijven de runtime; dongle/keychip/integriteit laten we bij die runtime.
+- [ ] A11 Aanpassingen per game oogsten: elk spel één keer met volledige loader-uitvoer starten en de regels "aangepast '<naam>' @0x..." en "overgeslagen: onverwachte oorspronkelijke bytes" verzamelen (laat zien of onze gameversie klopt), per game in packaging/games-status.md.
 - [ ] A9 Verpakking voor GitHub: bouwen, installeren, AppImage of vergelijkbaar; README voor nieuwe gebruikers ("downloaden, starten, werkt").
 
 ## Spoor B — games
@@ -39,7 +40,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
   - [ ] B3e Sega Ring/JVS (na B1): Let's Go Island, Let's Go Island 3D, Operation G.H.O.S.T., Medaru No Gunman.
   - [ ] B3f House of the Dead: Scarlet Dawn (ALLS, AM Daemon, geheugeneisen), Rainbow Bombergirl (touch via muis), Rampage (Unity zonder BepInEx).
   - [ ] B3g Geen lightgun: Mario Kart Arcade GP DX (2 versies), Mighty Moto — laagste prioriteit.
-- [ ] B4 Jurassic Park: zwart beeld/crash (geparkeerd; nieuwe aanknopingspunten uit antwoorden.md).
+- [ ] B4 Raw Thrills native op Linux (antwoorden_ronde2.md vraag 9): herschreven `game` + de vooraf te laden bibliotheek van de titel (halo.so/rtinit.so-patroon), zonder Wine/BudgieLoader; eerst Jurassic Park (lost mogelijk het zwarte beeld op), dan Terminator, GhostBusters, Go Go Strike, Galaga, Pacman. Halo draaide in fase 1 al zo (scripts/run-halo.sh).
 - [ ] B5 Luigi's Mansion: COM1 + LMAIO-flashstap + board; de Capcom-afscherming zelf wordt niet omzeild.
 - [ ] B7 Eén game tegelijk afdwingen: een tweede start (unit ravengun-tpui) stopt nu stil de lopende game; de launcher moet weigeren of netjes wisselen.
 - [ ] B6 Speler 2..4 per game (bindingen, tweede JVS-node voor Halo).
