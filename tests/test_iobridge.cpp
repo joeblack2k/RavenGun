@@ -95,6 +95,14 @@ IoPlayer aim(double x, double y) {
     p.valid = true;
     p.x = x;
     p.y = y;
+    p.offscreen = x <= 0.0 || x >= 1.0 || y <= 0.0 || y >= 1.0;   // een punt op de rand telt als buiten het scherm
+    return p;
+}
+
+// Een punt op de rand dat nog wel op het scherm ligt.
+IoPlayer aim_inside(double x, double y) {
+    IoPlayer p = aim(x, y);
+    p.offscreen = false;
     return p;
 }
 
@@ -120,7 +128,8 @@ void test_model() {
 // De vijf profielen: bytes exact.
 void test_layouts() {
     TpShmProfiles ps = load_profiles();
-    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "TimeCrisis5", "TransformersShadowsRising", "LGS"}) CHECK(ps.find(n));
+    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "TimeCrisis5", "TransformersShadowsRising", "LGS", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"})
+        CHECK(ps.find(n));
     CHECK(!ps.find("Bestaat niet"));
 
     // WartranTroopers (Halo): munt 1 = 0x4, trekker P1 = 0x80, start P2 = 0x800, granaat P4 = bit 24.
@@ -198,6 +207,70 @@ void test_layouts() {
         auto n = render(p, IoState{});
         CHECK(control(n) == 0 && n[12] == 127 && n[16] == 127);   // neutraal: midden (complement van 128)
     }
+    // MusicGunGun2Pipe (Taito Type X2: Gaia Attack 4, Haunted Museum 1/2, Music GunGun 2): zes bits en acht assen.
+    {
+        const TpShmProfile& p = *ps.find("MusicGunGun2Pipe");
+        CHECK(!p.complete && p.axes.size() == 8 && p.bits.size() == 6);
+        IoState s;
+        s.player[0] = aim(0.25, 0.75);
+        s.player[0].trigger = s.player[0].start = true;         // start: niet in dit geheugen (JVS-pipe)
+        s.player[1] = aim(0.5, 0.5);
+        s.player[1].trigger = true;
+        s.player[2] = aim(0.1, 0.9);
+        s.player[2].trigger = true;
+        s.player[3] = aim(0.9, 0.1);
+        s.player[3].trigger = true;
+        s.sys.coin[0] = s.sys.test = s.sys.service = true;      // idem
+        auto b = render(p, s);
+        CHECK(control(b) == (0x1u | 0x4u | 0x40u | 0x80u));
+        CHECK(b[12] == 64 && b[16] == 191 && b[20] == 128 && b[24] == 128);
+        CHECK(b[28] == 26 && b[32] == 230 && b[36] == 230 && b[40] == 26);
+        IoState t;
+        t.sys.volume_up = true;
+        t.player[0].reload = t.player[0].grenade = true;        // geen bit: de pipe kent die knoppen niet
+        CHECK(control(render(p, t)) == 0x10u);
+        t.sys.volume_up = false;
+        t.sys.volume_down = true;
+        CHECK(control(render(p, t)) == 0x20u);
+        auto n = render(p, IoState{});
+        CHECK(control(n) == 0 && n[12] == 128 && n[40] == 128);
+    }
+    // HOTDSDPipe (House of the Dead: Scarlet Dawn): twee trekkers, vier assen.
+    {
+        const TpShmProfile& p = *ps.find("HOTDSDPipe");
+        CHECK(!p.complete && p.axes.size() == 4 && p.bits.size() == 2);
+        IoState s;
+        s.player[0] = aim(0.2, 0.4);
+        s.player[0].trigger = true;
+        s.player[1] = aim(0.8, 0.6);
+        s.player[1].trigger = true;
+        auto b = render(p, s);
+        CHECK(control(b) == 0x3u);
+        CHECK(b[12] == 51 && b[16] == 102 && b[20] == 204 && b[24] == 153);
+        IoState t;
+        t.player[1].trigger = true;
+        CHECK(control(render(p, t)) == 0x2u);
+        t.player[1].trigger = false;
+        t.player[0].start = t.player[0].reload = true;
+        CHECK(control(render(p, t)) == 0u);
+    }
+    // FarCryPipe (Far Cry Paradise Lost, Medaru No Gunman): bits 3, 5..10, 13..16.
+    {
+        const TpShmProfile& p = *ps.find("FarCryPipe");
+        CHECK(p.complete && p.axes.size() == 4 && p.bits.size() == 11);
+        IoState s;
+        s.player[0] = aim(0.0, 1.0);
+        s.player[0].trigger = s.player[0].start = s.player[0].grenade = true;
+        s.sys.coin[0] = s.sys.test = s.sys.service = true;
+        s.sys.coin[1] = true;                                    // er is maar een muntbit
+        auto b = render(p, s);
+        CHECK(control(b) == (0x200u | 0x100u | 0x20u | 0x400u | 0x40u | 0x80u));
+        CHECK(b[12] == 0 && b[16] == 255);
+        IoState t;
+        t.player[1].trigger = t.player[1].start = t.player[1].grenade = true;
+        t.sys.volume_up = t.sys.volume_down = true;
+        CHECK(control(render(p, t)) == (0x4000u | 0x2000u | 0x8u | 0x8000u | 0x10000u));
+    }
     // LGS: alleen het stuurwiel.
     {
         const TpShmProfile& p = *ps.find("LGS");
@@ -252,6 +325,72 @@ void test_scale_and_validation() {
     CHECK(bad(R"({"profiles":{"X":{"size":8}}})"));
     CHECK(bad("geen json"));
     CHECK(!bad(R"({"profiles":{}})"));
+}
+
+// Offscreen-regel (findings 09 par. 2): de kern leest een as <= 1 of >= 254 als "buiten beeld" (herladen). Binnen het scherm
+// schrijven we dus nooit zo'n byte; 0 of 255 alleen als de speler echt buiten het scherm mikt.
+void test_offscreen_rule() {
+    TpShmProfiles ps = load_profiles();
+    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "TimeCrisis5", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"}) {
+        const TpShmProfile& p = *ps.find(n);
+        CHECK(p.offscreen_margin == 2);
+        // Binnen het scherm, ook op de uiterste rand: altijd 2..253, over een fijn raster.
+        for (int i = 0; i <= 1000; ++i) {
+            const double t = i / 1000.0;
+            IoState s;
+            s.player[0] = aim_inside(t, 1.0 - t);
+            s.player[1] = aim_inside(1.0 - t, t);
+            auto b = render(p, s);
+            for (const auto& a : p.axes) {
+                if (a.signal[1] > '2') continue;
+                CHECK(b[static_cast<size_t>(a.offset)] >= 2 && b[static_cast<size_t>(a.offset)] <= 253);
+            }
+        }
+        // De uiterste rand binnen het scherm is precies 2 en 253; het midden blijft ongemoeid.
+        IoState e;
+        e.player[0] = aim_inside(0.0, 1.0);
+        auto be = render(p, e);
+        CHECK(be[static_cast<size_t>(p.axes[0].offset)] == 2 && be[static_cast<size_t>(p.axes[1].offset)] == 253);
+        IoState m;
+        m.player[0] = aim_inside(0.5, 0.5);
+        auto bm = render(p, m);
+        CHECK(bm[static_cast<size_t>(p.axes[0].offset)] == 128 && bm[static_cast<size_t>(p.axes[1].offset)] == 128);
+        // Buiten het scherm: de as die de rand raakt wordt 0 of 255 (herladen), de andere blijft gewoon begrensd.
+        IoState o;
+        o.player[0] = aim(0.0, 0.5);
+        o.player[0].offscreen = true;
+        auto bo = render(p, o);
+        CHECK(bo[static_cast<size_t>(p.axes[0].offset)] == 0 && bo[static_cast<size_t>(p.axes[1].offset)] == 128);
+        o.player[0] = aim(0.3, 1.0);
+        auto bo2 = render(p, o);
+        CHECK(bo2[static_cast<size_t>(p.axes[0].offset)] == 77 && bo2[static_cast<size_t>(p.axes[1].offset)] == 255);
+        o.player[0] = aim(1.0, 0.0);
+        auto bo3 = render(p, o);
+        CHECK(bo3[static_cast<size_t>(p.axes[0].offset)] == 255 && bo3[static_cast<size_t>(p.axes[1].offset)] == 0);
+        // Zonder geldige aim: midden.
+        auto bn = render(p, IoState{});
+        CHECK(bn[static_cast<size_t>(p.axes[0].offset)] == 128);
+    }
+    // Stuurwiel en joystick-achtige profielen: geen marge.
+    for (const char* n : {"LGS", "TransformersShadowsRising"}) CHECK(ps.find(n)->offscreen_margin == 0);
+    {
+        IoState s;
+        s.player[0] = aim_inside(1.0, 0.5);
+        CHECK(render(*ps.find("LGS"), s)[12] == 255);
+    }
+    // Een venster dat niet tot de uiteinden loopt (Sega-achtig) en 16 bit blijven onaangeroerd.
+    std::string err;
+    const char* js = R"({"profiles":{"V":{"axes":[{"signal":"p1.x","offset":12,"min":27,"max":208},
+      {"signal":"p1.y","offset":16,"bytes":2,"min":0,"max":65535}]}}})";
+    TpShmProfiles vs = parse_tp_shm_profiles(js, err);
+    CHECK(err.empty());
+    IoState s;
+    s.player[0] = aim_inside(0.0, 1.0);
+    auto b = render(*vs.find("V"), s);
+    CHECK(b[12] == 27 && b[16] == 255 && b[17] == 255);
+    // Ongeldige marge.
+    parse_tp_shm_profiles(R"({"profiles":{"X":{"offscreen_margin":50}}})", err);
+    CHECK(!err.empty());
 }
 
 void test_routes() {
@@ -567,6 +706,7 @@ int main() {
     test_model();
     test_layouts();
     test_scale_and_validation();
+    test_offscreen_rule();
     test_routes();
     test_dialect_file(dir);
     test_service(dir);

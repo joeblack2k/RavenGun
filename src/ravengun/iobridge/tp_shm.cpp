@@ -67,6 +67,7 @@ std::string validate_tp_shm_profile(const TpShmProfile& p) {
         for (int i = 0; i < a.bytes; ++i)
             if (!bytes.insert(a.offset + i).second) return pre + a.signal + ": overlapt een andere as";
     }
+    if (p.offscreen_margin < 0 || p.offscreen_margin > 10) return pre + "'offscreen_margin' moet 0..10 zijn";
     if (p.mirror_first != -1 && (p.mirror_first < 0 || p.mirror_last < p.mirror_first || p.mirror_last >= p.size))
         return pre + "ongeldige 'mirror_bytes'";
     return {};
@@ -91,6 +92,7 @@ TpShmProfiles parse_tp_shm_profiles(const std::string& text, std::string& err) {
         bool ok = true;
         p.size = static_cast<int>(num_or(o, "size", 64, ok));
         p.complete = bool_or(o, "complete", true, ok);
+        p.offscreen_margin = static_cast<int>(num_or(o, "offscreen_margin", 2, ok));
         if (const json::Value* m = o.find("mirror_bytes")) {
             if (m->is_array() && m->arr.size() == 2 && m->arr[0].is_number() && m->arr[1].is_number()) {
                 p.mirror_first = static_cast<int>(m->arr[0].num);
@@ -151,6 +153,12 @@ void tp_shm_render(const TpShmProfile& p, const IoState& s, uint8_t* bytes, size
         // Eerst afronden, dan pas inverteren (min+max-waarde): bij 0..255 het complement van de byte, zoals de bron het doet.
         double v = std::round(a.min + f * (a.max - a.min));
         if (a.invert) v = a.min + a.max - v;
+        // Offscreen-regel (zie TpShmProfile::offscreen_margin): binnen het scherm nooit een byte <= 1 of >= 254 (de kern leest dat
+        // als "naast het scherm" en laadt dan zomaar na); echt buiten het scherm (de fractie ligt op de rand) blijft 0 of 255.
+        if (a.bytes == 1 && p.offscreen_margin > 0 && a.min <= 1 && a.max >= 254) {
+            const bool out = pl.valid && pl.offscreen && (f <= 0.0 || f >= 1.0);
+            if (!out) v = std::min(255.0 - p.offscreen_margin, std::max(static_cast<double>(p.offscreen_margin), v));
+        }
         v = std::min(a.bytes == 1 ? 255.0 : 65535.0, std::max(0.0, v));
         const unsigned u = static_cast<unsigned>(v);
         if (a.bytes == 1) {

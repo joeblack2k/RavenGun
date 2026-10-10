@@ -48,6 +48,11 @@ struct TpShmProfile {
     std::vector<TpAxis> axes;
     int mirror_first = 0, mirror_last = 7;   // bytes die de daemon van TeknoParrotUi overneemt (verbind-vlag e.d.); -1 = geen
     bool complete = true;        // false: de indeling is niet volledig uit de bron af te leiden (zie description)
+    // Offscreen-regel van de kern (findings 09 par. 2): een as <= 1 of >= 254 geldt als "buiten beeld" (herladen). Bij
+    // 1-byte-assen met een venster dat 0..255 omvat houdt de weergave binnen het scherm daarom 'offscreen_margin' afstand
+    // tot de uiteinden (2 = bytes 2..253) en schrijft ze alleen 0 of 255 als de speler echt buiten het scherm mikt.
+    // 0 = uit (stuurwiel, joystick-achtige profielen).
+    int offscreen_margin = 2;
 };
 
 struct TpShmProfiles {

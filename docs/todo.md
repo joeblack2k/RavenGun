@@ -30,7 +30,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
 - [~] B1 JVS-board in de IO-brug + Let's Go Safari (COM4 als pty).
 - [~] B2 Eigen Unity-plugin (Tomb Raider, Rabbids) ter vervanging van de DemulShooter-plugin.
 - [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
-  - [ ] B3a tp-shm-indelingen MusicGunGun2, HOTDSD en FarCry toevoegen; offscreen-regel (as <= 1 of >= 254) in tp_shm_render controleren.
+  - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
   - [ ] B3b Taito Type X2 via OpenParrot: Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2 (JVS-pipe op COM2 voor munt/test/service).
   - [ ] B3c WartranTroopers/TC5-indeling: Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX, Raccoon Rampage, NERF Arcade, Pigs Might Fly.
   - [ ] B3d Raw Thrills Linux: GhostBusters, Go Go Strike (evdev); Galaga Assault en Pacman Chomp-Mania (herschreven ELF, zelfde klasse als Jurassic Park; DirectInput).

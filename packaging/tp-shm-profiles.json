@@ -3,7 +3,7 @@
  "comment": "Indeling van het gedeelde geheugen van de TeknoParrot-kern (/dev/shm/TeknoParrot_JvsState, 64 bytes) per EmulationProfile, voor het dialect tp-shm van de IO-brug. Bits: bit N van het little-endian bitveld dat op 'offset' begint. Assen: fractie 0..1 (na 'invert') naar min..max. Bron: beschrijving van de indeling uit de open TeknoParrotUI-bron (feiten, geen code overgenomen; zie docs/decisions.md).",
  "profiles": {
   "WartranTroopers": {
-   "description": "Vier-spelers-shooterindeling (Halo: Fireteam Raven, Tomb Raider, Rabbids Hollywood; 51 profielen). Control (32 bit, offset 8): test, service, munt 1 en 2, menu omhoog/omlaag, per speler start, trekker (Button1), herladen (Button2), granaat (Button3) en een extra knop (Button4). Aim: 1 byte per as op offset 12..19 (P1X, P1Y, P2X, P2Y, ...), links/boven = 0 (InvertedMouseAxis).",
+   "description": "Vier-spelers-shooterindeling (Halo: Fireteam Raven, Tomb Raider, Rabbids Hollywood; 51 profielen). Control (32 bit, offset 8): test, service, munt 1 en 2, menu omhoog/omlaag, per speler start, trekker (Button1), herladen (Button2), granaat (Button3) en een extra knop (Button4). Aim: 1 byte per as op offset 12..19 (P1X, P1Y, P2X, P2Y, ...), links/boven = 0 (InvertedMouseAxis). Offscreen-regel: de kern leest een as <= 1 of >= 254 als buiten beeld; binnen het scherm blijven de assen daarom op 2..253 (offscreen_margin), 0 of 255 alleen als de speler buiten het scherm mikt.",
    "size": 64,
    "mirror_bytes": [
     0,
@@ -209,7 +209,7 @@
    ]
   },
   "RawThrillsGUN": {
-   "description": "Raw Thrills-gunindeling (Terminator Salvation, Jurassic Park, 19 profielen). Control: test, service, munt 1 en 2, per speler (twee) start, trekker, granaat (Button2), herladen (Button3), daarna volume omhoog/omlaag. Aim: 1 byte per as op offset 12 (P1X), 16 (P1Y), 20 (P2X), 24 (P2Y), links/boven = 0.",
+   "description": "Raw Thrills-gunindeling (Terminator Salvation, Jurassic Park, 19 profielen). Control: test, service, munt 1 en 2, per speler (twee) start, trekker, granaat (Button2), herladen (Button3), daarna volume omhoog/omlaag. Aim: 1 byte per as op offset 12 (P1X), 16 (P1Y), 20 (P2X), 24 (P2Y), links/boven = 0. Offscreen-regel: de kern leest een as <= 1 of >= 254 als buiten beeld; binnen het scherm blijven de assen daarom op 2..253 (offscreen_margin), 0 of 255 alleen als de speler buiten het scherm mikt.",
    "size": 64,
    "mirror_bytes": [
     0,
@@ -323,7 +323,7 @@
    ]
   },
   "TimeCrisis5": {
-   "description": "Time Crisis 5. Control: test (0x1), service (0x4), munt (0x8), trekker (0x10), gunknop (0x20; bij ons herladen), linker pedaal (0x40; bij ons granaat/middenknop), rechter pedaal (0x80; extra knop 1), omhoog/omlaag-selectieschakelaar (0x100, 0x200; niet gekoppeld) en Enter (0x400; bij ons start). Aim: offset 12 = X, 16 = Y, 1 byte, links/boven = 0.",
+   "description": "Time Crisis 5. Control: test (0x1), service (0x4), munt (0x8), trekker (0x10), gunknop (0x20; bij ons herladen), linker pedaal (0x40; bij ons granaat/middenknop), rechter pedaal (0x80; extra knop 1), omhoog/omlaag-selectieschakelaar (0x100, 0x200; niet gekoppeld) en Enter (0x400; bij ons start). Aim: offset 12 = X, 16 = Y, 1 byte, links/boven = 0. Offscreen-regel: de kern leest een as <= 1 of >= 254 als buiten beeld; binnen het scherm blijven de assen daarom op 2..253 (offscreen_margin), 0 of 255 alleen als de speler buiten het scherm mikt.",
    "size": 64,
    "mirror_bytes": [
     0,
@@ -467,7 +467,8 @@
      "max": 255,
      "invert": true
     }
-   ]
+   ],
+   "offscreen_margin": 0
   },
   "LGS": {
    "description": "Let's Go Safari. De open bron schrijft in het gedeelde geheugen alleen het stuurwiel (offset 12, 1 byte); schakelaars, munt en de rest lopen via echte JVS-pakketten (de JVS-pipe van TeknoParrotUi) en staan dus niet in deze indeling. Alleen als as P1 X (het stuurwiel); de game start bovendien nog niet.",
@@ -482,6 +483,268 @@
     {
      "signal": "p1.x",
      "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
+  },
+  "MusicGunGun2Pipe": {
+   "description": "Taito Type X2 via OpenParrot (Gaia Attack 4, Haunted Museum 1 en 2, Music GunGun 2; profielen GaiaAttack4, HauntedMuseum, HauntedMuseum2, MusicGunGun2). De pipe telt spelers vanaf 0, dus 'P2Button1' is bit 0. Control (offset 8) kent maar zes bits: trekker speler 1 (0x1, TeknoParrot 'P2Button1'), trekker speler 2 (0x4, 'P2Button3'), volume omhoog/omlaag (0x10 en 0x20, 'P2Button5/6') en trekker speler 3 en 4 (0x40 en 0x80, 'P2ButtonUp/Down'; alleen Gaia Attack 4). Start (P1ButtonUp/Down), munt, test, service en de extra knoppen lopen bij Type X2 via de JVS-pipe (COM2, ExtensionOne) van TeknoParrotUi: die blijft draaien, die toetsen komen uit zijn eigen bindingen. Aim: 8 kanalen van 1 byte met stride 4 op offset 12..40 (P1 X/Y = 12/16, P2 = 20/24, P3 = 28/32, P4 = 36/40), links/boven = 0 (InvertedMouseAxis).",
+   "size": 64,
+   "complete": false,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p3.trigger",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p4.trigger",
+     "offset": 8,
+     "bit": 7
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.x",
+     "offset": 28,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p3.y",
+     "offset": 32,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.x",
+     "offset": 36,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p4.y",
+     "offset": 40,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
+  "HOTDSDPipe": {
+   "description": "House of the Dead: Scarlet Dawn (profiel HOTDSD, EmulationProfile ALLSHOTDSD). Control (offset 8): alleen de trekkers (P1ButtonUp = 0x1, P2ButtonUp = 0x2). Start, subtrekker (P1Button1), controllerkeuze, munt en test lopen via TeknoParrotUi's eigen bindingen. Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0.",
+   "size": 64,
+   "complete": false,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 1
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
+  "FarCryPipe": {
+   "description": "Far Cry Paradise Lost en Medaru No Gunman (profiel FarCry/MedaruNoGunman). Control (offset 8): granaat speler 2 (0x8), granaat speler 1 (0x20), test (0x40), service (0x80), start speler 1 (Button2, 0x100), trekker speler 1 (Button1, 0x200), munt (0x400), start speler 2 (0x2000), trekker speler 2 (0x4000), menu omhoog/omlaag (0x8000, 0x10000; bij ons volume omhoog/omlaag). Er is maar een muntbit (coin1). Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 13
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 14
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 15
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 16
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
      "bytes": 1,
      "min": 0,
      "max": 255,
