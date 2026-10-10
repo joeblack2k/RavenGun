@@ -588,10 +588,32 @@ void AppCoreTest::runtimeCheck() {
     writeFile(rt + QStringLiteral("/TeknoParrotUi"), "x");
     c = RuntimeCheck::check(rt);
     QVERIFY(c.hasUi);
-    DirectBackend direct;
+    // Backends (A10): auto en direct hebben alleen laders en profielen nodig, teknoparrot-ui ook TeknoParrotUi.
+    GameLibrary lib(tmp_.filePath(QStringLiteral("launcher-lib.json")));
+    lib.setTpDir(tmp_.filePath(QStringLiteral("leeg")));
     QString why;
-    QVERIFY(!direct.available(&why));
-    QVERIFY(!why.isEmpty());
+    for (const QString& id : backendIds()) {
+        const auto b = makeBackend(id, nullptr, &lib, nullptr);
+        QCOMPARE(b->id(), id);
+        why.clear();
+        QVERIFY(!b->available(&why));
+        QVERIFY(!why.isEmpty());
+    }
+    QCOMPARE(backendIds(), (QStringList{QStringLiteral("auto"), QStringLiteral("direct"), QStringLiteral("teknoparrot-ui")}));
+    QCOMPARE(makeBackend(QString(), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));
+    QCOMPARE(makeBackend(QStringLiteral("onbekend"), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));
+    lib.setTpDir(rt);
+    QVERIFY(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr)->available(&why));
+    QVERIFY(makeBackend(QStringLiteral("auto"), nullptr, &lib, nullptr)->available(&why));
+    QVERIFY(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->available(&why));  // TeknoParrotUi staat er nu
+    QFile::remove(rt + QStringLiteral("/TeknoParrotUi"));
+    QVERIFY(!makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->available(&why));
+    QVERIFY(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr)->available(&why));
+    // De startwijze die game_start meekrijgt.
+    QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr).get())->launchMode(), QStringLiteral("direct"));
+    QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("auto"), nullptr, &lib, nullptr).get())->launchMode(), QString());
+    QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr).get())->launchMode(),
+             QStringLiteral("teknoparrot-ui"));
 }
 
 // --- A3: echte game-options.json, invoerroute van de gebruiker, notities ------------------------------------------------
@@ -694,7 +716,8 @@ void AppCoreTest::routeOverride() {
     QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
     // Keuzes per game: de aanbevolen route eerst, alleen routes waarvoor er een indeling of bord is.
     QCOMPARE(d.availableRoutes(QStringLiteral("TC5")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
-    QCOMPARE(d.availableRoutes(QStringLiteral("Halo")), (QStringList{QStringLiteral("evdev"), QStringLiteral("tp-shm")}));
+    QCOMPARE(d.availableRoutes(QStringLiteral("Halo")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
+    QCOMPARE(d.availableRoutes(QStringLiteral("JurassicPark")), (QStringList{QStringLiteral("evdev"), QStringLiteral("tp-shm")}));
     QVERIFY(d.availableRoutes(QStringLiteral("TransformersShadowsRising")).contains(QStringLiteral("hid-board")));
     QVERIFY(d.availableRoutes(QStringLiteral("LGS")).contains(QStringLiteral("jvs")));
     QCOMPARE(d.availableRoutes(QStringLiteral("TombRaider")), QStringList{QStringLiteral("unity-tcp")});
@@ -709,13 +732,13 @@ void AppCoreTest::routeOverride() {
     QJsonObject o = readJson(user).object();
     QCOMPARE(o.value(QStringLiteral("games")).toObject().value(QStringLiteral("TC5")).toObject().value(QStringLiteral("route")).toString(),
              QStringLiteral("evdev"));
-    QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("tp-shm"), &err));
+    QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("evdev"), &err));
     // Een tweede GameData (een herstart van de app) leest dezelfde keuzes.
     GameData d2;
     d2.setRouteSources(user, {}, {}, {});
     d2.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
     QCOMPARE(d2.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
-    QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("tp-shm"));
+    QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("evdev"));
     // Niet beschikbaar: geweigerd. Terug naar de aanbevolen route: de keuze verdwijnt uit het bestand.
     QVERIFY(!d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("hid-board"), &err));
     QVERIFY(!err.isEmpty());

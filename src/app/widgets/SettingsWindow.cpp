@@ -329,7 +329,7 @@ QWidget* SettingsWindow::MakePathsPane() {
         const auto b = rg::makeBackend(id, core_->engine(), core_->library(), core_->gameData());
         launcher->addItem(b->displayName(), id);
     }
-    const QString cur = core_->launcher()->backend() ? core_->launcher()->backend()->id() : QStringLiteral("teknoparrot-ui");
+    const QString cur = core_->launcher()->backend() ? core_->launcher()->backend()->id() : QStringLiteral("auto");
     launcher->setCurrentIndex(std::max(0, launcher->findData(cur)));
     grid->addWidget(new QLabel(tr("Launch games with:")), 2, 0);
     grid->addWidget(launcher, 2, 1, 1, 3);

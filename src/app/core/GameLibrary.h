@@ -77,7 +77,7 @@ struct LibraryData {
     QList<LibraryFolder> folders;
     QString tpDir;          // leeg = standaard (AppPaths::defaultTpDir)
     QString defaultGame;    // id
-    QString launcher;       // launch-backend: teknoparrot-ui (standaard) of direct
+    QString launcher;       // launch-backend: auto (standaard, ook als leeg), direct of teknoparrot-ui (core/Launcher.h)
     QHash<QString, GameOverride> overrides;
     QList<GameEntry> games; // laatste scan (cache voor een snelle start)
     QDateTime scanned;

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Spelen en stoppen. Het starten zelf doet een verwisselbare backend (core/Launcher.h: nu "teknoparrot-ui", via IPC
-// game_start van de engine; later "direct"). De voortgang komt uit de toestand van `games` in de engine (idle,
-// waiting_move, starting, running, stopping, failed) en wordt hier naar Engelse meldingen vertaald.
+// Spelen en stoppen. Het starten zelf doet een verwisselbare backend (core/Launcher.h: "auto", "direct" of
+// "teknoparrot-ui", alle via IPC game_start van de engine met een eigen startwijze). De voortgang komt uit de toestand
+// van `games` in de engine (idle, waiting_move, starting, running, stopping, failed) en wordt hier naar Engelse
+// meldingen vertaald.
 #include <QJsonObject>
 #include <QObject>
 #include <memory>

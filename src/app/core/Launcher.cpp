@@ -12,6 +12,8 @@
 #include "core/TpProfile.h"
 
 #include <QFile>
+#include <QJsonObject>
+#include <utility>
 
 namespace rg {
 
@@ -115,8 +117,17 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
     return ok;
 }
 
-TeknoParrotUiBackend::TeknoParrotUiBackend(EngineClient* engine, GameLibrary* library, GameData* data)
-    : engine_(engine), library_(library), data_(data) {}
+EngineBackend::EngineBackend(EngineClient* engine, GameLibrary* library, GameData* data, QString launch)
+    : engine_(engine), library_(library), data_(data), launch_(std::move(launch)) {}
+
+bool EngineBackend::available(QString* why) const {
+    const RuntimeCheck c = RuntimeCheck::check(library_->tpDir());
+    if (!c.ok) {
+        if (why) *why = QStringLiteral("The game runtime was not found. Choose it in Settings > Paths.");
+        return false;
+    }
+    return true;
+}
 
 bool TeknoParrotUiBackend::available(QString* why) const {
     const RuntimeCheck c = RuntimeCheck::check(library_->tpDir());
@@ -128,7 +139,7 @@ bool TeknoParrotUiBackend::available(QString* why) const {
     return true;
 }
 
-bool TeknoParrotUiBackend::prepare(const GameEntry& g, QString* err) {
+bool EngineBackend::prepare(const GameEntry& g, QString* err) {
     QStringList errors;
     if (!ProfileSync::apply(g, *library_, *data_, &errors)) {
         if (err) *err = QStringLiteral("Could not write the game settings: %1").arg(errors.join(QStringLiteral("; ")));
@@ -137,29 +148,22 @@ bool TeknoParrotUiBackend::prepare(const GameEntry& g, QString* err) {
     return true;
 }
 
-void TeknoParrotUiBackend::start(const GameEntry& g, Done done) {
-    engine_->request(QStringLiteral("game_start"), {{QStringLiteral("profile"), g.profile}},
-                     [done](const EngineReply& r) { done(r.ok, r.errorMessage); });
+void EngineBackend::start(const GameEntry& g, Done done) {
+    QJsonObject f{{QStringLiteral("profile"), g.profile}};
+    if (!launch_.isEmpty()) f.insert(QStringLiteral("launch"), launch_);
+    engine_->request(QStringLiteral("game_start"), f, [done](const EngineReply& r) { done(r.ok, r.errorMessage); });
 }
 
-void TeknoParrotUiBackend::stop(Done done) {
+void EngineBackend::stop(Done done) {
     engine_->request(QStringLiteral("game_stop"), {}, [done](const EngineReply& r) { done(r.ok, r.errorMessage); });
 }
 
-bool DirectBackend::available(QString* why) const {
-    if (why) *why = QStringLiteral("Direct launching is not available yet: the engine cannot start the game loader by itself yet.");
-    return false;
-}
-
-bool DirectBackend::prepare(const GameEntry&, QString* err) { return available(err); }
-void DirectBackend::start(const GameEntry&, Done done) { done(false, QStringLiteral("Direct launching is not available yet.")); }
-void DirectBackend::stop(Done done) { done(false, QStringLiteral("Direct launching is not available yet.")); }
-
-QStringList backendIds() { return {QStringLiteral("teknoparrot-ui"), QStringLiteral("direct")}; }
+QStringList backendIds() { return {QStringLiteral("auto"), QStringLiteral("direct"), QStringLiteral("teknoparrot-ui")}; }
 
 std::unique_ptr<LaunchBackend> makeBackend(const QString& id, EngineClient* engine, GameLibrary* library, GameData* data) {
-    if (id == QStringLiteral("direct")) return std::make_unique<DirectBackend>();
-    return std::make_unique<TeknoParrotUiBackend>(engine, library, data);
+    if (id == QStringLiteral("direct")) return std::make_unique<DirectBackend>(engine, library, data);
+    if (id == QStringLiteral("teknoparrot-ui")) return std::make_unique<TeknoParrotUiBackend>(engine, library, data);
+    return std::make_unique<AutoBackend>(engine, library, data);  // "auto", leeg of onbekend
 }
 
 }  // namespace rg
