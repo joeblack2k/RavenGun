@@ -357,3 +357,24 @@ Veranderd op de NAS (map "Sega"): `shell/teknoparrot.ini` (nieuw), ongeveer 50 l
 ## Opruimen na de tests
 
 Er draait geen game van deze tests meer, de lightgun-uitvoer is ontwapend en de tv staat op het bureaublad. Een TeknoParrotUi-venster dat al draaide voordat de tests begonnen (PID 12262, gestart vanaf het bureaublad om 15:56, met een vastgelopen Luigi's Mansion-sessie) is niet aangeraakt; de vastgelopen Luigi's Mansion-sessie (loader, wineserver) is tussen 16:17 en 16:27 verdwenen zonder dat ik die stopte (mijn `--stop` raakt alleen de eigen unit).
+
+## Achtste ronde (2026-10-10, nacht): Luigi's Mansion
+
+Status: WERKT. Titelscherm, attract met FREE PLAY, start, keuze besturing, stage-select, laden en gameplay (Entrance) staan beeldvullend op de tv (1920x1080, wined3d); richten (virtuele lightgun, tp-shm) en trekker werken: kruisje op (0,8/0,3) en een geraakt spook (score 10, munten).
+
+Oorzaak van het zwarte scherm: de game speelt `Data\Movie\title_*.wmv` (en `kokuchi.wmv`) af via DirectShow (quartz) en `WMCreateReader` (wmvcore) op winegstreamer. Zonder ASF-demuxer en WMV-decoder in GStreamer sluit VACUUM.exe af bij `title_movie.wmv` (echte Movie-map) of blijft het scherm zwart met een lege Movie-map (hoofdthread draait 90 % CPU in de berichtenlus, bijna geen d3d-werk; de game wacht op de film). Op het systeem ontbreken `gst-libav` en `gst-plugins-ugly` (alleen `libgstasfmux`).
+
+Oplossing (geen root, niets systeemwijd): `scripts/fetch-gst-wmv.sh` haalt `gst-libav` en `gst-plugins-ugly` (zelfde versie als de geïnstalleerde gstreamer, 1.28.5-2) uit de SteamOS-pakketrepo en pakt alleen `libgstlibav.so` en `libgstasf.so` uit in `~/.local/share/ravengun/tools/gst-extra/plugins`. In `UserProfiles/LuigisMansion.env` staat `GST_PLUGIN_PATH=<die map>`. De GE-Proton in `~/.local/share/TeknoParrotUI/proton` heeft wel ffmpeg-bibliotheken maar geen GStreamer-libav-plug-in; die is dus niet nodig en niet gebruikt. De film speelt vloeiend (title_advertise00, title_movie e.d.).
+
+Exacte configuratie (profiel `LuigisMansion`):
+- `.env`: `TP_REMOTETHREAD=off` (standaard entry-point-route van de loader), `TP_GAME_WORKING_DIRECTORY=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64`, `GST_PLUGIN_PATH=/home/deck/.local/share/ravengun/tools/gst-extra/plugins`. DXVK-regels blijven uitgecommentarieerd (wined3d volstaat).
+- Runner: plain wine (Kron4ek proton-11.0-2), gedeelde prefix, direct-modus (`scripts/play-halo.sh --profile LuigisMansion --direct --no-wait-move`).
+- View `~/.local/share/ravengun/runtime/views/LuigisMansion`: alle NAS-items als symlink; `Data -> DataGlobal/EN/Data`; `DataGlobal/EN/Data` is een echte map met symlinks naar de NAS-mappen en `Movie` is een symlink naar de NAS-map `DataGlobal/EN/Data/Movie` (de lege `Movie`-map uit de eerdere test is vervangen). Er is niets gekopieerd of getranscodeerd.
+- Route: `~/.config/ravengun/io-routes.json` (tijdelijk) `LuigisMansion: route tp-shm, layout LuigisMansion`.
+- Opstarttijd: ongeveer 25 s tot de eerste film (veel modellen laden), daarna attract.
+
+Invoer getest: start (key 1) gaat van attract naar de waarschuwing, dan naar de keuze Simple/Normal Controls (23 s timer, kiest zelf Normal), stage-select (kiest zelf Old Clockworks) en tutorial/laden; de trekker (`output-button trigger`) schiet; het kruisje volgt `test-pattern point`.
+
+Zonder dat het nodig bleek: X:/Y:-schijfletters, COM1/`sendFlash` (de game ging door zonder), `oxGetHwInfo`. De game schrijft zelf in de NAS-map `Ram/` (CreditConfig.bin, EEPROM_0x00001100.bin, SRAM_0x00004200.bin gewijzigd 2026-10-10) en `exe/x64/teknoparrot.ini`. In het Wine-log staan alleen onschuldige "not found"-regels (`Ram/Network_eth0.bin`, `config.csv`, enkele `Effects/bishamon`- en `Model/.../*.mattr`-bestanden die niet bestaan).
+
+Scripts: nieuw `scripts/fetch-gst-wmv.sh`.
