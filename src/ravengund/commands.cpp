@@ -8,6 +8,7 @@
 
 #include "aagames_service.hpp"
 #include "iobridge_service.hpp"
+#include "mouse_service.hpp"
 #include "build_info.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
@@ -122,6 +123,10 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err, int 
     if (sh.output && !res.empty() && res.back() == '}') {
         res.pop_back();
         res += ",\"output\":" + sh.output->status_json() + "}";
+    }
+    if (sh.mouse && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"mouse_guns\":" + sh.mouse->status_json() + "}";
     }
     if (!res.empty() && res.back() == '}') {
         res.pop_back();
@@ -924,6 +929,19 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             const int code = output::key_code(r.key_name);
             if (code < 0) return ipc::error_response({"invalid_argument", "onbekende toets '" + r.key_name + "'", r.id_json});
             return output_reply(r, sh.output->key(r.player.value_or(1), code, r.action), sh);
+        }
+        case ipc::Cmd::Mice: {
+            if (!sh.mouse) return ipc::error_response({"unavailable", "muisservice is niet beschikbaar in deze daemon", r.id_json});
+            return ipc::ok_response(r.id_json, sh.mouse->mice_json());
+        }
+        case ipc::Cmd::SetMouseGun: {
+            if (!sh.mouse) return ipc::error_response({"unavailable", "muisservice is niet beschikbaar in deze daemon", r.id_json});
+            std::string code, msg;
+            std::optional<int> counts;
+            if (r.counts_per_screen) counts = static_cast<int>(*r.counts_per_screen);
+            if (!sh.mouse->assign(r.player.value_or(1), r.mouse.value_or(""), counts, code, msg))
+                return ipc::error_response({code, msg, r.id_json});
+            return ipc::ok_response(r.id_json, sh.mouse->assignment_json(r.player.value_or(1)));
         }
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);

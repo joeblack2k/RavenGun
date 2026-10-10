@@ -240,6 +240,21 @@ unsigned OutputService::active_players() const {
     return active_;
 }
 
+void OutputService::set_mouse_players(unsigned mask) {
+    std::lock_guard<std::mutex> g(m_);
+    const unsigned now = mask & ~1u & ((1u << kPlayers) - 1);   // speler 1 bestaat altijd
+    const unsigned added = now & ~(active_ | mouse_);
+    mouse_ = now;
+    if (!armed_ || shut_) return;
+    for (auto& p : players_)
+        if (added & (1u << (p.number - 1))) arm_player_locked(p);
+}
+
+unsigned OutputService::mouse_players() const {
+    std::lock_guard<std::mutex> g(m_);
+    return mouse_;
+}
+
 void OutputService::set_layout(int player, const std::vector<std::pair<std::string, std::string>>& layout) {
     if (player < 1 || player > kPlayers) return;
     std::lock_guard<std::mutex> g(m_);

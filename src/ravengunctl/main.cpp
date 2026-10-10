@@ -89,6 +89,10 @@ void usage(FILE* f) {
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
         "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board|jvs] | stop | status | route GAME   IO-brug van de daemon: de\n"
         "              route van een game (packaging/io-routes.json) starten of stoppen, de actieve route tonen\n"
+        "  mice        gewone muizen (evdev) die als lightgun-bron kunnen dienen en de toewijzing per speler\n"
+        "  mouse-gun --player N --mouse ID [--counts C] | --off   muis ID (uit 'mice') als bron van de virtuele lightgun van speler N,\n"
+        "              of --off om los te koppelen; C = counts per schermbreedte (100..20000, standaard 1920). Alleen\n"
+        "              runtime: niet bewaard, de app past het opnieuw toe bij het verbinden. De muis wordt niet gegrabd\n"
         "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
         "\n"
@@ -272,6 +276,16 @@ std::string iobridge_text(const json::Value& a) {
         if (!sysb.empty()) t += ", systeem " + sysb;
         if (boolean(a, {"resumes"}) || num(a, {"resumes"}, 0) > 0) t += ", " + fmt(num(a, {"resumes"}, 0), "%.0f") + "x hervat na een herstart";
     }
+    return t;
+}
+
+// Eén toewijzing uit `mice`/`set_mouse_gun`: "speler 2: <id> verbonden, 1920 counts per schermbreedte".
+std::string mouse_assignment_text(const json::Value& a) {
+    const json::Value* m = a.find("mouse");
+    std::string t = "speler " + fmt(num(a, {"player"}, 0), "%.0f") + ": ";
+    if (!m || !m->is_string()) return t + "geen muis";
+    t += m->str + (boolean(a, {"connected"}) ? " verbonden" : " NIET verbonden") + ", " + fmt(num(a, {"counts_per_screen"}, 0), "%.0f") + " counts per schermbreedte";
+    if (!str(a, {"last_error"}, "").empty()) t += " (" + str(a, {"last_error"}, "") + ")";
     return t;
 }
 
@@ -961,6 +975,9 @@ int main(int argc, char** argv) {
         std::string arg2, tag, holder, mark, action;
         std::string ctl_name, ctl_led;
         std::string io_route;   // iobridge start: route afdwingen
+        std::string mouse_id;   // mouse-gun --mouse
+        bool have_mouse = false;
+        double mouse_counts = -1;
         bool ctl_reset = false, ctl_blink = false, ctl_forget = false;
         auto need = [&](int& i, const char* name, double lo, double hi) -> double {
             if (i + 1 >= argc) { std::fprintf(stderr, "ravengunctl: %s mist een waarde\n", name); std::exit(kExitUsage); }
@@ -1009,6 +1026,8 @@ int main(int argc, char** argv) {
             else if (a == "--off") filter_on = 0;
             else if (a == "--player") g_player = static_cast<int>(need(i, "--player", 1, 4));
             else if (a == "--route" && i + 1 < argc) io_route = argv[++i];
+            else if (a == "--mouse" && i + 1 < argc) { mouse_id = argv[++i]; have_mouse = true; }
+            else if (a == "--counts") mouse_counts = need(i, "--counts", ipc::kMouseCountsMin, ipc::kMouseCountsMax);
             else if (a == "--name" && i + 1 < argc) ctl_name = argv[++i];
             else if (a == "--led" && i + 1 < argc) ctl_led = argv[++i];
             else if (a == "--reset") ctl_reset = true;
@@ -1257,6 +1276,41 @@ int main(int argc, char** argv) {
             if (!res) return kExitProtocol;
             if (rq.action == "route") std::printf("%s\n", str(*res, {"route"}).c_str());
             else std::printf("IO-brug: %s\n", iobridge_text(*res).c_str());
+            return kExitOk;
+        }
+        if (cmd == "mice") {
+            if (!pos.empty() || !arg2.empty()) { std::fprintf(stderr, "ravengunctl: mice heeft geen argumenten\n"); return kExitUsage; }
+            rq.cmd = ipc::Cmd::Mice;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            const json::Value* res = path(r.v, {"result"});
+            if (!res) return kExitProtocol;
+            const json::Value* ms = path(*res, {"mice"});
+            std::printf("Muizen:\n");
+            if (!ms || !ms->is_array() || ms->arr.empty()) std::printf("  (geen gevonden)\n");
+            else for (const auto& m : ms->arr)
+                std::printf("  %s  \"%s\" (%s, %s)\n", str(m, {"id"}).c_str(), str(m, {"name"}).c_str(), boolean(m, {"absolute"}) ? "absoluut" : "relatief", str(m, {"event"}).c_str());
+            std::printf("Toewijzingen:\n");
+            if (const json::Value* as = path(*res, {"assignments"}); as && as->is_array())
+                for (const auto& a : as->arr) std::printf("  %s\n", mouse_assignment_text(a).c_str());
+            return kExitOk;
+        }
+        if (cmd == "mouse-gun") {
+            const bool off = filter_on == 0;
+            if (g_player < 1 || (have_mouse == off) || !pos.empty() || !arg2.empty() || (off && mouse_counts > 0)) {
+                std::fprintf(stderr, "ravengunctl: mouse-gun --player N --mouse ID [--counts C] | mouse-gun --player N --off\n");
+                return kExitUsage;
+            }
+            rq.cmd = ipc::Cmd::SetMouseGun;
+            rq.player = g_player;
+            rq.mouse = off ? std::string() : mouse_id;
+            if (mouse_counts > 0) rq.counts_per_screen = mouse_counts;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) std::printf("%s\n", mouse_assignment_text(*res).c_str());
+            else return kExitProtocol;
             return kExitOk;
         }
         if (cmd == "test-pattern") {

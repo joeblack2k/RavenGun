@@ -52,6 +52,7 @@ add_library(ravengun STATIC
   src/ravengun/iobridge/routes.cpp
   src/ravengun/iobridge/unity_tcp.cpp
   src/ravengun/sysinfo/navcon.cpp
+  src/ravengun/sysinfo/mice.cpp
   src/ravengun/sysinfo/hidraw_scan.cpp
   src/ravengun/pairing/pairing.cpp
   src/ravengun/json.cpp
@@ -75,6 +76,7 @@ add_library(ravengun STATIC
   src/ravengun/output/key_mux.cpp
   src/ravengun/core/navcon.cpp
   src/ravengun/output/live_feed.cpp
+  src/ravengun/output/mouse_gun.cpp
   src/ravengun/output/aim_clock.cpp
   src/ravengun/output/rumble.cpp
   src/ravengun/core/move_report.cpp
@@ -118,6 +120,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/output_service.cpp
     src/ravengund/aagames_service.cpp
     src/ravengund/iobridge_service.cpp
+    src/ravengund/mouse_service.cpp
     src/ravengund/camera.cpp
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
@@ -242,9 +245,15 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
   if(RAVENGUN_BUILD_DAEMON)
+    # Muis als lightgun: parser, toestandsmachine, IPC-parser en de service met een FIFO als nep-apparaat.
+    add_executable(ravengun_mouse_tests tests/test_mouse.cpp src/ravengund/mouse_service.cpp src/ravengund/output_service.cpp)
+    target_include_directories(ravengun_mouse_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengun_mouse_tests PRIVATE ravengun Threads::Threads)
+    add_test(NAME ravengun_mouse_tests COMMAND ravengun_mouse_tests)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
     add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp src/ravengund/controllers.cpp
-      src/ravengund/camera.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp)
+      src/ravengund/camera.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp
+      src/ravengund/mouse_service.cpp)
     target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
@@ -270,5 +279,25 @@ if(RAVENGUN_BUILD_TESTS)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
+  endif()
+endif()
+
+# Installeren (bin/): de daemon, de CLI en, als die gebouwd wordt, de app.
+install(TARGETS ravengunctl RUNTIME DESTINATION bin)
+if(RAVENGUN_BUILD_DAEMON)
+  install(TARGETS ravengund RUNTIME DESTINATION bin)
+endif()
+
+# De Qt-app `ravengun` (src/app; CMake-doel ravengun_app, want `ravengun` is al de naam van de bibliotheek). Alleen als
+# Qt 6 met headers en CMake-bestanden beschikbaar is. SteamOS heeft wel de systeem-Qt maar geen headers; daar bouwt
+# scripts/build-app.sh de app in een container (docs/build.md). Zonder Qt blijven de gewone build en ctest ongewijzigd.
+option(RAVENGUN_BUILD_APP "Bouw de Qt-app (ravengun) als Qt 6 beschikbaar is" ON)
+if(RAVENGUN_BUILD_APP)
+  find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Widgets Network)
+  if(Qt6_FOUND AND Qt6Widgets_FOUND AND Qt6Network_FOUND)
+    message(STATUS "Qt ${Qt6_VERSION}: de app (ravengun) wordt gebouwd")
+    add_subdirectory(src/app)
+  else()
+    message(STATUS "Qt 6 (met headers) niet gevonden: de app (ravengun) wordt niet gebouwd; zie docs/build.md")
   endif()
 endif()

@@ -13,11 +13,11 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 
 ## Spoor A — Qt-app
 
-- [ ] A1 Architectuur en skelet: Qt 6 Widgets (gelijk aan de systeem-Qt 6.11 van SteamOS), hoofdvenster naar het voorbeeld van Dolphin (gamelijst/raster, werkbalk Play/Stop/Config/Controllers/Add Folder/Fullscreen), praat met de engine via de bestaande IPC-socket.
-- [ ] A2 Gamebibliotheek: "Add Folder" scant een map en herkent alle games (TeknoParrot-profielen, Unity-route, overige), met iconen en status per game.
-- [ ] A3 Per game "Properties" (rechtsklik > Edit): alle opties uit packaging/game-options.json (resolutie, venster/volledig scherm, free play, debug, enz.), invoerroute, en "memory card" (spelstand/NVRAM bekijken en wissen).
-- [ ] A4 Controllers: Player 1 t/m 4 met keuze None / Mouse / PS Move; per Move alle instellingen (koppelen, LED, trillen, richten, knoppen, kalibratie, batterij); Navigation Controller.
-- [ ] A5 Instellingen: engine starten/stoppen, telefoon-webpagina aan/uit, OLED-bescherming, paden.
+- [x] A1 Architectuur en skelet: Qt 6 Widgets (gelijk aan de systeem-Qt 6.11 van SteamOS), hoofdvenster naar het voorbeeld van Dolphin (gamelijst/raster, werkbalk Play/Stop/Config/Controllers/Add Folder/Fullscreen), praat met de engine via de bestaande IPC-socket. Gebouwd in een container (scripts/build-app.sh, docs/build.md), kern zonder widgets voor A7, launcher-backends (teknoparrot-ui nu, direct later).
+- [x] A2 Gamebibliotheek: "Add Folder" scant een map en herkent alle games (TeknoParrot-profielen, sjablonen op bestandsnaam, game-options.json, Unity-route, overige als Unconfigured), met iconen en status per game; "Set Up Game" maakt op verzoek het profiel (tp-add-game.py).
+- [~] A3 Per game "Properties" (rechtsklik > Edit): opties uit packaging/game-options.json (bibliotheek = bron van waarheid, ProfileSync naar het profiel), Display, invoerroute (alleen tonen; wijzigen nog in io-routes.json), "memory card" (bekijken en lokaal wissen). Open: het echte game-options.json van de andere stap (de parser volgt het concept-schema; getest met tests/app/data/game-options.json); niet-INI-formaten (rtdt_adjval, tab_ini, ...) en base wine_prefix zijn nog alleen-lezen.
+- [x] A4 Controllers: Player 1 t/m 4 met None / Mouse / PS Move en Configure (General, Aiming, Rumble, Buttons incl. Sharp Shooter en Navigation Controller, Calibration), koppelwizard, hernoemen, speler kiezen (ook Navigation Controller), knipperen, verwijderen; muis als lightgun in de engine (IPC mice/set_mouse_gun). Nog niet met echte Moves of een echte muis getest (alleen test-engine).
+- [x] A5 Instellingen: engine starten/stoppen/herstarten en autostart, telefoon-webpagina aan/uit (web.lan) met adres, OLED-bescherming met wachttijd, paden (gamemappen, TeknoParrot-runtime met controle, launcher), logboek.
 - [ ] A6 Eerste-gebruik-wizard (Desktop Mode): rechten installeren (udev/Bluetooth-hulp via één beheerdersprompt), Moves koppelen, kalibratie, gamemap, toevoegen aan Steam.
 - [ ] A7 Fullscreen-modus voor Steam Game Mode: zwarte achtergrond, game-iconen, kiezen en starten met de lightgun; terug na afsluiten van de game.
 - [ ] A8 Steam-integratie: app als niet-Steam-game toevoegen (shortcuts.vdf) met fullscreen-argument; controleren in Game Mode.

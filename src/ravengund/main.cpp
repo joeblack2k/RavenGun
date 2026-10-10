@@ -27,6 +27,7 @@
 #include "hid_thread.hpp"
 #include "ravengun/core/bias_store.hpp"
 #include "ipc_server.hpp"
+#include "mouse_service.hpp"
 #include "output_service.hpp"
 #include "recorder.hpp"
 #include "ravengun/rec/recording.hpp"
@@ -410,6 +411,10 @@ int main(int argc, char** argv) {
     output.set_layout(opt.gun_buttons.layout);
     output.set_clock(out_clock);
     shared.output = &output;
+    // Gewone muis als bron voor de gun van een speler (runtime-toewijzingen via IPC `set_mouse_gun`, niet in config.json).
+    MouseService mouse(output);
+    shared.mouse = &mouse;
+    mouse.start();
     // Opnamen (fase 0): de recorder leeft tot het einde van main; de HID-thread stopt hem bij het
     // afsluiten. De tracker-thread levert optische metingen via de hook.
     Recorder recorder(ravengun::rec::default_recordings_dir());
@@ -600,6 +605,7 @@ int main(int argc, char** argv) {
     shared.running.store(false);
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
+    mouse.stop();          // geeft de knoppen van alle muisspelers vrij
     camera.stop();
     controllers.stop();
     aagames.stop();

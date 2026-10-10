@@ -25,6 +25,7 @@
 #include "ravengun/games/aagames.hpp"
 #include "ravengun/games/games.hpp"
 #include "aagames_service.hpp"
+#include "mouse_service.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 
@@ -650,6 +651,78 @@ struct SelectHid final : HidContext {
     void set_fusion(core::FusionMode) override {}
 };
 
+// Muis als lightgun: IPC-opdrachten mice en set_mouse_gun (nepmuizen; de service draait niet, er wordt niets geopend).
+static void test_mouse_commands() {
+    bool ok = true;
+    std::string code, msg;
+    {
+        Rig bare;   // zonder muisservice
+        bare.call(R"({"v":1,"cmd":"mice"})", &ok, &code);
+        CHECK(!ok && code == "unavailable");
+        bare.call(R"({"v":1,"cmd":"set_mouse_gun","player":1,"mouse":""})", &ok, &code);
+        CHECK(!ok && code == "unavailable");
+    }
+    Rig rig;
+    OutputService out;   // niet gewapend: er wordt geen apparaat gemaakt
+    MouseServiceConfig cfg;
+    cfg.dev_dir = "/nonexistent-ravengun-test";
+    cfg.lister = [] {
+        sysinfo::Mouse a, b;
+        a.id = "usb-Test_Mouse-event-mouse"; a.name = "Test Mouse"; a.event = "event5";
+        b.id = "event6"; b.name = "Test Tablet"; b.event = "event6"; b.absolute = true;
+        return std::vector<sysinfo::Mouse>{a, b};
+    };
+    MouseService svc(out, cfg);   // niet gestart
+    rig.sh.output = &out;
+    rig.sh.mouse = &svc;
+
+    json::Value r = rig.call(R"({"v":1,"cmd":"mice"})", &ok);
+    CHECK(ok && r.find("mice")->arr.size() == 2 && r.find("assignments")->arr.size() == 4);
+    if (ok && r.find("mice")->arr.size() == 2) {
+        const auto& m0 = r.find("mice")->arr[0];
+        CHECK(m0.find("id")->str == "usb-Test_Mouse-event-mouse" && m0.find("name")->str == "Test Mouse" && !m0.find("absolute")->b && m0.find("event")->str == "event5");
+        CHECK(r.find("mice")->arr[1].find("absolute")->b);
+        const auto& a1 = r.find("assignments")->arr[0];
+        CHECK(num(a1, "player") == 1 && a1.find("mouse")->is_null() && !a1.find("connected")->b && num(a1, "counts_per_screen") == 1920);
+    }
+    rig.call(R"({"v":1,"cmd":"mice","x":1})", &ok, &code);
+    CHECK(!ok && code == "bad_request");
+
+    // Onbekend id: invalid_argument; een pad wordt nooit aangenomen.
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"bestaat-niet"})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "onbekende muis"));
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"/dev/input/event5"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"event5"})", &ok, &code);   // eventN dat de daemon niet kent
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":9,"mouse":""})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","mouse":""})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"","pad":"x"})", &ok, &code);
+    CHECK(!ok && code == "bad_request");
+    CHECK(out.mouse_players() == 0);
+
+    // Een bekend id: het antwoord is de nieuwe toewijzing; het apparaat bestaat niet in dev_dir, de toewijzing blijft staan.
+    r = rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":3,"mouse":"usb-Test_Mouse-event-mouse","counts_per_screen":2400})", &ok);
+    CHECK(ok && num(r, "player") == 3 && r.find("mouse")->str == "usb-Test_Mouse-event-mouse" && num(r, "counts_per_screen") == 2400 && !r.find("connected")->b);
+    CHECK(out.mouse_players() == 0b0100);
+    // Dezelfde muis bij een andere speler: geweigerd; een andere muis mag.
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"usb-Test_Mouse-event-mouse"})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "speler 3"));
+    r = rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":"event6"})", &ok);
+    CHECK(ok && out.mouse_players() == 0b0110);
+    // status: blok mouse_guns.
+    r = rig.call(R"({"v":1,"cmd":"status"})", &ok);
+    CHECK(ok && r.find("mouse_guns") && r.find("mouse_guns")->arr.size() == 4 && r.find("mouse_guns")->arr[2].find("mouse")->str == "usb-Test_Mouse-event-mouse");
+    // Loskoppelen.
+    r = rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":3,"mouse":""})", &ok);
+    CHECK(ok && r.find("mouse")->is_null() && num(r, "counts_per_screen") == 2400);
+    rig.call(R"({"v":1,"cmd":"set_mouse_gun","player":2,"mouse":""})", &ok);
+    CHECK(ok && out.mouse_players() == 0);
+    rig.sh.mouse = nullptr;
+}
+
 static void test_controllers(const std::string& dir) {
     const std::string A = "00:07:04:8c:70:ac", B = "00:07:04:11:22:33", N = "00:06:f7:0e:c1:93";
     SharedState sh;
@@ -796,6 +869,7 @@ int main() {
     test_fusion_and_learning(dir);
     test_games_commands(dir);
     test_aagames_commands();
+    test_mouse_commands();
     test_controllers(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
