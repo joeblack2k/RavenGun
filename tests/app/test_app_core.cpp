@@ -756,7 +756,7 @@ void AppCoreTest::notesEnglish() {
     QVERIFY(d.note(QStringLiteral("Halo")).startsWith(QStringLiteral("Fully working")));
     QCOMPARE(d.playState(QStringLiteral("TC5")), QStringLiteral("playable"));
     QCOMPARE(d.playState(QStringLiteral("JurassicPark")), QStringLiteral("parked"));
-    QCOMPARE(d.playState(QStringLiteral("GaiaAttack4")), QStringLiteral("untested"));
+    QCOMPARE(d.playState(QStringLiteral("NoSuchGameProfile")), QStringLiteral("untested"));  // zonder status
     const QJsonObject root = readJson(repoFile(QStringLiteral("packaging/games-notes.json"))).object();
     const QJsonObject nl = root.value(QStringLiteral("games")).toObject();
     const QJsonObject en = root.value(QStringLiteral("games_en")).toObject();
