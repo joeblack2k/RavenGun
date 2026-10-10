@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+# RavenGun: start een Raw Thrills-game native op Linux (zonder Wine en zonder BudgieLoader) in een bubblewrap-sandbox.
+#
+# Per game staat in packaging/native-games.json: de NAS-map(pen) en waar de game ze verwacht (bv. /pm/g7/halo), de vooraf te
+# laden bibliotheek van TeknoParrot (alleen halo.so voor Halo; er is geen eigen dongle-, keychip- of integriteitsafhandeling),
+# losse bibliotheken, startparameters en resolutie. De NAS blijft alleen-lezen: alles wat de game schrijft (pmuser/, audits, logs)
+# komt in een lokale overlay onder ~/.local/share/ravengun/native/<PROFIEL>/. Er wordt niets van de game gekopieerd.
+#
+# Gebruik: scripts/play-native.sh --game PROFIEL [opties] [-- extra game-argumenten]
+#          scripts/play-native.sh --list | --stage-libs | --stop
+#   --game P       profiel uit packaging/native-games.json (Halo, JurassicPark, Terminator, GhostBusters, GoGoStrike, ...)
+#   --res WxH      resolutie die de game krijgt (standaard: uit het gegevensbestand, daarna de schermgrootte)
+#   --headless     draai in gamescope zonder beeldscherm (tv blijft vrij; voor tests, geen geluid)
+#   --gamescope    draai in gamescope beeldvullend op de tv (schaalt een kleinere resolutie op)
+#   --seconds N    stop de game na N seconden (tests)
+#   --snap F       alleen met --headless en --seconds: sla vlak voor het einde een schermafbeelding (png) op
+#   --strace F     draai de game onder strace (alleen openat/open/ioctl/connect/execve naar bestand F)
+#   --mute         geen geluidsverbinding in de sandbox
+#   --env K=V      extra omgevingsvariabele voor de game (herhaalbaar)
+#   --debug        LD_DEBUG=libs en uitgebreid logboek
+#   --dry-run      toon alleen het bwrap-commando
+#   --stage-libs   zet de i386-bibliotheken klaar die het gegevensbestand met @lib32 noemt (uit de Steam Linux Runtime)
+#   --stop         stop de lopende native game (alleen onze eigen launcher)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+JSON="$ROOT/packaging/native-games.json"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
+NAS="${RAVENGUN_NAS_TP:-$HOME/mnt/spidernas_emulation/Teknoparrot}"
+TPUI="${RAVENGUN_TPUI:-$DATA/runtime/TeknoParrotUi-2.0.0.130-linux-x64}"
+LIB32="$DATA/runtime/lib32"
+RUNDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+IPC="$RUNDIR/ravengun"
+LOGDIR="$STATE/logs"
+
+die() { echo "play-native: $*" >&2; exit 1; }
+
+GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
+ACTION=run
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --game) GAME="${2:?--game vereist een profiel}"; shift ;;
+    --res) RES="${2:?}"; shift ;;
+    --headless) HEADLESS=1 ;;
+    --gamescope) GAMESCOPE=1 ;;
+    --seconds) SECONDS_MAX="${2:?}"; shift ;;
+    --snap) SNAP="${2:?}"; shift ;;
+    --strace) STRACE="${2:?}"; shift ;;
+    --mute) MUTE=1 ;;
+    --env) [[ "${2:-}" == *=* ]] || die "--env vereist K=V"; XENV+=("$2"); shift ;;
+    --debug) DEBUG=1 ;;
+    --dry-run) DRY=1 ;;
+    --list) ACTION=list ;;
+    --stage-libs) ACTION=stage ;;
+    --stop) ACTION=stop ;;
+    --) shift; EXTRA=("$@"); break ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    *) die "onbekende optie: $1" ;;
+  esac
+  shift
+done
+
+# Het gegevensbestand als regels voor de shell: soort<TAB>veld1<TAB>veld2<TAB>veld3. Paden met @nas, @tpui, @data en @lib32 worden hier ingevuld.
+emit() {
+  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" <<'PY'
+import json, sys
+path, game, nas, tpui, data, lib32 = sys.argv[1:7]
+d = json.load(open(path))
+def ex(s):
+    for k, v in (("@nas", nas), ("@tpui", tpui), ("@data", data), ("@lib32", lib32)):
+        s = s.replace(k, v)
+    return s
+if game == "--list":
+    for n, g in d["games"].items():
+        print("\t".join(["GAME", n, g.get("status", "?"), "aan" if g.get("enabled") else "uit", g.get("title", n)]))
+    sys.exit(0)
+g = d["games"].get(game)
+if g is None:
+    print("ERR\tonbekend profiel: %s" % game); sys.exit(0)
+dflt = d.get("defaults", {})
+for k in ("title", "arch", "preload", "exe", "cwd", "home", "status", "note", "route", "layout", "launcher"):
+    print("VAR\t%s\t%s" % (k, g.get(k, "")))
+print("VAR\tenabled\t%s" % ("1" if g.get("enabled") else "0"))
+print("VAR\tres\t%s" % g.get("res", dflt.get("res", "1920x1080")))
+for m in g.get("mounts", []):
+    print("MOUNT\t%s\t%s\t%s" % (m.get("mode", "ro"), ex(m["src"]), m["dst"]))
+for f in g.get("files", []):
+    print("FILE\t%s\t%s" % (ex(f["src"]), f["dst"]))
+for l in g.get("libs", []):
+    print("LIB\t%s" % ex(l))
+for l in g.get("libdirs", []):
+    print("LIBDIR\t%s\t%s" % (ex(l["src"]), l["dst"]))
+for a in g.get("args", []):
+    print("ARG\t%s" % a)
+for k, v in g.get("env", {}).items():
+    print("ENV\t%s\t%s" % (k, v))
+PY
+}
+
+if [[ "$ACTION" == list ]]; then
+  printf '%-16s %-12s %-5s %s\n' PROFIEL STATUS AUTO TITEL
+  while IFS=$'\t' read -r kind a b c d; do [[ "$kind" == GAME ]] && printf '%-16s %-12s %-5s %s\n' "$a" "$b" "$c" "$d"; done < <(emit --list)
+  exit 0
+fi
+
+if [[ "$ACTION" == stage ]]; then
+  # i386-bibliotheken die niet in /usr/lib32 of in de ElfLdr2-map staan, uit de Steam Linux Runtime (alleen bibliotheken, geen game).
+  mkdir -p "$LIB32"
+  SN=""
+  for c in /run/media/deck/steam/SteamLibrary/steamapps/common/SteamLinuxRuntime_sniper/var/tmp-*/usr/lib/i386-linux-gnu \
+           "$HOME"/.local/share/Steam/steamapps/common/SteamLinuxRuntime_sniper/var/tmp-*/usr/lib/i386-linux-gnu; do
+    [[ -e "$c/libglut.so.3" ]] && SN="$c" && break
+  done
+  [[ -n "$SN" ]] || die "geen i386-runtime met libglut gevonden (Steam Linux Runtime sniper)"
+  for l in libglut.so.3 libXi.so.6 libGLU.so.1 libtheora.so.0 libXrandr.so.2 libXrender.so.1; do
+    [[ -e "$SN/$l" ]] || { echo "ontbreekt in de runtime: $l" >&2; continue; }
+    cp -L --no-preserve=ownership "$SN/$l" "$LIB32/$l"; echo "gezet: $LIB32/$l"
+  done
+  # libSDL-1.2 (voor Jurassic Park) is er niet voor i386: sdl12-compat uit de multilib-opslagplaats van SteamOS, uitgepakt in een eigen tijdelijke map.
+  if [[ ! -e "$LIB32/libSDL-1.2.so.0" ]]; then
+    for l in libSDL2-2.0.so.0; do [[ -e "$SN/$l" ]] && cp -L "$SN/$l" "$LIB32/$l" && echo "gezet: $LIB32/$l"; done
+    T=$(mktemp -d); curl -fsS --max-time 60 -o "$T/p.tar.zst" "https://steamdeck-packages.steamos.cloud/archlinux-mirror/multilib-3.9/os/x86_64/lib32-sdl12-compat-1.2.68-2-x86_64.pkg.tar.zst" \
+      && mkdir "$T/x" && tar -C "$T/x" -xf "$T/p.tar.zst" && cp -L "$T/x/usr/lib32/libSDL-1.2.so.1.2.68" "$LIB32/libSDL-1.2.so.0" && echo "gezet: $LIB32/libSDL-1.2.so.0" \
+      || echo "libSDL-1.2 ophalen mislukt" >&2
+    rm -rf "$T"
+  fi
+  exit 0
+fi
+
+if [[ "$ACTION" == stop ]]; then
+  PIDF="$IPC/native.pid"
+  [[ -f "$PIDF" ]] || { echo "play-native: geen actieve native launcher"; exit 0; }
+  PID=$(cat "$PIDF")
+  grep -q 'play-native.sh' "/proc/$PID/cmdline" 2>/dev/null || { echo "play-native: pidfile verouderd; verwijderd"; rm -f "$PIDF"; exit 0; }
+  kill -TERM "$PID"
+  for _ in $(seq 1 20); do kill -0 "$PID" 2>/dev/null || { echo "play-native: gestopt"; exit 0; }; sleep 0.5; done
+  die "launcher $PID reageert niet op TERM binnen 10 s"
+fi
+
+[[ -n "$GAME" ]] || die "--game vereist (zie --list)"
+declare -A V=(); MOUNTS=(); FILES=(); LIBS=(); LIBDIRS=(); GARGS=(); GENV=()
+while IFS=$'\t' read -r kind a b c; do
+  case "$kind" in
+    ERR) die "$a" ;;
+    VAR) V["$a"]="$b" ;;
+    MOUNT) MOUNTS+=("$a"$'\t'"$b"$'\t'"$c") ;;
+    FILE) FILES+=("$a"$'\t'"$b") ;;
+    LIB) LIBS+=("$a") ;;
+    LIBDIR) LIBDIRS+=("$a"$'\t'"$b") ;;
+    ARG) GARGS+=("$a") ;;
+    ENV) GENV+=("$a=$b") ;;
+  esac
+done < <(emit "$GAME")
+
+command -v bwrap >/dev/null || die "bwrap niet gevonden"
+[[ -d "$NAS" ]] || die "NAS-map $NAS niet bereikbaar (is de automount actief?)"
+OVLBASE="$DATA/native/$GAME"; mkdir -p "$OVLBASE" "$LOGDIR" "$IPC"; chmod 700 "$IPC"
+
+# --- sandbox opbouwen --------------------------------------------------------
+BW=(bwrap --die-with-parent --unshare-pid --unshare-ipc --unshare-uts --unshare-net
+  --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/lib64 /lib64 --symlink usr/bin /bin --symlink usr/bin /sbin
+  --ro-bind /etc /etc --proc /proc --dev /dev
+  --dev-bind /dev/dri /dev/dri --dev-bind-try /dev/snd /dev/snd --dev-bind-try /dev/input /dev/input
+  --ro-bind /sys /sys --ro-bind-try /run/udev /run/udev
+  --tmpfs /tmp)
+
+# De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
+n=0
+for m in "${MOUNTS[@]}"; do
+  IFS=$'\t' read -r mode src dst <<<"$m"
+  [[ -d "$src" ]] || die "bron ontbreekt: $src"
+  case "$mode" in
+    overlay) mkdir -p "$OVLBASE/$n/upper" "$OVLBASE/$n/work"; BW+=(--overlay-src "$src" --overlay "$OVLBASE/$n/upper" "$OVLBASE/$n/work" "$dst") ;;
+    ro) BW+=(--ro-bind "$src" "$dst") ;;
+    *) die "onbekende mount-modus: $mode" ;;
+  esac
+  n=$((n + 1))
+done
+for f in "${FILES[@]}"; do
+  IFS=$'\t' read -r src dst <<<"$f"
+  [[ -e "$src" ]] || die "bestand ontbreekt: $src"
+  BW+=(--ro-bind "$src" "$dst")
+done
+LDPATH=""
+for l in "${LIBDIRS[@]}"; do
+  IFS=$'\t' read -r src dst <<<"$l"
+  [[ -d "$src" ]] || die "bibliotheekmap ontbreekt: $src"
+  BW+=(--ro-bind "$src" "$dst"); LDPATH+="${LDPATH:+:}$dst"
+done
+if (( ${#LIBS[@]} )); then
+  MISSING=()
+  for l in "${LIBS[@]}"; do
+    [[ -e "$l" ]] || { MISSING+=("$l"); continue; }
+    BW+=(--ro-bind "$l" "/rg/lib/$(basename "$l")")
+  done
+  (( ${#MISSING[@]} == 0 )) || die "bibliotheken ontbreken: ${MISSING[*]} (probeer --stage-libs)"
+  LDPATH+="${LDPATH:+:}/rg/lib"
+fi
+
+# --- scherm en geluid ---------------------------------------------------------
+if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
+  command -v gamescope >/dev/null || die "gamescope niet gevonden"
+fi
+if [[ -z "${DISPLAY:-}" || ( -z "${XAUTHORITY:-}" && -z "${RG_NATIVE_INNER:-}" ) ]]; then
+  KWPID=$(pgrep -u "$(id -u)" -x kwin_wayland | head -1 || true)
+  if [[ -n "$KWPID" ]]; then
+    mapfile -d '' -t KWARGS < "/proc/$KWPID/cmdline"
+    for (( i = 0; i < ${#KWARGS[@]} - 1; i++ )); do
+      case "${KWARGS[$i]}" in
+        --xwayland-display)    DISPLAY="${DISPLAY:-${KWARGS[$((i+1))]}}" ;;
+        --xwayland-xauthority) XAUTHORITY="${XAUTHORITY:-${KWARGS[$((i+1))]}}" ;;
+      esac
+    done
+  fi
+fi
+
+RES="${RES:-${V[res]:-1920x1080}}"
+# launcher "gamescope" in het gegevensbestand: schaal beeldvullend op de tv, behalve in een gamescope die al om ons heen draait.
+[[ "${V[launcher]}" == gamescope && $HEADLESS -eq 0 ]] && GAMESCOPE=1
+GAMECMD=("${V[exe]}")
+for a in "${GARGS[@]}"; do GAMECMD+=("${a//\{res\}/$RES}"); done
+GAMECMD+=("${EXTRA[@]}")
+
+# Buiten gamescope draaien (tv of headless): dit script start zichzelf binnen gamescope en gaat dan verder als "inner".
+if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
+  W="${RES%x*}"; H="${RES#*x}"
+  SELF=("$0" --game "$GAME" --res "$RES")
+  (( MUTE )) && SELF+=(--mute)
+  (( DEBUG )) && SELF+=(--debug)
+  [[ -n "$STRACE" ]] && SELF+=(--strace "$STRACE")
+  for e in "${XENV[@]}"; do SELF+=(--env "$e"); done
+  (( SECONDS_MAX )) && SELF+=(--seconds "$SECONDS_MAX")
+  (( HEADLESS )) && SELF+=(--headless)
+  (( GAMESCOPE )) && SELF+=(--gamescope)
+  [[ -n "${V[res]}" ]] || true
+  [[ ${#EXTRA[@]} -gt 0 ]] && SELF+=(-- "${EXTRA[@]}")
+  if (( HEADLESS )); then
+    GS=(gamescope --backend headless -W 1920 -H 1080 -w "$W" -h "$H")
+  else
+    GS=(gamescope -f -W 1920 -H 1080 -w "$W" -h "$H" --force-grab-cursor)
+  fi
+  (( DRY )) && { echo "RG_NATIVE_INNER=1 ${GS[*]} -- ${SELF[*]}"; exit 0; }
+  export RG_NATIVE_INNER=1
+  if [[ -n "$SNAP" ]]; then
+    ( "${GS[@]}" -- "${SELF[@]}" >"$LOGDIR/gamescope-$GAME.log" 2>&1 & echo $! >"$IPC/native-gs.pid"; wait ) &
+    GSW=$!
+    sleep $(( SECONDS_MAX > 6 ? SECONDS_MAX - 5 : 1 ))
+    NODE=$(grep -o 'node ID: [0-9]*' "$LOGDIR/gamescope-$GAME.log" | tail -1 | grep -o '[0-9]*$' || true)
+    [[ -n "$NODE" ]] && timeout 20 gst-launch-1.0 -q pipewiresrc path="$NODE" num-buffers=3 ! videoconvert ! pngenc snapshot=true ! filesink location="$SNAP" >/dev/null 2>&1 || true
+    wait "$GSW" || true
+    exit 0
+  fi
+  exec "${GS[@]}" -- "${SELF[@]}"
+fi
+
+XNUM=""
+if [[ -n "${DISPLAY:-}" ]]; then XNUM="${DISPLAY#:}"; XNUM="${XNUM%%.*}"; fi
+[[ -n "$XNUM" ]] || die "DISPLAY niet vast te stellen (Desktop Mode actief?)"
+BW+=(--dir /tmp/.X11-unix --ro-bind "/tmp/.X11-unix/X$XNUM" "/tmp/.X11-unix/X$XNUM")
+if [[ -n "${XAUTHORITY:-}" && -r "${XAUTHORITY}" ]]; then BW+=(--ro-bind "$XAUTHORITY" /tmp/.Xauthority --setenv XAUTHORITY /tmp/.Xauthority); fi
+BW+=(--dir "$RUNDIR" --chmod 0700 "$RUNDIR")
+if (( ! MUTE && ! HEADLESS )); then
+  BW+=(--ro-bind-try "$RUNDIR/pulse" "$RUNDIR/pulse" --ro-bind-try "$RUNDIR/pipewire-0" "$RUNDIR/pipewire-0" --setenv PULSE_SERVER "unix:$RUNDIR/pulse/native")
+fi
+
+BW+=(--chdir "${V[cwd]:-/}" --clearenv
+  --setenv HOME "${V[home]:-/tmp}" --setenv PATH /usr/bin
+  --setenv DISPLAY "$DISPLAY" --setenv XDG_RUNTIME_DIR "$RUNDIR" --setenv LANG C.UTF-8)
+[[ -n "$LDPATH" ]] && BW+=(--setenv LD_LIBRARY_PATH "$LDPATH")
+[[ -n "${V[preload]}" && -z "$STRACE" ]] && BW+=(--setenv LD_PRELOAD "${V[preload]}")
+(( DEBUG )) && BW+=(--setenv LD_DEBUG libs)
+for e in "${GENV[@]}" "${XENV[@]}"; do BW+=(--setenv "${e%%=*}" "${e#*=}"); done
+
+if [[ -n "$STRACE" ]]; then
+  # strace zelf draait zonder preload (anders hookt halo.so ook in strace); de preload gaat alleen naar het proces van de game (-E).
+  command -v strace >/dev/null || die "strace niet gevonden"
+  PRE=(); [[ -n "${V[preload]}" ]] && PRE=(-E "LD_PRELOAD=${V[preload]}")
+  BW+=(--bind "$(dirname "$STRACE")" /rg-strace)
+  GAMECMD=(/usr/bin/strace -f -tt -s 200 -o "/rg-strace/$(basename "$STRACE")" -e trace=openat,open,ioctl,connect,execve "${PRE[@]}" -- "${GAMECMD[@]}")
+fi
+
+if (( DRY )); then printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
+
+# Eén launcher tegelijk.
+exec 9>"$IPC/native.lock"
+flock -n 9 || die "er draait al een native launcher (zie $IPC/native.pid); stop die met --stop"
+echo $$ > "$IPC/native.pid"
+TS=$(date +%Y%m%d-%H%M%S); LOG="$LOGDIR/native-$GAME-$TS.log"
+{ echo "== play-native $GAME $TS"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
+echo "play-native: $GAME (${V[title]}), res $RES, log $LOG"
+[[ "${V[status]}" == werkt ]] || echo "play-native: LET OP: status ${V[status]} (${V[note]})" >&2
+
+CHILD=""
+cleanup() { [[ -n "$CHILD" ]] && kill -TERM "$CHILD" 2>/dev/null || true; }
+trap cleanup INT TERM
+set +e
+"${BW[@]}" "${GAMECMD[@]}" >>"$LOG" 2>&1 &
+CHILD=$!
+if (( SECONDS_MAX > 0 )); then
+  ( sleep "$SECONDS_MAX"; kill -TERM "$CHILD" 2>/dev/null ) &
+  TIMER=$!
+fi
+wait "$CHILD"; RC=$?
+[[ -n "${TIMER:-}" ]] && kill "$TIMER" 2>/dev/null
+set -e
+echo "== exit $RC" >>"$LOG"
+rm -f "$IPC/native.pid"
+echo "play-native: $GAME beëindigd met exitcode $RC (log: $LOG)"
+exit "$RC"

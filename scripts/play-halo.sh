@@ -15,6 +15,9 @@
 #            jvs: de daemon is het JVS-bord (Let's Go Safari): een pty die als COM-poort (dosdevices/comN) in de Wine-prefix van het
 #            profiel staat (RG_WINEPREFIX in UserProfiles/<PROFIEL>.env) en de LD_PRELOAD-hulp voor GetCommModemStatus; bij --stop
 #            wordt de koppeling opgeruimd (docs/procedures.md, "Let's Go Safari").
+# --native: forceer de native route (scripts/play-native.sh, zonder Wine/BudgieLoader; profiel uit packaging/native-games.json), ook
+#           als het profiel daar nog niet op enabled staat (experiment). Staat een profiel op enabled, dan is native de standaard
+#           (net als de Unity-route); --teknoparrot dwingt dan de TeknoParrot-route af.
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
@@ -49,6 +52,8 @@ GAME_COMMS=""
 build_game_comms() {
   local f="$TP/UserProfiles/$PROFILE.xml" v n
   GAME_COMMS="|budgieloader_x6|budgieloader.ex|openparrotloade|"
+  # Native route: de game draait onder dit comm (bestandsnaam van de exe uit native-games.json, op 15 tekens afgekapt).
+  [[ -n "${NATIVE_EXE:-}" ]] && { n="${NATIVE_EXE,,}"; GAME_COMMS+="${n:0:15}|"; }
   [[ -f "$f" ]] || return 0
   while IFS= read -r v; do
     IFS=';' read -ra parts <<< "$v"
@@ -124,7 +129,7 @@ stop_all() {
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0; ROUTE=""
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0; ROUTE=""; FORCE_NATIVE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
@@ -134,12 +139,14 @@ while [[ $# -gt 0 ]]; do
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
     --teknoparrot) USE_TP=1; shift ;;
+    --native) FORCE_NATIVE=1; shift ;;
     --route) ROUTE="${2:?--route vereist evdev, tp-shm, unity-tcp, hid-board of jvs}"; shift 2 ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--route R] | --stop" >&2; exit 2 ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--native] [--route R] | --stop" >&2; exit 2 ;;
   esac
 done
 
 # Invoerroute: --route, anders uit packaging/io-routes.json (standaard evdev). --teknoparrot forceert evdev.
+ROUTE_FORCED="$ROUTE"
 if [[ -z "$ROUTE" ]]; then
   ROUTE=$(python3 -I - "$ROOT/packaging/io-routes.json" "$PROFILE" <<'PY' 2>/dev/null || echo evdev
 import json, sys
@@ -152,10 +159,33 @@ PY
 )
 fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
+
+# Native route (zonder TeknoParrot/Wine): profiel in packaging/native-games.json. enabled=true is de standaard, --native forceert.
+NATIVE=0; NATIVE_EXE=""
+if [[ $USE_TP -eq 0 ]]; then
+  NINFO=$(python3 -I - "$ROOT/packaging/native-games.json" "$PROFILE" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    g = json.load(open(sys.argv[1]))["games"].get(sys.argv[2])
+    if g:
+        print("%d\t%s\t%s" % (1 if g.get("enabled") else 0, g.get("exe", "").rsplit("/", 1)[-1], g.get("route", "")))
+except Exception:
+    pass
+PY
+)
+  if [[ -n "$NINFO" ]]; then
+    IFS=$'\t' read -r NEN NEXE NROUTE <<<"$NINFO"
+    if [[ "$NEN" == 1 || $FORCE_NATIVE -eq 1 ]]; then NATIVE=1; NATIVE_EXE="$NEXE"; fi
+    # De invoerroute van een native game staat in native-games.json (tenzij --route die overschrijft).
+    [[ $NATIVE -eq 1 && -z "$ROUTE_FORCED" && -n "$NROUTE" ]] && ROUTE="$NROUTE"
+  elif [[ $FORCE_NATIVE -eq 1 ]]; then
+    fail "Profiel $PROFILE staat niet in packaging/native-games.json (zie scripts/play-native.sh --list)."
+  fi
+fi
 case "$ROUTE" in evdev|tp-shm|unity-tcp|hid-board|jvs) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm, unity-tcp, hid-board of jvs)";; esac
 
 # Unity-route (zonder TeknoParrot): het profiel staat in packaging/aagames-games.json.
-if [[ $USE_TP -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
+if [[ $USE_TP -eq 0 && $NATIVE -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
   UARGS=(--game "$PROFILE")
   [[ $WAIT_MOVE -eq 0 ]] && UARGS+=(--no-wait-move)
   for E in "${EXTRA_ENV[@]}"; do UARGS+=(--env "$E"); done
@@ -163,7 +193,7 @@ if [[ $USE_TP -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROF
   "$ROOT/scripts/play-unity.sh" "${UARGS[@]}"
   exit $?
 fi
-[[ -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
+[[ $NATIVE -eq 1 || -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
 game_running && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
@@ -183,7 +213,8 @@ done
 SWAP=""
 if [[ "$ROUTE" == tp-shm ]]; then
   "$CTL" iobridge start "$PROFILE" --route tp-shm >/dev/null || fail "IO-brug (tp-shm) starten mislukt voor $PROFILE"
-  SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
+  # De swap hoort bij de Wine-hulp van TeknoParrot; een native game heeft die niet.
+  [[ $NATIVE -eq 1 ]] || SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
   say "Invoerroute: tp-shm (de daemon schrijft de invoer)."
 elif [[ "$ROUTE" == hid-board ]]; then
   # Het bord moet bestaan voordat de game start (DirectInput telt de joysticks bij het openen). Eerst de prefix: het bord
@@ -247,9 +278,18 @@ SDENV=(); for E in "${EXTRA_ENV[@]}"; do SDENV+=(-E "$E"); done
 
 mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true
+if [[ $NATIVE -eq 1 ]]; then
+  # Native route: play-native.sh in dezelfde user-unit (ravengun-tpui), zodat stoppen en de OLED-beschermer werken als bij TeknoParrot.
+  # De extra omgevingsvariabelen (--env) gaan als --env naar de game zelf.
+  NARGS=(--game "$PROFILE"); for E in "${EXTRA_ENV[@]}"; do NARGS+=(--env "$E"); done
+  systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$ROOT" -p TimeoutStopSec=10 \
+    -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} \
+    /bin/sh -c "$SWAP exec '$ROOT/scripts/play-native.sh' ${NARGS[*]@Q} >>'$LOG' 2>&1"
+else
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
   /bin/sh -c "$SWAP exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
+fi
 
 for _ in $(seq 1 "${RAVENGUN_START_WAIT:-120}"); do game_running && break; sleep 1; done
 game_running || { [[ "$ROUTE" == jvs ]] && { "$CTL" iobridge stop >/dev/null 2>&1 || true; jvs_unlink_prefix; }; fail "$PROFILE is niet gestart; zie $LOG"; }
