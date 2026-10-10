@@ -138,6 +138,27 @@ if(RAVENGUN_BUILD_DAEMON)
   endif()
 endif()
 
+# LD_PRELOAD-hulp voor de jvs-route: laat GetCommModemStatus in Wine op een pty slagen (tools/wine-comm-shim/).
+option(RAVENGUN_BUILD_WINE_SHIM "Bouw de LD_PRELOAD-hulp voor de jvs-route (C-compiler nodig)" ON)
+if(RAVENGUN_BUILD_WINE_SHIM)
+  include(CheckLanguage)
+  check_language(C)
+  if(CMAKE_C_COMPILER)
+    enable_language(C)
+    add_library(rg_comm_shim SHARED tools/wine-comm-shim/rg_comm_shim.c)
+    target_compile_options(rg_comm_shim PRIVATE -fno-stack-protector -w)
+    set_target_properties(rg_comm_shim PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_comm_shim" C_VISIBILITY_PRESET default)
+    # 32-bit variant (de game is een 32-bit Wine-proces): zonder systeemheaders te bouwen; lukt dat niet, dan alleen een waarschuwing.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32"
+      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -w -fno-stack-protector -nostdlib -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/wine-comm-shim/rg_comm_shim.c\" || echo 'waarschuwing: 32-bit LD_PRELOAD-hulp niet gebouwd (gcc -m32)'"
+      DEPENDS tools/wine-comm-shim/rg_comm_shim.c VERBATIM)
+    add_custom_target(rg_comm_shim32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so")
+  else()
+    message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
+  endif()
+endif()
+
 # Offline analyse van opnamen (fase 0/1/3); opent nooit hardware.
 add_executable(ravengun-analyze src/tools/analyze/ravengun_analyze.cpp)
 target_link_libraries(ravengun-analyze PRIVATE ravengun)
@@ -149,6 +170,10 @@ target_link_libraries(ravengun-driftlab PRIVATE ravengun)
 # Testprogramma voor de Unity-route (Tomb Raider / Rabbids Hollywood): klant van de BepInEx-plugin, aim via de IPC van ravengund.
 add_executable(ravengun-aagames-probe src/tools/aagames_probe/aagames_probe.cpp)
 target_link_libraries(ravengun-aagames-probe PRIVATE ravengun Threads::Threads)
+
+# Het JVS-bord van de jvs-route zonder daemon (pty + symlink), voor proeven met een game of met Wine.
+add_executable(ravengun-jvs-probe src/tools/jvs_probe/jvs_probe.cpp)
+target_link_libraries(ravengun-jvs-probe PRIVATE ravengun Threads::Threads)
 
 if(RAVENGUN_BUILD_CAMPROBE)
   add_executable(camprobe src/tools/camprobe/camprobe.cpp)

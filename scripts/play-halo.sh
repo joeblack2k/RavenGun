@@ -12,6 +12,9 @@
 #            daemon schrijft zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
 #            hid-board: de daemon maakt het invoerbord van de game na als virtuele joystick (Transformers; hid-boards.json)
 #            en zet dat apparaat in de Wine-prefix van het profiel op joystick-id 0 (scripts/wine-joyid.sh).
+#            jvs: de daemon is het JVS-bord (Let's Go Safari): een pty die als COM-poort (dosdevices/comN) in de Wine-prefix van het
+#            profiel staat (RG_WINEPREFIX in UserProfiles/<PROFIEL>.env) en de LD_PRELOAD-hulp voor GetCommModemStatus; bij --stop
+#            wordt de koppeling opgeruimd (docs/procedures.md, "Let's Go Safari").
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
 set -euo pipefail
@@ -23,6 +26,9 @@ PREFIX="$HOME/.local/share/TeknoParrotUI/prefixes/shared/wine"
 LOGDIR="$HOME/.local/state/ravengun/logs"
 UNIT=ravengun-tpui
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+JVS_LINK="$XDG_RUNTIME_DIR/ravengun/jvs-com"            # symlink van de daemon naar de pty (jvs-route)
+JVS_STATE="$XDG_RUNTIME_DIR/ravengun/jvs-prefix.state"  # welke prefix/poort wij gekoppeld hebben, voor het opruimen
+SHIM="$ROOT/build/librg_comm_shim.so:$ROOT/build/lib32/librg_comm_shim.so"   # LD_PRELOAD-hulp, 64 en 32 bit (tools/wine-comm-shim/)
 
 # Meldingen: in een terminal op stdout/stderr; gestart vanaf het bureaublad of Steam (geen terminal) ook als
 # bureaubladmelding, zodat de speler ziet wat er gebeurt (bv. "druk op PS").
@@ -53,6 +59,41 @@ build_game_comms() {
   done < <(sed -n 's|.*<\(ExecutableName\|GamePath2\?\)>\(.*\)</\1>.*|\2|p' "$f")
 }
 
+# Wine zet bij het starten van een wineserver (wineboot/mountmgr) alle dosdevices/com1..com32 opnieuw naar /dev/ttyS*; een link die we
+# eerder maakten is dan weg en de game opent /dev/ttyS3 (geen toegang). Daarom: eerst de wineserver van de prefix persistent starten en
+# wineboot laten lopen, daarna pas de link zetten. De wineserver blijft draaien tot --stop (jvs_unlink_prefix stopt hem).
+jvs_prewarm_prefix() {
+  local pfx="$1" wb="${RG_WINE_BIN:-$HOME/.local/share/ravengun/wine/proton-11.0-2/bin}"
+  WINEPREFIX="$pfx" WINEDEBUG=-all "$wb/wineserver" -p 2>/dev/null || return 1
+  WINEPREFIX="$pfx" WINEDEBUG=-all timeout 90 "$wb/wine" cmd /c exit >/dev/null 2>&1 || true   # laat wineboot/mountmgr klaar zijn
+  sleep 1
+}
+
+# jvs-route: de pty van de daemon als COM-poort in de Wine-prefix. Wat er stond (Wine maakt zelf com1..com32 -> /dev/ttyS*) wordt
+# bewaard en bij het opruimen teruggezet. $1 = prefix, $2 = poort (bv. COM4).
+jvs_link_prefix() {
+  local pfx="$1" port="${2,,}" dd orig=""
+  dd="$pfx/dosdevices"
+  [[ -d "$dd" ]] || { echo "Geen $dd (prefix bestaat nog niet?)" >&2; return 1; }
+  [[ -L "$dd/$port" ]] && orig=$(readlink "$dd/$port")
+  [[ "$orig" == "$JVS_LINK" ]] && orig=$(sed -n 's/^ORIG=//p' "$JVS_STATE" 2>/dev/null | head -1)
+  { echo "PREFIX=$pfx"; echo "PORT=$port"; echo "ORIG=$orig"; echo "WINESERVER=${RG_WINE_BIN:-$HOME/.local/share/ravengun/wine/proton-11.0-2/bin}/wineserver"; } > "$JVS_STATE"
+  ln -sfn "$JVS_LINK" "$dd/$port"
+}
+# Zet de koppeling terug zoals ze was (alleen als ze nog naar onze link wijst).
+jvs_unlink_prefix() {
+  [[ -f "$JVS_STATE" ]] || return 0
+  local pfx port orig ws
+  ws=$(sed -n 's/^WINESERVER=//p' "$JVS_STATE" | head -1)
+  pfx=$(sed -n 's/^PREFIX=//p' "$JVS_STATE" | head -1); port=$(sed -n 's/^PORT=//p' "$JVS_STATE" | head -1); orig=$(sed -n 's/^ORIG=//p' "$JVS_STATE" | head -1)
+  if [[ -n "$pfx" && -n "$port" && -L "$pfx/dosdevices/$port" && "$(readlink "$pfx/dosdevices/$port")" == "$JVS_LINK" ]]; then
+    if [[ -n "$orig" ]]; then ln -sfn "$orig" "$pfx/dosdevices/$port"; else rm -f "$pfx/dosdevices/$port"; fi
+  fi
+  # De (persistente) wineserver van onze eigen testprefix stoppen; alleen die prefix, nooit een andere.
+  [[ -n "$ws" && -x "$ws" && -n "$pfx" ]] && WINEPREFIX="$pfx" "$ws" -k 2>/dev/null || true
+  rm -f "$JVS_STATE"
+}
+
 game_running() {
   local p c
   [[ -n "$GAME_COMMS" ]] || build_game_comms
@@ -75,7 +116,8 @@ stop_all() {
   systemctl --user stop "$UNIT.service" 2>/dev/null || true
   for _ in $(seq 1 15); do unit_alive || break; sleep 1; done
   "$CTL" record --stop >/dev/null 2>&1 || true
-  "$CTL" iobridge stop >/dev/null 2>&1 || true  # IO-brug (tp-shm): invoer neutraal, bestand en route weg
+  "$CTL" iobridge stop >/dev/null 2>&1 || true  # IO-brug (tp-shm, jvs): invoer neutraal, bestand/pty en route weg
+  jvs_unlink_prefix                              # jvs: de COM-poort in de Wine-prefix terugzetten
   "$CTL" aagames stop >/dev/null 2>&1 || true   # Unity-route (play-unity.sh): de rumble gaat weer terug naar de trekker
   "$CTL" disarm >/dev/null 2>&1 || true
   if unit_alive; then echo "Er draaien nog processen van de test: $(unit_pids | tr '\n' ' ')" >&2; exit 1; fi
@@ -92,7 +134,7 @@ while [[ $# -gt 0 ]]; do
     --record) RECORD="${2:?--record vereist een tag}"; shift 2 ;;
     --no-wait-move) WAIT_MOVE=0; shift ;;
     --teknoparrot) USE_TP=1; shift ;;
-    --route) ROUTE="${2:?--route vereist evdev, tp-shm, unity-tcp of hid-board}"; shift 2 ;;
+    --route) ROUTE="${2:?--route vereist evdev, tp-shm, unity-tcp, hid-board of jvs}"; shift 2 ;;
     *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--route R] | --stop" >&2; exit 2 ;;
   esac
 done
@@ -110,7 +152,7 @@ PY
 )
 fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
-case "$ROUTE" in evdev|tp-shm|unity-tcp|hid-board) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm, unity-tcp of hid-board)";; esac
+case "$ROUTE" in evdev|tp-shm|unity-tcp|hid-board|jvs) ;; *) fail "Onbekende route: $ROUTE (evdev, tp-shm, unity-tcp, hid-board of jvs)";; esac
 
 # Unity-route (zonder TeknoParrot): het profiel staat in packaging/aagames-games.json.
 if [[ $USE_TP -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:space:]]{4}\"$PROFILE\":[[:space:]]*\{" "$ROOT/packaging/aagames-games.json" 2>/dev/null; then
@@ -159,6 +201,23 @@ PY
   "$CTL" iobridge start "$PROFILE" --route hid-board >/dev/null || fail "IO-brug (hid-board) starten mislukt voor $PROFILE"
   if [[ -n "$WPFX" && -n "$VIDPID" ]]; then "$ROOT/scripts/wine-joyid.sh" "$WPFX" "$VIDPID" || true; fi
   say "Invoerroute: hid-board (de daemon is het invoerbord van de game)."
+elif [[ "$ROUTE" == jvs ]]; then
+  # De daemon maakt de pty (en de symlink $JVS_LINK); die komt in de Wine-prefix van het profiel als COM-poort. De LD_PRELOAD-hulp
+  # laat GetCommModemStatus op die pty slagen (een pty kent TIOCMGET niet). Eerst het env-bestand lezen: de prefix staat daar.
+  WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
+  [[ -n "$WPFX" ]] || fail "Route jvs vraagt RG_WINEPREFIX=<eigen prefix> in $TP/UserProfiles/$PROFILE.env (en WineRunnerPath = wrappers/wine-prefix)."
+  COMPORT=$(python3 -I - "$ROOT/packaging/io-routes.json" "$PROFILE" <<'PY' 2>/dev/null || echo COM4
+import json, sys
+print(json.load(open(sys.argv[1]))["games"][sys.argv[2]].get("com_port", "COM4"))
+PY
+)
+  say "Wine-prefix voorbereiden (wineboot), daarna de poort koppelen..."
+  jvs_prewarm_prefix "$WPFX" || fail "Kon de wineserver van $WPFX niet starten."
+  "$CTL" iobridge start "$PROFILE" --route jvs >/dev/null || { jvs_unlink_prefix; fail "IO-brug (jvs) starten mislukt voor $PROFILE"; }
+  [[ -L "$JVS_LINK" ]] || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "De daemon maakte geen pty-symlink ($JVS_LINK)."; }
+  jvs_link_prefix "$WPFX" "$COMPORT" || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "Kon $COMPORT in $WPFX niet koppelen."; }
+  if [[ -r "$ROOT/build/lib32/librg_comm_shim.so" && -r "$ROOT/build/librg_comm_shim.so" ]]; then EXTRA_ENV+=("RG_LD_PRELOAD=$SHIM"); else echo "Let op: de LD_PRELOAD-hulp ontbreekt (cmake --build build); GetCommModemStatus faalt dan op de pty." >&2; fi
+  say "Invoerroute: jvs (de daemon is het JVS-bord op $COMPORT)."
 else
   "$CTL" iobridge stop >/dev/null 2>&1 || true   # een rest van een eerdere tp-shm-sessie
 fi
@@ -193,5 +252,5 @@ systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p
   /bin/sh -c "$SWAP exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"
 
 for _ in $(seq 1 "${RAVENGUN_START_WAIT:-120}"); do game_running && break; sleep 1; done
-game_running || fail "$PROFILE is niet gestart; zie $LOG"
+game_running || { [[ "$ROUTE" == jvs ]] && { "$CTL" iobridge stop >/dev/null 2>&1 || true; jvs_unlink_prefix; }; fail "$PROFILE is niet gestart; zie $LOG"; }
 say "$PROFILE start. Move verbonden, lightgun klaar."
