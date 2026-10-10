@@ -22,6 +22,7 @@
 
 #include "core/AppPaths.h"
 #include "core/SystemControl.h"
+#include "widgets/BigPictureWindow.h"
 #include "widgets/ControllersWindow.h"
 #include "widgets/CreateProfileDialog.h"
 #include "widgets/GameList.h"
@@ -31,6 +32,8 @@
 #include "widgets/Resources.h"
 #include "widgets/SearchBar.h"
 #include "widgets/SettingsWindow.h"
+#include "widgets/SetupWizard.h"
+#include "widgets/SteamIntegration.h"
 #include "widgets/ToolBar.h"
 
 namespace rg::ui {
@@ -151,6 +154,9 @@ void MainWindow::ConnectMenuBar() {
     connect(m_menu_bar, &MenuBar::OpenConfigFolder, this,
             [] { QDesktopServices::openUrl(QUrl::fromLocalFile(rg::AppPaths::configDir())); });
     connect(m_menu_bar, &MenuBar::ShowLog, this, &MainWindow::ShowLog);
+    connect(m_menu_bar, &MenuBar::SetupWizard, this, &MainWindow::ShowSetupWizard);
+    connect(m_menu_bar, &MenuBar::AddToSteam, this, [this] { AddToSteamInteractive(this); });
+    connect(m_menu_bar, &MenuBar::BigPicture, this, &MainWindow::ShowBigPicture);
     connect(m_menu_bar, &MenuBar::ShowList, this, [this] { SetListView(true); });
     connect(m_menu_bar, &MenuBar::ShowGrid, this, [this] { SetListView(false); });
     connect(m_menu_bar, &MenuBar::ToggleToolBar, this, [this](bool v) {
@@ -387,6 +393,27 @@ void MainWindow::EngineCommand(const QString& verb) {
 }
 
 void MainWindow::ShowLog() { ShowSettingsWindow(4); }
+
+void MainWindow::ShowSetupWizard() {
+    SetupWizard w(core_, this);
+    w.exec();
+}
+
+void MainWindow::ShowBigPicture() {
+    // Dezelfde fullscreen-weergave als `ravengun --fullscreen`; Exit brengt je hier terug.
+    if (!m_big_picture) {
+        m_big_picture = new BigPictureWindow(core_);
+        m_big_picture->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_big_picture, &BigPictureWindow::ExitRequested, this, [this] {
+            if (m_big_picture) m_big_picture->deleteLater();
+            show();
+            raise();
+            activateWindow();
+        });
+    }
+    hide();
+    m_big_picture->Open();
+}
 
 void MainWindow::ShowUserGuide() {
     const QString path = rg::AppPaths::repoRoot() + QStringLiteral("/docs/user-guide.md");

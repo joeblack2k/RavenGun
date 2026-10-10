@@ -40,7 +40,10 @@ signals:
     void CreateProfile();
     void OpenConfigFolder();
     void ShowLog();
+    void SetupWizard();
+    void AddToSteam();
     // View
+    void BigPicture();
     void ShowList();
     void ShowGrid();
     void ToggleToolBar(bool visible);
