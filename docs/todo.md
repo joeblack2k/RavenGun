@@ -7,6 +7,7 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 - De engine (ravengund) blijft een achtergrondservice; de Qt-app start, stopt en bedient hem. De app is het enige wat de gebruiker ziet.
 - De webpagina blijft alleen als afstandsbediening voor de telefoon; aan/uit in de app.
 - Licentie: GPL-3.0-or-later (LICENSE). Daarmee mag code uit Dolphin (GPL-2.0-or-later) en OpenParrot (GPL-3.0) worden overgenomen, met bronvermelding. De DemulShooter-plugin (geen licentie) wordt niet meegeleverd; vervangen door een eigen plugin.
+- RavenGun vervangt de TeknoParrot-UI voor de gebruiker (bibliotheek, opties, invoer, starten). De TeknoParrot-runtime (loaders en cores uit het abonnement van de eigenaar) blijft een afhankelijkheid, zoals een frontend een emulatorcore nodig heeft; de gebruiker opent TeknoParrotUi niet meer.
 - App-teksten in het Engels; code-commentaar en interne docs blijven Nederlands.
 - Eerste gebruik: inrichten in Desktop Mode met een wizard (rechten, Moves koppelen, kalibratie, gamemap toevoegen, toevoegen aan Steam); daarna werkt alles na een herstart ook in Game Mode via de fullscreen-modus van de app.
 
@@ -20,6 +21,7 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 - [ ] A6 Eerste-gebruik-wizard (Desktop Mode): rechten installeren (udev/Bluetooth-hulp via één beheerdersprompt), Moves koppelen, kalibratie, gamemap, toevoegen aan Steam.
 - [ ] A7 Fullscreen-modus voor Steam Game Mode: zwarte achtergrond, game-iconen, kiezen en starten met de lightgun; terug na afsluiten van de game.
 - [ ] A8 Steam-integratie: app als niet-Steam-game toevoegen (shortcuts.vdf) met fullscreen-argument; controleren in Game Mode.
+- [ ] A10 TeknoParrotUi uitfaseren: de engine start de loaders zelf (argumenten, omgeving, teknoparrot.ini, prefix) en levert zelf JVS-pipe en gedeeld geheugen (eigen pipehelper); per game gemeten tegen het huidige pad; daarna is TeknoParrotUi niet meer nodig om te spelen.
 - [ ] A9 Verpakking voor GitHub: bouwen, installeren, AppImage of vergelijkbaar; README voor nieuwe gebruikers ("downloaden, starten, werkt").
 
 ## Spoor B — games
