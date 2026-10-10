@@ -151,6 +151,12 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 - Onderzoek (docs/research/): `zonder-teknoparrot.md` (open-source alternatieven dekken geen van de negen games), `teknoparrot-io.md` (I/O-dialect per game, voorstel IO-brug), `demulshooter-integratie.md`, `teknoparrot-windows-games-linux.md`, `elfldr2-zwart-beeld.md`.
 - Open: drift in de Tomb Raider-sessie van 2026-10-09 doordat VQF de magnetometer afwees (veldsterkte tot 1,4, dip tot 74 graden; oorzaak in de omgeving onbekend, eigenaar nog niet bevraagd). Vangnet gebouwd: de lerende yaw-trim neemt het over na 10 s afwijzing (nog niet live bevestigd).
 
+- 2026-10-10 (grote ronde, zie docs/todo.md): Qt-app (Dolphin-stijl, Engels) met bibliotheek, Properties, Controllers (Player 1-4: None/Mouse/PS Move), Settings, fullscreen-modus voor Game Mode (lightgun-bediening), eerste-gebruik-wizard en Add to Steam (nog niet uitgevoerd: Steam draaide). Installatie in `~/.local/opt/ravengun` (scripts/install-user.sh), engine-unit draait daaruit; bureaublad: RavenGun (Qt-app), snelkoppelingen per speelbare game, Game stoppen. README en release-tarball (scripts/make-release.sh); licentie GPL-3.0-or-later.
+- Direct starten zonder TeknoParrotUi (`scripts/launch-direct.py`, standaard voor Halo, Terminator, TC5, Transformers, Go Go Strike, Raccoon Rampage): gelijk gedrag als via de UI; de TeknoParrot-runtime (loaders/cores) blijft. Halo eind-tot-eind gestart vanuit de installatie zonder TeknoParrotUi.
+- IO-brug: dialecten tp-shm (met MusicGunGun2/HOTDSD/FarCry/GoGoStrike-indelingen en offscreen-regel), unity-tcp (eigen plugin voor Tomb Raider; Rabbids op de DemulShooter-plugin vanwege zijn dongle-controle), hid-board (Transformers), jvs (kern en borden; Let's Go Safari wacht op poort 40100).
+- Speelbaar: Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Transformers, Go Go Strike; deels: Raccoon Rampage, NERF. Geparkeerd met oorzaak: zie packaging/games-status.md (32-bit TP-core en Taito Type X2 onder Wine, Jurassic Park/Pacman zwart beeld, Galaga/GhostBusters onvolledige dump, Pigs Might Fly ingepakt, Sega Ring wacht op poort 40100, Luigi Capcom-afscherming). Raw Thrills native op Linux geprobeerd en geparkeerd.
+- Vragen aan het TeknoParrot-team: findings/vragen.txt (ronde 3 open); vragen voor de eigenaar: docs/vragen-eigenaar.md.
+
 ## Laatste werkende commando
 
     scripts/play-halo.sh --record TAG     (Move aan met PS; daemon-uitvoer, opname en Halo)
@@ -162,7 +168,4 @@ Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven).
 
 ## Volgende uitvoerbare stap
 
-1. Transformers: virtueel HID-IO-bord (uhid) als nieuw dialect van de IO-brug.
-2. Route 2 voor de Unity-games: eigen BepInEx-plugin (clean-room) in plaats van de DemulShooter-plugin.
-3. Met de eigenaar: Time Crisis 5 en Rabbids met de echte Move spelen; tweede Move koppelen via het tabblad Controllers; kompasverstoring uitzoeken.
-4. Jurassic Park (native Linux-route), Let's Go Safari, Luigi's Mansion; Gaming Mode/Steam-snelkoppelingen.
+Zie docs/vragen-eigenaar.md (Add to Steam met Steam dicht, wizard, spelen met de echte Move, tweede Move, kompas) en de open punten in docs/todo.md (antwoorden op vragen 13-16, Let's Go Safari/poort 40100, B6 spelers 2-4, B7 één game tegelijk).
