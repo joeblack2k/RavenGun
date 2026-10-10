@@ -1,0 +1,64 @@
+{
+ "schema": 1,
+ "comment": "Borden voor het dialect jvs van de IO-brug (src/ravengun/iobridge/jvs.*). Een bord is een JVS-node: identify = de ID-string (cmd 0x10), comm_version/jvs_version/command_rev = de versiebytes (0x13, 0x12, 0x11), players/buttons/coin_slots/analog_channels/analog_bits/gp_outputs = de functiecapabilities (cmd 0x14), analog = de analoge kanalen in volgorde (signal = as-signaal uit io_state.hpp, min/max = kalibratievenster; liggen beide binnen 0..255 dan wordt het met 257 naar 16 bit geschaald, invert = 1 - fractie, idle = fractie zonder geldige aim), switches = schakelbits van cmd 0x20 (player 0 = systeembyte; byte/bit binnen de spelerblok, bit 7 = hoogste; signal = knopsignaal), coins = munt-signalen per sleuf. Uit de onderzoeksmap van de eigenaar (findings/07, 08 en 05_target_games.md); wat nog gemeten moet worden staat bij het bord.",
+ "boards": {
+  "LGS": {
+   "description": "Let's Go Safari (Sega RingWide, TeknoParrot-profiel LGS): 1 speler, 22 schakelbits, stuurwiel op analoog kanaal 0. Geen lightgun: het profiel heeft alleen een stuurwiel, vier gekleurde knoppen (rood, blauw, geel, groen), schakelaar omhoog/omlaag, camerawissel, ruitenwissers, claxon en vuurwerk. Het stuur is hier afgeleid van de horizontale aim (p1.x). Plaats van de extra bits (camerawissel, wissers, claxon, vuurwerk, schakelaar) is nog niet gemeten.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14895;1;1;FE MODE;2005/10",
+   "comm_version": "0x30",
+   "jvs_version": "0x30",
+   "command_rev": "0x30",
+   "players": 1,
+   "buttons": 22,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 16,
+   "analog": [
+    { "signal": "p1.x", "min": 0, "max": 255 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.trigger" },
+    { "player": 1, "byte": 1, "bit": 6, "signal": "p1.reload" },
+    { "player": 1, "byte": 1, "bit": 5, "signal": "p1.grenade" },
+    { "player": 1, "byte": 1, "bit": 4, "signal": "p1.aux1" }
+   ],
+   "coins": ["coin1", "coin2"]
+  },
+  "SegaGun2P": {
+   "description": "Generiek Sega-JVS-gunbord (837-14572, standaardbord van de TeknoParrot-JVS-profielen SegaJvs, SegaJvsGoldenGun, SegaJvsLetsGoIsland, SegaJvsDreamRaiders, SegaJvsLetsGoJungle): 2 spelers, 14 schakelbits, 8 analoge kanalen van 10 bit; kanaal 0 tot 3 = P1 X, P1 Y, P2 X, P2 Y (08_gun_axis_math.md). Het kalibratievenster (hier 0..255) verschilt per game en staat in de TeknoParrot-profielen (bv. Dream Raiders 63..207 x 63..191); bord per game kopieren en het venster aanpassen. Nog niet met een game gemeten.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x20",
+   "command_rev": "0x13",
+   "players": 2,
+   "buttons": 14,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "analog": [
+    { "signal": "p1.x", "min": 0, "max": 255 },
+    { "signal": "p1.y", "min": 0, "max": 255 },
+    { "signal": "p2.x", "min": 0, "max": 255 },
+    { "signal": "p2.y", "min": 0, "max": 255 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.trigger" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.reload" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.grenade" },
+    { "player": 2, "byte": 0, "bit": 7, "signal": "p2.start" },
+    { "player": 2, "byte": 0, "bit": 1, "signal": "p2.trigger" },
+    { "player": 2, "byte": 0, "bit": 0, "signal": "p2.reload" },
+    { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
+   ],
+   "coins": ["coin1", "coin2"]
+  }
+ }
+}

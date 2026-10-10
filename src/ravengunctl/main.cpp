@@ -87,7 +87,7 @@ void usage(FILE* f) {
         "              --player N kiest de speler; vereist arm\n"
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
-        "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board] | stop | status | route GAME   IO-brug van de daemon: de\n"
+        "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board|jvs] | stop | status | route GAME   IO-brug van de daemon: de\n"
         "              route van een game (packaging/io-routes.json) starten of stoppen, de actieve route tonen\n"
         "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
@@ -239,7 +239,16 @@ std::string optical_text(const json::Value& s) {
 std::string iobridge_text(const json::Value& a) {
     if (!boolean(a, {"active"})) return "geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)";
     std::string t = "route " + str(a, {"route"}) + " voor " + str(a, {"game"}) + ", dialect " + str(a, {"dialect"});
-    if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("board")) {
+    if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("nodes")) {
+        // jvs: de daemon is het JVS-bord; poll- en identificatieteller laten zien of de game praat.
+        t += ", lijn " + str(*d, {"path"}) + " (modemstatus " + fmt(num(*d, {"modem_status"}, 0), "%.0f") + "), " +
+             fmt(num(*d, {"frames"}, 0), "%.0f") + " packets, " + fmt(num(*d, {"identifies"}, 0), "%.0f") + "x identificatie, " +
+             fmt(num(*d, {"switch_polls"}, 0), "%.0f") + " schakelaarpolls, " + fmt(num(*d, {"analog_polls"}, 0), "%.0f") + " analoogpolls";
+        if (const json::Value* ns = path(*d, {"nodes"}); ns && ns->is_array())
+            for (const auto& n : ns->arr) t += "; node " + str(n, {"board"}) + " adres " + fmt(num(n, {"address"}, 0), "%.0f") + " schakelaars " + str(n, {"switches"}, "");
+        if (num(*d, {"since_last_frame_ms"}, -1) >= 0) t += ", laatste packet " + fmt(num(*d, {"since_last_frame_ms"}), "%.0f") + " ms geleden";
+        if (!str(*d, {"error"}, "").empty()) t += " (" + str(*d, {"error"}, "") + ")";
+    } else if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("board")) {
         t += ", bord " + str(*d, {"board"}) + " (" + str(*d, {"transport"}) + (boolean(*d, {"created"}) ? ", apparaat aanwezig" : ", GEEN apparaat") + "), " +
              fmt(num(*d, {"frames_sent"}, 0), "%.0f") + " beelden";
         if (const json::Value* ax = path(*d, {"axes"}); ax && ax->is_array()) {

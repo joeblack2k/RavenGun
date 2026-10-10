@@ -454,8 +454,8 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             return err("invalid_argument", "'action' moet start, stop, status of route zijn", r.id_json);
         if ((r.action == "start" || r.action == "route") && !games::valid_profile_name(r.game))
             return err("invalid_argument", "'game' ontbreekt of is ongeldig (letters, cijfers, _ en -)", r.id_json);
-        if (!r.route.empty() && r.route != "evdev" && r.route != "tp-shm" && r.route != "unity-tcp" && r.route != "hid-board")
-            return err("invalid_argument", "'route' moet evdev, tp-shm, unity-tcp of hid-board zijn", r.id_json);
+        if (!r.route.empty() && r.route != "evdev" && r.route != "tp-shm" && r.route != "unity-tcp" && r.route != "hid-board" && r.route != "jvs")
+            return err("invalid_argument", "'route' moet evdev, tp-shm, unity-tcp, hid-board of jvs zijn", r.id_json);
     } else if (cmd == "output_key") {
         r.cmd = Cmd::OutputKey;
         if (!allowed(o, {"key", "action"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);

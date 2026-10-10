@@ -19,6 +19,7 @@ embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_S
   "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
   "io-routes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/io-routes.json"
   "hid-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/hid-boards.json"
+  "jvs-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/jvs-boards.json"
   "tp-shm-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/tp-shm-profiles.json")
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
@@ -46,6 +47,8 @@ add_library(ravengun STATIC
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
   src/ravengun/iobridge/hid_board.cpp
+  src/ravengun/iobridge/jvs.cpp
+  src/ravengun/iobridge/jvs_dialect.cpp
   src/ravengun/iobridge/routes.cpp
   src/ravengun/iobridge/unity_tcp.cpp
   src/ravengun/sysinfo/navcon.cpp
@@ -206,6 +209,10 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_hid_board_tests COMMAND ravengun_hid_board_tests)
+  add_executable(ravengun_jvs_tests tests/test_jvs.cpp)
+  target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
+  target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+  add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)

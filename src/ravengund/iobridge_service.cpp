@@ -125,7 +125,7 @@ void IoBridgeService::write_state_file(const std::string& route, const std::stri
 
 std::string IoBridgeService::start(const std::string& game, const std::string& route_override) {
     std::string route = route_override.empty() ? cfg_.routes.route_for(game) : route_override;
-    if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp of hid-board)";
+    if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp, hid-board of jvs)";
     if (route == kRouteEvdev) {
         stop();
         if (sh_.aagames) sh_.aagames->stop();
@@ -137,6 +137,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
         return sh_.aagames->start(game);
     }
     if (route == kRouteHidBoard) return start_hid_board(game);
+    if (route == kRouteJvs) return start_jvs(game);
     // tp-shm
     const IoRoute* r = cfg_.routes.find(game);
     if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling in io-routes.json";
@@ -187,6 +188,42 @@ std::string IoBridgeService::start_hid_board(const std::string& game) {
     started_ms_ = steady_ms();
     write_state_file(route_, game_);
     logf("info", "IO-brug: hid-board voor %s (bord %s via %s)", game.c_str(), b->name.c_str(), b->transport.c_str());
+    cv_.notify_all();
+    return {};
+}
+
+// Route jvs: de daemon is de JVS-bord(en) aan het eind van een seriële lijn (pty, jvs_dialect.hpp). Een herstart van de daemon
+// kan de lijn niet meenemen (de game houdt de oude pty vast), daarom staat deze route niet in het toestandsbestand.
+std::string IoBridgeService::start_jvs(const std::string& game) {
+    const IoRoute* r = cfg_.routes.find(game);
+    if (!r) return "game '" + game + "' staat niet in io-routes.json";
+    std::vector<std::string> names = r->boards;
+    if (names.empty() && !r->board.empty()) names.push_back(r->board);
+    if (names.empty()) return "game '" + game + "' heeft geen 'board' of 'boards' in io-routes.json";
+    std::vector<JvsBoard> boards;
+    for (const auto& n : names) {
+        const JvsBoard* b = cfg_.jvs_boards.find(n);
+        if (!b) return "JVS-bord '" + n + "' ontbreekt in jvs-boards.json";
+        boards.push_back(*b);
+    }
+    std::unique_ptr<JvsTransport> t = cfg_.jvs_transport ? cfg_.jvs_transport() : make_pty_transport(cfg_.jvs_link);
+    auto d = std::make_unique<JvsDialect>(std::move(boards), game, std::move(t), cfg_.jvs_modem_file);
+    d->set_trace([](const std::string& line) { logf("info", "JVS: %s", line.c_str()); });
+    std::string err;
+    if (!d->open(err)) return err;
+    std::lock_guard<std::mutex> lk(m_);
+    if (dialect_) { apply_coin_keys(IoState{}); dialect_->neutral(); dialect_->close(); }
+    dialect_ = std::move(d);
+    coin_codes_.clear();
+    coin_prev_ = {};
+    for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
+    game_ = game;
+    route_ = kRouteJvs;
+    seen_alive_ = false;
+    gone_since_ms_ = 0;
+    started_ms_ = steady_ms();
+    if (!cfg_.state_path.empty()) ::unlink(cfg_.state_path.c_str());   // geen herstart-toestand voor deze route
+    logf("info", "IO-brug: jvs voor %s (%zu bord(en), lijn %s)", game.c_str(), names.size(), cfg_.jvs_link.empty() ? "zonder symlink" : cfg_.jvs_link.c_str());
     cv_.notify_all();
     return {};
 }

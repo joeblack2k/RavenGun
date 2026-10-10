@@ -20,6 +20,8 @@
 
 #include "ravengun/iobridge/dialect.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
+#include "ravengun/iobridge/jvs.hpp"
+#include "ravengun/iobridge/jvs_dialect.hpp"
 #include "ravengun/iobridge/routes.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "shared.hpp"
@@ -32,6 +34,11 @@ public:
         ravengun::iobridge::IoRoutes routes;
         ravengun::iobridge::TpShmProfiles profiles;
         ravengun::iobridge::HidBoards boards;
+        ravengun::iobridge::JvsBoards jvs_boards;
+        std::string jvs_link;         // vaste symlink naar de pty van de jvs-route ($XDG_RUNTIME_DIR/ravengun/jvs-com); leeg = geen link
+        std::string jvs_modem_file = ravengun::iobridge::kJvsModemFile;   // modemstatus voor de LD_PRELOAD-hulp
+        // Voor tests: maakt het transport van de jvs-route (standaard een pty met `jvs_link`).
+        std::function<std::unique_ptr<ravengun::iobridge::JvsTransport>()> jvs_transport;
         std::string uhid_path = ravengun::iobridge::kDefaultUhidPath;
         // Voor tests: maakt het apparaat van een bord (standaard uinput of uhid volgens het bord).
         std::function<std::unique_ptr<ravengun::iobridge::HidBoardDevice>(const ravengun::iobridge::HidBoard&)> board_device;
@@ -49,7 +56,7 @@ public:
     IoBridgeService(const IoBridgeService&) = delete;
     IoBridgeService& operator=(const IoBridgeService&) = delete;
 
-    // Start de route van `game` (of `route_override`: evdev | tp-shm | unity-tcp | hid-board). Leeg = gelukt, anders de melding.
+    // Start de route van `game` (of `route_override`: evdev | tp-shm | unity-tcp | hid-board | jvs). Leeg = gelukt, anders de melding.
     // evdev stopt een actieve brug. unity-tcp start de Unity-route via AagamesService.
     std::string start(const std::string& game, const std::string& route_override = {});
     // Stopt de tikthread en zet de invoer neutraal; de route blijft in het toestandsbestand (herstart). Idempotent.
@@ -76,6 +83,7 @@ public:
 private:
     void main_loop();
     std::string start_hid_board(const std::string& game);
+    std::string start_jvs(const std::string& game);
     void apply_coin_keys(const ravengun::iobridge::IoState& s);
     void write_state_file(const std::string& route, const std::string& game);
     void stop_locked();

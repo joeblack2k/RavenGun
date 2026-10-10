@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "comment": "Welke invoerroute geldt per game. evdev = virtuele gun en toetsenbord, TeknoParrotUi leest ze; tp-shm = de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern (layout = naam in tp-shm-profiles.json); unity-tcp = de daemon is klant van de BepInEx-plugin (zie aagames-games.json); hid-board = de daemon maakt het invoerbord van de game na als virtuele joystick/HID (board = naam in hid-boards.json). scripts/play-halo.sh --route R overschrijft dit voor een start. coin_keys: toetsen die de daemon ook vasthoudt zolang de munt (toets 5) van een speler ingedrukt is.",
+ "comment": "Welke invoerroute geldt per game. evdev = virtuele gun en toetsenbord, TeknoParrotUi leest ze; tp-shm = de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern (layout = naam in tp-shm-profiles.json); unity-tcp = de daemon is klant van de BepInEx-plugin (zie aagames-games.json); hid-board = de daemon maakt het invoerbord van de game na als virtuele joystick/HID (board = naam in hid-boards.json); jvs = de daemon is het JVS-bord aan een pty die in de Wine-prefix als COM-poort staat (board of boards = namen in jvs-boards.json, com_port = de poort die de game opent). scripts/play-halo.sh --route R overschrijft dit voor een start. coin_keys: toetsen die de daemon ook vasthoudt zolang de munt (toets 5) van een speler ingedrukt is.",
  "default": "evdev",
  "games": {
   "Halo": {
@@ -33,8 +33,11 @@
    "note": "de game leest zijn munt uit het toetsenbord (Shift+T); aim, trekker en pedalen komen via tp-shm"
   },
   "LGS": {
-   "route": "evdev",
-   "layout": "LGS"
+   "route": "jvs",
+   "board": "LGS",
+   "com_port": "COM4",
+   "layout": "LGS",
+   "note": "Let's Go Safari opent COM4 voor JVS; de daemon is het JVS-bord (jvs-boards.json) aan een pty die in de Wine-prefix als COM4 staat (play-halo.sh doet de link). Alternatief: --route tp-shm (alleen het stuurwiel, de rest loopt dan via TeknoParrots eigen JVS-pipe)."
   },
   "TombRaider": {
    "route": "unity-tcp"

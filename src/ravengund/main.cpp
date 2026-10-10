@@ -504,11 +504,15 @@ int main(int argc, char** argv) {
         io_cfg.routes = ravengun::iobridge::parse_io_routes(load_text("io-routes.json", "io-routes.json"), e1);
         io_cfg.profiles = ravengun::iobridge::parse_tp_shm_profiles(load_text("tp-shm-profiles.json", "tp-shm-profiles.json"), e2);
         io_cfg.boards = ravengun::iobridge::parse_hid_boards(load_text("hid-boards.json", "hid-boards.json"), e3);
+        std::string e4;
+        io_cfg.jvs_boards = ravengun::iobridge::parse_jvs_boards(load_text("jvs-boards.json", "jvs-boards.json"), e4);
+        if (!e4.empty()) logf("waarschuwing", "IO-brug: %s (geen JVS-borden)", e4.c_str());
         if (!e3.empty()) logf("waarschuwing", "IO-brug: %s (geen hid-borden)", e3.c_str());
         if (!e1.empty()) logf("waarschuwing", "IO-brug: %s (alle games gebruiken evdev)", e1.c_str());
         if (!e2.empty()) logf("waarschuwing", "IO-brug: %s (geen tp-shm-indelingen)", e2.c_str());
         size_t sl = sock.rfind('/');
         if (sl != std::string::npos) io_cfg.state_path = sock.substr(0, sl) + "/iobridge.json";
+        if (sl != std::string::npos) io_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";
         io_cfg.tpui_procs = games_cfg.tpui_procs;
     }
     AagamesService aagames(shared, std::move(aa_cfg));

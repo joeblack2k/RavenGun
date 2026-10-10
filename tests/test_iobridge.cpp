@@ -1,6 +1,7 @@
 // IO-brug: toestandsmodel, tp-shm-indeling per profiel (bytes exact), schaal en inversie, neutrale toestand, keuze van de
 // route per game en dat een nieuwe brug (daemon-herstart) het bestand en de route weer overneemt. Zonder hardware: nep-guns.
 #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include <atomic>
@@ -18,6 +19,7 @@
 #include "iobridge_service.hpp"
 #include "output_service.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
+#include "ravengun/iobridge/jvs_dialect.hpp"
 #include "ravengun/iobridge/routes.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/json_parse.hpp"
@@ -260,6 +262,10 @@ void test_routes() {
     CHECK(r.find("TransformersShadowsRising")->board == "SaeGunBoard");
     parse_io_routes(R"({"games":{"A":{"route":"hid-board"}}})", err);
     CHECK(!err.empty());                                 // hid-board zonder board
+    parse_io_routes(R"({"games":{"A":{"route":"jvs"}}})", err);
+    CHECK(!err.empty());                                 // jvs zonder board
+    IoRoutes jr = parse_io_routes(R"({"games":{"A":{"route":"jvs","boards":["X","Y"],"com_port":"COM2"}}})", err);
+    CHECK(err.empty() && jr.find("A")->boards.size() == 2 && jr.find("A")->com_port == "COM2");
     CHECK(r.route_for("Halo") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
     CHECK(r.route_for("OnbekendeGame") == "evdev");     // standaardroute
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
@@ -490,6 +496,61 @@ void test_service(const std::string& dir) {
         CHECK(!br3.active() && !fs::exists(state));
         // Een bord dat niet bestaat of een game zonder bord: nette fout.
         CHECK(!br3.start("Halo", "hid-board").empty());
+        sh.iobridge = nullptr;
+    }
+    {
+        // Route jvs: de daemon is het JVS-bord aan een pty; de test speelt de game via de symlink.
+        IoBridgeService::Config c4 = cfg;
+        std::string e4;
+        c4.jvs_boards = parse_jvs_boards(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/jvs-boards.json"), e4);
+        CHECK(e4.empty() && c4.jvs_boards.find("LGS"));
+        c4.jvs_link = sdir + "/jvs-com";
+        c4.jvs_modem_file = sdir + "/modem";
+        IoBridgeService br4(sh, c4);
+        sh.iobridge = &br4;
+        CHECK(br4.route_for("LGS") == "jvs" && c4.routes.find("LGS")->board == "LGS" && c4.routes.find("LGS")->com_port == "COM4");
+        CHECK(br4.start("LGS").empty());
+        CHECK(br4.active() && br4.active_route() == "jvs" && fs::is_symlink(c4.jvs_link));
+        CHECK(!fs::exists(state));                          // geen herstart-toestand voor jvs (de game houdt de oude pty vast)
+        int fd = ::open(c4.jvs_link.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+        CHECK(fd >= 0);
+        auto ask = [&](const std::vector<uint8_t>& data, size_t want) {
+            const std::vector<uint8_t> w = jvs_encode(data[0] >= 0xF0 ? 0xFF : 0x01, data);
+            if (::write(fd, w.data(), w.size()) != static_cast<ssize_t>(w.size())) return std::vector<uint8_t>{};
+            std::vector<uint8_t> r;
+            for (int i = 0; i < 100 && r.size() < want; ++i) {
+                pollfd p{fd, POLLIN, 0};
+                if (::poll(&p, 1, 20) > 0) {
+                    uint8_t b[64];
+                    ssize_t n = ::read(fd, b, sizeof b);
+                    if (n > 0) r.insert(r.end(), b, b + n);
+                }
+            }
+            return r;
+        };
+        ask({0xF0, 0xD9}, 0);
+        CHECK(ask({0xF1, 0x01}, 6).size() == 6);
+        CHECK(out.arm().ok);
+        output::PatternParams pp;
+        pp.kind = output::PatternKind::Point;
+        pp.x = 1.0;
+        pp.y = 0.0;
+        CHECK(out.start_pattern(pp).ok);
+        CHECK(out.button(output::GunButton::Trigger, "down").ok);
+        // Stuur uit de horizontale aim (helemaal rechts = 0xFFFF) en de trekker als rode knop (byte 1, bit 7).
+        CHECK(wait_for([&] { auto r = ask({0x22, 0x01}, 8); return r.size() == 8 && r[5] == 0xFF && r[6] == 0xFF; }));
+        CHECK(wait_for([&] { auto r = ask({0x20, 0x01, 0x03}, 10); return r.size() == 10 && (r[7] & 0x80); }));
+        auto js4 = json::parse(br4.status_json());
+        CHECK(js4.ok && js4.value.find("route")->str == "jvs" && js4.value.find("dialect")->str == "jvs");
+        const json::Value* det = js4.value.find("detail");
+        CHECK(det && det->find("addressed")->b && det->find("switch_polls")->num >= 1 && det->find("analog_polls")->num >= 1);
+        out.disarm();   // neutraal: stuur in het midden, geen knoppen
+        CHECK(wait_for([&] { auto r = ask({0x22, 0x01}, 8); return r.size() == 8 && r[5] == 0x80 && r[6] == 0x00; }));
+        CHECK(wait_for([&] { auto r = ask({0x20, 0x01, 0x03}, 10); return r.size() == 10 && r[7] == 0; }));
+        if (fd >= 0) ::close(fd);
+        br4.stop();
+        CHECK(!br4.active() && !fs::exists(c4.jvs_link) && !fs::exists(c4.jvs_modem_file));
+        CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // niet in io-routes.json: nette fout
         sh.iobridge = nullptr;
     }
     // Zonder gewapende uitvoer is de toestand neutraal; de bron meldt dat.
