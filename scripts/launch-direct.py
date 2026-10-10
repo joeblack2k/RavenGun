@@ -462,6 +462,12 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     if set_prefix:
         launch["WINEPREFIX"] = prefix
     launch.setdefault("TP_REMOTETHREAD", env.get("TP_REMOTETHREAD", "1"))   # onder Wine altijd (zie TeknoParrotUi)
+    # TP_REMOTETHREAD=off in de .env: de variabele weglaten, zodat de lader zijn standaardroute neemt (entry-point-
+    # trampoline op de hoofdthread; volgens het TeknoParrot-team de Wine-bestendige route, antwoorden_ronde3 vraag 14).
+    # De lader kijkt alleen of de variabele bestaat, dus "0" zou niet werken.
+    if launch["TP_REMOTETHREAD"].lower() in ("off", "0", "no", "false", ""):
+        del launch["TP_REMOTETHREAD"]
+        env.pop("TP_REMOTETHREAD", None)
     if log_full:
         launch["WINEDEBUG"] = env.get("RG_WINEDEBUG_FULL", "-all,+debugstr,err+module")   # +debugstr: OutputDebugString
     elif "WINEDEBUG" not in env:
