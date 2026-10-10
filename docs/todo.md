@@ -21,7 +21,7 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 - [ ] A6 Eerste-gebruik-wizard (Desktop Mode): rechten installeren (udev/Bluetooth-hulp via één beheerdersprompt), Moves koppelen, kalibratie, gamemap, toevoegen aan Steam.
 - [ ] A7 Fullscreen-modus voor Steam Game Mode: zwarte achtergrond, game-iconen, kiezen en starten met de lightgun; terug na afsluiten van de game.
 - [ ] A8 Steam-integratie: app als niet-Steam-game toevoegen (shortcuts.vdf) met fullscreen-argument; controleren in Game Mode.
-- [ ] A10 TeknoParrotUi uitfaseren: de engine start de loaders zelf (argumenten, omgeving, teknoparrot.ini, prefix) en levert zelf JVS-pipe en gedeeld geheugen (eigen pipehelper); per game gemeten tegen het huidige pad; daarna is TeknoParrotUi niet meer nodig om te spelen.
+- [ ] A10 Zonder TeknoParrot waar dat kan: per game de eigen route (Unity-plugin; OpenParrot-code (GPL-3) voor Taito Type X2; Raw Thrills native op Linux met eigen I/O), en de TeknoParrot-runtime alleen nog waar de core dongle/keychip/integriteit afhandelt (dat bouwen we niet zelf na). Vragen 8-10 aan het TeknoParrot-team staan in findings/vragen.txt.
 - [ ] A9 Verpakking voor GitHub: bouwen, installeren, AppImage of vergelijkbaar; README voor nieuwe gebruikers ("downloaden, starten, werkt").
 
 ## Spoor B — games
