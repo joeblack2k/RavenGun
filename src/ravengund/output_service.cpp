@@ -204,6 +204,9 @@ bool OutputService::io_snapshot(ravengun::iobridge::IoState& s) const {
     }
     s.sys.test = mux_.down(KEY_F2) || mux_.down(KEY_0);
     s.sys.service = mux_.down(KEY_F3);
+    // Menuknoppen van de kast (testmenu: "Enter" is bij veel indelingen de bit die wij volume omhoog noemen): F4 en F5.
+    s.sys.volume_up = mux_.down(KEY_F4);
+    s.sys.volume_down = mux_.down(KEY_F5);
     return true;
 }
 
