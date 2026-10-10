@@ -9,7 +9,7 @@
    "title": "Halo: Fireteam Raven",
    "enabled": false,
    "status": "geparkeerd",
-   "note": "Start native op de NAS (beeld, FileTest van de game zelf, SDL-joystick als gun gevonden). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game (START slaat de FileTest over: bewezen). Daarna: Webcam Init (de guns worden met webcams geïdentificeerd), geen geluid (FMOD 1.10 is propriëtair en ontbreekt; de stub is onvoldoende) en een crash op een aanroep naar adres 0 (waarschijnlijk FMOD Studio). halo.so levert alleen de HASP-dongle, geen invoer.",
+   "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game (START bewezen). Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game bij het gun-kalibratiescherm (\"Press the TEST button to skip\"); daar blijft hij: TEST via de hulp en een virtuele SDL-gun werken niet (niet verder uitgezocht). Geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
    "arch": "x86_64",
    "mounts": [
     {

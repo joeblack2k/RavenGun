@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# (symbols.txt: alle FMOD-namen uit de dynstr van de game, ook de const-methoden _ZNK...)
 # Genereert fmod_stub.c uit symbols.txt. Diagnostische stub zonder geluid:
 # iedere FMOD-functie retourneert een foutcode, zodat de game (hypothese) zonder audio verdergaat.
 # Dit is GEEN FMOD-implementatie en bevat geen FMOD-code.

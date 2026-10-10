@@ -40,7 +40,7 @@ static const unsigned char getter_sig[8] = {0x85, 0xff, 0x0f, 0x88, 0xd0, 0x05, 
 
 /* Schakelaar k van bord b: k 0 = start, 1 = volume omhoog, 2 = volume omlaag, 3 = service, 4 = diag (test), 5..8 = munt 0..3. */
 struct map { int bit; int board; int k; };
-static const struct map MAP[] = {
+static struct map MAP[] = {
     {6, 0, 0}, {11, 1, 0}, {16, 2, 0}, {21, 3, 0},      /* start speler 1..4 */
     {0, 0, 4},                                          /* test -> diag van bord 0 */
     {1, 0, 3},                                          /* service */
@@ -64,6 +64,10 @@ static void *worker(void *arg) {
     const char *shm = getenv("RG_RT_SHM"); if (!shm) shm = "/dev/shm/TeknoParrot_JvsState";
     const char *pm = getenv("RG_RT_PULSE_MS"); int pulse = pm ? atoi(pm) : 30; if (pulse < 5) pulse = 5;
 
+    /* Onderzoek: RG_RT_PROBE=pad naar een bestand met "bit,bord,k" zet een schakelaar van de tabel (live, elke 250 ms gelezen) op een andere plek. */
+    const char *probe = getenv("RG_RT_PROBE");
+    uint64_t probe_t = 0;
+
     /* Alleen op de bekende build. */
     if (memcmp((const void *)GETTER_ADDR, getter_sig, sizeof getter_sig) != 0) { logf_("andere game-build, geen invoer"); return 0; }
 
@@ -79,6 +83,11 @@ static void *worker(void *arg) {
                 if (p != MAP_FAILED) { st = (const volatile uint8_t *)p; logf_("gedeeld geheugen gekoppeld"); }
             }
             if (!st) { usleep(250000); continue; }
+        }
+        if (probe && now_ms() > probe_t + 250) {
+            probe_t = now_ms();
+            FILE *pf = fopen(probe, "r");
+            if (pf) { int b, bd, k; if (fscanf(pf, "%d,%d,%d", &b, &bd, &k) == 3) for (int i = 0; i < NMAP; i++) if (MAP[i].bit == b) { MAP[i].board = bd; MAP[i].k = k; } fclose(pf); }
         }
         uint32_t bits = (uint32_t)st[8] | ((uint32_t)st[9] << 8) | ((uint32_t)st[10] << 16) | ((uint32_t)st[11] << 24);
         uint64_t t = now_ms();

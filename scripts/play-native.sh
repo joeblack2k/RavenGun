@@ -16,6 +16,7 @@
 #   --snap F       alleen met --headless en --seconds: sla vlak voor het einde een schermafbeelding (png) op
 #   --strace F     draai de game onder strace (alleen openat/open/ioctl/connect/execve naar bestand F)
 #   --gdb          draai de game onder gdb (batch; geeft bij een crash een backtrace in het logboek)
+#   --input-nodes "eventN jsN"  toon alleen deze invoerapparaten in /dev/input (standaard alles; handig om de Move als SDL-joystick te verbergen)
 #   --mute         geen geluidsverbinding in de sandbox
 #   --bind-ro S D  toon bestand of map S read-only als D in de sandbox (herhaalbaar)
 #   --env K=V      extra omgevingsvariabele voor de game (herhaalbaar)
@@ -38,7 +39,7 @@ LOGDIR="$STATE/logs"
 
 die() { echo "play-native: $*" >&2; exit 1; }
 
-BINDS=(); GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
+BINDS=(); GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; INPUT_NODES=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
 ACTION=run
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --snap) SNAP="${2:?}"; shift ;;
     --strace) STRACE="${2:?}"; shift ;;
     --gdb) GDB=1 ;;
+    --input-nodes) INPUT_NODES="${2:?}"; shift ;;
     --mute) MUTE=1 ;;
     --bind-ro) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-ro vereist bron en doel"; BINDS+=("$2" "$3"); shift 2 ;;
     --env) [[ "${2:-}" == *=* ]] || die "--env vereist K=V"; XENV+=("$2"); shift ;;
@@ -165,9 +167,16 @@ OVLBASE="$DATA/native/$GAME"; mkdir -p "$OVLBASE" "$LOGDIR" "$IPC"; chmod 700 "$
 BW=(bwrap --die-with-parent --unshare-pid --unshare-ipc --unshare-uts --unshare-net
   --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/lib64 /lib64 --symlink usr/bin /bin --symlink usr/bin /sbin
   --ro-bind /etc /etc --proc /proc --dev /dev
-  --dev-bind /dev/dri /dev/dri --dev-bind-try /dev/snd /dev/snd --dev-bind-try /dev/input /dev/input
+  --dev-bind /dev/dri /dev/dri --dev-bind-try /dev/snd /dev/snd
   --ro-bind /sys /sys --ro-bind-try /run/udev /run/udev
   --tmpfs /tmp)
+
+# Invoerapparaten: alles, of alleen de genoemde nodes.
+if [[ -n "$INPUT_NODES" ]]; then
+  BW+=(--dir /dev/input); for n in $INPUT_NODES; do BW+=(--dev-bind "/dev/input/$n" "/dev/input/$n"); done
+else
+  BW+=(--dev-bind-try /dev/input /dev/input)
+fi
 
 # De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
 n=0
@@ -235,6 +244,7 @@ if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   (( MUTE )) && SELF+=(--mute)
   (( DEBUG )) && SELF+=(--debug)
   (( GDB )) && SELF+=(--gdb)
+  [[ -n "$INPUT_NODES" ]] && SELF+=(--input-nodes "$INPUT_NODES")
   [[ -n "$STRACE" ]] && SELF+=(--strace "$STRACE")
   for e in "${XENV[@]}"; do SELF+=(--env "$e"); done
   for ((i = 0; i < ${#BINDS[@]}; i += 2)); do SELF+=(--bind-ro "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
