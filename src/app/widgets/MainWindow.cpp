@@ -416,7 +416,7 @@ void MainWindow::ShowBigPicture() {
 }
 
 void MainWindow::ShowUserGuide() {
-    const QString path = rg::AppPaths::repoRoot() + QStringLiteral("/docs/user-guide.md");
+    const QString path = rg::AppPaths::dataRoot() + QStringLiteral("/docs/user-guide.md");
     QFile f(path);
     QDialog d(this);
     d.setWindowTitle(tr("RavenGun User Guide"));

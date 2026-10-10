@@ -22,6 +22,7 @@
 #include <cstring>
 
 #include "core/AppCore.h"
+#include "core/AppPaths.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
@@ -52,6 +53,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption steamAccount(QStringLiteral("steam-account"), QStringLiteral("Steam user (folder under userdata/) for --add-to-steam."),
                                           QStringLiteral("ID"));
     const QCommandLineOption listSteam(QStringLiteral("list-steam-shortcuts"), QStringLiteral("Show the non-Steam games of the Steam user and quit."));
+    const QCommandLineOption printPaths(QStringLiteral("print-paths"), QStringLiteral("Show where RavenGun finds its scripts, data and engine, and quit."));
     const QCommandLineOption wizard(QStringLiteral("setup-wizard"), QStringLiteral("Open the setup wizard."));
     const QCommandLineOption shotDir(QStringLiteral("screenshot-dir"), QStringLiteral("Save screenshots of all windows to DIR and quit."),
                                      QStringLiteral("DIR"));
@@ -60,7 +62,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption socket(QStringLiteral("socket"), QStringLiteral("Engine socket path."), QStringLiteral("PATH"));
     const QCommandLineOption library(QStringLiteral("library"), QStringLiteral("Library file."), QStringLiteral("PATH"));
     const QCommandLineOption noScan(QStringLiteral("no-scan"), QStringLiteral("Do not scan the game folders at start."));
-    p.addOptions({fullscreen, addToSteam, steamAccount, listSteam, wizard, shotDir, shotGame, socket, library, noScan});
+    p.addOptions({fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
     // Iconen uit het bureaubladthema (KDE: breeze) ook buiten een Plasma-sessie (bv. offscreen).
@@ -68,6 +70,12 @@ int main(int argc, char** argv) {
         if (QFileInfo(QStringLiteral("/usr/share/icons/breeze")).isDir()) QIcon::setThemeName(QStringLiteral("breeze"));
     QApplication::setWindowIcon(rg::ui::Resources::GetAppIcon());
 
+    if (p.isSet(printPaths)) {
+        std::printf("data-dir: %s\n", qPrintable(rg::AppPaths::dataRoot()));
+        std::printf("bin-dir: %s\n", qPrintable(rg::AppPaths::binDir()));
+        std::printf("engine: %s\n", qPrintable(rg::SetupChecks::engineBinary()));
+        return 0;
+    }
     if (p.isSet(listSteam)) {
         const QList<rg::SteamUser> users = rg::SteamShortcuts::users(rg::SteamShortcuts::steamRoot());
         if (users.isEmpty()) {

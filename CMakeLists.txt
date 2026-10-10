@@ -92,6 +92,7 @@ add_library(ravengun STATIC
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
   src/ravengun/parse.cpp
+  src/ravengun/paths.cpp
   src/ravengun/probe.cpp
   src/ravengun/doctor.cpp
   src/ravengun/report.cpp)
@@ -249,6 +250,9 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
+  add_executable(ravengun_paths_tests tests/test_paths.cpp)
+  target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
+  add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
   add_executable(ravengun_drift_tests tests/test_drift.cpp)
   target_link_libraries(ravengun_drift_tests PRIVATE ravengun)
   add_test(NAME ravengun_drift_tests COMMAND ravengun_drift_tests)
