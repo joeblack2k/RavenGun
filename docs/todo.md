@@ -34,9 +34,17 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
 - [x] B2 Eigen Unity-plugin: Tomb Raider draait met de eigen plugin (munt, start, aim, schieten, herladen, recoil). Rabbids blijft op de DemulShooter-plugin: met de eigen plugin sluit de game zichzelf af door zijn dongle-controle ("DONGLE NOT FOUND"); die omzeilen we niet zelf.
 - [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
   - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
-  - [ ] B3b Taito Type X2 via OpenParrot: Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2 (JVS-pipe op COM2 voor munt/test/service).
-  - [ ] B3c WartranTroopers/TC5-indeling: Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX, Raccoon Rampage, NERF Arcade, Pigs Might Fly.
-  - [ ] B3d Raw Thrills Linux: GhostBusters, Go Go Strike (evdev); Galaga Assault en Pacman Chomp-Mania (herschreven ELF, zelfde klasse als Jurassic Park; DirectInput).
+  - [ ] B3b Taito Type X2 via OpenParrot (geparkeerd, 2026-10-10): Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2. OpenParrot-injectie werkt en de JVS-pipe verbindt (zonder `TP_POSTSTART_REMOTETHREAD_MS`), maar de game blijft zwart in een eindeloze `handle_syscall_fault`-lus (Wine 11); Music GunGun 2 geeft een Direct3D-foutvenster. Zie packaging/games-status.md, zesde ronde.
+  - [~] B3c WartranTroopers/TC5-indeling (2026-10-10):
+    - [~] Raccoon Rampage: draait (DXVK-prefix, lege Movies-map; `tp-add-game.py --dxvk --empty-dir`), munt/start/trekker werken; het vizier volgt niet (game wil eigen kalibratie, Setting Menu niet bereikt). Open.
+    - [~] NERF Arcade: draait tot in de attract (DXVK, BepInEx laadt); start en trekker komen niet aan. Open.
+    - [ ] Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX (geparkeerd): 32-bit TeknoParrot-kern onder Wine: loader-lock bij injectie na 3 s, anders stopt de kern het proces zelf (exitcode 0xDEADC0DE); Otomedius stopt met exitcode 0.
+    - [ ] Pigs Might Fly (geparkeerd): `Shell.exe` ingepakt (illegal instruction op het startpunt / VirtualAllocEx geweigerd); niet omzeild.
+  - [~] B3d Raw Thrills Linux (2026-10-10):
+    - [x] Go Go Strike: werkt (evdev, gamescope; Move als trackball, start, trekker); snelkoppeling.
+    - [ ] GhostBusters (geparkeerd): loader meldt "GAME PATH CHECK FAILED"; afgeleid: donglebestand ontbreekt in de dump.
+    - [ ] Galaga Assault (geparkeerd): game laadt maar mist lettertypen die niet in de dump staan en crasht.
+    - [ ] Pacman Chomp-Mania (geparkeerd): zwart beeld, zelfde klasse als Jurassic Park.
   - [ ] B3e Sega Ring/JVS (na B1): Let's Go Island, Let's Go Island 3D, Operation G.H.O.S.T., Medaru No Gunman.
   - [ ] B3f House of the Dead: Scarlet Dawn (ALLS, AM Daemon, geheugeneisen), Rainbow Bombergirl (touch via muis), Rampage (Unity zonder BepInEx).
   - [ ] B3g Geen lightgun: Mario Kart Arcade GP DX (2 versies), Mighty Moto — laagste prioriteit.

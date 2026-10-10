@@ -44,6 +44,81 @@
   },
   "RabbidsHollywood": {
    "route": "unity-tcp"
+  },
+  "GaiaAttack4": {
+   "route": "tp-shm",
+   "layout": "MusicGunGun2Pipe",
+   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+  },
+  "HauntedMuseum": {
+   "route": "tp-shm",
+   "layout": "MusicGunGun2Pipe",
+   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+  },
+  "HauntedMuseumII": {
+   "route": "tp-shm",
+   "layout": "MusicGunGun2Pipe",
+   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+  },
+  "MusicGunGun2": {
+   "route": "tp-shm",
+   "layout": "MusicGunGun2Pipe",
+   "note": "geparkeerd: OpenParrot onder Wine start niet (zie games-status.md); de indeling MusicGunGun2Pipe klopt volgens de bron"
+  },
+  "Gashaaaan": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "Gashaaaan2": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "LethalEnforcers3": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "Otomedius": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "OmatsuriYasanGansoTakoyaki": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "OmatsuriYasanKingyoSukui": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "RaccoonRampage": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "start, munt en trekker werken via tp-shm; het vizier volgt niet (de game vraagt een eigen kalibratie). Draait met DXVK-prefix en lege Movies-map (tp-add-game.py --dxvk --empty-dir)"
+  },
+  "NERF": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "start de game tot en met de attract (DXVK-prefix, BepInEx laadt); start en trekker komen niet aan, via tp-shm noch evdev"
+  },
+  "PigsMightFly": {
+   "route": "tp-shm",
+   "layout": "WartranTroopers",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "InfinityBladeFX": {
+   "route": "tp-shm",
+   "layout": "TimeCrisis5",
+   "note": "geparkeerd: de game start niet (zie games-status.md); route volgens de findings"
+  },
+  "GoGoStrike": {
+   "route": "evdev",
+   "layout": "RawThrillsGUN",
+   "note": "werkt via evdev (TeknoParrotUi): de Move-beweging gaat als trackball; gamescope voor 4:3 in beeld"
   }
  }
 }

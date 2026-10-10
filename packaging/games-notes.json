@@ -9,6 +9,24 @@
   "LuigisMansion": "Start nog niet (stopt direct of crasht bij de start). Geparkeerd.",
   "LGS": "Start nog niet: de game wacht zonder venster op een Sega-netwerkdienst op 127.0.0.1:40100 en komt daardoor niet bij zijn JVS-poort. De daemon kan het JVS-bord al spelen (route jvs). Geparkeerd.",
   "TC5": "Speelbaar via de IO-brug (tp-shm): richten, trekker en linker pedaal (middenknop) werken; munt = Move-knop voor toets 5 (de daemon geeft de game daarvoor Shift+T). Schiet in het menu om '1-player solo' te kiezen. Rechter pedaal nog niet apart gecontroleerd.",
-  "TransformersShadowsRising": "Speelbaar met de Move: de daemon speelt het gun-bord van de game na (route hid-board). Start (toets 1 of Move-start), trekker en richten werken; de eerste keer laden duurt ongeveer 3,5 minuut (\"SYSTEM INITIALIZING\"). Geen munt nodig (free play). Het gun-kalibratiescherm, het testmenu en de hendels (aanval/verdediging) zijn nog niet uitgeprobeerd. Daemon niet herstarten terwijl de game draait."
+  "TransformersShadowsRising": "Speelbaar met de Move: de daemon speelt het gun-bord van de game na (route hid-board). Start (toets 1 of Move-start), trekker en richten werken; de eerste keer laden duurt ongeveer 3,5 minuut (\"SYSTEM INITIALIZING\"). Geen munt nodig (free play). Het gun-kalibratiescherm, het testmenu en de hendels (aanval/verdediging) zijn nog niet uitgeprobeerd. Daemon niet herstarten terwijl de game draait.",
+  "GoGoStrike": "Werkt: bowling met de Move als trackball (richting en zwaai bepalen de worp), start (toets 1) en trekker (klik). Het beeld is 4:3 met zwarte randen (gamescope). Het credit-getal staat vreemd in beeld maar de game is gratis te spelen.",
+  "RaccoonRampage": "Werkt deels: beeld, start, munt en trekker. Het vizier volgt nog niet (de game wil een eigen kalibratie en het Setting Menu is niet bereikbaar). Draait met DXVK in een eigen Wine-prefix en zonder intro-video's (scripts/tp-add-game.py --dxvk --empty-dir).",
+  "NERF": "Werkt deels: de game start en toont de attract (beeld goed), maar start en trekker komen niet aan. Draait met DXVK in een eigen Wine-prefix; de BepInEx-plugin laadt.",
+  "GaiaAttack4": "Start nog niet: OpenParrot onder Wine laat de game na de JVS-handdruk met zwart beeld hangen (eindeloze uitzonderingslus). Geparkeerd.",
+  "HauntedMuseum": "Start nog niet: OpenParrot onder Wine laat de game na de JVS-handdruk met zwart beeld hangen (eindeloze uitzonderingslus). Geparkeerd.",
+  "HauntedMuseumII": "Start nog niet (zelfde OpenParrot-kern als Haunted Museum): zwart beeld. Geparkeerd.",
+  "MusicGunGun2": "Start nog niet: de game toont een eigen foutvenster 'Direct3D-initialisatie mislukt' (ook met DXVK). Geparkeerd.",
+  "Gashaaaan": "Start nog niet: de 32-bit TeknoParrot-kern stopt het proces zelf (exitcode 0xDEADC0DE) of loopt vast. Geparkeerd.",
+  "Gashaaaan2": "Start nog niet: de 32-bit TeknoParrot-kern laat de game stoppen (exitcode 0xC0000354). Geparkeerd.",
+  "LethalEnforcers3": "Start nog niet: de 32-bit TeknoParrot-kern stopt het proces zelf (exitcode 0xDEADC0DE) of loopt vast. Geparkeerd.",
+  "Otomedius": "Start nog niet: het proces stopt na enkele seconden zonder beeld (exitcode 0). Geparkeerd.",
+  "OmatsuriYasanGansoTakoyaki": "Start nog niet: de 32-bit TeknoParrot-kern stopt het proces zelf (exitcode 0xDEADC0DE). Geparkeerd.",
+  "OmatsuriYasanKingyoSukui": "Start nog niet: de 32-bit TeknoParrot-kern stopt het proces zelf (exitcode 0xDEADC0DE). Geparkeerd.",
+  "InfinityBladeFX": "Start nog niet: de 32-bit TeknoParrot-kern stopt het proces zelf (exitcode 0xDEADC0DE). Geparkeerd.",
+  "GhostBusters": "Start nog niet: de loader meldt 'GAME PATH CHECK FAILED' (de dump heeft geen donglebestand zoals Halo en Terminator). Geparkeerd.",
+  "GalagaAssault": "Start nog niet: de game laadt, mist lettertypen die niet in de dump staan (images/fonts/zoinks*.tga) en stopt met een crash. Geparkeerd.",
+  "PacmanChomp": "Start nog niet: zwart beeld na de start (zelfde klasse als Jurassic Park). Geparkeerd.",
+  "PigsMightFly": "Start nog niet: Shell.exe is ingepakt (illegal instruction op het startpunt bij injectie vanaf het startpunt; bij injectie na 3 s weigert VirtualAllocEx). Geparkeerd."
  }
 }

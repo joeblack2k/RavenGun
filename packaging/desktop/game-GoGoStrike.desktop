@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Go Go Strike
+Comment=Start Go Go Strike met de Move als lightgun (RavenGun)
+Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile GoGoStrike
+Icon=input-gaming
+Terminal=false
+Categories=Game;
