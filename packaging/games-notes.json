@@ -1,5 +1,6 @@
 {
  "schema": 1,
+ "comment": "Spelersnotities per TeknoParrot-profiel. games: Nederlands (webpagina en engine, max. 300 tekens); games_en: Engels (de Qt-app); status: playable (start en is speelbaar), parked (start niet of is geblokkeerd) of untested. De fullscreen-modus van de app toont standaard alleen games met status playable.",
  "games": {
   "Halo": "Werkt volledig: lightgun, knoppen, trillen.",
   "Terminator": "Werkt beeldvullend (via gamescope). Richten en schieten werken goed, ook via de IO-brug (tp-shm, 'play-halo.sh --route tp-shm').",
@@ -10,5 +11,27 @@
   "LGS": "Start nog niet: de game wacht zonder venster op een Sega-netwerkdienst op 127.0.0.1:40100 en komt daardoor niet bij zijn JVS-poort. De daemon kan het JVS-bord al spelen (route jvs). Geparkeerd.",
   "TC5": "Speelbaar via de IO-brug (tp-shm): richten, trekker en linker pedaal (middenknop) werken; munt = Move-knop voor toets 5 (de daemon geeft de game daarvoor Shift+T). Schiet in het menu om '1-player solo' te kiezen. Rechter pedaal nog niet apart gecontroleerd.",
   "TransformersShadowsRising": "Speelbaar met de Move: de daemon speelt het gun-bord van de game na (route hid-board). Start (toets 1 of Move-start), trekker en richten werken; de eerste keer laden duurt ongeveer 3,5 minuut (\"SYSTEM INITIALIZING\"). Geen munt nodig (free play). Het gun-kalibratiescherm, het testmenu en de hendels (aanval/verdediging) zijn nog niet uitgeprobeerd. Daemon niet herstarten terwijl de game draait."
+ },
+ "games_en": {
+  "Halo": "Fully working: lightgun, buttons and rumble.",
+  "Terminator": "Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).",
+  "TombRaider": "Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.",
+  "RabbidsHollywood": "Works without the TeknoParrot UI: lightgun, coin (four times) and start, rumble when shooting. Not yet played with the real Move buttons.",
+  "JurassicPark": "Does not work yet: the game stops shortly after starting (crash in the ElfLdr2 layer). Parked.",
+  "LuigisMansion": "Does not start yet (stops at once or crashes at start). Parked.",
+  "LGS": "Does not start yet: the game waits without a window for a Sega network service on 127.0.0.1:40100 and never opens its JVS port. The engine can already act as its JVS board (jvs route). Parked.",
+  "TC5": "Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.",
+  "TransformersShadowsRising": "Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes (\"SYSTEM INITIALIZING\"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs."
+ },
+ "status": {
+  "Halo": "playable",
+  "Terminator": "playable",
+  "TombRaider": "playable",
+  "RabbidsHollywood": "playable",
+  "TC5": "playable",
+  "TransformersShadowsRising": "playable",
+  "JurassicPark": "parked",
+  "LuigisMansion": "parked",
+  "LGS": "parked"
  }
 }

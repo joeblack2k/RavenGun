@@ -49,6 +49,10 @@ class PropertiesDialog final : public StackedSettingsWindow {
     Q_OBJECT
 public:
     PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game, QWidget* parent = nullptr);
+    // Voor tests en schermafdrukken: aantal optierijen in Options en opties die elders staan (Display, door de app geregeld).
+    int OptionRowCount() const { return options_shown_; }
+    int OptionsElsewhere() const { return options_elsewhere_; }
+    QComboBox* RouteCombo() const { return route_combo_; }
 
 private:
     QWidget* MakeGeneralPane();
@@ -67,6 +71,8 @@ private:
     QLineEdit* name_edit_ = nullptr;
     QComboBox* template_combo_ = nullptr;
     QPlainTextEdit* note_edit_ = nullptr;
+    QComboBox* route_combo_ = nullptr;
+    int options_shown_ = 0, options_elsewhere_ = 0;
     // Memory card
     QTreeWidget* mc_tree_ = nullptr;
     QPushButton* mc_delete_ = nullptr;

@@ -9,7 +9,8 @@
 //     "default", "description_en", "note_en", "target": {...}}], "memory_card": {"items": [{"id", "path", "base", "kind",
 //     "description_en", "safe_to_erase": yes|no|unknown, "erase_effect_en"}], "notes_en"}}}}
 // Doelen: tp_profile_field (category, field), tp_profile_attr (element), launch_env (name, companion "K=V"),
-// game_config_file (path, base game_dir, format ini|..., section, key, edit_outside_game). Ook toegestaan (ruimer, voor
+// game_config_file (path, base game_dir, format ini|ini_onoff|ini_yesno|tab_ini|space_ini|colon, section, key,
+// edit_outside_game; andere formaten zoals rtdt_adjval, csv, xml en shell_arg zijn alleen-lezen). Ook toegestaan (ruimer, voor
 // handwerk en tests): games als lijst, name/label/description, memory_card als lijst, en doelen als korte tekst
 // ("tp:Categorie/Veld", "env:VAR", "ini:BESTAND#Sectie/Sleutel", "cfg:BESTAND#Sleutel"). Onbekende velden worden genegeerd.
 //
@@ -31,6 +32,8 @@ struct OptionTarget {
     QString file;      // Ini/KeyValue: bestand (relatief aan de gamemap, of ~/... of absoluut; {placeholders})
     QString section;   // Ini
     QString companion; // Env: extra "K=V" dat meegaat als de waarde aan staat (bool)
+    QChar sep = QLatin1Char('=');  // KeyValue: scheidingsteken (tab_ini: tab, space_ini: spatie, colon: dubbele punt)
+    QString trueWord, falseWord;   // ini_onoff / ini_yesno: woorden voor een bool (ON/OFF, YES/NO)
     QString readOnlyReason;  // niet leeg = alleen tonen (bv. "change it in the game's own test menu")
     QString raw;       // oorspronkelijke tekst, voor meldingen
     QString describe() const;  // Engels, voor de tooltip
