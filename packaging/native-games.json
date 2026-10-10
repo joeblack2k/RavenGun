@@ -9,7 +9,7 @@
    "title": "Halo: Fireteam Raven",
    "enabled": false,
    "status": "geparkeerd",
-   "note": "Start native (beeld, eigen FileTest, SDL-joystick als gun gevonden), maar START/TEST/munt komen alleen van het RIO2-bord (beveiligde chip), en halo.so levert alleen de HASP-dongle, geen invoer. Zie docs/decisions.md (2026-10-10, native route).",
+   "note": "Start native op de NAS (beeld, FileTest van de game zelf, SDL-joystick als gun gevonden). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game (START slaat de FileTest over: bewezen). Daarna: Webcam Init (de guns worden met webcams geïdentificeerd), geen geluid (FMOD 1.10 is propriëtair en ontbreekt; de stub is onvoldoende) en een crash op een aanroep naar adres 0 (waarschijnlijk FMOD Studio). halo.so levert alleen de HASP-dongle, geen invoer.",
    "arch": "x86_64",
    "mounts": [
     {
@@ -40,7 +40,7 @@
      "note": "FMOD 1.10 ontbreekt (propriëtair); de stub geeft geen geluid"
     }
    ],
-   "preload": "/pm/g7/halo/halo.so",
+   "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
    "exe": "/pm/g7/halo/game",
    "cwd": "/pm/g7/halo",
    "home": "/pm/g7/halo",
@@ -48,13 +48,16 @@
     "-f{res}",
     "-n"
    ],
-   "route": "evdev"
+   "route": "evdev",
+   "libs": [
+    "@build/librg_rt_input.so"
+   ]
   },
   "JurassicPark": {
    "title": "Jurassic Park Arcade",
    "enabled": false,
    "status": "geparkeerd",
-   "note": "32-bit herschreven ELF; heeft libSDL-1.2.so.0 (i386) nodig, die er niet is (alleen x86_64 in het Lutris-flatpak), en praat met een echte HASP-dongle via libhasp_linux (geen TeknoParrot-preload voor deze titel). Zie docs/decisions.md.",
+   "note": "Met libSDL-1.2 (sdl12-compat, i386) en de PhysX/theora-bibliotheken uit ElfLdr2/libs laadt de herschreven ELF, maar springt dan naar een vast adres uit de dump (SIGSEGV op 0xb7227dc0 voor main); de beveiligingslaag die BudgieLoader op dat adres zet, is er native niet. Er is geen halo.so-equivalent in de gamemap (alleen libhasp_linux_*.so van de echte dongle).",
    "arch": "i386",
    "mounts": [
     {
@@ -91,8 +94,8 @@
   "Terminator": {
    "title": "Terminator Salvation",
    "enabled": false,
-   "status": "niet-getest",
-   "note": "Werkt al via TeknoParrot+gamescope; native alleen experiment.",
+   "status": "geparkeerd",
+   "note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255 (DongleInitialize() FAILED: de game wil de HASP-dongle); niet omzeild.",
    "arch": "i386",
    "mounts": [
     {
@@ -125,7 +128,7 @@
   "GhostBusters": {
    "title": "Ghostbusters (Raw Thrills)",
    "enabled": false,
-   "status": "niet-getest",
+   "status": "geparkeerd",
    "arch": "i386",
    "mounts": [
     {
@@ -151,12 +154,13 @@
     "-mg"
    ],
    "res": "1280x720",
-   "route": "evdev"
+   "route": "evdev",
+   "note": "Native niet verder dan de lader: het binair wil /usr/lib/libcsv.so (absoluut pad) en libesd.so.0 (i386, niet beschikbaar), en controleert een dongle (Game dongle initialization failed)."
   },
   "GoGoStrike": {
    "title": "Go Go Strike (bowling_usa)",
    "enabled": false,
-   "status": "niet-getest",
+   "status": "geparkeerd",
    "arch": "i386",
    "mounts": [
     {
@@ -176,12 +180,13 @@
    "home": "/pm",
    "args": [],
    "res": "1360x768",
-   "route": "evdev"
+   "route": "evdev",
+   "note": "bowling_usa (Allegro 4, 2007) laadt, leest zijn beelddata en crasht dan op een NULL-aanwijzer (geen bruikbare grafische modus; een .allegrorc met XWIN hielp niet); wil ook de PAOKAI-apparaten /dev/w040101_*. Geparkeerd."
   },
   "GalagaAssault": {
    "title": "Galaga Assault",
    "enabled": false,
-   "status": "niet-getest",
+   "status": "geparkeerd",
    "arch": "i386",
    "mounts": [
     {
@@ -200,12 +205,13 @@
     "-n"
    ],
    "res": "1080x1920",
-   "route": "evdev"
+   "route": "evdev",
+   "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb758c140), zoals Jurassic Park. De bijbehorende vooraf te laden bibliotheek van TeknoParrot ontbreekt in de gamemap."
   },
   "PacmanChomp": {
    "title": "Pac-Man Chomp-Mania",
    "enabled": false,
-   "status": "niet-getest",
+   "status": "geparkeerd",
    "arch": "i386",
    "mounts": [
     {
@@ -224,7 +230,8 @@
     "-n"
    ],
    "res": "1080x1920",
-   "route": "evdev"
+   "route": "evdev",
+   "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb728fa00), zoals Jurassic Park/Galaga. Vraagt ook libXrandr/libXrender (i386; staan in lib32 na --stage-libs)."
   }
  }
 }

@@ -157,6 +157,11 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -w -fno-stack-protector -nostdlib -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/wine-comm-shim/rg_comm_shim.c\" || echo 'waarschuwing: 32-bit LD_PRELOAD-hulp niet gebouwd (gcc -m32)'"
       DEPENDS tools/wine-comm-shim/rg_comm_shim.c VERBATIM)
     add_custom_target(rg_comm_shim32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so")
+    # Invoerhulp voor de native Raw Thrills-route (Halo): kastschakelaars uit het gedeelde geheugen van de IO-brug (tools/rt-input-shim/).
+    add_library(rg_rt_input SHARED tools/rt-input-shim/rg_rt_input.c)
+    target_compile_options(rg_rt_input PRIVATE -fno-stack-protector -w)
+    target_link_libraries(rg_rt_input PRIVATE pthread)
+    set_target_properties(rg_rt_input PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_rt_input" C_VISIBILITY_PRESET default)
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
   endif()

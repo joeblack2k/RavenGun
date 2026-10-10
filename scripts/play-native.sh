@@ -15,7 +15,9 @@
 #   --seconds N    stop de game na N seconden (tests)
 #   --snap F       alleen met --headless en --seconds: sla vlak voor het einde een schermafbeelding (png) op
 #   --strace F     draai de game onder strace (alleen openat/open/ioctl/connect/execve naar bestand F)
+#   --gdb          draai de game onder gdb (batch; geeft bij een crash een backtrace in het logboek)
 #   --mute         geen geluidsverbinding in de sandbox
+#   --bind-ro S D  toon bestand of map S read-only als D in de sandbox (herhaalbaar)
 #   --env K=V      extra omgevingsvariabele voor de game (herhaalbaar)
 #   --debug        LD_DEBUG=libs en uitgebreid logboek
 #   --dry-run      toon alleen het bwrap-commando
@@ -36,7 +38,7 @@ LOGDIR="$STATE/logs"
 
 die() { echo "play-native: $*" >&2; exit 1; }
 
-GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
+BINDS=(); GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
 ACTION=run
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,7 +49,9 @@ while [[ $# -gt 0 ]]; do
     --seconds) SECONDS_MAX="${2:?}"; shift ;;
     --snap) SNAP="${2:?}"; shift ;;
     --strace) STRACE="${2:?}"; shift ;;
+    --gdb) GDB=1 ;;
     --mute) MUTE=1 ;;
+    --bind-ro) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-ro vereist bron en doel"; BINDS+=("$2" "$3"); shift 2 ;;
     --env) [[ "${2:-}" == *=* ]] || die "--env vereist K=V"; XENV+=("$2"); shift ;;
     --debug) DEBUG=1 ;;
     --dry-run) DRY=1 ;;
@@ -63,12 +67,12 @@ done
 
 # Het gegevensbestand als regels voor de shell: soort<TAB>veld1<TAB>veld2<TAB>veld3. Paden met @nas, @tpui, @data en @lib32 worden hier ingevuld.
 emit() {
-  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" <<'PY'
+  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" "$ROOT/build" <<'PY'
 import json, sys
-path, game, nas, tpui, data, lib32 = sys.argv[1:7]
+path, game, nas, tpui, data, lib32, build = sys.argv[1:8]
 d = json.load(open(path))
 def ex(s):
-    for k, v in (("@nas", nas), ("@tpui", tpui), ("@data", data), ("@lib32", lib32)):
+    for k, v in (("@nas", nas), ("@tpui", tpui), ("@data", data), ("@lib32", lib32), ("@build", build)):
         s = s.replace(k, v)
     return s
 if game == "--list":
@@ -198,6 +202,8 @@ if (( ${#LIBS[@]} )); then
   LDPATH+="${LDPATH:+:}/rg/lib"
 fi
 
+for ((i = 0; i < ${#BINDS[@]}; i += 2)); do BW+=(--ro-bind "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
+
 # --- scherm en geluid ---------------------------------------------------------
 if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   command -v gamescope >/dev/null || die "gamescope niet gevonden"
@@ -228,8 +234,10 @@ if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   SELF=("$0" --game "$GAME" --res "$RES")
   (( MUTE )) && SELF+=(--mute)
   (( DEBUG )) && SELF+=(--debug)
+  (( GDB )) && SELF+=(--gdb)
   [[ -n "$STRACE" ]] && SELF+=(--strace "$STRACE")
   for e in "${XENV[@]}"; do SELF+=(--env "$e"); done
+  for ((i = 0; i < ${#BINDS[@]}; i += 2)); do SELF+=(--bind-ro "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
   (( SECONDS_MAX )) && SELF+=(--seconds "$SECONDS_MAX")
   (( HEADLESS )) && SELF+=(--headless)
   (( GAMESCOPE )) && SELF+=(--gamescope)
@@ -268,7 +276,7 @@ BW+=(--chdir "${V[cwd]:-/}" --clearenv
   --setenv HOME "${V[home]:-/tmp}" --setenv PATH /usr/bin
   --setenv DISPLAY "$DISPLAY" --setenv XDG_RUNTIME_DIR "$RUNDIR" --setenv LANG C.UTF-8)
 [[ -n "$LDPATH" ]] && BW+=(--setenv LD_LIBRARY_PATH "$LDPATH")
-[[ -n "${V[preload]}" && -z "$STRACE" ]] && BW+=(--setenv LD_PRELOAD "${V[preload]}")
+[[ -n "${V[preload]}" && -z "$STRACE" && $GDB -eq 0 ]] && BW+=(--setenv LD_PRELOAD "${V[preload]}")
 (( DEBUG )) && BW+=(--setenv LD_DEBUG libs)
 for e in "${GENV[@]}" "${XENV[@]}"; do BW+=(--setenv "${e%%=*}" "${e#*=}"); done
 
@@ -278,6 +286,12 @@ if [[ -n "$STRACE" ]]; then
   PRE=(); [[ -n "${V[preload]}" ]] && PRE=(-E "LD_PRELOAD=${V[preload]}")
   BW+=(--bind "$(dirname "$STRACE")" /rg-strace)
   GAMECMD=(/usr/bin/strace -f -tt -s 200 -o "/rg-strace/$(basename "$STRACE")" -e trace=openat,open,ioctl,connect,execve "${PRE[@]}" -- "${GAMECMD[@]}")
+fi
+
+if (( GDB )); then
+  command -v gdb >/dev/null || die "gdb niet gevonden"
+  GENVS=(); [[ -n "${V[preload]}" ]] && GENVS=(-ex "set environment LD_PRELOAD ${V[preload]}")
+  GAMECMD=(/usr/bin/gdb -batch -ex "set debuginfod enabled off" -ex "set pagination off" -ex "set startup-with-shell off" "${GENVS[@]}" ${RG_GDB_CMDS:+-x "$RG_GDB_CMDS"} -ex run -ex bt -ex "info registers" -ex "x/8i \$pc" --args "${GAMECMD[@]}")
 fi
 
 if (( DRY )); then printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
