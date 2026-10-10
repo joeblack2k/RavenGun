@@ -2,7 +2,7 @@
 # OLED-bescherming: staat er langer dan IDLE_S geen game op de tv, dan komt er een zwart scherm met een klein,
 # langzaam bewegend klokje (zwarte pixels staan op een OLED uit). Zodra er een game start, verdwijnt het binnen
 # enkele seconden. De tv kan niet uit vanwege de HDMI-handshake; daarom geen DPMS/blanking.
-# Gebruik: scripts/oled-saver.sh --start | --stop | --status      (draait als user-unit ravengun-oled-saver)
+# Gebruik: scripts/oled-saver.sh --start | --stop | --status | --stop-view      (draait als user-unit ravengun-oled-saver)
 set -euo pipefail
 IDLE_S="${RG_SAVER_IDLE_S:-600}"
 UNIT=ravengun-oled-saver; VIEW=ravengun-oled-view
@@ -43,9 +43,11 @@ case "${1:-}" in
     systemd-run --user --unit="$UNIT" --collect --quiet -E XDG_RUNTIME_DIR -E RG_SAVER_IDLE_S="$IDLE_S" "$0" --loop
     echo "OLED-bescherming aan (zwart scherm na $IDLE_S s zonder game)" ;;
   --stop) systemctl --user stop "$UNIT.service" 2>/dev/null || true; view_stop; echo "OLED-bescherming uit" ;;
+  --stop-view) view_stop ;;   # ExecStopPost van de unit: ook bij 'systemctl stop' het zwarte scherm dichtdoen
   --status) systemctl --user is-active "$UNIT.service" || true; view_on && echo "zwart scherm staat aan" || echo "zwart scherm staat uit" ;;
   --loop)
     trap 'view_stop' EXIT
+    trap 'exit 0' TERM INT   # anders slaat bash bij SIGTERM de EXIT-trap over
     idle=0
     while :; do
       if game_running; then idle=0; view_on && view_stop
