@@ -74,6 +74,7 @@ namespace RavenGun.Unity.RabbidsHollywood
                 P(h, typeof(KaboomAdrioFxPlusFourFeeders), "_Initialize", "Skip_Prefix", null);
                 P(h, typeof(ArcadeManager), "CheckIOBoard", "Skip_Prefix", null);
             }
+            if (cfg.Verbose.Value) Util.TraceQuit(h, typeof(KaboomManager), typeof(ArcadeManager), typeof(OperatorPopup));
             if (cfg.SuppressGunErrors.Value)
             {
                 // Zonder echt geweer meldt de game een fatale geweerfout (en sluit zichzelf daarna af); deze invoer komt uit de daemon.

@@ -1,6 +1,8 @@
 // Kleine hulpfuncties voor de game-adapters.
 using System;
+using System.Diagnostics;
 using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 
 namespace RavenGun.Unity
@@ -23,6 +25,34 @@ namespace RavenGun.Unity
                 g.blocksRaycasts = false;
             }
             g.alpha = visible ? 1f : 0f;
+        }
+
+        // Diagnose (alleen bij Log/Uitgebreid): wie sluit de game af? Logt de aanroep met stack trace; wijzigt niets.
+        public static void TraceQuit(Harmony h, params Type[] types)
+        {
+            string[] names = { "Quit", "QuitToWindows", "KillGame", "QuitGame", "OnApplicationQuit" };
+            foreach (Type t in types)
+                foreach (string n in names)
+                {
+                    try
+                    {
+                        MethodBase m = AccessTools.Method(t, n);
+                        if (m == null) continue;
+                        h.Patch(m, new HarmonyMethod(typeof(Util), "QuitSeen"), null);
+                    }
+                    catch (Exception e) { Core.Log.LogWarning("Quit-diagnose " + t.Name + "." + n + ": " + e.Message); }
+                }
+            try
+            {
+                MethodBase m = AccessTools.Method(typeof(Application), "Quit");
+                if (m != null) h.Patch(m, new HarmonyMethod(typeof(Util), "QuitSeen"), null);
+            }
+            catch (Exception e) { Core.Log.LogWarning("Quit-diagnose Application.Quit: " + e.Message); }
+        }
+
+        static void QuitSeen(MethodBase __originalMethod)
+        {
+            Core.Log.LogWarning("AFSLUITEN gezien: " + __originalMethod.DeclaringType.Name + "." + __originalMethod.Name + "\n" + new StackTrace(1, false));
         }
 
         public static T GetField<T>(object o, string name, T def)
