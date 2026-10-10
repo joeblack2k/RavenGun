@@ -78,6 +78,21 @@ echo "$OUT" | grep -q '"created":false' || fail "apparaat bestaat al zonder arm"
 "$C" status --json | grep -q '"output":{"armed":false' || fail "status mist de uitvoer"
 "$C" test-pattern center 2>/dev/null
 [ $? -eq 75 ] || fail "test-pattern zonder arm moet exit 75 geven"
+
+# Muis als lightgun: opsomming en toewijzing. Een onbekend id wordt geweigerd (nooit een vrij pad openen); er wordt geen
+# echte muis geopend of toegewezen.
+OUT=$("$C" mice --json) || fail "mice faalde"
+echo "$OUT" | grep -q '"mice":\[' || fail "mice mist de lijst"
+echo "$OUT" | grep -q '"assignments":\[{"player":1,"mouse":null,"connected":false' || fail "mice mist de toewijzingen"
+"$C" mice >/dev/null || fail "mice (mens) faalde"
+"$C" status --json | grep -q '"mouse_guns":\[{"player":1,"mouse":null' || fail "status mist mouse_guns"
+rc=0; OUT=$("$C" mouse-gun --player 2 --mouse bestaat-niet --json 2>&1) || rc=$?
+[ "$rc" -ne 0 ] || fail "mouse-gun met een onbekend id moet falen"
+echo "$OUT" | grep -q "invalid_argument" || fail "mouse-gun met een onbekend id: verwacht invalid_argument ($OUT)"
+"$C" mouse-gun --player 2 --off --json | grep -q '"mouse":null' || fail "mouse-gun --off faalde"
+"$C" mouse-gun --player 2 2>/dev/null
+[ $? -eq 64 ] || fail "mouse-gun zonder --mouse of --off moet een gebruiksfout geven"
+"$C" output --json | grep -q '"armed":false' || fail "uitvoer moet disarmed blijven"
 "$C" output-button trigger tap 2>/dev/null
 [ $? -eq 75 ] || fail "output-button zonder arm moet exit 75 geven"
 "$C" test-pattern bogus 2>/dev/null

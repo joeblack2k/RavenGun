@@ -14,6 +14,7 @@ inline constexpr int kProtocolVersion = 1;
 inline constexpr size_t kMaxLineBytes = 64 * 1024;
 inline constexpr double kWatchRateMin = 1.0;
 inline constexpr double kWatchRateMax = 250.0;
+inline constexpr int kMouseCountsMin = 100, kMouseCountsMax = 20000;  // set_mouse_gun: counts_per_screen
 
 enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Arm, Disarm, Output, TestPattern, OutputButton, SetOutput,
@@ -22,7 +23,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
                  SetGunButtons, Games, GameStart, GameStop,
                  Controllers, SetController, Blink, Unpair, Pair,
-                 Aagames, OutputKey, Iobridge };
+                 Aagames, OutputKey, Iobridge, Mice, SetMouseGun };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -91,9 +92,15 @@ struct Request {
     bool keep_settings = true;
     // blink: duur in ms (200..10000, standaard 3000).
     std::optional<double> blink_ms;
+    // set_mouse_gun: `player` (1..4, verplicht; geen `controller`), `mouse` = een id uit `mice` of "" (loskoppelen) en
+    // optioneel counts_per_screen (100..20000).
+    std::optional<std::string> mouse;
+    std::optional<double> counts_per_screen;
 };
 // Commando's met een spelerkeuze (player/controller).
 bool takes_selector(Cmd c);
+// Commando's met een verplicht `player` (1..4) als gewoon veld, zonder `controller`: set_mouse_gun.
+bool needs_player(Cmd c);
 
 struct Error {
     std::string code;     // parse_error, bad_request, unsupported_version, unknown_command,

@@ -9,6 +9,7 @@
 #include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/sysinfo/mice.hpp"
 
 namespace ravengun::ipc {
 
@@ -54,6 +55,8 @@ const char* to_string(Cmd c) {
         case Cmd::Aagames: return "aagames";
         case Cmd::Iobridge: return "iobridge";
         case Cmd::OutputKey: return "output_key";
+        case Cmd::Mice: return "mice";
+        case Cmd::SetMouseGun: return "set_mouse_gun";
     }
     return "?";
 }
@@ -67,6 +70,8 @@ bool takes_selector(Cmd c) {
         default: return false;
     }
 }
+
+bool needs_player(Cmd c) { return c == Cmd::SetMouseGun; }
 
 namespace {
 
@@ -465,6 +470,19 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (r.action.empty()) r.action = "tap";
         if (r.action != "down" && r.action != "up" && r.action != "tap")
             return err("invalid_argument", "'action' moet down, up of tap zijn", r.id_json);
+    } else if (cmd == "mice") {
+        r.cmd = Cmd::Mice;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "set_mouse_gun") {
+        r.cmd = Cmd::SetMouseGun;
+        if (!allowed(o, {"mouse", "counts_per_screen"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* m = o.find("mouse");
+        if (!m || !m->is_string()) return err("invalid_argument", "'mouse' (een id uit 'mice', of \"\" om los te koppelen) ontbreekt", r.id_json);
+        if (m->str.size() > sysinfo::kMouseIdMax) return err("invalid_argument", "'mouse' is te lang (hoogstens 128 tekens)", r.id_json);
+        if (!m->str.empty() && !sysinfo::mouse_id_valid(m->str))
+            return err("invalid_argument", "'mouse' bevat ongeldige tekens (een id uit 'mice' bestaat uit letters, cijfers en _ . : + @ , = -)", r.id_json);
+        r.mouse = m->str;
+        if (!opt_int(o, "counts_per_screen", kMouseCountsMin, kMouseCountsMax, r.counts_per_screen, e, r.id_json)) return e;
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -475,8 +493,11 @@ std::variant<Request, Error> parse_request(std::string_view line) {
     const json::Value* pv = o.find("player");
     const json::Value* cv = o.find("controller");
     const bool needs_controller = r.cmd == Cmd::SetController || r.cmd == Cmd::Unpair;
-    if ((pv || cv) && !takes_selector(r.cmd) && !needs_controller)
+    const bool plain_player = needs_player(r.cmd);   // set_mouse_gun: `player` verplicht, `controller` bestaat niet
+    if ((pv || cv) && !takes_selector(r.cmd) && !needs_controller && !plain_player)
         return err("bad_request", "onbekend veld '" + std::string(pv ? "player" : "controller") + "'", r.id_json);
+    if (cv && plain_player) return err("bad_request", "onbekend veld 'controller' (gebruik 'player')", r.id_json);
+    if (plain_player && !pv) return err("invalid_argument", "'player' (1 tot 4) ontbreekt", r.id_json);
     if (pv && needs_controller) return err("bad_request", "onbekend veld 'player' (gebruik 'controller')", r.id_json);
     if (pv && cv) return err("invalid_argument", "geef 'player' of 'controller', niet allebei", r.id_json);
     if (pv) {
@@ -663,6 +684,11 @@ std::string make_request(const Request& r) {
         case Cmd::OutputKey:
             w.key("key").value(r.key_name).key("action").value(r.action.empty() ? "tap" : r.action);
             break;
+        case Cmd::SetMouseGun:
+            w.key("mouse").value(r.mouse.value_or(""));
+            if (r.counts_per_screen) w.key("counts_per_screen").value(*r.counts_per_screen);
+            break;
+        case Cmd::Mice:
         case Cmd::Info:
         case Cmd::Settings:
         case Cmd::Diagnostics:

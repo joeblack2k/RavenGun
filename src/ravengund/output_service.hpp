@@ -76,6 +76,11 @@ public:
     // een nieuwe speler meteen; een speler die wegvalt houdt zijn apparaat tot het afsluiten (een lopende game blijft het zien).
     void set_active_players(unsigned mask);
     unsigned active_players() const;
+    // Welke spelers 2..4 een muis als bron hebben (bit p-1 voor speler p; MouseService): hetzelfde als set_active_players, in
+    // een eigen masker zodat het bestaande gedrag voor Moves onaangeroerd blijft. De gun van een speler bestaat als hij een
+    // Move of een muis heeft; een gewapende uitvoer maakt hem meteen.
+    void set_mouse_players(unsigned mask);
+    unsigned mouse_players() const;
     // Uitvoerklok (fase 6): live instelbaar; hz = 0 zet hem uit (positie alleen per rapport).
     ravengun::output::OutputClockConfig clock_config() const;
     void set_clock(const ravengun::output::OutputClockConfig& c);
@@ -106,7 +111,7 @@ private:
     };
     Player& p1() { return players_[0]; }
     const Player& p1() const { return players_[0]; }
-    bool should_exist(int player) const { return player == 1 || (active_ & (1u << (player - 1))) != 0; }
+    bool should_exist(int player) const { return player == 1 || ((active_ | mouse_) & (1u << (player - 1))) != 0; }
     void arm_player_locked(Player& p);
     void pattern_main(std::vector<ravengun::output::PatternStep> steps, ravengun::output::PatternParams p, uint64_t run_id);
     void stop_pattern_locked(std::unique_lock<std::mutex>& lk);
@@ -119,6 +124,7 @@ private:
     ravengun::output::KeyMux mux_;
     std::array<Player, kPlayers> players_;
     unsigned active_ = 1;
+    unsigned mouse_ = 0;   // spelers met een muis als bron (set_mouse_players)
     bool armed_ = false;
     // Uitvoerklok: eigen thread, schrijft onder m_ de geëxtrapoleerde positie tussen de rapporten (zie aim_clock.hpp).
     ravengun::output::OutputClockConfig clock_cfg_;

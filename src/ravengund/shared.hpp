@@ -26,6 +26,7 @@ class OutputService;  // gedefinieerd in output_service.hpp
 class ControllerService;  // gedefinieerd in controllers.hpp
 class AagamesService;     // gedefinieerd in aagames_service.hpp
 class IoBridgeService;    // gedefinieerd in iobridge_service.hpp
+class MouseService;       // gedefinieerd in mouse_service.hpp
 
 inline int64_t mono_ns() {
     timespec t{};
@@ -178,6 +179,8 @@ public:
     AagamesService* aagames = nullptr;
     // IO-brug (dialecten tp-shm en unity-tcp, routes per game); nullptr = niet beschikbaar (tests).
     IoBridgeService* iobridge = nullptr;
+    // Gewone muis als bron voor de gun van een speler (runtime-toewijzingen); nullptr = niet beschikbaar.
+    MouseService* mouse = nullptr;
     // Bit p-1 gezet: de rumble van speler p komt uit de game (Recoil-vlag van de plugin) in plaats van uit de trekker.
     std::atomic<unsigned> game_rumble_mask{0};
     // Aantal Recoil-vlaggen per speler (door de klantthread opgehoogd, door de HID-thread gelezen).
