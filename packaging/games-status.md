@@ -380,3 +380,37 @@ Zonder dat het nodig bleek: X:/Y:-schijfletters, COM1/`sendFlash` (de game ging 
 Scripts: nieuw `scripts/fetch-gst-wmv.sh`.
 
 Aanvulling (zelfde nacht): TEST (key 0) werkt in de attract en toont het GAME TEST MENU (Bookkeeping, Input/Coin/Controller/Monitor/Speaker/Lamp test, instellingen, Exit). De "select switch" is `output-button aux1` (key 9 doet hier niets); Exit uit het menu herstart de game intern ("Loading...", daarna attract). Na game over start de game zichzelf intern opnieuw (CRIWARE-logo, daarna attract); het proces blijft hetzelfde. Eén keer (met zwaar +wmvcore/+quartz-logging, TEST midden in het spel ingedrukt) sloot VACUUM.exe zich na game over zelf netjes af (ExitProcess, geen crash, loader exitcode 1); in drie latere runs (>4 min, ook met TEST midden in het spel) niet meer te reproduceren. Bij een nieuwe start loopt het laden ongeveer 45 s voor de eerste film; een start-toets die te vroeg komt wordt genegeerd.
+
+## Negende ronde (2026-10-10/11, nacht): Jurassic Park
+
+Status: nog geen beeld, maar de oorzaak van de crash is nu waarschijnlijk gevonden: de GL-aanroepen van de ELF komen via de loader-thunks terug met `stdcall`-opruiming (de aangeroepen functie haalt de argumenten van de stack), terwijl de game `cdecl` verwacht. Daardoor springt de eerste GL-initfunctie van de game bij zijn `ret` naar een rommeladres (0x58000). Dit zit in de lader (TPGfx/ElfLdr2), niet in onze configuratie of in Wine.
+
+Aanpak: 17 starts, direct (`scripts/play-halo.sh --profile JurassicPark --direct --no-wait-move --log-full --env "RG_WINEDEBUG_FULL=..."`), met `+loaddll,+seh,+x11drv`, `+opengl,+wgl`, `+virtual` (`+relay` is te traag: de game komt dan niet eens tot de SDL-init).
+
+Wat het log laat zien (Proton-11.0-2-Wine, profiel ongewijzigd):
+- Geladen: msys-2.0, opengl32, glu32, `libs\TPGfx.dll`, `libs\regal32.dll`, `libs\SDL.dll` (Windows-SDL 1.2), TeknoParrot.dll, SDL_ttf/net/image/mixer, libogg/vorbis. De game maakt een SDL-venster van 1360x768 (met rand: 1366x800) en een echte WGL-context (pixelformat 9, `wglMakeCurrent` slaagt). Het "zwarte/witte beeld" is dus een game die in zijn eerste GL-initfunctie crasht, niet een ontbrekende GL-context.
+- GL-aanroepen van de game tot de crash (17 stuks): `glGetString` x4, `glHint`, `glLightModeli` x2, `glFrontFace`, `glDisable` x4, `glClearDepth`, `glClearStencil`, `glLightModelfv`, `glGetIntegerv(GL_MAX_TEXTURE_SIZE)`. Daarna `EXCEPTION_ACCESS_VIOLATION` op eip=0x00058000 (esi=0x550, edi=0x300 zijn de breedte en hoogte uit de aanroeper). `ecx` wijst nog in Wine's `glGetIntegerv`, `eax`=0 en `edx`=0: dat is precies de epiloog van de gl_init-functie (`xor eax,eax`, stack-canary-xor, `add esp,0xb8; pop ebx; ret`): de crash is de `ret` zelf.
+- Stack-verschuiving gemeten: `glLightModelfv(params=esp+0x1c)` kreeg 0x1A9C0F4 en het daaropvolgende `glGetIntegerv(data=esp+0x18)` 0x1A9C0F8, terwijl er niets tussen zit: esp is na `glLightModelfv` 8 bytes hoger dan bij een `cdecl`-terugkeer (de 2 argumenten van een `stdcall`-functie). De game gebruikt vooruit gereserveerde uitgaande-argumentenruimte (`mov [esp],x; call`), dus elke zo'n aanroep verschuift esp en de epiloog leest een verkeerd retouradres.
+- `TPGfx.dll` exporteert 2776 GL-functies (`glGetIntegerv` enz.) als dunne wrappers met een modusvariabele (`setGfxMode`/`getGfxMode`, beginwaarde 2): modus 0 = `push args; call [ptr]` (netjes `cdecl`), modus 1 = `pop ebp; jmp [ptr]` (rechtstreekse sprong naar de `stdcall`-functie, de aanroeper krijgt de pop-8 cadeau), andere waarde = "Unknown GFX Mode". Jurassic Park meldt "Graphics API: XWindows" (Terminator: Unknown; Go Go Strike, werkt: ook XWindows). Onze hypothese: bij een ELF waarvan de symbolen goed worden geparsed zet de lader `cdecl`-adapters op de GOT-sloten; bij Jurassic Park breekt het parsen af ("Warning SHT_DYNSYM not found in section headers", "aborting symbol parsing due to invalid name ptr"; de game heeft geen sectieheaders, wel `PT_DYNAMIC` met `DT_SYMTAB`/`DT_STRTAB`/`DT_HASH`) en blijven de GL-sloten ruw. De GOT-sloten in de dump bevatten vaste adressen (bv. 0xb7500120 voor `glGetIntegerv`: libGL uit het geheugen van het dump-proces); de PLT-stubs hebben `push 0xdeadbeef` als relocatie-index.
+- De game importeert GL en SDL niet via de dynamische symbolen (alleen 580 UND-symbolen: libc, pthread, `dlsym`, XOpenDisplay/XCloseDisplay/XFlush/XGetWindowAttributes, enz.).
+
+Geprobeerd en zonder effect (zelfde crash op eip 0x58000, steeds ~20-35 s na de start):
+1. `TP_REMOTETHREAD=off` (ElfLdr2 reageert er niet op).
+2. Windowed=1; Windowed=1 + gamescope (zoals Terminator); CustomResolution 1024x768 (registers esi/edi blijven 0x550/0x300: de resolutie komt uit de game zelf, `utils/default.cfg` RESOLUTION 1360 768, niet uit het profiel); ExtraParameters `-n -f1360x768` (komt wel in de commandoregel, geen effect).
+3. `SDL_VIDEODRIVER=directx`; `REGAL_LOAD_GL=opengl32.dll`.
+4. `MESA_GL_VERSION_OVERRIDE=2.1`: de game gaat dan na `wglMakeCurrent` al met SIGSEGV (exitcode -11) neer, nog voor de eerste `glGetString`. Niet bruikbaar.
+5. Leverancier-override via tijdelijke `~/.drirc` (`force_gl_vendor` NVIDIA, voor wine64-preloader/BudgieLoader.exe; achteraf verwijderd): geen effect.
+6. Andere Wine: Kron4ek 11.19 (zelfde crash); Proton 9.0 (wine 9.0; prefix-kopie met `WINEDLLOVERRIDES=mscoree,mshtml=d`; de loader hangt op de laderlock: "loader_section wait timed out ... blocked by main thread"). Andere runners zijn dus geen oplossing.
+7. gdb als ouder van het Wine-proces voor een crashstack: de lader sluit af met SIGTRAP zodra hij getraced wordt (anti-debug van de lader); niet verder gegaan, we gebruiken de runtime zoals hij is.
+
+Niet gedaan, met reden: `game_original`, sectieheaders in de game inbouwen (zou een kopie van een spelbestand vragen: de games blijven op de NAS) en de lader/kern aanpassen.
+
+Profiel: teruggezet naar de oorspronkelijke staat (back-ups in `~/.local/state/ravengun/bak-jp/`); `UserProfiles/JurassicPark.env` bevat alleen commentaar. Tijdelijke prefix-kopieën (`ravengun-test-jp`) en `~/.drirc` zijn verwijderd. Geen script- of codewijzigingen; `io-routes.json` ongewijzigd (de directe start kiest zelf tp-shm).
+
+Vragen aan het TeknoParrot-team (Johan), ook in de bevindingen op de NAS:
+1. Verwacht ElfLdr2 voor het GOT-hooken van GL een ELF met sectieheaders? Kan het parsen ook via `PT_DYNAMIC` (`DT_SYMTAB`/`DT_STRTAB`/`DT_HASH`) als `SHT_DYNSYM` ontbreekt? Wat is hier de "invalid name ptr"?
+2. Wat zet `setGfxMode` voor "Graphics API: XWindows"? Is modus 1 (`jmp` naar `stdcall`) bedoeld voor ELF-aanroepers, en wie zet de `cdecl`-adapters?
+3. Is er een omgevingsvariabele of profielinstelling om modus 0 (`cdecl`-wrapper) af te dwingen?
+4. Hoe worden de vaste dump-adressen in de GOT (0xb75xxxxx) op functienamen afgebeeld (hints.dat, dat bij elke start herschreven wordt)? Hoort daar een invoer voor Jurassic Park v1.08 in?
+5. Is er een nieuwere ElfLdr2/BudgieLoader of een Jurassic Park-dump met sectieheaders (zoals Terminator) waarmee dit werkt?
+6. Bevestigt u dat de crash op 0x58000 een `ret` met verschoven stack is?
