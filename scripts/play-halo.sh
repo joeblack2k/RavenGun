@@ -3,7 +3,7 @@
 # daemon actief -> uitvoer wapenen (gun + toetsenbord bestaan) -> optioneel opnemen -> game starten.
 # TeknoParrot opent de invoerapparaten alleen bij de gamestart; daarom eerst wapenen.
 #
-# Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move]
+# Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move] [--direct|--tpui] [--log-full]
 #          scripts/play-halo.sh --stop        (game stoppen, opname stoppen, uitvoer ontwapenen)
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
@@ -21,6 +21,14 @@
 #           (net als de Unity-route); --teknoparrot dwingt dan de TeknoParrot-route af.
 # --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
 #            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
+# --direct: start de game zonder TeknoParrotUi (scripts/launch-direct.py; A10): het script start de lader van de runtime zelf,
+#           met pipehelper.exe en het gedeelde geheugen, in dezelfde unit ravengun-tpui. De invoer komt dan altijd van de daemon
+#           (route tp-shm; een profiel met route evdev schakelt over op tp-shm als er een indeling is). Staat in io-routes.json
+#           "launch": "direct" bij het profiel, dan is dit de standaard; --tpui dwingt dan TeknoParrotUi af. Kan de directe start
+#           niet (activering niet in de prefix, profiel niet ondersteund), dan valt het script terug op TeknoParrotUi (behalve
+#           met --direct: dan stopt het met een melding).
+# --log-full: (alleen direct) de kern schrijft ook naar zijn logbestand (TP_LOGTOFILE=1) en de regels over aanpassingen
+#           komen in ~/.local/state/ravengun/a11/ (A11).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CTL="$ROOT/build/ravengunctl"
@@ -130,7 +138,7 @@ stop_all() {
   echo "Game gestopt, uitvoer ontwapend."
 }
 
-RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0; ROUTE=""; FORCE_NATIVE=0
+RECORD=""; WAIT_MOVE=1; PROFILE=Halo; EXTRA_ENV=(); USE_TP=0; ROUTE=""; FORCE_NATIVE=0; LAUNCH_FORCED=""; LOG_FULL=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) stop_all; exit 0 ;;
@@ -142,7 +150,10 @@ while [[ $# -gt 0 ]]; do
     --teknoparrot) USE_TP=1; shift ;;
     --native) FORCE_NATIVE=1; shift ;;
     --route) ROUTE="${2:?--route vereist evdev, tp-shm, unity-tcp, hid-board of jvs}"; shift 2 ;;
-    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--native] [--route R] | --stop" >&2; exit 2 ;;
+    --direct) LAUNCH_FORCED=direct; shift ;;
+    --tpui) LAUNCH_FORCED=teknoparrot-ui; shift ;;
+    --log-full) LOG_FULL=1; shift ;;
+    *) echo "Gebruik: $0 [--profile NAAM] [--record TAG] [--env K=V]... [--gamescope] [--no-wait-move] [--teknoparrot] [--native] [--route R] [--direct|--tpui] [--log-full] | --stop" >&2; exit 2 ;;
   esac
 done
 
@@ -189,6 +200,35 @@ if [[ $USE_TP -eq 0 && $NATIVE -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:s
   exit $?
 fi
 [[ $NATIVE -eq 1 || -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
+
+# Startwijze (A10): direct (scripts/launch-direct.py, zonder TeknoParrotUi) of teknoparrot-ui. Volgorde: --direct/--tpui, anders
+# "launch" in io-routes.json (gebruikersbestand over de basis), anders teknoparrot-ui. --teknoparrot (route evdev) betekent de UI.
+LAUNCH=teknoparrot-ui
+if [[ $NATIVE -eq 0 ]]; then
+  if [[ -n "$LAUNCH_FORCED" ]]; then LAUNCH="$LAUNCH_FORCED"
+  elif [[ $USE_TP -eq 0 ]]; then LAUNCH=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" launch 2>/dev/null || echo teknoparrot-ui); fi
+  [[ $USE_TP -eq 1 && "$LAUNCH_FORCED" == direct ]] && fail "--teknoparrot (TeknoParrotUi met evdev) en --direct gaan niet samen."
+fi
+[[ "$LAUNCH" == direct || "$LAUNCH" == teknoparrot-ui ]] || LAUNCH=teknoparrot-ui
+# Direct kan niet terugvallen op het lezen van evdev door TeknoParrotUi: de daemon schrijft dan de invoer (tp-shm).
+direct_fallback() {   # $1 = reden; met --direct is dat een fout, anders via TeknoParrotUi
+  [[ "$LAUNCH_FORCED" == direct ]] && fail "Directe start van $PROFILE niet mogelijk: $1"
+  say "Directe start niet mogelijk ($1); start via TeknoParrotUi."
+  LAUNCH=teknoparrot-ui
+}
+if [[ "$LAUNCH" == direct ]]; then
+  if [[ "$ROUTE" == evdev ]]; then
+    if [[ -n "$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" layout 2>/dev/null)" ]]; then
+      ROUTE=tp-shm; echo "Directe start: invoer via tp-shm (zonder TeknoParrotUi leest niemand evdev)."
+    else
+      direct_fallback "route evdev zonder tp-shm-indeling"
+    fi
+  fi
+fi
+if [[ "$LAUNCH" == direct ]]; then
+  RC=0; CHK=$(python3 -I "$ROOT/scripts/launch-direct.py" "$PROFILE" --check 2>&1) || RC=$?
+  [[ $RC -eq 0 ]] || direct_fallback "${CHK##*$'\n'}"
+fi
 game_running && fail "Er draait al een game; stop die eerst (Esc of '$0 --stop')."
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
@@ -209,7 +249,8 @@ SWAP=""
 if [[ "$ROUTE" == tp-shm ]]; then
   "$CTL" iobridge start "$PROFILE" --route tp-shm >/dev/null || fail "IO-brug (tp-shm) starten mislukt voor $PROFILE"
   # De swap hoort bij de Wine-hulp van TeknoParrot; een native game heeft die niet.
-  [[ $NATIVE -eq 1 ]] || SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
+  # Direct: launch-direct.py start pipehelper.exe zelf met het bestand van de daemon als bron; geen swap nodig.
+  [[ $NATIVE -eq 1 || "$LAUNCH" == direct ]] || SWAP="'$ROOT/scripts/tp-shm-swap.sh' >>'$LOGDIR/tpshm-$(date +%Y%m%d-%H%M%S).log' 2>&1 &"
   say "Invoerroute: tp-shm (de daemon schrijft de invoer)."
 elif [[ "$ROUTE" == hid-board ]]; then
   # Het bord moet bestaan voordat de game start (DirectInput telt de joysticks bij het openen). Eerst de prefix: het bord
@@ -269,6 +310,15 @@ if [[ $NATIVE -eq 1 ]]; then
   systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$ROOT" -p TimeoutStopSec=10 \
     -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} \
     /bin/sh -c "$SWAP exec '$ROOT/scripts/play-native.sh' ${NARGS[*]@Q} >>'$LOG' 2>&1"
+elif [[ "$LAUNCH" == direct ]]; then
+  # Directe start (A10): launch-direct.py is het hoofdproces van dezelfde unit, op de plaats van TeknoParrotUi. Het leest zelf
+  # UserProfiles/<P>.env; de extra omgeving (--env) gaat ook mee als omgeving van de unit, net als bij TeknoParrotUi.
+  LOG="$LOGDIR/direct-$(date +%Y%m%d-%H%M%S).log"
+  DARGS=(--run); [[ "$ROUTE" == tp-shm ]] && DARGS+=(--shm-source /dev/shm/ravengun_JvsState); [[ $LOG_FULL -eq 1 ]] && DARGS+=(--log-full)
+  say "Start direct (zonder TeknoParrotUi)."
+  systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
+    -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
+    /bin/sh -c "exec python3 -I '$ROOT/scripts/launch-direct.py' '$PROFILE' ${DARGS[*]} >>'$LOG' 2>&1"
 else
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \

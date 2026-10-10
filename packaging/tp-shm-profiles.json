@@ -322,6 +322,59 @@
     }
    ]
   },
+  "GoGoStrike": {
+   "description": "Go Go Strike (Raw Thrills-bord RawThrillsGUN, maar met de knoppen van dit profiel): Test 0x1, Record (service) 0x2, Setup 0x4 (niet gekoppeld: dat opent het instelmenu), munt 0x8 (in het profiel 'Coin' = Coin2), start 0x10 en trackball-knop 0x20 (bij ons de trekker). De trackball komt uit de gun-assen: de kern maakt van de verandering van P1X/P1Y (offset 12 en 16, 1 byte, links/boven = 0) de trackballbeweging. Afgeleid uit UserProfiles/GoGoStrike.xml en de RawThrillsGUN-indeling; zonder TeknoParrotUi nodig voor de directe start (A10).",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 5
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
   "TimeCrisis5": {
    "description": "Time Crisis 5. Control: test (0x1), service (0x4), munt (0x8), trekker (0x10), gunknop (0x20; bij ons herladen), linker pedaal (0x40; bij ons granaat/middenknop), rechter pedaal (0x80; extra knop 1), omhoog/omlaag-selectieschakelaar (0x100, 0x200; niet gekoppeld) en Enter (0x400; bij ons start). Aim: offset 12 = X, 16 = Y, 1 byte, links/boven = 0. Offscreen-regel: de kern leest een as <= 1 of >= 254 als buiten beeld; binnen het scherm blijven de assen daarom op 2..253 (offscreen_margin), 0 of 255 alleen als de speler buiten het scherm mikt.",
    "size": 64,

@@ -19,8 +19,11 @@ expect() {  # $1 = verwacht, daarna profiel en veld
 }
 # Zonder gebruikersbestand: de basis.
 expect tp-shm TC5 route
-expect evdev Halo route
+expect tp-shm Halo route
 expect evdev OnbekendeGame route
+expect direct Halo launch
+expect teknoparrot-ui OnbekendeGame launch
+expect teknoparrot-ui LGS launch
 expect hid-board TransformersShadowsRising route
 expect SaeGunBoard TransformersShadowsRising board
 expect COM4 LGS com_port
@@ -28,16 +31,20 @@ expect base TC5 source
 VP=$(q TransformersShadowsRising hid_vidpid)
 echo "$VP" | grep -Eq '^[0-9A-F]{4}:[0-9A-F]{4}$' || { echo "FAIL: hid_vidpid '$VP'"; fails=$((fails + 1)); }
 # Gebruikerskeuze gaat voor; de rest (layout, board) blijft uit de basis.
-printf '{"schema":1,"games":{"TC5":{"route":"evdev"},"Halo":{"route":"tp-shm"}}}\n' > "$U"
+printf '{"schema":1,"games":{"TC5":{"route":"evdev"},"Halo":{"route":"evdev","launch":"teknoparrot-ui"}}}\n' > "$U"
 expect evdev TC5 route
 expect user TC5 source
-expect tp-shm Halo route
+expect direct TC5 launch
+expect evdev Halo route
+expect teknoparrot-ui Halo launch
 expect WartranTroopers Halo layout
 expect hid-board TransformersShadowsRising route
 # Ongeldig (tp-shm zonder layout, onbekende route, kapotte JSON): het hele bestand wordt genegeerd, zoals in de engine.
 printf '{"games":{"TC5":{"route":"evdev"},"Nieuw":{"route":"tp-shm"}}}\n' > "$U"
 expect tp-shm TC5 route
 printf '{"games":{"TC5":{"route":"bluetooth"}}}\n' > "$U"
+expect tp-shm TC5 route
+printf '{"games":{"TC5":{"route":"evdev","launch":"altijd"}}}\n' > "$U"
 expect tp-shm TC5 route
 printf 'kapot' > "$U"
 expect tp-shm TC5 route
@@ -52,5 +59,6 @@ expect evdev TC5 route
 python3 -I "$ROOT/scripts/io-route.py" TC5 >/dev/null 2>&1
 [ $? -eq 2 ] || { echo "FAIL: gebruiksfout niet gemeld"; fails=$((fails + 1)); }
 bash -n "$ROOT/scripts/play-halo.sh" || { echo "FAIL: syntaxfout in play-halo.sh"; fails=$((fails + 1)); }
+python3 -I -c "import ast, sys; ast.parse(open(sys.argv[1]).read())" "$ROOT/scripts/launch-direct.py" 2>/dev/null || { echo "FAIL: syntaxfout in launch-direct.py"; fails=$((fails + 1)); }
 if [ $fails -eq 0 ]; then echo "io-route: alle controles geslaagd"; exit 0; fi
 exit 1

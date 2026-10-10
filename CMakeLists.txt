@@ -241,6 +241,9 @@ if(RAVENGUN_BUILD_TESTS)
   # Invoerroute voor de startscripts: packaging/io-routes.json plus de keuze van de gebruiker (scripts/io-route.py).
   add_test(NAME ravengun_io_route COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/io_route_test.sh")
   set_tests_properties(ravengun_io_route PROPERTIES SKIP_RETURN_CODE 77)
+  # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
+  add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")
+  set_tests_properties(ravengun_launch_direct PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")

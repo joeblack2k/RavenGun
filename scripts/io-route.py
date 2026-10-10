@@ -7,13 +7,16 @@
 #
 # Gebruik: scripts/io-route.py [--root REPO] PROFIEL VELD
 #   VELD: route (standaard de 'default', anders evdev) | layout | board | com_port (standaard COM4) | hid_vidpid (VVVV:PPPP
-#         van het hid-bord, uit packaging/hid-boards.json) | source (base of user: waar de route vandaan komt)
+#         van het hid-bord, uit packaging/hid-boards.json) | source (base of user: waar de route vandaan komt) |
+#         launch (direct of teknoparrot-ui, standaard teknoparrot-ui: hoe play-halo.sh de game start; zie
+#         scripts/launch-direct.py)
 # Uitvoer: de waarde op één regel (leeg als hij ontbreekt). Exitcode 0, ook bij een ontbrekend bestand (dan de standaard).
 import json
 import os
 import sys
 
 ROUTES = ("evdev", "tp-shm", "unity-tcp", "hid-board", "jvs")
+LAUNCHES = ("direct", "teknoparrot-ui")
 
 
 def user_path():
@@ -34,6 +37,8 @@ def valid(name, r):
         return "%s: route hid-board vraagt een 'board'" % name
     if route == "jvs" and not r.get("board") and not r.get("boards"):
         return "%s: route jvs vraagt een 'board' of 'boards'" % name
+    if "launch" in r and r["launch"] not in LAUNCHES:
+        return "%s: ongeldige 'launch'" % name
     return ""
 
 
@@ -69,7 +74,7 @@ def merged(root):
                     if not isinstance(fields, dict):
                         raise ValueError("%s is geen object" % name)
                     r = g2.setdefault(name, {"route": d2})
-                    for key in ("route", "layout", "board", "boards", "com_port", "coin_keys", "note"):
+                    for key in ("route", "layout", "board", "boards", "com_port", "coin_keys", "note", "launch"):
                         if key in fields:
                             r[key] = fields[key]
                     err = valid(name, r)
@@ -87,7 +92,7 @@ def main(argv):
     if len(argv) >= 2 and argv[0] == "--root":
         root, argv = argv[1], argv[2:]
     if len(argv) != 2:
-        print("Gebruik: io-route.py [--root REPO] PROFIEL route|layout|board|com_port|hid_vidpid|source", file=sys.stderr)
+        print("Gebruik: io-route.py [--root REPO] PROFIEL route|layout|board|com_port|hid_vidpid|source|launch", file=sys.stderr)
         return 2
     profile, field = argv
     default, games, src = merged(root)
@@ -98,6 +103,8 @@ def main(argv):
         print(r.get(field, ""))
     elif field == "com_port":
         print(r.get("com_port", "COM4"))
+    elif field == "launch":
+        print(r.get("launch", "teknoparrot-ui") if r.get("launch") in LAUNCHES else "teknoparrot-ui")
     elif field == "source":
         print(src.get(profile, "base"))
     elif field == "hid_vidpid":

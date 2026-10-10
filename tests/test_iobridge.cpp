@@ -128,7 +128,7 @@ void test_model() {
 // De vijf profielen: bytes exact.
 void test_layouts() {
     TpShmProfiles ps = load_profiles();
-    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "TimeCrisis5", "TransformersShadowsRising", "LGS", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"})
+    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "GoGoStrike", "TimeCrisis5", "TransformersShadowsRising", "LGS", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"})
         CHECK(ps.find(n));
     CHECK(!ps.find("Bestaat niet"));
 
@@ -152,6 +152,21 @@ void test_layouts() {
         t.player[0].reload = true;                // Option = Button2 = bit 8
         t.player[2].aux1 = true;                  // Sense P3 = bit 20
         CHECK(control(render(p, t)) == (0x1u | 0x2u | 0x100u | (1u << 20)));
+    }
+    // GoGoStrike (A10): munt = Coin2 (0x8), Setup (0x4) nooit, trackball-knop = trekker (0x20), assen als RawThrillsGUN.
+    {
+        const TpShmProfile& p = *ps.find("GoGoStrike");
+        IoState s;
+        s.player[0] = aim(0.0, 1.0);
+        s.player[0].trigger = s.player[0].start = true;
+        s.sys.coin[0] = true;
+        auto b = render(p, s);
+        CHECK(control(b) == (0x8u | 0x10u | 0x20u));
+        CHECK(b[12] == 0 && b[16] == 255);
+        IoState t;
+        t.sys.test = t.sys.service = true;
+        t.sys.coin[1] = true;                     // munt 2 bestaat hier niet
+        CHECK(control(render(p, t)) == (0x1u | 0x2u));
     }
     // RawThrillsGUN (Terminator, Jurassic Park).
     {
@@ -405,7 +420,7 @@ void test_routes() {
     CHECK(!err.empty());                                 // jvs zonder board
     IoRoutes jr = parse_io_routes(R"({"games":{"A":{"route":"jvs","boards":["X","Y"],"com_port":"COM2"}}})", err);
     CHECK(err.empty() && jr.find("A")->boards.size() == 2 && jr.find("A")->com_port == "COM2");
-    CHECK(r.route_for("Halo") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
+    CHECK(r.route_for("JurassicPark") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
     CHECK(r.route_for("OnbekendeGame") == "evdev");     // standaardroute
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
     // Elke layout in io-routes.json bestaat in tp-shm-profiles.json.
@@ -427,10 +442,10 @@ void test_routes() {
     // Gebruikersbestand (~/.config/ravengun/io-routes.json) over de basis: alleen de genoemde velden veranderen.
     IoRoutes o = r;
     CHECK(apply_io_routes_override(o, "", err) && err.empty() && o.route_for("TC5") == "tp-shm");   // leeg = niets
-    CHECK(apply_io_routes_override(o, R"({"schema":1,"games":{"TC5":{"route":"evdev"},"Halo":{"route":"tp-shm"}}})", err));
-    CHECK(err.empty() && o.route_for("TC5") == "evdev" && o.route_for("Halo") == "tp-shm");
+    CHECK(apply_io_routes_override(o, R"({"schema":1,"games":{"TC5":{"route":"evdev"},"JurassicPark":{"route":"tp-shm"}}})", err));
+    CHECK(err.empty() && o.route_for("TC5") == "evdev" && o.route_for("JurassicPark") == "tp-shm");
     CHECK(o.find("TC5")->layout == "TimeCrisis5" && o.find("TC5")->coin_keys.size() == 2);   // de rest blijft uit de basis
-    CHECK(o.find("Halo")->layout == "WartranTroopers");
+    CHECK(o.find("JurassicPark")->layout == "RawThrillsGUN");
     CHECK(r.route_for("TC5") == "tp-shm");                                                      // de basis zelf is ongewijzigd
     IoRoutes o2 = r;
     CHECK(apply_io_routes_override(o2, R"({"games":{"NieuweGame":{"route":"evdev"}}})", err) && o2.route_for("NieuweGame") == "evdev");
@@ -528,8 +543,8 @@ void test_user_routes(const std::string& dir) {
     CHECK(br.start("TC5").empty() && !br.active());               // evdev: geen brug
     auto js = json::parse(br.status_json());
     CHECK(js.ok && js.value.find("routes")->find("TC5")->str == "evdev" && !js.value.find("user_routes_error"));
-    put(R"({"games":{"Halo":{"route":"tp-shm"}}})");
-    CHECK(br.start("Halo").empty() && br.active() && br.active_route() == "tp-shm");   // layout uit de basis
+    put(R"({"games":{"JurassicPark":{"route":"tp-shm"}}})");
+    CHECK(br.start("JurassicPark").empty() && br.active() && br.active_route() == "tp-shm");   // layout uit de basis
     br.stop();
     put(R"({"games":{"TC5":{"route":"onzin"}}})");
     CHECK(br.route_for("TC5") == "tp-shm");                       // ongeldig: genegeerd
@@ -572,12 +587,12 @@ void test_service(const std::string& dir) {
     {
         IoBridgeService br(sh, cfg);
         sh.iobridge = &br;
-        CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("Halo") == "evdev");
+        CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("JurassicPark") == "evdev");
         // Zonder gebruikersbestand-pad: alleen de basis (de pad-test volgt onderaan in test_user_routes).
         CHECK(!br.active());
         // Route evdev: niets te doen. Onbekende override: fout. tp-shm zonder layout: fout.
-        CHECK(br.start("Halo").empty() && !br.active());
-        CHECK(!br.start("Halo", "bluetooth").empty());
+        CHECK(br.start("JurassicPark").empty() && !br.active());
+        CHECK(!br.start("JurassicPark", "bluetooth").empty());
         CHECK(!br.start("OnbekendeGame", "tp-shm").empty());
         CHECK(!fs::exists(sdir + "/shm"));
         // Start tp-shm voor Transformers: bestand ontstaat neutraal, ook zonder gewapende uitvoer.
@@ -637,7 +652,7 @@ void test_service(const std::string& dir) {
         CHECK(wait_for([&] { return !kbp->shift.load() && !kbp->t.load(); }));
         CHECK(out.key(1, KEY_5, "down").ok);
         CHECK(wait_for([&] { return kbp->t.load(); }));
-        CHECK(br2.start("Halo").empty() && !br2.active());   // stoppen laat vastgehouden munttoetsen los
+        CHECK(br2.start("JurassicPark").empty() && !br2.active());   // stoppen laat vastgehouden munttoetsen los
         CHECK(!kbp->shift.load() && !kbp->t.load());
         out.key(1, KEY_5, "up");
         // Een toestandsbestand met een route die niet te hervatten is wordt opgeruimd.
@@ -689,7 +704,7 @@ void test_service(const std::string& dir) {
         { std::lock_guard<std::mutex> l(rec->m); CHECK(rec->destroyed && !rec->created); }
         CHECK(!br3.active() && !fs::exists(state));
         // Een bord dat niet bestaat of een game zonder bord: nette fout.
-        CHECK(!br3.start("Halo", "hid-board").empty());
+        CHECK(!br3.start("JurassicPark", "hid-board").empty());
         sh.iobridge = nullptr;
     }
     {
