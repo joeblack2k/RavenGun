@@ -55,7 +55,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
   - [ ] B3g Geen lightgun: Mario Kart Arcade GP DX (2 versies), Mighty Moto — laagste prioriteit.
 - [~] B4 Raw Thrills native op Linux (antwoorden_ronde2.md vraag 9): onderzocht op 2026-10-10, geen game werkt volledig native (docs/decisions.md, "B4: Raw Thrills native"). Klaar: `scripts/play-native.sh` + `packaging/native-games.json` (sandbox, NAS alleen-lezen, --headless/--strace/--gdb), `play-halo.sh --native`, `tools/rt-input-shim` (kastschakelaars uit de IO-brug in de native Halo; START bewezen). Blokkades: Halo (komt in de attract-lus met munt via de shim; START start de game niet reproduceerbaar; geen geluid: FMOD 1.10 ontbreekt; aim/trekker niet getest; RIO2-bord alleen via de shim), Jurassic Park/Galaga/Pacman (sprong naar vast adres uit de dump: de beveiligingslaag van BudgieLoader ontbreekt; geen preload in de map), Terminator/GhostBusters (dongle), Go Go Strike (Allegro-crash, PAOKAI-apparaten). Open: vraag aan het TeknoParrot-team of er een Linux-preload voor RIO2/webcam/FMOD en voor Jurassic Park/Galaga/Pacman bestaat.
 - [ ] B5 Luigi's Mansion: COM1 + LMAIO-flashstap + board; de Capcom-afscherming zelf wordt niet omzeild.
-- [ ] B7 Eén game tegelijk afdwingen: een tweede start (unit ravengun-tpui) stopt nu stil de lopende game; de launcher moet weigeren of netjes wisselen.
+- [x] B7 Eén game tegelijk afdwingen: een tweede start (unit ravengun-tpui) stopt nu stil de lopende game; de launcher moet weigeren of netjes wisselen.
 - [ ] B6 Speler 2..4 per game (bindingen, tweede JVS-node voor Halo).
 
 ## Spoor C — met de eigenaar
