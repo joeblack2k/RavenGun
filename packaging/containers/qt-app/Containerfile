@@ -1,0 +1,18 @@
+# Bouwomgeving voor de Qt-app van RavenGun (src/app, CMake-doel `ravengun`).
+#
+# SteamOS levert Qt 6.11.1 (qt6-base) als systeembibliotheek, maar zonder headers en CMake-bestanden. De app wordt
+# daarom in deze rootless podman-container gebouwd en draait daarna op de host tegen de systeem-Qt. Daarvoor moeten de
+# Qt-headers dezelfde hoofd/minor-versie hebben (6.11) en mag de glibc/libstdc++ van de container niet nieuwer zijn dan
+# die van de host (glibc 2.43, GCC 16). Arch zelf zit inmiddels op Qt 6.12 en glibc 2.44; daarom wordt de hele container
+# teruggezet naar een momentopname van het Arch Linux Archive waarin qt6-base 6.11.1 en glibc 2.43 actueel waren.
+#
+# Bouwen:  podman build -t localhost/ravengun-qt-build -f packaging/containers/qt-app/Containerfile packaging/containers/qt-app
+# Gebruik: scripts/build-app.sh (zie docs/build.md).
+FROM docker.io/library/archlinux:latest
+# 2026-07-01: qt6-base 6.11.1-1 (actueel van 13 mei tot 18 aug 2026), glibc 2.43 (tot 25 jul 2026).
+ARG ARCH_SNAPSHOT=2026/07/01
+RUN printf 'Server = https://archive.archlinux.org/repos/%s/$repo/os/$arch\n' "$ARCH_SNAPSHOT" > /etc/pacman.d/mirrorlist \
+    && pacman -Syyuu --noconfirm \
+    && pacman -S --noconfirm --needed base-devel cmake ninja git qt6-base \
+    && pacman -Scc --noconfirm \
+    && pacman -Q qt6-base glibc gcc
