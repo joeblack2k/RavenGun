@@ -45,8 +45,8 @@ def lees(pad, alleen_hasp=False):
             p_type, p_flags, p_offset, p_vaddr, p_paddr, p_filesz = struct.unpack_from(
                 "<IIQQQQ", d, o)
         else:
-            p_type, p_offset, p_vaddr, p_paddr, p_filesz = struct.unpack_from("<IIIII", d, o)
-            p_flags = 0
+            (p_type, p_offset, p_vaddr, p_paddr, p_filesz, _p_memsz,
+             p_flags, _p_align) = struct.unpack_from("<IIIIIIII", d, o)
         if p_type == 1:
             loads.append((p_vaddr, p_offset, p_filesz, p_flags))
         if p_type == 2:

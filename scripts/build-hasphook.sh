@@ -103,12 +103,25 @@ if [[ "$DO_SELFTEST" == 1 ]]; then
   echo "zelftest (32-bits gastheer die zijn eigen hasp-functies statisch in het beeld heeft):"
   $CC -m32 "${INC32[@]}" -O1 -rdynamic -o "$OUT/hasp_zelftest" \
     "$ROOT/tools/rt-hasphook/hasp_zelftest.c"
-  echo "  zonder hook:"
-  ( cd "$OUT" && HASP_ZELFTEST_WACHT=0 ./hasp_zelftest 2>&1 | sed 's/^/    /' ) || true
-  echo "  met hook:"
-  ( cd "$OUT" && LD_PRELOAD="$OUT/$LIB32" RAVENGUN_HASP_VERBOSE=1 RAVENGUN_HASP_GAME=zelftest \
-      RAVENGUN_HASP_DIR="$ROOT/patches" RAVENGUN_HASP_ELF_WACHT=5 \
-      ./hasp_zelftest 2>&1 | sed 's/^/    /' ) || true
+  # Een game met een volledige dongle.json, zodat de emulator echte gegevens teruggeeft. Zonder
+  # dongle antwoordt hij met HASP_STATUS_INVALID_PARAMETER (503) en dat is geen fout van de hook.
+  DONGGAME=""
+  for g in "${GAMES[@]}"; do
+    if [[ -f "$ROOT/patches/$g/dongle.json" ]]; then DONGGAME="$g"; break; fi
+  done
+  if [[ -z "$DONGGAME" ]]; then
+    for g in Halo JurassicPark GalagaAssault Terminator; do
+      if [[ -f "$ROOT/patches/$g/dongle.json" ]]; then DONGGAME="$g"; break; fi
+    done
+  fi
+  echo "  zonder hook (de statisch gelinkte cliënt hoort te antwoorden):"
+  ( cd "$OUT" && HASP_ZELFTEST_WACHT=0 ./hasp_zelftest 2>&1 | tail -3 | sed 's/^/    /' ) || true
+  echo "  met hook${DONGGAME:+ + de dongle van $DONGGAME}:"
+  ( cd "$OUT" && LD_PRELOAD="$OUT/$LIB32" RAVENGUN_HASP_VERBOSE=1 \
+      RAVENGUN_HASP_GAME="${DONGGAME:-zelftest}" RAVENGUN_HASP_DIR="$ROOT/patches" \
+      RAVENGUN_HASP_ELF_WACHT=10 \
+      ./hasp_zelftest 2>&1 | grep -E 'hasp_login ->|grootte|eerste bytes|echte_aanroepen|RESULTAAT' \
+      | sed 's/^/    /' ) || true
 fi
 
 if [[ "$DO_CHECK" == 1 ]]; then

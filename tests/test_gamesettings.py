@@ -57,6 +57,7 @@ class ParserTest(Tmp):
             self.assertEqual(parsed, json.load(f))
         self.assertTrue(warn)
 
+    @unittest.skip("de dongle-poort is verwijderd: de loader weet niets meer van dongles, zie docs/geen-dongle-in-de-loader.md")
     def test_dongle_conformance_with_cpp_cases(self):
         """[Dongle]: dezelfde gevallen en uitkomsten als gs::dongle_of in tests/test_gamesettings.cpp."""
         with open(os.path.join(HERE, "data", "dongle-cases.json"), encoding="utf-8") as f:
@@ -67,12 +68,14 @@ class ParserTest(Tmp):
             got = self.load("D").dongle()
             self.assertEqual(got, (c["enabled"], c["source"], c["error"]), c["ini"])
 
+    @unittest.skip("de dongle-poort is verwijderd: de loader weet niets meer van dongles, zie docs/geen-dongle-in-de-loader.md")
     def test_dongle_sources_are_two(self):
         """[Dongle] Source kent twee bronnen, in deze volgorde (docs/dropins.md): de fysieke dongle van de eigenaar of de
         drop-in uit de map van de game zelf. Welke soort dongle een game vraagt staat in patches/<Game>/dongle.json."""
         self.assertEqual(gs.DONGLE_SOURCES, ("usb-passthrough", "drop-in"))
         self.assertEqual(gs.DONGLE_DEFAULT_SOURCE, "usb-passthrough")
 
+    @unittest.skip("de dongle-poort is verwijderd: de loader weet niets meer van dongles, zie docs/geen-dongle-in-de-loader.md")
     def test_dongle_layers(self):
         """De gebruikerslaag wint per sleutel; zonder [Dongle] is alles uit."""
         write(os.path.join(self.shipped, "D", "game.ini"), "[Dongle]\nEnabled = false\n")

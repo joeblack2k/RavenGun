@@ -30,11 +30,6 @@
 #           [Launch] Mode = direct, dan is dit de standaard; --tpui dwingt dan TeknoParrotUi af. Kan de directe start
 #           niet (activering niet in de prefix, profiel niet ondersteund), dan valt het script terug op TeknoParrotUi (behalve
 #           met --direct: dan stopt het met een melding).
-# Dongle: staat in game.ini [Dongle] Enabled = true (de echte, fysieke dongle via USB pass-through), dan draait vóór de start de detectie
-#           (scripts/dongle.py; nooit een serienummer) en weigert het script met exitcode 6 en een heldere melding als er geen dongle
-#           is of de officiële runtime van de fabrikant niet draait. Bij Enabled = false (standaard) gebeurt er niets.
-# --log-full: (alleen direct) de kern schrijft ook naar zijn logbestand (TP_LOGTOFILE=1) en de regels over aanpassingen
-#           komen in ~/.local/state/ravengun/a11/ (A11).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
@@ -242,19 +237,8 @@ if [[ "$LAUNCH" == direct ]]; then
   RC=0; CHK=$(python3 -I "$ROOT/scripts/launch-direct.py" "$PROFILE" --check 2>&1) || RC=$?
   # Exitcode 5: een ingeschakelde patch is geweigerd. Geen terugval: TeknoParrotUi zou de game zonder die patch starten.
   [[ $RC -ne 5 ]] || fail "$PROFILE: ${CHK##*$'\n'}"
-  # Exitcode 6: geen dongle of de runtime draait niet ([Dongle] Enabled = true). Ook geen terugval.
   [[ $RC -ne 6 ]] || FAIL_CODE=6 fail "$PROFILE: ${CHK##*$'\n'}"
   [[ $RC -eq 0 ]] || direct_fallback "${CHK##*$'\n'}"
-fi
-# Dongle ([Dongle] Enabled = true): bij een start zonder directe route (TeknoParrotUi, native) hier controleren; de directe start doet het zelf
-# (launch-direct.py, exitcode 6). Zelfde melding en dezelfde exitcode.
-if [[ "$LAUNCH" != direct || $NATIVE -eq 1 ]]; then
-  DRC=0; DSET=$(gset dongle "$PROFILE" 2>&1) || DRC=$?
-  [[ $DRC -ne 2 ]] || FAIL_CODE=6 fail "$PROFILE: ${DSET##*$'\n'}"
-  if [[ "$DSET" == enabled ]]; then
-    DMSG=$(python3 -I "$ROOT/scripts/dongle.py" 2>&1) || FAIL_CODE=6 fail "$PROFILE: ${DMSG##*$'\n'}"
-    say "Dongle: $DMSG"
-  fi
 fi
 # Eén game tegelijk: game_running kent alleen de processen van het profiel dat nu start; elke levende
 # unit-cgroup betekent dat er al iets draait (anders zou de stop hieronder die game stil afbreken).

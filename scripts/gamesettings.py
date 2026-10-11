@@ -50,15 +50,6 @@ PATCH_PREFIX = "Patch:"
 # docs/community-model.md): een dongle- of regiopatch is een gewone patch zoals elke andere.
 PATCH_CATEGORIES = ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", "dongle", "region", "keychip", "integrity", "activation")
 PATCH_KINDS = ("file", "registry", "memory")
-# [Dongle] (docs/per-game-patches.md, "Dongle per game", en docs/dropins.md): waar de dongle vandaan komt. Twee bronnen, in
-# deze volgorde; de C++-lezer (kDongleSources) en de keuzelijst van de app (dongleSources()) gebruiken dezelfde volgorde, en de
-# melding bij een onbekende bron noemt ze zo. Welke SOORT dongle een game vraagt staat niet hier maar in de map van de game:
-# patches/<Game>/dongle.json (veld kind).
-#   usb-passthrough  de echte, fysieke dongle van de eigenaar, over USB doorgeschoven (scripts/dongle.py)
-#   drop-in          de drop-in uit de map van de game zelf: dongle.json noemt de soort en de gegevens, dropin/ de bestanden
-#                    die de launcher in de view van de game zet (docs/dropins.md)
-DONGLE_SOURCES = ("usb-passthrough", "drop-in")
-DONGLE_DEFAULT_SOURCE = "usb-passthrough"
 TRUE_WORDS = ("true", "1", "yes", "on")
 FALSE_WORDS = ("false", "0", "no", "off")
 
@@ -234,22 +225,6 @@ class Game:
         if r == "jvs" and not i.get("Board") and not i.get("Boards"):
             return i, "route jvs vraagt een Board of Boards"
         return i, ""
-
-    def dongle(self):
-        """[Dongle] als (enabled, source, fout). Standaard uit en usb-passthrough; fout is "" als de waarden kloppen. Een Enabled die
-        geen true of false is, geldt als aan met een fout (de launcher weigert dan met die melding: wie iets typte wilde er iets mee);
-        een onbekende Source is een fout. Staat Enabled uit, dan doet de launcher niets, ook niet bij een foute Source."""
-        d = self.section("Dongle")
-        err = ""
-        raw = d.get("Enabled", "").strip()
-        enabled = truthy(raw)
-        if raw and not enabled and not falsy(raw):
-            enabled = True
-            err = "[Dongle] Enabled = %s (use true or false)" % raw
-        source = d.get("Source", "").strip().lower() or DONGLE_DEFAULT_SOURCE
-        if source not in DONGLE_SOURCES and not err:
-            err = "[Dongle] Source = %s (known: %s)" % (d.get("Source", "").strip(), ", ".join(DONGLE_SOURCES))
-        return enabled, source, err
 
     def to_dict(self):
         return {"profile": self.profile, "type": self.type, "settings": self.settings,
@@ -707,8 +682,6 @@ def main(argv):
     p.add_argument("--default", default="")
     p = sub.add_parser("env")
     p.add_argument("profile")
-    p = sub.add_parser("dongle", help="[Dongle] voor play-halo.sh: 'enabled' of 'disabled' (exit 0); exit 2 bij een ongeldige waarde")
-    p.add_argument("profile")
     p = sub.add_parser("input", help="invoerroute voor de startscripts (play-halo.sh)")
     p.add_argument("profile")
     p.add_argument("field", choices=["route", "layout", "board", "boards", "com_port", "hid_vidpid", "source", "launch"])
@@ -735,13 +708,6 @@ def main(argv):
         else:
             g = load_for_profile(a.profile, a.tp, shipped=shipped, user=user)
             print(g.launch_mode or "teknoparrot-ui")
-        return 0
-    if a.cmd == "dongle":
-        enabled, source, err = load_game(a.profile, shipped=shipped, user=user).dongle()
-        if enabled and err:
-            print("gamesettings: " + err, file=sys.stderr)
-            return 2
-        print("enabled" if enabled else "disabled")
         return 0
     if a.cmd in ("has-profile", "comms", "write-xml"):
         import ownprofile as op
