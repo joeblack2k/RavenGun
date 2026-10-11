@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Playable (10)
+## Playable (12)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
@@ -14,13 +14,15 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **HALO Fireteam Raven**: Fully working: lightgun, buttons and rumble.
 - **Luigi's Mansion Arcade**: Works: title, attract (free play), start (key 1), aiming the vacuum and sucking with the trigger; test menu with key 0, select switch on aux1. Loading takes about 45 s; press start once the attract mode runs.
+- **NERF Arcade**: Playable: free play, start (key 1), aiming and trigger (the score counts up). Runs with DXVK in its own Wine prefix; the BepInEx plugin loads. Not tested: real Move buttons, player 2 and sound.
 - **Rabbids Hollywood Arcade**: Works without the TeknoParrot UI: lightgun, coin (four times) and start, rumble when shooting. Not yet played with the real Move buttons.
+- **Raccoon Rampage**: Playable: aiming, trigger (also start) and coin (key 5) work; test menu with TEST (key 0), service (F3) and F4. Calibration was done once and is stored in the game's save data. Runs with DXVK and without intro videos.
 - **Terminator Salvation**: Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Tomb Raider Arcade**: Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes ("SYSTEM INITIALIZING"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs.
 
-## Not working yet (17)
+## Not working yet (15)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
@@ -34,10 +36,8 @@ These games do not start, or are blocked by something RavenGun does not work aro
 - **Let's Go Safari**: Does not start yet: the game waits without a window for a Sega network service on 127.0.0.1:40100 and never opens its JVS port. The engine can already act as its JVS board (jvs route). Parked.
 - **Lethal Enforcers 3**: Does not start yet: the game crashes when it opens a .m1v movie; Wine has no 32-bit GStreamer (lib32-gstreamer plus an MPEG-1 decoder), which the SteamOS repos do not offer. Parked.
 - **Music GunGun 2**: Does not start yet: the Wine crash is worked around (RG_LOADER_FPFIX), but the game shows its own 'Direct3D initialisation failed' window (also with DXVK) and does not open the JVS pipe. Parked.
-- **NERF Arcade**: Partly works: the game starts and shows its attract mode, but start and trigger do not arrive yet.
 - **Omatsuri Yasan - Ganso Takoyaki**: Does not start yet: white window (1024x768), the game never creates a D3D device; the core makes an online activation request at start. Parked.
 - **Omatsuri Yasan - Kingyo Sukui**: Does not start yet: the game exits with code 8 after scanning all drive letters for rqrdlist.rqr and campaign*.bmp. Parked.
 - **Otomedius Excellent**: Does not start yet: white window; the game looks for an ACIO micom on COM2 ('COM Port 2 Open Error') and goes no further. Parked.
 - **Pac-Man Chomp-Mania**: Does not start yet: black screen (same problem as Jurassic Park). Parked.
 - **Pigs Might Fly**: Does not start yet: the start program is packed and fails under Wine. Parked.
-- **Raccoon Rampage**: Partly works: picture, start, coin and trigger. The crosshair does not follow yet (the game wants its own calibration; its Setting Menu is not reachable yet).

@@ -42,8 +42,8 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
   - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
   - [ ] B3b Taito Type X2 via OpenParrot (geparkeerd, 2026-10-10): Gaia Attack 4, Haunted Museum, Haunted Museum II, Music GunGun 2. OpenParrot-injectie werkt en de JVS-pipe verbindt (zonder `TP_POSTSTART_REMOTETHREAD_MS`), maar de game blijft zwart in een eindeloze `handle_syscall_fault`-lus (Wine 11); Music GunGun 2 geeft een Direct3D-foutvenster. Zie packaging/games-status.md, zesde ronde.
   - [~] B3c WartranTroopers/TC5-indeling (2026-10-10):
-    - [~] Raccoon Rampage: draait (DXVK-prefix, lege Movies-map; `tp-add-game.py --dxvk --empty-dir`), munt/start/trekker werken; het vizier volgt niet (game wil eigen kalibratie, Setting Menu niet bereikt). Open.
-    - [~] NERF Arcade: draait tot in de attract (DXVK, BepInEx laadt); start en trekker komen niet aan. Open.
+    - [x] Raccoon Rampage (2026-10-11, twaalfde ronde): speelbaar; `TP_REMOTETHREAD=off` in de `.env` (standaardroute van de lader) liet de invoer aankomen, kalibratie gedaan via het testmenu (bewaard in `Setting_Hardware.ini`); zie `findings/RaccoonRampage.md`.
+    - [x] NERF Arcade (2026-10-11, twaalfde ronde): speelbaar met `TP_REMOTETHREAD=off`; start, aim en trekker werken; zie `findings/NERF.md`.
     - [ ] Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX (geparkeerd): 32-bit TeknoParrot-kern onder Wine: loader-lock bij injectie na 3 s, anders stopt de kern het proces zelf (exitcode 0xDEADC0DE); Otomedius stopt met exitcode 0.
     - [ ] Pigs Might Fly (geparkeerd): `Shell.exe` ingepakt (illegal instruction op het startpunt / VirtualAllocEx geweigerd); niet omzeild.
   - [~] B3d Raw Thrills Linux (2026-10-10):

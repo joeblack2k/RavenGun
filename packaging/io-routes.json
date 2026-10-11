@@ -104,13 +104,14 @@
   "RaccoonRampage": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "start, munt en trekker werken via tp-shm; het vizier volgt niet (de game vraagt een eigen kalibratie). Draait met DXVK-prefix en lege Movies-map (tp-add-game.py --dxvk --empty-dir)",
+   "note": "speelbaar via tp-shm: UserProfiles/RaccoonRampage.env heeft TP_REMOTETHREAD=off (standaardroute van de lader; met TP_POSTSTART_REMOTETHREAD_MS komt er geen invoer aan). Testmenu: TEST (toets 0), service (F3) = omlaag, F4 = enter; kalibratie staat in Setting_Hardware.ini. Draait met DXVK-prefix en lege Movies-map (tp-add-game.py --dxvk --empty-dir)",
    "launch": "direct"
   },
   "NERF": {
    "route": "tp-shm",
    "layout": "WartranTroopers",
-   "note": "start de game tot en met de attract (DXVK-prefix, BepInEx laadt); start en trekker komen niet aan, via tp-shm noch evdev"
+   "note": "speelbaar via tp-shm: UserProfiles/NERF.env heeft TP_REMOTETHREAD=off (standaardroute van de lader; met TP_POSTSTART_REMOTETHREAD_MS komt er geen invoer aan). DXVK-prefix, BepInEx laadt; free play, start = toets 1",
+   "launch": "direct"
   },
   "PigsMightFly": {
    "route": "tp-shm",
