@@ -36,7 +36,7 @@ meerdere bronnen en dat is niet uit de mappen af te leiden.
 | `patches/STARTTEST.md` | de startmeting: per game of hij start en blijft draaien, en waar de `[Status]` daarvan afwijkt | `bash /home/deck/starttest3.sh 22` en daarna `python3 patches/starttest-gen.py` |
 | `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
 | `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | **met de hand**; de kop noemt de commando's om de getallen na te rekenen |
-| `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent), en dus van de gesloten `TeknoParrot(64).dll` af kunnen | `python3 patches/kern-herkenning.py` |
+| `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent) en welk `EmulationProfile` er dan nog moet komen — dus wat er per game nodig is om van de gesloten `TeknoParrot(64).dll` af te gaan | `python3 patches/kern-herkenning.py` |
 
 De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in

@@ -105,15 +105,31 @@ def game_exe(game):
     return ""
 
 
+def uit_game_ini(game, sleutel):
+    """`EmulationProfile` of `Type` uit patches/<Game>/game.ini."""
+    pad = os.path.join(PATCHES, game, "game.ini")
+    if not os.path.isfile(pad):
+        return ""
+    with open(pad, encoding="utf-8-sig", errors="replace") as f:
+        for regel in f:
+            s = regel.strip()
+            if s.lower().startswith(sleutel.lower() + " =") or s.lower().startswith(sleutel.lower() + "="):
+                return s.split("=", 1)[1].strip()
+    return ""
+
+
 def meet():
     gewoon = lees_switch(BASIS, *EERSTE)
     nieuw = lees_switch(BASIS, *TWEEDE)
     rijen = []
     for g in sorted(d for d in os.listdir(PATCHES)
                     if os.path.isdir(os.path.join(PATCHES, d)) and not d.startswith("_")):
+        profiel = uit_game_ini(g, "EmulationProfile")
+        soort = uit_game_ini(g, "Type")
         exe = game_exe(g)
         if not exe or not os.path.isfile(exe):
-            rijen.append((g, None, None, None, "geen exe gevonden (niet op de NAS of twee exe's)"))
+            rijen.append((g, None, None, None,
+                          "geen exe gevonden (niet op de NAS of twee exe's)", profiel, soort))
             continue
         with open(exe, "rb") as f:
             kop = f.read(0x400)
@@ -128,7 +144,7 @@ def meet():
             naam = "**%s** (tabel 2, 64-bits%s)" % (nieuw[c3][0], " — " + nieuw[c3][1] if nieuw[c3][1] else "")
         else:
             naam = "— niet in de tabel —"
-        rijen.append((g, c1, c2, c3, naam))
+        rijen.append((g, c1, c2, c3, naam, profiel, soort))
     return len(gewoon), len(nieuw), rijen
 
 
@@ -153,24 +169,18 @@ def md(gewoon_n, nieuw_n, rijen):
     )
     uit.append("**Uitkomst: %d van de %d games worden door onze eigen kern herkend** — precies de vier die er\n"
                "al op draaien.\n" % (len(raak), len(rijen)))
-    uit.append("| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt |")
-    uit.append("|---|---|---|---|---|")
-    for g, c1, c2, c3, naam in rijen:
+    uit.append("| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader |")
+    uit.append("|---|---|---|---|---|---|---|")
+    for g, c1, c2, c3, naam, profiel, soort in rijen:
         if c1 is None:
-            uit.append("| %s | — | — | — | %s |" % (g, naam))
+            uit.append("| %s | — | — | — | %s | `%s` | %s |" % (g, naam, profiel or "—", soort or "—"))
         else:
             fmt = lambda c: "— (geen PE-header)" if c is None else "`0x%08x`" % c  # noqa: E731
-            uit.append("| %s | `0x%08x` | %s | %s | %s |" % (g, c1, fmt(c2), fmt(c3), naam))
+            uit.append("| %s | `0x%08x` | %s | %s | %s | `%s` | %s |"
+                       % (g, c1, fmt(c2), fmt(c3), naam, profiel or "—", soort or "—"))
     uit.append("")
-    geen_pe = [g for g, c1, c2, c3, n in rijen if c1 is not None and c2 is None]
-    if geen_pe:
-        uit.append(
-            "**%d games hebben geen PE-header** (%s). Dat zijn de games die op de Cygwin-lader\n"
-            "(ElfLdr2/BudgieLoader) draaien en dus ELF's zijn; de CRC-tabel van de kern gaat over PE's,\n"
-            "dus daar zegt deze meting niets over.\n" % (len(geen_pe), ", ".join(geen_pe))
-        )
     dubbel = {}
-    for g, c1, c2, c3, n in rijen:
+    for g, c1, c2, c3, n, profiel, soort in rijen:
         if c1 is not None:
             dubbel.setdefault((c1, c2, c3), []).append(g)
     for sleutel, namen in sorted(dubbel.items()):
@@ -181,12 +191,50 @@ def md(gewoon_n, nieuw_n, rijen):
                 "maar het betekent wel dat een profiel op deze exe beide games zou vangen.\n"
                 % (" en ".join(namen), sleutel[0])
             )
+    gesloten = [(g, profiel) for g, c1, c2, c3, n, profiel, soort in rijen
+                if soort == "TeknoParrot" and not n.startswith("**")]
+    if gesloten:
+        per_profiel = {}
+        for g, profiel in gesloten:
+            per_profiel.setdefault(profiel or "(geen)", []).append(g)
+        uit.append(
+            "**Wat er per game nodig is.** De kolom *Profiel in `game.ini`* noemt het `EmulationProfile` dat de\n"
+            "game daar heeft — voor de games met de gesloten kern (`Type = TeknoParrot`) is dat het profiel dat\n"
+            "**onze eigen kern zou moeten implementeren**: eerst een nieuwe `case <CRC>` in `GameDetect.cpp` die\n"
+            "op die `GameID` uitkomt, en dan de hooks van dat profiel. Voor de vier games die onze kern al\n"
+            "herkent is de naam in `game.ini` precies de `GameID` uit de CRC-tabel, dus die koppeling is geen\n"
+            "gok. **%d games wachten daar nog op:**\n" % len(gesloten)
+        )
+        uit.append("| Profiel dat nog van ons moet komen | Games |")
+        uit.append("|---|---|")
+        for profiel in sorted(per_profiel, key=lambda p: (-len(per_profiel[p]), p)):
+            namen = per_profiel[profiel]
+            uit.append("| `%s` | %d — %s |" % (profiel, len(namen), ", ".join(namen)))
+        uit.append("")
+    elf = [(g, profiel) for g, c1, c2, c3, n, profiel, soort in rijen if soort == "ElfLdr2"]
+    if elf:
+        uit.append(
+            "**De %d games met `Type = ElfLdr2` staan hier wel in maar horen bij een andere vraag.** Hun\n"
+            "`EmulationProfile` (%s) is van **BudgieLoader**, niet van de OpenParrot-kern; die games zijn ELF's\n"
+            "zonder PE-header, dus de CRC-tabel zegt er niets over. Wat zij nodig hebben is de eigen\n"
+            "`LD_PRELOAD`-kastnabootser voor de 64-bits ElfLdr2-familie, niet een profiel in `GameDetect.cpp`.\n"
+            % (len(elf), ", ".join(sorted({p for g, p in elf})))
+        )
+    geen_pe = [g for g, c1, c2, c3, n, profiel, soort in rijen if c1 is not None and c2 is None]
+    if geen_pe:
+        uit.append(
+            "**%d games hebben geen PE-header** (%s). Dat zijn de games die op de Cygwin-lader\n"
+            "(ElfLdr2/BudgieLoader) draaien en dus ELF's zijn; de CRC-tabel van de kern gaat over PE's,\n"
+            "dus over hun herkenning zegt deze meting niets. Ze staan er wel in omdat hun\n"
+            "`EmulationProfile` dezelfde vraag oproept: ook die lader is van TeknoParrot.\n"
+            % (len(geen_pe), ", ".join(geen_pe))
+        )
     uit.append(
         "**Wat je hieruit leest.** De vier games met `kern van ons` in `tools/verify-all.py` zijn de enige\n"
-        "die de kern zelf thuisbrengt; voor de andere 32 zou een eigen `EmulationProfile` eerst **bij naam\n"
-        "bekend** moeten worden gemaakt (een nieuwe `case` in `GameDetect.cpp`), en daarna moeten de hooks\n"
-        "van dat profiel nog geschreven worden. Dit bestand zegt dus alleen **of de kern de game herkent**,\n"
-        "niet of er al een profiel voor is.\n"
+        "die de kern zelf thuisbrengt. Voor de andere 32 zou de kern eerst **bij naam** bekend moeten zijn\n"
+        "(een nieuwe `case` in `GameDetect.cpp`), en daarna moeten de hooks van dat `EmulationProfile` nog\n"
+        "geschreven worden — dat tweede staat hier niet in. Dit bestand zegt dus alleen **of de kern de\n"
+        "game herkent**, niet of er al een profiel voor is.\n"
     )
     uit.append(
         "**Eén meting die eruit volgt.** HauntedMuseumII is de **USA 1.00**-build (`0x5a7fa241` ->\n"
