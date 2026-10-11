@@ -85,7 +85,10 @@ def dongle_of(gdir, game):
     bits = []
     mem = data.get("memory")
     if isinstance(mem, list) and mem:
-        bits.append("memory/ met %d geheugenbestand%s" % (len(mem), "" if len(mem) == 1 else "en"))
+        # De geheugenbestanden staan naast dongle.json. In de drop-in-vorm is dat memory/,
+        # in de oude losse vorm dongle/memory/; noem wat er echt staat.
+        memmap = "memory" if os.path.isdir(os.path.join(os.path.dirname(path), "memory")) else "dongle"
+        bits.append("%s/ met %d geheugenbestand%s" % (memmap, len(mem), "" if len(mem) == 1 else "en"))
     if os.path.isdir(os.path.join(gdir, "dropin")):
         bits.append("dropin/")
     if data.get("enforced") is False:
@@ -97,7 +100,7 @@ def dongle_source(gdir, kind):
     """Waar de dongle vandaan komt: de drop-in in de map van de game."""
     if not kind:
         return "-"
-    return "drop-in%s" % (" + dropin/" if os.path.isdir(os.path.join(gdir, "dropin")) else "")
+    return "drop-in (dongle.json%s)" % (" + dropin/" if os.path.isdir(os.path.join(gdir, "dropin")) else "")
 
 
 def render(rows):

@@ -22,16 +22,16 @@ standaardwaarde); dat staat er dan bij.
 | **Gashaaaan2** | TeknoParrot | WartranTroopers | - | - | playable |
 | **GhostBusters** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **GoGoStrike** | ElfLdr2 | RawThrillsGUN | - | - | playable |
-| **Halo** | ElfLdr2 | WartranTroopers | hasp | drop-in + dropin/ | playable |
+| **Halo** | ElfLdr2 | WartranTroopers | hasp | drop-in (dongle.json + dropin/) | playable |
 | **HauntedMuseum** | OpenParrot | HauntedMuseum | - | - | parked |
 | **HauntedMuseumII** | OpenParrot | HauntedMuseum2 | - | - | parked |
 | **HOTDSD** | TeknoParrot | ALLSHOTDSD | - | - | playable |
 | **InfinityBladeFX** | TeknoParrot | InfinityBlade | - | - | parked |
 | **JurassicPark** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **LethalEnforcers3** | TeknoParrot | WartranTroopers | - | - | parked |
-| **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in + dropin/ | playable |
-| **LGI3D** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in + dropin/ | playable |
-| **LGS** | TeknoParrot | LGS | region | drop-in + dropin/ | playable |
+| **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json + dropin/) | playable |
+| **LGI3D** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json + dropin/) | playable |
+| **LGS** | TeknoParrot | LGS | region | drop-in (dongle.json + dropin/) | playable |
 | **LuigisMansion** | TeknoParrot | LuigisMansion | - | - | playable |
 | **MedaruNoGunman** | TeknoParrot | FarCry | - | - | parked |
 | **MusicGunGun2** | OpenParrot | MusicGunGun2 | - | - | parked |
@@ -46,7 +46,7 @@ standaardwaarde); dat staat er dan bij.
 | **RainbowBombergirl** | TeknoParrot | WartranTroopers | - | - | parked |
 | **Rampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TankTankTank** | ElfLdr2 | DeadHeat | - | - |  |
-| **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in + dropin/ | playable |
+| **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in (dongle.json + dropin/) | playable |
 | **Terminator** | ElfLdr2 | RawThrillsGUN | - | - | playable |
 | **TombRaider** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TransformersShadowsRising** | TeknoParrot | TransformersShadowsRising | - | - | playable |

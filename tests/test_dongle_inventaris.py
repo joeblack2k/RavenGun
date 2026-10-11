@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests voor scripts/gen-dongle-inventaris.py: de donglekolom komt uit patches/<Game>/dongle.json (veld kind,
-docs/dropins.md), een ontbrekend bestand betekent "geen dongle", en de rest van de tabel komt uit game.ini. Raakt alleen
+"""Tests voor scripts/gen-dongle-inventaris.py: de donglekolom komt uit het dongle.json in de drop-in van de game
+(patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json, veld kind, docs/dropins.md); een los patches/<Game>/dongle.json
+blijft ook werken. Een ontbrekend bestand betekent "geen dongle", en de rest van de tabel komt uit game.ini. Raakt alleen
 tijdelijke mappen. Uitvoeren: python3 -I tests/test_dongle_inventaris.py"""
 import importlib.util
 import json
@@ -64,6 +65,27 @@ class InventarisTest(unittest.TestCase):
         self.assertIn("* **Halo** \u2014 hasp (dongle/ met 1 geheugenbestand)", text)
         # De statusnotitie is een voorproefje van 150 tekens uit [Status] Note.
         self.assertIn("* **Halo** \u2014 Werkt volledig.", text)
+
+    def test_de_dongle_uit_de_dropin_van_de_game(self):
+        """De gewone plaats is de drop-in van de game; de geheugenbestanden staan in memory/ ernaast."""
+        d = os.path.join(self.patches, "Halo", "dropin", "ravengun-hasp", "Halo")
+        write(os.path.join(d, "dongle.json"),
+              json.dumps({"kind": "hasp", "game": "Halo Fireteam",
+                          "memory": [{"name": "read/write", "fileid": 65524, "size": 112,
+                                      "file": "memory/00000000000000001111111111110100"}]}))
+        write(os.path.join(d, "memory", "00000000000000001111111111110100"), "x")
+        r = self.rows()
+        self.assertEqual((r["Halo"]["kind"], r["Halo"]["source"]), ("hasp", "drop-in (dongle.json + dropin/)"))
+        text = self.mod.render(self.mod.game_rows(self.patches))
+        self.assertIn("| **Halo** | ElfLdr2 | WartranTroopers | hasp | drop-in (dongle.json + dropin/) | playable |", text)
+        self.assertIn("* **Halo** \u2014 hasp (memory/ met 1 geheugenbestand, dropin/)", text)
+
+    def test_de_dropin_gaat_voor_het_losse_bestand(self):
+        """Staan ze er allebei, dan wint de drop-in: dat is de plaats die de patchmotor uitrolt."""
+        write(os.path.join(self.patches, "Halo", "dongle.json"), json.dumps({"kind": "hasp"}))
+        write(os.path.join(self.patches, "Halo", "dropin", "ravengun-hasp", "Halo", "dongle.json"),
+              json.dumps({"kind": "matrix"}))
+        self.assertEqual(self.rows()["Halo"]["kind"], "matrix")
 
     def test_missing_dongle_json_means_no_dongle(self):
         r = self.rows()
