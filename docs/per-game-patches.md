@@ -283,79 +283,29 @@ geen sleutelwaarde gelezen en geen activering geïmporteerd of nagebootst. `Patr
 
 ## Dongle per game
 
-Sectie `[Dongle]` in `game.ini`: waar de dongle van een game vandaan komt. Er zijn twee bronnen. **Welke soort** dongle een game nodig heeft staat
-niet hier maar in de map van de game: `patches/<Game>/dongle.json` (veld `kind`, plus de gegevens) en `patches/<Game>/dropin/` (de bestanden die de
-launcher in de view van de game zet). Het bestaan van `dongle.json` betekent "deze game vraagt een dongle". Het contract daarvoor staat in
-`docs/dropins.md`; deze sectie herhaalt het niet.
+**De loader weet niets van dongles.** Dat is de beslissing van de eigenaar (ronde 12) en die staat in
+`docs/geen-dongle-in-de-loader.md`. Er is dus **geen** `[Dongle]`-sectie in `game.ini`: geen
+`Enabled`, geen `Source`, geen keuzelijst in de app en geen poort die een start weigert.
 
-| Sleutel | Waarden | Standaard | Betekenis |
-|---|---|---|---|
-| `Enabled` | `true` \| `false` (ook `1/0`, `yes/no`, `on/off`) | `false` (weggelaten) | de eigenaar zet de dongle aan; de launcher controleert dan vóór de start en weigert als de gekozen bron niet bruikbaar is |
-| `Source` | `usb-passthrough` \| `drop-in` | `usb-passthrough` | de echte, fysieke dongle van de eigenaar (USB pass-through), of de drop-in uit de map van de game zelf |
+Een software-dongle is een **gewone drop-in**. Alles wat een game nodig heeft staat in de map van die
+game:
 
-```ini
-; ~/.local/share/ravengun/patches/LGI/game.ini (gebruikerslaag)
-[Dongle]
-Enabled = true
-Source = drop-in
+| Wat | Waar |
+|---|---|
+| de bestanden die in de view gezet worden (de emulator, de inline-hook) | `patches/<Game>/dropin/` + `dropin.ini` |
+| de donglebeschrijving en de gegevens | `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` + `memory/` |
+| of de game de dongle afdwingt | het veld `enforced` in die `dongle.json`, en de notitie in `patches/<Game>/README.md` |
+
+De launcher kopieert die bestanden naar de view van de game en zet de omgevingsvariabelen uit
+`dropin.ini` (zoals `RAVENGUN_HASP_DIR` en `RAVENGUN_HASP_GAME`). Meer niet. Zie `docs/dropins.md`
+voor het contract en `docs/geen-dongle-in-de-loader.md` voor waarom het zo is.
+
+Controleren of de dongle van een game compleet is:
+
+```bash
+cd ~/projects/ravengun && python3 scripts/hasp.py --game <Game> --json    # ok: true = compleet
+python3 scripts/launch-direct.py <Game> --plan                            # kijk naar de dropins-regel
 ```
-
-De **meegeleverde** laag laat `Enabled` weg (dus uit) en laat `Source` weg (dus `usb-passthrough`): er verandert niets aan de start van een game tot de
-eigenaar er bewust voor kiest. Daarom heeft `patches/<Game>/game.ini` ook geen `[Dongle]`-sectie: de donglekennis van een game staat in `dongle.json`
-en `dropin/`, op één plek.
-
-Lezers: `Game.dongle()` in `scripts/gamesettings.py` en `gs::dongle_of()` in `src/ravengun/gamesettings` (dezelfde regels; beide getest tegen
-`tests/data/dongle-cases.json`). Het resultaat is (enabled, source, fout). Een `Enabled` die geen true of false is telt als aan met de fout
-`[Dongle] Enabled = <waarde> (use true or false)` (wie iets typte wilde er iets mee; de launcher weigert dan). Een onbekende `Source` is een fout
-(`[Dongle] Source = <waarde> (known: usb-passthrough, drop-in)`). Bij `Enabled = false` doet de launcher niets, ook niet bij een foute `Source`.
-
-**Open punt (ontwerp).** `Enabled = true` betekent in deze lezer "controleer vóór de start en weiger als er geen bruikbare dongle is". Voor
-`usb-passthrough` klopt dat: het is de controle van iets dat de eigenaar zelf in de machine heeft. Voor `drop-in` zou `Enabled` juist moeten betekenen
-"schakel de drop-in van deze game in" — dat is iets anders dan weigeren. Zolang die twee betekenissen door elkaar lopen, laat de meegeleverde laag
-`Enabled` weg en zet de eigenaar hem pas aan als de drop-in-laag klaar en getest is.
-
-**Detectie** (`scripts/dongle.py`, gegevensbestand `packaging/dongle-vendors.json`; de app roept `python3 -I scripts/dongle.py --json` aan). Dit
-hoort bij `Source = usb-passthrough`; de drop-in wordt niet gedetecteerd maar uit de map van de game gelezen:
-
-- Aangesloten USB-apparaten via sysfs (`/sys/bus/usb/devices/*/`): alleen `idVendor`, `idProduct`, `manufacturer` en `product`. Een dongle wordt herkend
-  aan het vendor-ID in het gegevensbestand (openbaar bekende ID's): `0529` Aladdin (HASP), `04b9` Rainbow/SafeNet (Sentinel), `064f` Wibu-Systems (CodeMeter).
-  `manufacturer` en `product` worden alleen gelezen bij een apparaat dat al als dongle is herkend.
-- **Het attribuut `serial` of een andere unieke identificatie wordt nooit gelezen**, en er gaat geen serienummer naar een log, bestand of de UI. Er is
-  een vaste lijst gelezen attributen (`ALLOWED_ATTRS`); `tests/test_dongle.py` zet een serienummer in een nep-sysfs en controleert dat dat bestand
-  niet wordt geopend en nergens in de uitvoer staat.
-- Officiële runtime van de fabrikant: voor HASP en Sentinel de "Sentinel LDK Runtime" van Thales (daemons `aksusbd` en `hasplmd`; de License Manager
-  luistert op `127.0.0.1:1947`), voor Wibu de CodeMeter-runtime (proces `CodeMeterLin`, poort `22350`). Alleen kijken of die er is en draait: een
-  proces met die naam (alleen `/proc/<pid>/comm`) of een open poort op 127.0.0.1. Status `running`, `not running` (bestanden aanwezig, niet actief),
-  `not installed`. RavenGun installeert, levert en downloadt niets; bij `not installed` verwijst de melding naar de officiële installatie van de
-  fabrikant (`install_url` in het gegevensbestand). Een fabrikant zonder `runtime` in het gegevensbestand: "dongle gevonden, runtime onbekend" (`unknown`),
-  de start gaat door.
-- Uitvoer: `Dongle detected: <fabrikant> <product> (vvvv:pppp) - runtime: running|not running|not installed|unknown` of `No dongle found`; met `--json` ook de velden per
-  dongle en `ok`/`message`. Voor tests: `RAVENGUN_USB_SYSFS`, `RAVENGUN_PROC_ROOT`, `RAVENGUN_DONGLE_ROOT`, `RAVENGUN_DONGLE_VENDORS`.
-
-**Launcher.** Bij `[Dongle] Enabled = true` controleert `launch-direct.py` (bij `--check` en `--run`, niet bij `--plan`) vóór de start de gekozen bron: bij
-`usb-passthrough` de detectie hierboven, bij `drop-in` de drop-in van de game (`patches/<Game>/dongle.json` en `dropin/`, `docs/dropins.md`). Bij
-`usb-passthrough` logt hij bij `--run` `dongle (usb-passthrough): Dongle detected: ...` (nooit een serienummer) en weigert met **exitcode 6** en een melding
-op stderr (`Dongle: ...`) als er geen dongle is, de runtime niet draait, of `Enabled`/`Source` ongeldig is (zie boven). Geen terugval op TeknoParrotUi. `play-halo.sh` toont de melding (en een
-bureaubladmelding) en sluit met dezelfde exitcode 6; bij een start zonder directe route (TeknoParrotUi, native) draait `play-halo.sh` dezelfde detectie
-(`gamesettings.py dongle <Game>` en `dongle.py`). Exitcodes van `launch-direct.py`: 0 klaar, 1 fout, 2 gebruik, 3 activering, 4 niet ondersteund, 5 patch of
-instelling geweigerd, **6 dongle ontbreekt of runtime niet actief**, anders de exitcode van de lader.
-
-**Permissies.** `packaging/udev/72-ravengun-dongle.rules` geeft `TAG+="uaccess"` op USB-apparaten (`SUBSYSTEM=="usb"`, `DEVTYPE==usb_device`) met precies
-die vendor-ID's, zodat een runtime of Wine er als gewone gebruiker bij kan. Installeren gaat via `scripts/install-permissions.sh --apply` (pkexec; ook de
-wizard), dat `scripts/udev-ravengun.sh` aanroept; zonder die stap blijft `install-permissions.sh --check` "Niet geïnstalleerd: 72-ravengun-dongle.rules" melden.
-
-**App.** Properties > Options > groep Dongle: vinkje "Use dongle", keuzelijst "Dongle source" ("USB pass-through (physical dongle)" en "Drop-in from
-patches/<Game> (dongle.json)"), een statusregel en "Refresh". De keuzelijst, de status en Refresh zijn uitgeschakeld zolang het vinkje uit staat. De
-wijziging gaat direct naar de gebruikerslaag en alleen als ze van de standaard afwijkt (uit, usb-passthrough). De statusregel hoort bij
-`usb-passthrough`; de drop-in zelf hoort de launcher te controleren (`docs/dropins.md`).
-
-**Wat het project nu wel doet.** De afspraak die hier eerder stond — "geen dongle-emulatie of -nabootsing in welke vorm dan ook", met "geen
-dongle-images of `.dgl`/`dongle.json`-lezers" — is achterhaald. RavenGun heeft nu een **drop-in-laag**: `patches/<Game>/dongle.json` noemt de soort en de
-gegevens van de dongle, `patches/<Game>/dropin/` bevat bestanden die de launcher in de view van de game zet (`dropin.ini` beschrijft waar ze heen gaan
-en welke omgevingsvariabele erbij hoort), en de eigen emulator `hasp/` beantwoordt de tien `hasp_*`-aanroepen. Zie `docs/dropins.md` voor het contract
-en `docs/decisions.md` voor de geschiedenis (de regel "Dongle-optie per game: alleen USB pass-through" beschrijft de eerste versie, vóór de
-drop-in-laag). Wat blijft staan: geen software van een fabrikant meeleveren of downloaden, geen licentiecodes of serienummers, en geen wijzigingen aan de
-games of aan de beveiliging zelf.
 
 ## Zoals Dolphin
 
