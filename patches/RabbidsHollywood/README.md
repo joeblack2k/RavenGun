@@ -49,8 +49,17 @@ Deze game is 64-bits en importeert `matrix64.dll`; `matrix32.dll` staat bewust *
 werkt en heeft geen bestand in de view nodig; `RAVENGUN_MATRIX_DLL=1` (uit `dropin.ini`) zet hem uit
 zodat de DLL het alleen doet.
 
-De dongle-patch staat **niet** in `patches.ini`: dat formaat heeft er bewust geen categorie voor (zie
-de toelichting bij `PATCH_CATEGORIES` in `scripts/gamesettings.py` en docs/per-game-patches.md).
+De dongle-patch staat **niet** in `patches.ini`, maar om een andere reden dan hier eerder stond. Het
+formaat heeft de categorieën `dongle`, `region`, `keychip`, `integrity` en `activation` wél
+(`PATCH_CATEGORIES` in `scripts/gamesettings.py`, en `docs/per-game-patches.md`, "Categorie en
+beleid"). Ze staan hier niet omdat deze dongle **geen bytepatch** is: `matrix64.dll` moet naast de
+game staan en de game moet hem laden. Dat is een drop-in, en die is hierboven beschreven. Een
+bytepatch zou hier niets kunnen overslaan wat de DLL niet al doet.
+
+Let op: `docs/per-game-patches.md` spreekt zichzelf hierover tegen — de ene alinea noemt die vijf
+categorieën "gewone patches zoals elke andere", de andere ("Grenzen") verbiedt patches op dongle-,
+keychip-, regio-, integriteits- en abonnementscontroles. Die vraag ligt bij de eigenaar; zie
+`patches/PATCHES-PER-GAME.md`, "Een beleidstegenstelling die het werk in de weg zit".
 
 ### De meting
 
