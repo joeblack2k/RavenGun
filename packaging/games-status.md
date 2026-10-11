@@ -1,5 +1,8 @@
 # Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
+> Stand 2026-10-11 (per-game instellingen): de verwijzingen hieronder naar `io-routes.json`, `games-notes.json` en `UserProfiles/<P>.env` beschrijven de toestand van de ronde zelf. Sindsdien staat alles per game in `patches/<Game>/game.ini` en `patches.ini` (`docs/per-game-patches.md`); `RG_LOADER_FPFIX` is de patch "OpenParrotLoader zonder CONTEXT_FLOATING_POINT" geworden.
+
+
 # Achtste ronde (2026-10-10, avond): A10 direct starten zonder TeknoParrotUi, A11 aanpassingen per game
 
 Samenvatting: zes games starten nu standaard direct, zonder TeknoParrotUi (`scripts/play-halo.sh --direct`, of `"launch": "direct"` in `packaging/io-routes.json`; `scripts/launch-direct.py` start de lader van de runtime zelf, zie `docs/architecture.md`, "Directe start"). Bij elke proef gaf `pgrep -x TeknoParrotUi` niets. Beeld en invoer zijn gelijk aan het oude pad via TeknoParrotUi, met de invoer altijd van de engine (tp-shm of hid-board). Gemeten met schermafdrukken op de tv, `ravengunctl key 5|1|0`, `test-pattern grid --dwell MS` en `output-button trigger`. Let op bij het meten: de verbonden Move zet bij elk rapport zijn eigen knoppen terug, dus een `down` van ravengunctl duurt soms maar enkele milliseconden (herhaal de opdracht of gebruik `tap`); dat geldt voor beide paden.

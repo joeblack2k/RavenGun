@@ -511,7 +511,9 @@ static void test_games_commands(const std::string& dir) {
     gc.play_script = dir + "/play.sh";
     gc.log_path = dir + "/logs/play-last.log";
     gc.proc_root = dir + "/proc";  // lege nep-procesmap: er draait niets
-    gc.notes_json = R"({"schema":1,"games":{"TombRaider":"Nog niet getest."}})";
+    fs::create_directories(dir + "/patches/TombRaider");
+    { std::ofstream f(dir + "/patches/TombRaider/game.ini"); f << "[Status]\nNote = Nog niet getest.\n"; }
+    gc.dirs.shipped = dir + "/patches";
     std::vector<std::vector<std::string>> spawned;
     std::mutex sm;
     games::GameService svc(gc, [&](const std::vector<std::string>& argv, std::string&) {

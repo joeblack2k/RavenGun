@@ -15,9 +15,7 @@ option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
   index.html app.css app-core.js app.js calibrate.html calibrate.css calibrate-core.js calibrate.js
-  "games-notes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/games-notes.json"
   "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
-  "io-routes.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/io-routes.json"
   "hid-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/hid-boards.json"
   "jvs-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/jvs-boards.json"
   "tp-shm-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/tp-shm-profiles.json")
@@ -47,6 +45,7 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/games/aagames.cpp
+  src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
   src/ravengun/iobridge/hid_board.cpp
@@ -245,9 +244,11 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_pairing_tests COMMAND ravengun_pairing_tests)
   add_test(NAME ravengun_bt_helper COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/bt_helper_test.sh")
   set_tests_properties(ravengun_bt_helper PROPERTIES SKIP_RETURN_CODE 77)
-  # Invoerroute voor de startscripts: packaging/io-routes.json plus de keuze van de gebruiker (scripts/io-route.py).
-  add_test(NAME ravengun_io_route COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/io_route_test.sh")
-  set_tests_properties(ravengun_io_route PROPERTIES SKIP_RETURN_CODE 77)
+  # Instellingen en patches per game (scripts/gamesettings.py, migratie, tp-add-game): lagen, lege waarden, patches aan/uit.
+  find_package(Python3 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME ravengun_gamesettings_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gamesettings.py")
+  endif()
   # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
   add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")
   set_tests_properties(ravengun_launch_direct PROPERTIES SKIP_RETURN_CODE 77)
@@ -259,11 +260,14 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
-  # docs/compatibility.md moet bij packaging/games-notes.json passen (scripts/gen-compatibility.py).
-  find_package(Python3 QUIET COMPONENTS Interpreter)
+  # docs/compatibility.md moet bij patches/<Game>/game.ini passen (scripts/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-compatibility.py" --check)
   endif()
+  add_executable(ravengun_gamesettings_tests tests/test_gamesettings.cpp)
+  target_link_libraries(ravengun_gamesettings_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_gamesettings_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+  add_test(NAME ravengun_gamesettings_tests COMMAND ravengun_gamesettings_tests)
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
   add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
@@ -333,6 +337,8 @@ endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
   PATTERN "build-app.sh" EXCLUDE PATTERN "make-release.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
+# Instellingen en patches per game (docs/per-game-patches.md); de gebruikerslaag staat in ~/.local/share/ravengun/patches.
+install(DIRECTORY patches/ DESTINATION ${RAVENGUN_DATADIR}/patches)
 install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURCE_PERMISSIONS
   PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE
   PATTERN "desktop/game-*.desktop" EXCLUDE PATTERN "desktop/halo-ravengun.desktop" EXCLUDE

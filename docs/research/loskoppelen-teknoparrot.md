@@ -2,7 +2,7 @@
 
 Feitelijk overzicht voor het team. Per onderdeel: wat TeknoParrot nu levert, wat RavenGun daarvan al zelf doet, en wat
 nodig is om het te vervangen. Bronnen: de RavenGun-code (`scripts/launch-direct.py`, `scripts/play-halo.sh`,
-`scripts/play-unity.sh`, `packaging/io-routes.json`), de antwoorden van Johan (`findings/antwoorden*.md`) en
+`scripts/play-unity.sh`, `patches/<Game>/game.ini`), de antwoorden van Johan (`findings/antwoorden*.md`) en
 `docs/research/zonder-teknoparrot.md`. Vragen 17 t/m 22 aan het TeknoParrot-team zijn beantwoord in `findings/antwoorden_ronde4.md`: de soorten aanpassingen van de kern (11 categorieën, geen lijst per game; oogsten door te starten), Terminator, Transformers: Shadows Rising en Raccoon Rampage hebben alleen invoer en aanpassingen nodig, Go Go Strike is een abonneetitel, de openbare OpenParrot-bron (GPL-3.0) is gelijk aan de lader in de runtime, `pipehelper.exe` zit niet in de bron, het draadprotocol van de Raw Thrills-gunborden is niet gedocumenteerd (vraagt een USB-opname).
 
 Projectafspraak die hier geldt: dongle-, keychip-, regio-, integriteits- en abonnementsafhandeling bouwt RavenGun niet.
@@ -69,7 +69,7 @@ Uit `findings/09_how_teknoparrot_runs_lightgun_games.md`, `12_aanpassingen_en_ko
 
 ## 4. Per game in onze bibliotheek
 
-Platform en route uit `packaging/io-routes.json` en `packaging/games-status.md`; afhankelijkheid van bescherming uit
+Platform en route uit `patches/<Game>/game.ini` en `packaging/games-status.md`; afhankelijkheid van bescherming uit
 `antwoorden_ronde2.md` vraag 10 en `findings/11_hardware_patches_dongles.md` (alleen of het veld er is, niet hoe).
 
 | Game | Nu | TP-onderdelen nu | Beschermingsveld in profiel |

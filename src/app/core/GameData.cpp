@@ -13,17 +13,18 @@
 
 namespace rg {
 
+namespace gs = ravengun::gamesettings;
+
 void GameData::load() {
     // $RAVENGUN_GAME_OPTIONS: ander game-options.json (ontwikkelaars en schermafdrukken).
     const QString opts = qEnvironmentVariable("RAVENGUN_GAME_OPTIONS");
-    setRouteSources(AppPaths::configDir() + QStringLiteral("/io-routes.json"), AppPaths::packagingFile(QStringLiteral("hid-boards.json")),
-                    AppPaths::packagingFile(QStringLiteral("jvs-boards.json")), AppPaths::packagingFile(QStringLiteral("aagames-games.json")));
-    loadFrom(AppPaths::packagingFile(QStringLiteral("io-routes.json")), AppPaths::packagingFile(QStringLiteral("games-notes.json")),
+    setRouteSources(AppPaths::packagingFile(QStringLiteral("hid-boards.json")), AppPaths::packagingFile(QStringLiteral("jvs-boards.json")),
+                    AppPaths::packagingFile(QStringLiteral("aagames-games.json")));
+    loadFrom(gs::default_dirs(AppPaths::dataRoot().toStdString()),
              opts.isEmpty() ? AppPaths::packagingFile(QStringLiteral("game-options.json")) : opts);
 }
 
-void GameData::setRouteSources(const QString& userRoutesFile, const QString& hidBoards, const QString& jvsBoards, const QString& aagames) {
-    userRoutes_ = userRoutesFile;
+void GameData::setRouteSources(const QString& hidBoards, const QString& jvsBoards, const QString& aagames) {
     hidBoards_.clear();
     jvsBoards_.clear();
     unityGames_.clear();
@@ -45,16 +46,28 @@ const QStringList& allRoutes() {
     return r;
 }
 
-// Velden van één game uit JSON over `i` heen (alleen wat er staat).
-void readRouteFields(const QJsonObject& r, RouteInfo& i) {
-    if (r.contains(QStringLiteral("route"))) i.route = r.value(QStringLiteral("route")).toString();
-    if (r.contains(QStringLiteral("layout"))) i.layout = r.value(QStringLiteral("layout")).toString();
-    if (r.contains(QStringLiteral("board"))) i.board = r.value(QStringLiteral("board")).toString();
-    if (r.contains(QStringLiteral("boards"))) {
-        i.boards.clear();
-        for (const auto& b : r.value(QStringLiteral("boards")).toArray()) i.boards << b.toString();
-    }
-    if (r.contains(QStringLiteral("note"))) i.note = r.value(QStringLiteral("note")).toString();
+QStringList splitList(const std::string& s) {
+    QStringList out;
+    for (const QString& p : QString::fromStdString(s).split(QLatin1Char(','), Qt::SkipEmptyParts)) out << p.trimmed();
+    return out;
+}
+
+bool hasInput(const gs::Game& g) {
+    for (const char* k : {"Route", "Layout", "Board", "Boards"})
+        if (g.settings.has("Input", k)) return true;
+    return false;
+}
+
+RouteInfo routeFrom(const gs::Game& g) {
+    RouteInfo i;
+    const auto get = [&g](const char* k) { return QString::fromStdString(g.get("Input", k)); };
+    i.route = get("Route").isEmpty() ? QStringLiteral("evdev") : get("Route");
+    i.layout = get("Layout");
+    i.board = get("Board");
+    i.boards = splitList(g.get("Input", "Boards"));
+    i.note = get("Note");
+    i.explicitRoute = hasInput(g);
+    return i;
 }
 
 // Dezelfde regels als de engine (src/ravengun/iobridge/routes.cpp, validate_route).
@@ -68,36 +81,19 @@ QString validateRoute(const QString& name, const RouteInfo& i) {
 
 }  // namespace
 
-void GameData::loadFrom(const QString& ioRoutes, const QString& notes, const QString& gameOptions) {
+void GameData::loadFrom(const gs::Dirs& dirs, const QString& gameOptions) {
+    dirs_ = dirs;
     baseRoutes_.clear();
+    routes_.clear();
     notes_.clear();
     notesEn_.clear();
     state_.clear();
+    games_.clear();
+    shippedGames_.clear();
+    routeErrors_.clear();
+    userRoutesError_.clear();
     error_.clear();
-    baseDefault_ = QStringLiteral("evdev");
-    if (!ioRoutes.isEmpty()) {
-        const QJsonObject o = readJson(ioRoutes).object();
-        baseDefault_ = o.value(QStringLiteral("default")).toString(QStringLiteral("evdev"));
-        const QJsonObject g = o.value(QStringLiteral("games")).toObject();
-        for (auto it = g.begin(); it != g.end(); ++it) {
-            RouteInfo i;
-            i.route = baseDefault_;
-            readRouteFields(it->toObject(), i);
-            i.explicitRoute = true;
-            i.baseRoute = i.route;
-            baseRoutes_.insert(it.key(), i);
-        }
-    }
-    if (!notes.isEmpty()) {
-        const QJsonObject root = readJson(notes).object();
-        const QJsonObject g = root.value(QStringLiteral("games")).toObject();
-        for (auto it = g.begin(); it != g.end(); ++it) notes_.insert(it.key(), it->toString());
-        const QJsonObject en = root.value(QStringLiteral("games_en")).toObject();
-        for (auto it = en.begin(); it != en.end(); ++it) notesEn_.insert(it.key(), it->toString());
-        const QJsonObject st = root.value(QStringLiteral("status")).toObject();
-        for (auto it = st.begin(); it != st.end(); ++it) state_.insert(it.key(), it->toString());
-    }
-    loadUserRoutes();
+    for (const std::string& name : gs::list_games(dirs_)) loadGame(QString::fromStdString(name));
     optionsPath_ = gameOptions;
     options_ = GameOptionsDb();
     if (!gameOptions.isEmpty()) {
@@ -106,63 +102,42 @@ void GameData::loadFrom(const QString& ioRoutes, const QString& notes, const QSt
     }
 }
 
-void GameData::loadUserRoutes() {
-    routes_ = baseRoutes_;
-    defaultRoute_ = baseDefault_;
-    userRoutesError_.clear();
-    if (userRoutes_.isEmpty() || !QFileInfo::exists(userRoutes_)) return;
-    QFile f(userRoutes_);
-    if (!f.open(QIODevice::ReadOnly)) {
-        userRoutesError_ = f.errorString();
-        return;
+void GameData::loadGame(const QString& profile) {
+    const std::string name = profile.toStdString();
+    const gs::Game merged = gs::load_game(dirs_, name);
+    const gs::Game shipped = dirs_.user.empty() ? merged : gs::load_game(gs::Dirs{dirs_.shipped, {}}, name);
+    games_.insert(profile, merged);
+    shippedGames_.insert(profile, shipped);
+    routeErrors_.remove(profile);
+    const auto str = [](const std::string& s) { return QString::fromStdString(s); };
+    // Status en notities: de gebruikerslaag mag ze overschrijven.
+    notes_.insert(profile, str(merged.get("Status", "Note")));
+    notesEn_.insert(profile, str(merged.get("Status", "NoteEN")));
+    state_.insert(profile, str(merged.get("Status", "Status")));
+    // Route: de aanbevolen is die van de meegeleverde laag; klopt de samenvoeging niet, dan telt de gebruikerslaag niet mee.
+    RouteInfo base = routeFrom(shipped);
+    base.baseRoute = base.route;
+    if (hasInput(shipped)) baseRoutes_.insert(profile, base);
+    else baseRoutes_.remove(profile);
+    RouteInfo cur = routeFrom(merged);
+    cur.baseRoute = base.route;
+    const QString err = hasInput(merged) ? validateRoute(profile, cur) : QString();
+    if (!err.isEmpty()) {
+        routeErrors_.insert(profile, QStringLiteral("%1; your settings for this game are ignored").arg(err));
+        cur = base;
     }
-    const QByteArray text = f.readAll();
-    if (text.trimmed().isEmpty()) return;
-    QJsonParseError pe{};
-    const QJsonDocument doc = QJsonDocument::fromJson(text, &pe);
-    if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-        userRoutesError_ = QStringLiteral("%1 is not valid JSON and is ignored").arg(userRoutes_);
-        return;
-    }
-    // Alles of niets, net als de engine.
-    QHash<QString, RouteInfo> merged = baseRoutes_;
-    QString def = baseDefault_;
-    const QJsonObject o = doc.object();
-    if (o.contains(QStringLiteral("default"))) {
-        def = o.value(QStringLiteral("default")).toString();
-        if (!allRoutes().contains(def)) {
-            userRoutesError_ = QStringLiteral("%1: invalid default route; the file is ignored").arg(userRoutes_);
-            return;
-        }
-    }
-    const QJsonObject g = o.value(QStringLiteral("games")).toObject();
-    for (auto it = g.begin(); it != g.end(); ++it) {
-        RouteInfo i = merged.value(it.key());
-        if (!merged.contains(it.key())) {
-            i.route = def;
-            i.baseRoute = baseDefault_;
-        }
-        const QJsonObject fields = it->toObject();
-        readRouteFields(fields, i);
-        const QString err = validateRoute(it.key(), i);
-        if (!err.isEmpty()) {
-            userRoutesError_ = QStringLiteral("%1: %2; the file is ignored").arg(userRoutes_, err);
-            return;
-        }
-        i.explicitRoute = true;
-        i.userChoice = fields.contains(QStringLiteral("route")) && i.route != i.baseRoute;
-        merged.insert(it.key(), i);
-    }
-    routes_ = merged;
-    defaultRoute_ = def;
+    cur.userChoice = err.isEmpty() && gs::read_layer(dirs_.user, name).has("Input", "Route") && cur.route != base.route;
+    if (hasInput(merged) || hasInput(shipped)) routes_.insert(profile, cur);
+    else routes_.remove(profile);
+    userRoutesError_ = routeErrors_.isEmpty() ? QString() : routeErrors_.begin().value();
 }
 
 RouteInfo GameData::route(const QString& profile) const {
     auto it = routes_.find(profile);
     if (it != routes_.end()) return *it;
     RouteInfo i;
-    i.route = defaultRoute_;
-    i.baseRoute = baseDefault_;
+    i.route = QStringLiteral("evdev");
+    i.baseRoute = i.route;
     return i;
 }
 
@@ -170,7 +145,7 @@ QStringList GameData::availableRoutes(const QString& profile) const {
     // Unity-games starten altijd via hun plugin (play-halo.sh gaat naar play-unity.sh): geen andere keuze.
     if (unityGames_.contains(profile)) return QStringList{QStringLiteral("unity-tcp")};
     const RouteInfo base = baseRoutes_.value(profile);
-    const QString recommended = baseRoutes_.contains(profile) ? base.route : baseDefault_;
+    const QString recommended = baseRoutes_.contains(profile) ? base.route : QStringLiteral("evdev");
     QStringList out{recommended};
     auto add = [&out](const QString& r) {
         if (!out.contains(r)) out << r;
@@ -187,31 +162,24 @@ bool GameData::setUserRoute(const QString& profile, const QString& route, QStrin
         if (err) *err = QStringLiteral("This game has no profile yet.");
         return false;
     }
-    if (userRoutes_.isEmpty()) {
-        if (err) *err = QStringLiteral("No configuration folder.");
+    if (dirs_.user.empty()) {
+        if (err) *err = QStringLiteral("No user folder for game settings.");
         return false;
     }
     if (!route.isEmpty() && !availableRoutes(profile).contains(route)) {
         if (err) *err = QStringLiteral("The route \"%1\" is not available for this game.").arg(route);
         return false;
     }
-    // Keuzes van andere games blijven staan (ook velden die de app niet kent).
-    QJsonObject root = QFileInfo::exists(userRoutes_) ? readJson(userRoutes_).object() : QJsonObject();
-    if (!root.contains(QStringLiteral("schema"))) root.insert(QStringLiteral("schema"), 1);
-    root.insert(QStringLiteral("comment"),
-                QStringLiteral("Invoerroute per game, gekozen in de RavenGun-app (Properties > General). Gaat voor packaging/io-routes.json; "
-                               "gelezen door de engine (bij elke start) en scripts/io-route.py (play-halo.sh)."));
-    QJsonObject games = root.value(QStringLiteral("games")).toObject();
-    const QString recommended = baseRoutes_.contains(profile) ? baseRoutes_.value(profile).route : baseDefault_;
-    QJsonObject g = games.value(profile).toObject();
-    if (route.isEmpty() || route == recommended) g.remove(QStringLiteral("route"));
-    else g.insert(QStringLiteral("route"), route);
-    if (g.isEmpty()) games.remove(profile);
-    else games.insert(profile, g);
-    root.insert(QStringLiteral("games"), games);
-    QDir().mkpath(QFileInfo(userRoutes_).path());
-    if (!writeJsonAtomic(userRoutes_, root, err)) return false;
-    loadUserRoutes();
+    const QString recommended = baseRoutes_.contains(profile) ? baseRoutes_.value(profile).route : QStringLiteral("evdev");
+    std::string e;
+    const bool ok = (route.isEmpty() || route == recommended)
+                        ? gs::erase_user_value(dirs_, profile.toStdString(), "Input", "Route", &e)
+                        : gs::set_user_value(dirs_, profile.toStdString(), "Input", "Route", route.toStdString(), &e);
+    if (!ok) {
+        if (err) *err = QString::fromStdString(e);
+        return false;
+    }
+    loadGame(profile);
     return true;
 }
 
@@ -224,6 +192,87 @@ QString GameData::note(const QString& profile) const {
 QString GameData::playState(const QString& profile) const {
     const QString s = state_.value(profile);
     return s.isEmpty() ? QStringLiteral("untested") : s;
+}
+
+QString GameData::shippedGameDir(const QString& profile) const {
+    return dirs_.shipped.empty() ? QString() : QString::fromStdString(gs::game_dir(dirs_.shipped, profile.toStdString()));
+}
+
+QString GameData::userGameDir(const QString& profile) const {
+    return dirs_.user.empty() ? QString() : QString::fromStdString(gs::game_dir(dirs_.user, profile.toStdString()));
+}
+
+QList<PatchInfo> GameData::patches(const QString& profile) const {
+    QList<PatchInfo> out;
+    const std::string name = profile.toStdString();
+    const gs::Game merged = games_.contains(profile) ? games_.value(profile) : gs::load_game(dirs_, name);
+    const gs::Game shipped = shippedGames_.contains(profile) ? shippedGames_.value(profile) : gs::load_game(gs::Dirs{dirs_.shipped, {}}, name);
+    const gs::Ini userPatches = gs::read_layer(dirs_.user, name, "patches.ini");
+    for (const gs::Patch& p : merged.patches) {
+        PatchInfo i;
+        i.name = QString::fromStdString(p.name);
+        i.kind = QString::fromStdString(p.kind());
+        i.reason = QString::fromStdString(p.reason());
+        i.target = QString::fromStdString(p.get("Target"));
+        if (i.target.isEmpty()) i.target = QString::fromStdString(p.get("Module") + (p.get("Offset").empty() ? "" : "+" + p.get("Offset")));
+        i.category = QString::fromStdString(p.category());
+        i.version = QString::fromStdString(p.version());
+        i.source = QString::fromStdString(p.get("Source"));
+        i.appliedByCore = p.applied_by() == "core";
+        i.enabled = p.enabled();
+        const gs::Patch* sp = shipped.patch(p.name);
+        i.shippedEnabled = sp && sp->enabled();
+        i.userDefined = sp == nullptr;
+        const std::string section = "Patch: " + p.name;
+        i.userSet = userPatches.has(section, "Enabled") && !userPatches.get(section, "Enabled").empty();
+        for (const auto& kv : p.fields) i.fields << qMakePair(QString::fromStdString(kv.first), QString::fromStdString(kv.second));
+        out << i;
+    }
+    return out;
+}
+
+QStringList GameData::patchErrors(const QString& profile) const {
+    QStringList out;
+    const gs::Game g = games_.contains(profile) ? games_.value(profile) : gs::load_game(dirs_, profile.toStdString());
+    for (const auto& e : g.patch_errors) out << QString::fromStdString(e.message);
+    return out;
+}
+
+bool GameData::setPatchEnabled(const QString& profile, const QString& patch, bool enabled, QString* err) {
+    if (dirs_.user.empty()) {
+        if (err) *err = QStringLiteral("No user folder for game settings.");
+        return false;
+    }
+    const std::string name = profile.toStdString();
+    const gs::Game shipped = shippedGames_.contains(profile) ? shippedGames_.value(profile) : gs::load_game(gs::Dirs{dirs_.shipped, {}}, name);
+    const gs::Patch* sp = shipped.patch(patch.toStdString());
+    std::string e;
+    // Gelijk aan de meegeleverde stand: de keuze van de gebruiker weghalen (de meegeleverde stand blijft dan gelden).
+    const bool ok = (sp && sp->enabled() == enabled) ? gs::erase_user_patch_enabled(dirs_, name, patch.toStdString(), &e)
+                                                     : gs::set_user_patch_enabled(dirs_, name, patch.toStdString(), enabled, &e);
+    if (!ok) {
+        if (err) *err = QString::fromStdString(e);
+        return false;
+    }
+    loadGame(profile);
+    return true;
+}
+
+QList<SettingEntry> GameData::settings(const QString& profile) const {
+    QList<SettingEntry> out;
+    const std::string name = profile.toStdString();
+    const gs::Game merged = games_.contains(profile) ? games_.value(profile) : gs::load_game(dirs_, name);
+    const gs::Ini shippedIni = gs::read_layer(dirs_.shipped, name), userIni = gs::read_layer(dirs_.user, name);
+    for (const gs::Section& s : merged.settings.sections)
+        for (const auto& kv : s.kv) {
+            SettingEntry e;
+            e.section = QString::fromStdString(s.name);
+            e.key = QString::fromStdString(kv.first);
+            e.value = QString::fromStdString(kv.second);
+            e.layer = userIni.has(s.name, kv.first) ? QStringLiteral("user") : shippedIni.has(s.name, kv.first) ? QStringLiteral("shipped") : QStringLiteral("default");
+            out << e;
+        }
+    return out;
 }
 
 QString GameData::routeLabel(const QString& route) {

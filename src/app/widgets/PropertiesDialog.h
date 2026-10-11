@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Eigenschappen van een game, opgebouwd als Dolphin's PropertiesDialog (Source/Core/DolphinQt/Config/PropertiesDialog.cpp,
 // GPL-2.0-or-later, commit e6f3ae17627e4344da95b13424af5baf4c892b08): een StackedSettingsWindow met panelen
-// General, Options, Display, Memory Card en Info.
+// General, Options, Display, Patches, Memory Card en Info.
 #pragma once
 #include <QList>
 #include <QWidget>
@@ -53,14 +53,21 @@ public:
     int OptionRowCount() const { return options_shown_; }
     int OptionsElsewhere() const { return options_elsewhere_; }
     QComboBox* RouteCombo() const { return route_combo_; }
+    // Voor tests: het paneel Patches (lijst met vinkjes, effectieve instellingen en de knoppen "Open ... folder").
+    QTreeWidget* PatchTree() const { return patch_tree_; }
+    QTreeWidget* SettingsTree() const { return settings_tree_; }
+    QPushButton* OpenUserFolderButton() const { return open_user_; }
+    QPushButton* OpenShippedFolderButton() const { return open_shipped_; }
 
 private:
     QWidget* MakeGeneralPane();
     QWidget* MakeOptionsPane();
     QWidget* MakeDisplayPane();
+    QWidget* MakePatchesPane();
     QWidget* MakeMemoryCardPane();
     QWidget* MakeInfoPane();
     void RefreshMemoryCard();
+    void RefreshPatches();
     void SaveGeneral();
 
     rg::AppCore* core_;
@@ -73,6 +80,14 @@ private:
     QPlainTextEdit* note_edit_ = nullptr;
     QComboBox* route_combo_ = nullptr;
     int options_shown_ = 0, options_elsewhere_ = 0;
+    // Patches
+    QTreeWidget* patch_tree_ = nullptr;
+    QTreeWidget* settings_tree_ = nullptr;
+    QPlainTextEdit* patch_desc_ = nullptr;
+    QLabel* patch_status_ = nullptr;
+    QPushButton* open_user_ = nullptr;
+    QPushButton* open_shipped_ = nullptr;
+    bool refreshing_patches_ = false;
     // Memory card
     QTreeWidget* mc_tree_ = nullptr;
     QPushButton* mc_delete_ = nullptr;

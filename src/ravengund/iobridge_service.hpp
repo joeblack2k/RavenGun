@@ -2,7 +2,7 @@
 // IO-brug in de daemon: een toestandsmodel (ravengun/iobridge/io_state.hpp) dat uit de bestaande pijplijn komt (aim na
 // transformatie, voorspelling en uitvoerklok, knoppen en toetsen van de virtuele apparaten), en dialecten die het naar
 // het formaat van een game vertalen: tp-shm (gedeeld geheugen van de TeknoParrot-kern) en unity-tcp (klant van de plugin
-// in Unity-games, via AagamesService). Per game staat de route in packaging/io-routes.json. Zie docs/architecture.md,
+// in Unity-games, via AagamesService). Per game staat de route in [Input] van patches/<Game>/game.ini. Zie docs/architecture.md,
 // "IO-brug", en docs/decisions.md, "IO-brug: tp-shm".
 //
 // Tik: een eigen thread van 250 Hz (zelfde klok als de uitvoer) leest OutputService::io_snapshot en schrijft de
@@ -31,10 +31,9 @@ namespace ravengund {
 class IoBridgeService {
 public:
     struct Config {
-        ravengun::iobridge::IoRoutes routes;   // uit packaging/io-routes.json (de basis)
-        // Keuze van de gebruiker (~/.config/ravengun/io-routes.json, zie routes.hpp): bij elke start en route-vraag opnieuw
-        // gelezen en over `routes` gelegd, dus zonder herstart van de daemon. Leeg = alleen de basis.
-        std::string user_routes_path;
+        // Waar de instellingen per game staan (meegeleverd en gebruikerslaag, zie ravengun/gamesettings): bij elke start en
+        // route-vraag opnieuw gelezen, dus een keuze in de app geldt zonder herstart van de daemon.
+        ravengun::gamesettings::Dirs dirs;
         ravengun::iobridge::TpShmProfiles profiles;
         ravengun::iobridge::HidBoards boards;
         ravengun::iobridge::JvsBoards jvs_boards;
@@ -69,7 +68,7 @@ public:
     bool active() const;
     std::string active_route() const;
     std::string route_for(const std::string& game) const { return effective_routes().route_for(game); }
-    // De basis plus het gebruikersbestand (opnieuw gelezen); een onleesbaar of ongeldig gebruikersbestand wordt gemeld en genegeerd.
+    // De routes van alle games uit hun instellingen (opnieuw gelezen); een ongeldige gebruikerslaag wordt gemeld en genegeerd.
     ravengun::iobridge::IoRoutes effective_routes() const;
     std::string status_json() const;
     // Na een herstart van de daemon: pakt een eerdere tp-shm-route weer op als de game nog draait.
@@ -95,7 +94,7 @@ private:
     SharedState& sh_;
     Config cfg_;
     mutable std::mutex routes_m_;
-    mutable std::string routes_err_;                    // laatste fout in het gebruikersbestand (één keer gelogd)
+    mutable std::string routes_err_;                    // laatste fout in de instellingen (één keer gelogd)
     mutable std::mutex m_;
     std::condition_variable cv_;
     std::unique_ptr<ravengun::iobridge::IoDialect> dialect_;

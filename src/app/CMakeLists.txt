@@ -26,14 +26,16 @@ add_library(ravengun_app_core STATIC
   core/SteamShortcuts.cpp
   core/SystemControl.cpp
   core/TextConfig.cpp
-  core/TpProfile.cpp)
-target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+  core/TpProfile.cpp
+  # Instellingen en patches per game: dezelfde lezer als de engine (alleen de standaardbibliotheek).
+  "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamesettings.cpp")
+target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(ravengun_app_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
 
 # packaging/*.json als terugval in de binary (de bestanden in de repo gaan voor, zie AppPaths::packagingFile).
 set(_rg_qrc "${CMAKE_CURRENT_BINARY_DIR}/packaging.qrc")
 set(_rg_qrc_body "<RCC><qresource prefix=\"/packaging\">\n")
-foreach(_f io-routes.json games-notes.json aagames-games.json game-options.json hid-boards.json jvs-boards.json)
+foreach(_f aagames-games.json game-options.json hid-boards.json jvs-boards.json)
   if(EXISTS "${PROJECT_SOURCE_DIR}/packaging/${_f}")
     string(APPEND _rg_qrc_body "  <file alias=\"${_f}\">${PROJECT_SOURCE_DIR}/packaging/${_f}</file>\n")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/packaging/${_f}")

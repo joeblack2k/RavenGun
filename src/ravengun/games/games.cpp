@@ -143,15 +143,13 @@ bool valid_icon_file(std::string_view s) {
     return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp";
 }
 
-std::vector<std::pair<std::string, std::string>> parse_notes(const std::string& text) {
+std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::gamesettings::Dirs& dirs) {
     std::vector<std::pair<std::string, std::string>> out;
-    if (text.empty()) return out;
-    auto pr = json::parse(text);
-    if (!pr.ok || !pr.value.is_object()) return out;
-    const json::Value* g = pr.value.find("games");
-    if (!g || !g->is_object()) return out;
-    for (const auto& kv : g->obj)
-        if (valid_profile_name(kv.first) && kv.second.is_string() && kv.second.str.size() <= 300) out.emplace_back(kv.first, kv.second.str);
+    for (const std::string& name : ravengun::gamesettings::list_games(dirs)) {
+        if (!valid_profile_name(name)) continue;
+        const std::string note = ravengun::gamesettings::load_game(dirs, name).get("Status", "Note");
+        if (!note.empty() && note.size() <= 300) out.emplace_back(name, note);
+    }
     return out;
 }
 
@@ -160,7 +158,7 @@ std::vector<Game> list_games(const Config& c) {
     if (c.tp_dir.empty()) return out;
     std::error_code ec;
     fs::path profiles = fs::path(c.tp_dir) / "UserProfiles";
-    auto notes = parse_notes(c.notes_json);
+    auto notes = load_notes(c.dirs);
     for (fs::directory_iterator it(profiles, ec), end; !ec && it != end; it.increment(ec)) {
         const fs::path& p = it->path();
         if (p.extension() != ".xml") continue;

@@ -77,6 +77,7 @@ private Q_SLOTS:
     void extraIniFormats();
     void routeOverride();
     void routeOverrideInvalid();
+    void patchesAndSettings();
     void notesEnglish();
     // A7: fullscreen-logica
     void bigPictureLayoutAndHit();
@@ -563,7 +564,8 @@ void AppCoreTest::profileSyncFromLibrary() {
     GameLibrary lib(libFile);
     lib.load();
     GameData data;
-    data.loadFrom({}, {}, dataFile(QStringLiteral("game-options.json")));
+    const QString userSettings = tmp_.filePath(QStringLiteral("sync-user-settings"));
+    data.loadFrom(ravengun::gamesettings::Dirs{{}, userSettings.toStdString()}, dataFile(QStringLiteral("game-options.json")));
     QStringList errors;
     QVERIFY2(ProfileSync::apply(g, lib, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
     TpProfile p;
@@ -572,6 +574,18 @@ void AppCoreTest::profileSyncFromLibrary() {
     QCOMPARE(p.fieldValue(QStringLiteral("Windowed")), QStringLiteral("1"));
     QCOMPARE(p.fieldValue(QStringLiteral("Text Language"), QStringLiteral("Arguments")), QStringLiteral("Spanish"));
     QVERIFY(readAll(tp + QStringLiteral("/UserProfiles/TC5.env")).contains(QStringLiteral("TP_GAMESCOPE=1")));
+    // Ook in de gebruikerslaag van game.ini, zodat de keuze voor het meegeleverde game.ini gaat; uit = sleutel terugzetten.
+    const QString userIni = readAll(userSettings + QStringLiteral("/TC5/game.ini"));
+    QVERIFY(userIni.contains(QStringLiteral("Gamescope = true")) && userIni.contains(QStringLiteral("GamescopePath = /usr/bin/gamescope")));
+    LibraryData d2 = lib.data();
+    d2.overrides[g.id].options.insert(QStringLiteral("display.gamescope"), QStringLiteral("0"));
+    QVERIFY(d2.save(libFile));
+    GameLibrary lib2(libFile);
+    lib2.load();
+    QVERIFY2(ProfileSync::apply(g, lib2, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
+    QVERIFY(!readAll(tp + QStringLiteral("/UserProfiles/TC5.env")).contains(QStringLiteral("TP_GAMESCOPE")));
+    const QString userIni2 = readAll(userSettings + QStringLiteral("/TC5/game.ini"));
+    QVERIFY(userIni2.contains(QStringLiteral("Gamescope =\n")) && !userIni2.contains(QStringLiteral("Gamescope = true")));
     // Context: de gamemap volgt uit `exe` in game-options.json.
     const GameContext c = data.context(g, tp);
     QCOMPARE(c.rootDir, QStringLiteral("/x"));
@@ -708,12 +722,19 @@ void AppCoreTest::extraIniFormats() {
     QVERIFY(reason.contains(QStringLiteral("test menu")) || reason.contains(QStringLiteral("rtdt_adjval")));
 }
 
+namespace {
+ravengun::gamesettings::Dirs repoDirs(const QString& user = {}) {
+    return ravengun::gamesettings::Dirs{QStringLiteral(RAVENGUN_SOURCE_DIR "/patches").toStdString(), user.toStdString()};
+}
+}  // namespace
+
 void AppCoreTest::routeOverride() {
-    const QString user = tmp_.filePath(QStringLiteral("routes/io-routes.json"));
+    namespace gs = ravengun::gamesettings;
+    const QString user = tmp_.filePath(QStringLiteral("routes-user"));
     GameData d;
-    d.setRouteSources(user, repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")),
+    d.setRouteSources(repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")),
                       repoFile(QStringLiteral("packaging/aagames-games.json")));
-    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    d.loadFrom(repoDirs(user), {});
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
     // Keuzes per game: de aanbevolen route eerst, alleen routes waarvoor er een indeling of bord is.
@@ -724,21 +745,20 @@ void AppCoreTest::routeOverride() {
     QVERIFY(d.availableRoutes(QStringLiteral("LGS")).contains(QStringLiteral("jvs")));
     QCOMPARE(d.availableRoutes(QStringLiteral("TombRaider")), QStringList{QStringLiteral("unity-tcp")});
     QCOMPARE(d.availableRoutes(QStringLiteral("OnbekendeGame")), QStringList{QStringLiteral("evdev")});
-    // Kiezen: het gebruikersbestand ontstaat; de basis (packaging) verandert niet.
+    // Kiezen: het gebruikers-game.ini ontstaat; de meegeleverde laag (patches/ in de repo) verandert niet.
     QString err;
     QVERIFY2(d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("evdev"), &err), qPrintable(err));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
     QVERIFY(d.route(QStringLiteral("TC5")).userChoice);
-    QCOMPARE(d.route(QStringLiteral("TC5")).layout, QStringLiteral("TimeCrisis5"));  // de rest uit de basis
+    QCOMPARE(d.route(QStringLiteral("TC5")).layout, QStringLiteral("TimeCrisis5"));  // de rest uit de meegeleverde laag
     QCOMPARE(d.route(QStringLiteral("TC5")).baseRoute, QStringLiteral("tp-shm"));
-    QJsonObject o = readJson(user).object();
-    QCOMPARE(o.value(QStringLiteral("games")).toObject().value(QStringLiteral("TC5")).toObject().value(QStringLiteral("route")).toString(),
-             QStringLiteral("evdev"));
+    QCOMPARE(gs::read_layer(user.toStdString(), "TC5").get("Input", "Route"), std::string("evdev"));
+    QCOMPARE(readAll(user + QStringLiteral("/TC5/game.ini")), QStringLiteral("[Input]\nRoute = evdev\n"));
     QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("evdev"), &err));
     // Een tweede GameData (een herstart van de app) leest dezelfde keuzes.
     GameData d2;
-    d2.setRouteSources(user, {}, {}, {});
-    d2.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    d2.setRouteSources({}, {}, {});
+    d2.loadFrom(repoDirs(user), {});
     QCOMPARE(d2.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
     QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("evdev"));
     // Niet beschikbaar: geweigerd. Terug naar de aanbevolen route: de keuze verdwijnt uit het bestand.
@@ -747,55 +767,144 @@ void AppCoreTest::routeOverride() {
     QVERIFY(d.setUserRoute(QStringLiteral("TC5"), QStringLiteral("tp-shm"), &err));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
-    o = readJson(user).object();
-    QVERIFY(!o.value(QStringLiteral("games")).toObject().contains(QStringLiteral("TC5")));
-    QVERIFY(o.value(QStringLiteral("games")).toObject().contains(QStringLiteral("Halo")));
+    QVERIFY(!gs::read_layer(user.toStdString(), "TC5").has("Input", "Route"));
+    QVERIFY(gs::read_layer(user.toStdString(), "Halo").has("Input", "Route"));
     QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QString(), &err));
-    QVERIFY(readJson(user).object().value(QStringLiteral("games")).toObject().isEmpty());
+    QVERIFY(!gs::read_layer(user.toStdString(), "Halo").has("Input", "Route"));
+    // Handwerk in het bestand blijft staan als de app een route kiest.
+    writeFile(user + QStringLiteral("/Halo/game.ini"), "; mijn notitie\n[Env]\nFOO = bar\n");
+    QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("evdev"), &err));
+    const QString kept = readAll(user + QStringLiteral("/Halo/game.ini"));
+    QVERIFY(kept.contains(QStringLiteral("; mijn notitie")) && kept.contains(QStringLiteral("FOO = bar")) && kept.contains(QStringLiteral("Route = evdev")));
+    // Zonder gebruikersmap kan er niets gekozen worden.
+    GameData d3;
+    d3.loadFrom(repoDirs(), {});
+    QVERIFY(!d3.setUserRoute(QStringLiteral("TC5"), QStringLiteral("evdev"), &err));
 }
 
 void AppCoreTest::routeOverrideInvalid() {
-    // Zelfde regels als de engine: een ongeldig gebruikersbestand wordt helemaal genegeerd.
-    const QString user = tmp_.filePath(QStringLiteral("routes-bad/io-routes.json"));
-    writeFile(user, R"({"games":{"TC5":{"route":"evdev"},"Nieuw":{"route":"tp-shm"}}})");
+    // Zelfde regels als de engine: een gebruikerslaag die de route ongeldig maakt, telt voor die game niet mee.
+    const QString user = tmp_.filePath(QStringLiteral("routes-bad"));
+    writeFile(user + QStringLiteral("/TC5/game.ini"), "[Input]\nRoute = onzin\n");
+    writeFile(user + QStringLiteral("/Nieuw/game.ini"), "[Input]\nRoute = tp-shm\n");   // zonder Layout
     GameData d;
-    d.setRouteSources(user, {}, {}, {});
-    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    d.loadFrom(repoDirs(user), {});
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.userRoutesError().isEmpty());
-    writeFile(user, "kapot");
-    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QCOMPARE(d.route(QStringLiteral("Nieuw")).route, QStringLiteral("evdev"));
+    writeFile(user + QStringLiteral("/TC5/game.ini"), "[Input]\nRoute = hid-board\n");   // zonder Board
+    d.loadFrom(repoDirs(user), {});
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.userRoutesError().isEmpty());
-    writeFile(user, R"({"games":{"NieuweGame":{"route":"evdev"}}})");
-    d.loadFrom(repoFile(QStringLiteral("packaging/io-routes.json")), {}, {});
+    QFile::remove(user + QStringLiteral("/TC5/game.ini"));
+    QFile::remove(user + QStringLiteral("/Nieuw/game.ini"));
+    writeFile(user + QStringLiteral("/NieuweGame/game.ini"), "[Input]\nRoute = evdev\n");
+    d.loadFrom(repoDirs(user), {});
     QVERIFY(d.userRoutesError().isEmpty());
     QCOMPARE(d.route(QStringLiteral("NieuweGame")).route, QStringLiteral("evdev"));
 }
 
 void AppCoreTest::notesEnglish() {
+    namespace gs = ravengun::gamesettings;
     GameData d;
-    d.loadFrom({}, repoFile(QStringLiteral("packaging/games-notes.json")), {});
-    // De app toont Engels; de Nederlandse tekst blijft voor de webpagina en de engine ("games").
+    d.loadFrom(repoDirs(), {});
+    // De app toont Engels (NoteEN); de Nederlandse tekst (Note) blijft voor de webpagina en de engine.
     QVERIFY(d.note(QStringLiteral("TC5")).startsWith(QStringLiteral("Playable")));
     QVERIFY(d.note(QStringLiteral("Halo")).startsWith(QStringLiteral("Fully working")));
     QCOMPARE(d.playState(QStringLiteral("TC5")), QStringLiteral("playable"));
     QCOMPARE(d.playState(QStringLiteral("JurassicPark")), QStringLiteral("parked"));
     QCOMPARE(d.playState(QStringLiteral("NoSuchGameProfile")), QStringLiteral("untested"));  // zonder status
-    const QJsonObject root = readJson(repoFile(QStringLiteral("packaging/games-notes.json"))).object();
-    const QJsonObject nl = root.value(QStringLiteral("games")).toObject();
-    const QJsonObject en = root.value(QStringLiteral("games_en")).toObject();
-    QCOMPARE(nl.keys(), en.keys());  // elke notitie in beide talen
-    for (auto it = nl.begin(); it != nl.end(); ++it) QVERIFY(it->isString());  // formaat van de engine (parse_notes)
-    for (const QString& k : root.value(QStringLiteral("status")).toObject().keys()) QVERIFY(nl.contains(k));
+    const gs::Dirs dirs = repoDirs();
+    int withNote = 0;
+    for (const std::string& name : gs::list_games(dirs)) {
+        const gs::Game g = gs::load_game(dirs, name);
+        const std::string nl = g.get("Status", "Note"), en = g.get("Status", "NoteEN"), st = g.get("Status", "Status");
+        QCOMPARE(nl.empty(), en.empty());                                   // elke notitie in beide talen
+        if (!st.empty()) QVERIFY(!nl.empty());                              // een status zonder notitie bestaat niet
+        QVERIFY(st.empty() || st == "playable" || st == "parked" || st == "untested");
+        if (!nl.empty()) ++withNote;
+    }
+    QVERIFY(withNote >= 28);
     // Zonder Engelse notitie: de Engelse status uit game-options.json gaat voor de Nederlandse tekst.
-    writeFile(tmp_.filePath(QStringLiteral("notes-nl.json")), R"({"games":{"TC5":"Nederlands"}})");
+    const QString shipped = tmp_.filePath(QStringLiteral("notes-nl"));
+    writeFile(shipped + QStringLiteral("/TC5/game.ini"), "[Status]\nNote = Nederlands\n");
     GameData d2;
-    d2.loadFrom({}, tmp_.filePath(QStringLiteral("notes-nl.json")), dataFile(QStringLiteral("game-options.json")));
+    d2.loadFrom(gs::Dirs{shipped.toStdString(), {}}, dataFile(QStringLiteral("game-options.json")));
     QVERIFY(d2.note(QStringLiteral("TC5")) != QStringLiteral("Nederlands"));
     GameData d3;
-    d3.loadFrom({}, tmp_.filePath(QStringLiteral("notes-nl.json")), {});
+    d3.loadFrom(gs::Dirs{shipped.toStdString(), {}}, {});
     QCOMPARE(d3.note(QStringLiteral("TC5")), QStringLiteral("Nederlands"));
+    // De gebruikerslaag gaat voor.
+    writeFile(tmp_.filePath(QStringLiteral("notes-user/TC5/game.ini")), "[Status]\nNoteEN = My note\n");
+    GameData d4;
+    d4.loadFrom(gs::Dirs{shipped.toStdString(), tmp_.filePath(QStringLiteral("notes-user")).toStdString()}, {});
+    QCOMPARE(d4.note(QStringLiteral("TC5")), QStringLiteral("My note"));
+}
+
+void AppCoreTest::patchesAndSettings() {
+    namespace gs = ravengun::gamesettings;
+    const QString user = tmp_.filePath(QStringLiteral("patches-user"));
+    GameData d;
+    d.loadFrom(repoDirs(user), {});
+    // De lader-patch voor Type X2: gedeeld gedefinieerd, door de game aangezet.
+    const QString name = QStringLiteral("OpenParrotLoader zonder CONTEXT_FLOATING_POINT");
+    QList<PatchInfo> p = d.patches(QStringLiteral("GaiaAttack4"));
+    QCOMPARE(p.size(), 3);   // de lader-patch en twee geheugenpatches (informatie)
+    QCOMPARE(p[0].name, name);
+    QVERIFY(p[0].enabled && p[0].shippedEnabled && !p[0].userSet && !p[0].userDefined);
+    QCOMPARE(p[0].kind, QStringLiteral("file"));
+    QVERIFY(p[0].reason.contains(QStringLiteral("MXCSR")));
+    QCOMPARE(p[0].category, QStringLiteral("loader"));
+    // De geheugenpatches uit OpenParrot staan er alleen ter informatie bij: uit, door de kern toegepast, met bron en versie.
+    const QList<PatchInfo> hm2 = d.patches(QStringLiteral("HauntedMuseumII"));
+    int info = 0;
+    for (const PatchInfo& i : hm2)
+        if (i.kind == QStringLiteral("memory")) {
+            ++info;
+            QVERIFY(!i.enabled && i.appliedByCore && !i.version.isEmpty() && i.source.contains(QStringLiteral("TypeX2Generic.cpp")));
+        }
+    QCOMPARE(info, 4);
+    QVERIFY(d.patchErrors(QStringLiteral("GaiaAttack4")).isEmpty());
+    QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
+    // Uitzetten: het gebruikers-patches.ini krijgt Enabled = false; de meegeleverde stand blijft zichtbaar.
+    QString err;
+    QVERIFY2(d.setPatchEnabled(QStringLiteral("GaiaAttack4"), name, false, &err), qPrintable(err));
+    p = d.patches(QStringLiteral("GaiaAttack4"));
+    QVERIFY(!p[0].enabled && p[0].shippedEnabled && p[0].userSet);
+    QCOMPARE(readAll(user + QStringLiteral("/GaiaAttack4/patches.ini")), QStringLiteral("[Patch: %1]\nEnabled = false\n").arg(name));
+    QVERIFY(!gs::load_game(repoDirs(user), "GaiaAttack4").patches[0].enabled());   // de lezers (engine, launchers) zien hetzelfde
+    // Weer aanzetten = gelijk aan de meegeleverde stand: de keuze verdwijnt.
+    QVERIFY(d.setPatchEnabled(QStringLiteral("GaiaAttack4"), name, true, &err));
+    p = d.patches(QStringLiteral("GaiaAttack4"));
+    QVERIFY(p[0].enabled && !p[0].userSet);
+    QVERIFY(!gs::read_layer(user.toStdString(), "GaiaAttack4", "patches.ini").has("Patch: " + name.toStdString(), "Enabled"));
+    // Een patch die alleen de gebruiker kent; en de gedeelde definitie van een game die hem niet aanzet staat er ook (uit).
+    writeFile(user + QStringLiteral("/NERF/patches.ini"), "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = crash\nTarget = core\nFind = 00\nReplace = 01\n");
+    d.loadFrom(repoDirs(user), {});
+    p = d.patches(QStringLiteral("NERF"));
+    QCOMPARE(p.size(), 1);
+    QVERIFY(p[0].enabled && p[0].userDefined && p[0].userSet);
+    // Een eigen patch zonder Category wordt afgewezen en als melding getoond.
+    writeFile(user + QStringLiteral("/TC5/patches.ini"), "[Patch: Zonder]\nEnabled = true\nKind = file\n");
+    d.loadFrom(repoDirs(user), {});
+    QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
+    QVERIFY(d.patchErrors(QStringLiteral("TC5")).value(0).contains(QStringLiteral("Category ontbreekt")));
+    QFile::remove(user + QStringLiteral("/TC5/patches.ini"));
+    // Zonder gebruikersmap geen schrijven.
+    GameData ro;
+    ro.loadFrom(repoDirs(), {});
+    QVERIFY(!ro.setPatchEnabled(QStringLiteral("GaiaAttack4"), name, false, &err));
+    // Effectieve instellingen met de laag waar ze vandaan komen.
+    writeFile(user + QStringLiteral("/GaiaAttack4/game.ini"), "[Env]\nFOO = bar\n[Input]\nRoute = evdev\n");
+    d.loadFrom(repoDirs(user), {});
+    QHash<QString, QString> layers;
+    for (const SettingEntry& e : d.settings(QStringLiteral("GaiaAttack4"))) layers.insert(e.section + QLatin1Char('.') + e.key, e.layer);
+    QCOMPARE(layers.value(QStringLiteral("Wine.DllOverrides")), QStringLiteral("default"));   // van het soort OpenParrot
+    QCOMPARE(layers.value(QStringLiteral("Input.Layout")), QStringLiteral("shipped"));
+    QCOMPARE(layers.value(QStringLiteral("Input.Route")), QStringLiteral("user"));
+    QCOMPARE(layers.value(QStringLiteral("Env.FOO")), QStringLiteral("user"));
+    QCOMPARE(d.userGameDir(QStringLiteral("GaiaAttack4")), user + QStringLiteral("/GaiaAttack4"));
+    QVERIFY(QFileInfo(d.shippedGameDir(QStringLiteral("GaiaAttack4"))).isDir());
 }
 
 // --- A7: fullscreen-logica --------------------------------------------------------------------------------------------
@@ -964,7 +1073,7 @@ void AppCoreTest::gamepadMapping() {
 
 void AppCoreTest::bigPictureGameFilter() {
     GameData d;
-    d.loadFrom({}, repoFile(QStringLiteral("packaging/games-notes.json")), {});
+    d.loadFrom(repoDirs(), {});
     auto mk = [](const QString& prof, const QString& name, GameKind k = GameKind::TeknoParrot) {
         GameEntry g;
         g.id = QStringLiteral("tp:") + prof;

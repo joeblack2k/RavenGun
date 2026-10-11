@@ -1,5 +1,5 @@
 #pragma once
-// Welke invoerroute geldt per game (packaging/io-routes.json). Routes:
+// Welke invoerroute geldt per game ([Input] in patches/<Game>/game.ini). Routes:
 //   evdev       zoals voorheen: de virtuele gun en het toetsenbord, TeknoParrotUi leest ze (geen brug in de daemon)
 //   tp-shm      de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern zelf (dialect tp-shm)
 //   unity-tcp   de daemon is TCP-klant van de BepInEx-plugin in een Unity-game (dialect unity-tcp)
@@ -7,6 +7,8 @@
 //   jvs         de daemon is het JVS-bord aan het eind van een seriële lijn (pty als COM-poort in de Wine-prefix; dialect jvs, jvs-boards.json)
 #include <string>
 #include <vector>
+
+#include "ravengun/gamesettings/gamesettings.hpp"
 
 namespace ravengun::iobridge {
 
@@ -39,16 +41,13 @@ struct IoRoutes {
     std::string route_for(const std::string& game) const;
 };
 
-// Leest packaging/io-routes.json. Bij een fout is het resultaat leeg en staat er een Nederlandse melding in err.
-IoRoutes parse_io_routes(const std::string& json_text, std::string& err);
-
-// Keuze van de gebruiker (de app, Properties > General > Input route): $XDG_CONFIG_HOME/ravengun/io-routes.json (standaard
-// ~/.config/ravengun/io-routes.json), zelfde vorm als packaging/io-routes.json maar alleen met wat afwijkt, bv.
-// {"schema":1,"games":{"TC5":{"route":"evdev"}}}. Per game vervangen de genoemde velden die van de basis (ondiep); een game
-// die de basis niet kent, krijgt de standaardroute als begin. Daarna gelden dezelfde controles als bij parse_io_routes.
-// Bij een fout blijft `base` ongewijzigd en staat de melding in err. Lege tekst = niets te doen.
-bool apply_io_routes_override(IoRoutes& base, const std::string& override_json, std::string& err);
-// $XDG_CONFIG_HOME/ravengun/io-routes.json, anders $HOME/.config/ravengun/io-routes.json; leeg als beide ontbreken.
-std::string default_user_io_routes_path();
+// Leest de invoerroute van alle games uit hun instellingen: [Input] in patches/<Game>/game.ini (met _defaults/<Type>.ini eronder en de
+// gebruikerslaag eroverheen, ravengun/gamesettings). Sleutels: Route, Layout, Board, Boards (komma's), ComPort, CoinKeys (komma's),
+// Note. Klopt de samenvoeging niet (bv. route tp-shm zonder Layout), dan telt de gebruikerslaag niet mee; klopt ook de meegeleverde laag
+// niet, dan krijgt de game geen eigen route (evdev). De eerste melding staat in err (Nederlands), leeg als alles klopt.
+// De brug leest dit bij elke start opnieuw, dus een keuze in de app geldt zonder herstart van de daemon.
+IoRoutes load_io_routes(const ravengun::gamesettings::Dirs& dirs, std::string& err);
+// Eén game; leeg resultaat (game.empty()) als er geen [Input] is. err als hierboven.
+IoRoute io_route_from_settings(const ravengun::gamesettings::Game& g, std::string& err);
 
 }  // namespace ravengun::iobridge

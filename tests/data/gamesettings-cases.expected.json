@@ -1,0 +1,26 @@
+{
+ "Env": {
+  "Last": "ok",
+  "TP_GAME_WORKING_DIRECTORY": "Z:\\\\home\\\\deck\\\\x",
+  "WINEDLLOVERRIDES": "winhttp=n,b;d3d11,d3d10core,dxgi=n,b"
+ },
+ "Game": {
+  "Button 1 (red)": "kbd:A",
+  "CASE": "groot",
+  "Case": "klein",
+  "Dupe": "tweede",
+  "Empty": "",
+  "Eq": "x=y=z",
+  "Extra": "tweede keer dezelfde sectie",
+  "Indented": "ja",
+  "Name": "Let's Go Island",
+  "Semi": "a;b",
+  "Spaced": "a",
+  "Tabbed": "ook",
+  "Type": "OpenParrot",
+  "Url": "http://x/y?a=1;b=2"
+ },
+ "Patch: Naam met spatie en: dubbele punt": {
+  "Enabled": "true"
+ }
+}

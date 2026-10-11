@@ -408,56 +408,73 @@ void test_offscreen_rule() {
     CHECK(!err.empty());
 }
 
-void test_routes() {
+void put(const std::string& path, const std::string& text) {
+    fs::create_directories(fs::path(path).parent_path());
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    f << text;
+}
+
+std::string repo_patches() { return std::string(RAVENGUN_SOURCE_DIR) + "/patches"; }
+
+void test_routes(const std::string& dir) {
     std::string err;
-    IoRoutes r = parse_io_routes(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/io-routes.json"), err);
+    gamesettings::Dirs real{repo_patches(), {}};
+    IoRoutes r = load_io_routes(real, err);
     CHECK(err.empty());
     CHECK(r.route_for("TransformersShadowsRising") == "hid-board" && r.route_for("TC5") == "tp-shm");
     CHECK(r.find("TransformersShadowsRising")->board == "SaeGunBoard");
-    parse_io_routes(R"({"games":{"A":{"route":"hid-board"}}})", err);
-    CHECK(!err.empty());                                 // hid-board zonder board
-    parse_io_routes(R"({"games":{"A":{"route":"jvs"}}})", err);
-    CHECK(!err.empty());                                 // jvs zonder board
-    IoRoutes jr = parse_io_routes(R"({"games":{"A":{"route":"jvs","boards":["X","Y"],"com_port":"COM2"}}})", err);
-    CHECK(err.empty() && jr.find("A")->boards.size() == 2 && jr.find("A")->com_port == "COM2");
     CHECK(r.route_for("JurassicPark") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
     CHECK(r.route_for("OnbekendeGame") == "evdev");     // standaardroute
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
-    // Elke layout in io-routes.json bestaat in tp-shm-profiles.json.
+    CHECK(r.find("TC5")->coin_keys.size() == 2 && r.find("TC5")->coin_keys[0] == "lshift");
+    CHECK(r.find("LGS")->route == "jvs" && r.find("LGS")->board == "LGS" && r.find("LGS")->com_port == "COM4");
+    // Elke layout in patches/*/game.ini bestaat in tp-shm-profiles.json.
     TpShmProfiles ps = load_profiles();
     for (const auto& g : r.games)
         if (!g.layout.empty()) CHECK(ps.find(g.layout));
-    parse_io_routes(R"({"games":{"A":{"route":"tp-shm"}}})", err);
-    CHECK(!err.empty());                                 // tp-shm zonder layout
-    parse_io_routes(R"({"games":{"A":{"route":"bluetooth"}}})", err);
-    CHECK(!err.empty());
-    CHECK(r.find("TC5")->coin_keys.size() == 2 && r.find("TC5")->coin_keys[0] == "lshift");
-    parse_io_routes(R"({"games":{"A":{"route":"evdev","coin_keys":["bestaatniet"]}}})", err);
-    CHECK(!err.empty());
-    parse_io_routes(R"({"default":"tp-shm","games":{}})", err);
-    CHECK(err.empty());
-    IoRoutes d = parse_io_routes(R"({"default":"tp-shm","games":{}})", err);
-    CHECK(d.route_for("x") == "tp-shm");
 
-    // Gebruikersbestand (~/.config/ravengun/io-routes.json) over de basis: alleen de genoemde velden veranderen.
-    IoRoutes o = r;
-    CHECK(apply_io_routes_override(o, "", err) && err.empty() && o.route_for("TC5") == "tp-shm");   // leeg = niets
-    CHECK(apply_io_routes_override(o, R"({"schema":1,"games":{"TC5":{"route":"evdev"},"JurassicPark":{"route":"tp-shm"}}})", err));
-    CHECK(err.empty() && o.route_for("TC5") == "evdev" && o.route_for("JurassicPark") == "tp-shm");
-    CHECK(o.find("TC5")->layout == "TimeCrisis5" && o.find("TC5")->coin_keys.size() == 2);   // de rest blijft uit de basis
-    CHECK(o.find("JurassicPark")->layout == "RawThrillsGUN");
-    CHECK(r.route_for("TC5") == "tp-shm");                                                      // de basis zelf is ongewijzigd
-    IoRoutes o2 = r;
-    CHECK(apply_io_routes_override(o2, R"({"games":{"NieuweGame":{"route":"evdev"}}})", err) && o2.route_for("NieuweGame") == "evdev");
-    // Ongeldig: hele bestand genegeerd, de basis blijft.
-    IoRoutes o3 = r;
-    CHECK(!apply_io_routes_override(o3, R"({"games":{"TC5":{"route":"bluetooth"}}})", err) && !err.empty());
-    CHECK(o3.route_for("TC5") == "tp-shm");
-    CHECK(!apply_io_routes_override(o3, R"({"games":{"TC5":{"route":"evdev"},"Nieuw":{"route":"hid-board"}}})", err));
-    CHECK(o3.route_for("TC5") == "tp-shm");                                                     // niets half toegepast
-    CHECK(!apply_io_routes_override(o3, "kapot", err) && o3.route_for("TC5") == "tp-shm");
-    CHECK(!apply_io_routes_override(o3, R"({"games":[1]})", err));
-    CHECK(apply_io_routes_override(o3, R"({"default":"tp-shm"})", err) && o3.route_for("Onbekend") == "tp-shm");
+    // Eigen map in de test: controles per route, lijsten en de gebruikerslaag.
+    const std::string sh = dir + "/rt-shipped", us = dir + "/rt-user";
+    fs::remove_all(sh);
+    fs::remove_all(us);
+    put(sh + "/_defaults/Unity.ini", "[Input]\nRoute = unity-tcp\n");
+    put(sh + "/A/game.ini", "[Input]\nRoute = hid-board\n");                       // zonder Board: ongeldig
+    put(sh + "/B/game.ini", "[Input]\nRoute = jvs\n");                             // zonder Board
+    put(sh + "/C/game.ini", "[Input]\nRoute = jvs\nBoards = X, Y\nComPort = COM2 ; commentaar\n");
+    put(sh + "/D/game.ini", "[Input]\nRoute = tp-shm\n");                          // zonder Layout
+    put(sh + "/E/game.ini", "[Input]\nRoute = bluetooth\n");
+    put(sh + "/F/game.ini", "[Input]\nRoute = evdev\nCoinKeys = bestaatniet\n");
+    put(sh + "/G/game.ini", "[Game]\nType = Unity\n");                             // de route komt uit _defaults/Unity.ini
+    put(sh + "/H/game.ini", "[Game]\nName = H\n");                                 // geen [Input]
+    put(sh + "/TC5/game.ini", "[Input]\nRoute = tp-shm\nLayout = TimeCrisis5\nCoinKeys = lshift,t\n");
+    gamesettings::Dirs d{sh, {}};
+    IoRoutes t = load_io_routes(d, err);
+    CHECK(!err.empty());                                                           // de eerste melding
+    CHECK(!t.find("A") && !t.find("B") && !t.find("D") && !t.find("E") && !t.find("F"));
+    CHECK(t.find("C") && t.find("C")->boards.size() == 2 && t.find("C")->boards[1] == "Y" && t.find("C")->com_port == "COM2");
+    CHECK(t.route_for("G") == "unity-tcp" && t.route_for("H") == "evdev" && !t.find("H"));
+    CHECK(t.route_for("TC5") == "tp-shm" && t.find("TC5")->coin_keys.size() == 2);
+
+    // Gebruikerslaag: per sleutel over de meegeleverde laag; een lege waarde zet een sleutel terug.
+    for (const char* bad : {"A", "B", "D", "E", "F"}) fs::remove_all(sh + "/" + bad);   // de ongeldige games hierboven
+    d.user = us;
+    put(us + "/TC5/game.ini", "[Input]\nRoute = evdev\n");
+    put(us + "/Nieuw/game.ini", "[Input]\nRoute = evdev\n");
+    IoRoutes u = load_io_routes(d, err);
+    CHECK(u.route_for("TC5") == "evdev" && u.find("TC5")->layout == "TimeCrisis5" && u.find("TC5")->coin_keys.size() == 2);   // de rest blijft
+    CHECK(u.route_for("Nieuw") == "evdev" && u.find("Nieuw"));
+    put(us + "/TC5/game.ini", "[Input]\nCoinKeys =\n");
+    u = load_io_routes(d, err);
+    CHECK(u.route_for("TC5") == "tp-shm" && u.find("TC5")->coin_keys.empty());
+    // Een gebruikerslaag die de route ongeldig maakt, telt niet mee (melding), de meegeleverde stand blijft.
+    put(us + "/TC5/game.ini", "[Input]\nRoute = onzin\n");
+    u = load_io_routes(d, err);
+    CHECK(u.route_for("TC5") == "tp-shm" && err.find("TC5") != std::string::npos);
+    put(us + "/TC5/game.ini", "[Input]\nRoute = hid-board\n");                    // hid-board zonder Board
+    u = load_io_routes(d, err);
+    CHECK(u.route_for("TC5") == "tp-shm" && !err.empty());
+    fs::remove_all(us);
+    CHECK(load_io_routes(d, err).route_for("TC5") == "tp-shm" && err.empty());
 }
 
 // Dialect op een echt bestand: aanmaken, schrijven, neutraal, sluiten; overname van TeknoParrotUi's vlag-bytes.
@@ -520,37 +537,33 @@ bool wait_for(const std::function<bool()>& f, int ms = 3000) {
     return f();
 }
 
-// De brug in de daemon: uitvoer (nep-guns) -> toestand -> bestand; routekeuze; herstart neemt het bestand over.
-// De brug leest het gebruikersbestand bij elke vraag opnieuw: een keuze in de app geldt zonder herstart van de daemon.
+// De brug in de daemon: routekeuze uit de instellingen van de game. De brug leest de gebruikerslaag bij elke vraag opnieuw: een
+// keuze in de app geldt zonder herstart van de daemon.
 void test_user_routes(const std::string& dir) {
     SharedState sh;
     IoBridgeService::Config cfg;
-    std::string err;
-    cfg.routes = parse_io_routes(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/io-routes.json"), err);
+    cfg.dirs.shipped = repo_patches();
+    cfg.dirs.user = dir + "/ur-user";
     cfg.profiles = load_profiles();
     cfg.shm_path = dir + "/ur-shm";
     cfg.tpui_shm_path = dir + "/ur-geen-tpui";
-    cfg.user_routes_path = dir + "/user-io-routes.json";
-    auto put = [&](const std::string& text) {
-        std::FILE* f = std::fopen(cfg.user_routes_path.c_str(), "wb");
-        if (f) { std::fwrite(text.data(), 1, text.size(), f); std::fclose(f); }
-    };
-    fs::remove(cfg.user_routes_path);
+    auto put_user = [&](const std::string& game, const std::string& text) { put(cfg.dirs.user + "/" + game + "/game.ini", text); };
+    fs::remove_all(cfg.dirs.user);
     IoBridgeService br(sh, cfg);
-    CHECK(br.route_for("TC5") == "tp-shm");                       // bestand ontbreekt: de basis
-    put(R"({"games":{"TC5":{"route":"evdev"}}})");
+    CHECK(br.route_for("TC5") == "tp-shm");                       // geen gebruikerslaag: de meegeleverde route
+    put_user("TC5", "[Input]\nRoute = evdev\n");
     CHECK(br.route_for("TC5") == "evdev");                        // meteen, zonder herstart
     CHECK(br.start("TC5").empty() && !br.active());               // evdev: geen brug
     auto js = json::parse(br.status_json());
     CHECK(js.ok && js.value.find("routes")->find("TC5")->str == "evdev" && !js.value.find("user_routes_error"));
-    put(R"({"games":{"JurassicPark":{"route":"tp-shm"}}})");
-    CHECK(br.start("JurassicPark").empty() && br.active() && br.active_route() == "tp-shm");   // layout uit de basis
+    put_user("JurassicPark", "[Input]\nRoute = tp-shm\n");
+    CHECK(br.start("JurassicPark").empty() && br.active() && br.active_route() == "tp-shm");   // Layout uit de meegeleverde laag
     br.stop();
-    put(R"({"games":{"TC5":{"route":"onzin"}}})");
+    put_user("TC5", "[Input]\nRoute = onzin\n");
     CHECK(br.route_for("TC5") == "tp-shm");                       // ongeldig: genegeerd
     js = json::parse(br.status_json());
     CHECK(js.ok && js.value.find("user_routes_error") != nullptr);
-    fs::remove(cfg.user_routes_path);
+    fs::remove_all(cfg.dirs.user);
     CHECK(br.route_for("TC5") == "tp-shm");
     br.shutdown();
 }
@@ -571,7 +584,7 @@ void test_service(const std::string& dir) {
 
     IoBridgeService::Config cfg;
     std::string err;
-    cfg.routes = parse_io_routes(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/io-routes.json"), err);
+    cfg.dirs.shipped = repo_patches();
     cfg.profiles = load_profiles();
     const std::string sdir = dir + "/svc";
     cfg.shm_path = sdir + "/shm";
@@ -588,7 +601,7 @@ void test_service(const std::string& dir) {
         IoBridgeService br(sh, cfg);
         sh.iobridge = &br;
         CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("JurassicPark") == "evdev");
-        // Zonder gebruikersbestand-pad: alleen de basis (de pad-test volgt onderaan in test_user_routes).
+        // Zonder gebruikerslaag: alleen de meegeleverde instellingen (de gebruikerslaag volgt in test_user_routes).
         CHECK(!br.active());
         // Route evdev: niets te doen. Onbekende override: fout. tp-shm zonder layout: fout.
         CHECK(br.start("JurassicPark").empty() && !br.active());
@@ -717,7 +730,7 @@ void test_service(const std::string& dir) {
         c4.jvs_modem_file = sdir + "/modem";
         IoBridgeService br4(sh, c4);
         sh.iobridge = &br4;
-        CHECK(br4.route_for("LGS") == "jvs" && c4.routes.find("LGS")->board == "LGS" && c4.routes.find("LGS")->com_port == "COM4");
+        CHECK(br4.route_for("LGS") == "jvs" && br4.effective_routes().find("LGS")->board == "LGS" && br4.effective_routes().find("LGS")->com_port == "COM4");
         CHECK(br4.start("LGS").empty());
         CHECK(br4.active() && br4.active_route() == "jvs" && fs::is_symlink(c4.jvs_link));
         CHECK(!fs::exists(state));                          // geen herstart-toestand voor jvs (de game houdt de oude pty vast)
@@ -759,7 +772,7 @@ void test_service(const std::string& dir) {
         if (fd >= 0) ::close(fd);
         br4.stop();
         CHECK(!br4.active() && !fs::exists(c4.jvs_link) && !fs::exists(c4.jvs_modem_file));
-        CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // niet in io-routes.json: nette fout
+        CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // geen [Input] in game.ini: nette fout
         sh.iobridge = nullptr;
     }
     // Zonder gewapende uitvoer is de toestand neutraal; de bron meldt dat.
@@ -777,7 +790,7 @@ int main() {
     test_layouts();
     test_scale_and_validation();
     test_offscreen_rule();
-    test_routes();
+    test_routes(dir);
     test_dialect_file(dir);
     test_service(dir);
     test_user_routes(dir);

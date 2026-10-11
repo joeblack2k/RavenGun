@@ -1,6 +1,8 @@
 #!/bin/sh
 # scripts/launch-direct.py (A10, directe start zonder TeknoParrotUi): startplan, teknoparrot.ini, activeringscontrole,
 # NAS-bescherming en het uitlezen van JVS-pakketten, tegen een nep-runtime in een tijdelijke map (geen Wine, geen game).
+# Ook de instellingen per game (patches/<Game>/game.ini met een gebruikerslaag, het oude .env als terugval) en de bestandspatches
+# (Kind = file: Find precies Count keer, een kopie onder patched/, nooit het origineel of een bestand op de NAS).
 # Skip (77) zonder python3.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -13,6 +15,10 @@ import hashlib, importlib.util, json, os, subprocess, sys
 script, tmp = sys.argv[1], sys.argv[2]
 home = os.path.join(tmp, "home")
 tp = os.path.join(tmp, "tp")
+shipped = os.path.join(tmp, "patches")          # nep-meegeleverde map (patches/ in de repo)
+os.environ["RAVENGUN_PATCHES_DIR"] = shipped
+os.environ["XDG_DATA_HOME"] = os.path.join(home, ".local/share")    # gebruikerslaag: <home>/.local/share/ravengun/patches
+user = os.path.join(home, ".local/share/ravengun/patches")
 fails = []
 
 
@@ -42,7 +48,8 @@ def profile(name, emu_type, emu_profile, game, is64, fields, rev="3", extra=""):
 
 
 def run(*args, env=None):
-    e = dict(os.environ, HOME=home, WAYLAND_DISPLAY="wayland-0", RG_GAMESCOPE_RES="1280x720")
+    e = dict(os.environ, HOME=home, WAYLAND_DISPLAY="wayland-0", RG_GAMESCOPE_RES="1280x720", RAVENGUN_PATCHES_DIR=shipped,
+             XDG_DATA_HOME=os.path.join(home, ".local/share"))
     e.update(env or {})
     p = subprocess.run([sys.executable, "-I", script, *args, "--tp", tp], capture_output=True, text=True, env=e)
     return p.returncode, p.stdout, p.stderr
@@ -63,7 +70,7 @@ profile("Elf", "ElfLdr2", "RawThrillsGUN", os.path.join(gamedir, "game"), "false
     ("General", "Windowed", "1", "Bool", []),
     ("GUN", "Mode", "Two", "DropdownIndex", ["One", "Two"]),
 ], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
-write(os.path.join(tp, "UserProfiles", "Elf.env"), "# commentaar\nTP_GAMESCOPE=1\nTP_GAMESCOPE_PATH=/usr/bin/gamescope\n")
+write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Display]\nGamescope = true\nGamescopePath = /usr/bin/gamescope\n")
 exe64 = os.path.join(tmp, "win", "Game", "TimeCrisisGame.exe")
 write(exe64, "x")
 profile("Win", "TeknoParrot", "TimeCrisis5", exe64, "true", [("General", "Windowed", "0", "Bool", [])],
@@ -154,29 +161,207 @@ check(ld.jvs_pack(ans) == bytes([0xE0, 0x00, 0x04, 0x01, 0x01, 0x13, 0x19]), "JV
 check(ld.jvs_answer(bytes([0xF0, 0xD9])) is None, "JVS: reset zonder antwoord")
 check(ld.jvs_answer(bytes([0x20, 0x02, 0x02]))[:2] == bytes([0x01, 0x01]) and len(ld.jvs_answer(bytes([0x20, 0x02, 0x02]))) == 2 + 1 + 4, "JVS: schakelaars 2 spelers x 2 bytes")
 check(ld.jvs_answer(bytes([0x7F]))[-1] == 0x02, "JVS: onbekende opdracht = rapport 2")
-loader_src = os.path.join(tmp, "OpenParrotLoader.exe")
-orig = b"MZ" + b"\x00" * 10 + ld.FPFIX_PATTERN + b"\x00" * 10
-with open(loader_src, "wb") as f:
-    f.write(orig)
+# Instellingen per game: een eigen laag van de gebruiker wint per sleutel, een lege waarde zet een sleutel terug op niet gezet.
+rc, out, err = run("Elf", "--plan", "--json")
+check(json.loads(out)["profile_env"] == {"TP_GAMESCOPE": "1", "TP_GAMESCOPE_PATH": "/usr/bin/gamescope"},
+      "game.ini levert de omgeving: %s" % json.loads(out)["profile_env"])
+write(os.path.join(user, "Elf", "game.ini"), "[Display]\nGamescope =\n[Loader]\nRemoteThread = off\n[Env]\nFOO = bar\n")
+plan = json.loads(run("Elf", "--plan", "--json")[1])
+check(plan["argv"][0] == wine and "TP_GAMESCOPE" not in plan["profile_env"] and plan["profile_env"].get("FOO") == "bar",
+      "gebruikerslaag: gamescope uit, [Env]")
+check("TP_REMOTETHREAD" not in plan["launch_env"], "RemoteThread = off laat de variabele weg: %s" % plan["launch_env"])
+os.unlink(os.path.join(user, "Elf", "game.ini"))
+# Terugval: een profiel zonder game.ini met alleen een oud .env (melding "legacy .env", RG_LOADER_FPFIX zet de gedeelde patch aan).
+write(os.path.join(tp, "UserProfiles", "Win.env"), "# oud\nTP_REMOTETHREAD=off\nWINEDLLOVERRIDES=d3d9=b\n")
+rc, out, err = run("Win", "--plan", "--json")
+check(rc == 0 and json.loads(out)["profile_env"] == {"TP_REMOTETHREAD": "off", "WINEDLLOVERRIDES": "d3d9=b"} and "legacy .env" in err,
+      "terugval op .env met melding (%s)" % err)
+rc, out, err = run("Win", "--plan", "--json", env={"RAVENGUN_NO_LEGACY_ENV": "1"})
+check(json.loads(out)["profile_env"] == {} and "legacy .env" not in err, "RAVENGUN_NO_LEGACY_ENV=1 slaat het .env over")
+os.unlink(os.path.join(tp, "UserProfiles", "Win.env"))
+
+# Bestandspatches (Kind = file) op een nep-lader.
+import hashlib as _h
+sys.path.insert(0, os.path.dirname(script))
+gsm = ld.gs
+PAT = bytes.fromhex("C705C09B42001F000100")
+FIX = bytes.fromhex("C705C09B420017000100")
+SHARED_PATCHES = """[Patch: Lader zonder FP]
+Enabled = false
+Kind = file
+Category = loader
+Version = 1.08
+Target = loader
+TargetName = OpenParrotLoader.exe
+Find = C7 05 C0 9B 42 00 1F 00 01 00
+Replace = C7 05 C0 9B 42 00 17 00 01 00
+Count = 1
+Reason = test
+"""
+write(os.path.join(shipped, "_defaults", "OpenParrot.patches.ini"), SHARED_PATCHES)
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n")
+write(os.path.join(shipped, "Gx", "patches.ini"), "[Patch: Lader zonder FP]\nEnabled = true\n")
+loader_src = os.path.join(tmp, "rt", "OpenParrotLoader.exe")
+orig = b"MZ" + b"\x00" * 10 + PAT + b"\x00" * 10
+write(loader_src, orig, "wb")
 saved_home = ld.HOME
 ld.HOME = os.path.join(tmp, "fpfix-home")
-fixed = ld.fpfix_loader(loader_src)
-data = open(fixed, "rb").read()
-check(data.replace(bytes([0x17]), bytes([0x1F]), 1) == orig and data.count(ld.FPFIX_PATTERN) == 0 and len(data) == len(orig), "FPFIX: alleen 0x1F -> 0x17")
-check(open(loader_src, "rb").read() == orig, "FPFIX: de originele lader blijft onaangeroerd")
-with open(loader_src, "wb") as f:
-    f.write(b"MZ geen patroon")
+os.environ["HOME"] = ld.HOME
 try:
-    ld.fpfix_loader(loader_src)
-    check(False, "FPFIX: andere lader moet weigeren")
-except ld.Unsupported:
-    pass
-ld.HOME = saved_home
+    g = gsm.load_game("Gx")
+    check([p.name for p in g.patches] == ["Lader zonder FP"] and g.patches[0].enabled, "gedeelde patch aangezet door de game")
+    res, rep = ld.plan_file_patches(g, {"loader": loader_src, "core": None}, tmp, materialize=False)
+    sha_o = _h.sha256(orig).hexdigest()
+    sha_s = _h.sha256(("Lader zonder FP\0%s\0%s\0%d" % (PAT.hex(), FIX.hex(), 1)).encode()).hexdigest()
+    want = os.path.join(ld.HOME, ".local/share/ravengun/patched", "%s-%s" % (sha_o[:16], sha_s[:16]), "OpenParrotLoader.exe")
+    check(res.get("loader") == want, "cachepad %s (verwacht %s)" % (res.get("loader"), want))
+    check(not os.path.exists(want), "plan (zonder materialize) maakt de kopie niet")
+    res, rep = ld.plan_file_patches(g, {"loader": loader_src, "core": None}, tmp, materialize=True)
+    data = open(res["loader"], "rb").read()
+    check(data == orig.replace(PAT, FIX) and len(data) == len(orig), "kopie: alleen 0x1F -> 0x17")
+    check(open(loader_src, "rb").read() == orig, "het origineel blijft onaangeroerd")
+    check(rep[0]["status"] == "ok" and rep[0]["count"] == 1, "rapport: %s" % rep)
+    res2, _ = ld.plan_file_patches(g, {"loader": loader_src, "core": None}, tmp, materialize=True)
+    check(res2 == res, "tweede keer: zelfde kopie")
+    # Weigeren: Find komt twee keer voor, of niet.
+    for label, blob in (("twee keer", orig + PAT), ("niet", b"MZ geen patroon")):
+        bad = os.path.join(tmp, "rt-bad", "OpenParrotLoader.exe")
+        write(bad, blob, "wb")
+        before = set(os.listdir(os.path.join(ld.HOME, ".local/share/ravengun/patched")))
+        try:
+            ld.plan_file_patches(g, {"loader": bad, "core": None}, tmp, materialize=True)
+            check(False, "Find %s: moet weigeren" % label)
+        except ld.PatchRefused as e:
+            check("Lader zonder FP" in str(e) and "verwacht 1" in str(e), "melding noemt de patch: %s" % e)
+            check("verwacht gameversie 1.08; de bytes kloppen niet" in str(e), "melding noemt de gameversie: %s" % e)
+        check(open(bad, "rb").read() == blob, "origineel blijft bij weigering")
+        check(set(os.listdir(os.path.join(ld.HOME, ".local/share/ravengun/patched"))) == before, "weigering maakt geen kopie")
+    # Een gebruikerslaag zet de patch uit; TargetName filtert; een ander doel dan loader/core weigert.
+    write(os.path.join(user, "Gx", "patches.ini"), "[Patch: Lader zonder FP]\nEnabled = false\n")
+    check(ld.plan_file_patches(gsm.load_game("Gx"), {"loader": loader_src, "core": None}, tmp, materialize=True)[0] == {},
+          "gebruiker zet de patch uit")
+    os.unlink(os.path.join(user, "Gx", "patches.ini"))
+    other = os.path.join(tmp, "rt", "BudgieLoader.exe")
+    write(other, orig, "wb")
+    res3, rep3 = ld.plan_file_patches(g, {"loader": other, "core": None}, tmp, materialize=True)
+    check(res3 == {} and "niet van toepassing" in rep3[0]["status"], "TargetName: andere lader slaat de patch over")
+    write(os.path.join(user, "Gx", "patches.ini"),
+          "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = paths\nTarget = pipehelper.exe\nFind = 00\nReplace = 01\n")
+    try:
+        ld.plan_file_patches(gsm.load_game("Gx"), {"loader": loader_src, "core": None}, tmp, materialize=True)
+        check(False, "Target dat geen lader of kern is moet weigeren")
+    except ld.PatchRefused as e:
+        check("Eigen" in str(e), "melding noemt de eigen patch: %s" % e)
+    os.unlink(os.path.join(user, "Gx", "patches.ini"))
+    # Nooit een doel op de NAS (~/mnt).
+    nas_loader = os.path.join(ld.HOME, "mnt", "nas", "OpenParrotLoader.exe")
+    write(nas_loader, orig, "wb")
+    try:
+        ld.plan_file_patches(g, {"loader": nas_loader, "core": None}, tmp, materialize=True)
+        check(False, "een doel op de NAS moet weigeren")
+    except ld.PatchRefused as e:
+        check("NAS" in str(e), "NAS-melding: %s" % e)
+    check(open(nas_loader, "rb").read() == orig, "NAS-bestand onaangeroerd")
+    # ExeSha256: een andere exe-versie weigert.
+    write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\nExeSha256 = " + "0" * 64 + "\n")
+    exe = os.path.join(tmp, "rt", "game.exe")
+    write(exe, b"exe", "wb")
+    try:
+        ld.plan_file_patches(gsm.load_game("Gx"), {"loader": loader_src, "core": None}, tmp, materialize=True, exe_path=exe)
+        check(False, "ExeSha256 die niet klopt moet weigeren")
+    except ld.PatchRefused as e:
+        check("sha256" in str(e), "ExeSha256-melding: %s" % e)
+    write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\nExeSha256 = " + _h.sha256(b"exe").hexdigest() + "\n")
+    check(ld.plan_file_patches(gsm.load_game("Gx"), {"loader": loader_src, "core": None}, tmp, materialize=False, exe_path=exe)[0] != {},
+          "ExeSha256 die klopt past")
+finally:
+    ld.HOME = saved_home
+    os.environ["HOME"] = home
+
+# Het hele plan met een ingeschakelde patch: pad in argv, exitcode 5 bij een weigering (geen terugval op TeknoParrotUi).
+profile("Gx", "OpenParrot", "Foo", exe64, "false", [("General", "Windowed", "0", "Bool", [])],
+        extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrot.dll"), "x")
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrotLoader.exe"), orig, "wb")
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n")
+write(os.path.join(shipped, "Gx", "patches.ini"), "[Patch: Lader zonder FP]\nEnabled = true\n")
+rc, out, err = run("Gx", "--plan", "--json")
+plan = json.loads(out) if rc == 0 else {}
+check(rc == 0 and "/.local/share/ravengun/patched/" in plan["argv"][1] and plan["patches"][0]["status"] == "ok", "plan met patch (%s %s)" % (rc, err))
+check(not os.path.exists(os.path.join(home, ".local/share/ravengun/patched")), "--plan schrijft geen kopie")
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrotLoader.exe"), b"MZ geen patroon", "wb")
+rc, out, err = run("Gx", "--check")
+check(rc == 5 and "Lader zonder FP" in err, "weigerende patch: exit 5 (kreeg %d: %s)" % (rc, err))
+write(os.path.join(user, "Gx", "patches.ini"), "[Patch: Lader zonder FP]\nEnabled = false\n")
+check(run("Gx", "--check")[0] == 0, "patch uit: de lader start gewoon")
+os.unlink(os.path.join(user, "Gx", "patches.ini"))
 c = ld.A11Collector("x")
 for line in ["patch 'NoDongle' @0x0804A000", "patch 'X' @0x10 skipped: unexpected original bytes 90 90",
              "RUNNING Terminator 1.25 US", "[gamescope] RUNNING nee"]:
     c.feed(line)
 check(len(c.hits["toegepast"]) == 1 and len(c.hits["overgeslagen"]) == 1 and len(c.hits["versie"]) == 1, "A11-regels: %s" % c.hits)
+
+# Vaste logregel per patch (ook uitgeschakelde), Version in de weigering, Category verplicht, en de regiokeuzes van het profiel.
+write(os.path.join(shipped, "Gl", "game.ini"), "[Game]\nType = OpenParrot\n")
+write(os.path.join(shipped, "Gl", "patches.ini"),
+      "[Patch: Lader zonder FP]\nEnabled = true\n"
+      "[Patch: Gun uit]\nEnabled = false\nKind = memory\nCategory = input\nAppliedBy = core\nModule = game.exe\nOffset = 0x9E410\n"
+      "[Patch: Geheugen aan]\nEnabled = true\nKind = memory\nCategory = audio\nAppliedBy = core\nModule = game.exe\nOffset = 0x10\n"
+      "[Patch: Zonder versie]\nEnabled = true\nKind = file\nCategory = loader\nTarget = core\nFind = AA BB\nReplace = CC DD\n")
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrot.dll"), "x")
+write(loader_src, orig, "wb")
+core = os.path.join(tmp, "rt", "core.dll")
+write(core, b"\x00" * 8, "wb")
+gl = gsm.load_game("Gl")
+try:
+    ld.plan_file_patches(gl, {"loader": loader_src, "core": core}, tmp, materialize=False)
+    check(False, "patch zonder versie met een Find die niet past moet weigeren")
+except ld.PatchRefused as e:
+    check("geweigerd" in str(e) and "Zonder versie" in str(e) and "gameversie" not in str(e), "weigering zonder Version: %s" % e)
+write(core, b"\x00\xAA\xBB\x00", "wb")
+res, rep = ld.plan_file_patches(gl, {"loader": loader_src, "core": core}, tmp, materialize=False)
+lines = ld.patch_log_lines(rep)
+check(lines == ["toegepast 'Lader zonder FP' @loader:0xC",
+                "overgeslagen 'Gun uit' @game.exe+0x9E410 [uit]",
+                "overgeslagen 'Geheugen aan' @game.exe+0x10 [soort memory wordt niet door RavenGun toegepast (AppliedBy = core: de OpenParrot-kern doet dit zelf)]",
+                "toegepast 'Zonder versie' @core:0x1"], "logregels: %s" % lines)
+check([r["category"] for r in rep] == ["loader", "input", "audio", "loader"] and rep[0]["version"] == "1.08", "rapport: categorie en versie")
+# Een ingeschakelde patch zonder Category (of met een onbekende) weigert de start, ook uit de gebruikerslaag; een uitgeschakelde wordt overgeslagen.
+write(os.path.join(user, "Gl", "patches.ini"), "[Patch: Slecht]\nEnabled = true\nKind = file\nTarget = core\nFind = 00\nReplace = 01\n")
+try:
+    ld.plan_file_patches(gsm.load_game("Gl"), {"loader": loader_src, "core": core}, tmp, materialize=False)
+    check(False, "patch zonder Category moet weigeren")
+except ld.PatchRefused as e:
+    check("Slecht" in str(e) and "Category ontbreekt" in str(e), "melding Category: %s" % e)
+write(os.path.join(user, "Gl", "patches.ini"), "[Patch: Slecht]\nEnabled = false\nKind = file\nCategory = beveiliging\n")
+res, rep = ld.plan_file_patches(gsm.load_game("Gl"), {"loader": loader_src, "core": core}, tmp, materialize=False)
+check(any(l.startswith("overgeslagen 'Slecht' @- [afgewezen: ") for l in ld.patch_log_lines(rep)), "afgewezen patch staat in het log: %s" % ld.patch_log_lines(rep))
+os.unlink(os.path.join(user, "Gl", "patches.ini"))
+
+# Regiokeuzes (gewone profielopties DongleRegion en PcbRegion): alleen waarden uit de keuzelijst; ze komen in teknoparrot.ini.
+profile("Reg", "TeknoParrot", "SegaJvsLetsGoIsland", exe64, "false",
+        [("General", "DongleRegion", "JAPAN", "DropdownIndex", ["JAPAN", "USA", "EXPORT"]),
+         ("General", "PcbRegion", "JAPAN", "DropdownIndex", ["JAPAN", "USA", "EXPORT"])], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrotLoader.exe"), "x")
+rc, out, err = run("Reg", "--plan", "--json")
+ini = dict((k, v) for k, v in (l.split("=", 1) for l in json.loads(out)["files"][0][1].splitlines() if "=" in l))
+check(ini.get("DongleRegion") == "0" and ini.get("PcbRegion") == "0", "zonder keuze: de waarde van het profiel (%s)" % ini)
+write(os.path.join(shipped, "Reg", "game.ini"), "[Game]\nDongleRegion = USA\nPcbRegion = EXPORT\n")
+rc, out, err = run("Reg", "--plan", "--json")
+ini = dict((k, v) for k, v in (l.split("=", 1) for l in json.loads(out)["files"][0][1].splitlines() if "=" in l))
+check(rc == 0 and ini.get("DongleRegion") == "1" and ini.get("PcbRegion") == "2", "game.ini kiest de regio: %s %s" % (rc, ini))
+check("<FieldName>DongleRegion</FieldName><FieldValue>JAPAN</FieldValue>" in open(os.path.join(tp, "UserProfiles", "Reg.xml")).read(),
+      "het profielbestand zelf blijft ongemoeid")
+write(os.path.join(user, "Reg", "game.ini"), "[Game]\nDongleRegion = MARS\n")
+rc, out, err = run("Reg", "--check")
+check(rc == 5 and "Instelling geweigerd" in err and "DongleRegion = MARS" in err and "JAPAN, USA, EXPORT" in err, "onbekende regio weigert (%d: %s)" % (rc, err))
+write(os.path.join(user, "Reg", "game.ini"), "[Game]\nDongleRegion =\n")
+check(run("Reg", "--check")[0] == 0, "lege waarde in de gebruikerslaag zet de keuze terug")
+os.unlink(os.path.join(user, "Reg", "game.ini"))
+write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nDongleRegion = USA\n")
+rc, out, err = run("Win", "--check")
+check(rc == 5 and "heeft die optie niet" in err, "profiel zonder die optie weigert (%d: %s)" % (rc, err))
+
 
 if fails:
     for f in fails:

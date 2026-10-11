@@ -4,6 +4,8 @@
 // Alles in een tijdelijke map (HOME, XDG_*); de "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
 #include <QApplication>
 #include <QComboBox>
+#include <QDesktopServices>
+#include <QTreeWidget>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -34,6 +36,7 @@ using namespace rg;
 namespace {
 
 QStringList g_messages;  // waarschuwingen en fouten van Qt tijdens een test
+QStringList g_opened;    // mappen die "Open ... folder" zou openen
 
 void collect(QtMsgType type, const QMessageLogContext&, const QString& msg) {
     if (type == QtWarningMsg || type == QtCriticalMsg || type == QtFatalMsg) g_messages << msg;
@@ -58,6 +61,10 @@ private Q_SLOTS:
     void initTestCase();
     void propertiesForAllGames();
     void routeChoiceInProperties();
+    void patchesTab();
+public Q_SLOTS:
+    void recordUrl(const QUrl& u) { g_opened << u.toLocalFile(); }
+private Q_SLOTS:
     void bigPictureLightgun();
     void bigPictureKeys();
     void aimStreamFallback();
@@ -157,14 +164,13 @@ void AppWidgetTest::routeChoiceInProperties() {
     QVERIFY(evdev > 0);
     c->setCurrentIndex(evdev);
     emit c->activated(evdev);
-    const QString user = tmp_.filePath(QStringLiteral("config/ravengun/io-routes.json"));
-    QCOMPARE(readJson(user).object().value(QStringLiteral("games")).toObject().value(QStringLiteral("TC5")).toObject().value(QStringLiteral("route")).toString(),
-             QStringLiteral("evdev"));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/TC5/game.ini"));
+    QCOMPARE(readAll(user), QStringLiteral("[Input]\nRoute = evdev\n"));
     QCOMPARE(core.gameData()->route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
     // Terug naar de aanbevolen route: de keuze verdwijnt.
     c->setCurrentIndex(0);
     emit c->activated(0);
-    QVERIFY(!readJson(user).object().value(QStringLiteral("games")).toObject().contains(QStringLiteral("TC5")));
+    QVERIFY(!readAll(user).contains(QStringLiteral("Route")));
     // Een Unity-game heeft één route: de keuze staat uit.
     GameEntry u;
     u.id = QStringLiteral("tp:TombRaider");
@@ -172,6 +178,75 @@ void AppWidgetTest::routeChoiceInProperties() {
     u.profile = QStringLiteral("TombRaider");
     ui::PropertiesDialog du(&core, u);
     QVERIFY(!du.RouteCombo()->isEnabled());
+}
+
+void AppWidgetTest::patchesTab() {
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString userRoot = tmp_.filePath(QStringLiteral("data/ravengun/patches"));
+    QDir(userRoot + QStringLiteral("/GaiaAttack4")).removeRecursively();
+    GameEntry g;
+    g.id = QStringLiteral("tp:GaiaAttack4");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("GaiaAttack4");
+    g.name = QStringLiteral("Gaia Attack 4");
+    ui::PropertiesDialog d(&core, g);
+    QTreeWidget* t = d.PatchTree();
+    QVERIFY(t);
+    QCOMPARE(t->topLevelItemCount(), 3);                                               // de lader-patch en de twee geheugenpatches (informatie)
+    QTreeWidgetItem* it = t->topLevelItem(0);
+    QCOMPARE(t->topLevelItem(1)->checkState(0), Qt::Unchecked);
+    QVERIFY(t->topLevelItem(1)->text(2).contains(QStringLiteral("informational")));
+    QVERIFY(t->topLevelItem(1)->toolTip(0).contains(QStringLiteral("OpenParrot core already applies")));
+    QCOMPARE(it->text(0), QStringLiteral("OpenParrotLoader zonder CONTEXT_FLOATING_POINT"));
+    QCOMPARE(it->checkState(0), Qt::Checked);
+    QVERIFY(it->toolTip(0).contains(QStringLiteral("MXCSR")));                       // de reden als tooltip
+    QCOMPARE(it->text(1), QStringLiteral("loader"));                                 // de categorie
+    QVERIFY(t->topLevelItemCount() >= 1);
+    t->setCurrentItem(it);
+    QVERIFY(it->data(0, Qt::UserRole + 1).toString().contains(QStringLiteral("MXCSR")));
+    // Uitvinken schrijft de gebruikerslaag (niet de meegeleverde laag).
+    it->setCheckState(0, Qt::Unchecked);
+    const QString userFile = userRoot + QStringLiteral("/GaiaAttack4/patches.ini");
+    QVERIFY(readAll(userFile).contains(QStringLiteral("Enabled = false")));
+    QCOMPARE(core.gameData()->patches(QStringLiteral("GaiaAttack4"))[0].enabled, false);
+    QCOMPARE(t->topLevelItem(0)->checkState(0), Qt::Unchecked);
+    QVERIFY(t->topLevelItem(0)->text(3).contains(QStringLiteral("choice")));
+    t->topLevelItem(0)->setCheckState(0, Qt::Checked);                                 // gelijk aan de meegeleverde stand: keuze weg
+    QVERIFY(!readAll(userFile).contains(QStringLiteral("Enabled")));
+    // De effectieve instellingen staan er read-only bij, met hun laag.
+    QTreeWidget* s = d.SettingsTree();
+    QVERIFY(s && s->topLevelItemCount() > 5);
+    bool route = false;
+    for (int i = 0; i < s->topLevelItemCount(); ++i)
+        if (s->topLevelItem(i)->text(0) == QStringLiteral("Input") && s->topLevelItem(i)->text(1) == QStringLiteral("Layout")) {
+            route = s->topLevelItem(i)->text(2) == QStringLiteral("MusicGunGun2Pipe") && s->topLevelItem(i)->text(3) == QStringLiteral("Shipped");
+        }
+    QVERIFY(route);
+    // De knoppen openen de mappen (de gebruikersmap wordt aangemaakt); de URL-handler vervangt de bestandsbeheerder.
+    QDesktopServices::setUrlHandler(QStringLiteral("file"), this, "recordUrl");
+    g_opened.clear();
+    QVERIFY(d.OpenUserFolderButton()->isEnabled() && d.OpenShippedFolderButton()->isEnabled());
+    d.OpenUserFolderButton()->click();
+    d.OpenShippedFolderButton()->click();
+    QDesktopServices::unsetUrlHandler(QStringLiteral("file"));
+    QCOMPARE(g_opened.size(), 2);
+    QCOMPARE(g_opened[0], userRoot + QStringLiteral("/GaiaAttack4"));
+    QVERIFY(QFileInfo(userRoot + QStringLiteral("/GaiaAttack4")).isDir());
+    QCOMPARE(g_opened[1], QStringLiteral(RAVENGUN_SOURCE_DIR "/patches/GaiaAttack4"));
+    // Een game zonder patches: lege lijst met uitleg; een game zonder profiel: knoppen uit.
+    GameEntry tc5;
+    tc5.id = QStringLiteral("tp:TC5");
+    tc5.kind = GameKind::TeknoParrot;
+    tc5.profile = QStringLiteral("TC5");
+    tc5.name = QStringLiteral("Time Crisis 5");
+    ui::PropertiesDialog d2(&core, tc5);
+    QCOMPARE(d2.PatchTree()->topLevelItemCount(), 0);
+    GameEntry none;
+    none.id = QStringLiteral("dir:x");
+    none.kind = GameKind::Detected;
+    none.name = QStringLiteral("Unknown");
+    ui::PropertiesDialog d3(&core, none);
+    QVERIFY(!d3.OpenUserFolderButton()->isEnabled());
 }
 
 namespace {

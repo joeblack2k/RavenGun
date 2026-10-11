@@ -97,7 +97,7 @@ fi
 
 if [[ -n $STAGE ]]; then
   [[ -x $STAGE/bin/ravengund && -x $STAGE/bin/ravengunctl ]] || die "ravengund or ravengunctl is missing in the tree to install"
-  [[ -f $STAGE/share/ravengun/scripts/play-halo.sh && -d $STAGE/share/ravengun/packaging ]] || die "the data folder (share/ravengun) is missing in the tree to install"
+  [[ -f $STAGE/share/ravengun/scripts/play-halo.sh && -d $STAGE/share/ravengun/packaging && -d $STAGE/share/ravengun/patches ]] || die "the data folder (share/ravengun, with packaging/ and patches/) is missing in the tree to install"
   # Eisen van deze build (door make-release.sh vastgelegd): de glibc van de container waarin gebouwd is.
   if [[ -f $STAGE/share/ravengun/REQUIRES ]]; then
     need="$(sed -n 's/^glibc[ =>]*//p' "$STAGE/share/ravengun/REQUIRES" | head -1)"
