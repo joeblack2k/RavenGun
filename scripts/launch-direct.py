@@ -358,7 +358,10 @@ def dropin_specs(game):
         cp = configparser.RawConfigParser()
         cp.optionxform = str          # sleutelnamen hoofdlettergevoelig laten (To, DllOverride, Env, Preload)
         try:
-            with open(pad, encoding="utf-8") as f:
+            # utf-8-sig: een dropin.ini die met Windows-Kladblok is gemaakt begint met een BOM, en
+            # configparser ziet de eerste regel dan niet als commentaar ("File contains no section
+            # header"). Zonder dit wordt zo'n drop-in stil niet uitgerold.
+            with open(pad, encoding="utf-8-sig") as f:
                 cp.read_file(f)
         except (OSError, configparser.Error) as e:
             fouten.append("kan %s niet lezen: %s" % (pad, e))
@@ -465,7 +468,11 @@ def dropin_plan(plan):
         # de NAS uitkomt. Dat is geen fout: run() materialiseert die map (dropin_materialiseer).
         # Alleen als er geen view is (de game draait rechtstreeks van de NAS) of als het doel buiten
         # de view valt, weigeren we -- er wordt nooit op de NAS geschreven.
-        if on_nas(base):
+        #
+        # Let op: daarom toetsen we het LEXICALE pad aan de views-map en niet aan on_nas(base). Bij
+        # een game die diep in zijn view staat (TC5: views/TC5/TC5/Binaries/Win64) komt het gevolgde
+        # pad op de NAS uit, terwijl de view er wel is; on_nas() zou die drop-in onterecht weigeren.
+        if on_nas(base) and not _binnen(base, op.views_dir()):
             fouten.append("%s [%s]: deze game draait rechtstreeks van de NAS, dus er is geen view om "
                           "het bestand in te zetten; maak eerst een lokale view "
                           "(scripts/tp-add-game.py %s <pad> --view)" % (s["ini"], s["name"], game))
