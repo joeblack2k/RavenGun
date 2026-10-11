@@ -124,24 +124,11 @@ void IoBridgeService::write_state_file(const std::string& route, const std::stri
 }
 
 IoRoutes IoBridgeService::effective_routes() const {
-    IoRoutes r = cfg_.routes;
-    if (!cfg_.user_routes_path.empty()) {
-        std::string text, err;
-        if (FILE* f = std::fopen(cfg_.user_routes_path.c_str(), "rb")) {
-            char buf[4096];
-            size_t n;
-            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
-            std::fclose(f);
-        }
-        if (!apply_io_routes_override(r, text, err)) {
-            std::lock_guard<std::mutex> lk(routes_m_);
-            if (err != routes_err_) logf("waarschuwing", "IO-brug: %s (%s genegeerd)", err.c_str(), cfg_.user_routes_path.c_str());
-            routes_err_ = err;
-        } else {
-            std::lock_guard<std::mutex> lk(routes_m_);
-            routes_err_.clear();
-        }
-    }
+    std::string err;
+    IoRoutes r = load_io_routes(cfg_.dirs, err);
+    std::lock_guard<std::mutex> lk(routes_m_);
+    if (err != routes_err_ && !err.empty()) logf("waarschuwing", "IO-brug: %s", err.c_str());
+    routes_err_ = err;
     return r;
 }
 
@@ -163,7 +150,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     if (route == kRouteJvs) return start_jvs(game, routes.find(game));
     // tp-shm
     const IoRoute* r = routes.find(game);
-    if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling in io-routes.json";
+    if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling (Layout in [Input] van game.ini)";
     const TpShmProfile* prof = cfg_.profiles.find(r->layout);
     if (!prof) return "tp-shm-indeling '" + r->layout + "' ontbreekt in tp-shm-profiles.json";
     auto d = std::make_unique<TpShmDialect>(*prof, game, cfg_.shm_path, cfg_.tpui_shm_path);
@@ -188,7 +175,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
 
 // Route hid-board: een virtueel joystick/HID-apparaat dat het bord van de game nabootst (hid_board.hpp).
 std::string IoBridgeService::start_hid_board(const std::string& game, const IoRoute* r) {
-    if (!r || r->board.empty()) return "game '" + game + "' heeft geen 'board' in io-routes.json";
+    if (!r || r->board.empty()) return "game '" + game + "' heeft geen Board in [Input] van game.ini";
     const HidBoard* b = cfg_.boards.find(r->board);
     if (!b) return "bord '" + r->board + "' ontbreekt in hid-boards.json";
     std::unique_ptr<HidBoardDevice> dev;
@@ -217,10 +204,10 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
 // Route jvs: de daemon is de JVS-bord(en) aan het eind van een seriële lijn (pty, jvs_dialect.hpp). Een herstart van de daemon
 // kan de lijn niet meenemen (de game houdt de oude pty vast), daarom staat deze route niet in het toestandsbestand.
 std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r) {
-    if (!r) return "game '" + game + "' staat niet in io-routes.json";
+    if (!r) return "game '" + game + "' heeft geen [Input] in game.ini";
     std::vector<std::string> names = r->boards;
     if (names.empty() && !r->board.empty()) names.push_back(r->board);
-    if (names.empty()) return "game '" + game + "' heeft geen 'board' of 'boards' in io-routes.json";
+    if (names.empty()) return "game '" + game + "' heeft geen Board of Boards in [Input] van game.ini";
     std::vector<JvsBoard> boards;
     for (const auto& n : names) {
         const JvsBoard* b = cfg_.jvs_boards.find(n);

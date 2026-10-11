@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Genereert docs/compatibility.md (Engels, voor gebruikers) uit packaging/games-notes.json ("games_en" en "status") en de
-spelnamen uit packaging/game-options.json. De lijst is alleen een weergave van die bestanden: pas ze daar aan, draai dit script
-opnieuw en commit het resultaat.
+"""Genereert docs/compatibility.md (Engels, voor gebruikers) uit de meegeleverde instellingen per game (patches/<Game>/game.ini:
+[Game] Name en [Status] Status, NoteEN). De lijst is alleen een weergave van die bestanden: pas ze daar aan, draai dit script
+opnieuw en commit het resultaat. De gebruikerslaag telt hier niet mee (de lijst moet reproduceerbaar zijn).
 
 Gebruik: scripts/gen-compatibility.py            schrijft docs/compatibility.md
          scripts/gen-compatibility.py --check    controleert dat docs/compatibility.md actueel is (exit 1 anders; voor ctest)
          scripts/gen-compatibility.py --stdout   toont de tekst
 Geen markdown-tabellen (docs/ gebruikt lijsten)."""
-import json
 import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NOTES = os.path.join(ROOT, 'packaging', 'games-notes.json')
-OPTIONS = os.path.join(ROOT, 'packaging', 'game-options.json')
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+import gamesettings as gs  # noqa: E402
+
 OUT = os.path.join(ROOT, 'docs', 'compatibility.md')
+PATCHES = os.environ.get('RAVENGUN_PATCHES_DIR') or os.path.join(ROOT, 'patches')
 
 SECTIONS = [
     ('playable', 'Playable',
@@ -28,39 +30,21 @@ SECTIONS = [
 ]
 
 
-def load(path):
-    with open(path, encoding='utf-8') as f:
-        return json.load(f)
-
-
-def titles(options):
-    """Profielnaam (TeknoParrot-profiel) -> spelnaam uit game-options.json."""
-    t = {}
-    for g in options.get('games', {}).values():
-        prof = g.get('tp_profile')
-        if prof and g.get('title'):
-            t[prof] = g['title']
-    return t
-
-
-# Profielen zonder tp_profile in game-options.json (eigen route) of met een afwijkende naam.
-EXTRA_TITLES = {
-    'TombRaider': 'Tomb Raider: Firestorm Assault',
-    'RabbidsHollywood': 'Rabbids Hollywood Arcade',
-    'LGS': "Let's Go Safari",
-}
-
-
 def build():
-    notes = load(NOTES)
-    names = titles(load(OPTIONS))
-    names.update({k: v for k, v in EXTRA_TITLES.items() if k not in names})
-    status = notes['status']
-    en = notes['games_en']
+    names, status, en = {}, {}, {}
+    nowhere = os.path.join(os.devnull, 'geen-gebruikerslaag')
+    for game in gs.list_games(PATCHES, nowhere):
+        g = gs.load_game(game, shipped=PATCHES, user=nowhere)
+        if g.get('Game', 'Name'):
+            names[game] = g.get('Game', 'Name')
+        if g.get('Status', 'Status'):
+            status[game] = g.get('Status', 'Status')
+        if g.get('Status', 'NoteEN'):
+            en[game] = g.get('Status', 'NoteEN')
     lines = [
         '# Game compatibility',
         '',
-        '<!-- Generated from packaging/games-notes.json by scripts/gen-compatibility.py. Do not edit by hand. -->',
+        '<!-- Generated from patches/<Game>/game.ini by scripts/gen-compatibility.py. Do not edit by hand. -->',
         '',
         'This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a '
         'snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.',
@@ -80,7 +64,7 @@ def build():
         raise SystemExit('unknown status values for: ' + ', '.join(unknown))
     missing = sorted(set(status) - set(en))
     if missing:
-        raise SystemExit('no English note (games_en) for: ' + ', '.join(missing))
+        raise SystemExit('no English note (NoteEN in [Status]) for: ' + ', '.join(missing))
     return '\n'.join(lines).rstrip() + '\n'
 
 

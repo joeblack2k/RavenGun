@@ -88,7 +88,7 @@ void usage(FILE* f) {
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
         "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board|jvs] | stop | status | route GAME   IO-brug van de daemon: de\n"
-        "              route van een game (packaging/io-routes.json) starten of stoppen, de actieve route tonen\n"
+        "              route van een game ([Input] in patches/<Game>/game.ini) starten of stoppen, de actieve route tonen\n"
         "  mice        gewone muizen (evdev) die als lightgun-bron kunnen dienen en de toewijzing per speler\n"
         "  mouse-gun --player N --mouse ID [--counts C] | --off   muis ID (uit 'mice') als bron van de virtuele lightgun van speler N,\n"
         "              of --off om los te koppelen; C = counts per schermbreedte (100..20000, standaard 1920). Alleen\n"

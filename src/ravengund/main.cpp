@@ -18,6 +18,7 @@
 #include "camera.hpp"
 #include "controllers.hpp"
 #include "ravengun/games/aagames.hpp"
+#include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/iobridge/routes.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/games/games.hpp"
@@ -450,7 +451,12 @@ int main(int argc, char** argv) {
         std::string state = xs && *xs ? xs : (home.empty() ? std::string() : home + "/.local/state");
         if (!state.empty()) games_cfg.log_path = state + "/ravengun/logs/play-last.log";
     }
-    if (const auto* notes = ravengun::web::find_asset("games-notes.json")) games_cfg.notes_json = notes->data;
+    // Notities per game ([Status] Note in patches/<Game>/game.ini); de gebruikerslaag alleen met de gewone configuratie.
+    std::string patches_base = data_root;   // met --play-script volgt data_root uit dat script; patches/ zoeken we dan zelf
+    if (patches_base.empty() || ::access((patches_base + "/patches").c_str(), R_OK) != 0)
+        if (const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process())) patches_base = dd.path;
+    games_cfg.dirs = ravengun::gamesettings::default_dirs(patches_base);
+    if (!use_config) games_cfg.dirs.user.clear();
     games_cfg.move_connected = [&shared] {
         auto l = shared.get().sample.link;
         return l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
@@ -488,7 +494,7 @@ int main(int argc, char** argv) {
     std::string aa_err;
     ravengun::games::AaConfig aa_cfg = ravengun::games::parse_aagames_config(aa_text, aa_err);
     if (!aa_err.empty()) logf("waarschuwing", "Unity-route: %s (alleen de ingebouwde lijst ontbreekt dan; geen games)", aa_err.c_str());
-    // IO-brug: routes per game en de tp-shm-indelingen (JSON naast het startscript, anders ingebouwd).
+    // IO-brug: routes per game (patches/<Game>/game.ini) en de gedeelde bibliotheken (JSON naast het startscript, anders ingebouwd).
     auto load_text = [&](const std::string& file, const std::string& asset) {
         std::string text;
         std::string cand = data_root;
@@ -507,20 +513,18 @@ int main(int argc, char** argv) {
     };
     IoBridgeService::Config io_cfg;
     {
-        std::string e1, e2, e3;
-        io_cfg.routes = ravengun::iobridge::parse_io_routes(load_text("io-routes.json", "io-routes.json"), e1);
+        std::string e2, e3;
+        io_cfg.dirs = games_cfg.dirs;   // [Input] van patches/<Game>/game.ini, bij elke start opnieuw gelezen
+        if (io_cfg.dirs.shipped.empty()) logf("waarschuwing", "IO-brug: de map patches/ is niet gevonden (alle games gebruiken evdev)");
         io_cfg.profiles = ravengun::iobridge::parse_tp_shm_profiles(load_text("tp-shm-profiles.json", "tp-shm-profiles.json"), e2);
         io_cfg.boards = ravengun::iobridge::parse_hid_boards(load_text("hid-boards.json", "hid-boards.json"), e3);
         std::string e4;
         io_cfg.jvs_boards = ravengun::iobridge::parse_jvs_boards(load_text("jvs-boards.json", "jvs-boards.json"), e4);
         if (!e4.empty()) logf("waarschuwing", "IO-brug: %s (geen JVS-borden)", e4.c_str());
         if (!e3.empty()) logf("waarschuwing", "IO-brug: %s (geen hid-borden)", e3.c_str());
-        if (!e1.empty()) logf("waarschuwing", "IO-brug: %s (alle games gebruiken evdev)", e1.c_str());
         if (!e2.empty()) logf("waarschuwing", "IO-brug: %s (geen tp-shm-indelingen)", e2.c_str());
         size_t sl = sock.rfind('/');
         if (sl != std::string::npos) io_cfg.state_path = sock.substr(0, sl) + "/iobridge.json";
-        // Routekeuze van de gebruiker (de app): ~/.config/ravengun/io-routes.json, bij elke start opnieuw gelezen.
-        if (use_config) io_cfg.user_routes_path = ravengun::iobridge::default_user_io_routes_path();
         if (sl != std::string::npos) io_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";
         io_cfg.tpui_procs = games_cfg.tpui_procs;
     }

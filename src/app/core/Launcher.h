@@ -5,7 +5,7 @@
 //
 // Alle backends starten via de engine (IPC game_start), die scripts/play-halo.sh in de unit ravengun-play start; ze
 // verschillen alleen in de startwijze die ze meegeven (A10, docs/decisions.md "A10: games direct starten"):
-// - "auto" (standaard): play-halo.sh kiest per profiel ("launch" in packaging/io-routes.json of de keuze van de gebruiker):
+// - "auto" (standaard): play-halo.sh kiest per profiel ([Launch] Mode in patches/<profiel>/game.ini of de keuze van de gebruiker):
 //   direct waar dat werkt, anders TeknoParrotUi; kan direct niet (activering, profiel), dan valt het script terug.
 // - "direct": altijd zonder TeknoParrotUi (scripts/launch-direct.py start de lader BudgieLoader/OpenParrotLoader zelf, met
 //   pipehelper.exe en het gedeelde geheugen; de invoer komt van de engine). Faalt als dat voor de game niet kan.

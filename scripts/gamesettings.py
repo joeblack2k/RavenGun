@@ -68,7 +68,9 @@ def user_dir():
 
 def parse_ini(text):
     """INI-tekst -> ({sectie: {sleutel: waarde}} in volgorde van voorkomen, [waarschuwingen])."""
-    text = "\n".join(line.lstrip() for line in text.replace("\r\n", "\n").split("\n"))
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Een sleutel vóór de eerste sectie hoort nergens bij: eerst in een wegwerpsectie, zodat de rest gewoon wordt gelezen.
+    text = "[\0orphan]\n" + "\n".join(line.lstrip() for line in text.split("\n"))
     cp = configparser.RawConfigParser(delimiters=("=",), comment_prefixes=("#", ";"), inline_comment_prefixes=(";",),
                                       strict=False, interpolation=None, default_section="\0default",
                                       empty_lines_in_values=False)
@@ -80,6 +82,10 @@ def parse_ini(text):
         warn.append(str(e).replace("\n", " "))
     out = {}
     for sec in cp.sections():
+        if sec == "\0orphan":
+            if cp.items(sec):
+                warn.append("sleutel buiten een sectie genegeerd")
+            continue
         out[sec] = {k: (v or "") for k, v in cp.items(sec)}
     return out, warn
 
@@ -517,25 +523,69 @@ def dump_ini(sections, header=""):
     return "\n".join(lines) + "\n"
 
 
+def edit_ini_text(text, section, key, value, erase=False):
+    """INI-tekst met één sleutel gezet of weggehaald; commentaar en volgorde blijven staan (zelfde regels als de C++-lezer)."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    in_target, header, last_kv, key_line = False, -1, -1, -1
+    for i, raw in enumerate(lines):
+        t = raw.strip()
+        if not t or t[0] in "#;":
+            continue
+        if t[0] == "[":
+            close = t.rfind("]")
+            in_target = close >= 2 and t[1:close] == section
+            if in_target and header < 0:
+                header = i
+            continue
+        if not in_target or "=" not in t:
+            continue
+        last_kv = i
+        if key_line < 0 and t.split("=", 1)[0].strip() == key:
+            key_line = i
+    new = "%s = %s" % (key, value) if value else "%s =" % key
+    if key_line >= 0:
+        if erase:
+            del lines[key_line]
+        else:
+            lines[key_line] = new
+    elif not erase:
+        if header >= 0:
+            lines.insert((last_kv if last_kv >= 0 else header) + 1, new)
+        else:
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines += ["[%s]" % section, new]
+    return "\n".join(lines) + "\n"
+
+
+def _check_value(sec, k, v):
+    if "\n" in v or "\r" in v or re.search(r"\s;", v) or v != v.strip() or v.startswith(("#", ";")):
+        raise ValueError("waarde van %s.%s past niet in het INI-formaat: %r" % (sec, k, v))
+
+
 def write_user_settings(profile, updates, patch_updates=None, user=None):
-    """Zet sleutels (en Enabled van patches) in de gebruikerslaag; andere sleutels in het bestand blijven staan. updates:
-    {sectie: {sleutel: waarde}}; een lege waarde zet de sleutel terug op 'niet gezet' (de regel blijft staan als 'Sleutel =' zodat
-    hij ook een meegeleverde waarde wegneemt, of verdwijnt als de meegeleverde laag hem niet kent -- dat bepaalt de aanroeper)."""
+    """Zet sleutels (en Enabled van patches) in de gebruikerslaag; andere sleutels, commentaar en volgorde blijven staan. updates:
+    {sectie: {sleutel: waarde}}; een lege waarde schrijft 'Sleutel =' (zet de sleutel terug op 'niet gezet', ook tegenover een
+    meegeleverde waarde)."""
     user = user or user_dir()
     d = os.path.join(user, profile)
     os.makedirs(d, exist_ok=True)
-    if updates:
-        p = os.path.join(d, "game.ini")
-        cur, _ = read_ini(p)
-        for sec, kv in updates.items():
-            cur.setdefault(sec, {}).update(kv)
-        _atomic_write(p, dump_ini(cur))
-    if patch_updates:
-        p = os.path.join(d, "patches.ini")
-        cur, _ = read_ini(p)
-        for name, kv in patch_updates.items():
-            cur.setdefault(PATCH_PREFIX + " " + name, {}).update(kv)
-        _atomic_write(p, dump_ini(cur))
+    for fname, items in (("game.ini", updates or {}), ("patches.ini", {PATCH_PREFIX + " " + n: kv for n, kv in (patch_updates or {}).items()})):
+        if not items:
+            continue
+        p = os.path.join(d, fname)
+        try:
+            with open(p, encoding="utf-8") as f:
+                text = f.read()
+        except FileNotFoundError:
+            text = ""
+        for sec, kv in items.items():
+            for k, v in kv.items():
+                _check_value(sec, k, str(v))
+                text = edit_ini_text(text, sec, k, str(v))
+        _atomic_write(p, text)
 
 
 def _atomic_write(path, text):

@@ -1,6 +1,6 @@
 # Bakt de statische webbestanden in een C++-bronbestand (geen runtime-bestanden, geen CDN).
 # gebruik: embed_web_assets(<uitvoer.cpp> <map> <bestand>...)
-# Een item mag ook <naam>=<absoluut pad> zijn: het bestand wordt dan onder <naam> ingebakken (bv. packaging/games-notes.json).
+# Een item mag ook <naam>=<absoluut pad> zijn: het bestand wordt dan onder <naam> ingebakken (bv. packaging/aagames-games.json).
 function(embed_web_assets OUT DIR)
   set(body "// Gegenereerd door cmake/EmbedWebAssets.cmake uit src/ravengund/web/. Niet bewerken.\n#include \"ravengun/web/web_core.hpp\"\n#include <cstring>\nnamespace ravengun::web {\nnamespace {\nconst Asset kAssets[] = {\n")
   foreach(item ${ARGN})

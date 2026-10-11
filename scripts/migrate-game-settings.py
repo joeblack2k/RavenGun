@@ -11,7 +11,7 @@
 Opnieuw te draaien (idempotent): het script leidt per bron alleen de sleutels af die die bron kent, haalt die eerst weg en zet ze
 opnieuw; andere sleutels en secties in een bestaand game.ini (handwerk) blijven staan. Een bron die er niet is (bv. na het
 verwijderen van de JSON-bestanden uit de repo) laat de bijbehorende sleutels met rust: geef hem dan op met --io-routes en
---notes, of met --from-git REV (leest packaging/io-routes.json en games-notes.json uit die revisie, bv. een andere tak).
+--notes, of met --rev REV (leest packaging/io-routes.json en games-notes.json uit die revisie, bv. een andere tak).
 Waarden die gelijk zijn aan de standaard van het soort (patches/_defaults/<Type>.ini) worden niet herhaald; ontbreekt een
 variabele die de standaard wel zet, dan komt de oude uitkomst expliciet in het bestand (anders zou de game veranderen).
 
@@ -19,7 +19,7 @@ Er worden nooit geheimen overgenomen (variabelen met TOKEN, SECRET, PASSWORD, SE
 naar de NAS: de werkmap staat relatief aan de map van de game, paden onder $HOME als ~/... .
 De .env-bestanden en het runtimeprofiel worden alleen gelezen. Schrijft alleen onder --out (standaard patches/ in de repo).
 
-Gebruik: scripts/migrate-game-settings.py [--out DIR] [--io-routes F] [--notes F] [--from-git REV] [--runtime TP] [--dry-run] [--check]
+Gebruik: scripts/migrate-game-settings.py [--out DIR] [--io-routes F] [--notes F] [--rev REV] [--runtime TP] [--dry-run] [--check]
 """
 import json
 import os
@@ -117,7 +117,8 @@ def env_comments(path):
                 s = line.strip()
                 # Alleen uitleg; een uitgecommentarieerde toewijzing (#TP_X=1) is geen uitleg.
                 if s.startswith("#") and not re.match(r"#\s*[A-Za-z_][A-Za-z0-9_]*=", s):
-                    out.append(s.lstrip("#").strip().replace(home, "~"))
+                    out.append(s.lstrip("#").strip().replace(home, "~").replace("packaging/games-notes.json", "[Status] in game.ini")
+                               .replace("packaging/io-routes.json", "[Input] in game.ini"))
     except OSError:
         pass
     return [c for c in out if c]
@@ -358,16 +359,16 @@ def main(argv):
     ap.add_argument("--out", default=os.path.join(ROOT, "patches"))
     ap.add_argument("--io-routes")
     ap.add_argument("--notes")
-    ap.add_argument("--from-git", metavar="REV", help="lees packaging/io-routes.json en games-notes.json uit deze git-revisie")
+    ap.add_argument("--rev", metavar="REV", help="lees packaging/io-routes.json en games-notes.json uit deze git-revisie")
     ap.add_argument("--runtime", default=os.environ.get("RAVENGUN_TP_DIR", gs.DEFAULT_TP))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--check", action="store_true", help="exit 1 als de uitvoer zou veranderen (niets schrijven)")
     a = ap.parse_args(argv)
     io_routes = notes = None
     try:
-        if a.from_git:
-            io_routes = git_show(a.from_git, "packaging/io-routes.json")
-            notes = git_show(a.from_git, "packaging/games-notes.json")
+        if a.rev:
+            io_routes = git_show(a.rev, "packaging/io-routes.json")
+            notes = git_show(a.rev, "packaging/games-notes.json")
         if a.io_routes:
             io_routes = load_json(a.io_routes)
         elif io_routes is None and os.path.isfile(os.path.join(ROOT, "packaging", "io-routes.json")):
@@ -380,9 +381,9 @@ def main(argv):
         log("bron niet te lezen: %s" % e)
         return 2
     if io_routes is None:
-        log("geen io-routes.json (packaging/ of --io-routes/--from-git): [Input] en [Launch] Mode blijven ongemoeid")
+        log("geen io-routes.json (packaging/ of --io-routes/--rev): [Input] en [Launch] Mode blijven ongemoeid")
     if notes is None:
-        log("geen games-notes.json (packaging/ of --notes/--from-git): [Status] blijft ongemoeid")
+        log("geen games-notes.json (packaging/ of --notes/--rev): [Status] blijft ongemoeid")
     runtime = a.runtime if os.path.isdir(os.path.join(a.runtime, "UserProfiles")) else ""
     if not runtime:
         log("geen runtime met UserProfiles/ (%s): de .env-bestanden en profielen worden overgeslagen" % a.runtime)

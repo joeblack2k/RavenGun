@@ -1,6 +1,6 @@
 # Game compatibility
 
-<!-- Generated from packaging/games-notes.json by scripts/gen-compatibility.py. Do not edit by hand. -->
+<!-- Generated from patches/<Game>/game.ini by scripts/gen-compatibility.py. Do not edit by hand. -->
 
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.

@@ -18,6 +18,8 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/gamesettings/gamesettings.hpp"
+
 namespace ravengun::games {
 
 inline constexpr const char* kPlayUnit = "ravengun-play";
@@ -35,7 +37,7 @@ struct Config {
     std::string tp_dir;        // TeknoParrot-map met UserProfiles/ en Icons/
     std::string play_script;   // absoluut pad naar scripts/play-halo.sh
     std::string log_path;      // uitvoer van de laatste start (leeg = geen)
-    std::string notes_json;    // inhoud van packaging/games-notes.json (leeg = geen notities)
+    ravengun::gamesettings::Dirs dirs;   // patches/ (meegeleverd en gebruiker): [Status] Note per game (leeg = geen notities)
     std::string systemd_run = "systemd-run";
     std::string systemctl = "systemctl";
     std::string proc_root = "/proc";
@@ -50,7 +52,7 @@ struct Game {
     std::string profile;    // bestandsnaam zonder .xml
     std::string name;       // weergavenaam
     std::string icon_file;  // leeg = geen (bestaand) icoon
-    std::string note;       // opmerking uit games-notes.json (leeg = geen)
+    std::string note;       // opmerking ([Status] Note in game.ini, Nederlands, hoogstens 300 tekens; leeg = geen)
 };
 
 std::vector<Game> list_games(const Config& c);
@@ -59,8 +61,8 @@ bool profile_exists(const Config& c, const std::string& profile);
 // Leest een icoon. Leeg resultaat in `err` = gelukt; anders "invalid" (naam niet toegestaan) of "not_found".
 std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data);
 
-// Notities uit games-notes.json: {"schema":1,"games":{"<profiel>":"tekst"}}. Onleesbaar = leeg.
-std::vector<std::pair<std::string, std::string>> parse_notes(const std::string& json_text);
+// Nederlandse notities van alle games met een [Status] Note (hoogstens 300 tekens; profielnaam [A-Za-z0-9_-]{1,64}).
+std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::gamesettings::Dirs& dirs);
 
 // Procesinspectie (proc_root is /proc, of een nepmap in tests).
 bool game_process_running(const std::string& proc_root);

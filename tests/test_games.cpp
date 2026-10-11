@@ -55,7 +55,13 @@ static void test_list_and_icons(const std::string& d) {
     fs::create_directories(d + "/tp/UserProfiles/Map.xml");              // map, geen bestand
     write(d + "/tp/Icons/Halo.png", "PNGDATA");
     write(d + "/tp/secret.png", "GEHEIM");
-    c.notes_json = R"({"schema":1,"games":{"JurassicPark":"Werkt niet.","Bad Name":"x","Halo":5}})";
+    // Notities: [Status] Note in patches/<Game>/game.ini (meegeleverd), de gebruikerslaag gaat voor.
+    write(d + "/patches/JurassicPark/game.ini", "[Status]\nNote = Werkt niet.\n");
+    write(d + "/patches/Bad Name/game.ini", "[Status]\nNote = x\n");
+    write(d + "/patches/Halo/game.ini", "[Game]\nName = Halo\n");                          // geen notitie
+    write(d + "/patches/Weg/game.ini", "[Status]\nNote = " + std::string(301, 'x') + "\n");  // te lang: genegeerd
+    c.dirs.shipped = d + "/patches";
+    c.dirs.user = d + "/user-patches";
     auto games = list_games(c);
     std::vector<std::string> profiles;
     for (const auto& g : games) profiles.push_back(g.profile);
@@ -98,8 +104,10 @@ static void test_list_and_icons(const std::string& d) {
     Config gone;
     gone.tp_dir = d + "/bestaat-niet";
     CHECK(list_games(gone).empty() && read_icon(gone, "Halo.png", ct, data) == "not_found");
-    CHECK(parse_notes("kapot").empty() && parse_notes("").empty() && parse_notes(R"({"games":[1]})").empty());
-    CHECK(parse_notes(c.notes_json).size() == 1);
+    CHECK(load_notes(c.dirs).size() == 1 && load_notes(c.dirs)[0].first == "JurassicPark");
+    CHECK(load_notes(ravengun::gamesettings::Dirs{}).empty());   // zonder mappen: geen notities
+    write(d + "/user-patches/JurassicPark/game.ini", "[Status]\nNote = Eigen notitie.\n");   // de gebruikerslaag wint
+    for (const auto& g : list_games(c)) if (g.profile == "JurassicPark") CHECK(g.note == "Eigen notitie.");
 }
 
 static void fake_proc(const std::string& root, int pid, const std::string& comm, const std::vector<std::string>& args) {

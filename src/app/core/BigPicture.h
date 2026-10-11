@@ -30,7 +30,7 @@ namespace rg {
 namespace bigpicture {
 
 // Games voor de fullscreen-modus: alleen startklare games (profiel aanwezig, bestanden aanwezig), en zonder showAll alleen
-// die volgens games-notes.json speelbaar zijn ("status": playable). Volgorde: speelbaar eerst, dan op naam.
+// die volgens [Status] in patches/<Game>/game.ini speelbaar zijn (Status = playable). Volgorde: speelbaar eerst, dan op naam.
 QList<GameEntry> games(const QList<GameEntry>& all, const GameData& data, bool showAll);
 
 struct Layout {
