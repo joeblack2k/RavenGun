@@ -21,6 +21,7 @@ Gebruik (voor scripts en gebruikers):
     gamesettings.py show PROFIEL [--json]              samengevoegde instellingen en patches
     gamesettings.py get PROFIEL Sectie.Sleutel [--default X]
     gamesettings.py env PROFIEL [--tp DIR]             de omgevingsvariabelen (K=V per regel) die de instellingen opleveren
+    gamesettings.py input PROFIEL route|layout|board|boards|com_port|hid_vidpid|source|launch   voor play-halo.sh
     gamesettings.py dirs                               meegeleverde map en gebruikersmap
 Opties: --patches DIR (meegeleverde map; ook $RAVENGUN_PATCHES_DIR), --user DIR (gebruikersmap; ook $RAVENGUN_USER_PATCHES_DIR).
 """
@@ -182,6 +183,38 @@ class Game:
     def to_dict(self):
         return {"profile": self.profile, "type": self.type, "settings": self.settings,
                 "patches": [p.to_dict() for p in self.patches], "sources": self.sources, "warnings": self.warnings}
+
+
+def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
+    """[Input] van een game, gecontroleerd zoals de engine: klopt het samengevoegde resultaat niet, dan telt de gebruikerslaag niet
+    mee (melding via warn); klopt ook de meegeleverde laag niet, dan evdev. Geeft ({sleutel: waarde}, bron) met bron user|shipped."""
+    warn = warn or (lambda m: None)
+    g = load_for_profile(profile, tp, shipped=shipped, user=user)
+    i, err = g.input_route()
+    if not err:
+        return i, "user" if any(user_dir_of(user) in src for src in g.sources) else "shipped"
+    warn("%s: %s; de gebruikerslaag wordt genegeerd" % (profile, err))
+    g2 = load_for_profile(profile, tp, shipped=shipped, user=os.path.join(os.devnull, "geen"))
+    i, err = g2.input_route()
+    if not err:
+        return i, "shipped"
+    warn("%s: %s; evdev" % (profile, err))
+    return {"Route": "evdev"}, "shipped"
+
+
+def user_dir_of(user):
+    return (user or user_dir()).rstrip("/") + "/"
+
+
+def hid_vidpid(board, root=None):
+    """VVVV:PPPP van een bord uit packaging/hid-boards.json, of ''."""
+    try:
+        with open(os.path.join(root or ROOT, "packaging", "hid-boards.json")) as f:
+            b = json.load(f)["boards"][board]
+        v = lambda x: int(x, 0) if isinstance(x, str) else int(x)
+        return "%04X:%04X" % (v(b["vendor"]), v(b["product"]))
+    except Exception:
+        return ""
 
 
 def list_games(shipped=None, user=None):
@@ -533,6 +566,9 @@ def main(argv):
     p.add_argument("--default", default="")
     p = sub.add_parser("env")
     p.add_argument("profile")
+    p = sub.add_parser("input", help="invoerroute voor de startscripts (play-halo.sh)")
+    p.add_argument("profile")
+    p.add_argument("field", choices=["route", "layout", "board", "boards", "com_port", "hid_vidpid", "source", "launch"])
     a = ap.parse_args(argv)
     shipped, user = a.patches or shipped_dir(), a.user or user_dir()
     if a.cmd == "dirs":
@@ -540,6 +576,22 @@ def main(argv):
         return 0
     if a.cmd == "list":
         print("\n".join(list_games(shipped, user)))
+        return 0
+    if a.cmd == "input":
+        i, src = resolve_input(a.profile, a.tp, shipped, user, warn=lambda m: print("gamesettings: " + m, file=sys.stderr))
+        if a.field == "route":
+            print(i.get("Route", "evdev"))
+        elif a.field in ("layout", "board", "boards"):
+            print(i.get(a.field.capitalize(), ""))
+        elif a.field == "com_port":
+            print(i.get("ComPort", "") or "COM4")
+        elif a.field == "hid_vidpid":
+            print(hid_vidpid(i.get("Board", "")))
+        elif a.field == "source":
+            print(src)
+        else:
+            g = load_for_profile(a.profile, a.tp, shipped=shipped, user=user)
+            print(g.launch_mode or "teknoparrot-ui")
         return 0
     g = load_for_profile(a.profile, a.tp, shipped=shipped, user=user, log=lambda m: print(m, file=sys.stderr))
     for w in g.warnings:

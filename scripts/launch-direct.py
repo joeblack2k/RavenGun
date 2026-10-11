@@ -5,7 +5,7 @@
 # Wat TeknoParrotUi bij een start doet, en wat dit script daarvan overneemt (gelezen in de open bron van TeknoParrotUI,
 # branch net8-migration, en gemeten aan een lopende sessie; eigen code, niets overgenomen):
 #   1. Profiel lezen: UserProfiles/<P>.xml (met GameProfiles/<P>.xml voor ontbrekende velden), plus de omgeving uit
-#      UserProfiles/<P>.env (ons formaat, net als play-halo.sh) en --env.
+#      patches/<P>/game.ini (gamesettings.py; terugval: het oude UserProfiles/<P>.env) en --env.
 #   2. De lader kiezen per EmulatorType (antwoorden_ronde2.md vraag 8): ElfLdr2 -> ElfLdr2/BudgieLoader.exe of
 #      ElfLdr2/x64/BudgieLoader_x64.exe; TeknoParrot -> OpenParrotLoader(64).exe met de kern TeknoParrot/TeknoParrot(64)
 #      als eerste argument; OpenParrot -> idem met OpenParrot(64); enz. Aanroep: wine <lader> [<kern>] "<exe>" [extra].
@@ -31,7 +31,10 @@
 # Opties: --tp DIR (runtime-map), --shm-source PAD (bronbestand voor pipehelper; standaard /dev/shm/TeknoParrot_JvsState),
 #         --log-full (TP_LOGTOFILE=1 en een A11-samenvatting van de regels van de kern in ~/.local/state/ravengun/a11/).
 # Exitcodes: 0 klaar, 1 fout tijdens de start, 2 gebruik, 3 activering ontbreekt (val terug op TeknoParrotUi),
-#            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), anders de exitcode van de lader.
+#            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), 5 een ingeschakelde patch is geweigerd
+#            (geen terugval), anders de exitcode van de lader.
+# Instellingen per game (lader, Wine, omgeving, patches): patches/<Game>/game.ini en patches.ini met de gebruikerslaag eronder
+# (scripts/gamesettings.py, docs/per-game-patches.md). Het oude UserProfiles/<P>.env wordt nog één versie als laag gelezen.
 import json
 import os
 import re
@@ -47,6 +50,10 @@ import uuid
 import xml.etree.ElementTree as ET
 import hashlib
 
+sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
+
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
 DEFAULT_WINE = os.path.join(HOME, ".local/share/ravengun/wine/proton-11.0-2/bin/wine")
@@ -60,6 +67,7 @@ STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".l
 
 EXIT_ACTIVATION = 3
 EXIT_UNSUPPORTED = 4
+EXIT_PATCH = 5       # een ingeschakelde patch is geweigerd: niet terugvallen op TeknoParrotUi (die zou de game zonder patch starten)
 
 # Profielen waarvoor TeknoParrotUi extra argumenten of voorbereidingen heeft die hier niet zijn nagebouwd: die vallen
 # terug op TeknoParrotUi (exit 4). Bron: GameLaunchArguments in TeknoParrotUI (net8-migration).
@@ -100,6 +108,10 @@ class Unsupported(Exception):
 
 class ActivationMissing(Exception):
     pass
+
+
+class PatchRefused(Exception):
+    """Een ingeschakelde patch kan niet (veilig) toegepast worden; de game start dan niet."""
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -152,20 +164,6 @@ def field(p, name, category=None):
 
 def truthy(v):
     return str(v).strip().lower() == "true"
-
-
-def read_env_file(path):
-    env = {}
-    try:
-        with open(path) as f:
-            for line in f:
-                line = line.split("#", 1)[0].strip()
-                if "=" in line:
-                    k, v = line.split("=", 1)
-                    env[k.strip()] = v.strip()
-    except FileNotFoundError:
-        pass
-    return env
 
 
 def parrot_data(tp):
@@ -306,30 +304,122 @@ def resolve_loader(p, tp):
     return exe, dll, is64
 
 
-# Wine-bug (9.0, 10.0, 11.0, 11.19 gemeten): SetThreadContext op een 32-bit thread met CONTEXT_FLOATING_POINT maar zonder
-# CONTEXT_EXTENDED_REGISTERS zet MXCSR op 0 (alle SSE-uitzonderingen ongemaskeerd). De OpenParrot-lader doet dat met
-# ContextFlags 0x1001F op de hoofdthread van de game (instructie "mov [0x429bc0], 0x1001f"), waarna Mesa in de D3D9-init op de
-# eerste inexacte conversie met c00002b5 (STATUS_FLOAT_MULTIPLE_TRAPS) valt (Type X2: Gaia Attack 4, Haunted Museum, ...).
-# Opt-in per profiel (RG_LOADER_FPFIX=true in UserProfiles/<P>.env): een kopie van de lader met 0x1001F -> 0x10017 (zonder
-# FLOATING_POINT). De lader in de runtime blijft onaangetast; de kopie staat onder ~/.local/share/ravengun/loaders/.
-FPFIX_PATTERN = bytes.fromhex("C705C09B42001F000100")
+# ---------------------------------------------------------------------------------------------------------------------
+# Patches (Kind = file): zoek-en-vervang op een lokale kopie van een bestand van de runtime (docs/per-game-patches.md).
+# De kennis zelf (welke bytes, waarom) staat in patches.ini; dit is alleen de machine. Regels:
+#  - het origineel wordt nooit gewijzigd; de kopie staat in ~/.local/share/ravengun/patched/<sha-origineel>-<sha-patchset>/;
+#  - Find moet precies Count keer voorkomen (en Replace even lang zijn), anders weigert de patch en start de game niet;
+#  - nooit een doel op de NAS (en de kopie ook niet).
+
+def patched_root():
+    return os.path.join(HOME, ".local/share/ravengun/patched")
 
 
-def fpfix_loader(src):
-    with open(src, "rb") as f:
-        data = bytearray(f.read())
-    if data.count(FPFIX_PATTERN) != 1:
-        raise Unsupported("RG_LOADER_FPFIX: lader %s heeft niet de verwachte instructie (andere versie?)" % src)
-    sha = hashlib.sha256(bytes(data)).hexdigest()[:12]
-    dst_dir = os.path.join(HOME, ".local/share/ravengun/loaders")
-    dst = os.path.join(dst_dir, "%s-fpfix-%s.exe" % (os.path.splitext(os.path.basename(src))[0], sha))
-    if not os.path.isfile(dst):
-        data[data.find(FPFIX_PATTERN) + 6] = 0x17
-        os.makedirs(dst_dir, exist_ok=True)
-        with open(dst + ".tmp", "wb") as f:
-            f.write(data)
-        os.replace(dst + ".tmp", dst)
-    return dst
+def parse_hex(patch, key):
+    raw = patch.get(key, "")
+    try:
+        return bytes.fromhex(re.sub(r"\s+", "", raw))
+    except ValueError:
+        raise PatchRefused("patch '%s': %s is geen hexadecimale bytereeks (%r)" % (patch.name, key, raw))
+
+
+def patch_target(patch, targets, tp):
+    """Het bestand dat een patch bedoelt: 'loader', 'core' of een pad (relatief aan de runtime) dat een van beide moet zijn."""
+    t = patch.get("Target", "").strip()
+    if not t:
+        raise PatchRefused("patch '%s': Target ontbreekt (loader, core of een pad in de runtime)" % patch.name)
+    if t in ("loader", "core"):
+        if not targets.get(t):
+            raise PatchRefused("patch '%s': deze game heeft geen %s om te patchen" % (patch.name, t))
+        return t
+    full = os.path.realpath(os.path.join(tp, t))
+    for k, v in targets.items():
+        if v and os.path.realpath(v) == full:
+            return k
+    raise PatchRefused("patch '%s': Target %s is niet de lader of de kern van deze game; alleen die twee kunnen gepatcht worden"
+                       % (patch.name, t))
+
+
+def plan_file_patches(game, targets, tp, materialize=False, exe_path=None):
+    """Controleert de ingeschakelde patches van een game en geeft ({doel: pad van de gepatchte kopie}, [beschrijving per patch]).
+    targets: {"loader": pad, "core": pad of None}. materialize: de kopie ook echt maken (zonder: alleen controleren en het pad
+    uitrekenen; een mislukte controle weigert in beide gevallen)."""
+    report, groups = [], {}
+    wanted = [p for p in game.patches if p.enabled]
+    for p in wanted:
+        if p.kind != "file":
+            report.append({"name": p.name, "kind": p.kind or "?", "status": "overgeslagen: soort %r wordt (nog) niet toegepast" % p.kind})
+            log("patch '%s': soort %r wordt (nog) niet toegepast; overgeslagen" % (p.name, p.kind))
+            continue
+        tname = patch_target(p, targets, tp)
+        want_name = p.get("TargetName", "").strip().lower()
+        if want_name and os.path.basename(targets[tname]).lower() != want_name:
+            report.append({"name": p.name, "kind": "file", "target": targets[tname],
+                           "status": "niet van toepassing: het doel is %s, de patch geldt voor %s" % (os.path.basename(targets[tname]), p.get("TargetName"))})
+            continue
+        groups.setdefault(tname, []).append(p)
+    if groups and game.get("Game", "ExeSha256"):
+        want = game.get("Game", "ExeSha256").strip().lower()
+        if not exe_path or not os.path.isfile(exe_path):
+            raise PatchRefused("ExeSha256 is gezet maar de exe van de game is er niet (%s)" % exe_path)
+        h = hashlib.sha256()
+        with open(exe_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        if h.hexdigest() != want:
+            raise PatchRefused("de patches van %s gelden voor een exe met sha256 %s, maar %s heeft %s (zet ExeSha256 leeg in "
+                               "je eigen game.ini om toch te patchen)" % (game.profile, want[:16], exe_path, h.hexdigest()[:16]))
+    result = {}
+    for tname, plist in groups.items():
+        src = targets[tname]
+        if on_nas(src):
+            raise PatchRefused("patch '%s': het doel %s ligt op de NAS; er wordt nooit een bestand op de NAS gepatcht" % (plist[0].name, src))
+        try:
+            with open(src, "rb") as f:
+                orig = f.read()
+        except OSError as e:
+            raise PatchRefused("patch '%s': doel %s niet te lezen: %s" % (plist[0].name, src, e))
+        data, canon = orig, []
+        for p in sorted(plist, key=lambda x: x.name):
+            find, rep = parse_hex(p, "Find"), parse_hex(p, "Replace")
+            try:
+                count = int(p.get("Count", "1") or "1")
+            except ValueError:
+                raise PatchRefused("patch '%s': Count is geen getal (%r)" % (p.name, p.get("Count")))
+            if not find or len(find) != len(rep):
+                raise PatchRefused("patch '%s': Find en Replace moeten even lang en niet leeg zijn (%d en %d bytes)" % (p.name, len(find), len(rep)))
+            if count < 1:
+                raise PatchRefused("patch '%s': Count moet minstens 1 zijn" % p.name)
+            found = data.count(find)
+            if found != count:
+                raise PatchRefused("patch '%s' geweigerd: Find komt %d keer voor in %s, verwacht %d (andere versie van het bestand?); "
+                                   "de game start niet. Zet de patch uit of pas Find aan." % (p.name, found, src, count))
+            data = data.replace(find, rep)
+            canon.append("%s\0%s\0%s\0%d" % (p.name, find.hex(), rep.hex(), count))
+            report.append({"name": p.name, "kind": "file", "target": src, "count": found, "status": "ok"})
+        sha_orig = hashlib.sha256(orig).hexdigest()
+        sha_set = hashlib.sha256("\n".join(canon).encode()).hexdigest()
+        dst_dir = os.path.join(patched_root(), "%s-%s" % (sha_orig[:16], sha_set[:16]))
+        dst = os.path.join(dst_dir, os.path.basename(src))
+        if on_nas(dst_dir):
+            raise PatchRefused("de map voor gepatchte kopieën (%s) ligt op de NAS" % dst_dir)
+        if materialize:
+            try:
+                with open(dst, "rb") as f:
+                    have = f.read()
+            except OSError:
+                have = None
+            if have != data:
+                os.makedirs(dst_dir, exist_ok=True)
+                with open(dst + ".tmp", "wb") as f:
+                    f.write(data)
+                os.replace(dst + ".tmp", dst)
+                log("patch: kopie gemaakt: %s" % dst)
+        for r in report:
+            if r.get("target") == src and r.get("status") == "ok":
+                r["patched"] = dst
+        result[tname] = dst
+    return result, report
 
 
 def resolve_wine(p, env):
@@ -412,8 +502,9 @@ def display_size(env):
     return 1920, 1080
 
 
-def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None):
-    """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen)."""
+def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False):
+    """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen); materialize_patches maakt ook de gepatchte
+    kopieën (alleen bij --run)."""
     p = load_profile(tp, name)
     pd = parrot_data(tp)
     emu = p.get("EmulationProfile", "")
@@ -440,11 +531,22 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         raise Unsupported("kern ontbreekt: %s.dll" % os.path.join(tp, dll_rel))
 
     env = dict(base_env if base_env is not None else os.environ)
-    prof_env = read_env_file(os.path.join(tp, "UserProfiles", name + ".env"))
+    # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
+    settings = gs.load_for_profile(name, tp, type_hint=et, log=lambda m: print("[launch-direct] " + m, file=sys.stderr))
+    for w in settings.warnings:
+        print("[launch-direct] instellingen: " + w, file=sys.stderr)
+    prof_env = gs.to_env(settings.settings, gamedir)
     env.update(prof_env)
     env.update(extra_env or {})
-    if truthy(env.get("RG_LOADER_FPFIX", "0")) and loader.lower().endswith("openparrotloader.exe"):
-        loader = fpfix_loader(loader)
+    legacy_fpfix = truthy(env.get(gs.LEGACY_LOADER_FPFIX, "0")) and not any(
+        pt.name == gs.FPFIX_PATCH and pt.enabled for pt in settings.patches)
+    if legacy_fpfix:   # RG_LOADER_FPFIX in de omgeving of via --env: zet de gedeelde lader-patch aan (oude naam)
+        for pt in settings.patches:
+            if pt.name == gs.FPFIX_PATCH:
+                pt.fields["Enabled"] = "true"
+    targets = {"loader": loader, "core": os.path.join(tp, dll_rel + ".dll") if dll_rel else None}
+    patched, patch_report = plan_file_patches(settings, targets, tp, materialize=materialize_patches, exe_path=game)
+    loader = patched.get("loader", loader)
     wine = resolve_wine(p, env)
     prefix, set_prefix = resolve_prefix(p, env, wine)
 
@@ -466,8 +568,6 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         msaa = field(p, "MSAA Level")
         if msaa is not None:
             launch["TP_MSAA"] = msaa["value"]
-        if name == "TankTankTank":
-            launch["TP_NUSOUND"] = "1"
         if emu == "Vt3Lindbergh":
             launch["TEA_DIR"] = wine_path(os.path.dirname(gamedir)) + "\\"
         elif emu == "SegaJvsLetsGoJungle":
@@ -486,8 +586,6 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         launch["REGAL_LOAD_GL"] = "opengl32.dll"
     if emu in OPENSSL_FIX:
         launch["OPENSSL_ia32cap"] = ":~0x20000000"
-    if name == "3DCosplayMahjong":
-        launch["LANG"] = launch["LC_ALL"] = "ja_JP.UTF-8"
     if set_prefix:
         launch["WINEPREFIX"] = prefix
     launch.setdefault("TP_REMOTETHREAD", env.get("TP_REMOTETHREAD", "1"))   # onder Wine altijd (zie TeknoParrotUi)
@@ -515,9 +613,9 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     gamescope = None
     if env.get("TP_GAMESCOPE") == "1" and env.get("TP_NO_GAMESCOPE") != "1":
         w, h = display_size(env)
-        gs = env.get("TP_GAMESCOPE_PATH") or "/usr/bin/gamescope"
+        gs_bin = env.get("TP_GAMESCOPE_PATH") or "/usr/bin/gamescope"
         backend = env.get("TP_GAMESCOPE_BACKEND") or ("wayland" if env.get("WAYLAND_DISPLAY") else "")
-        gamescope = [gs, "-W", str(w), "-H", str(h), "-S", "fit", "-f"] + (["--backend", backend] if backend else []) + ["--"]
+        gamescope = [gs_bin, "-W", str(w), "-H", str(h), "-S", "fit", "-f"] + (["--backend", backend] if backend else []) + ["--"]
     windowed_override = bool(gamescope) and p.get("GamescopeGameWindowCompatibility") == "RequireWindowed" and \
         (field(p, "Windowed") or {}).get("value") == "0"
 
@@ -543,7 +641,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     return {
         "profile": name, "tp": tp, "emulator_type": et, "emulation_profile": emu, "is64": is64,
         "game": game, "cwd": cwd, "wine": wine, "prefix": prefix, "argv": (gamescope or []) + args,
-        "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env,
+        "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env, "patches": patch_report,
+        "settings_sources": settings.sources,
         "files": files, "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
@@ -626,11 +725,13 @@ JVS_IDENT = b"SEGA ENTERPRISES,LTD.;I/O BD JVS;837-13551 ;Ver1.00;98/10\x00"
 JVS_FEATURES = bytes([0x01, 4, 16, 0, 0x02, 2, 0, 0, 0x03, 8, 16, 0, 0x06, 10, 10, 4, 0x12, 18, 0, 0, 0x00])
 
 
-# Proefinstellingen (A10): RG_JVS_IDENT (tekst) en RG_JVS_FEATURES (hex van de functielijst, inclusief eindbyte 00) in <P>.env.
-if os.environ.get("RG_JVS_IDENT"):
-    JVS_IDENT = os.environ["RG_JVS_IDENT"].encode("latin-1") + b"\x00"
-if os.environ.get("RG_JVS_FEATURES"):
-    JVS_FEATURES = bytes.fromhex(os.environ["RG_JVS_FEATURES"])
+def configure_jvs(env):
+    """Proefinstellingen (A10): [Input] JvsIdent (tekst) en JvsFeatures (hex van de functielijst, inclusief eindbyte 00)."""
+    global JVS_IDENT, JVS_FEATURES
+    if env.get("RG_JVS_IDENT"):
+        JVS_IDENT = env["RG_JVS_IDENT"].encode("latin-1") + b"\x00"
+    if env.get("RG_JVS_FEATURES"):
+        JVS_FEATURES = bytes.fromhex(env["RG_JVS_FEATURES"])
 
 
 def jvs_pack(body):
@@ -945,6 +1046,7 @@ class A11Collector:
 
 def run(plan):
     env = plan["env"]
+    configure_jvs(env)
     # 1. Spelinstellingen naast de game.
     for path, text in plan["files"]:
         st, why = place_file(path, text)
@@ -1078,9 +1180,12 @@ def main(argv):
         k, v = e.split("=", 1)
         extra[k] = v
     try:
-        plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full)
+        plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
         if not a.no_activation_check:
             check_activation(plan["prefix"])
+    except PatchRefused as e:
+        print("Patch geweigerd: %s" % e, file=sys.stderr)
+        return EXIT_PATCH
     except Unsupported as e:
         print("Niet direct te starten: %s" % e, file=sys.stderr)
         return EXIT_UNSUPPORTED

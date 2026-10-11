@@ -6,13 +6,15 @@ de bindingen naar de virtuele RavenGun-apparaten (gun 1209:7202, toetsenbord 120
 Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-runner PAD] [--view] [--fullscreen] [--force]
   bv.    python3 -I scripts/tp-add-game.py JurassicPark "/pad/naar/Jurassic Park/game" --wine-runner ~/.../bin/wine
 
---env K=V: (herhaalbaar) schrijft UserProfiles/<PROFIEL>.env voor play-halo.sh. Zonder --env krijgen Windows-games
-(EmulatorType TeknoParrot) TP_REMOTETHREAD=off (standaardroute van de lader) als er nog geen .env is.
---gamescope: schrijft TP_GAMESCOPE=1 (+ pad) in de .env: TeknoParrotUI draait de game in gamescope (schermvullend).
+--env K=V: (herhaalbaar) zet een omgevingsvariabele voor de game in de gebruikerslaag
+(~/.local/share/ravengun/patches/<PROFIEL>/game.ini; bekende variabelen komen onder hun eigen sleutel, de rest onder [Env]).
+De standaarden per soort (TeknoParrot: standaardroute van de lader; OpenParrot: ook Wine's d3d9, JVS-bord achter de pipe en de
+lader-patch) staan in patches/_defaults/<Type>.ini en hoeven niet herhaald te worden (docs/per-game-patches.md).
+--gamescope: zet [Display] Gamescope = true in game.ini: de game draait in gamescope (schermvullend).
 --dxvk: voor Direct3D-11-games (UE4/Unity; Raccoon Rampage, NERF): maakt een eigen kopie van de gedeelde Wine-prefix
 (~/.local/share/TeknoParrotUI/prefixes/ravengun-test-dxvk), zet daar de DXVK-bibliotheken (d3d11, d3d10core, dxgi) uit een
-lokaal aanwezige GE-Proton in (niets gedownload) en laat de game die prefix gebruiken (wrappers/wine-prefix, RG_WINEPREFIX,
-WINEDLLOVERRIDES). De gedeelde prefix blijft ongemoeid. Zonder DXVK valt wined3d (OpenGL) om op UE4.
+lokaal aanwezige GE-Proton in (niets gedownload) en laat de game die prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix,
+DllOverrides). De gedeelde prefix blijft ongemoeid. Zonder DXVK valt wined3d (OpenGL) om op UE4.
 --view-up N: de view-wortel is N mappen boven die van de exe (bv. 3 voor RSGame/Binaries/Win64/<exe>); de exe staat in de view op
 hetzelfde relatieve pad. Standaard 0.
 --empty-dir REL: (herhaalbaar, met --view) maakt in de view van REL (pad ten opzichte van de gamemap) een lege map in plaats
@@ -22,7 +24,7 @@ intro-video's vragen een AAC-decoder die deze Wine mist; het spel stopt dan met 
 eindeloos terwijl de hoofdthread niet pompt) en in vensterstand door de kern crashen (CreateWindowExW met een klasse-atoom als
 venstertitel): maakt een eigen prefix-kopie ravengun-test-<profiel> (reflink-kopie van shared/wine, zonder de link C:/Sega),
 zet daarin een Wine-virtueel bureaublad WxH (HKCU/Software/Wine/Explorer), zet Windowed=0 in het profiel en laat de game die
-prefix gebruiken (wrappers/wine-prefix, RG_WINEPREFIX). De gedeelde prefix blijft ongemoeid.
+prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix, VirtualDesktop). De gedeelde prefix blijft ongemoeid.
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
 --view: maakt een lokale map met alleen symlinks naar de bestanden van de game (er wordt niets gekopieerd en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
@@ -31,22 +33,35 @@ gamemap. Ook nodig als de gamemap een spatie aan het eind heeft (Wine: "Director
 bestanden die de game in de view maakt blijven lokaal; bestaande bestanden en submappen zijn links naar de NAS.
 
 Vaste afspraak voor de gun-knoppen: trekker = LeftButton, herladen = RightButton, granaat = MiddleButton;
-toetsen: Coin = 5, Start P1 = 1, Test = F2, Service = F3. Bestaande profielen worden niet overschreven
+toetsen: Coin = 5, Start P1 = 1, Test = F2, Service = F3. Knoppen van een bepaalde game (Let's Go Safari: A/S/D/F, stuur) staan
+als [Bindings] in patches/<PROFIEL>/game.ini ("Knopnaam = kbd:TOETS" of "gun:LeftButton"); die gaan voor de vaste afspraak.
+Bestaande profielen worden niet overschreven
 zonder --force (dan eerst een back-up ernaast).
 Speler 2..4 (P2 Light Gun, Trigger P2, Reload P2, Start P2, ...) gaan naar de gun van die speler
 ("RavenGun Virtual Lightgun P2", 1209:7203, by-id ..._P2-event-mouse) en Start Pn = toets n; Coin blijft 5.
 """
 import os, re, shutil, sys, time
 
-TP = os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+import gamesettings as gs
+
+TP = os.environ.get('RAVENGUN_TP_DIR') or os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
 GUN = '/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse'
 # Speler 2..4: een eigen gun (packaging/udev/70-ravengun.rules); speler 1 houdt GUN.
 GUNS = {1: GUN, **{n: f'/dev/input/by-id/usb-RavenGun_Virtual_Lightgun_P{n}-event-mouse' for n in (2, 3, 4)}}
 KBD = '/dev/input/by-id/usb-RavenGun_Virtual_Keyboard-event-kbd'
 
 
-def binding(name):
+def binding(name, game_bindings=None):
     n = name.lower()
+    # Knoppen die de game zelf vastlegt (patches/<Game>/game.ini, [Bindings]): "kbd:TOETS" of "gun:Knop" ("gun:" = het vizier).
+    if game_bindings and n in game_bindings:
+        kind, _, key = game_bindings[n].partition(':')
+        m = re.search(r'\b(?:p|player )([2-4])\b', n)
+        pl = int(m.group(1)) if m else 1
+        if kind == 'kbd' and key: return ('kbd', key, 1)
+        if kind == 'gun': return ('gun', key or None, pl)
     m = re.search(r'\b(?:p|player )([2-4])\b', n)
     pl = int(m.group(1)) if m else 1
     if n == 'test' or n.startswith('test / '): return ('kbd', 'F2', 1)
@@ -57,13 +72,6 @@ def binding(name):
     # Aanraak- en trackballgames en de Proton Pack (GhostBusters): de gun is het aanwijsapparaat.
     if 'light gun' in n or n in ('touch', 'touch xy', 'touch 1 device') or re.fullmatch(r'p[1-4] (proton pack|trackball gun)', n):
         return ('gun', None, pl)
-    # Let's Go Safari (LGS): vier gekleurde knoppen, de extra schakelaars en het stuur via het toetsenbord (nacht 2026-10-11;
-    # de kern beantwoordt de JVS-pakketten via de pipe van TeknoParrotUi, die deze bindingen leest). Stuur: zet ook
-    # "Use Keyboard/Button For Axis" op 1 in het profiel.
-    lgs = {'button 1 (red)': 'A', 'button 2 (blue)': 'S', 'button 3 (yellow)': 'D', 'button 4 (green)': 'F',
-           'change view': 'Q', 'window wipers': 'W', 'horn': 'E', 'fireworks': 'R',
-           'wheel axis left': 'Left', 'wheel axis right': 'Right'}
-    if n in lgs: return ('kbd', lgs[n], 1)
     if 'start' in n or n == 'enter sw': return ('kbd', f'D{pl}', pl)
     if n == 'gun trigger': return ('gun', 'LeftButton', pl)
     if n == 'gun button': return ('gun', 'RightButton', pl)
@@ -103,6 +111,11 @@ def link_tree(src, dst, empties):
             os.symlink(sp, dp)
 
 
+def prefix_env(path):
+    """RG_WINEPREFIX-regel voor een prefix-pad (gamesettings.env_to_settings maakt er [Wine] Prefix = <naam> van)."""
+    return f'RG_WINEPREFIX={path}'
+
+
 def make_dxvk_prefix():
     """Eigen prefix-kopie met DXVK; geeft (prefixpad, [env-regels]). De gedeelde prefix wordt alleen gelezen."""
     home = os.path.expanduser('~')
@@ -122,7 +135,7 @@ def make_dxvk_prefix():
                 d = f'{dst}/drive_c/windows/{sysdir}/{dll}.dll'
                 if os.path.lexists(d): os.unlink(d)     # de bron is alleen-lezen; een eerdere kopie ook
                 shutil.copy2(f, d)
-    return dst, [f'RG_WINEPREFIX={dst}', 'WINEDLLOVERRIDES=d3d11,d3d10core,dxgi=n,b']
+    return dst, [prefix_env(dst), 'WINEDLLOVERRIDES=d3d11,d3d10core,dxgi=n,b']
 
 
 def make_vdesktop_prefix(prof, size):
@@ -164,6 +177,8 @@ def main():
     if len(args) != 2:
         sys.exit(__doc__)
     prof, game = args[0], os.path.abspath(os.path.expanduser(args[1]))
+    shipped_game = gs.load_game(prof)      # patches/<Game>/ (meegeleverd + gebruiker): knoppen van de game
+    game_bindings = {k.lower(): v for k, v in shipped_game.section('Bindings').items()}
     src = os.path.join(TP, 'GameProfiles', prof + '.xml')
     dst = os.path.join(TP, 'UserProfiles', prof + '.xml')
     if not os.path.isfile(src): sys.exit(f'geen sjabloon: {src}')
@@ -206,7 +221,7 @@ def main():
     def btn(m):
         blk = m.group(0)
         name = re.search(r'<ButtonName>(.*?)</ButtonName>', blk).group(1)
-        b = binding(name)
+        b = binding(name, game_bindings)
         if not b: return blk
         raw, bind = raw_xml(*b)
         blk = re.sub(r'<RawInputButton>.*?</RawInputButton>|<BindNameRi>.*?</BindNameRi>|<BindName>.*?</BindName>', '', blk, flags=re.S)
@@ -229,7 +244,8 @@ def main():
         wrapper = os.path.expanduser('~/.local/share/ravengun/wrappers/wine-prefix')
         if not os.path.exists(wrapper): sys.exit(f'wrapper ontbreekt: {wrapper} (link naar scripts/wine-prefix.sh)')
         pfx = make_vdesktop_prefix(prof, argv_[argv_.index('--vdesktop') + 1])
-        envs = [e for e in envs if not e.startswith('RG_WINEPREFIX=')] + [f'RG_WINEPREFIX={pfx}']
+        envs = [e for e in envs if not e.startswith('RG_WINEPREFIX=')] + [prefix_env(pfx)]
+        vdesktop = argv_[argv_.index('--vdesktop') + 1]
         s = re.sub(r'(<FieldName>Windowed</FieldName>\s*<FieldValue>).*?(</FieldValue>)', lambda m: m.group(1) + '0' + m.group(2), s, count=1, flags=re.S)
         runner = wrapper
     if runner:
@@ -238,30 +254,34 @@ def main():
         s = s.replace('</GameProfile>', f'<WineRunnerPath>{runner}</WineRunnerPath>\n</GameProfile>')
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(s)
-    # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games met de TeknoParrot-kern krijgen de
-    # standaardroute van de lader (TP_REMOTETHREAD=off: geparkeerd startpunt, geen remote thread). Met de oude keuze
-    # TP_POSTSTART_REMOTETHREAD_MS=3000 kreeg de kern bij o.a. Raccoon Rampage en NERF geen invoer (twaalfde ronde,
-    # 2026-10-11); de 32-bit kern brak ermee af (tiende ronde). Oudere profielen (TC5, Transformers) houden hun eigen .env. Niet voor OpenParrot
-    # (Taito Type X2): daarmee verbindt de game de JVS-pipe niet (gemeten bij Gaia Attack 4, 2026-10-10); die krijgen de
-    # standaardroute van de lader plus de Wine-omwegen van de elfde ronde.
-    envf = dst[:-4] + '.env'
+    # Instellingen van de game in de gebruikerslaag (patches/<PROFIEL>/game.ini, ~/.local/share/ravengun/patches). De standaarden per
+    # soort (lader-route, Wine-omwegen, lader-patch voor Type X2) komen uit patches/_defaults/<Type>.ini: hier alleen wat de aanroeper
+    # kiest. Zie docs/per-game-patches.md en packaging/games-status.md.
     if '--gamescope' in sys.argv:
         envs = envs + ['TP_GAMESCOPE=1', 'TP_GAMESCOPE_PATH=/usr/bin/gamescope']
-    tp_core = '<EmulatorType>TeknoParrot</EmulatorType>' in s
-    op_core = '<EmulatorType>OpenParrot</EmulatorType>' in s      # Taito Type X2: zie packaging/games-status.md (elfde ronde)
-    if envs or (not os.path.exists(envf) and (tp_core or op_core)):
-        lines = list(envs)
-        if op_core:
-            # Standaardroute van de lader (geen TP_REMOTETHREAD), Wine's ingebouwde d3d9, lader-kopie zonder
-            # CONTEXT_FLOATING_POINT (Wine zet dan MXCSR op 0) en een standaard JVS-bord achter de pipe.
-            for l in ('TP_REMOTETHREAD=off', 'WINEDLLOVERRIDES=d3d9=b', 'RG_LOADER_FPFIX=true', 'RG_JVS_BOARD=true'):
-                if not any(e.split('=', 1)[0] == l.split('=', 1)[0] for e in lines):
-                    lines.append(l)
-        # De standaard injectiemethode voor de TeknoParrot-kern blijft staan tenzij de aanroeper er zelf een kiest.
-        if tp_core and not any(l.startswith(('TP_POSTSTART_REMOTETHREAD_MS=', 'TP_ENTRYPOINT_REMOTETHREAD_MS=', 'TP_REMOTETHREAD=')) for l in lines):
-            lines.insert(0, 'TP_REMOTETHREAD=off')
-        open(envf, 'w', encoding='utf-8').write('# door tp-add-game.py; zie packaging/games-status.md\n' + '\n'.join(lines) + '\n')
-        print(f'  omgeving: {envf}: ' + ' '.join(lines))
+    et = re.search(r'<EmulatorType>(.*?)</EmulatorType>', s)
+    typ = et.group(1).strip() if et else ''
+    nm = re.search(r'<GameNameInternal>(.*?)</GameNameInternal>', s)
+    env_dict = {}
+    for l in envs:
+        k, _, v = l.partition('=')
+        env_dict[k] = v
+    settings, _legacy = gs.env_to_settings(env_dict, os.path.dirname(game))
+    settings.setdefault('Game', {})['Profile'] = prof
+    if typ: settings['Game']['Type'] = typ
+    if nm and nm.group(1).strip() and not shipped_game.get('Game', 'Name'): settings['Game']['Name'] = nm.group(1).strip()
+    if '--vdesktop' in sys.argv: settings.setdefault('Wine', {})['VirtualDesktop'] = vdesktop
+    # Een eigen injectiemethode (POSTSTART/ENTRYPOINT) vervangt de standaardroute van het soort: dan RemoteThread leegmaken.
+    if any(k in env_dict for k in ('TP_POSTSTART_REMOTETHREAD_MS', 'TP_ENTRYPOINT_REMOTETHREAD_MS')) and 'TP_REMOTETHREAD' not in env_dict:
+        settings.setdefault('Loader', {})['RemoteThread'] = ''
+    patches = {}
+    dflt, _w = gs.read_ini(os.path.join(gs.shipped_dir(), '_defaults', typ + '.ini')) if typ else ({}, [])
+    for name in [x.strip() for x in dflt.get('NewGame', {}).get('EnablePatches', '').split(',') if x.strip()]:
+        patches[name] = {'Enabled': 'true'}
+    gs.write_user_settings(prof, settings, patches)
+    print(f'  instellingen: {os.path.join(gs.user_dir(), prof, "game.ini")}: '
+          + ' '.join(f'{sec}.{k}={v}' for sec, kv in settings.items() for k, v in kv.items())
+          + (f' (patches aan: {", ".join(patches)})' if patches else ''))
     print(f'geschreven: {dst}\n  game: {game}\n  bindingen:\n    ' + '\n    '.join(bound))
 
 

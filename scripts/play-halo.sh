@@ -8,23 +8,25 @@
 # --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
 #              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
-# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board | jvs); standaard de keuze in de app
-#            (~/.config/ravengun/io-routes.json) over packaging/io-routes.json (scripts/io-route.py). tp-shm: de
+# --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board | jvs); standaard [Input] Route uit
+#            patches/<PROFIEL>/game.ini met daarover de keuze van de gebruiker (~/.local/share/ravengun/patches/<PROFIEL>/game.ini,
+#            gezet door de app; scripts/gamesettings.py, docs/per-game-patches.md). tp-shm: de
 #            daemon schrijft zelf het gedeelde geheugen van de TeknoParrot-kern (zie scripts/tp-shm-swap.sh en docs/decisions.md).
 #            hid-board: de daemon maakt het invoerbord van de game na als virtuele joystick (Transformers; hid-boards.json)
 #            en zet dat apparaat in de Wine-prefix van het profiel op joystick-id 0 (scripts/wine-joyid.sh).
 #            jvs: de daemon is het JVS-bord (Let's Go Safari): een pty die als COM-poort (dosdevices/comN) in de Wine-prefix van het
-#            profiel staat (RG_WINEPREFIX in UserProfiles/<PROFIEL>.env) en de LD_PRELOAD-hulp voor GetCommModemStatus; bij --stop
+#            profiel staat ([Wine] Prefix in game.ini) en de LD_PRELOAD-hulp voor GetCommModemStatus; bij --stop
 #            wordt de koppeling opgeruimd (docs/procedures.md, "Let's Go Safari").
 # --native: forceer de native route (scripts/play-native.sh, zonder Wine/BudgieLoader; profiel uit packaging/native-games.json), ook
 #           als het profiel daar nog niet op enabled staat (experiment). Staat een profiel op enabled, dan is native de standaard
 #           (net als de Unity-route); --teknoparrot dwingt dan de TeknoParrot-route af.
-# --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast wordt, indien
-#            aanwezig, UserProfiles/<PROFIEL>.env gelezen (regels K=V, # = commentaar) vanuit de TeknoParrot-map.
+# --env K=V: extra omgevingsvariabele voor TeknoParrot/Wine/de game (herhaalbaar). Daarnaast komt de omgeving uit patches/<PROFIEL>/
+#            game.ini ([Loader], [Wine], [Display], [Env], ...; `gamesettings.py env`); het oude UserProfiles/<PROFIEL>.env wordt nog
+#            één versie als laagste laag gelezen (melding "legacy .env").
 # --direct: start de game zonder TeknoParrotUi (scripts/launch-direct.py; A10): het script start de lader van de runtime zelf,
 #           met pipehelper.exe en het gedeelde geheugen, in dezelfde unit ravengun-tpui. De invoer komt dan altijd van de daemon
-#           (route tp-shm; een profiel met route evdev schakelt over op tp-shm als er een indeling is). Staat in io-routes.json
-#           "launch": "direct" bij het profiel, dan is dit de standaard; --tpui dwingt dan TeknoParrotUi af. Kan de directe start
+#           (route tp-shm; een profiel met route evdev schakelt over op tp-shm als er een indeling is). Staat in game.ini
+#           [Launch] Mode = direct, dan is dit de standaard; --tpui dwingt dan TeknoParrotUi af. Kan de directe start
 #           niet (activering niet in de prefix, profiel niet ondersteund), dan valt het script terug op TeknoParrotUi (behalve
 #           met --direct: dan stopt het met een melding).
 # --log-full: (alleen direct) de kern schrijft ook naar zijn logbestand (TP_LOGTOFILE=1) en de regels over aanpassingen
@@ -158,11 +160,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Invoerroute: --route, anders de keuze van de gebruiker (~/.config/ravengun/io-routes.json, gezet door de app) over
-# packaging/io-routes.json (standaard evdev); zie scripts/io-route.py. --teknoparrot forceert evdev.
+# Invoerroute: --route, anders [Input] Route in patches/<PROFIEL>/game.ini met de gebruikerslaag eroverheen (gezet door de app;
+# standaard evdev); zie scripts/gamesettings.py. --teknoparrot forceert evdev.
+gset() { python3 -I "$ROOT/scripts/gamesettings.py" --tp "$TP" "$@"; }                  # instellingen van de game (meldingen op stderr)
+gset_env() { gset env "$PROFILE" 2>/dev/null | sed -n "s/^$1=//p" | head -1; }           # één omgevingsvariabele uit de instellingen
 ROUTE_FORCED="$ROUTE"
 if [[ -z "$ROUTE" ]]; then
-  ROUTE=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" route 2>/dev/null || echo evdev)
+  ROUTE=$(gset input "$PROFILE" route 2>/dev/null || echo evdev)
   [[ -n "$ROUTE" ]] || ROUTE=evdev
 fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
@@ -203,11 +207,11 @@ fi
 [[ $NATIVE -eq 1 || -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
 
 # Startwijze (A10): direct (scripts/launch-direct.py, zonder TeknoParrotUi) of teknoparrot-ui. Volgorde: --direct/--tpui, anders
-# "launch" in io-routes.json (gebruikersbestand over de basis), anders teknoparrot-ui. --teknoparrot (route evdev) betekent de UI.
+# [Launch] Mode in game.ini (gebruikerslaag over de meegeleverde), anders teknoparrot-ui. --teknoparrot (route evdev) betekent de UI.
 LAUNCH=teknoparrot-ui
 if [[ $NATIVE -eq 0 ]]; then
   if [[ -n "$LAUNCH_FORCED" ]]; then LAUNCH="$LAUNCH_FORCED"
-  elif [[ $USE_TP -eq 0 ]]; then LAUNCH=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" launch 2>/dev/null || echo teknoparrot-ui); fi
+  elif [[ $USE_TP -eq 0 ]]; then LAUNCH=$(gset input "$PROFILE" launch 2>/dev/null || echo teknoparrot-ui); fi
   [[ $USE_TP -eq 1 && "$LAUNCH_FORCED" == direct ]] && fail "--teknoparrot (TeknoParrotUi met evdev) en --direct gaan niet samen."
 fi
 [[ "$LAUNCH" == direct || "$LAUNCH" == teknoparrot-ui ]] || LAUNCH=teknoparrot-ui
@@ -219,7 +223,7 @@ direct_fallback() {   # $1 = reden; met --direct is dat een fout, anders via Tek
 }
 if [[ "$LAUNCH" == direct ]]; then
   if [[ "$ROUTE" == evdev ]]; then
-    if [[ -n "$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" layout 2>/dev/null)" ]]; then
+    if [[ -n "$(gset input "$PROFILE" layout 2>/dev/null)" ]]; then
       ROUTE=tp-shm; echo "Directe start: invoer via tp-shm (zonder TeknoParrotUi leest niemand evdev)."
     else
       direct_fallback "route evdev zonder tp-shm-indeling"
@@ -228,6 +232,8 @@ if [[ "$LAUNCH" == direct ]]; then
 fi
 if [[ "$LAUNCH" == direct ]]; then
   RC=0; CHK=$(python3 -I "$ROOT/scripts/launch-direct.py" "$PROFILE" --check 2>&1) || RC=$?
+  # Exitcode 5: een ingeschakelde patch is geweigerd. Geen terugval: TeknoParrotUi zou de game zonder die patch starten.
+  [[ $RC -ne 5 ]] || fail "$PROFILE: ${CHK##*$'\n'}"
   [[ $RC -eq 0 ]] || direct_fallback "${CHK##*$'\n'}"
 fi
 # Eén game tegelijk: game_running kent alleen de processen van het profiel dat nu start; elke levende
@@ -260,18 +266,18 @@ if [[ "$ROUTE" == tp-shm ]]; then
 elif [[ "$ROUTE" == hid-board ]]; then
   # Het bord moet bestaan voordat de game start (DirectInput telt de joysticks bij het openen). Eerst de prefix: het bord
   # krijgt daar joystick-id 0, want GUID_Joystick is de eerste joystick (anders de Move zelf).
-  WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
-  VIDPID=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" hid_vidpid 2>/dev/null || true)
+  WPFX=$(gset_env RG_WINEPREFIX)
+  VIDPID=$(gset input "$PROFILE" hid_vidpid 2>/dev/null || true)
   "$CTL" iobridge start "$PROFILE" --route hid-board >/dev/null || fail "IO-brug (hid-board) starten mislukt voor $PROFILE"
   if [[ -n "$WPFX" && -n "$VIDPID" ]]; then "$ROOT/scripts/wine-joyid.sh" "$WPFX" "$VIDPID" || true; fi
   say "Invoerroute: hid-board (de daemon is het invoerbord van de game)."
 elif [[ "$ROUTE" == jvs ]]; then
   # De daemon maakt de pty (en de symlink $JVS_LINK); die komt in de Wine-prefix van het profiel als COM-poort. De LD_PRELOAD-hulp
   # laat GetCommModemStatus op die pty slagen (een pty kent TIOCMGET niet). Eerst het env-bestand lezen: de prefix staat daar.
-  JTRANS=$(sed -n 's/^RG_JVS_TRANSPORT=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
-  WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
+  JTRANS=$(gset_env RG_JVS_TRANSPORT)
+  WPFX=$(gset_env RG_WINEPREFIX)
   if [[ "$JTRANS" == pipe ]]; then
-    # RG_JVS_TRANSPORT=pipe in <PROFIEL>.env (Let's Go Island): de game praat JVS over de pipe TeknoParrot_JVS, niet over een COM-poort.
+    # [Input] JvsTransport = pipe in game.ini (Let's Go Island): de game praat JVS over de pipe TeknoParrot_JVS, niet over een COM-poort.
     # De daemon maakt de pty; launch-direct.py brugt de pipe (pipehelper via TCP) naar die pty (RG_JVS_PTY). Geen COM-koppeling,
     # geen LD_PRELOAD-hulp en geen wineboot nodig.
     [[ "$LAUNCH" == direct ]] || fail "RG_JVS_TRANSPORT=pipe werkt alleen bij een directe start (--direct)."
@@ -280,8 +286,8 @@ elif [[ "$ROUTE" == jvs ]]; then
     EXTRA_ENV+=("RG_JVS_PTY=$JVS_LINK")
     say "Invoerroute: jvs over de JVS-pipe (de daemon is het JVS-bord achter TeknoParrot_JVS)."
   else
-  [[ -n "$WPFX" ]] || fail "Route jvs vraagt RG_WINEPREFIX=<eigen prefix> in $TP/UserProfiles/$PROFILE.env (en WineRunnerPath = wrappers/wine-prefix)."
-  COMPORT=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" com_port 2>/dev/null || echo COM4)
+  [[ -n "$WPFX" ]] || fail "Route jvs vraagt [Wine] Prefix = <eigen prefix> in patches/$PROFILE/game.ini (en WineRunnerPath = wrappers/wine-prefix)."
+  COMPORT=$(gset input "$PROFILE" com_port 2>/dev/null || echo COM4)
   [[ -n "$COMPORT" ]] || COMPORT=COM4
   say "Wine-prefix voorbereiden (wineboot), daarna de poort koppelen..."
   jvs_prewarm_prefix "$WPFX" || fail "Kon de wineserver van $WPFX niet starten."
@@ -307,14 +313,11 @@ if [[ -z "${XAUTHORITY:-}" ]]; then
   fi
 fi
 
-# Per-profiel omgevingsvariabelen: UserProfiles/<PROFIEL>.env, daarna --env (laatste wint).
-ENVFILE="$TP/UserProfiles/$PROFILE.env"
-if [[ -f "$ENVFILE" ]]; then
-  while IFS= read -r L || [[ -n "$L" ]]; do
-    L="${L%%#*}"; L="${L#"${L%%[![:space:]]*}"}"; L="${L%"${L##*[![:space:]]}"}"
-    [[ "$L" == *=* ]] && EXTRA_ENV=("$L" "${EXTRA_ENV[@]}")
-  done < "$ENVFILE"
-fi
+# Per-profiel omgevingsvariabelen uit de instellingen van de game (patches/<PROFIEL>/game.ini, gebruikerslaag eroverheen; het oude
+# UserProfiles/<PROFIEL>.env als laagste laag, met een melding), daarna --env (laatste wint).
+while IFS= read -r L || [[ -n "$L" ]]; do
+  [[ "$L" == *=* ]] && EXTRA_ENV=("$L" "${EXTRA_ENV[@]}")
+done < <(gset env "$PROFILE" || true)
 SDENV=(); for E in "${EXTRA_ENV[@]}"; do SDENV+=(-E "$E"); done
 [[ ${#EXTRA_ENV[@]} -gt 0 ]] && echo "Extra omgeving: ${EXTRA_ENV[*]}"
 
@@ -329,7 +332,7 @@ if [[ $NATIVE -eq 1 ]]; then
     /bin/sh -c "$SWAP exec '$ROOT/scripts/play-native.sh' ${NARGS[*]@Q} >>'$LOG' 2>&1"
 elif [[ "$LAUNCH" == direct ]]; then
   # Directe start (A10): launch-direct.py is het hoofdproces van dezelfde unit, op de plaats van TeknoParrotUi. Het leest zelf
-  # UserProfiles/<P>.env; de extra omgeving (--env) gaat ook mee als omgeving van de unit, net als bij TeknoParrotUi.
+  # patches/<P>/game.ini; de extra omgeving (--env) gaat ook mee als omgeving van de unit, net als bij TeknoParrotUi.
   LOG="$LOGDIR/direct-$(date +%Y%m%d-%H%M%S).log"
   DARGS=(--run); [[ "$ROUTE" == tp-shm ]] && DARGS+=(--shm-source /dev/shm/ravengun_JvsState); [[ $LOG_FULL -eq 1 ]] && DARGS+=(--log-full)
   say "Start direct (zonder TeknoParrotUi)."

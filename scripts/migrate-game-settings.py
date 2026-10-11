@@ -131,6 +131,25 @@ def render_header(profile, extra):
     return "\n".join(lines)
 
 
+def section_comments(text):
+    """Commentaarblokken vlak vóór een sectiekop in een bestaand bestand ({sectie: [regels]}); handwerk dat de migratie moet bewaren
+    bij secties die ze niet zelf afleidt (bv. [Bindings])."""
+    out, buf = {}, []
+    for line in text.splitlines():
+        st = line.strip()
+        if st.startswith((";", "#")):
+            buf.append(line.rstrip())
+        elif st.startswith("[") and st.endswith("]"):
+            if buf and st[1:-1] not in SECTION_ORDER:
+                out[st[1:-1]] = buf
+            buf = []
+        elif st:
+            buf = []
+        else:
+            buf = [b for b in buf] if buf and not buf[-1] == "" else buf   # lege regel binnen het blok: blok blijft
+    return out
+
+
 def read_text(path):
     try:
         with open(path, encoding="utf-8") as f:
@@ -296,6 +315,9 @@ def migrate(out_dir, io_routes, notes, runtime, dry=False):
             lc = lead_comments(old_text)
             comments = "\n".join(c[1:].strip() if c.startswith((";", "#")) else c for c in lc) if lc else render_header(profile, [])
         text = gs.dump_ini(sections, comments)
+        for sec, lines in section_comments(old_text).items():
+            if sec in sections:
+                text = text.replace("\n[%s]\n" % sec, "\n" + "\n".join(lines) + "\n[%s]\n" % sec, 1)
         stats["games"] += 1
         write_if_changed(gpath, text, dry, stats)
 
