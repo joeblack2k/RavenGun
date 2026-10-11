@@ -26,7 +26,7 @@ standaardwaarde); dat staat er dan bij.
 | **HauntedMuseum** | OpenParrot | HauntedMuseum | - | - | parked |
 | **HauntedMuseumII** | OpenParrot | HauntedMuseum2 | - | - | parked |
 | **HOTDSD** | TeknoParrot | ALLSHOTDSD | - | - | playable |
-| **InfinityBladeFX** | TeknoParrot | InfinityBlade | - | - | parked |
+| **InfinityBladeFX** | TeknoParrot | InfinityBlade | matrix | drop-in (dongle.json + dropin/) | parked |
 | **JurassicPark** | ElfLdr2 | RawThrillsGUN | hasp | drop-in (dongle.json + dropin/) | parked |
 | **LethalEnforcers3** | TeknoParrot | WartranTroopers | - | - | parked |
 | **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json + dropin/) | playable |
@@ -42,14 +42,14 @@ standaardwaarde); dat staat er dan bij.
 | **Otomedius** | TeknoParrot | WartranTroopers | - | - | parked |
 | **PacmanChomp** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **PigsMightFly** | TeknoParrot | WartranTroopers | - | - | playable |
-| **RabbidsHollywood** | TeknoParrot | WartranTroopers | - | - | parked |
+| **RabbidsHollywood** | TeknoParrot | WartranTroopers | matrix | drop-in (dongle.json + dropin/) | parked |
 | **RaccoonRampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **RainbowBombergirl** | TeknoParrot | WartranTroopers | - | - | parked |
-| **Rampage** | TeknoParrot | WartranTroopers | - | - | playable |
+| **Rampage** | TeknoParrot | WartranTroopers | matrix | drop-in (dongle.json + dropin/) | playable |
 | **TankTankTank** | ElfLdr2 | DeadHeat | - | - |  |
 | **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in (dongle.json + dropin/) | playable |
 | **Terminator** | ElfLdr2 | RawThrillsGUN | hasp | drop-in (dongle.json + dropin/) | playable |
-| **TombRaider** | TeknoParrot | WartranTroopers | - | - | playable |
+| **TombRaider** | TeknoParrot | WartranTroopers | matrix | drop-in (dongle.json + dropin/) | playable |
 | **TransformersShadowsRising** | TeknoParrot | TransformersShadowsRising | - | - | playable |
 
 ## Per game: de dongle in de map van de game
@@ -65,7 +65,7 @@ standaardwaarde); dat staat er dan bij.
 * **HauntedMuseum** — -
 * **HauntedMuseumII** — -
 * **HOTDSD** — -
-* **InfinityBladeFX** — -
+* **InfinityBladeFX** — matrix (dropin/)
 * **JurassicPark** — hasp (memory/ met 1 geheugenbestand, dropin/)
 * **LethalEnforcers3** — -
 * **LGI** — region (dropin/, niet afgedwongen, enforced = false)
@@ -81,14 +81,14 @@ standaardwaarde); dat staat er dan bij.
 * **Otomedius** — -
 * **PacmanChomp** — -
 * **PigsMightFly** — -
-* **RabbidsHollywood** — -
+* **RabbidsHollywood** — matrix (dropin/)
 * **RaccoonRampage** — -
 * **RainbowBombergirl** — -
-* **Rampage** — -
+* **Rampage** — matrix (dropin/, niet afgedwongen, enforced = false)
 * **TankTankTank** — -
 * **TC5** — hasp (dropin/)
 * **Terminator** — hasp (memory/ met 1 geheugenbestand, dropin/)
-* **TombRaider** — -
+* **TombRaider** — matrix (dropin/, niet afgedwongen, enforced = false)
 * **TransformersShadowsRising** — -
 
 ## Per game: de statusnotitie

@@ -96,108 +96,49 @@ De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. C
 | `DllOverride` | waarde voor `WINEDLLOVERRIDES`: `native` zet `<naam>=n`, `builtin,native` zet `<naam>=n,b` |
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
 | `Preload` | `true` als dit bestand in het **ELF-proces** van de game geladen moet worden |
+
 | `Audit` | `false` als dit bestand **niet** in `LD_AUDIT` mag (zie hieronder); standaard `true` |
 
-### `Audit = false` — een inline-hook hoort niet in het Cygwin-proces
+### `Audit = false` — wanneer een bibliotheek NIET in `LD_AUDIT` mag
 
-`LD_AUDIT` wordt gelezen door het proces dat de lader start, en dat is bij ElfLdr2 het
-Cygwin-programma BudgieLoader. Voor `librt-glfix` is dat precies goed (de GL-fix moet in dat
-proces zitten). Maar een inline-hook die de **game-ELF** wil aanhaken, sterft daar en neemt de
-lader mee: gemeten met `libravengun-hasphook` in `LD_AUDIT` gaf Halo exitcode 1 en Jurassic Park
-een SIGSEGV. Zo'n bestand zet je op `Audit = false`; het pad blijft dan in `RG_DROPIN_PRELOAD`
-staan, dat het spelproces oppakt.
+*Gemeten op 2026-10-11. Zie `docs/elfldr2-route.md` voor de hele familie en `patches/Halo/README.md`
+voor de volledige proef.*
 
-```ini
-[libravengun-hasphook.so]
-To = .
-Preload = true
-Audit = false
-```
+`Preload = true` betekent "dit bestand moet in het proces van de game geladen worden". Voor een
+Linux-ELF onder Wine (`ElfLdr2`, `N2`, Lindbergh) zet de launcher het pad in **`LD_AUDIT`**. Dat is
+één proces: ElfLdr2 is een Cygwin-programma dat de game-ELF **in zijn eigen adresruimte** laadt, dus
+een auditbibliotheek komt in het proces van de Cygwin-lader terecht.
 
-### De grenzen van `LD_AUDIT` (gemeten)
+Voor `librt-glfix.so` is dat het werkende kanaal (de 32-bits games komen ermee voorbij hun start).
+Voor een **inline-hook die de game wil aanhaken** is het fataal: `libravengun-hasphook` meldt nog
+`spelbeeld op 0x00400000` en dan is de lader weg. Gemeten met losse proeven op Halo: alleen de hook
+in `LD_AUDIT` geeft `exitcode 1` en de game komt nooit aan zijn eigen code toe; zonder de hook loopt
+dezelfde start door naar `SubSystem Detection` en draait de game zijn eigen code. Bij JurassicPark
+geeft hetzelfde patroon `exitcode -11` (SIGSEGV).
 
-`LD_AUDIT` is de route voor een Linux-ELF onder Wine, maar hij is niet onbeperkt. Gemeten op
-2026-10-11 met `launch-direct.py Halo --run`, met de twee drop-in-bibliotheken in `LD_AUDIT`:
-
-```
-ERROR: ld.so: object '.../ravengun-hasp-x64.so' cannot be loaded as audit interface:
-       undefined symbol: la_version; ignored.
-ERROR: ld.so: object '.../libravengun-hasphook-x64.so' cannot be loaded as audit interface:
-       wrong ELF class: ELFCLASS64; ignored.
-```
-
-Twee dingen om te weten voordat je iets in `LD_AUDIT` zet:
-
-* **Alleen een echte auditbibliotheek werkt.** glibc eist `la_version`; de HASP-emulator is een
-  gewone bibliotheek met `hasp_*` en wordt dus geweigerd. Een bibliotheek in `LD_AUDIT` moet
-  `la_version` en `la_preinit` hebben (die heeft de inline-hook wel).
-* **De klasse moet kloppen.** Wie `LD_AUDIT` leest is het Wine-proces dat de lader start; staat
-  daar een 32-bits lezer, dan wordt een 64-bits bibliotheek met "wrong ELF class" genegeerd.
-  Let dus op de bitbreedte van het proces dat je wilt inhaken, niet op die van de game-exe.
-
-Een fout hier is stil: de omgeving staat goed, `--plan` meldt geen fout, en de bibliotheek wordt
-toch niet geladen. Controleer met de logregels hierboven of met een eigen logbestand
-(`RAVENGUN_HASP_ELF_LOG`).
-
-### `Preload = true` — en waarom de launcher géén `LD_PRELOAD` zet
-
-Gemeten op de Deck, en dit is geen theorie: **`LD_PRELOAD` in de startomgeving is fataal voor de
-ElfLdr2-games.**
-
-```
-[launch-direct] omgeving: LD_PRELOAD=.../ravengun-hasp-x64.so ...
-ERROR: ld.so: object '...' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS64): ignored.
-Cygwin WARNING: Couldn't compute FAST_CWD pointer...
-BudgieLoader_x64: *** fatal error - error while loading shared libraries: ...ravengun-hasp-x64.so
-```
-
-`BudgieLoader` is een **Cygwin**-programma (`msys-2.0.dll` leest `LD_PRELOAD` en sterft eraan), en
-Wine geeft zijn omgeving aan alles door. Zonder die variabele start de game weer volledig.
-
-Daarom geldt:
-
-- De **launcher zet nooit `LD_PRELOAD`** in de omgeving van de start.
-- Bij `Preload = true` levert de launcher het pad als **`RG_DROPIN_PRELOAD`** (onze eigen variabele,
-  zoals `RG_LD_PRELOAD`), puntkomma-gescheiden bij meerdere bestanden.
-- **De native route of de lader zet dat pad zelf in `LD_PRELOAD` van het ELF-proces van de game.**
-  Wie een ElfLdr2-vervanging bouwt (of `play-native.sh` aanpast), moet `RG_DROPIN_PRELOAD` lezen en
-  in `LD_PRELOAD` zetten — dan werkt de drop-in, en de Cygwin-lader blijft erbuiten.
-
-Dezelfde val geldt voor elke `Preload`-drop-in bij een game die via een Cygwin- of MSYS-lader start.
-
-De launcher leest `dropin.ini` en doet de rest. **Een nieuwe drop-in toevoegen is een bestand in
-`dropin/` zetten plus één sectie in `dropin.ini`** — geen codewijziging.
-
-## `game.ini` — `[Dongle]`
-
-De sectie houdt twee dingen:
+Daarom is `Audit` een keuze **per bibliotheek**:
 
 | Sleutel | Waarden | Standaard | Betekenis |
 |---|---|---|---|
-| `Enabled` | `true`/`false` | `false` (weggelaten) | de eigenaar zet de dongle aan |
-| `Source` | `usb-passthrough` \| `drop-in` | `usb-passthrough` | de fysieke dongle van de eigenaar, of de drop-in uit deze map |
+| `Audit` | `true`/`false` | `true` | mag dit bestand in `LD_AUDIT` van de Wine-start? |
 
-Twee bronnen, niet meer: de keuze is "mijn echte dongle" of "wat hier in de map staat". **Welke
-soort** het is staat in `dongle.json`, niet in `game.ini` — één bron van waarheid.
+Met `Audit = false` blijft het pad in `RG_DROPIN_PRELOAD` staan — het kanaal voor de native route
+(`scripts/play-native.sh`) en voor een eigen lader — maar het bestand wordt niet in het proces van de
+Cygwin-lader geladen. `--plan` laat de keuze zien:
 
-In de **meegeleverde** laag staat `Enabled` weggelaten (dus uit); de eigenaar zet hem aan in zijn
-eigen laag. Zo verandert er niets aan de start van een game tot iemand er bewust voor kiest.
+```ini
+[libravengun-hasphook-x64.so]
+To = .
+Preload = true
+Audit = false
+Env = RAVENGUN_HASP_ELF_LOG=hasphook.log
+```
 
-## Waarom zo
+```
+'audit': [], 'geen_audit': ['.../libravengun-hasphook-x64.so']
+niet in LD_AUDIT (Audit = false): ... -- deze bibliotheek hoort in het spelproces en niet in het
+Cygwin-proces van de lader
+```
 
-- **Modulair.** Een game toevoegen is één map kopiëren. Geen gedeelde lijst die je moet bijwerken,
-  dus geen merge-conflicten tussen bijdragers.
-- **Bij te werken.** Een spelversie verandert? Dan verandert er één map. De rest van de repo blijft
-  ongemoeid.
-- **Zichtbaar.** Je ziet in één oogopslag wat een game nodig heeft: welke patches, welke dongle,
-  welke drop-ins.
-- **Terugdraaibaar.** Een drop-in weghalen is het bestand weghalen; de game valt terug op de
-  standaardroute.
-
-## Wat dit vervangt
-
-- De globale `hasp/<Game>/`-boom en `~/.local/share/ravengun/hasp/<Game>/` als plek voor
-  dongle-gegevens: die gegevens horen in `patches/<Game>/dongle/`. De **emulator-binary** zelf
-  (`ravengun-hasp.so`) is niet game-specifiek en blijft waar hij is.
-- Vier donglebronnen in `[Dongle] Source`: dat worden er twee, omdat de soort nu in `dongle.json`
-  staat.
+De standaard is `true`, zodat niets vanzelf verandert en de bestaande werkende drop-ins
+(PacmanChomp, GalagaAssault, JurassicPark met `librt-glfix.so`) het kanaal houden.
