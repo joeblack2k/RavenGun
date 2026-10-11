@@ -86,7 +86,9 @@ Platform en route uit `packaging/io-routes.json` en `packaging/games-status.md`;
 | Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern start nu wel; per game een eigen oorzaak: films, ACIO op COM2, activering, ontbrekende bestanden, Kaboom-bibliotheek) | lader, gesloten kern | Otomedius: Patreon=true |
 | Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (crash opgelost met een lokale ladercopie; zwart beeld na de JVS-featurecheck) | OpenParrot (open kern) | regiokeuze |
 | Jurassic Park | geparkeerd | ElfLdr2, gesloten kern | ja (integriteitscontrole) |
-| Let's Go Safari, Sega Ring-games | geparkeerd (poort 40100) | lader, gesloten kern | deels (dongle regio/PCB) |
+| Let's Go Safari, Let's Go Island (2D en 3D) | speelbaar, direct (2026-10-11; standaardroute van de lader, geen dienst op 40100 nodig; eigen prefix) | lader, gesloten kern, pipehelper | deels (dongle regio/PCB) |
+| Pigs Might Fly | speelbaar, direct (2026-10-11; eigen prefix voor C:\Sega) | lader, gesloten kern | packer op Shell.exe |
+| Medaru No Gunman | geparkeerd (RAM-fout bij elke start; d3dx9_40 van Microsoft nodig) | lader, gesloten kern | — |
 | Luigi's Mansion | speelbaar, direct (2026-10-10) | lader, gesloten kern | Capcom-packer op de exe |
 
 ## 5. Volgorde van werk als het team besluit los te koppelen (feitelijk: afhankelijkheden)
