@@ -76,7 +76,14 @@ def dropin_state(game):
     d = os.path.join(PATCHES, game, "dropin")
     if not os.path.isdir(d):
         return 0, 0, False
-    files = [f for f in os.listdir(d) if f != "dropin.ini" and os.path.isfile(os.path.join(d, f))]
+    # Recursief: de donglegegevens van een game staan in een SUBMAP van dropin/
+    # (dropin/ravengun-hasp/<Game>/...). Alleen het bovenste niveau tellen gaf "3 bestanden,
+    # 7 secties" voor Halo, alsof er iets ontbrak; het zijn er 7.
+    files = []
+    for wortel, _mappen, namen in os.walk(d):
+        for naam in namen:
+            if naam != "dropin.ini":
+                files.append(os.path.join(wortel, naam))
     ini = os.path.join(d, "dropin.ini")
     if not os.path.isfile(ini):
         return len(files), 0, False
