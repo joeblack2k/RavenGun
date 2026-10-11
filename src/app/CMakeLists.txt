@@ -26,8 +26,10 @@ add_library(ravengun_app_core STATIC
   core/SteamShortcuts.cpp
   core/SystemControl.cpp
   core/TextConfig.cpp
-  core/TpProfile.cpp)
-target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+  core/TpProfile.cpp
+  # Instellingen en patches per game: dezelfde lezer als de engine (alleen de standaardbibliotheek).
+  "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamesettings.cpp")
+target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(ravengun_app_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
 
 # packaging/*.json als terugval in de binary (de bestanden in de repo gaan voor, zie AppPaths::packagingFile).

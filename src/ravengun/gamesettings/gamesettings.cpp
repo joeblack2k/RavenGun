@@ -61,10 +61,6 @@ bool read_file(const std::string& path, std::string& out) {
     return true;
 }
 
-bool is_file(const std::string& p) {
-    struct stat st{};
-    return ::stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode);
-}
 bool is_dir(const std::string& p) {
     struct stat st{};
     return ::stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
@@ -350,6 +346,11 @@ Game load_game(const Dirs& dirs, const std::string& profile, const std::string& 
     for (const auto& name : order)
         if (!merged[name].empty()) g.patches.push_back({name, merged[name]});
     return g;
+}
+
+Ini read_layer(const std::string& layer_dir, const std::string& profile, const std::string& file) {
+    if (layer_dir.empty()) return {};
+    return read_ini_file(layer_dir + "/" + profile + "/" + file, nullptr, nullptr);
 }
 
 std::vector<std::string> list_games(const Dirs& dirs) {

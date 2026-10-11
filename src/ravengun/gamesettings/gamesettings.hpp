@@ -73,6 +73,9 @@ struct Game {
 };
 
 Game load_game(const Dirs& dirs, const std::string& profile, const std::string& type_hint = {});
+// Eén laag zonder samenvoegen: game.ini of patches.ini van een game in een map (leeg als het bestand ontbreekt). Voor weergave
+// ("deze waarde komt uit de gebruikerslaag") en om te zien of de gebruiker een sleutel zelf zet.
+Ini read_layer(const std::string& layer_dir, const std::string& profile, const std::string& file = "game.ini");
 // Namen van de games met een map in een van beide lagen (zonder _-mappen), gesorteerd zonder hoofdletters.
 std::vector<std::string> list_games(const Dirs& dirs);
 

@@ -164,6 +164,7 @@ PropertiesDialog::PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game,
     AddWrappedPane(MakeGeneralPane(), tr("General"));
     AddWrappedPane(MakeOptionsPane(), tr("Options"));
     AddWrappedPane(MakeDisplayPane(), tr("Display"));
+    AddWrappedPane(MakePatchesPane(), tr("Patches"));
     AddPane(MakeMemoryCardPane(), tr("Memory Card"));
     AddWrappedPane(MakeInfoPane(), tr("Info"));
     connect(this, &QDialog::finished, this, &PropertiesDialog::SaveGeneral);
@@ -223,8 +224,9 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     auto* rf = new QFormLayout(route);
     const QString prof = ctx_.profile;
     const rg::RouteInfo ri = core_->gameData()->route(prof);
-    // Keuze per game: de aanbevolen route (packaging/io-routes.json) of een andere die voor deze game kan; bewaard in
-    // ~/.config/ravengun/io-routes.json, dat de engine en play-halo.sh bij de volgende start lezen.
+    // Keuze per game: de aanbevolen route (de meegeleverde patches/<Game>/game.ini) of een andere die voor deze game kan; bewaard
+    // als [Input] Route in het gebruikers-game.ini (~/.local/share/ravengun/patches), dat de engine en play-halo.sh bij de volgende
+    // start lezen.
     route_combo_ = new QComboBox;
     const QStringList routes = core_->gameData()->availableRoutes(prof);
     for (const QString& r : routes) {
@@ -630,6 +632,132 @@ void PropertiesDialog::RefreshMemoryCard() {
         it->setData(0, Qt::UserRole, -1);
     }
     for (int c = 1; c < 5; ++c) mc_tree_->resizeColumnToContents(c);
+}
+
+QWidget* PropertiesDialog::MakePatchesPane() {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    const QString prof = ctx_.profile;
+    const rg::GameData* data = core_->gameData();
+    v->addWidget(hintLabel(tr("Patches change a copy of a file of the game runtime when the game starts (never the original, and never "
+                              "a file on the NAS). Tick a patch to turn it on; your choice is saved in your own settings folder and "
+                              "applies from the next start. Patches are applied by the direct start only.")));
+
+    auto* box = new QGroupBox(tr("Patches"));
+    auto* bl = new QVBoxLayout(box);
+    patch_tree_ = new QTreeWidget;
+    patch_tree_->setRootIsDecorated(false);
+    patch_tree_->setHeaderLabels({tr("Patch"), tr("Kind"), tr("Source")});
+    patch_tree_->setUniformRowHeights(true);
+    bl->addWidget(patch_tree_, 1);
+    patch_desc_ = new QPlainTextEdit;
+    patch_desc_->setReadOnly(true);
+    patch_desc_->setMaximumHeight(110);
+    patch_desc_->setPlaceholderText(tr("Select a patch to read why it exists."));
+    bl->addWidget(patch_desc_);
+    patch_status_ = hintLabel(QString());
+    bl->addWidget(patch_status_);
+    v->addWidget(box, 2);
+
+    auto* sbox = new QGroupBox(tr("Settings (game.ini)"));
+    auto* sl = new QVBoxLayout(sbox);
+    sl->addWidget(hintLabel(tr("The settings that apply to this game: the defaults for its type, the settings shipped with RavenGun and "
+                               "your own. They are read-only here; edit your own game.ini in your settings folder.")));
+    settings_tree_ = new QTreeWidget;
+    settings_tree_->setRootIsDecorated(false);
+    settings_tree_->setHeaderLabels({tr("Section"), tr("Key"), tr("Value"), tr("From")});
+    settings_tree_->setUniformRowHeights(true);
+    sl->addWidget(settings_tree_, 1);
+    v->addWidget(sbox, 2);
+
+    auto* row = new QHBoxLayout;
+    open_user_ = new QPushButton(tr("Open user folder"));
+    open_user_->setToolTip(tr("Your own settings and patches for this game. They win over the shipped ones, key by key."));
+    open_shipped_ = new QPushButton(tr("Open shipped folder"));
+    open_shipped_->setToolTip(tr("The settings and patches that come with RavenGun (read-only)."));
+    row->addWidget(open_user_);
+    row->addWidget(open_shipped_);
+    row->addStretch(1);
+    v->addLayout(row);
+    connect(open_user_, &QPushButton::clicked, this, [this, prof] {
+        const QString dir = core_->gameData()->userGameDir(prof);
+        if (dir.isEmpty()) return;
+        QDir().mkpath(dir);   // zodat de bestandsbeheerder iets te openen heeft
+        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    });
+    connect(open_shipped_, &QPushButton::clicked, this, [this, prof] {
+        const QString dir = core_->gameData()->shippedGameDir(prof);
+        if (!dir.isEmpty() && QFileInfo(dir).isDir()) QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    });
+    if (prof.isEmpty()) {
+        patch_status_->setText(tr("Set up the game first: patches and settings belong to a game profile."));
+        patch_tree_->setEnabled(false);
+        open_user_->setEnabled(false);
+        open_shipped_->setEnabled(false);
+        return w;
+    }
+    open_shipped_->setEnabled(QFileInfo(data->shippedGameDir(prof)).isDir());
+    open_user_->setEnabled(!data->userGameDir(prof).isEmpty());
+    RefreshPatches();
+    connect(patch_tree_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* it) {
+        patch_desc_->setPlainText(it ? it->data(0, Qt::UserRole + 1).toString() : QString());
+    });
+    connect(patch_tree_, &QTreeWidget::itemChanged, this, [this, prof](QTreeWidgetItem* it, int column) {
+        if (column != 0 || refreshing_patches_) return;
+        QString err;
+        const bool on = it->checkState(0) == Qt::Checked;
+        if (!core_->gameData()->setPatchEnabled(prof, it->data(0, Qt::UserRole).toString(), on, &err)) {
+            QMessageBox::warning(this, tr("Patches"), tr("Could not save the choice: %1").arg(err));
+        } else if (core_->launcher()->canStop() && core_->launcher()->runningProfile() == prof) {
+            patch_status_->setText(tr("The game is running: the change applies from the next start."));
+        }
+        RefreshPatches();
+    });
+    return w;
+}
+
+void PropertiesDialog::RefreshPatches() {
+    const QString prof = ctx_.profile;
+    const rg::GameData* data = core_->gameData();
+    refreshing_patches_ = true;
+    const QString keep = patch_tree_->currentItem() ? patch_tree_->currentItem()->data(0, Qt::UserRole).toString() : QString();
+    patch_tree_->clear();
+    const QList<rg::PatchInfo> patches = data->patches(prof);
+    QTreeWidgetItem* select = nullptr;
+    for (const rg::PatchInfo& p : patches) {
+        auto* it = new QTreeWidgetItem(patch_tree_);
+        it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
+        it->setCheckState(0, p.enabled ? Qt::Checked : Qt::Unchecked);
+        it->setText(0, p.name);
+        it->setText(1, p.kind.isEmpty() ? tr("?") : p.kind);
+        it->setText(2, p.userDefined ? tr("Yours") : p.userSet ? tr("Shipped (your choice)") : tr("Shipped"));
+        it->setData(0, Qt::UserRole, p.name);
+        QStringList lines;
+        lines << (p.reason.isEmpty() ? tr("(no description)") : p.reason);
+        if (!p.target.isEmpty()) lines << tr("Target: %1").arg(p.target);
+        if (p.userSet) lines << tr("Shipped setting: %1.").arg(p.shippedEnabled ? tr("on") : tr("off"));
+        if (p.kind != QStringLiteral("file") && !p.kind.isEmpty()) lines << tr("This kind of patch is not applied yet.");
+        const QString text = lines.join(QStringLiteral("\n\n"));
+        it->setData(0, Qt::UserRole + 1, text);
+        for (int c = 0; c < 3; ++c) it->setToolTip(c, text);
+        if (p.name == keep) select = it;
+    }
+    for (int c = 0; c < 3; ++c) patch_tree_->resizeColumnToContents(c);
+    if (select) patch_tree_->setCurrentItem(select);
+    if (patches.isEmpty()) patch_status_->setText(tr("This game has no patches."));
+    else if (!patch_status_->text().contains(tr("running"))) patch_status_->setText(QString());
+    refreshing_patches_ = false;
+
+    settings_tree_->clear();
+    for (const rg::SettingEntry& e : data->settings(prof)) {
+        auto* it = new QTreeWidgetItem(settings_tree_);
+        it->setText(0, e.section);
+        it->setText(1, e.key);
+        it->setText(2, e.value);
+        it->setText(3, e.layer == QStringLiteral("user") ? tr("Yours") : e.layer == QStringLiteral("shipped") ? tr("Shipped") : tr("Type default"));
+        it->setToolTip(2, e.value);
+    }
+    for (int c = 0; c < 4; ++c) settings_tree_->resizeColumnToContents(c);
 }
 
 QWidget* PropertiesDialog::MakeInfoPane() {

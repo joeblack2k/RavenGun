@@ -91,6 +91,20 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
             ok = false;
             if (errors) *errors << err;
         }
+        // Ook in de gebruikerslaag van game.ini ([Display] Gamescope): die gaat voor het meegeleverde game.ini en voor het oude .env,
+        // dus een keuze in de app geldt ook als de meegeleverde instellingen gamescope aan hebben. Uit = de sleutel terugzetten
+        // ("Gamescope =" heft ook een meegeleverde waarde op), zodat de variabele ontbreekt zoals vroeger.
+        if (!data.dirs().user.empty() && !ctx.profile.isEmpty()) {
+            const std::string prof = ctx.profile.toStdString();
+            std::string e;
+            bool wrote = ravengun::gamesettings::set_user_value(data.dirs(), prof, "Display", "Gamescope", on ? "true" : "", &e);
+            if (wrote && on) wrote = ravengun::gamesettings::set_user_value(data.dirs(), prof, "Display", "GamescopePath", "/usr/bin/gamescope", &e);
+            else if (wrote) wrote = ravengun::gamesettings::set_user_value(data.dirs(), prof, "Display", "GamescopePath", "", &e);
+            if (!wrote) {
+                ok = false;
+                if (errors) *errors << QString::fromStdString(e);
+            }
+        }
     }
     if (!ov.tpFields.isEmpty() && QFileInfo::exists(ctx.userProfilePath())) {
         TpProfile p;
