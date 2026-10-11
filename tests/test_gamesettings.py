@@ -67,6 +67,12 @@ class ParserTest(Tmp):
             got = self.load("D").dongle()
             self.assertEqual(got, (c["enabled"], c["source"], c["error"]), c["ini"])
 
+    def test_dongle_sources_are_two(self):
+        """[Dongle] Source kent twee bronnen, in deze volgorde (docs/dropins.md): de fysieke dongle van de eigenaar of de
+        drop-in uit de map van de game zelf. Welke soort dongle een game vraagt staat in patches/<Game>/dongle.json."""
+        self.assertEqual(gs.DONGLE_SOURCES, ("usb-passthrough", "drop-in"))
+        self.assertEqual(gs.DONGLE_DEFAULT_SOURCE, "usb-passthrough")
+
     def test_dongle_layers(self):
         """De gebruikerslaag wint per sleutel; zonder [Dongle] is alles uit."""
         write(os.path.join(self.shipped, "D", "game.ini"), "[Dongle]\nEnabled = false\n")
@@ -75,6 +81,8 @@ class ParserTest(Tmp):
         self.assertEqual(self.load("D").dongle(), (True, "usb-passthrough", ""))
         write(os.path.join(self.user, "D", "game.ini"), "[Dongle]\nEnabled =\n")
         self.assertEqual(self.load("D").dongle(), (False, "usb-passthrough", ""))
+        write(os.path.join(self.user, "D", "game.ini"), "[Dongle]\nSource = drop-in\n")
+        self.assertEqual(self.load("D").dongle(), (False, "drop-in", ""))
 
     def test_comments_case_and_empty(self):
         s, _ = gs.parse_ini("[S]\n# a\n; b\nKey = v ; c\nkey = w\nEmpty =\nSemi = a;b\n")
@@ -174,7 +182,7 @@ class LayerTest(Tmp):
 
 
 class PatchPolicyTest(Tmp):
-    """Category (verplicht, vaste lijst, geen beveiliging), Version, AppliedBy, EmulationProfile en de regiokeuzes."""
+    """Category (verplicht, vaste lijst), Version, AppliedBy, EmulationProfile en de regiokeuzes."""
 
     def setUp(self):
         super().setUp()
@@ -186,8 +194,9 @@ class PatchPolicyTest(Tmp):
         write(os.path.join(self.shipped, "G", "patches.ini"), "[Patch: Goed]\nEnabled = true\n")
 
     def test_categories(self):
-        self.assertEqual(gs.PATCH_CATEGORIES, ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader"))
-        self.assertFalse({"security", "protection", "dongle", "integrity"} & set(gs.PATCH_CATEGORIES))
+        self.assertEqual(gs.PATCH_CATEGORIES, ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader",
+                                               "dongle", "region", "keychip", "integrity", "activation"))
+        self.assertFalse({"security", "protection"} & set(gs.PATCH_CATEGORIES))
         g = self.load("G")
         self.assertEqual([p.name for p in g.patches], ["Goed", "Geheugen"])
         self.assertEqual((g.patches[0].category, g.patches[0].version, g.patches[0].enabled), ("loader", "1.08", True))
@@ -195,14 +204,32 @@ class PatchPolicyTest(Tmp):
         errs = {e["name"]: e for e in g.patch_errors}
         self.assertEqual(set(errs), {"ZonderCategory", "Onbekend"})
         self.assertIn("Category ontbreekt", errs["ZonderCategory"]["message"])
-        self.assertIn("graphics, input, timing, audio, paths, crash, network, loader", errs["ZonderCategory"]["message"])
+        self.assertIn("graphics, input, timing, audio, paths, crash, network, loader, dongle, region, keychip, integrity, activation",
+                      errs["ZonderCategory"]["message"])
         self.assertIn("onbekende Category 'security'", errs["Onbekend"]["message"])
         self.assertTrue(errs["Onbekend"]["enabled"] and not errs["ZonderCategory"]["enabled"])
         self.assertTrue(g.warnings)
 
+    def test_patch_categories_data(self):
+        """De categorieenlijst en de nieuwe categorieen: hetzelfde bestand en dezelfde uitkomst als de C++-lezer
+        (tests/data/patch-categories.json), zodat Python en C++ niet uit elkaar lopen."""
+        with open(os.path.join(HERE, "data", "patch-categories.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        self.assertEqual(gs.PATCH_CATEGORIES, tuple(data["categories"]))
+        self.assertGreaterEqual(len(data["cases"]), 8)
+        for c in data["cases"]:
+            write(os.path.join(self.shipped, "_defaults", "OpenParrot.patches.ini"), c["ini"])
+            g = self.load("G")
+            got = [p for p in g.patches if p.name == "Proef"]
+            self.assertEqual(bool(got), c["accepted"], c["ini"])
+            if got:
+                self.assertEqual(got[0].category, c["category"], c["ini"])
+            else:
+                self.assertTrue(any(e["name"] == "Proef" for e in g.patch_errors), c["ini"])
+
     def test_user_layer_is_checked_too(self):
         write(os.path.join(self.user, "G", "patches.ini"),
-              "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = dongle\n"
+              "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = onbekend\n"
               "[Patch: Eigen3]\nEnabled = true\nKind = file\nCategory = timing\n")
         g = self.load("G")
         self.assertFalse(g.patches[0].enabled)                                  # een Enabled-override is gewoon goed
@@ -210,7 +237,7 @@ class PatchPolicyTest(Tmp):
         names = [e["name"] for e in g.patch_errors]
         self.assertIn("Eigen", names)
         self.assertIn("Eigen2", names)
-        write(os.path.join(self.user, "G", "patches.ini"), "[Patch: Goed]\nCategory = integrity\n")
+        write(os.path.join(self.user, "G", "patches.ini"), "[Patch: Goed]\nCategory = onbekend\n")
         g = self.load("G")
         self.assertNotIn("Goed", [p.name for p in g.patches])                   # categorie van een meegeleverde patch naar iets onbekends
         self.assertIn("Goed", [e["name"] for e in g.patch_errors])

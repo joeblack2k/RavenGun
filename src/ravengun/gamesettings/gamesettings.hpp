@@ -43,10 +43,11 @@ void merge_into(Ini& base, const Ini& over);
 
 bool truthy(const std::string& v);   // true, 1, yes, on (hoofdletters maken niet uit)
 
-// [Dongle] (docs/per-game-patches.md, "Dongle per game"): alleen de echte, fysieke dongle van de eigenaar (USB pass-through). Dezelfde regels als
-// Game.dongle() in scripts/gamesettings.py (tests/data/dongle-cases.json). Standaard uit en usb-passthrough; een Enabled die geen true of false is
-// geldt als aan met een fout; een onbekende Source is een fout (alleen van belang als Enabled aan staat). De lijst bronnen is uitbreidbaar.
-extern const char* const kDongleSources[];   // usb-passthrough
+// [Dongle] (docs/per-game-patches.md, "Dongle per game"): waar de dongle vandaan komt. Dezelfde regels als Game.dongle() in
+// scripts/gamesettings.py (tests/data/dongle-cases.json). Standaard uit en usb-passthrough; een Enabled die geen true of false is geldt als aan
+// met een fout; een onbekende Source is een fout (alleen van belang als Enabled aan staat). Twee bronnen: usb-passthrough (de fysieke dongle van
+// de eigenaar) en drop-in (de drop-in uit patches/<Game>/; welke soort het is staat in dongle.json, docs/dropins.md).
+extern const char* const kDongleSources[];   // usb-passthrough, drop-in
 struct Dongle {
     bool enabled = false;
     std::string source;   // kleine letters
@@ -54,9 +55,9 @@ struct Dongle {
 };
 Dongle dongle_of(const Ini& settings);
 
-// Beleid (docs/per-game-patches.md): elke patch heeft precies een van deze categorieen. Er is bewust GEEN categorie voor beveiliging of
-// bescherming: patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles horen niet in dit formaat.
-extern const char* const kPatchCategories[];   // graphics, input, timing, audio, paths, crash, network, loader
+// Categorieen (docs/per-game-patches.md, "Categorie en beleid"): elke patch heeft er precies een, uit deze vaste lijst. De laatste vijf
+// horen bij de afhandeling per game in de map van de game zelf (dongle, regio, keychip, integriteit, activering; docs/dropins.md).
+extern const char* const kPatchCategories[];   // graphics, input, timing, audio, paths, crash, network, loader, dongle, region, keychip, integrity, activation
 std::string patch_categories_text();            // "graphics, input, ..." voor meldingen
 
 struct Patch {

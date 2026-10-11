@@ -1,0 +1,42 @@
+{
+  "kind": "region",
+  "game": "LGS",
+  "title": "Let's Go Safari",
+  "platform": "Sega RingWide",
+  "profile": "LGS",
+  "emulation_profile": "LGS",
+  "exe": "GameSampR_RingWide.exe",
+  "region": { "field": "DongleRegion", "name": "USA", "game_name": "USA" },
+  "pcb":    { "field": "PcbRegion",    "name": "USA", "game_name": "USA" },
+  "io_board": "837-14572",
+  "api": [
+    "amDongleOpen",
+    "amDongleOpenEx",
+    "amDongleSetupKeychip",
+    "amDongleSendAndRecvEx",
+    "amDongleGetRegion",
+    "amDongleGetModelType",
+    "amDongleGetPlatformId",
+    "amDongleGetGameId",
+    "amDongleGetVersion",
+    "amDongleGetPicVersion",
+    "amDongleBillingGetKeychipId"
+  ],
+  "game_reads": ["amDongleGetRegion"],
+  "fallback": "geen (de game gaat verder zonder dongle-antwoord)",
+  "enforced": false,
+  "evidence": {
+    "markers_exe": [
+      "amDongle Ver.1.12 Build:Sep  4 2012 00:17:40",
+      "amDongleGetRegion",
+      "amDongleSetupKeychip",
+      "keychip.appboot.region",
+      "keychip.appboot.gameid",
+      "keychip.appboot.platformid",
+      "Error Response KeychipError !!!"
+    ],
+    "core_has_region_code": false,
+    "core_checked": "TeknoParrot.dll (32-bit, gedecrypteerd beeld; zie docs/region-layer.md)"
+  },
+  "notes": "LGS gebruikt de amDongle-bibliotheek rechtstreeks (niet de fwAM-laag van LGI/LGI3D) en leest de regio met amDongleGetRegion uit het keychip-veld keychip.appboot.region. De game is speelbaar met USA/USA; de regiowaarde wordt vandaag nergens beantwoord en de game start ook zonder. enforced = false."
+}

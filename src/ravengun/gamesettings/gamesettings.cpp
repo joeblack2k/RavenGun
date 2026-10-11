@@ -243,7 +243,7 @@ bool truthy(const std::string& v) {
     return l == "true" || l == "1" || l == "yes" || l == "on";
 }
 
-const char* const kDongleSources[] = {"usb-passthrough", nullptr};
+const char* const kDongleSources[] = {"usb-passthrough", "drop-in", nullptr};
 
 Dongle dongle_of(const Ini& settings) {
     Dongle d;
@@ -277,7 +277,7 @@ std::string Patch::category() const { return lower(trim(get("Category"))); }
 std::string Patch::version() const { return trim(get("Version")); }
 std::string Patch::applied_by() const { return lower(trim(get("AppliedBy"))); }
 
-const char* const kPatchCategories[] = {"graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", nullptr};
+const char* const kPatchCategories[] = {"graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", "dongle", "region", "keychip", "integrity", "activation", nullptr};
 
 std::string patch_categories_text() {
     std::string out;
@@ -291,11 +291,10 @@ std::string Patch::validate() const {
     if (k != "file" && k != "registry" && k != "memory") return "patch '" + name + "': onbekend Kind '" + k + "' (toegestaan: file, registry, memory)";
     const std::string c = category();
     if (c.empty())
-        return "patch '" + name + "': Category ontbreekt (toegestaan: " + patch_categories_text() + "; er is bewust geen categorie voor beveiliging of bescherming)";
+        return "patch '" + name + "': Category ontbreekt (toegestaan: " + patch_categories_text() + ")";
     for (const char* const* it = kPatchCategories; *it; ++it)
         if (c == *it) return {};
-    return "patch '" + name + "': onbekende Category '" + trim(get("Category")) + "' (toegestaan: " + patch_categories_text() +
-           "; patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles zijn geen onderdeel van het formaat)";
+    return "patch '" + name + "': onbekende Category '" + trim(get("Category")) + "' (toegestaan: " + patch_categories_text() + ")";
 }
 
 const Patch* Game::patch(const std::string& name) const {

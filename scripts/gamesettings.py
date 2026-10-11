@@ -45,13 +45,19 @@ DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0
 ROUTES = ("evdev", "tp-shm", "unity-tcp", "hid-board", "jvs")
 LAUNCH_MODES = {"direct": "direct", "tpui": "teknoparrot-ui", "teknoparrot-ui": "teknoparrot-ui"}
 PATCH_PREFIX = "Patch:"
-# Beleid (docs/per-game-patches.md): elke patch heeft precies een van deze categorieen. Er is bewust GEEN categorie voor beveiliging of
-# bescherming: patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles horen niet in dit formaat.
-PATCH_CATEGORIES = ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader")
+# Categorieen (docs/per-game-patches.md, "Categorie en beleid"): elke patch heeft er precies een, uit deze vaste lijst. De laatste vijf
+# horen bij de afhandeling per game in de map van de game zelf (dongle, regio, keychip, integriteit, activering; docs/dropins.md en
+# docs/community-model.md): een dongle- of regiopatch is een gewone patch zoals elke andere.
+PATCH_CATEGORIES = ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", "dongle", "region", "keychip", "integrity", "activation")
 PATCH_KINDS = ("file", "registry", "memory")
-# [Dongle] (docs/per-game-patches.md, "Dongle per game"): alleen de echte, fysieke dongle van de eigenaar (USB pass-through). De lijst is
-# uitbreidbaar; er is bewust geen waarde voor nabootsing of images.
-DONGLE_SOURCES = ("usb-passthrough",)
+# [Dongle] (docs/per-game-patches.md, "Dongle per game", en docs/dropins.md): waar de dongle vandaan komt. Twee bronnen, in
+# deze volgorde; de C++-lezer (kDongleSources) en de keuzelijst van de app (dongleSources()) gebruiken dezelfde volgorde, en de
+# melding bij een onbekende bron noemt ze zo. Welke SOORT dongle een game vraagt staat niet hier maar in de map van de game:
+# patches/<Game>/dongle.json (veld kind).
+#   usb-passthrough  de echte, fysieke dongle van de eigenaar, over USB doorgeschoven (scripts/dongle.py)
+#   drop-in          de drop-in uit de map van de game zelf: dongle.json noemt de soort en de gegevens, dropin/ de bestanden
+#                    die de launcher in de view van de game zet (docs/dropins.md)
+DONGLE_SOURCES = ("usb-passthrough", "drop-in")
 DONGLE_DEFAULT_SOURCE = "usb-passthrough"
 TRUE_WORDS = ("true", "1", "yes", "on")
 FALSE_WORDS = ("false", "0", "no", "off")
@@ -175,11 +181,9 @@ class Patch:
         if self.kind not in PATCH_KINDS:
             return "patch '%s': onbekend Kind '%s' (toegestaan: %s)" % (self.name, self.kind, ", ".join(PATCH_KINDS))
         if not self.category:
-            return ("patch '%s': Category ontbreekt (toegestaan: %s; er is bewust geen categorie voor beveiliging of bescherming)"
-                    % (self.name, ", ".join(PATCH_CATEGORIES)))
+            return "patch '%s': Category ontbreekt (toegestaan: %s)" % (self.name, ", ".join(PATCH_CATEGORIES))
         if self.category not in PATCH_CATEGORIES:
-            return ("patch '%s': onbekende Category '%s' (toegestaan: %s; patches voor dongle-, keychip-, regio-, integriteits- of "
-                    "abonnementscontroles zijn geen onderdeel van het formaat)" % (self.name, self.fields.get("Category", ""), ", ".join(PATCH_CATEGORIES)))
+            return "patch '%s': onbekende Category '%s' (toegestaan: %s)" % (self.name, self.fields.get("Category", ""), ", ".join(PATCH_CATEGORIES))
         return ""
 
     def to_dict(self):

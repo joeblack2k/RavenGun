@@ -130,7 +130,7 @@ static void test_layers(const std::string& root) {
     CHECK(list.size() == 2 && list[0] == "Alleen" && list[1] == "G");
 }
 
-// Categorie, versie, AppliedBy: elke patch heeft een bekende Category, in elke laag; er is bewust geen categorie voor beveiliging.
+// Categorie, versie, AppliedBy: elke patch heeft een bekende Category, in elke laag.
 static void test_patch_policy(const std::string& root) {
     const std::string sh = root + "/pol-shipped", us = root + "/pol-user";
     fs::remove_all(sh);
@@ -147,12 +147,15 @@ static void test_patch_policy(const std::string& root) {
     CHECK(g.patches[0].category() == "loader" && g.patches[0].version() == "1.08" && g.patches[0].enabled());
     CHECK(g.patches[1].applied_by() == "core" && g.patches[1].kind() == "memory" && g.patches[1].get("Find").empty());
     CHECK(g.patch_errors.size() == 2 && g.patch_errors[0].name == "ZonderCategory" && !g.patch_errors[0].enabled);
-    CHECK(g.patch_errors[0].message.find("Category ontbreekt") != std::string::npos && g.patch_errors[0].message.find("graphics, input, timing, audio, paths, crash, network, loader") != std::string::npos);
+    CHECK(g.patch_errors[0].message.find("Category ontbreekt") != std::string::npos &&
+          g.patch_errors[0].message.find("graphics, input, timing, audio, paths, crash, network, loader, dongle, region, keychip, integrity, activation") != std::string::npos);
     CHECK(g.patch_errors[1].name == "Onbekend" && g.patch_errors[1].enabled && g.patch_errors[1].message.find("onbekende Category 'security'") != std::string::npos);
     CHECK(!g.warnings.empty());
     for (const char* const* c = gs::kPatchCategories; *c; ++c) CHECK(std::string(*c) != "security" && std::string(*c) != "protection");
+    for (const char* c : {"dongle", "region", "keychip", "integrity", "activation"})
+        CHECK(gs::patch_categories_text().find(c) != std::string::npos);
     // Ook de gebruikerslaag: een eigen patch zonder of met een onbekende Category wordt afgewezen; een Enabled-override is gewoon goed.
-    put(us + "/G/patches.ini", "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = dongle\n"
+    put(us + "/G/patches.ini", "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = onbekend\n"
                                "[Patch: Eigen3]\nEnabled = true\nKind = file\nCategory = timing\n");
     g = gs::load_game(d, "G");
     CHECK(g.patch("Goed") && !g.patch("Goed")->enabled() && g.patch("Eigen3") && !g.patch("Eigen") && !g.patch("Eigen2"));
@@ -160,7 +163,7 @@ static void test_patch_policy(const std::string& root) {
     for (const auto& e : g.patch_errors) if (e.name == "Eigen" || e.name == "Eigen2") ++eigen;
     CHECK(eigen == 2);
     // De gebruiker kan een categorie van een meegeleverde patch niet naar iets onbekends zetten.
-    put(us + "/G/patches.ini", "[Patch: Goed]\nCategory = integrity\n");
+    put(us + "/G/patches.ini", "[Patch: Goed]\nCategory = onbekend\n");
     g = gs::load_game(d, "G");
     CHECK(!g.patch("Goed"));
     // De repo-boom: elke patch heeft een geldige Category, en er zijn geen regiovelden van een dongle of keychip.
@@ -344,6 +347,47 @@ static void test_own_profile(const std::string& root) {
     CHECK(gs::load_game(d, "A").get("Config", "General/Input API") == "RawInput");
 }
 
+// De vaste categorieenlijst en de nieuwe categorieen (dongle, region, keychip, integrity, activation): hetzelfde bestand en dezelfde
+// uitkomst als tests/test_gamesettings.py (tests/data/patch-categories.json), zodat Python en C++ niet uit elkaar lopen.
+static void test_patch_categories(const std::string& root) {
+    const std::string dir = std::string(RAVENGUN_SOURCE_DIR) + "/tests/data/";
+    auto data = json::parse(slurp(dir + "patch-categories.json"));
+    CHECK(data.ok && data.value.is_object());
+    const auto* cats = data.value.find("categories");
+    CHECK(cats && cats->is_array());
+    std::string want;
+    size_t n = 0;
+    if (cats)
+        for (const auto& c : cats->arr) {
+            want += (want.empty() ? "" : ", ") + c.str;
+            ++n;
+        }
+    CHECK(gs::patch_categories_text() == want);   // dezelfde lijst en dezelfde volgorde als Python
+    size_t have = 0;
+    for (const char* const* c = gs::kPatchCategories; *c; ++c) ++have;
+    CHECK(have == n);
+    const auto* cases = data.value.find("cases");
+    CHECK(cases && cases->is_array());
+    const std::string sh = root + "/cat-shipped";
+    fs::remove_all(sh);
+    put(sh + "/G/game.ini", "[Game]\nType = OpenParrot\n");
+    for (const auto& c : cases->arr) {
+        put(sh + "/_defaults/OpenParrot.patches.ini", c.find("ini")->str);
+        gs::Game g = gs::load_game(gs::Dirs{sh, {}}, "G");
+        const bool accepted = g.patch("Proef") != nullptr;
+        CHECK(accepted == c.find("accepted")->b);
+        if (accepted) {
+            CHECK(g.patch("Proef")->category() == c.find("category")->str);
+        } else {
+            bool named = false;
+            for (const auto& e : g.patch_errors) named = named || e.name == "Proef";
+            CHECK(named);
+            if (!c.find("category")->str.empty())
+                CHECK(!g.patch_errors.empty() && g.patch_errors[0].message.find("onbekende Category") != std::string::npos);
+        }
+    }
+}
+
 int main() {
     char tmpl[] = "/tmp/rg-gamesettings-XXXXXX";
     const char* t = mkdtemp(tmpl);
@@ -354,6 +398,7 @@ int main() {
     test_ini_basics();
     test_layers(root);
     test_patch_policy(root);
+    test_patch_categories(root);
     test_edit_and_user_writes(root);
     test_default_dirs();
     test_repo_tree();

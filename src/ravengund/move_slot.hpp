@@ -132,6 +132,7 @@ public:
 
 private:
     void emit(const ravengun::core::InputSample& s);
+    void ps_hold_step(const ravengun::core::InputSample& s);
     void rumble_step(int64_t now);
     void publish_info();
 
@@ -149,6 +150,9 @@ private:
     ravengun::output::LiveGunFeed live_;
     int64_t armed_checked_ = 0;
     uint64_t recoil_seen_ = 0;  // Unity-route: laatst verwerkte stand van SharedState::game_recoil
+    // PS-knop lang ingedrukt (kPsHoldStopNs): de lopende game stoppen, zoals de Stop-knop van de app. Eén keer per vasthouden.
+    int64_t ps_down_since_ = 0;
+    bool ps_hold_fired_ = false;
     int64_t next_led_ = 0;
     bool led_dirty_ = false;
     uint64_t optical_seen_ = 0;

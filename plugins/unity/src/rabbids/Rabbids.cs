@@ -80,9 +80,74 @@ namespace RavenGun.Unity.RabbidsHollywood
                 // Zonder echt geweer meldt de game een fatale geweerfout (en sluit zichzelf daarna af); deze invoer komt uit de daemon.
                 P(h, typeof(ArcadeManager), "GunFatalError", "Skip_Prefix", null);
             }
+
+            // De Matrix-dongle (SBK.Matrix.MatrixManager). Bij het opstarten controleert de game twee dingen en
+            // sluit zichzelf anders af met "**** DONGLE NOT FOUND" gevolgd door UnityEngine.Application.Quit:
+            //   1. Dongle_Count(85) moet > 0 zijn;
+            //   2. Dongle_ReadSerNr(dongle, aantal, 85) moet > 0 zijn; dat getal wordt het "dongle-serienummer".
+            // Zonder dongle geeft de originele matrix64.dll op beide 0, en de controle eindigt met code 3.
+            // Wij beantwoorden daarom juist die drie aanroepen zelf; matrix64.dll wordt verder niet gebruikt.
+            // De game leest geen dongle-geheugen: Dongle_ReadData/Dongle_WriteData komen in het spelpad niet voor.
+            // Bewijs en afweging: docs/matrix-layer.md. API: findings/MATRIX-dongle-API.md.
+            // Twee routes voor dezelfde dongle, zie docs/matrix-layer.md:
+            //  - de patch (standaard): wij beantwoorden de drie aanroepen in de managed wrapper;
+            //  - de drop-in (RAVENGUN_MATRIX_DLL=1): patches/RabbidsHollywood/dropin/matrix64.dll
+            //    doet hetzelfde in de DLL zelf, zodat deze plugin niets hoeft te patchen.
+            // De schakelaar bestaat zodat te bewijzen is welke route werkt; de launcher zet hem
+            // wanneer hij de drop-in plaatst (dropin.ini, docs/dropins.md).
+            if (Environment.GetEnvironmentVariable("RAVENGUN_MATRIX_DLL") == "1")
+            {
+                Core.Log.LogInfo("Matrix: de drop-in matrix64.dll beantwoordt de dongle-controle (patches uit)");
+            }
+            else
+            {
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Init_MatrixAPI", "MatrixInit_Prefix", null);
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_Find", "MatrixFind_Prefix", null);
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_Count", "MatrixCount_Prefix", null);
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_ReadSerNr", "MatrixSerNr_Prefix", null);
+            }
         }
 
         static bool Skip_Prefix() { return false; }
+
+        // --- De Matrix-dongle ---------------------------------------------------------------
+        // De poort in de aanroepen is 85, niet 40: SBK.Matrix.MatrixManager.Awake roept KDLGNPHHMKI aan en die
+        // gebruikt Dongle_Count(85) en Dongle_ReadSerNr(..., 85). De variant met poort 40 (EGIEJAEHODM) wordt
+        // door niets aangeroepen.
+        static bool MatrixInit_Prefix(ref short __result)
+        {
+            __result = 0;   // 0 = in orde; een negatieve waarde betekent "MatrixAPI niet geinitialiseerd"
+            if (Core.Cfg.Verbose.Value) Core.Log.LogInfo("Matrix: Init_MatrixAPI -> 0 (onze eigen dongle-laag)");
+            return false;
+        }
+
+        static bool MatrixFind_Prefix(ref short __result)
+        {
+            __result = 1;
+            if (Core.Cfg.Verbose.Value) Core.Log.LogInfo("Matrix: Dongle_Find -> 1");
+            return false;
+        }
+
+        // 2 en niet 1: er staat nog een tweede, ongebruikte controlevariant in de assembly die "aantal > 1" eist.
+        // De variant die Awake werkelijk aanroept eist alleen > 0. Met 2 voldoen we aan allebei; TeknoParrot kiest
+        // in zijn eigen matrix32.dll dezelfde waarde.
+        static bool MatrixCount_Prefix(short Port, ref short __result)
+        {
+            __result = 2;
+            Core.Log.LogInfo("Matrix: Dongle_Count(" + Port + ") -> 2 (onze eigen dongle-laag)");
+            return false;
+        }
+
+        // Het serienummer moet > 0 zijn, anders geeft de controle code 3 en volgt alsnog "DONGLE NOT FOUND".
+        // We geven een vaste, zelfgekozen waarde terug: er wordt geen echt serienummer van een dongle gelezen of
+        // gelogd (regel: geen unieke identificaties uitlezen of loggen). 0x10F2C is dezelfde waarde die
+        // TeknoParrot's eigen matrix32.dll teruggeeft.
+        static bool MatrixSerNr_Prefix(ref int __result)
+        {
+            __result = 0x10F2C;
+            Core.Log.LogInfo("Matrix: Dongle_ReadSerNr -> " + __result + " (onze eigen dongle-laag, vaste waarde)");
+            return false;
+        }
 
         static bool MouseControl_Prefix()
         {

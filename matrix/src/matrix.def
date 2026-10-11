@@ -1,0 +1,127 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; matrix.def - de 113 namen die de originele matrix32.dll/matrix64.dll exporteert.
+;
+; Deze lijst is niet overgetypt uit een document maar uit de DLL zelf gehaald met
+; `objdump -p <dll>`: de naam-tabel van het origineel (114688 bytes, 2009) en die van de 64-bits
+; versie (93184 bytes) zijn identiek, in dezelfde volgorde, met ordinal base 1. TeknoParrot's eigen
+; emulator (109056 bytes, 2023) exporteert exact dezelfde namen - het is een echte drop-in.
+;
+; De volgorde hieronder is alfabetisch (zoals de naam-tabel); de ordinalen liggen daardoor anders
+; dan in het origineel. Dat is geen probleem: de games importeren op naam (P/Invoke doet
+; GetProcAddress met de naam), niet op ordinal.
+LIBRARY matrix
+EXPORTS
+    CloseIWPort
+    DllRegisterServer
+    DllUnregisterServer
+    Dongle_Count
+    Dongle_DecryptData
+    Dongle_EncryptData
+    Dongle_Exit
+    Dongle_Find
+    Dongle_FindEx
+    Dongle_GetDriverFlag
+    Dongle_GetKeyFlag
+    Dongle_GetLoginFlag
+    Dongle_MemSize
+    Dongle_Model
+    Dongle_ReadData
+    Dongle_ReadDataEx
+    Dongle_ReadSerNr
+    Dongle_SetDriverFlag
+    Dongle_SetLedFlag
+    Dongle_Version
+    Dongle_WriteData
+    Dongle_WriteDataEx
+    Dongle_WriteKey
+    GetConfig_MatrixNet
+    GetPortAdr
+    GetSystemVersion
+    GetVersionAPI
+    GetVersionDRV
+    GetVersionDRV_USB
+    HiResCntPresent
+    HiResWait
+    Init_MatrixAPI
+    Java_Matrix_Dongle_1Count
+    Java_Matrix_Dongle_1DecryptData
+    Java_Matrix_Dongle_1EncryptData
+    Java_Matrix_Dongle_1Exit
+    Java_Matrix_Dongle_1Find
+    Java_Matrix_Dongle_1FindEx
+    Java_Matrix_Dongle_1GetDriverFlag
+    Java_Matrix_Dongle_1GetKeyFlag
+    Java_Matrix_Dongle_1GetLoginFlag
+    Java_Matrix_Dongle_1MemSize
+    Java_Matrix_Dongle_1Model
+    Java_Matrix_Dongle_1ReadData
+    Java_Matrix_Dongle_1ReadDataEx
+    Java_Matrix_Dongle_1ReadSerNr
+    Java_Matrix_Dongle_1SetDriverFlag
+    Java_Matrix_Dongle_1SetLedFlag
+    Java_Matrix_Dongle_1Version
+    Java_Matrix_Dongle_1WriteData
+    Java_Matrix_Dongle_1WriteDataEx
+    Java_Matrix_Dongle_1WriteKey
+    Java_Matrix_GetConfig_1MatrixNet
+    Java_Matrix_GetPortAdr
+    Java_Matrix_GetVersionAPI
+    Java_Matrix_GetVersionDRV
+    Java_Matrix_GetVersionDRV_1USB
+    Java_Matrix_Init_1MatrixAPI
+    Java_Matrix_LogIn_1MatrixNet
+    Java_Matrix_LogOut_1MatrixNet
+    Java_Matrix_MasterKey_1Find
+    Java_Matrix_PausePrinterActivity
+    Java_Matrix_Release_1MatrixAPI
+    Java_Matrix_ResumePrinterActivity
+    Java_Matrix_SetConfig_1MatrixNet
+    Java_Matrix_SetW95Access
+    Java_de_matrixlock_Matrix_Dongle_1Count
+    Java_de_matrixlock_Matrix_Dongle_1DecryptData
+    Java_de_matrixlock_Matrix_Dongle_1EncryptData
+    Java_de_matrixlock_Matrix_Dongle_1Exit
+    Java_de_matrixlock_Matrix_Dongle_1Find
+    Java_de_matrixlock_Matrix_Dongle_1FindEx
+    Java_de_matrixlock_Matrix_Dongle_1GetDriverFlag
+    Java_de_matrixlock_Matrix_Dongle_1GetKeyFlag
+    Java_de_matrixlock_Matrix_Dongle_1GetLoginFlag
+    Java_de_matrixlock_Matrix_Dongle_1MemSize
+    Java_de_matrixlock_Matrix_Dongle_1Model
+    Java_de_matrixlock_Matrix_Dongle_1ReadData
+    Java_de_matrixlock_Matrix_Dongle_1ReadDataEx
+    Java_de_matrixlock_Matrix_Dongle_1ReadSerNr
+    Java_de_matrixlock_Matrix_Dongle_1SetDriverFlag
+    Java_de_matrixlock_Matrix_Dongle_1SetLedFlag
+    Java_de_matrixlock_Matrix_Dongle_1Version
+    Java_de_matrixlock_Matrix_Dongle_1WriteData
+    Java_de_matrixlock_Matrix_Dongle_1WriteDataEx
+    Java_de_matrixlock_Matrix_Dongle_1WriteKey
+    Java_de_matrixlock_Matrix_GetConfig_1MatrixNet
+    Java_de_matrixlock_Matrix_GetPortAdr
+    Java_de_matrixlock_Matrix_GetVersionAPI
+    Java_de_matrixlock_Matrix_GetVersionDRV
+    Java_de_matrixlock_Matrix_GetVersionDRV_1USB
+    Java_de_matrixlock_Matrix_Init_1MatrixAPI
+    Java_de_matrixlock_Matrix_LogIn_1MatrixNet
+    Java_de_matrixlock_Matrix_LogOut_1MatrixNet
+    Java_de_matrixlock_Matrix_MasterKey_1Find
+    Java_de_matrixlock_Matrix_PausePrinterActivity
+    Java_de_matrixlock_Matrix_Release_1MatrixAPI
+    Java_de_matrixlock_Matrix_ResumePrinterActivity
+    Java_de_matrixlock_Matrix_SetConfig_1MatrixNet
+    Java_de_matrixlock_Matrix_SetW95Access
+    LogIn_MatrixNet
+    LogOut_MatrixNet
+    MasterKey_Find
+    MasterKey_Find_USB2
+    OpenIWPort
+    PausePrinterActivity
+    ReadPort
+    Release_MatrixAPI
+    ResumePrinterActivity
+    SetConfig_MatrixNet
+    SetW95Access
+    WritePort
+    get_user_name

@@ -1,0 +1,14 @@
+{
+ "categories": ["graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", "dongle", "region", "keychip", "integrity", "activation"],
+ "cases": [
+  {"category": "dongle", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = dongle\n", "accepted": true},
+  {"category": "region", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = region\n", "accepted": true},
+  {"category": "keychip", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = keychip\n", "accepted": true},
+  {"category": "integrity", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = integrity\n", "accepted": true},
+  {"category": "activation", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = activation\n", "accepted": true},
+  {"category": "graphics", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = Graphics\n", "accepted": true},
+  {"category": "security", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = security\n", "accepted": false},
+  {"category": "protection", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\nCategory = Protection\n", "accepted": false},
+  {"category": "", "ini": "[Patch: Proef]\nEnabled = true\nKind = file\n", "accepted": false}
+ ]
+}

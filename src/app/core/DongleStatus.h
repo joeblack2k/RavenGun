@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Status van de echte, fysieke dongle (USB pass-through) voor Properties > Options > Dongle. De detectie zelf doet scripts/dongle.py
+// Status van de dongle voor Properties > Options > Dongle. De detectie hier is die van de echte, fysieke dongle (USB pass-through): scripts/dongle.py
 // (sysfs: alleen vendor/product-ID en de leesbare namen, nooit het serienummer; plus de controle of de officiële runtime van de fabrikant
-// draait); de app roept dat aan met `python3 -I scripts/dongle.py --json` en toont de uitkomst. Er is hier niets dat een dongle nabootst.
+// draait); de app roept dat aan met `python3 -I scripts/dongle.py --json` en toont de uitkomst. De keuzelijst noemt daarnaast de drop-in van de
+// game zelf (patches/<Game>/dongle.json en patches/<Game>/dropin/, docs/dropins.md); die leest de launcher uit de map van de game en wordt hier
+// niet gedetecteerd of nagebootst.
 #include <QByteArray>
 #include <QList>
 #include <QObject>
@@ -35,7 +37,11 @@ struct DongleStatus {
     QString tooltip() const;
 };
 
-// De bronnen die "Dongle source" aanbiedt: (waarde in game.ini, tekst in de app). Uitbreidbaar; nu alleen USB pass-through.
+// De bronnen die "Dongle source" aanbiedt: (waarde in game.ini, tekst in de app). Zelfde volgorde als DONGLE_SOURCES in
+// scripts/gamesettings.py en kDongleSources in src/ravengun/gamesettings. Welke soort dongle een game vraagt staat in
+// patches/<Game>/dongle.json (docs/dropins.md).
+//  usb-passthrough  de echte, fysieke dongle van de eigenaar, over USB doorgeschoven
+//  drop-in          de drop-in uit de map van de game zelf (dongle.json en dropin/)
 struct DongleSource {
     QString value, label;
 };

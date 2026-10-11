@@ -755,8 +755,10 @@ void AppCoreTest::dongleStatusText() {
     QCOMPARE(parseDongleJson(unknownRt).text(), QStringLiteral("Dongle detected: X Y (dead:beef) \u2014 runtime: unknown"));
     QVERIFY(!parseDongleJson("geen json").valid);
     QVERIFY(!parseDongleJson("{kapot").valid);
-    QCOMPARE(dongleSources().size(), 1);
+    QCOMPARE(dongleSources().size(), 2);
     QCOMPARE(dongleSources()[0].value, QStringLiteral("usb-passthrough"));
+    QCOMPARE(dongleSources()[1].value, QStringLiteral("drop-in"));
+    QVERIFY(!dongleSources()[1].label.isEmpty());
     QCOMPARE(dongleSourceLabel(QStringLiteral("usb-passthrough")), QStringLiteral("USB pass-through (physical dongle)"));
 }
 

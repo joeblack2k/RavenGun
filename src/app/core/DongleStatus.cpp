@@ -40,6 +40,7 @@ QString DongleStatus::tooltip() const {
 const QList<DongleSource>& dongleSources() {
     static const QList<DongleSource> sources = {
         {QStringLiteral("usb-passthrough"), QStringLiteral("USB pass-through (physical dongle)")},
+        {QStringLiteral("drop-in"), QStringLiteral("Drop-in from patches/<Game> (dongle.json)")},
     };
     return sources;
 }

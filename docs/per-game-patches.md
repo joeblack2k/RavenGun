@@ -139,8 +139,8 @@ Findings = findings/LetsGoIsland.md
 (`ConfigValues` in `GameProfiles/<P>.xml`, bv. Let's Go Island en Let's Go Safari). De migratie neemt de waarde van het gebruikersprofiel over (leeg als
 het profiel de optie niet heeft). De directe start zet de waarde in die profieloptie, op dezelfde plek waar de rest van het profiel in `teknoparrot.ini`
 terechtkomt (het profielbestand zelf blijft ongemoeid). Alleen waarden uit de keuzelijst van de optie worden aanvaard; een andere waarde, of een profiel zonder die
-optie, weigert de start met een melding (exitcode 5, geen terugval op TeknoParrotUi). Dit is alleen het kiezen van een bestaande optie: er is geen
-dongle-emulatie of iets anders aan het dongle-beleid veranderd (zie "Beleid" hieronder).
+optie, weigert de start met een melding (exitcode 5, geen terugval op TeknoParrotUi). Dit is het kiezen van een bestaande profieloptie, geen patch: de
+regiokeuze hoort bij de regiodongle van de game (`patches/<Game>/dongle.json`, soort `region`; `docs/dropins.md`).
 
 De sleutels van `[Loader]`, `[Wine]`, `[Display]`, `[Launch] WorkingDirectory` en `[Input] Jvs*` worden door
 `scripts/gamesettings.py` (`to_env`) omgezet naar de omgevingsvariabelen die TeknoParrot, de lader en `launch-direct.py`
@@ -283,27 +283,39 @@ geen sleutelwaarde gelezen en geen activering geïmporteerd of nagebootst. `Patr
 
 ## Dongle per game
 
-Sectie `[Dongle]` in `game.ini`, voor de **echte, fysieke dongle van de eigenaar** (USB pass-through) en niets anders. De meegeleverde laag zet hem
-uit (er staat niets, dus `Enabled = false`); de gebruikerslaag bevat alleen afwijkingen, dus `Enabled = true` zolang de gebruiker hem aan heeft, en
-na uitzetten weer niets.
+Sectie `[Dongle]` in `game.ini`: waar de dongle van een game vandaan komt. Er zijn twee bronnen. **Welke soort** dongle een game nodig heeft staat
+niet hier maar in de map van de game: `patches/<Game>/dongle.json` (veld `kind`, plus de gegevens) en `patches/<Game>/dropin/` (de bestanden die de
+launcher in de view van de game zet). Het bestaan van `dongle.json` betekent "deze game vraagt een dongle". Het contract daarvoor staat in
+`docs/dropins.md`; deze sectie herhaalt het niet.
 
 | Sleutel | Waarden | Standaard | Betekenis |
 |---|---|---|---|
-| `Enabled` | `true` \| `false` (ook `1/0`, `yes/no`, `on/off`) | `false` | aan: vóór de start de detectie draaien en weigeren als er geen bruikbare dongle is |
-| `Source` | `usb-passthrough` | `usb-passthrough` | waar de dongle vandaan komt. Uitbreidbaar (`DONGLE_SOURCES` in `scripts/gamesettings.py`, `kDongleSources` in de C++-lezer); er is bewust geen waarde voor nabootsing, een image of een licentiebestand |
+| `Enabled` | `true` \| `false` (ook `1/0`, `yes/no`, `on/off`) | `false` (weggelaten) | de eigenaar zet de dongle aan; de launcher controleert dan vóór de start en weigert als de gekozen bron niet bruikbaar is |
+| `Source` | `usb-passthrough` \| `drop-in` | `usb-passthrough` | de echte, fysieke dongle van de eigenaar (USB pass-through), of de drop-in uit de map van de game zelf |
 
 ```ini
 ; ~/.local/share/ravengun/patches/LGI/game.ini (gebruikerslaag)
 [Dongle]
 Enabled = true
+Source = drop-in
 ```
+
+De **meegeleverde** laag laat `Enabled` weg (dus uit) en laat `Source` weg (dus `usb-passthrough`): er verandert niets aan de start van een game tot de
+eigenaar er bewust voor kiest. Daarom heeft `patches/<Game>/game.ini` ook geen `[Dongle]`-sectie: de donglekennis van een game staat in `dongle.json`
+en `dropin/`, op één plek.
 
 Lezers: `Game.dongle()` in `scripts/gamesettings.py` en `gs::dongle_of()` in `src/ravengun/gamesettings` (dezelfde regels; beide getest tegen
 `tests/data/dongle-cases.json`). Het resultaat is (enabled, source, fout). Een `Enabled` die geen true of false is telt als aan met de fout
 `[Dongle] Enabled = <waarde> (use true or false)` (wie iets typte wilde er iets mee; de launcher weigert dan). Een onbekende `Source` is een fout
-(`[Dongle] Source = <waarde> (known: usb-passthrough)`). Bij `Enabled = false` doet de launcher niets, ook niet bij een foute `Source`.
+(`[Dongle] Source = <waarde> (known: usb-passthrough, drop-in)`). Bij `Enabled = false` doet de launcher niets, ook niet bij een foute `Source`.
 
-**Detectie** (`scripts/dongle.py`, gegevensbestand `packaging/dongle-vendors.json`; de app roept `python3 -I scripts/dongle.py --json` aan):
+**Open punt (ontwerp).** `Enabled = true` betekent in deze lezer "controleer vóór de start en weiger als er geen bruikbare dongle is". Voor
+`usb-passthrough` klopt dat: het is de controle van iets dat de eigenaar zelf in de machine heeft. Voor `drop-in` zou `Enabled` juist moeten betekenen
+"schakel de drop-in van deze game in" — dat is iets anders dan weigeren. Zolang die twee betekenissen door elkaar lopen, laat de meegeleverde laag
+`Enabled` weg en zet de eigenaar hem pas aan als de drop-in-laag klaar en getest is.
+
+**Detectie** (`scripts/dongle.py`, gegevensbestand `packaging/dongle-vendors.json`; de app roept `python3 -I scripts/dongle.py --json` aan). Dit
+hoort bij `Source = usb-passthrough`; de drop-in wordt niet gedetecteerd maar uit de map van de game gelezen:
 
 - Aangesloten USB-apparaten via sysfs (`/sys/bus/usb/devices/*/`): alleen `idVendor`, `idProduct`, `manufacturer` en `product`. Een dongle wordt herkend
   aan het vendor-ID in het gegevensbestand (openbaar bekende ID's): `0529` Aladdin (HASP), `04b9` Rainbow/SafeNet (Sentinel), `064f` Wibu-Systems (CodeMeter).
@@ -320,9 +332,10 @@ Lezers: `Game.dongle()` in `scripts/gamesettings.py` en `gs::dongle_of()` in `sr
 - Uitvoer: `Dongle detected: <fabrikant> <product> (vvvv:pppp) - runtime: running|not running|not installed|unknown` of `No dongle found`; met `--json` ook de velden per
   dongle en `ok`/`message`. Voor tests: `RAVENGUN_USB_SYSFS`, `RAVENGUN_PROC_ROOT`, `RAVENGUN_DONGLE_ROOT`, `RAVENGUN_DONGLE_VENDORS`.
 
-**Launcher.** Bij `[Dongle] Enabled = true` draait `launch-direct.py` (bij `--check` en `--run`, niet bij `--plan`) vóór de start de detectie, logt bij `--run`
-`dongle (usb-passthrough): Dongle detected: ...` (nooit een serienummer) en weigert met **exitcode 6** en een melding op stderr (`Dongle: ...`) als er geen
-dongle is, de runtime niet draait, of `Enabled`/`Source` ongeldig is (zie boven). Geen terugval op TeknoParrotUi. `play-halo.sh` toont de melding (en een
+**Launcher.** Bij `[Dongle] Enabled = true` controleert `launch-direct.py` (bij `--check` en `--run`, niet bij `--plan`) vóór de start de gekozen bron: bij
+`usb-passthrough` de detectie hierboven, bij `drop-in` de drop-in van de game (`patches/<Game>/dongle.json` en `dropin/`, `docs/dropins.md`). Bij
+`usb-passthrough` logt hij bij `--run` `dongle (usb-passthrough): Dongle detected: ...` (nooit een serienummer) en weigert met **exitcode 6** en een melding
+op stderr (`Dongle: ...`) als er geen dongle is, de runtime niet draait, of `Enabled`/`Source` ongeldig is (zie boven). Geen terugval op TeknoParrotUi. `play-halo.sh` toont de melding (en een
 bureaubladmelding) en sluit met dezelfde exitcode 6; bij een start zonder directe route (TeknoParrotUi, native) draait `play-halo.sh` dezelfde detectie
 (`gamesettings.py dongle <Game>` en `dongle.py`). Exitcodes van `launch-direct.py`: 0 klaar, 1 fout, 2 gebruik, 3 activering, 4 niet ondersteund, 5 patch of
 instelling geweigerd, **6 dongle ontbreekt of runtime niet actief**, anders de exitcode van de lader.
@@ -331,13 +344,18 @@ instelling geweigerd, **6 dongle ontbreekt of runtime niet actief**, anders de e
 die vendor-ID's, zodat een runtime of Wine er als gewone gebruiker bij kan. Installeren gaat via `scripts/install-permissions.sh --apply` (pkexec; ook de
 wizard), dat `scripts/udev-ravengun.sh` aanroept; zonder die stap blijft `install-permissions.sh --check` "Niet geïnstalleerd: 72-ravengun-dongle.rules" melden.
 
-**App.** Properties > Options > groep Dongle: vinkje "Use dongle", keuzelijst "Dongle source" ("USB pass-through (physical dongle)"), een statusregel en
-"Refresh". De keuzelijst, de status en Refresh zijn uitgeschakeld zolang het vinkje uit staat. De wijziging gaat direct naar de gebruikerslaag en alleen als ze
-van de standaard afwijkt (uit, usb-passthrough).
+**App.** Properties > Options > groep Dongle: vinkje "Use dongle", keuzelijst "Dongle source" ("USB pass-through (physical dongle)" en "Drop-in from
+patches/<Game> (dongle.json)"), een statusregel en "Refresh". De keuzelijst, de status en Refresh zijn uitgeschakeld zolang het vinkje uit staat. De
+wijziging gaat direct naar de gebruikerslaag en alleen als ze van de standaard afwijkt (uit, usb-passthrough). De statusregel hoort bij
+`usb-passthrough`; de drop-in zelf hoort de launcher te controleren (`docs/dropins.md`).
 
-Grenzen (projectafspraak): geen dongle-emulatie of -nabootsing in welke vorm dan ook (geen antwoorden op `hasp_*`-aanroepen, geen dongle-images of
-`.dgl`/`dongle.json`-lezers, geen licentiecodes of serienummervelden), geen software van een fabrikant meeleveren of downloaden, geen wijzigingen aan
-games of beveiliging. Zie `docs/decisions.md` ("Dongle-optie per game: alleen USB pass-through").
+**Wat het project nu wel doet.** De afspraak die hier eerder stond — "geen dongle-emulatie of -nabootsing in welke vorm dan ook", met "geen
+dongle-images of `.dgl`/`dongle.json`-lezers" — is achterhaald. RavenGun heeft nu een **drop-in-laag**: `patches/<Game>/dongle.json` noemt de soort en de
+gegevens van de dongle, `patches/<Game>/dropin/` bevat bestanden die de launcher in de view van de game zet (`dropin.ini` beschrijft waar ze heen gaan
+en welke omgevingsvariabele erbij hoort), en de eigen emulator `hasp/` beantwoordt de tien `hasp_*`-aanroepen. Zie `docs/dropins.md` voor het contract
+en `docs/decisions.md` voor de geschiedenis (de regel "Dongle-optie per game: alleen USB pass-through" beschrijft de eerste versie, vóór de
+drop-in-laag). Wat blijft staan: geen software van een fabrikant meeleveren of downloaden, geen licentiecodes of serienummers, en geen wijzigingen aan de
+games of aan de beveiliging zelf.
 
 ## Zoals Dolphin
 
@@ -373,23 +391,32 @@ TargetName = OpenParrotLoader.exe   ; optioneel: de patch geldt alleen als het d
 Find = C7 05 C0 9B 42 00 1F 00 01 00
 Replace = C7 05 C0 9B 42 00 17 00 01 00
 Count = 1                     ; Find moet precies zo vaak voorkomen (standaard 1), anders weigert de patch
+Note = alleen voor de lader van de runtime; onze eigen build heeft de fix in de bron (zie hieronder)
 Reason = Wine zet MXCSR op 0 bij SetThreadContext met CONTEXT_FLOATING_POINT ...
 ```
 
-Overige sleutels voor documentatie: `Source` (herkomst, bv. `OpenParrot TypeX2Generic.cpp (GPL-3.0), regel 2140`) en `AppliedBy = core`
-(de OpenParrot-kern past dit zelf al toe; RavenGun mag het niet nog eens doen, de patch is alleen documentatie).
+Overige sleutels voor documentatie: `Source` (herkomst, bv. `OpenParrot TypeX2Generic.cpp (GPL-3.0), regel 2140`), `AppliedBy = core`
+(de OpenParrot-kern past dit zelf al toe; RavenGun mag het niet nog eens doen, de patch is alleen documentatie) en `Note` (een losse
+opmerking). Met `Note` staat er bijvoorbeeld bij de gedeelde lader-patch dat hij **alleen voor de lader van de runtime** geldt: onze eigen
+lader (`[Loader] Build = ravengun`, `scripts/build-openparrot.sh`) heeft die fix in de bron, dus daar past de bytepatch niet op en zet de
+launcher hem uit (zie "Het profiel van een game"). Een `Find` die niet precies `Count` keer voorkomt is voor de motor trouwens altijd een
+weigering, ook zonder `Note`: de patch is dan voor een andere versie van het bestand.
 
 ### Categorie en beleid
 
-Elke patch heeft **precies één** `Category`, uit een vaste lijst: `graphics`, `input`, `timing`, `audio`, `paths`, `crash`, `network`, `loader`.
+Elke patch heeft **precies één** `Category`, uit een vaste lijst: `graphics`, `input`, `timing`, `audio`, `paths`, `crash`, `network`, `loader`, `dongle`,
+`region`, `keychip`, `integrity`, `activation`.
 Beide lezers (Python en C++) weigeren een patch zonder `Category` of met een onbekende, met een duidelijke melding, in elke laag: de controle gaat over de
 samengevoegde patch, dus ook een eigen patch of een gewijzigde `Category` in de gebruikerslaag wordt afgewezen (een `patches.ini` met alleen
 `Enabled = ...` bij een gedeelde patch is wel goed, want de definitie levert de rest). Ook een patch zonder `Kind` (een `Enabled` zonder definitie) wordt afgewezen.
 Afgewezen patches staan niet in de lijst `patches` maar in `patch_errors` (en als waarschuwing); staat een afgewezen patch aan, dan **weigert de directe start**
 (exitcode 5) in plaats van de game stilzwijgend zonder die patch te starten. Properties > Patches toont de afgewezen patches met hun melding.
 
-**Beleid:** er is bewust géén categorie voor beveiliging of bescherming. Patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles zijn geen
-onderdeel van het formaat en worden niet meegeleverd of gemaakt. (De regiokeuze hierboven is iets anders: een bestaande profieloptie kiezen, geen patch.)
+**Beleid.** De laatste vijf categorieën — `dongle`, `region`, `keychip`, `integrity` en `activation` — horen bij de afhandeling per game in de map van de game
+zelf: de dongle-drop-in (`patches/<Game>/dongle.json` en `dropin/`), de regiokeuze van het profiel, en de keychip-, integriteits- en activeringscontroles die
+een game zelf doet. Het zijn gewone patches zoals elke andere (dezelfde validatie, dezelfde logregel, dezelfde laagvolgorde) en ze staan per game in
+`patches/<Game>/patches.ini`, nooit in een gedeelde lijst. Zie `docs/dropins.md` voor het mapcontract en `docs/community-model.md` voor wat de community
+zelf kan toevoegen en wat de engine nog mist. (De regiokeuze hierboven is iets anders: een bestaande profieloptie kiezen, geen patch.)
 
 ### Logregel
 

@@ -1,0 +1,37 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; De uitvoertabel van onze Windows-DLL: precies de namen en ordinalen van de runtime van de
+; fabrikant, nagemeten op hasp_windows_x64_105293.dll van Time Crisis 5
+; (25 uitvoeren, ordinal-basis 1). TimeCrisisGame-Win64-Shipping.exe importeert op ordinalen
+; 2, 13, 14 en 15; zonder de juiste ordinalen weigert Windows het laden.
+;
+; Gebruikt door scripts/build-hasp.sh:
+;   x86_64-w64-mingw32-gcc -shared -O2 -o hasp_windows_x64.dll \
+;       dongle.c hasp_preload_win.c hasp_windows.def
+LIBRARY hasp_windows_x64
+EXPORTS
+  hasp_datetime_to_hasptime  @1
+  hasp_decrypt               @2
+  hasp_encrypt               @3
+  hasp_free                  @4
+  hasp_get_rtc               @5
+  hasp_get_sessioninfo       @6
+  hasp_get_size              @7
+  hasp_hasptime_to_datetime  @8
+  hasp_legacy_decrypt        @9
+  hasp_legacy_encrypt        @10
+  hasp_legacy_set_idletime   @11
+  hasp_legacy_set_rtc        @12
+  hasp_login                 @13
+  hasp_logout                @14
+  hasp_read                  @15
+  hasp_update                @16
+  hasp_write                 @17
+  hasp_get_trace             @18
+  hasp_login_port            @19
+  hasp_enable_trace          @20
+  hasp_login_ex              @21
+  hasp_get_info              @22
+  hasp_login_scope           @23
+  hasp_get_version           @24
+  hasp_detach                @25

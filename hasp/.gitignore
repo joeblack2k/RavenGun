@@ -1,0 +1,3 @@
+# Bouwuitvoer van scripts/build-hasp.sh (de PE-DLL's en het meetprogramma).
+# De gebouwde bestanden horen in ~/.local/share/ravengun/hasp/ en, als drop-in, in patches/<Game>/dropin/.
+out/
