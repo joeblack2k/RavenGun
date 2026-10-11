@@ -57,3 +57,21 @@ gebruikerslaag bereikte de start niet. De volgende stap is dus meten wat
 `tools/rt-hasphook/hasp_probe.c` (loader-repo) of met een loggende DLL.
 
 Zolang dat open is, is dit het laatste stuk van TC5 dat nog aan TeknoParrot hangt.
+
+## Hoe ik heb geprobeerd te meten of de game de dongle aanspreekt
+
+Drie routes, alle drie zonder uitkomst. Dat is geen vaag "het lukte niet" — het is per route
+duidelijk waarom, zodat de volgende poging niet dezelfde is:
+
+| Route | Wat er gebeurde |
+|---|---|
+| **De verbose-vlag in de omgeving** | `RAVENGUN_HASP_VERBOSE=1` bereikt het proces bewezen (het staat in `/proc/<pid>/environ` en in de `omgeving:`-regel van de launcher), maar er komt **geen enkele regel van onze DLL** in het logboek. De game is een **kindproces** van `OpenParrotLoader64.exe`, en de launcher vangt de uitvoer van de lader op — niet die van het kind. |
+| **De vlag via `[Env]` in de gebruikerslaag** | Kwam niet aan: die regel haalde de start niet (de drop-in-`Env` wel, daarom ging de meting hierboven via de drop-in). |
+| **De toegangstijd van `dongle.json`** | Onze DLL leest dat bestand zodra de game een `hasp_*`-functie aanroept, dus een veranderde `atime` zou bewijs zijn. De view staat op **`relatime`**, en daar werkt `atime` alleen bij als de oude toegangstijd ouder is dan de wijzigingstijd of meer dan 24 uur — hier was `atime` juist nieuwer. **Niet beslissend.** |
+
+**Wat er wel zou werken** (en wat ik expres niet heb gedaan, want het is een wijziging in de
+loader-repo): de Windows-DLL een logbestand laten schrijven in plaats van naar `stderr`
+(`hasp/src/hasp_preload_win.c` heeft nu geen enkele logging; `dongle.c` schrijft alleen naar
+`stderr` als `RAVENGUN_HASP_VERBOSE` gezet is). Met een logbestand in de view is in één start te
+zien welke fileids de game opvraagt en welke bytes hij verwacht — en dan is de dongle-image van
+TC5 alsnog vast te leggen, waarmee het laatste stuk dat nog aan TeknoParrot hangt dichtgaat.
