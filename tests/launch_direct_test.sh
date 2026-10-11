@@ -69,7 +69,7 @@ profile("Elf", "ElfLdr2", "RawThrillsGUN", os.path.join(gamedir, "game"), "false
     ("General", "Input API", "RawInput", "Dropdown", ["DirectInput", "RawInput"]),
     ("General", "Windowed", "1", "Bool", []),
     ("GUN", "Mode", "Two", "DropdownIndex", ["One", "Two"]),
-], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
+], extra="<WineRunnerPath>%s</WineRunnerPath><Patreon>true</Patreon>" % wine)
 write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Display]\nGamescope = true\nGamescopePath = /usr/bin/gamescope\n")
 exe64 = os.path.join(tmp, "win", "Game", "TimeCrisisGame.exe")
 write(exe64, "x")
@@ -78,7 +78,10 @@ profile("Win", "TeknoParrot", "TimeCrisis5", exe64, "true", [("General", "Window
 profile("Oud", "ElfLdr2", "RawThrillsGUN", os.path.join(gamedir, "game"), "false", [], rev="2")
 profile("Dolphin", "Dolphin", "Foo", os.path.join(gamedir, "game"), "false", [])
 
-# Activering: zonder seed -> 3.
+# Activering: alleen voor Patreon-profielen. Zonder Patreon start het zonder activering.
+rc, out, err = run("Win", "--check")
+check(rc == 0, "zonder Patreon geen activering nodig (kreeg %d: %s)" % (rc, err))
+# Patreon-profiel zonder seed -> 3.
 rc, out, err = run("Elf", "--check")
 check(rc == 3, "zonder activering exit 3 (kreeg %d: %s)" % (rc, err))
 seed = os.path.join(home, ".local/share/TeknoParrotUI/activation/teknoparrot-license.reg")

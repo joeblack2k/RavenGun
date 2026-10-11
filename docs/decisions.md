@@ -597,3 +597,8 @@ Otomedius, Rainbow Bombergirl, beide Omatsuri). `launch-direct.py` start ze alle
 prefix heeft gezet (`check_activation`); de waarde lezen we niet. Zo blijft het abonnement de voorwaarde, ook bij een
 directe start. Een eigen starter zonder TeknoParrot (Johans vraag 9) zou dat niet hebben; dat is nog een reden om die
 route niet te bouwen voor spellen die alleen via het abonnement komen.
+
+Aanvulling (eigenaar, 2026-10-11): het abonnement is geen voorwaarde voor TeknoParrot in het algemeen, alleen voor de
+Patreon-profielen. `launch-direct.py` eiste de activering bij elke directe start; nu alleen als het meegeleverde sjabloon
+`Patreon = true` zegt (het gebruikersprofiel kan dat niet uitzetten). Of de kern zelf bij een gewone game iets van de
+activering wil, is nog niet op de tv gemeten.

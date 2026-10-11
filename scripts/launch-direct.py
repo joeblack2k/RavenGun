@@ -156,7 +156,15 @@ def load_profile(tp, name):
                               % (p.get("GameProfileRevision"), ss.get("GameProfileRevision")))
         for k, v in ss.items():
             p.setdefault(k, v)
+        # Of een game onder het abonnement valt, bepaalt het meegeleverde sjabloon, niet een aangepast gebruikersprofiel.
+        if "Patreon" in ss:
+            p["Patreon"] = ss["Patreon"]
     return p
+
+
+def needs_activation(p):
+    """Alleen profielen met Patreon = true vallen onder het abonnement; de rest start zonder activering."""
+    return p.get("Patreon", "").strip().lower() == "true"
 
 
 def field(p, name, category=None):
@@ -701,6 +709,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "files": files, "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
+        "needs_activation": needs_activation(p),
     }
 
 
@@ -1239,7 +1248,7 @@ def main(argv):
         extra[k] = v
     try:
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
-        if not a.no_activation_check:
+        if plan["needs_activation"] and not a.no_activation_check:
             check_activation(plan["prefix"])
     except SettingRefused as e:
         print("Instelling geweigerd: %s" % e, file=sys.stderr)
