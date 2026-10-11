@@ -124,7 +124,7 @@ echo '{}' > "$H/.config/ravengun/config.json"; echo x > "$H/.local/share/ravengu
 [[ -f $H/.local/share/ravengun/runtime/keep ]] || fail "de gebruikersgegevens (runtime) zijn aangetast"
 grep -q "disable --now ravengund.service" "$T/systemctl.log" || fail "de service is niet gestopt (systemctl-log)"
 # Root-onderdelen: alleen als ze op deze machine staan (dan vraagt de uninstall via pkexec om --rollback met het script uit de installatie).
-if [[ -e /etc/udev/rules.d/70-ravengun.rules || -e /etc/udev/rules.d/71-ravengun-uhid.rules || -e /opt/ravengun/bin/ravengun-bt-helper ]]; then
+if [[ -e /etc/udev/rules.d/70-ravengun.rules || -e /etc/udev/rules.d/71-ravengun-uhid.rules || -e /etc/udev/rules.d/72-ravengun-dongle.rules || -e /opt/ravengun/bin/ravengun-bt-helper ]]; then
   grep -qx "$P2/share/ravengun/scripts/install-permissions.sh --rollback" "$T/pkexec.log" || fail "de uninstall riep pkexec niet aan met --rollback uit de installatie: $(cat "$T/pkexec.log")"
 else
   echo "(geen systeemonderdelen op deze machine: pkexec-controle overgeslagen)"

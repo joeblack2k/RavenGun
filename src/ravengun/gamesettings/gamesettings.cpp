@@ -243,6 +243,29 @@ bool truthy(const std::string& v) {
     return l == "true" || l == "1" || l == "yes" || l == "on";
 }
 
+const char* const kDongleSources[] = {"usb-passthrough", nullptr};
+
+Dongle dongle_of(const Ini& settings) {
+    Dongle d;
+    const std::string raw = trim(settings.get("Dongle", "Enabled"));
+    const std::string l = lower(raw);
+    d.enabled = truthy(raw);
+    if (!raw.empty() && !d.enabled && !(l == "false" || l == "0" || l == "no" || l == "off")) {
+        d.enabled = true;   // geen true of false: aan met een fout (de launcher weigert dan met die melding)
+        d.error = "[Dongle] Enabled = " + raw + " (use true or false)";
+    }
+    const std::string src_raw = trim(settings.get("Dongle", "Source"));
+    d.source = src_raw.empty() ? std::string(kDongleSources[0]) : lower(src_raw);
+    bool known = false;
+    std::string list;
+    for (const char* const* c = kDongleSources; *c; ++c) {
+        known = known || d.source == *c;
+        list += (list.empty() ? "" : ", ") + std::string(*c);
+    }
+    if (!known && d.error.empty()) d.error = "[Dongle] Source = " + src_raw + " (known: " + list + ")";
+    return d;
+}
+
 std::string Patch::get(const std::string& key, const std::string& def) const {
     for (const auto& kv : fields)
         if (kv.first == key) return kv.second;

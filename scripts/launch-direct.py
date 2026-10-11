@@ -34,7 +34,8 @@
 #         --log-full (TP_LOGTOFILE=1 en een A11-samenvatting van de regels van de kern in ~/.local/state/ravengun/a11/).
 # Exitcodes: 0 klaar, 1 fout tijdens de start, 2 gebruik, 3 activering ontbreekt (val terug op TeknoParrotUi),
 #            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), 5 een ingeschakelde patch is geweigerd
-#            (geen terugval), anders de exitcode van de lader.
+#            (geen terugval), 6 [Dongle] Enabled = true maar geen dongle gevonden of de runtime van de fabrikant draait niet (geen
+#            terugval; zie scripts/dongle.py), anders de exitcode van de lader.
 # Instellingen per game (lader, Wine, omgeving, patches): patches/<Game>/game.ini en patches.ini met de gebruikerslaag eronder
 # (scripts/gamesettings.py, docs/per-game-patches.md). Het oude UserProfiles/<P>.env wordt nog één versie als laag gelezen.
 import json
@@ -56,6 +57,7 @@ sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
 import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
+import dongle as dg  # noqa: E402  (detectie van de echte, fysieke dongle en zijn officiële runtime; [Dongle] in game.ini)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -71,6 +73,7 @@ STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".l
 EXIT_ACTIVATION = 3
 EXIT_UNSUPPORTED = 4
 EXIT_PATCH = 5       # een ingeschakelde patch is geweigerd: niet terugvallen op TeknoParrotUi (die zou de game zonder patch starten)
+EXIT_DONGLE = 6      # [Dongle] Enabled = true, maar geen dongle gevonden of de runtime van de fabrikant draait niet: geen terugval, de game start niet
 
 # Profielen waarvoor TeknoParrotUi extra argumenten of voorbereidingen heeft die hier niet zijn nagebouwd: die vallen
 # terug op TeknoParrotUi (exit 4). Bron: GameLaunchArguments in TeknoParrotUI (net8-migration).
@@ -115,6 +118,10 @@ class ActivationMissing(Exception):
 
 class PatchRefused(Exception):
     """Een ingeschakelde patch kan niet (veilig) toegepast worden; de game start dan niet."""
+
+
+class DongleRefused(Exception):
+    """[Dongle] Enabled = true, maar er is geen (bruikbare) dongle: de game start dan niet."""
 
 
 class SettingRefused(PatchRefused):
@@ -770,6 +777,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
         "needs_activation": needs_activation(p),
+        "dongle": dict(zip(("enabled", "source", "error"), settings.dongle())),
     }
 
 
@@ -1284,6 +1292,21 @@ def run(plan):
     return 0 if rc is None else (rc & 0xFF)
 
 
+def dongle_gate(plan, verbose):
+    """[Dongle] Enabled = true: vóór de start de detectie draaien (merk, type, vendor:product, runtime-status; nooit een serienummer) en
+    weigeren als er geen dongle is of de runtime niet draait. Uit (standaard): niets doen."""
+    d = plan["dongle"]
+    if not d["enabled"]:
+        return
+    if d["error"]:
+        raise DongleRefused(d["error"])
+    ok, msg, _ = dg.evaluate(dg.detect())   # Source = usb-passthrough: de enige bron nu
+    if not ok:
+        raise DongleRefused(msg)   # main() meldt het op stderr
+    if verbose:
+        log("dongle (%s): %s" % (d["source"], msg))
+
+
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser(description="Directe start van een TeknoParrot-game zonder TeknoParrotUi")
@@ -1310,6 +1333,11 @@ def main(argv):
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
         if plan["needs_activation"] and not a.no_activation_check:
             check_activation(plan["prefix"])
+        if not a.plan:
+            dongle_gate(plan, verbose=a.run)
+    except DongleRefused as e:
+        print("Dongle: %s" % e, file=sys.stderr)
+        return EXIT_DONGLE
     except SettingRefused as e:
         print("Instelling geweigerd: %s" % e, file=sys.stderr)
         return EXIT_PATCH

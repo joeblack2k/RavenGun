@@ -65,6 +65,18 @@ static void test_conformance() {
     CHECK(!ini.has("Game", "orphan") && !ini.has("", "orphan"));
 }
 
+// [Dongle]: dezelfde regels en uitkomsten als Game.dongle() in scripts/gamesettings.py (tests/data/dongle-cases.json).
+static void test_dongle() {
+    auto cases = json::parse(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/tests/data/dongle-cases.json"));
+    CHECK(cases.ok && cases.value.is_array() && cases.value.arr.size() >= 8);
+    for (const auto& c : cases.value.arr) {
+        const gs::Dongle d = gs::dongle_of(gs::parse_ini(c.find("ini")->str));
+        const bool same = d.enabled == c.find("enabled")->b && d.source == c.find("source")->str && d.error == c.find("error")->str;
+        CHECK(same);
+        if (!same) std::fprintf(stderr, "  dongle-geval '%s': kreeg %d/%s/%s\n", c.find("ini")->str.c_str(), d.enabled, d.source.c_str(), d.error.c_str());
+    }
+}
+
 static void test_ini_basics() {
     gs::Ini a = gs::parse_ini("[S]\r\nA = 1\r\nB=2 ; c\r\n;x\r\n[T]\r\nC =\r\n");
     CHECK(a.get("S", "A") == "1" && a.get("S", "B") == "2" && a.has("T", "C") && a.get("T", "C", "d") == "");
@@ -338,6 +350,7 @@ int main() {
     if (!t) { std::perror("mkdtemp"); return 2; }
     const std::string root = t;
     test_conformance();
+    test_dongle();
     test_ini_basics();
     test_layers(root);
     test_patch_policy(root);

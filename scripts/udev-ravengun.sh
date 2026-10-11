@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Installeert/verwijdert de smalle RavenGun-udev-regels: 70 (toetsenbord 1209:7201, lightguns 1209:7202..7205 voor speler 1..4) en
-# 71 (schrijfrecht op /dev/uhid voor de gebruiker, alleen nodig voor hid-borden met transport "uhid").
+# Installeert/verwijdert de smalle RavenGun-udev-regels: 70 (toetsenbord 1209:7201, lightguns 1209:7202..7205 voor speler 1..4),
+# 71 (schrijfrecht op /dev/uhid voor de gebruiker, alleen nodig voor hid-borden met transport "uhid") en 72 (toegang, uaccess, tot USB-dongles van
+# Aladdin/SafeNet en Wibu-Systems, voor de officiële runtime van de fabrikant; packaging/dongle-vendors.json).
 # Gebruik: sudo scripts/udev-ravengun.sh --apply|--rollback|--dry-run
 #          scripts/udev-ravengun.sh --check   (zonder sudo: is de geïnstalleerde regel gelijk aan die in de repo?)
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-RULES=(70-ravengun.rules 71-ravengun-uhid.rules)
+RULES=(70-ravengun.rules 71-ravengun-uhid.rules 72-ravengun-dongle.rules)
 MODE="${1:---dry-run}"
 if [[ $MODE == --check ]]; then
   rc=0
@@ -18,7 +19,7 @@ if [[ $MODE == --check ]]; then
   exit $rc
 fi
 [[ $EUID -eq 0 ]] || { echo "Start met sudo." >&2; exit 1; }
-reload() { udevadm control --reload; udevadm trigger --subsystem-match=input --action=change; udevadm trigger --subsystem-match=misc --sysname-match=uhid --action=change; }
+reload() { udevadm control --reload; udevadm trigger --subsystem-match=input --action=change; udevadm trigger --subsystem-match=misc --sysname-match=uhid --action=change; udevadm trigger --subsystem-match=usb --attr-match=idVendor=0529 --action=change; udevadm trigger --subsystem-match=usb --attr-match=idVendor=04b9 --action=change; udevadm trigger --subsystem-match=usb --attr-match=idVendor=064f --action=change; }
 case "$MODE" in
   --dry-run)
     for R in "${RULES[@]}"; do

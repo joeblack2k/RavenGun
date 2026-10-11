@@ -57,6 +57,25 @@ class ParserTest(Tmp):
             self.assertEqual(parsed, json.load(f))
         self.assertTrue(warn)
 
+    def test_dongle_conformance_with_cpp_cases(self):
+        """[Dongle]: dezelfde gevallen en uitkomsten als gs::dongle_of in tests/test_gamesettings.cpp."""
+        with open(os.path.join(HERE, "data", "dongle-cases.json"), encoding="utf-8") as f:
+            cases = json.load(f)
+        self.assertGreaterEqual(len(cases), 8)
+        for c in cases:
+            write(os.path.join(self.shipped, "D", "game.ini"), c["ini"])
+            got = self.load("D").dongle()
+            self.assertEqual(got, (c["enabled"], c["source"], c["error"]), c["ini"])
+
+    def test_dongle_layers(self):
+        """De gebruikerslaag wint per sleutel; zonder [Dongle] is alles uit."""
+        write(os.path.join(self.shipped, "D", "game.ini"), "[Dongle]\nEnabled = false\n")
+        self.assertEqual(self.load("D").dongle(), (False, "usb-passthrough", ""))
+        write(os.path.join(self.user, "D", "game.ini"), "[Dongle]\nEnabled = true\n")
+        self.assertEqual(self.load("D").dongle(), (True, "usb-passthrough", ""))
+        write(os.path.join(self.user, "D", "game.ini"), "[Dongle]\nEnabled =\n")
+        self.assertEqual(self.load("D").dongle(), (False, "usb-passthrough", ""))
+
     def test_comments_case_and_empty(self):
         s, _ = gs.parse_ini("[S]\n# a\n; b\nKey = v ; c\nkey = w\nEmpty =\nSemi = a;b\n")
         self.assertEqual(s["S"], {"Key": "v", "key": "w", "Empty": "", "Semi": "a;b"})   # hoofdlettergevoelig, ; zonder spatie blijft
