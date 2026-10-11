@@ -528,3 +528,21 @@ Een deel van de antwoorden in rondes 9-19 en 21 is gebaseerd op uitgepakte beeld
 BudgieLoader. RavenGun gebruikt daaruit alleen draadformaten en gedrag dat nodig is voor uitwisselbaarheid (TPB1 voor
 `pipehelper`, ACIO voor Otomedius, JVS), geen code of disassembly. We vragen niet om nieuwe ontledingen van beschermde
 code; nieuwe vragen gaan over gedrag, profielen, de open bron (OpenParrot, TeknoParrotUi) en metingen.
+
+## 2026-10-11 — Reactie op `findings/OPDRACHT-voor-de-loader-bouwer.md`
+
+Overgenomen in het patchformaat (na de merge van `patches/`):
+- `Version` per patch: de launcher noemt bij een weigering de verwachte gameversie.
+- `Category` per patch, met de waarden `graphics`, `input`, `timing`, `audio`, `paths`, `crash`, `network`.
+  Een categorie voor beveiliging bestaat niet; de launcher weigert patches met een onbekende categorie.
+- Logregel per patch in een vast formaat (toegepast/overgeslagen, naam, plek, reden).
+- In `game.ini`: `EmulationProfile` (bepaalt bord en kalibratievenster) en `DisplayMode`/`CustomResolution`
+  als gewone instellingen uit het TeknoParrot-profiel.
+
+Niet overgenomen:
+- Een `dongles/`-map of een andere laag die dongle- of HASP-aanroepen beantwoordt, en het koppelen aan
+  `findings/dongles/`. Dat is beschermingsafhandeling en blijft buiten RavenGun, ook als gebruikerslaag.
+- Patches die gebruikers zelf voor beschermingscontroles kunnen toevoegen: het formaat biedt daar geen plek voor.
+- Patchadressen uit materiaal dat uit beschermde kernen komt. De Type X2-aanpassingen (pistoolschrijfacties,
+  volume) doet de open OpenParrot-kern al; als we ze ooit zelf toepassen, dan alleen uit de openbare
+  OpenParrot-bron (GPL-3.0), met bronvermelding.
