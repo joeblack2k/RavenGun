@@ -8,7 +8,7 @@
   "RabbidsHollywood": "Werkt zonder TeknoParrot: lightgun, munt (viermaal) en start, trillen bij schieten. Nog niet met de echte Move-knoppen gespeeld.",
   "JurassicPark": "Werkt nog niet. Ook native (play-native.sh) niet: de herschreven game springt voor main naar een vast adres uit de dump; de beveiligingslaag van BudgieLoader ontbreekt. Geparkeerd.",
   "LuigisMansion": "Werkt: titel, attract (free play), start (toets 1), stofzuiger richten en zuigen met de trekker; testmenu met toets 0, select switch op aux1. Laden duurt ongeveer 45 s; druk pas op start als de attract draait.",
-  "LGS": "Start nog niet: de game wacht zonder venster op een Sega-netwerkdienst op 127.0.0.1:40100 en komt daardoor niet bij zijn JVS-poort. De daemon kan het JVS-bord al spelen (route jvs). Geparkeerd.",
+  "LGS": "Speelbaar: de game start tot de attract en het rijden (cursuskeuze en start met de knoppen). Rood, blauw, geel en groen zijn de toetsen A, S, D en F, het stuur de pijltjes links en rechts, munt toets 5. De stuurtoetsen veranderen het beeld (hoeveel stuurhoek is niet gemeten); het stuur uit de horizontale aim van de Move is er nog niet; het venster is niet schermvullend.",
   "TC5": "Speelbaar via de IO-brug (tp-shm): richten, trekker en linker pedaal (middenknop) werken; munt = Move-knop voor toets 5 (de daemon geeft de game daarvoor Shift+T). Schiet in het menu om '1-player solo' te kiezen. Rechter pedaal nog niet apart gecontroleerd.",
   "TransformersShadowsRising": "Speelbaar met de Move: de daemon speelt het gun-bord van de game na (route hid-board). Start (toets 1 of Move-start), trekker en richten werken; de eerste keer laden duurt ongeveer 3,5 minuut (\"SYSTEM INITIALIZING\"). Geen munt nodig (free play). Het gun-kalibratiescherm, het testmenu en de hendels (aanval/verdediging) zijn nog niet uitgeprobeerd. Daemon niet herstarten terwijl de game draait.",
   "GoGoStrike": "Werkt: bowling met de Move als trackball (richting en zwaai bepalen de worp), start (toets 1) en trekker (klik). Het beeld is 4:3 met zwarte randen (gamescope). Het credit-getal staat vreemd in beeld maar de game is gratis te spelen.",
@@ -28,7 +28,7 @@
   "GhostBusters": "Start nog niet: de loader meldt 'GAME PATH CHECK FAILED' (de dump heeft geen donglebestand zoals Halo en Terminator). Geparkeerd.",
   "GalagaAssault": "Start nog niet: de game laadt, mist lettertypen die niet in de dump staan (images/fonts/zoinks*.tga) en stopt met een crash. Geparkeerd.",
   "PacmanChomp": "Start nog niet: zwart beeld na de start (zelfde klasse als Jurassic Park). Geparkeerd.",
-  "PigsMightFly": "Start nog niet: Shell.exe is ingepakt (illegal instruction op het startpunt bij injectie vanaf het startpunt; bij injectie na 3 s weigert VirtualAllocEx). Geparkeerd."
+  "PigsMightFly": "Speelbaar: start (toets 1) en trekker (de hendel die het varken lanceert) werken; staand beeld (portret) in het midden van de tv. Testmenu: TEST (toets 0), service (F3). Draait in een eigen Wine-prefix waarin C:\\Sega naar de game wijst."
  },
  "games_en": {
   "Halo": "Fully working: lightgun, buttons and rumble.",
@@ -37,7 +37,7 @@
   "RabbidsHollywood": "Works without the TeknoParrot UI: lightgun, coin (four times) and start, rumble when shooting. Not yet played with the real Move buttons.",
   "JurassicPark": "Does not work yet: the game stops shortly after starting (crash in the ElfLdr2 layer). Parked.",
   "LuigisMansion": "Works: title, attract (free play), start (key 1), aiming the vacuum and sucking with the trigger; test menu with key 0, select switch on aux1. Loading takes about 45 s; press start once the attract mode runs.",
-  "LGS": "Does not start yet: the game waits without a window for a Sega network service on 127.0.0.1:40100 and never opens its JVS port. The engine can already act as its JVS board (jvs route). Parked.",
+  "LGS": "Playable: the game starts through to the attract and driving (course choice and start with the buttons). Red, blue, yellow and green are the keys A, S, D and F, the wheel is the left and right arrow keys, coin is key 5. The steering keys change the picture (how much steering is not measured); the wheel from the Move's horizontal aim is not there yet; the window is not fullscreen.",
   "TC5": "Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.",
   "TransformersShadowsRising": "Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes (\"SYSTEM INITIALIZING\"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs.",
   "GoGoStrike": "Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).",
@@ -57,7 +57,7 @@
   "GhostBusters": "Does not start yet: the loader rejects the game path (a file seems to be missing from the dump). Parked.",
   "GalagaAssault": "Does not start yet: font files are missing from the dump. Parked.",
   "PacmanChomp": "Does not start yet: black screen (same problem as Jurassic Park). Parked.",
-  "PigsMightFly": "Does not start yet: the start program is packed and fails under Wine. Parked."
+  "PigsMightFly": "Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\\Sega points at the game."
  },
  "status": {
   "Halo": "playable",
@@ -68,7 +68,7 @@
   "TransformersShadowsRising": "playable",
   "JurassicPark": "parked",
   "LuigisMansion": "playable",
-  "LGS": "parked",
+  "LGS": "playable",
   "GoGoStrike": "playable",
   "RaccoonRampage": "playable",
   "NERF": "playable",
@@ -86,6 +86,6 @@
   "GhostBusters": "parked",
   "GalagaAssault": "parked",
   "PacmanChomp": "parked",
-  "PigsMightFly": "parked"
+  "PigsMightFly": "playable"
  }
 }

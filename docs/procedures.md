@@ -181,7 +181,9 @@ De route staat in `packaging/io-routes.json` (`hid-board`, bord `SaeGunBoard` in
 
 
 
-## Let's Go Safari en de jvs-route (stand 2026-10-10: de game start niet; ongeveer 5 minuten voor een proef)
+## Let's Go Safari en de jvs-route (stand 2026-10-11: de game start en is speelbaar met TP_REMOTETHREAD=off, zie de opmerking hieronder; ongeveer 5 minuten voor een proef)
+
+Stand 2026-10-11 (nacht): met `TP_REMOTETHREAD=off` in `UserProfiles/LGS.env` (zonder `TP_POSTSTART_REMOTETHREAD_MS`) komt de game voorbij het wachten op poort 40100 (er is geen verbinding naar 40100 te zien), toont de attract en laat zich spelen. Hij opent COM4 niet: de kern praat via de JVS-pipe met TeknoParrotUi, dat de knoppen uit `UserProfiles/LGS.xml` leest (virtueel toetsenbord: A/S/D/F = rood/blauw/geel/groen, Q/W/E/R = camera/wissers/claxon/vuurwerk, pijltjes links/rechts = stuur met `Use Keyboard/Button For Axis` = 1, toets 5 = munt; `scripts/tp-add-game.py` bindt ze zo). Het JVS-bord van de daemon op COM4 (de stappen hieronder) krijgt dus 0 pakketten en is voor deze game niet nodig.
 
 Doel: de daemon is het JVS-bord van de game (`docs/architecture.md`, "Dialect jvs"). Let's Go Safari komt nog niet zo ver dat hij de poort opent (hij wacht op 127.0.0.1:40100, zie `docs/decisions.md`, "IO-brug stap 3: dialect jvs"); de stappen hieronder zetten de keten wel klaar en zijn de basis om verder te meten.
 

@@ -36,7 +36,7 @@ Leidraad van de eigenaar (2026-10-10): alle games in de TeknoParrot-map werken z
 Bronnen: docs/research/findings-digest.md (per game platform, board, route, moeite) en packaging/games-status.md.
 
 - [x] Halo, Terminator, Tomb Raider, Rabbids, Time Crisis 5, Transformers: starten en zijn speelbaar (deels nog niet met de echte Move bevestigd).
-- [x] B1 JVS-board in de IO-brug (kern, borden LGS en SegaGun2P, pty als COM-poort, 119 tests). Let's Go Safari zelf geparkeerd: de game wacht op een antwoord op 127.0.0.1:40100 (Sega PCP) vóór hij COM4 opent; vraag 11 aan het TeknoParrot-team.
+- [x] B1 JVS-board in de IO-brug (kern, borden LGS en SegaGun2P, pty als COM-poort, 119 tests). Let's Go Safari: de wacht op 127.0.0.1:40100 verdween met `TP_REMOTETHREAD=off` (2026-10-11 nacht); de game start en is speelbaar, maar opent COM4 niet (JVS via de pipe van TeknoParrotUi, knoppen uit het profiel); open: het stuur uit de horizontale aim van de Move en schermvullend.
 - [x] B2 Eigen Unity-plugin: Tomb Raider draait met de eigen plugin (munt, start, aim, schieten, herladen, recoil). Rabbids blijft op de DemulShooter-plugin: met de eigen plugin sluit de game zichzelf af door zijn dongle-controle ("DONGLE NOT FOUND"); die omzeilen we niet zelf.
 - [ ] B3 Overige games uit de backups (docs/research/findings-digest.md; 36 titels, 6 al speelbaar):
   - [x] B3a tp-shm-indelingen MusicGunGun2Pipe, HOTDSDPipe en FarCryPipe toegevoegd (bytes exact getest); offscreen-regel: binnen het scherm blijven 1-byte-assen op 2..253 (`offscreen_margin`), 0/255 alleen als de speler buiten het scherm mikt (getest).
@@ -45,7 +45,7 @@ Bronnen: docs/research/findings-digest.md (per game platform, board, route, moei
     - [x] Raccoon Rampage (2026-10-11, twaalfde ronde): speelbaar; `TP_REMOTETHREAD=off` in de `.env` (standaardroute van de lader) liet de invoer aankomen, kalibratie gedaan via het testmenu (bewaard in `Setting_Hardware.ini`); zie `findings/RaccoonRampage.md`.
     - [x] NERF Arcade (2026-10-11, twaalfde ronde): speelbaar met `TP_REMOTETHREAD=off`; start, aim en trekker werken; zie `findings/NERF.md`.
     - [ ] Gashaaaan, Gashaaaan Refill, Lethal Enforcers 3, Otomedius, Omatsuri Ganso Takoyaki, Omatsuri Kingyo Sukui, Infinity Blade FX (geparkeerd): 32-bit TeknoParrot-kern onder Wine: loader-lock bij injectie na 3 s, anders stopt de kern het proces zelf (exitcode 0xDEADC0DE); Otomedius stopt met exitcode 0.
-    - [ ] Pigs Might Fly (geparkeerd): `Shell.exe` ingepakt (illegal instruction op het startpunt / VirtualAllocEx geweigerd); niet omzeild.
+    - [x] Pigs Might Fly (2026-10-11 nacht): speelbaar. Standaardroute van de lader (`TP_REMOTETHREAD=off`) plus een eigen prefix-kopie `ravengun-test-pigs` waarin `C:\Sega` naar de Sega-map van de game wijst; de shell bleef anders in zijn testmenu. Niet getest: echte Move-knoppen, geluid, lange sessies.
   - [~] B3d Raw Thrills Linux (2026-10-10):
     - [x] Go Go Strike: werkt (gamescope; Move als trackball, start, trekker); snelkoppeling. Sinds A10 direct via tp-shm (indeling GoGoStrike).
     - [ ] GhostBusters (geparkeerd): loader meldt "GAME PATH CHECK FAILED"; afgeleid: donglebestand ontbreekt in de dump.

@@ -52,6 +52,13 @@ def binding(name):
     # Aanraak- en trackballgames en de Proton Pack (GhostBusters): de gun is het aanwijsapparaat.
     if 'light gun' in n or n in ('touch', 'touch xy', 'touch 1 device') or re.fullmatch(r'p[1-4] (proton pack|trackball gun)', n):
         return ('gun', None, pl)
+    # Let's Go Safari (LGS): vier gekleurde knoppen, de extra schakelaars en het stuur via het toetsenbord (nacht 2026-10-11;
+    # de kern beantwoordt de JVS-pakketten via de pipe van TeknoParrotUi, die deze bindingen leest). Stuur: zet ook
+    # "Use Keyboard/Button For Axis" op 1 in het profiel.
+    lgs = {'button 1 (red)': 'A', 'button 2 (blue)': 'S', 'button 3 (yellow)': 'D', 'button 4 (green)': 'F',
+           'change view': 'Q', 'window wipers': 'W', 'horn': 'E', 'fireworks': 'R',
+           'wheel axis left': 'Left', 'wheel axis right': 'Right'}
+    if n in lgs: return ('kbd', lgs[n], 1)
     if 'start' in n or n == 'enter sw': return ('kbd', f'D{pl}', pl)
     if n == 'gun trigger': return ('gun', 'LeftButton', pl)
     if n == 'gun button': return ('gun', 'RightButton', pl)
