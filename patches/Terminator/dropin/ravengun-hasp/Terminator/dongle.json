@@ -1,0 +1,13 @@
+{
+  "kind": "hasp",
+  "game": "Terminator",
+  "memory": [
+    {
+      "name": "memory",
+      "fileid": 65524,
+      "size": 128,
+      "file": "memory/00000000000000001111111111110100"
+    }
+  ],
+  "notes": "DE BYTES KOMEN UIT EEN ECHTE BRON: de spelmap zelf. Terminator Salvation/hasp/hhl_mem.dmp is een HASP-HL-geheugendump van 128 bytes die in de eigen hasp-map van de game staat; de image hier is dat bestand byte voor byte (sha256 759668aeac17ccae66385b365bbe9e19504cde93b4374fd966a8edf1d04a8a8e). WAT UIT DE CODE KOMT: game heeft 0 hasp_-symbolen in zijn dynsym (1019 dynamische symbolen, geen enkele met 'hasp'; readelf --dyn-syms werkt hier wel, want deze ELF heeft sectiekoppen) -- er is dus geen statisch gelinkte HASP-client om aan te haken. Dat de game wel een Aladdin/HASP-dongle gebruikt blijkt uit de tekstregels in game ('DongleInitialize() FAILED!', 'ReInitAladdinDongles called: %d times', 'Too many consexutive dongle errs (%)') en uit t4-patch ('failed to find aladdin dongle', 'failed to read dongle id', 'Unable to read seed from dongle'). WAT NIET GEMETEN IS: de fileid. Deze game geeft nergens een fileid door (geen client), dus ik gebruik 65524 = 0xFFF4, de standaard HASP-HL-hoofdgeheugen-fileid zoals die in dit project bekend is (patches/Halo/dropin/ravengun-hasp/Halo/dongle.json, findings/dongles/README.md en de RT-Dongle-Package README paragraaf 2). Dat is een aanname, geen meting -- en omdat er geen hook is, wordt er op dit moment ook niets gelezen. IK HEB HET BESTAND NIET INGEKORT: het is 128 bytes, terwijl de image van Halo Fireteam 112 bytes is. De laatste 16 bytes zijn 'WBPT' + 01 00 00 00 + 10 00 00 00 + 00 00 28 b1, wat op een staart/merk van het dumpgereedschap lijkt, maar niets in de bronnen zegt dat er iets af moet. De hele file is dus de image; de grootte in dit bestand is de bestandsgrootte. haspid, features en keycaps zijn NIET gemeten en daarom weggelaten. LET OP: dit is een dongle-beschrijving zonder hook. Er valt in game niets aan te haken, dus de drop-in wordt wel uitgerold maar spreekt de emulator niet aan. Zie patches/Terminator/README.md."
+}

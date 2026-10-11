@@ -1,0 +1,13 @@
+{
+  "kind": "hasp",
+  "game": "GalagaAssault",
+  "memory": [
+    {
+      "name": "read/write",
+      "fileid": 65520,
+      "size": 112,
+      "file": "memory/00000000000000001111111111110000"
+    }
+  ],
+  "notes": "GECONSTRUEERDE IMAGE -- DE ORIGINELE BYTES ZIJN NIET GEVONDEN. Dit is geen dump. Ik heb de hele NAS-boom doorzocht op de bestandsnaamregel van dit formaat (32 tekens 0/1), op hex-fileid-namen (fff0..ffff), op bestanden van 112 bytes, op mappen *hasp*/*dongle*, op *.dmp/*.dgl/*.rgd/*aladdin* en op hasp.bin; de enige dongle-images die daar staan zijn die van Halo Fireteam. WAT UIT DE CODE KOMT (alles nagemeten op de game-ELF op de NAS): (1) fileid 65520 = 0xFFF0, offset 0x28, lengte 4. hasp_read staat op VA 0x809e333 en hasp_write op VA 0x809e4c0 (de hasp_read/hasp_write die het spel zelf bezit staan op VA 0x8226150 en 0x8226070; de dynsym is gelezen via PT_DYNAMIC, want deze gepakte ELF heeft geen sectiekoppen). Het spel schrijft die 4 bytes ook terug, dus dit is een LEES/SCHRIJF-gebied. (2) hasp_login wordt vier keer aangeroepen, alle vier met vendor_code 0xffff0000 (VA 0x809e2fb, 0x809e48c, 0x809e536, 0x809e580); de scope die meegaat is de string op VA 0x83154e0, die in het bestand letterlijk '2jIY6Dv02LQbOVVV9P2xjLr01j5R2LHiQM3Qsohu5ksZZkQUQByfsbNcIJwBC5B5' is (dat is een waarde uit de game-ELF, geen gegeven van de eigenaar). (3) hasp_get_info en hasp_get_size hebben 0 aanroepplekken. WAAROM DEZE BYTES: de vulling is 0xFF omdat dat het patroon van GEWIST HASP-HL-geheugen is dat de ECHTE dump Terminator Salvation/hasp/hhl_mem.dmp laat zien (daar zijn de bytes 0x28..0x6b alle 0xFF). Voor deze game is dat bovendien onschadelijk: het gebied op offset 0x28 wordt door het spel zelf overschreven (hasp_write op VA 0x809e4c0). De grootte 112 is de HASP-HL-hoofdgeheugengrootte zoals die in dit project is gemeten: de images van Halo Fireteam zijn 112 bytes en de descriptor van die dongle zegt <size>112</size>. haspid is NIET gemeten en daarom weggelaten; het spel vraagt de XML nooit op. De inline-hook (libravengun-hasphook.so in dropin/) haakt de 28 statisch gelinkte hasp_-symbolen van deze game aan; zie docs/hasp-elf-hook.md."
+}
