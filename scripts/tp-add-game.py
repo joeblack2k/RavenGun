@@ -18,6 +18,11 @@ hetzelfde relatieve pad. Standaard 0.
 --empty-dir REL: (herhaalbaar, met --view) maakt in de view van REL (pad ten opzichte van de gamemap) een lege map in plaats
 van een link naar de NAS; de rest van de boom blijft links. Voor Raccoon Rampage: --empty-dir RSGame/Content/Movies (de
 intro-video's vragen een AAC-decoder die deze Wine mist; het spel stopt dan met exitcode 1).
+--vdesktop WxH: voor games die in volledig scherm vastlopen onder Wine (Let's Go Island: ChangeDisplaySettingsEx wacht
+eindeloos terwijl de hoofdthread niet pompt) en in vensterstand door de kern crashen (CreateWindowExW met een klasse-atoom als
+venstertitel): maakt een eigen prefix-kopie ravengun-test-<profiel> (reflink-kopie van shared/wine, zonder de link C:/Sega),
+zet daarin een Wine-virtueel bureaublad WxH (HKCU/Software/Wine/Explorer), zet Windowed=0 in het profiel en laat de game die
+prefix gebruiken (wrappers/wine-prefix, RG_WINEPREFIX). De gedeelde prefix blijft ongemoeid.
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
 --view: maakt een lokale map met alleen symlinks naar de bestanden van de game (er wordt niets gekopieerd en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
@@ -120,6 +125,27 @@ def make_dxvk_prefix():
     return dst, [f'RG_WINEPREFIX={dst}', 'WINEDLLOVERRIDES=d3d11,d3d10core,dxgi=n,b']
 
 
+def make_vdesktop_prefix(prof, size):
+    """Eigen prefix-kopie met een Wine-virtueel bureaublad; geeft het prefixpad. De gedeelde prefix wordt alleen gelezen."""
+    import subprocess
+    home = os.path.expanduser('~')
+    shared = f'{home}/.local/share/TeknoParrotUI/prefixes/shared/wine'
+    dst = f'{home}/.local/share/TeknoParrotUI/prefixes/ravengun-test-{prof.lower()}'
+    if not re.fullmatch(r'\d{3,5}x\d{3,5}', size): sys.exit('--vdesktop verwacht BREEDTExHOOGTE, bv. 1920x1080')
+    if not os.path.isdir(dst):
+        if not os.path.isdir(shared): sys.exit(f'geen gedeelde prefix: {shared}')
+        subprocess.run(['cp', '-a', '--reflink=auto', shared, dst], check=True)
+        link = f'{dst}/drive_c/Sega'
+        if os.path.islink(link): os.unlink(link)   # wijst in de gedeelde prefix naar de map van een andere game
+    wdir = f'{home}/.local/share/ravengun/wine/proton-11.0-2/bin'
+    env = {**os.environ, 'WINEPREFIX': dst, 'WINESERVER': f'{wdir}/wineserver', 'WINEDEBUG': '-all'}
+    for args in (['Explorer', 'Desktop', 'ravengun'], ['Explorer\\Desktops', 'ravengun', size]):
+        subprocess.run([f'{wdir}/wine', 'reg', 'add', 'HKCU\\Software\\Wine\\' + args[0], '/v', args[1], '/d', args[2], '/f'],
+                       env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([f'{wdir}/wineserver', '-k'], env=env, check=False)
+    return dst
+
+
 def main():
     global argv_
     argv_ = sys.argv[1:]
@@ -133,7 +159,8 @@ def main():
     envs = [argv[i + 1] for i, a in enumerate(argv) if a == '--env' and i + 1 < len(argv)]
     empties_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--empty-dir' and i + 1 < len(argv)]
     up_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--view-up' and i + 1 < len(argv)]
-    args = [a for a in args if a not in envs and a not in empties_arg and a not in up_arg]
+    vd_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--vdesktop' and i + 1 < len(argv)]
+    args = [a for a in args if a not in envs and a not in empties_arg and a not in up_arg and a not in vd_arg]
     if len(args) != 2:
         sys.exit(__doc__)
     prof, game = args[0], os.path.abspath(os.path.expanduser(args[1]))
@@ -197,6 +224,13 @@ def main():
                 envs = [e for e in envs if e not in same] + [same[0] + ';' + l.split('=', 1)[1]]
             elif not same:
                 envs = envs + [l]
+        runner = wrapper
+    if '--vdesktop' in sys.argv:
+        wrapper = os.path.expanduser('~/.local/share/ravengun/wrappers/wine-prefix')
+        if not os.path.exists(wrapper): sys.exit(f'wrapper ontbreekt: {wrapper} (link naar scripts/wine-prefix.sh)')
+        pfx = make_vdesktop_prefix(prof, argv_[argv_.index('--vdesktop') + 1])
+        envs = [e for e in envs if not e.startswith('RG_WINEPREFIX=')] + [f'RG_WINEPREFIX={pfx}']
+        s = re.sub(r'(<FieldName>Windowed</FieldName>\s*<FieldValue>).*?(</FieldValue>)', lambda m: m.group(1) + '0' + m.group(2), s, count=1, flags=re.S)
         runner = wrapper
     if runner:
         if not os.path.isfile(runner): sys.exit(f'wine-runner ontbreekt: {runner}')

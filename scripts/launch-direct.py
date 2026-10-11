@@ -35,6 +35,7 @@
 import json
 import os
 import re
+import select
 import shlex
 import signal
 import socket
@@ -699,8 +700,9 @@ def jvs_answer(data, inputs=None):
 class JvsPipeServer(threading.Thread):
     """TCP-kant van \\\\.\\pipe\\TeknoParrot_JVS (pipehelper.exe verbindt hierheen zodra de game de pipe opent)."""
 
-    def __init__(self, board=False, f1_once=False, debug=False):
+    def __init__(self, board=False, f1_once=False, debug=False, pty=None):
         self.f1_once = f1_once
+        self.pty = pty              # RG_JVS_PTY=<pad>: de pty van de daemon (jvs-route); alle JVS-bytes gaan daarheen en terug
         self.debug = debug          # RG_JVS_DEBUG=true: de eerste 300 pakketten en antwoorden in het log
         super().__init__(daemon=True)
         self.board = board          # RG_JVS_BOARD=true in <P>.env: standaard JVS-bord achter de pipe (A10)
@@ -726,6 +728,9 @@ class JvsPipeServer(threading.Thread):
         self.connected = True
         conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         log("JVS-pipe: game verbonden (pipehelper via TCP)")
+        if self.pty:
+            self.run_pty_bridge(conn)
+            return
         buf = b""
         seen = set()
         while True:
@@ -789,6 +794,79 @@ class JvsPipeServer(threading.Thread):
                         node, cmd, len(fr), "" if cmd in (0xF0, 0xF1) else (" - beantwoord met het standaard JVS-bord (A10)" if self.board else " - niet beantwoord (geen JVS-bord in de directe start)")))
         log("JVS-pipe: verbinding dicht (%d bytes van de game, %d pakketten, %d beantwoord, %d niet beantwoord)"
             % (self.bytes_in, self.packets, self.answered, self.unanswered))
+
+    def run_pty_bridge(self, conn):
+        """De JVS-bytes van de game gaan ongewijzigd naar de pty van de daemon (die is het JVS-bord, dialect jvs) en wat de daemon
+        terugschrijft gaat naar de game. Wij kijken alleen mee voor de verbind-vlag (byte 0 van het gedeelde geheugen: aan bij
+        de adrestoekenning 0xF1, uit bij de reset 0xF0, zoals TeknoParrotUi)."""
+        import termios
+        try:
+            fd = os.open(self.pty, os.O_RDWR | os.O_NOCTTY)
+            attr = termios.tcgetattr(fd)
+            attr[0] = attr[1] = attr[3] = 0                              # raw: geen echo, geen omzetting
+            attr[2] = (attr[2] & ~(termios.CSIZE | termios.PARENB | termios.CSTOPB)) | termios.CS8 | termios.CLOCAL | termios.CREAD
+            attr[6][termios.VMIN], attr[6][termios.VTIME] = 1, 0
+            termios.tcsetattr(fd, termios.TCSANOW, attr)
+        except (OSError, termios.error) as e:
+            log("JVS-pipe: pty van de daemon niet te openen (%s): %s" % (self.pty, e))
+            return
+        stop = threading.Event()
+        back = {"bytes": 0}
+
+        def pty_to_game():
+            while not stop.is_set():
+                try:
+                    r, _, _ = select.select([fd], [], [], 0.2)
+                    if not r:
+                        continue
+                    d = os.read(fd, 4096)
+                except OSError:
+                    break
+                if not d:
+                    continue
+                back["bytes"] += len(d)
+                try:
+                    conn.sendall(d)
+                except OSError:
+                    break
+        t = threading.Thread(target=pty_to_game, daemon=True)
+        t.start()
+        buf, seen = b"", set()
+        while True:
+            try:
+                data = conn.recv(4096)
+            except OSError:
+                break
+            if not data:
+                break
+            self.bytes_in += len(data)
+            try:
+                os.write(fd, data)
+            except OSError:
+                break
+            frames, buf = jvs_frames(buf + data)
+            for fr in frames:
+                if len(fr) < 3:
+                    continue
+                self.packets += 1
+                cmd = fr[2]
+                if cmd == 0xF0:
+                    set_connect_flag(0)
+                elif cmd == 0xF1:
+                    set_connect_flag(1)
+                if self.debug and self.packets <= 300:
+                    log("JVS-pipe: #%d van de game: %s" % (self.packets, fr.hex()))
+                if (fr[0], cmd) not in seen:
+                    seen.add((fr[0], cmd))
+                    log("JVS-pipe: pakket node %02X commando %02X (%d bytes) - naar de pty van de daemon" % (fr[0], cmd, len(fr)))
+        stop.set()
+        t.join(1)
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        log("JVS-pipe: verbinding dicht (%d bytes van de game, %d pakketten, %d bytes van de daemon terug)"
+            % (self.bytes_in, self.packets, back["bytes"]))
 
     def close(self):
         try:
@@ -892,7 +970,8 @@ def run(plan):
     # 3. JVS-pipe en pipehelper.exe in de prefix (vóór de game, zoals TeknoParrotUi).
     server = JvsPipeServer(board=truthy(plan["env"].get("RG_JVS_BOARD", "0")),
                            f1_once=truthy(plan["env"].get("RG_JVS_F1_ONCE", "0")),
-                           debug=truthy(plan["env"].get("RG_JVS_DEBUG", "0")))
+                           debug=truthy(plan["env"].get("RG_JVS_DEBUG", "0")),
+                           pty=plan["env"].get("RG_JVS_PTY") or None)
     server.start()
     hargs = [plan["wine"], plan["pipehelper"]]
     if plan["pipe_mode"] == "pipe":

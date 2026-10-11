@@ -268,7 +268,18 @@ elif [[ "$ROUTE" == hid-board ]]; then
 elif [[ "$ROUTE" == jvs ]]; then
   # De daemon maakt de pty (en de symlink $JVS_LINK); die komt in de Wine-prefix van het profiel als COM-poort. De LD_PRELOAD-hulp
   # laat GetCommModemStatus op die pty slagen (een pty kent TIOCMGET niet). Eerst het env-bestand lezen: de prefix staat daar.
+  JTRANS=$(sed -n 's/^RG_JVS_TRANSPORT=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
   WPFX=$(sed -n 's/^RG_WINEPREFIX=//p' "$TP/UserProfiles/$PROFILE.env" 2>/dev/null | head -1)
+  if [[ "$JTRANS" == pipe ]]; then
+    # RG_JVS_TRANSPORT=pipe in <PROFIEL>.env (Let's Go Island): de game praat JVS over de pipe TeknoParrot_JVS, niet over een COM-poort.
+    # De daemon maakt de pty; launch-direct.py brugt de pipe (pipehelper via TCP) naar die pty (RG_JVS_PTY). Geen COM-koppeling,
+    # geen LD_PRELOAD-hulp en geen wineboot nodig.
+    [[ "$LAUNCH" == direct ]] || fail "RG_JVS_TRANSPORT=pipe werkt alleen bij een directe start (--direct)."
+    "$CTL" iobridge start "$PROFILE" --route jvs >/dev/null || fail "IO-brug (jvs) starten mislukt voor $PROFILE"
+    [[ -L "$JVS_LINK" ]] || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "De daemon maakte geen pty-symlink ($JVS_LINK)."; }
+    EXTRA_ENV+=("RG_JVS_PTY=$JVS_LINK")
+    say "Invoerroute: jvs over de JVS-pipe (de daemon is het JVS-bord achter TeknoParrot_JVS)."
+  else
   [[ -n "$WPFX" ]] || fail "Route jvs vraagt RG_WINEPREFIX=<eigen prefix> in $TP/UserProfiles/$PROFILE.env (en WineRunnerPath = wrappers/wine-prefix)."
   COMPORT=$(python3 -I "$ROOT/scripts/io-route.py" --root "$ROOT" "$PROFILE" com_port 2>/dev/null || echo COM4)
   [[ -n "$COMPORT" ]] || COMPORT=COM4
@@ -279,6 +290,7 @@ elif [[ "$ROUTE" == jvs ]]; then
   jvs_link_prefix "$WPFX" "$COMPORT" || { "$CTL" iobridge stop >/dev/null 2>&1 || true; fail "Kon $COMPORT in $WPFX niet koppelen."; }
   if [[ -r "$RG_LIB/lib32/librg_comm_shim.so" && -r "$RG_LIB/librg_comm_shim.so" ]]; then EXTRA_ENV+=("RG_LD_PRELOAD=$SHIM"); else echo "Let op: de LD_PRELOAD-hulp ontbreekt (cmake --build build); GetCommModemStatus faalt dan op de pty." >&2; fi
   say "Invoerroute: jvs (de daemon is het JVS-bord op $COMPORT)."
+  fi
 else
   "$CTL" iobridge stop >/dev/null 2>&1 || true   # een rest van een eerdere tp-shm-sessie
 fi

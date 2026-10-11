@@ -135,6 +135,26 @@
    "layout": "LuigisMansion",
    "note": "Speelbaar (2026-10-10): standaardroute van de lader (TP_REMOTETHREAD=off), symlink-view (Data -> DataGlobal/EN/Data), werkmap exe/x64, GStreamer asf+libav voor de wmv-films (scripts/fetch-gst-wmv.sh). Select switch = aux1.",
    "launch": "direct"
+  },
+  "LGI": {
+   "route": "jvs",
+   "board": "LGI",
+   "com_port": "COM4",
+   "note": "speelbaar: de game praat JVS over de pipe TeknoParrot_JVS; start direct (zonder TeknoParrotUi, play-halo.sh) met UserProfiles/LGI.env: TP_REMOTETHREAD=off, RG_WINEPREFIX (eigen prefix-kopie met een Wine-virtueel bureaublad 1920x1080: volledig scherm loopt vast, venstermodus laat de kern crashen) en RG_JVS_TRANSPORT=pipe; launch-direct.py brugt de pipe naar de pty van de daemon, die het JVS-bord LGI is (aim, trekker, start, munt)",
+   "launch": "direct"
+  },
+  "LGI3D": {
+   "route": "jvs",
+   "board": "LGI3D",
+   "com_port": "COM4",
+   "note": "speelbaar: de game praat JVS over de pipe TeknoParrot_JVS; start direct (zonder TeknoParrotUi, play-halo.sh) met UserProfiles/LGI3D.env: TP_REMOTETHREAD=off, RG_WINEPREFIX (eigen prefix-kopie met een Wine-virtueel bureaublad 1920x1080: volledig scherm loopt vast, venstermodus laat de kern crashen) en RG_JVS_TRANSPORT=pipe; launch-direct.py brugt de pipe naar de pty van de daemon, die het JVS-bord LGI is (aim, trekker, start, munt)",
+   "launch": "direct"
+  },
+  "MedaruNoGunman": {
+   "route": "tp-shm",
+   "layout": "FarCryPipe",
+   "note": "geparkeerd (veertiende ronde): start direct via tp-shm (indeling FarCryPipe), aim, munt, herladen en trekker werken, maar bij elke verse start meldt de game 3001 RAM DATA IS BAD of 3003 ROM HAS CHANGED (de SRAM van de kern, SBTF_sram.bin in de prefix, blijft 0 bytes); UserProfiles/MedaruNoGunman.env: TP_REMOTETHREAD=off en RG_WINEPREFIX (eigen prefix-kopie met Wine-virtueel bureaublad en de native d3dx9_40.dll uit de Microsoft-DirectX-herdistribueerbare van Steam: Wine's eigen d3dx9 kan het effect van de game niet compileren), zie findings/MedaruNoGunman.md",
+   "launch": "direct"
   }
  }
 }

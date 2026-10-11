@@ -59,6 +59,70 @@
     { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
    ],
    "coins": ["coin1", "coin2"]
+  },
+  "LGI": {
+   "description": "Let's Go Island (Sega RingWide, TeknoParrot-profiel LGI, EmulationProfile SegaJvsLetsGoIsland): het gewone Sega-gunbord 837-14572. Kanaalvolgorde per speler volgens de bindingen van het profiel (Gun Y = Analog0, Gun X = Analog2, speler 2 Analog4 en Analog6): kanaal 0 = P1 Y, 1 = P1 X, 2 = P2 Y, 3 = P2 X. Het spel rekent de ruwe waarde om met een eigen venster, omgekeerd: x 131..228 en y 141..220 (aan het vizier in het scherm gemeten, 2026-10-11; het venster x 27..208, y 35..178 van het profiel geeft een vizier dat 1,87 maal te snel loopt). Zie findings/LetsGoIsland.md.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x20",
+   "command_rev": "0x13",
+   "players": 2,
+   "buttons": 14,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "analog": [
+    { "signal": "p1.y", "min": 141, "max": 220, "invert": true, "idle": 0.5 },
+    { "signal": "p1.x", "min": 131, "max": 228, "invert": true, "idle": 0.5 },
+    { "signal": "p2.y", "min": 141, "max": 220, "invert": true, "idle": 0.5 },
+    { "signal": "p2.x", "min": 131, "max": 228, "invert": true, "idle": 0.5 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.trigger" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.reload" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.grenade" },
+    { "player": 2, "byte": 0, "bit": 7, "signal": "p2.start" },
+    { "player": 2, "byte": 0, "bit": 1, "signal": "p2.trigger" },
+    { "player": 2, "byte": 0, "bit": 0, "signal": "p2.reload" },
+    { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
+   ],
+   "coins": ["coin1", "coin2"]
+  },
+  "LGI3D": {
+   "description": "Let's Go Island 3D (Sega RingEdge, TeknoParrot-profiel LGI3D): zoals LGI, maar het spel verwacht het venster van het TeknoParrot-profiel zelf: de ruwe waarde is 255 min (27 + 181 x) voor X en 255 min (35 + 143 y) voor Y, dus x 47..228 en y 77..220, omgekeerd. Gemeten aan het vizier in het spel (vizier 0,53 maal te klein bij het venster van LGI). Zie findings/LetsGoIsland3D.md.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x20",
+   "command_rev": "0x13",
+   "players": 2,
+   "buttons": 14,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "analog": [
+    { "signal": "p1.y", "min": 77, "max": 220, "invert": true, "idle": 0.5 },
+    { "signal": "p1.x", "min": 47, "max": 228, "invert": true, "idle": 0.5 },
+    { "signal": "p2.y", "min": 77, "max": 220, "invert": true, "idle": 0.5 },
+    { "signal": "p2.x", "min": 47, "max": 228, "invert": true, "idle": 0.5 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.trigger" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.reload" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.grenade" },
+    { "player": 2, "byte": 0, "bit": 7, "signal": "p2.start" },
+    { "player": 2, "byte": 0, "bit": 1, "signal": "p2.trigger" },
+    { "player": 2, "byte": 0, "bit": 0, "signal": "p2.reload" },
+    { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
+   ],
+   "coins": ["coin1", "coin2"]
   }
  }
 }

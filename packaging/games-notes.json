@@ -28,7 +28,10 @@
   "GhostBusters": "Start nog niet: de loader meldt 'GAME PATH CHECK FAILED' (de dump heeft geen donglebestand zoals Halo en Terminator). Geparkeerd.",
   "GalagaAssault": "Start nog niet: de game laadt, mist lettertypen die niet in de dump staan (images/fonts/zoinks*.tga) en stopt met een crash. Geparkeerd.",
   "PacmanChomp": "Start nog niet: zwart beeld na de start (zelfde klasse als Jurassic Park). Geparkeerd.",
-  "PigsMightFly": "Speelbaar: start (toets 1) en trekker (de hendel die het varken lanceert) werken; staand beeld (portret) in het midden van de tv. Testmenu: TEST (toets 0), service (F3). Draait in een eigen Wine-prefix waarin C:\\Sega naar de game wijst."
+  "PigsMightFly": "Speelbaar: start (toets 1) en trekker (de hendel die het varken lanceert) werken; staand beeld (portret) in het midden van de tv. Testmenu: TEST (toets 0), service (F3). Draait in een eigen Wine-prefix waarin C:\\Sega naar de game wijst.",
+  "LGI": "Speelbaar: start tot de attract, start (toets 1) en spelen. Het vizier volgt de aim (gemeten op een raster), de trekker schiet. Volledig scherm, geen titelbalk. Laden duurt ongeveer 1 minuut. Echte Move-knoppen en geluid niet beoordeeld.",
+  "LGI3D": "Speelbaar: start tot de attract, 3D-kalibratie (rood-cyaan beeld), start (toets 1) en spelen. Het vizier volgt de aim (gemeten op een raster in de tussenfilm), de trekker schiet. Laden ongeveer 1 minuut. Echte Move-knoppen en geluid niet beoordeeld.",
+  "MedaruNoGunman": "Start nog niet zonder fout: beeld, munt (toets 5), herladen, trekker en aim werken, maar de game meldt bij elke verse start 3001 RAM DATA IS BAD of 3003 ROM HAS CHANGED. Na een ronde door het testmenu start hij wel (alleen in dat proces). Venster 1024x768 linksboven."
  },
  "games_en": {
   "Halo": "Fully working: lightgun, buttons and rumble.",
@@ -57,7 +60,10 @@
   "GhostBusters": "Does not start yet: the loader rejects the game path (a file seems to be missing from the dump). Parked.",
   "GalagaAssault": "Does not start yet: font files are missing from the dump. Parked.",
   "PacmanChomp": "Does not start yet: black screen (same problem as Jurassic Park). Parked.",
-  "PigsMightFly": "Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\\Sega points at the game."
+  "PigsMightFly": "Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\\Sega points at the game.",
+  "LGI": "Playable: starts through to the attract, start (key 1) and play. The crosshair follows the aim (measured on a grid) and the trigger fires. Fullscreen, no title bar. Loading takes about a minute. Real Move buttons and sound not checked.",
+  "LGI3D": "Playable: starts through to the attract, 3D calibration (red-cyan picture), start (key 1) and play. The crosshair follows the aim (measured on a grid in the cutscene) and the trigger fires. Loading takes about a minute. Real Move buttons and sound not checked.",
+  "MedaruNoGunman": "Does not start cleanly yet: picture, coin (key 5), reload, trigger and aim work, but on every fresh start the game reports 3001 RAM DATA IS BAD or 3003 ROM HAS CHANGED. After one pass through its test menu it plays (that process only). Window 1024x768, top left."
  },
  "status": {
   "Halo": "playable",
@@ -86,6 +92,9 @@
   "GhostBusters": "parked",
   "GalagaAssault": "parked",
   "PacmanChomp": "parked",
-  "PigsMightFly": "playable"
+  "PigsMightFly": "playable",
+  "LGI": "playable",
+  "LGI3D": "playable",
+  "MedaruNoGunman": "parked"
  }
 }
