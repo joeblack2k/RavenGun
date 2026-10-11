@@ -39,14 +39,14 @@ De uitkomsten daarvan staan onder [Verificatie](#verificatie-met-de-loader-zelf)
 <!-- BEGIN TABEL -->
 | Game | `game.ini` | `[Status] Status` | drop-in (bestanden/secties) | zonder sectie | `To` ↔ sectie | dongle | README | wat ontbreekt er nog |
 |---|---|---|---|---|---|---|---|---|
-| **3DCosplayMahjong** | ja | **-** | geen `dropin/` | - | - | - | **nee** | geen `[Status] Status`; geen README; geen `patches.ini`; niet direct te starten: gamemap niet ingesteld (`--plan` rc=4) |
+| **3DCosplayMahjong** | ja | untested | geen `dropin/` | - | - | - | ja | geen `patches.ini`; niet direct te starten: gamemap niet ingesteld (`--plan` rc=4) |
 | **GaiaAttack4** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (geen beeld, zie `game.ini`); `patches.ini` aanwezig |
 | **GalagaAssault** | ja | parked | 6 / 6 | - | ok | hasp | ja | **andere agent**; het bestand zonder sectie is een 64-bits overblijfsel van `build-hasphook.sh` in een 32-bits game |
 | **Gashaaaan** | ja | playable | geen `dropin/` | - | - | - | ja | compleet; geen drop-in nodig |
 | **Gashaaaan2** | ja | playable | geen `dropin/` | - | - | - | ja | compleet; geen drop-in nodig |
 | **GhostBusters** | ja | parked | 0 / 0 | - | ok | - | ja | lege `dropin/`; geen `dongle.json` (hasp verwacht); **andere agent**; geen `dropin/`; geparkeerd: GAME PATH CHECK FAILED |
 | **GoGoStrike** | ja | playable | geen `dropin/` | - | - | - | ja | compleet; geen drop-in nodig |
-| **HOTDSD** | ja | playable | geen `dropin/` | - | - | - | **nee** | geen `dongle.json` (amdaemon verwacht); geen README; `--plan` rc=4: het profiel start twee exe's (`amdaemon.exe` eerst), dat doet `launch-direct.py` niet |
+| **HOTDSD** | ja | playable | geen `dropin/` | - | - | - | ja | geen `dongle.json` (amdaemon verwacht); `--plan` rc=4: het profiel start twee exe's (`amdaemon.exe` eerst), dat doet `launch-direct.py` niet |
 | **Halo** | ja | playable | 7 / 7 | - | ok | hasp | ja | drop-in compleet na reparatie (7 bestanden, 7 secties); de 32-bits hook heeft bewust geen `Preload` |
 | **HauntedMuseum** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (geen beeld); `patches.ini` aanwezig |
 | **HauntedMuseumII** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (geen beeld); `patches.ini` aanwezig |
@@ -68,13 +68,13 @@ De uitkomsten daarvan staan onder [Verificatie](#verificatie-met-de-loader-zelf)
 | **PigsMightFly** | ja | playable | geen `dropin/` | - | - | - | ja | compleet |
 | **RabbidsHollywood** | ja | parked | 3 / 3 | - | ok | matrix | ja | **andere agent**; `matrix/matrix.ini` wordt door onze eigen `matrix64.dll` gelezen, dus zonder sectie komt het niet aan |
 | **RaccoonRampage** | ja | playable | geen `dropin/` | - | - | - | ja | compleet |
-| **RainbowBombergirl** | ja | parked | geen `dropin/` | - | - | - | **nee** | geen README; geparkeerd (personagekeuze komt niet) |
+| **RainbowBombergirl** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (personagekeuze komt niet) |
 | **Rampage** | ja | playable | 3 / 3 | - | ok | matrix | ja | speelbaar; joystickspel, geen lightgun-game |
 | **TC5** | ja | playable | 4 / 4 | - | ok | hasp | ja | dongle-image ontbreekt (`memory` is leeg, `hasp.py` meldt de dongle onvolledig) |
-| **TankTankTank** | ja | **-** | geen `dropin/` | - | - | - | **nee** | geen `[Status] Status`; geen README; niet direct te starten: gamemap niet ingesteld (`--plan` rc=4) |
+| **TankTankTank** | ja | untested | geen `dropin/` | - | - | - | ja | niet direct te starten: gamemap niet ingesteld (`--plan` rc=4) |
 | **Terminator** | ja | playable | 3 / 3 | - | ok | hasp | ja | **andere agent**; geen `dropin/` terwijl `build-hasphook.sh` die wel vult |
 | **TombRaider** | ja | playable | 3 / 3 | - | ok | matrix | ja | speelbaar |
-| **TransformersShadowsRising** | ja | playable | geen `dropin/` | - | - | - | **nee** | geen `dongle.json` (sega-scan verwacht); geen README |
+| **TransformersShadowsRising** | ja | playable | geen `dropin/` | - | - | - | ja | geen `dongle.json` (sega-scan verwacht) |
 
 ## `To` en de sectienaam: de dest van elk drop-in-bestand
 
@@ -99,8 +99,8 @@ Met `To = .` wordt dat `view/ravengun-hasp/Halo/dongle.json`, precies waar `RAVE
 |---|---|
 | games | 36 |
 | met `game.ini` | 36 |
-| met `[Status] Status` | 34 |
-| met README.md | 31 |
+| met `[Status] Status` | 36 |
+| met README.md | 36 |
 | met een `dropin/`-map | 15 |
 | ... waarvan elk bestand een sectie heeft | 15 |
 | ... waar nog een bestand zonder sectie staat | 0 |
@@ -266,33 +266,36 @@ en `RabbidsHollywood/dropin/matrix/matrix.ini`.
 
 ## Opmerkingen en open punten
 
-1. **`_template/dropin/ravengun-hasp/JouwGame/dongle.json` wijst naar een pad dat niet bestaat.** Het
-   bestand zegt `"file": "dongle/memory/00000000000000001111111111110100"`, maar het geheugenbestand
-   staat ernaast in `memory/…` (zonder `dongle/` ervoor). Wie de template kopieert, krijgt dus een
-   dongle.json die naar niets wijst. Niet gerepareerd: het bestand zelf aanraken valt buiten deze
-   opdracht en de coördinerende agent is met de template bezig.
-2. **`verify-all.py` telt `dropin/` niet recursief.** Zijn kolom `dropin_bestanden` telt alleen het
-   bovenste niveau, dus bij games met donglegegevens in een submap lijkt het aantal lager dan het
-   aantal secties (Halo: 3 tegenover 7). De tabel hierboven telt recursief; dat is de juiste maat.
-3. **`build-hasphook.sh` legt beide architecturen in elke game.** Dat is de bron van de drie
+1. **`build-hasphook.sh` legt beide architecturen in elke game.** Dat is de bron van de
    verkeerde-architectuur-overblijfselen. Een game die maar één architectuur nodig heeft, houdt er zo
    een bestand bij dat geen sectie hoort te hebben — precies het patroon dat deze kaart moet blijven
    vangen.
-4. **TC5's dongle is incompleet:** `dongle.json` heeft `"memory": []` en zegt zelf dat de dongle-image
-   nog niet is vastgelegd. `scripts/hasp.py` meldt deze dongle daarom als onvolledig. De drop-in van
-   TC5 (4 bestanden, 4 secties) komt sinds deze ronde wel aan.
-5. **`memory/fff4` in Halo is geen dubbel bestand:** `fff4` is de hexvorm van fileid 65524, naast de
+2. **TC5's dongle heeft nog geen geheugenimages:** `dongle.json` heeft `"memory": []`. De drop-in
+   komt sinds deze ronde aan (de view is gematerialiseerd en de DLL-secties hebben `Env`), en de game
+   start en blijft draaien met onze DLL in het spelproces — bewezen met
+   `grep -i hasp /proc/<pid>/maps`. Of de game de dongle ook echt uitleest is **niet gemeten**: onze
+   Windows-DLL schrijft alleen naar `stderr`, en de game is een kindproces waarvan de uitvoer niet in
+   het logboek van de launcher komt. Zie `patches/TC5/README.md` voor de drie geprobeerde routes en
+   wat er wel zou werken.
+3. **`memory/fff4` in Halo is geen dubbel bestand:** `fff4` is de hexvorm van fileid 65524, naast de
    32-bits binaire vorm `00000000000000001111111111110100`. `hasp.py` accepteert beide schrijfwijzen
    (`_fileid_van_naam`) en rekent dit niet als fout.
-6. **`docs/per-game-stand.md` en `docs/inventaris-dongle-per-game.md` in de loader-repo zijn
-   verouderd** (daar staat Halo nog op 1 bestand / 1 sectie en LGI op geen drop-in). Opnieuw te maken
-   met `tools/verify-all.py --md docs/per-game-stand.md` en
-   `scripts/gen-dongle-inventaris.py`. Deze kaart vervangt ze niet: die twee gaan over de lader en de
-   kern, deze over de volledigheid van de game-mappen.
-7. **`3DCosplayMahjong` en `TankTankTank` hebben geen `[Status] Status`** en hun `--plan` faalt met
-   `rc=4` ("game niet gevonden: '' — voeg de map met de game toe als gamemap"). `HOTDSD` faalt met
-   `rc=4` omdat zijn profiel twee exe's heeft (`amdaemon.exe` eerst), wat `launch-direct.py` niet
-   direct start.
+4. **`3DCosplayMahjong` en `TankTankTank` hebben nu `[Status] = untested`** met de reden erbij: het
+   spel staat niet op de NAS, dus er is geen gamemap, geen bestandsevidence en geen startmeting. Hun
+   `--plan` faalt nog met `rc=4` ("game niet gevonden: '' — voeg de map met de game toe als
+   gamemap"). `HOTDSD` faalt met `rc=4` omdat zijn profiel twee exe's heeft (`amdaemon.exe` eerst),
+   wat `launch-direct.py` niet direct start.
+
+**Opgelost sinds de eerste versie van deze kaart** (stond hier eerder als open punt):
+
+* De template-dongle wees naar `dongle/memory/…` terwijl het bestand in `memory/…` staat — gerepareerd.
+* `verify-all.py` telde `dropin/` niet recursief (Halo leek 3 bestanden tegenover 7 secties) — gerepareerd.
+* De drop-ins van Halo, TC5, LGI, LGI3D en LGS landden op een verdubbeld pad — gerepareerd, en de
+  lezer meldt die vorm nu als fout.
+* De dongle van een game werd op de oude losse plaats gezocht in plaats van in de drop-in
+  (`hasp.py`, `gen-dongle-inventaris.py`, `region.py`) — gerepareerd.
+* `docs/per-game-stand.md` en `docs/inventaris-dongle-per-game.md` in de loader-repo zijn opnieuw
+  gegenereerd en weer actueel.
 
 ## Bijlage: het generatorscript
 
