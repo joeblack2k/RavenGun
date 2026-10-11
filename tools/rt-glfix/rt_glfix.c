@@ -53,9 +53,10 @@
 
 #define GL_MAX_TEXTURE_SIZE 0xD33u
 
-#define MODE_GOT   1
-#define MODE_GETIV 2
-#define MODE_DLSYM 4
+#define MODE_GOT     1
+#define MODE_GETIV   2
+#define MODE_DLSYM   4
+#define MODE_STUBLOG 8   /* de lege ElfLdr2-stubs vervangen door een wacht die telt en logt */
 
 /* ---------------------------------------------------------------- logboek */
 
@@ -471,6 +472,104 @@ static void *rt_dlsym(void *handle, const char *naam)
     return NULL;
 }
 
+/* ---------------------------------------------------------------- de lege stubs van ElfLdr2
+
+   Van de 93 GOT-invoeren die in het bestand een libGL-adres hebben, zet ElfLdr2 er maar 22 om
+   naar een echte opengl32-export. De andere 71 komen uit op één adres in zijn nagebootste gebied,
+   en dat adres is:
+
+       55 8b ec 33 c0 5d c3     push ebp; mov ebp,esp; xor eax,eax; pop ebp; ret
+
+   Een cdecl no-op die nul teruggeeft: hij raakt de stapel niet, dus hij kan geen verschuiving
+   veroorzaken, maar de GL-functie doet ook niets. Met MODE_STUBLOG vervangen we zulke invoeren
+   door een wacht die telt hoe vaak hij aangeroepen wordt en met welk retouradres, zodat te meten
+   is of de game die invoeren überhaupt gebruikt. */
+
+static const unsigned char rtg_noop_sig[7] = {0x55, 0x8b, 0xec, 0x33, 0xc0, 0x5d, 0xc3};
+
+struct rtg_stubteller {
+    uint32_t slot;
+    uint32_t keer;
+    uint32_t eerste_ret;
+};
+
+static struct rtg_stubteller rtg_tellers[128];
+static int rtg_tellers_n;
+
+static void rt_stub_note(uint32_t slot, uint32_t ret)
+{
+    int i;
+    for (i = 0; i < rtg_tellers_n; i++) {
+        if (rtg_tellers[i].slot == slot) {
+            if (rtg_tellers[i].keer++ == 0) {
+                rtg_tellers[i].eerste_ret = ret;
+                rtg_say("lege stub AANGEROEPEN: GOT 0x%08x, eerste keer vanaf 0x%08x", slot, ret);
+            }
+            return;
+        }
+    }
+    if (rtg_tellers_n >= (int)(sizeof(rtg_tellers) / sizeof(rtg_tellers[0])))
+        return;
+    rtg_tellers[rtg_tellers_n].slot = slot;
+    rtg_tellers[rtg_tellers_n].keer = 1;
+    rtg_tellers[rtg_tellers_n].eerste_ret = ret;
+    rtg_tellers_n++;
+    rtg_say("lege stub AANGEROEPEN: GOT 0x%08x, eerste keer vanaf 0x%08x", slot, ret);
+}
+
+__asm__(
+".text\n"
+".globl rt_stub_log\n"
+".type rt_stub_log,@function\n"
+"rt_stub_log:\n"
+"    pushl 0(%esp)\n"        /* het retouradres van de game */
+"    pushl %eax\n"           /* het adres van de GOT-invoer (door de stub in eax gezet) */
+"    call rt_stub_note\n"
+"    addl $8, %esp\n"
+"    xorl %eax, %eax\n"
+"    ret\n"                  /* cdecl: de argumenten van de game blijven staan */
+".size rt_stub_log,.-rt_stub_log\n"
+);
+extern void rt_stub_log(void);
+
+static void *rtg_make_stublog(uint32_t slot)
+{
+    uint8_t *s;
+    int32_t rel;
+    if (!rtg_stub_vrij || rtg_stub_vrij + RTG_STUB_LEN > rtg_page_eind)
+        return NULL;
+    s = rtg_stub_vrij;
+    s[0] = 0xb8;
+    memcpy(s + 1, &slot, 4);                        /* mov eax, <slotadres> */
+    s[5] = 0xe9;
+    rel = (int32_t)((uint8_t *)(uintptr_t)rt_stub_log - (s + RTG_STUB_LEN));
+    memcpy(s + 6, &rel, 4);                         /* jmp rt_stub_log */
+    rtg_stub_vrij += RTG_STUB_LEN;
+    return s;
+}
+
+/* Is dit adres uitvoerbaar gemapt? (om niet blind in een GOT-waarde te lezen) */
+static int rtg_is_uitvoerbaar(uint32_t adres)
+{
+    FILE *f = fopen("/proc/self/maps", "r");
+    char regel[512];
+    int ja = 0;
+    if (!f)
+        return 0;
+    while (fgets(regel, sizeof(regel), f)) {
+        unsigned long a, b;
+        char rechten[8];
+        if (sscanf(regel, "%lx-%lx %7s", &a, &b, rechten) != 3)
+            continue;
+        if (rechten[0] == 'r' && rechten[2] == 'x' && adres >= (uint32_t)a && adres < (uint32_t)b) {
+            ja = 1;
+            break;
+        }
+    }
+    fclose(f);
+    return ja;
+}
+
 /* ---------------------------------------------------------------- het aanbrengen */
 
 struct rtg_slot {
@@ -529,8 +628,21 @@ static int rtg_patch_ronde(int *gezien)
         char naam[64];
         void *stub;
         waarde = *(volatile uint32_t *)(uintptr_t)rtg_lijst[i].adres;
-        if (waarde < rtg_glbase || waarde >= rtg_gleind)
+        if (waarde < rtg_glbase || waarde >= rtg_gleind) {
+            /* Geen opengl32-export. Is het een lege ElfLdr2-stub? Dan tellen we hem (MODE_STUBLOG). */
+            if ((rtg_mode & MODE_STUBLOG) && waarde && rtg_lijst[i].nieuw == 0 &&
+                rtg_is_uitvoerbaar(waarde) &&
+                memcmp((const void *)(uintptr_t)waarde, rtg_noop_sig, sizeof(rtg_noop_sig)) == 0) {
+                stub = rtg_make_stublog(rtg_lijst[i].adres);
+                if (stub) {
+                    snprintf(rtg_lijst[i].naam, sizeof(rtg_lijst[i].naam), "(lege ElfLdr2-stub)");
+                    rtg_lijst[i].nieuw = (uint32_t)(uintptr_t)stub;
+                    *(volatile uint32_t *)(uintptr_t)rtg_lijst[i].adres = rtg_lijst[i].nieuw;
+                    nieuw++;
+                }
+            }
             continue;
+        }
         if (!rtg_pe_name(rtg_glbase, waarde, naam, sizeof(naam)))
             continue;
         if (!rtg_is_gl_naam(naam))
@@ -634,6 +746,22 @@ static void *rtg_watch(void *arg)
         for (i = 0; i < rtg_lijst_n; i++)
             if (rtg_lijst[i].nieuw)
                 rtg_say("  0x%08x -> 0x%08x  %s", rtg_lijst[i].adres, rtg_lijst[i].nieuw, rtg_lijst[i].naam);
+    }
+    /* Met MODE_STUBLOG blijven we de tellers uitlezen zolang het spel leeft; de thread verdwijnt
+       vanzelf met het proces. Dat geeft de eindstand van elke lege stub. */
+    if (rtg_mode & MODE_STUBLOG) {
+        for (;;) {
+            int i;
+            unsigned lang = 0;
+            sleep(5);
+            for (i = 0; i < rtg_tellers_n; i++) {
+                rtg_say("stub 0x%08x: %u keer aangeroepen (eerste keer vanaf 0x%08x)",
+                        rtg_tellers[i].slot, rtg_tellers[i].keer, rtg_tellers[i].eerste_ret);
+                lang++;
+            }
+            if (lang == 0)
+                rtg_say("stubtellers: nog geen enkele lege stub aangeroepen");
+        }
     }
     return NULL;
 }

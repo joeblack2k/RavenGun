@@ -1,7 +1,15 @@
 # Hoe krijg je code in het ELF-proces van een ElfLdr2-game?
 
-*Onderzoek door RavenGun, ronde 11 (2026-10-11). Dit bepaalt of de GL-fix van Jurassic Park en de
-HASP-laag voor de Linux-games ooit kunnen aangaan. Alle cijfers zijn gemeten.*
+*Onderzoek door RavenGun, ronde 11 (2026-10-11), **bijgewerkt in ronde 13** nadat de rt-glfix-agent
+§2 en §5 met betere metingen heeft weerlegd. Lees §1 en §3; §2 is geschrapt en §5 is beantwoord.*
+
+> **Wat er in ronde 13 is gecorrigeerd.** Ik raadde hieronder de route via `ElfLdr2/libs/` aan.
+> **Die is weerlegd**, met harder bewijs dan ik had: een dunne `libGLU.so.1` in die map met een
+> constructor die één regel logt, **liep niet**, en de kaart van het spelproces bevat **geen enkele
+> `.so` uit die map** — alleen de `.dll`-bestanden. ElfLdr2 bootst die bibliotheken na in zijn eigen
+> anonieme uitvoerbare gebied (gemeten: `0x71a41000-0x71eff000`, direct na `TeknoParrot.dll`); een
+> constructor draait er nooit. Mijn vermoeden over `env/dev/` (een nagemaakte root) past daarbij.
+> **De werkende route staat in §1: `LD_AUDIT`.** Zie `docs/rt-glfix.md` voor de volledige meting.
 
 ## De vraag
 
@@ -12,7 +20,7 @@ PacmanChomp, TankTankTank en Terminator. Twee drop-ins willen code in dat ELF-pr
 - `librt-glfix.so` — de GOT-herschrijving voor Jurassic Park, PacmanChomp en GalagaAssault;
 - `ravengun-hasp*.so` — de HASP-emulator voor Halo, Terminator en Jurassic Park.
 
-## 1. `LD_PRELOAD` kan niet
+## 1. `LD_PRELOAD` kan niet — maar `LD_AUDIT` wel
 
 Gemeten door de HASP-agent, en het is fataal in plaats van hinderlijk:
 
@@ -26,6 +34,25 @@ BudgieLoader_x64: *** fatal error - error while loading shared libraries: ...rav
 probeert de opgegeven bibliotheek als **Cygwin-DLL** te laden. Een Linux `.so` laat het programma
 sterven. Zonder die variabele start de game volledig (150 s gemeten).
 
+**Maar er is een tweede kanaal dat Cygwin niet kent en glibc wel: `LD_AUDIT`.** Dat is gemeten in het
+echte spelproces door de rt-glfix-agent:
+
+```
+[rt-glfix JurassicPark] geladen (pid 999164, mode 7, maxtex 8192, brug op 0xf7c28000)
+[rt-glfix JurassicPark] spelbeeld gevonden op 0x08048000 (11091968 bytes)
+[rt-glfix JurassicPark] PLT-invoeren: 577
+[rt-glfix JurassicPark] ronde 17340: 54 GL-invoeren omgezet (54 gezien)
+[rt-glfix JurassicPark] klaar: 55 GL-invoeren omgezet, 577 invoeren bekeken
+```
+
+En het BudgieLoader-proces is **32-bits** (`lib/wine/i386-unix/wine-preloader`, ELF 32-bit i386),
+dus `gcc -m32` past precies en onze code zit in hetzelfde adresbeeld als het spel. De 64-bits
+`wine`-startwrapper klaagt over `wrong ELF class: ELFCLASS32`; dat is onschadelijk.
+
+**De launcher doet dit sinds ronde 13 automatisch**: is de game een Linux-ELF die onder Wine door
+ElfLdr2 gestart wordt, dan gaat het pad van een `Preload`-drop-in naar `LD_AUDIT` in plaats van naar
+`RG_DROPIN_PRELOAD`. Zie `dropin_plan()` in `scripts/launch-direct.py` en `docs/dropins.md`.
+
 En de lader heeft **geen eigen preload-haak**:
 
 | bestand | `LD_PRELOAD` | `preload` | `LD_LIBRARY_PATH` |
@@ -35,79 +62,43 @@ En de lader heeft **geen eigen preload-haak**:
 | `ElfLdr2/x64/TeknoParrot64.dll` | 0 | 0 | 0 |
 | `ElfLdr2/TeknoParrot.dll` | 0 | 0 | 0 |
 
-De launcher zet het pad daarom als `RG_DROPIN_PRELOAD` — maar **niemand leest dat nog**. De drop-in
-staat dus wel in de view en is dood.
+## 2. ~~Maar `ElfLdr2/libs/` staat wél op het zoekpad~~ — WEERLEGD
 
-## 2. Maar `ElfLdr2/libs/` staat wél op het zoekpad
+Deze sectie is vervallen. Zie de correctie bovenaan: een constructor in die map draait nooit, en de
+proceskaart bevat geen enkele `.so` uit die map. De metingen die ik hier had (de ELF-koppen vragen
+bibliotheken die alleen daar bestaan, en de RPATH `/usr/lib/PhysX/v2.8.1/` bestaat niet) blijven
+juist — maar de conclusie die ik eraan hing niet. **ElfLdr2 leest die bestanden hoogstens voor
+symbolen en bootst de rest na.**
 
-Dat is de uitweg. Bewijs uit de ELF-koppen van de games zelf:
+## 3. Wat dit betekent voor een eigen lader
 
-**Jurassic Park** (`game`, 32-bits) vraagt 16 bibliotheken, en **11 daarvan bestaan alleen in
-`ElfLdr2/libs/`**:
-
-| gevraagd | in `ElfLdr2/libs/`? |
-|---|---|
-| `libPhysXLoader.so.1`, `libGLU.so.1`, `libtheora.so.0`, `libogg.so.0`, `libdl.so.2`, `libpthread.so.0`, `librt.so.1`, `libm.so.6`, `libudev.so.1`, `libgcc_s.so.1`, `libc.so.6` | **ja** |
-| `libstdc++.so.6`, `libSDL-1.2.so.0`, `libGL.so.1`, `libglut.so.3`, `libX11.so.6` | nee (uit het systeem) |
-
-**Halo** (`game`, 64-bits) vraagt 13 bibliotheken, waarvan **8 in `ElfLdr2/x64/libs/`**:
-`libGLU.so.1`, `libpthread.so.0`, `libdl.so.2`, `libudev.so.1`, `liblapack.so.3`, `libm.so.6`,
-`libgcc_s.so.1`, `libc.so.6`.
-
-En het beslissende detail: de **RPATH van Jurassic Park is `/usr/lib/PhysX/v2.8.1/`, en die map
-bestaat niet**. De game kan `libPhysXLoader.so.1` dus alleen vinden als de lader `ElfLdr2/libs/`
-aan het zoekpad toevoegt. Dat doet hij blijkbaar — anders startte de game niet.
-
-> **Gevolg: een bibliotheek in `ElfLdr2/libs/` wordt in het ELF-proces van de game geladen, en zijn
-> constructor draait vóór `main`. Dat is precies wat `LD_PRELOAD` zou geven — maar dan zonder
-> `LD_PRELOAD`.**
-
-## 3. Wat daar nog aan schort: het is niet per game
-
-De view van een game heeft **geen eigen `ElfLdr2/`**:
-
-```
-$ readlink -f ~/.local/share/ravengun/runtime/views/JurassicPark/ElfLdr2
-/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2
-```
-
-Het is een **symlink naar de gedeelde runtime**. Een drop-in met `To = ElfLdr2/libs` zou dus in de
-**gedeelde** map schrijven — precies wat `docs/dropins.md` verbiedt ("alles wat één game nodig
-heeft staat in `patches/<Game>/`"). En het zou de andere zeven ElfLdr2-games beïnvloeden.
-
-**Om dit per game te houden moet de launcher een view zijn eigen `ElfLdr2/libs/` geven** (een echte
-map in de view, of een view-specifieke map vóór de gedeelde op het zoekpad). Dan is een drop-in met
-`To = ElfLdr2/libs` weer gewoon een bestand plus één sectie in `dropin.ini`.
+De route `LD_AUDIT` werkt **met de gesloten BudgieLoader**. Dat is belangrijk: de acht ElfLdr2-games
+hebben dus **geen eigen lader nodig** om een bibliotheek in het spelproces te krijgen. Wat een eigen
+lader zou toevoegen is het starten van de ELF zonder BudgieLoader — een aparte vraag, en niet nodig
+voor de drop-ins.
 
 ## 4. Wat er dan te kiezen valt
 
 | route | kosten | per game? |
 |---|---|---|
-| **Eigen lader** (werksoort 3 in `docs/loskoppelen-per-game.md`) | groot: `LD_PRELOAD` zelf zetten bij het starten van de ELF | ja |
-| **Bibliotheek vervangen in `ElfLdr2/libs/`** | klein: een dunne laag die de echte bibliotheek doorlaadt en de constructor laat werken | pas ja als de launcher de view een eigen `libs/` geeft |
-| **`RG_DROPIN_PRELOAD` laten lezen door de eigen lader** | klein, maar werkt alleen samen met de eerste route | ja |
+| **`LD_AUDIT` via de drop-in** | klein, en **bewezen** | ja |
+| Eigen lader | groot: `LD_PRELOAD` zelf zetten bij het starten van de ELF | ja |
+| ~~Bibliotheek vervangen in `ElfLdr2/libs/`~~ | **weerlegd** | — |
 
-De derde is geen zelfstandige route: het is de afspraak tussen de launcher en de eigen lader.
+## 5. ~~De proef die dit beslecht~~ — gedaan, en de uitkomst is nee
 
-## 5. De proef die dit beslecht
-
-Nog te doen, en klein: zet een **dunne `libGLU.so.1`** in `ElfLdr2/libs/` waarvan de constructor één
-regel naar een logbestand schrijft en die daarna de echte bibliotheek doorlaadt, start Jurassic Park,
-en kijk of de regel verschijnt. Verschijnt hij, dan is de route bewezen en is de GL-fix te leveren
-zonder eigen lader. Verschijnt hij niet, dan is de lader geen gewone `ld.so`-route (bijvoorbeeld
-omdat hij de game in een eigen root start — `ElfLdr2/env/` bevat een `dev/`-map, wat op een
-nagemaakte root wijst) en moet de eigen lader het doen.
-
-**Let op bij het doorladen:** de vervangende bibliotheek moet de echte op een **absoluut** pad
-vinden (bijvoorbeeld door hem eerst uit de weg te schuiven en `libGLU.so.1.orig` te noemen), anders
-laadt hij zichzelf.
+De proef is uitgevoerd (dunne `libGLU.so.1`, echte opzij als `.orig`, daarna netjes teruggezet) en
+het proeflogboek bleef leeg: **de constructor liep niet**. De proceskaart bevestigt het: alleen de
+`.dll`-bestanden uit die map zijn gemapt, geen enkele `.so`. De uitweg is dus niet die map maar
+`LD_AUDIT` (§1).
 
 ## Hoe je dit narekent
 
 ```bash
 RT=~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64
-readelf -d "…/Jurassic Park/game" | grep -E 'RPATH|NEEDED'
-ls "$RT/ElfLdr2/libs"
 strings -a "$RT/ElfLdr2/x64/BudgieLoader_x64.exe" | grep -x -e LD_PRELOAD -e preload   # niets
-readlink -f ~/.local/share/ravengun/runtime/views/JurassicPark/ElfLdr2
+readelf -d "…/Jurassic Park/game" | grep -E 'RPATH|NEEDED'
+# en de werkende route:
+python3 scripts/launch-direct.py JurassicPark --plan | grep -o 'LD_AUDIT=[^,]*'
 ```
+
