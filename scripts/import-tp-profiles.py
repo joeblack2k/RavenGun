@@ -202,6 +202,13 @@ def import_profile(name, tp, out_dir, user_dir, folders, hash_it, dry, changed):
         except OSError as e:
             notes.append("grootte of hash van %s niet te lezen: %s" % (game_path, e))
         root_rel = (root, rel)
+        # Een tweede exe (HOTDSD: amdaemon.exe) staat in dezelfde gamemap; het pad is nodig als de XML voor TeknoParrotUi opnieuw wordt gemaakt.
+        gp2 = (user or {}).get("GamePath2", "").strip()
+        if gp2 and os.path.isfile(gp2):
+            for cand in (gp2, os.path.realpath(gp2)):
+                for base in (root, os.path.realpath(root)):
+                    if cand.startswith(base.rstrip("/") + "/"):
+                        ident["Path2"] = os.path.relpath(cand, base)
     elif game_path:
         notes.append("GamePath %s bestaat niet: [Identify] niet vastgelegd (de game wordt niet herkend tot je hem opnieuw koppelt)" % game_path)
     else:

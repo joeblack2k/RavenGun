@@ -226,7 +226,8 @@ Het pad naar de game staat **nergens**: niet in de repo en normaal ook niet in d
 3. de gamemappen: elke submap van een gamemap (en de gamemap zelf) waarin `Path` bestaat en waarvan de grootte (`Size`) en eventueel de
    sha256 (`Sha256`) kloppen.
 
-`Path` is relatief aan de map van de game. `Size` is de grootte van dat bestand. Hebben twee games een identiek hoofdbestand (twee Unity-games met
+`Path` is relatief aan de map van de game. `Size` is de grootte van dat bestand. `Path2` (alleen bij games met twee exe's, HOTDSD) is het pad van de tweede exe
+in dezelfde map; het wordt alleen gebruikt om `GamePath2` in de XML voor TeknoParrotUi te zetten. Hebben twee games een identiek hoofdbestand (twee Unity-games met
 dezelfde `Game.exe`), dan legt de importer de `Sha256` vast en zo nodig `Folder` (de naam van de map, hoofdletters maken niet uit). Een andere
 versie van het bestand (andere grootte) wordt niet herkend; kies dan het pad zelf (`GamePath`) of importeer opnieuw. Python
 (`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de engine heeft geen hashfunctie en let

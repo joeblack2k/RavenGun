@@ -382,6 +382,15 @@ class XmlOutputTest(Env):
         r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "gamesettings.py"), "write-xml", "Onbekend"], capture_output=True, text=True, env=dict(os.environ))
         self.assertEqual((r.returncode, r.stdout), (0, ""))
 
+    def test_second_executable_path(self):
+        """Bij twee exe's (HOTDSD) komt GamePath2 uit [Identify] Path2, in dezelfde gamemap als de hoofdexe."""
+        write(os.path.join(self.games, "Spel A", "AM", "daemon.exe"), "x")
+        settings = {"Game": {"Executable": "game.exe"}, "Identify": {"Path": "game.exe", "Path2": "AM/daemon.exe"}, "ConfigType": {}}
+        text, _unknown = op.render_user_xml("<GameProfile><GamePath2></GamePath2></GameProfile>", settings, self.exe)
+        self.assertIn("<GamePath2>%s</GamePath2>" % os.path.join(self.games, "Spel A", "AM", "daemon.exe"), text)
+        text, _unknown = op.render_user_xml("<GameProfile></GameProfile>", {"Identify": {"Path": "game.exe", "Path2": "weg.exe"}}, self.exe)
+        self.assertNotIn("GamePath2", text)          # een bestand dat er niet is, wordt niet gezet
+
     def test_has_profile_and_comms(self):
         self.assertEqual(self.importer("A", "--game-folder", self.games)[0], 0)
         run = lambda *a: subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "gamesettings.py")] + list(a), capture_output=True, text=True, env=dict(os.environ))

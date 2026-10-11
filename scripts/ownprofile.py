@@ -445,6 +445,13 @@ def render_user_xml(base_text, settings, game_path):
     """Past een profiel-XML (het bestaande gebruikersprofiel, of het sjabloon) aan met wat game.ini zegt: GamePath, WineRunnerPath en de
     waarden van de ConfigValues. De rest (knoppen, opmaak) blijft staan. Geeft (tekst, [velden die het profiel niet kent])."""
     text = set_tag(base_text, "GamePath", game_path)
+    # Een tweede exe (HasTwoExecutables, bv. amdaemon.exe bij HOTDSD): [Identify] Path2 is relatief aan dezelfde gamemap als Path.
+    path, _size, _sha = identify_of(settings)
+    path2 = settings.get(IDENTIFY, {}).get("Path2", "").strip().replace("\\", "/").strip("/")
+    if path2 and game_path:
+        root = game_path[:-len(path)].rstrip("/") if path and game_path.endswith("/" + path) else os.path.dirname(game_path)
+        if os.path.isfile(os.path.join(root, path2)):
+            text = set_tag(text, "GamePath2", os.path.join(root, path2))
     runner = runner_from_ini(settings.get("Wine", {}).get("Runner", ""))
     if runner:
         text = set_tag(text, "WineRunnerPath", runner)
