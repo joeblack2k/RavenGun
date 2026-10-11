@@ -543,6 +543,11 @@ Niet overgenomen:
 - Een `dongles/`-map of een andere laag die dongle- of HASP-aanroepen beantwoordt, en het koppelen aan
   `findings/dongles/`. Dat is beschermingsafhandeling en blijft buiten RavenGun, ook als gebruikerslaag.
 - Patches die gebruikers zelf voor beschermingscontroles kunnen toevoegen: het formaat biedt daar geen plek voor.
-- Patchadressen uit materiaal dat uit beschermde kernen komt. De Type X2-aanpassingen (pistoolschrijfacties,
-  volume) doet de open OpenParrot-kern al; als we ze ooit zelf toepassen, dan alleen uit de openbare
-  OpenParrot-bron (GPL-3.0), met bronvermelding.
+- Patchadressen uit materiaal dat uit beschermde kernen komt.
+
+Aanvulling na de tweede versie van het document: de acht Type X2-adressen komen uit de openbare OpenParrot-bron
+(`OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp`, GPL-3.0); upstream op GitHub nagekeken. Haunted Museum II
+heeft daar twee versies (2100 en 2101J) met elk één adres. Ze komen als gegevens in `patches/` met bronvermelding,
+uitgeschakeld en gemarkeerd als "past de kern al toe", zodat ze niet dubbel worden toegepast. Een aparte dongle-laag
+naast de loader verandert het besluit hierboven niet: RavenGun levert er geen en roept er geen aan. Een eigen
+starter bevat geen abonnementscontrole; dat vraagt niets van het formaat.
