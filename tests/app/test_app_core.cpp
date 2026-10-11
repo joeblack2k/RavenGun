@@ -11,6 +11,7 @@
 #include <QtTest>
 
 #include "core/AppPaths.h"
+#include "core/DongleStatus.h"
 #include "core/FileSafety.h"
 #include "core/GameData.h"
 #include "core/GameLibrary.h"
@@ -74,6 +75,9 @@ private Q_SLOTS:
     void libraryFindsOwnProfiles();
     void ownProfileOptionsWriteUserLayer();
     void profileSyncOwnProfile();
+    void dongleStatusText();
+    void dongleSettingDifferencesOnly();
+    void dongleDetectionRuns();
     void runtimeCheck();
     // A3: echte game-options.json, invoerroute van de gebruiker, notities
     void realGameOptions();
@@ -725,6 +729,118 @@ void AppCoreTest::ownProfileOptionsWriteUserLayer() {
     QVERIFY(OptionStore::write(gsc, c, QStringLiteral("0"), &err));
     QCOMPARE(OptionStore::read(gsc, c), QStringLiteral("0"));
     QVERIFY(readAll(userIni).contains(QStringLiteral("Gamescope =\n")));
+}
+
+void AppCoreTest::dongleStatusText() {
+    // De JSON van scripts/dongle.py --json (met ruis ervoor); nooit een serienummer in de uitvoer.
+    const QByteArray ok =
+        "warning: noise\n{\"dongles\": [{\"vendor_id\": \"0529\", \"product_id\": \"0001\", \"manufacturer\": \"Aladdin Knowledge Systems\", "
+        "\"product\": \"HASP HL 3.25\", \"vendor_name\": \"Aladdin\", \"runtime\": \"sentinel-ldk\", \"runtime_status\": {\"name\": \"Sentinel LDK Runtime (Thales)\", "
+        "\"status\": \"running\", \"how\": \"process\", \"install_url\": \"https://example.org/\"}}], \"error\": \"\", \"ok\": true, \"message\": \"Dongle detected\"}";
+    DongleStatus st = parseDongleJson(ok);
+    QVERIFY(st.valid && st.ok);
+    QCOMPARE(st.dongles.size(), 1);
+    QCOMPARE(st.text(), QStringLiteral("Dongle detected: Aladdin Knowledge Systems HASP HL 3.25 (0529:0001) \u2014 runtime: running"));
+    const QByteArray none = "{\"dongles\": [], \"error\": \"\", \"ok\": false, \"message\": \"No dongle found (...)\"}";
+    st = parseDongleJson(none);
+    QVERIFY(st.valid && !st.ok);
+    QCOMPARE(st.text(), QStringLiteral("No dongle found"));
+    const QByteArray missing =
+        "{\"dongles\": [{\"vendor_id\": \"064f\", \"product_id\": \"2af9\", \"manufacturer\": \"\", \"product\": \"\", \"vendor_name\": \"Wibu-Systems (CodeMeter)\", "
+        "\"runtime\": \"codemeter\", \"runtime_status\": {\"name\": \"CodeMeter Runtime\", \"status\": \"not installed\", \"install_url\": \"https://www.wibu.com/\"}}], \"ok\": false, \"message\": \"x\"}";
+    st = parseDongleJson(missing);
+    QCOMPARE(st.text(), QStringLiteral("Dongle detected: Wibu-Systems (CodeMeter) (064f:2af9) \u2014 runtime: not installed"));
+    QCOMPARE(st.dongles[0].installUrl, QStringLiteral("https://www.wibu.com/"));
+    const QByteArray unknownRt = "{\"dongles\": [{\"vendor_id\": \"dead\", \"product_id\": \"beef\", \"manufacturer\": \"X\", \"product\": \"Y\", \"runtime_status\": null}], \"ok\": true}";
+    QCOMPARE(parseDongleJson(unknownRt).text(), QStringLiteral("Dongle detected: X Y (dead:beef) \u2014 runtime: unknown"));
+    QVERIFY(!parseDongleJson("geen json").valid);
+    QVERIFY(!parseDongleJson("{kapot").valid);
+    QCOMPARE(dongleSources().size(), 1);
+    QCOMPARE(dongleSources()[0].value, QStringLiteral("usb-passthrough"));
+    QCOMPARE(dongleSourceLabel(QStringLiteral("usb-passthrough")), QStringLiteral("USB pass-through (physical dongle)"));
+}
+
+void AppCoreTest::dongleSettingDifferencesOnly() {
+    // [Dongle] volgt de regel van de gebruikerslaag: alleen verschillen met de meegeleverde laag (standaard uit, usb-passthrough).
+    const QString patches = writeOwnTc5(tmp_.filePath(QStringLiteral("dg-patches")));
+    const QString user = tmp_.filePath(QStringLiteral("dg-user"));
+    GameContext c;
+    c.profile = QStringLiteral("TC5");
+    c.layers = ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()};
+    const QString userIni = user + QStringLiteral("/TC5/game.ini");
+    QString err;
+    auto dongle = [&] { return ravengun::gamesettings::dongle_of(ravengun::gamesettings::load_game(c.layers, "TC5").settings); };
+    QVERIFY(!dongle().enabled);
+    QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Enabled"), QStringLiteral("true"), &err, QStringLiteral("false")));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("[Dongle]\nEnabled = true")));
+    QVERIFY(dongle().enabled);
+    QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Source"), QStringLiteral("usb-passthrough"), &err, QStringLiteral("usb-passthrough")));
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("Source")));      // gelijk aan de standaard: niet in de gebruikerslaag
+    QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Enabled"), QStringLiteral("false"), &err, QStringLiteral("false")));
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("Enabled")));     // uit = de standaard: de sleutel verdwijnt
+    QVERIFY(!dongle().enabled);
+    // Een meegeleverde Enabled = true: uitzetten schrijft false (een verschil), aanzetten haalt het weer weg.
+    writeFile(patches + QStringLiteral("/TC5/game.ini"), readAll(patches + QStringLiteral("/TC5/game.ini")).toUtf8() + "[Dongle]\nEnabled = true\n");
+    QVERIFY(dongle().enabled);
+    QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Enabled"), QStringLiteral("false"), &err, QStringLiteral("false")));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("Enabled = false")));
+    QVERIFY(!dongle().enabled);
+    QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Enabled"), QStringLiteral("true"), &err, QStringLiteral("false")));
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("Enabled")));
+    QVERIFY(dongle().enabled);
+}
+
+void AppCoreTest::dongleDetectionRuns() {
+    // De echte aanroep van scripts/dongle.py met een nep-sysfs: de app toont wat het script ziet (nooit het serienummer).
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+    const QString sys = d.filePath(QStringLiteral("sys")), proc = d.filePath(QStringLiteral("proc")), root = d.filePath(QStringLiteral("root"));
+    QDir().mkpath(proc);
+    QDir().mkpath(root);
+    writeFile(sys + QStringLiteral("/1-1/idVendor"), "0529\n");
+    writeFile(sys + QStringLiteral("/1-1/idProduct"), "0001\n");
+    writeFile(sys + QStringLiteral("/1-1/manufacturer"), "Aladdin Knowledge Systems\n");
+    writeFile(sys + QStringLiteral("/1-1/product"), "HASP HL 3.25\n");
+    writeFile(sys + QStringLiteral("/1-1/serial"), "SN-SECRET-0042\n");
+    writeFile(proc + QStringLiteral("/77/comm"), "aksusbd\n");
+    // Poorten dicht in een eigen gegevensbestand, zodat een echte License Manager op deze machine niets verandert.
+    QFile vf(QStringLiteral(RAVENGUN_SOURCE_DIR "/packaging/dongle-vendors.json"));
+    QVERIFY(vf.open(QIODevice::ReadOnly));
+    QJsonObject vj = QJsonDocument::fromJson(vf.readAll()).object();
+    QJsonObject rts = vj.value(QStringLiteral("runtimes")).toObject();
+    for (const QString& k : rts.keys()) {
+        QJsonObject r = rts.value(k).toObject();
+        r.insert(QStringLiteral("tcp_port"), 1);   // poort 1: niemand luistert
+        rts.insert(k, r);
+    }
+    vj.insert(QStringLiteral("runtimes"), rts);
+    writeFile(d.filePath(QStringLiteral("vendors.json")), QJsonDocument(vj).toJson());
+    qputenv("RAVENGUN_USB_SYSFS", sys.toUtf8());
+    qputenv("RAVENGUN_PROC_ROOT", proc.toUtf8());
+    qputenv("RAVENGUN_DONGLE_ROOT", root.toUtf8());
+    qputenv("RAVENGUN_DONGLE_VENDORS", d.filePath(QStringLiteral("vendors.json")).toUtf8());
+    qputenv("RAVENGUN_ROOT", QByteArray(RAVENGUN_SOURCE_DIR));
+    DongleStatus st;
+    auto run = [&] {
+        bool done = false;
+        detectDongle(this, [&](const DongleStatus& got) { st = got; done = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 15000);
+    };
+    run();
+    QVERIFY2(st.valid, qPrintable(st.error));
+    QVERIFY(st.ok);
+    QCOMPARE(st.text(), QStringLiteral("Dongle detected: Aladdin Knowledge Systems HASP HL 3.25 (0529:0001) \u2014 runtime: running"));
+    QVERIFY(!st.text().contains(QStringLiteral("SECRET")) && !st.tooltip().contains(QStringLiteral("SECRET")));
+    QFile::remove(proc + QStringLiteral("/77/comm"));
+    run();
+    QVERIFY(st.valid && !st.ok);
+    QVERIFY(st.text().endsWith(QStringLiteral("runtime: not installed")));
+    QVERIFY(st.tooltip().contains(QStringLiteral("does not install")));
+    QDir(sys + QStringLiteral("/1-1")).removeRecursively();
+    run();
+    QVERIFY(st.valid && !st.ok);
+    QCOMPARE(st.text(), QStringLiteral("No dongle found"));
+    for (const char* v : {"RAVENGUN_USB_SYSFS", "RAVENGUN_PROC_ROOT", "RAVENGUN_DONGLE_ROOT", "RAVENGUN_DONGLE_VENDORS"}) qunsetenv(v);
 }
 
 void AppCoreTest::profileSyncOwnProfile() {

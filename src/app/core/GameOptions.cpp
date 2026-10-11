@@ -469,7 +469,8 @@ QString OptionStore::readSetting(const GameContext& c, const QString& section, c
     return v ? QString::fromStdString(*v) : QString();
 }
 
-bool OptionStore::writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err) {
+bool OptionStore::writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err,
+                              const QString& implicitDefault) {
     if (c.layers.user.empty() || c.profile.isEmpty()) {
         if (err) *err = QStringLiteral("No user folder for game settings.");
         return false;
@@ -477,7 +478,7 @@ bool OptionStore::writeSetting(const GameContext& c, const QString& section, con
     // Alleen verschillen met de meegeleverde laag: gelijk aan de meegeleverde waarde = de sleutel uit de gebruikerslaag weghalen.
     const gs::Game shipped = gs::load_game(gs::Dirs{c.layers.shipped, {}}, c.profile.toStdString());
     const std::string* base = shipped.settings.find(section.toStdString(), key.toStdString());
-    const std::string baseValue = base ? *base : std::string();
+    const std::string baseValue = base ? *base : implicitDefault.toStdString();
     std::string e;
     const bool ok = value.toStdString() == baseValue
                         ? gs::erase_user_value(c.layers, c.profile.toStdString(), section.toStdString(), key.toStdString(), &e)

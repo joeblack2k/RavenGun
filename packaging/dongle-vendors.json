@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "description_en": "Publicly known USB vendor IDs of software-protection dongle makers, and where each maker's own official runtime lives. Used by scripts/dongle.py to recognise a physical dongle that the owner plugged in (USB pass-through) and to check that the maker's runtime is installed and running. Only vendor/product IDs and the readable manufacturer/product strings are used; serial numbers or any other unique identifier are never read. Nothing here emulates or answers a dongle. RavenGun does not ship, download or install any maker software. A vendor without a runtime entry is reported as 'dongle found, runtime unknown'.",
+ "vendors": [
+  {"vendor_id": "0529", "name": "Aladdin Knowledge Systems (HASP)", "runtime": "sentinel-ldk"},
+  {"vendor_id": "04b9", "name": "Rainbow Technologies / SafeNet (Sentinel)", "runtime": "sentinel-ldk"},
+  {"vendor_id": "064f", "name": "Wibu-Systems (CodeMeter)", "runtime": "codemeter"}
+ ],
+ "runtimes": {
+  "sentinel-ldk": {
+   "name": "Sentinel LDK Runtime (Thales)",
+   "processes": ["aksusbd", "hasplmd"],
+   "tcp_host": "127.0.0.1",
+   "tcp_port": 1947,
+   "installed_paths": ["/usr/sbin/aksusbd", "/usr/sbin/hasplmd", "/usr/bin/aksusbd", "/usr/bin/hasplmd", "/usr/local/sbin/aksusbd", "/usr/local/sbin/hasplmd",
+                       "/lib/systemd/system/aksusbd.service", "/usr/lib/systemd/system/aksusbd.service", "/etc/systemd/system/aksusbd.service",
+                       "/lib/systemd/system/hasplmd.service", "/usr/lib/systemd/system/hasplmd.service", "/etc/systemd/system/hasplmd.service"],
+   "install_url": "https://cpl.thalesgroup.com/software-monetization/sentinel-ldk",
+   "install_hint_en": "Install the official Sentinel LDK Runtime for Linux from Thales (the aksusbd and hasplmd daemons; the License Manager listens on localhost:1947)."
+  },
+  "codemeter": {
+   "name": "CodeMeter Runtime (Wibu-Systems)",
+   "processes": ["CodeMeterLin"],
+   "tcp_host": "127.0.0.1",
+   "tcp_port": 22350,
+   "installed_paths": ["/usr/sbin/CodeMeterLin", "/usr/bin/CodeMeterLin", "/usr/local/sbin/CodeMeterLin", "/opt/CodeMeter/bin/CodeMeterLin",
+                       "/lib/systemd/system/codemeter.service", "/usr/lib/systemd/system/codemeter.service", "/etc/systemd/system/codemeter.service"],
+   "install_url": "https://www.wibu.com/support/user/user-software.html",
+   "install_hint_en": "Install the official CodeMeter Runtime for Linux from Wibu-Systems (the CodeMeterLin service)."
+  }
+ }
+}

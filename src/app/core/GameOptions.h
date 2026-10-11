@@ -124,7 +124,9 @@ public:
     static bool write(const GameOption& o, const GameContext& c, const QString& value, QString* err = nullptr);
     // Eigen profiel: zet [sectie] sleutel in de gebruikerslaag, en haalt de sleutel weg als de waarde gelijk is aan de meegeleverde (de
     // gebruikerslaag bevat alleen verschillen, zoals Dolphin's User/GameSettings). Een lege waarde heft een meegeleverde waarde op.
-    static bool writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err = nullptr);
+    // implicitDefault: de waarde die geldt als de meegeleverde laag de sleutel niet zet (bv. "false" voor [Dongle] Enabled); gelijk eraan = weghalen.
+    static bool writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err = nullptr,
+                             const QString& implicitDefault = {});
     // De waarde van [sectie] sleutel zoals ze nu geldt (alle lagen); present=false als de sleutel nergens staat.
     static QString readSetting(const GameContext& c, const QString& section, const QString& key, bool* present = nullptr);
 };

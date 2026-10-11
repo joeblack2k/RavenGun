@@ -1,0 +1,12 @@
+[
+ {"ini": "", "enabled": false, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = false\n", "enabled": false, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = true\n", "enabled": true, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = YES\nSource = USB-Passthrough\n", "enabled": true, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = 1 ; aan\nSource =\n", "enabled": true, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = off\nSource = usb-passthrough\n", "enabled": false, "source": "usb-passthrough", "error": ""},
+ {"ini": "[Dongle]\nEnabled = ture\n", "enabled": true, "source": "usb-passthrough", "error": "[Dongle] Enabled = ture (use true or false)"},
+ {"ini": "[Dongle]\nEnabled = true\nSource = emulator\n", "enabled": true, "source": "emulator", "error": "[Dongle] Source = emulator (known: usb-passthrough)"},
+ {"ini": "[Dongle]\nEnabled = false\nSource = emulator\n", "enabled": false, "source": "emulator", "error": "[Dongle] Source = emulator (known: usb-passthrough)"},
+ {"ini": "[dongle]\nenabled = true\n", "enabled": false, "source": "usb-passthrough", "error": ""}
+]

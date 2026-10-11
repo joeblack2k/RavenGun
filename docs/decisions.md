@@ -620,6 +620,25 @@ punt 12; de rest van het pakket is niet verder bekeken. Een geen-geldige-dongle-
 Een tweede keuzewaarde (een officiële licentie via een fabrikant-runtime) komt er alleen als Raw Thrills bevestigt dat zoiets
 bestaat en levert.
 
+**Uitwerking (2026-10-11).** Gebouwd volgens bovenstaande, zonder iets uit het genoemde pakket te lezen of te gebruiken. Details in
+`docs/per-game-patches.md` ("Dongle per game"); hier de keuzes:
+
+- Sleutels `[Dongle] Enabled` (standaard `false`) en `Source` (alleen `usb-passthrough`; lijst uitbreidbaar maar zonder andere waarden). Een `Enabled`
+  die geen true of false is telt als aan met een fout: wie iets typte wilde een dongle, dus de launcher weigert in plaats van stilletjes zonder te starten.
+- Detectie via sysfs en een gegevensbestand met openbare vendor-ID's (`packaging/dongle-vendors.json`: `0529` Aladdin HASP, `04b9` Rainbow/SafeNet Sentinel,
+  `064f` Wibu CodeMeter). Alleen vendor/product-ID en leesbare namen. Het `serial`-attribuut wordt nooit gelezen (vaste lijst toegestane attributen,
+  getest met een serienummer in een nep-sysfs): een serienummer identificeert één dongle en hoort in geen log of UI.
+- De officiële runtime van de fabrikant (Thales Sentinel LDK Runtime: `aksusbd`/`hasplmd`, poort 1947; CodeMeter: `CodeMeterLin`, poort 22350) wordt alleen
+  gecontroleerd (proces of open poort op 127.0.0.1), nooit geïnstalleerd, meegeleverd of gedownload. Ontbreekt hij, dan verwijst de melding naar de officiële
+  installatie van de fabrikant. Bewust geen terugval op iets anders: een start zonder bruikbare dongle weigert.
+- Eigen exitcode **6** van `launch-direct.py` en `play-halo.sh` (naast 3 activering, 4 niet ondersteund, 5 patch/instelling geweigerd), geen terugval op TeknoParrotUi.
+  `play-halo.sh` controleert hetzelfde voor starts die niet direct gaan.
+- Permissie: `packaging/udev/72-ravengun-dongle.rules` (`uaccess` op `usb_device` van precies die vendor-ID's), geïnstalleerd door het bestaande
+  `scripts/install-permissions.sh` (pkexec/wizard). Een test houdt de regel en het gegevensbestand gelijk. Na het mergen moet de gebruiker de rechtenstap
+  eenmalig opnieuw doen.
+- App: groep Dongle in Properties > Options (vinkje, bron, statusregel, Refresh); de app roept `scripts/dongle.py --json` aan in plaats van de detectie in
+  C++ te herhalen, zodat er één plek is die de regels kent.
+
 ## 2026-10-11 — Eigen spelprofielen in game.ini (zonder UserProfiles-XML)
 
 Uitwerking in `docs/per-game-patches.md` ("Het profiel van een game", "Zoals Dolphin"). Het profiel dat TeknoParrotUi in `UserProfiles/<P>.xml` bewaart is nu

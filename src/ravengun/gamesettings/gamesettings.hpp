@@ -43,6 +43,17 @@ void merge_into(Ini& base, const Ini& over);
 
 bool truthy(const std::string& v);   // true, 1, yes, on (hoofdletters maken niet uit)
 
+// [Dongle] (docs/per-game-patches.md, "Dongle per game"): alleen de echte, fysieke dongle van de eigenaar (USB pass-through). Dezelfde regels als
+// Game.dongle() in scripts/gamesettings.py (tests/data/dongle-cases.json). Standaard uit en usb-passthrough; een Enabled die geen true of false is
+// geldt als aan met een fout; een onbekende Source is een fout (alleen van belang als Enabled aan staat). De lijst bronnen is uitbreidbaar.
+extern const char* const kDongleSources[];   // usb-passthrough
+struct Dongle {
+    bool enabled = false;
+    std::string source;   // kleine letters
+    std::string error;    // leeg = in orde
+};
+Dongle dongle_of(const Ini& settings);
+
 // Beleid (docs/per-game-patches.md): elke patch heeft precies een van deze categorieen. Er is bewust GEEN categorie voor beveiliging of
 // bescherming: patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles horen niet in dit formaat.
 extern const char* const kPatchCategories[];   // graphics, input, timing, audio, paths, crash, network, loader

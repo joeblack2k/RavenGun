@@ -187,8 +187,10 @@ QWizardPage* SetupWizard::MakePermissions() {
                                                 "asked for your password once."));
     auto* v = static_cast<QVBoxLayout*>(p->layout());
     v->addWidget(para(tr("What is installed:<ul>"
-                         "<li><b>Device rules</b> (/etc/udev/rules.d/70-ravengun.rules and 71-ravengun-uhid.rules): games can "
-                         "read the virtual lightguns and keyboard of RavenGun, and the desktop ignores them.</li>"
+                         "<li><b>Device rules</b> (/etc/udev/rules.d/70-ravengun.rules, 71-ravengun-uhid.rules and 72-ravengun-dongle.rules): games can "
+                         "read the virtual lightguns and keyboard of RavenGun, and the desktop ignores them. The last rule only gives "
+                         "you access to USB dongles of Aladdin/SafeNet/Thales and Wibu-Systems, so the maker's own runtime can use "
+                         "a dongle you own.</li>"
                          "<li><b>Bluetooth helper</b> (/opt/ravengun/bin/ravengun-bt-helper) with a rule in "
                          "/etc/sudoers.d/ravengun-bt-helper: RavenGun may pair and unpair PS Move controllers without asking "
                          "for a password. The rule allows only this one helper, nothing else.</li></ul>"

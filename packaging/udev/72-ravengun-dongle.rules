@@ -1,0 +1,10 @@
+# RavenGun: toegang (uaccess) voor de gebruiker die achter het scherm zit tot USB-apparaten van dongle-fabrikanten, zodat de officiële
+# runtime van de fabrikant (Sentinel LDK Runtime van Thales: aksusbd/hasplmd; CodeMeter van Wibu-Systems) of Wine er als gewone gebruiker bij kan
+# (USB pass-through van de echte, fysieke dongle van de eigenaar; game.ini [Dongle], docs/per-game-patches.md).
+# Alleen deze vendor-ID's, zoals in packaging/dongle-vendors.json (tests/test_dongle.py controleert dat de lijsten gelijk zijn):
+#   0529 Aladdin (HASP), 04b9 Rainbow/SafeNet (Sentinel), 064f Wibu-Systems (CodeMeter).
+# Dit geeft alleen toegang; het bootst niets na en raakt geen ander USB-apparaat.
+# Installeren: pkexec scripts/install-permissions.sh --apply (of sudo scripts/udev-ravengun.sh --apply); terugdraaien met --rollback.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0529", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="04b9", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="064f", TAG+="uaccess"

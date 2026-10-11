@@ -85,14 +85,14 @@ main() {
 
   # --- 3. De systeemonderdelen (root), nog met de scripts uit de installatiemap -----------------------------------------------
   local have_root=0
-  if [[ -e /etc/udev/rules.d/70-ravengun.rules || -e /etc/udev/rules.d/71-ravengun-uhid.rules || -e /opt/ravengun/bin/ravengun-bt-helper ]]; then have_root=1; fi
+  if [[ -e /etc/udev/rules.d/70-ravengun.rules || -e /etc/udev/rules.d/71-ravengun-uhid.rules || -e /etc/udev/rules.d/72-ravengun-dongle.rules || -e /opt/ravengun/bin/ravengun-bt-helper ]]; then have_root=1; fi
   if [[ $have_root -eq 1 && $KEEP_ROOT -eq 0 ]]; then
     echo "== Removing the system parts (device rules, Bluetooth helper); you will be asked for your password"
     if [[ $installed -eq 1 ]] && "$PKEXEC" "$DATA/scripts/install-permissions.sh" --rollback; then
       :
     else
       echo "The system parts could not be removed automatically. To remove them yourself, run:" >&2
-      echo "  sudo rm -f /etc/udev/rules.d/70-ravengun.rules /etc/udev/rules.d/71-ravengun-uhid.rules /etc/sudoers.d/ravengun-bt-helper" >&2
+      echo "  sudo rm -f /etc/udev/rules.d/70-ravengun.rules /etc/udev/rules.d/71-ravengun-uhid.rules /etc/udev/rules.d/72-ravengun-dongle.rules /etc/sudoers.d/ravengun-bt-helper" >&2
       echo "  sudo rm -rf /opt/ravengun && sudo udevadm control --reload" >&2
     fi
   elif [[ $have_root -eq 1 ]]; then

@@ -423,6 +423,90 @@ write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Loader
 rc, out, err = run("Elf", "--check")
 check(rc == 5 and "alleen voor OpenParrotLoader" in err, "BudgieLoader kent geen eigen build (%d: %s)" % (rc, err))
 
+# Dongle ([Dongle] in game.ini, scripts/dongle.py): de echte, fysieke dongle via USB pass-through. Uit (standaard): niets doen, ook zonder
+# dongle. Aan: vóór de start detecteren; geen dongle of een runtime die niet draait weigert met exitcode 6 (geen terugval). Nep-sysfs,
+# nep-/proc en nep-wortel; een serienummer in de nep-sysfs mag nergens in de uitvoer of het log komen.
+import json as _json, socket as _socket
+SERIAL = "SN-SECRET-0042-DO-NOT-LEAK"
+dsys, dproc, droot = (os.path.join(tmp, n) for n in ("dsys", "dproc", "droot"))
+for d in (dsys, dproc, droot):
+    os.makedirs(d)
+vdata = _json.load(open(os.path.join(os.path.dirname(script), "..", "packaging", "dongle-vendors.json")))
+for r in vdata["runtimes"].values():   # poorten dicht: op de testmachine kan de echte License Manager draaien
+    s_ = _socket.socket(); s_.bind(("127.0.0.1", 0)); r["tcp_port"] = s_.getsockname()[1]; s_.close()
+vfile = os.path.join(tmp, "dongle-vendors.json")
+write(vfile, _json.dumps(vdata))
+denv = {"RAVENGUN_USB_SYSFS": dsys, "RAVENGUN_PROC_ROOT": dproc, "RAVENGUN_DONGLE_ROOT": droot, "RAVENGUN_DONGLE_VENDORS": vfile}
+profile("Dg", "TeknoParrot", "TimeCrisis5", exe64, "true", [], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
+check(ld.EXIT_DONGLE == 6, "exitcode van de dongle is 6")
+# Uit (standaard): niets doen, ook zonder dongle en zonder runtime.
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 0 and "ongle" not in out + err, "[Dongle] uit: niets doen (%d: %s)" % (rc, err))
+write(os.path.join(shipped, "Dg", "game.ini"), "[Dongle]\nEnabled = false\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "Enabled = false: niets doen")
+# Aan, geen dongle.
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = true\n")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 6 and "No dongle found" in err, "aan, geen dongle: exit 6 (%d: %s)" % (rc, err))
+# Dongle erin (met serienummer), runtime niet geïnstalleerd: weigeren met verwijzing naar de officiële installatie.
+write(os.path.join(dsys, "1-1", "idVendor"), "0529\n")
+write(os.path.join(dsys, "1-1", "idProduct"), "0001\n")
+write(os.path.join(dsys, "1-1", "manufacturer"), "Aladdin Knowledge Systems\n")
+write(os.path.join(dsys, "1-1", "product"), "HASP HL 3.25\n")
+write(os.path.join(dsys, "1-1", "serial"), SERIAL + "\n")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 6 and "0529:0001" in err and "not installed" in err and "cpl.thalesgroup.com" in err, "dongle, runtime ontbreekt: exit 6 met verwijzing (%d: %s)" % (rc, err))
+check(SERIAL not in out + err, "serienummer niet in de uitvoer (refusal)")
+# Runtime geïnstalleerd maar niet gestart.
+write(os.path.join(droot, "usr/sbin/aksusbd"), "")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 6 and "not running" in err, "runtime niet actief: exit 6 (%d: %s)" % (rc, err))
+# Runtime draait: door.
+write(os.path.join(dproc, "42", "comm"), "aksusbd\n")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 0 and SERIAL not in out + err, "dongle en runtime: exit 0 (%d: %s)" % (rc, err))
+# --plan raakt de detectie niet en toont de instelling; zonder serienummer.
+rc, out, err = run("Dg", "--plan", "--json", env=denv)
+check(rc == 0 and json.loads(out)["dongle"] == {"enabled": True, "source": "usb-passthrough", "error": ""} and SERIAL not in out, "plan toont [Dongle]")
+# Het log bij een start (dongle_gate met verbose): merk, type, vendor:product, runtime-status; nooit het serienummer.
+import contextlib, io
+saved_env = dict(os.environ)
+os.environ.update(denv)
+try:
+    plan = ld.build_plan("Dg", tp, {}, None, False)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        ld.dongle_gate(plan, verbose=True)
+    line = buf.getvalue()
+    check("Aladdin Knowledge Systems HASP HL 3.25 (0529:0001) - runtime: running" in line and "usb-passthrough" in line, "log: merk, type, vendor:product, runtime (%r)" % line)
+    check(SERIAL not in line, "serienummer niet in het log")
+    os.unlink(os.path.join(dproc, "42", "comm"))
+    try:
+        ld.dongle_gate(plan, verbose=True)
+        check(False, "dongle_gate moet weigeren zonder draaiende runtime")
+    except ld.DongleRefused as e:
+        check("not running" in str(e) and SERIAL not in str(e), "dongle_gate weigert: %s" % e)
+finally:
+    os.environ.clear()
+    os.environ.update(saved_env)
+# Onbekende Source of een Enabled die geen true/false is: weigeren (alleen als aan).
+write(os.path.join(dproc, "42", "comm"), "aksusbd\n")
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = true\nSource = emulator\n")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 6 and "Source = emulator" in err and "usb-passthrough" in err, "onbekende Source: exit 6 (%d: %s)" % (rc, err))
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = ture\n")
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 6 and "Enabled = ture" in err, "Enabled = ture: exit 6 (%d: %s)" % (rc, err))
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = false\nSource = emulator\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "uit: ook een foute Source doet niets")
+# Een lege waarde in de gebruikerslaag zet een meegeleverde Enabled = true terug.
+write(os.path.join(shipped, "Dg", "game.ini"), "[Dongle]\nEnabled = true\n")
+os.unlink(os.path.join(dproc, "42", "comm"))
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled =\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "gebruiker zet Enabled terug op niet gezet: geen controle")
+os.unlink(os.path.join(user, "Dg", "game.ini"))
+check(run("Dg", "--check", env=denv)[0] == 6, "meegeleverd Enabled = true zonder runtime: exit 6")
+
 
 if fails:
     for f in fails:

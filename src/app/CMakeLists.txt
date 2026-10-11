@@ -12,6 +12,7 @@ set(CMAKE_AUTORCC ON)
 add_library(ravengun_app_core STATIC
   core/AppCore.cpp
   core/AppPaths.cpp
+  core/DongleStatus.cpp
   core/BigPicture.cpp
   core/EngineClient.cpp
   core/FileSafety.cpp
