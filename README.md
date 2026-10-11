@@ -24,11 +24,11 @@ repo van de loader voor de stappen en `docs/dropins.md` voor het contract.
 
 ## Kaarten: de stand per game
 
-Vijf documenten die samen vertellen wat elke game nodig heeft. **Vier ervan worden gegenereerd**
-(`STAND.md`, `STARTTEST.md`, `EIGEN-KERN.md` en de tabel van `REGIO-PER-GAME.md`); pas de map van de
-game aan en draai het script opnieuw in plaats van ze met de hand bij te werken. **Eén is met de hand
-geschreven:** `PATCHES-PER-GAME.md`, want de kolom *welke patch nodig is* is een oordeel op grond van
-meerdere bronnen en dat is niet uit de mappen af te leiden.
+Zes documenten die samen vertellen wat elke game nodig heeft. **Vijf ervan worden gegenereerd**
+(`STAND.md`, `STARTTEST.md`, `EIGEN-KERN.md`, `ZONDER-LADER.md` en de tabel van `REGIO-PER-GAME.md`);
+pas de map van de game aan en draai het script opnieuw in plaats van ze met de hand bij te werken.
+**Eén is met de hand geschreven:** `PATCHES-PER-GAME.md`, want de kolom *welke patch nodig is* is een
+oordeel op grond van meerdere bronnen en dat is niet uit de mappen af te leiden.
 
 | Bestand | Wat het geeft | Vernieuwen |
 |---|---|---|
@@ -37,6 +37,7 @@ meerdere bronnen en dat is niet uit de mappen af te leiden.
 | `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
 | `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | **met de hand**; de kop noemt de commando's om de getallen na te rekenen |
 | `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent) en welk `EmulationProfile` er dan nog moet komen — dus wat er per game nodig is om van de gesloten `TeknoParrot(64).dll` af te gaan | `python3 patches/kern-herkenning.py` |
+| `patches/ZONDER-LADER.md` | welke games met **alleen `wine <exe>`** starten en blijven draaien — geen lader, geen kern, geen drop-in. De scherpste vraag over loskoppelen, met de eerlijke grens erbij: dit zegt of een game *blijft draaien*, niet of hij speelbaar is | `python3 patches/proef-zonder-lader.py` |
 
 De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in
