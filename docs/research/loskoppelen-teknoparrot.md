@@ -86,7 +86,8 @@ Platform en route uit `patches/<Game>/game.ini` en `packaging/games-status.md`; 
 | Gashaaaan, Gashaaaan Refill | speelbaar, direct (2026-10-11, standaardroute van de lader) | lader, gesloten kern | Gashaaaan Refill: Patreon=true |
 | Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern start nu wel; per game een eigen oorzaak: films, ACIO op COM2, activering, ontbrekende bestanden, Kaboom-bibliotheek) | lader, gesloten kern | Otomedius: Patreon=true |
 | Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (crash opgelost met een lokale ladercopie; zwart beeld na de JVS-featurecheck) | OpenParrot (open kern) | regiokeuze |
-| Jurassic Park | geparkeerd | ElfLdr2, gesloten kern | ja (integriteitscontrole) |
+| Jurassic Park, Pac-Man Chomp-Mania, Galaga Assault (32-bits Raw Thrills) | geparkeerd (2026-10-11: geen GL-imports, vaste GOT uit een dump, PLT-indexen door de pakker gewist; eigen GOT-reconstructie is pakkerwerk en valt af, zie antwoorden-tp-ronde23-en-jp.md) | ElfLdr2, gesloten kern | ja (pakker, integriteitscontrole); Pac-Man: Patreon=true |
+| HOTD Scarlet Dawn | speelbaar via TeknoParrotUi (twee exe's: amdaemon eerst, 5 s wachten) | lader, gesloten kern, gepatchte amdaemon en game in de spelmap | keychip/AM-diensten (minime valt af) |
 | Let's Go Safari, Let's Go Island (2D en 3D) | speelbaar, direct (2026-10-11; standaardroute van de lader, geen dienst op 40100 nodig; eigen prefix) | lader, gesloten kern, pipehelper | deels (dongle regio/PCB) |
 | Pigs Might Fly | speelbaar, direct (2026-10-11; eigen prefix voor C:\Sega) | lader, gesloten kern | packer op Shell.exe |
 | Medaru No Gunman | geparkeerd (RAM-fout bij elke start; d3dx9_40 van Microsoft nodig) | lader, gesloten kern | — |

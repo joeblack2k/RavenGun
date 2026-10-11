@@ -566,3 +566,34 @@ Uitwerking van het ontwerp hierboven (`docs/per-game-patches.md`). Gekozen en wa
 - `UserProfiles/<P>.env` blijft één versie lang gelezen, als laagste laag onder `game.ini` (melding "legacy .env"; `RAVENGUN_NO_LEGACY_ENV=1` slaat het over). De opties van de app (Properties > Options, Display) schrijven nog naar dat `.env`; alleen de gamescope-keuze wordt ook in de gebruikerslaag gezet. Een optie die een meegeleverde waarde moet opheffen werkt pas als ook die naar de gebruikerslaag schrijft (open punt). De oude routekeuze in `~/.config/ravengun/io-routes.json` wordt niet meer gelezen.
 - Waarden die gelijk zijn aan de standaard van het soort staan niet in `game.ini`; ontbreekt een variabele die de standaard wel zet (bv. `TP_REMOTETHREAD=off` voor TeknoParrot terwijl de oude `.env` er geen had), dan schrijft de migratie `RemoteThread =` (leeg: niet gezet) zodat de oude uitkomst blijft. De migratie leest de oude JSON-bronnen uit bestanden of uit een revisie (`--rev`) en bewaart handwerk (andere sleutels, secties met commentaar).
 - Vergeleken met de oude code: de start-plannen van alle profielen in de runtime zijn gelijk (`tools/compare-launch-plans.py`); het enige verschil is het pad van de gepatchte lader (`patched/<sha>-<sha>/OpenParrotLoader.exe` in plaats van `loaders/OpenParrotLoader-fpfix-<sha>.exe`). De vaste uitzonderingen op profielnaam in `launch-direct.py` (TankTankTank, 3DCosplayMahjong) en de LGS-knoppen in `tp-add-game.py` zijn gegevens in `patches/` geworden.
+
+## 2026-10-11 — 32-bits Raw Thrills-familie (Jurassic Park, Pac-Man Chomp-Mania, Galaga Assault)
+
+Johan (`findings/QA/antwoorden_jurassic*.md`, `antwoorden_diepere_pass.md`, `antwoorden_basisadressen.md`,
+`antwoorden_zonder_teknoparrot.md`) stelt voor de drie te laten draaien met een eigen preload-bibliotheek die de vaste GOT
+opnieuw opbouwt. Volgens zijn eigen analyse heeft de pakker van Raw Thrills de koppeling tussen GOT-slot en symbool gewist
+(`push 0xdeadbeef` in alle PLT-stubs) en zijn de vaste adressen een momentopname van één uitvoering. De koppeling
+terugzetten door bibliotheekbases te raden of uit een lopend proces te lezen is het afmaken van een uitgepakt beeld (import-
+reconstructie). Dat is pakkerwerk en valt onder "geen pakkers omzeilen of beschermde binaries uitpakken". Zijn plan heeft
+ook een dongle-laag nodig.
+
+Besluit: RavenGun bouwt geen GOT- of importreconstructie en geen preload-laag voor deze drie. Ze blijven geparkeerd. Ze
+komen terug als de lader van TeknoParrot zelf (ElfLdr2) ze onder Wine start; daar richten de vragen zich op. Wel
+vastgelegd voor als het ooit draait: het pistoolbereik van Jurassic Park is 0 tot 4096 per as (niet 0 tot 255), vier
+pistolen, kalibratie in de game-opslag.
+
+## 2026-10-11 — HOTD Scarlet Dawn: geen eigen AM-diensten
+
+`findings/QA/antwoorden_scarlet_dawn.md` stelt voor de originele exe's op de NAS terug te zetten en `minime` (open-source
+amdaemon met eigen PKI) te gebruiken, met de hardwarecontrole aangepast of overgeslagen. Niet overgenomen: de NAS is
+alleen-lezen voor ons, `minime` vervangt keychip- en billingdiensten, en een controle overslaan is omzeilen. Wel
+overgenomen voor de directe start met twee exe's: eerst `amdaemon.exe`, 5 seconden wachten, dan de game (zoals het profiel
+met `LaunchSecondExecutableFirst` en de kastscripts het doen). Tot die er is blijft de start via TeknoParrotUi.
+
+## 2026-10-11 — Patreon-profielen
+
+Tien van onze profielen hebben `Patreon = true` (Halo, Go Go Strike, Gashaaaan Refill, NERF, Pigs Might Fly, Pac-Man,
+Otomedius, Rainbow Bombergirl, beide Omatsuri). `launch-direct.py` start ze alleen als TeknoParrotUi de activering in de
+prefix heeft gezet (`check_activation`); de waarde lezen we niet. Zo blijft het abonnement de voorwaarde, ook bij een
+directe start. Een eigen starter zonder TeknoParrot (Johans vraag 9) zou dat niet hebben; dat is nog een reden om die
+route niet te bouwen voor spellen die alleen via het abonnement komen.
