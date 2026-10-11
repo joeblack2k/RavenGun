@@ -55,10 +55,11 @@ Uit `findings/09_how_teknoparrot_runs_lightgun_games.md`, `12_aanpassingen_en_ko
 | Frontend | niets meer | — | klaar |
 | Gamegegevens | eigen gamedatabase met exe, architectuur, emulatortype, opties, invoerindeling per game; eigen iconen | `GameProfiles`/`Metadata` als referentie (gebruiksvoorwaarden: vraag 21) | deels |
 | Lader (Windows-games) | eigen lader met entry-point-injectie, gebouwd uit de OpenParrot-bron | OpenParrot (GPL-3, verenigbaar met onze GPL-3.0-or-later) | nee; mingw-toolchain in een container nodig |
-| `pipehelper.exe` | eigen helper (Windows-exe) die de named pipe aan een socket koppelt | protocol bekend uit ons eigen gebruik | nee; klein |
+| `pipehelper.exe` (hostkant) | eigen host die de TPB1-handdruk van `pipehelper` aanneemt (kop met sessie, token en pijpnaam, antwoord `OKAY`) en daarna het verkeer doorgeeft | `antwoorden_ronde13.md`, `antwoorden_ronde22.md`; spec in `docs/research/antwoorden-tp-ronde5-22.md` | nee; protocol nu volledig bekend |
 | I/O (gedeeld geheugen) | een eigen hook-DLL per game die de invoer levert waar de kern dat nu doet | indelingen in `packaging/tp-shm-profiles.json`, `findings/06`, `07` | invoer zelf klaar; levering in de game nog via de kern |
 | I/O (JVS) | JVS-responder op een pty/COM-poort | `src/ravengun/iobridge/jvs.*` | klaar, getest via de kern |
 | I/O (HID-bord) | virtueel bord | `hid_board.*` | klaar (Transformers) |
+| I/O (ACIO, Konami) | ACIO-responder op een pty als COM-poort (Otomedius) | `antwoorden_ronde14.md` t/m `19`; spec in `docs/research/antwoorden-tp-ronde5-22.md` | nee; protocol beschreven, twee aannames nog te meten |
 | Compatibiliteitspatches | per game een lijst van wat de kern patcht en waarom, voor de exacte exe-versie | open bron voor Type X2 (4 games); voor de rest: vraag 17 | nee |
 | Diensten (bv. poort 40100) | eigen dienst die antwoordt zoals de game verwacht | `antwoorden_poort40100.md` | nee |
 | Raw Thrills (Linux-ELF) | native draaien zonder ElfLdr2: eigen `LD_PRELOAD`-bibliotheek voor de I/O, de bibliotheken van de game (PhysX, FMOD) uit de eigen installatie van de gebruiker, de paden die de game verwacht | `antwoorden_ronde2.md` vraag 9; protocol van het gunbord onbekend (vraag 20) | eerder geprobeerd, geparkeerd |

@@ -521,3 +521,10 @@ Op verzoek van de eigenaar: alles wat per game anders is (startwijze, lader, Win
 één map per game met INI-bestanden, meegeleverd plus een gebruikerslaag die per sleutel wint, zoals Dolphin's
 GameSettings. Patches zijn benoemd, aan/uit te zetten, controleren de verwachte bytes en werken alleen op lokale kopieën.
 Geen game-kennis meer in de launcher-code of in losse JSON-lijsten. Ontwerp en overgang: `docs/per-game-patches.md`.
+
+## 2026-10-11 — Antwoorden van het TeknoParrot-team: alleen draadformaten gebruiken
+
+Een deel van de antwoorden in rondes 9-19 en 21 is gebaseerd op uitgepakte beelden van de beschermde kernen en van
+BudgieLoader. RavenGun gebruikt daaruit alleen draadformaten en gedrag dat nodig is voor uitwisselbaarheid (TPB1 voor
+`pipehelper`, ACIO voor Otomedius, JVS), geen code of disassembly. We vragen niet om nieuwe ontledingen van beschermde
+code; nieuwe vragen gaan over gedrag, profielen, de open bron (OpenParrot, TeknoParrotUi) en metingen.
