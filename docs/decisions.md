@@ -646,3 +646,28 @@ User/GameSettings. Gekozen en wat afwijkt van het ontwerp:
   als het in een gamemap of view staat.
 - Niet gedaan: de start met twee exe's (`Executable2` is alleen vastgelegd), een eigen invoerlaag voor `JoystickButtons` (onze invoer staat in `[Input]` en `[Bindings]`),
   en het weghalen van `.env` als laagste laag.
+
+## 2026-10-11 — Eigen OpenParrot-lader en -kern uit de openbare bron
+
+Opdracht van de eigenaar: zo min mogelijk binaries van TeknoParrot gebruiken. Stap 1: de open lader (`OpenParrotLoader.exe`, `OpenParrotLoader64.exe`) en de open kern
+(`OpenParrot.dll`, `OpenParrot64.dll`, de kern van de Type X2-games) zelf bouwen uit de openbare OpenParrot-bron (GPL-3.0), in plaats van de binaries uit de
+TeknoParrotUi-download. Uitwerking en pins: `third_party/openparrot/README.md`, `THIRD_PARTY.md`, `scripts/build-openparrot.sh`.
+
+- **De Wine-fix als broncodewijziging.** De lader zet de context van de hoofdthread van de game met `ContextFlags = 0x00010000 + 1 + 2 + 4 + 8 + 0x10` (0x1001F, regel 874 van
+  `OpenParrotLoader/src/main.cpp` in commit `fc8ba63`) en roept daarmee `GetThreadContext`/`SetThreadContext` aan (`RunTo`, `LoadHookDLL`). Wine zet bij `SetThreadContext` met
+  `CONTEXT_FLOATING_POINT` maar zonder `CONTEXT_EXTENDED_REGISTERS` MXCSR op 0: alle SSE-uitzonderingen zijn dan ongemaskeerd en de game (Type X2, Mesa in de D3D9-init)
+  stopt op de eerste inexacte conversie met `c00002b5`. Nu 0x10017: `CONTEXT_FLOATING_POINT` (0x8) wordt niet meer meegegeven. De lader leest de FP-toestand alleen en schrijft dezelfde
+  waarden terug, dus op Windows verandert er niets. Dit vervangt de bytepatch `OpenParrotLoader zonder CONTEXT_FLOATING_POINT` (die zocht `C7 05 C0 9B 42 00 1F 00 01 00` in de
+  meegeleverde 32-bit lader; `RG_LOADER_FPFIX` in de oude `.env`). De patch staat in `third_party/openparrot/patches/0001-...`; we kunnen hem upstream aanbieden.
+- **Gemeten.** `tools/openparrot-mxcsr-check.sh` (Wine, geen game): MXCSR van een 32-bit testprogramma na de lader is 0x00000000 met de lader van TeknoParrot en 0x00001f80 met de eigen lader.
+- **Dezelfde regel staat in de 64-bit lader.** De bytepatch liet die met rust (`TargetName`); de bronwijziging geldt voor beide. In de 64-bit lader maakt het in de meting geen verschil
+  (0x1f80 in beide builds: 0x1001F bevat daar `CONTEXT_AMD64` niet), maar 64-bit-games (Luigi's Mansion e.d.) horen bij de tv-test.
+- **Bron versus meegeleverde build.** De meegeleverde lader (TeknoParrotUi 2.0.0.130) is op de omgevingsvariabelen, de opdrachtregel en vrijwel alle meldingen na dezelfde bron als de gepinde commit
+  (statisch vergeleken); de kern heeft dezelfde exports. Het enige gevonden verschil is het versienummer van de kern: de bron zegt 1.0.0.0, de meegeleverde build 1.0.0.787 (CI-buildnummer).
+- **Bouwen.** Visual Studio/premake is niet nodig: MinGW-w64 (GCC 16.2.0) en clang 23.1.1 in een podman-container, basis-image op digest, pakketten via het Arch Linux Archive.
+  GCC voor het meeste, clang voor bestanden met MSVC-SEH en -inline-assembler. Bit-voor-bit herhaalbaar. Niet gebouwd: `OpenParrotKonamiLoader`, `iDmacDrv`, `OpenBanapass` (niet gevraagd) en twee
+  spelmodules die MinGW-w64-headers missen (`GHA.cpp`; `WMMT6.cpp` in 64-bit). Een Microsoft-DirectX-SDK uit de bronboom wordt niet gebruikt; de MinGW-w64-headers vervangen hem.
+- **Integratie.** Alleen via gegevens: `[Loader] Build = ravengun` (en `Core`, `Path`) in `_defaults/<Type>.ini`/`game.ini`; standaard blijft de lader uit de TeknoParrot-runtime.
+  `launch-direct.py` kiest het pad op één plek (`own_build()`); met de eigen lader valt de bytepatch weg. Zie `docs/per-game-patches.md`.
+- **Dongle, keychip, integriteit.** Niets toegevoegd of gewijzigd. De OpenParrot-bron heeft in enkele spelmodules (CrazySpeed, ES3X/WMMT, Pokken, Nesica, APM3, Konami-lader) zelf dongle-/HASP-hooks;
+  die zijn meegebouwd zoals upstream. De Type X2-modules hebben ze niet.

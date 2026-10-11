@@ -1,6 +1,6 @@
 # Externe afhankelijkheden (pinning)
 
-Alleen VQF is gevendord (zie hieronder en `third_party/vqf/README.md`). De rest staat buiten git: bronnen en builds onder `~/.cache/ravengun/src` en `~/.cache/ravengun/build`.
+Alleen VQF is gevendord (zie hieronder en `third_party/vqf/README.md`); van OpenParrot staan alleen onze patches in de repo. De rest staat buiten git: bronnen en builds onder `~/.cache/ravengun/src` en `~/.cache/ravengun/build`.
 
 ## PSMoveAPI
 
@@ -9,6 +9,12 @@ Alleen VQF is gevendord (zie hieronder en `third_party/vqf/README.md`). De rest 
 - Reden: de laatste release-tag `4.0.12` is van december 2020 en 206 commits oud; er is geen recentere tag. De gepinde commit is de huidige master op het moment van bouwen.
 - Licentie: vereenvoudigde BSD-licentie (bestand `COPYING` in de bron). Opties met afwijkende licentie (PS3EYEDriver, deels GPL) zijn niet ingeschakeld.
 - Build-opties en wat wel/niet is gebouwd: zie `docs/build.md`.
+
+## OpenParrot (2026-10-11)
+
+- Bron: https://github.com/teknogods/OpenParrot, gepind op commit `fc8ba632e1f67c5c340ff88f30efca743e8d38f5` (11 sept 2026, "Add APM3 test support"), licentie GPL-3.0. Niet gevendord: `scripts/build-openparrot.sh` haalt de commit op in `~/.cache/ravengun/src/openparrot` en bouwt in een container (MinGW-w64 16.2.0 en clang 23.1.1, `packaging/containers/openparrot/Containerfile`, basis-image op digest, pakketten via het Arch Linux Archive van 2026/10/11).
+- In de repo staat alleen wat wij eraan veranderen: `third_party/openparrot/` (patches, hulpbestanden, README). Uitvoer: `~/.local/share/ravengun/openparrot/<commit>/`, niet in de repo.
+- Reden: zo min mogelijk binaries van TeknoParrot; de Wine-fix voor Type X2 (`CONTEXT_FLOATING_POINT`) zit als broncodewijziging in de lader. Zie `third_party/openparrot/README.md` en `docs/decisions.md`.
 
 ## Build-omgeving
 

@@ -1,0 +1,7 @@
+; Exporttabel van OpenParrot.dll (32-bit) zoals de MSVC-build van de bron hem heeft: MSVC noemt de stdcall-functie
+; PrepareSafeInit(LPVOID) `_PrepareSafeInit@4`, MinGW-w64 laat de underscore weg. Zelfde namen als de meegeleverde build.
+LIBRARY OpenParrot.dll
+EXPORTS
+InitLinux
+InitializeASI
+"_PrepareSafeInit@4" = PrepareSafeInit@4

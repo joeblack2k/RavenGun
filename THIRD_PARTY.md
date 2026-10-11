@@ -31,6 +31,10 @@ Files: the icons of the "Clean" theme (`Data/Sys/Themes/Clean`: browse, classic,
 
 `third_party/vqf/`, see `third_party/vqf/README.md`. Laidig and Seel, "VQF: Highly Accurate IMU Orientation Estimation with Bias Estimation and Magnetic Disturbance Rejection".
 
+## OpenParrot (GPL-3.0)
+
+Source: https://github.com/teknogods/OpenParrot (the open loader and the open core), commit `fc8ba632e1f67c5c340ff88f30efca743e8d38f5` (11 September 2026). Copyright the OpenParrot / TeknoGods contributors; GPL-3.0 (file `LICENSE` in the source), which is compatible with RavenGun's GPL-3.0-or-later. The source is not part of this repository: `scripts/build-openparrot.sh` fetches exactly that commit and builds `OpenParrotLoader.exe`, `OpenParrotLoader64.exe`, `OpenParrot.dll` and `OpenParrot64.dll` on your machine (MinGW-w64 and clang in a podman container) into `~/.local/share/ravengun/openparrot/<commit>/`. The build is opt-in per game (`[Loader] Build = ravengun`); by default RavenGun keeps using the loader from your TeknoParrot runtime. RavenGun ships only our changes to that source, as patches in `third_party/openparrot/patches/` (GPL-3.0, same license as the source): the Wine fix in the loader (no `CONTEXT_FLOATING_POINT` in `SetThreadContext`) and small portability changes for MinGW-w64. Details, toolchain pins and what is not built: `third_party/openparrot/README.md`.
+
 ## System libraries (not included)
 
 The app uses the Qt 6 libraries of the system (LGPL-3.0, dynamically linked; SteamOS and Arch provide them). The engine uses the system's hidapi, BlueZ, dbus, libudev and systemd libraries. None of these are part of the release archive.

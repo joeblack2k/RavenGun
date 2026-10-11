@@ -102,6 +102,15 @@ Gebouwd: `libpsmoveapi.so`, `psmove` (CLI: list, pair, register, battery, calibr
 
 Getest op echte hardware (USB): `psmove list` en `psmove help`, `multiple` (1 controller zichtbaar). Niet getest: pairing, Bluetooth-verbinding, sensordata.
 
+## OpenParrot-lader en -kern (eigen build, optioneel)
+
+    scripts/build-openparrot.sh            # alles: OpenParrotLoader(64).exe en OpenParrot(64).dll
+    scripts/build-openparrot.sh --versions # commit, basis-image en pakketversies
+
+Haalt de gepinde commit van de openbare OpenParrot-bron op (`~/.cache/ravengun/src/openparrot`), past `third_party/openparrot/patches/` toe (de Wine-fix in de lader en wat MinGW-w64 nodig heeft) en bouwt in een
+rootless podman-container (`packaging/containers/openparrot/Containerfile`: MinGW-w64 en clang, geen netwerk tijdens het bouwen). Uitvoer in `~/.local/share/ravengun/openparrot/<commit>/` (niet in de repo), met
+`BUILDINFO.txt` en de verwijzing `current`. Gebruik: `[Loader] Build = ravengun` in `game.ini` (`docs/per-game-patches.md`). Details en wat niet gebouwd is: `third_party/openparrot/README.md`.
+
 ## Uitvoer (virtuele lightgun)
 
 De daemon maakt het uinput-apparaat pas na `arm`. Zonder Move en camera, voor de uitvoerproef:
