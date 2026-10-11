@@ -7,7 +7,7 @@ Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-r
   bv.    python3 -I scripts/tp-add-game.py JurassicPark "/pad/naar/Jurassic Park/game" --wine-runner ~/.../bin/wine
 
 --env K=V: (herhaalbaar) schrijft UserProfiles/<PROFIEL>.env voor play-halo.sh. Zonder --env krijgen Windows-games
-(EmulatorType TeknoParrot) TP_POSTSTART_REMOTETHREAD_MS=3000 als er nog geen .env is.
+(EmulatorType TeknoParrot) TP_REMOTETHREAD=off (standaardroute van de lader) als er nog geen .env is.
 --gamescope: schrijft TP_GAMESCOPE=1 (+ pad) in de .env: TeknoParrotUI draait de game in gamescope (schermvullend).
 --dxvk: voor Direct3D-11-games (UE4/Unity; Raccoon Rampage, NERF): maakt een eigen kopie van de gedeelde Wine-prefix
 (~/.local/share/TeknoParrotUI/prefixes/ravengun-test-dxvk), zet daar de DXVK-bibliotheken (d3d11, d3d10core, dxgi) uit een
@@ -197,8 +197,10 @@ def main():
         s = s.replace('</GameProfile>', f'<WineRunnerPath>{runner}</WineRunnerPath>\n</GameProfile>')
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     open(dst, 'w', encoding='utf-8').write(s)
-    # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games met de TeknoParrot-kern hebben onder
-    # Wine de injectiemethode "na 3 s" nodig; de standaardmethode faalt met "Failed to find kernel32.dll". Niet voor OpenParrot
+    # Omgevingsvariabelen voor play-halo.sh (UserProfiles/<PROFIEL>.env). Windows-games met de TeknoParrot-kern krijgen de
+    # standaardroute van de lader (TP_REMOTETHREAD=off: geparkeerd startpunt, geen remote thread). Met de oude keuze
+    # TP_POSTSTART_REMOTETHREAD_MS=3000 kreeg de kern bij o.a. Raccoon Rampage en NERF geen invoer (twaalfde ronde,
+    # 2026-10-11); de 32-bit kern brak ermee af (tiende ronde). Oudere profielen (TC5, Transformers) houden hun eigen .env. Niet voor OpenParrot
     # (Taito Type X2): daarmee verbindt de game de JVS-pipe niet (gemeten bij Gaia Attack 4, 2026-10-10); die krijgen de
     # standaardroute van de lader plus de Wine-omwegen van de elfde ronde.
     envf = dst[:-4] + '.env'
@@ -216,7 +218,7 @@ def main():
                     lines.append(l)
         # De standaard injectiemethode voor de TeknoParrot-kern blijft staan tenzij de aanroeper er zelf een kiest.
         if tp_core and not any(l.startswith(('TP_POSTSTART_REMOTETHREAD_MS=', 'TP_ENTRYPOINT_REMOTETHREAD_MS=', 'TP_REMOTETHREAD=')) for l in lines):
-            lines.insert(0, 'TP_POSTSTART_REMOTETHREAD_MS=3000')
+            lines.insert(0, 'TP_REMOTETHREAD=off')
         open(envf, 'w', encoding='utf-8').write('# door tp-add-game.py; zie packaging/games-status.md\n' + '\n'.join(lines) + '\n')
         print(f'  omgeving: {envf}: ' + ' '.join(lines))
     print(f'geschreven: {dst}\n  game: {game}\n  bindingen:\n    ' + '\n    '.join(bound))
