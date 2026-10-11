@@ -8,8 +8,9 @@
 #
 # De gegevens staan in de map van de game zelf (docs/dropins.md), niet in een globale boom:
 #
-#   patches/<Game>/dongle.json         WELKE dongle deze game vraagt + de gegevens (kind = hasp)
-#   patches/<Game>/dongle/memory/<id>  de geheugenimages; het pad in dongle.json is relatief aan patches/<Game>/
+#   patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json   WELKE dongle deze game vraagt + de gegevens (kind = hasp)
+#   patches/<Game>/dropin/ravengun-hasp/<Game>/memory/<id>   de geheugenimages; memory[].file is relatief aan die map
+#   patches/<Game>/dongle.json (de oude losse plaats) blijft ook werken.
 #
 # De gebruikerslaag (~/.local/share/ravengun/patches/<Game>/) gaat voor op de meegeleverde map.
 #
@@ -163,13 +164,27 @@ def _norm(naam):
     return re.sub(r"[\s_-]+", "", str(naam or "")).lower()
 
 
+def _dongle_pad(game_dir, naam):
+    """Het dongle.json van een game: eerst de drop-in, anders de oude losse plaats.
+
+    Een dongle is een patch en staat dus in de patchmap van de game:
+        patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json
+    De oude vorm patches/<Game>/dongle.json blijft werken voor wie hem al had.
+    """
+    for pad in (os.path.join(game_dir, "dropin", "ravengun-hasp", naam, "dongle.json"),
+                os.path.join(game_dir, "dongle.json")):
+        if os.path.isfile(pad):
+            return pad
+    return None
+
+
 def dongle_json(name):
     """(map van de game, pad van dongle.json, inhoud) van de eerste laag die er een heeft. Anders (None, None, None).
     `name` mag de mapnaam zijn (patches/<Game>/) of het veld "game" uit dongle.json."""
     gezocht = _norm(name)
     for d in patches_dirs():
-        direct = os.path.join(d, str(name), "dongle.json")
-        if os.path.isfile(direct):
+        direct = _dongle_pad(os.path.join(d, str(name)), str(name))
+        if direct:
             with open(direct, encoding="utf-8") as f:
                 return os.path.join(d, str(name)), direct, json.load(f)
     # geen map met die naam: elke map met een dongle.json lezen en op het veld "game" vergelijken
@@ -179,8 +194,8 @@ def dongle_json(name):
         for sub in sorted(os.listdir(d)):
             if sub.startswith("_"):      # _template en _defaults zijn geen games
                 continue
-            pad = os.path.join(d, sub, "dongle.json")
-            if not os.path.isfile(pad):
+            pad = _dongle_pad(os.path.join(d, sub), sub)
+            if not pad:
                 continue
             try:
                 with open(pad, encoding="utf-8") as f:
@@ -203,8 +218,8 @@ def games_met_dongle():
                 continue
             if sub in gezien:
                 continue
-            pad = os.path.join(d, sub, "dongle.json")
-            if not os.path.isfile(pad):
+            pad = _dongle_pad(os.path.join(d, sub), sub)
+            if not pad:
                 continue
             try:
                 with open(pad, encoding="utf-8") as f:
@@ -230,13 +245,24 @@ def _fileid_van_naam(naam):
     return None
 
 
-def _veilig_pad(game_dir, rel):
-    """Het pad van een bestand uit dongle.json, met de controle dat het binnen de map van de game blijft."""
+def dongle_dir_of(game_dir):
+    """De map waarin dongle.json van deze game staat: de drop-in, of de oude losse plaats."""
+    game_dir = os.path.normpath(game_dir)
+    pad = _dongle_pad(game_dir, os.path.basename(game_dir))
+    return os.path.dirname(pad) if pad else game_dir
+
+
+def _veilig_pad(basis, rel):
+    """Het pad van een bestand uit dongle.json, met de controle dat het binnen de map van dongle.json blijft.
+
+    memory[].file is relatief aan de map waarin dongle.json staat, want zo rekent de emulator zelf
+    (hasp/src/dongle.c: snprintf(path, ..., "%s/%s", d->dir, m->file)).
+    """
     if os.path.isabs(rel):
-        return None, "het pad %r is absoluut; paden in dongle.json zijn relatief aan %s" % (rel, game_dir)
-    vol = os.path.normpath(os.path.join(game_dir, rel))
-    if vol != os.path.normpath(game_dir) and not vol.startswith(os.path.normpath(game_dir) + os.sep):
-        return None, "het pad %r wijst buiten de map van de game" % rel
+        return None, "het pad %r is absoluut; paden in dongle.json zijn relatief aan %s" % (rel, basis)
+    vol = os.path.normpath(os.path.join(basis, rel))
+    if vol != os.path.normpath(basis) and not vol.startswith(os.path.normpath(basis) + os.sep):
+        return None, "het pad %r wijst buiten de map van dongle.json" % rel
     return vol, ""
 
 
@@ -246,8 +272,13 @@ def lees_dongle(name):
     fouten = []
     if not pad:
         return None, None, ["geen dongle.json voor '%s' (verwacht: %s)"
-                            % (name, " of ".join(os.path.join(d, str(name), "dongle.json") for d in patches_dirs()))]
+                            % (name, " of ".join(
+                                os.path.join(d, str(name), "dropin", "ravengun-hasp", str(name), "dongle.json")
+                                for d in patches_dirs())
+                               + " of " + " of ".join(os.path.join(d, str(name), "dongle.json")
+                                                      for d in patches_dirs()))]
 
+    dongle_dir = os.path.dirname(pad)
     soort = str(desc.get("kind", "") or desc.get("type", "")).strip().lower()
     if not soort:
         fouten.append("%s: veld 'kind' ontbreekt" % pad)
@@ -260,10 +291,13 @@ def lees_dongle(name):
             fouten.append("%s: veld '%s' ontbreekt" % (pad, veld))
 
     items = desc.get("memory", []) or []
-    if not items:
+    # Een regio-dongle (DongleRegion/PcbRegion) en sega-scan hebben geen geheugenimages; alleen
+    # hasp en matrix lezen memory[]. Zonder deze uitzondering meldde hasp.py voor LGI/LGI3D/LGS
+    # een image die er per ontwerp niet is.
+    if not items and soort not in ("region", "region-pcb", "sega-scan", "amdaemon"):
         fouten.append("%s: geen 'memory'-items: de dongle-image van deze game is nog niet vastgelegd. Zet de "
-                      "geheugenbestanden in %s/dongle/memory/ en noem ze in 'memory' (docs/hasp-layer.md)"
-                      % (pad, game_dir))
+                      "geheugenbestanden in %s/memory/ (naast dongle.json) en noem ze in 'memory' "
+                      "(docs/hasp-layer.md)" % (pad, dongle_dir))
 
     gebruikt = set()
     for item in items:
@@ -271,7 +305,7 @@ def lees_dongle(name):
         if not bestand:
             fouten.append("%s: een memory-item heeft geen 'file'" % pad)
             continue
-        vol, fout = _veilig_pad(game_dir, bestand)
+        vol, fout = _veilig_pad(dongle_dir, bestand)
         if fout:
             fouten.append("%s: %s" % (pad, fout))
             continue
@@ -293,16 +327,19 @@ def lees_dongle(name):
         elif item.get("size") not in (None, echte):
             fouten.append("%s is %d bytes, maar dongle.json zegt %s" % (bestand, echte, item.get("size")))
 
-    # Ongebruikte bestanden in dongle/: een andere schrijfwijze van dezelfde fileid (hex naast binair) is goed.
-    mem = os.path.join(game_dir, "dongle", "memory")
-    if os.path.isdir(mem):
+    # Ongebruikte bestanden in de geheugenmap: een andere schrijfwijze van dezelfde fileid
+    # (hex naast binair) is goed. De drop-in-vorm is <dongle.json>/memory/, de oude vorm
+    # <Game>/dongle/memory/.
+    for mem in (os.path.join(dongle_dir, "memory"), os.path.join(game_dir, "dongle", "memory")):
+        if not os.path.isdir(mem):
+            continue
         for naam in sorted(os.listdir(mem)):
             if naam in gebruikt or not os.path.isfile(os.path.join(mem, naam)):
                 continue
             fid = _fileid_van_naam(naam)
             dubbel = fid is not None and any(_fileid_van_naam(g) == fid for g in gebruikt)
             if not dubbel:
-                fouten.append("dongle/memory/%s staat in de map maar niet in dongle.json" % naam)
+                fouten.append("%s staat in de map maar niet in dongle.json" % os.path.relpath(os.path.join(mem, naam)))
 
     return game_dir, desc, fouten
 
@@ -339,7 +376,7 @@ def status(game=None, bits=64, windows=False):
             os.path.dirname(emu), game, "; ".join(fouten[:3]))
         return uit
 
-    uit["injection"] = injection(game_dir, emu, windows)
+    uit["injection"] = injection(game_dir, emu, windows, dongle_dir_of(game_dir))
     n = len(desc.get("memory", []) or [])
     via = uit["injection"]["via"]
     hoe = {"dropin": "de drop-in in patches/%s/dropin/" % os.path.basename(game_dir),
@@ -357,7 +394,7 @@ def status(game=None, bits=64, windows=False):
     return uit
 
 
-def injection(game_dir, emu, windows=False):
+def injection(game_dir, emu, windows=False, dongle_dir=None):
     """Wat de launcher moet zetten om deze emulator in het spel te krijgen.
 
     Geeft {"env", "preload", "dll", "files", "via"}.
@@ -367,8 +404,11 @@ def injection(game_dir, emu, windows=False):
     LD_PRELOAD. Zonder drop-in laden we de emulator uit de bibliotheekmap rechtstreeks vooraf (Linux-games).
     """
     game_dir = os.path.normpath(game_dir)
-    env = {"RAVENGUN_HASP_DIR": os.path.dirname(game_dir),
-           "RAVENGUN_HASP_GAME": os.path.basename(game_dir),
+    # De emulator zoekt <RAVENGUN_HASP_DIR>/<RAVENGUN_HASP_GAME>/dongle.json. Staat de dongle in de
+    # drop-in (patches/<Game>/dropin/ravengun-hasp/<Game>/), dan is de wortel de map daarboven.
+    d = os.path.normpath(dongle_dir or game_dir)
+    env = {"RAVENGUN_HASP_DIR": os.path.dirname(d),
+           "RAVENGUN_HASP_GAME": os.path.basename(d),
            "RAVENGUN_HASP_VERBOSE": os.environ.get("RAVENGUN_HASP_VERBOSE", "1")}
     dropin = os.path.join(game_dir, "dropin")
     # Bij een Windows-game telt alleen de PE-DLL mee; bij een Linux-game alleen de ELF-bibliotheek.

@@ -97,6 +97,31 @@ De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. C
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
 | `Preload` | `true` als dit bestand in het **ELF-proces** van de game geladen moet worden |
 
+### De grenzen van `LD_AUDIT` (gemeten)
+
+`LD_AUDIT` is de route voor een Linux-ELF onder Wine, maar hij is niet onbeperkt. Gemeten op
+2026-10-11 met `launch-direct.py Halo --run`, met de twee drop-in-bibliotheken in `LD_AUDIT`:
+
+```
+ERROR: ld.so: object '.../ravengun-hasp-x64.so' cannot be loaded as audit interface:
+       undefined symbol: la_version; ignored.
+ERROR: ld.so: object '.../libravengun-hasphook-x64.so' cannot be loaded as audit interface:
+       wrong ELF class: ELFCLASS64; ignored.
+```
+
+Twee dingen om te weten voordat je iets in `LD_AUDIT` zet:
+
+* **Alleen een echte auditbibliotheek werkt.** glibc eist `la_version`; de HASP-emulator is een
+  gewone bibliotheek met `hasp_*` en wordt dus geweigerd. Een bibliotheek in `LD_AUDIT` moet
+  `la_version` en `la_preinit` hebben (die heeft de inline-hook wel).
+* **De klasse moet kloppen.** Wie `LD_AUDIT` leest is het Wine-proces dat de lader start; staat
+  daar een 32-bits lezer, dan wordt een 64-bits bibliotheek met "wrong ELF class" genegeerd.
+  Let dus op de bitbreedte van het proces dat je wilt inhaken, niet op die van de game-exe.
+
+Een fout hier is stil: de omgeving staat goed, `--plan` meldt geen fout, en de bibliotheek wordt
+toch niet geladen. Controleer met de logregels hierboven of met een eigen logbestand
+(`RAVENGUN_HASP_ELF_LOG`).
+
 ### `Preload = true` — en waarom de launcher géén `LD_PRELOAD` zet
 
 Gemeten op de Deck, en dit is geen theorie: **`LD_PRELOAD` in de startomgeving is fataal voor de
