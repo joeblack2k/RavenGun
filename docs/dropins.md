@@ -96,6 +96,23 @@ De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. C
 | `DllOverride` | waarde voor `WINEDLLOVERRIDES`: `native` zet `<naam>=n`, `builtin,native` zet `<naam>=n,b` |
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
 | `Preload` | `true` als dit bestand in het **ELF-proces** van de game geladen moet worden |
+| `Audit` | `false` als dit bestand **niet** in `LD_AUDIT` mag (zie hieronder); standaard `true` |
+
+### `Audit = false` — een inline-hook hoort niet in het Cygwin-proces
+
+`LD_AUDIT` wordt gelezen door het proces dat de lader start, en dat is bij ElfLdr2 het
+Cygwin-programma BudgieLoader. Voor `librt-glfix` is dat precies goed (de GL-fix moet in dat
+proces zitten). Maar een inline-hook die de **game-ELF** wil aanhaken, sterft daar en neemt de
+lader mee: gemeten met `libravengun-hasphook` in `LD_AUDIT` gaf Halo exitcode 1 en Jurassic Park
+een SIGSEGV. Zo'n bestand zet je op `Audit = false`; het pad blijft dan in `RG_DROPIN_PRELOAD`
+staan, dat het spelproces oppakt.
+
+```ini
+[libravengun-hasphook.so]
+To = .
+Preload = true
+Audit = false
+```
 
 ### De grenzen van `LD_AUDIT` (gemeten)
 

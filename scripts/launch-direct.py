@@ -396,6 +396,8 @@ def dropin_specs(game):
                 continue
             specs[naam] = {"name": naam, "to": (sectie.get("To", "") or ".").strip() or ".",
                            "dll": override, "env": env, "preload": truthy(sectie.get("Preload", "")),
+                           # Audit: mag dit bestand in LD_AUDIT van de Wine-start? Zie dropin_plan().
+                           "audit": truthy(sectie.get("Audit", "true")),
                            "dir": dropin_dir, "ini": pad, "src": os.path.join(dropin_dir, naam)}
     return list(specs.values()), fouten
 
@@ -467,6 +469,7 @@ def dropin_plan(plan):
     specs, fouten = dropin_specs(game)
     base = os.path.dirname(plan["game"])
     env, preload, overrides, bestanden = {}, [], [], []
+    audit, geen_audit = [], []
     for s in specs:
         if not os.path.isfile(s["src"]):
             fouten.append("%s [%s]: %s ontbreekt in dropin/" % (s["ini"], s["name"], s["name"]))
@@ -496,6 +499,10 @@ def dropin_plan(plan):
             overrides.append("%s=%s" % (dllnaam, "n" if s["dll"] == "native" else "n,b"))
         if s["preload"]:
             preload.append(dest)
+            if s.get("audit", True):
+                audit.append(dest)
+            else:
+                geen_audit.append(dest)
         env.update(s["env"])
     if overrides:
         delen = [x for x in (plan["env"].get("WINEDLLOVERRIDES", "") or "").split(";") if x]
@@ -516,8 +523,16 @@ def dropin_plan(plan):
         else:
             var = ""
         if var:
+            # LD_AUDIT laadt de bibliotheek in het proces van de Cygwin-lader (ElfLdr2 laadt de
+            # game-ELF in dat proces). Dat is voor librt-glfix het werkende kanaal, maar een
+            # inline-hook die de game wil aanhaken sterft er en neemt de lader mee: gemeten met
+            # libravengun-hasphook (Halo exitcode 1, JurassicPark SIGSEGV). Een drop-in die dat
+            # niet wil zet `Audit = false`; het pad blijft dan in RG_DROPIN_PRELOAD staan.
+            bron = audit if var == "LD_AUDIT" else preload
             delen = [x for x in (plan["env"].get(var, "") or "").split(":") if x]
-            env[var] = ":".join(delen + [p for p in preload if p not in delen])
+            waarde = ":".join(delen + [p for p in bron if p not in delen])
+            if waarde:            # een lege LD_AUDIT hoort niet in de omgeving
+                env[var] = waarde
         else:
             delen = [x for x in (plan["env"].get("RG_DROPIN_PRELOAD", "") or "").split(":") if x]
             env["RG_DROPIN_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
@@ -525,6 +540,7 @@ def dropin_plan(plan):
         delen = [x for x in (plan["env"].get("RG_DROPIN_PRELOAD", "") or "").split(":") if x]
         env["RG_DROPIN_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
     return {"base": base, "files": bestanden, "env": env, "overrides": overrides, "preload": preload,
+            "audit": audit, "geen_audit": geen_audit,
             "specs": specs, "errors": fouten}
 
 
@@ -542,6 +558,10 @@ def dropin_log_lines(plan):
         uit.append("RG_DROPIN_PRELOAD += %s (de native route en de eigen lader zetten dit in LD_PRELOAD van "
                    "het ELF-proces; in de omgeving van Wine kan het niet -- Cygwin sterft eraan)"
                    % ", ".join(dp["preload"]))
+    if dp.get("geen_audit"):
+        uit.append("niet in LD_AUDIT (Audit = false): %s -- deze bibliotheek hoort in het "
+                   "spelproces en niet in het Cygwin-proces van de lader"
+                   % ", ".join(dp["geen_audit"]))
     return uit
 
 

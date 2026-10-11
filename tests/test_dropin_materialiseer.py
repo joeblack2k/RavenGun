@@ -180,6 +180,20 @@ class TestDropinIni(unittest.TestCase):
         self.assertEqual(fouten, [])
         self.assertEqual(specs[0]["to"], ".")
 
+    def test_audit_false_haalt_het_bestand_uit_ld_audit(self):
+        """Een inline-hook die de lader meeneemt hoort niet in LD_AUDIT van het Cygwin-proces."""
+        self.schrijf_ini("[libravengun-hasphook.so]\nTo = .\nPreload = true\nAudit = false\n")
+        specs, fouten = ld.dropin_specs("ProefGame")
+        self.assertEqual(fouten, [])
+        self.assertTrue(specs[0]["preload"])
+        self.assertFalse(specs[0]["audit"])
+
+    def test_audit_staat_standaard_aan(self):
+        """Zonder Audit-sleutel mag het bestand in LD_AUDIT (dat is de oude werking)."""
+        self.schrijf_ini("[librt-glfix.so]\nTo = .\nPreload = true\n")
+        specs, _ = ld.dropin_specs("ProefGame")
+        self.assertTrue(specs[0]["audit"])
+
     def test_een_ini_met_alleen_commentaar_is_geen_fout(self):
         """Een lege drop-in (alleen uitleg) levert geen drop-ins en geen fout op."""
         self.schrijf_ini("; alleen commentaar\n", bom=False)
@@ -243,6 +257,23 @@ class TestNasControle(unittest.TestCase):
         self.assertEqual(uit["errors"], [])
         self.assertEqual([f["name"] for f in uit["files"]], ["proef.dll"])
         self.assertEqual(uit["base"], os.path.dirname(game))
+
+    def test_audit_false_blijft_uit_ld_audit_en_in_rg_dropin_preload(self):
+        """In het plan: Audit = false houdt het bestand uit LD_AUDIT maar niet uit de drop-in."""
+        with open(os.path.join(self.shipped, "ProefGame", "dropin", "dropin.ini"), "w") as f:
+            f.write("[libravengun-hasphook.so]\nTo = .\nPreload = true\nAudit = false\n")
+        with open(os.path.join(self.shipped, "ProefGame", "dropin", "libravengun-hasphook.so"), "w") as f:
+            f.write("x")
+        spel = os.path.join(self.views, "ProefGame", "Binaries", "Win64", "game.exe")
+        with open(spel, "w") as f:
+            f.write("geen PE")            # dus een ELF onder Wine: de LD_AUDIT-route
+        plan = {"profile": "ProefGame", "game": spel, "env": {}, "wine": "/bin/true"}
+        uit = ld.dropin_plan(plan)
+        self.assertEqual(uit["errors"], [])
+        self.assertEqual([f["name"] for f in uit["files"]], ["libravengun-hasphook.so"])
+        self.assertNotIn("LD_AUDIT", uit["env"])
+        self.assertIn("libravengun-hasphook.so", uit["env"].get("RG_DROPIN_PRELOAD", ""))
+        self.assertEqual(len(uit["geen_audit"]), 1)
 
     def test_rechtstreeks_van_de_nas_wordt_geweigerd(self):
         game = os.path.join(self.nas, "Binaries", "Win64", "game.exe")

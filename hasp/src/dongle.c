@@ -86,6 +86,33 @@ static char *dup_str(const char *s)
     return p;
 }
 
+/* Een regiowaarde lezen: het formaat van de laag is een object
+ *   "region": { "field": "DongleRegion", "name": "JAPAN", "game_name": "JPN" }
+ * (docs/region-layer.md). Een losse tekenreeks blijft ook werken.
+ *
+ * Dit is een echte fout geweest: json_str() eist een " en een object begint met {, dus met het
+ * objectformaat bleven out->region en out->pcb leeg -- de emulator las het veld niet dat de
+ * gegevens wel hadden. De waarden worden hier alleen vastgelegd (de regiocode van de game is nog
+ * niet bekend; docs/region-layer.md paragraaf 6), maar wie hem later uitleest hoort de waarde te
+ * zien die in dongle.json staat. */
+static void json_naam(const char *json, const char *key, char *out, size_t outlen)
+{
+    const char *v = json_find(json, key);
+    if (!v) return;
+    if (*v == '"') { json_str(json, key, out, outlen); return; }
+    if (*v != '{') return;
+    char *tmp = dup_str(v);
+    if (!tmp) return;
+    /* alleen het object zelf: afkappen op de bijbehorende sluit-accolade */
+    int depth = 0;
+    for (char *p = tmp; *p; p++) {
+        if (*p == '{') depth++;
+        else if (*p == '}') { depth--; if (depth == 0) { p[1] = '\0'; break; } }
+    }
+    json_str(tmp, "name", out, outlen);
+    free(tmp);
+}
+
 /* Loopt over de objecten in een array met de gegeven naam. */
 typedef void (*obj_cb)(const char *obj_begin, const char *obj_end, void *user);
 
@@ -301,8 +328,8 @@ int dongle_load(const char *dir, dongle_t *out)
     json_array_objects(json, "memory", add_memory, out);
     json_array_objects(json, "stages", add_stage, out);
 
-    json_str(json, "region", out->region, sizeof(out->region));
-    json_str(json, "pcb", out->pcb, sizeof(out->pcb));
+    json_naam(json, "region", out->region, sizeof(out->region));
+    json_naam(json, "pcb", out->pcb, sizeof(out->pcb));
 
     const char *port = json_find(json, "port");
     if (port && *port == '{') {

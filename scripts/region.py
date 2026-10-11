@@ -3,8 +3,13 @@
 # De regio/PCB-laag van RavenGun: welke game vraagt een regio- en printplaat-dongle, welke waarden
 # horen daarbij, en is die waarde vandaag ook echt een blokkade?
 #
-# De laag is gegevens, geen binary. Een game die een regio-dongle vraagt heeft in zijn eigen map
-# patches/<Game>/dongle.json staan (docs/dropins.md):
+# De laag is gegevens, geen binary. Een game die een regio-dongle vraagt heeft de beschrijving in de
+# drop-in van zijn eigen map staan, naast de rest van de laag (docs/dropins.md en
+# docs/geen-dongle-in-de-loader.md):
+#
+#   patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json
+#
+# De oudere losse plaats patches/<Game>/dongle.json blijft ook werken (die staat er al voor Halo).
 #
 #   {
 #     "kind": "region",
@@ -21,7 +26,7 @@
 # te maken en dit script houdt ze uit elkaar:
 #
 #   dongle      de Sega Ring/Lindbergh-dongle: de game roept amDongleGetRegion() aan (LGI, LGI3D,
-#               LGS). De waarden staan in patches/<Game>/dongle.json.
+#               LGS, Operation G.H.O.S.T.). De waarden staan in de drop-in van de game.
 #   gun-ini     de Taito Type X2-geweren: de game leest een REGION-regel uit zijn eigen ini
 #               (MINIGUN.INI, MUSEUM.INI, HAUNTED2.INI) â€” GaiaAttack4, HauntedMuseum(I/II).
 #               Dat is geen dongle; de launcher schrijft die regel uit het profielveld Region.
@@ -146,6 +151,28 @@ def find_in_patches(game, rel):
         if os.path.exists(p):
             return p
     return None
+
+
+# De laagmap onder dropin/ waarin een donglebeschrijving staat (docs/geen-dongle-in-de-loader.md:
+# patches/<Game>/dropin/<laag>/dongle.json, naast de bibliotheek die hem leest).
+DONGLE_LAAG = "ravengun-hasp"
+
+
+def dongle_json_pad(game):
+    """Het dongle.json van deze game, of None. Eerst de drop-in van de game
+    (patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json), dan de oudere losse plaats
+    patches/<Game>/dongle.json. De gebruikerslaag gaat per plaats voor op de meegeleverde map."""
+    for d in patches_dirs():
+        for rel in (os.path.join("dropin", DONGLE_LAAG, game, "dongle.json"), "dongle.json"):
+            p = os.path.join(d, game, rel)
+            if os.path.isfile(p):
+                return p
+    return None
+
+
+def heeft_dongle(game):
+    """Of deze game een donglebeschrijving heeft (op een van de twee plaatsen)."""
+    return dongle_json_pad(game) is not None
 
 
 def find_tp_dir():
@@ -305,8 +332,8 @@ def scan_markers(path, markers):
 
 
 def lees_dongle(game):
-    """(beschrijving, pad, foutenlijst) van patches/<Game>/dongle.json."""
-    pad = find_in_patches(game, "dongle.json")
+    """(beschrijving, pad, foutenlijst) van het dongle.json van de game (drop-in, anders de losse plaats)."""
+    pad = dongle_json_pad(game)
     if not pad:
         return None, None, []
     try:
@@ -402,8 +429,8 @@ def status(game=None):
     if uit["mechanisme"] == "geen":
         # Een game die helemaal niet bestaat zou stil "in orde" melden; dat mag niet.
         if not settings and not desc:
-            uit["errors"].append("onbekende game: geen patches/%s/game.ini en geen patches/%s/dongle.json"
-                                 % (game, game))
+            uit["errors"].append("onbekende game: geen patches/%s/game.ini en geen dongle.json in zijn drop-in"
+                                 % game)
             uit["message"] = ("%s is onbekend: er is geen game.ini en geen dongle.json in %s."
                               % (game, " of ".join(patches_dirs())))
             return uit
@@ -445,9 +472,12 @@ def status(game=None):
     uit["core_regio_afgehandeld"] = CORE_EVIDENCE[uit["core"]]["regio_afgehandeld"]
 
     if not desc:
-        uit["errors"].append("geen dongle.json in patches/%s (de game vraagt wel een dongle: %s)"
-                             % (game, ", ".join(sorted(merkers)[:3]) or "?"))
-        uit["message"] = "%s vraagt een regio-dongle, maar patches/%s/dongle.json ontbreekt." % (game, game)
+        uit["errors"].append("geen dongle.json voor %s (verwacht: patches/%s/dropin/%s/%s/dongle.json "
+                             "of patches/%s/dongle.json; de game vraagt wel een dongle: %s)"
+                             % (game, game, DONGLE_LAAG, game, game,
+                                ", ".join(sorted(merkers)[:3]) or "?"))
+        uit["message"] = ("%s vraagt een regio-dongle, maar de beschrijving in zijn drop-in ontbreekt "
+                          "(patches/%s/dropin/%s/%s/dongle.json)." % (game, game, DONGLE_LAAG, game))
         return uit
 
     if desc.get("kind") != "region":
@@ -515,7 +545,7 @@ def samenvatting(uit):
         for naam in sorted(os.listdir(d)):
             if naam.startswith("_") or naam in gezien:
                 continue
-            if not os.path.isfile(os.path.join(d, naam, "dongle.json")):
+            if not heeft_dongle(naam):
                 continue
             gezien.add(naam)
             st = status(naam)
