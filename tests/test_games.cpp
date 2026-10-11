@@ -333,12 +333,46 @@ static void test_navcon(const std::string& d) {
     CHECK(!read_navcon(d + "/bestaat-niet").connected);
 }
 
+// Games met een eigen profiel in game.ini (docs/per-game-patches.md): geldig zonder UserProfiles-XML en in de lijst als ze in een gamemap of
+// een view staan.
+static void test_own_profile(const std::string& d) {
+    Config c;
+    c.tp_dir = d + "/own-tp";
+    c.dirs.shipped = d + "/own-patches";
+    c.dirs.user = d + "/own-user";
+    c.home = d + "/own-home";
+    c.library_file = d + "/own-library.json";
+    c.views_dir = d + "/own-views";
+    fs::create_directories(c.tp_dir + "/UserProfiles");
+    write(c.dirs.shipped + "/Eigen/game.ini", "[Game]\nName = Eigen Spel\nExecutable = game.exe\nProfileRevision = 3\n[Identify]\nPath = bin/game.exe\nSize = 3\n[Status]\nNote = Speelbaar.\n");
+    write(c.dirs.shipped + "/ZonderProfiel/game.ini", "[Game]\nName = Alleen status\n");
+    write(c.dirs.shipped + "/Elders/game.ini", "[Game]\nName = Niet geinstalleerd\nExecutable = x.exe\n[Identify]\nPath = x.exe\nSize = 1\n");
+    CHECK(profile_exists(c, "Eigen") && profile_exists(c, "Elders"));        // de XML is niet nodig
+    CHECK(!profile_exists(c, "ZonderProfiel") && !profile_exists(c, "Nope"));
+    // Nog geen gamemap: de lijst bevat de games met een eigen profiel niet.
+    CHECK(list_games(c).empty());
+    write(c.library_file, "{\"schema\":1,\"folders\":[{\"path\":\"" + d + "/own-games\",\"recursive\":true}]}");
+    CHECK(list_games(c).empty());                                           // de gamemap is leeg
+    write(d + "/own-games/Map van Eigen/bin/game.exe", "abc");
+    auto games = list_games(c);
+    CHECK(games.size() == 1 && games[0].profile == "Eigen" && games[0].name == "Eigen Spel" && games[0].note == "Speelbaar.");
+    CHECK(library_folders(c.library_file, c.home).size() == 1);
+    CHECK(library_folders(d + "/bestaat-niet.json", "").empty());
+    // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
+    write(c.views_dir + "/Elders/x.exe", "x");
+    CHECK(list_games(c).size() == 2);
+    write(c.tp_dir + "/UserProfiles/Eigen.xml", "<GameProfile><GameNameInternal>Uit de XML</GameNameInternal></GameProfile>");
+    games = list_games(c);
+    CHECK(games.size() == 2);
+}
+
 int main() {
     std::string d = (fs::temp_directory_path() / ("rg-games-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(d);
     fs::create_directories(d);
     test_names();
     test_list_and_icons(d);
+    test_own_profile(d);
     test_processes(d);
     test_service(d);
     test_unit_cgroup(d);

@@ -4,8 +4,10 @@
 #
 # Wat TeknoParrotUi bij een start doet, en wat dit script daarvan overneemt (gelezen in de open bron van TeknoParrotUI,
 # branch net8-migration, en gemeten aan een lopende sessie; eigen code, niets overgenomen):
-#   1. Profiel lezen: UserProfiles/<P>.xml (met GameProfiles/<P>.xml voor ontbrekende velden), plus de omgeving uit
-#      patches/<P>/game.ini (gamesettings.py; terugval: het oude UserProfiles/<P>.env) en --env.
+#   1. Profiel lezen: het eigen profiel in patches/<P>/game.ini (meegeleverd + gebruikerslaag: [Game], [Config], [Identify], ...; het pad naar de
+#      game wordt afgeleid uit de gamemappen, zie scripts/ownprofile.py), zonder UserProfiles/<P>.xml. Heeft game.ini geen eigen profiel, dan
+#      UserProfiles/<P>.xml (met GameProfiles/<P>.xml voor ontbrekende velden). Plus de omgeving uit game.ini (gamesettings.py; terugval: het oude
+#      UserProfiles/<P>.env) en --env. Revisie: ProfileRevision moet gelijk zijn aan die van het sjabloon, anders exit 4 (opnieuw importeren).
 #   2. De lader kiezen per EmulatorType (antwoorden_ronde2.md vraag 8): ElfLdr2 -> ElfLdr2/BudgieLoader.exe of
 #      ElfLdr2/x64/BudgieLoader_x64.exe; TeknoParrot -> OpenParrotLoader(64).exe met de kern TeknoParrot/TeknoParrot(64)
 #      als eerste argument; OpenParrot -> idem met OpenParrot(64); enz. Aanroep: wine <lader> [<kern>] "<exe>" [extra].
@@ -53,6 +55,7 @@ import hashlib
 sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
+import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -122,23 +125,15 @@ class SettingRefused(PatchRefused):
 # Profiel
 
 def _scalars(root):
-    return {c.tag: (c.text or "") for c in root if len(c) == 0}
+    return op.read_scalars(root)
 
 
 def _fields(root):
-    out = []
-    cv = root.find("ConfigValues")
-    if cv is None:
-        return out
-    for fi in cv.findall("FieldInformation"):
-        opts = [s.text or "" for s in fi.findall("FieldOptions/string")]
-        out.append({"category": fi.findtext("CategoryName") or "", "name": fi.findtext("FieldName") or "",
-                    "value": fi.findtext("FieldValue") or "", "type": fi.findtext("FieldType") or "",
-                    "options": opts})
-    return out
+    return op.read_fields(root)
 
 
 def load_profile(tp, name):
+    """Het profiel uit TeknoParrotUi's UserProfiles/<P>.xml (terugval voor een game zonder eigen profiel in game.ini)."""
     user = os.path.join(tp, "UserProfiles", name + ".xml")
     stock = os.path.join(tp, "GameProfiles", name + ".xml")
     if not os.path.isfile(user):
@@ -162,8 +157,25 @@ def load_profile(tp, name):
     return p
 
 
+def load_own_profile(tp, name, settings):
+    """Het eigen profiel uit game.ini (meegeleverd + gebruikerslaag): geen UserProfiles/<P>.xml nodig. Het pad naar de game wordt
+    afgeleid uit de gamemappen ([Identify]); alleen een override van de gebruiker ([Game] GamePath) wordt gelezen.
+    Revisiecontrole: ProfileRevision moet gelijk zijn aan GameProfileRevision van het sjabloon in de runtime, anders is het profiel
+    gemaakt voor een andere versie van de velden (opnieuw importeren)."""
+    stock = op.read_xml_profile(op.template_path(tp, name))
+    have = settings.get("Game", {}).get("ProfileRevision", "")
+    if stock is not None and stock[0].get("GameProfileRevision", "") != have:
+        raise Unsupported("profielrevisie %s in game.ini wijkt af van het sjabloon (%s); importeer het profiel opnieuw: "
+                          "scripts/import-tp-profiles.py %s" % (have or "(geen)", stock[0].get("GameProfileRevision", ""), name))
+    game, how = op.locate_game(name, settings)
+    p = op.profile_from_settings(name, settings, game)
+    p["_game_source"] = how
+    return p
+
+
 def needs_activation(p):
-    """Alleen profielen met Patreon = true vallen onder het abonnement; de rest start zonder activering."""
+    """Alleen profielen met Patreon = true vallen onder het abonnement; de rest start zonder activering. De waarde komt van het sjabloon van
+    de runtime en van de lagen van game.ini (build_plan): geen enkele laag kan het abonnement uitzetten."""
     return p.get("Patreon", "").strip().lower() == "true"
 
 
@@ -564,17 +576,25 @@ def display_size(env):
     return 1920, 1080
 
 
-def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False):
+def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False, use_own=True):
     """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen); materialize_patches maakt ook de gepatchte
-    kopieën (alleen bij --run)."""
-    p = load_profile(tp, name)
+    kopieën (alleen bij --run). use_own=False negeert het eigen profiel in game.ini en leest altijd UserProfiles/<P>.xml (voor de vergelijking)."""
+    # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
+    settings = gs.load_for_profile(name, tp, log=lambda m: print("[launch-direct] " + m, file=sys.stderr))
+    for w in settings.warnings:
+        print("[launch-direct] instellingen: " + w, file=sys.stderr)
+    own = use_own and op.has_own_profile(settings.settings)
+    p = load_own_profile(tp, name, settings.settings) if own else load_profile(tp, name)
+    # Abonnement: het sjabloon van de runtime of een laag van game.ini met Patreon = true. Niets kan het uitzetten (ook geen eigen profiel).
+    if op.patreon_in_layers(name, tp, p.get("EmulatorType", ""), user=gs.user_dir()):
+        p["Patreon"] = "true"
     pd = parrot_data(tp)
     emu = p.get("EmulationProfile", "")
     if emu in UNSUPPORTED_EMULATION:
         raise Unsupported("EmulationProfile %s heeft eigen startargumenten in TeknoParrotUi (niet nagebouwd)" % emu)
     game = p.get("GamePath", "")
     if not game or not os.path.isfile(game):
-        raise Unsupported("game niet gevonden: %r" % game)
+        raise Unsupported("game niet gevonden: %r%s" % (game, " (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)" if own else ""))
     if truthy(p.get("HasTwoExecutables", "false")):
         raise Unsupported("profielen met twee exe's worden niet direct gestart")
     exe_rel, dll_rel, is64 = resolve_loader(p, tp)
@@ -593,10 +613,6 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         raise Unsupported("kern ontbreekt: %s.dll" % os.path.join(tp, dll_rel))
 
     env = dict(base_env if base_env is not None else os.environ)
-    # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
-    settings = gs.load_for_profile(name, tp, type_hint=et, log=lambda m: print("[launch-direct] " + m, file=sys.stderr))
-    for w in settings.warnings:
-        print("[launch-direct] instellingen: " + w, file=sys.stderr)
     apply_profile_choices(p, settings.settings)
     prof_env = gs.to_env(settings.settings, gamedir)
     env.update(prof_env)
@@ -705,7 +721,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "profile": name, "tp": tp, "emulator_type": et, "emulation_profile": emu, "is64": is64,
         "game": game, "cwd": cwd, "wine": wine, "prefix": prefix, "argv": (gamescope or []) + args,
         "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env, "patches": patch_report,
-        "settings_sources": settings.sources,
+        "settings_sources": settings.sources, "profile_source": "game.ini" if own else "UserProfiles/%s.xml" % name,
+        "game_source": p.get("_game_source", "xml"),
         "files": files, "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),

@@ -144,6 +144,145 @@ en de padvormen van `Prefix` en `WorkingDirectory`. `[Env]` wint van de bekende 
 `_defaults/<Type>.ini` heeft dezelfde vorm, plus een sectie `[NewGame]` die alleen `tp-add-game.py` leest:
 `EnablePatches = <naam>, <naam>` zet die gedeelde patches aan in de gebruikerslaag van een nieuwe game van dat soort.
 
+## Het profiel van een game
+
+Tot nu toe stond het profiel van een game (de velden die TeknoParrotUi in `UserProfiles/<P>.xml` bewaart: lader, 64-bit, de
+`ConfigValues` die in `teknoparrot.ini` komen, het pad naar de game) alleen in dat XML-bestand. RavenGun heeft nu een eigen profiel per game,
+als onderdeel van `game.ini`: de meegeleverde laag bevat wat bij de game hoort (uit het sjabloon `GameProfiles/<P>.xml` van de runtime),
+de gebruikerslaag alleen wat op deze machine of door deze gebruiker afwijkt. `UserProfiles/<P>.xml` is niet meer nodig om te starten.
+De runtime van TeknoParrot (kernen, laders, `pipehelper.exe`, `ParrotData.xml`, de sjablonen in `GameProfiles/`) blijft nodig en wordt
+gelezen zoals voorheen.
+
+```ini
+[Game]
+Name = Let's Go Island: Lost on the Island of Tropics
+Type = TeknoParrot                  ; EmulatorType van het profiel; kiest _defaults/<Type>.ini
+EmulationProfile = SegaJvsLetsGoIsland
+Executable = LGI_RingW_F_safe.exe   ; ExecutableName (en Executable2: ExecutableName2); bepaalt ook de procesnamen die play-halo.sh herkent
+ProfileRevision = 21                ; GameProfileRevision van het sjabloon waaruit geïmporteerd is
+Is64Bit = true                      ; alleen gezet als waar; zo ook Patreon, HasTwoExecutables, LaunchSecondExecutableFirst, UseRemoteThread
+
+[Wine]
+Runner = wrapper                    ; WineRunnerPath: wrapper = ~/.local/share/ravengun/wrappers/wine-prefix, of een pad met ~; leeg = standaard-wine
+
+; Profiel uit TeknoParrot-sjabloon GameProfiles/LGI.xml, revisie 21 (scripts/import-tp-profiles.py; opnieuw importeren in plaats van met de hand wijzigen)
+[Identify]
+Path = LGI_RingW_F_safe.exe         ; hoofdbestand, relatief aan de map van de game (de submap van een gamemap)
+Size = 6481920                      ; grootte in bytes (stat; goedkoop, ook op de NAS)
+
+[Config]                            ; de ConfigValues: Categorie/Veld = waarde
+General/Input API = RawInput
+General/Windowed = 1
+FFB Blaster/Enable = 0
+
+[ConfigType]                        ; type per veld, in de volgorde van teknoparrot.ini
+General/Input API = Dropdown
+General/Windowed = Bool
+FFB Blaster/Enable = Bool
+
+[ConfigOptions]                     ; keuzelijst (alleen bij Dropdown e.d.), gescheiden door |
+General/Input API = DirectInput|XInput|RawInput
+```
+
+De gebruikerslaag (`~/.local/share/ravengun/patches/LGI/game.ini`) bevat alleen verschillen:
+
+```ini
+[Config]
+General/Windowed = 0                ; afwijkend van het sjabloon
+```
+
+### Sleutels
+
+- `[Game]`: `Executable`, `Executable2` (alleen vastgelegd; de start met twee exe's komt later), `Type` (de bestaande sleutel; de
+  `EmulatorType`), `EmulationProfile` (bestond al), `Is64Bit`, `ProfileRevision`, `Patreon` (informatief, overgenomen uit het sjabloon;
+  zie "Abonnement"), `MsysType`, `GameVersion`, `HasTwoExecutables`, `LaunchSecondExecutableFirst`.
+- `[Launch]`: `UseRemoteThread` (profielveld; iets anders dan `[Loader] RemoteThread`, de omgevingsvariabele), `ExtraParameters`,
+  `CustomArguments`. `[Display] GamescopeCompatibility` (`GamescopeGameWindowCompatibility`), `[Wine] PrefixMode` (`WinePrefixMode`),
+  `[Wine] Runner` (`WineRunnerPath`).
+- De vertaling tussen deze namen en de veldnamen van het TeknoParrot-profiel staat op één plek: `PROFILE_FIELDS` in
+  `scripts/ownprofile.py`, met een tabel `kProfileFields` in `src/ravengun/gamesettings/gamesettings.cpp` die `tests/test_ownprofile.py` ertegen
+  controleert. Een veld dat het profiel niet of als `false`, `0` of `Default` heeft, staat er niet.
+- `[Identify]` (zie "De game vinden"), `[Config]`, `[ConfigType]` en `[ConfigOptions]` (de ConfigValues).
+
+**ConfigValues.** De sleutel is `Categorie/Veldnaam` en wordt bij de eerste `/` gesplitst (categorieën bevatten er geen; veldnamen
+wel, zoals `Keyboard/Button Axis`). `[ConfigType]` bepaalt welke velden er zijn en in welke volgorde ze in `teknoparrot.ini` komen;
+`[Config]` geeft de waarde (afwezig of leeg = leeg veld); `[ConfigOptions]` de keuzelijst. Een sleutel in de gebruikerslaag wint per sleutel;
+`Categorie/Veld =` (leeg) maakt het veld leeg. `teknoparrot.ini` uit het eigen profiel is byte voor byte gelijk aan die uit de XML
+(`tools/compare-launch-plans.py` controleert dat voor alle profielen). Wat het INI-formaat niet kan dragen (een waarde met ` ;` of een
+regeleinde, een `=` in een naam) weigert de importer met een melding; de game blijft dan op de XML terugvallen.
+
+**Revisie.** Is `[Game] ProfileRevision` anders dan `GameProfileRevision` van het sjabloon in de runtime, dan weigert `launch-direct.py`
+(exitcode 4, zoals een niet ondersteund profiel) met de melding dat het profiel opnieuw geïmporteerd moet worden:
+`scripts/import-tp-profiles.py <Game>`.
+
+### De game vinden: gamemappen en `[Identify]`
+
+Het pad naar de game staat **nergens**: niet in de repo en normaal ook niet in de gebruikerslaag. De app bewaart alleen de gamemappen
+(`~/.config/ravengun/library.json`, `folders`; "Add Folder" in Settings > Paths, bij Dolphin `ISOPath0..N`) en herkent een game daarin aan
+`[Identify]` (bij Dolphin het game-ID). Het pad wordt afgeleid, in deze volgorde:
+
+1. `[Game] GamePath` in de gebruikerslaag (een afwijkend pad dat de gebruiker zelf koos; de uitzondering, nooit in de repo);
+2. een lokale view `~/.local/share/ravengun/runtime/views/<Game>/` (door `tp-add-game.py --view` gemaakt) waarin `Path` bestaat;
+3. de gamemappen: elke submap van een gamemap (en de gamemap zelf) waarin `Path` bestaat en waarvan de grootte (`Size`) en eventueel de
+   sha256 (`Sha256`) kloppen.
+
+`Path` is relatief aan de map van de game. `Size` is de grootte van dat bestand. `Path2` (alleen bij games met twee exe's, HOTDSD) is het pad van de tweede exe
+in dezelfde map; het wordt alleen gebruikt om `GamePath2` in de XML voor TeknoParrotUi te zetten. Hebben twee games een identiek hoofdbestand (twee Unity-games met
+dezelfde `Game.exe`), dan legt de importer de `Sha256` vast en zo nodig `Folder` (de naam van de map, hoofdletters maken niet uit). Een andere
+versie van het bestand (andere grootte) wordt niet herkend; kies dan het pad zelf (`GamePath`) of importeer opnieuw. Python
+(`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de engine heeft geen hashfunctie en let
+dan op pad, grootte en mapnaam.
+
+### Importer
+
+`scripts/import-tp-profiles.py [--all | PROFIEL...] [--runtime TP] [--out DIR] [--user DIR] [--game-folder DIR]... [--hash] [--add-to-library] [--dry-run] [--check]`
+leest uit de runtime (alleen gelezen) `UserProfiles/<P>.xml` en `GameProfiles/<P>.xml` en schrijft:
+
+- in `--out` (standaard `patches/`): de statische delen uit het sjabloon, met een commentaarregel boven `[Identify]` die het sjabloon en de revisie
+  noemt. Handwerk en commentaar in een bestaand `game.ini` blijven staan; alleen de beheerde sleutels en de secties `[Identify]`, `[Config]`,
+  `[ConfigType]` en `[ConfigOptions]` worden opnieuw gezet (idempotent: een tweede run verandert niets);
+- in `--user` (standaard de gebruikerslaag): alleen wat het gebruikersprofiel anders heeft dan het sjabloon (waarden van de ConfigValues,
+  afwijkende profielvelden, een eigen wine-pad) en `[Game] GamePath` als de gamemappen de game niet op hetzelfde bestand terugvinden als het
+  huidige `GamePath` van het profiel.
+
+`--game-folder` geeft de gamemappen op (naast die uit `library.json`); ze bepalen de wortel van `[Identify]`. `--add-to-library` voegt ze ook toe aan
+`library.json`. Nooit overgenomen: `JoystickButtons` en andere invoertoewijzingen van TeknoParrotUi (onze invoer staat in `[Input]` en
+`[Bindings]`), sleutels, serials, tokens of de activering. Een gebruikersprofiel met een andere revisie dan het sjabloon wordt alleen als
+sjabloon geïmporteerd (met een melding). Een game zonder sjabloon in de runtime wordt overgeslagen of, bij een expliciete naam, als fout gemeld.
+
+`tp-add-game.py` zet voor een nieuwe game het hele profiel uit het sjabloon in de **gebruikerslaag** (er is geen meegeleverd profiel), of alleen de
+keuzes van de aanroeper als er al een meegeleverd profiel is; het schrijft daarnaast `UserProfiles/<P>.xml` als uitvoerformaat (zie hieronder).
+
+### TeknoParrotUi en de XML als uitvoerformaat
+
+Voor een start via TeknoParrotUi (`[Launch] Mode = tpui`, bv. HOTDSD, en de terugval als direct niet kan) schrijft `play-halo.sh`
+vóór de start `UserProfiles/<P>.xml` uit `game.ini` (`scripts/gamesettings.py write-xml <P>`): bestaat het bestand, dan worden alleen `GamePath`,
+`WineRunnerPath` en de waarden van de ConfigValues bijgewerkt (knoppen en wat TeknoParrotUi zelf wijzigde blijven staan); anders wordt het uit het
+sjabloon gemaakt, met de bindingen van RavenGun (`[Bindings]`, `scripts/tpxml.py`). De directe start (`launch-direct.py`) leest de XML niet. Een
+game zonder eigen profiel gedraagt zich als voorheen (XML, en het oude `.env` als laagste laag).
+
+### Abonnement
+
+`needs_activation` in `launch-direct.py` is waar zodra het sjabloon in `GameProfiles/` `Patreon = true` zegt, **of** een laag van `game.ini`
+(standaard van het soort, meegeleverd of gebruiker) `Patreon = true` zegt. Geen enkele laag kan het uitzetten: `Patreon = false` of een lege
+waarde in de gebruikerslaag telt niet. `check_activation` is ongewijzigd (alleen kijken of TeknoParrotUi de activering in de prefix zette); er wordt
+geen sleutelwaarde gelezen en geen activering geïmporteerd of nagebootst. `Patreon` in `game.ini` is een informatieve true of false, nooit een sleutel.
+
+## Zoals Dolphin
+
+Het model is Dolphin's GameSettings; dit zijn de overeenkomsten en de enige uitzondering:
+
+| Dolphin | RavenGun |
+|---|---|
+| `Sys/GameSettings/<ID>.ini`, meegeleverd | `patches/<Game>/game.ini` (met `_defaults/<Type>.ini` als de standaard van het soort) |
+| `User/GameSettings/<ID>.ini`, wint per sleutel | `~/.local/share/ravengun/patches/<Game>/game.ini`; een lege waarde haalt een sleutel weg |
+| de gebruikerslaag bevat alleen niet-standaardwaarden | idem: de app (Properties) en `tp-add-game.py` schrijven alleen verschillen met de meegeleverde laag; een waarde die terug gelijk is, verdwijnt uit de gebruikerslaag |
+| `Dolphin.ini [General] ISOPath0..N`: alleen de spelmappen | `library.json` `folders` (Settings > Paths > Game Folders) |
+| een game wordt herkend aan zijn ID bij het scannen | aan `[Identify]` (pad, grootte, eventueel sha256) in de gamemappen; het pad wordt afgeleid, niet opgeslagen |
+| per game wordt over paden niets opgeslagen | idem; alleen een handmatig gekozen afwijkend pad staat als `[Game] GamePath` in de gebruikerslaag |
+| vaste secties per onderwerp (`[Core]`, `[Video_Settings]`) | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input]`, `[Env]`, `[Bindings]`, `[Status]`, en voor het profiel `[Identify]`, `[Config]`, `[ConfigType]`, `[ConfigOptions]` |
+| Properties-dialoog met tabs | Properties: General, Options, Display, Patches, Memory Card, Info; ze schrijven alleen verschillen |
+
 ## `patches.ini`
 
 Elke patch is een eigen sectie met een naam, zoals `$Naam` bij Dolphin. Een patch die meer games delen staat **één keer** als
@@ -215,20 +354,25 @@ integriteits- of abonnementscontroles, en niets op uitgepakte beschermde code. D
 
 | Onderdeel | Leest |
 |---|---|
-| `scripts/launch-direct.py` | `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input] Jvs*`, `[Env]`, `patches.ini` (via `gamesettings.py`) |
-| `scripts/play-halo.sh` | `[Input]` (route, indeling, bord, poort), `[Launch] Mode`, en de omgeving (`gamesettings.py env`) voor de eenheid |
+| `scripts/launch-direct.py` | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input] Jvs*`, `[Env]`, `[Identify]`, `[Config*]`, `patches.ini` (via `gamesettings.py` en `ownprofile.py`); zonder eigen profiel de XML |
+| `scripts/play-halo.sh` | `[Input]` (route, indeling, bord, poort), `[Launch] Mode`, de omgeving (`gamesettings.py env`) voor de eenheid, de procesnamen (`gamesettings.py comms`) en, voor een start via TeknoParrotUi, `gamesettings.py write-xml` |
 | engine (`iobridge/routes.cpp`, `games/games.cpp`) | `[Input]`, bij elke start opnieuw (een keuze in de app geldt zonder herstart); `[Status] Note` voor de web-UI |
-| app (`GameData`, `PropertiesDialog`) | `[Input]`, `[Status]`, `[Game]`; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze schrijft `[Input] Route` in de gebruikerslaag |
-| `scripts/tp-add-game.py` | schrijft een nieuw gebruikers-`game.ini` (en `patches.ini`) in plaats van een `.env`; leest `[Bindings]` en `[NewGame]` |
+| engine (`games/games.cpp`) | `[Game]` (eigen profiel: een game met `Executable` of `ProfileRevision` is een geldig profiel zonder XML en staat in de lijst als hij in een gamemap of view staat), `[Identify]` |
+| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `[Input]`, `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
+| `scripts/tp-add-game.py` | schrijft het profiel (uit het sjabloon) en de keuzes in het gebruikers-`game.ini` (en `patches.ini`), plus `UserProfiles/<P>.xml` als uitvoerformaat; leest `[Bindings]` en `[NewGame]` |
+| `scripts/import-tp-profiles.py` | maakt de profieldelen van `game.ini` uit de runtime (zie "Importer") |
 | `scripts/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |
 | `scripts/migrate-game-settings.py` | maakt de meegeleverde bestanden uit de oude bronnen (zie "Overgang") |
 
 Gedeelde bibliotheken blijven centraal, zoals de controllerprofielen bij Dolphin: tp-shm-indelingen
 (`tp-shm-profiles.json`), JVS- en HID-borden (`jvs-boards.json`, `hid-boards.json`). Een game verwijst ernaar met een naam.
 
-De opties in de app (Properties > Options, Display) schrijven nog naar `UserProfiles/<P>.env` (en naar het profiel); alleen de gamescope-keuze
-wordt daarnaast in de gebruikerslaag gezet. Omdat `game.ini` voor het oude `.env` gaat, werkt een optie die een meegeleverde
-waarde moet opheffen pas als ook die optie naar de gebruikerslaag schrijft (open punt, zie `docs/todo.md`).
+De opties in de app (Properties > Options en Display) schrijven voor een game met een eigen profiel naar de gebruikerslaag van `game.ini`, en alleen
+als ze van de meegeleverde waarde afwijken: een profielveld naar `[Config]`, een profielveld van het hoogste niveau (`WineRunnerPath`) en een
+omgevingsvariabele (`TP_GAMESCOPE`, `TP_POSTSTART_REMOTETHREAD_MS`) naar hun sleutel uit `ENV_MAP` (`[Display] Gamescope`, `[Loader] PostStartMs`),
+overige variabelen naar `[Env]`. Een waarde die terug gelijk is aan de meegeleverde haalt de sleutel uit de gebruikerslaag weg; een optie die een
+meegeleverde waarde moet opheffen schrijft een lege waarde (`Gamescope =`). `UserProfiles/<P>.xml` en `<P>.env` worden voor zo'n game niet meer
+geschreven. Een game zonder eigen profiel gedraagt zich als voorheen.
 
 ## Overgang
 
@@ -243,3 +387,7 @@ waarde moet opheffen pas als ook die optie naar de gebruikerslaag schrijft (open
    "legacy .env" op stderr); `RAVENGUN_NO_LEGACY_ENV=1` slaat het over. Daarna wordt het niet meer gebruikt.
 3. `io-routes.json` en `games-notes.json` zijn uit `packaging/` verdwenen; er is één bron per game. De routekeuze van de gebruiker uit
    `~/.config/ravengun/io-routes.json` wordt niet meer gelezen: kies opnieuw in Properties of zet `[Input] Route` in je eigen `game.ini`.
+4. Eigen profielen (zie "Het profiel van een game"): `scripts/import-tp-profiles.py --all` heeft de profieldelen van alle games in `patches/` gemaakt uit de
+   runtime. Wat daarna van `UserProfiles/` overblijft is een uitvoerformaat voor TeknoParrotUi; de bibliotheek, de engine en de directe start hebben het
+   niet meer nodig. De gamemappen die de games bevatten moeten in `library.json` staan (Settings > Paths > Game Folders, of
+   `import-tp-profiles.py --game-folder DIR --add-to-library`).

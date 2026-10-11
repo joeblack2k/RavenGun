@@ -5,7 +5,8 @@
 #
 # Gebruik: scripts/play-halo.sh [--profile NAAM] [--record TAG] [--no-wait-move] [--direct|--tpui] [--log-full]
 #          scripts/play-halo.sh --stop        (game stoppen, opname stoppen, uitvoer ontwapenen)
-# --profile: TeknoParrot-profiel uit UserProfiles/ (standaard Halo; bv. JurassicPark, zie tp-add-game.py).
+# --profile: profielnaam (standaard Halo; bv. JurassicPark): een game met een eigen profiel in patches/<PROFIEL>/game.ini
+#            (scripts/import-tp-profiles.py, tp-add-game.py), anders een profiel uit UserProfiles/ van TeknoParrot.
 # --gamescope: laat TeknoParrotUI de game in gamescope draaien (TP_GAMESCOPE=1; schaalt een venster-game schermvullend,
 #              werkt o.a. voor Terminator Salvation; staat daar ook in UserProfiles/Terminator.env).
 # --route R: invoerroute afdwingen (evdev | tp-shm | unity-tcp | hid-board | jvs); standaard [Input] Route uit
@@ -66,6 +67,9 @@ build_game_comms() {
   GAME_COMMS="|budgieloader_x6|budgieloader.ex|openparrotloade|"
   # Native route: de game draait onder dit comm (bestandsnaam van de exe uit native-games.json, op 15 tekens afgekapt).
   [[ -n "${NATIVE_EXE:-}" ]] && { n="${NATIVE_EXE,,}"; GAME_COMMS+="${n:0:15}|"; }
+  # Eigen profiel in game.ini (Executable, Executable2 en het afgeleide pad); anders de XML van TeknoParrotUi.
+  v=$(python3 -I "$ROOT/scripts/gamesettings.py" --tp "$TP" comms "$PROFILE" 2>/dev/null || true)
+  if [[ -n "$v" ]]; then GAME_COMMS+="$v|"; return 0; fi
   [[ -f "$f" ]] || return 0
   while IFS= read -r v; do
     IFS=';' read -ra parts <<< "$v"
@@ -204,7 +208,8 @@ if [[ $USE_TP -eq 0 && $NATIVE -eq 0 && "$ROUTE" != tp-shm ]] && grep -qE "^[[:s
   "$ROOT/scripts/play-unity.sh" "${UARGS[@]}"
   exit $?
 fi
-[[ $NATIVE -eq 1 || -f "$TP/UserProfiles/$PROFILE.xml" ]] || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py)"
+# Een game heeft een eigen profiel in game.ini (docs/per-game-patches.md) of, als terugval, een UserProfiles/<PROFIEL>.xml van TeknoParrotUi.
+[[ $NATIVE -eq 1 || -f "$TP/UserProfiles/$PROFILE.xml" ]] || gset has-profile "$PROFILE" 2>/dev/null || fail "Onbekend profiel: $PROFILE (zie scripts/tp-add-game.py en scripts/import-tp-profiles.py)"
 
 # Startwijze (A10): direct (scripts/launch-direct.py, zonder TeknoParrotUi) of teknoparrot-ui. Volgorde: --direct/--tpui, anders
 # [Launch] Mode in game.ini (gebruikerslaag over de meegeleverde), anders teknoparrot-ui. --teknoparrot (route evdev) betekent de UI.
@@ -320,6 +325,12 @@ while IFS= read -r L || [[ -n "$L" ]]; do
 done < <(gset env "$PROFILE" || true)
 SDENV=(); for E in "${EXTRA_ENV[@]}"; do SDENV+=(-E "$E"); done
 [[ ${#EXTRA_ENV[@]} -gt 0 ]] && echo "Extra omgeving: ${EXTRA_ENV[*]}"
+
+# Een start via TeknoParrotUi leest UserProfiles/<PROFIEL>.xml: dat is alleen een uitvoerformaat dat uit het eigen profiel in game.ini wordt
+# bijgewerkt (zonder eigen profiel verandert er niets). De directe start leest de XML niet.
+if [[ $NATIVE -eq 0 && "$LAUNCH" != direct ]]; then
+  gset write-xml "$PROFILE" >/dev/null || fail "Kon het profiel van $PROFILE niet voor TeknoParrotUi klaarzetten (zie hierboven)."
+fi
 
 mkdir -p "$LOGDIR"; LOG="$LOGDIR/tpui-$(date +%Y%m%d-%H%M%S).log"
 systemctl --user stop "$UNIT.service" 2>/dev/null || true

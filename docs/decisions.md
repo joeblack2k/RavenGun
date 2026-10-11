@@ -619,3 +619,30 @@ punt 12; de rest van het pakket is niet verder bekeken. Een geen-geldige-dongle-
 
 Een tweede keuzewaarde (een officiële licentie via een fabrikant-runtime) komt er alleen als Raw Thrills bevestigt dat zoiets
 bestaat en levert.
+
+## 2026-10-11 — Eigen spelprofielen in game.ini (zonder UserProfiles-XML)
+
+Uitwerking in `docs/per-game-patches.md` ("Het profiel van een game", "Zoals Dolphin"). Het profiel dat TeknoParrotUi in `UserProfiles/<P>.xml` bewaart is nu
+onderdeel van `patches/<Game>/game.ini` (statisch, uit het sjabloon) en de gebruikerslaag (alleen afwijkingen), zoals Dolphin Sys/GameSettings en
+User/GameSettings. Gekozen en wat afwijkt van het ontwerp:
+
+- **Pad niet opgeslagen.** `GamePath` staat niet in de repo en normaal ook niet in de gebruikerslaag: de app bewaart alleen de gamemappen
+  (`library.json`, bij Dolphin `ISOPath0..N`) en herkent een game aan `[Identify]` (`Path`, `Size`, optioneel `Sha256` en `Folder`). Het pad is afgeleid
+  uit een lokale view of de gamemappen; alleen een handmatig afwijkend pad is `[Game] GamePath` in de gebruikerslaag. Toegevoegd ten opzichte van het ontwerp:
+  `Sha256` en `Folder`, omdat twee Unity-games (Rampage, Rabbids Hollywood) een byte-voor-byte gelijke `Game.exe` hebben; de importer legt ze alleen vast
+  als pad en grootte niet eenduidig zijn. `Folder` is een mapnaam, geen pad.
+- **ConfigValues** als `[Config]` (`Categorie/Veld = waarde`), `[ConfigType]` (type en volgorde) en `[ConfigOptions]` (keuzelijst met `|`); een lege waarde is een leeg
+  veld, dezelfde regel als overal. `teknoparrot.ini` is byte voor byte gelijk (`tools/compare-launch-plans.py`, alle profielen).
+- **Importer** `scripts/import-tp-profiles.py`; `scripts/ownprofile.py` is de enige plek voor de vertaling profielveld naar sleutel (`PROFILE_FIELDS`) en voor het
+  afleiden van het pad; de C++-tabellen (`kProfileFields`, `kEnvMap`) worden door `tests/test_ownprofile.py` ertegen gecontroleerd.
+- **Abonnement.** `needs_activation` = het sjabloon zegt `Patreon = true` of een laag van game.ini zegt het; geen laag kan het uitzetten. `check_activation` ongewijzigd.
+  `Patreon` in game.ini is een informatieve true of false (het is geen sleutel in de zin van `NEVER_IN_FILES`; de importer neemt nooit sleutels of activering over).
+- **`[Wine] Runner = wrapper`** staat in de repo voor games die de wrapper `wrappers/wine-prefix` gebruiken (projectafspraak, `install-user.sh` maakt hem); een ander
+  wine-pad is van de machine en staat in de gebruikerslaag.
+- **TeknoParrotUi blijft mogelijk** voor `Mode = tpui` en als terugval: `play-halo.sh` schrijft de XML dan uit game.ini (`gamesettings.py write-xml`); een bestaand
+  bestand wordt alleen bijgewerkt, zodat knoppen en wat TeknoParrotUi zelf wijzigde blijven staan.
+- **App en engine.** De bibliotheek vindt games met een eigen profiel via de gamemappen; de opties (Options, Display, "More game settings") schrijven alleen verschillen
+  naar de gebruikerslaag (open punt uit de vorige refactor opgelost); de engine (`games.cpp`) accepteert zo'n profiel zonder XML (`profile_exists`) en toont het in de lijst
+  als het in een gamemap of view staat.
+- Niet gedaan: de start met twee exe's (`Executable2` is alleen vastgelegd), een eigen invoerlaag voor `JoystickButtons` (onze invoer staat in `[Input]` en `[Bindings]`),
+  en het weghalen van `.env` als laagste laag.

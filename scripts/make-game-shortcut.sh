@@ -2,7 +2,7 @@
 # Maakt (of verwijdert) een bureaubladsnelkoppeling voor een game die via RavenGun start.
 # Gebruik: scripts/make-game-shortcut.sh PROFIEL "Naam op het bureaublad"
 #          scripts/make-game-shortcut.sh --remove PROFIEL
-# Het profiel is de naam in TeknoParrot (UserProfiles/<PROFIEL>.xml); de snelkoppeling start
+# Het profiel is de naam van de game: een eigen profiel in patches/<PROFIEL>/game.ini, of een profiel van TeknoParrot (UserProfiles/<PROFIEL>.xml); de snelkoppeling start
 # scripts/play-halo.sh --profile PROFIEL (die zelf de juiste route kiest: TeknoParrot of de Unity-route).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,7 +16,7 @@ if [[ "${1:-}" == --remove ]]; then
 fi
 P="${1:?profiel}"; NAME="${2:?naam}"
 [[ "$P" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Ongeldige profielnaam" >&2; exit 2; }
-[[ -f "$TP/UserProfiles/$P.xml" ]] || { echo "Onbekend profiel: $P" >&2; exit 1; }
+[[ -f "$TP/UserProfiles/$P.xml" ]] || python3 -I "$ROOT/scripts/gamesettings.py" has-profile "$P" 2>/dev/null || { echo "Onbekend profiel: $P" >&2; exit 1; }
 ICON="$TP/Icons/$P.png"; [[ -f "$ICON" ]] || ICON=input-gaming
 mkdir -p "$OUT"
 cat > "$OUT/game-$P.desktop" <<EOD

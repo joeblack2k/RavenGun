@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "core/GameLibrary.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -332,6 +333,51 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
         }
         r.log << QStringLiteral("TeknoParrot user profiles: %1 (%2)").arg(tp.size()).arg(tpDir);
     }
+    // 1b. Games met een eigen profiel in game.ini (patches/<Game>/ en de gebruikerslaag): het pad wordt niet opgeslagen maar afgeleid, uit de
+    // lokale view van de game of uit de gamemappen aan [Identify] (zoals Dolphin games herkent op hun ID). Een game die er niet staat, is niet
+    // geinstalleerd en komt niet in de lijst; een profiel dat ook als UserProfiles/<P>.xml bestaat, komt hier uit game.ini.
+    if (!in.ownGames.isEmpty()) {
+        std::vector<std::string> folderPaths;
+        for (const LibraryFolder& lf : in.folders) folderPaths.push_back(QDir::cleanPath(AppPaths::expandHome(lf.path)).toStdString());
+        const ravengun::gamesettings::HashFn hash = [](const std::string& path) {
+            QFile f(QString::fromStdString(path));
+            if (!f.open(QIODevice::ReadOnly)) return std::string();
+            QCryptographicHash h(QCryptographicHash::Sha256);
+            h.addData(&f);
+            return QString::fromLatin1(h.result().toHex()).toStdString();
+        };
+        QHash<QString, int> byProfile;
+        for (int i = 0; i < tp.size(); ++i) byProfile.insert(tp[i].profile, i);
+        int located = 0;
+        for (const OwnGame& og : in.ownGames) {
+            if (cancelled()) break;
+            if (!profileNameRe().match(og.profile).hasMatch()) continue;
+            if (progress) progress(QStringLiteral("Looking for %1").arg(og.profile));
+            std::string how;
+            const std::string exe = ravengun::gamesettings::locate_game(og.profile.toStdString(), og.settings, folderPaths, in.viewsDir.toStdString(),
+                                                                         AppPaths::homeDir().toStdString(), &how, hash);
+            if (exe.empty() || !QFileInfo::exists(QString::fromStdString(exe))) continue;
+            TpProfile tpl;
+            if (!tpDir.isEmpty()) tpl.load(tpDir + QStringLiteral("/GameProfiles/") + og.profile + QStringLiteral(".xml"));
+            GameEntry g = tpEntry(tpDir, og.profile, tpl);
+            if (!og.name.isEmpty()) g.name = og.name;
+            if (g.emulator.isEmpty()) g.emulator = QString::fromStdString(og.settings.get("Game", "Type"));
+            if (g.platform.isEmpty() || g.platform == g.emulator) g.platform = platformLabel(g.emulator);
+            g.exePath = QString::fromStdString(exe);
+            const QString rel = QString::fromStdString(ravengun::gamesettings::identify_of(og.settings).path);
+            g.folder = !rel.isEmpty() && g.exePath.endsWith(QLatin1Char('/') + rel) ? g.exePath.left(g.exePath.size() - rel.size() - 1) : QFileInfo(g.exePath).path();
+            g.exeExists = true;
+            exeToProfile.insert(canon(g.exePath), og.profile);
+            if (byProfile.contains(og.profile)) tp[byProfile.value(og.profile)] = g;
+            else {
+                byProfile.insert(og.profile, static_cast<int>(tp.size()));
+                tp << g;
+            }
+            ++located;
+            r.log << QStringLiteral("%1: %2 (from %3)").arg(og.profile, g.exePath, QString::fromStdString(how));
+        }
+        r.log << QStringLiteral("Games with their own profile: %1 of %2 found").arg(located).arg(in.ownGames.size());
+    }
 
     // 2. Unity-route.
     struct Unity { QString key, name, dir, exe; };
@@ -633,6 +679,8 @@ void GameLibrary::rescan() {
     in.folders = data_.folders;
     in.known = known_;
     in.tpDir = data_.effectiveTpDir();
+    in.ownGames = own_;
+    in.viewsDir = AppPaths::viewsDir();
     in.aagamesJson = AppPaths::packagingFile(QStringLiteral("aagames-games.json"));
     const quint64 gen = ++gen_;
     cancel_ = std::make_shared<std::atomic<bool>>(false);

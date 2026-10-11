@@ -38,6 +38,9 @@ struct Config {
     std::string play_script;   // absoluut pad naar scripts/play-halo.sh
     std::string log_path;      // uitvoer van de laatste start (leeg = geen)
     ravengun::gamesettings::Dirs dirs;   // patches/ (meegeleverd en gebruiker): [Status] Note per game (leeg = geen notities)
+    std::string library_file;  // library.json van de app (de gamemappen); leeg = games met een eigen profiel worden niet in de gamemappen gezocht
+    std::string views_dir;     // runtime/views (lokale views van games); leeg = geen
+    std::string home;          // thuismap (voor ~ in [Game] GamePath)
     std::string systemd_run = "systemd-run";
     std::string systemctl = "systemctl";
     std::string proc_root = "/proc";
@@ -55,8 +58,13 @@ struct Game {
     std::string note;       // opmerking ([Status] Note in game.ini, Nederlands, hoogstens 300 tekens; leeg = geen)
 };
 
+// De games van de UI: de profielen uit <tp_dir>/UserProfiles/*.xml, en de games met een eigen profiel in game.ini (patches/<Game>/ met de
+// gebruikerslaag) die in een gamemap of een lokale view staan (docs/per-game-patches.md, "Het profiel van een game").
 std::vector<Game> list_games(const Config& c);
+// Een bestaand profiel: UserProfiles/<profile>.xml, of een eigen profiel in game.ini (dan is de XML niet nodig).
 bool profile_exists(const Config& c, const std::string& profile);
+// De gamemappen uit library.json (leeg bij een ontbrekend of kapot bestand).
+std::vector<std::string> library_folders(const std::string& library_file, const std::string& home);
 
 // Leest een icoon. Leeg resultaat in `err` = gelukt; anders "invalid" (naam niet toegestaan) of "not_found".
 std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data);

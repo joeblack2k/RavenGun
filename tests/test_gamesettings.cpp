@@ -264,6 +264,74 @@ static void test_repo_tree() {
     CHECK(enabled == 4);
 }
 
+// Het eigen profiel in game.ini: ConfigValues (volgorde, types, keuzelijsten, lege waarden, laag per sleutel), [Identify] en het afleiden van het
+// pad uit views en gamemappen (zelfde regels als scripts/ownprofile.py, tests/test_ownprofile.py).
+static void test_own_profile(const std::string& root) {
+    const std::string sh = root + "/own-shipped", us = root + "/own-user";
+    fs::remove_all(sh);
+    fs::remove_all(us);
+    put(sh + "/A/game.ini",
+        "[Game]\nName = Spel A\nExecutable = game.exe\nProfileRevision = 7\nType = OpenParrot\n"
+        "[Identify]\nPath = bin/game.exe\nSize = 3\n"
+        "[Config]\nGeneral/Windowed = 1\nGeneral/Keyboard/Button Axis = 5\n"
+        "[ConfigType]\nGeneral/Input API = Dropdown\nGeneral/Windowed = Bool\nGeneral/Keyboard/Button Axis = Slider\nGeneral/Nickname = Text\n"
+        "[ConfigOptions]\nGeneral/Input API = DirectInput|RawInput\n");
+    put(us + "/A/game.ini", "[Config]\nGeneral/Windowed = 0\nGeneral/Nickname = Jan\nGeneral/Keyboard/Button Axis =\n");
+    gs::Dirs d{sh, us};
+    gs::Game g = gs::load_game(d, "A");
+    CHECK(gs::has_own_profile(g.settings));
+    auto fields = gs::config_fields(g.settings);
+    CHECK(fields.size() == 4);
+    if (fields.size() == 4) {
+        CHECK(fields[0].key() == "General/Input API" && fields[0].type == "Dropdown" && fields[0].value.empty());
+        CHECK(fields[0].options.size() == 2 && fields[0].options[1] == "RawInput");
+        CHECK(fields[1].value == "0");                       // de gebruikerslaag wint per sleutel
+        CHECK(fields[2].category == "General" && fields[2].name == "Keyboard/Button Axis");   // gesplitst bij de eerste '/'
+        CHECK(fields[2].value.empty());                      // een lege waarde in de gebruikerslaag heft de meegeleverde op
+        CHECK(fields[3].value == "Jan");
+    }
+    CHECK(gs::find_config_key(g.settings, "Windowed") == "General/Windowed");
+    CHECK(gs::find_config_key(g.settings, "Windowed", "Nope").empty());
+    CHECK(!gs::has_own_profile(gs::load_game(d, "Onbekend").settings));
+    // De tabellen: profielvelden en omgevingsvariabelen.
+    const gs::ProfileField* f = gs::profile_field_for_xml("GameProfileRevision");
+    CHECK(f && std::string(f->section) == "Game" && std::string(f->key) == "ProfileRevision");
+    CHECK(gs::profile_field_for_xml("JoystickButtons") == nullptr);
+    const gs::EnvMapEntry* e = gs::env_for_var("TP_GAMESCOPE");
+    CHECK(e && std::string(e->section) == "Display" && std::string(e->kind) == "bool1");
+    CHECK(gs::env_for_var("FOO") == nullptr);
+    // Het pad afleiden: gamemap, view, override.
+    const std::string games = root + "/own-games", views = root + "/own-views";
+    fs::remove_all(games);
+    fs::remove_all(views);
+    put(games + "/Spel A/bin/game.exe", "abc");
+    put(games + "/Ander/bin/game.exe", "abcdef");          // andere grootte: niet deze game
+    gs::Identify id = gs::identify_of(g.settings);
+    CHECK(id.path == "bin/game.exe" && id.size == 3 && id.sha256.empty() && id.folder.empty());
+    std::string how;
+    CHECK(gs::locate_game("A", g.settings, {games}, views, "/home/x", &how) == games + "/Spel A/bin/game.exe" && how == "folders");
+    CHECK(gs::locate_game("A", g.settings, {}, views, "/home/x", &how).empty() && how.empty());
+    put(views + "/A/bin/game.exe", "abc");
+    CHECK(gs::locate_game("A", g.settings, {games}, views, "/home/x", &how) == views + "/A/bin/game.exe" && how == "view");
+    // sha256: met een hashfunctie gecontroleerd, zonder (de engine) genegeerd; Folder = de mapnaam.
+    gs::Ini s = g.settings;
+    s.set("Identify", "Sha256", "ABCDEF");
+    auto wrong = [](const std::string&) { return std::string("000"); };
+    auto right = [](const std::string&) { return std::string("abcdef"); };
+    CHECK(gs::locate_game("A", s, {games}, "", "", &how, wrong).empty());
+    CHECK(gs::locate_game("A", s, {games}, "", "", &how, right) == games + "/Spel A/bin/game.exe");
+    CHECK(!gs::locate_game("A", s, {games}, "", "", &how).empty());
+    s.set("Identify", "Folder", "spel a");
+    CHECK(gs::locate_game("A", s, {games}, "", "", &how, right) == games + "/Spel A/bin/game.exe");
+    s.set("Identify", "Folder", "Ander");
+    CHECK(gs::locate_game("A", s, {games}, "", "", &how, right).empty());
+    s.set("Game", "GamePath", "~/spel/game.exe");
+    CHECK(gs::locate_game("A", s, {games}, views, "/home/x", &how) == "/home/x/spel/game.exe" && how == "override");
+    // De gebruiker schrijft een waarde: alleen het verschil gaat naar de gebruikerslaag (set/erase door de app).
+    CHECK(gs::set_user_value(d, "A", "Config", "General/Input API", "RawInput"));
+    CHECK(gs::load_game(d, "A").get("Config", "General/Input API") == "RawInput");
+}
+
 int main() {
     char tmpl[] = "/tmp/rg-gamesettings-XXXXXX";
     const char* t = mkdtemp(tmpl);
@@ -276,6 +344,7 @@ int main() {
     test_edit_and_user_writes(root);
     test_default_dirs();
     test_repo_tree();
+    test_own_profile(root);
     fs::remove_all(root);
     std::printf("gamesettings: %d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

@@ -12,6 +12,7 @@
 // begint, of een ';' na witruimte achter een waarde; geen waarden over meerdere regels; voorloop-witruimte wordt genegeerd.
 // tests/data/gamesettings-cases.ini wordt door beide gelezen en vergeleken.
 #pragma once
+#include <functional>
 #include <map>
 #include <string>
 #include <utility>
@@ -111,5 +112,62 @@ bool erase_user_patch_enabled(const Dirs& dirs, const std::string& profile, cons
 
 // Paden van de bestanden van een game in een laag (voor "Open map" en weergave).
 std::string game_dir(const std::string& layer_dir, const std::string& profile);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Het profiel van een game in game.ini (docs/per-game-patches.md, "Het profiel van een game"). Dezelfde regels als scripts/ownprofile.py;
+// tests/test_ownprofile.py controleert dat de tabellen hieronder gelijk zijn aan PROFILE_FIELDS en ENV_MAP in Python.
+
+// (sectie, sleutel in game.ini, veld in het TeknoParrot-profiel, soort). Soort: "" tekst, "bool", "runner".
+struct ProfileField {
+    const char* section;
+    const char* key;
+    const char* xml;
+    const char* kind;
+};
+extern const ProfileField kProfileFields[];
+extern const size_t kProfileFieldCount;
+const ProfileField* profile_field_for_xml(const std::string& xml_name);
+
+// (sectie, sleutel, omgevingsvariabele, soort) zoals ENV_MAP in scripts/gamesettings.py. Soort: "" letterlijk, "bool1" (true = 1), "boolT"
+// (true = true), "path", "prefix", "workdir".
+struct EnvMapEntry {
+    const char* section;
+    const char* key;
+    const char* var;
+    const char* kind;
+};
+extern const EnvMapEntry kEnvMap[];
+extern const size_t kEnvMapCount;
+const EnvMapEntry* env_for_var(const std::string& var);
+
+// De ConfigValues: [ConfigType] "Categorie/Veld = Type" (bepaalt de volgorde), [Config] "Categorie/Veld = waarde" (leeg of afwezig = leeg),
+// [ConfigOptions] "Categorie/Veld = a|b|c". De sleutel wordt bij de eerste '/' gesplitst.
+struct ConfigField {
+    std::string category, name, value, type;
+    std::vector<std::string> options;
+    std::string key() const { return category + "/" + name; }
+};
+std::vector<ConfigField> config_fields(const Ini& settings);
+// De sleutel van het eerste veld met deze naam (en categorie als die niet leeg is); leeg als het profiel dat veld niet heeft.
+std::string find_config_key(const Ini& settings, const std::string& name, const std::string& category = {});
+
+// Heeft game.ini een eigen profiel (UserProfiles-XML niet nodig)? [Game] Executable of ProfileRevision.
+bool has_own_profile(const Ini& settings);
+
+// [Identify]: hoe de game in een gamemap wordt herkend. path = relatief pad van het hoofdbestand (anders de eerste naam uit Executable),
+// size (-1 = niet gezet), sha256 (leeg = niet gezet), folder (optioneel: de mapnaam, alleen voor games met een identiek hoofdbestand).
+struct Identify {
+    std::string path;
+    long long size = -1;
+    std::string sha256, folder;
+};
+Identify identify_of(const Ini& settings);
+using HashFn = std::function<std::string(const std::string& path)>;   // sha256 (kleine hex) van een bestand; leeg = niet te lezen
+
+// Het pad van de game, afgeleid en niet opgeslagen: een override van de gebruiker ([Game] GamePath), een lokale view (views_dir/<profile>/)
+// en dan de gamemappen (elke submap van een gamemap, en de gamemap zelf). how: override | view | folders ("" = niet gevonden). Zonder
+// `hash` (de engine heeft er geen) wordt een sha256 in [Identify] niet gecontroleerd: pad, grootte en mapnaam gelden dan.
+std::string locate_game(const std::string& profile, const Ini& settings, const std::vector<std::string>& folders, const std::string& views_dir,
+                        const std::string& home, std::string* how = nullptr, const HashFn& hash = {});
 
 }  // namespace ravengun::gamesettings

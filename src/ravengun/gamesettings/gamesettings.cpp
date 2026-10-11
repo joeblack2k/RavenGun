@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <dirent.h>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -483,6 +484,184 @@ bool set_user_patch_enabled(const Dirs& dirs, const std::string& profile, const 
 
 bool erase_user_patch_enabled(const Dirs& dirs, const std::string& profile, const std::string& patch, std::string* err) {
     return edit_user_file(dirs, profile, "patches.ini", std::string(kPatchPrefix) + " " + patch, "Enabled", {}, true, err);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Het profiel van een game
+
+const ProfileField kProfileFields[] = {
+    {"Game", "Executable", "ExecutableName", ""},
+    {"Game", "Executable2", "ExecutableName2", ""},
+    {"Game", "Type", "EmulatorType", ""},
+    {"Game", "EmulationProfile", "EmulationProfile", ""},
+    {"Game", "Is64Bit", "Is64Bit", "bool"},
+    {"Game", "ProfileRevision", "GameProfileRevision", ""},
+    {"Game", "Patreon", "Patreon", "bool"},
+    {"Game", "MsysType", "msysType", ""},
+    {"Game", "GameVersion", "GameVersion", ""},
+    {"Game", "HasTwoExecutables", "HasTwoExecutables", "bool"},
+    {"Game", "LaunchSecondExecutableFirst", "LaunchSecondExecutableFirst", "bool"},
+    {"Launch", "UseRemoteThread", "UseRemoteThread", "bool"},
+    {"Launch", "ExtraParameters", "ExtraParameters", ""},
+    {"Launch", "CustomArguments", "CustomArguments", ""},
+    {"Display", "GamescopeCompatibility", "GamescopeGameWindowCompatibility", ""},
+    {"Wine", "PrefixMode", "WinePrefixMode", ""},
+    {"Wine", "Runner", "WineRunnerPath", "runner"},
+};
+const size_t kProfileFieldCount = sizeof(kProfileFields) / sizeof(kProfileFields[0]);
+
+const ProfileField* profile_field_for_xml(const std::string& xml_name) {
+    for (size_t i = 0; i < kProfileFieldCount; ++i)
+        if (xml_name == kProfileFields[i].xml) return &kProfileFields[i];
+    return nullptr;
+}
+
+const EnvMapEntry kEnvMap[] = {
+    {"Loader", "RemoteThread", "TP_REMOTETHREAD", ""},
+    {"Loader", "PostStartMs", "TP_POSTSTART_REMOTETHREAD_MS", ""},
+    {"Loader", "EntryPointMs", "TP_ENTRYPOINT_REMOTETHREAD_MS", ""},
+    {"Launch", "WorkingDirectory", "TP_GAME_WORKING_DIRECTORY", "workdir"},
+    {"Wine", "Prefix", "RG_WINEPREFIX", "prefix"},
+    {"Wine", "PrefixDirect", "TP_WINEPREFIX", "prefix"},
+    {"Wine", "Binary", "TP_WINE", "path"},
+    {"Wine", "DllOverrides", "WINEDLLOVERRIDES", ""},
+    {"Wine", "Debug", "WINEDEBUG", ""},
+    {"Wine", "GStreamerPlugins", "GST_PLUGIN_PATH", "path"},
+    {"Display", "Gamescope", "TP_GAMESCOPE", "bool1"},
+    {"Display", "GamescopePath", "TP_GAMESCOPE_PATH", "path"},
+    {"Display", "GamescopeBackend", "TP_GAMESCOPE_BACKEND", ""},
+    {"Display", "GamescopeResolution", "RG_GAMESCOPE_RES", ""},
+    {"Input", "JvsTransport", "RG_JVS_TRANSPORT", ""},
+    {"Input", "JvsPipeBoard", "RG_JVS_BOARD", "boolT"},
+    {"Input", "JvsF1Once", "RG_JVS_F1_ONCE", "boolT"},
+    {"Input", "JvsDebug", "RG_JVS_DEBUG", "boolT"},
+    {"Input", "JvsIdent", "RG_JVS_IDENT", ""},
+    {"Input", "JvsFeatures", "RG_JVS_FEATURES", ""},
+};
+const size_t kEnvMapCount = sizeof(kEnvMap) / sizeof(kEnvMap[0]);
+
+const EnvMapEntry* env_for_var(const std::string& var) {
+    for (size_t i = 0; i < kEnvMapCount; ++i)
+        if (var == kEnvMap[i].var) return &kEnvMap[i];
+    return nullptr;
+}
+
+std::vector<ConfigField> config_fields(const Ini& settings) {
+    std::vector<ConfigField> out;
+    const Section* typ = settings.section("ConfigType");
+    if (!typ) return out;
+    for (const auto& kv : typ->kv) {
+        ConfigField f;
+        const size_t slash = kv.first.find('/');
+        f.category = slash == std::string::npos ? std::string() : kv.first.substr(0, slash);
+        f.name = slash == std::string::npos ? kv.first : kv.first.substr(slash + 1);
+        f.type = kv.second;
+        f.value = settings.get("Config", kv.first);
+        const std::string opts = settings.get("ConfigOptions", kv.first);
+        if (!opts.empty()) {
+            size_t pos = 0;
+            for (;;) {
+                const size_t bar = opts.find('|', pos);
+                f.options.push_back(opts.substr(pos, bar == std::string::npos ? std::string::npos : bar - pos));
+                if (bar == std::string::npos) break;
+                pos = bar + 1;
+            }
+        }
+        out.push_back(std::move(f));
+    }
+    return out;
+}
+
+std::string find_config_key(const Ini& settings, const std::string& name, const std::string& category) {
+    const Section* typ = settings.section("ConfigType");
+    if (!typ) return {};
+    for (const auto& kv : typ->kv) {
+        const size_t slash = kv.first.find('/');
+        const std::string cat = slash == std::string::npos ? std::string() : kv.first.substr(0, slash);
+        const std::string nm = slash == std::string::npos ? kv.first : kv.first.substr(slash + 1);
+        if (nm == name && (category.empty() || cat == category)) return kv.first;
+    }
+    return {};
+}
+
+bool has_own_profile(const Ini& settings) {
+    return !trim(settings.get("Game", "Executable")).empty() || !trim(settings.get("Game", "ProfileRevision")).empty();
+}
+
+Identify identify_of(const Ini& settings) {
+    Identify id;
+    std::string path = trim(settings.get("Identify", "Path"));
+    if (path.empty()) {
+        const std::string exe = settings.get("Game", "Executable");
+        path = trim(exe.substr(0, exe.find_first_of(";|")));
+    }
+    for (auto& c : path)
+        if (c == '\\') c = '/';
+    while (!path.empty() && path.front() == '/') path.erase(path.begin());
+    while (!path.empty() && path.back() == '/') path.pop_back();
+    id.path = path;
+    const std::string size = trim(settings.get("Identify", "Size"));
+    if (!size.empty() && std::all_of(size.begin(), size.end(), [](unsigned char c) { return std::isdigit(c) != 0; })) id.size = std::stoll(size);
+    id.sha256 = lower(trim(settings.get("Identify", "Sha256")));
+    id.folder = trim(settings.get("Identify", "Folder"));
+    return id;
+}
+
+namespace {
+
+namespace fs = std::filesystem;
+
+bool identify_matches(const std::string& root, const Identify& id, bool check_folder, const HashFn& hash) {
+    std::error_code ec;
+    if (check_folder && !id.folder.empty()) {
+        const fs::path rp(root);
+        std::string base = rp.filename().string();
+        if (base.empty()) base = rp.parent_path().filename().string();   // "dir/" met een slash aan het eind
+        if (lower(trim(base)) != lower(id.folder)) return false;
+    }
+    const fs::path full = fs::path(root) / id.path;
+    if (!fs::is_regular_file(full, ec)) return false;
+    if (id.size >= 0 && static_cast<long long>(fs::file_size(full, ec)) != id.size) return false;
+    if (!id.sha256.empty()) {
+        if (!hash) return true;   // zonder hashfunctie (de engine) gelden pad, grootte en mapnaam
+        return lower(hash(full.string())) == id.sha256;
+    }
+    return true;
+}
+
+}  // namespace
+
+std::string locate_game(const std::string& profile, const Ini& settings, const std::vector<std::string>& folders, const std::string& views_dir,
+                        const std::string& home, std::string* how, const HashFn& hash) {
+    namespace fs = std::filesystem;
+    auto result = [&](const std::string& p, const char* h) {
+        if (how) *how = p.empty() ? "" : h;
+        return p;
+    };
+    std::string ov = trim(settings.get("Game", "GamePath"));
+    if (!ov.empty()) {
+        if (!home.empty() && (ov == "~" || ov.rfind("~/", 0) == 0)) ov = home + ov.substr(1);
+        return result(ov, "override");
+    }
+    const Identify id = identify_of(settings);
+    if (id.path.empty()) return result("", "");
+    std::error_code ec;
+    if (!views_dir.empty()) {
+        const std::string view = views_dir + "/" + profile;
+        if (fs::is_directory(view, ec) && identify_matches(view, id, false, hash)) return result((fs::path(view) / id.path).string(), "view");
+    }
+    for (const std::string& f : folders) {
+        std::vector<std::string> subs;
+        for (fs::directory_iterator it(f, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
+            const std::string name = it->path().filename().string();
+            if (!name.empty() && name[0] != '.' && it->is_directory(ec)) subs.push_back(it->path().string());
+        }
+        std::sort(subs.begin(), subs.end(), [](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
+        subs.push_back(f);
+        for (const std::string& root : subs)
+            if (identify_matches(root, id, true, hash)) return result((fs::path(root) / id.path).string(), "folders");
+    }
+    return result("", "");
 }
 
 }  // namespace ravengun::gamesettings
