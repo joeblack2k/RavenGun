@@ -67,7 +67,11 @@ FALSE_WORDS = ("false", "0", "no", "off")
 # Mappen
 
 def shipped_dir():
-    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <datamap>/patches (repo: patches/, installatie: share/ravengun/patches)."""
+    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <repo>/patches.
+
+    De patches staan in hun EIGEN repo (ravengun-patches), niet in die van de loader: het is
+    gebruikersinhoud en de loader hoort schoon te zijn. Staat die repo niet naast de loader, dan
+    bestaat deze map niet en leest de loader alleen de gebruikerslaag -- dat is goed."""
     return os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")
 
 

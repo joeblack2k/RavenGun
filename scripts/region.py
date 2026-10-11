@@ -115,7 +115,8 @@ CORE_64 = "TeknoParrot64.dll (64-bits, ALLS/amdaemon)"
 # Mappen
 
 def shipped_dir():
-    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <datamap>/patches (repo: patches/)."""
+    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <repo>/patches. De patches staan in hun
+    eigen repo (ravengun-patches); zie scripts/gamesettings.py."""
     return os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")
 
 
