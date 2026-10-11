@@ -24,15 +24,19 @@ repo van de loader voor de stappen en `docs/dropins.md` voor het contract.
 
 ## Kaarten: de stand per game
 
-Vier documenten die samen vertellen wat elke game nodig heeft. Ze worden **gegenereerd**; pas de
-map van de game aan en draai het script opnieuw in plaats van ze met de hand bij te werken.
+Vijf documenten die samen vertellen wat elke game nodig heeft. **Vier ervan worden gegenereerd**
+(`STAND.md`, `STARTTEST.md`, `EIGEN-KERN.md` en de tabel van `REGIO-PER-GAME.md`); pas de map van de
+game aan en draai het script opnieuw in plaats van ze met de hand bij te werken. **Eén is met de hand
+geschreven:** `PATCHES-PER-GAME.md`, want de kolom *welke patch nodig is* is een oordeel op grond van
+meerdere bronnen en dat is niet uit de mappen af te leiden.
 
 | Bestand | Wat het geeft | Vernieuwen |
 |---|---|---|
 | `patches/STAND.md` | de volledigheidskaart: per game `game.ini`, `[Status]`, README, drop-in (bestanden tegen secties), dongle-soort, en wat er nog ontbreekt | `python3 patches/stand-gen.py` |
 | `patches/STARTTEST.md` | de startmeting: per game of hij start en blijft draaien, en waar de `[Status]` daarvan afwijkt | `bash /home/deck/starttest3.sh 22` en daarna `python3 patches/starttest-gen.py` |
 | `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
-| `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | zie de kop van dat bestand |
+| `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | **met de hand**; de kop noemt de commando's om de getallen na te rekenen |
+| `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent), en dus van de gesloten `TeknoParrot(64).dll` af kunnen | `python3 patches/kern-herkenning.py` |
 
 De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in
