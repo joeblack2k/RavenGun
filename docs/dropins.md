@@ -77,6 +77,22 @@ Env = RAVENGUN_MATRIX_GAME=RabbidsHollywood
 | Sleutel | Betekenis |
 |---|---|
 | `To` | doelmap, relatief aan de view van de game (`. ` = de hoofdmap van de game) |
+
+Het doel is **`To` + de sectienaam**, dus het pad staat maar één keer in het bestand. Staat het
+pad ook al in de sectienaam, dan komt het bestand dubbel in de view te staan:
+
+```ini
+; FOUT: dit zet het bestand op view/ravengun-hasp/Halo/ravengun-hasp/Halo/dongle.json
+[ravengun-hasp/Halo/dongle.json]
+To = ravengun-hasp/Halo
+
+; GOED: het bestand komt op view/ravengun-hasp/Halo/dongle.json
+[ravengun-hasp/Halo/dongle.json]
+To = .
+```
+
+De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. Controleer met
+`scripts/launch-direct.py <Game> --plan`: bij `dropins` staat per bestand de `dest`.
 | `DllOverride` | waarde voor `WINEDLLOVERRIDES`: `native` zet `<naam>=n`, `builtin,native` zet `<naam>=n,b` |
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
 | `Preload` | `true` als dit bestand in het **ELF-proces** van de game geladen moet worden |

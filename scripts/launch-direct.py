@@ -371,6 +371,15 @@ def dropin_specs(game):
             if naam in specs:
                 continue              # de gebruikerslaag won al
             sectie = dict(cp.items(naam))
+            # dest = view + To + sectienaam. Staat het pad ook al in de sectienaam, dan komt het
+            # bestand dubbel in de view te staan (view/ravengun-hasp/Halo/ravengun-hasp/Halo/
+            # dongle.json) en vindt de game het nooit. Dat is precies wat er bij de dongles misging.
+            to = (sectie.get("To", "") or ".").strip() or "."
+            if to != "." and naam.startswith(to.rstrip("/") + "/"):
+                fouten.append("%s [%s]: de sectienaam begint ook met To = %s, dus het bestand komt "
+                              "dubbel in de view te staan; laat To weg of zet To = . (docs/dropins.md)"
+                              % (pad, naam, to))
+                continue
             env = {}
             for stuk in (sectie.get("Env", "") or "").split(";"):
                 stuk = stuk.strip()

@@ -165,6 +165,21 @@ class TestDropinIni(unittest.TestCase):
         self.assertEqual(fouten, [])
         self.assertEqual([s["name"] for s in specs], ["proef.dll"])
 
+    def test_een_verdubbeld_pad_wordt_gemeld(self):
+        """To + sectienaam: staat het pad ook al in de sectienaam, dan komt het bestand dubbel."""
+        self.schrijf_ini("[ravengun-hasp/Halo/dongle.json]\nTo = ravengun-hasp/Halo\n")
+        specs, fouten = ld.dropin_specs("ProefGame")
+        self.assertEqual(specs, [])
+        self.assertEqual(len(fouten), 1)
+        self.assertIn("dubbel in de view", fouten[0])
+
+    def test_to_punt_zet_het_bestand_in_de_submap(self):
+        """De goede vorm: het pad in de sectienaam en To = ."""
+        self.schrijf_ini("[ravengun-hasp/Halo/dongle.json]\nTo = .\n")
+        specs, fouten = ld.dropin_specs("ProefGame")
+        self.assertEqual(fouten, [])
+        self.assertEqual(specs[0]["to"], ".")
+
     def test_een_ini_met_alleen_commentaar_is_geen_fout(self):
         """Een lege drop-in (alleen uitleg) levert geen drop-ins en geen fout op."""
         self.schrijf_ini("; alleen commentaar\n", bom=False)
