@@ -1,45 +1,48 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# De regio/PCB-laag van RavenGun: welke game vraagt een regio- en printplaat-dongle, welke waarden
-# horen daarbij, en is die waarde vandaag ook echt een blokkade?
-#
-# De laag is gegevens, geen binary. Een game die een regio-dongle vraagt heeft de beschrijving in de
-# drop-in van zijn eigen map staan, naast de rest van de laag (docs/dropins.md en
-# docs/geen-dongle-in-de-loader.md):
-#
-#   patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json
-#
-# De oudere losse plaats patches/<Game>/dongle.json blijft ook werken (die staat er al voor Halo).
-#
-#   {
-#     "kind": "region",
-#     "region": { "field": "DongleRegion", "name": "JAPAN", "game_name": "JPN" },
-#     "pcb":    { "field": "PcbRegion",    "name": "JAPAN", "game_name": "JPN" },
-#     "enforced": false
-#   }
-#
-# Aanwezigheid van dat bestand betekent: deze game vraagt een dongle. Geen bestand = geen dongle.
-# Dit script leest dat bestand, toetst de waarden aan de keuzelijst van het TeknoParrot-profiel, aan
-# game.ini en aan de game-executable zelf, en zegt wat de laag wel en niet doet.
-#
-# Er zijn drie verschillende dingen die in dit ecosysteem "regio" heten. Ze hebben niets met elkaar
-# te maken en dit script houdt ze uit elkaar:
-#
-#   dongle      de Sega Ring/Lindbergh-dongle: de game roept amDongleGetRegion() aan (LGI, LGI3D,
-#               LGS, Operation G.H.O.S.T.). De waarden staan in de drop-in van de game.
-#   gun-ini     de Taito Type X2-geweren: de game leest een REGION-regel uit zijn eigen ini
-#               (MINIGUN.INI, MUSEUM.INI, HAUNTED2.INI) â€” GaiaAttack4, HauntedMuseum(I/II).
-#               Dat is geen dongle; de launcher schrijft die regel uit het profielveld Region.
-#   core-region het profielveld Region van de 64-bits kern (WartranTroopers/amdaemon-route),
-#               o.a. RainbowBombergirl (Region = EXPORT). Ook geen dongle.
-#
-# Gebruik:
-#   scripts/region.py [--game <Game>] [--json]
-#     zonder --game: alle games met een dongle.json van het soort region
-#     met --game:    die ene game (met of zonder dongle.json)
-#   Exit 0 = in orde, 1 = niet in orde, 2 = verkeerd gebruik.
-#
-# Voor tests: RAVENGUN_PATCHES_DIR, RAVENGUN_USER_PATCHES_DIR, RAVENGUN_TP_DIR, RAVENGUN_GAME_DIR.
+"""
+De regio/PCB-laag van RavenGun: welke game vraagt een regio- en printplaat-dongle, welke waarden
+horen daarbij, en is die waarde vandaag ook echt een blokkade?
+
+De laag is gegevens, geen binary. Een game die een regio-dongle vraagt heeft de beschrijving in de
+drop-in van zijn eigen map staan, naast de rest van de laag (docs/dropins.md en
+docs/geen-dongle-in-de-loader.md):
+
+patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json
+
+De oudere losse plaats patches/<Game>/dongle.json blijft ook werken (die staat er al voor Halo).
+
+{
+"kind": "region",
+"region": { "field": "DongleRegion", "name": "JAPAN", "game_name": "JPN" },
+"pcb":    { "field": "PcbRegion",    "name": "JAPAN", "game_name": "JPN" },
+"enforced": false
+}
+
+Aanwezigheid van dat bestand betekent: deze game vraagt een dongle. Geen bestand = geen dongle.
+Dit script leest dat bestand, toetst de waarden aan de keuzelijst van het TeknoParrot-profiel, aan
+game.ini en aan de game-executable zelf, en zegt wat de laag wel en niet doet.
+
+Er zijn drie verschillende dingen die in dit ecosysteem "regio" heten. Ze hebben niets met elkaar
+te maken en dit script houdt ze uit elkaar:
+
+dongle      de Sega Ring/Lindbergh-dongle: de game roept amDongleGetRegion() aan (LGI, LGI3D,
+LGS, Operation G.H.O.S.T.). De waarden staan in de drop-in van de game.
+gun-ini     de Taito Type X2-geweren: de game leest een REGION-regel uit zijn eigen ini
+(MINIGUN.INI, MUSEUM.INI, HAUNTED2.INI) â€” GaiaAttack4, HauntedMuseum(I/II).
+Dat is geen dongle; de launcher schrijft die regel uit het profielveld Region.
+core-region het profielveld Region van de 64-bits kern (WartranTroopers/amdaemon-route),
+o.a. RainbowBombergirl (Region = EXPORT). Ook geen dongle.
+
+Gebruik:
+scripts/region.py [--game <Game>] [--json]
+zonder --game: alle games met een dongle.json van het soort region
+met --game:    die ene game (met of zonder dongle.json)
+Exit 0 = in orde, 1 = niet in orde, 2 = verkeerd gebruik.
+
+Voor tests: RAVENGUN_PATCHES_DIR, RAVENGUN_USER_PATCHES_DIR, RAVENGUN_TP_DIR, RAVENGUN_GAME_DIR.
+"""
+
 import json
 import os
 import sys
