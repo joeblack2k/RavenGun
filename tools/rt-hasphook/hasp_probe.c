@@ -5,9 +5,13 @@
  * en Terminator (65524) kan draaien. De "echte" client doet alsof hij met hardware praat en geeft
  * HASP_STATUS_NO_HARDWARE (3); de hook hoort hem nul keer aan te roepen.
  *
- * Bouwen:  gcc -m32 -rdynamic -o hasp_probe tools/rt-hasphook/hasp_probe.c
+ * Bouwen:  gcc -m32 -I hasp/src/inc -rdynamic -o hasp_probe tools/rt-hasphook/hasp_probe.c
+ *          De -I is nodig: op SteamOS ontbreekt de 32-bits dev-header gnu/stubs-32.h, en
+ *          scripts/build-hasp.sh maakt hem lokaal aan in hasp/src/inc/gnu/.
  * Draaien: LD_PRELOAD=<de hook> RAVENGUN_HASP_VERBOSE=1 RAVENGUN_HASP_GAME=<Game> \
  *          RAVENGUN_HASP_DIR=<.../dropin/ravengun-hasp> RAVENGUN_PROBE_FILEID=<fid> ./hasp_probe
+ *          De hook werkt vanuit een kijker-thread: geef de probe even tijd
+ *          (HASP_ZELFTEST_WACHT, zie hasp_zelftest.c) voordat hij zijn uitkomst print.
  */
 #define _GNU_SOURCE
 #include <stdio.h>
