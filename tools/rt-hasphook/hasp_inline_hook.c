@@ -935,6 +935,8 @@ static void *hh_kijker(void *arg)
 
     for (r = 0; r < rondes && !hh_gedaan; r++) {
         if (!hh_zoek_beeld()) {
+            if (hh_verbose && (r % (200 / (ms > 0 ? ms : 1) + 1)) == 0)
+                hh_say("  [dbg] ronde %ld: nog geen spelbeeld", r);
             usleep((useconds_t)(ms * 1000));
             continue;
         }
@@ -981,15 +983,26 @@ static void hh_open_log(void)
     const char *p = getenv("RAVENGUN_HASP_ELF_LOG");
     const char *v = getenv("RAVENGUN_HASP_VERBOSE");
     const char *g = getenv("RAVENGUN_HASP_GAME");
+    char comm[64] = "?";
+    FILE *f;
     hh_verbose = v && *v && strcmp(v, "0") != 0;
     if (p && *p)
         hh_log = fopen(p, "a");
     if (!hh_log)
         hh_log = stderr;
+    f = fopen("/proc/self/comm", "r");
+    if (f) {
+        if (fgets(comm, sizeof(comm), f)) {
+            size_t n = strlen(comm);
+            if (n && comm[n - 1] == '\n')
+                comm[n - 1] = 0;
+        }
+        fclose(f);
+    }
     if (g && *g)
-        hh_say("=== ravengun-hasphook voor '%s' (pid %d) ===", g, (int)getpid());
+        hh_say("=== ravengun-hasphook voor '%s' (pid %d, %s) ===", g, (int)getpid(), comm);
     else
-        hh_say("=== ravengun-hasphook (pid %d) ===", (int)getpid());
+        hh_say("=== ravengun-hasphook (pid %d, %s) ===", (int)getpid(), comm);
 }
 
 static void hh_begin(void)

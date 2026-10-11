@@ -189,6 +189,64 @@ void patchmem_slaap_ms(int ms)
 
 /* ---------------------------------------------------------------- het schrijven zelf */
 
+/* Ligt het hele bereik [adres, adres+len) in toegewezen, leesbaar geheugen?
+ *
+ * Zonder deze controle zou een verkeerde offset in de lijst het spel laten omvallen -- en een
+ * patchmotor die de game laat crashen is erger dan een patchmotor die weigert. Een bereik dat over
+ * een aantal aaneensluitende gebieden loopt mag; we schuiven het bereik dan op. */
+#if defined(_WIN32)
+
+static int bereik_toegewezen(const void *adres, size_t len)
+{
+    uintptr_t p = (uintptr_t)adres;
+    uintptr_t eind = p + len;
+
+    if (len == 0) return 1;
+    if (eind < p) return 0;                        /* overloop */
+    while (p < eind) {
+        MEMORY_BASIC_INFORMATION mbi;
+        if (VirtualQuery((LPCVOID)p, &mbi, sizeof mbi) == 0) return 0;
+        if (mbi.State != MEM_COMMIT) return 0;
+        if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return 0;
+        p = (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
+    }
+    return 1;
+}
+
+#else
+
+static int bereik_toegewezen(const void *adres, size_t len)
+{
+    uintptr_t cursor = (uintptr_t)adres;
+    uintptr_t eind = cursor + len;
+
+    if (len == 0) return 1;
+    if (eind < cursor) return 0;                   /* overloop */
+    while (cursor < eind) {
+        FILE *m = fopen("/proc/self/maps", "r");
+        char regel[512];
+        int vooruit = 0;
+
+        if (!m) return 1;                          /* geen /proc: dan kunnen we het niet controleren */
+        while (fgets(regel, sizeof regel, m)) {
+            unsigned long long a = 0, b = 0;
+            char rechten[8];
+            if (sscanf(regel, "%llx-%llx %7s", &a, &b, rechten) != 3) continue;
+            if (rechten[0] != 'r') continue;
+            if (cursor >= (uintptr_t)a && cursor < (uintptr_t)b) {
+                cursor = (uintptr_t)b;
+                vooruit = 1;
+                break;
+            }
+        }
+        fclose(m);
+        if (!vooruit) return 0;
+    }
+    return 1;
+}
+
+#endif
+
 #if defined(_WIN32)
 
 /* Windows onthoudt de oude rechten zelf, dus terugzetten is exact. */
@@ -359,6 +417,18 @@ static void pas_toe(patchmem_patch *p)
     /* Zoveel lezen als we nodig hebben: voor de controle én om te zien of het al gebeurd is. */
     lees = p->nieuw_len > p->verwacht_len ? p->nieuw_len : p->verwacht_len;
     if (lees > sizeof voor) lees = sizeof voor;
+
+    /* Eerst kijken of daar wel geheugen ligt. Anders valt het spel om, en dat is het laatste wat een
+     * patchmotor mag doen. */
+    if (!bereik_toegewezen(adres, lees)) {
+        p->status = PATCHMEM_MISLUKT;
+        zet_melding(p, "%s+0x%llx (%zu bytes) ligt niet in toegewezen geheugen; er is NIETS gelezen "
+                       "of geschreven (klopt de module en de offset?)",
+                    p->module, p->offset, lees);
+        meld(p, NULL, 0);
+        return;
+    }
+
     memcpy(voor, adres, lees);
 
     /* 1. De controle. Klopt `verwacht` niet, dan wordt er NIETS geschreven. */

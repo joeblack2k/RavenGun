@@ -496,7 +496,8 @@ struct rtg_stubteller {
 static struct rtg_stubteller rtg_tellers[128];
 static int rtg_tellers_n;
 
-static void rt_stub_note(uint32_t slot, uint32_t ret)
+/* Niet statisch: de assembler-stub hieronder roept deze functie bij naam aan. */
+void rt_stub_note(uint32_t slot, uint32_t ret)
 {
     int i;
     for (i = 0; i < rtg_tellers_n; i++) {
@@ -522,52 +523,92 @@ __asm__(
 ".globl rt_stub_log\n"
 ".type rt_stub_log,@function\n"
 "rt_stub_log:\n"
-"    pushl 0(%esp)\n"        /* het retouradres van de game */
-"    pushl %eax\n"           /* het adres van de GOT-invoer (door de stub in eax gezet) */
-"    call rt_stub_note\n"
-"    addl $8, %esp\n"
-"    xorl %eax, %eax\n"
-"    ret\n"                  /* cdecl: de argumenten van de game blijven staan */
+"    ret\n"
 ".size rt_stub_log,.-rt_stub_log\n"
 );
 extern void rt_stub_log(void);
+
+/* De teller-wacht zelf, als machinecode in de RWX-pagina (zo hoeft er geen enkele relocatie in
+   de tekst te staan; het adres van rt_stub_note gaat er als onmiddellijke waarde in).
+   Bij binnenkomst: eax = het adres van de GOT-invoer, [esp] = retouradres van de game,
+   [esp+4..] = de argumenten van de game. */
+static uint8_t *rtg_notecode;
+
+static void rtg_make_notecode(void)
+{
+    uint8_t *p = rtg_stub_vrij;
+    uint32_t note = (uint32_t)(uintptr_t)rt_stub_note;
+    if (!p || p + 32 > rtg_page_eind)
+        return;
+    rtg_em8(&p, 0x50);                                     /* push eax (slotadres) */
+    rtg_em8(&p, 0xff); rtg_em8(&p, 0x74); rtg_em8(&p, 0x24); rtg_em8(&p, 0x04);  /* push [esp+4] */
+    rtg_em8(&p, 0xb8); rtg_em32(&p, note);                 /* mov eax, rt_stub_note */
+    rtg_em8(&p, 0xff); rtg_em8(&p, 0xd0);                  /* call eax */
+    rtg_em8(&p, 0x83); rtg_em8(&p, 0xc4); rtg_em8(&p, 0x08); /* add esp,8 */
+    rtg_em8(&p, 0x31); rtg_em8(&p, 0xc0);                  /* xor eax,eax */
+    rtg_em8(&p, 0xc3);                                     /* ret */
+    rtg_notecode = rtg_stub_vrij;
+    rtg_stub_vrij = p;
+}
 
 static void *rtg_make_stublog(uint32_t slot)
 {
     uint8_t *s;
     int32_t rel;
-    if (!rtg_stub_vrij || rtg_stub_vrij + RTG_STUB_LEN > rtg_page_eind)
+    if (!rtg_notecode)
+        rtg_make_notecode();
+    if (!rtg_notecode || !rtg_stub_vrij || rtg_stub_vrij + RTG_STUB_LEN > rtg_page_eind)
         return NULL;
     s = rtg_stub_vrij;
     s[0] = 0xb8;
     memcpy(s + 1, &slot, 4);                        /* mov eax, <slotadres> */
     s[5] = 0xe9;
-    rel = (int32_t)((uint8_t *)(uintptr_t)rt_stub_log - (s + RTG_STUB_LEN));
-    memcpy(s + 6, &rel, 4);                         /* jmp rt_stub_log */
+    rel = (int32_t)(rtg_notecode - (s + RTG_STUB_LEN));
+    memcpy(s + 6, &rel, 4);                         /* jmp <teller-wacht> */
     rtg_stub_vrij += RTG_STUB_LEN;
     return s;
 }
 
-/* Is dit adres uitvoerbaar gemapt? (om niet blind in een GOT-waarde te lezen) */
-static int rtg_is_uitvoerbaar(uint32_t adres)
+/* Is dit adres uitvoerbaar gemapt? (om niet blind in een GOT-waarde te lezen)
+   De lijst wordt één keer opgebouwd: per invoer /proc/self/maps lezen zou de ronde zo traag maken
+   dat het aanbrengen de eerste GL-aanroepen van de game mist. */
+static struct { uint32_t lo, hi; } rtg_exec[128];
+static int rtg_exec_n;
+static int rtg_exec_gelezen;
+
+static void rtg_lees_exec(void)
 {
-    FILE *f = fopen("/proc/self/maps", "r");
+    FILE *f;
     char regel[512];
-    int ja = 0;
+    rtg_exec_gelezen = 1;
+    f = fopen("/proc/self/maps", "r");
     if (!f)
-        return 0;
+        return;
     while (fgets(regel, sizeof(regel), f)) {
         unsigned long a, b;
         char rechten[8];
+        if (rtg_exec_n >= (int)(sizeof(rtg_exec) / sizeof(rtg_exec[0])))
+            break;
         if (sscanf(regel, "%lx-%lx %7s", &a, &b, rechten) != 3)
             continue;
-        if (rechten[0] == 'r' && rechten[2] == 'x' && adres >= (uint32_t)a && adres < (uint32_t)b) {
-            ja = 1;
-            break;
+        if (rechten[0] == 'r' && rechten[2] == 'x') {
+            rtg_exec[rtg_exec_n].lo = (uint32_t)a;
+            rtg_exec[rtg_exec_n].hi = (uint32_t)b;
+            rtg_exec_n++;
         }
     }
     fclose(f);
-    return ja;
+}
+
+static int rtg_is_uitvoerbaar(uint32_t adres)
+{
+    int i;
+    if (!rtg_exec_gelezen)
+        rtg_lees_exec();
+    for (i = 0; i < rtg_exec_n; i++)
+        if (adres >= rtg_exec[i].lo && adres < rtg_exec[i].hi)
+            return 1;
+    return 0;
 }
 
 /* ---------------------------------------------------------------- het aanbrengen */

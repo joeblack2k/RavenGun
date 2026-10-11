@@ -24,3 +24,8 @@ __pycache__/
 # tools/rt-glfix/; scripts/build-*.sh zet het resultaat in de dropin/-map van elke game die het in
 # dropin.ini noemt. Zonder deze uitzondering mist een kloon elk bestand waar dropin.ini naar wijst.
 !patches/*/dropin/**
+
+# De patches per game staan in hun eigen repo (ravengun-patches): het is gebruikersinhoud en de
+# loader hoort schoon te zijn. Op een ontwikkelmachine staat hier een koppeling naar die repo; die
+# is bewust niet vastgelegd. Zie docs/geen-dongle-in-de-loader.md en de README van ravengun-patches.
+/patches

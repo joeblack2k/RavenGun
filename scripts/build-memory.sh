@@ -213,6 +213,10 @@ if [[ "$DO_TEST" == 1 ]]; then
 fi
 
 echo
-echo "klaar. De motor staat in $LIB."
+if [[ "$DO_INSTALL" == 1 ]]; then
+  echo "klaar. De motor staat in $LIB."
+else
+  echo "klaar. De motor staat in $OUTDIR (niet geinstalleerd)."
+fi
 echo "Volledige proeven (ook Wine): python3 tests/test_memory_engine.py"
 echo "Het formaat en de grenzen: docs/memory-engine.md"

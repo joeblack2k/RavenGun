@@ -250,6 +250,27 @@ class TestLinuxMotor(unittest.TestCase):
         self.assertIn("wacht", fout)
         self.assertIn("niet geladen", fout)
 
+    def test_offset_buiten_de_module_valt_niet_om(self):
+        """Een verkeerde offset mag het spel NIET laten crashen. De motor moet het bereik eerst
+        controleren en anders weigeren -- een patchmotor die de game laat omvallen is erger dan een
+        die weigert."""
+        schrijf_lijst(self.lijst, [
+            "%s|0x7fff0000|aabb|ccdd" % self.nul["module"]])
+        uit, fout, rc = met_motor(PROEF, self.lijst)
+        self.assertEqual(rc, 0, "het proefprogramma is omgevallen (exit %r)" % rc)
+        self.assertEqual(uit.get("doel"), DOEL_ORIGINEEL)
+        self.assertIn("niet in toegewezen geheugen", fout)
+        self.assertIn("NIETS gelezen of geschreven", fout)
+
+    def test_offset_net_over_het_einde_van_het_bestand(self):
+        """De laatste bytes van de module plus wat er niet meer is: ook dat moet geweigerd worden,
+        niet gelezen."""
+        schrijf_lijst(self.lijst, [
+            "%s|0x10000000|aabb|ccdd" % self.nul["module"]])
+        uit, fout, rc = met_motor(PROEF, self.lijst)
+        self.assertEqual(rc, 0)
+        self.assertIn("MISLUKT", fout)
+
     def test_het_bestand_blijft_onaangeroerd(self):
         """Dit is het bewijs dat de motor in GEHEUGEN werkt en niet in een bestand. Precies daarom
         kan een GEPAKTE exe gepatcht worden: de bytes op schijf zijn dan niet de bytes die draaien."""
