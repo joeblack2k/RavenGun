@@ -6,8 +6,16 @@
   "profile": "LGS",
   "emulation_profile": "LGS",
   "exe": "GameSampR_RingWide.exe",
-  "region": { "field": "DongleRegion", "name": "USA", "game_name": "USA" },
-  "pcb":    { "field": "PcbRegion",    "name": "USA", "game_name": "USA" },
+  "region": {
+    "field": "DongleRegion",
+    "name": "USA",
+    "game_name": "USA"
+  },
+  "pcb": {
+    "field": "PcbRegion",
+    "name": "USA",
+    "game_name": "USA"
+  },
   "io_board": "837-14572",
   "api": [
     "amDongleOpen",
@@ -22,7 +30,9 @@
     "amDongleGetPicVersion",
     "amDongleBillingGetKeychipId"
   ],
-  "game_reads": ["amDongleGetRegion"],
+  "game_reads": [
+    "amDongleGetRegion"
+  ],
   "fallback": "geen (de game gaat verder zonder dongle-antwoord)",
   "enforced": false,
   "evidence": {

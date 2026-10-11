@@ -6,8 +6,16 @@
   "profile": "LGI",
   "emulation_profile": "SegaJvsLetsGoIsland",
   "exe": "LGI_RingW_F_safe.exe",
-  "region": { "field": "DongleRegion", "name": "JAPAN", "game_name": "JPN" },
-  "pcb":    { "field": "PcbRegion",    "name": "JAPAN", "game_name": "JPN" },
+  "region": {
+    "field": "DongleRegion",
+    "name": "JAPAN",
+    "game_name": "JPN"
+  },
+  "pcb": {
+    "field": "PcbRegion",
+    "name": "JAPAN",
+    "game_name": "JPN"
+  },
   "io_board": "837-14572",
   "api": [
     "amDongleOpen",
@@ -19,7 +27,11 @@
     "amDongleGetSystemFlag",
     "amDongleBillingGetKeychipId"
   ],
-  "game_reads": ["amDongleGetRegion", "readRegionEeprom", "readRegionBuSram"],
+  "game_reads": [
+    "amDongleGetRegion",
+    "readRegionEeprom",
+    "readRegionBuSram"
+  ],
   "fallback": "DefaultRegion",
   "enforced": false,
   "evidence": {
