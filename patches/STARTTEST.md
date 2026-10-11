@@ -1,6 +1,6 @@
 # Starttest per game
 
-Elke game is met de eigen lader gestart, 30 seconden laten draaien, en daarna opgeruimd. Gemaakt op 2026-10-11 22:34 uit de ruwe uitvoer van `starttest-batch.sh`.
+Elke game is met de eigen lader gestart, 30 seconden laten draaien, en daarna opgeruimd. Gemaakt op 2026-10-11 22:40 uit de ruwe uitvoer van `starttest-batch.sh`.
 
 ```bash
 # één game
@@ -35,6 +35,7 @@ python3 patches/starttest-gen.py
 | MedaruNoGunman | START | Have fun :) |
 | MusicGunGun2 | START | [launch-direct 22:20:56] lader gestopt (exitcode 0); de game volgen |
 | NERF | START | Have fun :) |
+| OG | START | Resolved target kernel32.dll procedure: local=7BE7E2F4 remote=7BE7E2F4 |
 | OmatsuriYasanGansoTakoyaki | START | Have fun :) |
 | OmatsuriYasanKingyoSukui | START | - |
 | Otomedius | viel-uit | - |
@@ -54,12 +55,12 @@ python3 patches/starttest-gen.py
 
 | | aantal |
 |---|---|
-| getest | 35 |
-| START | 24 |
+| getest | 36 |
+| START | 25 |
 | viel-uit | 1 |
 | start-niet | 10 |
 
-**START:** GaiaAttack4, Gashaaaan, Gashaaaan2, HauntedMuseum, HauntedMuseumII, InfinityBladeFX, LGI, LGI3D, LGS, LethalEnforcers3, LuigisMansion, MedaruNoGunman, MusicGunGun2, NERF, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, PigsMightFly, RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, TombRaider, TransformersShadowsRising
+**START:** GaiaAttack4, Gashaaaan, Gashaaaan2, HauntedMuseum, HauntedMuseumII, InfinityBladeFX, LGI, LGI3D, LGS, LethalEnforcers3, LuigisMansion, MedaruNoGunman, MusicGunGun2, NERF, OG, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, PigsMightFly, RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, TombRaider, TransformersShadowsRising
 
 **viel-uit:** Otomedius
 
