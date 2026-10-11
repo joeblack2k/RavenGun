@@ -78,13 +78,13 @@ Platform en route uit `packaging/io-routes.json` en `packaging/games-status.md`;
 | Time Crisis 5 | speelbaar, direct | OpenParrotLoader, gesloten kern, pipehelper, prefix | ja (HASP) |
 | Transformers: Shadows Rising | speelbaar, direct | OpenParrotLoader, gesloten kern, prefix | geen (antwoorden_ronde4 vraag 18) |
 | Go Go Strike | speelbaar, direct | lader, gesloten kern, prefix | Patreon=true (antwoorden_ronde4 vraag 18) |
-| Raccoon Rampage | deels (kalibratie in testmenu) | lader, gesloten kern, prefix | geen, Patreon=false (antwoorden_ronde4 vraag 18) |
+| Raccoon Rampage | speelbaar, direct (2026-10-11; standaardroute van de lader, kalibratie 5x5 in testmenu) | lader, gesloten kern, prefix | geen, Patreon=false (antwoorden_ronde4 vraag 18) |
 | Tomb Raider Arcade | speelbaar | geen (alleen Proton uit de TP-map) | — |
 | Rabbids Hollywood | speelbaar | geen (alleen Proton uit de TP-map) | — |
-| NERF Arcade | deels (geen invoer) | lader, gesloten kern | Patreon=true |
+| NERF Arcade | speelbaar, direct (2026-10-11; standaardroute van de lader) | lader, gesloten kern | Patreon=true |
 | Gashaaaan, Gashaaaan Refill | speelbaar, direct (2026-10-11, standaardroute van de lader) | lader, gesloten kern | Gashaaaan Refill: Patreon=true |
 | Otomedius, Lethal Enforcers 3, Omatsuri ×2, Infinity Blade FX | geparkeerd (32-bit kern start nu wel; per game een eigen oorzaak: films, ACIO op COM2, activering, ontbrekende bestanden, Kaboom-bibliotheek) | lader, gesloten kern | Otomedius: Patreon=true |
-| Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (zwart beeld) | OpenParrot (open kern) | regiokeuze |
+| Haunted Museum 1/2, Gaia Attack 4, Music GunGun 2 (Type X2) | geparkeerd (crash opgelost met een lokale ladercopie; zwart beeld na de JVS-featurecheck) | OpenParrot (open kern) | regiokeuze |
 | Jurassic Park | geparkeerd | ElfLdr2, gesloten kern | ja (integriteitscontrole) |
 | Let's Go Safari, Sega Ring-games | geparkeerd (poort 40100) | lader, gesloten kern | deels (dongle regio/PCB) |
 | Luigi's Mansion | speelbaar, direct (2026-10-10) | lader, gesloten kern | Capcom-packer op de exe |
