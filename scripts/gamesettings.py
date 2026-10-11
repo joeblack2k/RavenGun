@@ -22,6 +22,9 @@ Gebruik (voor scripts en gebruikers):
     gamesettings.py get PROFIEL Sectie.Sleutel [--default X]
     gamesettings.py env PROFIEL [--tp DIR]             de omgevingsvariabelen (K=V per regel) die de instellingen opleveren
     gamesettings.py input PROFIEL route|layout|board|boards|com_port|hid_vidpid|source|launch   voor play-halo.sh
+    gamesettings.py has-profile PROFIEL                exit 0 als game.ini een eigen profiel heeft (docs/per-game-patches.md, "Het profiel van een game")
+    gamesettings.py comms PROFIEL                      procesnamen van de game (voor play-halo.sh)
+    gamesettings.py write-xml PROFIEL                  UserProfiles/<P>.xml uit het eigen profiel (alleen voor een start via TeknoParrotUi)
     gamesettings.py dirs                               meegeleverde map en gebruikersmap
 Opties: --patches DIR (meegeleverde map; ook $RAVENGUN_PATCHES_DIR), --user DIR (gebruikersmap; ook $RAVENGUN_USER_PATCHES_DIR).
 """
@@ -31,6 +34,7 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee (ownprofile, tpxml)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
 TPUI_DATA = os.path.join(HOME, ".local/share/TeknoParrotUI")
@@ -508,8 +512,20 @@ def read_env_file(path):
     return env
 
 
+def own_game_path(profile, shipped=None, user=None):
+    """Het pad naar de game volgens het eigen profiel in game.ini (afgeleid uit de gamemappen, een view of een override), of ''."""
+    import ownprofile as op
+    g = load_game(profile, shipped=shipped, user=user)
+    if not op.has_own_profile(g.settings):
+        return ""
+    return op.locate_game(profile, g.settings)[0]
+
+
 def profile_gamedir(tp, profile):
-    """De map van de game-exe uit UserProfiles/<P>.xml (GamePath), of ''. Alleen gelezen."""
+    """De map van de game-exe: uit het eigen profiel in game.ini (afgeleid), anders uit UserProfiles/<P>.xml (GamePath). Alleen gelezen."""
+    own = own_game_path(profile)
+    if own:
+        return os.path.dirname(own)
     try:
         with open(os.path.join(tp, "UserProfiles", profile + ".xml"), encoding="utf-8-sig") as f:
             m = re.search(r"<GamePath>(.*?)</GamePath>", f.read(), re.S)
@@ -647,6 +663,13 @@ def main(argv):
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list")
     sub.add_parser("dirs")
+    p = sub.add_parser("has-profile", help="exit 0 als game.ini een eigen profiel heeft (UserProfiles-XML niet nodig)")
+    p.add_argument("profile")
+    p = sub.add_parser("comms", help="procesnamen (comm) van de game, gescheiden door |, voor play-halo.sh")
+    p.add_argument("profile")
+    p = sub.add_parser("write-xml", help="UserProfiles/<P>.xml uit het eigen profiel schrijven (voor een start via TeknoParrotUi)")
+    p.add_argument("profile")
+    p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("show")
     p.add_argument("profile")
     p.add_argument("--json", action="store_true")
@@ -682,6 +705,34 @@ def main(argv):
         else:
             g = load_for_profile(a.profile, a.tp, shipped=shipped, user=user)
             print(g.launch_mode or "teknoparrot-ui")
+        return 0
+    if a.cmd in ("has-profile", "comms", "write-xml"):
+        import ownprofile as op
+        g = load_game(a.profile, shipped=shipped, user=user)
+        if not op.has_own_profile(g.settings):
+            return 1 if a.cmd == "has-profile" else 0     # zonder eigen profiel verandert er niets: play-halo.sh valt terug op de XML
+        if a.cmd == "has-profile":
+            return 0
+        game, how = op.locate_game(a.profile, g.settings)
+        if a.cmd == "comms":
+            names = []
+            for v in (g.get("Game", "Executable", ""), g.get("Game", "Executable2", ""), game):
+                for part in re.split(r"[;|]", v or ""):
+                    n = part.replace("\\", "/").rsplit("/", 1)[-1].lower()[:15]
+                    if n and n not in names:
+                        names.append(n)
+            print("|".join(names))
+            return 0
+        tp = a.tp or os.environ.get("RAVENGUN_TP_DIR", DEFAULT_TP)
+        if not game:
+            print("gamesettings: game %s niet gevonden in de gamemappen (voeg de map toe in de app, of zet [Game] GamePath in je eigen game.ini)"
+                  % a.profile, file=sys.stderr)
+            return 1
+        import tpxml
+        status, unknown, _b = tpxml.write_user_xml(tp, a.profile, g.settings, game, dry=a.dry_run)
+        if unknown:
+            print("gamesettings: velden die het sjabloon niet kent: " + ", ".join(unknown), file=sys.stderr)
+        print("UserProfiles/%s.xml: %s" % (a.profile, status))
         return 0
     g = load_for_profile(a.profile, a.tp, shipped=shipped, user=user, log=lambda m: print(m, file=sys.stderr))
     for w in g.warnings:

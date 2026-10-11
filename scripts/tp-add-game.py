@@ -45,55 +45,10 @@ import os, re, shutil, sys, time
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs
+import ownprofile as op
+import tpxml
 
 TP = os.environ.get('RAVENGUN_TP_DIR') or os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
-GUN = '/dev/input/by-id/usb-RavenGun_Virtual_Lightgun-event-mouse'
-# Speler 2..4: een eigen gun (packaging/udev/70-ravengun.rules); speler 1 houdt GUN.
-GUNS = {1: GUN, **{n: f'/dev/input/by-id/usb-RavenGun_Virtual_Lightgun_P{n}-event-mouse' for n in (2, 3, 4)}}
-KBD = '/dev/input/by-id/usb-RavenGun_Virtual_Keyboard-event-kbd'
-
-
-def binding(name, game_bindings=None):
-    n = name.lower()
-    # Knoppen die de game zelf vastlegt (patches/<Game>/game.ini, [Bindings]): "kbd:TOETS" of "gun:Knop" ("gun:" = het vizier).
-    if game_bindings and n in game_bindings:
-        kind, _, key = game_bindings[n].partition(':')
-        m = re.search(r'\b(?:p|player )([2-4])\b', n)
-        pl = int(m.group(1)) if m else 1
-        if kind == 'kbd' and key: return ('kbd', key, 1)
-        if kind == 'gun': return ('gun', key or None, pl)
-    m = re.search(r'\b(?:p|player )([2-4])\b', n)
-    pl = int(m.group(1)) if m else 1
-    if n == 'test' or n.startswith('test / '): return ('kbd', 'F2', 1)
-    if n in ('service', 'service sw') or n.startswith('service / '): return ('kbd', 'F3', 1)
-    if re.fullmatch(r'coins?( ?[1-4])?', n) or n == 'credit': return ('kbd', 'D5', 1)
-    # Raccoon Rampage noemt de startknoppen "Credits P1".."Credits P4": start van die speler.
-    if re.fullmatch(r'credits p[1-4]', n): return ('kbd', f'D{pl}', pl)
-    # Aanraak- en trackballgames en de Proton Pack (GhostBusters): de gun is het aanwijsapparaat.
-    if 'light gun' in n or n in ('touch', 'touch xy', 'touch 1 device') or re.fullmatch(r'p[1-4] (proton pack|trackball gun)', n):
-        return ('gun', None, pl)
-    if 'start' in n or n == 'enter sw': return ('kbd', f'D{pl}', pl)
-    if n == 'gun trigger': return ('gun', 'LeftButton', pl)
-    # House of the Dead: Scarlet Dawn: hoofdtrekker = LeftButton, subtrekker (items wisselen) = RightButton, controllerkeuze = MiddleButton.
-    if n.endswith('sub trigger'): return ('gun', 'RightButton', pl)
-    if n.endswith('controller select'): return ('gun', 'MiddleButton', pl)
-    if n == 'gun button': return ('gun', 'RightButton', pl)
-    if n == 'left pedal': return ('gun', 'MiddleButton', pl)
-    if 'trigger' in n or n.endswith('vacuum button') or 'throw' in n or n in ('touch press', 'touch 1', 'trackball push/click'):
-        return ('gun', 'LeftButton', pl)
-    if 'reload' in n or n.endswith('vacuum lever') or 'shoulder' in n: return ('gun', 'RightButton', pl)
-    if 'grenade' in n or n.endswith('screen out') or ' option' in n: return ('gun', 'MiddleButton', pl)
-    return None
-
-
-def raw_xml(kind, key, pl=1):
-    if kind == 'kbd':
-        bind = f'RavenGun Virtual Keyboard {key}'
-        return (f'<RawInputButton><DevicePath>{KBD}</DevicePath><DeviceType>Keyboard</DeviceType>'
-                f'<MouseButton>None</MouseButton><KeyboardKey>{key}</KeyboardKey></RawInputButton>', bind)
-    bind = 'RavenGun Virtual Lightgun' + (f' P{pl}' if pl > 1 else '') + (f' {key}' if key else '')
-    return (f'<RawInputButton><DevicePath>{GUNS[pl]}</DevicePath><DeviceType>Mouse</DeviceType>'
-            f'<MouseButton>{key or "None"}</MouseButton><KeyboardKey>None</KeyboardKey></RawInputButton>', bind)
 
 
 def link_tree(src, dst, empties):
@@ -180,8 +135,8 @@ def main():
     if len(args) != 2:
         sys.exit(__doc__)
     prof, game = args[0], os.path.abspath(os.path.expanduser(args[1]))
-    shipped_game = gs.load_game(prof)      # patches/<Game>/ (meegeleverd + gebruiker): knoppen van de game
-    game_bindings = {k.lower(): v for k, v in shipped_game.section('Bindings').items()}
+    shipped_game = gs.load_game(prof)      # patches/<Game>/ (meegeleverd + gebruiker): knoppen en het eigen profiel van de game
+    base_game = gs.load_game(prof, user=os.path.join(os.devnull, 'geen'))   # alleen het meegeleverde deel: wat de gebruikerslaag aanvult
     src = os.path.join(TP, 'GameProfiles', prof + '.xml')
     dst = os.path.join(TP, 'UserProfiles', prof + '.xml')
     if not os.path.isfile(src): sys.exit(f'geen sjabloon: {src}')
@@ -205,32 +160,30 @@ def main():
     if os.path.exists(dst):
         if not force: sys.exit(f'bestaat al: {dst} (gebruik --force)')
         shutil.copy2(dst, dst + time.strftime('.bak-%Y%m%d-%H%M%S'))
+        os.unlink(dst)                              # het uitvoerprofiel voor TeknoParrotUi wordt opnieuw uit het sjabloon gemaakt
+    stock, stock_fields = op.read_xml_profile(src)
     s = open(src, encoding='utf-8-sig').read()
-    esc = game.replace('&', '&amp;').replace('<', '&lt;')
-    s, n = re.subn(r'<GamePath>.*?</GamePath>|<GamePath\s*/>', lambda m: f'<GamePath>{esc}</GamePath>', s, count=1, flags=re.S)
-    if n != 1: sys.exit('GamePath niet gevonden in de sjabloon')
-    # Input API -> RawInput
-    def api(m):
-        blk = m.group(0)
-        if '<FieldValue>' in blk: return re.sub(r'<FieldValue>.*?</FieldValue>', '<FieldValue>RawInput</FieldValue>', blk, count=1)
-        return blk.replace('</FieldName>', '</FieldName><FieldValue>RawInput</FieldValue>', 1)
-    s = re.sub(r'<FieldInformation>(?:(?!</FieldInformation>).)*?<FieldName>Input API</FieldName>.*?</FieldInformation>', api, s, count=1, flags=re.S)
+    # Het profiel van de game staat in game.ini (docs/per-game-patches.md). Heeft het meegeleverde game.ini er al een (importer), dan komt in de
+    # gebruikerslaag alleen wat de aanroeper anders kiest; anders komt het hele profiel uit het sjabloon in de gebruikerslaag.
+    final = {sec: dict(kv) for sec, kv in shipped_game.settings.items()}
+    if not op.has_own_profile(base_game.settings):
+        prof_part = op.static_sections(stock, stock_fields, os.path.basename(game))
+        root, relp = op.locate_root(game, prof, op.library_folders())
+        prof_part[op.IDENTIFY] = {'Path': relp, 'Size': str(os.stat(game).st_size)}
+        for sec, kv in prof_part.items():
+            final.setdefault(sec, {}).update(kv)
+
+    def set_field(name, value):
+        for k in list(final.get(op.CONFIG_TYPE, {})):
+            if op.split_key(k)[1] == name:
+                final.setdefault(op.CONFIG, {})[k] = value
+                return True
+        return False
+    set_field('Input API', 'RawInput')
     if '--fullscreen' in sys.argv:
         for name, val in (('Windowed', '0'), ('Use Custom Resolution', '1'), ('Custom Resolution Width', '1920'),
                           ('Custom Resolution Height', '1080')):
-            s = re.sub(r'(<FieldName>' + name + r'</FieldName>\s*<FieldValue>).*?(</FieldValue>)',
-                       lambda m: m.group(1) + val + m.group(2), s, count=1, flags=re.S)
-    bound = []
-    def btn(m):
-        blk = m.group(0)
-        name = re.search(r'<ButtonName>(.*?)</ButtonName>', blk).group(1)
-        b = binding(name, game_bindings)
-        if not b: return blk
-        raw, bind = raw_xml(*b)
-        blk = re.sub(r'<RawInputButton>.*?</RawInputButton>|<BindNameRi>.*?</BindNameRi>|<BindName>.*?</BindName>', '', blk, flags=re.S)
-        bound.append(f'{name} -> {bind}')
-        return blk.replace('</ButtonName>', f'</ButtonName>{raw}<BindNameRi>{bind}</BindNameRi><BindName>{bind}</BindName>', 1)
-    s = re.sub(r'<JoystickButtons>\s*<ButtonName>.*?</JoystickButtons>', btn, s, flags=re.S)
+            set_field(name, val)
     if '--dxvk' in sys.argv:
         wrapper = os.path.expanduser('~/.local/share/ravengun/wrappers/wine-prefix')
         if not os.path.exists(wrapper): sys.exit(f'wrapper ontbreekt: {wrapper} (link naar scripts/wine-prefix.sh)')
@@ -249,14 +202,11 @@ def main():
         pfx = make_vdesktop_prefix(prof, argv_[argv_.index('--vdesktop') + 1])
         envs = [e for e in envs if not e.startswith('RG_WINEPREFIX=')] + [prefix_env(pfx)]
         vdesktop = argv_[argv_.index('--vdesktop') + 1]
-        s = re.sub(r'(<FieldName>Windowed</FieldName>\s*<FieldValue>).*?(</FieldValue>)', lambda m: m.group(1) + '0' + m.group(2), s, count=1, flags=re.S)
+        set_field('Windowed', '0')
         runner = wrapper
     if runner:
         if not os.path.isfile(runner): sys.exit(f'wine-runner ontbreekt: {runner}')
-        s = re.sub(r'<WineRunnerPath>.*?</WineRunnerPath>|<WineRunnerPath\s*/>', '', s, flags=re.S)
-        s = s.replace('</GameProfile>', f'<WineRunnerPath>{runner}</WineRunnerPath>\n</GameProfile>')
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    open(dst, 'w', encoding='utf-8').write(s)
+        final.setdefault('Wine', {})['Runner'] = op.runner_to_ini(runner) or gs.shrink_home(runner)
     # Instellingen van de game in de gebruikerslaag (patches/<PROFIEL>/game.ini, ~/.local/share/ravengun/patches). De standaarden per
     # soort (lader-route, Wine-omwegen, lader-patch voor Type X2) komen uit patches/_defaults/<Type>.ini: hier alleen wat de aanroeper
     # kiest. Zie docs/per-game-patches.md en packaging/games-status.md.
@@ -279,15 +229,40 @@ def main():
     # Een eigen injectiemethode (POSTSTART/ENTRYPOINT) vervangt de standaardroute van het soort: dan RemoteThread leegmaken.
     if any(k in env_dict for k in ('TP_POSTSTART_REMOTETHREAD_MS', 'TP_ENTRYPOINT_REMOTETHREAD_MS')) and 'TP_REMOTETHREAD' not in env_dict:
         settings.setdefault('Loader', {})['RemoteThread'] = ''
+    for sec, kv in settings.items():
+        for k, v in kv.items():
+            if v == '': final.get(sec, {}).pop(k, None)
+            else: final.setdefault(sec, {})[k] = v
+    # Het pad naar de game wordt afgeleid (view of gamemappen, [Identify]); alleen als dat een ander bestand vindt komt het als override in
+    # de gebruikerslaag.
+    final.get('Game', {}).pop('GamePath', None)
+    derived, _how = op.locate_game(prof, final)
+    if not derived or not op.same_file(derived, game):
+        final.setdefault('Game', {})['GamePath'] = gs.shrink_home(game)
+    # Naar de gebruikerslaag: wat afwijkt van het meegeleverde deel (en een lege waarde waar de aanroeper iets van het meegeleverde deel opheft).
+    updates = {}
+    for sec, kv in final.items():
+        if sec == 'Bindings': continue
+        for k, v in kv.items():
+            if base_game.settings.get(sec, {}).get(k) != v:
+                updates.setdefault(sec, {})[k] = v
+    for sec, kv in settings.items():
+        for k, v in kv.items():
+            if v == '':
+                updates.setdefault(sec, {})[k] = ''
     patches = {}
     dflt, _w = gs.read_ini(os.path.join(gs.shipped_dir(), '_defaults', typ + '.ini')) if typ else ({}, [])
     for name in [x.strip() for x in dflt.get('NewGame', {}).get('EnablePatches', '').split(',') if x.strip()]:
         patches[name] = {'Enabled': 'true'}
-    gs.write_user_settings(prof, settings, patches)
-    print(f'  instellingen: {os.path.join(gs.user_dir(), prof, "game.ini")}: '
-          + ' '.join(f'{sec}.{k}={v}' for sec, kv in settings.items() for k, v in kv.items())
+    gs.write_user_settings(prof, updates, patches)
+    shown = [f'{sec}.{k}={v}' for sec, kv in updates.items() if sec not in (op.CONFIG, op.CONFIG_TYPE, op.CONFIG_OPTIONS, op.IDENTIFY) for k, v in kv.items()]
+    print(f'  instellingen: {os.path.join(gs.user_dir(), prof, "game.ini")}: ' + ' '.join(shown)
           + (f' (patches aan: {", ".join(patches)})' if patches else ''))
-    print(f'geschreven: {dst}\n  game: {game}\n  bindingen:\n    ' + '\n    '.join(bound))
+    # Uitvoerprofiel voor een start via TeknoParrotUi (Mode = tpui en de terugval): uit het eigen profiel, met de bindingen naar onze apparaten.
+    final['Bindings'] = shipped_game.settings.get('Bindings', {})
+    status, unknown, bound = tpxml.write_user_xml(TP, prof, final, game)
+    if unknown: print('  let op: velden die het sjabloon niet kent: ' + ', '.join(unknown))
+    print(f'geschreven: {dst} ({status})\n  game: {game}\n  bindingen:\n    ' + '\n    '.join(bound))
 
 
 if __name__ == '__main__':

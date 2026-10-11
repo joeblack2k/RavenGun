@@ -248,6 +248,8 @@ if(RAVENGUN_BUILD_TESTS)
   find_package(Python3 QUIET COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_gamesettings_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gamesettings.py")
+    # Het eigen spelprofiel in game.ini: ConfigValues, importer, pad afleiden uit de gamemappen, start zonder UserProfiles-XML, Patreon-poort.
+    add_test(NAME ravengun_ownprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ownprofile.py")
   endif()
   # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
   add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")

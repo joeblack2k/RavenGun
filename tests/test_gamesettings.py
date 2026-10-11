@@ -401,7 +401,12 @@ class TpAddGameTest(Tmp):
         self.assertIn("<KeyboardKey>D5</KeyboardKey>", xml)          # Coin
         self.assertFalse(os.path.exists(os.path.join(tp, "UserProfiles", "LGS.env")))   # geen .env meer
         s, _ = gs.read_ini(os.path.join(self.user, "LGS", "game.ini"))
-        self.assertEqual(s["Game"], {"Profile": "LGS", "Type": "TeknoParrot", "EmulationProfile": "EmuLGS", "Name": "Naam LGS"})
+        exe = os.path.join(self.tmp, "spel", "LGS", "game.exe")
+        # Het hele profiel uit het sjabloon staat in de gebruikerslaag (er is geen meegeleverd profiel); het pad alleen als override, want er is
+        # geen gamemap die de game terugvindt.
+        self.assertEqual(s["Game"], {"Profile": "LGS", "Type": "TeknoParrot", "EmulationProfile": "EmuLGS", "Name": "Naam LGS",
+                                     "Executable": "game.exe", "GamePath": exe})
+        self.assertEqual(s["Identify"], {"Path": "game.exe", "Size": "1"})
         self.assertEqual(s["Loader"], {"PostStartMs": "3000", "RemoteThread": ""})   # eigen injectie: de standaardroute van het soort uit
         s, _ = gs.read_ini(os.path.join(self.user, "XX2", "game.ini"))
         self.assertEqual(s["Game"]["Type"], "OpenParrot")
