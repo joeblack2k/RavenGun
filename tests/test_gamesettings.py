@@ -258,14 +258,25 @@ class PatchPolicyTest(Tmp):
         self.assertTrue(gs.load_game("RaccoonRampage", shipped=shipped, user=os.path.join(self.tmp, "geen")).get("Display", "DisplayMode"))
         mem = [(n, p) for n in ("HauntedMuseum", "HauntedMuseumII", "GaiaAttack4", "MusicGunGun2")
                for p in gs.load_game(n, shipped=shipped, user=os.path.join(self.tmp, "geen")).patches if p.kind == "memory"]
-        self.assertEqual(len(mem), 10)
+        self.assertEqual(len(mem), 12)
         for n, p in mem:
             self.assertFalse(p.enabled)
             self.assertEqual(p.applied_by, "core")
-            self.assertEqual(p.get("Find"), "")
             self.assertTrue(p.get("Source").startswith("OpenParrot TypeX2Generic.cpp (GPL-3.0), regel "))
+            if p.get("Find"):
+                # De Find is op onze eigen dump gemeten en precies zo lang als de patch schrijft.
+                self.assertEqual(len(p.get("Find").split()), int(p.get("Size")))
+        # Geen Find waar die niets zou zeggen: de 2101J-set hoort bij de JP 1.01-build (onze dump is
+        # de USA 1.00-build: CRC 0x5a7fa241 -> GameID::HauntedMuseum2100) en de crash-NOP van 0x1391
+        # staat in onze dump al op 0x90, dus daar is een Find triviaal waar.
+        self.assertEqual(sorted(p.name for n, p in mem if not p.get("Find")), [
+            "Crash-NOP, versie 2100 (0x1391)",
+            "Firmware-foutmelding uit, versie 2101J (0x1105)",
+            "Gun-schrijfacties uit, versie 2101J (0x9B920)",
+            "Volumeschrijfactie uit, versie 2101J (0x9DA08)",
+        ])
         versions = sorted(p.version for n, p in mem if n == "HauntedMuseumII")
-        self.assertEqual(versions, ["2100", "2100", "2101J", "2101J"])
+        self.assertEqual(versions, ["2100", "2100", "2100", "2101J", "2101J", "2101J"])
         self.assertTrue(gs.load_game("GaiaAttack4", shipped=shipped, user=os.path.join(self.tmp, "geen")).patch_errors == [])
         p = [p for p in gs.load_game("GaiaAttack4", shipped=shipped, user=os.path.join(self.tmp, "geen")).patches if p.kind == "file"][0]
         self.assertEqual(p.category, "loader")

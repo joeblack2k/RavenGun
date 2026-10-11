@@ -388,10 +388,10 @@ Soorten (`Kind`):
 - `registry`: regels voor de (eigen) prefix, `Key`, `Name`, `Value`. Wordt gelezen en getoond, maar nog niet toegepast (de launcher meldt dat
   hij de patch overslaat).
 - `memory`: gereserveerd voor een eigen hook-DLL (later). Formaat zoals Dolphin: `Module` (de exe van de game), `Offset` (ten opzichte van de imagebase), `Find`, `Replace`.
-  Wordt niet toegepast. Nu staan er alleen documentatiepatches van dit soort: tien Type X2-aanpassingen die de OpenParrot-kern zelf al doet (`AppliedBy = core`,
+  Wordt niet toegepast. Nu staan er alleen documentatiepatches van dit soort: twaalf Type X2-aanpassingen die de OpenParrot-kern zelf al doet (`AppliedBy = core`,
   `Enabled = false`, `Action = jmp-returns-true` of `nop` met `Size`), overgenomen uit de openbare bron `OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp`
-  (GPL-3.0) met het regelnummer in `Source`: Haunted Museum (3), Haunted Museum II (4: versie `2100` en `2101J`, die het profiel niet onderscheidt, dus beide staan er),
-  Gaia Attack 4 (2) en Music GunGun 2 (1, zonder commentaar upstream: het doel is niet vastgelegd). De bron noemt geen originele bytes, dus `Find` is bij deze patches leeg.
+  (GPL-3.0) met het regelnummer in `Source`: Haunted Museum (3), Haunted Museum II (6: versie `2100` en `2101J`, die het profiel niet onderscheidt, dus beide staan er),
+  Gaia Attack 4 (2) en Music GunGun 2 (1, zonder commentaar upstream: het doel is niet vastgelegd). De bron noemt geen originele bytes; bij acht van de twaalf staat de `Find` er wel, en die is op onze eigen dump gemeten (dezelfde bytes die de motor zelf print). Bij de vier zonder `Find` zou hij niets zeggen: de 2101J-set hoort bij de JP 1.01-build (onze dump is de USA 1.00-build) en de crash-NOP van 0x1391 staat in onze dump al op `0x90`.
 
 Patches worden alleen door de directe start (`launch-direct.py`) toegepast; TeknoParrotUi start de lader zelf.
 

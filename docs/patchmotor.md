@@ -112,10 +112,16 @@ moet een **lokale** kopie zijn — de motor weigert een pad op de NAS, ook met `
    `plan_file_patches()`, dat alleen `Kind = file` op de lader en de kern doet. Die moet
    `patchfile.apply_game()` gaan aanroepen. Dat bestand is van een andere agent; dit is de
    overdracht.
-3. **De spelversie-controle voor memory-patches.** `Find` werkt, maar de bestaande `patches.ini` van
-   de vier Type X2-games hebben geen `Find`. Zonder `Find` kan de motor niet zien of je de juiste
-   versie hebt — hij meldt dat dan ook ("geen Find, dus niet te controleren"). Wie een memory-patch
-   schrijft, zet er een `Find` bij.
+3. **De spelversie-controle voor memory-patches.** `Find` werkt en staat sinds ronde 33 bij **acht van
+   de twaalf** memory-patches van de vier Type X2-games. Die bytes zijn op de echte exe's gemeten
+   (module-offset naar bestandsplaats via `addrmap`, sectie `.text`) en het zijn dezelfde bytes die de
+   motor zelf print bij `--take-over-core`; de motor meldt ze nu dan ook als `gecontroleerd` in plaats
+   van "geen Find, dus niet te controleren". De `Find` is precies zo lang als de patch schrijft, dus
+   `Size` bepaalt de lengte. Bij de vier zonder `Find` zou hij niets zeggen: de 2101J-set van
+   HauntedMuseumII hoort bij de **JP 1.01**-build terwijl onze dump de **USA 1.00**-build is (de CRC
+   die de kern zelf over de eerste `0x400` bytes rekent is `0x5a7fa241` -> `GameID::HauntedMuseum2100`),
+   en de crash-NOP van `0x1391` staat in onze dump al op `0x90`. Wie een nieuwe memory-patch schrijft,
+   zet er een `Find` bij.
 
 ## Eén blokkade die je moet weten
 
