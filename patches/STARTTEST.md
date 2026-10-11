@@ -1,6 +1,6 @@
 # Starttest per game
 
-Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-11 23:18 uit de ruwe uitvoer van `starttest3.sh`.
+Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-11 23:36 uit de ruwe uitvoer van `starttest3.sh`.
 
 ```bash
 # één game
@@ -67,7 +67,7 @@ schrijfwijzen: een Wine-proces heeft het Windows-pad in zijn commandoregel
 | RaccoonRampage | START | 2 | 1 | [launch-direct 23:15:29] klaar (exitcode gestopt) |
 | RainbowBombergirl | START | 2 | 1 | [launch-direct 23:15:55] klaar (exitcode gestopt) |
 | Rampage | START | 2 | 1 | [launch-direct 23:16:20] klaar (exitcode gestopt) |
-| TC5 | START | 2 | 1 | [launch-direct 23:16:45] klaar (exitcode gestopt) |
+| TC5 | START | 1 | 1 | [launch-direct 23:34:58] klaar (exitcode gestopt) |
 | Terminator | START | 2 | 1 | [launch-direct 23:17:11] klaar (exitcode gestopt) |
 | TombRaider | START | 2 | 1 | [launch-direct 23:17:36] klaar (exitcode gestopt) |
 | TransformersShadowsRising | START | 2 | 1 | [launch-direct 23:18:01] klaar (exitcode gestopt) |
@@ -90,3 +90,34 @@ Dit zegt dat de game **start en blijft draaien**, niet dat hij speelbaar is. Of 
 goed is, of de ingang werkt en of de dongle beantwoord wordt staat er niet in. Voor de games
 met een dongle is dat een aparte meting (`scripts/hasp.py --game <Game> --json` voor de
 gegevens, en het logboek van de start voor de vraag of de bibliotheek geladen wordt).
+
+## Status versus meting
+
+De woordenschat van `[Status] Status` is `playable | parked | untested`. Geen van die drie
+betekent "start wel, maar speelbaarheid is niet nagegaan" — en dat is precies wat deze
+meting vaststelt. Daarom wordt er niets omgezet; hier staat waar de twee uit elkaar lopen.
+
+**Start en blijft draaien, maar staat niet op `playable`** (17):
+
+* GaiaAttack4 — `parked`
+* GalagaAssault — `parked`
+* GhostBusters — `parked`
+* HauntedMuseum — `parked`
+* HauntedMuseumII — `parked`
+* InfinityBladeFX — `parked`
+* JurassicPark — `parked`
+* LethalEnforcers3 — `parked`
+* MedaruNoGunman — `parked`
+* MusicGunGun2 — `parked`
+* OG — `untested`
+* OmatsuriYasanGansoTakoyaki — `parked`
+* OmatsuriYasanKingyoSukui — `parked`
+* Otomedius — `parked`
+* PacmanChomp — `parked`
+* RabbidsHollywood — `parked`
+* RainbowBombergirl — `parked`
+
+Een `playable` zou hier meer claimen dan gemeten is: of het beeld goed is, of de
+ingang werkt en of de dongle beantwoord wordt, staat er niet in. Wie dat per game
+nakijkt, kan de status met onderbouwing omzetten.
+

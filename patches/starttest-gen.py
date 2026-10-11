@@ -109,6 +109,62 @@ regels += [
     "",
 ]
 
+# De [Status] van elke game erbij: het rapport laat zien waar de status en de meting uit elkaar
+# lopen. De woordenschat is playable | parked | untested, en geen daarvan betekent "start wel,
+# speelbaarheid niet nagegaan" -- daarom wordt er niets omgezet, alleen getoond.
+PATCHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(UIT))), "patches")
+
+
+def status_van(game):
+    pad = os.path.join(PATCHES, game, "game.ini")
+    try:
+        with io.open(pad, encoding="utf-8-sig") as f:
+            for regel in f:
+                m = regel.strip()
+                if m.lower().startswith("status") and "=" in m:
+                    return m.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+start_maar_niet_playable = []
+playable_maar_geen_start = []
+for g in namen:
+    st = status_van(g)
+    if metingen[g][0] == "START" and st in ("parked", "untested", ""):
+        start_maar_niet_playable.append((g, st or "-"))
+    if metingen[g][0] != "START" and st == "playable":
+        playable_maar_geen_start.append((g, st))
+
+regels += [
+    "## Status versus meting",
+    "",
+    "De woordenschat van `[Status] Status` is `playable | parked | untested`. Geen van die drie",
+    "betekent \"start wel, maar speelbaarheid is niet nagegaan\" — en dat is precies wat deze",
+    "meting vaststelt. Daarom wordt er niets omgezet; hier staat waar de twee uit elkaar lopen.",
+    "",
+]
+if start_maar_niet_playable:
+    regels.append("**Start en blijft draaien, maar staat niet op `playable`** (%d):"
+                  % len(start_maar_niet_playable))
+    regels.append("")
+    for g, st in start_maar_niet_playable:
+        regels.append("* %s — `%s`" % (g, st))
+    regels.append("")
+    regels.append("Een `playable` zou hier meer claimen dan gemeten is: of het beeld goed is, of de")
+    regels.append("ingang werkt en of de dongle beantwoord wordt, staat er niet in. Wie dat per game")
+    regels.append("nakijkt, kan de status met onderbouwing omzetten.")
+else:
+    regels.append("Geen enkele game start zonder op `playable` te staan.")
+regels.append("")
+if playable_maar_geen_start:
+    regels.append("**Staat op `playable` maar start niet** (%d): %s"
+                  % (len(playable_maar_geen_start),
+                     ", ".join("%s (`%s`)" % (g, st) for g, st in playable_maar_geen_start)))
+    regels.append("")
+regels.append("")
+
 os.makedirs(os.path.dirname(UIT), exist_ok=True)
 with io.open(UIT, "w", encoding="utf-8") as f:
     f.write("\n".join(regels))
