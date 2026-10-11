@@ -61,6 +61,7 @@ sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
 import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
+import patchfile as pf  # noqa: E402  (de patchmotor: Kind = file op de game zelf en Kind = memory op de hoofdmodule)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -560,6 +561,45 @@ def is_pe(path):
 # ---------------------------------------------------------------------------------------------------------------------
 # Startplan
 
+def plan_motor_patches(settings, exe, loader, core, materialize):
+    """Wat de patchmotor (scripts/patchfile.py) toevoegt aan wat plan_file_patches() al doet.
+
+    plan_file_patches() doet Kind = file op de lader en de kern. De motor doet daarnaast:
+      * Kind = file met de GAME zelf als doel;
+      * Kind = memory op de hoofdmodule, door Module + Offset via de sectie- of segmenttabel naar een
+        bestandsplaats om te rekenen (scripts/addrmap.py).
+    Patches die de launcher al kon, worden hier niet nog eens gedaan: de motor slaat ze over en dit
+    verslag is alleen wat er nieuw bij komt.
+
+    Geeft ({rol: pad van de gepatchte kopie}, [verslagregel]). Weigert een ingeschakelde patch die
+    niet toe te passen is: dan start de game niet (net als bij plan_file_patches)."""
+    try:
+        rep = pf.apply_game_obj(settings, settings.profile, exe, loader=loader, core=core, materialize=False)
+    except pf.Refused as e:
+        raise PatchRefused("de patchmotor: %s" % e)
+    except Exception as e:      # noqa: BLE001 -- de motor mag de launcher niet laten omvallen
+        raise PatchRefused("de patchmotor: %s: %s" % (type(e).__name__, e))
+
+    geweigerd = [r for r in rep.results if r.status == "geweigerd"]
+    if geweigerd:
+        raise PatchRefused("patch '%s' geweigerd: %s" % (geweigerd[0].name, geweigerd[0].reason))
+
+    if materialize and any(r.status == "gecontroleerd" for r in rep.results):
+        try:
+            rep = pf.apply_game_obj(settings, settings.profile, exe, loader=loader, core=core, materialize=True)
+        except pf.Refused as e:
+            raise PatchRefused("de patchmotor: %s" % e)
+
+    verslag = []
+    for r in rep.results:
+        if r.status not in ("toegepast", "gecontroleerd", "geweigerd"):
+            continue
+        verslag.append({"name": r.name, "kind": r.kind, "category": "", "version": "",
+                        "target": r.target, "result": r.status, "plek": r.place,
+                        "reden": r.reason, "status": r.status})
+    return dict(rep.written), verslag
+
+
 def resolve_loader(p, tp):
     et = p.get("EmulatorType", "")
     is64 = truthy(p.get("Is64Bit", "false"))
@@ -924,6 +964,14 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     core_dir = own_core_dir or tp
     targets = {"loader": loader, "core": os.path.join(core_dir, dll_rel + ".dll") if dll_rel else None}
     patched, patch_report = plan_file_patches(settings, targets, tp, materialize=materialize_patches, exe_path=game)
+    # De patchmotor erbij: Kind = file op de game zelf en Kind = memory op de hoofdmodule. Additief,
+    # zodat alles wat hierboven al kon dezelfde weg blijft gaan (docs/patchmotor.md).
+    try:
+        extra_patched, extra_verslag = plan_motor_patches(settings, game, loader, targets.get("core"), materialize_patches)
+    except PatchRefused:
+        raise
+    patch_report.extend(extra_verslag)
+    patched.update({k: v for k, v in extra_patched.items() if k not in patched})
     loader = patched.get("loader", loader)
     wine = resolve_wine(p, env)
     prefix, set_prefix = resolve_prefix(p, env, wine)

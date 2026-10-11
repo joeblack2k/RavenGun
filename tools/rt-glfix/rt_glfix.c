@@ -664,6 +664,25 @@ static int rtg_is_gl_naam(const char *s)
 static int rtg_patch_ronde(int *gezien)
 {
     int i, nieuw = 0;
+    static int diagnose_gedaan;
+    if ((rtg_mode & MODE_STUBLOG) && !diagnose_gedaan) {
+        int buiten = 0, uitv = 0, sig = 0;
+        diagnose_gedaan = 1;
+        for (i = 0; i < rtg_lijst_n; i++) {
+            uint32_t w = *(volatile uint32_t *)(uintptr_t)rtg_lijst[i].adres;
+            if (!w || (w >= rtg_glbase && w < rtg_gleind))
+                continue;
+            buiten++;
+            if (!rtg_is_uitvoerbaar(w))
+                continue;
+            uitv++;
+            if (memcmp((const void *)(uintptr_t)w, rtg_noop_sig, sizeof(rtg_noop_sig)) == 0)
+                sig++;
+        }
+        rtg_say("diagnose: %d invoeren buiten de GL-module; %d daarvan uitvoerbaar; %d met de "
+                "lege-stub-handtekening (uitvoerbare gebieden in de cache: %d)",
+                buiten, uitv, sig, rtg_exec_n);
+    }
     for (i = 0; i < rtg_lijst_n; i++) {
         uint32_t waarde;
         char naam[64];

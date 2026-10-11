@@ -71,6 +71,8 @@
 #include <fcntl.h>
 #include <link.h>
 #include <pthread.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -120,7 +122,6 @@ static hh_phdr *hh_ph;
 static hh_sym *hh_symtab;
 static const char *hh_strtab;
 static size_t hh_sym_n;
-static int hh_klaar_met_beeld;
 
 static int hh_lees_elf(const char *pad, const char *waarom)
 {
@@ -156,7 +157,8 @@ static int hh_lees_elf(const char *pad, const char *waarom)
 }
 
 /* De game-ELF staat op schijf. Het proces is wine-preloader (LD_AUDIT-route) of de game zelf
-   (LD_PRELOAD-route), dus we proberen /proc/self/exe, de werkmap en de commandoregel. */
+   (LD_PRELOAD-route). /proc/self/exe is dus vaak NIET de game; de commandoregel van het
+   Wine-proces noemt het spelpad wel (`Z:\...\game`). We proberen ze in volgorde. */
 static int hh_vind_elf(void)
 {
     char pad[4096];
@@ -166,23 +168,12 @@ static int hh_vind_elf(void)
 
     if (env && *env && hh_lees_elf(env, "RAVENGUN_HASP_ELF_GAME"))
         return 1;
-    n = readlink("/proc/self/exe", pad, sizeof(pad) - 1);
-    if (n > 0) {
-        pad[n] = 0;
-        if (hh_lees_elf(pad, "/proc/self/exe"))
-            return 1;
-    }
-    n = readlink("/proc/self/cwd", cwd, sizeof(cwd) - 1);
-    if (n > 0) {
-        cwd[n] = 0;
-        snprintf(pad, sizeof(pad), "%s/game", cwd);
-        if (hh_lees_elf(pad, "werkmap/game"))
-            return 1;
-    }
+
+    /* De commandoregel: zoek het argument dat op de game wijst. */
     {
         FILE *f = fopen("/proc/self/cmdline", "rb");
         if (f) {
-            char buf[4096];
+            char buf[8192];
             size_t m = fread(buf, 1, sizeof(buf) - 1, f);
             size_t k = 0;
             fclose(f);
@@ -208,6 +199,24 @@ static int hh_vind_elf(void)
                 k += len + 1;
             }
         }
+    }
+
+    /* /proc/self/exe: alleen als het geen wine-preloader is. */
+    n = readlink("/proc/self/exe", pad, sizeof(pad) - 1);
+    if (n > 0) {
+        pad[n] = 0;
+        if (!strstr(pad, "wine-preloader") && !strstr(pad, "wine-preloader.so") &&
+            hh_lees_elf(pad, "/proc/self/exe"))
+            return 1;
+    }
+
+    /* De werkmap: ./game. */
+    n = readlink("/proc/self/cwd", cwd, sizeof(cwd) - 1);
+    if (n > 0) {
+        cwd[n] = 0;
+        snprintf(pad, sizeof(pad), "%.4000s/game", cwd);
+        if (hh_lees_elf(pad, "werkmap/game"))
+            return 1;
     }
     return 0;
 }
@@ -378,7 +387,47 @@ static int hh_is_spelbeeld(uintptr_t a)
         return 0;
     if (g->e_phnum != hh_eh->e_phnum)
         return 0;
+    if (g->e_phoff != hh_eh->e_phoff)
+        return 0;
     return 1;
+}
+
+/*
+ * Een lezing van het spelbeeld kan mislukken terwijl /proc/self/maps hem "leesbaar" noemt: ElfLdr2
+ * beeldt het beeld in delen af, en een pagina die net is toegewezen maar nog niet gevuld is geeft
+ * SIGBUS. Dat is geen fout van ons maar een race met de lader. Daarom vangen we SIGSEGV en SIGBUS
+ * rond de lezing af en behandelen we een fout als "nog niet klaar".
+ */
+static sigjmp_buf hh_lezing;
+static volatile sig_atomic_t hh_lezing_actief;
+
+static void hh_lezing_fout(int sig)
+{
+    (void)sig;
+    if (hh_lezing_actief)
+        siglongjmp(hh_lezing, 1);
+}
+
+static int hh_is_spelbeeld_veilig(uintptr_t a)
+{
+    struct sigaction segv, bus, oud_segv, oud_bus;
+    int r;
+    memset(&segv, 0, sizeof(segv));
+    segv.sa_handler = hh_lezing_fout;
+    sigemptyset(&segv.sa_mask);
+    segv.sa_flags = SA_NODEFER;
+    bus = segv;
+    sigaction(SIGSEGV, &segv, &oud_segv);
+    sigaction(SIGBUS, &bus, &oud_bus);
+    hh_lezing_actief = 1;
+    if (sigsetjmp(hh_lezing, 1) == 0)
+        r = hh_is_spelbeeld(a);
+    else
+        r = 0;
+    hh_lezing_actief = 0;
+    sigaction(SIGSEGV, &oud_segv, NULL);
+    sigaction(SIGBUS, &oud_bus, NULL);
+    return r;
 }
 
 static int hh_zoek_beeld(void)
@@ -395,12 +444,12 @@ static int hh_zoek_beeld(void)
         return 0;
 
     /* Geval 1: het hoofdprogramma is de game (LD_PRELOAD-route). */
-    if (hh_hoofd_base_bekend && hh_is_spelbeeld(hh_hoofd_base + (uintptr_t)laag)) {
+    if (hh_hoofd_base_bekend && hh_is_spelbeeld_veilig(hh_hoofd_base + (uintptr_t)laag)) {
         hh_base = hh_hoofd_base + (uintptr_t)laag;
         return 1;
     }
     /* Geval 2: het beeld op zijn vaste adres (LD_AUDIT-route onder ElfLdr2). */
-    if (hh_is_spelbeeld((uintptr_t)laag)) {
+    if (hh_is_spelbeeld_veilig((uintptr_t)laag)) {
         hh_base = (uintptr_t)laag;
         return 1;
     }
@@ -415,7 +464,7 @@ static int hh_zoek_beeld(void)
             continue;
         if (rechten[0] != 'r')
             continue;
-        if (hh_is_spelbeeld((uintptr_t)lo)) {
+        if (hh_is_spelbeeld_veilig((uintptr_t)lo)) {
             hh_base = (uintptr_t)lo;
             fclose(f);
             return 1;
@@ -943,12 +992,6 @@ static void *hh_kijker(void *arg)
         if (!gemeld) {
             gemeld = 1;
             hh_say("spelbeeld op 0x%08lx", (unsigned long)hh_base);
-            hh_verzamel();
-            if (getenv("RAVENGUN_HASP_ELF_UIT")) {
-                hh_say("RAVENGUN_HASP_ELF_UIT gezet: alleen gemeten, niets aangehaakt");
-                hh_gedaan = 1;
-                return NULL;
-            }
             if (!hh_laad_emulator()) {
                 hh_say("zonder emulator niets aangehaakt");
                 hh_gedaan = 1;
@@ -1005,6 +1048,34 @@ static void hh_open_log(void)
         hh_say("=== ravengun-hasphook (pid %d, %s) ===", (int)getpid(), comm);
 }
 
+/*
+ * De hele aanbrenging in één keer, SYNCHROON. Dit is de hoofdroute: het spelbeeld staat al in het
+ * geheugen voordat de constructor van deze bibliotheek loopt (gemeten: 0x08048000-0x09128000 rwxp
+ * vanaf het moment dat de lader het beeld heeft geplaatst), en een synchrone aanbrenging is
+ * betrouwbaarder dan een kijker-thread: geen race met het opstarten van het spel.
+ *
+ * Lukt het niet (beeld nog niet afgebeeld, of een functie nog niet leesbaar), dan neemt de
+ * kijker-thread het over.
+ */
+static int hh_breng_aan(void)
+{
+    int n;
+    if (!hh_zoek_beeld())
+        return 0;
+    if (!hh_emulator && !hh_laad_emulator())
+        return 0;
+    hh_koppel_emulator();
+    hh_haak_alles();
+    n = hh_haak_n;
+    if (n >= (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0]))) {
+        hh_say("klaar (synchroon): %d functies aangehaakt", n);
+        return 1;
+    }
+    hh_say("synchroon %d van %d functies aangehaakt; de kijker probeert de rest",
+           n, (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0])));
+    return n > 0;
+}
+
 static void hh_begin(void)
 {
     pthread_t t;
@@ -1019,7 +1090,16 @@ static void hh_begin(void)
     }
     if (!hh_vind_dynsym())
         return;
-    hh_klaar_met_beeld = 1;
+    hh_verzamel();
+    if (getenv("RAVENGUN_HASP_ELF_UIT")) {
+        hh_say("RAVENGUN_HASP_ELF_UIT gezet: alleen gemeten, niets aangehaakt");
+        return;
+    }
+    if (hh_breng_aan()) {
+        hh_gedaan = 1;
+        return;
+    }
+    hh_say("synchroon niet gelukt; de kijker-thread neemt het over");
     if (pthread_create(&t, NULL, hh_kijker, NULL) != 0) {
         hh_say("kon de kijker-thread niet starten; niets gedaan");
         hh_gestart = 0;
