@@ -15,7 +15,7 @@ Automatisch gemaakt met `python3 tools/verify-all.py --md docs/per-game-stand.md
 | Halo | ElfLdr2 | tp-budgie | - | ja | hasp | hasp.py (aanwezig) | 7 bestand(en), 7 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | HauntedMuseum | OpenParrot | ours | ours | nee | - | - | - | 0 aan / 3 uit / 1 geweigerd | ok |
 | HauntedMuseumII | OpenParrot | ours | ours | nee | - | - | - | 0 aan / 4 uit / 1 geweigerd | ok |
-| InfinityBladeFX | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
+| InfinityBladeFX | TeknoParrot | ours | tp | ja | matrix | matrix.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | JurassicPark | ElfLdr2 | tp-budgie | - | ja | hasp | hasp.py (aanwezig) | 6 bestand(en), 6 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | LGI | TeknoParrot | ours | tp | ja | region | region.py (aanwezig) | 1 bestand(en), 1 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | LGI3D | TeknoParrot | ours | tp | ja | region | region.py (aanwezig) | 1 bestand(en), 1 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
@@ -31,12 +31,12 @@ Automatisch gemaakt met `python3 tools/verify-all.py --md docs/per-game-stand.md
 | Otomedius | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | PacmanChomp | ElfLdr2 | tp-budgie | - | nee | - | - | 1 bestand(en), 1 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | PigsMightFly | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
-| RabbidsHollywood | TeknoParrot | ours | tp | nee | - | - | 2 bestand(en), 1 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
+| RabbidsHollywood | TeknoParrot | ours | tp | ja | matrix | matrix.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | RaccoonRampage | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | RainbowBombergirl | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
-| Rampage | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
+| Rampage | TeknoParrot | ours | tp | ja | matrix | matrix.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | TC5 | TeknoParrot | tp | tp | ja | hasp | hasp.py (aanwezig) | 4 bestand(en), 4 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | TankTankTank | ElfLdr2 | ? | ? | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | 4 |
 | Terminator | ElfLdr2 | tp-budgie | - | ja | hasp | hasp.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
-| TombRaider | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
+| TombRaider | TeknoParrot | ours | tp | ja | matrix | matrix.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | TransformersShadowsRising | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |

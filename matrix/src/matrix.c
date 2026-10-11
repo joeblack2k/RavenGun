@@ -125,7 +125,9 @@ static int mx_bestaat(const char *pad)
     return 1;
 }
 
-static char mx_dir[1024];
+/* Groot genoeg voor de twee paden die mx_gegevens_vinden aan elkaar plakt (elk tot 1023 tekens):
+ * anders kapt snprintf het pad stil af en zoekt de bibliotheek in een map die niet bestaat. */
+static char mx_dir[2048];
 static int mx_gegevens_gelezen;
 static int mx_poort = MX_RABBIDS_POORT;
 static int mx_aantal = MX_DONGLE_AANTAL;
@@ -151,7 +153,7 @@ static void mx_trim(char *s)
 /* Leest <mx_dir>/matrix.ini: regels "sleutel = waarde", # en ; beginnen een opmerking. */
 static void mx_ini_lezen(void)
 {
-    char pad[1400];
+    char pad[2080];
     char regel[512];
     FILE *f;
 
@@ -196,7 +198,7 @@ static void mx_gegevens_vinden(void)
 {
     const char *gevraagd = getenv("RAVENGUN_MATRIX_DIR");
     char eigen[1024];
-    char poging[1400];
+    char poging[2080];
     static const char *standaard = "matrix";
 
     if (mx_gegevens_gelezen) {
@@ -232,7 +234,7 @@ static void mx_gegevens_vinden(void)
 static void mx_image_laden(void)
 {
     const char *pad;
-    char volledig[1400];
+    char volledig[2320];
     FILE *f;
     long n;
 

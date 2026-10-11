@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# De Matrix/SBK-donglelaag van RavenGun: de drop-in controleren, plaatsen en de WINEDLLOVERRIDES
-# teruggeven.
-#
-# Een software-dongle is geen loaderbegrip meer (docs/geen-dongle-in-de-loader.md): het is een
-# drop-in -- een bibliotheek in patches/<Game>/dropin/ met zijn eigen gegevens ernaast, en de launcher
-# kopieert bestanden en zet omgevingsvariabelen. Dit script is het gereedschap daarbij, niet een laag
-# die de launcher aanroept:
-#
-#   * het leest patches/<Game>/dropin/dropin.ini (docs/dropins.md) en zegt of de drop-in compleet is:
-#     staat elk genoemd bestand er, klopt de DllOverride, en staat de gegevensmap die Env noemt
-#     (RAVENGUN_MATRIX_DIR) naast de bibliotheek met een matrix.ini erin;
-#   * het kan de drop-in in de view van de game zetten (--install). Daarbij wordt een koppeling in de
-#     view een eigen lokaal bestand, en een map die via een koppeling op de NAS uitkomt wordt eerst
-#     lokaal gemaakt met koppelingen naar de rest. De NAS wordt nooit beschreven. Dat is precies wat
-#     de drop-in-motor moet gaan doen; tot die het kan is dit de route om de DLL te beproeven;
-#   * het geeft de WINEDLLOVERRIDES-waarde en de omgevingsvariabelen terug die erbij horen.
-#
-# Gebruik:
-#   scripts/matrix.py --game <Game> [--json]        status van de drop-in van die game
-#   scripts/matrix.py --game <Game> --install       de drop-in in de view plaatsen
-#   scripts/matrix.py --game <Game> --overrides     alleen de WINEDLLOVERRIDES-waarde
-#   Opties: --view <pad>   de view (standaard ~/.local/share/ravengun/runtime/views/<Game>)
-# Exitcodes: 0 = in orde, 1 = niet in orde, 2 = gebruik.
-#
-# Voor tests: RAVENGUN_PATCHES_DIR (de meegeleverde map), RAVENGUN_USER_PATCHES_DIR (de gebruikerslaag),
-# RAVENGUN_VIEWS_DIR (de hoofdmap van de views), RAVENGUN_MATRIX_OUT (de gebouwde DLL's).
+"""De Matrix/SBK-donglelaag van RavenGun: de drop-in controleren, plaatsen en de WINEDLLOVERRIDES
+teruggeven.
+
+Een software-dongle is geen loaderbegrip meer (docs/geen-dongle-in-de-loader.md): het is een
+drop-in -- een bibliotheek in patches/<Game>/dropin/ met zijn eigen gegevens ernaast, en de launcher
+kopieert bestanden en zet omgevingsvariabelen. Dit script is het gereedschap daarbij, niet een laag
+die de launcher aanroept:
+
+  * het leest patches/<Game>/dropin/dropin.ini (docs/dropins.md) en zegt of de drop-in compleet is:
+    staat elk genoemd bestand er, klopt de DllOverride, en staat de gegevensmap die Env noemt
+    (RAVENGUN_MATRIX_DIR) naast de bibliotheek met een matrix.ini erin;
+  * het kan de drop-in in de view van de game zetten (--install). Daarbij wordt een koppeling in de
+    view een eigen lokaal bestand, en een map die via een koppeling op de NAS uitkomt wordt eerst
+    lokaal gemaakt met koppelingen naar de rest. De NAS wordt nooit beschreven. Dat is precies wat
+    de drop-in-motor moet gaan doen; tot die het kan is dit de route om de DLL te beproeven;
+  * het geeft de WINEDLLOVERRIDES-waarde en de omgevingsvariabelen terug die erbij horen.
+
+Gebruik:
+  scripts/matrix.py --game <Game> [--json]        status van de drop-in van die game
+  scripts/matrix.py --game <Game> --install       de drop-in in de view plaatsen
+  scripts/matrix.py --game <Game> --overrides     alleen de WINEDLLOVERRIDES-waarde
+  Opties: --view <pad>   de view (standaard ~/.local/share/ravengun/runtime/views/<Game>)
+Exitcodes: 0 = in orde, 1 = niet in orde, 2 = gebruik.
+
+Voor tests: RAVENGUN_PATCHES_DIR (de meegeleverde map), RAVENGUN_USER_PATCHES_DIR (de gebruikerslaag),
+RAVENGUN_VIEWS_DIR (de hoofdmap van de views), RAVENGUN_MATRIX_OUT (de gebouwde DLL's).
+"""
 import configparser
 import json
 import os
@@ -65,12 +66,20 @@ def out_dir():
 
 
 def game_dir(game):
-    """De map van deze game: de gebruikerslaag als die er is, anders de meegeleverde map."""
-    for d in patches_dirs():
-        p = os.path.join(d, game)
+    """De map van deze game: de gebruikerslaag als die er is, anders de meegeleverde map.
+
+    Heeft de gebruikerslaag alleen een game.ini (wat normaal is: daar staan de afwijkingen) en staat
+    de drop-in in de meegeleverde map, dan wint de map MET de drop-in. Anders meldt dit script ten
+    onrechte "geen drop-in" voor elke game met een gebruikerslaag. Dat is dezelfde volgorde als
+    dropin_specs in scripts/launch-direct.py: een laag zonder dropin.ini doet niet mee."""
+    kandidaten = [os.path.join(d, game) for d in patches_dirs()]
+    for p in kandidaten:
+        if os.path.isfile(os.path.join(p, "dropin", "dropin.ini")):
+            return p
+    for p in kandidaten:
         if os.path.isdir(p):
             return p
-    return os.path.join(patches_dirs()[-1], game)
+    return kandidaten[-1]
 
 
 def view_dir(game, override=None):
