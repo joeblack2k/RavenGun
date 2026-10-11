@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Genereert docs/inventaris-dongle-per-game.md: per game welke dongle hij vraagt.
 
-De donglekolom komt uit `patches/<Game>/dongle.json` (veld `kind`). Dat bestand is de enige bron van waarheid en het bestaan
-ervan betekent "deze game vraagt een dongle" (docs/dropins.md, "Drop-ins per game"). Ontbreekt het, dan is de dongle "-".
-De kolom Bron zegt waar de dongle vandaan komt: de drop-in in de map van de game (`dongle.json`, en `dropin/` als die er is).
+De donglekolom komt uit `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld `kind`). Dat bestand is de enige bron
+van waarheid en het bestaan ervan betekent "deze game vraagt een dongle" (docs/dropins.md, "Drop-ins per game"). Ontbreekt
+het, dan is de dongle "-". Een los `patches/<Game>/dongle.json` (de oude plaats) blijft ook werken.
+De kolom Bron zegt waar de dongle vandaan komt: de drop-in in de map van de game.
 De kolom Status komt uit `[Status] Status` in game.ini. De donglesoort staat dus NIET in game.ini: `[Dongle] Source` kiest
 alleen tussen de fysieke dongle van de eigenaar (`usb-passthrough`, de standaard) en de drop-in (`drop-in`), en de
 meegeleverde laag laat die keuze aan de eigenaar (docs/per-game-patches.md, "Dongle per game").
@@ -40,7 +41,7 @@ def game_rows(patches):
     for game in gs.list_games(patches, os.path.join(os.devnull, "geen-gebruikerslaag")):
         gdir = os.path.join(patches, game)
         sec, _ = gs.read_ini(os.path.join(gdir, "game.ini"))
-        kind, detail = dongle_of(gdir)
+        kind, detail = dongle_of(gdir, game)
         rows.append({
             "game": game,
             "type": sec.get("Game", {}).get("Type", ""),
@@ -54,23 +55,37 @@ def game_rows(patches):
     return rows
 
 
-def dongle_of(gdir):
-    """(kind, detail) uit patches/<Game>/dongle.json; ("", "") als de game geen dongle vraagt of het bestand onleesbaar is."""
-    path = os.path.join(gdir, "dongle.json")
+def dongle_json_pad(gdir, game):
+    """Het dongle.json van deze game: eerst de drop-in, anders de oude losse plaats.
+
+    Een dongle is een patch en staat dus in de patchmap van de game:
+        patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json
+    De oude vorm patches/<Game>/dongle.json blijft werken voor wie hem al had.
+    """
+    for pad in (os.path.join(gdir, "dropin", "ravengun-hasp", game, "dongle.json"),
+                os.path.join(gdir, "dongle.json")):
+        if os.path.isfile(pad):
+            return pad
+    return ""
+
+
+def dongle_of(gdir, game):
+    """(kind, detail) uit het dongle.json van de game; ("", "") als de game geen dongle vraagt of het bestand onleesbaar is."""
+    path = dongle_json_pad(gdir, game)
+    if not path:
+        return "", ""
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-    except FileNotFoundError:
-        return "", ""
     except (OSError, ValueError) as e:
-        return "?", "dongle.json is onleesbaar: %s" % e
+        return "?", "%s is onleesbaar: %s" % (os.path.relpath(path, gdir), e)
     kind = str(data.get("kind", "")).strip().lower()
     if kind not in KINDS:
         return kind or "?", "dongle.json noemt een onbekende soort %r" % data.get("kind")
     bits = []
     mem = data.get("memory")
     if isinstance(mem, list) and mem:
-        bits.append("dongle/ met %d geheugenbestand%s" % (len(mem), "" if len(mem) == 1 else "en"))
+        bits.append("memory/ met %d geheugenbestand%s" % (len(mem), "" if len(mem) == 1 else "en"))
     if os.path.isdir(os.path.join(gdir, "dropin")):
         bits.append("dropin/")
     if data.get("enforced") is False:
@@ -82,19 +97,20 @@ def dongle_source(gdir, kind):
     """Waar de dongle vandaan komt: de drop-in in de map van de game."""
     if not kind:
         return "-"
-    return "drop-in (dongle.json%s)" % (" + dropin/" if os.path.isdir(os.path.join(gdir, "dropin")) else "")
+    return "drop-in%s" % (" + dropin/" if os.path.isdir(os.path.join(gdir, "dropin")) else "")
 
 
 def render(rows):
     lines = [
         "# Inventaris: dongle en patches per game",
         "",
-        "Automatisch gemaakt uit `patches/<Game>/game.ini` en `patches/<Game>/dongle.json` door",
+        "Automatisch gemaakt uit `patches/<Game>/game.ini` en het `dongle.json` in de drop-in van elke game door",
         "`scripts/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.",
         "",
-        "De kolom **Dongle** komt uit `patches/<Game>/dongle.json` (veld `kind`); het bestaan van dat bestand betekent \"deze",
-        "game vraagt een dongle\" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom **Bron** zegt waar de dongle",
-        "vandaan komt: de drop-in in de map van de game. De kolom **Status** komt uit `[Status] Status` in `game.ini`.",
+        "De kolom **Dongle** komt uit `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld `kind`); het bestaan van",
+        "dat bestand betekent \"deze game vraagt een dongle\" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom",
+        "**Bron** zegt waar de dongle vandaan komt: de drop-in in de map van de game. De kolom **Status** komt uit",
+        "`[Status] Status` in `game.ini`.",
         "",
         "`[Dongle] Source` in `game.ini` kiest tussen de fysieke dongle van de eigenaar (`usb-passthrough`, de standaard) en de",
         "drop-in (`drop-in`); de meegeleverde laag laat die keuze aan de eigenaar (zie `docs/per-game-patches.md`, \"Dongle per game\").",

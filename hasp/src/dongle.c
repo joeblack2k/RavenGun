@@ -280,7 +280,8 @@ int dongle_load(const char *dir, dongle_t *out)
     json[rd] = '\0';
     fclose(f);
 
-    /* De donglebeschrijving staat in patches/<Game>/dongle.json en gebruikt daar het veld
+    /* De donglebeschrijving staat in de patchmap van de game
+     * (patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json) en gebruikt daar het veld
      * "kind" (docs/dropins.md). "type" is de oudere naam en blijft werken. */
     char type[32] = {0};
     json_str(json, "kind", type, sizeof(type));
@@ -346,12 +347,32 @@ static int naam_gelijk(const char *a, const char *b)
  * op het veld "game" in dongle.json en op de mapnaam. Daardoor werkt zowel "Halo Fireteam"
  * als "Halo" voor dezelfde dongle.
  */
+/*
+ * Probeert een gamemap in de vormen die in het wild voorkomen:
+ *   <root>/<naam>                                  (losse dongle)
+ *   <root>/<naam>/dropin/ravengun-hasp/<naam>      (de drop-in van de patch)
+ *   <root>/<naam>/dropin/ravengun-hasp/<game>      (drop-in onder de spelnaam)
+ * De drop-in-vorm is de gewone vorm: een dongle is een patch en hoort in de
+ * patchmap van de game te staan.
+ */
+static int dongle_probe(const char *root, const char *naam, const char *game, dongle_t *out)
+{
+    char sub[900];
+    snprintf(sub, sizeof(sub), "%s/%s", root, naam);
+    if (dongle_load(sub, out) == 0) return 0;
+    snprintf(sub, sizeof(sub), "%s/%s/dropin/ravengun-hasp/%s", root, naam, naam);
+    if (dongle_load(sub, out) == 0) return 0;
+    if (game && game[0] && strcmp(game, naam) != 0) {
+        snprintf(sub, sizeof(sub), "%s/%s/dropin/ravengun-hasp/%s", root, naam, game);
+        if (dongle_load(sub, out) == 0) return 0;
+    }
+    return -1;
+}
+
 int dongle_find(const char *root, const char *game, dongle_t *out)
 {
     if (!root || !game || !out) return -1;
-    char path[700];
-    snprintf(path, sizeof(path), "%s/%s", root, game);
-    if (dongle_load(path, out) == 0) return 0;
+    if (dongle_probe(root, game, game, out) == 0) return 0;
 
 #ifdef _WIN32
     /* Op Windows heeft opendir/readdir een andere vorm; de launcher geeft daar altijd de
@@ -366,9 +387,7 @@ int dongle_find(const char *root, const char *game, dongle_t *out)
         while ((de = readdir(dp)) != NULL) {
             if (de->d_name[0] == '.') continue;
             if (!naam_gelijk(de->d_name, game)) continue;
-            char sub[900];
-            snprintf(sub, sizeof(sub), "%s/%s", root, de->d_name);
-            if (dongle_load(sub, out) == 0) { gevonden = 0; break; }
+            if (dongle_probe(root, de->d_name, game, out) == 0) { gevonden = 0; break; }
         }
         closedir(dp);
         return gevonden;

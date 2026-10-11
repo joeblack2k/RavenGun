@@ -1,11 +1,12 @@
 # Inventaris: dongle en patches per game
 
-Automatisch gemaakt uit `patches/<Game>/game.ini` en `patches/<Game>/dongle.json` door
+Automatisch gemaakt uit `patches/<Game>/game.ini` en het `dongle.json` in de drop-in van elke game door
 `scripts/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.
 
-De kolom **Dongle** komt uit `patches/<Game>/dongle.json` (veld `kind`); het bestaan van dat bestand betekent "deze
-game vraagt een dongle" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom **Bron** zegt waar de dongle
-vandaan komt: de drop-in in de map van de game. De kolom **Status** komt uit `[Status] Status` in `game.ini`.
+De kolom **Dongle** komt uit `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld `kind`); het bestaan van
+dat bestand betekent "deze game vraagt een dongle" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom
+**Bron** zegt waar de dongle vandaan komt: de drop-in in de map van de game. De kolom **Status** komt uit
+`[Status] Status` in `game.ini`.
 
 `[Dongle] Source` in `game.ini` kiest tussen de fysieke dongle van de eigenaar (`usb-passthrough`, de standaard) en de
 drop-in (`drop-in`); de meegeleverde laag laat die keuze aan de eigenaar (zie `docs/per-game-patches.md`, "Dongle per game").
@@ -21,16 +22,16 @@ standaardwaarde); dat staat er dan bij.
 | **Gashaaaan2** | TeknoParrot | WartranTroopers | - | - | playable |
 | **GhostBusters** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **GoGoStrike** | ElfLdr2 | RawThrillsGUN | - | - | playable |
-| **Halo** | ElfLdr2 | WartranTroopers | hasp | drop-in (dongle.json + dropin/) | playable |
+| **Halo** | ElfLdr2 | WartranTroopers | hasp | drop-in + dropin/ | playable |
 | **HauntedMuseum** | OpenParrot | HauntedMuseum | - | - | parked |
 | **HauntedMuseumII** | OpenParrot | HauntedMuseum2 | - | - | parked |
 | **HOTDSD** | TeknoParrot | ALLSHOTDSD | - | - | playable |
 | **InfinityBladeFX** | TeknoParrot | InfinityBlade | - | - | parked |
 | **JurassicPark** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **LethalEnforcers3** | TeknoParrot | WartranTroopers | - | - | parked |
-| **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json) | playable |
-| **LGI3D** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json) | playable |
-| **LGS** | TeknoParrot | LGS | region | drop-in (dongle.json) | playable |
+| **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in + dropin/ | playable |
+| **LGI3D** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in + dropin/ | playable |
+| **LGS** | TeknoParrot | LGS | region | drop-in + dropin/ | playable |
 | **LuigisMansion** | TeknoParrot | LuigisMansion | - | - | playable |
 | **MedaruNoGunman** | TeknoParrot | FarCry | - | - | parked |
 | **MusicGunGun2** | OpenParrot | MusicGunGun2 | - | - | parked |
@@ -40,12 +41,12 @@ standaardwaarde); dat staat er dan bij.
 | **Otomedius** | TeknoParrot | WartranTroopers | - | - | parked |
 | **PacmanChomp** | ElfLdr2 | RawThrillsGUN | - | - | parked |
 | **PigsMightFly** | TeknoParrot | WartranTroopers | - | - | playable |
-| **RabbidsHollywood** | TeknoParrot | WartranTroopers | matrix | drop-in (dongle.json + dropin/) | parked |
+| **RabbidsHollywood** | TeknoParrot | WartranTroopers | - | - | parked |
 | **RaccoonRampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **RainbowBombergirl** | TeknoParrot | WartranTroopers | - | - | parked |
 | **Rampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TankTankTank** | ElfLdr2 | DeadHeat | - | - |  |
-| **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in (dongle.json + dropin/) | playable |
+| **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in + dropin/ | playable |
 | **Terminator** | ElfLdr2 | RawThrillsGUN | - | - | playable |
 | **TombRaider** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TransformersShadowsRising** | TeknoParrot | TransformersShadowsRising | - | - | playable |
@@ -59,16 +60,16 @@ standaardwaarde); dat staat er dan bij.
 * **Gashaaaan2** — -
 * **GhostBusters** — -
 * **GoGoStrike** — -
-* **Halo** — hasp (dongle/ met 2 geheugenbestanden, dropin/)
+* **Halo** — hasp (memory/ met 2 geheugenbestanden, dropin/)
 * **HauntedMuseum** — -
 * **HauntedMuseumII** — -
 * **HOTDSD** — -
 * **InfinityBladeFX** — -
 * **JurassicPark** — -
 * **LethalEnforcers3** — -
-* **LGI** — region (niet afgedwongen, enforced = false)
-* **LGI3D** — region (niet afgedwongen, enforced = false)
-* **LGS** — region (niet afgedwongen, enforced = false)
+* **LGI** — region (dropin/, niet afgedwongen, enforced = false)
+* **LGI3D** — region (dropin/, niet afgedwongen, enforced = false)
+* **LGS** — region (dropin/, niet afgedwongen, enforced = false)
 * **LuigisMansion** — -
 * **MedaruNoGunman** — -
 * **MusicGunGun2** — -
@@ -78,7 +79,7 @@ standaardwaarde); dat staat er dan bij.
 * **Otomedius** — -
 * **PacmanChomp** — -
 * **PigsMightFly** — -
-* **RabbidsHollywood** — matrix (dropin/)
+* **RabbidsHollywood** — -
 * **RaccoonRampage** — -
 * **RainbowBombergirl** — -
 * **Rampage** — -
