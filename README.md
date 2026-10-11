@@ -22,6 +22,22 @@ patches/_template/    kopieer dit om een game toe te voegen
 Een game toevoegen of bijwerken is **één map aanraken**. Zie `docs/een-game-toevoegen.md` in de
 repo van de loader voor de stappen en `docs/dropins.md` voor het contract.
 
+## Kaarten: de stand per game
+
+Vier documenten die samen vertellen wat elke game nodig heeft. Ze worden **gegenereerd**; pas de
+map van de game aan en draai het script opnieuw in plaats van ze met de hand bij te werken.
+
+| Bestand | Wat het geeft | Vernieuwen |
+|---|---|---|
+| `patches/STAND.md` | de volledigheidskaart: per game `game.ini`, `[Status]`, README, drop-in (bestanden tegen secties), dongle-soort, en wat er nog ontbreekt | `python3 patches/stand-gen.py` |
+| `patches/STARTTEST.md` | de startmeting: per game of hij start en blijft draaien, en waar de `[Status]` daarvan afwijkt | `bash /home/deck/starttest3.sh 22` en daarna `python3 patches/starttest-gen.py` |
+| `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
+| `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | zie de kop van dat bestand |
+
+De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
+`kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in
+`game.ini`**: de loader weet niets van dongles, een software-dongle is een gewone drop-in.
+
 ## Hoe de loader dit vindt
 
 De loader zoekt de patches op deze plekken, in deze volgorde:
