@@ -31,6 +31,60 @@ REPO = os.path.dirname(HIER)
 PATCHES = os.path.join(REPO, "patches")
 LOADER = os.environ.get("RAVENGUN_REPO", os.path.expanduser("~/projects/ravengun"))
 MERK = "RG_PROEF_ZONDER_LADER"
+VIEWS = os.path.expanduser("~/.local/share/ravengun/runtime/views")
+
+
+def dropin_hashes(game):
+    """sha256 van elk bestand in patches/<Game>/dropin/ (zonder dropin.ini), per bestandsnaam."""
+    basis = os.path.join(PATCHES, game, "dropin")
+    uit = {}
+    if not os.path.isdir(basis):
+        return uit
+    import hashlib
+    for map_, _, bestanden in os.walk(basis):
+        for b in bestanden:
+            if b == "dropin.ini":
+                continue
+            try:
+                with open(os.path.join(map_, b), "rb") as f:
+                    uit.setdefault(b, set()).add(hashlib.sha256(f.read()).hexdigest())
+            except OSError:
+                pass
+    return uit
+
+
+def in_view(game):
+    """(aanwezig, totaal): hoeveel drop-in-bestanden van deze game staan (nog) in zijn view?
+
+    De launcher zet de drop-in bij elke start in de view en haalt hem daarna niet weg. Een
+    proef zonder lader is dus niet automatisch een proef zonder patch: wat een eerdere start
+    heeft achtergelaten, laadt de game nog steeds. Daarom meet dit per game hoeveel het er zijn.
+
+    Alleen bestanden met dezelfde naam als een drop-in-bestand worden gehasht; een
+    gematerialiseerde view kan anders honderden megabytes zijn.
+    """
+    import hashlib
+    wil = dropin_hashes(game)
+    if not wil:
+        return (0, 0)
+    wortel = os.path.join(VIEWS, game)
+    if not os.path.isdir(wortel):
+        return (0, len(wil))
+    gevonden = set()
+    for map_, _, bestanden in os.walk(wortel):
+        for b in bestanden:
+            if b not in wil:
+                continue
+            pad = os.path.join(map_, b)
+            try:
+                if os.path.islink(pad) or not os.path.isfile(pad):
+                    continue
+                with open(pad, "rb") as f:
+                    if hashlib.sha256(f.read()).hexdigest() in wil[b]:
+                        gevonden.add(b)
+            except OSError:
+                pass
+    return (len(gevonden), len(wil))
 
 
 def omgeving():
@@ -109,8 +163,10 @@ def proef(game, secs, rijen):
     plan = plan_van(game)
     profiel = uit_game_ini(game, "EmulationProfile")
     soort = uit_game_ini(game, "Type")
+    aanwezig, totaal = in_view(game)
     if not plan:
-        rijen.append((game, "geen plan", 0, 0, "de directe start kan deze game niet plannen", profiel, soort))
+        rijen.append((game, "geen plan", 0, 0, "de directe start kan deze game niet plannen", profiel, soort,
+                      (aanwezig, totaal)))
         return
     exe = plan["game"]
     pat = patroon(exe)
@@ -160,7 +216,7 @@ def proef(game, secs, rijen):
             laatste = regels[-1].strip()[:70].replace("|", "\\|")
     except OSError:
         pass
-    rijen.append((game, res, gezien, leeft, laatste, profiel, soort))
+    rijen.append((game, res, gezien, leeft, laatste, profiel, soort, (aanwezig, totaal)))
     print("%-26s %-12s %-6s %-6s %s" % (game, res.replace("**", ""), gezien or "-", leeft, laatste))
 
 
@@ -170,11 +226,19 @@ def md(rijen, secs):
     uit.append("# Zonder lader: welke games starten op zichzelf?\n")
     uit.append("*Gegenereerd door `patches/proef-zonder-lader.py`; niet met de hand bijwerken.*\n")
     uit.append(
-        "Elke game is gestart met **alleen `wine <exe>`** — geen `OpenParrotLoader`, geen `BudgieLoader`,\n"
-        "geen `TeknoParrot(64).dll`, geen drop-in en geen patch. De prefix, de werkmap en de\n"
-        "omgevingsvariabelen zijn precies die van de directe start (`scripts/launch-direct.py <Game> --plan`),\n"
-        "maar de lader en de kern zijn uit de opdrachtregel gehaald. Dit is de scherpste vraag die je over\n"
-        "**loskoppelen van TeknoParrot** kunt stellen.\n"
+        "Elke game is gestart met **alleen `wine <exe>`** — geen `OpenParrotLoader`, geen `BudgieLoader` en\n"
+        "geen `TeknoParrot(64).dll`. De prefix, de werkmap en de omgevingsvariabelen zijn precies die van de\n"
+        "directe start (`scripts/launch-direct.py <Game> --plan`), maar de lader en de kern zijn uit de\n"
+        "opdrachtregel gehaald. Dit is de scherpste vraag die je over **loskoppelen van TeknoParrot** kunt\n"
+        "stellen.\n"
+    )
+    uit.append(
+        "**Let op: dit is niet \"zonder patch\".** De launcher zet de drop-in van een game bij elke start in\n"
+        "zijn view en haalt hem daarna **niet** weg. Wat een eerdere start heeft achtergelaten, laadt de game\n"
+        "nog steeds — bij Rabbids Hollywood stond onze `matrix64.dll` nog in `Game_Data/Plugins/` en meldde\n"
+        "het spel in deze proef `**** DONGLE FOUND: 69420` uit *onze* laag. De kolom **onze bestanden in de\n"
+        "view** laat per game zien hoeveel bestanden uit `patches/<Game>/dropin/` er nog staan (vergeleken op\n"
+        "sha256). Deze meting zegt dus: **zonder lader en zonder kern**, met wat er al in de view stond.\n"
     )
     uit.append(
         "**Wat een `START` hier betekent.** Het spelproces is verschenen en leefde na **%d seconden** nog.\n"
@@ -188,6 +252,19 @@ def md(rijen, secs):
         "of een verkeerde werkmap zijn.\n"
     )
     uit.append(
+        "**En het venster is kort.** %d seconden. Een game die een dongle mist kan best starten en pas later\n"
+        "afsluiten: Rabbids Hollywood stopt in de gewone start na ongeveer 57 seconden als de Matrix-dongle\n"
+        "niet antwoordt. Een `START` zegt dus alleen dat het **proces** bleef lopen, niet dat de game zijn\n"
+        "controles gehaald heeft. Kijk daarvoor naar de kolom *onze bestanden in de view* en naar de laatste\n"
+        "logregel; daaronder staat een tweede meting met een venster van 70 seconden.\n" % secs
+    )
+    uit.append(
+        "**Nog een beperking van de herkenning.** Een `viel uit` kan ook betekenen dat de exe zichzelf\n"
+        "uitpakt en opnieuw start onder een andere naam (Luigi's Mansion en Pigs Might Fly zijn gepakt);\n"
+        "dan verliest het patroon het spoor en lijkt de game gestopt terwijl hij loopt. Wie het zeker wil\n"
+        "weten, kijkt in `/tmp/rg-zonder-<Game>.log` en in de proceslijst op dat moment.\n"
+    )
+    uit.append(
         "**Hoe het spelproces herkend wordt.** Op de laatste twee delen van het pad van de exe, in beide\n"
         "schrijfwijzen (`views/LGI/…` en `views\\LGI\\…`), én op een omgevingsvariabele die alleen onze eigen\n"
         "start meekrijgt (`%s=<Game>`). Zonder dat merk zou een game die iemand anders tegelijk start\n"
@@ -195,12 +272,16 @@ def md(rijen, secs):
         "een leeg patroon (dat heeft eerder de SSH-verbinding omgelegd).\n" % MERK
     )
     uit.append("**Uitkomst: %d van de %d games starten zonder enige lader.**\n" % (len(start), len(rijen)))
-    uit.append("| Game | Resultaat | Spelproces gezien (s) | Nog levend na %ds | Laatste logregel | `Type` | `EmulationProfile` |"
+    uit.append("| Game | Resultaat | Spelproces gezien (s) | Nog levend na %ds | Onze bestanden in de view | Laatste logregel | `Type` | `EmulationProfile` |"
                % secs)
-    uit.append("|---|---|---|---|---|---|---|")
-    for game, res, gezien, leeft, laatste, profiel, soort in rijen:
-        uit.append("| %s | %s | %s | %s | `%s` | %s | `%s` |"
-                   % (game, res, gezien or "—", "ja" if leeft else "nee", laatste or "—",
+    uit.append("|---|---|---|---|---|---|---|---|")
+    for game, res, gezien, leeft, laatste, profiel, soort, (aanwezig, totaal) in rijen:
+        if totaal:
+            view = "%d van %d" % (aanwezig, totaal)
+        else:
+            view = "geen drop-in"
+        uit.append("| %s | %s | %s | %s | %s | `%s` | %s | `%s` |"
+                   % (game, res, gezien or "—", "ja" if leeft else "nee", view, laatste or "—",
                       soort or "—", profiel or "—"))
     uit.append("")
     uit.append("## Hoe je dit vernieuwt\n")
@@ -222,16 +303,16 @@ def md_lang(rijen, secs, oud):
     start = [r for r in rijen if r[1].startswith("**")]
     blok = [LANG_KOP, ""]
     blok.append(
-        "De tabel hierboven meet **%d seconden**. Dat is kort: een game die zijn dongle mist kan best\n"
-        "starten en pas later afsluiten (Rabbids Hollywood doet dat na ongeveer 57 seconden, gemeten in\n"
-        "een eerdere ronde). Deze tweede meting gebruikt een **venster van %d seconden** en dezelfde\n"
-        "methode, op de games die in de eerste meting STARTten.\n" % (20, secs)
+        "De tabel hierboven meet **20 seconden**. Dat is kort, en de drop-in van een eerdere start staat nog\n"
+        "in de view (zie de kop). Daarom meet dit blok dezelfde games opnieuw met een **venster van %d\n"
+        "seconden**: blijven ze ook lopen als een donglecontrole of een time-out later in het spel zou\n"
+        "kunnen toeslaan?\n" % secs
     )
     blok.append("**Uitkomst: %d van de %d blijven ook na %d seconden lopen.**\n"
                 % (len(start), len(rijen), secs))
     blok.append("| Game | Resultaat | Spelproces gezien (s) | Nog levend na %ds | Laatste logregel |" % secs)
     blok.append("|---|---|---|---|---|")
-    for game, res, gezien, leeft, laatste, profiel, soort in rijen:
+    for game, res, gezien, leeft, laatste, profiel, soort, _ in rijen:
         blok.append("| %s | %s | %s | %s | `%s` |"
                     % (game, res, gezien or "—", "ja" if leeft else "nee", laatste or "—"))
     blok.append("")
@@ -268,8 +349,18 @@ def main():
             f.write(md_lang(rijen, args.seconden, oud))
         print("\nbijgewerkt: %s (langere meting, %d games)" % (doel, len(rijen)))
         return 0
+    tekst = md(rijen, args.seconden)
+    # een eerder gemeten langere meting blijft staan
+    try:
+        with open(doel, encoding="utf-8") as g:
+            oud = g.read()
+        i = oud.find(LANG_KOP)
+        if i >= 0:
+            tekst = tekst.rstrip("\n") + "\n\n---\n\n" + oud[i:]
+    except OSError:
+        pass
     with open(doel, "w", encoding="utf-8") as f:
-        f.write(md(rijen, args.seconden))
+        f.write(tekst)
     print("\nbijgewerkt: %s (%d games)" % (doel, len(rijen)))
     return 0
 
