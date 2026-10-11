@@ -514,3 +514,10 @@ Afgewezen:
 - Een eigen JVS-antwoord voor alle commando's in het script: dubbel werk naast het dialect jvs in de engine; als het nodig wordt, hoort de pipe aan dat dialect (relais TCP naar de pty).
 
 Bevinding A11: met volledige uitvoer (`--log-full`: `TP_LOGTOFILE=1`, `+debugstr`) schrijft geen enkele kern (BudgieLoader 1.0.0.154, TeknoParrot(64).dll 1.0.0.3761, OpenParrot.dll 1.0.0.787) regels over toegepaste of overgeslagen aanpassingen. Wel zichtbaar: herkenning ("Detected Linux game: Go Go Strike", "RUNNING GoGoStrike"), de versies van lader, kern en exe (OpenParrot-lader) en fouten. Of en hoe de kern die regels laat zien, is een vraag voor het team (`docs/vragen-eigenaar.md`).
+
+## 2026-10-11 — Per-game instellingen en patches in `patches/<Game>/` (model Dolphin)
+
+Op verzoek van de eigenaar: alles wat per game anders is (startwijze, lader, Wine, invoer, status, patches) staat in
+één map per game met INI-bestanden, meegeleverd plus een gebruikerslaag die per sleutel wint, zoals Dolphin's
+GameSettings. Patches zijn benoemd, aan/uit te zetten, controleren de verwachte bytes en werken alleen op lokale kopieën.
+Geen game-kennis meer in de launcher-code of in losse JSON-lijsten. Ontwerp en overgang: `docs/per-game-patches.md`.
