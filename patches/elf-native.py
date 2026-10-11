@@ -163,14 +163,21 @@ def proef(game, exe, secs, modus, preload):
             regels = [r for r in f.read().replace(b"\0", b"").decode("utf-8", "replace").split("\n")
                       if r.strip()]
         if regels:
-            laatste = regels[-1].strip()[:70].replace("|", "\\|")
+            laatste = regels[-1].strip()
     except OSError:
         pass
+    m = re.search(r"libraries: ([^:]+):", laatste)
+    if m:
+        reden = "stopt bij de linker: `%s`" % m.group(1)
+    elif laatste:
+        reden = laatste[:60].replace("|", "\\|")
+    else:
+        reden = "geen uitvoer"
     if gezien and leeft:
-        return ("**START**", gezien, 1, laatste)
+        return ("**START**", gezien, 1, reden)
     if gezien:
-        return ("viel uit", gezien, 0, laatste)
-    return ("niet gestart", 0, 0, laatste)
+        return ("viel uit", gezien, 0, reden)
+    return ("niet gestart", 0, 0, reden)
 
 
 def md(rijen, secs):
@@ -193,7 +200,7 @@ def md(rijen, secs):
     )
     raak = [r for r in rijen if r["kaal"][0].startswith("**") or r["preload"][0].startswith("**")]
     uit.append("**Uitkomst: %d van de %d games starten native.**\n" % (len(raak), len(rijen)))
-    uit.append("| Game | Wat het is | Ontbrekende bibliotheken | Kaal | Met `librt-glfix.so` | Laatste logregel |")
+    uit.append("| Game | Wat het is | Ontbrekende bibliotheken | Kaal | Met `librt-glfix.so` | Wat er gebeurde |")
     uit.append("|---|---|---|---|---|---|")
     for r in rijen:
         libs = ", ".join("`%s`" % l for l in r["libs"]) or "— geen —"
@@ -205,8 +212,10 @@ def md(rijen, secs):
     uit.append("## Wat je hieruit leest\n")
     uit.append(
         "* **De ELF's zijn geen Windows-programma's.** Ze zijn voor Linux gebouwd en deze machine heeft de\n"
-        "  32-bits loader. Bij **%d van de %d** games ontbreekt er zelfs geen enkele bibliotheek.\n"
-        % (len([r for r in rijen if not r["libs"]]), len(rijen))
+        "  32-bits loader. Bij **%d van de %d** games ontbreekt er zelfs geen enkele bibliotheek%s.\n"
+        % (len([r for r in rijen if not r["libs"]]), len(rijen),
+           " (%s)" % ", ".join(r["game"] for r in rijen if not r["libs"])
+           if len([r for r in rijen if not r["libs"]]) == 1 else "")
     )
     uit.append(
         "* **Zes van de zeven komen niet eens voorbij de dynamic linker.** Die stopt met\n"

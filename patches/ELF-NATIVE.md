@@ -9,27 +9,27 @@ game ook als je hem als een gewoon Linux-programma start?** Dan zou de hele Cygw
 kunnen — en daarmee Wine én TeknoParrot voor deze familie.
 
 **Wat de meting doet.** Per game (1) welke bibliotheken de dynamic linker op deze machine niet
-vindt (`ldd`), en (2) een echte startpoging van de ELF met **10 seconden** venster, in twee standen:
+vindt (`ldd`), en (2) een echte startpoging van de ELF met **8 seconden** venster, in twee standen:
 **kaal** en met `librt-glfix.so` uit de drop-in als `LD_PRELOAD` (onze GL-fix). Het spelproces wordt
 herkend op het pad van de exe plus een omgevingsvariabele die alleen onze start meekrijgt
 (`RG_ELF_NATIVE=<Game>`), en daarna opgeruimd via diezelfde weg.
 
 **Uitkomst: 0 van de 7 games starten native.**
 
-| Game | Wat het is | Ontbrekende bibliotheken | Kaal | Met `librt-glfix.so` | Laatste logregel |
+| Game | Wat het is | Ontbrekende bibliotheken | Kaal | Met `librt-glfix.so` | Wat er gebeurde |
 |---|---|---|---|---|---|
-| GalagaAssault | ELF32 i386 | — geen — | niet gestart | niet gestart | `—` |
-| GhostBusters | ELF32 i386 | `/usr/lib/libcsv.so`, `libGLU.so.1`, `libesd.so.0`, `libglut.so.3` | niet gestart | geen glfix | `/home/deck/.local/share/ravengun/runtime/views/GhostBusters/pm/game: e` |
-| GoGoStrike | ELF32 i386 | `libNL.so.1.6`, `liballeg.so.4.0`, `libstdc++.so.5` | niet gestart | geen glfix | `/home/deck/.local/share/ravengun/runtime/views/GoGoStrike/bowling_usa:` |
-| Halo | ELF64 x86-64 | `libfmod.so.10`, `libfmodstudio.so.10` | niet gestart | geen glfix | `/home/deck/.local/share/ravengun/runtime/halo-g7-tp/halo/game: error w` |
-| JurassicPark | ELF32 i386 | `libGLU.so.1`, `libPhysXLoader.so.1`, `libSDL-1.2.so.0`, `libglut.so.3`, `libtheora.so.0` | niet gestart | niet gestart | `/home/deck/.local/share/ravengun/runtime/views/JurassicPark/game: erro` |
-| PacmanChomp | ELF32 i386 | `libXrandr.so.2` | niet gestart | niet gestart | `/home/deck/.local/share/ravengun/runtime/views/PacmanChomp/game: error` |
-| Terminator | ELF32 i386 | `libGLU.so.1`, `libPhysXLoader.so.1`, `libglut.so.3`, `libtheora.so.0` | niet gestart | geen glfix | `/home/deck/.local/share/ravengun/runtime/views/Terminator/game: error ` |
+| GalagaAssault | ELF32 i386 | — geen — | niet gestart | niet gestart | `geen uitvoer` |
+| GhostBusters | ELF32 i386 | `/usr/lib/libcsv.so`, `libGLU.so.1`, `libesd.so.0`, `libglut.so.3` | niet gestart | geen glfix | `stopt bij de linker: `libGLU.so.1`` |
+| GoGoStrike | ELF32 i386 | `libNL.so.1.6`, `liballeg.so.4.0`, `libstdc++.so.5` | niet gestart | geen glfix | `stopt bij de linker: `libstdc++.so.5`` |
+| Halo | ELF64 x86-64 | `libfmod.so.10`, `libfmodstudio.so.10` | niet gestart | geen glfix | `stopt bij de linker: `libfmod.so.10`` |
+| JurassicPark | ELF32 i386 | `libGLU.so.1`, `libPhysXLoader.so.1`, `libSDL-1.2.so.0`, `libglut.so.3`, `libtheora.so.0` | niet gestart | niet gestart | `stopt bij de linker: `libtheora.so.0`` |
+| PacmanChomp | ELF32 i386 | `libXrandr.so.2` | niet gestart | niet gestart | `stopt bij de linker: `libXrandr.so.2`` |
+| Terminator | ELF32 i386 | `libGLU.so.1`, `libPhysXLoader.so.1`, `libglut.so.3`, `libtheora.so.0` | niet gestart | geen glfix | `stopt bij de linker: `libGLU.so.1`` |
 
 ## Wat je hieruit leest
 
 * **De ELF's zijn geen Windows-programma's.** Ze zijn voor Linux gebouwd en deze machine heeft de
-  32-bits loader. Bij **1 van de 7** games ontbreekt er zelfs geen enkele bibliotheek.
+  32-bits loader. Bij **1 van de 7** games ontbreekt er zelfs geen enkele bibliotheek (GalagaAssault).
 
 * **Zes van de zeven komen niet eens voorbij de dynamic linker.** Die stopt met
   `error while loading shared libraries: <naam>: cannot open shared object file`, en noemt precies
