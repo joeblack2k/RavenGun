@@ -66,6 +66,9 @@ def binding(name):
     if n in lgs: return ('kbd', lgs[n], 1)
     if 'start' in n or n == 'enter sw': return ('kbd', f'D{pl}', pl)
     if n == 'gun trigger': return ('gun', 'LeftButton', pl)
+    # House of the Dead: Scarlet Dawn: hoofdtrekker = LeftButton, subtrekker (items wisselen) = RightButton, controllerkeuze = MiddleButton.
+    if n.endswith('sub trigger'): return ('gun', 'RightButton', pl)
+    if n.endswith('controller select'): return ('gun', 'MiddleButton', pl)
     if n == 'gun button': return ('gun', 'RightButton', pl)
     if n == 'left pedal': return ('gun', 'MiddleButton', pl)
     if 'trigger' in n or n.endswith('vacuum button') or 'throw' in n or n in ('touch press', 'touch 1', 'trackball push/click'):

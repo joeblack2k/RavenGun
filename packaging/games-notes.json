@@ -31,7 +31,10 @@
   "PigsMightFly": "Speelbaar: start (toets 1) en trekker (de hendel die het varken lanceert) werken; staand beeld (portret) in het midden van de tv. Testmenu: TEST (toets 0), service (F3). Draait in een eigen Wine-prefix waarin C:\\Sega naar de game wijst.",
   "LGI": "Speelbaar: start tot de attract, start (toets 1) en spelen. Het vizier volgt de aim (gemeten op een raster), de trekker schiet. Volledig scherm, geen titelbalk. Laden duurt ongeveer 1 minuut. Echte Move-knoppen en geluid niet beoordeeld.",
   "LGI3D": "Speelbaar: start tot de attract, 3D-kalibratie (rood-cyaan beeld), start (toets 1) en spelen. Het vizier volgt de aim (gemeten op een raster in de tussenfilm), de trekker schiet. Laden ongeveer 1 minuut. Echte Move-knoppen en geluid niet beoordeeld.",
-  "MedaruNoGunman": "Start nog niet zonder fout: beeld, munt (toets 5), herladen, trekker en aim werken, maar de game meldt bij elke verse start 3001 RAM DATA IS BAD of 3003 ROM HAS CHANGED. Na een ronde door het testmenu start hij wel (alleen in dat proces). Venster 1024x768 linksboven."
+  "MedaruNoGunman": "Start nog niet zonder fout: beeld, munt (toets 5), herladen, trekker en aim werken, maar de game meldt bij elke verse start 3001 RAM DATA IS BAD of 3003 ROM HAS CHANGED. Na een ronde door het testmenu start hij wel (alleen in dat proces). Venster 1024x768 linksboven.",
+  "HOTDSD": "Speelbaar via TeknoParrotUi (twee programma's: AM Daemon en de game): start (toets 1), vizier (gemeten op hoeken en midden), trekker (linkerknop) en subtrekker (rechterknop, wisselt van wapen) werken; vrij spel, een ronde gespeeld. Laden naar de eerste ronde duurt ongeveer 1,5 minuut. Echte Move-knoppen, speler 2 en testmenu niet getest.",
+  "Rampage": "Speelbaar, maar geen lightgungame: een joystick- en aanvalsspel voor drie spelers. Speler 1: omhoog = trekker, omlaag = herladen, links = granaat, rechts = aux1, aanval = toets F4, munt = toets F5, start = toets 1 (speler 2: munt toets 5, start toets 2). Gemeten: intro-film, tutorial, klimmen, lopen links en rechts, gebouwen slopen ($ 7.500). Draait met DXVK en gst-libav (AAC-decoder voor de filmpjes); geen vizier. Echte Move-knoppen, speler 2 en 3, testmenu niet getest.",
+  "RainbowBombergirl": "Start niet verder dan het begin van de game: de game start tot de attract (twee schermen: staand hoofdscherm rechts, aanraakscherm links onder), het testmenu (TEST toets 0, service F3) en de invoercontrole tonen alle knoppen, maar na munt (toets 5) en start blijft hij bij SYSTEM ENTRY / de PASELI-melding hangen. Geparkeerd."
  },
  "games_en": {
   "Halo": "Fully working: lightgun, buttons and rumble.",
@@ -63,7 +66,10 @@
   "PigsMightFly": "Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\\Sega points at the game.",
   "LGI": "Playable: starts through to the attract, start (key 1) and play. The crosshair follows the aim (measured on a grid) and the trigger fires. Fullscreen, no title bar. Loading takes about a minute. Real Move buttons and sound not checked.",
   "LGI3D": "Playable: starts through to the attract, 3D calibration (red-cyan picture), start (key 1) and play. The crosshair follows the aim (measured on a grid in the cutscene) and the trigger fires. Loading takes about a minute. Real Move buttons and sound not checked.",
-  "MedaruNoGunman": "Does not start cleanly yet: picture, coin (key 5), reload, trigger and aim work, but on every fresh start the game reports 3001 RAM DATA IS BAD or 3003 ROM HAS CHANGED. After one pass through its test menu it plays (that process only). Window 1024x768, top left."
+  "MedaruNoGunman": "Does not start cleanly yet: picture, coin (key 5), reload, trigger and aim work, but on every fresh start the game reports 3001 RAM DATA IS BAD or 3003 ROM HAS CHANGED. After one pass through its test menu it plays (that process only). Window 1024x768, top left.",
+  "HOTDSD": "Playable through the TeknoParrot UI (two programs: AM Daemon and the game): start (key 1), crosshair (measured at the corners and centre), trigger (left button) and sub trigger (right button, switches weapon) work; free play, one round played. Loading to the first stage takes about 1.5 minutes. Real Move buttons, player 2 and the test menu not tested.",
+  "Rampage": "Playable, but not a lightgun game: a joystick-and-attack game for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: intro movie, tutorial, climbing, walking left and right, demolishing buildings ($ 7,500). Runs with DXVK and gst-libav (AAC decoder for the movies); no crosshair. Real Move buttons, players 2 and 3 and the test menu not tested.",
+  "RainbowBombergirl": "Does not get past the start of the game: it starts through to the attract (two screens: portrait main screen on the right, touch screen bottom left), and the test menu (TEST key 0, service F3) and input check show every button, but after coin (key 5) and start it stays at SYSTEM ENTRY / the PASELI notice. Parked."
  },
  "status": {
   "Halo": "playable",
@@ -95,6 +101,9 @@
   "PigsMightFly": "playable",
   "LGI": "playable",
   "LGI3D": "playable",
-  "MedaruNoGunman": "parked"
+  "MedaruNoGunman": "parked",
+  "HOTDSD": "playable",
+  "Rampage": "playable",
+  "RainbowBombergirl": "parked"
  }
 }

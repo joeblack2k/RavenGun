@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Playable (16)
+## Playable (18)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
@@ -13,6 +13,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Gashaaaan!!!!**: Playable: coin (key 5), start (key 1), aiming and trigger (the ball) work. First start shows 'BACKUP DATA ERROR': press TEST (key 0) once to repair. Free play can be set in the test menu (P1 aux1 = execute).
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **HALO Fireteam Raven**: Fully working: lightgun, buttons and rumble.
+- **House of the Dead: Scarlet Dawn**: Playable through the TeknoParrot UI (two programs: AM Daemon and the game): start (key 1), crosshair (measured at the corners and centre), trigger (left button) and sub trigger (right button, switches weapon) work; free play, one round played. Loading to the first stage takes about 1.5 minutes. Real Move buttons, player 2 and the test menu not tested.
 - **Let's Go Island 3D: Lost on the Island of Tropics**: Playable: starts through to the attract, 3D calibration (red-cyan picture), start (key 1) and play. The crosshair follows the aim (measured on a grid in the cutscene) and the trigger fires. Loading takes about a minute. Real Move buttons and sound not checked.
 - **Let's Go Island: Lost on the Island of Tropics**: Playable: starts through to the attract, start (key 1) and play. The crosshair follows the aim (measured on a grid) and the trigger fires. Fullscreen, no title bar. Loading takes about a minute. Real Move buttons and sound not checked.
 - **Let's Go Safari**: Playable: the game starts through to the attract and driving (course choice and start with the buttons). Red, blue, yellow and green are the keys A, S, D and F, the wheel is the left and right arrow keys, coin is key 5. The steering keys change the picture (how much steering is not measured); the wheel from the Move's horizontal aim is not there yet; the window is not fullscreen.
@@ -21,12 +22,13 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Rabbids Hollywood Arcade**: Works without the TeknoParrot UI: lightgun, coin (four times) and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Raccoon Rampage**: Playable: aiming, trigger (also start) and coin (key 5) work; test menu with TEST (key 0), service (F3) and F4. Calibration was done once and is stored in the game's save data. Runs with DXVK and without intro videos.
+- **Rampage**: Playable, but not a lightgun game: a joystick-and-attack game for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: intro movie, tutorial, climbing, walking left and right, demolishing buildings ($ 7,500). Runs with DXVK and gst-libav (AAC decoder for the movies); no crosshair. Real Move buttons, players 2 and 3 and the test menu not tested.
 - **Terminator Salvation**: Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Tomb Raider Arcade**: Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes ("SYSTEM INITIALIZING"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs.
 
-## Not working yet (14)
+## Not working yet (15)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
@@ -44,3 +46,4 @@ These games do not start, or are blocked by something RavenGun does not work aro
 - **Omatsuri Yasan - Kingyo Sukui**: Does not start yet: the game exits with code 8 after scanning all drive letters for rqrdlist.rqr and campaign*.bmp. Parked.
 - **Otomedius Excellent**: Does not start yet: white window; the game looks for an ACIO micom on COM2 ('COM Port 2 Open Error') and goes no further. Parked.
 - **Pac-Man Chomp-Mania**: Does not start yet: black screen (same problem as Jurassic Park). Parked.
+- **Rainbow Bombergirl**: Does not get past the start of the game: it starts through to the attract (two screens: portrait main screen on the right, touch screen bottom left), and the test menu (TEST key 0, service F3) and input check show every button, but after coin (key 5) and start it stays at SYSTEM ENTRY / the PASELI notice. Parked.

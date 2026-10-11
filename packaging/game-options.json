@@ -10034,9 +10034,9 @@
    "tp_profile": "HOTDSD",
    "platform": "Sega ALLS (UE4, 64-bit, AM Daemon)",
    "exe": "App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe + App/Hodzero/WindowsNoEditor/AMDaemon/amdaemon.exe",
-   "recommended_route": "tp-shm",
-   "effort": "hoog",
-   "status_en": "Not tried. Needs AM Daemon, 16 GB memory and 17 GB appdata area by its own hardware file.",
+   "recommended_route": "evdev",
+   "effort": "middel",
+   "status_en": "Playable through the TeknoParrot UI (AM Daemon and game as two programs, loader default route via the wine-prefix wrapper; bindings on the virtual devices).",
    "teknoparrot_ini": {
     "file": "teknoparrot.ini",
     "dir_en": "directory of the launched game exe"
@@ -10912,7 +10912,7 @@
    "exe": "game.exe",
    "recommended_route": "evdev",
    "effort": "middel",
-   "status_en": "Not tried. Touch/mouse game: needs mouse-as-touch; run once and exit at the start screen so BepInEx can set up.",
+   "status_en": "Parked: starts to the attract and test menu (all buttons verified), but does not get past SYSTEM ENTRY after coin and start. Runs with a Wine virtual desktop 1920x1080, gst-libav and the TeknoParrot loader default route.",
    "teknoparrot_ini": {
     "file": "teknoparrot.ini",
     "dir_en": "directory of game.exe"
@@ -11433,9 +11433,9 @@
    "tp_profile": "Rampage",
    "platform": "Adrenaline PC Based (Unity, 64-bit)",
    "exe": "Game.exe",
-   "recommended_route": "unity-tcp",
+   "recommended_route": "tp-shm",
    "effort": "middel",
-   "status_en": "Not tried. Same Adrenaline family as Tomb Raider and Rabbids but no BepInEx in the folder; profile has only Input API and Windowed.",
+   "status_en": "Playable (joystick and attack buttons, not a lightgun game): TeknoParrot core, loader default route, DXVK prefix, gst-libav for the AAC movie soundtracks.",
    "teknoparrot_ini": {
     "file": "teknoparrot.ini",
     "dir_en": "directory of Game.exe"

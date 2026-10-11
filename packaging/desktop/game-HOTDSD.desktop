@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=House of the Dead: Scarlet Dawn
+Comment=Start House of the Dead: Scarlet Dawn met de Move als lightgun (RavenGun)
+Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile HOTDSD
+Icon=input-gaming
+Terminal=false
+Categories=Game;
