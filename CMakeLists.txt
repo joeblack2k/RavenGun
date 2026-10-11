@@ -341,8 +341,17 @@ endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
   PATTERN "build-app.sh" EXCLUDE PATTERN "make-release.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
-# Instellingen en patches per game (docs/per-game-patches.md); de gebruikerslaag staat in ~/.local/share/ravengun/patches.
-install(DIRECTORY patches/ DESTINATION ${RAVENGUN_DATADIR}/patches)
+# Instellingen en patches per game (docs/per-game-patches.md). Die staan in hun EIGEN repo
+# (ravengun-patches), niet in die van de loader: het is gebruikersinhoud en de loader hoort schoon
+# te zijn. Een verse kloon heeft deze map dus niet, en dan wordt er niets geinstalleerd -- de loader
+# vindt de patches via $RAVENGUN_PATCHES_DIR, een geinstalleerde kopie in de datamap, of de
+# gebruikerslaag (~/.local/share/ravengun/patches). Staat de map er wel (een ontwikkelcheckout met
+# een koppeling ernaartoe), dan gaan ze mee zoals altijd.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
+  install(DIRECTORY patches/ DESTINATION ${RAVENGUN_DATADIR}/patches)
+else()
+  message(STATUS "geen patches/-map: die staan in de repo ravengun-patches (zie docs/geen-dongle-in-de-loader.md)")
+endif()
 install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURCE_PERMISSIONS
   PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE
   PATTERN "desktop/game-*.desktop" EXCLUDE PATTERN "desktop/halo-ravengun.desktop" EXCLUDE

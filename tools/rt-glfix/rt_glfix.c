@@ -572,7 +572,7 @@ static void *rtg_make_stublog(uint32_t slot)
 /* Is dit adres uitvoerbaar gemapt? (om niet blind in een GOT-waarde te lezen)
    De lijst wordt één keer opgebouwd: per invoer /proc/self/maps lezen zou de ronde zo traag maken
    dat het aanbrengen de eerste GL-aanroepen van de game mist. */
-static struct { uint32_t lo, hi; } rtg_exec[128];
+static struct { uint32_t lo, hi; } rtg_exec[1024];
 static int rtg_exec_n;
 static int rtg_exec_gelezen;
 

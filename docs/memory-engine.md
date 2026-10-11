@@ -138,6 +138,18 @@ Schrijven in code vraagt dat het geheugen even schrijfbaar wordt. Dat gebeurt zo
 * **Windows**: `VirtualProtect` met `PAGE_EXECUTE_READWRITE`, en daarna terug naar de oude waarde die
   `VirtualProtect` zelf teruggeeft; plus `FlushInstructionCache`.
 
+### Schrijven: eerst kijken of er wel geheugen ligt
+
+Vóór er iets gelezen of geschreven wordt, controleert de motor dat het hele bereik
+`[basis+offset, basis+offset+lengte)` in **toegewezen, leesbaar** geheugen ligt — op Linux via
+`/proc/self/maps`, op Windows via `VirtualQuery`. Klopt de module of de offset niet, dan volgt
+`MISLUKT` met een melding en wordt er **niets** gelezen of geschreven.
+
+Dat is geen luxe: zonder deze controle zou één verkeerde offset in de lijst het spel laten omvallen,
+en een patchmotor die de game laat crashen is erger dan een patchmotor die weigert. De proeven
+`test_offset_buiten_de_module_valt_niet_om` en `test_offset_net_over_het_einde_van_het_bestand`
+controleren dat het proefprogramma overeind blijft en de weigering meldt.
+
 ## 5. Bouwen
 
 ```bash
@@ -166,7 +178,7 @@ bestand** — dat is niet een belofte maar een test (§6 proef 7).
 ## 6. Het bewijs
 
 Alles hieronder is op de Deck gemeten. De geautomatiseerde versie staat in
-`tests/test_memory_engine.py` (**36 proeven**); dezelfde proeven met de hand staan in
+`tests/test_memory_engine.py` (**38 proeven**); dezelfde proeven met de hand staan in
 `re/proef_laat.sh`, `re/proef_wine.sh`, `re/proef_extra.sh` en `re/proef_appinit.sh`.
 
 > De **offsets** in de uitvoer hieronder hangen af van de build van het proefprogramma: verandert
@@ -174,7 +186,7 @@ Alles hieronder is op de Deck gemeten. De geautomatiseerde versie staat in
 > uitvoer en het **resultaat**; de tests controleren dat, niet de getallen.
 
 ```bash
-python3 tests/test_memory_engine.py        # 36 proeven, ~50 s (inclusief Wine)
+python3 tests/test_memory_engine.py        # 38 proeven, ~55 s (inclusief Wine)
 ```
 
 ### Proef 1 — een patch in het programma zelf (Linux, 64-bits)

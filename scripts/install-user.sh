@@ -97,7 +97,17 @@ fi
 
 if [[ -n $STAGE ]]; then
   [[ -x $STAGE/bin/ravengund && -x $STAGE/bin/ravengunctl ]] || die "ravengund or ravengunctl is missing in the tree to install"
-  [[ -f $STAGE/share/ravengun/scripts/play-halo.sh && -d $STAGE/share/ravengun/packaging && -d $STAGE/share/ravengun/patches ]] || die "the data folder (share/ravengun, with packaging/ and patches/) is missing in the tree to install"
+  [[ -f $STAGE/share/ravengun/scripts/play-halo.sh && -d $STAGE/share/ravengun/packaging ]] || die "the data folder (share/ravengun, with packaging/) is missing in the tree to install"
+  # De patches per game staan in hun eigen repo (ravengun-patches), niet in die van de loader: het is
+  # gebruikersinhoud en de loader hoort schoon te zijn. Ze zijn dus optioneel -- staat de map er (een
+  # ontwikkelcheckout met een koppeling ernaartoe), dan gaan ze mee; zo niet, dan zegt de installer
+  # waar ze horen.
+  if [[ -d $STAGE/share/ravengun/patches ]]; then
+    say "Patches per game: meegeleverd uit de checkout."
+  else
+    echo "Note: no patches/ in this tree -- the per-game patches live in their own repo (ravengun-patches)." >&2
+    echo "      Put them in ~/.local/share/ravengun/patches, or set RAVENGUN_PATCHES_DIR to a checkout." >&2
+  fi
   # Eisen van deze build (door make-release.sh vastgelegd): de glibc van de container waarin gebouwd is.
   if [[ -f $STAGE/share/ravengun/REQUIRES ]]; then
     need="$(sed -n 's/^glibc[ =>]*//p' "$STAGE/share/ravengun/REQUIRES" | head -1)"
