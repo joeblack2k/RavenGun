@@ -17,3 +17,4 @@ secrets*
 src/tools/movetest/movetest
 /.claude/
 /dist/
+__pycache__/
