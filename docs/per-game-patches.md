@@ -65,6 +65,9 @@ voorloop-witruimte telt niet. Beide lezers worden getest tegen `tests/data/games
 Name = Let's Go Island
 Profile = LGI                 ; TeknoParrot-profiel
 Type = TeknoParrot            ; kiest _defaults/<Type>.ini
+EmulationProfile = LGS        ; het TeknoParrot-EmulationProfile (uit GameProfiles/<P>.xml; de migratie vult het); informatie
+DongleRegion = JAPAN          ; regiokeuze van het profiel (zie hieronder); leeg = de waarde van het profiel zelf
+PcbRegion = JAPAN             ; idem
 ExeSha256 =                   ; optioneel: patches gelden alleen voor deze exe-versie (anders weigert de launcher ze)
 
 [Launch]
@@ -92,6 +95,8 @@ Gamescope = true              ; TP_GAMESCOPE=1: de game draait schermvullend in 
 GamescopePath =               ; TP_GAMESCOPE_PATH
 GamescopeBackend =            ; TP_GAMESCOPE_BACKEND
 GamescopeResolution =         ; RG_GAMESCOPE_RES
+DisplayMode =                 ; informatie: de optie DisplayMode van het profiel (bv. Fullscreen Windowed); de launcher leest dit niet
+CustomResolution =            ; informatie: 1920x1080 als het profiel een eigen resolutie aan heeft; de launcher leest dit niet
 
 [Input]
 Route = jvs                   ; evdev | tp-shm | unity-tcp | hid-board | jvs
@@ -123,6 +128,13 @@ NoteEN = ...                  ; Engels (de app)
 Findings = findings/LetsGoIsland.md
 ```
 
+`[Game] DongleRegion` en `PcbRegion` zijn gewone instellingen: de keuze uit de keuzelijst die het TeknoParrot-profiel zelf al biedt
+(`ConfigValues` in `GameProfiles/<P>.xml`, bv. Let's Go Island en Let's Go Safari). De migratie neemt de waarde van het gebruikersprofiel over (leeg als
+het profiel de optie niet heeft). De directe start zet de waarde in die profieloptie, op dezelfde plek waar de rest van het profiel in `teknoparrot.ini`
+terechtkomt (het profielbestand zelf blijft ongemoeid). Alleen waarden uit de keuzelijst van de optie worden aanvaard; een andere waarde, of een profiel zonder die
+optie, weigert de start met een melding (exitcode 5, geen terugval op TeknoParrotUi). Dit is alleen het kiezen van een bestaande optie: er is geen
+dongle-emulatie of iets anders aan het dongle-beleid veranderd (zie "Beleid" hieronder).
+
 De sleutels van `[Loader]`, `[Wine]`, `[Display]`, `[Launch] WorkingDirectory` en `[Input] Jvs*` worden door
 `scripts/gamesettings.py` (`to_env`) omgezet naar de omgevingsvariabelen die TeknoParrot, de lader en `launch-direct.py`
 lezen; de tabel `ENV_MAP` daar is de enige plek waar een sleutelnaam aan een variabele hangt. Waarden worden letterlijk
@@ -144,6 +156,8 @@ meegeleverd `patches.ini`, gebruikers-`patches.ini`. Zonder `Enabled` is een pat
 [Patch: OpenParrotLoader zonder CONTEXT_FLOATING_POINT]
 Enabled = false               ; in _defaults/OpenParrot.patches.ini; de vier Type X2-games zetten hem aan
 Kind = file                   ; file: op een lokale kopie van een bestand
+Category = loader             ; verplicht, zie "Categorie en beleid"
+Version = 1.08                ; optioneel: de gameversie waarvoor de patch bedoeld is; staat in de melding als de bytes niet kloppen
 Target = loader               ; loader | core | een pad relatief aan de runtime dat een van die twee is (nooit een bestand op de NAS)
 TargetName = OpenParrotLoader.exe   ; optioneel: de patch geldt alleen als het doel zo heet (anders overgeslagen)
 Find = C7 05 C0 9B 42 00 1F 00 01 00
@@ -151,6 +165,27 @@ Replace = C7 05 C0 9B 42 00 17 00 01 00
 Count = 1                     ; Find moet precies zo vaak voorkomen (standaard 1), anders weigert de patch
 Reason = Wine zet MXCSR op 0 bij SetThreadContext met CONTEXT_FLOATING_POINT ...
 ```
+
+Overige sleutels voor documentatie: `Source` (herkomst, bv. `OpenParrot TypeX2Generic.cpp (GPL-3.0), regel 2140`) en `AppliedBy = core`
+(de OpenParrot-kern past dit zelf al toe; RavenGun mag het niet nog eens doen, de patch is alleen documentatie).
+
+### Categorie en beleid
+
+Elke patch heeft **precies één** `Category`, uit een vaste lijst: `graphics`, `input`, `timing`, `audio`, `paths`, `crash`, `network`, `loader`.
+Beide lezers (Python en C++) weigeren een patch zonder `Category` of met een onbekende, met een duidelijke melding, in elke laag: de controle gaat over de
+samengevoegde patch, dus ook een eigen patch of een gewijzigde `Category` in de gebruikerslaag wordt afgewezen (een `patches.ini` met alleen
+`Enabled = ...` bij een gedeelde patch is wel goed, want de definitie levert de rest). Ook een patch zonder `Kind` (een `Enabled` zonder definitie) wordt afgewezen.
+Afgewezen patches staan niet in de lijst `patches` maar in `patch_errors` (en als waarschuwing); staat een afgewezen patch aan, dan **weigert de directe start**
+(exitcode 5) in plaats van de game stilzwijgend zonder die patch te starten. Properties > Patches toont de afgewezen patches met hun melding.
+
+**Beleid:** er is bewust géén categorie voor beveiliging of bescherming. Patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles zijn geen
+onderdeel van het formaat en worden niet meegeleverd of gemaakt. (De regiokeuze hierboven is iets anders: een bestaande profieloptie kiezen, geen patch.)
+
+### Logregel
+
+De directe start logt per patch één regel in vaste vorm, ook voor uitgeschakelde: `<toegepast|overgeslagen> '<naam>' @<plek> [reden]`. Plek: bij een
+bestandspatch `<doel>:0x<offset van de eerste Find>` (`loader:0xC`), bij een geheugenpatch `<Module>+<Offset>`. Reden: `uit` voor een uitgeschakelde patch, verder
+bv. `niet van toepassing: ...` (TargetName), `soort memory wordt niet door RavenGun toegepast (AppliedBy = core: ...)` of `afgewezen: ...`; bij `toegepast` staat er geen reden.
 
 Soorten (`Kind`):
 
@@ -165,7 +200,11 @@ Soorten (`Kind`):
   controleren alles maar maken de kopie niet; dat gebeurt bij `--run`.
 - `registry`: regels voor de (eigen) prefix, `Key`, `Name`, `Value`. Wordt gelezen en getoond, maar nog niet toegepast (de launcher meldt dat
   hij de patch overslaat).
-- `memory`: gereserveerd voor een eigen hook-DLL (later). Formaat zoals Dolphin: `Module`, `Offset`, `Find`, `Replace`. Idem.
+- `memory`: gereserveerd voor een eigen hook-DLL (later). Formaat zoals Dolphin: `Module` (de exe van de game), `Offset` (ten opzichte van de imagebase), `Find`, `Replace`.
+  Wordt niet toegepast. Nu staan er alleen documentatiepatches van dit soort: tien Type X2-aanpassingen die de OpenParrot-kern zelf al doet (`AppliedBy = core`,
+  `Enabled = false`, `Action = jmp-returns-true` of `nop` met `Size`), overgenomen uit de openbare bron `OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp`
+  (GPL-3.0) met het regelnummer in `Source`: Haunted Museum (3), Haunted Museum II (4: versie `2100` en `2101J`, die het profiel niet onderscheidt, dus beide staan er),
+  Gaia Attack 4 (2) en Music GunGun 2 (1, zonder commentaar upstream: het doel is niet vastgelegd). De bron noemt geen originele bytes, dus `Find` is bij deze patches leeg.
 
 Patches worden alleen door de directe start (`launch-direct.py`) toegepast; TeknoParrotUi start de lader zelf.
 
