@@ -198,7 +198,8 @@ def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
     g = load_for_profile(profile, tp, shipped=shipped, user=user)
     i, err = g.input_route()
     if not err:
-        return i, "user" if any(user_dir_of(user) in src for src in g.sources) else "shipped"
+        mine, _ = read_ini(os.path.join(user or user_dir(), profile, "game.ini"))
+        return i, "user" if mine.get("Input", {}).get("Route") else "shipped"
     warn("%s: %s; de gebruikerslaag wordt genegeerd" % (profile, err))
     g2 = load_for_profile(profile, tp, shipped=shipped, user=os.path.join(os.devnull, "geen"))
     i, err = g2.input_route()
@@ -206,10 +207,6 @@ def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
         return i, "shipped"
     warn("%s: %s; evdev" % (profile, err))
     return {"Route": "evdev"}, "shipped"
-
-
-def user_dir_of(user):
-    return (user or user_dir()).rstrip("/") + "/"
 
 
 def hid_vidpid(board, root=None):
