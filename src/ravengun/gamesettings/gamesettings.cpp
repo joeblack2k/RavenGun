@@ -249,6 +249,30 @@ std::string Patch::get(const std::string& key, const std::string& def) const {
 }
 
 std::string Patch::kind() const { return lower(trim(get("Kind"))); }
+std::string Patch::category() const { return lower(trim(get("Category"))); }
+std::string Patch::version() const { return trim(get("Version")); }
+std::string Patch::applied_by() const { return lower(trim(get("AppliedBy"))); }
+
+const char* const kPatchCategories[] = {"graphics", "input", "timing", "audio", "paths", "crash", "network", "loader", nullptr};
+
+std::string patch_categories_text() {
+    std::string out;
+    for (const char* const* c = kPatchCategories; *c; ++c) out += (out.empty() ? "" : ", ") + std::string(*c);
+    return out;
+}
+
+std::string Patch::validate() const {
+    const std::string k = kind();
+    if (k.empty()) return "patch '" + name + "' heeft geen definitie (Kind ontbreekt; definieer hem in patches.ini of in _defaults/<Type>.patches.ini)";
+    if (k != "file" && k != "registry" && k != "memory") return "patch '" + name + "': onbekend Kind '" + k + "' (toegestaan: file, registry, memory)";
+    const std::string c = category();
+    if (c.empty())
+        return "patch '" + name + "': Category ontbreekt (toegestaan: " + patch_categories_text() + "; er is bewust geen categorie voor beveiliging of bescherming)";
+    for (const char* const* it = kPatchCategories; *it; ++it)
+        if (c == *it) return {};
+    return "patch '" + name + "': onbekende Category '" + trim(get("Category")) + "' (toegestaan: " + patch_categories_text() +
+           "; patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles zijn geen onderdeel van het formaat)";
+}
 
 const Patch* Game::patch(const std::string& name) const {
     for (const auto& p : patches)
@@ -343,8 +367,17 @@ Game load_game(const Dirs& dirs, const std::string& profile, const std::string& 
     };
     apply(shared);
     for (const auto& l : pl) apply(l);
-    for (const auto& name : order)
-        if (!merged[name].empty()) g.patches.push_back({name, merged[name]});
+    for (const auto& name : order) {
+        if (merged[name].empty()) continue;
+        Patch patch{name, merged[name]};
+        const std::string err = patch.validate();
+        if (err.empty()) {
+            g.patches.push_back(std::move(patch));
+        } else {
+            g.patch_errors.push_back({name, err, patch.enabled()});
+            g.warnings.push_back(err);
+        }
+    }
     return g;
 }
 

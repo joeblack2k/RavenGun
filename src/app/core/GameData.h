@@ -40,6 +40,10 @@ struct PatchInfo {
     QString kind;      // file | registry | memory
     QString reason;    // uitleg (tooltip)
     QString target;
+    QString category;  // graphics | input | timing | audio | paths | crash | network | loader
+    QString version;   // gameversie waarvoor de patch bedoeld is (leeg = niet gezegd)
+    QString source;    // herkomst (bv. de openbare bron van een geheugenpatch)
+    bool appliedByCore = false;   // AppliedBy = core: de OpenParrot-kern past dit al toe (alleen documentatie)
     bool enabled = false;         // effectief
     bool shippedEnabled = false;  // zonder de gebruikerslaag
     bool userSet = false;         // de gebruiker zet Enabled zelf (anders geldt de meegeleverde stand)
@@ -76,6 +80,8 @@ public:
 
     // Patches en instellingen van een game (Properties > Patches).
     QList<PatchInfo> patches(const QString& profile) const;
+    // Afgewezen patches (ontbrekende of onbekende Category, geen Kind) als leesbare meldingen.
+    QStringList patchErrors(const QString& profile) const;
     // Zet Enabled in het gebruikers-patches.ini; gelijk aan de meegeleverde stand = de keuze weghalen.
     bool setPatchEnabled(const QString& profile, const QString& patch, bool enabled, QString* err = nullptr);
     QList<SettingEntry> settings(const QString& profile) const;

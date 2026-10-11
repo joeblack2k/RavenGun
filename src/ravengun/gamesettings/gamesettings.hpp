@@ -42,6 +42,11 @@ void merge_into(Ini& base, const Ini& over);
 
 bool truthy(const std::string& v);   // true, 1, yes, on (hoofdletters maken niet uit)
 
+// Beleid (docs/per-game-patches.md): elke patch heeft precies een van deze categorieen. Er is bewust GEEN categorie voor beveiliging of
+// bescherming: patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles horen niet in dit formaat.
+extern const char* const kPatchCategories[];   // graphics, input, timing, audio, paths, crash, network, loader
+std::string patch_categories_text();            // "graphics, input, ..." voor meldingen
+
 struct Patch {
     std::string name;
     std::vector<std::pair<std::string, std::string>> fields;
@@ -49,6 +54,17 @@ struct Patch {
     bool enabled() const { return truthy(get("Enabled", "false")); }
     std::string kind() const;     // file | registry | memory (kleine letters), leeg als niet gezet
     std::string reason() const { return get("Reason"); }
+    std::string category() const;    // kleine letters
+    std::string version() const;     // gameversie waarvoor de patch bedoeld is (optioneel)
+    std::string applied_by() const;  // "core" = de OpenParrot-kern past dit zelf al toe (alleen documentatie)
+    // "" als de patch geldig is, anders een duidelijke melding (Nederlands). Gaat over de samengevoegde patch: elke laag telt mee.
+    std::string validate() const;
+};
+
+struct PatchError {
+    std::string name;
+    std::string message;
+    bool enabled = false;
 };
 
 struct Dirs {
@@ -64,7 +80,8 @@ struct Game {
     std::string profile;
     std::string type;                   // [Game] Type (de gebruikerslaag gaat voor), anders de hint
     Ini settings;                       // samengevoegd (standaard + meegeleverd + gebruiker)
-    std::vector<Patch> patches;         // in volgorde van voorkomen
+    std::vector<Patch> patches;         // in volgorde van voorkomen (alleen geldige patches)
+    std::vector<PatchError> patch_errors;   // afgewezen patches: geen Kind, ontbrekende of onbekende Category
     std::vector<std::string> sources;   // gelezen bestanden
     std::vector<std::string> warnings;
     bool exists = false;                // er is een game.ini in een van beide lagen

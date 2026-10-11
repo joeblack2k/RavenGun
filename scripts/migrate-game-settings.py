@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -92,6 +93,53 @@ def titles(options):
     for k, v in EXTRA_TITLES.items():
         t.setdefault(k, v)
     return t
+
+
+def profile_fields(path):
+    """{veldnaam: (waarde, opties)} uit ConfigValues van een TeknoParrot-profiel (alleen gelezen); leeg als het bestand ontbreekt."""
+    out = {}
+    try:
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError):
+        return out
+    cv = root.find("ConfigValues")
+    if cv is not None:
+        for fi in cv.findall("FieldInformation"):
+            out.setdefault(fi.findtext("FieldName") or "", ((fi.findtext("FieldValue") or "").strip(),
+                                                              [o.text or "" for o in fi.findall("FieldOptions/string")]))
+    return out
+
+
+def profile_info(runtime, profile):
+    """Wat game.ini over het profiel vastlegt: EmulationProfile (uit GameProfiles/<P>.xml, anders het gebruikersprofiel), de regio-keuzes
+    DongleRegion en PcbRegion (de waarde die het gebruikersprofiel nu heeft; leeg als het profiel die optie niet kent) en, alleen ter
+    informatie, DisplayMode en CustomResolution waar het profiel zulke opties heeft."""
+    info = {}
+    user = os.path.join(runtime, "UserProfiles", profile + ".xml")
+    stock = os.path.join(runtime, "GameProfiles", profile + ".xml")
+    for path in (stock, user):
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                m = re.search(r"<EmulationProfile>(.*?)</EmulationProfile>", f.read(), re.S)
+        except OSError:
+            continue
+        if m and m.group(1).strip():
+            info["EmulationProfile"] = m.group(1).strip()
+            break
+    fields = profile_fields(user) or profile_fields(stock)
+    for key in ("DongleRegion", "PcbRegion"):
+        if key in fields and fields[key][0]:
+            info[key] = fields[key][0]
+    if "DisplayMode" in fields and fields["DisplayMode"][0]:
+        info["DisplayMode"] = fields["DisplayMode"][0]
+    on = [fields[k][0] for k in ("CustomResolution", "Use Custom Resolution") if k in fields]
+    if on and on[0] == "1":
+        for wk, hk in (("Custom Resolution Width", "Custom Resolution Height"), ("Resolution Width", "Resolution Height"),
+                       ("ResolutionWidth", "ResolutionHeight")):
+            if wk in fields and hk in fields and fields[wk][0].isdigit() and fields[hk][0].isdigit():
+                info["CustomResolution"] = "%sx%s" % (fields[wk][0], fields[hk][0])
+                break
+    return info
 
 
 def lead_comments(text):
@@ -173,12 +221,12 @@ def write_if_changed(path, text, dry, stats):
 
 
 KEY_ORDER = {
-    "Game": ["Name", "Profile", "Type", "ExeSha256"],
+    "Game": ["Name", "Profile", "Type", "EmulationProfile", "DongleRegion", "PcbRegion", "ExeSha256"],
     "Launch": ["Mode", "WorkingDirectory", "View"],
     "Loader": ["RemoteThread", "PostStartMs", "EntryPointMs"],
     "Wine": ["Prefix", "PrefixDirect", "Binary", "VirtualDesktop", "NativeDlls", "WindowsVersion", "DllOverrides", "Debug",
              "GStreamerPlugins"],
-    "Display": ["Gamescope", "GamescopePath", "GamescopeBackend", "GamescopeResolution"],
+    "Display": ["Gamescope", "GamescopePath", "GamescopeBackend", "GamescopeResolution", "DisplayMode", "CustomResolution"],
     "Input": ["Route", "Layout", "Board", "Boards", "ComPort", "CoinKeys", "JvsTransport", "JvsPipeBoard", "JvsF1Once",
               "JvsDebug", "JvsIdent", "JvsFeatures", "Note"],
     "Status": ["Status", "Note", "NoteEN", "Findings"],
@@ -290,7 +338,12 @@ def migrate(out_dir, io_routes, notes, runtime, dry=False):
         patches_enabled = None
         header_extra = None
         if env_known:
-            drop_keys(sections, dict(ENV_KEYS, Env=None, Wine=ENV_KEYS["Wine"] | {"VirtualDesktop", "NativeDlls"}))
+            drop_keys(sections, dict(ENV_KEYS, Env=None, Wine=ENV_KEYS["Wine"] | {"VirtualDesktop", "NativeDlls"},
+                                     Game={"EmulationProfile", "DongleRegion", "PcbRegion"},
+                                     Display=ENV_KEYS["Display"] | {"DisplayMode", "CustomResolution"}))
+            if have_xml:
+                for k, v in profile_info(runtime, profile).items():
+                    sections.setdefault("Display" if k in ("DisplayMode", "CustomResolution") else "Game", {})[k] = v
             env = gs.read_env_file(env_path) if env_path else {}
             gamedir = gs.profile_gamedir(runtime, profile) if have_xml else ""
             derived, pat = gs.env_to_settings(env, gamedir)
@@ -333,7 +386,7 @@ def migrate(out_dir, io_routes, notes, runtime, dry=False):
                 psec[key].pop("Enabled", None)
             psec = {s: kv for s, kv in psec.items() if kv}
             if psec:
-                write_if_changed(ppath, gs.dump_ini(psec, "%s. Zet een gedeelde patch aan (definitie in _defaults/<Type>.patches.ini)." % GEN_MARK), dry, stats)
+                write_if_changed(ppath, gs.dump_ini(psec, "%s. Zet een gedeelde patch aan (definitie in _defaults/<Type>.patches.ini); andere patches in dit bestand zijn handwerk en blijven staan." % GEN_MARK), dry, stats)
             elif os.path.exists(ppath) and GEN_MARK in read_text(ppath):
                 stats["changed"].append(ppath)
                 if not dry:

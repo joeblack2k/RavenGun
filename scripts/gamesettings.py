@@ -41,6 +41,10 @@ DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0
 ROUTES = ("evdev", "tp-shm", "unity-tcp", "hid-board", "jvs")
 LAUNCH_MODES = {"direct": "direct", "tpui": "teknoparrot-ui", "teknoparrot-ui": "teknoparrot-ui"}
 PATCH_PREFIX = "Patch:"
+# Beleid (docs/per-game-patches.md): elke patch heeft precies een van deze categorieen. Er is bewust GEEN categorie voor beveiliging of
+# bescherming: patches voor dongle-, keychip-, regio-, integriteits- of abonnementscontroles horen niet in dit formaat.
+PATCH_CATEGORIES = ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader")
+PATCH_KINDS = ("file", "registry", "memory")
 TRUE_WORDS = ("true", "1", "yes", "on")
 FALSE_WORDS = ("false", "0", "no", "off")
 
@@ -142,6 +146,34 @@ class Patch:
     def reason(self):
         return self.fields.get("Reason", "")
 
+    @property
+    def category(self):
+        return self.fields.get("Category", "").strip().lower()
+
+    @property
+    def version(self):
+        return self.fields.get("Version", "").strip()
+
+    @property
+    def applied_by(self):
+        """'core' = de OpenParrot-kern past dit zelf al toe; RavenGun mag het niet nog eens doen (alleen documentatie)."""
+        return self.fields.get("AppliedBy", "").strip().lower()
+
+    def validate(self):
+        """'' als de patch geldig is, anders een duidelijke melding (Nederlands). Elke laag telt mee: de controle gaat over de
+        samengevoegde patch, dus een gebruikerslaag met een onbekende Category wordt net zo afgewezen."""
+        if not self.kind:
+            return "patch '%s' heeft geen definitie (Kind ontbreekt; definieer hem in patches.ini of in _defaults/<Type>.patches.ini)" % self.name
+        if self.kind not in PATCH_KINDS:
+            return "patch '%s': onbekend Kind '%s' (toegestaan: %s)" % (self.name, self.kind, ", ".join(PATCH_KINDS))
+        if not self.category:
+            return ("patch '%s': Category ontbreekt (toegestaan: %s; er is bewust geen categorie voor beveiliging of bescherming)"
+                    % (self.name, ", ".join(PATCH_CATEGORIES)))
+        if self.category not in PATCH_CATEGORIES:
+            return ("patch '%s': onbekende Category '%s' (toegestaan: %s; patches voor dongle-, keychip-, regio-, integriteits- of "
+                    "abonnementscontroles zijn geen onderdeel van het formaat)" % (self.name, self.fields.get("Category", ""), ", ".join(PATCH_CATEGORIES)))
+        return ""
+
     def to_dict(self):
         d = {"name": self.name, "enabled": self.enabled}
         d.update(self.fields)
@@ -156,7 +188,8 @@ class Game:
         self.profile = profile
         self.type = ""
         self.settings = {}       # {sectie: {sleutel: waarde}}
-        self.patches = []        # [Patch], in volgorde van voorkomen
+        self.patches = []        # [Patch], in volgorde van voorkomen (alleen geldige patches)
+        self.patch_errors = []   # [{"name", "enabled", "message"}]: afgewezen patches (ontbrekende of onbekende Category, geen Kind)
         self.sources = []        # bestanden die zijn gelezen (voor weergave en logboek)
         self.warnings = []
         self.exists = False      # er is een game.ini in de meegeleverde of de gebruikerslaag (of een .env-terugval)
@@ -188,7 +221,8 @@ class Game:
 
     def to_dict(self):
         return {"profile": self.profile, "type": self.type, "settings": self.settings,
-                "patches": [p.to_dict() for p in self.patches], "sources": self.sources, "warnings": self.warnings}
+                "patches": [p.to_dict() for p in self.patches], "patch_errors": self.patch_errors, "sources": self.sources,
+                "warnings": self.warnings}
 
 
 def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
@@ -302,7 +336,16 @@ def load_game(profile, type_hint="", shipped=None, user=None, legacy=None):
                     patches[name].pop(k, None)
                 else:
                     patches[name][k] = v
-    g.patches = [Patch(name, patches[name]) for name in order if patches[name]]
+    for name in order:
+        if not patches[name]:
+            continue
+        patch = Patch(name, patches[name])
+        err = patch.validate()
+        if err:
+            g.patch_errors.append({"name": name, "enabled": patch.enabled, "message": err})
+            g.warnings.append(err)
+        else:
+            g.patches.append(patch)
     g.settings = {s: kv for s, kv in merged.items() if kv}
     return g
 

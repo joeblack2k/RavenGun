@@ -189,6 +189,8 @@ FIX = bytes.fromhex("C705C09B420017000100")
 SHARED_PATCHES = """[Patch: Lader zonder FP]
 Enabled = false
 Kind = file
+Category = loader
+Version = 1.08
 Target = loader
 TargetName = OpenParrotLoader.exe
 Find = C7 05 C0 9B 42 00 1F 00 01 00
@@ -231,6 +233,7 @@ try:
             check(False, "Find %s: moet weigeren" % label)
         except ld.PatchRefused as e:
             check("Lader zonder FP" in str(e) and "verwacht 1" in str(e), "melding noemt de patch: %s" % e)
+            check("verwacht gameversie 1.08; de bytes kloppen niet" in str(e), "melding noemt de gameversie: %s" % e)
         check(open(bad, "rb").read() == blob, "origineel blijft bij weigering")
         check(set(os.listdir(os.path.join(ld.HOME, ".local/share/ravengun/patched"))) == before, "weigering maakt geen kopie")
     # Een gebruikerslaag zet de patch uit; TargetName filtert; een ander doel dan loader/core weigert.
@@ -243,7 +246,7 @@ try:
     res3, rep3 = ld.plan_file_patches(g, {"loader": other, "core": None}, tmp, materialize=True)
     check(res3 == {} and "niet van toepassing" in rep3[0]["status"], "TargetName: andere lader slaat de patch over")
     write(os.path.join(user, "Gx", "patches.ini"),
-          "[Patch: Eigen]\nEnabled = true\nKind = file\nTarget = pipehelper.exe\nFind = 00\nReplace = 01\n")
+          "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = paths\nTarget = pipehelper.exe\nFind = 00\nReplace = 01\n")
     try:
         ld.plan_file_patches(gsm.load_game("Gx"), {"loader": loader_src, "core": None}, tmp, materialize=True)
         check(False, "Target dat geen lader of kern is moet weigeren")
@@ -297,6 +300,68 @@ for line in ["patch 'NoDongle' @0x0804A000", "patch 'X' @0x10 skipped: unexpecte
              "RUNNING Terminator 1.25 US", "[gamescope] RUNNING nee"]:
     c.feed(line)
 check(len(c.hits["toegepast"]) == 1 and len(c.hits["overgeslagen"]) == 1 and len(c.hits["versie"]) == 1, "A11-regels: %s" % c.hits)
+
+# Vaste logregel per patch (ook uitgeschakelde), Version in de weigering, Category verplicht, en de regiokeuzes van het profiel.
+write(os.path.join(shipped, "Gl", "game.ini"), "[Game]\nType = OpenParrot\n")
+write(os.path.join(shipped, "Gl", "patches.ini"),
+      "[Patch: Lader zonder FP]\nEnabled = true\n"
+      "[Patch: Gun uit]\nEnabled = false\nKind = memory\nCategory = input\nAppliedBy = core\nModule = game.exe\nOffset = 0x9E410\n"
+      "[Patch: Geheugen aan]\nEnabled = true\nKind = memory\nCategory = audio\nAppliedBy = core\nModule = game.exe\nOffset = 0x10\n"
+      "[Patch: Zonder versie]\nEnabled = true\nKind = file\nCategory = loader\nTarget = core\nFind = AA BB\nReplace = CC DD\n")
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrot.dll"), "x")
+write(loader_src, orig, "wb")
+core = os.path.join(tmp, "rt", "core.dll")
+write(core, b"\x00" * 8, "wb")
+gl = gsm.load_game("Gl")
+try:
+    ld.plan_file_patches(gl, {"loader": loader_src, "core": core}, tmp, materialize=False)
+    check(False, "patch zonder versie met een Find die niet past moet weigeren")
+except ld.PatchRefused as e:
+    check("geweigerd" in str(e) and "Zonder versie" in str(e) and "gameversie" not in str(e), "weigering zonder Version: %s" % e)
+write(core, b"\x00\xAA\xBB\x00", "wb")
+res, rep = ld.plan_file_patches(gl, {"loader": loader_src, "core": core}, tmp, materialize=False)
+lines = ld.patch_log_lines(rep)
+check(lines == ["toegepast 'Lader zonder FP' @loader:0xC",
+                "overgeslagen 'Gun uit' @game.exe+0x9E410 [uit]",
+                "overgeslagen 'Geheugen aan' @game.exe+0x10 [soort memory wordt niet door RavenGun toegepast (AppliedBy = core: de OpenParrot-kern doet dit zelf)]",
+                "toegepast 'Zonder versie' @core:0x1"], "logregels: %s" % lines)
+check([r["category"] for r in rep] == ["loader", "input", "audio", "loader"] and rep[0]["version"] == "1.08", "rapport: categorie en versie")
+# Een ingeschakelde patch zonder Category (of met een onbekende) weigert de start, ook uit de gebruikerslaag; een uitgeschakelde wordt overgeslagen.
+write(os.path.join(user, "Gl", "patches.ini"), "[Patch: Slecht]\nEnabled = true\nKind = file\nTarget = core\nFind = 00\nReplace = 01\n")
+try:
+    ld.plan_file_patches(gsm.load_game("Gl"), {"loader": loader_src, "core": core}, tmp, materialize=False)
+    check(False, "patch zonder Category moet weigeren")
+except ld.PatchRefused as e:
+    check("Slecht" in str(e) and "Category ontbreekt" in str(e), "melding Category: %s" % e)
+write(os.path.join(user, "Gl", "patches.ini"), "[Patch: Slecht]\nEnabled = false\nKind = file\nCategory = beveiliging\n")
+res, rep = ld.plan_file_patches(gsm.load_game("Gl"), {"loader": loader_src, "core": core}, tmp, materialize=False)
+check(any(l.startswith("overgeslagen 'Slecht' @- [afgewezen: ") for l in ld.patch_log_lines(rep)), "afgewezen patch staat in het log: %s" % ld.patch_log_lines(rep))
+os.unlink(os.path.join(user, "Gl", "patches.ini"))
+
+# Regiokeuzes (gewone profielopties DongleRegion en PcbRegion): alleen waarden uit de keuzelijst; ze komen in teknoparrot.ini.
+profile("Reg", "TeknoParrot", "SegaJvsLetsGoIsland", exe64, "false",
+        [("General", "DongleRegion", "JAPAN", "DropdownIndex", ["JAPAN", "USA", "EXPORT"]),
+         ("General", "PcbRegion", "JAPAN", "DropdownIndex", ["JAPAN", "USA", "EXPORT"])], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrotLoader.exe"), "x")
+rc, out, err = run("Reg", "--plan", "--json")
+ini = dict((k, v) for k, v in (l.split("=", 1) for l in json.loads(out)["files"][0][1].splitlines() if "=" in l))
+check(ini.get("DongleRegion") == "0" and ini.get("PcbRegion") == "0", "zonder keuze: de waarde van het profiel (%s)" % ini)
+write(os.path.join(shipped, "Reg", "game.ini"), "[Game]\nDongleRegion = USA\nPcbRegion = EXPORT\n")
+rc, out, err = run("Reg", "--plan", "--json")
+ini = dict((k, v) for k, v in (l.split("=", 1) for l in json.loads(out)["files"][0][1].splitlines() if "=" in l))
+check(rc == 0 and ini.get("DongleRegion") == "1" and ini.get("PcbRegion") == "2", "game.ini kiest de regio: %s %s" % (rc, ini))
+check("<FieldName>DongleRegion</FieldName><FieldValue>JAPAN</FieldValue>" in open(os.path.join(tp, "UserProfiles", "Reg.xml")).read(),
+      "het profielbestand zelf blijft ongemoeid")
+write(os.path.join(user, "Reg", "game.ini"), "[Game]\nDongleRegion = MARS\n")
+rc, out, err = run("Reg", "--check")
+check(rc == 5 and "Instelling geweigerd" in err and "DongleRegion = MARS" in err and "JAPAN, USA, EXPORT" in err, "onbekende regio weigert (%d: %s)" % (rc, err))
+write(os.path.join(user, "Reg", "game.ini"), "[Game]\nDongleRegion =\n")
+check(run("Reg", "--check")[0] == 0, "lege waarde in de gebruikerslaag zet de keuze terug")
+os.unlink(os.path.join(user, "Reg", "game.ini"))
+write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nDongleRegion = USA\n")
+rc, out, err = run("Win", "--check")
+check(rc == 5 and "heeft die optie niet" in err, "profiel zonder die optie weigert (%d: %s)" % (rc, err))
+
 
 if fails:
     for f in fails:

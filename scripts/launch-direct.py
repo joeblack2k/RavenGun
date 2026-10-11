@@ -114,6 +114,10 @@ class PatchRefused(Exception):
     """Een ingeschakelde patch kan niet (veilig) toegepast worden; de game start dan niet."""
 
 
+class SettingRefused(PatchRefused):
+    """Een instelling in game.ini (bv. DongleRegion) is niet toegestaan voor dit profiel; de game start dan niet."""
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Profiel
 
@@ -344,18 +348,40 @@ def plan_file_patches(game, targets, tp, materialize=False, exe_path=None):
     """Controleert de ingeschakelde patches van een game en geeft ({doel: pad van de gepatchte kopie}, [beschrijving per patch]).
     targets: {"loader": pad, "core": pad of None}. materialize: de kopie ook echt maken (zonder: alleen controleren en het pad
     uitrekenen; een mislukte controle weigert in beide gevallen)."""
-    report, groups = [], {}
-    wanted = [p for p in game.patches if p.enabled]
-    for p in wanted:
+    entries, groups = {}, {}
+    order = []
+
+    def entry(p, result, plek, reden="", **extra):
+        e = {"name": p.name, "kind": p.kind, "category": p.category, "version": p.version, "target": p.get("Target") or p.get("Module"),
+             "result": result, "plek": plek, "reden": reden, "status": "ok" if result == "toegepast" else (reden or result)}
+        e.update(extra)
+        entries[p.name] = e
+        return e
+
+    for err in game.patch_errors:
+        if err["enabled"]:
+            raise PatchRefused(err["message"])   # een afgewezen patch die aan staat: niet stilzwijgend zonder starten
+        order.append(err["name"])
+        entries[err["name"]] = {"name": err["name"], "kind": "?", "category": "", "version": "", "target": "", "result": "overgeslagen",
+                                "plek": "-", "reden": "afgewezen: " + err["message"], "status": "afgewezen: " + err["message"]}
+    for p in game.patches:
+        order.append(p.name)
+        if p.kind == "memory":
+            plek = "%s+%s" % (p.get("Module") or "?", p.get("Offset") or "?")
+        else:
+            plek = p.get("Target") or "-"
+        if not p.enabled:
+            entry(p, "overgeslagen", plek, "uit")
+            continue
         if p.kind != "file":
-            report.append({"name": p.name, "kind": p.kind or "?", "status": "overgeslagen: soort %r wordt (nog) niet toegepast" % p.kind})
-            log("patch '%s': soort %r wordt (nog) niet toegepast; overgeslagen" % (p.name, p.kind))
+            entry(p, "overgeslagen", plek, "soort %s wordt niet door RavenGun toegepast%s" % (
+                p.kind, " (AppliedBy = core: de OpenParrot-kern doet dit zelf)" if p.applied_by == "core" else ""))
             continue
         tname = patch_target(p, targets, tp)
         want_name = p.get("TargetName", "").strip().lower()
         if want_name and os.path.basename(targets[tname]).lower() != want_name:
-            report.append({"name": p.name, "kind": "file", "target": targets[tname],
-                           "status": "niet van toepassing: het doel is %s, de patch geldt voor %s" % (os.path.basename(targets[tname]), p.get("TargetName"))})
+            entry(p, "overgeslagen", tname, "niet van toepassing: het doel is %s, de patch geldt voor %s" % (
+                os.path.basename(targets[tname]), p.get("TargetName")), target=targets[tname])
             continue
         groups.setdefault(tname, []).append(p)
     if groups and game.get("Game", "ExeSha256"):
@@ -392,11 +418,15 @@ def plan_file_patches(game, targets, tp, materialize=False, exe_path=None):
                 raise PatchRefused("patch '%s': Count moet minstens 1 zijn" % p.name)
             found = data.count(find)
             if found != count:
+                if p.version:
+                    raise PatchRefused("patch '%s' verwacht gameversie %s; de bytes kloppen niet (Find komt %d keer voor in %s, verwacht %d); "
+                                       "de game start niet. Zet de patch uit of pas Find aan." % (p.name, p.version, found, src, count))
                 raise PatchRefused("patch '%s' geweigerd: Find komt %d keer voor in %s, verwacht %d (andere versie van het bestand?); "
                                    "de game start niet. Zet de patch uit of pas Find aan." % (p.name, found, src, count))
+            first = data.find(find)
             data = data.replace(find, rep)
             canon.append("%s\0%s\0%s\0%d" % (p.name, find.hex(), rep.hex(), count))
-            report.append({"name": p.name, "kind": "file", "target": src, "count": found, "status": "ok"})
+            entry(p, "toegepast", "%s:0x%X" % (tname, first), target=src, count=found)
         sha_orig = hashlib.sha256(orig).hexdigest()
         sha_set = hashlib.sha256("\n".join(canon).encode()).hexdigest()
         dst_dir = os.path.join(patched_root(), "%s-%s" % (sha_orig[:16], sha_set[:16]))
@@ -415,11 +445,17 @@ def plan_file_patches(game, targets, tp, materialize=False, exe_path=None):
                     f.write(data)
                 os.replace(dst + ".tmp", dst)
                 log("patch: kopie gemaakt: %s" % dst)
-        for r in report:
-            if r.get("target") == src and r.get("status") == "ok":
-                r["patched"] = dst
+        for e in entries.values():
+            if e.get("target") == src and e["result"] == "toegepast":
+                e["patched"] = dst
         result[tname] = dst
+    report = [entries[n] for n in order if n in entries]
     return result, report
+
+
+def patch_log_lines(report):
+    """De vaste logregel per patch, ook voor uitgeschakelde: <toegepast|overgeslagen> '<naam>' @<plek> [reden]."""
+    return ["%s '%s' @%s%s" % (r["result"], r["name"], r["plek"], " [%s]" % r["reden"] if r.get("reden") else "") for r in report]
 
 
 def resolve_wine(p, env):
@@ -449,6 +485,24 @@ def resolve_prefix(p, env, wine):
     if mode == "Isolated" or (mode == "" and os.path.isfile(os.path.join(legacy, "system.reg"))):
         return legacy, True
     return SHARED_PREFIX, True
+
+
+# Gewone profielopties die game.ini mag kiezen ([Game] DongleRegion en PcbRegion): de launcher zet ze in de optie van het profiel zoals de
+# rest van het profiel in teknoparrot.ini komt (het profielbestand zelf blijft ongemoeid). Alleen waarden uit de keuzelijst van de optie.
+REGION_OPTIONS = ("DongleRegion", "PcbRegion")
+
+
+def apply_profile_choices(p, settings):
+    for key in REGION_OPTIONS:
+        want = settings.get("Game", {}).get(key, "").strip()
+        if not want:
+            continue
+        f = field(p, key)
+        if f is None:
+            raise SettingRefused("game.ini zet %s = %s, maar het profiel %s heeft die optie niet" % (key, want, p["ProfileName"]))
+        if want not in f["options"]:
+            raise SettingRefused("game.ini zet %s = %s; het profiel %s biedt alleen: %s" % (key, want, p["ProfileName"], ", ".join(f["options"]) or "(geen keuzelijst)"))
+        f["value"] = want
 
 
 def check_activation(prefix):
@@ -535,6 +589,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     settings = gs.load_for_profile(name, tp, type_hint=et, log=lambda m: print("[launch-direct] " + m, file=sys.stderr))
     for w in settings.warnings:
         print("[launch-direct] instellingen: " + w, file=sys.stderr)
+    apply_profile_choices(p, settings.settings)
     prof_env = gs.to_env(settings.settings, gamedir)
     env.update(prof_env)
     env.update(extra_env or {})
@@ -1047,6 +1102,9 @@ class A11Collector:
 def run(plan):
     env = plan["env"]
     configure_jvs(env)
+    # 0. Eén regel per patch (ook uitgeschakelde), in vaste vorm.
+    for line in patch_log_lines(plan["patches"]):
+        log(line)
     # 1. Spelinstellingen naast de game.
     for path, text in plan["files"]:
         st, why = place_file(path, text)
@@ -1183,6 +1241,9 @@ def main(argv):
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
         if not a.no_activation_check:
             check_activation(plan["prefix"])
+    except SettingRefused as e:
+        print("Instelling geweigerd: %s" % e, file=sys.stderr)
+        return EXIT_PATCH
     except PatchRefused as e:
         print("Patch geweigerd: %s" % e, file=sys.stderr)
         return EXIT_PATCH

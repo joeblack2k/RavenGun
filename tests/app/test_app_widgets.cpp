@@ -192,11 +192,16 @@ void AppWidgetTest::patchesTab() {
     ui::PropertiesDialog d(&core, g);
     QTreeWidget* t = d.PatchTree();
     QVERIFY(t);
-    QCOMPARE(t->topLevelItemCount(), 1);
+    QCOMPARE(t->topLevelItemCount(), 3);                                               // de lader-patch en de twee geheugenpatches (informatie)
     QTreeWidgetItem* it = t->topLevelItem(0);
+    QCOMPARE(t->topLevelItem(1)->checkState(0), Qt::Unchecked);
+    QVERIFY(t->topLevelItem(1)->text(2).contains(QStringLiteral("informational")));
+    QVERIFY(t->topLevelItem(1)->toolTip(0).contains(QStringLiteral("OpenParrot core already applies")));
     QCOMPARE(it->text(0), QStringLiteral("OpenParrotLoader zonder CONTEXT_FLOATING_POINT"));
     QCOMPARE(it->checkState(0), Qt::Checked);
     QVERIFY(it->toolTip(0).contains(QStringLiteral("MXCSR")));                       // de reden als tooltip
+    QCOMPARE(it->text(1), QStringLiteral("loader"));                                 // de categorie
+    QVERIFY(t->topLevelItemCount() >= 1);
     t->setCurrentItem(it);
     QVERIFY(it->data(0, Qt::UserRole + 1).toString().contains(QStringLiteral("MXCSR")));
     // Uitvinken schrijft de gebruikerslaag (niet de meegeleverde laag).
@@ -205,7 +210,7 @@ void AppWidgetTest::patchesTab() {
     QVERIFY(readAll(userFile).contains(QStringLiteral("Enabled = false")));
     QCOMPARE(core.gameData()->patches(QStringLiteral("GaiaAttack4"))[0].enabled, false);
     QCOMPARE(t->topLevelItem(0)->checkState(0), Qt::Unchecked);
-    QVERIFY(t->topLevelItem(0)->text(2).contains(QStringLiteral("your choice")) || t->topLevelItem(0)->text(2).contains(QStringLiteral("choice")));
+    QVERIFY(t->topLevelItem(0)->text(3).contains(QStringLiteral("choice")));
     t->topLevelItem(0)->setCheckState(0, Qt::Checked);                                 // gelijk aan de meegeleverde stand: keuze weg
     QVERIFY(!readAll(userFile).contains(QStringLiteral("Enabled")));
     // De effectieve instellingen staan er read-only bij, met hun laag.

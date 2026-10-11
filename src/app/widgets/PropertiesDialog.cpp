@@ -647,7 +647,7 @@ QWidget* PropertiesDialog::MakePatchesPane() {
     auto* bl = new QVBoxLayout(box);
     patch_tree_ = new QTreeWidget;
     patch_tree_->setRootIsDecorated(false);
-    patch_tree_->setHeaderLabels({tr("Patch"), tr("Kind"), tr("Source")});
+    patch_tree_->setHeaderLabels({tr("Patch"), tr("Category"), tr("Kind"), tr("Source")});
     patch_tree_->setUniformRowHeights(true);
     bl->addWidget(patch_tree_, 1);
     patch_desc_ = new QPlainTextEdit;
@@ -729,22 +729,28 @@ void PropertiesDialog::RefreshPatches() {
         it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
         it->setCheckState(0, p.enabled ? Qt::Checked : Qt::Unchecked);
         it->setText(0, p.name);
-        it->setText(1, p.kind.isEmpty() ? tr("?") : p.kind);
-        it->setText(2, p.userDefined ? tr("Yours") : p.userSet ? tr("Shipped (your choice)") : tr("Shipped"));
+        it->setText(1, p.category);
+        it->setText(2, p.kind.isEmpty() ? tr("?") : p.appliedByCore ? tr("%1 (informational)").arg(p.kind) : p.kind);
+        it->setText(3, p.userDefined ? tr("Yours") : p.userSet ? tr("Shipped (your choice)") : tr("Shipped"));
         it->setData(0, Qt::UserRole, p.name);
         QStringList lines;
         lines << (p.reason.isEmpty() ? tr("(no description)") : p.reason);
         if (!p.target.isEmpty()) lines << tr("Target: %1").arg(p.target);
+        if (!p.version.isEmpty()) lines << tr("For game version: %1").arg(p.version);
+        if (!p.source.isEmpty()) lines << tr("Source: %1").arg(p.source);
+        if (p.appliedByCore) lines << tr("The OpenParrot core already applies this by itself; RavenGun does not apply it again. Shown for information only.");
         if (p.userSet) lines << tr("Shipped setting: %1.").arg(p.shippedEnabled ? tr("on") : tr("off"));
         if (p.kind != QStringLiteral("file") && !p.kind.isEmpty()) lines << tr("This kind of patch is not applied yet.");
         const QString text = lines.join(QStringLiteral("\n\n"));
         it->setData(0, Qt::UserRole + 1, text);
-        for (int c = 0; c < 3; ++c) it->setToolTip(c, text);
+        for (int c = 0; c < 4; ++c) it->setToolTip(c, text);
         if (p.name == keep) select = it;
     }
-    for (int c = 0; c < 3; ++c) patch_tree_->resizeColumnToContents(c);
+    for (int c = 0; c < 4; ++c) patch_tree_->resizeColumnToContents(c);
     if (select) patch_tree_->setCurrentItem(select);
-    if (patches.isEmpty()) patch_status_->setText(tr("This game has no patches."));
+    const QStringList rejected = data->patchErrors(prof);
+    if (!rejected.isEmpty()) patch_status_->setText(tr("Patches that were rejected (every patch needs a known Category):") + QLatin1Char('\n') + rejected.join(QLatin1Char('\n')));
+    else if (patches.isEmpty()) patch_status_->setText(tr("This game has no patches."));
     else if (!patch_status_->text().contains(tr("running"))) patch_status_->setText(QString());
     refreshing_patches_ = false;
 

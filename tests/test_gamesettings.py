@@ -68,7 +68,7 @@ class LayerTest(Tmp):
         write(os.path.join(self.shipped, "_defaults", "OpenParrot.ini"),
               "[Loader]\nRemoteThread = off\n[Wine]\nDllOverrides = d3d9=b\n[Input]\nJvsPipeBoard = true\n")
         write(os.path.join(self.shipped, "_defaults", "OpenParrot.patches.ini"),
-              "[Patch: Lader]\nEnabled = false\nKind = file\nTarget = loader\nFind = 00\nReplace = 01\nReason = omdat\n")
+              "[Patch: Lader]\nEnabled = false\nKind = file\nCategory = loader\nTarget = loader\nFind = 00\nReplace = 01\nReason = omdat\n")
         write(os.path.join(self.shipped, "G", "game.ini"),
               "[Game]\nName = G\nType = OpenParrot\n[Input]\nRoute = tp-shm\nLayout = X\n[Loader]\nRemoteThread =\n")
         write(os.path.join(self.shipped, "G", "patches.ini"), "[Patch: Lader]\nEnabled = true\n")
@@ -105,11 +105,11 @@ class LayerTest(Tmp):
         self.assertEqual(g.patches[0].get("Find"), "00")                   # alleen Enabled is overschreven
         # Een eigen patch in de gebruikerslaag komt erbij; een game zonder de gedeelde definitie ziet hem niet.
         write(os.path.join(self.user, "G", "patches.ini"),
-              "[Patch: Eigen]\nEnabled = true\nKind = file\nTarget = core\nFind = 11\nReplace = 22\n")
+              "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = timing\nTarget = core\nFind = 11\nReplace = 22\n")
         g = self.load("G")
         self.assertEqual([(p.name, p.enabled) for p in g.patches], [("Lader", True), ("Eigen", True)])
         # Zonder Enabled is een patch uit.
-        write(os.path.join(self.user, "G", "patches.ini"), "[Patch: Zonder]\nKind = file\n")
+        write(os.path.join(self.user, "G", "patches.ini"), "[Patch: Zonder]\nKind = file\nCategory = audio\n")
         self.assertFalse([p for p in self.load("G").patches if p.name == "Zonder"][0].enabled)
 
     def test_type_hint_and_user_type(self):
@@ -152,6 +152,74 @@ class LayerTest(Tmp):
         out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "gamesettings.py"), "get", "G", "Wine.Prefix", "--default", "x"],
                              capture_output=True, text=True, env=env).stdout.strip()
         self.assertEqual(out, "shared")
+
+
+class PatchPolicyTest(Tmp):
+    """Category (verplicht, vaste lijst, geen beveiliging), Version, AppliedBy, EmulationProfile en de regiokeuzes."""
+
+    def setUp(self):
+        super().setUp()
+        write(os.path.join(self.shipped, "_defaults", "OpenParrot.patches.ini"),
+              "[Patch: Goed]\nEnabled = false\nKind = file\nCategory = Loader\nVersion = 1.08\nTarget = loader\n"
+              "[Patch: ZonderCategory]\nEnabled = false\nKind = file\n[Patch: Onbekend]\nEnabled = true\nKind = file\nCategory = security\n"
+              "[Patch: Geheugen]\nEnabled = false\nKind = memory\nCategory = input\nAppliedBy = Core\nModule = game.exe\nOffset = 0x10\n")
+        write(os.path.join(self.shipped, "G", "game.ini"), "[Game]\nType = OpenParrot\n")
+        write(os.path.join(self.shipped, "G", "patches.ini"), "[Patch: Goed]\nEnabled = true\n")
+
+    def test_categories(self):
+        self.assertEqual(gs.PATCH_CATEGORIES, ("graphics", "input", "timing", "audio", "paths", "crash", "network", "loader"))
+        self.assertFalse({"security", "protection", "dongle", "integrity"} & set(gs.PATCH_CATEGORIES))
+        g = self.load("G")
+        self.assertEqual([p.name for p in g.patches], ["Goed", "Geheugen"])
+        self.assertEqual((g.patches[0].category, g.patches[0].version, g.patches[0].enabled), ("loader", "1.08", True))
+        self.assertEqual((g.patches[1].applied_by, g.patches[1].kind, g.patches[1].get("Find")), ("core", "memory", ""))
+        errs = {e["name"]: e for e in g.patch_errors}
+        self.assertEqual(set(errs), {"ZonderCategory", "Onbekend"})
+        self.assertIn("Category ontbreekt", errs["ZonderCategory"]["message"])
+        self.assertIn("graphics, input, timing, audio, paths, crash, network, loader", errs["ZonderCategory"]["message"])
+        self.assertIn("onbekende Category 'security'", errs["Onbekend"]["message"])
+        self.assertTrue(errs["Onbekend"]["enabled"] and not errs["ZonderCategory"]["enabled"])
+        self.assertTrue(g.warnings)
+
+    def test_user_layer_is_checked_too(self):
+        write(os.path.join(self.user, "G", "patches.ini"),
+              "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = dongle\n"
+              "[Patch: Eigen3]\nEnabled = true\nKind = file\nCategory = timing\n")
+        g = self.load("G")
+        self.assertFalse(g.patches[0].enabled)                                  # een Enabled-override is gewoon goed
+        self.assertIn("Eigen3", [p.name for p in g.patches])
+        names = [e["name"] for e in g.patch_errors]
+        self.assertIn("Eigen", names)
+        self.assertIn("Eigen2", names)
+        write(os.path.join(self.user, "G", "patches.ini"), "[Patch: Goed]\nCategory = integrity\n")
+        g = self.load("G")
+        self.assertNotIn("Goed", [p.name for p in g.patches])                   # categorie van een meegeleverde patch naar iets onbekends
+        self.assertIn("Goed", [e["name"] for e in g.patch_errors])
+
+    def test_repo_tree(self):
+        shipped = os.path.join(ROOT, "patches")
+        for name in gs.list_games(shipped, os.path.join(self.tmp, "geen")):
+            g = gs.load_game(name, shipped=shipped, user=os.path.join(self.tmp, "geen"))
+            self.assertEqual(g.patch_errors, [], name)
+            self.assertTrue(all(p.category in gs.PATCH_CATEGORIES for p in g.patches))
+            self.assertNotIn("KeychipRegion", g.section("Game"))
+        lgi = gs.load_game("LGI", shipped=shipped, user=os.path.join(self.tmp, "geen"))
+        self.assertEqual(lgi.get("Game", "EmulationProfile"), "SegaJvsLetsGoIsland")
+        self.assertTrue(lgi.get("Game", "DongleRegion") and lgi.get("Game", "PcbRegion"))
+        self.assertTrue(gs.load_game("RaccoonRampage", shipped=shipped, user=os.path.join(self.tmp, "geen")).get("Display", "DisplayMode"))
+        mem = [(n, p) for n in ("HauntedMuseum", "HauntedMuseumII", "GaiaAttack4", "MusicGunGun2")
+               for p in gs.load_game(n, shipped=shipped, user=os.path.join(self.tmp, "geen")).patches if p.kind == "memory"]
+        self.assertEqual(len(mem), 10)
+        for n, p in mem:
+            self.assertFalse(p.enabled)
+            self.assertEqual(p.applied_by, "core")
+            self.assertEqual(p.get("Find"), "")
+            self.assertTrue(p.get("Source").startswith("OpenParrot TypeX2Generic.cpp (GPL-3.0), regel "))
+        versions = sorted(p.version for n, p in mem if n == "HauntedMuseumII")
+        self.assertEqual(versions, ["2100", "2100", "2101J", "2101J"])
+        self.assertTrue(gs.load_game("GaiaAttack4", shipped=shipped, user=os.path.join(self.tmp, "geen")).patch_errors == [])
+        p = [p for p in gs.load_game("GaiaAttack4", shipped=shipped, user=os.path.join(self.tmp, "geen")).patches if p.kind == "file"][0]
+        self.assertEqual(p.category, "loader")
 
 
 class EnvMappingTest(Tmp):
@@ -220,6 +288,16 @@ class MigrationTest(Tmp):
         for prof, et in (("A", "TeknoParrot"), ("B", "OpenParrot"), ("C", "ElfLdr2")):
             write(os.path.join(self.tp, "UserProfiles", prof + ".xml"),
                   "<GameProfile><EmulatorType>%s</EmulatorType><GamePath>%s/spel/%s/game.exe</GamePath></GameProfile>" % (et, home, prof))
+        # Profielgegevens voor game.ini: EmulationProfile uit GameProfiles, regiokeuzes en weergave uit het gebruikersprofiel.
+        def fi(n, v, t="Text", opts=()):
+            return ("<FieldInformation><CategoryName>General</CategoryName><FieldName>%s</FieldName><FieldValue>%s</FieldValue><FieldType>%s</FieldType>"
+                    "<FieldOptions>%s</FieldOptions></FieldInformation>" % (n, v, t, "".join("<string>%s</string>" % o for o in opts)))
+        write(os.path.join(self.tp, "GameProfiles", "A.xml"), "<GameProfile><EmulationProfile>EmuA</EmulationProfile></GameProfile>")
+        write(os.path.join(self.tp, "UserProfiles", "A.xml"),
+              "<GameProfile><EmulatorType>TeknoParrot</EmulatorType><GamePath>%s/spel/A/game.exe</GamePath><EmulationProfile>OudA</EmulationProfile><ConfigValues>%s</ConfigValues></GameProfile>"
+              % (home, fi("DongleRegion", "USA", "Dropdown", ["JAPAN", "USA"]) + fi("PcbRegion", "JAPAN", "Dropdown", ["JAPAN", "USA"]) +
+                 fi("DisplayMode", "Windowed", "Dropdown", ["Windowed", "Fullscreen"]) + fi("Use Custom Resolution", "1", "Bool") +
+                 fi("Custom Resolution Width", "1920") + fi("Custom Resolution Height", "1080")))
         write(os.path.join(self.tp, "UserProfiles", "A.env"),
               "# uitleg bij A\nTP_POSTSTART_REMOTETHREAD_MS=3000\nRG_WINEPREFIX=%s/.local/share/TeknoParrotUI/prefixes/own\n"
               "#TP_WINEPREFIX=/nooit\nWINEDLLOVERRIDES=winhttp=n,b\nSECRET_TOKEN=geheim\nEXTRA=1\n" % home)
@@ -236,6 +314,8 @@ class MigrationTest(Tmp):
         self.assertTrue(st["changed"])
         a, _ = gs.read_ini(os.path.join(self.out, "A", "game.ini"))
         self.assertEqual(a["Game"]["Profile"], "A")
+        self.assertEqual((a["Game"]["EmulationProfile"], a["Game"]["DongleRegion"], a["Game"]["PcbRegion"]), ("EmuA", "USA", "JAPAN"))
+        self.assertEqual((a["Display"]["DisplayMode"], a["Display"]["CustomResolution"]), ("Windowed", "1920x1080"))
         self.assertEqual(a["Input"]["Route"], "tp-shm")
         self.assertEqual(a["Input"]["CoinKeys"], "lshift,t")
         self.assertEqual(a["Launch"]["Mode"], "direct")
@@ -248,6 +328,7 @@ class MigrationTest(Tmp):
         self.assertNotIn("geheim", read(os.path.join(self.out, "A", "game.ini")))
         b, _ = gs.read_ini(os.path.join(self.out, "B", "game.ini"))
         self.assertNotIn("Loader", b)                                                      # gelijk aan de standaard: niet herhaald
+        self.assertNotIn("EmulationProfile", b["Game"])                                    # het profiel noemt er geen
         self.assertNotIn("Wine", b)
         self.assertEqual(b["Game"]["Type"], "OpenParrot")
         p, _ = gs.read_ini(os.path.join(self.out, "B", "patches.ini"))
@@ -298,8 +379,8 @@ class TpAddGameTest(Tmp):
             btn = "".join("<JoystickButtons><ButtonName>%s</ButtonName></JoystickButtons>" % n
                           for n in ("Button 1 (red)", "Test", "Coin", "Wheel Axis Left", "Player 1 Start"))
             write(os.path.join(tp, "GameProfiles", prof + ".xml"),
-                  "<GameProfile><GameNameInternal>Naam %s</GameNameInternal><GamePath></GamePath><EmulatorType>%s</EmulatorType>%s</GameProfile>"
-                  % (prof, etype, btn))
+                  "<GameProfile><GameNameInternal>Naam %s</GameNameInternal><GamePath></GamePath><EmulatorType>%s</EmulatorType>"
+                  "<EmulationProfile>Emu%s</EmulationProfile>%s</GameProfile>" % (prof, etype, prof, btn))
         template("LGS", "TeknoParrot")
         template("XX2", "OpenParrot")
         write(os.path.join(self.shipped, "LGS", "game.ini"), "[Bindings]\nButton 1 (red) = kbd:A\nWheel Axis Left = kbd:Left\n")
@@ -320,7 +401,7 @@ class TpAddGameTest(Tmp):
         self.assertIn("<KeyboardKey>D5</KeyboardKey>", xml)          # Coin
         self.assertFalse(os.path.exists(os.path.join(tp, "UserProfiles", "LGS.env")))   # geen .env meer
         s, _ = gs.read_ini(os.path.join(self.user, "LGS", "game.ini"))
-        self.assertEqual(s["Game"], {"Profile": "LGS", "Type": "TeknoParrot", "Name": "Naam LGS"})
+        self.assertEqual(s["Game"], {"Profile": "LGS", "Type": "TeknoParrot", "EmulationProfile": "EmuLGS", "Name": "Naam LGS"})
         self.assertEqual(s["Loader"], {"PostStartMs": "3000", "RemoteThread": ""})   # eigen injectie: de standaardroute van het soort uit
         s, _ = gs.read_ini(os.path.join(self.user, "XX2", "game.ini"))
         self.assertEqual(s["Game"]["Type"], "OpenParrot")

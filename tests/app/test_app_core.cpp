@@ -849,11 +849,22 @@ void AppCoreTest::patchesAndSettings() {
     // De lader-patch voor Type X2: gedeeld gedefinieerd, door de game aangezet.
     const QString name = QStringLiteral("OpenParrotLoader zonder CONTEXT_FLOATING_POINT");
     QList<PatchInfo> p = d.patches(QStringLiteral("GaiaAttack4"));
-    QCOMPARE(p.size(), 1);
+    QCOMPARE(p.size(), 3);   // de lader-patch en twee geheugenpatches (informatie)
     QCOMPARE(p[0].name, name);
     QVERIFY(p[0].enabled && p[0].shippedEnabled && !p[0].userSet && !p[0].userDefined);
     QCOMPARE(p[0].kind, QStringLiteral("file"));
     QVERIFY(p[0].reason.contains(QStringLiteral("MXCSR")));
+    QCOMPARE(p[0].category, QStringLiteral("loader"));
+    // De geheugenpatches uit OpenParrot staan er alleen ter informatie bij: uit, door de kern toegepast, met bron en versie.
+    const QList<PatchInfo> hm2 = d.patches(QStringLiteral("HauntedMuseumII"));
+    int info = 0;
+    for (const PatchInfo& i : hm2)
+        if (i.kind == QStringLiteral("memory")) {
+            ++info;
+            QVERIFY(!i.enabled && i.appliedByCore && !i.version.isEmpty() && i.source.contains(QStringLiteral("TypeX2Generic.cpp")));
+        }
+    QCOMPARE(info, 4);
+    QVERIFY(d.patchErrors(QStringLiteral("GaiaAttack4")).isEmpty());
     QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
     // Uitzetten: het gebruikers-patches.ini krijgt Enabled = false; de meegeleverde stand blijft zichtbaar.
     QString err;
@@ -868,11 +879,17 @@ void AppCoreTest::patchesAndSettings() {
     QVERIFY(p[0].enabled && !p[0].userSet);
     QVERIFY(!gs::read_layer(user.toStdString(), "GaiaAttack4", "patches.ini").has("Patch: " + name.toStdString(), "Enabled"));
     // Een patch die alleen de gebruiker kent; en de gedeelde definitie van een game die hem niet aanzet staat er ook (uit).
-    writeFile(user + QStringLiteral("/NERF/patches.ini"), "[Patch: Eigen]\nEnabled = true\nKind = file\nTarget = core\nFind = 00\nReplace = 01\n");
+    writeFile(user + QStringLiteral("/NERF/patches.ini"), "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = crash\nTarget = core\nFind = 00\nReplace = 01\n");
     d.loadFrom(repoDirs(user), {});
     p = d.patches(QStringLiteral("NERF"));
     QCOMPARE(p.size(), 1);
     QVERIFY(p[0].enabled && p[0].userDefined && p[0].userSet);
+    // Een eigen patch zonder Category wordt afgewezen en als melding getoond.
+    writeFile(user + QStringLiteral("/TC5/patches.ini"), "[Patch: Zonder]\nEnabled = true\nKind = file\n");
+    d.loadFrom(repoDirs(user), {});
+    QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
+    QVERIFY(d.patchErrors(QStringLiteral("TC5")).value(0).contains(QStringLiteral("Category ontbreekt")));
+    QFile::remove(user + QStringLiteral("/TC5/patches.ini"));
     // Zonder gebruikersmap geen schrijven.
     GameData ro;
     ro.loadFrom(repoDirs(), {});

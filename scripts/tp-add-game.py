@@ -269,6 +269,8 @@ def main():
     settings, _legacy = gs.env_to_settings(env_dict, os.path.dirname(game))
     settings.setdefault('Game', {})['Profile'] = prof
     if typ: settings['Game']['Type'] = typ
+    em = re.search(r'<EmulationProfile>(.*?)</EmulationProfile>', s)
+    if em and em.group(1).strip(): settings['Game']['EmulationProfile'] = em.group(1).strip()
     if nm and nm.group(1).strip() and not shipped_game.get('Game', 'Name'): settings['Game']['Name'] = nm.group(1).strip()
     if '--vdesktop' in sys.argv: settings.setdefault('Wine', {})['VirtualDesktop'] = vdesktop
     # Een eigen injectiemethode (POSTSTART/ENTRYPOINT) vervangt de standaardroute van het soort: dan RemoteThread leegmaken.

@@ -79,7 +79,7 @@ static void test_layers(const std::string& root) {
     fs::remove_all(root);
     put(sh + "/_defaults/OpenParrot.ini", "[Loader]\nRemoteThread = off\n[Wine]\nDllOverrides = d3d9=b\n[Input]\nJvsPipeBoard = true\n");
     put(sh + "/_defaults/OpenParrot.patches.ini",
-        "[Patch: Lader]\nEnabled = false\nKind = file\nTarget = loader\nFind = 00\nReplace = 01\nReason = omdat\n[Patch: Tweede]\nEnabled = false\nKind = file\n");
+        "[Patch: Lader]\nEnabled = false\nKind = file\nCategory = loader\nTarget = loader\nFind = 00\nReplace = 01\nReason = omdat\n[Patch: Tweede]\nEnabled = false\nKind = file\nCategory = Input\n");
     put(sh + "/G/game.ini", "[Game]\nName = G\nType = OpenParrot\n[Input]\nRoute = tp-shm\nLayout = X\n[Loader]\nRemoteThread =\n");
     put(sh + "/G/patches.ini", "[Patch: Lader]\nEnabled = true\n");
     gs::Dirs d{sh, us};
@@ -94,7 +94,7 @@ static void test_layers(const std::string& root) {
 
     // Gebruikerslaag: wint per sleutel, lege waarde zet terug, patch uit en een eigen patch.
     put(us + "/G/game.ini", "[Input]\nRoute = evdev\n[Wine]\nDllOverrides =\n[Env]\nFOO = bar\n");
-    put(us + "/G/patches.ini", "[Patch: Lader]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\nTarget = core\n");
+    put(us + "/G/patches.ini", "[Patch: Lader]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = crash\nTarget = core\n");
     g = gs::load_game(d, "G");
     CHECK(g.get("Input", "Route") == "evdev" && g.get("Input", "Layout") == "X");    // de rest van [Input] blijft
     CHECK(!g.settings.has("Wine", "DllOverrides") && g.get("Env", "FOO") == "bar");
@@ -104,7 +104,8 @@ static void test_layers(const std::string& root) {
     put(us + "/G/game.ini", "[Game]\nType = TeknoParrot\n");
     g = gs::load_game(d, "G");
     CHECK(g.type == "TeknoParrot" && !g.settings.has("Wine", "DllOverrides") && !g.settings.has("Loader", "RemoteThread"));
-    CHECK(g.patches.size() == 2 && g.patches[0].name == "Lader" && !g.patches[0].enabled() && g.patches[1].name == "Eigen");   // geen gedeelde definities meer
+    // Geen gedeelde definities meer: "Lader" is alleen nog een Enabled zonder definitie en wordt afgewezen.
+    CHECK(g.patches.size() == 1 && g.patches[0].name == "Eigen" && g.patch_errors.size() == 1 && g.patch_errors[0].name == "Lader");
     // Een game zonder bestanden maar met type_hint krijgt de standaarden van dat soort.
     gs::Game h = gs::load_game(d, "Onbekend", "OpenParrot");
     CHECK(!h.exists && h.type == "OpenParrot" && h.get("Loader", "RemoteThread") == "off" && h.patches.size() == 2);
@@ -115,6 +116,64 @@ static void test_layers(const std::string& root) {
     fs::create_directories(us + "/_intern");
     auto list = gs::list_games(d);
     CHECK(list.size() == 2 && list[0] == "Alleen" && list[1] == "G");
+}
+
+// Categorie, versie, AppliedBy: elke patch heeft een bekende Category, in elke laag; er is bewust geen categorie voor beveiliging.
+static void test_patch_policy(const std::string& root) {
+    const std::string sh = root + "/pol-shipped", us = root + "/pol-user";
+    fs::remove_all(sh);
+    fs::remove_all(us);
+    put(sh + "/_defaults/OpenParrot.patches.ini",
+        "[Patch: Goed]\nEnabled = false\nKind = file\nCategory = Loader\nVersion = 1.08\nTarget = loader\n"
+        "[Patch: ZonderCategory]\nEnabled = false\nKind = file\n[Patch: Onbekend]\nEnabled = true\nKind = file\nCategory = security\n"
+        "[Patch: Geheugen]\nEnabled = false\nKind = memory\nCategory = input\nAppliedBy = Core\nModule = game.exe\nOffset = 0x10\n");
+    put(sh + "/G/game.ini", "[Game]\nType = OpenParrot\n");
+    put(sh + "/G/patches.ini", "[Patch: Goed]\nEnabled = true\n");
+    gs::Dirs d{sh, us};
+    gs::Game g = gs::load_game(d, "G");
+    CHECK(g.patches.size() == 2 && g.patches[0].name == "Goed" && g.patches[1].name == "Geheugen");
+    CHECK(g.patches[0].category() == "loader" && g.patches[0].version() == "1.08" && g.patches[0].enabled());
+    CHECK(g.patches[1].applied_by() == "core" && g.patches[1].kind() == "memory" && g.patches[1].get("Find").empty());
+    CHECK(g.patch_errors.size() == 2 && g.patch_errors[0].name == "ZonderCategory" && !g.patch_errors[0].enabled);
+    CHECK(g.patch_errors[0].message.find("Category ontbreekt") != std::string::npos && g.patch_errors[0].message.find("graphics, input, timing, audio, paths, crash, network, loader") != std::string::npos);
+    CHECK(g.patch_errors[1].name == "Onbekend" && g.patch_errors[1].enabled && g.patch_errors[1].message.find("onbekende Category 'security'") != std::string::npos);
+    CHECK(!g.warnings.empty());
+    for (const char* const* c = gs::kPatchCategories; *c; ++c) CHECK(std::string(*c) != "security" && std::string(*c) != "protection");
+    // Ook de gebruikerslaag: een eigen patch zonder of met een onbekende Category wordt afgewezen; een Enabled-override is gewoon goed.
+    put(us + "/G/patches.ini", "[Patch: Goed]\nEnabled = false\n[Patch: Eigen]\nEnabled = true\nKind = file\n[Patch: Eigen2]\nEnabled = true\nKind = file\nCategory = dongle\n"
+                               "[Patch: Eigen3]\nEnabled = true\nKind = file\nCategory = timing\n");
+    g = gs::load_game(d, "G");
+    CHECK(g.patch("Goed") && !g.patch("Goed")->enabled() && g.patch("Eigen3") && !g.patch("Eigen") && !g.patch("Eigen2"));
+    int eigen = 0;
+    for (const auto& e : g.patch_errors) if (e.name == "Eigen" || e.name == "Eigen2") ++eigen;
+    CHECK(eigen == 2);
+    // De gebruiker kan een categorie van een meegeleverde patch niet naar iets onbekends zetten.
+    put(us + "/G/patches.ini", "[Patch: Goed]\nCategory = integrity\n");
+    g = gs::load_game(d, "G");
+    CHECK(!g.patch("Goed"));
+    // De repo-boom: elke patch heeft een geldige Category, en er zijn geen regiovelden van een dongle of keychip.
+    gs::Dirs real{std::string(RAVENGUN_SOURCE_DIR) + "/patches", {}};
+    for (const auto& name : gs::list_games(real)) {
+        gs::Game rg = gs::load_game(real, name);
+        CHECK(rg.patch_errors.empty());
+        for (const auto& p : rg.patches) CHECK(!p.category().empty());
+        CHECK(!rg.settings.has("Game", "KeychipRegion") && !rg.settings.has("Game", "DongleEmulation"));
+    }
+    gs::Game lgi = gs::load_game(real, "LGI");
+    CHECK(lgi.get("Game", "EmulationProfile") == "SegaJvsLetsGoIsland" && !lgi.get("Game", "DongleRegion").empty() && !lgi.get("Game", "PcbRegion").empty());
+    gs::Game rr = gs::load_game(real, "RaccoonRampage");
+    CHECK(!rr.get("Display", "DisplayMode").empty());
+    CHECK(!gs::load_game(real, "Halo").get("Display", "CustomResolution").empty());
+    // De acht Type X2-geheugenpatches uit OpenParrot: alleen documentatie.
+    int memory = 0;
+    for (const char* name : {"HauntedMuseum", "HauntedMuseumII", "GaiaAttack4", "MusicGunGun2"})
+        for (const auto& p : gs::load_game(real, name).patches)
+            if (p.kind() == "memory") {
+                ++memory;
+                CHECK(!p.enabled() && p.applied_by() == "core" && p.get("Find").empty() && p.get("Source").find("OpenParrot TypeX2Generic.cpp (GPL-3.0), regel ") == 0);
+                CHECK(!p.get("Module").empty() && !p.get("Offset").empty());
+            }
+    CHECK(memory == 10);
 }
 
 static void test_edit_and_user_writes(const std::string& root) {
@@ -136,7 +195,7 @@ static void test_edit_and_user_writes(const std::string& root) {
     fs::remove_all(us);
     gs::Dirs d{root + "/uw-shipped", us};
     put(d.shipped + "/G/game.ini", "[Input]\nRoute = tp-shm\nLayout = L\n");
-    put(d.shipped + "/G/patches.ini", "[Patch: P]\nEnabled = false\nKind = file\n");
+    put(d.shipped + "/G/patches.ini", "[Patch: P]\nEnabled = false\nKind = file\nCategory = paths\n");
     std::string err;
     CHECK(gs::set_user_value(d, "G", "Input", "Route", "evdev", &err) && err.empty());
     CHECK(slurp(us + "/G/game.ini") == "[Input]\nRoute = evdev\n");
@@ -213,6 +272,7 @@ int main() {
     test_conformance();
     test_ini_basics();
     test_layers(root);
+    test_patch_policy(root);
     test_edit_and_user_writes(root);
     test_default_dirs();
     test_repo_tree();

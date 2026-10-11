@@ -214,6 +214,11 @@ QList<PatchInfo> GameData::patches(const QString& profile) const {
         i.kind = QString::fromStdString(p.kind());
         i.reason = QString::fromStdString(p.reason());
         i.target = QString::fromStdString(p.get("Target"));
+        if (i.target.isEmpty()) i.target = QString::fromStdString(p.get("Module") + (p.get("Offset").empty() ? "" : "+" + p.get("Offset")));
+        i.category = QString::fromStdString(p.category());
+        i.version = QString::fromStdString(p.version());
+        i.source = QString::fromStdString(p.get("Source"));
+        i.appliedByCore = p.applied_by() == "core";
         i.enabled = p.enabled();
         const gs::Patch* sp = shipped.patch(p.name);
         i.shippedEnabled = sp && sp->enabled();
@@ -223,6 +228,13 @@ QList<PatchInfo> GameData::patches(const QString& profile) const {
         for (const auto& kv : p.fields) i.fields << qMakePair(QString::fromStdString(kv.first), QString::fromStdString(kv.second));
         out << i;
     }
+    return out;
+}
+
+QStringList GameData::patchErrors(const QString& profile) const {
+    QStringList out;
+    const gs::Game g = games_.contains(profile) ? games_.value(profile) : gs::load_game(dirs_, profile.toStdString());
+    for (const auto& e : g.patch_errors) out << QString::fromStdString(e.message);
     return out;
 }
 
