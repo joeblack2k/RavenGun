@@ -1,6 +1,6 @@
 # Starttest per game
 
-Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-11 23:36 uit de ruwe uitvoer van `starttest3.sh`.
+Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-12 01:50 uit de ruwe uitvoer van `starttest3.sh`.
 
 ```bash
 # één game
@@ -38,51 +38,56 @@ schrijfwijzen: een Wine-proces heeft het Windows-pad in zijn commandoregel
 
 | Game | Resultaat | SPEL (s) | LADER | Laatste logregel |
 |---|---|---|---|---|
-| GaiaAttack4 | START | 2 | 1 | [launch-direct 23:04:35] klaar (exitcode gestopt) |
-| GalagaAssault | START | 2 | 1 | [launch-direct 23:04:59] klaar (exitcode gestopt) |
-| Gashaaaan | START | 2 | 1 | [launch-direct 23:05:25] klaar (exitcode gestopt) |
-| Gashaaaan2 | START | 2 | 1 | [launch-direct 23:05:50] klaar (exitcode gestopt) |
-| GhostBusters | START | 2 | 1 | [launch-direct 23:06:16] klaar (exitcode gestopt) |
-| GoGoStrike | START | 2 | 1 | [launch-direct 23:06:41] klaar (exitcode gestopt) |
-| Halo | START | 1 | 1 | [launch-direct 23:07:06] klaar (exitcode gestopt) |
-| HauntedMuseum | START | 1 | 1 | [launch-direct 23:07:31] klaar (exitcode gestopt) |
-| HauntedMuseumII | START | 1 | 1 | [launch-direct 23:07:56] klaar (exitcode gestopt) |
-| InfinityBladeFX | START | 1 | 1 | [launch-direct 23:08:21] klaar (exitcode gestopt) |
-| JurassicPark | START | 1 | 1 | [launch-direct 23:08:46] klaar (exitcode gestopt) |
-| LGI | START | 2 | 1 | [launch-direct 23:09:12] klaar (exitcode gestopt) |
-| LGI3D | START | 2 | 1 | [launch-direct 23:09:37] klaar (exitcode gestopt) |
-| LGS | START | 2 | 1 | [launch-direct 23:10:02] klaar (exitcode gestopt) |
-| LethalEnforcers3 | START | 2 | 1 | [launch-direct 23:10:28] klaar (exitcode gestopt) |
-| LuigisMansion | START | 2 | 1 | [launch-direct 23:10:53] klaar (exitcode gestopt) |
-| MedaruNoGunman | START | 1 | 1 | [launch-direct 23:11:18] klaar (exitcode gestopt) |
-| MusicGunGun2 | START | 2 | 1 | [launch-direct 23:11:43] klaar (exitcode gestopt) |
-| NERF | START | 2 | 1 | [launch-direct 23:12:08] klaar (exitcode gestopt) |
-| OG | START | 2 | 1 | [launch-direct 23:12:34] klaar (exitcode gestopt) |
-| OmatsuriYasanGansoTakoyaki | START | 2 | 1 | [launch-direct 23:12:59] klaar (exitcode gestopt) |
-| OmatsuriYasanKingyoSukui | START | 2 | 1 | [launch-direct 23:13:24] klaar (exitcode gestopt) |
-| Otomedius | START | 2 | 1 | [launch-direct 23:13:49] klaar (exitcode gestopt) |
-| PacmanChomp | START | 2 | 1 | [launch-direct 23:14:14] klaar (exitcode gestopt) |
-| PigsMightFly | START | 2 | 1 | [launch-direct 23:14:40] klaar (exitcode gestopt) |
-| RabbidsHollywood | START | 2 | 1 | [launch-direct 23:15:05] klaar (exitcode gestopt) |
-| RaccoonRampage | START | 2 | 1 | [launch-direct 23:15:29] klaar (exitcode gestopt) |
-| RainbowBombergirl | START | 2 | 1 | [launch-direct 23:15:55] klaar (exitcode gestopt) |
-| Rampage | START | 2 | 1 | [launch-direct 23:16:20] klaar (exitcode gestopt) |
-| TC5 | START | 1 | 1 | [launch-direct 23:34:58] klaar (exitcode gestopt) |
-| Terminator | START | 2 | 1 | [launch-direct 23:17:11] klaar (exitcode gestopt) |
-| TombRaider | START | 2 | 1 | [launch-direct 23:17:36] klaar (exitcode gestopt) |
-| TransformersShadowsRising | START | 2 | 1 | [launch-direct 23:18:01] klaar (exitcode gestopt) |
+| 3DCosplayMahjong | niet-gestart | 0 | 0 | Niet direct te starten: game niet gevonden: '' (voeg de |
+| GaiaAttack4 | START | 1 | 1 | [launch-direct 01:35:56] klaar (exitcode gestopt) |
+| GalagaAssault | START | 1 | 1 | [launch-direct 01:36:21] klaar (exitcode gestopt) |
+| Gashaaaan | START | 1 | 1 | [launch-direct 01:36:46] klaar (exitcode gestopt) |
+| Gashaaaan2 | START | 1 | 1 | [launch-direct 01:37:11] klaar (exitcode gestopt) |
+| GhostBusters | START | 1 | 1 | [launch-direct 01:37:37] klaar (exitcode gestopt) |
+| GoGoStrike | START | 1 | 1 | [launch-direct 01:38:02] klaar (exitcode gestopt) |
+| HOTDSD | niet-gestart | 0 | 0 | Niet direct te starten: profielen met twee exe's worden |
+| Halo | START | 1 | 1 | [launch-direct 01:38:52] klaar (exitcode gestopt) |
+| HauntedMuseum | START | 1 | 1 | [launch-direct 01:39:17] klaar (exitcode gestopt) |
+| HauntedMuseumII | START | 1 | 1 | [launch-direct 01:39:42] klaar (exitcode gestopt) |
+| InfinityBladeFX | START | 1 | 1 | [launch-direct 01:40:08] klaar (exitcode gestopt) |
+| JurassicPark | START | 1 | 1 | [launch-direct 01:40:33] klaar (exitcode gestopt) |
+| LGI | START | 1 | 1 | [launch-direct 01:40:58] klaar (exitcode gestopt) |
+| LGI3D | START | 1 | 1 | [launch-direct 01:41:23] klaar (exitcode gestopt) |
+| LGS | START | 1 | 1 | [launch-direct 01:41:49] klaar (exitcode gestopt) |
+| LethalEnforcers3 | START | 1 | 1 | [launch-direct 01:42:14] klaar (exitcode gestopt) |
+| LuigisMansion | START | 1 | 1 | [launch-direct 01:42:39] klaar (exitcode gestopt) |
+| MedaruNoGunman | START | 1 | 1 | [launch-direct 01:43:04] klaar (exitcode gestopt) |
+| MusicGunGun2 | START | 1 | 1 | [launch-direct 01:43:29] klaar (exitcode gestopt) |
+| NERF | START | 2 | 1 | [launch-direct 01:43:54] klaar (exitcode gestopt) |
+| OG | START | 1 | 1 | [launch-direct 01:44:20] klaar (exitcode gestopt) |
+| OmatsuriYasanGansoTakoyaki | START | 1 | 1 | [launch-direct 01:44:45] klaar (exitcode gestopt) |
+| OmatsuriYasanKingyoSukui | START | 1 | 1 | [launch-direct 01:45:10] klaar (exitcode gestopt) |
+| Otomedius | START | 1 | 1 | [launch-direct 01:45:35] klaar (exitcode gestopt) |
+| PacmanChomp | START | 1 | 1 | [launch-direct 01:46:01] klaar (exitcode gestopt) |
+| PigsMightFly | START | 1 | 1 | [launch-direct 01:46:26] klaar (exitcode gestopt) |
+| RabbidsHollywood | START | 1 | 1 | [launch-direct 01:46:51] klaar (exitcode gestopt) |
+| RaccoonRampage | START | 2 | 1 | [launch-direct 01:47:16] klaar (exitcode gestopt) |
+| RainbowBombergirl | START | 1 | 1 | [launch-direct 01:47:41] klaar (exitcode gestopt) |
+| Rampage | START | 1 | 1 | [launch-direct 01:48:06] klaar (exitcode gestopt) |
+| TC5 | START | 1 | 1 | [launch-direct 01:48:32] klaar (exitcode gestopt) |
+| TankTankTank | niet-gestart | 0 | 0 | Niet direct te starten: game niet gevonden: '' (voeg de |
+| Terminator | START | 1 | 1 | [launch-direct 01:49:23] klaar (exitcode gestopt) |
+| TombRaider | START | 1 | 1 | [launch-direct 01:49:47] klaar (exitcode gestopt) |
+| TransformersShadowsRising | START | 1 | 1 | [launch-direct 01:50:12] klaar (exitcode gestopt) |
 
 ## Tellingen
 
 | | aantal |
 |---|---|
-| getest | 33 |
+| getest | 36 |
 | START | 33 |
 | viel-uit | 0 |
 | lader-levend | 0 |
-| niet-gestart | 0 |
+| niet-gestart | 3 |
 
 **START:** GaiaAttack4, GalagaAssault, Gashaaaan, Gashaaaan2, GhostBusters, GoGoStrike, Halo, HauntedMuseum, HauntedMuseumII, InfinityBladeFX, JurassicPark, LGI, LGI3D, LGS, LethalEnforcers3, LuigisMansion, MedaruNoGunman, MusicGunGun2, NERF, OG, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, Otomedius, PacmanChomp, PigsMightFly, RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, Terminator, TombRaider, TransformersShadowsRising
+
+**niet-gestart:** 3DCosplayMahjong, HOTDSD, TankTankTank
 
 ## Wat een meting niet zegt
 
@@ -120,4 +125,6 @@ meting vaststelt. Daarom wordt er niets omgezet; hier staat waar de twee uit elk
 Een `playable` zou hier meer claimen dan gemeten is: of het beeld goed is, of de
 ingang werkt en of de dongle beantwoord wordt, staat er niet in. Wie dat per game
 nakijkt, kan de status met onderbouwing omzetten.
+
+**Staat op `playable` maar start niet** (1): HOTDSD (`playable`)
 
