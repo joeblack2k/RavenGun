@@ -615,8 +615,9 @@ TeknoParrotUi-download. Uitwerking en pins: `third_party/openparrot/README.md`, 
   stopt op de eerste inexacte conversie met `c00002b5`. Nu 0x10017: `CONTEXT_FLOATING_POINT` (0x8) wordt niet meer meegegeven. De lader leest de FP-toestand alleen en schrijft dezelfde
   waarden terug, dus op Windows verandert er niets. Dit vervangt de bytepatch `OpenParrotLoader zonder CONTEXT_FLOATING_POINT` (die zocht `C7 05 C0 9B 42 00 1F 00 01 00` in de
   meegeleverde 32-bit lader; `RG_LOADER_FPFIX` in de oude `.env`). De patch staat in `third_party/openparrot/patches/0001-...`; we kunnen hem upstream aanbieden.
-- **Dezelfde regel staat in de 64-bit lader.** De bytepatch liet die met rust (`TargetName`); de bronwijziging geldt voor beide. Of 64-bit-games (Luigi's Mansion e.d.) er iets van
-  merken, moet op de tv blijken; de meegeleverde 64-bit lader heeft dezelfde store (`1F 00 01 00` op offset 0xf4c2).
+- **Gemeten.** `tools/openparrot-mxcsr-check.sh` (Wine, geen game): MXCSR van een 32-bit testprogramma na de lader is 0x00000000 met de lader van TeknoParrot en 0x00001f80 met de eigen lader.
+- **Dezelfde regel staat in de 64-bit lader.** De bytepatch liet die met rust (`TargetName`); de bronwijziging geldt voor beide. In de 64-bit lader maakt het in de meting geen verschil
+  (0x1f80 in beide builds: 0x1001F bevat daar `CONTEXT_AMD64` niet), maar 64-bit-games (Luigi's Mansion e.d.) horen bij de tv-test.
 - **Bron versus meegeleverde build.** De meegeleverde lader (TeknoParrotUi 2.0.0.130) is op de omgevingsvariabelen, de opdrachtregel en vrijwel alle meldingen na dezelfde bron als de gepinde commit
   (statisch vergeleken); de kern heeft dezelfde exports. Het enige gevonden verschil is het versienummer van de kern: de bron zegt 1.0.0.0, de meegeleverde build 1.0.0.787 (CI-buildnummer).
 - **Bouwen.** Visual Studio/premake is niet nodig: MinGW-w64 (GCC 16.2.0) en clang 23.1.1 in een podman-container, basis-image op digest, pakketten via het Arch Linux Archive.

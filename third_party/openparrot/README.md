@@ -65,6 +65,12 @@ Statisch vergeleken, zie ook `docs/decisions.md`:
 - Versie: de lader meldt in beide builds `0.0.0.0`. De kern heeft in de bron `1.0.0.0` (`OpenParrot.rc`); de meegeleverde build is `1.0.0.787` (de CI van upstream telt het buildnummer erbij). De bron-commit is dus nieuwer dan of gelijk aan wat TeknoParrot 2.0.0.130 meelevert; welke CI-build exact bij 787 hoort is niet te zien.
 - De Wine-fix: de meegeleverde lader heeft de store `mov [mycontext], 0x1001F` (`C7 05 .. .. .. .. 1F 00 01 00`), 32-bit op bestandsoffset 0x7f13 en 64-bit op 0xf4c2; in onze builds staat op die plek `0x10017` (32-bit 0x2f25, 64-bit 0x6e70).
 
+Gemeten onder Wine (proton-11.0-2, `tools/openparrot-mxcsr-check.sh`): een klein 32-bit programma dat zijn MXCSR leest nadat de lader de context van de hoofdthread
+heeft gezet, krijgt met de lader van TeknoParrot `0x00000000` (alle SSE-uitzonderingen ongemaskeerd: het Type X2-probleem), met de eigen lader `0x00001f80` (standaard).
+Bij de 64-bit lader is het `0x1f80` in beide builds (0x1001F bevat daar `CONTEXT_AMD64` niet), de wijziging verandert daar dus niets.
+Rooktests onder Wine: alle vier de binaries starten (zonder argumenten dezelfde gebruiksmelding als de TeknoParrot-builds); de 32-bit lader laadt met de eigen kern een
+onschuldig programma (`hostname.exe`) tot "Have fun :)". Géén game gestart.
+
 ## Gebruik
 
 `[Loader] Build = ravengun` in `patches/_defaults/<Type>.ini` of `patches/<Game>/game.ini` (of de gebruikerslaag) laat `scripts/launch-direct.py` de eigen lader (en bij `EmulatorType = OpenParrot` de eigen kern) kiezen; standaard blijft het de lader uit de TeknoParrot-runtime.
