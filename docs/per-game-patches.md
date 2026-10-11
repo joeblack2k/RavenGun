@@ -116,6 +116,10 @@ JvsIdent =                    ; RG_JVS_IDENT (proef)
 JvsFeatures =                 ; RG_JVS_FEATURES (proef)
 Note =                        ; toelichting bij de route
 
+[Dongle]
+Enabled = false               ; true = de echte, fysieke dongle van de eigenaar gebruiken (USB pass-through); standaard false (zie "Dongle per game")
+Source = usb-passthrough      ; enige waarde nu; de lijst is uitbreidbaar. Leeg = usb-passthrough
+
 [Env]
 ; vrije omgevingsvariabelen, als laatste toegepast (ontsnappingsroute; liever een echte sleutel hierboven)
 TP_NUSOUND = 1
@@ -277,6 +281,64 @@ game zonder eigen profiel gedraagt zich als voorheen (XML, en het oude `.env` al
 waarde in de gebruikerslaag telt niet. `check_activation` is ongewijzigd (alleen kijken of TeknoParrotUi de activering in de prefix zette); er wordt
 geen sleutelwaarde gelezen en geen activering geïmporteerd of nagebootst. `Patreon` in `game.ini` is een informatieve true of false, nooit een sleutel.
 
+## Dongle per game
+
+Sectie `[Dongle]` in `game.ini`, voor de **echte, fysieke dongle van de eigenaar** (USB pass-through) en niets anders. De meegeleverde laag zet hem
+uit (er staat niets, dus `Enabled = false`); de gebruikerslaag bevat alleen afwijkingen, dus `Enabled = true` zolang de gebruiker hem aan heeft, en
+na uitzetten weer niets.
+
+| Sleutel | Waarden | Standaard | Betekenis |
+|---|---|---|---|
+| `Enabled` | `true` \| `false` (ook `1/0`, `yes/no`, `on/off`) | `false` | aan: vóór de start de detectie draaien en weigeren als er geen bruikbare dongle is |
+| `Source` | `usb-passthrough` | `usb-passthrough` | waar de dongle vandaan komt. Uitbreidbaar (`DONGLE_SOURCES` in `scripts/gamesettings.py`, `kDongleSources` in de C++-lezer); er is bewust geen waarde voor nabootsing, een image of een licentiebestand |
+
+```ini
+; ~/.local/share/ravengun/patches/LGI/game.ini (gebruikerslaag)
+[Dongle]
+Enabled = true
+```
+
+Lezers: `Game.dongle()` in `scripts/gamesettings.py` en `gs::dongle_of()` in `src/ravengun/gamesettings` (dezelfde regels; beide getest tegen
+`tests/data/dongle-cases.json`). Het resultaat is (enabled, source, fout). Een `Enabled` die geen true of false is telt als aan met de fout
+`[Dongle] Enabled = <waarde> (use true or false)` (wie iets typte wilde er iets mee; de launcher weigert dan). Een onbekende `Source` is een fout
+(`[Dongle] Source = <waarde> (known: usb-passthrough)`). Bij `Enabled = false` doet de launcher niets, ook niet bij een foute `Source`.
+
+**Detectie** (`scripts/dongle.py`, gegevensbestand `packaging/dongle-vendors.json`; de app roept `python3 -I scripts/dongle.py --json` aan):
+
+- Aangesloten USB-apparaten via sysfs (`/sys/bus/usb/devices/*/`): alleen `idVendor`, `idProduct`, `manufacturer` en `product`. Een dongle wordt herkend
+  aan het vendor-ID in het gegevensbestand (openbaar bekende ID's): `0529` Aladdin (HASP), `04b9` Rainbow/SafeNet (Sentinel), `064f` Wibu-Systems (CodeMeter).
+  `manufacturer` en `product` worden alleen gelezen bij een apparaat dat al als dongle is herkend.
+- **Het attribuut `serial` of een andere unieke identificatie wordt nooit gelezen**, en er gaat geen serienummer naar een log, bestand of de UI. Er is
+  een vaste lijst gelezen attributen (`ALLOWED_ATTRS`); `tests/test_dongle.py` zet een serienummer in een nep-sysfs en controleert dat dat bestand
+  niet wordt geopend en nergens in de uitvoer staat.
+- Officiële runtime van de fabrikant: voor HASP en Sentinel de "Sentinel LDK Runtime" van Thales (daemons `aksusbd` en `hasplmd`; de License Manager
+  luistert op `127.0.0.1:1947`), voor Wibu de CodeMeter-runtime (proces `CodeMeterLin`, poort `22350`). Alleen kijken of die er is en draait: een
+  proces met die naam (alleen `/proc/<pid>/comm`) of een open poort op 127.0.0.1. Status `running`, `not running` (bestanden aanwezig, niet actief),
+  `not installed`. RavenGun installeert, levert en downloadt niets; bij `not installed` verwijst de melding naar de officiële installatie van de
+  fabrikant (`install_url` in het gegevensbestand). Een fabrikant zonder `runtime` in het gegevensbestand: "dongle gevonden, runtime onbekend" (`unknown`),
+  de start gaat door.
+- Uitvoer: `Dongle detected: <fabrikant> <product> (vvvv:pppp) - runtime: running|not running|not installed|unknown` of `No dongle found`; met `--json` ook de velden per
+  dongle en `ok`/`message`. Voor tests: `RAVENGUN_USB_SYSFS`, `RAVENGUN_PROC_ROOT`, `RAVENGUN_DONGLE_ROOT`, `RAVENGUN_DONGLE_VENDORS`.
+
+**Launcher.** Bij `[Dongle] Enabled = true` draait `launch-direct.py` (bij `--check` en `--run`, niet bij `--plan`) vóór de start de detectie, logt bij `--run`
+`dongle (usb-passthrough): Dongle detected: ...` (nooit een serienummer) en weigert met **exitcode 6** en een melding op stderr (`Dongle: ...`) als er geen
+dongle is, de runtime niet draait, of `Enabled`/`Source` ongeldig is (zie boven). Geen terugval op TeknoParrotUi. `play-halo.sh` toont de melding (en een
+bureaubladmelding) en sluit met dezelfde exitcode 6; bij een start zonder directe route (TeknoParrotUi, native) draait `play-halo.sh` dezelfde detectie
+(`gamesettings.py dongle <Game>` en `dongle.py`). Exitcodes van `launch-direct.py`: 0 klaar, 1 fout, 2 gebruik, 3 activering, 4 niet ondersteund, 5 patch of
+instelling geweigerd, **6 dongle ontbreekt of runtime niet actief**, anders de exitcode van de lader.
+
+**Permissies.** `packaging/udev/72-ravengun-dongle.rules` geeft `TAG+="uaccess"` op USB-apparaten (`SUBSYSTEM=="usb"`, `DEVTYPE==usb_device`) met precies
+die vendor-ID's, zodat een runtime of Wine er als gewone gebruiker bij kan. Installeren gaat via `scripts/install-permissions.sh --apply` (pkexec; ook de
+wizard), dat `scripts/udev-ravengun.sh` aanroept; zonder die stap blijft `install-permissions.sh --check` "Niet geïnstalleerd: 72-ravengun-dongle.rules" melden.
+
+**App.** Properties > Options > groep Dongle: vinkje "Use dongle", keuzelijst "Dongle source" ("USB pass-through (physical dongle)"), een statusregel en
+"Refresh". De keuzelijst, de status en Refresh zijn uitgeschakeld zolang het vinkje uit staat. De wijziging gaat direct naar de gebruikerslaag en alleen als ze
+van de standaard afwijkt (uit, usb-passthrough).
+
+Grenzen (projectafspraak): geen dongle-emulatie of -nabootsing in welke vorm dan ook (geen antwoorden op `hasp_*`-aanroepen, geen dongle-images of
+`.dgl`/`dongle.json`-lezers, geen licentiecodes of serienummervelden), geen software van een fabrikant meeleveren of downloaden, geen wijzigingen aan
+games of beveiliging. Zie `docs/decisions.md` ("Dongle-optie per game: alleen USB pass-through").
+
 ## Zoals Dolphin
 
 Het model is Dolphin's GameSettings; dit zijn de overeenkomsten en de enige uitzondering:
@@ -289,7 +351,7 @@ Het model is Dolphin's GameSettings; dit zijn de overeenkomsten en de enige uitz
 | `Dolphin.ini [General] ISOPath0..N`: alleen de spelmappen | `library.json` `folders` (Settings > Paths > Game Folders) |
 | een game wordt herkend aan zijn ID bij het scannen | aan `[Identify]` (pad, grootte, eventueel sha256) in de gamemappen; het pad wordt afgeleid, niet opgeslagen |
 | per game wordt over paden niets opgeslagen | idem; alleen een handmatig gekozen afwijkend pad staat als `[Game] GamePath` in de gebruikerslaag |
-| vaste secties per onderwerp (`[Core]`, `[Video_Settings]`) | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input]`, `[Env]`, `[Bindings]`, `[Status]`, en voor het profiel `[Identify]`, `[Config]`, `[ConfigType]`, `[ConfigOptions]` |
+| vaste secties per onderwerp (`[Core]`, `[Video_Settings]`) | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input]`, `[Dongle]`, `[Env]`, `[Bindings]`, `[Status]`, en voor het profiel `[Identify]`, `[Config]`, `[ConfigType]`, `[ConfigOptions]` |
 | Properties-dialoog met tabs | Properties: General, Options, Display, Patches, Memory Card, Info; ze schrijven alleen verschillen |
 
 ## `patches.ini`
@@ -363,11 +425,11 @@ integriteits- of abonnementscontroles, en niets op uitgepakte beschermde code. D
 
 | Onderdeel | Leest |
 |---|---|
-| `scripts/launch-direct.py` | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input] Jvs*`, `[Env]`, `[Identify]`, `[Config*]`, `patches.ini` (via `gamesettings.py` en `ownprofile.py`); zonder eigen profiel de XML |
+| `scripts/launch-direct.py` | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input] Jvs*`, `[Dongle]`, `[Env]`, `[Identify]`, `[Config*]`, `patches.ini` (via `gamesettings.py` en `ownprofile.py`); zonder eigen profiel de XML |
 | `scripts/play-halo.sh` | `[Input]` (route, indeling, bord, poort), `[Launch] Mode`, de omgeving (`gamesettings.py env`) voor de eenheid, de procesnamen (`gamesettings.py comms`) en, voor een start via TeknoParrotUi, `gamesettings.py write-xml` |
 | engine (`iobridge/routes.cpp`, `games/games.cpp`) | `[Input]`, bij elke start opnieuw (een keuze in de app geldt zonder herstart); `[Status] Note` voor de web-UI |
 | engine (`games/games.cpp`) | `[Game]` (eigen profiel: een game met `Executable` of `ProfileRevision` is een geldig profiel zonder XML en staat in de lijst als hij in een gamemap of view staat), `[Identify]` |
-| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `[Input]`, `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
+| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
 | `scripts/tp-add-game.py` | schrijft het profiel (uit het sjabloon) en de keuzes in het gebruikers-`game.ini` (en `patches.ini`), plus `UserProfiles/<P>.xml` als uitvoerformaat; leest `[Bindings]` en `[NewGame]` |
 | `scripts/import-tp-profiles.py` | maakt de profieldelen van `game.ini` uit de runtime (zie "Importer") |
 | `scripts/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |

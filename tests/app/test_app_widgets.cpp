@@ -3,6 +3,8 @@
 // route-keuze, de fullscreen-modus (vizier, schot, toetsen), de wizard met een nep-pkexec en "Add to Steam" op een kopie.
 // Alles in een tijdelijke map (HOME, XDG_*); de "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
 #include <QApplication>
+#include <QCheckBox>
+#include <QLabel>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QTreeWidget>
@@ -62,6 +64,7 @@ private Q_SLOTS:
     void propertiesForAllGames();
     void routeChoiceInProperties();
     void patchesTab();
+    void dongleGroup();
 public Q_SLOTS:
     void recordUrl(const QUrl& u) { g_opened << u.toLocalFile(); }
 private Q_SLOTS:
@@ -247,6 +250,67 @@ void AppWidgetTest::patchesTab() {
     none.name = QStringLiteral("Unknown");
     ui::PropertiesDialog d3(&core, none);
     QVERIFY(!d3.OpenUserFolderButton()->isEnabled());
+}
+
+void AppWidgetTest::dongleGroup() {
+    // Properties > Options > Dongle: vinkje, bron, statusregel en Refresh; schrijft alleen verschillen naar de gebruikerslaag.
+    QTemporaryDir fake;
+    QVERIFY(fake.isValid());
+    const QString sys = fake.filePath(QStringLiteral("sys")), proc = fake.filePath(QStringLiteral("proc"));
+    QDir().mkpath(sys);
+    QDir().mkpath(proc);
+    qputenv("RAVENGUN_USB_SYSFS", sys.toUtf8());
+    qputenv("RAVENGUN_PROC_ROOT", proc.toUtf8());
+    qputenv("RAVENGUN_DONGLE_ROOT", fake.filePath(QStringLiteral("root")).toUtf8());
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/TC5/game.ini"));
+    QFile::remove(user);
+    GameEntry g;
+    g.id = QStringLiteral("tp:TC5");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("TC5");
+    g.name = QStringLiteral("Time Crisis 5");
+    {
+        ui::PropertiesDialog d(&core, g);
+        QVERIFY(d.DongleCheck() && d.DongleSourceCombo() && d.DongleStatusLabel() && d.DongleRefreshButton());
+        QCOMPARE(d.DongleCheck()->text(), QStringLiteral("Use dongle"));
+        QVERIFY(d.DongleCheck()->isEnabled());
+        QVERIFY(!d.DongleCheck()->isChecked());                                           // standaard uit
+        QCOMPARE(d.DongleSourceCombo()->count(), 1);
+        QCOMPARE(d.DongleSourceCombo()->itemText(0), QStringLiteral("USB pass-through (physical dongle)"));
+        QCOMPARE(d.DongleSourceCombo()->currentData().toString(), QStringLiteral("usb-passthrough"));
+        QVERIFY(!d.DongleSourceCombo()->isEnabled() && !d.DongleStatusLabel()->isEnabled() && !d.DongleRefreshButton()->isEnabled());   // uit: grijs
+        QVERIFY(d.DongleStatusLabel()->text().isEmpty());
+        // Aan: bron en status actief, de gebruikerslaag krijgt alleen Enabled = true, de statusregel zegt dat er geen dongle is.
+        d.DongleCheck()->setChecked(true);
+        QVERIFY(d.DongleSourceCombo()->isEnabled() && d.DongleStatusLabel()->isEnabled() && d.DongleRefreshButton()->isEnabled());
+        QCOMPARE(readAll(user), QStringLiteral("[Dongle]\nEnabled = true\n"));
+        QTRY_COMPARE_WITH_TIMEOUT(d.DongleStatusLabel()->text(), QStringLiteral("No dongle found"), 15000);
+        // Een dongle erin (met serienummer) en Refresh: merk, product, ID's en runtime-status; nooit het serienummer.
+        writeFile(sys + QStringLiteral("/1-1/idVendor"), "0529\n");
+        writeFile(sys + QStringLiteral("/1-1/idProduct"), "0001\n");
+        writeFile(sys + QStringLiteral("/1-1/manufacturer"), "Aladdin Knowledge Systems\n");
+        writeFile(sys + QStringLiteral("/1-1/product"), "HASP HL 3.25\n");
+        writeFile(sys + QStringLiteral("/1-1/serial"), "SN-SECRET-0042\n");
+        writeFile(proc + QStringLiteral("/9/comm"), "hasplmd\n");
+        d.DongleRefreshButton()->click();
+        QTRY_COMPARE_WITH_TIMEOUT(d.DongleStatusLabel()->text(),
+                                  QStringLiteral("Dongle detected: Aladdin Knowledge Systems HASP HL 3.25 (0529:0001) \u2014 runtime: running"), 15000);
+        QVERIFY(!d.DongleStatusLabel()->text().contains(QStringLiteral("SECRET")));
+        // De bron kiezen die de standaard is, schrijft niets extra's.
+        emit d.DongleSourceCombo()->activated(0);
+        QCOMPARE(readAll(user), QStringLiteral("[Dongle]\nEnabled = true\n"));
+    }
+    {
+        ui::PropertiesDialog d(&core, g);                                                  // opnieuw openen: de keuze staat er nog
+        QVERIFY(d.DongleCheck()->isChecked());
+        QVERIFY(d.DongleSourceCombo()->isEnabled());
+        d.DongleCheck()->setChecked(false);                                                // terug op de standaard: de sleutel verdwijnt
+        QVERIFY(!readAll(user).contains(QStringLiteral("Enabled")));
+        QVERIFY(!d.DongleSourceCombo()->isEnabled() && !d.DongleStatusLabel()->isEnabled() && !d.DongleRefreshButton()->isEnabled());
+        QVERIFY(d.DongleStatusLabel()->text().isEmpty());
+    }
+    for (const char* v : {"RAVENGUN_USB_SYSFS", "RAVENGUN_PROC_ROOT", "RAVENGUN_DONGLE_ROOT"}) qunsetenv(v);
 }
 
 namespace {

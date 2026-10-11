@@ -302,9 +302,115 @@ void PropertiesDialog::SaveGeneral() {
     core_->library()->setOverride(game_.id, ov);
 }
 
+QWidget* PropertiesDialog::MakeDongleGroup() {
+    namespace gs = ravengun::gamesettings;
+    auto* box = new QGroupBox(tr("Dongle"));
+    auto* v = new QVBoxLayout(box);
+    dongle_use_ = new QCheckBox(tr("Use dongle"));
+    dongle_use_->setToolTip(tr("Use the real, physical dongle you own, passed through over USB. Before the game starts RavenGun checks that the "
+                               "dongle is plugged in and that the maker's own runtime is running; if not, the game does not start. "
+                               "RavenGun never emulates a dongle."));
+    v->addWidget(dongle_use_);
+    auto* form = new QFormLayout;
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    dongle_source_ = new QComboBox;
+    for (const rg::DongleSource& s : rg::dongleSources()) dongle_source_->addItem(s.label, s.value);
+    form->addRow(tr("Dongle source:"), dongle_source_);
+    v->addLayout(form);
+    auto* h = new QHBoxLayout;
+    dongle_status_ = new QLabel;
+    dongle_status_->setWordWrap(true);
+    dongle_status_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    dongle_refresh_ = new QPushButton(tr("Refresh"));
+    h->addWidget(dongle_status_, 1);
+    h->addWidget(dongle_refresh_);
+    v->addLayout(h);
+    dongle_hint_ = new QLabel;
+    dongle_hint_->setWordWrap(true);
+    dongle_hint_->setOpenExternalLinks(true);
+    dongle_hint_->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    dongle_hint_->hide();
+    v->addWidget(dongle_hint_);
+
+    // Beginstand: de samengevoegde lagen (standaard uit, bron usb-passthrough).
+    const bool writable = !ctx_.profile.isEmpty() && !ctx_.layers.user.empty();
+    gs::Dongle d;
+    if (!ctx_.profile.isEmpty()) d = gs::dongle_of(gs::load_game(ctx_.layers, ctx_.profile.toStdString()).settings);
+    else d.source = "usb-passthrough";
+    const QString src = QString::fromStdString(d.source);
+    int idx = dongle_source_->findData(src);
+    if (idx < 0) {   // een bron die deze versie niet kent: laten zien, niet stilletjes vervangen
+        dongle_source_->addItem(src, src);
+        idx = dongle_source_->count() - 1;
+    }
+    dongle_source_->setCurrentIndex(idx);
+    dongle_use_->setChecked(d.enabled);
+    if (!writable) {
+        dongle_use_->setEnabled(false);
+        dongle_use_->setToolTip(tr("This game has no settings folder yet."));
+    }
+    auto apply = [this, writable] {
+        const bool on = dongle_use_->isChecked();
+        dongle_source_->setEnabled(writable && on);
+        dongle_status_->setEnabled(on);
+        dongle_refresh_->setEnabled(on);
+        if (!on) {
+            ++dongle_request_;
+            dongle_status_->clear();
+            dongle_hint_->hide();
+        }
+    };
+    apply();
+    // Schrijft alleen verschillen met de meegeleverde laag (standaard: uit en usb-passthrough) naar de gebruikerslaag van game.ini.
+    connect(dongle_use_, &QCheckBox::toggled, this, [this, apply](bool on) {
+        apply();
+        QString err;
+        if (!rg::OptionStore::writeSetting(ctx_, QStringLiteral("Dongle"), QStringLiteral("Enabled"), on ? QStringLiteral("true") : QStringLiteral("false"),
+                                           &err, QStringLiteral("false"))) {
+            dongle_status_->setText(QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(err.toHtmlEscaped()));
+            return;
+        }
+        if (on) RefreshDongle();
+    });
+    connect(dongle_source_, &QComboBox::activated, this, [this](int i) {
+        QString err;
+        if (!rg::OptionStore::writeSetting(ctx_, QStringLiteral("Dongle"), QStringLiteral("Source"), dongle_source_->itemData(i).toString(), &err,
+                                           QStringLiteral("usb-passthrough")))
+            dongle_status_->setText(QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(err.toHtmlEscaped()));
+        else RefreshDongle();
+    });
+    connect(dongle_refresh_, &QPushButton::clicked, this, [this] { RefreshDongle(); });
+    if (d.enabled) RefreshDongle();
+    return box;
+}
+
+void PropertiesDialog::RefreshDongle() {
+    if (!dongle_use_ || !dongle_use_->isChecked()) return;
+    const int req = ++dongle_request_;
+    dongle_status_->setText(tr("Checking for a dongle..."));
+    dongle_hint_->hide();
+    rg::detectDongle(this, [this, req](const rg::DongleStatus& st) {
+        if (req != dongle_request_ || !dongle_use_->isChecked()) return;   // verouderd antwoord, of intussen uitgezet
+        dongle_status_->setText(st.text());
+        dongle_status_->setToolTip(st.tooltip());
+        QString hint;
+        if (st.valid && !st.ok) {
+            if (st.dongles.isEmpty()) hint = tr("Plug in the dongle and press Refresh. The game will not start without it.");
+            else if (st.dongles.first().runtimeStatus == QStringLiteral("not installed") && !st.dongles.first().installUrl.isEmpty())
+                hint = tr("The maker's runtime (%1) is not installed. RavenGun does not install it; use the official installation: <a href=\"%2\">%2</a>")
+                           .arg(st.dongles.first().runtimeName.toHtmlEscaped(), st.dongles.first().installUrl.toHtmlEscaped());
+            else if (st.dongles.first().runtimeStatus == QStringLiteral("not running"))
+                hint = tr("The maker's runtime (%1) is installed but not running. Start its service and press Refresh.").arg(st.dongles.first().runtimeName.toHtmlEscaped());
+        }
+        dongle_hint_->setText(hint);
+        dongle_hint_->setVisible(!hint.isEmpty());
+    });
+}
+
 QWidget* PropertiesDialog::MakeOptionsPane() {
     auto* w = new QWidget;
     auto* v = new QVBoxLayout(w);
+    v->addWidget(MakeDongleGroup());
     const rg::GameOptionsEntry* entry = core_->gameData()->entryFor(game_);
     const rg::GameOverride stored = core_->library()->override_(game_.id);
     if (core_->gameData()->gameOptionsPath().isEmpty())
