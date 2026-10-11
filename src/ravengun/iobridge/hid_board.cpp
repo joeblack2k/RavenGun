@@ -89,6 +89,8 @@ std::string validate_hid_board(const HidBoard& b) {
         if (!valid_axis_signal(a.signal)) return pre + "onbekend as-signaal '" + a.signal + "'";
         if (a.min < -32767 || a.max > 32767 || a.min >= a.max) return pre + a.name + ": ongeldig min/max (-32767..32767)";
         if (a.idle < 0 || a.idle > 1) return pre + a.name + ": 'idle' moet 0..1 zijn";
+        if (a.has_out && (a.out_min < a.min || a.out_max > a.max || a.out_min >= a.out_max))
+            return pre + a.name + ": out_min/out_max moeten binnen min..max liggen en out_min < out_max";
     }
     std::set<int> idx;
     for (const auto& k : b.buttons) {
@@ -130,6 +132,12 @@ HidBoards parse_hid_boards(const std::string& text, std::string& err) {
                 if (const json::Value* i = a.find("invert"); i && i->is_bool()) ax.invert = i->b;
                 ok = ok && int_field(a, "min", ax.min, ax.min) && int_field(a, "max", ax.max, ax.max);
                 if (const json::Value* i = a.find("idle"); i && i->is_number()) ax.idle = i->num;
+                const bool o1 = a.find("out_min") != nullptr, o2 = a.find("out_max") != nullptr;
+                if (o1 != o2) ok = false;   // allebei of geen van beide
+                if (o1 && o2) {
+                    ax.has_out = true;
+                    ok = ok && int_field(a, "out_min", 0, ax.out_min) && int_field(a, "out_max", 0, ax.out_max);
+                }
                 b.axes.push_back(std::move(ax));
             }
         }
@@ -155,8 +163,10 @@ HidBoards parse_hid_boards(const std::string& text, std::string& err) {
 
 HidBoardFrame hid_board_neutral(const HidBoard& b) {
     HidBoardFrame f;
-    for (const auto& a : b.axes)
-        f.axis.push_back(static_cast<int32_t>(std::lround(a.min + a.idle * (a.max - a.min))));
+    for (const auto& a : b.axes) {
+        const int lo = a.has_out ? a.out_min : a.min, hi = a.has_out ? a.out_max : a.max;
+        f.axis.push_back(static_cast<int32_t>(std::lround(lo + a.idle * (hi - lo))));
+    }
     return f;
 }
 
@@ -173,7 +183,8 @@ HidBoardFrame hid_board_frame(const HidBoard& b, const IoState& s) {
             continue;
         v = std::clamp(v, 0.0, 1.0);
         if (a.invert) v = 1.0 - v;
-        f.axis[i] = static_cast<int32_t>(std::lround(a.min + v * (a.max - a.min)));
+        const int lo = a.has_out ? a.out_min : a.min, hi = a.has_out ? a.out_max : a.max;
+        f.axis[i] = static_cast<int32_t>(std::lround(lo + v * (hi - lo)));
     }
     for (const auto& k : b.buttons) {
         bool v = false;

@@ -28,6 +28,10 @@ struct HidBoardAxis {
     std::string signal;          // bv. "p1.x" (zie io_axis_signal)
     bool invert = false;         // fractie wordt 1 - fractie
     int min = -1000, max = 1000; // waardebereik; ook de logische min/max in de rapportbeschrijving
+    // Uitvoerbereik binnen min..max (optioneel): het deel van het bereik dat de game als het hele scherm ziet. Een game die
+    // het volle bereik zelf nog door een eigen kalibratie haalt (Transformers) krijgt zo alleen het stuk dat op het scherm valt.
+    bool has_out = false;
+    int out_min = 0, out_max = 0;
     double idle = 0.5;           // fractie als de speler geen geldige aim heeft
 };
 

@@ -707,12 +707,12 @@ void test_service(const std::string& dir) {
         pp.y = 1.0;
         CHECK(out.start_pattern(pp).ok);
         CHECK(out.button(output::GunButton::Trigger, "down").ok);
-        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == -1000 && f.axis[1] == 1000 && (f.buttons & (1u << 2)); }));
+        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 557 && f.axis[1] == -217 && (f.buttons & (1u << 2)); }));   // X = p1.y, Y = p1.x, uitvoerbereik -217..557
         auto js3 = json::parse(br3.status_json());
         CHECK(js3.ok && js3.value.find("route")->str == "hid-board" && js3.value.find("detail")->find("board")->str == "SaeGunBoard");
         CHECK(js3.value.find("detail")->find("created")->b);
-        out.disarm();   // neutraal: as in het midden, geen knoppen
-        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 0 && f.axis[1] == 0 && f.buttons == 0; }));
+        out.disarm();   // neutraal: as in het midden van het uitvoerbereik, geen knoppen
+        CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 170 && f.axis[1] == 170 && f.buttons == 0; }));
         br3.stop();
         { std::lock_guard<std::mutex> l(rec->m); CHECK(rec->destroyed && !rec->created); }
         CHECK(!br3.active() && !fs::exists(state));

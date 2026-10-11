@@ -73,6 +73,14 @@ void test_file() {
     CHECK(!parse_hid_boards("{", err).boards.size() && !err.empty());
     parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.x"}],"transport":"bluetooth"}}})", err);
     CHECK(!err.empty());
+    parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.x","out_min":-200}]}}})", err);
+    CHECK(!err.empty());                                    // out_min zonder out_max
+    parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.x","out_min":-200,"out_max":2000}]}}})", err);
+    CHECK(!err.empty());                                    // buiten min..max
+    parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.x","out_min":300,"out_max":-300}]}}})", err);
+    CHECK(!err.empty());                                    // out_min >= out_max
+    parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.x","out_min":-300,"out_max":300}]}}})", err);
+    CHECK(err.empty());
     parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"Q","signal":"p1.x"}]}}})", err);
     CHECK(!err.empty());                                    // onbekende as
     parse_hid_boards(R"({"boards":{"A":{"axes":[{"name":"X","signal":"p1.zz"}]}}})", err);
@@ -130,26 +138,29 @@ void test_frame() {
     s.sys.test = true;
     s.sys.service = true;
     HidBoardFrame f = hid_board_frame(b, s);
-    // X = P1 x, Y = P1 y, Z = P2 x, RX = P2 y; -1000..1000.
-    CHECK(f.axis == (std::vector<int32_t>{-1000, 1000, 500, -500}));
+    // Transformers (gemeten): X = P1 y, Y = P1 x, Z = P2 y, RX = P2 x; uitvoerbereik -217..557 binnen -1000..1000.
+    // P1 (0, 1): X = 557, Y = -217. P2 (0.75, 0.25): Z = -217 + 0.25*774 = -23.5 -> -24, RX = -217 + 0.75*774 = 363.5 -> 364.
+    CHECK(f.axis == (std::vector<int32_t>{557, -217, -24, 364}));
     CHECK(f.buttons == ((1u << 0) | (1u << 2) | (1u << 3) | (1u << 12) | (1u << 13)));
-    // Schaal: midden is 0, afgerond.
+    // Schaal: midden van het scherm is het midden van het uitvoerbereik (170), afgerond.
     s.player[0] = aim(0.5, 0.5);
-    CHECK(hid_board_frame(b, s).axis[0] == 0 && hid_board_frame(b, s).axis[1] == 0);
+    CHECK(hid_board_frame(b, s).axis[0] == 170 && hid_board_frame(b, s).axis[1] == 170);
     s.player[0] = aim(0.25, 0.9995);
     f = hid_board_frame(b, s);
-    CHECK(f.axis[0] == -500 && f.axis[1] == 999);
+    CHECK(f.axis[1] == -24 && f.axis[0] == 557);
     // Een speler zonder geldige aim blijft op idle (midden), ook als de x/y iets anders zeggen; knoppen blijven.
     s.player[1].valid = false;
     s.player[1].x = 1.0;
     f = hid_board_frame(b, s);
-    CHECK(f.axis[2] == 0 && f.axis[3] == 0);
+    CHECK(f.axis[2] == 170 && f.axis[3] == 170);
     // Disarm: alles neutraal (assen op idle, geen knoppen).
     s.armed = false;
     f = hid_board_frame(b, s);
-    CHECK(f == hid_board_neutral(b) && f.buttons == 0 && f.axis == (std::vector<int32_t>{0, 0, 0, 0}));
+    CHECK(f == hid_board_neutral(b) && f.buttons == 0 && f.axis == (std::vector<int32_t>{170, 170, 170, 170}));
     // Inversie en eigen bereik.
     HidBoard inv = b;
+    inv.axes[0].signal = "p1.x";
+    inv.axes[0].has_out = false;
     inv.axes[0].invert = true;
     inv.axes[0].min = 0;
     inv.axes[0].max = 4095;
@@ -163,7 +174,7 @@ void test_frame() {
     s.armed = true;
     s.player[0] = aim(2.0, -1.0);
     f = hid_board_frame(b, s);
-    CHECK(f.axis[0] == 1000 && f.axis[1] == -1000);
+    CHECK(f.axis[0] == -217 && f.axis[1] == 557);   // X = p1.y (-1 -> 0), Y = p1.x (2 -> 1), binnen het uitvoerbereik
 }
 
 struct Fake : HidBoardDevice {
