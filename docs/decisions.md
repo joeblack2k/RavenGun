@@ -536,8 +536,9 @@ Overgenomen in het patchformaat (na de merge van `patches/`):
 - `Category` per patch, met de waarden `graphics`, `input`, `timing`, `audio`, `paths`, `crash`, `network`.
   Een categorie voor beveiliging bestaat niet; de launcher weigert patches met een onbekende categorie.
 - Logregel per patch in een vast formaat (toegepast/overgeslagen, naam, plek, reden).
-- In `game.ini`: `EmulationProfile` (bepaalt bord en kalibratievenster) en `DisplayMode`/`CustomResolution`
-  als gewone instellingen uit het TeknoParrot-profiel.
+- In `game.ini`: `EmulationProfile` (bepaalt bord en kalibratievenster), `DisplayMode`/`CustomResolution` en
+  `DongleRegion`/`PcbRegion` als gewone instellingen uit het TeknoParrot-profiel. De regio kiezen uit de keuzes die
+  het profiel zelf biedt is een instelling, geen omzeiling (correctie eigenaar, 2026-10-11).
 
 Niet overgenomen:
 - Een `dongles/`-map of een andere laag die dongle- of HASP-aanroepen beantwoordt, en het koppelen aan
