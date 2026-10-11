@@ -602,3 +602,20 @@ Aanvulling (eigenaar, 2026-10-11): het abonnement is geen voorwaarde voor TeknoP
 Patreon-profielen. `launch-direct.py` eiste de activering bij elke directe start; nu alleen als het meegeleverde sjabloon
 `Patreon = true` zegt (het gebruikersprofiel kan dat niet uitzetten). Of de kern zelf bij een gewone game iets van de
 activering wil, is nog niet op de tv gemeten.
+
+## 2026-10-11 — Dongle-optie per game: alleen USB pass-through
+
+Per game komt onder Options een dongle-blok (sectie `[Dongle]` in game.ini, Dolphin-stijl: alleen afwijkingen in de
+gebruikerslaag): een vinkje "Use dongle" (standaard uit), een keuzelijst "Dongle source" en een statusregel (merk/type van de
+gevonden dongle, nooit het serienummer). De keuzelijst is uitbreidbaar; eerste en voorlopig enige waarde: **USB pass-through
+(physical dongle)** — de echte dongle van de eigenaar in de Deck, de officiële fabrikant-runtime (bv. Sentinel/HASP Runtime
+van Thales) in de prefix, de game in Wine praat daarmee. RavenGun zet dat klaar en toont of de dongle gevonden is.
+
+Niet gebouwd: een dongle-nabootser. De eigenaar kocht `RT-Dongle-Package.zip` ("Raw Thrills Dongle Emulator"); de README
+daarin is een bouwhandleiding om zelf de `hasp_*`-aanroepen te beantwoorden uit een versleuteld `.dgl`-bestand (DGL1-container,
+PBKDF2-HMAC-SHA256 met licentiecode, 10 HASP-functies, haspid/features/memory uit dongle.json). Dat is precies de
+nabootser-laag die buiten RavenGun blijft — besluit ongewijzigd. Twijfel aan de echtheid staat in docs/vragen-eigenaar.md
+punt 12; de rest van het pakket is niet verder bekeken. Een geen-geldige-dongle-geval valt niet terug op een nabootsing.
+
+Een tweede keuzewaarde (een officiële licentie via een fabrikant-runtime) komt er alleen als Raw Thrills bevestigt dat zoiets
+bestaat en levert.
