@@ -115,6 +115,23 @@ def plan_field(out, name):
     return m.group(1).strip() if m else "-"
 
 
+def dropin_from_plan(out):
+    """Wat de launcher zelf over de drop-ins zegt: (aantal bestanden, aantal overrides,
+    aantal preloads, aantal fouten, de foutmeldingen).
+
+    De launcher weigert een drop-in waarvan het doel op de NAS ligt of waarvan het bestand
+    ontbreekt. Dat is precies wat je wilt zien: een drop-in die klaarstaat maar nooit aankomt."""
+    m = re.search(r"^dropins: (\{.*\})$", out, re.M)
+    if not m:
+        return None
+    try:
+        d = ast.literal_eval(m.group(1))
+    except (ValueError, SyntaxError):
+        return None
+    return (len(d.get("files") or []), len(d.get("overrides") or []),
+            len(d.get("preload") or []), len(d.get("errors") or []), list(d.get("errors") or []))
+
+
 def classify(out):
     """(lader, kern, laderpad, kernpad).
 
@@ -197,6 +214,7 @@ def collect(names, with_plan=True):
         loader_path = core_path = ""
         exe = ""
         rc = ""
+        plan_dropin = None
         if with_plan:
             rc, out = run_plan(g)
             loader, core, loader_path, core_path = classify(out)
@@ -204,16 +222,22 @@ def collect(names, with_plan=True):
             exe = plan_field(out, "game")
             if exe == "-":
                 exe = ""
+            plan_dropin = dropin_from_plan(out)
         patches = patch_state(g, exe, loader_path, core_path)
         rows.append({
             "game": g, "type": typ, "emutype": emutype, "loader": loader, "core": core,
             "dongle": d_present, "kind": d_kind, "dongle_src": d_src,
             "script": script, "script_ok": script_ok,
             "dropin_files": n_files, "dropin_sections": n_sec, "dropin_ini": has_ini,
+            "dropin_plan": plan_dropin,
             "patches": patches, "plan_rc": rc,
         })
         print("  %-30s lader=%-9s kern=%-5s dongle=%-12s rc=%s" % (
             g, loader, core, (d_kind or ("ja" if d_present else "-")), rc))
+        if plan_dropin and plan_dropin[3]:
+            print("  !! %-28s %d drop-in(s) komen niet aan" % (g, plan_dropin[3]))
+            for e in plan_dropin[4][:2]:
+                print("       %s" % e[:150])
         sys.stdout.flush()
     return rows
 
@@ -235,6 +259,9 @@ def as_markdown(rows):
         drop = "-"
         if r["dropin_files"] or r["dropin_ini"]:
             drop = "%d bestand(en), %d sectie(s)" % (r["dropin_files"], r["dropin_sections"])
+        dp = r.get("dropin_plan")
+        if dp and dp[3]:
+            drop += " — **%d komt niet aan**" % dp[3]
         scr = r["script"] or "-"
         if scr != "-":
             scr += " (aanwezig)" if r["script_ok"] else " (**ontbreekt**)"
@@ -247,6 +274,7 @@ def as_markdown(rows):
 def summary(rows):
     def n(f):
         return sum(1 for r in rows if f(r))
+    dp = lambda r: r.get("dropin_plan")                       # noqa: E731
     lines = ["=== samenvatting ===",
              "games:                       %d" % len(rows),
              "lader van ons:               %d" % n(lambda r: r["loader"] == "ours"),
@@ -256,10 +284,14 @@ def summary(rows):
              "met dongle.json:             %d" % n(lambda r: r["dongle"]),
              "  waarvan script ontbreekt:  %d" % n(lambda r: r["dongle"] and not r["script_ok"]),
              "met dropin/:                 %d" % n(lambda r: r["dropin_files"] or r["dropin_ini"]),
+             "  drop-ins die NIET aankomen:%d" % n(lambda r: dp(r) and dp(r)[3]),
              "plan mislukt:                %d" % n(lambda r: r["plan_rc"] not in (0, ""))]
     for r in rows:
         if r["plan_rc"] not in (0, ""):
             lines.append("  !! %-28s rc=%s" % (r["game"], r["plan_rc"]))
+        if dp(r) and dp(r)[3]:
+            lines.append("  !! %-28s %d drop-in(s) komen niet aan: %s"
+                         % (r["game"], dp(r)[3], (dp(r)[4][0] if dp(r)[4] else "")[:110]))
     return lines
 
 
@@ -275,14 +307,16 @@ def main():
     rows = collect(names, with_plan=not args.no_plan)
 
     print()
-    print("game,type,emutype,lader,kern,dongle,kind,script,dropin_bestanden,dropin_secties,patches_aan,patches_uit,patches_geweigerd,plan_rc")
+    print("game,type,emutype,lader,kern,dongle,kind,script,dropin_bestanden,dropin_secties,dropin_fouten,patches_aan,patches_uit,patches_geweigerd,plan_rc")
     for r in rows:
         p = r["patches"] if isinstance(r["patches"], tuple) and len(r["patches"]) == 3 else ("-", "-", "-")
-        print("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s,%s" % (
+        dp = r.get("dropin_plan")
+        print("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s,%s,%s" % (
             r["game"], r["type"], r["emutype"], r["loader"], r["core"],
             "ja" if r["dongle"] else "nee", r["kind"] or "-",
             (r["script"] + ("" if r["script_ok"] else "!")) if r["dongle"] else "-",
-            r["dropin_files"], r["dropin_sections"], p[0], p[1], p[2], r["plan_rc"]))
+            r["dropin_files"], r["dropin_sections"],
+            (dp[3] if dp else "-"), p[0], p[1], p[2], r["plan_rc"]))
 
     print()
     for line in summary(rows):

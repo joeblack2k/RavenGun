@@ -420,6 +420,7 @@ class DropinMotor(Basis):
         self.assertFalse(ld.is_pe(self.game))
 
 
+@unittest.skip("de dongle-poort is verwijderd: de loader weet niets meer van dongles, zie docs/geen-dongle-in-de-loader.md")
 class DongleDispatch(Basis):
     """dongle_gate(): vier soorten, twee bronnen, geen stil vangnet (docs/dropins.md)."""
 

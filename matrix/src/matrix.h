@@ -52,7 +52,7 @@ short MX_CALL Dongle_Count(short poort);
 short MX_CALL Dongle_ReadData(int32_t dongle, int32_t *buf, short poort, short adres, short lengte);
 short MX_CALL Dongle_ReadDataEx(int32_t dongle, int32_t *buf, short poort, short adres, short lengte,
                                 short extra);
-int32_t MX_CALL Dongle_ReadSerNr(int32_t dongle, short poort, short index);
+int32_t MX_CALL Dongle_ReadSerNr(int32_t dongle, short aantal, short poort);
 short MX_CALL Dongle_WriteData(int32_t dongle, int32_t *buf, short poort, short adres, short lengte);
 short MX_CALL Dongle_WriteDataEx(int32_t dongle, int32_t *buf, short poort, short adres, short lengte,
                                  short extra);
@@ -176,7 +176,13 @@ MX_JNI_3(Java_de_matrixlock_Matrix_SetW95Access);
 #undef MX_JNI_7
 #undef MX_JNI_8
 
-/* ---------------------------------------------------------------- de waarden die wij teruggeven */
+/* ---------------------------------------------------------------- de waarden die wij teruggeven
+ *
+ * Dit zijn de standaardwaarden. Een game mag ze overschrijven met zijn eigen gegevensbestand naast de
+ * bibliotheek: <RAVENGUN_MATRIX_DIR>/matrix.ini met de sleutels poort, aantal en memory (de naam van
+ * het dongle-geheugen binnen die map). De drop-in geeft de weg mee; de launcher weet nergens van
+ * (docs/geen-dongle-in-de-loader.md). Zonder dat bestand gelden deze waarden.
+ */
 
 /* De poort waarop Rabbids Hollywood controleert. SBK.Matrix.MatrixManager.Awake roept
  * KDLGNPHHMKI aan, en die gebruikt Dongle_Count(85) en Dongle_ReadSerNr(..., 85). */

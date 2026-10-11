@@ -1,29 +1,27 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# De Matrix/SBK-donglelaag van RavenGun: status per game, en het plaatsen van de drop-in.
+# De Matrix/SBK-donglelaag van RavenGun: de drop-in controleren, plaatsen en de WINEDLLOVERRIDES
+# teruggeven.
 #
-# Dit is de tegenhanger van scripts/hasp.py voor de Matrix-dongle (de LPT-dongle van Rabbids Hollywood,
-# Rampage en Tomb Raider). Het script doet drie dingen:
+# Een software-dongle is geen loaderbegrip meer (docs/geen-dongle-in-de-loader.md): het is een
+# drop-in -- een bibliotheek in patches/<Game>/dropin/ met zijn eigen gegevens ernaast, en de launcher
+# kopieert bestanden en zet omgevingsvariabelen. Dit script is het gereedschap daarbij, niet een laag
+# die de launcher aanroept:
 #
-#   1. lezen wat deze game nodig heeft: patches/<Game>/dongle.json (aanwezig = deze game vraagt een
-#      dongle; het veld "kind" is hier "matrix");
-#   2. de drop-in plaatsen: alles wat patches/<Game>/dropin/dropin.ini noemt, komt in de view van de
-#      game te staan (docs/dropins.md). Een symlink in de view wordt daarbij een eigen lokaal bestand,
-#      net als scripts/launch-direct.py doet voor teknoparrot.ini. De NAS wordt nooit beschreven;
-#   3. de WINEDLLOVERRIDES-waarde en de omgevingsvariabelen teruggeven die erbij horen, zodat de
-#      launcher ze kan zetten.
-#
-# Welke route het is, staat in docs/matrix-layer.md: de Harmony-patch in plugins/unity/ is de
-# standaardroute voor Rabbids Hollywood (geen bestand nodig in de view), de drop-in is het
-# versie-onafhankelijke alternatief. Zet de eigenaar [Dongle] Enabled = true in zijn eigen laag
-# (docs/dropins.md), dan plaatst de launcher de drop-in en zet hij RAVENGUN_MATRIX_DLL=1, waardoor de
-# plugin zijn Matrix-patches uitzet en de DLL het alleen doet.
+#   * het leest patches/<Game>/dropin/dropin.ini (docs/dropins.md) en zegt of de drop-in compleet is:
+#     staat elk genoemd bestand er, klopt de DllOverride, en staat de gegevensmap die Env noemt
+#     (RAVENGUN_MATRIX_DIR) naast de bibliotheek met een matrix.ini erin;
+#   * het kan de drop-in in de view van de game zetten (--install). Daarbij wordt een koppeling in de
+#     view een eigen lokaal bestand, en een map die via een koppeling op de NAS uitkomt wordt eerst
+#     lokaal gemaakt met koppelingen naar de rest. De NAS wordt nooit beschreven. Dat is precies wat
+#     de drop-in-motor moet gaan doen; tot die het kan is dit de route om de DLL te beproeven;
+#   * het geeft de WINEDLLOVERRIDES-waarde en de omgevingsvariabelen terug die erbij horen.
 #
 # Gebruik:
-#   scripts/matrix.py --game <Game> [--json]        status van de laag voor die game
+#   scripts/matrix.py --game <Game> [--json]        status van de drop-in van die game
 #   scripts/matrix.py --game <Game> --install       de drop-in in de view plaatsen
 #   scripts/matrix.py --game <Game> --overrides     alleen de WINEDLLOVERRIDES-waarde
-#   Opties: --view <pad> (de view; standaard ~/.local/share/ravengun/runtime/views/<Game>)
+#   Opties: --view <pad>   de view (standaard ~/.local/share/ravengun/runtime/views/<Game>)
 # Exitcodes: 0 = in orde, 1 = niet in orde, 2 = gebruik.
 #
 # Voor tests: RAVENGUN_PATCHES_DIR (de meegeleverde map), RAVENGUN_USER_PATCHES_DIR (de gebruikerslaag),
@@ -39,11 +37,11 @@ sys.dont_write_bytecode = True
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
 
-# De soorten dongles die dongle.json mag noemen (docs/dropins.md).
-KINDS = ("hasp", "matrix", "region", "amdaemon")
-
 # Onze eigen DLL's, zoals scripts/build-matrix.sh ze maakt.
 DLL_NAMES = ("matrix32.dll", "matrix64.dll")
+
+# De omgevingsvariabele waarmee de drop-in zijn gegevensmap aanwijst (matrix/matrix.ini).
+DATA_ENV = "RAVENGUN_MATRIX_DIR"
 
 
 def data_home():
@@ -82,48 +80,21 @@ def view_dir(game, override=None):
     return os.path.join(basis, game)
 
 
-def lees_dongle(game):
-    """(beschrijving, foutenlijst) uit <Game>/dongle.json. Aanwezigheid van het bestand betekent: deze game vraagt een dongle."""
-    d = game_dir(game)
-    pad = os.path.join(d, "dongle.json")
-    if not os.path.isfile(pad):
-        return None, ["geen dongle.json voor '%s' (verwacht: %s); zonder dat bestand vraagt deze game geen dongle" % (game, pad)]
-    try:
-        with open(pad, encoding="utf-8") as f:
-            desc = json.load(f)
-    except (OSError, ValueError) as e:
-        return None, ["kan %s niet lezen: %s" % (pad, e)]
-
-    fouten = []
-    kind = str(desc.get("kind", "")).strip()
-    if not kind:
-        fouten.append("dongle.json van '%s': veld 'kind' ontbreekt" % game)
-    elif kind not in KINDS:
-        fouten.append("dongle.json van '%s': kind '%s' is onbekend (verwacht: %s)" % (game, kind, ", ".join(KINDS)))
-    for item in desc.get("memory", []) or []:
-        bestand = str(item.get("file", "")).strip()
-        if not bestand:
-            fouten.append("dongle.json van '%s': een memory-item heeft geen 'file'" % game)
-            continue
-        if not os.path.isfile(os.path.join(d, bestand)):
-            fouten.append("dongle.json van '%s' wijst naar '%s', dat er niet is" % (game, bestand))
-    return desc, fouten
-
-
 def lees_dropin(game):
     """(lijst met drop-ins, foutenlijst) uit <Game>/dropin/dropin.ini.
 
-    Elke drop-in is {"file", "pad", "to", "override", "env"}:
-      file     de bestandsnaam in dropin/
+    Elke drop-in is {"file", "pad", "to", "override", "env", "preload", "data"}:
+      file     de bestandsnaam in dropin/ (de sectienaam)
       pad      het volledige pad van dat bestand
       to       de doelmap in de view, relatief ('.' = de hoofdmap van de game)
       override de waarde voor WINEDLLOVERRIDES ('native' -> <naam>=n, 'builtin,native' -> <naam>=n,b)
       env      lijst met K=V die erbij hoort
+      data     de gegevensmap die Env noemt (RAVENGUN_MATRIX_DIR), als die er is
     """
     d = os.path.join(game_dir(game), "dropin")
     ini = os.path.join(d, "dropin.ini")
     if not os.path.isdir(d) or not os.path.isfile(ini):
-        return [], []
+        return [], ["geen drop-in voor '%s' (verwacht: %s)" % (game, ini)]
 
     cp = configparser.ConfigParser()
     cp.optionxform = str          # de bestandsnaam is de sectienaam; hoofdletters moeten blijven
@@ -147,6 +118,20 @@ def lees_dropin(game):
         for e in env:
             if "=" not in e:
                 fouten.append("dropin.ini: Env '%s' van '%s' is geen K=V" % (e, bestand))
+        data = None
+        for e in env:
+            k, _, v = e.partition("=")
+            if k.strip() == DATA_ENV and v.strip():
+                p = v.strip()
+                if not os.path.isabs(p):
+                    p = os.path.join(d, p)
+                data = {"pad": p, "aanwezig": os.path.isdir(p),
+                        "ini": os.path.join(p, "matrix.ini"),
+                        "ini_aanwezig": os.path.isfile(os.path.join(p, "matrix.ini"))}
+                if not data["aanwezig"]:
+                    fouten.append("dropin.ini zet %s=%s, maar %s bestaat niet" % (DATA_ENV, v.strip(), p))
+                elif not data["ini_aanwezig"]:
+                    fouten.append("de gegevensmap %s heeft geen matrix.ini" % p)
         uit.append({
             "file": bestand,
             "pad": bron,
@@ -154,6 +139,7 @@ def lees_dropin(game):
             "override": override,
             "env": env,
             "preload": cp.getboolean(sectie, "Preload", fallback=False),
+            "data": data,
         })
     return uit, fouten
 
@@ -180,17 +166,86 @@ def dropin_env(entries):
     return uit
 
 
+def zelfde_bestand(a, b):
+    """True als twee bestanden dezelfde inhoud hebben. Een koppeling naar de NAS telt dus NIET mee als
+    'onze drop-in staat in de view'."""
+    try:
+        if os.path.getsize(a) != os.path.getsize(b):
+            return False
+        with open(a, "rb") as x, open(b, "rb") as y:
+            return x.read() == y.read()
+    except OSError:
+        return False
+
+
 def geplaatst(entry, view):
     """Het pad in de view waar deze drop-in hoort te staan."""
     return os.path.normpath(os.path.join(view, entry["to"], entry["file"]))
 
 
+def op_de_nas(pad):
+    """True als dit pad (via symbolische koppelingen) op de NAS uitkomt. Daar schrijven we nooit."""
+    echt = os.path.realpath(pad)
+    mnt = os.path.join(HOME, "mnt")
+    if echt == mnt or echt.startswith(mnt + os.sep):
+        return True
+    try:
+        with open("/proc/self/mounts") as f:
+            best, soort = "", ""
+            for regel in f:
+                delen = regel.split()
+                if len(delen) >= 3:
+                    mp = delen[1].replace("\\040", " ")
+                    if (echt == mp or echt.startswith(mp.rstrip("/") + "/")) and len(mp) > len(best):
+                        best, soort = mp, delen[2]
+            return soort in ("cifs", "smb3", "smbfs", "nfs", "nfs4", "fuse.sshfs")
+    except OSError:
+        return False
+
+
+def _maak_map_lokaal(pad):
+    """Vervangt een symbolische koppeling naar een map door een echte map met koppelingen naar dezelfde
+    inhoud. Zo kan één bestand in de view een eigen bestand worden zonder dat de NAS wordt beschreven.
+    Dat is dezelfde gedachte als scripts/launch-direct.py bij teknoparrot.ini en als link_game() in
+    scripts/aagames-setup.py."""
+    doel = os.path.realpath(pad)
+    tijdelijk = pad + ".ravengun-lokaal"
+    if os.path.exists(tijdelijk):
+        shutil.rmtree(tijdelijk)
+    os.makedirs(tijdelijk)
+    for naam in os.listdir(doel):
+        os.symlink(os.path.join(doel, naam), os.path.join(tijdelijk, naam))
+    os.unlink(pad)
+    os.replace(tijdelijk, pad)
+
+
+def _zorg_lokale_map(view, to):
+    """Maakt elk deel van `to` onder de view een echte map. Nodig voor een drop-in die in een submap
+    van de game hoort die in de view nog een koppeling naar de NAS is (bij Rabbids Hollywood:
+    Game_Data/Plugins; de game laadt matrix64.dll daar vandaan, niet uit de hoofdmap)."""
+    huidig = view
+    for deel in [d for d in to.replace("\\", "/").split("/") if d not in ("", ".")]:
+        huidig = os.path.join(huidig, deel)
+        if os.path.islink(huidig):
+            _maak_map_lokaal(huidig)
+        elif not os.path.isdir(huidig):
+            os.makedirs(huidig, exist_ok=True)
+
+
 def plaats(game, view, entries):
-    """Zet de drop-ins in de view. Geeft (geplaatst, fouten). Een symlink wordt een eigen lokaal bestand,
-    net als scripts/launch-direct.py doet; er wordt nooit naar de NAS geschreven."""
+    """Zet de drop-ins in de view. Geeft (geplaatst, fouten). Een symlink wordt een eigen lokaal bestand;
+    er wordt nooit naar de NAS geschreven."""
     uit, fouten = [], []
     for e in entries:
         doel = geplaatst(e, view)
+        try:
+            _zorg_lokale_map(view, e["to"])
+        except OSError as ex:
+            fouten.append("kan %s niet lokaal maken in de view: %s" % (e["to"], ex))
+            continue
+        if op_de_nas(os.path.dirname(doel)):
+            fouten.append("het doel %s komt op de NAS uit; daar wordt nooit geschreven" % doel)
+            continue
         try:
             os.makedirs(os.path.dirname(doel), exist_ok=True)
         except OSError as ex:
@@ -199,26 +254,42 @@ def plaats(game, view, entries):
         try:
             if os.path.islink(doel):
                 os.unlink(doel)       # een symlink in de view wordt ons eigen bestand
-            elif os.path.isfile(doel):
-                with open(e["pad"], "rb") as a, open(doel, "rb") as b:
-                    if a.read() == b.read():
-                        uit.append(doel)
-                        continue
+            elif os.path.isfile(doel) and zelfde_bestand(doel, e["pad"]):
+                uit.append(doel)
+                kopieer_gegevens(e, view, uit, fouten)
+                continue
             tmp = doel + ".ravengun-tmp"
             shutil.copyfile(e["pad"], tmp)
             os.replace(tmp, doel)
             uit.append(doel)
+            kopieer_gegevens(e, view, uit, fouten)
         except OSError as ex:
             fouten.append("kan %s niet plaatsen: %s" % (doel, ex))
     return uit, fouten
 
 
+def kopieer_gegevens(entry, view, uit, fouten):
+    """Zet de gegevensmap van deze drop-in naast de bibliotheek in de view, zodat de bibliotheek hem
+    vindt met een relatieve RAVENGUN_MATRIX_DIR (zoals 'matrix'). De gegevens horen naast de
+    bibliotheek te staan (docs/geen-dongle-in-de-loader.md) en dit is de plek waar de bibliotheek
+    zoekt: naast zichzelf."""
+    d = entry.get("data")
+    if not d or not d.get("aanwezig"):
+        return
+    doel = os.path.join(view, entry["to"], os.path.basename(d["pad"].rstrip("/")))
+    try:
+        shutil.copytree(d["pad"], doel, dirs_exist_ok=True, symlinks=False)
+        uit.append(doel)
+    except OSError as ex:
+        fouten.append("kan de gegevensmap %s niet naar %s kopiëren: %s" % (d["pad"], doel, ex))
+
+
 def status(game=None, view_override=None, plaatsen=False):
     """De volledige status als dict."""
     uit = {
-        "ok": False, "game": game, "kind": None, "dirs": patches_dirs(), "dir": None,
-        "dongle": None, "dropin": [], "overrides": "", "env": {}, "view": None, "placed": [],
-        "installed": False, "build": {}, "errors": [], "message": "",
+        "ok": False, "game": game, "dirs": patches_dirs(), "dir": None, "dropin": [],
+        "overrides": "", "env": {}, "view": None, "placed": [], "aanwezig": [],
+        "installed": False, "build": {}, "data": [], "errors": [], "message": "",
     }
     if not game:
         uit["message"] = "geen --game opgegeven; gebruik: scripts/matrix.py --game <Game> --json"
@@ -230,27 +301,16 @@ def status(game=None, view_override=None, plaatsen=False):
         uit["message"] = "geen map voor '%s' (verwacht: %s)" % (game, d)
         return uit
 
-    desc, fouten = lees_dongle(game)
-    uit["dongle"] = desc
+    entries, fouten = lees_dropin(game)
     uit["errors"] = list(fouten)
-    if desc is None:
-        uit["message"] = "deze game vraagt geen Matrix-dongle: %s" % "; ".join(fouten)
-        return uit
-    uit["kind"] = str(desc.get("kind", "")).strip()
-
-    entries, fouten2 = lees_dropin(game)
-    uit["errors"] += fouten2
     uit["dropin"] = [{k: e[k] for k in ("file", "to", "override", "env", "preload")} for e in entries]
+    uit["data"] = [e["data"] for e in entries if e.get("data")]
     uit["overrides"] = wineliboverride(entries)
     uit["env"] = dropin_env(entries)
 
-    # Zijn onze DLL's gebouwd?
     for naam in DLL_NAMES:
         p = os.path.join(out_dir(), naam)
         uit["build"][naam] = {"pad": p, "aanwezig": os.path.isfile(p)}
-
-    if uit["kind"] != "matrix":
-        uit["errors"].append("deze laag gaat over kind 'matrix', maar dongle.json zegt '%s'" % uit["kind"])
 
     view = view_dir(game, view_override)
     uit["view"] = view
@@ -265,20 +325,23 @@ def status(game=None, view_override=None, plaatsen=False):
         else:
             for e in entries:
                 doel = geplaatst(e, view)
-                if os.path.isfile(doel) or os.path.islink(doel):
-                    uit["placed"].append(doel)
+                if os.path.exists(doel):
+                    uit["aanwezig"].append(doel)
+                    if zelfde_bestand(doel, e["pad"]):
+                        uit["placed"].append(doel)
 
     if uit["errors"]:
-        uit["message"] = ("de Matrix-laag van '%s' is niet in orde: %s" % (game, "; ".join(uit["errors"][:3])))
+        uit["message"] = "de Matrix-drop-in van '%s' is niet in orde: %s" % (game, "; ".join(uit["errors"][:3]))
         return uit
 
     uit["ok"] = True
-    if entries:
-        uit["message"] = ("Matrix-dongle van '%s' in orde; %d drop-in(s) in %s; WINEDLLOVERRIDES=%s"
-                          % (game, len(entries), view, uit["overrides"] or "(geen)"))
+    if uit["placed"]:
+        uit["message"] = ("Matrix-drop-in van '%s' in orde; hij staat in %s; WINEDLLOVERRIDES=%s"
+                          % (game, view, uit["overrides"] or "(geen)"))
     else:
-        uit["message"] = ("Matrix-dongle van '%s' in orde; geen drop-in nodig (de Harmony-patch in "
-                          "plugins/unity/ beantwoordt de controle, zie docs/matrix-layer.md)." % game)
+        uit["message"] = ("Matrix-drop-in van '%s' in orde; hij staat nog niet in %s "
+                          "(plaatsen: scripts/matrix.py --game %s --install); WINEDLLOVERRIDES=%s"
+                          % (game, view, game, uit["overrides"] or "(geen)"))
     return uit
 
 
@@ -322,9 +385,13 @@ def main(argv):
         print(st["message"])
         for e in st["errors"]:
             print("  - %s" % e)
+        for dd in st["data"]:
+            print("  gegevens: %s (matrix.ini: %s)" % (dd["pad"], "ja" if dd["ini_aanwezig"] else "nee"))
         if st["placed"]:
-            print("  %s: %s" % ("geplaatst" if st["installed"] else "staat al in de view",
+            print("  %s: %s" % ("geplaatst" if st["installed"] else "onze drop-in staat in de view",
                                 ", ".join(st["placed"])))
+        elif st["aanwezig"]:
+            print("  in de view staat nog een ander bestand dan onze drop-in: %s" % ", ".join(st["aanwezig"]))
         if st["overrides"]:
             print("  WINEDLLOVERRIDES: %s" % st["overrides"])
         for k, v in sorted(st["env"].items()):

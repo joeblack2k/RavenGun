@@ -92,6 +92,7 @@ def main():
     ap.add_argument("--write", action="append", default=[])
     ap.add_argument("--scan", action="append", default=[])
     ap.add_argument("--maps", default=None)
+    ap.add_argument("--dump-maps", default=None)
     ap.add_argument("--keep", type=float, default=8.0)
     ap.add_argument("--shot", default=None)
     ap.add_argument("--secs", type=float, default=60.0)
@@ -134,6 +135,10 @@ def main():
             print("--- kaart (patroon %s) ---" % a.maps)
             for l in dump_maps(pid, a.maps):
                 print(l)
+        if a.dump_maps:
+            with open(a.dump_maps, "w") as f:
+                f.write("\n".join(dump_maps(pid)) + "\n")
+            log("volledige kaart van dit moment bewaard in %s" % a.dump_maps)
         try:
             fd = open_mem(pid)
         except OSError as e:

@@ -22,7 +22,7 @@
 #   6. Gamescope als TP_GAMESCOPE=1: gamescope -W <b> -H <h> -S fit -f --backend wayland -- wine ...
 #   7. Wachten tot de game weg is (lader en exe in de eigen cgroup), dan opruimen. Dit script draait als hoofdproces van
 #      de unit ravengun-tpui (scripts/play-halo.sh --direct), op de plaats van TeknoParrotUi.
-# Niet nagebouwd: dongle, keychip en integriteit (blijven in de lader/kern), en de activering: die moet al in de prefix
+# Niet nagebouwd: keychip en integriteit (blijven in de lader/kern), en de activering: die moet al in de prefix
 # staan (TeknoParrotUi zet hem daar bij een start); is hij er niet of niet actueel, dan stopt dit script met exitcode 3
 # en valt play-halo.sh terug op TeknoParrotUi.
 #
@@ -34,13 +34,12 @@
 #         --log-full (TP_LOGTOFILE=1 en een A11-samenvatting van de regels van de kern in ~/.local/state/ravengun/a11/).
 # Exitcodes: 0 klaar, 1 fout tijdens de start, 2 gebruik, 3 activering ontbreekt (val terug op TeknoParrotUi),
 #            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), 5 een ingeschakelde patch is geweigerd
-#            (geen terugval), 6 [Dongle] Enabled = true maar de gekozen bron is niet bruikbaar: bij usb-passthrough is er geen
-#            fysieke dongle of draait de runtime van de fabrikant niet (scripts/dongle.py), bij drop-in ontbreekt of mankeert de
-#            laag uit patches/<Game>/dongle.json (docs/dropins.md). In beide gevallen geen terugval. Anders de exitcode van de lader.
+#            (geen terugval). Anders de exitcode van de lader.
 #
 # Drop-ins (docs/dropins.md): patches/<Game>/dropin/ bevat bestanden die letterlijk in de view van de game komen,
 # met per bestand een sectie in dropin.ini (To, DllOverride, Env, Preload). Dat is het algemene mechanisme waarmee een
-# game onze eigen bibliotheken krijgt; het is niet dongle-specifiek en draait bij elke start.
+# game onze eigen bibliotheken krijgt. Dat is het enige mechanisme: de loader weet niets van dongles
+# (docs/geen-dongle-in-de-loader.md); een software-dongle is een gewone drop-in.
 # Instellingen per game (lader, Wine, omgeving, patches): patches/<Game>/game.ini en patches.ini met de gebruikerslaag eronder
 # (scripts/gamesettings.py, docs/per-game-patches.md). Het oude UserProfiles/<P>.env wordt nog één versie als laag gelezen.
 import json
@@ -62,8 +61,6 @@ sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
 import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
-import dongle as dg  # noqa: E402  (detectie van de echte, fysieke dongle en zijn officiële runtime; [Dongle] in game.ini)
-import hasp as hs  # noqa: E402  (de eigen HASP-emulator; de dongle-soort "hasp" uit patches/<Game>/dongle.json)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -79,16 +76,6 @@ STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".l
 EXIT_ACTIVATION = 3
 EXIT_UNSUPPORTED = 4
 EXIT_PATCH = 5       # een ingeschakelde patch is geweigerd: niet terugvallen op TeknoParrotUi (die zou de game zonder patch starten)
-EXIT_DONGLE = 6      # [Dongle] Enabled = true maar de gekozen bron is niet bruikbaar: geen terugval, de game start niet
-
-# [Dongle] Source (docs/dropins.md): twee bronnen, met een verschillend doel.
-#   usb-passthrough  CONTROLEREN: de echte, fysieke dongle van de eigenaar (scripts/dongle.py). Ontbreekt hij, dan start
-#                    de game niet (exitcode 6).
-#   drop-in          ACTIVEREN: wat in patches/<Game>/dongle.json staat. Het veld "kind" bepaalt welke laag het afhandelt.
-# De soort staat dus in dongle.json en niet in game.ini: één bron van waarheid.
-DONGLE_SOURCES = ("usb-passthrough", "drop-in")
-DONGLE_KIND_SCRIPTS = {"hasp": "hasp.py", "matrix": "matrix.py", "region": "region.py", "amdaemon": "amdaemon.py"}
-DONGLE_KIND_EIGEN = ("hasp",)   # de soorten die deze launcher zelf in het spel laadt (via scripts/hasp.py)
 
 # Profielen waarvoor TeknoParrotUi extra argumenten of voorbereidingen heeft die hier niet zijn nagebouwd: die vallen
 # terug op TeknoParrotUi (exit 4). Bron: GameLaunchArguments in TeknoParrotUI (net8-migration).
@@ -135,8 +122,6 @@ class PatchRefused(Exception):
     """Een ingeschakelde patch kan niet (veilig) toegepast worden; de game start dan niet."""
 
 
-class DongleRefused(Exception):
-    """[Dongle] Enabled = true, maar er is geen (bruikbare) dongle: de game start dan niet."""
 
 
 class SettingRefused(PatchRefused):
@@ -402,6 +387,58 @@ def dropin_specs(game):
     return list(specs.values()), fouten
 
 
+def _binnen(path, base):
+    """True als `path` lexicaal binnen `base` ligt."""
+    p, b = os.path.abspath(path), os.path.abspath(base)
+    return p == b or p.startswith(b + os.sep)
+
+
+def dropin_materialiseer(base, dest, log=None):
+    """Zorg dat de map van `dest` een ECHTE map in de view is, ook als er een symlink naar de NAS
+    tussen zit. Elke symlink-map op de weg wordt vervangen door een echte map met symlinks naar de
+    inhoud, zodat alleen het drop-in-bestand zelf echt wordt en de rest hetzelfde blijft.
+
+    Waarom: de views van de games zijn symlink-boerderijen naar de NAS (views/<Game>/Game_Data is
+    bijvoorbeeld een symlink). Een drop-in met To = Game_Data/Plugins wijst dan via die symlink naar
+    de NAS, en de regel "nooit naar de NAS schrijven" zou hem weigeren. In plaats van weigeren maken
+    we de map lokaal -- dat is precies wat een view is.
+
+    Schrijft NOOIT op de NAS: er wordt alleen in de view gematerialiseerd en er wordt gecontroleerd
+    dat de map van het doel daarna echt binnen de view uitkomt. Geeft (ok, melding)."""
+    base = os.path.abspath(base)
+    dest = os.path.abspath(dest)
+    if not _binnen(dest, base):
+        return False, "het doel %s ligt buiten de view %s" % (dest, base)
+    ouder = os.path.dirname(dest)
+    rel = os.path.relpath(ouder, base)
+    delen = [] if rel == "." else rel.split(os.sep)
+    cur = base
+    for deel in delen:
+        cur = os.path.join(cur, deel)
+        if os.path.islink(cur):
+            doel = os.path.realpath(cur)
+            if not os.path.isdir(doel):
+                return False, "%s is een symlink naar iets dat geen map is" % cur
+            tijdelijk = cur + ".ravengun-tmp"
+            if os.path.exists(tijdelijk):
+                shutil.rmtree(tijdelijk)
+            os.mkdir(tijdelijk)
+            for naam in os.listdir(doel):
+                os.symlink(os.path.join(doel, naam), os.path.join(tijdelijk, naam))
+            os.unlink(cur)
+            os.rename(tijdelijk, cur)
+            if log:
+                log("%s was een symlink naar de NAS; vervangen door een echte map met symlinks"
+                    % os.path.relpath(cur, base))
+        elif not os.path.isdir(cur):
+            os.makedirs(cur, exist_ok=True)
+    if os.path.islink(dest):
+        os.unlink(dest)
+    if not _binnen(os.path.realpath(os.path.dirname(dest)), base):
+        return False, "de map van het doel %s komt na het materialiseren nog buiten de view uit" % dest
+    return True, "de map van %s is lokaal" % os.path.relpath(dest, base)
+
+
 def dropin_plan(plan):
     """Wat de drop-ins van deze game doen: welke bestanden naar de view gaan, welke omgevingsvariabelen
     en welke WINEDLLOVERRIDES/LD_PRELOAD erbij komen. Kopieert niets (dat doet run()).
@@ -422,9 +459,19 @@ def dropin_plan(plan):
             fouten.append("%s [%s]: %s ontbreekt in dropin/" % (s["ini"], s["name"], s["name"]))
             continue
         dest = os.path.normpath(os.path.join(base, s["to"], s["name"]))
-        if on_nas(dest):
-            fouten.append("%s [%s]: het doel %s ligt op de NAS; maak eerst een lokale view "
-                          "(scripts/tp-add-game.py %s <pad> --view)" % (s["ini"], s["name"], dest, game))
+        # De view van een game is een symlink-boerderij naar de NAS: views/<Game>/Game_Data is
+        # bijvoorbeeld een symlink. Het lexicale pad ligt dan in de view terwijl het gevolgde pad op
+        # de NAS uitkomt. Dat is geen fout: run() materialiseert die map (dropin_materialiseer).
+        # Alleen als er geen view is (de game draait rechtstreeks van de NAS) of als het doel buiten
+        # de view valt, weigeren we -- er wordt nooit op de NAS geschreven.
+        if on_nas(base):
+            fouten.append("%s [%s]: deze game draait rechtstreeks van de NAS, dus er is geen view om "
+                          "het bestand in te zetten; maak eerst een lokale view "
+                          "(scripts/tp-add-game.py %s <pad> --view)" % (s["ini"], s["name"], game))
+            continue
+        if not _binnen(dest, base):
+            fouten.append("%s [%s]: het doel %s ligt buiten de view %s"
+                          % (s["ini"], s["name"], dest, base))
             continue
         bestanden.append({"src": s["src"], "dest": dest, "name": s["name"]})
         if s["dll"]:
@@ -437,12 +484,29 @@ def dropin_plan(plan):
         delen = [x for x in (plan["env"].get("WINEDLLOVERRIDES", "") or "").split(";") if x]
         env["WINEDLLOVERRIDES"] = ";".join(delen + [o for o in overrides if o not in delen])
     if preload:
+        # Waar het pad heen gaat hangt af van hoe de game start, en dat is gemeten werk:
+        #   Wine + Linux-ELF (ElfLdr2)  -> LD_AUDIT. LD_PRELOAD is fataal: BudgieLoader is een
+        #       Cygwin-programma en sterft eraan ("fatal error - error while loading shared
+        #       libraries"). Cygwin kent LD_AUDIT niet, glibc wel, en de bibliotheek komt in
+        #       hetzelfde adresbeeld als de game. Bewijs: docs/rt-glfix.md.
+        #   echte native start          -> LD_PRELOAD, dat werkt daar gewoon.
+        #   anders                      -> RG_DROPIN_PRELOAD, dat de eigen lader oppakt.
+        elf_onder_wine = bool(plan.get("wine")) and not is_pe(plan["game"])
+        if elf_onder_wine:
+            var = "LD_AUDIT"
+        elif not plan.get("wine"):
+            var = "LD_PRELOAD"
+        else:
+            var = ""
+        if var:
+            delen = [x for x in (plan["env"].get(var, "") or "").split(":") if x]
+            env[var] = ":".join(delen + [p for p in preload if p not in delen])
+        else:
+            delen = [x for x in (plan["env"].get("RG_DROPIN_PRELOAD", "") or "").split(":") if x]
+            env["RG_DROPIN_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
+        # Het pad blijft altijd ook als RG_DROPIN_PRELOAD staan, zodat een eigen lader het kan oppakken.
         delen = [x for x in (plan["env"].get("RG_DROPIN_PRELOAD", "") or "").split(":") if x]
         env["RG_DROPIN_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
-        if not plan.get("wine"):
-            # Een echte native start (zonder Wine): dan mag LD_PRELOAD wel, en dan werkt het ook.
-            delen = [x for x in (plan["env"].get("LD_PRELOAD", "") or "").split(":") if x]
-            env["LD_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
     return {"base": base, "files": bestanden, "env": env, "overrides": overrides, "preload": preload,
             "specs": specs, "errors": fouten}
 
@@ -962,14 +1026,12 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
         "needs_activation": needs_activation(p),
-        "dongle": dict(zip(("enabled", "source", "error"), settings.dongle())),
         "windows": is_pe(game),
     }
     # Drop-ins (docs/dropins.md): altijd, niet alleen bij een dongle. Alleen rekenen; kopiëren doet run().
     uit["dropins"] = dropin_plan(uit)
     # De dongle vooraf beoordelen zodat --plan laat zien wat er zou gebeuren (zonder bijwerkingen en
     # zonder te weigeren: dat doet main() bij --check en --run via dongle_gate).
-    uit["dongle_inject"] = dongle_preview(uit)
     return uit
 
 
@@ -1376,6 +1438,10 @@ def run(plan):
     for line in dropin_log_lines(plan):
         log("drop-in: " + line)
     for f in plan["dropins"]["files"]:
+        st, why = dropin_materialiseer(plan["dropins"]["base"], f["dest"], log)
+        if not st:
+            log("drop-in: LET OP: %s" % why)
+            continue
         st, why = place_binary(f["src"], f["dest"])
         log("drop-in: " + why)
     merge_env(plan, plan["dropins"]["env"])
@@ -1492,126 +1558,6 @@ def run(plan):
     return 0 if rc is None else (rc & 0xFF)
 
 
-def _kind_script(script):
-    """Het pad van een laag-script uit dezelfde map als dit script."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), script)
-
-
-def _run_kind_script(script, game, verbose):
-    """Draait scripts/<laag>.py --game <Game> --json en geeft (exitcode, dict)."""
-    vol = _kind_script(script)
-    if not os.path.isfile(vol):
-        return None, {}
-    cmd = [sys.executable, "-I", vol, "--game", game, "--json"]
-    if verbose:
-        log("dongle: %s" % " ".join(shlex.quote(a) for a in cmd))
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    except (OSError, subprocess.SubprocessError) as e:
-        return 1, {"message": "%s niet te draaien: %s" % (script, e)}
-    uit = {}
-    try:
-        uit = json.loads(r.stdout or "{}")
-    except ValueError:
-        uit = {"message": (r.stdout or r.stderr or "").strip()[:400]}
-    if not isinstance(uit, dict):
-        uit = {"message": str(uit)[:400]}
-    return r.returncode, uit
-
-
-def dropin_dongle(plan, verbose):
-    """De dongle uit patches/<Game>/dongle.json activeren. Het veld "kind" bepaalt welke laag het doet.
-
-    kind = hasp  -> scripts/hasp.py (onze eigen HASP-emulator; deze launcher zet hem in het spel)
-    kind = matrix|region|amdaemon -> het bijbehorende script; bestaat dat nog niet, dan volgt een
-    melding die zegt welk script het bouwt. Nooit een stille terugval op de fysieke USB-detectie.
-    """
-    game = plan["profile"]
-    game_dir, pad, desc = hs.dongle_json(game)
-    if not pad:
-        raise DongleRefused("deze game heeft geen dongle: %s ontbreekt. Zet [Dongle] Enabled = false, of voeg de "
-                            "dongle toe (docs/dropins.md)"
-                            % os.path.join(gs.shipped_dir(), game, "dongle.json"))
-    kind = str(desc.get("kind") or desc.get("type") or "").strip().lower()
-    if not kind:
-        raise DongleRefused("%s: het veld 'kind' ontbreekt (hasp, matrix, region of amdaemon)" % pad)
-
-    if kind in DONGLE_KIND_EIGEN:
-        bits = 64 if plan["is64"] else 32
-        st = hs.status(game, bits=bits, windows=bool(plan.get("windows")))
-        if not st["ok"]:
-            raise DongleRefused("%s (bouwen: scripts/build-hasp.sh)" % st["message"])
-        merge_env(plan, st["injection"]["env"])
-        return {"kind": kind, "env": st["injection"]["env"], "message": st["message"],
-                "script": "scripts/hasp.py", "via": st["injection"].get("via")}
-
-    script = DONGLE_KIND_SCRIPTS.get(kind)
-    if not script:
-        raise DongleRefused("%s: onbekende dongle-soort '%s' (bekend: %s)"
-                            % (pad, kind, ", ".join(sorted(DONGLE_KIND_SCRIPTS))))
-    if not os.path.isfile(_kind_script(script)):
-        raise DongleRefused("de dongle van '%s' is van het soort '%s', maar scripts/%s bestaat nog niet. "
-                            "Die laag hoort dat script te bouwen (docs/dropins.md)" % (game, kind, script))
-    rc, uit = _run_kind_script(script, game, verbose)
-    if rc != 0:
-        melding = uit.get("message") or uit.get("errors") or ("exitcode %d" % rc)
-        raise DongleRefused("scripts/%s: %s" % (script, melding))
-    env = uit.get("env") or {}
-    merge_env(plan, env)
-    return {"kind": kind, "env": env, "message": uit.get("message", ""), "script": "scripts/" + script, "via": script}
-
-
-def dongle_preview(plan):
-    """De uitkomst van dongle_gate zonder te weigeren; voor --plan. Geeft {"error": ...} bij een probleem."""
-    try:
-        return dongle_gate(plan, verbose=False)
-    except (DongleRefused, SettingRefused) as e:
-        return {"error": str(e)}
-    except Exception as e:   # een fout in een laag mag --plan niet laten stuklopen
-        return {"error": "%s: %s" % (type(e).__name__, e)}
-
-
-def dongle_gate(plan, verbose):
-    """[Dongle] Enabled = true: de gekozen bron afhandelen. Uit (standaard): niets doen.
-
-    Twee bronnen (docs/dropins.md), met een verschillend doel:
-
-      usb-passthrough  CONTROLEREN. De echte, fysieke dongle van de eigenaar (scripts/dongle.py): merk,
-                       type, vendor:product en de runtime-status van de fabrikant. Nooit een serienummer.
-                       Ontbreekt hij, dan start de game niet (exitcode 6).
-      drop-in          ACTIVEREN. Wat in patches/<Game>/dongle.json staat. Onze eigen laag wordt in het
-                       spel geladen; er wordt niet gekeken of er een fysieke dongle is. Ontbreekt of
-                       mankeert de laag, dan volgt een melding die zegt wat er mist en welk script of
-                       welke opdracht het bouwt.
-
-    Geeft de toegepaste injectie terug (of None bij usb-passthrough)."""
-    d = plan["dongle"]
-    if not d["enabled"]:
-        return None
-    src = (d.get("source") or "").strip().lower()
-    if src not in DONGLE_SOURCES:
-        raise DongleRefused("[Dongle] Source = %s (bekend: %s)" % (src or "(leeg)", ", ".join(DONGLE_SOURCES)))
-    if d.get("error"):
-        # scripts/gamesettings.py kent de bron 'drop-in' misschien nog niet (DONGLE_SOURCES daar). De dispatch
-        # hier wel; alleen die ene melding negeren we, elke andere fout is een echte fout.
-        if "Source =" not in d["error"]:
-            raise DongleRefused(d["error"])
-        if verbose:
-            log("let op: %s (de drop-in-motor kent de bron wel)" % d["error"])
-
-    if src == "usb-passthrough":
-        ok, msg, _ = dg.evaluate(dg.detect())
-        if not ok:
-            raise DongleRefused(msg)   # main() meldt het op stderr
-        if verbose:
-            log("dongle (usb-passthrough): %s" % msg)
-        return None
-
-    inj = dropin_dongle(plan, verbose)
-    if verbose:
-        log("dongle (drop-in, %s via %s): %s" % (inj["kind"], inj.get("via") or inj["script"], inj["message"]))
-    return inj
-
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser(description="Directe start van een TeknoParrot-game zonder TeknoParrotUi")
@@ -1638,11 +1584,6 @@ def main(argv):
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
         if plan["needs_activation"] and not a.no_activation_check:
             check_activation(plan["prefix"])
-        if not a.plan:
-            dongle_gate(plan, verbose=a.run)
-    except DongleRefused as e:
-        print("Dongle: %s" % e, file=sys.stderr)
-        return EXIT_DONGLE
     except SettingRefused as e:
         print("Instelling geweigerd: %s" % e, file=sys.stderr)
         return EXIT_PATCH

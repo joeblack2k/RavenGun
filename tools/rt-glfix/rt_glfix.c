@@ -269,7 +269,7 @@ static uint8_t *rtg_fixer;
 static uint8_t *rtg_stub_vrij;
 static uint8_t *rtg_page_eind;
 static void *volatile rtg_slot_table;
-static uint32_t rtg_slots[64 * 2];
+static uint32_t rtg_slots[64 * 4];      /* per thread: [0]=esp, [4]=retouradres, [8]=eax */
 
 #define RTG_SLOTS 64
 #define RTG_STUB_LEN 10
@@ -277,16 +277,29 @@ static uint32_t rtg_slots[64 * 2];
 static void rtg_em8(uint8_t **p, uint8_t b) { *(*p)++ = b; }
 static void rtg_em32(uint8_t **p, uint32_t v) { memcpy(*p, &v, 4); *p += 4; }
 
-/* `mov edx, <&rtg_slot_table>; mov eax, fs:[8]; edx += (fs:[8]>>4 & 63)*8` */
-static void rtg_em_slot(uint8_t **p)
+/* Berekent in edx de reddingsplek van deze thread.
+   In `common` mag daarvoor eax gebruikt worden; in `fixer` niet, want daar staat de retourwaarde
+   van de zojuist afgelopen functie in eax. Daarom is er een variant die ecx gebruikt. */
+static void rtg_em_slot_eax(uint8_t **p)
 {
     uint32_t tabel = (uint32_t)(uintptr_t)&rtg_slot_table;
     rtg_em8(p, 0x8b); rtg_em8(p, 0x15); rtg_em32(p, tabel);      /* mov edx,[tabel] */
-    rtg_em8(p, 0x64); rtg_em8(p, 0xa1); rtg_em32(p, 0x08);       /* mov eax,fs:[8] */
+    rtg_em8(p, 0x65); rtg_em8(p, 0xa1); rtg_em32(p, 0x08);       /* mov eax,gs:[8] */
     rtg_em8(p, 0xc1); rtg_em8(p, 0xe8); rtg_em8(p, 4);           /* shr eax,4 */
     rtg_em8(p, 0x83); rtg_em8(p, 0xe0); rtg_em8(p, RTG_SLOTS - 1);/* and eax,63 */
-    rtg_em8(p, 0xc1); rtg_em8(p, 0xe0); rtg_em8(p, 3);           /* shl eax,3 */
+    rtg_em8(p, 0xc1); rtg_em8(p, 0xe0); rtg_em8(p, 4);           /* shl eax,4 */
     rtg_em8(p, 0x01); rtg_em8(p, 0xc2);                          /* add edx,eax */
+}
+
+static void rtg_em_slot_ecx(uint8_t **p)
+{
+    uint32_t tabel = (uint32_t)(uintptr_t)&rtg_slot_table;
+    rtg_em8(p, 0x8b); rtg_em8(p, 0x15); rtg_em32(p, tabel);      /* mov edx,[tabel] */
+    rtg_em8(p, 0x65); rtg_em8(p, 0x8b); rtg_em8(p, 0x0d); rtg_em32(p, 0x08); /* mov ecx,gs:[8] */
+    rtg_em8(p, 0xc1); rtg_em8(p, 0xe9); rtg_em8(p, 4);           /* shr ecx,4 */
+    rtg_em8(p, 0x83); rtg_em8(p, 0xe1); rtg_em8(p, RTG_SLOTS - 1);/* and ecx,63 */
+    rtg_em8(p, 0xc1); rtg_em8(p, 0xe1); rtg_em8(p, 4);           /* shl ecx,4 */
+    rtg_em8(p, 0x01); rtg_em8(p, 0xca);                          /* add edx,ecx */
 }
 
 static void rtg_make_bridge(void)
@@ -296,7 +309,7 @@ static void rtg_make_bridge(void)
     uint32_t fix;
 
     rtg_common = p;
-    rtg_em_slot(&p);
+    rtg_em_slot_eax(&p);
     rtg_em8(&p, 0x89); rtg_em8(&p, 0x22);                        /* mov [edx],esp */
     rtg_em8(&p, 0x8b); rtg_em8(&p, 0x04); rtg_em8(&p, 0x24);     /* mov eax,[esp] */
     rtg_em8(&p, 0x89); rtg_em8(&p, 0x42); rtg_em8(&p, 0x04);     /* mov [edx+4],eax */
@@ -306,15 +319,34 @@ static void rtg_make_bridge(void)
     rtg_em8(&p, 0xff); rtg_em8(&p, 0xe1);                        /* jmp ecx */
 
     rtg_fixer = p;
-    rtg_em_slot(&p);
+    rtg_em_slot_ecx(&p);                                         /* laat eax met rust */
+    rtg_em8(&p, 0x89); rtg_em8(&p, 0x42); rtg_em8(&p, 0x08);     /* mov [edx+8],eax (retourwaarde) */
     rtg_em8(&p, 0x8b); rtg_em8(&p, 0x22);                        /* mov esp,[edx] */
     rtg_em8(&p, 0x8b); rtg_em8(&p, 0x42); rtg_em8(&p, 0x04);     /* mov eax,[edx+4] */
     rtg_em8(&p, 0x89); rtg_em8(&p, 0x04); rtg_em8(&p, 0x24);     /* mov [esp],eax */
-    rtg_em8(&p, 0xff); rtg_em8(&p, 0xe0);                        /* jmp eax */
+    rtg_em8(&p, 0x83); rtg_em8(&p, 0xc4); rtg_em8(&p, 0x04);     /* add esp,4 */
+    rtg_em8(&p, 0x8b); rtg_em8(&p, 0x42); rtg_em8(&p, 0x08);     /* mov eax,[edx+8] */
+    rtg_em8(&p, 0xff); rtg_em8(&p, 0x62); rtg_em8(&p, 0x04);     /* jmp dword [edx+4] */
 
     rtg_stub_vrij = p;
     fix = (uint32_t)(uintptr_t)rtg_fixer;
     memcpy(plek, &fix, 4);
+
+    if (rtg_verbose) {
+        int i;
+        char regel[3 * 16 + 4];
+        char *r;
+        rtg_say("brug: common op %p (fixer op %p, plek op %p)", (void *)rtg_common,
+                (void *)rtg_fixer, (void *)plek);
+        for (i = 0; i < 128; i += 16) {
+            int j;
+            r = regel;
+            for (j = 0; j < 16; j++)
+                r += sprintf(r, "%02x ", rtg_page[i + j]);
+            *r = 0;
+            rtg_say("  +%02x: %s", i, regel);
+        }
+    }
 }
 
 /* Een stub voor één GOT-invoer: `mov ecx,<echte functie>; jmp common`. */
@@ -332,6 +364,67 @@ static void *rtg_make_stub(uint32_t echt)
     memcpy(s + 6, &rel, 4);
     rtg_stub_vrij += RTG_STUB_LEN;
     return s;
+}
+
+/*
+ * Zelftest van de brug. `rtg_test_stdcall2` is een neppe stdcall-functie: ze telt haar twee
+ * argumenten op en haalt ze zelf van de stapel (`ret $8`), precies zoals opengl32.dll dat doet.
+ * rtg_selftest_asm roept die functie aan via een gegenereerde stub, met de cdecl-verwachting van
+ * de game, en controleert daarna dat de stapelpointer EXACT op de cdecl-stand staat: na een
+ * `call` met twee argumenten is dat esp+4, dus 8 bytes onder de stand van voor de twee pushes.
+ * Zonder die controle zou een fout in de brug pas als een crash in de game opduiken.
+ */
+__asm__(
+".text\n"
+".globl rtg_test_stdcall2\n"
+".type rtg_test_stdcall2,@function\n"
+"rtg_test_stdcall2:\n"
+"    movl 4(%esp), %eax\n"
+"    addl 8(%esp), %eax\n"
+"    ret $8\n"
+".size rtg_test_stdcall2,.-rtg_test_stdcall2\n"
+".globl rtg_selftest_asm\n"
+".type rtg_selftest_asm,@function\n"
+"rtg_selftest_asm:\n"
+"    pushl %ebp\n"
+"    movl %esp, %ebp\n"
+"    pushl %ebx\n"
+"    pushl %esi\n"
+"    pushl %edi\n"
+"    movl 8(%ebp), %ebx\n"
+"    movl %esp, %esi\n"
+"    pushl $22\n"
+"    pushl $20\n"
+"    call *%ebx\n"
+"    movl %esp, %ecx\n"
+"    movl %esi, %esp\n"
+"    xorl %edx, %edx\n"
+"    leal -8(%esi), %edi\n"
+"    cmpl %edi, %ecx\n"
+"    je 1f\n"
+"    movl $1, %edx\n"
+"    jmp 2f\n"
+"1:  cmpl $42, %eax\n"
+"    je 2f\n"
+"    movl $2, %edx\n"
+"2:  movl %edx, %eax\n"
+"    popl %edi\n"
+"    popl %esi\n"
+"    popl %ebx\n"
+"    popl %ebp\n"
+"    ret\n"
+".size rtg_selftest_asm,.-rtg_selftest_asm\n"
+);
+extern int rtg_test_stdcall2(int, int);
+extern int rtg_selftest_asm(void *stub);
+
+/* 0 = goed, 1 = stapel verschoven, 2 = verkeerde uitkomst, 3 = geen stub. */
+static int rtg_selftest(void)
+{
+    void *stub = rtg_make_stub((uint32_t)(uintptr_t)rtg_test_stdcall2);
+    if (!stub)
+        return 3;
+    return rtg_selftest_asm(stub);
 }
 
 /* ---------------------------------------------------------------- eigen wachten */
@@ -567,6 +660,12 @@ static void rtg_ensure_watcher(void)
     rtg_slot_table = rtg_slots;
     memset(rtg_slots, 0, sizeof(rtg_slots));
     rtg_make_bridge();
+    {
+        int zelftest = rtg_selftest();
+        static const char *uitleg[] = {"goed", "stapelpointer verschoven", "verkeerde uitkomst",
+                                       "geen stub kunnen maken"};
+        rtg_say("zelftest brug: %s", uitleg[zelftest < 0 || zelftest > 3 ? 3 : zelftest]);
+    }
     rtg_say("geladen (pid %d, mode %d, maxtex %u, brug op %p)", (int)getpid(), rtg_mode, rtg_max_tex,
             (void *)rtg_common);
     if (pthread_create(&rtg_thread, NULL, rtg_watch, NULL) != 0) {

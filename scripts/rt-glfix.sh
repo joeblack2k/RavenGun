@@ -39,11 +39,13 @@ GAMES=(JurassicPark PacmanChomp GalagaAssault)
 
 DO_PLACE=1
 DO_CHECK=0
+DO_SELFTEST=0
 KEUS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-place) DO_PLACE=0 ;;
     --check)    DO_CHECK=1 ;;
+    --selftest) DO_SELFTEST=1 ;;
     --game)     shift; KEUS+=("${1:-}") ;;
     -h|--help)  sed -n '2,30p' "$0"; exit 0 ;;
     *) echo "onbekende optie: $1" >&2; exit 2 ;;
@@ -89,6 +91,17 @@ if ! nm -D --defined-only "$OUT/$LIB" | grep -q ' la_version$'; then
   exit 1
 fi
 echo "controle: la_version en la_preinit aanwezig"
+
+# De zelftest: een 32-bits gastheer laadt de bibliotheek zodat de constructor de cdecl-brug
+# bouwt en test (een neppe stdcall-functie met `ret 8` aanroepen en kijken of de stapelpointer
+# daarna precies gelijk is). Dit vangt fouten in de brug zonder dat er een game aan te pas komt.
+if [[ "$DO_SELFTEST" == 1 ]]; then
+  $CC "${INC32[@]}" -m32 -O2 -o "$OUT/gastheer32" "$ROOT/tools/rt-glfix/gastheer32.c" -ldl
+  echo
+  echo "zelftest (32-bits gastheer):"
+  RAVENGUN_GLFIX_GAME=zelftest RAVENGUN_GLFIX_LOG=/dev/stderr RAVENGUN_GLFIX_SECS=1 \
+    "$OUT/gastheer32" "$OUT/$LIB" 2>&1 | sed 's/^/  /'
+fi
 
 if [[ "$DO_CHECK" == 1 ]]; then
   rc=0

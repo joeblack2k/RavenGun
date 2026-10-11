@@ -30,10 +30,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 /* --------------------------------------------------------------------------- hulp: logboek en image
  *
- * Beide zijn optioneel en staan uit tenzij de launcher ze aanzet. Er wordt nooit iets naar de NAS
- * geschreven: het logpad komt uit de omgeving en de launcher kiest daar een lokaal pad.
+ * Deze laag leest zijn eigen gegevens; de launcher weet er niets van (docs/geen-dongle-in-de-loader.md).
+ * De gegevens staan naast de bibliotheek in de drop-in-map van de game, bijvoorbeeld
+ *
+ *   patches/<Game>/dropin/matrix/matrix.ini     de instellingen (poort, aantal, geheugenbestand)
+ *   patches/<Game>/dropin/matrix/matrix.bin     het dongle-geheugen, als een game dat leest
+ *
+ * en de drop-in geeft de weg mee: Env = RAVENGUN_MATRIX_DIR=matrix. Staat er niets, dan gelden de
+ * waarden die in matrix.h staan (poort 85, aantal 2) en is er geen geheugen -- precies wat Rabbids
+ * Hollywood nodig heeft.
+ *
+ * Er wordt nooit naar de NAS geschreven: het logpad komt uit de omgeving en de launcher kiest daar
+ * een lokaal pad.
  */
 
 static int mx_log_geopend;
@@ -56,15 +72,167 @@ static void mx_log_regel(const char *wat, long waarde)
     fflush(mx_log);
 }
 
-/* Het dongle-geheugen. Leeg tenzij RAVENGUN_MATRIX_DATA naar een bestand wijst; de launcher zet dat
- * op een bestand uit patches/<Game>/dongle/ als dongle.json er een noemt. */
+/* De map waarin deze DLL staat. Op Windows via GetModuleHandleExA op een adres in deze DLL (met NULL
+ * geeft GetModuleFileNameA de exe, niet de DLL), native via /proc/self/exe -- zodat de zelftest
+ * hetzelfde pad bepaalt als de DLL in de game. */
+static void mx_module_map(char *uit, size_t n)
+{
+    uit[0] = '\0';
+#if defined(_WIN32)
+    {
+        HMODULE zelf = NULL;
+        if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                (LPCSTR)(const void *)&mx_module_map, &zelf)) {
+            return;
+        }
+        if (GetModuleFileNameA(zelf, uit, (DWORD)n) == 0) {
+            uit[0] = '\0';
+            return;
+        }
+    }
+#else
+    {
+        ssize_t k = readlink("/proc/self/exe", uit, n - 1);
+        if (k <= 0) {
+            uit[0] = '\0';
+            return;
+        }
+        uit[k] = '\0';
+    }
+#endif
+    {
+        char *laatste = strrchr(uit, '/');
+#if defined(_WIN32)
+        char *laatste_win = strrchr(uit, '\\');
+        if (laatste_win && (!laatste || laatste_win > laatste)) {
+            laatste = laatste_win;
+        }
+#endif
+        if (laatste) {
+            *laatste = '\0';
+        }
+    }
+}
+
+static int mx_bestaat(const char *pad)
+{
+    FILE *f = fopen(pad, "rb");
+    if (!f) {
+        return 0;
+    }
+    fclose(f);
+    return 1;
+}
+
+static char mx_dir[1024];
+static int mx_gegevens_gelezen;
+static int mx_poort = MX_RABBIDS_POORT;
+static int mx_aantal = MX_DONGLE_AANTAL;
+static char mx_memory_naam[256];
+
+/* Het geheugen. Leeg tenzij matrix.ini een memory-bestand noemt of RAVENGUN_MATRIX_DATA er een aanwijst. */
 static int mx_image_geprobeerd;
 static unsigned char *mx_image;
 static long mx_image_lengte;
 
+static void mx_trim(char *s)
+{
+    size_t n;
+    while (*s == ' ' || *s == '\t') {
+        memmove(s, s + 1, strlen(s));
+    }
+    n = strlen(s);
+    while (n > 0 && (s[n - 1] == ' ' || s[n - 1] == '\t' || s[n - 1] == '\r' || s[n - 1] == '\n')) {
+        s[--n] = '\0';
+    }
+}
+
+/* Leest <mx_dir>/matrix.ini: regels "sleutel = waarde", # en ; beginnen een opmerking. */
+static void mx_ini_lezen(void)
+{
+    char pad[1400];
+    char regel[512];
+    FILE *f;
+
+    if (!mx_dir[0]) {
+        return;
+    }
+    snprintf(pad, sizeof(pad), "%s/matrix.ini", mx_dir);
+    f = fopen(pad, "r");
+    if (!f) {
+        return;
+    }
+    while (fgets(regel, sizeof(regel), f)) {
+        char *is = strchr(regel, '=');
+        char *sleutel = regel;
+        char *waarde;
+        if (regel[0] == '#' || regel[0] == ';' || regel[0] == '\n') {
+            continue;
+        }
+        if (!is) {
+            continue;
+        }
+        *is = '\0';
+        waarde = is + 1;
+        mx_trim(sleutel);
+        mx_trim(waarde);
+        if (strcmp(sleutel, "poort") == 0) {
+            mx_poort = atoi(waarde);
+        } else if (strcmp(sleutel, "aantal") == 0) {
+            mx_aantal = atoi(waarde);
+        } else if (strcmp(sleutel, "memory") == 0) {
+            snprintf(mx_memory_naam, sizeof(mx_memory_naam), "%s", waarde);
+        }
+    }
+    fclose(f);
+    mx_log_regel("matrix.ini gelezen, poort", mx_poort);
+    mx_log_regel("matrix.ini gelezen, aantal", mx_aantal);
+}
+
+/* Zoekt de gegevensmap: RAVENGUN_MATRIX_DIR zoals hij is (absoluut of ten opzichte van de werkmap),
+ * en anders naast deze DLL. Herkend aan een matrix.ini erin. */
+static void mx_gegevens_vinden(void)
+{
+    const char *gevraagd = getenv("RAVENGUN_MATRIX_DIR");
+    char eigen[1024];
+    char poging[1400];
+    static const char *standaard = "matrix";
+
+    if (mx_gegevens_gelezen) {
+        return;
+    }
+    mx_gegevens_gelezen = 1;
+
+    mx_module_map(eigen, sizeof(eigen));
+    if (!gevraagd || !*gevraagd) {
+        gevraagd = standaard;
+    }
+
+    /* 1. zoals gevraagd (een absoluut pad, of relatief ten opzichte van de werkmap) */
+    snprintf(poging, sizeof(poging), "%s/matrix.ini", gevraagd);
+    if (mx_bestaat(poging)) {
+        snprintf(mx_dir, sizeof(mx_dir), "%s", gevraagd);
+    } else if (eigen[0]) {
+        /* 2. naast deze DLL: de gegevens horen naast de bibliotheek te staan */
+        snprintf(poging, sizeof(poging), "%s/%s/matrix.ini", eigen, gevraagd);
+        if (mx_bestaat(poging)) {
+            snprintf(mx_dir, sizeof(mx_dir), "%s/%s", eigen, gevraagd);
+        }
+    }
+
+    if (mx_dir[0]) {
+        mx_log_regel("gegevensmap gevonden", 0);
+        mx_ini_lezen();
+    } else {
+        mx_log_regel("geen gegevensmap gevonden, standaardwaarden", 0);
+    }
+}
+
 static void mx_image_laden(void)
 {
     const char *pad;
+    char volledig[1400];
     FILE *f;
     long n;
 
@@ -72,14 +240,19 @@ static void mx_image_laden(void)
         return;
     }
     mx_image_geprobeerd = 1;
+    mx_gegevens_vinden();
 
     pad = getenv("RAVENGUN_MATRIX_DATA");
     if (!pad || !*pad) {
-        return;
+        if (!mx_memory_naam[0]) {
+            return;   /* deze game leest geen dongle-geheugen */
+        }
+        snprintf(volledig, sizeof(volledig), "%s/%s", mx_dir, mx_memory_naam);
+        pad = volledig;
     }
     f = fopen(pad, "rb");
     if (!f) {
-        mx_log_regel("image niet te openen", 0);
+        mx_log_regel("geheugenbestand niet te openen", 0);
         return;
     }
     if (fseek(f, 0, SEEK_END) != 0) {
@@ -105,7 +278,7 @@ static void mx_image_laden(void)
     }
     fclose(f);
     mx_image_lengte = n;
-    mx_log_regel("image geladen, lengte", n);
+    mx_log_regel("geheugen geladen, lengte", n);
 }
 
 /* ------------------------------------------------------------------------------------- de 27 functies */
@@ -113,7 +286,8 @@ static void mx_image_laden(void)
 short MX_CALL Init_MatrixAPI(void)
 {
     /* 0 = in orde. Een negatieve waarde betekent voor de game "MatrixAPI niet geinitialiseerd" en
-     * dan gebruikt hij de rest van de API niet eens. */
+     * dan gebruikt hij de rest van de API niet eens. Meteen ook de eigen gegevens lezen. */
+    mx_gegevens_vinden();
     mx_log_regel("Init_MatrixAPI -> 0", 0);
     return 0;
 }
@@ -200,9 +374,9 @@ short MX_CALL Dongle_MemSize(short poort, short index)
 
 short MX_CALL Dongle_Count(short poort)
 {
-    mx_log_regel("Dongle_Count -> 2, poort", poort);
-    (void)poort;
-    return MX_DONGLE_AANTAL;
+    mx_gegevens_vinden();
+    mx_log_regel("Dongle_Count -> aantal, poort", poort);
+    return (short)mx_aantal;
 }
 
 short MX_CALL Dongle_ReadData(int32_t dongle, int32_t *buf, short poort, short adres, short lengte)
@@ -236,12 +410,15 @@ short MX_CALL Dongle_ReadDataEx(int32_t dongle, int32_t *buf, short poort, short
     return Dongle_ReadData(dongle, buf, poort, adres, lengte);
 }
 
-int32_t MX_CALL Dongle_ReadSerNr(int32_t dongle, short poort, short index)
+int32_t MX_CALL Dongle_ReadSerNr(int32_t dongle, short aantal, short poort)
 {
     (void)dongle;
-    (void)poort;
-    (void)index;
-    /* Vaste, zelfgekozen waarde; nooit een echt serienummer. Zie matrix.h. */
+    (void)aantal;
+    mx_gegevens_vinden();
+    /* Vaste, zelfgekozen waarde; nooit een echt serienummer, en niet instelbaar via matrix.ini -- dat
+     * zou een echt serienummer in een bestand zetten. Zie matrix.h.
+     * De tweede parameter van de aanroep is het aantal dongles, de derde de poort (bij Rabbids
+     * Hollywood: aantal 2, poort 85). */
     mx_log_regel("Dongle_ReadSerNr -> 69420, poort", poort);
     return MX_SERIENUMMER;
 }

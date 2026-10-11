@@ -1,7 +1,0 @@
-{
-  "kind": "matrix",
-  "game": "RabbidsHollywood",
-  "dll": "matrix64.dll",
-  "port": 85,
-  "note": "De Matrix/SBK-LPT-dongle. De game (SBK.Matrix.MatrixManager) eist Dongle_Count(85) > 0 en Dongle_ReadSerNr(..., 85) > 0; zonder die twee volgt '**** DONGLE NOT FOUND' en Application.Quit. De game leest geen dongle-geheugen, dus er staan geen bestanden in dongle/. Zie docs/matrix-layer.md."
-}
