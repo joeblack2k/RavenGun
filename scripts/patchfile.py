@@ -245,7 +245,21 @@ def _patch_file_bytes(data, patch):
 
 def apply_game(game_name, exe_path=None, loader=None, core=None, materialize=False,
                patches_dir=None, exe_sha256=None, allow_in_place=True, take_over_core=False):
-    """Past de patches van één game toe. Geeft een Report.
+    """Past de patches van één game toe, met de instellingen van die game opnieuw gelezen.
+
+    Let op: dit leest `patches.ini` opnieuw. Draait er al iets dat de patches onderweg aanpast
+    (zoals de launcher, die de lader-patch uitzet bij de eigen lader), gebruik dan
+    `apply_game_obj()` met die al geladen Game -- anders zie je een andere uitkomst dan de start."""
+    kwargs = {}
+    if patches_dir:
+        kwargs["shipped"] = patches_dir
+    return apply_game_obj(gs.load_game(game_name, **kwargs), game_name, exe_path, loader, core,
+                          materialize, exe_sha256, allow_in_place, take_over_core)
+
+
+def apply_game_obj(g, game_name, exe_path=None, loader=None, core=None, materialize=False,
+                   exe_sha256=None, allow_in_place=True, take_over_core=False):
+    """Als `apply_game()`, maar met een **al geladen** Game. Zie de docstring daar.
 
     materialize = False: alleen controleren, niets schrijven.
     materialize = True:  de lader en de kern worden als kopie weggeschreven, de exe van de game
@@ -254,10 +268,6 @@ def apply_game(game_name, exe_path=None, loader=None, core=None, materialize=Fal
     take_over_core = True: ook de patches toepassen die `AppliedBy = core` hebben. Die staan in de
     ini als *beschrijving van wat de kern zelf doet*; zolang wij de kern niet vervangen mag de motor
     ze niet nog eens toepassen. Zodra onze eigen kern ze overneemt, zet je deze vlag aan."""
-    kwargs = {}
-    if patches_dir:
-        kwargs["shipped"] = patches_dir
-    g = gs.load_game(game_name, **kwargs)
     report = Report(game_name)
     targets = game_targets(exe_path, loader, core)
 
