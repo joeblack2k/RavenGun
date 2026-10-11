@@ -152,3 +152,20 @@ HASP_ZELFTEST_WACHT=2000 ./hasp_probe
 
 De probe wacht standaard 1500 ms (`HASP_ZELFTEST_WACHT`) omdat de hook vanuit een kijker-thread
 werkt en het spelbeeld eerst moet vinden. Het logboek van de hook staat in `RAVENGUN_HASP_ELF_LOG`.
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF32 i386`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+/home/deck/.local/share/ravengun/runtime/views/JurassicPark/game: error while loading shared libraries: libtheora.so.0: cannot open shared object file: No such file or directory
+```
+
+Zonder ElfLdr2 stopt hij dus al bij de dynamic linker: **`libtheora.so.0`** staat niet op deze
+machine. In totaal mist deze machine er 5: `libGLU.so.1`, `libPhysXLoader.so.1`, `libSDL-1.2.so.0`, `libglut.so.3`, `libtheora.so.0`.
+Dat zijn precies de bibliotheken die `ElfLdr2` in zijn eigen proces emuleert.
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.

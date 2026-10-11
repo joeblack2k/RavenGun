@@ -213,3 +213,20 @@ Elke ElfLdr2-game leest dus `start-niet`, ook als de lader na de volle 30 s nog 
    verzameling, dus een lopende starttest van een andere game kan deze start doden. Eén van de
    proeven hier is daardoor na 36 s gestopt (`lader gestopt (exitcode 1)`) terwijl de volgende vijf
    95 s bleven lopen.
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF64 x86-64`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+/home/deck/.local/share/ravengun/runtime/halo-g7-tp/halo/game: error while loading shared libraries: libfmod.so.10: cannot open shared object file: No such file or directory
+```
+
+Zonder ElfLdr2 stopt hij dus al bij de dynamic linker: **`libfmod.so.10`** staat niet op deze
+machine. In totaal mist deze machine er 2: `libfmod.so.10`, `libfmodstudio.so.10`.
+Dat zijn precies de bibliotheken die `ElfLdr2` in zijn eigen proces emuleert.
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.

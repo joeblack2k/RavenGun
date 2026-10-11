@@ -39,3 +39,20 @@ Halo en de HASP-games wel hebben — een inline-hook in `LD_AUDIT` — kan hier 
    bestaan in de ElfLdr2-route niet (gemeten: 0 treffers in alle vier `BudgieLoader`-binaire
    bestanden, in `ElfLdr2/TeknoParrot.dll` en in de logboeken van alle zeven ElfLdr2-games). Zie
    `docs/elfldr2-route.md`, §4.
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF32 i386`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+/home/deck/.local/share/ravengun/runtime/views/GoGoStrike/bowling_usa: error while loading shared libraries: libstdc++.so.5: cannot open shared object file: No such file or directory
+```
+
+Zonder ElfLdr2 stopt hij dus al bij de dynamic linker: **`libstdc++.so.5`** staat niet op deze
+machine. In totaal mist deze machine er 3: `libNL.so.1.6`, `liballeg.so.4.0`, `libstdc++.so.5`.
+Dat zijn precies de bibliotheken die `ElfLdr2` in zijn eigen proces emuleert.
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.

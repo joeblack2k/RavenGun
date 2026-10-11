@@ -46,3 +46,20 @@ zet het pad in `LD_AUDIT`, en dat is precies wat deze 32-bits game nodig heeft v
 brug (`docs/rt-glfix.md`). **`Audit` blijft hier dus op zijn standaard `true`** — de nieuwe sleutel
 `Audit = false` is voor de inline-hooks die het Cygwin-proces van de lader juist kapotmaken
 (`docs/elfldr2-route.md`, §3).
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF32 i386`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+/home/deck/.local/share/ravengun/runtime/views/PacmanChomp/game: error while loading shared libraries: libXrandr.so.2: cannot open shared object file: No such file or directory
+```
+
+Zonder ElfLdr2 stopt hij dus al bij de dynamic linker: **`libXrandr.so.2`** staat niet op deze
+machine.
+Dat zijn precies de bibliotheken die `ElfLdr2` in zijn eigen proces emuleert.
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.

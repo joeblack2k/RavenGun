@@ -170,3 +170,20 @@ python3 scripts/launch-direct.py GhostBusters --plan
 ```
 
 `findings/GhostBusters.md` op de NAS blijft de meetgeschiedenis van de game zelf.
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF32 i386`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+/home/deck/.local/share/ravengun/runtime/views/GhostBusters/pm/game: error while loading shared libraries: libGLU.so.1: cannot open shared object file: No such file or directory
+```
+
+Zonder ElfLdr2 stopt hij dus al bij de dynamic linker: **`libGLU.so.1`** staat niet op deze
+machine. In totaal mist deze machine er 4: `/usr/lib/libcsv.so`, `libGLU.so.1`, `libesd.so.0`, `libglut.so.3`.
+Dat zijn precies de bibliotheken die `ElfLdr2` in zijn eigen proces emuleert.
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.

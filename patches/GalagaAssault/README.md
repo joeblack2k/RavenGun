@@ -121,3 +121,21 @@ HASP_ZELFTEST_WACHT=2000 ./hasp_probe
 
 De probe wacht standaard 1500 ms (`HASP_ZELFTEST_WACHT`) omdat de hook vanuit een kijker-thread
 werkt en het spelbeeld eerst moet vinden. Het logboek van de hook staat in `RAVENGUN_HASP_ELF_LOG`.
+
+## Zonder ElfLdr2 (gemeten)
+
+Deze game is een **gewone Linux-ELF** (`ELF32 i386`), geen Windows-programma: hij heeft
+`/lib/ld-linux.so.2` als interpreter en vraagt dezelfde bibliotheken als elk Linux-spel. Toch
+start hij niet als je hem los start — en dat is gemeten, niet aangenomen:
+
+```
+./game: Segmentation fault (core dumped), zonder één regel uitvoer
+```
+
+Er ontbreekt hier **geen enkele bibliotheek**, en toch stopt hij meteen met een `SIGSEGV`
+zonder uitvoer: de dynamic linker maakt zijn werk af en de crash komt daarna, in de
+opstartcode van de game zelf. Deze game is dus het scherpste bewijs dat `ElfLdr2` niet
+weg te strepen is met "zet de ontbrekende bibliotheken neer".
+
+De volledige meting over de hele familie staat in `patches/ELF-NATIVE.md`; de generator is
+`patches/elf-native.py`.
