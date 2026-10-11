@@ -25,7 +25,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Terminator Salvation**: Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Tomb Raider Arcade**: Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.
-- **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Start (key 1 or Move Start), trigger and aiming work; the first load takes about 3.5 minutes ("SYSTEM INITIALIZING"). No coin needed (free play). The gun calibration screen, the test menu and the levers (attack/defend) have not been tried yet. Do not restart the engine while the game runs.
+- **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
 ## Not working yet (16)
 
