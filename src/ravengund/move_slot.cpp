@@ -140,18 +140,21 @@ void MoveSlot::emit(const InputSample& s) {
     rumble_step(mono_ns());
 }
 
-void MoveSlot::ps_hold_step(const InputSample& s) {
-    const bool held = (s.buttons & kBtnPS) != 0 && s.link != LinkState::Lost && s.link != LinkState::Disconnected;
-    if (!held) {
+bool MoveSlot::ps_hold_elapsed(bool held, int64_t now) {
+    if (!held) {              // losgelaten: opnieuw beginnen bij de volgende druk
         ps_down_since_ = 0;
         ps_hold_fired_ = false;
-        return;
+        return false;
     }
-    const int64_t now = mono_ns();
     if (ps_down_since_ == 0) ps_down_since_ = now;
-    if (ps_hold_fired_ || now - ps_down_since_ < kPsHoldStopNs) return;
-    ps_hold_fired_ = true;
-    if (!sh_.games) return;
+    if (ps_hold_fired_ || now - ps_down_since_ < kPsHoldStopNs) return false;
+    ps_hold_fired_ = true;    // precies één keer per keer vasthouden
+    return true;
+}
+
+void MoveSlot::ps_hold_step(const InputSample& s) {
+    const bool held = (s.buttons & kBtnPS) != 0 && s.link != LinkState::Lost && s.link != LinkState::Disconnected;
+    if (!ps_hold_elapsed(held, mono_ns()) || !sh_.games) return;
     // stop() start het stoppen op een eigen thread; hier alleen de korte controle of er iets draait.
     const games::Result r = sh_.games->stop();
     logf("info", "speler %d: PS-knop 3 s vastgehouden: game stoppen (%s)", player_, r.ok ? (r.message.empty() ? "gestart" : r.message.c_str()) : r.message.c_str());

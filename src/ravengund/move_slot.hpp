@@ -130,6 +130,11 @@ public:
     HidAux& aux() { return aux_; }
     const HidOptions& options() const { return opt_; }
 
+    // PS-knop lang vasthouden = game stoppen. De beslissing (drempel, één keer per keer vasthouden, resetten bij loslaten)
+    // staat los van de klok en de games-service, zodat ze deterministisch te testen is: geeft precies één keer true zodra het
+    // vasthouden de drempel haalt. `now` is monotoon in ns. ps_hold_step() roept dit aan met mono_ns() en stopt dan de game.
+    bool ps_hold_elapsed(bool held, int64_t now);
+
 private:
     void emit(const ravengun::core::InputSample& s);
     void ps_hold_step(const ravengun::core::InputSample& s);

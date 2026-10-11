@@ -203,6 +203,24 @@ int main() {
         auto ob = p2.due_output(t + 30'000'000);
         CHECK(ob && ob->r == 255 && ob->g == 255 && ob->b == 255);
 
+        // PS-knop lang vasthouden = game stoppen (ps_hold_elapsed, klok los van echte tijd). Drempel 3 s, één keer per keer
+        // vasthouden, reset bij loslaten. Een korte druk (recenter) raakt dit niet.
+        {
+            const int64_t s = 1'000'000'000, t0 = 10'000'000'000;  // 1 s in ns, een willekeurig startmoment
+            CHECK(!p1.ps_hold_elapsed(true, t0));                  // net ingedrukt
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 2 * s));          // 2 s: nog niet
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 3 * s - 1));      // net voor 3 s: nog niet
+            CHECK(p1.ps_hold_elapsed(true, t0 + 3 * s));           // 3 s: stoppen
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 5 * s));          // blijft vastgehouden: niet nog eens
+            CHECK(!p1.ps_hold_elapsed(false, t0 + 6 * s));         // losgelaten: reset
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 6 * s));          // opnieuw ingedrukt
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 8 * s));          // 2 s sinds opnieuw: nog niet
+            CHECK(p1.ps_hold_elapsed(true, t0 + 9 * s));           // weer 3 s: stoppen
+            // Een korte druk (minder dan 3 s) stopt niet.
+            CHECK(!p1.ps_hold_elapsed(false, t0 + 10 * s));
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 10 * s) && !p1.ps_hold_elapsed(false, t0 + 10 * s + s / 2));
+        }
+
         // Status per speler.
         auto st = json::parse(p2.status_json(false, t));
         CHECK(st.ok && st.value.find("player")->num == 2 && !st.value.find("config")->find("filter")->find("enabled")->b);
