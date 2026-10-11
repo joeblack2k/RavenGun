@@ -375,9 +375,29 @@ aparte bevinding, geen fout van de koppeling.
 3. **Terminator.** Geen cliënt in het spel (§5). Uitzoeken hoe die game zijn dongle dan wel
    controleert, is een aparte vraag.
 4. **De dongle-images van Jurassic Park en Galaga Assault.** De koppeling werkt, maar zonder
-   `patches/<Game>/dongle.json` antwoordt de emulator met `HASP_STATUS_INVALID_PARAMETER` (503). De
-   images staan in de spelmap (`Jurassic Park/utils/pmrtdata/`, en de hasp-map van Terminator), maar
-   de fileids en de beschrijving moeten nog worden vastgelegd.
+   `patches/<Game>/dongle.json` antwoordt de emulator met `HASP_STATUS_INVALID_PARAMETER` (503).
+
+   **Correctie (gemeten 2026-10-11).** Deze regel beweerde dat de images in de spelmap staan
+   (`Jurassic Park/utils/pmrtdata/`). Dat is niet zo. De hele NAS-boom is doorzocht op de
+   bestandsnaamvorm van het formaat (32 tekens 0/1), op hex-fileid-namen (`fff0`..`ffff`), op
+   bestanden van 112 bytes, op mappen `*hasp*`/`*dongle*`, op `*.dmp`/`*.dgl`/`*.rgd`/`*aladdin*`
+   en op `hasp.bin`. De **enige** dongle-images die er zijn, zijn die van Halo Fireteam
+   (`g7/halo/00000000000000001111111111110100`, `...01`, `fff4`, 112 bytes). `utils/pmrtdata/`
+   bevat 8× `libhasp_linux_<vendorid>.so` plus twee `.tga`: dat is de **vendor-runtime**, niet de
+   geheugenimage.
+
+   Wat er in de drop-ins van Jurassic Park en Galaga Assault staat is daarom een **gereconstrueerde**
+   image van 112 × `0xFF`, met de fileid uit de code (65522 resp. 65520) en in `notes` + README
+   duidelijk als reconstructie gemarkeerd: `FF FF FF FF` is een van de twee patronen die de eigen
+   controle van Jurassic Park goedkeurt, en `0xFF` is het patroon van gewist HASP-HL-geheugen zoals
+   de **echte** dump `Terminator Salvation/hasp/hhl_mem.dmp` het laat zien. Terminator gebruikt die
+   echte dump (128 bytes, sha256 `759668ae…`).
+
+   **De keten is end-to-end gemeten** met een 32-bits probe die zijn eigen `hasp_*`-functies in het
+   beeld heeft (net als `game`), voor alle drie de games: `hasp_login(0xffff0000) -> 0`,
+   `hasp_get_size` -> 112 (Terminator: 128), `hasp_read` -> de bytes uit de image, en
+   `echte_aanroepen = 0` (de statisch gelinkte client werd niet aangeroepen). De hook leest de ELF,
+   vindt de dynsym en haakt alle 10 `hasp_*`-symbolen aan.
 5. **Het kanaal netjes maken.** `LD_AUDIT` werkt, maar het is geen afgesproken route: de launcher zet
    het pad als `RG_DROPIN_PRELOAD` en niemand leest dat. De afspraak hoort te zijn: de launcher zet
    `RG_DROPIN_PRELOAD` in `LD_AUDIT` van het Wine-proces (zoals `patches/JurassicPark/dropin/dropin.ini`

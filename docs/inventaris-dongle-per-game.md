@@ -17,7 +17,7 @@ standaardwaarde); dat staat er dan bij.
 |---|---|---|---|---|---|
 | **3DCosplayMahjong** | TeknoParrot | TaitoTypeXGeneric | - | - |  |
 | **GaiaAttack4** | OpenParrot | GaiaAttack4 | - | - | parked |
-| **GalagaAssault** | ElfLdr2 | RawThrillsGUN | - | - | parked |
+| **GalagaAssault** | ElfLdr2 | RawThrillsGUN | hasp | drop-in (dongle.json + dropin/) | parked |
 | **Gashaaaan** | TeknoParrot | WartranTroopers | - | - | playable |
 | **Gashaaaan2** | TeknoParrot | WartranTroopers | - | - | playable |
 | **GhostBusters** | ElfLdr2 | RawThrillsGUN | - | - | parked |
@@ -27,7 +27,7 @@ standaardwaarde); dat staat er dan bij.
 | **HauntedMuseumII** | OpenParrot | HauntedMuseum2 | - | - | parked |
 | **HOTDSD** | TeknoParrot | ALLSHOTDSD | - | - | playable |
 | **InfinityBladeFX** | TeknoParrot | InfinityBlade | - | - | parked |
-| **JurassicPark** | ElfLdr2 | RawThrillsGUN | - | - | parked |
+| **JurassicPark** | ElfLdr2 | RawThrillsGUN | hasp | drop-in (dongle.json + dropin/) | parked |
 | **LethalEnforcers3** | TeknoParrot | WartranTroopers | - | - | parked |
 | **LGI** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json + dropin/) | playable |
 | **LGI3D** | TeknoParrot | SegaJvsLetsGoIsland | region | drop-in (dongle.json + dropin/) | playable |
@@ -36,6 +36,7 @@ standaardwaarde); dat staat er dan bij.
 | **MedaruNoGunman** | TeknoParrot | FarCry | - | - | parked |
 | **MusicGunGun2** | OpenParrot | MusicGunGun2 | - | - | parked |
 | **NERF** | TeknoParrot | WartranTroopers | - | - | playable |
+| **OG** | TeknoParrot | SegaJvsGoldenGun | region | drop-in (dongle.json + dropin/) | untested |
 | **OmatsuriYasanGansoTakoyaki** | TeknoParrot | WartranTroopers | - | - | parked |
 | **OmatsuriYasanKingyoSukui** | TeknoParrot | WartranTroopers | - | - | parked |
 | **Otomedius** | TeknoParrot | WartranTroopers | - | - | parked |
@@ -47,7 +48,7 @@ standaardwaarde); dat staat er dan bij.
 | **Rampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TankTankTank** | ElfLdr2 | DeadHeat | - | - |  |
 | **TC5** | TeknoParrot | TimeCrisis5 | hasp | drop-in (dongle.json + dropin/) | playable |
-| **Terminator** | ElfLdr2 | RawThrillsGUN | - | - | playable |
+| **Terminator** | ElfLdr2 | RawThrillsGUN | hasp | drop-in (dongle.json + dropin/) | playable |
 | **TombRaider** | TeknoParrot | WartranTroopers | - | - | playable |
 | **TransformersShadowsRising** | TeknoParrot | TransformersShadowsRising | - | - | playable |
 
@@ -55,7 +56,7 @@ standaardwaarde); dat staat er dan bij.
 
 * **3DCosplayMahjong** — -
 * **GaiaAttack4** — -
-* **GalagaAssault** — -
+* **GalagaAssault** — hasp (memory/ met 1 geheugenbestand, dropin/)
 * **Gashaaaan** — -
 * **Gashaaaan2** — -
 * **GhostBusters** — -
@@ -65,7 +66,7 @@ standaardwaarde); dat staat er dan bij.
 * **HauntedMuseumII** — -
 * **HOTDSD** — -
 * **InfinityBladeFX** — -
-* **JurassicPark** — -
+* **JurassicPark** — hasp (memory/ met 1 geheugenbestand, dropin/)
 * **LethalEnforcers3** — -
 * **LGI** — region (dropin/, niet afgedwongen, enforced = false)
 * **LGI3D** — region (dropin/, niet afgedwongen, enforced = false)
@@ -74,6 +75,7 @@ standaardwaarde); dat staat er dan bij.
 * **MedaruNoGunman** — -
 * **MusicGunGun2** — -
 * **NERF** — -
+* **OG** — region (dropin/, niet afgedwongen, enforced = false)
 * **OmatsuriYasanGansoTakoyaki** — -
 * **OmatsuriYasanKingyoSukui** — -
 * **Otomedius** — -
@@ -85,7 +87,7 @@ standaardwaarde); dat staat er dan bij.
 * **Rampage** — -
 * **TankTankTank** — -
 * **TC5** — hasp (dropin/)
-* **Terminator** — -
+* **Terminator** — hasp (memory/ met 1 geheugenbestand, dropin/)
 * **TombRaider** — -
 * **TransformersShadowsRising** — -
 
@@ -96,7 +98,7 @@ standaardwaarde); dat staat er dan bij.
 * **GalagaAssault** — Geparkeerd. Een van drie Raw Thrills-games (met Jurassic Park, Pac-Man Chomp-Mania en Galaga Assault) die de lader van TeknoParrot onder Wine nog niet
 * **Gashaaaan** — Speelbaar: munt (toets 5), start (toets 1), vizier en trekker (de bal) werken; eerste start toont 'BACKUP DATA ERROR': eenmaal TEST (toets 0) herstelt
 * **Gashaaaan2** — Speelbaar na eenmalige instelling in het testmenu (klok, scherm, free play; staat nu in de game-opslag). Daarna start, vizier en trekker (de bal) werk
-* **GhostBusters** — Start nog niet: de loader meldt 'GAME PATH CHECK FAILED' (de dump heeft geen donglebestand zoals Halo en Terminator). Geparkeerd.
+* **GhostBusters** — De padcontrole van de ElfLdr2-lader is opgelost. De lader eist dat alle bestanden van deze game in een map met de naam pm staan (de installatiewortel 
 * **GoGoStrike** — Werkt: bowling met de Move als trackball (richting en zwaai bepalen de worp), start (toets 1) en trekker (klik). Het beeld is 4:3 met zwarte randen (g
 * **Halo** — Werkt volledig: lightgun, knoppen, trillen.
 * **HauntedMuseum** — Start nog niet: geen beeld. De Wine-crash (MXCSR=0 door de lader) is omzeild (RG_LOADER_FPFIX), de game loopt de JVS-ketting door maar blijft zwart (g
@@ -112,6 +114,7 @@ standaardwaarde); dat staat er dan bij.
 * **MedaruNoGunman** — Start nog niet zonder fout: beeld, munt (toets 5), herladen, trekker en aim werken, maar de game meldt bij elke verse start 3001 RAM DATA IS BAD of 30
 * **MusicGunGun2** — Start nog niet: de Wine-crash is omzeild (RG_LOADER_FPFIX), maar de game toont eigen foutvenster 'Direct3D-initialisatie mislukt' (ook met DXVK) en op
 * **NERF** — Speelbaar: free play, start (toets 1), richten en trekker (score loopt op). Draait met DXVK in een eigen Wine-prefix; de BepInEx-plugin laadt. Niet ge
+* **OG** — Nog niet gestart. De game vraagt een regio- en printplaat-dongle; de waarden (JAPAN/JAPAN) staan in dropin/ravengun-hasp/OG/dongle.json. De dongle is 
 * **OmatsuriYasanGansoTakoyaki** — Start nog niet: wit venster (1024x768), de game maakt geen D3D-apparaat; de kern doet bij de start een online activeringsaanvraag. Geparkeerd.
 * **OmatsuriYasanKingyoSukui** — Start nog niet: de game stopt met exitcode 8 nadat hij alle schijfletters heeft doorzocht op rqrdlist.rqr en campaign*.bmp. Geparkeerd.
 * **Otomedius** — Start nog niet: wit venster; de game zoekt een ACIO-micom op COM2 ('COM Port 2 Open Error') en komt niet verder. Geparkeerd.
