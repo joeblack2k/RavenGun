@@ -50,7 +50,7 @@ De uitkomsten daarvan staan onder [Verificatie](#verificatie-met-de-loader-zelf)
 | **Halo** | ja | playable | 7 / 7 | - | ok | hasp | ja | drop-in compleet na reparatie (7 bestanden, 7 secties); de 32-bits hook heeft bewust geen `Preload` |
 | **HauntedMuseum** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (geen beeld); `patches.ini` aanwezig |
 | **HauntedMuseumII** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (geen beeld); `patches.ini` aanwezig |
-| **InfinityBladeFX** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (UE3: wit of zwart beeld) |
+| **InfinityBladeFX** | ja | parked | 3 / 3 | - | ok | matrix | ja | geparkeerd (UE3: wit of zwart beeld) |
 | **JurassicPark** | ja | parked | 6 / 6 | - | ok | hasp | ja | **andere agent**; het bestand zonder sectie is een 64-bits overblijfsel van `build-hasphook.sh` in een 32-bits game |
 | **LGI** | ja | playable | 1 / 1 | - | ok | region | ja | **regio-agent**; regio niet afgedwongen (`enforced = false`) |
 | **LGI3D** | ja | playable | 1 / 1 | - | ok | region | ja | **regio-agent**; regio niet afgedwongen (`enforced = false`) |
@@ -66,21 +66,21 @@ De uitkomsten daarvan staan onder [Verificatie](#verificatie-met-de-loader-zelf)
 | **Otomedius** | ja | parked | geen `dropin/` | - | - | - | ja | geparkeerd (COM2/Acio-micom) |
 | **PacmanChomp** | ja | parked | 1 / 1 | - | ok | - | ja | geparkeerd (zwart beeld) |
 | **PigsMightFly** | ja | playable | geen `dropin/` | - | - | - | ja | compleet |
-| **RabbidsHollywood** | ja | parked | 2 / **1** | `matrix/matrix.ini` | ok | - | ja | sectie ontbreekt voor `matrix/matrix.ini`; geen `dongle.json` (matrix verwacht); **andere agent**; `matrix/matrix.ini` wordt door onze eigen `matrix64.dll` gelezen, dus zonder sectie komt het niet aan |
+| **RabbidsHollywood** | ja | parked | 3 / 3 | - | ok | matrix | ja | **andere agent**; `matrix/matrix.ini` wordt door onze eigen `matrix64.dll` gelezen, dus zonder sectie komt het niet aan |
 | **RaccoonRampage** | ja | playable | geen `dropin/` | - | - | - | ja | compleet |
 | **RainbowBombergirl** | ja | parked | geen `dropin/` | - | - | - | **nee** | geen README; geparkeerd (personagekeuze komt niet) |
-| **Rampage** | ja | playable | geen `dropin/` | - | - | - | **nee** | geen README; speelbaar; joystickspel, geen lightgun-game |
+| **Rampage** | ja | playable | 3 / 3 | - | ok | matrix | ja | speelbaar; joystickspel, geen lightgun-game |
 | **TC5** | ja | playable | 4 / 4 | - | ok | hasp | ja | dongle-image ontbreekt (`memory` is leeg, `hasp.py` meldt de dongle onvolledig) |
 | **TankTankTank** | ja | **-** | geen `dropin/` | - | - | - | **nee** | geen `[Status] Status`; geen README; niet direct te starten: gamemap niet ingesteld (`--plan` rc=4) |
 | **Terminator** | ja | playable | 3 / 3 | - | ok | hasp | ja | **andere agent**; geen `dropin/` terwijl `build-hasphook.sh` die wel vult |
-| **TombRaider** | ja | playable | geen `dropin/` | - | - | - | **nee** | geen README; speelbaar |
+| **TombRaider** | ja | playable | 3 / 3 | - | ok | matrix | ja | speelbaar |
 | **TransformersShadowsRising** | ja | playable | geen `dropin/` | - | - | - | **nee** | geen `dongle.json` (sega-scan verwacht); geen README |
 
 ## `To` en de sectienaam: de dest van elk drop-in-bestand
 
 De drop-in-motor rekent `dest = view + To + sectienaam`, en de sectienaam is het pad onder `dropin/` (`docs/dropins.md`). Zet je het pad ook in `To`, dan komt het bestand een niveau te diep en vindt de bibliotheek het niet terug -- de motor meldt daar **geen fout** voor, dus dit is een stille fout. De controle hieronder is: is `To` gelijk aan `.`, of bevat de sectienaam geen pad dat al met `To` begint?
 
-**Uitkomst: geen enkele sectie heeft dit probleem.** Alle 32 secties in de 11 `dropin.ini`-bestanden staan goed.
+**Uitkomst: geen enkele sectie heeft dit probleem.** Alle 43 secties in de 14 `dropin.ini`-bestanden staan goed.
 
 Deze fout heeft er **wel** in gestaan: in Halo, TC5, LGI, LGI3D, LGS en `_template` stond bij elke donglesectie het pad dubbel, bijvoorbeeld:
 
@@ -100,16 +100,16 @@ Met `To = .` wordt dat `view/ravengun-hasp/Halo/dongle.json`, precies waar `RAVE
 | games | 36 |
 | met `game.ini` | 36 |
 | met `[Status] Status` | 34 |
-| met README.md | 29 |
-| met een `dropin/`-map | 12 |
-| ... waarvan elk bestand een sectie heeft | 11 |
-| ... waar nog een bestand zonder sectie staat | 1 |
-| met `dongle.json` | 9 |
-| dongle verwacht maar nog geen `dongle.json` | 5 |
+| met README.md | 31 |
+| met een `dropin/`-map | 15 |
+| ... waarvan elk bestand een sectie heeft | 15 |
+| ... waar nog een bestand zonder sectie staat | 0 |
+| met `dongle.json` | 13 |
+| dongle verwacht maar nog geen `dongle.json` | 4 |
 
-Dongles die er zijn: **GalagaAssault** (hasp), **Halo** (hasp), **JurassicPark** (hasp), **LGI** (region), **LGI3D** (region), **LGS** (region), **OG** (region), **TC5** (hasp), **Terminator** (hasp).
+Dongles die er zijn: **GalagaAssault** (hasp), **Halo** (hasp), **InfinityBladeFX** (matrix), **JurassicPark** (hasp), **LGI** (region), **LGI3D** (region), **LGS** (region), **OG** (region), **RabbidsHollywood** (matrix), **Rampage** (matrix), **TC5** (hasp), **Terminator** (hasp), **TombRaider** (matrix).
 
-Dongle verwacht maar nog niet aanwezig (uit `docs/dropins.md` en `docs/todo.md`): **GhostBusters** (hasp), **HOTDSD** (amdaemon), **NERF** (hasp), **RabbidsHollywood** (matrix), **TransformersShadowsRising** (sega-scan).
+Dongle verwacht maar nog niet aanwezig (uit `docs/dropins.md` en `docs/todo.md`): **GhostBusters** (hasp), **HOTDSD** (amdaemon), **NERF** (hasp), **TransformersShadowsRising** (sega-scan).
 
 Een bestand in `dropin/` zonder eigen sectie in `dropin.ini` wordt **niet** uitgerold; dat is de enige fout die de drop-in-motor stil laat passeren (`docs/dropins.md`).
 

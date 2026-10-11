@@ -1,71 +1,92 @@
 # Starttest per game
 
-Elke game is met de eigen lader gestart, 30 seconden laten draaien, en daarna opgeruimd. Gemaakt op 2026-10-11 22:40 uit de ruwe uitvoer van `starttest-batch.sh`.
+Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-11 23:18 uit de ruwe uitvoer van `starttest3.sh`.
 
 ```bash
 # één game
-bash /home/deck/starttest-batch.sh 30 <Game>
-# alle games (elke run schrijft zijn eigen /tmp/rg-starttest-resultaat-<pid>.txt)
-bash /home/deck/starttest-batch.sh 30
+bash /home/deck/starttest3.sh 22 <Game>
+# alle games (elke run schrijft zijn eigen /tmp/rg-start3-<pid>.txt)
+bash /home/deck/starttest3.sh 22
 python3 patches/starttest-gen.py
 ```
 
-**START** = de lader laadde de game (`Have fun :)` of `Loading game...`) en het proces leefde na 30 seconden nog. **viel-uit** = de game begon te laden maar het proces was eerder weg. **start-niet** = de game is nooit begonnen; de laatste logregel zegt waarom.
+## Wat er gemeten wordt
 
-| Game | Resultaat | Laatste logregel |
-|---|---|---|
-| 3DCosplayMahjong | start-niet | Niet direct te starten: game niet gevonden: '' (voeg de map met de gam |
-| GaiaAttack4 | START | [launch-direct 22:29:55] lader gestopt (exitcode 0); de game volgen |
-| GalagaAssault | start-niet | [launch-direct 22:30:37] klaar (exitcode gestopt) |
-| Gashaaaan | START | Have fun :) |
-| Gashaaaan2 | START | - |
-| GhostBusters | start-niet | [launch-direct 22:32:17] klaar (exitcode gestopt) |
-| GoGoStrike | start-niet | [gamescopereaper] [[0;34mInfo[0m]  [0;37mreaper:[0m Parent of game |
-| HOTDSD | start-niet | Niet direct te starten: profielen met twee exe's worden niet direct ge |
-| Halo | start-niet | Cpmgui end 3472 |
-| HauntedMuseum | START | [launch-direct 22:33:28] JVS-pipe: verbinding dicht (44 bytes van de g |
-| HauntedMuseumII | START | [launch-direct 22:34:01] JVS-pipe: verbinding dicht (37 bytes van de g |
-| InfinityBladeFX | START | Have fun :) |
-| JurassicPark | start-niet | [launch-direct 22:17:04] klaar (exitcode -11) |
-| LGI | START | [launch-direct 22:17:38] JVS-pipe: verbinding dicht (26 bytes van de g |
-| LGI3D | START | [launch-direct 22:18:11] JVS-pipe: verbinding dicht (26 bytes van de g |
-| LGS | START | [launch-direct 22:18:44] JVS-pipe: verbinding dicht (26 bytes van de g |
-| LethalEnforcers3 | START | Have fun :) |
-| LuigisMansion | START | Have fun :) |
-| MedaruNoGunman | START | Have fun :) |
-| MusicGunGun2 | START | [launch-direct 22:20:56] lader gestopt (exitcode 0); de game volgen |
-| NERF | START | Have fun :) |
-| OG | START | Resolved target kernel32.dll procedure: local=7BE7E2F4 remote=7BE7E2F4 |
-| OmatsuriYasanGansoTakoyaki | START | Have fun :) |
-| OmatsuriYasanKingyoSukui | START | - |
-| Otomedius | viel-uit | - |
-| PacmanChomp | start-niet | [launch-direct 22:23:36] klaar (exitcode gestopt) |
-| PigsMightFly | START | Have fun :) |
-| RabbidsHollywood | START | Have fun :) |
-| RaccoonRampage | START | - |
-| RainbowBombergirl | START | Have fun :) |
-| Rampage | START | - |
-| TC5 | START | Have fun :) |
-| TankTankTank | start-niet | Niet direct te starten: game niet gevonden: '' (voeg de map met de gam |
-| Terminator | start-niet | [launch-direct 22:27:34] klaar (exitcode gestopt) |
-| TombRaider | START | Have fun :) |
-| TransformersShadowsRising | START | Have fun :) |
+| Kolom | Betekenis |
+|---|---|
+| SPEL | de seconde waarop het SPELPROCES voor het eerst gezien is (0 = nooit) |
+| LADER | leefde de launcher nog toen de meting afliep |
+| **START** | het spelproces is gezien en leefde aan het eind nog |
+| **viel-uit** | het spelproces is gezien maar was daarna weg |
+| **lader-levend** | geen spelproces gevonden, maar de launcher liep nog |
+| **niet-gestart** | geen van beide |
+
+Het spelproces wordt gezocht op de laatste twee delen van het pad van de exe, in BEIDE
+schrijfwijzen: een Wine-proces heeft het Windows-pad in zijn commandoregel
+(`Z:\\...\\views\\LGI\\...`), niet het Linux-pad.
+
+### Twee maten die niet werken (en waarom)
+
+1. **Wachten op `Have fun :)` of `Loading game...`.** Die twee regels komen uit de
+   OpenParrot-lader en bestaan in de **ElfLdr2-route niet**: 0 treffers in de zeven
+   ElfLdr2-game-ELF's, in de vier `BudgieLoader`-bestanden en in `ElfLdr2/TeknoParrot.dll`.
+   Elke ElfLdr2-game las daardoor `start-niet` terwijl hij liep.
+2. **Opruimen met `pkill -f <bestandsnaam van de exe>`.** Zes games hebben een exe die
+   letterlijk `game` heet, dus een starttest van de ene game doodde de start van een andere;
+   en met een leeg patroon matcht `pkill -f ""` elk proces. Er wordt nu op de map van de exe
+   gematcht, en nooit met een leeg patroon.
+
+| Game | Resultaat | SPEL (s) | LADER | Laatste logregel |
+|---|---|---|---|---|
+| GaiaAttack4 | START | 2 | 1 | [launch-direct 23:04:35] klaar (exitcode gestopt) |
+| GalagaAssault | START | 2 | 1 | [launch-direct 23:04:59] klaar (exitcode gestopt) |
+| Gashaaaan | START | 2 | 1 | [launch-direct 23:05:25] klaar (exitcode gestopt) |
+| Gashaaaan2 | START | 2 | 1 | [launch-direct 23:05:50] klaar (exitcode gestopt) |
+| GhostBusters | START | 2 | 1 | [launch-direct 23:06:16] klaar (exitcode gestopt) |
+| GoGoStrike | START | 2 | 1 | [launch-direct 23:06:41] klaar (exitcode gestopt) |
+| Halo | START | 1 | 1 | [launch-direct 23:07:06] klaar (exitcode gestopt) |
+| HauntedMuseum | START | 1 | 1 | [launch-direct 23:07:31] klaar (exitcode gestopt) |
+| HauntedMuseumII | START | 1 | 1 | [launch-direct 23:07:56] klaar (exitcode gestopt) |
+| InfinityBladeFX | START | 1 | 1 | [launch-direct 23:08:21] klaar (exitcode gestopt) |
+| JurassicPark | START | 1 | 1 | [launch-direct 23:08:46] klaar (exitcode gestopt) |
+| LGI | START | 2 | 1 | [launch-direct 23:09:12] klaar (exitcode gestopt) |
+| LGI3D | START | 2 | 1 | [launch-direct 23:09:37] klaar (exitcode gestopt) |
+| LGS | START | 2 | 1 | [launch-direct 23:10:02] klaar (exitcode gestopt) |
+| LethalEnforcers3 | START | 2 | 1 | [launch-direct 23:10:28] klaar (exitcode gestopt) |
+| LuigisMansion | START | 2 | 1 | [launch-direct 23:10:53] klaar (exitcode gestopt) |
+| MedaruNoGunman | START | 1 | 1 | [launch-direct 23:11:18] klaar (exitcode gestopt) |
+| MusicGunGun2 | START | 2 | 1 | [launch-direct 23:11:43] klaar (exitcode gestopt) |
+| NERF | START | 2 | 1 | [launch-direct 23:12:08] klaar (exitcode gestopt) |
+| OG | START | 2 | 1 | [launch-direct 23:12:34] klaar (exitcode gestopt) |
+| OmatsuriYasanGansoTakoyaki | START | 2 | 1 | [launch-direct 23:12:59] klaar (exitcode gestopt) |
+| OmatsuriYasanKingyoSukui | START | 2 | 1 | [launch-direct 23:13:24] klaar (exitcode gestopt) |
+| Otomedius | START | 2 | 1 | [launch-direct 23:13:49] klaar (exitcode gestopt) |
+| PacmanChomp | START | 2 | 1 | [launch-direct 23:14:14] klaar (exitcode gestopt) |
+| PigsMightFly | START | 2 | 1 | [launch-direct 23:14:40] klaar (exitcode gestopt) |
+| RabbidsHollywood | START | 2 | 1 | [launch-direct 23:15:05] klaar (exitcode gestopt) |
+| RaccoonRampage | START | 2 | 1 | [launch-direct 23:15:29] klaar (exitcode gestopt) |
+| RainbowBombergirl | START | 2 | 1 | [launch-direct 23:15:55] klaar (exitcode gestopt) |
+| Rampage | START | 2 | 1 | [launch-direct 23:16:20] klaar (exitcode gestopt) |
+| TC5 | START | 2 | 1 | [launch-direct 23:16:45] klaar (exitcode gestopt) |
+| Terminator | START | 2 | 1 | [launch-direct 23:17:11] klaar (exitcode gestopt) |
+| TombRaider | START | 2 | 1 | [launch-direct 23:17:36] klaar (exitcode gestopt) |
+| TransformersShadowsRising | START | 2 | 1 | [launch-direct 23:18:01] klaar (exitcode gestopt) |
 
 ## Tellingen
 
 | | aantal |
 |---|---|
-| getest | 36 |
-| START | 25 |
-| viel-uit | 1 |
-| start-niet | 10 |
+| getest | 33 |
+| START | 33 |
+| viel-uit | 0 |
+| lader-levend | 0 |
+| niet-gestart | 0 |
 
-**START:** GaiaAttack4, Gashaaaan, Gashaaaan2, HauntedMuseum, HauntedMuseumII, InfinityBladeFX, LGI, LGI3D, LGS, LethalEnforcers3, LuigisMansion, MedaruNoGunman, MusicGunGun2, NERF, OG, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, PigsMightFly, RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, TombRaider, TransformersShadowsRising
-
-**viel-uit:** Otomedius
-
-**start-niet:** 3DCosplayMahjong, GalagaAssault, GhostBusters, GoGoStrike, HOTDSD, Halo, JurassicPark, PacmanChomp, TankTankTank, Terminator
+**START:** GaiaAttack4, GalagaAssault, Gashaaaan, Gashaaaan2, GhostBusters, GoGoStrike, Halo, HauntedMuseum, HauntedMuseumII, InfinityBladeFX, JurassicPark, LGI, LGI3D, LGS, LethalEnforcers3, LuigisMansion, MedaruNoGunman, MusicGunGun2, NERF, OG, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, Otomedius, PacmanChomp, PigsMightFly, RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, Terminator, TombRaider, TransformersShadowsRising
 
 ## Wat een meting niet zegt
 
-Dit zegt dat de game **start en blijft draaien**, niet dat hij speelbaar is: of het beeld goed is, of de ingang werkt en of de dongle wordt beantwoord staat er niet in. Voor de games met een dongle is de donglecontrole een aparte meting (`scripts/hasp.py --game <Game> --json` voor de gegevens, en het logboek van de start voor de vraag of de bibliotheek geladen wordt).
+Dit zegt dat de game **start en blijft draaien**, niet dat hij speelbaar is. Of het beeld
+goed is, of de ingang werkt en of de dongle beantwoord wordt staat er niet in. Voor de games
+met een dongle is dat een aparte meting (`scripts/hasp.py --game <Game> --json` voor de
+gegevens, en het logboek van de start voor de vraag of de bibliotheek geladen wordt).

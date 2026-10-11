@@ -1,0 +1,40 @@
+{
+  "kind": "matrix",
+  "game": "RabbidsHollywood",
+  "title": "Rabbids Hollywood Arcade",
+  "platform": "Adrenaline Amusements, Unity 2017.2 (Mono, 64-bits)",
+  "library": "matrix64.dll",
+  "port": 85,
+  "dongles": 2,
+  "sernr": 69420,
+  "api": [
+    "Init_MatrixAPI",
+    "Dongle_Count",
+    "Dongle_ReadSerNr"
+  ],
+  "enforced": true,
+  "answers": {
+    "Init_MatrixAPI()": 0,
+    "Dongle_Count(85)": 2,
+    "Dongle_ReadSerNr(Dongle, aantal, 85)": 69420
+  },
+  "evidence": {
+    "assembly": "Game_Data/Managed/Assembly-CSharp.dll",
+    "class": "SBK.Matrix.MatrixManager",
+    "wrapper": "MatrixDLLCSharp.MatrixWrapper",
+    "check_method": "SBK.Matrix.MatrixManager::KDLGNPHHMKI (aangeroepen uit Awake)",
+    "il": [
+      "IL_0022: ldc.i4.s 85                              ; de poort",
+      "IL_0024: call MatrixDLLCSharp.MatrixWrapper::Dongle_Count",
+      "IL_0035: bgt IL_003C                              ; aantal <= 0 -> code 2",
+      "IL_0049: ldc.i4.s 85",
+      "IL_004b: call MatrixDLLCSharp.MatrixWrapper::Dongle_ReadSerNr",
+      "IL_006b: bgt IL_0076                              ; reeks <= 0 -> code 3"
+    ],
+    "quit_path": "SBK.Matrix.MatrixManager+FKNNJPMOCDC::MoveNext: \"**** DONGLE NOT FOUND\", WaitForSeconds(30.0), UnityEngine.Application::Quit",
+    "unused_variant": "SBK.Matrix.MatrixManager::EGIEJAEHODM eist Dongle_Count(40) > 1; die variant wordt door niets aangeroepen. Wie alleen die leest, concludeert ten onrechte poort 40 en aantal >= 2.",
+    "measured": "zonder dongle stopt de game na ~57 s; met Dongle_Count = 2 en Dongle_ReadSerNr = 69420 liep hij > 200 s door (docs/matrix-layer.md, \"Metingen\")",
+    "teknoParrot": "TeknoParrot's eigen matrix32.dll (Infinity Blade FX/Binaries/Win32, 109056 bytes) geeft Init_MatrixAPI 0, Dongle_Count 2 en Dongle_ReadSerNr 69420 en laat de rest aan het origineel over"
+  },
+  "notes": "De game leest GEEN dongle-geheugen: Dongle_ReadData/Dongle_WriteData/Dongle_MemSize komen in de hele assembly niet voor (dnlib grep-il), dus er is geen memory-lijst en matrix.ini heeft geen memory-regel. LET OP: acht methoden van SBK.Matrix.MatrixManager roepen Dongle_EncryptData of Dongle_DecryptData aan (de savegame-versleuteling, o.a. KPHIPOINDLP, AJPGJFKKFIB, EDNBLKCLMOI); onze laag laat de buffer ongemoeid en geeft 0 terug, en dat blijft alleen consistent zolang beide richtingen een no-op zijn -- met een echte dongle versleutelde gegevens kan deze laag niet ontsleutelen. Het serienummer 69420 is geen serienummer van de eigenaar maar een vaste, zelfgekozen waarde (0x10F2C), dezelfde die TeknoParrot's emulator teruggeeft; de laag leest of logt nooit een echt serienummer (matrix/src/matrix.h). De gegevens die de bibliotheek zelf leest staan in matrix/matrix.ini (poort 85, aantal 2) -- dat bestand is de bron voor de DLL, dit bestand is de machineleesbare beschrijving van welke dongle de game vraagt."
+}
