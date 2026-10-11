@@ -304,3 +304,38 @@ grep -c 'DongleRegion\|PcbRegion\|Region' cores\dump\TpHost32_8296_691b0000_Tekn
 python3 scripts/region.py --game LGI --json
 python3 scripts/region.py
 ```
+
+
+---
+
+## 8. Wat wel en niet per game is nagelopen
+
+Deze laag is per game nagelopen voor de games hieronder. **De overige games zijn NIET een voor een
+gecontroleerd** op een regio/printplaat-dongle; ze hebben geen `dongle.json` met `kind: region`, en
+dat betekent "geen bewijs gevonden", niet "bewezen geen dongle". Wie de lijst compleet wil, moet per
+game de `amDongle*`-aanroepen in de executable nalopen (zie §7).
+
+**Een regio/printplaat-dongle, vastgelegd** (`patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json`,
+`kind: region`, `enforced: false` omdat de 32-bits kern `DongleRegion`/`PcbRegion` niet kent en het
+profiel de regio zelf zet):
+
+| Game | Regio | Bron van de waarde |
+|---|---|---|
+| LGI | JAPAN | profiel `SegaJvsLetsGoIsland` |
+| LGI3D | JAPAN | idem |
+| LGS | JAPAN | profiel `LGS` |
+| OG (Operation G.H.O.S.T.) | JAPAN | `GameProfiles/OG.xml` + `findings/data/target_hw_patch.json`, **niet** aan een draaiende game gemeten (`[Status] = untested`) |
+
+**Meetbaar GEEN regio-dongle, met het bewijs waarom** — dit zijn de gevallen die het vaakst
+verkeerd gaan, want ze zien er op het eerste gezicht hetzelfde uit:
+
+| Game | Wat de executable wél vraagt | Bewijs |
+|---|---|---|
+| Medaru No Gunman | de **keychip** van de Lindbergh/Ring-familie (`amDongleOpen`, `keychip.appboot.region/gameid/platformid`, `keychip.billing.*`, `keychip.tracedata.*`, `Keychip Not Found.`, `Wrong Region.`) | `patches/MedaruNoGunman/README.md` |
+| GhostBusters | geen dongle maar een **`pm`-map**: de map van de elf moet `pm` heten (`GAME PATH CHECK FAILED!... path=%s`) | `patches/GhostBusters/README.md` |
+| NERF | geen HASP-image: de dongle wordt in **managed code** gevraagd (`UDongleControl`) en een plugin beantwoordt die | `patches/NERF/README.md` |
+
+**Open.** De keychip van Medaru No Gunman is een eigen laag (facturatie, tracelading, SSD-bewijs) en
+is niet gebouwd; de `amdaemon`-kant ervan staat in `docs/amdaemon.md`. En de vraag uit de opdracht —
+"de regio-laag voor de ~30 Sega-titels" — is dus **deels** beantwoord: vier games vastgelegd, drie
+games met bewijs uitgesloten, de rest niet nagelopen.
