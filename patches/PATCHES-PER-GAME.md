@@ -300,6 +300,36 @@ partitie die wél sluit is: **3** zonder patch + **16** met een drop-in + **4** 
 
 ---
 
+## Wat de zonder-lader-meting aan de kolom *eigen kern* verandert
+
+`patches/ZONDER-LADER.md` (ronde 34) meet iets wat deze kaart nog niet wist: elke game is gestart met
+**alleen `wine <exe>`** — geen lader en geen kern. Van de **22 games met de gesloten kern blijven er
+15 draaien**:
+
+> InfinityBladeFX, LGI, LGI3D, LGS, NERF, OG, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui,
+> RabbidsHollywood, RaccoonRampage, RainbowBombergirl, Rampage, TC5, TombRaider,
+> TransformersShadowsRising
+
+Voor die vijftien is de gesloten `TeknoParrot(64).dll` dus **niet nodig om te blijven draaien**. Wat
+er in de gewone start verder bij komt is besturing, het JVS-bord, de dongle en de regio — en dat is
+precies wat onze eigen lader en de drop-ins al leveren.
+
+**Zeven vielen uit:** Gashaaaan, Gashaaaan2, LethalEnforcers3, Luigi's Mansion, MedaruNoGunman,
+Otomedius en Pigs Might Fly. Voor die zeven is er wél iets structureels aan de hand. Twee
+voorbehouden die `ZONDER-LADER.md` zelf noemt: het venster is 20 seconden, en bij een **gepakte** exe
+kan de meting het spoor verliezen (Luigi's Mansion en Pigs Might Fly zijn gepakt; Pigs Might Fly gaf
+in de ene run START en in de andere viel hij uit). De drie games die die proef niet kon plannen
+(3DCosplayMahjong, HOTDSD, TankTankTank) staan er helemaal niet in.
+
+**Wat dat betekent voor deze kaart.** De kolom *Patch nodig: `eigen kern`* zegt dat de gesloten kern
+**in de startketen zit**, niet dat die kern onmisbaar is. Voor de vijftien hierboven hoeft er dus geen
+`EmulationProfile` met per-game hooks nagebouwd te worden om ze te laten *draaien*; het werk zit daar
+in besturing en I/O. Voor de zeven die uitvielen blijft de vraag open. **En dit is niet gemeten met
+onze eigen lader zónder kern** — dat kan de directe start niet — dus dat het zonder kern zou kunnen
+is een gevolgtrekking, geen meting.
+
+---
+
 ## Per game: de onderbouwing
 
 ### A. De vier games met een eigen kern en een `patches.ini`
