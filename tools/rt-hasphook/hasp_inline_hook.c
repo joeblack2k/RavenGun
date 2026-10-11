@@ -598,14 +598,27 @@ static void *hh_emulator;
 
 static void *hh_open_geisoleerd(const char *pad)
 {
+    /*
+     * De emulator het liefst in een EIGEN naamruimte (dlmopen), zodat zijn hasp_*-exporten niet in
+     * de globale naamruimte van het spel komen. Onder de Wine-preloader is dlmopen echter niet
+     * betrouwbaar gebleken (het proces sterft), dus daar gebruiken we dlopen met RTLD_LOCAL.
+     * RTLD_LOCAL is hier voldoende: de game vindt zijn eigen, statisch gelinkte hasp-code via zijn
+     * eigen adressen (geen PLT, geen GOT), dus een export in de globale naamruimte is voor het spel
+     * niet nodig — en RTLD_LOCAL houdt hem er juist buiten.
+     */
+    {
+        const char *wil_dlmopen = getenv("RAVENGUN_HASP_ELF_DLMOPEN");
+        if (wil_dlmopen && *wil_dlmopen && strcmp(wil_dlmopen, "0") != 0) {
 #ifdef LM_ID_NEWLM
-    void *h = dlmopen(LM_ID_NEWLM, pad, RTLD_NOW | RTLD_LOCAL);
-    if (h) {
-        hh_say("emulator in een EIGEN naamruimte geladen (dlmopen): %s", pad);
-        return h;
-    }
-    hh_say("dlmopen mislukt (%s); terug naar dlopen", dlerror());
+            void *h = dlmopen(LM_ID_NEWLM, pad, RTLD_NOW | RTLD_LOCAL);
+            if (h) {
+                hh_say("emulator in een EIGEN naamruimte geladen (dlmopen): %s", pad);
+                return h;
+            }
+            hh_say("dlmopen mislukt (%s); terug naar dlopen", dlerror());
 #endif
+        }
+    }
     {
         void *h = dlopen(pad, RTLD_NOW | RTLD_LOCAL);
         if (h)
@@ -881,14 +894,8 @@ static int hh_verzamel(void)
 {
     size_t i;
     int n = 0;
-    hh_say("  [dbg] symtab=%p strtab=%p sym_n=%zu", (const void *)hh_symtab, (const void *)hh_strtab,
-           hh_sym_n);
     for (i = 0; i < hh_sym_n; i++) {
         const char *naam = hh_sym_naam(i);
-        if (i < 6)
-            hh_say("  [dbg] sym[%zu] st_name=%u naam=%s waarde=0x%08llx shndx=%u", i,
-                   (unsigned)hh_symtab[i].st_name, naam ? naam : "(geen)",
-                   (unsigned long long)hh_symtab[i].st_value, (unsigned)hh_symtab[i].st_shndx);
         if (!naam || strncmp(naam, "hasp_", 5) != 0)
             continue;
         if (hh_symtab[i].st_shndx == SHN_UNDEF || hh_symtab[i].st_value == 0)
@@ -984,8 +991,6 @@ static void *hh_kijker(void *arg)
 
     for (r = 0; r < rondes && !hh_gedaan; r++) {
         if (!hh_zoek_beeld()) {
-            if (hh_verbose && (r % (200 / (ms > 0 ? ms : 1) + 1)) == 0)
-                hh_say("  [dbg] ronde %ld: nog geen spelbeeld", r);
             usleep((useconds_t)(ms * 1000));
             continue;
         }

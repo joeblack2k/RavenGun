@@ -243,23 +243,21 @@ def _patch_file_bytes(data, patch):
     return data.replace(find, repl), len(repl) * found
 
 
-def apply_game_obj(g, game_name, exe_path=None, loader=None, core=None, materialize=False,
-                   exe_sha256=None, allow_in_place=True, take_over_core=False):
-    """Past de patches van één game toe, met de instellingen van die game opnieuw gelezen.
+def apply_game(game_name, exe_path=None, loader=None, core=None, materialize=False,
+               patches_dir=None, exe_sha256=None, allow_in_place=True, take_over_core=False):
+    """Past de patches van één game toe. Geeft een Report.
 
-    Let op: dit leest `patches.ini` opnieuw. Draait er al iets dat de patches onderweg aanpast
-    (zoals de launcher, die de lader-patch uitzet bij de eigen lader), gebruik dan
-    `apply_game_obj()` met die al geladen Game -- anders zie je een andere uitkomst dan de start."""
+    materialize = False: alleen controleren, niets schrijven.
+    materialize = True:  de lader en de kern worden als kopie weggeschreven, de exe van de game
+                         wordt in het bestand zelf aangepast (dat moet lokaal zijn, nooit op de NAS).
+
+    take_over_core = True: ook de patches toepassen die `AppliedBy = core` hebben. Die staan in de
+    ini als *beschrijving van wat de kern zelf doet*; zolang wij de kern niet vervangen mag de motor
+    ze niet nog eens toepassen. Zodra onze eigen kern ze overneemt, zet je deze vlag aan."""
     kwargs = {}
     if patches_dir:
         kwargs["shipped"] = patches_dir
-    return apply_game_obj(gs.load_game(game_name, **kwargs), game_name, exe_path, loader, core,
-                          materialize, exe_sha256, allow_in_place, take_over_core)
-
-
-def apply_game_obj(g, game_name, exe_path=None, loader=None, core=None, materialize=False,
-                   exe_sha256=None, allow_in_place=True, take_over_core=False):
-    """Als `apply_game()`, maar met een **al geladen** Game. Zie de docstring daar."""
+    g = gs.load_game(game_name, **kwargs)
     report = Report(game_name)
     targets = game_targets(exe_path, loader, core)
 
@@ -356,6 +354,79 @@ def apply_game_obj(g, game_name, exe_path=None, loader=None, core=None, material
                     fh.write(bytes(buf))
                 report.written[role] = out
     return report
+
+
+# ---------------------------------------------------------------------------------------------
+# De runtime-route: de lijst voor de geheugen-motor
+
+def runtime_list(g, exe_path=None, take_over_core=False):
+    """De patchlijst voor de **geheugen-motor** (`memory/src/patchmem.c`), uit `patches.ini`.
+
+    De bestandsroute (`apply_game_obj`) dekt alles wat in het bestand van een module staat. Er zijn
+    twee gevallen waarin dat niet kan, en die horen hier:
+
+      * `Kind = memory` waarvan `Module` **niet de hoofdmodule** is -- een DLL die pas later geladen
+        wordt staat niet in het bestand van de exe;
+      * een **gepakte** exe, waarin de bytes in het bestand niet de bytes zijn die het spel uitvoert.
+
+    Het tweede kan deze functie niet zien (daarvoor moet je het bestand lezen), dus die patch komt
+    gewoon in de lijst; de motor controleert zelf met `verwacht` en weigert als het niet klopt.
+
+    Formaat (regels met `|`; `#` en lege regels worden overgeslagen):
+
+        # module|offset|verwacht|nieuw
+        game.exe|0x113E80||90909090
+        UnityPlayer.dll|0x1234|48895c24|deadbeef
+
+    Geeft `(regels, verslag)`: de tekst voor `patchmem.txt` en per patch waarom hij er wel of niet in
+    staat. De module staat als **bestandsnaam** (niet als pad), en `offset` is een RVA ten opzichte
+    van de basis van die module -- precies wat de motor opzoekt."""
+    import os as _os
+    hoofd = _os.path.basename(exe_path).lower() if exe_path else ""
+    regels, verslag = [], []
+    for p in g.patches:
+        if not p.enabled:
+            continue
+        if p.applied_by == "core" and not take_over_core:
+            verslag.append((p.name, "overgeslagen", "AppliedBy = core: de kern past dit zelf toe"))
+            continue
+        if p.kind != "memory":
+            verslag.append((p.name, "overgeslagen", "soort %s hoort niet in de runtime-lijst" % (p.kind or "(geen)")))
+            continue
+        module = (p.get("Module") or "").strip()
+        if not module:
+            verslag.append((p.name, "geweigerd", "Module ontbreekt; de motor weet niet waar hij moet schrijven"))
+            continue
+        if hoofd and _os.path.basename(module).lower() == hoofd:
+            verslag.append((p.name, "overgeslagen",
+                            "%s is de hoofdmodule; die doet de bestandsroute al" % module))
+            continue
+        try:
+            offset = int(p.get("Offset", "0") or "0", 0)
+            data, _size = memory_bytes(p, 64)
+        except (Refused, ValueError) as e:
+            verslag.append((p.name, "geweigerd", str(e)))
+            continue
+        find = parse_hex(p.get("Find", ""), "Find", p.name) if p.get("Find", "").strip() else b""
+        regels.append("%s|0x%x|%s|%s" % (_os.path.basename(module), offset, find.hex(), data.hex()))
+        verslag.append((p.name, "in de lijst", "%s+0x%x, %d byte(s)%s"
+                        % (_os.path.basename(module), offset, len(data),
+                           "" if find else "; geen Find, dus niet te controleren")))
+    kop = ["# Runtime-patchlijst voor de geheugen-motor van RavenGun (memory/src/patchmem.c).",
+           "# Geschreven uit patches.ini; niet met de hand aanpassen.",
+           "# module|offset|verwacht|nieuw"]
+    return "\n".join(kop + regels) + "\n", verslag
+
+
+def schrijf_runtime_list(pad, g, exe_path=None, take_over_core=False):
+    """Schrijft de runtime-lijst naar `pad` en geeft `(pad, aantal regels, verslag)`."""
+    tekst, verslag = runtime_list(g, exe_path=exe_path, take_over_core=take_over_core)
+    aantal = sum(1 for r in tekst.splitlines() if r and not r.startswith("#"))
+    if aantal:
+        with open(pad, "w", encoding="utf-8") as fh:
+            fh.write(tekst)
+        return pad, aantal, verslag
+    return None, 0, verslag
 
 
 def main(argv=None):

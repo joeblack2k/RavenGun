@@ -603,11 +603,27 @@ static void rtg_lees_exec(void)
 static int rtg_is_uitvoerbaar(uint32_t adres)
 {
     int i;
+    static unsigned lang;
     if (!rtg_exec_gelezen)
         rtg_lees_exec();
     for (i = 0; i < rtg_exec_n; i++)
         if (adres >= rtg_exec[i].lo && adres < rtg_exec[i].hi)
             return 1;
+    /* Niet gevonden. ElfLdr2 mapt zijn nagebootste bibliotheken later dan dat het de GOT vult,
+       dus de eerste keer kan de lijst te vroeg zijn. Hoogstens tien keer opnieuw lezen, en niet
+       vaker dan één keer per 200 ms: anders wordt de ronde te traag en mist hij de eerste
+       GL-aanroepen van de game. */
+    if (lang < 10) {
+        static long teller;
+        if (teller++ % 200 == 0) {
+            lang++;
+            rtg_exec_n = 0;
+            rtg_lees_exec();
+            for (i = 0; i < rtg_exec_n; i++)
+                if (adres >= rtg_exec[i].lo && adres < rtg_exec[i].hi)
+                    return 1;
+        }
+    }
     return 0;
 }
 

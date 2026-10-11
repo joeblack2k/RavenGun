@@ -352,7 +352,59 @@ Wat nog open is:
 
 ---
 
-## 7. Levering: twee dingen die een beslissing van de eigenaar vragen
+## 7. De lege stubs van ElfLdr2 — onderzocht
+
+De vraag was of de GOT-invoeren die ElfLdr2 niet oplost de tweede fout kunnen veroorzaken. Dat is
+met eigen gegevens te beantwoorden.
+
+**Hoeveel het er zijn.** Van de 93 GOT-invoeren met een `libGL`-adres in het bestand zet ElfLdr2 er
+maar **22** om naar een echte `opengl32`-export. De andere **71** komen uit op één adres in zijn
+nagebootste gebied. En het blijft niet bij GL: over de hele GOT-streek
+(`0x08add000-0x08add900`, 576 invoeren) komt **180 keer** dezelfde waarde voor:
+
+```
+$ python3 tools/rt-glfix/probe.py --profile JurassicPark --dump-maps /tmp/f-maps.txt \
+    --scan 0x8add000:2304
+dwords gelezen: 576
+waar de GOT-invoeren heen wijzen (rechten, module):
+   r-xp   (anoniem)                        516
+   rwxp   (anoniem)                         54
+   r-xp   librt-glfix.so                     2
+   r-xp   opengl32.dll                       1
+invoeren naar een NIET-uitvoerbare mapping: 0
+meest voorkomende waarden:
+   0x71bb3e80  180x  r-xp
+```
+
+**Wat daar staat.** De bytes op `0x71bb3e80`:
+
+```
+55 8b ec 33 c0 5d c3      push ebp; mov ebp,esp; xor eax,eax; pop ebp; ret
+```
+
+Dat is een **cdecl no-op die nul teruggeeft**. Hij zet zijn eigen frame op en breekt het weer af,
+raakt geen geheugen aan, en laat de argumenten van de aanroeper staan.
+
+**De conclusie.** Een aanroep naar zo'n invoer kan **geen stapelverschuiving, geen toegangsfout en
+geen corrupte wijzer** veroorzaken; hij gedraagt zich als een functie die 0 teruggeeft en de game
+loopt door. De lege stubs zijn dus **niet** de oorzaak van de tweede fout (`ebp=0`,
+`eip=0x819c4d80`). Twee dingen steunen dat: de crash is een toegangsfout op een *wild* adres, en
+`ecx=0x79f0f76c` staat bij die crash **in `opengl32.dll`** — de laatste beweging zit in het
+GL-pad, niet in een no-op.
+
+**Wat wél een echt gebrek is.** 180 van de 577 invoeren doen niets en geven 0 terug. Dat is geen
+crash maar ontbrekende functionaliteit, en het kan de game later een verkeerde kant op sturen. Of
+dat ook echt gebeurt, is **onbekend**: daarvoor moet je tellen of de game die invoeren aanroept.
+Daar zit gereedschap voor in de bibliotheek (`RAVENGUN_GLFIX_MODE=8`, de stubteller: hij herkent de
+handtekening hierboven, vervangt zulke invoeren door een wacht die telt en het retouradres logt, en
+drukt elke 5 s de stand af). Die meting is **niet afgerond**: de launcher was tijdens de laatste
+pogingen in bewerking door een andere agent (`AttributeError: module 'patchfile' has no attribute
+'apply_game_obj'`, en daarvoor een `IndentationError`), dus de game kwam niet van de grond. De
+teller zelf is wel gebouwd en de zelftest van de brug blijft `goed`.
+
+---
+
+## 8. Levering: twee dingen die een beslissing van de eigenaar vragen
 
 1. **`*.so` staat in `.gitignore`.** Daardoor is `patches/<Game>/dropin/librt-glfix.so` **niet in
    Git** opgenomen, terwijl `dropin.ini` dat wel is:
@@ -371,7 +423,7 @@ Wat nog open is:
 2. **`RG_DROPIN_PRELOAD` moet in `LD_AUDIT` terechtkomen** (zie §4). Zonder die ene regel in de
    launcher is de drop-in aanwezig maar doet hij niets.
 
-## 8. Gereedschap in deze map
+## 9. Gereedschap in deze map
 
 | bestand | wat het doet |
 |---|---|

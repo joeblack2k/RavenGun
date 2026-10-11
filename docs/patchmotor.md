@@ -131,3 +131,74 @@ projectafspraak die haaks staat op de huidige richting: de dongle is nu juist ee
 werksoorten die per game in een map moeten kunnen. **Zolang die lijst niet wordt uitgebreid, kan een
 bijdrager geen dongle-patch in het formaat kwijt** — en met `Enabled = true` weigert de launcher zelfs
 de hele start. Dit is gemeld bij de eigenaar van `gamesettings.py`.
+
+---
+
+# De runtime-route (deel 2 van de motor)
+
+*Bijgewerkt ronde 16. De generator staat en is getest; de koppeling met de launcher is de
+eerstvolgende stap en staat onderaan als overdracht.*
+
+## Wat de bestandsroute niet kan
+
+`apply_game_obj()` dekt alles wat in het **bestand** van een module staat. Twee gevallen vallen
+daarbuiten, en die horen bij de **geheugen-motor** (`memory/src/patchmem.c`, `docs/memory-engine.md`):
+
+1. **Een DLL die pas later geladen wordt.** Die staat niet in het bestand van de exe, dus de
+   bestandsroute kan er niet bij. De motor onderschept `dlopen` en heeft een achtergrondthread.
+2. **Een gepakte exe.** De bytes in het bestand zijn dan niet de bytes die het spel uitvoert. De
+   bestandsroute zou de verkeerde plek raken; de motor patcht het uitgepakte geheugen.
+
+## De generator: `pf.runtime_list()`
+
+Die zet `patches.ini` om in de lijst die de motor leest:
+
+```
+# module|offset|verwacht|nieuw
+UnityPlayer.dll|0x1234||deadbeef
+spul.dll|0x40|48895c2408|9090909090
+```
+
+De regels:
+
+| Wat | Uitkomst |
+|---|---|
+| `Kind = memory` met `Module` **niet** de hoofdmodule | **in de lijst** |
+| `Kind = memory` met `Module` **wel** de hoofdmodule | overgeslagen — dat doet de bestandsroute al |
+| `Kind = file` | overgeslagen — hoort niet in de runtime-lijst |
+| `AppliedBy = core` | overgeslagen, tenzij `take_over_core=True` |
+| `Module` ontbreekt | geweigerd, met de reden |
+| niet ingeschakeld | overgeslagen |
+
+`Find` wordt `verwacht` (de motor controleert het en weigert als het niet klopt); zonder `Find` is
+dat veld leeg en meldt het verslag "geen Find, dus niet te controleren". `schrijf_runtime_list()`
+schrijft het bestand **alleen als er regels zijn** — een lege lijst maakt geen bestand, zodat een
+drop-in niet uit zichzelf iets doet.
+
+Negen tests in `tests/test_runtime_lijst.py`.
+
+## Wat er nog moet: de koppeling in de launcher
+
+Dit is de overdracht, met de twee dingen die je niet moet vergeten:
+
+1. **De lijst en de bibliotheek in de view.** `run()` schrijft `patchmem.txt` in de view (naast de
+   exe), kopieert `ravengun-patchmem{,32}.{so,dll}` uit `~/.local/share/ravengun/memory/` en zet
+   `RAVENGUN_PATCHMEM_FILE`. Het schrijven hoort in `run()`, niet in `build_plan()` — `--plan` mag
+   geen bijwerkingen hebben.
+2. **Het pad dat het SPELPROCES begrijpt.** Onder Wine is `/home/deck/...` onbruikbaar; het moet
+   `Z:\home\deck\...` zijn. De launcher kent de view, dus die rekent het om.
+3. **Het laden.** Voor een **Linux-ELF onder Wine** (de acht ElfLdr2-games) gaat de bibliotheek mee
+   als `LD_AUDIT`, precies zoals de andere drop-ins sinds ronde 13 — `LD_PRELOAD` is daar fataal.
+   Voor een **echte native start** mag `LD_PRELOAD` wel.
+4. **Onder Windows is er een keuze van de maker van de patch nodig.** `WINEDLLOVERRIDES` werkt
+   alleen voor een module die de game ook werkelijk **importeert**, en `AppInit_DLLs` werkt onder
+   Proton 11.0-2 **niet** (gemeten, `docs/memory-engine.md` §8). De uitweg is de DLL onder de naam
+   van een DLL zetten die de game wél importeert — een proxy-DLL, zoals `ravengun-hasp.dll` en
+   `matrix64.dll` dat al doen. **De launcher kan die naam niet verzinnen**: de maker van de patch zet
+   hem in `patches/<Game>/dropin/dropin.ini`. De launcher hoort dat **duidelijk te melden** als er
+   runtime-patches zijn voor een Windows-game en er geen proxy-sectie staat — niet te doen alsof het
+   werkt.
+
+Zolang punt 4 niet geregeld is, is de runtime-route bruikbaar voor de **Linux-games** en voor
+**proeven** onder Wine met een expliciete `WINEDLLOVERRIDES`, maar niet automatisch voor de
+Windows-games. Dat is de eerlijke stand.

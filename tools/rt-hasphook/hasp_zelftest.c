@@ -134,6 +134,7 @@ int main(void)
     int (*login)(unsigned, const char *, void **);
     int (*read_)(void *, unsigned, unsigned, unsigned, void *);
     int (*get_size)(void *, unsigned, unsigned *);
+    int (*get_info)(void *, const char *, const char *, char **);
     void *greep = NULL;
     unsigned grootte = 0;
     unsigned char buf[128];
@@ -155,6 +156,7 @@ int main(void)
     login = (int (*)(unsigned, const char *, void **))vind_eigen_symbool("hasp_login");
     read_ = (int (*)(void *, unsigned, unsigned, unsigned, void *))vind_eigen_symbool("hasp_read");
     get_size = (int (*)(void *, unsigned, unsigned *))vind_eigen_symbool("hasp_get_size");
+    get_info = (int (*)(void *, const char *, const char *, char **))vind_eigen_symbool("hasp_get_info");
     if (!login || !read_ || !get_size) {
         printf("FOUT: kon de eigen hasp-symbolen niet vinden (login=%p read=%p size=%p)\n",
                (void *)login, (void *)read_, (void *)get_size);
@@ -168,9 +170,8 @@ int main(void)
     printf("hasp_login -> %d, greep = %p\n", rc, greep);
     if (rc != 0)
         fouten++;
-    if (greep == NULL) {
+    if (greep == NULL)
         printf("LET OP: geen greep (de echte cliënt gaf er ook geen)\n");
-    }
 
     rc = get_size(greep, 65524, &grootte);
     printf("hasp_get_size(65524) -> %d, grootte = %u\n", rc, grootte);
@@ -183,6 +184,14 @@ int main(void)
     if (rc != 0)
         fouten++;
 
+    if (get_info) {
+        char *info = NULL;
+        rc = get_info(greep, NULL, NULL, &info);
+        printf("hasp_get_info -> %d, info = %s\n", rc, info ? info : "(null)");
+        if (rc != 0)
+            fouten++;
+    }
+
     printf("echte_aanroepen = %d\n", echte_aanroepen);
     if (echte_aanroepen != 0) {
         printf("RESULTAAT: de ECHTE cliënt is aangeroepen (%d keer) — de hook werkt NIET\n",
@@ -190,11 +199,11 @@ int main(void)
         return 1;
     }
     if (fouten != 0) {
-        printf("RESULTAAT: de hook is wel actief maar de emulator antwoordde niet goed (%d fouten)\n",
-               fouten);
+        printf("RESULTAAT: de hook is actief, maar de emulator antwoordde met %d fout(en) "
+               "(geen donglegegevens? zet RAVENGUN_HASP_DIR + RAVENGUN_HASP_GAME)\n", fouten);
         return 1;
     }
-    printf("RESULTAAT: alle aanroepen zijn door de emulator beantwoord; de echte cliënt is niet "
-           "aangeroepen\n");
+    printf("RESULTAAT: alle aanroepen zijn door de EMULATOR beantwoord; de statisch gelinkte "
+           "cliënt is NIET aangeroepen\n");
     return 0;
 }
