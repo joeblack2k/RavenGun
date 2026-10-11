@@ -22,6 +22,8 @@
 #include <QStringList>
 #include <QVariant>
 
+#include "ravengun/gamesettings/gamesettings.hpp"
+
 namespace rg {
 
 struct OptionTarget {
@@ -99,6 +101,12 @@ struct GameContext {
     QString rootDir;      // de gamemap ("game_dir" in game-options.json); zonder gegevens = gameDir
     QString realGameDir;  // de werkelijke map van het uitvoerbare bestand (op de NAS)
     QString viewDir;      // ~/.local/share/ravengun/runtime/views/<profiel> (kan ontbreken)
+    // Heeft de game een eigen profiel in game.ini (docs/per-game-patches.md)? Dan gaan de opties van het profiel (velden, profielvelden en
+    // omgevingsvariabelen) naar de gebruikerslaag van game.ini, en alleen als ze afwijken van de meegeleverde waarde; UserProfiles/<P>.xml en
+    // <P>.env worden niet meer geschreven. Zonder eigen profiel (ownProfile = false) blijft het oude gedrag.
+    bool ownProfile = false;
+    ravengun::gamesettings::Dirs layers;   // meegeleverde en gebruikerslaag
+    QString userGameIni() const;           // <gebruiker>/<profiel>/game.ini (leeg zonder gebruikerslaag)
     QString userProfilePath() const;
     QString envPath() const;
     QString expand(const QString& pattern) const;  // {profile} {tp_dir} {game_dir} {real_game_dir} {view_dir} {home} en ~
@@ -114,6 +122,11 @@ public:
     // Mag dit doel geschreven worden? reason (Engels) bij nee, bv. "read-only (on NAS)".
     static bool writable(const GameOption& o, const GameContext& c, QString* reason = nullptr);
     static bool write(const GameOption& o, const GameContext& c, const QString& value, QString* err = nullptr);
+    // Eigen profiel: zet [sectie] sleutel in de gebruikerslaag, en haalt de sleutel weg als de waarde gelijk is aan de meegeleverde (de
+    // gebruikerslaag bevat alleen verschillen, zoals Dolphin's User/GameSettings). Een lege waarde heft een meegeleverde waarde op.
+    static bool writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err = nullptr);
+    // De waarde van [sectie] sleutel zoals ze nu geldt (alle lagen); present=false als de sleutel nergens staat.
+    static QString readSetting(const GameContext& c, const QString& section, const QString& key, bool* present = nullptr);
 };
 
 }  // namespace rg

@@ -123,7 +123,10 @@ void CreateProfileDialog::Run() {
         m_output->appendPlainText(out);
         m_output->appendPlainText(code == 0 ? tr("\nThe game is set up. The game list is refreshed.") : tr("\nFailed (exit code %1).").arg(code));
         UpdateState();
-        if (code == 0) core_->library()->rescan();
+        if (code == 0) {
+            core_->reloadGameData();   // tp-add-game schreef het profiel in de gebruikerslaag van game.ini: opnieuw lezen, dan de gamemappen scannen
+            core_->library()->rescan();
+        }
     });
 }
 

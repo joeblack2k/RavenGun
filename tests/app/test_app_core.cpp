@@ -71,6 +71,9 @@ private Q_SLOTS:
     void libraryRoundTrip();
     void memoryCardList();
     void profileSyncFromLibrary();
+    void libraryFindsOwnProfiles();
+    void ownProfileOptionsWriteUserLayer();
+    void profileSyncOwnProfile();
     void runtimeCheck();
     // A3: echte game-options.json, invoerroute van de gebruiker, notities
     void realGameOptions();
@@ -590,6 +593,194 @@ void AppCoreTest::profileSyncFromLibrary() {
     const GameContext c = data.context(g, tp);
     QCOMPARE(c.rootDir, QStringLiteral("/x"));
     QCOMPARE(c.gameDir, QStringLiteral("/x/TC5/Binaries/Win64"));
+}
+
+// --- Eigen profielen in game.ini (docs/per-game-patches.md, "Het profiel van een game") -------------------------------------------
+
+namespace {
+
+// patches/TC5/game.ini met een eigen profiel; de games staan in een gamemap, het pad staat nergens.
+QString writeOwnTc5(const QString& patches) {
+    writeFile(patches + QStringLiteral("/TC5/game.ini"),
+              "[Game]\nName = Time Crisis 5\nType = TeknoParrot\nExecutable = TimeCrisisGame-Win64-Shipping.exe\nProfileRevision = 19\nEmulationProfile = TimeCrisis5\n"
+              "[Identify]\nPath = TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe\nSize = 3\n"
+              "[Config]\nGeneral/FreePlay = 0\nGeneral/Windowed = 0\nArguments/Text Language = English\n"
+              "[ConfigType]\nGeneral/FreePlay = Bool\nGeneral/Windowed = Bool\nArguments/Text Language = Dropdown\n"
+              "[ConfigOptions]\nArguments/Text Language = English|Spanish\n");
+    return patches;
+}
+
+}  // namespace
+
+void AppCoreTest::libraryFindsOwnProfiles() {
+    const QString patches = writeOwnTc5(tmp_.filePath(QStringLiteral("own-patches")));
+    const QString user = tmp_.filePath(QStringLiteral("own-user"));
+    const QString games = tmp_.filePath(QStringLiteral("own-games"));
+    const QString tp = tmp_.filePath(QStringLiteral("own-tp"));      // geen UserProfiles: de game bestaat alleen in game.ini
+    QDir().mkpath(tp + QStringLiteral("/GameProfiles"));
+    writeFile(games + QStringLiteral("/Time Crisis 5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), "abc");
+    writeFile(games + QStringLiteral("/Andere Map/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), "abcdef");   // andere versie
+    GameData data;
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    QVERIFY(data.hasOwnProfile(QStringLiteral("TC5")));
+    QCOMPARE(data.ownGames().size(), 1);
+    ScanInput in;
+    in.tpDir = tp;
+    in.folders << LibraryFolder{games, true};
+    in.ownGames = data.ownGames();
+    in.viewsDir = tmp_.filePath(QStringLiteral("own-views"));
+    ScanResult r = LibraryScanner::scan(in);
+    GameEntry tc5;
+    for (const GameEntry& g : r.games)
+        if (g.id == QStringLiteral("tp:TC5")) tc5 = g;
+    QCOMPARE(tc5.kind, GameKind::TeknoParrot);
+    QCOMPARE(tc5.profile, QStringLiteral("TC5"));
+    QCOMPARE(tc5.name, QStringLiteral("Time Crisis 5"));
+    QCOMPARE(tc5.exePath, games + QStringLiteral("/Time Crisis 5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"));
+    QCOMPARE(tc5.folder, games + QStringLiteral("/Time Crisis 5"));
+    int inFolder = 0;
+    for (const GameEntry& g : r.games) inFolder += g.folder == tc5.folder ? 1 : 0;
+    QCOMPARE(inFolder, 1);   // de map komt niet nog eens als niet-ingestelde game
+    // Een lokale view gaat voor de gamemap.
+    writeFile(in.viewsDir + QStringLiteral("/TC5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), "abc");
+    r = LibraryScanner::scan(in);
+    for (const GameEntry& g : r.games)
+        if (g.id == QStringLiteral("tp:TC5")) tc5 = g;
+    QVERIFY(tc5.exePath.startsWith(in.viewsDir));
+    // Een override van de gebruiker wint; zonder bestand is de game niet gevonden.
+    writeFile(user + QStringLiteral("/TC5/game.ini"), ("[Game]\nGamePath = " + games + "/Andere Map/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe\n").toUtf8());
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    in.ownGames = data.ownGames();
+    r = LibraryScanner::scan(in);
+    for (const GameEntry& g : r.games)
+        if (g.id == QStringLiteral("tp:TC5")) tc5 = g;
+    QVERIFY(tc5.exePath.contains(QStringLiteral("Andere Map")));
+    QFile::remove(in.viewsDir + QStringLiteral("/TC5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"));
+    QDir(games).removeRecursively();
+    QDir().mkpath(games);
+    writeFile(user + QStringLiteral("/TC5/game.ini"), "");
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    in.ownGames = data.ownGames();
+    r = LibraryScanner::scan(in);
+    for (const GameEntry& g : r.games) QVERIFY(g.id != QStringLiteral("tp:TC5"));
+}
+
+void AppCoreTest::ownProfileOptionsWriteUserLayer() {
+    const QString patches = writeOwnTc5(tmp_.filePath(QStringLiteral("opt-patches")));
+    const QString user = tmp_.filePath(QStringLiteral("opt-user"));
+    const QString tp = tmp_.filePath(QStringLiteral("opt-tp"));
+    GameOptionsDb db;
+    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    const GameOptionsEntry* e = db.find(QStringLiteral("TC5"));
+    GameContext c;
+    c.profile = QStringLiteral("TC5");
+    c.tpDir = tp;
+    c.ownProfile = true;
+    c.layers = ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()};
+    const QString userIni = user + QStringLiteral("/TC5/game.ini");
+    // Profielveld (ConfigValues): de waarde van het profiel, schrijven naar de gebruikerslaag en alleen als het afwijkt.
+    const GameOption& fp = e->options[0];
+    bool present = false;
+    QCOMPARE(OptionStore::read(fp, c, &present), QStringLiteral("0"));
+    QVERIFY(present);
+    QVERIFY(OptionStore::writable(fp, c));
+    QCOMPARE(OptionStore::targetFile(fp.target, c), userIni);
+    QString err;
+    QVERIFY2(OptionStore::write(fp, c, QStringLiteral("1"), &err), qPrintable(err));
+    QCOMPARE(OptionStore::read(fp, c), QStringLiteral("1"));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("General/FreePlay = 1")));
+    QVERIFY(!QFileInfo::exists(tp + QStringLiteral("/UserProfiles/TC5.xml")));                 // de XML wordt niet aangemaakt of aangepast
+    QVERIFY(readAll(patches + QStringLiteral("/TC5/game.ini")).contains(QStringLiteral("General/FreePlay = 0")));   // meegeleverd blijft staan
+    QVERIFY2(OptionStore::write(fp, c, QStringLiteral("0"), &err), qPrintable(err));            // terug op de meegeleverde waarde: de sleutel verdwijnt
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("FreePlay")));
+    // Een veld dat het profiel niet kent: niet schrijfbaar.
+    GameOption unknown = fp;
+    unknown.target.field = QStringLiteral("Bestaat Niet");
+    QString reason;
+    QVERIFY(!OptionStore::writable(unknown, c, &reason));
+    QCOMPARE(reason, QStringLiteral("not in the profile of this game"));
+    // Profielveld van het hoogste niveau (WineRunnerPath -> [Wine] Runner), en een omgevingsvariabele (TP_POSTSTART_REMOTETHREAD_MS -> [Loader] PostStartMs).
+    const GameOption& wr = e->options[3];
+    QVERIFY(OptionStore::write(wr, c, QStringLiteral("/opt/wine/bin/wine"), &err));
+    QCOMPARE(OptionStore::read(wr, c), QStringLiteral("/opt/wine/bin/wine"));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("Runner = /opt/wine/bin/wine")));
+    QVERIFY(OptionStore::write(wr, c, QString(), &err));
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("Runner")));
+    const GameOption& ps = e->options[4];
+    QVERIFY(OptionStore::write(ps, c, QStringLiteral("3000"), &err));
+    QCOMPARE(OptionStore::read(ps, c), QStringLiteral("3000"));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("PostStartMs = 3000")));
+    QVERIFY(!QFileInfo::exists(tp + QStringLiteral("/UserProfiles/TC5.env")));                  // geen .env
+    // Een bool-omgevingsvariabele met een tweede variabele erbij (gamescope).
+    const GameOption& gsc = e->options[5];
+    QCOMPARE(OptionStore::read(gsc, c), QStringLiteral("0"));
+    QVERIFY(OptionStore::write(gsc, c, QStringLiteral("1"), &err));
+    QCOMPARE(OptionStore::read(gsc, c), QStringLiteral("1"));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("Gamescope = true")) && readAll(userIni).contains(QStringLiteral("GamescopePath = /usr/bin/gamescope")));
+    QVERIFY(OptionStore::write(gsc, c, QStringLiteral("0"), &err));
+    QVERIFY(!readAll(userIni).contains(QStringLiteral("Gamescope")));
+    // Een meegeleverde waarde opheffen: een lege waarde in de gebruikerslaag.
+    writeFile(patches + QStringLiteral("/TC5/game.ini"), readAll(patches + QStringLiteral("/TC5/game.ini")).toUtf8() + "[Display]\nGamescope = true\n");
+    QCOMPARE(OptionStore::read(gsc, c), QStringLiteral("1"));
+    QVERIFY(OptionStore::write(gsc, c, QStringLiteral("0"), &err));
+    QCOMPARE(OptionStore::read(gsc, c), QStringLiteral("0"));
+    QVERIFY(readAll(userIni).contains(QStringLiteral("Gamescope =\n")));
+}
+
+void AppCoreTest::profileSyncOwnProfile() {
+    const QString patches = writeOwnTc5(tmp_.filePath(QStringLiteral("sync2-patches")));
+    const QString user = tmp_.filePath(QStringLiteral("sync2-user"));
+    const QString tp = tmp_.filePath(QStringLiteral("sync2-tp"));
+    QDir().mkpath(tp + QStringLiteral("/UserProfiles"));
+    const QString libFile = tmp_.filePath(QStringLiteral("sync2-library.json"));
+    LibraryData d;
+    d.tpDir = tp;
+    GameEntry g;
+    g.id = QStringLiteral("tp:TC5");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("TC5");
+    g.exePath = QStringLiteral("/x/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe");
+    d.games << g;
+    GameOverride o;
+    o.options.insert(QStringLiteral("general.freeplay"), QStringLiteral("1"));
+    o.options.insert(QStringLiteral("display.gamescope"), QStringLiteral("1"));
+    o.tpFields.insert(QStringLiteral("General/Windowed"), QStringLiteral("1"));
+    o.tpFields.insert(QStringLiteral("Arguments/Text Language"), QStringLiteral("Spanish"));
+    o.tpFields.insert(QStringLiteral("General/Bestaat Niet"), QStringLiteral("x"));
+    d.overrides.insert(g.id, o);
+    QVERIFY(d.save(libFile));
+    GameLibrary lib(libFile);
+    lib.load();
+    GameData data;
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    QStringList errors;
+    QVERIFY2(ProfileSync::apply(g, lib, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
+    const QString ini = readAll(user + QStringLiteral("/TC5/game.ini"));
+    QVERIFY(ini.contains(QStringLiteral("General/FreePlay = 1")));
+    QVERIFY(ini.contains(QStringLiteral("General/Windowed = 1")));
+    QVERIFY(ini.contains(QStringLiteral("Arguments/Text Language = Spanish")));
+    QVERIFY(ini.contains(QStringLiteral("Gamescope = true")) && ini.contains(QStringLiteral("GamescopePath = /usr/bin/gamescope")));
+    QVERIFY(!ini.contains(QStringLiteral("Bestaat Niet")));
+    // Geen UserProfiles-XML, geen .env.
+    QVERIFY(QDir(tp + QStringLiteral("/UserProfiles")).entryList(QDir::Files).isEmpty());
+    // De velden van het profiel voor Properties: de waarden die nu gelden, met het sjabloon voor hint en bereik.
+    data.reloadGame(QStringLiteral("TC5"));
+    const QList<TpField> fields = data.profileFields(QStringLiteral("TC5"), tp);
+    QCOMPARE(fields.size(), 3);
+    QCOMPARE(fields[2].value, QStringLiteral("Spanish"));
+    QCOMPARE(fields[2].options, (QStringList{QStringLiteral("English"), QStringLiteral("Spanish")}));
+    // Terug naar de meegeleverde waarden: de gebruikerslaag wordt weer leeg.
+    LibraryData d2 = lib.data();
+    d2.overrides[g.id].options.insert(QStringLiteral("general.freeplay"), QStringLiteral("0"));
+    d2.overrides[g.id].options.insert(QStringLiteral("display.gamescope"), QStringLiteral("0"));
+    d2.overrides[g.id].tpFields.insert(QStringLiteral("General/Windowed"), QStringLiteral("0"));
+    d2.overrides[g.id].tpFields.insert(QStringLiteral("Arguments/Text Language"), QStringLiteral("English"));
+    QVERIFY(d2.save(libFile));
+    GameLibrary lib2(libFile);
+    lib2.load();
+    QVERIFY2(ProfileSync::apply(g, lib2, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
+    const QString ini2 = readAll(user + QStringLiteral("/TC5/game.ini"));
+    QVERIFY2(!ini2.contains(QStringLiteral("General/")) && !ini2.contains(QStringLiteral("Gamescope")), qPrintable(ini2));
 }
 
 void AppCoreTest::runtimeCheck() {

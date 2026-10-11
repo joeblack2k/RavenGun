@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Voegt een game toe aan TeknoParrot zonder de UI: maakt UserProfiles/<PROFIEL>.xml uit de sjabloon in
-GameProfiles/, met het pad naar de game (blijft staan waar hij staat, bv. op de NAS), Input API RawInput en
-de bindingen naar de virtuele RavenGun-apparaten (gun 1209:7202, toetsenbord 1209:7201).
+"""Voegt een game toe aan RavenGun zonder de UI: zet het profiel van de game uit het sjabloon in GameProfiles/ in de gebruikerslaag van game.ini
+(~/.local/share/ravengun/patches/<PROFIEL>/game.ini; heeft het meegeleverde game.ini al een eigen profiel, dan alleen de keuzes van de
+aanroeper), met Input API RawInput, en maakt UserProfiles/<PROFIEL>.xml als uitvoerformaat voor een start via TeknoParrotUi, met de bindingen naar de
+virtuele RavenGun-apparaten (gun 1209:7202, toetsenbord 1209:7201; scripts/tpxml.py). Het pad naar de game wordt niet opgeslagen: de game wordt
+herkend in de gamemappen van de app aan [Identify] (of in de view van --view); alleen als dat een ander bestand oplevert, komt het als
+[Game] GamePath in de gebruikerslaag (docs/per-game-patches.md, "De game vinden").
 
 Gebruik: python3 -I scripts/tp-add-game.py PROFIEL PAD_NAAR_EXECUTABLE [--wine-runner PAD] [--view] [--fullscreen] [--force]
   bv.    python3 -I scripts/tp-add-game.py JurassicPark "/pad/naar/Jurassic Park/game" --wine-runner ~/.../bin/wine

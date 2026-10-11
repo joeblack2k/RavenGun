@@ -338,6 +338,11 @@ const GameOptionsEntry* GameOptionsDb::findByFolder(const QString& folderName) c
     return nullptr;
 }
 
+QString GameContext::userGameIni() const {
+    if (layers.user.empty() || profile.isEmpty()) return {};
+    return QString::fromStdString(layers.user) + QLatin1Char('/') + profile + QStringLiteral("/game.ini");
+}
+
 QString GameContext::userProfilePath() const {
     if (tpDir.isEmpty() || profile.isEmpty()) return {};
     return tpDir + QStringLiteral("/UserProfiles/") + profile + QStringLiteral(".xml");
@@ -375,7 +380,114 @@ QString GameContext::resolve(const QString& path, const QString& base) const {
     return QDir::cleanPath(dir + QLatin1Char('/') + p);
 }
 
+namespace {
+
+namespace gs = ravengun::gamesettings;
+
+bool isProfileKind(OptionTarget::Kind k) {
+    return k == OptionTarget::Kind::TpField || k == OptionTarget::Kind::TpTag || k == OptionTarget::Kind::Env;
+}
+
+// Waar een doel van een optie staat in game.ini van een game met een eigen profiel: sectie, sleutel en hoe de waarde omgezet wordt.
+struct SettingRef {
+    std::string section, key;
+    QString kind;   // "" | bool (profielveld true/false) | bool1 / boolT (omgevingsvariabele 1 of true) | runner
+    bool ok = false;
+};
+
+SettingRef settingRefFor(const OptionTarget& t, const gs::Ini& settings) {
+    SettingRef r;
+    if (t.kind == OptionTarget::Kind::TpField) {
+        r.key = gs::find_config_key(settings, t.field.toStdString(), t.category.toStdString());
+        r.section = "Config";
+        r.ok = !r.key.empty();
+    } else if (t.kind == OptionTarget::Kind::TpTag) {
+        if (const gs::ProfileField* f = gs::profile_field_for_xml(t.field.toStdString())) {
+            r.section = f->section;
+            r.key = f->key;
+            r.kind = QString::fromLatin1(f->kind);
+            r.ok = true;
+        }
+    } else if (t.kind == OptionTarget::Kind::Env) {
+        if (const gs::EnvMapEntry* e = gs::env_for_var(t.field.toStdString())) {
+            r.section = e->section;
+            r.key = e->key;
+            r.kind = QString::fromLatin1(e->kind);
+        } else {
+            r.section = "Env";
+            r.key = t.field.toStdString();
+        }
+        r.ok = true;
+    }
+    return r;
+}
+
+QString runnerToIni(const QString& path) {
+    if (path.isEmpty()) return {};
+    const QString clean = QDir::cleanPath(path);
+    if (clean == QDir::cleanPath(AppPaths::dataDir() + QStringLiteral("/wrappers/wine-prefix"))) return QStringLiteral("wrapper");
+    if (clean == QDir::cleanPath(AppPaths::dataDir() + QStringLiteral("/wine/proton-11.0-2/bin/wine"))) return {};
+    const QString home = AppPaths::homeDir();
+    return !home.isEmpty() && clean.startsWith(home + QLatin1Char('/')) ? QStringLiteral("~") + clean.mid(home.size()) : clean;
+}
+
+QString runnerFromIni(const QString& v) {
+    if (v.isEmpty()) return {};
+    return v == QStringLiteral("wrapper") ? AppPaths::dataDir() + QStringLiteral("/wrappers/wine-prefix") : AppPaths::expandHome(v);
+}
+
+bool truthyText(const QString& v) {
+    const QString l = v.trimmed().toLower();
+    return l == QStringLiteral("true") || l == QStringLiteral("1") || l == QStringLiteral("yes") || l == QStringLiteral("on");
+}
+
+// Waarde in game.ini -> opslagvorm van de optie.
+QString iniToOption(const SettingRef& r, const QString& v, const GameOption& o) {
+    if (r.kind == QStringLiteral("bool1")) return truthyText(v) ? o.trueValue : o.falseValue;
+    if (r.kind == QStringLiteral("boolT")) return truthyText(v) ? QStringLiteral("true") : QStringLiteral("false");
+    if (r.kind == QStringLiteral("runner")) return runnerFromIni(v);
+    return v;
+}
+
+// Opslagvorm van de optie -> waarde in game.ini. Een bool-omgevingsvariabele die uit staat is "niet gezet" (bool1: de lege waarde heft ook een
+// meegeleverde "true" op) of false (boolT).
+QString optionToIni(const SettingRef& r, const QString& v, const GameOption& o) {
+    if (r.kind == QStringLiteral("bool1")) return v == o.trueValue ? QStringLiteral("true") : QString();
+    if (r.kind == QStringLiteral("boolT")) return v == QStringLiteral("true") || v == o.trueValue ? QStringLiteral("true") : QStringLiteral("false");
+    if (r.kind == QStringLiteral("runner")) return runnerToIni(v);
+    return v;
+}
+
+gs::Game mergedOf(const GameContext& c) { return gs::load_game(c.layers, c.profile.toStdString()); }
+
+}  // namespace
+
+QString OptionStore::readSetting(const GameContext& c, const QString& section, const QString& key, bool* present) {
+    const gs::Game g = mergedOf(c);
+    const std::string* v = g.settings.find(section.toStdString(), key.toStdString());
+    if (present) *present = v != nullptr;
+    return v ? QString::fromStdString(*v) : QString();
+}
+
+bool OptionStore::writeSetting(const GameContext& c, const QString& section, const QString& key, const QString& value, QString* err) {
+    if (c.layers.user.empty() || c.profile.isEmpty()) {
+        if (err) *err = QStringLiteral("No user folder for game settings.");
+        return false;
+    }
+    // Alleen verschillen met de meegeleverde laag: gelijk aan de meegeleverde waarde = de sleutel uit de gebruikerslaag weghalen.
+    const gs::Game shipped = gs::load_game(gs::Dirs{c.layers.shipped, {}}, c.profile.toStdString());
+    const std::string* base = shipped.settings.find(section.toStdString(), key.toStdString());
+    const std::string baseValue = base ? *base : std::string();
+    std::string e;
+    const bool ok = value.toStdString() == baseValue
+                        ? gs::erase_user_value(c.layers, c.profile.toStdString(), section.toStdString(), key.toStdString(), &e)
+                        : gs::set_user_value(c.layers, c.profile.toStdString(), section.toStdString(), key.toStdString(), value.toStdString(), &e);
+    if (!ok && err) *err = QString::fromStdString(e);
+    return ok;
+}
+
 QString OptionStore::targetFile(const OptionTarget& t, const GameContext& c) {
+    if (c.ownProfile && isProfileKind(t.kind)) return c.userGameIni();
     switch (t.kind) {
         case OptionTarget::Kind::TpField:
         case OptionTarget::Kind::TpTag: return c.userProfilePath();
@@ -412,6 +524,21 @@ QString setTag(QString text, const QString& tag, const QString& value) {
 
 QString OptionStore::read(const GameOption& o, const GameContext& c, bool* present, QString* err) {
     if (present) *present = false;
+    if (c.ownProfile && isProfileKind(o.target.kind)) {
+        const gs::Game g = mergedOf(c);
+        const SettingRef r = settingRefFor(o.target, g.settings);
+        if (!r.ok) {
+            if (err) *err = QStringLiteral("field \"%1\" is not in the profile of this game").arg(o.target.field);
+            return o.defaultValue;
+        }
+        const std::string* v = g.settings.find(r.section, r.key);
+        // Een profielveld dat het profiel kent is altijd aanwezig (leeg = lege waarde); een bool-omgevingsvariabele zonder waarde is uit.
+        const bool isBoolEnv = r.kind == QStringLiteral("bool1") || r.kind == QStringLiteral("boolT");
+        const bool found = v != nullptr || r.section == "Config" || isBoolEnv;
+        if (present) *present = found;
+        if (!found) return o.defaultValue;
+        return iniToOption(r, v ? QString::fromStdString(*v) : QString(), o);
+    }
     const QString file = targetFile(o.target, c);
     if (file.isEmpty()) {
         if (err) *err = QStringLiteral("target unknown");
@@ -449,6 +576,20 @@ bool OptionStore::writable(const GameOption& o, const GameContext& c, QString* r
         if (reason) *reason = o.target.readOnlyReason.isEmpty() ? QStringLiteral("not editable here") : o.target.readOnlyReason;
         return false;
     }
+    if (c.ownProfile && isProfileKind(o.target.kind)) {
+        const QString ini = c.userGameIni();
+        if (ini.isEmpty()) {
+            if (reason) *reason = QStringLiteral("no user folder for game settings");
+            return false;
+        }
+        if (o.target.kind == OptionTarget::Kind::TpField && !settingRefFor(o.target, mergedOf(c).settings).ok) {
+            if (reason) *reason = QStringLiteral("not in the profile of this game");
+            return false;
+        }
+        const WriteCheck w = checkWritable(ini);
+        if (!w.ok && reason) *reason = w.reason.isEmpty() ? QStringLiteral("read-only") : w.reason;
+        return w.ok;
+    }
     const QString file = targetFile(o.target, c);
     if (file.isEmpty()) {
         if (reason) *reason = QStringLiteral("game folder unknown");
@@ -468,6 +609,26 @@ bool OptionStore::write(const GameOption& o, const GameContext& c, const QString
     if (!writable(o, c, &reason)) {
         if (err) *err = reason;
         return false;
+    }
+    if (c.ownProfile && isProfileKind(o.target.kind)) {
+        const gs::Game g = mergedOf(c);
+        const SettingRef r = settingRefFor(o.target, g.settings);
+        if (!r.ok) {
+            if (err) *err = QStringLiteral("field \"%1\" is not in the profile of this game").arg(o.target.field);
+            return false;
+        }
+        bool done = writeSetting(c, QString::fromStdString(r.section), QString::fromStdString(r.key), optionToIni(r, value, o), err);
+        // Een bool-omgevingsvariabele met een tweede variabele erbij (TP_GAMESCOPE met TP_GAMESCOPE_PATH): die gaat mee of weg.
+        const int eq = o.target.companion.indexOf(QLatin1Char('='));
+        if (done && o.target.kind == OptionTarget::Kind::Env && eq > 0) {
+            OptionTarget ct;
+            ct.kind = OptionTarget::Kind::Env;
+            ct.field = o.target.companion.left(eq);
+            const SettingRef cr = settingRefFor(ct, g.settings);
+            done = writeSetting(c, QString::fromStdString(cr.section), QString::fromStdString(cr.key),
+                                value == o.trueValue ? o.target.companion.mid(eq + 1) : QString(), err);
+        }
+        return done;
     }
     const QString file = targetFile(o.target, c);
     if (o.target.kind == OptionTarget::Kind::TpField || o.target.kind == OptionTarget::Kind::TpTag) {

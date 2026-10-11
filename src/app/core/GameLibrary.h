@@ -7,6 +7,9 @@
 //     platform uit Metadata/<P>.json, icoon uit Icons/.
 //  2. Unity-route: packaging/aagames-games.json (nas_dir) herkent Tomb Raider en Rabbids Hollywood; een TeknoParrot-profiel
 //     met dezelfde naam gaat voor (dat start via play-halo.sh ook de Unity-route).
+//  1b. Games met een eigen profiel in game.ini (patches/<Game>/ met de gebruikerslaag; ScanInput::ownGames): het pad wordt niet opgeslagen
+//     maar afgeleid, uit de lokale view van de game of uit de gamemappen aan [Identify] (Dolphin: ISOPath0..N en het game-ID). Zo'n
+//     game staat zonder UserProfiles-XML in de lijst; een profiel dat ook als XML bestaat komt uit game.ini.
 //  3. Elke submap van een gamemap is een kandidaat-game. Wijst een gebruikersprofiel (GamePath, ook via een view-symlink)
 //     naar een bestand in die map, dan is het die game. Anders worden de bestandsnamen in de map (recursief tot diepte 6,
 //     of 1 zonder "Search subfolders") vergeleken met ExecutableName van de sjablonen in GameProfiles/: één kandidaat, of
@@ -24,6 +27,8 @@
 #include <functional>
 #include <memory>
 #include <thread>
+
+#include "ravengun/gamesettings/gamesettings.hpp"
 
 namespace rg {
 
@@ -101,9 +106,18 @@ struct KnownGame {
     QString folder, title, profile, platform, exe;
 };
 
+// Een game met een eigen profiel in game.ini (patches/<Game>/ met de gebruikerslaag): de bibliotheek herkent hem in de gamemappen aan
+// [Identify], zoals Dolphin games herkent op hun ID (docs/per-game-patches.md).
+struct OwnGame {
+    QString profile, name;
+    ravengun::gamesettings::Ini settings;   // samengevoegd (standaard van het soort, meegeleverd, gebruiker)
+};
+
 struct ScanInput {
     QList<LibraryFolder> folders;
     QList<KnownGame> known;
+    QList<OwnGame> ownGames;   // games met een eigen profiel; de views en de gamemappen worden doorzocht
+    QString viewsDir;          // runtime/views (leeg = geen)
     QString tpDir;
     QString aagamesJson;  // pad naar packaging/aagames-games.json (leeg = geen)
     int maxDepth = 6;
@@ -163,6 +177,7 @@ public:
     // Start een scan in de achtergrond (een lopende scan wordt eerst afgebroken).
     void rescan();
     void setKnownGames(const QList<KnownGame>& known) { known_ = known; }
+    void setOwnGames(const QList<OwnGame>& own) { own_ = own; }
 
 signals:
     void gamesChanged();
@@ -179,6 +194,7 @@ private:
     LibraryData data_;
     QStringList log_;
     QList<KnownGame> known_;
+    QList<OwnGame> own_;
     bool scanning_ = false;
     quint64 gen_ = 0;
     std::shared_ptr<std::atomic<bool>> cancel_;

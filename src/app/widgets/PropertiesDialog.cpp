@@ -158,8 +158,11 @@ PropertiesDialog::PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game,
     setWindowTitle(tr("Properties: %1").arg(game_.displayName()));
     ctx_ = core_->gameData()->context(game_, core_->library()->tpDir());
     if (game_.kind == rg::GameKind::TeknoParrot || (game_.kind == rg::GameKind::Unity && !game_.profile.isEmpty()))
-        profilePath_ = core_->library()->tpDir() + QStringLiteral("/UserProfiles/") + game_.profile + QStringLiteral(".xml");
-    if (!QFileInfo::exists(profilePath_)) profilePath_.clear();
+        // Een game met een eigen profiel in game.ini: de velden komen uit game.ini en wijzigingen gaan naar de gebruikerslaag daarvan; anders
+        // het profiel van TeknoParrotUi (UserProfiles/<P>.xml).
+        profilePath_ = ctx_.ownProfile ? ctx_.userGameIni()
+                                       : core_->library()->tpDir() + QStringLiteral("/UserProfiles/") + game_.profile + QStringLiteral(".xml");
+    if (!ctx_.ownProfile && !QFileInfo::exists(profilePath_)) profilePath_.clear();
 
     AddWrappedPane(MakeGeneralPane(), tr("General"));
     AddWrappedPane(MakeOptionsPane(), tr("Options"));
@@ -170,6 +173,14 @@ PropertiesDialog::PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game,
     connect(this, &QDialog::finished, this, &PropertiesDialog::SaveGeneral);
     OnDoneCreatingPanes();
     resize(std::max(width(), 900), std::max(height(), 620));
+}
+
+// De ConfigValues van het profiel: uit game.ini bij een eigen profiel, anders uit UserProfiles/<P>.xml.
+QList<rg::TpField> PropertiesDialog::profileFields() const {
+    if (ctx_.ownProfile) return core_->gameData()->profileFields(ctx_.profile, core_->library()->tpDir());
+    rg::TpProfile p;
+    if (!profilePath_.isEmpty() && p.load(profilePath_)) return p.fields();
+    return {};
 }
 
 QWidget* PropertiesDialog::MakeGeneralPane() {
@@ -380,20 +391,17 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
     // Overige velden van het launch-profiel die game-options.json (nog) niet noemt.
     TpFieldEditor* tpEditor = nullptr;
     if (!profilePath_.isEmpty()) {
-        rg::TpProfile p;
-        if (p.load(profilePath_)) {
-            QList<rg::TpField> fields;
-            for (const rg::TpField& f : p.fields())
-                if (!displayFieldRe().match(f.name).hasMatch() && !managedField(f.name) &&
-                    !coveredFields.contains(f.category + QLatin1Char('/') + f.name))
-                    fields << f;
-            if (!fields.isEmpty()) {
-                auto* box = new QGroupBox(tr("More game settings"));
-                auto* bl = new QVBoxLayout(box);
-                tpEditor = new TpFieldEditor(profilePath_, fields, stored.tpFields);
-                bl->addWidget(tpEditor);
-                v->addWidget(box);
-            }
+        QList<rg::TpField> fields;
+        for (const rg::TpField& f : profileFields())
+            if (!displayFieldRe().match(f.name).hasMatch() && !managedField(f.name) &&
+                !coveredFields.contains(f.category + QLatin1Char('/') + f.name))
+                fields << f;
+        if (!fields.isEmpty()) {
+            auto* box = new QGroupBox(tr("More game settings"));
+            auto* bl = new QVBoxLayout(box);
+            tpEditor = new TpFieldEditor(profilePath_, fields, stored.tpFields);
+            bl->addWidget(tpEditor);
+            v->addWidget(box);
         }
     }
 
@@ -447,6 +455,7 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
         if (changed) core_->library()->setOverride(game_.id, ov);
         QStringList errors;
         rg::ProfileSync::apply(game_, *core_->library(), *core_->gameData(), &errors);
+        if (ctx_.ownProfile) core_->gameData()->reloadGame(ctx_.profile);   // de gebruikerslaag van game.ini is veranderd
         if (!errors.isEmpty())
             status->setText(QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(errors.join(QStringLiteral("<br>")).toHtmlEscaped()));
         else status->setText(changed ? tr("Saved. The new settings apply the next time the game starts.") : tr("Nothing changed."));
@@ -460,10 +469,8 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
     const rg::GameOverride stored = core_->library()->override_(game_.id);
     TpFieldEditor* editor = nullptr;
     if (!profilePath_.isEmpty()) {
-        rg::TpProfile p;
-        p.load(profilePath_);
         QList<rg::TpField> fields;
-        for (const rg::TpField& f : p.fields())
+        for (const rg::TpField& f : profileFields())
             if (displayFieldRe().match(f.name).hasMatch()) fields << f;
         auto* box = new QGroupBox(tr("Resolution and window"));
         auto* bl = new QVBoxLayout(box);
@@ -482,15 +489,22 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
 
     // Gamescope: opgeslagen in de bibliotheek, bij het starten naar UserProfiles/<P>.env (TP_GAMESCOPE) geschreven.
     QCheckBox* gamescope = nullptr;
-    const QString envPath = ctx_.envPath();
+    const QString envPath = ctx_.ownProfile ? ctx_.userGameIni() : ctx_.envPath();
     if (!profilePath_.isEmpty() && !envPath.isEmpty()) {
         auto* box = new QGroupBox(tr("Gamescope"));
         auto* bl = new QVBoxLayout(box);
-        QFile f(envPath);
-        QString text;
-        if (f.open(QIODevice::ReadOnly)) text = QString::fromUtf8(f.readAll());
         bool found = false;
-        QString val = rg::keyvalue::get(text, QStringLiteral("TP_GAMESCOPE"), &found);
+        QString val;
+        if (ctx_.ownProfile) {
+            // game.ini: [Display] Gamescope (alle lagen); true = aan.
+            const QString v = rg::OptionStore::readSetting(ctx_, QStringLiteral("Display"), QStringLiteral("Gamescope"), &found).trimmed().toLower();
+            val = (v == QStringLiteral("true") || v == QStringLiteral("1") || v == QStringLiteral("yes") || v == QStringLiteral("on")) ? QStringLiteral("1") : QStringLiteral("0");
+        } else {
+            QFile f(envPath);
+            QString text;
+            if (f.open(QIODevice::ReadOnly)) text = QString::fromUtf8(f.readAll());
+            val = rg::keyvalue::get(text, QStringLiteral("TP_GAMESCOPE"), &found);
+        }
         if (stored.options.contains(QStringLiteral("display.gamescope"))) {
             val = stored.options.value(QStringLiteral("display.gamescope")).toString();
             found = true;
@@ -528,6 +542,7 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
         core_->library()->setOverride(game_.id, ov);
         QStringList errors;
         rg::ProfileSync::apply(game_, *core_->library(), *core_->gameData(), &errors);
+        if (ctx_.ownProfile) core_->gameData()->reloadGame(ctx_.profile);   // de gebruikerslaag van game.ini is veranderd
         status->setText(errors.isEmpty() ? tr("Saved. The new settings apply the next time the game starts.")
                                          : QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(errors.join(QStringLiteral("; ")).toHtmlEscaped()));
     });
@@ -771,7 +786,10 @@ QWidget* PropertiesDialog::MakeInfoPane() {
     auto* form = new QFormLayout(w);
     const QString prof = ctx_.profile;
     QString emulationProfile, is64;
-    if (!profilePath_.isEmpty()) {
+    if (ctx_.ownProfile) {
+        emulationProfile = core_->gameData()->profileValue(prof, QStringLiteral("EmulationProfile"));
+        is64 = core_->gameData()->profileValue(prof, QStringLiteral("Is64Bit"));
+    } else if (!profilePath_.isEmpty()) {
         rg::TpProfile p;
         if (p.load(profilePath_)) {
             emulationProfile = p.tag(QStringLiteral("EmulationProfile"));

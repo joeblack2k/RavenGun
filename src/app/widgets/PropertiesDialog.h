@@ -73,7 +73,8 @@ private:
     rg::AppCore* core_;
     rg::GameEntry game_;
     rg::GameContext ctx_;
-    QString profilePath_;  // UserProfiles/<P>.xml (leeg zonder profiel)
+    QString profilePath_;  // UserProfiles/<P>.xml, of bij een eigen profiel de gebruikerslaag van game.ini (leeg zonder profiel)
+    QList<rg::TpField> profileFields() const;
     // General
     QLineEdit* name_edit_ = nullptr;
     QComboBox* template_combo_ = nullptr;

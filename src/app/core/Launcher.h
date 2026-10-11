@@ -10,8 +10,11 @@
 // - "direct": altijd zonder TeknoParrotUi (scripts/launch-direct.py start de lader BudgieLoader/OpenParrotLoader zelf, met
 //   pipehelper.exe en het gedeelde geheugen; de invoer komt van de engine). Faalt als dat voor de game niet kan.
 // - "teknoparrot-ui": altijd via TeknoParrotUi --profile=<P>.xml (headless, als lader).
-// Het gebruikersprofiel (UserProfiles/<P>.xml en <P>.env) is in alle gevallen alleen een uitvoerformaat: vóór het starten
-// schrijft ProfileSync de instellingen uit onze bibliotheek (library.json, game-options.json) erin.
+// Het profiel van een game staat in game.ini (patches/<Game>/ met de gebruikerslaag; docs/per-game-patches.md). ProfileSync schrijft de
+// instellingen uit onze bibliotheek (library.json, game-options.json) daarheen, in de gebruikerslaag en alleen als ze van de meegeleverde
+// waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) is een uitvoerformaat voor een start via
+// TeknoParrotUi (scripts/play-halo.sh maakt het uit game.ini) en geldt alleen nog als terugval voor een game zonder eigen profiel: ProfileSync
+// schrijft dan, zoals voorheen, in dat bestand.
 //
 // De TeknoParrot-runtime (laders en cores) blijft een afhankelijkheid; RuntimeCheck controleert de gekozen map.
 // De rest van de app praat alleen met GameLauncher en neemt nergens aan dat TeknoParrotUi draait.

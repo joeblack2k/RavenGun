@@ -457,6 +457,14 @@ int main(int argc, char** argv) {
         if (const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process())) patches_base = dd.path;
     games_cfg.dirs = ravengun::gamesettings::default_dirs(patches_base);
     if (!use_config) games_cfg.dirs.user.clear();
+    // Games met een eigen profiel in game.ini (zonder UserProfiles-XML): de gamemappen van de app (library.json) en de lokale views.
+    if (use_config && !home.empty()) {
+        const char* xc = std::getenv("XDG_CONFIG_HOME");
+        const char* xd = std::getenv("XDG_DATA_HOME");
+        games_cfg.home = home;
+        games_cfg.library_file = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/library.json";
+        games_cfg.views_dir = (xd && *xd == '/' ? std::string(xd) : home + "/.local/share") + "/ravengun/runtime/views";
+    }
     games_cfg.move_connected = [&shared] {
         auto l = shared.get().sample.link;
         return l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;

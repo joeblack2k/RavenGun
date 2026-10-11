@@ -155,6 +155,20 @@ class ConfigValuesTest(Env):
             op.config_sections([{"category": "G", "name": "A=B", "value": "x", "type": "Text", "options": []}])
 
 
+class TablesTest(unittest.TestCase):
+    def test_cpp_tables_equal_python(self):
+        """De tabellen in src/ravengun/gamesettings/gamesettings.cpp (kProfileFields, kEnvMap) zijn gelijk aan PROFILE_FIELDS en ENV_MAP."""
+        import re
+        text = read(os.path.join(ROOT, "src", "ravengun", "gamesettings", "gamesettings.cpp"))
+
+        def table(name):
+            body = text[text.index(name):]
+            body = body[:body.index("};")]
+            return [tuple(m) for m in re.findall(r'\{"([^"]*)", "([^"]*)", "([^"]*)", "([^"]*)"\}', body)]
+        self.assertEqual(table("kProfileFields[]"), [tuple(f) for f in op.PROFILE_FIELDS])
+        self.assertEqual(table("kEnvMap[]"), [tuple(m) for m in gs.ENV_MAP])
+
+
 class ImporterTest(Env):
     def test_import_static_and_user_layer(self):
         rc, err = self.importer("A", "--game-folder", self.games)

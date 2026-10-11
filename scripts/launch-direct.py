@@ -4,8 +4,10 @@
 #
 # Wat TeknoParrotUi bij een start doet, en wat dit script daarvan overneemt (gelezen in de open bron van TeknoParrotUI,
 # branch net8-migration, en gemeten aan een lopende sessie; eigen code, niets overgenomen):
-#   1. Profiel lezen: UserProfiles/<P>.xml (met GameProfiles/<P>.xml voor ontbrekende velden), plus de omgeving uit
-#      patches/<P>/game.ini (gamesettings.py; terugval: het oude UserProfiles/<P>.env) en --env.
+#   1. Profiel lezen: het eigen profiel in patches/<P>/game.ini (meegeleverd + gebruikerslaag: [Game], [Config], [Identify], ...; het pad naar de
+#      game wordt afgeleid uit de gamemappen, zie scripts/ownprofile.py), zonder UserProfiles/<P>.xml. Heeft game.ini geen eigen profiel, dan
+#      UserProfiles/<P>.xml (met GameProfiles/<P>.xml voor ontbrekende velden). Plus de omgeving uit game.ini (gamesettings.py; terugval: het oude
+#      UserProfiles/<P>.env) en --env. Revisie: ProfileRevision moet gelijk zijn aan die van het sjabloon, anders exit 4 (opnieuw importeren).
 #   2. De lader kiezen per EmulatorType (antwoorden_ronde2.md vraag 8): ElfLdr2 -> ElfLdr2/BudgieLoader.exe of
 #      ElfLdr2/x64/BudgieLoader_x64.exe; TeknoParrot -> OpenParrotLoader(64).exe met de kern TeknoParrot/TeknoParrot(64)
 #      als eerste argument; OpenParrot -> idem met OpenParrot(64); enz. Aanroep: wine <lader> [<kern>] "<exe>" [extra].

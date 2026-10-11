@@ -70,6 +70,38 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
             }
         }
     }
+    // Een game met een eigen profiel in game.ini (docs/per-game-patches.md): alles gaat naar de gebruikerslaag van game.ini, en alleen als het van
+    // de meegeleverde waarde afwijkt (Dolphin: User/GameSettings). UserProfiles/<P>.xml en <P>.env worden niet geschreven; de XML voor een start via
+    // TeknoParrotUi maakt scripts/play-halo.sh uit game.ini.
+    if (ctx.ownProfile) {
+        if (ov.options.contains(QStringLiteral("display.gamescope"))) {
+            const bool on = ov.options.value(QStringLiteral("display.gamescope")).toString() == QStringLiteral("1");
+            QString err;
+            // "Gamescope =" (leeg) heft ook een meegeleverde "true" op; uit en gelijk aan de meegeleverde stand haalt de sleutel weg.
+            if (!OptionStore::writeSetting(ctx, QStringLiteral("Display"), QStringLiteral("Gamescope"), on ? QStringLiteral("true") : QString(), &err) ||
+                !OptionStore::writeSetting(ctx, QStringLiteral("Display"), QStringLiteral("GamescopePath"),
+                                           on ? QStringLiteral("/usr/bin/gamescope") : QString(), &err)) {
+                ok = false;
+                if (errors) *errors << err;
+            }
+        }
+        if (!ov.tpFields.isEmpty()) {
+            const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(ctx.layers, ctx.profile.toStdString());
+            for (auto it = ov.tpFields.begin(); it != ov.tpFields.end(); ++it) {
+                const QString key = it.key();   // "Categorie/Veld" (de sleutel in [Config])
+                const int slash = key.indexOf(QLatin1Char('/'));
+                const std::string cfgKey = ravengun::gamesettings::find_config_key(g.settings, key.mid(slash + 1).toStdString(),
+                                                                                  slash >= 0 ? key.left(slash).toStdString() : std::string());
+                if (cfgKey.empty()) continue;   // het profiel kent dit veld niet (meer)
+                QString err;
+                if (!OptionStore::writeSetting(ctx, QStringLiteral("Config"), QString::fromStdString(cfgKey), it->toString(), &err)) {
+                    ok = false;
+                    if (errors) *errors << err;
+                }
+            }
+        }
+        return ok;
+    }
     // Gamescope (Display): UserProfiles/<P>.env, zoals scripts/play-halo.sh en tp-add-game.py --gamescope het lezen.
     if (ov.options.contains(QStringLiteral("display.gamescope")) && QFileInfo::exists(ctx.userProfilePath())) {
         const bool on = ov.options.value(QStringLiteral("display.gamescope")).toString() == QStringLiteral("1");

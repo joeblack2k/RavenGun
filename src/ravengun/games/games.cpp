@@ -153,6 +153,39 @@ std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::game
     return out;
 }
 
+std::vector<std::string> library_folders(const std::string& library_file, const std::string& home) {
+    std::vector<std::string> out;
+    if (library_file.empty()) return out;
+    std::ifstream f(library_file, std::ios::binary);
+    if (!f) return out;
+    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    const auto r = ravengun::json::parse(text);
+    if (!r.ok || !r.value.is_object()) return out;
+    const auto* folders = r.value.find("folders");
+    if (!folders || !folders->is_array()) return out;
+    for (const auto& v : folders->arr) {
+        std::string p = v.is_string() ? v.str : (v.is_object() && v.find("path") && v.find("path")->is_string() ? v.find("path")->str : std::string());
+        if (p.empty()) continue;
+        if (!home.empty() && (p == "~" || p.rfind("~/", 0) == 0)) p = home + p.substr(1);
+        out.push_back(p);
+    }
+    return out;
+}
+
+namespace {
+
+// Games met een eigen profiel in game.ini die op deze machine staan (view of gamemap).
+bool own_profile_installed(const Config& c, const std::string& profile, const std::vector<std::string>& folders, ravengun::gamesettings::Game* out) {
+    if (c.dirs.shipped.empty() && c.dirs.user.empty()) return false;
+    ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
+    if (!ravengun::gamesettings::has_own_profile(g.settings)) return false;
+    if (ravengun::gamesettings::locate_game(profile, g.settings, folders, c.views_dir, c.home).empty()) return false;
+    if (out) *out = std::move(g);
+    return true;
+}
+
+}  // namespace
+
 std::vector<Game> list_games(const Config& c) {
     std::vector<Game> out;
     if (c.tp_dir.empty()) return out;
@@ -183,6 +216,25 @@ std::vector<Game> list_games(const Config& c) {
         for (const auto& n : notes) if (n.first == stem) g.note = n.second;
         out.push_back(std::move(g));
     }
+    // Games met een eigen profiel in game.ini die niet ook als UserProfiles-XML bestaan.
+    if (!c.library_file.empty() || !c.views_dir.empty()) {
+        const std::vector<std::string> folders = library_folders(c.library_file, c.home);
+        for (const std::string& name : ravengun::gamesettings::list_games(c.dirs)) {
+            if (!valid_profile_name(name)) continue;
+            bool have = false;
+            for (const Game& g : out) have = have || g.profile == name;
+            ravengun::gamesettings::Game own;
+            if (have || !own_profile_installed(c, name, folders, &own)) continue;
+            Game g;
+            g.profile = name;
+            g.name = own.get("Game", "Name");
+            if (g.name.empty()) g.name = humanize(name);
+            std::error_code e3;
+            if (fs::is_regular_file(fs::path(c.tp_dir) / "Icons" / (name + ".png"), e3) && !e3) g.icon_file = name + ".png";
+            for (const auto& n : notes) if (n.first == name) g.note = n.second;
+            out.push_back(std::move(g));
+        }
+    }
     std::sort(out.begin(), out.end(), [](const Game& a, const Game& b) {
         std::string x = a.name, y = b.name;
         for (auto& ch : x) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -193,10 +245,15 @@ std::vector<Game> list_games(const Config& c) {
 }
 
 bool profile_exists(const Config& c, const std::string& profile) {
-    if (!valid_profile_name(profile) || c.tp_dir.empty()) return false;
+    if (!valid_profile_name(profile)) return false;
     std::error_code ec;
-    fs::path p = fs::path(c.tp_dir) / "UserProfiles" / (profile + ".xml");
-    return fs::is_regular_file(p, ec) && !ec;
+    if (!c.tp_dir.empty()) {
+        fs::path p = fs::path(c.tp_dir) / "UserProfiles" / (profile + ".xml");
+        if (fs::is_regular_file(p, ec) && !ec) return true;
+    }
+    // Een eigen profiel in game.ini: de XML is dan niet nodig (het startscript haalt het pad uit de gamemappen).
+    if (c.dirs.shipped.empty() && c.dirs.user.empty()) return false;
+    return ravengun::gamesettings::has_own_profile(ravengun::gamesettings::load_game(c.dirs, profile).settings);
 }
 
 std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data) {
@@ -335,7 +392,7 @@ void GameService::join_worker() {
 Result GameService::start(const std::string& profile, const std::string& launch) {
     if (!valid_profile_name(profile)) return {false, "invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -)"};
     if (!valid_launch(launch)) return {false, "invalid_argument", "ongeldige startwijze '" + launch + "'"};
-    if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen bestand " + profile + ".xml in UserProfiles"};
+    if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen eigen profiel in patches/" + profile + "/game.ini en geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
     if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
         return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};

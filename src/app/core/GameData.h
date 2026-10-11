@@ -19,6 +19,7 @@
 
 #include "core/GameLibrary.h"
 #include "core/GameOptions.h"
+#include "core/TpProfile.h"
 #include "ravengun/gamesettings/gamesettings.hpp"
 
 namespace rg {
@@ -89,6 +90,16 @@ public:
     QString shippedGameDir(const QString& profile) const;
     QString userGameDir(const QString& profile) const;
     const ravengun::gamesettings::Dirs& dirs() const { return dirs_; }
+
+    // Eigen profiel in game.ini (docs/per-game-patches.md, "Het profiel van een game"): de velden, de profielvelden en de games die de
+    // bibliotheek in de gamemappen herkent. Zonder eigen profiel: hasOwnProfile = false en lege lijsten (dan geldt UserProfiles/<P>.xml).
+    bool hasOwnProfile(const QString& profile) const;
+    // De ConfigValues van het profiel met de waarden die nu gelden (alle lagen); hint, bereik en dergelijke uit het sjabloon in tpDir.
+    QList<TpField> profileFields(const QString& profile, const QString& tpDir) const;
+    // Een profielveld van het eigen profiel zoals het in het XML-profiel heet (EmulationProfile, Is64Bit, ...); leeg als het niet gezet is.
+    QString profileValue(const QString& profile, const QString& xmlName) const;
+    QList<OwnGame> ownGames() const;   // alle games met een eigen profiel (voor de bibliotheek)
+    void reloadGame(const QString& profile) { loadGame(profile); }   // na een schrijfactie in de gebruikerslaag
 
     static QString routeLabel(const QString& route);  // Engels, voor de lijst
     static QString routeDescription(const QString& route);  // Engels, één zin voor de keuze

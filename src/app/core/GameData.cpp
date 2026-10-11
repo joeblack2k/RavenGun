@@ -8,6 +8,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <algorithm>
+
 #include "core/AppPaths.h"
 #include "core/FileSafety.h"
 
@@ -307,10 +309,53 @@ const GameOptionsEntry* GameData::entryFor(const GameEntry& g) const {
     return options_.findByFolder(folder);
 }
 
+bool GameData::hasOwnProfile(const QString& profile) const {
+    const auto it = games_.find(profile);
+    return it != games_.end() && gs::has_own_profile(it->settings);
+}
+
+QList<TpField> GameData::profileFields(const QString& profile, const QString& tpDir) const {
+    QList<TpField> out;
+    const auto it = games_.find(profile);
+    if (it == games_.end() || !gs::has_own_profile(it->settings)) return out;
+    TpProfile tmpl;   // hint, bereik en dergelijke staan alleen in het sjabloon
+    QHash<QString, TpField> meta;
+    if (!tpDir.isEmpty() && tmpl.load(tpDir + QStringLiteral("/GameProfiles/") + profile + QStringLiteral(".xml")))
+        for (const TpField& f : tmpl.fields()) meta.insert(f.category + QLatin1Char('/') + f.name, f);
+    for (const gs::ConfigField& cf : gs::config_fields(it->settings)) {
+        TpField f = meta.value(QString::fromStdString(cf.key()));
+        f.category = QString::fromStdString(cf.category);
+        f.name = QString::fromStdString(cf.name);
+        f.value = QString::fromStdString(cf.value);
+        f.type = QString::fromStdString(cf.type);
+        f.options.clear();
+        for (const std::string& o : cf.options) f.options << QString::fromStdString(o);
+        out << f;
+    }
+    return out;
+}
+
+QString GameData::profileValue(const QString& profile, const QString& xmlName) const {
+    const auto it = games_.find(profile);
+    const gs::ProfileField* f = gs::profile_field_for_xml(xmlName.toStdString());
+    if (it == games_.end() || !f) return {};
+    return QString::fromStdString(it->get(f->section, f->key));
+}
+
+QList<OwnGame> GameData::ownGames() const {
+    QList<OwnGame> out;
+    for (auto it = games_.begin(); it != games_.end(); ++it)
+        if (gs::has_own_profile(it->settings)) out << OwnGame{it.key(), QString::fromStdString(it->get("Game", "Name")), it->settings};
+    std::sort(out.begin(), out.end(), [](const OwnGame& a, const OwnGame& b) { return a.profile.compare(b.profile, Qt::CaseInsensitive) < 0; });
+    return out;
+}
+
 GameContext GameData::context(const GameEntry& g, const QString& tpDir) const {
     GameContext c;
     c.profile = g.profile.isEmpty() ? g.templateProfile : g.profile;
     c.tpDir = tpDir;
+    c.layers = dirs_;
+    c.ownProfile = hasOwnProfile(c.profile);
     if (!g.exePath.isEmpty()) c.gameDir = QFileInfo(g.exePath).path();
     else c.gameDir = g.folder;
     // Werkelijke map: de map van het uitvoerbare bestand na het volgen van de view-symlink.
