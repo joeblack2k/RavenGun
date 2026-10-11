@@ -52,8 +52,14 @@ def games():
 
 
 def read_dongle_json(game):
-    """(aanwezig, kind, bron) -- de gebruikerslaag gaat voor de meegeleverde laag."""
+    """(aanwezig, kind, bron) -- de gebruikerslaag gaat voor de meegeleverde laag.
+
+    De donglegegevens staan sinds ronde 24 in de drop-in van de game, niet meer los in de map:
+    `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json`. De bibliotheek leest ze daar zelf; de
+    loader weet niets van dongles (docs/geen-dongle-in-de-loader.md). Het oude pad wordt nog
+    geprobeerd zodat een half gemigreerde map niet stil als "geen dongle" telt."""
     for base in (os.path.join(HOME, ".local/share/ravengun/patches", game, "dongle.json"),
+                 os.path.join(PATCHES, game, "dropin", "ravengun-hasp", game, "dongle.json"),
                  os.path.join(PATCHES, game, "dongle.json")):
         if os.path.isfile(base):
             try:
