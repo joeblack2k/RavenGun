@@ -37,7 +37,7 @@ oordeel op grond van meerdere bronnen en dat is niet uit de mappen af te leiden.
 | `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
 | `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | **met de hand**; de kop noemt de commando's om de getallen na te rekenen |
 | `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent) en welk `EmulationProfile` er dan nog moet komen — dus wat er per game nodig is om van de gesloten `TeknoParrot(64).dll` af te gaan | `python3 patches/kern-herkenning.py` |
-| `patches/ZONDER-LADER.md` | welke games met **alleen `wine <exe>`** starten en blijven draaien — geen lader, geen kern, geen drop-in. De scherpste vraag over loskoppelen, met de eerlijke grens erbij: dit zegt of een game *blijft draaien*, niet of hij speelbaar is | `python3 patches/proef-zonder-lader.py` |
+| `patches/ZONDER-LADER.md` | welke games met **alleen `wine <exe>`** starten en blijven draaien — geen lader en geen kern. De scherpste vraag over loskoppelen, met de eerlijke grenzen erbij: de drop-in van een eerdere start staat nog in de view (de kaart meet per game hoeveel), en dit zegt of een game *blijft draaien*, niet of hij speelbaar is | `python3 patches/proef-zonder-lader.py` |
 
 De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in

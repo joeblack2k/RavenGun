@@ -8,7 +8,7 @@ naar de **volledigheid van de map** (game.ini, drop-in, secties, dongle), dit be
 
 *Ronde:* 26 (2026-10-11). *Gemaakt door:* de patches-agent, op de Deck.
 
-*Dit bestand is met de hand geschreven, niet gegenereerd.* De repo-`README.md` zet de vier kaarten
+*Dit bestand is met de hand geschreven, niet gegenereerd.* De repo-`README.md` zet de zes kaarten
 onder één kop ("Ze worden gegenereerd"); dat geldt voor `patches/STAND.md` en `patches/STARTTEST.md`
 (die komen uit `patches/stand-gen.py` en `patches/starttest-gen.py`) en voor de tabel van
 `patches/REGIO-PER-GAME.md`, maar **niet** voor dit bestand: de kolom *welke patch nodig is* en de
