@@ -1,0 +1,274 @@
+RavenGun-wijziging 0002 op OpenParrot: kleine aanpassingen om de kern met MinGW-w64 (GCC/clang) te bouwen in plaats van MSVC.
+Geen gedragswijziging: parameternamen die de klassenaam verbergen, std::min met expliciete typen, const-correcte injector-
+en MinHook-overloads (MSVC liet functiewijzers en stringliteralen stilzwijgend naar void* gaan), enkele lokale
+MSVC-specifieke constructies (SEH in een variadische debugfunctie, operandgrootte in MS-inline-assembler).
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/deps/inc/injector/hooking.hpp b/deps/inc/injector/hooking.hpp
+--- a/deps/inc/injector/hooking.hpp
++++ b/deps/inc/injector/hooking.hpp
+@@ -133,7 +133,7 @@
+     {
+         public:
+             // Save buffer at @addr with @size and virtual protect @vp and then overwrite it with @value
+-            void write(memory_pointer_tr addr, void* value, size_t size, bool vp)
++            void write(memory_pointer_tr addr, const void* value, size_t size, bool vp)
+             {
+                 this->save(addr, size, vp);
+                 return WriteMemoryRaw(addr, value, size, vp);
+diff -ruN a/deps/inc/injector/injector.hpp b/deps/inc/injector/injector.hpp
+--- a/deps/inc/injector/injector.hpp
++++ b/deps/inc/injector/injector.hpp
+@@ -228,6 +228,12 @@
+         memory_pointer_tr(void* x)
+             : p(memory_pointer(x).get())
+         {}  // Constructs from a void pointer, translating the address
++
++        // RavenGun (MinGW-w64): MSVC converted function pointers (FARPROC, hook functions) to void* implicitly.
++        template<class F, class = typename std::enable_if<std::is_pointer<F>::value && std::is_function<typename std::remove_pointer<F>::type>::value>::type>
++        memory_pointer_tr(F x)
++            : p(memory_pointer((void*)x).get())
++        {}
+         
+         // Just to be method-compatible with basic_memory_pointer ...
+         auto_pointer         get()      { return auto_pointer(p);     }
+@@ -318,7 +324,7 @@
+  *      Writes into memory @addr the content of @value with a sizeof @size
+  *      Does memory unprotection if @vp is true
+  */
+-inline void WriteMemoryRaw(memory_pointer_tr addr, void* value, size_t size, bool vp)
++inline void WriteMemoryRaw(memory_pointer_tr addr, const void* value, size_t size, bool vp)
+ {
+     scoped_unprotect xprotect(addr, vp? size : 0);
+     memcpy(addr.get(), value, size);
+diff -ruN a/deps/inc/MinHook.h b/deps/inc/MinHook.h
+--- a/deps/inc/MinHook.h
++++ b/deps/inc/MinHook.h
+@@ -182,5 +182,17 @@
+ 
+ #ifdef __cplusplus
+ }
++
++// RavenGun (MinGW-w64): OpenParrot geeft functiewijzers en adressen rechtstreeks door; MSVC converteerde die stilzwijgend naar
++// LPVOID, GCC en clang niet. Deze sjablonen doen dezelfde reinterpret_cast.
++template <typename T1, typename T2>
++inline MH_STATUS MH_CreateHook(T1 pTarget, T2 pDetour, LPVOID *ppOriginal)
++{ return MH_CreateHook((LPVOID)(uintptr_t)pTarget, (LPVOID)(uintptr_t)pDetour, ppOriginal); }
++template <typename T>
++inline MH_STATUS MH_CreateHookApi(LPCWSTR pszModule, LPCSTR pszProcName, T pDetour, LPVOID *ppOriginal)
++{ return MH_CreateHookApi(pszModule, pszProcName, (LPVOID)(uintptr_t)pDetour, ppOriginal); }
++template <typename T>
++inline MH_STATUS MH_EnableHook(T pTarget)
++{ return MH_EnableHook((LPVOID)(uintptr_t)pTarget); }
+ #endif
+ 
+diff -ruN a/OpenParrot/src/Functions/Games/APM3/APM3.cpp b/OpenParrot/src/Functions/Games/APM3/APM3.cpp
+--- a/OpenParrot/src/Functions/Games/APM3/APM3.cpp
++++ b/OpenParrot/src/Functions/Games/APM3/APM3.cpp
+@@ -896,7 +896,7 @@
+ 
+ 	memset(g_APM3IOValues, 0, 256);
+ 
+-	CreateThread(nullptr, 0, [](LPVOID) -> DWORD
++	CreateThread(nullptr, 0, [](LPVOID) __attribute__((stdcall)) -> DWORD
+ 		{
+ 			HANDLE hPipe = CreateFileA("\\\\.\\pipe\\TeknoParrotPipe", GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, NULL);
+ 
+@@ -916,7 +916,7 @@
+ 
+ void __fastcall printPengo(const char* format, ...)
+ {
+-	__try
++	// RavenGun (MinGW-w64): MSVC-SEH (__try/__except) weggelaten; clang kan dat voor i686 niet in een variadische functie.
+ 	{
+ 		va_list args;
+ 		char buffer[1024];
+@@ -930,10 +930,6 @@
+ 
+ 		OutputDebugStringA(buffer);
+ 	}
+-	__except (EXCEPTION_EXECUTE_HANDLER)
+-	{
+-
+-	}
+ }
+ 
+ BYTE compressionOn = 0;
+diff -ruN a/OpenParrot/src/Functions/Games/Europa-R/GRID.cpp b/OpenParrot/src/Functions/Games/Europa-R/GRID.cpp
+--- a/OpenParrot/src/Functions/Games/Europa-R/GRID.cpp
++++ b/OpenParrot/src/Functions/Games/Europa-R/GRID.cpp
+@@ -40,9 +40,9 @@
+ {
+ 	__asm
+ 	{
+-		CMP myPointer, 0
++		CMP dword ptr myPointer, 0
+ 		JNE skip
+-		CMP[ECX - 0x1C], 0x580
++		CMP dword ptr [ECX - 0x1C], 0x580
+ 		JNE skip
+ 		mov myPointer, ecx
+ 		sub myPointer, 0x18
+diff -ruN a/OpenParrot/src/Functions/Games/Ex-Board/Ex-BoardGeneric.cpp b/OpenParrot/src/Functions/Games/Ex-Board/Ex-BoardGeneric.cpp
+--- a/OpenParrot/src/Functions/Games/Ex-Board/Ex-BoardGeneric.cpp
++++ b/OpenParrot/src/Functions/Games/Ex-Board/Ex-BoardGeneric.cpp
+@@ -313,7 +313,7 @@
+ 		OutputDebugStringA("COM1 READ");
+ 		auto& outQueue = g_replyBuffers[hFile];
+ 
+-		int toRead = min(outQueue.size(), nNumberOfBytesToRead);
++		int toRead = (int)std::min<size_t>(outQueue.size(), nNumberOfBytesToRead);
+ 
+ 		std::copy(outQueue.begin(), outQueue.begin() + toRead, reinterpret_cast<uint8_t*>(lpBuffer));
+ 		outQueue.erase(outQueue.begin(), outQueue.begin() + toRead);
+diff -ruN a/OpenParrot/src/Functions/Games/Other/CrazySpeed.cpp b/OpenParrot/src/Functions/Games/Other/CrazySpeed.cpp
+--- a/OpenParrot/src/Functions/Games/Other/CrazySpeed.cpp
++++ b/OpenParrot/src/Functions/Games/Other/CrazySpeed.cpp
+@@ -294,7 +294,7 @@
+ 			CrazySpeedIOBoard::formPacket();
+ 		}
+ 
+-		int toRead = min(ioBuffer.size(), nNumberOfBytesToRead);
++		int toRead = (int)std::min<size_t>(ioBuffer.size(), nNumberOfBytesToRead);
+ 
+ 		uint8_t* dest = reinterpret_cast<uint8_t*>(lpBuffer);
+ 		for (int i = 0; i < toRead; i++) {
+@@ -958,7 +958,7 @@
+ 
+ 		if (cardData && readOffset < cardDataSize) {
+ 			size_t availableBytes = cardDataSize - readOffset;
+-			size_t bytesToRead = min(readLength, availableBytes);
++			size_t bytesToRead = std::min<size_t>(readLength, availableBytes);
+ 
+ 			memcpy(pbRecvBuffer, cardData + readOffset, bytesToRead);
+ 			pbRecvBuffer[bytesToRead] = 0x90;
+diff -ruN a/OpenParrot/src/Functions/Games/Other/FNFDrift.cpp b/OpenParrot/src/Functions/Games/Other/FNFDrift.cpp
+--- a/OpenParrot/src/Functions/Games/Other/FNFDrift.cpp
++++ b/OpenParrot/src/Functions/Games/Other/FNFDrift.cpp
+@@ -240,7 +240,7 @@
+ 	return 1;
+ }
+ 
+-static DWORD genericRetZero()
++static DWORD genericRetZeroFNFDrift()
+ {
+ 	return 0;
+ }
+@@ -279,7 +279,7 @@
+ 
+ 		CreateThread(NULL, 0, InputRT, NULL, 0, NULL);
+ 
+-		safeJMP(0x4c7c60, genericRetZero);
++		safeJMP(0x4c7c60, genericRetZeroFNFDrift);
+ 
+ 		if (ToBool(config["General"]["Windowed"]))
+ 		{
+diff -ruN a/OpenParrot/src/Functions/Games/Other/Friction.cpp b/OpenParrot/src/Functions/Games/Other/Friction.cpp
+--- a/OpenParrot/src/Functions/Games/Other/Friction.cpp
++++ b/OpenParrot/src/Functions/Games/Other/Friction.cpp
+@@ -240,7 +240,7 @@
+ 
+ 	if (OriWndProc == NULL) // Hide Cursor
+ 	{
+-		if (D3D9hWnd > NULL)
++		if (D3D9hWnd != NULL)
+ 			OriWndProc = (WNDPROC)::SetWindowLongPtr((HWND)D3D9hWnd, GWLP_WNDPROC, (LONG_PTR)WndProc);
+ 	}
+ 
+diff -ruN a/OpenParrot/src/Functions/Games/Other/RadikalBikers.cpp b/OpenParrot/src/Functions/Games/Other/RadikalBikers.cpp
+--- a/OpenParrot/src/Functions/Games/Other/RadikalBikers.cpp
++++ b/OpenParrot/src/Functions/Games/Other/RadikalBikers.cpp
+@@ -40,7 +40,7 @@
+ 	if (!(ToBool(config["General"]["Setup Screen"])))
+ 	{
+ 		HWND hWnd = FindWindowA(0, ("Radikal Bikers Setup"));
+-		if (hWnd > NULL)
++		if (hWnd != NULL)
+ 		{
+ 			SetForegroundWindow(hWnd);
+ 			ConfirmSetupDialog(hWnd);
+diff -ruN a/OpenParrot/src/Functions/Games/TypeX2/DSoundWrapper.cpp b/OpenParrot/src/Functions/Games/TypeX2/DSoundWrapper.cpp
+--- a/OpenParrot/src/Functions/Games/TypeX2/DSoundWrapper.cpp
++++ b/OpenParrot/src/Functions/Games/TypeX2/DSoundWrapper.cpp
+@@ -13,7 +13,7 @@
+ 	virtual ULONG Release(LPVOID _this);
+ 
+ 	// IDirectSound methods
+-	virtual HRESULT CreateSoundBuffer(LPVOID _this, LPCDSBUFFERDESC pcDSBufferDesc, LPDIRECTSOUNDBUFFER* ppDSBuffer, __null LPUNKNOWN pUnkOuter);
++	virtual HRESULT CreateSoundBuffer(LPVOID _this, LPCDSBUFFERDESC pcDSBufferDesc, LPDIRECTSOUNDBUFFER* ppDSBuffer, LPUNKNOWN pUnkOuter);
+ 	virtual HRESULT GetCaps(LPVOID _this, LPDSCAPS pDSCaps);
+ 	virtual HRESULT DuplicateSoundBuffer(LPVOID _this, LPDIRECTSOUNDBUFFER pDSBufferOriginal, LPDIRECTSOUNDBUFFER* ppDSBufferDuplicate);
+ 	virtual HRESULT SetCooperativeLevel(LPVOID _this, HWND hwnd, DWORD dwLevel);
+@@ -84,7 +84,7 @@
+ 	return pDS->Release();
+ }
+ 
+-HRESULT HookIDirectSound8::CreateSoundBuffer(LPVOID _this, LPCDSBUFFERDESC pcDSBufferDesc, LPDIRECTSOUNDBUFFER* ppDSBuffer, __null LPUNKNOWN pUnkOuter)
++HRESULT HookIDirectSound8::CreateSoundBuffer(LPVOID _this, LPCDSBUFFERDESC pcDSBufferDesc, LPDIRECTSOUNDBUFFER* ppDSBuffer, LPUNKNOWN pUnkOuter)
+ {
+ 	if (!(pcDSBufferDesc->dwFlags & DSBCAPS_PRIMARYBUFFER)) {
+ 		WAVEFORMATEX* wfx = pcDSBufferDesc->lpwfxFormat;
+diff -ruN a/OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp b/OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp
+--- a/OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp
++++ b/OpenParrot/src/Functions/Games/TypeX2/TypeX2Generic.cpp
+@@ -1018,7 +1018,7 @@
+ 	{
+ 		auto& outQueue = g_replyBuffers[hFile];
+ 
+-		int toRead = min(outQueue.size(), nNumberOfBytesToRead);
++		int toRead = (int)std::min<size_t>(outQueue.size(), nNumberOfBytesToRead);
+ 
+ 		std::copy(outQueue.begin(), outQueue.begin() + toRead, reinterpret_cast<uint8_t*>(lpBuffer));
+ 		outQueue.erase(outQueue.begin(), outQueue.begin() + toRead);
+diff -ruN a/OpenParrot/src/Utility/Hooking.Patterns.h b/OpenParrot/src/Utility/Hooking.Patterns.h
+--- a/OpenParrot/src/Utility/Hooking.Patterns.h
++++ b/OpenParrot/src/Utility/Hooking.Patterns.h
+@@ -86,17 +86,17 @@
+ 
+ 	public:
+ 		template<size_t Len>
+-		pattern(const char(&pattern)[Len])
++		pattern(const char(&patternString)[Len])
+ 			: pattern(GetModuleHandle(NULL))
+ 		{
+-			Initialize(pattern, Len);
++			Initialize(patternString, Len);
+ 		}
+ 
+-		pattern(const std::string &pattern)
++		pattern(const std::string &patternString)
+ 			: pattern(GetModuleHandle(NULL))
+ 		{
+-			auto len = pattern.length();
+-			Initialize(pattern.c_str(), len);
++			auto len = patternString.length();
++			Initialize(patternString.c_str(), len);
+ 		}
+ 
+ 		inline pattern& count(uint32_t expected) &
+@@ -182,10 +182,10 @@
+ 	{
+ 	public:
+ 		template<size_t Len>
+-		module_pattern(void* module, const char(&pattern)[Len])
++		module_pattern(void* module, const char(&patternString)[Len])
+ 			: pattern(module)
+ 		{
+-			Initialize(pattern, Len);
++			Initialize(patternString, Len);
+ 		}
+ 	};
+ 
+@@ -194,10 +194,10 @@
+ 	{
+ 	public:
+ 		template<size_t Len>
+-		range_pattern(uintptr_t begin, uintptr_t end, const char(&pattern)[Len])
++		range_pattern(uintptr_t begin, uintptr_t end, const char(&patternString)[Len])
+ 			: pattern(begin, end)
+ 		{
+-			Initialize(pattern, Len);
++			Initialize(patternString, Len);
+ 		}
+ 	};
+ 

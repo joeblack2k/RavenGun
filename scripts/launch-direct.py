@@ -316,6 +316,42 @@ def resolve_loader(p, tp):
     return exe, dll, is64
 
 
+OWN_BUILD_DEFAULT = "~/.local/share/ravengun/openparrot/current"   # scripts/build-openparrot.sh zet de verwijzing "current"
+
+
+def own_build(loader_settings, et, exe_rel, dll_rel):
+    """[Loader] Build = ravengun: de OpenParrot-lader (en -kern) uit de eigen build (scripts/build-openparrot.sh) in plaats van
+    uit de TeknoParrot-runtime. Geeft (lader, kern-map); (None, None) = alles uit de runtime (standaard).
+      Build = teknoparrot | ravengun   lader en, bij EmulatorType OpenParrot, de kern
+      Core  = teknoparrot | ravengun   alleen de kern apart (bv. eigen lader met de kern van TeknoParrot); leeg = volgt Build
+      Path  = <map>                    map met OpenParrotWin32/ en OpenParrotx64/ (standaard: .../ravengun/openparrot/current)"""
+    build = loader_settings.get("Build", "").strip().lower()
+    core = loader_settings.get("Core", "").strip().lower()
+    for key, val in (("Build", build), ("Core", core)):
+        if val not in ("", "teknoparrot", "ravengun"):
+            raise SettingRefused("[Loader] %s = %s (kies teknoparrot of ravengun)" % (key, val))
+    if not core and build == "ravengun" and et == "OpenParrot":
+        core = "ravengun"   # Build volgt voor de kern alleen bij EmulatorType OpenParrot; TeknoParrot-profielen houden hun eigen kern
+    if build != "ravengun" and core != "ravengun":
+        return None, None
+    base = gs.expand_home(loader_settings.get("Path", "").strip() or OWN_BUILD_DEFAULT)
+    loader = None
+    if build == "ravengun":
+        if not os.path.basename(exe_rel).lower().startswith("openparrotloader"):
+            raise SettingRefused("[Loader] Build = ravengun bestaat alleen voor OpenParrotLoader(64).exe, "
+                                 "niet voor %s" % exe_rel)
+        loader = os.path.join(base, exe_rel)
+    core_dir = None
+    if core == "ravengun":
+        if et != "OpenParrot" or not dll_rel:
+            raise SettingRefused("een eigen kern bestaat alleen voor EmulatorType OpenParrot (dit is %s)" % et)
+        core_dir = base
+    for f in (loader, os.path.join(core_dir, dll_rel + ".dll") if core_dir else None):
+        if f and not os.path.isfile(f):
+            raise SettingRefused("eigen OpenParrot-build ontbreekt: %s (bouwen: scripts/build-openparrot.sh)" % f)
+    return loader, core_dir
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Patches (Kind = file): zoek-en-vervang op een lokale kopie van een bestand van de runtime (docs/per-game-patches.md).
 # De kennis zelf (welke bytes, waarom) staat in patches.ini; dit is alleen de machine. Regels:
@@ -607,7 +643,14 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         for pt in settings.patches:
             if pt.name == gs.FPFIX_PATCH:
                 pt.fields["Enabled"] = "true"
-    targets = {"loader": loader, "core": os.path.join(tp, dll_rel + ".dll") if dll_rel else None}
+    own_loader, own_core_dir = own_build(settings.settings.get("Loader", {}), et, exe_rel, dll_rel)   # [Loader] Build/Core/Path
+    if own_loader:
+        loader = own_loader
+        for pt in settings.patches:   # de Wine-fix zit in de eigen lader zelf (broncodewijziging); de bytepatch past er niet op
+            if pt.name == gs.FPFIX_PATCH:
+                pt.fields["Enabled"] = "false"
+    core_dir = own_core_dir or tp
+    targets = {"loader": loader, "core": os.path.join(core_dir, dll_rel + ".dll") if dll_rel else None}
     patched, patch_report = plan_file_patches(settings, targets, tp, materialize=materialize_patches, exe_path=game)
     loader = patched.get("loader", loader)
     wine = resolve_wine(p, env)
@@ -667,7 +710,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
 
     args = [wine, loader]
     if dll_rel:
-        args.append(wine_path(os.path.join(tp, dll_rel)))
+        args.append(wine_path(os.path.join(core_dir, dll_rel)))
     args.append(wine_path(game))
     for extra in (p.get("CustomArguments", ""), p.get("ExtraParameters", "")):
         if extra.strip():

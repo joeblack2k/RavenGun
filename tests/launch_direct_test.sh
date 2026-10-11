@@ -365,6 +365,64 @@ write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nDongleRegion = USA\n")
 rc, out, err = run("Win", "--check")
 check(rc == 5 and "heeft die optie niet" in err, "profiel zonder die optie weigert (%d: %s)" % (rc, err))
 
+# Eigen OpenParrot-lader en -kern ([Loader] Build / Core / Path, scripts/build-openparrot.sh): standaard de runtime van TeknoParrot,
+# met Build = ravengun de lader (en bij EmulatorType OpenParrot de kern) uit de eigen build; de bytepatch voor de Wine-fix valt dan weg.
+own = os.path.join(tmp, "own")
+for rel in ("OpenParrotWin32/OpenParrotLoader.exe", "OpenParrotWin32/OpenParrot.dll", "OpenParrotx64/OpenParrotLoader64.exe"):
+    write(os.path.join(own, rel), "x")
+write(os.path.join(tp, "OpenParrotWin32", "OpenParrotLoader.exe"), orig, "wb")
+write(os.path.join(shipped, "Gx", "patches.ini"), "[Patch: %s]\nEnabled = true\nKind = file\nCategory = loader\nTarget = loader\n"
+      "TargetName = OpenParrotLoader.exe\nFind = C7 05 C0 9B 42 00 1F 00 01 00\nReplace = C7 05 C0 9B 42 00 17 00 01 00\n" % gsm.FPFIX_PATCH)
+def wp(p):
+    return "Z:" + p.replace("/", "\\")
+def plan_of(name):
+    rc, out, err = run(name, "--plan", "--json")
+    check(rc == 0, "%s --plan: exit %d: %s" % (name, rc, err[-300:]))
+    return json.loads(out) if rc == 0 else {"argv": ["", "", "", ""], "patches": []}
+rc, out, err = run("Gx", "--plan", "--json")
+plan = json.loads(out)
+check(plan["argv"][1].startswith(home + "/.local/share/ravengun/patched/"), "zonder Build: lader uit de runtime, gepatcht (%s)" % plan["argv"][1])
+check(plan["argv"][2] == wp(os.path.join(tp, "OpenParrotWin32/OpenParrot")), "zonder Build: kern uit de runtime")
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nBuild = ravengun\nPath = %s\n" % own)
+rc, out, err = run("Gx", "--plan", "--json")
+plan = json.loads(out) if rc == 0 else {"argv": ["", "", ""], "patches": [{"result": "?"}]}
+check(rc == 0 and plan["argv"][1] == os.path.join(own, "OpenParrotWin32/OpenParrotLoader.exe"), "Build = ravengun: eigen lader (%d %s %s)" % (rc, plan["argv"][1], err))
+check(plan["argv"][2] == wp(os.path.join(own, "OpenParrotWin32/OpenParrot")), "Build = ravengun: eigen kern (%s)" % plan["argv"][2])
+fp = [r for r in plan["patches"] if r["name"] == gsm.FPFIX_PATCH]
+check(len(fp) == 1 and fp[0]["result"] == "overgeslagen" and fp[0].get("reden") == "uit", "de bytepatch is uit bij de eigen lader: %s" % plan["patches"])
+check(not os.path.exists(os.path.join(home, ".local/share/ravengun/patched")), "eigen lader: geen gepatchte kopie")
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nBuild = ravengun\nCore = teknoparrot\nPath = %s\n" % own)
+plan = plan_of("Gx")
+check(plan["argv"][1] == os.path.join(own, "OpenParrotWin32/OpenParrotLoader.exe") and plan["argv"][2] == wp(os.path.join(tp, "OpenParrotWin32/OpenParrot")),
+      "Core = teknoparrot: eigen lader met de kern uit de runtime (%s)" % plan["argv"][1:3])
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nCore = ravengun\nPath = %s\n" % own)
+plan = plan_of("Gx")
+check(plan["argv"][2] == wp(os.path.join(own, "OpenParrotWin32/OpenParrot")) and plan["argv"][1].startswith(home + "/.local/share/ravengun/patched/"),
+      "alleen Core = ravengun: kern eigen, lader uit de runtime (gepatcht) (%s)" % plan["argv"][1:3])
+# Standaardmap: ~/.local/share/ravengun/openparrot/current
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nBuild = ravengun\n")
+rc, out, err = run("Gx", "--check")
+check(rc == 5 and "scripts/build-openparrot.sh" in err and "openparrot/current" in err, "eigen build ontbreekt: exit 5 met bouwhint (%d: %s)" % (rc, err))
+for rel in ("OpenParrotWin32/OpenParrotLoader.exe", "OpenParrotWin32/OpenParrot.dll"):
+    write(os.path.join(home, ".local/share/ravengun/openparrot/current", rel), "x")
+plan = plan_of("Gx")
+check(plan["argv"][1] == os.path.join(home, ".local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe"), "standaardmap current")
+write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nBuild = mijn\n")
+rc, out, err = run("Gx", "--check")
+check(rc == 5 and "Build = mijn" in err, "onbekende Build weigert (%d: %s)" % (rc, err))
+# 64-bit TeknoParrot-profiel: eigen lader, kern van TeknoParrot (er is geen eigen TeknoParrot-kern); een eigen kern weigert.
+write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nType = TeknoParrot\n[Loader]\nBuild = ravengun\nPath = %s\n" % own)
+plan = plan_of("Win")
+check(plan["argv"][1] == os.path.join(own, "OpenParrotx64/OpenParrotLoader64.exe") and plan["argv"][2] == wp(os.path.join(tp, "TeknoParrot/TeknoParrot64")),
+      "TeknoParrot-profiel: eigen lader, TeknoParrot-kern (%s)" % plan["argv"][1:3])
+write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nType = TeknoParrot\n[Loader]\nCore = ravengun\nPath = %s\n" % own)
+rc, out, err = run("Win", "--check")
+check(rc == 5 and "alleen voor EmulatorType OpenParrot" in err, "eigen kern bij EmulatorType TeknoParrot weigert (%d: %s)" % (rc, err))
+os.unlink(os.path.join(shipped, "Win", "game.ini"))
+write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Loader]\nBuild = ravengun\nPath = %s\n" % own)
+rc, out, err = run("Elf", "--check")
+check(rc == 5 and "alleen voor OpenParrotLoader" in err, "BudgieLoader kent geen eigen build (%d: %s)" % (rc, err))
+
 
 if fails:
     for f in fails:

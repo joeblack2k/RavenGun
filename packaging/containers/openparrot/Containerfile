@@ -1,0 +1,9 @@
+# Build-omgeving voor de eigen OpenParrot-lader en -kern (scripts/build-openparrot.sh): MinGW-w64 en clang op Arch.
+# Vastgepind: de basis-image op digest, de pakketten via een momentopname van het Arch Linux Archive (datum hieronder).
+# Versies: zie third_party/openparrot/README.md (`scripts/build-openparrot.sh --versions` toont ze).
+# Alleen een cross-compiler: er wordt niets van Windows uitgevoerd.
+FROM docker.io/library/archlinux@sha256:2fd1ae548076c67bcd41098ddd44e799058010e8d55f085d453dbb890e706860
+ARG ALA_DATE=2026/10/11
+RUN echo "Server = https://archive.archlinux.org/repos/${ALA_DATE}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist \
+    && pacman -Syyu --noconfirm --needed mingw-w64-gcc clang lld make patch \
+    && pacman -Scc --noconfirm

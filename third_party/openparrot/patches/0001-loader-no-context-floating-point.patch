@@ -1,0 +1,26 @@
+RavenGun-wijziging 0001 op OpenParrot: de lader vraagt CONTEXT_FLOATING_POINT niet meer aan (Wine-fix).
+ContextFlags 0x1001F -> 0x10017. Waarom: docs/decisions.md ("Eigen OpenParrot-lader en -kern"), docs/per-game-patches.md.
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrotLoader/src/main.cpp b/OpenParrotLoader/src/main.cpp
+--- a/OpenParrotLoader/src/main.cpp
++++ b/OpenParrotLoader/src/main.cpp
+@@ -871,7 +871,17 @@
+ 	}
+ 	else
+ 	{
+-		mycontext.ContextFlags = 0x00010000 + 1 + 2 + 4 + 8 + 0x10;
++		// RavenGun modification (Wine): CONTEXT_FLOATING_POINT (0x8) is deliberately NOT requested any more.
++		// This one context (mycontext) is used for every GetThreadContext/SetThreadContext call below
++		// (RunTo and LoadHookDLL), and the loader only needs the control, integer, segment and debug
++		// registers to move EIP/RIP. Under Wine, SetThreadContext with CONTEXT_FLOATING_POINT but without
++		// CONTEXT_EXTENDED_REGISTERS writes an all-zero MXCSR into the game's main thread, which unmasks every
++		// SSE exception; the game then dies with c00002b5 (STATUS_FLOAT_MULTIPLE_TRAPS) on the first inexact
++		// conversion. The loader only reads the floating point state and writes the same values back, so
++		// leaving it out changes nothing on Windows.
++		// Flags: CONTEXT_i386 | CONTROL | INTEGER | SEGMENTS | DEBUG_REGISTERS
++		// (was 0x00010000 + 1 + 2 + 4 + 8 + 0x10 = 0x1001F, now 0x10017).
++		mycontext.ContextFlags = 0x00010000 + 1 + 2 + 4 + 0x10;
+ 		GetThreadContext(pi.hThread, &mycontext);
+ 
+ 		PROCESS_BASIC_INFORMATION pbi = { 0 };
