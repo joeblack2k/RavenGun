@@ -22,7 +22,8 @@ Gebruik: scripts/import-tp-profiles.py [--all | PROFIEL...] [--runtime TP] [--ou
   --all            alle games met een map in --out (patches/) die een sjabloon in de runtime hebben
   --game-folder    gamemap waarin de games staan (herhaalbaar), naast die uit library.json; bepaalt de wortel van [Identify]
   --hash           ook de sha256 van het hoofdbestand vastleggen (traag op de NAS)
-  --add-to-library de opgegeven --game-folder's toevoegen aan library.json van de app
+  --add-to-library de opgegeven --game-folder's toevoegen aan library.json van de app. Zonder dit telt voor de controle "vindt de game
+                   zich terug" alleen wat al in library.json staat; de rest krijgt een [Game] GamePath-override in de gebruikerslaag
   --user DIR       gebruikerslaag (standaard $RAVENGUN_USER_PATCHES_DIR of ~/.local/share/ravengun/patches)
 Exit 0 als alles is gelukt; 1 als er (ook) profielen niet geïmporteerd konden worden; 2 bij een gebruiksfout.
 """
@@ -149,7 +150,7 @@ class Skip(Exception):
     pass
 
 
-def import_profile(name, tp, out_dir, user_dir, folders, hash_it, dry, changed):
+def import_profile(name, tp, out_dir, user_dir, folders, runtime_folders, hash_it, dry, changed):
     """Importeert één profiel; geeft een lijst meldingen. Raise Skip als het niet kan."""
     notes = []
     st = op.read_xml_profile(op.template_path(tp, name))
@@ -286,11 +287,12 @@ def import_profile(name, tp, out_dir, user_dir, folders, hash_it, dry, changed):
                 notes.append("%s komt bij meer dan één game voor: %s is vastgelegd om hem te herkennen" % (ident["Path"], extra))
                 if len(found) == 1 and op.same_file(found[0], game_path):
                     break
-            derived, how = op.locate_game(name, merged, folders)
+        # Wat de app en de launcher straks zien: alleen de gamemappen die in library.json staan (of die --add-to-library daar zet).
+        derived, how = op.locate_game(name, merged, runtime_folders)
         if not derived or not op.same_file(derived, game_path):
             wanted_user.setdefault("Game", {})["GamePath"] = gs.shrink_home(game_path)
             notes.append("de gamemappen vinden %s niet terug (%s): GamePath staat als override in de gebruikerslaag; voeg de map toe met "
-                         "--game-folder/--add-to-library of in de app" % (game_path, ("vond " + derived) if derived else "niets"))
+                         "--add-to-library of in de app (Settings > Paths > Game Folders)" % (game_path, ("vond " + derived) if derived else "niets"))
 
     source = "%s GameProfiles/%s.xml, revisie %s (scripts/import-tp-profiles.py; opnieuw importeren in plaats van met de hand wijzigen)" % (MARK, name, rev)
     managed_static = [(s, k) for s, k, _x, kind in op.PROFILE_FIELDS if kind != "runner"] + [("Wine", "Runner")]
@@ -354,13 +356,15 @@ def main(argv):
         log("--user en --out zijn dezelfde map")
         return 2
     extra = [os.path.normpath(gs.expand_home(f)) for f in a.game_folder]
-    folders = extra + [f for f in op.library_folders() if f not in extra]
+    library = op.library_folders()
+    folders = extra + [f for f in library if f not in extra]                      # voor [Identify]: waar kan de game staan
+    runtime_folders = library + [f for f in extra if a.add_to_library and f not in library]   # wat de app en de launcher straks zien
     names = a.profiles if a.profiles else gs.list_games(a.out, os.path.join(os.devnull, "geen"))
     dry = a.dry_run or a.check
     changed, failed, ok = [], [], 0
     for name in names:
         try:
-            notes, _root = import_profile(name, a.runtime, a.out, user_dir, folders, a.hash, dry, changed)
+            notes, _root = import_profile(name, a.runtime, a.out, user_dir, folders, runtime_folders, a.hash, dry, changed)
         except Skip as e:
             if a.all:
                 log("%-28s overgeslagen: %s" % (name, e))

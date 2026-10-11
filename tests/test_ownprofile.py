@@ -214,6 +214,22 @@ class ImporterTest(Env):
         # De override telt: de start vindt de game zonder gamemap.
         self.assertEqual(self.plan()["game"], self.exe)
 
+    def test_game_folder_flag_needs_add_to_library(self):
+        # --game-folder bepaalt de wortel van [Identify], maar alleen wat in library.json staat vindt de launcher straks terug.
+        self.set_library([])
+        rc, err = self.importer("A", "--game-folder", self.games)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("override", err)
+        u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
+        self.assertIn("GamePath", u["Game"])
+        self.assertEqual(gs.read_ini(os.path.join(self.shipped, "A", "game.ini"))[0]["Identify"]["Path"], "game.exe")   # wortel: Spel A
+        rc, err = self.importer("A", "--game-folder", self.games, "--add-to-library")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(op.library_folders(), [self.games])
+        u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
+        self.assertNotIn("GamePath", u.get("Game", {}))
+        self.assertEqual(self.plan()["game"], self.exe)
+
     def test_no_secrets_and_no_input_assignments(self):
         write(os.path.join(self.tp, "UserProfiles", "A.xml"), user_xml(self.exe, extra="<ExtraParameters>-token=abc123</ExtraParameters><PatreonSerialKey>geheim</PatreonSerialKey>"))
         self.assertEqual(self.importer("A", "--game-folder", self.games)[0], 0)
@@ -252,6 +268,42 @@ class ImporterTest(Env):
                 for line in text.splitlines():
                     key = line.split("=", 1)[0].strip().upper() if "=" in line and not line.lstrip().startswith((";", "#")) else ""
                     self.assertNotIn(var, key.replace("PATREON", "") if var == "PATREON" else key, "%s: %s" % (name, line))
+
+
+class TpAddGameTest(Env):
+    def run_add(self, *args):
+        r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "tp-add-game.py"), "A", self.exe, *args], capture_output=True, text=True, env=dict(os.environ))
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        return r
+
+    def test_with_shipped_profile_only_differences(self):
+        self.assertEqual(self.importer("A", "--game-folder", self.games)[0], 0)
+        shutil.rmtree(os.path.join(self.user, "A"), ignore_errors=True)
+        self.run_add("--force", "--fullscreen")
+        u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
+        self.assertNotIn("Executable", u.get("Game", {}))                      # het profiel staat al in het meegeleverde game.ini
+        self.assertNotIn("Identify", u)
+        self.assertNotIn("GamePath", u.get("Game", {}))                        # de gamemap vindt de game
+        self.assertEqual(u["Config"], {"General/Input API": "RawInput", "General/Windowed": "0"})   # alleen wat van het sjabloon afwijkt
+        xml = read(os.path.join(self.tp, "UserProfiles", "A.xml"))
+        self.assertIn("<GamePath>%s</GamePath>" % self.exe, xml)
+        self.assertIn("<FieldName>Input API</FieldName><FieldValue>RawInput</FieldValue>", xml)
+        # Opnieuw uitvoeren verandert niets aan de gebruikerslaag.
+        before = read(os.path.join(self.user, "A", "game.ini"))
+        self.run_add("--force", "--fullscreen")
+        self.assertEqual(read(os.path.join(self.user, "A", "game.ini")), before)
+
+    def test_new_game_gets_whole_profile_in_user_layer(self):
+        shutil.rmtree(os.path.join(self.shipped, "A"))
+        os.unlink(os.path.join(self.tp, "UserProfiles", "A.xml"))
+        self.run_add()
+        u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
+        self.assertEqual(u["Game"]["Executable"], "game.exe")
+        self.assertEqual(u["Game"]["ProfileRevision"], "7")
+        self.assertIn("General/Windowed", u["ConfigType"])
+        self.assertEqual(u["Identify"]["Size"], "3")
+        self.assertNotIn("GamePath", u["Game"])                                  # de gamemap in de bibliotheek vindt hem terug
+        self.assertEqual(op.locate_game("A", gs.load_game("A").settings, [self.games])[0], self.exe)
 
 
 class LocateTest(Env):
