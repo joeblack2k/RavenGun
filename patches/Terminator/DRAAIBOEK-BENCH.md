@@ -185,3 +185,89 @@ cleanly and recording completely.
 - Do not chase the dongle in this run. Stop at the measured `exit 255` and report it.
 - Do not run the loader against the NAS file directly — the copy keeps the run attributable and the NAS
   untouched.
+
+---
+
+## 7. Extra bewijs dat DEZE run kan leveren: de adreslijst (`hasp-haken.ini`)
+
+Sinds de generieke HASP-hook een adreslijst kan lezen (`patches/Terminator/hasp-haken.ini`) kan deze
+benchrun iets bewijzen wat **geen enkele statische meting kan**: of de gast die functies ook werkelijk
+**aanroept**. Tot nu toe zijn de adressen alleen statisch bekend — bewezen, maar niet aangeroepen.
+
+### 7.1 Wat er al statisch bewezen is (zonder bench)
+
+`bash next-measurement.sh` + `bash hasplijst-toets.sh` in `patches/Terminator/`:
+
+- 50 van 58 dongle/HASP-functies gelokaliseerd met bewijs; de hele `hasp_*`-kern graad A (byte-identiek).
+- De adreslijst is gekeurd en aangehaakt in een testprogramma dat het **echte** gastbeeld op zijn eigen
+  virtuele adressen mapt (0x08048000..0x08cee000), zonder de game te starten:
+  **10 van 11 GELDIG en aangehaakt, 1 terecht geweigerd** (`hasp_free`, een `jmp`-thunk, zie §7.4).
+
+Dat bewijst dat de adressen kloppen. Het bewijst **niet** dat de game ze aanroept.
+
+### 7.2 De run, met de adreslijst erbij
+
+Zelfde run als §1-§2, met drie extra variabelen erbij:
+
+```sh
+cd ~/.local/share/ravengun/runtime/views/Terminator
+export LD_LIBRARY_PATH="/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs:/home/deck/.local/share/ravengun/runtime/lib32"
+export RAVENGUN_HASP_ELF_GAME=/tmp/ts-bench/game
+export RAVENGUN_HASP_ELF_ADRESLIJST=~/projects/ravengun-patches/patches/Terminator/hasp-haken.ini
+export RAVENGUN_HASP_ELF_LOG=/tmp/ts-bench/log/hasp.log
+export RAVENGUN_HASP_VERBOSE=1          # NODIG: hh_meld() logt "aanroep: <naam>" alleen met deze vlag
+timeout 90 /home/deck/.local/share/ravengun/bin/rg-elfloader /tmp/ts-bench/game 2>&1 | tee /tmp/ts-bench/log/run2.txt
+```
+
+De hook moet via `LD_PRELOAD` in het proces komen (of via de drop-in van de laderroute); zonder de hook
+is er geen `aanroep:`-regel en levert deze sectie niets op. Controleer vooraf dat de hook geladen wordt:
+de log hoort te beginnen met `=== ravengun-hasphook (pid …)` en de regel
+`adreslijst: 11 regel(s) … (basis: absoluut)`.
+
+### 7.3 Wat je ziet, en wat het betekent
+
+`hh_meld()` schrijft bij elke aanroep één regel `[ravengun-hasphook] aanroep: <naam>`. Dat maakt de
+aanroeplijst meetbaar. Per uitkomst:
+
+| wat je in de log ziet | wat het betekent | wat je daarna doet |
+|---|---|---|
+| **`aanroep:` voor alle tien, en de game komt voorbij `DongleInitialize() FAILED!`** | de emulator antwoordt geaccepteerd; het HASP-pad is niet meer de blokkade | verder kijken waar hij nu stopt (GL? `/g3/`?) — dat is het volgende probleem, niet dit |
+| **`aanroep:` voor een deel, daarna exit 255** | de game stopt **tussen** twee aanroepen: de eerste functie die **niet** in de log staat is waar hij afhaakt | de emulator moet de aanroepen *vóór* dat punt kloppend beantwoorden; dat is de kortste route naar verder |
+| **`aanroep: hasp_get_info` / `hasp_get_sessioninfo` wel, `hasp_login` nooit** | de game bewandelt een ander pad dan verwacht (eerst licentie-informatie, dan pas inloggen) | de emulator moet `get_info`/`get_sessioninfo` als eerste kloppend beantwoorden |
+| **géén enkele `aanroep:`-regel, en tóch exit 255 met `DongleInitialize() FAILED!`** | de blokkade zit **vóór** de HASP-API: in de engine zelf (`DongleInit`/`DongleOpen`) of in de `/g3/`-paden | dit is de meest waardevolle uitkomst: het verlegt het hele werk van "HASP emuleren" naar "`/g3/` leveren" (planstap 3). Meld dit expliciet. |
+| **`aanroep:`-regels, dan een SIGSEGV in plaats van exit 255** | de crash zit ín of direct na een vervanger | kijk of het crashadres het gepatchte adres of zijn trampoline is (de log noemt de trampoline per functie). Zo ja: ABI/aanroepconventie van die ene functie klopt niet |
+| **de hook haakt 10 van 11 aan, maar de game crasht meteen bij de eerste aanroep** | het patchen op zich ging goed (statisch bewezen), maar de vervanger of de trampoline is niet ABI-compatibel met deze build | dit is precies de `ret 0x4/0x8`-kwestie die het project al bij GL zag (cdecl vs stdcall); per functie te controleren |
+| **de game komt verder dan ooit en raakt `hasp_free`** | de weigering in §7.4 heeft dan geen gevolg: het is een geheugen-vrijgave, geen donglevraag | niets doen; noteer het als bevestiging |
+| **de game sterft exact bij `hasp_free`** | dan heeft de weigering wél een gevolg en moet er een andere weg komen (de aanroep onderscheppen bij de beller, of de alias-keten volgen) | melden; dit is de enige uitkomst waarin §7.4 een probleem is |
+
+### 7.4 De ene weigering, en waarom die geen fout is
+
+`hasp_free` staat met een **correct** adres in de lijst (`0x083baab0`) maar de hook weigert het, met als
+reden `eerste bytes e9 ab 22 00 zijn geen prologue`. Dat is juist: in deze build is `hasp_free` een
+alias — zijn hele lichaam is `jmp rel32` naar `0x083bcd60`. De prologue-check van de hook accepteert
+`0xe9` niet, en dat hoort zo: je kunt geen 5-byte sprong over een 5-byte sprong zetten zonder de
+trampoline te laten kloppen.
+
+Het helpt **niet** om in plaats daarvan het alias-doel te hooken: `0x083bcd60` is zelf ook weer een
+`jmp rel32` (`e9 ab be 04`). Voor `hasp_free` is er in deze build dus geen enkel punt met een prologue.
+
+Inhoudelijk hoeft dat geen probleem te zijn: `hasp_free` geeft geheugen vrij dat door `hasp_get_info` /
+`hasp_get_sessioninfo` is gereserveerd; het is geen functie die iets van de dongle vraagt. **De tien die
+wél aangehaakt worden zijn de tien die de dongle daadwerkelijk aanspreken** — precies de tien met graad A.
+Of dat in de praktijk genoeg is, is exact wat de `aanroep:`-log in §7.3 uitwijst.
+
+### 7.5 Een kleine tekstverbetering voor de hook (geen bug)
+
+In de samenvatting zegt de hook voor een **geweigerd** adres:
+
+```
+niet aangehaakt: hasp_free              (niet in de dynsym en niet in de adreslijst)
+```
+
+Dat is misleidend: het adres staat wél in de adreslijst, maar is bij de keuring afgewezen — de reden
+staat een paar regels eerder wél goed in hetzelfde logboek. `hh_adres_zoek()` geeft alleen *geldige*
+regels terug, dus de samenvatting kan het onderscheid niet meer zien. Suggestie: onthoud bij de keuring
+per regel of hij is afgewezen, en gebruik dan de tekst
+`(in de adreslijst maar afgekeurd: <reden>)`. Geen functioneel probleem — alleen een logregel die een
+lezer op het verkeerde been zet.
+

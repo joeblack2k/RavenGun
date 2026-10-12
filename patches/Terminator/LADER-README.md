@@ -398,6 +398,73 @@ free screen; **ask me for it and I will schedule it, I will not start it unasked
 
 ---
 
+## 4b. De adreslijst voor de generieke HASP-hook: `hasp-haken.ini`
+
+De symbolenkaart hierboven is precies wat de generieke HASP-inline-hook nodig heeft, want die kan zijn
+doelen sinds kort ook via een **adreslijst** aanhaken in plaats van via namen in de dynsym. Voor deze
+game is dat de enige weg: `game` heeft 1.019 dynamische symbolen en **nul** daarvan met `hasp_`, dus de
+naam-route kan hier per definitie niets vinden.
+
+**`hasp-haken.ini`** in deze map is die lijst. Opbouw:
+
+- `game = Terminator`, `arch = i386`, `basis = absoluut`, **`grootte = 7764284`** (de echte
+  bestandsgrootte van `game` — dit is de versiecontrole: klopt hij niet, dan keurt de hook de hele lijst
+  af), en `ingang = 0x8057240`.
+- **11 actieve regels**, precies de 11 namen in `hh_doelen[]` van de hook. Tien daarvan zijn graad A
+  (byte-identiek blok in `ServiceDongleApp`); per regel staat de graad als commentaarregel **boven** de
+  regel (niet erachter: de lezer van het bestand knipt geen commentaar van de waarde af, dus een
+  inline-commentaar zou in de waarde belanden).
+- `hasp_free` staat er bewust in met een correct adres, terwijl de hook het hoort te weigeren — zie §4c.
+- De overige 47 gelokaliseerde adressen staan in hetzelfde bestand als **uitgecommentarieerd
+  naslagwerk**, zodat het bestand ook de volledige bewezen kaart is zonder de hook iets te voeden wat
+  hij niet gebruikt.
+
+### 4c. Bewijs zonder de bench: de mapping-toets
+
+`hasplijst-toets.c` + `hasplijst-toets.sh` in deze map. Het testprogramma mapt de **echte**
+`game`-PT_LOAD's op hun eigen virtuele adressen (0x08048000..0x08cee000, MAP_PRIVATE, het bestand alleen
+gelezen) en laadt dan de hook met `dlopen`, zodat zijn constructor de lijst tegen dat beeld keurt.
+Twee runs: met `RAVENGUN_HASP_ELF_UIT=1` keurt hij alleen (niets gepatcht), zonder die vlag haakt hij ook
+echt aan — in de proceseigen beeldkopie, nooit in het bestand of op de NAS.
+
+**Gemeten uitkomst:**
+
+```
+adreslijst: 11 regel(s) uit …/patches/Terminator/hasp-haken.ini (basis: absoluut)
+  hasp_login             0x083bbe60  GELDIG: segment 0x8048000 (R+X), bestand 0x373e60, prologue 53 83 ec 08
+  hasp_login_scope       0x083baac0  GELDIG: … prologue 56 53 81 ec
+  hasp_logout            0x083bbe00  GELDIG: … prologue 53 83 ec 1c
+  hasp_read              0x083bad30  GELDIG: … prologue 57 56 53 83
+  hasp_write             0x083bac80  GELDIG: … prologue 57 56 53 83
+  hasp_encrypt           0x083bbd60  GELDIG: … prologue 53 83 ec 18
+  hasp_decrypt           0x083bbce0  GELDIG: … prologue 53 83 ec 18
+  hasp_get_size          0x083babe0  GELDIG: … prologue 57 56 53 83
+  hasp_get_info          0x083ba8a0  GELDIG: … prologue 55 57 56 53
+  hasp_get_sessioninfo   0x083bae80  GELDIG: … prologue 55 57 56 53
+  hasp_free              0x083baab0  AFGEWEZEN: eerste bytes e9 ab 22 00 zijn geen prologue
+aangehaakt: hasp_login op 0x083bbe60 -> 0xf7f70220 (trampoline …, 5 bytes)   [en 9 meer]
+totaal aangehaakt: 10 van 11; niet aangehaakt: 1
+```
+
+Dus: **10 van 11 aangehaakt, 1 geweigerd**, en de weigering is **correct en verwacht**, geen fout in de
+lijst. `hasp_free` is in deze build een alias: zijn hele lichaam is `jmp rel32` naar `0x083bcd60`, en dat
+doel is zelf óók weer een `jmp rel32`. Voor `hasp_free` bestaat er in deze build dus geen enkel punt met
+een prologue. Inhoudelijk is dat waarschijnlijk onschadelijk — `hasp_free` geeft geheugen vrij, het vraagt
+niets van de dongle — maar of dat zo is, wijst pas de benchrun uit (zie `DRAAIBOEK-BENCH.md` §7).
+
+**Bijkomend bewijs uit dezelfde run:** de hook leest de dynsym van dit beeld via **`DT_GNU_HASH`**
+(1019 symbolen) en meldt `0 hasp-symbolen in de dynsym`. Dat is onafhankelijke bevestiging van §1.3: dit
+bestand heeft geen `DT_HASH`, en de hook heeft daar geen moeite mee — precies het gat dat onze eigen lader
+nog wél heeft (§2.2, blokker A).
+
+**Eén kleine tekstverbetering voor de hook** (geen bug): voor een *geweigerd* adres zegt de samenvatting
+`niet aangehaakt: hasp_free (niet in de dynsym en niet in de adreslijst)`. Dat is misleidend — het adres
+staat wél in de lijst, maar is bij de keuring afgewezen; de reden staat een paar regels eerder wél goed.
+`hh_adres_zoek()` geeft alleen geldige regels terug, dus de samenvatting kan dat onderscheid niet meer
+zien. Zie `DRAAIBOEK-BENCH.md` §7.5.
+
+---
+
 ## 5. I/O side: profile `RawThrillsGUN`
 
 - The profile is **already implemented** in `packaging/tp-shm-profiles.json` → `"RawThrillsGUN"`, a
