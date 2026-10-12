@@ -882,6 +882,56 @@ fataal maakt: de gast-kopie hoort `&_default_font` te bevatten, en bevat nul.
 `dlopen` geladen zijn (regel 424, `laad_needed`), en levert de symboolopzoeking dan een adres in de
 geladen bibliotheek? Zo niet, dan is de volgorde de fout; zo ja, dan klopt de opzoeking of de `waar` niet.
 
+#### De oorzaak, bevestigd in de bron: `memcpy(waar, waar, n)` (2026-10-12)
+
+De vorige sectie vroeg waarom de beginwaarden niet landen. Het antwoord staat in de bron van de lader,
+en het is precies de valkuil die Claude zelf al in een commentaar had opgeschreven -- maar nog niet had
+toegepast.
+
+**Er zijn twee opzoekfuncties:**
+
+```c
+static void *zoek_symbool(const char *naam)
+{
+    void *a = dlsym(RTLD_DEFAULT, naam);      /* de GLOBALE scope */
+    return a;
+}
+
+static void *zoek_in_libs(const char *naam)   /* regel 454 */
+{
+    for (i = 0; i < rg_libs_n; i++) {
+        void *a = dlsym(rg_libs[i], naam);    /* per BIBLIOTHEEK */
+        if (a) return a;
+    }
+    return NULL;
+}
+```
+
+**`zoek_in_libs` bestaat, en wordt nergens gebruikt.** De verplaatsingsronde gebruikt op regel 481
+`sym = zoek_symbool(naam)` -- voor **alle** typen, dus ook voor `R_386_COPY`.
+
+**En dat gaat mis, met een meting eronder.** De shim wordt als **eerste** met `RTLD_GLOBAL` geladen, dus
+hij staat vooraan in de globale scope. Dat is in ronde 39 al gemeten: `dlsym(RTLD_DEFAULT, "_accel_active")`
+geeft het adres van de **shim**, niet van liballeg. Voor een COPY-symbool betekent dat:
+
+```
+sym  = dlsym(RTLD_DEFAULT, "font") = 0x080bb870   = de gast-kopie (via de shim)
+waar = het r_offset van de COPY    = 0x080bb870   = precies hetzelfde adres
+memcpy(waar, sym, st_size)         = de nullen van de gast op zichzelf kopiëren
+```
+
+**Daar komt de nul vandaan.** En het verklaart ook waarom er geen "onopgelost COPY"-meldingen zijn: de
+opzoeking **slaagt** -- ze vindt alleen het verkeerde object.
+
+Het commentaar op regel 402 zegt: *"zoek_symbool vindt nu liballeg, niet de shim"*. **Dat is niet zo**,
+en dat is precies de aanname die niet klopt.
+
+**De correctie is één regel:** gebruik voor `R_386_COPY` de functie die er al staat --
+`sym = zoek_in_libs(naam)` -- zodat er uit het **object in de geladen bibliotheek** wordt gekopieerd. Voor
+`font` is dat de `R_386_32`-verplaatste `&_default_font`, en voor `_cos_tbl` de bestandswaarde
+`0x00010000`. En let op de volgorde: `laad_needed()` moet gedraaid hebben voordat deze ronde loopt,
+anders is `rg_libs` nog leeg.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
