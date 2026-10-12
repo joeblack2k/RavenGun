@@ -904,6 +904,63 @@ het opgeloste adres ook in de **GOT-slot van de eerste PLT-stub** schrijft -- da
 game werkelijk aanroept, en die vraag is met dezelfde dump te beantwoorden door de sloten `0x0830d00c+`
 tussen `s3-gast` en `s4-na` te vergelijken.
 
+#### De dump beantwoordt de laatste vragen -- en zet mijn 31 namen in een ander licht (2026-10-12)
+
+Het rapport staat in `docs/research/budgieloader-dump.md`. De uitkomsten, in volgorde van gewicht.
+
+**1. De lader raakt de gast na het laden niet meer aan.** Snapshot `s3-gast` tegen `s4-na`: **0 bytes
+verschil**. En het gedumpte gastbeeld tegen het **bestand**: **410 van 7.278.592 bytes**, 103 woorden op
+twee pagina's. Toen `PT_DYNAMIC` werd uitgelezen: `DT_JMPREL=0x0807f840`, `DT_PLTRELSZ=0x320` ->
+**100 `R_386_JMP_SLOT`-verplaatsingen, en alle 100 hebben een bewaarde naam, nul naamloos**. Precies die
+100 `r_offsets` zijn de 100 woorden die de lader vulde: **100 gevuld met naam, 0 gevuld zonder naam, 0
+met naam maar niet gevuld.** Controle op de eerste regel: het bestand zegt `0x086f83f8 -> fileno`, en de
+lader schreef `0x61101eca` = `msys-2.0.dll`'s `_fileno`.
+
+**2. En mijn 31 paren hebben NUL overlap met wat de lader doet.** Die staan op `0x0830d0xx` -- de
+**eerste** GOT -- en zijn in bestand én dump **identiek**: `connect` blijft `0xb76e2020`, `getpid`
+blijft `0xb755b9a0`. **ElfLdr2 repareert die verouderde sloten dus niet.** Mijn naamterugwinning
+beschrijft daarmee **dode data**: de methode werkt, maar ze reconstrueert iets wat de lader zelf laat
+liggen. Dat is een belangrijke nuance op de sectie hierboven.
+
+**En dat is precies de crash die we zagen.** Onze lader springt naar de gast, de gast roept door een
+eerste-PLT-stub, en die springt via zijn verouderde `0xb7`-slot in ongemapte ruimte. ElfLdr2 heeft
+datzelfde probleem -- en Galaga crasht onder de gesloten lader dan ook (`BudgieLoader.exe.stackdump`
+staat in de view). **De eerste GOT repareren is dus iets wat onze lader beter kan doen dan de lader die
+we vervangen.** Dat is precies waar dit project om begon.
+
+**3. De 161 glut-implementaties staan er, en het is echte code.** De export-datadir staat op RVA
+`0x1090058`, dus in `.brr4` en niet in `.edata` (daarom waren de 173 namen statisch leesbaar). De 161
+namen plus 31 `Ucall` staan op RVA `0x308f0`-`0x3e9d0` = `0x4308f0`-`0x43e9d0`, en **134 van de 161
+beginnen met een klassieke proloog**; `glutIdleFunc@0x430930` is `55 89 e5 53 83 ec 14`. Daarmee is het
+"nagebootste libs"-deel van fase 3 geen aanname meer maar een meting.
+
+**4. En de naam/aderstabel die ik zocht bestaat wél -- op `0x80000000`.** Regio
+`0x80000000-0x80110000` (1.114.112 B, `rwxp`, in `s3` en `s4` identiek): **15.742 leesbare reeksen**,
+waaronder 902 `_Z`-namen, 527 `SDL_`-namen en 39 `glut`-namen, plus `malloc`, `fopen`, `XFlush`,
+`syscall`, `__libc_current_sigrtmin` en `getutent_r`. Er staat een **ELF32-kop op `0x8008877c`**, en 60
+van de eerste 60 slotadressen komen erin voor. Voor 37 van de 103 opgeloste adressen staat de naam er
+direct bij, en die naam is **exact de JMPREL-naam**. De 5 trampolines pushen een verwijzing naar een
+record in die regio en roepen de resolver op `0x004148b0` aan. **Wat nog open is: de exacte
+recordstructuur van die regio.**
+
+**5. Twee correcties op mijn eigen aanwijzingen.** De tabel op `0x0055e000` (stap `0x40`) is
+**bitmap-fontdata van freeglut** -- 16-bits glyphrijen -- geen resolutietabel; die aanwijzing vervalt.
+En mijn conclusie "de lader repareert de verkeerde tabel" klopt in de mechaniek maar niet in de
+bedoeling: het is niet de verkeerde tabel, het is de **eerste GOT die de lader bewust ongemoeid laat**.
+
+**6. De laatste vraag is nu beantwoord: er is geen resolutietabel voor de 258 naamloze sloten.** Niet
+omdat we hem niet vinden, maar omdat hij **nooit gemaakt wordt**. De 258 zijn geen verplaatsingen; ze
+staan wel in de tweede slottabel maar er hoort geen `DT_JMPREL`-invoer bij, en de lader schrijft er
+niets in. Wie die namen wil moet bij de **pakker** of bij de **originele bibliotheekversie** zijn, niet
+bij de loper. Onze lader hoeft ze dus ook niet te achterhalen: een cdecl-trampoline volstaat.
+
+**7. En de valkuilen voor wie dit herhaalt** (uit §4 van het rapport): `ptrace_scope=1` is geen probleem
+zolang het dumpende script de **ouder** van de lader is -- een losse `gdb -p` krijgt `EPERM`,
+`/proc/<pid>/mem` als nakomeling werkt. En **systemd-logind doodt bij het sluiten van de ssh-sessie de
+hele session-scope**, ook `setsid`/`nohup`-processen (`session-1643.scope: Killing process ...
+BudgieLoader.exe with signal SIGTERM`). Dat kostte twee runs; draai de meting als systemd-user-unit
+(`re/_dump-start2.sh`). Zonder `DISPLAY` werkt het prima.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:

@@ -1,0 +1,103 @@
+# ElfLdr2-resolutietabel, gemeten uit de geheugendump van de lopende BudgieLoader
+# game=GalagaAssault (game.ini: Size=7278592), snapshots s3-gast/s4-na, 2026-10-12 19:31-19:32
+# kolommen: gastslot	symboolindex	naam(uit de JMPREL-verplaatsing)	oud(in het bestand)	nieuw(in de dump)	doel
+0x086f83f8	4621	fileno	0x08658b16	0x61101eca	msys-2.0.dll:_fileno
+0x086f83fc	4622	__errno_location	0x08658b26	0x0041ee50	lader-intern 0x0041ee50
+0x086f8400	4623	open	0x08658b36	0x0041c310	lader-intern 0x0041c310
+0x086f8404	4624	connect	0xb76e2020	0x0041ffa0	lader-intern 0x0041ffa0
+0x086f8408	4625	localtime_r	0x08658b56	0x61102564	msys-2.0.dll:_localtime_r
+0x086f840c	4626	getpid	0xb755b9a0	0x6111a880	msys-2.0.dll:_getpid
+0x086f8410	4627	strerror	0x08658b76	0x611033d8	msys-2.0.dll:_strerror
+0x086f8414	4628	getsockname	0x08658b86	0x0041fe50	lader-intern 0x0041fe50
+0x086f8418	4629	strcoll	0x08658b96	0x610b89d0	msys-2.0.dll:_strcoll
+0x086f841c	4630	pthread_attr_setdetachstate	0x08658ba6	0x611029f6	msys-2.0.dll:pthread_attr_setdetachstate
+0x086f8420	4631	inet_ntoa	0x08658bb6	0x00420920	lader-intern 0x00420920
+0x086f8424	4632	__xstat	0x08658bc6	0x0041ba30	lader-intern 0x0041ba30
+0x086f8428	4633	syscall	0xb758c140	0x02fa0488	trampoline->0x800c6f98 (syscall)
+0x086f842c	4634	realloc	0xb751be90	0x61102ece	msys-2.0.dll:_realloc
+0x086f8430	4635	recv	0xb76e20a0	0x004205c0	lader-intern 0x004205c0
+0x086f8434	4636	getenv	0xb74d7860	0x0041f380	lader-intern 0x0041f380
+0x086f8438	4637	dlvsym	0xb76f1f10	0x00419840	lader-intern 0x00419840
+0x086f843c	4638	calloc	0xb751c150	0x6110172c	msys-2.0.dll:_calloc
+0x086f8440	4639	inet_addr	0x08658c36	0x00420930	lader-intern 0x00420930
+0x086f8444	4640	strncpy	0x08658c46	0x61193fe0	msys-2.0.dll:_strncpy
+0x086f8448	4641	sendto	0x08658c56	0x00420540	lader-intern 0x00420540
+0x086f844c	4642	memset	0xb75d1210	0x6118a170	msys-2.0.dll:_memset
+0x086f8450	4643	__strtol_internal	0x08658c76	0x00421640	lader-intern 0x00421640
+0x086f8454	4644	__libc_current_sigrtmin	0x08658c86	0x02fa04a8	trampoline->0x80088698 (__libc_current_sigrtmin)
+0x086f8458	4645	_exit	0x08658c96	0x61101448	msys-2.0.dll:_exit
+0x086f845c	4646	XOpenDisplay	0x08658ca6	0x004278d0	lader-intern 0x004278d0
+0x086f8460	4647	gmtime_r	0x08658cb6	0x6110244c	msys-2.0.dll:_gmtime_r
+0x086f8464	4648	usleep	0x08658cc6	0x61103720	msys-2.0.dll:_usleep
+0x086f8468	4649	readdir	0x08658cd6	0x0041c150	lader-intern 0x0041c150
+0x086f846c	4650	getutent_r	0x08658ce6	0x02fa04c8	trampoline->0x800b7158 (getutent_r)
+0x086f8470	4651	gettimeofday	0xb754bba0	0x6110238e	msys-2.0.dll:_gettimeofday
+0x086f8474	2555	free	0xb751bde0	0x61101fc4	msys-2.0.dll:_free
+0x086f8478	4652	dlsym	0xb76f1e40	0x00419600	lader-intern 0x00419600
+0x086f847c	4653	XCloseDisplay	0x08658d26	0x02fa04e8	trampoline->0x80088510 (XCloseDisplay)
+0x086f8480	4654	sigaction	0xb76e3370	0x6110323e	msys-2.0.dll:sigaction
+0x086f8484	4655	comaladdinhlx86envspoony	0x08658d46	0x08659d30	lader-intern 0x08659d30
+0x086f8488	4656	opendir	0x08658d56	0x61102848	msys-2.0.dll:opendir
+0x086f848c	4657	ioctl	0x08658d66	0x0041d520	lader-intern 0x0041d520
+0x086f8490	4658	socket	0xb75929f0	0x004207e0	lader-intern 0x004207e0
+0x086f8494	4659	pthread_mutex_unlock	0xb76de1b0	0x0042bba0	lader-intern 0x0042bba0
+0x086f8498	4660	pthread_attr_init	0x08658d96	0x611029ec	msys-2.0.dll:pthread_attr_init
+0x086f849c	4661	fwprintf	0x08658da6	0x61102140	msys-2.0.dll:fwprintf
+0x086f84a0	4662	fclose	0xb75084f0	0x61101d6c	msys-2.0.dll:_fclose
+0x086f84a4	4663	mktime	0x08658dc6	0x611026ae	msys-2.0.dll:_mktime
+0x086f84a8	4664	clock	0xb754b1c0	0x611017cc	msys-2.0.dll:_clock
+0x086f84ac	4665	nanosleep	0x08658de6	0x611027da	msys-2.0.dll:_nanosleep
+0x086f84b0	4666	memcpy	0xb75d2320	0x61189764	msys-2.0.dll:_memcpy
+0x086f84b4	4667	strlen	0x08658e06	0x61193ca0	msys-2.0.dll:_strlen
+0x086f84b8	4668	fopen	0xb7508f60	0x61101f10	msys-2.0.dll:_fopen
+0x086f84bc	4669	pthread_mutex_destroy	0x08658e26	0x61102bc2	msys-2.0.dll:pthread_mutex_destroy
+0x086f84c0	4670	getppid	0x08658e36	0x6111a920	msys-2.0.dll:_getppid
+0x086f84c4	4671	waitpid	0x08658e46	0x61103874	msys-2.0.dll:_waitpid
+0x086f84c8	4672	sigdelset	0x08658e56	0x6110325c	msys-2.0.dll:sigdelset
+0x086f84cc	4673	pthread_sigmask	0x08658e66	0x0042bd50	lader-intern 0x0042bd50
+0x086f84d0	4674	strcpy	0x08658e76	0x61191810	msys-2.0.dll:_strcpy
+0x086f84d4	4675	bind	0x08658e86	0x004205e0	lader-intern 0x004205e0
+0x086f84d8	4676	getuid	0xb755ba00	0x61140780	msys-2.0.dll:_getuid
+0x086f84dc	4677	pthread_mutex_init	0xb76dce60	0x0042b8b0	lader-intern 0x0042b8b0
+0x086f84e0	4678	strcasecmp	0x08658eb6	0x61190a20	msys-2.0.dll:_strcasecmp
+0x086f84e4	4679	select	0x08658ec6	0x00420140	lader-intern 0x00420140
+0x086f84e8	4680	closedir	0x08658ed6	0x6110181c	msys-2.0.dll:_closedir
+0x086f84ec	4681	close	0x08658ee6	0x0041c6b0	lader-intern 0x0041c6b0
+0x086f84f0	4682	fwrite	0x08658ef6	0x6110214a	msys-2.0.dll:_fwrite
+0x086f84f4	4683	fprintf	0x08658f06	0x61101f4c	msys-2.0.dll:_fprintf
+0x086f84f8	4684	strstr	0x08658f16	0x61194830	msys-2.0.dll:_strstr
+0x086f84fc	4685	time	0xb754bb80	0x611035ae	msys-2.0.dll:_time
+0x086f8500	4686	setvbuf	0x08658f36	0x611031e4	msys-2.0.dll:_setvbuf
+0x086f8504	4687	XFlush	0x08658f46	0x02fa0508	trampoline->0x800b3610 (XFlush)
+0x086f8508	829	malloc	0xb751b830	0x611025f0	msys-2.0.dll:_malloc
+0x086f850c	4688	pthread_mutex_lock	0xb76dd020	0x0042bb30	lader-intern 0x0042bb30
+0x086f8510	4689	getlogin_r	0xb75c8100	0x611405f0	msys-2.0.dll:getlogin_r
+0x086f8514	4690	gethostname	0xb7588fc0	0x6110197a	msys-2.0.dll:_gethostname
+0x086f8518	4691	dlerror	0xb76f20d0	0x00419850	lader-intern 0x00419850
+0x086f851c	4692	poll	0xb7581fd0	0x611028a2	msys-2.0.dll:_poll
+0x086f8520	4693	pthread_create	0x08658fb6	0x0042b860	lader-intern 0x0042b860
+0x086f8524	4694	sleep	0x08658fc6	0x61103310	msys-2.0.dll:_sleep
+0x086f8528	4695	memmove	0x08658fd6	0x61189ed0	msys-2.0.dll:_memmove
+0x086f852c	4696	endutent	0x08658fe6	0x61101c5e	msys-2.0.dll:_endutent
+0x086f8530	4697	strcat	0x08658ff6	0x61191580	msys-2.0.dll:_strcat
+0x086f8534	4698	send	0xb76e2220	0x004205d0	lader-intern 0x004205d0
+0x086f8538	4699	sigfillset	0x08659016	0x61105610	msys-2.0.dll:sigfillset
+0x086f853c	4700	__strtoul_internal	0x08659026	0x004216f0	lader-intern 0x004216f0
+0x086f8540	4701	setsockopt	0x08659036	0x0041fa60	lader-intern 0x0041fa60
+0x086f8544	4702	fcntl	0xb76e1ee0	0x0041ca70	lader-intern 0x0041ca70
+0x086f8548	4703	pthread_attr_destroy	0x08659056	0x61102988	msys-2.0.dll:pthread_attr_destroy
+0x086f854c	4704	XGetWindowAttributes	0x08659066	0x004276b0	lader-intern 0x004276b0
+0x086f8550	4705	__fxstat	0x08659076	0x0041b8b0	lader-intern 0x0041b8b0
+0x086f8554	4706	gmtime	0xb754b2b0	0x61102442	msys-2.0.dll:_gmtime
+0x086f8558	4707	setutent	0x08659096	0x611031d0	msys-2.0.dll:_setutent
+0x086f855c	4708	fread	0xb75093a0	0x61101fb0	msys-2.0.dll:_fread
+0x086f8560	4709	getpwuid_r	0xb7559df0	0x61102348	msys-2.0.dll:getpwuid_r
+0x086f8564	4710	snprintf	0x086590c6	0x6110331a	msys-2.0.dll:_snprintf
+0x086f8568	4711	kill	0x086590d6	0x611024ec	msys-2.0.dll:_kill
+0x086f856c	4712	gethostbyname	0x086590e6	0x0041fc00	lader-intern 0x0041fc00
+0x086f8570	4713	recvfrom	0x086590f6	0x00420530	lader-intern 0x00420530
+0x086f8574	4714	getservbyname	0x08659106	0x611019b6	msys-2.0.dll:getservbyname
+0x086f857c	4715	exit	0x08659126	0x0041ee60	lader-intern 0x0041ee60
+0x086f8580	4716	dladdr	0x08659136	0x00419860	lader-intern 0x00419860
+0x086f8584	4717	getgid	0x08659146	0x611407a0	msys-2.0.dll:_getgid
+0x086f8588	4718	ttyname_r	0x08659156	0x61103694	msys-2.0.dll:ttyname_r
