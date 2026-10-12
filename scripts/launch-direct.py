@@ -68,6 +68,7 @@ DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0
 DEFAULT_WINE = os.path.join(HOME, ".local/share/ravengun/wine/proton-11.0-2/bin/wine")
 TPUI_DATA = os.path.join(HOME, ".local/share/TeknoParrotUI")   # alleen nog voor de activation-map (TP-abonnement)
 RG_PREFIXES = os.path.join(HOME, ".local/share/ravengun", "prefixes")   # onze eigen Wine-prefixes (voorheen onder TeknoParrotUI/prefixes; zie docs/research/loskoppelen-takenlijst.md)
+RG_JVSBRIDGE = os.path.join(HOME, ".local/share/ravengun", "jvsbridge", "rg-jvsbridge.exe")   # onze eigen JVS-brug (vervangt TeknoParrots pipehelper.exe); scripts/build-jvsbridge.sh
 SHARED_PREFIX = os.path.join(RG_PREFIXES, "shared", "wine")
 SHM_NAME = "TeknoParrot_JvsState"
 SHM_PATH = "/dev/shm/" + SHM_NAME
@@ -1092,9 +1093,11 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
 
     pipe_mode = "pipe" if emu not in NO_JVS_PIPE else "shm"
     src = shm_source or SHM_PATH
-    helper = os.path.join(tp, "pipehelper.exe")
+    helper = RG_JVSBRIDGE   # onze eigen JVS-brug; valt terug op TeknoParrots pipehelper.exe als die (nog) niet gebouwd is
     if not os.path.isfile(helper):
-        raise Unsupported("pipehelper.exe ontbreekt in de runtime-map")
+        helper = os.path.join(tp, "pipehelper.exe")
+    if not os.path.isfile(helper):
+        raise Unsupported("JVS-brug ontbreekt: bouw rg-jvsbridge (scripts/build-jvsbridge.sh) of zorg voor pipehelper.exe in de runtime-map")
 
     comms = {"budgieloader.ex", "budgieloader_x6", "openparrotloade", "teknomacaw.exe", "teknomacaw64.ex"}
     for key in ("ExecutableName", "GamePath"):

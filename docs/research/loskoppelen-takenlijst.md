@@ -31,9 +31,14 @@ Stand 2026-10-12.
         OpenParrot draaien (o.a. TC5: heeft `bngrw.dll`/`iDmacDrv` nodig). Type X2 + de generieke route zijn al van ons.
       - **`GameProfiles/*.xml` + `UserProfiles/*.env|.xml`** — profiel-sjablonen/instellingen die we *importeren*
         om onze `game.ini` te maken (`import-tp-profiles.py`). Build-time, geen runtime; onze `game.ini` is de bron.
-- [ ] **3. `pipehelper.exe` vervangen.** De TP-binary die we bij elke game draaien (JVS-named-pipe + `/dev/shm`-mirror).
-      Eigen Windows-brug cross-compilen (mingw, zoals de OpenParrot-build) die `\\.\pipe\TeknoParrot_JVS` maakt en naar
-      `/dev/shm` spiegelt; launch-direct heeft al `JvsPipeServer`/`run_pty_bridge` aan de Linux-kant. Grote, aparte brok.
+- [~] **3. `pipehelper.exe` vervangen.** Gedaan + ingebouwd, 2026-10-12. Eigen clean-room Windows-brug
+      `third_party/rg-jvsbridge/rg_jvsbridge.c` (uit de gedragsspec, niet uit TP's GPL-bron), gebouwd met
+      `scripts/build-jvsbridge.sh` naar `~/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe`. `launch-direct.py`
+      (`RG_JVSBRIDGE`) kiest hem, met terugval op `pipehelper.exe`. **shm-pad bewezen** (Gashaaaan leeft op de brug,
+      "created" + "shm mirror active"). **pipe-pad**: protocol volgt de spec, maar game↔TCP-bruggen nog niet headless
+      bevestigd — de pipe-route-games (LGI/LGS) zijn kieskeurig en vragen de daemon + tv met lightgun (laatste stap,
+      eigenaar). LGI's exit-5 bij een kale meting ligt niet aan de brug (idem met de oude pipehelper) en niet aan de
+      prefix-verhuizing (Gashaaaan shared + NERF geïsoleerd leven): het is de bekende kieskeurige LGI-route.
 - [ ] **3b. Eigen ELF-lader** voor de ElfLdr2-familie i.p.v. `BudgieLoader.exe` — `patches/ELF-LADER-SPEC.md`.
 - [ ] **4. `~/.local/share/TeknoParrotUI/activation/`** — TP-abonnement; alleen voor Patreon-profielen.
       Opruimen/negeren waar niet nodig; nooit de activering omzeilen.
