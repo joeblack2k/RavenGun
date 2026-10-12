@@ -934,10 +934,12 @@ anders is `rg_libs` nog leeg.
 
 #### De checklist voor de COPY-fix: 16 van 64 sloten moeten niet-nul worden (2026-10-12)
 
-De fix is één regel, maar de vraag "is hij goed" verdient meer dan twee steekproeven. Daarom heb ik voor
-**alle 64** COPY-symbolen opgeschreven wat er in de gast-kopie hoort te staan:
+De fix is één regel, maar de vraag "is hij goed" verdient meer dan twee steekproeven. Daarom was voor
+**alle 64** COPY-symbolen opgeschreven wat er in de gast-kopie hoort te staan: de tabel
 `docs/research/copy-verwacht-GoGoStrike.tsv` (commit `3b26e72`), met per symbool het gastadres, het
 object in liballeg, de bestandswaarde, eventuele verplaatsingen op dat object, en de verwachte uitkomst.
+(Die ruwe tabel is verwijderd toen Go Go Strike uit de app en van de NAS ging — zie commit `3b26e72` in de
+geschiedenis als je hem terug nodig hebt; de meting en conclusie hieronder blijven staan.)
 
 | | |
 |---|---|

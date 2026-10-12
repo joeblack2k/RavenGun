@@ -8,7 +8,7 @@
 #
 # Gebruik: scripts/play-native.sh --game PROFIEL [opties] [-- extra game-argumenten]
 #          scripts/play-native.sh --list | --stage-libs | --stop
-#   --game P       profiel uit packaging/native-games.json (Halo, JurassicPark, Terminator, GhostBusters, GoGoStrike, ...)
+#   --game P       profiel uit packaging/native-games.json (Halo, JurassicPark, Terminator, GhostBusters, ...)
 #   --res WxH      resolutie die de game krijgt (standaard: uit het gegevensbestand, daarna de schermgrootte)
 #   --headless     draai in gamescope zonder beeldscherm (tv blijft vrij; voor tests, geen geluid)
 #   --gamescope    draai in gamescope beeldvullend op de tv (schaalt een kleinere resolutie op)

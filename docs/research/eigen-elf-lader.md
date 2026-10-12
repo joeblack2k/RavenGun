@@ -136,3 +136,12 @@ door de lib (bv. `set_gfx_mode` zet `screen`) de gast-kopie bereikt. **Gemeten: 
 `play-native.sh --loader`** (onze rg-elfloader, geen Wine/BudgieLoader; exit 143 = timer). Daarmee is fase 2
 óók via onze eigen lader rond, niet alleen via de kernel-route. Bekende losse bug: onder `--gdb --loader`
 laadt `liballeg` niet (de shim staat daar niet op tijd klaar) — alleen de debug-route, laag geprioriteerd.
+
+## Noot (2026-10-12): Go Go Strike is uit de app en van de NAS verwijderd
+De eigenaar heeft vier games definitief verwijderd (Galaga Assault, Pacman Chomp-Mania, Go Go Strike,
+Gashaaaan Refill). Daarmee is **Go Go Strike** weg — de enige game waarop onze eigen lader
+**einde-tot-einde** bewezen was (`rg-elfloader` → `bowling_usa`, 25-30 s, exit 143, eigen assertscherm). Die
+proef is dus **niet meer herhaalbaar**; de bewijsstukken blijven in de geschiedenis (het plan en, indien
+aanwezig, `docs/screenshots/gogostrike-loader-assert.png`). De lader-code en de metingen hierboven blijven
+geldig als projectgeschiedenis — als de test ooit "stuk" lijkt: hij is niet stuk, het spel bestaat niet meer.
+De gepakte-klasse-waarde van de lader (JurassicPark/Halo/Terminator blijven) staat hier los van.
