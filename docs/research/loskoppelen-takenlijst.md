@@ -71,8 +71,29 @@ Stand 2026-10-12.
       een bind voor het absolute `/usr/lib/libcsv.so`), maar beide blokkeren op een **statisch ingelinkte dongle**
       (`DongleInitialize() FAILED`, HASP/FTDI) die BudgieLoader in zijn runtime nabootst. Een dongle bouwen/omzeilen doen
       we niet (harde regel). Dus die twee **houden BudgieLoader**. Netto: BudgieLoader blijft; 3b levert alleen GoGoStrike.
-- [ ] **5. Gesloten `TeknoParrot(64).dll`** voor de games die niet op onze OpenParrot-kern draaien (o.a. TC5: heeft
-      `bngrw.dll`/`iDmacDrv` nodig die wij niet bouwen). Per game; sommige houden de gesloten kern intrinsiek.
+- [ ] **5. Gesloten `TeknoParrot(64).dll`** voor de games die niet op onze OpenParrot-kern draaien. Per game.
+      **22** games staan nog op de gesloten kern (`patches/PATCHES-PER-GAME.md`, de telling `kern nog TeknoParrot` uit
+      `verify-all.py`; een oudere uitvoer in de werkmap zegt 21 — het getal is niet opnieuw gedraaid omdat dat
+      spelstarts kan doen, dus het staat hier met zijn bron erbij). In `patches/INVOER-ROUTE.md` (gemeten over 36
+      games) loopt de invoer bij **22** games via een kern — een andere telling dan de vorige — waarvan **15** op de
+      gesloten kern (die vragen dus een eigen `EmulationProfile`), **4** op onze eigen OpenParrot-kern en **3** op de
+      Cygwin-lader; bij **8** loopt de invoer buiten elke kern om en bij **6** is er geen route in `game.ini` gemeten.
+      Herkennen is sinds ronde 41 geen voorwaarde meer om te *draaien*, alleen om de *hooks* van die game te krijgen
+      (`patches/EIGEN-KERN.md`); een eigen profiel moet wel in de kern van de juiste woordbreedte landen.
+      **TC5 als uitgewerkt voorbeeld:** `Type = TeknoParrot`, profiel `TimeCrisis5`, route `tp-shm`,
+      `Status = playable` (`patches/TC5/game.ini`), en de gesloten kern zit dus in het invoerpad — er moet een eigen
+      `TimeCrisis5`-profiel komen. `launch-direct.py TC5 --plan` kiest de runtime-lader
+      `OpenParrotx64/OpenParrotLoader64.exe` met `TeknoParrot/TeknoParrot64.dll` als eerste argument. Wat de eigen
+      build daarvan scheidt is meetbaar klein: de runtime-map `OpenParrotx64/` bevat vier bestanden
+      (`OpenParrot64.dll`, `OpenParrotLoader64.exe`, `bngrw.dll`, `iDmacDrv64.dll`) en onze eigen build twee
+      (`OpenParrot64.dll`, `OpenParrotLoader64.exe`). Die twee komen uit de OpenParrot-bron die we al bouwen
+      (`OpenBanapass` → `bngrw.dll`, `iDmacDrv` → `iDmacDrv64.dll`); `third_party/openparrot/README.md` noemt ze
+      "niet gevraagd", niet onmogelijk. Het is dus bouwwerk in de lader-repo, geen dichte deur. Wat **niet** is
+      gemeten: dat TC5 die twee bibliotheken echt nodig heeft — de game-exe importeert ze geen van beide.
+      Voor een deel van de games is de kern niet alleen een lader maar de plek waar de per-game I/O en de
+      hardwarecontrole worden afgehandeld: **7** games overleefden een start met alleen `wine <exe>` niet
+      (`patches/ZONDER-LADER.md`), en bij TC5 zit de gesloten kern vóór onze eigen laag in de keten, waardoor de
+      fileids van de sleutel niet te meten zijn (`patches/TC5/README.md`). Dáár is de kern intrinsiek.
 - [x] **4. `~/.local/share/TeknoParrotUI/activation/`** — opgelost 2026-10-12 (beslissing eigenaar): de Patreon-poort
       van TeknoParrot wordt op onze eigen stack **niet meer afgedwongen**. `launch-direct.py` roept `check_activation`
       niet meer aan (opt-in `--enforce-activation`, standaard uit); `needs_activation` blijft als info-vlag. Patreon is
@@ -82,4 +103,8 @@ Stand 2026-10-12.
 
 ## Blijft bewust TeknoParrot
 - Keychip/dongle/integriteit/activering: nooit omzeilen (alleen USB-pass-through van een echte dongle).
-- TC5 houdt de TeknoParrot-lader (heeft `bngrw.dll`/`iDmacDrv` nodig die wij niet bouwen).
+- TC5 houdt voorlopig de TeknoParrot-lader én -kern: de runtime-map `OpenParrotx64/` levert `bngrw.dll` en
+  `iDmacDrv64.dll` naast de lader, onze eigen build mist precies die twee bestanden (gemeten), en de gesloten kern
+  zit bij TC5 in het invoerpad (`tp-shm` → eigen `TimeCrisis5`-profiel nodig) en vóór onze eigen laag. Dat is
+  bouwwerk, geen dichte deur: beide bibliotheken komen uit de OpenParrot-bron die we al bouwen en zijn daar
+  "niet gevraagd" (`third_party/openparrot/README.md`).

@@ -157,6 +157,106 @@ PigsMightFly, RaccoonRampage, TankTankTank\*
 
 ---
 
+## Waar de dongle-verwijzing zit: op schijf, dynamisch of statisch in de ELF
+
+**Statisch gemeten op 2026-10-12, read-only, zonder één game te starten.** Aanleiding: de HASP-tabel
+hierboven zet bij **GhostBusters** "niets" en bij **Terminator** een map `hasp/`, terwijl
+`loskoppelen-takenlijst.md` §3b (stand 2026-10-12) zegt dat GhostBusters **en** Terminator "beide
+blokkeren op een statisch ingelinkte dongle (`DongleInitialize() FAILED`, HASP/FTDI)". Dat is geen
+tegenspraak maar een verschil in **wat** er gemeten is: "niets in de spelmap" is niet hetzelfde als
+"geen dongle in de game". Deze sectie meet per game de drie mogelijke plekken: **(a)** een bestand op
+schijf, **(b)** een dynamisch gelinkte bibliotheek, **(c)** een **statisch in de ELF gelinkte**
+dongle-runtime.
+
+Alle tellingen hieronder zijn **hoofdlettergevoelige, letterlijke** treffers van
+`strings -a <ELF> | grep -c -F -- <marker>`. `matrix32`, `matrix64`, `Sixence` en `Aksusb` zijn in alle
+vier de bestanden **0** en staan daarom niet in de tabel.
+
+| Bestand | `file` | `hasp_` | `HASP` | `DongleInitialize` | `ftdi` | `FTDI` | `Sentinel` | `DONGLE NOT FOUND` | dongle-symbool in `--dyn-syms` | dongle-lib in `DT_NEEDED` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `GhostBusters/game` (11.057.832 B) | ELF **32-bits** i386, stripped | **58** | 13 | **1** | **32** | **16** | 0 (wel 1× lowercase `sentinel`) | 0 | nee | nee (14 `NEEDED`) |
+| `Terminator Salvation /game` (7.764.284 B) | ELF **32-bits** i386, stripped | **13** | 3 | **1** | 0 | 0 | 0 (wel 1× lowercase) | 0 | nee | nee (13 `NEEDED`) |
+| `Halo Fireteam/g7/halo/game` (33.554.432 B) | ELF **64-bits** x86-64, geen sectiekoppen | **45** | 31 | 0 | **32** | **16** | **48** | 0 | nee | nee (13 `NEEDED`) |
+| `Halo Fireteam/g7/halo/game_original` (31.270.111 B) | ELF **64-bits** x86-64, stripped | **21** | 16 | 0 | 0 | 0 | **25** | 0 | nee | nee (13 `NEEDED`) |
+
+De "dongle-achtige naam" die `--dyn-syms` oplevert is in alle vier de gevallen een **valse positief van
+het zoekpatroon `matrix`**: het zijn OpenGL-functies (`glMatrixMode`, `glMultMatrixf`,
+`glUniformMatrix4fv`, `glLoadMatrixf`, …). Er staat dus in **geen** van de vier een dongle-achtig
+**dynamisch** symbool, en geen van de vier `DT_NEEDED`-lijsten bevat een `hasp`/`dongle`/`ftdi`-
+bibliotheek — een `libhasp_linux_*.so` zoals Jurassic Park en NERF die hebben, zit hier dus niet in de
+linklijst. Omdat alle vier de bestanden **gestript** zijn, is `readelf -sW | grep -iE 'hasp|dongle|ftdi'`
+in alle vier leeg: "statisch gelinkt" is hier dus gemeten aan de **teksten in het bestand**, niet aan een
+symbooltabel.
+
+Wat de markers letterlijk zijn (geciteerd uit `strings`, per bestand ontdubbeld):
+
+| Bestand | Letterlijke regels |
+|---|---|
+| GhostBusters (**82** unieke regels met `hasp`) | `DongleInitialize() FAILED!`, `Dongle noise error, missing dongle suspected`, `Dongle Not Open, ReInit Handles`, `ReInitAladdinDongles: resetting hasp daemon`, `USB Bus Reset: ReInit Dongle Handles`, `Did not find exactly one FTDI chip (found: %d)`, `FTDI read fail NODEV`, `cmgr_connection_add(): Unable to set baud rate: %d (%s). Resetting FTDI chip...`, `hasp_classic_login: search local: status: %u`, `hasp_legacy_decrypt: LowAPI status %u`, `<hasp4/>`, `<haspid>%u</haspid>`, `PCM_IS_HASP`, `R_GET_HASP_CODE` |
+| Terminator (**35** unieke regels met `hasp`) | `DongleInitialize() FAILED!`, `ReInitAladdinDongles called: %d times`, `<hasp type="HASP-HL" />`, `<hasp type="HASP-SL" />`, `<hasphl/>`, `<haspscope>`, `HASP_ALI_TIMEOUT`, `nethasp.ini` |
+| Halo (`game`) | `Sentinel HASP`, `<hasp configuration="sentinelhl,driverless" />`, `/dev/aks/sentinelhid`, `Failed to retrieve list of connected Sentinel HL keys, (error 0x%x/0x%x)`, `Sentinel HL %llu failed to execute LOGIN command (error 0x%x)`, `Did not find exactly one FTDI chip (found: %d)`, `FTDI force reset`, `cmgr_connection_add(): Unable to set baud rate: %d (%s). Resetting FTDI chip...`, `Dongle Error! Code: %i, Count: %i` |
+| Halo (`game_original`) | dezelfde Sentinel-HASP-HL-regels (`Sentinel HASP`, `/dev/aks/sentinelhid`, `Sentinel HL %llu failed to execute …`) maar **zonder** `ftdi`/`FTDI` en **zonder** enige `Dongle`-regel |
+
+**De uitkomst per game:**
+
+| Game | Waar de verwijzing zit | Beslissende gemeten marker | Aantal |
+|---|---|---|---|
+| **GhostBusters** | **(c) statisch in de ELF** — en géén donglebestand in de spelmap | `DongleInitialize() FAILED!` plus de Aladdin/`hasp_`-API-teksten plus libftdi-teksten, alle in `game` | 1 + 58 `hasp_` + 32 `ftdi` |
+| **Terminator** | **(a) een bestand op schijf** (`hasp/`) **én (c) statisch in de ELF** | de map `Terminator Salvation /hasp/` in de spelmap; en in `game` de regel `DongleInitialize() FAILED!` + 13 `hasp_` | 5413 bestanden + 1 + 13 |
+| **Halo** | **(a) een bestand op schijf** (`g7/halo/fff4`) **én (c) statisch in de ELF** (Sentinel HASP HL, driverloos) | 48 × `Sentinel`, 45 × `hasp_`, 32 × `ftdi` | 48 / 45 / 32 |
+| **Halo** (`game_original`) | **(c) statisch in de ELF**, maar zonder het FTDI-deel | 25 × `Sentinel`, 21 × `hasp_` | 25 / 21 |
+| alle vier | **(b) dynamisch gelinkt: nee** | 0 dongle-symbolen in `--dyn-syms`, 0 dongle-libs in `DT_NEEDED` | 0 |
+
+**Wat er in `Terminator Salvation /hasp/` staat (gemeten).** Let op: die mapnaam eindigt op een
+**spatie** — het pad is letterlijk `…/Teknoparrot/Terminator Salvation /hasp`. Er staan **5413**
+bestanden in, geen submappen, samen **174.016 B**. De naamvorm is 3736 namen van 32 hextekens, 1676 van
+64 hextekens en 1 naam van 11 tekens: `hhl_mem.dmp` (128 B). De groottes zijn 5410 × 32 B, 1 × 128 B,
+1 × 256 B en 1 × 512 B. Een `ServiceDongleApp` zit **niet** in `hasp/` maar ernaast:
+`Terminator Salvation /ServiceDongleApp/ServiceDongleApp` (8.994.378 B, ELF 32-bits i386, **niet**
+gestript, met `debug_info`) plus een `data/`-map.
+
+**Wat dit rechtzet:**
+
+* De HASP-tabel hierboven zegt bij **GhostBusters** "niets", en dat betekent **"geen donglebestand in de
+  spelmap"**, niet "geen dongle in de game". In `GhostBusters/` staan inderdaad alleen
+  `utils/splash/dongle-1024x768.cfg` en `…jpg` (een splash-afbeelding), maar de **ELF zelf** draagt
+  58 `hasp_`-strings, 32 `ftdi`-strings en de letterlijke regel `DongleInitialize() FAILED!`. De
+  dongle-verwijzing is dus niet afwezig; ze zat alleen niet in de spelmap.
+* **Terminator** staat volgens `patches/Terminator/game.ini` op `Status = playable` en draait via
+  BudgieLoader. Zijn `hasp/`-map is een **bestand op schijf** (5413 bestanden) en de ELF draagt daarnaast
+  zijn eigen HASP-verwijzing. Deze meting zegt dus **niet** dat die map de start blokkeert: volgens
+  hetzelfde `game.ini` is de game juist speelbaar.
+* **GhostBusters** staat in `patches/GhostBusters/game.ini` op `Status = parked`, met als note dat de
+  lader tot "Starting Game" komt en dat *"wat er dan blokkeert (dongle, OpenGL-context) **niet gemeten**"*
+  is. Die bewering neem ik hier **niet** over en versterk ik niet: gemeten is dat de dongle-runtime **in
+  de ELF aanwezig is**; dat die runtime ook **draait en de start tegenhoudt** is daarmee niet aangetoond.
+  Daarvoor is een start met log nodig, en dat is hier niet gedaan.
+* De dongle-runtime van **Halo** is een andere dan die van GhostBusters/Terminator: Sentinel HASP **HL**
+  met de driverloze configuratie `sentinelhl,driverless` en `/dev/aks/sentinelhid`, tegenover de
+  HASP-**classic**-API bij GhostBusters/Terminator (`hasp_classic_login`, `HASP_ALI_TIMEOUT`) met
+  Aladdin/FTDI-teksten. Dat volgt uit de markers, niet uit een versieclaim van de fabrikant.
+* De lader levert **geen** dongle-bibliotheek mee: `ElfLdr2/libs/` heeft 77 entries en
+  `ElfLdr2/x64/libs/` 19, en `grep -iE 'hasp|dongle|ftdi'` is in beide **leeg**. Of `BudgieLoader.exe` de
+  dongle dan in zijn eigen runtime nabootst (zoals §3b van de takenlijst stelt), is hier **niet**
+  gemeten — dat vergt het uitvoeren of openbreken van die PE.
+
+**Wat ik niet heb kunnen vaststellen:**
+
+* of de statisch aanwezige HASP/FTDI-code daadwerkelijk **wordt aangeroepen** en of die aanroep de start
+  blokkeert (geen start, geen log, geen `strace`; dat mag op deze bench niet);
+* of de HASP/FTDI-runtime in GhostBusters en Halo door de **ontwikkelaar** is meegelinkt of door een
+  **pakker/wrapper** is toegevoegd — de bestanden zijn gestript, dus er is geen symbooltabel om op af te
+  gaan;
+* waarom `Halo/game_original` **geen** `ftdi`/`FTDI`-strings heeft terwijl `Halo/game` ze wel heeft
+  (21/16 tegenover 45/31 voor `hasp_`/`HASP`): de twee bestanden verschillen dus ook in de dongle-runtime,
+  niet alleen in grootte;
+* of de 5413 bestanden in `Terminator Salvation /hasp/` door de game worden gelezen (de ELF noemt alleen
+  `nethasp.ini` en `hasp_`-API-teksten; een pad naar die map is niet gemeten);
+* wat `ServiceDongleApp` doet en of de game die start (het is een niet-gestripte 32-bits ELF van
+  8.994.378 B, maar de aanroep is niet gemeten);
+* of de `Sentinel`-treffers in Halo bij de **game** zelf horen of bij een meegeleverde HASP-runtime: de
+  strings staan in het bestand, de herkomst is zonder symbolen niet vast te stellen.
+
 ## Wat er aan dongle-lagen al gebouwd is
 
 Op de Deck:
@@ -195,3 +295,55 @@ Halo-dongle geeft volgens `findings/OPDRACHT-voor-de-loader-bouwer.md` §3 `GESL
 
 Dit tussenrapport beschrijft daarom alleen **welke** laag een game nodig heeft en **met welk bewijs** — niet
 hoe je hem bouwt of omzeilt.
+
+## Hoe je dit narekent
+
+Alles zonder een game te starten en zonder iets naar de NAS te schrijven. Let op: die NAS is een
+CIFS-mount met **`rw`** in de opties (gemeten met `mount` op 2026-10-12), dus "read-only" is hier een
+**afspraak van ons**, geen eigenschap van de mount. Er is bij deze meting niets naar de NAS geschreven.
+
+```bash
+NAS=/home/deck/mnt/spidernas_emulation/Teknoparrot
+R=~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2
+
+# let op: de mapnaam van Terminator eindigt op een SPATIE
+F_GB="$NAS/GhostBusters/game"
+F_T="$NAS/Terminator Salvation /game"
+F_H="$NAS/Halo Fireteam/g7/halo/game"
+F_HO="$NAS/Halo Fireteam/g7/halo/game_original"
+
+# 1. 32- of 64-bits
+file "$F_GB" "$F_T" "$F_H" "$F_HO"
+
+# 2. staat er een hasp/dongle-achtige bibliotheek in de DT_NEEDED-lijst?
+readelf -d "$F_GB" | grep -E '\(NEEDED\)'
+
+# 3. dynamische symbolen (let op: 'matrix' levert hier alleen OpenGL op)
+readelf --dyn-syms -W "$F_GB" | grep -iE 'hasp|dongle|ftdi|matrix|sentinel|aksusb|aladdin'
+
+# 4. de markers tellen en de treffers zelf tonen
+for m in hasp_ HASP DongleInitialize 'DONGLE NOT FOUND' ftdi FTDI Aksusb Sentinel matrix32 matrix64 Sixence; do
+  printf '%-18s %s\n' "$m" "$(strings -a "$F_GB" | grep -c -F -- "$m")"
+done
+strings -a "$F_GB" | grep -iE 'hasp|dongle|ftdi|aksusb|sentinel|matrix[0-9]|sixence' | sort -u | head -12
+strings -a "$F_GB" | grep -E 'DongleInitialize|DONGLE NOT FOUND|Dongle' | sort -u
+
+# 5. levert de lader zelf een dongle-bibliotheek mee?
+ls -1 "$R/libs/" | grep -iE 'hasp|dongle|ftdi'        # leeg
+ls -1 "$R/x64/libs/" | grep -iE 'hasp|dongle|ftdi'    # leeg
+ls -1 "$R/libs/" | wc -l                              # 77
+ls -1 "$R/x64/libs/" | wc -l                          # 19
+
+# 6. de hasp-map van Terminator (nogmaals: spatie in de mapnaam)
+H="$NAS/Terminator Salvation /hasp"
+find "$H" -maxdepth 1 -type f | wc -l                                              # 5413
+find "$H" -maxdepth 1 -type f -printf '%f\n' | awk '{print length($0)}' | sort -n | uniq -c
+find "$H" -maxdepth 1 -type f -printf '%s\n' | sort -n | uniq -c
+find "$H" -maxdepth 1 -type f -printf '%s\t%f\n' | sort -n | awk '$1 > 32'
+```
+
+De kant-en-klare scripts staan in de Windows-werkmap als `re/dongle-statisch-meting.sh`,
+`re/dongle-statisch-meting2.sh` … `re/dongle-statisch-meting6.sh`; op de Deck als
+`/home/deck/dongle-statisch-meting*.sh`, met de uitvoer in `/home/deck/_dongle_statisch{,2,3,4,5,6}.out`
+en in deze werkmap in `re/scratch/dongle_statisch{,2,3,4,5,6}.out`. Ze lezen alleen de
+NAS-mount en `ElfLdr2/`, starten geen game en schrijven alleen hun eigen uitvoerbestand in `/home/deck/`.
