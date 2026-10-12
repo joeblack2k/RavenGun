@@ -29,41 +29,41 @@ SKIP = {"_template", "_defaults"}
 # zonder sectie, een ontbrekende README, een ontbrekende [Status], een ontbrekende dongle): dat
 # staat er al, en anders staat het er dubbel.
 NOTES = {
-    "3DCosplayMahjong": "geen `patches.ini`; niet direct te starten: gamemap niet ingesteld (`--plan` rc=4)",
+    "3DCosplayMahjong": "geen `patches.ini`; niet direct te starten: het spel staat niet op de NAS (`--plan` rc=4)",
     "GaiaAttack4": "geparkeerd (geen beeld, zie `game.ini`); `patches.ini` aanwezig",
-    "GalagaAssault": "**andere agent**; het bestand zonder sectie is een 64-bits overblijfsel van `build-hasphook.sh` in een 32-bits game",
+    "GalagaAssault": "het 64-bits `libravengun-hasphook-x64.so` heeft een eigen sectie en wordt dus uitgerold; niets laadt het in deze 32-bits game (zie punt 1 onderaan)",
     "Gashaaaan": "compleet; geen drop-in nodig",
     "Gashaaaan2": "compleet; geen drop-in nodig",
-    "GhostBusters": "**andere agent**; geen `dropin/`; geparkeerd: GAME PATH CHECK FAILED",
-    "GoGoStrike": "compleet; geen drop-in nodig",
+    "GhostBusters": "lege `dropin/`; geen `dongle.json` (hasp verwacht); GAME PATH CHECK FAILED is met `[Identify] Path = pm/game` opgelost, daarna komt de game niet in beeld",
+    "GoGoStrike": "geen drop-in; vraagt de eigen `LD_PRELOAD`-kastnabootser voor de ElfLdr2-familie, die nog niet bestaat",
     "HOTDSD": "`--plan` rc=4: het profiel start twee exe's (`amdaemon.exe` eerst), dat doet `launch-direct.py` niet",
     "Halo": "drop-in compleet na reparatie (7 bestanden, 7 secties); de 32-bits hook heeft bewust geen `Preload`",
     "HauntedMuseum": "geparkeerd (geen beeld); `patches.ini` aanwezig",
     "HauntedMuseumII": "geparkeerd (geen beeld); `patches.ini` aanwezig",
     "InfinityBladeFX": "geparkeerd (UE3: wit of zwart beeld)",
-    "JurassicPark": "**andere agent**; het bestand zonder sectie is een 64-bits overblijfsel van `build-hasphook.sh` in een 32-bits game",
-    "LGI": "**regio-agent**; regio niet afgedwongen (`enforced = false`)",
-    "LGI3D": "**regio-agent**; regio niet afgedwongen (`enforced = false`)",
-    "LGS": "**regio-agent**; regio niet afgedwongen (`enforced = false`)",
+    "JurassicPark": "het 64-bits `libravengun-hasphook-x64.so` heeft een eigen sectie en wordt dus uitgerold; niets laadt het in deze 32-bits game (zie punt 1 onderaan)",
+    "LGI": "regio niet afgedwongen (`enforced = false`, gemeten: de game speelt)",
+    "LGI3D": "regio niet afgedwongen (`enforced = false`, gemeten: de game speelt)",
+    "LGS": "regio niet afgedwongen (`enforced = false`, gemeten: de game speelt)",
     "LethalEnforcers3": "geparkeerd (32-bits GStreamer ontbreekt)",
-    "LuigisMansion": "compleet",
+    "LuigisMansion": "map compleet; de game vraagt nog een eigen kern (gepakte exe, COM1-blokkade)",
     "MedaruNoGunman": "geparkeerd (3001 RAM DATA IS BAD bij elke verse start)",
     "MusicGunGun2": "geparkeerd (eigen D3D-foutvenster); `patches.ini` aanwezig",
-    "NERF": "**andere agent**",
+    "NERF": "geen `dongle.json` nodig: de dongle zit in managed code en TeknoParrot antwoordt daar met de BepInEx-plugin `NERFTPPlugin.dll`",
     "OmatsuriYasanGansoTakoyaki": "geparkeerd (wit venster; online activering)",
     "OmatsuriYasanKingyoSukui": "geparkeerd (exitcode 8)",
     "Otomedius": "geparkeerd (COM2/Acio-micom)",
     "PacmanChomp": "geparkeerd (zwart beeld)",
     "PigsMightFly": "compleet",
-    "RabbidsHollywood": "**andere agent**; `matrix/matrix.ini` wordt door onze eigen `matrix64.dll` gelezen, dus zonder sectie komt het niet aan",
+    "RabbidsHollywood": "`matrix/matrix.ini` heeft een eigen sectie; onze `matrix64.dll` leest dat bestand zelf, dus zonder sectie zou het niet aankomen",
     "RaccoonRampage": "compleet",
     "RainbowBombergirl": "geparkeerd (personagekeuze komt niet)",
     "Rampage": "speelbaar; joystickspel, geen lightgun-game",
     "TC5": "dongle-image ontbreekt (`memory` is leeg, `hasp.py` meldt de dongle onvolledig)",
-    "TankTankTank": "niet direct te starten: gamemap niet ingesteld (`--plan` rc=4)",
-    "Terminator": "**andere agent**; geen `dropin/` terwijl `build-hasphook.sh` die wel vult",
+    "TankTankTank": "niet direct te starten: het spel staat niet op de NAS (`--plan` rc=4)",
+    "Terminator": "drop-in met 3 bestanden, maar inert: `game` heeft 0 `hasp_`-symbolen in zijn dynsym, dus er valt niets aan te haken",
     "TombRaider": "speelbaar",
-    "TransformersShadowsRising": "",
+    "TransformersShadowsRising": "geen `dongle.json` nodig: de DK2-scan faalt in fase 1 en de game speelt door",
 }
 
 # Games waarvan docs/dropins.md en docs/todo.md zeggen dat ze een dongle vragen, met de soort.
@@ -73,10 +73,21 @@ EXPECTED_DONGLE = {
     "GhostBusters": "hasp",
     "HOTDSD": "amdaemon",
     "JurassicPark": "hasp",
-    "NERF": "hasp",
     "RabbidsHollywood": "matrix",
     "Terminator": "hasp",
-    "TransformersShadowsRising": "sega-scan",
+}
+
+# Games die wel een dongle vragen maar waar een dongle.json het verkeerde antwoord is. Dat is geen
+# gat in de map, dus ze horen niet in EXPECTED_DONGLE; de reden staat erbij zodat niemand ze alsnog
+# als ontbrekend gaat tellen.
+GEEN_DROPIN_NODIG = {
+    "NERF": "de dongle zit in managed code (`Assembly-CSharp.dll`, `UDongleControl` roept "
+            "`hasp_login` aan) en TeknoParrot antwoordt daar met de BepInEx-plugin "
+            "`BepInEx/plugins/NERFTPPlugin.dll`; er is geen statisch gelinkte HASP-client in het "
+            "Windows-spel om aan te haken",
+    "TransformersShadowsRising": "de DK2-scan (`MainThreadDongleScan` in `Shell.exe`) faalt in fase 1 "
+                                 "en de game speelt door (`Cabinet SKU set to UNKNOWN`), dus er is "
+                                 "niets te emuleren; voor het soort `sega-scan` bestaat nog geen laag",
 }
 
 
@@ -303,12 +314,16 @@ def tellingen(rijen):
         "| ... waar nog een bestand zonder sectie staat | %d |" % (len(met_dropin) - len(heel)),
         "| met `dongle.json` | %d |" % len(dongles),
         "| dongle verwacht maar nog geen `dongle.json` | %d |" % len(verwacht),
+        "| dongle gevraagd, maar geen `dropin/` nodig (met reden) | %d |" % len(GEEN_DROPIN_NODIG),
         "",
         "Dongles die er zijn: %s." % ", ".join(
             "**%s** (%s)" % (r["game"], r["dongle"]) for r in dongles),
         "",
         "Dongle verwacht maar nog niet aanwezig (uit `docs/dropins.md` en `docs/todo.md`): %s." % ", ".join(
             "**%s** (%s)" % (r["game"], r["verwacht"]) for r in verwacht),
+        "",
+        "**Geen `dongle.json` nodig, met een reden:** %s." % "; ".join(
+            "**%s** (%s)" % (g, reden) for g, reden in sorted(GEEN_DROPIN_NODIG.items())),
         "",
         "Een bestand in `dropin/` zonder eigen sectie in `dropin.ini` wordt **niet** uitgerold; dat is "
         "de enige fout die de drop-in-motor stil laat passeren (`docs/dropins.md`).",
