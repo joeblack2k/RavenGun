@@ -686,6 +686,57 @@ wordt bereikt en slaagt -- in de kernelroute slaagt hij (de game tekent op 1920x
 concrete, afgebakende vraag, en liballeg importeert ook `XInitThreads`, wat bij X11 en threads precies
 het soort probleem is dat hier speelt.
 
+#### De crash hoort bij Allegro's XWIN-driver -- en een detail dat veiligheid raakt (2026-10-12)
+
+In de overlay staat het configuratiebestand dat het spel zelf schrijft:
+
+```
+~/.local/share/ravengun/native/GoGoStrike/0/upper/.allegrorc
+[graphics]
+gfx_card  = XWIN
+gfx_cardw = XWIN
+[system]
+keyboard = XWINDOWS
+mouse    = XWINDOWS
+```
+
+**`XWIN` is Allegro's X11-vensterdriver** -- precies de code uit de crashketen
+(`_xwin_update_screen` -> `_xwin_scroll_screen` -> `textprintf` -> `textout`, met `eax = 0`). Daarmee
+sluit de crash aan op de driver die het spel zelf kiest, en niet op iets wat wij zouden hebben
+veroorzaakt in de mappen of de relocaties.
+
+**En het spel opent zijn eigen logboek en schrijft er niets meer in.** In dezelfde overlay staat
+`bowling.log` van 19:52 -- de ketenrun -- met **0 bytes**. Het spel maakt het bestand dus aan bij het
+starten en sterft voordat het iets te melden heeft. Dat is zelf informatie: de crash komt vroeg, niet
+na een reeks logregels.
+
+**En het eigen logboek van het spel uit de ElfLdr2-route (in de view) zegt bovendien:**
+
+```
+Sound    API: Unknown
+Graphics API: XWindows
+-------------
+Starting Game
+```
+
+Dus het spel kiest expliciet de **XWindows**-weg, en het haalde onder de gesloten lader de regel
+"Starting Game".
+
+**En dan een detail dat de veiligheid raakt, en dat ik expliciet wil vastleggen.**
+`runtime/views/GoGoStrike/bowling.log`, `bowling_usa`, `alleg40.dll` en `img` zijn **symlinks naar de
+NAS**:
+
+```
+bowling.log -> /home/deck/mnt/spidernas_emulation/Teknoparrot/Go Go Strike/bowling.log
+```
+
+Het spel **opent dat pad om in te schrijven** bij het starten. Binnen de sandbox is dat een overlay --
+bewezen, want de schrijfactie komt uit in `native/GoGoStrike/0/upper/` en niet op de NAS. Maar het
+betekent wel dat **dezelfde opdracht buiten de sandbox de NAS zou beschrijven**. Dat is precies de
+reden dat alle proeven in dit project in `/tmp` en in de sandbox gebeuren, en het is goed dat hier
+hardop te hebben: het is geen theoretisch risico maar een pad dat naar de NAS wijst en door het spel
+geopend wordt.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
