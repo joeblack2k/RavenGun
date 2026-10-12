@@ -618,6 +618,32 @@ die hebben dus nog steeds de geheugendump nodig. De 31 zijn een begin, niet het 
 
 Narekenen: `re/_naamterugwinning.py` en `re/_paren.py`.
 
+#### De naamterugwinning per game: een klein maar echt deel (2026-10-12)
+
+De methode die hierboven op Galaga Assault is bewezen, toegepast op alle gepakte games:
+
+| game | stubs | niet-lege JMPREL-entries | met naam | adres -> naam | **stubs met een naam** |
+|---|---|---|---|---|---|
+| Galaga Assault | 357 | 100 | 100 | 33 | **31 (8,7%)** |
+| Pacman Chomp-Mania | 442 | 653 | 546 | 111 | **70 (15,8%)** |
+| Jurassic Park | 577 | 101 | 101 | 39 | **33 (5,7%)** |
+| Walking Dead | 807 | 106 | 106 | 12 | **11 (1,4%)** |
+| Target Terror Gold | **0** | 656 | 192 | 0 | 0 |
+
+**Wat dit wel is:** een echte, meetbare statische route naar namen, die per game tussen 1,4 en 15,8
+procent van de stubs dekt -- en in elke game zit de **eerst falende** stub erbij, dus het is genoeg om
+verder te komen dan nu.
+
+**Wat dit niet is:** geen oplossing voor de hele klasse. Het overgrote deel van de stubs blijft
+naamloos, en de spreiding is groot (Walking Dead 1,4 procent tegen Pacman Chomp-Mania 15,8). De
+geheugendump blijft de hoofdweg.
+
+**En een derde, onafhankelijke bevestiging dat Target Terror Gold níet gepakt is:** nul stubs met het
+`0xdeadbeef`-patroon. Dat klopt met de twee eerdere metingen (36 sectiekoppen, en `nchain` gelijk aan
+het einde van de tabel).
+
+Narekenen: `re/_naamterugwinning-alle.py`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
