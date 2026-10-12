@@ -455,6 +455,81 @@ Report descriptor and report, byte-exact from the code:
 | Whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` in this prefix | **needs a run** — the one remaining route-level risk |
 | Whether lamps/keypad/recoil actually do anything once unlocked | **needs a run** |
 
+### 3.5 What was actually built in the loader (`SaeIoBoard`) — and the verification
+
+Built in `~/projects/ravengun` on the Deck, four files, **generic by design**: nothing in the code knows about
+Transformers. The three shape knobs live in `packaging/hid-boards.json` and are parsed and validated by the
+schema code, each defaulting to the old value so that **a board which omits them is byte-for-byte unchanged**.
+
+| addition | where | why |
+|---|---|---|
+| `application_usage` (default `0x04`) | `hid_board.hpp/.cpp`, JSON schema comment | the Application collection was hardcoded to `09 04` (Joystick). The shell looks for **Game Pad (`0x0001`/`0x0005`)**, so the usage has to be data. Values above `0xFF` are emitted as a 2-byte Usage item. |
+| `output_report_length` (default `0`) | same | without an **Output** main item in the report descriptor, `HidP_GetCaps()` reports `OutputReportByteLength = 0` and the game has nothing to write to. The shell writes exactly that many bytes out of its own 3-byte buffer, so a mismatch means garbage or a failed `WriteFile`. That is why the field exists, and it is commented in both the header and the JSON. |
+| `input_report_length` (default `0`) + `HidBoardFrame::raw` | same | a board may now define an **opaque input report** instead of buttons+axes. `hid_board_report()` pads/truncates `raw` to exactly that length, so what is sent always matches the descriptor. |
+| `hid_board_parse_output()` + `HidBoardOutput` | same | the shape of what the game writes is now modelled and testable: `size` from the board, `id`/`a`/`b` = bytes 0..2, `truncated` when the game sent fewer bytes than the board declares. |
+| last-output recording (`HidBoardDevice::last_output()`, `output_reports()`, `HidBoardStats::last_output`, and `status_json` keys `output_reports` / `last_output` / `last_output_parsed`) | same | **this is what makes the run readable**: the daemon can now show that the shell really sent `00 74 E0`. Without it the run would be blind to the one thing it must confirm. |
+| `responses` (optional, default empty) | `hid_board.hpp/.cpp`, `iobridge_service.cpp`, JSON schema comment | the **response table**: `{ "a", "b", "offset", "value" }` = "on receiving `00 <a> <b>`, set byte `<offset>` of our input report to `<value>`". Data, not a per-game code path — this is what lets the board *answer* the handshake. |
+| per-report logging | `HidBoardDialect::set_trace` + `iobridge_service.cpp` (`logf("info", "hid-board: %s", …)`) | the same hook the JVS dialect already uses, so every received output report produces one line in the daemon log saying **which response was set** (or that none matched). That is how the run can point at the answer in the logbook. |
+| `SaeIoBoard` | `packaging/hid-boards.json` | `transport: uhid`, `application_usage: 5`, `input_report_length: 15`, `output_report_length: 3`, `vendor/product 0x1209/0x72F1` (**deliberately different from the gun's `0x72F0`**), empty axes/buttons, the five measured responses (`00 74 E0`→`0xB0`, `00 09 E1`→`0xB1`, `00 E0 F0`→`0xB2`, `00 CA F1`→`0xB3`, and the keypad `00 00 82`→`0xB4`), with the measured handshake written into its `description`. |
+
+**Verification (all on the Deck, `cmake --build build` + `ctest`):**
+
+* `ravengun_hid_board_tests`: **55 checks / 0 failed at `HEAD` → 80 after the board → 111 after the response
+  table, still 0 failed.** The 55 pre-existing checks include the assertion that pins the whole `SaeGunBoard`
+  descriptor byte-for-byte, so "no existing board changed" is proved by construction rather than by inspection.
+  The new checks cover: Game Pad vs Joystick application usage; `ReportCount` 15 (input) and 3 (output) read out
+  of the descriptor at fixed offsets; a board with `output_report_length: 7` yielding a different descriptor and a
+  different parse size (so the length is not a constant); the `00 <a> <b>` shape; **`0xB0`–`0xB4` placed at
+  `raw[12]` of a 15-byte report**; the four exchanges plus the keypad step each setting the right byte through the
+  dialect; **the no-match case** (report left untouched, nothing set, one log line saying so); and the validation
+  refusals (offset past the end of the report, negative offset, value > 255, duplicate `(a,b)`, `responses`
+  without a fixed input report).
+* **A/B of the whole suite:** 29/35 pass **both** with the changed files at `HEAD` and applied, with the identical
+  six failures. Neither change adds a failure anywhere.
+
+**Pre-existing failures — what I repaired and what I did not.** `ravengun_iobridge_tests` **segfaulted** because
+commit `ccd52fe` ("app: vier verwijderde games eruit … Go Go Strike …") deleted the whole `GoGoStrike` block from
+`packaging/tp-shm-profiles.json` while `tests/test_iobridge.cpp` still named it twice (line 131 in the
+expected-profile loop, line 158 the test block): the loop `CHECK` failed and the later `*ps.find("GoGoStrike")`
+dereferenced null inside `render()` (confirmed with gdb: `test_layouts → render`). **I repaired that as a separate
+change** (the two references removed, plus a stale "vijf profielen" comment): the suite now runs to completion —
+**22288 checks, no crash.** The other four suites fail identically at `HEAD` and are unrelated:
+`launch_direct` (in-flight `scripts/launch-direct.py`), `compat_list` ("docs/compatibility.md is out of date"),
+`gamesettings_tests` (`patches.ini` `Source`/`memory`) and `ravengund_web` / `install` (missing
+`patches/LGI/game.ini` in the manifest). **I left those four alone.**
+
+**But the repair exposed a second half of the same regression, and this one is a decision, not a fix.**
+`ravengun_iobridge_tests` now runs with exactly **1 failing check**, at `tests/test_iobridge.cpp:419`:
+
+```cpp
+// Elke layout in patches/*/game.ini bestaat in tp-shm-profiles.json.
+for (const auto& g : r.games)
+    if (!g.layout.empty()) CHECK(ps.find(g.layout));
+```
+
+That check is **right**: `patches/GoGoStrike/game.ini` still says `Layout = GoGoStrike`, and `ccd52fe` removed
+that profile from shipped data. So the purge left a dangling layout reference. Note that `ccd52fe` deliberately did
+**not** touch `patches/` at all — all four purged games still have their `patches/<Game>/` directory
+(`GalagaAssault`, `PacmanChomp`, `GoGoStrike`, `Gashaaaan2`), and GoGoStrike is the only one whose layout is now
+orphaned. Three defensible repairs, and they are policy, so I did not pick one:
+
+1. **Remove `Layout = GoGoStrike` from `patches/GoGoStrike/game.ini`** — smallest change, restores the invariant,
+   loses nothing that can work today (the profile is gone). My recommendation.
+2. **Relax the invariant** to only require layouts for games the app still ships — arguably the truest semantics,
+   since the purge intentionally keeps orphaned patch dirs.
+3. **Restore the `GoGoStrike` profile** — contradicts the purge; not recommended.
+
+**The schema decision is now built, not pending.** The response table above is exactly the shape you approved, and
+the run can therefore confirm the *whole* sequence, not just the first request.
+
+**One more assumption the run must confirm, and it is not obvious.** `SaeIoBoard` declares Generic Desktop /
+**Game Pad**, which is also a DirectInput joystick class. Wine may therefore present it to DirectInput as a
+joystick. The gun (`SaeGunBoard`) must keep **joystick id 0** or `Transformers2.exe` will read the wrong device —
+the exact failure the 2026-10-10 note describes ("crosshair in the corner, X axis does nothing"). The two boards
+have different VID/PIDs (`0x72F0` vs `0x72F1`) so `scripts/wine-joyid.sh` can pin them apart, but **the run must
+verify that the gun is still id 0 with the IO board present.** If it is not, re-run `wine-joyid.sh` for the gun
+after the IO board is created.
+
 ---
 
 ## 4. What already exists, and whose it is
@@ -553,23 +628,24 @@ that is a *future* measurement, not a current blocker — and it can only show u
 8. ~~Close §3.2 statically~~ **DONE** — see §3.2 and §3.2a. The board must present as HID **Game Pad**
    (UsagePage `0x0001`, Usage `0x0005`) with an output report of `OutputReportByteLength` bytes whose
    first payload is `00 74 E0`. **No string and no VID/PID is involved in the decision.**
-9. Add a **second** board to `packaging/hid-boards.json` — e.g. `SaeIoBoard` — with `transport: "uhid"`,
-   its own `device_name`, and a report descriptor whose Application collection is Generic Desktop /
-   **Game Pad — `05 01 09 05 A1 01`, not the `09 04` Joystick the gun uses**; do **not** change
-   `SaeGunBoard`.
-10. Add a `descriptor` / `application_usage` knob to `HidBoard` if the current builder cannot express a
-    Game Pad application collection (it currently hardcodes `09 04` = Joystick). Small change in
-    `hid_board.cpp` / `hid_board.hpp` plus the JSON schema and `test_hid_board.cpp`. **The output report
-    length must be settable too**, because the shell writes exactly `OutputReportByteLength` bytes out of
-    its own fixed 3-byte buffer.
-11. Reproduce the transform of §3.3 in the daemon (forward and inverse), and drive the six-step dialogue
-    from the received reports.
-12. Run once with the board live and **log every `UHID_GET_REPORT`/`SET_REPORT`/`OUTPUT`** to learn the
-    payloads, then encode the replies. (The existing `poll_output()` already answers GET/SET so Wine will
-    not hang; extend it to log instead of replying `EIO`.)
+9. ~~Add a second board to `packaging/hid-boards.json`~~ **DONE** — `SaeIoBoard` exists with
+   `transport: "uhid"`, `application_usage: 5` (Game Pad, not the `09 04` Joystick the gun uses),
+   `input_report_length: 15`, `output_report_length: 3`, and `SaeGunBoard` untouched (§3.5).
+10. ~~Add an `application_usage` knob (and a settable output-report length) to `HidBoard`~~ **DONE** — plus
+    `input_report_length` with an opaque `HidBoardFrame::raw`, `hid_board_parse_output()`, and last-output
+    recording so the run can see what the shell sent. All three knobs come from the JSON schema and default to
+    the old values; existing boards are byte-for-byte unchanged (§3.5).
+11. ~~Let the board answer the handshake via a data-driven response table~~ **DONE** — `"responses": [{ "a",
+    "b", "offset", "value" }, …]`, optional, validated (an offset outside the report is refused, not truncated),
+    with one log line per received output report. The keyed transform of §3.3 is **not** implemented, and per §3.3
+    it does not need to be: nothing compares the transformed bytes, so it cannot gate the handshake (§3.5).
+12. ~~Run once with the board live to *learn* the payloads~~ — no longer needed: §3.3 has them. The run is now a
+    **confirmation**; see §7.b for the expected log sequence and the three distinguishable failure modes.
 13. Verify the three features the board gates: cabinet lamps, the external keypad
-    (`COMMAND ENABLE KEYPAD` → `Keypad Enabled OK`, `shell/config.ini` `TEST=13 SERVICE=14`), and hardware
-    recoil (`GAME_MSG_TRIGGER_RECOIL` → `RecoilDriver - *.log` "set pattern … successfully").
+    (`COMMAND ENABLE KEYPAD` → `Keypad Enabled OK`; **requires the `ExternalKeypad` bit in `shell/Game.ini`, i.e.
+    a change to game data on the NAS — owner decision, and without it the handshake still reaches
+    `Unlocked OK` and simply stops there**), and hardware recoil (`GAME_MSG_TRIGGER_RECOIL` →
+    `RecoilDriver - *.log` "set pattern … successfully").
 14. Only then update `[Status]` and the findings file.
 
 ---
@@ -610,25 +686,40 @@ payload, and `tool-tsr-dis-ioboard.sh` wraps `objdump` over the IOBoard region.)
 
 ### 7.b The run — this is now the next measurement; needs the bench, please schedule it
 
-Requires steps 9–11 first (the `SaeIoBoard` Game Pad board and the transform); step 12 no longer has to
-*discover* the payloads, only to answer them. With `SaeIoBoard` added as a **`uhid`** board (so `/dev/uhid`
-traffic is visible), the board active, and the daemon logging output reports:
+Steps 9–11 are **done** (§3.5), so this run is a **full confirmation**: the board can be found, it answers, and the
+daemon logs each answer. With `SaeIoBoard` active as a **`uhid`** board (so `/dev/uhid` traffic is visible) and the
+daemon logging output reports:
 
 ```sh
 sudo ~/projects/ravengun/scripts/udev-ravengun.sh --check        # /dev/uhid writable?
 ~/projects/ravengun/scripts/play-halo.sh --profile TransformersShadowsRising --no-wait-move
 ```
 
-then, after the game reaches attract (3.5–4 min):
+**CHECK 0 — do this FIRST, before reading any handshake result: is the gun still DirectInput joystick id 0?**
+The IO board is a Generic Desktop / Game Pad HID device, which is also a DirectInput joystick class, so Wine may
+enumerate it as a joystick and push the gun off id 0. `Transformers2.exe` reads *the first joystick of the system*.
+
+* **Symptom if it is wrong:** the crosshair sits in a corner and the X axis does nothing — **exactly** the
+  2026-10-10 behaviour, and nothing to do with the IO board's protocol.
+* **How to see it:** the gun must be `HID\VID_1209&PID_72F0` at joystick id 0 and the IO board
+  `VID_1209&PID_72F1` at any other id (Wine keeps this per product under
+  `HKCU\System\CurrentControlSet\Control\MediaProperties\PrivateProperties\DirectInput\…\Calibration\N`,
+  value `Joystick Id`).
+* **Recovery:** re-run `scripts/wine-joyid.sh <prefix> 1209:72F0` *after* the IO board has been created (do not
+  restart the daemon while the game runs — the board device disappears and the game does not recover), then
+  re-check before judging the handshake.
+
+Only once check 0 is clean should the handshake result be read. After the game reaches attract (3.5–4 min):
 
 ```sh
 cat ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/"ioboard - $(date +%y%m%d)".log
-grep -E 'UHID|OUTPUT|GET_REPORT|SET_REPORT' ~/.local/share/ravengun/log/*.log | tail -50
+# het statusrapport van de daemon: hier staat output_reports / last_output / last_output_parsed / last_response in
+curl -s http://127.0.0.1:<poort>/api/iobridge   # of de GUI; zie docs/procedures.md voor het juiste adres
+grep -E 'hid-board:' ~/.local/share/ravengun/log/*.log | tail -20   # een regel per ontvangen uitvoerrapport
 ```
 
-**Result that counts as success — and it is now a *confirmation*, not a discovery.** Because §3.3 gives
-the whole dialogue, the daemon can be built to answer it outright, so the run should show the complete
-sequence and the shell's own log should read:
+**What counts as success:** the daemon log has one `hid-board: uitvoerrapport 00 74 E0 -> raw[12]=0xB0` line per
+step (and the same for `00 09 E1`→`0xB1`, `00 E0 F0`→`0xB2`, `00 CA F1`→`0xB3`), and the shell's own log reads
 
 ```
 HIDioThread : IOBOARD_INITIALISE
@@ -642,21 +733,28 @@ HIDioThread : COMMAND_UNLOCK2         <- 00 CA F1
 HIDioThread : Unlocked OK
 ```
 
-`Keypad Enabled OK` will **not** appear with the current `shell/Game.ini` (`ExternalKeypad` unset) — that
-needs an owner decision, because it means changing game data on the NAS.
+**`Unlocked OK` is the end of it without the keypad bit.** `Keypad Enabled OK` will **not** appear with the
+current `shell/Game.ini`, because the shell gates that step on its own `ExternalKeypad` setting
+(`0x13fcff3`); enabling it means changing game data on the NAS, which is an owner decision. Nobody should read
+a missing `Keypad Enabled OK` as a failure of the board.
 
-**What to watch when it does not reach `Initialised OK`** — candidates in order, all narrow now:
-(a) the Application collection is not read as UsagePage `0x0001`/Usage `0x0005` by Wine's HID stack (verify
-the descriptor bytes `05 01 09 05 A1 01 …`); (b) Wine does not expose `/dev/uhid` devices to `SetupDi`/`HidD`
-in this prefix at all — visible as **zero** enumerated devices rather than a mismatch; (c) the input report
-is not 15 bytes, so the shell's `ReadFile(…, 15, …)` fails and the dialogue stalls after
-`IOBOARD_IDREQUEST1` with no `_REPLY` line. Case (c) is the most likely partial failure and is exactly the
-thing §3.3a says is not knowable from the binary.
+**The three failure modes and their distinguishing symptoms** — this is the most valuable thing the run can
+produce:
+
+| symptom | meaning |
+|---|---|
+| **zero** enumerated devices, i.e. `InitIOBoard : Couldn't find IOBoard device` with no `IOBOARD_IDREQUEST1` | Wine does not expose the `/dev/uhid` device to `SetupDi`/`HidD` in this prefix (or the Application collection is not read as `0x0001`/`0x0005` — check the descriptor bytes `05 01 09 05 A1 01 …`). **The route itself is wrong**; no amount of protocol work helps. |
+| `IOBOARD_IDREQUEST1` logged, daemon shows no `output_reports`, no `_REPLY` | the device was found and `WriteFile` succeeded, but **nothing reached the board**: the descriptor's `OutputReportByteLength` and what the shell writes disagree, or the output path is not wired. |
+| daemon shows `last_output_parsed` `{a:116,b:224}` **and** a `hid-board: … -> raw[12]=0xB0` line, but the shell logs no `_REPLY` | the request arrives and our answer is set, but the shell's `ReadFile(…, 15, …)` is not getting our input report: the input report is the wrong length, or Wine does not deliver `/dev/uhid` **input** reports. |
+
+The first and third are the ones §3.3a says cannot be settled from the binary; the middle one is a defect on our
+side. A fourth, softer symptom: `hid-board: … geen respons in de tabel` for a report we did not expect means the
+shell sent something outside the measured sequence — worth capturing verbatim.
 
 For reference, the current baseline (what failure looks like) is exactly two lines per session:
 `HIDioThread : IOBOARD_INITIALISE` then `InitIOBoard : Couldn't find IOBoard device`.
 
-**Do not run two things at once** — the bench is one game at a time, and the Rabbids rollout test currently
+**Do not run two things at once** — the bench is one game at a time, and the Luigi's Mansion run currently
 owns it.
 
 ---
@@ -668,9 +766,10 @@ owns it.
 | ~~Close §3.2 statically (step 8 / §7.a)~~ **DONE** | **~1 h spent**, no bench | resolved — dead branch, three proofs |
 | Prove the TP core is unnecessary (stub `InitializeASI`, run) | **2–3 h** incl. one bench session | low–medium: if the core *is* doing something, this is where it shows |
 | Lift the `EmulatorType` restriction in `launch-direct.py` for `[Loader] Core = ravengun` | **2–4 h** incl. tests | low |
-| Add a Game Pad application-usage variant to the `uhid` board (steps 9–10) | **half a day** incl. `test_hid_board.cpp` | low |
+| ~~Add a Game Pad application-usage variant to the `uhid` board (steps 9–10)~~ **DONE** | **~2 h spent**, no bench | resolved — three generic schema knobs, `SaeIoBoard`, 25 new checks; existing boards byte-identical (§3.5) |
 | ~~Recover the IDREQUEST/UNLOCK dialogue (step 12, discovery half)~~ **DONE statically** | **~2 h spent**, no bench | resolved — all four requests, the required answers and the corrected transform are known and round-trip verified |
-| Implement the dialogue in the daemon + one **confirmation** run (steps 11–12) | **half a day**, **1** bench session (was 2–4) | low–medium — the only unknowns left are the three bench-only items of §3.3a |
+| ~~Generic response table + the daemon answering the handshake (step 11)~~ **DONE** | **~2 h spent**, no bench | resolved — optional `responses` table, validated, with per-report logging; 111 checks green (§3.5) |
+| One **confirmation** run (step 12) | **1** bench session | low — the full sequence should now appear; see §7.b for the expected log and the three failure modes |
 | Lamps / keypad / recoil verification (step 13) | **half a day**, 1–2 bench sessions | medium — needs the physical cabinet or the shell's logs as the oracle; the **keypad additionally needs a `Game.ini` change on the NAS** (owner decision, `ExternalKeypad`) |
 
 Total: **≈3–4 days** for the whole "no TeknoParrot component at all, plus complete cabinet I/O" outcome,
@@ -707,7 +806,24 @@ board is required at all.
 7. **New: three things are genuinely not in the binary** (§3.3a): the meaning of the four flag-driven output
    reports (lamps/billboard/recoil), the meaning of `input[11] == 0x15`, and whether the handshake buys
    anything the owner wants — the game is playable without it.
-8. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
-   available sessions and not a blocker today (§5).
-9. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
-   the live checkout was at git `af96624`, and my load-bearing facts were re-verified there.
+8. ~~Schema decision: the generic response table~~ **BUILT** (§3.5) — optional `"responses"`, validated, with one
+   log line per received output report. The keyed transform is deliberately not implemented because nothing
+   compares its output (§3.3).
+9. **New, and it is a decision, not a fix:** the GoGoStrike repair made `ravengun_iobridge_tests` run again
+   (22288 checks, no crash) and thereby exposed **one** remaining failure at `tests/test_iobridge.cpp:419` — the
+   check that every `Layout` in `patches/*/game.ini` exists in `tp-shm-profiles.json`. The check is right:
+   `patches/GoGoStrike/game.ini` still says `Layout = GoGoStrike` while `ccd52fe` removed that profile from
+   shipped data, and `ccd52fe` deliberately left all four `patches/<Game>/` directories in place. Three
+   defensible repairs (drop the dangling `Layout` line — my recommendation; relax the invariant to shipped games;
+   or restore the profile) — all policy, so I did not pick one (§3.5).
+10. **New assumption the run must confirm, and it is check 0 of the runbook:** that adding a Generic Desktop /
+    **Game Pad** HID device does not steal DirectInput **joystick id 0** from the gun. Different VID/PIDs
+    (`0x72F0` vs `0x72F1`) let `scripts/wine-joyid.sh` keep them apart, but the failure looks exactly like the
+    2026-10-10 "crosshair in the corner" bug, so it must be checked *before* the handshake result is read
+    (§3.5, §7.b).
+11. **Pre-existing and untouched:** `launch_direct`, `compat_list`, `gamesettings_tests`, `ravengund_web`/`install`
+    fail identically at `HEAD` and are unrelated to this work (§3.5).
+12. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
+    available sessions and not a blocker today (§5).
+13. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
+    the live checkout was at git `af96624`, and my load-bearing facts were re-verified there.
