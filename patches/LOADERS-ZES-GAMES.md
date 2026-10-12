@@ -61,6 +61,29 @@ Eén game tegelijk, en het scherm van de eigenaar blijft vrij (alles headless vi
 6. **Scarlet Dawn**: geen benchrun nodig voor de start (het spel is zonder keychip speelbaar); de
    keychip- en AiMe-lagen zijn completeness-werk met een eigen plan.
 
+## De PS Move: het doel van dit werk, en wat er nu van gemeten is
+
+De eigenaar heeft gezegd dat de Move het hele doel van de lader is. De keten is nu tot in het gedeelde
+geheugen gemeten, met de Move aangesloten:
+
+* **Verbinding:** Bluetooth, op `hidraw4`, **88 rapporten per seconde**, 0,66 % gemist volgens de
+  volgnummers. De orientatie is geldig: een minuut stilzitten gaf een yaw binnen plus/min 0,4 graden.
+* **Van richtpunt naar de game:** in het gedeelde geheugen met de **Luigi-indeling** geeft een richtpunt
+  van 0,8/0,3 de bytes **202 en 79**, precies de verwachte waarden; trekker geeft bit `0x4`, granaat
+  `0x2`, test `0x100`. Daarmee is de keten Move -> daemon -> gedeeld geheugen bewezen, en niet alleen
+  "de code ziet er goed uit".
+* **Een echte breuk, gevonden en hersteld:** in de installatie was `share/ravengun/patches` een **dode
+  symlink**. Daardoor zag de daemon geen enkele `game.ini`, koos hij voor **elke** game de evdev-route en
+  weigerde hij de tp-shm-route. Dat verklaart eerder onverklaarbaar gedrag en het is gerepareerd.
+* **Routes per game na die reparatie:** Luigi, Halo en Terminator = `tp-shm`; Rabbids = `unity-tcp`;
+  Transformers = `hid-board`; Scarlet Dawn = evdev via TeknoParrotUi.
+* **Wat nog niet gemeten of af is:** echte knoppen (in het meetvenster van 12 s drukte niemand iets in),
+  het kompas (de magnetometer wordt afgewezen: dip 74-78 graden tegen 60 referentie, dus de yaw-correctie
+  vergrendelt niet), de camera (die ziet de bol niet, dus het richtpunt komt alleen uit de orientatie),
+  USB (een keuze in de code, geen blokkade: de daemon accepteert alleen Bluetooth) en de installatie (de
+  geinstalleerde daemon is ouder dan de repo, met andere profielbestanden -- dat moet bijgewerkt zijn
+  voordat een benchrun iets over de daemon mag zeggen).
+
 ## Bijvangst buiten de zes
 
 Werk aan de zes games levert soms een reparatie op die een andere game raakt. Dat hoort hier te staan
