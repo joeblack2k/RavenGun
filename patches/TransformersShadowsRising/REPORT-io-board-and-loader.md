@@ -296,62 +296,105 @@ is an import thunk.** The whole neighbourhood is the tail of the IAT-thunk block
 `HidP_GetCaps`, `0x48805c` = `HidD_GetHidGuid`, `0x488060` = `HidD_GetAttributes`, `0x488064` =
 `HidD_GetPreparsedData`.)
 
-### 3.3 The unlock/handshake protocol — **[measured]** opcode list, and the obfuscation
+### 3.3 The unlock/handshake protocol — **statically harvested in full**
 
-`HIDioThread` (`0x43b5a0`) is a 13-state jump table. The states, in order, with the log string each one
-emits:
+`HIDioThread` (`0x43b5a0`) is a jump-table state machine: `mov eax,[0x1403884]`, `cmp eax,0xc`,
+`jmp DWORD PTR [eax*4+0x43ba30]`. The jump table was dumped (14 dwords at `0x43ba30`), which pins every
+state to its body. Four helpers do all the I/O:
 
-| state string | address | notes |
+| helper | what it really is | source |
 |---|---|---|
-| `HIDioThread : IOBOARD_INITIALISE` | `0x533bf0` | first state; calls `0x43afc0` |
-| `HIDioThread : IOBOARD_IDREQUEST1` | `0x533bcc` | builds 3-byte report, sends, then receives → `IOBOARD_IDREQUEST1_REPLY` |
-| `HIDioThread : IOBOARD_IDREQUEST1_REPLY` | `0x533ba0` | applies the **forward** transform `0x43aee0` |
-| `HIDioThread : IOBOARD_IDREQUEST2` | `0x533b7c` | same shape as IDREQUEST1 |
-| `HIDioThread : IOBOARD_IDREQUEST2_REPLY` | `0x533b50` | forward transform again |
-| `HIDioThread : IOBOARD_UNLOCK1` | `0x533b30` | applies the **inverse** transform `0x43af40` twice |
-| `HIDioThread : COMMAND_UNLOCK2` | `0x533b10` | inverse transform twice; on success logs `Unlocked OK` (`0x533af4`) |
-| `HIDioThread : COMMAND_USER_SEND_VERSION` | `0x533ac8` | logs `Got Redone Version %02d.%02d.%04d` (`0x533a98`) |
-| `HIDioThread : COMMAND ENABLE KEYPAD` | `0x533a74` | on success logs `Keypad Enabled OK` (`0x533a54`) |
-| `POLLING FLAGS` | `0x5338c4` | the **dead** identity literal of §3.2 — not one of the state strings |
+| `0x43af90` | **build + send**: `report[0]=0`, `report[1]=[0x13fcffa]`, `report[2]=[0x13fd02b]`, then `0x43ae50` = `WriteFile` of `OutputReportByteLength` bytes to every device whose resolved name is `GAMEPAD` | **GEMETEN** |
+| `0x439fa0` | **register a deadline**, not a receive: reads `QueryPerformanceCounter` and stores `start + N·ticks_per_ms` on the protocol object `0x1403888` (`+0x08/+0x0c` start, `+0x10/+0x14` remaining) | **GEMETEN** |
+| `0x43a120` | **deadline check**: returns `1` when the elapsed time has reached the deadline, else `0`. Every reply state does `call 0x43a120; test al,al; jne <reset>`, so **a missing or late answer resets the whole handshake to state 0** | **GEMETEN** |
+| `0x43ad80` | **input poll**: walks the same device records, and for the `GAMEPAD`-class one does `ReadFile(handle, ptr, 0xF, …)` — i.e. **15 bytes**, into the caller's buffer (`0x13fd030` for the state machine) | **GEMETEN** |
 
-The keyed byte transform (`0x43aee0` forward, `0x43af40` inverse) is short and fully recovered:
+**The transform, corrected and verified.** The earlier draft had `ROL8`; the loop counters are `dl=7`,
+`dl=6`, `dl=3` with a `dec`-then-body-then-test structure, so they are **7, 6 and 3** rotations:
 
 ```
-forward(x, k) = ROL3( ROR6( ROL8(x XOR 0x92) XOR 0x35 ) XOR 0xA7 ) XOR k
-inverse(y, k) = the same steps in reverse order
+forward(x, k) = ROL3( ROR6( ROL7(x XOR 0x92) XOR 0x35 ) XOR 0xA7 ) XOR k      # 0x43aee0, key from [esp+4]
+inverse(y, k) = ROR7( ROL6( ROR3( y XOR k ) XOR 0xA7 ) XOR 0x35 ) XOR 0x92     # 0x43af40, key from AL
 ```
 
-(Rotations are 8-bit rotating through carry, i.e. plain `ROL`/`ROR` on the byte.) `k` is a caller-supplied
-byte. This is the board's authenticity/obfuscation step and it is **ours to reimplement in the daemon** —
-no key material is involved, only these fixed constants and the caller's byte.
+(`ROL7` = `ROR1`; rotations are plain 8-bit rotations.) Verified two ways: `inverse(forward(x,k),k) == x`
+for all 256 `x` and several `k`, **and** a round trip against the code's own constants — the derived
+UNLOCK1 byte goes back to `0x74` and the UNLOCK2 byte back to `0x09` (see the table). Implementation and
+round-trip test: `tool-tsr-calc.py`.
 
-**The first report bytes are already measured.** The `IOBOARD_IDREQUEST1` state
-(`0x43b5f7`–`0x43b641`) does:
+**The complete harvest.** `sent` = the exact 3 bytes the shell writes; `deadline` = the `push` immediate
+handed to `0x439fa0`; `answer` = what the board's **input report** must contain for the state to advance
+(offsets are into the 15-byte input report, `input[12]` = `0x13fd03c`).
+
+| state | body | sent bytes | deadline | required answer | hinges on | source |
+|---|---|---|---|---|---|---|
+| 0 `IOBOARD_INITIALISE` | `0x43b5b6` | *none* | retry `1000 ms` | — | `[0x140386c] != 0`, i.e. `InitIOBoard` reached `Initialised OK`; otherwise retries forever | **GEMETEN** |
+| 1 `IOBOARD_IDREQUEST1` | `0x43b5f7` | `00 74 E0` | `1000 ms` | `input[12] = 0xB0` (checked in state 3) | — | **GEMETEN** (stores read out) |
+| 3 `IOBOARD_IDREQUEST1_REPLY` | `0x43b642` | *none* | — | as above | `input[13]` is forward-transformed with key `0x74` and stored at `0x13fd064` — **stored, never compared** | **GEMETEN** |
+| 2 `IOBOARD_IDREQUEST2` | `0x43b6b1` | `00 09 E1` | `1000 ms` | `input[12] = 0xB1` (checked in state 4) | — | **GEMETEN** |
+| 4 `IOBOARD_IDREQUEST2_REPLY` | `0x43b6fc` | *none* | — | as above | `input[13]` forward-transformed with key `0x09`, stored at `0x13fcff0` — **stored, never compared** | **GEMETEN** |
+| 5 `IOBOARD_UNLOCK1` | `0x43b76d` | `00 E0 F0` | `1000 ms` | `input[12] = 0xB2` (checked in state 7) | byte = `inverse(inverse(0x74,0x69),0x46)`; `0x13fcff2` is written exactly once (state 1) so it is still `0x74` here | **AFGELEID** (computed from the code; round-trip checked) |
+| 7 *(no log line)* | `0x43b7cb` | *none* | — | as above | — | **GEMETEN** |
+| 6 `COMMAND_UNLOCK2` | `0x43b803` | `00 CA F1` | `1000 ms` | `input[12] = 0xB3` (checked in state 8) | byte = `inverse(inverse(0x09,0xE9),0x3B)`; `0x13fd029` written once (state 2) | **AFGELEID** (same) |
+| 8 *(`Unlocked OK`)* | `0x43b861` | *none* | — | `input[12] = 0xB3` | **also** requires `input[11] == 0x15` **and** `[0x13fcff3] != 0`, else it jumps straight to state 13 (done) | **GEMETEN** |
+| 9 `COMMAND ENABLE KEYPAD` | `0x43b989` | `00 00 82` | `1000 ms` | `input[12] = 0xB4` (checked in state 10) | **reachable only if `[0x13fcff3] != 0`** | bytes **GEMETEN**, reachability **AFGELEID** |
+| 10 *(`Keypad Enabled OK`)* | `0x43b9cf` | *none* | — | `input[12] = 0xB4` | on success → state 13 (done) | **GEMETEN** |
+| 11 `COMMAND_USER_SEND_VERSION` | `0x43b8cb` | `00 00 96` | `1000 ms` | `input[12] = 0xB5` (checked in state 12) | **UNREACHABLE**: no code anywhere writes state `0xB` | bytes **GEMETEN**, unreachability **GEMETEN** |
+| 12 *(`Got Redone Version %02d.%02d.%04d`)* | `0x43b911` | *none* | — | `input[12] = 0xB5`, then version = `(input[13]>>4).(input[13]&0xF).(input[14])` | — | **GEMETEN** |
+| 13 | — | — | — | — | terminal: sets `[0x1403870]=1` and stops | **GEMETEN** |
+
+**Reachability, measured.** The state variable `0x1403884` has exactly **16 xrefs in the whole binary**
+(absolute-only addressing, so the scan is complete): one read at the dispatcher and fifteen writes. The
+values written are `0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 0xC, 0xA, 0` (reset) and `0xD`. **No site writes `0xB`**,
+so the version query is dead code in this build. `0x13fcff3` has exactly 2 xrefs: the read in state 8 and
+a single write at `0x43bbde`, which is
 
 ```
-43b60c: mov al, 0x74
-43b611: mov BYTE PTR ds:0x13fd02b, 0xE0
-43b618: mov ds:0x13fcff2, al          ; = 0x74
-43b61d: mov ds:0x13fcffa, al          ; = 0x74
-43b622: call 0x43af90                 ; build report[0..2] and send
-43b627: push 0x3E8                    ; 1000 ms
-43b62c: mov ecx, 0x1403888            ; the global protocol object
-43b631: call 0x439fa0                 ; receive
+43bbca: push "CabinetSKU"        ; 0x533c14
+43bbd9: call 0x441260            ; config lookup
+43bbde: mov ds:0x13fcff3, al     ; = the ExternalKeypad setting
 ```
 
-so the **first** report the virtual board receives is exactly
+— i.e. the keypad state is gated on the shell's own configuration, not on the board. The neighbouring
+lookup writes `0x13fcff8` from `("InputOutput", "DirectInput")`, which is the shell's DirectInput toggle
+used by the poll path.
+
+**So the handshake the board must satisfy is four exchanges, all with one magic byte at `input[12]`:**
 
 ```
-00 74 E0
+shell -> board: 00 74 E0        board -> shell: 15-byte input report, byte[12] = 0xB0
+shell -> board: 00 09 E1                        byte[12] = 0xB1
+shell -> board: 00 E0 F0                        byte[12] = 0xB2
+shell -> board: 00 CA F1                        byte[12] = 0xB3   -> "Unlocked OK" -> done
 ```
 
-with a 1000 ms receive window. That is a concrete payload to design the first response against; the later
-states' payloads still need the run in §7.b.
+Input-report bytes 0–10 are **never read** by the handshake (only offsets 11–14 are touched at all), so
+the board may send zeros there; the report must merely be **15 bytes** so that the shell's
+`ReadFile(…, 15, …)` can consume it.
 
-Also measured, from the same function: the shell reads a device-reported **"Device PID and Version"**
-(`InitIOBoard : Error reading Device PID and Version`) and later logs a **"Redone Version %02d.%02d.%04d"**,
-i.e. the board answers a version query with a 4-byte-ish value that the shell formats as
-`major.minor.build`.
+### 3.3a What could **not** be obtained statically — the real bench questions
+
+1. **Whether Wine delivers HID input reports to `ReadFile` at all in this prefix.** Everything above
+   assumes `/dev/uhid` becomes visible through Wine's HID stack to `SetupDi`/`HidD` *and* that `ReadFile`
+   on that handle returns input reports. If Wine exposes the device to `SetupDi` but not to `ReadFile`, the
+   handshake stalls after IDREQUEST1 with the reply never arriving. **This is the one route-level risk and
+   the highest-value thing the run can show.**
+2. **The lamp / billboard / recoil output path.** The poll function `0x43b470` emits further 3-byte reports
+   from flag-driven sources (`0x13fcffc` → `00 [0x13fcffa] [0x13fd02b]`, `0x13fd024` → `00 [0x13fcf50]`,
+   `0x13fd020` → `00 [0x13fcf53] [0x13fcf52]`, `0x13fd060` → `00 [0x13fcf54] [hi|0x40]`). **Which lamp or
+   motor this is meant to drive is not derivable from `Shell.exe`** — it is the real board's contract. A run
+   tells us the sizes and cadence; what we *want* the lamps to do is an owner decision.
+3. **`input[11] == 0x15`** — needed for the keypad branch, and its meaning (a bitmap? a capability byte?)
+   is not determinable from `Shell.exe`.
+4. **Whether the handshake buys anything the owner wants.** The game is playable without it today; the
+   payoff is lamps, the external keypad and hardware recoil. Not a static question.
+5. **A register-relative write to the config byte `0x13fcff3` cannot be excluded by construction**, but the
+   only three references to its 4-byte neighbourhood (`0x13fcff0`) are one byte-write by the handshake
+   itself, the direct read in state 8 and one read pair in the status publisher — so no base-pointer write
+   exists. Stated as a caveat, not a doubt.
+6. **No chicken-and-egg problem was found.** Every gating value is either a constant from the code
+   (`0xB0`–`0xB4`), a config byte, or the timeout — none of them is produced by the board's own answer. The
+   transformed `input[13]` values are stored and never compared, so they cannot deadlock the handshake.
 
 ### 3.4 The `uhid` design, concretely
 
@@ -407,7 +450,8 @@ Report descriptor and report, byte-exact from the code:
 | The board's identity (§3.2) | **RESOLVED — dead `POLLING FLAGS` branch; board = HID Game Pad, UsagePage `0x0001`/Usage `0x0005`** |
 | The caps success constant (§3.2a) | **RESOLVED — `0x110000` = `HIDP_STATUS_SUCCESS`** |
 | The **first** report payload | **measured — `00 74 E0`, 1000 ms receive window** |
-| The remaining payloads (IDREQUEST2, UNLOCK1, UNLOCK2, version, keypad) and the expected replies | **partly recoverable statically** from `0x43b5a0`–`0x43ba20`; otherwise a run |
+| The remaining payloads (IDREQUEST2, UNLOCK1, UNLOCK2, keypad, version) and the required answers | **RESOLVED statically — see the table in §3.3** (VERSION turns out to be unreachable) |
+| The *meaning* of the flag-driven output reports (lamps / billboard / recoil) | **needs a run or an owner statement** — not in `Shell.exe` |
 | Whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` in this prefix | **needs a run** — the one remaining route-level risk |
 | Whether lamps/keypad/recoil actually do anything once unlocked | **needs a run** |
 
@@ -532,34 +576,43 @@ that is a *future* measurement, not a current blocker — and it can only show u
 
 ## 7. The exact next measurement
 
-### 7.a DONE — the static measurement (no bench, no game start)
+### 7.a DONE — both static passes (no bench, no game start)
 
-Executed on the Deck; results in §3.2 and §3.2a:
+**Pass 1 — identity** (§3.2, §3.2a): `objdump` over `0x43b240`–`0x43b3c0` and `0x47ff00`–`0x47ffd0`, plus
+xref counts on the IO-board slot and the device-record fields. Outcome: the `POLLING FLAGS` branch is
+provably dead, `0x110000` is `HIDP_STATUS_SUCCESS`, and `0x47ff50` is the `HidP_GetCaps` import thunk.
 
-```sh
-objdump -d -M intel --start-address=0x43b240 --stop-address=0x43b3c0 \
-  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe
-objdump -d -M intel --start-address=0x47ff00 --stop-address=0x47ffd0 \
-  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe
-python3 tool-tsr-xrefs.py ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe \
-  0x13fcff4 0x13fd0cc 0x13fd0c8 0x1403868 0x140386c
-```
+**Pass 2 — the protocol harvest** (§3.3, §3.3a): dumped the state jump table at `0x43ba30` (14 dwords),
+read every reachable state body in `0x43b5a0`–`0x43ba20` plus the four helpers, and enumerated every xref
+to the state variable `0x1403884` (16, absolute-only, so the list is complete). Outcome:
 
-**Outcome:** the `POLLING FLAGS` branch is provably dead (three independent proofs, §3.2); `0x110000` is
-`HIDP_STATUS_SUCCESS` and `0x47ff50` is the `HidP_GetCaps` import thunk, not a function (§3.2a). **No
-string-based identity work remains. The next measurement is the run in §7.b.**
+* both extra requests are known byte-for-byte, and the two derived ones were computed and round-trip
+  verified — the full sequence is `00 74 E0`, `00 09 E1`, `00 E0 F0`, `00 CA F1` (then `00 00 82` if the
+  keypad is enabled);
+* the required answers are known: a **15-byte** input report with `input[12]` = `0xB0`, `0xB1`, `0xB2`,
+  `0xB3` — and `0xB4` after `00 00 82`;
+* the deadline is `1000 ms` on every step, and **missing it resets the handshake to state 0**;
+* the version query (states 11/12) is **unreachable** — no site writes state `0xB`;
+* the keypad step (states 9/10) is gated on the shell's own `ExternalKeypad` config byte
+  (`0x13fcff3`), not on anything the board can do;
+* the transform is corrected — **`ROL7`, not `ROL8`** — and verified by round trip.
 
-(The helper scripts I used are attached to this patch folder, all pure Python 3 / binutils, no packages:
-`tool-tsr-find-ioboard.py` finds the IOBoard code and its xrefs, `tool-tsr-iat.py` resolves the
-`call DWORD PTR ds:0x…` slots to import names, `tool-tsr-strings.py` dumps strings by VA range,
-`tool-tsr-hit-table.py` walks the HID usage table at `0x55dab0`, `tool-tsr-xrefs.py` counts xrefs to a
-list of VAs, and `tool-tsr-dis-ioboard.sh` wraps `objdump` over the IOBoard region.)
+**So what is left for the bench is confirmation plus the three things that are not in the binary at all**
+(§3.3a): whether Wine routes `ReadFile` for `/dev/uhid` devices, what the lamp/recoil output reports are
+meant to drive, and what `input[11] == 0x15` means.
+
+(Helper scripts in this patch folder, all pure Python 3 / binutils, no packages: `tool-tsr-find-ioboard.py`
+finds the IOBoard code and its xrefs, `tool-tsr-iat.py` resolves the `call DWORD PTR ds:0x…` slots to import
+names, `tool-tsr-strings.py` dumps strings by VA range, `tool-tsr-hit-table.py` walks the HID usage table at
+`0x55dab0`, `tool-tsr-xrefs.py` counts xrefs to a list of VAs, `tool-tsr-dwords.py` dumps dwords from a VA
+(the jump table), `tool-tsr-calc.py` implements and round-trip tests the transform and prints every derived
+payload, and `tool-tsr-dis-ioboard.sh` wraps `objdump` over the IOBoard region.)
 
 ### 7.b The run — this is now the next measurement; needs the bench, please schedule it
 
-Requires steps 9–11 first (the `SaeIoBoard` Game Pad board and the transform). With `SaeIoBoard` added as a
-**`uhid`** board (so `/dev/uhid` traffic is visible), the board active, and the daemon logging output
-reports:
+Requires steps 9–11 first (the `SaeIoBoard` Game Pad board and the transform); step 12 no longer has to
+*discover* the payloads, only to answer them. With `SaeIoBoard` added as a **`uhid`** board (so `/dev/uhid`
+traffic is visible), the board active, and the daemon logging output reports:
 
 ```sh
 sudo ~/projects/ravengun/scripts/udev-ravengun.sh --check        # /dev/uhid writable?
@@ -573,23 +626,38 @@ cat ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/"ioboard - $(date +%y%m%d)"
 grep -E 'UHID|OUTPUT|GET_REPORT|SET_REPORT' ~/.local/share/ravengun/log/*.log | tail -50
 ```
 
-**Result that counts as success:** the ioboard log shows `InitIOBoard : Initialised OK` **and** the
-`HIDioThread` dialogue advancing past `IOBOARD_INITIALISE` — ideally to `Unlocked OK` and
-`Keypad Enabled OK` — with the daemon recording the report sizes and payloads. The first report should be
-the `00 74 E0` measured in §3.3; if it is not, the board is being reached but the state machine is
-diverging somewhere earlier, and the report the daemon *does* see is the diagnostic.
+**Result that counts as success — and it is now a *confirmation*, not a discovery.** Because §3.3 gives
+the whole dialogue, the daemon can be built to answer it outright, so the run should show the complete
+sequence and the shell's own log should read:
 
-If `Initialised OK` still does not appear, the remaining candidates are narrow and ordered: (a) the
-Application collection is not being read as UsagePage `0x0001`/Usage `0x0005` by Wine's HID stack (check
-with `uhid` report-descriptor bytes: `05 01 09 05 A1 01 …`), and (b) Wine is not exposing `/dev/uhid`
-devices to `SetupDi`/`HidD` at all in this prefix — which would be visible as **zero** enumerated devices
-rather than a mismatch. The string `POLLING FLAGS` is no longer a candidate (§3.2).
+```
+HIDioThread : IOBOARD_INITIALISE
+InitIOBoard : Initialised OK
+HIDioThread : IOBOARD_IDREQUEST1      <- daemon must have seen 00 74 E0
+HIDioThread : IOBOARD_IDREQUEST1_REPLY
+HIDioThread : IOBOARD_IDREQUEST2      <- 00 09 E1
+HIDioThread : IOBOARD_IDREQUEST2_REPLY
+HIDioThread : IOBOARD_UNLOCK1         <- 00 E0 F0
+HIDioThread : COMMAND_UNLOCK2         <- 00 CA F1
+HIDioThread : Unlocked OK
+```
+
+`Keypad Enabled OK` will **not** appear with the current `shell/Game.ini` (`ExternalKeypad` unset) — that
+needs an owner decision, because it means changing game data on the NAS.
+
+**What to watch when it does not reach `Initialised OK`** — candidates in order, all narrow now:
+(a) the Application collection is not read as UsagePage `0x0001`/Usage `0x0005` by Wine's HID stack (verify
+the descriptor bytes `05 01 09 05 A1 01 …`); (b) Wine does not expose `/dev/uhid` devices to `SetupDi`/`HidD`
+in this prefix at all — visible as **zero** enumerated devices rather than a mismatch; (c) the input report
+is not 15 bytes, so the shell's `ReadFile(…, 15, …)` fails and the dialogue stalls after
+`IOBOARD_IDREQUEST1` with no `_REPLY` line. Case (c) is the most likely partial failure and is exactly the
+thing §3.3a says is not knowable from the binary.
 
 For reference, the current baseline (what failure looks like) is exactly two lines per session:
 `HIDioThread : IOBOARD_INITIALISE` then `InitIOBoard : Couldn't find IOBoard device`.
 
-**Do not run two things at once** — the bench is one game at a time, and a Luigi's Mansion process may
-still be live.
+**Do not run two things at once** — the bench is one game at a time, and the Rabbids rollout test currently
+owns it.
 
 ---
 
@@ -601,8 +669,9 @@ still be live.
 | Prove the TP core is unnecessary (stub `InitializeASI`, run) | **2–3 h** incl. one bench session | low–medium: if the core *is* doing something, this is where it shows |
 | Lift the `EmulatorType` restriction in `launch-direct.py` for `[Loader] Core = ravengun` | **2–4 h** incl. tests | low |
 | Add a Game Pad application-usage variant to the `uhid` board (steps 9–10) | **half a day** incl. `test_hid_board.cpp` | low |
-| Recover and implement the IDREQUEST/UNLOCK/version/keypad dialogue (steps 11–12) | **1–2 days**, 2–4 bench sessions | **medium–high** — the payloads are the real unknown; the transform itself is trivial |
-| Lamps / keypad / recoil verification (step 13) | **half a day**, 1–2 bench sessions | medium — needs the physical cabinet or at least the shell's own logs as the oracle |
+| ~~Recover the IDREQUEST/UNLOCK dialogue (step 12, discovery half)~~ **DONE statically** | **~2 h spent**, no bench | resolved — all four requests, the required answers and the corrected transform are known and round-trip verified |
+| Implement the dialogue in the daemon + one **confirmation** run (steps 11–12) | **half a day**, **1** bench session (was 2–4) | low–medium — the only unknowns left are the three bench-only items of §3.3a |
+| Lamps / keypad / recoil verification (step 13) | **half a day**, 1–2 bench sessions | medium — needs the physical cabinet or the shell's logs as the oracle; the **keypad additionally needs a `Game.ini` change on the NAS** (owner decision, `ExternalKeypad`) |
 
 Total: **≈3–4 days** for the whole "no TeknoParrot component at all, plus complete cabinet I/O" outcome,
 of which the *loader* part (steps 1–7) is only about **1 day** and the rest is the IO board.
@@ -621,16 +690,24 @@ board is required at all.
    board is a HID Game Pad (UsagePage `0x0001` / Usage `0x0005`).
 3. ~~caps constant `0x110000`~~ **RESOLVED** (§3.2a): it is `HIDP_STATUS_SUCCESS`, and `0x47ff50` is the
    `HidP_GetCaps` import thunk.
-4. **New, still open:** whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` inside this prefix at
-   all. If it does not, no `uhid` board can be found and the IO board would have to be reached some other
-   way (or accepted as unreachable). This is the one thing that could still invalidate the whole IO-board
-   route, and the run in §7.b answers it in one session.
-5. **New, measured but not yet exploited:** the dialogue's *later* payloads. The first is known
-   (`00 74 E0`, §3.3); IDREQUEST2, UNLOCK1, UNLOCK2, the version command and ENABLE KEYPAD still need the
-   run. The same static method (read each state's block in `0x43b5a0`–`0x43ba20` and follow the stores into
-   `0x13fd000`/`0x13fcffa`/`0x13fd02b`) could recover most of them **without** a bench session — a good
-   next free step if the bench stays busy.
-6. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
+4. ~~Returned as "measured but not yet exploited": the dialogue's later payloads.~~ **RESOLVED statically**
+   (§3.3): IDREQUEST2 `00 09 E1`, UNLOCK1 `00 E0 F0`, UNLOCK2 `00 CA F1`, ENABLE KEYPAD `00 00 82`,
+   VERSION `00 00 96`; answers `0xB0`–`0xB5` at `input[12]` of a 15-byte report; deadline 1000 ms.
+5. **New, still open:** whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` inside this prefix at
+   all, **and** whether `ReadFile` on such a device returns input reports. If either fails, the `uhid` route
+   cannot work however correct the descriptor is, and the IO board would have to be reached some other way
+   (or accepted as unreachable). This is the one thing that could still invalidate the whole IO-board route,
+   and the run in §7.b answers it in one session. Diagnostically: "zero enumerated devices" = the first
+   failure; "no `_REPLY` line after `IOBOARD_IDREQUEST1`" = the second.
+6. **New: the version query (states 11/12) and — with the shipped config — the keypad (states 9/10) are
+   unreachable.** The version query has no state-`0xB` writer anywhere in the binary, so it is dead code.
+   The keypad step is gated on `[0x13fcff3]`, which the shell fills from its own `ExternalKeypad` setting
+   in `shell/Game.ini`; enabling it means changing game data on the NAS, which is an **owner decision**, not
+   something I may do.
+7. **New: three things are genuinely not in the binary** (§3.3a): the meaning of the four flag-driven output
+   reports (lamps/billboard/recoil), the meaning of `input[11] == 0x15`, and whether the handshake buys
+   anything the owner wants — the game is playable without it.
+8. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
    available sessions and not a blocker today (§5).
-7. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
+9. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
    the live checkout was at git `af96624`, and my load-bearing facts were re-verified there.
