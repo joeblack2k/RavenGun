@@ -737,6 +737,66 @@ reden dat alle proeven in dit project in `/tmp` en in de sandbox gebeuren, en he
 hardop te hebben: het is geen theoretisch risico maar een pad dat naar de NAS wijst en door het spel
 geopend wordt.
 
+#### De keten is rond: de brede shim laat liballeg een NULL-lettertype lezen (2026-10-12)
+
+In de sectie over de crashketen heb ik gezegd dat de preemptie **echt maar onbewezen** was, en dat de
+toestand gedeeld zou zijn in plaats van gedupliceerd. **Dat laatste is nu weerlegd, en de schade is
+aangetoond.** Alle schakels komen uit de kern van de crash-dump:
+
+**1. Welk argument is NULL.** `textout` op `0x72fb0`:
+
+```
+72fb0: push ebx
+72fb1: sub  esp,0xc            ; twee duwen, dus de argumenten schuiven 0x10 op
+72fb4: call 0x72fb9            ; get_pc_thunk.bx
+72fb9: pop  ebx
+72fba: add  ebx,0x450ab        ; PIC-basis
+72fc0: mov  eax,[esp+0x18]     ; = oorspronkelijk [esp+8] = ARGUMENT 2
+72fc4: mov  edx,[esp+0x24]
+72fc8: mov  ecx,[eax+0x8]      ; <-- CRASH: f->vtable
+...
+72fea: call [ecx+0x10]         ; en dan een virtuele aanroep door die vtable
+```
+
+Argument 2 van `textout(BITMAP *bmp, const FONT *f, const char *s, int x, int y, int color)` is dus
+**het lettertype**, en `textout` is de **oude** functie: hij controleert niet op NULL, hij pakt meteen
+`f->vtable`. In de core staat `eax = 0` en `eip = textout+0x18` -- dus `f` was NULL.
+
+**2. Waar die NULL vandaan komt.** De gast **definieert zelf** `font`:
+
+```
+080bb870 B font        <- de gast, soort B = BSS
+000ab548 D font        <- liballeg, soort D = met beginwaarde
+```
+
+En in de core:
+
+| wat | adres | waarde |
+|---|---|---|
+| gast-kopie van `font` | `0x080bb870` | **`0x00000000`** |
+| liballeg's eigen `font` | `0xf7a54548` | `0xf7a5453c` (= `_default_font`, geldig) |
+| `_default_font` | `0xf7a5453c` | `0xf7a54524` |
+| `font_vtable_mono` | `0xf7a54534` | `0xf7a544c4` |
+| gast gemapt? (`0x08048000`) | | `0x464c457f` = `\x7fELF` -- **ja** |
+
+En `font` staat in de eerder gemeten lijst van **71 botsingen** tussen gast en liballeg.
+
+**3. Het mechanisme.** liballeg's PIC-code leest `font` via de GOT (`[ebx+offset]`). Die GOT-invoer is
+een `GLOB_DAT`-verplaatsing en wordt bij het laden gevuld met de uitkomst in de **globale scope** -- en
+dat is de shim, dus de **gast-kopie op `0x080bb870`, die nul is**. De statische beginwaarde van
+liballeg's eigen `font` blijft intussen gewoon staan (`0xf7a5453c`), en dat is precies waarom het van
+buiten lijkt of er niets aan de hand is: het object is er twee keer, de beginwaarde is goed, maar de
+**verwijzingen** komen uit op de lege kopie.
+
+**Dus: de shim laat liballeg nul lezen waar het `&_default_font` verwacht, Allegro's tekstpad geeft die
+nul door aan de oude `textout`, en die loopt meteen op een NULL-deref.** Dat is de crash -- op de thread
+die liballeg zelf maakt, in de XWIN-driver die het spel zelf kiest, op precies de plek die de core
+aanwees.
+
+**En dit maakt de smalle shim van risicoreductie tot een bewezen noodzakelijke wijziging.** `font` wordt
+door liballeg **gedefinieerd**, staat daarom **niet** in de smalle verzameling van 278, en verdwijnt dus
+automatisch uit de shim -- waarna liballeg zijn eigen `font` houdt.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
