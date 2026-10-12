@@ -360,7 +360,82 @@ De vraag was of het spel iets ontsleutelt dat wij niet schrijven. Gemeten: **nee
 **Conclusie.** De savegame-fout is geen dongleprobleem. Onze Encrypt/Decrypt-reparatie is onschadelijk maar
 kan het niet oplossen, en de volgende vraag is niet "moet onze laag de bytes transformeren" maar "waarom
 kan het spel zijn eigen savegame niet teruglezen": dat zit in `IJGPGJJKJAG` en in wat
-`ServerRequestManager::GetDeviceID` per run oplevert. Als dat per run verschilt, is elk savegame dat in een
-eerdere run is geschreven onleesbaar — en dan is dit een **loader/configuratie**probleem (een apparaat-ID
-dat niet bewaard wordt), niet een dongleprobleem.
+`ServerRequestManager::GetDeviceID` per run oplevert. §11 zet die vraag recht.
+
+---
+
+## 11. Waar `GetDeviceID` vandaan komt — en waar de versleuteling dan wél zit
+
+### 11.1 De apparaat-ID is onze eigen dongle-serie, geen systeemwaarde
+
+IL van `ServerRequestManager::GetDeviceID` (dnlib, deze assembly):
+
+```
+IL_0000: ldfld m_DeviceID ; IsNullOrEmpty
+IL_000B: brfalse -> return m_DeviceID        ; al gevuld: geef terug
+IL_0010: get_Instance (MatrixManager)
+IL_0015: callvirt MatrixManager::get_GetDongleSerialNumber
+IL_001B: ldc.i4.0 ; ble -> IL_003A
+IL_0022: m_DeviceID = serial.ToString()      ; > 0: de dongle-serie
+IL_003A: m_DeviceID = "0"                    ; <= 0: de letterlijke nul
+```
+
+**Dus `GetDeviceID()` is `MatrixManager.GetDongleSerialNumber().ToString()`, of `"0"` als die ≤ 0.**
+Daarmee vervalt de hypothese `SystemInfo.deviceUniqueIdentifier`: `SystemInfo` wordt in deze assembly
+alleen voor graphics en capaciteiten gebruikt (`processorCount`, `supportsInstancing`,
+`SupportsRenderTextureFormat`, …) en `GetDeviceID` raakt het nergens aan. Er is ook geen bestand, geen
+register en geen serverwaarde in het pad — het is onze eigen 69420.
+
+Twee gevolgen:
+
+1. **De apparaat-ID is stabiel zolang wij hetzelfde antwoorden** (69420), dus hij is niet de bron van een
+   per-run verschil. De reparatie "zorg dat die waarde vastligt" is niet nodig — hij ligt al vast, door ons.
+2. **Hij is wél veranderd toen wij de dongle repareerden**: vóór de fix gaf `Dongle_ReadSerNr` 0, dus was de
+   apparaat-ID `"0"`; daarna 69420. Elk savegame dat vóór de fix is geschreven hoort dus onleesbaar te zijn
+   ná de fix — een eenmalige overgang. In de twee-startproef hadden **beide** runs 69420 en tóch zakte run 2
+   op het bestand van run 1, dus dit verklaart de proef niet.
+
+### 11.2 De versleuteling zit niet in managed code
+
+`IJGPGJJKJAG` is geen crypto maar de **IO-providerlaag**: velden `NDJDMMJENJI` (een lijst providers),
+`IOKGHLCPFNF` (naam), `DKEGNOOGGAB`; methoden als `NOLCDCGJPEI(string,string,byte[])`, `OAPNBGOKPDD(...)`,
+`HFKHCEGMMNI(string,string)`, `HJMHALLLBON()`, en de logregel `"IO Provider '<naam>' was used to load empty
+data: file will be resetted."` Daar zit geen sleutel.
+
+Een zoekactie over de hele assembly naar `Rijndael|Aes|CryptoServiceProvider|CreateDecryptor|CreateEncryptor|
+get_Key|set_Key|get_IV|set_IV` levert **geen enkele crypto-aanroep** op; alleen `SaveGameManager::
+GetMD5HashFromFile` gebruikt `MD5CryptoServiceProvider`, en dat is de integriteitscontrole
+(`"Corrupted savegame, bad MD5 match"`), niet de versleuteling.
+
+**De `Bad PKCS7 padding`-melding komt dus uit een native module, niet uit `Assembly-CSharp.dll`.** De game
+levert daarvoor precies één kandidaat mee in `Game_Data/Plugins`: **`sxCore.dll` (181.248 B) met
+`sxCoreSettings.txt` (6.051 B)**, naast `matrix64.dll`. Dat is de volgende plek om te kijken, en het is geen
+donglelaag — de dongle raakt er hooguit indirect aan via de apparaat-ID hierboven.
+
+### 11.3 Wat dit betekent voor de 10-minutenrun
+
+"Waarom leest het spel zijn eigen savegame niet terug" is niet met de apparaat-ID te verklaren, dus de run
+legt het volgende vast zodat die vraag in één keer meegaat:
+
+* een snapshot van de savegame-map vóór en na de run (namen, groottes, md5, mtimes);
+* md5 + mtime van `Game_Data/Plugins/sxCoreSettings.txt` en `sxCore.dll` vóór en na — **herschrijft het spel
+  die settings per run?** Dat is de goedkoopste test van "de sleutel verandert per run";
+* het aantal `Bad PKCS7 padding`, `Savegame corrupted` en `will be resetted`-regels in het log;
+* of `Dongle_DecryptData` wel en `Dongle_EncryptData` niet vuurt (dat hoort zo te zijn, §10.3).
+
+### 11.4 Correcties op bestaande documenten (met de meting erbij)
+
+Drie plekken beweren dat de savegame-versleuteling via `SBK.Matrix.MatrixManager` en de dongle loopt. Dat is
+met deze meting weerlegd; ze zijn gecorrigeerd:
+
+| Bestand | Wat er stond | Wat er nu staat |
+|---|---|---|
+| `docs/matrix-layer.md` (§4, bullet `Dongle_EncryptData`/`DecryptData`) | "komen op dertien plaatsen voor (de versleuteling van de savegame)" | de Encrypt-wrappers zijn dood; het savegame-pad loopt via `IJGPGJJKJAG` en `GetDeviceID`, en de crypto is native (`sxCore.dll`) |
+| `patches/RabbidsHollywood/README.md` ("Let op: deze game gebruikt de dongle ook voor zijn versleuteling") | idem | idem, met de IL-bewijzen |
+| `patches/RabbidsHollywood/dropin/ravengun-hasp/RabbidsHollywood/dongle.json` (`notes`) | "acht methoden van `SBK.Matrix.MatrixManager` roepen `Dongle_EncryptData` of `Dongle_DecryptData` aan (de savegame-versleuteling)" | de Encrypt-kant is dode code; het savegame-pad raakt `MatrixManager` niet |
+
+Onze `MatrixEncrypt_Prefix`/`MatrixDecrypt_Prefix` blijven staan: bewezen onschadelijk (schone poort, spel
+leefde in beide runs, NAS onaangeroerd) en ze dekken de semantiek die de drop-in al had. Ze kunnen dit
+probleem alleen **per definitie niet oplossen**, omdat het savegame-pad `MatrixManager` nooit aanraakt.
+
 

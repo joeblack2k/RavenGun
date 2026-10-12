@@ -147,35 +147,40 @@ niet in deze meting uitgeoefend.** Op deze route zijn munt en start eerder wél 
 "munt/start/vizier" staan nog niet in één meting naast elkaar. Een proef op de tv moet dat samenbrengen.
 Volledige meting en afweging: `DONGLE-ONDERZOEK.md`.
 
-### Let op: deze game gebruikt de dongle ook voor zijn versleuteling
+### Let op: deze game gebruikt de dongle NIET voor zijn savegames (gecorrigeerd 2026-10-12)
 
-**Dertien methoden** in `SBK.Matrix.MatrixManager` roepen `Dongle_EncryptData` of `Dongle_DecryptData`
-aan (opnieuw geteld met `re/dnlib.py` op deze assembly; hier stond eerder "acht"): Encrypt uit
-`KPHIPOINDLP`, `BMNNMICCONF`, `EDNBLKCLMOI`, `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO`; Decrypt uit
-`AJPGJFKKFIB`, `EFOGIECKCJK`, `LKFFFBKBLFF`, `GDIPNEDGNPL`, `CBJBMICIDFJ`, `PGOAGOPNHGP`, `BABEGMOMBOG`.
-Dat is de savegame-versleuteling, en de buffer gaat per blok van 8 byte als `ref int` naar binnen.
+Hier stond dat de savegame-versleuteling via `SBK.Matrix.MatrixManager` en de dongle loopt. **Dat is gemeten
+en onjuist.** Wat er werkelijk is:
 
-Twee dingen die je hier moet weten:
+* Van de **zes Encrypt-wrappers** in `SBK.Matrix.MatrixManager` (`KPHIPOINDLP`, `BMNNMICCONF`, `EDNBLKCLMOI`,
+  `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO`) heeft **geen enkele een verwijzing** in de hele IL: ze zijn in
+  deze build dode code. Daarom verschijnt `Matrix: Dongle_EncryptData -> 0` in geen enkele run. Van de zeven
+  Decrypt-wrappers worden er zes aangeroepen, alleen vanuit `MatrixManager` zelf plus twee keer vanuit
+  `NGBPMKLAEPB::MJDMKLODGIG`; de buffer gaat per blok van 8 byte als `ref int` naar binnen. Dat is geen
+  savegame-pad.
+* Het savegame-lees- en schrijfpad komt **niet** bij `MatrixManager` uit: `SaveGameManager::WriteData ->
+  IJGPGJJKJAG::AJAKOIOBKPI + JEJBHONPKAL`, `ReadSaveGame -> IJGPGJJKJAG::JEJBHONPKAL`, bij falen
+  `"Savegame corrupted : " + " will be resetted"` → `SendSaveGameData` → `InternalResetSaveGame`, met een
+  MD5-controle (`"Corrupted savegame, bad MD5 match"`). `IJGPGJJKJAG` is een **andere klasse**: de
+  IO-providerlaag, zonder sleutel.
+* De versleuteling zit **niet in managed code**: een zoekactie over de hele assembly naar
+  `Rijndael|Aes|CryptoServiceProvider|CreateDecryptor|CreateEncryptor|get_IV|set_IV` levert geen enkele
+  crypto-aanroep op (alleen `MD5CryptoServiceProvider` voor de integriteitscontrole). De
+  `Bad PKCS7 padding`-melding komt dus uit een **native** module; de enige kandidaat die de game daarvoor
+  meelevert is **`Game_Data/Plugins/sxCore.dll` met `sxCoreSettings.txt`**.
+* Wat de dongle er wél mee te maken heeft: `ServerRequestManager::GetDeviceID` geeft
+  `MatrixManager.GetDongleSerialNumber().ToString()` terug als die > 0, anders `"0"`. Die waarde wordt in het
+  savegame geschreven. Onze 69420 is dus de apparaat-ID — stabiel, maar hij is bij de dongle-fix veranderd
+  van `"0"` naar `69420`, waardoor savegames van vóór die fix onleesbaar zijn.
+* De twee-startproef (`rg_savegame.sh`, 2026-10-12 22:48-22:54) is gedraaid en is **mislukt**: run 2 las het
+  bestand van run 1 en zette het alsnog terug (`PKCS7=4 corrupted=3 resetted=3`). De poort was schoon (view =
+  build = `e0eaa423…`), beide runs leefden 170 s en de NAS bleef onaangeroerd — de meting is dus geldig, de
+  conclusie is dat dit niet met de dongle op te lossen is.
 
-1. **Deze aanroepen worden door óns antwoord pas echt.** De aanroepers gaan alleen verder als het
-   dongle-serienummer groter dan 0 is (`KPHIPOINDLP` bij `IL_0017`, `AJPGJFKKFIB` bij `IL_001C`, waar
-   anders `**** DONGLE NOT FOUND` volgt). Met onze 69420 gebeuren ze dus; met de oude plugin, die op het
-   serienummer 0 terugkreeg, gebeurde er niets en schreef de game platte tekst weg. Sinds de Matrix-fix
-   loopt dit pad dus mee.
-2. **Onze laag laat de buffer ongemoeid en geeft 0 terug.** Dat is met opzet: zolang **beide** richtingen
-   een no-op zijn, schrijft de game weg wat het zelf terugleest en blijft de opslag in zichzelf
-   consistent. Half beantwoorden is erger dan niet beantwoorden — dan schrijft de game half versleutelde
-   savegames weg.
+Onze `MatrixEncrypt_Prefix`/`MatrixDecrypt_Prefix` blijven staan: ze zijn bewezen onschadelijk en dekken de
+semantiek die de drop-in al had, maar ze kunnen dit probleem **per definitie niet oplossen**. Bewijs en
+afweging: `DONGLE-ONDERZOEK.md` §10 en §11.
 
-De drop-in deed dat al; sinds deze ronde doet de **plugin** het ook
-(`MatrixEncrypt_Prefix`/`MatrixDecrypt_Prefix`, die geen enkel argument opvragen en dus niet van
-parameternamen of buffervorm afhangen). Zonder dat antwoord zag de game bij elke start
-`Bad PKCS7 padding` en zette hij zijn savegames terug (`Savegame corrupted: … will be resetted`).
-
-**Nog niet gemeten:** of dit de persistentie echt herstelt. Dat vraagt twee starts — de eerste maakt de
-savegames aan, de tweede mag ze niet resetten — en die proef staat klaar in `rg_savegame.sh` maar is nog
-niet gedraaid. Wat er **niet** gebeurt: gegevens die met een echte dongle versleuteld zijn, kan deze laag
-niet ontsleutelen (`docs/matrix-layer.md`, "Open").
 
 `Dongle_ReadData`, `Dongle_WriteData` en `Dongle_MemSize` komen in de hele assembly **niet** voor
 (`grep-il` met dnlib): deze game leest dus geen dongle-geheugen, en daarom is er geen memory-lijst in
