@@ -90,7 +90,14 @@ op ditzelfde bestand SIGSEGV met **0 bytes** uitvoer. Onze lader is er dus strik
   blockers (geluid → MIT-SHM → rw-SRAM-bind) liggen buiten de lader (ander agent). De kernel-`ld-linux` draagt
   de ongepakte games sowieso; de lader is hier vooral de validatie.
 - **Gepakt** (Galaga/JP/Pacman): de lader is hier *nodig* (kernel geeft 0 bytes). Volgende taak (fase 3): de
-  voorgevulde `0xb750xxxx`-GOT-slots. Opties (open): slot→symbool identificeren en naar een host-functie
-  herschrijven, de aanroep onderscheppen, of meerijden op de resolutie zoals `tools/rt-glfix` op de
-  BudgieLoader-route. Reproduceerbaar adres: `0xb7508f60` (Galaga).
+  voorgevulde GOT-slots. **Gemeten door de eigenaar (Galaga):** er zijn **twee parallelle PLT/GOT-systemen**.
+  De `DT_JMPREL`-relocaties (die onze lader correct op hun `r_offset` toepast) horen bij het **tweede** systeem
+  (tabel vanaf `0x086f83f8`, aangesproken via `%ebx`). De stubs die de **game** aanroept zitten in het
+  **eerste** PLT (absoluut, `jmp *0x0830d2fc`, `push 0xdeadbeef` — index vernietigd) en hun GOT-slots houden de
+  stale `0xb7xxxxxx`-waarde (bv. `0xb7508f60` = `fopen`). Onze JMPREL-reparatie landt dus in de verkeerde
+  tabel. **Fase-3-taak:** het **eerste** PLT repareren — en de naam is daar niet uit JMPREL te lezen. Open
+  vraag (eigenaar onderzoekt): de correspondentie eerste-PLT-stub ↔ naam (het tweede PLT pusht een lopende
+  waarde `0x0,0x8,0x10,…` die mogelijk een derde tabel indexeert). Zodra die correspondentie vaststaat, is de
+  laderfix: per eerste-PLT-stub de echte functie op naam oplossen en in diens **eigen** GOT-slot schrijven.
+  Zie het plan (`tools/rt-glfix` doet een verwante PLT-stub-parse op de BudgieLoader-route).
 - **Hardening (later, geen blocker):** het gastbeeld staat nu `rwxp`; datasegmenten hoeven geen `x`.

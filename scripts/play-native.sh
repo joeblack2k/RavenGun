@@ -19,6 +19,8 @@
 #   --input-nodes "eventN jsN"  toon alleen deze invoerapparaten in /dev/input (standaard alles; handig om de Move als SDL-joystick te verbergen)
 #   --mute         geen geluidsverbinding in de sandbox
 #   --bind-ro S D  toon bestand of map S read-only als D in de sandbox (herhaalbaar)
+#   --bind-rw S D  toon bestand S schrijfbaar als D (voor apparaten met open(O_RDWR)+mmap; herhaalbaar)
+#   --share-ipc    host-IPC niet isoleren (nodig voor X MIT-SHM; bewuste sandbox-afweging)
 #   --env K=V      extra omgevingsvariabele voor de game (herhaalbaar)
 #   --debug        LD_DEBUG=libs en uitgebreid logboek
 #   --dry-run      toon alleen het bwrap-commando
@@ -40,7 +42,7 @@ LOGDIR="$STATE/logs"
 
 die() { echo "play-native: $*" >&2; exit 1; }
 
-BINDS=(); GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; INPUT_NODES=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
+BINDS=(); RW=(); SHARE_IPC=0; GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; INPUT_NODES=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
 ACTION=run
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,6 +57,8 @@ while [[ $# -gt 0 ]]; do
     --input-nodes) INPUT_NODES="${2:?}"; shift ;;
     --mute) MUTE=1 ;;
     --bind-ro) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-ro vereist bron en doel"; BINDS+=("$2" "$3"); shift 2 ;;
+    --bind-rw) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-rw vereist bron en doel"; RW+=("$2" "$3"); shift 2 ;;
+    --share-ipc) SHARE_IPC=1 ;;   # host-IPC niet isoleren (nodig voor X MIT-SHM; bewuste sandbox-afweging)
     --env) [[ "${2:-}" == *=* ]] || die "--env vereist K=V"; XENV+=("$2"); shift ;;
     --debug) DEBUG=1 ;;
     --dry-run) DRY=1 ;;
@@ -168,12 +172,17 @@ command -v bwrap >/dev/null || die "bwrap niet gevonden"
 OVLBASE="$DATA/native/$GAME"; mkdir -p "$OVLBASE" "$LOGDIR" "$IPC"; chmod 700 "$IPC"
 
 # --- sandbox opbouwen --------------------------------------------------------
-BW=(bwrap --die-with-parent --unshare-pid --unshare-ipc --unshare-uts --unshare-net
+BW=(bwrap --die-with-parent --unshare-pid --unshare-uts --unshare-net
   --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/lib64 /lib64 --symlink usr/bin /bin --symlink usr/bin /sbin
   --ro-bind /etc /etc --proc /proc --dev /dev
   --dev-bind /dev/dri /dev/dri --dev-bind-try /dev/snd /dev/snd
   --ro-bind /sys /sys --ro-bind-try /run/udev /run/udev
   --tmpfs /tmp)
+# Standaard isoleren we ook de IPC-namespace. Maar X MIT-SHM (XShmAttach) deelt SysV-shm met de
+# X-server; in een eigen IPC-namespace faalt dat met BadAccess en crasht de game (gemeten: GoGoStrike
+# in set_gfx_mode). --share-ipc laat de host-IPC toe. Bewuste afweging: minder sandbox-isolatie voor
+# die game, in ruil voor werkende gedeelde-geheugen-grafiek. Zie docs/research/gogostrike-hobbel2.md.
+(( SHARE_IPC )) || BW+=(--unshare-ipc)
 
 # Invoerapparaten: alles, of alleen de genoemde nodes.
 if [[ -n "$INPUT_NODES" ]]; then
@@ -217,6 +226,9 @@ fi
 
 for x in "${EXTRAS[@]}"; do BW+=(--ro-bind-try "$x" "$x"); done
 for ((i = 0; i < ${#BINDS[@]}; i += 2)); do BW+=(--ro-bind "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
+# rw-bestandsbind: sommige apparaten (GoGoStrike: /dev/w040101sram0, de PAOKAI-nodes) worden met
+# open(O_RDWR)+mmap(MAP_SHARED) geopend; --ro-bind volstaat niet. bwrap maakt het doelpad aan.
+for ((i = 0; i < ${#RW[@]}; i += 2)); do BW+=(--bind "${RW[$i]}" "${RW[$((i+1))]}"); done
 
 # --- scherm en geluid ---------------------------------------------------------
 if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
@@ -253,6 +265,8 @@ if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   [[ -n "$STRACE" ]] && SELF+=(--strace "$STRACE")
   for e in "${XENV[@]}"; do SELF+=(--env "$e"); done
   for ((i = 0; i < ${#BINDS[@]}; i += 2)); do SELF+=(--bind-ro "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
+  for ((i = 0; i < ${#RW[@]}; i += 2)); do SELF+=(--bind-rw "${RW[$i]}" "${RW[$((i+1))]}"); done
+  (( SHARE_IPC )) && SELF+=(--share-ipc)
   (( SECONDS_MAX )) && SELF+=(--seconds "$SECONDS_MAX")
   (( HEADLESS )) && SELF+=(--headless)
   (( GAMESCOPE )) && SELF+=(--gamescope)
