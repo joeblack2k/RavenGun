@@ -8,7 +8,7 @@ en welk artefact eruit komt.*
 
 `ElfLdr2/BudgieLoader.exe` is de laatste gesloten **lader** in de keten. Zeven games in de
 verzameling hangen eraan: Halo, JurassicPark, Terminator, GhostBusters, GoGoStrike, GalagaAssault en
-PacmanChomp. Wat er aan gemeten is (`patches/ELF-NATIVE.md`):
+PacmanChomp. **Sinds 2026-10-12 zijn daar negen ElfLdr2-games bij gekomen** toen de eigenaar een batch games toevoegde (zie `patches/NAS-NIEUW.md`), waarvan er twee **gepakt** zijn: Target Terror Gold en Walking Dead. Wat er aan gemeten is (`patches/ELF-NATIVE.md`):
 
 * **Zes van de zeven komen niet eens voorbij de dynamic linker** — `error while loading shared
   libraries`, en de eerste ontbrekende bibliotheek is precies een die ElfLdr2 in zijn eigen proces
@@ -112,7 +112,7 @@ voor het loskoppelen moeten die ook naar onze eigen map.
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
 
-1. **De gepakte (HASPE-)games**: GalagaAssault, JurassicPark, PacmanChomp en Halo. Deze bestanden
+1. **De gepakte (HASPE-)games**: GalagaAssault, JurassicPark, PacmanChomp en Halo -- en sinds 2026-10-12 ook Target Terror Gold en Walking Dead. Deze bestanden
    hebben nul sectiekoppen, PLT-stubs van de vorm `ff 25 <got> 68 ef be ad de e9 <plt0>`, een GOT die
    in het bestand al gevuld is met `0xb7xxxxxx`-adressen uit het oorspronkelijke proces, en 72–82
    procent gewiste importnamen. Zonder de slot-naam-tabel is dit niet te doen; met de tabel wel.
