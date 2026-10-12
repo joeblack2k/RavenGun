@@ -130,7 +130,7 @@ Uit `~/.../runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/`:
   **Niet** aanwezig: `libglut.so.3`, `libSDL-1.2.so.0`, `libXrandr.so.2`, `libesd.so.0`,
   `libfmod.so.10`, `libfmodstudio.so.10`, `libiw.so.30`.
 * `env/dev/{fd,stdin,stdout,stderr}` zijn nagemaakte `/dev`-nodes.
-* `hints.dat` = 235.414 records van 12 bytes (8-byte sleutel → in-beeld-adres), 1518 groepen, **0
+* `hints.dat` = 2.994.888 bytes = **249.574** records van 12 bytes (8-byte sleutel → in-beeld-adres; de eerdere 235.414 was fout -- 235414 × 12 is 2.824.968, geen 2.994.888), 1518 groepen, **0
   leesbare strings**; `x64/hints.dat` = 457.872 × 16, 720 groepen.
 * In `TeknoParrotUi.dll` staat letterlijk `ElfLoader 2 cannot handle special characters ... in the
   file path`, `BudgieLoader failed with exit code {0}` en
