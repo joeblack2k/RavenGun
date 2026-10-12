@@ -195,6 +195,70 @@ en `dynsym` per UND-index als `(index, st_name, naam-of-leeg)`. Plus de assertie
 `aantal stubs == aantal naamloos + aantal met naam`. Dat maakt de ontbrekende tabel **meetbaar** in
 plaats van vermoed, en het is precies de input waarop `tools/rt-glfix/analyze.py` kan aanhaken.
 
+## Zitten de namen écht niet in het bestand? De GOT-waarden wel -- maar ze zijn niet te herleiden
+
+*Gemeten 2026-10-12, read-only, op de NAS-tabel `findings/games/JurassicPark/PLT-slots.md`
+(939 regels; `…/Teknoparrot/findings/games/JurassicPark/`). De scripts staan in de Windows-werkmap
+als `re/_plt-clusters.py` en `re/_plt-ident.py`; er is **geen game voor gestart** en er is niets op
+de NAS geschreven.*
+
+Het bovenstaande blijft staan: van de 577 importstubs van Jurassic Park hebben er 105 een naam en
+472 niet, en de tabel die slot aan naam koppelt zit niet in het bestand. Maar er staat iets anders
+wél in, en dat was tot nu toe onderschat: **de GOT is in het bestand al gevuld met de echte
+functieadressen uit het oorspronkelijke proces.**
+
+**De tabel zelf.** 578 rijen, index 0 t/m 577, geen gaten en geen dubbele indexen. Dat is de
+resolverstub (index 0) plus de 577 importstubs. Daarvan hebben er **2 geen waarde** (de
+resolverstub en één importstub), wijst er **1 naar het spel zelf** (`0x0813a0f6`) en wijzen er
+**575 in het `0xb7`-bereik**. Dit corrigeert de `576 × 0xb7…` in de tabel hierboven naar 575; dat
+verschil is precies die ene lege importstub.
+
+| meting | uitkomst |
+|---|---|
+| exact 16-byte uitgelijnd (zoals een functiebegin) | **573 van 575 (99,7%)** |
+| in `0xb7500000`-`0xb750ffff` (de groep die de NAS-tabel libGL noemt) | **93** |
+| spreiding van die 93 | `0xb7500000`-`0xb750cb80`, dus **52.096 bytes** |
+| de overige 482, gegroepeerd met onderlinge afstand <= 64 KiB | **20 clusters**, waarvan 14 met >= 5 waarden |
+| dekking van de 10 grootste clusters | **442 van 482 (91,5%)** |
+| grootste cluster | `0xb715a990`-`0xb72077c0`: 708.144 bytes, **143 waarden** |
+
+Die uitlijning en die clustering zijn het bewijs dat dit **echte functieadressen** zijn en geen
+rommel: ze komen uit een proces waarin de bibliotheken op die adressen gemapt stonden. De clusters
+zijn bibliotheek-groot (de grootste 708 KB, de meeste tientallen KB's) -- precies wat een gemapte
+`.so` met eigen code op een eigen basis oplevert.
+
+**En dan de toets die de methode zou moeten dragen, en die niet slaagt.** Als `waarde - basis` een
+offset in een bibliotheek is, dan moet die offset exact op een symboolwaarde van die bibliotheek
+landen, want voor een DSO is `st_value` de offset vanaf de laadbasis. Getoetst tegen **74** 32-bits
+bibliotheken op deze machine, inclusief `/usr/lib32/libGL.so.1` (3.470 FUNC-symbolen) en alles wat
+`ElfLdr2/libs/` meelevert:
+
+* de 93 libGL-offsets met basis `0xb7500000` landen **0 van 93** op een symbool van de libGL van
+  deze machine;
+* voor de vijf grootste clusters is, over 74 bibliotheken en 17 paginagrenzen, de beste score
+  **15 van 143 (10%)** -- ruis, en de "winnaars" spreken elkaar tegen (het ene cluster "libGL", het
+  andere "libfmod", een derde "libpng15").
+
+Daar komt een tweede, hardere aanwijzing bij: de libGL-offsets zijn **0x40, 0xe0, 0x120, 0x2a0,
+0x360, 0x2a80, 0xc620** -- te klein voor een offset in een echte `.so`. De ELF-kop, `.dynsym` en
+`.dynstr` van een bibliotheek met 3.470 functies beslaan samen al veel meer dan `0x120` bytes (het
+eerste FUNC-symbool van deze libGL staat pas op `0x2f4c0`). Een functie op 288 byte ná de laadbasis
+van libGL kan dus niet.
+
+**Wat dat betekent, eerlijk:** de adressen zijn echte functieadressen, maar de **offsets zijn met de
+bibliotheken die wij hebben niet naar namen te herleiden**. De slot-naam-tabel staat nog steeds niet
+in het bestand, en de GOT-waarden vervangen die tabel niet: ze zeggen alleen *dat* er ooit een
+functie op dat adres stond, niet *welke*. Wie ze toch wil omzetten heeft één van twee dingen nodig
+die we niet hebben: de **originele 32-bits bibliotheken uit 2015** zoals ze op de kast stonden, of
+de **proceskaart** (`/proc/<pid>/maps`) van het proces waar deze GOT uit komt -- die vertelt welke
+bibliotheek op welke basis stond en dus welk adresbereik bij welke bibliotheek hoort.
+
+Dit nuanceert dus **twee** claims die op tafel lagen. De ene, dat je "de rest hetzelfde doet, met de
+bijbehorende bibliotheek", is met de huidige bibliotheken **niet gelukt** en dus niet bevestigd. De
+andere, dat de GOT-waarden "nergens naar een bruikbaar doel wijzen", klopt voor *runtime* -- maar de
+waarden zijn geen rommel, en dat onderscheid is het verschil tussen "er is niets" en "we kunnen er
+nog niet bij".
+
 ## Hoe je dit narekent
 
 Alles read-only, zonder een game te starten:
