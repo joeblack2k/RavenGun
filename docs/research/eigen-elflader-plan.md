@@ -140,13 +140,49 @@ bytes** rw-binden op dat pad (BudgieLoader levert het als `w040101sram`, 65537 B
 `play-native.sh` kan nu alleen `overlay`/`ro`-mounts van een **map**; daar moet een **rw-file-bind**
 bij. De voorbereiding staat klaar in `~/.local/share/ravengun/native/GoGoStrike/`.
 
-**En let op: de game is al verder gekomen dan die SRAM-hobbel.** Het eigen profiel in
-`packaging/native-games.json` zegt letterlijk: *"bowling_usa (Allegro 4, 2007) laadt, leest zijn
-beelddata en crasht dan op een NULL-aanwijzer (geen bruikbare grafische modus; een `.allegrorc` met
-XWIN hielp niet); wil ook de PAOKAI-apparaten `/dev/w040101_*`. Geparkeerd."* Dat is dus een
-**andere en latere** fout dan `uwSramCheckFormatCode`: de game komt voorbij het laden en sterft op
-het ontbreken van een bruikbare grafische modus. Wie fase 2 doet, moet eerst **dat** uitzoeken in
-plaats van opnieuw op de SRAM-hobbel te stuiten.
+**Wat de meting van 2026-10-12 laat zien: de eerste oorzaak is GELUID, niet beeld.**
+(Volledige uitwerking: `/home/deck/_gogostrike-native-meting.md`, 480 regels.) De crash is wél de
+SRAM-hobbel, maar de game komt daar via een **overgeslagen initialisatie**:
+
+1. `vSystemDeviceInit` roept `install_sound(DIGI_AUTODETECT, MIDI_AUTODETECT, argv[0])` aan. Dat
+   mislukt: de sandbox heeft geen OSS-apparaten (`/dev/dsp`, `/dev/mixer`, `/dev/sequencer` →
+   `ENOENT`), en `allegro_error` wordt `"Insufficient digital voices available"`.
+2. Bij een geluidsfout gaat de game naar zijn **eigen vroege uitgang** (`0x805963f` → `jmp 0x8059716`)
+   en slaat daarmee de hele rest van de apparaatinitialisatie over: `set_color_depth`,
+   `set_gfx_mode(…, 640, 480, …)`, `install_mouse`, `lpSramDeviceOpen`, `vQlDeviceOpen`,
+   `vKeyIoDeviceOpen`, `vCoinDeviceInit`, `vPayoutDeviceInit`, `iRS232OpenPort`.
+3. `_mangled_main` loopt daarna door naar `uwSramCheckFormatCode()`, dat de globale variabele
+   `0x80c2ba8` leest. Die wordt **alleen** in het mmap-succespad van `lpSramDeviceOpen` geschreven en
+   is dus `0`. `cmpl $0x69dc065,(%eax)` met `eax = 0` → SIGSEGV op `0x08071915`.
+
+De aantekening in `packaging/native-games.json` ("geen bruikbare grafische modus") beschrijft het
+**symptoom** goed en de **eerste oorzaak** verkeerd. En de regel die hier eerder stond -- "de game is
+al verder gekomen dan die SRAM-hobbel" -- is **onjuist**: de crash ís die hobbel.
+
+**De drie hobbelen, in de volgorde waarin ze moeten wijken:**
+
+1. **Geluid.** Snelste proef: `LD_PRELOAD` van `libaoss` uit `ElfLdr2/libs` (`libaoss.so.0.0.0` heeft
+   `libalsatoss.so.0` nodig, en `/usr/lib32/libasound.so.2.0.0` bestaat). Let op: bind
+   `libalsatoss.so.0.0.0` onder de naam `libalsatoss.so.0` in `/rg/lib`, en geef de preload via
+   `--env` als je met `--gdb` meet -- `play-native.sh` slaat `LD_PRELOAD` over zodra `--strace` of
+   `--gdb` meedoet. Wie het bij het project wil houden kan ook een kleine i386-OSS-stub schrijven die
+   `open`/`ioctl` op `/dev/dsp`, `/dev/mixer` en `/dev/sequencer` afvangt en minstens 16 digital
+   voices meldt. Een patch op de vroege uitgang (`0x805963f`, of de `je` op `0x805961e`) is de
+   kleinste wijziging, maar verbergt de fout.
+2. **MIT-SHM.** Met het geluid eenmalig overgeslagen komt de volgende fout: een X-fout `BadAccess` op
+   `MIT-SHM X_ShmAttach`, en daarna een SIGSEGV in `set_gfx_mode+270` van `liballeg`. Sterke
+   verdachte: `--unshare-ipc` in de sandbox scheidt de SysV-shm-namespace (gemeten: host shmid 61
+   tegen binnen de sandbox shmid 0, wederzijds onzichtbaar). Een proefrun **zonder** `--unshare-ipc`
+   beslecht het; dat is een wijziging in `play-native.sh`, niet in het profiel.
+3. **Het SRAM-apparaat schrijfbaar binden.** `lpSramDeviceOpen` doet `open(O_RDWR)` én
+   `mmap(…, PROT_READ|PROT_WRITE, MAP_SHARED, …)`, dus een `--ro-bind` is onvoldoende.
+   `play-native.sh` kent alleen `overlay`/`ro` van **mappen** en heeft geen **rw-bestandsbind** -- dat
+   is een echte uitbreiding. Inhoudelijk: het voorbereide bestand
+   `~/.local/share/ravengun/native/GoGoStrike/w040101sram` (65.536 B) is **volledig nul**, terwijl de
+   indelingscode `0x069dc065` in de view-versie (65.537 B) op offset `0xb000` staat -- precies waar
+   `uwSramCheckFormatCode` leest (`base+0xb000`). Bind je het nul-bestand, dan meldt de game "niet
+   geformatteerd" en neemt hij de `vSramClearAll`-tak. Dat is waarschijnlijk goed voor een eerste
+   start, maar het is een bewuste keuze.
 
 **Wat er verder al gestaged is.** `play-native.sh --stage-libs` vult
 `~/.local/share/ravengun/runtime/lib32`, en daar staan **9** i386-bibliotheken die `ElfLdr2/libs`
@@ -170,6 +206,17 @@ Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
    `AmdPowerXpressRequestHighPerformance`, `NvOptimusEnablement`, `__ctype_b_loc`, `api`, `get_info` —
    en de nagebootste bibliotheken in `libs/`. Voor een native route met echte Mesa valt een deel
    daarvan weg, maar `GetElfBase`/`GetElfSymbol` en de omgevingsafspraken moeten we zelf bieden.
+
+   **Belangrijke nuance uit de eisenmatrix** (`docs/research/budgieloader-api-matrix.md`, 1027 regels):
+   de games vragen een veel kleinere API dan die 173. De **werkelijk bij naam gevraagde** functies
+   zijn er **16**, en elke naam wordt door precies **één** game gevraagd -- de doorsnede over de zeven
+   games is **leeg**. En de conclusie dat de 161 `glut*` van ons moeten komen omdat er geen 32-bits
+   `libglut` zou zijn, klopt **niet voor onze eigen route**:
+   `~/.local/share/ravengun/runtime/lib32/libglut.so.3` is een echte **32-bits** ELF en exporteert
+   **171** `glut*`-namen -- inclusief alle 16 die gemeten zijn én `glutBitmap8By13`, het gat dat de
+   matrix in BudgieLoaders exportlijst vond. Voor de native route hoeven we die API dus **niet** na te
+   bouwen; we kunnen de echte freeglut gebruiken. Wat wél van ons moet komen zijn de eigen functies
+   (`GetElfBase`, `GetElfSymbol`, …).
 
 ## Waar de moeilijkheid zit (eerlijk)
 
