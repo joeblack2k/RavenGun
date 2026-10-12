@@ -644,6 +644,17 @@ het einde van de tabel).
 
 Narekenen: `re/_naamterugwinning-alle.py`.
 
+#### De 82 teruggewonnen namen lossen allemaal op -- de reparatie is uitvoerbaar (2026-10-12)
+
+De methode levert per game **31 / 70 / 33 / 11** paren van GOT-slot naar naam; over de vier gepakte
+games zijn dat **82 unieke namen**. En de voorwaarde voor de reparatie is getoetst: in een **32-bits**
+proces is **elke** van die 82 namen met `dlsym` op te lossen -- **82 opgelost, 0 niet gevonden**.
+
+Daarmee is het van een mooie vondst een **uitvoerbare reparatie** geworden: de lader kan voor elk
+gevonden slot `dlsym(naam)` schrijven, en dat levert een echt adres op in plaats van een adres uit het
+proces op de originele kast. Narekenen: `re/_naamtoets.sh`, dat per game ook een
+`paren-<game>.txt` wegschrijft met de sloten en namen.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
