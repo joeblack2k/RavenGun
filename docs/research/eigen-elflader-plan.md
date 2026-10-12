@@ -562,6 +562,30 @@ blijft 71 staan; daar is `liballeg` wél een echte `DT_NEEDED`.
 Eén regel dekt beide klassen, en de winst is groot: 5x kleiner voor de ongepakte, 4.600x kleiner voor
 de gepakte klasse. Narekenen: `re/_smal-alle.py`.
 
+#### De preemptie is echt, maar het bewijs van schade deugde niet (2026-10-12)
+
+Ik wilde laten zien wat de preemptie **aanricht**: niet alleen dat de shim wint, maar wat er dan in die
+globals staat. Die toets is mislukt, en op een leerzame manier.
+
+Met de brede shim **segfaultte mijn eigen proefprogramma** -- maar niet omdat liballeg viel. Het las de
+adressen die `dlsym` teruggaf: de kopieen van de gast op `0x080b...`, en in die opstelling is het
+gastbeeld **niet gemapt**. Mijn eigen dereference faultte dus. Met de smalle shim liep het wel, en daar
+wezen alle drie de symbolen netjes naar liballeg -- met inhoud nul, omdat `allegro_init()` nooit is
+aangeroepen. De toets zegt dus **niets** over schade.
+
+**En dat relativeert mijn eigen hypothese.** De preemptie is bewezen, de **schade** niet. In de echte run
+is het gastbeeld wel gemapt, dus liballeg's verwijzingen komen uit in de gegevens van de gast -- en omdat
+beide naar **hetzelfde object** wijzen, is de toestand **gedeeld** in plaats van gedupliceerd. Wat
+liballeg schrijft leest de gast, en omgekeerd. Dat kan best consistent werken. Ik had aangenomen dat het
+misgaat omdat er twee kopieen zouden zijn; in de praktijk is het er een.
+
+**Wat dat betekent voor de smalle shim:** het blijft een goede wijziging -- 5x kleiner voor de ongepakte
+en 4600x voor de gepakte klasse, en het haalt een onnodige koppeling weg -- maar het is **geen bewezen
+oplossing** voor de signaal-11-crash. De ketenproef moet uitwijzen of het helpt. Dat zet ik er liever
+eerlijk bij dan dat de wijziging als gegarandeerde kuur in dit plan belandt.
+
+Narekenen: `re/_preemptie-inhoud.sh` (en let op: die toets is dus zelf ongeldig voor de brede shim).
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
