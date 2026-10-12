@@ -698,6 +698,54 @@ schrijfletter-herleiding) en OmatsuriYasanKingyoSukui (exitcode 8 nadat de game 
 `rqrdlist.rqr` en `campaign*.bmp` had doorzocht). Als de fix generiek is, zijn dat drie games in één
 keer.
 
+## De gesloten-kern-groep op onze eigen kern gemeten (ronde 49)
+
+Alle vijftien games met `Type = TeknoParrot` en `Route = tp-shm` zijn nu op **onze eigen kern**
+gemeten, met dezelfde methode: onze eigen lader, `Type = OpenParrot` in een kopie van deze repo via
+`RAVENGUN_PATCHES_DIR`, twintig seconden per game, één tegelijk met twintig seconden rust ertussen.
+Het harnas is `proef-eigen-kern.py` op de Deck; het wijst naar de canonieke build
+(`~/.local/share/ravengun/openparrot/current`, beide woordbreedtes).
+
+| game | spelproces gezien | leeft na 20 s | symptoom |
+|---|---|---|---|
+| LGI | 2 s | **leeft** | — |
+| NERF | 2 s | **leeft** | — |
+| LethalEnforcers3 | 2 s | **leeft** | — |
+| LuigisMansion | 2 s | **dood** | lader stopt met exitcode **32** |
+| RaccoonRampage | 2 s | **leeft** | — |
+| RainbowBomberGirl | 2 s | **leeft** | — |
+| Rampage | 2 s | **leeft** | — |
+| Gashaaan | 2 s | **dood** | exitcode **5** (schrijfletter-herleiding, zie ontbrekende bouwsteen 6) |
+| OmatsuriYasanGansoTakoyaki | 2 s | **leeft** | — |
+| OmatsuriYasanKingyoSukui | 2 s | **dood** | exitcode **8** — precies het gedocumenteerde symptoom "alle schijfletters doorzocht" |
+| Otomedius | 2 s | **dood** | exitcode **0** |
+| PigsMightFly | 2 s | **leeft** | — |
+| InfinityBladeFX | 2 s | **leeft** | — |
+| MedaruNoGunman | 2 s | **leeft** | — |
+| TC5 | 2 s | **leeft** | — |
+
+**Elf van de vijftien leven op de generieke route.** Dat is veel meer dan verwacht: `EIGEN-KERN.md`
+ging ervan uit dat deze groep een eigen `EmulationProfile` nodig had om te kunnen *draaien*. Voor het
+starten is dat voor elf games niet nodig.
+
+**Vier vallen om, en drie daarvan hebben een eigen, onderscheiden symptoom:** exitcode 5 (Gashaaan),
+8 (OmatsuriYasanKingyoSukui) en 32 (LuigisMansion); Otomedius stopt met exitcode 0. Twee van die vier
+— Gashaaan en KingyoSukui — horen bij de schrijfletter-herleiding die als ontbrekende bouwsteen 6
+staat, en KingyoSukui's exitcode 8 is daar het eerder gedocumenteerde symptoom van. Eén generieke fix
+raakt dus twee van de vier.
+
+**En de eerlijke grens, zodat dit geen te grote claim wordt.** "Leeft na 20 s" is *niet* "speelbaar".
+Al deze games staan op route `tp-shm`, waar de kern de bordindeling uit het gedeelde geheugen leest en
+naar de game vertaalt; of dat op de generieke route gebeurt, is met deze meting niet vastgesteld. Wat
+deze meting wél zegt: het **starten** is voor elf van de vijftien geen probleem meer, dus de
+profielvraag gaat niet langer over "kan hij booten" maar over "krijgt hij zijn invoer". Dat is dezelfde
+conclusie als bij LGI, waar de invoer buiten de kern om loopt en er dus geen hook nodig was.
+
+**Wat er nu nog te doen valt, in volgorde van opbrengst:** de schrijfletter-herleiding in de eigen
+kern (twee games), daarna uitzoeken wat exitcode 32 en exitcode 0 betekenen (LuigisMansion en
+Otomedius), en pas daarna de vraag of deze groep zijn invoer op de generieke route krijgt — die is
+zonder de tv met lightgun niet te beantwoorden.
+
 ## Wat ik niet heb kunnen vaststellen
 
 1. **Of een bytepatch de geparkeerde games verder helpt.** Voor Terminator, GhostBusters,
