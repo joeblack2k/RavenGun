@@ -504,6 +504,36 @@ definiëren", en dat levert 278 namen op.
 
 Narekenen: `re/_smalshim2.sh` (bouwt de smalle shim en toetst hem).
 
+#### TLS en DT_INIT uitgesloten -- met een controle die de methode bewijst (2026-10-12)
+
+Na de bewezen shim-preemptie bleven twee verdachten over voor de signaal-11-crash: TLS/`%gs`, en de
+`DT_INIT` van de gast (onze lader draait die bewust **niet** zelf, met de redenering dat
+`_start -> __libc_start_main -> __libc_csu_init` hem wel draait). Beide zijn nu **uitgesloten**.
+
+**TLS:** `bowling_usa` heeft **geen `PT_TLS`-segment** (alleen twee `LOAD`s) en **nul** TLS-relocaties.
+Er valt voor deze gast niets op te zetten, dus TLS kan de crash niet verklaren.
+
+**DT_INIT:** getoetst door in een **kopie** een `int3` (`0xCC`) op het adres te zetten en naar de
+exitstatus te kijken. Draait de code, dan trapt het proces (signaal 5, rc 133); draait hij niet, dan
+gaat het spel gewoon verder met zijn gebruikelijke afloop.
+
+| patch in de kopie | exit | betekenis |
+|---|---|---|
+| `int3` op `e_entry` (controle) | **133** (SIGTRAP) | de methode werkt: het entry point wordt uitgevoerd |
+| ongepatcht | 1 | de gewone afloop (Allegro's eigen foutmelding) |
+| `int3` op `DT_INIT` `0x8058ba8` | **133** (SIGTRAP) | **de `DT_INIT` van de gast loopt wel degelijk** |
+| `int3` op `DT_FINI` `0x80a5f64` | 1 | niet geraakt -- logisch, de foutweg loopt niet langs `atexit` |
+
+De controle-regel is hier het belangrijkste: mijn **eerste** poging was een gdb-breekpunt, en dat kon
+niet armeren omdat het gastbeeld bij de start nog niet gemapt is (`Cannot access memory at address
+0x8058ba8`). Zonder die controle had "NEE, de init loopt niet" als bevinding in dit plan gestaan. Met
+de `int3`-methode en een controlepunt op `e_entry` is de uitspraak wel hard.
+
+**Wat dat betekent:** van de drie kandidaten is er nu één over, en dat is degene die bewezen is --
+de symboolpreemptie door de te brede shim. TLS en `DT_INIT` hoeven niet meer onderzocht te worden.
+
+Narekenen: `re/_initproef2.sh` (de toets) en `re/_init-check.sh` (de dynamische tags en de TLS-vraag).
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
