@@ -380,9 +380,10 @@ static void maak_shim(struct dyninfo *d)
     snprintf(src, sizeof src, "%s/shim.c", dir);
     snprintf(so, sizeof so, "%s/shim.so", dir);
 
-    /* COPY-reloc-symbolen (screen, font, _blender_*, _accel_*) zijn gedeelde data-globals: de libs MOETEN
-       de kopie van de gast gebruiken (ld.so-canonicalisatie), dus die blijven in de shim, ook al definieert
-       een lib ze. Alleen lib-gedefinieerde NIET-COPY-symbolen (de paar code-botsingen) laten we weg. */
+    /* COPY-reloc-doelen (screen, font, _blender_*, _rgb_*, ...) BLIJVEN in de shim: zij moeten gedeeld zijn
+       zodat een runtime-schrijf door de lib (bv. set_gfx_mode zet `screen`) de gast-kopie bereikt. De
+       beginwaarde komt los via de COPY-relocatie (uit de lib, post-reloc; zie pas_rel_toe/zoek_in_libs).
+       Alleen lib-gedefinieerde NIET-COPY-symbolen (de code-botsingen) laten we weg. */
     const char *copyset[512];
     int ncopy = 0;
     if (d->rel && d->relsz) {
@@ -412,16 +413,12 @@ static void maak_shim(struct dyninfo *d)
             continue;
         if (shim_skip(naam))
             continue;
-        /* SMALLE shim: een door een NEEDED-lib gedefinieerd symbool laten we weg (de lib gebruikt zijn
-           eigen) -- TENZIJ het een COPY-reloc-doel is: dan moet de lib juist de gast-kopie delen. Zo
-           verdwijnen de code-preempties maar blijven screen/font/_blender gedeeld, en worden de symbolen
-           die de libs uit de gast nodig hebben (_poly_scanline_gcol8) geleverd. */
         if (lib_defines(naam)) {
             int c, is_copy = 0;
             for (c = 0; c < ncopy; c++)
                 if (strcmp(copyset[c], naam) == 0) { is_copy = 1; break; }
             if (!is_copy)
-                continue;
+                continue;   /* lib-gedefinieerd en geen COPY -> de lib houdt zijn eigen (geen preemptie) */
         }
         fprintf(f, "__asm__(\".globl %s\\n.set %s, 0x%x\\n\");\n", naam, naam, s->st_value);
         cnt++;
@@ -441,16 +438,23 @@ static void maak_shim(struct dyninfo *d)
 /* De benodigde bibliotheken laden. libc.so.6/libm.so.6 zijn al in dit proces; dlopen geeft dan het
    bestaande handvat terug. De oude libs (libstdc++.so.5 enz.) komen via LD_LIBRARY_PATH uit
    ElfLdr2/libs. RTLD_GLOBAL zodat hun symbolen in de globale zoekruimte komen (voor R_386_COPY). */
+static void *rg_libs[64];   /* handvatten van de NEEDED-libs, voor R_386_COPY (de DEFINIËRENDE lib) */
+static int rg_libs_n;
+
 static void laad_needed(struct beeld *b, struct dyninfo *d)
 {
     Elf32_Dyn *dy;
     for (dy = b->dyn; dy->d_tag != DT_NULL; dy++) {
         const char *naam;
+        void *h;
         if (dy->d_tag != DT_NEEDED)
             continue;
         naam = d->strtab + dy->d_un.d_val;
-        if (!dlopen(naam, RTLD_NOW | RTLD_GLOBAL))
+        h = dlopen(naam, RTLD_NOW | RTLD_GLOBAL);   /* RTLD_NOW past ook liballeg's eigen relocaties toe */
+        if (!h)
             fatal("dlopen(%s) mislukt: %s", naam, dlerror());
+        if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
+            rg_libs[rg_libs_n++] = h;
         dbg("geladen: %s", naam);
     }
 }
@@ -459,6 +463,20 @@ static void *zoek_symbool(const char *naam)
 {
     void *a = dlsym(RTLD_DEFAULT, naam);
     return a;   /* RTLD_DEFAULT doorzoekt de globale scope incl. onze RTLD_GLOBAL-dlopens + libc/libm */
+}
+
+/* De DEFINIËRENDE lib van een symbool (NIET de gast/shim). Voor R_386_COPY: de beginwaarde moet uit de
+   lib komen NÁ diens eigen relocaties (bv. liballeg's `font` wordt pas &_default_font door een R_386_32
+   bij dlopen). dlsym(RTLD_DEFAULT) zou via de shim de lege gast-kopie teruggeven en zichzelf kopiëren. */
+static void *zoek_in_libs(const char *naam)
+{
+    int i;
+    for (i = 0; i < rg_libs_n; i++) {
+        void *a = dlsym(rg_libs[i], naam);
+        if (a)
+            return a;
+    }
+    return NULL;
 }
 
 static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char *welk)
@@ -493,9 +511,13 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
             if (!sym) { onopgelost++; break; }
             *waar += (uint32_t)(uintptr_t)sym - (uint32_t)(uintptr_t)waar;
             break;
-        case R_386_COPY:
-            if (!sym) { onopgelost++; if (*naam) say("  onopgelost COPY: %s", naam); break; }
-            memcpy(waar, sym, d->symtab[sidx].st_size); copies++;
+        case R_386_COPY: {
+            /* De bron MOET de DEFINIËRENDE lib zijn (post-reloc), niet de shim/gast -- anders kopieert
+               hij de lege gast-kopie op zichzelf. Zie zoek_in_libs(). */
+            void *src = zoek_in_libs(naam);
+            if (!src) { onopgelost++; if (*naam) say("  onopgelost COPY: %s", naam); break; }
+            memcpy(waar, src, d->symtab[sidx].st_size); copies++;
+        }
             break;
         default:
             say("  onbekend reloctype %u (%s) overgeslagen", type, naam);

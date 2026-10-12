@@ -124,12 +124,15 @@ definiëren (`verzamel_lib_defs`) en laat die weg — **behalve** COPY-reloc-doe
 de gast-functies die de libs nodig hebben (`_poly_scanline_gcol8`) geleverd. Gemeten: GoGoStrike-beeld
 ongewijzigd t.o.v. de brede shim, Galaga blijft 31 slots herstellen.
 
-**Signal 11 bij GoGoStrike via `--loader` (gelokaliseerd, eigenaar via coredumpctl):** de crash zit in
-Allegro's **X11-pad** (`_xwin_update_screen → _xwin_scroll_screen → textprintf → textout`, `eax=0`), op een
-**tweede LWP die liballeg zelf** met `pthread_create` maakt (de gast importeert geen threads). Het is dus
-geen lader-kwestie (shim/relocaties/TLS zijn uitgesloten); de open vraag is of **`set_gfx_mode` in onze
-route slaagt** (in de kernel-route wel: beeld op 1920×1080). `liballeg` importeert `XInitThreads` — Xlib
-vanuit meerdere threads is hier de verdenking. Dit staat los van de lader; GoGoStrike draait sowieso via de
-**kernel-route** (`play-native.sh` zonder `--loader`, exit 143 na 30 s). Onze lader is bewezen nodig én
-werkend voor de **gepakte** klasse. Bekende losse bug: onder `--gdb --loader` laadt `liballeg` niet (de
-shim staat daar niet op tijd klaar) — alleen de debug-route, laag geprioriteerd.
+**Signal 11 bij GoGoStrike via `--loader` — OPGELOST (R_386_COPY-bron).** De crash zat in Allegro's X11-pad
+(`_xwin_update_screen → textprintf → textout`, `eax=0` = NULL-lettertype), op een tweede LWP die liballeg
+zelf maakt. Oorzaak (eigenaar via coredumpctl, bevestigd): onze **COPY-relocatie** vulde de gast-kopie van
+`font`/`screen` niet. De COPY-bron werd via `dlsym(RTLD_DEFAULT)` gezocht, maar dat vindt — doordat de shim
+vooraan de globale scope staat — de **gast-kopie zelf** (de shim), dus `memcpy(waar, waar)` kopieerde nul op
+nul. `_cos_tbl` bleef 0 i.p.v. `0x00010000`; `font` bleef 0 i.p.v. `&_default_font`. **Fix:** `R_386_COPY`
+haalt de beginwaarde nu uit de **definiërende lib** (`zoek_in_libs`, `dlsym(lib-handle, naam)`), ná diens
+eigen relocaties (dlopen `RTLD_NOW`). De COPY-symbolen blijven in de shim (gedeeld), zodat een runtime-schrijf
+door de lib (bv. `set_gfx_mode` zet `screen`) de gast-kopie bereikt. **Gemeten: GoGoStrike draait nu 30 s via
+`play-native.sh --loader`** (onze rg-elfloader, geen Wine/BudgieLoader; exit 143 = timer). Daarmee is fase 2
+óók via onze eigen lader rond, niet alleen via de kernel-route. Bekende losse bug: onder `--gdb --loader`
+laadt `liballeg` niet (de shim staat daar niet op tijd klaar) — alleen de debug-route, laag geprioriteerd.
