@@ -49,7 +49,11 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
   `patches/Otomedius/game.ini` `[Status]`.
 - LethalEnforcers3 (Konami, 2005) — tp-shm, leeft
 - Gashaaaan / Gashaaaan2 (Konami) — Konami-AVS, 0004 lost de schijfletter-crash op; leeft
-- OmatsuriYasanGansoTakoyaki / -KingyoSukui (Konami) — schijfletter; KingyoSukui mist campaign*.bmp (eigenaar)
+- OmatsuriYasanGansoTakoyaki / -KingyoSukui (Konami) — schijfletter. **KingyoSukui: exitcode 8 op onze kern, en de eerdere verklaring "mist
+  campaign*.bmp" is achterhaald** — in de `WINEDEBUG=+file`-trace opent het spelproces geen enkel bestand van zichzelf, terwijl de
+  gesloten kern hem wel ziet leven (na 20 s nog). Zijn zusje Takoyaki leeft, met dezelfde lege herleidingsmappen; wat hen
+  onderscheidt is een GMDATA-map die KingyoSukui niet heeft. Een drop-in kan hier niet landen: geen view. Zie
+  `patches/OmatsuriYasanKingyoSukui/game.ini` `[Status]`.
 - RainbowBombergirl (Konami) — tp-shm, hangt op PASELI/SYSTEM ENTRY (geparkeerd)
 - MedaruNoGunman (Konami/FarCry) — 3001 RAM DATA BAD (geparkeerd)
 - 3DCosplayMahjong (Taito) — geen exe gevonden
