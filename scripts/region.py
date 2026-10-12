@@ -49,6 +49,8 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ownprofile as op  # noqa: E402  (dezelfde gamemap-resolver als de launcher)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
@@ -289,12 +291,33 @@ def profile_scalars(tp, profile):
     return {}
 
 
-def game_dir(settings, scalars):
-    """De map van de game-exe. $RAVENGUN_GAME_DIR gaat voor, dan [Game] GamePath uit game.ini, dan
-    het GamePath van het profiel. None als geen van die drie er is."""
+# ---------------------------------------------------------------------------------------------------------------------
+# Wijziging van buiten deze sessie (2026-10-12, de patches-sessie). Voor de Claude-sessie in deze repo:
+# game_dir() zocht de map van de game alleen via het TeknoParrot-profiel ([Game] GamePath of het GamePath van
+# GameProfiles/<P>.xml). Voor een game zonder UserProfiles/<P>.xml en zonder GamePath in het sjabloon vindt dit
+# script de exe niet, en dan luidt het oordeel ROOD ("de executable noemt geen enkele amDongle- of
+# regioleesroute") terwijl er met de game niets mis is. OG is daar het voorbeeld van: de map op de NAS heet
+# OAV6DU~3 en het profiel is leeg.
+# De launcher lost dat al op met scripts/ownprofile.py: locate_game() kijkt naar [Game] GamePath van de
+# gebruiker, dan naar een lokale view, dan naar de gamemappen aan de hand van [Identify]. Dat is nu de eerste
+# weg die dit script probeert, zodat er een resolver is in plaats van twee. De oude terugval blijft staan voor
+# het geval de bibliotheek van de app niet te vinden is.
+# Dit is GEEN dongle- of HASP-werk en er verandert niets aan wat een dongle antwoordt: alleen welke map als de
+# map van de game geldt. Je hoeft hier niets mee te doen.
+# ---------------------------------------------------------------------------------------------------------------------
+def game_dir(game, settings, scalars):
+    """De map van de game-exe. $RAVENGUN_GAME_DIR gaat voor, dan dezelfde weg als de launcher
+    (ownprofile.locate_game: een afwijkend pad van de gebruiker, een view, of de gamemappen), dan het
+    GamePath van het profiel. None als geen van die wegen iets vindt."""
     env = os.environ.get("RAVENGUN_GAME_DIR", "")
     if env and os.path.isdir(env):
         return env
+    try:
+        pad, bron = op.locate_game(game, settings)
+        if pad and os.path.isfile(pad):
+            return os.path.dirname(pad)
+    except Exception:   # de gamemappen zijn optioneel; dit mag het oordeel nooit stukmaken
+        pass
     for pad in (settings.get("Game", {}).get("GamePath", ""), scalars.get("GamePath", "")):
         if pad and os.path.isfile(pad):
             return os.path.dirname(pad)
@@ -400,7 +423,7 @@ def status(game=None):
     scalars = profile_scalars(tp, profiel)
     uit["profile"] = profiel
     uit["profile_scalars"] = scalars
-    gamedir = game_dir(settings, scalars)
+    gamedir = game_dir(game, settings, scalars)
     exe = exe_path(settings, scalars, gamedir)
     uit["game_dir"] = gamedir
     uit["exe"] = exe
