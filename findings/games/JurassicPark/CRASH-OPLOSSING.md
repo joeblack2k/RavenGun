@@ -84,11 +84,13 @@ no-op maakt hem niet werkend.
 
 ## De grens (beslissing eigenaar)
 
-Deze fout verdwijnt pas na **reconstructie van ElfLdr2's resolutietabel** (slot → echte functienaam/-adres). Die
-tabel staat **niet in het bestand**; hij is alleen te oogsten uit een **lopende ElfLdr2-run** (zie
-`docs/research/loskoppelen-takenlijst.md` §3b en `patches/ELF-LADER-SPEC.md`). Dat is **uitpakwerk** en valt
-**buiten scope** volgens `docs/decisions.md` (2026-10-11). Daarom **houdt JP BudgieLoader** en blijft hij
-geparkeerd — nu met een precieze, bevestigde diagnose in plaats van een vage.
+Deze fout verdwijnt pas als de niet-GL-sloten naar werkende functies wijzen. De slot→**naam**-tabel staat niet in
+het bestand (105 met naam, 472 gewist). Belangrijke nuance, read-only nagerekend door de eigenaar (zie de
+reconciliatie hieronder en `patches/ELF-LADER-SPEC.md`): de GOT-**waarden** stáán wél in het bestand en zijn echte
+functieadressen — maar met de bibliotheken die wij hebben niet naar namen te herleiden. Dat vraagt data die we niet
+hebben (de originele 2015-bibliotheken of de proceskaart van de originele kast), en dat valt **buiten scope**
+(`docs/decisions.md`, 2026-10-11). Daarom **houdt JP BudgieLoader** en blijft hij geparkeerd — nu met een precieze,
+bevestigde diagnose in plaats van een vage.
 
 ## Twee opties als de eigenaar tóch verder wil (bench + tv)
 
@@ -114,17 +116,78 @@ schone bench; bij mislukking stoppen zonder tweede poging.
 **Gemeten (statisch, uit de patches-repo; aangeleverd door de eigenaar):** JP heeft **577 PLT-stubs, waarvan 105
 met naam en 472 gewist**.
 
-**Afgeleid:**
-- De runtime-stublogger **ving niets**: de niet-GL-sloten presenteren zich deze run niet als een leesbare
-  no-op-stub (hun doel ligt niet in een uitvoerbaar gebied dat de exec-cache ving — passend bij een doel in het
-  niet-uitvoerbare gereserveerde blok waar `eip=0x819c524b` lag). Daardoor kon het **exacte eerst-geraakte slot
-  niet runtime worden vastgelegd** — een gemeten beperking van deze methode, geen bewijs dat er geen lege sloten
-  zijn. (Mogelijk ook een timing-kwestie: ElfLdr2 mapt zijn nagebootste libs later dan het de GOT vult, en de
+**Afgeleid (bijgesteld — zie de reconciliatie hieronder):**
+- De runtime-stublogger **ving niets**, maar dat is een **meetgrens, geen uitkomst**: hij kan alleen een
+  *leesbare* no-op-stub omleggen, en een slot dat naar niet-gemapte `0xb7`-ruimte wijst is niet uit te lezen of te
+  instrumenteren. "0 aangeroepen" betekent dus **niet** "er zijn geen lege sloten"; het betekent "mijn methode kon
+  ze niet uitlezen". (Mogelijk ook timing: ElfLdr2 mapt zijn nagebootste libs later dan het de GOT vult, en de
   exec-cache bevriest vroeg.) Per opdracht géén tweede poging geforceerd.
-- **De breedtevraag is wél beantwoord** door de statische getallen samen met de diagnose: **472 van de 577
-  importnamen zijn gewist** en 576 niet-GL-invoeren wijzen nergens naar een bruikbaar doel. Dit is dus een
-  **brede leegte, geen enkele ontbrekende import.** Een gerichte fix is niet haalbaar; **JP blijft geparkeerd op
-  BudgieLoader.** Conclusie ongewijzigd.
+- Wat de meting **wél** bevestigt: de 576 niet-GL-invoeren hielden runtime geen uitvoerbaar doel — passend bij
+  danglende `0xb7`-adressen uit het oorspronkelijke proces. Mijn eerdere formulering ("brede leegte, nergens naar
+  een bruikbaar doel") klopt **voor runtime**, maar was te absoluut: de waarden zijn **geen rommel** (zie
+  hieronder). De uitkomst (JP geparkeerd) blijft; de **reden** is bijgesteld, zonder een meting om te draaien — de
+  ruwe A2-getallen hierboven staan ongewijzigd.
+
+## Reconciliatie met het oudere NAS-document
+
+### 1. Het NAS-document en zijn conclusie
+Op de NAS staat een ouder artefact met dezelfde strekking als dit bestand, van vóór de brug:
+- `…/Teknoparrot/findings/games/JurassicPark/CRASH-OPLOSSING.md` (2026-10-11, van "Johan — TeknoParrot-team")
+- werkblad `…/Teknoparrot/findings/games/JurassicPark/PLT-slots.md` (939 regels): per PLT-stub het stubadres, het
+  GOT-slot, de bestandswaarde en voor de libGL-groep de offset t.o.v. `0xb7500000`.
+
+Zijn conclusie (**fase 1**): `VidStart` roept `glGetIntegerv(GL_MAX_TEXTURE_SIZE)` aan via slot `0x8add63c`, dat in
+het bestand `0xb7500120` bevat — een adres uit het oorspronkelijke proces dat hier niet bestaat. Antwoord blijft 0,
+0 ≤ 2047, dus `SysLockup`; daarna faalt de canariecontrole en valt de uitvoering door naar **`0x08358000`**.
+Voorgestelde fix: de 93 libGL-slots herschrijven via basis `0xb7500000` + offset → de symbooltabel van de
+originele libGL (Mesa 2015), "de rest hetzelfde, met de bijbehorende bibliotheek", plus `dlsym` onderscheppen.
+Toets: één functie die 8192 in `0x8add63c` schrijft en kijken of het spel voorbij `VidStart` komt.
+(NB: de NAS-mount is CIFS met `rw`; de afspraak blijft dat wij er niet in schrijven. Alle NAS-metingen read-only.)
+
+### 2. Waar we het eens en oneens zijn — met de getallen
+De tabel, read-only nagerekend door de eigenaar: 578 rijen (0–577, geen gaten) = resolverstub + 577 importstubs;
+daarvan **2 zonder waarde**, **1 naar het spel zelf** (`0x0813a0f6`), en **575 in het `0xb7`-bereik** (dit
+corrigeert de eerdere "576 × `0xb7`" — het verschil is die ene lege importstub). De NAS-groepsindeling:
+93 libGL (`0xb750xxxx`), 25 (`0xb723xxxx`, libc-canarie), 457 overig `0xb7xxxxxx`, 2 leeg, 1 naar het spel.
+
+- **Eens:** **573 van 575** waarden zijn exact 16-byte uitgelijnd (99,7%) en vallen in bibliotheek-grote clusters
+  (grootste `0xb715a990`-`0xb72077c0`, 708.144 B, 143 waarden; top-10 dekt 442/482). Dit zijn **echte
+  functieadressen** uit het oorspronkelijke proces, geen rommel. Mijn A2-diagnose (576 niet-GL-invoeren, 0
+  uitvoerbaar) **bevestigt** dit: die sloten houden danglende `0xb7`-adressen die hier niet gemapt zijn.
+- **Oneens / niet bevestigd:** de NAS-**methode** (offset → naam via onze bibliotheken) slaagt niet. Door de
+  eigenaar getoetst tegen 74 32-bits bibliotheken incl. `/usr/lib32/libGL.so.1` (3.470 FUNC-symbolen): de 93
+  libGL-offsets met basis `0xb7500000` landen **0 van 93** op een symbool; de beste clusterscore is **15/143 (10%)**
+  = ruis, met tegensprekende "winnaars" (libGL vs libfmod vs libpng15). Hardere aanwijzing: de libGL-offsets
+  (`0x40…0xc620`) zijn **te klein** voor een echte `.so` — het eerste FUNC-symbool van deze libGL staat pas op
+  `0x2f4c0`. Dus "de rest hetzelfde, met de bijbehorende bibliotheek" is met **onze** bibliotheken niet gelukt.
+- **Meetgrens, geen weerlegging:** mijn stublogger ving 0 sloten omdat hij een danglend, niet-gemapt doel niet kan
+  uitlezen (zie boven). Het is dus geen bewijs tégen de NAS-tabel.
+
+Eerlijke gezamenlijke stand (zie `patches/ELF-LADER-SPEC.md`, "Zitten de namen écht niet in het bestand?"): **de
+informatie — echte functieadressen — zit in het bestand, maar de vertaalslag naar namen vraagt data die we niet
+hebben**: de originele 32-bits bibliotheken uit 2015, of de proceskaart (`/proc/<pid>/maps`) van de originele kast.
+Verschil tussen "er is niets" en "we kunnen er nog niet bij".
+
+### 3. Sluiten de twee conclusies elkaar uit? Nee — het zijn fasen
+- **Fase 1 (NAS, crash `0x08358000`): vóór de brug.** De GL/VidStart/canarie-crash. `rt-glfix` passeert die nu —
+  de game leeft 112 s, voorbij `VidStart` **én** de canarie. Daarmee is de NAS-diagnose van fase 1 **bevestigd**,
+  inclusief Johans voorspelling dat de canarie een *gevolg* van `SysLockup` is (we vallen er niet op). `rt-glfix`
+  bereikt dit niet via de NAS-offset→naam-methode, maar door op ElfLdr2's eigen GL-resolutie mee te rijden + een
+  cdecl-shim + een eigen `glGetIntegerv` (> 2047).
+- **Fase 2 (deze diagnose, crash `0x819c524b`): ná de brug.** Een niet-GL-slot dat ElfLdr2 niet oploste, danglend
+  `0xb7`. Dit is een **volgende fase**, geen tegenspraak met fase 1.
+- Beter onderbouwd: voor fase 1 de NAS-diagnose (nu gemeten bevestigd). Voor de fix-methode weegt de read-only
+  toets van de eigenaar zwaarder dan beide eerdere claims: met onze libs niet herleidbaar.
+
+### 4. Welke ene meting het beslecht
+Geen bench-run beslecht dit — de blokkade is **data, geen analyse**:
+- **Fase 1 is al beslecht** door `rt-glfix` (voorbij `VidStart` én de canarie). Johans 10-regeltest (8192 in
+  `0x8add63c`) is daar een deelgeval van; `rt-glfix` is er een superset van, dus een losse 10-regeltest zou
+  **zwakker** bewijs geven (hij zou waarschijnlijk eerder crashen op een ander ongefixt GL-slot). Daarom **niet
+  gedraaid** — de bench was vrij, maar het was niet nodig en "forceren niet" gold.
+- **De naamresolutie is al read-only beslecht** door de eigenaar: met onze bibliotheken lukt het niet. Wat het wél
+  zou beslechten is geen meting maar data: de originele 2015-bibliotheken of de proceskaart van de originele kast.
+  Tot die er zijn, blijft JP op BudgieLoader.
 
 > Harde grens: geen HASP/dongle/keychip/FTDI/integriteit/activering en geen checksum-skip. De crash hierboven
 > ligt vóór de HASP-controle van de game (die wordt nooit bereikt) en raakt die laag niet. De A2-meting is

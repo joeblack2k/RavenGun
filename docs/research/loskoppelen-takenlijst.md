@@ -52,9 +52,14 @@ Stand 2026-10-12.
         **Gemeten PLT-stubs (uit de patches-repo):** GalagaAssault **357** stubs, waarvan **99 met naam** en **258
         gewist**; PacmanChomp **442**; JurassicPark **577**, waarvan **105 met naam** en **472 gewist**. De gedeelde
         oorzaak is dezelfde als bij JP (zie `findings/games/JurassicPark/CRASH-OPLOSSING.md` en `docs/rt-glfix.md` §7):
-        de **slot→naam-tabel staat niet in het bestand** en is alleen te oogsten uit een lopende ElfLdr2-run, dus de
-        gewiste sloten zijn statisch niet te herleiden. Daarom **houden deze games BudgieLoader**; reconstructie van die
-        tabel is uitpakwerk (buiten scope, `decisions.md` 2026-10-11). Specificatie: `patches/ELF-LADER-SPEC.md`.
+        de **slot→naam-tabel staat niet in het bestand**. **Nuance (eigenaar, read-only 2026-10-12, zie
+        `patches/ELF-LADER-SPEC.md` "Zitten de namen écht niet in het bestand?"):** de GOT-waarden zélf stáán wél in het
+        bestand en zijn **echte functieadressen** (bij JP 573 van 575 exact 16-byte uitgelijnd, in bibliotheek-grote
+        clusters) — maar ze zijn **met de bibliotheken die wij hebben niet naar namen te herleiden** (0 van 93
+        libGL-offsets landen op een symbool; de offsets zijn te klein voor een echte `.so`). Omzetten vraagt de
+        **originele 32-bits bibliotheken uit 2015** of de **proceskaart** (`/proc/<pid>/maps`) van de originele kast —
+        geen van beide hebben we. Daarom **houden deze games BudgieLoader**; het is geen "er is niets" maar "we kunnen er
+        nog niet bij" (buiten scope, `decisions.md` 2026-10-11).
       Dus 3b dekt hooguit de 3 ongepakte games; de 4 gepakte blijven op `BudgieLoader`.
 
       **Uitkomst analyse 2026-10-12 (read-only):** van de 3 ongepakte is alleen **GoGoStrike** een goedkope echte

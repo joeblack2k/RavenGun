@@ -32,8 +32,20 @@ dat kan **niet** tijdens de bench van de eigenaar. Zodra de bench vrij is, is di
   eerder). Dongle-image is **geconstrueerd** (112× 0xFF), niet gedumpt — dongle blijft onaangeroerd.
 
 ## Kernbestanden
-`docs/rt-glfix.md` §6-7, `findings/games/JurassicPark/CRASH-OPLOSSING.md`, `patches/ELF-LADER-SPEC.md` r.37-92,
+`docs/rt-glfix.md` §6-7, `findings/games/JurassicPark/CRASH-OPLOSSING.md` (bevat de reconciliatie met het
+NAS-document), `patches/ELF-LADER-SPEC.md` ("Zitten de namen écht niet in het bestand?"),
 `docs/research/elfldr2-injectie.md` r.23-78.
+
+### Oudere NAS-bronnen (zelfde onderwerp, vóór de brug — read-only; wij schrijven niet op de NAS)
+De NAS-mount (`~/mnt/spidernas_emulation`) is een CIFS-mount met `rw`, maar de afspraak is dat we er niet in
+schrijven. Twee artefacten van het TeknoParrot-team (2026-10-11) horen bij deze zaak:
+- `~/mnt/spidernas_emulation/Teknoparrot/findings/games/JurassicPark/CRASH-OPLOSSING.md` — Johans analyse van
+  fase 1 (GL/`VidStart`/canarie → `0x08358000`) en de voorgestelde GOT-herschrijving + `dlsym`.
+- `~/mnt/spidernas_emulation/Teknoparrot/findings/games/JurassicPark/PLT-slots.md` (939 regels) — alle 578
+  PLT-stubs met stubadres, GOT-slot, bestandswaarde en libGL-offset.
+
+De verzoening (fase-onderscheid, de getallen, en waarom de offset→naam-methode met onze bibliotheken niet lukt)
+staat in `findings/games/JurassicPark/CRASH-OPLOSSING.md` van de lader-repo.
 
 ## Bench-run 2026-10-12 (autonome ronde) — nieuwe bevinding, geparkeerd
 
