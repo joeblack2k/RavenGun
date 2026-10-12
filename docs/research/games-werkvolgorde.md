@@ -30,7 +30,7 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 - TC5 (Namco, 2015) — houdt de gesloten kern (bngrw/iDmacDrv)
 - GaiaAttack4 (Taito, 2012) — Type X2, op onze kern, leeft
 - LGI3D (Sega, 2012) — jvs/pipe, speelbaar
-- OG (Sega Operation Ghost, ~2012)
+- OG (Sega Operation Ghost, ~2012) — tp-shm, **leeft op onze kern** (0004), gemeten 2026-10-12; speelbaarheid pends tv
 - HauntedMuseumII (Taito, 2011) — Type X2, op onze kern, leeft
 - MusicGunGun2 (Taito, ~2011) — Type X2, op onze kern, leeft
 - LGI (Sega, 2009) — jvs/pipe, speelbaar
