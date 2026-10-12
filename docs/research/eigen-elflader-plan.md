@@ -1893,13 +1893,19 @@ Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
    deze verzameling hebben de bestandsnaam `game`. Gelijktijdige proeven meten dus elkaar. Wie meet,
    kijkt eerst of er nog een `wine`- of gameproces loopt.
 
-## Stand (bijgewerkt 2026-10-12, ronde 25)
+## Stand (bijgewerkt 2026-10-12, ronde 53 -- EINDSTAND)
 
 | fase | stand |
 |---|---|
-| **1 — de huidige lader uitpakken en begrijpen** | **af.** Statisch uitgepakt (`docs/research/budgieloader-uitgepakt.md`, 785 regels), en daarna ook uit het geheugen gedumpt: 8,3 MB beeld met echte x86-code en duizenden namen erin. |
-| **1B — hoe ElfLdr2 de gewiste namen oplost** | **deels beantwoord.** `hints.dat` geeft geen namen (13 sleutels; 1.463 hash-toetsen, 0 treffers) en de `DT_JMPREL`-resten zijn nullen. De naamgeving zit in de gedumpte lader; **hoe** een naamloos slot aan een naam gekoppeld wordt is nog open. |
-| **2 — de eigen lader op de ongepakte klasse** | **gehaald.** GoGoStrike start via onze eigen route, zonder Wine en zonder BudgieLoader, draait 30 s en toont zijn eigen assert (`docs/screenshots/gogostrike-native-assert.png`). De lader springt naar de gast met argc 1, envc 22, 17 auxv. |
-| **3a — de API-oppervlakte** | **af.** `tools/rg-glutapi/librg-glutapi.so` exporteert **161 van de 161** `glut*`-namen (0 ontbrekend), laadt met `dlopen`, en is onafhankelijk nagerekend. 122 kwamen uit onze eigen libglut, 39 zijn gemaakt. |
-| **3b — de gepakte klasse** | **deels.** Onze lader laadt de gast, lost de bibliotheken op en springt naar de entry; de gast sterft op het eerste voorgevulde GOT-slot (`fopen`). **31 van de 357** stubs zijn statisch te benoemen, en alle **82** teruggewonnen namen over vier games lossen op. De rest wacht op de dump-analyse en op de gast-dump. |
-| **nog uit te rollen** | `play-native.sh` heeft nog `--unshare-ipc` en geen `--bind-rw`, en het profiel laadt de OSS-stub niet -- de drie bewezen oplossingen van fase 2 zitten dus nog niet in de echte launcher. |
+| **1 -- de huidige lader uitpakken en begrijpen** | **af.** Statisch uitgepakt (`budgieloader-uitgepakt.md`, 785 regels) en uit het geheugen gedumpt: het volledige laderbeeld `0x400000-0x1695000`, met de 8,3 MB die niet in het bestand staat en 16.558 leesbare namen (`budgieloader-dump.md`, 345 regels). De 64 `COPY`- en de eigen API-symbolen zijn in kaart (`budgieloader-api-matrix.md`, 1027 regels). |
+| **1B -- hoe ElfLdr2 de gewiste importnamen oplost** | **af, met een negatief antwoord.** De naamloze records zijn volledig genuld; `.dynstr` geeft geen namen terug; `hints.dat` bevat **geen enkele** stub (`0 van 357 / 0 van 577 / 0 van 442`); de `0xb7`-GOT is een dump van **één** run (mmap-ASLR). ElfLdr2 lost die namen dus **niet** op -- hij zet er een lege trampoline neer (`importresolutie-elfldr2.md`, 523 regels). En de volledige resolutietabel van de 100 opgeloste imports is gemeten (`resolutietabel-elfldr2.tsv`). |
+| **2 -- de eigen lader op de ongepakte klasse** | **gehaald, met ONZE lader in de keten.** `tools/rg-elfloader/` laadt GoGoStrike einde-tot-einde: `exit 143` (SIGTERM van de timeout) na 25-30 s, **geen core-dump**, en het spel tekent zijn eigen assert (`sys/c/ql.c:80`) -- dezelfde regel als de kernelroute (`gogostrike-loader-assert.png`). Zonder Wine, zonder BudgieLoader. |
+| **3a -- de API-oppervlakte zelf leveren** | **af.** `tools/rg-glutapi/librg-glutapi.so` dekt **161 van 161** `glut*`-namen, SONAME `libglut.so.3`, onafhankelijk nagerekend en met vier laadproeven door de bouwer. Van BudgieLoaders **eigen** API vraagt geen enkele game iets (gemeten). |
+| **3b -- de gepakte klasse** | **af, tot de grens van het materiaal.** Onze lader laadt de gepakte gast, lost de 99 door verplaatsingen gedekte imports op, **repareert de 31 eerste-GOT-sloten die ElfLdr2 laat liggen**, en trampolineert de rest. De 258 gewiste namen bestaan **nergens** meer -- geen enkele lader kan die oplossen, en ElfLdr2 doet het ook niet. De grenzen staan in `packed-elf-vergelijking.md` en de naslagbestanden `plt-namen-*.tsv`. |
+| **de laatste schakel** | De `R_386_COPY`-verplaatsing kopieerde de gast-kopie **op zichzelf**, omdat `dlsym(RTLD_DEFAULT, naam)` de shim vindt in plaats van de bibliotheek. Sinds `c24c924` komt de bron uit de **definiërende bibliotheek** -- en daarmee is fase 2 gehaald. |
+
+**Wat een eigen lader hier oplevert, eerlijk gezegd:** voor de ongepakte klasse werkt hij
+aantoonbaar, en voor de gepakte klasse doet hij **meer** dan de lader die we vervangen (de 31
+eerste-GOT-sloten). Het plafond van de gepakte klasse ligt bij de **pakker**, niet bij ons: 258 van de
+357 importnamen zijn in het bestand vernietigd en bestaan in geen enkel bestand of geheugen meer.
+
