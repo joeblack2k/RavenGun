@@ -61,6 +61,26 @@ Eén game tegelijk, en het scherm van de eigenaar blijft vrij (alles headless vi
 6. **Scarlet Dawn**: geen benchrun nodig voor de start (het spel is zonder keychip speelbaar); de
    keychip- en AiMe-lagen zijn completeness-werk met een eigen plan.
 
+## Bijvangst buiten de zes
+
+Werk aan de zes games levert soms een reparatie op die een andere game raakt. Dat hoort hier te staan
+zodat het niet stil verdwijnt -- maar het gaat **niet** voor op de zes.
+
+* **Jurassic Park: de hasphook werkt daar nu voor het eerst.** De naam-route van de hook rekende
+  `basis + st_value` en telde bij een `ET_EXEC` het laagste segmentadres dubbel. Gemeten op het echte
+  spelbeeld: **oud 0 van 11 aangehaakt, nieuw 11 van 11**. Twee kanttekeningen: het JP-recept laadt de
+  hook nog niet (`preload` is leeg), en JP heeft een eigen blokkade voor `main` (de beveiligingslaag van
+  BudgieLoader ontbreekt), dus een run test daar de hook en niet een speelbare game. Zie
+  `patches/Halo/DROPIN-GELIJKSTELLING.md`.
+* **Terminator: de symbolenkaart (50 van 58, met graad per treffer) is precies wat de adreslijst van de
+  hook nodig heeft.** Terminator's `game` heeft 1.019 dynamische symbolen en **0 hasp-namen**, dus de
+  naam-route kan daar per definitie niets vinden; de adres-route wel, en die is nu generiek. Zodra die
+  lijst er is, kan een benchrun ook laten zien of de gast die functies werkelijk aanroept.
+* **De rechtzetting die hieruit kwam is zelf belangrijk:** `readelf --dyn-syms` geeft op deze
+  ELF-bestanden **niets** terug omdat `game` nul sectiekoppen heeft. Wie de dynamische symbolen wil zien
+  moet via `PT_DYNAMIC` lezen. Een eerdere conclusie ("ook nul hasp-namen") kwam uit dat gereedschap en
+  was dus fout.
+
 ## Waar de dossiers staan
 
 Per game in `patches/<Game>/` (naast de bestaande kaart met `game.ini` en `README.md`). **De mapnaam is
