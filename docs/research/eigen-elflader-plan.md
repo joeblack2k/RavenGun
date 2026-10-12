@@ -1056,6 +1056,43 @@ dan de lader die we vervangen:
 De winst is dus reëel maar begrensd, en ze zit in de eerste-GOT-reparatie. Belangrijker nog: het maakt
 onze lader **onafhankelijk**, en dat was de bedoeling.
 
+#### De nieuwe crash is een NAAMLOZE import -- en dat maakt hem onoplosbaar (2026-10-12)
+
+Onze lader doet nu wat ontworpen is. Claude's commit `8b35c25` meldt bij het laden:
+
+```
+rg-elfloader: eerste-PLT: 31 op naam hersteld, 325 no-op-trampoline, 0 naam-niet-gevonden (van 33 stale-namen)
+```
+
+En de crash is **verplaatst**: van `0xb7508f60` -- een sprong in ongemapte ruimte -- naar
+**`0x08089212`, binnen het gastbeeld**. De reparatie werkt dus.
+
+**En de nieuwe crash is precies te verklaren.** In de 0x300 bytes vóór de crash staan negen aanroepen
+naar PLT-stubs. Vier daarvan zijn **benoemd** en dus gerepareerd (`0x08080c60`, `0x08080f60`,
+`0x08080e50`, `0x080812d0`); vijf zijn **naamloos**. De aanroep die het fataal maakt is de laatste:
+
+```
+0x08089207  call -> stub 0x08080750 (slot 0x0830d0f8)   NAAMLOOS
+0x0808920c  mov [ebp-0x4c], eax      ; de trampoline gaf 0 terug
+0x0808920f  mov eax, [ebp-0x4c]
+0x08089212  mov esi, [eax]           ; NULL-deref, eax = 0
+```
+
+**Dus: de gast roept een import aan waarvan de naam in het bestand vernietigd is, onze trampoline geeft
+0 terug, en de gast derefereert dat meteen.** Dat is geen fout in onze reparatie maar het gevolg van de
+258 gewiste namen. ElfLdr2 doet hier precies hetzelfde -- en daarom crashen deze games ook onder de
+gesloten lader.
+
+**En daarmee ligt de ondergrens van de gepakte klasse met een meting vast.** Van de 357 imports hebben
+er **99 een naam**; die lossen wij op, plus de **31** eerste-GOT-sloten die ElfLdr2 laat liggen. Maar de
+game **heeft** de andere 258 nodig: hij roept ze aan, en hun naam bestaat niet meer. **Geen enkele
+lader kan dat oplossen**, want de informatie is vernietigd. Wie deze games werkend wil hebben moet bij de
+**originele, onbewerkte bestanden** zijn -- niet bij een lader.
+
+**Eerlijke eindstand van fase 3b:** onze lader doet aantoonbaar meer dan ElfLdr2 (de 31 eerste-GOT-
+sloten, waaronder `fopen`), en het plafond ligt bij de pakker. Dat is geen mislukking van dit project
+maar de grens van het materiaal.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
