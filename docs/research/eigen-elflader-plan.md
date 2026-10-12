@@ -534,6 +534,34 @@ de symboolpreemptie door de te brede shim. TLS en `DT_INIT` hoeven niet meer ond
 
 Narekenen: `re/_initproef2.sh` (de toets) en `re/_init-check.sh` (de dynamische tags en de TLS-vraag).
 
+#### De smalle-shim-regel voor beide klassen -- en een correctie (2026-10-12)
+
+Dezelfde regel ("gast-symbolen die de geladen bibliotheken ongedefinieerd hebben, min wat die
+bibliotheken zelf definiëren") doorgerekend voor beide klassen, met **alleen** de bibliotheken die de
+gast zelf in `DT_NEEDED` noemt:
+
+| game | gast-symbolen | daarvan door de libs nodig | **smalle shim** | botsingen die zouden preempten | blijven daarvan over |
+|---|---|---|---|---|---|
+| GoGoStrike | 1.400 | 279 | **279** | 71 | **0** |
+| Galaga Assault | 4.616 | **2** | **1** | 3 | **0** |
+
+**En dat corrigeert een getal dat ik eerder gaf.** Ik schreef voor Galaga "66 botsingen met
+`libstdc++.so.5`" en "8 met `liballeg`". Die twee bibliotheken staan **niet** in Galaga's `DT_NEEDED`,
+dus op het moment dat de gast draait worden ze niet geladen en kunnen ze niets preempten. Het
+relevante aantal voor Galaga is **3** -- en die verdwijnen alle drie in de smalle shim. Voor GoGoStrike
+blijft 71 staan; daar is `liballeg` wél een echte `DT_NEEDED`.
+
+**Wat dat per klasse betekent:**
+
+* **GoGoStrike (ongepakt):** de bibliotheken hebben 279 gast-symbolen nodig, dus de shim is echt nodig
+  -- en de 71 preempties moeten weg. Dit is waar de diagnose van de signaal-11-crash op rust.
+* **Galaga (gepakt):** de bibliotheken hebben **twee** gast-symbolen nodig. De shim kan van 4.616 naar
+  **1** symbool, en daarmee verdwijnen alle drie de botsingen. Voor de gepakte klasse is de brede shim
+  dus vooral een onnodig risico.
+
+Eén regel dekt beide klassen, en de winst is groot: 5x kleiner voor de ongepakte, 4.600x kleiner voor
+de gepakte klasse. Narekenen: `re/_smal-alle.py`.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
