@@ -797,6 +797,53 @@ aanwees.
 door liballeg **gedefinieerd**, staat daarom **niet** in de smalle verzameling van 278, en verdwijnt dus
 automatisch uit de shim -- waarna liballeg zijn eigen `font` houdt.
 
+#### CORRECTIE: niet de shim is fout, maar de volgorde van de COPY-verplaatsing (2026-10-12)
+
+In de vorige sectie concludeerde ik dat de brede shim liballeg een NULL-lettertype laat lezen en dat de
+smalle shim daarom "noodzakelijk en voldoende" is, waarbij `font` er automatisch uit zou vallen.
+**Die conclusie is fout, en de voorgestelde remedie zou het probleem erger maken.** Wat er werkelijk aan
+de hand is, is scherper en zit in een andere laag.
+
+**Wat de core laat zien.** De GOT-invoer van liballeg voor `font` wijst naar **de gast-kopie** -- precies
+zoals het hoort bij een COPY-verplaatsing:
+
+| | |
+|---|---|
+| `GOT['font']` in liballeg | **`0x080bb870`** = de gast-kopie (via de shim) |
+| gast-kopie `0x080bb870` | **`0x00000000`** |
+| `GOT['screen']` in liballeg | `0x080bb880` = de gast-kopie (ook nul) |
+
+**En nu de verplaatsingen van liballeg zelf:**
+
+```
+000ab548  00048401 R_386_32        000ab53c   _default_font
+000b8b2c  00013c06 R_386_GLOB_DAT  000ab548   font
+```
+
+In het **bestand** staat liballeg's `font` op `0xab548` als `0x00000000`. Pas door die **`R_386_32` naar
+`_default_font`** krijgt hij zijn waarde -- en dat doet de **dynamische lader**, niet het bestand.
+
+**En daar zit de fout.** De gast heeft een `R_386_COPY` voor `font` op `0x080bb870`, en die hoort de
+waarde van liballeg **over te nemen**. Bij ons is die waarde **0**. Met andere woorden: **de COPY is
+toegepast met de waarde uit het bestand in plaats van met de waarde nadat liballeg's eigen verplaatsingen
+zijn toegepast.**
+
+De juiste volgorde is dus:
+
+1. de bibliotheek laden **en haar eigen verplaatsingen toepassen** (waardoor `font` in liballeg
+   `&_default_font` wordt);
+2. **dan** de `R_386_COPY`-sloten van de gast vullen met de resulterende waarde.
+
+Bij ons gebeurt het omgekeerd, of wordt de bestandswaarde gekopieerd. Gevolg: de gast-kopie blijft nul,
+de shim verwijst er terecht naar, liballeg leest nul waar het `&_default_font` verwacht, en de oude
+`textout` loopt op een NULL-deref. **Alle 64 COPY-symbolen zijn hiermee verdacht**, niet alleen `font` --
+`screen` is in dezelfde core ook nul.
+
+**En dus is de smalle shim niet de oplossing, en moet ik die aanbeveling intrekken.** Claude's ontwerp is
+juist: een COPY-symbool **hoort** in de shim te blijven, want de bibliotheek moet de kopie van de gast
+gebruiken. Het uit de shim halen van `font` zou de COPY-semantiek voor alle 64 symbolen breken en het
+echte probleem verbergen.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
