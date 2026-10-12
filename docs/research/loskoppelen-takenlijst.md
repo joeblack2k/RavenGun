@@ -68,9 +68,20 @@ Stand 2026-10-12.
       Laagste prioriteit (geparkeerd bowlingspel). SRAM-prep staat klaar in `~/.local/share/ravengun/native/GoGoStrike/`.
 
       **Terminator en GhostBusters:** linken op te lossen (`libglut`/`libesd`-stubs in `runtime/lib32`, GhostBusters +
-      een bind voor het absolute `/usr/lib/libcsv.so`), maar beide blokkeren op een **statisch ingelinkte dongle**
-      (`DongleInitialize() FAILED`, HASP/FTDI) die BudgieLoader in zijn runtime nabootst. Een dongle bouwen/omzeilen doen
-      we niet (harde regel). Dus die twee **houden BudgieLoader**. Netto: BudgieLoader blijft; 3b levert alleen GoGoStrike.
+      een bind voor het absolute `/usr/lib/libcsv.so`). Daarnaast draagt elk van deze games een **statisch in de ELF
+      meegelinkte** dongle-runtime: in `game` staat de letterlijke regel `DongleInitialize() FAILED!`, met 58
+      `hasp_`-teksten in GhostBusters (plus 32 `ftdi`) en 13 in Terminator. Halo draagt een Sentinel-HASP-HL-runtime
+      (45 `hasp_`, 48 `Sentinel`, 32 `ftdi`; zijn `game_original` 21 en 25 maar zonder FTDI). Op schijf staat bij
+      GhostBusters **geen** donglebestand, bij Terminator een map `hasp/` met 5413 bestanden en bij Halo
+      `g7/halo/fff4`. Dat "geen donglebestand in de spelmap" niet hetzelfde is als "geen dongle in de game", is
+      daarmee rechtgezet. **Terminator staat op `playable` via BudgieLoader** (eigen `game.ini`), dus die map
+      betekent niet dat hij blokkeert; voor **GhostBusters** staat het blokkeren na "Starting Game" in zijn
+      `game.ini` juist als **niet gemeten**, en dat nemen we hier niet over. Wat de lader zelf doet is evenmin
+      gemeten: `ElfLdr2/libs/` en `ElfLdr2/x64/libs/` bevatten **geen** dongle-bibliotheek (0 treffers op
+      `hasp|dongle|ftdi`), dus of `BudgieLoader` een dongle in zijn eigen runtime nabootst is een **aanname**, geen
+      meting. Een dongle bouwen of omzeilen doen we niet (harde regel). Dus deze drie **houden BudgieLoader**.
+      Netto: BudgieLoader blijft; 3b levert alleen GoGoStrike. Bewijs per game staat in
+      `docs/research/loskoppelen-dongle-bewijs.md`.
 - [ ] **5. Gesloten `TeknoParrot(64).dll`** voor de games die niet op onze OpenParrot-kern draaien. Per game.
       **22** games staan nog op de gesloten kern (`patches/PATCHES-PER-GAME.md`, de telling `kern nog TeknoParrot` uit
       `verify-all.py`; een oudere uitvoer in de werkmap zegt 21 — het getal is niet opnieuw gedraaid omdat dat
