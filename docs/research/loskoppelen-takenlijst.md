@@ -48,6 +48,13 @@ Stand 2026-10-12.
         `0xdeadbeef`, 72-82% van de importnamen gewist, de slot→naam-tabel staat **niet in het bestand** — alleen te
         oogsten uit een **lopende ElfLdr2-run**. Een eigen lader hiervoor = ElfLdr2's resolutietabel reverse-engineeren
         (= uitpakwerk). **Buiten bereik** zoals eerder besloten; die games houden `BudgieLoader`.
+
+        **Gemeten PLT-stubs (uit de patches-repo):** GalagaAssault **357** stubs, waarvan **99 met naam** en **258
+        gewist**; PacmanChomp **442**; JurassicPark **577**, waarvan **105 met naam** en **472 gewist**. De gedeelde
+        oorzaak is dezelfde als bij JP (zie `findings/games/JurassicPark/CRASH-OPLOSSING.md` en `docs/rt-glfix.md` §7):
+        de **slot→naam-tabel staat niet in het bestand** en is alleen te oogsten uit een lopende ElfLdr2-run, dus de
+        gewiste sloten zijn statisch niet te herleiden. Daarom **houden deze games BudgieLoader**; reconstructie van die
+        tabel is uitpakwerk (buiten scope, `decisions.md` 2026-10-11). Specificatie: `patches/ELF-LADER-SPEC.md`.
       Dus 3b dekt hooguit de 3 ongepakte games; de 4 gepakte blijven op `BudgieLoader`.
 
       **Uitkomst analyse 2026-10-12 (read-only):** van de 3 ongepakte is alleen **GoGoStrike** een goedkope echte
