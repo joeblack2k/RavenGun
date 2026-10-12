@@ -28,13 +28,18 @@ Waar dat vandaan komt:
 * de printplaat `837-14572` is het standaard Sega-JVS-gunbord van de `SegaJvs*`-profielen
   (`packaging/jvs-boards.json`, bord `SegaGun2P`).
 
-`enforced` staat op `false`, en dat is een **aanname, geen meting**: de game is nog niet gestart. De
-reden om op `false` te beginnen is hetzelfde gedrag als bij `LGI`/`LGI3D`/`LGS`: de 32-bits
-TeknoParrot-kern kent `DongleRegion` en `PcbRegion` niet, dus die waarde wordt vastgelegd en niet
-afgedwongen (`docs/region-layer.md`, paragraaf 1.3 en 1.4). Let op het verschil: `gs2.exe` heeft
-géén `DefaultRegion`-terugval zoals `LGI_RingW_F_safe.exe` (`DefaultRegion`, `Region is JPN./USA./
-EXP./CHN.` komen er niet in voor), maar gaat wel door na een mislukte dongle-opening. Wie de game
-voor het eerst start, moet `enforced` meten en de regel `enforced_basis` in `dongle.json` vervangen.
+`enforced` staat op `false`, en dat is sinds **ronde 34 gemeten** in plaats van aangenomen: de game
+start en blijft draaien **zonder enige regiobron**, zowel met de eigen lader (`patches/STARTTEST.md`,
+22 s) als met alleen `wine <exe>` (`patches/ZONDER-LADER.md`, 20 s, en in de langere meting nog levend
+na 70 s). Er is dus geen regiowaarde nodig om door te starten.
+
+Wat **niet** gemeten is: of de game speelbaar is — hij is nooit gespeeld — en of hij later in het
+spel op de regio terugkomt. De `[Status] Note` van `game.ini` zegt dat nu ook, en `enforced_basis` in
+`dongle.json` noemt de meting.
+
+Let op het verschil met `LGI`/`LGI3D`/`LGS`: `gs2.exe` heeft géén `DefaultRegion`-terugval zoals
+`LGI_RingW_F_safe.exe` (`DefaultRegion`, `Region is JPN./USA./EXP./CHN.` komen er niet in voor), maar
+gaat wel door na een mislukte dongle-opening. Waarom dat zo is, is niet uitgezocht.
 
 ## Waarom hier geen bibliotheek staat
 
@@ -48,8 +53,10 @@ laag, geen bibliotheek. Daarom staat er in `dropin/dropin.ini` alleen de dongleb
 
 ## Wat er nog moet gebeuren
 
-1. De game opzetten en starten (view/prefix via `scripts/tp-add-game.py OG <exe>`), en dan
-   `enforced` meten en hierboven bijwerken.
+1. ~~De game opzetten en starten en dan `enforced` meten.~~ **Gedaan in ronde 34:** de game start en
+   blijft draaien, met en zonder lader, en `enforced = false` is daarmee gemeten. Wat er nog moet
+   gebeuren is de game echt **spelen** (munt, vizier, door het spel heen) om te zien of de regio
+   later alsnog opduikt.
 2. De route en de invoer vastleggen; het profiel is `SegaJvsGoldenGun` met venster `x 18..229`,
    `y 66..245`, inverted (`findings/05_target_games.md`, paragraaf 7).
 3. De dongle-aanroepen echt beantwoorden kan pas als de regiocodering en het apparaat bekend zijn

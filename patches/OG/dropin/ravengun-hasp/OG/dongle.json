@@ -36,7 +36,7 @@
   ],
   "fallback": null,
   "enforced": false,
-  "enforced_basis": "AANNAME, niet gemeten: de game is nog niet gestart. De 32-bits TeknoParrot-kern kent DongleRegion en PcbRegion niet (docs/region-layer.md paragraaf 1.3), net als bij LGI/LGI3D/LGS, waar enforced = false gemeten is. Anders dan die drie heeft gs2.exe geen DefaultRegion-terugval: de exe kent geen DefaultRegion en geen 'Region is JPN./USA./EXP./CHN.', maar wel 'Init: amDongleIsAvailable() is false' en 'Faild to get Keychip ID.', waaruit blijkt dat hij na een mislukte dongle-opening verder gaat. Wie de game start, moet enforced meten en deze regel vervangen.",
+  "enforced_basis": "GEMETEN (ronde 34): de game start en blijft draaien zonder ENIGE regiobron -- met de eigen lader (STARTTEST.md, 22 s) en met alleen `wine <exe>` (ZONDER-LADER.md, 20 s, en in de langere meting 70 s levend). Er is dus geen regiowaarde nodig om door te starten; de dongle wordt niet afgedwongen. Wat NIET gemeten is: of de game speelbaar is (hij is nooit gespeeld) en of hij later in het spel op de regio terugkomt.",
   "evidence": {
     "markers_exe": [
       "amDongle Ver.1.09 Build:May 12 2011 01:09:02",
@@ -54,5 +54,5 @@
     "core_has_region_code": false,
     "core_checked": "TeknoParrot.dll (32-bits, gedecrypteerd beeld; zie docs/region-layer.md)"
   },
-  "notes": "De game vraagt de regio aan de keychip (amDongle met de keychip.appboot.*-opdrachten) en niet via amDongleGetRegion zoals LGI/LGI3D. De waarden hierboven zijn wat een dongle moet antwoorden; of de game zonder dat antwoord doorstart is niet gemeten (zie enforced_basis). Er is geen bibliotheek bij deze dongle: het soort region is gegevens zonder binary, en de regio-/printplaatwaarde is de software-emulatie van dongle en PIC die de TeknoParrot-kern zelf doet (findings/12_aanpassingen_en_koppelingen.md paragraaf 7)."
+  "notes": "De game vraagt de regio aan de keychip (amDongle met de keychip.appboot.*-opdrachten) en niet via amDongleGetRegion zoals LGI/LGI3D. De waarden hierboven zijn wat een dongle moet antwoorden; of de game zonder dat antwoord doorstart is in ronde 34 gemeten: hij start en blijft draaien zonder enige regiobron (zie enforced_basis), maar hij is nooit gespeeld. Er is geen bibliotheek bij deze dongle: het soort region is gegevens zonder binary, en de regio-/printplaatwaarde is de software-emulatie van dongle en PIC die de TeknoParrot-kern zelf doet (findings/12_aanpassingen_en_koppelingen.md paragraaf 7)."
 }

@@ -57,6 +57,7 @@ Elke kaart heeft zijn eigen generator. Eén script maakt geen kaart maar **contr
 | `patches/kern-herkenning.py` | schrijft `patches/EIGEN-KERN.md` |
 | `patches/proef-zonder-lader.py` | schrijft `patches/ZONDER-LADER.md` — start elke game met alleen `wine <exe>` |
 | `patches/elf-native.py` | schrijft `patches/ELF-NATIVE.md` — start de ELF's van de ElfLdr2-games los |
+| `patches/readme-gen.py` | vult de README van een game die nog de lege stub heeft, uit de kaarten; raakt README's met inhoud niet aan |
 | `patches/dropin-aankomst.py` | **controleert** of elk drop-in-bestand met dezelfde sha256 in de view staat; exitcode 1 als er iets mis is |
 
 `tools/verify-all.py` (loader-repo) meldt "drop-ins die NIET aankomen: 0", maar dat kijkt naar het

@@ -678,11 +678,13 @@ regels geldt. Dat is een vraag voor de eigenaar, niet iets wat deze kaart kan be
    generator `pf.runtime_list()` en de motor `memory/src/patchmem.c` bestaan en zijn getest, maar in
    `scripts/launch-direct.py` staat geen aanroep van `runtime_list`/`patchmem`. `docs/patchmotor.md`
    noemt die koppeling expliciet als overdracht. Ik heb dat niet geverifieerd in de C++-kant.
-6. **Of `game.ini` van OG (Status `untested`, "Nog niet gestart") of `STARTTEST.md` (START) gelijk
-   heeft.** `STAND.md` neemt `untested` over in zijn `[Status]`-kolom en noemt de map verder
-   "compleet"; `STARTTEST.md` is jonger en meet een spelproces op seconde 2. Waarschijnlijk is de game
-   wel **gestart** maar nooit **gespeeld** — dat zijn twee verschillende dingen en geen van de
-   bestanden zegt welke van de twee `untested` bedoelt.
+6. **Wat `untested` betekent, is nergens vastgelegd.** De loader-doc noemt de drie waarden
+   (`playable | parked | untested`, `docs/per-game-patches.md` regel 132) zonder ze te definiëren.
+   Voor OG is dat nu het enige dat nog wringt: de **gegevens** zijn rechtgezet (de Note zegt dat de
+   game start en blijft draaien maar nooit gespeeld is, en `enforced = false` is gemeten in plaats van
+   aangenomen), maar het **woord** `untested` kan "nooit gestart" of "nooit gespeeld" betekenen en
+   `STAND.md` neemt het letterlijk over in zijn kolom. Dat is een vraag voor de eigenaar van de
+   loader-doc, niet iets wat deze kaart kan beslissen.
 7. **Wat `InstallMusicGunGun2AndroidD3D9Compatibility()` doet.** Die functie wordt in de kern voor
    MusicGunGun2 aangeroepen (regel 2091) en staat in geen enkele `patches.ini`; ik heb de functie
    zelf niet uitgelezen, dus ik weet niet of er een bytepatch in zit die wél in het formaat past.
