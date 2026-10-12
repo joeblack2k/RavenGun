@@ -48,7 +48,13 @@ GCC voor het meeste, clang voor de bestanden met MSVC-SEH (`__try`) en MSVC-inli
    recursieve `mkdir -p` in `util.dll` op een NULL-pointer (0xC0000005, exitcode 5 na ~5 s, getraced). Met `d:`/`e:`/`f:` in de prefix leeft hij 20 s en
    schrijft hij NVRAM; deze patch doet dat in de kern in plaats van in de prefix. De crash zit in `CreateDirectoryA`, niet in `CreateFileA`, dus die haak
    moet mee. Generiek, geen per-game lijst. **Terugdraaien:** verwijder het patchbestand en herbouw.
-5. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
+5. `0005-luigismansion-com-block.patch`: **Luigi's Mansion Arcade start niet meer uit op de COM-poort.** Nieuwe `GameID::LuigisMansion`
+   (genormaliseerde CRC `0xd3dc9603`) in `GameDetect.cpp`, en in `Hook_CreateFileA/W` (`amJvs.cpp`) wordt voor díe game elke naam die — na een
+   eventueel `\\.\`-voorvoegsel — met `COM` begint geweigerd met `INVALID_HANDLE_VALUE` + `SetLastError(ERROR_FILE_NOT_FOUND)`. Dit bootst de enige
+   Luigi-specifieke tak van de gesloten kern na ("BLOCKING LUIGI COM PORT"): zonder deze blokkade ging `COM1/COM2` door naar Wine (`ACCESS_DENIED`
+   i.p.v. "bestaat niet") en sloot de game met exitcode 32. Alleen voor Luigi; games die COM4 nodig hebben blijven ongemoeid. Of Luigi daarna zijn
+   invoer krijgt is een apart punt (de gesloten kern schrijft direct in procesgeheugen). **Terugdraaien:** verwijder het patchbestand en herbouw.
+6. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
    `shim.sh` (hoofdletter- en backslash-includes: `<Shlwapi.h>`, `Utility\Hooking.Patterns.h`; en de meegeleverde Microsoft-DirectX-SDK-headers worden vervangen
    door de MinGW-w64-headers), `win64init.S` (GNU-vertaling van `win64init.asm`), `openparrot32.def` (zelfde exportnamen als de MSVC-build, ook `_PrepareSafeInit@4`),
    `compile-one.sh`, `build-in-container.sh`.
