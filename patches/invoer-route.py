@@ -16,6 +16,7 @@ eigen kern, hangt van het [Game] Type af -- daarom telt die hier apart mee.
 
 Gebruik:  python3 patches/invoer-route.py
 """
+import collections
 import io
 import os
 import sys
@@ -109,6 +110,13 @@ def main():
     al_van_ons = [r for r in kern if r["type"] == "OpenParrot"]
     andere_lader = [r for r in kern if r["type"] == "ElfLdr2"]
 
+    # Hoeveel games dekt één profiel? Alleen de games tellen mee waar dat profiel ook echt voor
+    # nodig is -- invoer via de gesloten kern. Een game die hetzelfde profiel noemt maar zijn invoer
+    # ergens anders haalt, hoort niet in die telling.
+    per_profiel = collections.Counter(r["profiel"] for r in rijen)
+    nodig_per_profiel = collections.Counter(r["profiel"] for r in nodig)
+    profielen = sorted(nodig_per_profiel, key=lambda p: (-nodig_per_profiel[p], p))
+
     uit = []
     A = uit.append
     A("# Invoer-route per game: wie levert de invoer?")
@@ -158,6 +166,30 @@ def main():
     for r in nodig:
         A("| %s | `%s` |" % (r["game"], r["profiel"]))
     A("")
+    A("### Welk profiel dekt hoeveel games")
+    A("")
+    A("Dit is de hefboom van deze groep. Eén profiel dat in onze eigen kern geschreven wordt, dekt")
+    A("meteen elke game die het noemt. De laatste kolom telt alleen de games waarvoor dat profiel ook")
+    A("echt nodig is: een game die hetzelfde profiel noemt maar zijn invoer ergens anders haalt, telt")
+    A("daar niet mee.")
+    A("")
+    A("| profiel | games dat het noemen | waarvan de invoer via de gesloten kern loopt |")
+    A("|---|---|---|")
+    for p in profielen:
+        A("| `%s` | %d | **%d** |" % (p, per_profiel[p], nodig_per_profiel[p]))
+    A("")
+    if profielen:
+        top = profielen[0]
+        A("Het grootste blok is `%s`: **%d van de %d games** die een eigen profiel vragen, zitten in dat"
+          % (top, nodig_per_profiel[top], len(nodig)))
+        A("ene profiel. De andere %d zitten in %d losse profielen."
+          % (len(nodig) - nodig_per_profiel[top], len(profielen) - 1))
+        A("")
+        A("Let op: `EIGEN-KERN.md` noemt bij `WartranTroopers` 13 games en niet 14. Dat komt doordat die")
+        A("kaart de games van de Cygwin-lader niet meetelt -- hier is dat Halo, en die vraagt een eigen")
+        A("ELF-lader en geen profiel. Van die 13 vragen er 11 het profiel voor de invoer; RabbidsHollywood")
+        A("en TombRaider halen hun invoer via TCP en niet via de kern.")
+        A("")
     A("## Onze eigen kern zit al in het invoerpad: %d games" % len(al_van_ons))
     A("")
     A("Deze vier draaien al op onze eigen kern en hebben hun invoer dus al van ons. Ze staan hier")

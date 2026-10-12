@@ -90,6 +90,29 @@ erbij hoort staat in `EIGEN-KERN.md`.
 | Rampage | `WartranTroopers` |
 | TC5 | `TimeCrisis5` |
 
+### Welk profiel dekt hoeveel games
+
+Dit is de hefboom van deze groep. Eén profiel dat in onze eigen kern geschreven wordt, dekt
+meteen elke game die het noemt. De laatste kolom telt alleen de games waarvoor dat profiel ook
+echt nodig is: een game die hetzelfde profiel noemt maar zijn invoer ergens anders haalt, telt
+daar niet mee.
+
+| profiel | games dat het noemen | waarvan de invoer via de gesloten kern loopt |
+|---|---|---|
+| `WartranTroopers` | 14 | **11** |
+| `FarCry` | 1 | **1** |
+| `InfinityBlade` | 1 | **1** |
+| `LuigisMansion` | 1 | **1** |
+| `TimeCrisis5` | 1 | **1** |
+
+Het grootste blok is `WartranTroopers`: **11 van de 15 games** die een eigen profiel vragen, zitten in dat
+ene profiel. De andere 4 zitten in 4 losse profielen.
+
+Let op: `EIGEN-KERN.md` noemt bij `WartranTroopers` 13 games en niet 14. Dat komt doordat die
+kaart de games van de Cygwin-lader niet meetelt -- hier is dat Halo, en die vraagt een eigen
+ELF-lader en geen profiel. Van die 13 vragen er 11 het profiel voor de invoer; RabbidsHollywood
+en TombRaider halen hun invoer via TCP en niet via de kern.
+
 ## Onze eigen kern zit al in het invoerpad: 4 games
 
 Deze vier draaien al op onze eigen kern en hebben hun invoer dus al van ons. Ze staan hier
