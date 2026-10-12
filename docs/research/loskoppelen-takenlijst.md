@@ -20,10 +20,21 @@ Stand 2026-10-12.
       `…/ravengun/prefixes/shared/wine`. `test_gamesettings.py` 22/22. **Rest:** `~/.local/share/TeknoParrotUI/prefixes`
       is nu een compat-symlink naar onze map (vangnet); kan weg zodra we zeker weten dat niets meer het oude pad
       noemt. `~/.local/share/TeknoParrotUI/` zelf blijft nog voor `activation/`.
-- [ ] **2. Audit TP-runtime-download.** Wat gebruiken we nog uit `runtime/TeknoParrotUi-2.0.0.130-linux-x64/`
-      behalve `pipehelper(32).exe`? In kaart brengen en waar mogelijk schrappen.
-- [ ] **3. `pipehelper.exe` vervangen.** De enige TP-binary die we nog draaien (JVS-named-pipe + `/dev/shm`-mirror).
-      Zelf doen (launch-direct heeft al `JvsPipeServer`/`run_pty_bridge`). Grote, aparte brok.
+- [x] **2. Audit TP-runtime-download.** Gedaan 2026-10-12. Wat we nog uit
+      `runtime/TeknoParrotUi-2.0.0.130-linux-x64/` gebruiken:
+      - **`pipehelper.exe` / `pipehelper32.exe`** — JVS-named-pipe (`\\.\pipe\TeknoParrot_JVS`) + `/dev/shm`-mirror,
+        bij elke game. (→ item 3)
+      - **`ElfLdr2/BudgieLoader.exe` + `BudgieLoader_x64.exe`, `TeknoParrot/TeknoMacaw(64).exe`** — laders voor de
+        ElfLdr2/Cygwin-games (Jurassic Park, Galaga, …) en enkele andere. (→ eigen ELF-lader, zie
+        `patches/ELF-LADER-SPEC.md`; `GoGoStrike` is de goedkoopste eerste proef.)
+      - **`TeknoParrot/TeknoParrot(64).dll`** — de **gesloten kern**, nog voor de games die niet op onze eigen
+        OpenParrot draaien (o.a. TC5: heeft `bngrw.dll`/`iDmacDrv` nodig). Type X2 + de generieke route zijn al van ons.
+      - **`GameProfiles/*.xml` + `UserProfiles/*.env|.xml`** — profiel-sjablonen/instellingen die we *importeren*
+        om onze `game.ini` te maken (`import-tp-profiles.py`). Build-time, geen runtime; onze `game.ini` is de bron.
+- [ ] **3. `pipehelper.exe` vervangen.** De TP-binary die we bij elke game draaien (JVS-named-pipe + `/dev/shm`-mirror).
+      Eigen Windows-brug cross-compilen (mingw, zoals de OpenParrot-build) die `\\.\pipe\TeknoParrot_JVS` maakt en naar
+      `/dev/shm` spiegelt; launch-direct heeft al `JvsPipeServer`/`run_pty_bridge` aan de Linux-kant. Grote, aparte brok.
+- [ ] **3b. Eigen ELF-lader** voor de ElfLdr2-familie i.p.v. `BudgieLoader.exe` — `patches/ELF-LADER-SPEC.md`.
 - [ ] **4. `~/.local/share/TeknoParrotUI/activation/`** — TP-abonnement; alleen voor Patreon-profielen.
       Opruimen/negeren waar niet nodig; nooit de activering omzeilen.
 - [ ] **5. Regressiecheck** na elke stap: de levende games starten nog (serieel, headless meten).
