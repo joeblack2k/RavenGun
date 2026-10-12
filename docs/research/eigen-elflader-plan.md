@@ -477,6 +477,33 @@ Als dat niet gebeurt, is de volgende verdachte de TLS- en `%gs`-overerving.
 
 Narekenen: `re/_preemptie.sh` (de toets) en `re/_botsing-soort2.sh` (de soorten).
 
+#### De smalle shim werkt: 1.388 -> 279 symbolen, en liballeg houdt zijn globals (2026-10-12)
+
+De fix is nu ook bewezen, in dezelfde losse opstelling (`re/_smalshim2.sh`). De smalle verzameling is
+scherp af te bakenen:
+
+* de gast definieert **1.391** dynamische symbolen;
+* de drie geladen bibliotheken samen definieren **4.499** symbolen en hebben **564** ongedefinieerd;
+* gast-symbolen die die bibliotheken **nodig** hebben: **278**;
+* en daarvan levert **geen enkele** bibliotheek er zelf een -- er valt dus niets meer af te trekken.
+
+Dat geeft een shim van **279** symbolen in plaats van 1.388: een factor vijf kleiner, met dezelfde
+dekking. En de toets in dezelfde opstelling als de preemptiemeting:
+
+```
+_accel_active         globaal=0xf7c47d28  eigen=0xf7c47d28  shim=(nil)      liballeg houdt hem
+_accel_driver         globaal=0xf7c47d24  eigen=0xf7c47d24  shim=(nil)      liballeg houdt hem
+_blender_func16       globaal=0xf7c3b774  eigen=0xf7c3b774  shim=(nil)      liballeg houdt hem
+_poly_scanline_gcol8  globaal=0x8096344   eigen=(nil)       shim=0x8096344  shim levert (goed)
+```
+
+**Alle 64 BSS-preempties zijn weg, en het symbool waarvoor de shim bestaat komt nog steeds uit de
+shim.** De voorspelling is daarmee niet alleen scherp maar ook **uitvoerbaar gemaakt**: de regel is
+"gast-symbolen die de geladen bibliotheken ongedefinieerd hebben, minus alles wat die bibliotheken zelf
+definiëren", en dat levert 278 namen op.
+
+Narekenen: `re/_smalshim2.sh` (bouwt de smalle shim en toetst hem).
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
