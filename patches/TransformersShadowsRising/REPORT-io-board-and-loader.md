@@ -204,10 +204,10 @@ InitIOBoard : Initialised OK
 Only `Couldn't find IOBoard device` ever appears in the logs — i.e. enumeration itself succeeds but no
 device satisfies the identity test. `Initialised OK` never appears.
 
-### 3.2 How the shell identifies the board **[measured, with one open question]**
+### 3.2 How the shell identifies the board **[measured — the question is now closed]**
 
 There is a static table in `.data` at `0x55dab0`, six entries of stride `0x208`, terminated by a zero
-`keyA`:
+first key (`keyA`):
 
 | node | +0 `keyA` | +4 `keyB` | +8 name | meaning |
 |---|---|---|---|---|
@@ -232,21 +232,69 @@ report[1] = byte at 0x13fcffa          ; source varies per call site
 report[2] = byte at 0x13fd02b
 ```
 
-**The open question.** Immediately after resolving the name, `InitIOBoard` stores the device as *the* IO
-board (`0x13fcff4`) **only if the name equals the literal `POLLING FLAGS` (`0x5338c4`)**. That literal is
-the only occurrence of the string in the binary and it is **not** one of the five names in the table. So
-either (a) the record's `+0x64` name is written from a second source before this test, or (b) the IO board
-is recognised on a path this function does not show. **This single fact decides whether a virtual board
-can ever be "found", and it is the one thing the next measurement must close.** Two readings are live:
+**RESOLVED (static measurement, no bench): the `POLLING FLAGS` branch is DEAD CODE.** The identity
+question therefore collapses, and the virtual board is simply a Game Pad-class HID device. Three
+independent pieces of evidence, all from `Shell.exe`:
 
-* *Reading A (likely):* the table is only a helper for *usage* naming, and `POLLING FLAGS` comes from the
-  device's own descriptor/strings elsewhere. Then the virtual board is identified by a string.
-* *Reading B:* the `POLLING FLAGS` branch is dead code in this build, the IO board is simply "the HID
-  device with UsagePage `0x0001` / Usage `0x0005`", and the 3-byte output reports are all that matter.
-  Then the virtual board only has to present as **HID Game Pad (UsagePage 0x0001, Usage 0x0005)**.
+1. **The compared string can never appear in the field it is compared against.** After the table walk,
+   `InitIOBoard` writes the resolved name into the record at `+0x64` and then does
+   `strcmp(record[+0x64], "POLLING FLAGS")` (`0x43b39e`–`0x43b3d2`). The **only** writers of that field in
+   the entire binary are the two stores in this function (`0x43b390`, `0x43b397`), and the only values they
+   can produce are the five table names — `GAMEPAD`, `JOYSTICK`, `SYSTEM`, `TRACKBALL`, `KEYBOARD` — or the
+   literal `UNKNOWN` (`0x5511d8`). That set is **disjoint** from `POLLING FLAGS`, so the `strcmp` never
+   returns 0 and the `jne 0x43b3da` at `0x43b3d2` is **always taken**. The store
+   `mov DWORD PTR ds:0x13fcff4, ebx` at `0x43b3d4` is **unreachable**.
+2. **No table node can supply the string.** A full 4-byte-aligned scan of `.data` and `.rdata` for every
+   dword pointing into the name region `0x533800`–`0x533d00` returns exactly five hits — `0x55dab8`,
+   `0x55dcc0`, `0x55dec8`, `0x55e0d0`, `0x55e2d8`, i.e. the five nodes above. None is `0x5338c4`. The
+   string `POLLING FLAGS` occurs exactly once in the whole binary: as the inline literal in this compare.
+3. **Even if it executed, nothing reads it.** The slot `0x13fcff4` has exactly **one** xref in all of
+   `.text` — the store itself, at `0x43b3d6`. There is no reader anywhere. The "IO board pointer" is
+   vestigial, a leftover of an older design this build never consults.
 
-Reading B is already enough to make progress and is the cheaper experiment; the run in §6 distinguishes
-them in one session.
+**Consequence — the only live requirement.** The board must be the HID device that this same table
+classifies as **`GAMEPAD`**: a top-level collection with **`HIDP_CAPS.UsagePage = 0x0001` (Generic
+Desktop)** and **`HIDP_CAPS.Usage = 0x0005` (Game Pad)**. The shell then reaches it through the *output*
+path (`0x43ae50`), which writes the fixed 3-byte report to every enumerated device whose resolved name is
+`GAMEPAD`, with `nNumberOfBytesToWrite = HIDP_CAPS.OutputReportByteLength`. **No product string, no
+serial number, no VID/PID and no report-descriptor string participates in the decision** — the
+`HidD_GetAttributes` call is only used to log the PID/version, not to filter.
+
+**Per-device record layout** (base `0x13fd068`, stride `0x68`), read from the code — this tells us exactly
+which caps fields matter:
+
+| offset | field | written by |
+|---|---|---|
+| `+0x1C` | device handle | `CreateFileA` on the SetupDi interface path |
+| `+0x20` | `HIDP_CAPS.Usage` (u16) | `HidP_GetCaps` |
+| `+0x22` | `HIDP_CAPS.UsagePage` (u16) | `HidP_GetCaps` |
+| `+0x26` | `HIDP_CAPS.OutputReportByteLength` (u16) | `HidP_GetCaps` — **the `WriteFile` length** |
+| `+0x60` | `PHIDP_PREPARSED_DATA` | `HidD_GetPreparsedData` |
+| `+0x64` | resolved usage name pointer | the table above |
+
+**Input is not per-record.** The `HIDioThread` state machine drives one global protocol object at
+`0x1403888` (`mov ecx,0x1403888` before the receive/parse helpers `0x439fa0` and `0x43a120`), so with a
+single accepted HID device present there is no ambiguity about which device is read.
+
+### 3.2a The caps constant `0x110000`, resolved
+
+`0x110000` is **not** a caps signature: it is **`HIDP_STATUS_SUCCESS` (`0x00110000`)**, the NTSTATUS that
+`HidP_GetCaps` returns. Sega's log message `InitIOBoard : HidD_GetCaps() failed!!` is simply a misnomer
+for a `HidP_GetCaps` failure.
+
+This also disposes of the "read `0x47ff50`" step in the earlier draft: **`0x47ff50` is not a function, it
+is an import thunk.** The whole neighbourhood is the tail of the IAT-thunk block:
+
+| thunk | import | used for |
+|---|---|---|
+| `0x47ff50` | `HID.DLL!HidP_GetCaps` (`jmp ds:0x488058`) | caps + the `HIDP_STATUS_SUCCESS` check |
+| `0x47ff56` | `HID.DLL!HidD_GetPreparsedData` (`jmp ds:0x488064`) | failure logs `HidP_GetPreparsedData () failed!!` |
+| `0x47ff5c` | `HID.DLL!HidD_GetAttributes` (`jmp ds:0x488060`) | "Error reading Device PID and Version" |
+| `0x47ff62` | `HID.DLL!HidD_GetHidGuid` (`jmp ds:0x48805c`) | start of the enumeration |
+
+(Cross-checked against the IAT slot addresses resolved from the import table: `0x488058` =
+`HidP_GetCaps`, `0x48805c` = `HidD_GetHidGuid`, `0x488060` = `HidD_GetAttributes`, `0x488064` =
+`HidD_GetPreparsedData`.)
 
 ### 3.3 The unlock/handshake protocol — **[measured]** opcode list, and the obfuscation
 
@@ -264,7 +312,7 @@ emits:
 | `HIDioThread : COMMAND_UNLOCK2` | `0x533b10` | inverse transform twice; on success logs `Unlocked OK` (`0x533af4`) |
 | `HIDioThread : COMMAND_USER_SEND_VERSION` | `0x533ac8` | logs `Got Redone Version %02d.%02d.%04d` (`0x533a98`) |
 | `HIDioThread : COMMAND ENABLE KEYPAD` | `0x533a74` | on success logs `Keypad Enabled OK` (`0x533a54`) |
-| `POLLING FLAGS` | `0x5338c4` | also the identity literal from §3.2 |
+| `POLLING FLAGS` | `0x5338c4` | the **dead** identity literal of §3.2 — not one of the state strings |
 
 The keyed byte transform (`0x43aee0` forward, `0x43af40` inverse) is short and fully recovered:
 
@@ -276,6 +324,29 @@ inverse(y, k) = the same steps in reverse order
 (Rotations are 8-bit rotating through carry, i.e. plain `ROL`/`ROR` on the byte.) `k` is a caller-supplied
 byte. This is the board's authenticity/obfuscation step and it is **ours to reimplement in the daemon** —
 no key material is involved, only these fixed constants and the caller's byte.
+
+**The first report bytes are already measured.** The `IOBOARD_IDREQUEST1` state
+(`0x43b5f7`–`0x43b641`) does:
+
+```
+43b60c: mov al, 0x74
+43b611: mov BYTE PTR ds:0x13fd02b, 0xE0
+43b618: mov ds:0x13fcff2, al          ; = 0x74
+43b61d: mov ds:0x13fcffa, al          ; = 0x74
+43b622: call 0x43af90                 ; build report[0..2] and send
+43b627: push 0x3E8                    ; 1000 ms
+43b62c: mov ecx, 0x1403888            ; the global protocol object
+43b631: call 0x439fa0                 ; receive
+```
+
+so the **first** report the virtual board receives is exactly
+
+```
+00 74 E0
+```
+
+with a 1000 ms receive window. That is a concrete payload to design the first response against; the later
+states' payloads still need the run in §7.b.
 
 Also measured, from the same function: the shell reads a device-reported **"Device PID and Version"**
 (`InitIOBoard : Error reading Device PID and Version`) and later logs a **"Redone Version %02d.%02d.%04d"**,
@@ -311,19 +382,20 @@ Report descriptor and report, byte-exact from the code:
 * `/dev/uhid` is root-only by default; `packaging/udev/71-ravengun-uhid.rules` already grants
   `KERNEL=="uhid", SUBSYSTEM=="misc", TAG+="uaccess"`, installed with `sudo scripts/udev-ravengun.sh --apply`.
 
-**What a virtual *IO board* needs, as far as the code shows:**
+**What a virtual *IO board* needs — now settled by §3.2, not conjecture:**
 
-1. A HID top-level collection that lands in the shell's table — almost certainly
-   **UsagePage `0x0001` / Usage `0x0005` (Game Pad)**, because that is the class the output dispatcher
-   writes to. The existing descriptor's Application usage is `0x04` (Joystick) — a distinct board entry
-   would therefore need its own descriptor variant, not a reuse of the gun's.
-2. An **output report** of exactly `wOutputReportByteLength` bytes (the shell writes the whole buffer and
-   passes the caps value as the length), payload `00 <a> <b>`.
+1. A HID top-level collection with **UsagePage `0x0001` / Usage `0x0005` (Generic Desktop / Game Pad)**.
+   The existing descriptor's Application usage is `0x04` (Joystick), so this needs its own descriptor
+   variant: `05 01 09 05 A1 01 …` instead of `05 01 09 04 A1 01 …`, not a reuse of the gun's.
+   **No product string, serial number or VID/PID is consulted** — that possibility is now excluded by
+   evidence, not by guesswork.
+2. An **output report** of exactly `OutputReportByteLength` bytes (the shell writes the whole buffer and
+   passes the caps value as the length), payload `00 <a> <b>` — the first one being `00 74 E0` (§3.3).
 3. An **input path** that `ReadFile` can poll, plus the IDREQUEST/UNLOCK/version/keypad dialogue in §3.3,
    with the transform applied.
-4. A **`HidD_GetAttributes`-visible PID and version** (the shell logs an error if the device does not
-   report a PID and version) — the values are not checked against a whitelist anywhere I could see, so
-   ours (`0x1209`/`0x72F0`, version 1) are usable as-is.
+4. A **`HidD_GetAttributes`-visible PID and version** — but only because the shell *logs* an error when
+   they are missing; **the values are not compared against anything** (the record keeps no PID/version
+   field, and no branch in `InitIOBoard` reads one). Ours (`0x1209`/`0x72F0`, version 1) are usable as-is.
 
 **Measured from files vs needing a run:**
 
@@ -332,8 +404,11 @@ Report descriptor and report, byte-exact from the code:
 | Read/write API set, usage table, opcode strings, report IDs/lengths, transform constants | **measured from `Shell.exe` (read-only)** |
 | That the gun needs no VID/PID and works on `uinput` | **measured** (code + TV measurement) |
 | `uhid` transport, descriptor/report builders, udev rule | **measured, already written** |
-| Which signature makes the shell accept a board (§3.2 open question) | **needs one more static read or one run** |
-| The actual IDREQUEST1/2, UNLOCK1, UNLOCK2, version and keypad payload bytes and the expected replies | **needs a run** (or a deeper disassembly of the helpers `0x43ad80`, `0x43a120`, `0x439fa0`, `0x43afc0`, `0x43a440`) |
+| The board's identity (§3.2) | **RESOLVED — dead `POLLING FLAGS` branch; board = HID Game Pad, UsagePage `0x0001`/Usage `0x0005`** |
+| The caps success constant (§3.2a) | **RESOLVED — `0x110000` = `HIDP_STATUS_SUCCESS`** |
+| The **first** report payload | **measured — `00 74 E0`, 1000 ms receive window** |
+| The remaining payloads (IDREQUEST2, UNLOCK1, UNLOCK2, version, keypad) and the expected replies | **partly recoverable statically** from `0x43b5a0`–`0x43ba20`; otherwise a run |
+| Whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` in this prefix | **needs a run** — the one remaining route-level risk |
 | Whether lamps/keypad/recoil actually do anything once unlocked | **needs a run** |
 
 ---
@@ -429,18 +504,20 @@ that is a *future* measurement, not a current blocker — and it can only show u
 7. **Re-verify** with the repo's own checkers: `python3 tools/verify-all.py TransformersShadowsRising` and
    `python3 scripts/launch-direct.py TransformersShadowsRising --plan`, then a play test.
 
-### 6.b To complete the cabinet I/O (the IO board) — after the open question in §3.2 is closed
+### 6.b To complete the cabinet I/O (the IO board) — the identity question is closed (§3.2)
 
-8. Close §3.2 statically: read `0x43b333`–`0x43b390` (the block that fills the per-device record and
-   resolves the name) and the wrapper at `0x47ff50` used for the caps comparison against the constant
-   `0x110000`. That determines whether identity is a **string** ("POLLING FLAGS") or a **usage**
-   (`0x0001`/`0x0005`, Game Pad).
+8. ~~Close §3.2 statically~~ **DONE** — see §3.2 and §3.2a. The board must present as HID **Game Pad**
+   (UsagePage `0x0001`, Usage `0x0005`) with an output report of `OutputReportByteLength` bytes whose
+   first payload is `00 74 E0`. **No string and no VID/PID is involved in the decision.**
 9. Add a **second** board to `packaging/hid-boards.json` — e.g. `SaeIoBoard` — with `transport: "uhid"`,
-   its own `device_name`, `button_count`, and a descriptor whose Application usage is the one step 8
-   proves; do **not** change `SaeGunBoard`.
+   its own `device_name`, and a report descriptor whose Application collection is Generic Desktop /
+   **Game Pad — `05 01 09 05 A1 01`, not the `09 04` Joystick the gun uses**; do **not** change
+   `SaeGunBoard`.
 10. Add a `descriptor` / `application_usage` knob to `HidBoard` if the current builder cannot express a
     Game Pad application collection (it currently hardcodes `09 04` = Joystick). Small change in
-    `hid_board.cpp` / `hid_board.hpp` plus the JSON schema and `test_hid_board.cpp`.
+    `hid_board.cpp` / `hid_board.hpp` plus the JSON schema and `test_hid_board.cpp`. **The output report
+    length must be settable too**, because the shell writes exactly `OutputReportByteLength` bytes out of
+    its own fixed 3-byte buffer.
 11. Reproduce the transform of §3.3 in the daemon (forward and inverse), and drive the six-step dialogue
     from the received reports.
 12. Run once with the board live and **log every `UHID_GET_REPORT`/`SET_REPORT`/`OUTPUT`** to learn the
@@ -455,32 +532,34 @@ that is a *future* measurement, not a current blocker — and it can only show u
 
 ## 7. The exact next measurement
 
-### 7.a Cheapest, no game start, no bench — static, do this first **[my recommendation]**
+### 7.a DONE — the static measurement (no bench, no game start)
 
-Close the identity question in §3.2 by reading the two remaining code regions. On the Deck:
+Executed on the Deck; results in §3.2 and §3.2a:
 
 ```sh
-objdump -d -M intel --start-address=0x43b2f0 --stop-address=0x43b3a0 \
-  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe | less
-objdump -d -M intel --start-address=0x47ff40 --stop-address=0x47ff90 \
-  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe | less
+objdump -d -M intel --start-address=0x43b240 --stop-address=0x43b3c0 \
+  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe
+objdump -d -M intel --start-address=0x47ff00 --stop-address=0x47ffd0 \
+  ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe
+python3 tool-tsr-xrefs.py ~/mnt/spidernas_emulation/Teknoparrot/Sega/shell/Shell.exe \
+  0x13fcff4 0x13fd0cc 0x13fd0c8 0x1403868 0x140386c
 ```
+
+**Outcome:** the `POLLING FLAGS` branch is provably dead (three independent proofs, §3.2); `0x110000` is
+`HIDP_STATUS_SUCCESS` and `0x47ff50` is the `HidP_GetCaps` import thunk, not a function (§3.2a). **No
+string-based identity work remains. The next measurement is the run in §7.b.**
 
 (The helper scripts I used are attached to this patch folder, all pure Python 3 / binutils, no packages:
 `tool-tsr-find-ioboard.py` finds the IOBoard code and its xrefs, `tool-tsr-iat.py` resolves the
 `call DWORD PTR ds:0x…` slots to import names, `tool-tsr-strings.py` dumps strings by VA range,
-`tool-tsr-hit-table.py` walks the HID usage table at `0x55dab0`, and `tool-tsr-dis-ioboard.sh` wraps
-`objdump` over the IOBoard region.)
+`tool-tsr-hit-table.py` walks the HID usage table at `0x55dab0`, `tool-tsr-xrefs.py` counts xrefs to a
+list of VAs, and `tool-tsr-dis-ioboard.sh` wraps `objdump` over the IOBoard region.)
 
-**Result that counts as success:** the routine that writes the per-device name at record `+0x64` is
-identified, and it is decided whether the accepted identity is the string `POLLING FLAGS` (Reading A) or
-UsagePage `0x0001` / Usage `0x0005` (Reading B). Reading B also tells us the required
-`wOutputReportByteLength`, because the dispatcher writes exactly that many bytes from `0x13fd000`.
+### 7.b The run — this is now the next measurement; needs the bench, please schedule it
 
-### 7.b The run — needs the bench, please schedule it
-
-Only after 7.a. With `SaeIoBoard` added as a **`uhid`** board (so `/dev/uhid` traffic is visible), the
-board active, and the daemon logging output reports:
+Requires steps 9–11 first (the `SaeIoBoard` Game Pad board and the transform). With `SaeIoBoard` added as a
+**`uhid`** board (so `/dev/uhid` traffic is visible), the board active, and the daemon logging output
+reports:
 
 ```sh
 sudo ~/projects/ravengun/scripts/udev-ravengun.sh --check        # /dev/uhid writable?
@@ -496,9 +575,15 @@ grep -E 'UHID|OUTPUT|GET_REPORT|SET_REPORT' ~/.local/share/ravengun/log/*.log | 
 
 **Result that counts as success:** the ioboard log shows `InitIOBoard : Initialised OK` **and** the
 `HIDioThread` dialogue advancing past `IOBOARD_INITIALISE` — ideally to `Unlocked OK` and
-`Keypad Enabled OK` — with the daemon recording the report sizes and payloads. Anything short of
-`Initialised OK` means the identity in §3.2 is still wrong and step 8 has to go deeper (the candidates in
-order: the `0x110000` caps constant, the usage pair, then the `POLLING FLAGS` string).
+`Keypad Enabled OK` — with the daemon recording the report sizes and payloads. The first report should be
+the `00 74 E0` measured in §3.3; if it is not, the board is being reached but the state machine is
+diverging somewhere earlier, and the report the daemon *does* see is the diagnostic.
+
+If `Initialised OK` still does not appear, the remaining candidates are narrow and ordered: (a) the
+Application collection is not being read as UsagePage `0x0001`/Usage `0x0005` by Wine's HID stack (check
+with `uhid` report-descriptor bytes: `05 01 09 05 A1 01 …`), and (b) Wine is not exposing `/dev/uhid`
+devices to `SetupDi`/`HidD` at all in this prefix — which would be visible as **zero** enumerated devices
+rather than a mismatch. The string `POLLING FLAGS` is no longer a candidate (§3.2).
 
 For reference, the current baseline (what failure looks like) is exactly two lines per session:
 `HIDioThread : IOBOARD_INITIALISE` then `InitIOBoard : Couldn't find IOBoard device`.
@@ -512,7 +597,7 @@ still be live.
 
 | work | effort | risk |
 |---|---|---|
-| Close §3.2 statically (step 8 / §7.a) | **1–2 h**, no bench | low — the code is small and already localised |
+| ~~Close §3.2 statically (step 8 / §7.a)~~ **DONE** | **~1 h spent**, no bench | resolved — dead branch, three proofs |
 | Prove the TP core is unnecessary (stub `InitializeASI`, run) | **2–3 h** incl. one bench session | low–medium: if the core *is* doing something, this is where it shows |
 | Lift the `EmulatorType` restriction in `launch-direct.py` for `[Loader] Core = ravengun` | **2–4 h** incl. tests | low |
 | Add a Game Pad application-usage variant to the `uhid` board (steps 9–10) | **half a day** incl. `test_hid_board.cpp` | low |
@@ -532,10 +617,20 @@ board is required at all.
 ## 9. Open points I am handing back
 
 1. **"Transformers worked" is ambiguous** (§1). Needs one question to the owner.
-2. **§3.2 identity question** — the one thing that decides the uhid board's shape (§7.a).
-3. The shell's caps constant **`0x110000`** is compared against the result of `Shell.exe+0x47ff50`; which
-   `HIDP_CAPS` fields it packs is not yet determined.
-4. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
+2. ~~**§3.2 identity question**~~ **RESOLVED** (§3.2): the `POLLING FLAGS` branch is dead code and the
+   board is a HID Game Pad (UsagePage `0x0001` / Usage `0x0005`).
+3. ~~caps constant `0x110000`~~ **RESOLVED** (§3.2a): it is `HIDP_STATUS_SUCCESS`, and `0x47ff50` is the
+   `HidP_GetCaps` import thunk.
+4. **New, still open:** whether Wine exposes `/dev/uhid` devices to `SetupDi`/`HidD` inside this prefix at
+   all. If it does not, no `uhid` board can be found and the IO board would have to be reached some other
+   way (or accepted as unreachable). This is the one thing that could still invalidate the whole IO-board
+   route, and the run in §7.b answers it in one session.
+5. **New, measured but not yet exploited:** the dialogue's *later* payloads. The first is known
+   (`00 74 E0`, §3.3); IDREQUEST2, UNLOCK1, UNLOCK2, the version command and ENABLE KEYPAD still need the
+   run. The same static method (read each state's block in `0x43b5a0`–`0x43ba20` and follow the stores into
+   `0x13fd000`/`0x13fcffa`/`0x13fd02b`) could recover most of them **without** a bench session — a good
+   next free step if the bench stays busy.
+6. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
    available sessions and not a blocker today (§5).
-5. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
+7. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
    the live checkout was at git `af96624`, and my load-bearing facts were re-verified there.
