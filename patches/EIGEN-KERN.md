@@ -35,44 +35,49 @@ wel herkend en houdt zijn eigen hooks.
 ontbreekt de invoervertaling die de gesloten kern per game deed, dus `Type = OpenParrot` staat
 niet standaard in hun `game.ini`; het is een bewezen *route*, nog geen bewezen vervanging.
 
-| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader |
-|---|---|---|---|---|---|---|
-| 3DCosplayMahjong | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `TaitoTypeXGeneric` | TeknoParrot |
-| GaiaAttack4 | `0x0f79d088` | `0xad310e21` | `0xce86fe66` | **GaiaAttack4** (tabel 2, 32-bits) | `GaiaAttack4` | OpenParrot |
-| GalagaAssault | `0xa68dfc94` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| Gashaaaan | `0x85b7185d` | `0xd0a54b30` | `0xd0a54b30` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| Gashaaaan2 | `0x9314f595` | `0xe412f9e3` | `0xa980aaa7` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| GhostBusters | `0x3ce21a20` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| GoGoStrike | `0x65a70231` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| HOTDSD | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `ALLSHOTDSD` | TeknoParrot |
-| Halo | `0xc4f85cde` | `0x9774fb66` | `0x38b2211c` | — niet in de tabel — | `WartranTroopers` | ElfLdr2 |
-| HauntedMuseum | `0x76af7e50` | `0x3fed1b24` | `0xa27d0bfe` | **HauntedMuseum** (tabel 2, 32-bits) | `HauntedMuseum` | OpenParrot |
-| HauntedMuseumII | `0xb26f1207` | `0x5a7fa241` | `0x16ac0890` | **HauntedMuseum2100** (tabel 2, 32-bits — USA 1.00) | `HauntedMuseum2` | OpenParrot |
-| InfinityBladeFX | `0x467f37d6` | `0x90d5e6f8` | `0x3ee51761` | — niet in de tabel — | `InfinityBlade` | TeknoParrot |
-| JurassicPark | `0x2d5ddf6c` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| LGI | `0x82fed329` | `0xd400a3f5` | `0x7c3e5f6f` | — niet in de tabel — | `SegaJvsLetsGoIsland` | TeknoParrot |
-| LGI3D | `0x3f74055e` | `0x2c8b0265` | `0xadd85a43` | — niet in de tabel — | `SegaJvsLetsGoIsland` | TeknoParrot |
-| LGS | `0x2f970de5` | `0x9848ba54` | `0x003620a8` | — niet in de tabel — | `LGS` | TeknoParrot |
-| LethalEnforcers3 | `0x4dff93a9` | `0xbf789a3d` | `0xaf2664dc` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| LuigisMansion | `0x573d704b` | `0xfc9d6556` | `0xd3dc9603` | — niet in de tabel — | `LuigisMansion` | TeknoParrot |
-| MedaruNoGunman | `0x98ad184e` | `0x7f186a03` | `0x34afc796` | — niet in de tabel — | `FarCry` | TeknoParrot |
-| MusicGunGun2 | `0xf5d90f01` | `0xf36d354a` | `0xbb355da3` | **MusicGunGun2** (tabel 2, 32-bits) | `MusicGunGun2` | OpenParrot |
-| NERF | `0xc8ad67ba` | `0x4391886f` | `0xe3e5ca38` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| OG | `0xf598cc36` | `0x4904b14d` | `0xfa7c005e` | — niet in de tabel — | `SegaJvsGoldenGun` | TeknoParrot |
-| OmatsuriYasanGansoTakoyaki | `0x986327aa` | `0x4ea3ebb9` | `0x6daf6828` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| OmatsuriYasanKingyoSukui | `0x199311cd` | `0x6be188a1` | `0xb441defb` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| Otomedius | `0x25cd6d88` | `0x71b8be7e` | `0x1589148b` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| PacmanChomp | `0x3ecb82c6` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| PigsMightFly | `0x5dfb8389` | `0xa9db9d42` | `0x6c641712` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| RabbidsHollywood | `0x82bced43` | `0x3cff0275` | `0x9c8b4022` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| RaccoonRampage | `0x937b2d51` | `0x75a581d3` | `0x71e52ec0` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| RainbowBombergirl | `0xa2adcff2` | `0x1cee20c4` | `0xbc9a6293` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| Rampage | `0x82bced43` | `0x3cff0275` | `0x9c8b4022` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| TC5 | `0x1ba8b580` | `0x2fd81c35` | `0x4c19ac1c` | — niet in de tabel — | `TimeCrisis5` | TeknoParrot |
-| TankTankTank | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `DeadHeat` | ElfLdr2 |
-| Terminator | `0x11dce40c` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 |
-| TombRaider | `0x46cd5495` | `0x80704587` | `0x2d15ab1b` | — niet in de tabel — | `WartranTroopers` | TeknoParrot |
-| TransformersShadowsRising | `0xef5fb3ea` | `0x55f66578` | `0xf23ab4ca` | — niet in de tabel — | `TransformersShadowsRising` | TeknoParrot |
+De kolom *Bitheid* komt uit de PE-header van dezelfde exe: `32` is een PE32, `64` een PE32+. Een
+eigen `EmulationProfile` moet in de kern van díe woordbreedte terechtkomen (`OpenParrotWin32` of
+`OpenParrotx64`), dus deze kolom zegt waar dat werk landt. Voor de games van de Cygwin-lader is er
+geen PE-header en staat er een streepje.
+
+| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader | bitheid |
+|---|---|---|---|---|---|---|---|
+| 3DCosplayMahjong | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `TaitoTypeXGeneric` | TeknoParrot | — |
+| GaiaAttack4 | `0x0f79d088` | `0xad310e21` | `0xce86fe66` | **GaiaAttack4** (tabel 2, 32-bits) | `GaiaAttack4` | OpenParrot | 32 |
+| GalagaAssault | `0xa68dfc94` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| Gashaaaan | `0x85b7185d` | `0xd0a54b30` | `0xd0a54b30` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| Gashaaaan2 | `0x9314f595` | `0xe412f9e3` | `0xa980aaa7` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| GhostBusters | `0x3ce21a20` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| GoGoStrike | `0x65a70231` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| HOTDSD | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `ALLSHOTDSD` | TeknoParrot | — |
+| Halo | `0xc4f85cde` | `0x9774fb66` | `0x38b2211c` | — niet in de tabel — | `WartranTroopers` | ElfLdr2 | — |
+| HauntedMuseum | `0x76af7e50` | `0x3fed1b24` | `0xa27d0bfe` | **HauntedMuseum** (tabel 2, 32-bits) | `HauntedMuseum` | OpenParrot | 32 |
+| HauntedMuseumII | `0xb26f1207` | `0x5a7fa241` | `0x16ac0890` | **HauntedMuseum2100** (tabel 2, 32-bits — USA 1.00) | `HauntedMuseum2` | OpenParrot | 32 |
+| InfinityBladeFX | `0x467f37d6` | `0x90d5e6f8` | `0x3ee51761` | — niet in de tabel — | `InfinityBlade` | TeknoParrot | 32 |
+| JurassicPark | `0x2d5ddf6c` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| LGI | `0x82fed329` | `0xd400a3f5` | `0x7c3e5f6f` | — niet in de tabel — | `SegaJvsLetsGoIsland` | TeknoParrot | 32 |
+| LGI3D | `0x3f74055e` | `0x2c8b0265` | `0xadd85a43` | — niet in de tabel — | `SegaJvsLetsGoIsland` | TeknoParrot | 32 |
+| LGS | `0x2f970de5` | `0x9848ba54` | `0x003620a8` | — niet in de tabel — | `LGS` | TeknoParrot | 32 |
+| LethalEnforcers3 | `0x4dff93a9` | `0xbf789a3d` | `0xaf2664dc` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| LuigisMansion | `0x573d704b` | `0xfc9d6556` | `0xd3dc9603` | — niet in de tabel — | `LuigisMansion` | TeknoParrot | 64 |
+| MedaruNoGunman | `0x98ad184e` | `0x7f186a03` | `0x34afc796` | — niet in de tabel — | `FarCry` | TeknoParrot | 32 |
+| MusicGunGun2 | `0xf5d90f01` | `0xf36d354a` | `0xbb355da3` | **MusicGunGun2** (tabel 2, 32-bits) | `MusicGunGun2` | OpenParrot | 32 |
+| NERF | `0xc8ad67ba` | `0x4391886f` | `0xe3e5ca38` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| OG | `0xf598cc36` | `0x4904b14d` | `0xfa7c005e` | — niet in de tabel — | `SegaJvsGoldenGun` | TeknoParrot | 32 |
+| OmatsuriYasanGansoTakoyaki | `0x986327aa` | `0x4ea3ebb9` | `0x6daf6828` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| OmatsuriYasanKingyoSukui | `0x199311cd` | `0x6be188a1` | `0xb441defb` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| Otomedius | `0x25cd6d88` | `0x71b8be7e` | `0x1589148b` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| PacmanChomp | `0x3ecb82c6` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| PigsMightFly | `0x5dfb8389` | `0xa9db9d42` | `0x6c641712` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 32 |
+| RabbidsHollywood | `0x82bced43` | `0x3cff0275` | `0x9c8b4022` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| RaccoonRampage | `0x937b2d51` | `0x75a581d3` | `0x71e52ec0` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| RainbowBombergirl | `0xa2adcff2` | `0x1cee20c4` | `0xbc9a6293` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| Rampage | `0x82bced43` | `0x3cff0275` | `0x9c8b4022` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| TC5 | `0x1ba8b580` | `0x2fd81c35` | `0x4c19ac1c` | — niet in de tabel — | `TimeCrisis5` | TeknoParrot | 64 |
+| TankTankTank | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `DeadHeat` | ElfLdr2 | — |
+| Terminator | `0x11dce40c` | — (geen PE-header) | — (geen PE-header) | — niet in de tabel — | `RawThrillsGUN` | ElfLdr2 | — |
+| TombRaider | `0x46cd5495` | `0x80704587` | `0x2d15ab1b` | — niet in de tabel — | `WartranTroopers` | TeknoParrot | 64 |
+| TransformersShadowsRising | `0xef5fb3ea` | `0x55f66578` | `0xf23ab4ca` | — niet in de tabel — | `TransformersShadowsRising` | TeknoParrot | 32 |
 
 **RabbidsHollywood en Rampage hebben dezelfde drie CRC's** (`0x82bced43`): hetzelfde stub-bestand, dus dezelfde
 hoofdmodule. Voor de herkenning maakt dat niet uit (geen van beide staat in de tabel),

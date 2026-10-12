@@ -96,6 +96,17 @@ def genormaliseerd(kop, x64):
     return crc32(bytes(b))
 
 
+def bitheid(kop):
+    """32 of 64, uit de PE-header van dezelfde eerste 0x400 bytes. None als er geen PE is."""
+    if len(kop) < 0x40 or kop[:2] != b"MZ":
+        return None
+    pe = int.from_bytes(kop[0x3C:0x40], "little")
+    if pe + 0x1A > len(kop) or kop[pe:pe + 4] != b"PE\0\0":
+        return None
+    magic = int.from_bytes(kop[pe + 0x18:pe + 0x1A], "little")
+    return {0x10B: "32", 0x20B: "64"}.get(magic)
+
+
 def game_exe(game):
     r = subprocess.run([sys.executable, "scripts/launch-direct.py", game, "--plan"],
                        cwd=LOADER, capture_output=True, text=True)
@@ -129,7 +140,7 @@ def meet():
         exe = game_exe(g)
         if not exe or not os.path.isfile(exe):
             rijen.append((g, None, None, None,
-                          "geen exe gevonden (niet op de NAS of twee exe's)", profiel, soort))
+                          "geen exe gevonden (niet op de NAS of twee exe's)", profiel, soort, None))
             continue
         with open(exe, "rb") as f:
             kop = f.read(0x400)
@@ -144,7 +155,7 @@ def meet():
             naam = "**%s** (tabel 2, 64-bits%s)" % (nieuw[c3][0], " — " + nieuw[c3][1] if nieuw[c3][1] else "")
         else:
             naam = "— niet in de tabel —"
-        rijen.append((g, c1, c2, c3, naam, profiel, soort))
+        rijen.append((g, c1, c2, c3, naam, profiel, soort, bitheid(kop)))
     return len(gewoon), len(nieuw), rijen
 
 
@@ -190,18 +201,25 @@ def md(gewoon_n, nieuw_n, rijen):
         "ontbreekt de invoervertaling die de gesloten kern per game deed, dus `Type = OpenParrot` staat\n"
         "niet standaard in hun `game.ini`; het is een bewezen *route*, nog geen bewezen vervanging.\n"
     )
-    uit.append("| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader |")
-    uit.append("|---|---|---|---|---|---|---|")
-    for g, c1, c2, c3, naam, profiel, soort in rijen:
+    uit.append(
+        "De kolom *Bitheid* komt uit de PE-header van dezelfde exe: `32` is een PE32, `64` een PE32+. Een\n"
+        "eigen `EmulationProfile` moet in de kern van díe woordbreedte terechtkomen (`OpenParrotWin32` of\n"
+        "`OpenParrotx64`), dus deze kolom zegt waar dat werk landt. Voor de games van de Cygwin-lader is er\n"
+        "geen PE-header en staat er een streepje.\n"
+    )
+    uit.append("| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader | bitheid |")
+    uit.append("|---|---|---|---|---|---|---|---|")
+    for g, c1, c2, c3, naam, profiel, soort, bit in rijen:
         if c1 is None:
-            uit.append("| %s | — | — | — | %s | `%s` | %s |" % (g, naam, profiel or "—", soort or "—"))
+            uit.append("| %s | — | — | — | %s | `%s` | %s | %s |"
+                       % (g, naam, profiel or "—", soort or "—", bit or "—"))
         else:
             fmt = lambda c: "— (geen PE-header)" if c is None else "`0x%08x`" % c  # noqa: E731
-            uit.append("| %s | `0x%08x` | %s | %s | %s | `%s` | %s |"
-                       % (g, c1, fmt(c2), fmt(c3), naam, profiel or "—", soort or "—"))
+            uit.append("| %s | `0x%08x` | %s | %s | %s | `%s` | %s | %s |"
+                       % (g, c1, fmt(c2), fmt(c3), naam, profiel or "—", soort or "—", bit or "—"))
     uit.append("")
     dubbel = {}
-    for g, c1, c2, c3, n, profiel, soort in rijen:
+    for g, c1, c2, c3, n, profiel, soort, bit in rijen:
         if c1 is not None:
             dubbel.setdefault((c1, c2, c3), []).append(g)
     for sleutel, namen in sorted(dubbel.items()):
@@ -212,7 +230,7 @@ def md(gewoon_n, nieuw_n, rijen):
                 "maar het betekent wel dat een profiel op deze exe beide games zou vangen.\n"
                 % (" en ".join(namen), sleutel[0])
             )
-    gesloten = [(g, profiel) for g, c1, c2, c3, n, profiel, soort in rijen
+    gesloten = [(g, profiel) for g, c1, c2, c3, n, profiel, soort, bit in rijen
                 if soort == "TeknoParrot" and not n.startswith("**")]
     if gesloten:
         per_profiel = {}
@@ -232,7 +250,7 @@ def md(gewoon_n, nieuw_n, rijen):
             namen = per_profiel[profiel]
             uit.append("| `%s` | %d — %s |" % (profiel, len(namen), ", ".join(namen)))
         uit.append("")
-    elf = [(g, profiel) for g, c1, c2, c3, n, profiel, soort in rijen if soort == "ElfLdr2"]
+    elf = [(g, profiel) for g, c1, c2, c3, n, profiel, soort, bit in rijen if soort == "ElfLdr2"]
     if elf:
         uit.append(
             "**De %d games met `Type = ElfLdr2` staan hier wel in maar horen bij een andere vraag.** Hun\n"
@@ -241,7 +259,7 @@ def md(gewoon_n, nieuw_n, rijen):
             "`LD_PRELOAD`-kastnabootser voor de 64-bits ElfLdr2-familie, niet een profiel in `GameDetect.cpp`.\n"
             % (len(elf), ", ".join(sorted({p for g, p in elf})))
         )
-    geen_pe = [g for g, c1, c2, c3, n, profiel, soort in rijen if c1 is not None and c2 is None]
+    geen_pe = [g for g, c1, c2, c3, n, profiel, soort, bit in rijen if c1 is not None and c2 is None]
     if geen_pe:
         uit.append(
             "**%d games hebben geen PE-header** (%s). Dat zijn de games die op de Cygwin-lader\n"
