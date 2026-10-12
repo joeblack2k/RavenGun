@@ -169,6 +169,27 @@ def md(gewoon_n, nieuw_n, rijen):
     )
     uit.append("**Uitkomst: %d van de %d games worden door onze eigen kern herkend** — precies de vier die er\n"
                "al op draaien.\n" % (len(raak), len(rijen)))
+    uit.append(
+        "**Sinds ronde 41 weigert onze kern een onbekende game niet meer.** In `GameDetect.cpp` is de\n"
+        "`default:`-tak van de CRC-switch veranderd (OpenParrot-patch\n"
+        "`0003-unknown-game-generic-route.patch` in `third_party/openparrot/patches/`): geen `MessageBoxA`\n"
+        "en geen `ExitProcess(0)` meer, maar `currentGame` blijft `GameID::Global` en `X2Type` blijft\n"
+        "`X2Type::None`. Gevolg: alleen de init-functies die voor `GameID::Global` staan draaien, en elke\n"
+        "per-game tak slaat zichzelf over. **Herkennen is dus niet meer nodig om te *draaien*** -- het is\n"
+        "nog wel nodig om de *hooks* van die game te krijgen.\n"
+    )
+    uit.append(
+        "Gemeten met die kern (in `~/.local/share/ravengun/openparrot/current/`, Win32-sha256\n"
+        "`258aa9fc41c42be3a25305105f2f96123dc5b3368e8157dc12a825bbd40e3c5f`): **LGI** start en het\n"
+        "spelproces leeft nog na 25 s, met de JVS-pipe die antwoordt, en **GaiaAttack4** idem na 20 s. LGI\n"
+        "is een game die de kern **niet** herkent, dus die draait op de generieke route; GaiaAttack4 wordt\n"
+        "wel herkend en houdt zijn eigen hooks.\n"
+    )
+    uit.append(
+        "**Wat dat niet zegt.** Of die games ook *speelbaar* zijn is niet gemeten. In de generieke route\n"
+        "ontbreekt de invoervertaling die de gesloten kern per game deed, dus `Type = OpenParrot` staat\n"
+        "niet standaard in hun `game.ini`; het is een bewezen *route*, nog geen bewezen vervanging.\n"
+    )
     uit.append("| Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader |")
     uit.append("|---|---|---|---|---|---|---|")
     for g, c1, c2, c3, naam, profiel, soort in rijen:

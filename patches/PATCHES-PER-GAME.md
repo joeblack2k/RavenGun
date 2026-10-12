@@ -321,6 +321,14 @@ kan de meting het spoor verliezen (Luigi's Mansion en Pigs Might Fly zijn gepakt
 in de ene run START en in de andere viel hij uit). De drie games die die proef niet kon plannen
 (3DCosplayMahjong, HOTDSD, TankTankTank) staan er helemaal niet in.
 
+**Sinds ronde 41 is herkennen geen voorwaarde meer om te draaien.** Onze eigen kern weigert een
+onbekende executable niet meer (OpenParrot-patch `0003-unknown-game-generic-route.patch`); hij blijft
+dan op `GameID::Global` / `X2Type::None` en doet niets behalve bestaan. Gemeten: **LGI** (een game die
+de kern niet herkent) start en blijft draaien op onze eigen lader en kern, met de JVS-pipe actief.
+Wat er in die generieke route ontbreekt zijn de **per-game hooks** -- de invoervertaling van de
+gesloten kern -- dus of zo'n game ook speelbaar is, is niet gemeten. Zie
+`patches/EIGEN-KERN.md`, "Sinds ronde 41 weigert onze kern een onbekende game niet meer".
+
 **Wat dat betekent voor deze kaart.** De kolom *Patch nodig: `eigen kern`* zegt dat de gesloten kern
 **in de startketen zit**, niet dat die kern onmisbaar is. Voor de vijftien hierboven hoeft er dus geen
 `EmulationProfile` met per-game hooks nagebouwd te worden om ze te laten *draaien*; het werk zit daar

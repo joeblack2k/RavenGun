@@ -17,6 +17,24 @@ niet herkent, kan er ook niet op draaien zonder eerst een eigen `EmulationProfil
 **Uitkomst: 4 van de 36 games worden door onze eigen kern herkend** — precies de vier die er
 al op draaien.
 
+**Sinds ronde 41 weigert onze kern een onbekende game niet meer.** In `GameDetect.cpp` is de
+`default:`-tak van de CRC-switch veranderd (OpenParrot-patch
+`0003-unknown-game-generic-route.patch` in `third_party/openparrot/patches/`): geen `MessageBoxA`
+en geen `ExitProcess(0)` meer, maar `currentGame` blijft `GameID::Global` en `X2Type` blijft
+`X2Type::None`. Gevolg: alleen de init-functies die voor `GameID::Global` staan draaien, en elke
+per-game tak slaat zichzelf over. **Herkennen is dus niet meer nodig om te *draaien*** -- het is
+nog wel nodig om de *hooks* van die game te krijgen.
+
+Gemeten met die kern (in `~/.local/share/ravengun/openparrot/current/`, Win32-sha256
+`258aa9fc41c42be3a25305105f2f96123dc5b3368e8157dc12a825bbd40e3c5f`): **LGI** start en het
+spelproces leeft nog na 25 s, met de JVS-pipe die antwoordt, en **GaiaAttack4** idem na 20 s. LGI
+is een game die de kern **niet** herkent, dus die draait op de generieke route; GaiaAttack4 wordt
+wel herkend en houdt zijn eigen hooks.
+
+**Wat dat niet zegt.** Of die games ook *speelbaar* zijn is niet gemeten. In de generieke route
+ontbreekt de invoervertaling die de gesloten kern per game deed, dus `Type = OpenParrot` staat
+niet standaard in hun `game.ini`; het is een bewezen *route*, nog geen bewezen vervanging.
+
 | Game | CRC (gewoon) | CRC 32-bits | CRC 64-bits | Onze kern zegt | Profiel in `game.ini` | Lader |
 |---|---|---|---|---|---|---|
 | 3DCosplayMahjong | — | — | — | geen exe gevonden (niet op de NAS of twee exe's) | `TaitoTypeXGeneric` | TeknoParrot |
