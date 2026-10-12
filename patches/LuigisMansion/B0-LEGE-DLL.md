@@ -200,7 +200,56 @@ eigen datapaden laadt. Het spel krijgt in dit venster dus geen apparaathandle, o
 leeft. Daarmee is het leveren van een openbaar apparaat niet de verklaring, en blijft instrument A
 (de geheugenvergelijk) de volgende stap.
 
-## 9. Wat nog open is
+## 9. Instrument A: het spelbeeld op vaste momenten onder de gesloten kern
+
+Twee runs via de werkende route met `WINEDEBUG=-all`, met `sudo` gedumpt op een vast moment na het
+eerste verschijnen van het spelproces. `b0-geheugen.sh` + `b0-geheugen-dump.py`; per dump eerst
+`beeldcheck.py`. Ruwe dumps: `/tmp/b0-geheugen-b/` (8 s), `/tmp/b0-geheugen-d/` (5 s),
+`/tmp/b0-geheugen-c/` (4 s).
+
+| moment | `.text` %nul | `.capcom1` %nul | entry point in het PROCES | anon. uitv. gebieden | threads/CPU |
+|---|---|---|---|---|---|
+| 4 s | 100,0 % | 2,6 % | `eb 08 92 1b ...` = als het bestand | 8 | 1 / 100 % |
+| 5 s | 100,0 % | 2,6 % | `48 b8 80 e9 d4 f6 ff 6f 00 00 ff e0` | 11 | 1 / 80 % |
+| 8 s | **11,2 %** | 2,6 % | `eb 08 92 1b ...` = als het bestand | 19 | 1 / 62 % |
+
+**De tijdlijn van de gesloten kern, met de dump in de hand:** op 5 s staat er op het entry point
+`48 B8 <imm64> FF E0` -- `movabs rax, 0x6ffff6d4e980; jmp rax`. Dat is exact de `entryJump` die
+`InstallEntryPointInitializer()` in `OpenParrotLoader/src/main.cpp` schrijft. De game zit dus in de
+**entry-point-trampoline van de lader** en er is nog niets ontpakt. Op 8 s staat het entry point
+weer op de ongerepte `eb 08` van de Capcom-stub, en is `.text` voor 88,8 % gevuld: de trampoline
+heeft de originele bytes teruggezet, de pakker heeft gelopen, en het spel laadt zijn data.
+
+Daarmee is ook het dode proces van eerder (pid 363640, `48 B8 <imm64>` op het entry point) verklaard:
+dat stierf in de trampoline-fase, voordat de pakker begon. "Nooit ontpakt" blijft dus staan; het
+mechanisme was niet de `EB FE`-spinlus maar de trampoline die nooit werd teruggezet.
+
+**Antwoord op de drie vragen, voor zover de gesloten kern ze kan beantwoorden:**
+
+* (a) **De gesloten kern patcht het entry point NIET.** Op 8 s is het entry point byte-identiek aan
+  het bestand (`eb 08 92 1b 19 00 00 00 00 00 e9 d0 2b 01 00 ff`), en de headers zijn `GELIJK`.
+  Wat er op 5 s staat is de trampoline van de LADER, niet van de kern, en die is op 8 s weer weg.
+* (b) Het spel is op 8 s volledig ontpakt en op 4-5 s nog niet. Het ontpakken gebeurt dus tussen
+  5 en 8 s, direct nadat de trampoline de controle teruggeeft.
+* (c) Het aantal anonieme uitvoerbare gebieden groeit mee: 8 (4 s) -> 11 (5 s) -> 19 (8 s).
+
+**Het enige verschil tussen geheugen en BESTAND dat geen trampoline is:** een regio van 3494 bytes
+op VA `0x14120d000 .. 0x14120dda5`, binnen `.capcom1`. Die staat er in de 5 s-dump EN in de 8 s-dump,
+op precies dezelfde plek -- dus hij is geschreven VOORDAT de pakker liep. Of dat de pakker zelf is
+(een eerste tabel of ontsleuteling), de lader, of een patch van de kern, is met alleen de gesloten
+kern niet te beslissen. **De beslissende vraag is dus heel gericht geworden: staat diezelfde 3494
+bytes ook in het geheugen onder ONZE kern op hetzelfde vroege moment?** Zo ja, dan is het niet
+onderscheidend. Zo nee, dan schrijft de gesloten kern iets in het spel dat wij niet schrijven.
+
+**Wat nog NIET gelukt is:** de dump onder ONZE kern. Drie pogingen (8, 5 en 4 s) gaven "geen
+proces": met `WINEDEBUG=-all` sterft het spel onder onze kern al rond 5-7 s, terwijl het met de
+`+file`-trace (die het proces vertraagt) 25-30 s leefde. Het script dumpt niet als het proces weg
+is -- dat is goede discipline, maar het betekent dat de VERGELIJKING nog niet gemaakt is. De
+eerstvolgende stap is dus: onze kern dumpen op 2-3 s, en alleen twee adressen bekijken -- het
+entry point (staat de trampoline er nog, en wordt hij ooit teruggezet?) en `0x14120d000` (die 3494
+bytes). Dat is geen volledige vergelijking meer maar een vraag met twee adressen.
+
+## 10. Wat nog open is
 
 1. **Wat de gesloten kern in het spel zet.** Geheugenvergelijk van het spelbeeld op hetzelfde vroege
    moment onder beide kernen (`beeldcheck.py` voor de levenscheck, sudo). Zoek op de entry-point-

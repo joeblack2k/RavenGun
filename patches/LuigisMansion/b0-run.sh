@@ -87,10 +87,14 @@ while [[ "${_p:-0}" -gt 1 ]]; do
   [[ -z "${_p:-}" ]] && break
 done
 AAN=""
-for pat in 'Game\.exe' 'VACUUM\.exe' 'OpenParrotLoader' 'BudgieLoader' 'TeknoParrotUi' 'TeknoMacaw' 'gamescope' 'wineserver' 'rg-jvsbridge' 'pipehelper'; do
-  for HIT in $(pgrep -f "$pat" 2>/dev/null || true); do
+# Exacte procesnamen (comm, door Linux op 15 tekens afgekapt). GEEN -f: dat matcht de
+# hele commandoregel en dus ook elk proces dat de naam alleen noemt.
+for pat in 'Game.exe' 'VACUUM.exe' 'OpenParrotLoade' 'BudgieLoader.ex' 'BudgieLoader_x6' \
+           'TeknoParrotUi' 'TeknoMacaw.exe' 'TeknoMacaw64.ex' 'gamescope' 'gamescope-wl' \
+           'gamescopereaper' 'wineserver' 'rg-jvsbridge.ex' 'pipehelper.exe'; do
+  for HIT in $(pgrep -x "$pat" 2>/dev/null || true); do
     [[ " $EIGEN " == *" $HIT "* ]] && continue
-    AAN+="  $pat -> $HIT  $(tr '\0' ' ' < "/proc/$HIT/cmdline" 2>/dev/null | cut -c1-90)"$'\n'
+    AAN+="  comm $pat -> $HIT  $(tr '\0' ' ' < "/proc/$HIT/cmdline" 2>/dev/null | cut -c1-90)"$'\n'
   done
 done
 if [[ -n "$AAN" ]]; then fout "de bench is NIET vrij; deze bisectie start niets."; printf '%s' "$AAN"; exit 3; fi
