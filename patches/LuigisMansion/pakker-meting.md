@@ -136,3 +136,38 @@ view is compleet (`Data -> DataGlobal/EN/Data` aanwezig, alle spelbestanden geli
 3.436.544 B) en de GStreamer-plug-ins staan op hun plek (`tools/gst-extra/plugins/`: exact twee
 bestanden, `libgstasf.so` en `libgstlibav.so`, gehaald met `scripts/fetch-gst-wmv.sh`). Een verschil in
 gedrag tussen de twee kernen is dus een verschil **in de kern**.
+
+
+## En een vastgelopen rest op de bench (2026-10-12)
+
+Op de Deck liep een `VACUUM.exe` (PID 363640) dat er als een geslaagde run uitzag maar dat geen was:
+
+| meting | uitkomst |
+|---|---|
+| `State` / `PPid` | `R` / **1** (de lader is weg, het kind is aan init gegeven) |
+| threads | **1** (een spel dat de titel haalt heeft er vele: d3d, winegstreamer, audio) |
+| CPU | **2,00 s in 2,0 s** -- vlak 100% van een kern |
+| `.text` op `0x140001000` | **alles nul** |
+| maps | `140000000-140001000 rwxp` (VACUUM.exe), `140001000-14125e000 rwxp [anoniem]` |
+
+**Conclusie: nooit ontpakt.** Dat verklaart mijn dump van 18,3 MB volledig: `.text`, `.rdata`, `.data`,
+`.pdata` en `.capcom0` honderd procent nul en alleen `.capcom1` gevuld is precies het beeld van een proces
+dat nooit voorbij de Capcom-stub is gekomen. Mijn eerdere "óf nooit klaar met ontpakken, óf de pakker legt
+het elders neer" valt dus terug tot de **eerste helft**. Het proces is opgeruimd (`kill -9`): het spinde
+uren op een kern en zou elke meting op de bench vergiftigen.
+
+**En een nuance op de verklaring die hiervoor werd geopperd.** De suggestie was dat onze eigen lader
+`EB FE` (`jmp $`) op het entry point achterlaat (`RunTo()` in `main.cpp`), en dat de spelthread daar voor
+eeuwig op blijft draaien. Op `0x140f23125` staat echter:
+
+```
+48 b8 80 e9 d4 f6 ff 6f      ->  movabs rax, 0x6ffff6d4e980
+```
+
+een gewone instructie, **geen `EB FE`**. En `kstkeip` leest 0, dus *waar* hij spinde is van buiten niet te
+meten. **"Nooit ontpakt" is gemeten; "het was de `EB FE`-spinlus" is onbewezen** en hoort als hypothese in
+het dossier te staan, niet als oorzaak.
+
+**Les voor elke volgende dump:** eerst de levenscheck -- `PPid` niet 1, threads ruim boven 5, CPU laag of
+onregelmatig in plaats van vlak 100%, en `.text` op `0x140001000` niet nul. En pas dán `sudo` op
+`/proc/<pid>/mem`.
