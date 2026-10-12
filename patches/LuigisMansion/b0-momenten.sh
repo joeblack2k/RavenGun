@@ -85,7 +85,7 @@ doe_run() {
       timeout "$MAX" python3 scripts/launch-direct.py LuigisMansion --run ) >"$UIT/$label.log" 2>&1 &
   local pgid=$!
   set +m
-  echo "$SUDOPW" | sudo -S python3 "$HIER/b0-momenten.py" "$UIT" "$label" 16 2>&1 | sed 's/^/  /'
+  echo "$SUDOPW" | sudo -S env RG_B0_MOMENTEN="${RG_B0_MOMENTEN:-}" python3 "$HIER/b0-momenten.py" "$UIT" "$label" 16 2>&1 | sed 's/^/  /'
   kill -9 -"$pgid" 2>/dev/null; wait "$pgid" 2>/dev/null
   [[ "$variant" != "$KERN" ]] && herstel_kern
   grep -a -oE 'kern \(runtime\): .* sha256 [0-9a-f]+' "$UIT/$label.log" | head -1 | sed 's/.*sha256 //' > "$UIT/$label.werkelijk-sha"

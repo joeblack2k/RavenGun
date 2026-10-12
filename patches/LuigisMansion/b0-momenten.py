@@ -21,7 +21,9 @@ TEXT_VA, TEXT_LEN = BASE + 0x1000, 3496500
 CAP_VA, CAP_LEN = BASE + 0x120D000, 3494          # het enige verschil dat geen trampoline is
 CAP_FILE_OFF = 0x400 + (0x120D000 - 0xF15000)
 BESTAND = "/home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade/exe/x64/VACUUM.exe"
-MOMENTEN = [2, 3, 3.5, 4, 5, 6, 8, 10, 12]
+# De momenten zijn instelbaar: RG_B0_MOMENTEN="2.5,3,3.5,4,4.5,5,5.5,6,6.5,7" voor een DICHTE
+# reeks. Let op: sudo gooit de omgeving weg, dus b0-momenten.sh geeft hem expliciet door.
+MOMENTEN = [float(x) for x in os.environ.get("RG_B0_MOMENTEN", "2,3,3.5,4,5,6,8,10,12").split(",")]
 BLOK = 0x10000
 
 
@@ -40,6 +42,22 @@ def spelpid():
     return None
 
 
+def eigen_fds(pid):
+    """Aantal open bestanden dat naar de Data-mappen van DEZE game wijst."""
+    n = 0
+    try:
+        for fd in os.listdir("/proc/%d/fd" % pid):
+            try:
+                t = os.readlink("/proc/%d/fd/%s" % (pid, fd))
+            except OSError:
+                continue
+            if any(t.startswith(v) for v in VIEWS):
+                n += 1
+    except OSError:
+        pass
+    return n
+
+
 def threads(pid):
     try:
         return len(os.listdir("/proc/%d/task" % pid))
@@ -52,6 +70,9 @@ def main():
     maxs = float(sys.argv[3]) if len(sys.argv) > 3 else 16.0
     os.makedirs(uit, exist_ok=True)
 
+    EP_FILE = b""
+    if os.path.exists(BESTAND):
+        f = open(BESTAND, "rb"); f.seek(EP_FILE_OFF); EP_FILE = f.read(EP_LEN); f.close()
     best = b""
     if os.path.exists(BESTAND):
         f = open(BESTAND, "rb"); f.seek(CAP_FILE_OFF); best = f.read(CAP_LEN)
@@ -76,7 +97,7 @@ def main():
                 m = MOMENTEN.pop(0)
                 try:
                     mem = open("/proc/%d/mem" % pid, "rb", buffering=0)
-                    mem.seek(EP); ep = mem.read(16)
+                    mem.seek(EP); ep = mem.read(EP_LEN)
                     # .text
                     nul = tot = 0; off = 0
                     while off < TEXT_LEN:
@@ -94,14 +115,17 @@ def main():
                     elif ep[:2] == b"\x48\xb8":
                         doel = int.from_bytes(ep[2:10], "little")
                         oordeel = "TRAMPOLINE 48 B8 -> 0x%x" % doel
+                    elif ep == EP_FILE and EP_FILE:
+                        oordeel = "TERUGGEZET, 20 bytes identiek aan bestand"
                     elif ep[:2] == b"\xeb\x08":
-                        oordeel = "ongerept eb 08 (Capcom-stub, trampoline teruggezet)"
+                        oordeel = "eb 08 maar %d/20 bytes wijkt af" % sum(
+                            1 for x, y in zip(ep, EP_FILE) if x != y)
                     else:
                         oordeel = "onbekend"
-                    regels.append("t=%5.1f  entry: %-46s  .text %5.1f%% nul  capcom1@0x14120d000: %s  threads %d"
+                    regels.append("t=%5.1f  entry: %-46s  .text %5.1f%% nul  capcom1: %s  threads %2d  eigen bestanden open %2d"
                                   % (m, oordeel + " [" + ep[:12].hex(" ") + "]", pct,
-                                     ("gelijk aan bestand" if dv == 0 else "%d bytes anders" % dv),
-                                     threads(pid)))
+                                     ("gelijk" if dv == 0 else "%d B anders" % dv),
+                                     threads(pid), eigen_fds(pid)))
                 except OSError as e:
                     regels.append("t=%5.1f  kon niet lezen: %s" % (m, e))
         time.sleep(0.1); t += 0.1

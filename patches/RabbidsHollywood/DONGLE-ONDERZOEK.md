@@ -287,12 +287,80 @@ momenten en breekt af als de view niet de build is — anders meet je per ongelu
 reparatie niet te werken.
 Dat is niet aangenomen maar apart gemeten, en daarom staan beide hashes hier apart.
 
-**De proef staat klaar, maar is nog niet gedraaid.** `rg_savegame.sh` (op de Deck,
-`/home/deck/rg_savegame.sh`, syntax gecontroleerd) start de uitgeleverde route **twee keer**, headless via
-gamescope, met NAS-schrijfcontrole. De bestaande savegames worden eerst geback-upt en weggehaald, zodat
-run 1 ze werkelijk aanmaakt en run 2 de persistentie bewijst. Succes = run 2 zonder `Bad PKCS7 padding`,
-zonder `Savegame corrupted` en zonder `will be resetted`, de bestanden van run 1 nog aanwezig met dezelfde
-md5, en beide nieuwe plugin-regels in run 1. Gedeeltelijk succes heeft per geval een eigen betekenis (zie
-de kop van het script): herschreven maar schoon, padding weg maar reset blijft, of maar één richting
-beantwoord. Niet gedraaid omdat de bench naar Luigi B0 ging — dit is de eerstvolgende meting die deze game
-nodig heeft.
+**De proef is gedraaid (2026-10-12 22:48-22:54).** `rg_savegame.sh`, twee starts, headless. Uitkomst en
+wat eruit volgt staat in §10.
+
+---
+
+## 10. De twee-startproef: uitkomst, en een vondst die de aanname eronder omverhaalt
+
+### 10.1 Wat de proef wel aantoonde (geldige meting)
+
+De poort was op alle vier de momenten schoon: de view-DLL was `e0eaa423…` = de build, vóór de start, na de
+zelfuitrol, tijdens het spel en in run 2 — **niet** de oude `29fd3ddc…`. Alle zes Matrix-patches zaten erin
+en werden toegepast (`Init_MatrixAPI`, `Dongle_Find`, `Dongle_Count`, `Dongle_ReadSerNr`,
+`Dongle_EncryptData`, `Dongle_DecryptData`), zonder overgeslagen of mislukte patches. Het spel leefde in
+beide runs (170 s en 171 s game-tijd) met `**** DONGLE FOUND: 69420`, en de NAS is over het hele venster
+onaangeroerd (0 vermeldingen nieuwer dan de start; beide `matrix64.dll` nog `c86908ab…`). Op procesnaam
+stond er geen enkel TeknoParrot-achtig proces in de cgroup.
+
+### 10.2 De uitkomst is MISLUKKING, niet "gedeeltelijk C"
+
+Het script koos zelf "GEDEELTELIJK (C)" en dat is **fout gekozen**: zijn regelvolgorde test eerst
+"geen padding-fout" en pas daarna "één richting ontbreekt". De gemeten cijfers zijn run 1 `PKCS7=3
+corrupted=3 resetted=3` en run 2 `PKCS7=4 corrupted=3 resetted=3` — de padding-fout is er in **beide**
+runs, dus de vooraf opgeschreven uitkomst die hoort is **MISLUKKING**: "run 2 reset nog; 0 terug met
+ongemoeide buffer is niet genoeg". De C-vlag is een bijkomend feit, niet het verdict. (De regelvolgorde in
+`rg_savegame.sh` is hierbij een fout van mij; het verdict moet op de zwaarste voorwaarde eerst testen.)
+
+### 10.3 `Dongle_EncryptData` wordt nooit aangeroepen — en dat is geen toeval
+
+In geen van beide runs verscheen `Matrix: Dongle_EncryptData -> 0`; `Dongle_DecryptData -> 0` verscheen wel.
+Opnieuw geteld met `re/dnlib.py` op de assembly: van de **zes Encrypt-wrappers** in `SBK.Matrix.MatrixManager`
+(`KPHIPOINDLP`, `BMNNMICCONF`, `EDNBLKCLMOI`, `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO`) heeft **geen
+enkele een verwijzing** in de hele IL. Ze zijn in deze build dood. Van de zeven Decrypt-wrappers worden er
+zes aangeroepen, en alleen vanuit `MatrixManager` zelf (kleine thunks) plus twee keer vanuit
+`NGBPMKLAEPB::MJDMKLODGIG`. Onze Encrypt-reparatie kan dus per definitie nooit vuren.
+(Voorbehoud: een verwijzing via een niet-renderende methodebody zou buiten deze telling vallen.)
+
+### 10.4 De savegame-versleuteling loopt NIET via de dongle — dit is de eigenlijke vondst
+
+Het lees- en schrijfpad van de savegames komt **niet** bij `MatrixManager` uit:
+
+```
+SaveGameManager::WriteData        -> IJGPGJJKJAG::AJAKOIOBKPI , IJGPGJJKJAG::JEJBHONPKAL
+SaveGameManager::ReadSaveGame     -> IJGPGJJKJAG::JEJBHONPKAL
+SaveGameManager::ReadData         -> ReadSaveGame (2x) -> bij falen:
+                                     "WARNING : Savegame corrupted : " + " will be resetted"
+                                     -> SendSaveGameData -> InternalResetSaveGame
+SaveGameManager::ReadSaveGame     -> MD5-controle: "Corrupted savegame, bad MD5 match. ..."
+```
+
+`IJGPGJJKJAG` is een **andere klasse** dan `SBK.Matrix.MatrixManager`, en `WriteData` schrijft
+`ServerRequestManager::GetDeviceID` in de stream. De `Bad PKCS7 padding`-meldingen komen uit die eigen
+laag, niet uit de dongle. Dat weerlegt de aanname in `docs/matrix-layer.md`, in de README en in
+`dongle.json` ("acht methoden van MatrixManager roepen Dongle_EncryptData/DecryptData aan; dat is de
+savegame-versleuteling"): de Encrypt-kant is dood en het savegame-pad raakt `MatrixManager` niet.
+
+### 10.5 Waar de versleutelde data vandaan komt: nergens vreemds
+
+De vraag was of het spel iets ontsleutelt dat wij niet schrijven. Gemeten: **nee**.
+
+* Het spel noemt in het log uitsluitend `<naam>.svg` en `<naam>.bkg` onder
+  `C:/users/steamuser/AppData/LocalLow/Sarbakan/RabbidsShooter/savegame/`.
+* Dat is precies de map die de proef had leeggemaakt. Run 1 begon dus met een lege map en logde **toch**
+  padding-fouten, inclusief `Bad PKCS7 padding. Invalid length 0.` — een leeg buffer. Die meldingen horen
+  dus bij het eerste-keer/reset-pad en zijn geen bewijs van een vreemde bron.
+* Run 1 heeft daarna zelf drie bestanden geschreven (7-8 s in de run, mtimes 22:48:20-21) en run 2 las die
+  terug en zakte alsnog door de padding-controle.
+* Er is wel een tweede plek: `views-aagames/RabbidsHollywood/NVRAM/savegame/` bevat een **volledige** set
+  van zes bestanden (drie `.svg` + drie `.bkg`). Die staan in geen enkele logregel en zijn resten van de
+  eerdere TeknoParrot-route (`SAVE_TO_GAME_FOLDER=1`, 9 oktober), niet de bron van de fout.
+
+**Conclusie.** De savegame-fout is geen dongleprobleem. Onze Encrypt/Decrypt-reparatie is onschadelijk maar
+kan het niet oplossen, en de volgende vraag is niet "moet onze laag de bytes transformeren" maar "waarom
+kan het spel zijn eigen savegame niet teruglezen": dat zit in `IJGPGJJKJAG` en in wat
+`ServerRequestManager::GetDeviceID` per run oplevert. Als dat per run verschilt, is elk savegame dat in een
+eerdere run is geschreven onleesbaar — en dan is dit een **loader/configuratie**probleem (een apparaat-ID
+dat niet bewaard wordt), niet een dongleprobleem.
+

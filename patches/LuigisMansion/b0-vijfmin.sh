@@ -41,7 +41,8 @@ KERN_ORIG_SHA_EXPECTED="f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c
 NIEUW="${RG_B0_KERN_DLL:-$HOME/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll}"
 PFX="${RG_WINEPREFIX:-$HOME/.local/share/ravengun/prefixes/shared/wine}"
 WINEBIN="${RG_WINE_BIN:-$HOME/.local/share/ravengun/wine/proton-11.0-2/bin}"
-NAS="${RG_NAS_GAME:-/home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade}"
+NAS="${RG_NAS_GAME:-}"
+[ -n "$NAS" ] || NAS="/home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade"
 STOP="${RG_B0_STOP:-300}"        # stopgrens in s game-tijd
 HARD="${RG_B0_HARD:-480}"        # harde limiet in s muurtijd
 SUDOPW="${RG_SUDO_PW:-deck}"
@@ -172,25 +173,20 @@ diff <(grep -v '^--- ' "$UIT/nas-voor.txt") <(grep -v '^--- ' "$UIT/nas-na.txt")
 WERKELIJK=$(grep -a -oE 'kern \(runtime\): .* sha256 [0-9a-f]+' "$UIT/run.log" | head -1 | sed 's/.*sha256 //')
 zeg "oordeel"
 {
-  echo "kern volgens launch-direct's eigen log : ${WERKELIJK:-<niet gevonden>}"
-  echo "kern die wij bedoelden               : $NIEUW_SHA"
-  [[ -n "$WERKELIJK" && "$WERKELIJK" != "$NIEUW_SHA" ]] && echo "  !! ONGELDIG: de run gebruikte een andere kern" || echo "  geldig"
+  echo "kern volgens launch-direct: ${WERKELIJK:-niet gevonden}"
+  echo "kern die wij bedoelden    : $NIEUW_SHA"
   echo
   cat "$UIT/vijfmin-vijfmin.txt" 2>/dev/null
   echo
   echo "--- NAS-verschil over het venster ---"
-  if [[ -s "$UIT/nas-verschil.txt" ]]; then cat "$UIT/nas-verschil.txt"; else echo "  geen verschil in de bekende schrijfdoelen"; fi
+  if [ -s "$UIT/nas-verschil.txt" ]; then cat "$UIT/nas-verschil.txt"; else echo "  geen verschil in de bekende schrijfdoelen"; fi
   echo
   echo "--- SUCCESCRITERIA ---"
-  T=$(grep -a -oE 'STOPGRENS [0-9]+ s gehaald' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | head -1)
-  LAATSTE=$(grep -aE '^t=' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | tail -1)
-  echo "1. 300 s game-tijd gehaald        : $([[ -n "$T" ]] && echo JA || echo NEE)"
-  echo "2. entry point teruggezet 20 B  : $(echo "$LAATSTE" | grep -q 'TERUGGEZET' && echo JA || echo "NEE ($LAATSTE)")"
-  echo "3. .text gevuld                   : $(echo "$LAATSTE" | grep -oE '\.text +[0-9.]+% nul')"
-  echo "4. threads ruim boven 1           : $(echo "$LAATSTE" | grep -oE 'threads +[0-9]+')"
-  echo "5. eigen databestanden gelezen    : $(grep -a 'TOTAAL eigen databestanden' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)"
-  echo "6. geen onverwachte NAS-schrijfactie: $([[ -s "$UIT/nas-verschil.txt" ]] && echo 'CONTROLEREN' || echo JA)"
+  LAATSTE=$(grep -a '^t=' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | tail -1)
+  echo "1. 300 s game-tijd gehaald         : $(grep -ac 'STOPGRENS' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)"
+  echo "2. entry point teruggezet          : $(echo "$LAATSTE" | grep -c TERUGGEZET)"
+  echo "3. laatste regel                   : $LAATSTE"
+  echo "4. eigen databestanden             : $(grep -a 'TOTAAL eigen databestanden' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)"
 } | tee "$UIT/oordeel.txt"
 
 zeg "alles staat in $UIT"
-

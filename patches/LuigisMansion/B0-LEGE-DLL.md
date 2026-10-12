@@ -58,15 +58,39 @@ honderden van zulke paden. (0), (b), (c) en (d) openen NUL eigen databestanden; 
 
 Met (0) op 32 is de vraag verschoven. Wat het debug-paar (nu beide geldig) verder laat zien:
 
-| | modules die alleen deze kern in het spel laadt |
-|---|---|
-| GESLOTEN kern | `quartz.dll`, `qasf.dll`, `wmvcore.dll`, `winegstreamer.dll`, `msvfw32.dll`, `msdmo.dll`, `mmdevapi.dll`, `dsound.dll`, `d3d11ref.dll`, `dxgidebug.dll`, zes `api-ms-win-core-*` |
-| ONZE kern | `d3d8.dll`, `mscoree.dll` |
+**CORRECTIE (2026-10-12, narekening door de cooerdinator).** De eerste versie van deze tabel was
+fout: die mengde POGINGEN en GESLAAGDE loads. Bewijs uit de trace zelf, in de ONZE-run:
 
-De gesloten kern is de enige die het spel tot het DirectShow/WMV-filmpad, de audio-modules en de
-D3D11-referentierasterizer krijgt. Dat sluit aan op wat het project al weet (zonder de WMV-plug-ins
-sluit de game af bij de eerste film), maar onze runs hadden `GST_PLUGIN_PATH` net zo goed gezet --
-dit is dus een gevolg van langer leven, niet zonder meer de oorzaak.
+```
+0108:trace:module:LdrGetDllHandleEx L"d3d8.dll" -> 0000000000000000 (load path (null))
+0100:trace:module:LdrGetDllHandleEx L"mscoree"  -> 0000000000000000 (load path (null))
+```
+
+Dat zijn MISLUKTE pogingen (en `mscoree` zelfs rond `LdrShutdownProcess`, tijdens het afsluiten).
+Onze kern heeft nooit .NET geladen en nooit d3d8. De eerdere bewering "onze kern laadt `d3d8.dll`
+en `mscoree.dll` die de gesloten kern niet laadt" was dus geen verschil in geladen modules maar een
+verschil in mislukte pogingen.
+
+Schone hertelling met ALLEEN geslaagde loads (`MODULE_InitDLL ... PROCESS_ATTACH`, en
+`LdrGetDllHandleEx ... -> <niet-nul>`), op dezelfde twee logs:
+
+| | ONZE kern | GESLOTEN kern |
+|---|---|---|
+| `LdrGetDllHandleEx`-regels (totaal / mislukt / geslaagd) | 326 / 27 / 137 | 441 / 27 / 198 |
+| unieke geslaagde namen | 14 | 18 |
+| unieke `MODULE_InitDLL PROCESS_ATTACH`-namen | 54 | **65** |
+| **verschil, ONZE min GESLOTEN** | **leeg** | -- |
+| **verschil, GESLOTEN min ONZE** | -- | `d3d11.dll`, `dsound.dll`, `mmdevapi.dll`, `msdmo.dll`, `msvfw32.dll`, `qasf.dll`, `quartz.dll`, `winegstreamer.dll`, `wmvcore.dll`, `winealsa.drv`, `winepulse.drv` |
+
+**ONZE kern voegt dus NIETS toe.** De gesloten kern initialiseert de media- en audio-stack:
+DirectShow/WMV (`quartz`, `qasf`, `wmvcore`, `winegstreamer`, `msvfw32`), audio (`dsound`,
+`mmdevapi`, `msdmo`, `winealsa.drv`, `winepulse.drv`) en `d3d11`.
+
+**En dat is een GEVOLG, geen oorzaak.** Die modules horen bij het film- en geluidspad, en alleen de
+gesloten kern komt zo ver dat het spel films gaat spelen en geluid opzet. Lees dit dus NIET als "de
+kern laadt iets wat wij niet laden, dus dat moeten wij ook laden" -- dan zoek je de verkeerde kant
+op. De oorzaak staat in Â§9b: onder onze kern wordt de entry-point-trampoline nooit teruggezet en
+begint de pakker nooit.
 
 ## 3. De hypothese "de gesloten kern heeft een Luigi-tak" is in de binary niet terug te vinden
 
@@ -279,11 +303,41 @@ monstername leest 3,5 MB). Ruwe uitvoer: `/tmp/b0-mom/`.
    kern: t=3,0 naar `0x6ffffd36e410`. Gesloten kern: t=8,0 naar `0x6ffff6d4e980`. Dat past bij het
    verschil in laadtijd van de DLL: onze kern is 1,9 MB, de gesloten is 56 MB. De entry-point-
    trampoline wordt dus pas geinstalleerd als `LoadLibraryW` van de kern terug is.
-3. **Het verschil is waar de aanhechtingsfase EINDIGT.** Onder onze kern sterft het proces op 6,3 s
-   terwijl de trampoline NOG STEEDS op het entry point staat en `.text` nog 100 % nul is: het spel
-   krijgt zijn entry point nooit terug en de pakker begint nooit. Onder de gesloten kern wordt de
-   trampoline tussen 8,0 en 10,0 teruggezet, en pas daarna loopt de pakker (`.text` 11,2 % nul) en
-   springt het aantal threads van 1 naar 15 en 21.
+3. **Het verschil zit in waar de aanhechtingsfase eindigt.** Onder onze kern sterft het proces op
+   6,3 s; op de laatste bemonsterde momenten daarvoor (3,0 / 3,5 / 4,0) staat de trampoline nog op
+   het entry point en is `.text` nog 100 % nul. Onder de gesloten kern wordt de trampoline tussen
+   8,0 en 10,0 teruggezet, en pas daarna loopt de pakker (`.text` 11,2 % nul) en springt het aantal
+   threads van 1 naar 15 en 21.
+
+**CORRECTIE (2026-10-12): "nooit teruggezet" is NIET vol te houden.** Mijn bemonstering had een gat:
+de momenten waren 3,0 / 3,5 / 4,0 en daarna pas 6,3 -- **2,3 s waarin niet gekeken is**, precies
+het venster waarin de terugzetting volgens een tweede meting valt. De juiste formulering is: *niet
+teruggezet binnen de bemonsterde momenten*.
+
+Er is een tweede, onafhankelijke meting van de laderbouwer met een trace IN `InitializeASI`:
+
+| | mijn bemonstering | zijn trace |
+|---|---|---|
+| komt `InitializeASI` terug? | niet waargenomen (maar 4,0 -> 6,3 s niet gekeken) | **ja** |
+| wanneer worden de entry-bytes teruggezet? | niet gezien | **2,36 s na het laden van de kern** (dus ongeveer 5,4 s als de kern op 3,0 s klaar was) |
+| wat gebeurt er daarna? | proces weg op 6,3 s | spel springt naar zijn entry point en beeindigt zichzelf **239 ms later** met 32 |
+
+Beide metingen kunnen tegelijk waar zijn: de terugzetting valt in mijn gat, en het spel gaat er kort
+daarna uit. Wat dat betekent voor de vraag: het is dus niet "onze init komt niet terug" maar **"onze
+init komt terug, het entry point wordt teruggezet, het spel springt naar zijn entry point -- en gaat
+er 239 ms later uit met 32, terwijl het onder de gesloten kern doorloopt."** Dat is een andere vraag,
+en een gerichtere.
+
+**De dichte bemonstering (nog te doen, bench nodig):** 2,5 tot 7 s met stappen van 0,5 s, met
+dezelfde 20-byte-vergelijking op het entry point:
+
+```bash
+RG_B0_MOMENTEN="2.5,3,3.5,4,4.5,5,5.5,6,6.5,7" bash b0-momenten.sh
+```
+
+Dan is te zien of mijn tijdlijn of zijn trace klopt, of dat beide kloppen en het verschil in de
+laadtijd van de kern zit. **En het venster dat er dan toe doet is die 239 ms:** blijft `.text` nul,
+wat doet het aantal threads, en welke bestanden opent het spel -- daar moet het verschil zitten.
 
 Onder onze kern blijft het aantal threads de hele tijd **1**: er wordt niets meer opgestart. Dat is
 geen "de kern patcht iets" en geen "de kern kent de game niet", maar **de aanhechtingsfase loopt
