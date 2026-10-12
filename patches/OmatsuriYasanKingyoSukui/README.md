@@ -35,7 +35,7 @@ Wat de game dan wél vraagt: niets.
 * Met de eigen lader: START
 * Zonder enige lader (alleen `wine <exe>`): **START**
 
-**Wat een start zonder TeknoParrot blokkeert:** Exitcode 8 nadat de game alle schijfletters op `rqrdlist.rqr` en `campaign*.bmp` heeft doorzocht — dat is de **schijfletter-herleiding** van de kern (`CreateFileA` → `.\TeknoParrot\<LETTER>\`), geen patch op de game.
+**Wat een start zonder TeknoParrot blokkeert:** Exitcode 8 op onze eigen kern. Eerder is dit toegeschreven aan het doorzoeken van alle schijfletters op `rqrdlist.rqr` en `campaign*.bmp` — de **schijfletter-herleiding** van de kern (`CreateFileA` → `.\TeknoParrot\<LETTER>\`), geen patch op de game. **Die toeschrijving is achterhaald door de trace:** met `WINEDEBUG=+file` opent het spelproces geen enkel bestand van zichzelf, dus zover komt het niet. Zie `[Status]` in `game.ini`.
 
 ## Waar de metingen staan
 
