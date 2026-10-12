@@ -415,6 +415,20 @@ te gebruiken in plaats van een eigen implementatie verdwijnt dat gat vanzelf.
 Netto: van de 173 exports hoeven we er dus **39** zelf te maken in plaats van 161. Narekenen:
 `re/_glutvergelijk.sh`.
 
+**En die 39 zijn verder te splitsen, zodat het echte werk klein wordt** (tweede meting,
+`re/_ucall-check.sh`):
+
+| soort | aantal | wat het is |
+|---|---|---|
+| `*Ucall`-wikkel om een functie die onze libglut **al heeft** | **28** | mechanisch: één vorm, 28 keer |
+| `*Ucall`-wikkel waarvan wij de basis ook niet hebben | **3** | hoort bij de drie nieuwe callbacks hieronder |
+| float-variant van een functie die wij hebben (`glutStrokeLengthf`, `glutStrokeWidthf`) | **2** | mechanisch |
+| **echt nieuwe callbacks**: `glutAppStatusFunc`, `glutInitContextFunc`, `glutPositionFunc` | **3** | klein, maar nieuw werk -- en elk heeft ook een `*Ucall`-variant |
+| **echt nieuwe setters**: `glutSetVertexAttribCoord3`, `Normal`, `TexCoord2` | **3** | klein |
+
+Dus: **30 mechanische wikkels** en **6 kleine nieuwe functies**. Dat is het verschil tussen "161 namen
+namaken" en een middag werk.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
