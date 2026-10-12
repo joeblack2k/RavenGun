@@ -932,6 +932,30 @@ en dat is precies de aanname die niet klopt.
 `0x00010000`. En let op de volgorde: `laad_needed()` moet gedraaid hebben voordat deze ronde loopt,
 anders is `rg_libs` nog leeg.
 
+#### De checklist voor de COPY-fix: 16 van 64 sloten moeten niet-nul worden (2026-10-12)
+
+De fix is één regel, maar de vraag "is hij goed" verdient meer dan twee steekproeven. Daarom heb ik voor
+**alle 64** COPY-symbolen opgeschreven wat er in de gast-kopie hoort te staan:
+`docs/research/copy-verwacht-GoGoStrike.tsv` (commit `3b26e72`), met per symbool het gastadres, het
+object in liballeg, de bestandswaarde, eventuele verplaatsingen op dat object, en de verwachte uitkomst.
+
+| | |
+|---|---|
+| COPY-symbolen in de gast | **64** |
+| daarvan met een **niet-nul** verwachte waarde | **16** |
+| daarvan met een **na-verplaatsing**-waarde nodig | **2** -- `font` (`R_386_32 -> _default_font`) en `palette_color` (`R_386_32 -> 0xc9260`) |
+| de overige 14 niet-nul gevallen | gewone bestandswaarden, o.a. `_cos_tbl` `0x00010000`, `_sqrt_table` `0x103f02d4`, `_mask_mmx_16` `0x07e0001f`, `_rgb_*_shift_*` |
+
+**Dit is de checklist.** Na de fix moeten die 16 sloten hun waarde hebben en de andere 48 nul blijven
+-- met één bekende uitzondering: `_mouse_type` wordt tijdens het draaien overschreven door liballeg
+(gemeten: `0x4c505332`, niet de bestandswaarde `0xffffffff`). Wie de fix controleert, kan dus in één
+ronde alle 64 sloten natrekken in plaats van twee, en ziet meteen of er *deels* gekopieerd wordt.
+
+**En de twee na-verplaatsing-gevallen zijn precies de lastige.** Ze laten zien waarom de volgorde
+uitmaakt: de kopie mag pas gebeuren als liballeg zijn eigen `R_386_32` heeft toegepast. Voor de andere 14
+maakt de volgorde niet uit -- en dat is ook een nuttige wetenschap, want als juist die 14 kloppen en
+`font` niet, dan zit de fout in de volgorde en niet in de opzoeking.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
