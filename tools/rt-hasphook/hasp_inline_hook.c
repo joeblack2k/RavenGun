@@ -723,6 +723,27 @@ static struct hh_adres *hh_adres_zoek(const char *naam)
     return NULL;
 }
 
+/* Elk adres in de lijst met deze naam, ook als het is afgekeurd. Alleen voor de rapportage: de
+   aanhaakroute hierboven gebruikt hh_adres_zoek(), dat uitsluitend goedgekeurde adressen geeft. */
+static struct hh_adres *hh_adres_zoek_ruw(const char *naam)
+{
+    int i;
+    for (i = 0; i < hh_adres_n; i++)
+        if (strcmp(hh_adreslijst[i].naam, naam) == 0)
+            return &hh_adreslijst[i];
+    return NULL;
+}
+
+/* De reden zonder het "AFGEWEZEN: "-voorvoegsel, zodat de samenvatting niet "afgekeurd: AFGEWEZEN"
+   zegt. De regel in het keuringsblok hierboven houdt het voorvoegsel wel. */
+static const char *hh_reden_kort(const struct hh_adres *a)
+{
+    const char *p = a->reden;
+    if (!a->geldig && strncmp(p, "AFGEWEZEN: ", 11) == 0)
+        return p + 11;
+    return p;
+}
+
 /* De adreslijst opzoeken: expliciet via de omgeving, anders naast deze bibliotheek. */
 static int hh_vind_adreslijst(void)
 {
@@ -1112,6 +1133,19 @@ static const char *hh_sym_naam(size_t i)
     return hh_strtab + no;
 }
 
+/* Staat deze naam in de dynsym van het spel, ongeacht of hij bruikbaar was? Alleen voor de
+   rapportage: de aanhaakroute gebruikt hh_haak_alles(), dat op shndx en st_value let. */
+static int hh_naam_in_dynsym(const char *naam)
+{
+    size_t i;
+    for (i = 0; i < hh_sym_n; i++) {
+        const char *n = hh_sym_naam(i);
+        if (n && strcmp(n, naam) == 0)
+            return 1;
+    }
+    return 0;
+}
+
 static void hh_koppel_emulator(void)
 {
     hh_emul_hasp_login = (int (*)(unsigned, const char *, void **))hh_emul_sym("hasp_login");
@@ -1266,27 +1300,42 @@ static void hh_haak_alles(void)
     }
 }
 
-/* Welke doelen zijn niet aangehaakt, en waarom niet? */
+/*
+ * Welke doelen zijn niet aangehaakt, en waarom niet? Deze drie gevallen moeten uit elkaar blijven,
+ * want juist deze samenvatting leest iemand die een benchrun uitzoekt:
+ *   1. niet in de dynsym en niet in de adreslijst;
+ *   2. wel in de adreslijst, maar bij de keuring afgewezen -- met de reden erbij;
+ *   3. wel aangehaakt (die komt hier niet langs).
+ * Daarnaast twee gevallen die anders weer een verkeerd beeld geven: een adres dat goedgekeurd is
+ * maar toch niet aangehaakt raakte, en een naam die wel in de dynsym staat maar daar onbruikbaar was.
+ */
 static void hh_meld_ontbrekend(void)
 {
     const size_t doelen_n = sizeof(hh_doelen) / sizeof(hh_doelen[0]);
     size_t d, i;
     int n = 0;
     for (d = 0; d < doelen_n; d++) {
+        const char *naam = hh_doelen[d].naam;
+        struct hh_adres *ruw = hh_adres_n ? hh_adres_zoek_ruw(naam) : NULL;
         int gehaakt = 0;
         for (i = 0; i < (size_t)hh_haak_n; i++)
-            if (!strcmp(hh_haken[i].naam, hh_doelen[d].naam)) {
+            if (!strcmp(hh_haken[i].naam, naam)) {
                 gehaakt = 1;
                 break;
             }
         if (gehaakt)
             continue;
-        if (hh_adres_n && !hh_adres_zoek(hh_doelen[d].naam))
-            hh_say("  niet aangehaakt: %-22s (niet in de dynsym en niet in de adreslijst)",
-                   hh_doelen[d].naam);
+        if (ruw && !ruw->geldig)
+            hh_say("  niet aangehaakt: %-22s (in de adreslijst maar afgekeurd: %s)", naam,
+                   hh_reden_kort(ruw));
+        else if (ruw)
+            hh_say("  niet aangehaakt: %-22s (in de adreslijst en goedgekeurd, maar het aanhaken "
+                   "lukte niet; zie het logboek)", naam);
+        else if (hh_naam_in_dynsym(naam))
+            hh_say("  niet aangehaakt: %-22s (staat in de dynsym, maar was daar niet bruikbaar; "
+                   "zie het logboek)", naam);
         else
-            hh_say("  niet aangehaakt: %-22s (geen naam in de dynsym en geen geldig adres)",
-                   hh_doelen[d].naam);
+            hh_say("  niet aangehaakt: %-22s (niet in de dynsym en niet in de adreslijst)", naam);
         n++;
     }
     hh_say("totaal aangehaakt: %d van %d; niet aangehaakt: %d", hh_haak_n, (int)doelen_n, n);
