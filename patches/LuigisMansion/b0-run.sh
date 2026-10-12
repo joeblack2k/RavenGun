@@ -75,13 +75,26 @@ let_op(){ printf '\033[33m!!\033[0m %s\n' "$*"; }
 fout() { printf '\033[31mFOUT\033[0m %s\n' "$*" >&2; }
 
 # ---------------------------------------------------------------- 0. veiligheid
+# LET OP: `pgrep -f` matcht de HELE commandoregel, en die van ONZELF (of van de ssh-sessie
+# waarin dit script loopt) bevat het pad .../runtime/TeknoParrotUi-2.0.0.130-linux-x64/... .
+# Zonder uitsluiting weigert het script dus op zijn eigen aanroep -- dat is precies wat er
+# gebeurde. Daarom eerst onze eigen pid en al zijn voorouders, en die overslaan.
+EIGEN=""
+_p=$$
+while [[ "${_p:-0}" -gt 1 ]]; do
+  EIGEN+="$_p "
+  _p=$(awk '{print $4}' "/proc/$_p/stat" 2>/dev/null)
+  [[ -z "${_p:-}" ]] && break
+done
 AAN=""
 for pat in 'Game\.exe' 'VACUUM\.exe' 'OpenParrotLoader' 'BudgieLoader' 'TeknoParrotUi' 'TeknoMacaw' 'gamescope' 'wineserver' 'rg-jvsbridge' 'pipehelper'; do
-  HIT=$(pgrep -f "$pat" 2>/dev/null || true)
-  [[ -n "$HIT" ]] && AAN+="  $pat -> $(printf '%s ' $HIT)"$'\n'
+  for HIT in $(pgrep -f "$pat" 2>/dev/null || true); do
+    [[ " $EIGEN " == *" $HIT "* ]] && continue
+    AAN+="  $pat -> $HIT  $(tr '\0' ' ' < "/proc/$HIT/cmdline" 2>/dev/null | cut -c1-90)"$'\n'
+  done
 done
 if [[ -n "$AAN" ]]; then fout "de bench is NIET vrij; deze bisectie start niets."; printf '%s' "$AAN"; exit 3; fi
-zeg "bench vrij"
+zeg "bench vrij (eigen procesboom $EIGEN uitgesloten)"
 [[ -f "$KERN" ]] || { fout "gesloten kern niet gevonden: $KERN"; exit 1; }
 [[ -f "$OPC/OpenParrot64.dll" ]] || { fout "onze kern niet gevonden"; exit 1; }
 [[ -f "$B0/leeg.dll" && -f "$B0/leeg0.dll" ]] || { fout "B0-DLL's ontbreken: draai b0-bouw.sh"; exit 1; }

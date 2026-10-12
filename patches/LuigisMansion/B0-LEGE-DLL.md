@@ -2,14 +2,14 @@
 
 RavenGun, 2026-10-12. Uitgevoerd op de Deck, alleen-lezen op de NAS, geen commit.
 Script: `b0-run.sh`. DLL's: `b0-bouw.sh` -> `~/.local/share/ravengun/b0/{leeg,leeg0}.dll`.
-Ruwe uitvoer: `/tmp/b0-luigi-eind/` (de geldige reeks) en `/tmp/b0-luigi-hermeting/` (de eerste,
-deels ongeldige).
+Ruwe uitvoer: `/tmp/b0-luigi-nul/` (run 0 + het debug-paar), `/tmp/b0-luigi-eind/` (a t/m d),
+`/tmp/b0-luigi-hermeting/` (de eerste, deels ongeldige reeks).
 
-## De vraag
+## Het antwoord in een regel
 
-Het spel sterft met exitcode 32 op ONZE kern en op een LEGE DLL, terwijl de GESLOTEN kern leeft.
-Is dat een aanhechtingsprobleem, of is 32 de eigen reactie van het spel op zijn omgeving -- en
-levert de gesloten kern dus iets dat het spel nodig heeft om te blijven leven?
+**Het spel geeft exitcode 32 OOK ZONDER ENIGE KERN.** 32 is dus de eigen reactie van het spel op
+zijn omgeving. "Onze kern -> 32" en "een lege DLL -> 32" zijn daarom GEEN bewijs over aanhechting.
+De enige vraag die overblijft: wat levert de GESLOTEN kern dat het spel laat leven?
 
 ## De runs
 
@@ -23,8 +23,8 @@ levert de gesloten kern dus iets dat het spel nodig heeft om te blijven leven?
 
 ## Vooraf opgeschreven uitkomsten
 
-* (0) geeft 32 -> 32 is de EIGEN reactie van het spel; "onze kern -> 32" en "lege DLL -> 32"
-  zijn dan GEEN bewijs over aanhechting. De vraag wordt: wat levert de gesloten kern?
+* (0) geeft 32 -> 32 is de EIGEN reactie van het spel; (b) en (c) zijn dan geen bewijs over
+  aanhechting, en de vraag wordt: wat levert de gesloten kern? **<- dit is de uitkomst geworden.**
 * (0) leeft -> de aanhechting is wel de variabele en (c) is beslissend.
 * (a) sterft -> de OPSTELLING is fout; alle andere runs zijn ongeldig. STOP.
 * (c) LEEFT -> de aanhechting is het probleem niet; onze kern doet iets dat het spel merkt.
@@ -33,123 +33,139 @@ levert de gesloten kern dus iets dat het spel nodig heeft om te blijven leven?
 
 ---
 
-## 1. De opstelling: wat er fout was, en waarom dat een les is
+## 1. De uitkomsten -- met de kern die launch-direct werkelijk gebruikte
 
-De EERSTE poging stierf ook met de GESLOTEN kern: exitcode **5** (`ERROR_ACCESS_DENIED`) na
-11,5 s, met `winedbg.exe` in de modulelijst en `d3d11.dll`/`dxgidebug.dll` geladen. Dat is per de
-vooraf opgeschreven regel een fout in de OPSTELLING, niet in de kern. Vier verschillen met de
-bewaarde werkende run (`/tmp/rg-start3-LuigisMansion.log`, 11:13):
+| run | kern (sha256, uit het log van launch-direct) | exitcode | CreateFileW | uniek | eigen `Data/DataGlobal` |
+|---|---|---|---|---|---|
+| 0-zonder-kern | geen kern | **32** | 1034 | 51 | **0** |
+| a-origineel | `f5c7532d` = gesloten kern | **124** = liep nog bij de limiet | 3736 | 1089 | **393** |
+| b-onze-kern | `fe2ecf8c` = `OpenParrot64.dll` | 32 | 77 | 16 | 0 |
+| c-lege-dll | `7054e9d8` = `leeg.dll` | 32 | 66 | 14 | 0 |
+| d-lege-dll-0 | `1467bbee` = `leeg0.dll` | 32 | 66 | 14 | 0 |
+| dbg-origineel | `f5c7532d` = gesloten kern | **124** | -- | -- | -- |
+| dbg-onze | `fe2ecf8c` = onze kern | 32 | -- | -- | -- |
+
+(a) en `dbg-origineel` zijn de enige twee die leven. Run (0) sterft na **1,5 s** met 1 thread;
+onze kern rekt dat op tot ongeveer 25 s; de gesloten kern komt voorbij de 45 s. Elke kern die je
+in het proces zet verlengt het leven dus, maar alleen de gesloten kern komt erdoor.
+
+(a) laadt zijn eigen data: `../../DataGlobal/EN/Data/Model/chara/EN_bo_KingBoo/motion/...` en
+honderden van zulke paden. (0), (b), (c) en (d) openen NUL eigen databestanden; hun 66-1034
+`CreateFileW`-regels zijn systeembestanden (`stdole2.tlb`, `uiautomationcore.dll`,
+`teknoparrot.ini`), dus OLE- en GUI-initialisatie.
+
+## 2. Waarom de aanhechting niet de verklaring is
+
+Met (0) op 32 is de vraag verschoven. Wat het debug-paar (nu beide geldig) verder laat zien:
+
+| | modules die alleen deze kern in het spel laadt |
+|---|---|
+| GESLOTEN kern | `quartz.dll`, `qasf.dll`, `wmvcore.dll`, `winegstreamer.dll`, `msvfw32.dll`, `msdmo.dll`, `mmdevapi.dll`, `dsound.dll`, `d3d11ref.dll`, `dxgidebug.dll`, zes `api-ms-win-core-*` |
+| ONZE kern | `d3d8.dll`, `mscoree.dll` |
+
+De gesloten kern is de enige die het spel tot het DirectShow/WMV-filmpad, de audio-modules en de
+D3D11-referentierasterizer krijgt. Dat sluit aan op wat het project al weet (zonder de WMV-plug-ins
+sluit de game af bij de eerste film), maar onze runs hadden `GST_PLUGIN_PATH` net zo goed gezet --
+dit is dus een gevolg van langer leven, niet zonder meer de oorzaak.
+
+## 3. De hypothese "de gesloten kern heeft een Luigi-tak" is in de binary niet terug te vinden
+
+Gezocht in beide kernen, op naam EN op de drie CRC-vormen als little-endian dword:
+
+| | `TeknoParrot64.dll` (56.261.288 B, 91.172 leesbare strings) | `OpenParrot64.dll` |
+|---|---|---|
+| `Luigi` | 0 | 1 |
+| `LMAIO`, `SegaNu`, `BLOCKING`, `shared-` | 0 | 0 |
+| dword `0xd3dc9603` | **0** | **1** (offset 492533) |
+| dword `0x573d704b`, `0xfc9d6556` | 0 | 0 |
+
+`BUILDINFO.txt` noemt `0005-luigismansion-com-block.patch` (1 treffer), dus de huidige build heeft
+de Luigi-case. Onze kern herkent de game dus wel en neemt de tak die alleen COM blokkeert. De
+gesloten kern bevat geen Luigi-naam en geen van de drie CRC-vormen -- en de string
+`BLOCKING LUIGI COM PORT` waarop patch 0005 is gebaseerd staat er ook niet in.
+
+**Voorbehoud:** de CRC-tabel kan obfuscated of berekend zijn, en het project heeft ook de cores
+1.0.0.3762 en 1.0.0.3763 in huis terwijl de runtime 1.0.0.3761 is, dus de decompilatie waar patch
+0005 uit komt kan van een andere versie zijn. Maar met de binary die hier draait is de hypothese
+"de gesloten kern heeft een Luigi-specifieke tak" niet houdbaar zoals hij was.
+
+Wat er dan overblijft: **de gesloten kern levert iets algemeens dat het spel nodig heeft, en wij
+niet.** Niet "onze aanhechting stoort iets" en niet "de gesloten kern kent de game".
+
+## 4. De opstelling: wat er fout was, en waarom dat een les is
+
+De EERSTE poging stierf ook met de GESLOTEN kern: exitcode **5** (`ERROR_ACCESS_DENIED`) na 11,5 s,
+met `winedbg.exe` in de modulelijst. Dat is per de vooraf opgeschreven regel een fout in de
+OPSTELLING. Vier verschillen met de bewaarde werkende run (`/tmp/rg-start3-LuigisMansion.log`, 11:13):
 
 | | werkende run (11:13) | mijn eerste poging |
 |---|---|---|
 | WINEPREFIX | `~/.local/share/TeknoParrotUI/prefixes/shared/wine` | `~/.local/share/ravengun/prefixes/shared/wine` |
 | werkmap van de LADER | `.../runtime/TeknoParrotUi-2.0.0.130-linux-x64` | `.../views/LuigisMansion/exe/x64` |
-| hulpketen | `pipehelper.exe TeknoParrot_JVS ... TeknoParrot_JvsState 64 Z:\dev\shm\TeknoParrot_JvsState`, `shm mirror active`, `TP_LAUNCH_SESSION_ID` | geen van beide |
+| hulpketen | `rg-jvsbridge`/`pipehelper.exe ... TeknoParrot_JvsState 64 Z:\dev\shm\TeknoParrot_JvsState`, `shm mirror active`, `TP_LAUNCH_SESSION_ID` | geen van beide |
 | display | `DISPLAY=:0` | geen DISPLAY (kale ssh-sessie) |
 
-De prefix is sindsdien verhuisd (`resolve_prefix`: "onze eigen gedeelde prefix onder
-`~/.local/share/ravengun/prefixes/`, voorheen onder `TeknoParrotUI/prefixes`"), dus het verschil
-is nu kleiner dan het lijkt -- maar de andere drie zijn echt.
-
-**De les, en de oplossing die het probleem helemaal wegnam: doe de opstelling niet zelf na.**
-Laat de bestaande route hem zetten en verwissel alleen de kern:
+**De les: doe de opstelling niet zelf na.** Laat de bestaande route hem zetten en verwissel alleen
+de kern:
 
 ```bash
 python3 scripts/launch-direct.py LuigisMansion --run
 ```
 
-`launch-direct.py` zet prefix, werkmap van de lader, hulpketen (`rg-jvsbridge` +
-`TP_LAUNCH_SESSION_ID`) en omgeving goed. De kern is niets anders dan `argv[1]` van de lader
-(en de lader doet daar `+ ".dll"` achter), dus de enige variabele in deze bisectie is de INHOUD
-van die ene DLL. Dat is precies een variabele per run.
+De kern is niets anders dan `argv[1]` van de lader (die doet er `+ ".dll"` achter), dus de enige
+variabele per run is de INHOUD van die ene DLL. Plus headless gamescope voor de display. Daarmee
+leeft (a) en is de bisectie geldig.
 
-## 2. Een fout in de eerste hermeting, en de reparatie
+## 5. Drie fouten in mijn eigen gereedschap, en de reparaties
 
-De eerste hermeting (`/tmp/b0-luigi-eind`) had een fout in MIJN script, niet in de meting:
+1. **`herstel()` met een kleefvlag.** `[[ $TERUG -eq 1 ]] && return 0; TERUG=1` wordt maar een keer
+   waar, dus vanaf de tweede verwisseling zette het script de kern nooit meer terug. Run (d) en
+   beide debug-runs draaiden met de DLL van de vorige run, en de runtime bleef met ONZE kern
+   achter. Herstel is nu idempotent op het BESTAAN van de backup, en elke run controleert achteraf
+   de sha256 die `launch-direct.py` ZELF in zijn log schrijft tegen de DLL die wij bedoelden; klopt
+   dat niet, dan staat er `GELDIG NEE`. De runtime is met de hand hersteld en gecontroleerd op
+   `f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28`.
+2. **De bench-controle blokkeerde zichzelf.** `pgrep -f 'TeknoParrotUi'` matcht de hele
+   commandoregel, en mijn eigen ssh-aanroep eindigde op een pad met
+   `.../runtime/TeknoParrotUi-2.0.0.130-linux-x64/...`. Het script zag dus zijn eigen proces als
+   "de bench is bezet" en weigerde, met elke keer een nieuwe pid. Het bouwt nu eerst zijn eigen pid
+   plus alle voorouders en sluit die uit.
+3. **De bestandsteller zocht `Data/` met schuine streepjes** terwijl Wine backslashes schrijft,
+   en meldde daardoor altijd 0. Nu geteld op `CreateFileW L"..."`-paden met `Data(Global)?[\\/]`.
+   **IJkpunt op de ruwe trace van (a): 3736 CreateFileW-regels, 1089 unieke paden, 393 eigen
+   Data/DataGlobal-paden.** Een teller die 0 zegt moet dat eerst laten zien.
 
-```bash
-herstel() { [[ $TERUG -eq 1 ]] && return 0; TERUG=1; ... }   # FOUT
-```
+## 6. Een schrijfpad naar de NAS dat dicht moet
 
-Die vlag wordt maar een keer waar, dus vanaf de tweede verwisseling zette `herstel()` de kern
-nooit meer terug. Gevolg: run (d) en de twee debug-runs draaiden met de DLL van de vorige run, en
-de runtime bleef met ONZE kern achter in plaats van de gesloten kern.
+`views/LuigisMansion/exe/x64` is een symlink naar de NAS, en `teknoparrot.ini` daar (mtime
+2026-10-12 10:54) bevat `[Error] Unsupported Executable=... NEW CRC: D3DC9603!`. Die regel is door
+ONZE kern geschreven, op een moment dat patch 0005 nog niet bestond (0005 is van 12:20). Onze kern
+heeft dus naar de NAS geschreven. Hier is niets aan veranderd (alleen-lezen), maar het hoort dicht.
 
-**Reparaties:**
+## 7. Wat nog open is
 
-1. `herstel()` is nu idempotent op het BESTAAN van de backup in plaats van op een vlag.
-2. Elke run controleert ACHTERAF de sha256 die `launch-direct.py` ZELF in zijn logboek schrijft
-   (`kern (runtime): ... sha256 ...`) tegen de DLL die wij bedoelden. Klopt dat niet, dan schrijft
-   het verslag `GELDIG NEE`. Dat is de controle die deze fout zou hebben gevangen.
-3. De runtime is met de hand hersteld uit `TeknoParrot64.dll.b0-bewaard-403724`; de sha256 is
-   daarna gecontroleerd: `f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28`,
-   gelijk aan het origineel. Er staat geen backupbestand meer.
-4. De bestandsteller zocht `Data/` met SCHUINE streepjes terwijl de Wine-trace Windows-paden met
-   BACKSLASHES schrijft (`..\..\DataGlobal\EN\Data\...`). Hij meldde dus altijd 0. Nu telt hij
-   `CreateFileW L"..."`-paden en matcht op `Data(Global)?[\\/]`. **IJkpunt op de ruwe trace van
-   (a): 3736 CreateFileW-regels, 1089 unieke paden, 393 eigen Data/DataGlobal-paden.**
+1. **Wat de gesloten kern in het spel zet.** Geheugenvergelijk van het spelbeeld op hetzelfde vroege
+   moment onder beide kernen (`beeldcheck.py` voor de levenscheck, sudo). Zoek op de entry-point-
+   regio, de prologue van wat de pakker aanroept, en de plek waar het spel zijn I/O opzet.
+2. **Run (0) met `WINEDEBUG=+thread,+module`** om te zien wat het spel in die 1,5 s precies doet.
+3. **De aanroepen naar het spel toe vergelijken** in de eerste seconde van het nu geldige
+   debug-paar: schrijfacties, `VirtualProtect`, `CreateRemoteThread`, mappings.
+4. **B1-B3 zijn NIET meer de volgende stap.** Die ladder vroeg "wat van onze generieke kern stoort
+   het spel", en dat is met (0) op 32 niet meer de vraag. De vraag is nu: welke voorziening moet
+   onze eigen hook bieden die de gesloten kern blijkbaar biedt.
 
-## 3. De uitkomsten -- met de kern die launch-direct werkelijk gebruikte
-
-| run | kern (sha256, uit het log van launch-direct) | exitcode | CreateFileW | uniek | **eigen Data/DataGlobal** |
-|---|---|---|---|---|---|
-| a-origineel | `f5c7532d` = gesloten kern | **124** = liep nog bij de limiet | 3736 | 1089 | **393** |
-| b-onze-kern | `fe2ecf8c` = `OpenParrot64.dll` | 32 | 77 | 16 | **0** |
-| c-lege-dll | `7054e9d8` = `leeg.dll` | 32 | 66 | 14 | **0** |
-| d-lege-dll-0 | `1467bbee` = `leeg0.dll` | 32 | 66 | 14 | **0** |
-| dbg-origineel | `1467bbee` -- **ONGELDIJK**, moest `f5c7532d` zijn | 32 | 0 | 0 | 0 |
-| dbg-onze | `fe2ecf8c` | 32 | 0 | 0 | 0 |
-
-(a) is de enige run die leeft, en hij laadt zijn eigen data:
-`../../DataGlobal/EN/Data/Model/chara/EN_bo_KingBoo/motion/EN_bo_KingBoo_laugh_untethered.mot`
-en honderden van zulke paden.
-
-(b), (c) en (d) openen NUL eigen databestanden. Wat ze wel openen zijn 66-77 systeembestanden:
-`C:\windows\system32\stdole2.tlb`, `uiautomationcore.dll`, `teknoparrot.ini`. Dat is **OLE- en
-GUI-initialisatie**, geen speldata. Dat komt overeen met wat de laderbouwer meldde: het spel
-initialiseert (OLE, GUI, I/O-threads), sluit zijn I/O netjes af en gaat er met 32 uit.
-
-`(c)` en `(d)` doen dat met een DLL waarin GEEN ENKELE instructie van ons draait -- (d) is alleen
-maar gemapt.
-
-## 4. Wat dit wel en niet betekent
-
-**Wel:** met dezelfde route, dezelfde prefix, dezelfde hulpketen en dezelfde display is de
-GESLOTEN kern de enige die het spel laat leven. Onze kern en een lege DLL geven allebei exitcode
-32, en geen van beide raakt een eigen databestand aan.
-
-**Niet:** dit is nog geen bewijs dat 32 de eigen reactie van het spel is. Daarvoor ontbreekt run
-(0), waarin het spel ZONDER ENIGE kern start. (c) en (d) zijn een sterke aanwijzing in die
-richting -- er is geen code van ons actief -- maar er is wel een module bijgekomen, en dat is
-precies het verschil dat (0) wegneemt.
-
-**Dus:** de conclusie "(c) STERFT, dus elke in-process aanhechting struikelt over iets" wordt hier
-NIET getrokken. Zodra (0) meet, is de vraag of het aan de aanhechting ligt of aan wat de gesloten
-kern levert.
-
-## 5. Wat nog open is
-
-1. **Run (0): het spel zonder enige kern.** `bash b0-run.sh 0` (ongeveer 45 s). Dit is de
-   beslissende meting. Geeft (0) 32, dan is de volgende stap NIET de bisectieladder B1-B3 maar
-   het vergelijken van wat de gesloten kern doet: welke bestanden en mappings opent hij, welke
-   modules laadt hij in het spel, zet hij de JVS-pipe of het gedeelde geheugen op, en maakt hij
-   threads aan die de game nodig heeft. Gereedschap daarvoor is de WINEDEBUG-vergelijking.
-2. **Het debug-paar opnieuw**, nu met de kerncontrole: `bash b0-run.sh debug`. De huidige
-   `dbg-origineel` is ongeldig (hij draaide `leeg0`).
-3. **B1-B3** (onze kern met `jvsInit` dat meteen terugkeert, dan alleen de `CreateFileA/W`-haken,
-   dan zonder patch 0005) -- alleen zinvol als (0) LEEFT.
-
-## 6. Uitvoeren
+## 8. Uitvoeren
 
 ```bash
 bash b0-bouw.sh                 # de twee DLL's, in de MinGW-container
-bash b0-run.sh 0                # EERST: het spel zonder kern
+bash b0-run.sh 0                # het spel zonder kern
 bash b0-run.sh a                # de controle; moet 124 geven (leeft)
 bash b0-run.sh b c d            # de bisectie
 bash b0-run.sh debug            # de WINEDEBUG-vergelijking
 ```
 
-Het script weigert te starten als er een game, lader, wineserver of gamescope draait, start zelf
-een headless gamescope (het scherm van de eigenaar blijft vrij), zet de kern-DLL altijd terug en
-controleert dat, en veegt na elke run resten weg. Een orphan vergiftigt de volgende meting.
+Het script weigert te starten als er een game, lader, wineserver of gamescope draait (zonder zijn
+eigen procesboom mee te tellen), start zelf een headless gamescope zodat het scherm van de eigenaar
+vrij blijft, zet de kern-DLL altijd terug en controleert dat met sha256, en veegt na elke run
+resten weg. Een orphan vergiftigt de volgende meting.
 
