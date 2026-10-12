@@ -22,7 +22,7 @@ Kenmerk: een bestand dat precies `game` heet, en/of de `HASPE`-marker in dat bes
 
 | game | `game`-bestand | oordeel |
 |---|---|---|
-| **Target Terror Gold** | 32-bits i386, **HASPE-treffer** | **gepakt (HASPE)** |
+| **Target Terror Gold** | 32-bits i386; de HASPE-treffer bleek een **hardwaresymbool**, niet de lader-marker | **ongepakt** (correctie 2026-10-12) |
 | **Walking Dead** | 32-bits i386, **HASPE-treffers** | **gepakt (HASPE)** |
 | **Big Buck Hunter Pro** | 32-bits i386, geen HASPE | **ongepakt** |
 | **Big Buck Hunter Pro Home** | 32-bits i386, geen HASPE | **ongepakt** |
@@ -32,10 +32,20 @@ Kenmerk: een bestand dat precies `game` heet, en/of de `HASPE`-marker in dat bes
 | The House of the Dead 4 | idem | onbepaald |
 | Too Spicy | idem | onbepaald |
 
-**Waarom dit het belangrijkste deel is:** de gepakte klasse gaat hiermee van **vier naar zes**
-games. Target Terror Gold en Walking Dead zijn van hetzelfde soort als Jurassic Park, Galaga
-Assault en Pacman Chomp-Mania — precies de klasse waar onze eigen ELF-lader voor gebouwd wordt.
-De twee Big Buck Hunters zijn **ongepakt**, en dat is de makkelijkere helft.
+**Waarom dit het belangrijkste deel is:** de gepakte klasse gaat hiermee van **vier naar vijf**
+games: **Walking Dead** komt erbij, en die is van hetzelfde soort als Jurassic Park, Galaga Assault
+en Pacman Chomp-Mania — precies de klasse waar onze eigen ELF-lader voor gebouwd wordt.
+
+**Correctie op deze tabel (2026-10-12, na een tweede meting).** Target Terror Gold is **niet**
+gepakt. De HASPE-treffer kwam van een **hardwaresymbool** in het bestand, niet van de pakker-marker
+`PATCHED_WITH_HASPE_LINUX_LOADER_1.1`; die marker staat er niet in. Het bestand heeft **36**
+sectiekoppen, is niet gestript en heeft debug-informatie, het aantal symbolen uit `DT_HASH` is gelijk
+aan het einde van de tabel, en de PLT pusht echte relocatie-indexen. Het is dus een gewone ELF, net
+als de twee Big Buck Hunters. **Walking Dead is wél gepakt**: 807 `deadbeef`-stubs, `SHNUM = 0`, de
+marker aanwezig, en 701 naamloze entries (86 procent, het hoogste van alle games tot nu toe).
+
+**En `SHNUM = 0` bewijst op zichzelf niets:** de twee Big Buck Hunters hebben het ook, zonder enige
+pakking.
 
 **Eerlijke grens:** bij de vijf games met een shell-script als `game` meet de HASPE-telling het
 **script** en niet de echte binary. Of die gepakt zijn is dus nog niet vastgesteld.
