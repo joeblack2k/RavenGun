@@ -304,6 +304,11 @@ static int hh_vind_dynsym(void)
 /* ---------------------------------------------------------------- het spelbeeld in het geheugen */
 
 static uintptr_t hh_base;
+/* Het laagste PT_LOAD-adres van het beeld. Nodig om het laadadres (de bias) te kunnen
+   uitrekenen: bias = hh_base - hh_laag. Voor een ET_EXEC is de bias 0, voor een PIE is
+   hh_laag 0. Zonder dit onderscheid telt `hh_base + st_value` bij een ET_EXEC het
+   segmentadres dubbel. */
+static uint64_t hh_laag;
 
 /* Staat er een leesbare mapping van n bytes op a? */
 static int hh_bereik_leesbaar(uintptr_t a, size_t n)
@@ -442,6 +447,7 @@ static int hh_zoek_beeld(void)
             laag = hh_ph[i].p_vaddr;
     if (laag == ~(uint64_t)0)
         return 0;
+    hh_laag = laag;
 
     /* Geval 1: het hoofdprogramma is de game (LD_PRELOAD-route). */
     if (hh_hoofd_base_bekend && hh_is_spelbeeld_veilig(hh_hoofd_base + (uintptr_t)laag)) {
@@ -471,6 +477,273 @@ static int hh_zoek_beeld(void)
         }
     }
     fclose(f);
+    return 0;
+}
+
+/* ---------------------------------------------------------------- de adreslijst */
+
+/*
+ * De naam-route hierboven werkt alleen als de game zijn hasp_*-functies nog als dynsym-symbool
+ * heeft. Bij de Raw Thrills-games is dat niet zo: de HASP-cliënt zit statisch in het beeld en de
+ * namen zijn weg (gemeten: Halo's `game` heeft 220 dynsym-symbolen, nul daarvan met `hasp_`;
+ * Jurassic Park's `game` ook nul). Voor die games is er een tweede weg: een adreslijst PER GAME,
+ * in de patches-repo, die de ingangspunten noemt. De naam-route blijft de standaard en blijft
+ * werken; deze weg komt er alleen bij als het bestand bestaat.
+ *
+ * Het bestand wordt gevonden via RAVENGUN_HASP_ELF_ADRESLIJST, of anders als `hasp-haken.ini`
+ * naast deze bibliotheek. Zonder dat bestand verandert er niets.
+ *
+ * Formaat (ini-achtig, geen JSON-parser nodig):
+ *     # commentaar
+ *     game   = Halo              ; administratie, wordt alleen gelogd
+ *     arch   = x86_64
+ *     basis  = absoluut          ; absoluut (standaard) of beeld
+ *     hasp_login = 0xb2d630
+ *
+ * Er wordt NOOIT blind gepatcht. Elk adres moet in een PT_LOAD-segment vallen dat uitvoerbaar is
+ * (PF_X) en binnen p_filesz, en de bytes op dat adres moeten een herkenbare functieprologue zijn.
+ * Wijkt er iets af, dan meldt de hook dat luid en slaat het adres over. Dat vangt ook een adres af
+ * dat al door een andere hook is gepatcht (bijvoorbeeld halo.so van TeknoParrot): dan staan er
+ * geen prologue-bytes meer, en een tweede patch zou een ketting van twee vervangingen geven.
+ */
+
+#define HH_ADRES_MAX 32
+#define HH_REDEN_MAX 220
+
+struct hh_adres {
+    char naam[40];
+    uint64_t adres;
+    int geldig;
+    char reden[HH_REDEN_MAX];
+};
+
+static struct hh_adres hh_adreslijst[HH_ADRES_MAX];
+static int hh_adres_n;
+static int hh_adres_basis_beeld;   /* 0 = absoluut, 1 = ten opzichte van het laadadres */
+static char hh_adres_pad[4096];
+static uint64_t hh_adres_verwacht_grootte;   /* 0 = niet gecontroleerd */
+static uint64_t hh_adres_verwacht_ingang;    /* 0 = niet gecontroleerd */
+
+/* Een herkenbare functieprologue? Conservatief: liever afwijzen dan blind patchen. */
+static int hh_proloog_ok(const unsigned char *p, size_t n)
+{
+    if (n < 4)
+        return 0;
+#if defined(__x86_64__)
+    if (p[0] == 0x55 || p[0] == 0x53 || p[0] == 0x56 || p[0] == 0x57)
+        return 1;                                            /* push rbp/rbx/rsi/rdi */
+    if (p[0] == 0x41 && (p[1] == 0x54 || p[1] == 0x55 || p[1] == 0x56 || p[1] == 0x57))
+        return 1;                                            /* push r12..r15 */
+    if (p[0] == 0xf3 && p[1] == 0x0f && p[2] == 0x1e && p[3] == 0xfa)
+        return 1;                                            /* endbr64 */
+    if (p[0] == 0x48 && p[1] == 0x83 && p[2] == 0xec)
+        return 1;                                            /* sub rsp,imm8 */
+    if (p[0] == 0x48 && p[1] == 0x81 && p[2] == 0xec)
+        return 1;                                            /* sub rsp,imm32 */
+    if (p[0] == 0x48 && p[1] == 0x89 && p[2] == 0x5c && p[3] == 0x24)
+        return 1;                                            /* mov [rsp+x],rbx */
+#else
+    if (p[0] == 0x55 || p[0] == 0x53 || p[0] == 0x56 || p[0] == 0x57)
+        return 1;                                            /* push ebp/ebx/esi/edi */
+    if (p[0] == 0x83 && p[1] == 0xec)
+        return 1;                                            /* sub esp,imm8 */
+    if (p[0] == 0x81 && p[1] == 0xec)
+        return 1;                                            /* sub esp,imm32 */
+    if (p[0] == 0x8d && p[1] == 0x4c && p[2] == 0x24)
+        return 1;                                            /* lea ecx,[esp+x] */
+    if (p[0] == 0x8b && p[1] == 0xff)
+        return 1;                                            /* mov edi,edi (hotpatch) */
+#endif
+    return 0;
+}
+
+/* Leest de adreslijst. Geeft het aantal hasp_-regels terug (0 = niets bruikbaars). */
+static int hh_lees_adreslijst(const char *pad)
+{
+    FILE *f = fopen(pad, "r");
+    char regel[512];
+    if (!f)
+        return 0;
+    snprintf(hh_adres_pad, sizeof hh_adres_pad, "%s", pad);
+    hh_adres_n = 0;
+    hh_adres_basis_beeld = 0;
+    hh_adres_verwacht_grootte = 0;
+    hh_adres_verwacht_ingang = 0;
+    while (fgets(regel, sizeof regel, f)) {
+        char *p = regel, *naam, *waarde, *e;
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (*p == '#' || *p == ';' || *p == '\n' || *p == '\r' || *p == 0)
+            continue;
+        naam = p;
+        e = strpbrk(p, "=:\t \n");
+        if (!e)
+            continue;
+        *e = 0;
+        waarde = e + 1;
+        while (*waarde == ' ' || *waarde == '\t' || *waarde == '=' || *waarde == ':')
+            waarde++;
+        e = waarde + strlen(waarde);
+        while (e > waarde && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' ' || e[-1] == '\t'))
+            *--e = 0;
+        if (!*naam || !*waarde)
+            continue;
+        if (!strcmp(naam, "basis")) {
+            hh_adres_basis_beeld = (strcmp(waarde, "beeld") == 0);
+            continue;
+        }
+        if (!strcmp(naam, "grootte")) {
+            hh_adres_verwacht_grootte = strtoull(waarde, NULL, 0);
+            continue;
+        }
+        if (!strcmp(naam, "ingang")) {
+            hh_adres_verwacht_ingang = strtoull(waarde, NULL, 0);
+            continue;
+        }
+        if (strncmp(naam, "hasp_", 5) != 0)
+            continue;                     /* game, arch, grootte, ingang: administratie */
+        if (hh_adres_n >= HH_ADRES_MAX) {
+            hh_say("adreslijst: meer dan %d regels; de rest wordt genegeerd", HH_ADRES_MAX);
+            break;
+        }
+        snprintf(hh_adreslijst[hh_adres_n].naam, sizeof hh_adreslijst[hh_adres_n].naam, "%s", naam);
+        hh_adreslijst[hh_adres_n].adres = strtoull(waarde, NULL, 0);
+        hh_adreslijst[hh_adres_n].geldig = 0;
+        snprintf(hh_adreslijst[hh_adres_n].reden, HH_REDEN_MAX, "nog niet gekeurd");
+        hh_adres_n++;
+    }
+    fclose(f);
+    return hh_adres_n;
+}
+
+/* In welk PT_LOAD-segment valt dit adres, en is dat uitvoerbaar? */
+static int hh_adres_in_segment(uint64_t adres, int *uitvoerbaar, uint64_t *seg)
+{
+    int i;
+    for (i = 0; i < hh_eh->e_phnum; i++) {
+        if (hh_ph[i].p_type != PT_LOAD)
+            continue;
+        if (adres >= hh_ph[i].p_vaddr && adres < hh_ph[i].p_vaddr + hh_ph[i].p_memsz) {
+            *uitvoerbaar = (hh_ph[i].p_flags & PF_X) ? 1 : 0;
+            *seg = hh_ph[i].p_vaddr;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Keurt elk adres en logt per regel wat het oordeel is. Patcht zelf niets. */
+static void hh_keur_adreslijst(void)
+{
+    int i;
+    if (!hh_adres_n) {
+        hh_say("adreslijst: geen hasp_-regels in %s", hh_adres_pad);
+        return;
+    }
+    hh_say("adreslijst: %d regel(s) uit %s (basis: %s)", hh_adres_n, hh_adres_pad,
+           hh_adres_basis_beeld ? "beeld" : "absoluut");
+    /* Eerst de twee goedkope versiecontroles. Klopt een daarvan niet, dan is dit de verkeerde
+       build van het spel en keuren we de HELE lijst af: een adres uit een andere versie is een
+       crash die niemand terugvindt. */
+    if (hh_adres_verwacht_grootte && hh_adres_verwacht_grootte != (uint64_t)hh_beeld_n) {
+        hh_say("adreslijst AFGEKEURD: grootte %llu in de lijst, maar het beeld is %zu bytes",
+               (unsigned long long)hh_adres_verwacht_grootte, hh_beeld_n);
+        for (i = 0; i < hh_adres_n; i++)
+            snprintf(hh_adreslijst[i].reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: verkeerde build (grootte %llu != %zu)",
+                     (unsigned long long)hh_adres_verwacht_grootte, hh_beeld_n);
+        return;
+    }
+    if (hh_adres_verwacht_ingang && hh_adres_verwacht_ingang != (uint64_t)hh_eh->e_entry) {
+        hh_say("adreslijst AFGEKEURD: ingang 0x%llx in de lijst, maar het beeld heeft 0x%llx",
+               (unsigned long long)hh_adres_verwacht_ingang,
+               (unsigned long long)hh_eh->e_entry);
+        for (i = 0; i < hh_adres_n; i++)
+            snprintf(hh_adreslijst[i].reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: verkeerde build (ingang 0x%llx != 0x%llx)",
+                     (unsigned long long)hh_adres_verwacht_ingang,
+                     (unsigned long long)hh_eh->e_entry);
+        return;
+    }
+    for (i = 0; i < hh_adres_n; i++) {
+        struct hh_adres *a = &hh_adreslijst[i];
+        unsigned char bytes[16];
+        uint64_t seg = 0, off;
+        int x = 0;
+        if (a->adres == 0) {
+            snprintf(a->reden, HH_REDEN_MAX, "AFGEWEZEN: adres is 0");
+            continue;
+        }
+        if (!hh_adres_in_segment(a->adres, &x, &seg)) {
+            snprintf(a->reden, HH_REDEN_MAX, "AFGEWEZEN: valt in geen PT_LOAD-segment van het beeld");
+            continue;
+        }
+        if (!x) {
+            snprintf(a->reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: segment 0x%llx is niet uitvoerbaar (PF_X ontbreekt)",
+                     (unsigned long long)seg);
+            continue;
+        }
+        off = hh_v2o(a->adres);
+        if (off == 0) {
+            snprintf(a->reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: wijst naar het begin van het bestand (ELF-kop), geen functie");
+            continue;
+        }
+        if (off + HH_PATCH_LEN > hh_beeld_n) {
+            snprintf(a->reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: valt buiten p_filesz (staat niet in het bestand)");
+            continue;
+        }
+        memcpy(bytes, hh_beeld + off, sizeof bytes);
+        if (!hh_proloog_ok(bytes, sizeof bytes)) {
+            snprintf(a->reden, HH_REDEN_MAX,
+                     "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen prologue "
+                     "(mogelijk al door een andere hook gepatcht)",
+                     bytes[0], bytes[1], bytes[2], bytes[3]);
+            continue;
+        }
+        a->geldig = 1;
+        snprintf(a->reden, HH_REDEN_MAX,
+                 "GELDIG: segment 0x%llx (R+X), bestand 0x%llx, prologue %02x %02x %02x %02x",
+                 (unsigned long long)seg, (unsigned long long)off,
+                 bytes[0], bytes[1], bytes[2], bytes[3]);
+    }
+    for (i = 0; i < hh_adres_n; i++)
+        hh_say("  %-22s 0x%08llx  %s", hh_adreslijst[i].naam,
+               (unsigned long long)hh_adreslijst[i].adres, hh_adreslijst[i].reden);
+}
+
+static struct hh_adres *hh_adres_zoek(const char *naam)
+{
+    int i;
+    for (i = 0; i < hh_adres_n; i++)
+        if (hh_adreslijst[i].geldig && strcmp(hh_adreslijst[i].naam, naam) == 0)
+            return &hh_adreslijst[i];
+    return NULL;
+}
+
+/* De adreslijst opzoeken: expliciet via de omgeving, anders naast deze bibliotheek. */
+static int hh_vind_adreslijst(void)
+{
+    const char *env = getenv("RAVENGUN_HASP_ELF_ADRESLIJST");
+    char pad[4096];
+    Dl_info info;
+    if (env && *env) {
+        if (hh_lees_adreslijst(env))
+            return 1;
+        hh_say("adreslijst %s is niet te lezen; alleen de naam-route", env);
+        return 0;
+    }
+    if (dladdr((void *)hh_lees_adreslijst, &info) && info.dli_fname && *info.dli_fname) {
+        const char *s = strrchr(info.dli_fname, '/');
+        if (s) {
+            snprintf(pad, sizeof pad, "%.*s/hasp-haken.ini", (int)(s - info.dli_fname),
+                     info.dli_fname);
+            if (hh_lees_adreslijst(pad))
+                return 1;
+        }
+    }
     return 0;
 }
 
@@ -921,49 +1194,102 @@ static struct hh_haak *hh_al_gehaakt(uintptr_t adres)
     return NULL;
 }
 
+/* Eén functie aanhaken. Doet niets als het adres al aangehaakt is of (nog) niet leesbaar is. */
+static void hh_haak_een(const char *naam, uintptr_t adres, void *vervanger)
+{
+    struct hh_haak *h;
+    if (hh_al_gehaakt(adres))
+        return;
+    if (hh_haak_n >= HH_MAX) {
+        hh_say("  geen ruimte meer in de hakenlijst");
+        return;
+    }
+    h = &hh_haken[hh_haak_n];
+    snprintf(h->naam, sizeof(h->naam), "%s", naam);
+    h->adres = adres;
+    h->vervanger = vervanger;
+    h->lengte = HH_PATCH_LEN;
+    if (!hh_bereik_leesbaar(h->adres, h->lengte)) {
+        hh_say("  %s op 0x%08lx is (nog) niet leesbaar; volgende ronde", naam,
+               (unsigned long)h->adres);
+        return;
+    }
+    hh_haak_n++;
+    hh_patch(h);
+    if (h->gezet)
+        hh_koppel_echt(naam, h->origineel);
+    else
+        hh_haak_n--;   /* niet aangehaakt: de lijst niet vervuilen */
+}
+
 static void hh_haak_alles(void)
 {
+    const size_t doelen_n = sizeof(hh_doelen) / sizeof(hh_doelen[0]);
     size_t i, d;
-    for (d = 0; d < sizeof(hh_doelen) / sizeof(hh_doelen[0]); d++) {
+
+    /* 1. De naam-route: de standaard, en het gedrag zoals het was. */
+    for (d = 0; d < doelen_n; d++) {
         for (i = 0; i < hh_sym_n; i++) {
             const char *naam = hh_sym_naam(i);
-            struct hh_haak *h;
             uintptr_t adres;
             if (!naam || strcmp(naam, hh_doelen[d].naam) != 0)
                 continue;
             if (hh_symtab[i].st_shndx == SHN_UNDEF || hh_symtab[i].st_value == 0)
-                break;
-            adres = hh_base + (uintptr_t)hh_symtab[i].st_value;
-            if (hh_al_gehaakt(adres))
                 break;
             if (hh_symtab[i].st_size != 0 && (size_t)hh_symtab[i].st_size < HH_PATCH_LEN) {
                 hh_say("  %s is maar %llu bytes; overgeslagen (patch is %d bytes)", naam,
                        (unsigned long long)hh_symtab[i].st_size, HH_PATCH_LEN);
                 break;
             }
-            if (hh_haak_n >= HH_MAX) {
-                hh_say("  geen ruimte meer in de hakenlijst");
-                break;
-            }
-            h = &hh_haken[hh_haak_n];
-            snprintf(h->naam, sizeof(h->naam), "%s", naam);
-            h->adres = adres;
-            h->vervanger = hh_doelen[d].vervanger;
-            h->lengte = HH_PATCH_LEN;
-            if (!hh_bereik_leesbaar(h->adres, h->lengte)) {
-                hh_say("  %s op 0x%08lx is (nog) niet leesbaar; volgende ronde", naam,
-                       (unsigned long)h->adres);
-                break;
-            }
-            hh_haak_n++;
-            hh_patch(h);
-            if (h->gezet)
-                hh_koppel_echt(naam, h->origineel);
-            else
-                hh_haak_n--;   /* niet aangehaakt: de lijst niet vervuilen */
+            /* Het laadadres (de bias) is hh_base - hh_laag, NIET hh_base: bij een ET_EXEC is de
+               bias 0 en zou `hh_base + st_value` het laagste segmentadres dubbel tellen
+               (gemeten: Halo hh_laag = 0x400000, Jurassic Park hh_laag = 0x08048000). */
+            adres = (uintptr_t)(hh_base - (uintptr_t)hh_laag) + (uintptr_t)hh_symtab[i].st_value;
+            hh_haak_een(naam, adres, hh_doelen[d].vervanger);
             break;
         }
     }
+
+    /* 2. De adres-route: alleen als er een gekeurde adreslijst is. Elk adres is in
+          hh_keur_adreslijst() al langs het segment en de prologue gehaald. */
+    if (!hh_adres_n)
+        return;
+    for (d = 0; d < doelen_n; d++) {
+        struct hh_adres *a = hh_adres_zoek(hh_doelen[d].naam);
+        uintptr_t adres;
+        if (!a)
+            continue;
+        adres = (uintptr_t)a->adres;
+        if (hh_adres_basis_beeld)
+            adres += (uintptr_t)(hh_base - (uintptr_t)hh_laag);
+        hh_haak_een(hh_doelen[d].naam, adres, hh_doelen[d].vervanger);
+    }
+}
+
+/* Welke doelen zijn niet aangehaakt, en waarom niet? */
+static void hh_meld_ontbrekend(void)
+{
+    const size_t doelen_n = sizeof(hh_doelen) / sizeof(hh_doelen[0]);
+    size_t d, i;
+    int n = 0;
+    for (d = 0; d < doelen_n; d++) {
+        int gehaakt = 0;
+        for (i = 0; i < (size_t)hh_haak_n; i++)
+            if (!strcmp(hh_haken[i].naam, hh_doelen[d].naam)) {
+                gehaakt = 1;
+                break;
+            }
+        if (gehaakt)
+            continue;
+        if (hh_adres_n && !hh_adres_zoek(hh_doelen[d].naam))
+            hh_say("  niet aangehaakt: %-22s (niet in de dynsym en niet in de adreslijst)",
+                   hh_doelen[d].naam);
+        else
+            hh_say("  niet aangehaakt: %-22s (geen naam in de dynsym en geen geldig adres)",
+                   hh_doelen[d].naam);
+        n++;
+    }
+    hh_say("totaal aangehaakt: %d van %d; niet aangehaakt: %d", hh_haak_n, (int)doelen_n, n);
 }
 
 /* ---------------------------------------------------------------- de kijker */
@@ -1071,6 +1397,7 @@ static int hh_breng_aan(void)
         return 0;
     hh_koppel_emulator();
     hh_haak_alles();
+    hh_meld_ontbrekend();
     n = hh_haak_n;
     if (n >= (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0]))) {
         hh_say("klaar (synchroon): %d functies aangehaakt", n);
@@ -1096,6 +1423,12 @@ static void hh_begin(void)
     if (!hh_vind_dynsym())
         return;
     hh_verzamel();
+    /* De adreslijst is de tweede weg, naast de naam-route. Zonder bestand verandert er niets;
+       met een bestand wordt elk adres eerst gekeurd en pas daarna gepatcht. */
+    if (hh_vind_adreslijst())
+        hh_keur_adreslijst();
+    else
+        hh_say("geen adreslijst; alleen de naam-route (dat is de standaard)");
     if (getenv("RAVENGUN_HASP_ELF_UIT")) {
         hh_say("RAVENGUN_HASP_ELF_UIT gezet: alleen gemeten, niets aangehaakt");
         return;
