@@ -697,6 +697,36 @@ er is, zijn **alle** gewiste namen te herstellen, niet 31.
 (`OPEN /proc/<pid>/mem MISLUKT: [Errno 3] No such process`), dus de GOT van de gast na resolutie
 hebben we nog niet. Dat is de volgende meting.
 
+#### De naamgeving zit in de dump, maar zonder verwijzingen ernaartoe (2026-10-12)
+
+Nadat de dump gelukt was, heb ik er read-only in gezocht (`re/_resolutietabel.py`, `re/_rva-tabel.py`).
+De uitkomst is zelf een aanwijzing:
+
+* De naamstrings zitten in **twee gebieden**: in de `rwxp`-regio tussen ongeveer `0x55xxxx` en
+  `0x59xxxx` (`malloc` op `0x00561da5`, `free` op `0x00561db9`, `memcpy` op `0x00561dc6`, `SDL_Init`
+  op `0x00569f27`, `glutInit` op `0x005747c1`, `glGetIntegerv` op `0x005739e2`), en in de `r-xp`-regio
+  (`fopen` op `0x013d95f0`, `getpid` op `0x013ad0e2`, `pthread_mutex_lock` op `0x0157ee76`).
+* **Er is geen enkele verwijzing naar die strings** -- niet als absoluut adres en niet als RVA
+  (`vaddr - 0x400000`). Nul treffers, voor alle tien getoetste namen. De tabel wijst de namen dus
+  **niet** aan: ze staan waarschijnlijk **inline** in records van vaste grootte.
+* Op `0x0055e000` staat een **tabel met stap `0x40`** waarvan de waarden in het naamgebied wijzen,
+  aflopend: `0x00579be0`, `0x00579ba0`, `0x00579b60`, `0x00579b20`, `0x00579ae0`, `0x00579aa0`.
+
+**De volgende stap, en die is precies:** het recordformaat vaststellen (staat er een naam inline op
+`0x00579be0`?), de tabel vinden die die records indexeert, en dan de beslissende toets: loopt die index
+**parallel aan de symboolindex van de gast**? Voor Galaga is de gast-`dynsym` 4977 entries en zijn de
+gewiste namen de indices **4719..4976** -- 258 stuks, aaneengesloten. Als de tabel 258 records heeft
+die met die reeks correleren, is dat de resolutietabel en zijn **alle** gewiste namen te herstellen in
+plaats van 31.
+
+Die analyse loopt nu bij de subagent die de dump gemaakt heeft; ik heb hem de gebieden, de adressen en
+de tabel met stap `0x40` gegeven zodat hij niet opnieuw hoeft te beginnen.
+
+**En de gast-dump is nog niet gelukt** (`OPEN /proc/<pid>/mem MISLUKT: No such process`). Dat is juist
+de meting die het zou bevestigen: de GOT van de gast **nadat** de lader zijn werk deed. Daar zie je
+letterlijk welk adres de lader in een naamloos slot schreef -- en met de naamgevingstabel erbij is dat
+de naam.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
