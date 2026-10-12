@@ -429,6 +429,34 @@ Netto: van de 173 exports hoeven we er dus **39** zelf te maken in plaats van 16
 Dus: **30 mechanische wikkels** en **6 kleine nieuwe functies**. Dat is het verschil tussen "161 namen
 namaken" en een middag werk.
 
+#### De lader springt naar de gast -- en de gast sterft op een `0xb750xxxx`-slot (2026-10-12)
+
+Na de correctie van de startstack (bouw 19:17) is de fout **verplaatst van de lader naar de gast**.
+Dat is de sprong vooruit waar het hele project op wachtte:
+
+```
+rg-elfloader: shim geladen: 4607 gast-symbolen in de globale scope
+rg-elfloader: geladen; spel ./game krijgt argv[0]=./game
+rg-elfloader: spring naar e_entry 0x81150a7 (esp 0xf7cf0e90, argc 1, envc 22, 17 auxv)
+
+Program received signal SIGSEGV
+#0  0xb7508f60 in ?? ()      <- geen geheugen; precies in het 0xb750xxxx-bereik
+#1  0x080890f9 in ?? ()      <- in het gastbeeld
+#2  0x0809f0df in ?? ()      <- in het gastbeeld
+#3  0x081150ca in ?? ()      <- vlak na de entry 0x81150a7
+#4  0x00000001
+```
+
+Alles wat de lader moet doen, doet hij nu: `PT_LOAD` mappen, de relocaties toepassen, de shim laden,
+de `DT_NEEDED`-bibliotheken laden, de startstack opbouwen (argc 1, envc 22, 17 auxv) en naar
+`e_entry` springen. **De gast loopt dus**, en sterft bij zijn eerste aanroep door een slot dat in het
+bestand al gevuld stond met `0xb7508f60` -- een adres uit het proces op de originele kast dat hier
+niet bestaat.
+
+**Daarmee is de voorspelling uit de hele analyse empirisch zichtbaar geworden**, en is dit de eerste
+concrete taak van fase 3: die voorgevulde sloten moeten naar **werkende** adressen wijzen. Narekenen:
+`re/_packed-gdb.sh` op de Deck.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
