@@ -70,6 +70,31 @@ een tabel die uit een **lopende ElfLdr2-run** geoogst wordt. `tools/rt-glfix/ana
 gedeeltelijk; het mat eerder de runtime-verdeling **269 nagebootst / 252 `msys-2.0.dll` /
 56 `opengl32.dll`**. Uitbreiden daarvan is de weg, niet een lader van nul.
 
+## `game` versus `game_original`: de ongebonden fase helpt niet voor de namen
+
+Van Jurassic Park en Pac-Man Chomp staat naast `game` ook een `game_original`. Dat leek de hoopvolle
+variant, want daar is de GOT nog **ongebonden**: in `game_original` van Jurassic Park staan alle 577
+slots op hun luie-PLT-beginwaarde `0x08xxxxxx` (`stub+6`), terwijl `game` ze op absolute
+`0xb7xxxxxx`-adressen uit een draaiend proces op de originele kast heeft staan.Het aantal
+sectiekoppen verschilt ook (2 tegen 0), en de entry verschuift mee.
+
+**Maar de importnamen zijn in beide bestanden even ver weg.** Gemeten met de symbooltabel bij
+meerdere bovengrenzen (12.000, 16.000, 20.000, 22.000, 25.000 en 40.000 symbolen), zodat zichtbaar is
+waar de tabel eindigt: voor Jurassic Park `game` én `game_original` is de uitkomst bij elke grens
+vanaf 20.000 gelijk en precies het aantal stubs — **105 met naam en 472 zonder, samen 577**. Beide
+bestanden hebben bovendien dezelfde `DT_SYMTAB` (`0x806e680`) en `DT_STRTAB` (`0x80b9bb0`).
+
+Dus: `game_original` bewaart de **ongebonden GOT**, niet de **namen**. Voor een lader is dat toch
+bruikbaar — met een ongebonden GOT hoef je geen vreemde absolute adressen meer terug te draaien, dus
+het is de schonere basisafbeelding — maar de 472 slots zonder naam blijven onoplosbaar zonder de
+tabel uit een lopende ElfLdr2-run. De twee ontbrekende bibliotheken (`libSDL-1.2.so.0`,
+`libglut.so.3`) zijn dus niet de enige en niet de grootste hindernis: zelfs met alle bibliotheken op
+hun plaats heeft 82 procent van de imports geen naam om aan te binden.
+
+Voor de volledigheid, en omdat het een grens van de methode is: bij Pac-Man Chomp groeit het aantal
+UND-symbolen mee met de bovengrens (647 bij 12.000, 2.386 bij 40.000), dus daar is het einde van de
+tabel zó niet gevonden en zijn die getallen onbruikbaar.
+
 ## Het verschil tussen Galaga en Jurassic Park zit niet in de pakker
 
 Allebei zijn ze gepakt, met dezelfde kenmerken. Wat de meting verklaart is de **`DT_NEEDED`-lijst**:
