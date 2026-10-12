@@ -34,3 +34,21 @@ dat kan **niet** tijdens de bench van de eigenaar. Zodra de bench vrij is, is di
 ## Kernbestanden
 `docs/rt-glfix.md` §6-7, `findings/games/JurassicPark/CRASH-OPLOSSING.md`, `patches/ELF-LADER-SPEC.md` r.37-92,
 `docs/research/elfldr2-injectie.md` r.23-78.
+
+## Bench-run 2026-10-12 (autonome ronde) — nieuwe bevinding, geparkeerd
+
+Getracete run (`WINEDEBUG=+seh`, 48 s, BudgieLoader + LD_AUDIT rt-glfix). Resultaat wijkt af van de docs:
+- **De rt-glfix-brug laadt niet op het 64-bit niveau:** `ld.so: librt-glfix.so cannot be loaded as audit
+  interface: wrong ELF class: ELFCLASS32; ignored`. De brug is 32-bits en wordt via `LD_AUDIT` in de 64-bit
+  wine-launcher geduwd, die hem weigert. Of hij alsnog in het 32-bit game-proces laadt is onzeker — de eerdere
+  "bedraad en werkt"-conclusie (uit de docs) wordt door de echte run tegengesproken.
+- **Geen `0x819c4d80`-crash gereproduceerd** in 48 s; alleen rt-glfix-single-steps (benign) en een los 64-bit
+  RPC-exception. De game is door mijn timeout gestopt ("exitcode gestopt"), leefde dus nog. Headless geen beeld
+  te zien.
+- **Contaminatie:** pre-flight vond al wine-`.exe`-orphans; de run is dus niet schoon.
+
+**Conclusie — geparkeerd als echte blocker.** JP vraagt meerdere dingen die niet autonoom/headless gaan:
+(1) de rt-glfix-ELFCLASS-kwestie uitzoeken (laadt de 32-bit audit-lib wel in het 32-bit game-proces?),
+(2) de tweede fout met een echte debugger (winedbg/gdb) i.p.v. een blinde +seh-run,
+(3) de tv om te zien of er beeld is. Alles serieel op een schone bench. Niet verder autonoom; terug naar de
+tractabelere taken (zoals de eigenaar vroeg: echte blockers parkeren en door).
