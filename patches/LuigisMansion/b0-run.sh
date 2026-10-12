@@ -281,7 +281,7 @@ doe_run0() {
   sed 's/^/    /' "$out.cmdline"
 
   set -m
-  ( cd "$WERKMAP" && env WINEPREFIX="$PFX" GST_PLUGIN_PATH="$GST" WINEDEBUG="-all,+file" \
+  ( cd "$WERKMAP" && env WINEPREFIX="$PFX" GST_PLUGIN_PATH="$GST" WINEDEBUG="${RG_B0_WINEDEBUG:--all,+file}" \
       DISPLAY="${DISPLAY:-}" WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
       timeout "$MAX" "$WINE" VACUUM.exe ) >"$out.log" 2>&1 &
   local pgid=$!
@@ -317,12 +317,12 @@ for r in "${WAT[@]}"; do
   case "$r" in
     0)     doe_run0 ;;
     a)     doe_run "a-origineel"  ""                      "-all,+file" ;;
-    b)     doe_run "b-onze-kern"  "$OPC/OpenParrot64.dll"  "-all,+file" ;;
-    c)     doe_run "c-lege-dll"   "$B0/leeg.dll"           "-all,+file" ;;
-    d)     doe_run "d-lege-dll-0" "$B0/leeg0.dll"          "-all,+file" ;;
+    b)     doe_run "b-onze-kern"  "$OPC/OpenParrot64.dll"  "${RG_B0_WINEDEBUG:--all,+file}" ;;
+    c)     doe_run "c-lege-dll"   "$B0/leeg.dll"           "${RG_B0_WINEDEBUG:--all,+file}" ;;
+    d)     doe_run "d-lege-dll-0" "$B0/leeg0.dll"          "${RG_B0_WINEDEBUG:--all,+file}" ;;
     debug)
-      doe_run "dbg-origineel" ""                       "+thread,+module"
-      doe_run "dbg-onze"      "$OPC/OpenParrot64.dll"  "+thread,+module"
+      doe_run "dbg-origineel" ""                       "${RG_B0_WINEDEBUG_DEBUG:-+thread,+module}"
+      doe_run "dbg-onze"      "$OPC/OpenParrot64.dll"  "${RG_B0_WINEDEBUG_DEBUG:-+thread,+module}"
       ;;
     *) fout "onbekende run '$r' (0 a b c d debug)"; exit 2 ;;
   esac

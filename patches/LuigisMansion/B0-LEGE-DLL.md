@@ -142,7 +142,65 @@ leeft (a) en is de bisectie geldig.
 ONZE kern geschreven, op een moment dat patch 0005 nog niet bestond (0005 is van 12:20). Onze kern
 heeft dus naar de NAS geschreven. Hier is niets aan veranderd (alleen-lezen), maar het hoort dicht.
 
-## 7. Wat nog open is
+## 7. COM1: het spel raakt de poort niet aan, met en zonder patch 0005
+
+De premisse van patch 0005 is onbewezen (zie Â§3), dus is de patch zelf getoetst met de pty-harnas
+op `dosdevices/com1` van de prefix die de werkende route gebruikt. De prefix is eerst voorverwarmd
+(de wineserver starten), anders zet Wine `com1..com32` terug op `/dev/ttyS*` en is de link weg
+voordat de game bestaat. Beide runs via `launch-direct.py --run`, headless gamescope, limiet 45 s.
+
+| run | kern | sha256 | exit | COM1-blokken | CreateFileW | eigen data |
+|---|---|---|---|---|---|---|
+| com1-zonder-0005 | onze kern zonder 0005 | `90df073c` | 32 | **0** | 86 | 0 |
+| com1-met-0005 | onze kern met 0005 | `fe2ecf8c` | 32 | **0** | 77 | 0 |
+
+De kern zonder 0005 is gebouwd met `b0-bouw-kern.sh` via `build-openparrot.sh --out`, dus de
+actieve build bleef ongemoeid (`fe2ecf8c` voor en na), en de nieuwe kern bevat de Luigi-CRC niet
+(0 treffers op `0x03 96 dc d3`).
+
+**Twee onafhankelijke instrumenten, en ze zijn het eens:**
+
+1. **De pty zelf.** De logger heeft aantoonbaar gedraaid: de kop met de banner, 33 s looptijd en de
+   afsluitregel `einde: 0 B van het spel, 0 B van ons`. Nul blokken van het spel.
+2. **De `+file`-trace**, die elke `CreateFileA/W` logt: 86 en 77 regels, waarvan **0 met COM in de
+   naam** en 0 unieke paden die op een poort lijken (`COM[0-9]`, `ttyS`, `ptmx`, `pts`).
+
+De poort stond dus open en was van ons, en de game heeft hem nooit aangeraakt. En de A/B zegt er
+iets bij: **0005 maakt voor deze game geen enkel meetbaar verschil** -- zelfde exitcode, zelfde
+30 s, zelfde nul eigen databestanden, zelfde nul poortactiviteit.
+
+**Gevolg: COM is de hefboom niet, en 0005 is een dood spoor.** Advies: laat de COM-blokkade
+vervallen (de detectie zelf, `GameID::LuigisMansion` met de CRC-case, is wel bewezen werkend en
+nuttig). Redenen: (a) de bewering waarop de blokkade rust is in deze build niet terug te vinden;
+(b) met en zonder maakt geen verschil; (c) hij blokkeert COM voor een game die COM niet gebruikt,
+dus hij beschermt niets en zou een toekomstige route waarin we de game juist een poort geven stil
+saboteren.
+
+## 8. Apparaatopsomming: onbeslist, en waarom dat geen "nul" is
+
+Omdat het spel `cfgmgr32.dll` en `hid.dll` laadt, is de volgende vraag of het zijn bord via
+SetupAPI/HID zoekt. Gemeten met `WINEDEBUG=-all,+setupapi,+hid,+cfgmgr32,+file` op drie runs:
+
+| run | exit | looptijd | setupapi-regels | hid-regels | `+file`-regels |
+|---|---|---|---|---|---|
+| 0-zonder-kern | 32 | 1,5 s | 6330 | 2472 | 1094 |
+| b-onze-kern | 32 | 30,0 s | **0** | **0** | 77 |
+| a-origineel (gesloten kern) | 124 | 39,2 s | **0** | **0** | 4474 (762 eigen datapaden) |
+
+De nul in de laatste twee kolommen is **geen bewijs dat het spel niet opsomt**: de setupapi- en
+hid-regels die er in run (0) wel zijn komen van Wine's EIGEN apparaatinfrastructuur (het opsommen
+van de `ROOT`-bus, en Wine's virtuele HID-apparaten met `vid 845e`), en die verschijnt in de
+andere twee runs niet omdat daar een al warme wineserver/hulpketen het apparaatwerk deed voordat
+mijn kanaal actief was. Dit is precies de valkuil "een leeg resultaat moet bewijzen dat het
+gezocht heeft", en dat bewijs ontbreekt hier. **Deze meting is dus onbeslist, niet negatief.**
+
+Wat WEL vaststaat, met een instrument dat aantoonbaar wel actief was: **geen enkele run opent ooit
+een `\\?\hid#...`-apparaatpad of een COM-poort** -- ook de gesloten kern niet, die leeft en 762
+eigen datapaden laadt. Het spel krijgt in dit venster dus geen apparaathandle, ook niet als het
+leeft. Daarmee is het leveren van een openbaar apparaat niet de verklaring, en blijft instrument A
+(de geheugenvergelijk) de volgende stap.
+
+## 9. Wat nog open is
 
 1. **Wat de gesloten kern in het spel zet.** Geheugenvergelijk van het spelbeeld op hetzelfde vroege
    moment onder beide kernen (`beeldcheck.py` voor de levenscheck, sudo). Zoek op de entry-point-

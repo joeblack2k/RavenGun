@@ -179,9 +179,8 @@ doe_run() {
   ld_sha=$(grep -a -oE 'kern \(runtime\): .* sha256 [0-9a-f]+' "$out.log" 2>/dev/null | head -1 | sed 's/.*sha256 //')
   [[ -n "$ld_sha" && "$ld_sha" != "$bedoeld" ]] && { geldig="NEE"; let_op "ONGELDIG: launch-direct gebruikte $ld_sha"; }
 
-  local rx blokken
-  rx=$(grep -c '<<< spel schrijft' "$log" 2>/dev/null || echo 0)
-  blokken=$(grep -oE '<<< spel schrijft\t[0-9a-f ]+' "$log" 2>/dev/null | wc -l)
+  local rx
+  rx=$(grep -ac '<<< spel schrijft' "$log" 2>/dev/null); rx=${rx:-0}
 
   {
     echo "kern           $variant"
