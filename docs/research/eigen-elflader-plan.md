@@ -232,6 +232,51 @@ zolang de gast op zijn vaste plaats staat (ET_EXEC op `0x08048000`). Dat is prec
 het hele ontwerp rust, maar het betekent wel dat de shim **per gast opnieuw gegenereerd** moet worden.
 Dat is één commando, dus dat is geen bezwaar -- het moet alleen niet vergeten worden.
 
+#### Fase 2 is gehaald: de native route start GoGoStrike (2026-10-12)
+
+De drie bekende hobbelen zijn één voor één weggehaald, met een meting per stap. Verslag:
+`docs/research/gogostrike-hobbel2.md`.
+
+| hobbel | oplossing | bewijs |
+|---|---|---|
+| geluid | eigen i386-OSS-stub in `tools/rg-oss-stub/`, geladen met `LD_PRELOAD` | `install_sound` slaagt; geen `/dev/dsp` meer in de strace |
+| MIT-SHM | `--unshare-ipc` **weglaten** in de sandbox | geen enkele X-foutregel meer; de droogloop telt de vlag 1x bij het origineel en 0x bij de kopie |
+| SRAM | eigen `--bind-rw S D` op een kopie van de launcher | `openat("/dev/w040101sram0", O_RDWR) = 17`, en in de proceskaart `rwxs ... /dev/w040101sram0` |
+
+**En daarmee zijn de criteria van fase 2 gehaald:**
+
+1. `bowling_usa` start via onze **eigen** route, zonder BudgieLoader en zonder Wine -- ja.
+2. Het proces is gezien **en draait nog**: toestand `R`, 776 -> 1178 CPU-ticks in 4 s, en het sterft
+   pas op de tijdslimiet (`exit 143` na 30 s). Drie runs lang.
+3. Er is een uitspraak over het beeld: een PNG van 1920x1080 met **het eigen ASSERT-scherm van het
+   spel** -- `ASSERT FAIL / COND: p100>=0 / FILE: sys/c/ql.c / LINE: 80`.
+
+Dat is nog geen speelbaar spel, maar het is precies wat het criterium vraagt: het spel **loopt** op
+onze eigen route, en wat het tegenhoudt is nu een concrete assert in de game zelf in plaats van een
+laadprobleem.
+
+**Twee vondsten die het onthouden waard zijn.** De OSS-stub moet `/dev/sequencer` **niet** faken: met
+een nagebootste sequencer geeft `install_sound` -1 met `allegro_error = "No support synth type
+found"` en komt de oude crash terug. De sequencer met rust laten (`ENOENT`) laat Allegro terugvallen
+op digmid, en dan slaagt het wel. En de twee SRAM-inhouden (nul-bestand van 65.536 B en de
+view-versie van 65.537 B met de indelingscode op `0xb000`) geven een **identiek** resultaat:
+`uwSramCheckFormatCode` kijkt naar offset 0, niet naar `base+0xb000`.
+
+**De vierde hobbel, al gemeten.** De assert komt direct na
+`openat("/dev/w040101_ctl", O_RDWR|O_NONBLOCK) = -1 ENOENT`. Met acht rw-gebonden nulbestanden op
+`/dev/w040101_{ctl,io0,io1,io2,io101,io104,io105,io106}` wijkt die assert, loopt het spel door tot
+`openat("/dev/ttyS0", ...) = -1 ENOENT`, en sterft dan aan SIGSEGV met `si_addr=0x6a238abf`. De
+volgende stap is dus de PAOKAI-apparaten op **ioctl**-niveau plus `/dev/ttyS0`.
+
+**En het is nog niet uitgerold.** `scripts/play-native.sh` heeft nog steeds `--unshare-ipc` en geen
+rw-bind, en het profiel laadt de stub niet. De proeven zijn op een **kopie** gedaan
+(`/home/deck/_gn-noshm.sh`); de exacte zesregelige diff staat in het verslag. Het overzetten is werk
+voor de eigenaar van dat bestand.
+
+**Let op: er staan twee stub-mappen.** De werkende is `tools/rg-oss-stub/`
+(`rg_oss_stub.c`, `gen.sh`, `librg-oss-stub.so`, header-vrij gebouwd omdat `gnu/stubs-32.h` ontbreekt).
+Er is daarnaast een `tools/rg-osstub/` dat hier **niet compileert**; gebruik die niet.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
