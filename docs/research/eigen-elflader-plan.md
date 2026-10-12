@@ -655,6 +655,48 @@ gevonden slot `dlsym(naam)` schrijven, en dat levert een echt adres op in plaats
 proces op de originele kast. Narekenen: `re/_naamtoets.sh`, dat per game ook een
 `paren-<game>.txt` wegschrijft met de sloten en namen.
 
+#### De uitgepakte lader is gedumpt -- met een symbooltabel van duizenden namen (2026-10-12)
+
+Wat statisch aantoonbaar onmogelijk was, is nu binnen: een geheugendump van een **lopende**
+BudgieLoader.
+
+Route: `scripts/launch-direct.py GalagaAssault --run --env TP_NO_GAMESCOPE=1`, en terwijl de lader
+draait `/proc/<pid>/maps` plus `/proc/<pid>/mem`. Bewijs dat het beeld gevuld is: op `0x401000` staat
+na 0,0 s
+
+```
+55 89 e5 83 e4 f0 83 ec 10 c7 04 24 40 ed 50 00
+push ebp ; mov ebp,esp ; and esp,-16 ; sub esp,16 ; mov [esp],0x50ed40
+```
+
+Dat is echte x86-code, precies in de secties waar het bestand `SizeOfRawData = 0` heeft. Opgeleverd in
+`~/bw/dump-galagaassault/s1-lader/`:
+
+| regio | grootte | inhoud |
+|---|---|---|
+| `00400000-00401000` | 4 KB | PE-kop |
+| `00401000-00bf6000` | **8.343.552 B** | het beeld dat niet in het bestand stond (`rwxp`) |
+| `00bf6000-01695000` | **11.137.024 B** | uitvoerbare regio (`r-xp`) |
+
+**En daar zit de naamgeving in.** In de grootste regio staan **16.558** leesbare namen van 4 tot 40
+tekens, in de 8 MB-regio **10.157**. De eerste uit een alfabetische reeks: `__cxa_atexit`, `__errno`,
+`__getreent`, `__locale_mb_cur_max`, `__main`, `_bilf`, `_ctype_`, `_exit`, `_impure_ptr`, `abort`,
+`accept`, `access`, ... En de eigen API staat er ook: `GetElfBase`, `GetElfSymbol`,
+`glutBitmapCharacter`, `glutInit` (7x), `SDL_` (11x), `malloc` (16x), `free` (25x), `fopen`,
+`connect`, `getpid`.
+
+Dat is de **Cygwin/msys-exporttabel**: de lader is een Cygwin-PE en lost de gast-imports op tegen zijn
+eigen runtime. Daarmee is de vraag verschoven van "waar komen de namen vandaan" naar "**hoe koppelt de
+lader een naamloos slot aan een naam**".
+
+**De volgende stap is dus:** zoeken naar een **parallelle tabel** in de dump -- een reeks van ongeveer
+258 verwijzingen naar die naamstrings -- die de index van een gastslot aan een naam koppelt. Als die
+er is, zijn **alle** gewiste namen te herstellen, niet 31.
+
+**Wat nog niet gelukt is:** de dump van de **gast**. Het proces was weg voordat de gast geladen was
+(`OPEN /proc/<pid>/mem MISLUKT: [Errno 3] No such process`), dus de GOT van de gast na resolutie
+hebben we nog niet. Dat is de volgende meting.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
