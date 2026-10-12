@@ -750,10 +750,17 @@ deze meting wél zegt: het **starten** is voor elf van de vijftien geen probleem
 profielvraag gaat niet langer over "kan hij booten" maar over "krijgt hij zijn invoer". Dat is dezelfde
 conclusie als bij LGI, waar de invoer buiten de kern om loopt en er dus geen hook nodig was.
 
-**Wat er nu nog te doen valt, in volgorde van opbrengst:** de schrijfletter-herleiding in de eigen
-kern (twee games), daarna uitzoeken wat exitcode 32 en exitcode 0 betekenen (LuigisMansion en
-Otomedius), en pas daarna de vraag of deze groep zijn invoer op de generieke route krijgt — die is
-zonder de tv met lightgun niet te beantwoorden.
+**Wat er nu nog te doen valt, in volgorde van opbrengst.**
+
+1. ~~De schrijfletter-herleiding in de eigen kern.~~ **Gedaan in ronde 55:** `0004` in de kern laat
+   Gashaaan leven zonder prefix-symlinks (Win32 `dbf8bb20…`, x64 `90df073c…`). OmatsuriYasanKingyoSukui
+   valt nog om met exitcode 8, want de herleidingsmap is leeg en die game zoekt een concreet bestand.
+2. **LuigisMansion (exitcode 32) en Otomedius (exitcode 0).** Van beide is in ronde 56 de nulmeting
+   op de **gesloten** kern gedaan: daar zijn ze allebei **START**. Onze kern is dus de oorzaak en niet
+   de game — het zijn twee zelfstandige gaten in onze eigen kern, elk met een eigen cijfer om op te
+   jagen. Ze staan hier nog open.
+3. Pas daarna de vraag of deze groep zijn invoer op de generieke route krijgt; die is zonder de tv
+   met lightgun niet te beantwoorden.
 
 ## Wat ik niet heb kunnen vaststellen
 
