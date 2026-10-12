@@ -722,10 +722,30 @@ plaats van 31.
 Die analyse loopt nu bij de subagent die de dump gemaakt heeft; ik heb hem de gebieden, de adressen en
 de tabel met stap `0x40` gegeven zodat hij niet opnieuw hoeft te beginnen.
 
-**En de gast-dump is nog niet gelukt** (`OPEN /proc/<pid>/mem MISLUKT: No such process`). Dat is juist
-de meting die het zou bevestigen: de GOT van de gast **nadat** de lader zijn werk deed. Daar zie je
-letterlijk welk adres de lader in een naamloos slot schreef -- en met de naamgevingstabel erbij is dat
-de naam.
+**En de gast is inmiddels wél gevangen.** Een tweede poging leverde vier snapshots op, met in het
+logboek de regel die het verschil maakt:
+
+```
+[19:31:59] gastbeeld op 0x08048000 na 8.5 s
+```
+
+| snapshot | regio's |
+|---|---|
+| `s1-lader` | 3 |
+| `s2-vroeg` | 310 |
+| `s3-gast` | 641 |
+| `s4-na` | 657 |
+
+Met een manifest van 1620 regels (per regio: bereik, rechten, soort, pad, bestand, fout). De gast is
+een ET_EXEC op de vaste basis `0x08048000`, dus de GOT-sloten zijn direct adresseerbaar.
+
+**Daarmee is de beslissende meting nu mogelijk:** vergelijk de GOT-sloten van de gast tussen de
+snapshot direct na het laden en de snapshot daarna. **Elke waarde die verschilt is een schrijfactie
+van de lader** -- de letterlijke resolutie, en de enige plek waar die informatie bestaat. Die diff
+loopt nu bij de subagent, met de vraag of de gevonden schrijfacties overeenkomen met de 31 statisch
+benoemde stubs, en vooral **welke extra sloten** de lader heeft gevuld. Dat laatste zou, met de
+naamgevingstabel in de dump erbij, de vraag "hoe koppelt ElfLdr2 een naamloos slot aan een naam" met
+een meting beantwoorden in plaats van met een vermoeden.
 
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
