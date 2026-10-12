@@ -36,7 +36,7 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 - LGI (Sega, 2009) — jvs/pipe, speelbaar
 - HauntedMuseum (Taito, 2009) — Type X2, op onze kern, leeft
 - TankTankTank (Namco, 2009)
-- Otomedius (Konami, 2007) — tp-shm, exit 0 = **waarschijnlijk de eigen `ChkSum.bin`-controle**: 22 van 191 data-paks
+- Otomedius (Konami, 2007) — tp-shm. **Update 2026-10-12 (bench, 0004, schone bench): exit 0 is WEG, hij leeft ≥22 s** (LIBACIO 1.12.6 + LIBBMS 1.6.5 laden). 0004 (schijfletter-herleiding van `E:\nvmem`) heeft hem dus óók geholpen — de eerdere veger-"exit 0" was vermoedelijk van vóór 0004. Speelbaarheid (BMS-pipe `\\.\pipe\bmssvc`, ACIO/COM2) pends de tv. Oude hypothese (eigen `ChkSum.bin`-controle): 22 van 191 data-paks
   op de NAS wijken af (bewerkte/vertaalde paks) → "Conflict Hash" → schone exit. Plus ACIO (COM2) + een BMS-service
   (`\\.\pipe\bmssvc`, `bms_GGG.exe`) voor speelbaarheid. 0004 (E:-redirect) lost het vermoedelijk niet op (E: geeft
   een foutscherm, geen exit). **Tegenargument:** de gesloten kern draaide dezelfde paks wél. Nodig: één bench-trace
