@@ -673,6 +673,31 @@ regels geldt. Dat is een vraag voor de eigenaar, niet iets wat deze kaart kan be
 
 ---
 
+### 6. De schrijfletter-herleiding in de eigen kern — generiek, en gemeten als blokkade
+
+**Gemeten in ronde 46.** Gashaaan sterft op onze eigen kern na ongeveer 5 seconden met exitcode 5.
+Hetzelfde spel, dezelfde kern en dezelfde lader, maar met `d:`, `e:` en `f:` als symlinks in
+`~/.wine/dosdevices/`: **leeft 20 seconden en schrijft NVRAM naar `F:`**. De blokkade is dus de
+schrijfletter-herleiding — niet de COM-poort (LethalEnforcers3 heeft dezelfde mislukte COM-open en
+leeft) en niet een ontbrekend per-game profiel.
+
+Dat is goed nieuws: dit is een **generiek** gat en geen per-game hook. `docs/loskoppelen-per-game.md`
+in de loader-repo noemt de herleiding al als iets dat een eigen kern moet implementeren
+(`CreateFileA` onderscheppen, elke letter A-Z naar `.\TeknoParrot\<LETTER>\`), met als status
+*kennis compleet* — maar in de OpenParrot-bron zit die herleiding niet: `CreateFileA`/`CreateFileW`
+worden daar alleen in `dllmain.cpp`, `Utility/InitFunction.cpp`, `PE.cpp` en twee Nesica-bestanden
+geraakt. De prefix-symlinks zijn dus een workaround, niet de fix.
+
+**Wat er nog moet gebeuren:** de herleiding in de eigen kern bouwen (patch in
+`third_party/openparrot/patches/`, zoals 0003), en daarna meten of Gashaaan het **zonder** de
+prefix-symlinks ook haalt. Dat laatste is de eigenlijke proef — met de symlinks meet je de workaround.
+
+**Dezelfde fout staat al gedocumenteerd voor twee andere games uit dezelfde `WartranTroopers`-groep:**
+OmatsuriYasanGansoTakoyaki (wit venster, geen D3D-apparaat, `rqrdlist.rqr` via de
+schrijfletter-herleiding) en OmatsuriYasanKingyoSukui (exitcode 8 nadat de game alle schijfletters op
+`rqrdlist.rqr` en `campaign*.bmp` had doorzocht). Als de fix generiek is, zijn dat drie games in één
+keer.
+
 ## Wat ik niet heb kunnen vaststellen
 
 1. **Of een bytepatch de geparkeerde games verder helpt.** Voor Terminator, GhostBusters,
