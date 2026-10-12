@@ -21,6 +21,7 @@
 #   --bind-ro S D  toon bestand of map S read-only als D in de sandbox (herhaalbaar)
 #   --bind-rw S D  toon bestand S schrijfbaar als D (voor apparaten met open(O_RDWR)+mmap; herhaalbaar)
 #   --share-ipc    host-IPC niet isoleren (nodig voor X MIT-SHM; bewuste sandbox-afweging)
+#   --loader       de game via onze eigen rg-elfloader starten i.p.v. de kernel-ld.so (profiel: "loader": "rg-elfloader")
 #   --env K=V      extra omgevingsvariabele voor de game (herhaalbaar)
 #   --debug        LD_DEBUG=libs en uitgebreid logboek
 #   --dry-run      toon alleen het bwrap-commando
@@ -42,7 +43,7 @@ LOGDIR="$STATE/logs"
 
 die() { echo "play-native: $*" >&2; exit 1; }
 
-BINDS=(); RW=(); SHARE_IPC=0; GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; INPUT_NODES=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
+BINDS=(); RW=(); SHARE_IPC=0; USE_LOADER=0; GAME=""; RES=""; HEADLESS=0; GAMESCOPE=0; SECONDS_MAX=0; SNAP=""; STRACE=""; INPUT_NODES=""; GDB=0; MUTE=0; DEBUG=0; DRY=0; EXTRA=(); XENV=()
 ACTION=run
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,6 +60,7 @@ while [[ $# -gt 0 ]]; do
     --bind-ro) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-ro vereist bron en doel"; BINDS+=("$2" "$3"); shift 2 ;;
     --bind-rw) [[ -n "${2:-}" && -n "${3:-}" ]] || die "--bind-rw vereist bron en doel"; RW+=("$2" "$3"); shift 2 ;;
     --share-ipc) SHARE_IPC=1 ;;   # host-IPC niet isoleren (nodig voor X MIT-SHM; bewuste sandbox-afweging)
+    --loader) USE_LOADER=1 ;;     # de game via onze eigen rg-elfloader starten i.p.v. de kernel-ld.so
     --env) [[ "${2:-}" == *=* ]] || die "--env vereist K=V"; XENV+=("$2"); shift ;;
     --debug) DEBUG=1 ;;
     --dry-run) DRY=1 ;;
@@ -90,7 +92,7 @@ g = d["games"].get(game)
 if g is None:
     print("ERR\tonbekend profiel: %s" % game); sys.exit(0)
 dflt = d.get("defaults", {})
-for k in ("title", "arch", "preload", "exe", "cwd", "home", "status", "note", "route", "layout", "launcher"):
+for k in ("title", "arch", "preload", "exe", "cwd", "home", "status", "note", "route", "layout", "launcher", "loader"):
     print("VAR\t%s\t%s" % (k, g.get(k, "")))
 print("VAR\tenabled\t%s" % ("1" if g.get("enabled") else "0"))
 print("VAR\tshare_ipc\t%s" % ("1" if g.get("share_ipc") else "0"))
@@ -172,6 +174,8 @@ while IFS=$'\t' read -r kind a b c; do
 done < <(emit "$GAME")
 # Profiel kan ook om host-IPC vragen (X MIT-SHM); de CLI-vlag --share-ipc blijft ook werken.
 [[ "${V[share_ipc]:-0}" == 1 ]] && SHARE_IPC=1
+# Profiel kan onze eigen lader vragen ("loader": "rg-elfloader"); CLI-vlag --loader blijft ook werken.
+[[ -n "${V[loader]:-}" ]] && USE_LOADER=1
 
 command -v bwrap >/dev/null || die "bwrap niet gevonden"
 [[ -d "$NAS" ]] || die "NAS-map $NAS niet bereikbaar (is de automount actief?)"
@@ -260,6 +264,16 @@ GAMECMD=("${V[exe]}")
 for a in "${GARGS[@]}"; do GAMECMD+=("${a//\{res\}/$RES}"); done
 GAMECMD+=("${EXTRA[@]}")
 
+# Onze eigen lader (rg-elfloader) voor de ElfLdr2-familie i.p.v. de kernel-ld.so. De lader-binary wordt in
+# de sandbox gebonden en voor de game-exe gezet; hij bouwt de shim met de in /usr aanwezige gcc en schrijft
+# die naar XDG_RUNTIME_DIR (schrijfbaar in de sandbox). Zie tools/rg-elfloader/.
+if (( USE_LOADER )); then
+  LOADERBIN="${RAVENGUN_ELFLOADER:-$DATA/bin/rg-elfloader}"
+  [[ -x "$LOADERBIN" ]] || die "rg-elfloader niet gevonden ($LOADERBIN); bouw met scripts/build-elfloader.sh"
+  BW+=(--ro-bind "$LOADERBIN" /rg/bin/rg-elfloader)
+  GAMECMD=(/rg/bin/rg-elfloader "${GAMECMD[@]}")
+fi
+
 # Buiten gamescope draaien (tv of headless): dit script start zichzelf binnen gamescope en gaat dan verder als "inner".
 if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   W="${RES%x*}"; H="${RES#*x}"
@@ -273,6 +287,7 @@ if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   for ((i = 0; i < ${#BINDS[@]}; i += 2)); do SELF+=(--bind-ro "${BINDS[$i]}" "${BINDS[$((i+1))]}"); done
   for ((i = 0; i < ${#RW[@]}; i += 2)); do SELF+=(--bind-rw "${RW[$i]}" "${RW[$((i+1))]}"); done
   (( SHARE_IPC )) && SELF+=(--share-ipc)
+  (( USE_LOADER )) && SELF+=(--loader)
   (( SECONDS_MAX )) && SELF+=(--seconds "$SECONDS_MAX")
   (( HEADLESS )) && SELF+=(--headless)
   (( GAMESCOPE )) && SELF+=(--gamescope)

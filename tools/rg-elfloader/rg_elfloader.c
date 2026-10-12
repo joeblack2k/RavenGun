@@ -217,6 +217,128 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
         fatal("geen DT_SYMTAB/DT_STRTAB");
 }
 
+/* -------- lib-defs: welke symbolen definiëren de NEEDED-libs (uit hun BESTAND, zonder dlopen) --------
+ * Voor de SMALLE shim: we exporteren alleen gast-symbolen die GEEN geladen lib zelf definieert, zodat we
+ * de eigen (BSS-)globals van de libs (liballeg's _accel_active/_blender_* enz.) niet preempten. De libs
+ * importeren echter gast-functies die in een data-tabel staan (R_386_GLOB_DAT), dus ze eisen de shim al
+ * bij dlopen -- daarom moet de shim VÓÓR het laden klaar zijn, en lezen we de lib-definities hier uit het
+ * bestand in plaats van via dlsym. Zie docs/research/eigen-elf-lader.md. */
+static char rg_defbuf[1u << 20];
+static uint32_t rg_defbuf_used;
+static char *rg_defname[16384];
+static int rg_defname_n;
+
+static void def_add(const char *naam)
+{
+    size_t n = strlen(naam) + 1;
+    if (rg_defname_n >= (int)(sizeof(rg_defname) / sizeof(rg_defname[0])) ||
+        rg_defbuf_used + n > sizeof(rg_defbuf))
+        return;
+    memcpy(rg_defbuf + rg_defbuf_used, naam, n);
+    rg_defname[rg_defname_n++] = rg_defbuf + rg_defbuf_used;
+    rg_defbuf_used += (uint32_t)n;
+}
+static int def_cmp(const void *a, const void *b) { return strcmp(*(const char *const *)a, *(const char *const *)b); }
+static int lib_defines(const char *naam)
+{
+    int lo = 0, hi = rg_defname_n - 1;
+    while (lo <= hi) {
+        int m = (lo + hi) / 2, c = strcmp(rg_defname[m], naam);
+        if (!c) return 1;
+        if (c < 0) lo = m + 1; else hi = m - 1;
+    }
+    return 0;
+}
+
+struct rg_load { uint32_t v, o, sz; };
+static uint32_t v2o(struct rg_load *L, int nl, uint32_t va)
+{
+    int i;
+    for (i = 0; i < nl; i++)
+        if (va >= L[i].v && va < L[i].v + L[i].sz)
+            return L[i].o + (va - L[i].v);
+    return 0;
+}
+
+static void parse_lib_file(const char *pad)
+{
+    int fd = open(pad, O_RDONLY);
+    struct stat st;
+    uint8_t *m;
+    Elf32_Ehdr *eh;
+    Elf32_Phdr *ph;
+    Elf32_Dyn *dyn = NULL, *dy;
+    struct rg_load L[24];
+    int i, nl = 0;
+    uint32_t symv = 0, strv = 0, nchain = 0, so, to;
+    size_t len;
+    if (fd < 0) return;
+    if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf32_Ehdr)) { close(fd); return; }
+    len = st.st_size;
+    m = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (m == MAP_FAILED) return;
+    eh = (Elf32_Ehdr *)m;
+    if (memcmp(eh->e_ident, ELFMAG, SELFMAG) || eh->e_ident[EI_CLASS] != ELFCLASS32 ||
+        eh->e_machine != EM_386 || (size_t)eh->e_phoff + eh->e_phnum * sizeof(Elf32_Phdr) > len)
+        { munmap(m, len); return; }
+    ph = (Elf32_Phdr *)(m + eh->e_phoff);
+    for (i = 0; i < eh->e_phnum; i++) {
+        if (ph[i].p_type == PT_LOAD && nl < 24) { L[nl].v = ph[i].p_vaddr; L[nl].o = ph[i].p_offset; L[nl].sz = ph[i].p_filesz; nl++; }
+        if (ph[i].p_type == PT_DYNAMIC && (size_t)ph[i].p_offset < len) dyn = (Elf32_Dyn *)(m + ph[i].p_offset);
+    }
+    if (!dyn) { munmap(m, len); return; }
+    for (dy = dyn; (uint8_t *)dy + sizeof(*dy) <= m + len && dy->d_tag != DT_NULL; dy++) {
+        if (dy->d_tag == DT_SYMTAB) symv = dy->d_un.d_ptr;
+        else if (dy->d_tag == DT_STRTAB) strv = dy->d_un.d_ptr;
+        else if (dy->d_tag == DT_HASH) { uint32_t o = v2o(L, nl, dy->d_un.d_ptr); if (o + 8 <= len) nchain = *(uint32_t *)(m + o + 4); }
+    }
+    so = v2o(L, nl, symv);
+    to = v2o(L, nl, strv);
+    if (symv && strv && nchain && so && to && so + (size_t)nchain * sizeof(Elf32_Sym) <= len) {
+        Elf32_Sym *syms = (Elf32_Sym *)(m + so);
+        uint32_t k;
+        for (k = 1; k < nchain; k++) {
+            uint32_t na = syms[k].st_name;
+            if (syms[k].st_shndx == SHN_UNDEF || !na || to + na >= len)
+                continue;
+            def_add((const char *)(m + to + na));
+        }
+    }
+    munmap(m, len);
+}
+
+static void vind_en_parse(const char *naam)
+{
+    const char *ldp = getenv("LD_LIBRARY_PATH");
+    static const char *stdd[] = {"/usr/lib32", "/usr/lib/i386-linux-gnu", "/lib/i386-linux-gnu", NULL};
+    char pad[1024];
+    int k;
+    if (ldp && *ldp) {
+        char buf[4096], *save, *dir;
+        strncpy(buf, ldp, sizeof buf - 1);
+        buf[sizeof buf - 1] = 0;
+        for (dir = strtok_r(buf, ":", &save); dir; dir = strtok_r(NULL, ":", &save)) {
+            snprintf(pad, sizeof pad, "%s/%s", dir, naam);
+            if (access(pad, R_OK) == 0) { parse_lib_file(pad); return; }
+        }
+    }
+    for (k = 0; stdd[k]; k++) {
+        snprintf(pad, sizeof pad, "%s/%s", stdd[k], naam);
+        if (access(pad, R_OK) == 0) { parse_lib_file(pad); return; }
+    }
+}
+
+static void verzamel_lib_defs(struct beeld *b, struct dyninfo *d)
+{
+    Elf32_Dyn *dy;
+    for (dy = b->dyn; dy->d_tag != DT_NULL; dy++)
+        if (dy->d_tag == DT_NEEDED)
+            vind_en_parse(d->strtab + dy->d_un.d_val);
+    qsort(rg_defname, rg_defname_n, sizeof rg_defname[0], def_cmp);
+    dbg("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs gelezen", rg_defname_n);
+}
+
 /* Symbolen die de eigen CRT van de shim al definieert; die overslaan, anders "multiple definition". */
 static int shim_skip(const char *naam)
 {
@@ -258,6 +380,23 @@ static void maak_shim(struct dyninfo *d)
     snprintf(src, sizeof src, "%s/shim.c", dir);
     snprintf(so, sizeof so, "%s/shim.so", dir);
 
+    /* COPY-reloc-symbolen (screen, font, _blender_*, _accel_*) zijn gedeelde data-globals: de libs MOETEN
+       de kopie van de gast gebruiken (ld.so-canonicalisatie), dus die blijven in de shim, ook al definieert
+       een lib ze. Alleen lib-gedefinieerde NIET-COPY-symbolen (de paar code-botsingen) laten we weg. */
+    const char *copyset[512];
+    int ncopy = 0;
+    if (d->rel && d->relsz) {
+        uint32_t r, rn = d->relsz / sizeof(Elf32_Rel);
+        for (r = 0; r < rn && ncopy < 512; r++) {
+            uint32_t si;
+            if (ELF32_R_TYPE(d->rel[r].r_info) != R_386_COPY)
+                continue;
+            si = ELF32_R_SYM(d->rel[r].r_info);
+            if (si)
+                copyset[ncopy++] = d->strtab + d->symtab[si].st_name;
+        }
+    }
+
     f = fopen(src, "w");
     if (!f)
         fatal("kan %s niet schrijven", src);
@@ -273,6 +412,17 @@ static void maak_shim(struct dyninfo *d)
             continue;
         if (shim_skip(naam))
             continue;
+        /* SMALLE shim: een door een NEEDED-lib gedefinieerd symbool laten we weg (de lib gebruikt zijn
+           eigen) -- TENZIJ het een COPY-reloc-doel is: dan moet de lib juist de gast-kopie delen. Zo
+           verdwijnen de code-preempties maar blijven screen/font/_blender gedeeld, en worden de symbolen
+           die de libs uit de gast nodig hebben (_poly_scanline_gcol8) geleverd. */
+        if (lib_defines(naam)) {
+            int c, is_copy = 0;
+            for (c = 0; c < ncopy; c++)
+                if (strcmp(copyset[c], naam) == 0) { is_copy = 1; break; }
+            if (!is_copy)
+                continue;
+        }
         fprintf(f, "__asm__(\".globl %s\\n.set %s, 0x%x\\n\");\n", naam, naam, s->st_value);
         cnt++;
     }
@@ -332,7 +482,7 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
         switch (type) {
         case R_386_GLOB_DAT:
         case R_386_JMP_SLOT:
-            if (!sym) { onopgelost++; if (rg_verbose) say("  onopgelost %s: %s", welk, naam); break; }
+            if (!sym) { onopgelost++; if (*naam) say("  onopgelost %s: %s", welk, naam); break; }
             *waar = (uint32_t)(uintptr_t)sym; slots++;
             break;
         case R_386_32:
@@ -344,7 +494,7 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
             *waar += (uint32_t)(uintptr_t)sym - (uint32_t)(uintptr_t)waar;
             break;
         case R_386_COPY:
-            if (!sym) { onopgelost++; if (rg_verbose) say("  onopgelost COPY: %s", naam); break; }
+            if (!sym) { onopgelost++; if (*naam) say("  onopgelost COPY: %s", naam); break; }
             memcpy(waar, sym, d->symtab[sidx].st_size); copies++;
             break;
         default:
@@ -564,8 +714,9 @@ int main(int argc, char **argv)
 
     map_segments(fd, file, &b);
     lees_dyn(&b, &d);
-    maak_shim(&d);        /* gast-exports in de globale scope (shim); zie maak_shim() */
-    laad_needed(&b, &d);
+    verzamel_lib_defs(&b, &d);  /* uit de lib-BESTANDEN: welke symbolen definiëren zij (voor de smalle shim) */
+    maak_shim(&d);        /* smalle shim: alleen gast-symbolen die geen lib definieert; zie maak_shim() */
+    laad_needed(&b, &d);  /* libs laden (RTLD_NOW); hun gast-imports lossen tegen de shim op */
     bouw_stale_map(&d);   /* VOOR de JMPREL-pass: de originele stale 2e-tabel-waarden + namen vastleggen */
     if (d.rel && d.relsz)
         pas_rel_toe(&d, d.rel, d.relsz / sizeof(Elf32_Rel), "DT_REL");

@@ -110,3 +110,26 @@ op ditzelfde bestand SIGSEGV met **0 bytes** uitvoer. Onze lader is er dus strik
   game loopt verder tot hij de 0-retour van een no-op als pointer gebruikt. Verder is niet mogelijk zonder de
   originele dump-data voor die imports. (`RG_ELF_NO_TRAMPOLINE=1` zet de trampolines uit voor debuggen.)
 - **Hardening (later, geen blocker):** het gastbeeld staat nu `rwxp`; datasegmenten hoeven geen `x`.
+
+## In de play-native-keten (`--loader`) + smalle shim
+`scripts/play-native.sh --loader` (of profielveld `"loader": "rg-elfloader"`) zet onze lader in de keten in
+plaats van de kernel-`ld.so`: de lader-binary wordt in de sandbox gebonden (`/rg/bin/rg-elfloader`) en vóór
+de game-exe gezet; hij bouwt de shim met de in `/usr` aanwezige `gcc` en schrijft die naar
+`XDG_RUNTIME_DIR` (schrijfbaar in de sandbox).
+
+**Smalle shim (bijgesteld):** de shim leest nu uit de lib-BÉstanden welke symbolen de NEEDED-libs zelf
+definiëren (`verzamel_lib_defs`) en laat die weg — **behalve** COPY-reloc-doelen (`screen`, `font`,
+`_blender_*`, `_accel_*`): die blijven in de shim, want de libs moeten ze met de gast delen
+(ld.so-canonicalisatie). Netto verdwijnen de code-preempties, blijven de data-globals gedeeld, en worden
+de gast-functies die de libs nodig hebben (`_poly_scanline_gcol8`) geleverd. Gemeten: GoGoStrike-beeld
+ongewijzigd t.o.v. de brede shim, Galaga blijft 31 slots herstellen.
+
+**Signal 11 bij GoGoStrike via `--loader` (gelokaliseerd, eigenaar via coredumpctl):** de crash zit in
+Allegro's **X11-pad** (`_xwin_update_screen → _xwin_scroll_screen → textprintf → textout`, `eax=0`), op een
+**tweede LWP die liballeg zelf** met `pthread_create` maakt (de gast importeert geen threads). Het is dus
+geen lader-kwestie (shim/relocaties/TLS zijn uitgesloten); de open vraag is of **`set_gfx_mode` in onze
+route slaagt** (in de kernel-route wel: beeld op 1920×1080). `liballeg` importeert `XInitThreads` — Xlib
+vanuit meerdere threads is hier de verdenking. Dit staat los van de lader; GoGoStrike draait sowieso via de
+**kernel-route** (`play-native.sh` zonder `--loader`, exit 143 na 30 s). Onze lader is bewezen nodig én
+werkend voor de **gepakte** klasse. Bekende losse bug: onder `--gdb --loader` laadt `liballeg` niet (de
+shim staat daar niet op tijd klaar) — alleen de debug-route, laag geprioriteerd.
