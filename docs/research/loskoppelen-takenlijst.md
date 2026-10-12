@@ -40,8 +40,9 @@ Stand 2026-10-12.
       eigenaar). LGI's exit-5 bij een kale meting ligt niet aan de brug (idem met de oude pipehelper) en niet aan de
       prefix-verhuizing (Gashaaaan shared + NERF geïsoleerd leven): het is de bekende kieskeurige LGI-route.
 - [ ] **3b. Eigen ELF-lader** voor de ElfLdr2-familie i.p.v. `BudgieLoader.exe` — `patches/ELF-LADER-SPEC.md`.
-- [ ] **4. `~/.local/share/TeknoParrotUI/activation/`** — TP-abonnement; alleen voor Patreon-profielen.
-      Opruimen/negeren waar niet nodig; nooit de activering omzeilen.
+- [x] **4. `~/.local/share/TeknoParrotUI/activation/`** — nagegaan 2026-10-12: `check_activation` draait alleen als
+      `needs_activation` (Patreon = true; `launch-direct.py:1674`/`:189`). Niet-Patreon-games raken de map nooit. Voor
+      Patreon-games ís dit het abonnement — dat omzeilen we niet. Er valt hier dus niets los te koppelen; bewust zo.
 - [ ] **5. Regressiecheck** na elke stap: de levende games starten nog (serieel, headless meten).
 
 ## Blijft bewust TeknoParrot
