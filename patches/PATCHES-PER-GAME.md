@@ -246,7 +246,7 @@ staat. *Status* = `[Status] Status` uit `game.ini`. *STARTTEST* = het resultaat 
 | 19 | **MedaruNoGunman** | `eigen kern` (+ een keychip-beschrijving) | **nee** | geen `dropin/`. De README legt uit waarom er géén `dongle.json` is: de game vraagt een **keychip** (Lindbergh/Ring), geen regio-dongle, en er is geen regiowaarde om te antwoorden. `region.py` meldt de beschrijving daarom als **ontbrekend** | parked | START | De gesloten kern (FarCry) en de keychip/SRAM: bij elke verse start `3001 RAM DATA IS BAD` of `3003 ROM HAS CHANGED` (`SBTF_sram.bin` blijft 0 bytes). |
 | 20 | **MusicGunGun2** | `eigen kern` + `patches.ini` | ja, **onvolledig** | `patches.ini`: 2 secties. 1× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: `Game.exe+0x137C70` `jmp-returns-true` `Size = 6`, `Category = loader`. verify-all: **0 aan / 1 uit / 1 geweigerd** | parked | START | De game toont zijn **eigen D3D-foutvenster** "Direct3D-initialisatie mislukt" (ook met DXVK) en opent de JVS-pipe niet. |
 | 21 | **NERF** | `eigen kern` (de dongle loopt al via een plugin) | n.v.t. | **geen** `dropin/` en **geen** `dongle.json`, met reden: de dongle zit in **managed code** (`UDongleControl` in `Assembly-CSharp.dll`, P/Invoke naar `hasp_linux_23714`), en TeknoParrot levert daarvoor `BepInEx/plugins/NERFTPPlugin.dll`. Een HASP-emulator heeft hier niets te onderscheppen. | playable | START | De gesloten kern en de `Patreon`-activering. De game is speelbaar. |
-| 22 | **OG** | `drop-in` + `eigen kern` | drop-in **ja (1/1)**, maar de beschrijving **klopt niet** | `dropin.ini` met 1 sectie: `ravengun-hasp/OG/dongle.json` (region, JAPAN/JAPAN, `enforced: false` met `enforced_basis` = *"AANNAME, niet gemeten: de game is nog niet gestart"*). `region.py`: *"de executable van OG noemt geen enkele amDongle- of regioleesroute; klopt dongle.json wel?"* | **untested** | **START** | De game is nooit echt gespeeld; de regiowaarden komen uit het TeknoParrot-sjabloon, niet uit een meting. Let op: `game.ini` zegt `untested`, maar `STARTTEST.md` meet hem als **START** — die twee zijn niet gelijk. |
+| 22 | **OG** | `drop-in` + `eigen kern` | drop-in **ja (1/1)**; de beschrijving is met de juiste gamemap goedgekeurd | `dropin.ini` met 1 sectie: `ravengun-hasp/OG/dongle.json` (region, JAPAN/JAPAN, `enforced: false` met `enforced_basis` = *"GEMETEN (ronde 34): de game start en blijft draaien zonder enige regiobron"*). `region.py` zonder gamemap: *"de executable van OG noemt geen enkele amDongle- of regioleesroute"* — dat komt doordat hij de exe niet vindt; met `RAVENGUN_GAME_DIR=<de map van gs2.exe>` geeft hetzelfde gereedschap `errors: []` | **untested** | **START** | De game is nooit echt gespeeld; de regiowaarden komen uit het TeknoParrot-sjabloon, niet uit een meting. Let op: `game.ini` zegt `untested`, maar `STARTTEST.md` meet hem als **START** — die twee zijn niet gelijk. |
 | 23 | **OmatsuriYasanGansoTakoyaki** | `eigen kern` | **nee** | alleen `game.ini` + `README.md` | parked | START | Wit venster, de game maakt geen D3D-apparaat; de **kern** doet bij de start een online activeringsaanvraag (`teknoparrot.com/vmp/activation.php`). Een eigen kern laat die weg. |
 | 24 | **OmatsuriYasanKingyoSukui** | `eigen kern` | **nee** | alleen `game.ini` + `README.md` | parked | START | Exitcode 8 nadat de game alle schijfletters op `rqrdlist.rqr` en `campaign*.bmp` heeft doorzocht — dat is de **schijfletter-herleiding** van de kern (`CreateFileA` → `.\TeknoParrot\<LETTER>\`), geen patch op de game. |
 | 25 | **Otomedius** | `eigen kern` (+ een ACIO-responder) | **nee** | alleen `game.ini` + `README.md` | parked | START | Wit venster; de game zoekt een **ACIO-micom op COM2** (`COM Port 2 Open Error`) en komt niet verder. `libacio.dll`/`HIdGet.exe` zijn I/O, geen dongle. |
@@ -281,7 +281,7 @@ staat. *Status* = `[Status] Status` uit `game.ini`. *STARTTEST* = het resultaat 
 | dongle verwacht maar nog geen `dongle.json` (telling van `STAND.md`) | **4** (GhostBusters hasp, HOTDSD amdaemon, NERF hasp, TransformersShadowsRising sega-scan) |
 | ... en twee games met een gedocumenteerd gat dat die telling níet meet | **2** (RainbowBombergirl `region`, MedaruNoGunman keychip) |
 | dongle aanwezig maar onvolledig | **1** (TC5: geen geheugenimage) |
-| dongle-beschrijving die niet klopt met de executable | **1** (OG) |
+| dongle-beschrijving die een gereedschap niet kon controleren | **1** (OG: `region.py` vindt de exe niet zonder `UserProfiles/OG.xml`; met `RAVENGUN_GAME_DIR` is het oordeel groen) |
 | met `[Status] Status` | **36** |
 | met `README.md` | **36** |
 | direct te starten (`--plan` rc=0) | **33** |
@@ -419,10 +419,14 @@ dest van elk bestand is met `launch-direct.py <Game> --plan` nagerekend; de fout
    `"memory": []` en `hasp.py` meldt de dongle als onvolledig. Of de game de dongle ook echt
    *uitleest* is niet gemeten (de aanroepen komen niet in het logboek). Tot dat vastligt, emuleert de
    gesloten kern de dongle van TC5 — dat is het laatste stuk dat daar nog aan TeknoParrot hangt.
-3. **OG's beschrijving klopt niet met de executable.** `region.py` zegt letterlijk: *"de executable
-   van OG noemt geen enkele amDongle- of regioleesroute; klopt dongle.json wel?"* De waarden komen uit
-   het TeknoParrot-sjabloon en `findings/11_hardware_patches_dongles.md`, niet uit een meting aan de
-   game. `enforced` staat op `false` met `enforced_basis` = *"AANNAME, niet gemeten"*.
+3. **OG's beschrijving klopt wél; het gereedschap vond de exe niet.** `region.py` zei *"de executable
+   van OG noemt geen enkele amDongle- of regioleesroute; klopt dongle.json wel?"* — maar dat kwam
+   doordat hij OG's gamemap niet kon vinden (geen `UserProfiles/OG.xml`, leeg `GamePath` in het
+   profiel, map heet `OAV6DU~3`). Met `RAVENGUN_GAME_DIR=<de map van gs2.exe>` geeft hetzelfde
+   gereedschap `errors: []` en vindt het de merktekens `amDongle Ver.`, `keychip.appboot.region` en
+   `REGION`. De waarden zelf komen nog steeds uit het TeknoParrot-sjabloon en
+   `findings/11_hardware_patches_dongles.md`; `enforced` is in ronde 34 gemeten (de game start en
+   blijft draaien zonder enige regiobron).
 
 **Ontbrekend (2 games):**
 
@@ -669,8 +673,10 @@ regels geldt. Dat is een vraag voor de eigenaar, niet iets wat deze kaart kan be
 2. ~~Of de vier `patches.ini`-bestanden de juiste `Find`-bytes kunnen krijgen.~~ **Opgelost in ronde
    33:** de bytes zijn op de echte exe's gemeten en staan bij acht van de twaalf patches. Bij de andere
    vier zou een `Find` niets zeggen (andere build, of de byte staat er al).
-3. **Of OG's `dongle.json` klopt.** `region.py` betwijfelt het en de game is nooit gespeeld. De
-   waarden komen uit het TeknoParrot-sjabloon, niet uit een meting.
+3. ~~Of OG's `dongle.json` klopt.~~ **Opgelost in ronde 38:** de beschrijving klopt — `region.py`
+   vond alleen de exe niet. Met `RAVENGUN_GAME_DIR=<de map van gs2.exe>` is het oordeel groen
+   (`errors: []`). Wat blijft: de waarden komen uit het TeknoParrot-sjabloon, en de game is nooit
+   gespeeld (de start is gemeten, de speelbaarheid niet).
 4. **Welk donglebestand GhostBusters mist.** De lader meldt `GAME PATH CHECK FAILED` en de ELF noemt
    HASP/Aladdin, maar de dump heeft alleen een splash-afbeelding. Dat is een open vraag in
    `docs/loskoppelen-per-game.md` (open vraag 3) en ik heb hem niet kunnen beantwoorden.

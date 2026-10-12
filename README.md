@@ -59,10 +59,16 @@ Elke kaart heeft zijn eigen generator. Eén script maakt geen kaart maar **contr
 | `patches/elf-native.py` | schrijft `patches/ELF-NATIVE.md` — start de ELF's van de ElfLdr2-games los |
 | `patches/readme-gen.py` | vult de README van een game die nog de lege stub heeft, uit de kaarten; raakt README's met inhoud niet aan |
 | `patches/dropin-aankomst.py` | **controleert** of elk drop-in-bestand met dezelfde sha256 in de view staat; exitcode 1 als er iets mis is |
+| `patches/dongle-controle.py` | **controleert** elke dongle met het gereedschap van zijn soort (`hasp.py`, `matrix.py`, `region.py`) en meldt een rood oordeel; exitcode 1 als er een rood is |
 
 `tools/verify-all.py` (loader-repo) meldt "drop-ins die NIET aankomen: 0", maar dat kijkt naar het
 **plan** — de paden die de launcher zou schrijven. `patches/dropin-aankomst.py` kijkt naar de
 **bytes** die er staan, en meldt ook een symlink naar de NAS of een bestand met een andere inhoud.
+
+Zo zijn er twee controles die geen kaart maken maar iets narekenen: `dropin-aankomst.py` kijkt of de
+drop-in-bestanden echt aankomen, en `dongle-controle.py` of elke donglebeschrijving door het
+gereedschap van zijn soort wordt goedgekeurd. Dat laatste vond in ronde 38 dat OG's rode oordeel aan
+een ontbrekend gebruikersprofiel ligt en niet aan de gegevens (zie `patches/OG/README.md`).
 
 ## Hoe de loader dit vindt
 

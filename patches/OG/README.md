@@ -41,6 +41,32 @@ Let op het verschil met `LGI`/`LGI3D`/`LGS`: `gs2.exe` heeft géén `DefaultRegi
 `LGI_RingW_F_safe.exe` (`DefaultRegion`, `Region is JPN./USA./EXP./CHN.` komen er niet in voor), maar
 gaat wel door na een mislukte dongle-opening. Waarom dat zo is, is niet uitgezocht.
 
+## Het gereedschap vond de exe niet, de beschrijving klopt
+
+`python3 scripts/region.py --game OG` meldt deze dongle **rood** — *"de executable van OG noemt geen
+enkele amDongle- of regioleesroute; klopt dongle.json wel?"* — en dat is misleidend: het gereedschap
+heeft de executable **niet gevonden**, dus het heeft nul merktekens gezien.
+
+Waarom niet: `region.py` zoekt de gamemap in `$RAVENGUN_GAME_DIR`, dan `[Game] GamePath` uit
+`game.ini`, dan het `GamePath` van het profiel. `LGI`, `LGI3D` en `LGS` hebben een
+`UserProfiles/<Game>.xml` met daarin een `GamePath` naar de exe op de NAS; **OG heeft dat
+gebruikersprofiel niet** (de game is nooit in TeknoParrotUi geopend) en `GameProfiles/OG.xml` heeft
+een leeg `GamePath`. De map op de NAS heet bovendien `OAV6DU~3`, een 8.3-korte naam.
+
+Met de map erbij is hetzelfde gereedschap **groen**, en dat is de meting die de beschrijving
+bevestigt:
+
+```bash
+RAVENGUN_GAME_DIR=/home/deck/mnt/spidernas_emulation/Teknoparrot/OAV6DU~3 \
+  python3 scripts/region.py --game OG --json
+# "errors": [], "enforced": false
+# merktekens: "amDongle Ver." 1x, "keychip.appboot.region" 1x, "REGION" 5x
+```
+
+**Wat er nog te repareren valt** is dus niet deze map maar het gereedschap: `region.py` zou de
+gamemap moeten oplossen zoals `launch-direct.py` dat doet (via de view of de gamemappen). Dat is werk
+in de loader-repo. Tot dan is `RAVENGUN_GAME_DIR` de werkende route.
+
 ## Waarom hier geen bibliotheek staat
 
 Het soort `region` is gegevens zonder binary. De regio- en printplaatwaarde is de software-emulatie
