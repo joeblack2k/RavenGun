@@ -385,6 +385,36 @@ Nog een detail uit de proceskaart dat later aandacht vraagt: het hele gastbeeld 
 relocaties is dat te begrijpen, maar een datasegment hoort geen `x` te hebben; dat is een
 verhardingspunt voor later, geen blokkade nu.
 
+#### De API-oppervlakte is voor 122 van de 161 namen al in huis (gemeten 2026-10-12)
+
+BudgieLoader exporteert **161** `glut*`-namen. Onze eigen 32-bits
+`~/.local/share/ravengun/runtime/lib32/libglut.so.3` exporteert er **171**. De vergelijking:
+
+| | aantal |
+|---|---|
+| `glut*`-namen van BudgieLoader | 161 |
+| `glut*`-namen van onze libglut | 171 |
+| **gedekt door onze libglut** | **122** |
+| **die wij zelf moeten leveren** | **39** |
+
+Die 39 vallen in twee soorten, en dat maakt het werk overzichtelijk:
+
+* **31 `*Ucall`-varianten** (`glutDisplayFuncUcall`, `glutKeyboardFuncUcall`,
+  `glutMultiMotionFuncUcall`, ...). Dat zijn de cdecl-aanroepbare wikkels om de
+  callback-registratie: mechanisch werk, één vorm, 31 keer.
+* **8 uitbreidingen** die freeglut zelf niet heeft: `glutAppStatusFunc`, `glutInitContextFunc`,
+  `glutPositionFunc`, `glutSetVertexAttribCoord3`, `glutSetVertexAttribNormal`,
+  `glutSetVertexAttribTexCoord2`, `glutStrokeLengthf`, `glutStrokeWidthf`. Daarvan zijn
+  `glutStrokeLengthf`/`Widthf` de float-varianten van de bestaande `glutStrokeLength`/`Width`, en de
+  drie `SetVertexAttrib*` zijn kleine setters.
+
+**En er zit een bonus in.** Onze libglut exporteert `glutBitmap8By13` -- precies het gat dat de
+eisenmatrix in BudgieLoaders exportlijst vond en dat Jurassic Park vraagt. Door de **echte** libglut
+te gebruiken in plaats van een eigen implementatie verdwijnt dat gat vanzelf.
+
+Netto: van de 173 exports hoeven we er dus **39** zelf te maken in plaats van 161. Narekenen:
+`re/_glutvergelijk.sh`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
