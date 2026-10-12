@@ -95,6 +95,7 @@ struct beeld {
     uint32_t entry;        /* e_entry als losse waarde (overleeft munmap van het bestand) */
     uint16_t phent;        /* e_phentsize */
     uint32_t phdr_vaddr;   /* adres van de phdr-tabel in het geladen beeld (voor AT_PHDR) */
+    uint32_t lo, hi;       /* geladen beeld-bereik (voor het valideren van GOT-slotadressen) */
     Elf32_Dyn *dyn;
 };
 
@@ -169,6 +170,8 @@ static void map_segments(int fd, const uint8_t *file, struct beeld *b)
     b->phnum = eh->e_phnum;
     b->entry = eh->e_entry;       /* losse kopieen: b->eh wijst in het bestand, dat na munmap weg is */
     b->phent = eh->e_phentsize;
+    b->lo = lo;
+    b->hi = hi;
 
     /* PT_DYNAMIC: na het mappen staat die op zijn p_vaddr. */
     b->dyn = NULL;
@@ -354,6 +357,95 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
         say("LET OP: %u onopgeloste symbolen in %s", onopgelost, welk);
 }
 
+/* ------------------------------------------------------------------ gepakte klasse: eerste PLT repareren
+ * De gepakte games (Galaga/JP/Pacman) hebben TWEE PLT/GOT-systemen (gemeten, eigenaar): de DT_JMPREL-
+ * relocaties horen bij het tweede systeem (een tweede tabel, via %ebx), maar de stubs die de game
+ * aanroept zitten in het EERSTE PLT, met absolute GOT-slots die nog de voorgevulde 0xb7xxxxxx-waarde van
+ * de originele kast houden. Onze JMPREL-reparatie landt dus in de verkeerde tabel en de game crasht op
+ * zo'n stale slot (bv. 0xb7508f60 = fopen).
+ *
+ * Statische naamterugwinning (methode eigenaar, re/_naamterugwinning.py): elke JMPREL-entry heeft een
+ * symboolnaam; waar de tweede-tabel-inhoud een stale 0xb7-adres is, levert dat een map adres->naam.
+ * Elk eerste-PLT-GOT-slot met datzelfde stale adres krijgt zo zijn naam. Voor Galaga: 31 van de 357
+ * stubs, inclusief fopen. We lossen die op naam op (dlsym) en schrijven het echte adres in het
+ * EERSTE-PLT-slot. De rest houdt zijn stale waarde tot de geheugendump er is. Veilig: we schrijven alleen
+ * als de slotwaarde in de map staat; op ongepakte games is de map leeg en doet dit niets. */
+
+struct staleref { uint32_t addr; const char *naam; };
+static struct staleref rg_stale[1024];
+static int rg_stale_n;
+
+static void bouw_stale_map(struct dyninfo *d)
+{
+    uint32_t i, n;
+    if (!d->jmprel || !d->pltrelsz)
+        return;
+    n = d->pltrelsz / sizeof(Elf32_Rel);
+    for (i = 0; i < n; i++) {
+        uint32_t sidx = ELF32_R_SYM(d->jmprel[i].r_info);
+        uint32_t orig = *(volatile uint32_t *)(uintptr_t)d->jmprel[i].r_offset;  /* originele 2e-tabel-inhoud */
+        const char *naam = sidx ? d->strtab + d->symtab[sidx].st_name : "";
+        if (!*naam)
+            continue;
+        if (orig < 0xb7000000u || orig >= 0xb8000000u)   /* alleen stale kast-adressen */
+            continue;
+        if (rg_stale_n < (int)(sizeof(rg_stale) / sizeof(rg_stale[0]))) {
+            rg_stale[rg_stale_n].addr = orig;
+            rg_stale[rg_stale_n].naam = naam;
+            rg_stale_n++;
+        }
+    }
+    dbg("stale-map: %u JMPREL-entries, %d met stale 0xb7-adres + naam", n, rg_stale_n);
+}
+
+static const char *stale_naam(uint32_t v)
+{
+    int i;
+    for (i = 0; i < rg_stale_n; i++)
+        if (rg_stale[i].addr == v)
+            return rg_stale[i].naam;
+    return NULL;
+}
+
+/* Scan de uitvoerbare segmenten naar eerste-PLT-stubs (`ff 25 <abs-slot>`), en herstel elk GOT-slot
+   waarvan de waarde een stale adres uit de map is, naar dlsym(naam). b->ph wijst nog in het (nog niet
+   ge-munmap'te) bestand. */
+static void repareer_eerste_plt(struct beeld *b, struct dyninfo *d)
+{
+    int i, hersteld = 0, gemist = 0;
+    (void)d;
+    if (!rg_stale_n)
+        return;
+    for (i = 0; i < b->phnum; i++) {
+        const uint8_t *p, *eind;
+        if (b->ph[i].p_type != PT_LOAD || !(b->ph[i].p_flags & PF_X))
+            continue;
+        p = (const uint8_t *)(uintptr_t)b->ph[i].p_vaddr;
+        eind = p + b->ph[i].p_memsz - 6;
+        for (; p < eind; p++) {
+            uint32_t slot, val;
+            const char *naam;
+            void *sym;
+            if (p[0] != 0xff || p[1] != 0x25)        /* jmp *disp32 (absolute, eerste PLT) */
+                continue;
+            slot = *(const uint32_t *)(p + 2);
+            if (slot < b->lo || slot >= b->hi)       /* slot moet in het geladen beeld liggen */
+                continue;
+            val = *(volatile uint32_t *)(uintptr_t)slot;
+            naam = stale_naam(val);
+            if (!naam)
+                continue;
+            sym = zoek_symbool(naam);
+            if (!sym) { gemist++; if (rg_verbose) say("  eerste-PLT: %s niet gevonden (slot %#x)", naam, slot); continue; }
+            *(volatile uint32_t *)(uintptr_t)slot = (uint32_t)(uintptr_t)sym;
+            hersteld++;
+            if (rg_verbose) say("  eerste-PLT: slot %#x (%#x) -> %s @ %p", slot, val, naam, sym);
+        }
+    }
+    say("eerste-PLT gerepareerd: %d slots op naam hersteld, %d niet gevonden (van %d stale)", hersteld,
+        gemist, rg_stale_n);
+}
+
 /* ------------------------------------------------------------------ de startstack + sprong */
 
 extern char **environ;
@@ -452,10 +544,12 @@ int main(int argc, char **argv)
     lees_dyn(&b, &d);
     maak_shim(&d);        /* gast-exports in de globale scope (shim); zie maak_shim() */
     laad_needed(&b, &d);
+    bouw_stale_map(&d);   /* VOOR de JMPREL-pass: de originele stale 2e-tabel-waarden + namen vastleggen */
     if (d.rel && d.relsz)
         pas_rel_toe(&d, d.rel, d.relsz / sizeof(Elf32_Rel), "DT_REL");
     if (d.jmprel && d.pltrelsz)
         pas_rel_toe(&d, d.jmprel, d.pltrelsz / sizeof(Elf32_Rel), "DT_JMPREL");
+    repareer_eerste_plt(&b, &d);   /* gepakte klasse: eerste-PLT-slots op naam herstellen (gemapt => veilig) */
 
     munmap(file, flen);
     close(fd);

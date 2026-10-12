@@ -89,15 +89,17 @@ op ditzelfde bestand SIGSEGV met **0 bytes** uitvoer. Onze lader is er dus strik
 - **Ongepakt** (GoGoStrike): tot `uwSramCheckFormatCode` (sound→SRAM), identiek aan de kernel-route. De echte
   blockers (geluid → MIT-SHM → rw-SRAM-bind) liggen buiten de lader (ander agent). De kernel-`ld-linux` draagt
   de ongepakte games sowieso; de lader is hier vooral de validatie.
-- **Gepakt** (Galaga/JP/Pacman): de lader is hier *nodig* (kernel geeft 0 bytes). Volgende taak (fase 3): de
-  voorgevulde GOT-slots. **Gemeten door de eigenaar (Galaga):** er zijn **twee parallelle PLT/GOT-systemen**.
-  De `DT_JMPREL`-relocaties (die onze lader correct op hun `r_offset` toepast) horen bij het **tweede** systeem
-  (tabel vanaf `0x086f83f8`, aangesproken via `%ebx`). De stubs die de **game** aanroept zitten in het
-  **eerste** PLT (absoluut, `jmp *0x0830d2fc`, `push 0xdeadbeef` — index vernietigd) en hun GOT-slots houden de
-  stale `0xb7xxxxxx`-waarde (bv. `0xb7508f60` = `fopen`). Onze JMPREL-reparatie landt dus in de verkeerde
-  tabel. **Fase-3-taak:** het **eerste** PLT repareren — en de naam is daar niet uit JMPREL te lezen. Open
-  vraag (eigenaar onderzoekt): de correspondentie eerste-PLT-stub ↔ naam (het tweede PLT pusht een lopende
-  waarde `0x0,0x8,0x10,…` die mogelijk een derde tabel indexeert). Zodra die correspondentie vaststaat, is de
-  laderfix: per eerste-PLT-stub de echte functie op naam oplossen en in diens **eigen** GOT-slot schrijven.
-  Zie het plan (`tools/rt-glfix` doet een verwante PLT-stub-parse op de BudgieLoader-route).
+- **Gepakt** (Galaga/JP/Pacman): de lader is hier *nodig* (kernel geeft 0 bytes). Er zijn **twee parallelle
+  PLT/GOT-systemen** (gemeten, eigenaar): de `DT_JMPREL`-relocaties horen bij het **tweede** systeem, maar de
+  stubs die de game aanroept zitten in het **eerste** PLT (absoluut, `jmp *0x0830d2fc`, `push 0xdeadbeef`), met
+  GOT-slots die de voorgevulde `0xb7xxxxxx`-waarde houden (bv. `0xb7508f60` = `fopen`).
+  **Fase-3-reparatie (geïmplementeerd + gemeten):** de lader wint namen statisch terug — elke JMPREL-entry
+  heeft een naam; waar de tweede-tabel-inhoud een stale `0xb7`-adres is, levert dat een map adres→naam; elk
+  eerste-PLT-slot met datzelfde stale adres krijgt die naam en wordt met `dlsym` hersteld
+  (`bouw_stale_map` + `repareer_eerste_plt`, gated op de map → veilig, no-op op ongepakte games).
+  **Gemeten op Galaga:** 100 JMPREL-entries → 33 stale-met-naam → **31 van de 357 eerste-PLT-slots op naam
+  hersteld** (`connect`, `getpid`, `realloc`, `memset`, `fopen`, …). De crash **verschoof** van `0xb7508f60`
+  (`fopen`, nu hersteld) naar `0xb750cef0` — een van de ~326 stubs zónder adres in de tweede tabel, die de
+  geheugendump van de originele kast nodig hebben. De named helft werkt dus nu; de rest is vervolgwerk
+  (dump-gebaseerd), geen uitpakwerk.
 - **Hardening (later, geen blocker):** het gastbeeld staat nu `rwxp`; datasegmenten hoeven geen `x`.
