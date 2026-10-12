@@ -59,3 +59,35 @@ hetzelfde adres. Wie dit leest: zoek in `VACUUM.exe` niet naar `0x0044A5F4`.
 Het OEP is ook zonder dump te vinden (hardware-breakpoint op de eerste schrijfactie in `.text`, of de
 laatste sprong van de stub volgen), maar de dump geeft méér: de imports en relocaties die het spel
 werkelijk gebruikt.
+
+
+## De twee helften: invoer is al van ons, de lader nog niet
+
+Bij het natrekken van de I/O-kant bleek iets belangrijks: **de invoerhelft bestaat al in dit project.**
+
+* `packaging/tp-shm-profiles.json` heeft een volledig profiel **`LuigisMansion`** met het protocol
+  `shared-luigi-mansion`: stuurwoord van 32 bits op offset 8 (start bit 0/3, vacuümpknop = Strobulb op
+  bit 1/4, vacuümhendel op bit 2/5, test 8, select switch P1 9, service 10, screen-out 16/17) en vier
+  asbytes op 12..15 (P1Y, P1X, P2Y, P2X), kalibratie X 3..252 en Y 6..250, links/boven = 0.
+* `scripts/tp-shm-swap.sh` laat onze daemon de **enige schrijver** van dat invoerblok zijn: TeknoParrotUi
+  start nog wel de lader, maar zijn eigen invoer bereikt de game niet meer.
+
+Dus de stand is: **onze invoer, hun lader.** Wat ontbreekt is precies de laderhelft, en dat is de gepakte
+`VACUUM.exe`.
+
+## En wat het eigen onderzoek over de moeilijkheid zegt
+
+In `docs/research/zonder-teknoparrot.md` staat Luigi's Mansion beoordeeld als **"moeite: zeer hoog"**,
+met het advies **"laatste in de rij, bij voorkeur TP onder Wine blijven proberen"**. De reden die daar
+staat: een eigen **Sega Nu-platformlaag** met `oxGetHwInfo`, het I/O-bord `LMAIO.bin` via COM1, de drives
+`X:` en `Y:`, keychip en netwerk. Ook: geen enkel open-sourceproject dekt deze game (Segatools noemt hem
+niet).
+
+**Dat is geen reden om het niet te doen, maar wel om te weten waar we aan beginnen.** Het is het meest
+waarschijnlijke van de zes om veel tijd te kosten, en het is het enige van de zes dat al speelt.
+
+De I/O-kant is bovendien niet het probleem dat overblijft: `game.bat` flasht firmware naar het bord via
+COM1 (`sendFlash COM1 LMAIO.bin`), en uit de bevindingen blijkt die flash **niet nodig** te zijn -- onder
+TeknoParrot speelt de game met alleen het gedeelde geheugen. De open vraag uit `teknoparrot-io.md` ("wat
+doet de game op COM1 als er geen bord is") is dus de vraag die onze lader moet beantwoorden: het spel
+moet niet stuklopen op een afwezige poort.
