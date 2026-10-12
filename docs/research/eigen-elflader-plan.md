@@ -295,9 +295,20 @@ Wie GoGoStrike nu via de profielroute start, moet dus drie dingen met de hand me
 wat een profiel hoort te voorkomen, en het betekent dat de drie bewezen oplossingen wel in het
 **script** zitten maar nog niet in de **game**.
 
-**Wat er nog moet:** twee profielvelden -- `share_ipc: true` en `binds_rw: [[bron, doel], ...]` -- die
-`play-native.sh` uitleest, plus de note en de status van GoGoStrike rechtzetten. Dat is werk in de
-lader-repo; Claude heeft de melding.
+**En dat is inmiddels gedaan en nagerekend** (Claude's commit `7734186`, gecontroleerd in ronde 34):
+
+* de lezer kent de twee velden nu (regels 96, 98 en 174 van `play-native.sh`);
+* het GoGoStrike-profiel staat op `enabled: true`, `status: "deels"`, `share_ipc: true` en
+  `binds_rw: [["@data/native/GoGoStrike/w040101sram", "/dev/w040101sram0"]]`;
+* de OSS-stub zit in de **`libs`-lijst** als `@lib32/librg-oss-stub.so`, en die lijst wordt naar
+  `/rg/lib/<basename>` gebonden -- precies het pad dat `preload` noemt. De stub wordt dus echt geladen;
+* de note is rechtgezet en noemt nu het geluid als eerste oorzaak, de twee valkuilen
+  (`/dev/sequencer` niet nabootsen, `libalsatoss.so.0` onder exact die naam) en de volgende hobbel;
+* en de **droogloop** laat zien dat de vlaggen uit het profiel komen:
+  `... --bind-rw .../w040101sram /dev/w040101sram0 --share-ipc --headless`.
+
+De drie bewezen oplossingen zitten dus nu in de **game**, niet alleen in het script. Narekenen:
+`re/_uitrol-verify.sh` en `re/_stub-binding.sh`.
 
 #### Onze eigen lader draait de ongepakte gast -- fase 2 letterlijk gehaald (2026-10-12)
 
