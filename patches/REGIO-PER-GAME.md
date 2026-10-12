@@ -182,27 +182,14 @@ NAS-map **`OAV6DU~3`** (een 8.3-korte naam) terwijl het profiel geen `GamePath` 
 
 ## Open punten
 
-1. **OG: het gereedschap vindt de executable niet, de gegevens kloppen.** `python3 scripts/region.py
-   --game OG --json` meldt *"de executable van OG noemt geen enkele amDongle- of regioleesroute"* en
-   geeft `ok: false`. Dat is **geen fout in de gegevens maar een leeg beeld**: `region.py` zoekt de
-   gamemap in `$RAVENGUN_GAME_DIR`, dan `[Game] GamePath`, dan het `GamePath` van het profiel. LGI,
-   LGI3D en LGS hebben een `UserProfiles/<Game>.xml` met daarin een `GamePath` naar de NAS; **OG heeft
-   dat gebruikersprofiel niet** (nooit in TeknoParrotUi geopend) en `GameProfiles/OG.xml` heeft een
-   leeg `GamePath`. De map heet bovendien `OAV6DU~3` (8.3-korte naam). Met de map erbij is hetzelfde
-   gereedschap **groen**:
+1. ~~OG: het gereedschap vindt de executable niet.~~ **Opgelost in ronde 43** (`24a048c` in de
+   loader-repo): `region.py` probeert nu eerst dezelfde resolver als de launcher
+   (`ownprofile.locate_game` — een afwijkend pad van de gebruiker, dan een view, dan de gamemappen aan
+   de hand van `[Identify]`) en vindt OG via de view `views/OG/gs2.exe`. Het oordeel is `ok: true`
+   met `errors: []` en `enforced: false`, zonder `RAVENGUN_GAME_DIR`. De merktekens: `amDongleOpen`
+   2x, `amDongleSetupKeychip`, `amDongleSendAndRecvEx`, `amDongle Ver.`, `keychip.appboot.region` en
+   `REGION` 5x.
 
-   ```bash
-   RAVENGUN_GAME_DIR=/home/deck/mnt/spidernas_emulation/Teknoparrot/OAV6DU~3 \
-     python3 scripts/region.py --game OG --json
-   # "errors": [], "enforced": false
-   # merktekens: "amDongle Ver." 1x, "keychip.appboot.region" 1x, "REGION" 5x
-   ```
-
-   `scripts/launch-direct.py OG --plan` vindt de game **wel** (via de view: `views/OG/gs2.exe`,
-   exitcode 0) en de drop-in komt aan op `views/OG/ravengun-hasp/OG/dongle.json`. **Nodig om dit te
-   sluiten:** `region.py` de gamemap laten oplossen zoals `ownprofile.py`/`launch-direct.py` dat doen
-   (eerst een override, dan de view). Dat is een wijziging in de loader-repo, en die is van de
-   eigenaar.
 2. **OG: `enforced` is een aanname.** De exe is nu nagelopen, maar de game is nooit gestart. De
    aanname staat in `enforced_basis` in het `dongle.json`; wie de game start moet die regel vervangen
    door een meting.
