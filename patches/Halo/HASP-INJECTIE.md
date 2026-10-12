@@ -133,7 +133,10 @@ symbolen, waarvan 182 ongedefinieerd en **allemaal** libc/pthread/socket/dl; er 
 `hasp_*`, en de byte-sequentie `hasp_login` komt **nul keer** in het hele bestand voor. **[gemeten]**
 
 De kop van `hasp_inline_hook.c` zegt "`nm -D game` → wél `T hasp_login`". Voor Halo klopt dat niet, en
-voor Jurassic Park's `game` ook niet (gemeten: ook nul hasp-namen in de dynsym). De conclusie in
+voor Jurassic Park's `game` **wel**: die heeft 29 namen met `hasp_` in zijn dynsym (zie
+`DROPIN-GELIJKSTELLING.md` §2 — een eerdere versie van dit document zei het omgekeerde, op
+basis van `readelf --dyn-syms`, dat op deze bestanden niets teruggeeft omdat `game` nul
+sectiekoppen heeft). De conclusie in
 `docs/hasp-layer.md` §0 dat de aanroepen statisch zijn klopt; de route "naam uit de dynsym" werkt
 alleen waar die namen er nog zijn, en dat is bij deze familie nergens.
 

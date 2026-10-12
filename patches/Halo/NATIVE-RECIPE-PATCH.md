@@ -30,8 +30,13 @@ Daarom is dit voorstel nu wél de verwisseling: de hook in `preload` in plaats v
 * **De vondst paste niet, en past nu wel.** Onze hook zocht zijn doelen **uitsluitend op naam in de
   dynsym**. Gemeten: Halo's `game` heeft 220 dynsym-symbolen, 182 ongedefinieerd en **allemaal**
   libc/pthread/socket/dl, en **nul** met `hasp_`; de byte-sequentie `hasp_login` komt **nul keer**
-  in het hele bestand voor. Hetzelfde geldt voor Jurassic Park's `game` (ook nul hasp-namen), dus
-  dit is een familie-eigenschap en geen Halo-eigenaardigheid.
+  in het hele bestand voor.
+  **Let op: dat is niet voor de hele familie zo.** Jurassic Park's `game` heeft **29 namen met
+  `hasp_`** in zijn dynsym (de drop-in van die game zegt 30), allemaal gedefinieerd met een
+  absolute `st_value` rond `0x0852xxxx` — gemeten met `probe/dynsym_probe.py`, dat de
+  symbolentabel via `PT_DYNAMIC` leest. Een eerdere versie van dit document beweerde het
+  omgekeerde; die fout kwam van `readelf --dyn-syms`, dat op deze bestanden **niets** teruggeeft
+  omdat `game` nul sectiekoppen heeft. Zie `DROPIN-GELIJKSTELLING.md` §2.
 * **Wat er nu is.** Een tweede weg, naast de naam-route:
   * **Het mechanisme is generiek** en staat in de lader (`tools/rt-hasphook/hasp_inline_hook.c`):
     de hook leest een adreslijst, keurt elk adres, en haakt aan. Geen enkele game-naam of game-adres
