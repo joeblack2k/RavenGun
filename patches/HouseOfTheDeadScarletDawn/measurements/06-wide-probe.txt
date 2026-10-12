@@ -1,0 +1,678 @@
+============================================================================
+### amdaemon.exe : 3886 wide strings
+--- 251 matching wide strings ---
+  0x004af380  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\arcade\EventListener.cpp
+  0x004af708  Unexpected error.
+  0x004af788  Disconnect dongle.
+  0x004af7b0  class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > __cdecl amdaemon::arcade::Manager::generateAppRootPath(void) const
+  0x004af900  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\arcade\Manager.cpp
+  0x004b11d0  enum amdaemon::arcade::Manager::Status __cdecl amdaemon::arcade::Manager::initialize(const class amdaemon::process::ArgumentsParser &,const class std::basic_string<wchar_t,struct s
+  0x004b1490  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\arcade\Manager.cpp
+  0x004b16e0  Error: am::Interface::initialize().
+  0x004b1730  enum amdaemon::arcade::Manager::Status __cdecl amdaemon::arcade::Manager::initialize(const class amdaemon::process::ArgumentsParser &,const class std::basic_string<wchar_t,struct s
+  0x004b19f0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\arcade\Manager.cpp
+  0x004b4cf0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\SequenceConverter.cpp
+  0x004b4eae  pInvalid internal module version
+  0x004b4ef0  enum amdaemon::config::Converter::Status __cdecl amdaemon::config::UsbIOConverter::doExecute(void)
+  0x004b4fc0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\UsbIOConverter.cpp
+  0x004b511e  pInvalid internal module version
+  0x004b5160  enum amdaemon::config::Converter::Status __cdecl amdaemon::config::UsbIOConverter::doExecute(void)
+  0x004b5230  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\UsbIOConverter.cpp
+  0x004b53be  pInvalid internal module version
+  0x004b5400  bool __cdecl amdaemon::config::UsbIOConverter::convertRequiredFunction(const struct amdaemon::process::UsbIOFunction &,struct am::usbio::Function &)
+  0x004b5530  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\UsbIOConverter.cpp
+  0x004b56be  pInvalid internal module version
+  0x004b5700  bool __cdecl amdaemon::config::UsbIOConverter::convertRequiredFunction(const struct amdaemon::process::UsbIOFunction &,struct am::usbio::Function &)
+  0x004b5830  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\UsbIOConverter.cpp
+  0x004b5a0e  pinvalid display mode
+  0x004b5a40  enum amdaemon::config::Converter::Status __cdecl amdaemon::config::VideoConverter::doExecute(void)
+  0x004b6090  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\allnet\AccountingConverter.cpp
+  0x004b61a0  %u.%u
+  0x004b6280  enum amdaemon::config::Converter::Status __cdecl amdaemon::config::allnet::AuthConverter::doExecute(void)
+  0x004b6360  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\config\allnet\AuthConverter.cpp
+  0x004b64a0  AM Daemon
+  0x004b64c0  Usage: amdaemon.exe [-c <config file path ...>] [-l <log file path>]
+  0x004b6ed8  There are too many units.
+  0x004b6f5e  pWrong condition that returns true of isReady().
+  0x004b6fc0  void __cdecl amdaemon::server::AimeUnitRequestExecutor::setResult(enum am::aime::TaskFinishedEventListener::Task,enum am::aime::TaskFinishedEventListener::Status,enum am::aime::Tas
+  0x004b71b0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\AimeController.cpp
+  0x004b72c8  Unmatch libamw version.
+  0x004b8600  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\AimeController.cpp
+  0x004b876e  pUnmatch libamw version.
+  0x004b87a0  enum amdaemon::AimeErrorId __cdecl `anonymous-namespace'::convert(enum am::aime::TaskFinishedEventListener::ErrorCode)
+  0x004b8890  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\AimeController.cpp
+  0x004b89fe  pUnmatch libamw version.
+  0x004b8a30  enum amdaemon::AimeConfirm __cdecl `anonymous-namespace'::convert(enum am::aime::NeedAcceptationEventListener::Question)
+  0x004b8b30  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\AimeController.cpp
+  0x004b8c8e  pUnmatch libamw version.
+  0x004b8cc0  enum amdaemon::AimeLedStatus __cdecl `anonymous-namespace'::convert(enum am::aime::LedLightPattern)
+  0x004b8d90  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\AimeController.cpp
+  0x004b97f0  void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::aime::ServerResponse,struct amdaemon::ipc::aime::ClientRequest>::checkResult(void)
+  0x004b9920  d:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\RequestExecutor.h
+  0x004b9a5e  )void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::aime::ServerUnitResponse,struct amdaemon::ipc::aime::ClientUnitRequest>::checkResult(void)
+  0x004b9d50  Wrong condition that returns true of isReady().
+  0x004b9db0  enum amdaemon::server::RequestState __cdecl amdaemon::server::ApmController::checkResult(void)
+  0x004be510  void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::backup::ServerResponse,struct amdaemon::ipc::backup::ClientRequest>::checkResult(void)
+  0x004be760  Wrong condition that returns true of isReady().
+  0x004be7c0  void __cdecl amdaemon::server::BoardIoController::clearServerData(void)
+  0x004be850  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\BoardIoController.cpp
+  0x004be9b0  Wrong condition that returns true of isReady().
+  0x004bea10  void __cdecl amdaemon::server::BoardIoController::updateServerDataPart(void)
+  0x004beab0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\BoardIoController.cpp
+  0x004bec20  Wrong condition that returns true of isReady().
+  0x004bec80  enum amdaemon::server::RequestState __cdecl amdaemon::server::BoardIoController::accept(void)
+  0x004bed40  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\BoardIoController.cpp
+  0x004bf210  void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::boardio::ServerLedResponse,struct amdaemon::ipc::boardio::ClientLedRequest>::checkResult(void)
+  0x004bf480  Wrong condition that returns true of isReady().
+  0x004d4140  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\SystemInfoController.cpp
+  0x004d4298  Beroken system data.
+  0x004d42c8  Disconnect dongle.
+  0x004d42f0  void __cdecl amdaemon::server::SystemInfoController::getBoardInfo(void)
+  0x004d4380  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\SystemInfoController.cpp
+  0x004d44d8  Disconnect dongle.
+  0x004d4500  Wrong condition that returns true of isReady().
+  0x004d4560  void __cdecl amdaemon::server::SystemInfoController::getDongleInfo(void)
+  0x004d45f8  Disconnect dongle.
+  0x004d4620  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\SystemInfoController.cpp
+  0x004d4780  void __cdecl amdaemon::server::SystemInfoController::getDongleInfo(void)
+  0x004d4820  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\SystemInfoController.cpp
+  0x004d4980  Wrong condition that returns true of isReady().
+  0x004d55b0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\SystemInfoController.cpp
+  0x004d5970  Wrong condition that returns true of isReady().
+  0x004d59d0  enum amdaemon::server::RequestState __cdecl amdaemon::server::UsbDeviceController::accept(void)
+  0x004d5a90  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbDeviceController.cpp
+  0x004d5b40  Requested unknown task.
+  0x004d6070  void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::usbdevice::ServerResponse,struct amdaemon::ipc::usbdevice::ClientRequest>::checkResult(void)
+  0x004d6350  Wrong condition that returns true of isReady().
+  0x004d63b0  enum amdaemon::server::RequestState __cdecl amdaemon::server::UsbIONodeRequestExecutor::doAccept(void)
+  0x004d6480  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbIOController.cpp
+  0x004d6528  Request unknown task.
+  0x004d6610  Wrong condition that returns true of isReady().
+  0x004d6670  void __cdecl amdaemon::server::UsbIONodeRequestExecutor::updateInput(void)
+  0x004d6710  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbIOController.cpp
+  0x004d6870  Wrong condition that returns true of isReady().
+  0x004d68d0  void __cdecl amdaemon::server::UsbIOController::updateNodeInfo(void)
+  0x004d6960  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbIOController.cpp
+  0x004d6ab8  There are too many nodes.
+  0x004d6af0  void __cdecl amdaemon::server::UsbIOController::updateNodeInfo(void)
+  0x004d6b80  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbIOController.cpp
+  0x004d6cd8  Unexpected error.
+  0x004d6d00  void __cdecl amdaemon::server::UsbIOController::updateNodeInfo(void)
+  0x004d6d90  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\UsbIOController.cpp
+  0x004d7150  void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::usbio::ServerResponse,struct amdaemon::ipc::usbio::ClientRequest>::checkResult(void)
+  0x004d73c0  Wrong condition that returns true of isReady().
+  0x004d8e8e  )void __cdecl amdaemon::server::RequestExecutor<struct amdaemon::ipc::allnet::ServerAccountingResponse,struct amdaemon::ipc::allnet::ClientAccountingRequest>::checkResult(void)
+  0x004d9118  Unmatch libamw version.
+  0x004d9150  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d91f0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d9348  Unmatch libamw version.
+  0x004d9380  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9420  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d9578  Unmatch libamw version.
+  0x004d95b0  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9650  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d97a8  Unmatch libamw version.
+  0x004d97e0  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9880  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d99e0  Wrong condition that returns true of isReady().
+  0x004d9a40  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9ae0  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d9c38  Unmatch libamw version.
+  0x004d9c70  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9d10  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004d9e68  Unmatch libamw version.
+  0x004d9ea0  void __cdecl amdaemon::server::allnet::AuthController::updateServerData(void)
+  0x004d9f40  D:\jenkins_work\workspace\all_build\apps\amdaemon\src\server\allnet\AuthController.cpp
+  0x004da178  Unmatch libamw version.
+  0x004da1b0  Wrong condition that returns true of isReady().
+  0x004e8040  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateCoinSelectorAs6db(const struct amdaemon::process::config::CreditCoinSelectorAs6dbConfig &,co
+  0x004e8210  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004e82a8  aime.unit[
+  0x004e83a8  emoney.display_port
+  0x004e8420  Config error at "credit.coin_selector_AS6DB.counted_coin". Array size is not match the coin slot count of the CAN target.
+  0x004e89c0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateCoinSelectorAs6db(const struct amdaemon::process::config::CreditCoinSelectorAs6dbConfig &,co
+  0x004e8b90  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004e8c28  allnet_auth
+  0x004e8c40  credit.coin_selector_AS6DB.port
+  0x004e8dc0  Config error at "credit.coin_selector_AS6DB.counted_coin". Array size is not match the coin slot count of the USB node.
+  0x004e8eb0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateCoinSelectorAs6db(const struct amdaemon::process::config::CreditCoinSelectorAs6dbConfig &,co
+  0x004e9088  ].port
+  0x004e9098  allnet_accounting
+  0x004e90c0  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004e9158  allnet_wifi
+  0x004e92b0  Config error at "credit.coin_selector_AS6DB". Coin input function of USB nodes is disabled.
+  0x004e9370  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateCoinSelectorAs6db(const struct amdaemon::process::config::CreditCoinSelectorAs6dbConfig &,co
+  0x004e9548  .enable" are inconsistent.
+  0x004e9580  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004e9928  .enable" are inconsistent.
+  0x004e9960  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004e99f8  "allnet_auth.enable" and "
+  0x004e9b10  "network.use_gateway" and "allnet_auth.enable" are inconsistent.
+  0x004e9b98  emoney
+  0x004e9bc0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedNetwork(const struct amdaemon::process::Config &)
+  0x004e9f20  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedNetwork(const struct amdaemon::process::Config &)
+  0x004ea040  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004ea1c0  "network.use_location_router" and "allnet_auth.enable" are inconsistent.
+  0x004ea258  "network.enable" and "
+  0x004ea290  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedNetwork(const struct amdaemon::process::Config &)
+  0x004ea8d0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedNetwork(const struct amdaemon::process::Config &)
+  0x004ea9f0  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004eab80  A value of true is not contained in "allnet_auth.support_line".
+  0x004eac00  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedAllnet(const struct amdaemon::process::Config &)
+  0x004ead20  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004eaee0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedAllnet(const struct amdaemon::process::Config &)
+  0x004eb000  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004eb180  "emoney.enable" and "aime.enable" are inconsistent.
+  0x004eb1f0  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedEMoney(const struct amdaemon::process::Config &)
+  0x004eb310  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004eb4a0  "emoney.aime_unit" is out of "aime.unit" range.
+  0x004eb500  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedEMoney(const struct amdaemon::process::Config &)
+  0x004eb620  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004eb7b0  "emoney.enable" and "aime.high_baudrate" are inconsistent.
+  0x004eb830  enum amdaemon::process::ConfigFileLoader::Result __cdecl `anonymous-namespace'::validateMixedEMoney(const struct amdaemon::process::Config &)
+  0x004eb950  D:\jenkins_work\workspace\all_build\libs\amdproc\src\ConfigFileLoader.cpp
+  0x004f3920  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::AimeConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::proc
+  0x004f3f50  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AccountingConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct 
+  0x004f45c0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x004f4c10  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::WiFiConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x004f5240  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::ApmConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::proce
+  0x004fa790  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::InputOutputConfig<struct amdaemon::ipc::InputOutputServerData<struct amdaemon::InputOutputId
+  0x004fb130  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::SequenceConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::
+  0x004fb740  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x004fbd40  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::VideoConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x004fc580  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::InputOutputConfig<struct amdaemon::ipc::InputOutputServerData<struct amdaemon::InputOutputId
+  0x0050ca30  upper
+  0x0050ca40  xdigit
+  0x0050e1a0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x0050e7f0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x0050ee40  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x0050f490  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x0050fae0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x00510130  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::AuthConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x00510d40  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::allnet::WiFiConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaem
+  0x00511640  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::ApmConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::proce
+  0x0055a570  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::SequenceConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::
+  0x0055ac60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::SequenceConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::
+  0x0055e460  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0055ea60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0055f060  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0055f660  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0055fc60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00560260  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00560860  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00560e60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00561460  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00561a60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00562060  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00562660  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00562c60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00563260  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00563860  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00563e60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00564460  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00564a60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00565060  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00565660  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00565c60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00566260  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00566860  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00566e60  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00567460  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00567ad0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00568210  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x005688e0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00568ee0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::UsbIOConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0056b4d0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::VideoConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x0056bad0  void __cdecl amdaemon::process::config::ValidatorBase<struct amdaemon::process::config::VideoConfig>::doValidate<class amdaemon::process::config::ValidatorBase<struct amdaemon::pro
+  0x00570ae0  Invalid num(%Iu)
+  0x00570b08  null pointer assigned
+  0x00570b38  too long auth key - %s
+  0x00570b68  param list is full
+  0x00570b98  null pointer assigned
+  0x00573180  void __cdecl am::allnet::Manager::updateNetworkError(void)
+  0x00573200  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_allnet_manager.cpp
+  0x005732a0  void __cdecl am::allnet::Manager::updateAuthStatus(void)
+  0x00573320  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_allnet_manager.cpp
+  0x00573590  Error: path length. %Iu
+  0x00573c50  bool __cdecl am::apm::Manager::linkLogFolder(const wchar_t *,const wchar_t *,const class am::GameId &)
+  0x00573d20  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_apm_manager.cpp
+  0x00573dc0  Error: DeviceIoControl(). ErrCode %u
+  0x00573e10  bool __cdecl am::apm::Manager::linkLogFolder(const wchar_t *,const wchar_t *,const class am::GameId &)
+  0x00573ee0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_apm_manager.cpp
+  0x00573fc0  bool __cdecl am::apm::Manager::linkLogFolder(const wchar_t *,const wchar_t *,const class am::GameId &)
+  0x00574090  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_apm_manager.cpp
+  0x00574150  \??\
+  0x00574160  uninitialized.
+  0x00574180  void __cdecl am::apm::Manager::finalize(void)
+  0x00576470  ThincaRwAdapter
+  0x00576490  %s%s
+  0x005764a0  aime_rw_adapterMD.dll
+  0x005764d0  %s%s
+  0x005764e0  TfpsAimeRwAdapter
+  0x00576550  %s%s
+  0x00576560  CaLocation
+  0x00576578  thincatcapclient.dll
+  0x005765a8  %s%s
+  0x005765b8  ThincaTcapClientPath
+  0x00576910  Storage Device Malfunctioning
+  0x00576950  Storage Device Malfunctioning
+  0x00576990  Keychip Not Found
+  0x005769b8  Unexpected Error Occurred
+  0x005769f0  Unexpected Error Occurred
+  0x00576c40  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_error_manager.cpp
+  0x00576ce0  amMasterGetProcessCount(). ErrCode %d.
+  0x00576d30  void __cdecl am::error::Manager::setupToSaveErrorLog(struct am::nvram::SystemInfo &,const class am::dongle::Manager &)
+  0x00576e20  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_error_manager.cpp
+  0x00576ec0  convert WCS -> MBS. ErrCode %d.
+  0x00576f00  void __cdecl am::error::Manager::setupToSaveErrorLog(struct am::nvram::SystemInfo &,const class am::dongle::Manager &)
+  0x00576ff0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_error_manager.cpp
+  0x00577090  unknown error occurred. Code %hu.
+  0x0057fb90  Error: SHFileOperation failed %d.
+  0x0057fc50  cAiMeInstance::initAiMe(). ErrCode %d.
+  0x0057fca0  enum am::util::ModuleContext<1>::Status __cdecl am::aime::Context::initialize(void)
+  0x0057fd50  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_aime_context.cpp
+  0x0057fdf0  cAiMeInstance::initAiMe(). ErrCode %d.
+  0x0057fe40  enum am::util::ModuleContext<1>::Status __cdecl am::aime::Context::finalize(void)
+  0x0057fef0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_aime_context.cpp
+  0x00580730  create context. ErrCode %d.
+  0x00580770  enum am::nvram::SystemRecord::Status __cdecl am::nvram::SystemRecord::initialize(bool)
+  0x00584330  network_mass
+  0x00584350  lan_install
+  0x00584368  auth
+  0x00584378  accounting
+  0x00584390  accounting_A_B2
+  0x005843b0  aime
+  0x005843c0  no need to change.
+  0x005843e8  required file not found. %s
+  0x005844d0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_resource_set.cpp
+  0x00584568  error
+  0x00584578  %s\%s.%s.dll
+  0x00584598  %s\%s.%s.%s.dll
+  0x005845b8  optional file not found.
+  0x005845f0  enum am::ResourceSet::Status __cdecl am::ResourceSet::loadError(const wchar_t *,class am::util::ErrorResource &)
+  0x005849b0  enum am::ResourceSet::Status __cdecl am::ResourceSet::loadError(const wchar_t *,class am::util::ErrorResource &)
+  0x00584aa0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_resource_set.cpp
+  0x00584b38  %s\%s.%s.dll
+  0x00584b60  enum am::ResourceSet::Status __cdecl am::ResourceSet::loadWarning(const wchar_t *,class am::util::ErrorResource &)
+  0x00584c50  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_resource_set.cpp
+  0x00588360  void __cdecl am::emoney::CheckDealCommand::checkPreResult(class am::emoney::ThincapaymentResultEvent &)
+  0x00588430  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_command.cpp
+  0x005884d0  emoneyInfo.saveAuthBrandList().
+  0x00588510  void __cdecl am::emoney::RemoveTermCommand::updateNvram(int)
+  0x00588590  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_command.cpp
+  0x0058e7f0  enum am::util::ModuleContext<1>::Status __cdecl am::nvram::AppfileContext::finalize(void)
+  0x0058e8b0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_nvram_appfile_context.cpp
+  0x0058ec08  amUsbioInit(). ErrCode %d.
+  0x0058ec40  enum am::util::ModuleContext<1>::Status __cdecl am::usbio::Context::initialize(void)
+  0x0058ecf0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_usbio_context.cpp
+  0x0058ed88  amUsbioExit(). ErrCode %d.
+  0x0058edc0  enum am::util::ModuleContext<1>::Status __cdecl am::usbio::Context::finalize(void)
+  0x0058ee70  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_usbio_context.cpp
+  0x0058efc8  stop NET deliver. Because %s.
+  0x0058f008  stop LAN install.
+  0x0058f030  ALL.Net auth status becomes wait
+  0x0058f078  start NET deliver. Because %s.
+  0x0058f0c0  restart to get download instruction URI
+  0x0058f110  void __cdecl am::appimage::Updater::updateNetDeliver(const class am::allnet::Manager &)
+  0x0058f1c0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_appimage_updater.cpp
+  0x0058f260  ALL.Net auth status becomes retry wait
+  0x0058f2b0  Getting the download instruction URI has been completed (regardless of success / failure)
+  0x0058f368  start LAN install.
+  0x0058f800  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_appimage_updater.cpp
+  0x0058f930  create context. ErrCode %d.
+  0x0058f970  void __cdecl am::dongle::Manager::setup(void)
+  0x0058f9d0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x0058fa70  amDongleSetupKeychip(). ErrCode %d.
+  0x0058fac0  void __cdecl am::dongle::Manager::setup(void)
+  0x0058fb20  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x0058fbc0  amDongleGetGameId(). ErrCode %d.
+  0x0058fc20  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x0058fc90  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x0058fd30  amDongleBillingGetKeychipId(). ErrCode %d.
+  0x0058fd90  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x0058fe00  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x0058fea0  amSerialIdConvert(). ErrCode %d.
+  0x0058fef0  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x0058ff60  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590000  amDongleGetModelType(). ErrCode %d.
+  0x00590050  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x005900c0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590160  amDongleGetRegion(). ErrCode %d.
+  0x005901b0  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x00590220  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x005902c0  amDongleGetNetworkAddress(). ErrCode %d.
+  0x00590320  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x00590390  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590430  amDongleGetSystemFlag(). ErrCode %d.
+  0x00590480  bool __cdecl am::dongle::Manager::loadInfo(void)
+  0x005904f0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590590  convert mbs to wcs. ErrCode %u.
+  0x005905d0  void __cdecl am::dongle::Manager::convert(const char (&)[5],class am::GameId &)
+  0x00590670  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590710  convert mbs to wcs. ErrCode %u.
+  0x00590750  void __cdecl am::dongle::Manager::convert(const char (&)[17],class am::SerialId &)
+  0x00590800  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_manager.cpp
+  0x00590a00  create context. ErrCode %d.
+  0x00590a38  amHmUpdate(). ErrCode %d.
+  0x005951e0  BCryptOpenAlgorithmProvider(). ErrorCode %d.
+  0x00595240  bool __cdecl `anonymous-namespace'::calcurateHmacSha256(const unsigned char *,unsigned int,unsigned char *,unsigned int,unsigned char *,unsigned int)
+  0x00595370  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_store_auth_card_reader.cpp
+  0x00595430  BCryptCreateHash(). ErrorCode %d.
+  0x00595480  bool __cdecl `anonymous-namespace'::calcurateHmacSha256(const unsigned char *,unsigned int,unsigned char *,unsigned int,unsigned char *,unsigned int)
+  0x005955b0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_store_auth_card_reader.cpp
+  0x00595670  BCryptHashData(). ErrorCode %d.
+  0x005956b0  bool __cdecl `anonymous-namespace'::calcurateHmacSha256(const unsigned char *,unsigned int,unsigned char *,unsigned int,unsigned char *,unsigned int)
+  0x005957e0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_store_auth_card_reader.cpp
+  0x005958a0  BCryptHashData(). ErrorCode %d.
+  0x005958e0  bool __cdecl `anonymous-namespace'::calcurateHmacSha256(const unsigned char *,unsigned int,unsigned char *,unsigned int,unsigned char *,unsigned int)
+  0x00595a10  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_emoney_store_auth_card_reader.cpp
+  0x00595c70  BCryptOpenAlgorithmProvider(). ErrCode %d.
+  0x00595cd0  bool __cdecl am::util::Hash::initialize(void)
+  0x005966f0  bool __cdecl `anonymous-namespace'::isConnectedInstallMedia(void)
+  0x00596780  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_usbinstall_manager.cpp
+  0x00596860  amDongleInit(). ErrCode %d.
+  0x005968a0  enum am::util::ModuleContext<1>::Status __cdecl am::dongle::Context::initialize(void)
+  0x00596950  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_context.cpp
+  0x005969e8  amDongleExit(). ErrCode %d.
+  0x00596a20  enum am::util::ModuleContext<1>::Status __cdecl am::dongle::Context::finalize(void)
+  0x00596ad0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_dongle_context.cpp
+  0x00596c30  nvram.create(). ErrCode %d.
+  0x00596c70  enum am::util::ModuleContext<2>::Status __cdecl am::hwm::Context::initialize(void)
+  0x00599260  bool __cdecl am::AppConfigValidator::isValid(const class am::jvs::Config &)
+  0x00599300  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x005993b0  General driver output - slot is out of range. Value = %u.
+  0x00599430  bool __cdecl am::AppConfigValidator::isValid(const class am::jvs::Config &)
+  0x005994d0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059c630  bool __cdecl am::AppConfigValidator::isValid(const class am::credit::Config &)
+  0x0059c6d0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059c780  ALL.Net Auth must be enable, if NET deliver is enable.
+  0x0059c7f0  bool __cdecl am::AppConfigValidator::isValid(const class am::allnet::AuthConfig &,const class am::netdeliver::Config &,const class am::laninstall::Config &)
+  0x0059c930  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059c9e0  Can not operate as LAN install client, whent NET deliver is enable.
+  0x0059ca70  bool __cdecl am::AppConfigValidator::isValid(const class am::allnet::AuthConfig &,const class am::netdeliver::Config &,const class am::laninstall::Config &)
+  0x0059cbb0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059cc60  Aime event listener are not assigned.
+  0x0059ccb0  bool __cdecl am::AppConfigValidator::isValid(const class am::aime::Config &)
+  0x0059cd50  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059ce00  card accept time is out of range. Value = %u.
+  0x0059ce60  bool __cdecl am::AppConfigValidator::isValid(const class am::aime::Config &)
+  0x0059cf00  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059cfb0  COM port of Aime reader%Iu is out of range. Value = %Iu.
+  0x0059d030  bool __cdecl am::AppConfigValidator::isValid(const class am::aime::Config &)
+  0x0059d0d0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059d180  Unit index of Aime reader%Iu is out of range. Value = %Iu.
+  0x0059d200  bool __cdecl am::AppConfigValidator::isValid(const class am::aime::Config &)
+  0x0059d2a0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059d350  bool __cdecl am::AppConfigValidator::isValid(const class am::emoney::Config &,const class am::network::Config &,const class am::aime::Config &)
+  0x0059d470  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059d520  COM port of Aime reader and coin selector AS-6DB is same.
+  0x0059d5a0  bool __cdecl am::AppConfigValidator::isValid(const class am::credit::Config &,const class am::aime::Config &,const class am::emoney::Config &)
+  0x0059d6c0  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059d770  COM port of Aime reader and eMoney display is same.
+  0x0059d7e0  bool __cdecl am::AppConfigValidator::isValid(const class am::credit::Config &,const class am::aime::Config &,const class am::emoney::Config &)
+  0x0059d900  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059d9b0  COM port of eMoney display and coin selector AS-6DB is same.
+  0x0059da30  bool __cdecl am::AppConfigValidator::isValid(const class am::credit::Config &,const class am::aime::Config &,const class am::emoney::Config &)
+  0x0059db50  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_app_config_validator.cpp
+  0x0059dde8  CryptStringToBinary().
+  0x0059e060  CardDetect
+  0x0059e078  MifareKeySetA
+  0x0059e098  MifareAuthenticationA
+  0x0059e0c8  MifareRead
+  0x0059e3e0  invalid pointer.
+  0x0059fda0  enum am::util::ModuleContext<1>::Status __cdecl am::crashdump::Context::initialize(void)
+  0x0059fe60  D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_crashdump_context.cpp
+  0x005a0800  s:\sgsegaboot.exe
+  0x005a0828  @game
+  0x005a0838  s:\sgsegaboot.exe -s test
+  0x005a0870  x:\gametest
+  0x005a1cc0  SYSTEM\SEGA\SYSTEMPROPERTY
+  0x005a1fe0  Rear
+  0x005a1ff0  Subwoofer
+  0x005a2238  \\.\sghwreset
+  0x005a23e8  GOUT
+  0x005a23f8  PWMOUT
+  0x005a6590  Error: previous request is not finished.
+  0x005a65e8  amsGfetcherReqIsRelease
+  0x005a6618  Error: pAuth is NULL.
+  0x005a6648  amsGfetcherReqSetAuthParams
+  0x005a6680  amsGfetcherReqGetAuthParams
+  0x005a66b8  Error: invalid argument.
+  0x005a66f0  amsGfetcherReqGetImageInfo
+  0x005a6bb8  executeCheckRelease
+  0x005a6be0  Error: get app load count failed. code%d
+  0x005a6c38  Error: commit ICF failed.
+  0x005a6c70  Error: open bootid failed.
+  0x005a6ca8  updateImageInfoListByDli
+  0x005a7140  Error: GameID does not match.
+  0x005a717c   Image: %c%c%c%c
+  0x005a719e   Keychip: %c%c%c%c
+  0x005a71d0  Error: corresponding image info not found.
+  0x005a7228  updateDliFromIcf
+  0x005a7250  Error: commit icf failed.
+  0x005a7288  checkLatestImages
+  0x005a72b0  Error: add ICF failed.
+  0x005a72e0  addDliItemToIcf
+  0x005a7300  tmpIcf.icf
+  0x005a7318  checkReleaseTaskCreateIcfByDli
+  0x005a7358  Error: invalid ICF.
+  0x005a7388  Error: merge ICF failed.
+  0x005a73c0  checkReleaseTaskMergeIcfCreatedByDliIntoOriginalIcf
+  0x005a7428  Error: merge ICF invalid.
+  0x005a7460  checkReleaseTaskCommitIcfMergedWithDli
+  0x005a74b0  Error: image not found from DLI_ICF.
+  0x005a7500  checkReleaseApp
+  0x005a7520  checkReleaseOptOneByOne
+  0x005a7550  checkReleaseOptAtOneTime
+  0x005a7588  tmpMergeIcf.icf
+  0x005a75b0  Error: add image info failed: %d
+  0x005a75f8  mergeIcf
+  0x005a7770  Error: upload report failed or request canceled.
+  0x005a77d8  deliverReportSend
+  0x005a7910  Error: get keychip serial id failed. code=%d.
+  0x005a7970  getKeychipSerialId
+  0x005a79a0  Error: get amfs drive letter failed. error code is %d.
+  0x005a7a10  getAmfsDriveLetter
+  0x005a7bd0  Error: download size invalid.
+  0x005a7c10  Error: access server failed or request canceled.
+  0x005a7cc0  ICF1
+  0x005a7ce0  ICF2
+  0x005a7d00  ICFB1
+  0x005a7d20  ICFB2
+  0x005a7d40  amfs_share$
+  0x005a7d58  MUTEX
+  0x005a9e20  sgmanageio
+  0x005a9e78  Error: Invalid param
+  0x005a9ea8  amyUsbOpen
+  0x005a9ec0  Error: already opened.
+  0x005a9ef0  Error: create thread. ErrCode %d.
+  0x005a9f38  amyUsbClose
+  0x005a9f50  Error: delete thread. ErrCode %d.
+  0x005a9fb8  IDENTIFY_NAME
+  0x005a9fe0  Error: set value. ErrCode %08X.
+  0x005aa030  amySystemPropertySetUsbProperty
+  0x005aa070  amySystemPropertySetIdentifyName
+  0x005aa0c0  Error: get value. ErrCode %08X.
+  0x005aa110  amySystemPropertyGetUsbProperty
+  0x005aa150  System\Sega\SystemProperty\sgworker
+  0x005aa1a0  Error: open registry. ErrCode %08X.
+  0x005aa1f0  openUsbSystemProperty
+  0x005aa220  STATE
+  0x005aa230  LAST_RESULT_CODE
+  0x005aa260  Error: close service. ErrCode %08X.
+  0x005aa2b0  amyUsbControlWorkerService
+  0x005aa2e8  \\.\%s
+  0x005aa380  amsMasterSetNextProcess
+  0x005aa3b0  amsMasterGetNextProcess
+  0x005aad30  Error: get network address(IPv6). ErrCode %08X.
+  0x005aada0  amsSystemPropertyGetNetworkAddressIpv6
+  0x005aadf0  keychipId
+  0x005aae10  Error: get keychip id. ErrCode %08X.
+  0x005aae60  amsSystemPropertyGetKeychipId
+  0x005aaea0  platformId
+  0x005aaec0  Error: get platform id. ErrCode %08X.
+  0x005aaf10  amsSystemPropertyGetPlatformIdOnDongle
+  0x005aaf60  formatType
+  0x005aaf80  Error: get format type. ErrCode %08X.
+  0x005aafd0  amsSystemPropertyGetFormatTypeOnDongle
+  0x005ab020  System\Sega\SystemProperty\keychip
+  0x005ab068  openDongleSystemProperty
+  0x005ab0e0  amyNetworkEnumNetworkInterface
+  0x005ab120  amyNetworkOpen
+  0x005ab140  amyNetworkClose
+  0x005ab370  %hhu.%hhu.%hhu.%hhu
+  0x005ab3a0  Error: Internal error. Invalid param.
+  0x005ab3f0  amyNetworkGetInterfaceInfo
+  0x005ab430  Error : Internal error. GetAdaptersInfo(). ErrCode 0x%08x.
+  0x005ab4a8  amyNetworkAnalyzeInterfaceInfo
+  0x005ab4f0  Error : Internal error. amyStringConverterMbstowcs(). ErrCode 0x%08x.
+  0x005ab580  amyNetworkSortMacAddress
+  0x005aba10  interface ipv4 delete dns %d all validate=no 
+  0x005aba70  interface ipv4 add dns %d validate=no 
+  0x005abac0  SYSTEM\CurrentControlSet\services\Tcpip\Parameters\Interfaces\%s
+  0x005abb50  Error: open registry. ErrCode %d.
+  0x005abba0  amyNetworkSetDhcpStatusOnNextConnect
+  0x005ac4a8  Error: Unmatch NIC type(%d).
+  0x005ac4f0  amyNetworkImplConnectAccessPoint
+  0x005ac540  <?xml version="1.0"?><WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">    <name>%s</name>    <SSIDConfig>        <SSID>            <name>%s</name>        </
+  0x005acca8  Error: create profile.
+  0x005acce0  Error: set profile. ErrCode %u (reason=%d).
+  0x005ae940  ERROR: Dns failed. Error code is %d.
+  0x005ae990  amsDnsImplCallback
+  0x005aedc0  \??\FddDriver
+  0x005aede0  amyDongleDriverStart
+  0x005aee10  Error: DeviceIoControl failed. %08x
+  0x005aee60  amyDongleDriverEnd
+  0x005aee90  Error: DeviceControl failed. %08x
+  0x005aeed8  amyDongleDriverStartNvram
+  0x005aef10  amyDongleDriverEndNvram
+  0x005aef40  amyDongleDriverStartGetLog
+  0x005aef78  amyDongleDriverEndGetLog
+  0x005aeff8  Error: argument(s) are NULL.
+  0x005af038  amyHmOpen
+  0x005af050  \\.\sghwmonitor
+  0x005af070  Error: open driver. ErrCode %u.
+  0x005af0b8  amyHmClose
+  0x005af0d0  Error: not opened.
+  0x005b0bd0  Error: amsHttpUploadamsHttpUploadMultipartFormdata is not supported under amcsocket.
+  0x005b0c80  amsHttpUploadMultipartFormdata
+  0x005b0cc0  Error: amsHttpGetAuthScheme is not supported under amcsocket.
+  0x005b0d40  amsHttpGetAuthScheme
+  0x005b0d70  Error: amsHttpSetAuthParam is not supported under amcsocket.
+  0x005b0df0  amsHttpSetAuthParam
+  0x005b0e20  Error: amsHttpSetAutoProxy is not supported under amcsocket.
+  0x005b0ea0  amsHttpSetAutoProxy
+  0x005b2440  Error: no init context
+  0x005b2470  Error: read only context
+  0x005b24a8  Error: icf format error
+  0x005b24e0  Error: Locked ICF
+  0x005b2508  Error: CreateFileW error=%d
+  0x005b2548  amsIcfAddImageInfo
+  0x005b25f0  Error: Invalid ImageInfo
+  0x005b2628  amsIcfMergeWithKeepingOption
+  0x005b2668  Error: delete icf error %d
+  0x005b26a0  Error: create icf error %d
+  0x005b26e0  Error: check exist status image info
+  0x005b2730  Error: unsinstall image info
+  0x005b2c50  Error: Already init context
+  0x005b2c90  Error: amsAesInitialize error=%d
+  0x005b2cd8  Error: Get ICF Key error=%d
+  0x005b2d18  Error: amsAesSetKey error=%d
+  0x005b2d58  amsIcfFindImageInfo
+  0x005b49b0  amsSystemPropertyGetAppLoaderCount
+  0x005b49f8  amsSystemPropertyMasterInit
+  0x005b4b00  Error SetupDiEnumDeviceInterfaces error=0x%08x
+  0x005b4b60  amyDriverEnumDevice_
+  0x005b4b90  Error SetupDiGetDeviceInterfaceDetailW error=0x%08x
+  0x005b4c00  Error: CreateEventW failed. %08x
+  0x005b4c50  amyDriverSyncronizeDeviceIoControl
+  0x005b4ca0  Error: WaitForSingleObject failed. %08x %08x
+  0x005b4d00  Error: GetOverlappedResult failed. %08x
+  0x005b7c28  %u:LIBMUTEX:%x
+  0x005b7c48  %u:LPNTDBMUTEX:%x
+  0x005b7c70  %u:LPNTNFCMUTEX:%x
+  0x005b7d98  %u:COMPMUTEX:%x
+  0x005b7e78  %u:NFCBufMutex:%x
+  0x005b80f0  %u:R/W MUTEX:%x
+  0x005b83e0  %u:DBMUTEX:%x
+  0x007cc968  .pp-
+  0x007cc978  .ppc
+  0x007d8d60  indicdll.dll
+  0x007d8d80  uxtheme.dll
+  0x007d8d98  msctf.dll
+  0x007d8db0  imm32.dll
+  0x007d8dc8  \system32\
+============================================================================
+### hwvalue.exe : 299 wide strings
+--- 29 matching wide strings ---
+  0x0001f220        2 : Satellite
+  0x0001f250        1 : Server
+  0x0001f280        Return the keychip model type. [1-98]
+  0x0001f2e0      "
+  0x0001f2f0    <target>
+  0x0001f308   <target> [<mask>]
+  0x0001f330  Usage: 
+  0x0001f340  Cannot initialize the keychip module.
+  0x0001f390  Cannot setup the keychip module.
+  0x0001f3d8  Invalid <mask> parameter.
+  0x0001f410  Cannot read the keychip model type.
+  0x0001f458  Invalid <target> parameter.
+  0x0001f490  Cannot read the keychip region.
+  0x0001f4d0  Cannot initialize the system file module.
+  0x0001f530  Cannot initialize the backup module.
+  0x0001f740  ERROR: 
+  0x0001f750  ERROR 
+  0x000201d0  s:\sgsegaboot.exe
+  0x000201f8  @game
+  0x00020208  s:\sgsegaboot.exe -s test
+  0x00020240  x:\gametest
+  0x00022b80  SYSTEM\SEGA\SYSTEMPROPERTY
+  0x00023900  sgmanageio
+  0x00023958  Error: Invalid param
+  0x00023988  amyUsbOpen
+  0x000239a0  Error: already opened.
+  0x000239d0  Error: create thread. ErrCode %d.
+  0x00023a18  amyUsbClose
+  0x00023a30  Error: Uninitialized.
+  0x00023a60  Error: delete thread. ErrCode %d.
+  0x00023ac8  IDENTIFY_NAME
+  0x00023af0  Error: set value. ErrCode %08X.
+  0x00023b40  amySystemPropertySetUsbProperty
+  0x00023b80  amySystemPropertySetIdentifyName
+  0x00023bd0  Error: get value. ErrCode %08X.
+  0x00023c20  amySystemPropertyGetUsbProperty
+  0x00023c60  System\Sega\SystemProperty\sgworker
+  0x00023cb0  Error: open registry. ErrCode %08X.
+  0x00023d00  openUsbSystemProperty
+  0x00023d30  STATE
+  0x00023d40  LAST_RESULT_CODE
+  0x00023d70  Error: close service. ErrCode %08X.
+  0x00023dc0  amyUsbControlWorkerService
+  0x00023df8  \\.\%s
+  0x00023e90  amsMasterSetNextProcess
+  0x00023ec0  amsMasterGetNextProcess
+  0x00024850  Error: get network address(IPv6). ErrCode %08X.
+  0x000248c0  amsSystemPropertyGetNetworkAddressIpv6
+  0x00024910  keychipId
+  0x00024930  Error: get keychip id. ErrCode %08X.
+  0x00024980  amsSystemPropertyGetKeychipId
+  0x000249c0  platformId
+  0x000249e0  Error: get platform id. ErrCode %08X.
+  0x00024a30  amsSystemPropertyGetPlatformIdOnDongle
+  0x00024a80  formatType
+  0x00024aa0  Error: get format type. ErrCode %08X.
+  0x00024af0  amsSystemPropertyGetFormatTypeOnDongle
+  0x00024b40  System\Sega\SystemProperty\keychip
+  0x00024b88  openDongleSystemProperty
+  0x00024cf8  \??\FddDriver
+  0x00024d18  Error: Maybe library bug.
+  0x00024d50  amyDongleDriverStart
+  0x00024d80  Error: DeviceIoControl failed. %08x
+  0x00024dd0  amyDongleDriverEnd
+  0x00024e00  Error: DeviceControl failed. %08x
+  0x00024e48  amyDongleDriverStartNvram
+  0x00024e80  amyDongleDriverEndNvram
+  0x00024eb0  amyDongleDriverStartGetLog
+  0x00024ee8  amyDongleDriverEndGetLog
+  0x00024f90  am_misc Cannot get QueryPerformanceFrequency !! 
+  0x00024ff8  amyTimerGet

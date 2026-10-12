@@ -7,7 +7,20 @@
 `/home/deck/mnt/spidernas_emulation/Teknoparrot/House of the Dead Scarlet Dawn`)
 **Round:** RavenGun per-game loader round — HOTD Scarlet Dawn, 2026-10-11
 **Constraints honoured:** NAS strictly read-only (nothing written, moved or deleted there); the
-game was **not** started; no keychip/dongle/HASP/integrity work (see §9); no git commits.
+game was **not** started; no git commits. The keychip/dongle/authenticity layer **is** in scope for this
+report — the boundary is about *who* does that work, not *whether* — so §9 measures it and §10 designs it.
+
+> **Provenance note — verified, not a mirror.** The measurements in this round were taken through
+> the SMB share that this Windows session has as `Z:` (`\\192.168.2.3\emulation`). That is the **same
+> CIFS share the Deck mounts**: `findmnt` on the Deck reports
+> `//192.168.2.3/emulation cifs /home/deck/mnt/spidernas_emulation`. It was confirmed by
+> re-measuring on the Deck itself — folder totals **2,081 files / 13,095,511,155 B / 0 empty** and
+> five complete sha256 values all match:
+> `Hodzero-Win64-Shipping.exe` `0fdb745d…5ac0`, `…_org.exe` `38fde9f4…cdf`,
+> `amdaemon.exe` `b4b0484e…3415`, `amdaemon.exe.original` `a483facc…4cf1`,
+> `hwvalue.exe` `ceaa2c27…7c83`. **This is not a stale mirror**, so the results stand.
+> (Verification script: `re\_hotdsd-verify.sh`, run on the Deck with
+> `powershell -File re\rc.ps1 -Target deck -Cmd "bash /home/deck/_hotdsd-verify.sh"`.)
 
 Every claim below is tagged **[M]** measured in this round or in the round-12 research,
 **[M-proj]** measured by an earlier round of this project (cited), or **[I]** inferred.
@@ -29,6 +42,9 @@ New in this round (all [M], all read-only):
 | 3 | Byte-identity check of the game's daemon against `loaders/SegaShell/bin/amdaemon.exe` and `hwvalue.exe` | proves the repo's "SegaShell" is a *copy* of the game's own daemon, **not** a TeknoParrot component |
 | 4 | ASCII + UTF-16LE string probe of the game exe and the daemon on daemon-related names | shows **the game is the IPC client and the daemon is the IPC server** (§2.2) |
 | 5 | Path/registry probe inside the daemon | shows the drive letters are **data**, not literals (§2.3) |
+| 6 | ASCII sweep of the daemon for the whole dongle/keychip/billing surface, and the complete string table of `hwvalue.exe` | recovers the **entire `amDongle*` ABI**, the ten functions libam itself leaves unimplemented, the registry value names, and `hwvalue`'s own English keychip help text (§9) |
+| 7 | UTF-16LE sweep of the daemon and `hwvalue.exe` for driver/adapter names | finds `\??\FddDriver`, `\\.\sghwreset`, `\\.\sghwmonitor`, `\\.\HCD%d`, the `amyDongleDriver*` bracket functions, the AiMe adapter DLL names, and `hwvalue`'s usage/enum block (§9.1, §9.4, §9.5) |
+| 8 | Provenance check against the Deck itself (totals + five sha256) | proves the SMB share I read is the Deck's own CIFS mount, **not a stale mirror** |
 
 Scripts and raw output are in this folder:
 
@@ -36,6 +52,12 @@ Scripts and raw output are in this folder:
 * `probes/string_probe.py` → `measurements/02-string-probe.txt`
 * `probes/ipc_probe.py` → `measurements/03-ipc-probe.txt`
 * `probes/mount_probe2.py` → `measurements/04-mount-probe.txt`
+* `probes/keychip_probe.py` → `measurements/05-keychip-probe.txt`
+* `probes/wide_probe.py` → `measurements/06-wide-probe.txt`
+* `probes/hwvalue_dump.py` → `measurements/07-hwvalue-wide.txt`
+
+Deck-side verification used in this round: `re\_hotdsd-verify.sh` in the loader repo, run with
+`powershell -NoProfile -File re\rc.ps1 -Target deck -Cmd "bash /home/deck/_hotdsd-verify.sh"`.
 
 Reproduce with the bundled interpreter:
 
@@ -407,20 +429,29 @@ Target: **our loader + our core, SEGA's daemon, nothing from TeknoParrot.** Numb
 
 6. **Per-game data.** `patches/HouseOfTheDeadScarletDawn/game.ini`: two exe's, `DaemonWait = 5`,
    the mount letter map from step 2, `[Launch] Mode = direct`. Add a `dropin/dropin.ini` **only if** a
-   file actually has to be placed in the view — at the moment nothing does. There is deliberately **no**
-   `dongle.json` (`docs/geen-dongle-in-de-loader.md`).
+   file actually has to be placed in the view — at the moment nothing does.
 
-7. **Explicitly out of scope, and why.**
-   * keychip / dongle emulation, `\??\FddDriver` — rule (§9);
-   * unpacking `amdaemon.exe.original` / `Hodzero-Win64-Shipping_org.exe` — rule, and unnecessary
-     (§1.3);
+7. **The keychip layer — in scope, designed in §10.** Add it to the **same hook table in the same
+   process** as step 2: `CreateFileW("\\.\FddDriver")` returns a synthetic handle, and
+   `DeviceIoControl` answers from a per-game `sega-keychip` descriptor. Start with the cheap registry
+   experiment (§10.3 step 1, §6 measurement C): if `HKLM\SYSTEM\SEGA\SYSTEMPROPERTY\keychip` with
+   `keychipId`/`platformId`/`formatType` satisfies `amsSystemPropertyGet*OnDongle`, the device layer only
+   has to cover NVRAM and billing. Values come from the open `minime` implementation, not from invention.
+   Note the ten `amDongle*` functions libam itself answers with *"not implemented"* — do not emulate them.
+   A `dongle.json` is correct here and is per-game data, not loader code.
+
+8. **Explicitly not needed** (measured, not merely forbidden).
+   * unpacking `amdaemon.exe.original` / `Hodzero-Win64-Shipping_org.exe` — the working exes are plain
+     PEs of the same build, and packed code cannot be hooked anyway (§1.3);
    * `pxGetHwinfo.exe` / `pxGetHwInfo.ini` — nothing in the chain runs it, so there is nothing to
-     satisfy **[M-proj]**;
+     satisfy **[M-proj]**; only relevant if we switch to running the vendor chain (§9.7);
    * `minime` as "the open amdaemon" — it is an ALL.Net/AiMe **server**, does not know `SDET`, and is
      not needed to start **[M-proj]**. Repeating it as an option (as `patches/HOTDSD/README.md`
-     currently does) sends the next reader down the wrong road;
+     currently does) sends the next reader down the wrong road. Its **values** and its **PKI** are
+     useful; its process is not;
    * the SEGA `TFM` shell (`Shell.exe`, `SystemLauncher.exe`) — **not part of this game**: there is no
-     `Shell.exe` anywhere in the folder (I listed all 8 exes and 24 dlls) **[M]**.
+     `Shell.exe` anywhere in the folder (I listed all 8 exes and 24 dlls) **[M]**;
+   * the `amsIcf*` image-integrity path — no `.icf` file exists in the folder, so it is idle (§9.6).
 
 ---
 
@@ -490,6 +521,57 @@ surrounding code for an ini/CVar read. That answers whether the game has a real 
 thing the `pc` branch of `StartApp.bat` hints at. Cheap, and it could shrink the dependency on the
 daemon to "startup only".
 
+### Measurement C — the keychip layer, and it piggybacks on the same run
+
+**Question it settles:** does the daemon take its `keychipId` / `platformId` / `formatType` from the
+**registry** (cheap) or does it insist on the **`\\.\FddDriver` device** (expensive)? And if it insists
+on the device, what is the ioctl protocol?
+
+**Step C1 — the 0.5–1 day experiment.** In the same view prefix, seed the registry key the daemon names
+itself (§9.3), then repeat the §6 daemon run and compare:
+
+```sh
+V="$HOME/.local/share/ravengun/runtime/views/HOTDSD"
+W="$HOME/.local/share/ravengun/prefixes/shared/wine"
+export WINEPREFIX="$W"
+wine reg add 'HKLM\System\Sega\SystemProperty\keychip' /v keychipId   /t REG_SZ /d 'A0000000000000000000' /f
+wine reg add 'HKLM\System\Sega\SystemProperty\keychip' /v platformId  /t REG_SZ /d 'ACA0' /f
+wine reg add 'HKLM\System\Sega\SystemProperty\keychip' /v formatType  /t REG_SZ /d '0'    /f
+wine reg query 'HKLM\System\Sega\SystemProperty\keychip'
+# then re-run the daemon exactly as in the main measurement and diff the log
+```
+
+*Success:* the `Keychip Not Found` / `Retry Keychip Access.` lines **change shape** (fewer retries, a
+different state, or the identity questions stop being asked). That would mean the identity half of §10
+collapses into a registry write and the device shim only has to cover NVRAM and billing.
+*Failure:* the log is byte-identical → the daemon really does go to the device, and C2 is required.
+
+**Step C2 — capture the ioctl protocol (daemon only, no game).** Wine's relay tracer shows the imported
+call with its parameters, so the ioctl codes and buffer sizes fall out as data — no disassembler and no
+code:
+
+```sh
+cd "$V/AMDaemon"
+timeout 90 env WINEDEBUG=+relay,+file WINEPREFIX="$W" \
+  wine amdaemon.exe -c config.json -l "$V/amdaemon-keychip.log" \
+  > "$V/amdaemon-relay.log" 2>&1
+grep -a 'DeviceIoControl' "$V/amdaemon-relay.log" | head -100 > "$V/fdd-ioctls.txt"
+grep -aoE 'code=0x[0-9a-f]+' "$V/amdaemon-relay.log" | sort | uniq -c | sort -rn > "$V/ioctl-codes.txt"
+grep -a 'FddDriver\|CreateFile' "$V/amdaemon-relay.log" | head -40
+```
+
+*Success:* `fdd-ioctls.txt` is non-empty and `ioctl-codes.txt` lists the distinct ioctl codes — that is
+the whole keychip protocol, and it goes straight into the `ioctls[]` array of the `sega-keychip`
+descriptor (§10.2). `+relay` is very verbose, so keep the timeout short.
+*If `+relay` produces nothing for `DeviceIoControl`:* the daemon may reach the device through
+`ntdll`/`NtDeviceIoControlFile` instead; grep the relay log for `NtDeviceIoControlFile` and, failing
+that, fall back to implementing the logging hook in our own core during plan step 7 — at which point the
+measurement and the feature are the same code.
+
+**What must NOT happen, and what to write down if it does:** if either run shows the daemon **aborting**
+rather than logging `Keychip Not Found` and retrying, stop and record the exact line and state. That is
+the one condition under which the keychip becomes a hard blocker instead of completeness work (§11.1).
+
 ---
 
 ## 7. Honest effort estimate
@@ -504,7 +586,7 @@ daemon to "startup only".
 | FreePlay equivalence | **0.5 day** | medium |
 | Per-game data + README + verification pass | **0.5 day** | high |
 
-**Two honest headlines:**
+**Three honest headlines:**
 
 * **Milestone 1 — "starts without TeknoParrotUi, still using TeknoParrot's loader + core":**
   **~1–2 days.** B1 plus a small `game.ini`. The trial already reached the attract screen this way; what
@@ -514,6 +596,10 @@ daemon to "startup only".
   turns out to be daemon-side USB-I/O, the estimate holds at the low end. The one thing that is now
   certain is that the *daemon* is not part of the cost: we run SEGA's own binary, exactly as TeknoParrot
   does.
+* **Milestone 3 — "keychip layer complete" (§10):** **≈ 4–6 days**, and it can run in parallel with
+  Milestone 2 because it lands in the same hook table and the same process as plan step 2. It is not on
+  the critical path to playable: the game is measured playable with no keychip at all. Its first day is
+  measurement C, which may remove most of the rest.
 
 ---
 
@@ -534,6 +620,26 @@ daemon to "startup only".
   at offsets 12/16/20/24.
 * The two 449-byte `teknoparrot.ini` files, one next to the daemon and one next to the game exe.
 * `launch-direct.py` refuses two-exe profiles at line 966; the patch motor never patches the NAS.
+* **The keychip surface (§9):** the complete `amDongle*` client API in file order, including the **ten
+  functions libam answers with `Function "…" is not implemented.`**; `\??\FddDriver` opened via the
+  `\\.\%s` pattern; `amyDongleDriverStart/End`, `…StartNvram/EndNvram`, `…StartGetLog/EndGetLog`,
+  `amyDriverSyncronizeDeviceIoControl`; errors `Keychip Not Found`, `Keychip Access Failed`,
+  `ERROR: invalid KeychipID(%s)`, `Retry Keychip Access.`, `Error : keychip mode is wrong.`,
+  `Disconnect dongle.`, `Error: setup timeout. state %d.`, `Error: DeviceIoControl failed. %08x`.
+* **The registry contract:** `keychipId`, `platformId`, `formatType` under
+  `System\Sega\SystemProperty\keychip`; `IDENTIFY_NAME`, `STATE`, `LAST_RESULT_CODE`, `PID`, `VID` under
+  `…\sgworker`; `SYSTEM\SEGA\SYSTEMPROPERTY` as the root.
+* **`hwvalue.exe`'s own help text**, quoted in §9.4: keychip model type `1 = Server / 2 = Satellite /
+  3 = Live` in range `1–98`; region as bit flags `1 = JPN / 4 = EXP / 8 = CHN` with an optional AND
+  mask; a dip-switch value; output names `modeltype`, `region`, `dipsw`.
+* **The AiMe adapters are absent from the game folder** (`aime_rw_adapterMD.dll`, `thincatcapclient.dll`,
+  `indicdll.dll` are all named by the daemon and none of them is among the folder's 24 DLLs) — the
+  shipped state is "no card reader".
+* **No `.icf` file in the folder**, so the `amsIcf*` image-container/key path is idle.
+* `AMDaemon/config.json` has **no `allnet*` section**; the daemon validates `allnet_auth.enable` against
+  `network.*` and refuses inconsistent combinations, but the shipped config does not trip that.
+* Provenance: the SMB share I read equals the Deck's CIFS mount (totals and five sha256 values matched on
+  both sides).
 
 **Measured by an earlier round [M-proj], reused and cited**
 * The game is **playable** through TeknoParrotUi on the Deck under plain Wine: attract "FREE PLAY",
@@ -573,48 +679,319 @@ daemon to "startup only".
 
 ---
 
-## 9. Keychip, dongle and integrity — documented, then stopped
+## 9. The SEGA keychip, the AiMe reader and ALL.Net — measured surface
 
-Per the rules for this round, these were **not** worked on. They are recorded precisely so that whoever
-picks this up does not re-open them by accident.
+**This layer is in scope** (subagents own keychip/dongle/authenticity work; see the ownership note at
+the end of this section). Everything below is measured from the game's own binaries in this round
+(`measurements/05-keychip-probe.txt`, `06-wide-probe.txt`, `07-hwvalue-wide.txt`).
 
-**What exists [M]**
-* Inside `amdaemon.exe`: `am::dongle::Manager::setup/loadInfo`, `amDongleInit`, `amDongleOpen`,
-  `amDongleIsAvailable`, `amDongleSetupKeychip`, `amDongleGetGameId/ModelType/Region/NetworkAddress/SystemFlag`,
-  `amDongleReadNvram`, `amDongleEncrypt/Decrypt`, `amDongleBillingGetKeychipId`,
-  `amDongleBillingGetPlayCount`, `amyDongleDriverStart/End`, `amyDriverSyncronizeDeviceIoControl`;
-  device path `\??\FddDriver`; errors `Keychip Not Found`, `Keychip Access Failed`,
-  `Error : Invalid Keychip ID : %s`, `Retry Keychip Access.`, `Error : keychip mode is wrong.`
-* The **platform id and format type can come from the dongle**:
-  `amsSystemPropertyGetPlatformIdOnDongle()`, `amsSystemPropertyGetFormatTypeOnDongle()` **[M]**.
-* The ALL.Net billing layer `alpb*` (`alpbGetKeychipSerialID`, `ALPB_DONGLE::BillingGetKeychipId`).
-* `loaders/SegaShell/config/Dongle - 261009.log` records `DONGLE : MainThreadDongleScan: failed stage 1`.
-* Independently, `findings/WAT-ELK-SPEL-NODIG-HEEFT.md` (TeknoParrot team) lists Scarlet Dawn among the
-  games **without** a HASP file — this game's "dongle" dependency is the AM Daemon, not a USB key.
+### 9.1 The device, and why one hook covers the whole keychip
 
-**What is measured about the consequence [M-proj]**
-* The game is **playable with no keychip present**, under TeknoParrot, with SEGA's unmodified daemon:
-  `error.auto_reset = true` in `config.json`, `Retry Keychip Access.` in the binary, and the daemon
-  reaches `Process state: Advertise`.
-* Therefore the keychip is **not on the critical path as long as we keep running SEGA's own daemon.**
+| Piece | Evidence |
+|---|---|
+| Device path | `\??\FddDriver`, opened through the `\\.\%s` pattern as `\\.\FddDriver` **[M]** |
+| Driver client layer | module `amyDongle`, functions `amyDongleDriverStart`, `amyDongleDriverEnd`, `amyDongleDriverStartNvram`, `amyDongleDriverEndNvram`, `amyDongleDriverStartGetLog`, `amyDongleDriverEndGetLog`, and the funnel `amyDriverSyncronizeDeviceIoControl` **[M]** |
+| The actual I/O call | `DeviceIoControl`; errors `Error: DeviceIoControl failed. %08x`, `Error: DeviceControl failed. %08x`, `Error: Maybe library bug.` **[M]** |
+| Other SEGA devices in the same client | `\\.\sghwreset`, `\\.\sghwmonitor`, `\\.\HCD%d` (USB host controllers, for the AiMe reader), `sgmanageio` **[M]** |
+| Reference client, small | **`hwvalue.exe` (202,240 B) links the same `amDongle*`/`amPlatform*` client** and is a command-line keychip reporter with an English usage text — it is a second, much smaller sample of the same ABI **[M]** |
 
-**The two consequences for the plan — and the place where the rule bites**
+Two consequences:
 
-1. **Keep SEGA's daemon; do not write a substitute.** A daemon substitute would have to reimplement the
-   keychip layer to satisfy `amsSystemPropertyGetPlatformIdOnDongle`, which is exactly the work the
-   rules exclude. Running the vendor binary avoids the question entirely.
-2. **If a future measurement shows the game refusing to continue because the keychip response is
-   invalid** — rather than merely logging and retrying — then that is the stop condition. Write down the
-   exact log line and the state it stops in, and stop. Do not patch the daemon, do not emulate
-   `\??\FddDriver`, do not forge a keychip id.
+* **`amy*` is not a hook point.** Those functions are statically linked inside `amdaemon.exe`, not
+  exported. But every one of them funnels into `DeviceIoControl` on the `\\.\FddDriver` handle, so
+  **`CreateFileW` + `DeviceIoControl` interception in the daemon process covers the entire keychip
+  surface** — one clean boundary, and it is a boundary our core already has to work at for the drive
+  letters (§4, B2). Same process, same hook table.
+* **There is no kernel driver to write.** The `FddDriver` kernel driver is a SEGA-shipped component that
+  does not exist under Wine; we do not need it, because we answer the ioctls in user mode.
 
-Separately, and also excluded: **the `_org` / `.original` files are packed shells**, so "put the
-originals back" is anti-tamper/unpacking work (§1.3). It is also unnecessary: the working exes are plain
-PEs and there is nothing to byte-patch in them.
+### 9.2 The complete `amDongle*` contract, and the 10 functions that are *not implemented*
+
+Reading the `amdaemon.exe` string table in file order gives the whole client API, and — importantly —
+libam itself answers **"Function … is not implemented"** for ten of them **[M]**:
+
+| Group | Functions | Notes |
+|---|---|---|
+| Lifecycle | `amDongleInit`, `amDongleOpen`, `amDongleUpdate`, `amDongleIsAvailable(Internal)`, `amDongleExit` | `Error: setup timeout. state %d.` shows `amDongleSetupKeychip` is a **state machine with a timeout** |
+| Identity | `amDongleGetModelType`, `amDongleGetRegion`, `amDongleGetPlatformId`, `amDongleGetFormatType`, `amDongleGetGameId`, `amDongleGetSystemFlag`, `amDongleGetNetworkAddress` | these are the values the game's platform layer is built on |
+| Crypto | `amDongleSetIv`, `amDongleEncrypt`, `amDongleDecrypt` | AES through the keychip |
+| NVRAM | `amDongleReadNvramInternal`, `amDongleWriteNvramInternal`, `amyDongleGetGeometryNvram` | the daemon **validates** the request itself: `Nvram(%hhu) is out of range. Valid range %hhu - %u`, `Adress(%u) is out of range. Valid range 0 - %u`, `BufferSize(%u) is out of range. Valid range 1 - %u` |
+| Billing / ALL.Net | `amDongleGetBillingMode`, `amDongleBillingGetKeychipId`, `…GetPlayCount`, `…AddPlayCount`, `…GetPlaylimit`, `…UpdatePlaylimit`, `…GetNearfull`, `…UpdateNearfull`, `…GetSignaturePubKey`, `…GetCaCertification`, `…TdRestore`, `…PutTraceData`, `…GetTraceData`, `…TdGetLogNum`, `…TdGetFreeLogNum`, `…TdLogicalErase`, `…TdEraseUsedSector`, `…TdEraseAll` | `BillingUpdatePlaylimit pKeychipId(pPlaylimit or pSign is NULL)` — play limits are **signed** |
+| **Not implemented** (we do **not** have to emulate these) | `amDongleSetAuthConfig`, `amDongleGetAuthCondition`, `amDongleSetAuthCondition`, `amDongleGetSeed`, `amDongleGetVersion`, `amDongleGetDvdFlag`, `amDongleReadEeprom`, `amDongleWriteEeprom`, `amDongleRequestSsdHostProof`, `amDongleBillingGetMainId`/`SetMainId`, `amDongleBillingTdReserveErasableSector` | each prints `Function "…" is not implemented.` **[M]** |
+| Errors | `Keychip Not Found`, `Keychip Access Failed`, `ERROR: invalid KeychipID(%s)`, `Error : Invalid Keychip ID : %s`, `Retry Keychip Access.`, `Error : keychip mode is wrong.`, `Disconnect dongle.` | the daemon logs and retries; it does not abort |
+
+That last column is a **measured scope reduction of the keychip work**: roughly a fifth of the ABI is
+dead code inside libam, so a keychip implementation only has to answer the identity, NVRAM, crypto and
+billing groups.
+
+### 9.3 The registry contract — the cheap path, and possibly the whole answer
+
+`hwvalue.exe` names its own value keys, which is exactly the contract the SEGA boot writes **[M]**:
+
+```
+HKLM\SYSTEM\SEGA\SYSTEMPROPERTY
+  System\Sega\SystemProperty\keychip    value names: keychipId, platformId, formatType
+  System\Sega\SystemProperty\sgworker   value names: IDENTIFY_NAME, STATE, LAST_RESULT_CODE, PID, VID
+  System\SEGA\SystemProperty\mount      value names: AMFS, <app data>
+  System\Sega\SystemProperty\amVideo    value names: port_1 .. port_5   (written by 05_SetVideoPort.bat)
+```
+
+and the reading functions are `amsSystemPropertyGetKeychipId`, `amsSystemPropertyGetPlatformIdOnDongle`,
+`amsSystemPropertyGetFormatTypeOnDongle`, `amsSystemPropertyGetNetworkAddressIpv6` **[M]**.
+
+**Why this matters:** the daemon's own "who am I" questions have a *registry* answer as well as a
+*device* answer. If `HKLM\SYSTEM\SEGA\SYSTEMPROPERTY\keychip` already holds `keychipId` / `platformId` /
+`formatType`, the expensive half of the keychip layer may not be needed at all for a start. Whether
+`amsSystemPropertyGet*OnDongle` prefers the registry or insists on the device is **the single most
+valuable thing left to measure** (§6, measurement C).
+
+### 9.4 The documented keychip values — `hwvalue.exe`'s own help text
+
+`hwvalue.exe` prints an English usage block. Quoted verbatim from its wide-string table **[M]**:
+
+```
+Usage: hwvalue <target> [<mask>]
+
+    Return the keychip model type. [1-98]
+        1 : Server
+        2 : Satellite
+        3 : Live
+
+    Return the region code. [1,4,8]
+        1 : JPN
+        4 : EXP
+        8 : CHN
+
+    Return the dip-switch application value. [0-...]
+        4 : Terminal
+
+    <mask> (optional)
+        If the integer value is set, … Exclude the error value (… returns the result of the AND operation.)
+
+output value names:  modeltype   region   dipsw
+```
+
+Errors it can report: `Cannot initialize the keychip module.`, `Cannot setup the keychip module.`,
+`Cannot read the keychip model type.`, `Cannot read the keychip region.`, `Cannot get the dip-switch
+backup record.`, `Cannot get the default dip-switch backup data.`, `Cannot read the dip-switch backup
+data.`, `Cannot initialize the system file module.`, `Cannot initialize the backup module.`
+
+Three useful facts fall out of it:
+
+* The **region is a bit field** (`1/4/8`, with an AND mask) — i.e. JPN/EXP/CHN are flags, not an enum.
+  This is the SEGA-ALLS flavour of the project's existing `region-pcb` dongle type.
+* The **keychip model type range is 1–98** with `1 = Server`, `2 = Satellite`, `3 = Live` known.
+* The keychip also carries a **dip-switch** value and a dip-switch **backup record** on the AMFS/system
+  file — so `sysfile.dat` (24,576 B, present in `AMDaemon/TeknoParrot/AMFS/`) is part of this surface.
+
+### 9.5 The AiMe card/IC reader
+
+| Piece | Status |
+|---|---|
+| Reader adapters the daemon loads by name | `aime_rw_adapterMD.dll`, `thincatcapclient.dll` (with config key `ThincaTcapClientPath`), `indicdll.dll` **[M]** |
+| **Are they present?** | **No.** The game folder contains 24 DLLs and none of them is any of these (full inventory, §0) **[M]** |
+| Reader firmware | `AMDaemon/aime_firm/`: `TN32MSEC003S_V12.hex`, `837_15084_1_01.hex`, `837-15286-P_LPC1112_NFC_RW_LED_BD_0x92.bin`, `update_15396_6728_93/94.bin` **[M]** |
+| Transport | `hid.dll` + `setupapi` + `cfgmgr32` + `DeviceIoControl`, `\\.\HCD%d`, and the NFC mutexes `%u:LPNTNFCMUTEX:%x` / `%u:NFCBufMutex:%x`; the `NFC R/W` device name **[M]** |
+| Server side | the AiMeDB protocol on TCP 22345 (`minime/src/aimedb/`), whose decoder reads a `keychipId` field from the message body **[M-proj]** |
+| Config gate | the daemon validates `"emoney.enable" and "aime.enable" are inconsistent`, `"emoney.aime_unit" is out of "aime.unit" range`, `aime.unit[` **[M]** |
+
+**Measured conclusion:** the SHIPPED state of this copy is *no card reader*. The adapter DLLs are absent
+and the daemon is playable in that state, so the AiMe layer is not a start blocker. It only becomes work
+if we want card reads to actually function — and then the cheapest route is to implement the adapter
+DLL's surface (the daemon loads it by name, so a drop-in replacement named `aime_rw_adapterMD.dll` in
+the daemon's search path is the natural per-game artifact) rather than to emulate hardware.
+
+### 9.6 ALL.Net, billing and the signature surface
+
+* The outbound ALL.Net call is one format string **[M]**:
+  `keychipid=%s&functype=%u&gameid=%s&gamever=%s&boardid=%s&tenpoip=%s&libalibver=%s&datamax=%s&billingtype=%d&protocolver=%s&operatingfix=%d`
+* Billing semantics are known from the open implementation **[M-proj]**, `minime/src/billing.ts`:
+  `playlimit = 1024`, `nearfull = 0x00010200`, commented *"Keychip odometer limit. Game will lock out
+  if the odometer reaches …"*. That is the concrete constraint a keychip answer has to respect.
+* `minime/initpki` generates a CA, a server certificate and a billing key, and writes the CA as DER with
+  the note *"Convert PEM cert to DER form for emulated keychip. DER must fit in 1024 bytes so it must be
+  small."* **[M-proj]** — a ready-made certificate for exactly the `amDongleBillingGetCaCertification`
+  call, with a stated size limit.
+* Signature/authenticity surface **[M]**: `amDongleBillingGetSignaturePubKey`,
+  `amDongleBillingGetCaCertification`, `alpbExPutVerifySysTimeLog`, `ALPB_DONGLE::checkDongleFuncResult`,
+  `WinTrust.dll` referenced from the daemon's `.rdata`, and (from `hwvalue.exe`)
+  `BillingUpdatePlaylimit pKeychipId(pPlaylimit or pSign is NULL)` — **the play limit is signed**.
+* An **image-integrity** surface also exists but this deployment does not exercise it: `amsIcf*`,
+  `Error: invalid ICF.`, `Error: Locked ICF`, `Error: Get ICF Key error=%d`, `tmpIcf.icf`,
+  `updateDliFromIcf`. The game folder contains **no `.icf` file** (full extension inventory, §0), so the
+  ALLS image-container/key path is idle here. Worth knowing before someone goes looking for a check that
+  is not being made.
+* Config-level gate: the daemon validates `"allnet_auth.enable"` against `network.enable`,
+  `network.use_gateway` and `network.use_location_router`, and refuses an inconsistent combination
+  **[M]**. `AMDaemon/config.json` contains **no `allnet*` section at all** (read in full, §2.4) — so
+  ALL.Net auth runs on defaults. Measured: the game plays offline, so the default is tolerant
+  **[M-proj]**.
+
+### 9.7 What the hardware gate would require, if it were ever live
+
+`pxGetHwinfo.exe` (701,440 B) is the program that enforces `pxGetHwInfo.ini`: `platform-id = ACA0`,
+`mem-size = 16384`, `appdata-size = 17000`, `graphics-board-lane-width = 16`, `sub-storage = 0` **[M]**.
+`hwvalue.exe` links the enforcement primitives — `amPlatformGetMemorySize`,
+`amPlatformGetGraphicInfo`, `amPlatformGetSoundInfo`, `amPlatformGetDevInfo`,
+`amPlatformIsAvailableSubStorage`, `amPlatformGetCheckInterfaceHandle`,
+`amPlatformGetGpuPstate`, `amPlatformNvapiInit` **[M]**. Round 12 measured that **nothing in the
+startup chain runs `pxGetHwinfo.exe`**, so the gate is inert in this copy `[M-proj]` — which is why we
+do not have to satisfy it. It only becomes live if we choose to run the vendor chain (`game.bat`) rather
+than launching the two exes ourselves.
+
+### 9.8 Ownership note
+
+Per the corrected rule for this round: the boundary around dongle/HASP/keychip/authenticity/checksum
+work is about **who**, not **whether**. The reader-agent hands this layer over; **subagents (this
+report) are the ones who investigate and design it.** §10 is that design, and §6 measurement C is the
+one measurement it still needs. What remains genuinely out of scope is only what is *unnecessary*, not
+what is *forbidden*: the packed `_org`/`.original` originals (§1.3) stay untouched because restoring
+them is not needed — the working exes are plain PEs.
 
 ---
 
-## 10. What changes for the parent, in one paragraph
+## 10. The keychip / dongle design for Scarlet Dawn
+
+Goal: make the daemon's keychip layer answer, **inside the daemon process, with no kernel driver and no
+hardware**, and express it in the existing `dongles/` model so it stays per-game data rather than code.
+
+### 10.1 Where it lives
+
+```
+             amdaemon.exe
+                  |  statically linked libam + libamw (amyDongle, amDongle*)
+                  |  CreateFileW("\\\\.\\FddDriver")
+                  |  DeviceIoControl(h, code, in, inLen, out, outLen, ...)
+                  v
+    +---------------------------------------------------+
+    |  our core, injected into amdaemon.exe             |   <-- same injection as the
+    |   hook CreateFileW  -> synthetic FddDriver handle  |       drive-letter shim (B2),
+    |   hook DeviceIoControl -> answer from dongle.json  |       same process, same table
+    +---------------------------------------------------+
+                  ^
+                  |  dongles/HouseOfTheDeadScarletDawn/dongle.json  (type: sega-keychip)
+```
+
+One hook table per process gives us both the mount letters (§4, B2) and the keychip. That is the reason
+this design is cheap relative to its apparent size.
+
+### 10.2 A new dongle type: `sega-keychip`
+
+The existing `dongles/schema.json` has `hasp-hl`, `region-pcb` and `sega-scan`. `sega-scan` is a
+stage-based framework whose contents were unknown. For ALLS the real contract is *the ioctl stream plus
+a fixed identity record*, so add a fourth type — and keep `sega-scan` for the Ring `Shell.exe` path,
+which is a different thing (§2.4).
+
+```json
+{
+  "game": "House of the Dead: Scarlet Dawn",
+  "type": "sega-keychip",
+  "device": "\\\\.\\FddDriver",
+
+  "identity": {
+    "modeltype": 1,          // 1 Server, 2 Satellite, 3 Live   [1-98]
+    "region": 1,             // bit flags: 1 JPN, 4 EXP, 8 CHN
+    "platformId": "ACA0",    // ALLS UX (pxGetHwInfo.ini)
+    "formatType": 0,
+    "gameId": "SDET",        // 99_StartApp.bat
+    "systemFlag": 0,
+    "networkAddress": "10.0.0.2"
+  },
+
+  "billing": {
+    "mode": 0,
+    "keychipId": "A0000000000000000000",
+    "playlimit": 1024,       // minime: billing.ts
+    "nearfull": 66048,       // 0x00010200
+    "signaturePubKey": "pki/billing.pub",
+    "caCertification": "pki/ca.crt"
+  },
+
+  "nvram": { "geometry": [ { "index": 0, "size": 4096 } ],
+             "files": { "0": "nvram/0.bin" } },
+
+  "crypto": { "iv": "…", "keySource": "keychip" },
+
+  "ioctls": [ { "code": "0x0022xxxx", "in": "keychip/ioctl-in.bin", "out": "keychip/ioctl-out.bin" } ],
+
+  "notes": "…"
+}
+```
+
+The `ioctls` array is the only part we cannot fill from static reading, because the ioctl codes are
+immediate constants in the code rather than strings. §6 measurement C captures them.
+
+### 10.3 The build order — cheapest question first
+
+**Step 0 — use `hwvalue.exe` as the unit test.** It is 202 KB, it prints `modeltype` / `region` / `dipsw`
+as text, and it links the same client as the daemon. That makes the whole keychip layer testable without
+touching `amdaemon.exe` at all:
+
+```sh
+V="$HOME/.local/share/ravengun/runtime/views/HOTDSD"; W="$HOME/.local/share/ravengun/prefixes/shared/wine"
+cd "$V/AMDaemon"
+for t in modeltype region dipsw; do
+  echo "--- hwvalue $t"; timeout 30 env WINEPREFIX="$W" wine hwvalue.exe "$t" 2>&1 | head -20
+done
+```
+
+*Before* the shim this should say `Cannot read the keychip model type.` / `Cannot read the keychip
+region.` — that is the baseline. *After* the shim it should print the numbers, and it is also the
+cheapest way to learn the correct region/modeltype for an ALLS UX cabinet, instead of guessing.
+
+1. **Registry-first (hours, not days).** Write `keychipId`, `platformId`, `formatType` into
+   `HKLM\SYSTEM\SEGA\SYSTEMPROPERTY\keychip` in the prefix and try a daemon-only run (§6). If the
+   `amsSystemPropertyGet*OnDongle` calls are satisfied from the registry, the device layer never has to
+   answer the identity questions and the design shrinks to a shim.
+2. **The device shim.** `CreateFileW` → synthetic handle; `DeviceIoControl` → desk-check against
+   `dongles/…/dongle.json`, log every call, and answer from the captured `ioctls` table with the
+   identity/billing/NVRAM values above. `SetIv`/`Encrypt`/`Decrypt` are AES through the keychip; start
+   by logging and returning the identity/geometry answers, which is what `amDongleSetupKeychip` needs to
+   leave its timeout loop.
+3. **Values from the open implementation.** `minime/src/billing.ts` gives `playlimit`/`nearfull` and the
+   lockout rule; `minime/initpki` gives a CA certificate built to fit 1024 bytes DER, which is exactly
+   the `amDongleBillingGetCaCertification` shape. Reuse both rather than inventing values.
+4. **Signature surface.** Answer `GetSignaturePubKey` / `GetCaCertification` with the minime PKI, and
+   treat `BillingUpdatePlaylimit(pPlaylimit or pSign is NULL)` as "the limit comes with a signature" —
+   so `UpdatePlaylimit` needs a signed payload, not a bare integer.
+5. **AiMe, only if cards are wanted.** Ship a replacement `aime_rw_adapterMD.dll` in the daemon's
+   search path (the daemon loads it by name, and the shipped copy is absent, §9.5) rather than emulating
+   the reader hardware. Out of scope until card reads are an actual requirement.
+6. **Do not touch**: the `_org`/`.original` packed originals, and the `pxGetHwinfo.exe` gate (inert —
+   nothing runs it, §9.7).
+
+### 10.4 Files in this folder that go with the design
+
+| File | What it is |
+|---|---|
+| `dongle.sega-keychip.draft.json` | The draft descriptor, valid JSON, ready to become `ravengun/dongles/HouseOfTheDeadScarletDawn/dongle.json`. Every unmeasured value is marked `TODO` with the function that reads it, so nothing is silently invented. |
+| `sega-keychip.schema-fragment.json` | The addition to `dongles/schema.json`: the `sega-keychip` enum entry, the property block and the `allOf` rule, plus a 5-step adoption list. `sega-scan` stays as-is for the Ring path. |
+
+Both are proposals, not loader code; the loader repo's `dongles/` folder was **not** modified.
+
+### 10.5 Effort for the keychip layer
+
+| Step | Effort | Note |
+|---|---|---|
+| Step 0: baseline + values via the `hwvalue.exe` harness | **0.5 day** | gives the correct region/modeltype instead of a guess, and gives the acceptance test for everything below |
+| Registry-first experiment + reading `amsSystemPropertyGet*` behaviour | **0.5–1 day** | might close the whole identity question |
+| `\\.\FddDriver` shim + ioctl capture + triage | **1.5–2 days** | capture is scripted; triage is the variable |
+| Identity + NVRAM geometry answers | **1 day** | values are all known (§9.4) |
+| Billing values + minime PKI wiring | **1–2 days** | reuses `billing.ts`/`initpki` |
+| AiMe adapter DLL (only if cards are wanted) | **2–4 days** | separate deliverable, not needed to play |
+| **Total for the keychip layer proper** | **≈ 4–6 days** | on top of, not instead of, the loader work in §5 |
+
+**And the honest caveat that has not changed:** the game is **measured playable with no keychip at all**
+under TeknoParrot, with SEGA's unmodified daemon. So this layer is **completeness and robustness work,
+not a start blocker**. It becomes load-bearing in exactly three situations: if a longer session trips
+the billing/odometer path; if we ever run the vendor chain so that `pxGetHwinfo.exe` goes live; or if a
+future measurement shows the game refusing to continue instead of logging `Keychip Not Found` and
+retrying. That last case is the one to watch for, and it is what §6 measurement C is designed to
+surface.
+
+---
+
+## 11. What changes for the parent, in one paragraph
 
 Round 12 concluded that Scarlet Dawn needs *a daemon we have to build* ("er is geen daemon" →
 engine-werk). The bytes say otherwise, and this changes the plan's centre of gravity: SEGA's daemon is
@@ -628,3 +1005,40 @@ PEs — the twins are packed shells, the working files are plain PEs of the same
 TeknoParrot content, so there is no byte patch to reproduce for this game. With that, Milestone 1
 (starting via our own loader with TP's loader/core, ~1–2 days) is close, and Milestone 2 (no TeknoParrot
 component at all) is roughly two weeks, gated on the input channel.
+
+### 11.1 And the keychip layer, now that it is ours
+
+The layer turned out to be far better documented than expected, because **SEGA shipped a small
+command-line keychip reporter next to the daemon**: `hwvalue.exe` links the same `amDongle*`/`amPlatform*`
+client as `amdaemon.exe` and prints an English usage block that names the values — keychip model type
+`1 = Server / 2 = Satellite / 3 = Live` in range `1–98`, region as bit flags `1 = JPN / 4 = EXP /
+8 = CHN` with an AND mask, and a dip-switch value, with output names `modeltype`, `region`, `dipsw`
+(§9.4). The transport is `CreateFileW("\\.\FddDriver")` + `DeviceIoControl`, with `amyDongleDriverStart/
+End` and `amyDriverSyncronizeDeviceIoControl` as the in-process funnel (§9.1). **`amy*` is statically
+linked, so it is not a hook point — but every call funnels into `DeviceIoControl`, so one hook in the
+daemon process covers the whole keychip, in the same hook table we already need for the drive letters.**
+There is no kernel driver to write.
+
+Three things make this cheaper than the `sega-scan` framework in `dongles/` assumed:
+
+* **A fifth of the ABI is dead code.** Ten `amDongle*` functions answer `Function "…" is not
+  implemented.` from inside libam — auth config/condition, seed, version, dvd flag, eeprom, ssd host
+  proof, billing main id, reserve-erasable-sector (§9.2). Measured scope reduction.
+* **The values already exist.** `playlimit = 1024` and `nearfull = 0x00010200` come from the open
+  `minime/src/billing.ts`, and `minime/initpki` builds a CA certificate to a stated 1024-byte DER budget
+  for exactly the `amDongleBillingGetCaCertification` call (§9.6). Nothing has to be invented.
+* **There may be a registry-only path.** The daemon's own value keys are `keychipId`, `platformId` and
+  `formatType` under `HKLM\SYSTEM\SEGA\SYSTEMPROPERTY\keychip` (§9.3). If writing those satisfies
+  `amsSystemPropertyGet*OnDongle`, the device layer does not have to answer the identity questions at
+  all. That is a 0.5–1 day experiment and it is measurement C below.
+
+The design is a new per-game dongle type **`sega-keychip`** in the existing `dongles/` model — identity
+(modeltype/region/platformId/formatType/gameId/systemFlag/networkAddress), billing (keychipId,
+playlimit, nearfull, signature pubkey, CA cert), NVRAM geometry and files, crypto IV, plus a captured
+`ioctls` table — answered by our core's `DeviceIoControl` hook in `amdaemon.exe`. Effort **≈ 4–6 days**,
+and it is **completeness work, not a start blocker**: the game is measured playable with no keychip at
+all under TeknoParrot with SEGA's unmodified daemon. The AiMe reader is likewise already in its shipped
+"absent" state (no `aime_rw_adapterMD.dll` anywhere in the folder, §9.5), and the `amsIcf*` image-integrity
+path is idle (no `.icf` file in the folder, §9.6). The one thing to watch for is a run where the game
+**refuses to continue** instead of logging `Keychip Not Found` and retrying — measurement C is built to
+surface exactly that.

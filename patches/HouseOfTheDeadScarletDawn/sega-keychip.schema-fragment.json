@@ -1,0 +1,95 @@
+{
+  "_comment": "Fragment to merge into ravengun/dongles/schema.json. Adds a fourth dongle type, sega-keychip, for the SEGA ALLS AM Daemon keychip. The existing sega-scan type stays as-is for the Ring Shell.exe path, which is a different mechanism. Only the additions are listed here; the surrounding document is unchanged.",
+  "_adoption": [
+    "1. In dongles/schema.json, add \"sega-keychip\" to properties.type.enum.",
+    "2. Add the properties block below to properties.",
+    "3. Add the if/then entry below to allOf.",
+    "4. Add dongles/HouseOfTheDeadScarletDawn/dongle.json from dongle.sega-keychip.draft.json.",
+    "5. Document in dongles/README.md that this type is answered by a CreateFileW + DeviceIoControl hook in the daemon process, not by a HASP-style API."
+  ],
+
+  "type_enum_addition": ["hasp-hl", "region-pcb", "sega-scan", "sega-keychip"],
+
+  "properties": {
+    "device": {
+      "type": "string",
+      "description": "The Windows device path the keychip is reached through. Measured: \\\\.\\FddDriver (the daemon opens \\??\\FddDriver via its \\\\.\\%s pattern)."
+    },
+    "identity": {
+      "type": "object",
+      "description": "The fixed values amDongleGet{ModelType,Region,PlatformId,FormatType,GameId,SystemFlag,NetworkAddress} return.",
+      "required": ["modeltype", "region", "platformId"],
+      "properties": {
+        "modeltype": { "type": "integer", "minimum": 1, "maximum": 98, "description": "1 = Server, 2 = Satellite, 3 = Live. Source: hwvalue.exe usage text." },
+        "region": { "type": "integer", "description": "Bit flags, not an enum: 1 = JPN, 4 = EXP, 8 = CHN; AND-combined, optionally masked. Source: hwvalue.exe usage text." },
+        "platformId": { "type": "string", "description": "e.g. ACA0 = ALLS UX, ACA1 = ALLS HX, from pxGetHwInfo.ini." },
+        "formatType": { "type": "integer" },
+        "gameId": { "type": "string", "description": "e.g. SDET for Scarlet Dawn (99_StartApp.bat)." },
+        "systemFlag": { "type": "integer" },
+        "networkAddress": { "type": "string" }
+      }
+    },
+    "billing": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "integer" },
+        "keychipId": { "type": "string" },
+        "playlimit": { "type": "integer", "description": "minime/src/billing.ts uses 1024." },
+        "nearfull": { "type": "integer", "description": "minime/src/billing.ts uses 0x00010200 = 66048; 'Keychip odometer limit. Game will lock out if the odometer reaches ...'." },
+        "signaturePubKey": { "type": "string", "description": "Path inside the dongle folder; minime/initpki generates one." },
+        "caCertification": { "type": "string", "description": "Path inside the dongle folder. minime/initpki writes the CA as DER, budget 1024 bytes." }
+      }
+    },
+    "dipsw": {
+      "type": "object",
+      "properties": {
+        "value": { "type": "integer", "description": "Dip-switch application value. Known bit: 4 = Terminal." },
+        "backupRecord": { "type": "string", "description": "Optional path; the keychip keeps a dip-switch backup record on the AMFS system file (sysfile.dat)." }
+      }
+    },
+    "nvram": {
+      "type": "object",
+      "properties": {
+        "geometry": { "type": "array", "description": "From amyDongleGetGeometryNvram; the daemon range-checks every read against it." },
+        "files": { "type": "object", "description": "Map of nvram index to a file inside the dongle folder." }
+      }
+    },
+    "crypto": {
+      "type": "object",
+      "properties": {
+        "iv": { "type": "string", "description": "For amDongleSetIv." },
+        "keySource": { "type": "string" }
+      }
+    },
+    "ioctls": {
+      "type": "array",
+      "description": "The captured DeviceIoControl stream. Empty until measurement C2 in REPORT.md section 6 has been run.",
+      "items": {
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": { "type": "string", "description": "The ioctl code, e.g. 0x0022xxxx." },
+          "in": { "type": "string", "description": "Optional path to the recorded input buffer." },
+          "in_hex": { "type": "string" },
+          "out": { "type": "string", "description": "Optional path to the recorded output buffer." },
+          "out_hex": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "not_implemented_in_libam": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "MEASURED: the daemon's own library answers 'Function \"...\" is not implemented.' for these amDongle* functions, so they never reach the device. Recorded for completeness; a shim must not answer them."
+    },
+    "test_harness": {
+      "type": "string",
+      "description": "hwvalue.exe exercises the same ABI and prints modeltype/region/dipsw as text; use it as the unit test for this descriptor."
+    }
+  },
+
+  "allOf_entry": {
+    "if": { "properties": { "type": { "const": "sega-keychip" } } },
+    "then": { "required": ["device", "identity"] }
+  }
+}
