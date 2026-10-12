@@ -66,6 +66,23 @@ bytes** rw-binden op dat pad (BudgieLoader levert het als `w040101sram`, 65537 B
 `play-native.sh` kan nu alleen `overlay`/`ro`-mounts van een **map**; daar moet een **rw-file-bind**
 bij. De voorbereiding staat klaar in `~/.local/share/ravengun/native/GoGoStrike/`.
 
+**En let op: de game is al verder gekomen dan die SRAM-hobbel.** Het eigen profiel in
+`packaging/native-games.json` zegt letterlijk: *"bowling_usa (Allegro 4, 2007) laadt, leest zijn
+beelddata en crasht dan op een NULL-aanwijzer (geen bruikbare grafische modus; een `.allegrorc` met
+XWIN hielp niet); wil ook de PAOKAI-apparaten `/dev/w040101_*`. Geparkeerd."* Dat is dus een
+**andere en latere** fout dan `uwSramCheckFormatCode`: de game komt voorbij het laden en sterft op
+het ontbreken van een bruikbare grafische modus. Wie fase 2 doet, moet eerst **dat** uitzoeken in
+plaats van opnieuw op de SRAM-hobbel te stuiten.
+
+**Wat er verder al gestaged is.** `play-native.sh --stage-libs` vult
+`~/.local/share/ravengun/runtime/lib32`, en daar staan **9** i386-bibliotheken die `ElfLdr2/libs`
+níet levert: `libGLU.so.1`, `libSDL-1.2.so.0`, `libSDL2-2.0.so.0`, `libXi.so.6`, `libXrandr.so.2`,
+`libXrender.so.1`, `libesd.so.0`, `libglut.so.3` en `libtheora.so.0`. De "ontbrekende bibliotheken"
+uit `patches/ELF-NATIVE.md` zijn dus deels al opgelost -- ze staan alleen niet in `ElfLdr2/libs` maar
+in onze eigen staging. Wat nog wél naar de TP-map wijst: het GoGoStrike-profiel haalt zijn drie
+bibliotheken (`liballeg.so.4.0`, `libstdc++.so.5`, `libNL.so.1.6`) uit `@tpui/ElfLdr2/libs/...`, dus
+voor het loskoppelen moeten die ook naar onze eigen map.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
