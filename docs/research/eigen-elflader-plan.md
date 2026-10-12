@@ -174,6 +174,42 @@ maar **44** door liballeg gedekt; de andere 90 zijn libc/C++ (`_ZdaPv`, `_Znaj`,
 libc/libm van de host. Buiten de liballeg van ElfLdr2 is er op deze machine **geen** 32-bits
 `liballeg` -- de host heeft hem in geen enkele bitbreedte.
 
+#### De oplossing is bewezen: een shim met de symbolen van de gast
+
+Route 2 van hierboven is getest en **werkt**. Het recept, in vier stappen:
+
+1. **De symbolen van de gast ophalen** (alleen de gedefinieerde, met hun adres):
+   `nm -D --defined-only bowling_usa | awk '$2 ~ /^[TDBRWV]$/ {print $1, $3}'` geeft **1391**
+   symbolen. Let op: `nm` laat de `0x` weg voor het adres, dus die moet je er zelf voor zetten.
+2. **Een shim genereren**: voor elk symbool een regel
+   `__asm__(".globl NAAM\n.set NAAM, 0xADRES\n");`
+   Sla `_init`, `_fini`, `_start`, `__bss_start`, `_edata`, `_end` en de `__init_array_*`/
+   `__fini_array_*` over -- die levert de CRT van de shim zelf al, en anders krijg je
+   "multiple definition of `_fini`".
+3. **Bouwen**: `gcc -m32 -shared -fPIC -Wl,-z,execstack -o shim.so shim.c` geeft 1388 symbolen,
+   32-bits, waaronder `_poly_scanline_gcol8`.
+4. **Eerst de shim laden met `RTLD_NOW | RTLD_GLOBAL`, dan pas de `DT_NEEDED`-bibliotheken.**
+
+**De meting die het beslist**, met een eigen proefprogramma dus los van de lader:
+
+```
+STAP1 shim geladen
+STAP2 liballeg GELADEN op 0x57797d50
+STAP3 install_sound: 0xf7c16dc0
+STAP4 set_gfx_mode:  0xf7becad0
+```
+
+Zonder de shim faalt precies dezelfde `dlopen` met `undefined symbol: _poly_scanline_gcol8`. De
+aanpak is dus niet alleen theoretisch goed: de bibliotheek laadt, en de twee functies die de
+geluids- en de beeldinitialisatie van Allegro aansturen zijn resolveerbaar.
+
+Narekenen: `re/_shimproef4.sh` in de Windows-werkmap, of `/home/deck/_shimproef4.sh` op de Deck.
+
+**Eén voorwaarde om te onthouden:** de shim staat op **absolute adressen** en is dus alleen geldig
+zolang de gast op zijn vaste plaats staat (ET_EXEC op `0x08048000`). Dat is precies de aanname waarop
+het hele ontwerp rust, maar het betekent wel dat de shim **per gast opnieuw gegenereerd** moet worden.
+Dat is één commando, dus dat is geen bezwaar -- het moet alleen niet vergeten worden.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
