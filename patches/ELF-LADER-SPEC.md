@@ -75,7 +75,7 @@ gedeeltelijk; het mat eerder de runtime-verdeling **269 nagebootst / 252 `msys-2
 Van Jurassic Park en Pac-Man Chomp staat naast `game` ook een `game_original`. Dat leek de hoopvolle
 variant, want daar is de GOT nog **ongebonden**: in `game_original` van Jurassic Park staan alle 577
 slots op hun luie-PLT-beginwaarde `0x08xxxxxx` (`stub+6`), terwijl `game` ze op absolute
-`0xb7xxxxxx`-adressen uit een draaiend proces op de originele kast heeft staan.Het aantal
+`0xb7xxxxxx`-adressen uit een draaiend proces op de originele kast heeft staan. Het aantal
 sectiekoppen verschilt ook (2 tegen 0), en de entry verschuift mee.
 
 **Maar de importnamen zijn in beide bestanden even ver weg.** Gemeten met de symbooltabel bij
