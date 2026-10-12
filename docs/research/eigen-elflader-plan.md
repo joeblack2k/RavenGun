@@ -747,6 +747,34 @@ benoemde stubs, en vooral **welke extra sloten** de lader heeft gevuld. Dat laat
 naamgevingstabel in de dump erbij, de vraag "hoe koppelt ElfLdr2 een naamloos slot aan een naam" met
 een meting beantwoorden in plaats van met een vermoeden.
 
+#### Van BudgieLoaders eigen API vraagt geen enkele game iets (2026-10-12)
+
+De eisenmatrix vond eerder geen gemeten consument; dit toetst het over alle acht games met een
+`game`-bestand, geteld met `grep -a -o | wc -l` op de spelbestanden:
+
+| game | GetElfBase | GetElfSymbol | GetMainInterface* | TpRefreshMainInterface | get_info | ElfPreReserveCallback | NvOptimus | AmdPowerXpress |
+|---|---|---|---|---|---|---|---|---|
+| Galaga Assault | 0 | 0 | 0 | 0 | **5** | 0 | 0 | 0 |
+| Pacman Chomp-Mania | 0 | 0 | 0 | 0 | **5** | 0 | 0 | 0 |
+| Jurassic Park | 0 | 0 | 0 | 0 | **5** | 0 | 0 | 0 |
+| Walking Dead | 0 | 0 | 0 | 0 | **2** | 0 | 0 | 0 |
+| Target Terror Gold | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Big Buck Hunter Pro | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| GhostBusters | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Terminator Salvation | 0 | 0 | 0 | 0 | **2** | 0 | 0 | 0 |
+
+**En die `get_info`-treffers zijn geen aanroepen.** De context in Galaga Assault is
+`rawRects hasp_get_info` (1x -- de dongle) en `req c2v_reply get_info` (2x, een fragment van een
+langere reeks). En `api` komt **nul keer** voor als zelfstandig woord, terwijl de ruwe substring 60 tot
+129 keer voorkomt -- precies wat de eisenmatrix al vaststelde.
+
+**Conclusie:** van BudgieLoaders **eigen** API -- de 6 laderfuncties, de 3 data-exports en de 3
+ctype-exports -- vraagt **geen enkele** game iets. Daarmee is de API-oppervlakte van fase 3 meetbaar
+**alleen het glut-deel**, en dat zijn de 39 namen die wij nog moeten maken. De twaalf andere zijn voor
+de lader intern of voor gereedschap, niet voor de games.
+
+Narekenen: `re/_eigenapi-check2.sh`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
