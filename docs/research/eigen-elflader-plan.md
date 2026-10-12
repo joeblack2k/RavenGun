@@ -301,6 +301,56 @@ in onze eigen staging. Wat nog wél naar de TP-map wijst: het GoGoStrike-profiel
 bibliotheken (`liballeg.so.4.0`, `libstdc++.so.5`, `libNL.so.1.6`) uit `@tpui/ElfLdr2/libs/...`, dus
 voor het loskoppelen moeten die ook naar onze eigen map.
 
+#### Fase 1 is af: wat de uitgepakte lader laat zien (en wat dat voor fase 3 betekent)
+
+Het rapport staat in `docs/research/budgieloader-uitgepakt.md` (785 regels). De uitkomsten die het
+plan veranderen:
+
+**1. Statisch uitpakken lukt niet.** Van `BudgieLoader.exe` (PE32 i386, 11.152.552 B) hebben **tien
+van de dertien secties `SizeOfRawData = 0`** -- samen 8.317.874 B die niet in het bestand staat. Alleen
+`.brr3` (de IAT), `.brr4` (10,9 MB, entropie 7,9714) en `.rsrc` hebben bytes, en `.rsrc` ligt zelfs
+*binnen* `.brr4`. De kern van 5,77 MB heeft chi-kwadraat 236 (uniform is 255), entropie 8,0000, en
+zlib 1,0003 / lzma 1,0001: **incomprimeerbaar en statistisch identiek aan een stroomcijfer**. Geen
+vaste periode, geen interleaving-stap, en dertien omkeerbare bytebewerkingen maken het niet scherper.
+Geen enkele bekende pakker matcht.
+
+**De goedkoopste weg is daarom één geheugendump van een lopende lader.** Dat vraagt een bench-run en
+het starten van BudgieLoader -- precies wat fase 1 niet mocht. Dat is nu de eerstvolgende stap van
+fase 1, en hij is tegelijk de sleutel voor fase 3 (zie punt 3).
+
+**2. `hints.dat` is NIET de sleutel tot de gewiste importnamen.** Het bestand is een levend,
+append-only bestand: 32-bits nu **249.574 records** van 12 bytes (de spec zei 235.414; er zijn er
+14.160 bijgekomen, mtime vandaag 18:25), 64-bits 457.872 van 16. Het record is (u64 sleutel,
+gastadres), maar er zijn maar **13 respectievelijk 15 distincte sleutels** -- een naam-tabel zou er
+honderden hebben. **1.463 hash-toetsen** (11 hashfuncties tegen 133 kandidaten, inclusief de volledige
+inhoud van alle 96 bibliotheekbestanden) geven **0 treffers**. En de "tweede PLT" `0x08658b10` komt er
+**nul keer** in voor. Netto: `hints.dat` groepeert gastadressen naar herkomst, het geeft geen namen.
+
+**3. En de JMPREL-resten zijn nullen, geen namen.** Zelf nagemeten: bij Galaga Assault zegt
+`PLTRELSZ` dat er **256** `R_386_JMP_SLOT`-relocaties zijn, maar de eerste ~100 hebben echte slots en
+namen (`0x086f83f8` -> `fileno`, `__errno_location`, `open`) en de overige **156** hebben
+`r_offset = 0`, symboolindex 0 en `st_name = 0`. Pacman Chomp-Mania: 684 entries waarvan **138** zo,
+met r_offsets als `0x296` en `0xb6f` -- aantoonbaar rommel. Jurassic Park: 257 waarvan **156** nul.
+
+Let op het patroon, want het is hetzelfde als bij `nchain`: de pakker **verlaagt** `nchain` (4719 tegen
+4977) en **verhoogt** `PLTRELSZ` (256 tegen ~100 echte). Beide tabelgroottes in het bestand zijn dus
+niet te vertrouwen; de betrouwbare grenzen zijn `DT_STRTAB - DT_SYMTAB` voor de symbolen, en het
+aantal **niet-nul** entries voor JMPREL. Narekenen: `re/_jmprel-naamloos.py`.
+
+**Wat dat samen betekent voor fase 3.** De naamloze imports zijn statisch niet te herleiden: niet uit
+`dynsym` (de namen zijn weg), niet uit de GOT-waarden (echte adressen, maar met onze bibliotheken
+niet naar namen te herleiden), niet uit `hints.dat` (13 sleutels, geen namen), en niet uit
+`DT_JMPREL` (de rest is nul). **De enige weg naar die namen loopt via de lopende lader zelf** -- zijn
+resolutietabel bestaat alleen in het geheugen. Dat maakt de geheugendump niet alleen de volgende stap
+van fase 1, maar de voorwaarde voor fase 3.
+
+**4. En de API-oppervlakte is nu exact bekend.** De 173 (x64: 174) exports zijn: **6** eigen
+laderfuncties (`GetElfBase`, `GetElfSymbol`, `GetMainInterfaceIP`, `GetMainInterfaceSubnetMask`,
+`TpRefreshMainInterface`, `get_info`), **3** data-exports, **3** glibc-locale, **161** `glut*` (met 31
+`*Ucall`-varianten) en in x64 nog `ElfPreReserveCallback`. Het is **geen freeglut maar een eigen
+GLUT-implementatie met freeglut-namen** -- nodig omdat `libglut.so.3` als bestand ontbreekt. En dat is
+precies de symbolenset die onze shim globaal moet aanbieden.
+
 #### Eerste meting van onze lader tegen de GEPAKTE klasse (2026-10-12)
 
 Onze lader op een **kopie** van Galaga Assaults `game` in `/tmp` (cwd `/tmp`, `DISPLAY` leeg,
