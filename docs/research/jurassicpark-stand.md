@@ -52,3 +52,44 @@ Getracete run (`WINEDEBUG=+seh`, 48 s, BudgieLoader + LD_AUDIT rt-glfix). Result
 (2) de tweede fout met een echte debugger (winedbg/gdb) i.p.v. een blinde +seh-run,
 (3) de tv om te zien of er beeld is. Alles serieel op een schone bench. Niet verder autonoom; terug naar de
 tractabelere taken (zoals de eigenaar vroeg: echte blockers parkeren en door).
+
+## Debugger-ronde 2026-10-12 (eigenaar aanwezig, schone bench) — diagnose bevestigd, correctie op het bovenstaande
+
+Op verzoek van de eigenaar ("je kunt JP toch oppakken, dan doe je een debugger") een echte debugger-sessie
+gedraaid (schone bench, Desktop Mode, één game). Drie dingen uit de vorige ronde zijn **onjuist** gebleken en
+worden hier rechtgezet:
+
+1. **De brug láádt wél in het spelproces.** `rt-glfix.log` (deze ronde) laat zien dat de brug ~140 GOT-sloten
+   herleidt naar echte GL-adressen (`0xf7c2xxxx`), en de maps tonen `librt-glfix.so` gemapt op `0xf7f3f000` in
+   het 32-bit proces. De regel `… ELFCLASS32; ignored` is alleen de **64-bit launcher** die klaagt; de 32-bit
+   `ld.so` in het kindproces honoreert `LD_AUDIT` wél. De vorige "brug laadt niet"-conclusie verwarde die
+   cosmetische regel met de uitkomst.
+2. **De tweede crash is reproduceerbaar.** Met `WINEDEBUG=+seh`: `EXCEPTION_ACCESS_VIOLATION (c0000005)`,
+   `eip=0x819c524b`, `ebp=0`, schrijf naar bijna-nul (`info[0]=1` write, `info[1]=0x51`). Zelfde
+   `0x819cXXXX`/`ebp=0`-familie als het gedocumenteerde `0x819c4d80`. De game loopt met de brug **~112 s** (24
+   threads, een levende engine) tegenover ~14 s zonder — de GL-fix werkt dus, de crash zit erna.
+3. **Waarom een los signaal-handler niets ving.** Wine bezit `SIGSEGV` en vertaalt de fout naar een Windows-
+   exception die de eigen SEH-handler van het spel afhandelt; een Linux-handler (ook onze opt-in in de brug,
+   `RAVENGUN_GLFIX_FAULT`) wordt dus omzeild. Wine's `+seh`-trace levert de registers in plaats daarvan.
+
+**Waar de crash zit (maps van het levende proces, vlak vóór de crash):**
+- `eip=0x819c524b` ligt in `80080000-98000000 ---p` — Wine's grote **gereserveerde blok, zonder r/w/x**. `ebp=0`
+  erbij = een **wilde indirecte sprong/call** door een kapotte functiewijzer, niet een logische bug in gemapte code.
+- De SEH-handler die het opvangt (`0x61023800`) ligt in `msys-2.0.dll` (`61000000`, de MSYS2-runtime van
+  BudgieLoader). Die unwindt en de lader stopt met 255.
+
+**Oorzaak (sterk onderbouwd) en de grens.** De game geeft de controle door aan een adres in gereserveerde ruimte:
+een **niet-GL, onopgelost import/stub**. ElfLdr2 laat onopgeloste sloten op zijn nagebootste stub staan
+(§7 van `docs/rt-glfix.md`: 180 GOT-invoeren → `0x71bb3e80`; de gepakte ELF heeft 72-82% van de importnamen
+gewist). De brug zet alleen `gl*`-sloten om; een niet-GL-aanroep via een ongevuld slot springt de reservering in.
+Dit ligt dus **voorbij de ABI/GL-laag** die de brug dekt — het verdwijnt pas na reconstructie van ElfLdr2's
+resolutietabel (= **uitpakwerk, buiten scope** per `decisions.md` 2026-10-11). Een in-scope ingreep lost het niet
+op: een no-op-stub voor een functie die de game echt nodig heeft verplaatst alleen de crash. **JP houdt dus
+BudgieLoader** en blijft geparkeerd, nu met een precieze, bevestigde diagnose i.p.v. een vage.
+
+**Als de eigenaar toch verder wil (bench + tv):** (a) interactieve `winedbg` i.p.v. `--auto` (dat kent deze
+build niet) om een gesymboliseerde backtrace te krijgen; (b) `RAVENGUN_GLFIX_MODE=15` (MODE_STUBLOG) om te
+loggen wélke onopgeloste stub geraakt wordt vóór de sprong — puur ter identificatie, verandert de conclusie niet.
+De brug heeft nu een opt-in diagnose (`RAVENGUN_GLFIX_FAULT=1`: foutdump + `prctl(PR_SET_PTRACER_ANY)` zodat een
+losse gdb kan aanhaken ondanks `ptrace_scope=1`). Let op: een kale `gdb`-attach gaf toch `EPERM`; `winedbg`
+(via Wine's debug-API, niet ptrace) is hier de juiste weg.

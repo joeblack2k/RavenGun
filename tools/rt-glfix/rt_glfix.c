@@ -50,6 +50,9 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <sys/prctl.h>
 
 #define GL_MAX_TEXTURE_SIZE 0xD33u
 
@@ -847,11 +850,164 @@ static void *rtg_watch(void *arg)
 static pthread_t rtg_thread;
 static int rtg_gestart;
 
+/* ---------------------------------------------------------------- foutdiagnose
+ * Opt-in via RAVENGUN_GLFIX_FAULT=1 (standaard uit, zodat normale runs en de andere games
+ * ongewijzigd blijven). Bij een crash legt deze afhandelaar eenmalig de registers, de mappings van
+ * eip/esp/foutadres, de bytes op eip en een stapel-scan naar uitvoerbare terugadressen vast (ebp=0
+ * breekt een gewone backtrace). Daarna herstelt hij de vorige afhandelaar (bv. die van Wine) en
+ * keert terug, zodat de oorspronkelijke crash-afhandeling onveranderd volgt. Zie docs/rt-glfix.md §6. */
+
+struct rtg_map { uint32_t lo, hi; char perms[5]; char naam[64]; };
+
+static int rtg_read_maps(struct rtg_map *v, int max)
+{
+    FILE *f = fopen("/proc/self/maps", "r");
+    char regel[512];
+    int n = 0;
+    if (!f)
+        return 0;
+    while (n < max && fgets(regel, sizeof(regel), f)) {
+        unsigned long a, b;
+        char perms[8] = {0};
+        char pad[256] = {0};
+        char *naam, *s;
+        if (sscanf(regel, "%lx-%lx %7s %*x %*s %*u %255[^\n]", &a, &b, perms, pad) < 3)
+            continue;
+        v[n].lo = (uint32_t)a;
+        v[n].hi = (uint32_t)b;
+        strncpy(v[n].perms, perms, 4);
+        v[n].perms[4] = 0;
+        naam = pad;
+        while (*naam == ' ')
+            naam++;
+        if (!*naam)
+            naam = (char *)"(anoniem)";
+        s = strrchr(naam, '/');
+        if (s)
+            naam = s + 1;
+        strncpy(v[n].naam, naam, sizeof(v[n].naam) - 1);
+        v[n].naam[sizeof(v[n].naam) - 1] = 0;
+        n++;
+    }
+    fclose(f);
+    return n;
+}
+
+static struct rtg_map *rtg_vind(struct rtg_map *v, int n, uint32_t addr)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        if (addr >= v[i].lo && addr < v[i].hi)
+            return &v[i];
+    return NULL;
+}
+
+static void rtg_dump_addr(struct rtg_map *v, int n, const char *naam, uint32_t addr)
+{
+    struct rtg_map *m = rtg_vind(v, n, addr);
+    if (m)
+        rtg_say("  %-5s %08x  in %s %s", naam, addr, m->perms, m->naam);
+    else
+        rtg_say("  %-5s %08x  (niet gemapt)", naam, addr);
+}
+
+static volatile sig_atomic_t rtg_in_fault;
+static const int rtg_sigs[4] = { SIGSEGV, SIGILL, SIGBUS, SIGFPE };
+static struct sigaction rtg_old[4];
+
+static void rtg_fault(int sig, siginfo_t *si, void *ucv)
+{
+    static struct rtg_map v[1024];
+    ucontext_t *uc = (ucontext_t *)ucv;
+    greg_t *g = uc->uc_mcontext.gregs;
+    uint32_t eip = (uint32_t)g[REG_EIP], esp = (uint32_t)g[REG_ESP], ebp = (uint32_t)g[REG_EBP];
+    uint32_t fout = (uint32_t)(uintptr_t)si->si_addr;
+    struct rtg_map *me, *mesp;
+    int n, i, gevonden = 0;
+
+    if (rtg_in_fault) {
+        signal(sig, SIG_DFL);
+        return;
+    }
+    rtg_in_fault = 1;
+
+    n = rtg_read_maps(v, 1024);
+    rtg_say("==== FOUT: signaal %d, si_addr %08x, si_code %d ====", sig, fout, si->si_code);
+    rtg_say("  eip %08x esp %08x ebp %08x eflags %08x", eip, esp, ebp, (uint32_t)g[REG_EFL]);
+    rtg_say("  eax %08x ebx %08x ecx %08x edx %08x", (uint32_t)g[REG_EAX], (uint32_t)g[REG_EBX],
+            (uint32_t)g[REG_ECX], (uint32_t)g[REG_EDX]);
+    rtg_say("  esi %08x edi %08x", (uint32_t)g[REG_ESI], (uint32_t)g[REG_EDI]);
+    rtg_dump_addr(v, n, "eip", eip);
+    rtg_dump_addr(v, n, "esp", esp);
+    rtg_dump_addr(v, n, "fout", fout);
+
+    me = rtg_vind(v, n, eip);
+    if (me && me->perms[0] == 'r') {
+        const uint8_t *p = (const uint8_t *)(uintptr_t)eip;
+        rtg_say("  bytes@eip %02x %02x %02x %02x %02x %02x %02x %02x", p[0], p[1], p[2], p[3], p[4],
+                p[5], p[6], p[7]);
+    } else {
+        rtg_say("  bytes@eip: eip wijst niet naar een leesbare mapping (wilde sprong)");
+    }
+
+    mesp = rtg_vind(v, n, esp);
+    if (mesp && mesp->perms[0] == 'r') {
+        uint32_t top = esp + 512;
+        if (top > mesp->hi)
+            top = mesp->hi;
+        rtg_say("  stapel-scan (uitvoerbare doelen = mogelijke terugadressen; ebp=0):");
+        for (i = 0; esp + (uint32_t)i * 4 + 4 <= top && gevonden < 16; i++) {
+            uint32_t w = *(const uint32_t *)(uintptr_t)(esp + (uint32_t)i * 4);
+            struct rtg_map *mw = rtg_vind(v, n, w);
+            if (mw && mw->perms[0] == 'r' && mw->perms[2] == 'x') {
+                rtg_say("    [esp+%3d] %08x -> %s %s", i * 4, w, mw->perms, mw->naam);
+                gevonden++;
+            }
+        }
+        if (!gevonden)
+            rtg_say("    (geen uitvoerbaar terugadres in de eerste 512 bytes)");
+    } else {
+        rtg_say("  stapel-scan: esp niet leesbaar");
+    }
+    rtg_say("==== einde foutdump; terug naar de vorige afhandelaar ====");
+
+    for (i = 0; i < 4; i++)
+        if (rtg_sigs[i] == sig) {
+            sigaction(sig, &rtg_old[i], NULL);
+            break;
+        }
+}
+
+static void rtg_install_fault(void)
+{
+    static char stapel[64 * 1024];
+    stack_t ss;
+    struct sigaction sa;
+    int i;
+    if (!rtg_env_long("RAVENGUN_GLFIX_FAULT", 0))
+        return;
+    /* ptrace_scope=1 blokkeert een losse gdb-attach; dit staat elke gelijke-gebruiker-debugger toe
+       (alleen in de diagnose-run, niet normaal). Zo kan gdb de vastgelopen hoofddraad bekijken. */
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
+    ss.ss_sp = stapel;
+    ss.ss_size = sizeof(stapel);
+    ss.ss_flags = 0;
+    sigaltstack(&ss, NULL);
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = rtg_fault;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    for (i = 0; i < 4; i++)
+        sigaction(rtg_sigs[i], &sa, &rtg_old[i]);
+    rtg_say("foutdiagnose aan (RAVENGUN_GLFIX_FAULT): afhandelaar op SEGV/ILL/BUS/FPE");
+}
+
 static void rtg_ensure_watcher(void)
 {
     if (rtg_gestart)
         return;
     rtg_gestart = 1;
+    rtg_install_fault();
     rtg_mode = (int)rtg_env_long("RAVENGUN_GLFIX_MODE", rtg_mode);
     rtg_max_tex = (uint32_t)rtg_env_long("RAVENGUN_GLFIX_MAXXTEX", 8192);
     rtg_page = mmap(NULL, 8192, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
