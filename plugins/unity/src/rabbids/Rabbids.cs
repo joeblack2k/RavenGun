@@ -89,12 +89,28 @@ namespace RavenGun.Unity.RabbidsHollywood
             // Wij beantwoorden daarom juist die drie aanroepen zelf; matrix64.dll wordt verder niet gebruikt.
             // De game leest geen dongle-geheugen: Dongle_ReadData/Dongle_WriteData komen in het spelpad niet voor.
             // Bewijs en afweging: docs/matrix-layer.md. API: findings/MATRIX-dongle-API.md.
+            //
+            // DE SAVEGAME-VERSLEUTELING LOOPT VIA DEZELFDE DONGLE, en die mag je NIET half beantwoorden.
+            // SBK.Matrix.MatrixManager roept Dongle_EncryptData/Dongle_DecryptData aan op dertien plaatsen:
+            // Encrypt uit KPHIPOINDLP, BMNNMICCONF, EDNBLKCLMOI, NDIBJIHIEGD, NKLMBDBGNGM en MIBFIOJCFDO;
+            // Decrypt uit AJPGJFKKFIB, EFOGIECKCJK, LKFFFBKBLFF, GDIPNEDGNPL, CBJBMICIDFJ, PGOAGOPNHGP en
+            // BABEGMOMBOG (gemeten met re/dnlib.py op de Assembly-CSharp.dll van deze game).
+            // De buffer gaat per blok van 8 byte naar binnen als `ref int`, en de aanroeper gaat alleen verder
+            // als het dongle-serienummer > 0 is -- met onze 69420 gebeuren ze dus echt.
+            // Zonder antwoord schrijft en leest de originele matrix64.dll zonder dongle, en dan ziet de game bij
+            // elke start "Bad PKCS7 padding" en zet hij zijn savegames terug ("Savegame corrupted: ... will be
+            // resetted"). Wij beantwoorden ze daarom ook, en precies zoals onze eigen matrix64.dll dat doet:
+            // 0 terug en de buffer ongemoeid. Dat blijft alleen consistent zolang BEIDE richtingen een no-op
+            // zijn: het spel leest dan terug wat het zelf heeft weggeschreven. Wat deze laag niet kan: gegevens
+            // ontsleutelen die met een echte dongle zijn versleuteld.
             // Twee routes voor dezelfde dongle, zie docs/matrix-layer.md:
-            //  - de patch (standaard): wij beantwoorden de drie aanroepen in de managed wrapper;
+            //  - de patch (standaard): wij beantwoorden deze aanroepen in de managed wrapper;
             //  - de drop-in (RAVENGUN_MATRIX_DLL=1): patches/RabbidsHollywood/dropin/matrix64.dll
             //    doet hetzelfde in de DLL zelf, zodat deze plugin niets hoeft te patchen.
             // De schakelaar bestaat zodat te bewijzen is welke route werkt; de launcher zet hem
             // wanneer hij de drop-in plaatst (dropin.ini, docs/dropins.md).
+            // LET OP: die schakelaar kan zichzelf niet controleren. Op de uitgeleverde route staat geen drop-in,
+            // dus wie hem daar zet haalt hiermee de dongle-antwoorden weg en dan sterft de game weer na ~70 s.
             if (Environment.GetEnvironmentVariable("RAVENGUN_MATRIX_DLL") == "1")
             {
                 Core.Log.LogInfo("Matrix: de drop-in matrix64.dll beantwoordt de dongle-controle (patches uit)");
@@ -105,6 +121,8 @@ namespace RavenGun.Unity.RabbidsHollywood
                 P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_Find", "MatrixFind_Prefix", null);
                 P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_Count", "MatrixCount_Prefix", null);
                 P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_ReadSerNr", "MatrixSerNr_Prefix", null);
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_EncryptData", "MatrixEncrypt_Prefix", null);
+                P(h, typeof(MatrixDLLCSharp.MatrixWrapper), "Dongle_DecryptData", "MatrixDecrypt_Prefix", null);
             }
         }
 
@@ -146,6 +164,43 @@ namespace RavenGun.Unity.RabbidsHollywood
         {
             __result = 0x10F2C;
             Core.Log.LogInfo("Matrix: Dongle_ReadSerNr -> " + __result + " (onze eigen dongle-laag, vaste waarde)");
+            return false;
+        }
+
+        // --- De savegame-versleuteling van dezelfde dongle ------------------------------------
+        // Zie het blok in Apply(): 0 terug en de buffer ongemoeid, aan BEIDE kanten. Half beantwoorden is
+        // erger dan niet beantwoorden, want dan schrijft het spel half versleutelde savegames weg.
+        //
+        // Deze twee prefixen vragen GEEN enkel argument van het origineel op, alleen het resultaat. Daardoor
+        // binden ze ongeacht de parameternamen en ongeacht de vorm van de buffer (de wrapper geeft die door als
+        // `ref int`, per blok van 8 byte), en blijft de buffer gegarandeerd ongemoeid: we raken hem niet aan.
+        // Dat is hier bewust: MatrixCount_Prefix hierboven bindt wél op naam (`short Port`), en precies dat is
+        // eerder misgegaan -- met `poort` in plaats van `Port` mislukte die patch en stierf de game alsnog.
+        //
+        // Per richting wordt alleen de EERSTE aanroep gelogd; anders zou één savegame het log vullen. Die twee
+        // regels zijn tegelijk het bewijs dat geen van beide richtingen vergeten is: staat er na een sessie maar
+        // één van de twee, dan is het savegame-pad half beantwoord.
+        static bool encryptLogged, decryptLogged;
+
+        static bool MatrixEncrypt_Prefix(ref short __result)
+        {
+            __result = 0;   // 0 = gelukt; het spel neemt de buffer over zoals hij is
+            if (!encryptLogged)
+            {
+                encryptLogged = true;
+                Core.Log.LogInfo("Matrix: Dongle_EncryptData -> 0, buffer ongemoeid (onze eigen dongle-laag)");
+            }
+            return false;
+        }
+
+        static bool MatrixDecrypt_Prefix(ref short __result)
+        {
+            __result = 0;   // idem: 0 = gelukt, buffer ongemoeid
+            if (!decryptLogged)
+            {
+                decryptLogged = true;
+                Core.Log.LogInfo("Matrix: Dongle_DecryptData -> 0, buffer ongemoeid (onze eigen dongle-laag)");
+            }
             return false;
         }
 
