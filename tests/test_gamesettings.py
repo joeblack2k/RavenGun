@@ -258,7 +258,7 @@ class PatchPolicyTest(Tmp):
         self.assertTrue(gs.load_game("RaccoonRampage", shipped=shipped, user=os.path.join(self.tmp, "geen")).get("Display", "DisplayMode"))
         mem = [(n, p) for n in ("HauntedMuseum", "HauntedMuseumII", "GaiaAttack4", "MusicGunGun2")
                for p in gs.load_game(n, shipped=shipped, user=os.path.join(self.tmp, "geen")).patches if p.kind == "memory"]
-        self.assertEqual(len(mem), 12)
+        self.assertEqual(len(mem), 14)
         for n, p in mem:
             self.assertFalse(p.enabled)
             self.assertEqual(p.applied_by, "core")
