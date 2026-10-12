@@ -555,7 +555,7 @@ Bron: `TypeX2Generic.cpp` van de OpenParrot-bron waarmee onze eigen kern gebouwd
 | | `MH_CreateHook(0x1143B0, MusicGunGun2strncpy)` — string/naam-fix | 2106 | nee |
 | | `MH_CreateHook(0x12E70, MusicGunGun2MultiHeadFixHook)` — **multi-head/multi-monitor** | 2107 | nee |
 | | `MH_CreateHookApi(user32!CreateWindowExA, …)` (niet-windowed) | 2109 | nee |
-| | `InstallMusicGunGun2AndroidD3D9Compatibility()` | 2091 | nee |
+| | `InstallMusicGunGun2AndroidD3D9Compatibility()` | 2091 | **nee** — hij doet niets zonder `ANDROID_ALSA_SERVER` (Android x86-brug) en zou een `MakeCALL` naar een functie in de kern zelf zijn; zie open punt 7 |
 | | `CreateDirectoryA` + volume uit `.\OpenParrot\Settings.ini` | 2102 | nee |
 
 **De twee die er het duidelijkst in hoorden** waren de `MakeNOP`-patches van HauntedMuseumII
@@ -692,9 +692,13 @@ regels geldt. Dat is een vraag voor de eigenaar, niet iets wat deze kaart kan be
    aangenomen), maar het **woord** `untested` kan "nooit gestart" of "nooit gespeeld" betekenen en
    `STAND.md` neemt het letterlijk over in zijn kolom. Dat is een vraag voor de eigenaar van de
    loader-doc, niet iets wat deze kaart kan beslissen.
-7. **Wat `InstallMusicGunGun2AndroidD3D9Compatibility()` doet.** Die functie wordt in de kern voor
-   MusicGunGun2 aangeroepen (regel 2091) en staat in geen enkele `patches.ini`; ik heb de functie
-   zelf niet uitgelezen, dus ik weet niet of er een bytepatch in zit die wél in het formaat past.
+7. ~~Wat `InstallMusicGunGun2AndroidD3D9Compatibility()` doet.~~ **Opgelost in ronde 40:** de functie
+   staat in `MusicGunGun2InputMisc.cpp` regel 56 en doet **niets** zonder `ANDROID_ALSA_SERVER` in de
+   omgeving — ze is voor de Android x86-brug, niet voor onze start. Wat ze dan zou doen is
+   `injector::MakeCALL(base + 0x11F3B, …)`: zes bytes (`8B 42 40 FF D0`, `mov eax,[edx+40h]` /
+   `call eax`) vervangen door een **call naar een functie in de kern zelf**. Dat past niet in
+   `patches.ini`: de motor kan bytes schrijven, maar het doeladres wordt pas bij het laden berekend.
+   Er valt hier dus niets toe te voegen, en op onze platform is de functie bovendien dood.
 8. ~~Ik heb de testsuite niet groen gekregen.~~ **Opgelost in ronde 33:** `test_repo_tree` is in de
    loader-repo bijgewerkt (commit `4f18989`) en `python3 -m unittest discover -s tests` eindigt weer op
    `OK (skipped=21)`, 240 tests. Zie
