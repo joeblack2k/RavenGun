@@ -36,13 +36,17 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 - LGI (Sega, 2009) — jvs/pipe, speelbaar
 - HauntedMuseum (Taito, 2009) — Type X2, op onze kern, leeft
 - TankTankTank (Namco, 2009)
-- Otomedius (Konami, 2007) — tp-shm. **Update 2026-10-12 (bench, 0004, schone bench): exit 0 is WEG, hij leeft ≥22 s** (LIBACIO 1.12.6 + LIBBMS 1.6.5 laden). 0004 (schijfletter-herleiding van `E:\nvmem`) heeft hem dus óók geholpen — de eerdere veger-"exit 0" was vermoedelijk van vóór 0004. Speelbaarheid (BMS-pipe `\\.\pipe\bmssvc`, ACIO/COM2) pends de tv. Oude hypothese (eigen `ChkSum.bin`-controle): 22 van 191 data-paks
-  op de NAS wijken af (bewerkte/vertaalde paks) → "Conflict Hash" → schone exit. Plus ACIO (COM2) + een BMS-service
-  (`\\.\pipe\bmssvc`, `bms_GGG.exe`) voor speelbaarheid. 0004 (E:-redirect) lost het vermoedelijk niet op (E: geeft
-  een foutscherm, geen exit). **Tegenargument:** de gesloten kern draaide dezelfde paks wél. Nodig: één bench-trace
-  (`WINEDEBUG=err+all,+file,+process,+seh` + `+win` op DestroyWindow) om de oorzaak te bevestigen; daarna parkeren met
-  reden "checksum + ACIO", niet "exit 0". De schone fix is de originele ongewijzigde paks (eigenaar); de
-  checksum-skip-optie raken we niet aan.
+- Otomedius (Konami, 2007) — tp-shm, **geparkeerd met de gemeten reden**. De oude veger-"exit 0" is weg sinds 0004
+  (schijfletter-herleiding van `E:\nvmem`), maar de uitkomst is **wisselend, en dat is het punt**: met volledige
+  logboekuitvoer (`WINEDEBUG=+file,err+all`) verschijnt het spelproces pas rond 20 s en blijft het daarna leven, in
+  een snelle run vertrekt het rond 2–5 s met exitcode 0. Het merkteken dat het verschil maakt is of `libacio.dll` en
+  `libbms.dll` geladen worden — in de gesloten-kern-run staan ze in het log, in de snelle run niet, en de gesloten
+  kern houdt hem ook op 20 s levend. Dat past bij ACIO op COM2 plus een BMS-service (`\\.\pipe\bmssvc`,
+  `bms_GGG.exe`): de oorzaak is vermoedelijk geen exitcode maar een **ontbrekende tweede proces**. Daarnaast heeft het
+  profiel de schakelaar `General/DisableFileCheckSum`, en 22 van de 191 datapakken op de NAS wijken af (bewerkt of
+  vertaald), wat een Conflict Hash geeft; die schakelaar is **bewust niet aangezet** (eigenaar). De schone fix blijft
+  de originele ongewijzigde paks (eigenaar). Speelbaarheid is niet gemeten — dat vraagt de tv. Volledige note in
+  `patches/Otomedius/game.ini` `[Status]`.
 - LethalEnforcers3 (Konami, 2005) — tp-shm, leeft
 - Gashaaaan / Gashaaaan2 (Konami) — Konami-AVS, 0004 lost de schijfletter-crash op; leeft
 - OmatsuriYasanGansoTakoyaki / -KingyoSukui (Konami) — schijfletter; KingyoSukui mist campaign*.bmp (eigenaar)
