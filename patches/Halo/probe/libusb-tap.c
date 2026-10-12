@@ -10,19 +10,31 @@
  *
  * Maar libusb praat met de kernel via gewone libc-aanroepen, en DIE zijn wél dynamisch:
  * `game` importeert `open`, `ioctl`, `syscall`, `read`, `write`, `close` uit libc. Deze tap
- * hangt ze aan en logt elke USB-overdracht die naar /dev/bus/usb gaat. Dat geeft de bytes op
- * de draad — de besturingsdescriptor met VID/PID, de setup-pakketten en de bulk-buffers —
- * zonder dat er één adres van de game bekend hoeft te zijn.
+ * hangt ze aan en logt:
+ *
+ *   1. /dev/bus/usb/<bus>/<dev>   — het echte apparaatverkeer (USBDEVFS_CONTROL, _BULK,
+ *      _SUBMITURB, _REAPURB{NDELAY}) met de buffers erbij: dit zijn de bytes op de draad;
+ *   2. /sys/bus/usb/devices/...   — de opsomming. libusb leest op Linux de apparaatlijst en de
+ *      descriptors uit sysfs, niet via usbfs. Zonder bord is dit het enige wat je ziet, en het
+ *      laat wél zien WELKE apparaten de game heeft bekeken (en met welke VID/PID, uit de
+ *      `descriptors`-bytes).
+ *
+ * Daarom werkt dit zonder één adres van de game te kennen.
  *
  * GEBRUIK (in het spelproces, naast halo.so en librg_rt_input.so):
  *   LD_PRELOAD=/rg/lib/libusb-tap.so RG_USB_LOG=/tmp/usb-tap.log ./game -f1920x1080 -n
- *   RG_USB_LOG_STDOUT=1   ook naar stderr
- *   RG_USB_MAX=<n>        maximum aantal regels (standaard 20000)
- *   RG_USB_RAW=1          volledige buffers in plaats van de eerste 64 bytes
- *   RG_USB_DEVROOT=<pad>  andere wortel dan /dev/bus/usb
+ *   RG_USB_LOG_STDOUT=1    ook naar stderr
+ *   RG_USB_MAX=<n>         maximum aantal regels (standaard 20000)
+ *   RG_USB_RAW=1           volledige buffers in plaats van de eerste 64 bytes
+ *   RG_USB_DEVROOT=<pad>   andere usbfs-wortel (standaard /dev/bus/usb)
+ *   RG_USB_SYSFS=<pad>     andere sysfs-wortel (standaard /sys/bus/usb/devices)
+ *   RG_USB_SYSFS_UIT=1     alleen /dev/bus/usb loggen, sysfs overslaan
  *
  * De tap verandert geen gedrag: hij roept altijd de echte functie aan en geeft het resultaat
  * onveranderd terug. Hij schrijft niets naar de NAS.
+ *
+ * De eerste regel van het logboek is altijd `tap start ...`. Staat die er niet, dan is de tap
+ * niet geladen (LD_PRELOAD of een glibc-eis) — dat is iets anders dan "geen verkeer".
  */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -43,9 +55,16 @@
 
 static FILE *g_log;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
-static long g_max = 20000, g_lines, g_raw;
+static long g_max = 20000, g_lines, g_raw, g_sysfs_uit;
 static char g_devroot[4096] = "/dev/bus/usb/";
+static char g_sysfs[4096] = "/sys/bus/usb/devices/";
+
+#define KIND_NONE 0
+#define KIND_USB 1
+#define KIND_SYSFS_DESC 2
+#define KIND_SYSFS_ATTR 3
 static char g_fdname[4096][64];
+static unsigned char g_fdkind[4096];
 
 static int (*real_open)(const char *, int, ...);
 static int (*real_open64)(const char *, int, ...);
@@ -56,6 +75,8 @@ static ssize_t (*real_read)(int, void *, size_t);
 static ssize_t (*real_write)(int, const void *, size_t);
 static int (*real_close)(int);
 static int g_stdout;
+
+static void say(const char *fmt, ...);
 
 static void tap_init(void)
 {
@@ -78,7 +99,13 @@ static void tap_init(void)
     g_raw = r && *r == '1';
     const char *d = getenv("RG_USB_DEVROOT");
     if (d && *d) snprintf(g_devroot, sizeof g_devroot, "%s", d);
+    const char *s = getenv("RG_USB_SYSFS");
+    if (s && *s) snprintf(g_sysfs, sizeof g_sysfs, "%s", s);
+    const char *u = getenv("RG_USB_SYSFS_UIT");
+    g_sysfs_uit = u && *u == '1';
     g_stdout = getenv("RG_USB_LOG_STDOUT") != NULL;
+    say("tap start usbfs=%s sysfs=%s%s max=%ld", g_devroot, g_sysfs,
+        g_sysfs_uit ? " (uit)" : "", g_max);
 }
 
 static void say(const char *fmt, ...)
@@ -121,21 +148,38 @@ static int is_usb(const char *path)
     return path && strncmp(path, g_devroot, strlen(g_devroot)) == 0;
 }
 
-static void note_fd(int fd, const char *path)
+static const char *base(const char *p)
+{
+    const char *s = strrchr(p, '/');
+    return s ? s + 1 : p;
+}
+
+/* Soort aan de hand van het pad; -1 = niet interessant. */
+static int pad_soort(const char *path)
+{
+    if (!path) return -1;
+    if (is_usb(path)) return KIND_USB;
+    if (g_sysfs_uit) return -1;
+    if (strncmp(path, g_sysfs, strlen(g_sysfs)) != 0) return -1;
+    return strcmp(base(path), "descriptors") == 0 ? KIND_SYSFS_DESC : KIND_SYSFS_ATTR;
+}
+
+static void note_fd(int fd, const char *path, int soort)
 {
     if (fd >= 0 && fd < 4096) {
         pthread_mutex_lock(&g_lock);
         snprintf(g_fdname[fd], sizeof g_fdname[fd], "%s", path);
+        g_fdkind[fd] = (unsigned char)soort;
         pthread_mutex_unlock(&g_lock);
     }
 }
 
-static int fd_is_usb(int fd)
+static int fd_kind(int fd)
 {
-    return fd >= 0 && fd < 4096 && g_fdname[fd][0] != 0;
+    return (fd >= 0 && fd < 4096) ? g_fdkind[fd] : KIND_NONE;
 }
 
-/* ---- de URB-afhandeling, gedeeld door ioctl() en syscall(SYS_ioctl) ---- */
+/* ---- usbfs: de URB-afhandeling, gedeeld door ioctl() en syscall(SYS_ioctl) ---- */
 
 static int tap_urb_pre(int fd, unsigned long req, void *arg, void **buf, int *len)
 {
@@ -197,10 +241,11 @@ static void tap_urb_post(int fd, unsigned long req, void *arg, void *buf, int le
         if (u)
             say("urbreap fd=%d type=%d ep=0x%02x status=%d actual=%d len=%d",
                 fd, u->type, u->endpoint, u->status, u->actual_length, u->buffer_length);
-        if (u && u->endpoint & USB_DIR_IN)
+        if (u && (u->endpoint & USB_DIR_IN))
             hexdump("  in", fd, u->buffer, (size_t)u->actual_length);
         else if (u)
-            hexdump("  out", fd, u->buffer, (size_t)(u->actual_length ? u->actual_length : u->buffer_length));
+            hexdump("  out", fd, u->buffer,
+                    (size_t)(u->actual_length ? u->actual_length : u->buffer_length));
     }
     (void)len;
 }
@@ -213,7 +258,7 @@ int ioctl(int fd, unsigned long req, ...)
     void *arg = va_arg(ap, void *);
     va_end(ap);
     if (!real_ioctl) return -1;
-    if (!fd_is_usb(fd)) return real_ioctl(fd, req, arg);
+    if (fd_kind(fd) != KIND_USB) return real_ioctl(fd, req, arg);
 
     void *buf;
     int len;
@@ -234,7 +279,7 @@ long syscall(long number, ...)
     va_end(ap);
     if (!real_syscall) { errno = ENOSYS; return -1; }
 
-    if (number == SYS_ioctl && fd_is_usb((int)a1)) {
+    if (number == SYS_ioctl && fd_kind((int)a1) == KIND_USB) {
         void *buf;
         int len;
         int kind = tap_urb_pre((int)a1, (unsigned long)a2, (void *)a3, &buf, &len);
@@ -242,16 +287,19 @@ long syscall(long number, ...)
         if (kind) tap_urb_post((int)a1, (unsigned long)a2, (void *)a3, buf, len, r);
         return r;
     }
-    if ((number == SYS_openat || number == SYS_open) && is_usb((const char *)(number == SYS_open ? a1 : a2))) {
-        long r = real_syscall(number, a1, a2, a3, a4, a5, a6);
+    if (number == SYS_openat || number == SYS_open) {
         const char *path = (const char *)(number == SYS_open ? a1 : a2);
-        say("syscall-open %s fd=%ld", path, r);
-        if (r >= 0) note_fd((int)r, path);
+        int soort = pad_soort(path);
+        long r = real_syscall(number, a1, a2, a3, a4, a5, a6);
+        if (soort >= 0 && r >= 0) {
+            if (soort != KIND_SYSFS_ATTR) say("syscall-open %s fd=%ld", path, r);
+            note_fd((int)r, path, soort);
+        }
         return r;
     }
-    if ((number == SYS_read || number == SYS_write) && fd_is_usb((int)a1)) {
+    if ((number == SYS_read || number == SYS_write) && fd_kind((int)a1) >= KIND_USB) {
         long r = real_syscall(number, a1, a2, a3, a4, a5, a6);
-        if (r > 0)
+        if (r > 0 && (fd_kind((int)a1) == KIND_USB || fd_kind((int)a1) == KIND_SYSFS_DESC))
             hexdump(number == SYS_read ? "syscall-read" : "syscall-write",
                     (int)a1, (const void *)a2, (size_t)r);
         return r;
@@ -259,14 +307,20 @@ long syscall(long number, ...)
     return real_syscall(number, a1, a2, a3, a4, a5, a6);
 }
 
+static int open_common(const char *path, int fd, int soort)
+{
+    if (soort < 0 || fd < 0) return fd;
+    if (soort != KIND_SYSFS_ATTR) say("open %s fd=%d", path, fd);
+    note_fd(fd, path, soort);
+    return fd;
+}
+
 int open(const char *path, int flags, ...)
 {
     tap_init();
     mode_t mode = 0;
     if (flags & O_CREAT) { va_list ap; va_start(ap, flags); mode = va_arg(ap, mode_t); va_end(ap); }
-    int fd = real_open(path, flags, mode);
-    if (is_usb(path)) { say("open %s fd=%d", path, fd); note_fd(fd, path); }
-    return fd;
+    return open_common(path, real_open(path, flags, mode), pad_soort(path));
 }
 
 int open64(const char *path, int flags, ...)
@@ -275,8 +329,7 @@ int open64(const char *path, int flags, ...)
     mode_t mode = 0;
     if (flags & O_CREAT) { va_list ap; va_start(ap, flags); mode = va_arg(ap, mode_t); va_end(ap); }
     int fd = real_open64 ? real_open64(path, flags, mode) : open(path, flags, mode);
-    if (is_usb(path)) { say("open64 %s fd=%d", path, fd); note_fd(fd, path); }
-    return fd;
+    return open_common(path, fd, pad_soort(path));
 }
 
 int openat(int dirfd, const char *path, int flags, ...)
@@ -285,16 +338,17 @@ int openat(int dirfd, const char *path, int flags, ...)
     mode_t mode = 0;
     if (flags & O_CREAT) { va_list ap; va_start(ap, flags); mode = va_arg(ap, mode_t); va_end(ap); }
     int fd = real_openat ? real_openat(dirfd, path, flags, mode) : -1;
-    if (is_usb(path)) { say("openat %s fd=%d", path, fd); note_fd(fd, path); }
-    return fd;
+    return open_common(path, fd, pad_soort(path));
 }
 
 int close(int fd)
 {
     tap_init();
-    if (fd_is_usb(fd)) {
-        say("close fd=%d (%s)", fd, g_fdname[fd]);
+    int k = fd_kind(fd);
+    if (k != KIND_NONE) {
+        if (k != KIND_SYSFS_ATTR) say("close fd=%d (%s)", fd, g_fdname[fd]);
         pthread_mutex_lock(&g_lock);
+        g_fdkind[fd] = KIND_NONE;
         g_fdname[fd][0] = 0;
         pthread_mutex_unlock(&g_lock);
     }
@@ -305,7 +359,8 @@ ssize_t read(int fd, void *buf, size_t n)
 {
     tap_init();
     ssize_t r = real_read(fd, buf, n);
-    if (fd_is_usb(fd) && r > 0) hexdump("read", fd, buf, (size_t)r);
+    int k = fd_kind(fd);
+    if (r > 0 && (k == KIND_USB || k == KIND_SYSFS_DESC)) hexdump("read", fd, buf, (size_t)r);
     return r;
 }
 
@@ -313,6 +368,6 @@ ssize_t write(int fd, const void *buf, size_t n)
 {
     tap_init();
     ssize_t r = real_write(fd, buf, n);
-    if (fd_is_usb(fd)) hexdump("write", fd, buf, n);
+    if (fd_kind(fd) == KIND_USB) hexdump("write", fd, buf, n);
     return r;
 }

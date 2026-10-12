@@ -311,7 +311,7 @@ de-risked early without needing the owner's screen.
    or a `uhid`-like approach — note the guns are FTDI *serial/bulk*, not HID, so a real usbfs
    device is the honest answer). (a) is far less work and does not require the kernel to cooperate.
    **[inferred recommendation]**
-6. **Only then** revisit sound (step 6a: decide on real FMOD 1.10 vs. accepting silence) and the
+6. **Only then** revisit sound (decide on real FMOD 1.10 vs. accepting silence) and the
    START reproducibility item.
 7. **Do not touch `rtinit`.** The recipe already substitutes `rtinit_original` over `rtinit`
    (the `rtinit` in the folder needs `./rtinit.so` and is the TeknoParrot-patched one); the

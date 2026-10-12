@@ -229,9 +229,60 @@ Ruwe artefacten van de run staan op de Deck in `/home/deck/rg-run3/` (`main.log`
 
 * **Herhalen.** Deze ronde had één geslaagde run van 288 s; de bench ging daarna naar Luigi B0, dus een tweede
   run kon niet. Eén geslaagde run is minder sterk dan twee.
-* **Savegame-pad dekken** (§4) en daarna opnieuw meten.
+* **Savegame-pad dekken** (§4) en daarna opnieuw meten — geïmplementeerd, zie §9; de proef staat klaar.
 * **Munten/start/vizier** op de tv, waar de toetsenweg wél werkt.
 * **`Game_Data/Plugins` lokaal maken** in `aagames-setup.py` vóór er ooit een drop-in op deze route landt (§5).
 * **`RAVENGUN_MATRIX_DLL`** niet blind laten vertrouwen (§4).
-* Stale tekst: `game.ini` zegt nog `Status = parked` / "stopt na ongeveer een minuut", en
-  `packaging/games-status.md:271-272` en `findings/RabbidsHollywood.md:7` zeggen 50-70 s.
+* Stale tekst: `game.ini` is bijgewerkt (`Status = untested`, met de gemeten waarheid in `Note`/`NoteEN`),
+  maar `packaging/games-status.md:271-272` en `findings/RabbidsHollywood.md:7` zeggen nog 50-70 s.
+
+---
+
+## 9. Vervolg: het savegame-pad beantwoorden (beslissing, uitvoering, stand van zaken)
+
+**Beslissing: oplossing (a), niet (b).** De plugin beantwoordt `Dongle_EncryptData`/`Dongle_DecryptData`
+zelf. (b) — de drop-in op de uitgeleverde route uitrollen — valt af omdat `Game_Data/Plugins` daar een
+symlink naar de NAS is (§5): dat zou op de NAS schrijven. (a) is ook netter: onze eigen laag geeft het
+antwoord, niet een DLL die toevallig in de buurt staat.
+
+**Wat er is nagekeken voordat er iets gepatcht werd** (opnieuw gemeten met `re/dnlib.py` op de
+Assembly-CSharp.dll van deze game, md5 `ad2813f95179f7b4df28bab3a7b56c69`):
+
+* `MatrixDLLCSharp.MatrixWrapper` heeft **exact 27 methoden**, en daarin precies **twee** crypto-varianten:
+  `short Dongle_EncryptData(int, int&, short, short)` en `short Dongle_DecryptData(int, int&, short, short)`.
+  Er is **geen** `*Ex`-, `*Memory`-, `*File`- of size-uitvoervariant. Twee patches dekken dus alles.
+* Er zijn **dertien aanroepen**, elk in een eigen methode: Encrypt uit `KPHIPOINDLP`, `BMNNMICCONF`,
+  `EDNBLKCLMOI`, `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO` (alle op `IL_007D`); Decrypt uit
+  `AJPGJFKKFIB`, `EFOGIECKCJK`, `LKFFFBKBLFF`, `GDIPNEDGNPL`, `CBJBMICIDFJ`, `PGOAGOPNHGP`, `BABEGMOMBOG`
+  (alle op `IL_0091`). (Het README zei "acht"; dat was een onvolledige telling.)
+* De buffer gaat **per blok van 8 byte** naar binnen, als `ref int` (`KPHIPOINDLP` bouwt een `int[2]` uit
+  8 bytes van de `byte[]`). Daarom is half beantwoorden erger dan niet beantwoorden.
+* De aanroepers gaan alleen verder als het serienummer > 0 is (`KPHIPOINDLP` bij `IL_0017`,
+  `AJPGJFKKFIB` bij `IL_001C`, waar anders `**** DONGLE NOT FOUND` volgt). Met onze 69420 loopt dit pad
+  dus echt mee — het is niet dormant.
+
+**Uitvoering.** `plugins/unity/src/rabbids/Rabbids.cs` (alleen dat bestand; bron-md5
+`60d3a74d2ea5ad9bbba98364d95889bc`): `MatrixEncrypt_Prefix` en `MatrixDecrypt_Prefix`, die **geen enkel
+argument** van het origineel opvragen — alleen `ref short __result` — en `0` teruggeven met de buffer
+ongemoeid. Omdat ze geen argumenten binden, hangen ze niet van parameternamen of buffervorm af (precies
+waar het eerder met `poort`/`Port` misging) en blijft de buffer gegarandeerd ongemoeid. Per richting wordt
+alleen de eerste aanroep gelogd; die twee regels zijn tegelijk het bewijs dat geen van beide richtingen
+vergeten is.
+
+| Artefact | Grootte | md5 | sha256 |
+|---|---|---|---|
+| build `build/unity-plugin/RabbidsHollywood/RavenGun.RabbidsHollywood.dll` (2026-10-12 22:12) | 34.816 | `e0eaa4231475d0e5825a19e9df9fe3d7` | `8b011be1471a5ed5151290e0fa52120d6697a691cf9f2036fb83409e5b36c3b6` |
+| view `views-aagames/RabbidsHollywood/BepInEx/plugins/…dll` (nog niet uitgerold) | 34.304 | `29fd3ddc31f14f526c32df8e7d5f3895` | `b8f5f41a3855b88c8996d3706a95b59993a83e3436465f5988e029d380e7df91` |
+
+De view is dus nog de **vorige** build; de zelfuitrol (§2) brengt de nieuwe pas bij de volgende start in.
+Dat is niet aangenomen maar apart gemeten, en daarom staan beide hashes hier apart.
+
+**De proef staat klaar, maar is nog niet gedraaid.** `rg_savegame.sh` (op de Deck,
+`/home/deck/rg_savegame.sh`, syntax gecontroleerd) start de uitgeleverde route **twee keer**, headless via
+gamescope, met NAS-schrijfcontrole. De bestaande savegames worden eerst geback-upt en weggehaald, zodat
+run 1 ze werkelijk aanmaakt en run 2 de persistentie bewijst. Succes = run 2 zonder `Bad PKCS7 padding`,
+zonder `Savegame corrupted` en zonder `will be resetted`, de bestanden van run 1 nog aanwezig met dezelfde
+md5, en beide nieuwe plugin-regels in run 1. Gedeeltelijk succes heeft per geval een eigen betekenis (zie
+de kop van het script): herschreven maar schoon, padding weg maar reset blijft, of maar één richting
+beantwoord. Niet gedraaid omdat de bench naar Luigi B0 ging — dit is de eerstvolgende meting die deze game
+nodig heeft.

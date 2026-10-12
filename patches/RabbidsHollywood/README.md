@@ -43,11 +43,21 @@ python3 scripts/launch-direct.py RabbidsHollywood --plan      # kijk naar de dro
 
 Deze game is 64-bits en importeert `matrix64.dll`; `matrix32.dll` staat bewust **niet** in de drop-in.
 
-### De patch (terugval)
+### De patch (de route die uitgerold wordt)
 
 `plugins/unity/src/rabbids/Rabbids.cs` beantwoordt dezelfde aanroepen in de managed wrapper. Die route
-werkt en heeft geen bestand in de view nodig; `RAVENGUN_MATRIX_DLL=1` (uit `dropin.ini`) zet hem uit
-zodat de DLL het alleen doet.
+werkt en heeft geen bestand in de view nodig. Ze is sinds deze ronde ook de route die **daadwerkelijk
+uitgerold wordt**: `play-unity.sh` → `aagames-setup.py` kopieert de plugin bij elke start naar
+`views-aagames/RabbidsHollywood/BepInEx/plugins/` (gemeten: view-DLL ging van md5 `b4fe9d83…` naar
+`29fd3ddc…`, identiek aan `build/unity-plugin/RabbidsHollywood/`). De drop-in is het alternatief.
+
+**LET OP — `RAVENGUN_MATRIX_DLL=1` is een blinde schakelaar.** Hij zet de Matrix-patches van de plugin
+uit en vertrouwt erop dat de drop-in `matrix64.dll` het overneemt. Op de uitgeleverde route staat **geen**
+drop-in: `views-aagames/<Game>/Game_Data/Plugins` is een koppeling naar de NAS en daar staat de originele
+`matrix64.dll` van 93.184 B. Wie die variabele daar in de omgeving zet (bij het zoeken naar een dongle-
+probleem is dat verleidelijk), haalt de dongle-antwoorden weg en dan sterft de game weer na ~70 s met
+`**** DONGLE NOT FOUND` — zonder dat er iets in het log wijst naar de variabele. De plugin kan zich hier
+niet tegen verdedigen: hij kan niet zien of de DLL die geladen is de onze is.
 
 De dongle-patch staat **niet** in `patches.ini`, maar om een andere reden dan hier eerder stond. Het
 formaat heeft de categorieën `dongle`, `region`, `keychip`, `integrity` en `activation` wél
@@ -102,15 +112,69 @@ Eén keer is de start mislukt met `Failed to find kernel32.dll in target process
 DLL via RemoteThread! (Error 2b)` — de lader, niet de dongle. Een controleproef met en zonder de
 drop-in gaf in beide gevallen een levende game, dus dat is een losse laderstoring.
 
+**Op de uitgeleverde route gemeten (2026-10-12).** Alle metingen hierboven komen van de
+`launch-direct`-route (`views/RabbidsHollywood`) of van de drop-in. De route die wij uitrollen is
+`play-halo.sh --profile RabbidsHollywood` → `play-unity.sh` → `views-aagames`. Die view droeg tot deze
+ronde een plugin van vóór de Matrix-fix (32.768 B, md5 `b4fe9d83…`, mtime 2026-10-11 17:12) met **geen
+enkele Matrix-regel**; in dat log staat `**** DONGLE NOT FOUND` en nul `Matrix:`-regels. Dat was de hele
+"hij stopt na ongeveer een minuut" — niet een verkeerde donglewaarde, maar een plugin die het antwoord
+niet bevatte.
+
+Daarna, met de plugin die `aagames-setup.py` zelf in de view zet (view-DLL identiek aan de build), op
+diezelfde uitgeleverde route: **288 s** in de attract-lus, zelf gestopt, met in het log
+
+```
+37: Patch: MatrixWrapper.Init_MatrixAPI
+39: Patch: MatrixWrapper.Dongle_Count
+40: Patch: MatrixWrapper.Dongle_ReadSerNr
+97: Matrix: Init_MatrixAPI -> 0 (onze eigen dongle-laag)
+98: Matrix: Dongle_Count(85) -> 2 (onze eigen dongle-laag)
+99: Matrix: Dongle_ReadSerNr -> 69420 (onze eigen dongle-laag, vaste waarde)
+100: [Info : Unity Log] **** DONGLE FOUND: 69420
+```
+
+0 x `DONGLE NOT FOUND`, 0 x `Application.Quit`, 0 x `IO BOARD ERROR`, en de daemon meldde op het
+stopmoment `VERBONDEN met de game, 120 pakketten/s`. `Dongle_Find` is gepatcht maar wordt door het
+opstartpad niet aangeroepen (er is geen `Matrix: Dongle_Find`-regel).
+
+**Wat die meting niet zegt.** Ze liep headless (`gamescope --backend headless`) zodat het scherm van de
+eigenaar vrij bleef, en in een headless gamescope komen de virtuele toetsen van `ravengunctl key` niet
+aan (die gaan naar de compositor van de sessie, waar geen venster is). **Munt, start en vizier zijn dus
+niet in deze meting uitgeoefend.** Op deze route zijn munt en start eerder wél gezien — log van
+2026-10-11 17:13, nog met de oude plugin: munten liepen op tot 6, `key 1` gaf `speelt 1` en
+`OnChooseWorldEnter` kwam in beeld. Dat is een andere run dan de 288 s, dus "start en leeft" en
+"munt/start/vizier" staan nog niet in één meting naast elkaar. Een proef op de tv moet dat samenbrengen.
+Volledige meting en afweging: `DONGLE-ONDERZOEK.md`.
+
 ### Let op: deze game gebruikt de dongle ook voor zijn versleuteling
 
-Acht methoden in `SBK.Matrix.MatrixManager` roepen `Dongle_EncryptData` of `Dongle_DecryptData` aan
-(o.a. `KPHIPOINDLP`, `AJPGJFKKFIB`, `EDNBLKCLMOI`, `NKLMBDBGNGM`); dat is de savegame-versleuteling.
-Onze laag laat de buffer **ongemoeid** en geeft 0 terug, net als bij de HASP-laag. Dat is met opzet:
-zolang beide richtingen een no-op zijn, schrijft de game platte tekst weg en leest die ook weer als
-platte tekst, en blijft de opslag in zichzelf consistent. Wat er **niet** gebeurt: gegevens die met een
-echte dongle versleuteld zijn, kan deze laag niet ontsleutelen. In deze metingen is dat niet uitgeoefend
-(`docs/matrix-layer.md`, "Open").
+**Dertien methoden** in `SBK.Matrix.MatrixManager` roepen `Dongle_EncryptData` of `Dongle_DecryptData`
+aan (opnieuw geteld met `re/dnlib.py` op deze assembly; hier stond eerder "acht"): Encrypt uit
+`KPHIPOINDLP`, `BMNNMICCONF`, `EDNBLKCLMOI`, `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO`; Decrypt uit
+`AJPGJFKKFIB`, `EFOGIECKCJK`, `LKFFFBKBLFF`, `GDIPNEDGNPL`, `CBJBMICIDFJ`, `PGOAGOPNHGP`, `BABEGMOMBOG`.
+Dat is de savegame-versleuteling, en de buffer gaat per blok van 8 byte als `ref int` naar binnen.
+
+Twee dingen die je hier moet weten:
+
+1. **Deze aanroepen worden door óns antwoord pas echt.** De aanroepers gaan alleen verder als het
+   dongle-serienummer groter dan 0 is (`KPHIPOINDLP` bij `IL_0017`, `AJPGJFKKFIB` bij `IL_001C`, waar
+   anders `**** DONGLE NOT FOUND` volgt). Met onze 69420 gebeuren ze dus; met de oude plugin, die op het
+   serienummer 0 terugkreeg, gebeurde er niets en schreef de game platte tekst weg. Sinds de Matrix-fix
+   loopt dit pad dus mee.
+2. **Onze laag laat de buffer ongemoeid en geeft 0 terug.** Dat is met opzet: zolang **beide** richtingen
+   een no-op zijn, schrijft de game weg wat het zelf terugleest en blijft de opslag in zichzelf
+   consistent. Half beantwoorden is erger dan niet beantwoorden — dan schrijft de game half versleutelde
+   savegames weg.
+
+De drop-in deed dat al; sinds deze ronde doet de **plugin** het ook
+(`MatrixEncrypt_Prefix`/`MatrixDecrypt_Prefix`, die geen enkel argument opvragen en dus niet van
+parameternamen of buffervorm afhangen). Zonder dat antwoord zag de game bij elke start
+`Bad PKCS7 padding` en zette hij zijn savegames terug (`Savegame corrupted: … will be resetted`).
+
+**Nog niet gemeten:** of dit de persistentie echt herstelt. Dat vraagt twee starts — de eerste maakt de
+savegames aan, de tweede mag ze niet resetten — en die proef staat klaar in `rg_savegame.sh` maar is nog
+niet gedraaid. Wat er **niet** gebeurt: gegevens die met een echte dongle versleuteld zijn, kan deze laag
+niet ontsleutelen (`docs/matrix-layer.md`, "Open").
 
 `Dongle_ReadData`, `Dongle_WriteData` en `Dongle_MemSize` komen in de hele assembly **niet** voor
 (`grep-il` met dnlib): deze game leest dus geen dongle-geheugen, en daarom is er geen memory-lijst in
