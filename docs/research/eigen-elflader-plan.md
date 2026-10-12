@@ -367,6 +367,50 @@ preload verwijst naar het bestand dat de sandbox binnenkomt.
 
 Narekenen: `re/_stubverify.sh`.
 
+#### Onze lader zit in de keten en draait de gast -- die crasht daarna (2026-10-12)
+
+De `--loader`-bedrading is ver genoeg om te meten (de vlag werkt; de profielwijziging was nog niet
+gecommit, dus de proef is met `--loader` op de commandoregel gedaan). Uit het spellogboek:
+
+```
+cmd: /rg/bin/rg-elfloader /pm/bowling_usa
+rg-elfloader: shim geladen: 1385 gast-symbolen in de globale scope
+rg-elfloader:   onopgelost DT_REL: __gmon_start__
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader: geladen; spel /pm/bowling_usa krijgt argv[0]=/pm/bowling_usa
+rg-elfloader: spring naar e_entry 0x8059410 (esp 0xf7830ed0, argc 1, envc 8, 17 auxv)
+rg-oss-stub: nep-open mixer ret=3
+rg-oss-stub: nep-open dsp ret=5
+rg-oss-stub: seq doorgelaten (geen nep) seq ret=4294967295
+rg-oss-stub: nep-open dsp ret=5
+Shutting down Allegro due to signal #11
+== exit 139
+```
+
+**Wat er goed gaat:** onze lader zit in de keten, bouwt de shim (1.385 gast-symbolen), past de
+relocaties toe, meldt netjes **bij naam** welk symbool onopgelost blijft (`__gmon_start__`, een
+onschuldige weak-symbool -- precies de verbetering die gevraagd was), bouwt de startstack, springt naar
+`e_entry 0x8059410`, en **de gast loopt**: hij bereikt de geluidsinitialisatie en roept onze OSS-stub
+aan. En die stub doet exact wat hij moet doen: mixer en dsp worden nagebootst, en `/dev/sequencer`
+wordt **met rust gelaten** ("seq doorgelaten (geen nep)") -- precies de valkuil die in de meting stond.
+
+**Wat er misgaat:** daarna sterft de gast aan **signaal 11** (exit 139). De **kernelroute met dezelfde
+vlaggen leeft 30 seconden** op hetzelfde bestand. Dat is dus een verschil dat door onze lader wordt
+veroorzaakt, en het is een concreet aanknopingspunt.
+
+**En er staat een verdachte in dezelfde regel.** Onze lader bouwt de startstack met **`envc 8`**, terwijl
+de losse proef buiten de sandbox `envc 20` gaf. De sandbox draait met `--clearenv` en zet daarna een
+handvol variabelen; als de lader alleen doorgeeft wat hij aantreft, krijgt de gast dus een
+**afgeslankte omgeving** -- en juist `DISPLAY`, `XDG_RUNTIME_DIR` en `HOME` zijn dingen waar Allegro's
+X- en geluidspad op leunen. Dat is de eerste vraag om uit te zoeken: welke acht variabelen komen er
+door, en welke mist de gast?
+
+**En een tweede, kleinere observatie:** zes keer staat er
+`ERROR: ld.so: object '/rg/lib/librg-oss-stub.so' from LD_PRELOAD cannot be preloaded (wrong ELF class:
+ELFCLASS32): ignored.` Dat is een **64-bits** `ld.so` die de 32-bits stub weigert. De stub werkt (zijn
+logregels staan er), dus dit is ruis van een 64-bits proces in de keten -- maar het is wel ruis die een
+lezer laat denken dat de preload faalt.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
