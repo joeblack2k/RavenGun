@@ -956,6 +956,62 @@ uitmaakt: de kopie mag pas gebeuren als liballeg zijn eigen `R_386_32` heeft toe
 maakt de volgorde niet uit -- en dat is ook een nuttige wetenschap, want als juist die 14 kloppen en
 `font` niet, dan zit de fout in de volgorde en niet in de opzoeking.
 
+#### FASE 2 GEHAALD: het spel leeft door ONZE EIGEN lader (2026-10-12, 20:17)
+
+De COPY-fix is er, en daarmee is de keten rond. Claude verving in de `R_386_COPY`-tak de globale
+opzoeking door de definiërende bibliotheek:
+
+```c
+case R_386_COPY: {
+    void *src = zoek_in_libs(naam);            /* NIET zoek_symbool: dat vindt de shim */
+    if (!src) { onopgelost++; ... break; }
+    memcpy(waar, src, d->symtab[sidx].st_size); copies++;
+}
+```
+
+En toen ik de keten opnieuw mat, met dezelfde opdracht als altijd:
+
+```
+cmd: /rg/bin/rg-elfloader /pm/bowling_usa
+rg-elfloader: shim geladen: 1385 gast-symbolen in de globale scope
+rg-elfloader: geladen; spel /pm/bowling_usa krijgt argv[0]=/pm/bowling_usa
+rg-elfloader: spring naar e_entry 0x8059410 (esp 0xf77faed0, argc 1, envc 8, 17 auxv)
+rg-oss-stub: nep-open mixer ret=3
+rg-oss-stub: nep-open dsp ret=5
+rg-oss-stub: seq doorgelaten (geen nep) seq ret=4294967295
+== exit 143
+```
+
+**`exit 143` is `128+15` = SIGTERM van de timeout.** Het spel was na **25 seconden nog in leven**. In
+dezelfde meting vóór de fix was het `139` (SIGSEGV). En er is in die run **geen core-dump**.
+
+**En de derde maatstaf -- een uitspraak over het beeld.** Met `--snap` maakte `play-native.sh` vlak voor
+het einde een schermafbeelding (1920x1080), en die toont het spel in **zijn eigen assert**:
+
+```
+ASSERT FAIL
+COND: p100>=0
+FILE: sys/c/ql.c
+LINE: 80
+```
+
+**Exact dezelfde regel als de kernelroute eerder gaf** (`docs/screenshots/gogostrike-native-assert.png`).
+Onze lader brengt het spel dus even ver als de kernel: tot in zijn eigen spellogica.
+
+**Daarmee zijn alle drie de maatstaven van fase 2 met ONZE lader in de keten gehaald:**
+
+| maatstaf | uitkomst |
+|---|---|
+| 1. gestart via onze eigen route, zonder BudgieLoader en zonder Wine | `cmd: /rg/bin/rg-elfloader /pm/bowling_usa` |
+| 2. proces gezien EN na >= 20 s nog in leven | `exit 143` na 25 s, geen core |
+| 3. een uitspraak over het beeld | het spel tekent zijn eigen assert (`sys/c/ql.c:80`) |
+
+De schermafbeelding staat in `docs/screenshots/gogostrike-loader-assert.png`.
+
+**En wat er daarmee overblijft is geen laderprobleem meer.** De assert `p100>=0` in `sys/c/ql.c` is
+spellogica, en de volgende hobbel uit de meting is de PAOKAI-apparaten (`/dev/w040101_*`, `/dev/ttyS0`)
+-- precies waar de notitie in het profiel ook op wees.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
