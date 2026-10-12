@@ -1,6 +1,8 @@
 # Starttest per game
 
-Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op 2026-10-12 01:50 uit de ruwe uitvoer van `starttest3.sh`.
+Elke game is met de eigen lader gestart en daarna opgeruimd. Gemeten op 2026-10-12 01:50 uit de ruwe uitvoer van `starttest3.sh`.
+
+De tabel voegt **alle** ruwe bestanden samen die `starttest3.sh` in `/tmp` heeft achtergelaten (`/tmp/rg-start3-*.txt`); komt een game in meerdere runs voor, dan wint de nieuwste run. Draai voor een schone meting eerst de oude bestanden weg.
 
 ```bash
 # één game

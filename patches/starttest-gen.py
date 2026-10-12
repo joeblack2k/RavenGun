@@ -35,8 +35,13 @@ niet = [g for g in namen if metingen[g][0] == "niet-gestart"]
 regels = [
     "# Starttest per game",
     "",
-    "Elke game is met de eigen lader gestart en daarna opgeruimd. Gemaakt op %s uit de ruwe "
-    "uitvoer van `starttest3.sh`." % time.strftime("%Y-%m-%d %H:%M"),
+    "Elke game is met de eigen lader gestart en daarna opgeruimd. Gemeten op %s uit de ruwe "
+    "uitvoer van `starttest3.sh`." % (time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(paden[-1])))
+                                      if paden else "onbekend"),
+    "",
+    "De tabel voegt **alle** ruwe bestanden samen die `starttest3.sh` in `/tmp` heeft achtergelaten "
+    "(`/tmp/rg-start3-*.txt`); komt een game in meerdere runs voor, dan wint de nieuwste run. Draai "
+    "voor een schone meting eerst de oude bestanden weg.",
     "",
     "```bash",
     "# één game",
