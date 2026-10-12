@@ -1,0 +1,18 @@
+# Teruggewonnen eerste-PLT-sloten voor Walking Dead
+# bron: /home/deck/mnt/spidernas_emulation/Teknoparrot/Walking Dead/game (alleen gelezen)
+# methode: adres -> naam uit de tweede slottabel (JMPREL-symboolindex), dan elk
+#          eerste-PLT-slot waarvan de waarde in die map staat
+# DT_JMPREL=0x8051080  PLTRELSZ=848 bytes = 106 records  dynsym=1021
+# gevonden: 11 sloten van 807 stubs met het 0xdeadbeef-patroon
+# kolommen: gastslot	oude waarde in het bestand	naam
+0x08a27160	0xb7669020	pthread_mutex_lock
+0x08a271cc	0xb766de10	close
+0x08a27220	0xb766e020	connect
+0x08a27278	0xb766e0a0	recv
+0x08a272d0	0xb7668e60	pthread_mutex_init
+0x08a272e8	0xb765c0d0	dlerror
+0x08a27450	0xb766f370	sigaction
+0x08a274d0	0xb766e220	send
+0x08a2757c	0xb766dee0	fcntl
+0x08a27908	0xb766a1b0	pthread_mutex_unlock
+0x08a27990	0xb765be40	dlsym

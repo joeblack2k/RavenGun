@@ -1,0 +1,38 @@
+# Teruggewonnen eerste-PLT-sloten voor Galaga Assault
+# bron: /home/deck/mnt/spidernas_emulation/Teknoparrot/Galaga Assault/game (alleen gelezen)
+# methode: adres -> naam uit de tweede slottabel (JMPREL-symboolindex), dan elk
+#          eerste-PLT-slot waarvan de waarde in die map staat
+# DT_JMPREL=0x807f840  PLTRELSZ=800 bytes = 100 records  dynsym=4977
+# gevonden: 31 sloten van 357 stubs met het 0xdeadbeef-patroon
+# kolommen: gastslot	oude waarde in het bestand	naam
+0x0830d050	0xb76e2020	connect
+0x0830d058	0xb755b9a0	getpid
+0x0830d0c4	0xb758c140	syscall
+0x0830d0e0	0xb751be90	realloc
+0x0830d114	0xb76e20a0	recv
+0x0830d118	0xb74d7860	getenv
+0x0830d120	0xb751c150	calloc
+0x0830d178	0xb75d1210	memset
+0x0830d214	0xb754bba0	gettimeofday
+0x0830d23c	0xb751bde0	free
+0x0830d26c	0xb76f1e40	dlsym
+0x0830d274	0xb76e3370	sigaction
+0x0830d298	0xb75929f0	socket
+0x0830d2a8	0xb76de1b0	pthread_mutex_unlock
+0x0830d2b8	0xb75084f0	fclose
+0x0830d2cc	0xb754b1c0	clock
+0x0830d2dc	0xb75d2320	memcpy
+0x0830d2fc	0xb7508f60	fopen
+0x0830d368	0xb755ba00	getuid
+0x0830d380	0xb76dce60	pthread_mutex_init
+0x0830d3d8	0xb754bb80	time
+0x0830d3e8	0xb751b830	malloc
+0x0830d3ec	0xb76dd020	pthread_mutex_lock
+0x0830d40c	0xb7588fc0	gethostname
+0x0830d424	0xb76f20d0	dlerror
+0x0830d430	0xb7581fd0	poll
+0x0830d468	0xb76e2220	send
+0x0830d4a8	0xb76e1ee0	fcntl
+0x0830d4c8	0xb754b2b0	gmtime
+0x0830d4f4	0xb75093a0	fread
+0x0830d500	0xb7559df0	getpwuid_r

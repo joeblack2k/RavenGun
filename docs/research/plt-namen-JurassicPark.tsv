@@ -1,0 +1,40 @@
+# Teruggewonnen eerste-PLT-sloten voor Jurassic Park
+# bron: /home/deck/mnt/spidernas_emulation/Teknoparrot/Jurassic Park/game (alleen gelezen)
+# methode: adres -> naam uit de tweede slottabel (JMPREL-symboolindex), dan elk
+#          eerste-PLT-slot waarvan de waarde in die map staat
+# DT_JMPREL=0x81384d8  PLTRELSZ=808 bytes = 101 records  dynsym=19283
+# gevonden: 33 sloten van 577 stubs met het 0xdeadbeef-patroon
+# kolommen: gastslot	oude waarde in het bestand	naam
+0x08add020	0xb7227dc0	syscall
+0x08add044	0xb71e7a10	time
+0x08add0f8	0xb7378020	pthread_mutex_lock
+0x08add158	0xb726e4f0	memcpy
+0x08add180	0xb737d060	connect
+0x08add184	0xb71b7d10	realloc
+0x08add1cc	0xb737d0e0	recv
+0x08add204	0xb7377e60	pthread_mutex_init
+0x08add21c	0xb75f10d0	dlerror
+0x08add26c	0xb71e7a30	gettimeofday
+0x08add298	0xb71f76a0	getuid
+0x08add314	0xb722e650	socket
+0x08add320	0xb737e3b0	sigaction
+0x08add378	0xb737d260	send
+0x08add410	0xb737cf20	fcntl
+0x08add41c	0xb71e7140	gmtime
+0x08add4b8	0xb726d3e0	memset
+0x08add4d8	0xb71737e0	getenv
+0x08add54c	0xb71a5210	fread
+0x08add5f0	0xb71b7c60	free
+0x08add61c	0xb71b7fd0	calloc
+0x08add62c	0xb71e7050	clock
+0x08add638	0xb727d930	strcasecmp
+0x08add690	0xb73791f0	pthread_mutex_unlock
+0x08add694	0xb71a4370	fclose
+0x08add6b0	0xb71a7db0	fileno
+0x08add6e0	0xb75f0e40	dlsym
+0x08add710	0xb7224c40	gethostname
+0x08add728	0xb71a4dd0	fopen
+0x08add754	0xb71b76b0	malloc
+0x08add77c	0xb721dc40	poll
+0x08add7d0	0xb71f7640	getpid
+0x08add8f8	0xb71f5a80	getpwuid_r
