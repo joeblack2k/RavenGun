@@ -231,10 +231,16 @@ Ruwe artefacten van de run staan op de Deck in `/home/deck/rg-run3/` (`main.log`
   run kon niet. Eén geslaagde run is minder sterk dan twee.
 * **Savegame-pad dekken** (§4) en daarna opnieuw meten — geïmplementeerd, zie §9; de proef staat klaar.
 * **Munten/start/vizier** op de tv, waar de toetsenweg wél werkt.
-* **`Game_Data/Plugins` lokaal maken** in `aagames-setup.py` vóór er ooit een drop-in op deze route landt (§5).
+* **`Game_Data/Plugins` lokaal maken** in `aagames-setup.py` (§5) — **gedaan**: op 2026-10-12 22:13 staat
+  `views-aagames/RabbidsHollywood/Game_Data/Plugins` als een **echte lokale map** met kopieën (geen
+  koppelingen meer naar de NAS), en `matrix64.dll` daarin is nog de originele van 93.184 B
+  (`c86908ab…`). Een drop-in landt daar dus voortaan lokaal. Blijft staan: bij het uitrollen controleren
+  dat het zo blijft.
 * **`RAVENGUN_MATRIX_DLL`** niet blind laten vertrouwen (§4).
-* Stale tekst: `game.ini` is bijgewerkt (`Status = untested`, met de gemeten waarheid in `Note`/`NoteEN`),
-  maar `packaging/games-status.md:271-272` en `findings/RabbidsHollywood.md:7` zeggen nog 50-70 s.
+* Stale tekst: `game.ini` is bijgewerkt (`Status = playable`, met de gemeten waarheid en wat er niet
+  gemeten is in `Note`/`NoteEN` — de statuswoordenschat is `playable | parked | untested` uit
+  `src/app/core/GameData.h:11`, en `playable` staat hier bewust mét die Note, niet kaal), maar
+  `packaging/games-status.md:271-272` en `findings/RabbidsHollywood.md:7` zeggen nog 50-70 s.
 
 ---
 
@@ -272,9 +278,13 @@ vergeten is.
 | Artefact | Grootte | md5 | sha256 |
 |---|---|---|---|
 | build `build/unity-plugin/RabbidsHollywood/RavenGun.RabbidsHollywood.dll` (2026-10-12 22:12) | 34.816 | `e0eaa4231475d0e5825a19e9df9fe3d7` | `8b011be1471a5ed5151290e0fa52120d6697a691cf9f2036fb83409e5b36c3b6` |
-| view `views-aagames/RabbidsHollywood/BepInEx/plugins/…dll` (nog niet uitgerold) | 34.304 | `29fd3ddc31f14f526c32df8e7d5f3895` | `b8f5f41a3855b88c8996d3706a95b59993a83e3436465f5988e029d380e7df91` |
+| view `views-aagames/RabbidsHollywood/BepInEx/plugins/…dll` (22:18, dus al uitgerold) | 34.816 | `e0eaa4231475d0e5825a19e9df9fe3d7` | idem |
+| view daarvóór (de vorige build, 21:59) | 34.304 | `29fd3ddc31f14f526c32df8e7d5f3895` | `b8f5f41a3855b88c8996d3706a95b59993a83e3436465f5988e029d380e7df91` |
 
-De view is dus nog de **vorige** build; de zelfuitrol (§2) brengt de nieuwe pas bij de volgende start in.
+De view is dus inmiddels **wel** bij: op 22:18 stond `e0eaa423…` er, zonder dat er een spel mee gedraaid
+heeft (het spellog is nog van 22:04, de run met de vorige build). De proef controleert dat op vier
+momenten en breekt af als de view niet de build is — anders meet je per ongeluk `29fd3ddc…` en lijkt de
+reparatie niet te werken.
 Dat is niet aangenomen maar apart gemeten, en daarom staan beide hashes hier apart.
 
 **De proef staat klaar, maar is nog niet gedraaid.** `rg_savegame.sh` (op de Deck,

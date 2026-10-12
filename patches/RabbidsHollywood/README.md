@@ -49,13 +49,14 @@ Deze game is 64-bits en importeert `matrix64.dll`; `matrix32.dll` staat bewust *
 werkt en heeft geen bestand in de view nodig. Ze is sinds deze ronde ook de route die **daadwerkelijk
 uitgerold wordt**: `play-unity.sh` → `aagames-setup.py` kopieert de plugin bij elke start naar
 `views-aagames/RabbidsHollywood/BepInEx/plugins/` (gemeten: view-DLL ging van md5 `b4fe9d83…` naar
-`29fd3ddc…`, identiek aan `build/unity-plugin/RabbidsHollywood/`). De drop-in is het alternatief.
+`29fd3ddc…` en daarna naar `e0eaa423…`, telkens identiek aan `build/unity-plugin/RabbidsHollywood/`).
+De drop-in is het alternatief.
 
 **LET OP — `RAVENGUN_MATRIX_DLL=1` is een blinde schakelaar.** Hij zet de Matrix-patches van de plugin
 uit en vertrouwt erop dat de drop-in `matrix64.dll` het overneemt. Op de uitgeleverde route staat **geen**
-drop-in: `views-aagames/<Game>/Game_Data/Plugins` is een koppeling naar de NAS en daar staat de originele
-`matrix64.dll` van 93.184 B. Wie die variabele daar in de omgeving zet (bij het zoeken naar een dongle-
-probleem is dat verleidelijk), haalt de dongle-antwoorden weg en dan sterft de game weer na ~70 s met
+drop-in: `views-aagames/<Game>/Game_Data/Plugins/matrix64.dll` is de originele van 93.184 B
+(`c86908ab…`). Wie die variabele daar in de omgeving zet (bij het zoeken naar een dongle-probleem is dat
+verleidelijk), haalt de dongle-antwoorden weg en dan sterft de game weer na ~70 s met
 `**** DONGLE NOT FOUND` — zonder dat er iets in het log wijst naar de variabele. De plugin kan zich hier
 niet tegen verdedigen: hij kan niet zien of de DLL die geladen is de onze is.
 
