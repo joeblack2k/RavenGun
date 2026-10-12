@@ -36,6 +36,26 @@ bestanden, vijf sha256's die kloppen). Een mislukte start is dus niet de collect
   hij gezocht heeft (diepte, methode, controle), en een uitkomst hoort **vooraf** opgeschreven te zijn --
   anders is een mislukte controle achteraf te makkelijk weg te praten.
 
+## Wat er als volgende op de bench moet, in de volgorde van de eigenaar
+
+Eén game tegelijk, en het scherm van de eigenaar blijft vrij (alles headless via gamescope).
+
+1. **Luigi's Mansion** (bezig): de bisectie met de gesloten kern als levende controle, daarna onze kern,
+   `leeg.dll` en `leeg0.dll` -- en de vraag of het spel ook ZONDER kern op 32 uitkomt, want dan is 32 de
+   eigen reactie van het spel en niet iets wat onze kern veroorzaakt.
+2. **Rabbids Hollywood**: `rg_savegame.sh` -- twee starts, om te bewijzen dat de savegames niet meer
+   gereset worden (ongeveer 9 minuten). Daarna is de vraag of munt/start/vizier op de tv geverifieerd
+   kunnen worden; dat kan niet headless.
+3. **Halo Fireteam Raven**: run 1 zonder FTDI-bord (90 s) met de USB-tap, om te onderscheiden of de tap
+   niet laadt, of de game het bord netjes mist, of hij in die tijd niet aan zijn FTDI-pad toekomt.
+4. **Terminator Salvation**: de eigen ELF-lader op `game`, met de DT_GNU_HASH-fix erin; verwacht bewijs
+   is "shim geladen: N gast-symbolen" en daarna de eigen donglecontrole van de gast.
+5. **Transformers Shadows Rising**: de `SaeIoBoard` als `uhid`-bord, om de handshake te bevestigen die
+   statisch is geoogst (vier uitwisselingen) en om te zien of Wine `/dev/uhid` überhaupt aan `SetupDi`
+   blootstelt.
+6. **Scarlet Dawn**: geen benchrun nodig voor de start (het spel is zonder keychip speelbaar); de
+   keychip- en AiMe-lagen zijn completeness-werk met een eigen plan.
+
 ## Waar de dossiers staan
 
 Per game in `patches/<Game>/` (naast de bestaande kaart met `game.ini` en `README.md`). **De mapnaam is
