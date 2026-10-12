@@ -301,6 +301,40 @@ in onze eigen staging. Wat nog wél naar de TP-map wijst: het GoGoStrike-profiel
 bibliotheken (`liballeg.so.4.0`, `libstdc++.so.5`, `libNL.so.1.6`) uit `@tpui/ElfLdr2/libs/...`, dus
 voor het loskoppelen moeten die ook naar onze eigen map.
 
+#### Eerste meting van onze lader tegen de GEPAKTE klasse (2026-10-12)
+
+Onze lader op een **kopie** van Galaga Assaults `game` in `/tmp` (cwd `/tmp`, `DISPLAY` leeg,
+timeout; niets naar de NAS). De vergelijking met de kernelroute is scherp:
+
+| route | uitkomst |
+|---|---|
+| kernel | **SIGSEGV, 0 bytes uitvoer** -- precies wat `patches/ELF-NATIVE.md` meet |
+| onze lader | `shim geladen: 4610 gast-symbolen in de globale scope`, dan `geladen; spel ./game krijgt argv[0]=./game`, dan SIGSEGV |
+
+Onze lader komt dus **voorbij het punt waar de kernel geen enkele instructie van de gast uitvoert**:
+hij laadt alle `DT_NEEDED`-bibliotheken, meldt **1 onopgelost symbool in `DT_JMPREL`** (van de
+ongeveer 100), bouwt de startstack en geeft de controle aan de gast.
+
+**En dan crasht hij in zijn eigen code, niet in de gast.** Onder gdb:
+
+```
+Program received signal SIGSEGV, Segmentation fault.
+0x565569c4 in main ()      <- 'start_spel' is static en de bouw is -O2, dus ingelijnd in main
+=> 0x565569c4 <main+1924>:  movzwl 0x2a(%ecx),%eax        met ecx = 0xf7600000
+eax 0x8048034    esi 0x16    edi 0x0    edx 0xffffdfa9
+```
+
+De crash zit dus in het opbouwen van de **startstack/auxv** (`start_spel`), niet in het mappen of het
+oplossen van symbolen. Dat is een bug in de lader, en een precieze: `movzwl 0x2a(%ecx)` met `ecx` op
+een pagina-grens van een bibliotheekmapping wijst op het lezen van een ELF-kop of een
+programma-header via een verkeerd berekende aanwijzer. Relevante bron: `tools/rg-elfloader/rg_elfloader.c`
+r.296-330, waar de eigen auxv wordt gelezen (`getauxval(AT_SYSINFO_EHDR)`) en de gast-auxv opgebouwd.
+
+Nog een detail uit de proceskaart dat later aandacht vraagt: het hele gastbeeld staat op
+`0x08048000-0x08739000` als **`rwxp`** -- schrijfbaar én uitvoerbaar. Voor het toepassen van de
+relocaties is dat te begrijpen, maar een datasegment hoort geen `x` te hebben; dat is een
+verhardingspunt voor later, geen blokkade nu.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
