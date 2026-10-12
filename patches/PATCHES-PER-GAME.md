@@ -758,7 +758,7 @@ conclusie als bij LGI, waar de invoer buiten de kern om loopt en er dus geen hoo
 2. **LuigisMansion (exitcode 32) en Otomedius (exitcode 0).** Van beide is in ronde 56 de nulmeting
    op de **gesloten** kern gedaan: daar zijn ze allebei **START**. Onze kern is dus de oorzaak en niet
    de game — het zijn twee zelfstandige gaten in onze eigen kern, elk met een eigen cijfer om op te
-   jagen. Ze staan hier nog open.
+   jagen. Ze staan hier nog open. Het isolement is in ronde 57 gemaakt: bij de nulmeting op de gesloten kern draait ONZE lader (de _defaults zetten [Loader] Build = ravengun) met de gesloten kern en dan is de game START; met onze eigen kern valt hij om. De variabele is dus precies de kern. In ronde 58 is met WINEDEBUG=err+all de foutuitvoer van Wine aangezet, en die laat geen echte fout en geen unhandled exception zien -- alleen een monitorwaarschuwing (Otomedius) en een oleacc-fixme (LuigisMansion). De game vertrekt dus van zichzelf in plaats van te crashen, en de jacht is naar een controle die faalt, niet naar een crash.
 3. Pas daarna de vraag of deze groep zijn invoer op de generieke route krijgt; die is zonder de tv
    met lightgun niet te beantwoorden.
 
