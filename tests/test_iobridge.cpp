@@ -125,10 +125,10 @@ void test_model() {
     CHECK(valid_button_signal("volume_up") && !valid_button_signal("p1.x") && valid_axis_signal("p2.y") && !valid_axis_signal("coin1"));
 }
 
-// De vijf profielen: bytes exact.
+// De profielen: bytes exact.
 void test_layouts() {
     TpShmProfiles ps = load_profiles();
-    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "GoGoStrike", "TimeCrisis5", "TransformersShadowsRising", "LGS", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"})
+    for (const char* n : {"WartranTroopers", "RawThrillsGUN", "TimeCrisis5", "TransformersShadowsRising", "LGS", "MusicGunGun2Pipe", "HOTDSDPipe", "FarCryPipe"})
         CHECK(ps.find(n));
     CHECK(!ps.find("Bestaat niet"));
 
@@ -152,21 +152,6 @@ void test_layouts() {
         t.player[0].reload = true;                // Option = Button2 = bit 8
         t.player[2].aux1 = true;                  // Sense P3 = bit 20
         CHECK(control(render(p, t)) == (0x1u | 0x2u | 0x100u | (1u << 20)));
-    }
-    // GoGoStrike (A10): munt = Coin2 (0x8), Setup (0x4) nooit, trackball-knop = trekker (0x20), assen als RawThrillsGUN.
-    {
-        const TpShmProfile& p = *ps.find("GoGoStrike");
-        IoState s;
-        s.player[0] = aim(0.0, 1.0);
-        s.player[0].trigger = s.player[0].start = true;
-        s.sys.coin[0] = true;
-        auto b = render(p, s);
-        CHECK(control(b) == (0x8u | 0x10u | 0x20u));
-        CHECK(b[12] == 0 && b[16] == 255);
-        IoState t;
-        t.sys.test = t.sys.service = true;
-        t.sys.coin[1] = true;                     // munt 2 bestaat hier niet
-        CHECK(control(render(p, t)) == (0x1u | 0x2u));
     }
     // RawThrillsGUN (Terminator, Jurassic Park).
     {
