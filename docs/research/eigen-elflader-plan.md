@@ -867,6 +867,43 @@ direct, en de offsetverschillen scoren 331/709 = 46,7% tegenover **69,8% voor wi
 hetzelfde raster (null-model) -- dus ruis. Mijn eerdere "0 van 93" blijft staan, maar nu met een
 null-model eronder in plaats van een enkele toets.
 
+#### De resolutietabel is gemeten: 100 slot -> naam -> doel (2026-10-12)
+
+De dump-subagent heeft de tabel waar dit project naar zocht -- niet als vermoeden maar als meting:
+`~/bw/resolutietabel-elfldr2.tsv`, **100 rijen** uit de dump van de lopende lader (snapshots
+`s3-gast`/`s4-na`). Kolommen: gastslot, symboolindex, naam uit de JMPREL-verplaatsing, oud (in het
+bestand), nieuw (in de dump), doel.
+
+En dat **doel** is leesbaar:
+
+```
+0x086f83f8  4621  fileno            0x08658b16  0x61101eca  msys-2.0.dll:_fileno
+0x086f83fc  4622  __errno_location  0x08658b26  0x0041ee50  lader-intern 0x0041ee50
+0x086f8400  4623  open              0x08658b36  0x0041c310  lader-intern 0x0041c310
+0x086f8404  4624  connect           0xb76e2020  0x0041ffa0  lader-intern 0x0041ffa0
+0x086f8428  4633  syscall           0xb758c140  0x02fa0488  trampoline->0x800c6f98 (syscall)
+0x086f842c  4634  realloc           0xb751be90  0x61102ece  msys-2.0.dll:_realloc
+0x086f844c  4642  memset            0xb75d1210  0x6118a170  msys-2.0.dll:_memset
+```
+
+**Drie dingen die dit vastlegt:**
+
+1. ElfLdr2 lost een benoemde import naar **twee** plekken op: een export van zijn eigen Cygwin-runtime
+   (`msys-2.0.dll:_fileno`, `_realloc`, `_memset`, `_getpid`, ...) of **zijn eigen interne
+   implementatie** (`lader-intern 0x0041ee50` -- en dat geldt ook voor `open`, `connect`, `recv`,
+   `getenv`, `exit` en `dladdr`). De lader is dus geen dun schilmpje: hij implementeert een deel van
+   libc/POSIX zelf. Eén entry is een echte trampoline (`syscall`).
+2. De tabel dekt **exact de 100 `DT_JMPREL`-entries** -- dus de benoemde helft. Over de 258 gewiste
+   namen zegt hij niets.
+3. En voor die 258 doet ElfLdr2 **niets**, wat in de sectie hierboven met harde cijfers staat: volledig
+   genulde records, `hints.dat` bevat geen enkel stubadres (0 van 357), en de `0xb7`-GOT is een dump
+   van één run.
+
+**Daarmee is het beeld compleet voor de benoemde helft.** De open vraag die overblijft is of de lader
+het opgeloste adres ook in de **GOT-slot van de eerste PLT-stub** schrijft -- dat is de stub die de
+game werkelijk aanroept, en die vraag is met dezelfde dump te beantwoorden door de sloten `0x0830d00c+`
+tussen `s3-gast` en `s4-na` te vergelijken.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
