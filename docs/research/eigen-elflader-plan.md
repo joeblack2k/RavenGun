@@ -196,6 +196,36 @@ maar **44** door liballeg gedekt; de andere 90 zijn libc/C++ (`_ZdaPv`, `_Znaj`,
 libc/libm van de host. Buiten de liballeg van ElfLdr2 is er op deze machine **geen** 32-bits
 `liballeg` -- de host heeft hem in geen enkele bitbreedte.
 
+#### Correctie en een betere verdachte: de shim is te breed (2026-10-12)
+
+**Mijn `envc 8`-verdachte vervalt.** De sandbox zet met `--clearenv` precies **acht** variabelen --
+`HOME`, `PATH`, `DISPLAY`, `XDG_RUNTIME_DIR`, `LANG`, `LD_LIBRARY_PATH`, `LD_PRELOAD`,
+`RG_OSS_STUB_LOG` -- te zien aan de bwrap-regel. Onze lader geeft dus door wat er is, en `envc 8` is
+**trouw**, geen afgeslankte omgeving. Ik had het aantal moeten natrekken voordat ik het als eerste vraag
+doorgaf; nu rechtgezet.
+
+**En er is een betere verdachte, met getallen.** De shim definieert **alle** gedefinieerde dynamische
+symbolen van de gast globaal. Die botsen met de bibliotheken die we daarna laden:
+
+| game | symbolen in de gast | botsingen |
+|---|---|---|
+| GoGoStrike | 1.400 | **71 met `liballeg.so.4.0`** (`_accel_active`, `_accel_driver`, `_linear_blit*`, ...) + 7 met `libNL` |
+| Galaga Assault | 4.616 | **66 met `libstdc++.so.5`** (C++ `type_info`-destructors) + 8 met `liballeg` + 3 met `libc` (`stdin`/`stdout`/`stderr`) |
+
+En dat is geen theorie over naamruimte: **DSO-symbolen zijn preemptible.** De shim wordt als **eerste**
+met `RTLD_GLOBAL` geladen, dus hij staat vooraan in de opzoekingsscope. Roept `liballeg` intern
+`_accel_active` aan, dan kan die aanroep naar **de gast** wijzen in plaats van naar liballeg's eigen
+code. Dat is precies het soort fout dat pas na de initialisatie toeslaat -- en de gast sterft hier aan
+signaal 11 nadat de geluidsinitialisatie is gelukt.
+
+**Wat de shim hoort te zijn: smal.** Hij is nodig omdat de bibliotheken symbolen **van de gast**
+importeren (`liballeg` wil `_poly_scanline_gcol8` uit het hoofdprogramma). Maar het is niet nodig om
+alle 1.400 (of 4.616) symbolen globaal te zetten: alleen die welke de geladen bibliotheken werkelijk
+**ongedefinieerd** hebben en die geen andere bibliotheek levert. Dan blijft `_poly_scanline_gcol8`
+werken en verdwijnt de preemptie van `_accel_active` en de C++-destructors.
+
+Narekenen: `re/_shim-breed2.py`.
+
 #### De oplossing is bewezen: een shim met de symbolen van de gast
 
 Route 2 van hierboven is getest en **werkt**. Het recept, in vier stappen:
