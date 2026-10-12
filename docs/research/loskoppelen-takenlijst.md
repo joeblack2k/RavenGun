@@ -39,7 +39,18 @@ Stand 2026-10-12.
       bevestigd — de pipe-route-games (LGI/LGS) zijn kieskeurig en vragen de daemon + tv met lightgun (laatste stap,
       eigenaar). LGI's exit-5 bij een kale meting ligt niet aan de brug (idem met de oude pipehelper) en niet aan de
       prefix-verhuizing (Gashaaaan shared + NERF geïsoleerd leven): het is de bekende kieskeurige LGI-route.
-- [ ] **3b. Eigen ELF-lader** voor de ElfLdr2-familie i.p.v. `BudgieLoader.exe` — `patches/ELF-LADER-SPEC.md`.
+- [~] **3b. Eigen ELF-lader** voor de ElfLdr2-familie i.p.v. `BudgieLoader` — **gedeeltelijk haalbaar** (spec:
+      `patches/ELF-LADER-SPEC.md`). De familie valt in twee klassen:
+      - **Ongepakt** (GoGoStrike, GhostBusters, Terminator): gewone glibc-ELF's. GoGoStrike is link-compleet met alleen
+        `LD_LIBRARY_PATH=.../ElfLdr2/libs` → goedkope eerste proef (native of dunne lader). GhostBusters/Terminator
+        missen alleen `libglut.so.3` (die `BudgieLoader` zelf via zijn exports levert) + een paar libs. Haalbaar.
+      - **Gepakt (HASPE)** (GalagaAssault, JurassicPark, PacmanChomp, Halo): 0 sectiekoppen, PLT-stubs pushen
+        `0xdeadbeef`, 72-82% van de importnamen gewist, de slot→naam-tabel staat **niet in het bestand** — alleen te
+        oogsten uit een **lopende ElfLdr2-run**. Een eigen lader hiervoor = ElfLdr2's resolutietabel reverse-engineeren
+        (= uitpakwerk). **Buiten bereik** zoals eerder besloten; die games houden `BudgieLoader`.
+      Dus 3b dekt hooguit de 3 ongepakte games; de 4 gepakte blijven op `BudgieLoader`.
+- [ ] **5. Gesloten `TeknoParrot(64).dll`** voor de games die niet op onze OpenParrot-kern draaien (o.a. TC5: heeft
+      `bngrw.dll`/`iDmacDrv` nodig die wij niet bouwen). Per game; sommige houden de gesloten kern intrinsiek.
 - [x] **4. `~/.local/share/TeknoParrotUI/activation/`** — opgelost 2026-10-12 (beslissing eigenaar): de Patreon-poort
       van TeknoParrot wordt op onze eigen stack **niet meer afgedwongen**. `launch-direct.py` roept `check_activation`
       niet meer aan (opt-in `--enforce-activation`, standaard uit); `needs_activation` blijft als info-vlag. Patreon is
