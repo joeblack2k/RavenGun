@@ -37,8 +37,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee (ownprofile, tpxml)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
-TPUI_DATA = os.path.join(HOME, ".local/share/TeknoParrotUI")
-PREFIXES = os.path.join(TPUI_DATA, "prefixes")
+TPUI_DATA = os.path.join(HOME, ".local/share/TeknoParrotUI")   # alleen nog voor de activation-map (TP-abonnement)
+PREFIXES = os.path.join(HOME, ".local/share/ravengun", "prefixes")   # onze eigen Wine-prefixes (zie docs/research/loskoppelen-takenlijst.md)
 SHARED_PREFIX = os.path.join(PREFIXES, "shared", "wine")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
 
@@ -411,7 +411,7 @@ def shrink_home(p):
 
 
 def prefix_path(v):
-    """Wine.Prefix: 'shared', een naam onder ~/.local/share/TeknoParrotUI/prefixes/, of een pad (~ mag)."""
+    """Wine.Prefix: 'shared', een naam onder ~/.local/share/ravengun/prefixes/, of een pad (~ mag)."""
     v = v.strip()
     if v == "shared":
         return SHARED_PREFIX

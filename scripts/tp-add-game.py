@@ -15,7 +15,7 @@ De standaarden per soort (TeknoParrot: standaardroute van de lader; OpenParrot: 
 lader-patch) staan in patches/_defaults/<Type>.ini en hoeven niet herhaald te worden (docs/per-game-patches.md).
 --gamescope: zet [Display] Gamescope = true in game.ini: de game draait in gamescope (schermvullend).
 --dxvk: voor Direct3D-11-games (UE4/Unity; Raccoon Rampage, NERF): maakt een eigen kopie van de gedeelde Wine-prefix
-(~/.local/share/TeknoParrotUI/prefixes/ravengun-test-dxvk), zet daar de DXVK-bibliotheken (d3d11, d3d10core, dxgi) uit een
+(~/.local/share/ravengun/prefixes/ravengun-test-dxvk), zet daar de DXVK-bibliotheken (d3d11, d3d10core, dxgi) uit een
 lokaal aanwezige GE-Proton in (niets gedownload) en laat de game die prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix,
 DllOverrides). De gedeelde prefix blijft ongemoeid. Zonder DXVK valt wined3d (OpenGL) om op UE4.
 --view-up N: de view-wortel is N mappen boven die van de exe (bv. 3 voor RSGame/Binaries/Win64/<exe>); de exe staat in de view op
@@ -80,8 +80,8 @@ def prefix_env(path):
 def make_dxvk_prefix():
     """Eigen prefix-kopie met DXVK; geeft (prefixpad, [env-regels]). De gedeelde prefix wordt alleen gelezen."""
     home = os.path.expanduser('~')
-    shared = f'{home}/.local/share/TeknoParrotUI/prefixes/shared/wine'
-    dst = f'{home}/.local/share/TeknoParrotUI/prefixes/ravengun-test-dxvk'
+    shared = f'{home}/.local/share/ravengun/prefixes/shared/wine'
+    dst = f'{home}/.local/share/ravengun/prefixes/ravengun-test-dxvk'
     if not os.path.isdir(dst):
         if not os.path.isdir(shared): sys.exit(f'geen gedeelde prefix: {shared}')
         shutil.copytree(shared, dst, symlinks=True)
@@ -103,8 +103,8 @@ def make_vdesktop_prefix(prof, size):
     """Eigen prefix-kopie met een Wine-virtueel bureaublad; geeft het prefixpad. De gedeelde prefix wordt alleen gelezen."""
     import subprocess
     home = os.path.expanduser('~')
-    shared = f'{home}/.local/share/TeknoParrotUI/prefixes/shared/wine'
-    dst = f'{home}/.local/share/TeknoParrotUI/prefixes/ravengun-test-{prof.lower()}'
+    shared = f'{home}/.local/share/ravengun/prefixes/shared/wine'
+    dst = f'{home}/.local/share/ravengun/prefixes/ravengun-test-{prof.lower()}'
     if not re.fullmatch(r'\d{3,5}x\d{3,5}', size): sys.exit('--vdesktop verwacht BREEDTExHOOGTE, bv. 1920x1080')
     if not os.path.isdir(dst):
         if not os.path.isdir(shared): sys.exit(f'geen gedeelde prefix: {shared}')

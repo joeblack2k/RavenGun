@@ -359,7 +359,7 @@ class MigrationTest(Tmp):
                  fi("DisplayMode", "Windowed", "Dropdown", ["Windowed", "Fullscreen"]) + fi("Use Custom Resolution", "1", "Bool") +
                  fi("Custom Resolution Width", "1920") + fi("Custom Resolution Height", "1080")))
         write(os.path.join(self.tp, "UserProfiles", "A.env"),
-              "# uitleg bij A\nTP_POSTSTART_REMOTETHREAD_MS=3000\nRG_WINEPREFIX=%s/.local/share/TeknoParrotUI/prefixes/own\n"
+              "# uitleg bij A\nTP_POSTSTART_REMOTETHREAD_MS=3000\nRG_WINEPREFIX=%s/.local/share/ravengun/prefixes/own\n"
               "#TP_WINEPREFIX=/nooit\nWINEDLLOVERRIDES=winhttp=n,b\nSECRET_TOKEN=geheim\nEXTRA=1\n" % home)
         write(os.path.join(self.tp, "UserProfiles", "B.env"), "TP_REMOTETHREAD=off\nWINEDLLOVERRIDES=d3d9=b\nRG_LOADER_FPFIX=true\n")
         self.routes = {"default": "evdev", "games": {"A": {"route": "tp-shm", "layout": "L", "launch": "direct",
