@@ -766,6 +766,8 @@ conclusie als bij LGI, waar de invoer buiten de kern om loopt en er dus geen hoo
 
 **Tegenspraak bij die verklaring.** In ronde 70 bleek iets dat ertegen in gaat. KingyoSukui draait rechtstreeks vanaf de NAS (game_source folders) en heeft geen view, en zijn zusje Takoyaki doet dat ook -- met dezelfde lege herleidingsmappen -- en dat zusje LEEFT. Een lege herleidingsmap kan dus niet de hele oorzaak zijn. Wat de twee wel onderscheidt: Takoyaki heeft een GMDATA-map die KingyoSukui niet heeft, hun exe-bestanden verschillen in grootte (643.072 tegen 1.642.496 bytes) en Takoyaki heeft logo.exe1 waar KingyoSukui logo.exe heeft. De volgende stap is dus de twee zusjes naast elkaar leggen, niet de herleiding. Los daarvan: een drop-in landt in de view van een game, en KingyoSukui heeft geen view, dus die route vraagt eerst een view en dat is werk in de lader.
 
+**De nulmetingen staan, nagemeten in ronde 72.** In ronde 71 rees het vermoeden dat START bij starttest3.sh alleen betekent dat een game begint en niet dat hij blijft draaien, en dat de nulmetingen van LuigisMansion, Otomedius en KingyoSukui daardoor te veel gewicht kregen. Dat vermoeden is onjuist. starttest3.sh telt een game pas als START als hij zowel gezien is als nog draait (regel 78: GEZIEN niet nul en NOG gelijk aan 1), en met dezelfde maat als het harnas op de gesloten kern gemeten staan alle drie daar na 20 seconden nog overeind (gezien=2, na20s=2). Deze drie leven dus op de gesloten kern en vallen alleen op onze kern om; de conclusies uit ronde 56 en 69 blijven staan.
+
 ## Wat ik niet heb kunnen vaststellen
 
 1. **Of een bytepatch de geparkeerde games verder helpt.** Voor Terminator, GhostBusters,
