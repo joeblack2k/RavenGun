@@ -1015,6 +1015,47 @@ daar een teller voor (MODE=8). Als een game maar een deel van zijn 357 sloten aa
 die wij nodig hebben veel kleiner dan 357 -- en dan dekt de 31 misschien een groot deel van het echte
 gebruik. Dat is op dit moment de meting die het meest oplevert.
 
+#### Hoeveel sloten worden werkelijk gebruikt? Allemaal -- en mijn meting daarvoor was eerst fout (2026-10-12)
+
+De vraag was of de reparatie kleiner kan: als een game maar een deel van zijn 357 stubs aanraakt, is
+31 repareren misschien genoeg. **Het antwoord is nee, en mijn eerste meting daarvan deugde niet.**
+
+**Mijn fout.** `readelf -l` print de rechten bij deze bestanden als **één token**, `RWE`, en niet als
+`R E`. Mijn controle op `d[7] == "E"` matchte daardoor niets, en de scan liep over **nul bytes**. De
+uitkomst "0 van 357 stubs wordt aangeroepen" was dus geen bevinding maar een lege lus. Ik heb het
+gemerkt doordat dezelfde scan ook "0 van 357 GOT-sloten gebruikt" teruggaf -- dat kon niet kloppen.
+Dit is de derde meetfout van mijn hand in dit project, en de les is dezelfde als bij `PLTRELSZ`: laat
+een scan **melden dat hij iets gescand heeft**, anders leest een leeg resultaat als een uitkomst.
+
+**Correct gemeten** (beide segmenten zijn `RWE`, dus alles is gescand, 7.278.592 bytes):
+
+| meting | uitkomst |
+|---|---|
+| stubs met een `e8`/`e9`-verwijzing | **356 van 357** |
+| totale aantal verwijzingen naar stubs | **4.241** |
+| GOT-sloten waarvan het adres in de code voorkomt | 357 van 357 (714 verwijzingen, waarvan 357 de zelfverwijzing in de stub is) |
+| van de 31 benoemde sloten worden gebruikt | **31 van 31** |
+
+**En dat betekent dat er geen kleine deelverzameling is om te repareren.** Het spel roept vrijwel al
+zijn 357 stubs aan. De reparatie is dus echt 357 sloten breed, en niet 31.
+
+**En dan de eerlijke ondergrens van deze klasse.** Van die 357 imports hebben er **99 een naam** en
+**258 niet** (1B's boekhouding: (UND met naam - 3) + staart = 357). Alleen die 99 zijn ooit op te
+lossen -- door ElfLdr2, en door ons. Voor de andere 258 is de naam in het bestand **vernietigd** en
+bestaat er **nergens** een tabel: niet in `hints.dat`, niet in `.dynstr`, niet in het geheugen van de
+lopende lader. Daar komt een no-op-trampoline, precies zoals ElfLdr2 doet.
+
+**Dus:** geen enkele lader kan deze games volledig repareren. Wat wél kan, en wat onze lader beter doet
+dan de lader die we vervangen:
+
+* de **99 benoemde** imports echt oplossen (dat doet ElfLdr2 ook);
+* daar bovenop de **31 eerste-GOT-sloten** repareren die we via adres-matching kunnen benoemen -- en
+  `fopen` zit daarbij, precies de slot waar onze gast nu op sterft (dat doet ElfLdr2 **niet**);
+* voor de 258 verborgen imports een trampoline, net als ElfLdr2.
+
+De winst is dus reëel maar begrensd, en ze zit in de eerste-GOT-reparatie. Belangrijker nog: het maakt
+onze lader **onafhankelijk**, en dat was de bedoeling.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
