@@ -590,6 +590,34 @@ PLT-stub aan een symbool? Twee dingen die we al weten en die de zoekrichting bep
 
 Narekenen: `re/_tweede-tabel.py`.
 
+#### 31 van de 357 stubs zijn statisch te benoemen (2026-10-12)
+
+Dit is de eerste keer dat er voor de **gepakte** klasse namen uit het bestand zelf komen. De methode
+(`re/_naamterugwinning.py`):
+
+1. De **tweede** slottabel heeft **100 niet-lege entries, en alle 100 hebben een naam** -- via de
+   symboolindex in de bijbehorende `DT_JMPREL`-entry.
+2. Van die 100 hebben er **33** als inhoud een **verouderd absoluut adres** (`0xb7xxxxxx`) in plaats
+   van een tweede-PLT-stub. Dat geeft een map **adres -> naam**.
+3. De **eerste** GOT-sloten bevatten dezelfde soort adressen. Elke eerste-PLT-stub waarvan de
+   slotwaarde in die map voorkomt, krijgt dus een naam.
+
+**Uitkomst: 31 van de 357 stubs krijgen een naam** (325 geen treffer, 1 leeg). Daaronder precies de
+stub die de gast nu laat crashen: `k=48`, `n=188`, **`fopen`**. En verder bijvoorbeeld `connect`,
+`getpid`, `syscall`, `realloc`, `recv`, `getenv`, `calloc`, `memset`, `malloc`, `free`, `memcpy`,
+`fclose`, `fread`, `socket`, `send`, `poll`, `fcntl`, `dlsym`, `time`, `clock`.
+
+**Wat dat praktisch betekent:** een lader kan die 31 sloten **nu** op naam repareren -- en dat is
+genoeg om de eerste crash voorbij te komen, want `fopen` zit erbij. Daarna komt de volgende
+ongerepareerde slot, en dan is de vraag of die in de 31 zit.
+
+**En wat het niet oplost.** De relatie tussen de JMPREL-entry-index `k` en het PLT-volgnummer `n` is
+**niet lineair** (`k - n` loopt van `-14` tot `-120`), dus er is geen indexformule: de koppeling gaat
+via het **adres**. Voor de overige ~326 stubs is er geen adres in de tweede tabel om op te matchen, en
+die hebben dus nog steeds de geheugendump nodig. De 31 zijn een begin, niet het einde.
+
+Narekenen: `re/_naamterugwinning.py` en `re/_paren.py`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
