@@ -441,6 +441,42 @@ ELFCLASS32): ignored.` Dat is een **64-bits** `ld.so` die de 32-bits stub weiger
 logregels staan er), dus dit is ruis van een 64-bits proces in de keten -- maar het is wel ruis die een
 lezer laat denken dat de preload faalt.
 
+#### Bewezen: de shim preempt 64 BSS-globals van liballeg (2026-10-12)
+
+De hypothese uit de vorige sectie is nu **los van onze lader** getoetst, met dezelfde shim en een eigen
+32-bits proefprogramma: shim laden met `RTLD_GLOBAL`, dan `liballeg.so.4.0` met `RTLD_GLOBAL`, en dan
+kijken waar `dlsym(RTLD_DEFAULT, naam)` uitkomt tegenover `dlsym(liballeg, naam)`.
+
+```
+_accel_active         globaal=0x80bc8a8  liballeg-eigen=0xf7cf8d28  shim=0x80bc8a8   <- SHIM WINT
+_accel_driver         globaal=0x80bb048  liballeg-eigen=0xf7cf8d24  shim=0x80bb048   <- SHIM WINT
+_poly_scanline_gcol8  globaal=0x8096344  liballeg-eigen=(nil)       shim=0x8096344   <- shim, terecht
+```
+
+De eerste twee zijn het bewijs: `liballeg` **definieert** die symbolen zelf, maar de globale opzoeking
+geeft het adres van de **shim** (dus van de gast). De derde regel laat zien waarvoor de shim bedoeld is:
+`_poly_scanline_gcol8` heeft liballeg niet zelf, en daar is de shim de juiste bron.
+
+**En de soort maakt het scherper.** Van de 66 botsingen tussen de gast en liballeg zijn er
+
+| soort | aantal | voorbeelden |
+|---|---|---|
+| **`B` -- BSS-data** | **64** | `_accel_active`, `_accel_driver`, `_accel_idle`, `_blender_alpha`, `_blender_col_15/16/24/32`, `_blender_func15/15x/16/16x/24` |
+| `T` -- code | 2 | |
+
+Dus de shim kaapt **64 van liballeg's eigen veranderlijke globals**. Elke keer dat liballeg intern
+`_blender_func16` of `_accel_driver` leest of schrijft, doet hij dat op **de kopie van de gast** -- terwijl
+de gast zijn eigen kopie ook gebruikt. Twee versies van Allegro's globale toestand, met liballeg's
+inwendige code aan die van de gast vastgeknoopt. Dat is precies het soort fout dat pas toeslaat als het
+spel echt werk gaat doen, en niet tijdens de initialisatie.
+
+**De voorspelling is daarmee scherp:** beperk de shim tot wat de geladen bibliotheken werkelijk
+**ongedefinieerd** hebben (zoals `_poly_scanline_gcol8`) en laat de 64 BSS-botsingen weg -- dan houdt
+liballeg zijn eigen globals, en GoGoStrike hoort door signaal 11 heen te komen via de `--loader`-route.
+Als dat niet gebeurt, is de volgende verdachte de TLS- en `%gs`-overerving.
+
+Narekenen: `re/_preemptie.sh` (de toets) en `re/_botsing-soort2.sh` (de soorten).
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
