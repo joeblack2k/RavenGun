@@ -49,6 +49,21 @@ Stand 2026-10-12.
         oogsten uit een **lopende ElfLdr2-run**. Een eigen lader hiervoor = ElfLdr2's resolutietabel reverse-engineeren
         (= uitpakwerk). **Buiten bereik** zoals eerder besloten; die games houden `BudgieLoader`.
       Dus 3b dekt hooguit de 3 ongepakte games; de 4 gepakte blijven op `BudgieLoader`.
+
+      **Uitkomst analyse 2026-10-12 (read-only):** van de 3 ongepakte is alleen **GoGoStrike** een goedkope echte
+      proef. Het is link-compleet met `LD_LIBRARY_PATH=.../ElfLdr2/libs`, geen HASP; de enige bekende crash is dat het
+      `/dev/w040101sram0` (RW) opent, faalt, en dan via een NULL-mmap een SIGSEGV geeft in `uwSramCheckFormatCode`.
+      **Recept:** een schrijfbaar SRAM-bestand (≥0x10000 bytes) rw-binden op `/dev/w040101sram0` (BudgieLoader levert dat
+      als `w040101sram`, 65537 B, in `views/GoGoStrike/`). `play-native.sh` kan nu alleen `overlay`/`ro`-mounts van een
+      **map**; er is een kleine toevoeging nodig: een **rw-file-bind** (`mode: rw` of `--bind-rw`). Daarna een
+      bench-proef (`--headless --snap` of `--gamescope`); onbekend: of Allegro's 16-bpp-modus op Xwayland werkt en of de
+      cabinet-I/O (`/dev/w040101_io*`) nodig is voor invoer (opens zijn niet-fataal → waarschijnlijk attract zonder munt/start).
+      Laagste prioriteit (geparkeerd bowlingspel). SRAM-prep staat klaar in `~/.local/share/ravengun/native/GoGoStrike/`.
+
+      **Terminator en GhostBusters:** linken op te lossen (`libglut`/`libesd`-stubs in `runtime/lib32`, GhostBusters +
+      een bind voor het absolute `/usr/lib/libcsv.so`), maar beide blokkeren op een **statisch ingelinkte dongle**
+      (`DongleInitialize() FAILED`, HASP/FTDI) die BudgieLoader in zijn runtime nabootst. Een dongle bouwen/omzeilen doen
+      we niet (harde regel). Dus die twee **houden BudgieLoader**. Netto: BudgieLoader blijft; 3b levert alleen GoGoStrike.
 - [ ] **5. Gesloten `TeknoParrot(64).dll`** voor de games die niet op onze OpenParrot-kern draaien (o.a. TC5: heeft
       `bngrw.dll`/`iDmacDrv` nodig die wij niet bouwen). Per game; sommige houden de gesloten kern intrinsiek.
 - [x] **4. `~/.local/share/TeknoParrotUI/activation/`** — opgelost 2026-10-12 (beslissing eigenaar): de Patreon-poort
