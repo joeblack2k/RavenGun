@@ -109,6 +109,76 @@ varianten niets, omdat daar geen enkele `hasp_`-naam in de dynsym staat.
 
 ---
 
+## 2b. De samenvatting van de hook: drie gevallen uit elkaar (rapportagewijziging)
+
+De Terminator-uitzoeker, die de adres-route nu gebruikt, vond een misleidende regel. Als een adres
+**wel** in de adreslijst staat maar bij de keuring wordt afgewezen, zei de samenvatting:
+
+```
+niet aangehaakt: hasp_free              (niet in de dynsym en niet in de adreslijst)
+```
+
+Dat spreekt de keuringsregel een paar regels eerder tegen, en juist die samenvatting leest iemand die
+een benchrun uitzoekt. De hook onthoudt nu per regel of hij is afgewezen en met welke reden, en de
+samenvatting onderscheidt vijf gevallen:
+
+| geval | regel in het logboek |
+|---|---|
+| 1. niet in de dynsym en niet in de adreslijst | `(niet in de dynsym en niet in de adreslijst)` |
+| 2. **wel in de adreslijst, maar afgekeurd** | `(in de adreslijst maar afgekeurd: <reden>)` |
+| 3. wel aangehaakt | komt hier niet langs |
+| 4. in de lijst en goedgekeurd, maar het aanhaken lukte niet | `(in de adreslijst en goedgekeurd, maar het aanhaken lukte niet; zie het logboek)` |
+| 5. staat in de dynsym, maar was daar onbruikbaar | `(staat in de dynsym, maar was daar niet bruikbaar; zie het logboek)` |
+
+Gevallen 4 en 5 zijn erbij omdat de oude regel ook daar een verkeerd beeld gaf. De reden in geval 2
+is dezelfde tekst als in de keuringsregel, zonder het voorvoegsel `AFGEWEZEN: ` — zodat er niet
+"afgekeurd: AFGEWEZEN" staat. De keuringsregel zelf is **niet** veranderd.
+
+### Het bewijs, zonder de bench
+
+`probe/reporting-fix-proof.sh` bouwt de hook twee keer uit **dezelfde bron**: één keer uit git `HEAD`
+(de gecommitte versie, "voor") en één keer uit de werkboom ("na"), en laat beide los op dezelfde twee
+adreslijsten met hetzelfde gemapte spelbeeld.
+
+**Terminator, met de lijst van de Terminator-uitzoeker** (`patches/Terminator/hasp-haken.ini`, die
+precies één bewust afgewezen regel heeft: `hasp_free` is daar een `jmp rel32`-alias, eerste bytes
+`e9 ab 22 00`):
+
+```
+Terminator / voor   RESULTAAT: 10 van 11 aangehaakt
+                    niet aangehaakt: hasp_free  (niet in de dynsym en niet in de adreslijst)
+
+Terminator / na     RESULTAAT: 10 van 11 aangehaakt
+                    niet aangehaakt: hasp_free  (in de adreslijst maar afgekeurd: eerste bytes
+                                                e9 ab 22 00 zijn geen prologue (mogelijk al door
+                                                een andere hook gepatcht))
+```
+
+**Halo, gevallen 1 en 3 ongewijzigd:**
+
+```
+Halo / voor en Halo / na   RESULTAAT: 7 van 7 aangehaakt
+   niet aangehaakt: hasp_login_scope / hasp_decrypt / hasp_get_size / hasp_get_info
+                    (niet in de dynsym en niet in de adreslijst)
+   totaal aangehaakt: 7 van 11; niet aangehaakt: 4
+```
+
+**En het gedrag is niet veranderd:** de vergelijking per adres geeft voor beide games *identiek*
+dezelfde uitkomst — Terminator 10 van 11 op dezelfde adressen, Halo 7 van 7 op dezelfde adressen.
+De enige verschillen in de uitvoer zijn de trampoline-adressen (ASLR) en de tekst van de samenvatting.
+
+### De drop-in-kopieën na deze wijziging
+
+| game | bestand | oud | nieuw |
+|---|---|---|---|
+| Halo + JurassicPark | `libravengun-hasphook.so` | 39.576 B `a2ab74d490e0118d` | **39.576 B `0e889d68099e9ccc`** |
+| Halo + JurassicPark | `libravengun-hasphook-x64.so` | 41.536 B `4264bf75abc320ab` | **41.536 B `0be3ec0d626a66c7`** |
+
+Beide games zijn bijgewerkt en `build-hasphook.sh --check` noemt ze **actueel**. GalagaAssault blijft
+bewust afwijkend (§4) en Terminator blijft bewust leeg (§3).
+
+---
+
 ## 3. Terminator: het kanaal is er, maar er is niets om aan te haken — en het dossier is van iemand anders
 
 **Het kanaal, in twee delen.**

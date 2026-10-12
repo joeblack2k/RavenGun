@@ -61,7 +61,11 @@ Daarom is dit voorstel nu wél de verwisseling: de hook in `preload` in plaats v
     `hasp_login_scope`, `hasp_decrypt`, `hasp_get_size` en `hasp_get_info` staan er **niet** in:
     `halo.so` haakt die vier niet aan, dus er is geen gemeten adres. De hook meldt ze na het
     aanhaken apart (`niet aangehaakt: hasp_get_info (niet in de dynsym en niet in de adreslijst)`),
-    zodat dat gat zichtbaar blijft in plaats van stil.
+    zodat dat gat zichtbaar blijft in plaats van stil. Staat een naam **wel** in de adreslijst maar
+    is zijn adres afgekeurd, dan zegt diezelfde regel dat met de reden erbij
+    (`… (in de adreslijst maar afgekeurd: eerste bytes e9 ab 22 00 zijn geen prologue …)`) — de
+    samenvatting onderscheidt dus drie gevallen: niet in de dynsym én niet in de lijst, wel in de
+    lijst maar afgekeurd (met reden), of aangehaakt. Zie `DROPIN-GELIJKSTELLING.md` §2b.
   * **Er wordt nooit blind gepatcht.** Elk adres moet in een uitvoerbaar `PT_LOAD`-segment vallen,
     binnen `p_filesz`, en de bytes moeten een herkenbare functieprologue zijn. Daarnaast zijn er
     twee versiecontroles (`grootte`, `ingang`): kloppen die niet, dan keurt de hook de **hele**
@@ -263,6 +267,20 @@ aan**, en het teruggelezen geheugen toont op elk adres de absolute sprong `48 b8
 Het derde geval is precies de detector voor "iemand anders heeft hier al gepatcht": als `halo.so` er
 als eerste was, staan er geen prologue-bytes meer en weigert onze hook in plaats van een ketting van
 twee vervangingen te bouwen.
+
+Dezelfde weigering is ook in de **samenvatting** terug te lezen, met de reden erbij — dat is de regel
+die iemand leest die een benchrun uitzoekt, dus daar staat geen "niet in de adreslijst" meer bij een
+adres dat er wel in staat. Gemeten op de Terminator-lijst (die één bewust afgewezen regel heeft,
+`hasp_free` is daar een alias-keten):
+
+```
+voor:  niet aangehaakt: hasp_free  (niet in de dynsym en niet in de adreslijst)          <- misleidend
+na:    niet aangehaakt: hasp_free  (in de adreslijst maar afgekeurd: eerste bytes e9 ab 22 00
+                                    zijn geen prologue (mogelijk al door een andere hook gepatcht))
+```
+
+Het aantal aangehaakt blijft in beide gevallen 10 van 11, en de aangehaakte adressen zijn identiek —
+dit is een rapportagewijziging, geen gedragswijziging. Zie `DROPIN-GELIJKSTELLING.md` §2b.
 
 **4. De naam-route, als regressie.** Beide breedtes bouwen (`scripts/build-hasphook.sh --no-place`,
 `la_version` aanwezig in 32 én 64 bits) en de bestaande 32-bits zelftest haakt 10 van 11 aan met de
