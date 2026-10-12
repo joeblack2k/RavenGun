@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <time.h>
 #include <unistd.h>
+#include <utility>
 
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
@@ -80,6 +81,32 @@ std::string validate_hid_board(const HidBoard& b) {
     if (b.device_name.empty() || b.device_name.size() > 120) return pre + "ongeldige 'name'";
     if (b.vendor < 0 || b.vendor > 0xFFFF || b.product < 0 || b.product > 0xFFFF) return pre + "vendor/product buiten 0..65535";
     const int max_btn = b.transport == "uinput" ? 16 : 32;
+    if (b.application_usage < 1 || b.application_usage > 0xFFFF) return pre + "'application_usage' buiten 1..65535";
+    if (b.output_report_length < 0 || b.output_report_length > 64) return pre + "'output_report_length' buiten 0..64";
+    if (b.output_report_length > 0 && b.transport != "uhid")
+        return pre + "'output_report_length' vraagt transport uhid (uinput is evdev en kent geen uitvoerrapporten)";
+    // Een vast inputrapport vervangt het berekende knoppen+assen-rapport; dan horen die twee leeg te zijn.
+    if (b.input_report_length > 0) {
+        if (b.input_report_length > 64) return pre + "'input_report_length' buiten 1..64";
+        if (b.transport != "uhid") return pre + "'input_report_length' vraagt transport uhid";
+        if (!b.axes.empty()) return pre + "'input_report_length' gaat samen met een leeg 'axes'";
+        if (!b.buttons.empty()) return pre + "'input_report_length' gaat samen met een leeg 'buttons'";
+        // Antwoordtabel: een bord dat liegt is erger dan een bord dat weigert, dus elke respons moet passen.
+        std::set<std::pair<int, int>> seen;
+        for (const auto& r : b.responses) {
+            if (r.a < 0 || r.a > 0xFF) return pre + "'responses': 'a' buiten 0..255";
+            if (r.b < 0 || r.b > 0xFF) return pre + "'responses': 'b' buiten 0..255";
+            if (r.value < 0 || r.value > 0xFF) return pre + "'responses': 'value' buiten 0..255";
+            if (r.offset < 0 || r.offset >= b.input_report_length)
+                return pre + "'responses': offset " + std::to_string(r.offset) + " valt buiten het inputrapport van " +
+                       std::to_string(b.input_report_length) + " bytes";
+            if (!seen.insert({r.a, r.b}).second)
+                return pre + "'responses': twee keer een respons voor hetzelfde rapport (" +
+                       std::to_string(r.a) + ", " + std::to_string(r.b) + ")";
+        }
+        return {};
+    }
+    if (!b.responses.empty()) return pre + "'responses' vraagt 'input_report_length'";
     if (b.button_count < 1 || b.button_count > max_btn) return pre + "'button_count' buiten 1.." + std::to_string(max_btn);
     if (b.axes.empty() || b.axes.size() > 6) return pre + "een bord heeft 1 tot 6 assen";
     std::set<std::string> names;
@@ -121,7 +148,10 @@ HidBoards parse_hid_boards(const std::string& text, std::string& err) {
         b.device_name = str_or(o, "name", b.device_name);
         if (const json::Value* c = o.find("complete"); c && c->is_bool()) b.complete = c->b;
         bool ok = int_field(o, "vendor", b.vendor, b.vendor) && int_field(o, "product", b.product, b.product) &&
-                  int_field(o, "version", b.version, b.version) && int_field(o, "button_count", b.button_count, b.button_count);
+                  int_field(o, "version", b.version, b.version) && int_field(o, "button_count", b.button_count, b.button_count) &&
+                  int_field(o, "application_usage", b.application_usage, b.application_usage) &&
+                  int_field(o, "output_report_length", b.output_report_length, b.output_report_length) &&
+                  int_field(o, "input_report_length", b.input_report_length, b.input_report_length);
         if (const json::Value* axes = o.find("axes")) {
             if (!axes->is_array()) ok = false;
             else for (const auto& a : axes->arr) {
@@ -149,6 +179,16 @@ HidBoards parse_hid_boards(const std::string& text, std::string& err) {
                 ok = ok && int_field(k, "index", 0, hb.index);
                 hb.signal = str_or(k, "signal", "");
                 b.buttons.push_back(std::move(hb));
+            }
+        }
+        if (const json::Value* rs = o.find("responses")) {
+            if (!rs->is_array()) ok = false;
+            else for (const auto& r : rs->arr) {
+                if (!r.is_object()) { ok = false; break; }
+                HidBoardResponse hr;
+                ok = ok && int_field(r, "a", 0, hr.a) && int_field(r, "b", 0, hr.b) &&
+                     int_field(r, "offset", 0, hr.offset) && int_field(r, "value", 0, hr.value);
+                b.responses.push_back(hr);
             }
         }
         if (!ok) { err = "hid-boards.json: " + kv.first + ": een veld heeft het verkeerde type"; return {}; }
@@ -194,10 +234,18 @@ HidBoardFrame hid_board_frame(const HidBoard& b, const IoState& s) {
 }
 
 size_t hid_board_report_size(const HidBoard& b) {
+    if (b.input_report_length > 0) return static_cast<size_t>(b.input_report_length);
     return static_cast<size_t>((b.button_count + 7) / 8) + 2 * b.axes.size();
 }
 
 std::vector<uint8_t> hid_board_report(const HidBoard& b, const HidBoardFrame& f) {
+    // Een vast inputrapport: de daemon vult de bytes zelf. Te weinig bytes worden 0, te veel vallen weg, zodat het
+    // verzonden rapport altijd precies 'input_report_length' bytes is (anders klopt de beschrijving niet meer).
+    if (b.input_report_length > 0) {
+        std::vector<uint8_t> r = f.raw;
+        r.resize(static_cast<size_t>(b.input_report_length), 0);
+        return r;
+    }
     std::vector<uint8_t> r;
     const int nb = (b.button_count + 7) / 8;
     for (int i = 0; i < nb; ++i) r.push_back(static_cast<uint8_t>((f.buttons >> (8 * i)) & 0xFF));
@@ -211,7 +259,24 @@ std::vector<uint8_t> hid_board_report(const HidBoard& b, const HidBoardFrame& f)
 }
 
 std::vector<uint8_t> hid_board_descriptor(const HidBoard& b) {
-    std::vector<uint8_t> d = {0x05, 0x01, 0x09, 0x04, 0xA1, 0x01};   // Generic Desktop, Joystick, Application
+    // Generic Desktop, <application_usage>, Application. Voor 0x04 (Joystick) zijn dit dezelfde bytes als voorheen.
+    std::vector<uint8_t> d = {0x05, 0x01};
+    if (b.application_usage <= 0xFF) {
+        d.insert(d.end(), {0x09, static_cast<uint8_t>(b.application_usage)});
+    } else {
+        d.insert(d.end(), {0x0A, static_cast<uint8_t>(b.application_usage & 0xFF),
+                           static_cast<uint8_t>(b.application_usage >> 8)});
+    }
+    d.insert(d.end(), {0xA1, 0x01});
+    // Een vast inputrapport: ondoorzichtige bytes op de leverancierspagina (0xFF00), geen assen en geen knoppen.
+    if (b.input_report_length > 0) {
+        d.insert(d.end(), {0x06, 0x00, 0xFF, 0x09, 0x01, 0x15, 0x00, 0x26, 0xFF, 0x00, 0x75, 0x08,
+                           0x95, static_cast<uint8_t>(b.input_report_length), 0x81, 0x02});
+        if (b.output_report_length > 0)
+            d.insert(d.end(), {0x75, 0x08, 0x95, static_cast<uint8_t>(b.output_report_length), 0x91, 0x02});
+        d.push_back(0xC0);
+        return d;
+    }
     // Knoppen: 1..button_count als bitveld, aangevuld tot hele bytes.
     d.insert(d.end(), {0x05, 0x09, 0x19, 0x01, 0x29, static_cast<uint8_t>(b.button_count), 0x15, 0x00, 0x25, 0x01, 0x75, 0x01,
                        0x95, static_cast<uint8_t>(b.button_count), 0x81, 0x02});
@@ -224,8 +289,29 @@ std::vector<uint8_t> hid_board_descriptor(const HidBoard& b) {
                            static_cast<uint8_t>(lo >> 8), 0x26, static_cast<uint8_t>(hi & 0xFF), static_cast<uint8_t>(hi >> 8), 0x75,
                            0x10, 0x95, 0x01, 0x81, 0x02});
     }
+    // Uitvoerrapport (optioneel): de game schrijft dit naar het bord. Zonder dit item zegt HidP_GetCaps() dat het bord
+    // geen uitvoerrapport heeft en dan kan de game niets sturen.
+    if (b.output_report_length > 0)
+        d.insert(d.end(), {0x06, 0x00, 0xFF, 0x09, 0x01, 0x15, 0x00, 0x26, 0xFF, 0x00, 0x75, 0x08,
+                           0x95, static_cast<uint8_t>(b.output_report_length), 0x91, 0x02});
     d.push_back(0xC0);
     return d;
+}
+
+HidBoardOutput hid_board_parse_output(const HidBoard& b, const std::vector<uint8_t>& report) {
+    HidBoardOutput o;
+    o.size = static_cast<size_t>(b.output_report_length);
+    o.truncated = report.size() < o.size;
+    if (!report.empty()) o.id = report[0];
+    if (report.size() > 1) o.a = report[1];
+    if (report.size() > 2) o.b = report[2];
+    return o;
+}
+
+const HidBoardResponse* hid_board_find_response(const HidBoard& b, int a, int b_byte) {
+    for (const auto& r : b.responses)
+        if (r.a == a && r.b == b_byte) return &r;
+    return nullptr;
 }
 
 // ---------------------------------------------------------------- transport: uinput
@@ -371,7 +457,8 @@ public:
     }
 
     // Leest wat de kernel en de lezers van het apparaat sturen. GET_REPORT/SET_REPORT moeten een antwoord krijgen,
-    // anders wacht de aanroeper in Wine seconden. Uitvoerrapporten (recoil, lampen) worden geteld.
+    // anders wacht de aanroeper in Wine seconden. Uitvoerrapporten (recoil, lampen) worden geteld en bewaard, zodat de
+    // daemon en het statusrapport kunnen laten zien wat de game werkelijk stuurde.
     void poll_output() override {
         if (fd_ < 0) return;
         for (int i = 0; i < 16; ++i) {
@@ -379,7 +466,10 @@ public:
             ssize_t n = ::read(fd_, &ev, sizeof ev);
             if (n <= 0) return;
             switch (ev.type) {
-                case UHID_OUTPUT: ++outputs_; break;
+                case UHID_OUTPUT:
+                    ++outputs_;
+                    last_output_.assign(ev.u.output.data, ev.u.output.data + ev.u.output.size);
+                    break;
                 case UHID_GET_REPORT: {
                     uhid_event rp{};
                     rp.type = UHID_GET_REPORT_REPLY;
@@ -410,6 +500,12 @@ public:
         fd_ = -1;
     }
     bool created() const override { return fd_ >= 0; }
+    bool last_output(std::vector<uint8_t>& out) const override {
+        if (last_output_.empty()) return false;
+        out = last_output_;
+        return true;
+    }
+    uint64_t output_reports() const override { return outputs_; }
 
 private:
     static bool write_event(int fd, const uhid_event& ev) {
@@ -421,6 +517,7 @@ private:
     int fd_ = -1;
     HidBoard board_;
     uint64_t outputs_ = 0;
+    std::vector<uint8_t> last_output_;
 };
 
 }  // namespace
@@ -438,8 +535,39 @@ bool HidBoardDialect::open(std::string& err) {
     if (dev_->created()) return true;
     if (!dev_->create(board_, err)) return false;
     have_last_ = false;
-    push(hid_board_neutral(board_), true);
+    raw_.assign(static_cast<size_t>(board_.input_report_length > 0 ? board_.input_report_length : 0), 0);
+    outputs_done_ = 0;
+    push(with_raw(hid_board_neutral(board_)), true);
     return true;
+}
+
+// Een bord met een vast inputrapport stuurt onze eigen bytes; een berekend bord laat ze leeg.
+HidBoardFrame HidBoardDialect::with_raw(HidBoardFrame f) const {
+    if (board_.input_report_length > 0) f.raw = raw_;
+    return f;
+}
+
+// Antwoordtabel: welk uitvoerrapport van de game zet welke byte in ons inputrapport. Past er geen, dan blijft ons
+// rapport ongemoeid; dat is met opzet, want een bord dat op goed geluk bytes zet is erger dan een bord dat wacht.
+void HidBoardDialect::apply_response(const std::vector<uint8_t>& report) {
+    if (board_.input_report_length <= 0) return;
+    const HidBoardOutput o = hid_board_parse_output(board_, report);
+    char gezien[32];
+    std::snprintf(gezien, sizeof gezien, "%02X %02X %02X", report.size() > 0 ? report[0] : 0, o.a, o.b);
+    const HidBoardResponse* r = hid_board_find_response(board_, o.a, o.b);
+    if (!r) {
+        st_.last_response = std::string("uitvoerrapport ") + gezien + ": geen respons in de tabel, rapport ongemoeid";
+    } else if (static_cast<size_t>(r->offset) >= raw_.size()) {
+        // Kan niet gebeuren: de validator weigert zulke borden. Toch geen stille afkapping.
+        st_.last_response = std::string("uitvoerrapport ") + gezien + ": respons valt buiten het rapport, niets gezet";
+    } else {
+        raw_[static_cast<size_t>(r->offset)] = static_cast<uint8_t>(r->value);
+        ++st_.responses_set;
+        char regel[96];
+        std::snprintf(regel, sizeof regel, "uitvoerrapport %s -> raw[%d]=0x%02X", gezien, r->offset, r->value);
+        st_.last_response = regel;
+    }
+    if (trace_) trace_(st_.last_response);
 }
 
 void HidBoardDialect::push(const HidBoardFrame& f, bool force) {
@@ -453,21 +581,30 @@ void HidBoardDialect::push(const HidBoardFrame& f, bool force) {
     since_send_ = 0;
     st_.buttons = f.buttons;
     st_.axis = f.axis;
+    st_.raw = f.raw;
 }
 
 void HidBoardDialect::write(const IoState& s) {
     ++st_.writes;
     if (!dev_ || !dev_->created()) return;
     dev_->poll_output();
-    push(hid_board_frame(board_, s), false);
+    st_.output_reports = dev_->output_reports();
+    dev_->last_output(st_.last_output);   // false laat de vorige waarde staan: "laatst gezien" is het nuttige antwoord
+    // Elk nieuw uitvoerrapport verwerken. De onderhandeling is strikt opeenvolgend (elke stap wacht op ons antwoord),
+    // dus als er ooit twee in één tik binnenkomen is de laatste de juiste om op te antwoorden.
+    if (st_.output_reports > outputs_done_) {
+        outputs_done_ = st_.output_reports;
+        apply_response(st_.last_output);
+    }
+    push(with_raw(hid_board_frame(board_, s)), false);
 }
 
-void HidBoardDialect::neutral() { push(hid_board_neutral(board_), true); }
+void HidBoardDialect::neutral() { push(with_raw(hid_board_neutral(board_)), true); }
 
 void HidBoardDialect::close() {
     if (!dev_) return;
     if (dev_->created()) {
-        push(hid_board_neutral(board_), true);
+        push(with_raw(hid_board_neutral(board_)), true);
         dev_->destroy();
     }
 }
@@ -485,6 +622,35 @@ std::string HidBoardDialect::status_json() const {
     w.key("axes").begin_array();
     for (int32_t a : st_.axis) w.value(static_cast<int64_t>(a));
     w.end_array();
+    if (!st_.raw.empty()) {
+        w.key("raw").begin_array();
+        for (uint8_t v : st_.raw) w.value(static_cast<int64_t>(v));
+        w.end_array();
+    }
+    w.key("output_reports").value(st_.output_reports);
+    w.key("responses_set").value(st_.responses_set);
+    if (!st_.last_response.empty()) w.key("last_response").value(st_.last_response);
+    if (!st_.last_output.empty()) {
+        w.key("last_output").begin_array();
+        for (uint8_t v : st_.last_output) w.value(static_cast<int64_t>(v));
+        w.end_array();
+        // Wat de game stuurde, in de vorm die dit dialect afspreekt (zie hid_board_parse_output): 0, <a>, <b>.
+        const HidBoardOutput o = hid_board_parse_output(board_, st_.last_output);
+        const HidBoardResponse* resp = hid_board_find_response(board_, o.a, o.b);
+        w.key("last_output_parsed").begin_object();
+        w.key("size").value(static_cast<uint64_t>(o.size));
+        w.key("id").value(static_cast<int64_t>(o.id));
+        w.key("a").value(static_cast<int64_t>(o.a));
+        w.key("b").value(static_cast<int64_t>(o.b));
+        w.key("truncated").value(o.truncated);
+        if (resp) {
+            w.key("response").begin_object();
+            w.key("offset").value(static_cast<int64_t>(resp->offset));
+            w.key("value").value(static_cast<int64_t>(resp->value));
+            w.end_object();
+        }
+        w.end_object();
+    }
     if (!st_.last_error.empty()) w.key("error").value(st_.last_error);
     w.end_object();
     return w.str();

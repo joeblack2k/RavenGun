@@ -182,6 +182,8 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
     if (cfg_.board_device) dev = cfg_.board_device(*b);
     else dev = b->transport == "uhid" ? make_uhid_board_device(cfg_.uhid_path) : make_uinput_board_device();
     auto d = std::make_unique<HidBoardDialect>(*b, game, std::move(dev));
+    // Per ontvangen uitvoerrapport een regel in het logboek: welke respons er gezet is, of dat er geen bij past.
+    d->set_trace([](const std::string& line) { logf("info", "hid-board: %s", line.c_str()); });
     std::string err;
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);

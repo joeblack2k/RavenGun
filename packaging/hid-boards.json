@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "comment": "Invoerborden die de daemon als virtuele joystick/HID-apparaat nabootst (dialect hid-board, [Input] Route = hid-board in patches/<Game>/game.ini). Per bord: transport (uinput = evdev-joystick, geen root nodig; uhid = echt HID-apparaat via /dev/uhid, vraagt de udev-regel uit packaging/udev), vendor/product (decimaal of '0x..'), assen (name X Y Z RX RY RZ, signal uit io_state.hpp, invert, min/max, optioneel out_min/out_max (het deel van min..max dat de game als het hele scherm ziet), idle) en knoppen (index 0..button_count-1, signal). Knop n krijgt in DirectInput knop n (evdev: BTN_JOYSTICK+n; HID: gebruik Button n+1).",
+ "comment": "Invoerborden die de daemon als virtuele joystick/HID-apparaat nabootst (dialect hid-board, [Input] Route = hid-board in patches/<Game>/game.ini). Per bord: transport (uinput = evdev-joystick, geen root nodig; uhid = echt HID-apparaat via /dev/uhid, vraagt de udev-regel uit packaging/udev), vendor/product (decimaal of '0x..'), assen (name X Y Z RX RY RZ, signal uit io_state.hpp, invert, min/max, optioneel out_min/out_max (het deel van min..max dat de game als het hele scherm ziet), idle) en knoppen (index 0..button_count-1, signal). Knop n krijgt in DirectInput knop n (evdev: BTN_JOYSTICK+n; HID: gebruik Button n+1). Drie velden bepalen de vorm van het HID-apparaat en zijn alle drie optioneel met de oude waarde als standaard, zodat een bord dat ze weglaat byte-voor-byte hetzelfde blijft: application_usage (usage van de Application-collectie, 0x04 = Joystick), output_report_length (bytes die de GAME naar het bord schrijft; dit getal komt in de rapportbeschrijving en wordt daarmee HidP_GetCaps().OutputReportByteLength, dus het moet precies kloppen met wat de game stuurt) en input_report_length (een vast ondoorzichtig inputrapport in plaats van knoppen+assen; dan blijven axes en buttons leeg en vult de daemon de bytes zelf). Een bord met input_report_length of output_report_length moet transport uhid hebben.",
  "boards": {
   "SaeGunBoard": {
    "description": "Het 'SAE'-bord van Transformers: Shadows Rising (CSAEBoard in Transformers2.exe, saebd.obj). Gemeten uit de game-exe: DirectInput 8, GUID_Joystick (eerste joystick van het systeem), c_dfDIJoystick, assen -1000..1000, 6 knoppen gelezen (spelknop 0..5 = DirectInput-knop 0,1,2,3,5,4). Speler 1 = X (horizontaal) en Y (verticaal), speler 2 = Z (horizontaal) en RX (verticaal). De game zet elke as om met (1000 - waarde) * 255 / 1000, dus links/boven = laag. Of de functies van de knoppen kloppen (start/trekker) en het bereik is op de tv bepaald; zie docs/research/teknoparrot-io.md. Gemeten op de tv (2026-10-11, testpatroon tijdens het spel): de game neemt de horizontale positie uit lY en de verticale uit lX (speler 2: RX horizontaal, Z verticaal), en zijn eigen standaardkalibratie zet alleen ongeveer -217..557 op het scherm (-217 = links/boven; tweede meting, rasterpunten 0,2 en 0,5 op beide assen); met het hele bereik -1000..1000 plakte het vizier tegen de randen. Daarom X = p1.y, Y = p1.x en out_min/out_max -217..557.",
@@ -26,6 +26,26 @@
     { "index": 12, "signal": "test" },
     { "index": 13, "signal": "service" }
    ]
+  },
+  "SaeIoBoard": {
+   "description": "Het HID-IO-bord van de Sega Game Shell van Transformers: Shadows Rising (Shell.exe). LET OP: dit is een ander bord dan SaeGunBoard -- de gun van het spel is DirectInput (SaeGunBoard), dit bord is het cabinet-IO-bord dat de shell via SetupDi/HidD zoekt voor de lampen, het toetsenpaneel en de hardware-recoil. De shell zoekt het op zijn Generic Desktop-usage: Game Pad (0x0001/0x0005), niet op VID/PID of een naam (gemeten uit Shell.exe; zie patches/TransformersShadowsRising/REPORT-io-board-and-loader.md). Daarna stuurt hij 3 bytes naar het bord: 00 <a> <b>, met per stap een andere a/b. Het bord antwoordt met een vast inputrapport van 15 bytes waarin byte 12 het antwoord is: 0xB0 na 00 74 E0, 0xB1 na 00 09 E1, 0xB2 na 00 E0 F0, 0xB3 na 00 CA F1 (dan meldt de shell 'Unlocked OK'), en 0xB4 na 00 00 82 (alleen als shell/Game.ini ExternalKeypad gezet heeft). Elke stap moet binnen 1000 ms antwoorden, anders begint de shell opnieuw. De bytes 0..11 en 13..14 van het antwoord worden niet gelezen.",
+   "transport": "uhid",
+   "name": "RavenGun SAE IO Board",
+   "vendor": 4617,
+   "product": 29425,
+   "version": 1,
+   "application_usage": 5,
+   "input_report_length": 15,
+   "output_report_length": 3,
+   "responses": [
+    { "a": 116, "b": 224, "offset": 12, "value": 176 },
+    { "a": 9, "b": 225, "offset": 12, "value": 177 },
+    { "a": 224, "b": 240, "offset": 12, "value": 178 },
+    { "a": 202, "b": 241, "offset": 12, "value": 179 },
+    { "a": 0, "b": 130, "offset": 12, "value": 180 }
+   ],
+   "axes": [],
+   "buttons": []
   }
  }
 }
