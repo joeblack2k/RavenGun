@@ -21,8 +21,10 @@ collectie.
 ## Vaste regels bij dit werk
 
 * **Alleen lezen op de NAS**, tenzij de eigenaar expliciet om wijzigen vraagt.
-* **Geen dongle-, HASP-, keychip-, integriteits- of checksumwerk.** Kom je zoiets tegen, dan documenteren
-  en stoppen -- niet omzeilen, niet faken.
+* **Dongle-, HASP-, keychip-, integriteits- en checksumwerk wordt verdeeld, niet verboden.** De bouwer
+  in de lader-repo (Claude) blijft erbuiten en draagt het over; **subagents doen het**. Zie
+  `patches/LuigisMansion/pakker-meting.md` voor de rechtzetting van een eerdere, foutieve versie van
+  deze regel.
 * **Eén game tegelijk op de bench**, en het scherm van de eigenaar blijft vrij.
 * Per game: eerst nagaan **wat er nodig is en wat er al is**, dan bouwen, dan **verifiëren dat het spel
   start**, en gemeten van aangenomen onderscheiden.

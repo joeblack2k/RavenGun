@@ -115,18 +115,19 @@ er gebeurt, maar de vraag "waarom stopt hij op onze kern en niet op de hunne" is
 
 ### De grens
 
-De eigenaar heeft voor dit hele project gezegd: **geen dongle-, HASP-, keychip-, integriteits- of
-checksumwerk.** Een anti-tamper-controle is precies dat soort code. Daarom, en dat is met de bouwer
-afgesproken:
+De eigenaar heeft dit werk **niet verboden** -- hij heeft het **verdeeld**. De afspraak is:
 
-* **Wel:** analyseren en documenteren waar die controle zit en wat hij lijkt te lezen. Dat is begrip, en
-  het vertelt ons juist **wat we niet mogen verstoren**.
-* **Wel:** kijken wat *onze* aanpak verandert dat het spel merkt. Dat is het tegenovergestelde van
-  omzeilen: het spel ongemoeid laten is het doel. De gesloten kern doet het met `TP_REMOTETHREAD=off` en
-  de entry-point-route; onze patch 0005 veranderde COM1. Het verschil tussen die twee is de vraag.
-* **Niet:** omzeilen, patchen, faken, overslaan of "de controle laten slagen".
-* **En als de enige werkende weg blijkt te zijn om de controle te verslaan: stoppen en melden.** Dat is
-  de grens van de eigenaar, geen technisch obstakel om omheen te werken.
+* **Claude** (de bouwer in de lader-repo) houdt zich niet bezig met dongle-, HASP-, keychip-,
+  integriteits- of checksumwerk. Hij levert het aan als een gedocumenteerde overdracht.
+* **Subagents** doen dat werk. Dat is bewust zo geregeld: het is delicaat werk en het hoort in een eigen
+  baan met een eigen agent, niet in de handen van de bouwer van de rest.
+* Voor Luigi betekent dat: het anti-tamper-mechanisme achter **exitcode 32** is een taak voor een
+  subagent, en het is dus **geen dood spoor** voor het project.
+
+**Correctie op een eerdere versie van dit document.** Hier stond dat dit werk "niet mag" en dat we bij
+"alleen te verslaan" moesten stoppen. Dat was mijn eigen verkeerde doorvertaling van de instructie: ik
+maakte van "wie het doet" een "of het gebeurt". Rechtgezet op 2026-10-12 nadat de eigenaar het expliciet
+zei.
 
 ### En de omgeving is groen
 
