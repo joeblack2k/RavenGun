@@ -38,6 +38,55 @@ Een paar bibliotheken neerzetten is dus niet genoeg: dit vraagt een **eigen lade
 * **`patches/ELF-LADER-SPEC.md`** — wat voor ELF elke game is en wat een eigen lader moet doen.
 * **`patches/ELF-NATIVE.md`** met `patches/elf-native.py` — de losse-startmeting.
 
+## Waar een eigen lader echt nodig is, en wanneer fase 2 klaar is
+
+**Eerst een eerlijke constatering die de omvang bepaalt.** Voor de **ongepakte** klasse bestaat "onze
+eigen lader" in feite al: dat is de kernel. `ld.so` van Linux mapt de `PT_LOAD`-segmenten, past de
+`R_386_RELATIVE`/`GLOB_DAT`/`JMP_SLOT`-relocaties toe, zet de TLS op zodat `gs:[0x14]` een geldige
+stackcanarie is, draait `DT_INIT` en `DT_INIT_ARRAY`, en springt naar `e_entry`. Precies de lijst die
+in fase 2 staat. En de ongepakte games zijn gewone glibc-ELF's met een volledige importtopologie;
+gemeten is dat GoGoStrike **link-compleet** is met alleen `LD_LIBRARY_PATH=<ElfLdr2/libs>` (`ldd`
+meldt niets ontbrekends). Wat daar ontbreekt is de **sandbox en de binds**, niet een lader-binary --
+en die sandbox bestaat al (`scripts/play-native.sh`).
+
+**Waar een eigen lader wél nodig is:**
+
+1. **De gepakte (HASPE-)klasse.** Zes games: GalagaAssault, JurassicPark, PacmanChomp, Halo,
+   Target Terror Gold en Walking Dead. Die bestanden zijn **doelbewust onbruikbaar** gemaakt voor
+   `ld.so`: nul sectiekoppen, PLT-stubs die `0xdeadbeef` pushen, een GOT die in het bestand al
+   gevuld is met adressen uit een ander proces, en 72-82% gewiste importnamen. Hier kan geen enkele
+   systeemlader iets mee; dit is het echte werk.
+2. **De API-oppervlakte.** Wat BudgieLoader de games geeft en de kernel niet: de freeglut-API,
+   `GetElfBase`/`GetElfSymbol`, `get_info`, en de nagebootste bibliotheken.
+
+**Twee lezingen, en het is een beslissing van de eigenaar:**
+
+* **Smal:** onze lader = de lader voor de gepakte klasse + de API-laag. Voor de ongepakte klasse
+  laten we de kernel het werk doen (de sterkste vorm van loskoppelen: hoe minder eigen code, hoe
+  minder dat stuk kan gaan). Fase 2 is dan een *proef* dat de native route werkt, niet de bouw van
+  een lader.
+* **Breed:** één eigen lader voor **alles**, ook voor de ongepakte klasse. Dat geeft één codepad,
+  volledige controle over TLS en de canarie, en onafhankelijkheid van de `ld.so` van de host. Het
+  kost meer werk en meer risico op fouten die de kernel al voor je oplost.
+
+De eigenaar vroeg letterlijk om "onze eigen elflader", dus de brede lezing is het uitgangspunt; maar
+het is de moeite waard om te weten dat de smalle variant voor de ongepakte helft hetzelfde resultaat
+geeft met veel minder eigen code. Claude bouwt nu de brede variant; die is voor de gepakte klasse
+toch nodig.
+
+**Wanneer is fase 2 klaar?** Niet bij "hij compileert", maar bij een meting:
+
+1. `bowling_usa` start **via onze eigen route** -- zonder BudgieLoader en zonder Wine.
+2. Het proces is **gezien en draait nog** na minimaal 20 seconden (dezelfde maat als
+   `starttest3.sh` gebruikt, zodat de getallen vergelijkbaar zijn; zie `patches/STARTTEST.md`).
+3. Er is een uitspraak over het beeld: een schermopname die iets toont, of een met reden
+   gedocumenteerd "geen beeld" -- met de trace erbij die zegt waar het stopt.
+4. De bestaande fout van GoGoStrike (geen bruikbare grafische modus, zie boven) is ofwel opgelost,
+   ofwel precies benoemd met de functie en het adres waar het stopt.
+
+Punt 1 en 2 zijn de harde eis. Punt 3 en 4 mogen "niet gehaald, en hierom" zijn -- een eerlijke
+blokkade met een meting eronder is een geldige uitkomst van fase 2.
+
 ## Wat nog aan TeknoParrot hangt (nagemeten 2026-10-12)
 
 De native route is bijna los, maar niet helemaal. Twee dingen wijzen nog naar
