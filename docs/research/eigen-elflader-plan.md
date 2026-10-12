@@ -8,7 +8,7 @@ en welk artefact eruit komt.*
 
 `ElfLdr2/BudgieLoader.exe` is de laatste gesloten **lader** in de keten. Zeven games in de
 verzameling hangen eraan: Halo, JurassicPark, Terminator, GhostBusters, GoGoStrike, GalagaAssault en
-PacmanChomp. **Sinds 2026-10-12 zijn daar negen ElfLdr2-games bij gekomen** toen de eigenaar een batch games toevoegde (zie `patches/NAS-NIEUW.md`), waarvan er twee **gepakt** zijn: Target Terror Gold en Walking Dead. Wat er aan gemeten is (`patches/ELF-NATIVE.md`):
+PacmanChomp. **Sinds 2026-10-12 zijn daar negen ElfLdr2-games bij gekomen** toen de eigenaar een batch games toevoegde (zie `patches/NAS-NIEUW.md`), waarvan er één **gepakt** is: Walking Dead. (Target Terror Gold leek gepakt maar is het niet -- de HASPE-treffer daar was een hardwaresymbool; zie de correctie in `patches/NAS-NIEUW.md`.) Wat er aan gemeten is (`patches/ELF-NATIVE.md`):
 
 * **Zes van de zeven komen niet eens voorbij de dynamic linker** — `error while loading shared
   libraries`, en de eerste ontbrekende bibliotheek is precies een die ElfLdr2 in zijn eigen proces
@@ -197,10 +197,30 @@ voor het loskoppelen moeten die ook naar onze eigen map.
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
 
-1. **De gepakte (HASPE-)games**: GalagaAssault, JurassicPark, PacmanChomp en Halo -- en sinds 2026-10-12 ook Target Terror Gold en Walking Dead. Deze bestanden
+1. **De gepakte (HASPE-)games**: GalagaAssault, JurassicPark, PacmanChomp en Halo -- en sinds 2026-10-12 ook Walking Dead. Deze bestanden
    hebben nul sectiekoppen, PLT-stubs van de vorm `ff 25 <got> 68 ef be ad de e9 <plt0>`, een GOT die
    in het bestand al gevuld is met `0xb7xxxxxx`-adressen uit het oorspronkelijke proces, en 72–82
    procent gewiste importnamen. Zonder de slot-naam-tabel is dit niet te doen; met de tabel wel.
+
+   **En voor ELF64 werkt die beschrijving niet.** Uit de vergelijking van alle tien bestanden
+   (`docs/research/packed-elf-vergelijking.md`, 459 regels) blijkt dat Halo weliswaar dezelfde klasse
+   is -- `SHNUM = 0`, de marker, een naamloos blok dat **exact achter `DT_HASH.nchain`** begint, en
+   `DT_JMPREL` dat naar een tweede slottabel buiten `DT_PLTGOT` wijst -- maar op twee punten
+   mechanisch anders:
+
+   * **`0xdeadbeef` is geen 64-bits merker.** Halo heeft er 24, tegen 357/577/442/807 bij 32-bits.
+     177 van zijn 202 stubs pushen een **echte** relocatie-index, en alle 178 JUMP_SLOT-relocaties
+     hebben een naam: bij Halo is luie binding dus **niet** stukgemaakt.
+   * **De structuurstub heeft een andere vorm.** Halo heeft **611 stubs van 8 byte**
+     (`ff 25 <rel32>; 66 90`) naar één doorlopend slotbereik met 611 absolute `0x7fd0b...`-adressen;
+     32-bits heeft er **nul**. De echte structuurtabel van Halo is dus 611 slots, terwijl de cel
+     "24 structuur-stubs" in `patches/ELF-LADER-SPEC.md` alleen de `68 ef be ad de`-telling is --
+     die onderschat ELF64 met een factor van ongeveer 25.
+
+   Twee dingen volgen daaruit voor de lader: zoek de 64-bits structuurtabel via het **8-byte-patroon
+   met een doorlopend slotbereik**, niet via `deadbeef`; en neem als tabelgrens
+   **`(DT_STRTAB - DT_SYMTAB) / DT_SYMENT`** -- `DT_HASH.nchain` is altijd te klein (4719 tegen 4977,
+   320 tegen 1021, 220 tegen 681). Dat is nu van drie kanten bevestigd.
 2. **Wat BudgieLoader verder levert**: 173 exports — de volledige freeglut-API plus `GetElfBase`,
    `GetElfSymbol`, `GetMainInterfaceIP`, `GetMainInterfaceSubnetMask`, `TpRefreshMainInterface`,
    `AmdPowerXpressRequestHighPerformance`, `NvOptimusEnablement`, `__ctype_b_loc`, `api`, `get_info` —
