@@ -3,6 +3,11 @@
 **Status: NOT RUN. Do not run this until the bench is free and the owner's screen is released.**
 The bench takes one game at a time and this run brings up a window.
 
+> **Er is nu een uitvoerbaar script dat dit hele draaiboek doet: `bash loader-run.sh`.**
+> Zonder argument doet het fase 0 en 1 (preconditions + bewijs van de reparatie + droogloop) en start
+> het **niets**; met `--start` doet het ook de echte run. Zie §8 voor wat al bewezen is en §9 voor de
+> twee dingen die de laderbouwer nog moet weten.
+
 **Purpose.** Prove, end to end and unambiguously, that `tools/rg-elfloader/` loads this game and reaches
 the guest's own `main` after the `DT_HASH` fix — and that the next obstacle is the game's own dongle
 check, not our loader.
@@ -270,4 +275,75 @@ regels terug, dus de samenvatting kan het onderscheid niet meer zien. Suggestie:
 per regel of hij is afgewezen, en gebruik dan de tekst
 `(in de adreslijst maar afgekeurd: <reden>)`. Geen functioneel probleem — alleen een logregel die een
 lezer op het verkeerde been zet.
+
+---
+
+## 8. Wat al bewezen is ZONDER de bench (fase 0 en 1 van `loader-run.sh`)
+
+De laderbouwer heeft de reparatie **al gebouwd**, en die heeft er een ontleed-modus bij gezet:
+`rg-elfloader --ontleed-alleen <game>` (alias `--dry-run`) doet alles t/m de relocaties en **start de
+gast niet**. Daarmee is de hele keten op deze game al bewezen, voordat de bench aan de beurt is.
+
+**Uitgevoerd op 2026-10-12, op een /tmp-kopie van de echte `game`:**
+
+```
+lader            : tools/rg-elfloader/rg-elfloader  30.416 B
+sha256           : 4ba14401062663a876f6da5eac06009a8cf323b8da1ee688c8555392adb6d719
+gast             : sha256 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)   <- DE REPARATIE
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1 … libglut.so.3 … (13 bibliotheken, 2 op de 2e poging)
+rg-elfloader: stale-map: 496 JMPREL-entries, 0 met stale 0xb7-adres + naam
+rg-elfloader: DT_REL: 510 toegepast, 6 COPY, 1 onopgelost
+rg-elfloader: DT_JMPREL: 495 toegepast, 0 COPY, 1 onopgelost
+gast-dynsyms: 1020 (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+shim geladen: 515 van de 1020 gast-symbolen in de globale scope
+relocaties: 1011 toegepast, 0 RELATIVE (ongewijzigd), 2 onopgelost
+spel NIET gestart (--ontleed-alleen)
+```
+
+**Wat dat bewijst, en waarom het klopt:**
+
+| meting | mijn statische voorspelling | uitkomst | conclusie |
+|---|---|---|---|
+| gast-symbollen | 1020 = `(DT_STRTAB−DT_SYMTAB)/16` | **1020**, bron `STRTAB-SYMTAB` | de reparatie doet precies wat ik voorstelde; het is dezelfde formule en hetzelfde getal |
+| toegepaste relocaties | 511 GLOB_DAT + 496 JMP_SLOT + 6 COPY = 1013 | 510 + 495 + 6 = **1011**, en 2 onopgelost | 1013 − 2 = 1011: **de boekhouding sluit exact** |
+| onopgelost | alleen `__gmon_start__` (klassiek, onschadelijk) | **precies `__gmon_start__` ×2** | geen verrassingen; de naamresolutie is compleet |
+| pakker-reparatie | no-op (0 stale slots) | `0 met stale 0xb7-adres` | bevestigt de ONGEPAKTE klasse onafhankelijk |
+| bibliotheken | 13, met `libglut.so.3` uit `runtime/lib32` | 13 geladen, incl. `libglut.so.3` | de laatste linkhinderpaal is weg |
+
+**Wat er dus nog NIET bewezen is:** alleen de sprong zelf — `spring naar e_entry 0x8057240` en wat de
+gast daarna doet. Dat is precies fase 2, en dat is de enige stap die de bench nodig heeft.
+
+**En de kern van de afspraak, nog een keer:** als de gast na de sprong **zijn eigen melding** geeft
+(`Begin HL-RUS License` / `DongleInitialize() FAILED!`, exit 255), dan is dat een **GOEDE** uitkomst voor
+de lader. Het betekent dat onze lader gedaan heeft wat hij moest doen en dat het volgende probleem bij de
+gast ligt, niet bij ons. De run is dan geslaagd, ook al komt er geen spelbeeld.
+
+---
+
+## 9. Twee dingen die de laderbouwer nog moet weten (gemeten tijdens fase 0-1)
+
+**9.1 De geinstalleerde kopie is een andere dan de gebouwde — en was de OUDE.**
+`~/.local/share/ravengun/bin/rg-elfloader` had op 2026-10-12 21:46 nog
+sha256 `af0535262b304e740cc0109d912263b26e756764c46a524a428476b134c4c30f` (25.468 B) — dat is de
+**versie zonder de reparatie**. De gerepareerde lader staat in de repo
+(`tools/rg-elfloader/rg-elfloader`, 30.416 B, 22:14:50). Wie de run met de geinstalleerde kopie doet,
+krijgt dus weer `FATAAL: geen DT_HASH`. `loader-run.sh` gebruikt daarom de **repo-lader** en waarschuwt
+hard als de twee verschillen. Aanbeveling: `scripts/build-elfloader.sh` opnieuw laten installeren, of
+de run expliciet op het repo-pad houden.
+
+**9.2 De `lib-defs`-lijst loopt nu tegen zijn plafond van 16384.**
+```
+lib-defs: 16384 gedefinieerde symbolen uit de NEEDED-libs
+```
+Dat is precies `sizeof(rg_defname)/sizeof(rg_defname[0])` in `rg_elfloader.c`. Voor de reparatie
+leverden alleen de vier ElfLdr2-bibliotheken (met `DT_HASH`) definities; nu doen **tien** bibliotheken
+mee via `STRTAB-SYMTAB`, en dan is 16384 te krap. `def_add()` laat stil vallen wat niet meer past, dus
+`lib_defines()` ziet een deel van de lib-symbolen niet — en dan exporteert de smalle shim symbolen die
+een lib ook definieert. Voor deze game is dat gemeten onschadelijk (mijn analyse: 8 botsingen, waarvan 6
+de COPY-set die de shim met opzet houdt, en `_IO_stdin_used` in `shim_skip()`; er blijft 1 symbool over,
+`tzname`), maar het is nu een **stille afkap** in plaats van een bewuste grens. Aanbeveling: het
+plafond verhogen (of `def_add()` laten melden dat hij vol zit, net als bij de adreslijst).
+
 
