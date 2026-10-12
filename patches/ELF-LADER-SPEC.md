@@ -18,7 +18,7 @@ Twee eerdere aannames moeten hierbij worden gecorrigeerd:
    zijn er **357, 577 en 442** per game; die ~60 is het aantal GL-imports daarbinnen.
 2. De oorzaak is preciezer dan "de ELF is opgetuigd voor ElfLdr2": bij de gepakte games zijn de
    **PLT-relocatie-indexen vervangen door `0xdeadbeef`** en is **72 tot 82 procent van de
-   importnamen gewist**. Daardoor is luie binding onmogelijk. **De namen zelf zijn echter NIET gewist** -- zie de correctie hieronder; die eerdere bewering kwam uit een over-read van de symbooltabel.
+   importnamen gewist**. Daardoor is luie binding onmogelijk en naamresolutie onvolledig. Waar die gewiste namen precies zitten staat in de sectie daaronder.
 
 ## De twee klassen
 
@@ -45,50 +45,51 @@ waarvan elke stub de vorm `ff 25 <got> 68 ef be ad de e9 <plt0>` heeft, een GOT 
 | Terminator | **ongepakt** | 7.764.284 | `0x8057240` | 29 | 13 | 0 | n.v.t. | nee |
 | GoGoStrike (`bowling_usa`) | **ongepakt** | 476.176 | `0x8059410` | 26 | 5 | 0 | n.v.t. | nee |
 
-## Correctie 2026-10-12: de importnamen zijn NIET gewist
+## Waar de gewiste namen precies zitten (en waarom twee metingen het oneens waren)
 
-Deze spec bevatte een fout die het hele beeld van de gepakte klasse bepaalde. Er staat dat bij de
-gepakte games **72 tot 82 procent van de importnamen gewist** is, met als onderbouwing "105 met naam
-en 472 zonder, samen 577". **Dat is onjuist**, en de oorzaak is meetbaar.
+Op 2026-10-12 heeft deze spec even een **foutieve correctie** gestaan: de conclusie dat de
+importnamen niet gewist zijn. Dat was onjuist. Hier staat wat er werkelijk gemeten is, met de
+vindplaats erbij, zodat niemand dezelfde twee lezingen opnieuw hoeft te maken.
 
-**Wat er misging.** Deze bestanden hebben **nul sectiekoppen** (`SHNUM = 0`). `readelf --dyn-syms`
-weet dan niet hoe groot de dynamische symbooltabel is en **leest door voorbij het einde**. In de troep
-daarachter staat `st_name = 0`, en dat levert een lange, aaneengesloten reeks "naamloze" symbolen op
-die niet bestaat. De eerdere meting had de aanwijzing al in huis: bij Pac-Man Chomp "groeide het
-aantal UND-symbolen mee met de bovengrens" -- dat is precies het gedrag van zo'n over-read, en
-daar is toen niet de conclusie uit getrokken.
+**De namen zijn wél gewist, en ze zitten in een aaneengesloten blok aan het EIND van `.dynsym`.**
 
-**De juiste weg.** Het aantal dynamische symbolen staat in `DT_HASH` (`nchain`). Loop exact dat
-aantal records van 16 bytes langs vanaf `DT_SYMTAB`, en reken de adressen om via de
-`PT_LOAD`-segmenten (er zijn er twee, dus één basis is niet genoeg). Dat geeft:
+De verwarring komt van `DT_HASH`. Die tabel heeft twee velden die op een symbolenaantal lijken:
+`nbucket` en `nchain`. Voor een gewoon bestand is `nchain` het aantal dynamische symbolen. Voor deze
+gepakte games is `nchain` **met opzet verlaagd**, zodat de dynamic linker de gewiste symbolen nooit
+ziet. Wie `nchain` als het totale aantal neemt, mist ze en concludeert dat er niets gewist is.
 
-| game | `nchain` (dynamische symbolen) | `st_name == 0` | met een naam | GL/SDL-achtige namen |
-|---|---|---|---|---|
-| Galaga Assault | **4719** | **1** | 4718 | 534 |
-| Jurassic Park | **18811** | **1** | 18810 | 21 |
-| Pacman Chomp-Mania | **3986** | **1** | 3985 | 192 |
+De echte omvang van `.dynsym` volgt uit het verschil tussen `DT_SYMTAB` en `DT_STRTAB`; dat is bij
+alle drie precies een veelvoud van 16.
 
-De namen komen er leesbaar uit: `SDL_IntersectRectAndLine`, `SDL_LockAudioDevice`,
-`glewGetExtension`, `xmlPatterncompile`, `i2d_X509_VAL`, `XGrabPointer`, enzovoort. Er is dus
-**geen** 72 tot 82 procent gewist, en de "105 + 472 = 577" was een artefact van dat doorlezen.
+| game | `DT_STRTAB - DT_SYMTAB` | symbolen | `nchain` | verschil | inhoud van het verschil |
+|---|---|---|---|---|---|
+| Galaga Assault | 79632 | **4977** | 4719 | **258** | 258 × volledig nul-record |
+| Jurassic Park | 308528 | **19283** | 18811 | **472** | 472 × volledig nul-record |
+| Pacman Chomp-Mania | 67744 | **4234** | 3986 | **248** | 248 × volledig nul-record |
+| Big Buck Hunter Pro (ongepakt) | 3008 | **188** | 188 | **0** | niets |
 
-**Wat dat verandert.** De conclusie verderop in deze spec -- dat een eigen lader voor de gepakte
-games neerkomt op het reverse-engineeren van ElfLdr2's resolutietabel, en dat dat uitpakwerk is en
-dus buiten bereik -- **rustte op die foute aanname**. Als de namen in het bestand staan, kan een
-eigen lader ze **op naam** oplossen, net als bij een gewone ELF. Wat dan nog wél een echt probleem
-is:
+"Volledig nul-record" betekent `st_name = 0`, `st_value = 0`, `st_size = 0`, `st_info = 0` én
+`st_shndx = 0` -- en `st_shndx = 0` is precies "undefined", dus het zijn naamloze **imports**.
 
-* de **koppeling van slot naar symbool**: welke van de 18811 symbolen hoort bij welke van de 577
-  PLT-stubs. `DT_JMPREL` geeft er ongeveer 100, en de rest wijst naar een tweede slottabel.
-* de GOT die in het bestand al gevuld is met `0xb7xxxxxx`-adressen uit het proces op de originele
-  kast -- die zijn voor ons niet te gebruiken, maar ze zeggen ook niets over de naam.
-* de `push 0xdeadbeef` in elke PLT-stub, die luie binding onmogelijk maakt.
+**Dat maakt het verschil tussen de twee klassen scherp.** Bij de ongepakte Big Buck Hunter Pro is het
+verschil **nul**. Het verlagen van `nchain` is dus geen eigenschap van de familie maar van de
+**pakker**: dezelfde teller, twee klassen, en alleen de gepakte heeft het blok. Dat is sterker bewijs
+dan de getallen alleen.
 
-Dat zijn drie concrete, meetbare problemen in plaats van "de namen zijn weg". Het verandert de
-gepakte klasse van een **uitpakproject** in een **laderproject**.
+Daarmee klopt de arithmetiek van deze spec exact: **99** echte imports + **258** naamloos = **357**
+= het aantal PLT-stubs bij Galaga, en **105 + 472 = 577** bij Jurassic Park. En `dynsym` is bij deze
+games dus geen gewone tabel: de laatste 258 (respectievelijk 472, 248) entries staan er wel, maar
+`ld.so` komt er nooit, want `nchain` zegt dat ze niet bestaan.
 
-**Hoe je dit narekent:** `re/_dynsym-controle3.py` in de Windows-werkmap, of
-`/home/deck/_dynsym-controle3.py` op de Deck.
+**Wat dat betekent voor een eigen lader.** De gewiste namen zijn er niet meer, en de GOT-waarden
+vervangen ze niet: die zijn wel echte functieadressen (573 van 575 exact 16-byte uitgelijnd, in 20
+bibliotheek-grote clusters), maar met de bibliotheken die wij hebben niet naar namen te herleiden
+(0 van 93 libGL-offsets; over 74 bibliotheken beste score 15 van 143). Een eigen lader moet die
+sloten dus **anders** invullen: ofwel via ElfLdr2's eigen resolutiemechanisme (`hints.dat`, de tweede
+slottabel), ofwel door de aanroepen te onderscheppen. Dat is het echte werk van fase 3.
+
+**Hoe je dit narekent:** `re/_dynsym-beslecht.py` in de Windows-werkmap, of
+`/home/deck/_dynsym-beslecht.py` op de Deck.
 
 ## De kern: de naamloze imports zijn het probleem
 
