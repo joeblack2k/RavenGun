@@ -844,6 +844,44 @@ juist: een COPY-symbool **hoort** in de shim te blijven, want de bibliotheek moe
 gebruiken. Het uit de shim halen van `font` zou de COPY-semantiek voor alle 64 symbolen breken en het
 echte probleem verbergen.
 
+#### De COPY-beginwaarden landen niet, de runtime-schrijfacties wel (2026-10-12)
+
+Bovenstaande correctie zei "de COPY is toegepast met de bestandswaarde". De meting zegt iets scherpers:
+**de beginwaarde wordt helemaal niet overgekopieerd.** Bewijs: ik zocht de COPY-symbolen op waar liballeg
+in het **bestand** een niet-nul waarde heeft, en las de gast-kopie uit de core.
+
+| symbool | bestand (liballeg) | gast-kopie (core) |
+|---|---|---|
+| `_cos_tbl` | `0x00010000` | **`0x00000000`** |
+| `_rgb_b_shift_16` | `0x0000000b` | **`0x00000000`** |
+| `_rgb_g_shift_16` | `0x00000005` | **`0x00000000`** |
+| `_rgb_g_shift_32` | `0x00000008` | **`0x00000000`** |
+| `_rgb_b_shift_24` | `0x00000010` | **`0x00000000`** |
+| `_mouse_type` | `0xffffffff` | **`0x4c505332`** |
+
+**En die laatste regel is de sleutel.** `_mouse_type` heeft in de gast-kopie een waarde die **alleen
+tijdens het draaien** geschreven kan zijn -- en het is niet de bestandswaarde (`0xffffffff`). Dus:
+
+* **runtime-schrijfacties komen WEL uit in de gast-kopie** (via de binding die de shim maakt), en
+* **de beginwaarden worden NIET overgekopieerd** (anders stond er `0x00010000` in `_cos_tbl`).
+
+De lader heeft de tak wel staan:
+
+```c
+case R_386_COPY:
+    if (!sym) { onopgelost++; if (*naam) say("  onopgelost COPY: %s", naam); break; }
+    memcpy(waar, sym, d->symtab[sidx].st_size); copies++;
+    break;
+```
+
+Dus `memcpy(waar, sym, st_size)` gebeurt niet, of gebeurt op een moment dat `sym` nog niet naar de
+geladen bibliotheek wijst. Wat dan overblijft is de BSS-nul van de gast -- en dat is precies wat `font`
+fataal maakt: de gast-kopie hoort `&_default_font` te bevatten, en bevat nul.
+
+**Dit is de vraag voor de lader:** loopt deze verplaatsingsronde **nadat** de `NEEDED`-bibliotheken met
+`dlopen` geladen zijn (regel 424, `laad_needed`), en levert de symboolopzoeking dan een adres in de
+geladen bibliotheek? Zo niet, dan is de volgorde de fout; zo ja, dan klopt de opzoeking of de `waar` niet.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
