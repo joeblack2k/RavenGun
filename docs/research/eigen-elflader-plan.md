@@ -641,6 +641,51 @@ Dat is precies het symbool waarvoor de shim bestaat, dus in die route staat de s
 **121 van 121** woorden als "?" -- een leeg resultaat dat als uitkomst leest. De volgende stap is
 dezelfde scan met de **volledige** mappings, om te zien wie `textout` aanriep.
 
+#### De crashketen in liballeg -- en een correctie op mijn eigen verdenking (2026-10-12)
+
+De stapel van de gecrashte thread bevat terugkeeradressen die in liballeg vallen. Omgerekend naar
+offset in de bibliotheek (basis `0xf79a9000`, volgt uit de crash zelf):
+
+| stapelwoord | offset | dichtstbijzijnde symbool |
+|---|---|---|
+| `0xf7a1c693` | `0x073693` | **`textprintf` +0x63** |
+| `0xf7a3ae39` | `0x091e39` | `_xwin_scroll_screen` +0x109 |
+| `0xf7a3af7a` | `0x091f7a` | `_xwin_update_screen` +0x7a |
+| `0xf7a2e996` | `0x085996` | `_xwin_replace_vtable` +0x156 |
+| `0xf7a71da0` | `0x0c8da0` | `_screen_vtable` |
+| `0xf79d6dd9` | `0x02ddd9` | `config_is_hooked` +0xf9 |
+| `0xf79d6f46` | `0x02df46` | `get_config_string` +0xe6 |
+
+Dus de keten is **`_xwin_update_screen` -> `_xwin_scroll_screen` -> `textprintf` -> `textout`**: Allegro's
+**X11-venster/console-pad**, met in `textout` een `eax = 0`. En `config_is_hooked`/`get_config_string`
+erbij betekent dat Allegro ook zijn configuratie aan het lezen is.
+
+**En wie die tweede thread maakt, is nu bekend.** De gast importeert **niets** van `clone`,
+`pthread_create`, `pthread_self`, `__clone`, `fork` of `vfork` -- nul. Maar `liballeg` heeft ze wel als
+verplaatsing:
+
+```
+000b8290  00017c07 R_386_JUMP_SLOT   pthread_create@GLIBC_2.1
+000b8244  00015207 R_386_JUMP_SLOT   fork@GLIBC_2.0
+```
+
+**De tweede LWP wordt dus door liballeg zelf gemaakt**, met `pthread_create`, en de stapel is daarmee
+glibc's zaak -- niet die van onze lader.
+
+**En daarmee moet ik mijn eigen verdenking van de vorige sectie afzwakken.** Ik schreef dat een esp van
+`0xf7830adc`, ongeveer 1 kB onder de start-esp van de hoofdthread (`0xf7830ed0`), erop wees dat de tweede
+thread de hoofdstapel deelt. Maar glibc mmap't threadstapels **vlak onder** de hoofdstapel, dus een
+thread die net iets lager begint is ongeveer wat je hoort te zien. Dat is dus geen anomalie. De
+kanttekening blijft wel dat de framepointer ongeldig is (`ebp = 0xffffffff`) en dat de
+"dichtstbijzijnde symbool"-labels zwak zijn -- `_fini + 0xdbc` komt er ook in voor, wat laat zien dat
+zo'n label niets bewijst zonder de functiegrenzen. De namen hierboven zijn dus **indicatief**.
+
+**Wat dit oplevert voor de volgende stap:** de crash zit in Allegro's X11-pad, vlak na de geslaagde
+geluidsinitialisatie, met een NULL. De vraag is dus of `set_gfx_mode` in **onze** route eigenlijk wel
+wordt bereikt en slaagt -- in de kernelroute slaagt hij (de game tekent op 1920x1080). Dat is een
+concrete, afgebakende vraag, en liballeg importeert ook `XInitThreads`, wat bij X11 en threads precies
+het soort probleem is dat hier speelt.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
