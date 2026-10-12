@@ -502,6 +502,46 @@ niet bestaat.
 concrete taak van fase 3: die voorgevulde sloten moeten naar **werkende** adressen wijzen. Narekenen:
 `re/_packed-gdb.sh` op de Deck.
 
+#### Van crashadres naar symboolnaam: `fopen` -- en waarom de stub ongerepareerd blijft
+
+De gast sterft op `0xb7508f60`. Die waarde staat twee keer in Galaga's bestand, en de keten is nu
+rond:
+
+```
+0xb7508f60
+  -> 0x0830d2fc   de GOT-slot van PLT-stub 0x08080f60
+  -> 0x086f84b8   de TWEEDE slottabel (0x086f83f8 + 48 x 4)
+  -> JMPREL-entry #48, symboolindex 4668
+  -> naam: fopen
+```
+
+**En dat is een belangrijke nuance.** Symboolindex 4668 ligt **binnen** `nchain` (4719), dus `fopen`
+is een **benoemde** import -- geen van de 258 gewiste. De gast sterft dus niet op een naamloos slot,
+maar op een **benoemde** import waarvan de GOT-slot in het bestand al gevuld stond met een adres uit
+het oorspronkelijke proces. Het voorgevulde-GOT-probleem raakt dus ook de benoemde imports.
+
+**En dan de mechanische verklaring.** De `DT_JMPREL`-relocaties wijzen naar de **tweede** tabel
+(`0x086f84b8`), niet naar de GOT-slot van de stub (`0x0830d2fc`). Past een lader die relocaties
+netjes toe op hun `r_offset`, dan schrijft hij het opgeloste adres dus in de **tweede tabel** -- en
+blijft de PLT-stub door zijn eigen, verouderde slot springen. Dat verklaart precies waarom de gast na
+een verder geslaagde laadbeurt toch op `0xb7508f60` sterft.
+
+*(Te verifiëren in de lader: log waar de `R_386_JMP_SLOT`-relocaties werkelijk geschreven worden.
+De meting hierboven is statisch; de conclusie over de lader is daaruit afgeleid.)*
+
+**Wat dat betekent voor fase 3.** Voor elke PLT-stub moet het opgeloste adres ook in **de GOT-slot van
+die stub zelf** komen. De **naam** is er namelijk wel: via de tweede tabel en de JMPREL-entry. Wat nog
+gezocht moet worden is de **koppeling** tussen een tweede-tabel-entry (`0x086f84b8`) en de
+bijbehorende eerste PLT-stub (`0x08080f60`). Twee kandidaten om te toetsen:
+
+* de tweede-tabel-entry wijst naar een stub in de **tweede PLT** (`0x08658b10+`), en die tweede PLT
+  zou naar de eerste kunnen doorverwijzen;
+* de positie in de tweede tabel loopt parallel aan de PLT-stub-volgorde, maar met een andere stap
+  (hier: entry 48 in de tweede tabel tegen 188 sloten verder in de eerste GOT).
+
+Als die koppeling te leggen is, krijgt de lader **namen voor de stubs** -- en dat is de vraag waar
+fase 3 op vastzit. Narekenen: `re/_slot-keten.py`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
