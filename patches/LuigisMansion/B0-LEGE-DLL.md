@@ -251,6 +251,48 @@ bytes). Dat is geen volledige vergelijking meer maar een vraag met twee adressen
 
 ## 10. Wat nog open is
 
+### 9b. De twee-adressenmeting: de tijdlijnen naast elkaar
+
+`b0-momenten.sh` + `b0-momenten.py`: een run per kern via de werkende route, en EEN root-proces dat
+het spelproces op 2/3/3,5/4/5/6/8/10/12 s bemonstert (effectieve resolutie ongeveer 1,5 s, want elke
+monstername leest 3,5 MB). Ruwe uitvoer: `/tmp/b0-mom/`.
+
+| t | ONZE kern `fe2ecf8c` | GESLOTEN kern `f5c7532d` |
+|---|---|---|
+| 1,2 | proces verschijnt | proces verschijnt |
+| 2,0 | entry ongerept `eb 08`, `.text` 100 % nul, 1 thread | entry ongerept `eb 08`, `.text` 100 % nul, 1 thread |
+| 3,0 | **TRAMPOLINE** `48 B8 -> 0x6ffffd36e410`, 1 thread | ongerept `eb 08`, 1 thread |
+| 3,5 | TRAMPOLINE, 1 thread | ongerept `eb 08`, 1 thread |
+| 4,0 | TRAMPOLINE, 1 thread | ongerept `eb 08`, 1 thread |
+| 5,0 / 6,0 | -- | ongerept `eb 08`, 1 thread |
+| **6,3** | **PROCES WEG** | -- |
+| 8,0 | -- | **TRAMPOLINE** `48 B8 -> 0x6ffff6d4e980`, 1 thread |
+| 10,0 | -- | ongerept `eb 08`, **`.text` 11,2 % nul**, **15 threads** |
+| 12,0 | -- | ongerept `eb 08`, `.text` 11,2 % nul, 21 threads |
+
+**Drie conclusies, alle drie met de dump in de hand:**
+
+1. **De 3494 bytes op `0x14120d000` zijn GEEN patch van de kern.** Ze staan in ELKE monstername van
+   BEIDE kernen, vanaf t=2,0 -- dus al voordat er ook maar een trampoline staat. Ze zijn dus van de
+   lader of van Wine, niet van de kern. Deze kandidaat is daarmee af.
+2. **De trampoline komt in BEIDE kernen, alleen op een ander moment en naar een ander adres.** Onze
+   kern: t=3,0 naar `0x6ffffd36e410`. Gesloten kern: t=8,0 naar `0x6ffff6d4e980`. Dat past bij het
+   verschil in laadtijd van de DLL: onze kern is 1,9 MB, de gesloten is 56 MB. De entry-point-
+   trampoline wordt dus pas geinstalleerd als `LoadLibraryW` van de kern terug is.
+3. **Het verschil is waar de aanhechtingsfase EINDIGT.** Onder onze kern sterft het proces op 6,3 s
+   terwijl de trampoline NOG STEEDS op het entry point staat en `.text` nog 100 % nul is: het spel
+   krijgt zijn entry point nooit terug en de pakker begint nooit. Onder de gesloten kern wordt de
+   trampoline tussen 8,0 en 10,0 teruggezet, en pas daarna loopt de pakker (`.text` 11,2 % nul) en
+   springt het aantal threads van 1 naar 15 en 21.
+
+Onder onze kern blijft het aantal threads de hele tijd **1**: er wordt niets meer opgestart. Dat is
+geen "de kern patcht iets" en geen "de kern kent de game niet", maar **de aanhechtingsfase loopt
+onder onze kern niet af**. De volgende vraag is dus wat er in dat venster gebeurt -- wat de
+trampoline aanroept (`InitializeASI` in de kern-DLL) en waarom dat onder onze kern niet terugkomt.
+Dat is werk in de kern, niet in deze repo.
+
+## 10. Wat nog open is
+
 1. **Wat de gesloten kern in het spel zet.** Geheugenvergelijk van het spelbeeld op hetzelfde vroege
    moment onder beide kernen (`beeldcheck.py` voor de levenscheck, sudo). Zoek op de entry-point-
    regio, de prologue van wat de pakker aanroept, en de plek waar het spel zijn I/O opzet.
