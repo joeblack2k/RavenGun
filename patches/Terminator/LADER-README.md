@@ -307,12 +307,15 @@ not guessed.
 **Command (on the Deck):**
 
 ```sh
-mkdir -p ~/projects/ravengun-patches/patches/Terminator
 cd ~/projects/ravengun-patches/patches/Terminator
-python3 find-dongle-symbols.py
+python3 find-dongle-symbols.py      # part 1: code-block matching  -> 43 of 58
+python3 find-dongle-adjacency.py    # part 2: adjacency + aliases  -> 7 more
 ```
 
-**Current result (measured 2026-10-12/13): 43 of 58 named dongle/HASP FUNCs located in `game`.**
+**FINAL RESULT (measured 2026-10-12/13): 50 of 58 named dongle/HASP FUNCs located in `game`, each with
+the evidence it rests on. 8 remain unresolved, each with a measured structural reason.**
+
+Part 1 — code-block matching (`find-dongle-symbols.py`), 43 hits:
 
 | grade | count | what it means | examples |
 |---|---|---|---|
@@ -320,27 +323,40 @@ python3 find-dongle-symbols.py
 | **B** | **12** | ≤ 3 % differing, single method | `DongleOpen` → `0x081c6b70`, `DongleWrite` → `0x081c6550`, `DongleWriteHLFeature` → `0x081c6490`, `DongleWriteHLFeatureInt` → `0x081c6410`, `DongleReadHLFeature` → `0x081c6880`, `DongleReadHLFeatureInt` → `0x081c6800`, `DongleReadCabSerialNum` → `0x081c6700`, `DongleReadCountryCode` → `0x081c6640`, `DongleIsPresent` → `0x081c5ff0`, `DongleGetRand` → `0x081c5ee0`, `DongleEncrypt` → `0x081c5e70`, `DongleDecrypt` → `0x081c5e00` |
 | **C** | **7** | 3-6 % differing — **probable, not proven** | `DongleInit` → `0x081c6d20` (5.2 %), `DongleNoise` → `0x080ac230` (5.6 %), `DongleRead` → `0x081c6970` (3.3 %), `DongleClose` → `0x081c6210`, `DongleFeatureLogin` → `0x081c6a50`, `DongleWriteCountryCode` → `0x081c6310`, `DongleWriteCabSerialNum` → `0x081c6390` |
 
-**15 are UNKNOWN, deliberately not guessed** — including **all eight** that were the target of this
-round: `DongleInitialize`, `DongleGetID`, `AcquireAladdinDongle`, `ReleaseAladdinDongle`,
-`GetAladdinHLPass`, `DongleFeatureCheck`, `ReInitAladdinDongles`, `SysGetDongleHID`. Plus seven that are
-structurally unfingerprintable: `hasp_free` (5 B), `hasp_enable_trace` (6 B), `hasp_login_ex` (5 B),
-`hasp_hasptime_to_datetime` (5 B), `GetAladdinSRMPass` (5 B), `hasp_get_trace` (15 B) — these are
-jump-thunk-sized stubs, too small to have a pattern — and `hasp_cleanup` (29 B).
+Part 2 — `find-dongle-adjacency.py`, **7 more hits**, using two methods that work when the code itself
+differs between the builds. Both methods compare arithmetic on **independently proven endpoints**, and
+every hit is corroborated by the instruction actually present at the predicted address:
 
-**Why those eight cannot be anchored here (measured, and this is the honest reason).** They form a
-mutually recursive group whose callers are all inside the same group:
+| symbol | game address | method | corroboration |
+|---|---|---|---|
+| `hasp_cleanup` | `0x083bbde0` | `[ADJACENCY]` bracket `hasp_encrypt`..`hasp_logout` spans **0xa0 in both builds**, only unproven inside | first instruction at the predicted address is `sub $0xc,%esp` — **identical** to SDA's; size 0x1d + gap 0x3 lands on `hasp_logout` in both |
+| `hasp_free` | `0x083baab0` | `[ADJACENCY]` bracket `hasp_get_info`..`hasp_login_scope` spans **0x220 in both** | both are `jmp rel32` thunks (mnemonic matches); size 0x5 + gap 0xb lands on `hasp_login_scope` in both |
+| `hasp_login_ex` | `0x083bab50` | `[ADJACENCY]` bracket `hasp_login_scope`..`hasp_get_rtc` spans **0xa0 in both** | **`[ALIAS]` cross-check: the `rel32` at 0x083bab50 resolves to 0x083bf6a0, and the alias target `SIjmcUAXayCUVb6` was found independently by code-block matching at exactly 0x083bf6a0 (0/200 bytes differ) — two unrelated methods agree exactly** |
+| `hasp_hasptime_to_datetime` | `0x083bae60` | `[ADJACENCY-SPAN, corroborated split]` bracket `hasp_datetime_to_hasptime`..`hasp_get_sessioninfo` spans **0xa0 in both** | **`[ALIAS]` cross-check: `rel32` → 0x0840a740 = the independently block-matched alias target `ciBHxZTJ0qIk7Je` — exact agreement** |
+| `hasp_get_trace` | `0x083bae70` | same corroborated split | first instruction `mov 0x4(%esp),%eax` — identical to SDA's |
+| `hasp_enable_trace` | `0x083ba2c0` | `[EXACT-BODY PATTERN + ADJACENCY]` | its exact 6-byte body `b8 ba 02 00 00 c3` (a stub returning the constant 666) occurs **twice** in `game`; only 0x083ba2c0 sits at the same distance (0x10) from the proven `hasp_detach` as in SDA, so the other occurrence is unrelated code sharing the pattern |
+| `DongleGetID` | `0x081c60d0` | `[ADJACENCY]` bracket `DongleIsPresent`..`DongleClose` spans **0x220 in both** | `push %ebp` at the predicted address matches SDA's prologue; size 0x135 + gap 0xb lands on `DongleClose` in both |
+
+**8 remain unresolved, deliberately not guessed**, each with a measured reason — the containing region
+**changed size between the two builds**, so no SDA-relative offset survives:
+
+| symbol | bracket | SDA span | game span | change |
+|---|---|---|---|---|
+| `AcquireAladdinDongle`, `ReleaseAladdinDongle`, `GetAladdinHLPass`, `DongleFeatureCheck`, `ReInitAladdinDongles`, `GetAladdinSRMPass` | `MemAllocDongle`..`DongleNoise` | 0x3be60 | 0x3cb50 | **+0xcf0** |
+| `DongleInitialize`, `SysGetDongleHID` | `DongleNoise`..`DongleDecrypt` | 0x66d90 | 0x119bd0 | **+0xb2e40** |
+
+They are also mutually recursive, so call-site alignment cannot bootstrap them:
 
 ```
 SysGetDongleHID   <- DongleInitialize
 DongleInitialize  <- (no named caller: it is called from `main`)
-AcquireAladdinDongle, ReleaseAladdinDongle, DongleGetID  <- SysGetDongleHID
+AcquireAladdinDongle, ReleaseAladdinDongle  <- SysGetDongleHID
 GetAladdinHLPass  <- DongleInitialize, DongleFeatureCheck
 DongleFeatureCheck, ReInitAladdinDongles  <- (no named caller)
 ```
 
-so call-site alignment cannot bootstrap them, and their bodies genuinely differ between the two builds,
-so block matching fails too. Two of them are **provably unanchorable from this source**, because their
-own log strings do not exist in `ServiceDongleApp` at all:
+and two of them are **provably unanchorable from this source**, because their own log strings do not
+exist in `ServiceDongleApp` at all:
 
 ```
 "ReInitAladdinDongles called: %d times"           in SDA: no   | in game: yes
@@ -355,7 +371,7 @@ string `DongleInitialize() FAILED!` is referenced from inside **`main`** (SDA 0x
 `SysLoadVersionInfo`, not to `AcquireAladdinDongle`/`GetAladdinHLPass` (my earlier 3000-byte
 disassembly window had overrun into the neighbouring function).
 
-**Measured leads for the UNKNOWN set** (xref addresses are measured; the function *names* are inferred
+**Measured leads for the remaining 8** (xref addresses are measured; the function *names* are inferred
 from the wording of the string and are **not** proven):
 
 | game-only string | game xref address | inferred owner |
@@ -367,10 +383,8 @@ from the wording of the string and are **not** proven):
 `failed to find aladdin dongle`, `failed to read dongle id` and `Unable to read seed from dongle` are in
 **`t4-patch`**, not in `game`.
 
-**What counts as success** for this measurement going forward: `DongleInitialize`, `DongleGetID`,
-`AcquireAladdinDongle`, `ReleaseAladdinDongle`, `GetAladdinHLPass`, `DongleFeatureCheck`,
-`ReInitAladdinDongles`, `SysGetDongleHID` reported with an address **and** evidence. Reaching that needs
-a *new* independent anchor, not a looser threshold — relaxing the match ratio would produce exactly the
+**What would finish the last 8.** Not a looser threshold — relaxing the match ratio would produce exactly
+the
 guesswork the grading is there to prevent. The realistic new anchors are (a) the game-side prologue walk
 from the two measured leads above, cross-checked by the call sites in `main`, or (b) a dynamic trace of
 `main` during the bench run (see `DRAAIBOEK-BENCH.md`).
