@@ -42,6 +42,11 @@ leiden.
 | `patches/ZONDER-LADER.md` | welke games met **alleen `wine <exe>`** starten en blijven draaien — geen lader en geen kern. De scherpste vraag over loskoppelen, met de eerlijke grenzen erbij: de drop-in van een eerdere start staat nog in de view (de kaart meet per game hoeveel), en dit zegt of een game *blijft draaien*, niet of hij speelbaar is | `python3 patches/proef-zonder-lader.py` |
 | `patches/ELF-NATIVE.md` | of de game-ELF van de Cygwin-lader (`ElfLdr2`) ook **los** te starten is — hij is een gewone Linux-ELF, dus dat is de vraag die de hele lader overbodig zou maken. Antwoord: nee, gemeten, met per game welke bibliotheken deze machine mist | `python3 patches/elf-native.py` |
 
+Voor de familie van de Cygwin-lader is er daarnaast `patches/ELF-LADER-SPEC.md`: **geen
+stand-kaart maar een technische spec** van wat een eigen ELF-lader moet doen, met in de kop de
+commando's om elk getal na te rekenen. Ook met de hand geschreven, net als
+`PATCHES-PER-GAME.md`.
+
 De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in
 `game.ini`**: de loader weet niets van dongles, een software-dongle is een gewone drop-in.

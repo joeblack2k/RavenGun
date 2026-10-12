@@ -1,0 +1,202 @@
+# ElfLdr2-familie: wat voor ELF is elke game, en wat kost een eigen lader?
+
+*Met de hand geschreven; de kop van elk blok noemt de commando's om de getallen na te rekenen.
+Alles is **statisch gemeten in ronde 44**: er is in de bestanden gelezen, er is **geen game voor
+gestart**. `ELF-NATIVE.md` meet of een game-ELF **los start**; dit bestand kijkt ín de bestanden om
+te zeggen wat een eigen lader zou moeten doen en of dat haalbaar is.*
+
+## Waarom dit bestand bestaat
+
+`ELF-NATIVE.md` concludeert: 0 van de 7 games starten native, en dat vraagt "een eigen ELF-lader,
+geen paar bibliotheken". Die conclusie is juist maar te grof. Uit de bestanden zelf blijkt dat de
+familie in **twee klassen** valt, en dat verschil bepaalt of een eigen lader standaardwerk is of een
+reverse-engineeringproject.
+
+Twee eerdere aannames moeten hierbij worden gecorrigeerd:
+
+1. De "ongeveer 60 vaste GOT-slots" uit de commentaren in de `game.ini`-bestanden is onjuist: het
+   zijn er **357, 577 en 442** per game; die ~60 is het aantal GL-imports daarbinnen.
+2. De oorzaak is preciezer dan "de ELF is opgetuigd voor ElfLdr2": bij de gepakte games zijn de
+   **PLT-relocatie-indexen vervangen door `0xdeadbeef`** en is **72 tot 82 procent van de
+   importnamen gewist**. Daardoor is luie binding onmogelijk en naamresolutie onvolledig.
+
+## De twee klassen
+
+**(a) Ongepakt** — gewone glibc-ELF's met een volledige importtopologie: echte sectiekoppen, echte
+`DT_JMPREL`, volledige `dynsym`-namen, en **nul** PLT-stubs die `0xdeadbeef` pushen.
+
+**(b) Gepakt met de HASPE-lader** — de stringtabel bevat letterlijk
+`PATCHED_WITH_HASPE_LINUX_LOADER_1.1` en `HASPE_LINUX_LOADER_1.1`. Die bestanden zijn doelbewust
+onbruikbaar gemaakt voor een gewone dynamic linker: **nul sectiekoppen** (`SHNUM = 0`), een PLT
+waarvan elke stub de vorm `ff 25 <got> 68 ef be ad de e9 <plt0>` heeft, een GOT die in het
+**bestand** al gevuld is met absolute adressen uit een vreemd adresbeeld (`0xb7xxxxxx`), en een
+`dynsym` waarin een groot deel van de importnamen **gewist** is.
+
+| game | klasse | grootte | entry | SHNUM | NEEDED | structuur-stubs | GOT-slots in het bestand | HASPE |
+|---|---|---|---|---|---|---|---|---|
+| GalagaAssault | **gepakt** | 7.278.592 | `0x81150a7` | **0** | 10 | **357** | 356 × `0xb7…`, 1 × `0` | **ja** |
+| JurassicPark (`game`) | **gepakt** | 17.694.720 | `0x813befc` | **0** | 16 | **577** | 576 × `0xb7…`, 1 × `0x0813a0f6` | **ja** |
+| JurassicPark (`game_original`) | **gepakt, ongebonden fase** | 17.690.127 | `0x904a8da` | 2 | 16 | 577 | 577 × `0x08xxxxxx` | ja |
+| PacmanChomp (`game`) | **gepakt** | 6.852.608 | `0x8077f73` | **0** | 12 | **442** | 441 × `0xb7…`, 1 × `0` | **ja** |
+| PacmanChomp (`game_original`) | **gepakt, ongebonden fase** | 4.144.655 | `0x835f8da` | 2 | 11 | 285 | 285 × `0x08xxxxxx` | ja |
+| Halo | **gepakt** (ELF64) | 33.554.432 | `0x414600` | **0** | 13 | 24 (niet geverifieerd) | niet gemeten | **ja** |
+| Halo (`game_original`) | gepakt, ongebonden fase | 31.270.111 | `0x1f65240` | 2 | 13 | 2 (niet geverifieerd) | niet gemeten | ja |
+| GhostBusters | **ongepakt** | 11.057.832 | `0x804f960` | 30 | 14 | 0 | n.v.t. | nee |
+| Terminator | **ongepakt** | 7.764.284 | `0x8057240` | 29 | 13 | 0 | n.v.t. | nee |
+| GoGoStrike (`bowling_usa`) | **ongepakt** | 476.176 | `0x8059410` | 26 | 5 | 0 | n.v.t. | nee |
+
+## De kern: de naamloze imports zijn het probleem
+
+Bij Galaga Assault klopt het tot op de byte: **361** UND-symbolen, waarvan **99 met naam** (`malloc`,
+`free`, `open`, `connect`, `fileno`, `__errno_location`, …) en **258 met `st_name = 0`**,
+aaneengesloten. 99 + 258 = **357**, exact het aantal PLT-stubs en GOT-slots. Bij Jurassic Park
+hetzelfde: 105 + 472 = **577** = het aantal stubs. De gewiste namen staan **niet** meer in `.dynstr`:
+daar staan nog maar 36 (Galaga) respectievelijk 51 (JP) ongerefereerde strings, en dat zijn
+versienamen, `NEEDED`-namen en de HASPE-marker.
+
+En de koppeling slot → symbool is **niet positioneel**. Volgens `docs/rt-glfix.md` zit `dlsym` in het
+draaiende spel op slot **437**, terwijl het in de UND-lijst positie **44** heeft.
+
+Daar komt bij dat `DT_JMPREL` bij deze games maar **100** (Galaga) respectievelijk **101**
+(Jurassic Park) `R_386_JMP_SLOT`-relocaties bevat, en dat die `r_offset`s (`0x086f83f8+`) niet naar
+de PLT-GOT (`0x830d00c+`) wijzen maar naar een **tweede** slottabel met een tweede PLT op
+`0x8658b10`. Ook ontbreken `R_386_RELATIVE` en `R_386_GLOB_DAT` volledig — een normaal gelinkte
+i386-executable heeft die wel. De tabel die de namen aan de slots koppelt zit dus **niet in het
+bestand**.
+
+**Gevolg, eerlijk:** voor de gepakte games is "een eigen lader schrijven" niet hetzelfde als een
+ELF-loader schrijven. Het is ElfLdr2's **resolutietabel** reverse-engineeren, en dat kan alleen met
+een tabel die uit een **lopende ElfLdr2-run** geoogst wordt. `tools/rt-glfix/analyze.py` doet dat al
+gedeeltelijk; het mat eerder de runtime-verdeling **269 nagebootst / 252 `msys-2.0.dll` /
+56 `opengl32.dll`**. Uitbreiden daarvan is de weg, niet een lader van nul.
+
+## Het verschil tussen Galaga en Jurassic Park zit niet in de pakker
+
+Allebei zijn ze gepakt, met dezelfde kenmerken. Wat de meting verklaart is de **`DT_NEEDED`-lijst**:
+Galaga vraagt alleen bibliotheken die SteamOS 32-bits levert, dus `ldd` meldt **niets** ontbrekends
+— en toch sterft hij, want zijn 357 GOT-slots staan op `0xb7xxxxxx` (niet op deze machine), de 258
+naamloze imports kan geen `ld.so` oplossen, en `push 0xdeadbeef` maakt luie binding onmogelijk.
+Jurassic Park vraagt daarnaast `libtheora.so.0`, `libPhysXLoader.so.1`, `libSDL-1.2.so.0`,
+`libGLU.so.1` en `libglut.so.3`, die hier ontbreken, dus daar verbergt de **linkerfout** dezelfde
+inhoudelijke blokkade.
+
+Let op: **link-compleet is dus geen voorspeller van een geslaagde start.** Galaga en GoGoStrike zijn
+allebei link-compleet; de een is gepakt en de ander niet.
+
+## Wat ElfLdr2 zelf is
+
+Uit `~/.../runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/`:
+
+* `.version` = `TeknoParrotElfLdr2Core_1.0.0.1434`.
+* `BudgieLoader.exe`: PE32 i386, console, 13 secties, `ImageBase 0x00400000`, 11.152.552 B. Hij
+  importeert alleen `ADVAPI32/GDI32/KERNEL32/USER32/VERSION/WINMM` plus `msys-2.0.dll` — geen
+  enkele Windows-graphics- of Wine-import. `x64/BudgieLoader_x64.exe` (11.067.048 B, 15 secties)
+  heeft er `WS2_32.dll` bij.
+* **173** benoemde exports: de **volledige freeglut-API** inclusief alle `*Ucall`-varianten, plus
+  `GetElfBase`, `GetElfSymbol`, `GetMainInterfaceIP`, `GetMainInterfaceSubnetMask`,
+  `TpRefreshMainInterface`, `AmdPowerXpressRequestHighPerformance`, `NvOptimusEnablement`,
+  `__ctype_b_loc`, `__ctype_tolower_loc`, `__ctype_toupper_loc`, `api` en `get_info`. De x64-variant
+  heeft er **174** (extra `ElfPreReserveCallback`). **`libglut.so.3` wordt dus niet als bibliotheek
+  geleverd maar door de lader zelf**, via zijn eigen exports.
+* `libs/` en `x64/libs/` bevatten **echte Linux-ELF's** voor de gast: `libGLU.so.1`,
+  `libtheora.so.0`, `libPhysXLoader.so.1`, `liballeg.so.4.0`, `libNL.so.1.6`, `libstdc++.so.5`,
+  `libcsv.so`, `libfmod.so.7`; 64-bits ook `libc.so.6`, `libm.so.6`, `libpthread.so.0`, `libdl.so.2`,
+  `librt.so.1`, `libgcc_s.so.1`, `libstdc++.so.6.0.25`, `libudev.so.1`, blas/lapack/gfortran.
+  **Niet** aanwezig: `libglut.so.3`, `libSDL-1.2.so.0`, `libXrandr.so.2`, `libesd.so.0`,
+  `libfmod.so.10`, `libfmodstudio.so.10`, `libiw.so.30`.
+* `env/dev/{fd,stdin,stdout,stderr}` zijn nagemaakte `/dev`-nodes.
+* `hints.dat` = 235.414 records van 12 bytes (8-byte sleutel → in-beeld-adres), 1518 groepen, **0
+  leesbare strings**; `x64/hints.dat` = 457.872 × 16, 720 groepen.
+* In `TeknoParrotUi.dll` staat letterlijk `ElfLoader 2 cannot handle special characters ... in the
+  file path`, `BudgieLoader failed with exit code {0}` en
+  `openal32gsevo.dll not loaded from ElfLdr2\libs folder!`, plus twee regels die bewijzen dat de
+  lader **Linux-`.so`-bestanden van schijf laadt**.
+* De `AndroidLaunchRecipes` noemen `"loaderExecutable": "ElfLdr2\\elfloader.exe"`,
+  `"guestArchitecture": "x86"` en `"containerTemplate": "teknoparrot-x86-v1"`; in de runtime staat
+  geen `elfloader.exe`, alleen `BudgieLoader.exe`. De `UserProfiles` zetten `WineRunnerPath` op
+  `.../wine/proton-11.0-2/bin/wine`.
+
+**Afgeleid (onderbouwd):** ElfLdr2 is een Cygwin-PE die de gast-ELF **in zijn eigen adresruimte** zet
+— het spelbeeld staat op `0x08048000` en in de proceskaart staat géén `.so` uit `ElfLdr2/libs`. De
+gast-imports worden dus niet via `dlopen` opgelost maar via naam-lookup in de exporttabel van
+`BudgieLoader.exe` plus zijn eigen nagebootste implementaties.
+
+## Wat een eigen lader moet doen
+
+**Voor de ongepakte leden** (GhostBusters, Terminator, GoGoStrike, Halo) is het standaardwerk: de
+`PT_LOAD`-segmenten op hun `p_vaddr` mappen (niet-PIE, vast), `R_386_JMP_SLOT`/`R_386_GLOB_DAT`/
+`R_386_RELATIVE` toepassen met naam-lookup via `dlsym()` op de host, `DT_INIT` en `INIT_ARRAY` draaien
+en naar `e_entry` springen. De enige echte kosten zijn de **ontbrekende gastbibliotheken**, en die
+liggen grotendeels in `ElfLdr2/libs/`; `libglut.so.3` zou uit de exporttabel van de lader nagebouwd
+moeten worden.
+
+**Voor de gepakte leden** (GalagaAssault, JurassicPark, PacmanChomp, en vermoedelijk Halo) is dat
+niet genoeg: zonder de slot→symbool-tabel uit een lopende ElfLdr2-run is er geen manier om te weten
+welke functie achter een naamloos slot hoort. De PE van de lader zelf openbreken is geen uitweg: die
+is zelf gepakt (secties `.brr0`–`.brr4`, gecomprimeerde strings; `libGLU`, `dlopen`, `ELFCLASS` en
+`JMP_SLOT` komen er letterlijk niet in voor).
+
+**Eén waarschuwing bij "gewoon de hostbibliotheken op het zoekpad zetten".** Als een gastbibliotheek
+op de host geladen wordt, is de gast-ABI niet per definitie goed: `docs/rt-glfix.md` laat zien dat
+Wine's `opengl32.dll` GL **stdcall** exporteert terwijl de game **cdecl** aanroept (`ret 0x4/0x8/0x24`,
+20 van 20 gemeten). Voor een route met echte Mesa-bibliotheken is dat een open risico.
+
+## De eerstvolgende echte proef
+
+Met alleen `LD_LIBRARY_PATH=<ElfLdr2/libs>` is de linktoestand per game te meten **zonder iets te
+starten**:
+
+| game | wat `ldd` dan nog mist |
+|---|---|
+| **GoGoStrike** (`bowling_usa`) | **niets** |
+| GalagaAssault | niets (maar gepakt, dus dat zegt hier weinig) |
+| PacmanChomp | alleen `libXrandr.so.2` |
+| Terminator | alleen `libglut.so.3` |
+| JurassicPark | `libSDL-1.2.so.0` + `libglut.so.3` |
+| GhostBusters | `libglut.so.3`, `libesd.so.0`, `/usr/lib/libcsv.so` — een **absoluut** `DT_NEEDED`-pad, dus `LD_LIBRARY_PATH` helpt daar niet |
+| Halo (64-bits) | niet zo te meten: `x64/libs/libc.so.6` is een oude glibc die `/bin/bash` sloopt |
+
+**GoGoStrike is de goedkoopste zinvolle proef in deze familie**: ongepakt én link-compleet, dus één
+omgevingsvariabele en geen emulatie meer. Die proef is **nog niet gedaan** en mag niet tegelijk met
+de meetronde van de andere games lopen: er mag maar één game tegelijk draaien.
+
+De tegenhanger in de lader-repo is `scripts/play-native.sh` met een drop-in waarin `Audit = false`
+staat (zie `docs/elfldr2-route.md` §3).
+
+**Voor de gepakte games** is de kleinste zinvolle stap een offline dumper (geen start) die per game
+één JSON schrijft met de drie tabellen die de lader nodig heeft: per PLT-stub het stubadres, het
+GOT-slotadres en de waarde in het bestand; `DT_JMPREL` als `(r_offset, symboolindex, naam, type)`;
+en `dynsym` per UND-index als `(index, st_name, naam-of-leeg)`. Plus de assertie die hier gemeten is:
+`aantal stubs == aantal naamloos + aantal met naam`. Dat maakt de ontbrekende tabel **meetbaar** in
+plaats van vermoed, en het is precies de input waarop `tools/rt-glfix/analyze.py` kan aanhaken.
+
+## Hoe je dit narekent
+
+Alles read-only, zonder een game te starten:
+
+```bash
+R=~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2
+NAS=/home/deck/mnt/spidernas_emulation/Teknoparrot
+
+# de linktoestand per game (schrijft niets)
+LD_LIBRARY_PATH="$R/libs" ldd "$NAS/Go Go Strike/bowling_usa"
+
+# de klasse: sectiekoppen, entry, NEEDED, en de structuur van de PLT
+readelf -h -l -d "$NAS/Galaga Assault/game" | grep -E 'Class|Entry|Number of section|NEEDED|JMPREL|PLTGOT'
+
+# de HASPE-marker
+strings -a "$NAS/Galaga Assault/game" | grep HASPE
+
+# de exports van de lader en wat hij meelevert
+objdump -p "$R/BudgieLoader.exe" | grep -A200 'Export'
+ls -la "$R/libs/"
+cat "$R/.version"
+```
+
+**Wat open blijft:** of ElfLdr2 de ingebakken `0xb7xxxxxx`-GOT-waarden gebruikt of overschrijft; hoe
+hij aan de naam van een naamloos slot komt; de semantiek van `hints.dat`; wie "HASPE Linux loader
+1.1" is (de marker staat **niet** in `BudgieLoader.exe`); de 64-bits PLT/GOT van Halo; de herkomst en
+volgorde van `game` versus `game_original` (de mtime `Dec 24 1996` is een neptijdstempel); of de
+gast-ABI op echte hostbibliotheken past; en of deze games zonder lader hun HASP-controle halen — de
+marker `HASPE_LINUX_LOADER` suggereert dat de pakker juist díe controle verving, maar dat is niet
+bewezen.
