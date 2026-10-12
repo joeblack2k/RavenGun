@@ -1,0 +1,183 @@
+RavenGun-wijziging 0004 op OpenParrot: generieke schijfletter-herleiding in de kern.
+
+Sommige games verwachten hun data op een schijfletter die in de Wine-prefix niet bestaat. Gashaaaan
+(Sega/Konami, profiel WartranTroopers) is het gemeten geval: zijn BALLS.INI zet ROMFILE op D:\TYPE.BIN,
+RAW_DIR op E:\ en NVRAM_DIR op F:\. Op onze generieke route (GameID::Global, geen per-game hooks) bestaan
+D:/E:/F: niet, en de recursieve map-aanmaak (mkdir -p) in util.dll loopt dan leeg: CreateDirectoryA faalt
+met ERROR_PATH_NOT_FOUND, het pad wordt afgekapt tot er geen backslash meer in staat, en de game schrijft
+een afsluitende nul door een NULL-pointer. Dat is de 0xC0000005 waarmee het spelproces na ~5 s met exitcode
+5 sluit (gemeten, getraced: util.dll+0x6089, write naar adres 0).
+
+Bewijs dat het de schijfletters zijn en niet de COM-poort: met `d:`/`e:`/`f:` als symlink in
+`~/.wine/dosdevices/` (D: naar de gamemap voor TYPE.BIN, E:/F: naar schrijfbare mappen) leeft Gashaaaan
+20 s op onze eigen kern en schrijft hij echte NVRAM naar F:\ (info.bin, slots 0-3). COM1/COM2 faalden in
+diezelfde geslaagde run (ACCESS_DENIED), precies zoals bij Lethal Enforcers 3, dat ook leeft -- een
+mislukte COM-open is dus niet dodelijk.
+
+Deze patch zet die herleiding in de kern in plaats van in de prefix, zoals docs/loskoppelen-per-game.md
+(patches-repo) beschrijft en zoals de gesloten TeknoParrot-kern het doet: een pad dat begint met "<L>:\"
+(of "<L>:/") wordt herleid naar ".\TeknoParrot\<L>\<rest>", cwd-relatief. Generiek voor elke letter, geen
+per-game lijst. Twee noodzakelijke keuzes:
+
+  - C: (de prefix) en Z: (de Wine-root waar de game-exe en de lader zelf op staan) worden NOOIT herleid;
+    die omleiden zou de game zelf onvindbaar maken.
+  - Niet alleen CreateFileA/W maar ook CreateDirectoryA/W worden herleid. De crash zit juist in een
+    recursieve CreateDirectoryA (mkdir -p), niet in CreateFileA; CreateFileA/W alleen voorkomt hem dus
+    niet. De basismap ".\TeknoParrot\<L>" wordt vast aangemaakt zodat de eerste map-aanmaak lukt en de
+    recursie niet leegloopt.
+
+De herleiding draait in jvsInit, die al voor elke niet-Nesica-game loopt (de CreateFileA/W-haken zaten er
+al voor de JVS-poort); er komt geen nieuwe GameID of GameDetect-tak bij.
+
+Terugdraaien: verwijder dit patchbestand uit third_party/openparrot/patches/ en herbouw
+(scripts/build-openparrot.sh). Dan staat de kern weer op de generieke route zonder schijfletter-herleiding.
+
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrot/src/Functions/Ring_amLib/amJvs.cpp b/OpenParrot/src/Functions/Ring_amLib/amJvs.cpp
+--- a/OpenParrot/src/Functions/Ring_amLib/amJvs.cpp	2026-09-11 14:23:52.000000000 +0200
++++ b/OpenParrot/src/Functions/Ring_amLib/amJvs.cpp	2026-10-12 10:59:25.294891907 +0200
+@@ -57,6 +57,69 @@
+ 	HANDLE hTemplateFile);
+ static LPCreateFileW  __CreateFileW = NULL;
+ 
++typedef BOOL(WINAPI *LPCreateDirectoryA)(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
++static LPCreateDirectoryA __CreateDirectoryA = NULL;
++
++typedef BOOL(WINAPI *LPCreateDirectoryW)(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
++static LPCreateDirectoryW __CreateDirectoryW = NULL;
++
++// RavenGun 0004: schijfletter-herleiding (zie het commentaarblok van 0004-...patch).
++// Een pad "<L>:\\rest" (of "<L>:/rest") wordt herleid naar ".\\TeknoParrot\\<L>\\rest", cwd-relatief,
++// net zoals de gesloten TeknoParrot-kern. C: (de prefix) en Z: (de Wine-root waar de exe zelf op
++// staat) worden nooit herleid. De basismap ".\\TeknoParrot\\<L>" wordt vast aangemaakt, zodat de
++// eerste map-aanmaak van de game lukt (anders loopt zijn recursieve mkdir leeg op een pad zonder
++// backslash -- dat is de null-write waarmee Gashaaaan na ~5 s met 0xC0000005 crasht).
++static bool rgRedirectA(LPCSTR in, char* out, size_t outsz)
++{
++	if (!in || !in[0]) return false;
++	char L = in[0];
++	if (L >= 'a' && L <= 'z') L = (char)(L - 'a' + 'A');
++	if (L < 'A' || L > 'Z') return false;
++	if (in[1] != ':') return false;                      // in[1] != 0, dus in[2] is veilig te lezen
++	if (in[2] != '\\' && in[2] != '/') return false;
++	if (L == 'C' || L == 'Z') return false;
++	const char* rest = in + 3;
++	size_t rl = strlen(rest);
++	if (16 + rl + 1 > outsz) return false;               // ".\TeknoParrot\" (14) + <L> + "\" = 16
++	if (__CreateDirectoryA)
++	{
++		char base[] = ".\\TeknoParrot\\?";              // 15 tekens, '?' op index 14
++		__CreateDirectoryA(".\\TeknoParrot", NULL);
++		base[14] = L;
++		__CreateDirectoryA(base, NULL);
++	}
++	memcpy(out, ".\\TeknoParrot\\", 14);
++	out[14] = L;
++	out[15] = '\\';
++	memcpy(out + 16, rest, rl + 1);
++	return true;
++}
++static bool rgRedirectW(LPCWSTR in, wchar_t* out, size_t outcch)
++{
++	if (!in || !in[0]) return false;
++	wchar_t L = in[0];
++	if (L >= L'a' && L <= L'z') L = (wchar_t)(L - L'a' + L'A');
++	if (L < L'A' || L > L'Z') return false;
++	if (in[1] != L':') return false;
++	if (in[2] != L'\\' && in[2] != L'/') return false;
++	if (L == L'C' || L == L'Z') return false;
++	const wchar_t* rest = in + 3;
++	size_t rl = wcslen(rest);
++	if (16 + rl + 1 > outcch) return false;
++	if (__CreateDirectoryW)
++	{
++		wchar_t base[] = L".\\TeknoParrot\\?";
++		__CreateDirectoryW(L".\\TeknoParrot", NULL);
++		base[14] = L;
++		__CreateDirectoryW(base, NULL);
++	}
++	memcpy(out, L".\\TeknoParrot\\", 14 * sizeof(wchar_t));
++	out[14] = L;
++	out[15] = L'\\';
++	memcpy(out + 16, rest, (rl + 1) * sizeof(wchar_t));
++	return true;
++}
++
+ 
+ LPCSTR emuPort = "\\\\.\\pipe\\teknoparrot_jvs";
+ LPCWSTR emuPortW = L"\\\\.\\pipe\\teknoparrot_jvs";
+@@ -166,6 +229,19 @@
+ 				hTemplateFile);
+ 		}
+ 	}
++	{
++		char rgpath[520];
++		if (rgRedirectA(lpFileName, rgpath, sizeof(rgpath)))
++		{
++			return __CreateFileA(rgpath,
++				dwDesiredAccess,
++				dwShareMode,
++				lpSecurityAttributes,
++				dwCreationDisposition,
++				dwFlagsAndAttributes,
++				hTemplateFile);
++		}
++	}
+ 	HANDLE hResult = __CreateFileA(lpFileName,
+ 		dwDesiredAccess,
+ 		dwShareMode,
+@@ -234,6 +310,19 @@
+ 		}
+ 	}
+ 
++	{
++		wchar_t rgpath[520];
++		if (rgRedirectW(lpFileName, rgpath, 520))
++		{
++			return __CreateFileW(rgpath,
++				dwDesiredAccess,
++				dwShareMode,
++				lpSecurityAttributes,
++				dwCreationDisposition,
++				dwFlagsAndAttributes,
++				hTemplateFile);
++		}
++	}
+ 	HANDLE hResult = __CreateFileW(lpFileName,
+ 		dwDesiredAccess,
+ 		dwShareMode,
+@@ -417,6 +506,24 @@
+ 	return true;
+ }
+ 
++// RavenGun 0004: dezelfde schijfletter-herleiding voor het aanmaken van mappen. De crash van
++// Gashaaaan zit juist hier -- in een recursieve CreateDirectoryA (mkdir -p) op F:\\..., niet in
++// CreateFileA -- dus CreateFileA/W alleen voorkomt hem niet; CreateDirectoryA/W moet mee.
++BOOL __stdcall Hook_CreateDirectoryA(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes)
++{
++	char rgpath[520];
++	if (rgRedirectA(lpPathName, rgpath, sizeof(rgpath)))
++		return __CreateDirectoryA(rgpath, lpSecurityAttributes);
++	return __CreateDirectoryA(lpPathName, lpSecurityAttributes);
++}
++BOOL __stdcall Hook_CreateDirectoryW(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes)
++{
++	wchar_t rgpath[520];
++	if (rgRedirectW(lpPathName, rgpath, 520))
++		return __CreateDirectoryW(rgpath, lpSecurityAttributes);
++	return __CreateDirectoryW(lpPathName, lpSecurityAttributes);
++}
++
+ #define __XHOOKn(mod, name)	\
+ 	MH_CreateHookApi(L ## mod, #name, &Hook_##name, (void**)&__##name)
+ 
+@@ -448,6 +555,8 @@
+ 
+ 	__XHOOKn("kernel32.dll", CreateFileA);
+ 	__XHOOKn("kernel32.dll", CreateFileW);
++	__XHOOKn("kernel32.dll", CreateDirectoryA);
++	__XHOOKn("kernel32.dll", CreateDirectoryW);
+ 	__XHOOKn("kernel32.dll", GetCommModemStatus);
+ 	MH_EnableHook(MH_ALL_HOOKS);
+ });

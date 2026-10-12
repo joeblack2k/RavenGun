@@ -41,7 +41,14 @@ GCC voor het meeste, clang voor de bestanden met MSVC-SEH (`__try`) en MSVC-inli
    stuiten. Wat er dan gebeurt: `currentGame` blijft `GameID::Global` en `X2Type` blijft `X2Type::None`, dus alleen de globale init-functies draaien en
    elke per-game tak slaat zichzelf over (`TypeX2Generic.cpp` begint met `if (GameDetect::X2Type == X2Type::None) return;`). Er wordt niets gehaakt en
    niets gepatcht. **Terugdraaien:** zet de `MessageBoxA` en `ExitProcess(0)` in die tak terug.
-4. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
+4. `0004-drive-letter-redirect.patch`: **generieke schijfletter-herleiding.** `OpenParrot/src/Functions/Ring_amLib/amJvs.cpp`: de al bestaande
+   `CreateFileA/W`-haken herleiden nu ook een pad dat begint met `<L>:\` (of `<L>:/`) naar `.\TeknoParrot\<L>\<rest>` (cwd-relatief, zoals de gesloten
+   kern en `docs/loskoppelen-per-game.md`), en er komen `CreateDirectoryA/W`-haken bij die hetzelfde doen. `C:` (prefix) en `Z:` (Wine-root) worden nooit
+   herleid. Reden: Gashaaaan (profiel WartranTroopers) zoekt zijn ROM/NVRAM/RAW op `D:\`/`F:\`/`E:\` (uit `BALLS.INI`); zonder die schijven crasht zijn
+   recursieve `mkdir -p` in `util.dll` op een NULL-pointer (0xC0000005, exitcode 5 na ~5 s, getraced). Met `d:`/`e:`/`f:` in de prefix leeft hij 20 s en
+   schrijft hij NVRAM; deze patch doet dat in de kern in plaats van in de prefix. De crash zit in `CreateDirectoryA`, niet in `CreateFileA`, dus die haak
+   moet mee. Generiek, geen per-game lijst. **Terugdraaien:** verwijder het patchbestand en herbouw.
+5. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
    `shim.sh` (hoofdletter- en backslash-includes: `<Shlwapi.h>`, `Utility\Hooking.Patterns.h`; en de meegeleverde Microsoft-DirectX-SDK-headers worden vervangen
    door de MinGW-w64-headers), `win64init.S` (GNU-vertaling van `win64init.asm`), `openparrot32.def` (zelfde exportnamen als de MSVC-build, ook `_PrepareSafeInit@4`),
    `compile-one.sh`, `build-in-container.sh`.
