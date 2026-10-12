@@ -38,6 +38,31 @@ Een paar bibliotheken neerzetten is dus niet genoeg: dit vraagt een **eigen lade
 * **`patches/ELF-LADER-SPEC.md`** — wat voor ELF elke game is en wat een eigen lader moet doen.
 * **`patches/ELF-NATIVE.md`** met `patches/elf-native.py` — de losse-startmeting.
 
+## Wat nog aan TeknoParrot hangt (nagemeten 2026-10-12)
+
+De native route is bijna los, maar niet helemaal. Twee dingen wijzen nog naar
+`~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/`:
+
+**1. Zes views hebben een `ElfLdr2`-symlink naar de TP-runtime.** Van de zeven ElfLdr2-games gaat het
+om GalagaAssault, GhostBusters, GoGoStrike, JurassicPark, PacmanChomp en Terminator (Halo staat er
+niet bij). Zolang die link er is, haalt de game zijn bibliotheken uit de map van TeknoParrot.
+
+**2. Tien bibliotheken worden via `@tpui/ElfLdr2/libs/...` in de native-profielen genoemd**, samen
+**12 MB**, en **geen enkele** daarvan staat in onze eigen staging
+(`~/.local/share/ravengun/runtime/lib32`):
+
+| bibliotheek | genoemd door |
+|---|---|
+| `libNxCharacter.so.1`, `libNxCooking.so`, `libPhysXCore.so`, `libPhysXLoader.so.1` | JurassicPark, Terminator |
+| `libfmod.so.7`, `libfmodstudio.so.7` | JurassicPark |
+| `libcsv.so` | GhostBusters |
+| `libNL.so.1.6`, `liballeg.so.4.0`, `libstdc++.so.5` | GoGoStrike |
+
+Halo, GalagaAssault en PacmanChomp noemen **geen** enkele `@tpui`-bibliotheek. Het loskoppelen van
+de native route is dus klein en concreet: die tien bibliotheken naar onze eigen staging brengen
+(12 MB) en de zes symlinks omzetten. Dat hoort bij deze fase, want onze eigen lader mag op den duur
+helemaal niet meer in de map van TeknoParrot kijken.
+
 ## De drie fasen
 
 ### Fase 1 — de huidige lader uitpakken en begrijpen
