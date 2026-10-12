@@ -48,7 +48,7 @@ B naar het spelbestand.
 | | wat | artefact |
 |---|---|---|
 | **1A** | `BudgieLoader.exe` uitpakken (secties `.brr0`-`.brr4`) en de **exporttabel** groeperen — dat is de API-oppervlakte die onze lader moet leveren | `docs/research/budgieloader-uitgepakt.md` |
-| **1B** | hoe ElfLdr2 de **gewiste importnamen** oplost: `hints.dat` (235.414 × 12 bytes, 64-bits 457.872 × 16), de tweede PLT/slottabel, en wat de `0xb750xxxx`-groep werkelijk is | `docs/research/importresolutie-elfldr2.md` |
+| **1B** | hoe ElfLdr2 de **gewiste importnamen** oplost: `hints.dat` (2.994.888 bytes = **249.574** × 12; 64-bits 7.325.952 = 457.872 × 16), de tweede PLT/slottabel, en wat de `0xb750xxxx`-groep werkelijk is | `docs/research/importresolutie-elfldr2.md` |
 
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
