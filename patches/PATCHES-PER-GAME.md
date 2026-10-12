@@ -762,6 +762,8 @@ conclusie als bij LGI, waar de invoer buiten de kern om loopt en er dus geen hoo
 3. Pas daarna de vraag of deze groep zijn invoer op de generieke route krijgt; die is zonder de tv
    met lightgun niet te beantwoorden.
 
+**KingyoSukui haalt het op de gesloten kern.** In ronde 69 is die game opnieuw op de gesloten kern gemeten met starttest3.sh: daar is hij START. Een eerdere aantekening in docs/loskoppelen-per-game.md suggereerde dat de gesloten kern er ook exitcode 8 van maakte, maar die is dus niet meer actueel. KingyoSukui valt alleen op onze kern om, en dat betekent dat de herleiding van 0004 wel de letters maakt maar niet de inhoud: onze kern maakt TeknoParrot/D tot en met V aan, en die zijn leeg, terwijl de game rqrdlist.rqr op een schijfletter zoekt. Dat bestand bestaat wel (1.200.082 bytes in de eigen Media-map van de game), en campaign01.bmp en campaign02.bmp staan alleen in de map van de zusjesgame Takoyaki. De volgende stap is een drop-in die de herleidingsmap vult met wat deze game op een schijfletter zoekt, en daarna meten of exitcode 8 verandert.
+
 ## Wat ik niet heb kunnen vaststellen
 
 1. **Of een bytepatch de geparkeerde games verder helpt.** Voor Terminator, GhostBusters,
