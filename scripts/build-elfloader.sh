@@ -32,7 +32,12 @@ echo "bouwen: i386 -> rg-elfloader"
 # PT_GNU_STACK. Moderne glibc weigert dat bij dlopen ("cannot enable executable stack"). Door de lader
 # zelf met een uitvoerbare stack te starten, heeft het proces er al een en hoeft dlopen niets te wijzigen.
 # Zo hoeven we de bibliotheken niet aan te raken (ze staan in TP-runtime/NAS; daar schrijven we niet).
-"$CC" -m32 -O2 -Wall -Wextra -rdynamic $EXTRA_INC -Wl,-z,execstack -o "$OUT" "$SRC" -ldl
+#
+# GEEN -rdynamic: anders komen de symbolen van de lader zelf (o.a. `main`) in de dynamische symbooltabel
+# en wint de lader-`main` bij het oplossen van het door-de-gast-geimporteerde `main` (Allegro levert `main`,
+# de app levert `_mangled_main`). Gemeten: met -rdynamic draaide de lader zijn eigen main opnieuw. Zonder
+# -rdynamic lost de gast-`main` op naar liballeg, zoals het hoort.
+"$CC" -m32 -O2 -Wall -Wextra $EXTRA_INC -Wl,-z,execstack -o "$OUT" "$SRC" -ldl
 file "$OUT"
 
 DEST="$HOME/.local/share/ravengun/bin"

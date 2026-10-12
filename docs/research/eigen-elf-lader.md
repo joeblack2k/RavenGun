@@ -19,19 +19,48 @@ starten zonder BudgieLoader en zonder Wine.*
    Bouwdetail: `-Wl,-z,execstack`, want oude gastlibs (liballeg, 2007) vragen een uitvoerbare stack die
    moderne glibc anders bij `dlopen` weigert.
 
-## De muur voor de ONGEPAKTE games (gemeten op GoGoStrike)
-`dlopen(liballeg.so.4.0)` faalt: de lib heeft **477 ongedefinieerde symbolen** (`_poly_scanline_*`,
-`_linear_putpixel*`) die **in het spel-executable zelf** staan (gemeten: `bowling_usa` definieert
-`_poly_scanline_gcol8` op `0x08096344`). Dat is het klassieke Allegro-4-patroon: de asm-scanline-routines
-zitten in de app, en liballeg lost ze op tegen het hoofd-executable.
+## De shim: gast-exports in de globale scope (opgelost)
+De gastbibliotheken (liballeg.so.4.0) importeren honderden symbolen **uit het spel-executable zelf**
+(`_poly_scanline_*`, `_linear_putpixel*`; gemeten: `bowling_usa` definieert `_poly_scanline_gcol8` op
+`0x08096344`) — het Allegro-4-patroon: de asm-scanline-routines zitten in de app. In de kernel-route is
+dat gratis: de gast **is** het hoofdprogramma, dus zijn dynamische symbolen staan vanzelf in de globale
+zoekruimte (`--export-dynamic`). Onze lader is zelf het hoofdprogramma; de gast is losse gemapte
+geheugen, dus die symbolen staan er niet.
 
-Een "map-exe + dlopen-libs"-lader kan dat **niet** via `dlopen` oplossen: `dlopen` kan een met de hand
-gemapte `ET_EXEC` niet in de globale symboolscope zetten. De systeem-`ld-linux` lukt dit wél omdat die één
-link-map bouwt met het executable als wortel. **Twee wegen vooruit:**
-- de lader uitbreiden zodat hij de door-het-spel-geleverde symbolen zelf in de GOT's van de gastlibs
-  schrijft (ld.so-gedrag nabouwen) — dit is óók nodig voor de gepakte klasse en dus de echte investering;
-- of voor de ongepakte games de systeem-`ld-linux` als native route gebruiken (geen BudgieLoader/Wine).
-  Gemeten: die route laadt alles en draait de engine tot de echte blocker (zie hieronder).
+**Oplossing (bewezen):** de lader bouwt een *shim*-bibliotheek met de gedefinieerde dynamische symbolen
+van de gast als **absolute** adressen (`.set naam, 0xADDR`), compileert die (`gcc -m32 -shared -fPIC
+-Wl,-z,execstack`) en laadt hem **als eerste** met `dlopen(RTLD_NOW|RTLD_GLOBAL)`. Daarna lossen de
+gastbibliotheken hun imports tegen de shim op. De adressen kloppen omdat de gast ET_EXEC op een vast
+adres staat; de shim moet dus **per gast** opnieuw gemaakt worden (gebeurt automatisch bij elke start).
+Linker-/CRT-symbolen worden overgeslagen (`_init`, `_fini`, `_start`, `_DYNAMIC`, `__bss_start`,
+`_edata`, `_end`, `__data_start`, `__init_array_*`, … ) om "multiple definition" te vermijden.
+
+## Gemeten resultaat op GoGoStrike (lader GEVALIDEERD)
+Met de shim draait **onze eigen lader** GoGoStrike tot exact hetzelfde punt als de kernel-route:
+```
+shim geladen: 1385 gast-symbolen in de globale scope
+geladen: libstdc++.so.5 / liballeg.so.4.0 / libm.so.6 / libNL.so.1.6 / libc.so.6
+DT_REL: 64 COPY, 1 onopgelost (__gmon_start__, weak -> niet fataal)
+DT_JMPREL: 132 toegepast, 0 onopgelost
+spring naar e_entry 0x8059410  (argc 1, envc 53, 17 auxv)
+Shutting down Allegro due to signal #11
+```
+Backtrace van de crash (gdb): `#0 0x08071915` (= `uwSramCheckFormatCode+5`, in de **gast**) ← `#1 main`
+(liballeg) ← `#2/#3 __libc_start_main` (libc) ← `#4 0x08059431` (`_start` van de gast). **Identiek aan de
+kernel-route.** De crash zit dus in de game-engine op het bekende sound→SRAM-obstakel (ander agent), niet
+in de lader. Daarmee is de lader-pijplijn (mappen → shim → alle libs → relocaties → TLS → SysV-stack →
+sprong) bewezen voor de ongepakte klasse.
+
+Twee bugs die deze meting blootlegde en die nu gefixt zijn:
+1. **Dangling `b->eh`:** `start_spel` las `e_entry`/`e_phnum`/`e_phentsize` uit het *bestand*, dat vlak
+   daarvoor ge-`munmap`t werd (en waar daarna een lib-mapping overheen kwam) → crash in `main+1924`
+   (`movzwl 0x2a(%ecx)` = `e_phentsize`). Nu worden die waarden als losse velden bewaard vóór de `munmap`.
+2. **`-rdynamic`:** exporteerde de `main` van de lader zelf, waardoor het door-de-gast-geïmporteerde
+   `main` (Allegro levert `main`) naar de **lader**-`main` oploste → de lader draaide zijn eigen main
+   opnieuw. `-rdynamic` is verwijderd; `main` lost nu naar liballeg op.
+
+Voor de ongepakte klasse is dit vooral een validatie: de kernel-`ld-linux` draagt die games sowieso (de
+echte blockers zijn sound/MIT-SHM/rw-SRAM, ander agent). De lader is **nodig voor de gepakte klasse**.
 
 ## De echte blocker van GoGoStrike ligt niet bij de lader
 Volledige meting van de eigenaar: `docs/research/gogostrike-native-meting.md`. Kort: de crash in
@@ -41,9 +70,27 @@ globale zet). Drie obstakels, in deze volgorde: **(1) geluid**, **(2) MIT-SHM** 
 IPC-namespace; `bwrap --unshare-ipc` isoleert het), **(3) een rw-file-bind** voor de SRAM
 (`open(O_RDWR)`+`mmap(MAP_SHARED)`). Zelfs een perfecte lader raakt deze drie; ze staan los van de lader.
 
+## Gemeten resultaat op de GEPAKTE klasse (Galaga Assault, eigenaar)
+Met dezelfde lader + shim springt ook de gepakte Galaga naar `e_entry` en **de gast draait**:
+```
+shim geladen: 4607 gast-symbolen in de globale scope
+spring naar e_entry 0x81150a7 (argc 1, envc 22, 17 auxv)
+SIGSEGV  #0 0xb7508f60  #1 0x080890f9 (gast)  #2 0x0809f0df (gast)  #3 0x081150ca (net na entry)
+```
+De crash zit in de **gast**, op een adres in het `0xb750xxxx`-bereik: de **voorgevulde GOT** uit het proces
+op de originele kast, dat hier niet bestaat. Dat is precies de voorspelde gepakte-klasse-kwestie — en nu een
+**runtime**-probleem met een reproduceerbaar adres, geen uitpakwerk. Ter contrast: de kernel-`ld-linux` geeft
+op ditzelfde bestand SIGSEGV met **0 bytes** uitvoer. Onze lader is er dus strikt vóór.
+
 ## Status
-- Lader: werkt t/m mappen+relocaties+libc/libstdc++; muur bij de exe↔lib-symbolen van de ongepakte
-  Allegro-games. **Blijft nodig voor de gepakte klasse** (JP/Galaga/Pacman: daar kan `ld-linux` sowieso
-  niet, want `push 0xdeadbeef` + verlaagde `nchain`; de lader moet daar op naam resolven).
-- GoGoStrike fase 2: de drie obstakels (geluid → MIT-SHM → rw-bind) worden apart aangepakt; de native
-  route (systeem-`ld-linux`) is de drager zolang de exe↔lib-uitbreiding niet af is.
+- **Lader gevalideerd** (beide klassen): mapt PT_LOAD, bouwt de shim, laadt alle DT_NEEDED-libs, past de
+  relocaties toe, bouwt de SysV-startstack en springt naar `e_entry`; **de gast draait**. De crash is in
+  beide gevallen ná de lader, in de gast/engine.
+- **Ongepakt** (GoGoStrike): tot `uwSramCheckFormatCode` (sound→SRAM), identiek aan de kernel-route. De echte
+  blockers (geluid → MIT-SHM → rw-SRAM-bind) liggen buiten de lader (ander agent). De kernel-`ld-linux` draagt
+  de ongepakte games sowieso; de lader is hier vooral de validatie.
+- **Gepakt** (Galaga/JP/Pacman): de lader is hier *nodig* (kernel geeft 0 bytes). Volgende taak (fase 3): de
+  voorgevulde `0xb750xxxx`-GOT-slots. Opties (open): slot→symbool identificeren en naar een host-functie
+  herschrijven, de aanroep onderscheppen, of meerijden op de resolutie zoals `tools/rt-glfix` op de
+  BudgieLoader-route. Reproduceerbaar adres: `0xb7508f60` (Galaga).
+- **Hardening (later, geen blocker):** het gastbeeld staat nu `rwxp`; datasegmenten hoeven geen `x`.

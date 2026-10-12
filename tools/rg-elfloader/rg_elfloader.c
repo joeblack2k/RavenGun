@@ -89,9 +89,11 @@ static uint8_t *map_file(const char *pad, size_t *len_uit)
 /* ------------------------------------------------------------------ segmenten mappen */
 
 struct beeld {
-    Elf32_Ehdr *eh;
+    Elf32_Ehdr *eh;        /* ALLEEN geldig zolang het bestand gemapt is (map_segments); niet in start_spel! */
     Elf32_Phdr *ph;
     int phnum;
+    uint32_t entry;        /* e_entry als losse waarde (overleeft munmap van het bestand) */
+    uint16_t phent;        /* e_phentsize */
     uint32_t phdr_vaddr;   /* adres van de phdr-tabel in het geladen beeld (voor AT_PHDR) */
     Elf32_Dyn *dyn;
 };
@@ -165,6 +167,8 @@ static void map_segments(int fd, const uint8_t *file, struct beeld *b)
     b->eh = eh;
     b->ph = ph;
     b->phnum = eh->e_phnum;
+    b->entry = eh->e_entry;       /* losse kopieen: b->eh wijst in het bestand, dat na munmap weg is */
+    b->phent = eh->e_phentsize;
 
     /* PT_DYNAMIC: na het mappen staat die op zijn p_vaddr. */
     b->dyn = NULL;
@@ -180,6 +184,7 @@ static void map_segments(int fd, const uint8_t *file, struct beeld *b)
 struct dyninfo {
     Elf32_Sym *symtab;
     const char *strtab;
+    uint32_t nchain;   /* aantal dynamische symbolen (uit DT_HASH) */
     Elf32_Rel *rel;    uint32_t relsz;
     Elf32_Rel *jmprel; uint32_t pltrelsz;
     uint32_t *init_array; uint32_t init_arraysz;
@@ -194,6 +199,7 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
         switch (dy->d_tag) {
         case DT_SYMTAB:       d->symtab = (Elf32_Sym *)dy->d_un.d_ptr; break;
         case DT_STRTAB:       d->strtab = (const char *)dy->d_un.d_ptr; break;
+        case DT_HASH:         d->nchain = ((uint32_t *)dy->d_un.d_ptr)[1]; break;  /* nchain = #symbolen */
         case DT_REL:          d->rel = (Elf32_Rel *)dy->d_un.d_ptr; break;
         case DT_RELSZ:        d->relsz = dy->d_un.d_val; break;
         case DT_JMPREL:       d->jmprel = (Elf32_Rel *)dy->d_un.d_ptr; break;
@@ -206,6 +212,77 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
     }
     if (!d->symtab || !d->strtab)
         fatal("geen DT_SYMTAB/DT_STRTAB");
+}
+
+/* Symbolen die de eigen CRT van de shim al definieert; die overslaan, anders "multiple definition". */
+static int shim_skip(const char *naam)
+{
+    static const char *vast[] = {"_init", "_fini", "_start", "__bss_start", "_edata", "_end",
+                                 "_GLOBAL_OFFSET_TABLE_", "_DYNAMIC", "__data_start", "data_start",
+                                 "__dso_handle", "_IO_stdin_used", "__TMC_END__", "__gmon_start__",
+                                 "__bss_start__", "_bss_end__", "__bss_end__", "__end__", NULL};
+    int i;
+    for (i = 0; vast[i]; i++)
+        if (strcmp(naam, vast[i]) == 0)
+            return 1;
+    if (strncmp(naam, "__init_array_", 13) == 0 || strncmp(naam, "__fini_array_", 13) == 0)
+        return 1;
+    return 0;
+}
+
+/* De muur voor de Allegro-4-games: de gastbibliotheken (liballeg.so.4.0) importeren honderden symbolen
+   UIT het spel-executable (de asm-scanline-routines zitten in de app). dlopen kan een met de hand
+   gemapte ET_EXEC niet in de globale zoekruimte zetten, dus die imports zouden niet oplossen.
+   Oplossing (bewezen door de eigenaar): een shim-bibliotheek met de GEDEFINIEERDE dynamische symbolen
+   van de gast als ABSOLUTE adressen (`.set naam, 0xADDR`), die we RTLD_GLOBAL als EERSTE laden. De
+   gast staat op een vast adres (ET_EXEC, 0x08048000), dus die adressen kloppen; de shim moet per gast
+   opnieuw worden gemaakt. Zie docs/research/eigen-elf-lader.md. */
+static void maak_shim(struct dyninfo *d)
+{
+    const char *tmp = getenv("XDG_RUNTIME_DIR");
+    char dir[256], src[300], so[300], cmd[800];
+    FILE *f;
+    uint32_t i;
+    int cnt = 0;
+    const char *inc = getenv("RG_ELFLOADER_INC");   /* evt. pad met gnu/stubs-32.h; meestal niet nodig */
+
+    if (!d->nchain)
+        fatal("geen DT_HASH: kan het aantal gast-symbolen niet bepalen (shim)");
+    if (!tmp || !*tmp)
+        tmp = "/tmp";
+    snprintf(dir, sizeof dir, "%s/rg-elfloader-%d", tmp, (int)getpid());
+    mkdir(dir, 0700);
+    snprintf(src, sizeof src, "%s/shim.c", dir);
+    snprintf(so, sizeof so, "%s/shim.so", dir);
+
+    f = fopen(src, "w");
+    if (!f)
+        fatal("kan %s niet schrijven", src);
+    for (i = 1; i < d->nchain; i++) {
+        Elf32_Sym *s = &d->symtab[i];
+        int bind = ELF32_ST_BIND(s->st_info);
+        const char *naam = d->strtab + s->st_name;
+        if (s->st_shndx == SHN_UNDEF || !s->st_name || !s->st_value)
+            continue;
+        if (s->st_shndx >= SHN_LORESERVE && s->st_shndx != SHN_ABS)
+            continue;
+        if (bind != STB_GLOBAL && bind != STB_WEAK)
+            continue;
+        if (shim_skip(naam))
+            continue;
+        fprintf(f, "__asm__(\".globl %s\\n.set %s, 0x%x\\n\");\n", naam, naam, s->st_value);
+        cnt++;
+    }
+    fclose(f);
+
+    snprintf(cmd, sizeof cmd, "gcc -m32 -shared -fPIC -Wl,-z,execstack %s%s -o '%s' '%s' 2>&1",
+             inc && *inc ? "-I" : "", inc && *inc ? inc : "", so, src);
+    dbg("shim bouwen (%d gast-symbolen): %s", cnt, cmd);
+    if (system(cmd) != 0)
+        fatal("kon de shim niet bouwen: %s", cmd);
+    if (!dlopen(so, RTLD_NOW | RTLD_GLOBAL))
+        fatal("dlopen(shim) mislukt: %s", dlerror());
+    say("shim geladen: %d gast-symbolen in de globale scope", cnt);
 }
 
 /* De benodigde bibliotheken laden. libc.so.6/libm.so.6 zijn al in dit proces; dlopen geeft dan het
@@ -329,12 +406,12 @@ static void start_spel(struct beeld *b, int argc, char **argv)
         *p++ = 0;
 #define AUX(t, v) do { aux[naux*2]=(t); aux[naux*2+1]=(uint32_t)(v); naux++; } while (0)
         AUX(AT_PHDR, b->phdr_vaddr);
-        AUX(AT_PHENT, b->eh->e_phentsize);
-        AUX(AT_PHNUM, b->eh->e_phnum);
+        AUX(AT_PHENT, b->phent);
+        AUX(AT_PHNUM, b->phnum);
         AUX(AT_PAGESZ, PAGE);
         AUX(AT_BASE, 0);            /* geen interp geladen */
         AUX(AT_FLAGS, 0);
-        AUX(AT_ENTRY, b->eh->e_entry);
+        AUX(AT_ENTRY, b->entry);
         AUX(AT_UID, getuid()); AUX(AT_EUID, geteuid());
         AUX(AT_GID, getgid()); AUX(AT_EGID, getegid());
         AUX(AT_SECURE, 0);
@@ -348,8 +425,8 @@ static void start_spel(struct beeld *b, int argc, char **argv)
     }
 
     say("spring naar e_entry %#x (esp %p, argc %d, envc %d, %d auxv)",
-        b->eh->e_entry, (void *)sp, argc, envc, naux);
-    spring(b->eh->e_entry, sp);
+        b->entry, (void *)sp, argc, envc, naux);
+    spring(b->entry, sp);
 }
 
 int main(int argc, char **argv)
@@ -373,6 +450,7 @@ int main(int argc, char **argv)
 
     map_segments(fd, file, &b);
     lees_dyn(&b, &d);
+    maak_shim(&d);        /* gast-exports in de globale scope (shim); zie maak_shim() */
     laad_needed(&b, &d);
     if (d.rel && d.relsz)
         pas_rel_toe(&d, d.rel, d.relsz / sizeof(Elf32_Rel), "DT_REL");
