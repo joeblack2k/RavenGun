@@ -68,6 +68,17 @@ Elke kaart heeft zijn eigen generator. Eén script maakt geen kaart maar **contr
 | `patches/dropin-aankomst.py` | **controleert** of elk drop-in-bestand met dezelfde sha256 in de view staat; exitcode 1 als er iets mis is |
 | `patches/dongle-controle.py` | **controleert** elke dongle met het gereedschap van zijn soort (`hasp.py`, `matrix.py`, `region.py`) en meldt een rood oordeel; exitcode 1 als er een rood is |
 
+**Let op bij `scripts/migrate-game-settings.py` (lader-repo):** dat script schrijft in **deze** map --
+`ravengun/patches` is een symlink naar `ravengun-patches/patches`. Het haalt zijn invoer uit
+`packaging/io-routes.json` en `packaging/games-notes.json`, en die staan niet in de working tree (ze
+komen via `--rev` uit een andere revisie). Draai je het kaal, dan meldt het wel "33 games verwerkt",
+maar produceert het **minimale** bestanden: op 2026-10-12 meldde `--check` dat **14**
+`game.ini`-bestanden zouden veranderen, en in dat verschil ontbraken bij die bestanden de hele
+`[Input]`, `[Status]`, `[Config]` en `[Identify]`. Dus: nooit kaal draaien, altijd eerst `--check`,
+en liever met `--out` naar een map buiten de repo als je wilt zien wat er gebeurt. Zonder
+`io-routes.json` blijven `[Input]` en `[Launch] Mode` ongemoeid en zonder `games-notes.json` blijft
+`[Status]` ongemoeid -- maar de rest niet.
+
 `tools/verify-all.py` (loader-repo) meldt "drop-ins die NIET aankomen: 0", maar dat kijkt naar het
 **plan** — de paden die de launcher zou schrijven. `patches/dropin-aankomst.py` kijkt naar de
 **bytes** die er staan, en meldt ook een symlink naar de NAS of een bestand met een andere inhoud.
