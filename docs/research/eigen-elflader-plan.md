@@ -542,6 +542,54 @@ bijbehorende eerste PLT-stub (`0x08080f60`). Twee kandidaten om te toetsen:
 Als die koppeling te leggen is, krijgt de lader **namen voor de stubs** -- en dat is de vraag waar
 fase 3 op vastzit. Narekenen: `re/_slot-keten.py`.
 
+#### Er zijn twee PLT-systemen, en de JMPREL hoort bij het tweede
+
+Een tweede meting (`re/_tweede-tabel.py`) laat zien waaróm het repareren van de JMPREL-relocaties de
+stub niet helpt. Galaga Assault, de bytes letterlijk:
+
+```
+DT_PLTGOT=0x830d000   DT_JMPREL=0x807f840   PLTRELSZ=2048 (256 entries)
+
+eerste PLT-stub 0x08080f60:   ff 25 fc d2 30 08    jmp *0x0830d2fc     <- ABSOLUUT GOT-slot
+                              68 ef be ad de                          <- push 0xdeadbeef (index weg)
+                              e9 20 f4 ff ff
+tweede PLT      0x08658b10:   ff a3 0c 00 00 00    jmp *0xc(%ebx)      <- GOT via %ebx
+tweede PLT-stub 0x08658b16:   68 00 00 00 00       push 0x0
+                              e9 e0 ff ff ff
+tweede PLT-stub 0x08658b26:   68 08 00 00 00       push 0x8
+tweede PLT-stub 0x08658b36:   68 10 00 00 00       push 0x10
+tweede PLT-stub 0x08658b56:   68 20 00 00 00       push 0x20
+```
+
+En de **tweede slottabel** (`0x086f83f8+`) bevat een mengeling: waarden als `0x08658b16`,
+`0x08658b26`, `0x08658b36` (dus stubs in de tweede PLT) **en** verouderde absolute adressen als
+`0xb76e2020` en `0xb755b9a0` -- hetzelfde verschijnsel als in de eerste GOT.
+
+**Dus: er zijn twee parallelle PLT/GOT-systemen.**
+
+| | eerste PLT | tweede PLT |
+|---|---|---|
+| adressering | absoluut (`jmp *0x0830d2fc`) | via `%ebx` (`jmp *0xc(%ebx)`) |
+| wat er gepusht wordt | `0xdeadbeef` (index gewist) | `0x0`, `0x8`, `0x10`, `0x20` (een oplopende waarde) |
+| hoort bij | de **aanroepen van de game** | de **`DT_JMPREL`-tabel** |
+
+En dat verklaart de crash precies: onze lader repareert de JMPREL-relocaties, en die horen bij het
+**tweede** systeem. De stubs die de game werkelijk aanroept zitten in het **eerste**, en hun
+GOT-sloten houden de verouderde waarde. De reparatie is dus niet verkeerd, maar ze raakt de verkeerde
+tabel.
+
+**Wat dat betekent.** De lader moet de **eerste** PLT repareren. De naam is per stub niet uit JMPREL
+te halen, want die tabel hoort bij het tweede systeem. De open vraag is nu: hoe hangt een eerste
+PLT-stub aan een symbool? Twee dingen die we al weten en die de zoekrichting bepalen:
+
+* `fopen` zit op **entry #48** van de tweede tabel, terwijl zijn eerste-PLT-stub `0x08080f60` op
+  **index 188** van de eerste GOT staat (`(0x0830d2fc - 0x0830d00c) / 4`). Die twee indexen zijn dus
+  niet gelijk, en de tweede PLT pusht `8 x k` terwijl de tweede tabel met stappen van 4 loopt.
+* De tweede PLT pusht een **oplopende** waarde (`0x0`, `0x8`, `0x10`, `0x20`) die bij de
+  opeenvolgende tabel-entries hoort. Als dat een index in een derde tabel is, ligt daar de koppeling.
+
+Narekenen: `re/_tweede-tabel.py`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
