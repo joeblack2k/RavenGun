@@ -171,3 +171,38 @@ Alle drie gaven ze een **valse "ontbreekt"-melding**, en alle drie zijn ze gerep
 
 **De les is dezelfde als eerder in dit project:** een controle die niets vindt, moet kunnen aantonen dat
 ze iets gezocht heeft. Al deze drie meldden "niets gevonden" terwijl het er wel was.
+
+
+## House of the Dead: Scarlet Dawn (2018, SEGA ALLS, profiel `HOTDSD`) -- **compleet**
+
+De map heet `House of the Dead Scarlet Dawn` en het profiel heet `HOTDSD`; die twee hebben geen enkele
+letter gemeen, dus mijn naamkoppeling vond hem niet. Het profiel zegt `EmulatorType: TeknoParrot`,
+`EmulationProfile: ALLSHOTDSD`, **`ExecutableName: Hodzero-Win64-Shipping.exe`**, `Is64Bit: true`, en het
+heeft `ExecutableName2`/`GamePath2`/`HasTwoExecutables`/`LaunchSecondExecutableFirst` -- er zijn dus twee
+uitvoerbare bestanden. "Hodzero" is de codenaam, `-Win64-Shipping.exe` is de Unreal Engine-naamgeving.
+
+| controle | uitkomst |
+|---|---|
+| uitvoerbaar bestand | `App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe`, 54.128.128 B |
+| origineel ernaast | `Hodzero-Win64-Shipping_org.exe`, 51.470.336 B -- het bestand is dus **gepatcht** |
+| SEGA-daemon | `AMDaemon/amdaemon.exe` (8.272.384 B) + `amdaemon.exe.original` (4.567.040 B) |
+| opstartketen van de kast | `App/Startup/`: `05_SetVideoPort.bat`, `10_SetResolution.bat`, `20_SetAudioVolume.bat`, `99_StartApp.bat`, `AppStartup.bat` |
+| lege bestanden | **0 van de 2.081** |
+| omvang | 13 GB, met de Unreal-pak van **7,8 GB** (`Content/Paks/Hodzero-WindowsNoEditor.pak`) en de CRIWARE-films (`Content/Hodzero_V1/ADX/*.usm`) |
+| UE-structuur | `App/Hodzero/WindowsNoEditor/{Engine,Hodzero,AMDaemon}` |
+
+**Wat dit voor de latere bouw betekent:** dit is een Unreal Engine-game met de **AM Daemon** van SEGA
+ALLS ernaast, en de kast start hem via een reeks `.bat`-bestanden. De projectkant heeft de amdaemon-laag
+al onderzocht; dat is het aanknopingspunt voor game 6, niet de lader.
+
+## Vierde fout in mijn eigen checker: de dieptelimiet
+
+Ik meldde eerst dat `Hodzero-Win64-Shipping.exe` **ontbrak**. Dat kwam doordat ik zocht met
+`find -maxdepth 4`, en het bestand staat op **diepte 6**
+(`App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/`). Mijn eigen grens had het buiten beeld gehouden.
+
+Dat is de **vierde** keer in deze controle dat een "niets gevonden"-uitkomst aan mijn eigen zoekopdracht
+lag en niet aan de game: eerder waren dat de spatie aan het eind van een mapnaam, het onvolledige
+bibliotheekzoekpad en het hoofdlettergevoelige zoeken. **De regel die ik daaruit trek: zoek onbeperkt
+diep naar het uitvoerbare bestand, of meld expliciet op welke diepte je gezocht hebt.** Een dieptelimiet
+is een aanname, en die hoort in de uitkomst te staan.
