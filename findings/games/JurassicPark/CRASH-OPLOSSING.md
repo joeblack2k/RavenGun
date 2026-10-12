@@ -85,7 +85,7 @@ no-op maakt hem niet werkend.
 ## De grens (beslissing eigenaar)
 
 Deze fout verdwijnt pas als de niet-GL-sloten naar werkende functies wijzen. De slot→**naam**-tabel staat niet in
-het bestand (105 met naam, 472 gewist). Belangrijke nuance, read-only nagerekend door de eigenaar (zie de
+het bestand (105 met naam, 472 gewist). Belangrijke nuance, read-only nagerekend in de coördinatie-ronde (zie de
 reconciliatie hieronder en `patches/ELF-LADER-SPEC.md`): de GOT-**waarden** stáán wél in het bestand en zijn echte
 functieadressen — maar met de bibliotheken die wij hebben niet naar namen te herleiden. Dat vraagt data die we niet
 hebben (de originele 2015-bibliotheken of de proceskaart van de originele kast), en dat valt **buiten scope**
@@ -113,7 +113,7 @@ schone bench; bij mislukking stoppen zonder tweede poging.
 - De hele run (~130 s, crash zoals eerder): **0 lege stubs geïnstalleerd en 0 aangeroepen** — de brug logde
   onafgebroken `stubtellers: nog geen enkele lege stub aangeroepen`.
 
-**Gemeten (statisch, uit de patches-repo; aangeleverd door de eigenaar):** JP heeft **577 PLT-stubs, waarvan 105
+**Gemeten (statisch, uit de patches-repo; aangeleverd vanuit de coördinatie-ronde):** JP heeft **577 PLT-stubs, waarvan 105
 met naam en 472 gewist**.
 
 **Afgeleid (bijgesteld — zie de reconciliatie hieronder):**
@@ -145,7 +145,7 @@ Toets: één functie die 8192 in `0x8add63c` schrijft en kijken of het spel voor
 (NB: de NAS-mount is CIFS met `rw`; de afspraak blijft dat wij er niet in schrijven. Alle NAS-metingen read-only.)
 
 ### 2. Waar we het eens en oneens zijn — met de getallen
-De tabel, read-only nagerekend door de eigenaar: 578 rijen (0–577, geen gaten) = resolverstub + 577 importstubs;
+De tabel, read-only nagerekend in de coördinatie-ronde: 578 rijen (0–577, geen gaten) = resolverstub + 577 importstubs;
 daarvan **2 zonder waarde**, **1 naar het spel zelf** (`0x0813a0f6`), en **575 in het `0xb7`-bereik** (dit
 corrigeert de eerdere "576 × `0xb7`" — het verschil is die ene lege importstub). De NAS-groepsindeling:
 93 libGL (`0xb750xxxx`), 25 (`0xb723xxxx`, libc-canarie), 457 overig `0xb7xxxxxx`, 2 leeg, 1 naar het spel.
@@ -177,7 +177,7 @@ Verschil tussen "er is niets" en "we kunnen er nog niet bij".
 - **Fase 2 (deze diagnose, crash `0x819c524b`): ná de brug.** Een niet-GL-slot dat ElfLdr2 niet oploste, danglend
   `0xb7`. Dit is een **volgende fase**, geen tegenspraak met fase 1.
 - Beter onderbouwd: voor fase 1 de NAS-diagnose (nu gemeten bevestigd). Voor de fix-methode weegt de read-only
-  toets van de eigenaar zwaarder dan beide eerdere claims: met onze libs niet herleidbaar.
+  toets uit de coördinatie-ronde zwaarder dan beide eerdere claims: met onze libs niet herleidbaar.
 
 ### 4. Welke ene meting het beslecht
 Geen bench-run beslecht dit — de blokkade is **data, geen analyse**:
@@ -185,7 +185,7 @@ Geen bench-run beslecht dit — de blokkade is **data, geen analyse**:
   `0x8add63c`) is daar een deelgeval van; `rt-glfix` is er een superset van, dus een losse 10-regeltest zou
   **zwakker** bewijs geven (hij zou waarschijnlijk eerder crashen op een ander ongefixt GL-slot). Daarom **niet
   gedraaid** — de bench was vrij, maar het was niet nodig en "forceren niet" gold.
-- **De naamresolutie is al read-only beslecht** door de eigenaar: met onze bibliotheken lukt het niet. Wat het wél
+- **De naamresolutie is al read-only beslecht** in de coördinatie-ronde: met onze bibliotheken lukt het niet. Wat het wél
   zou beslechten is geen meting maar data: de originele 2015-bibliotheken of de proceskaart van de originele kast.
   Tot die er zijn, blijft JP op BudgieLoader.
 
