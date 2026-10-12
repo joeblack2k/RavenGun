@@ -690,3 +690,23 @@ TeknoParrotUi-download. Uitwerking en pins: `third_party/openparrot/README.md`, 
   `launch-direct.py` kiest het pad op één plek (`own_build()`); met de eigen lader valt de bytepatch weg. Zie `docs/per-game-patches.md`.
 - **Dongle, keychip, integriteit.** Niets toegevoegd of gewijzigd. De OpenParrot-bron heeft in enkele spelmodules (CrazySpeed, ES3X/WMMT, Pokken, Nesica, APM3, Konami-lader) zelf dongle-/HASP-hooks;
   die zijn meegebouwd zoals upstream. De Type X2-modules hebben ze niet.
+
+## 2026-10-12 — Eigen kern: generieke route erin, per-game hooks nog NIET
+
+De patches-sessie heeft patch `0003-unknown-game-generic-route.patch` toegevoegd (commit `f3ff5d0` in de loader-repo): de `default:`-tak van de CRC-switch in `GameDetect.cpp`
+geeft geen `MessageBoxA` + `ExitProcess(0)` meer, maar laat `currentGame = GameID::Global` / `X2Type::None`. Een onbekende game valt dus niet meer om; alleen de globale init draait.
+`current/` is daarmee herbouwd (Win32-sha256 `258aa9fc41c42be3a25305105f2f96123dc5b3368e8157dc12a825bbd40e3c5f`); de vier naam-herkende games (GaiaAttack4, HauntedMuseum,
+HauntedMuseumII, MusicGunGun2) geven nog steeds START, en LGI (niet herkend) start ook op de generieke route.
+
+- **Herkennen ≠ speelbaar.** "Start en blijft draaien" is een bewezen *route*, geen bewezen *vervanging*. In de generieke route ontbreekt de invoervertaling (JVS-mapping, per-game hooks)
+  die de gesloten `TeknoParrot(64).dll` per profiel deed. Daarom blijft `Type = OpenParrot` **niet** standaard in de `game.ini` van de 32 nog-niet-herkende games.
+- **Wat "per-game hooks" echt is.** De profielen van die 32 games (`WartranTroopers`, `SegaJvsLetsGoIsland`, `LuigisMansion`, `TransformersShadowsRising`, `LGS`, `FarCry`, …) zitten in de
+  **gesloten** TeknoParrot-kern, niet in de openbare OpenParrot-bron. Ze overnemen is dus niet "een `case` toevoegen" maar TeknoParrots per-game invoer-/JVS-vertaling opnieuw bouwen — per game
+  reverse-engineeren en op de tv met lightgun verifiëren. De CRC-tabel + profielnaam per game staat in `patches/EIGEN-KERN.md` (patches-repo); de kern accepteert een nieuwe `case` nu zonder iets te breken.
+- **Risico dat we vermijden.** Alle 32 spelen vandaag al op de gesloten kern. Ze blind naar onze generieke route schuiven zou een werkende game inruilen voor een die alleen start.
+- **Volgorde (goedkoopst eerst), te starten zodra de eigenaar prioriteit geeft én de tv/lightgun vrij is:**
+  1. De vier al-herkende games (GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2) op de tv nalopen: spelen ze volledig op onze kern? Zo ja, `Type = OpenParrot` voor díe vier — de goedkoopste echte winst, geen RE nodig.
+  2. Daarna het eenvoudigste gesloten profiel als eerste bewijs van hook-overname (keuze maakt de eigenaar).
+  3. Pas verder opschalen als stap 1-2 op de tv kloppen.
+- **Niet nu gedaan (met opzet, eigenaar sliep, geen tv):** geen `GameDetect.cpp`-cases geschreven, geen `Type` omgezet. De generieke route is er; de echte vervanging wacht op verificatie + prioriteit.
+  Plan: `docs/research/eigen-kern-hooks-plan.md`.
