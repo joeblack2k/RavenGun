@@ -277,6 +277,28 @@ voor de eigenaar van dat bestand.
 (`rg_oss_stub.c`, `gen.sh`, `librg-oss-stub.so`, header-vrij gebouwd omdat `gnu/stubs-32.h` ontbreekt).
 Er is daarnaast een `tools/rg-osstub/` dat hier **niet compileert**; gebruik die niet.
 
+#### "Fase 2 compleet" is half: de launcher kan het, het profiel nog niet (2026-10-12)
+
+Claude heeft de drie fase-2-oplossingen in `scripts/play-native.sh` gezet (commit `2c9083b`):
+`--bind-rw`, `--share-ipc` en `LD_PRELOAD` via het profielveld `preload`. **Maar het profiel kan ze
+niet aanvragen.** De lezer in dat script kent maar negen sleutels:
+
+```
+cwd   exe   home   launcher   note   preload   res   status   title
+```
+
+`--share-ipc` en `--bind-rw` zijn dus **alleen commandoregels**, en het GoGoStrike-profiel staat nog op
+`enabled: false`, `status: geparkeerd`, `preload: ""` -- met een **achterhaalde note** ("geen bruikbare
+grafische modus"), terwijl de meting uitwees dat de eerste oorzaak het **geluid** is.
+
+Wie GoGoStrike nu via de profielroute start, moet dus drie dingen met de hand meegeven. Dat is precies
+wat een profiel hoort te voorkomen, en het betekent dat de drie bewezen oplossingen wel in het
+**script** zitten maar nog niet in de **game**.
+
+**Wat er nog moet:** twee profielvelden -- `share_ipc: true` en `binds_rw: [[bron, doel], ...]` -- die
+`play-native.sh` uitleest, plus de note en de status van GoGoStrike rechtzetten. Dat is werk in de
+lader-repo; Claude heeft de melding.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
