@@ -91,3 +91,47 @@ COM1 (`sendFlash COM1 LMAIO.bin`), en uit de bevindingen blijkt die flash **niet
 TeknoParrot speelt de game met alleen het gedeelde geheugen. De open vraag uit `teknoparrot-io.md` ("wat
 doet de game op COM1 als er geen bord is") is dus de vraag die onze lader moet beantwoorden: het spel
 moet niet stuklopen op een afwezige poort.
+
+
+## De tweede laag: de anti-tamper-controle (en de grens die de eigenaar stelt)
+
+De pakker is niet het hele probleem. In de patchkaart (`game.ini`), in
+`docs/research/games-werkvolgorde.md` (regel 29) en in `third_party/openparrot/README.md` (regel 55) staat
+de uitkomst van een eerdere poging:
+
+* Op de **gesloten kern** werkt het spel: entry-point-route met `TP_REMOTETHREAD=off`, symlink-view,
+  werkmap `exe\x64`, `Data -> DataGlobal/EN/Data`, `Movie/` als symlink naar de NAS, en de
+  GStreamer-plug-ins `asf` + `libav` voor de `.wmv`-films. Titel en attract met beeld.
+* Op **onze eigen (OpenParrot-afgeleide) kern** valt het om met **lader-exitcode 32**, en de conclusie
+  van toen was: **"exit 32 = Capcom anti-tamper (0005 lost dat niet op)"**. OpenParrot-patch **0005** was
+  speciaal voor dit spel geschreven (om COM1 als *aanwezig* te laten melden in plaats van als
+  ontbrekend) en loste het niet op.
+* Het opgeschreven eindoordeel: *"Geparkeerd met die reden; een eigen per-game hook is hier nodig, geen
+  generieke infrastructuur."*
+
+**Dus: laag 1 is de pakker, laag 2 is de bescherming.** De ontpakte code is nodig om te kunnen zien wat
+er gebeurt, maar de vraag "waarom stopt hij op onze kern en niet op de hunne" is een vraag over de
+**bescherming**, niet over het ontpakken.
+
+### De grens
+
+De eigenaar heeft voor dit hele project gezegd: **geen dongle-, HASP-, keychip-, integriteits- of
+checksumwerk.** Een anti-tamper-controle is precies dat soort code. Daarom, en dat is met de bouwer
+afgesproken:
+
+* **Wel:** analyseren en documenteren waar die controle zit en wat hij lijkt te lezen. Dat is begrip, en
+  het vertelt ons juist **wat we niet mogen verstoren**.
+* **Wel:** kijken wat *onze* aanpak verandert dat het spel merkt. Dat is het tegenovergestelde van
+  omzeilen: het spel ongemoeid laten is het doel. De gesloten kern doet het met `TP_REMOTETHREAD=off` en
+  de entry-point-route; onze patch 0005 veranderde COM1. Het verschil tussen die twee is de vraag.
+* **Niet:** omzeilen, patchen, faken, overslaan of "de controle laten slagen".
+* **En als de enige werkende weg blijkt te zijn om de controle te verslaan: stoppen en melden.** Dat is
+  de grens van de eigenaar, geen technisch obstakel om omheen te werken.
+
+### En de omgeving is groen
+
+Een pre-flight op 2026-10-12 laat zien dat een mislukte start **niet** aan de omgeving zal liggen: de
+view is compleet (`Data -> DataGlobal/EN/Data` aanwezig, alle spelbestanden gelinkt, `VACUUM.exe`
+3.436.544 B) en de GStreamer-plug-ins staan op hun plek (`tools/gst-extra/plugins/`: exact twee
+bestanden, `libgstasf.so` en `libgstlibav.so`, gehaald met `scripts/fetch-gst-wmv.sh`). Een verschil in
+gedrag tussen de twee kernen is dus een verschil **in de kern**.
