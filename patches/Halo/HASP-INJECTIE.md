@@ -107,11 +107,16 @@ LD_LIBRARY_PATH=~/.local/share/ravengun/runtime/lib-fmodstub \
 
 ---
 
-## 3. Wat er nog niet in past, met de meting
+## 3. Wat er niet in paste, en wat er nu voor in de plaats is
 
-Onze hook vindt zijn doelen **uitsluitend op naam** in de dynsym van het spel
-(`hh_verzamel()` en `hh_haak_alles()` in `tools/rt-hasphook/hasp_inline_hook.c`; de vergelijking is
-`strcmp(naam, hh_doelen[d].naam)`). Voor Halo is dat leeg:
+> **Bijgewerkt.** Dit hoofdstuk beschreef eerst een gat: de hook vond in Halo niets, dus hij hoorde
+> niet in `preload`. Dat gat is nu gedicht met een **generieke adres-route**; zie
+> `NATIVE-RECIPE-PATCH.md` §1(a) en §4 voor het bewijs en de nieuwe receptregels. De meting hieronder
+> blijft staan omdat ze de reden is dat de adres-route bestaat.
+
+Onze hook vond zijn doelen **uitsluitend op naam** in de dynsym van het spel
+(`hh_verzamel()` en `hh_haak_alles()` in `tools/rt-hasphook/hasp_inline_hook.c`; de vergelijking was
+`strcmp(naam, hh_doelen[d].naam)`). Voor Halo is die lijst leeg:
 
 ```
 $ RAVENGUN_HASP_ELF_GAME='.../Halo Fireteam/g7/halo/game' RAVENGUN_HASP_ELF_UIT=1 \
@@ -127,64 +132,69 @@ Dat is geen verrassing maar de bevestiging van de statische meting: `game` heeft
 symbolen, waarvan 182 ongedefinieerd en **allemaal** libc/pthread/socket/dl; er is geen enkel
 `hasp_*`, en de byte-sequentie `hasp_login` komt **nul keer** in het hele bestand voor. **[gemeten]**
 
-De kop van `hasp_inline_hook.c` zegt "`nm -D game` → wél `T hasp_login`". Dat geldt voor de
-**32-bits** zusjes (Terminator, Jurassic Park, Galaga); voor Halo is het niet zo. De conclusie in
-`docs/hasp-layer.md` §0 dat de aanroepen statisch zijn klopt, maar de route "naam uit de dynsym"
-werkt alleen waar die namen er nog zijn.
+De kop van `hasp_inline_hook.c` zegt "`nm -D game` → wél `T hasp_login`". Voor Halo klopt dat niet, en
+voor Jurassic Park's `game` ook niet (gemeten: ook nul hasp-namen in de dynsym). De conclusie in
+`docs/hasp-layer.md` §0 dat de aanroepen statisch zijn klopt; de route "naam uit de dynsym" werkt
+alleen waar die namen er nog zijn, en dat is bij deze familie nergens.
 
-**Gevolg:** onze hook is met de hand nog geen vervanging voor `halo.so` bij Halo, en hij is daarom
-**niet** in `preload` gezet.
+**Wat er nu is.** Een tweede weg naast de naam-route: de hook leest een **adreslijst per game** uit de
+patches-repo (`patches/Halo/hasp-haken.ini`), keurt elk adres (uitvoerbaar `PT_LOAD`, binnen
+`p_filesz`, herkenbare prologue, plus `grootte`/`ingang` als versiecontrole) en haakt dan aan.
+Gemeten op een echt gemapt beeld: **7 van 7 aangehaakt in dezelfde run waarin de naam-route nul vond.**
+De naam-route blijft de standaard en blijft werken (zelftest: 10 van 11, emulator antwoordt met greep
+`0xE6F`). Zie `NATIVE-RECIPE-PATCH.md` §1(a), §4 en §6.
 
-### Wat de verwisseling wel mogelijk maakt: de zeven adressen
+### De zeven adressen, met hun naam
 
-`halo.so` lost hetzelfde probleem op met vaste adressen. Zijn `initialize()` op `0x569f` roept
-**zeven keer** `flh_inline_hook` aan, met deze argumenten (uit de disassembly, `objdump -d
---disassemble=initialize`): **[gemeten]**
+`halo.so` loste hetzelfde probleem op met vaste adressen. Zijn `initialize()` op `0x569f` roept
+**zeven keer** `flh_inline_hook` aan en schrijft de retourwaarde meteen in de bijbehorende
+`real_hasp_*`-gleuf; de disassembly geeft dus de **naam** bij elk adres: **[gemeten]**
 
-| # | adres in `game` | eerste bytes (prologue) |
-|---|---|---|
-| 1 | `0x00B2D630` | `55 41 57 41 56 41 55 41 54 53 48 81 ec 28 02 00` |
-| 2 | `0x00B2DD48` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 28 89 fb` |
-| 3 | `0x00B2E1AA` | `55 41 57 41 56 41 54 53 48 83 ec 10 41 89 d6 49` |
-| 4 | `0x00B2E391` | `53 48 89 fb e8 72 9c 00 00 e8 a1 a4 00 00 48 89` |
-| 5 | `0x00B2F5AC` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 78 48 89` |
-| 6 | `0x00B2FD63` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 18 4d 89` |
-| 7 | `0x00B2FE60` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 38 89 4c` |
+| # | adres in `game` | naam (uit de `real_hasp_*`-gleuf) | eerste bytes (prologue) |
+|---|---|---|---|
+| 1 | `0x00B2D630` | `hasp_login` | `55 41 57 41 56 41 55 41 54 53 48 81 ec 28 02 00` |
+| 2 | `0x00B2DD48` | `hasp_logout` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 28 89 fb` |
+| 3 | `0x00B2E1AA` | `hasp_encrypt` | `55 41 57 41 56 41 54 53 48 83 ec 10 41 89 d6 49` |
+| 4 | `0x00B2E391` | `hasp_free` | `53 48 89 fb e8 72 9c 00 00 e8 a1 a4 00 00 48 89` |
+| 5 | `0x00B2F5AC` | `hasp_get_sessioninfo` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 78 48 89` |
+| 6 | `0x00B2FD63` | `hasp_read` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 18 4d 89` |
+| 7 | `0x00B2FE60` | `hasp_write` | `55 41 57 41 56 41 55 41 54 53 48 83 ec 38 89 4c` |
 
 Alle zeven beginnen met een normale x86-64-functieprologue en liggen in segment 1
 (`0x400000..0x1462000`), dus binnen het bereik van het spelbeeld. Dit zijn de statisch gelinkte
 Sentinel-LDK-ingangspunten van Halo. **[gemeten]**
 
-**De kleinste wijziging die de verwisseling mogelijk maakt** (in `tools/rt-hasphook/hasp_inline_hook.c`,
-niet in dit recept): geef `hh_haak_alles()` een terugval wanneer de dynsym geen naam oplevert —
-bijvoorbeeld een `RAVENGUN_HASP_ELF_ADDRS="hasp_login=0xb2d630,hasp_read=0xb2dd48,…"` die dezelfde
-`hh_doelen[d].naam` → adres koppelt. De patch- en trampolinecode (`HH_PATCH_LEN`, `mprotect`, de
-64-bits `mov rax,<abs>; jmp rax`) is er al en werkt met elk adres; alleen de *vindstap* is nu
-naamgebonden. De zeven adressen hierboven zijn de invoer. **[afgeleid: de code is gelezen, de
-wijziging is niet gemaakt]**
+`hasp_login_scope`, `hasp_decrypt`, `hasp_get_size` en `hasp_get_info` staan niet in de lijst:
+`halo.so` haakt die vier niet aan, dus er is geen gemeten adres. De hook meldt ze na het aanhaken
+apart (`niet aangehaakt: …`), zodat dat gat zichtbaar blijft.
 
-Ik heb die wijziging **niet** gemaakt: het is code van de laderbouwer in een bestand dat op de
-bench geverifieerd moet worden, en de opdracht was het recept en de meting, niet een verbouwing.
+**De wijziging is gemaakt** (in `tools/rt-hasphook/hasp_inline_hook.c`, met de gegevens in
+`patches/Halo/hasp-haken.ini` — niet in de lader-repo): de hook leest een adreslijst, keurt elk adres
+(uitvoerbaar `PT_LOAD`, binnen `p_filesz`, herkenbare prologue, plus `grootte`/`ingang` als
+versiecontrole) en haakt dan aan. De naam-route blijft de standaard. Bench-vrij bewijs: 7 van 7
+aangehaakt op een echt gemapt beeld waar de naam-route nul vond, en drie gemeten weigeringen bij een
+fout adres of een verkeerde build. Zie `NATIVE-RECIPE-PATCH.md` §1(a) en §4. **[gemeten]**
+
+Ook gerepareerd: de naam-route rekende `hh_base + st_value` en telde daarmee bij een ET_EXEC het
+laagste segmentadres dubbel (Halo `hh_laag = 0x400000`, Jurassic Park `0x08048000`). Het is nu
+`hh_base - hh_laag + st_value`, en dat is gemeten op een PIE- én een `-no-pie`-zelftest.
 
 ---
 
 ## 4. De verwisseling, wanneer je hem doet
 
-Twee regels in het `Halo`-profiel, en niets aan `halo.so` zelf:
+Eén regel in het `Halo`-profiel, en niets aan `halo.so` zelf:
 
 ```diff
 -      "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
 +      "preload": "/rg/lib/librg_rt_input.so:/rg/lib/libravengun-hasphook-x64.so",
 ```
-```diff
--        "RAVENGUN_HASP_ELF_UIT": "1"
-```
-(de tweede regel weg; hij staat er nu als vangrail.)
 
-**Voorwaarde:** onze hook moet Halo's zeven ingangspunten kunnen vinden (§3). Zolang dat niet zo is,
-is de eerste regel een regressie: `halo.so` is dan weg en niets patcht de HASP-aanroepen.
+Daar hoort de rest van het voorstel bij (de `@data/hasp`-bron, de hook in `libs`, het `env`-blok met
+`RAVENGUN_HASP_ELF_ADRESLIJST`, en de adreslijst in `extra_ro`); zie `NATIVE-RECIPE-PATCH.md` §2.
 
-**Terugrolen** is dezelfde twee regels omdraaien; `halo.so` is nooit gewijzigd of verwijderd.
+**Terugrolen** is die ene regel terugzetten; `halo.so` is nooit gewijzigd of verwijderd en zit nog
+steeds in de overlay op `/pm/g7/halo/halo.so`.
 
 **Wat er misgaat als je de volgorde of de kanalen verkeerd zet** — concreet:
 

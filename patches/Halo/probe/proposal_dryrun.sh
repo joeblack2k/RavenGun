@@ -26,10 +26,14 @@ h["env"] = collections.OrderedDict([
     ("RAVENGUN_HASP_GAME", "Halo Fireteam"),
     ("RAVENGUN_HASP_ELF_LIB", "/rg/hasp/ravengun-hasp-x64.so"),
     ("RAVENGUN_HASP_ELF_GAME", "/pm/g7/halo/game"),
+    ("RAVENGUN_HASP_ELF_ADRESLIJST",
+     "/home/deck/projects/ravengun-patches/patches/Halo/hasp-haken.ini"),
     ("RAVENGUN_HASP_ELF_LOG", "/pm/g7/halo/hasphook.log"),
-    ("RAVENGUN_HASP_ELF_UIT", "1"),
+    ("RAVENGUN_HASP_VERBOSE", "1"),
 ])
-# preload is NOT touched
+h["extra_ro"].append("/home/deck/projects/ravengun-patches/patches/Halo/hasp-haken.ini")
+# DE VERWISSELING: de hook in preload in plaats van halo.so
+h["preload"] = "/rg/lib/librg_rt_input.so:/rg/lib/libravengun-hasphook-x64.so"
 json.dump(d, open(dst, "w"), indent=2, ensure_ascii=False)
 open(dst, "a").write("\n")
 print("  geschreven:", dst)

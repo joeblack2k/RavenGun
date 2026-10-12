@@ -1,11 +1,17 @@
 # Halo: Fireteam Raven — voorstel voor `packaging/native-games.json`
 
-*RavenGun, ronde "loader-specialist Halo", 2026-10-12. Dit is een **voorstel**, geen wijziging:
-het bestand `packaging/native-games.json` staat weer op zijn gecommitte basis (`ccd52fe`) en mijn
-eigen schrijfactie is teruggedraaid (`git checkout -- packaging/native-games.json`, werkboom schoon).
-Eén schrijver per moment — deze regel is voor de coördinator.*
+*RavenGun, ronde "loader-specialist Halo", 2026-10-12 (tweede versie). Dit is een **voorstel**, geen
+wijziging: `packaging/native-games.json` staat op zijn gecommitte basis (`ccd52fe`) en mijn eerdere
+schrijfactie is teruggedraaid (`probe/revert_recipe.sh`, werkboom schoon). Eén schrijver per moment.*
 
 Bench-vrij gemeten: er is geen spel gestart, de NAS is alleen gelezen, `halo.so` is niet aangeraakt.
+
+**Wat er sinds de eerste versie van dit document is veranderd.** De eerste versie zette onze hook
+alleen in `libs`, met de meting dat hij in Halo **nul** hasp-namen in de dynsym vindt en dus nooit
+iets kan aanhaken. Dat gat is nu gedicht: de hook heeft een **generieke adres-route** gekregen
+(mechanisme in de lader, de adreslijst per game in `patches/Halo/hasp-haken.ini`) en die is
+bench-vrij bewezen — **7 van 7 aangehaakt op een echt gemapt beeld waar de naam-route nul vond**.
+Daarom is dit voorstel nu wél de verwisseling: de hook in `preload` in plaats van `halo.so`.
 
 ---
 
@@ -13,54 +19,67 @@ Bench-vrij gemeten: er is geen spel gestart, de NAS is alleen gelezen, `halo.so`
 
 ### (a) Kan onze hasphook in het native recept werken, gegeven de ElfLdr2-route?
 
-**Het kanaal past, de vondst niet — en dat zijn twee verschillende dingen.**
+**Het kanaal en de vondst zijn twee verschillende dingen, en ze zijn nu allebei in orde.**
 
 * **Het kanaal past.** In de ElfLdr2-route is er geen bruikbaar kanaal: `LD_PRELOAD` laat
   `BudgieLoader` (Cygwin) sterven met `error while loading shared libraries`, en `LD_AUDIT` laat de
-  lader sterven op het moment dat de hook het spelbeeld meldt. Dat is gemeten en staat in
-  `patches/Halo/README.md` §3 (zeven proeven P0–P7). De native route heeft dat probleem niet: daar
-  is er **één gewoon ELF-proces** (`/pm/g7/halo/game`), en `LD_PRELOAD` komt in dat proces. Onze
-  hook is dus in de native route op de juiste plek; dat is precies waarom dit voorstel alleen over
-  `scripts/play-native.sh` gaat.
-* **De vondst past niet.** Onze hook vindt zijn doelen **uitsluitend op naam in de dynsym** van het
-  spel (`hh_verzamel()` + `hh_haak_alles()`, `tools/rt-hasphook/hasp_inline_hook.c`). Voor Halo is
-  die lijst leeg. Gemeten, met de hook in meet-stand en het echte spelbeeld:
+  lader sterven zodra de hook het spelbeeld meldt (zeven proeven P0–P7 in `patches/Halo/README.md`
+  §3). De native route heeft dat probleem niet: daar is er **één gewoon ELF-proces**
+  (`/pm/g7/halo/game`), en `LD_PRELOAD` komt in dat proces. Dit voorstel gaat daarom alleen over
+  `scripts/play-native.sh`.
+* **De vondst paste niet, en past nu wel.** Onze hook zocht zijn doelen **uitsluitend op naam in de
+  dynsym**. Gemeten: Halo's `game` heeft 220 dynsym-symbolen, 182 ongedefinieerd en **allemaal**
+  libc/pthread/socket/dl, en **nul** met `hasp_`; de byte-sequentie `hasp_login` komt **nul keer**
+  in het hele bestand voor. Hetzelfde geldt voor Jurassic Park's `game` (ook nul hasp-namen), dus
+  dit is een familie-eigenschap en geen Halo-eigenaardigheid.
+* **Wat er nu is.** Een tweede weg, naast de naam-route:
+  * **Het mechanisme is generiek** en staat in de lader (`tools/rt-hasphook/hasp_inline_hook.c`):
+    de hook leest een adreslijst, keurt elk adres, en haakt aan. Geen enkele game-naam of game-adres
+    staat in de C-code.
+  * **De gegevens staan per game in de patches-repo**: `patches/Halo/hasp-haken.ini`. Dat bestand
+    is de schakelaar: zonder het bestand (en zonder `RAVENGUN_HASP_ELF_ADRESLIJST`) verandert er
+    niets en blijft de naam-route de enige weg — dat is de standaard.
+  * **De adressen zijn gemeten, niet gegokt.** `halo.so`'s `initialize()` op `0x569f` roept zeven
+    keer `flh_inline_hook` aan en schrijft de retourwaarde meteen in de bijbehorende
+    `real_hasp_*`-gleuf; de disassembly geeft dus de naam bij elk adres:
 
-  ```
-  $ RAVENGUN_HASP_ELF_GAME='…/Halo Fireteam/g7/halo/game' RAVENGUN_HASP_ELF_UIT=1 \
-      RAVENGUN_HASP_ELF_LOG=/tmp/hh.log \
-      LD_PRELOAD=librg_rt_input.so:libravengun-hasphook-x64.so /bin/ls
-  [ravengun-hasphook] spel-ELF gelezen uit …/game (RAVENGUN_HASP_ELF_GAME): 33554432 bytes, 9 program headers
-  [ravengun-hasphook] aantal symbolen uit DT_HASH: 220
-  [ravengun-hasphook] dynsym: 220 symbolen
-  [ravengun-hasphook] 0 hasp-symbolen in de dynsym van de game (gedefinieerd in de game zelf)
-  [ravengun-hasphook] RAVENGUN_HASP_ELF_UIT gezet: alleen gemeten, niets aangehaakt
-  ```
+    | adres in `game` | naam (uit de `real_hasp_*`-gleuf) |
+    |---|---|
+    | `0xB2D630` | `hasp_login` |
+    | `0xB2DD48` | `hasp_logout` |
+    | `0xB2FD63` | `hasp_read` |
+    | `0xB2FE60` | `hasp_write` |
+    | `0xB2E1AA` | `hasp_encrypt` |
+    | `0xB2E391` | `hasp_free` |
+    | `0xB2F5AC` | `hasp_get_sessioninfo` |
 
-  Dat klopt met de statische meting: 220 dynsym-symbolen, 182 ongedefinieerd en **allemaal**
-  libc/pthread/socket/dl; `hasp_login` komt **nul keer** als byte-sequentie in `game` voor.
-  De kop van `hasp_inline_hook.c` ("`nm -D game` → wél `T hasp_login`") geldt voor de **32-bits**
-  zusjes, niet voor Halo.
-
-  **Gevolg: de hook hoort vandaag NIET in `preload`.** Hij zou laden, niets vinden en niets doen —
-  en als hij in de plaats van `halo.so` kwam, zou de dongle onbeantwoord blijven. Daarom staat hij
-  in het voorstel alleen in `libs` (gebonden, niet geladen): dat is de voorwaarde voor de
-  verwisseling, niet de verwisseling.
-
-  **De verwisseling is één regel** zodra de vondst er is. De invoer daarvoor is al gemeten:
-  `halo.so`'s `initialize()` op `0x569f` patcht **zeven** functies in `game` — `0xB2D630`,
-  `0xB2DD48`, `0xB2E1AA`, `0xB2E391`, `0xB2F5AC`, `0xB2FD63`, `0xB2FE60`, alle zeven met een normale
-  x86-64-prologue en alle zeven in segment 1. Dat is de adreslijst die `hh_haak_alles()` nodig heeft
-  (een terugval naast de naamopzoeking). Zie `HASP-INJECTIE.md` §3.
+    `hasp_login_scope`, `hasp_decrypt`, `hasp_get_size` en `hasp_get_info` staan er **niet** in:
+    `halo.so` haakt die vier niet aan, dus er is geen gemeten adres. De hook meldt ze na het
+    aanhaken apart (`niet aangehaakt: hasp_get_info (niet in de dynsym en niet in de adreslijst)`),
+    zodat dat gat zichtbaar blijft in plaats van stil.
+  * **Er wordt nooit blind gepatcht.** Elk adres moet in een uitvoerbaar `PT_LOAD`-segment vallen,
+    binnen `p_filesz`, en de bytes moeten een herkenbare functieprologue zijn. Daarnaast zijn er
+    twee versiecontroles (`grootte`, `ingang`): kloppen die niet, dan keurt de hook de **hele**
+    lijst af en patcht hij niets. Zie §4 voor de drie gemeten weigeringen.
+* **De naam-route blijft de standaard en blijft werken.** Gemeten met de bestaande zelftest, met de
+  hook en de Halo-dongle erbij: 10 van 11 aangehaakt, `hasp_login -> 0, greep = 0xe6f`,
+  `hasp_read(65524, 0, 16) -> 0, eerste bytes: 2c 03 ab 63`, `echte_aanroepen = 0` — dus alle
+  aanroepen zijn door de **emulator** beantwoord en de statisch gelinkte cliënt is niet aangeroepen.
+* **Eén latente fout in de naam-route is meteen gerepareerd.** Die rekende `hh_base + st_value`,
+  waarbij `hh_base` het adres van het laagste segment is. Voor een PIE klopt dat (`hh_laag` is 0),
+  maar voor een **ET_EXEC** telt het het segmentadres dubbel: Halo's `game` heeft `hh_laag =
+  0x400000` en Jurassic Park's `game` `0x08048000`. De juiste uitdrukking is `hh_base - hh_laag +
+  st_value` (het laadadres plus de symboolwaarde). Dat is nu zo, en het is gemeten op beide
+  soorten gastheer: een PIE-zelftest haakt op `0x5662e1dd`, een **`-no-pie`**-zelftest op
+  `0x080491c6` — absoluut en binnen zijn eigen segment, wat met de oude rekenwijze onmogelijk was.
 
 ### (b) De emulator wordt met `dlopen(RTLD_LOCAL)` geladen, niet met `LD_PRELOAD`
 
-Dit is geen smaak maar een gemeten eigenschap, en het is het detail dat een latere lezer het
-makkelijkst sloopt:
+Geen smaak maar een gemeten eigenschap, en het detail dat een latere lezer het makkelijkst sloopt:
 
-* `ravengun-hasp-x64.so` exporteert **25** `hasp_*`-namen. Onze hook laadt hem met
-  `dlopen(pad, RTLD_NOW | RTLD_LOCAL)` (`hh_open_geisoleerd()`), lost de **elf** namen die hij nodig
-  heeft via **die handle** op (`dlsym(hh_emulator, …)`), en laat de exporten verder met rust.
+* `ravengun-hasp-x64.so` exporteert **25** `hasp_*`-namen. De hook laadt hem met
+  `dlopen(pad, RTLD_NOW | RTLD_LOCAL)` (`hh_open_geisoleerd()`) en lost de **elf** namen die hij
+  nodig heeft via **die handle** op (`dlsym(hh_emulator, …)`).
 * Gemeten met `probe/hook-emulator-coupling.c`, dat precies `hh_laad_emulator()` +
   `hh_koppel_emulator()` nadoet:
   * via `dlopen(RTLD_LOCAL)`: `[ok ] hasp_login staat niet in de globale naamruimte` ✔
@@ -69,16 +88,16 @@ makkelijkst sloopt:
   in één proces **twee leveranciers** van `hasp_login`, en wie wint hangt van de laadorde af.
 
 Daarom is de emulator in dit voorstel een **bestand in de sandbox dat de hook opzoekt**
-(`RAVENGUN_HASP_ELF_LIB=/rg/hasp/ravengun-hasp-x64.so`), en **geen** regel in `preload`.
+(`RAVENGUN_HASP_ELF_LIB=/rg/hasp/ravengun-hasp-x64.so`) en **geen** regel in `preload`.
 
 ---
 
 ## 2. De diff, per blok
 
 Uitgangspunt: het **gecommitte** bestand, commit `ccd52fe`. De Halo-tak staat op regel 8 en heeft nu
-`libdirs` (1 bron), `preload`, `exe`, `cwd`, `home`, `args`, `route`, `libs` (1 regel), `extra_ro`.
-Er is geen `env`-blok. Er hoeft niets weg; dit is **alleen toevoegen**, op twee plekken en één nieuw
-blok.
+`libdirs` (1 bron), `preload`, `exe`, `cwd`, `home`, `args`, `route`, `libs` (1 regel) en
+`extra_ro`; er is geen `env`-blok. Vijf blokken, waarvan er één een bestaande regel **wijzigt** en
+vier toevoegen.
 
 ### Blok 1 — `libdirs`: één bron toevoegen, achter de bestaande
 
@@ -97,9 +116,17 @@ blok.
        ],
 ```
 
-Plek: **direct ná** het `@data/runtime/lib-fmodstub`-object, binnen dezelfde `libdirs`-lijst.
+### Blok 2 — `preload`: **dit is de verwisseling**
 
-### Blok 2 — `libs`: één regel toevoegen, achter de bestaande
+```diff
+-      "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
++      "preload": "/rg/lib/librg_rt_input.so:/rg/lib/libravengun-hasphook-x64.so",
+```
+
+`halo.so` blijft als bestand staan (het zit in de overlay op `/pm/g7/halo/halo.so`); terugrollen is
+deze ene regel terugzetten. Zie §6 voor waarom nooit beide tegelijk in `preload` mogen.
+
+### Blok 3 — `libs`: één regel toevoegen, achter de bestaande
 
 ```diff
        "libs": [
@@ -109,48 +136,37 @@ Plek: **direct ná** het `@data/runtime/lib-fmodstub`-object, binnen dezelfde `l
        ],
 ```
 
-Plek: **direct ná** `"@build/librg_rt_input.so"`, met een komma erachter.
-
-### Blok 3 — `env`: een nieuw blok, tussen `libs` en `extra_ro`
+### Blok 4 — `env`: een nieuw blok, tussen `libs` en `extra_ro`
 
 ```diff
-       "route": "tp-shm",
-       "libs": [
-         "@build/librg_rt_input.so",
-         "/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook-x64.so"
-       ],
 +      "env": {
 +        "RAVENGUN_HASP_DIR": "/rg/hasp",
 +        "RAVENGUN_HASP_GAME": "Halo Fireteam",
 +        "RAVENGUN_HASP_ELF_LIB": "/rg/hasp/ravengun-hasp-x64.so",
 +        "RAVENGUN_HASP_ELF_GAME": "/pm/g7/halo/game",
++        "RAVENGUN_HASP_ELF_ADRESLIJST": "/home/deck/projects/ravengun-patches/patches/Halo/hasp-haken.ini",
 +        "RAVENGUN_HASP_ELF_LOG": "/pm/g7/halo/hasphook.log",
-+        "RAVENGUN_HASP_ELF_UIT": "1"
++        "RAVENGUN_HASP_VERBOSE": "1"
 +      },
+```
+
+`play-native.sh` leest `env` als `GENV` en past die toe **ná** `LD_PRELOAD`; dit blok overschrijft
+`LD_PRELOAD` dus niet. **[gemeten in de droogloop, §4]** `RAVENGUN_HASP_VERBOSE` mag na de eerste
+geslaagde run weg (het is één regel per aangeroepen functie).
+
+### Blok 5 — `extra_ro`: de adreslijst de sandbox in
+
+```diff
        "extra_ro": [
-         "/dev/shm/TeknoParrot_JvsState"
+-        "/dev/shm/TeknoParrot_JvsState"
++        "/dev/shm/TeknoParrot_JvsState",
++        "/home/deck/projects/ravengun-patches/patches/Halo/hasp-haken.ini"
        ]
 ```
 
-Plek: **tussen** `libs` en `extra_ro`. `play-native.sh` leest `env` als `GENV` en past die toe
-**ná** `LD_PRELOAD` (regel 331 van de huidige `scripts/play-native.sh`); dit blok overschrijft
-`LD_PRELOAD` dus niet — het zet er alleen variabelen bij. **[gemeten in de droogloop, §4]**
-
-### Blok 4 — `preload`: **NIET wijzigen**
-
-```diff
-       "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
-```
-
-Blijft exact zo. Reden: §1(a) — onze hook vindt in Halo nul hasp-symbolen, dus in `preload` zetten
-zou een configuratie zijn die liegt. Zodra de adreslijst er is, is dit de verwisseling:
-
-```diff
--      "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
-+      "preload": "/rg/lib/librg_rt_input.so:/rg/lib/libravengun-hasphook-x64.so",
-```
-en vervalt `RAVENGUN_HASP_ELF_UIT` uit blok 3. Dat is één regel plus één regel, en `halo.so` blijft
-op zijn plek staan als bestand (een verwisseling, geen sloop).
+`extra_ro` bindt een pad op **dezelfde** plek read-only (`--ro-bind-try "$x" "$x"`), dus de
+`RAVENGUN_HASP_ELF_ADRESLIJST` hierboven wijst naar hetzelfde pad binnen en buiten de sandbox. Zonder
+deze regel is het bestand onleesbaar en meldt de hook dat luid (§6, geval 6).
 
 ---
 
@@ -158,133 +174,166 @@ op zijn plek staan als bestand (een verwisseling, geen sloop).
 
 | regel | waarom precies dit |
 |---|---|
-| `"src": "@data/hasp"` | De emulator én de Halo-donglegegevens staan al geïnstalleerd in `~/.local/share/ravengun/hasp/`; `@data` is een bestaande placeholder, dus geen nieuw aanknopingspunt en geen absoluut hostpad in de sandbox. |
-| `"dst": "/rg/hasp"` | Vrije, korte naam in de sandbox waar de hook en `dongle.c` naartoe kunnen wijzen. |
-| de `note` erbij | Waarschuwt de volgende lezer dat de emulator hier **niet** voor `LD_PRELOAD` ligt — dat is de fout die §1(b) beschrijft. |
-| `libs` + de hook | `libs` bindt elk bestand op `/rg/lib/<naam>` en zet `/rg/lib` in `LD_LIBRARY_PATH`; zonder deze regel kan de verwisseling niet, want die verwijst naar `/rg/lib/…`. Vandaag wordt de hook **niet** geladen. |
-| `RAVENGUN_HASP_DIR=/rg/hasp` | `dongle.c` zoekt `<DIR>/<naam>/dongle.json` (en heeft een terugval op `<DIR>/<naam>/dropin/ravengun-hasp/<naam>`). |
-| `RAVENGUN_HASP_GAME="Halo Fireteam"` | De **mapnaam** en het veld `game` in `dongle.json` — met spatie. Let op: de ElfLdr2-drop-in gebruikte `Halo` (dat werkt via de terugval op de patches-repo-indeling); in de native route met de geïnstalleerde indeling moet het `Halo Fireteam` zijn. |
-| `RAVENGUN_HASP_ELF_LIB=/rg/hasp/ravengun-hasp-x64.so` | De hook heeft een standaardpad naar een **hostpad** (`/home/deck/.local/share/ravengun/hasp/…`) dat in de sandbox niet bestaat; expliciet is hier beter dan leunen op `LD_LIBRARY_PATH`. |
-| `RAVENGUN_HASP_ELF_GAME=/pm/g7/halo/game` | De hook leest het spelbeeld van schijf voor zijn dynsym; zonder deze regel valt hij terug op `/proc/self/exe` (in de game hetzelfde bestand, maar dan werkt hij niet meer in een hulpproces). |
+| `"src": "@data/hasp"` | De emulator én de Halo-donglegegevens staan al geïnstalleerd in `~/.local/share/ravengun/hasp/`; `@data` is een bestaande placeholder, dus geen nieuw aanknopingspunt en geen absoluut hostpad. |
+| `"dst": "/rg/hasp"` | Korte, vaste naam in de sandbox waar de hook en `dongle.c` naartoe kunnen wijzen. |
+| de `note` erbij | Waarschuwt de volgende lezer dat de emulator hier **niet** voor `LD_PRELOAD` ligt — dat is de fout uit §1(b). |
+| `preload` → de hook | Dit is de verwisseling: onze eigen hook neemt de HASP-aanroepen over in plaats van de onbekende `halo.so`. Nu gemeten dat hij zeven functies vindt (§4). |
+| `libs` + de hook | `libs` bindt elk bestand op `/rg/lib/<naam>` en zet `/rg/lib` in `LD_LIBRARY_PATH`; de `preload`-regel verwijst naar `/rg/lib/…`, dus zonder deze regel laadt de hook niet. |
+| `RAVENGUN_HASP_DIR=/rg/hasp` | `dongle.c` zoekt `<DIR>/<naam>/dongle.json` (met een terugval op `<DIR>/<naam>/dropin/ravengun-hasp/<naam>`). |
+| `RAVENGUN_HASP_GAME="Halo Fireteam"` | De **mapnaam** en het veld `game` in `dongle.json` — met spatie. De ElfLdr2-drop-in gebruikte `Halo` (dat werkt via de terugval op de patches-repo-indeling); met de geïnstalleerde indeling moet het `Halo Fireteam` zijn. |
+| `RAVENGUN_HASP_ELF_LIB=/rg/hasp/ravengun-hasp-x64.so` | De standaard van de hook is een **hostpad** dat in de sandbox niet bestaat; expliciet is hier beter dan leunen op `LD_LIBRARY_PATH`. |
+| `RAVENGUN_HASP_ELF_GAME=/pm/g7/halo/game` | De hook leest het spelbeeld van schijf voor zijn dynsym én voor het keuren van de adressen; zonder deze regel valt hij terug op `/proc/self/exe`. |
+| `RAVENGUN_HASP_ELF_ADRESLIJST=…/hasp-haken.ini` | **De schakelaar van de adres-route.** Zonder deze variabele (of een `hasp-haken.ini` naast de hook) blijft de naam-route de enige weg — dat is de standaard en dat is precies wat je wilt voor de andere games. |
 | `RAVENGUN_HASP_ELF_LOG=/pm/g7/halo/hasphook.log` | `/pm/g7/halo` is een **overlay**, dus dit logboek landt onder `~/.local/share/ravengun/native/Halo/<n>/upper/` en niet op de NAS. |
-| `RAVENGUN_HASP_ELF_UIT=1` | Vangrail: zolang de hook Halo's ingangspunten niet kan vinden, mag hij niet patchen maar alleen meten. Verdwijnt bij de verwisseling. |
-| `preload` onveranderd | §1(a): geen regel in de configuratie zetten die niets doet. |
+| `RAVENGUN_HASP_VERBOSE=1` | Eén regel per aangeroepen hasp-functie plus het volledige keuringsoordeel per adres; precies wat je bij een eerste run wilt zien. |
+| `extra_ro` + de adreslijst | Bindt het bestand read-only op zijn eigen pad, zodat de variabele hierboven binnen de sandbox hetzelfde pad kan aanwijzen. |
 
 ---
 
 ## 4. Het droogloop-bewijs (geen spelstart)
 
-Reproduceerbaar met `bash ~/projects/ravengun-patches/patches/Halo/probe/proposal_dryrun.sh`
-(het script bouwt een **kladboom** in `/tmp/rg-proposed` met het gecommitte bestand + dit voorstel,
-en raakt `packaging/` in de repo niet aan).
+Reproduceerbaar met:
+```bash
+bash ~/projects/ravengun-patches/patches/Halo/probe/proposal_dryrun.sh    # het recept
+bash ~/projects/ravengun-patches/patches/Halo/probe/address-route-test.sh # de adres-route
+bash ~/projects/ravengun-patches/patches/Halo/probe/address-route-neg.sh  # de weigeringen
+bash ~/projects/ravengun-patches/patches/Halo/probe/nopie-selftest.sh     # de naam-route
+```
+`proposal_dryrun.sh` bouwt een **kladboom** in `/tmp/rg-proposed` met het gecommitte bestand + dit
+voorstel, en raakt `packaging/` in de repo niet aan.
 
-**1. `play-native.sh --dry-run` tegen het voorstel: exitcode 0, en dit is wat er langskomt**
-
+**1. `play-native.sh --dry-run` tegen het voorstel: exitcode 0**, met:
 ```
 --ro-bind … /rg/libfmod
 --ro-bind … /rg/hasp
 --ro-bind …/librg_rt_input.so  /rg/lib/librg_rt_input.so
 --ro-bind …/libravengun-hasphook-x64.so  /rg/lib/libravengun-hasphook-x64.so
+--ro-bind-try …/hasp-haken.ini           …/hasp-haken.ini
 --setenv LD_LIBRARY_PATH /rg/libfmod:/rg/hasp:/rg/lib
---setenv LD_PRELOAD      /rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so
+--setenv LD_PRELOAD      /rg/lib/librg_rt_input.so:/rg/lib/libravengun-hasphook-x64.so
 --setenv RAVENGUN_HASP_DIR        /rg/hasp
 --setenv RAVENGUN_HASP_GAME       Halo Fireteam
 --setenv RAVENGUN_HASP_ELF_LIB    /rg/hasp/ravengun-hasp-x64.so
 --setenv RAVENGUN_HASP_ELF_GAME   /pm/g7/halo/game
+--setenv RAVENGUN_HASP_ELF_ADRESLIJST …/hasp-haken.ini
 --setenv RAVENGUN_HASP_ELF_LOG    /pm/g7/halo/hasphook.log
---setenv RAVENGUN_HASP_ELF_UIT    1
+--setenv RAVENGUN_HASP_VERBOSE    1
 … /pm/g7/halo/game -f1920x1080 -n
 ```
+`--dry-run` weigert met een `die` als een `mounts`-, `files`-, `libdirs`- of `libs`-bron ontbreekt,
+dus dit bewijst ook dat alle paden bestaan.
 
-Let op de twee dingen die het bewijs levert: `LD_PRELOAD` is **onveranderd** (de `env`-regels
-overschrijven het niet), en alle paden bestaan — `--dry-run` weigert namelijk met een `die` als een
-`mounts`-, `files`-, `libdirs`- of `libs`-bron ontbreekt.
-
-**2. De drie ketens onder `/bin/ls`, met precies dezelfde `LD_PRELOAD` en omgeving**
-
-| keten | exitcode | botsingen |
-|---|---|---|
-| `librg_rt_input.so : libravengun-hasphook-x64.so` | 0 | 0 |
-| `halo.so : librg_rt_input.so : libravengun-hasphook-x64.so` | 0 | 0 |
-| `ravengun-hasp-x64.so : librg_rt_input.so : libravengun-hasphook-x64.so` | 0 | 0 |
-
-Geen `symbol lookup error`, geen `cannot open shared object`, geen crash. Dat dit veilig is, komt
-doordat `librg_rt_input.so` een expliciete poort op `/proc/self/exe` heeft (eindigt de naam niet op
-`/game`, dan doet zijn constructor niets — uit de bron) en de hook met `RAVENGUN_HASP_ELF_UIT=1`
-alleen meet.
-
-**3. `ldd` — de lader, ongewijzigd**
+**2. De adres-route op een echt gemapt beeld.** `probe/hook-address-route-test.c` zet de twee
+`PT_LOAD`-segmenten van de echte `game` vast op hun eigen virtuele adressen (vanuit een PIE-gastheer,
+dus zonder botsing), vult ze met de bestandsbytes, en laadt dan de hook met `dlopen` — dezelfde weg
+door de code als in het spelproces. Uitkomst:
 
 ```
-$ LD_LIBRARY_PATH=~/.local/share/ravengun/runtime/lib-fmodstub \
-    ldd '…/Halo Fireteam/g7/halo/game' | grep -c 'not found'
-0
+[ravengun-hasphook] dynsym: 220 symbolen
+[ravengun-hasphook] 0 hasp-symbolen in de dynsym van de game (gedefinieerd in de game zelf)
+[ravengun-hasphook] adreslijst: 7 regel(s) uit …/hasp-haken.ini (basis: absoluut)
+[ravengun-hasphook]   hasp_login             0x00b2d630  GELDIG: segment 0x400000 (R+X), bestand 0x72d630, prologue 55 41 57 41
+   … (zeven keer GELDIG)
+[ravengun-hasphook]   aangehaakt: hasp_login  op 0x00b2d630 -> 0x7f1abef0f240 (trampoline …, 12 bytes)
+   … (zeven keer aangehaakt)
+[ravengun-hasphook]   niet aangehaakt: hasp_login_scope / hasp_decrypt / hasp_get_size / hasp_get_info
+[ravengun-hasphook] totaal aangehaakt: 7 van 11; niet aangehaakt: 4
+
+0x00b2d630  voor [55 41 57 41]  na [48 b8 40 f2 f0 be 1a 7f 00 00 ff e0]  AANGEHAAKT
+   … (zeven keer)
+4. GESLAAGD: 7 van 7 aangehaakt
 ```
 
-**4. De koppeling hook ↔ emulator** (`probe/hook-emulator-coupling.c`): alle elf namen oplosbaar via
-de `RTLD_LOCAL`-handle, en `hasp_login` **niet** in de globale naamruimte.
+Dat is de kern: **dezelfde run waarin de naam-route nul vindt, haakt de adres-route zeven functies
+aan**, en het teruggelezen geheugen toont op elk adres de absolute sprong `48 b8 … ff e0`.
 
-**5. De dongle end-to-end** (`hasp/src/selftest.c` tegen `~/.local/share/ravengun/hasp/Halo Fireteam`):
-`GESLAAGD — 0 fout(en)`.
+**3. De drie weigeringen** (`address-route-neg.sh`), alle drie luid en zonder te patchen:
+
+| geval | lijst | oordeel van de hook | aangehaakt |
+|---|---|---|---|
+| adres zonder functie | `hasp_login = 0x400000` | `AFGEWEZEN: wijst naar het begin van het bestand (ELF-kop), geen functie` | 6 van 7 |
+| verkeerde build | `grootte = 1234` | `adreslijst AFGEKEURD: grootte 1234 in de lijst, maar het beeld is 33554432 bytes` → hele lijst | **0 van 7** |
+| midden in een functie | `hasp_read = 0xb2d800` | `AFGEWEZEN: eerste bytes 00 00 3c 15 zijn geen prologue (mogelijk al door een andere hook gepatcht)` | 6 van 7 |
+
+Het derde geval is precies de detector voor "iemand anders heeft hier al gepatcht": als `halo.so` er
+als eerste was, staan er geen prologue-bytes meer en weigert onze hook in plaats van een ketting van
+twee vervangingen te bouwen.
+
+**4. De naam-route, als regressie.** Beide breedtes bouwen (`scripts/build-hasphook.sh --no-place`,
+`la_version` aanwezig in 32 én 64 bits) en de bestaande 32-bits zelftest haakt 10 van 11 aan met de
+emulator die antwoordt (`greep = 0xe6f`, `2c 03 ab 63`). Met een `-no-pie` gebouwde zelftest haakt
+hij op `0x080491c6` in plaats van op een bias-adres — het bewijs dat de rekenwijze-fix uit §1(a)
+noodzakelijk is voor ET_EXEC.
+
+**5. De koppeling hook ↔ emulator:** alle elf namen oplosbaar via de `RTLD_LOCAL`-handle, en
+`hasp_login` **niet** in de globale naamruimte.
+
+**6. `ldd`:** `LD_LIBRARY_PATH=…/lib-fmodstub ldd '…/game' | grep -c 'not found'` → **0**.
 
 ---
 
 ## 5. Wat er in de huidige versie staat dat moet blijven
 
-Alles. Dit voorstel verwijdert niets en wijzigt geen bestaande waarde. Expliciet, zodat een
-samenvoeging ze niet per ongeluk opruimt:
+Alles behalve de ene `preload`-regel. Expliciet, zodat een samenvoeging ze niet per ongeluk opruimt:
 
 | bestaand element | blijft |
 |---|---|
-| `"preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so"` | **ja, ongewijzigd** (de verwisseling is een aparte, latere stap) |
+| `preload` → `librg_rt_input.so` (het eerste deel) | **ja**; alleen het tweede deel (`halo.so`) wordt vervangen |
 | `libdirs` → `@data/runtime/lib-fmodstub` → `/rg/libfmod` | ja, en blijft de **eerste** van de twee zijn |
 | `libs` → `"@build/librg_rt_input.so"` | ja, en blijft de **eerste** van de twee zijn |
 | `mounts` (overlay `/pm/g7/halo`, ro `/pm/g7/dump`) | ja |
 | `files` (`rtinit_original`, `run_game.sh_original`) | ja |
 | `exe`/`cwd`/`home` (`/pm/g7/halo`), `args` (`-f{res}`, `-n`), `route` (`tp-shm`) | ja |
-| `extra_ro` → `/dev/shm/TeknoParrot_JvsState` | ja; `env` komt **vóór** dit blok |
+| `extra_ro` → `/dev/shm/TeknoParrot_JvsState` | ja, en blijft de **eerste** van de twee zijn |
 | `enabled: false`, `status: "geparkeerd"` | ja — dit voorstel verandert de status niet |
+| `halo.so` als bestand | ja, onaangeroerd; het blijft de terugrolweg |
 
 ---
 
-## 6. Wat er misgaat als de volgorde fout is
-
-Dit is de reden dat de regels bestaan, en per geval is het meetbaar:
+## 6. Wat er misgaat als de volgorde of de kanalen fout zijn
 
 1. **De emulator in `LD_PRELOAD` zetten** (in plaats van hem door de hook te laten `dlopen`-en):
-   `hasp_login` komt in de **globale** naamruimte — gemeten, §1(b). Met `halo.so` erbij (dat zelf 10
-   `hasp_*`-namen exporteert) zijn er dan twee leveranciers van dezelfde naam, en wie wint hangt van
-   de laadorde af. Dit is de fout die de `note` in blok 1 moet voorkomen.
-2. **Onze hook vóór `halo.so` in `preload` zetten, met beide actief**: beide patchen dezelfde
-   functies, en de laatstgepatchte wint; de verliezer zijn trampoline wijst dan naar de winnaar —
-   een ketting door twee emulators. Daarom is het devies "nooit twee hooks tegelijk op dezelfde
-   adressen", en daarom staat de hook vandaag **helemaal niet** in `preload`.
-3. **De hook in `preload` zetten terwijl `RAVENGUN_HASP_ELF_UIT` ontbreekt**: hij vindt niets, dus
-   er gebeurt niets, maar hij start wel een kijker-thread die tot 90 s (`RAVENGUN_HASP_ELF_WACHT`)
-   blijft herscannen. Zonder de vangrail is dat ruis in een meting; met de vangrail is het één regel.
+   `hasp_login` komt in de **globale** naamruimte — gemeten, §1(b). Met `halo.so` erbij zijn er dan
+   twee leveranciers van dezelfde naam en wie wint hangt van de laadorde af.
+2. **Beide hooks actief** (`halo.so` én de onze, elk met hun eigen trampoline naar "het origineel"):
+   de laatstgepatchte wint en de verliezer zijn trampoline wijst naar de winnaar — een ketting door
+   twee emulators. Daarom staat er precies één van de twee in `preload`. Onze eigen prologue-controle
+   vangt dit trouwens ook af als de andere hook er als eerste was (§4, geval 3).
+3. **De hook in `preload` zonder adreslijst**: hij vindt nul namen in de dynsym en haakt niets aan.
+   Het logboek zegt dan `0 hasp-symbolen in de dynsym` en `geen adreslijst; alleen de naam-route`.
+   Geen crash, maar de dongle blijft onbeantwoord.
 4. **`RAVENGUN_HASP_ELF_LIB` weglaten**: de hook valt terug op
    `/home/deck/.local/share/ravengun/hasp/ravengun-hasp-x64.so`, een **hostpad** dat in de sandbox
-   niet bestaat. Het logboek zegt dan `GEEN emulator kunnen laden` en elke vervanging valt terug op
-   de originele code — stil, zonder crash.
+   niet bestaat. Het logboek zegt `GEEN emulator kunnen laden` en elke vervanging valt terug op de
+   originele code — stil, zonder crash.
 5. **`RAVENGUN_HASP_GAME` op `Halo` in plaats van `Halo Fireteam`**: `dongle.c` zoekt dan
    `<DIR>/Halo/dongle.json` en `<DIR>/Halo/dropin/ravengun-hasp/Halo`; met `/rg/hasp` als wortel
-   bestaat geen van beide en er wordt **geen** dongle geladen. Dit is de meest waarschijnlijke
+   bestaat geen van beide en er wordt **geen** dongle geladen. Dit is de waarschijnlijkste
    vergissing, want in de ElfLdr2-drop-in is `Halo` juist wél goed.
-6. **`@data/hasp` **na** `libs` zetten in plaats van in `libdirs`**: dan komt `/rg/hasp` niet in
-   `LD_LIBRARY_PATH`, wat voor `RAVENGUN_HASP_ELF_LIB` niet uitmaakt (dat is een volledig pad) maar
-   wel voor een latere `dlopen("ravengun-hasp-x64.so")` zonder pad.
-7. **`env` vóór `libs` zetten**: onschadelijk voor de uitkomst, maar het breekt de leesorde van het
-   bestand (elke andere game zet `route` → `libs` → `extra_ro`), en dat maakt diffs onnodig groot.
+6. **De adreslijst niet in de sandbox binden** (blok 5 vergeten): de hook meldt
+   `adreslijst … is niet te lezen; alleen de naam-route`, en er wordt niets aangehaakt. Ook dat is
+   luid, maar het is één regel vergeten.
+7. **De adreslijst van de verkeerde game-versie gebruiken**: de hook keurt de hele lijst af op
+   `grootte`/`ingang` en patcht niets (§4, geval 2). Dat is de bedoeling — een adres uit een andere
+   build is een crash die niemand terugvindt.
+8. **`env` vóór `libs` zetten**: onschadelijk voor de uitkomst, maar het breekt de leesorde van het
+   bestand (`route` → `libs` → `env` → `extra_ro`), en dat maakt diffs onnodig groot.
 
 ---
 
 ## 7. Wat hier niet in zit
 
-* Geen wijziging aan `scripts/play-native.sh`. Twee dingen zouden het bestand netter maken en zijn
-  **niet** voorgesteld omdat ze de launcher raken: een placeholder `@patches` (dan hoeft blok 2 geen
-  absoluut `/home/deck`-pad te bevatten), en het honoreren van `RG_DROPIN_PRELOAD`
-  (`docs/hasp-layer.md` §9 punt 2). Beide zijn een aparte afweging.
-* Geen verwisseling van `halo.so`. Die is één regel en staat in §2, blok 4, met zijn voorwaarde.
-* Geen wijziging aan `hasp/` of `tools/rt-hasphook/`. De adres-terugval die de verwisseling mogelijk
-  maakt is daar een wijziging van de laderbouwer, niet van mij; de invoer (de zeven adressen) staat
-  in §1(a).
+* **Geen wijziging aan `scripts/play-native.sh`.** Twee dingen zouden het bestand netter maken en
+  zijn **niet** voorgesteld omdat ze de launcher raken: een placeholder `@patches` (dan hoeven blok 3
+  en blok 5 geen absoluut `/home/deck`-pad te bevatten), en het honoreren van `RG_DROPIN_PRELOAD`
+  (`docs/hasp-layer.md` §9 punt 2).
+* **Geen tweede adreslijst voor de andere games.** Terminator, Jurassic Park en Galaga hebben nog
+  geen `hasp-haken.ini`; voor hen blijft de naam-route de enige weg (en die vindt daar ook nul namen,
+  dus daar is de dongle nog open). Dit voorstel raakt alleen Halo.
+* **De drop-in-kopieën van de andere games staan achter op de bron.** Na het bouwen van de nieuwe
+  hook is `patches/Halo/dropin/` bijgewerkt; `patches/JurassicPark/dropin/` en
+  `patches/GalagaAssault/dropin/` wijken af en `patches/Terminator/dropin/` heeft ze niet. Wie alles
+  gelijk wil, draait `scripts/build-hasphook.sh` zonder argumenten — dat raakt vier games, dus dat is
+  een afweging voor de coördinator, niet iets wat ik stil doe.
+* **Geen bewijs dat de game de zeven aangehaakte functies ook aanroept.** Dat vraagt de bench; zie
+  `RUN-1-DRAAIBOEK.md` (FTDI) en de eerste native run met deze verwisseling.
