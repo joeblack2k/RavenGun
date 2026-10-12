@@ -1,0 +1,57 @@
+RavenGun-wijziging 0003 op OpenParrot: een onbekende game wordt niet meer geweigerd.
+
+De gesloten TeknoParrot-kern weigert een executable die hij niet kent: een MessageBox
+("Unsupported Executable, NEW CRC: ...") en daarna ExitProcess(0). Onze eigen kern hoeft dat niet te
+doen. Er zijn games waarin de kern niets hoeft te doen -- ze draaien al met alleen `wine <exe>`
+(gemeten; zie patches/ZONDER-LADER.md in de patches-repo) -- en die horen niet op een foutmelding te
+stuiten. Met deze wijziging blijft currentGame op GameID::Global en X2Type op X2Type::None, dus
+draaien alleen de globale init-functies en slaat elke per-game tak zichzelf over. Er wordt niets
+gehaakt en niets gepatcht; het spoor (de CRC) blijft in teknoparrot.ini staan.
+
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrot/src/Utility/GameDetect.cpp b/OpenParrot/src/Utility/GameDetect.cpp
+--- a/OpenParrot/src/Utility/GameDetect.cpp
++++ b/OpenParrot/src/Utility/GameDetect.cpp
+@@ -888,17 +888,36 @@
+ 			break;
+ #endif
+ 		default:
++			// RavenGun: een game die deze kern NIET herkent wordt niet meer geweigerd.
++			//
++			// Wat hier stond: een MessageBox ("Unsupported Executable, NEW CRC: ...") en daarna
++			// ExitProcess(0). Dat is het gedrag van de gesloten TeknoParrot-kern en het staat
++			// loskoppelen in de weg: onze eigen kern hoeft een game niet bij naam te kennen om hem te
++			// kunnen laten draaien. Van de 22 games die in de patches-repo nog op de gesloten kern
++			// staan, draaien er 15 al met alleen `wine <exe>` (gemeten; patches/ZONDER-LADER.md), en
++			// die horen hier niet op een foutmelding te stuiten.
++			//
++			// Wat er nu gebeurt: currentGame blijft GameID::Global (de nulwaarde van het enum; zie de
++			// definitie onderaan dit bestand) en X2Type blijft X2Type::None. Gevolg: alleen de
++			// init-functies die voor GameID::Global geregistreerd staan draaien -- dllmain.cpp roept
++			// InitFunction::RunFunctions(GameID::Global) apart aan -- en elke per-game tak slaat
++			// zichzelf over: TypeX2Generic.cpp begint met
++			// `if (GameDetect::X2Type == X2Type::None) return;`. Er wordt dus niets gehaakt en niets
++			// gepatcht; de lader doet de rest.
++			//
++			// Het spoor blijft staan: de CRC gaat als "Unsupported Executable" in teknoparrot.ini,
++			// zodat een verkeerde exe niet stil verdwijnt. Alleen de blokkerende MessageBox en de
++			// ExitProcess zijn weg.
++			//
++			// Terugdraaien: zet de MessageBoxA en ExitProcess(0) hier terug.
+ #ifdef _DEBUG
+ 			info("---------------------------------");
+-			info("New CRC: %08x not implemented", newCrcResult);
++			info("New CRC: %08x not implemented (generieke route, geen hooks)", newCrcResult);
+ 			info("---------------------------------");
+-#else
++#endif
+ 			memset(errorBuffer, 0, 256);
+ 			sprintf_s(errorBuffer, 256, "Unsupported Executable, NEW CRC: %08X!", newCrcResult);
+ 			WritePrivateProfileStringA("Error", "Unsupported Executable", errorBuffer, ".\\teknoparrot.ini");
+-			MessageBoxA(0, errorBuffer, "Error", MB_ICONERROR);
+-			ExitProcess(0);
+-#endif
+ 			break;
+ 		}
+ 		break;

@@ -33,7 +33,15 @@ GCC voor het meeste, clang voor de bestanden met MSVC-SEH (`__try`) en MSVC-inli
    (MSVC liet die stilzwijgend naar `void*` gaan), `memory_pointer_tr` uit een functiewijzer, een statische `genericRetZero` in `FNFDrift.cpp` die
    botste met de globale, MS-inline-assembler met expliciete operandgrootte (`GRID.cpp`), en in `APM3.cpp` de `__try/__except` rond een debug-print (clang
    kent die voor i686 niet in een variadische functie) en de lambda als thread-startfunctie met `stdcall`.
-3. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
+3. `0003-unknown-game-generic-route.patch`: **een onbekende game wordt niet meer geweigerd.** `OpenParrot/src/Utility/GameDetect.cpp`, de
+   `default:`-tak van de CRC-switch: daar stond een `MessageBoxA("Unsupported Executable, NEW CRC: ...")` gevolgd door `ExitProcess(0)`. Die twee zijn
+   weg; de CRC gaat nog steeds als `Unsupported Executable` in `teknoparrot.ini`, zodat een verkeerde exe niet stil verdwijnt. Reden: onze eigen kern
+   hoeft een game niet bij naam te kennen om hem te laten draaien. Van de 22 games die in de patches-repo nog op de gesloten kern staan, draaien er 15 al
+   met alleen `wine <exe>` (gemeten, zie `patches/ZONDER-LADER.md` en `patches/EIGEN-KERN.md` in de patches-repo), en die horen niet op een foutmelding te
+   stuiten. Wat er dan gebeurt: `currentGame` blijft `GameID::Global` en `X2Type` blijft `X2Type::None`, dus alleen de globale init-functies draaien en
+   elke per-game tak slaat zichzelf over (`TypeX2Generic.cpp` begint met `if (GameDetect::X2Type == X2Type::None) return;`). Er wordt niets gehaakt en
+   niets gepatcht. **Terugdraaien:** zet de `MessageBoxA` en `ExitProcess(0)` in die tak terug.
+4. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
    `shim.sh` (hoofdletter- en backslash-includes: `<Shlwapi.h>`, `Utility\Hooking.Patterns.h`; en de meegeleverde Microsoft-DirectX-SDK-headers worden vervangen
    door de MinGW-w64-headers), `win64init.S` (GNU-vertaling van `win64init.asm`), `openparrot32.def` (zelfde exportnamen als de MSVC-build, ook `_PrepareSafeInit@4`),
    `compile-one.sh`, `build-in-container.sh`.
