@@ -98,8 +98,15 @@ op ditzelfde bestand SIGSEGV met **0 bytes** uitvoer. Onze lader is er dus strik
   eerste-PLT-slot met datzelfde stale adres krijgt die naam en wordt met `dlsym` hersteld
   (`bouw_stale_map` + `repareer_eerste_plt`, gated op de map → veilig, no-op op ongepakte games).
   **Gemeten op Galaga:** 100 JMPREL-entries → 33 stale-met-naam → **31 van de 357 eerste-PLT-slots op naam
-  hersteld** (`connect`, `getpid`, `realloc`, `memset`, `fopen`, …). De crash **verschoof** van `0xb7508f60`
-  (`fopen`, nu hersteld) naar `0xb750cef0` — een van de ~326 stubs zónder adres in de tweede tabel, die de
-  geheugendump van de originele kast nodig hebben. De named helft werkt dus nu; de rest is vervolgwerk
-  (dump-gebaseerd), geen uitpakwerk.
+  hersteld** (`connect`, `getpid`, `realloc`, `memset`, `fopen`, …). De crash verschoof van `0xb7508f60`
+  (`fopen`, hersteld) naar `0xb750cef0` — een onbenoembaar slot. **31/357 is het statische plafond** (geen
+  afleidbare volgorde-regel; de 258 gewiste imports hebben nergens een resolutietabel; de dump bevestigt dat
+  ElfLdr2 de eerste-GOT óók nooit repareert — Galaga crasht ook onder BudgieLoader). Bron-tabel:
+  `docs/research/resolutietabel-elfldr2.tsv` (let op: de `doel`-kolom = BudgieLoader-interne adressen; onze
+  native lader lost de **namen** op naar de host-libc via `dlsym`, niet die adressen).
+  **No-op-trampolines voor de rest** (zoals ElfLdr2): elk onbenoemd stale `0xb7`-slot krijgt een cdecl-no-op
+  (`55 8b ec 33 c0 5d c3`, geeft 0). Gemeten Galaga: 31 op naam + **325 no-op** (356/357). De crash verschuift
+  daarmee **de gast in** (`0x08089212`, gemapte game-code) i.p.v. een wilde sprong naar niet-gemapte ruimte: de
+  game loopt verder tot hij de 0-retour van een no-op als pointer gebruikt. Verder is niet mogelijk zonder de
+  originele dump-data voor die imports. (`RG_ELF_NO_TRAMPOLINE=1` zet de trampolines uit voor debuggen.)
 - **Hardening (later, geen blocker):** het gastbeeld staat nu `rwxp`; datasegmenten hoeven geen `x`.

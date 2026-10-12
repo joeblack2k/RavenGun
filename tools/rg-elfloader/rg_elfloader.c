@@ -407,12 +407,30 @@ static const char *stale_naam(uint32_t v)
     return NULL;
 }
 
+/* Een gedeelde cdecl no-op (`push ebp; mov ebp,esp; xor eax,eax; pop ebp; ret`) die 0 teruggeeft en de
+   stapel met rust laat -- exact wat ElfLdr2 in zijn onopgeloste slots zet (gemeten). Eén keer gemaakt. */
+static uint32_t rg_trampoline(void)
+{
+    static uint8_t *tr;
+    static const uint8_t noop[7] = {0x55, 0x8b, 0xec, 0x33, 0xc0, 0x5d, 0xc3};
+    if (!tr) {
+        tr = mmap(NULL, PAGE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (tr == MAP_FAILED) { tr = NULL; return 0; }
+        memcpy(tr, noop, sizeof noop);
+    }
+    return (uint32_t)(uintptr_t)tr;
+}
+
 /* Scan de uitvoerbare segmenten naar eerste-PLT-stubs (`ff 25 <abs-slot>`), en herstel elk GOT-slot
    waarvan de waarde een stale adres uit de map is, naar dlsym(naam). b->ph wijst nog in het (nog niet
    ge-munmap'te) bestand. */
 static void repareer_eerste_plt(struct beeld *b, struct dyninfo *d)
 {
-    int i, hersteld = 0, gemist = 0;
+    int i, hersteld = 0, gemist = 0, tramp = 0;
+    /* Trampoline standaard aan: een onopgelost 0xb7-slot zou een wilde sprong naar niet-gemapte ruimte
+       zijn (crash). Een no-op is strikt beter en is wat ElfLdr2 doet. RG_ELF_NO_TRAMPOLINE=1 zet het uit. */
+    int do_tramp = getenv("RG_ELF_NO_TRAMPOLINE") == NULL;
+    uint32_t tr = do_tramp ? rg_trampoline() : 0;
     (void)d;
     if (!rg_stale_n)
         return;
@@ -433,17 +451,21 @@ static void repareer_eerste_plt(struct beeld *b, struct dyninfo *d)
                 continue;
             val = *(volatile uint32_t *)(uintptr_t)slot;
             naam = stale_naam(val);
-            if (!naam)
-                continue;
-            sym = zoek_symbool(naam);
-            if (!sym) { gemist++; if (rg_verbose) say("  eerste-PLT: %s niet gevonden (slot %#x)", naam, slot); continue; }
-            *(volatile uint32_t *)(uintptr_t)slot = (uint32_t)(uintptr_t)sym;
-            hersteld++;
-            if (rg_verbose) say("  eerste-PLT: slot %#x (%#x) -> %s @ %p", slot, val, naam, sym);
+            if (naam) {
+                sym = zoek_symbool(naam);
+                if (!sym) { gemist++; if (rg_verbose) say("  eerste-PLT: %s niet gevonden (slot %#x)", naam, slot); continue; }
+                *(volatile uint32_t *)(uintptr_t)slot = (uint32_t)(uintptr_t)sym;
+                hersteld++;
+                if (rg_verbose) say("  eerste-PLT: slot %#x (%#x) -> %s @ %p", slot, val, naam, sym);
+            } else if (tr && val >= 0xb7000000u && val < 0xb8000000u) {
+                /* onbenoemd stale slot: no-op i.p.v. wilde sprong (zoals ElfLdr2) */
+                *(volatile uint32_t *)(uintptr_t)slot = tr;
+                tramp++;
+            }
         }
     }
-    say("eerste-PLT gerepareerd: %d slots op naam hersteld, %d niet gevonden (van %d stale)", hersteld,
-        gemist, rg_stale_n);
+    say("eerste-PLT: %d op naam hersteld, %d no-op-trampoline, %d naam-niet-gevonden (van %d stale-namen)",
+        hersteld, tramp, gemist, rg_stale_n);
 }
 
 /* ------------------------------------------------------------------ de startstack + sprong */
