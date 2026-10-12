@@ -177,7 +177,7 @@ afwijken van wat er in een eerdere versie van deze kaart stond.
 | TC5 `dropin.ini` | 3 DLL-secties zonder `Env` | **`Env = RAVENGUN_HASP_DIR=…;RAVENGUN_HASP_GAME=TC5` op alle drie** | bewezen dat de DLL in het **spelproces** komt (`grep -i hasp /proc/<pid>/maps`) |
 | TC5's view | `TC5/Binaries/Win64` was een symlink naar de NAS | **gematerialiseerd** (echte mappen met symlinks) | zonder dat kwam er geen enkel drop-in-bestand aan |
 | `STAND.md`, `STARTTEST.md` | — | opnieuw gegenereerd | `stand-gen.py`, `starttest-gen.py` |
-| `Find` bij de memory-patches | **0 van de 12** | **8 van de 12** — gemeten op de echte exe's | ronde 33, zie [De Find is gemeten](#de-find-is-gemeten) |
+| `Find` bij de memory-patches | **0 van de 12** | **10 van de 14** — gemeten op de echte exe's | ronde 33 en 39, zie [De Find is gemeten](#de-find-is-gemeten) |
 | de testsuite van de loader | `FAILED (failures=1)`, 240 tests | **`OK (skipped=21)`**, 240 tests | commit `4f18989` in de loader-repo |
 
 **Wat dat aan de conclusies verandert:** de vier `patches.ini`-bestanden zijn een stuk dichter bij
@@ -234,7 +234,7 @@ staat. *Status* = `[Status] Status` uit `game.ini`. *STARTTEST* = het resultaat 
 | 7 | **GoGoStrike** | `drop-in` (de eigen `LD_PRELOAD`-kastnabootser, 64-bits) | **nee** | geen `dropin/`; de README zegt het expliciet: *"Er is voor deze game geen drop-in"*. `docs/loskoppelen-per-game.md` zet bij deze game als kortste route "eigen `LD_PRELOAD` (64-bit familie)" en in de drop-in-kaart "ja: eigen `LD_PRELOAD` (64-bit)". `STAND.md` noemt de map "compleet; geen drop-in nodig" — dat gaat over de **map**, niet over de loskoppeling | playable | START | De gesloten `BudgieLoader` en de `Patreon`-activering. De game zelf werkt (bowling met de Move als trackball). |
 | 8 | **HOTDSD** | `geen` (wel een eigen startketen) | n.v.t. | alleen `game.ini` + `README.md`; geen `patches.ini`, geen `dropin/`, geen `dongle.json`. `STAND.md` telt de ontbrekende `dongle.json` van het soort `amdaemon` als gat | playable | niet getest | **Twee exe's**: `Executable2 = amdaemon.exe` met `LaunchSecondExecutableFirst = true`; `launch-direct.py` start geen profielen met twee exe's (rc=4). Speelbaar via TeknoParrotUi (`[Launch] Mode = tpui`); `minime` is de open vervanging van `amdaemon`. De directe proef met twee exe's is gedaan en **teruggedraaid**: de game startte tot de attract maar **zonder invoer** (die komt alleen via de `TeknoParrotPipe` van TeknoParrotUi). |
 | 9 | **Halo** | `drop-in` | **ja (7/7)** | `dropin.ini` met 7 secties: `ravengun-hasp-x64.so` en `libravengun-hasphook-x64.so` (beide `Preload = true`, `Audit = false`), `libravengun-hasphook.so` (sectie **zonder** `Preload`), `dongle.json` (hasp, `haspid 748675309`, features, keycaps, 2 fileids) + `memory/…0100`, `…0101`, `fff4`. `hasp.py --json`: `ok: true` | playable | START | De gesloten `BudgieLoader_x64`. De game **loopt** en zet zijn venster, maar er is nog geen getekend beeld: ElfLdr2 herkent de game niet (`Graphics API: Unknown`) en installeert zijn grafische brug dus niet. De HASP-aanroepen zijn statisch gelinkt; de hook mag daar niet in `LD_AUDIT` (dan sterft de lader). |
-| 10 | **HauntedMuseum** | `eigen kern` + `patches.ini` | ja, **onvolledig** | `patches.ini`: 4 secties. 3× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: `Game.exe+0x9E410` en `+0x9E3B0` `jmp-returns-true` `Size = 6`, `+0x9F778` `nop` `Size = 4`. Plus de gedeelde lader-patch. verify-all: **0 aan / 3 uit / 1 geweigerd** | parked | START | Zwart beeld na de JVS-functiecontrole (zelfde als GaiaAttack4). |
+| 10 | **HauntedMuseum** | `eigen kern` + `patches.ini` | ja, **onvolledig** | `patches.ini`: 6 secties. 5× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: `Game.exe+0x9E410` en `+0x9E3B0` `jmp-returns-true` `Size = 6`, `+0x9F778` `nop` `Size = 4`, en sinds ronde 39 de twee healthbar-waarden `+0x2AACFC` en `+0x2AACE0` (`replace-bytes`, 4 en 8 bytes), allebei met een gemeten `Find`. Plus de gedeelde lader-patch. verify-all: **0 aan / 5 uit / 1 geweigerd** | parked | START | Zwart beeld na de JVS-functiecontrole (zelfde als GaiaAttack4). |
 | 11 | **HauntedMuseumII** | `eigen kern` + `patches.ini` | ja, **onvolledig** | `patches.ini`: 7 secties. 6× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: versie `2100` `0x9D970` `jmp-returns-true` `Size = 6`, `0x1391` `nop` `Size = 1` (crash-NOP) en `0x9FD68` `nop` `Size = 4`; versie `2101J` `0x9B920` `jmp-returns-true` `Size = 6`, `0x1105` `nop` `Size = 6` (firmware-foutmelding) en `0x9DA08` `nop` `Size = 4`. Plus de gedeelde lader-patch. verify-all: **0 aan / 6 uit / 1 geweigerd** | parked | START | Zwart beeld; de profielversies `2100` en `2101J` zijn in het profiel niet te onderscheiden, dus beide sets staan er. |
 | 12 | **InfinityBladeFX** | `drop-in` + `eigen kern` | drop-in **ja (3/3)**, kern **nee** | `dropin.ini` met 3 secties: `matrix32.dll` (onze eigen build, `DllOverride = native`), `matrix/matrix.ini` (aantal 2; poort bewust niet gezet), `dongle.json` (matrix, `Init_MatrixAPI`→0, `Dongle_Count`→2, `Dongle_ReadSerNr`→69420). `matrix.py`: *"in orde"* | parked | START | De gesloten kern en de UE3-start: `Kaboom: InitLib() failed`, daarna wit of zwart beeld. Onze DLL is in de proef **niet aangeroepen** (de game stopt eerder), dus de dongle is hier niet de bewezen blokkade. |
 | 13 | **JurassicPark** | `drop-in` | **ja (6/6)** | `dropin.ini` met 6 secties: `librt-glfix.so`, `libravengun-hasphook.so` (`Audit = false`), `libravengun-hasphook-x64.so` (sectie zonder `Preload`), `ravengun-hasp.so`, `dongle.json` (hasp, fileid 65522, 112 B, **geconstrueerde** image) + `memory/…1111111111110010`. `hasp.py --json`: `ok: true` | parked | START | De gesloten `BudgieLoader` en de **gepakte ELF**: de GL-aanroepen komen met `stdcall`-opruiming terug, de GOT-sloten hebben vaste dump-adressen en de PLT-stubs `push 0xdeadbeef`; `GL_MAX_TEXTURE_SIZE > 2047` nodig. De donglecontrole wordt nooit bereikt. |
@@ -270,9 +270,9 @@ staat. *Status* = `[Status] Status` uit `game.ini`. *STARTTEST* = het resultaat 
 |---|---|
 | games in `patches/` | **36** |
 | met `patches.ini` | **4** (GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2) |
-| ... memory-patches daarin | **12** (2 + 3 + 6 + 1), allemaal geaccepteerd door de motor, **0 geweigerd** |
-| ... waarvan compleet t.o.v. de kernbron | **0** — de hooks en de `WriteMemory`-waarden ontbreken nog |
-| ... waarvan met een `Find` (versiecontrole) | **8** van de 12 — de acht die bij onze dump horen; zie [De Find is gemeten](#de-find-is-gemeten) |
+| ... memory-patches daarin | **14** (2 + 5 + 6 + 1), allemaal geaccepteerd door de motor, **0 geweigerd** |
+| ... waarvan compleet t.o.v. de kernbron | **0** — de API-hooks, de functie-hooks en de D3D9-compatibiliteit ontbreken nog; die passen niet in het formaat van de motor |
+| ... waarvan met een `Find` (versiecontrole) | **10** van de 14 — de tien waarvan de bytes op onze dump gemeten zijn; zie [De Find is gemeten](#de-find-is-gemeten) |
 | met `dropin/` | **15** (15 `dropin.ini`-bestanden; `STAND.md` zegt "43 secties in de **14** `dropin.ini`-bestanden" — het vijftiende is dat van GhostBusters en heeft 0 secties) |
 | ... waarvan elk bestand een sectie heeft | **15** (43 bestanden, 43 secties) |
 | ... waarvan de drop-in leeg is | **1** (GhostBusters) |
@@ -361,8 +361,9 @@ zegt hetzelfde, en de launcher zet de patch voor onze eigen build uit (`own_buil
 `MakeJMP`/`MakeNOP`-deel: samen **12 memory-patches**. Wat er per game nog ontbreekt staat in de
 sectie [Ontbrekende patches](#ontbrekende-patches-die-er-wel-zouden-moeten-zijn) hieronder, met
 regelnummers. In het kort: de **API-hooks** (`GetKeyboardState`, `CreateWindowExA`), de
-**functie-hooks** van MusicGunGun2, de **`WriteMemory`-waarden** van HauntedMuseum (de hoogte van de
-2D-healthbars, die van de resolutie afhangt) en de D3D9-compatibiliteitsfunctie van MusicGunGun2.
+**functie-hooks** van MusicGunGun2 en de D3D9-compatibiliteitsfunctie van MusicGunGun2. De twee
+`WriteMemory`-waarden van HauntedMuseum stonden hier ook, en die zijn in ronde 39 **toegevoegd** --
+dat kon wel, want het zijn vaste bytes op een vaste plek.
 
 **De patches zijn wél allemaal toepasbaar.** Zet je de memory-patches in het geheugen aan
 (`Enabled = true`) en laat je de motor ze overnemen (`--take-over-core`), dan accepteert hij ze
@@ -542,8 +543,8 @@ Bron: `TypeX2Generic.cpp` van de OpenParrot-bron waarmee onze eigen kern gebouwd
 | | `CreateDirectoryA(".\\OpenParrot\\GA4")` + volume uit `.\OpenParrot\Settings.ini` | 2218, 2231 | nee — kernwerk |
 | **HauntedMuseum** | `GetKeyboardState`-hook | 2137 | nee |
 | | `CreateWindowExA`-hook (niet-windowed) | 2136 | nee |
-| | `WriteMemory<float>(0x2AACFC, ResHeight − 61.0)` — 2D-healthbars op de juiste hoogte | 2147 | **ja, met een voorbehoud**: `Kind = memory` + `replace-bytes` met `Find` = 4 bytes. De waarde hangt van de resolutie af (onze `game.ini` staat op 1280×720 → `659.0f` = `00 C0 24 44`); een vaste bytepatch legt die resolutie dus vast, en de originele bytes moeten eerst gemeten worden |
-| | `WriteMemory<double>(0x2AACE0, ResHeight − 61.0)` | 2148 | idem, 8 bytes (`659.0` = `00 00 00 00 00 00 84 40`) |
+| | `WriteMemory<float>(0x2AACFC, ResHeight − 61.0)` — 2D-healthbars op de juiste hoogte | 2147 | **toegevoegd in ronde 39** als `Healthbar-hoogte (0x2AACFC)`: `replace-bytes`, `Size = 4`, `Find = 00 C0 30 44` (gemeten: de exe heeft er **707.0** = 768 − 61) en `Replace = 00 C0 24 44` (659.0 = 720 − 61, onze 1280×720). Een vaste patch legt die resolutie vast; de `Note` zegt dat |
+| | `WriteMemory<double>(0x2AACE0, ResHeight − 61.0)` | 2148 | **toegevoegd in ronde 39** als `Healthbar-hoogte, dubbel (0x2AACE0)`: `Size = 8`, `Find = 00 00 00 00 00 18 86 40` (707.0) en `Replace = 00 00 00 00 00 98 84 40` (659.0) |
 | | `CreateDirectoryA(".\\OpenParrot\\HM")`, volume uit `Settings.ini` | 2119, 2132 | nee |
 | **HauntedMuseumII** | voor **2100**: `GetKeyboardState`- en `CreateWindowExA`-hook | 2172-2173 | nee |
 | | ~~voor **2100**: `MakeNOP(0x1391, 1)`~~ — **in deze ronde toegevoegd** als `Crash-NOP, versie 2100` | 2178 | **gedaan** |

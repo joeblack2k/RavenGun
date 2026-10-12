@@ -28,7 +28,7 @@ Wat de game dan wél vraagt: een **bestandswaarde**: de REGION-regel in zijn eig
 
 * **Nodig:** `eigen kern` + `patches.ini`
 * **Is dat er:** ja, **onvolledig**
-* **Bewijs:** `patches.ini`: 4 secties. 3× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: `Game.exe+0x9E410` en `+0x9E3B0` `jmp-returns-true` `Size = 6`, `+0x9F778` `nop` `Size = 4`. Plus de gedeelde lader-patch. verify-all: **0 aan / 3 uit / 1 geweigerd**
+* **Bewijs:** `patches.ini`: 6 secties. 5× `Kind = memory`, `AppliedBy = core`, `Enabled = false`: `Game.exe+0x9E410` en `+0x9E3B0` `jmp-returns-true` `Size = 6`, `+0x9F778` `nop` `Size = 4`, en sinds ronde 39 de twee healthbar-waarden `+0x2AACFC` en `+0x2AACE0` (`replace-bytes`, 4 en 8 bytes), allebei met een gemeten `Find`. Plus de gedeelde lader-patch. verify-all: **0 aan / 5 uit / 1 geweigerd**
 
 ## Starten
 
