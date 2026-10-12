@@ -93,7 +93,10 @@ dflt = d.get("defaults", {})
 for k in ("title", "arch", "preload", "exe", "cwd", "home", "status", "note", "route", "layout", "launcher"):
     print("VAR\t%s\t%s" % (k, g.get(k, "")))
 print("VAR\tenabled\t%s" % ("1" if g.get("enabled") else "0"))
+print("VAR\tshare_ipc\t%s" % ("1" if g.get("share_ipc") else "0"))
 print("VAR\tres\t%s" % g.get("res", dflt.get("res", "1920x1080")))
+for b in g.get("binds_rw", []):
+    print("RWBIND\t%s\t%s" % (ex(b[0]), ex(b[1])))
 for m in g.get("mounts", []):
     print("MOUNT\t%s\t%s\t%s" % (m.get("mode", "ro"), ex(m["src"]), m["dst"]))
 for f in g.get("files", []):
@@ -164,8 +167,11 @@ while IFS=$'\t' read -r kind a b c; do
     EXTRA) EXTRAS+=("$a") ;;
     ARG) GARGS+=("$a") ;;
     ENV) GENV+=("$a=$b") ;;
+    RWBIND) RW+=("$a" "$b") ;;
   esac
 done < <(emit "$GAME")
+# Profiel kan ook om host-IPC vragen (X MIT-SHM); de CLI-vlag --share-ipc blijft ook werken.
+[[ "${V[share_ipc]:-0}" == 1 ]] && SHARE_IPC=1
 
 command -v bwrap >/dev/null || die "bwrap niet gevonden"
 [[ -d "$NAS" ]] || die "NAS-map $NAS niet bereikbaar (is de automount actief?)"

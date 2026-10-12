@@ -1,240 +1,248 @@
 {
- "schema": 1,
- "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). extra_ro: bestanden van de host die read-only in de sandbox verschijnen (het gedeelde geheugen van de IO-brug voor rg_rt_input). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | geparkeerd | niet-getest, met reden in note.",
- "defaults": {
-  "res": "1920x1080"
- },
- "games": {
-  "Halo": {
-   "title": "Halo: Fireteam Raven",
-   "enabled": false,
-   "status": "geparkeerd",
-   "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen (TEST/START) in de attract-lus; munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
-   "arch": "x86_64",
-   "mounts": [
-    {
-     "src": "@nas/Halo Fireteam/g7/halo",
-     "dst": "/pm/g7/halo",
-     "mode": "overlay"
+  "schema": 1,
+  "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). extra_ro: bestanden van de host die read-only in de sandbox verschijnen (het gedeelde geheugen van de IO-brug voor rg_rt_input). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | geparkeerd | niet-getest, met reden in note.",
+  "defaults": {
+    "res": "1920x1080"
+  },
+  "games": {
+    "Halo": {
+      "title": "Halo: Fireteam Raven",
+      "enabled": false,
+      "status": "geparkeerd",
+      "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen (TEST/START) in de attract-lus; munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
+      "arch": "x86_64",
+      "mounts": [
+        {
+          "src": "@nas/Halo Fireteam/g7/halo",
+          "dst": "/pm/g7/halo",
+          "mode": "overlay"
+        },
+        {
+          "src": "@nas/Halo Fireteam/g7/dump",
+          "dst": "/pm/g7/dump",
+          "mode": "ro"
+        }
+      ],
+      "files": [
+        {
+          "src": "@nas/Halo Fireteam/g7/halo/utils/rtinit_original",
+          "dst": "/pm/g7/halo/utils/rtinit"
+        },
+        {
+          "src": "@nas/Halo Fireteam/g7/halo/utils/run_game.sh_original",
+          "dst": "/pm/g7/halo/utils/run_game.sh"
+        }
+      ],
+      "libdirs": [
+        {
+          "src": "@data/runtime/lib-fmodstub",
+          "dst": "/rg/libfmod",
+          "note": "FMOD 1.10 ontbreekt (propriëtair); de stub geeft geen geluid"
+        }
+      ],
+      "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
+      "exe": "/pm/g7/halo/game",
+      "cwd": "/pm/g7/halo",
+      "home": "/pm/g7/halo",
+      "args": [
+        "-f{res}",
+        "-n"
+      ],
+      "route": "tp-shm",
+      "libs": [
+        "@build/librg_rt_input.so"
+      ],
+      "extra_ro": [
+        "/dev/shm/TeknoParrot_JvsState"
+      ]
     },
-    {
-     "src": "@nas/Halo Fireteam/g7/dump",
-     "dst": "/pm/g7/dump",
-     "mode": "ro"
-    }
-   ],
-   "files": [
-    {
-     "src": "@nas/Halo Fireteam/g7/halo/utils/rtinit_original",
-     "dst": "/pm/g7/halo/utils/rtinit"
+    "JurassicPark": {
+      "title": "Jurassic Park Arcade",
+      "enabled": false,
+      "status": "geparkeerd",
+      "note": "Met libSDL-1.2 (sdl12-compat, i386) en de PhysX/theora-bibliotheken uit ElfLdr2/libs laadt de herschreven ELF, maar springt dan naar een vast adres uit de dump (SIGSEGV op 0xb7227dc0 voor main); de beveiligingslaag die BudgieLoader op dat adres zet, is er native niet. Er is geen halo.so-equivalent in de gamemap (alleen libhasp_linux_*.so van de echte dongle).",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/Jurassic Park",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [
+        "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
+        "@tpui/ElfLdr2/libs/libPhysXCore.so",
+        "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
+        "@tpui/ElfLdr2/libs/libNxCooking.so",
+        "@lib32/libtheora.so.0",
+        "@tpui/ElfLdr2/libs/libfmod.so.7",
+        "@tpui/ElfLdr2/libs/libfmodstudio.so.7",
+        "@lib32/libglut.so.3",
+        "@lib32/libXi.so.6",
+        "@lib32/libGLU.so.1",
+        "@lib32/libSDL-1.2.so.0",
+        "@lib32/libSDL2-2.0.so.0"
+      ],
+      "preload": "",
+      "exe": "/pm/game",
+      "cwd": "/pm",
+      "home": "/pm",
+      "args": [
+        "-n",
+        "-f{res}"
+      ],
+      "res": "1360x768",
+      "route": "evdev"
     },
-    {
-     "src": "@nas/Halo Fireteam/g7/halo/utils/run_game.sh_original",
-     "dst": "/pm/g7/halo/utils/run_game.sh"
+    "Terminator": {
+      "title": "Terminator Salvation",
+      "enabled": false,
+      "status": "geparkeerd",
+      "note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255 (DongleInitialize() FAILED: de game wil de HASP-dongle); niet omzeild.",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/Terminator Salvation ",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [
+        "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
+        "@tpui/ElfLdr2/libs/libPhysXCore.so",
+        "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
+        "@tpui/ElfLdr2/libs/libNxCooking.so",
+        "@lib32/libtheora.so.0",
+        "@lib32/libglut.so.3",
+        "@lib32/libXi.so.6",
+        "@lib32/libGLU.so.1"
+      ],
+      "preload": "",
+      "exe": "/pm/game",
+      "cwd": "/pm",
+      "home": "/pm",
+      "args": [
+        "-n",
+        "-f{res}"
+      ],
+      "res": "1360x768",
+      "route": "evdev"
+    },
+    "GhostBusters": {
+      "title": "Ghostbusters (Raw Thrills)",
+      "enabled": false,
+      "status": "geparkeerd",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/GhostBusters",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [
+        "@tpui/ElfLdr2/libs/libcsv.so",
+        "@lib32/libglut.so.3",
+        "@lib32/libXi.so.6",
+        "@lib32/libGLU.so.1",
+        "@lib32/libesd.so.0"
+      ],
+      "preload": "",
+      "exe": "/pm/game",
+      "cwd": "/pm",
+      "home": "/pm",
+      "args": [
+        "-f{res}",
+        "-e",
+        "-mg"
+      ],
+      "res": "1280x720",
+      "route": "evdev",
+      "note": "Native niet verder dan de lader: het binair wil /usr/lib/libcsv.so (absoluut pad) en libesd.so.0 (i386, niet beschikbaar), en controleert een dongle (Game dongle initialization failed)."
+    },
+    "GoGoStrike": {
+      "title": "Go Go Strike (bowling_usa)",
+      "enabled": true,
+      "status": "deels",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/Go Go Strike",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [
+        "@tpui/ElfLdr2/libs/liballeg.so.4.0",
+        "@tpui/ElfLdr2/libs/libstdc++.so.5",
+        "@tpui/ElfLdr2/libs/libNL.so.1.6",
+        "@lib32/librg-oss-stub.so"
+      ],
+      "preload": "/rg/lib/librg-oss-stub.so",
+      "exe": "/pm/bowling_usa",
+      "cwd": "/pm",
+      "home": "/pm",
+      "args": [],
+      "res": "1360x768",
+      "route": "evdev",
+      "note": "Draait native via onze eigen route (geen Wine/BudgieLoader). De eerste oorzaak was GELUID: install_sound faalt op ontbrekende OSS-apparaten, de game neemt zijn vroege uitgang (0x805963f) en slaat set_gfx_mode en lpSramDeviceOpen over -> NULL-deref in uwSramCheckFormatCode. Opgelost met: onze OSS-stub (tools/rg-oss-stub/librg-oss-stub.so, via preload; gebouwd met gen.sh, hoort in runtime/lib32), share_ipc voor X MIT-SHM, en een rw-bind van het SRAM-apparaat. set_gfx_mode slaagt nu en de game tekent op 1920x1080. Twee valkuilen: /dev/sequencer NIET nabootsen (anders 'No support synth type found') en libalsatoss.so.0 onder exact die naam binden. Volgende hobbel: PAOKAI-apparaten /dev/w040101_* + /dev/ttyS0 op ioctl-niveau. Zie docs/research/gogostrike-hobbel2.md.",
+      "share_ipc": true,
+      "binds_rw": [
+        [
+          "@data/native/GoGoStrike/w040101sram",
+          "/dev/w040101sram0"
+        ]
+      ]
+    },
+    "GalagaAssault": {
+      "title": "Galaga Assault",
+      "enabled": false,
+      "status": "geparkeerd",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/Galaga Assault",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [],
+      "preload": "",
+      "exe": "/pm/game",
+      "cwd": "/pm/galaga/galaga",
+      "home": "/pm",
+      "args": [
+        "-f{res}",
+        "-n"
+      ],
+      "res": "1080x1920",
+      "route": "evdev",
+      "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb758c140), zoals Jurassic Park. De bijbehorende vooraf te laden bibliotheek van TeknoParrot ontbreekt in de gamemap."
+    },
+    "PacmanChomp": {
+      "title": "Pac-Man Chomp-Mania",
+      "enabled": false,
+      "status": "geparkeerd",
+      "arch": "i386",
+      "mounts": [
+        {
+          "src": "@nas/Pacman Chomp-Mania",
+          "dst": "/pm",
+          "mode": "overlay"
+        }
+      ],
+      "libs": [],
+      "preload": "",
+      "exe": "/pm/game",
+      "cwd": "/pm/pacman/pacman",
+      "home": "/pm",
+      "args": [
+        "-f{res}",
+        "-n"
+      ],
+      "res": "1080x1920",
+      "route": "evdev",
+      "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb728fa00), zoals Jurassic Park/Galaga. Vraagt ook libXrandr/libXrender (i386; staan in lib32 na --stage-libs)."
     }
-   ],
-   "libdirs": [
-    {
-     "src": "@data/runtime/lib-fmodstub",
-     "dst": "/rg/libfmod",
-     "note": "FMOD 1.10 ontbreekt (propriëtair); de stub geeft geen geluid"
-    }
-   ],
-   "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
-   "exe": "/pm/g7/halo/game",
-   "cwd": "/pm/g7/halo",
-   "home": "/pm/g7/halo",
-   "args": [
-    "-f{res}",
-    "-n"
-   ],
-   "route": "tp-shm",
-   "libs": [
-    "@build/librg_rt_input.so"
-   ],
-   "extra_ro": [
-    "/dev/shm/TeknoParrot_JvsState"
-   ]
-  },
-  "JurassicPark": {
-   "title": "Jurassic Park Arcade",
-   "enabled": false,
-   "status": "geparkeerd",
-   "note": "Met libSDL-1.2 (sdl12-compat, i386) en de PhysX/theora-bibliotheken uit ElfLdr2/libs laadt de herschreven ELF, maar springt dan naar een vast adres uit de dump (SIGSEGV op 0xb7227dc0 voor main); de beveiligingslaag die BudgieLoader op dat adres zet, is er native niet. Er is geen halo.so-equivalent in de gamemap (alleen libhasp_linux_*.so van de echte dongle).",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/Jurassic Park",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [
-    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
-    "@tpui/ElfLdr2/libs/libPhysXCore.so",
-    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
-    "@tpui/ElfLdr2/libs/libNxCooking.so",
-    "@lib32/libtheora.so.0",
-    "@tpui/ElfLdr2/libs/libfmod.so.7",
-    "@tpui/ElfLdr2/libs/libfmodstudio.so.7",
-    "@lib32/libglut.so.3",
-    "@lib32/libXi.so.6",
-    "@lib32/libGLU.so.1",
-    "@lib32/libSDL-1.2.so.0",
-    "@lib32/libSDL2-2.0.so.0"
-   ],
-   "preload": "",
-   "exe": "/pm/game",
-   "cwd": "/pm",
-   "home": "/pm",
-   "args": [
-    "-n",
-    "-f{res}"
-   ],
-   "res": "1360x768",
-   "route": "evdev"
-  },
-  "Terminator": {
-   "title": "Terminator Salvation",
-   "enabled": false,
-   "status": "geparkeerd",
-   "note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255 (DongleInitialize() FAILED: de game wil de HASP-dongle); niet omzeild.",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/Terminator Salvation ",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [
-    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
-    "@tpui/ElfLdr2/libs/libPhysXCore.so",
-    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
-    "@tpui/ElfLdr2/libs/libNxCooking.so",
-    "@lib32/libtheora.so.0",
-    "@lib32/libglut.so.3",
-    "@lib32/libXi.so.6",
-    "@lib32/libGLU.so.1"
-   ],
-   "preload": "",
-   "exe": "/pm/game",
-   "cwd": "/pm",
-   "home": "/pm",
-   "args": [
-    "-n",
-    "-f{res}"
-   ],
-   "res": "1360x768",
-   "route": "evdev"
-  },
-  "GhostBusters": {
-   "title": "Ghostbusters (Raw Thrills)",
-   "enabled": false,
-   "status": "geparkeerd",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/GhostBusters",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [
-    "@tpui/ElfLdr2/libs/libcsv.so",
-    "@lib32/libglut.so.3",
-    "@lib32/libXi.so.6",
-    "@lib32/libGLU.so.1",
-    "@lib32/libesd.so.0"
-   ],
-   "preload": "",
-   "exe": "/pm/game",
-   "cwd": "/pm",
-   "home": "/pm",
-   "args": [
-    "-f{res}",
-    "-e",
-    "-mg"
-   ],
-   "res": "1280x720",
-   "route": "evdev",
-   "note": "Native niet verder dan de lader: het binair wil /usr/lib/libcsv.so (absoluut pad) en libesd.so.0 (i386, niet beschikbaar), en controleert een dongle (Game dongle initialization failed)."
-  },
-  "GoGoStrike": {
-   "title": "Go Go Strike (bowling_usa)",
-   "enabled": false,
-   "status": "geparkeerd",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/Go Go Strike",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [
-    "@tpui/ElfLdr2/libs/liballeg.so.4.0",
-    "@tpui/ElfLdr2/libs/libstdc++.so.5",
-    "@tpui/ElfLdr2/libs/libNL.so.1.6"
-   ],
-   "preload": "",
-   "exe": "/pm/bowling_usa",
-   "cwd": "/pm",
-   "home": "/pm",
-   "args": [],
-   "res": "1360x768",
-   "route": "evdev",
-   "note": "bowling_usa (Allegro 4, 2007) laadt, leest zijn beelddata en crasht dan op een NULL-aanwijzer (geen bruikbare grafische modus; een .allegrorc met XWIN hielp niet); wil ook de PAOKAI-apparaten /dev/w040101_*. Geparkeerd."
-  },
-  "GalagaAssault": {
-   "title": "Galaga Assault",
-   "enabled": false,
-   "status": "geparkeerd",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/Galaga Assault",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [],
-   "preload": "",
-   "exe": "/pm/game",
-   "cwd": "/pm/galaga/galaga",
-   "home": "/pm",
-   "args": [
-    "-f{res}",
-    "-n"
-   ],
-   "res": "1080x1920",
-   "route": "evdev",
-   "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb758c140), zoals Jurassic Park. De bijbehorende vooraf te laden bibliotheek van TeknoParrot ontbreekt in de gamemap."
-  },
-  "PacmanChomp": {
-   "title": "Pac-Man Chomp-Mania",
-   "enabled": false,
-   "status": "geparkeerd",
-   "arch": "i386",
-   "mounts": [
-    {
-     "src": "@nas/Pacman Chomp-Mania",
-     "dst": "/pm",
-     "mode": "overlay"
-    }
-   ],
-   "libs": [],
-   "preload": "",
-   "exe": "/pm/game",
-   "cwd": "/pm/pacman/pacman",
-   "home": "/pm",
-   "args": [
-    "-f{res}",
-    "-n"
-   ],
-   "res": "1080x1920",
-   "route": "evdev",
-   "note": "Herschreven ELF: SIGSEGV voor main door een sprong naar een vast adres uit de dump (0xb728fa00), zoals Jurassic Park/Galaga. Vraagt ook libXrandr/libXrender (i386; staan in lib32 na --stage-libs)."
   }
- }
 }
