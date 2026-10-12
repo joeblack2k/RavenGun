@@ -775,6 +775,26 @@ de lader intern of voor gereedschap, niet voor de games.
 
 Narekenen: `re/_eigenapi-check2.sh`.
 
+#### De API-oppervlakte is af: 161 van 161 glut-namen (2026-10-12)
+
+`tools/rg-glutapi/librg-glutapi.so` is gebouwd en daarna **onafhankelijk nagerekend** (niet op grond
+van de bouwer zijn woord):
+
+| | aantal |
+|---|---|
+| `glut*`-namen die BudgieLoader exporteert | 161 |
+| `glut*`-namen in `librg-glutapi.so` | **161** |
+| gedekt | **161** |
+| ontbreekt | **0** |
+
+Het bestand is `ELF 32-bit LSB shared object, Intel i386`, 55.836 B. Het laadt met `dlopen`, en de
+gevoeligste namen zitten erin: `glutDisplayFuncUcall` (een van de 31 wikkels), `glutStrokeLengthf`
+(de float-variant), `glutSetVertexAttribNormal` (een van de zes nieuwe) en `glutBitmapCharacter`.
+
+Daarmee is het **API-deel van fase 3 klaar**: 122 namen komen uit onze eigen 32-bits libglut, 39 zijn
+hier gemaakt (30 mechanische wikkels en 6 kleine nieuwe functies), en van BudgieLoaders eigen API
+vraagt geen enkele game iets. Narekenen: `re/_glutverify.sh`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
@@ -845,6 +865,6 @@ Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
 | **1 — de huidige lader uitpakken en begrijpen** | **af.** Statisch uitgepakt (`docs/research/budgieloader-uitgepakt.md`, 785 regels), en daarna ook uit het geheugen gedumpt: 8,3 MB beeld met echte x86-code en duizenden namen erin. |
 | **1B — hoe ElfLdr2 de gewiste namen oplost** | **deels beantwoord.** `hints.dat` geeft geen namen (13 sleutels; 1.463 hash-toetsen, 0 treffers) en de `DT_JMPREL`-resten zijn nullen. De naamgeving zit in de gedumpte lader; **hoe** een naamloos slot aan een naam gekoppeld wordt is nog open. |
 | **2 — de eigen lader op de ongepakte klasse** | **gehaald.** GoGoStrike start via onze eigen route, zonder Wine en zonder BudgieLoader, draait 30 s en toont zijn eigen assert (`docs/screenshots/gogostrike-native-assert.png`). De lader springt naar de gast met argc 1, envc 22, 17 auxv. |
-| **3a — de API-oppervlakte** | **in bouw.** 122 van de 161 `glut*`-namen komen uit onze eigen 32-bits libglut; **39** moeten wij maken (30 mechanische wikkels + 6 kleine nieuwe functies). |
+| **3a — de API-oppervlakte** | **af.** `tools/rg-glutapi/librg-glutapi.so` exporteert **161 van de 161** `glut*`-namen (0 ontbrekend), laadt met `dlopen`, en is onafhankelijk nagerekend. 122 kwamen uit onze eigen libglut, 39 zijn gemaakt. |
 | **3b — de gepakte klasse** | **deels.** Onze lader laadt de gast, lost de bibliotheken op en springt naar de entry; de gast sterft op het eerste voorgevulde GOT-slot (`fopen`). **31 van de 357** stubs zijn statisch te benoemen, en alle **82** teruggewonnen namen over vier games lossen op. De rest wacht op de dump-analyse en op de gast-dump. |
 | **nog uit te rollen** | `play-native.sh` heeft nog `--unshare-ipc` en geen `--bind-rw`, en het profiel laadt de OSS-stub niet -- de drie bewezen oplossingen van fase 2 zitten dus nog niet in de echte launcher. |
