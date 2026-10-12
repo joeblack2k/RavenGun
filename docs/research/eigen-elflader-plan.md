@@ -790,11 +790,13 @@ Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
    deze verzameling hebben de bestandsnaam `game`. Gelijktijdige proeven meten dus elkaar. Wie meet,
    kijkt eerst of er nog een `wine`- of gameproces loopt.
 
-## Stand
+## Stand (bijgewerkt 2026-10-12, ronde 25)
 
-| fase | wie | stand |
-|---|---|---|
-| 1A — BudgieLoader uitpakken | subagent | loopt |
-| 1B — importresolutie | subagent | loopt |
-| 2 — eigen lader, GoGoStrike | Claude (lader-repo) | loopt |
-| 3 — gepakte klasse + API-oppervlakte | nog niet begonnen | wacht op 1B |
+| fase | stand |
+|---|---|
+| **1 — de huidige lader uitpakken en begrijpen** | **af.** Statisch uitgepakt (`docs/research/budgieloader-uitgepakt.md`, 785 regels), en daarna ook uit het geheugen gedumpt: 8,3 MB beeld met echte x86-code en duizenden namen erin. |
+| **1B — hoe ElfLdr2 de gewiste namen oplost** | **deels beantwoord.** `hints.dat` geeft geen namen (13 sleutels; 1.463 hash-toetsen, 0 treffers) en de `DT_JMPREL`-resten zijn nullen. De naamgeving zit in de gedumpte lader; **hoe** een naamloos slot aan een naam gekoppeld wordt is nog open. |
+| **2 — de eigen lader op de ongepakte klasse** | **gehaald.** GoGoStrike start via onze eigen route, zonder Wine en zonder BudgieLoader, draait 30 s en toont zijn eigen assert (`docs/screenshots/gogostrike-native-assert.png`). De lader springt naar de gast met argc 1, envc 22, 17 auxv. |
+| **3a — de API-oppervlakte** | **in bouw.** 122 van de 161 `glut*`-namen komen uit onze eigen 32-bits libglut; **39** moeten wij maken (30 mechanische wikkels + 6 kleine nieuwe functies). |
+| **3b — de gepakte klasse** | **deels.** Onze lader laadt de gast, lost de bibliotheken op en springt naar de entry; de gast sterft op het eerste voorgevulde GOT-slot (`fopen`). **31 van de 357** stubs zijn statisch te benoemen, en alle **82** teruggewonnen namen over vier games lossen op. De rest wacht op de dump-analyse en op de gast-dump. |
+| **nog uit te rollen** | `play-native.sh` heeft nog `--unshare-ipc` en geen `--bind-rw`, en het profiel laadt de OSS-stub niet -- de drie bewezen oplossingen van fase 2 zitten dus nog niet in de echte launcher. |
