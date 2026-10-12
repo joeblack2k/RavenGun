@@ -124,10 +124,18 @@ Twee details die het onderzoek eerder op een dwaalspoor brachten:
   `Dongle_Count(40) > 1` eist. Die wordt door niets aangeroepen; de variant die `Awake` gebruikt
   (`KDLGNPHHMKI`) eist `Dongle_Count(85) > 0`. Wie alleen naar de eerste kijkt, concludeert ten
   onrechte dat de poort 40 is en dat het aantal minstens 2 moet zijn.
-* `Dongle_EncryptData`/`Dongle_DecryptData` komen op dertien plaatsen voor (de versleuteling van de
-  savegame), maar niet op het opstartpad. Onze laag laat ze ongemoeid en geeft 0 terug, net als bij
-  de HASP; zolang beide richtingen hetzelfde behandelen blijft de opslag in zichzelf consistent. Dat
-  is in deze metingen niet uitgeoefend.
+* `Dongle_EncryptData`/`Dongle_DecryptData` komen op dertien plaatsen voor, maar **niet** in het
+  savegame-pad — hier stond dat dit "de versleuteling van de savegame" is, en dat is op 2026-10-12 met
+  dnlib weerlegd. Van de zes Encrypt-wrappers in `SBK.Matrix.MatrixManager` (`KPHIPOINDLP`, `BMNNMICCONF`,
+  `EDNBLKCLMOI`, `NDIBJIHIEGD`, `NKLMBDBGNGM`, `MIBFIOJCFDO`) heeft **geen enkele een verwijzing** in de
+  hele IL: ze zijn in deze build dode code. Het savegame-lees- en schrijfpad loopt via `SBK.SaveGameManager`
+  → `IJGPGJJKJAG` (de IO-providerlaag) en schrijft `ServerRequestManager::GetDeviceID` in de stream; die
+  methode geeft `MatrixManager.GetDongleSerialNumber().ToString()` terug als die > 0, anders `"0"`. De
+  versleuteling zelf zit **niet in managed code** (geen `Rijndael`/`Aes`/`CreateDecryptor` in de assembly)
+  en komt dus uit een native module — de kandidaat die de game meelevert is `Game_Data/Plugins/sxCore.dll`
+  met `sxCoreSettings.txt`. Onze laag laat de buffer ongemoeid en geeft 0 terug, net als bij de HASP, en dat
+  is onschadelijk; het lost de savegame-fout alleen niet op. Zie
+  `patches/RabbidsHollywood/DONGLE-ONDERZOEK.md` §10 en §11.
 
 ## 5. Onze laag, en zijn eigen gegevens
 
