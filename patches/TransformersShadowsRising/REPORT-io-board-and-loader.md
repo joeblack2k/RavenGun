@@ -63,18 +63,33 @@ Consequences for the assignment:
 | Patch folder | `patches/TransformersShadowsRising/` exists (game.ini, README) | none |
 | Dongle/region fields | none | `DongleRegion = USA`, `PcbRegion = USA` |
 
-**Ambiguity — flagged, not silently resolved.** The owner said "Transformers worked" without saying which.
-Everything measurable points to **Shadows Rising** being the one that works and that we have history for:
-it is the only one with a findings file, a patch folder, a `playable` status entry, a measured crosshair,
-and our own loader. Human Alliance has *no* findings file anywhere on the NAS or in the repo, and its
-profile still carries the region/dongle dropdowns of the JVS route, so it is a different and less-proven
-route. I recommend treating "Transformers worked" as **Shadows Rising**, and asking the owner explicitly,
-because if it means Human Alliance then the second game needs its own reconnaissance and nothing in this
-report applies to it.
+**SETTLED — by the owner, and the answer is Shadows Rising.** The owner was asked and answered that he played
+*"the newest one in fullscreen"*, adding that the loader builder fixed it for him. The newest of the two is
+**Shadows Rising** (`Transformers2`, 2018; Human Alliance is 2013), so **the whole of this report applies to the
+right game**, and my earlier recommendation (everything measurable pointed at Shadows Rising) is confirmed from
+outside our own measurements. For the record, the reasoning before the answer arrived was: Shadows Rising is the
+only one with a findings file, a patch folder, a `playable` status entry, a measured crosshair and our own loader,
+while Human Alliance has *no* findings file anywhere on the NAS or in the repo and still carries the
+region/dongle dropdowns of the JVS route.
 
-How to settle it in one question: *"Did the Transformers you played have a separate Sega 'Shell' window
-that closes itself before the game starts, and did the crosshair need the swapped axes / −217…557 fix?"*
-Yes → Shadows Rising. No → Human Alliance.
+**What that confirmation does and does not cover — please read this as three separate claims.**
+
+| claim | status |
+|---|---|
+| The **game starts and runs** for the owner, in fullscreen, on the Deck | **confirmed by the owner** — this is external confirmation, not only our own measurement |
+| The **gun** works (PlayStation Move as the lightgun, via `SaeGunBoard` / DirectInput) | measured by us (crosshair within 1.5 % on 2026-10-11); consistent with the owner having played it |
+| The **IO board** works — cabinet lamps, the external keypad, hardware recoil | **NOT confirmed by anything.** The handshake has never been completed; the shell has never logged `InitIOBoard : Initialised OK` in any session on the NAS |
+
+"Played by the owner" must therefore **not** be read as "the IO board is done". The owner played the *game*; the
+IO board is the separate device that gates the lamps, the keypad and the recoil, and it is exactly what the run in
+§7.b has to confirm. The Move-as-gun path goes through `SaeGunBoard` (DirectInput) and does not touch the IO board
+at all — that is the separation the board description in `hid-boards.json` already states.
+
+**Two design facts from the owner, recorded so nobody "fixes" them.** The game files live on the NAS
+(`/home/deck/mnt/spidernas_emulation/Teknoparrot/…`) and the loader starts the games **from there** — that is the
+intended design, not a problem to be corrected. And the whole point of the loader is to play with a **PlayStation
+Move as the gun**, which for this title happens through the gun board (`SaeGunBoard`, DirectInput); the IO board
+is only for the lamps, the keys and the recoil.
 
 ---
 
@@ -498,8 +513,9 @@ change** (the two references removed, plus a stale "vijf profielen" comment): th
 `gamesettings_tests` (`patches.ini` `Source`/`memory`) and `ravengund_web` / `install` (missing
 `patches/LGI/game.ini` in the manifest). **I left those four alone.**
 
-**But the repair exposed a second half of the same regression, and this one is a decision, not a fix.**
-`ravengun_iobridge_tests` now runs with exactly **1 failing check**, at `tests/test_iobridge.cpp:419`:
+**The repair then exposed a second half of the same regression, and that one is now fixed too — as a third
+change, and NOT in the way the obvious reading suggests.** `ravengun_iobridge_tests` ran on with exactly **1
+failing check**, at `tests/test_iobridge.cpp:419`:
 
 ```cpp
 // Elke layout in patches/*/game.ini bestaat in tp-shm-profiles.json.
@@ -507,17 +523,52 @@ for (const auto& g : r.games)
     if (!g.layout.empty()) CHECK(ps.find(g.layout));
 ```
 
-That check is **right**: `patches/GoGoStrike/game.ini` still says `Layout = GoGoStrike`, and `ccd52fe` removed
-that profile from shipped data. So the purge left a dangling layout reference. Note that `ccd52fe` deliberately did
-**not** touch `patches/` at all — all four purged games still have their `patches/<Game>/` directory
-(`GalagaAssault`, `PacmanChomp`, `GoGoStrike`, `Gashaaaan2`), and GoGoStrike is the only one whose layout is now
-orphaned. Three defensible repairs, and they are policy, so I did not pick one:
+That check is **right**: `patches/GoGoStrike/game.ini` still said `Layout = GoGoStrike`, and `ccd52fe` removed that
+profile from shipped data. `ccd52fe` deliberately did **not** touch `patches/` — all four purged games still have
+their `patches/<Game>/` directory (`GalagaAssault`, `PacmanChomp`, `GoGoStrike`, `Gashaaaan2`), and GoGoStrike is
+the only one whose layout became orphaned.
 
-1. **Remove `Layout = GoGoStrike` from `patches/GoGoStrike/game.ini`** — smallest change, restores the invariant,
-   loses nothing that can work today (the profile is gone). My recommendation.
-2. **Relax the invariant** to only require layouts for games the app still ships — arguably the truest semantics,
-   since the purge intentionally keeps orphaned patch dirs.
-3. **Restore the `GoGoStrike` profile** — contradicts the purge; not recommended.
+**The chosen repair was "drop the dangling layout line", and that alone would have made things worse.** Removing
+only `Layout` leaves `Route = tp-shm` behind, and `src/ravengun/iobridge/routes.cpp` requires a layout for that
+route:
+
+```cpp
+if (r.route == kRouteTpShm && r.layout.empty()) { err = r.game + ": route tp-shm vraagt een Layout in [Input]"; return false; }
+```
+
+So GoGoStrike would have become an *invalid route* — a warning in the log and a game dropped from the route list —
+and the suite would have failed one check earlier, at `tests/test_iobridge.cpp:408` (`CHECK(err.empty())`). The
+failure would have moved, not gone. I therefore removed **the whole route claim** (`Route`, `Layout` and the now
+false `Note`) from `patches/GoGoStrike/game.ini` and left the explanation there as comments:
+
+```ini
+[Input]
+; Op order van de eigenaar uit de app gehaald (purge, commit ccd52fe); het tp-shm-profiel 'GoGoStrike'
+; bestaat niet meer in packaging/tp-shm-profiles.json, dus geen Route/Layout meer -- een game die we niet
+; meer meeleveren hoort geen indeling te beloven. Zonder Route valt hij terug op de standaardroute (evdev)
+; en doet hij niet meer mee in de routelijst.
+; LET OP: alleen 'Layout' weghalen zou fout zijn: routes.cpp eist een Layout bij Route = tp-shm, dus dan
+; werd deze game een routemelding in plaats van een geldige game.
+```
+
+With no `Route`/`Layout`/`Board`/`Boards` left, `has_input()` in `routes.cpp` is false, so GoGoStrike is simply not
+in the route list any more — the same state as the test's own fixture game `H` ("geen `[Input]`"). That is what
+"a game we no longer ship should not promise a layout" actually requires. Two side notes: `packaging/io-routes.json`
+**no longer exists** (removed in `394052c`; `game.ini` is the source now), so nothing regenerates this file and the
+edit is durable; and the migration script preserves comments, so the explanation survives a future regeneration.
+
+**Final state of the suites, measured after all three changes:**
+
+| suite | `HEAD` | now |
+|---|---|---|
+| `ravengun_hid_board_tests` | 55 checks / 0 failed | **111 checks / 0 failed** |
+| `ravengun_iobridge_tests` | **SegFault** (null deref in `render()`) | **22287 checks / 0 failed** |
+| whole `ctest` | 29/35 passed, **6** failed | **30/35 passed, 5 failed** |
+
+The five remaining failures are the pre-existing, unrelated ones and are **untouched**: `launch_direct` (in-flight
+`scripts/launch-direct.py`), `compat_list` ("docs/compatibility.md is out of date"), `gamesettings_tests`
+(`patches.ini` `Source`/`memory`), `ravengund_web` and `install` (missing `patches/LGI/game.ini` in the manifest).
+My earlier note calling these "the other four" was a miscount — there are **five**.
 
 **The schema decision is now built, not pending.** The response table above is exactly the shape you approved, and
 the run can therefore confirm the *whole* sequence, not just the first request.
@@ -784,7 +835,11 @@ board is required at all.
 
 ## 9. Open points I am handing back
 
-1. **"Transformers worked" is ambiguous** (§1). Needs one question to the owner.
+1. ~~**"Transformers worked" is ambiguous** (§1)~~ **SETTLED by the owner**: he played *"the newest one in
+   fullscreen"* = **Shadows Rising**. So this whole report applies to the right game. Note carefully that this
+   confirms the **game starts and runs** (external confirmation, not just our measurement) and **not** that the
+   IO board works: lamps, keypad and hardware recoil remain unconfirmed, and the handshake is still what the run
+   in §7.b must establish.
 2. ~~**§3.2 identity question**~~ **RESOLVED** (§3.2): the `POLLING FLAGS` branch is dead code and the
    board is a HID Game Pad (UsagePage `0x0001` / Usage `0x0005`).
 3. ~~caps constant `0x110000`~~ **RESOLVED** (§3.2a): it is `HIDP_STATUS_SUCCESS`, and `0x47ff50` is the
@@ -809,20 +864,18 @@ board is required at all.
 8. ~~Schema decision: the generic response table~~ **BUILT** (§3.5) — optional `"responses"`, validated, with one
    log line per received output report. The keyed transform is deliberately not implemented because nothing
    compares its output (§3.3).
-9. **New, and it is a decision, not a fix:** the GoGoStrike repair made `ravengun_iobridge_tests` run again
-   (22288 checks, no crash) and thereby exposed **one** remaining failure at `tests/test_iobridge.cpp:419` — the
-   check that every `Layout` in `patches/*/game.ini` exists in `tp-shm-profiles.json`. The check is right:
-   `patches/GoGoStrike/game.ini` still says `Layout = GoGoStrike` while `ccd52fe` removed that profile from
-   shipped data, and `ccd52fe` deliberately left all four `patches/<Game>/` directories in place. Three
-   defensible repairs (drop the dangling `Layout` line — my recommendation; relax the invariant to shipped games;
-   or restore the profile) — all policy, so I did not pick one (§3.5).
+9. ~~GoGoStrike decision~~ **DONE, option 1 — but implemented as "drop the whole route claim", not "drop the
+   Layout line"**: removing only `Layout` leaves `Route = tp-shm`, which `routes.cpp` rejects, so the failure
+   would have moved from check 419 to check 408. `Route`, `Layout` and the now-false `Note` are gone and the
+   reason is in the file as comments. Result: `ravengun_iobridge_tests` **22287 checks, 0 failed**, and the whole
+   suite went 29/35 → **30/35** (§3.5).
 10. **New assumption the run must confirm, and it is check 0 of the runbook:** that adding a Generic Desktop /
     **Game Pad** HID device does not steal DirectInput **joystick id 0** from the gun. Different VID/PIDs
     (`0x72F0` vs `0x72F1`) let `scripts/wine-joyid.sh` keep them apart, but the failure looks exactly like the
     2026-10-10 "crosshair in the corner" bug, so it must be checked *before* the handshake result is read
     (§3.5, §7.b).
-11. **Pre-existing and untouched:** `launch_direct`, `compat_list`, `gamesettings_tests`, `ravengund_web`/`install`
-    fail identically at `HEAD` and are unrelated to this work (§3.5).
+11. **Pre-existing and untouched:** `launch_direct`, `compat_list`, `gamesettings_tests`, `ravengund_web` and
+    `install` — **five** suites — fail identically at `HEAD` and are unrelated to this work (§3.5).
 12. `DONGLE : MainThreadDongleScan: failed stage 1` — the wording implies a stage 2; unobserved in the
     available sessions and not a blocker today (§5).
 13. Everything in this report that came from the Windows mirror instead of the Deck is marked **[mirror]**;
