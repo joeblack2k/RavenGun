@@ -130,14 +130,36 @@ B naar het spelbestand.
 `bowling_usa` in `/tmp`, dus zonder sandbox, zonder game-data en zonder iets naar de NAS te
 schrijven.*
 
-De kernel stopt met `libstdc++.so.5: cannot open shared object file`. Onze lader komt verder: hij
-heeft de gast dan al gemapt, zijn dynamische sectie gelezen en begint de `DT_NEEDED`-bibliotheken te
+Onze lader mapt de gast, leest zijn dynamische sectie en begint de `DT_NEEDED`-bibliotheken te
 laden. Hij stopt op de eerste:
 
 ```
 rg-elfloader: FATAAL: dlopen(liballeg.so.4.0) mislukt:
 .../ElfLdr2/libs/liballeg.so.4.0: undefined symbol: _poly_scanline_gcol8
 ```
+
+
+**En let op waarom dat bij de kernelroute níet gebeurt -- dat is de kern van het verschil.** Met de
+juiste `LD_LIBRARY_PATH` **draait de kernel de gast wél**: gemeten dat hij zijn eigen code bereikt en
+daar stopt op
+
+```
+Fatal error: unable to activate the Allegro system
+Unable to find a usable VT
+```
+
+De kernel lost dus alle imports op, inclusief `_poly_scanline_gcol8`. Dat komt doordat de gast in die
+route het **hoofdprogramma** is: de dynamische symbolen van het hoofdprogramma staan automatisch in
+de globale opzoekingsscope, en `ld.so` lost de imports van de bibliotheken daartegen op.
+
+Onze lader is het hoofdprogramma, en de gast is dan alleen gemapt geheugen -- dus die symbolen staan
+niet in scope. Dat is het hele verschil, en daarom is de shim (of iets dat hetzelfde doet) nodig voor
+de lader, maar **niet** voor de kernelroute.
+
+(Mijn eerdere formulering hier -- "de kernel stopt met `libstdc++.so.5`" -- kwam doordat ik de gast
+zonder `LD_LIBRARY_PATH` had gestart. Dat was misleidend, en het is rechtgezet.)
+
+Narekenen: `re/_kernproef.sh` in de Windows-werkmap, of `/home/deck/_kernproef.sh` op de Deck.
 
 **Dat is geen fout in de lader maar een eigenschap van deze games.** Wat er gemeten is:
 
