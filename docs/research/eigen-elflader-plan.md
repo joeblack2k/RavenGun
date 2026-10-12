@@ -795,6 +795,78 @@ Daarmee is het **API-deel van fase 3 klaar**: 122 namen komen uit onze eigen 32-
 hier gemaakt (30 mechanische wikkels en 6 kleine nieuwe functies), en van BudgieLoaders eigen API
 vraagt geen enkele game iets. Narekenen: `re/_glutverify.sh`.
 
+#### Correctie: `DT_PLTRELSZ` staat in bytes, en ik las hem als hex (2026-10-12)
+
+Hierboven staat dat de pakker `PLTRELSZ` zou **verhogen** (256 tegen ~100 echte). **Dat was mijn eigen
+fout.** `readelf -d` print die waarde in **decimalen** met "(bytes)" erachter:
+
+```
+0x00000002 (PLTRELSZ)   800 (bytes)
+```
+
+Mijn parser las `800` als hexadecimaal, dus als 0x800 = 2048, en liep daarna 156 records **voorbij het
+einde van de tabel**. Wat daar staat is andere data -- bij Galaga op index 363 bijvoorbeeld `0x0830d008`,
+midden in de eerste GOT. 1B heeft het nagerekend (`re/h17_jmprel_einde.out`):
+
+| game | `PLTRELSZ` | in bytes | records | eerste niet-JMP_SLOT-index |
+|---|---|---|---|---|
+| Galaga Assault | `0x320` | 800 | **100** | 100 |
+| Jurassic Park | `0x328` | 808 | **101** | 101 |
+| Pacman Chomp-Mania | `0x618` | 1560 | **195** | 195 |
+
+In alle drie is `PLTRELSZ / 8` **exact** het aantal records met een geldige `r_offset`, `r_info` en
+naam. Er is dus geen opgeblazen tabel; er is een verkeerd gelezen getal. De uitkomst van de
+naamterugwinning (31/70/33/11 stubs) blijft staan -- die telde alleen records met een geldige
+slotwaarde, en de rommel daarvoor had `r_offset = 0` en index 0.
+
+**Les, en dezelfde als eerder in dit plan:** twee tabelgroottes in deze bestanden zijn verraderlijk
+(`nchain` is met opzet verlaagd), en ik heb er zelf een derde verzonnen door een decimaal als hex te
+lezen. Wie hier iets narekent: kijk naar het **formaat** dat `readelf` print, niet alleen naar het getal.
+
+#### De kernuitkomst van fase 1B: ElfLdr2 lost de gewiste namen NIET op (2026-10-12)
+
+Het rapport staat in `docs/research/importresolutie-elfldr2.md` (32.146 B). Dit is het antwoord op de
+vraag waar fase 1 op gericht was, en het is een **negatief** antwoord met harde cijfers:
+
+* **De naamloze records zijn volledig genuld** -- letterlijk `(0,0,0,0,0,0)`, ook `st_value` en
+  `st_shndx`. De boekhouding sluit exact: (UND met naam - 3) + staart = **357** en **577**, precies het
+  aantal stubs. Voor Galaga 258 staartrecords, JP 472, Pacman 248.
+* **`.dynstr` geeft ze niet terug:** ongerefereerd zijn 44/51/49 strings, uitsluitend versienamen,
+  bibliotheeknamen en de HASPE-markers. Geen enkele importnaam.
+* **`hints.dat` is niet de sleutel.** De beslissende kruistoets met 1B's eigen PLT-scanner (die
+  357/577/442 exact reproduceert): stubadres ∩ hint-waarden = **0 van 357, 0 van 577, 0 van 442**;
+  GOT-slot ∩ waarden = 0/0/3; stubadres ∩ sleutels = 0. De hintwaarden zijn niet uitgelijnd (7,9%
+  op een 16-byte grens) en wijzen naar `.rodata`/DWARF, dus niet naar code.
+* **En de `0xb7`-GOT is een GOT-dump van één run.** JP `game_original` heeft **577 van 577** sloten op
+  `stub+6` (luie PLT) en **nul** `0xb7`-waarden; JP `game` heeft 576 `0xb7`-waarden. De
+  onherleidbaarheid komt door **mmap-ASLR**: de doorsnede van JP en Galaga is **0** van 355/571.
+
+**Wat ElfLdr2 dus doet met de 258/472/248 verborgen imports: niets.** Het laat ze staan, en `rt-glfix`'s
+levende meting sluit daar naadloos op aan: 570 van 576 GOT-sloten wijzen naar **anonieme
+`r-xp`-trampolines**, en 180 keer is dat dezelfde cdecl-no-op `55 8b ec 33 c0 5d c3` die 0 teruggeeft.
+De lader die we vervangen **benoemt die imports dus ook niet** -- hij vangt ze af met een lege stub.
+
+**Wat onze eigen lader daarom moet doen:**
+
+1. De **99/105/195** door relocaties gedekte imports gewoon oplossen via `dynsym` + `DT_JMPREL`
+   (`PLTRELSZ` in **bytes**, en het aantal **niet-nul** entries als waarheid).
+2. De **258/472/248** verborgen imports: de naam is onherstelbaar, dus zet er een **cdecl-trampoline**
+   in de GOT-slot -- precies zoals ElfLdr2. `rt-glfix` MODE=8 kan als teller dienen om te zien welke
+   van de ~436 sloten werkelijk worden aangeroepen.
+3. **GL: benoem de 93 sloten niet, maar onderschep de naamroute.** De game draagt zijn eigen
+   naamruimte: Jurassic Park bevat **1.347 `gl*`-naamstrings** (41% van de GL-naamruimte van 2.950; de
+   GLEW-tabel), Galaga 132, Pacman 58 -- plus `dlopen`/`dlsym`. Dat verklaart waarom 22 van de 93 in de
+   praktijk toch een echte functie kregen.
+4. Valkuilen: Wine's `opengl32` exporteert GL als **stdcall** terwijl de games **cdecl** aanroepen, en
+   `gs:[0x14]` moet een stabiele stack-guard hebben.
+
+**En de libGL-groep is geen gedeelde basis.** `0xb7500000` is JP's eigen minimum (Galaga heeft 22
+waarden in dat venster op andere offsets, Pacman **nul**). De beste overlap tussen Galaga en JP over
+alle verschuivingen 0..0x100000 is **1 van 22**. Tegen de echte 32-bits libGL die er staat: 0 van 93
+direct, en de offsetverschillen scoren 331/709 = 46,7% tegenover **69,8% voor willekeurige sets** in
+hetzelfde raster (null-model) -- dus ruis. Mijn eerdere "0 van 93" blijft staan, maar nu met een
+null-model eronder in plaats van een enkele toets.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
