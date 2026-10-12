@@ -124,6 +124,56 @@ B naar het spelbestand.
 | **1A** | `BudgieLoader.exe` uitpakken (secties `.brr0`-`.brr4`) en de **exporttabel** groeperen — dat is de API-oppervlakte die onze lader moet leveren | `docs/research/budgieloader-uitgepakt.md` |
 | **1B** | hoe ElfLdr2 de **gewiste importnamen** oplost: `hints.dat` (2.994.888 bytes = **249.574** × 12; 64-bits 7.325.952 = 457.872 × 16), de tweede PLT/slottabel, en wat de `0xb750xxxx`-groep werkelijk is | `docs/research/importresolutie-elfldr2.md` |
 
+#### Waarom onze lader op GoGoStrike stopt (en dat het geen laderfout is)
+
+*Gemeten 2026-10-12: onze lader `tools/rg-elfloader/rg-elfloader` op een **kopie** van
+`bowling_usa` in `/tmp`, dus zonder sandbox, zonder game-data en zonder iets naar de NAS te
+schrijven.*
+
+De kernel stopt met `libstdc++.so.5: cannot open shared object file`. Onze lader komt verder: hij
+heeft de gast dan al gemapt, zijn dynamische sectie gelezen en begint de `DT_NEEDED`-bibliotheken te
+laden. Hij stopt op de eerste:
+
+```
+rg-elfloader: FATAAL: dlopen(liballeg.so.4.0) mislukt:
+.../ElfLdr2/libs/liballeg.so.4.0: undefined symbol: _poly_scanline_gcol8
+```
+
+**Dat is geen fout in de lader maar een eigenschap van deze games.** Wat er gemeten is:
+
+* `bowling_usa` **definieert** `_poly_scanline_gcol8` op `0x08096344` -- een `T` in zijn
+  *dynamische* symbooltabel.
+* `ElfLdr2/libs/liballeg.so.4.0` heeft hem **ongedefinieerd**: de bibliotheek importeert hem uit het
+  hoofdprogramma.
+* Die liballeg heeft **476** ongedefinieerde symbolen, waarvan er **280** door geen enkele
+  bibliotheek op deze machine geleverd worden -- allemaal Allegro-internen
+  (`_accel_bank_switch`, `_i_cx_r`, `_linear_blit16`, ...).
+
+Met andere woorden: deze exe en deze `.so` zijn **twee helften van één Allegro-bouw**. De exe
+exporteert de interne symbolen, de `.so` importeert ze. De kernel kan dat niet (hij laadt de `.so` in
+zijn eigen scope), en `dlopen` ook niet zolang de symbolen van de gast niet **globaal** zichtbaar
+zijn. Dit is precies het omgekeerde van wat BudgieLoader doet: die zet de gast in zijn eigen
+adresruimte en lost de imports van de gast op uit zijn eigen exporttabel.
+
+**Wat onze lader dus moet doen:** de dynamische symbolen van de gast in de **globale
+opzoekingsscope** zetten vóór de `DT_NEEDED`-bibliotheken geladen worden. Drie wegen, in toenemende
+degelijkheid:
+
+1. De gast als `RTLD_GLOBAL`-object registreren. `dlopen` op een ET_EXEC weigert glibc meestal, dus
+   dit werkt alleen met een truc.
+2. **Een shim-bibliotheek genereren** met de gast-symbolen als absolute adressen
+   (`.set naam, 0x08096344`), die met `RTLD_GLOBAL` geladen wordt vóór de rest, en daarna de echte
+   bibliotheken. Klein, deterministisch, en het werkt omdat de gast op vaste adressen staat (ET_EXEC
+   op `0x08048000`).
+3. Zelf alle `DT_NEEDED`-bibliotheken mappen en de symbolen oplossen tegen één gecombineerde tabel
+   (gast + alle bibliotheken). Het meeste werk, maar het minst afhankelijk van glibc.
+
+**De rest van de keten blijft staan.** Van de 134 ongedefinieerde symbolen van de gast worden er
+maar **44** door liballeg gedekt; de andere 90 zijn libc/C++ (`_ZdaPv`, `_Znaj`, `__cxa_atexit`,
+`__errno_location`, `acos`, ...) en komen dus uit `libstdc++.so.5` (uit `ElfLdr2/libs`) en de 32-bits
+libc/libm van de host. Buiten de liballeg van ElfLdr2 is er op deze machine **geen** 32-bits
+`liballeg` -- de host heeft hem in geen enkele bitbreedte.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
