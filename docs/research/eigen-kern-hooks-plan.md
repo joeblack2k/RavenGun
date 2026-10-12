@@ -46,3 +46,43 @@ Elke stap hierboven vraagt verificatie op de tv met een lightgun (speelbaarheid 
 meten) en een prioriteitskeuze van de eigenaar (welke game eerst, en of een werkende game het risico
 waard is). Daarom is er in de nacht bewust **geen** `case` geschreven en **geen** `Type` omgezet: de
 route is bewezen, de vervanging wacht op die twee dingen.
+
+## Meting 2026-10-12: welke games hebben überhaupt een kern-hook nodig?
+
+De eigenaar vroeg te beginnen met de hooks (voorkeur andere sessie: `SegaJvsLetsGoIsland` / LGI).
+Vóór het schrijven heb ik per game de **invoerroute** nagekeken (`[Input] Route` in elke `game.ini`)
+en de broncode van onze kern. Dat verandert de keuze. De route bepaalt of de invoer überhaupt
+door de kern gaat:
+
+| Route | Games | Gaat de invoer door de kern? |
+|---|---|---|
+| `jvs` (pipe/pty) | LGI, LGI3D, LGS | **Nee.** De game praat JVS over `\\.\pipe\TeknoParrot_JVS`; de RavenGun-daemon ís het JVS-bord (`jvs-boards.json`). De kern raakt dit nooit aan. |
+| `tp-shm` | WartranTroopers-familie (13), LuigisMansion, FarCry, InfinityBlade, TC5, SegaJvsGoldenGun, + de al-herkende Type X2-games | In-proces via de mapping `TeknoParrot_JvsState`. Hier ligt de vraag. |
+| `evdev` | HOTDSD, JurassicPark | Nee (directe Linux-invoer). |
+| `unity-tcp` | Rabbids, TombRaider | Nee (eigen Unity-plugin over TCP). |
+| `hid-board` | Transformers | Nee (SaeGunBoard). |
+
+**LGI is dus géén goed eerste doel.** De invoer van LGI/LGI3D/LGS loopt buiten de kern om. Gemeten:
+`proef-eigen-kern.py LGI --plan` met `Type = OpenParrot` kiest onze lader+kern, en de `[Input]`-route
+blijft ongewijzigd `jvs`/pipe — de kern wisselt alleen de lader/kern-binaries, niet de invoer. De
+andere sessie had al gemeten dat LGI op de generieke route start en blijft leven met antwoordende
+JVS-pipe, en de findings (`findings/LetsGoIsland.md`) noemen LGI **speelbaar** via precies die externe
+route. Een `case 0xd400a3f5 → GameID::LetsGoIsland` met hooks zou voor LGI dus niets zinnigs doen; het
+enige dat de gesloten kern voor LGI deed is een onvoorwaardelijke `CreateWindowExW`-hook — en dat is
+juist de *bug* die vensterstand laat crashen. **Gevolg:** LGI/LGI3D/LGS kunnen zonder enige hook naar
+`Type = OpenParrot` (zodra de eigenaar het op de tv bevestigt) — dat is drie games van de gesloten
+kern af, met nul regels hook-code.
+
+**De échte hook-vraag zit bij `tp-shm`.** Alle `tp-shm`-games starten en blijven leven op onze kern
+(70 s gemeten, `proef-lang.out`), dus booten is het probleem niet. Het gaat puur om de invoer, en
+die hangt af van **wie de mapping `TeknoParrot_JvsState` leest**:
+- Leest de **game** die mapping zelf (bij naam)? Dan is er geen kern-hook nodig en werken de
+  `tp-shm`-games net als LGI al op de generieke route — dan is "zoveel mogelijk zelf doen" grotendeels
+  al bereikt via de externe shm/pipe-brug.
+- Of hookt de **gesloten kern** de I/O-calls van de game en bedient die vanuit de shm? Dan moet onze
+  kern dat per game nabouwen — dát is het echte werk.
+
+Dit is niet headless te beslissen (invoer meten vraagt de tv) en de andere sessie heeft de
+`tp-shm`-route gebouwd, dus die weet het antwoord. Zodra dat vaststaat is het juiste eerste doel een
+**enkel `tp-shm`-spel** (voorstel: `LuigisMansion`, `MedaruNoGunman`/FarCry of `InfinityBladeFX` —
+één game, eigen profiel), niet LGI en niet meteen de 13 WartranTroopers.
