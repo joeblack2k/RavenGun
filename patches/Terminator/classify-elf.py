@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# patches/TerminatorSalvation/classify-elf.py - read-only classification of Terminator Salvation/game (ELF32 i386).
+# patches/Terminator/classify-elf.py - read-only classification of Terminator Salvation/game (ELF32 i386).
 # Markers of the HASPE-packed class:
 #   SHNUM=0, PLT stubs of the form ff 25 <got32> 68 ef be ad de, prefilled GOT with 0xb7xxxxxx,
 #   DT_HASH.nchain lowered against the real symbol count (DT_STRTAB-DT_SYMTAB)/16.

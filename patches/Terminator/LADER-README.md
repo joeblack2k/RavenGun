@@ -289,46 +289,91 @@ Estimated effort is in §8.
 The bench takes one game at a time and I must not start it, so the next measurement is deliberately
 **static — it runs no guest code and cannot bring up a window.**
 
-`find-dongle-symbols.py` (next to this file) puts the last missing pieces in place for step 6: it takes
-the named dongle/HASP functions from the unstripped `ServiceDongleApp`, wildcards the absolute-address
-immediates (which move between builds), and searches the stripped `game` for each function.
+`find-dongle-symbols.py` (next to this file) builds the dongle/HASP symbol map for the stripped `game`
+out of the unstripped, DWARF-bearing `ServiceDongleApp` from the same folder. Two evidence methods, and
+**every** hit prints the evidence it rests on plus a confidence grade:
+
+- **[BYTES]** a code block at (or just inside) the SDA function entry matches `game`. The mismatch ratio
+  is measured over the **non-address** bytes only — absolute addresses and jump targets move between the
+  two builds and are wildcarded, everything else must agree.
+- **[STRING]** a string referenced inside SDA's function F is referenced in `game` too. The owning SDA
+  function of that xref is looked up in the symbol table and the instruction block around the two xrefs
+  is compared. On a match the entry projects as `game_entry = game_xref − (sda_xref − sda_entry)`.
+
+Grades: **A** = 0 differing bytes over ≥ 64 non-address bytes (byte-identical); **B** = ≤ 3 %
+differing; **C** = ≤ 6 % differing ("probable, single method"); **UNKNOWN** = no evidence, deliberately
+not guessed.
 
 **Command (on the Deck):**
 
 ```sh
-mkdir -p ~/projects/ravengun-patches/patches/TerminatorSalvation
-cd ~/projects/ravengun-patches/patches/TerminatorSalvation
+mkdir -p ~/projects/ravengun-patches/patches/Terminator
+cd ~/projects/ravengun-patches/patches/Terminator
 python3 find-dongle-symbols.py
 ```
 
-**Current result (already run, 2026-10-12):** **42 of 50** fingerprintable named functions located in
-`game`, and the **entire `hasp_*` HASP-HL core is byte-identical** (`0` differing bytes out of 86-252
-compared non-wildcard bytes each) — e.g. `hasp_login` → `game 0x083bbe60`, `hasp_read` → `0x083bad30`,
-`hasp_write` → `0x083bac80`, `hasp_encrypt` → `0x083bbd60`, `hasp_decrypt` → `0x083bbce0`,
-`hasp_echo` → `0x083bbc80`, `hasp_get_size` → `0x083babe0`, `hasp_get_sessioninfo` → `0x083bae80`,
-`hasp_update` → `0x083bb110`, `hasp_monster_get_lms_version` → `0x083c3b50`,
-`haspregnew` → `0x083d4820`, `__hasp_enxml_ex` → `0x083bc0a0`. Engine side: `DongleOpen` →
-`game 0x081c6b70`, `DongleRead` → `0x081c6970`, `DongleReadHLFeature` → `0x081c6880`,
-`DongleFeatureLogin` → `0x081c6a50`, `DongleWrite` → `0x081c6550`, `DongleIsPresent` → `0x081c5ff0`,
-`DongleInit` → `0x081c6d20`, `DongleClose` → `0x081c6210`, `DongleReadCountryCode` → `0x081c6640`,
-`DongleReadCabSerialNum` → `0x081c6700`, `DongleWriteHLFeature` → `0x081c6490`, `DongleGetRand` →
-`0x081c5ee0`, `DongleEncrypt` → `0x081c5e70`, `DongleDecrypt` → `0x081c5e00`, `DongleNoise` →
-`0x080ac230`.
+**Current result (measured 2026-10-12/13): 43 of 58 named dongle/HASP FUNCs located in `game`.**
 
-**What counts as success:** the script exits `0` and prints `SUCCESS` — i.e. `DongleInitialize`,
-`DongleInit`, `DongleClose`, `DongleIsPresent`, `DongleGetID`, `AcquireAladdinDongle`,
-`GetAladdinHLPass`, `DongleFeatureCheck`, `hasp_login`, `hasp_read` all with an address in `game`.
-Right now it exits `2` (`PARTIAL`): 8 functions are still unmatched —
-`DongleInitialize`, `DongleGetID`, `AcquireAladdinDongle`, `ReleaseAladdinDongle`, `GetAladdinHLPass`,
-`DongleFeatureCheck`, `ReInitAladdinDongles`, `SysGetDongleHID`. These are the crypto/noise-heavy ones
-whose code genuinely differs a little between the two builds; the refinement is to widen `WIN`
-(256 → 512) / raise `MAXMISS` (6 % → 10 %), or to match on an interior sub-window instead of the entry.
+| grade | count | what it means | examples |
+|---|---|---|---|
+| **A** | **24** | byte-identical block (0 differing bytes) — this is proof | `hasp_login` → `game 0x083bbe60`, `hasp_read` → `0x083bad30`, `hasp_write` → `0x083bac80`, `hasp_encrypt` → `0x083bbd60`, `hasp_decrypt` → `0x083bbce0`, `hasp_echo` → `0x083bbc80`, `hasp_get_size` → `0x083babe0`, `hasp_get_sessioninfo` → `0x083bae80`, `hasp_update` → `0x083bb110`, `hasp_login_scope` → `0x083baac0`, `hasp_logout` → `0x083bbe00`, `hasp_detach` → `0x083ba2d0`, `hasp_get_info` → `0x083ba8a0`, `hasp_get_rtc` → `0x083bab60`, `hasp_monster_get_lms_version` → `0x083c3b50`, `haspregnew` → `0x083d4820`, `__hasp_enxml_ex` → `0x083bc0a0`, `__hasp_monster_detach` → `0x083c11e0`, `hasp_legacy_{encrypt→0x083c74b0, decrypt→0x083c7420, set_idletime→0x083c71f0, set_rtc→0x083c7280}`, `hasp_datetime_to_hasptime` → `0x083bade0`, `MemAllocDongle` → `0x0806f6e0` |
+| **B** | **12** | ≤ 3 % differing, single method | `DongleOpen` → `0x081c6b70`, `DongleWrite` → `0x081c6550`, `DongleWriteHLFeature` → `0x081c6490`, `DongleWriteHLFeatureInt` → `0x081c6410`, `DongleReadHLFeature` → `0x081c6880`, `DongleReadHLFeatureInt` → `0x081c6800`, `DongleReadCabSerialNum` → `0x081c6700`, `DongleReadCountryCode` → `0x081c6640`, `DongleIsPresent` → `0x081c5ff0`, `DongleGetRand` → `0x081c5ee0`, `DongleEncrypt` → `0x081c5e70`, `DongleDecrypt` → `0x081c5e00` |
+| **C** | **7** | 3-6 % differing — **probable, not proven** | `DongleInit` → `0x081c6d20` (5.2 %), `DongleNoise` → `0x080ac230` (5.6 %), `DongleRead` → `0x081c6970` (3.3 %), `DongleClose` → `0x081c6210`, `DongleFeatureLogin` → `0x081c6a50`, `DongleWriteCountryCode` → `0x081c6310`, `DongleWriteCabSerialNum` → `0x081c6390` |
 
-**A usable handle already exists for `DongleInitialize` even before that refinement:** in
-`ServiceDongleApp` the string `DongleInitialize() FAILED!` is loaded inside `DongleInitialize`
-(0x080a8e00). In `game` the same string (vaddr 0x084feb4e) is loaded at **`game 0x080c2cdb`**, so that
-instruction lies inside `game`'s own `DongleInitialize`. The function entry is a short distance before
-it and can be pinned by walking back to the prologue. **[inferred, with the xref as evidence]**
+**15 are UNKNOWN, deliberately not guessed** — including **all eight** that were the target of this
+round: `DongleInitialize`, `DongleGetID`, `AcquireAladdinDongle`, `ReleaseAladdinDongle`,
+`GetAladdinHLPass`, `DongleFeatureCheck`, `ReInitAladdinDongles`, `SysGetDongleHID`. Plus seven that are
+structurally unfingerprintable: `hasp_free` (5 B), `hasp_enable_trace` (6 B), `hasp_login_ex` (5 B),
+`hasp_hasptime_to_datetime` (5 B), `GetAladdinSRMPass` (5 B), `hasp_get_trace` (15 B) — these are
+jump-thunk-sized stubs, too small to have a pattern — and `hasp_cleanup` (29 B).
+
+**Why those eight cannot be anchored here (measured, and this is the honest reason).** They form a
+mutually recursive group whose callers are all inside the same group:
+
+```
+SysGetDongleHID   <- DongleInitialize
+DongleInitialize  <- (no named caller: it is called from `main`)
+AcquireAladdinDongle, ReleaseAladdinDongle, DongleGetID  <- SysGetDongleHID
+GetAladdinHLPass  <- DongleInitialize, DongleFeatureCheck
+DongleFeatureCheck, ReInitAladdinDongles  <- (no named caller)
+```
+
+so call-site alignment cannot bootstrap them, and their bodies genuinely differ between the two builds,
+so block matching fails too. Two of them are **provably unanchorable from this source**, because their
+own log strings do not exist in `ServiceDongleApp` at all:
+
+```
+"ReInitAladdinDongles called: %d times"           in SDA: no   | in game: yes
+"Too many consexutive dongle errs (%d), bailing"  in SDA: no   | in game: yes
+```
+
+**Correction to an earlier reading in this dossier.** I previously wrote that the xref at
+`game 0x080c2cdb` lies inside `game`'s `DongleInitialize`. **That is wrong.** In `ServiceDongleApp` the
+string `DongleInitialize() FAILED!` is referenced from inside **`main`** (SDA 0x080be873), so
+`game 0x080c2cdb` is inside **`game`'s `main`** — the failure is *reported* by `main`, not by
+`DongleInitialize`. Same correction for `version.txt` / `NO VERSION`: those belong to SDA's
+`SysLoadVersionInfo`, not to `AcquireAladdinDongle`/`GetAladdinHLPass` (my earlier 3000-byte
+disassembly window had overrun into the neighbouring function).
+
+**Measured leads for the UNKNOWN set** (xref addresses are measured; the function *names* are inferred
+from the wording of the string and are **not** proven):
+
+| game-only string | game xref address | inferred owner |
+|---|---|---|
+| `DongleInitialize() FAILED!` | `0x080c2cdb` | `main` (proven — see above) |
+| `ReInitAladdinDongles called: %d times` | `0x080aaf10` | `ReInitAladdinDongles` (inferred) |
+| `Too many consexutive dongle errs (%d), bailing` | `0x080ac68d` | `DongleFeatureCheck` (inferred) |
+
+`failed to find aladdin dongle`, `failed to read dongle id` and `Unable to read seed from dongle` are in
+**`t4-patch`**, not in `game`.
+
+**What counts as success** for this measurement going forward: `DongleInitialize`, `DongleGetID`,
+`AcquireAladdinDongle`, `ReleaseAladdinDongle`, `GetAladdinHLPass`, `DongleFeatureCheck`,
+`ReInitAladdinDongles`, `SysGetDongleHID` reported with an address **and** evidence. Reaching that needs
+a *new* independent anchor, not a looser threshold — relaxing the match ratio would produce exactly the
+guesswork the grading is there to prevent. The realistic new anchors are (a) the game-side prologue walk
+from the two measured leads above, cross-checked by the call sites in `main`, or (b) a dynamic trace of
+`main` during the bench run (see `DRAAIBOEK-BENCH.md`).
 
 **One measurement does need a run, and I am not doing it without your go-ahead:** once step 1 is in, the
 loader end-to-end on `game` is the real gate. Success = the loader prints
@@ -494,8 +539,9 @@ file `dongle.c`; path `/g3/libraries/pmrt/dongle`; dongle kinds `DONGLE_TYPE_ALA
 `DONGLE_TYPE_ALADDIN_SRM`, `DONGLE_TYPE_FEITIAN`, `DONGLE_TYPE_UNKNOWN`.
 
 Because `game` and `ServiceDongleApp` are the **same PlayMechanix engine**, that symbol table is a
-**map for the stripped `game`** — which §4 turns into 42 located addresses, including the entire
-byte-identical `hasp_*` core.
+**map for the stripped `game`** — which §4 turns into **43 graded addresses (24 of them byte-identical,
+grade A)**, covering the entire `hasp_*` HASP-HL core and most of the `Dongle*` wrapper. The eight
+functions that §4 lists as UNKNOWN need a new anchor; the two measured leads for that are in §4.
 
 **Bottom line on the dongle:** it is a real HASP-HL requirement that runs after `main`; the client is
 statically linked into `game` (so no symbol-name hook exists, but we now have addresses); the engine's

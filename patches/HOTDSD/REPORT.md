@@ -67,7 +67,7 @@ Reproduce with the bundled interpreter:
 
 > **Note on placement.** The existing per-game folder for this title in this repo is
 > `patches/HOTDSD/` (`game.ini` + `README.md`). I followed the instruction for this round and put the
-> dossier in `patches/HouseOfTheDeadScarletDawn/`. If the long name is not wanted, the two folders are
+> dossier in `patches/HOTDSD/`. If the long name is not wanted, the two folders are
 > easy to merge; nothing in `patches/HOTDSD/` was changed.
 
 ---
@@ -427,7 +427,7 @@ Target: **our loader + our core, SEGA's daemon, nothing from TeknoParrot.** Numb
    `credit.max_credit = 24`, `game_cost` with `1`s for two modes) plus a coin signal from our input
    layer. Small, but do not skip it: without it a start costs a coin the player cannot insert.
 
-6. **Per-game data.** `patches/HouseOfTheDeadScarletDawn/game.ini`: two exe's, `DaemonWait = 5`,
+6. **Per-game data.** `patches/HOTDSD/game.ini`: two exe's, `DaemonWait = 5`,
    the mount letter map from step 2, `[Launch] Mode = direct`. Add a `dropin/dropin.ini` **only if** a
    file actually has to be placed in the view — at the moment nothing does.
 
@@ -869,7 +869,7 @@ hardware**, and express it in the existing `dongles/` model so it stays per-game
     |   hook DeviceIoControl -> answer from dongle.json  |       same process, same table
     +---------------------------------------------------+
                   ^
-                  |  dongles/HouseOfTheDeadScarletDawn/dongle.json  (type: sega-keychip)
+                  |  dongles/HOTDSD/dongle.json  (type: sega-keychip)
 ```
 
 One hook table per process gives us both the mount letters (§4, B2) and the keychip. That is the reason
@@ -964,7 +964,7 @@ cheapest way to learn the correct region/modeltype for an ALLS UX cabinet, inste
 
 | File | What it is |
 |---|---|
-| `dongle.sega-keychip.draft.json` | The draft descriptor, valid JSON, ready to become `ravengun/dongles/HouseOfTheDeadScarletDawn/dongle.json`. Every unmeasured value is marked `TODO` with the function that reads it, so nothing is silently invented. |
+| `dongle.sega-keychip.draft.json` | The draft descriptor, valid JSON, ready to become `ravengun/dongles/HOTDSD/dongle.json`. Every unmeasured value is marked `TODO` with the function that reads it, so nothing is silently invented. |
 | `sega-keychip.schema-fragment.json` | The addition to `dongles/schema.json`: the `sega-keychip` enum entry, the property block and the `allOf` rule, plus a 5-step adoption list. `sega-scan` stays as-is for the Ring path. |
 
 Both are proposals, not loader code; the loader repo's `dongles/` folder was **not** modified.

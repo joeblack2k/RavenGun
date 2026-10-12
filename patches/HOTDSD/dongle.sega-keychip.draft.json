@@ -3,7 +3,7 @@
   "profile": "HOTDSD",
   "type": "sega-keychip",
   "device": "\\\\.\\FddDriver",
-  "notes": "DRAFT for review - values marked TODO are not yet measured. This descriptor is the per-game data half of the keychip design in REPORT.md section 10; the answering code is a CreateFileW + DeviceIoControl hook in the amdaemon.exe process. Belongs in ravengun/dongles/HouseOfTheDeadScarletDawn/dongle.json once adopted. The ioctls[] array is filled from measurement C2 (REPORT.md section 6). Nothing here is required to reach the game: HOTDSD is measured playable with no keychip at all under TeknoParrot with SEGA's unmodified daemon.",
+  "notes": "DRAFT for review - values marked TODO are not yet measured. This descriptor is the per-game data half of the keychip design in REPORT.md section 10; the answering code is a CreateFileW + DeviceIoControl hook in the amdaemon.exe process. Belongs in patches/HOTDSD/dongle.json once adopted. The ioctls[] array is filled from measurement C2 (REPORT.md section 6). Nothing here is required to reach the game: HOTDSD is measured playable with no keychip at all under TeknoParrot with SEGA's unmodified daemon.",
 
   "identity": {
     "modeltype": 1,

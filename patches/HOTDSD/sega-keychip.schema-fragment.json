@@ -4,7 +4,7 @@
     "1. In dongles/schema.json, add \"sega-keychip\" to properties.type.enum.",
     "2. Add the properties block below to properties.",
     "3. Add the if/then entry below to allOf.",
-    "4. Add dongles/HouseOfTheDeadScarletDawn/dongle.json from dongle.sega-keychip.draft.json.",
+    "4. Add patches/HOTDSD/dongle.json from dongle.sega-keychip.draft.json.",
     "5. Document in dongles/README.md that this type is answered by a CreateFileW + DeviceIoControl hook in the daemon process, not by a HASP-style API."
   ],
 
