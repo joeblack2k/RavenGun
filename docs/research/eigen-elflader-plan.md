@@ -1161,6 +1161,30 @@ lader kan dat oplossen**, want de informatie is vernietigd. Wie deze games werke
 sloten, waaronder `fopen`), en het plafond ligt bij de pakker. Dat is geen mislukking van dit project
 maar de grens van het materiaal.
 
+#### Onze API-bibliotheek is gebouwd maar nergens aangesloten (en dat is nu onschadelijk) (2026-10-12)
+
+`librg-glutapi.so` dekt 161 van 161 glut-namen en is nagerekend. Maar **hij wordt nergens geladen.**
+Gemeten:
+
+* `~/.local/share/ravengun/runtime/lib32/` bevat alleen de **echte** `libglut.so.3` (261.140 B, van
+  10 oktober) -- er is geen `librg-glutapi.so`.
+* Niets in de repo of in de profielen verwijst naar onze bibliotheek of installeert hem; alleen zijn
+  eigen `README.md` noemt de handmatige stap (`cp librg-glutapi.so <runtime>/libglut.so.3`).
+* Beide hebben **SONAME `libglut.so.3`**, dus wie van de twee er staat, wint de resolutie.
+
+**En dat is vandaag onschadelijk, met een meting eronder.** De echte libglut exporteert **171**
+glut-namen en dekt alle **16** namen die een game aantoonbaar vraagt. De 39 die wij erbij bouwden zijn
+vooral Windows-specifieke `*Ucall`-varianten, en die vraagt **geen enkele** game. En van de drie games
+die `libglut.so.3` in hun `DT_NEEDED` hebben -- **Terminator (15 glut-naamstrings), GhostBusters (1) en
+Jurassic Park (2)**; Galaga en Halo niet -- zit er geen enkele naam bij die de echte libglut mist.
+
+**Dus:** de waarde van onze bibliotheek is op dit moment **onafhankelijkheid** (niet leunen op de
+freeglut van de host) en volledigheid voor de niet-standaard namen, niet het wegnemen van een zichtbaar
+gebrek. Wie hem wil aansluiten doet dat met één kopie, en houdt de echte als `libglut.so.3.real` -- want
+122 van de 161 namen worden juist naar de echte doorverwezen. Dat is werk in de lader-repo.
+
+Narekenen: `re/_glutketen.sh`.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
