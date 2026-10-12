@@ -18,7 +18,7 @@ Twee eerdere aannames moeten hierbij worden gecorrigeerd:
    zijn er **357, 577 en 442** per game; die ~60 is het aantal GL-imports daarbinnen.
 2. De oorzaak is preciezer dan "de ELF is opgetuigd voor ElfLdr2": bij de gepakte games zijn de
    **PLT-relocatie-indexen vervangen door `0xdeadbeef`** en is **72 tot 82 procent van de
-   importnamen gewist**. Daardoor is luie binding onmogelijk en naamresolutie onvolledig.
+   importnamen gewist**. Daardoor is luie binding onmogelijk. **De namen zelf zijn echter NIET gewist** -- zie de correctie hieronder; die eerdere bewering kwam uit een over-read van de symbooltabel.
 
 ## De twee klassen
 
@@ -44,6 +44,51 @@ waarvan elke stub de vorm `ff 25 <got> 68 ef be ad de e9 <plt0>` heeft, een GOT 
 | GhostBusters | **ongepakt** | 11.057.832 | `0x804f960` | 30 | 14 | 0 | n.v.t. | nee |
 | Terminator | **ongepakt** | 7.764.284 | `0x8057240` | 29 | 13 | 0 | n.v.t. | nee |
 | GoGoStrike (`bowling_usa`) | **ongepakt** | 476.176 | `0x8059410` | 26 | 5 | 0 | n.v.t. | nee |
+
+## Correctie 2026-10-12: de importnamen zijn NIET gewist
+
+Deze spec bevatte een fout die het hele beeld van de gepakte klasse bepaalde. Er staat dat bij de
+gepakte games **72 tot 82 procent van de importnamen gewist** is, met als onderbouwing "105 met naam
+en 472 zonder, samen 577". **Dat is onjuist**, en de oorzaak is meetbaar.
+
+**Wat er misging.** Deze bestanden hebben **nul sectiekoppen** (`SHNUM = 0`). `readelf --dyn-syms`
+weet dan niet hoe groot de dynamische symbooltabel is en **leest door voorbij het einde**. In de troep
+daarachter staat `st_name = 0`, en dat levert een lange, aaneengesloten reeks "naamloze" symbolen op
+die niet bestaat. De eerdere meting had de aanwijzing al in huis: bij Pac-Man Chomp "groeide het
+aantal UND-symbolen mee met de bovengrens" -- dat is precies het gedrag van zo'n over-read, en
+daar is toen niet de conclusie uit getrokken.
+
+**De juiste weg.** Het aantal dynamische symbolen staat in `DT_HASH` (`nchain`). Loop exact dat
+aantal records van 16 bytes langs vanaf `DT_SYMTAB`, en reken de adressen om via de
+`PT_LOAD`-segmenten (er zijn er twee, dus één basis is niet genoeg). Dat geeft:
+
+| game | `nchain` (dynamische symbolen) | `st_name == 0` | met een naam | GL/SDL-achtige namen |
+|---|---|---|---|---|
+| Galaga Assault | **4719** | **1** | 4718 | 534 |
+| Jurassic Park | **18811** | **1** | 18810 | 21 |
+| Pacman Chomp-Mania | **3986** | **1** | 3985 | 192 |
+
+De namen komen er leesbaar uit: `SDL_IntersectRectAndLine`, `SDL_LockAudioDevice`,
+`glewGetExtension`, `xmlPatterncompile`, `i2d_X509_VAL`, `XGrabPointer`, enzovoort. Er is dus
+**geen** 72 tot 82 procent gewist, en de "105 + 472 = 577" was een artefact van dat doorlezen.
+
+**Wat dat verandert.** De conclusie verderop in deze spec -- dat een eigen lader voor de gepakte
+games neerkomt op het reverse-engineeren van ElfLdr2's resolutietabel, en dat dat uitpakwerk is en
+dus buiten bereik -- **rustte op die foute aanname**. Als de namen in het bestand staan, kan een
+eigen lader ze **op naam** oplossen, net als bij een gewone ELF. Wat dan nog wél een echt probleem
+is:
+
+* de **koppeling van slot naar symbool**: welke van de 18811 symbolen hoort bij welke van de 577
+  PLT-stubs. `DT_JMPREL` geeft er ongeveer 100, en de rest wijst naar een tweede slottabel.
+* de GOT die in het bestand al gevuld is met `0xb7xxxxxx`-adressen uit het proces op de originele
+  kast -- die zijn voor ons niet te gebruiken, maar ze zeggen ook niets over de naam.
+* de `push 0xdeadbeef` in elke PLT-stub, die luie binding onmogelijk maakt.
+
+Dat zijn drie concrete, meetbare problemen in plaats van "de namen zijn weg". Het verandert de
+gepakte klasse van een **uitpakproject** in een **laderproject**.
+
+**Hoe je dit narekent:** `re/_dynsym-controle3.py` in de Windows-werkmap, of
+`/home/deck/_dynsym-controle3.py` op de Deck.
 
 ## De kern: de naamloze imports zijn het probleem
 
