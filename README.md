@@ -24,10 +24,10 @@ repo van de loader voor de stappen en `docs/dropins.md` voor het contract.
 
 ## Kaarten: de stand per game
 
-Zeven documenten die samen vertellen wat elke game nodig heeft. **Zes ervan worden gegenereerd**
-(`STAND.md`, `STARTTEST.md`, `EIGEN-KERN.md`, `ZONDER-LADER.md`, `ELF-NATIVE.md` en de tabel van
-`REGIO-PER-GAME.md`); pas de map van de game aan en draai het script opnieuw in plaats van ze met de
-hand bij te werken. **Eén is met de hand geschreven:** `PATCHES-PER-GAME.md`, want de kolom *welke
+Acht documenten die samen vertellen wat elke game nodig heeft. **Zeven ervan worden gegenereerd**
+(`STAND.md`, `STARTTEST.md`, `EIGEN-KERN.md`, `ZONDER-LADER.md`, `ELF-NATIVE.md`, `INVOER-ROUTE.md`
+en de tabel van `REGIO-PER-GAME.md`); pas de map van de game aan en draai het script opnieuw in
+plaats van ze met de hand bij te werken. **Eén is met de hand geschreven:** `PATCHES-PER-GAME.md`, want de kolom *welke
 patch nodig is* is een oordeel op grond van meerdere bronnen en dat is niet uit de mappen af te
 leiden.
 
@@ -38,6 +38,7 @@ leiden.
 | `patches/REGIO-PER-GAME.md` | per game of hij een regio/printplaat-dongle vraagt, met het bewijs | zie de kop van dat bestand |
 | `patches/PATCHES-PER-GAME.md` | per game welke patch nodig is (drop-in, `patches.ini`, eigen kern) en of die er is | **met de hand**; de kop noemt de commando's om de getallen na te rekenen |
 | `patches/EIGEN-KERN.md` | welke games onze eigen OpenParrot-kern überhaupt **herkent** (dezelfde CRC die de kern zelf rekent) en welk `EmulationProfile` er dan nog moet komen — dus wat er per game nodig is om van de gesloten `TeknoParrot(64).dll` af te gaan | `python3 patches/kern-herkenning.py` |
+| `patches/INVOER-ROUTE.md` | per game **wie de invoer levert**: de IO-brug van de daemon, of een kern. Dat scheidt de games die echt een eigen `EmulationProfile` vragen (route `tp-shm` op de gesloten kern) van de games waar de invoer al buiten elke kern om loopt — en dat zijn er minder dan het totaal aantal profielen dat `EIGEN-KERN.md` noemt | `python3 patches/invoer-route.py` |
 | `patches/ZONDER-LADER.md` | welke games met **alleen `wine <exe>`** starten en blijven draaien — geen lader en geen kern. De scherpste vraag over loskoppelen, met de eerlijke grenzen erbij: de drop-in van een eerdere start staat nog in de view (de kaart meet per game hoeveel), en dit zegt of een game *blijft draaien*, niet of hij speelbaar is | `python3 patches/proef-zonder-lader.py` |
 | `patches/ELF-NATIVE.md` | of de game-ELF van de Cygwin-lader (`ElfLdr2`) ook **los** te starten is — hij is een gewone Linux-ELF, dus dat is de vraag die de hele lader overbodig zou maken. Antwoord: nee, gemeten, met per game welke bibliotheken deze machine mist | `python3 patches/elf-native.py` |
 
@@ -55,6 +56,7 @@ Elke kaart heeft zijn eigen generator. Eén script maakt geen kaart maar **contr
 | `patches/starttest-gen.py` | schrijft `patches/STARTTEST.md` uit de ruwe uitvoer van `starttest3.sh` |
 | `patches/regio-gen.py` | schrijft de tabel van `patches/REGIO-PER-GAME.md` (scant de NAS) |
 | `patches/kern-herkenning.py` | schrijft `patches/EIGEN-KERN.md` |
+| `patches/invoer-route.py` | schrijft `patches/INVOER-ROUTE.md` uit de `[Input]`-secties van de games |
 | `patches/proef-zonder-lader.py` | schrijft `patches/ZONDER-LADER.md` — start elke game met alleen `wine <exe>` |
 | `patches/elf-native.py` | schrijft `patches/ELF-NATIVE.md` — start de ELF's van de ElfLdr2-games los |
 | `patches/readme-gen.py` | vult de README van een game die nog de lege stub heeft, uit de kaarten; raakt README's met inhoud niet aan |

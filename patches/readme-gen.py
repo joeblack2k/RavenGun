@@ -230,6 +230,7 @@ def md(game, kaarten):
     uit.append("| `patches/PATCHES-PER-GAME.md` | welke patch nodig is en wat een start blokkeert |")
     uit.append("| `patches/REGIO-PER-GAME.md` | of hij een regio/printplaat-dongle vraagt |")
     uit.append("| `patches/EIGEN-KERN.md` | of onze eigen kern hem herkent, en welk profiel er nog moet komen |")
+    uit.append("| `patches/INVOER-ROUTE.md` | wie de invoer levert: de brug van de daemon, of een kern |")
     uit.append("")
     return "\n".join(uit)
 

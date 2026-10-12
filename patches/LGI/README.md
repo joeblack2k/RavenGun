@@ -68,3 +68,4 @@ Uit de beschrijving zelf:
 | `patches/PATCHES-PER-GAME.md` | welke patch nodig is en wat een start blokkeert |
 | `patches/REGIO-PER-GAME.md` | of hij een regio/printplaat-dongle vraagt |
 | `patches/EIGEN-KERN.md` | of onze eigen kern hem herkent, en welk profiel er nog moet komen |
+| `patches/INVOER-ROUTE.md` | wie de invoer levert: de brug van de daemon, of een kern |
