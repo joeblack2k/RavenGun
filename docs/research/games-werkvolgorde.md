@@ -36,7 +36,13 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 - LGI (Sega, 2009) — jvs/pipe, speelbaar
 - HauntedMuseum (Taito, 2009) — Type X2, op onze kern, leeft
 - TankTankTank (Namco, 2009)
-- Otomedius (Konami, 2007) — tp-shm, exit 0 (nog te onderzoeken)
+- Otomedius (Konami, 2007) — tp-shm, exit 0 = **waarschijnlijk de eigen `ChkSum.bin`-controle**: 22 van 191 data-paks
+  op de NAS wijken af (bewerkte/vertaalde paks) → "Conflict Hash" → schone exit. Plus ACIO (COM2) + een BMS-service
+  (`\\.\pipe\bmssvc`, `bms_GGG.exe`) voor speelbaarheid. 0004 (E:-redirect) lost het vermoedelijk niet op (E: geeft
+  een foutscherm, geen exit). **Tegenargument:** de gesloten kern draaide dezelfde paks wél. Nodig: één bench-trace
+  (`WINEDEBUG=err+all,+file,+process,+seh` + `+win` op DestroyWindow) om de oorzaak te bevestigen; daarna parkeren met
+  reden "checksum + ACIO", niet "exit 0". De schone fix is de originele ongewijzigde paks (eigenaar); de
+  checksum-skip-optie raken we niet aan.
 - LethalEnforcers3 (Konami, 2005) — tp-shm, leeft
 - Gashaaaan / Gashaaaan2 (Konami) — Konami-AVS, 0004 lost de schijfletter-crash op; leeft
 - OmatsuriYasanGansoTakoyaki / -KingyoSukui (Konami) — schijfletter; KingyoSukui mist campaign*.bmp (eigenaar)
