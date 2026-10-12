@@ -347,6 +347,26 @@ startproef van fase 2 loopt via de kernel, en onze lader is los getest. Om fase 
 maken moet `play-native.sh` de optie krijgen om **onze lader** in de keten te zetten in plaats van de
 kernel-`ld.so`, en dan moet GoGoStrike daar 30 seconden leven. Dat is werk in de lader-repo.
 
+#### De dragende stukken van de fase-2-keten zijn nagerekend (2026-10-12)
+
+De uitrol zet drie dingen in de keten die stuk kunnen zijn zonder dat je het merkt: een preload die
+niet laadt (glibc waarschuwt en gaat door), een bibliotheek die niet op het pad staat dat het profiel
+noemt, en een rw-bind waarvan de bron ontbreekt. Alle drie gecontroleerd, los van de bouwer:
+
+| wat | uitkomst |
+|---|---|
+| `~/.local/share/ravengun/runtime/lib32/librg-oss-stub.so` | bestaat, `ELF 32-bit LSB shared object, Intel i386`, 15.432 B |
+| identiek aan de repo-kopie (`tools/rg-oss-stub/`)? | **ja**, zelfde md5 `cb495f5c...` -- dus geen drift tussen repo en werkende bestand |
+| laadt hij? | **ja**, `dlopen` slaagt |
+| exporteert hij de haken? | `open`, `open64`, `openat`, `openat64`, `ioctl` -- alle vijf aanwezig |
+| SRAM-bron van de rw-bind | `native/GoGoStrike/w040101sram`, **65.536 bytes** (= het minimum dat de game eist) |
+
+Het pad klopt ook: het profiel noemt `@lib32/librg-oss-stub.so` en `preload:
+/rg/lib/librg-oss-stub.so`, en de `libs`-lijst wordt naar `/rg/lib/<basename>` gebonden -- dus de
+preload verwijst naar het bestand dat de sandbox binnenkomt.
+
+Narekenen: `re/_stubverify.sh`.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
