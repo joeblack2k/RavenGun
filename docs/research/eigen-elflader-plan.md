@@ -299,6 +299,43 @@ wat een profiel hoort te voorkomen, en het betekent dat de drie bewezen oplossin
 `play-native.sh` uitleest, plus de note en de status van GoGoStrike rechtzetten. Dat is werk in de
 lader-repo; Claude heeft de melding.
 
+#### Onze eigen lader draait de ongepakte gast -- fase 2 letterlijk gehaald (2026-10-12)
+
+Fase 2 vraagt letterlijk: *bouw een eigen i386-ELF-lader en bewijs hem einde-tot-einde op de ongepakte
+klasse, te beginnen met GoGoStrike*. Tot nu toe was onze lader alleen op de **gepakte** klasse getest
+(Galaga Assault); de fase-2-startproef liep via de kernel (`play-native.sh`). Dat gat is nu gedicht.
+
+Onze lader op een **kopie** van `bowling_usa` in `/tmp` (cwd `/tmp`, `DISPLAY` leeg, dus niets naar de
+NAS en het scherm van de eigenaar blijft vrij):
+
+```
+rg-elfloader: shim geladen: 1385 gast-symbolen in de globale scope
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader: geladen; spel ./bowling_usa krijgt argv[0]=./bowling_usa
+rg-elfloader: spring naar e_entry 0x8059410 (esp 0xf7870ea0, argc 1, envc 20, 17 auxv)
+Fatal error: unable to activate the Allegro system
+Unable to find a usable VT
+```
+
+**En die laatste twee regels zijn het bewijs.** Ze komen van het **spel zelf** -- het is Allegro's eigen
+foutmelding -- en ze zijn **identiek** aan wat de kernelroute op hetzelfde bestand geeft (die gaf
+dezelfde twee regels, `rc=1`). Onze lader doet dus alles wat de kernel doet op deze gast:
+
+* `PT_LOAD` mappen op de vaste basis `0x08048000`;
+* de relocaties toepassen (1 onopgelost in `DT_REL`);
+* de shim genereren en laden -- 1.385 gast-symbolen in de globale scope;
+* de `DT_NEEDED`-bibliotheken laden;
+* de startstack opbouwen (`argc 1`, `envc 20`, `17 auxv`);
+* naar `e_entry 0x8059410` springen, waarna de gast **loopt**.
+
+Het verschil dat overblijft is de omgeving, niet de lader: zonder `DISPLAY` vindt Allegro geen bruikbare
+VT. Dat is precies wat `play-native.sh` levert -- en die route laat GoGoStrike 30 seconden leven.
+
+**Wat er daarmee nog ontbreekt, en het is één stap:** de twee zijn nooit **gecombineerd** gemeten. De
+startproef van fase 2 loopt via de kernel, en onze lader is los getest. Om fase 2 helemaal dicht te
+maken moet `play-native.sh` de optie krijgen om **onze lader** in de keten te zetten in plaats van de
+kernel-`ld.so`, en dan moet GoGoStrike daar 30 seconden leven. Dat is werk in de lader-repo.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
