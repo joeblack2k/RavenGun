@@ -45,6 +45,24 @@ De dongle van een game staat in `patches/<Game>/dropin/ravengun-hasp/<Game>/dong
 `kind`: `hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`). **Er is geen `[Dongle]`-sectie in
 `game.ini`**: de loader weet niets van dongles, een software-dongle is een gewone drop-in.
 
+## Gereedschap
+
+Elke kaart heeft zijn eigen generator. Eén script maakt geen kaart maar **controleert** iets.
+
+| Script | Wat het doet |
+|---|---|
+| `patches/stand-gen.py` | schrijft `patches/STAND.md` |
+| `patches/starttest-gen.py` | schrijft `patches/STARTTEST.md` uit de ruwe uitvoer van `starttest3.sh` |
+| `patches/regio-gen.py` | schrijft de tabel van `patches/REGIO-PER-GAME.md` (scant de NAS) |
+| `patches/kern-herkenning.py` | schrijft `patches/EIGEN-KERN.md` |
+| `patches/proef-zonder-lader.py` | schrijft `patches/ZONDER-LADER.md` — start elke game met alleen `wine <exe>` |
+| `patches/elf-native.py` | schrijft `patches/ELF-NATIVE.md` — start de ELF's van de ElfLdr2-games los |
+| `patches/dropin-aankomst.py` | **controleert** of elk drop-in-bestand met dezelfde sha256 in de view staat; exitcode 1 als er iets mis is |
+
+`tools/verify-all.py` (loader-repo) meldt "drop-ins die NIET aankomen: 0", maar dat kijkt naar het
+**plan** — de paden die de launcher zou schrijven. `patches/dropin-aankomst.py` kijkt naar de
+**bytes** die er staan, en meldt ook een symlink naar de NAS of een bestand met een andere inhoud.
+
 ## Hoe de loader dit vindt
 
 De loader zoekt de patches op deze plekken, in deze volgorde:

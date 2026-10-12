@@ -27,8 +27,9 @@ Twee fouten moesten daarvoor eerst weg:
 1. **De DLL-secties hadden geen `Env`.** Het bestand `ravengun-hasp/TC5/dongle.json` werd wel
    uitgerold, maar de DLL wist niet WELKE dongle hij moest laden. Nu staat er
    `Env = RAVENGUN_HASP_DIR=ravengun-hasp;RAVENGUN_HASP_GAME=TC5` bij elk van de drie DLL-secties
-   (net als bij Halo). `RAVENGUN_HASP_VERBOSE` wordt **niet** meegeleverd — die spamt stderr bij
-   elke aanroep.
+   (net als bij Halo). Sinds ronde 35 staat er ook `RAVENGUN_HASP_VERBOSE=1` bij: de laag schrijft
+   dan één regel per aangeroepen functie naar `stderr`, met een plafond van 64 regels. Dat is precies
+   waarmee hieronder gemeten is dat de game onze DLL **niet** aanspreekt.
 2. **De view van TC5 moest gematerialiseerd worden.** `views/TC5/TC5` was een symlink naar de NAS,
    en de drop-in-motor weigert te schrijven als de map van het doel via een symlink buiten de view
    uitkomt (de regel "nooit naar de NAS"). De keten `TC5/Binaries/Win64` is daarom vervangen door
@@ -51,10 +52,14 @@ niet vastgelegd.
 
 Dat de game met onze DLL **start en blijft draaien** betekent dat hij niet hard op een
 geheugenimage stukloopt, maar of hij de dongle ook echt *uitleest* (en wat hij dan verwacht) is
-**niet gemeten**: de aanroepen komen niet in het logboek, en de verbose-vlag via `[Env]` in de
-gebruikerslaag bereikte de start niet. De volgende stap is dus meten wat
-`TimeCrisisGame-Win64-Shipping.exe` aan `hasp_read` opvraagt, bijvoorbeeld met de probe uit
-`tools/rt-hasphook/hasp_probe.c` (loader-repo) of met een loggende DLL.
+**niet gemeten**.
+
+**Wat ronde 35 wél heeft opgeleverd: waarom het langs deze weg niet te meten is.** Onze DLL zit in
+het spelproces en de uitvoer van het spel komt in het logboek, en tóch komen er nul aanroepen. De
+enige verklaring die overblijft is dat **de gesloten `TeknoParrot(64).dll` de dongle afhandelt en de
+game onze DLL niet laat aanroepen** — de kern zit vóór ons in de keten. De fileids van TC5 zijn dus
+pas te meten als die kern er niet meer tussen zit (of met een haak op een ander niveau), en dat is
+werk in de loader-repo.
 
 Zolang dat open is, is dit het laatste stuk van TC5 dat nog aan TeknoParrot hangt.
 
@@ -65,7 +70,7 @@ duidelijk waarom, zodat de volgende poging niet dezelfde is:
 
 | Route | Wat er gebeurde |
 |---|---|
-| **De verbose-vlag in de omgeving** | `RAVENGUN_HASP_VERBOSE=1` bereikt het proces bewezen (het staat in `/proc/<pid>/environ` en in de `omgeving:`-regel van de launcher), maar er komt **geen enkele regel van onze DLL** in het logboek. De game is een **kindproces** van `OpenParrotLoader64.exe`, en de launcher vangt de uitvoer van de lader op — niet die van het kind. |
+| **De verbose-vlag in de omgeving** | `RAVENGUN_HASP_VERBOSE=1` bereikt het proces bewezen (het staat in `/proc/<pid>/environ`), en de `stderr` van het spel is **geen dode pijp**: de leeskant van die pijp is van `python3 scripts/launch-direct.py TC5 --run` zelf (`fd 5`), dus de uitvoer van het spel komt in hetzelfde logboek als de uitvoer van de lader. Er komt **geen enkele regel van onze DLL**. Onze DLL zit wél in het spelproces: `hasp_windows_x64_105293.dll` staat in `/proc/<pid>/maps` en dat bestand heeft de sha256 van onze drop-in (`patches/dropin-aankomst.py` controleert dat). **Conclusie: de game roept onze laag niet aan.** |
 | **De vlag via `[Env]` in de gebruikerslaag** | Kwam niet aan: die regel haalde de start niet (de drop-in-`Env` wel, daarom ging de meting hierboven via de drop-in). |
 | **De toegangstijd van `dongle.json`** | Onze DLL leest dat bestand zodra de game een `hasp_*`-functie aanroept, dus een veranderde `atime` zou bewijs zijn. De view staat op **`relatime`**, en daar werkt `atime` alleen bij als de oude toegangstijd ouder is dan de wijzigingstijd of meer dan 24 uur — hier was `atime` juist nieuwer. **Niet beslissend.** |
 
