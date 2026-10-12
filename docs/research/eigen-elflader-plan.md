@@ -961,6 +961,38 @@ hele session-scope**, ook `setsid`/`nohup`-processen (`session-1643.scope: Killi
 BudgieLoader.exe with signal SIGTERM`). Dat kostte twee runs; draai de meting als systemd-user-unit
 (`re/_dump-start2.sh`). Zonder `DISPLAY` werkt het prima.
 
+#### Geen regelmaat in de koppeling: de volgorde helpt niet (2026-10-12)
+
+Getoetst met `re/_regelmaat.py` op de 31 bekende paren: loopt de eerste-GOT-index mee met de
+symboolindex? Antwoord: **nee, niet bruikbaar.** Binnen een paar opeenvolgende symbolen is het verschil
+constant -- `n - symidx = -4569` voor `recv`, `getenv` en `calloc` -- maar de sprongen ertussen lopen
+uiteen:
+
+```
+connect -> getpid    n+2   sym+2
+getpid  -> syscall   n+27  sym+7
+syscall -> realloc   n+7   sym+1
+realloc -> recv      n+13  sym+1
+recv    -> getenv    n+1   sym+1
+getenv  -> calloc    n+2   sym+2
+calloc  -> memset    n+22  sym+4
+memset  -> gettimeofday  n+39  sym+9
+```
+
+Die sprongen zijn de aantallen **niet-benoemde stubs** die er telkens tussen zitten, en die zijn niet
+uit de symbolen af te leiden. Twee paren vallen op: `free` (symboolindex **2555**) en `malloc` (**829**),
+ver buiten de band 4621-4718 waar de andere benoemde imports zitten. Die twee komen uit een adres-match
+met een ander symbool, dus hun koppeling is minder zeker dan de andere 29.
+
+**Wat dat betekent.** De eerste GOT is per game voor ongeveer **31 van de 357** sloten op naam te
+repareren. Dat is genoeg om de eerste crash voorbij te komen -- bij Galaga is dat `fopen` -- maar niet
+genoeg om de hele tabel te repareren. Voor de rest geldt hetzelfde als voor ElfLdr2: een trampoline.
+
+**En de vraag die dat kan verkleinen: welke sloten worden werkelijk aangeroepen?** `rt-glfix` heeft
+daar een teller voor (MODE=8). Als een game maar een deel van zijn 357 sloten aanraakt, is de reparatie
+die wij nodig hebben veel kleiner dan 357 -- en dan dekt de 31 misschien een groot deel van het echte
+gebruik. Dat is op dit moment de meting die het meest oplevert.
+
 ### Fase 3 — de gepakte klasse en de API-oppervlakte
 
 Pas te beginnen als 1B antwoord geeft op de naamresolutie. Twee delen:
