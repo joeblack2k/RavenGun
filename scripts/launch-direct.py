@@ -184,8 +184,9 @@ def load_own_profile(tp, name, settings):
 
 
 def needs_activation(p):
-    """Alleen profielen met Patreon = true vallen onder het abonnement; de rest start zonder activering. De waarde komt van het sjabloon van
-    de runtime en van de lagen van game.ini (build_plan): geen enkele laag kan het abonnement uitzetten."""
+    """Informatie-vlag: heeft TeknoParrot dit profiel achter zijn Patreon-abonnement gezet? Komt uit het sjabloon van de runtime en de
+    lagen van game.ini. LET OP: dit wordt op onze eigen stack NIET meer afgedwongen (de launch roept check_activation niet meer aan; zie
+    docs/decisions.md 2026-10-12). De vlag blijft als informatie (de app kan tonen dat TP hier Patreon voor vraagt)."""
     return p.get("Patreon", "").strip().lower() == "true"
 
 
@@ -1659,7 +1660,7 @@ def main(argv):
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--shm-source")
     ap.add_argument("--log-full", action="store_true")
-    ap.add_argument("--no-activation-check", action="store_true", help=argparse.SUPPRESS)  # alleen tests
+    ap.add_argument("--enforce-activation", action="store_true", help=argparse.SUPPRESS)  # TP-Patreon-poort toch afdwingen (uit; zie docs/decisions.md)
     ap.add_argument("--env", action="append", default=[])
     a = ap.parse_args(argv)
     extra = {}
@@ -1671,7 +1672,13 @@ def main(argv):
         extra[k] = v
     try:
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
-        if plan["needs_activation"] and not a.no_activation_check:
+        # TeknoParrots Patreon-activering is hun verdienmodel in hun software, geen beveiliging in de game zelf. Op
+        # onze eigen, onafhankelijke stack (eigen lader/kern/launcher/JVS-brug) is er geen TeknoParrot-software meer
+        # om voor te betalen, dus dwingen we die poort niet meer af (beslissing eigenaar 2026-10-12; docs/decisions.md).
+        # plan["needs_activation"] blijft als informatie staan ("door TeknoParrot achter Patreon gezet"); de echte
+        # game-beveiliging (dongle/keychip/integriteit) blijft onaangeroerd, en check_activation() wordt niet omzeild
+        # of gekraakt -- hij wordt alleen niet meer aangeroepen.
+        if plan["needs_activation"] and a.enforce_activation:
             check_activation(plan["prefix"])
     except SettingRefused as e:
         print("Instelling geweigerd: %s" % e, file=sys.stderr)

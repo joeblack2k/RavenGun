@@ -710,3 +710,19 @@ HauntedMuseumII, MusicGunGun2) geven nog steeds START, en LGI (niet herkend) sta
   3. Pas verder opschalen als stap 1-2 op de tv kloppen.
 - **Niet nu gedaan (met opzet, eigenaar sliep, geen tv):** geen `GameDetect.cpp`-cases geschreven, geen `Type` omgezet. De generieke route is er; de echte vervanging wacht op verificatie + prioriteit.
   Plan: `docs/research/eigen-kern-hooks-plan.md`.
+
+## 2026-10-12 — TeknoParrots Patreon-activering niet meer afgedwongen (op onze eigen stack)
+
+Besluit van de eigenaar. TeknoParrot zet veel profielen achter zijn **Patreon-abonnement** (van onze games 10: NERF, Halo, Gashaaaan2,
+Otomedius, PigsMightFly, RainbowBombergirl, OmatsuriYasanGansoTakoyaki, OmatsuriYasanKingyoSukui, GoGoStrike, PacmanChomp). `launch-direct.py`
+controleerde voor die profielen dat de TeknoParrotUi-activering aanwezig was (`needs_activation` → `check_activation`).
+
+- **Waarom het vervalt.** De Patreon-poort is TeknoParrots **verdienmodel in hun software**, geen beveiliging in de game zelf. Op onze eigen,
+  onafhankelijke stack (eigen lader, kern, launcher, JVS-brug) is er geen TeknoParrot-software meer om voor te betalen, dus heeft die poort
+  technisch geen reden meer. De eigenaar weegt "volledig loskoppelen van TeknoParrot" zwaarder.
+- **Wat er veranderd is.** `launch-direct.py`: de activering-controle wordt niet meer aangeroepen bij de start (gated achter een opt-in
+  `--enforce-activation`, standaard uit). `needs_activation` blijft bestaan als **informatie**-vlag (de app kan tonen dat TP er Patreon voor
+  vraagt); `check_activation` blijft gedefinieerd maar wordt niet aangeroepen. 24/24 `test_ownprofile.py`.
+- **Wat NIET verandert.** We kraken of omzeilen TeknoParrots activering niet (we roepen de controle alleen niet meer aan op onze eigen stack),
+  en de echte **game-beveiliging — dongle, keychip, integriteit — blijft volledig gerespecteerd en onaangeroerd**. Alleen USB-pass-through van
+  een echte fysieke dongle, zoals eerder vastgelegd.
