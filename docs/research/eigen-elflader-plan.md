@@ -586,6 +586,61 @@ eerlijk bij dan dat de wijziging als gegarandeerde kuur in dit plan belandt.
 
 Narekenen: `re/_preemptie-inhoud.sh` (en let op: die toets is dus zelf ongeldig voor de brede shim).
 
+#### De crash is gelokaliseerd: liballeg's textout met een NULL-argument (2026-10-12)
+
+Ik zocht een backtrace en vond hem ergens waar ik niet meer keek: **`coredumpctl` bewaart elke crash.**
+Daar staan alle runs in, inclusief de ketenruns van 19:50 en 19:52, en zelfs mijn `int3`-proeven van
+19:59 (als SIGTRAP) -- een mooie onafhankelijke bevestiging van de methode uit de vorige sectie.
+
+**En de twee ketenruns geven exact dezelfde plek:**
+
+```
+#0  0x00000000f7a1bfc8  n/a (/rg/lib/liballeg.so.4.0 + 0x72fc8)
+```
+
+Met de core zelf uitgelezen (die is alleen voor root leesbaar; `coredumpctl dump` schrijft hem
+overigens **ongecomprimeerd** ondanks de `.zst`-naam):
+
+| | |
+|---|---|
+| `eip` | `liballeg.so.4.0 + 0x72fc8` |
+| dichtstbijzijnde symbool | **`textout`** (`0x72fb0`, dus +0x18) |
+| de instructie | `mov ecx, [eax+8]` |
+| `eax` | **0** |
+| `ebp` | `0xffffffff` (geen geldige framepointer) |
+| `ebx` | `0xf7a61064` |
+| `esp` | `0xf7830adc` |
+| welke thread | **LWP 2** (niet de hoofdthread) |
+
+**Dus: `liballeg`'s `textout` krijgt een NULL-aanwijzer en derefereert die meteen.** En dat gebeurt op
+een **tweede thread**, niet op de hoofdthread.
+
+**En er is een tweede, vreemde aanwijzing.** De lader meldde in diezelfde run dat de gast begon met
+`esp 0xf7830ed0`. De gecrashte thread heeft `esp 0xf7830adc` -- ongeveer **1 kB daaronder**. Een echte
+pthread krijgt zijn eigen stapel ergens anders (meestal laag in het mmap-gebied). Een tweede LWP die
+vlak naast de hoofdstapel loopt is niet wat het hoort te zijn, en dat is nu de meest concrete
+verdenking: **de tweede thread deelt de stapel van de hoofdthread.**
+
+**En nog twee dingen die de core laat zien, en die goed nieuws zijn:** de gemapte bestanden van het
+proces bevatten `/run/user/1000/rg-elfloader-2/shim.so` (de shim was dus geladen) en
+`/dev/w040101sram0` (de rw-bind van het SRAM-apparaat werkte).
+
+**En een aparte bug, gevonden doordat ik het via `--gdb` probeerde:** met `play-native.sh --gdb
+--loader` **laadt onze lader `liballeg` niet**:
+
+```
+rg-elfloader: FATAAL: dlopen(liballeg.so.4.0) mislukt: /rg/lib/liballeg.so.4.0:
+              undefined symbol: _poly_scanline_gcol8
+```
+
+Dat is precies het symbool waarvoor de shim bestaat, dus in die route staat de shim niet klaar voordat
+`liballeg` geladen wordt. Dat is een echte bug in de volgorde (of in het `--gdb`-pad), los van de crash.
+
+**Wat mijn eerste stapelanalyse betreft: die mislukte, en op de bekende manier.** Ik had de mappings tot
+30 regels afgekapt, dus mijn classificator had de bereiken van de gast en van liballeg niet en meldde
+**121 van 121** woorden als "?" -- een leeg resultaat dat als uitkomst leest. De volgende stap is
+dezelfde scan met de **volledige** mappings, om te zien wie `textout` aanriep.
+
 ### Fase 2 — de eigen lader, op de ongepakte klasse
 
 Een eigen i386-ELF-lader die `PT_LOAD` op zijn `p_vaddr` mapt (het spel is ET_EXEC, niet-PIE, basis
