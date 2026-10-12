@@ -688,9 +688,18 @@ in de loader-repo noemt de herleiding al als iets dat een eigen kern moet implem
 worden daar alleen in `dllmain.cpp`, `Utility/InitFunction.cpp`, `PE.cpp` en twee Nesica-bestanden
 geraakt. De prefix-symlinks zijn dus een workaround, niet de fix.
 
-**Wat er nog moet gebeuren:** de herleiding in de eigen kern bouwen (patch in
-`third_party/openparrot/patches/`, zoals 0003), en daarna meten of Gashaaan het **zonder** de
-prefix-symlinks ook haalt. Dat laatste is de eigenlijke proef — met de symlinks meet je de workaround.
+**Bewezen in ronde 55.** De herleiding zit in de kern als `0004-drive-letter-redirect.patch`
+(loader-repo `7c871df`) en is gebouwd in `current/` op 11:08 (Win32 `dbf8bb20…`, x64 `90df073c…`).
+Daarna is Gashaaan met dezelfde methode opnieuw gemeten: **`gezien=2 leeft=True`, zonder `d:`, `e:`
+of `f:` in de prefix**, en de kern maakt zelf een `TeknoParrot`-map aan in de runtime. Vóór 0004
+stierf hij na ongeveer 5 seconden met exitcode 5, met de symlinks leefde hij 20 seconden, en nu
+leeft hij 20 seconden zónder symlinks. De fix zit dus in de kern en niet in de prefix.
+
+**En wat deze patch niet oplost.** OmatsuriYasanKingyoSukui sterft met de nieuwe kern nog steeds met
+exitcode 8. De herleiding geeft een schijfletter die bestáát, maar de herleidingsmap is leeg; bij
+Gashaaan was juist nodig dat `D:\TYPE.BIN` er echt stond en dat `E:` en `F:` schrijfbaar waren. Voor
+een game die naar een concreet bestand zoekt is de letter dus noodzakelijk maar niet voldoende, en
+waar die map per game heen moet wijzen is nog niet gemeten.
 
 **Dezelfde fout staat al gedocumenteerd voor twee andere games uit dezelfde `WartranTroopers`-groep:**
 OmatsuriYasanGansoTakoyaki (wit venster, geen D3D-apparaat, `rqrdlist.rqr` via de
