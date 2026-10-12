@@ -99,3 +99,75 @@ ELF-game -- wat klopt met wat er in de map staat (`.exe`, `.dll`, Unity).
 **Kanttekening:** het aagames-profiel noemt Rabbids Hollywood eerder als een Unity-game die **zonder**
 TeknoParrot loopt, via de daemon en de BepInEx-plugin. Er zijn dus twee routes voor dezelfde map; deze
 controle gaat over de map, niet over de routekeuze.
+
+
+## Verwijderd op verzoek van de eigenaar (2026-10-12)
+
+Vier games zijn **definitief verwijderd**, van de NAS en uit de app: `Galaga Assault` (483M, 373
+bestanden), `Pacman Chomp-Mania` (364M, 273), `Go Go Strike` (34M, 14) en `Gashaaaan Refill!!!!`
+(539M, 2241). De NAS-map ging van **90 naar 86 items**. Verwijderd met exacte paden en zonder globs,
+met een verificatiestap vooraf die per map naam, omvang en bestandsaanstal toonde.
+
+**Gevolg dat vastgelegd moet blijven:** met Go Go Strike is ook de enige game weg waarop onze eigen
+lader einde-tot-einde bewezen was (`rg-elfloader` -> `bowling_usa`, exit 143 na 25-30 s, eigen assert op
+het scherm). Die proef is **niet meer opnieuw te doen**. De bewijsstukken staan nog in de repo
+(`docs/screenshots/gogostrike-loader-assert.png` en `docs/research/eigen-elflader-plan.md`), dus de
+geschiedenis klopt, maar herhaalbaar is het niet meer. Wie later denkt dat de test stuk is: dat is dit.
+
+## Antwoord op twee vragen van de eigenaar
+
+**"Er staan meer games in de TeknoParrot-map toch?"** Ja. De NAS heeft **86 top-level items**, waarvan
+**circa 82 games** -- de rest zijn geen games: `TeknoParrotUi-2.0.0.130-linux-x64` (de runtime),
+`_ia_work` (29 GB werkmap), `findings`, en twee mappen met een **8.3-kortnaam** (`OAV6DU~3`, `TNXK0O~C`)
+die ik nog moet identificeren. Daarnaast, los hiervan: de **lokale TeknoParrot-installatie heeft 1.967
+gameprofielen** -- er worden dus veel meer games *ondersteund* dan er op de NAS staan.
+
+**"Heb je ook een bestandscontrole gedaan?"** Ja, maar op structuur en niet op hashes:
+
+* wel: bestaat het uitvoerbare bestand dat het profiel noemt; lege bestanden; bij ELF: vallen alle
+  `PT_LOAD` binnen het bestand en zijn alle `DT_NEEDED` vindbaar; omvang en bestandsstructuur;
+* niet: hash-voor-hash. De profielen noemen de integriteitstest wel
+  (`BypassFilesystemIntegrityTest`, `TPCheckAndFixBadDump`) maar bevatten de verwachte hashes niet, en
+  ik heb ze nergens anders gevonden. **Een game kan hier dus "compleet" uitkomen terwijl een databestand
+  toch andere inhoud heeft.**
+
+## De ijkreeks: de vijf games die de eigenaar zeker werkend heeft gezien
+
+Dit is de belangrijkste controle van allemaal, want hier is de uitkomst **bekend**. Als mijn methode
+deze vijf afkeurt, deugt de methode niet.
+
+| game | route | uitvoerbaar bestand | leeg | omvang | oordeel |
+|---|---|---|---|---|---|
+| Luigi's Mansion Arcade | TeknoParrot | `exe/x64/VACUUM.exe` (profiel heeft een leeg `ExecutableName`) | 12 | 1,6 GB | compleet |
+| Rabbids Hollywood | TeknoParrot | `Game.exe` | 0 | 2,0 GB | compleet |
+| Halo Fireteam | ElfLdr2 | `g7/halo/game` | 0 | 9,9 GB | compleet |
+| Terminator Salvation | ElfLdr2 | `game` | 2 | 5,0 GB | compleet |
+| Transformers Shadows Rising | TeknoParrot | `Transformers2/Transformers2.exe` + `shell/Shell.exe` | 2 | 8,5 GB | compleet |
+| Transformers Human Alliance | TeknoParrot | `exe/TF_Gun_R_Ring_dumped.exe` | 0 | 4,9 GB | compleet |
+
+**En de lege bestanden blijken geen defecten.** Ze zijn allemaal van een soort dat hoort te leeg zijn:
+
+* Luigi's Mansion: 12x `DataGlobal/EN/Data/Stage/Progress/CAM_st*/<moeilijkheid>/CAM_st*_*.ped` -- dat
+  zijn **voortgangsbestanden** van de kast (4 stages x 3 moeilijkheden). Een verse kast heeft ze leeg;
+* Terminator: `irgun/cmgr000000.txt` en `irgun/cmgr670719.txt` -- **logbestanden** van het geweer;
+* Transformers Shadows Rising: `Transformers2/TF2_Gun_R.ilk` (een **incremental-linkerbestand**, een
+  bouwartefact) en `shell/install.crc`.
+
+**Dat verfijnt de methode:** een leeg bestand is pas verdacht als het er **niet** hoort te zijn. Voortgang,
+logs, CRCs en bouwartefacten horen leeg te zijn; data, assets en programma's niet. Die indeling moet bij
+elke volgende game gemaakt worden, anders levert elke kast met een verse save een valse melding op.
+
+## Drie fouten in mijn eigen checker, en hoe ze aan het licht kwamen
+
+Alle drie gaven ze een **valse "ontbreekt"-melding**, en alle drie zijn ze gerepareerd:
+
+1. **Mapnaam met een spatie aan het eind.** `Terminator Salvation ` heet zo op de NAS; mijn controle
+   zocht `Terminator Salvation` en meldde "map bestaat niet". Nu wordt de echte naam opgezocht.
+2. **Onvolledig bibliotheekzoekpad.** Ik zocht `DT_NEEDED` alleen in `ElfLdr2/libs`, `x64/libs`,
+   `lib32` en het systeem -- en meldde daardoor dat Halo's `libfmod.so.10` en `libfmodstudio.so.10`
+   ontbraken, terwijl ze in `runtime/lib-fmodstub/` staan. Nu worden alle `runtime/*`-mappen meegenomen.
+3. **Hoofdlettergevoelig zoeken.** `shell.exe` in het profiel tegen `shell/Shell.exe` op schijf: `find`
+   is hoofdlettergevoelig, dus die werd gemist. Nu is de vergelijking ongevoelig.
+
+**De les is dezelfde als eerder in dit project:** een controle die niets vindt, moet kunnen aantonen dat
+ze iets gezocht heeft. Al deze drie meldden "niets gevonden" terwijl het er wel was.
