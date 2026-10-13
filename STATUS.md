@@ -95,6 +95,7 @@ Camera en bol-tracking in ravengund (Opus-subagent; door orchestrator geverifiee
 G1-bevestiging (16:31–16:35, orchestrator)
 - Halo gestopt via `wineserver -k` van de Halo-prefix (gericht) en opnieuw gestart met LAUNCH GAME, terwijl vinput al actief was (event31, gehouden via een FIFO). BudgieLoader opent invoerapparaten alleen bij de start: event31 staat in de open fds als het apparaat vóór de start bestaat.
 - F2 tweemaal: kalibratie overgeslagen, attract "Insert Cash / Cost to play $1.00". 4× Coin en Start: "CHOOSE A GAME MODE". Volgens de gebruiker speelt de game daarna met geluid op de tv.
+  - Kanttekening (2026-10-13): dit en "F2 (Test) slaat de kalibratie over" hierboven zijn gemeten op de TeknoParrot-route (Wine, de invoer van BudgieLoader). Op de NATIVE route is het anders gemeten: daar doet TEST niets (zes pulsen op alle vier de borden, logboek bleef op 256 regels) en brengt START alleen het spel door de kalibratie en in de attract-lus (`attract` om 11:56:32 zonder enige TEST-puls). Zie de correctie in `docs/decisions.md` bij de native route, en `patches/Halo/RUN-11-UITKOMST.md` en `RUN-13-UITKOMST.md`. De regel "twee keer TEST" geldt dus niet voor de native route.
 - Gevolg voor de launcher: het virtuele invoerapparaat moet vóór de gamestart bestaan, met een stabiel eventN of een binding die daar niet van afhangt.
 
 Nieuwe eisen van de gebruiker (2026-10-07): de Move moet accuraat en goed aanvoelen. Eén applicatie (ravengund) met een ingebouwde website. Spelen met de PlayStation Sharp Shooter (de Move zit erin) plus de Navigation Controller. Sensoren slim combineren. Sudo is toegestaan.
@@ -170,7 +171,7 @@ Kalibratie-app en magnetometer-beslispunt (2026-10-07 avond)
 
 ## Actuele fout / afhankelijkheid
 
-Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven). Tomb Raider en Rabbids Hollywood werken nu zonder TeknoParrot (Unity-route); Luigi's Mansion is toegevoegd maar start niet.
+Jurassic Park geeft zwart beeld (geen GL-context op volledig scherm, zie boven). Tomb Raider en Rabbids Hollywood werken nu zonder TeknoParrot (Unity-route); Luigi's Mansion speelt sinds 2026-10-13 op onze eigen kern (~6 min attract op de tv gezien, per-game drop-in `patches/LuigisMansion/dropin/rg-pe-hook.dll`; zie `patches/LuigisMansion/B0-VIJFMIN.md`).
 
 ## Volgende uitvoerbare stap
 
