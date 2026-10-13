@@ -1,0 +1,53 @@
+[ravengun-hasphook] === ravengun-hasphook voor 'Terminator' (pid 1254855, rg-elfloader) ===
+[ravengun-hasphook] spel-ELF gelezen uit /tmp/ts-fix/r3/view/game (RAVENGUN_HASP_ELF_GAME): 7764284 bytes, 8 program headers
+[ravengun-hasphook] aantal symbolen uit DT_GNU_HASH: 1019 (nbuckets 521, symoffset 491)
+[ravengun-hasphook] dynsym: 1019 symbolen
+[ravengun-hasphook] 0 hasp-symbolen in de dynsym van de game (gedefinieerd in de game zelf)
+[ravengun-hasphook] adreslijst: 11 regel(s) uit /tmp/ts-dongle/hasp-haken-pc.ini (basis: absoluut)
+[ravengun-hasphook]   hasp_login             0x083bbe60  GELDIG: segment 0x8048000 (R+X), bestand 0x373e60, prologue 53 83 ec 08
+[ravengun-hasphook]   hasp_login_scope       0x083baac0  GELDIG: segment 0x8048000 (R+X), bestand 0x372ac0, prologue 56 53 81 ec
+[ravengun-hasphook]   hasp_logout            0x083bbe00  GELDIG: segment 0x8048000 (R+X), bestand 0x373e00, prologue 53 83 ec 1c
+[ravengun-hasphook]   hasp_read              0x083bad30  GELDIG: segment 0x8048000 (R+X), bestand 0x372d30, prologue 57 56 53 83
+[ravengun-hasphook]   hasp_write             0x083bac80  GELDIG: segment 0x8048000 (R+X), bestand 0x372c80, prologue 57 56 53 83
+[ravengun-hasphook]   hasp_encrypt           0x083bbd60  GELDIG: segment 0x8048000 (R+X), bestand 0x373d60, prologue 53 83 ec 18
+[ravengun-hasphook]   hasp_decrypt           0x083bbce0  GELDIG: segment 0x8048000 (R+X), bestand 0x373ce0, prologue 53 83 ec 18
+[ravengun-hasphook]   hasp_get_size          0x083babe0  GELDIG: segment 0x8048000 (R+X), bestand 0x372be0, prologue 57 56 53 83
+[ravengun-hasphook]   hasp_get_info          0x083ba8a0  GELDIG: segment 0x8048000 (R+X), bestand 0x3728a0, prologue 55 57 56 53
+[ravengun-hasphook]   hasp_get_sessioninfo   0x083bae80  GELDIG: segment 0x8048000 (R+X), bestand 0x372e80, prologue 55 57 56 53
+[ravengun-hasphook]   hasp_free              0x083baab0  AFGEWEZEN: eerste bytes e9 ab 22 00 zijn geen prologue (mogelijk al door een andere hook gepatcht)
+[ravengun-hasphook] synchroon niet gelukt; de kijker-thread neemt het over
+[ravengun-hasphook] spelbeeld op 0x08048000 [+5 ms]
+[ravengun-hasphook] emulator met RTLD_LOCAL geladen (dlopen): /home/deck/.local/share/ravengun/hasp/ravengun-hasp.so
+[ravengun-hasphook]   hasp_login op 0x083bbe60: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+5 ms]
+[ravengun-hasphook]   hasp_login_scope op 0x083baac0: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+5 ms]
+[ravengun-hasphook]   hasp_logout op 0x083bbe00: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_read op 0x083bad30: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_write op 0x083bac80: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_encrypt op 0x083bbd60: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_decrypt op 0x083bbce0: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_get_size op 0x083babe0: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_get_info op 0x083ba8a0: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   hasp_get_sessioninfo op 0x083bae80: levende bytes zijn nul/onleesbaar, anders dan het bestand; niet aangehaakt, wacht op de lader [+6 ms]
+[ravengun-hasphook]   aangehaakt: hasp_login               op 0x083bbe60 -> 0xf7ebce90 (trampoline 0xf7e9a000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_login_scope         op 0x083baac0 -> 0xf7ebcff0 (trampoline 0xf7e99000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_logout              op 0x083bbe00 -> 0xf7ebcb90 (trampoline 0xf7e98000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_read                op 0x083bad30 -> 0xf7ebca40 (trampoline 0xf7e97000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_write               op 0x083bac80 -> 0xf7ebd0b0 (trampoline 0xf7e96000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_encrypt             op 0x083bbd60 -> 0xf7ebcdf0 (trampoline 0xf7e95000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_decrypt             op 0x083bbce0 -> 0xf7ebcd50 (trampoline 0xf7e94000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_get_size            op 0x083babe0 -> 0xf7ebccb0 (trampoline 0xf7e93000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_get_info            op 0x083ba8a0 -> 0xf7ebcf30 (trampoline 0xf7e92000, 5 bytes) [+11 ms]
+[ravengun-hasphook]   aangehaakt: hasp_get_sessioninfo     op 0x083bae80 -> 0xf7ebcc10 (trampoline 0xf7e91000, 5 bytes) [+12 ms]
+[ravengun-hasphook]   HERSTELD: hasp_login               op 0x083bbe60: de sprong was weggeschreven (herstel 1) [+12 ms]
+[ravengun-hasphook] aanroep: hasp_login
+[ravengun-hasphook] aanroep: hasp_login
+[ravengun-hasphook] aanroep: hasp_decrypt
+[ravengun-hasphook] aanroep: hasp_decrypt
+[ravengun-hasphook] aanroep: hasp_get_sessioninfo
+[ravengun-hasphook] aanroep: hasp_read
+[ravengun-hasphook] aanroep: hasp_encrypt
+[ravengun-hasphook] aanroep: hasp_encrypt
+[ravengun-hasphook] aanroep: hasp_encrypt
+[ravengun-hasphook] aanroep: hasp_encrypt
+[ravengun-hasphook] aanroep: hasp_encrypt
+[ravengun-hasphook] aanroep: hasp_read

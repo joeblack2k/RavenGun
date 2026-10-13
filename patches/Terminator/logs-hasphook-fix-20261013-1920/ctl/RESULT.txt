@@ -1,0 +1,3 @@
+tag=ctl rc=0 life_ms=4277
+hook=/tmp/ts-dongle/libravengun-hasphook.so 0e889d68099e9ccc32f5f2decf45e4d83fcb907686e727cc2452a05fbf884306
+extra env: 

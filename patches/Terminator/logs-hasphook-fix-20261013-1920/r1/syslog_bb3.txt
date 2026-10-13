@@ -1,0 +1,158 @@
+Fri Oct  9 16:39:22 2026: W: Unable to get d id: -1 
+Fri Oct  9 16:39:23 2026: ------------------------------
+Fri Oct  9 16:39:23 2026: Welcome to Terminator Salvation
+Fri Oct  9 16:39:23 2026: ------------------------------
+Fri Oct  9 16:39:23 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 16:39:23 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 16:39:23 2026: Current time: October 09 2026 16:39:23
+Fri Oct  9 16:39:26 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 16:39:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 16:40:27 2026: W: Unable to get d id: -1 
+Fri Oct  9 16:40:29 2026: ------------------------------
+Fri Oct  9 16:40:29 2026: Welcome to Terminator Salvation
+Fri Oct  9 16:40:29 2026: ------------------------------
+Fri Oct  9 16:40:29 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 16:40:29 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 16:40:29 2026: Current time: October 09 2026 16:40:29
+Fri Oct  9 17:15:57 2026: W: Unable to get d id: -1 
+Fri Oct  9 17:15:58 2026: ------------------------------
+Fri Oct  9 17:15:58 2026: Welcome to Terminator Salvation
+Fri Oct  9 17:15:58 2026: ------------------------------
+Fri Oct  9 17:15:58 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 17:15:58 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 17:15:58 2026: Current time: October 09 2026 17:15:58
+Fri Oct  9 17:16:01 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 17:16:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 17:17:03 2026: COULD NOT FIND PROGRAM s2_a10_1
+Fri Oct  9 17:17:03 2026: LOCKUP: 0
+Fri Oct  9 17:17:03 2026: GameState 1 GameRec type 0 size 0 numpl 1
+ curSeq <no> curProc <no>
+Fri Oct  9 17:17:54 2026: before build vbo - glError(1282): invalid operation
+Fri Oct  9 21:03:21 2026: W: Unable to get d id: -1 
+Fri Oct  9 21:03:23 2026: ------------------------------
+Fri Oct  9 21:03:23 2026: Welcome to Terminator Salvation
+Fri Oct  9 21:03:23 2026: ------------------------------
+Fri Oct  9 21:03:24 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 21:03:24 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 21:03:24 2026: Current time: October 09 2026 21:03:24
+Fri Oct  9 21:03:27 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:03:27 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 21:05:56 2026: W: Unable to get d id: -1 
+Fri Oct  9 21:05:58 2026: ------------------------------
+Fri Oct  9 21:05:58 2026: Welcome to Terminator Salvation
+Fri Oct  9 21:05:58 2026: ------------------------------
+Fri Oct  9 21:05:58 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 21:05:58 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 21:05:58 2026: Current time: October 09 2026 21:05:58
+Fri Oct  9 21:06:01 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:06:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 21:07:56 2026: W: Unable to get d id: -1 
+Fri Oct  9 21:07:58 2026: ------------------------------
+Fri Oct  9 21:07:58 2026: Welcome to Terminator Salvation
+Fri Oct  9 21:07:58 2026: ------------------------------
+Fri Oct  9 21:07:58 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 21:07:58 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 21:07:58 2026: Current time: October 09 2026 21:07:58
+Fri Oct  9 21:08:01 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 21:08:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:01 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:02 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:02 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:08:02 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:05 2026: W: Unable to get d id: -1 
+Fri Oct  9 21:10:07 2026: ------------------------------
+Fri Oct  9 21:10:07 2026: Welcome to Terminator Salvation
+Fri Oct  9 21:10:07 2026: ------------------------------
+Fri Oct  9 21:10:07 2026: Version: 01.25.00.US RELEASE
+Fri Oct  9 21:10:07 2026: Build: Sep 12 2011 16:42:59
+Fri Oct  9 21:10:07 2026: Current time: October 09 2026 21:10:07
+Fri Oct  9 21:10:10 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Fri Oct  9 21:10:10 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Fri Oct  9 21:12:18 2026: COULD NOT FIND PROGRAM s2_a10_1
+Fri Oct  9 21:12:18 2026: LOCKUP: 0
+Fri Oct  9 21:12:18 2026: GameState 1 GameRec type 0 size 0 numpl 1
+ curSeq <no> curProc <no>
+Sat Oct 10 17:42:40 2026: W: Unable to get d id: -1 
+Sat Oct 10 17:42:42 2026: ------------------------------
+Sat Oct 10 17:42:42 2026: Welcome to Terminator Salvation
+Sat Oct 10 17:42:42 2026: ------------------------------
+Sat Oct 10 17:42:42 2026: Version: 01.25.00.US RELEASE
+Sat Oct 10 17:42:42 2026: Build: Sep 12 2011 16:42:59
+Sat Oct 10 17:42:42 2026: Current time: October 10 2026 17:42:42
+Sat Oct 10 17:42:45 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Sat Oct 10 17:42:45 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:09 2026: W: Unable to get d id: -1 
+Sat Oct 10 17:50:11 2026: ------------------------------
+Sat Oct 10 17:50:11 2026: Welcome to Terminator Salvation
+Sat Oct 10 17:50:11 2026: ------------------------------
+Sat Oct 10 17:50:11 2026: Version: 01.25.00.US RELEASE
+Sat Oct 10 17:50:11 2026: Build: Sep 12 2011 16:42:59
+Sat Oct 10 17:50:11 2026: Current time: October 10 2026 17:50:11
+Sat Oct 10 17:50:14 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=1360, h=768, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=64, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=512, h=256, bits=(0, 0, 0, 0)
+Sat Oct 10 17:50:14 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Sat Oct 10 17:53:11 2026: COULD NOT FIND PROGRAM s2_a10_1
+Sat Oct 10 17:53:11 2026: LOCKUP: 0
+Sat Oct 10 17:53:11 2026: GameState 1 GameRec type 0 size 0 numpl 1
+ curSeq <no> curProc <no>
+Sun Oct 11 22:27:25 2026: W: Unable to get d id: -1 
+Sun Oct 11 22:27:30 2026: ------------------------------
+Sun Oct 11 22:27:30 2026: Welcome to Terminator Salvation
+Sun Oct 11 22:27:30 2026: ------------------------------
+Sun Oct 11 22:27:30 2026: Version: 01.25.00.US RELEASE
+Sun Oct 11 22:27:31 2026: Build: Sep 12 2011 16:42:59
+Sun Oct 11 22:27:31 2026: Current time: October 11 2026 22:27:31
+Sun Oct 11 23:17:09 2026: W: Unable to get d id: -1 
+Mon Oct 12 01:49:20 2026: W: Unable to get d id: -1 
+Tue Oct 13 19:14:03 2026: localizationInit() FAILED!
+Tue Oct 13 19:14:03 2026: JammaInit() failed -9097
+Tue Oct 13 19:14:03 2026: JammaOp(JAMMAOP_SETCALLBACK) failed -9098
+Tue Oct 13 19:14:03 2026: JPS: jpsdrvr_init(): Could not open DEV_DSP
+Tue Oct 13 19:14:03 2026: JPS: jps_init(): ERROR! Could not init sound hardware!
+Tue Oct 13 19:14:03 2026: SndInit() FAILED!
+Tue Oct 13 19:14:03 2026: ObjInit() FAILED!
+Tue Oct 13 19:14:03 2026: Failed to load postfx on init!
+Tue Oct 13 19:14:03 2026: gameInit() FAILED!

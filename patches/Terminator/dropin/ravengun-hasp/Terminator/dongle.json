@@ -1,13 +1,20 @@
 {
   "kind": "hasp",
   "game": "Terminator",
+  "crypto_table": "hasp",
   "memory": [
     {
-      "name": "memory",
-      "fileid": 65524,
-      "size": 128,
-      "file": "memory/00000000000000001111111111110100"
+      "name": "licentie",
+      "fileid": 65522,
+      "size": 64,
+      "file": "memory/00000000000000001111111111110010"
+    },
+    {
+      "name": "hoofd",
+      "fileid": 65520,
+      "size": 48,
+      "file": "memory/00000000000000001111111111110000"
     }
   ],
-  "notes": "DE BYTES KOMEN UIT EEN ECHTE BRON: de spelmap zelf. Terminator Salvation/hasp/hhl_mem.dmp is een HASP-HL-geheugendump van 128 bytes die in de eigen hasp-map van de game staat; de image hier is dat bestand byte voor byte (sha256 759668aeac17ccae66385b365bbe9e19504cde93b4374fd966a8edf1d04a8a8e). WAT UIT DE CODE KOMT: game heeft 0 hasp_-symbolen in zijn dynsym (1019 dynamische symbolen, geen enkele met 'hasp'; readelf --dyn-syms werkt hier wel, want deze ELF heeft sectiekoppen) -- er is dus geen statisch gelinkte HASP-client om aan te haken. Dat de game wel een Aladdin/HASP-dongle gebruikt blijkt uit de tekstregels in game ('DongleInitialize() FAILED!', 'ReInitAladdinDongles called: %d times', 'Too many consexutive dongle errs (%)') en uit t4-patch ('failed to find aladdin dongle', 'failed to read dongle id', 'Unable to read seed from dongle'). WAT NIET GEMETEN IS: de fileid. Deze game geeft nergens een fileid door (geen client), dus ik gebruik 65524 = 0xFFF4, de standaard HASP-HL-hoofdgeheugen-fileid zoals die in dit project bekend is (patches/Halo/dropin/ravengun-hasp/Halo/dongle.json, findings/dongles/README.md en de RT-Dongle-Package README paragraaf 2). Dat is een aanname, geen meting -- en omdat er geen hook is, wordt er op dit moment ook niets gelezen. IK HEB HET BESTAND NIET INGEKORT: het is 128 bytes, terwijl de image van Halo Fireteam 112 bytes is. De laatste 16 bytes zijn 'WBPT' + 01 00 00 00 + 10 00 00 00 + 00 00 28 b1, wat op een staart/merk van het dumpgereedschap lijkt, maar niets in de bronnen zegt dat er iets af moet. De hele file is dus de image; de grootte in dit bestand is de bestandsgrootte. haspid, features en keycaps zijn NIET gemeten en daarom weggelaten. LET OP: dit is een dongle-beschrijving zonder hook. Er valt in game niets aan te haken, dus de drop-in wordt wel uitgerold maar spreekt de emulator niet aan. Zie patches/Terminator/README.md."
+  "notes": "Terminator Salvation, bijgewerkt na de bench van 2026-10-13 (avond). DE INDELING IS GEMETEN: de HASP-HL-dump hhl_mem.dmp uit de eigen hasp-map van de game (128 bytes, sha256 759668aeac17ccae66385b365bbe9e19504cde93b4374fd966a8edf1d04a8a8e) is EEN geheugen van 112 bytes plus een staart van 16 bytes ('WBPT...', hoort bij geen van beide). 0xFFF0 (HASP_FILEID_MAIN, 'hoofd') = dump[0x00:0x30], 48 bytes: de game leest 36 bytes op offset 0 en een CRC32 op offset 36, en zlib-crc32(dump[0:36]) = b586cbdb = dump[0x24:0x28]. 0xFFF2 (HASP_FILEID_LICENSE, 'licentie') = dump[0x30:0x70], 64 bytes: landcode op offset 0x1c = 3 (het enige niet-FF-byte in dat stuk; de game toont daarmee 01.25.00.UK in het testmenu, GEMETEN in run r5 -- dit is dus een UK-kast, niet USA), kastnummer op offset 0x3c = 2658 (de versiepagina toont 'SERIAL NUMBER 2658', GEMETEN in run r5), en de kenmerkwoorden op offset 0 en 12 zijn FF FF FF FF (= uit). WAAROM DIT ERTOE DOET: tot run r2 kregen BEIDE fileids de hele dump vanaf byte 0. De game las dan op 0xFFF2+0 de bytes da 36 7e a4, las dat als 'omzetdeling aan' en ging zonder registratiebestand in de blokkade 'Game must be registered' (run r1, 21:20). Met deze indeling is die blokkade weg en draait de attract (run r2, 21:27; met deze bestanden zelf: r3 en r4, 11 en 19 minuten attract). Vul de bestanden NIET met nullen: 00 00 00 00 telt ook als 'aan'. De game schrijft alleen naar 0xFFF2 als iemand in het testmenu de landcode of het kastnummer zet; de emulator schrijft dan in het kopie in de view, nooit in de patchmap. DE ANTWOORDTAFEL: het veld crypto_table wijst naar de map hasp/ van de game zelf (relatief aan de werkmap = de view, waar hasp een verwijzing naar de spelmap op de NAS is). Daaruit beantwoordt de emulator hasp_encrypt en hasp_decrypt: de bestandsnaam is de kleine hex van de eerste 32 (of anders 16) bytes van de invoer, de inhoud het antwoord. Zonder die tafel kan de game haar eigen e*-bestanden (econf, etranslation, etool2, exml) niet ontsleutelen. De 5410 antwoordbestanden staan NIET in patches/; ze zijn runtime-data van de game. Zie patches/Terminator/ATTRACT-RUN.md, DONGLE-ROUTE.md en hasp/src/dongle.h (dongle_crypto_replay)."
 }
