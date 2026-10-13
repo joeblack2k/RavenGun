@@ -18,21 +18,40 @@ geschreven buiten dit bestand. Alleen gelezen.
 
 ---
 
-## 0. Samenvatting in vijf regels
+## 0. Samenvatting
+
+> ### ⚠ EERST DIT — het belangrijkste meetresultaat van deze ronde
+>
+> Ik heb de meting gedaan (§4, §5). Twee uitkomsten samen zetten een vraagteken bij de hele
+> drop-in-route, en die moet je weten vóór je iets bouwt:
+>
+> 1. **Onder de GESLOTEN kern** staat `.text` op t=2, 3, 4 en 5 s **volledig op nul**; pas tussen
+>    t=5 s en t=10 s is het uitgepakt, en **pas dán** staan de 17 prologues op `e9 …` en is de
+>    trampolinepagina gemapt. **[GEMETEN]**
+> 2. **Onder ONZE kern** staat `.text` op **elk** bemonsterd moment (t=0,1 … 4,0 s) volledig op nul,
+>    zijn de 17 prologues **nooit** `e9`, is de trampolinepagina **nooit** gemapt, en het proces
+>    sterft op **t=5,72 s**. **[GEMETEN]** (ik heb de laatste 1,7 s vóór de dood niet bemonsterd.)
+>
+> De 17 prologues worden dus **pas ná het uitpakken** omgezet. Sterft het spel onder onze kern vóór
+> of tijdens het uitpakken, dan wordt de `am`-laag **nooit bereikt** en kan een drop-in die deze 17
+> functies vervangt de dood **niet** verklaren of verhelpen. Dat is **[AFGELEID]** uit de twee
+> metingen hierboven, en het is de eerstvolgende vraag om te meten (§7).
 
 1. De bewering **"17 functies met een gewijzigde prologue" klopt precies** — het zijn 17 van de 18
    prologues die naar één pagina springen: **`0x13fff0000`, 4096 B, anoniem, `rwxp`**. **[GEMETEN]**
 2. Die 17 zijn `amDongle*` (8), `amHm*` (5), `amMaster*` (4). De namen komen **niet** uit een
    exporttabel maar uit **log-tag-strings** in `.rdata` die elk vanuit hun eigen functie worden
    aangeroepen. **[GEMETEN]**
-3. De gewijzigde prologue is overal exact **`e9 <rel32>` = 5 bytes**; de rest van het functielichaam
-   staat er nog. De eerste 5 originele bytes zijn dus weg. **[GEMETEN]**
-4. De gesloten kern **vervangt de functie in zijn geheel** (via de trampolinepagina). Er staat
-   **geen enkele** aanwijzer naar de kern-code in het spelbeeld: 0 van 19.259.384 posities. **[GEMETEN]**
-5. Wat de kast antwoordt (game-id, modeltype, netwerkadres, keychip-id) zit in de **velden van het
-   dongle-object**, gevuld door de dongle-I/O. Die waarden zijn **niet statisch te vinden**; ze
-   moeten uit de trampolinepagina of uit het dongle-object gelezen worden. **Dat is één gerichte
-   meting** (§6). **[GEMETEN dat ze ontbreken]**
+3. De pagina is een **tweeslotige detour-tabel**: de prologue springt naar slot B
+   (`jmp qword [rip+0]` → **een functie in de gesloten kern**), en slot A zet de originele prologue
+   terug en springt naar het originele lichaam. Alle 18 doelen liggen in de kern-module
+   `0x6ffff6b61000..0x6ffff6ddc000`. **[GEMETEN]**
+4. **Alle 17 kern-implementaties geven `0` terug** (`xor eax,eax; add rsp,0x28; ret`), en de meeste
+   loggen alleen een regel. Eén uitzondering: **`amDongleGetNetworkAddress` schrijft `0x1a8c0`
+   (= 192.168.1.0) in de uitvoerpointer** en geeft 0 terug. **[GEMETEN]** Dat is het enige echte
+   "antwoord van de kast" dat ik heb gevonden.
+5. Het dongle-object is **leeg** (512 B nul) op alle vier de gemeten momenten. De waarden die de game
+   zou lezen zijn er dus niet: de kern vult geen object, hij vervangt de aanroepen. **[GEMETEN]**
 
 ---
 
@@ -417,6 +436,18 @@ gezet als de dongle beschikbaar is**. Daarna volgt een gewone compilerswitch ove
 5. `.text` is gemapt als **`r-xp`** (`140001000-140357000 r-xp`), dus **niet schrijfbaar**. Om een
    prologue in `.text` te overschrijven moet een pagina eerst schrijfbaar gemaakt worden.
    **[GEMETEN]**
+6. **De controle, in één run per kern — [GEMETEN]:**
+   * **GESLOTEN kern** (`f5c7532d…`, sha uit het launch-direct-log): op t=10, 12, 16, 20 en 25 s staat
+     op alle acht gecontroleerde prologues **`e9 df cd d3 ff`** c.s. — precies dezelfde bytes als in
+     de statische dump. En op t=2, 3, 4 en 5 s staat er **`00 00 00 00 00`**: `.text` is dan nog niet
+     uitgepakt, en de pagina is nog niet gemapt (EIO).
+   * **ONZE kern** (`fe2ecf8c…`, sha uit het launch-direct-log): op **alle** bemonsterde momenten
+     (t=0,1 / 0,2 / 0,3 / 0,5 / 0,8 / 1,2 / 2,0 / 4,0 s) staat op alle acht prologues
+     **`00 00 00 00 00`**, is de trampolinepagina **nooit** leesbaar, en het proces is weg op
+     **t=5,72 s**.
+   De causale keten van hieronder is daarmee **gemeten voor zover hij strekt**: onze kern zet de 17
+   prologues niet om. Wat er **niet** uit volgt, is dat dat de dood veroorzaakt — zie de waarschuwing
+   in §0 en §6.
 
 **Wat daaruit volgt [AFGELEID, sterk ondersteund]:**
 
@@ -431,119 +462,244 @@ en `ZwProtectVirtualMemory` aanhaakt en **onze kern niet**:
 Dat is een **samenhangende verklaring** voor het verschil tussen de twee kernen. Ik heb hem **niet
 direct gemeten** (daarvoor moet je in beide runs de bytes op `0x2b4170` vergelijken — zie §6, stap 3).
 
-**Wat ik NIET weet:** wat de stubs op `0x13fff0000` doen. Die pagina valt **buiten** de dump (de dump
-begint bij `0x140000000`, de pagina ligt op `0x13fff0000`), en er is geen ander artefact dat hem
-dekt: `/tmp/vacuum-dump/` bevat alleen de acht PE-secties, en `/tmp/b0-geheugen-{b,c,d}/` bevatten
-alleen `image-gesloten.bin` vanaf de ImageBase. **[GEMETEN dat het ontbreekt]** Ik verzin hier niets:
-**zonder die pagina is de inhoud van de vervanging niet statisch te bepalen.**
+**Wat de pagina bevat — [GEMETEN] in `/tmp/lm-meet-gesloten/tramp-10.0.bin` (4096 B, 610 niet-nul):**
+
+De pagina is een tabel van **tweeslotige detours**. Per functie:
+
+```
+slot A  (bijv. 0x13fff0f40):  <herhaalde originele prologue> ; ff 25 00 00 00 00 <qword>
+                                                                 ^ jmp qword ptr [rip+0]
+        het qword = het ORIGINELE lichaam   (bijv. 0x1402b4176)
+slot B  (bijv. 0x13fff0f54):  ff 25 00 00 00 00 <qword>
+        het qword = de KERN-implementatie   (bijv. 0x6ffff6cfe1f0)
+```
+
+De prologue van de game springt naar **slot B**, dus naar de kern. Slot A is de terugweg: de kern
+roept die aan als hij het originele gedrag wil, en slot A zet de weggeoverschreven prologue
+gedeeltelijk terug en springt naar het originele lichaam. Voorbeeld, `amHmInit`
+(`0x13fff0c00` = slot A, `0x13fff0c19` = slot B):
+
+```
+13fff0c00  48 83 ec 28              sub  rsp,0x28
+13fff0c03  48 8d 0d 25 9d 37 00     lea  rcx,[0x14036a930]      ; "amHwMonitor"
+13fff0c0a  ff 25 00 00 00 00        jmp  qword ptr [rip+0]      ; -> 0x1402b520b (origineel lichaam)
+13fff0c11  0b 52 2b 40 01 00 00 00  (qword 0x1402b520b)
+13fff0c19  ff 25 00 00 00 00        jmp  qword ptr [rip+0]      ; <- hier komt de game binnen
+13fff0c1f  90 05 d0 f6 ff 6f 00 00  (qword 0x6ffff6d00590 = KERN)
+```
+**[GEMETEN]**
+
+**De 18 doelen in de kern — [GEMETEN] uit de pagina, en hun code is [GEMETEN] gelezen via
+`/proc/<pid>/mem` in `/tmp/lm-meet-kern/`** (de kern-DLL is zelf ook gepakt — zijn `.text` heeft
+`SizeOfRawData = 0` — dus uit het bestand lezen geeft rommel; dat heb ik geprobeerd en het klopte
+niet):
+
+| # | spel-functie | spel-adres | slot B | **kern-implementatie** |
+|---|---|---|---|---|
+| 1 | `amDongleBillingGetKeychipId` | `0x1402b3b70` | `0x13fff0fd4` | `0x6ffff6cfdd80` |
+| 2 | `amDongleGetGameId` | `0x1402b3d30` | `0x13fff0ed4` | `0x6ffff6cfe040` |
+| 3 | `amDongleGetModelType` | `0x1402b3ff0` | `0x13fff0e94` | `0x6ffff6cfe0a0` |
+| 4 | `amDongleGetNetworkAddress` | `0x1402b40b0` | `0x13fff0e54` | `0x6ffff6cfe0e0` |
+| 5 | `amDongleInit` | `0x1402b4170` | `0x13fff0f54` | `0x6ffff6cfe1f0` |
+| 6 | `amDongleIsAvailableInternal` | `0x1402b4270` | `0x13fff0bd3` | `0x6ffff6c97d50` |
+| 7 | `amDongleSetupKeychip` | `0x1402b4320` | `0x13fff0f94` | `0x6ffff6cfe2a0` |
+| 8 | `amDongleUpdate` | `0x1402b4740` | `0x13fff0f19` | `0x6ffff6cfe3e0` |
+| 9 | `amHmExit` | `0x1402b50f0` | `0x13fff0c99` | `0x6ffff6d00520` |
+| 10 | `amHmGetCautionFlag` | `0x1402b5180` | `0x13fff0d19` | `0x6ffff6d00550` |
+| 11 | `amHmInit` | `0x1402b5200` | `0x13fff0c19` | `0x6ffff6d00590` |
+| 12 | `amHmResetCautionFlag` | `0x1402b55a0` | `0x13fff0cd9` | `0x6ffff6d005c0` |
+| 13 | `amHmUpdate` | `0x1402b56f0` | `0x13fff0c54` | `0x6ffff6caff50` |
+| 14 | `amMasterExitInternal` | `0x1402b5860` | `0x13fff0dd7` | `0x6ffff6d062e0` |
+| 15 | `amMasterInit` | `0x1402b5cb0` | `0x13fff0e14` | `0x6ffff6d063d0` |
+| 16 | `amMasterSetBackupEventLogParam` | `0x1402b6050` | `0x13fff0d55` | `0x6ffff6d06320` |
+| 17 | `amMasterUpdate` | `0x1402b6160` | `0x13fff0d99` | `0x6ffff6cc2130` |
+| — | (geen `am`) | `0x1400485a` | `0x13fff0b8e` | `0x6ffff6c979a0` |
+
+**Wat de kern-implementaties doen — [GEMETEN]:**
+
+Drie zijn een pure "return 0"-stub, zonder enige log:
+
+```
+amHmUpdate                     (0x6ffff6caff50)  89 4c 24 08 33 c0 c3
+                              = mov [rsp+8],ecx ; xor eax,eax ; ret
+amMasterUpdate                 (0x6ffff6cc2130)  88 4c 24 08 33 c0 c3
+                              = mov [rsp+8],cl  ; xor eax,eax ; ret
+amMasterSetBackupEventLogParam (0x6ffff6d06320)  44 89 4c 24 20 44 89 44 24 18 89 54 24 10
+                                                 89 4c 24 08 33 c0 c3
+                              = argumenten bewaren ; xor eax,eax ; ret
+```
+
+De andere volgen één patroon: **argumenten bewaren → `lea rcx,[<string in de kern>]` → een
+log-aanroep → `xor eax,eax; add rsp,0x28; ret`**. Voorbeelden met de gemeten bytes:
+
+```
+amDongleGetGameId   (0x6ffff6cfe040)  89 54 24 10 48 89 4c 24 08 48 83 ec 28
+                                      48 8d 0d cc e2 12 00   ; lea rcx,[0x6ffff6e2c320]
+                                      e8 72 2d 4e 02         ; log
+                                      ...  xor eax,eax ; add rsp,0x28 ; ret   -> 0
+amDongleGetModelType(0x6ffff6cfe0a0)  48 8d 0d ec e1 12 00   ; lea rcx,[0x6ffff6e2c2a0]
+                                      e9 f9 87 3c 02         ; jmp (staart)
+                                      ...  xor eax,eax ; add rsp,0x28 ; ret   -> 0
+amDongleInit        (0x6ffff6cfe1f0)  48 83 ec 28 48 8d 0d 5d e0 12 00 e9 51 51 54 02
+                                      ...  xor eax,eax ; add rsp,0x28 ; ret   -> 0
+```
+
+**De enige uitzondering, en dat is een echt antwoord — [GEMETEN]:**
+
+```
+amDongleGetNetworkAddress (0x6ffff6cfe0e0)
+   6ffff6cfe0e0  89 54 24 10              mov  [rsp+0x10],edx
+   6ffff6cfe0e4  48 89 4c 24 08           mov  [rsp+0x8],rcx
+   6ffff6cfe0e9  48 83 ec 28              sub  rsp,0x28
+   6ffff6cfe0ed  0f b6 05 0d dd 28 00     movzx eax,BYTE PTR [rip+0x28dd0d]   ; 0x6ffff6f8be01
+   ...
+                 mov  DWORD PTR [rax],0x1a8c0     ; <-- schrijft 192.168.1.0
+                 xor  eax,eax ; add rsp,0x28 ; ret   -> 0
+```
+
+`0x1a8c0` little-endian is `c0 a8 01 00` = **192.168.1.0**. De kern schrijft dus een **vast**
+netwerkadres in de uitvoerpointer van de game en geeft 0 terug. **[GEMETEN]**
+
+**De log-strings in de kern heb ik NIET gelezen.** Hun adressen zijn gemeten
+(`0x6ffff6e2c320`, `0x6ffff6e2c2a0`, `0x6ffff6e2c338`, `0x6ffff6e2c254`, …) maar die liggen in
+`.rdata` van de kern-module, en die heb ik niet gedumpt. **[GEMETEN dat ze er zijn; onbekend wat er
+staat]**
+
+**Het dongle-object is leeg — [GEMETEN]:**
+
+`[0x14049cc68]` = `0x1404de050` op t=12, 16, 20 en 25 s, en de **512 bytes op dat adres zijn
+allemaal nul**, inclusief `+0x1c0` (game-id), `+0x1c8` (netwerkadres), `+0x1cc` (keychip-id),
+`+0x110`, `+0x114` en `+0x1b4`. Het `amMaster`-object op `0x1404de700` en de drie `amHm`-globalen
+zijn ook nul. **[GEMETEN]** De kern vult dus **geen** object; hij vervangt de aanroepen.
 
 ---
 
-## 5. Wat ONZE kern of een drop-in moet leveren — specificatie
+## 5. Wat de drop-in moet doen — specificatie
 
-De vorm is: **een per-game drop-in in `patches/LuigisMansion/`**, niet een wijziging in de kern.
+**Vorm:** een per-game drop-in in `patches/LuigisMansion/dropin/` met een `dropin.ini`, **niet** in
+de lader. De hasphook-specialist bouwt het mechanisme dat de 17 prologues omzet; hieronder staan de
+**gegevens** die het mechanisme moet leveren.
 
-### 5.1 Wat de drop-in moet doen
+**Wat de drop-in in essentie moet doen:** de 17 spel-functies hun prologue laten overschrijven met
+`e9 <rel32>` naar een eigen stub, precies zoals de gesloten kern doet — en die stub moet **dezelfde
+teruggeefwaarde en hetzelfde neveneffect** hebben als de kern-implementatie hieronder.
 
-De 17 functies moeten **dezelfde signature en dezelfde teruggeefwaarden** krijgen als de echte
-`am`-laag, maar met de kast-gegevens in plaats van een echte dongle. Per functie, [GEMETEN] tenzij
-anders vermeld:
+### 5.1 Per functie: adres, kern-doel, wat de vervanger doet, wat de drop-in moet teruggeven
 
-| functie | gevraagde invoer | terug te geven | neveneffect op het dongle-object |
-|---|---|---|---|
-| `amDongleInit` | — | `0` bij succes; `-4` als `[obj] != 0` | `memset(obj,0,0x200)`; daarna moeten de velden `+0x1c0`, `+0x1c8`, `+0x1cc` gevuld zijn |
-| `amDongleIsAvailableInternal` | — | `0` als beschikbaar; `-2` bij `0x81000003`; `-1` anders | `[obj+0x110] = 0x40`, `[obj+0x114] = 1` |
-| `amDongleSetupKeychip` | keychip-parameter | `0` | — (lichaam niet nagelezen) |
-| `amDongleUpdate` | — | `0` | — (lichaam niet nagelezen) |
-| `amDongleGetGameId` | `rcx` = uitvoerpointer (5 B) | `1`/`0` bij succes; `-2` bij `rcx == 0`; `-3` als `[obj]==0`; `-1` als `[obj+0x1b4]==0` | `[obj+0x110] = 4` |
-| `amDongleGetModelType` | `rcx` = uitvoerpointer | idem | — (veld onbekend) |
-| `amDongleGetNetworkAddress` | `rcx` = uitvoerpointer (4 B) | idem | `[obj+0x110] = 9` |
-| `amDongleBillingGetKeychipId` | `rcx` = uitvoerpointer (17 B) | idem | `[obj+0x110] = 0xb` |
-| `amHmInit` | — | `0`; `-4` als al geïnitialiseerd | `amHm`-global `0x1404de6b0` |
-| `amHmExit`, `amHmUpdate` | — | `0`; `-3` als niet geïnitialiseerd | idem |
-| `amHmGetCautionFlag`, `amHmResetCautionFlag` | vlag | `0` | idem |
-| `amMasterInit` | — | `0`; `-4` als al geïnitialiseerd | `memset(obj+0xc,0,0x400)`, `[obj+4]=0` |
-| `amMasterUpdate`, `amMasterExitInternal`, `amMasterSetBackupEventLogParam` | — | `0` | `amMaster`-object `0x14049ccd8` |
+Alles in deze tabel is **[GEMETEN]** behalve waar "AFGELEID" staat.
 
-De negatieve codes zijn `am`-foutcodes: `-1` = niet beschikbaar, `-2` = ongeldig argument,
-`-3` = niet geïnitialiseerd, `-4` = al geïnitialiseerd; `0x81000003` is de "dongle niet gevonden"-code
-van de onderliggende `amy`-laag. **[AFGELEID]** uit de plaatsen waar ze gezet worden.
+| spel-functie | spel-adres | kern-doel | wat de kern doet (gemeten bytes) | terug | neveneffect |
+|---|---|---|---|---|---|
+| `amDongleInit` | `0x1402b4170` | `0x6ffff6cfe1f0` | `sub rsp,0x28; lea rcx,[0x6ffff6e2c254]; jmp <log>` → `xor eax,eax; ret` | **0** | — |
+| `amDongleIsAvailableInternal` | `0x1402b4270` | `0x6ffff6c97d50` | `sub rsp,0x38; lea rcx,[…]; jmp <log>` → `ret` (waarde niet met zekerheid gelezen) | **0** (AFGELEID) | — |
+| `amDongleSetupKeychip` | `0x1402b4320` | `0x6ffff6cfe2a0` | `sub rsp,0x28; lea rcx,[…]; call <log>` | **0** (AFGELEID) | — |
+| `amDongleUpdate` | `0x1402b4740` | `0x6ffff6cfe3e0` | `sub rsp,0x28; lea rcx,[…]; jmp` → `xor eax,eax; ret` | **0** | — |
+| `amDongleGetGameId` | `0x1402b3d30` | `0x6ffff6cfe040` | log → `xor eax,eax; add rsp,0x28; ret` | **0** | **schrijft niets** in `rcx` |
+| `amDongleGetModelType` | `0x1402b3ff0` | `0x6ffff6cfe0a0` | log → `xor eax,eax; ret` | **0** | **schrijft niets** |
+| `amDongleGetNetworkAddress` | `0x1402b40b0` | `0x6ffff6cfe0e0` | `mov dword [rax],0x1a8c0` → `xor eax,eax; ret` | **0** | **`*(uint32*)rcx = 192.168.1.0`** (`c0 a8 01 00`) |
+| `amDongleBillingGetKeychipId` | `0x1402b3b70` | `0x6ffff6cfdd80` | stack-cookie, `lea rcx,[0x6ffff6e2c338]`, `call <log>` | **0** (AFGELEID) | **schrijft niets** |
+| `amHmInit` | `0x1402b5200` | `0x6ffff6d00590` | log → `xor eax,eax; ret` | **0** | — |
+| `amHmExit` | `0x1402b50f0` | `0x6ffff6d00520` | log → `xor eax,eax; ret` | **0** | — |
+| `amHmUpdate` | `0x1402b56f0` | `0x6ffff6caff50` | `mov [rsp+8],ecx; xor eax,eax; ret` | **0** | — |
+| `amHmGetCautionFlag` | `0x1402b5180` | `0x6ffff6d00550` | log → `xor eax,eax; ret` | **0** | **schrijft niets** |
+| `amHmResetCautionFlag` | `0x1402b55a0` | `0x6ffff6d005c0` | log → `xor eax,eax; ret` | **0** | — |
+| `amMasterInit` | `0x1402b5cb0` | `0x6ffff6d063d0` | log → `xor eax,eax; ret` | **0** | — |
+| `amMasterUpdate` | `0x1402b6160` | `0x6ffff6cc2130` | `mov [rsp+8],cl; xor eax,eax; ret` | **0** | — |
+| `amMasterExitInternal` | `0x1402b5860` | `0x6ffff6d062e0` | log → `xor eax,eax; ret` | **0** | — |
+| `amMasterSetBackupEventLogParam` | `0x1402b6050` | `0x6ffff6d06320` | argumenten bewaren; `xor eax,eax; ret` | **0** | — |
 
-### 5.2 Wat we NIET hebben, en waar het vandaan moet komen
+**Samengevat, en dit is het hele antwoord:** de kast-antwoorden bestaan uit **"geslaagd" (0)** plus
+**één vast netwerkadres 192.168.1.0**. Er is **geen** game-id, **geen** modeltype en **geen**
+keychip-id gemeten — de kern schrijft die niet en het dongle-object blijft leeg.
 
-**De antwoorden zelf.** De getters kopiëren uit `obj+0x1c0` (5 B game-id), `obj+0x1c8` (4 B
-netwerkadres) en `obj+0x1cc` (17 B keychip-id). Die velden worden gevuld door de dongle-I/O. Wij
-hebben geen dongle en de waarden staan niet in het spelbestand of in het beeld. **[GEMETEN]**
+### 5.2 Hoe je dat antwoord levert zonder iets te verzinnen
 
-Er zijn precies twee bronnen denkbaar, en ik noem ze met de bron erbij:
+1. **Zet de prologue om** naar een stub met dezelfde semantiek als de kern: argumenten bewaren
+   (de eerste twee args worden op `[rsp+8]` en `[rsp+0x10]` gezet, net als de kern doet — dat is
+   zichtbaar in élke kern-implementatie) en dan `eax = 0` en `ret`.
+2. **Alleen voor `amDongleGetNetworkAddress`** ook `*(uint32_t*)rcx = 0x1a8c0` schrijven.
+   Dat is de enige waarde die de kast blijkbaar geeft, en hij is **letterlijk gemeten**.
+3. **Voor de andere 16 niets in de uitvoerpointer schrijven.** De kern doet dat ook niet, en de game
+   leest die buffers dus niet (of accepteert de oude inhoud).
+4. **Geen waarden verzinnen.** Er is geen bron voor een game-id, modeltype of keychip-id: niet in het
+   spelbestand, niet in het beeld, niet in het dongle-object, en de kern schrijft ze niet. Als er
+   later een echte keychip-uitlezing komt (zoals bij OG in
+   `patches/OG/dropin/ravengun-hasp/OG/dongle.json`), is dat de plek om ze in te vullen — maar tot
+   dat er is, is "0 terug, niets schrijven, behalve 192.168.1.0" de volledige, gemeten specificatie.
 
-1. **De trampolinepagina van de gesloten kern** (`0x13fff0000`, 4096 B). Daar staat wat de kast
-   antwoordt, in de vorm van de vervangende code. **Dit is nog niet gelezen** — de pagina valt buiten
-   elke bestaande dump. Dit is de eerstvolgende meting (§6).
-2. **Een echte keychip/dongle-uitlezing**, zoals bij OG is gedaan
-   (`patches/OG/dropin/ravengun-hasp/OG/dongle.json`, met de opmerking dat de regio-/printplaatwaarde
-   de software-emulatie van dongle en PIC is die de TeknoParrot-kern zelf doet). Voor Luigi's Mansion
-   Arcade is zo'n bestand er **niet**.
+### 5.3 De waarschuwing die boven deze specificatie uitgaat
 
-Ik heb **geen** `keychip.appboot.*`-opdrachtstrings in het beeld gevonden, dus het OG-protocol is hier
-niet van toepassing. **[GEMETEN]**
-
-**Ik verzin geen waarden.** Zonder bron 1 of 2 is de specificatie compleet in *vorm* (welke functie
-wat teruggeeft) maar incompleet in *inhoud* (welke bytes de kast antwoordt).
+Zie §0 en §7: de prologues worden door de gesloten kern **pas ná het uitpakken** omgezet, en onder
+onze kern sterft het spel terwijl `.text` nog volledig nul is. **Het is dus niet aangetoond dat deze
+drop-in onze kern überhaupt verder helpt** — als het spel de `am`-laag nooit bereikt, verandert het
+vervangen van die 17 functies niets. Dit is **[AFGELEID]** uit twee metingen en het is de eerste
+vraag die nog gemeten moet worden.
 
 ---
 
-## 6. Draaiboek voor de ene meting die dit afmaakt
+## 6. Wat er nu gemeten is, en met welke bestanden
 
-**Doel:** de inhoud van `0x13fff0000` en de velden van het dongle-object, in één run met de GESLOTEN
-kern. Daarna is de specificatie compleet.
+De meting is gedaan met de bewezen opzet (`lm-meet.sh` = de opzet van `b0-momenten.sh`: bench-check,
+headless gamescope, `scripts/launch-direct.py LuigisMansion --run`, kern-sha uit het log,
+kern-terugzetten, opruimen). **Per bestand welk van de twee runs het was:**
 
-**Opzet:** de bewezen runmethode, niet een eigen wine-aanroep:
-`python3 ~/projects/ravengun/scripts/launch-direct.py LuigisMansion --run` met de headless gamescope
-zoals `b0-run.sh` / `b0-momenten.sh` die opzetten (prefix, werkmap, hulpketen, headless display), en
-achteraf de kern-sha uit het launch-direct-logboek controleren. Verwachte sha gesloten:
-`f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28`.
+| bestand | run | inhoud |
+|---|---|---|
+| `/tmp/lm-meet-gesloten/tramp-10.0.bin` | **GESLOTEN kern** `f5c7532d…` | de trampolinepagina `0x13fff0000`, 4096 B, 610 niet-nul — de 18 detours |
+| `/tmp/lm-meet-gesloten/meting-huidig.txt` | GESLOTEN kern | alle momenten; pagina leesbaar vanaf t=10 s (EIO daarvoor) |
+| `/tmp/lm-meet-kern/kern-<naam>-12.0.bin` | **GESLOTEN kern** | 0xC0 B van elk van de 18 kern-implementaties, via `/proc/<pid>/mem` |
+| `/tmp/lm-meet-kern/meting-huidig.txt` | GESLOTEN kern | idem, met de prologues op `e9 …` |
+| `/tmp/lm-meet-gesloten/dongle-*.bin`, `amMaster-*.bin` | GESLOTEN kern | de objecten op t=12/16/20/25 s — **allemaal nul** |
+| `/tmp/lm-meet-onze/meting-onze.txt` | **ONZE kern** `fe2ecf8c…` (sha uit het log) | de prologues op **`00 00 00 00 00`** op t=0,1 … 4,0 s; pagina nooit leesbaar; proces weg op **t=5,72 s** |
 
-**Wat te lezen uit `/proc/<pid>/mem`** (het spelproces, ImageBase `0x140000000`):
+De kern stond na elke run terug op `f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28`,
+er is geen `VACUUM.exe` en geen `gamescope` blijven staan. **[GEMETEN]**
 
-| stap | adres | lengte | waarom |
-|---|---|---|---|
-| 1 | `0x13fff0000` | `0x1000` | de trampolinepagina; ontleed de 18 stubs op offsets `0xb8e 0xbd3 0xc19 0xc54 0xc99 0xcd9 0xd19 0xd55 0xd99 0xdd7 0xe14 0xe54 0xe94 0xed4 0xf19 0xf54 0xf94 0xfd4`. Elke stub is naar verwachting óf de vervangende code zelf, óf `jmp`/`mov rax,…; jmp rax` naar de kern (`0x6ffff6b61000..0x6ffff6ddc000`). |
-| 2 | `0x14049cc68` (8 B) → daarna dat adres, `0x200` B | | het dongle-object. Lees `+0x1c0` (5 B game-id), `+0x1c8` (4 B netwerkadres), `+0x1cc` (17 B keychip-id), `+0x110`, `+0x114`, `+0x1b4`. **Dit zijn de antwoorden van de kast.** |
-| 3 | `0x1402b4170`, `0x1402b4270`, `0x1402b4320` (5 B elk) | | controle dat de prologues inderdaad `e9` zijn. Daarna dezelfde drie adressen in een run met ONZE kern: staan daar de originele bytes, dan is de causale keten van §4 **direct bewezen** in plaats van afgeleid. |
-| 4 | `0x14049ccd8` (8 B) → `0x400` B; en `0x1404de6b0`, `0x1404de6c0`, `0x1404de6d0` | | de `amMaster`- en `amHm`-globalen, voor de vier `amMaster`- en vijf `amHm`-functies. |
+### De ene meting die nog moet
+
+De vraag is nu niet meer *wat* de antwoorden zijn (die heb ik), maar **of de `am`-laag onder onze kern
+ooit bereikt wordt**. Concreet:
+
+1. **ONZE kern, dicht bemonsterd van t=4,0 s tot het einde** (bijvoorbeeld elke 0,1 s), en per moment:
+   het percentage nul in `.text` (0x140001000, 3496500 B) plus de 5 bytes op `0x1402b4170`.
+   * Wordt `.text` ooit gevuld → het spel haalt het uitpakken, en dan is de `am`-laag wél relevant.
+   * Blijft `.text` nul tot de dood → het spel sterft **in de pakker**, vóór de `am`-laag, en dan is
+     een `am`-drop-in niet de oplossing.
+2. **Dezelfde reeks op de GESLOTEN kern** als ijkpunt (die heb ik deels: nul op t=2…5 s, uitgepakt
+   op t=10 s).
+3. Optioneel en goedkoop: de log-strings in de kern lezen op `0x6ffff6e2c254`, `0x6ffff6e2c2a0`,
+   `0x6ffff6e2c320`, `0x6ffff6e2c338` (`.rdata` van de kern-module), zodat de drop-in dezelfde
+   logregels kan produceren.
 
 **Wat de uitkomst per geval betekent:**
 
-* **Stubs bevatten de waarden zelf** (bijv. `mov dword [rcx], imm32`) → we lezen de kast-antwoorden
-  direct uit de disassembly; de drop-in kan ze letterlijk overnemen.
-* **Stubs zijn sprongen naar de kern** → de waarden komen uit de kern-code; dan moet je in de
-  kern-DLL (of in het door de kern gevulde dongle-object, stap 2) kijken. Stap 2 is dan de bron.
-* **Stap 2 toont een gevuld object** → dat is de schoonste bron: het zijn de bytes die de game zelf
-  zou hebben gelezen, dus precies wat de drop-in moet teruggeven.
-* **Stap 3 toont originele bytes onder onze kern** → de keten van §4 is bewezen en de conclusie
-  "onze kern moet deze 17 prologues (of hun equivalent) overnemen" staat vast.
-
-**Opruimen na de run:** geen `VACUUM.exe` en geen `gamescope` laten staan (een rest vergiftigt de
-volgende meting), en de runtime-kern terugzetten op `f5c7532d…`.
+* **`.text` wordt gevuld onder onze kern, en dan volgt de dood** → het uitpakken lukt; de dood komt
+  daarna. Dan is de volgende verdachte de `am`-laag of de anti-tamper ná het uitpakken, en is de
+  drop-in van §5 de juiste route.
+* **`.text` blijft nul** → de dood zit in de pakker-fase. Dan moet het werk naar de
+  `NtProtectVirtualMemory`-route (waarom de gesloten kern die aanhaakt en onze kern niet), en niet
+  naar de `am`-laag.
+* **De prologues staan onder onze kern ooit op `e9`** → onze kern patcht ze wél, en dan is de
+  hypothese in §4 onjuist. Dan moet de oorzaak ergens anders gezocht worden.
 
 ---
 
 ## 7. Wat ik niet gedaan heb en niet weet
 
-* **Geen run gedaan.** De trampolinepagina is dus niet gelezen (§6).
-* **Geen causale meting** tussen de `am`-laag en het exitpunt `VACUUM.exe+0xf1374d`. Wat ik wél weet
-  staat in `EXITBESLUIT.md`: dat exitpunt loopt via een **VM-entry** (`push imm32; call 0x140e7438b`,
-  en die springt een VM-interpreter in). Ik heb **geen** bewijs dat de `am`-laag die exit veroorzaakt,
-  en ik heb ook geen bewijs dat ze het niet doet. De verbinding is een **hypothese**.
-* **`amDongleGetModelType`**: welk veld gekopieerd wordt, is niet leesbaar (de 5-byte patch viel
-  midden in de originele prologue).
-* **`amDongleSetupKeychip` en `amDongleUpdate`**: lichamen niet regel voor regel nagelezen; alleen de
-  aanwezigheid van hun log-tags en hun startadres zijn gemeten.
+* **De log-strings in de kern** (`0x6ffff6e2c254`, `0x6ffff6e2c2a0`, `0x6ffff6e2c320`,
+  `0x6ffff6e2c338`, …) zijn niet gelezen: die liggen in `.rdata` van de kern-module en dat heb ik niet
+  gedumpt. De adressen zijn wel gemeten.
+* **Van drie kern-implementaties is de teruggeefwaarde AFGELEID en niet direct gelezen**, omdat de
+  `ret` in mijn 0xC0-byte-venster niet op een schone instructiegrens viel:
+  `amDongleIsAvailableInternal`, `amDongleSetupKeychip` en `amDongleBillingGetKeychipId`. Bij de
+  andere 14 staat `xor eax,eax` letterlijk vóór de `ret`.
+* **Ik heb onder onze kern niet bemonsterd tussen t=4,0 s en de dood op t=5,72 s.** Of `.text` in die
+  laatste 1,7 s nog gevuld is geraakt, weet ik dus niet. Dat is precies de meting van §6.
+* **Het foutpad `0x0004d39a` van de opzetroutine is de gewone epilogue** (gemeten), dus een mislukte
+  dongle-controle beëindigt het spel daar niet. Waar de aanroeper van `0x0004d250` daarna naartoe
+  gaat, en waar de vlag `edi` uit `0x001349d8` naartoe leidt, heb ik **niet** gevolgd.
+* **Geen verband gemeten tussen de `am`-laag en het exitpunt `VACUUM.exe+0xf1374d`.** Zie
+  `EXITBESLUIT.md`: dat exitpunt loopt via een VM-entry. De verbinding is een hypothese.
 * De naamtoewijzing van rij 12 en 14 in §1 is een beste toewijzing, geen bewijs.
-* **Het foutpad `0x0004d39a` van de opzetroutine is niet gevolgd**, en ook niet waar de vlag `edi` uit
-  `0x001349d8` naartoe leidt. Of een mislukte `amDongleInit` werkelijk tot de exit met 32 leidt, is
-  dus **niet gemeten**. Dat is de eerstvolgende statische stap: `0x0004d39a` uitlezen en kijken of
-  daar een foutcode gezet of een afsluitroute gekozen wordt.
-* Ik heb **geen** verband gemeten tussen `amDongleIsAvailableInternal` en het exitpunt
-  `VACUUM.exe+0xf1374d` (zie `EXITBESLUIT.md`).
+* **Ik heb geen drop-in gebouwd** — alleen de specificatie in §5. Dat is bewust: het mechanisme wordt
+  door de hasphook-specialist gebouwd.

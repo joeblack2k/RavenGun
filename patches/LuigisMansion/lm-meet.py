@@ -21,6 +21,27 @@ MASTER_LEN = 0x420
 PROLOGUES = [0x1402B4170, 0x1402B4270, 0x1402B4320, 0x1402B4740, 0x1402B3B70,
              0x1402B50F0, 0x1402B5CB0, 0x1402B6160]
 AMHM_GLOBALS = [0x1404DE6B0, 0x1404DE6C0, 0x1404DE6D0]
+# de doelen uit de trampolinepagina (GEMETEN in /tmp/lm-meet-gesloten/tramp-10.0.bin)
+CORE_ADDRS = [
+ ("amDongleBillingGetKeychipId", 0x6FFFF6CFDD80),
+ ("amDongleGetGameId",           0x6FFFF6CFE040),
+ ("amDongleGetModelType",        0x6FFFF6CFE0A0),
+ ("amDongleGetNetworkAddress",   0x6FFFF6CFE0E0),
+ ("amDongleInit",                0x6FFFF6CFE1F0),
+ ("amDongleIsAvailableInternal", 0x6FFFF6C97D50),
+ ("amDongleSetupKeychip",        0x6FFFF6CFE2A0),
+ ("amDongleUpdate",              0x6FFFF6CFE3E0),
+ ("amHmExit",                    0x6FFFF6D00520),
+ ("amHmGetCautionFlag",          0x6FFFF6D00550),
+ ("amHmInit",                    0x6FFFF6D00590),
+ ("amHmResetCautionFlag",        0x6FFFF6D005C0),
+ ("amHmUpdate",                  0x6FFFF6CAFF50),
+ ("amMasterExitInternal",        0x6FFFF6D062E0),
+ ("amMasterInit",                0x6FFFF6D063D0),
+ ("amMasterSetBackupEventLogParam", 0x6FFFF6D06320),
+ ("amMasterUpdate",              0x6FFFF6CC2130),
+ ("niet-am 0x485a",              0x6FFFF6C979A0),
+]
 MOMENTEN = [float(x) for x in (os.environ.get("RG_LM_MOMENTEN") or
                                "2,3,4,5,6,8,10,12,16,20,25").split(",")]
 
@@ -118,6 +139,17 @@ def monster(pid, moment):
             regels.append("      0x%08x  %s" % (g, b.hex(" ")))
         except OSError as e:
             regels.append("      0x%08x  NIET LEESBAAR: %s" % (g, e))
+
+    # 5. de vervangende functies IN de kern (uit de trampolinepagina gelezen doelen)
+    regels.append("-- [5] de kern-implementaties waar de 18 stubs naartoe springen")
+    for naam, doel in CORE_ADDRS:
+        try:
+            mem.seek(doel)
+            b = mem.read(0xC0)
+            regels.append("      %-34s 0x%08x  %s" % (naam, doel, b[:24].hex(" ")))
+            open(os.path.join(sys.argv[1], "kern-%s-%s.bin" % (naam, moment)), "wb").write(b)
+        except OSError as e:
+            regels.append("      %-34s 0x%08x  NIET LEESBAAR: %s" % (naam, doel, e))
 
     try:
         mem.close()
