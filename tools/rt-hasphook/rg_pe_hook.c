@@ -50,6 +50,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <errno.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -86,6 +87,41 @@ static int rg_hex(const char *s, uint64_t *uit)
         return 0;
     *uit = (uint64_t)v;
     return 1;
+}
+
+/*
+ * Een bytelijst: "48 83 ec 28", of "00*26" voor 26 keer 00. Geeft het aantal bytes, of -1 bij een
+ * fout (geen hex, te veel bytes). Een lege tekst geeft 0.
+ */
+int rg_pe_lees_bytes(const char *s, unsigned char *uit, int max)
+{
+    int k = 0;
+    const char *q = s;
+    while (q && *q) {
+        char *eind = NULL;
+        unsigned long v, herhaal = 1;
+        while (*q == ' ' || *q == '\t' || *q == ',')
+            q++;
+        if (!*q)
+            break;
+        v = strtoul(q, &eind, 16);
+        if (eind == q || v > 0xff)
+            return -1;
+        q = eind;
+        if (*q == '*') {
+            herhaal = strtoul(q + 1, &eind, 10);
+            if (eind == q + 1 || herhaal == 0)
+                return -1;
+            q = eind;
+        }
+        if (*q && *q != ' ' && *q != '\t' && *q != ',')
+            return -1;
+        if (k + (int)herhaal > max)
+            return -1;
+        while (herhaal--)
+            uit[k++] = (unsigned char)v;
+    }
+    return k;
 }
 
 /* ------------------------------------------------------------------ de PE-kop uit het beeld */
@@ -297,11 +333,26 @@ static void rg_regel_schoon(char *s)
         *--e = 0;
 }
 
+/* Een bool uit de lijst: 1/ja/true/aan. */
+static int rg_bool(const char *w)
+{
+    return !strcmp(w, "1") || !strcmp(w, "ja") || !strcmp(w, "true") || !strcmp(w, "aan");
+}
+
+/*
+ * Leest de lijst. Drie soorten secties:
+ *   [naam]            een functiehaak (rva, antwoord, bytes, actief, notitie)
+ *   [patch naam]      een gewone byte-patch (rva, verwacht, bytes | tekst, actief, notitie)
+ *   [uitgang]         ExitProcess beantwoorden met een `ret` (export, terug_bij, max, actief)
+ * Geeft het aantal regels (functies + patches) plus 1 als er een [uitgang] staat; 0 = niets bruikbaars.
+ * Er is bewust GEEN commentaar achter een waarde: `#` en `;` gelden alleen aan het begin van een regel.
+ */
 static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
 {
     FILE *f = fopen(pad, "r");
     char regel[1024];
     rg_pe_regel *nu = NULL;
+    int sec = 0;                      /* 0 functie, 1 patch, 2 uitgang */
     if (!f) {
         rg_log(c, "adreslijst %s is niet te lezen", pad);
         return 0;
@@ -314,19 +365,40 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
         if (*p == '#' || *p == ';' || *p == '\n' || *p == '\r' || *p == 0)
             continue;
         if (*p == '[') {                                  /* nieuwe regel */
+            const char *sn;
             e = strchr(p, ']');
             if (!e)
                 continue;
             *e = 0;
+            sn = p + 1;
+            if (!strcmp(sn, "uitgang")) {
+                sec = 2;
+                nu = NULL;
+                c->uitgang_aanwezig = 1;
+                c->uitgang_actief = 1;
+                if (c->uitgang_max <= 0)
+                    c->uitgang_max = 4;
+                continue;
+            }
             if (c->n >= RG_PE_MAX_REGELS) {
                 rg_log(c, "lijst: meer dan %d regels; de rest wordt genegeerd", RG_PE_MAX_REGELS);
                 break;
             }
             nu = &c->regels[c->n++];
             memset(nu, 0, sizeof *nu);
-            snprintf(nu->naam, sizeof nu->naam, "%s", p + 1);
+            if (!strncmp(sn, "patch ", 6)) {
+                sn += 6;
+                while (*sn == ' ')
+                    sn++;
+                nu->is_patch = 1;
+                sec = 1;
+            } else {
+                sec = 0;
+            }
+            snprintf(nu->naam, sizeof nu->naam, "%s", sn);
             nu->antwoord = RG_ANTWOORD_TODO;
             nu->heeft_bytes = 0;
+            nu->actief = 1;
             continue;
         }
         naam = p;
@@ -341,6 +413,32 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
         rg_regel_schoon(waarde);
         if (!*naam || !*waarde)
             continue;
+        if (sec == 2) {
+            if (!strcmp(naam, "export")) {
+                snprintf(c->uitgang_export, sizeof c->uitgang_export, "%s", waarde);
+            } else if (!strcmp(naam, "terug_bij")) {
+                const char *q = waarde;
+                c->uitgang_terug_n = 0;
+                while (*q && c->uitgang_terug_n < RG_UITGANG_MAX) {
+                    char *eind = NULL;
+                    unsigned long long v;
+                    while (*q == ' ' || *q == '\t' || *q == ',')
+                        q++;
+                    if (!*q)
+                        break;
+                    v = strtoull(q, &eind, 0);
+                    if (eind == q)
+                        break;
+                    c->uitgang_terug_bij[c->uitgang_terug_n++] = (uint32_t)v;
+                    q = eind;
+                }
+            } else if (!strcmp(naam, "max")) {
+                c->uitgang_max = atoi(waarde);
+            } else if (!strcmp(naam, "actief")) {
+                c->uitgang_actief = rg_bool(waarde);
+            }
+            continue;
+        }
         /* lijstbrede sleutels */
         if (!strcmp(naam, "beeld")) {
             c->beeld_vorm = strcmp(waarde, "pe") == 0 ? RG_BEELD_PE : RG_BEELD_ELF;
@@ -355,7 +453,7 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
             continue;
         }
         if (!strcmp(naam, "bewaar_args")) {
-            c->bewaar_args = (strcmp(waarde, "1") == 0 || strcmp(waarde, "ja") == 0);
+            c->bewaar_args = rg_bool(waarde);
             continue;
         }
         if (!strcmp(naam, "wacht_s")) {
@@ -364,6 +462,20 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
         }
         if (!strcmp(naam, "wacht_ms")) {
             c->wacht_ms = atoi(waarde);
+            continue;
+        }
+        if (!strcmp(naam, "trigger")) {
+            snprintf(c->trigger, sizeof c->trigger, "%s", waarde);
+            continue;
+        }
+        if (!strcmp(naam, "trigger_sectie")) {
+            snprintf(c->trigger_sectie, sizeof c->trigger_sectie, "%s", waarde);
+            continue;
+        }
+        if (!strcmp(naam, "trigger_prot")) {
+            uint64_t v = 0;
+            if (rg_hex(waarde, &v))
+                c->trigger_prot = (uint32_t)v;
             continue;
         }
         if (!strcmp(naam, "module")) {
@@ -402,34 +514,65 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
             snprintf(nu->notitie, sizeof nu->notitie, "%s", waarde);
             continue;
         }
-        if (!strcmp(naam, "bytes")) {
-            unsigned int b[16];
-            int k = 0;
-            const char *q = waarde;
-            while (k < 16 && *q) {
-                while (*q == ' ' || *q == '\t')
-                    q++;
-                if (!*q)
-                    break;
-                if (sscanf(q, "%x", &b[k]) != 1)
-                    break;
-                k++;
-                while (*q && *q != ' ' && *q != '\t')
-                    q++;
+        if (!strcmp(naam, "actief")) {
+            nu->actief = rg_bool(waarde);
+            continue;
+        }
+        if (!strcmp(naam, "verwacht") || (!strcmp(naam, "bytes") && !nu->is_patch)) {
+            /* de verwachte bytes: bij een functie de prologue, bij een patch wat er NU moet staan */
+            int k = rg_pe_lees_bytes(waarde, nu->verwacht_bytes, RG_PATCH_MAX);
+            if (k < 0) {
+                rg_log(c, "lijst: [%s] %s = %s is geen geldige bytelijst; genegeerd", nu->naam, naam, waarde);
+            } else {
+                nu->verwacht_n = k;
+                nu->heeft_verwacht = k > 0;
             }
-            nu->verwacht_n = k;
-            for (int i = 0; i < k; i++)
-                nu->verwacht_bytes[i] = (unsigned char)b[i];
-            nu->heeft_verwacht = k > 0;
+            continue;
+        }
+        if (nu->is_patch && !strcmp(naam, "bytes")) {
+            int k = rg_pe_lees_bytes(waarde, nu->patch_bytes, RG_PATCH_MAX);
+            if (k < 0) {
+                rg_log(c, "lijst: [patch %s] bytes = %s is geen geldige bytelijst; genegeerd", nu->naam, waarde);
+            } else {
+                nu->patch_n = k;
+                nu->patch_uit_tekst = 0;
+            }
+            continue;
+        }
+        if (nu->is_patch && !strcmp(naam, "tekst")) {
+            size_t l = strlen(waarde);
+            if (l >= 2 && waarde[0] == '"' && waarde[l - 1] == '"') {
+                waarde[l - 1] = 0;
+                waarde++;
+                l -= 2;
+            }
+            if (l + 1 > RG_PATCH_MAX) {
+                rg_log(c, "lijst: [patch %s] tekst is te lang (%zu tekens, hoogstens %d); genegeerd",
+                       nu->naam, l, RG_PATCH_MAX - 1);
+            } else {
+                memcpy(nu->patch_bytes, waarde, l);
+                nu->patch_bytes[l] = 0;                   /* de afsluitende NUL hoort erbij */
+                nu->patch_n = (int)l + 1;
+                nu->patch_uit_tekst = 1;
+            }
             continue;
         }
         if (!strcmp(naam, "antwoord")) {
-            nu->antwoord = rg_antwoord_soort(waarde, nu);
+            const char *w = waarde;
+            if (!strncmp(w, "log0", 4) && (w[4] == 0 || w[4] == ' ' || w[4] == '\t')) {
+                nu->log_aanroep = 1;
+                w += 4;
+                while (*w == ' ' || *w == '\t')
+                    w++;
+                if (!*w)
+                    w = "ret0";
+            }
+            nu->antwoord = rg_antwoord_soort(w, nu);
             continue;
         }
     }
     fclose(f);
-    return c->n;
+    return c->n + (c->uitgang_aanwezig ? 1 : 0);
 }
 
 /* ------------------------------------------------------------------ de stubs */
@@ -445,7 +588,7 @@ static int rg_modrm(const char *reg, unsigned char *uit)
 }
 
 typedef struct {
-    unsigned char b[256];
+    unsigned char b[512];
     int n;
 } rg_buf;
 
@@ -467,6 +610,20 @@ static void rg_em64(rg_buf *d, uint64_t v)
     rg_em32(d, (uint32_t)(v >> 32));
 }
 
+/* De vier argumentregisters naar de schaduwruimte van de aanroeper: [rsp+8] .. [rsp+0x20]. */
+static void rg_em_bewaar(rg_buf *d)
+{
+    static const unsigned char b[20] = {
+        0x48, 0x89, 0x4c, 0x24, 0x08,      /* mov [rsp+8],rcx    */
+        0x48, 0x89, 0x54, 0x24, 0x10,      /* mov [rsp+0x10],rdx */
+        0x4c, 0x89, 0x44, 0x24, 0x18,      /* mov [rsp+0x18],r8  */
+        0x4c, 0x89, 0x4c, 0x24, 0x20       /* mov [rsp+0x20],r9  */
+    };
+    int i;
+    for (i = 0; i < 20; i++)
+        rg_em(d, b[i]);
+}
+
 /*
  * De stub. `log_idx` is de index in c->regels, of -1 als de stub niet hoeft te loggen; hij wordt
  * alleen gebruikt door de TODO-vorm, waar het clobberen van het eerste argumentregister niets
@@ -476,16 +633,44 @@ static int rg_maak_stub(rg_pe_ctx *c, rg_pe_regel *r, int idx, rg_buf *uit)
 {
     uit->n = 0;
     /*
+     * log0: voor het antwoord de aanroep loggen (index, wijzer naar de vier bewaarde argumentregisters,
+     * terugkeeradres). Dat vereist dat de argumenten in de schaduwruimte staan, ook als de lijst
+     * `bewaar_args` niet vraagt; en na de logaanroep zijn rcx/rdx/r8/r9 vluchtig weg, dus ze worden
+     * teruggelezen voor de antwoordvormen die er een wijzer uit nemen (buf=, u32=, velden=).
+     */
+    if (r->log_aanroep && c->log_melder && !c->bewaar_args)
+        rg_em_bewaar(uit);
+    /*
      * Argumenten bewaren, als de lijst dat vraagt. De gesloten kern van Luigi doet dit in ELKE
      * implementatie: de argumentregisters gaan naar de home space van de aanroeper ([rsp+8] ..
      * [rsp+0x20]) voordat er iets anders gebeurt. Dit staat vóór de vorm, want geen enkele vorm
      * mag een argumentregister kwijtraken voordat het bewaard is.
      */
-    if (c->bewaar_args) {
-        rg_em(uit, 0x48); rg_em(uit, 0x89); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x08);
-        rg_em(uit, 0x48); rg_em(uit, 0x89); rg_em(uit, 0x54); rg_em(uit, 0x24); rg_em(uit, 0x10);
-        rg_em(uit, 0x4c); rg_em(uit, 0x89); rg_em(uit, 0x44); rg_em(uit, 0x24); rg_em(uit, 0x18);
-        rg_em(uit, 0x4c); rg_em(uit, 0x89); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x20);
+    if (c->bewaar_args)
+        rg_em_bewaar(uit);
+    if (r->log_aanroep && c->log_melder) {
+#if defined(_WIN32)
+        rg_em(uit, 0x48); rg_em(uit, 0x83); rg_em(uit, 0xec); rg_em(uit, 0x28);        /* sub rsp,0x28 */
+        rg_em(uit, 0x48); rg_em(uit, 0xb9); rg_em64(uit, (uint64_t)(uintptr_t)idx);   /* mov rcx,idx */
+        rg_em(uit, 0x48); rg_em(uit, 0x8d); rg_em(uit, 0x54); rg_em(uit, 0x24); rg_em(uit, 0x30); /* lea rdx,[rsp+0x30] */
+        rg_em(uit, 0x4c); rg_em(uit, 0x8b); rg_em(uit, 0x44); rg_em(uit, 0x24); rg_em(uit, 0x28); /* mov r8,[rsp+0x28] */
+        rg_em(uit, 0x48); rg_em(uit, 0xb8); rg_em64(uit, (uint64_t)(uintptr_t)c->log_melder); /* mov rax,melder */
+        rg_em(uit, 0xff); rg_em(uit, 0xd0);                                             /* call rax */
+        rg_em(uit, 0x48); rg_em(uit, 0x83); rg_em(uit, 0xc4); rg_em(uit, 0x28);        /* add rsp,0x28 */
+#else
+        rg_em(uit, 0x48); rg_em(uit, 0x83); rg_em(uit, 0xec); rg_em(uit, 0x08);        /* sub rsp,8 */
+        rg_em(uit, 0x48); rg_em(uit, 0xbf); rg_em64(uit, (uint64_t)(uintptr_t)idx);   /* mov rdi,idx */
+        rg_em(uit, 0x48); rg_em(uit, 0x8d); rg_em(uit, 0x74); rg_em(uit, 0x24); rg_em(uit, 0x10); /* lea rsi,[rsp+0x10] */
+        rg_em(uit, 0x48); rg_em(uit, 0x8b); rg_em(uit, 0x54); rg_em(uit, 0x24); rg_em(uit, 0x08); /* mov rdx,[rsp+8] */
+        rg_em(uit, 0x48); rg_em(uit, 0xb8); rg_em64(uit, (uint64_t)(uintptr_t)c->log_melder);
+        rg_em(uit, 0xff); rg_em(uit, 0xd0);
+        rg_em(uit, 0x48); rg_em(uit, 0x83); rg_em(uit, 0xc4); rg_em(uit, 0x08);        /* add rsp,8 */
+#endif
+        /* de argumentregisters terug uit de schaduwruimte */
+        rg_em(uit, 0x48); rg_em(uit, 0x8b); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x08);
+        rg_em(uit, 0x48); rg_em(uit, 0x8b); rg_em(uit, 0x54); rg_em(uit, 0x24); rg_em(uit, 0x10);
+        rg_em(uit, 0x4c); rg_em(uit, 0x8b); rg_em(uit, 0x44); rg_em(uit, 0x24); rg_em(uit, 0x18);
+        rg_em(uit, 0x4c); rg_em(uit, 0x8b); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x20);
     }
     switch (r->antwoord) {
     case RG_ANTWOORD_RET0:
@@ -694,6 +879,10 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
     r->geldig = 0;
     r->wacht = 0;
     r->opvulling = 0;
+    if (!r->actief) {
+        snprintf(r->reden, sizeof r->reden, "UIT: actief = 0 in de lijst; niet gekeurd en niet aangehaakt");
+        return;
+    }
     if (!r->adres && !r->is_export) {
         snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: geen adres en geen exportnaam in de lijst");
         return;
@@ -701,7 +890,9 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
     rva = r->is_rva ? (uint32_t)r->adres
                     : (uint32_t)(r->adres - (c->basis_beeld ? kop->imagebase : 0));
     r->rva = rva;
-    r->doel_adres = (uintptr_t)(kop->imagebase + rva);
+    /* Het WERKELIJKE adres: de aanwijzer van het beeld + RVA (gelijk aan ImageBase + RVA als het beeld
+       niet verplaatst is; klopt ook als dat wel zo is). */
+    r->doel_adres = (uintptr_t)c->beeld + rva;
     s = rg_sectie_van(kop, rva);
     if (!s) {
         snprintf(r->reden, sizeof r->reden,
@@ -778,35 +969,277 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
              s->naam, rva, (unsigned long long)r->doel_adres, p[0], p[1], p[2], p[3]);
 }
 
+/* ------------------------------------------------------------------ schrijven in het beeld */
+
+/*
+ * DE ENIGE schrijfweg naar het beeld (hooks en patches). Windows: VirtualProtect(RWX), schrijven,
+ * de OUDE bescherming terugzetten, instructiecache legen. Mislukt iets, dan staat de fout met
+ * GetLastError in het logboek en geeft de functie 0 -- de aanroeper schrijft dan niet verder.
+ * Het kan vanuit de NtProtectVirtualMemory-omleiding worden aangeroepen: die laat geneste aanroepen
+ * door (de eenmalig-vlag staat dan al op 1).
+ */
+int rg_pe_schrijf(rg_pe_ctx *c, uintptr_t adres, const void *bytes, size_t n, const char *wie)
+{
+#if defined(_WIN32)
+    DWORD oud = 0, dummy = 0;
+    if (!VirtualProtect((LPVOID)adres, n, PAGE_EXECUTE_READWRITE, &oud)) {
+        rg_log(c, "SCHRIJVEN MISLUKT (%s): VirtualProtect(RWX) op 0x%llx (%zu B) gaf GetLastError %lu",
+               wie, (unsigned long long)adres, n, (unsigned long)GetLastError());
+        return 0;
+    }
+    memcpy((void *)adres, bytes, n);
+    FlushInstructionCache(GetCurrentProcess(), (LPCVOID)adres, n);
+    if (!VirtualProtect((LPVOID)adres, n, oud, &dummy))
+        rg_log(c, "LET OP (%s): de oude bescherming 0x%lx op 0x%llx terugzetten mislukte, GetLastError %lu "
+                  "(de bytes zijn wel geschreven)", wie, (unsigned long)oud, (unsigned long long)adres,
+               (unsigned long)GetLastError());
+    return 1;
+#else
+    long pg = sysconf(_SC_PAGESIZE);
+    uintptr_t van = adres & ~(uintptr_t)(pg - 1);
+    uintptr_t tot = (adres + n + (uintptr_t)pg - 1) & ~(uintptr_t)(pg - 1);
+    if (mprotect((void *)van, tot - van, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+        rg_log(c, "SCHRIJVEN MISLUKT (%s): mprotect op 0x%llx (%zu B) gaf errno %d (%s)", wie,
+               (unsigned long long)adres, n, errno, strerror(errno));
+        return 0;
+    }
+    memcpy((void *)adres, bytes, n);
+    return 1;       /* de oude rechten zijn hier niet bekend; deze tak is alleen voor de toetsen */
+#endif
+}
+
+/* "48 83 ec 28 (4 B)", hoogstens 32 bytes getoond. */
+static void rg_fmt_bytes(char *uit, size_t groot, const unsigned char *b, int n)
+{
+    size_t k = 0;
+    int i, toon = n > 32 ? 32 : n;
+    uit[0] = 0;
+    for (i = 0; i < toon && k + 4 < groot; i++)
+        k += (size_t)snprintf(uit + k, groot - k, "%s%02x", i ? " " : "", b[i]);
+    if (n > toon && k + 8 < groot)
+        k += (size_t)snprintf(uit + k, groot - k, " ...");
+    if (k + 12 < groot)
+        snprintf(uit + k, groot - k, " (%d B)", n);
+}
+
+/* ------------------------------------------------------------------ byte-patches */
+
+/*
+ * EEN patch: keuren (valt in een sectie, binnen het beeld, `verwacht` klopt), dan schrijven via
+ * rg_pe_schrijf en teruglezen. Eén logregel met naam, RVA, voor, na en het oordeel. Is `verwacht`
+ * niet opgegeven, dan wordt alleen gelogd wat er stond.
+ */
+static void rg_doe_patch(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
+{
+    char voor[512], na[512], verw[512], oordeel[160];
+    unsigned char *p;
+    uint32_t rva;
+    int n = r->patch_n, klopt = 1;
+    size_t bereik;
+
+    c->patches_totaal++;
+    snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "AFGEWEZEN");
+    rva = r->is_rva ? (uint32_t)r->adres : (uint32_t)(r->adres - (c->basis_beeld ? kop->imagebase : 0));
+    r->rva = rva;
+    r->doel_adres = (uintptr_t)c->beeld + rva;
+    if (n <= 0) {
+        rg_log(c, "  patch %-14s RVA 0x%08x  AFGEWEZEN: geen `bytes =` of `tekst =` in de lijst", r->naam, rva);
+        if (r->actief) c->patches_afgekeurd++; else c->patches_uit++;
+        return;
+    }
+    bereik = (size_t)(n > r->verwacht_n ? n : r->verwacht_n);
+    if (!rg_sectie_van(kop, rva)) {
+        rg_log(c, "  patch %-14s RVA 0x%08x  AFGEWEZEN: valt in geen sectie van het beeld", r->naam, rva);
+        if (r->actief) c->patches_afgekeurd++; else c->patches_uit++;
+        return;
+    }
+    if ((size_t)rva + bereik > c->beeld_n) {
+        rg_log(c, "  patch %-14s RVA 0x%08x  AFGEWEZEN: %zu bytes vanaf hier vallen buiten het beeld",
+               r->naam, rva, bereik);
+        if (r->actief) c->patches_afgekeurd++; else c->patches_uit++;
+        return;
+    }
+    p = (unsigned char *)r->doel_adres;
+    memset(r->gezien, 0, sizeof r->gezien);
+    memcpy(r->gezien, p, 8);
+    rg_schrijf_bewijs(c, r, p, kop->imagebase);
+    rg_fmt_bytes(voor, sizeof voor, p, n);
+    rg_fmt_bytes(na, sizeof na, r->patch_bytes, n);
+    if (r->heeft_verwacht) {
+        klopt = memcmp(p, r->verwacht_bytes, (size_t)r->verwacht_n) == 0;
+        rg_fmt_bytes(verw, sizeof verw, r->verwacht_bytes, r->verwacht_n);
+    } else {
+        verw[0] = 0;
+    }
+    if (!r->actief) {
+        snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "UIT");
+        snprintf(oordeel, sizeof oordeel, "UIT (actief=0), niets geschreven; verwacht %s",
+                 !r->heeft_verwacht ? "n.v.t." : klopt ? "komt overeen" : "KOMT NIET OVEREEN");
+        c->patches_uit++;
+        rg_log(c, "  patch %-14s RVA 0x%08x  voor: %s  na: %s  %s", r->naam, rva, voor, na, oordeel);
+        if (r->heeft_verwacht && !klopt)
+            rg_log(c, "  patch %-14s   verwacht was: %s", r->naam, verw);
+        return;
+    }
+    if (!klopt) {
+        snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "WEIGER");
+        c->patches_afgekeurd++;
+        rg_log(c, "  patch %-14s RVA 0x%08x  WEIGER: wat er staat wijkt af van `verwacht`; NIETS GESCHREVEN",
+               r->naam, rva);
+        rg_log(c, "  patch %-14s   gevonden: %s", r->naam, voor);
+        rg_log(c, "  patch %-14s   verwacht: %s", r->naam, verw);
+        rg_log(c, "  patch %-14s   zou schrijven: %s", r->naam, na);
+        return;
+    }
+    if (!rg_pe_schrijf(c, r->doel_adres, r->patch_bytes, (size_t)n, r->naam)) {
+        snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "SCHRIJVEN MISLUKT");
+        c->patches_afgekeurd++;
+        rg_log(c, "  patch %-14s RVA 0x%08x  voor: %s  na: %s  SCHRIJVEN MISLUKT (zie de regel hierboven)",
+               r->naam, rva, voor, na);
+        return;
+    }
+    if (memcmp(p, r->patch_bytes, (size_t)n) != 0) {
+        snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "SCHRIJVEN MISLUKT");
+        c->patches_afgekeurd++;
+        rg_log(c, "  patch %-14s RVA 0x%08x  geschreven maar bij het teruglezen staat er iets anders -- "
+                  "SCHRIJVEN MISLUKT", r->naam, rva);
+        return;
+    }
+    snprintf(r->patch_oordeel, sizeof r->patch_oordeel, "TOEGEPAST");
+    r->patch_toegepast = 1;
+    c->patches_toegepast++;
+    rg_log(c, "  patch %-14s RVA 0x%08x  voor: %s  na: %s  TOEGEPAST%s", r->naam, rva, voor, na,
+           r->heeft_verwacht ? "" : " (geen `verwacht` opgegeven)");
+}
+
+/* ------------------------------------------------------------------ bytefuncties voor de haken */
+
+int rg_pe_nt_stub_ok(const unsigned char *f)
+{
+    /* mov r10,rcx ; mov eax,<syscall> ; test byte ptr [0x7ffe0308],1 */
+    return f[0] == 0x4c && f[1] == 0x8b && f[2] == 0xd1 && f[3] == 0xb8 &&
+           f[8] == 0xf6 && f[9] == 0x04 && f[10] == 0x25 && f[11] == 0x08 && f[12] == 0x03 &&
+           f[13] == 0xfe && f[14] == 0x7f && f[15] == 0x01;
+}
+
+void rg_pe_maak_sprong14(unsigned char *uit, uint64_t doel)
+{
+    int i;
+    uit[0] = 0xff; uit[1] = 0x25; uit[2] = uit[3] = uit[4] = uit[5] = 0;
+    for (i = 0; i < 8; i++)
+        uit[6 + i] = (unsigned char)(doel >> (8 * i));
+}
+
+void rg_pe_maak_trampoline(unsigned char *uit, const unsigned char *f16, uint64_t terug)
+{
+    memcpy(uit, f16, 16);
+    rg_pe_maak_sprong14(uit + 16, terug);
+}
+
+int rg_pe_exit_stub_ok(const unsigned char *f)
+{
+    static const unsigned char begin[6] = { 0x48, 0x83, 0xec, 0x28, 0xff, 0x15 };
+    int i;
+    if (memcmp(f, begin, sizeof begin) != 0)
+        return 0;
+    for (i = 10; i < 16; i++)
+        if (f[i] != 0x90 && f[i] != 0xcc)
+            return 0;
+    return 1;
+}
+
+void rg_pe_maak_haak12(unsigned char *uit, uint64_t doel)
+{
+    int i;
+    uit[0] = 0x48; uit[1] = 0xb8;
+    for (i = 0; i < 8; i++)
+        uit[2 + i] = (unsigned char)(doel >> (8 * i));
+    uit[10] = 0xff; uit[11] = 0xe0;
+}
+
+int rg_pe_uitgang_besluit(const rg_pe_ctx *c, uint64_t ra_rva, long eerder_terug)
+{
+    int i;
+    if (!c->uitgang_actief)
+        return 0;
+    for (i = 0; i < c->uitgang_terug_n; i++)
+        if ((uint64_t)c->uitgang_terug_bij[i] == ra_rva)
+            return eerder_terug < c->uitgang_max;
+    return 0;
+}
+
 /* ------------------------------------------------------------------ de hoofdroute */
 
-int rg_pe_hook(rg_pe_ctx *c)
+int rg_pe_claim(rg_pe_ctx *c)
 {
-    rg_pe_kop kop;
-    unsigned char *stub_pagina = NULL;
-    size_t pag;
-    int i, aangehaakt = 0, afgekeurd = 0, todo = 0, niet_gehaakt = 0;
-    uintptr_t pagina_adres = 0;
+    return __sync_bool_compare_and_swap(&c->toegepast, 0, 1);
+}
 
+/* "2026-10-13 17:15:11". Windows: GetLocalTime (geen extra CRT-import); elders de C-bibliotheek. */
+static void rg_tijdtekst(char *uit, size_t groot)
+{
+#if defined(_WIN32)
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    snprintf(uit, groot, "%04d-%02d-%02d %02d:%02d:%02d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute,
+             t.wSecond);
+#else
+    time_t nu = time(NULL);
+    struct tm *tm = localtime(&nu);
+    if (tm)
+        strftime(uit, groot, "%Y-%m-%d %H:%M:%S", tm);
+    else
+        snprintf(uit, groot, "(tijd onbekend)");
+#endif
+}
+
+void rg_pe_scheiding(rg_pe_ctx *c)
+{
+    char tijd[40];
+    if (c->scheiding_gedaan)
+        return;
+    c->scheiding_gedaan = 1;
+    rg_tijdtekst(tijd, sizeof tijd);
+    if (c->log) {
+        fprintf(c->log, "\n=================== rg-pe-hook run %s  pid %lu  tid %lu  tick %llu "
+                        "===================\n", tijd, c->pid, c->tid, (unsigned long long)rg_nu_ms());
+        fflush(c->log);
+    }
+}
+
+int rg_pe_voorbereid(rg_pe_ctx *c)
+{
+    int i;
+    if (c->voorbereid)
+        return c->lijst_afgekeurd ? 1 : 0;
     if (!c->beeld || !c->beeld_n) {
         rg_log(c, "geen beeld meegegeven");
         return -1;
     }
-    if (!c->n && !rg_lees_lijst(c, c->lijst_pad)) {
+    if (!c->lijst_pad_bewaard[0] && !c->n && !rg_lees_lijst(c, c->lijst_pad)) {
         rg_log(c, "geen bruikbare regels in %s", c->lijst_pad);
         return -1;
     }
-    if (!rg_pe_lees_kop(c->beeld, c->beeld_n, &kop)) {
+    if (!rg_pe_lees_kop(c->beeld, c->beeld_n, &c->kop)) {
         rg_log(c, "geen geldige PE-kop in het beeld (%zu bytes)", c->beeld_n);
         return -1;
     }
-    rg_log(c, "PE: machine 0x%x, imagebase 0x%llx, SizeOfImage 0x%x, entry 0x%x, %d secties",
-           kop.machine, (unsigned long long)kop.imagebase, kop.grootte_beeld, kop.ingang,
-           kop.aantal_secties);
-    rg_log(c, "adreslijst: %d regel(s) uit %s (beeld=%s, proloog=%s, basis=%s)", c->n,
-           c->lijst_pad, c->beeld_vorm == RG_BEELD_PE ? "pe" : "elf",
-           c->proloog == RG_PROLOOG_E9REL32 ? "e9rel32" : "standaard",
-           c->basis_beeld ? "beeld" : "absoluut");
+    c->kop_ok = 1;
+    c->voorbereid = 1;
+    {
+        int nf = 0, np = 0;
+        for (i = 0; i < c->n; i++) {
+            if (c->regels[i].is_patch) np++; else nf++;
+        }
+        rg_log(c, "PE: machine 0x%x, imagebase 0x%llx, SizeOfImage 0x%x, entry 0x%x, %d secties",
+               c->kop.machine, (unsigned long long)c->kop.imagebase, c->kop.grootte_beeld, c->kop.ingang,
+               c->kop.aantal_secties);
+        rg_log(c, "adreslijst: %d functieregel(s), %d patch(es)%s uit %s (beeld=%s, proloog=%s, basis=%s)",
+               nf, np, c->uitgang_aanwezig ? ", [uitgang]" : "", c->lijst_pad,
+               c->beeld_vorm == RG_BEELD_PE ? "pe" : "elf",
+               c->proloog == RG_PROLOOG_E9REL32 ? "e9rel32" : "standaard",
+               c->basis_beeld ? "beeld" : "absoluut");
+    }
 
     /*
      * Het bewijsartefact openen en van een kop voorzien, zodat een andere partij het met een eigen
@@ -816,34 +1249,31 @@ int rg_pe_hook(rg_pe_ctx *c)
     if (c->bytes_pad && *c->bytes_pad) {
         c->bytes_log = fopen(c->bytes_pad, "a");
         if (c->bytes_log) {
+            const rg_pe_kop *kop = &c->kop;
+            char tijd[40];
+            rg_tijdtekst(tijd, sizeof tijd);
             fprintf(c->bytes_log, "\n");
+            fprintf(c->bytes_log, "# =================== rg-pe-hook-bytes run %s  pid %lu ===================\n",
+                    tijd, c->pid);
             fprintf(c->bytes_log, "# rg-pe-hook-bytes -- wat de KEURING las, op het moment van de keuring\n");
             fprintf(c->bytes_log, "# tijd_ms        : %llu (monotoon, ms sinds de start van dit proces)\n",
                     (unsigned long long)rg_nu_ms());
-            fprintf(c->bytes_log, "# modulebasis    : 0x%016llx\n", (unsigned long long)kop.imagebase);
-            fprintf(c->bytes_log, "# ImageBase      : 0x%016llx\n", (unsigned long long)kop.imagebase);
+            fprintf(c->bytes_log, "# modulebasis    : 0x%016llx\n", (unsigned long long)kop->imagebase);
+            fprintf(c->bytes_log, "# ImageBase      : 0x%016llx\n", (unsigned long long)kop->imagebase);
             fprintf(c->bytes_log, "# SizeOfImage    : 0x%08x   entry 0x%08x   secties %d\n",
-                    kop.grootte_beeld, kop.ingang, kop.aantal_secties);
+                    kop->grootte_beeld, kop->ingang, kop->aantal_secties);
             fprintf(c->bytes_log, "# beeldbestand   : %s\n",
                     c->beeld_naam && *c->beeld_naam ? c->beeld_naam : "(niet opgegeven)");
             fprintf(c->bytes_log, "# adreslijst     : %s\n", c->lijst_pad);
-            /*
-             * De LEESaanwijzer tegenover de ImageBase uit de PE-kop. Dit is de enige plek waar de
-             * getoonde bestemming en de werkelijke lezing kunnen uiteengaan: gelezen wordt altijd
-             * `beeld + RVA` (de moduleaanwijzer), terwijl de getoonde VA werd AFGELEID uit de
-             * ImageBase in de kop. Wijkt de moduleaanwijzer daarvan af (bijvoorbeeld omdat de lader
-             * het beeld verplaatst heeft), dan klopt het getal naast de bytes niet, ook al zijn de
-             * bytes zelf goed gelezen. Daarom staat het hier allebei, met een waarschuwing.
-             */
             fprintf(c->bytes_log,
                     "# moduleaanwijzer: %p  (hier wordt werkelijk gelezen: moduleaanwijzer + RVA)\n",
                     (void *)c->beeld);
-            fprintf(c->bytes_log, "# ImageBase (kop): 0x%016llx\n", (unsigned long long)kop.imagebase);
-            if ((uintptr_t)c->beeld != (uintptr_t)kop.imagebase)
+            fprintf(c->bytes_log, "# ImageBase (kop): 0x%016llx\n", (unsigned long long)kop->imagebase);
+            if ((uintptr_t)c->beeld != (uintptr_t)kop->imagebase)
                 fprintf(c->bytes_log,
                         "# LET OP: de moduleaanwijzer (%p) is NIET gelijk aan de ImageBase uit de kop "
-                        "(0x%llx); dan is de getoonde VA fout en de LEZING niet.\n",
-                        (void *)c->beeld, (unsigned long long)kop.imagebase);
+                        "(0x%llx); de engine gebruikt de moduleaanwijzer.\n",
+                        (void *)c->beeld, (unsigned long long)kop->imagebase);
             fprintf(c->bytes_log, "# pid            : %lu   thread: %lu\n", c->pid, c->tid);
             fprintf(c->bytes_log, "# proces loopt al: %llu ms   initialisatie nummer: %d\n",
                     (unsigned long long)c->proc_uptime_ms, c->init_teller);
@@ -857,95 +1287,158 @@ int rg_pe_hook(rg_pe_ctx *c)
         }
     }
 
-    if (c->verwacht_grootte && c->verwacht_grootte != (uint64_t)kop.grootte_beeld) {
+    if (c->verwacht_grootte && c->verwacht_grootte != (uint64_t)c->kop.grootte_beeld) {
         rg_log(c, "lijst AFGEKEURD: grootte 0x%llx in de lijst, maar SizeOfImage is 0x%x",
-               (unsigned long long)c->verwacht_grootte, kop.grootte_beeld);
+               (unsigned long long)c->verwacht_grootte, c->kop.grootte_beeld);
         for (i = 0; i < c->n; i++)
             snprintf(c->regels[i].reden, sizeof c->regels[i].reden,
-                     "AFGEWEZEN: verkeerde build (SizeOfImage 0x%x != 0x%llx)",
-                     kop.grootte_beeld, (unsigned long long)c->verwacht_grootte);
-        return 0;
+                     "AFGEWEZEN: verkeerde build (SizeOfImage 0x%x != 0x%llx)", c->kop.grootte_beeld,
+                     (unsigned long long)c->verwacht_grootte);
+        c->lijst_afgekeurd = 1;
+        return 1;
     }
-    if (c->verwacht_ingang && c->verwacht_ingang != (uint64_t)kop.ingang) {
+    if (c->verwacht_ingang && c->verwacht_ingang != (uint64_t)c->kop.ingang) {
         rg_log(c, "lijst AFGEKEURD: ingang 0x%llx in de lijst, maar die van het beeld is 0x%x",
-               (unsigned long long)c->verwacht_ingang, kop.ingang);
+               (unsigned long long)c->verwacht_ingang, c->kop.ingang);
         for (i = 0; i < c->n; i++)
             snprintf(c->regels[i].reden, sizeof c->regels[i].reden,
-                     "AFGEWEZEN: verkeerde build (entry 0x%x != 0x%llx)", kop.ingang,
+                     "AFGEWEZEN: verkeerde build (entry 0x%x != 0x%llx)", c->kop.ingang,
                      (unsigned long long)c->verwacht_ingang);
-        return 0;
+        c->lijst_afgekeurd = 1;
+        return 1;
     }
 
-    /* keuring, met de wachtroute: een pagina die nog niet is uitgepakt is geen fout maar te vroeg.
-       De prologues bestaan pas NADAT de pakker de code heeft weggeschreven (gemeten: onder onze kern
-       van t=4,6 tot 4,7 s), dus de hook moet ze op dat moment kunnen omzetten en niet bij het laden. */
-    {
-        uint64_t t0 = rg_nu_ms();
-        int ronde = 0, nog;
-        int vorige_nul = -1, vorige_opv = -1;
-        for (;;) {
-            int nu_nul = 0, nu_opv = 0;
-            nog = 0;
-            for (i = 0; i < c->n; i++) {
-                rg_keur_een(c, &kop, &c->regels[i]);
-                if (c->regels[i].wacht) {
-                    nog++;
-                    if (c->regels[i].opvulling)
-                        nu_opv++;
-                    else
-                        nu_nul++;
-                }
+    /* de trigger: de sectie waarvan het verzegelen het moment is */
+    if (c->trigger[0]) {
+        if (strcmp(c->trigger, "protect") != 0) {
+            rg_log(c, "trigger = %s is onbekend (alleen `protect`); er is geen trigger", c->trigger);
+            c->trigger[0] = 0;
+        } else {
+            for (i = 0; i < c->kop.aantal_secties; i++)
+                if (!strcmp(c->kop.secties[i].naam, c->trigger_sectie))
+                    c->trigger_base = (uintptr_t)c->beeld + c->kop.secties[i].rva;
+            if (!c->trigger_base || !c->trigger_prot) {
+                rg_log(c, "trigger = protect: sectie `%s` niet gevonden of trigger_prot ontbreekt; er is "
+                          "geen trigger", c->trigger_sectie);
+                c->trigger[0] = 0;
+                c->trigger_base = 0;
+            } else {
+                rg_log(c, "trigger = protect: sectie %s op 0x%llx, nieuwe bescherming 0x%x", c->trigger_sectie,
+                       (unsigned long long)c->trigger_base, c->trigger_prot);
             }
-            /*
-             * De drie gevallen zichtbaar maken in het LOGBOEK, en alleen wanneer de toestand
-             * verandert: (a) nul = nog niet ontpakt, (b) opvulling/half geschreven = ook wachten,
-             * (c) klaar. Zonder deze regel zou `cc cc cc cc` stil als "klaar" doorgaan -- precies de
-             * fout waardoor het poortadres werd afgekeurd in plaats van dat er gewacht werd.
-             */
-            if (nu_nul != vorige_nul || nu_opv != vorige_opv) {
-                if (nu_nul && !nu_opv)
-                    rg_log(c, "wachtroute: %d adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf "
-                              "kijken (max %d s, elke %d ms)", nu_nul, c->wacht_s,
-                           c->wacht_ms > 0 ? c->wacht_ms : 10);
-                else if (nu_opv && !nu_nul)
-                    rg_log(c, "wachtroute: %d adres(sen) is niet-nul maar OPVULLING of half "
-                              "geschreven (geen prologue) -- ook wachten, dit is NIET klaar", nu_opv);
-                else if (nu_nul && nu_opv)
-                    rg_log(c, "wachtroute: %d adres(sen) nog NUL (niet ontpakt), %d op OPVULLING of "
-                              "half geschreven -- ik blijf kijken", nu_nul, nu_opv);
-                vorige_nul = nu_nul;
-                vorige_opv = nu_opv;
-            }
-            if (!nog || c->wacht_s <= 0)
-                break;
-            if (rg_nu_ms() - t0 > (uint64_t)c->wacht_s * 1000u) {
-                rg_log(c, "wachtroute: na %d s gestopt: %d nog NUL (niet ontpakt), %d nog OPVULLING of "
-                          "half geschreven -- de pagina's zijn niet binnen de tijd klaar gekomen",
-                       c->wacht_s, nu_nul, nu_opv);
-                break;
-            }
-            ronde++;
-            rg_slaap_ms(c->wacht_ms > 0 ? c->wacht_ms : 10);
         }
-        if (nog == 0 && ronde > 0)
-            rg_log(c, "wachtroute: de pagina's zijn uitgepakt na %llu ms; nu omzetten",
-                   (unsigned long long)(rg_nu_ms() - t0));
     }
+    return 0;
+}
+
+void rg_pe_wacht(rg_pe_ctx *c)
+{
+    /* keuring, met de wachtroute: een pagina die nog niet is uitgepakt is geen fout maar te vroeg.
+       Alleen ACTIEVE functieregels tellen mee; patches wachten nergens op. */
+    uint64_t t0 = rg_nu_ms();
+    int ronde = 0, nog, i;
+    int vorige_nul = -1, vorige_opv = -1;
+    for (;;) {
+        int nu_nul = 0, nu_opv = 0;
+        nog = 0;
+        for (i = 0; i < c->n; i++) {
+            rg_pe_regel *r = &c->regels[i];
+            if (r->is_patch || !r->actief)
+                continue;
+            rg_keur_een(c, &c->kop, r);
+            if (r->wacht) {
+                nog++;
+                if (r->opvulling)
+                    nu_opv++;
+                else
+                    nu_nul++;
+            }
+        }
+        /* de drie gevallen zichtbaar maken, alleen wanneer de toestand verandert */
+        if (nu_nul != vorige_nul || nu_opv != vorige_opv) {
+            if (nu_nul && !nu_opv)
+                rg_log(c, "wachtroute: %d adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken "
+                          "(max %d s, elke %d ms)", nu_nul, c->wacht_s, c->wacht_ms > 0 ? c->wacht_ms : 10);
+            else if (nu_opv && !nu_nul)
+                rg_log(c, "wachtroute: %d adres(sen) is niet-nul maar OPVULLING of half geschreven "
+                          "(geen prologue) -- ook wachten, dit is NIET klaar", nu_opv);
+            else if (nu_nul && nu_opv)
+                rg_log(c, "wachtroute: %d adres(sen) nog NUL (niet ontpakt), %d op OPVULLING of half "
+                          "geschreven -- ik blijf kijken", nu_nul, nu_opv);
+            vorige_nul = nu_nul;
+            vorige_opv = nu_opv;
+        }
+        if (!nog || c->wacht_s <= 0)
+            break;
+        if (c->toegepast) {                 /* de trigger was ons voor */
+            rg_log(c, "wachtroute: een ander heeft de regels al toegepast; ik stop met wachten");
+            return;
+        }
+        if (rg_nu_ms() - t0 > (uint64_t)c->wacht_s * 1000u) {
+            rg_log(c, "wachtroute: na %d s gestopt: %d nog NUL (niet ontpakt), %d nog OPVULLING of "
+                      "half geschreven -- de pagina's zijn niet binnen de tijd klaar gekomen",
+                   c->wacht_s, nu_nul, nu_opv);
+            break;
+        }
+        ronde++;
+        rg_slaap_ms(c->wacht_ms > 0 ? c->wacht_ms : 10);
+    }
+    if (nog == 0 && ronde > 0)
+        rg_log(c, "wachtroute: de pagina's zijn uitgepakt na %llu ms; nu omzetten",
+               (unsigned long long)(rg_nu_ms() - t0));
+}
+
+int rg_pe_pas_toe(rg_pe_ctx *c, const char *bron)
+{
+    unsigned char *stub_pagina = NULL;
+    size_t pag;
+    int i, aangehaakt = 0, afgekeurd = 0, todo = 0, fn_totaal = 0, fn_uit = 0, patch_afgekeurd;
+    uintptr_t pagina_adres = 0;
+    const rg_pe_kop *kop = &c->kop;
+
+    if (!c->voorbereid || !c->kop_ok) {
+        rg_log(c, "pas_toe(%s): niet voorbereid; er wordt niets gedaan", bron);
+        return -1;
+    }
+    if (c->lijst_afgekeurd)
+        return 0;
+    if (!rg_pe_claim(c)) {
+        rg_log(c, "pas_toe(%s): niet aan de beurt -- de regels zijn al toegepast of worden nu toegepast "
+                  "door %s; ik doe niets", bron, c->toegepast_door ? c->toegepast_door : "een ander");
+        return -2;
+    }
+    c->toegepast_door = bron;
+    rg_log(c, "toegepast door: %s (tick %llu)", bron, (unsigned long long)rg_nu_ms());
+    if (!strcmp(bron, "FALLBACK"))
+        rg_log(c, "FALLBACK: de regels zijn toegepast door de TERUGVAL-poll, NIET door de trigger -- de "
+                  "trigger is niet (op tijd) gekomen");
+
+    /* keuring van de functieregels op dit moment */
+    for (i = 0; i < c->n; i++) {
+        if (c->regels[i].is_patch)
+            continue;
+        fn_totaal++;
+        if (!c->regels[i].actief)
+            fn_uit++;
+        rg_keur_een(c, kop, &c->regels[i]);
+    }
+
     /* de stubpagina: een uitvoerbare pagina. We proberen hem dicht bij het beeld te leggen, zodat
        de 5-byte `e9 rel32`-omzetting past; lukt dat niet, dan volgt een 12-byte absolute sprong. */
     pag = RG_PAGINA_GROOTTE;
+    for (i = 0; i < c->n; i++)
+        if (!c->regels[i].is_patch && c->regels[i].geldig)
+            break;
+    if (i < c->n) {
 #if defined(_WIN32)
-    {
-        uintptr_t wens = (uintptr_t)kop.imagebase - 0x10000;
-        stub_pagina = (unsigned char *)VirtualAlloc((LPVOID)wens, pag,
-                                                   MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        uintptr_t wens = (uintptr_t)c->beeld - 0x10000;
+        stub_pagina = (unsigned char *)VirtualAlloc((LPVOID)wens, pag, MEM_COMMIT | MEM_RESERVE,
+                                                   PAGE_EXECUTE_READWRITE);
         if (!stub_pagina)
             stub_pagina = (unsigned char *)VirtualAlloc(NULL, pag, MEM_COMMIT | MEM_RESERVE,
                                                        PAGE_EXECUTE_READWRITE);
-    }
 #else
-    {
-        void *wens = (void *)(uintptr_t)(kop.imagebase - 0x10000);
+        void *wens = (void *)((uintptr_t)c->beeld - 0x10000);
         stub_pagina = mmap(wens, pag, PROT_READ | PROT_WRITE | PROT_EXEC,
                            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
         if (stub_pagina == MAP_FAILED)
@@ -953,14 +1446,16 @@ int rg_pe_hook(rg_pe_ctx *c)
                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (stub_pagina == MAP_FAILED)
             stub_pagina = NULL;
-    }
 #endif
-    if (!stub_pagina) {
-        rg_log(c, "GEEN uitvoerbare pagina voor de stubs; er wordt niets aangehaakt");
-        return -1;
+        if (!stub_pagina) {
+            rg_log(c, "GEEN uitvoerbare pagina voor de stubs; er wordt geen functie aangehaakt");
+            for (i = 0; i < c->n; i++)
+                c->regels[i].geldig = 0;
+        } else {
+            pagina_adres = (uintptr_t)stub_pagina;
+            rg_log(c, "stubpagina op 0x%llx (%zu bytes)", (unsigned long long)pagina_adres, pag);
+        }
     }
-    pagina_adres = (uintptr_t)stub_pagina;
-    rg_log(c, "stubpagina op 0x%llx (%zu bytes)", (unsigned long long)pagina_adres, pag);
 
     /* per geldige regel een stub, en de prologue omzetten */
     for (i = 0; i < c->n; i++) {
@@ -968,17 +1463,21 @@ int rg_pe_hook(rg_pe_ctx *c)
         rg_buf stub;
         uintptr_t plek;
         int64_t afstand;
+        if (r->is_patch || !r->actief)
+            continue;
         if (!r->geldig) {
             afgekeurd++;
             continue;
         }
-        if (c->stub_gebruikt + 64 > (int)pag) {
-            rg_log(c, "  %s: stubpagina vol; overgeslagen", r->naam);
-            niet_gehaakt++;
-            continue;
-        }
         if (!rg_maak_stub(c, r, i, &stub)) {
             snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: antwoordvorm kon niet worden gebouwd");
+            r->geldig = 0;
+            afgekeurd++;
+            continue;
+        }
+        if (c->stub_gebruikt + stub.n > (int)pag) {
+            rg_log(c, "  %s: stubpagina vol; overgeslagen", r->naam);
+            snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: stubpagina vol");
             r->geldig = 0;
             afgekeurd++;
             continue;
@@ -988,50 +1487,65 @@ int rg_pe_hook(rg_pe_ctx *c)
         c->stub_gebruikt += stub.n;
 
         afstand = (int64_t)plek - (int64_t)(r->doel_adres + 5);
-        if (afstand >= -2147483648LL && afstand <= 2147483647LL) {
+        {
             unsigned char nieuw[12];
-            int32_t rel = (int32_t)afstand;
-            nieuw[0] = 0xe9;
-            memcpy(nieuw + 1, &rel, 4);
-            memcpy((void *)r->doel_adres, nieuw, 5);
-            snprintf(r->wijze, sizeof r->wijze, "e9 rel32 (5 bytes)");
-        } else {
-            unsigned char nieuw[12];
-            uint64_t doel = (uint64_t)plek;
-            nieuw[0] = 0x48; nieuw[1] = 0xb8;
-            memcpy(nieuw + 2, &doel, 8);
-            nieuw[10] = 0xff; nieuw[11] = 0xe0;
-            memcpy((void *)r->doel_adres, nieuw, 12);
-            snprintf(r->wijze, sizeof r->wijze, "48 b8 abs64 ff e0 (12 bytes)");
+            size_t nn;
+            if (afstand >= -2147483648LL && afstand <= 2147483647LL) {
+                int32_t rel = (int32_t)afstand;
+                nieuw[0] = 0xe9;
+                memcpy(nieuw + 1, &rel, 4);
+                nn = 5;
+                snprintf(r->wijze, sizeof r->wijze, "e9 rel32 (5 bytes)");
+            } else {
+                uint64_t doel = (uint64_t)plek;
+                nieuw[0] = 0x48; nieuw[1] = 0xb8;
+                memcpy(nieuw + 2, &doel, 8);
+                nieuw[10] = 0xff; nieuw[11] = 0xe0;
+                nn = 12;
+                snprintf(r->wijze, sizeof r->wijze, "48 b8 abs64 ff e0 (12 bytes)");
+            }
+            if (!rg_pe_schrijf(c, r->doel_adres, nieuw, nn, r->naam)) {
+                snprintf(r->reden, sizeof r->reden, "SCHRIJVEN MISLUKT (zie het logboek)");
+                r->geldig = 0;
+                afgekeurd++;
+                continue;
+            }
         }
         r->gehaakt = 1;
         aangehaakt++;
         if (r->antwoord == RG_ANTWOORD_TODO)
             todo++;
-        rg_log(c, "  aangehaakt: %-34s RVA 0x%06x -> stub 0x%llx  [%s]%s", r->naam, r->rva,
-               (unsigned long long)plek, r->wijze,
+        rg_log(c, "  aangehaakt: %-34s RVA 0x%06x -> stub 0x%llx  [%s]%s%s", r->naam, r->rva,
+               (unsigned long long)plek, r->wijze, (r->log_aanroep && c->log_melder) ? "  [log0]" : "",
                r->antwoord == RG_ANTWOORD_TODO ? "  ANTWOORD = TODO" : "");
     }
 
+    /* de byte-patches, door dezelfde schrijfweg */
+    for (i = 0; i < c->n; i++)
+        if (c->regels[i].is_patch)
+            rg_doe_patch(c, kop, &c->regels[i]);
+
     /*
-     * Het oordeel per regel, en de samenvatting in dezelfde vijf gevallen als de ELF-hook.
-     *
-     * Per regel staan er TWEE dingen, omdat een tegenspraak tussen twee instrumenten anders niet te
-     * beslechten is: de AANWIJZER die werkelijk is gederefereerd (het absolute adres) met de
-     * MODULEBASIS die daarvoor is gebruikt, en de bytes die op dat moment op die plek stonden. Wie
-     * buiten het proces op het nominale adres leest en daar nullen ziet, kan dat hiernaast leggen.
+     * Het oordeel per functieregel: de AANWIJZER die werkelijk is gederefereerd met de MODULEBASIS en
+     * de bytes die op dat moment op die plek stonden.
      */
     for (i = 0; i < c->n; i++) {
         rg_pe_regel *r = &c->regels[i];
+        if (r->is_patch)
+            continue;
+        if (!r->actief) {
+            rg_log(c, "  %-34s UIT (actief = 0): niet gekeurd, niet aangehaakt", r->naam);
+            continue;
+        }
         rg_log(c, "  %-34s RVA 0x%08x  VA 0x%016llx (basis 0x%llx)  bytes %02x %02x %02x %02x "
                   "%02x %02x %02x %02x", r->naam, r->rva, (unsigned long long)r->doel_adres,
-               (unsigned long long)kop.imagebase, r->gezien[0], r->gezien[1], r->gezien[2],
+               (unsigned long long)kop->imagebase, r->gezien[0], r->gezien[1], r->gezien[2],
                r->gezien[3], r->gezien[4], r->gezien[5], r->gezien[6], r->gezien[7]);
         rg_log(c, "  %-34s %s", "", r->reden);
     }
     for (i = 0; i < c->n; i++) {
         rg_pe_regel *r = &c->regels[i];
-        if (r->gehaakt)
+        if (r->is_patch || r->gehaakt || !r->actief)
             continue;
         if (!r->geldig)
             rg_log(c, "  niet aangehaakt: %-34s (in de adreslijst maar afgekeurd: %s)", r->naam,
@@ -1040,8 +1554,27 @@ int rg_pe_hook(rg_pe_ctx *c)
             rg_log(c, "  niet aangehaakt: %-34s (in de adreslijst en goedgekeurd, maar het "
                       "aanhaken lukte niet)", r->naam);
     }
-    rg_log(c, "totaal aangehaakt: %d van %d; afgekeurd: %d; waarvan antwoord TODO: %d",
-           aangehaakt, c->n, afgekeurd, todo);
-    (void)niet_gehaakt;
+    patch_afgekeurd = c->patches_afgekeurd;
+    rg_log(c, "totaal aangehaakt: %d van %d (%d uit); patches toegepast: %d van %d (%d uit); afgekeurd: %d; "
+              "waarvan antwoord TODO: %d; uitgang: %s; TERUG %ld; doorgelaten %ld",
+           aangehaakt, fn_totaal, fn_uit, c->patches_toegepast, c->patches_totaal, c->patches_uit,
+           afgekeurd + patch_afgekeurd, todo,
+           !c->uitgang_aanwezig ? "niet geconfigureerd" : c->uitgang_staat ? "haak staat" : "haak staat niet",
+           (long)c->uitgang_terug, (long)c->uitgang_door);
+    __sync_synchronize();
+    c->toegepast = 2;
     return aangehaakt;
+}
+
+int rg_pe_hook(rg_pe_ctx *c)
+{
+    int v;
+    rg_pe_scheiding(c);
+    v = rg_pe_voorbereid(c);
+    if (v < 0)
+        return -1;
+    if (v == 1)
+        return 0;
+    rg_pe_wacht(c);
+    return rg_pe_pas_toe(c, c->fallback ? "FALLBACK" : "poll");
 }
