@@ -78,7 +78,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/mman.h>
+#include <sys/uio.h>
+#include <time.h>
 #include <unistd.h>
 
 /* ---------------------------------------------------------------- het logboek */
@@ -778,12 +781,96 @@ struct hh_haak {
     void *vervanger;
     void *origineel;
     unsigned char oud[16];
+    unsigned char nieuw[16];   /* de sprong die we hebben geschreven (voor de controle achteraf) */
+    size_t nieuw_n;
     size_t lengte;
     int gezet;
+    int herstel;               /* hoe vaak de sprong opnieuw is gezet nadat de lader hem wiste */
 };
 
 static struct hh_haak hh_haken[HH_MAX];
 static int hh_haak_n;
+
+/* ---------------------------------------------------------------- de levende code controleren */
+
+/*
+ * WAAROM DIT BESTAAT (gemeten 2026-10-13 aan Terminator Salvation onder rg-elfloader):
+ * de lader mapt het hele beeld eerst als nulpagina's (rwx) en schrijft de echte code er daarna in,
+ * binnen ongeveer een halve milliseconde. De ELF-kop komt als eerste, dus `hh_zoek_beeld()` vindt
+ * het beeld al terwijl de code er nog niet staat. De sleutel was: byte 0 van elke hasp_*-functie
+ * ging 0x00 -> 0xe9 (onze sprong) -> 0x53 (de lader schrijft de echte code, onze sprong WEG).
+ * De keuring van de adreslijst kijkt naar het BESTAND (hh_beeld), niet naar het levende geheugen,
+ * dus zij liet dat door.
+ *
+ * Daarom patchen we pas als de levende bytes op het adres gelijk zijn aan de bytes van het
+ * bestand op hetzelfde virtuele adres, en daarna bewaken we de sprong nog even (hh_bewaak).
+ */
+
+static long hh_nu_ms(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (long)(t.tv_sec * 1000L + t.tv_nsec / 1000000L);
+}
+
+static long hh_t0_ms;
+
+/* Lees n bytes uit het eigen geheugen zonder een signaal te riskeren: process_vm_readv geeft
+   EFAULT terug waar een gewone lezing SIGSEGV/SIGBUS zou geven. */
+static int hh_lees_levend(uintptr_t a, unsigned char *buf, size_t n)
+{
+    struct iovec lok, rem;
+    ssize_t r;
+    lok.iov_base = buf;
+    lok.iov_len = n;
+    rem.iov_base = (void *)a;
+    rem.iov_len = n;
+    r = process_vm_readv(getpid(), &lok, 1, &rem, 1, 0);
+    if (r == (ssize_t)n)
+        return 1;
+    if (r < 0 && errno != EFAULT) {
+        /* de aanroep zelf is niet beschikbaar (seccomp o.i.d.): de aanroeper heeft het bereik al
+           als leesbaar bevestigd, dus dan lezen we gewoon. */
+        memcpy(buf, (const void *)a, n);
+        return 1;
+    }
+    return 0;
+}
+
+/* Hoeveel bytes van het levende prologue vergelijken we met het bestand? Genoeg om een nulpagina,
+   een half geschreven functie of een andere functie uit te sluiten. */
+#define HH_PROLOOG_VERGELIJK 16
+
+/*
+ * Staat op `adres` in het levende geheugen dezelfde code als in het bestand?
+ * Geeft 1 (gelijk, of niet te beoordelen omdat het bestand daar niets heeft), 0 (nog niet geladen /
+ * wijkt af). `nul` krijgt 1 als de levende bytes allemaal 0 zijn (de lader heeft nog niet geschreven).
+ */
+static int hh_live_gelijk(uintptr_t adres, int *nul)
+{
+    unsigned char live[HH_PROLOOG_VERGELIJK];
+    size_t off, n = HH_PROLOOG_VERGELIJK, i;
+    uint64_t vaddr = (uint64_t)(adres - (uintptr_t)(hh_base - (uintptr_t)hh_laag));
+    int alles_nul = 1;
+    if (nul)
+        *nul = 0;
+    off = hh_v2o(vaddr);
+    if (off == 0 || off + HH_PATCH_LEN > hh_beeld_n)
+        return 1;                  /* geen bestandsbytes om mee te vergelijken: oud gedrag */
+    if (off + n > hh_beeld_n)
+        n = hh_beeld_n - off;
+    if (!hh_lees_levend(adres, live, n)) {
+        if (nul)
+            *nul = 1;
+        return 0;
+    }
+    for (i = 0; i < n; i++)
+        if (live[i])
+            alles_nul = 0;
+    if (nul)
+        *nul = alles_nul;
+    return memcmp(live, hh_beeld + off, n) == 0;
+}
 
 static int hh_schrijfbaar(uintptr_t a, size_t n)
 {
@@ -839,20 +926,35 @@ static void *hh_maak_trampoline(struct hh_haak *h)
     return p;
 }
 
+/* Zorg dat de pagina('s) van de haak beschrijfbaar zijn. */
+static int hh_maak_schrijfbaar(struct hh_haak *h)
+{
+    if (!hh_schrijfbaar(h->adres, h->lengte)) {
+        size_t pag = (size_t)sysconf(_SC_PAGESIZE);
+        uintptr_t lo = h->adres & ~(pag - 1);
+        uintptr_t hi = (h->adres + h->lengte + pag - 1) & ~(pag - 1);
+        if (mprotect((void *)lo, hi - lo, PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
+            return 0;
+    }
+    return 1;
+}
+
+static void hh_schrijf_sprong(struct hh_haak *h)
+{
+    unsigned char *p = (unsigned char *)h->adres;
+    memcpy(p, h->nieuw, h->nieuw_n);
+    __builtin___clear_cache((char *)p, (char *)p + h->nieuw_n);
+}
+
 static void hh_patch(struct hh_haak *h)
 {
     unsigned char *p = (unsigned char *)h->adres;
     size_t i;
     if (h->gezet)
         return;
-    if (!hh_schrijfbaar(h->adres, h->lengte)) {
-        size_t pag = (size_t)sysconf(_SC_PAGESIZE);
-        uintptr_t lo = h->adres & ~(pag - 1);
-        uintptr_t hi = (h->adres + h->lengte + pag - 1) & ~(pag - 1);
-        if (mprotect((void *)lo, hi - lo, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
-            hh_say("  %s: mprotect mislukt; niet aangehaakt", h->naam);
-            return;
-        }
+    if (!hh_maak_schrijfbaar(h)) {
+        hh_say("  %s: mprotect mislukt; niet aangehaakt", h->naam);
+        return;
     }
     for (i = 0; i < h->lengte; i++)
         h->oud[i] = p[i];
@@ -862,7 +964,7 @@ static void hh_patch(struct hh_haak *h)
         return;
     }
     {
-        unsigned char nieuw[16];
+        unsigned char *nieuw = h->nieuw;
         size_t n;
 #if defined(__x86_64__)
         uint64_t doel = (uint64_t)(uintptr_t)h->vervanger;
@@ -878,12 +980,62 @@ static void hh_patch(struct hh_haak *h)
         memcpy(nieuw + 1, &rel, 4);
         n = 5;
 #endif
-        memcpy(p, nieuw, n);
-        __builtin___clear_cache((char *)p, (char *)p + n);
+        h->nieuw_n = n;
+        hh_schrijf_sprong(h);
     }
     h->gezet = 1;
-    hh_say("  aangehaakt: %-24s op 0x%08lx -> %p (trampoline %p, %zu bytes)", h->naam,
-           (unsigned long)h->adres, h->vervanger, h->origineel, h->lengte);
+    hh_say("  aangehaakt: %-24s op 0x%08lx -> %p (trampoline %p, %zu bytes) [+%ld ms]", h->naam,
+           (unsigned long)h->adres, h->vervanger, h->origineel, h->lengte,
+           hh_nu_ms() - hh_t0_ms);
+}
+
+/* Hoeveel doelen hebben we in deze ronde NIET aangehaakt omdat de echte code er nog niet staat?
+   Zolang dat er meer dan nul zijn, moet de kijker blijven kijken. */
+static int hh_uitgesteld;
+static long hh_laatste_wijziging_ms;   /* laatste keer dat we een sprong zetten of herstelden */
+
+#define HH_HERSTEL_MAX 8
+
+/*
+ * Controleer de sprongen die we gezet hebben. Wist de lader (of iets anders) er een door de
+ * echte code terug te schrijven, dan zetten we hem terug -- met een plafond, zodat een
+ * proces dat telkens opnieuw schrijft ons niet in een eindeloze strijd trekt.
+ * Staat er (nog) iets anders dan onze sprong of de echte code (bijvoorbeeld nullen), dan doen we
+ * niets: pas als de echte code er staat is het veilig.
+ */
+static int hh_bewaak(void)
+{
+    int i, hersteld = 0;
+    for (i = 0; i < hh_haak_n; i++) {
+        struct hh_haak *h = &hh_haken[i];
+        unsigned char cur[16];
+        if (!h->gezet || h->nieuw_n == 0)
+            continue;
+        if (!hh_lees_levend(h->adres, cur, h->nieuw_n))
+            continue;
+        if (memcmp(cur, h->nieuw, h->nieuw_n) == 0)
+            continue;                                  /* de sprong staat nog */
+        if (memcmp(cur, h->oud, h->nieuw_n) != 0) {
+            continue;                                  /* geen echte code: wachten */
+        }
+        if (h->herstel >= HH_HERSTEL_MAX) {
+            if (h->herstel == HH_HERSTEL_MAX) {
+                hh_say("  %s op 0x%08lx: de sprong is %d keer gewist; opgegeven", h->naam,
+                       (unsigned long)h->adres, HH_HERSTEL_MAX);
+                h->herstel++;
+            }
+            continue;
+        }
+        if (!hh_maak_schrijfbaar(h))
+            continue;
+        hh_schrijf_sprong(h);
+        h->herstel++;
+        hersteld++;
+        hh_laatste_wijziging_ms = hh_nu_ms();
+        hh_say("  HERSTELD: %-24s op 0x%08lx: de sprong was weggeschreven (herstel %d) [+%ld ms]",
+               h->naam, (unsigned long)h->adres, h->herstel, hh_nu_ms() - hh_t0_ms);
+    }
+    return hersteld;
 }
 
 /* ---------------------------------------------------------------- de emulator in een eigen naamruimte */
@@ -1228,6 +1380,9 @@ static struct hh_haak *hh_al_gehaakt(uintptr_t adres)
     return NULL;
 }
 
+static uintptr_t hh_wacht_gemeld[HH_MAX];
+static int hh_wacht_gemeld_n;
+
 /* Eén functie aanhaken. Doet niets als het adres al aangehaakt is of (nog) niet leesbaar is. */
 static void hh_haak_een(const char *naam, uintptr_t adres, void *vervanger)
 {
@@ -1244,15 +1399,37 @@ static void hh_haak_een(const char *naam, uintptr_t adres, void *vervanger)
     h->vervanger = vervanger;
     h->lengte = HH_PATCH_LEN;
     if (!hh_bereik_leesbaar(h->adres, h->lengte)) {
+        hh_uitgesteld++;
         hh_say("  %s op 0x%08lx is (nog) niet leesbaar; volgende ronde", naam,
                (unsigned long)h->adres);
         return;
     }
+    /* De levende code moet de code uit het bestand zijn. Zo niet (nulpagina, half geschreven),
+       dan patchen we NIET: de lader zou onze sprong overschrijven. De kijker probeert het opnieuw. */
+    {
+        int nul = 0;
+        if (!hh_live_gelijk(adres, &nul)) {
+            int i, al_gemeld = 0;
+            hh_uitgesteld++;
+            for (i = 0; i < hh_wacht_gemeld_n; i++)
+                if (hh_wacht_gemeld[i] == adres)
+                    al_gemeld = 1;
+            if (!al_gemeld && hh_wacht_gemeld_n < HH_MAX) {
+                hh_wacht_gemeld[hh_wacht_gemeld_n++] = adres;
+                hh_say("  %s op 0x%08lx: levende bytes %s het bestand; niet aangehaakt, "
+                       "wacht op de lader [+%ld ms]", naam, (unsigned long)adres,
+                       nul ? "zijn nul/onleesbaar, anders dan" : "wijken af van",
+                       hh_nu_ms() - hh_t0_ms);
+            }
+            return;
+        }
+    }
     hh_haak_n++;
     hh_patch(h);
-    if (h->gezet)
+    if (h->gezet) {
         hh_koppel_echt(naam, h->origineel);
-    else
+        hh_laatste_wijziging_ms = hh_nu_ms();
+    } else
         hh_haak_n--;   /* niet aangehaakt: de lijst niet vervuilen */
 }
 
@@ -1261,6 +1438,7 @@ static void hh_haak_alles(void)
     const size_t doelen_n = sizeof(hh_doelen) / sizeof(hh_doelen[0]);
     size_t i, d;
 
+    hh_uitgesteld = 0;
     /* 1. De naam-route: de standaard, en het gedrag zoals het was. */
     for (d = 0; d < doelen_n; d++) {
         for (i = 0; i < hh_sym_n; i++) {
@@ -1348,30 +1526,42 @@ static int hh_gedaan;
 
 static void *hh_kijker(void *arg)
 {
-    long ms = 5, secs = 90;
+    long ms = 5, secs = 90, bewaak_ms = 2000;
     const char *v;
     long rondes, r;
-    int gemeld = 0, geprobeerd = 0;
+    int gemeld = 0, beeld_gevonden = 0, stabiel_gemeld = 0;
     (void)arg;
 
     if ((v = getenv("RAVENGUN_HASP_ELF_MS")) && *v)
         ms = strtol(v, NULL, 0);
     if ((v = getenv("RAVENGUN_HASP_ELF_WACHT")) && *v)
         secs = strtol(v, NULL, 0);
+    /* Hoe lang we na de laatste sprong nog blijven controleren of hij blijft staan. */
+    if ((v = getenv("RAVENGUN_HASP_ELF_BEWAAK")) && *v)
+        bewaak_ms = strtol(v, NULL, 0);
     if (ms < 1)
         ms = 1;
     if (secs < 1)
         secs = 1;
+    if (bewaak_ms < 0)
+        bewaak_ms = 0;
     rondes = (secs * 1000) / ms;
+    hh_laatste_wijziging_ms = hh_nu_ms();
 
     for (r = 0; r < rondes && !hh_gedaan; r++) {
-        if (!hh_zoek_beeld()) {
-            usleep((useconds_t)(ms * 1000));
-            continue;
+        /* Het beeld zoeken wisselt tijdelijk de SIGSEGV/SIGBUS-afhandelaars om; zodra we het
+           beeld hebben doen we dat niet meer elke ronde. */
+        if (!beeld_gevonden) {
+            if (!hh_zoek_beeld()) {
+                usleep((useconds_t)(ms * 1000));
+                continue;
+            }
+            beeld_gevonden = 1;
         }
         if (!gemeld) {
             gemeld = 1;
-            hh_say("spelbeeld op 0x%08lx", (unsigned long)hh_base);
+            hh_say("spelbeeld op 0x%08lx [+%ld ms]", (unsigned long)hh_base,
+                   hh_nu_ms() - hh_t0_ms);
             if (!hh_laad_emulator()) {
                 hh_say("zonder emulator niets aangehaakt");
                 hh_gedaan = 1;
@@ -1380,22 +1570,30 @@ static void *hh_kijker(void *arg)
             hh_koppel_emulator();
         }
         hh_haak_alles();
-        if (hh_haak_n >= (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0]))) {
-            hh_gedaan = 1;
-            hh_say("klaar: %d functies aangehaakt", hh_haak_n);
-            break;
-        }
-        /* De functies kunnen pas later leesbaar worden (het beeld wordt in delen gemapt).
-           Na een tijdje stoppen we met proberen en melden wat er wel is gelukt. */
-        if (hh_haak_n > 0 && ++geprobeerd > (int)(2000 / ms) + 1) {
-            hh_gedaan = 1;
-            hh_say("gestopt met zoeken: %d functies aangehaakt", hh_haak_n);
-            break;
+        hh_bewaak();
+        /* Klaar als er niets meer wacht op de lader EN de sprongen een tijd ongestoord hebben
+           gestaan. Doelen die nooit aan te haken zijn (bijvoorbeeld een afgekeurde hasp_free)
+           staan niet in `uitgesteld` en houden de kijker dus niet vast. */
+        if (hh_haak_n > 0 && hh_uitgesteld == 0) {
+            if (!stabiel_gemeld && hh_haak_n >= (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0]))) {
+                stabiel_gemeld = 1;
+                hh_say("alle %d functies aangehaakt; bewaak nog %ld ms", hh_haak_n, bewaak_ms);
+            }
+            if (hh_nu_ms() - hh_laatste_wijziging_ms >= bewaak_ms) {
+                hh_gedaan = 1;
+                hh_say("klaar: %d functies aangehaakt en %ld ms ongestoord [+%ld ms]", hh_haak_n,
+                       bewaak_ms, hh_nu_ms() - hh_t0_ms);
+                break;
+            }
         }
         usleep((useconds_t)(ms * 1000));
     }
     if (!hh_gedaan) {
-        hh_say("het spelbeeld is niet gevonden binnen %ld s (of geen hasp-symbolen)", secs);
+        if (hh_haak_n > 0)
+            hh_say("gestopt na %ld s: %d functies aangehaakt, %d wachten nog op de echte code",
+                   secs, hh_haak_n, hh_uitgesteld);
+        else
+            hh_say("het spelbeeld is niet gevonden binnen %ld s (of geen hasp-symbolen)", secs);
         hh_gedaan = 1;
     }
     return NULL;
@@ -1409,6 +1607,8 @@ static void hh_open_log(void)
     char comm[64] = "?";
     FILE *f;
     hh_verbose = v && *v && strcmp(v, "0") != 0;
+    if (!hh_t0_ms)
+        hh_t0_ms = hh_nu_ms();
     if (p && *p)
         hh_log = fopen(p, "a");
     if (!hh_log)
@@ -1454,6 +1654,10 @@ static int hh_breng_aan(void)
     }
     hh_say("synchroon %d van %d functies aangehaakt; de kijker probeert de rest",
            n, (int)(sizeof(hh_doelen) / sizeof(hh_doelen[0])));
+    /* Wacht er nog iets op de lader (echte code nog niet geschreven), dan is dit NIET gelukt:
+       de kijker moet het overnemen. Zonder dit stopte de hook na een gedeeltelijk resultaat. */
+    if (hh_uitgesteld > 0)
+        return 0;
     return n > 0;
 }
 
