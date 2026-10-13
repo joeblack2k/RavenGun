@@ -1,0 +1,34 @@
+[ravengun-net-log] + 0.000000 pid 1462986: socket(domain=1 type=1 proto=0) -> fd 9
+[ravengun-net-log] + 0.000026 pid 1462986: connect(fd 9 -> AF_UNIX /run/systemd/resolve/io.systemd.Resolve) -> 0 (ok)
+[ravengun-net-log] + 0.002024 pid 1462986: socket(domain=1 type=1 proto=0) -> fd 9
+[ravengun-net-log] + 0.002042 pid 1462986: connect(fd 9 -> AF_UNIX /run/systemd/resolve/io.systemd.Resolve) -> 0 (ok)
+[ravengun-net-log] + 0.168264 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 9
+[ravengun-net-log] + 0.168276 pid 1462986: bind(fd 9 -> AF_INET 0.0.0.0:10000) -> 0
+[ravengun-net-log] + 0.168285 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 10
+[ravengun-net-log] + 0.168293 pid 1462986: bind(fd 10 -> AF_INET 0.0.0.0:0) -> 0
+[ravengun-net-log] + 0.169638 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 0.169667 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 0.169690 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 0.169710 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 0.169730 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 0.169750 pid 1462986: socket(domain=2 type=2 proto=0) -> fd 11
+[ravengun-net-log] + 2.172980 pid 1462986: socket(domain=1 type=1 proto=0) -> fd 12
+[ravengun-net-log] + 2.172997 pid 1462986: connect(fd 12 -> AF_UNIX ) -> 0 (ok)
+[ravengun-net-log] +24.277404 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 18
+[ravengun-net-log] +24.277453 pid 1462986: connect(fd 18 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +29.245456 pid 1462986: socket(domain=1 type=1 proto=0) -> fd 67
+[ravengun-net-log] +29.245479 pid 1462986: connect(fd 67 -> AF_UNIX /run/systemd/resolve/io.systemd.Resolve) -> 0 (ok)
+[ravengun-net-log] +29.448558 pid 1462986: socket(domain=1 type=1 proto=0) -> fd 17
+[ravengun-net-log] +29.448575 pid 1462986: connect(fd 17 -> AF_UNIX /run/systemd/resolve/io.systemd.Resolve) -> 0 (ok)
+[ravengun-net-log] +40.324175 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 17
+[ravengun-net-log] +40.324231 pid 1462986: connect(fd 17 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +71.323500 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 71
+[ravengun-net-log] +71.323570 pid 1462986: connect(fd 71 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +106.323174 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 71
+[ravengun-net-log] +106.323229 pid 1462986: connect(fd 71 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +158.324747 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 71
+[ravengun-net-log] +158.324793 pid 1462986: connect(fd 71 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +253.323519 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 71
+[ravengun-net-log] +253.323576 pid 1462986: connect(fd 71 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)
+[ravengun-net-log] +427.324905 pid 1462986: socket(domain=2 type=1 proto=6) -> fd 71
+[ravengun-net-log] +427.324956 pid 1462986: connect(fd 71 -> AF_INET 67.217.33.130:8685) -> -1 errno=115 (Operation now in progress)

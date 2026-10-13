@@ -1,5 +1,11 @@
 # De keten van Terminator Salvation — en acht instrumentfouten
 
+> **ACHTERHAALD voor wat betreft §1, §5, §6 en §7 (2026-10-13, 21:45).** De conclusie "de gast vraagt
+> naar een hulpbron die niemand aanmaakt en eindigt met exit 0 zonder te tekenen" gold voor de stand
+> van 14:48, zonder werkende dongle-haak. Sinds de avond tekent de game en draait zijn attract-lus op
+> onze eigen lader: zie **`ATTRACT-RUN.md`**. Wat hieronder blijft gelden: de keten met namen (§2), de
+> negen sub-stappen (§3) en het register van instrumentfouten (§4).
+
 **Versie van dit dossier:** 2026-10-13, einde van de dag. Game: `game` (sha256
 `798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a`, 7.764.284 B, ELF32 i386,
 niet-PIE, `e_entry 0x08057240`). Lader: onze eigen `rg-elfloader` (`7f83edb2…`).
@@ -177,3 +183,38 @@ een adres in die tabel, is de maker** — en dat is de functie die de kast had e
 **En de projectorwegen leiden niet naar het beeld:** met een werkende synthetische knoop op
 `/dev/ttyS0` opent hij de poort (fd=5) en doet er **niets** mee — geen sonde, geen antwoord nodig.
 De poort is een **aanwezigheidstoets**, geen schakelaar.
+
+---
+
+## 7. TOEGEVOEGD NA §5: de maker heeft een adres (GEMETEN)
+
+**Er zijn veertien `pthread_mutex_init`-aanroepen in het hele bestand. Twee daarvan zijn DE MAKERS:**
+
+| adres | wat het is | bewijs |
+|---|---|---|
+| **`0x82f294e`** | de **mutex-initialisator** van dezelfde familie als de tester | `cmpl $0x0,0x8(%ebp)` ; `call pthread_mutex_init@plt` ; en **`0x82f2984` (de trylock-tester) ligt 0x36 bytes verder** |
+| **`0x81cccf0`** | een tweede wikkel die een pointer-argument initialiseert | `mov 0x8(%ebp),%eax` ; `movl $0x0,0x4(%esp)` ; `call pthread_mutex_init@plt` |
+
+**De andere twaalf** initialiseren mutexen op **gealloceerd** geheugen
+(`push $0x18/$0x54 ; call malloc ; … ; call pthread_mutex_init`) — dat zijn dynamische sloten,
+**niet** de statische tweetallige tabel op `0x87c3460`.
+
+### De laatste zoektocht (één grep, bench-vrij)
+
+**Wie roept `0x82f294e` of `0x81cccf0` aan met een adres in `0x87c3460`–`0x87c3490`?**
+De tabel heeft twee sleuven van 24 bytes: **`0x87c3460`** en **`0x87c3478`**. De kans is groot dat de
+maker ze **beide in één stukje opstartcode** initialiseert.
+
+**Drie uitkomsten, alle drie een antwoord:**
+1. **er is een aanroeper** → dat is de maker, met naam en adres: de functie die de kast had en onze
+   omgeving niet. Dat is wat een oplossing moet leveren.
+2. **geen aanroeper in de binary** → de tabel wordt **statisch** geïnitialiseerd (of door een
+   constructor). Dan is er geen maker om te leveren maar een **beginwaarde** die wij niet zetten —
+   een interessanter antwoord dan een ontbrekende functie.
+3. **de aanroeper zit achter een pad dat onze omgeving nooit bereikt** → dan is de vraag **welke stap
+   dat pad had moeten openen**, en grijpt het terug op de keten in §2.
+
+**Verwante adressen die hierbij horen:** de tester `0x82f2984` (trylock, `EBUSY → 6`, `EINVAL → 4`),
+de sleutelkiezer `0x80aa4a0` (tweetallige tabel, `seed & 1`, zaad `0x87a3fd0` met `time(NULL)`),
+de objectvraag `0x81c6880(object, 4, &uitvoer)` (toetst veld 0 tegen 1..2), en de schakelaar
+**`0x88ccb88`** (geschreven op `0x80c253e` en `0x810cc94`, gelezen op `0x80c2a49`).

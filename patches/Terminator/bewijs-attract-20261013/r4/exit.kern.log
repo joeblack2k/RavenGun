@@ -1,0 +1,33 @@
+# exit.log van r4, alleen system(), exit(), _exit(), glutInit en signalen (volledig: 10831847 regels, 962710842 B)
+[exitlog] + 0.000001 pid 1546198 CALL system("gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1546198/shim.so' '/run/user/1000/rg-elfloader-1546198/shim.c' 2>&1") from 0x565804ec
+[exitlog] + 1.182678 pid 1546207 CALL system("ls -r /g3/irgun/firmware/ | grep ".mcs" | head -n 1 | sed 's/prom_//g' | sed 's/.mcs//g' > /g3/irgun/cmgr238335.txt") from 0x843b123
+[exitlog] + 1.186633 pid 1546207 CALL system("rm /g3/irgun/cmgr238335.txt") from 0x843b1bb
+[exitlog] + 1.188806 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr885386.txt") from 0x843aced
+[exitlog] + 1.190669 pid 1546207 CALL system("rm /g3/irgun/cmgr885386.txt") from 0x843ad47
+[exitlog] + 3.182851 pid 1546207 CALL glutInit(argc=3) from 0x80c47ee
+[exitlog] + 3.183377 pid 1546207 CALL glutInitDisplayMode(0x3a,0xf6368bac,0x0) from 0x80c47fa
+[exitlog] + 3.183386 pid 1546207 CALL glutInitWindowSize(0x280,0x1e0,0x0) from 0x80c480c
+[exitlog] + 3.183395 pid 1546207 CALL glutInitWindowPosition(0x0,0x0,0x0) from 0x80c481e
+[exitlog] + 3.193145 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr760492.txt") from 0x843aced
+[exitlog] + 3.195441 pid 1546207 CALL system("rm /g3/irgun/cmgr760492.txt") from 0x843ad47
+[exitlog] + 193.205733 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr829813.txt") from 0x843aced
+[exitlog] + 193.208560 pid 1546207 CALL system("rm /g3/irgun/cmgr829813.txt") from 0x843ad47
+[exitlog] + 195.210854 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr953894.txt") from 0x843aced
+[exitlog] + 195.213429 pid 1546207 CALL system("rm /g3/irgun/cmgr953894.txt") from 0x843ad47
+[exitlog] + 405.222074 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr217915.txt") from 0x843aced
+[exitlog] + 405.231572 pid 1546207 CALL system("rm /g3/irgun/cmgr217915.txt") from 0x843ad47
+[exitlog] + 407.234044 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr163154.txt") from 0x843aced
+[exitlog] + 407.236669 pid 1546207 CALL system("rm /g3/irgun/cmgr163154.txt") from 0x843ad47
+[exitlog] + 621.245512 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr484079.txt") from 0x843aced
+[exitlog] + 621.248107 pid 1546207 CALL system("rm /g3/irgun/cmgr484079.txt") from 0x843ad47
+[exitlog] + 623.250413 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr795956.txt") from 0x843aced
+[exitlog] + 623.253114 pid 1546207 CALL system("rm /g3/irgun/cmgr795956.txt") from 0x843ad47
+[exitlog] + 883.263579 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr230572.txt") from 0x843aced
+[exitlog] + 883.265603 pid 1546207 CALL system("rm /g3/irgun/cmgr230572.txt") from 0x843ad47
+[exitlog] + 885.269060 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr839752.txt") from 0x843aced
+[exitlog] + 885.271749 pid 1546207 CALL system("rm /g3/irgun/cmgr839752.txt") from 0x843ad47
+[exitlog] + 1099.280732 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr235499.txt") from 0x843aced
+[exitlog] + 1099.283372 pid 1546207 CALL system("rm /g3/irgun/cmgr235499.txt") from 0x843ad47
+[exitlog] + 1101.285641 pid 1546207 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr966760.txt") from 0x843aced
+[exitlog] + 1101.288261 pid 1546207 CALL system("rm /g3/irgun/cmgr966760.txt") from 0x843ad47
+# weggelaten: 111902 keer 'CALL exit(0) from 0x82f2e59'

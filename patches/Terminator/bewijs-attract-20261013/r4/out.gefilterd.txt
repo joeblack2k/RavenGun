@@ -1,0 +1,123 @@
+# gefilterd: 344 regels 'ERROR: ld.so: object ... cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.' weggelaten; zie LAADBEWIJS.txt voor van wie ze zijn
+rg-elfloader: beeld-bereik 0x8048000..0x8cee000 (12952 KB)
+[ravengun-hasp] dongle 'Terminator' geladen uit ravengun-hasp/Terminator (2 geheugenbestand(en), haspid 0)
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+rg-elfloader: lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (515 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1546198/shim.so' '/run/user/1000/rg-elfloader-1546198/shim.c' 2>&1
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libGLU.so.1: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor
+rg-elfloader: geladen: libglut.so.3
+rg-elfloader: geladen: libpthread.so.0
+rg-elfloader: geladen: librt.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libtheora.so.0: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit
+rg-elfloader: geladen: libogg.so.0
+rg-elfloader: geladen: libPhysXLoader.so.1
+rg-elfloader: geladen: libm.so.6
+rg-elfloader: geladen: libgcc_s.so.1
+rg-elfloader: geladen: libc.so.6
+rg-elfloader: geladen: libdl.so.2
+rg-elfloader: geladen: libstdc++.so.6
+rg-elfloader: geladen in een latere ronde: libGLU.so.1 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor)
+rg-elfloader: geladen in een latere ronde: libtheora.so.0 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit)
+rg-elfloader: stale-map: 496 JMPREL-entries, 0 met stale 0xb7-adres + naam
+rg-elfloader:   onopgelost DT_REL: __gmon_start__ (zwak)
+rg-elfloader: DT_REL: 510 toegepast, 6 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader:   onopgelost DT_JMPREL: __gmon_start__ (zwak)
+rg-elfloader: DT_JMPREL: 495 toegepast, 0 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_JMPREL
+rg-elfloader: geladen; spel /tmp/ts-c/viewr4/game krijgt argv[0]=/tmp/ts-c/viewr4/game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf6368db0, argc 1, envc 78, 17 auxv)
+[ravengun-hasp] hasp_login (vendor_code=4294901760)
+[ravengun-hasp] hasp_login (vendor_code=4294901760)
+[ravengun-hasp] hasp_decrypt (lengte=512 tafel=treffer sleutel=d43663f21b77e5b8108c942773a0d787)
+[ravengun-hasp] hasp_decrypt (lengte=256 tafel=treffer sleutel=f95bc779ab3b4e692720f1de5424a271)
+[ravengun-hasp] hasp_get_sessioninfo
+[ravengun-hasp] hasp_read (fileid=65522 offset=28 lengte=1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=ac8599ca568455aacbc88e9f8ec14b03)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=3d1fa18a79271d5e661577f0f19c5b8d)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=424f47185bd3a97972caa138f74f5d89)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=3d1fb990cceacb920425ff2bb919aecb)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=4cf7b09e5860b97d6772ce5a3c1c6ce6)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=4e0a7cc8597911c5f63415c217645a4f)
+[ravengun-hasp] hasp_read (fileid=65522 offset=12 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65522 offset=12 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65520 offset=0 lengte=36)
+[ravengun-hasp] hasp_read (fileid=65520 offset=36 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65520 offset=0 lengte=36)
+[ravengun-hasp] hasp_read (fileid=65520 offset=36 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65522 offset=0 lengte=4)
+sh: line 1: /g3/irgun/cmgr238335.txt: Read-only file system
+sed: couldn't flush stdout: Broken pipe
+rm: cannot remove '/g3/irgun/cmgr238335.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr885386.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr885386.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr760492.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr760492.txt': No such file or directory
+ATTENTION: default value of option force_glsl_version overridden by environment.
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7b6e7a86eae14618093f18f80cc8b57f)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2041a0e020538620fbd3356b0649fe6b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a30225ec4cb9faed0cd011005)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29c432814d54303a2e0a18ad6121b385)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df60d51e2fe4a94380ef60eac8b208)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=20518c29cf9cf994ff4fa82e1f910353)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=ca191e567233fd54d34c604dc9caa4ac)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a239c041f64037828e524467c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df7016241ab4fcb4ea55cc369c964b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2f24c12b9f709f0ed8966ef23c2ccccd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2022a22b6f70da4c627965af535ccc2b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=517e2c0f7bfb2ae26ab205ce5671a4bd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=da24df2793b46a785cc381d8a121a653)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df03cd7000b2a5abcb68c755d70907)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f43064683786dde73cb0bb1311ae334d)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202322ba74813a1cca6142311eb710b4)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a6bd571d0227bfd864ee36265f057c0e)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a30225ec4cb89022f782b053a)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=8ffe1816321366f07f0aa4fef0981ac9)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a2399b25952fb15af96cdb724)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=da24df2793b46a785cc38cffcc19d4e1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df025750f53f8676321b0d22e210bd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=89fe181051cbdd21f98cb0149d5d281e)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202064f6df7160e297f063a7807f7e82)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=8190d596259240ec7722fb6ab3c6a40b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=fb13cbc892496ac0987fd872a5481a32)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df01dc8cfdbd5bda51bb6b1268a0f9)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202190a3d6b732cd0bf72eee46b610cd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29d5a6a3c7e870690c61ebd453fd4e49)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=b0838e1dbe9712fe5b3ef82462b6ec7c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29cce60fcbb298782d441c064da44d08)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df0033dad58605c3efdae711c8fc25)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=20266c10d2a27233eab569500b533886)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=b0838e1dbe9712fe5b3ef82462b6ec7c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a238f642858fca35d46f2058c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df07e301fec80904434becd20013d7)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202728b9789e7da86007f5fdc3079867)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt: verdere aanroepen worden niet meer gemeld
+sh: line 1: /g3/irgun/cmgr829813.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr829813.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr953894.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr953894.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr217915.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr217915.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr163154.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr163154.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr484079.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr484079.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr795956.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr795956.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr230572.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr230572.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr839752.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr839752.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr235499.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr235499.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr966760.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr966760.txt': No such file or directory

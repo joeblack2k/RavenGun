@@ -1,0 +1,25 @@
+Run r4 -- Terminator Salvation on our own loader, on the TV. 2026-10-13. THE WITNESSED RUN.
+
+start 21:42:28   START injected 21:43:06   attract from 21:43:20   end 22:02:28 (the run's own time limit, rc 124, 1200.0 s)
+Attract held 19 min 5 s (first attract capture 21:43:20, last capture 22:02:25). 110 captures in that window, 109 distinct
+(21:48:43 and 21:55:50 are the same frame). All 115 captures of the run with time and hash: opnames-index.txt.
+Frames that were LOOKED at: ../shots/r4-contactvel.jpg (12 frames over the whole window) and a second sheet of 12 over
+21:43:20-21:49:04 -- demo scenes, the title screen with FREEPLAY, SIGNAL LOST, gun tutorials, Play Mechanix and Halcyon logos.
+SECOND WITNESS: the coordinator's own capture recorded the game drawing from 21:48:32 to 21:59:05 (10 min 33 s) and the
+coordinator looked at those frames. That capture is not in this folder.
+The run was not touched after the START press: no TEST, no further switches.
+
+Recipe: GAME_ENV="force_glsl_version=120" RUNSECS=1200 scripts/rg-tv-env.sh -- bash harness/c-outer.sh r4 ; bash harness/c-probe.sh r4
+Drop-in exactly as in the working tree; checksums of everything: SHA256SUMS.txt. The inner command is binnenr4.sh.
+Difference from r3: both serial pty peers were drained from the first second (two cat lines in c-game.sh), limit 1200 s.
+
+Game log of the run (syslog-this-run.txt): 1 shader failure (shader103b), the file-check warning, then nothing --
+no "JAMMA: jamma_msg() -1" line, no fatal signal, in 20 minutes.
+Serial link: the game wrote 204,546 bytes to /dev/ttyS0 and 12 bytes to /dev/sierra2.
+Dongle: 8 hasp_read calls in the whole run (hook log), no hasp_write; memory files unchanged.
+
+WHAT LOADED AND WHAT DID NOT: see LAADBEWIJS.txt. All eight preloads were mapped in the game process (pid 1546207, ELF32),
+measured through /proc/<pid>/maps at 21:43:37. The 344 "wrong ELF class" lines in the run output are 43 64-bit helper
+processes x 8 libraries; nothing was recorded inside those helpers.
+
+NOT SHOWN by this run: no play, no coin, no gun, no sound, network not isolated. See ATTRACT-RUN.md section 1.

@@ -1,0 +1,16 @@
+Tue Oct 13 21:42:30 2026: ------------------------------
+Tue Oct 13 21:42:30 2026: Welcome to Terminator Salvation
+Tue Oct 13 21:42:30 2026: ------------------------------
+Tue Oct 13 21:42:30 2026: Version: 01.25.00.US RELEASE
+Tue Oct 13 21:42:30 2026: Build: Sep 12 2011 16:42:59
+Tue Oct 13 21:42:30 2026: Current time: October 13 2026 21:42:30
+Tue Oct 13 21:42:32 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=640, h=480, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=256, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=64, h=32, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=256, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:32 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:42:42 2026: DiagCheckAllFiles(): error in shader file include/frag_shadmap.gls.
+Tue Oct 13 21:42:43 2026: GameStart(): .cf file check produced errors.
