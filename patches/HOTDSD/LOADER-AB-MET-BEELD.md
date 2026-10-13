@@ -236,3 +236,84 @@ Let op: dit is een **bewuste wijziging** in de per-game data van dit spel, en ge
 | het ontbreken van een beeldserver | **bevestigd als oorzaak van de 0,8 s**, maar niet van de time-out: met beeld faalt het nog 4 van 5 keer |
 | de daemon | **niet de oorzaak**: zijn log is in alle vijf de runs byte-gelijk (1.119 B, `Advertise`) |
 | wat overblijft | de stap **tussen engine-init en `[InitializeTest] SetupRecords`** — het inlezen van de back-up/boekhouding, of een race daarin (1 succes op 5) |
+
+---
+
+## 13. De minidump uitgelezen: de hang zit in Wine's OpenGL-pad
+
+De vier mislukte runs van 13-10 lieten **vier** minidumps achter (12:56, 13:07, 13:14, 13:24) van
+**allemaal precies 309.902 B** — één deterministisch faalpunt. Op de Deck staan `minidump_dump`,
+`dump_syms` en de Python-module `minidump`; die laatste weigert deze dump omdat er een **Wine-eigen
+streamtype (65520)** in zit. Daarom is de dump **direct uitgelezen** met `struct` (`probes/`-variant
+`re/_dump_manual.py`, `re/_dump_threads.py`, `re/_dump_modules.py` in de lader-repo).
+
+**Wat er in de dump staat GEMETEN:**
+
+| | |
+|---|---|
+| streams | 12, waaronder threadlijst (3), modulelijst (4), exceptie (6), **threadnamen (24)** en Wine's eigen 65520 |
+| modules | **84** |
+| threads | **51**, alle 51 met een naam in de naamstream |
+| exceptie | `code=0x1` (**EXCEPTION_BREAKPOINT**), `addr=kernelbase.dll+0xd947`, op **tid 396** |
+| waar de threads staan | **48 van de 51 in `ntdll.dll`** op `+0xea94`, `+0xf094`, `+0xff94` of `+0xf574` — dat zijn Wine's `NtWaitFor…`-wachtlussen |
+| **de enige thread die niet wacht** | **`wined3d_cs`** (tid 492), en die staat in **`opengl32.dll + 0x10ba4`** |
+| overige Wine-diensten | `FAudio_AudioClientThread`, `audio_client_main`, `wine_mmdevapi_notification`, `wine_rpcrt4_server`, `wine_sechost_device_notify`, `wine_xinput_hid_update` |
+| grafische stapel | **`d3d11.dll` + `wined3d.dll` + `opengl32.dll` + `winex11.drv`** — en **geen DXVK**: geen DXVK-`d3d11.dll` op een eigen basis en **geen `winevulkan`** in de modulelijst |
+
+**De lezing.** `code 0x1` (een `int3`) met het adres in `kernelbase.dll` is de **opzettelijke breekpunt**
+van de assert-route van Unreal — de dump is dus niet de oorspronkelijke fout maar het moment waarop
+Unreal zijn watchdog laat afgaan. Op dat moment staat **elke** thread te wachten behalve Wine's
+**wined3d-commandostream** (`wined3d_cs`), en die zit **in de OpenGL-driver**. De renderthread wacht dus
+op `wined3d_cs`, die niet terugkomt, en de spelthread loopt na 30 s in de watchdog.
+
+Dat verklaart precies wat we zagen: de laatste gemeenschappelijke logregels zijn
+`LogRenderer: Reallocating scene render targets to support 1920x1080 Format 10 NumSamples 1` en
+`LogContentStreaming: Texture pool size now 4000 MB` — **het eerste echte GL-werk** (render targets van
+1920×1080, een texturepool van 4 GB, en vrijwel zeker shadercompilatie). En het verklaart de
+**intermittentie**: dit is afhankelijk van de toestand van de GL-driver (Mesa/radeonsi), niet van de lader,
+niet van de inhoud, niet van de daemon — en de geslaagde run doorliep datzelfde punt kennelijk net wel.
+
+**Dit is de vierde hypothese, en de eerste die de intermittentie én de exacte plek verklaart.** De
+eerdere drie (lader, content via het netwerk, ontbrekend scherm) zijn daarmee niet de oorzaak van de
+time-out: het scherm was de oorzaak van de "0,8 s", en deze hang is iets anders.
+
+**Wat hieruit volgt als eerstvolgende stappen:**
+
+1. **DXVK in plaats van wined3d.** De notitie van 10-11 zegt "DXVK niet nodig (beeld scherp, geen
+   foutmeldingen)" — er is dus met **wined3d** gedraaid, en juist daar zit de hang. DXVK vervangt de
+   hele route `d3d11 → wined3d → opengl32` door `d3d11 → Vulkan` en omzeilt de commandostream-thread
+   volledig. Het project heeft al een per-game `[Wine] DllOverrides` (zie `patches/_defaults/*.ini`), dus
+   dit is een wijziging in de per-game data en geen nieuw mechanisme.
+2. **De hangende GL-aanroep benoemen** met `WINEDEBUG=+wined3d` (of `+d3d`): de laatste regels vóór de
+   stilte zeggen of het om shadercompilatie (`glCompileShader`/`glLinkProgram`), een buffermapping of een
+   `glFinish` gaat. Dat is één run en het maakt de volgende stap gericht.
+3. **`-UNATTENDED` meten** zoals goedgekeurd: de crashstaart zou van ±60 s naar vrijwel niets moeten gaan.
+   Dat staat los van deze hang en is nog steeds de moeite waard.
+4. **De daemon-argumenten** — de sleutel bestaat en is gedocumenteerd: **`[Launch] SecondArguments`**
+   (letterlijk; anders `SecondExecutableArguments` van het profiel) en **`[Launch] SecondWait`** voor de
+   wachttijd (standaard 5 s). Er is dus **geen nieuw mechanisme nodig** en ik hoef niets te verzinnen.
+   Gezien §13 zakt deze test wel in prioriteit: de daemon gedroeg zich in alle vijf de runs identiek.
+
+### 13b. Aanvulling: DXVK is hier NIET geïnstalleerd (en ik heb dat eerst verkeerd gelezen)
+
+Ik zag in de prefix DLL's met de namen `d3d11.dll` (1.088.856 B), `dxgi.dll` (591.163 B),
+`d3d9.dll` (457.784 B) en `d3d10core.dll` (84.252 B) en dacht even dat DXVK er al stond. **Dat is niet
+zo**: geen van die vier bevat de tekenreeks `dxvk` (0 treffers). Het zijn de builtins van de
+Proton-/Wine-build die in de prefix zijn gekopieerd, geen DXVK.
+
+**De harde aanwijzing dat wined3d in gebruik was, staat in de dump zelf:** het proces had
+**`wined3d.dll` geladen** (3.686.400 B image) — DXVK laadt `wined3d` nooit — en de vastgelopen thread
+heet letterlijk **`wined3d_cs`**. (Let op: de maten in de modulelijst van een minidump zijn
+`SizeOfImage` uit de PE-kop, niet de bestandsgrootte; die twee mag je niet vergelijken. Mijn eerste
+vergelijking 487.424 versus 1.088.856 sloeg daar op en was dus geen bewijs.)
+
+**DXVK ís in het project bekend**: twee andere prefixes hebben DXVK-sporen
+(`prefixes/unity-aagames` en `prefixes/ravengun-test-dxvk`, beide met een `AppData/Local/dxvk`-cache).
+Voor deze prefix en deze game is het dus een **omgevingswijziging**, geen per-game gegeven: of de
+bestaande DXVK-prefix gebruiken, of DXVK in een **prive-kopie** van de gedeelde prefix zetten. Dat is
+een keuze voor de eigenaar/laderbouwer, niet iets wat ik stilzwijgend doe.
+
+**En het mechanisme voor de override bestaat al**: `[Wine] DllOverrides` is een ondersteunde sleutel —
+de launcher voegt hem samen in `WINEDLLOVERRIDES` (regel 604–605), en `patches/_defaults/OpenParrot.ini`
+gebruikt hem al (`DllOverrides = d3d9=b`). Zodra de DXVK-DLL's er staan is
+`[Wine] DllOverrides = d3d11=n,b; dxgi=n,b; d3d10core=n,b` dus genoeg, zonder nieuw mechanisme.

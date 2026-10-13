@@ -1,0 +1,9 @@
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen in een latere ronde: libGLU.so.1 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor)
+rg-elfloader: geladen in een latere ronde: libtheora.so.0 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit)
+rg-elfloader:   onopgelost DT_REL: __gmon_start__ (zwak)
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader:   onopgelost DT_JMPREL: __gmon_start__ (zwak)
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_JMPREL
+rg-elfloader: geladen; spel /tmp/ts-twee/a/view/game krijgt argv[0]=/tmp/ts-twee/a/view/game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf7b68e90, argc 1, envc 23, 17 auxv)

@@ -1,0 +1,1956 @@
++ 0.000010 pid=1004540 ppid=1004539 start (kind-waarnemer actief, meet alleen)
++ 0.026516 pid=1004540 ppid=1004539 kind-gemaakt kind=1004547
++ 0.026545 pid=1004547 ppid=1004540 kind-start
++ 0.036722 pid=1004540 ppid=1004539 kind-gemaakt kind=1004548
++ 0.036740 pid=1004548 ppid=1004540 kind-start
++ 0.036775 pid=1004548 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.036784 pid=1004548 ppid=1004540 einde exit-code=0
++ 0.037147 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004548 status=0x0 geëindigd met code 0
++ 0.047364 pid=1004540 ppid=1004539 kind-gemaakt kind=1004549
++ 0.047379 pid=1004549 ppid=1004540 kind-start
++ 0.047409 pid=1004549 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.047417 pid=1004549 ppid=1004540 einde exit-code=0
++ 0.047697 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004549 status=0x0 geëindigd met code 0
++ 0.057910 pid=1004540 ppid=1004539 kind-gemaakt kind=1004550
++ 0.057939 pid=1004550 ppid=1004540 kind-start
++ 0.057987 pid=1004550 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.057997 pid=1004550 ppid=1004540 einde exit-code=0
++ 0.058339 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004550 status=0x0 geëindigd met code 0
++ 0.068544 pid=1004540 ppid=1004539 kind-gemaakt kind=1004551
++ 0.068570 pid=1004551 ppid=1004540 kind-start
++ 0.068611 pid=1004551 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.068621 pid=1004551 ppid=1004540 einde exit-code=0
++ 0.068939 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004551 status=0x0 geëindigd met code 0
++ 0.079146 pid=1004540 ppid=1004539 kind-gemaakt kind=1004552
++ 0.079170 pid=1004552 ppid=1004540 kind-start
++ 0.079212 pid=1004552 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.079221 pid=1004552 ppid=1004540 einde exit-code=0
++ 0.079550 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004552 status=0x0 geëindigd met code 0
++ 0.089746 pid=1004540 ppid=1004539 kind-gemaakt kind=1004553
++ 0.089770 pid=1004553 ppid=1004540 kind-start
++ 0.089814 pid=1004553 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.089823 pid=1004553 ppid=1004540 einde exit-code=0
++ 0.090212 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004553 status=0x0 geëindigd met code 0
++ 0.100423 pid=1004540 ppid=1004539 kind-gemaakt kind=1004554
++ 0.100463 pid=1004554 ppid=1004540 kind-start
++ 0.100512 pid=1004554 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.100523 pid=1004554 ppid=1004540 einde exit-code=0
++ 0.100866 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004554 status=0x0 geëindigd met code 0
++ 0.111043 pid=1004540 ppid=1004539 kind-gemaakt kind=1004555
++ 0.111079 pid=1004555 ppid=1004540 kind-start
++ 0.111119 pid=1004555 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.111127 pid=1004555 ppid=1004540 einde exit-code=0
++ 0.111410 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004555 status=0x0 geëindigd met code 0
++ 0.121615 pid=1004540 ppid=1004539 kind-gemaakt kind=1004556
++ 0.121648 pid=1004556 ppid=1004540 kind-start
++ 0.121688 pid=1004556 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.121697 pid=1004556 ppid=1004540 einde exit-code=0
++ 0.122071 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004556 status=0x0 geëindigd met code 0
++ 0.132271 pid=1004540 ppid=1004539 kind-gemaakt kind=1004557
++ 0.132313 pid=1004557 ppid=1004540 kind-start
++ 0.132365 pid=1004557 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.132375 pid=1004557 ppid=1004540 einde exit-code=0
++ 0.132718 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004557 status=0x0 geëindigd met code 0
++ 0.143012 pid=1004540 ppid=1004539 kind-gemaakt kind=1004558
++ 0.143037 pid=1004558 ppid=1004540 kind-start
++ 0.143086 pid=1004558 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.143100 pid=1004558 ppid=1004540 einde exit-code=0
++ 0.143463 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004558 status=0x0 geëindigd met code 0
++ 0.153683 pid=1004540 ppid=1004539 kind-gemaakt kind=1004559
++ 0.153719 pid=1004559 ppid=1004540 kind-start
++ 0.153768 pid=1004559 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.153779 pid=1004559 ppid=1004540 einde exit-code=0
++ 0.154172 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004559 status=0x0 geëindigd met code 0
++ 0.164360 pid=1004540 ppid=1004539 kind-gemaakt kind=1004564
++ 0.164395 pid=1004564 ppid=1004540 kind-start
++ 0.164437 pid=1004564 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.164446 pid=1004564 ppid=1004540 einde exit-code=0
++ 0.164726 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004564 status=0x0 geëindigd met code 0
++ 0.174913 pid=1004540 ppid=1004539 kind-gemaakt kind=1004565
++ 0.174954 pid=1004565 ppid=1004540 kind-start
++ 0.175003 pid=1004565 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.175014 pid=1004565 ppid=1004540 einde exit-code=0
++ 0.175362 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004565 status=0x0 geëindigd met code 0
++ 0.185538 pid=1004540 ppid=1004539 kind-gemaakt kind=1004566
++ 0.185569 pid=1004566 ppid=1004540 kind-start
++ 0.185610 pid=1004566 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.185618 pid=1004566 ppid=1004540 einde exit-code=0
++ 0.185922 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004566 status=0x0 geëindigd met code 0
++ 0.196137 pid=1004540 ppid=1004539 kind-gemaakt kind=1004571
++ 0.196166 pid=1004571 ppid=1004540 kind-start
++ 0.196206 pid=1004571 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.196215 pid=1004571 ppid=1004540 einde exit-code=0
++ 0.196496 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004571 status=0x0 geëindigd met code 0
++ 0.206700 pid=1004540 ppid=1004539 kind-gemaakt kind=1004572
++ 0.206733 pid=1004572 ppid=1004540 kind-start
++ 0.206773 pid=1004572 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.206781 pid=1004572 ppid=1004540 einde exit-code=0
++ 0.207150 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004572 status=0x0 geëindigd met code 0
++ 0.217349 pid=1004540 ppid=1004539 kind-gemaakt kind=1004573
++ 0.217377 pid=1004573 ppid=1004540 kind-start
++ 0.217424 pid=1004573 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.217435 pid=1004573 ppid=1004540 einde exit-code=0
++ 0.217776 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004573 status=0x0 geëindigd met code 0
++ 0.227955 pid=1004540 ppid=1004539 kind-gemaakt kind=1004574
++ 0.227983 pid=1004574 ppid=1004540 kind-start
++ 0.228024 pid=1004574 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.228034 pid=1004574 ppid=1004540 einde exit-code=0
++ 0.228363 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004574 status=0x0 geëindigd met code 0
++ 0.238542 pid=1004540 ppid=1004539 kind-gemaakt kind=1004575
++ 0.238569 pid=1004575 ppid=1004540 kind-start
++ 0.238608 pid=1004575 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.238617 pid=1004575 ppid=1004540 einde exit-code=0
++ 0.238953 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004575 status=0x0 geëindigd met code 0
++ 0.249133 pid=1004540 ppid=1004539 kind-gemaakt kind=1004576
++ 0.249159 pid=1004576 ppid=1004540 kind-start
++ 0.249203 pid=1004576 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.249216 pid=1004576 ppid=1004540 einde exit-code=0
++ 0.249549 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004576 status=0x0 geëindigd met code 0
++ 0.259728 pid=1004540 ppid=1004539 kind-gemaakt kind=1004577
++ 0.259752 pid=1004577 ppid=1004540 kind-start
++ 0.259793 pid=1004577 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.259803 pid=1004577 ppid=1004540 einde exit-code=0
++ 0.260150 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004577 status=0x0 geëindigd met code 0
++ 0.270334 pid=1004540 ppid=1004539 kind-gemaakt kind=1004578
++ 0.270360 pid=1004578 ppid=1004540 kind-start
++ 0.270400 pid=1004578 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.270409 pid=1004578 ppid=1004540 einde exit-code=0
++ 0.270725 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004578 status=0x0 geëindigd met code 0
++ 0.280927 pid=1004540 ppid=1004539 kind-gemaakt kind=1004579
++ 0.280952 pid=1004579 ppid=1004540 kind-start
++ 0.280991 pid=1004579 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.281000 pid=1004579 ppid=1004540 einde exit-code=0
++ 0.281318 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004579 status=0x0 geëindigd met code 0
++ 0.291496 pid=1004540 ppid=1004539 kind-gemaakt kind=1004580
++ 0.291514 pid=1004580 ppid=1004540 kind-start
++ 0.291546 pid=1004580 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.291553 pid=1004580 ppid=1004540 einde exit-code=0
++ 0.291808 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004580 status=0x0 geëindigd met code 0
++ 0.301975 pid=1004540 ppid=1004539 kind-gemaakt kind=1004581
++ 0.301992 pid=1004581 ppid=1004540 kind-start
++ 0.302025 pid=1004581 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.302032 pid=1004581 ppid=1004540 einde exit-code=0
++ 0.302293 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004581 status=0x0 geëindigd met code 0
++ 0.312492 pid=1004540 ppid=1004539 kind-gemaakt kind=1004582
++ 0.312532 pid=1004582 ppid=1004540 kind-start
++ 0.312582 pid=1004582 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.312593 pid=1004582 ppid=1004540 einde exit-code=0
++ 0.312937 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004582 status=0x0 geëindigd met code 0
++ 0.323159 pid=1004540 ppid=1004539 kind-gemaakt kind=1004583
++ 0.323184 pid=1004583 ppid=1004540 kind-start
++ 0.323223 pid=1004583 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.323232 pid=1004583 ppid=1004540 einde exit-code=0
++ 0.323544 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004583 status=0x0 geëindigd met code 0
++ 0.333743 pid=1004540 ppid=1004539 kind-gemaakt kind=1004584
++ 0.333770 pid=1004584 ppid=1004540 kind-start
++ 0.333808 pid=1004584 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.333817 pid=1004584 ppid=1004540 einde exit-code=0
++ 0.334200 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004584 status=0x0 geëindigd met code 0
++ 0.344371 pid=1004540 ppid=1004539 kind-gemaakt kind=1004585
++ 0.344412 pid=1004585 ppid=1004540 kind-start
++ 0.344461 pid=1004585 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.344472 pid=1004585 ppid=1004540 einde exit-code=0
++ 0.344812 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004585 status=0x0 geëindigd met code 0
++ 0.354955 pid=1004540 ppid=1004539 kind-gemaakt kind=1004586
++ 0.354987 pid=1004586 ppid=1004540 kind-start
++ 0.355027 pid=1004586 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.355036 pid=1004586 ppid=1004540 einde exit-code=0
++ 0.355318 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004586 status=0x0 geëindigd met code 0
++ 0.365517 pid=1004540 ppid=1004539 kind-gemaakt kind=1004587
++ 0.365557 pid=1004587 ppid=1004540 kind-start
++ 0.365606 pid=1004587 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.365617 pid=1004587 ppid=1004540 einde exit-code=0
++ 0.366002 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004587 status=0x0 geëindigd met code 0
++ 0.376211 pid=1004540 ppid=1004539 kind-gemaakt kind=1004588
++ 0.376249 pid=1004588 ppid=1004540 kind-start
++ 0.376298 pid=1004588 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.376309 pid=1004588 ppid=1004540 einde exit-code=0
++ 0.376658 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004588 status=0x0 geëindigd met code 0
++ 0.386900 pid=1004540 ppid=1004539 kind-gemaakt kind=1004589
++ 0.386926 pid=1004589 ppid=1004540 kind-start
++ 0.386967 pid=1004589 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.386976 pid=1004589 ppid=1004540 einde exit-code=0
++ 0.387284 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004589 status=0x0 geëindigd met code 0
++ 0.397500 pid=1004540 ppid=1004539 kind-gemaakt kind=1004590
++ 0.397542 pid=1004590 ppid=1004540 kind-start
++ 0.397591 pid=1004590 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.397601 pid=1004590 ppid=1004540 einde exit-code=0
++ 0.397985 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004590 status=0x0 geëindigd met code 0
++ 0.408199 pid=1004540 ppid=1004539 kind-gemaakt kind=1004591
++ 0.408240 pid=1004591 ppid=1004540 kind-start
++ 0.408289 pid=1004591 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.408300 pid=1004591 ppid=1004540 einde exit-code=0
++ 0.408643 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004591 status=0x0 geëindigd met code 0
++ 0.418824 pid=1004540 ppid=1004539 kind-gemaakt kind=1004592
++ 0.418899 pid=1004592 ppid=1004540 kind-start
++ 0.418951 pid=1004592 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.418962 pid=1004592 ppid=1004540 einde exit-code=0
++ 0.419315 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004592 status=0x0 geëindigd met code 0
++ 0.429521 pid=1004540 ppid=1004539 kind-gemaakt kind=1004593
++ 0.429552 pid=1004593 ppid=1004540 kind-start
++ 0.429592 pid=1004593 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.429601 pid=1004593 ppid=1004540 einde exit-code=0
++ 0.429893 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004593 status=0x0 geëindigd met code 0
++ 0.440074 pid=1004540 ppid=1004539 kind-gemaakt kind=1004594
++ 0.440114 pid=1004594 ppid=1004540 kind-start
++ 0.440164 pid=1004594 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.440174 pid=1004594 ppid=1004540 einde exit-code=0
++ 0.440520 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004594 status=0x0 geëindigd met code 0
++ 0.450730 pid=1004540 ppid=1004539 kind-gemaakt kind=1004595
++ 0.450768 pid=1004595 ppid=1004540 kind-start
++ 0.450817 pid=1004595 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.450828 pid=1004595 ppid=1004540 einde exit-code=0
++ 0.451237 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004595 status=0x0 geëindigd met code 0
++ 0.461411 pid=1004540 ppid=1004539 kind-gemaakt kind=1004596
++ 0.461451 pid=1004596 ppid=1004540 kind-start
++ 0.461500 pid=1004596 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.461511 pid=1004596 ppid=1004540 einde exit-code=0
++ 0.461866 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004596 status=0x0 geëindigd met code 0
++ 0.472071 pid=1004540 ppid=1004539 kind-gemaakt kind=1004597
++ 0.472102 pid=1004597 ppid=1004540 kind-start
++ 0.472145 pid=1004597 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.472154 pid=1004597 ppid=1004540 einde exit-code=0
++ 0.472437 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004597 status=0x0 geëindigd met code 0
++ 0.482611 pid=1004540 ppid=1004539 kind-gemaakt kind=1004598
++ 0.482645 pid=1004598 ppid=1004540 kind-start
++ 0.482687 pid=1004598 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.482695 pid=1004598 ppid=1004540 einde exit-code=0
++ 0.483044 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004598 status=0x0 geëindigd met code 0
++ 0.493236 pid=1004540 ppid=1004539 kind-gemaakt kind=1004599
++ 0.493281 pid=1004599 ppid=1004540 kind-start
++ 0.493331 pid=1004599 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.493342 pid=1004599 ppid=1004540 einde exit-code=0
++ 0.493690 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004599 status=0x0 geëindigd met code 0
++ 0.503882 pid=1004540 ppid=1004539 kind-gemaakt kind=1004600
++ 0.503905 pid=1004600 ppid=1004540 kind-start
++ 0.503945 pid=1004600 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.503954 pid=1004600 ppid=1004540 einde exit-code=0
++ 0.504233 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004600 status=0x0 geëindigd met code 0
++ 0.514437 pid=1004540 ppid=1004539 kind-gemaakt kind=1004601
++ 0.514482 pid=1004601 ppid=1004540 kind-start
++ 0.514531 pid=1004601 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.514542 pid=1004601 ppid=1004540 einde exit-code=0
++ 0.514890 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004601 status=0x0 geëindigd met code 0
++ 0.525071 pid=1004540 ppid=1004539 kind-gemaakt kind=1004602
++ 0.525114 pid=1004602 ppid=1004540 kind-start
++ 0.525163 pid=1004602 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.525173 pid=1004602 ppid=1004540 einde exit-code=0
++ 0.525519 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004602 status=0x0 geëindigd met code 0
++ 0.535718 pid=1004540 ppid=1004539 kind-gemaakt kind=1004603
++ 0.535749 pid=1004603 ppid=1004540 kind-start
++ 0.535790 pid=1004603 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.535799 pid=1004603 ppid=1004540 einde exit-code=0
++ 0.536083 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004603 status=0x0 geëindigd met code 0
++ 0.546281 pid=1004540 ppid=1004539 kind-gemaakt kind=1004604
++ 0.546314 pid=1004604 ppid=1004540 kind-start
++ 0.546354 pid=1004604 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.546363 pid=1004604 ppid=1004540 einde exit-code=0
++ 0.546646 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004604 status=0x0 geëindigd met code 0
++ 0.556826 pid=1004540 ppid=1004539 kind-gemaakt kind=1004605
++ 0.556862 pid=1004605 ppid=1004540 kind-start
++ 0.556911 pid=1004605 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.556922 pid=1004605 ppid=1004540 einde exit-code=0
++ 0.557270 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004605 status=0x0 geëindigd met code 0
++ 0.567449 pid=1004540 ppid=1004539 kind-gemaakt kind=1004606
++ 0.567482 pid=1004606 ppid=1004540 kind-start
++ 0.567522 pid=1004606 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.567531 pid=1004606 ppid=1004540 einde exit-code=0
++ 0.567809 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004606 status=0x0 geëindigd met code 0
++ 0.577975 pid=1004540 ppid=1004539 kind-gemaakt kind=1004607
++ 0.578015 pid=1004607 ppid=1004540 kind-start
++ 0.578064 pid=1004607 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.578074 pid=1004607 ppid=1004540 einde exit-code=0
++ 0.578416 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004607 status=0x0 geëindigd met code 0
++ 0.588612 pid=1004540 ppid=1004539 kind-gemaakt kind=1004608
++ 0.588648 pid=1004608 ppid=1004540 kind-start
++ 0.588688 pid=1004608 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.588697 pid=1004608 ppid=1004540 einde exit-code=0
++ 0.588986 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004608 status=0x0 geëindigd met code 0
++ 0.599163 pid=1004540 ppid=1004539 kind-gemaakt kind=1004609
++ 0.599197 pid=1004609 ppid=1004540 kind-start
++ 0.599237 pid=1004609 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.599246 pid=1004609 ppid=1004540 einde exit-code=0
++ 0.599530 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004609 status=0x0 geëindigd met code 0
++ 0.609741 pid=1004540 ppid=1004539 kind-gemaakt kind=1004610
++ 0.609771 pid=1004610 ppid=1004540 kind-start
++ 0.609820 pid=1004610 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.609836 pid=1004610 ppid=1004540 einde exit-code=0
++ 0.610124 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004610 status=0x0 geëindigd met code 0
++ 0.620334 pid=1004540 ppid=1004539 kind-gemaakt kind=1004611
++ 0.620353 pid=1004611 ppid=1004540 kind-start
++ 0.620389 pid=1004611 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.620397 pid=1004611 ppid=1004540 einde exit-code=0
++ 0.620673 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004611 status=0x0 geëindigd met code 0
++ 0.630857 pid=1004540 ppid=1004539 kind-gemaakt kind=1004612
++ 0.630885 pid=1004612 ppid=1004540 kind-start
++ 0.630926 pid=1004612 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.630936 pid=1004612 ppid=1004540 einde exit-code=0
++ 0.631265 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004612 status=0x0 geëindigd met code 0
++ 0.641451 pid=1004540 ppid=1004539 kind-gemaakt kind=1004613
++ 0.641476 pid=1004613 ppid=1004540 kind-start
++ 0.641515 pid=1004613 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.641524 pid=1004613 ppid=1004540 einde exit-code=0
++ 0.641841 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004613 status=0x0 geëindigd met code 0
++ 0.652023 pid=1004540 ppid=1004539 kind-gemaakt kind=1004614
++ 0.652049 pid=1004614 ppid=1004540 kind-start
++ 0.652089 pid=1004614 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.652098 pid=1004614 ppid=1004540 einde exit-code=0
++ 0.652416 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004614 status=0x0 geëindigd met code 0
++ 0.662617 pid=1004540 ppid=1004539 kind-gemaakt kind=1004615
++ 0.662657 pid=1004615 ppid=1004540 kind-start
++ 0.662707 pid=1004615 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.662718 pid=1004615 ppid=1004540 einde exit-code=0
++ 0.663067 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004615 status=0x0 geëindigd met code 0
++ 0.673245 pid=1004540 ppid=1004539 kind-gemaakt kind=1004616
++ 0.673288 pid=1004616 ppid=1004540 kind-start
++ 0.673337 pid=1004616 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.673348 pid=1004616 ppid=1004540 einde exit-code=0
++ 0.673689 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004616 status=0x0 geëindigd met code 0
++ 0.683889 pid=1004540 ppid=1004539 kind-gemaakt kind=1004617
++ 0.683916 pid=1004617 ppid=1004540 kind-start
++ 0.683957 pid=1004617 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.683965 pid=1004617 ppid=1004540 einde exit-code=0
++ 0.684251 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004617 status=0x0 geëindigd met code 0
++ 0.694423 pid=1004540 ppid=1004539 kind-gemaakt kind=1004618
++ 0.694448 pid=1004618 ppid=1004540 kind-start
++ 0.694488 pid=1004618 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.694496 pid=1004618 ppid=1004540 einde exit-code=0
++ 0.694774 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004618 status=0x0 geëindigd met code 0
++ 0.704957 pid=1004540 ppid=1004539 kind-gemaakt kind=1004619
++ 0.704978 pid=1004619 ppid=1004540 kind-start
++ 0.705014 pid=1004619 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.705022 pid=1004619 ppid=1004540 einde exit-code=0
++ 0.705292 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004619 status=0x0 geëindigd met code 0
++ 0.715497 pid=1004540 ppid=1004539 kind-gemaakt kind=1004620
++ 0.715516 pid=1004620 ppid=1004540 kind-start
++ 0.715548 pid=1004620 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.715555 pid=1004620 ppid=1004540 einde exit-code=0
++ 0.715815 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004620 status=0x0 geëindigd met code 0
++ 0.726061 pid=1004540 ppid=1004539 kind-gemaakt kind=1004621
++ 0.726075 pid=1004621 ppid=1004540 kind-start
++ 0.726107 pid=1004621 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.726114 pid=1004621 ppid=1004540 einde exit-code=0
++ 0.726376 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004621 status=0x0 geëindigd met code 0
++ 0.736582 pid=1004540 ppid=1004539 kind-gemaakt kind=1004622
++ 0.736605 pid=1004622 ppid=1004540 kind-start
++ 0.736644 pid=1004622 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.736653 pid=1004622 ppid=1004540 einde exit-code=0
++ 0.736963 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004622 status=0x0 geëindigd met code 0
++ 0.747155 pid=1004540 ppid=1004539 kind-gemaakt kind=1004623
++ 0.747180 pid=1004623 ppid=1004540 kind-start
++ 0.747220 pid=1004623 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.747229 pid=1004623 ppid=1004540 einde exit-code=0
++ 0.747545 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004623 status=0x0 geëindigd met code 0
++ 0.757750 pid=1004540 ppid=1004539 kind-gemaakt kind=1004624
++ 0.757775 pid=1004624 ppid=1004540 kind-start
++ 0.757814 pid=1004624 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.757823 pid=1004624 ppid=1004540 einde exit-code=0
++ 0.758147 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004624 status=0x0 geëindigd met code 0
++ 0.768322 pid=1004540 ppid=1004539 kind-gemaakt kind=1004625
++ 0.768348 pid=1004625 ppid=1004540 kind-start
++ 0.768385 pid=1004625 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.768394 pid=1004625 ppid=1004540 einde exit-code=0
++ 0.768705 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004625 status=0x0 geëindigd met code 0
++ 0.778928 pid=1004540 ppid=1004539 kind-gemaakt kind=1004626
++ 0.778973 pid=1004626 ppid=1004540 kind-start
++ 0.779029 pid=1004626 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.779042 pid=1004626 ppid=1004540 einde exit-code=0
++ 0.779437 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004626 status=0x0 geëindigd met code 0
++ 0.789603 pid=1004540 ppid=1004539 kind-gemaakt kind=1004627
++ 0.789648 pid=1004627 ppid=1004540 kind-start
++ 0.789702 pid=1004627 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.789714 pid=1004627 ppid=1004540 einde exit-code=0
++ 0.790109 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004627 status=0x0 geëindigd met code 0
++ 0.800304 pid=1004540 ppid=1004539 kind-gemaakt kind=1004628
++ 0.800340 pid=1004628 ppid=1004540 kind-start
++ 0.800384 pid=1004628 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.800394 pid=1004628 ppid=1004540 einde exit-code=0
++ 0.800702 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004628 status=0x0 geëindigd met code 0
++ 0.810891 pid=1004540 ppid=1004539 kind-gemaakt kind=1004629
++ 0.810934 pid=1004629 ppid=1004540 kind-start
++ 0.810986 pid=1004629 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.810997 pid=1004629 ppid=1004540 einde exit-code=0
++ 0.811364 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004629 status=0x0 geëindigd met code 0
++ 0.821539 pid=1004540 ppid=1004539 kind-gemaakt kind=1004632
++ 0.821570 pid=1004632 ppid=1004540 kind-start
++ 0.821620 pid=1004632 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.821632 pid=1004632 ppid=1004540 einde exit-code=0
++ 0.821953 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004632 status=0x0 geëindigd met code 0
++ 0.832125 pid=1004540 ppid=1004539 kind-gemaakt kind=1004633
++ 0.832146 pid=1004633 ppid=1004540 kind-start
++ 0.832180 pid=1004633 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.832188 pid=1004633 ppid=1004540 einde exit-code=0
++ 0.832452 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004633 status=0x0 geëindigd met code 0
++ 0.842682 pid=1004540 ppid=1004539 kind-gemaakt kind=1004646
++ 0.842698 pid=1004646 ppid=1004540 kind-start
++ 0.842731 pid=1004646 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.842739 pid=1004646 ppid=1004540 einde exit-code=0
++ 0.843079 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004646 status=0x0 geëindigd met code 0
++ 0.853257 pid=1004540 ppid=1004539 kind-gemaakt kind=1004652
++ 0.853279 pid=1004652 ppid=1004540 kind-start
++ 0.853317 pid=1004652 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.853325 pid=1004652 ppid=1004540 einde exit-code=0
++ 0.853581 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004652 status=0x0 geëindigd met code 0
++ 0.863772 pid=1004540 ppid=1004539 kind-gemaakt kind=1004653
++ 0.863798 pid=1004653 ppid=1004540 kind-start
++ 0.863854 pid=1004653 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.863865 pid=1004653 ppid=1004540 einde exit-code=0
++ 0.864191 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004653 status=0x0 geëindigd met code 0
++ 0.874425 pid=1004540 ppid=1004539 kind-gemaakt kind=1004654
++ 0.874443 pid=1004654 ppid=1004540 kind-start
++ 0.874475 pid=1004654 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.874483 pid=1004654 ppid=1004540 einde exit-code=0
++ 0.874783 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004654 status=0x0 geëindigd met code 0
++ 0.885009 pid=1004540 ppid=1004539 kind-gemaakt kind=1004655
++ 0.885028 pid=1004655 ppid=1004540 kind-start
++ 0.885068 pid=1004655 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.885077 pid=1004655 ppid=1004540 einde exit-code=0
++ 0.885373 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004655 status=0x0 geëindigd met code 0
++ 0.895561 pid=1004540 ppid=1004539 kind-gemaakt kind=1004656
++ 0.895591 pid=1004656 ppid=1004540 kind-start
++ 0.895641 pid=1004656 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.895652 pid=1004656 ppid=1004540 einde exit-code=0
++ 0.895996 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004656 status=0x0 geëindigd met code 0
++ 0.906217 pid=1004540 ppid=1004539 kind-gemaakt kind=1004657
++ 0.906242 pid=1004657 ppid=1004540 kind-start
++ 0.906287 pid=1004657 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.906297 pid=1004657 ppid=1004540 einde exit-code=0
++ 0.906644 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004657 status=0x0 geëindigd met code 0
++ 0.916836 pid=1004540 ppid=1004539 kind-gemaakt kind=1004658
++ 0.916863 pid=1004658 ppid=1004540 kind-start
++ 0.916904 pid=1004658 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.916913 pid=1004658 ppid=1004540 einde exit-code=0
++ 0.917244 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004658 status=0x0 geëindigd met code 0
++ 0.927426 pid=1004540 ppid=1004539 kind-gemaakt kind=1004659
++ 0.927448 pid=1004659 ppid=1004540 kind-start
++ 0.927482 pid=1004659 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.927492 pid=1004659 ppid=1004540 einde exit-code=0
++ 0.927775 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004659 status=0x0 geëindigd met code 0
++ 0.937983 pid=1004540 ppid=1004539 kind-gemaakt kind=1004660
++ 0.938008 pid=1004660 ppid=1004540 kind-start
++ 0.938051 pid=1004660 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.938060 pid=1004660 ppid=1004540 einde exit-code=0
++ 0.938389 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004660 status=0x0 geëindigd met code 0
++ 0.948567 pid=1004540 ppid=1004539 kind-gemaakt kind=1004661
++ 0.948610 pid=1004661 ppid=1004540 kind-start
++ 0.948661 pid=1004661 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.948673 pid=1004661 ppid=1004540 einde exit-code=0
++ 0.949016 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004661 status=0x0 geëindigd met code 0
++ 0.959246 pid=1004540 ppid=1004539 kind-gemaakt kind=1004662
++ 0.959286 pid=1004662 ppid=1004540 kind-start
++ 0.959339 pid=1004662 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.959351 pid=1004662 ppid=1004540 einde exit-code=0
++ 0.959729 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004662 status=0x0 geëindigd met code 0
++ 0.969947 pid=1004540 ppid=1004539 kind-gemaakt kind=1004663
++ 0.969977 pid=1004663 ppid=1004540 kind-start
++ 0.970014 pid=1004663 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.970022 pid=1004663 ppid=1004540 einde exit-code=0
++ 0.970277 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004663 status=0x0 geëindigd met code 0
++ 0.980447 pid=1004540 ppid=1004539 kind-gemaakt kind=1004664
++ 0.980478 pid=1004664 ppid=1004540 kind-start
++ 0.980515 pid=1004664 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.980523 pid=1004664 ppid=1004540 einde exit-code=0
++ 0.980783 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004664 status=0x0 geëindigd met code 0
++ 0.990952 pid=1004540 ppid=1004539 kind-gemaakt kind=1004701
++ 0.990987 pid=1004701 ppid=1004540 kind-start
++ 0.991051 pid=1004701 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.991064 pid=1004701 ppid=1004540 einde exit-code=0
++ 0.991328 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004701 status=0x0 geëindigd met code 0
++ 1.001504 pid=1004540 ppid=1004539 kind-gemaakt kind=1004702
++ 1.001529 pid=1004702 ppid=1004540 kind-start
++ 1.001571 pid=1004702 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.001582 pid=1004702 ppid=1004540 einde exit-code=0
++ 1.001977 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004702 status=0x0 geëindigd met code 0
++ 1.012152 pid=1004540 ppid=1004539 kind-gemaakt kind=1004703
++ 1.012197 pid=1004703 ppid=1004540 kind-start
++ 1.012251 pid=1004703 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.012263 pid=1004703 ppid=1004540 einde exit-code=0
++ 1.012632 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004703 status=0x0 geëindigd met code 0
++ 1.022812 pid=1004540 ppid=1004539 kind-gemaakt kind=1004704
++ 1.022855 pid=1004704 ppid=1004540 kind-start
++ 1.022900 pid=1004704 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.022910 pid=1004704 ppid=1004540 einde exit-code=0
++ 1.023205 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004704 status=0x0 geëindigd met code 0
++ 1.033396 pid=1004540 ppid=1004539 kind-gemaakt kind=1004705
++ 1.033413 pid=1004705 ppid=1004540 kind-start
++ 1.033441 pid=1004705 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.033449 pid=1004705 ppid=1004540 einde exit-code=0
++ 1.033698 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004705 status=0x0 geëindigd met code 0
++ 1.043878 pid=1004540 ppid=1004539 kind-gemaakt kind=1004706
++ 1.043906 pid=1004706 ppid=1004540 kind-start
++ 1.043942 pid=1004706 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.043950 pid=1004706 ppid=1004540 einde exit-code=0
++ 1.044243 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004706 status=0x0 geëindigd met code 0
++ 1.054419 pid=1004540 ppid=1004539 kind-gemaakt kind=1004707
++ 1.054444 pid=1004707 ppid=1004540 kind-start
++ 1.054486 pid=1004707 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.054497 pid=1004707 ppid=1004540 einde exit-code=0
++ 1.054843 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004707 status=0x0 geëindigd met code 0
++ 1.065057 pid=1004540 ppid=1004539 kind-gemaakt kind=1004708
++ 1.065085 pid=1004708 ppid=1004540 kind-start
++ 1.065131 pid=1004708 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.065141 pid=1004708 ppid=1004540 einde exit-code=0
++ 1.065493 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004708 status=0x0 geëindigd met code 0
++ 1.075656 pid=1004540 ppid=1004539 kind-gemaakt kind=1004709
++ 1.075685 pid=1004709 ppid=1004540 kind-start
++ 1.075728 pid=1004709 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.075738 pid=1004709 ppid=1004540 einde exit-code=0
++ 1.076054 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004709 status=0x0 geëindigd met code 0
++ 1.086253 pid=1004540 ppid=1004539 kind-gemaakt kind=1004710
++ 1.086281 pid=1004710 ppid=1004540 kind-start
++ 1.086321 pid=1004710 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.086331 pid=1004710 ppid=1004540 einde exit-code=0
++ 1.086686 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004710 status=0x0 geëindigd met code 0
++ 1.096991 pid=1004540 ppid=1004539 kind-gemaakt kind=1004711
++ 1.097028 pid=1004711 ppid=1004540 kind-start
++ 1.097089 pid=1004711 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.097101 pid=1004711 ppid=1004540 einde exit-code=0
++ 1.097489 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004711 status=0x0 geëindigd met code 0
++ 1.107671 pid=1004540 ppid=1004539 kind-gemaakt kind=1004712
++ 1.107697 pid=1004712 ppid=1004540 kind-start
++ 1.107734 pid=1004712 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.107742 pid=1004712 ppid=1004540 einde exit-code=0
++ 1.108118 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004712 status=0x0 geëindigd met code 0
++ 1.118278 pid=1004540 ppid=1004539 kind-gemaakt kind=1004713
++ 1.118323 pid=1004713 ppid=1004540 kind-start
++ 1.118380 pid=1004713 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.118392 pid=1004713 ppid=1004540 einde exit-code=0
++ 1.118767 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004713 status=0x0 geëindigd met code 0
++ 1.128980 pid=1004540 ppid=1004539 kind-gemaakt kind=1004714
++ 1.129010 pid=1004714 ppid=1004540 kind-start
++ 1.129046 pid=1004714 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.129054 pid=1004714 ppid=1004540 einde exit-code=0
++ 1.129311 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004714 status=0x0 geëindigd met code 0
++ 1.139470 pid=1004540 ppid=1004539 kind-gemaakt kind=1004715
++ 1.139518 pid=1004715 ppid=1004540 kind-start
++ 1.139571 pid=1004715 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.139583 pid=1004715 ppid=1004540 einde exit-code=0
++ 1.139935 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004715 status=0x0 geëindigd met code 0
++ 1.150094 pid=1004540 ppid=1004539 kind-gemaakt kind=1004716
++ 1.150126 pid=1004716 ppid=1004540 kind-start
++ 1.150163 pid=1004716 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.150171 pid=1004716 ppid=1004540 einde exit-code=0
++ 1.150429 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004716 status=0x0 geëindigd met code 0
++ 1.160630 pid=1004540 ppid=1004539 kind-gemaakt kind=1004717
++ 1.160676 pid=1004717 ppid=1004540 kind-start
++ 1.160732 pid=1004717 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.160743 pid=1004717 ppid=1004540 einde exit-code=0
++ 1.161076 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004717 status=0x0 geëindigd met code 0
++ 1.171234 pid=1004540 ppid=1004539 kind-gemaakt kind=1004718
++ 1.171278 pid=1004718 ppid=1004540 kind-start
++ 1.171331 pid=1004718 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.171343 pid=1004718 ppid=1004540 einde exit-code=0
++ 1.171715 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004718 status=0x0 geëindigd met code 0
++ 1.181889 pid=1004540 ppid=1004539 kind-gemaakt kind=1004719
++ 1.181914 pid=1004719 ppid=1004540 kind-start
++ 1.181950 pid=1004719 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.181958 pid=1004719 ppid=1004540 einde exit-code=0
++ 1.182214 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004719 status=0x0 geëindigd met code 0
++ 1.192373 pid=1004540 ppid=1004539 kind-gemaakt kind=1004720
++ 1.192406 pid=1004720 ppid=1004540 kind-start
++ 1.192448 pid=1004720 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.192456 pid=1004720 ppid=1004540 einde exit-code=0
++ 1.192714 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004720 status=0x0 geëindigd met code 0
++ 1.202927 pid=1004540 ppid=1004539 kind-gemaakt kind=1004721
++ 1.202957 pid=1004721 ppid=1004540 kind-start
++ 1.202996 pid=1004721 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.203004 pid=1004721 ppid=1004540 einde exit-code=0
++ 1.203259 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004721 status=0x0 geëindigd met code 0
++ 1.213419 pid=1004540 ppid=1004539 kind-gemaakt kind=1004722
++ 1.213468 pid=1004722 ppid=1004540 kind-start
++ 1.213521 pid=1004722 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.213532 pid=1004722 ppid=1004540 einde exit-code=0
++ 1.213936 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004722 status=0x0 geëindigd met code 0
++ 1.224137 pid=1004540 ppid=1004539 kind-gemaakt kind=1004723
++ 1.224183 pid=1004723 ppid=1004540 kind-start
++ 1.224236 pid=1004723 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.224248 pid=1004723 ppid=1004540 einde exit-code=0
++ 1.224627 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004723 status=0x0 geëindigd met code 0
++ 1.234789 pid=1004540 ppid=1004539 kind-gemaakt kind=1004724
++ 1.234845 pid=1004724 ppid=1004540 kind-start
++ 1.234919 pid=1004724 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.234932 pid=1004724 ppid=1004540 einde exit-code=0
++ 1.235313 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004724 status=0x0 geëindigd met code 0
++ 1.245471 pid=1004540 ppid=1004539 kind-gemaakt kind=1004725
++ 1.245519 pid=1004725 ppid=1004540 kind-start
++ 1.245572 pid=1004725 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.245583 pid=1004725 ppid=1004540 einde exit-code=0
++ 1.245995 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004725 status=0x0 geëindigd met code 0
++ 1.256197 pid=1004540 ppid=1004539 kind-gemaakt kind=1004726
++ 1.256226 pid=1004726 ppid=1004540 kind-start
++ 1.256263 pid=1004726 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.256271 pid=1004726 ppid=1004540 einde exit-code=0
++ 1.256530 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004726 status=0x0 geëindigd met code 0
++ 1.266739 pid=1004540 ppid=1004539 kind-gemaakt kind=1004727
++ 1.266770 pid=1004727 ppid=1004540 kind-start
++ 1.266806 pid=1004727 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.266815 pid=1004727 ppid=1004540 einde exit-code=0
++ 1.267102 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004727 status=0x0 geëindigd met code 0
++ 1.277260 pid=1004540 ppid=1004539 kind-gemaakt kind=1004728
++ 1.277306 pid=1004728 ppid=1004540 kind-start
++ 1.277359 pid=1004728 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.277371 pid=1004728 ppid=1004540 einde exit-code=0
++ 1.277754 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004728 status=0x0 geëindigd met code 0
++ 1.287976 pid=1004540 ppid=1004539 kind-gemaakt kind=1004729
++ 1.288004 pid=1004729 ppid=1004540 kind-start
++ 1.288042 pid=1004729 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.288050 pid=1004729 ppid=1004540 einde exit-code=0
++ 1.288314 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004729 status=0x0 geëindigd met code 0
++ 1.298486 pid=1004540 ppid=1004539 kind-gemaakt kind=1004730
++ 1.298532 pid=1004730 ppid=1004540 kind-start
++ 1.298587 pid=1004730 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.298600 pid=1004730 ppid=1004540 einde exit-code=0
++ 1.299036 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004730 status=0x0 geëindigd met code 0
++ 1.309247 pid=1004540 ppid=1004539 kind-gemaakt kind=1004731
++ 1.309291 pid=1004731 ppid=1004540 kind-start
++ 1.309348 pid=1004731 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.309361 pid=1004731 ppid=1004540 einde exit-code=0
++ 1.309764 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004731 status=0x0 geëindigd met code 0
++ 1.319942 pid=1004540 ppid=1004539 kind-gemaakt kind=1004732
++ 1.319978 pid=1004732 ppid=1004540 kind-start
++ 1.320019 pid=1004732 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.320028 pid=1004732 ppid=1004540 einde exit-code=0
++ 1.320306 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004732 status=0x0 geëindigd met code 0
++ 1.330470 pid=1004540 ppid=1004539 kind-gemaakt kind=1004733
++ 1.330505 pid=1004733 ppid=1004540 kind-start
++ 1.330545 pid=1004733 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.330554 pid=1004733 ppid=1004540 einde exit-code=0
++ 1.330847 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004733 status=0x0 geëindigd met code 0
++ 1.341038 pid=1004540 ppid=1004539 kind-gemaakt kind=1004734
++ 1.341072 pid=1004734 ppid=1004540 kind-start
++ 1.341113 pid=1004734 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.341122 pid=1004734 ppid=1004540 einde exit-code=0
++ 1.341409 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004734 status=0x0 geëindigd met code 0
++ 1.351599 pid=1004540 ppid=1004539 kind-gemaakt kind=1004735
++ 1.351634 pid=1004735 ppid=1004540 kind-start
++ 1.351677 pid=1004735 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.351686 pid=1004735 ppid=1004540 einde exit-code=0
++ 1.352038 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004735 status=0x0 geëindigd met code 0
++ 1.362204 pid=1004540 ppid=1004539 kind-gemaakt kind=1004736
++ 1.362248 pid=1004736 ppid=1004540 kind-start
++ 1.362296 pid=1004736 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.362307 pid=1004736 ppid=1004540 einde exit-code=0
++ 1.362650 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004736 status=0x0 geëindigd met code 0
++ 1.372818 pid=1004540 ppid=1004539 kind-gemaakt kind=1004737
++ 1.372886 pid=1004737 ppid=1004540 kind-start
++ 1.372938 pid=1004737 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.372949 pid=1004737 ppid=1004540 einde exit-code=0
++ 1.373309 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004737 status=0x0 geëindigd met code 0
++ 1.383483 pid=1004540 ppid=1004539 kind-gemaakt kind=1004738
++ 1.383510 pid=1004738 ppid=1004540 kind-start
++ 1.383552 pid=1004738 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.383561 pid=1004738 ppid=1004540 einde exit-code=0
++ 1.383843 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004738 status=0x0 geëindigd met code 0
++ 1.394011 pid=1004540 ppid=1004539 kind-gemaakt kind=1004739
++ 1.394042 pid=1004739 ppid=1004540 kind-start
++ 1.394083 pid=1004739 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.394092 pid=1004739 ppid=1004540 einde exit-code=0
++ 1.394420 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004739 status=0x0 geëindigd met code 0
++ 1.404610 pid=1004540 ppid=1004539 kind-gemaakt kind=1004740
++ 1.404644 pid=1004740 ppid=1004540 kind-start
++ 1.404684 pid=1004740 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.404693 pid=1004740 ppid=1004540 einde exit-code=0
++ 1.405035 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004740 status=0x0 geëindigd met code 0
++ 1.415245 pid=1004540 ppid=1004539 kind-gemaakt kind=1004741
++ 1.415288 pid=1004741 ppid=1004540 kind-start
++ 1.415336 pid=1004741 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.415347 pid=1004741 ppid=1004540 einde exit-code=0
++ 1.415696 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004741 status=0x0 geëindigd met code 0
++ 1.425894 pid=1004540 ppid=1004539 kind-gemaakt kind=1004742
++ 1.425930 pid=1004742 ppid=1004540 kind-start
++ 1.425970 pid=1004742 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.425979 pid=1004742 ppid=1004540 einde exit-code=0
++ 1.426265 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004742 status=0x0 geëindigd met code 0
++ 1.436435 pid=1004540 ppid=1004539 kind-gemaakt kind=1004743
++ 1.436479 pid=1004743 ppid=1004540 kind-start
++ 1.436528 pid=1004743 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.436541 pid=1004743 ppid=1004540 einde exit-code=0
++ 1.436894 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004743 status=0x0 geëindigd met code 0
++ 1.447085 pid=1004540 ppid=1004539 kind-gemaakt kind=1004744
++ 1.447118 pid=1004744 ppid=1004540 kind-start
++ 1.447158 pid=1004744 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.447167 pid=1004744 ppid=1004540 einde exit-code=0
++ 1.447446 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004744 status=0x0 geëindigd met code 0
++ 1.457635 pid=1004540 ppid=1004539 kind-gemaakt kind=1004745
++ 1.457667 pid=1004745 ppid=1004540 kind-start
++ 1.457707 pid=1004745 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.457715 pid=1004745 ppid=1004540 einde exit-code=0
++ 1.458066 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004745 status=0x0 geëindigd met code 0
++ 1.468259 pid=1004540 ppid=1004539 kind-gemaakt kind=1004746
++ 1.468301 pid=1004746 ppid=1004540 kind-start
++ 1.468350 pid=1004746 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.468361 pid=1004746 ppid=1004540 einde exit-code=0
++ 1.468700 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004746 status=0x0 geëindigd met code 0
++ 1.478897 pid=1004540 ppid=1004539 kind-gemaakt kind=1004747
++ 1.478923 pid=1004747 ppid=1004540 kind-start
++ 1.478963 pid=1004747 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.478972 pid=1004747 ppid=1004540 einde exit-code=0
++ 1.479254 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004747 status=0x0 geëindigd met code 0
++ 1.489420 pid=1004540 ppid=1004539 kind-gemaakt kind=1004748
++ 1.489455 pid=1004748 ppid=1004540 kind-start
++ 1.489495 pid=1004748 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.489504 pid=1004748 ppid=1004540 einde exit-code=0
++ 1.489781 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004748 status=0x0 geëindigd met code 0
++ 1.499949 pid=1004540 ppid=1004539 kind-gemaakt kind=1004749
++ 1.499987 pid=1004749 ppid=1004540 kind-start
++ 1.500027 pid=1004749 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.500035 pid=1004749 ppid=1004540 einde exit-code=0
++ 1.500312 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004749 status=0x0 geëindigd met code 0
++ 1.510477 pid=1004540 ppid=1004539 kind-gemaakt kind=1004750
++ 1.510521 pid=1004750 ppid=1004540 kind-start
++ 1.510570 pid=1004750 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.510581 pid=1004750 ppid=1004540 einde exit-code=0
++ 1.510967 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004750 status=0x0 geëindigd met code 0
++ 1.521155 pid=1004540 ppid=1004539 kind-gemaakt kind=1004751
++ 1.521198 pid=1004751 ppid=1004540 kind-start
++ 1.521247 pid=1004751 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.521258 pid=1004751 ppid=1004540 einde exit-code=0
++ 1.521602 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004751 status=0x0 geëindigd met code 0
++ 1.531792 pid=1004540 ppid=1004539 kind-gemaakt kind=1004752
++ 1.531827 pid=1004752 ppid=1004540 kind-start
++ 1.531871 pid=1004752 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.531880 pid=1004752 ppid=1004540 einde exit-code=0
++ 1.532167 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004752 status=0x0 geëindigd met code 0
++ 1.542337 pid=1004540 ppid=1004539 kind-gemaakt kind=1004753
++ 1.542373 pid=1004753 ppid=1004540 kind-start
++ 1.542413 pid=1004753 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.542422 pid=1004753 ppid=1004540 einde exit-code=0
++ 1.542700 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004753 status=0x0 geëindigd met code 0
++ 1.552896 pid=1004540 ppid=1004539 kind-gemaakt kind=1004754
++ 1.552931 pid=1004754 ppid=1004540 kind-start
++ 1.552971 pid=1004754 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.552982 pid=1004754 ppid=1004540 einde exit-code=0
++ 1.553268 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004754 status=0x0 geëindigd met code 0
++ 1.563458 pid=1004540 ppid=1004539 kind-gemaakt kind=1004755
++ 1.563501 pid=1004755 ppid=1004540 kind-start
++ 1.563550 pid=1004755 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.563560 pid=1004755 ppid=1004540 einde exit-code=0
++ 1.563943 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004755 status=0x0 geëindigd met code 0
++ 1.574132 pid=1004540 ppid=1004539 kind-gemaakt kind=1004756
++ 1.574172 pid=1004756 ppid=1004540 kind-start
++ 1.574221 pid=1004756 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.574232 pid=1004756 ppid=1004540 einde exit-code=0
++ 1.574579 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004756 status=0x0 geëindigd met code 0
++ 1.584768 pid=1004540 ppid=1004539 kind-gemaakt kind=1004757
++ 1.584802 pid=1004757 ppid=1004540 kind-start
++ 1.584846 pid=1004757 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.584855 pid=1004757 ppid=1004540 einde exit-code=0
++ 1.585133 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004757 status=0x0 geëindigd met code 0
++ 1.595298 pid=1004540 ppid=1004539 kind-gemaakt kind=1004758
++ 1.595336 pid=1004758 ppid=1004540 kind-start
++ 1.595376 pid=1004758 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.595385 pid=1004758 ppid=1004540 einde exit-code=0
++ 1.595663 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004758 status=0x0 geëindigd met code 0
++ 1.605857 pid=1004540 ppid=1004539 kind-gemaakt kind=1004759
++ 1.605888 pid=1004759 ppid=1004540 kind-start
++ 1.605937 pid=1004759 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.605950 pid=1004759 ppid=1004540 einde exit-code=0
++ 1.606299 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004759 status=0x0 geëindigd met code 0
++ 1.616464 pid=1004540 ppid=1004539 kind-gemaakt kind=1004760
++ 1.616500 pid=1004760 ppid=1004540 kind-start
++ 1.616540 pid=1004760 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.616549 pid=1004760 ppid=1004540 einde exit-code=0
++ 1.616826 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004760 status=0x0 geëindigd met code 0
++ 1.627024 pid=1004540 ppid=1004539 kind-gemaakt kind=1004761
++ 1.627058 pid=1004761 ppid=1004540 kind-start
++ 1.627098 pid=1004761 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.627107 pid=1004761 ppid=1004540 einde exit-code=0
++ 1.627391 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004761 status=0x0 geëindigd met code 0
++ 1.637583 pid=1004540 ppid=1004539 kind-gemaakt kind=1004762
++ 1.637618 pid=1004762 ppid=1004540 kind-start
++ 1.637657 pid=1004762 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.637666 pid=1004762 ppid=1004540 einde exit-code=0
++ 1.637968 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004762 status=0x0 geëindigd met code 0
++ 1.648166 pid=1004540 ppid=1004539 kind-gemaakt kind=1004763
++ 1.648201 pid=1004763 ppid=1004540 kind-start
++ 1.648241 pid=1004763 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.648250 pid=1004763 ppid=1004540 einde exit-code=0
++ 1.648532 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004763 status=0x0 geëindigd met code 0
++ 1.658698 pid=1004540 ppid=1004539 kind-gemaakt kind=1004764
++ 1.658739 pid=1004764 ppid=1004540 kind-start
++ 1.658789 pid=1004764 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.658800 pid=1004764 ppid=1004540 einde exit-code=0
++ 1.659113 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004764 status=0x0 geëindigd met code 0
++ 1.669303 pid=1004540 ppid=1004539 kind-gemaakt kind=1004765
++ 1.669343 pid=1004765 ppid=1004540 kind-start
++ 1.669392 pid=1004765 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.669406 pid=1004765 ppid=1004540 einde exit-code=0
++ 1.669747 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004765 status=0x0 geëindigd met code 0
++ 1.679937 pid=1004540 ppid=1004539 kind-gemaakt kind=1004766
++ 1.679972 pid=1004766 ppid=1004540 kind-start
++ 1.680013 pid=1004766 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.680021 pid=1004766 ppid=1004540 einde exit-code=0
++ 1.680304 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004766 status=0x0 geëindigd met code 0
++ 1.690468 pid=1004540 ppid=1004539 kind-gemaakt kind=1004767
++ 1.690508 pid=1004767 ppid=1004540 kind-start
++ 1.690557 pid=1004767 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.690568 pid=1004767 ppid=1004540 einde exit-code=0
++ 1.690959 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004767 status=0x0 geëindigd met code 0
++ 1.701153 pid=1004540 ppid=1004539 kind-gemaakt kind=1004768
++ 1.701192 pid=1004768 ppid=1004540 kind-start
++ 1.701241 pid=1004768 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.701252 pid=1004768 ppid=1004540 einde exit-code=0
++ 1.701602 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004768 status=0x0 geëindigd met code 0
++ 1.711790 pid=1004540 ppid=1004539 kind-gemaakt kind=1004769
++ 1.711822 pid=1004769 ppid=1004540 kind-start
++ 1.711904 pid=1004769 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.711916 pid=1004769 ppid=1004540 einde exit-code=0
++ 1.712264 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004769 status=0x0 geëindigd met code 0
++ 1.722453 pid=1004540 ppid=1004539 kind-gemaakt kind=1004770
++ 1.722496 pid=1004770 ppid=1004540 kind-start
++ 1.722545 pid=1004770 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.722556 pid=1004770 ppid=1004540 einde exit-code=0
++ 1.722927 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004770 status=0x0 geëindigd met code 0
++ 1.733117 pid=1004540 ppid=1004539 kind-gemaakt kind=1004771
++ 1.733152 pid=1004771 ppid=1004540 kind-start
++ 1.733192 pid=1004771 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.733200 pid=1004771 ppid=1004540 einde exit-code=0
++ 1.733501 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004771 status=0x0 geëindigd met code 0
++ 1.743691 pid=1004540 ppid=1004539 kind-gemaakt kind=1004772
++ 1.743734 pid=1004772 ppid=1004540 kind-start
++ 1.743783 pid=1004772 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.743793 pid=1004772 ppid=1004540 einde exit-code=0
++ 1.744195 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004772 status=0x0 geëindigd met code 0
++ 1.754361 pid=1004540 ppid=1004539 kind-gemaakt kind=1004773
++ 1.754401 pid=1004773 ppid=1004540 kind-start
++ 1.754450 pid=1004773 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.754461 pid=1004773 ppid=1004540 einde exit-code=0
++ 1.754805 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004773 status=0x0 geëindigd met code 0
++ 1.764962 pid=1004540 ppid=1004539 kind-gemaakt kind=1004774
++ 1.765001 pid=1004774 ppid=1004540 kind-start
++ 1.765050 pid=1004774 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.765061 pid=1004774 ppid=1004540 einde exit-code=0
++ 1.765406 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004774 status=0x0 geëindigd met code 0
++ 1.775596 pid=1004540 ppid=1004539 kind-gemaakt kind=1004775
++ 1.775639 pid=1004775 ppid=1004540 kind-start
++ 1.775688 pid=1004775 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.775699 pid=1004775 ppid=1004540 einde exit-code=0
++ 1.776047 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004775 status=0x0 geëindigd met code 0
++ 1.786239 pid=1004540 ppid=1004539 kind-gemaakt kind=1004776
++ 1.786282 pid=1004776 ppid=1004540 kind-start
++ 1.786332 pid=1004776 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.786345 pid=1004776 ppid=1004540 einde exit-code=0
++ 1.786692 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004776 status=0x0 geëindigd met code 0
++ 1.796897 pid=1004540 ppid=1004539 kind-gemaakt kind=1004777
++ 1.796927 pid=1004777 ppid=1004540 kind-start
++ 1.796967 pid=1004777 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.796975 pid=1004777 ppid=1004540 einde exit-code=0
++ 1.797260 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004777 status=0x0 geëindigd met code 0
++ 1.807451 pid=1004540 ppid=1004539 kind-gemaakt kind=1004778
++ 1.807494 pid=1004778 ppid=1004540 kind-start
++ 1.807543 pid=1004778 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.807554 pid=1004778 ppid=1004540 einde exit-code=0
++ 1.807943 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004778 status=0x0 geëindigd met code 0
++ 1.818132 pid=1004540 ppid=1004539 kind-gemaakt kind=1004779
++ 1.818175 pid=1004779 ppid=1004540 kind-start
++ 1.818224 pid=1004779 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.818235 pid=1004779 ppid=1004540 einde exit-code=0
++ 1.818580 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004779 status=0x0 geëindigd met code 0
++ 1.828747 pid=1004540 ppid=1004539 kind-gemaakt kind=1004780
++ 1.828781 pid=1004780 ppid=1004540 kind-start
++ 1.828821 pid=1004780 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.828834 pid=1004780 ppid=1004540 einde exit-code=0
++ 1.829225 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004780 status=0x0 geëindigd met code 0
++ 1.839415 pid=1004540 ppid=1004539 kind-gemaakt kind=1004781
++ 1.839454 pid=1004781 ppid=1004540 kind-start
++ 1.839506 pid=1004781 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.839517 pid=1004781 ppid=1004540 einde exit-code=0
++ 1.839896 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004781 status=0x0 geëindigd met code 0
++ 1.850088 pid=1004540 ppid=1004539 kind-gemaakt kind=1004782
++ 1.850128 pid=1004782 ppid=1004540 kind-start
++ 1.850178 pid=1004782 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.850189 pid=1004782 ppid=1004540 einde exit-code=0
++ 1.850537 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004782 status=0x0 geëindigd met code 0
++ 1.860714 pid=1004540 ppid=1004539 kind-gemaakt kind=1004783
++ 1.860746 pid=1004783 ppid=1004540 kind-start
++ 1.860786 pid=1004783 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.860795 pid=1004783 ppid=1004540 einde exit-code=0
++ 1.861181 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004783 status=0x0 geëindigd met code 0
++ 1.871351 pid=1004540 ppid=1004539 kind-gemaakt kind=1004784
++ 1.871391 pid=1004784 ppid=1004540 kind-start
++ 1.871441 pid=1004784 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.871452 pid=1004784 ppid=1004540 einde exit-code=0
++ 1.871802 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004784 status=0x0 geëindigd met code 0
++ 1.881966 pid=1004540 ppid=1004539 kind-gemaakt kind=1004785
++ 1.881999 pid=1004785 ppid=1004540 kind-start
++ 1.882040 pid=1004785 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.882048 pid=1004785 ppid=1004540 einde exit-code=0
++ 1.882328 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004785 status=0x0 geëindigd met code 0
++ 1.892496 pid=1004540 ppid=1004539 kind-gemaakt kind=1004786
++ 1.892531 pid=1004786 ppid=1004540 kind-start
++ 1.892571 pid=1004786 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.892580 pid=1004786 ppid=1004540 einde exit-code=0
++ 1.892901 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004786 status=0x0 geëindigd met code 0
++ 1.903092 pid=1004540 ppid=1004539 kind-gemaakt kind=1004787
++ 1.903116 pid=1004787 ppid=1004540 kind-start
++ 1.903156 pid=1004787 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.903165 pid=1004787 ppid=1004540 einde exit-code=0
++ 1.903453 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004787 status=0x0 geëindigd met code 0
++ 1.913649 pid=1004540 ppid=1004539 kind-gemaakt kind=1004788
++ 1.913676 pid=1004788 ppid=1004540 kind-start
++ 1.913717 pid=1004788 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.913726 pid=1004788 ppid=1004540 einde exit-code=0
++ 1.914119 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004788 status=0x0 geëindigd met code 0
++ 1.924286 pid=1004540 ppid=1004539 kind-gemaakt kind=1004789
++ 1.924326 pid=1004789 ppid=1004540 kind-start
++ 1.924376 pid=1004789 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.924387 pid=1004789 ppid=1004540 einde exit-code=0
++ 1.924730 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004789 status=0x0 geëindigd met code 0
++ 1.934930 pid=1004540 ppid=1004539 kind-gemaakt kind=1004790
++ 1.934966 pid=1004790 ppid=1004540 kind-start
++ 1.935006 pid=1004790 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.935015 pid=1004790 ppid=1004540 einde exit-code=0
++ 1.935298 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004790 status=0x0 geëindigd met code 0
++ 1.945463 pid=1004540 ppid=1004539 kind-gemaakt kind=1004791
++ 1.945498 pid=1004791 ppid=1004540 kind-start
++ 1.945538 pid=1004791 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.945546 pid=1004791 ppid=1004540 einde exit-code=0
++ 1.945836 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004791 status=0x0 geëindigd met code 0
++ 1.956032 pid=1004540 ppid=1004539 kind-gemaakt kind=1004792
++ 1.956058 pid=1004792 ppid=1004540 kind-start
++ 1.956098 pid=1004792 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.956106 pid=1004792 ppid=1004540 einde exit-code=0
++ 1.956387 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004792 status=0x0 geëindigd met code 0
++ 1.966578 pid=1004540 ppid=1004539 kind-gemaakt kind=1004793
++ 1.966599 pid=1004793 ppid=1004540 kind-start
++ 1.966632 pid=1004793 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.966640 pid=1004793 ppid=1004540 einde exit-code=0
++ 1.966965 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004793 status=0x0 geëindigd met code 0
++ 1.977132 pid=1004540 ppid=1004539 kind-gemaakt kind=1004794
++ 1.977168 pid=1004794 ppid=1004540 kind-start
++ 1.977208 pid=1004794 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.977216 pid=1004794 ppid=1004540 einde exit-code=0
++ 1.977500 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004794 status=0x0 geëindigd met code 0
++ 1.987668 pid=1004540 ppid=1004539 kind-gemaakt kind=1004795
++ 1.987704 pid=1004795 ppid=1004540 kind-start
++ 1.987744 pid=1004795 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.987753 pid=1004795 ppid=1004540 einde exit-code=0
++ 1.988070 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004795 status=0x0 geëindigd met code 0
++ 1.998264 pid=1004540 ppid=1004539 kind-gemaakt kind=1004796
++ 1.998304 pid=1004796 ppid=1004540 kind-start
++ 1.998354 pid=1004796 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.998364 pid=1004796 ppid=1004540 einde exit-code=0
++ 1.998709 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004796 status=0x0 geëindigd met code 0
++ 2.008907 pid=1004540 ppid=1004539 kind-gemaakt kind=1004797
++ 2.008940 pid=1004797 ppid=1004540 kind-start
++ 2.008980 pid=1004797 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.008988 pid=1004797 ppid=1004540 einde exit-code=0
++ 2.009273 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004797 status=0x0 geëindigd met code 0
++ 2.019442 pid=1004540 ppid=1004539 kind-gemaakt kind=1004798
++ 2.019486 pid=1004798 ppid=1004540 kind-start
++ 2.019535 pid=1004798 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.019546 pid=1004798 ppid=1004540 einde exit-code=0
++ 2.019928 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004798 status=0x0 geëindigd met code 0
++ 2.030117 pid=1004540 ppid=1004539 kind-gemaakt kind=1004799
++ 2.030157 pid=1004799 ppid=1004540 kind-start
++ 2.030207 pid=1004799 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.030218 pid=1004799 ppid=1004540 einde exit-code=0
++ 2.030559 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004799 status=0x0 geëindigd met code 0
++ 2.040750 pid=1004540 ppid=1004539 kind-gemaakt kind=1004800
++ 2.040781 pid=1004800 ppid=1004540 kind-start
++ 2.040822 pid=1004800 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.040835 pid=1004800 ppid=1004540 einde exit-code=0
++ 2.041149 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004800 status=0x0 geëindigd met code 0
++ 2.051314 pid=1004540 ppid=1004539 kind-gemaakt kind=1004801
++ 2.051358 pid=1004801 ppid=1004540 kind-start
++ 2.051407 pid=1004801 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.051417 pid=1004801 ppid=1004540 einde exit-code=0
++ 2.051753 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004801 status=0x0 geëindigd met code 0
++ 2.061932 pid=1004540 ppid=1004539 kind-gemaakt kind=1004802
++ 2.061965 pid=1004802 ppid=1004540 kind-start
++ 2.062008 pid=1004802 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.062016 pid=1004802 ppid=1004540 einde exit-code=0
++ 2.062302 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004802 status=0x0 geëindigd met code 0
++ 2.072467 pid=1004540 ppid=1004539 kind-gemaakt kind=1004803
++ 2.072501 pid=1004803 ppid=1004540 kind-start
++ 2.072541 pid=1004803 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.072550 pid=1004803 ppid=1004540 einde exit-code=0
++ 2.072827 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004803 status=0x0 geëindigd met code 0
++ 2.082997 pid=1004540 ppid=1004539 kind-gemaakt kind=1004804
++ 2.083024 pid=1004804 ppid=1004540 kind-start
++ 2.083065 pid=1004804 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.083074 pid=1004804 ppid=1004540 einde exit-code=0
++ 2.083402 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004804 status=0x0 geëindigd met code 0
++ 2.093568 pid=1004540 ppid=1004539 kind-gemaakt kind=1004805
++ 2.093595 pid=1004805 ppid=1004540 kind-start
++ 2.093634 pid=1004805 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.093644 pid=1004805 ppid=1004540 einde exit-code=0
++ 2.093980 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004805 status=0x0 geëindigd met code 0
++ 2.104210 pid=1004540 ppid=1004539 kind-gemaakt kind=1004806
++ 2.104242 pid=1004806 ppid=1004540 kind-start
++ 2.104281 pid=1004806 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.104290 pid=1004806 ppid=1004540 einde exit-code=0
++ 2.104614 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004806 status=0x0 geëindigd met code 0
++ 2.114779 pid=1004540 ppid=1004539 kind-gemaakt kind=1004807
++ 2.114820 pid=1004807 ppid=1004540 kind-start
++ 2.114908 pid=1004807 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.114921 pid=1004807 ppid=1004540 einde exit-code=0
++ 2.115268 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004807 status=0x0 geëindigd met code 0
++ 2.125461 pid=1004540 ppid=1004539 kind-gemaakt kind=1004808
++ 2.125503 pid=1004808 ppid=1004540 kind-start
++ 2.125552 pid=1004808 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.125563 pid=1004808 ppid=1004540 einde exit-code=0
++ 2.125920 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004808 status=0x0 geëindigd met code 0
++ 2.136111 pid=1004540 ppid=1004539 kind-gemaakt kind=1004809
++ 2.136154 pid=1004809 ppid=1004540 kind-start
++ 2.136203 pid=1004809 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.136214 pid=1004809 ppid=1004540 einde exit-code=0
++ 2.136565 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004809 status=0x0 geëindigd met code 0
++ 2.146736 pid=1004540 ppid=1004539 kind-gemaakt kind=1004810
++ 2.146771 pid=1004810 ppid=1004540 kind-start
++ 2.146811 pid=1004810 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.146820 pid=1004810 ppid=1004540 einde exit-code=0
++ 2.147203 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004810 status=0x0 geëindigd met code 0
++ 2.157369 pid=1004540 ppid=1004539 kind-gemaakt kind=1004811
++ 2.157410 pid=1004811 ppid=1004540 kind-start
++ 2.157460 pid=1004811 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.157470 pid=1004811 ppid=1004540 einde exit-code=0
++ 2.157822 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004811 status=0x0 geëindigd met code 0
++ 2.167960 pid=1004540 ppid=1004539 kind-gemaakt kind=1004812
++ 2.167993 pid=1004812 ppid=1004540 kind-start
++ 2.168033 pid=1004812 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.168042 pid=1004812 ppid=1004540 einde exit-code=0
++ 2.168323 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004812 status=0x0 geëindigd met code 0
++ 2.178489 pid=1004540 ppid=1004539 kind-gemaakt kind=1004813
++ 2.178524 pid=1004813 ppid=1004540 kind-start
++ 2.178564 pid=1004813 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.178573 pid=1004813 ppid=1004540 einde exit-code=0
++ 2.178888 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004813 status=0x0 geëindigd met code 0
++ 2.189079 pid=1004540 ppid=1004539 kind-gemaakt kind=1004814
++ 2.189112 pid=1004814 ppid=1004540 kind-start
++ 2.189152 pid=1004814 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.189161 pid=1004814 ppid=1004540 einde exit-code=0
++ 2.189440 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004814 status=0x0 geëindigd met code 0
++ 2.199607 pid=1004540 ppid=1004539 kind-gemaakt kind=1004815
++ 2.199641 pid=1004815 ppid=1004540 kind-start
++ 2.199681 pid=1004815 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.199690 pid=1004815 ppid=1004540 einde exit-code=0
++ 2.200036 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004815 status=0x0 geëindigd met code 0
++ 2.210202 pid=1004540 ppid=1004539 kind-gemaakt kind=1004816
++ 2.210243 pid=1004816 ppid=1004540 kind-start
++ 2.210292 pid=1004816 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.210303 pid=1004816 ppid=1004540 einde exit-code=0
++ 2.210645 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004816 status=0x0 geëindigd met code 0
++ 2.220807 pid=1004540 ppid=1004539 kind-gemaakt kind=1004817
++ 2.220857 pid=1004817 ppid=1004540 kind-start
++ 2.220907 pid=1004817 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.220919 pid=1004817 ppid=1004540 einde exit-code=0
++ 2.221271 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004817 status=0x0 geëindigd met code 0
++ 2.231466 pid=1004540 ppid=1004539 kind-gemaakt kind=1004818
++ 2.231498 pid=1004818 ppid=1004540 kind-start
++ 2.231538 pid=1004818 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.231547 pid=1004818 ppid=1004540 einde exit-code=0
++ 2.231827 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004818 status=0x0 geëindigd met code 0
++ 2.242013 pid=1004540 ppid=1004539 kind-gemaakt kind=1004819
++ 2.242052 pid=1004819 ppid=1004540 kind-start
++ 2.242102 pid=1004819 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.242113 pid=1004819 ppid=1004540 einde exit-code=0
++ 2.242459 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004819 status=0x0 geëindigd met code 0
++ 2.252632 pid=1004540 ppid=1004539 kind-gemaakt kind=1004820
++ 2.252673 pid=1004820 ppid=1004540 kind-start
++ 2.252723 pid=1004820 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.252733 pid=1004820 ppid=1004540 einde exit-code=0
++ 2.253088 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004820 status=0x0 geëindigd met code 0
++ 2.263261 pid=1004540 ppid=1004539 kind-gemaakt kind=1004821
++ 2.263301 pid=1004821 ppid=1004540 kind-start
++ 2.263351 pid=1004821 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.263362 pid=1004821 ppid=1004540 einde exit-code=0
++ 2.263701 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004821 status=0x0 geëindigd met code 0
++ 2.273921 pid=1004540 ppid=1004539 kind-gemaakt kind=1004822
++ 2.273949 pid=1004822 ppid=1004540 kind-start
++ 2.273989 pid=1004822 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.273998 pid=1004822 ppid=1004540 einde exit-code=0
++ 2.274302 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004822 status=0x0 geëindigd met code 0
++ 2.284526 pid=1004540 ppid=1004539 kind-gemaakt kind=1004823
++ 2.284556 pid=1004823 ppid=1004540 kind-start
++ 2.284596 pid=1004823 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.284607 pid=1004823 ppid=1004540 einde exit-code=0
++ 2.284936 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004823 status=0x0 geëindigd met code 0
++ 2.295109 pid=1004540 ppid=1004539 kind-gemaakt kind=1004824
++ 2.295136 pid=1004824 ppid=1004540 kind-start
++ 2.295177 pid=1004824 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.295186 pid=1004824 ppid=1004540 einde exit-code=0
++ 2.295467 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004824 status=0x0 geëindigd met code 0
++ 2.305665 pid=1004540 ppid=1004539 kind-gemaakt kind=1004825
++ 2.305692 pid=1004825 ppid=1004540 kind-start
++ 2.305739 pid=1004825 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.305749 pid=1004825 ppid=1004540 einde exit-code=0
++ 2.306068 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004825 status=0x0 geëindigd met code 0
++ 2.316263 pid=1004540 ppid=1004539 kind-gemaakt kind=1004826
++ 2.316297 pid=1004826 ppid=1004540 kind-start
++ 2.316338 pid=1004826 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.316347 pid=1004826 ppid=1004540 einde exit-code=0
++ 2.316630 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004826 status=0x0 geëindigd met code 0
++ 2.326815 pid=1004540 ppid=1004539 kind-gemaakt kind=1004827
++ 2.326852 pid=1004827 ppid=1004540 kind-start
++ 2.326892 pid=1004827 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.326901 pid=1004827 ppid=1004540 einde exit-code=0
++ 2.327181 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004827 status=0x0 geëindigd met code 0
++ 2.337376 pid=1004540 ppid=1004539 kind-gemaakt kind=1004828
++ 2.337410 pid=1004828 ppid=1004540 kind-start
++ 2.337451 pid=1004828 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.337459 pid=1004828 ppid=1004540 einde exit-code=0
++ 2.337746 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004828 status=0x0 geëindigd met code 0
++ 2.347937 pid=1004540 ppid=1004539 kind-gemaakt kind=1004829
++ 2.347973 pid=1004829 ppid=1004540 kind-start
++ 2.348012 pid=1004829 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.348021 pid=1004829 ppid=1004540 einde exit-code=0
++ 2.348299 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004829 status=0x0 geëindigd met code 0
++ 2.358467 pid=1004540 ppid=1004539 kind-gemaakt kind=1004830
++ 2.358493 pid=1004830 ppid=1004540 kind-start
++ 2.358532 pid=1004830 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.358541 pid=1004830 ppid=1004540 einde exit-code=0
++ 2.358849 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004830 status=0x0 geëindigd met code 0
++ 2.369054 pid=1004540 ppid=1004539 kind-gemaakt kind=1004831
++ 2.369075 pid=1004831 ppid=1004540 kind-start
++ 2.369109 pid=1004831 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.369116 pid=1004831 ppid=1004540 einde exit-code=0
++ 2.369398 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004831 status=0x0 geëindigd met code 0
++ 2.379594 pid=1004540 ppid=1004539 kind-gemaakt kind=1004832
++ 2.379616 pid=1004832 ppid=1004540 kind-start
++ 2.379656 pid=1004832 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.379664 pid=1004832 ppid=1004540 einde exit-code=0
++ 2.379965 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004832 status=0x0 geëindigd met code 0
++ 2.390189 pid=1004540 ppid=1004539 kind-gemaakt kind=1004833
++ 2.390230 pid=1004833 ppid=1004540 kind-start
++ 2.390280 pid=1004833 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.390291 pid=1004833 ppid=1004540 einde exit-code=0
++ 2.390637 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004833 status=0x0 geëindigd met code 0
++ 2.400844 pid=1004540 ppid=1004539 kind-gemaakt kind=1004834
++ 2.400883 pid=1004834 ppid=1004540 kind-start
++ 2.400926 pid=1004834 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.400936 pid=1004834 ppid=1004540 einde exit-code=0
++ 2.401280 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004834 status=0x0 geëindigd met code 0
++ 2.411455 pid=1004540 ppid=1004539 kind-gemaakt kind=1004835
++ 2.411496 pid=1004835 ppid=1004540 kind-start
++ 2.411545 pid=1004835 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.411555 pid=1004835 ppid=1004540 einde exit-code=0
++ 2.411911 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004835 status=0x0 geëindigd met code 0
++ 2.422081 pid=1004540 ppid=1004539 kind-gemaakt kind=1004836
++ 2.422121 pid=1004836 ppid=1004540 kind-start
++ 2.422170 pid=1004836 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.422181 pid=1004836 ppid=1004540 einde exit-code=0
++ 2.422531 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004836 status=0x0 geëindigd met code 0
++ 2.432726 pid=1004540 ppid=1004539 kind-gemaakt kind=1004837
++ 2.432759 pid=1004837 ppid=1004540 kind-start
++ 2.432799 pid=1004837 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.432808 pid=1004837 ppid=1004540 einde exit-code=0
++ 2.433114 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004837 status=0x0 geëindigd met code 0
++ 2.443283 pid=1004540 ppid=1004539 kind-gemaakt kind=1004838
++ 2.443315 pid=1004838 ppid=1004540 kind-start
++ 2.443355 pid=1004838 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.443364 pid=1004838 ppid=1004540 einde exit-code=0
++ 2.443644 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004838 status=0x0 geëindigd met code 0
++ 2.453845 pid=1004540 ppid=1004539 kind-gemaakt kind=1004839
++ 2.453870 pid=1004839 ppid=1004540 kind-start
++ 2.453912 pid=1004839 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.453921 pid=1004839 ppid=1004540 einde exit-code=0
++ 2.454187 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004839 status=0x0 geëindigd met code 0
++ 2.464358 pid=1004540 ppid=1004539 kind-gemaakt kind=1004840
++ 2.464385 pid=1004840 ppid=1004540 kind-start
++ 2.464423 pid=1004840 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.464433 pid=1004840 ppid=1004540 einde exit-code=0
++ 2.464755 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004840 status=0x0 geëindigd met code 0
++ 2.474930 pid=1004540 ppid=1004539 kind-gemaakt kind=1004841
++ 2.474951 pid=1004841 ppid=1004540 kind-start
++ 2.474983 pid=1004841 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.474990 pid=1004841 ppid=1004540 einde exit-code=0
++ 2.475246 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004841 status=0x0 geëindigd met code 0
++ 2.485440 pid=1004540 ppid=1004539 kind-gemaakt kind=1004842
++ 2.485464 pid=1004842 ppid=1004540 kind-start
++ 2.485505 pid=1004842 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.485515 pid=1004842 ppid=1004540 einde exit-code=0
++ 2.485843 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004842 status=0x0 geëindigd met code 0
++ 2.496020 pid=1004540 ppid=1004539 kind-gemaakt kind=1004843
++ 2.496040 pid=1004843 ppid=1004540 kind-start
++ 2.496072 pid=1004843 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.496079 pid=1004843 ppid=1004540 einde exit-code=0
++ 2.496334 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004843 status=0x0 geëindigd met code 0
++ 2.506527 pid=1004540 ppid=1004539 kind-gemaakt kind=1004844
++ 2.506567 pid=1004844 ppid=1004540 kind-start
++ 2.506620 pid=1004844 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.506632 pid=1004844 ppid=1004540 einde exit-code=0
++ 2.506984 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004844 status=0x0 geëindigd met code 0
++ 2.517177 pid=1004540 ppid=1004539 kind-gemaakt kind=1004845
++ 2.517217 pid=1004845 ppid=1004540 kind-start
++ 2.517268 pid=1004845 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.517279 pid=1004845 ppid=1004540 einde exit-code=0
++ 2.517626 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004845 status=0x0 geëindigd met code 0
++ 2.527793 pid=1004540 ppid=1004539 kind-gemaakt kind=1004846
++ 2.527828 pid=1004846 ppid=1004540 kind-start
++ 2.527906 pid=1004846 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.527917 pid=1004846 ppid=1004540 einde exit-code=0
++ 2.528270 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004846 status=0x0 geëindigd met code 0
++ 2.538438 pid=1004540 ppid=1004539 kind-gemaakt kind=1004847
++ 2.538479 pid=1004847 ppid=1004540 kind-start
++ 2.538528 pid=1004847 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.538539 pid=1004847 ppid=1004540 einde exit-code=0
++ 2.538900 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004847 status=0x0 geëindigd met code 0
++ 2.549065 pid=1004540 ppid=1004539 kind-gemaakt kind=1004848
++ 2.549098 pid=1004848 ppid=1004540 kind-start
++ 2.549138 pid=1004848 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.549147 pid=1004848 ppid=1004540 einde exit-code=0
++ 2.549424 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004848 status=0x0 geëindigd met code 0
++ 2.559591 pid=1004540 ppid=1004539 kind-gemaakt kind=1004849
++ 2.559632 pid=1004849 ppid=1004540 kind-start
++ 2.559681 pid=1004849 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.559692 pid=1004849 ppid=1004540 einde exit-code=0
++ 2.560023 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004849 status=0x0 geëindigd met code 0
++ 2.570186 pid=1004540 ppid=1004539 kind-gemaakt kind=1004850
++ 2.570222 pid=1004850 ppid=1004540 kind-start
++ 2.570262 pid=1004850 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.570271 pid=1004850 ppid=1004540 einde exit-code=0
++ 2.570551 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004850 status=0x0 geëindigd met code 0
++ 2.580742 pid=1004540 ppid=1004539 kind-gemaakt kind=1004851
++ 2.580776 pid=1004851 ppid=1004540 kind-start
++ 2.580816 pid=1004851 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.580824 pid=1004851 ppid=1004540 einde exit-code=0
++ 2.581115 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004851 status=0x0 geëindigd met code 0
++ 2.591304 pid=1004540 ppid=1004539 kind-gemaakt kind=1004852
++ 2.591338 pid=1004852 ppid=1004540 kind-start
++ 2.591378 pid=1004852 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.591387 pid=1004852 ppid=1004540 einde exit-code=0
++ 2.591666 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004852 status=0x0 geëindigd met code 0
++ 2.601864 pid=1004540 ppid=1004539 kind-gemaakt kind=1004853
++ 2.601907 pid=1004853 ppid=1004540 kind-start
++ 2.601957 pid=1004853 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.601968 pid=1004853 ppid=1004540 einde exit-code=0
++ 2.602316 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004853 status=0x0 geëindigd met code 0
++ 2.612506 pid=1004540 ppid=1004539 kind-gemaakt kind=1004854
++ 2.612538 pid=1004854 ppid=1004540 kind-start
++ 2.612578 pid=1004854 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.612587 pid=1004854 ppid=1004540 einde exit-code=0
++ 2.612876 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004854 status=0x0 geëindigd met code 0
++ 2.623070 pid=1004540 ppid=1004539 kind-gemaakt kind=1004855
++ 2.623104 pid=1004855 ppid=1004540 kind-start
++ 2.623144 pid=1004855 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.623153 pid=1004855 ppid=1004540 einde exit-code=0
++ 2.623439 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004855 status=0x0 geëindigd met code 0
++ 2.633616 pid=1004540 ppid=1004539 kind-gemaakt kind=1004856
++ 2.633647 pid=1004856 ppid=1004540 kind-start
++ 2.633687 pid=1004856 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.633696 pid=1004856 ppid=1004540 einde exit-code=0
++ 2.634043 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004856 status=0x0 geëindigd met code 0
++ 2.644237 pid=1004540 ppid=1004539 kind-gemaakt kind=1004857
++ 2.644280 pid=1004857 ppid=1004540 kind-start
++ 2.644329 pid=1004857 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.644340 pid=1004857 ppid=1004540 einde exit-code=0
++ 2.644682 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004857 status=0x0 geëindigd met code 0
++ 2.654882 pid=1004540 ppid=1004539 kind-gemaakt kind=1004858
++ 2.654905 pid=1004858 ppid=1004540 kind-start
++ 2.654947 pid=1004858 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.654956 pid=1004858 ppid=1004540 einde exit-code=0
++ 2.655236 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004858 status=0x0 geëindigd met code 0
++ 2.665405 pid=1004540 ppid=1004539 kind-gemaakt kind=1004859
++ 2.665440 pid=1004859 ppid=1004540 kind-start
++ 2.665480 pid=1004859 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.665489 pid=1004859 ppid=1004540 einde exit-code=0
++ 2.665766 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004859 status=0x0 geëindigd met code 0
++ 2.675965 pid=1004540 ppid=1004539 kind-gemaakt kind=1004860
++ 2.676011 pid=1004860 ppid=1004540 kind-start
++ 2.676060 pid=1004860 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.676070 pid=1004860 ppid=1004540 einde exit-code=0
++ 2.676414 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004860 status=0x0 geëindigd met code 0
++ 2.686582 pid=1004540 ppid=1004539 kind-gemaakt kind=1004861
++ 2.686623 pid=1004861 ppid=1004540 kind-start
++ 2.686672 pid=1004861 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.686683 pid=1004861 ppid=1004540 einde exit-code=0
++ 2.687056 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004861 status=0x0 geëindigd met code 0
++ 2.697245 pid=1004540 ppid=1004539 kind-gemaakt kind=1004862
++ 2.697285 pid=1004862 ppid=1004540 kind-start
++ 2.697334 pid=1004862 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.697345 pid=1004862 ppid=1004540 einde exit-code=0
++ 2.697697 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004862 status=0x0 geëindigd met code 0
++ 2.707895 pid=1004540 ppid=1004539 kind-gemaakt kind=1004863
++ 2.707934 pid=1004863 ppid=1004540 kind-start
++ 2.707983 pid=1004863 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.707994 pid=1004863 ppid=1004540 einde exit-code=0
++ 2.708336 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004863 status=0x0 geëindigd met code 0
++ 2.718530 pid=1004540 ppid=1004539 kind-gemaakt kind=1004864
++ 2.718564 pid=1004864 ppid=1004540 kind-start
++ 2.718604 pid=1004864 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.718613 pid=1004864 ppid=1004540 einde exit-code=0
++ 2.718904 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004864 status=0x0 geëindigd met code 0
++ 2.729095 pid=1004540 ppid=1004539 kind-gemaakt kind=1004865
++ 2.729130 pid=1004865 ppid=1004540 kind-start
++ 2.729170 pid=1004865 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.729178 pid=1004865 ppid=1004540 einde exit-code=0
++ 2.729459 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004865 status=0x0 geëindigd met code 0
++ 2.739625 pid=1004540 ppid=1004539 kind-gemaakt kind=1004866
++ 2.739665 pid=1004866 ppid=1004540 kind-start
++ 2.739716 pid=1004866 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.739727 pid=1004866 ppid=1004540 einde exit-code=0
++ 2.740122 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004866 status=0x0 geëindigd met code 0
++ 2.750288 pid=1004540 ppid=1004539 kind-gemaakt kind=1004867
++ 2.750333 pid=1004867 ppid=1004540 kind-start
++ 2.750381 pid=1004867 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.750392 pid=1004867 ppid=1004540 einde exit-code=0
++ 2.750742 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004867 status=0x0 geëindigd met code 0
++ 2.760914 pid=1004540 ppid=1004539 kind-gemaakt kind=1004868
++ 2.760946 pid=1004868 ppid=1004540 kind-start
++ 2.760995 pid=1004868 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.761006 pid=1004868 ppid=1004540 einde exit-code=0
++ 2.761357 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004868 status=0x0 geëindigd met code 0
++ 2.771550 pid=1004540 ppid=1004539 kind-gemaakt kind=1004869
++ 2.771585 pid=1004869 ppid=1004540 kind-start
++ 2.771625 pid=1004869 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.771634 pid=1004869 ppid=1004540 einde exit-code=0
++ 2.771937 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004869 status=0x0 geëindigd met code 0
++ 2.782129 pid=1004540 ppid=1004539 kind-gemaakt kind=1004870
++ 2.782172 pid=1004870 ppid=1004540 kind-start
++ 2.782222 pid=1004870 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.782232 pid=1004870 ppid=1004540 einde exit-code=0
++ 2.782581 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004870 status=0x0 geëindigd met code 0
++ 2.792774 pid=1004540 ppid=1004539 kind-gemaakt kind=1004871
++ 2.792807 pid=1004871 ppid=1004540 kind-start
++ 2.792876 pid=1004871 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.792886 pid=1004871 ppid=1004540 einde exit-code=0
++ 2.793197 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004871 status=0x0 geëindigd met code 0
++ 2.803364 pid=1004540 ppid=1004539 kind-gemaakt kind=1004872
++ 2.803405 pid=1004872 ppid=1004540 kind-start
++ 2.803455 pid=1004872 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.803466 pid=1004872 ppid=1004540 einde exit-code=0
++ 2.803809 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004872 status=0x0 geëindigd met code 0
++ 2.813955 pid=1004540 ppid=1004539 kind-gemaakt kind=1004873
++ 2.813991 pid=1004873 ppid=1004540 kind-start
++ 2.814031 pid=1004873 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.814040 pid=1004873 ppid=1004540 einde exit-code=0
++ 2.814319 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004873 status=0x0 geëindigd met code 0
++ 2.824509 pid=1004540 ppid=1004539 kind-gemaakt kind=1004874
++ 2.824542 pid=1004874 ppid=1004540 kind-start
++ 2.824582 pid=1004874 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.824591 pid=1004874 ppid=1004540 einde exit-code=0
++ 2.824922 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004874 status=0x0 geëindigd met code 0
++ 2.835114 pid=1004540 ppid=1004539 kind-gemaakt kind=1004875
++ 2.835157 pid=1004875 ppid=1004540 kind-start
++ 2.835206 pid=1004875 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.835217 pid=1004875 ppid=1004540 einde exit-code=0
++ 2.835563 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004875 status=0x0 geëindigd met code 0
++ 2.845754 pid=1004540 ppid=1004539 kind-gemaakt kind=1004876
++ 2.845793 pid=1004876 ppid=1004540 kind-start
++ 2.845880 pid=1004876 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.845893 pid=1004876 ppid=1004540 einde exit-code=0
++ 2.846243 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004876 status=0x0 geëindigd met code 0
++ 2.856435 pid=1004540 ppid=1004539 kind-gemaakt kind=1004877
++ 2.856478 pid=1004877 ppid=1004540 kind-start
++ 2.856527 pid=1004877 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.856538 pid=1004877 ppid=1004540 einde exit-code=0
++ 2.856935 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004877 status=0x0 geëindigd met code 0
++ 2.867127 pid=1004540 ppid=1004539 kind-gemaakt kind=1004878
++ 2.867161 pid=1004878 ppid=1004540 kind-start
++ 2.867201 pid=1004878 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.867210 pid=1004878 ppid=1004540 einde exit-code=0
++ 2.867490 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004878 status=0x0 geëindigd met code 0
++ 2.877656 pid=1004540 ppid=1004539 kind-gemaakt kind=1004879
++ 2.877692 pid=1004879 ppid=1004540 kind-start
++ 2.877732 pid=1004879 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.877741 pid=1004879 ppid=1004540 einde exit-code=0
++ 2.878104 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004879 status=0x0 geëindigd met code 0
++ 2.888299 pid=1004540 ppid=1004539 kind-gemaakt kind=1004880
++ 2.888338 pid=1004880 ppid=1004540 kind-start
++ 2.888388 pid=1004880 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.888398 pid=1004880 ppid=1004540 einde exit-code=0
++ 2.888744 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004880 status=0x0 geëindigd met code 0
++ 2.898931 pid=1004540 ppid=1004539 kind-gemaakt kind=1004881
++ 2.898970 pid=1004881 ppid=1004540 kind-start
++ 2.899019 pid=1004881 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.899030 pid=1004881 ppid=1004540 einde exit-code=0
++ 2.899373 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004881 status=0x0 geëindigd met code 0
++ 2.909543 pid=1004540 ppid=1004539 kind-gemaakt kind=1004882
++ 2.909583 pid=1004882 ppid=1004540 kind-start
++ 2.909632 pid=1004882 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.909643 pid=1004882 ppid=1004540 einde exit-code=0
++ 2.910003 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004882 status=0x0 geëindigd met code 0
++ 2.920173 pid=1004540 ppid=1004539 kind-gemaakt kind=1004883
++ 2.920217 pid=1004883 ppid=1004540 kind-start
++ 2.920266 pid=1004883 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.920277 pid=1004883 ppid=1004540 einde exit-code=0
++ 2.920616 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004883 status=0x0 geëindigd met code 0
++ 2.930784 pid=1004540 ppid=1004539 kind-gemaakt kind=1004884
++ 2.930821 pid=1004884 ppid=1004540 kind-start
++ 2.930891 pid=1004884 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.930902 pid=1004884 ppid=1004540 einde exit-code=0
++ 2.931260 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004884 status=0x0 geëindigd met code 0
++ 2.941437 pid=1004540 ppid=1004539 kind-gemaakt kind=1004885
++ 2.941467 pid=1004885 ppid=1004540 kind-start
++ 2.941516 pid=1004885 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.941527 pid=1004885 ppid=1004540 einde exit-code=0
++ 2.941912 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004885 status=0x0 geëindigd met code 0
++ 2.952105 pid=1004540 ppid=1004539 kind-gemaakt kind=1004886
++ 2.952132 pid=1004886 ppid=1004540 kind-start
++ 2.952173 pid=1004886 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.952183 pid=1004886 ppid=1004540 einde exit-code=0
++ 2.952510 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004886 status=0x0 geëindigd met code 0
++ 2.962682 pid=1004540 ppid=1004539 kind-gemaakt kind=1004887
++ 2.962705 pid=1004887 ppid=1004540 kind-start
++ 2.962741 pid=1004887 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.962750 pid=1004887 ppid=1004540 einde exit-code=0
++ 2.963065 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004887 status=0x0 geëindigd met code 0
++ 2.973263 pid=1004540 ppid=1004539 kind-gemaakt kind=1004888
++ 2.973303 pid=1004888 ppid=1004540 kind-start
++ 2.973352 pid=1004888 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.973363 pid=1004888 ppid=1004540 einde exit-code=0
++ 2.973717 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004888 status=0x0 geëindigd met code 0
++ 2.983925 pid=1004540 ppid=1004539 kind-gemaakt kind=1004889
++ 2.983952 pid=1004889 ppid=1004540 kind-start
++ 2.983996 pid=1004889 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.984006 pid=1004889 ppid=1004540 einde exit-code=0
++ 2.984333 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004889 status=0x0 geëindigd met code 0
++ 2.994503 pid=1004540 ppid=1004539 kind-gemaakt kind=1004890
++ 2.994536 pid=1004890 ppid=1004540 kind-start
++ 2.994576 pid=1004890 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.994585 pid=1004890 ppid=1004540 einde exit-code=0
++ 2.994913 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004890 status=0x0 geëindigd met code 0
++ 3.005081 pid=1004540 ppid=1004539 kind-gemaakt kind=1004891
++ 3.005116 pid=1004891 ppid=1004540 kind-start
++ 3.005156 pid=1004891 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.005165 pid=1004891 ppid=1004540 einde exit-code=0
++ 3.005445 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004891 status=0x0 geëindigd met code 0
++ 3.015634 pid=1004540 ppid=1004539 kind-gemaakt kind=1004892
++ 3.015677 pid=1004892 ppid=1004540 kind-start
++ 3.015726 pid=1004892 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.015737 pid=1004892 ppid=1004540 einde exit-code=0
++ 3.016096 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004892 status=0x0 geëindigd met code 0
++ 3.026289 pid=1004540 ppid=1004539 kind-gemaakt kind=1004893
++ 3.026323 pid=1004893 ppid=1004540 kind-start
++ 3.026363 pid=1004893 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.026372 pid=1004893 ppid=1004540 einde exit-code=0
++ 3.026659 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004893 status=0x0 geëindigd met code 0
++ 3.036846 pid=1004540 ppid=1004539 kind-gemaakt kind=1004894
++ 3.036884 pid=1004894 ppid=1004540 kind-start
++ 3.036934 pid=1004894 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.036945 pid=1004894 ppid=1004540 einde exit-code=0
++ 3.037288 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004894 status=0x0 geëindigd met code 0
++ 3.047461 pid=1004540 ppid=1004539 kind-gemaakt kind=1004895
++ 3.047502 pid=1004895 ppid=1004540 kind-start
++ 3.047552 pid=1004895 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.047563 pid=1004895 ppid=1004540 einde exit-code=0
++ 3.047923 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004895 status=0x0 geëindigd met code 0
++ 3.058115 pid=1004540 ppid=1004539 kind-gemaakt kind=1004896
++ 3.058149 pid=1004896 ppid=1004540 kind-start
++ 3.058195 pid=1004896 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.058204 pid=1004896 ppid=1004540 einde exit-code=0
++ 3.058484 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004896 status=0x0 geëindigd met code 0
++ 3.068678 pid=1004540 ppid=1004539 kind-gemaakt kind=1004897
++ 3.068721 pid=1004897 ppid=1004540 kind-start
++ 3.068769 pid=1004897 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.068780 pid=1004897 ppid=1004540 einde exit-code=0
++ 3.069142 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004897 status=0x0 geëindigd met code 0
++ 3.079308 pid=1004540 ppid=1004539 kind-gemaakt kind=1004898
++ 3.079342 pid=1004898 ppid=1004540 kind-start
++ 3.079382 pid=1004898 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.079393 pid=1004898 ppid=1004540 einde exit-code=0
++ 3.079671 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004898 status=0x0 geëindigd met code 0
++ 3.089871 pid=1004540 ppid=1004539 kind-gemaakt kind=1004899
++ 3.089903 pid=1004899 ppid=1004540 kind-start
++ 3.089950 pid=1004899 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.089958 pid=1004899 ppid=1004540 einde exit-code=0
++ 3.090243 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004899 status=0x0 geëindigd met code 0
++ 3.100409 pid=1004540 ppid=1004539 kind-gemaakt kind=1004900
++ 3.100450 pid=1004900 ppid=1004540 kind-start
++ 3.100500 pid=1004900 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.100511 pid=1004900 ppid=1004540 einde exit-code=0
++ 3.100858 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004900 status=0x0 geëindigd met code 0
++ 3.111036 pid=1004540 ppid=1004539 kind-gemaakt kind=1004901
++ 3.111077 pid=1004901 ppid=1004540 kind-start
++ 3.111127 pid=1004901 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.111138 pid=1004901 ppid=1004540 einde exit-code=0
++ 3.111478 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004901 status=0x0 geëindigd met code 0
++ 3.121668 pid=1004540 ppid=1004539 kind-gemaakt kind=1004902
++ 3.121701 pid=1004902 ppid=1004540 kind-start
++ 3.121741 pid=1004902 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.121750 pid=1004902 ppid=1004540 einde exit-code=0
++ 3.122044 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004902 status=0x0 geëindigd met code 0
++ 3.132238 pid=1004540 ppid=1004539 kind-gemaakt kind=1004903
++ 3.132272 pid=1004903 ppid=1004540 kind-start
++ 3.132312 pid=1004903 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.132320 pid=1004903 ppid=1004540 einde exit-code=0
++ 3.132600 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004903 status=0x0 geëindigd met code 0
++ 3.142793 pid=1004540 ppid=1004539 kind-gemaakt kind=1004904
++ 3.142837 pid=1004904 ppid=1004540 kind-start
++ 3.142889 pid=1004904 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.142900 pid=1004904 ppid=1004540 einde exit-code=0
++ 3.143241 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004904 status=0x0 geëindigd met code 0
++ 3.153433 pid=1004540 ppid=1004539 kind-gemaakt kind=1004905
++ 3.153473 pid=1004905 ppid=1004540 kind-start
++ 3.153522 pid=1004905 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.153533 pid=1004905 ppid=1004540 einde exit-code=0
++ 3.153910 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004905 status=0x0 geëindigd met code 0
++ 3.164094 pid=1004540 ppid=1004539 kind-gemaakt kind=1004906
++ 3.164118 pid=1004906 ppid=1004540 kind-start
++ 3.164159 pid=1004906 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.164168 pid=1004906 ppid=1004540 einde exit-code=0
++ 3.164452 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004906 status=0x0 geëindigd met code 0
++ 3.174627 pid=1004540 ppid=1004539 kind-gemaakt kind=1004907
++ 3.174660 pid=1004907 ppid=1004540 kind-start
++ 3.174702 pid=1004907 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.174711 pid=1004907 ppid=1004540 einde exit-code=0
++ 3.175071 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004907 status=0x0 geëindigd met code 0
++ 3.185265 pid=1004540 ppid=1004539 kind-gemaakt kind=1004908
++ 3.185310 pid=1004908 ppid=1004540 kind-start
++ 3.185359 pid=1004908 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.185370 pid=1004908 ppid=1004540 einde exit-code=0
++ 3.185713 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004908 status=0x0 geëindigd met code 0
++ 3.195919 pid=1004540 ppid=1004539 kind-gemaakt kind=1004912
++ 3.195943 pid=1004912 ppid=1004540 kind-start
++ 3.195999 pid=1004912 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.196010 pid=1004912 ppid=1004540 einde exit-code=0
++ 3.196308 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004912 status=0x0 geëindigd met code 0
++ 3.206540 pid=1004540 ppid=1004539 kind-gemaakt kind=1004914
++ 3.206567 pid=1004914 ppid=1004540 kind-start
++ 3.206616 pid=1004914 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.206627 pid=1004914 ppid=1004540 einde exit-code=0
++ 3.206965 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004914 status=0x0 geëindigd met code 0
++ 3.217141 pid=1004540 ppid=1004539 kind-gemaakt kind=1004915
++ 3.217169 pid=1004915 ppid=1004540 kind-start
++ 3.217215 pid=1004915 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.217225 pid=1004915 ppid=1004540 einde exit-code=0
++ 3.217561 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004915 status=0x0 geëindigd met code 0
++ 3.227735 pid=1004540 ppid=1004539 kind-gemaakt kind=1004916
++ 3.227759 pid=1004916 ppid=1004540 kind-start
++ 3.227798 pid=1004916 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.227807 pid=1004916 ppid=1004540 einde exit-code=0
++ 3.228134 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004916 status=0x0 geëindigd met code 0
++ 3.238317 pid=1004540 ppid=1004539 kind-gemaakt kind=1004921
++ 3.238339 pid=1004921 ppid=1004540 kind-start
++ 3.238377 pid=1004921 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.238386 pid=1004921 ppid=1004540 einde exit-code=0
++ 3.238667 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004921 status=0x0 geëindigd met code 0
++ 3.248875 pid=1004540 ppid=1004539 kind-gemaakt kind=1004922
++ 3.248900 pid=1004922 ppid=1004540 kind-start
++ 3.248943 pid=1004922 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.248953 pid=1004922 ppid=1004540 einde exit-code=0
++ 3.249277 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004922 status=0x0 geëindigd met code 0
++ 3.259451 pid=1004540 ppid=1004539 kind-gemaakt kind=1004923
++ 3.259470 pid=1004923 ppid=1004540 kind-start
++ 3.259503 pid=1004923 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.259511 pid=1004923 ppid=1004540 einde exit-code=0
++ 3.259783 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004923 status=0x0 geëindigd met code 0
++ 3.269973 pid=1004540 ppid=1004539 kind-gemaakt kind=1004924
++ 3.269998 pid=1004924 ppid=1004540 kind-start
++ 3.270037 pid=1004924 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.270046 pid=1004924 ppid=1004540 einde exit-code=0
++ 3.270362 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004924 status=0x0 geëindigd met code 0
++ 3.280530 pid=1004540 ppid=1004539 kind-gemaakt kind=1004925
++ 3.280558 pid=1004925 ppid=1004540 kind-start
++ 3.280601 pid=1004925 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.280611 pid=1004925 ppid=1004540 einde exit-code=0
++ 3.280970 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004925 status=0x0 geëindigd met code 0
++ 3.291164 pid=1004540 ppid=1004539 kind-gemaakt kind=1004926
++ 3.291203 pid=1004926 ppid=1004540 kind-start
++ 3.291253 pid=1004926 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.291263 pid=1004926 ppid=1004540 einde exit-code=0
++ 3.291607 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004926 status=0x0 geëindigd met code 0
++ 3.301801 pid=1004540 ppid=1004539 kind-gemaakt kind=1004927
++ 3.301850 pid=1004927 ppid=1004540 kind-start
++ 3.301899 pid=1004927 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.301909 pid=1004927 ppid=1004540 einde exit-code=0
++ 3.302252 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004927 status=0x0 geëindigd met code 0
++ 3.312425 pid=1004540 ppid=1004539 kind-gemaakt kind=1004928
++ 3.312460 pid=1004928 ppid=1004540 kind-start
++ 3.312500 pid=1004928 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.312511 pid=1004928 ppid=1004540 einde exit-code=0
++ 3.312793 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004928 status=0x0 geëindigd met code 0
++ 3.322968 pid=1004540 ppid=1004539 kind-gemaakt kind=1004929
++ 3.323007 pid=1004929 ppid=1004540 kind-start
++ 3.323057 pid=1004929 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.323067 pid=1004929 ppid=1004540 einde exit-code=0
++ 3.323410 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004929 status=0x0 geëindigd met code 0
++ 3.333603 pid=1004540 ppid=1004539 kind-gemaakt kind=1004930
++ 3.333635 pid=1004930 ppid=1004540 kind-start
++ 3.333679 pid=1004930 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.333687 pid=1004930 ppid=1004540 einde exit-code=0
++ 3.333977 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004930 status=0x0 geëindigd met code 0
++ 3.344171 pid=1004540 ppid=1004539 kind-gemaakt kind=1004931
++ 3.344205 pid=1004931 ppid=1004540 kind-start
++ 3.344245 pid=1004931 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.344254 pid=1004931 ppid=1004540 einde exit-code=0
++ 3.344542 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004931 status=0x0 geëindigd met code 0
++ 3.354740 pid=1004540 ppid=1004539 kind-gemaakt kind=1004932
++ 3.354769 pid=1004932 ppid=1004540 kind-start
++ 3.354811 pid=1004932 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.354820 pid=1004932 ppid=1004540 einde exit-code=0
++ 3.355157 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004932 status=0x0 geëindigd met code 0
++ 3.365348 pid=1004540 ppid=1004539 kind-gemaakt kind=1004933
++ 3.365388 pid=1004933 ppid=1004540 kind-start
++ 3.365438 pid=1004933 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.365449 pid=1004933 ppid=1004540 einde exit-code=0
++ 3.365791 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004933 status=0x0 geëindigd met code 0
++ 3.375969 pid=1004540 ppid=1004539 kind-gemaakt kind=1004934
++ 3.376013 pid=1004934 ppid=1004540 kind-start
++ 3.376074 pid=1004934 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.376086 pid=1004934 ppid=1004540 einde exit-code=0
++ 3.376454 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004934 status=0x0 geëindigd met code 0
++ 3.386650 pid=1004540 ppid=1004539 kind-gemaakt kind=1004935
++ 3.386696 pid=1004935 ppid=1004540 kind-start
++ 3.386745 pid=1004935 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.386755 pid=1004935 ppid=1004540 einde exit-code=0
++ 3.387081 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004935 status=0x0 geëindigd met code 0
++ 3.397281 pid=1004540 ppid=1004539 kind-gemaakt kind=1004936
++ 3.397326 pid=1004936 ppid=1004540 kind-start
++ 3.397375 pid=1004936 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.397386 pid=1004936 ppid=1004540 einde exit-code=0
++ 3.397728 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004936 status=0x0 geëindigd met code 0
++ 3.407953 pid=1004540 ppid=1004539 kind-gemaakt kind=1004937
++ 3.407982 pid=1004937 ppid=1004540 kind-start
++ 3.408022 pid=1004937 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.408031 pid=1004937 ppid=1004540 einde exit-code=0
++ 3.408327 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004937 status=0x0 geëindigd met code 0
++ 3.418549 pid=1004540 ppid=1004539 kind-gemaakt kind=1004938
++ 3.418584 pid=1004938 ppid=1004540 kind-start
++ 3.418629 pid=1004938 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.418637 pid=1004938 ppid=1004540 einde exit-code=0
++ 3.418965 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004938 status=0x0 geëindigd met code 0
++ 3.429142 pid=1004540 ppid=1004539 kind-gemaakt kind=1004939
++ 3.429186 pid=1004939 ppid=1004540 kind-start
++ 3.429234 pid=1004939 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.429248 pid=1004939 ppid=1004540 einde exit-code=0
++ 3.429598 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004939 status=0x0 geëindigd met code 0
++ 3.439796 pid=1004540 ppid=1004539 kind-gemaakt kind=1004940
++ 3.439834 pid=1004940 ppid=1004540 kind-start
++ 3.439912 pid=1004940 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.439923 pid=1004940 ppid=1004540 einde exit-code=0
++ 3.440215 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004940 status=0x0 geëindigd met code 0
++ 3.450420 pid=1004540 ppid=1004539 kind-gemaakt kind=1004941
++ 3.450450 pid=1004941 ppid=1004540 kind-start
++ 3.450490 pid=1004941 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.450499 pid=1004941 ppid=1004540 einde exit-code=0
++ 3.450779 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004941 status=0x0 geëindigd met code 0
++ 3.460952 pid=1004540 ppid=1004539 kind-gemaakt kind=1004942
++ 3.460978 pid=1004942 ppid=1004540 kind-start
++ 3.461017 pid=1004942 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.461026 pid=1004942 ppid=1004540 einde exit-code=0
++ 3.461308 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004942 status=0x0 geëindigd met code 0
++ 3.471478 pid=1004540 ppid=1004539 kind-gemaakt kind=1004943
++ 3.471505 pid=1004943 ppid=1004540 kind-start
++ 3.471547 pid=1004943 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.471556 pid=1004943 ppid=1004540 einde exit-code=0
++ 3.471898 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004943 status=0x0 geëindigd met code 0
++ 3.482102 pid=1004540 ppid=1004539 kind-gemaakt kind=1004944
++ 3.482128 pid=1004944 ppid=1004540 kind-start
++ 3.482167 pid=1004944 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.482176 pid=1004944 ppid=1004540 einde exit-code=0
++ 3.482501 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004944 status=0x0 geëindigd met code 0
++ 3.492679 pid=1004540 ppid=1004539 kind-gemaakt kind=1004945
++ 3.492706 pid=1004945 ppid=1004540 kind-start
++ 3.492745 pid=1004945 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.492754 pid=1004945 ppid=1004540 einde exit-code=0
++ 3.493074 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004945 status=0x0 geëindigd met code 0
++ 3.503247 pid=1004540 ppid=1004539 kind-gemaakt kind=1004946
++ 3.503279 pid=1004946 ppid=1004540 kind-start
++ 3.503323 pid=1004946 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.503332 pid=1004946 ppid=1004540 einde exit-code=0
++ 3.503649 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004946 status=0x0 geëindigd met code 0
++ 3.513855 pid=1004540 ppid=1004539 kind-gemaakt kind=1004947
++ 3.513880 pid=1004947 ppid=1004540 kind-start
++ 3.513920 pid=1004947 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.513930 pid=1004947 ppid=1004540 einde exit-code=0
++ 3.514248 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004947 status=0x0 geëindigd met code 0
++ 3.524443 pid=1004540 ppid=1004539 kind-gemaakt kind=1004948
++ 3.524468 pid=1004948 ppid=1004540 kind-start
++ 3.524507 pid=1004948 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.524516 pid=1004948 ppid=1004540 einde exit-code=0
++ 3.524827 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004948 status=0x0 geëindigd met code 0
++ 3.535025 pid=1004540 ppid=1004539 kind-gemaakt kind=1004949
++ 3.535045 pid=1004949 ppid=1004540 kind-start
++ 3.535077 pid=1004949 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.535084 pid=1004949 ppid=1004540 einde exit-code=0
++ 3.535343 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004949 status=0x0 geëindigd met code 0
++ 3.545515 pid=1004540 ppid=1004539 kind-gemaakt kind=1004950
++ 3.545539 pid=1004950 ppid=1004540 kind-start
++ 3.545579 pid=1004950 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.545588 pid=1004950 ppid=1004540 einde exit-code=0
++ 3.545945 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004950 status=0x0 geëindigd met code 0
++ 3.556142 pid=1004540 ppid=1004539 kind-gemaakt kind=1004951
++ 3.556181 pid=1004951 ppid=1004540 kind-start
++ 3.556230 pid=1004951 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.556241 pid=1004951 ppid=1004540 einde exit-code=0
++ 3.556591 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004951 status=0x0 geëindigd met code 0
++ 3.566760 pid=1004540 ppid=1004539 kind-gemaakt kind=1004952
++ 3.566795 pid=1004952 ppid=1004540 kind-start
++ 3.566839 pid=1004952 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.566892 pid=1004952 ppid=1004540 einde exit-code=0
++ 3.567252 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004952 status=0x0 geëindigd met code 0
++ 3.577427 pid=1004540 ppid=1004539 kind-gemaakt kind=1004953
++ 3.577467 pid=1004953 ppid=1004540 kind-start
++ 3.577517 pid=1004953 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.577528 pid=1004953 ppid=1004540 einde exit-code=0
++ 3.577875 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004953 status=0x0 geëindigd met code 0
++ 3.588071 pid=1004540 ppid=1004539 kind-gemaakt kind=1004954
++ 3.588109 pid=1004954 ppid=1004540 kind-start
++ 3.588150 pid=1004954 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.588158 pid=1004954 ppid=1004540 einde exit-code=0
++ 3.588438 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004954 status=0x0 geëindigd met code 0
++ 3.598606 pid=1004540 ppid=1004539 kind-gemaakt kind=1004955
++ 3.598641 pid=1004955 ppid=1004540 kind-start
++ 3.598681 pid=1004955 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.598690 pid=1004955 ppid=1004540 einde exit-code=0
++ 3.599047 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004955 status=0x0 geëindigd met code 0
++ 3.609218 pid=1004540 ppid=1004539 kind-gemaakt kind=1004956
++ 3.609249 pid=1004956 ppid=1004540 kind-start
++ 3.609289 pid=1004956 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.609298 pid=1004956 ppid=1004540 einde exit-code=0
++ 3.609579 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004956 status=0x0 geëindigd met code 0
++ 3.619750 pid=1004540 ppid=1004539 kind-gemaakt kind=1004957
++ 3.619772 pid=1004957 ppid=1004540 kind-start
++ 3.619805 pid=1004957 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.619813 pid=1004957 ppid=1004540 einde exit-code=0
++ 3.620185 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004957 status=0x0 geëindigd met code 0
++ 3.630353 pid=1004540 ppid=1004539 kind-gemaakt kind=1004958
++ 3.630400 pid=1004958 ppid=1004540 kind-start
++ 3.630449 pid=1004958 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.630459 pid=1004958 ppid=1004540 einde exit-code=0
++ 3.630801 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004958 status=0x0 geëindigd met code 0
++ 3.640963 pid=1004540 ppid=1004539 kind-gemaakt kind=1004959
++ 3.640997 pid=1004959 ppid=1004540 kind-start
++ 3.641037 pid=1004959 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.641048 pid=1004959 ppid=1004540 einde exit-code=0
++ 3.641335 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004959 status=0x0 geëindigd met code 0
++ 3.651506 pid=1004540 ppid=1004539 kind-gemaakt kind=1004960
++ 3.651541 pid=1004960 ppid=1004540 kind-start
++ 3.651581 pid=1004960 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.651590 pid=1004960 ppid=1004540 einde exit-code=0
++ 3.651875 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004960 status=0x0 geëindigd met code 0
++ 3.662041 pid=1004540 ppid=1004539 kind-gemaakt kind=1004961
++ 3.662076 pid=1004961 ppid=1004540 kind-start
++ 3.662115 pid=1004961 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.662124 pid=1004961 ppid=1004540 einde exit-code=0
++ 3.662409 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004961 status=0x0 geëindigd met code 0
++ 3.672601 pid=1004540 ppid=1004539 kind-gemaakt kind=1004962
++ 3.672630 pid=1004962 ppid=1004540 kind-start
++ 3.672678 pid=1004962 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.672689 pid=1004962 ppid=1004540 einde exit-code=0
++ 3.673091 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004962 status=0x0 geëindigd met code 0
++ 3.683284 pid=1004540 ppid=1004539 kind-gemaakt kind=1004963
++ 3.683323 pid=1004963 ppid=1004540 kind-start
++ 3.683372 pid=1004963 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.683383 pid=1004963 ppid=1004540 einde exit-code=0
++ 3.683734 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004963 status=0x0 geëindigd met code 0
++ 3.693920 pid=1004540 ppid=1004539 kind-gemaakt kind=1004964
++ 3.693958 pid=1004964 ppid=1004540 kind-start
++ 3.693998 pid=1004964 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.694007 pid=1004964 ppid=1004540 einde exit-code=0
++ 3.694292 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004964 status=0x0 geëindigd met code 0
++ 3.704485 pid=1004540 ppid=1004539 kind-gemaakt kind=1004965
++ 3.704519 pid=1004965 ppid=1004540 kind-start
++ 3.704559 pid=1004965 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.704568 pid=1004965 ppid=1004540 einde exit-code=0
++ 3.704853 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004965 status=0x0 geëindigd met code 0
++ 3.715085 pid=1004540 ppid=1004539 kind-gemaakt kind=1004966
++ 3.715126 pid=1004966 ppid=1004540 kind-start
++ 3.715190 pid=1004966 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.715201 pid=1004966 ppid=1004540 einde exit-code=0
++ 3.715544 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004966 status=0x0 geëindigd met code 0
++ 3.725761 pid=1004540 ppid=1004539 kind-gemaakt kind=1004967
++ 3.725806 pid=1004967 ppid=1004540 kind-start
++ 3.725861 pid=1004967 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.725872 pid=1004967 ppid=1004540 einde exit-code=0
++ 3.726216 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004967 status=0x0 geëindigd met code 0
++ 3.736392 pid=1004540 ppid=1004539 kind-gemaakt kind=1004968
++ 3.736426 pid=1004968 ppid=1004540 kind-start
++ 3.736466 pid=1004968 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.736475 pid=1004968 ppid=1004540 einde exit-code=0
++ 3.736762 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004968 status=0x0 geëindigd met code 0
++ 3.746958 pid=1004540 ppid=1004539 kind-gemaakt kind=1004969
++ 3.746993 pid=1004969 ppid=1004540 kind-start
++ 3.747034 pid=1004969 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.747043 pid=1004969 ppid=1004540 einde exit-code=0
++ 3.747322 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004969 status=0x0 geëindigd met code 0
++ 3.757491 pid=1004540 ppid=1004539 kind-gemaakt kind=1004970
++ 3.757535 pid=1004970 ppid=1004540 kind-start
++ 3.757584 pid=1004970 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.757595 pid=1004970 ppid=1004540 einde exit-code=0
++ 3.758004 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004970 status=0x0 geëindigd met code 0
++ 3.768199 pid=1004540 ppid=1004539 kind-gemaakt kind=1004971
++ 3.768241 pid=1004971 ppid=1004540 kind-start
++ 3.768290 pid=1004971 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.768300 pid=1004971 ppid=1004540 einde exit-code=0
++ 3.768645 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004971 status=0x0 geëindigd met code 0
++ 3.778862 pid=1004540 ppid=1004539 kind-gemaakt kind=1004972
++ 3.778908 pid=1004972 ppid=1004540 kind-start
++ 3.778960 pid=1004972 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.778971 pid=1004972 ppid=1004540 einde exit-code=0
++ 3.779341 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004972 status=0x0 geëindigd met code 0
++ 3.789512 pid=1004540 ppid=1004539 kind-gemaakt kind=1004973
++ 3.789552 pid=1004973 ppid=1004540 kind-start
++ 3.789601 pid=1004973 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.789612 pid=1004973 ppid=1004540 einde exit-code=0
++ 3.789987 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004973 status=0x0 geëindigd met code 0
++ 3.800187 pid=1004540 ppid=1004539 kind-gemaakt kind=1004974
++ 3.800218 pid=1004974 ppid=1004540 kind-start
++ 3.800258 pid=1004974 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.800267 pid=1004974 ppid=1004540 einde exit-code=0
++ 3.800546 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004974 status=0x0 geëindigd met code 0
++ 3.810716 pid=1004540 ppid=1004539 kind-gemaakt kind=1004975
++ 3.810760 pid=1004975 ppid=1004540 kind-start
++ 3.810809 pid=1004975 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.810820 pid=1004975 ppid=1004540 einde exit-code=0
++ 3.811176 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004975 status=0x0 geëindigd met code 0
++ 3.821351 pid=1004540 ppid=1004539 kind-gemaakt kind=1004976
++ 3.821390 pid=1004976 ppid=1004540 kind-start
++ 3.821439 pid=1004976 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.821452 pid=1004976 ppid=1004540 einde exit-code=0
++ 3.821795 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004976 status=0x0 geëindigd met code 0
++ 3.831954 pid=1004540 ppid=1004539 kind-gemaakt kind=1004977
++ 3.831987 pid=1004977 ppid=1004540 kind-start
++ 3.832027 pid=1004977 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.832036 pid=1004977 ppid=1004540 einde exit-code=0
++ 3.832318 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004977 status=0x0 geëindigd met code 0
++ 3.842514 pid=1004540 ppid=1004539 kind-gemaakt kind=1004978
++ 3.842547 pid=1004978 ppid=1004540 kind-start
++ 3.842587 pid=1004978 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.842596 pid=1004978 ppid=1004540 einde exit-code=0
++ 3.842907 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004978 status=0x0 geëindigd met code 0
++ 3.853082 pid=1004540 ppid=1004539 kind-gemaakt kind=1004979
++ 3.853126 pid=1004979 ppid=1004540 kind-start
++ 3.853174 pid=1004979 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.853185 pid=1004979 ppid=1004540 einde exit-code=0
++ 3.853530 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004979 status=0x0 geëindigd met code 0
++ 3.863728 pid=1004540 ppid=1004539 kind-gemaakt kind=1004980
++ 3.863759 pid=1004980 ppid=1004540 kind-start
++ 3.863800 pid=1004980 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.863808 pid=1004980 ppid=1004540 einde exit-code=0
++ 3.864213 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004980 status=0x0 geëindigd met code 0
++ 3.874406 pid=1004540 ppid=1004539 kind-gemaakt kind=1004981
++ 3.874441 pid=1004981 ppid=1004540 kind-start
++ 3.874483 pid=1004981 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.874492 pid=1004981 ppid=1004540 einde exit-code=0
++ 3.874781 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004981 status=0x0 geëindigd met code 0
++ 3.884976 pid=1004540 ppid=1004539 kind-gemaakt kind=1004982
++ 3.885019 pid=1004982 ppid=1004540 kind-start
++ 3.885068 pid=1004982 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.885079 pid=1004982 ppid=1004540 einde exit-code=0
++ 3.885425 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004982 status=0x0 geëindigd met code 0
++ 3.895622 pid=1004540 ppid=1004539 kind-gemaakt kind=1004983
++ 3.895664 pid=1004983 ppid=1004540 kind-start
++ 3.895713 pid=1004983 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.895724 pid=1004983 ppid=1004540 einde exit-code=0
++ 3.896136 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004983 status=0x0 geëindigd met code 0
++ 3.906332 pid=1004540 ppid=1004539 kind-gemaakt kind=1004984
++ 3.906372 pid=1004984 ppid=1004540 kind-start
++ 3.906421 pid=1004984 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.906432 pid=1004984 ppid=1004540 einde exit-code=0
++ 3.906780 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004984 status=0x0 geëindigd met code 0
++ 3.916969 pid=1004540 ppid=1004539 kind-gemaakt kind=1004985
++ 3.917012 pid=1004985 ppid=1004540 kind-start
++ 3.917061 pid=1004985 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.917072 pid=1004985 ppid=1004540 einde exit-code=0
++ 3.917414 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004985 status=0x0 geëindigd met code 0
++ 3.927611 pid=1004540 ppid=1004539 kind-gemaakt kind=1004986
++ 3.927644 pid=1004986 ppid=1004540 kind-start
++ 3.927684 pid=1004986 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.927693 pid=1004986 ppid=1004540 einde exit-code=0
++ 3.928049 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004986 status=0x0 geëindigd met code 0
++ 3.938241 pid=1004540 ppid=1004539 kind-gemaakt kind=1004987
++ 3.938275 pid=1004987 ppid=1004540 kind-start
++ 3.938315 pid=1004987 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.938323 pid=1004987 ppid=1004540 einde exit-code=0
++ 3.938605 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004987 status=0x0 geëindigd met code 0
++ 3.948805 pid=1004540 ppid=1004539 kind-gemaakt kind=1004988
++ 3.948843 pid=1004988 ppid=1004540 kind-start
++ 3.948925 pid=1004988 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.948936 pid=1004988 ppid=1004540 einde exit-code=0
++ 3.949287 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004988 status=0x0 geëindigd met code 0
++ 3.959485 pid=1004540 ppid=1004539 kind-gemaakt kind=1004989
++ 3.959528 pid=1004989 ppid=1004540 kind-start
++ 3.959577 pid=1004989 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.959588 pid=1004989 ppid=1004540 einde exit-code=0
++ 3.959984 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004989 status=0x0 geëindigd met code 0
++ 3.970154 pid=1004540 ppid=1004539 kind-gemaakt kind=1004990
++ 3.970195 pid=1004990 ppid=1004540 kind-start
++ 3.970244 pid=1004990 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.970255 pid=1004990 ppid=1004540 einde exit-code=0
++ 3.970603 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004990 status=0x0 geëindigd met code 0
++ 3.980776 pid=1004540 ppid=1004539 kind-gemaakt kind=1004991
++ 3.980810 pid=1004991 ppid=1004540 kind-start
++ 3.980856 pid=1004991 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.980865 pid=1004991 ppid=1004540 einde exit-code=0
++ 3.981229 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004991 status=0x0 geëindigd met code 0
++ 3.991432 pid=1004540 ppid=1004539 kind-gemaakt kind=1004992
++ 3.991465 pid=1004992 ppid=1004540 kind-start
++ 3.991505 pid=1004992 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.991514 pid=1004992 ppid=1004540 einde exit-code=0
++ 3.991795 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004992 status=0x0 geëindigd met code 0
++ 4.001947 pid=1004540 ppid=1004539 kind-gemaakt kind=1004993
++ 4.001990 pid=1004993 ppid=1004540 kind-start
++ 4.002039 pid=1004993 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.002050 pid=1004993 ppid=1004540 einde exit-code=0
++ 4.002398 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004993 status=0x0 geëindigd met code 0
++ 4.012599 pid=1004540 ppid=1004539 kind-gemaakt kind=1004994
++ 4.012631 pid=1004994 ppid=1004540 kind-start
++ 4.012671 pid=1004994 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.012680 pid=1004994 ppid=1004540 einde exit-code=0
++ 4.013017 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004994 status=0x0 geëindigd met code 0
++ 4.023218 pid=1004540 ppid=1004539 kind-gemaakt kind=1004995
++ 4.023260 pid=1004995 ppid=1004540 kind-start
++ 4.023309 pid=1004995 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.023320 pid=1004995 ppid=1004540 einde exit-code=0
++ 4.023671 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004995 status=0x0 geëindigd met code 0
++ 4.033845 pid=1004540 ppid=1004539 kind-gemaakt kind=1004996
++ 4.033900 pid=1004996 ppid=1004540 kind-start
++ 4.033951 pid=1004996 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.033962 pid=1004996 ppid=1004540 einde exit-code=0
++ 4.034319 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004996 status=0x0 geëindigd met code 0
++ 4.044495 pid=1004540 ppid=1004539 kind-gemaakt kind=1004997
++ 4.044535 pid=1004997 ppid=1004540 kind-start
++ 4.044590 pid=1004997 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.044600 pid=1004997 ppid=1004540 einde exit-code=0
++ 4.044995 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004997 status=0x0 geëindigd met code 0
++ 4.055200 pid=1004540 ppid=1004539 kind-gemaakt kind=1004998
++ 4.055230 pid=1004998 ppid=1004540 kind-start
++ 4.055271 pid=1004998 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.055280 pid=1004998 ppid=1004540 einde exit-code=0
++ 4.055570 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004998 status=0x0 geëindigd met code 0
++ 4.065785 pid=1004540 ppid=1004539 kind-gemaakt kind=1004999
++ 4.065817 pid=1004999 ppid=1004540 kind-start
++ 4.065880 pid=1004999 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.065892 pid=1004999 ppid=1004540 einde exit-code=0
++ 4.066259 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004999 status=0x0 geëindigd met code 0
++ 4.076435 pid=1004540 ppid=1004539 kind-gemaakt kind=1005000
++ 4.076470 pid=1005000 ppid=1004540 kind-start
++ 4.076510 pid=1005000 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.076518 pid=1005000 ppid=1004540 einde exit-code=0
++ 4.076799 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005000 status=0x0 geëindigd met code 0
++ 4.086972 pid=1004540 ppid=1004539 kind-gemaakt kind=1005001
++ 4.087016 pid=1005001 ppid=1004540 kind-start
++ 4.087064 pid=1005001 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.087075 pid=1005001 ppid=1004540 einde exit-code=0
++ 4.087422 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005001 status=0x0 geëindigd met code 0
++ 4.097591 pid=1004540 ppid=1004539 kind-gemaakt kind=1005002
++ 4.097633 pid=1005002 ppid=1004540 kind-start
++ 4.097684 pid=1005002 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.097695 pid=1005002 ppid=1004540 einde exit-code=0
++ 4.098094 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005002 status=0x0 geëindigd met code 0
++ 4.108268 pid=1004540 ppid=1004539 kind-gemaakt kind=1005003
++ 4.108308 pid=1005003 ppid=1004540 kind-start
++ 4.108358 pid=1005003 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.108369 pid=1005003 ppid=1004540 einde exit-code=0
++ 4.108723 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005003 status=0x0 geëindigd met code 0
++ 4.118940 pid=1004540 ppid=1004539 kind-gemaakt kind=1005004
++ 4.118972 pid=1005004 ppid=1004540 kind-start
++ 4.119012 pid=1005004 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.119021 pid=1005004 ppid=1004540 einde exit-code=0
++ 4.119301 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005004 status=0x0 geëindigd met code 0
++ 4.129496 pid=1004540 ppid=1004539 kind-gemaakt kind=1005005
++ 4.129530 pid=1005005 ppid=1004540 kind-start
++ 4.129570 pid=1005005 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.129579 pid=1005005 ppid=1004540 einde exit-code=0
++ 4.129868 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005005 status=0x0 geëindigd met code 0
++ 4.140081 pid=1004540 ppid=1004539 kind-gemaakt kind=1005006
++ 4.140118 pid=1005006 ppid=1004540 kind-start
++ 4.140168 pid=1005006 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.140178 pid=1005006 ppid=1004540 einde exit-code=0
++ 4.140525 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005006 status=0x0 geëindigd met code 0
++ 4.150731 pid=1004540 ppid=1004539 kind-gemaakt kind=1005007
++ 4.150763 pid=1005007 ppid=1004540 kind-start
++ 4.150803 pid=1005007 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.150812 pid=1005007 ppid=1004540 einde exit-code=0
++ 4.151167 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005007 status=0x0 geëindigd met code 0
++ 4.155143 pid=1004547 ppid=1004540 einde exit-code=0
++ 4.161360 pid=1004540 ppid=1004539 kind-gemaakt kind=1005008
++ 4.161398 pid=1005008 ppid=1004540 kind-start
++ 4.161447 pid=1005008 ppid=1004540 kind-opgeraapt kind=1004540 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.161458 pid=1005008 ppid=1004540 einde exit-code=0
++ 4.161800 pid=1004540 ppid=1004539 kind-opgeraapt kind=1005008 status=0x0 geëindigd met code 0
++ 4.161812 pid=1004540 ppid=1004539 kind-opgeraapt kind=1004547 status=0x0 geëindigd met code 0
++ 4.161815 pid=1004540 ppid=1004539 einde exit-code=0

@@ -114,6 +114,30 @@ blijft een gemeten verschijnsel zonder gemeten oorzaak.
 | `/dev/js0` | ontbreekt | de oude joystick-interface; legacy |
 | `/dev/dsp` | ontbreekt | OSS-audio; deze host heeft PipeWire/Pulse, geen OSS |
 
+### 4a. De aanroep bewijst de verwantschap van `sierra2` en `ttyS0` — GEMETEN
+
+De bestandslogger logt sinds meting 2 ook de vlaggen, en dat levert het scherpste bewijs dat wij over
+deze twee knopen hebben:
+
+```
+open "/dev/ttyS0"   flags=0x902 (O_RDWR|O_NONBLOCK) -> FOUT errno=13 (EPERM)
+open "/dev/sierra2" flags=0x902 (O_RDWR|O_NONBLOCK) -> FOUT errno=2  (ontbreekt)
+```
+
+**Identieke vlaggen: lezen én schrijven, niet-blokkerend.** Wie dit later ziet, herkent het in één
+oogopslag: de engine behandelt `/dev/sierra2` precies zoals de **seriële poort**. Dat maakt de
+seriële lezing van `sierra2` aanzienlijk sterker dan de naam alleen.
+**De splitsing, en die houd ik aan:** de **aanroep** is GEMETEN (vlaggen, volgorde, tijdstip); dat
+`sierra2` daarmee het **geweer-/bordtransport** van deze dialect is, blijft **AFGELEID** — wij hebben
+niet gemeten wat de engine met de knoop doet als hij bestaat. En hetzelfde geldt voor `ttyS0`: dat het
+spel die poort **wil**, is gemeten; dat het hem **nodig heeft**, is het niet — de open faalt en de gast
+loopt daarna nog altijd 4 seconden door en eindigt met 0.
+
+**Wat het aanwezig zijn van die knopen WEL en NIET doet (GEMETEN, proef A):** met synthetische knopen
+voor `/dev/dsp` en `/dev/js0` (gewone bestanden in de sandbox) slagen die twee opens, en **het gedrag
+van de gast verandert niet**: 89 regels, dezelfde lus, exit 0. Het spel **peilt** ze dus en gaat verder.
+Het leveren van die knopen is **niet** wat de zaak opent.
+
 **Wat ik zou willen wijzigen voor `/dev/ttyS0`, en ik doe het niet zonder beslissing:**
 de rechten van een apparaatknoop verruimen is een **blijvende hostwijziging** (`usermod -aG uucp deck`,
 of een udev-regel). Drie opties, in volgorde van voorkeur:
