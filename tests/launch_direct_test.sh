@@ -81,22 +81,31 @@ profile("Dolphin", "Dolphin", "Foo", os.path.join(gamedir, "game"), "false", [])
 # Activering: alleen voor Patreon-profielen. Zonder Patreon start het zonder activering.
 rc, out, err = run("Win", "--check")
 check(rc == 0, "zonder Patreon geen activering nodig (kreeg %d: %s)" % (rc, err))
-# Patreon-profiel zonder seed -> 3.
+# Patreon-profiel: needs_activation blijft als informatie staan, maar de poort wordt niet meer afgedwongen
+# (beslissing eigenaar 2026-10-12; docs/decisions.md). --enforce-activation zet hem terug, zodat
+# check_activation() zelf getest blijft.
+rc, out, err = run("Elf", "--plan", "--json")
+check(rc == 0 and json.loads(out)["needs_activation"] is True, "Patreon-profiel: needs_activation is informatie (%d: %s)" % (rc, err))
+# Patreon-profiel zonder seed: standaard starten, met --enforce-activation exit 3.
 rc, out, err = run("Elf", "--check")
-check(rc == 3, "zonder activering exit 3 (kreeg %d: %s)" % (rc, err))
+check(rc == 0, "Patreon zonder activering start standaard (kreeg %d: %s)" % (rc, err))
+rc, out, err = run("Elf", "--check", "--enforce-activation")
+check(rc == 3 and "geen activering gevonden" in err, "met --enforce-activation zonder seed: exit 3 (kreeg %d: %s)" % (rc, err))
 seed = os.path.join(home, ".local/share/TeknoParrotUI/activation/teknoparrot-license.reg")
 write(seed, "REGEDIT4\n")
 prefix = os.path.join(home, ".local/share/ravengun/prefixes/shared/wine")
 write(os.path.join(prefix, "user.reg"), '[Software\\\\TeknoGods\\\\TeknoParrot] 1\n"PatreonSerialKey"="x"\n')
 write(os.path.join(prefix, ".tpui-license-seed"), "OUD\n")
-rc, out, err = run("Elf", "--check")
-check(rc == 3 and "niet (actueel)" in err, "verouderde activering exit 3 (kreeg %d)" % rc)
+rc, out, err = run("Elf", "--check", "--enforce-activation")
+check(rc == 3 and "niet (actueel)" in err, "verouderde activering exit 3 met --enforce-activation (kreeg %d)" % rc)
+check(run("Elf", "--check")[0] == 0, "verouderde activering start standaard")
 write(os.path.join(prefix, ".tpui-license-seed"), hashlib.sha256(b"REGEDIT4\n").hexdigest().upper() + "\n")
-rc, out, err = run("Elf", "--check")
-check(rc == 0, "actuele activering exit 0 (kreeg %d: %s)" % (rc, err))
+rc, out, err = run("Elf", "--check", "--enforce-activation")
+check(rc == 0, "actuele activering exit 0 met --enforce-activation (kreeg %d: %s)" % (rc, err))
 write(os.path.join(home, ".local/share/TeknoParrotUI/activation/teknoparrot-license.revoked"), "x")
-rc, out, err = run("Elf", "--check")
-check(rc == 3 and "gedeactiveerd" in err, "ingetrokken activering exit 3")
+rc, out, err = run("Elf", "--check", "--enforce-activation")
+check(rc == 3 and "gedeactiveerd" in err, "ingetrokken activering exit 3 met --enforce-activation")
+check(run("Elf", "--check")[0] == 0, "ingetrokken activering start standaard")
 os.unlink(os.path.join(home, ".local/share/TeknoParrotUI/activation/teknoparrot-license.revoked"))
 
 # Niet ondersteund -> 4.
@@ -410,103 +419,90 @@ check(plan["argv"][1] == os.path.join(home, ".local/share/ravengun/openparrot/cu
 write(os.path.join(shipped, "Gx", "game.ini"), "[Game]\nType = OpenParrot\n[Loader]\nBuild = mijn\n")
 rc, out, err = run("Gx", "--check")
 check(rc == 5 and "Build = mijn" in err, "onbekende Build weigert (%d: %s)" % (rc, err))
-# 64-bit TeknoParrot-profiel: eigen lader, kern van TeknoParrot (er is geen eigen TeknoParrot-kern); een eigen kern weigert.
+# 64-bit TeknoParrot-profiel: eigen lader, kern van TeknoParrot. Build = ravengun alleen laat een TeknoParrot-profiel
+# zijn eigen kern houden; Core = ravengun is de uitdrukkelijke kernwissel (hieronder).
 write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nType = TeknoParrot\n[Loader]\nBuild = ravengun\nPath = %s\n" % own)
 plan = plan_of("Win")
 check(plan["argv"][1] == os.path.join(own, "OpenParrotx64/OpenParrotLoader64.exe") and plan["argv"][2] == wp(os.path.join(tp, "TeknoParrot/TeknoParrot64")),
       "TeknoParrot-profiel: eigen lader, TeknoParrot-kern (%s)" % plan["argv"][1:3])
+# Core = ravengun mag ook bij EmulatorType TeknoParrot: onze OpenParrot-kern komt dan in de plaats van
+# TeknoParrot(64).dll als eerste argument van de lader (bisectie per game; zie own_build()).
+write(os.path.join(own, "OpenParrotx64", "OpenParrot64.dll"), "x")
 write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nType = TeknoParrot\n[Loader]\nCore = ravengun\nPath = %s\n" % own)
+plan = plan_of("Win")
+check(plan["argv"][1] == os.path.join(tp, "OpenParrotx64/OpenParrotLoader64.exe") and plan["argv"][2] == wp(os.path.join(own, "OpenParrotx64/OpenParrot64")),
+      "Core = ravengun bij TeknoParrot: eigen kern naast de lader uit de runtime (%s)" % plan["argv"][1:3])
+check(plan["core_source"] == "ravengun" and plan["core_dll"] == os.path.join(own, "OpenParrotx64/OpenParrot64.dll"),
+      "core_source/core_dll wijzen naar de eigen kern (%s/%s)" % (plan["core_source"], plan["core_dll"]))
+# Een eigen kern bestaat alleen voor EmulatorType OpenParrot of TeknoParrot.
+write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Loader]\nCore = ravengun\n")
+rc, out, err = run("Elf", "--check")
+check(rc == 5 and "alleen voor EmulatorType OpenParrot of TeknoParrot" in err, "eigen kern bij een andere EmulatorType weigert (%d: %s)" % (rc, err))
+# Ontbreekt de eigen kern, dan weigert de lader met het bouwhint in plaats van stil door te gaan.
+write(os.path.join(shipped, "Win", "game.ini"), "[Game]\nType = TeknoParrot\n[Loader]\nCore = ravengun\nPath = %s\n" % own)
+os.unlink(os.path.join(own, "OpenParrotx64", "OpenParrot64.dll"))
 rc, out, err = run("Win", "--check")
-check(rc == 5 and "alleen voor EmulatorType OpenParrot" in err, "eigen kern bij EmulatorType TeknoParrot weigert (%d: %s)" % (rc, err))
+check(rc == 5 and "eigen OpenParrot-build ontbreekt" in err and "build-openparrot.sh" in err, "eigen kern ontbreekt: exit 5 met bouwhint (%d: %s)" % (rc, err))
 os.unlink(os.path.join(shipped, "Win", "game.ini"))
 write(os.path.join(shipped, "Elf", "game.ini"), "[Game]\nType = ElfLdr2\n[Loader]\nBuild = ravengun\nPath = %s\n" % own)
 rc, out, err = run("Elf", "--check")
 check(rc == 5 and "alleen voor OpenParrotLoader" in err, "BudgieLoader kent geen eigen build (%d: %s)" % (rc, err))
 
-# Dongle ([Dongle] in game.ini, scripts/dongle.py): de echte, fysieke dongle via USB pass-through. Uit (standaard): niets doen, ook zonder
-# dongle. Aan: vóór de start detecteren; geen dongle of een runtime die niet draait weigert met exitcode 6 (geen terugval). Nep-sysfs,
-# nep-/proc en nep-wortel; een serienummer in de nep-sysfs mag nergens in de uitvoer of het log komen.
-import json as _json, socket as _socket
+# Dongle: de lader kent geen dongle-begrip meer (docs/geen-dongle-in-de-loader.md, beslissing eigenaar ronde 12).
+# Een software-dongle is een gewone drop-in; de drop-in-motor doet het werk. Daarom is er geen dongle-exitcode meer
+# en blokkeert een ontbrekende dongle de start niet. Wat blijft is de controle dat er niets lekt: een serienummer in
+# de nep-sysfs mag nergens in de uitvoer of het log terechtkomen.
+import json as _json
 SERIAL = "SN-SECRET-0042-DO-NOT-LEAK"
 dsys, dproc, droot = (os.path.join(tmp, n) for n in ("dsys", "dproc", "droot"))
 for d in (dsys, dproc, droot):
     os.makedirs(d)
-vdata = _json.load(open(os.path.join(os.path.dirname(script), "..", "packaging", "dongle-vendors.json")))
-for r in vdata["runtimes"].values():   # poorten dicht: op de testmachine kan de echte License Manager draaien
-    s_ = _socket.socket(); s_.bind(("127.0.0.1", 0)); r["tcp_port"] = s_.getsockname()[1]; s_.close()
-vfile = os.path.join(tmp, "dongle-vendors.json")
-write(vfile, _json.dumps(vdata))
-denv = {"RAVENGUN_USB_SYSFS": dsys, "RAVENGUN_PROC_ROOT": dproc, "RAVENGUN_DONGLE_ROOT": droot, "RAVENGUN_DONGLE_VENDORS": vfile}
+# De lader heeft de dongle-woordenschat niet meer: geen exitcode, geen poort, geen weigering, geen bronnenlijst.
+for naam in ("EXIT_DONGLE", "dongle_gate", "dongle_preview", "dropin_dongle", "DongleRefused",
+             "DONGLE_SOURCES", "DONGLE_KIND_SCRIPTS", "DONGLE_KIND_EIGEN"):
+    check(not hasattr(ld, naam), "de lader kent %s niet meer" % naam)
+denv = {"RAVENGUN_USB_SYSFS": dsys, "RAVENGUN_PROC_ROOT": dproc, "RAVENGUN_DONGLE_ROOT": droot}
 profile("Dg", "TeknoParrot", "TimeCrisis5", exe64, "true", [], extra="<WineRunnerPath>%s</WineRunnerPath>" % wine)
-check(ld.EXIT_DONGLE == 6, "exitcode van de dongle is 6")
-# Uit (standaard): niets doen, ook zonder dongle en zonder runtime.
+# Geen [Dongle] in game.ini: niets aan de hand, en de lader noemt het woord niet.
 rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 0 and "ongle" not in out + err, "[Dongle] uit: niets doen (%d: %s)" % (rc, err))
+check(rc == 0 and "ongle" not in out + err, "zonder [Dongle]: start gewoon (%d: %s)" % (rc, err))
+# [Dongle] Enabled = false of true, in de meegeleverde laag of in de gebruikerslaag: de lader leest het niet.
 write(os.path.join(shipped, "Dg", "game.ini"), "[Dongle]\nEnabled = false\n")
-check(run("Dg", "--check", env=denv)[0] == 0, "Enabled = false: niets doen")
-# Aan, geen dongle.
-write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = true\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "Enabled = false: start gewoon")
+write(os.path.join(shipped, "Dg", "game.ini"), "[Dongle]\nEnabled = true\n")
 rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 6 and "No dongle found" in err, "aan, geen dongle: exit 6 (%d: %s)" % (rc, err))
-# Dongle erin (met serienummer), runtime niet geïnstalleerd: weigeren met verwijzing naar de officiële installatie.
+check(rc == 0 and "ongle" not in out + err, "Enabled = true zonder dongle: start niet geblokkeerd (%d: %s)" % (rc, err))
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = true\nSource = emulator\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "gebruikerslaag met Enabled = true en Source: start gewoon")
+write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = ture\n")
+check(run("Dg", "--check", env=denv)[0] == 0, "onzin in [Dongle] wordt niet gelezen")
+os.unlink(os.path.join(user, "Dg", "game.ini"))
+# --plan: geen donglesleutel in de planning; de drop-in-motor is de vervanger en plant altijd.
+rc, out, err = run("Dg", "--plan", "--json", env=denv)
+plan = _json.loads(out) if rc == 0 else {}
+check(rc == 0 and "dongle" not in plan, "de planning kent geen donglesleutel (%d)" % rc)
+check(isinstance(plan.get("dropins"), dict) and "specs" in plan["dropins"], "de drop-in-motor plant de drop-ins (%r)" % (plan.get("dropins"),))
+# De logregels van de drop-in-motor -- de vervanger van de dongle-poort -- lekken het serienummer ook niet.
+# (De gewone logregels van de lader gaan naar stdout en zitten al in de out+err-controles hierboven.)
+check(SERIAL not in "\n".join(ld.dropin_log_lines(plan)), "serienummer niet in de logregels van de drop-in-motor")
+# Dongle in de nep-sysfs (met serienummer): de lader leest hem niet en het serienummer lekt nergens.
 write(os.path.join(dsys, "1-1", "idVendor"), "0529\n")
 write(os.path.join(dsys, "1-1", "idProduct"), "0001\n")
 write(os.path.join(dsys, "1-1", "manufacturer"), "Aladdin Knowledge Systems\n")
 write(os.path.join(dsys, "1-1", "product"), "HASP HL 3.25\n")
 write(os.path.join(dsys, "1-1", "serial"), SERIAL + "\n")
 rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 6 and "0529:0001" in err and "not installed" in err and "cpl.thalesgroup.com" in err, "dongle, runtime ontbreekt: exit 6 met verwijzing (%d: %s)" % (rc, err))
-check(SERIAL not in out + err, "serienummer niet in de uitvoer (refusal)")
-# Runtime geïnstalleerd maar niet gestart.
-write(os.path.join(droot, "usr/sbin/aksusbd"), "")
-rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 6 and "not running" in err, "runtime niet actief: exit 6 (%d: %s)" % (rc, err))
-# Runtime draait: door.
-write(os.path.join(dproc, "42", "comm"), "aksusbd\n")
-rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 0 and SERIAL not in out + err, "dongle en runtime: exit 0 (%d: %s)" % (rc, err))
-# --plan raakt de detectie niet en toont de instelling; zonder serienummer.
+check(rc == 0 and SERIAL not in out + err, "dongle in de nep-sysfs: start gewoon en geen serienummer in de uitvoer (%d)" % rc)
 rc, out, err = run("Dg", "--plan", "--json", env=denv)
-check(rc == 0 and json.loads(out)["dongle"] == {"enabled": True, "source": "usb-passthrough", "error": ""} and SERIAL not in out, "plan toont [Dongle]")
-# Het log bij een start (dongle_gate met verbose): merk, type, vendor:product, runtime-status; nooit het serienummer.
-import contextlib, io
-saved_env = dict(os.environ)
-os.environ.update(denv)
-try:
-    plan = ld.build_plan("Dg", tp, {}, None, False)
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        ld.dongle_gate(plan, verbose=True)
-    line = buf.getvalue()
-    check("Aladdin Knowledge Systems HASP HL 3.25 (0529:0001) - runtime: running" in line and "usb-passthrough" in line, "log: merk, type, vendor:product, runtime (%r)" % line)
-    check(SERIAL not in line, "serienummer niet in het log")
-    os.unlink(os.path.join(dproc, "42", "comm"))
-    try:
-        ld.dongle_gate(plan, verbose=True)
-        check(False, "dongle_gate moet weigeren zonder draaiende runtime")
-    except ld.DongleRefused as e:
-        check("not running" in str(e) and SERIAL not in str(e), "dongle_gate weigert: %s" % e)
-finally:
-    os.environ.clear()
-    os.environ.update(saved_env)
-# Onbekende Source of een Enabled die geen true/false is: weigeren (alleen als aan).
+check(rc == 0 and SERIAL not in out, "serienummer niet in de planning")
+# De dongle-runtime (aksusbd) er wel of niet: het maakt de lader niet uit en er lekt niets.
+write(os.path.join(droot, "usr/sbin/aksusbd"), "")
 write(os.path.join(dproc, "42", "comm"), "aksusbd\n")
-write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = true\nSource = emulator\n")
 rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 6 and "Source = emulator" in err and "usb-passthrough" in err, "onbekende Source: exit 6 (%d: %s)" % (rc, err))
-write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = ture\n")
-rc, out, err = run("Dg", "--check", env=denv)
-check(rc == 6 and "Enabled = ture" in err, "Enabled = ture: exit 6 (%d: %s)" % (rc, err))
-write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled = false\nSource = emulator\n")
-check(run("Dg", "--check", env=denv)[0] == 0, "uit: ook een foute Source doet niets")
-# Een lege waarde in de gebruikerslaag zet een meegeleverde Enabled = true terug.
-write(os.path.join(shipped, "Dg", "game.ini"), "[Dongle]\nEnabled = true\n")
+check(rc == 0 and SERIAL not in out + err, "runtime draait: start gewoon, geen serienummer (%d)" % rc)
 os.unlink(os.path.join(dproc, "42", "comm"))
-write(os.path.join(user, "Dg", "game.ini"), "[Dongle]\nEnabled =\n")
-check(run("Dg", "--check", env=denv)[0] == 0, "gebruiker zet Enabled terug op niet gezet: geen controle")
-os.unlink(os.path.join(user, "Dg", "game.ini"))
-check(run("Dg", "--check", env=denv)[0] == 6, "meegeleverd Enabled = true zonder runtime: exit 6")
-
+rc, out, err = run("Dg", "--check", env=denv)
+check(rc == 0 and SERIAL not in out + err, "runtime gestopt: start nog steeds gewoon (%d)" % rc)
 
 if fails:
     for f in fails:

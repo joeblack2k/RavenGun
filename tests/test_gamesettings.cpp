@@ -3,12 +3,14 @@
 // het schrijven van de gebruikerslaag en de echte patches/-boom van de repo. Raakt alleen een tijdelijke map.
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/json_parse.hpp"
@@ -38,6 +40,15 @@ static void put(const std::string& path, const std::string& text) {
     fs::create_directories(fs::path(path).parent_path());
     std::ofstream f(path, std::ios::binary | std::ios::trunc);
     f << text;
+}
+
+// Aantal met witruimte gescheiden woorden, gelijk aan Python's str.split() in tests/test_gamesettings.py.
+static size_t words(const std::string& text) {
+    std::istringstream ss(text);
+    std::string w;
+    size_t n = 0;
+    while (ss >> w) ++n;
+    return n;
 }
 
 // Hetzelfde bestand en dezelfde uitkomst als de Python-lezer (tests/test_gamesettings.py).
@@ -179,16 +190,27 @@ static void test_patch_policy(const std::string& root) {
     gs::Game rr = gs::load_game(real, "RaccoonRampage");
     CHECK(!rr.get("Display", "DisplayMode").empty());
     CHECK(!gs::load_game(real, "Halo").get("Display", "CustomResolution").empty());
-    // De acht Type X2-geheugenpatches uit OpenParrot: alleen documentatie.
+    // De veertien Type X2-geheugenpatches uit OpenParrot: alleen documentatie (Enabled = false, AppliedBy = core).
+    // Waar de Find op onze eigen dump is gemeten is hij precies zo lang als de patch schrijft; de vier zonder Find
+    // zijn de 2101J-set (onze dump is de USA 1.00-build: CRC 0x5a7fa241 -> GameID::HauntedMuseum2100) en de
+    // crash-NOP van 0x1391, die in onze dump al op 0x90 staat. Zelfde afspraak als tests/test_gamesettings.py.
     int memory = 0;
+    std::vector<std::string> zonder_find;
     for (const char* name : {"HauntedMuseum", "HauntedMuseumII", "GaiaAttack4", "MusicGunGun2"})
         for (const auto& p : gs::load_game(real, name).patches)
             if (p.kind() == "memory") {
                 ++memory;
-                CHECK(!p.enabled() && p.applied_by() == "core" && p.get("Find").empty() && p.get("Source").find("OpenParrot TypeX2Generic.cpp (GPL-3.0), regel ") == 0);
+                CHECK(!p.enabled() && p.applied_by() == "core" && p.get("Source").find("OpenParrot TypeX2Generic.cpp (GPL-3.0), regel ") == 0);
                 CHECK(!p.get("Module").empty() && !p.get("Offset").empty());
+                if (p.get("Find").empty()) zonder_find.push_back(p.name);
+                else CHECK(words(p.get("Find")) == static_cast<size_t>(std::atoi(p.get("Size").c_str())));
             }
-    CHECK(memory == 10);
+    CHECK(memory == 14);
+    std::sort(zonder_find.begin(), zonder_find.end());
+    CHECK(zonder_find == std::vector<std::string>({"Crash-NOP, versie 2100 (0x1391)",
+                                                   "Firmware-foutmelding uit, versie 2101J (0x1105)",
+                                                   "Gun-schrijfacties uit, versie 2101J (0x9B920)",
+                                                   "Volumeschrijfactie uit, versie 2101J (0x9DA08)"}));
 }
 
 static void test_edit_and_user_writes(const std::string& root) {
