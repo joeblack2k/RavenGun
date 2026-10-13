@@ -373,3 +373,35 @@ controleren nu ook op de processen van de ANDERE route.
 2. Ik dacht dat een tweede joystickapparaat de route was; de meting laat zien dat de game geen enkel
    invoerapparaat opent.
 3. Ik las een lopende run als "voorbij zijn time-out" terwijl hij gewoon nog liep.
+
+---
+
+## Stand 2026-10-13, vijfde update: DRIE VAN DE ZES STAAN OP DE LAT
+
+De lat is, zoals afgesproken: **vijf minuten attract- of spelmodus** -- het beginscherm, het
+FileTest-scherm, de webcamstap en het kalibratiescherm tellen NIET mee.
+
+| game | stand | bewijs |
+|---|---|---|
+| **Rabbids Hollywood** | **GEHAALD** (10 min, 115 threads) | eerdere meting |
+| **Transformers Shadows Rising** | **GEHAALD** (~8,5 min attract) | de toestandsmachine laadt de attract-cyclus 5x opnieuw (42 attract-gebeurtenissen: `ATTRACT_START`, dan `ATTRACT_LOGO 1..4`, dan `ATTRACT_VIDEO`), en de foto van 11:25:04 toont het spel volledig in beeld met `PRESS START BUTTON / FREE PLAY` |
+| **Halo Fireteam Raven** | **GEHAALD** (8+ min attract) | het bankverloop `attract -> level1 -> level2 -> perm -> attract -> level1 -> level2 -> level3 -> level4` van 11:39:41 tot 11:47:49, dus acht minuten en acht seconden, met vier verschillende leveldemo's |
+| Luigi's Mansion | niet gehaald | sterft ~0,3 s na een geslaagde ontpakking; vier stappen uit het eigen startscript zijn doorgemeten |
+| Terminator Salvation | niet gehaald | geblokkeerd VOOR de HASP-API (0 aanroepen bij 387 geslaagde attaches); bestandsmeting staat klaar |
+| House of the Dead Scarlet Dawn | niet gehaald | structureel compleet; de daemon A/B moet beslissen |
+
+### Halo: wat de doorbraak precies was
+
+* **START brengt het spel verder, TEST doet NIETS.** Zes TEST-pulsen op ALLE VIER de borden lieten het
+  logboek exact op 256 regels staan en alle zeven foto's bleven de kalibratie van 1,47 MB; de vier
+  START-pulsen lieten het logboek groeien en de foto's naar 2,7 tot 3,1 MB springen (een echt scherm).
+  Onze eigen notitie zei het omgekeerde en is hierbij gecorrigeerd.
+* **De munt werkt**: na vier muntpulsen staat er `Money In: $16.75` op het scherm, met de foto als bewijs.
+* **Wat het spel verder vraagt**: QR scanners (`P1/P2 OR Scanner is not detected`,
+  `Factory Setup Has Not Been Completed`). Dat is kasthardware die wij niet nabootsen, en het spel gaat
+  er toch door naar de attract.
+* **Wat er nog open is voor deze game**: de AIM en de TREKKER. Onze hulp schrijft alleen de SCHAKELAARS;
+  `p1.trigger` is bit 7 van offset 8 in het bordprofiel en de acht asbytes staan op offset 12 tot 19, en
+  geen van beide wordt geschreven. Dat is twee gerichte uitbreidingen van EEN functie -- geen nieuw
+  apparaat. (Een geweer dat perfecte posities en trekkerindrukken uitzond veranderde niets, want het
+  sprak een ander kanaal dan de game leest.)
