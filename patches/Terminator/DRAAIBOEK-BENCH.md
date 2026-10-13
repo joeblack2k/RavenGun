@@ -284,6 +284,107 @@ De laderbouwer heeft de reparatie **al gebouwd**, en die heeft er een ontleed-mo
 `rg-elfloader --ontleed-alleen <game>` (alias `--dry-run`) doet alles t/m de relocaties en **start de
 gast niet**. Daarmee is de hele keten op deze game al bewezen, voordat de bench aan de beurt is.
 
+---
+
+## 10. DE BENCHRUN VAN 2026-10-13 — uitkomst, oorzaak en de fix
+
+**Uitkomst: de lader is NIET klaar. Hij sterft vóór de sprong, in `laad_needed()`.**
+De DT_GNU_HASH-reparatie is NIET de schuldige — die werkt (1020 symbolen uit STRTAB−SYMTAB). Het is een
+**tweede, onafhankelijke fout in de lader, die alleen in de echte run bestaat.**
+
+```
+lader    : tools/rg-elfloader/rg-elfloader  34.876 B  (en de geinstalleerde kopie is identiek)
+sha256   : 2190a1687b2cd13e000742778d64ac238f79243c66e10f1da6ef62c40825f454
+gast     : sha256 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+logboeken: patches/Terminator/logs-benchrun-20261013/{dryrun.txt,run.out,hook.log}
+```
+
+**De vier succesregels, feitelijk:**
+
+| regel | gehaald? |
+|---|---|
+| `shim geladen: N gast-symbolen` | **JA** — `shim geladen: 515 gast-symbolen in de globale scope` |
+| `geladen; spel …` | **NEE** |
+| `spring naar e_entry 0x8057240` | **NEE** |
+| de gast geeft zijn eigen donglemelding | **NEE** (de gast heeft nooit gedraaid) |
+
+De run eindigde met `exit=127` en deze regel:
+
+```
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: FATAAL: dlopen(libGLU.so.1) mislukt: …/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor
+```
+
+### 10.1 De oorzaak (bewezen zonder bench, met `dlopen-orde-toets.c`)
+
+`libGLU.so.1` uit `ElfLdr2/libs` heeft **nul `DT_NEEDED`-regels** (`readelf -d` toont alleen SONAME) en
+heeft `floor`, `ceil`, `sqrt` en `_ZdaPv` ongedefinieerd. Hij vertrouwt er dus op dat libGL, **libm** en
+**libstdc++** al in de *globale* scope staan. De loader dlopen't de `DT_NEEDED`-lijst van de gast in
+volgorde, en daarin staat **libGLU op #2 en libm pas op #9** (libstdc++ op #13). Op het moment dat
+libGLU geladen wordt, is libm er dus nog niet.
+
+`dlopen-orde-toets.c` bootst precies dat na (mode A = libGL, libGLU):
+
+```
+mode A : libGL.so.1 GELADEN ; libGLU.so.1 MISLUKT -> undefined symbol: floor      <- de echte fout
+mode B : libGL, libm, libGLU -> libGLU MISLUKT -> undefined symbol: _ZdaPv        <- de volgende in de rij
+```
+
+Dus de keten is langer dan één symbool: libGLU wil **libGL + libm + libstdc++** alle drie al in de
+scope hebben. `LD_PRELOAD` van libGLU zelf helpt **niet** (dan faalt hij eerder op `glGetIntegerv`,
+omdat libGL dan nog niet geladen is — bewezen).
+
+### 10.2 Waarom de droogloop groen was en de run sterft
+
+`rg_elfloader.c`:
+
+```c
+579:  h = dlopen(naam, RTLD_NOW | RTLD_GLOBAL);
+580:  if (!h) {
+581:      if (!rg_ontleed)
+582:          fatal("dlopen(%s) mislukt: %s", naam, dlerror());   // <-- HIER STERFT DE ECHTE RUN
+583:      if (nw < …) wacht[nw++] = naam;                        // <-- alleen in --ontleed-alleen
+584:      continue;
+585:  }
+…
+591:  do {   /* alleen --ontleed-alleen komt hier met nw > 0: nog een poging zolang er voortgang is */
+```
+
+De uitgestelde tweede poging (regel 591-606) is dus **alleen actief in de ontleed-modus**, en de
+opmerking op regel 591 zegt dat zelf. Daarom meldde de droogloop `geladen (2e poging): libGLU.so.1` en
+zag alles er groen uit, terwijl dezelfde lib in de echte run fataal is.
+
+**Les voor de methode, niet alleen voor deze game: een groene `--ontleed-alleen` bewijst de gewone
+run niet, want de ontleed-modus is met opzet toegeeflijker.**
+
+### 10.3 De fix (voor de laderbouwer)
+
+Laat het faalpad óók `wacht[]` vullen en gebruik de bestaande herpoging-lus in **beide** modi; roep
+`fatal()` pas aan voor bibliotheken die na het convergeren van de lus nog steeds niet laden. Dat is
+~5 regels en het maakt de bestaande lus (591-606) gedeeld in plaats van ontleed-only.
+
+**Workaround voor de run** (staat nu in `loader-run.sh`, maar is nadrukkelijk niet de fix): zet
+`libGL.so.1`, `libm.so.6` en `libstdc++.so.6` van `/usr/lib32` in de `LD_PRELOAD` van de **lader**,
+náást de HASP-hook. Let op dat `LD_PRELOAD` alleen via `env` op de lader gezet wordt, anders krijgt de
+64-bits `timeout` hem en krijg je `wrong ELF class: ELFCLASS32 … ignored`-ruis in het logboek (dat
+gebeurde in deze run; onschadelijk maar vervuilend).
+
+### 10.4 Wat deze run WEL heeft opgeleverd
+
+- **De reparatie is bevestigd in een echte run:** `1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16,
+  geen DT_HASH)`, shim 515 symbolen, alle 13 bibliotheken vinden hun weg (met de workaround).
+- **De adreslijst is tegen het LEVENDE beeld gevalideerd.** De hook keurde in het laderproces alle 11
+  regels opnieuw: 10 × `GELDIG` op exact dezelfde adressen als mijn statische kaart, en `hasp_free`
+  afgewezen met dezelfde reden. Dat is een onafhankelijke bevestiging van de hele symbolenkaart.
+- **De aanroepmeting is ONBESLIST, niet negatief.** Er zijn nul `aanroep:`-regels, maar er is ook niet
+  gesprongen — de gast heeft nooit gedraaid. Dit is dus **niet** het "de blokkade zit vóór de HASP-API"-
+  signaal van §7.3. `loader-run.sh` meldt dat nu expliciet zo en trekt er geen conclusie uit.
+- **Extra constraint gemeten:** `libGLU.so.1` eist een **uitvoerbare stack** (`PT_GNU_STACK` RWX); zonder
+  `-Wl,-z,execstack` in de aanroeper faalt `dlopen` al op die eis. De lader voldoet eraan (de gast zelf
+  heeft ook `PT_GNU_STACK` RWX), maar het is een echte eis om te weten.
+
+---
+
 **Uitgevoerd op 2026-10-12, op een /tmp-kopie van de echte `game`:**
 
 ```

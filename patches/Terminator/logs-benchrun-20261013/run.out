@@ -1,0 +1,15 @@
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+rg-elfloader: beeld-bereik 0x8048000..0x8cee000 (12952 KB)
+[ravengun-hasp] RAVENGUN_HASP_GAME is niet gezet; geen dongle geladen
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+rg-elfloader: lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (515 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-726728/shim.so' '/run/user/1000/rg-elfloader-726728/shim.c' 2>&1
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+ERROR: ld.so: object '/home/deck/projects/ravengun-patches/patches/Halo/dropin/libravengun-hasphook.so' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: FATAAL: dlopen(libGLU.so.1) mislukt: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor

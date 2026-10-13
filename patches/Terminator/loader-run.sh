@@ -185,11 +185,23 @@ export RAVENGUN_HASP_ELF_GAME="$VIEW/game"
 export RAVENGUN_HASP_ELF_ADRESLIJST="$LIJST"
 export RAVENGUN_HASP_ELF_LOG="$RUNLOG"
 export RAVENGUN_HASP_VERBOSE=1
-export LD_PRELOAD="$HOOK"
-exec timeout 90 "$LOADER" "$VIEW/game"
+# LD_PRELOAD alleen op de LADER zetten, via 'env'. Zet je hem in de omgeving van dit script, dan krijgt
+# ook de 64-bits 'timeout' hem en die spuwt dan
+#   ERROR: ld.so: object '...' from LD_PRELOAD cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.
+# Dat is ruis (de 32-bits lader laadt de hook wel), maar het vervuilt het logboek.
+#
+# De drie vooraf te laden bibliotheken zijn er omdat libGLU.so.1 GEEN ENKELE DT_NEEDED-regel heeft en dus
+# leunt op de globale scope; zie DRAAIBOEK-BENCH.md §10. Zonder deze regel sterft de lader in
+# laad_needed() op "undefined symbol: floor". Dit is de WORKAROUND; de echte fix hoort in de lader.
+prev=""
+for p in /usr/lib32/libGL.so.1 /usr/lib32/libm.so.6 /usr/lib32/libstdc++.so.6; do
+  [ -e "\$p" ] && prev="\$prev:\$p"
+done
+prev="\${prev#:}"
+exec timeout 90 env LD_PRELOAD="$HOOK:\$prev" "$LOADER" "$VIEW/game"
 EOF
 chmod +x "$W/start.sh"
-echo "   (LD_PRELOAD=$HOOK zorgt voor de aanroep-log van fase 3)"
+echo "   (LD_PRELOAD = de HASP-hook + de DT_NEEDED-prerequisites van libGLU; zie §10)"
 bash "$W/start.sh" >"$W/log/run.out" 2>&1
 rc=$?
 echo "   exit=$rc   (stdout: $W/log/run.out, hooklog: $RUNLOG)"
@@ -222,15 +234,23 @@ if [ -r "$RUNLOG" ]; then
   echo
   echo "-- 3.2 de aanroepen (hh_meld, alleen met RAVENGUN_HASP_VERBOSE=1) --"
   aanroepen=$(grep -c 'aanroep:' "$RUNLOG" 2>/dev/null || true)
+  sprong=$(grep -c 'spring naar e_entry' "$W/log/run.out" 2>/dev/null || true)
   if [ "${aanroepen:-0}" -gt 0 ]; then
     ok "$aanroepen aanroep-regels"
     grep 'aanroep:' "$RUNLOG" | awk '{print $NF}' | sort | uniq -c | sort -rn | sed 's/^/        /'
     echo "        volgorde:"
     grep 'aanroep:' "$RUNLOG" | awk '{print $NF}' | head -20 | tr '\n' ' ' | sed 's/^/        /'; echo
+  elif [ "${sprong:-0}" -gt 0 ]; then
+    # Alleen DAN is "nul aanroepen" een betekenisvolle uitkomst: de gast kreeg besturing en raakte de
+    # HASP-API niet aan. Zonder sprong is het gewoon "we zijn er nooit geweest" -- geen conclusie.
+    warn "GEEN aanroep-regels, MAAR de gast kreeg besturing (er is gesprongen)."
+    warn "Volgens DRAAIBOEK-BENCH.md §7.3 is dat de MEEST WAARDEVOLLE negatieve uitkomst: de blokkade"
+    warn "zit dan VOOR de HASP-API -- in de engine (DongleInit/DongleOpen) of in de /g3/-paden."
   else
-    warn "GEEN aanroep-regels. Dat betekent: de gast raakt de HASP-API niet aan."
-    warn "Volgens DRAAIBOEK-BENCH.md §7.3 is dat de MEEST WAARDEVOLLE uitkomst: de blokkade zit dan"
-    warn "VOOR de HASP-API -- in de engine (DongleInit/DongleOpen) of in de /g3/-paden, niet in HASP."
+    warn "GEEN aanroep-regels, maar er is ook NIET gesprongen (geen 'spring naar e_entry')."
+    warn "Deze meting is dus ONBESLIST: de gast heeft nooit gedraaid, dus of hij de HASP-API aanroept"
+    warn "is niet gemeten. Trek hier GEEN conclusie over de /g3/- of engine-paden uit."
+    warn "Los eerst de fout in laad_needed() op (zie DRAAIBOEK-BENCH.md §10) en draai opnieuw."
   fi
 else
   warn "geen hooklog op $RUNLOG; is de hook wel geladen? (LD_PRELOAD in fase 2.2)"
