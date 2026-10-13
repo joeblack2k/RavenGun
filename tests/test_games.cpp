@@ -59,7 +59,7 @@ static void test_list_and_icons(const std::string& d) {
     write(d + "/patches/JurassicPark/game.ini", "[Status]\nNote = Werkt niet.\n");
     write(d + "/patches/Bad Name/game.ini", "[Status]\nNote = x\n");
     write(d + "/patches/Halo/game.ini", "[Game]\nName = Halo\n");                          // geen notitie
-    write(d + "/patches/Weg/game.ini", "[Status]\nNote = " + std::string(301, 'x') + "\n");  // te lang: genegeerd
+    write(d + "/patches/Weg/game.ini", "[Status]\nNote = " + std::string(301, 'x') + "\n");  // te lang: afgekapt, niet weggelaten
     c.dirs.shipped = d + "/patches";
     c.dirs.user = d + "/user-patches";
     auto games = list_games(c);
@@ -70,7 +70,7 @@ static void test_list_and_icons(const std::string& d) {
     for (const auto& g : games) {
         if (g.profile == "Halo") { halo = g.name == "HALO & Co" && g.icon_file == "Halo.png" && g.note.empty(); }
         if (g.profile == "JurassicPark") { jp = g.name == "Jurassic Park" && g.icon_file.empty() && g.note == "Werkt niet."; }
-        if (g.profile == "Weg") weg = g.icon_file.empty();  // icoon bestaat niet: geen icoon
+        if (g.profile == "Weg") weg = g.icon_file.empty() && g.note == std::string(299, 'x') + "\xE2\x80\xA6";  // icoon bestaat niet: geen icoon
         if (g.profile == "Pad") pad = g.icon_file.empty() || g.icon_file == "passwd";
         CHECK(valid_profile_name(g.profile));
     }
@@ -104,10 +104,64 @@ static void test_list_and_icons(const std::string& d) {
     Config gone;
     gone.tp_dir = d + "/bestaat-niet";
     CHECK(list_games(gone).empty() && read_icon(gone, "Halo.png", ct, data) == "not_found");
-    CHECK(load_notes(c.dirs).size() == 1 && load_notes(c.dirs)[0].first == "JurassicPark");
+    CHECK(load_notes(c.dirs).size() == 2 && load_notes(c.dirs)[0].first == "JurassicPark" && load_notes(c.dirs)[1].first == "Weg");
     CHECK(load_notes(ravengun::gamesettings::Dirs{}).empty());   // zonder mappen: geen notities
     write(d + "/user-patches/JurassicPark/game.ini", "[Status]\nNote = Eigen notitie.\n");   // de gebruikerslaag wint
     for (const auto& g : list_games(c)) if (g.profile == "JurassicPark") CHECK(g.note == "Eigen notitie.");
+}
+
+static size_t utf8_chars(const std::string& s) {
+    size_t n = 0;
+    for (unsigned char ch : s) n += (ch & 0xC0) != 0x80;
+    return n;
+}
+
+// Een te lange notitie wordt afgekapt en blijft zichtbaar; vroeger viel hij helemaal weg (13 van de 36 games, o.a. Jurassic Park met 767 tekens).
+static void test_long_note(const std::string& d) {
+    const std::string dots = "\xE2\x80\xA6";
+    CHECK(clip_note("") == "" && clip_note("Werkt niet.") == "Werkt niet.");
+    CHECK(clip_note(std::string(300, 'x')) == std::string(300, 'x'));                       // precies de grens: ongemoeid
+    std::string accents;                                                                     // 300 tekens, 600 bytes: tekens tellen, geen bytes
+    for (int i = 0; i < 300; ++i) accents += "\xC3\xA9";
+    CHECK(clip_note(accents) == accents);
+    const std::string cut_accents = clip_note(accents + "\xC3\xA9");                        // 301 tekens zonder spatie: hard afgekapt op een tekengrens
+    CHECK(cut_accents == accents.substr(0, 2 * 299) + dots && utf8_chars(cut_accents) == 300);
+
+    // 767 tekens zoals een echte notitie: woorden, leestekens en hier en daar een teken van twee bytes.
+    std::string note;
+    while (utf8_chars(note) < 767) note += "De daemon st\xC3\xA9\xC3\xA9" "ds opnieuw gestart, be\xC3\xAF" "nvloedt het beeld niet. ";
+    while (utf8_chars(note) > 767) note.pop_back();
+    while ((static_cast<unsigned char>(note.back()) & 0xC0) == 0x80 || note.back() == ' ') note.pop_back();
+    while (utf8_chars(note) < 767) note += "x";
+    CHECK(utf8_chars(note) == 767);
+    const std::string cut = clip_note(note);
+    CHECK(utf8_chars(cut) <= kMaxNoteChars && utf8_chars(cut) > kMaxNoteChars - 30);
+    CHECK(cut.size() > dots.size() && cut.compare(cut.size() - dots.size(), dots.size(), dots) == 0);
+    const std::string kept = cut.substr(0, cut.size() - dots.size());
+    CHECK(note.compare(0, kept.size(), kept) == 0);                                          // een echt begin van de notitie
+    CHECK(note[kept.size()] == ' ' && kept.back() != ' ');                                   // op een woordgrens, zonder losse spatie
+    CHECK(clip_note(cut) == cut);                                                            // nog eens afkappen verandert niets
+
+    // Door de keten: game.ini -> load_notes -> list_games -> de JSON van de gamelijst.
+    const std::string sub = d + "/lange-notitie";
+    Config c;
+    c.tp_dir = sub + "/tp";
+    write(sub + "/tp/UserProfiles/JurassicPark.xml", "<GameProfile></GameProfile>");
+    write(sub + "/patches/JurassicPark/game.ini", "[Status]\nNote = " + note + "\n");
+    c.dirs.shipped = sub + "/patches";
+    const auto notes = load_notes(c.dirs);
+    CHECK(notes.size() == 1 && notes[0].first == "JurassicPark" && notes[0].second == cut);
+    const auto games = list_games(c);
+    CHECK(games.size() == 1 && games[0].note == cut);
+    GameService svc(c, [](const std::vector<std::string>&, std::string&) { return 0; });
+    const auto parsed = json::parse(svc.list_json());
+    CHECK(parsed.ok && parsed.value.is_object());
+    const json::Value* list = parsed.ok ? parsed.value.find("games") : nullptr;
+    CHECK(list && list->is_array() && list->arr.size() == 1);
+    if (list && list->is_array() && list->arr.size() == 1) {
+        const json::Value* n = list->arr[0].find("note");
+        CHECK(n && n->is_string() && n->str == cut);                                         // niet null, en de "…" komt heel door de JSON
+    }
 }
 
 static void fake_proc(const std::string& root, int pid, const std::string& comm, const std::vector<std::string>& args) {
@@ -372,6 +426,7 @@ int main() {
     fs::create_directories(d);
     test_names();
     test_list_and_icons(d);
+    test_long_note(d);
     test_own_profile(d);
     test_processes(d);
     test_service(d);

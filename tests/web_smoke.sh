@@ -23,6 +23,10 @@ printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/Slecht naam.xml"
 printf 'PNGDATA' > "$TP/Icons/Halo.png"
 printf 'GEHEIM' > "$TP/geheim.png"
 printf '#!/bin/sh\nexit 0\n' > "$T/play.sh"; chmod +x "$T/play.sh"
+# Een notitie van 767 tekens in de gebruikerslaag (die voorgaat): de daemon moet hem afkappen, niet weglaten.
+mkdir -p "$HOME/.local/share/ravengun/patches/JurassicPark"
+{ printf '[Status]\nNote = Lange notitie'; i=0; while [ $i -lt 150 ]; do printf ' vier'; i=$((i+1)); done; printf ' 767\n'; } \
+  > "$HOME/.local/share/ravengun/patches/JurassicPark/game.ini"
 
 "$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --play-script "$T/play.sh" --games-dry-run 2>"$T/log" &
 PID=$!
@@ -114,10 +118,13 @@ GAMES=$(curl -s "$B/api/games")
 printf '%s' "$GAMES" | grep -q '"profile":"Halo","name":"HALO Test","icon":"/api/game-icon/Halo.png"' || fail "games: Halo ontbreekt"
 printf '%s' "$GAMES" | grep -q '"profile":"JurassicPark","name":"Jurassic Park","icon":null' || fail "games: JurassicPark ontbreekt"
 # Notities komen uit [Status] Note in patches/<Game>/game.ini (docs/web-ui.md: Nederlands, hoogstens 300 tekens).
-# De tekst zelf wordt hier niet vastgelegd -- die verandert vaak. Wel: er is een niet-lege notitie en nooit een lege.
-# LET OP: de notitie van JurassicPark is in de patches-repo 767 tekens geworden en valt daarmee buiten de grens van
-# 300 tekens, waarop de daemon hem weglaat (note:null). Dat is een gegevensfout in patches/JurassicPark/game.ini, geen
-# testfout; daarom hangt deze controle niet meer aan die ene letterlijke begintekst.
+# De tekst van de meegeleverde notities wordt hier niet vastgelegd -- die verandert vaak. Wel: er is een niet-lege
+# notitie en nooit een lege. En de eigen notitie van 767 tekens hierboven komt afgekapt door (met "…" aan het eind)
+# in plaats van als null: zo viel de notitie van 13 games uit de lijst toen de daemon te lange notities wegliet.
+JPNOTE=$(printf '%s' "$GAMES" | sed -n 's/.*"profile":"JurassicPark","name":"Jurassic Park","icon":null,"note":"\([^"]*\)".*/\1/p')
+[ -n "$JPNOTE" ] || fail "games: de lange notitie van JurassicPark is weggelaten"
+case "$JPNOTE" in "Lange notitie vier vier"*" vier…") ;; *) fail "games: lange notitie niet afgekapt met een beletselteken: $JPNOTE";; esac
+[ "$(printf '%s' "$JPNOTE" | wc -c)" -le 302 ] || fail "games: afgekapte notitie is langer dan 300 tekens"
 printf '%s' "$GAMES" | grep -q '"note":"[^"]' || fail "games: geen niet-lege notitie in de lijst"
 printf '%s' "$GAMES" | grep -q '"note":""' && fail "games: lege notitie in de lijst"
 printf '%s' "$GAMES" | grep -q 'Slecht' && fail "games: ongeldige profielnaam in de lijst"

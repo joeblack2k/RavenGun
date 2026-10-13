@@ -143,12 +143,27 @@ bool valid_icon_file(std::string_view s) {
     return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp";
 }
 
+std::string clip_note(const std::string& note) {
+    size_t chars = 0, cut = 0;   // cut = de byte waar het laatste teken dat nog past begint; daar komt de "…"
+    for (size_t i = 0; i < note.size(); ++i) {
+        if ((static_cast<unsigned char>(note[i]) & 0xC0) == 0x80) continue;   // vervolgbyte van een UTF-8-teken
+        if (chars == kMaxNoteChars - 1) cut = i;
+        ++chars;
+    }
+    if (chars <= kMaxNoteChars) return note;
+    std::string out = note.substr(0, cut);
+    const size_t space = out.find_last_of(' ');
+    if (space != std::string::npos && out.size() - space <= 24) out.resize(space);   // liever een heel woord minder dan een half woord
+    while (!out.empty() && out.back() == ' ') out.pop_back();
+    return out + "\xE2\x80\xA6";   // U+2026
+}
+
 std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::gamesettings::Dirs& dirs) {
     std::vector<std::pair<std::string, std::string>> out;
     for (const std::string& name : ravengun::gamesettings::list_games(dirs)) {
         if (!valid_profile_name(name)) continue;
         const std::string note = ravengun::gamesettings::load_game(dirs, name).get("Status", "Note");
-        if (!note.empty() && note.size() <= 300) out.emplace_back(name, note);
+        if (!note.empty()) out.emplace_back(name, clip_note(note));
     }
     return out;
 }

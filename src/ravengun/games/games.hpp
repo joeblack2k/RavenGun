@@ -25,6 +25,7 @@ namespace ravengun::games {
 inline constexpr const char* kPlayUnit = "ravengun-play";
 inline constexpr const char* kStopUnit = "ravengun-play-stop";
 inline constexpr size_t kMaxIconBytes = 3 * 1024 * 1024;
+inline constexpr size_t kMaxNoteChars = 300;   // tekens (UTF-8), geen bytes
 
 // [A-Za-z0-9_-]{1,64}
 bool valid_profile_name(std::string_view s);
@@ -55,7 +56,7 @@ struct Game {
     std::string profile;    // bestandsnaam zonder .xml
     std::string name;       // weergavenaam
     std::string icon_file;  // leeg = geen (bestaand) icoon
-    std::string note;       // opmerking ([Status] Note in game.ini, Nederlands, hoogstens 300 tekens; leeg = geen)
+    std::string note;       // opmerking ([Status] Note in game.ini, Nederlands, hoogstens 300 tekens: langer is afgekapt met "…"; leeg = geen)
 };
 
 // De games van de UI: de profielen uit <tp_dir>/UserProfiles/*.xml, en de games met een eigen profiel in game.ini (patches/<Game>/ met de
@@ -69,7 +70,10 @@ std::vector<std::string> library_folders(const std::string& library_file, const 
 // Leest een icoon. Leeg resultaat in `err` = gelukt; anders "invalid" (naam niet toegestaan) of "not_found".
 std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data);
 
-// Nederlandse notities van alle games met een [Status] Note (hoogstens 300 tekens; profielnaam [A-Za-z0-9_-]{1,64}).
+// Een notitie van hoogstens kMaxNoteChars tekens. Een langere wordt afgekapt (op een woordgrens als die dichtbij is, nooit midden in een
+// UTF-8-teken) en eindigt dan op "…", zodat te zien is dat er meer stond. Weglaten doen we niet: dan is de notitie nergens te zien.
+std::string clip_note(const std::string& note);
+// Nederlandse notities van alle games met een [Status] Note (hoogstens 300 tekens, zie clip_note; profielnaam [A-Za-z0-9_-]{1,64}).
 std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::gamesettings::Dirs& dirs);
 
 // Procesinspectie (proc_root is /proc, of een nepmap in tests).

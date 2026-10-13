@@ -130,7 +130,7 @@ Button 1 (red) = kbd:A
 
 [Status]
 Status = playable             ; playable | parked | untested
-Note = ...                    ; Nederlands (webpagina en engine, hoogstens 300 tekens)
+Note = ...                    ; Nederlands (webpagina en engine, hoogstens 300 tekens; langer wordt afgekapt met "…")
 NoteEN = ...                  ; Engels (de app)
 Findings = findings/LetsGoIsland.md
 ```
