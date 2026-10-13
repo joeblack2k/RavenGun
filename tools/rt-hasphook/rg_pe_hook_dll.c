@@ -60,6 +60,16 @@ static void rg_meld(const char *fmt, ...)
     fflush(G_log);
 }
 
+static void rg_doe_het_werk(void);
+
+/* De eigen thread: hier gebeurt het kijken en omzetten, niet op de hoofdthread (zie DllMain). */
+static DWORD WINAPI rg_werk_thread(LPVOID arg)
+{
+    (void)arg;
+    rg_doe_het_werk();
+    return 0;
+}
+
 static void rg_doe_het_werk(void)
 {
     const char *ini = getenv("RG_HOOK_INI");
@@ -78,6 +88,7 @@ static void rg_doe_het_werk(void)
     if (!G_log)
         return;
 
+    rg_meld("wachtroute: op een eigen thread gezet; de hoofdthread gaat verder");
     spel = GetModuleHandleW(NULL);            /* het spel, niet deze DLL */
     if (!spel) {
         rg_meld("geen hoofdmodule gevonden");
@@ -103,10 +114,31 @@ static void rg_doe_het_werk(void)
 
 BOOL WINAPI DllMain(HINSTANCE hinst, DWORD reason, LPVOID reserved)
 {
+    HANDLE h;
     (void)hinst;
     (void)reserved;
-    if (reason == DLL_PROCESS_ATTACH)
-        rg_doe_het_werk();
+    if (reason != DLL_PROCESS_ATTACH)
+        return TRUE;
+    /*
+     * NIET op de hoofdthread wachten. Deze DLL wordt via TP_PRELOAD_DLL geladen, dus op de
+     * HOOFDTHREAD, in de aanhechtingsfase, VOORDAT het spel zijn entry point uitvoert. Het spel kan
+     * pas ontpakken nadat de lader die hoofdthread hervat, en de lader hervat pas als deze functie
+     * terugkeert. Wachten hier is dus een deadlock by construction. Dat is gemeten: de wachtroute
+     * wachtte 10 s op de hoofdthread, `.text` bleef 100 procent nul (de pagina's vullen pas rond
+     * t=4,7 s), en het proces leefde 16,2 s in plaats van ongeveer 6 s -- het was niet geholpen, het
+     * werd alleen vastgehouden. Daarom: meteen terugkeren, en het kijken en omzetten op een eigen
+     * thread die in dezelfde initialisatie wordt gemaakt.
+     *
+     * (CreateThread vanuit DllMain is de gangbare vorm hiervoor: het gevaar zit in het synchroon
+     * wachten onder de loader-lock, niet in het starten van een thread. De thread raakt de
+     * loader-lock niet aan: hij leest `GetModuleHandleW(NULL)` -- de PEB, geen lock -- en schrijft
+     * alleen naar het beeld en naar een logbestand.)
+     */
+    h = CreateThread(NULL, 0, rg_werk_thread, NULL, 0, NULL);
+    if (h)
+        CloseHandle(h);
+    else if (G_log)
+        rg_meld("kon de eigen thread niet starten; er wordt niets aangehaakt");
     return TRUE;
 }
 

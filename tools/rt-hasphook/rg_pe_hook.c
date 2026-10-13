@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <stdint.h>
 
 #if defined(_WIN32)
@@ -321,6 +322,30 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
             c->basis_beeld = (strcmp(waarde, "beeld") == 0);
             continue;
         }
+        if (!strcmp(naam, "bewaar_args")) {
+            c->bewaar_args = (strcmp(waarde, "1") == 0 || strcmp(waarde, "ja") == 0);
+            continue;
+        }
+        if (!strcmp(naam, "wacht_s")) {
+            c->wacht_s = atoi(waarde);
+            continue;
+        }
+        if (!strcmp(naam, "wacht_ms")) {
+            c->wacht_ms = atoi(waarde);
+            continue;
+        }
+        if (!strcmp(naam, "module")) {
+            if (nu)
+                snprintf(nu->module, sizeof nu->module, "%s", waarde);
+            continue;
+        }
+        if (!strcmp(naam, "export")) {
+            if (nu) {
+                snprintf(nu->export, sizeof nu->export, "%s", waarde);
+                nu->is_export = 1;
+            }
+            continue;
+        }
         if (!strcmp(naam, "grootte")) {
             rg_hex(waarde, &c->verwacht_grootte);
             continue;
@@ -360,10 +385,10 @@ static int rg_lees_lijst(rg_pe_ctx *c, const char *pad)
                 while (*q && *q != ' ' && *q != '\t')
                     q++;
             }
-            nu->bytes_n = k;
+            nu->verwacht_n = k;
             for (int i = 0; i < k; i++)
-                nu->bytes[i] = (unsigned char)b[i];
-            nu->heeft_bytes = k > 0;
+                nu->verwacht_bytes[i] = (unsigned char)b[i];
+            nu->heeft_verwacht = k > 0;
             continue;
         }
         if (!strcmp(naam, "antwoord")) {
@@ -418,6 +443,18 @@ static void rg_em64(rg_buf *d, uint64_t v)
 static int rg_maak_stub(rg_pe_ctx *c, rg_pe_regel *r, int idx, rg_buf *uit)
 {
     uit->n = 0;
+    /*
+     * Argumenten bewaren, als de lijst dat vraagt. De gesloten kern van Luigi doet dit in ELKE
+     * implementatie: de argumentregisters gaan naar de home space van de aanroeper ([rsp+8] ..
+     * [rsp+0x20]) voordat er iets anders gebeurt. Dit staat vóór de vorm, want geen enkele vorm
+     * mag een argumentregister kwijtraken voordat het bewaard is.
+     */
+    if (c->bewaar_args) {
+        rg_em(uit, 0x48); rg_em(uit, 0x89); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x08);
+        rg_em(uit, 0x48); rg_em(uit, 0x89); rg_em(uit, 0x54); rg_em(uit, 0x24); rg_em(uit, 0x10);
+        rg_em(uit, 0x4c); rg_em(uit, 0x89); rg_em(uit, 0x44); rg_em(uit, 0x24); rg_em(uit, 0x18);
+        rg_em(uit, 0x4c); rg_em(uit, 0x89); rg_em(uit, 0x4c); rg_em(uit, 0x24); rg_em(uit, 0x20);
+    }
     switch (r->antwoord) {
     case RG_ANTWOORD_RET0:
         rg_em(uit, 0x31); rg_em(uit, 0xc0); rg_em(uit, 0xc3);           /* xor eax,eax; ret */
@@ -486,6 +523,115 @@ static int rg_maak_stub(rg_pe_ctx *c, rg_pe_regel *r, int idx, rg_buf *uit)
     }
 }
 
+/* ------------------------------------------------------------------ tijd */
+
+static uint64_t rg_nu_ms(void)
+{
+#if defined(_WIN32)
+    return (uint64_t)GetTickCount64();
+#else
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (uint64_t)t.tv_sec * 1000u + (uint64_t)(t.tv_nsec / 1000000);
+#endif
+}
+
+static void rg_slaap_ms(int ms)
+{
+#if defined(_WIN32)
+    Sleep((DWORD)ms);
+#else
+    struct timespec t;
+    t.tv_sec = ms / 1000;
+    t.tv_nsec = (long)(ms % 1000) * 1000000L;
+    nanosleep(&t, NULL);
+#endif
+}
+
+/* Staat hier nog niets? Dan heeft de pakker deze pagina nog niet geschreven. */
+static int rg_alles_nul(const unsigned char *p, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n; i++)
+        if (p[i])
+            return 0;
+    return 1;
+}
+
+/*
+ * De keuring van EEN regel. Zet `geldig`, of `wacht` als de pagina nog niet is uitgepakt, of een
+ * reden waarom het adres definitief wordt afgewezen. Apart gehouden omdat de wachtroute hem
+ * opnieuw moet kunnen aanroepen zonder de rest van de hoofdroute te herhalen.
+ */
+static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
+{
+    const rg_pe_sectie *s;
+    uint32_t rva;
+    const unsigned char *p;
+    r->geldig = 0;
+    r->wacht = 0;
+    if (!r->adres && !r->is_export) {
+        snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: geen adres en geen exportnaam in de lijst");
+        return;
+    }
+    rva = r->is_rva ? (uint32_t)r->adres
+                    : (uint32_t)(r->adres - (c->basis_beeld ? kop->imagebase : 0));
+    r->rva = rva;
+    r->doel_adres = (uintptr_t)(kop->imagebase + rva);
+    s = rg_sectie_van(kop, rva);
+    if (!s) {
+        snprintf(r->reden, sizeof r->reden,
+                 "AFGEWEZEN: RVA 0x%x valt in geen sectie van het beeld", rva);
+        return;
+    }
+    if (!(s->flags & 0x20000000)) {
+        snprintf(r->reden, sizeof r->reden,
+                 "AFGEWEZEN: sectie %s is niet uitvoerbaar (IMAGE_SCN_MEM_EXECUTE ontbreekt)",
+                 s->naam);
+        return;
+    }
+    if ((size_t)rva + 12 > c->beeld_n) {
+        snprintf(r->reden, sizeof r->reden,
+                 "AFGEWEZEN: RVA 0x%x valt buiten het beeld (%zu bytes)", rva, c->beeld_n);
+        return;
+    }
+    p = c->beeld + rva;
+    memset(r->gezien, 0, sizeof r->gezien);
+    memcpy(r->gezien, p, 8);   /* wat de KEURING ziet, niet wat er na het patchen staat */
+    if (rg_alles_nul(p, 5)) {
+        /* Nog niets: de pakker heeft deze pagina nog niet geschreven. Geen fout, wel te vroeg. */
+        r->wacht = 1;
+        snprintf(r->reden, sizeof r->reden,
+                 "NOG NIET UITGEPAKT: de prologue op RVA 0x%x is nog nul", rva);
+        return;
+    }
+    if (r->heeft_verwacht) {
+        if (memcmp(p, r->verwacht_bytes, (size_t)r->verwacht_n) != 0) {
+            snprintf(r->reden, sizeof r->reden,
+                     "AFGEWEZEN: eerste bytes %02x %02x %02x %02x komen niet overeen met de "
+                     "lijst (%02x %02x %02x %02x)", p[0], p[1], p[2], p[3],
+                     r->verwacht_bytes[0], r->verwacht_n > 1 ? r->verwacht_bytes[1] : 0,
+                     r->verwacht_n > 2 ? r->verwacht_bytes[2] : 0,
+                     r->verwacht_n > 3 ? r->verwacht_bytes[3] : 0);
+            return;
+        }
+    } else if (!rg_proloog_ok(p, 5, c->proloog)) {
+        if (p[0] == 0xe9)
+            snprintf(r->reden, sizeof r->reden,
+                     "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen prologue maar een "
+                     "sprong -- al door een andere kern omgezet?", p[0], p[1], p[2], p[3]);
+        else
+            snprintf(r->reden, sizeof r->reden,
+                     "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen herkenbare "
+                     "functieprologue", p[0], p[1], p[2], p[3]);
+        return;
+    }
+    r->geldig = 1;
+    snprintf(r->reden, sizeof r->reden,
+             "GELDIG: sectie %s (RVA 0x%x, runtime 0x%llx), prologue %02x %02x %02x %02x",
+             s->naam, rva, (unsigned long long)r->doel_adres, p[0], p[1], p[2], p[3]);
+}
+
 /* ------------------------------------------------------------------ de hoofdroute */
 
 int rg_pe_hook(rg_pe_ctx *c)
@@ -535,64 +681,36 @@ int rg_pe_hook(rg_pe_ctx *c)
         return 0;
     }
 
-    /* keuring */
-    for (i = 0; i < c->n; i++) {
-        rg_pe_regel *r = &c->regels[i];
-        const rg_pe_sectie *s;
-        uint32_t rva;
-        const unsigned char *p;
-        if (!r->adres) {
-            snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: geen adres in de lijst");
-            continue;
-        }
-        rva = r->is_rva ? (uint32_t)r->adres
-                        : (uint32_t)(r->adres - (c->basis_beeld ? kop.imagebase : 0));
-        r->rva = rva;
-        r->doel_adres = (uintptr_t)(kop.imagebase + rva);
-        s = rg_sectie_van(&kop, rva);
-        if (!s) {
-            snprintf(r->reden, sizeof r->reden,
-                     "AFGEWEZEN: RVA 0x%x valt in geen sectie van het beeld", rva);
-            continue;
-        }
-        if (!(s->flags & 0x20000000)) {
-            snprintf(r->reden, sizeof r->reden,
-                     "AFGEWEZEN: sectie %s is niet uitvoerbaar (IMAGE_SCN_MEM_EXECUTE ontbreekt)",
-                     s->naam);
-            continue;
-        }
-        if ((size_t)rva + 12 > c->beeld_n) {
-            snprintf(r->reden, sizeof r->reden,
-                     "AFGEWEZEN: RVA 0x%x valt buiten het beeld (%zu bytes)", rva, c->beeld_n);
-            continue;
-        }
-        p = c->beeld + rva;
-        if (r->heeft_bytes) {
-            if (memcmp(p, r->bytes, (size_t)r->bytes_n) != 0) {
-                snprintf(r->reden, sizeof r->reden,
-                         "AFGEWEZEN: eerste bytes %02x %02x %02x %02x komen niet overeen met de "
-                         "lijst (%02x %02x %02x %02x)", p[0], p[1], p[2], p[3],
-                         r->bytes[0], r->bytes_n > 1 ? r->bytes[1] : 0,
-                         r->bytes_n > 2 ? r->bytes[2] : 0, r->bytes_n > 3 ? r->bytes[3] : 0);
-                continue;
+    /* keuring, met de wachtroute: een pagina die nog niet is uitgepakt is geen fout maar te vroeg.
+       De prologues bestaan pas NADAT de pakker de code heeft weggeschreven (gemeten: onder onze kern
+       van t=4,6 tot 4,7 s), dus de hook moet ze op dat moment kunnen omzetten en niet bij het laden. */
+    {
+        uint64_t t0 = rg_nu_ms();
+        int ronde = 0, nog;
+        for (;;) {
+            nog = 0;
+            for (i = 0; i < c->n; i++) {
+                rg_keur_een(c, &kop, &c->regels[i]);
+                if (c->regels[i].wacht)
+                    nog++;
             }
-        } else if (!rg_proloog_ok(p, 5, c->proloog)) {
-            if (p[0] == 0xe9)
-                snprintf(r->reden, sizeof r->reden,
-                         "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen prologue maar een "
-                         "sprong -- al door een andere kern omgezet?", p[0], p[1], p[2], p[3]);
-            else
-                snprintf(r->reden, sizeof r->reden,
-                         "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen herkenbare "
-                         "functieprologue", p[0], p[1], p[2], p[3]);
-            continue;
+            if (!nog || c->wacht_s <= 0)
+                break;
+            if (rg_nu_ms() - t0 > (uint64_t)c->wacht_s * 1000u) {
+                rg_log(c, "wachtroute: %d pagina('s) na %d s nog steeds niet uitgepakt; gestopt",
+                       nog, c->wacht_s);
+                break;
+            }
+            if (!ronde)
+                rg_log(c, "wachtroute: %d pagina('s) nog niet uitgepakt; ik blijf kijken (max %d s, "
+                          "elke %d ms)", nog, c->wacht_s, c->wacht_ms > 0 ? c->wacht_ms : 10);
+            ronde++;
+            rg_slaap_ms(c->wacht_ms > 0 ? c->wacht_ms : 10);
         }
-        r->geldig = 1;
-        snprintf(r->reden, sizeof r->reden,
-                 "GELDIG: sectie %s (RVA 0x%x, runtime 0x%llx), prologue %02x %02x %02x %02x",
-                 s->naam, rva, (unsigned long long)r->doel_adres, p[0], p[1], p[2], p[3]);
+        if (nog == 0 && ronde > 0)
+            rg_log(c, "wachtroute: de pagina's zijn uitgepakt na %llu ms; nu omzetten",
+                   (unsigned long long)(rg_nu_ms() - t0));
     }
-
     /* de stubpagina: een uitvoerbare pagina. We proberen hem dicht bij het beeld te leggen, zodat
        de 5-byte `e9 rel32`-omzetting past; lukt dat niet, dan volgt een 12-byte absolute sprong. */
     pag = RG_PAGINA_GROOTTE;
@@ -675,9 +793,22 @@ int rg_pe_hook(rg_pe_ctx *c)
                r->antwoord == RG_ANTWOORD_TODO ? "  ANTWOORD = TODO" : "");
     }
 
-    /* het oordeel per regel, en de samenvatting in dezelfde vijf gevallen als de ELF-hook */
-    for (i = 0; i < c->n; i++)
-        rg_log(c, "  %-34s 0x%08x  %s", c->regels[i].naam, c->regels[i].rva, c->regels[i].reden);
+    /*
+     * Het oordeel per regel, en de samenvatting in dezelfde vijf gevallen als de ELF-hook.
+     *
+     * Per regel staan er TWEE dingen, omdat een tegenspraak tussen twee instrumenten anders niet te
+     * beslechten is: de AANWIJZER die werkelijk is gederefereerd (het absolute adres) met de
+     * MODULEBASIS die daarvoor is gebruikt, en de bytes die op dat moment op die plek stonden. Wie
+     * buiten het proces op het nominale adres leest en daar nullen ziet, kan dat hiernaast leggen.
+     */
+    for (i = 0; i < c->n; i++) {
+        rg_pe_regel *r = &c->regels[i];
+        rg_log(c, "  %-34s RVA 0x%08x  VA 0x%016llx (basis 0x%llx)  bytes %02x %02x %02x %02x "
+                  "%02x %02x %02x %02x", r->naam, r->rva, (unsigned long long)r->doel_adres,
+               (unsigned long long)kop.imagebase, r->gezien[0], r->gezien[1], r->gezien[2],
+               r->gezien[3], r->gezien[4], r->gezien[5], r->gezien[6], r->gezien[7]);
+        rg_log(c, "  %-34s %s", "", r->reden);
+    }
     for (i = 0; i < c->n; i++) {
         rg_pe_regel *r = &c->regels[i];
         if (r->gehaakt)
