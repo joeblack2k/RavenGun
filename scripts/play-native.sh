@@ -240,6 +240,21 @@ else
   if pgrep -x ravengund >/dev/null 2>&1; then CAMERA_REGEL+="; LET OP: de daemon draait en streamt deze camera, het spel kan hem openen maar niet streamen"; fi
 fi
 
+# De invoerroute: dit script start het spel, het wapent de invoer NIET (dat doet play-halo.sh --native: de IO-brug van de daemon
+# starten voor dit profiel). Een spel dat start zonder gewapende route ziet er goed uit en krijgt geen invoer; dat heeft al twee
+# metingen gekost. Daarom zegt het logboek van elke run of de brug draait en welk bordbeeld de invoerhulp leest.
+ROUTE_REGEL=""
+if [[ "${V[route]:-}" == tp-shm ]]; then
+  ib=$("$RG_BIN/ravengunctl" iobridge 2>/dev/null | head -1 || true)
+  ROUTE_REGEL="invoerroute: tp-shm; ${ib:-IO-brug: onbekend (de daemon antwoordt niet)}"
+  if [[ -z "$ib" || "$ib" == *": geen"* ]]; then
+    ROUTE_REGEL+="; LET OP: de IO-brug draait niet, het spel krijgt geen invoer van de daemon (start via play-halo.sh --native, of eerst: ravengunctl iobridge start $GAME --route tp-shm)"
+  fi
+  for e in "${XENV[@]}"; do
+    if [[ "$e" == RG_RT_SHM=* ]]; then ROUTE_REGEL+="; LET OP: de invoerhulp leest ${e#RG_RT_SHM=} en niet het bordbeeld van de daemon"; fi
+  done
+fi
+
 # De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
 n=0
 for m in "${MOUNTS[@]}"; do
@@ -395,16 +410,17 @@ for ((i = 0; i < ${#BINDS[@]}; i += 2)); do
 done
 IDENT=$(rg_identiteit "$0" "${WIE[@]}") || IDENT="script: $0 (identiteit niet vast te stellen)"
 
-if (( DRY )); then echo "$IDENT" >&2; echo "$CAMERA_REGEL" >&2; printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
+if (( DRY )); then echo "$IDENT" >&2; echo "$CAMERA_REGEL" >&2; if [[ -n "$ROUTE_REGEL" ]]; then echo "$ROUTE_REGEL" >&2; fi; printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
 
 # Eén launcher tegelijk.
 exec 9>"$IPC/native.lock"
 flock -n 9 || die "er draait al een native launcher (zie $IPC/native.pid); stop die met --stop"
 echo $$ > "$IPC/native.pid"
 TS=$(date +%Y%m%d-%H%M%S); LOG="$LOGDIR/native-$GAME-$TS.log"
-{ echo "== play-native $GAME $TS"; echo "$IDENT"; echo "$CAMERA_REGEL"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
+{ echo "== play-native $GAME $TS"; echo "$IDENT"; echo "$CAMERA_REGEL"; if [[ -n "$ROUTE_REGEL" ]]; then echo "$ROUTE_REGEL"; fi; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
 echo "play-native: $GAME (${V[title]}), res $RES, log $LOG"
 [[ "${V[status]}" == werkt ]] || echo "play-native: LET OP: status ${V[status]} (${V[note]})" >&2
+if [[ "$ROUTE_REGEL" == *"LET OP"* ]]; then echo "play-native: $ROUTE_REGEL" >&2; fi
 
 CHILD=""
 cleanup() { [[ -n "$CHILD" ]] && kill -TERM "$CHILD" 2>/dev/null || true; }
