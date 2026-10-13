@@ -1,0 +1,20 @@
+  t=12s START-puls 1 (11:56:03)
+  *** FileTest weg na 1 pulsen
+  gamelog: 427 regels
+  t=33s START-puls 21 (11:56:24)
+    gamelog=429 regels; banken: sound bank: level5 sound bank: perm 
+  t=40s START-puls 22 (11:56:31)
+    gamelog=430 regels; banken: sound bank: perm sound bank: attract 
+  t=48s START-puls 23 (11:56:39)
+    gamelog=430 regels; banken: sound bank: perm sound bank: attract 
+  t=55s START-puls 24 (11:56:46)
+    gamelog=430 regels; banken: sound bank: perm sound bank: attract 
+  t=62s START-puls 25 (11:56:53)
+    gamelog=431 regels; banken: sound bank: attract sound bank: level1 
+  *** DE ATTRACT-BANK IS ER op 11:57:06 (t=75s) -- ZONDER TEST
+  attract ZONDER TEST: JA
+  t=75s munt-puls 1 (11:57:06)
+  t=80s munt-puls 2 (11:57:11)
+  t=85s munt-puls 3 (11:57:16)
+  t=90s munt-puls 4 (11:57:21)
+  gamelog aan het eind: 563 regels
