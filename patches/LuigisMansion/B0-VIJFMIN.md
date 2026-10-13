@@ -484,6 +484,100 @@ tijdstip naast mijn bytes per tijdstip, op `0x1402b3b70` en `0x1402b4740`.
 maar niet zeggen wat de PE-code zelf ziet; de hook ziet wat het spel ziet, maar heeft geen
 onafhankelijke controle op zijn eigen bytes -- en op deze vier metingen is dat zijn zwakke punt gebleken.
 
+## BESLECHTING 2026-10-13 (vijfde meting, MET het artefact): BEIDE INSTRUMENTEN HEBBEN GELIJK
+
+Run met de drop-in (`rg-pe-hook.dll`, 131.877 B, sha256 `ecaf814c88f1ca97`), ONZE kern. Het artefact
+`rg-pe-hook-bytes.txt` (1946 regels, 203.973 B, mtime 09:46:37) is na de run uit de view gehaald.
+Ruwe uitvoer: `/tmp/b0-art2/`.
+
+**Het artefact, op VA `0x1402b3b70`:**
+
+```
+86267165  0x00000001402b3b70  00 00 00 00 00 00 00 00  pag dfde6ac5  adres dfde6ac5   <- nul
+...       (120 regels, allemaal nul, pagina-hash dfde6ac5 constant)
+86269568  0x00000001402b3b70  00 00 00 00 00 00 00 00  pag dfde6ac5  adres dfde6ac5   <- nog nul
+86269584  0x00000001402b3b70  40 53 48 83 ec 20 8b da  pag 0e44be55  adres 56417249   <- CODE
+```
+
+Die laatste regel is de laatste ronde van de wachtroute: **de pagina-hash SPRINGT van `dfde6ac5` naar
+`0e44be55`**. Daarmee is bewezen dat het artefact die bytes op dat adres las -- de pagina veranderde
+onder hem.
+
+**Mijn tijdlijn in dezelfde run:**
+
+```
+t=0,2 ... t=5,5   .text 100,0% nul (3496500 van 3496500 B gelezen)   alle 17 adressen 0000000000
+t=6,0             .text  11,2% nul (3496500 van 3496500 B gelezen)   <- ONTPAKT
+t=6,2             PROCES WEG
+```
+
+**Dus: er was nooit een tegenspraak.** De ontpakking valt tussen mijn laatste monster (5,5 s) en mijn
+volgende (6,0 s). De hook pollt elke 20 ms en ving die overgang; ik bemonsterde elke 0,5 s en ving hem
+op 6,0 s. **Beide instrumenten zien dezelfde overgang, op hetzelfde moment.** Mijn eerdere conclusie
+"de hook leest iets anders dan hij denkt" is daarmee **weerlegd** -- en dat is de derde keer dat een
+verdenking aan een instrument sneuvelde door een betere meting in plaats van door een argument.
+
+**De instantie-vraag:** er staat nog geen pid in de kop (de specialist zet die erin). Wat we wel hebben:
+de tijdstempels zijn monotoon sinds de start van dat proces en beslaan ongeveer 2,4 s wachten; mijn
+proces was een enkele pid (761941) die 6,2 s leefde; de overgangen vallen op hetzelfde moment. Alles
+wijst op EEN instantie. Met een pid in de kop is dat in het vervolg hard in plaats van afgeleid.
+
+**Wat elk instrument kan en niet kan, nu met de uitkomst erbij:**
+
+| | mijn sampler (`/proc/<pid>/mem`) | het artefact van de hook (in-process) |
+|---|---|---|
+| kan | de hele sectie met byte-telling, zonder het spel aan te raken; mappings opvragen; langzaam maar betrouwbaar | de overgang op 20 ms nauwkeurig vangen, met een pagina-hash die de lezing bewijst |
+| kan niet | een overgang vangen die tussen twee monsters valt (0,5 s raster) | geen onafhankelijke controle op zijn eigen adresberekening -- maar de pagina-hash doet dat nu wel |
+
+**De uitkomst voor game 1, en die is beslissend:** de hooks kwamen op ECHTE code -- het artefact laat
+`40 53 48 83 ec 20 8b da` zien op `0x1402b3b70` met een gewijzigde pagina-hash, en de hook meldt
+`16 van 16 aangehaakt; afgekeurd: 0` -- en **het spel stierf 200 ms later, op 6,2 s**. Volgens de
+vooraf afgesproken regel betekent dat: **de am-laag is NIET de oorzaak.** Het werk gaat terug naar de
+pakker-fase: het spel ontpakt zich nu wel (`.text` 11,2 % nul op 6,0 s, dezelfde eindtoestand als de
+gesloten kern), maar het gaat er direct daarna uit.
+
+## A/B 2026-10-13: MET en ZONDER drop-in -- de drop-in stelt de entry-point-terugzetting ~1,5 s uit
+
+Twee runs, verder identiek, onze kern, dichte bemonstering. Run 1 met de drop-in; voor run 2 is de map
+`patches/LuigisMansion/dropin/` tijdelijk weggezet (de launcher past een drop-in toe zodra die bestaat)
+en zijn de uitge rolde bestanden uit de view gehaald. Ruwe uitvoer: `/tmp/b0-ab-met/`, `/tmp/b0-ab-zonder/`.
+
+| t | MET drop-in: entry point | MET: `.text` | ZONDER: entry point | ZONDER: `.text` |
+|---|---|---|---|---|
+| 0,2-2,0 | teruggezet / `EB FE` | 100 % nul | teruggezet / `EB FE` | 100 % nul |
+| 2,5-4,0 | TRAMPOLINE | 100 % nul | TRAMPOLINE | 100 % nul |
+| 4,5 | TRAMPOLINE | 100 % nul | **teruggezet** | **63,0 % nul** |
+| 5,0-5,5 | **TRAMPOLINE** | 100 % nul | -- | -- |
+| 6,0 | **teruggezet** | **52,2 % nul** | -- | -- |
+| **einde** | **6,2 s** | | **4,8 s** | |
+
+**Drie uitkomsten:**
+
+1. **De terugzetting van het entry point is ~1,5 s later met de drop-in: 6,0 s tegen 4,5 s.** De
+   verdenking is dus bevestigd, en het is een bevinding over ONZE kern plus de preload-route: het laden
+   van de extra DLL in de aanhechtingsfase houdt de trampoline langer staan. (De wachter zit nu op een
+   eigen thread, dus dit is niet meer het inline wachten van de eerste poging.)
+2. **Het spel sterft in BEIDE gevallen ~0,3 s na die terugzetting:** 6,0 -> 6,2 met, 4,5 -> 4,8 zonder.
+   Het patroon is dus identiek; de drop-in verschuift alleen de klok.
+3. **En het scherpste: `.text` staat op het moment van sterven op 52,2 % (met) en 63,0 % (zonder) nul.**
+   Het spel sterft dus MIDDEN in het ontpakken -- niet erna. De gesloten kern haalt 11,2 % (volledig);
+   onze kern komt tot ongeveer de helft en gaat er dan uit. **Niet "0,1 tot 1,3 s na het ontpakken",
+   maar "ongeveer 0,3 s nadat de pakker begonnen is, met `.text` nog half leeg".**
+
+**Wat dat betekent:** de am-laag blijft uitgesloten als oorzaak (de 16 haken kwamen op echte code en de
+dood verschoof mee met de klok in plaats van te verdwijnen). De vraag is nu: **wat gebeurt er tijdens het
+ontpakken zelf, en waarom komt de pakker onder onze kern niet verder dan ongeveer de helft?**
+
+**Wat nog te meten is zodra de nieuwe hook-sha er is:** `0x1402b4270` (`amDongleIsAvailableInternal`,
+de poort) gaat terug in de lijst, en de hook onderscheidt dan drie gevallen (nul = wachten; niet-nul maar
+geen prologue = opvulling, ook wachten; echte prologue = aanslaan). Dan is te zien of de poort in deze
+build een echte prologue krijgt, op welk tijdstip, en of de samenvatting 17 van 17 zegt.
+
+**Per instrument:** mijn sampler kan de hele sectie met byte-telling lezen en het entry point volgen,
+maar een overgang tussen twee monsters valt hem door het 0,5 s raster (dat is precies wat er bij 5,5 -> 6,0
+gebeurde); het artefact van de hook pollt op 20 ms en vangt zulke overgangen, maar heeft geen
+onafhankelijke controle op zijn eigen adresberekening -- de pagina-hash doet dat nu wel.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

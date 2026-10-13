@@ -77,6 +77,7 @@ static int (*real_close)(int);
 static int g_stdout;
 
 static void say(const char *fmt, ...);
+static void sysfs_attr_meld(const char *path, int fd);
 
 static void tap_init(void)
 {
@@ -292,7 +293,10 @@ long syscall(long number, ...)
         int soort = pad_soort(path);
         long r = real_syscall(number, a1, a2, a3, a4, a5, a6);
         if (soort >= 0 && r >= 0) {
-            if (soort != KIND_SYSFS_ATTR) say("syscall-open %s fd=%ld", path, r);
+            if (soort == KIND_SYSFS_ATTR)
+                sysfs_attr_meld(path, (int)r);
+            else
+                say("syscall-open %s fd=%ld", path, r);
             note_fd((int)r, path, soort);
         }
         return r;
@@ -307,10 +311,85 @@ long syscall(long number, ...)
     return real_syscall(number, a1, a2, a3, a4, a5, a6);
 }
 
+/*
+ * De sysfs-attributen. libusb leest de APPARAATLIJST hierlangs -- idVendor, idProduct, busnum, devnum
+ * -- en NIET via `descriptors`. Zonder deze regels ziet een GESLAAGDE opsomming zonder bord er
+ * precies zo uit als een spel dat zijn FTDI-pad nooit bereikt: `tap start` en verder niets. Dat is de
+ * valkuil die run 1 onuitlegbaar maakte, dus nu wordt elk attribuut gelogd MET zijn waarde, en elk
+ * gevonden apparaat één keer samengevat als VID:PID.
+ */
+#define MAX_DEV 32
+static struct {
+    char dir[256];
+    char vid[16];
+    char pid[16];
+    int gemeld;
+} g_dev[MAX_DEV];
+static int g_ndev;
+
+static void sysfs_attr_meld(const char *path, int fd)
+{
+    char buf[64];
+    char dir[256];
+    const char *basis = base(path);
+    const char *slash = strrchr(path, '/');
+    ssize_t n;
+    int i, plek = -1;
+
+    memset(buf, 0, sizeof buf);
+    /* pread: het bestand lezen zonder de positie van de aanroeper te verstoren */
+    n = pread(fd, buf, sizeof buf - 1, 0);
+    if (n < 0)
+        n = 0;
+    buf[n] = 0;
+    {
+        char *p;
+        for (p = buf; *p; p++)
+            if (*p == '\n' || *p == '\r')
+                *p = ' ';
+    }
+    /* overtollige spaties eraf: sysfs levert "0403\n" en de vergelijking hieronder moet exact zijn */
+    {
+        char *p = buf + strlen(buf);
+        while (p > buf && (p[-1] == ' ' || p[-1] == '\t'))
+            *--p = 0;
+    }
+    say("attr %s = %s   (%s)", basis, n ? buf : "?", path);
+
+    if (!slash || (size_t)(slash - path) + 1 > sizeof dir)
+        return;
+    memcpy(dir, path, (size_t)(slash - path));
+    dir[slash - path] = 0;
+    if (strcmp(basis, "idVendor") != 0 && strcmp(basis, "idProduct") != 0)
+        return;
+    for (i = 0; i < g_ndev; i++)
+        if (strcmp(g_dev[i].dir, dir) == 0) {
+            plek = i;
+            break;
+        }
+    if (plek < 0) {
+        if (g_ndev >= MAX_DEV)
+            return;
+        plek = g_ndev++;
+        snprintf(g_dev[plek].dir, sizeof g_dev[plek].dir, "%s", dir);
+    }
+    snprintf(strcmp(basis, "idVendor") == 0 ? g_dev[plek].vid : g_dev[plek].pid,
+             sizeof g_dev[plek].vid, "%s", buf);
+    if (!g_dev[plek].gemeld && g_dev[plek].vid[0] && g_dev[plek].pid[0]) {
+        int ftdi = (strcmp(g_dev[plek].vid, "0403") == 0 && strcmp(g_dev[plek].pid, "6001") == 0);
+        g_dev[plek].gemeld = 1;
+        say("APPARAAT %s idVendor=%s idProduct=%s%s", g_dev[plek].dir, g_dev[plek].vid,
+            g_dev[plek].pid, ftdi ? "   <<< DIT IS HET FTDI-BORD 0403:6001" : "");
+    }
+}
+
 static int open_common(const char *path, int fd, int soort)
 {
     if (soort < 0 || fd < 0) return fd;
-    if (soort != KIND_SYSFS_ATTR) say("open %s fd=%d", path, fd);
+    if (soort == KIND_SYSFS_ATTR)
+        sysfs_attr_meld(path, fd);
+    else
+        say("open %s fd=%d", path, fd);
     note_fd(fd, path, soort);
     return fd;
 }

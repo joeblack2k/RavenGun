@@ -46,7 +46,8 @@ enum {
     RG_ANTWOORD_VOID,
     RG_ANTWOORD_BUF,
     RG_ANTWOORD_U32,
-    RG_ANTWOORD_OMHUL      /* omhullen: de originele functie blijft bereikbaar via een trampoline */
+    RG_ANTWOORD_OMHUL,     /* omhullen: de originele functie blijft bereikbaar via een trampoline */
+    RG_ANTWOORD_VELDEN     /* velden=rcx:0x110=0x40,... : u32's in het object zetten, dan 0 terug */
 };
 
 enum { RG_PROLOOG_STANDAARD = 0, RG_PROLOOG_E9REL32, RG_PROLOOG_API };
@@ -65,6 +66,13 @@ typedef struct {
     int geldig;
     int gehaakt;
     int wacht;               /* 1 = de pagina is nog niet uitgepakt; opnieuw proberen */
+    int opvulling;           /* 1 = wel niet-nul, maar opvulling/half geschreven; ook opnieuw proberen */
+    unsigned char veld_reg;  /* 0 = rcx (de enige die nu wordt ondersteund) */
+    int veld_n;
+    struct {
+        uint32_t off;
+        uint32_t val;
+    } veld[4];
     int antwoord;            /* RG_ANTWOORD_* */
     int32_t ret_waarde;
     char buf_reg[8];         /* rcx rdx r8 r9 */
@@ -94,6 +102,15 @@ typedef struct {
     const char *bytes_pad;
     const char *beeld_naam;
     FILE *bytes_log;
+    /*
+     * Herkomst van deze lezing, zodat een andere partij kan uitsluiten dat er naar een ANDERE
+     * procesinstantie of een tweede initialisatie gekeken wordt: pid, thread-id, hoe lang het proces
+     * al loopt, en de hoeveelste initialisatie dit is.
+     */
+    unsigned long pid;
+    unsigned long tid;
+    uint64_t proc_uptime_ms;
+    int init_teller;
     /*
      * De afhandelaar van een omhul-hook (`antwoord = omhul`). De stub springt er met de ORIGINELE
      * argumentregisters naartoe, dus deze C-functie heeft dezelfde eerste vier integer-argumenten als

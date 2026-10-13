@@ -35,6 +35,7 @@ static uint64_t G_ib;
 static int G_ontpak_ms;
 static uint64_t G_rvas[64];
 static int G_nrvas;
+static int G_stappen;
 static volatile int G_vrij;      /* de pakker mag pas als de hoofdthread verdergaat */
 static int G_rc;
 
@@ -47,6 +48,19 @@ static void *ontpakker(void *arg)
        pas daarna. Zonder deze poort laat de proef de deadlock niet zien. */
     while (!G_vrij)
         usleep(1000);
+    if (G_stappen) {
+        /* In stappen, zodat het criterium zijn drie gevallen laat zien: eerst int3-opvulling, dan de
+           echte prologue. */
+        usleep((useconds_t)G_ontpak_ms * 1000);
+        for (i = 0; i < G_nrvas; i++)
+            memcpy(G_beeld + G_rvas[i], "\xcc\xcc\xcc\xcc\xcc\xcc", 6);
+        printf("   [ontpakker] opvulling (cc) geschreven\n");
+        usleep((useconds_t)G_ontpak_ms * 1000);
+        for (i = 0; i < G_nrvas; i++)
+            memcpy(G_beeld + G_rvas[i], "\x40\x53\x48\x83\xec\x28", 6);
+        printf("   [ontpakker] echte prologues geschreven\n");
+        return NULL;
+    }
     usleep((useconds_t)G_ontpak_ms * 1000);
     for (i = 0; i < G_nrvas; i++)
         memcpy(G_beeld + G_rvas[i], "\x40\x53\x48\x83\xec\x28", 6);
@@ -99,6 +113,8 @@ int main(int argc, char **argv)
             verwacht = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--bel-net") && i + 1 < argc)
             bel_net = strtoull(argv[++i], NULL, 0);
+        else if (!strcmp(argv[i], "--stappen"))
+            G_stappen = 1;
         else if (!strcmp(argv[i], "--eigen-thread"))
             eigen = 1;
         else if (!strcmp(argv[i], "--bytes-uit") && i + 1 < argc)
@@ -151,6 +167,10 @@ int main(int argc, char **argv)
     memset(&G, 0, sizeof G);
     G.bytes_pad = bytes_uit;
     G.beeld_naam = beeld_pad;
+    G.pid = (unsigned long)getpid();
+    G.tid = 0;
+    G.proc_uptime_ms = 0;
+    G.init_teller = 1;
     G.lijst_pad = lijst;
     G.beeld = beeld;
     G.beeld_n = (size_t)grootte;

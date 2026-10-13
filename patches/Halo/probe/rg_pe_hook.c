@@ -255,6 +255,38 @@ int rg_antwoord_soort(const char *waarde, rg_pe_regel *r)
         r->u32_waarde = (uint32_t)strtoul(dub + 1, NULL, 0);
         return RG_ANTWOORD_U32;
     }
+    if (!strncmp(waarde, "velden=", 7)) {
+        /*
+         * velden=rcx:0x110=0x40,0x114=1
+         * Zet u32's op vaste afstanden van het object dat in het eerste argument zit, en geef 0
+         * terug. Alleen rcx wordt ondersteund (het eerste argument van de Windows x64-ABI); een
+         * andere寄存器 wordt geweigerd in plaats van stil verkeerd gedaan.
+         */
+        char reg[8] = {0};
+        const char *dub = strchr(waarde + 7, ':');
+        const char *q;
+        if (!dub)
+            return RG_ANTWOORD_TODO;
+        snprintf(reg, sizeof reg, "%.*s", (int)(dub - (waarde + 7)), waarde + 7);
+        if (strcmp(reg, "rcx") != 0)
+            return RG_ANTWOORD_TODO;   /* rdx/r8/r9: nog niet ondersteund */
+        r->veld_reg = 0;
+        r->veld_n = 0;
+        q = dub + 1;
+        while (*q && r->veld_n < 4) {
+            unsigned int off = 0, val = 0;
+            if (sscanf(q, "%x=%x", &off, &val) != 2)
+                break;
+            r->veld[r->veld_n].off = off;
+            r->veld[r->veld_n].val = val;
+            r->veld_n++;
+            while (*q && *q != ',')
+                q++;
+            if (*q == ',')
+                q++;
+        }
+        return r->veld_n ? RG_ANTWOORD_VELDEN : RG_ANTWOORD_TODO;
+    }
     return RG_ANTWOORD_TODO;
 }
 
@@ -500,6 +532,20 @@ static int rg_maak_stub(rg_pe_ctx *c, rg_pe_regel *r, int idx, rg_buf *uit)
         rg_em(uit, 0x31); rg_em(uit, 0xc0); rg_em(uit, 0xc3);
         return 1;
     }
+    case RG_ANTWOORD_VELDEN: {
+        /*
+         * Per veld: mov dword ptr [rcx+disp32], imm32  =  c7 81 <off32> <val32>   (10 bytes, geen REX
+         * nodig omdat rcx de basis is en er 32 bits geschreven wordt). Daarna 0 terug.
+         */
+        for (int i = 0; i < r->veld_n; i++) {
+            rg_em(uit, 0xc7);
+            rg_em(uit, 0x81);
+            rg_em32(uit, r->veld[i].off);
+            rg_em32(uit, r->veld[i].val);
+        }
+        rg_em(uit, 0x31); rg_em(uit, 0xc0); rg_em(uit, 0xc3);
+        return 1;
+    }
     case RG_ANTWOORD_TODO:
     default:
         /* De aanroep van de melder moet de ABI volgen: schaduwruimte en uitlijning. */
@@ -558,6 +604,19 @@ static int rg_alles_nul(const unsigned char *p, size_t n)
     return 1;
 }
 
+/* Opvulling: int3 (cc) of nop (90), het klassieke vulsel van een nog niet geschreven pagina. */
+static int rg_opvulling(const unsigned char *p, size_t n)
+{
+    size_t i;
+    unsigned char eerste = p[0];
+    if (eerste != 0xCC && eerste != 0x90)
+        return 0;
+    for (i = 1; i < n; i++)
+        if (p[i] != eerste)
+            return 0;
+    return 1;
+}
+
 /* Een korte, domme hash over de eerste 64 bytes van een pagina (FNV-1a, 32 bits). */
 static uint32_t rg_pagina_hash(const unsigned char *p, size_t n)
 {
@@ -607,12 +666,18 @@ static void rg_schrijf_bewijs(rg_pe_ctx *c, const rg_pe_regel *r, const unsigned
         memcpy(buf, c->beeld + r->rva, k);
     }
     h_adres = rg_pagina_hash(buf, k);
+    /*
+     * De eerste kolom is de AANWIJZER DIE WERKELIJK GELEZEN IS (`p`), niet de afgeleide ImageBase+RVA.
+     * Dat is het verschil dat een tegenspraak met een andere partij kan verklaren, dus het moet het
+     * gemeten getal zijn en niet het berekende.
+     */
     fprintf(c->bytes_log,
             "%llu  0x%016llx  %02x %02x %02x %02x %02x %02x %02x %02x  0x%016llx  pag %08x  "
-            "adres %08x\n",
-            (unsigned long long)rg_nu_ms(), (unsigned long long)r->doel_adres,
+            "adres %08x%s\n",
+            (unsigned long long)rg_nu_ms(), (unsigned long long)(uintptr_t)p,
             p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
-            (unsigned long long)(imagebase + pag), h_pag, h_adres);
+            (unsigned long long)(imagebase + pag), h_pag, h_adres,
+            ((uintptr_t)p == (uintptr_t)r->doel_adres) ? "" : "  != afgeleid!");
     fflush(c->bytes_log);
 }
 
@@ -628,6 +693,7 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
     const unsigned char *p;
     r->geldig = 0;
     r->wacht = 0;
+    r->opvulling = 0;
     if (!r->adres && !r->is_export) {
         snprintf(r->reden, sizeof r->reden, "AFGEWEZEN: geen adres en geen exportnaam in de lijst");
         return;
@@ -675,14 +741,35 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
             return;
         }
     } else if (!rg_proloog_ok(p, 5, c->proloog)) {
-        if (p[0] == 0xe9)
+        if (p[0] == 0xe9) {
+            /*
+             * Een sprong: dat is de GESLOTEN kern die er al staat. Dat is geen "te vroeg" maar een
+             * echte weigering -- anders zouden we op de patch van een andere kern voortbouwen.
+             */
             snprintf(r->reden, sizeof r->reden,
                      "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen prologue maar een "
                      "sprong -- al door een andere kern omgezet?", p[0], p[1], p[2], p[3]);
-        else
+            return;
+        }
+        /*
+         * NIET NUL, maar ook geen herkenbare prologue. Dat is opvulling (int3/cc, nop/90) of een half
+         * geschreven pagina -- en dus NIET "klaar". Dit was de fout: `cc cc cc cc` gold eerder als
+         * uitgepakt, waardoor het adres van de poort (amDongleIsAvailableInternal) werd afgekeurd in
+         * plaats van dat er gewacht werd. Opvulling betekent: blijven wachten.
+         */
+        if (rg_opvulling(p, 5)) {
+            r->wacht = 1;
+            r->opvulling = 1;
             snprintf(r->reden, sizeof r->reden,
-                     "AFGEWEZEN: eerste bytes %02x %02x %02x %02x zijn geen herkenbare "
-                     "functieprologue", p[0], p[1], p[2], p[3]);
+                     "OPVULLING, WACHT: eerste bytes %02x %02x %02x %02x zijn opvulling "
+                     "(geen prologue); de pakker is hier nog niet klaar", p[0], p[1], p[2], p[3]);
+            return;
+        }
+        r->wacht = 1;
+        r->opvulling = 1;
+        snprintf(r->reden, sizeof r->reden,
+                 "HALF GESCHREVEN, WACHT: eerste bytes %02x %02x %02x %02x zijn geen herkenbare "
+                 "prologue en geen sprong; ik wacht op een volledige pagina", p[0], p[1], p[2], p[3]);
         return;
     }
     r->geldig = 1;
@@ -740,6 +827,26 @@ int rg_pe_hook(rg_pe_ctx *c)
             fprintf(c->bytes_log, "# beeldbestand   : %s\n",
                     c->beeld_naam && *c->beeld_naam ? c->beeld_naam : "(niet opgegeven)");
             fprintf(c->bytes_log, "# adreslijst     : %s\n", c->lijst_pad);
+            /*
+             * De LEESaanwijzer tegenover de ImageBase uit de PE-kop. Dit is de enige plek waar de
+             * getoonde bestemming en de werkelijke lezing kunnen uiteengaan: gelezen wordt altijd
+             * `beeld + RVA` (de moduleaanwijzer), terwijl de getoonde VA werd AFGELEID uit de
+             * ImageBase in de kop. Wijkt de moduleaanwijzer daarvan af (bijvoorbeeld omdat de lader
+             * het beeld verplaatst heeft), dan klopt het getal naast de bytes niet, ook al zijn de
+             * bytes zelf goed gelezen. Daarom staat het hier allebei, met een waarschuwing.
+             */
+            fprintf(c->bytes_log,
+                    "# moduleaanwijzer: %p  (hier wordt werkelijk gelezen: moduleaanwijzer + RVA)\n",
+                    (void *)c->beeld);
+            fprintf(c->bytes_log, "# ImageBase (kop): 0x%016llx\n", (unsigned long long)kop.imagebase);
+            if ((uintptr_t)c->beeld != (uintptr_t)kop.imagebase)
+                fprintf(c->bytes_log,
+                        "# LET OP: de moduleaanwijzer (%p) is NIET gelijk aan de ImageBase uit de kop "
+                        "(0x%llx); dan is de getoonde VA fout en de LEZING niet.\n",
+                        (void *)c->beeld, (unsigned long long)kop.imagebase);
+            fprintf(c->bytes_log, "# pid            : %lu   thread: %lu\n", c->pid, c->tid);
+            fprintf(c->bytes_log, "# proces loopt al: %llu ms   initialisatie nummer: %d\n",
+                    (unsigned long long)c->proc_uptime_ms, c->init_teller);
             fprintf(c->bytes_log, "# geheugenvenster: %p .. %p (%zu bytes)\n", (void *)c->beeld,
                     (void *)(c->beeld + c->beeld_n), c->beeld_n);
             fprintf(c->bytes_log, "# kolommen: tijd_ms  VA  acht bytes  paginabasis  pagina-hash"
@@ -775,23 +882,48 @@ int rg_pe_hook(rg_pe_ctx *c)
     {
         uint64_t t0 = rg_nu_ms();
         int ronde = 0, nog;
+        int vorige_nul = -1, vorige_opv = -1;
         for (;;) {
+            int nu_nul = 0, nu_opv = 0;
             nog = 0;
             for (i = 0; i < c->n; i++) {
                 rg_keur_een(c, &kop, &c->regels[i]);
-                if (c->regels[i].wacht)
+                if (c->regels[i].wacht) {
                     nog++;
+                    if (c->regels[i].opvulling)
+                        nu_opv++;
+                    else
+                        nu_nul++;
+                }
+            }
+            /*
+             * De drie gevallen zichtbaar maken in het LOGBOEK, en alleen wanneer de toestand
+             * verandert: (a) nul = nog niet ontpakt, (b) opvulling/half geschreven = ook wachten,
+             * (c) klaar. Zonder deze regel zou `cc cc cc cc` stil als "klaar" doorgaan -- precies de
+             * fout waardoor het poortadres werd afgekeurd in plaats van dat er gewacht werd.
+             */
+            if (nu_nul != vorige_nul || nu_opv != vorige_opv) {
+                if (nu_nul && !nu_opv)
+                    rg_log(c, "wachtroute: %d adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf "
+                              "kijken (max %d s, elke %d ms)", nu_nul, c->wacht_s,
+                           c->wacht_ms > 0 ? c->wacht_ms : 10);
+                else if (nu_opv && !nu_nul)
+                    rg_log(c, "wachtroute: %d adres(sen) is niet-nul maar OPVULLING of half "
+                              "geschreven (geen prologue) -- ook wachten, dit is NIET klaar", nu_opv);
+                else if (nu_nul && nu_opv)
+                    rg_log(c, "wachtroute: %d adres(sen) nog NUL (niet ontpakt), %d op OPVULLING of "
+                              "half geschreven -- ik blijf kijken", nu_nul, nu_opv);
+                vorige_nul = nu_nul;
+                vorige_opv = nu_opv;
             }
             if (!nog || c->wacht_s <= 0)
                 break;
             if (rg_nu_ms() - t0 > (uint64_t)c->wacht_s * 1000u) {
-                rg_log(c, "wachtroute: %d pagina('s) na %d s nog steeds niet uitgepakt; gestopt",
-                       nog, c->wacht_s);
+                rg_log(c, "wachtroute: na %d s gestopt: %d nog NUL (niet ontpakt), %d nog OPVULLING of "
+                          "half geschreven -- de pagina's zijn niet binnen de tijd klaar gekomen",
+                       c->wacht_s, nu_nul, nu_opv);
                 break;
             }
-            if (!ronde)
-                rg_log(c, "wachtroute: %d pagina('s) nog niet uitgepakt; ik blijf kijken (max %d s, "
-                          "elke %d ms)", nog, c->wacht_s, c->wacht_ms > 0 ? c->wacht_ms : 10);
             ronde++;
             rg_slaap_ms(c->wacht_ms > 0 ? c->wacht_ms : 10);
         }
