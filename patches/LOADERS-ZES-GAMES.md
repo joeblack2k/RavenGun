@@ -82,3 +82,66 @@ Dus drie dingen moeten staan: **onze eigen lader werkt** (Sega, Matrix, ELF), **
 Per game in `patches/<Game>/`. **De mapnaam is de TeknoParrot-profielnaam**, want dat is wat de app
 opzoekt (`HOTDSD`, `Terminator`, `LuigisMansion`, `RabbidsHollywood`, `Halo`,
 `TransformersShadowsRising`). Een map met een andere naam wordt door geen enkel script gevonden.
+
+---
+
+## Stand 2026-10-13, na de vierde Luigi-poging (overdracht)
+
+Deze sectie is de actuele stand van de lat die de eigenaar heeft gezet. Alles hieronder is gemeten;
+waar iets afgeleid is staat het erbij.
+
+### De lat
+
+1. Onze eigen lader werkt in plaats van de gesloten TeknoParrot-kern.
+2. De Sega-kant, de Unity-kant en de ELF-kant werken.
+3. Luigi's Mansion 5 minuten en Rabbids Hollywood 10 minuten als voorbeelden, op de PS Move.
+
+### Wat gehaald is
+
+* **Rabbids Hollywood: 10 minuten GEAHAALD** (608 s speeltijd, 115 threads, `quit=0`, `notfound=0`,
+  alle 20 levenslijnen verbonden met 120 pakketten/s, view == build, NAS onaangeroerd).
+* **De ELF-lader WERKT.** Echte run op Terminator Salvation: `shim geladen: 515 gast-symbolen`,
+  alle 13 bibliotheken geladen (2 in een latere ronde), `geladen; spel ... krijgt argv[0]=...`,
+  en **`spring naar e_entry 0x8057240`** met exitcode 255 van de GAST en nul FATAAL-regels.
+  Twee reparaties maakten dat verschil: de herkansings-lus bij het laden van bibliotheken werkt nu in
+  BEIDE modi (libGLU heeft nul DT_NEEDED en leunt op libGL, libm en libstdc++ in de globale scope,
+  terwijl de DT_NEEDED-volgorde van de gast libGLU op 2 zet en libm op 9), en het plafond van de
+  lib-defs-lijst meldt zich nu luid in plaats van stil af te kappen.
+  De gast stopt daarna op zijn EIGEN ptrace-controle: zie `patches/Terminator/BESCHERMINGSLAAG-PTRACE.md`.
+* **Onze eigen kern start games op**: Luigi's Mansion komt tot het uitpakken en tot zijn am-laag.
+
+### Wat nog open is bij Luigi's Mansion (de enige game op de lat die nog niet gehaald is)
+
+De drop-in-route werkt nu van begin tot eind -- dat is de winst van deze dag:
+plan (`TP_PRELOAD_DLL`) -> view (sha256 klopt) -> in het proces -> het logboek dat de DLL zelf schrijft.
+
+De vierde poging (laatste stand):
+* `wachtroute: op een eigen thread gezet; de hoofdthread gaat verder`
+* `wachtroute: de pagina's zijn uitgepakt na 2421 ms; nu omzetten`
+* `totaal aangehaakt: 16 van 17; afgekeurd: 1`
+* levenslijn: entry point van 3,5 tot 5,5 s nog op de TRAMPOLINE, `.text` 100 procent nul, **PROCES WEG op 6,0 s**
+
+Twee dingen moeten eerst uitgezocht worden voordat een vijfde run iets kan beslissen:
+
+1. **De discrepantie in de `.text`-lezing.** De hook meldt dat de pagina's na 2421 ms uitgepakt zijn,
+   terwijl de bemonstering `.text` op elk moment tot 5,5 s 100 procent nul zag. Of de hook controleert
+   iets smallers (de 17 doelpagina's), of de `.text`-lezing van de bemonstering is hier het kapotte
+   instrument. Dat laatste is belangrijk, want de verklaring "de pakker kwam niet klaar" rust erop.
+2. **Het adres `0x1402b4270`** (`amDongleIsAvailableInternal`) staat in deze build op `cc cc cc cc`.
+   Uitzoeken of dat een verkeerd adres is of een functie die de pakker als opvulling laat, en het
+   adres dan weghalen zodat een run 17 van 17 met 16 echte hooks meldt in plaats van 16 van 17.
+
+Daarna: 17 van 17 aangehaakt en het spel leeft langer dan ongeveer 10 s betekent dat de am-laag de
+oorzaak was; sterft het nog rond 6 s met 17 van 17, dan is die laag NIET de oorzaak en gaat het werk
+terug naar de pakker-fase. Beide uitkomsten zijn evenveel waard.
+
+### Harde regels die onderweg zijn afgedwongen
+
+* De NAS blijft alleen-lezen. De view is de plaats waar bestanden komen; een drop-in-bestemming die
+  via een symlink buiten de view valt, faalt nu LUID in de planning in plaats van stil door te gaan.
+* De lader blijft schoon: game-specifieke adressen en antwoorden staan in `patches/<Game>/`, het
+  gereedschap is generiek (`tools/rt-hasphook/rg_pe_hook*.c` bevat geen game-naam of game-adres).
+* Een meting zonder bewijs dat het instrument werkte is geen meting. Onderweg zijn zo gevangen: een
+  groene ontleed-modus die de gewone run niet bewees, een leeg `tap start`-logboek dat als "niets
+  gevonden" werd gelezen, een drop-in-teller die gegevensbestanden als "niet geladen" telde, en een
+  `.text`-lezing die mogelijk het kapotte instrument is.
