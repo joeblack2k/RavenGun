@@ -1,8 +1,10 @@
 # RaccoonRampage
 
-> **STAND 2026-10-14, 01:00 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
-> kern (12 minuten, op de tv), met de films, met de rode melding "The guns are not calibrated" op elk beeld
-> en zonder invoer: hij demonstreert, hij is op onze kern niet speelbaar. De standaard in `game.ini` blijft
+> **STAND 2026-10-14, 01:30 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
+> kern (run rr10: 12 min 50 s, op de tv, onafhankelijk meegekeken), met de films en met zijn eigen bewaarde
+> instellingen geladen. **Open punt, door de game zelf genoemd: de rode melding "The guns are not calibrated,
+> please enter Setting Menu to calibrate!" op elk beeld**; er komt geen invoer aan: hij demonstreert, hij is
+> op onze kern niet speelbaar. De standaard in `game.ini` blijft
 > de gesloten kern, waarop de eigenaar deze game speelt. Wat er op onze kern ontbreekt staat in
 > `ATTRACT-RUN.md` §3: de game praat met zijn kast via `RSGame/Plugins/UsbPluginsDll.dll` (107 `BIND_*`-functies)
 > en leest `TeknoParrot_JvsState` niet zelf.

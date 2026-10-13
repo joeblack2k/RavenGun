@@ -1,0 +1,53 @@
+RUN rr10 -- RaccoonRampage -- started 2026-10-14 01:13:25
+DECLARED: core=ravengun  share=overlay  shm-source=launcher default  limit=780s  captures every 10s
+user layer (/home/deck/.local/share/ravengun/patches/RaccoonRampage/game.ini) at start:
+    ; FOR RUN rr10 ONLY (2026-10-14): our own core. Removed again right after the run.
+    [Loader]
+    Core = ravengun
+    
+    [Wine]
+    GStreamerPlugins = ~/.local/share/ravengun/tools/gst-extra/plugins
+launcher plan (scripts/launch-direct.py RaccoonRampage --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/RaccoonRampage/RSGame/Binaries/Win64/RSGame-Win64-Shipping.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll
+    core_sha256: fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b', 'GST_PLUGIN_PATH': '/home/deck/.local/share/ravengun/tools/gst-extra/plugins'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/8,upperdir=/tmp-overlay-upper-0,workdir=/tmp-overlay-work-0,redirect_dir=nofollow,index=off,uu
+game process first seen 01:13:27
+launcher says: [launch-direct 01:13:25] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll sha256 fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794
+01:13:37 alive: pid 1853664, 127 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:14:07 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:14:37 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:15:07 alive: pid 1853664, 149 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:15:37 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:16:07 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:16:37 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:17:07 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:17:37 alive: pid 1853664, 149 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:18:07 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:18:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:19:08 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:19:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:20:08 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:20:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:21:08 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:21:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:22:08 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:22:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:23:08 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:23:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:24:08 alive: pid 1853664, 149 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:24:38 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:25:09 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:25:39 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+01:26:09 alive: pid 1853664, 148 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+ENDED 2026-10-14 01:26:29 -- launcher: 01:26:27 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 01:26:29
+    1853508     784 bash            bash /tmp/claude-1000/-home-deck/6c50f9d7-7b90-4218-b922-50975534fcdb/scratchpad/win-bench/win-run.sh RaccoonRampage Raccoon Rampage RSGame-Win64-Sh rr10 780
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+captures: 72, first shot-001-011325.png, last shot-076-012625.png
