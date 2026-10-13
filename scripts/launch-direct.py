@@ -32,6 +32,8 @@
 #   scripts/launch-direct.py PROFIEL --run [--shm-source PAD] [--log-full] [--env K=V]...
 # Opties: --tp DIR (runtime-map), --shm-source PAD (bronbestand voor pipehelper; standaard /dev/shm/TeknoParrot_JvsState),
 #         --log-full (TP_LOGTOFILE=1 en een A11-samenvatting van de regels van de kern in ~/.local/state/ravengun/a11/).
+# Welke launcher: --plan en de eerste regels van elk run-logboek noemen het pad van dit script, zijn sha256, of het de versie uit
+# de repo of de geinstalleerde is, en (vanuit de repo) of de geinstalleerde kopie dezelfde is.
 # Exitcodes: 0 klaar, 1 fout tijdens de start, 2 gebruik, 3 activering ontbreekt (val terug op TeknoParrotUi),
 #            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), 5 een ingeschakelde patch is geweigerd
 #            (geen terugval), 7 bij een profiel met twee exe's: een start was al weg voordat de volgende begon (halve
@@ -1234,6 +1236,76 @@ def spel_argumenten(lader, profiel_delen, eigen_ruw):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Welke launcher is dit? (in --plan en bovenaan elk run-logboek)
+
+def launcher_info():
+    """Wie voert deze run uit: het pad van dit script, zijn sha256, en of het de versie uit de repo of de geinstalleerde is.
+
+    Drie metingen in een week gingen verloren aan een oude kopie waarvan niemand wist dat hij draaide (een oude lader,
+    een oude drop-in-DLL, een oude geinstalleerde launcher). Daarom zegt elk plan en elk logboek zelf met welke launcher
+    het gemaakt is. De sha256 is wat telt; de commit of het versienummer is de omschrijving erbij. De hulpmodules
+    (gamesettings.py, startscript.py, ...) horen bij de launcher en krijgen samen een eigen sha256."""
+    pad = os.path.realpath(__file__)
+    scripts = os.path.dirname(pad)
+    wortel = os.path.dirname(scripts)
+    info = {"path": pad, "sha256": file_sha256(pad), "kind": "onbekend", "detail": "", "modified": None,
+            "modules": [], "modules_sha256": None, "installed": None}
+    if os.path.basename(os.path.dirname(wortel)) == "share" and os.path.isdir(os.path.join(wortel, "..", "..", "bin")):
+        info["kind"] = "geinstalleerd"
+        try:
+            with open(os.path.join(wortel, "VERSION")) as f:
+                info["detail"] = " ".join(f.read().split())
+        except OSError:
+            pass
+    elif os.path.exists(os.path.join(wortel, ".git")):
+        info["kind"] = "repo"
+        try:      # de commit en of er iets aan de scripts veranderd is sinds die commit; zonder git blijft dat onbekend
+            c = subprocess.run(["git", "-C", wortel, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
+            if c.returncode == 0:
+                info["detail"] = "commit " + c.stdout.strip()
+                st = subprocess.run(["git", "-C", wortel, "status", "--porcelain", "--", "scripts"], capture_output=True, text=True, timeout=5)
+                if st.returncode == 0:
+                    info["modified"] = bool(st.stdout.strip())
+        except Exception:      # noqa: BLE001 -- wie de launcher is mag de start nooit laten omvallen
+            pass
+    for m in list(sys.modules.values()):
+        f = getattr(m, "__file__", None)
+        if f and os.path.dirname(os.path.realpath(f)) == scripts and os.path.realpath(f) != pad:
+            info["modules"].append({"name": os.path.basename(f), "sha256": file_sha256(os.path.realpath(f))})
+    info["modules"].sort(key=lambda d: d["name"])
+    info["modules_sha256"] = hashlib.sha256("".join("%s:%s\n" % (d["name"], d["sha256"]) for d in info["modules"]).encode()).hexdigest()
+    # Draai je de repo-versie, dan is de vraag of de geinstalleerde kopie dezelfde is (en andersom weet de installatie
+    # niet waar een repo staat). Alleen de standaardplek; staat daar niets, dan valt er niets te vergelijken.
+    if info["kind"] != "geinstalleerd":
+        ander = os.path.join(HOME, ".local/opt/ravengun/share/ravengun/scripts", os.path.basename(pad))
+        if os.path.isfile(ander) and os.path.realpath(ander) != pad:
+            sha = file_sha256(ander)
+            info["installed"] = {"path": ander, "sha256": sha, "same": sha == info["sha256"]}
+    return info
+
+
+def launcher_log_lines(plan):
+    """Twee of drie regels: welke launcher dit is. Voor --plan en bovenaan het logboek van elke run."""
+    li = plan.get("launcher") or {}
+    soort = {"repo": "de versie uit de REPO", "geinstalleerd": "de GEINSTALLEERDE versie"}.get(li.get("kind"), "een losse kopie (geen repo, geen installatie)")
+    extra = []
+    if li.get("detail"):
+        extra.append(li["detail"])
+    if li.get("modified") is True:
+        extra.append("met wijzigingen in scripts/ die niet in die commit zitten")
+    elif li.get("modified") is False:
+        extra.append("scripts/ gelijk aan die commit")
+    uit = ["launcher: %s" % li.get("path", "?"),
+           "  %s%s; sha256 %s; hulpmodules (%d) sha256 %s"
+           % (soort, " (%s)" % "; ".join(extra) if extra else "", li.get("sha256"), len(li.get("modules") or []), li.get("modules_sha256"))]
+    inst = li.get("installed")
+    if inst:
+        uit.append("  de geinstalleerde launcher (%s) is %s" % (inst["path"], "dezelfde" if inst["same"]
+                   else "een ANDERE versie (sha256 %s): een run via de installatie gebruikt dus niet deze code" % inst["sha256"]))
+    return uit
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Het spel vanaf een ander pad starten (--exe, [Launch] Exe) en schijfletters voor een run (--drive, [Launch] Drives)
 
 DRIVES_STATE = os.path.join(STATE_DIR, "drives.json")   # welke schijfletters wij in welke prefix hebben aangemaakt
@@ -1732,6 +1804,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         starts = [tweede, hoofd] if second["first"] else [hoofd, tweede]
         starts[1]["wait_before"] = second["wait"]
     uit = {
+        "launcher": launcher_info(),      # welke launcher dit plan maakt (pad, sha256, repo of installatie)
         "profile": name, "tp": tp, "emulator_type": et, "emulation_profile": emu, "is64": is64,
         "game": game, "cwd": cwd, "wine": wine, "prefix": prefix, "argv": (gamescope or []) + args,
         "core_dll": core_dll, "core_sha256": file_sha256(core_dll) if core_dll else None,
@@ -2159,6 +2232,8 @@ class A11Collector:
 def run(plan):
     """De run. Heeft het plan schijfletters, dan staan die er precies zolang de run duurt: ervoor gezet, erna weg, ook
     als de run misgaat. Zonder schijfletters gebeurt er hier niets extra's."""
+    for line in launcher_log_lines(plan):      # bovenaan elk logboek: met welke launcher deze run gedaan is
+        log(line)
     if not plan.get("drives"):
         return _run(plan)
     for line in exe_log_lines(plan):
@@ -2539,7 +2614,11 @@ def main(argv):
         if a.json:
             print(json.dumps(show, indent=1, ensure_ascii=False))
         else:
+            for line in launcher_log_lines(plan):
+                print(line)
             for k, v in show.items():
+                if k == "launcher":
+                    continue                    # staat hierboven al, leesbaar
                 if k == "files":
                     for path, text in v:
                         print("bestand (%s) %s:\n  %s" % (place_file(path, text, dry=True)[0], path,

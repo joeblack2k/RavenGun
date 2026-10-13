@@ -33,6 +33,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
+. "$ROOT/scripts/rg-identiteit.sh"   # rg_identiteit: welk script dit is (pad, sha256, repo of installatie)
+# Bovenaan het logboek van elke start: met welk script (en welke hulpbestanden) deze run gedaan is. Een oude kopie waarvan
+# niemand weet dat hij draait is een andere meting. Het starten zelf mag hier nooit op stuklopen.
+wie_ben_ik() { { rg_identiteit "$0" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh" >>"$LOG"; } 2>/dev/null || true; }
 CTL="$RG_BIN/ravengunctl"
 TP="$HOME/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64"
 WINE="$HOME/.local/share/ravengun/wine/proton-11.0-2/bin"
@@ -337,6 +341,7 @@ if [[ $NATIVE -eq 1 ]]; then
   # Native route: play-native.sh in dezelfde user-unit (ravengun-tpui), zodat stoppen en de OLED-beschermer werken als bij TeknoParrot.
   # De extra omgevingsvariabelen (--env) gaan als --env naar de game zelf.
   NARGS=(--game "$PROFILE"); for E in "${EXTRA_ENV[@]}"; do NARGS+=(--env "$E"); done
+  wie_ben_ik
   systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$ROOT" -p TimeoutStopSec=10 \
     -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} \
     /bin/sh -c "$SWAP exec '$ROOT/scripts/play-native.sh' ${NARGS[*]@Q} >>'$LOG' 2>&1"
@@ -346,10 +351,12 @@ elif [[ "$LAUNCH" == direct ]]; then
   LOG="$LOGDIR/direct-$(date +%Y%m%d-%H%M%S).log"
   DARGS=(--run); [[ "$ROUTE" == tp-shm ]] && DARGS+=(--shm-source /dev/shm/ravengun_JvsState); [[ $LOG_FULL -eq 1 ]] && DARGS+=(--log-full)
   say "Start direct (zonder TeknoParrotUi)."
+  wie_ben_ik
   systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
     -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
     /bin/sh -c "exec python3 -I '$ROOT/scripts/launch-direct.py' '$PROFILE' ${DARGS[*]} >>'$LOG' 2>&1"
 else
+wie_ben_ik
 systemd-run --user --unit="$UNIT" --collect --quiet --working-directory="$TP" -p TimeoutStopSec=10 \
   -E XDG_RUNTIME_DIR -E WAYLAND_DISPLAY -E DISPLAY -E DBUS_SESSION_BUS_ADDRESS ${XAUTHORITY:+-E XAUTHORITY} "${SDENV[@]}" \
   /bin/sh -c "$SWAP exec ./TeknoParrotUi --profile=$PROFILE.xml >>'$LOG' 2>&1"

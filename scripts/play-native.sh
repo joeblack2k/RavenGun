@@ -31,6 +31,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)
+. "$ROOT/scripts/rg-identiteit.sh"   # rg_identiteit: welk script dit is (pad, sha256, repo of installatie), voor het logboek
 JSON="$ROOT/packaging/native-games.json"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
@@ -298,7 +299,7 @@ if (( HEADLESS || GAMESCOPE )) && [[ -z "${RG_NATIVE_INNER:-}" ]]; then
   else
     GS=(gamescope -f -W 1920 -H 1080 -w "$W" -h "$H" --force-grab-cursor)
   fi
-  (( DRY )) && { echo "RG_NATIVE_INNER=1 ${GS[*]} -- ${SELF[*]}"; exit 0; }
+  (( DRY )) && { rg_identiteit "$0" gegevens="$JSON" >&2; echo "RG_NATIVE_INNER=1 ${GS[*]} -- ${SELF[*]}"; exit 0; }
   export RG_NATIVE_INNER=1
   if [[ -n "$SNAP" ]]; then
     ( "${GS[@]}" -- "${SELF[@]}" >"$LOGDIR/gamescope-$GAME.log" 2>&1 & echo $! >"$IPC/native-gs.pid"; wait ) &
@@ -344,14 +345,23 @@ if (( GDB )); then
   GAMECMD=(/usr/bin/gdb -batch -ex "set debuginfod enabled off" -ex "set pagination off" -ex "set startup-with-shell off" "${GENVS[@]}" ${RG_GDB_CMDS:+-x "$RG_GDB_CMDS"} -ex run -ex bt -ex "info registers" -ex "x/8i \$pc" --args "${GAMECMD[@]}")
 fi
 
-if (( DRY )); then printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
+# Wie voert deze run uit: dit script, het gegevensbestand, en wat er van ons de sandbox in gaat (de eigen lader, onze eigen
+# bibliotheken uit build/ of lib/, en bestanden die met --bind-ro zijn meegegeven). Een oude kopie daarvan is een andere meting;
+# daarom staat het bovenaan het logboek van elke run (en bij --dry-run op stderr, zodat stdout het commando blijft).
+WIE=(gegevens="$JSON" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh")
+if [[ -n "${LOADERBIN:-}" ]]; then WIE+=(lader="$LOADERBIN"); fi
+for l in "${LIBS[@]}"; do if [[ "$l" == "$RG_LIB"/* ]]; then WIE+=(bibliotheek="$l"); fi; done
+for ((i = 0; i < ${#BINDS[@]}; i += 2)); do if [[ -f "${BINDS[$i]}" ]]; then WIE+=(meegegeven="${BINDS[$i]}"); fi; done
+IDENT=$(rg_identiteit "$0" "${WIE[@]}") || IDENT="script: $0 (identiteit niet vast te stellen)"
+
+if (( DRY )); then echo "$IDENT" >&2; printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
 
 # Eén launcher tegelijk.
 exec 9>"$IPC/native.lock"
 flock -n 9 || die "er draait al een native launcher (zie $IPC/native.pid); stop die met --stop"
 echo $$ > "$IPC/native.pid"
 TS=$(date +%Y%m%d-%H%M%S); LOG="$LOGDIR/native-$GAME-$TS.log"
-{ echo "== play-native $GAME $TS"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
+{ echo "== play-native $GAME $TS"; echo "$IDENT"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
 echo "play-native: $GAME (${V[title]}), res $RES, log $LOG"
 [[ "${V[status]}" == werkt ]] || echo "play-native: LET OP: status ${V[status]} (${V[note]})" >&2
 

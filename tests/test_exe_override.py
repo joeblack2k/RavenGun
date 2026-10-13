@@ -15,8 +15,11 @@ je na de run niet of een verschil aan het spel lag of aan onze opzet. Wat hier w
    opgeruimd.
 5. Wat niet kan wordt in het plan geweigerd, voordat er iets start.
 
-Er wordt niets gestart (tests/launcher_nep.py). Of Wine een programma werkelijk vanaf zo'n letter start is hier niet
-gemeten; dat vraagt een run onder Wine.
+Er wordt niets gestart (tests/launcher_nep.py). Dat Wine een programma werkelijk vanaf zo'n letter start is op
+2026-10-13 onder Wine gemeten, in een eigen testprefix en met de functies van de launcher zelf (drives_aan,
+drives_opruimen): een programma start vanaf X:, een kindproces met werkmap X:\\exe\\x64 ziet die werkmap, en na het
+opruimen bestaat X: voor Wine niet meer -- ook als er al een wineserver liep toen de letter erbij kwam. Niet gemeten:
+de lader die zelf een spel vanaf X: start (dat vraagt een kern en een echt spel, dus de bench).
 """
 import json
 import os

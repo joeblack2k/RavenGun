@@ -264,6 +264,9 @@ if(RAVENGUN_BUILD_TESTS)
     # Omgevingsvariabelen per game ([Env]) in het spelproces en in --plan, en het eigen startscript van het spel (game.bat,
     # run_game.sh): gelezen, nooit uitgevoerd, en naast het plan gelegd (variabelen, argumenten, programma's vooraf, werkmap).
     add_test(NAME ravengun_startscript COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_startscript.py")
+    # De launcher zegt zelf welke launcher hij is (pad, sha256, repo of installatie) in --plan en bovenaan elk run-logboek:
+    # een oude kopie waarvan niemand weet dat hij draait kost een meting. De genoemde sha256 is die van het bestand dat draaide.
+    add_test(NAME ravengun_launcher_identiteit COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_launcher_identiteit.py")
     # Het spel vanaf een ander pad (--exe) en schijfletters voor een run (--drive): alleen het pad naar het spel verandert, de
     # hele hulpketen blijft gelijk; een schijfletter staat er precies zolang de run duurt. Start niets.
     add_test(NAME ravengun_exe_override COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exe_override.py")
@@ -281,6 +284,10 @@ if(RAVENGUN_BUILD_TESTS)
   # die niet klopt wordt niet geschreven; en "draait er nu een spel" (zichtbaar, onzichtbaar, geen). Skip (77) zonder app-build.
   add_test(NAME ravengun_saver_status COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/saver_status_test.sh")
   set_tests_properties(ravengun_saver_status PROPERTIES SKIP_RETURN_CODE 77)
+  # De startscripts zeggen zelf wie ze zijn (scripts/rg-identiteit.sh): pad, sha256, repo of installatie, en de bestanden die bij de
+  # run horen -- bovenaan het logboek van play-native.sh (echte doorloop met een nep-bwrap) en van play-halo.sh. Start niets.
+  add_test(NAME ravengun_script_identiteit COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/identiteit_test.sh")
+  set_tests_properties(ravengun_script_identiteit PROPERTIES SKIP_RETURN_CODE 77)
   # scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
   add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
