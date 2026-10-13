@@ -1,5 +1,14 @@
-<!-- Gegenereerd door patches/readme-gen.py uit de kaarten in deze map; bewerk de kaart of verwijder deze regel. -->
 # RaccoonRampage
+
+> **STAND 2026-10-14, 01:00 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
+> kern (12 minuten, op de tv), met de films, met de rode melding "The guns are not calibrated" op elk beeld
+> en zonder invoer: hij demonstreert, hij is op onze kern niet speelbaar. De standaard in `game.ini` blijft
+> de gesloten kern, waarop de eigenaar deze game speelt. Wat er op onze kern ontbreekt staat in
+> `ATTRACT-RUN.md` §3: de game praat met zijn kast via `RSGame/Plugins/UsbPluginsDll.dll` (107 `BIND_*`-functies)
+> en leest `TeknoParrot_JvsState` niet zelf.
+>
+> Dit bestand kwam uit `patches/readme-gen.py`; de generatorregel is weggehaald omdat de alinea over het
+> starten zonder TeknoParrot niet meer klopte (hieronder herschreven). De tabellen zijn van 2026-10-12.
 
 Instellingen: `game.ini`, patches: `patches.ini`.
 Bevindingen en meetgeschiedenis: `findings/RaccoonRampage.md` (op de NAS naast de games, niet in deze repo).
@@ -35,7 +44,7 @@ Wat de game dan wél vraagt: niets.
 * Met de eigen lader: START
 * Zonder enige lader (alleen `wine <exe>`): **START**
 
-**Wat een start zonder TeknoParrot blokkeert:** De gesloten kern; de game meldt *"guns are not calibrated"* en het vizier stond vast linksboven. Dat is opgelost via het testmenu (kalibratie in de game-opslag).
+**Wat een start zonder TeknoParrot blokkeert:** niets — de game start en draait zijn attract-lus op onze eigen kern (gemeten 2026-10-14). Wat dan ontbreekt is de invoer en de kalibratiestatus: de melding *"guns are not calibrated"* staat op onze kern op elk beeld, ook met de bewaarde kalibratie van speler 1 geladen; op de gesloten kern staat hij er niet (`ATTRACT-RUN.md` §3).
 
 ## Waar de metingen staan
 

@@ -1,0 +1,43 @@
+game process seen 00:37:29
+bridge start 00:38:14
+IO-brug: route tp-shm voor RaccoonRampage, dialect tp-shm, indeling WartranTroopers, 1 schrijfacties, bytes 8..27: 0000000080808080808080800000000000000000
+Uitvoer GEWAPEND.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+Positie:      aim 0.350,0.650 -> abs 11468,21299; knoppen: -
+Toetsenbord:  aangemaakt, toetsen: -
+Indeling:     triangle=key:5, circle=key:f2, cross=grenade, square=key:1, select=key:5, start=key:1, move=recenter, pump=reload, ss_rl=reload, ss_fire=none, sel1=none, sel2=none, sel3=none, nav_cross=none, nav_circle=none, nav_l1=reload, nav_l2=grenade, nav_l3=none, nav_ps=none, nav_up=none, nav_down=none, nav_left=none, nav_right=none, nav_stick_up=none, nav_stick_down=none, nav_stick_left=none, nav_stick_right=none, ps=recenter (vast)
+Transformatie: invert 0/0, schaal 1.000/1.000, offset 0.000/0.000, viewport (0.000,0.000)-(1.000,1.000)
+Patroon:      done (point, stap 1/1, 0.0 s)
+Tellers:      7 positie-events, 18 knop-events, 0 geweigerd, 0 schrijffouten, 0 vrijgaves
+IO-brug: route tp-shm voor RaccoonRampage, dialect tp-shm, indeling WartranTroopers, 2 schrijfacties, bytes 8..27: 0000000059a68080808080800000000000000000, P1 aim 0.350,0.650
+  shm before coin 1 00:38:19: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+coin 1 down 00:38:19
+Toets 5: down.
+  shm during coin 1 00:38:19: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+Toets 5: up.
+  shm after coin 1 00:38:20: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  shm before coin 2 00:38:34: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+coin 2 down 00:38:34
+Toets 5: down.
+  shm during coin 2 00:38:34: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+Toets 5: up.
+  shm after coin 2 00:38:34: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+Positie:      aim 0.350,0.650 -> abs 11468,21299; knoppen: -
+Toetsenbord:  aangemaakt, toetsen: -
+Indeling:     triangle=key:5, circle=key:f2, cross=grenade, square=key:1, select=key:5, start=key:1, move=recenter, pump=reload, ss_rl=reload, ss_fire=none, sel1=none, sel2=none, sel3=none, nav_cross=none, nav_circle=none, nav_l1=reload, nav_l2=grenade, nav_l3=none, nav_ps=none, nav_up=none, nav_down=none, nav_left=none, nav_right=none, nav_stick_up=none, nav_stick_down=none, nav_stick_left=none, nav_stick_right=none, ps=recenter (vast)
+Transformatie: invert 0/0, schaal 1.000/1.000, offset 0.000/0.000, viewport (0.000,0.000)-(1.000,1.000)
+Patroon:      done (point, stap 1/1, 0.0 s)
+Tellers:      7 positie-events, 22 knop-events, 0 geweigerd, 0 schrijffouten, 0 vrijgaves
+disarm + bridge stop 00:38:48
+Uitvoer ontwapend; alle knoppen vrijgegeven.
+Uitvoer:      ontwapend; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+Positie:      aim 0.350,0.650 -> abs 11468,21299; knoppen: -
+Toetsenbord:  aangemaakt, toetsen: -
+Indeling:     triangle=key:5, circle=key:f2, cross=grenade, square=key:1, select=key:5, start=key:1, move=recenter, pump=reload, ss_rl=reload, ss_fire=none, sel1=none, sel2=none, sel3=none, nav_cross=none, nav_circle=none, nav_l1=reload, nav_l2=grenade, nav_l3=none, nav_ps=none, nav_up=none, nav_down=none, nav_left=none, nav_right=none, nav_stick_up=none, nav_stick_down=none, nav_stick_left=none, nav_stick_right=none, ps=recenter (vast)
+Transformatie: invert 0/0, schaal 1.000/1.000, offset 0.000/0.000, viewport (0.000,0.000)-(1.000,1.000)
+Patroon:      done (point, stap 1/1, 0.0 s)
+Tellers:      7 positie-events, 22 knop-events, 0 geweigerd, 0 schrijffouten, 0 vrijgaves
+IO-brug: geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)
+IO-brug: geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)
+probe done 00:38:48

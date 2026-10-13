@@ -1,0 +1,31 @@
+now 00:55:42
+pid 1842973 comm RSGame-Win64-Sh threads 148 started Wed Oct 14 00:54:54 2026
+      2 /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll
+      9 /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk/drive_c/windows/system32/d3d11.dll
+      9 /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk/drive_c/windows/system32/dxgi.dll
+      5 /home/deck/.local/share/ravengun/tools/gst-extra/plugins/libgstlibav.so
+      4 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/x86_64-unix/winegstreamer.so
+      7 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/x86_64-windows/mf.dll
+      7 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/x86_64-windows/mfplat.dll
+      7 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/x86_64-windows/mfreadwrite.dll
+      7 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/x86_64-windows/winegstreamer.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/NVIDIA/NVaftermath/Win64/GFSDK_Aftermath_Lib.x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/Ogg/Win64/VS2015/libogg_64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/APEX_Clothing_x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/Apex_Destructible_x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/APEXFramework_x64.dll
+      3 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/APEX_Legacy_x64.dll
+      2 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/NvCloth_x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/PhysX3Common_x64.dll
+      3 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/PhysX3Cooking_x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/PhysX3_x64.dll
+      2 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/PxFoundation_x64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/PhysX3/Win64/VS2015/PxPvdSDK_x64.dll
+      2 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2015/libvorbis_64.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2015/libvorbisfile_64.dll
+      2 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/Engine/Binaries/ThirdParty/Windows/XAudio2_9/x64/xaudio2_9redist.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/RSGame/Binaries/Win64/RSGame-Win64-Shipping.exe
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/RSGame/Plugins/DewoDll.dll
+      1 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/RSGame/Plugins/IniFile.dll
+      3 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/RSGame/Plugins/SQLite.dll
+      2 /home/deck/mnt/spidernas_emulation/Teknoparrot/Raccoon Rampage/RSGame/Plugins/UsbPluginsDll.dll
