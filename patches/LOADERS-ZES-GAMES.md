@@ -310,3 +310,66 @@ en dat is precies wat er gebeurde. Reparatie aan twee kanten: de hulp leest nu m
 `mmap`, en de pulsen schrijven op hun plaats met `pwrite` in plaats van `wb`. Bench-vrij bewezen: een
 mmap-lezer sterft met `Bus error`, een pread-lezer blijft leven. **En eerlijk vermeld:** run 5 veranderde
 drie dingen tegelijk, dus of de crash ook aan de vier borden lag is daarmee NIET bewezen.
+
+---
+
+## Stand 2026-10-13, vierde update: de invoer van Halo en de verificatie van Transformers
+
+### Halo: de aim is zeer waarschijnlijk OPTISCH, en er hangt wel een camera
+
+Wat uitgesloten is, met metingen op het juiste scherm:
+* **TEST** slaat de kalibratie niet over: negen indrukken over drie schakelaarindices (run 7), acht
+  herhalingen van 3 s (run 10, vervuild maar de tafelmeting is schoon) -- alleen `k=4` verandert, in zijn
+  eigen tellers, en de game schrijft **niets** terug.
+* **De trekker en de positie** doen het ook niet: de virtuele lightgun zond vijf trekkerindrukken en
+  posities van 0 tot 32767 op beide assen uit, inclusief de uiterste linkerbovenhoek die het scherm
+  vraagt (run 8, gemeten op het apparaat zelf) -- het scherm verschoof niet.
+* **Het is geen joystickkwestie**: `udevadm info` zegt `ID_INPUT_MOUSE=1` en **geen `ID_INPUT_JOYSTICK`**,
+  maar de meting die dat beslissend maakt is dat de game **geen enkel invoerapparaat openhoudt en SDL
+  niet geladen heeft** (run 9). Een tweede apparaat bouwen zou dus een apparaat zonder consument zijn --
+  dat is niet gedaan.
+* **De webcam is niet het verschil**: dezelfde fout staat in de sessie van 10 oktober, die 47 s later WEL
+  in de attract-lus kwam.
+
+Wat er WEL is, en dit is de leidende verklaring:
+* Er hangt **wel** een camera: `/dev/video0`, "USB Camera-B4.09.24.1" (gspca). De game meet een
+  **helderheidsverschil** in het beeld -- dat is zoeken naar een lichtpunt -- en vindt niets
+  (`All webcams reported brightness difference of 0`). Op het kalibratiescherm houdt hij zelfs geen
+  camera open.
+* De conclusie is dus: het geweer moet door de camera **gezien** worden, en de trekker komt van de
+  kastkaart. Onze virtuele apparaten zijn voor een camera onzichtbaar en kunnen dat principe niet
+  vervangen. **STERKE AFLEIDING, geen bewijs** -- het bewijs zou zijn dat het scherm opschuift zodra er
+  iets zichtbaars voor de camera staat.
+* Een testbaar idee dat daarbij past: een PlayStation Move heeft een **lichtend bolletje**, precies een
+  lichtpunt dat een camera kan zien. Voor de invoer is de muismodus genoeg (de eigenaar had daarin
+  gelijk), maar voor DEZE game kan de Move als **vizier** nodig zijn in plaats van als invoerapparaat.
+* De volgende stap is daarom bench-vrij: lezen **welk kanaal TeknoParrot gebruikt voor de aim van dit
+  spel** (`Teknoparrot/findings/16_halo_fireteam.md`, de IO- en JVS-sectie). Is dat het kastbord of de
+  tp-shm-route, dan weten we precies welk stuk onze native route mist.
+
+### Transformers: de verificatierun toont de hele keten
+
+Voor het eerst is het TWEEDE proces gemeten. In de verificatierun staan drie processen **tegelijk** in de
+proceslijst, ongeveer acht minuten lang:
+```
+OpenParrotLoader.exe                <- de lader met de TeknoParrot-kern
+.../Sega/shell/Shell.exe            <- de shell
+.../Transformers2/Transformers2.exe <- HET SPEL zelf
+```
+Dat is precies wat de opdracht per game vraagt: niet dat de lader start, maar dat het SPEL start. De
+eerdere STARTTEST-regel mat alleen de shell -- dat onderscheid is nu gedicht.
+
+### En een les over onze eigen bench
+
+De bench-controles waren per route en zagen elkaar niet: de Wine-kant keek naar gamescope/wine/wineserver/
+de lader, de native kant naar gamescope en het `game`-proces. Daardoor liepen op 13-10 twee runs
+tegelijk (Halo run 10 en de Transformers-verificatierun), en die eerste is daardoor **vervuild** -- dat
+staat als blok boven aan dat verslag, en de conclusie rust op de twee schone runs. Beide partijen
+controleren nu ook op de processen van de ANDERE route.
+
+### Drie correcties van mij, voor het archief
+
+1. Ik zei dat er geen camera was; die is er wel.
+2. Ik dacht dat een tweede joystickapparaat de route was; de meting laat zien dat de game geen enkel
+   invoerapparaat opent.
+3. Ik las een lopende run als "voorbij zijn time-out" terwijl hij gewoon nog liep.
