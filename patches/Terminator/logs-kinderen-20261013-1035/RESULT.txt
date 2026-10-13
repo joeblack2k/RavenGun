@@ -1,0 +1,9 @@
+run            : kinderen-meting.sh (geen HASP-hook)
+datum          : 2026-10-13T10:35:56+02:00
+exitcode       : 0
+levensduur     : 5 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+gast sha256    : 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+yama scope     : 1
+ATTACH ok/EPERM: 388/0
+0

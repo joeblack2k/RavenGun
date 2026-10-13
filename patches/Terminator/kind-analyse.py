@@ -18,7 +18,11 @@ def lees(pad):
         return []
 
 def velden(regel, sleutel):
-    m = re.search(r"\b%s=(-?\d+)" % sleutel, regel)
+    """Haalt een veld op in BEIDE notaties die onze bibliotheken gebruiken: de fork-waarnemer schrijft
+       `pid=123` en de ptrace-waarnemer schrijft `pid 123`. Alleen op `=` matchen liet alle
+       ptrace-regels naar de sleutel None vallen, waardoor 388 aanroepen onder één pid leken te
+       hangen. Dat is precies de fout die deze functie nu afvangt."""
+    m = re.search(r"\b%s[=\s]+(-?\d+)" % sleutel, regel)
     return int(m.group(1)) if m else None
 
 def tijd(regel):
