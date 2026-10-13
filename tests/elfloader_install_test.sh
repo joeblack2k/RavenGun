@@ -49,3 +49,16 @@ if [[ "$ssha" != "$bsha" ]]; then
   exit 1
 fi
 echo "ok: de gebouwde lader komt uit de huidige bron."
+
+# De oude gastbibliotheken (libGLU.so.1 uit ElfLdr2/libs heeft geen PT_GNU_STACK, liballeg vraagt RWE) eisen een
+# uitvoerbare stack, en moderne glibc weigert die bij dlopen aan te zetten ("cannot enable executable stack").
+# De lader moet er dus zelf een hebben: -Wl,-z,execstack in scripts/build-elfloader.sh. Gemeten zonder die vlag:
+# de lader strandt al op zijn eigen shim.
+if command -v readelf >/dev/null 2>&1; then
+  stack="$(readelf -lW "$INST" | awk '/GNU_STACK/ {print $(NF-1)}')"
+  if [[ "$stack" != "RWE" ]]; then
+    echo "FAIL: de geinstalleerde lader heeft geen uitvoerbare stack (GNU_STACK '$stack', verwacht RWE)." >&2
+    exit 1
+  fi
+  echo "ok: de geinstalleerde lader heeft een uitvoerbare stack (GNU_STACK RWE)."
+fi

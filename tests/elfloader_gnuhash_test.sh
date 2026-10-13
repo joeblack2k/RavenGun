@@ -16,6 +16,11 @@
 #      de gewone modus moet weigeren (FATAAL, rc 127) en de gast niet starten. Stil afkappen is fout.
 #   4. de analyse moet een gemis ook MELDEN, anders bewijst "0 sterk onopgelost" niets: een lib die niet te
 #      vinden is, en een lib waarin een symbool ontbreekt.
+#   5. de laadorde: een lib ZONDER eigen DT_NEEDED die leunt op een lib verderop in de lijst van de gast
+#      (libGLU.so.1 bij Terminator Salvation: "undefined symbol: floor") moet in een latere ronde laden, in de
+#      gewone modus net zo goed als in de analyse. En een lib die nooit laadt blijft in de gewone modus fataal.
+#   6. de hulpprocessen van de shim-bouw (64-bits) erven de LD_PRELOAD van het spel niet: geen
+#      "cannot be preloaded (wrong ELF class)" in de uitvoer, en de gast ziet de variabele nog wel.
 # Geen game, geen NAS. Skip (77) zonder gcc -m32.
 #
 # Omgeving: RG_ELFLOADER_SRC = andere lader-bron (bv. de oude versie, om te zien dat de test dan faalt).
@@ -159,6 +164,67 @@ echo "$OUT" | grep -q "onopgelost ([0-9]* zwak, 1 sterk)" || fail "verwachtte 1 
 echo "$OUT" | sed -n '/onopgeloste symbolen, STERK/,/^[^ ]/p' | grep -q " fakelib_c\$" || fail "fakelib_c staat niet bij de sterke onopgeloste symbolen"
 [ -e "$T/marker" ] && fail "de gast is gestart in de analysemodus (halve lib)"
 
+# --- 5. de laadorde: een lib zonder DT_NEEDED die leunt op een latere lib ---
+printf 'int fakelib_a(void);\nint leun(void) { return fakelib_a() + 10; }\n' > "$T/leun.c"
+"$CC" -m32 $INC -shared -fPIC -nostdlib -Wl,--hash-style=gnu -o "$T/libleun.so" "$T/leun.c" || fail "leunende lib bouwen"
+cat > "$T/gast_leun.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+int leun(void);
+int main(void) {
+    FILE *f = fopen(getenv("RG_TEST_MARKER") ? getenv("RG_TEST_MARKER") : "/nonexistent/marker", "w");
+    if (f) { fputs(getenv("LD_PRELOAD") ? getenv("LD_PRELOAD") : "-", f); fclose(f); }
+    return leun();
+}
+C
+"$CC" -m32 $INC -no-pie -Wl,--hash-style=gnu -Wl,-Ttext-segment=0x08048000 -o "$T/gast_leun" "$T/gast_leun.c" \
+    -L"$T" -Wl,--no-as-needed -lleun -lfakelib || fail "gast (leunende lib) bouwen"
+readelf -d "$T/libleun.so" | grep -q '(NEEDED)' && fail "voorwaarde: libleun.so heeft toch een DT_NEEDED"
+ORDE=$(readelf -d "$T/gast_leun" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | tr '\n' ' ')
+case "$ORDE" in "libleun.so libfakelib.so "*) ;; *) fail "voorwaarde: DT_NEEDED-volgorde is '$ORDE', verwacht libleun.so voor libfakelib.so";; esac
+
+rm -f "$T/marker"
+OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast_leun" 2>&1)
+RC=$?
+echo "$OUT" | grep "latere ronde\|FATAAL"
+[ "$RC" -eq 11 ] || fail "gewone modus met een leunende lib: rc=$RC, verwacht 11 (de gast draait dan niet)"
+[ -e "$T/marker" ] || fail "gewone modus met een leunende lib: de gast is niet gestart"
+echo "$OUT" | grep -q "geladen in een latere ronde: libleun.so (eerste poging: .*fakelib_a" || fail "geen melding dat libleun.so pas in een latere ronde laadde"
+rm -f "$T/marker"
+OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" --ontleed-alleen "$T/gast_leun" 2>&1)
+echo "$OUT" | grep "^geladen:\|^  latere ronde"
+echo "$OUT" | grep -q "^geladen: 3 van de 3 bibliotheken, waarvan 1 pas in een latere ronde" || fail "analyse: verwachtte 3 van 3 geladen, 1 in een latere ronde"
+echo "$OUT" | grep -q "^  latere ronde: libleun.so " || fail "analyse noemt libleun.so niet als latere ronde"
+OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" --ontleed-alleen "$T/gast" 2>&1)
+echo "$OUT" | grep -q "^geladen: 2 van de 2 bibliotheken, waarvan 0 pas in een latere ronde" || fail "analyse: een gast zonder leunende lib hoort 0 latere rondes te hebben"
+# een lib die nooit laadt blijft fataal in de gewone modus, en de gast start niet
+OUT=$(LD_LIBRARY_PATH="$T/leeg" "$T/rg-elfloader" "$T/gast_leun" 2>&1)
+RC=$?
+echo "$OUT" | grep "FATAAL"
+[ "$RC" -eq 127 ] || fail "gewone modus zonder de libs: rc=$RC, verwacht 127"
+echo "$OUT" | grep -q "FATAAL: dlopen(lib[a-z]*\.so) mislukt, ook nadat de andere bibliotheken geladen zijn" || fail "geen FATAAL voor de lib die nooit laadt"
+[ -e "$T/marker" ] && fail "de gast is gestart terwijl een lib ontbrak"
+
+# --- 6. de preload van het spel hoort niet bij de hulpprocessen van de shim-bouw ---
+cat > "$T/voor.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+__attribute__((constructor)) static void voor(void) {
+    FILE *f = fopen(getenv("RG_TEST_VOOR") ? getenv("RG_TEST_VOOR") : "/nonexistent/voor", "w");
+    if (f) { fputs("geladen\n", f); fclose(f); }
+}
+C
+"$CC" -m32 $INC -shared -fPIC -o "$T/libvoor.so" "$T/voor.c" || fail "preload-lib bouwen"
+# Tegenproef: een 64-bits hulpproces met deze preload geeft de melding echt (anders bewijst de afwezigheid niets).
+LD_PRELOAD="$T/libvoor.so" /bin/sh -c : 2>&1 | grep -q "cannot be preloaded" || fail "tegenproef: een 64-bits proces meldt de 32-bits preload niet"
+rm -f "$T/marker" "$T/voor"
+OUT=$(RG_TEST_VOOR="$T/voor" LD_PRELOAD="$T/libvoor.so" LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast_leun" 2>&1)
+RC=$?
+[ "$RC" -eq 11 ] || { echo "$OUT"; fail "gewone modus met LD_PRELOAD: rc=$RC, verwacht 11"; }
+[ -e "$T/voor" ] || fail "de preload is niet in het proces van de lader geladen"
+echo "$OUT" | grep -q "cannot be preloaded" && { echo "$OUT" | grep "cannot be preloaded" | head -2; fail "de hulpprocessen van de shim-bouw erven de LD_PRELOAD van het spel"; }
+[ "$(cat "$T/marker" 2>/dev/null)" = "$T/libvoor.so" ] || fail "de gast ziet LD_PRELOAD niet meer ('$(cat "$T/marker" 2>/dev/null)')"
+
 [ "$FAILS" -eq 0 ] || exit 1
-echo "ok: GNU_HASH-only gast + lib, analysemodus start de gast niet; een volle lib-defs-lijst en een gemis melden zich"
+echo "ok: GNU_HASH-only gast + lib; volle lib-defs-lijst en gemis melden zich; leunende lib laadt in een latere ronde; preload blijft bij het spel"
 exit 0

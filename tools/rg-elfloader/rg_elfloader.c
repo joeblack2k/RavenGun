@@ -472,6 +472,33 @@ static int rg_shim_symbolen;   /* aantal geexporteerde gast-symbolen in de shim 
    van de gast als ABSOLUTE adressen (`.set naam, 0xADDR`), die we RTLD_GLOBAL als EERSTE laden. De
    gast staat op een vast adres (ET_EXEC, 0x08048000), dus die adressen kloppen; de shim moet per gast
    opnieuw worden gemaakt. Zie docs/research/eigen-elf-lader.md. */
+/* De shim wordt met gcc gebouwd, en dat zijn 64-bits hulpprocessen (sh, gcc, cc1, as, collect2, ld). Een
+   LD_PRELOAD of LD_AUDIT die voor het SPEL bedoeld is (een 32-bits bibliotheek, bv. de HASP-hook) erven
+   zij ook, en elk ervan meldt dan "ERROR: ld.so: object ... cannot be preloaded (wrong ELF class:
+   ELFCLASS32): ignored" -- zes regels ruis per start. In ons eigen proces is de preload al geladen toen
+   het begon; de variabele hoeft dus alleen even uit de omgeving terwijl de hulpprocessen starten, en
+   komt daarna ongewijzigd terug (de gast en wat hij zelf start zien wat ze altijd zagen). */
+static int bouw_zonder_preload(const char *cmd)
+{
+    static const char *vars[] = {"LD_PRELOAD", "LD_AUDIT"};
+    char *bewaard[2] = {NULL, NULL};
+    int i, rc;
+    for (i = 0; i < 2; i++) {
+        const char *v = getenv(vars[i]);
+        if (v) {
+            bewaard[i] = strdup(v);
+            unsetenv(vars[i]);
+        }
+    }
+    rc = system(cmd);
+    for (i = 0; i < 2; i++)
+        if (bewaard[i]) {
+            setenv(vars[i], bewaard[i], 1);
+            free(bewaard[i]);
+        }
+    return rc;
+}
+
 static void maak_shim(struct dyninfo *d)
 {
     const char *tmp = getenv("XDG_RUNTIME_DIR");
@@ -538,7 +565,7 @@ static void maak_shim(struct dyninfo *d)
     snprintf(cmd, sizeof cmd, "gcc -m32 -shared -fPIC -Wl,-z,execstack %s%s -o '%s' '%s' 2>&1",
              inc && *inc ? "-I" : "", inc && *inc ? inc : "", so, src);
     dbg("shim bouwen (%d gast-symbolen): %s", cnt, cmd);
-    if (system(cmd) != 0)
+    if (bouw_zonder_preload(cmd) != 0)
         fatal("kon de shim niet bouwen: %s", cmd);
     if (!dlopen(so, RTLD_NOW | RTLD_GLOBAL))
         fatal("dlopen(shim) mislukt: %s", dlerror());
@@ -557,38 +584,55 @@ static void maak_shim(struct dyninfo *d)
 static void *rg_libs[64];   /* handvatten van de NEEDED-libs, voor R_386_COPY (de DEFINIËRENDE lib) */
 static int rg_libs_n;
 
-/* In --ontleed-alleen (rg_ontleed) is een lib die niet laadt GEEN reden om te stoppen: dat is juist wat de
-   analyse moet melden. We proberen de mislukte libs nog een keer nadat de rest geladen is (sommige libs
-   hebben geen eigen NEEDED voor libm/libstdc++ en lossen die pas op via een latere NEEDED), en
-   noteren wat daarna nog mist. In de gewone modus blijft het fataal, zoals altijd. */
-static char rg_nietgeladen[16][160];
+/* De laadorde. De dynamische linker van het systeem zet eerst ALLE DT_NEEDED-libs van het programma in
+   de globale zoekruimte en past daarna pas de relocaties toe; een lib mag dus leunen op een lib die
+   verderop in de lijst staat, ook zonder er zelf een DT_NEEDED voor te hebben. Dat komt voor: libGLU.so.1
+   uit ElfLdr2/libs heeft geen enkele DT_NEEDED en gebruikt `floor` (libm) en `operator new[]` (libstdc++),
+   en libtheora leunt op libogg. Wij laden met dlopen een voor een, dus zo'n lib faalt bij de eerste
+   poging ("undefined symbol: floor") omdat zijn leverancier nog niet geladen is.
+   Daarom: de DT_NEEDED-volgorde aflopen, een lib die niet laadt apart zetten, en die opnieuw proberen
+   zolang een ronde iets oplevert. Geen lijst van "systeemlibs eerst": welke lib op welke leunt staat
+   nergens, en de volgorde blijft voor alles wat meteen laadt die van het spel. Beide modi lopen
+   dezelfde lus; alleen het einde verschilt: de gewone modus stopt als er een lib overblijft,
+   --ontleed-alleen meldt hem en gaat door (dat is juist wat de analyse moet laten zien).
+   Grens: de zoekvolgorde van de globale scope is de LAADvolgorde, dus een lib uit een latere ronde komt
+   achteraan. Definieren twee libs hetzelfde symbool, dan kan een andere winnen dan bij het systeem. */
+static char rg_nietgeladen[16][400];
 static int rg_nietgeladen_n;
 static uint32_t rg_nietgeladen_totaal;
+static char rg_laat[16][96];        /* libs die pas in een latere ronde laadden, met de fout van de eerste poging */
+static char rg_laat_fout[16][300];
+static int rg_laat_n;
+static uint32_t rg_laat_totaal, rg_needed_totaal;
 
 static void laad_needed(struct beeld *b, struct dyninfo *d)
 {
     Elf32_Dyn *dy;
     const char *wacht[64];
+    static char eerste_fout[64][300];
     int nw = 0, i, voortgang;
     for (dy = b->dyn; dy->d_tag != DT_NULL; dy++) {
         const char *naam;
         void *h;
         if (dy->d_tag != DT_NEEDED)
             continue;
+        rg_needed_totaal++;
         naam = d->strtab + dy->d_un.d_val;
         h = dlopen(naam, RTLD_NOW | RTLD_GLOBAL);   /* RTLD_NOW past ook liballeg's eigen relocaties toe */
         if (!h) {
-            if (!rg_ontleed)
-                fatal("dlopen(%s) mislukt: %s", naam, dlerror());
-            if (nw < (int)(sizeof(wacht) / sizeof(wacht[0])))
-                wacht[nw++] = naam;
+            const char *fout = dlerror();
+            if (nw >= (int)(sizeof(wacht) / sizeof(wacht[0])))
+                fatal("dlopen(%s) mislukt en de wachtlijst is vol: %s", naam, fout ? fout : "?");
+            snprintf(eerste_fout[nw], sizeof eerste_fout[0], "%s", fout ? fout : "dlopen mislukt");
+            wacht[nw++] = naam;
+            dbg("nog niet geladen (volgende ronde): %s: %s", naam, eerste_fout[nw - 1]);
             continue;
         }
         if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
             rg_libs[rg_libs_n++] = h;
         dbg("geladen: %s", naam);
     }
-    do {   /* alleen --ontleed-alleen komt hier met nw > 0: nog een poging zolang er voortgang is */
+    do {   /* nog een ronde zolang er voortgang is */
         voortgang = 0;
         for (i = 0; i < nw; i++) {
             void *h;
@@ -599,20 +643,35 @@ static void laad_needed(struct beeld *b, struct dyninfo *d)
                 continue;
             if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
                 rg_libs[rg_libs_n++] = h;
-            dbg("geladen (2e poging): %s", wacht[i]);
+            say("geladen in een latere ronde: %s (eerste poging: %s)", wacht[i], eerste_fout[i]);
+            rg_laat_totaal++;
+            if (rg_laat_n < (int)(sizeof(rg_laat) / sizeof(rg_laat[0]))) {
+                snprintf(rg_laat[rg_laat_n], sizeof rg_laat[0], "%s", wacht[i]);
+                snprintf(rg_laat_fout[rg_laat_n++], sizeof rg_laat_fout[0], "%.299s", eerste_fout[i]);
+            }
             wacht[i] = NULL;
             voortgang = 1;
         }
     } while (voortgang);
     for (i = 0; i < nw; i++) {
         const char *fout;
+        void *h;
         if (!wacht[i])
             continue;
-        fout = dlerror();   /* de fout van de laatste poging; voor de meeste libs is het ook de bijbehorende */
+        h = dlopen(wacht[i], RTLD_NOW | RTLD_GLOBAL);   /* nog een keer, alleen voor de fout van DEZE lib nu */
+        if (h) {                                        /* kan niet na een ronde zonder voortgang, maar dan is hij er */
+            if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
+                rg_libs[rg_libs_n++] = h;
+            continue;
+        }
+        fout = dlerror();
+        if (!rg_ontleed)
+            fatal("dlopen(%s) mislukt, ook nadat de andere bibliotheken geladen zijn: %s", wacht[i],
+                  fout ? fout : eerste_fout[i]);
         rg_nietgeladen_totaal++;
         if (rg_nietgeladen_n < (int)(sizeof(rg_nietgeladen) / sizeof(rg_nietgeladen[0])))
-            snprintf(rg_nietgeladen[rg_nietgeladen_n++], sizeof rg_nietgeladen[0], "%s: %s", wacht[i],
-                     fout ? fout : "dlopen mislukt");
+            snprintf(rg_nietgeladen[rg_nietgeladen_n++], sizeof rg_nietgeladen[0], "%.90s: %.299s", wacht[i],
+                     fout ? fout : eerste_fout[i]);
     }
 }
 
@@ -988,6 +1047,10 @@ static void toon_ontleding(struct dyninfo *d, const char *game)
             printf("  %-28s %s: %u dynsyms (%s)\n", li->naam, li->pad, li->nsym,
                    li->bron == TEL_BRON_HASH ? "DT_HASH" : "STRTAB-SYMTAB");
     }
+    printf("geladen: %u van de %u bibliotheken, waarvan %u pas in een latere ronde\n",
+           rg_needed_totaal - rg_nietgeladen_totaal, rg_needed_totaal, rg_laat_totaal);
+    for (i = 0; i < rg_laat_n; i++)
+        printf("  latere ronde: %s (eerste poging: %s)\n", rg_laat[i], rg_laat_fout[i]);
     if (rg_nietgeladen_totaal) {
         printf("NIET geladen (%u):\n", rg_nietgeladen_totaal);
         for (i = 0; i < rg_nietgeladen_n; i++)

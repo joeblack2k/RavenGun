@@ -19,6 +19,25 @@ starten zonder BudgieLoader en zonder Wine.*
    Bouwdetail: `-Wl,-z,execstack`, want oude gastlibs (liballeg, 2007) vragen een uitvoerbare stack die
    moderne glibc anders bij `dlopen` weigert.
 
+## De laadorde van de bibliotheken (2026-10-13)
+De lader loopt de `DT_NEEDED`-lijst van het spel af met `dlopen(RTLD_NOW | RTLD_GLOBAL)`. Een lib die niet
+laadt gaat op een wachtlijst en wordt opnieuw geprobeerd zolang een ronde iets oplevert; pas wat daarna
+overblijft is fataal (met de naam en de laatste fout). Dat is nodig omdat de dynamische linker van het systeem
+eerst alle libs in de globale zoekruimte zet en dan pas relocaties toepast, en oude libs daarop leunen:
+`libGLU.so.1` uit `ElfLdr2/libs` heeft **nul** `DT_NEEDED` en gebruikt `floor` (libm, nr. 9 in de lijst van
+Terminator) en `operator delete[]` (libstdc++, nr. 13) terwijl hij zelf nr. 2 is. Een lijst "systeemlibs eerst"
+is het niet geworden: welke lib op welke leunt staat nergens, en zo blijft de volgorde voor alles wat meteen
+laadt die van het spel. `--ontleed-alleen` en de gewone modus gebruiken dezelfde lus.
+
+Grenzen: de zoekvolgorde van de globale scope is de laadvolgorde, dus een lib uit een latere ronde staat
+achteraan (gemeten voor Terminator: `libGLU` en `libtheora` delen geen enkel functie- of datasymbool met de
+andere elf, dus daar maakt het niets uit). En de oude libs eisen een uitvoerbare stack (`libGLU.so.1` heeft geen
+`PT_GNU_STACK`): de lader wordt met `-Wl,-z,execstack` gebouwd, `tests/elfloader_install_test.sh` controleert
+dat de geïnstalleerde lader `GNU_STACK RWE` heeft, en zonder die vlag strandt hij al op zijn eigen shim.
+
+De shim wordt met gcc gebouwd; die 64-bits hulpprocessen krijgen de `LD_PRELOAD`/`LD_AUDIT` van het spel niet
+mee (anders zes regels `wrong ELF class: ELFCLASS32` per start). De gast ziet de variabele daarna weer.
+
 ## De shim: gast-exports in de globale scope (opgelost)
 De gastbibliotheken (liballeg.so.4.0) importeren honderden symbolen **uit het spel-executable zelf**
 (`_poly_scanline_*`, `_linear_putpixel*`; gemeten: `bowling_usa` definieert `_poly_scanline_gcol8` op
