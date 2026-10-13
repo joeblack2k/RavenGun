@@ -306,3 +306,156 @@ Allemaal **[GEMETEN]** uit de sectorkoppen van `VACUUM.exe` en uit de dump:
   trampolinepagina van de gesloten kern springt. Of het spel zonder die vervanging bij `0xf1374d`
   uitkomt, is **niet gemeten** — het is de hypothese die §5, breekpunten 1 en 4, kan bevestigen of
   weerleggen.
+
+---
+
+## 8. De exit-trace (meting r7) — de volledige keten, en de correctie van "exitcode 32"
+
+**Bron.** `patches/LuigisMansion/logs-exittrace-r7/exit-trace.log` (160 regels), een run met **ONZE**
+kern `fe2ecf8c…` en onze eigen haak op `kernel32!ExitProcess`, `kernel32!TerminateProcess`,
+`ntdll!RtlExitUserProcess` en `ntdll!NtTerminateProcess`. De tijdas begint bij `Main_DoInit` op
+87.947.769 ms; de exit is op 87.948.116 ms — **347 ms later**. **[GEMETEN]**
+
+### 8.1 Correctie: er is geen foutcode 32 — er wordt een aanwijzer doorgegeven — [GEMETEN]
+
+De ruwe regel:
+
+```
+[  87948116 ms] tid   260  EXIT-HOOK ExitProcess code=0x140415820 (laag32=0x40415820 laag8=32)
+                           terugkeeradres=0000000140F1374D VACUUM.exe+0xf1374d sectie .capcom0 prot=0x20
+```
+
+De **"32" is de laagste byte** van `0x140415820` (`0x20`). Er is dus **geen foutcode 32**; er wordt een
+**aanwijzer in het beeld** als beëindigingswaarde meegegeven. `rcx` bij binnenkomst is `0x140415820`,
+RVA `0x415820`, sectie **`.rdata`**, prot `0x2`. Dezelfde waarde loopt door de hele keten: de haak
+logt `RtlExitUserProcess code=0x140415820` en daarna twee keer
+`NtTerminateProcess … code=0x40415820` (de 32-bits inkorting door de Wine-laag). **[GEMETEN]**
+
+### 8.2 Wat er op `0x140415820` staat — [GEMETEN]
+
+Het is **geen foutobject en geen string**, maar een **tabel met code-aanwijzers** in `.rdata`:
+
+```
+0x140415810  20 25 73 00 00 00 00 00                          | %s.....|
+0x140415818  48 38 44 40 01 00 00 00   -> 0x140443848  (.rdata)
+0x140415820  40 33 17 40 01 00 00 00   -> 0x140173340  (.text, code)
+0x140415828  80 f0 02 40 01 00 00 00   -> 0x14002f080  (.text, code)
+0x140415830  80 f0 02 40 01 00 00 00   -> 0x14002f080  (.text, code, dezelfde)
+0x140415838  d0 34 17 40 01 00 00 00   -> 0x1401734d0  (.text, code)
+0x140415840  c0 33 17 40 01 00 00 00   -> 0x1401733c0  (.text, code)
+0x140415848  63 61 6e 27 74 20 6d 75  ...  "can't mutex ctor!"
+```
+
+* `0x14002f080` is `b0 01 c3` = `mov al,1; ret` — een functie die 1 teruggeeft. **[GEMETEN]**
+* **Precies één verwijzing in het hele beeld** naar `0x140415820`: een rip-relatieve `lea` op
+  `0x0017335d` (`.text`). Dat adres ligt **binnen** de functie die de tabel zelf als eerste entry
+  noemt (`0x140173340`). **[GEMETEN]**
+* Dat patroon — een tabel met code-aanwijzers waarvan de eerste entry naar de tabel zelf verwijst —
+  is het gedrag van een **vtable of typebeschrijving**, niet van een foutobject. **[AFGELEID]**
+* In de buurt staan ongerelateerde `.rdata`-gegevens (formaatstrings `*USR %u* %s`, `%s%c%s`,
+  `billboard`, `EN_gh_Bully.bin`); de string `"can't mutex ctor!"` komt direct ná de vijf entries.
+  **[GEMETEN]**
+
+**Conclusie:** niets in het beeld geeft deze aanwijzer met opzet aan `ExitProcess` door. Het is een
+**restwaarde in `rcx`** — de virtuele machine doet een staartaanroep naar `ExitProcess` en laat `rcx`
+staan zoals hij was. **[AFGELEID]**
+
+### 8.3 De keten, hop voor hop — [GEMETEN]
+
+| laag | adres | wat er staat |
+|---|---|---|
+| 1 | `0x14030f998` (`.text`) | de functie; `0x14030fafb: e8 f0 ca e0 ff  call 0x14011c5f0` |
+| 2 | `0x14011c5f0` (`.text`) | **thunk**: `e9 a6 52 d6 00  jmp 0x140e8189b` — gevolgd door `cc`-opvulling |
+| 3 | `0x140e8189b` (`.capcom0`) | `68 fe 48 9e 91` = `push 0x919e48fe`; `e8 e6 2a ff ff` = `call 0x140e7438b` (**VM-entry**) |
+| 4 | — | de VM interpreteert de bytecode van tag `0x919e48fe` → gedecodeerd **`0x140e5a887`** (`.capcom0`, hoog-entropisch) |
+| 5 | `0x140f13743` (`.capcom0`) | `68 fe 49 3f b6` = `push 0xb63f49fe`; `e8 3e 0c f6 ff` = `call 0x140e7438b` → **ExitProcess** |
+| 6 | — | tag `0xb63f49fe` → gedecodeerd **`0x140e02403`** (`.capcom0`, hoog-entropisch) |
+
+Het terugkeeradres in de haak (`0xf1374d`) is de instructie ná de `call` op regel 5 — precies zoals
+eerder gemeten. **[GEMETEN]**
+
+**Nieuw en belangrijk:** `0x14011c5f0` heeft in het hele beeld **precies één aanroeper**
+(`0x14030fafb`), en `.text` bevat **215 zulke `jmp`-thunks naar `.capcom0`** (plus 11 `call`s).
+`.capcom0` bevat dus de **echte lichamen van 215 `.text`-functies**: de pakker heeft code
+gesplitst, niet alleen gevirtualiseerd. **[GEMETEN]**
+
+### 8.4 Wat de code direct vóór de exit doet — [GEMETEN]
+
+De aanroeper `0x14030f998` is een **initialisatieroutine met opeenvolgende stappen en foutcodes**:
+
+```
+14030fa83  e8 f4 ff 00 00        call 0x14031fa7c
+14030fa88  85 c0                 test eax,eax
+14030fa8a  79 0a                 jns  0x14030fa96
+14030fa8c  b9 1b 00 00 00        mov  ecx,0x1b          ; foutcode 0x1b
+14030fa91  e8 ae 00 00 00        call 0x14030fb44
+14030fa96  ff 15 fc 77 04 00     call qword [0x140357298]
+14030faa3  e8 dc 85 01 00        call 0x140328084
+14030faaf  e8 ac 80 01 00        call 0x140327b60
+14030fab4  85 c0                 test eax,eax
+14030fab6  79 0a                 jns  0x14030fac2
+14030fab8  b9 08 00 00 00        mov  ecx,0x8           ; foutcode 8
+14030fabd  e8 86 05 01 00        call 0x140320048
+14030fac2  e8 21 83 01 00        call 0x140327de8
+14030fac9  85 c0                 test eax,eax
+14030facb  79 0a                 jns  0x14030fad5
+14030facb  b9 09 00 00 00        mov  ecx,0x9           ; foutcode 9
+...
+14030faea  e8 19 86 01 00        call 0x140328108
+14030faef  44 0f b7 ce           movzx r9d,si
+14030faf3  4c 8b c0              mov  r8,rax
+14030faf6  33 d2                 xor  edx,edx
+14030faf8  48 8b cf              mov  rcx,rdi
+14030fafb  e8 f0 ca e0 ff        call 0x14011c5f0       ; <-- de virtuele functie
+14030fb00  8b f8                 mov  edi,eax           ; <-- stackwalk frame 3
+```
+
+De routine roept **geen enkele string** aan (gecontroleerd met een rip-relatieve scan over het hele
+functiebereik `0x30f998`…`0x30fb44`: **nul treffers**), dus er is geen naam of foutmelding die de
+controle verklapt. **[GEMETEN]** De laatste stap roept de virtuele functie aan met
+`rcx = rdi`, `rdx = 0`, `r8 = rax`, `r9 = si`. **[GEMETEN]**
+
+### 8.5 Wat met deze trace uitgesloten is — [GEMETEN]
+
+* **De pakker is klaar.** De momentopname bij de beëindiging: `.text` **88,8 % niet-nul** (11,2 % nul —
+  exact de eindtoestand), `.capcom0` 92,6 %, `.capcom1` 97,4 %, `.pdata` 97,6 %. Bij de momentopname ná
+  de init waren `.text`, `.rdata`, `.data`, `.pdata` en `.capcom0` nog **0,0 % niet-nul**. De dood komt
+  dus **na** een voltooid ontpakken. **[GEMETEN]**
+* **Onze haken zijn niet het probleem.** Alle vier de haak-bytes zijn bij de beëindiging
+  *"ongewijzigd sinds het plaatsen"*, en de zelftest bij de installatie gaf het verwachte resultaat
+  (`TerminateProcess` gaf 0, fout 6 = `ERROR_INVALID_HANDLE`). **[GEMETEN]**
+* **De exit komt niet uit `.capcom1`.** De stackwalk geeft **5 frames**: 0 en 1 onze kern,
+  2 = `0xf1374d`, 3 = `0x30fb00`, 4 = `FFFFFFFFFFFFFFFF`. De `.capcom1`-adressen die de coordinator
+  noemde (`0x122ea1d`, `0x1219d43`) komen uit de **ruwe stapelscan** (op `+0x228`, `+0x238`, `+0x248`,
+  `+0x3a0`, `+0x410`), niet uit de frames. **[GEMETEN]** Of het restwoorden zijn of echte frames kan
+  ik met deze log niet beslissen — de stackwalk volgt de frames en noemt ze niet. **[onbekend]**
+* **Geen enkele fout van buiten.** De haak logt geen mislukte `protect`-aanroep: alle 16 gelogde
+  `NtProtectVirtualMemory`-aanroepen hebben `status=0x00000000`. **[GEMETEN]**
+
+### 8.6 Wat de beslissing is — nog steeds de grens, maar nu met een adres — [GEMETEN] + [AFGELEID]
+
+* De exit komt **van binnen de virtuele functie die met tag `0x919e48fe` wordt binnengegaan**, via de
+  stub op `0x140e8189b`. **[GEMETEN]**
+* De `ExitProcess`-aanroep zelf komt van de stub op `0xf13743` (tag `0xb63f49fe`). **[GEMETEN]**
+* Beide tags decoderen naar `.capcom0`-adressen met **hoog-entropische bytes**
+  (`0x140e5a887` resp. `0x140e02403`) — dat is de versleutelde bytecode. **[GEMETEN]**
+* **Welke vergelijking daar faalt, is met deze log niet te lezen.** De beslissing ligt in de
+  versleutelde bytecode; dat blijft de eerlijke grens. **[GEMETEN grens]**
+* Nieuw ten opzichte van §4: we weten nu **welke** virtuele functie het besluit neemt. Dat maakt de
+  volgende meting scherp en klein — zie §8.7. **[AFGELEID]**
+
+### 8.7 De volgende meting, nu scherp — [AFGELEID]
+
+Eén breekpunt of logpunt, geen twee runs meer nodig:
+
+1. **Op `0x14011c5f0`** (of op `0x140e818a0`, de VM-entry met tag `0x919e48fe`): lees **`rcx`**
+   (`= rdi` van de aanroeper) en `r8`/`r9`. **Dit is de belangrijkste vraag:** is `rcx` gelijk aan
+   `0x140415820`? Dan wordt dat object *in* de virtuele functie gestopt en geeft de exit eenvoudig
+   **zijn eigen argument** door — wat precies verklaart waarom er geen foutcode maar een aanwijzer
+   wordt doorgegeven. Dat zou de hele "exitcode"-vraag in één meting sluiten.
+2. **Op `0x140e02403`** (de bytecode van de exit-tag) met een hardware-breekpunt: vuurt het, dan is de
+   bytecode op dat adres echt uitgevoerd; vuurt het niet, dan is dat adres alleen sleutelbasis.
+3. **Een logpunt op de handler-`jmp`-keten** vanaf `0x140e8189b` zou de beslissing zelf zichtbaar
+   maken, maar dat is meer werk: het vergt het volgen van de VM-handlers.
+
+**Opruimen:** geen `VACUUM.exe` en geen `gamescope` laten staan; runtime-kern terug op `f5c7532d…`.
