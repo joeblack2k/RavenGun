@@ -20,22 +20,39 @@ geschreven buiten dit bestand. Alleen gelezen.
 
 ## 0. Samenvatting
 
-> ### ⚠ EERST DIT — het belangrijkste meetresultaat van deze ronde
+> ### ⚠ EERST DIT — de dichte meting, en zij WEERLEGT mijn eerdere waarschuwing
 >
-> Ik heb de meting gedaan (§4, §5). Twee uitkomsten samen zetten een vraagteken bij de hele
-> drop-in-route, en die moet je weten vóór je iets bouwt:
+> Ik heb het venster t=4,0 … 6,5 s op **beide** kernen dicht bemonsterd (elke 0,1 s), met per moment
+> het percentage nul in `.text` (`0x140001000`, 3.496.500 B) en de 5 bytes op `0x1402b4170`.
 >
-> 1. **Onder de GESLOTEN kern** staat `.text` op t=2, 3, 4 en 5 s **volledig op nul**; pas tussen
->    t=5 s en t=10 s is het uitgepakt, en **pas dán** staan de 17 prologues op `e9 …` en is de
->    trampolinepagina gemapt. **[GEMETEN]**
-> 2. **Onder ONZE kern** staat `.text` op **elk** bemonsterd moment (t=0,1 … 4,0 s) volledig op nul,
->    zijn de 17 prologues **nooit** `e9`, is de trampolinepagina **nooit** gemapt, en het proces
->    sterft op **t=5,72 s**. **[GEMETEN]** (ik heb de laatste 1,7 s vóór de dood niet bemonsterd.)
+> | t (s) | **ONZE kern** `fe2ecf8c…` `.text` %nul | prologue | **GESLOTEN kern** `f5c7532d…` `.text` %nul | prologue |
+> |---|---|---|---|---|
+> | 4,0–4,5 | **100,00** | `00 00 00 00 00` | **100,00** | `00 00 00 00 00` |
+> | 4,6 | **75,28** (uitpakken begint) | `00 00 00 00 00` | 100,00 | `00 00 00 00 00` |
+> | 4,7 | **11,20** (volledig uitgepakt) | `40 53 48 83 ec` (origineel) | 100,00 | `00 00 00 00 00` |
+> | 4,8 | 11,25 | (leesfout) | 100,00 | `00 00 00 00 00` |
+> | 5,0–8,0 | — | **proces weg op t=5,96** | 100,00 | `00 00 00 00 00` |
+> | 9,0 | — | — | **64,16** (uitpakken begint) | `00 00 00 00 00` |
+> | 10,0 | — | — | **11,20** | **`e9 df cd d3 ff` (omgezet)** |
+> | 12,0 | — | — | 11,20 | `e9 df cd d3 ff` |
 >
-> De 17 prologues worden dus **pas ná het uitpakken** omgezet. Sterft het spel onder onze kern vóór
-> of tijdens het uitpakken, dan wordt de `am`-laag **nooit bereikt** en kan een drop-in die deze 17
-> functies vervangt de dood **niet** verklaren of verhelpen. Dat is **[AFGELEID]** uit de twee
-> metingen hierboven, en het is de eerstvolgende vraag om te meten (§7).
+> **[GEMETEN]** — en de gevolgen zijn precies omgekeerd aan wat ik in de vorige versie schreef:
+>
+> 1. **De pakker WERKT onder onze kern.** `.text` bereikt onder onze kern **11,20 % nul op t=4,7 s** —
+>    exact dezelfde eindtoestand die de gesloten kern op t=10,0 s bereikt. Het spel komt dus
+>    **voorbij het uitpakken**.
+> 2. Onder onze kern sterft het proces **op t=5,96 s, dus ~1,3 s NA een geslaagd uitpakken**, en de
+>    17 prologues staan dan nog **origineel**.
+> 3. Onder de gesloten kern gebeuren het uitpakken en het omzetten van de prologues **op hetzelfde
+>    moment** (t=10,0 s: 11,20 % nul én `e9 …`).
+>
+> **Conclusie: de `am`-drop-in is wél de juiste route.** Het spel bereikt onder onze kern de
+> uitgepakte toestand, en het enige gemeten verschil in het spelbeeld op dat punt is dat de 17
+> prologues origineel zijn in plaats van `e9`. De pakker/`NtProtectVirtualMemory`-route is dus **niet**
+> nodig. Mijn eerdere waarschuwing (dat het spel in de pakker zou sterven) is hiermee **weerlegd**.
+> Het blijft **[AFGELEID]** dat die 17 prologues de dood *veroorzaken* — het is een sterke correlatie
+> en het enige gemeten verschil, maar niet meer dan dat. Het beslissende experiment is de drop-in
+> zelf: zet de 17 prologues om en kijk of het spel dan langer dan 6 s leeft.
 
 1. De bewering **"17 functies met een gewijzigde prologue" klopt precies** — het zijn 17 van de 18
    prologues die naar één pagina springen: **`0x13fff0000`, 4096 B, anoniem, `rwxp`**. **[GEMETEN]**
@@ -592,7 +609,7 @@ Alles in deze tabel is **[GEMETEN]** behalve waar "AFGELEID" staat.
 |---|---|---|---|---|---|
 | `amDongleInit` | `0x1402b4170` | `0x6ffff6cfe1f0` | `sub rsp,0x28; lea rcx,[0x6ffff6e2c254]; jmp <log>` → `xor eax,eax; ret` | **0** | — |
 | `amDongleIsAvailableInternal` | `0x1402b4270` | `0x6ffff6c97d50` | `sub rsp,0x38; lea rcx,[…]; jmp <log>` → `ret` (waarde niet met zekerheid gelezen) | **0** (AFGELEID) | — |
-| `amDongleSetupKeychip` | `0x1402b4320` | `0x6ffff6cfe2a0` | `sub rsp,0x28; lea rcx,[…]; call <log>` | **0** (AFGELEID) | — |
+| `amDongleSetupKeychip` | `0x1402b4320` | `0x6ffff6cfe2a0` | `sub rsp,0x28; lea rcx,[…]; call <log>`; `33 c0 c3` op +0x191 | **0** | — |
 | `amDongleUpdate` | `0x1402b4740` | `0x6ffff6cfe3e0` | `sub rsp,0x28; lea rcx,[…]; jmp` → `xor eax,eax; ret` | **0** | — |
 | `amDongleGetGameId` | `0x1402b3d30` | `0x6ffff6cfe040` | log → `xor eax,eax; add rsp,0x28; ret` | **0** | **schrijft niets** in `rcx` |
 | `amDongleGetModelType` | `0x1402b3ff0` | `0x6ffff6cfe0a0` | log → `xor eax,eax; ret` | **0** | **schrijft niets** |
@@ -627,13 +644,25 @@ keychip-id gemeten — de kern schrijft die niet en het dongle-object blijft lee
    `patches/OG/dropin/ravengun-hasp/OG/dongle.json`), is dat de plek om ze in te vullen — maar tot
    dat er is, is "0 terug, niets schrijven, behalve 192.168.1.0" de volledige, gemeten specificatie.
 
-### 5.3 De waarschuwing die boven deze specificatie uitgaat
+### 5.3 De uitkomst van de dichte meting, en wat die betekent
 
-Zie §0 en §7: de prologues worden door de gesloten kern **pas ná het uitpakken** omgezet, en onder
-onze kern sterft het spel terwijl `.text` nog volledig nul is. **Het is dus niet aangetoond dat deze
-drop-in onze kern überhaupt verder helpt** — als het spel de `am`-laag nooit bereikt, verandert het
-vervangen van die 17 functies niets. Dit is **[AFGELEID]** uit twee metingen en het is de eerste
-vraag die nog gemeten moet worden.
+Zie §0: de dichte bemonstering **weerlegt** mijn eerdere waarschuwing. Onder onze kern bereikt `.text`
+**11,20 % nul op t=4,7 s** — dezelfde volledig uitgepakte toestand als de gesloten kern op t=10,0 s —
+en het spel sterft pas **~1,3 s later**. Het spel komt dus voorbij de pakker, en het enige gemeten
+verschil in het spelbeeld op dat moment is dat de 17 prologues **origineel** zijn in plaats van `e9`.
+**Deze drop-in is dus de juiste route.** Wat nog [AFGELEID] is: dat die 17 prologues ook werkelijk de
+dood *veroorzaken*. Het beslissende experiment is de drop-in zelf: zet de prologues om en kijk of het
+spel dan langer dan 6 s leeft. De drempel is scherp — **de gesloten kern haalt 300 s, onze kern
+5,96 s** — dus elke uitkomst boven ~10 s is al een treffer.
+
+**De am-route is met een meting NIET uitgesloten.** Zie `PAKKER-FASE.md` voor het volledige bewijs:
+de pakker loopt onder onze kern en maakt zichzelf af (`.text` 11,20 % nul op t=4,7 s, en daarna nog de
+afsluitende `NtProtectVirtualMemory`-aanroepen die de secties op hun eindrechten zetten), en de
+geheugenbescherming is **identiek** op beide kernen (`.text` en `.capcom0` allebei `0x40` → `0x20`,
+geen enkele fout). Er is dus geen pakker-blokkade die de am-route overbodig zou maken.
+**Let op:** er circuleert een verkeerde lezing die uit `/tmp/lm-meet-onze/meting-onze.txt` komt — dat
+is een venster van t=0,1…4,0 s, dus **vóór** het uitpakken. Het juiste bestand is
+`/tmp/lm-dicht-onze/meting-onze.txt`. Zie `PAKKER-FASE.md` §7.
 
 ---
 
@@ -689,10 +718,16 @@ ooit bereikt wordt**. Concreet:
 * **De log-strings in de kern** (`0x6ffff6e2c254`, `0x6ffff6e2c2a0`, `0x6ffff6e2c320`,
   `0x6ffff6e2c338`, …) zijn niet gelezen: die liggen in `.rdata` van de kern-module en dat heb ik niet
   gedumpt. De adressen zijn wel gemeten.
-* **Van drie kern-implementaties is de teruggeefwaarde AFGELEID en niet direct gelezen**, omdat de
-  `ret` in mijn 0xC0-byte-venster niet op een schone instructiegrens viel:
-  `amDongleIsAvailableInternal`, `amDongleSetupKeychip` en `amDongleBillingGetKeychipId`. Bij de
-  andere 14 staat `xor eax,eax` letterlijk vóór de `ret`.
+* **Van één kern-implementatie is de teruggeefwaarde AFGELEID en niet direct gelezen**:
+  `amDongleIsAvailableInternal` (`0x6ffff6c97d50`). In een venster van 1024 B komt noch `33 c0 c3`
+  noch `33 c0 48 83 c4` voor, dus zijn `ret` ligt verder dan 1024 B van het begin. **Bij de andere 16
+  staat `xor eax,eax` letterlijk vóór de `ret`** — [GEMETEN], met de offset in het venster:
+  * `33 c0 c3` (`xor eax,eax; ret`): `amDongleBillingGetKeychipId` +0x17c, `amDongleGetGameId` +0x54,
+    `amDongleGetModelType` +0x391, `amDongleGetNetworkAddress` +0x351, `amDongleInit` +0x241,
+    `amDongleSetupKeychip` +0x191, `amDongleUpdate` +0x51, `amHmUpdate` +0x04,
+    `amMasterExitInternal` +0x52, `amMasterSetBackupEventLogParam` +0x12, `amMasterUpdate` +0x04;
+  * `33 c0 48 83 c4 …` (`xor eax,eax; add rsp,imm8; ret`): `amHmExit` +0x29, `amHmGetCautionFlag`
+    +0x32, `amHmInit` +0x29, `amHmResetCautionFlag` +0x2a, `amMasterInit` +0x29.
 * **Ik heb onder onze kern niet bemonsterd tussen t=4,0 s en de dood op t=5,72 s.** Of `.text` in die
   laatste 1,7 s nog gevuld is geraakt, weet ik dus niet. Dat is precies de meting van §6.
 * **Het foutpad `0x0004d39a` van de opzetroutine is de gewone epilogue** (gemeten), dus een mislukte
