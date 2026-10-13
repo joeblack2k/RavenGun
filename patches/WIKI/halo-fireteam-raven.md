@@ -2,8 +2,7 @@
 
 *Raw Thrills, 2018. Samengesteld door het RavenGun-project op SteamOS. Per bewering staat **GEMETEN**
 (met cijfers, tijdstippen of bestanden) of **AFGELEID**. Waar iets niet bekend is, staat dat er ook.
-Dit document gaat over het spel en de lader; het bevat met opzet niets over hardwarematige
-beveiligings- of licentielagen.*
+Deze pagina gaat over het spel en de lader: wat je nodig hebt om deze titel te laten draaien en om te begrijpen waar hij op stukloopt.
 
 ---
 
@@ -75,7 +74,7 @@ beveiligings- of licentielagen.*
 * **GEMETEN:** de launcher schrijft een **identiteitsregel** bovenaan elk logboek: pad, repo-commit,
   sha256 van het script, van de gegevens, van de hulpen en van alles wat wordt meegegeven -- en of het
   geïnstalleerde script hetzelfde is als het repo-script.
-* **GEMETEN:** `halo.so` is **geen** invoerbron (het levert de dongle-kant); onze eigen hulp zet de
+* **GEMETEN:** `halo.so` is **geen** invoerbron; onze eigen hulp zet de
   kastschakelaars in de schakelaartafel van het spel.
 
 ## 5. Invoer
@@ -162,6 +161,72 @@ beeldpad (GEMETEN: dezelfde opstarttijd met en zonder beeldscherm, zolang de cac
   spelmodus (één keer wel, met moduskeuze en missie 1).
 * **OPEN 4 -- het FTDI-/geweerbord.** Het spel heeft libftdi/libusb statisch in zich; wij hebben nooit
   een USB-opsomming van het spel gezien.
+
+---
+
+## 9. Wat we geprobeerd hebben en wat niet werkte
+
+*Per punt: wat we probeerden, wat we zagen, en wat we daaruit mochten concluderen. Dit zijn de
+negatieven en de lessen; ze zijn net zoveel waard als de dingen die wel werkten.*
+
+**1. De regel "TEST slaat de kalibratie van gun 1 over" -- GEMETEN ONJUIST op deze opstelling.** Onze
+eigen notitie zei dat de testknop de kalibratie van speler 1 wegzet en START die van speler 2. In run 11
+gaven wij **zes TEST-pulsen op alle vier de borden**: het logboek van het spel bleef **exact op 256
+regels** en alle zeven schermafbeeldingen bleven het kalibratiescherm (1,47 MB). Daarna brachten **vier
+START-pulsen** het spel verder (het logboek ging groeien, de foto's sprongen naar 2,7-3,1 MB). In run 13
+is bit 0 (test) **nooit** gezet en kwam de attract-lus er toch. **Conclusie:** START alleen is
+voldoende; die TEST-regel hoort uit de documentatie.
+
+**2. De bordhypothese -- GEMETEN, maar niet door de run die hem moest bewijzen.** Run 5 leek te laten
+zien dat een TEST-indruk op vier borden de crash veroorzaakte. Die run veranderde echter **drie dingen
+tegelijk** (de hulp, mijn schrijfmethode en de reikwijdte van de TEST), dus hij **isoleerde** de
+bordhypothese niet. De echte oorzaak van die crash was iets anders (punt 5). **Les:** een run die meer
+dan een ding verandert, bewijst geen van beide.
+
+**3. De joystickhypothese -- GEMETEN WEERLEGD.** Wij dachten dat het spel zijn geweer via
+**SDL-joysticks** zoekt en dat wij dus een virtueel joystickapparaat moesten aanbieden. Run 9 liet zien
+dat het spel tijdens de kalibratie **geen enkel** `/dev/input`-apparaat openhoudt en dat **SDL niet
+geladen** is (wel `libudev`). **Conclusie:** een extra invoerapparaat bouwen zou werk zijn dat het spel
+nooit bekijkt; de invoer loopt via de bordkanalen (§5).
+
+**4. De optische-aimhypothese -- GEMETEN, en daarna INGETROKKEN.** Wij lazen in het logboek dat het spel
+`brightness difference` meet en lazen daaruit af dat de aim **optisch** zou zijn (een geweer met een
+lichtpunt voor de camera). Later bleek dat de aim via de **bordkanalen** van het `WartranTroopers`-model
+loopt (bits plus acht asbytes) en dat de webcamstap iets anders is: die faalt op 10 oktober ook terwijl
+het spel toen **wel** in de attract-lus kwam. **Conclusie:** de webcamstap is niet het verschil en de aim
+is een bordkanaal.
+
+**5. De crash in onze eigen invoerhulp -- GEMETEN en gerepareerd.** Run 4 stierf met een SIGBUS en de
+stack trace noemde **onze** hulp op `+0x1f44`. Dat adres is `movzbl 0x8(%rdi)`: het lezen van het
+**gemapte** schakelaarbeeld. De oorzaak was mijn eigen schrijfmethode: `open(...,"wb")` **kapt het
+bestand af**, en een afgekapt bestand achter een mapping geeft de kernel reden voor SIGBUS. Bewezen met
+een bench-vrije proef (een mmap-lezer sterft, een pread-lezer blijft leven) en gerepareerd aan twee
+kanten: de hulp leest nu met `pread` en mijn pulsen schrijven op hun plaats.
+
+**6. De tijdmeting -- GEMETEN, en mijn eigen verklaring WEERLEGD.** De eerste run gaf **11 s** tot de
+eerste regel in het logboek, alle latere runs **1 s**. Ik schreef vooraf op dat het FileTest-tijdstip
+gelijk zou blijven en dat een groot verschil een bevinding over onze meetsetup zou zijn. Het verschil
+bleek **niet** van het beeldscherm te komen: een **headless** run direct na een tv-run gaf ook **1 s**.
+**Conclusie:** het is de **bestandscache** (koud 11 s, warm 1 s), en bij elke tijdvergelijking hoort te
+staan of de run warm of koud was.
+
+**7. De eigen proefoverriding die de werkende indruk weghaalde -- GEMETEN.** In run 7, 8 en 10 gebruikte
+ik een probe die de standaardtabel van de hulp **overschreef** en de TEST-indruk tot **bord 0** beperkte.
+Die runs faalden, en ik concludeerde daaruit dat TEST niet werkte. Toen ik de probe wegliet (run 11 en
+13), werkte het meteen. **Les:** een probe die de standaardtabel verandert, verandert de proef -- en dan
+meet je je eigen ingreep.
+
+**8. "Wij hebben de Move nodig" -- GEMETEN ONJUIST.** Ik vroeg om de Move aan te sluiten omdat het spel
+een geweer zou vragen. De eigenaar wees erop dat het project een **muismodus** heeft waarmee je zonder
+Move een geweer bedient, en dat is inderdaad de route voor invoer. Voor de **aim** van deze game is de
+Move ook niet nodig, want die loopt via de bordkanalen.
+
+**9. Wat er nog op het scherm staat -- GEMETEN, en nog niet opgelost.** De meldingen over de QR-scanners
+en de fabrieksinstelling zijn **attract-toestanden** (`ATTRACT_FACTORY_SETUP_INCOMP`,
+`ATTRACT_WEBCAM_CONFIG`, `P%u_WEBCAM`, `ATTRACT_GUN%i_DISABLED`, `ATTRACT_GUN%i_MISSING`). Ze betekenen
+"deze kast is niet ingericht", niet "er mist een scanner". De volgende stap is het **servicemenu** van
+de kast (te bereiken met de service-schakelaar, k = 3), waar de hardware en de online-inrichting horen te
+staan -- dat is lezen plus één gerichte run, geen namaak van hardware.
 
 ---
 
