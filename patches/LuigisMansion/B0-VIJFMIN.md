@@ -636,6 +636,73 @@ Een achtergebleven `wine`/`wineserver` ZONDER spel-, lader- of gamescope-proces 
 andere partij, geen bezetting: het script meldt het en gaat door. Met een spel-, lader- of
 gamescope-proces erbij weigert het nog steeds.
 
+## ZEVENDE METING 2026-10-13: HET ONTPAKKEN LUKT -- de dood valt in het venster daarna
+
+Met de goedkope bemonstering (acht blokken van 64 KB; de regel noemt het aantal gelezen bytes,
+524288 B, zodat een steekproef niet voor een volledige lezing wordt aangezien). Beide armen op ONZE
+kern, dichte cadans. Ruwe uitvoer: `/tmp/b0e-met/`, `/tmp/b0e-zonder/`.
+
+| arm | entry vrijgegeven + `.text` eindtoestand | 11,2 % gehaald? | dood | gat |
+|---|---|---|---|---|
+| MET drop-in | 6,0 s -- `.text 10,0 % nul` | **JA** | 6,2 s | **~0,2 s** |
+| ZONDER drop-in | 4,8 s -- `.text 10,0 % nul` | **JA** | 5,0 s | **~0,2 s** |
+
+**De pakker komt KLAAR onder onze kern, in beide armen** -- `.text` bereikt 10,0 % nul, dezelfde
+eindtoestand die de gesloten kern haalt. De eerdere 44 tot 67 % waren precies het bemonsteringsgat dat
+ik zelf had aangewezen: met de hele sectie per monster was de cadans ongeveer 1 s en viel de overgang
+tussen twee monsters.
+
+**Het besluit dat daaruit volgt: het spel sterft ongeveer 0,2 s NA een VOLTOOID ontpakken.** Het zoeken
+gaat dus naar het VENSTER NA het ontpakken, niet naar de pakker. Dat is nu een gemeten keuze.
+
+En de drop-in bevestigt zijn eigen effect nog een keer: hij stelt de vrijgave ongeveer 1,2 s uit en de
+dood ongeveer 1,2 s, terwijl het gat ertussen (~0,2 s) gelijk blijft.
+
+**De werkelijke cadans** is nu ongeveer 0,2 s (af te lezen uit de tijdstempels: 6,0 -> 6,2 en 4,8 -> 5,0),
+niet 0,1 s. De `dt`-kolom die ik wilde hebben staat niet in de uitvoer; wat er wel staat is het aantal
+gelezen bytes, en dat is wat een steekproef van een volledige lezing onderscheidt.
+
+### De hook in deze run: het scherpere criterium werkt, maar er is geen samenvatting
+
+De bewaarstap werkt: `rg-pe-hook.log` en `rg-pe-hook-bytes.txt` staan nu in de UITVOERMAP
+(`/tmp/b0e-met/`). Het logboek laat het drieweg-criterium precies doen wat het moet doen:
+
+```
+wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten
+```
+
+**Maar er is GEEN `totaal aangehaakt: N van 17`-regel**: de hook wachtte nog toen het spel op 6,2 s
+stierf, 0,2 s nadat de pagina's gevuld raakten. Er is dus uit deze run **geen N van 17** en ik claim
+niets over de poort. Wat deze run wel laat zien: de poortpagina levert eerst opvulling en niet meteen
+een prologue -- precies waarom het scherpere criterium nodig was.
+
+### De zesvoudige vraag, en wat ervan te zeggen valt
+
+Mijn armen geven ongeveer **0,2 s** blootstelling na een voltooid ontpakken; de dichte meter van de
+analist gaf **1,26 s** (voltooid op 4,7 s, dood op 5,96 s). Beide metingen zien nu hetzelfde (het
+ontpakken lukt), dus het verschil zit in de BLOOTSTELLING daarna -- een factor zes tussen twee
+harnassen. Twee kandidaten, en deze meting kan ze niet scheiden: (a) zwaardere bemonstering vertraagt
+het proces en verlengt de levensduur (dat is eerder gemeten: de `+file`-trace veranderde de levensduur
+van 5-7 s naar 25-30 s), of (b) het is echte variatie tussen runs. **Als de dood aan een DUUR hangt, is
+wat die duur bepaalt de kern van de zaak** -- en dat is de eerstvolgende vraag.
+
+### En de exit-trace-run (patch 0007)
+
+Gedraaid met `RG_B0_KERN_DLL=~/.local/share/ravengun/openparrot/<commit>-0007exit/OpenParrotx64/OpenParrot64.dll`
+(sha `3d84057dfb2b7370`, BUILDINFO noemt patches 0001-0007 waaronder `0007-exit-trace.patch`, plus
+`RgExitTrace64.dll`), met de drop-in. Uitvoer in `/tmp/b0exit/`.
+
+- Het spel stierf weer op **6,2 s** (levenslijn: `t=6.0 kon niet lezen: No such process`, `t=6.2 PROCES WEG`).
+- **De trace-uitvoer is NIET gevonden** in `/tmp/b0exit/`: geen regel met ExitProcess, TerminateProcess,
+  RtlExitUserProcess, NtTerminateProcess, exitcode of terugkeeradres. Mijn zoekactie dekte `run.log` en
+  de `*.log`/`*.txt` in die map. **Waar de trace wel heen schrijft is nog niet vastgesteld** -- kandidaten:
+  een bestand in de werkmap van het spel (de view), `/tmp`, of via OutputDebugString in het wine-logboek.
+  Dat is de eerste stap van de volgende sessie, en de verwachting staat vast: terugkeeradres
+  `VACUUM.exe+0xf1374d` in `.capcom0`, exitcode 32, en nu met het exacte moment meer bruikbare
+  stack-regels dan de vorige keer.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn
