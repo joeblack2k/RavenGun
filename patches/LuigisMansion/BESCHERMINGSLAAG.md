@@ -1,0 +1,777 @@
+# BESCHERMINGSLAAG.md — Luigi's Mansion Arcade (Sega Nu 1.1)
+
+**Scope.** Read-only audit of the protection/dongle layer of *Luigi's Mansion Arcade* and of the
+material we hold for it. No game, emulator, container or benchmark was started. Nothing on the NAS
+was created, modified or deleted. Nothing in `~/projects/ravengun` or
+`~/projects/ravengun-patches` was changed except for this file and `beschermingslaag-logs/`.
+
+**Labels.** **[MEASURED]** = a command was run and its raw output is quoted or stored in
+`beschermingslaag-logs/`. **[INFERRED]** = a conclusion drawn from those measurements. A negative
+result is only reported where the same instrument is shown to produce a positive elsewhere
+(calibration in §2.4).
+
+**Date of the measurements.** 2026-10-13, on the deck (192.168.2.247), from
+`C:\Users\Homelab\Documents\Default Project\TeknoParrotUi-2.0.0.131-win-x64` via `re/rc.ps1`.
+
+---
+
+## 1. What the game is made of
+
+**[MEASURED]** Game directory: `/home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade`
+(CIFS mount `//192.168.2.3/emulation`). Top level:
+
+| path (relative to the game dir) | size | sha256 (full) |
+|---|---|---|
+| `game.bat` | 259 | `05dc1838223db04fba86a647f65992e2d83736cea4b1cb39b3c5c9d23a5ecd13` |
+| `exe/x64/VACUUM.exe` | 3 436 544 | `3dfef015e8657e21046af512561618609b0d230bfe8d5cbd2bf54c101c76e2db` |
+| `exe/x64/VACUUM.exe backup.zip` | 3 437 118 | `cf81d99f883be05c4a235641956fb1318372efac88efe0d9e04109676f78bfdb` |
+| `exe/x64/teknoparrot.ini` | 253 | `9e01d96571c36fc1ae5505c1995718fb5bd4987163ebc4a361799927a607660c` |
+| `oxGetHwInfo.exe` | 421 888 | `5118bb1a7e15851dd9d54a09e23d925e27fb5ab4ca666e3357c1e3e573253fed` |
+| `oxGetHwInfo.ini` | 889 | `78be56b3a68f47966b43e77fb5c59519c27f326521e5990385f84909154dd5d2` |
+| `LMAIO.bin` | 140 688 | `29a8c44b7e3c5632b08071ed991392ae35e31a99fc4220a6db8fa2998e390d4c` |
+| `SendFlash.exe` | 77 824 | `def0cb36443feaeeaa6155c121cb9d5f5bdf44658cda63fef000e51e705305ad` |
+| `d3d9.dll` | 392 192 | `6e332009c78a4bd4c6e4cb455689beb201b8082f79d81e075081127866805eb1` |
+| `DataGlobal/` | 1.6 GB | (game data; `DataGlobal/EN/Data`) |
+
+**[MEASURED]** `game.bat` verbatim (UTF-8 with BOM, Japanese comments):
+
+```
+@echo
+setlocal
+rem ゲームID
+set GAMEID=SDCF
+rem アプリデータ領域の排他利用
+if not exist Y:\%GAMEID% (
+    rmdir /S /Q Y:\
+    mkdir Y:\%GAMEID%
+)
+start /wait sendFlash COM1 LMAIO.bin
+start /wait x:\exe\x64\VACUUM.exe
+```
+
+**[MEASURED]** `VACUUM.exe` is **packed** by Capcom's packer. PE header read
+(`re/_lm-final.sh`, output in `beschermingslaag-logs/02-pe-en-rva.txt`):
+
+```
+ .text     VA 0x00001000 .. 0x00356a34  (vsize 3496500, raw 0)
+ .rdata    VA 0x00357000 .. 0x0049bb4b  (vsize 1329995, raw 0)
+ .data     VA 0x0049c000 .. 0x00d45b40  (vsize 9083712, raw 0)
+ .pdata    VA 0x00d46000 .. 0x00d7006c  (vsize 172140, raw 0)
+ .capcom0  VA 0x00d71000 .. 0x00f14c23  (vsize 1719331, raw 0)
+ .capcom1  VA 0x00f15000 .. 0x0125b7e0  (vsize 3434464, raw 3434496)
+ .reloc    VA 0x0125c000 .. 0x0125c018  (vsize 24, raw 512)
+ .rsrc     VA 0x0125d000 .. 0x0125d0e9  (vsize 233, raw 512)
+ EntryPoint RVA 0xf23125  SizeOfImage 0x125e000
+```
+
+Five sections (`.text`, `.rdata`, `.data`, `.pdata`, `.capcom0`) have **raw size 0**: they are not in
+the file at all and are written into memory at run time. The entry point sits in `.capcom1`, which is
+almost the whole file. **[INFERRED]** therefore no code of `VACUUM.exe` can be read from the file as
+shipped; see §2.4 for how that is calibrated and what it means for this audit.
+
+**[MEASURED]** The distribution archive is authentic: `exe/x64/VACUUM.exe backup.zip` contains
+`VACUUM.zip`, whose password is the string `VACUUM.exe` (from the archive's own
+`virus or malware false positive - zip password inside.txt`), and that member decrypts
+**byte-identically** to `exe/x64/VACUUM.exe` (same length 3 436 544, same sha256, `identical: True`).
+So the copy on the NAS is unmodified relative to the original package.
+
+**[MEASURED]** `oxGetHwInfo.ini` declares the board identity:
+
+```
+[Application]
+appname			= "game.bat"
+[System]
+platform-id		= AAV
+sub-storage		= 0
+[Hardware]
+mem-size		= 4096
+appdata-size	= 0
+resolution		= 1920x1080 | UNIQUE
+vertical		= no
+```
+
+`AAV` = the Nu family (`AAV0` = Nu, `AAW0` = NuSX, per the file's own comments).
+**[INFERRED]** the target board is **Sega Nu 1.1**, 64-bit, which matches the working launch
+configuration in `patches/LuigisMansion/game.ini` and the loader's own description.
+
+---
+
+## 2. Which protection layer is present
+
+### 2.1 The Sega `am` platform/dongle layer — the answer
+
+**[MEASURED — independent, static, in-file]** `oxGetHwInfo.exe` (the board-info tool shipped with the
+game, unpacked) statically links the Sega `am` middleware. Printable strings extracted from it:
+
+```
+0x049cc8  'SystemError : amDongleInit failed.'
+0x04be50  'amDongle Build:Jan  9 2014 02:12:04 ($Rev: 2644 $)'
+0x04be88  'Error: amyDongleOpen() failed.'
+0x04bea8  'amDongleInit'
+0x04c4e8  'amyDongle Build:Jan  9 2014 02:05:40 ($Rev: 2683 $)'
+0x04a228  'SystemError : amSystemPropertyGetKeychipRegion failed.'
+0x049cf0  "Error : Can't access keychip."
+0x049c88  'SystemError : not found Platforma ID in specify ini file.'
+0x049e50  'GetHwinfo::checkPlatformId'
+0x049e70  "Error : Can't get system platform id."
+0x049ed8  'SystemError : Specified platform id is invalid : %s.'
+0x049f10  'Error : Platform Id is not in agreement.'
+0x04bcc0  'amPlatform Build:Jan  9 2014 02:12:02 ($Rev: 2138 $)'
+0x04bd08  'amPlatformGetMemorySize'
+0x04be18  'amPlatformGetSearchDevInfo'
+0x049bf0  'SystemError : amsMasterSetNextProcess failed : %S.'
+0x04a290  'SystemError : amsMasterSetSystemError failed : %d %S.'
+0x04a8a0  'amsMaster Build:Jan  9 2014 02:08:05 ($Rev: 1317 $)'
+0x04b010  'amsSystemPropertyMaster Build:Jan  9 2014 02:08:06 ($Rev: 2637 $)'
+0x04cb50  'amMaster Build:Jan  9 2014 02:12:06 ($Rev: 2311 $)'
+```
+
+**[MEASURED — independent, from memory]** Our own earlier dump of the `VACUUM.exe` process under the
+**closed TeknoParrot core** (`patches/LuigisMansion/AM-LAAG.md` §1–§3, 2026-10-13) found **18** `e9 rel32`
+detours pointing into one anonymous `rwxp` page at `0x13fff0000`; **17** of them sit on `am`-layer
+functions in `.text`, and their names were recovered from the **log-tag strings** the closed core's
+replacements print:
+
+* `amDongle*` (8): `amDongleInit`, `amDongleIsAvailableInternal`, `amDongleGetGameId`,
+  `amDongleGetModelType`, `amDongleGetNetworkAddress`, `amDongleSetupKeychip`,
+  `amDongleBillingGetKeychipId`, `amDongleUpdate`
+* `amHm*` (5): `amHmInit`, `amHmUpdate`, `amHmExit`, `amHmGetCautionFlag`, `amHmResetCautionFlag`
+* `amMaster*` (4): `amMasterInit`, `amMasterUpdate`, `amMasterExitInternal`,
+  `amMasterSetBackupEventLogParam`
+
+**[MEASURED]** I cross-checked the address list against the file's section table: **all 17 RVAs fall
+inside `.text`** (VA 0x1000–0x356A34) and the entry point `0xf23125` falls inside `.capcom1`. That is a
+consistency check on the list, **not** proof of the name→address mapping (the names come from the dump's
+log tags).
+
+**[MEASURED]** What the closed core's replacements answer: **all 17 return 0 and write nothing**, the
+only exception being `amDongleGetNetworkAddress`, which writes the dword `0x1a8c0` = `c0 a8 01 00` =
+`192.168.1.0` into `*(uint32_t*)rcx`. The dongle object itself is 512 bytes of zero at every sampled
+moment. There is **no game id, no model type and no keychip id** anywhere in our measurements.
+
+### 2.2 There is no HASP, no Matrix/SBK, no licence file and no daemon in this title
+
+**[MEASURED]** No file in the game directory mentions `dongle` except `oxGetHwInfo.exe` (5 hits,
+quoted above); the count is 0 for `VACUUM.exe`, `SendFlash.exe`, `d3d9.dll`, `SDL2.dll`,
+`LMAIO.bin`, `game.bat`, `FFBPluginGUI.exe` and every data file. There is **no** `matrix32.dll` /
+`matrix64.dll` (the Matrix/SBK layer that *Rabbids Hollywood* uses — see §7), no `hasp/` directory,
+no `hasplib`, no `.rgd`, no `.pem`/licence file, and no `aladdin` string.
+
+**[MEASURED]** There is **no separate daemon** for this title. The game directory has exactly one
+executable that matters, `VACUUM.exe`, started by `game.bat`. The `am`/`amyDongle` calls are therefore
+made **inside the game process**. (Contrast: *Scarlet Dawn* runs `amdaemon.exe` as a second process —
+§7.)
+
+**[MEASURED]** `SendFlash.exe COM1 LMAIO.bin` (the 140 688-byte I/O-board firmware flash that
+`game.bat` performs before the game) is **inert on our bench**: exit code 0, the tool writes 35 bytes
+in five blocks of `/i\n/e\n\x03`, gets nothing back and gives up without sending the firmware. Two
+independent instruments agree: the pty on `dosdevices/com1` logged `einde: 0 B van het spel`, and a
+`WINEDEBUG=+file` trace of the game process shows **0** `CreateFile` paths containing `COM`, `ttyS`,
+`ptmx` or `pts`. **[MEASURED]** With and without OpenParrot patch 0005 (the COM block) the result is
+identical (exit 32 both arms). So COM1 is **not** part of the missing protection layer.
+
+### 2.3 The second paker/protection layer: an anti-tamper VM
+
+**[MEASURED, from our own earlier work]** `patches/LuigisMansion/EXITBESLUIT.md` §2/§8: `VACUUM.exe`
+does not call `ExitProcess` from ordinary code. The exit comes from a **VM entry**
+(`push imm32; call 0x140e7438b` → an interpreter with a saved register frame of `0x180` bytes, a
+bytecode pointer, a rolling decrypt key and a virtual instruction pointer), i.e. a
+VMProtect-like virtualiser, and the bytecode that performs the exit lives at `0x140e02403` in
+`.capcom0` with high-entropy (encrypted) bytes. The value passed as the "exit code" is a **leftover
+register value** (a vtable pointer `0x140415820`), not an error code — so "exit code 32" carries no
+meaning. **[MEASURED — explicit negative]** `EXITBESLUIT.md`: *"Geen gemeten verband met de `am`-laag.
+Dat de `am`-laag de oorzaak is, is een hypothese, geen meting."* (No measured link with the `am` layer;
+that the `am` layer is the cause is a hypothesis, not a measurement.)
+
+**[INFERRED]** So this title has two distinct protection mechanisms, and they must not be confused:
+the **Sega `am` platform/keychip layer** (identified in §2.1, addressable, and what the closed core
+answers) and the **Capcom packer plus embedded anti-tamper VM** (which is what actually kills the
+process on our core). Answering the `am` layer is *necessary*; whether it is *sufficient* is not
+established by anything we hold.
+
+### 2.4 Calibration of the negative results in this section
+
+The probe used throughout is `grep -a -c <pattern> <file>`, i.e. a byte-level scan.
+
+* Positive control for the pattern `dongle`: the same probe on
+  `patches/Terminator/dropin/ravengun-hasp/Terminator/dongle.json` returns **1**, and on
+  `oxGetHwInfo.exe` returns **5** (quoted in §2.2). The probe therefore can and does produce positives.
+* Negative, explained: `grep -a -c 'amDongle' exe/x64/VACUUM.exe` returns **0** — and that is *not*
+  evidence that the layer is absent, because §1 shows five sections of the file are not in the file at
+  all. The identification in §2.1 deliberately does not rest on this scan.
+* Negative, calibrated: `grep -a -c 'amDongle'` also returns 0 on the closed core
+  `~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll`
+  (which provably *does* implement the layer — it detours the 17 prologues by **address**, not by
+  name). So a 0 for `amDongle` on a PE tells us nothing either way; only the log-tag route does.
+* Reachability check before instrumenting: the drop-in DLL is reachable and *is* reached — the loader
+  banner for the 10:14 run says `Loading requested compatibility DLL: ...\rg-pe-hook.dll` →
+  `Requested compatibility DLL loaded successfully.`, and the hook writes its log in the game process.
+  The `am` layer is reachable — the closed core detours all 17 entry points and the game runs for
+  300 s under it.
+
+---
+
+## 3. What we hold — measured inventory of `patches/LuigisMansion/`
+
+Directory: `/home/deck/projects/ravengun-patches/patches/LuigisMansion/` (also reachable as
+`~/projects/ravengun/patches/LuigisMansion/`, the loader repo's `patches` is a symlink to it).
+Full sha256 for **every** file is in `beschermingslaag-logs/01-inventaris.txt`; below are sizes and
+the sha256 of the files this audit relies on.
+
+### 3.1 Used at launch (reached by the launch path)
+
+**[MEASURED]** The launch log `logs-exittrace-r7/launch.log` (run at 10:14) shows exactly two patch
+files being placed into the runtime view and one of them loaded into the game process:
+
+| file | size | sha256 | role at launch |
+|---|---|---|---|
+| `dropin/rg-pe-hook.dll` | 134 437 | `562664483e775c8e37e38d1965d6f8ba10f5d1444ae01b2f6351b43536c459bf` | the generic PE inline hook; copied to `views/LuigisMansion/exe/x64/` and loaded by `OpenParrotLoader64.exe` via `TP_PRELOAD_DLL`. **Measured loaded, measured NOT attaching** (§5.1). |
+| `dropin/dongle-haken.ini` | 9 755 | (see logs) | the 17-address list with the per-function answer; read by the DLL from the working directory |
+| `dropin/dropin.ini` | 3 204 | (see logs) | the drop-in manifest: `[rg-pe-hook.dll] To=. Preload=true Audit=false` + the `RG_HOOK_*` environment; `[dongle-haken.ini] To=.` |
+| `game.ini` | 3 426 | `237749a8cbc315c8…` | the loader's per-game configuration (§4) |
+
+The two `[section]` names in `dropin/dropin.ini` are the whole of it — there is no third file:
+`[rg-pe-hook.dll]`, `[dongle-haken.ini]`.
+
+### 3.2 Held, but **not** used at launch (analysis and measurement tooling)
+
+**[MEASURED]** none of the following is referenced by the launch path or copied into the view:
+
+| file | size | what it is for |
+|---|---|---|
+| `AM-LAAG.md` | 43 332 | the specification of the `am` layer: the 17 prologues, their names, the dongle answers, and who calls them |
+| `B0-VIJFMIN.md` | 64 397 | the five-minute test: run book, success criteria, and the 10 measurement "standen" |
+| `EXITBESLUIT.md` | 26 605 | why `VACUUM.exe` ends in 32: the anti-tamper VM, the exit chain, the `rcx` correction |
+| `B0-LEGE-DLL.md` | 23 061 | whether an empty DLL can be attached in-process; incl. the COM1 A/B |
+| `LADER-PLAN.md` | 15 990 | the loader-side plan and the measured blocker |
+| `MECHANISME-PE-HOOK.md` | 9 322 | state of the PE-hook mechanism, incl. §7 "what still has to happen" |
+| `PAKKER-FASE.md` | 10 055 | the unpack timeline on both cores (100 % → 11.20 % zero bytes at t=4.7 s) |
+| `pakker-meting.md` | 10 064 | the packer measured in `VACUUM.exe` |
+| `README.md` | 1 872 | generated per-game summary — **stale, see §8** |
+| `b0-*.sh`, `b0-*.py`, `b0-*.c` | 22 files, 2 109–20 692 | the B0 measurement harness (dense sampler, memory dump, kernel builds) |
+| `lm-dicht.sh`, `lm-meet.sh`, `lm-meet.py`, `lm-pakker.sh`, `beeldcheck.py` | 1 425–8 640 | the dense-sampling and image-check instruments |
+| `luigi-preflight.sh` | 10 716 | pre-flight for a bench attempt |
+| `com1-harness/` | 4 files, 1 536–7 347 | the pty harness on `dosdevices/com1` + its self-test |
+| `logs-exittrace-r7/` | 3 files, 479–19 912 | the exit-trace run: `launch.log`, `exit-trace.log` (128 exit-hook lines), `opzet.txt` |
+| `__pycache__/` | 13 001 | build residue |
+
+**[MEASURED]** `patches.ini` is **absent**; `dongle.json` is **absent**; `manifest.json` and
+`ravengun.json` are absent. The template `patches/_defaults/OpenParrot.patches.ini` (1 217 B) exists
+but this game does not use it. `game.ini` contains **no** `[Dongle]` and no region section — its
+sections are `[Game] [Launch] [Wine] [Input] [Status] [Identify] [Config] [ConfigType]
+[ConfigOptions]`.
+
+### 3.3 Material held outside the patch directory
+
+**[MEASURED]** In the TeknoParrot installation (the workspace, mirrored on the deck under
+`~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/`):
+`cores/lm/` is a copy of the game's start-up files — `game.bat` (259), `LMAIO.bin` (140 688),
+`oxGetHwInfo.exe` (421 888), `SendFlash.exe` (77 824), the `Ram/` and `Log/` state files, **and**
+`exe/bak/VACUUM.zip` (3 436 710) with the note `zip password is "VACUUM.exe"`, **and**
+`exe/orig/VACUUM.exe` (3 436 556).
+**[MEASURED]** that `orig/VACUUM.exe` is **not a PE**: its first bytes are
+`35 cd 1c 1b e5 dc a8 80 …` and the DOS header's `e_lfanew` field reads `0x4ea39f07`. It is therefore
+**unusable as a pristine reference**; the only pristine reference we have is the byte-identical
+decrypt of `VACUUM.zip` (length 3 436 544, §1). Whether `orig/` holds the 3 436 556-byte decrypted
+plaintext of a different revision or a mis-extracted archive member could not be determined
+read-only.
+**[MEASURED]** `GameProfiles/LuigisMansion.xml` (revision 19) is the TeknoParrot profile; it contains
+**no** CRC, dongle or protection section — only input bindings and `xAxisMin/xAxisMax/yAxisMin/yAxisMax`.
+`GameSetup/LuigisMansion.xml`, `Metadata/LuigisMansion.json`, `AndroidLaunchRecipes/LuigisMansion.json`
+exist in the local install but on the deck only `UserProfiles/LuigisMansion.env` (the legacy source
+that `game.ini` was generated from) is relevant.
+
+### 3.4 The `NEW CRC` line in `teknoparrot.ini`
+
+**[MEASURED]** `exe/x64/teknoparrot.ini` (written by the tooling in the game's own directory) contains:
+
+```
+[Error]
+Unsupported Executable=Unsupported Executable, NEW CRC: D3DC9603!
+```
+
+**[MEASURED]** The file's own CRC32 is `D09C2FAE` (zlib crc32 over the whole 3 436 544 bytes) and its
+sha256 is `3dfef015…`; `oxGetHwInfo.exe`'s CRC32 is `0799D96E` for the local copy. Neither equals
+`D3DC9603`, so the recorded value is **not** a whole-file CRC32 of anything we measured on the NAS.
+**[INFERRED]** either TeknoParrot's "CRC" is computed over something else (a section, the unpacked
+`.text`, or with its own polynomial), or that line is left over from a different executable.
+**Not resolved**; see §9. What it does establish is that the game's executable identity is checked by
+the tooling, and that our current setup does not match whatever it expects.
+
+---
+
+## 4. How the loader is configured for it — verbatim lines
+
+### 4.1 Where the configuration lives
+
+**[MEASURED]** Four places, all in the loader repository `~/projects/ravengun`:
+
+1. `patches/LuigisMansion/game.ini` — the per-game settings (via the `patches` symlink). **This is the
+   authoritative per-game config.** It carries no `[Dongle]` and no region section.
+2. `packaging/tp-shm-profiles.json` → `profiles.LuigisMansion` — the input layout.
+3. `packaging/game-options.json` → `games.luigis_mansion` — the option catalogue for the GUI.
+4. `packaging/native-games.json` — **`luigis_mansion` is NOT in this file.** Programmatic scan of the
+   parsed JSON for the substring `luigi` returns offset **-1**. For calibration, the same file's
+   `games` dict does have four entries: `['GhostBusters', 'Halo', 'JurassicPark', 'Terminator']`.
+   So "Luigi is missing from `native-games.json`" is a measured difference.
+
+### 4.2 `patches/LuigisMansion/game.ini` — relevant lines verbatim
+
+```
+[Game]
+Name = Luigi's Mansion Arcade
+Profile = LuigisMansion
+Type = TeknoParrot
+EmulationProfile = LuigisMansion
+Executable = VACUUM.exe
+Is64Bit = true
+ProfileRevision = 19
+
+[Launch]
+Mode = direct
+WorkingDirectory = .
+
+[Input]
+Route = tp-shm
+Layout = LuigisMansion
+
+[Status]
+Status = playable
+
+[Identify]
+Path = exe/x64/VACUUM.exe
+Size = 3436544
+```
+
+There is **no** `[Dongle]`, no `[Region]`, no `[Patches]`, no `Core`/`Preload` key.
+
+### 4.3 `dropin/dropin.ini` — the drop-in manifest, verbatim (structure)
+
+```
+[rg-pe-hook.dll]
+To = .
+Preload = true
+Audit = false
+Env = RG_HOOK_INI=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini;RG_HOOK_LOG=...\rg-pe-hook.log;RG_HOOK_BYTES_LOG=...\rg-pe-hook-bytes.txt;RG_HOOK_IMAGE=...\VACUUM.exe
+
+[dongle-haken.ini]
+To = .
+```
+
+### 4.4 `packaging/game-options.json` → `games.luigis_mansion` (relevant fields)
+
+```json
+{ "id": "luigis_mansion",
+  "title": "Luigi's Mansion Arcade",
+  "nas_folder": "Luigi's Mansion Arcade",
+  "tp_profile": "LuigisMansion",
+  "platform": "Sega Nu 1.1 (64-bit, Capcom-packed exe)",
+  "exe": "exe/x64/VACUUM.exe",
+  "recommended_route": "nieuw", "effort": "hoog",
+  "status_en": "Parked: VACUUM.exe stops after a few seconds; needs a COM1 firmware step and a packer-aware loader (see digest).",
+  "teknoparrot_ini": { "file": "teknoparrot.ini", "dir_en": "exe/x64 (directory of VACUUM.exe)" } }
+```
+
+### 4.5 What the loader actually executes
+
+**[MEASURED]** `logs-exittrace-r7/launch.log`, run `r7-ours` at 10:14 (dense A/B instrument):
+
+```
+start: .../proton-11.0-2/bin/wine .../OpenParrotx64/OpenParrotLoader64.exe
+       'Z:\...\OpenParrotx64\OpenParrot64' 'Z:\...\views\LuigisMansion\exe\x64\VACUUM.exe'
+kern (ravengun): .../fc8ba632...-0007exit/OpenParrotx64/OpenParrot64.dll sha256 3d84057d...
+Loading requested compatibility DLL: Z:\...\exe\x64\rg-pe-hook.dll
+Requested compatibility DLL loaded successfully.
+lader gestopt (exitcode 32); de game volgen
+klaar (exitcode 32)
+```
+
+**[MEASURED]** So: loader `OpenParrotLoader64.exe`, core = **our own** `OpenParrot64.dll`
+(sha256 `3d84057dfb2b73702d71c96a3678374f4ab3d8af6ed70a9f7dd52ba5ef05c140`, OpenParrot patch `0007exit`),
+game `VACUUM.exe`, working directory the `exe/x64` view, and `rg-pe-hook.dll` **is** loaded into the
+game process via `TP_PRELOAD_DLL`. The loader exits with 32.
+
+---
+
+## 5. What is missing
+
+### 5.1 The hook loads but attaches nothing — **measured**, this is the gap
+
+**[MEASURED]** `views/LuigisMansion/exe/x64/rg-pe-hook.log` (6 447 B, last written 12:02) records four
+load attempts. In all four, the hook starts, reads its address list, and then stays in the wait path:
+
+```
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit ...\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+```
+
+**[MEASURED]** `grep -c -E 'aangehaakt|afgekeurd|totaal' rg-pe-hook.log` → **0**. There is **no**
+attach summary in any of the four attempts. `grep -c 'wachtroute'` → **21**.
+**[MEASURED]** The instrument is not the problem: the same log always contains the PE line and the
+address-list line even when it attaches nothing, so "no attach line" means "found no recognizable
+prologue", not "the DLL did not run".
+
+**[INFERRED]** Consistent with `AM-LAAG.md` §0: under our core `.text` is fully unpacked at t ≈ 4.7 s
+and the process dies at t ≈ 5.96 s, whereas the hook waits up to 10 s. The wait therefore outlives the
+process, and at the sampled moment one of the 17 addresses is still `cc` padding. Nothing in the log
+tells us whether the hook would have succeeded at t = 4.8 s, because the run is not sampled at that
+resolution.
+
+### 5.2 No per-function `bytes = …` guard
+
+**[MEASURED]** `dongle-haken.ini` uses `proloog = standaard` globally and no `bytes = …` on any of the
+17 lines. `MECHANISME-PE-HOOK.md` §6 states this is deliberate: the closing dense measurement sampled
+only **8 of the 17** addresses and at t = 4.7 s four of those were still `40 53 48 83 ec`, two
+`48 83 ec 28 48`, one `48 83 ec 28 83` and one `cc cc cc cc cc` — a snapshot *during* unpacking, not a
+reliable per-function source. **[INFERRED]** without `bytes` the hook cannot refuse a wrong game build.
+
+### 5.3 Missing measurements (in the order they unblock things)
+
+1. **One dump of all 17 prologues at t ≈ 5.5 s** (after unpacking, before the death at 5.96 s). This
+   supplies `bytes = …` for every line and is a pure bench measurement, no code change.
+2. **A dense sample of our core between t = 4.0 s and the death**, recording both the `.text` zero
+   percentage and the 5 bytes at each of the 17 addresses. This is what decides whether the wait path
+   ever had a window. `MECHANISME-PE-HOOK.md` §7 item 3 and `AM-LAAG.md` §6 ask for the same thing.
+3. **The exit-cause measurement** on `0x14011c5f0` (log-only, read `rcx`) to confirm
+   `rcx == 0x140415820`, which would close the "exit code 32" question (`EXITBESLUIT.md` §8.7).
+
+### 5.4 No `dongle.json` — a measured difference from every game whose dongle we do answer
+
+**[MEASURED]** absent for `LuigisMansion`, present for the others:
+
+| game | `dropin/ravengun-hasp/<Game>/dongle.json` | other protection material |
+|---|---|---|
+| RabbidsHollywood | **present** (3 625 B) | `dropin/matrix64.dll` (25 614 B, `23f4b674bba8c7d9…`), `dropin/matrix/matrix.ini` |
+| LGI | **present** (1 590 B) | — |
+| LGI3D, LGS, OG | **present** (per `patches/inventaris-dongle-per-game.md`) | — |
+| Terminator | **present** (2 108 B) | `dropin/ravengun-hasp.so`, `memory/…` image |
+| **LuigisMansion** | **absent** | `dropin/rg-pe-hook.dll` + `dropin/dongle-haken.ini` |
+
+**[MEASURED]** `patches/HOTDSD/dongle.sega-keychip.draft.json` exists but is explicitly a **draft**
+("DRAFT for review - values marked TODO are not yet measured"), and its own note says HOTDSD is
+*"measured playable with no keychip at all under TeknoParrot with SEGA's unmodified daemon"*.
+**[INFERRED]** our adopted mechanism for answering a dongle is a declarative `dongle.json`; Luigi's
+protection data lives in a different, non-adopted format (an address list for a generic PE hook), and
+that consumer currently does not attach.
+
+### 5.5 No game id / model type / keychip id / region value exists anywhere in our material
+
+**[MEASURED]** The only cabinet value we have is `amDongleGetNetworkAddress` → `192.168.1.0`. Our own
+specification says so explicitly (`AM-LAAG.md` §5.2): *"Geen waarden verzinnen. Er is geen bron voor
+een game-id, modeltype of keychip-id … tot dat er is, is '0 terug, niets schrijven, behalve
+192.168.1.0' de volledige, gemeten specificatie."*
+**[MEASURED]** Candidate values that *do* exist as declared expectations (not as keychip readouts):
+`oxGetHwInfo.ini` → `platform-id = AAV`, `mem-size = 4096`, `appdata-size = 0`, `sub-storage = 0`,
+`resolution = 1920x1080 | UNIQUE`, `vertical = no`; `game.bat` → `GAMEID=SDCF`.
+`SDCF` was tested as a lone hypothesis and is negative (`B0-VIJFMIN.md`, eighth stand: with
+`GAMEID=SDCF` the game still dies at t = 6.0 s).
+
+### 5.6 Not missing (measured and deliberately dropped)
+
+* **COM1 / `LMAIO.bin`**: inert, and patch 0005 makes no measurable difference. §2.2.
+* **`ntdll!NtProtectVirtualMemory` route**: not needed — the `WINEDEBUG=+virtual` runs on both cores
+  are byte-for-byte identical; our core makes `.text` writable just as the closed core does
+  (`MECHANISME-PE-HOOK.md` §5, `PAKKER-FASE.md` §2).
+* **`Preload` wiring**: this *was* listed as outstanding (`MECHANISME-PE-HOOK.md` §7 item 1) but is
+  **done** as of the 10:14 run — `launch.log` shows `TP_PRELOAD_DLL` set and the DLL loaded.
+
+---
+
+## 6. The falsifiable check that would prove completeness
+
+All of it on OUR core, one launch at a time, nothing started by hand.
+
+**C1 — attachment (proves the layer is applied at all).**
+Run `cd ~/projects/ravengun && python3 scripts/launch-direct.py LuigisMansion --run`.
+*Falsified if* `~/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.log` does not
+contain a summary line stating `totaal aangehaakt: <N> van 17; afgekeurd: 0` with `N ≥ 16`.
+*Current value:* **0** such lines (four attempts) → **falsified today**. Measured command:
+`grep -c -E 'aangehaakt|afgekeurd|totaal' rg-pe-hook.log` → `0`.
+
+**C2 — behaviour (the decisive one).**
+In the same run, the game process must stay alive longer than **10 s**.
+*Baselines, same instrument:* our core **without** the drop-in dies at **t ≈ 5.96 s** (dense sample;
+repeated arms measured 5.72, 6.0, 6.2 and 6.5 s). The closed core survived **300 s** in the five-minute
+baseline and ≥ 20 s in earlier runs. The threshold is sharp: any lifetime above ~10 s is already a hit.
+*Falsified if* the process dies at ≈ 6 s again.
+
+**C3 — negative control (proves C2 measures the drop-in and not something else).**
+Run the identical command with `dropin/dropin.ini` moved aside so that neither `rg-pe-hook.dll` nor
+`dongle-haken.ini` is copied. It must die at ≈ 6 s again. If it does **not**, C2 is not measuring the
+drop-in.
+
+**C4 — instrument calibration (proves C1's negative is real).**
+Already satisfied: in every attempt the hook writes the PE line (`hoofdprogramma op … ImageBase …
+SizeOfImage …`) and the address-list line (`adreslijst: 17 regel(s) uit …`) *before* it looks at any
+address. Measured four times. Therefore absence of an attach summary means "attached nothing", not
+"never ran".
+
+**C5 — target (what "complete" means for the protection layer specifically).**
+The protection layer is complete for this title when, on our core, (a) C1 holds, (b) C3 holds, and
+(c) `rg-pe-hook.log` reports `afgekeurd: 0` **and** the `bytes = …` guard of §5.2 is in place for all
+17 lines, so that the same list *refuses* a `VACUUM.exe` whose prologues do not match. Until §5.2 is
+done, a green C1/C2 shows the answers are delivered but does not show they are delivered to the right
+build.
+
+---
+
+## 7. Cross-check against games that work
+
+**[MEASURED]** Comparing the patch layouts (all under `~/projects/ravengun-patches/patches/`):
+
+| | **Rabbids Hollywood** (plays) | **Scarlet Dawn / HOTDSD** (plays) | **Luigi's Mansion** (does not) |
+|---|---|---|---|
+| vendor layer | Matrix/SBK | Sega ALLS `am` (in a daemon) | Sega Nu `am` (in the game) |
+| evidence in the game dir | `matrix32.dll` 114 688, `matrix64.dll` 93 184 | `AMDaemon/`, `amdaemon.exe` as **second executable** | `oxGetHwInfo.exe` with the `am`/`amyDongle` build tags (§2.1) |
+| our descriptor | `dropin/ravengun-hasp/RabbidsHollywood/dongle.json` 3 625 B **+** `dropin/matrix64.dll` 25 614 B (`23f4b674bba8c7d9…`) **+** `dropin/matrix/matrix.ini` | `dongle.sega-keychip.draft.json` (**draft**, not adopted) | **no `dongle.json`**; `dropin/rg-pe-hook.dll` 134 437 B + `dropin/dongle-haken.ini` 9 755 B |
+| what the game asks | only the dongle **count** and a serial → `matrix.ini`: `poort = 85`, `aantal = 2` | Sega keychip; but measured **playable with no keychip at all** under TeknoParrot with SEGA's unmodified daemon | 17 `am` functions; the closed core answers all with 0 |
+| loader config | `game.ini` + `dropin/` | `game.ini` with `Executable2 = amdaemon.exe`, `HasTwoExecutables = true`, `LaunchSecondExecutableFirst = true`, `EmulationProfile = ALLSHOTDSD` | `game.ini` with a single `Executable`, `EmulationProfile = LuigisMansion` |
+| `patches.ini` | present in `patches/_defaults/` as template; not used here | not used | **absent** |
+
+**The measured differences, stated plainly:**
+
+1. **Both working games answer their dongle with a declarative descriptor** (`dongle.json`, and for
+   Rabbids also a small library `matrix64.dll`). **Luigi has no `dongle.json`**; its protection data is
+   an address list consumed by a generic hook, and that hook currently attaches nothing (§5.1).
+2. **Both working games' protection calls happen where a drop-in can reach them, or do not need
+   answering at all.** Rabbids' `SBK.Matrix.MatrixManager` is an ordinary in-process call that the
+   `matrix64.dll` drop-in intercepts by **name**. HOTDSD needs no keychip at all *and* puts the Sega
+   keychip client in a **separate process** (`amdaemon.exe`), which is configured as a second
+   executable. **Luigi is the harder shape**: the Sega `am` client is inside a **packed** game
+   executable whose prologues do not exist until the packer has run, so an address-based hook must
+   wait, and the process dies ~1.3 s after the prologues appear.
+3. **Luigi's `README.md` in its own patch directory contradicts the measured state** — see §8.
+
+**Calibration of this comparison:** `dongle.json` is confirmed present for Rabbids and LGI by direct
+`find` output, and its absence for Luigi by the same `find`. The `am` family in Scarlet Dawn is
+confirmed by name from our own `dongle.sega-keychip.draft.json`, which lists
+`amDongleBillingGetKeychipId`, `amDongleGetBillingMode`, `amDongleSetIv`, `amDongleReadEeprom`,
+`amDongleRequestSsdHostProof`, `amDongleBillingGetMainId` — the **same `amDongle` family** as Luigi's
+17 addresses.
+
+---
+
+## 8. Contradictions inside our own material
+
+These are recording errors, not new measurements; they matter because a reader could be misled.
+
+1. **`patches/LuigisMansion/README.md`** (generated 10-12 10:22 by `patches/readme-gen.py`) states
+   `dongle | regio/PCB: nee`, `Geen dongle.json in deze map`, `Wat de game dan wél vraagt: niets`, and
+   `drop-in | geen dropin/`. **All four are now false**: `dropin/` exists (since 10-12 21:57), and the
+   `am` layer is measured (`AM-LAAG.md`, 10-13). **[MEASURED]** the README is older than the material
+   that contradicts it.
+2. **`patches/LuigisMansion/LADER-PLAN.md` §1** (10-12 21:57) states:
+   *"Geen dongle, geen keychip, geen HASP."* Its own §3 then measures that the failure is a difference
+   in the **core DLL**. `README.md` (10-13) and the drop-in header (10-12 22:38) say the opposite:
+   *"De 17 `am`-functies van VACUUM.exe"*.
+3. **`patches/inventaris-dongle-per-game.md`** lists `LuigisMansion | TeknoParrot | LuigisMansion | - | - | playable`
+   (no dongle, and *playable*), while `patches/game.ini` says `[Status] playable` with a note that it
+   falls over on our core with exit 32, and `patches/games-status.md` line 103 lists Luigi as
+   *"geparkeerd"* (parked). Three files, three states.
+4. **`packaging/game-options.json`** (`status_en`) says the game *"needs a COM1 firmware step and a
+   packer-aware loader"*. The COM1 half is measured negative (`B0-LEGE-DLL.md` §7: 0 blocks, patch
+   0005 makes no difference), and the packer half is measured to *work* under our core
+   (`PAKKER-FASE.md` §0).
+
+**[INFERRED]** The reliable, newest, measurement-labelled sources for this title are `AM-LAAG.md`,
+`PAKKER-FASE.md`, `EXITBESLUIT.md`, `B0-VIJFMIN.md` and `MECHANISME-PE-HOOK.md` (all 10-13). The
+generated `README.md`, the dongle inventory table and the `game-options.json` status string should be
+regenerated before anyone acts on them.
+
+---
+
+## 9. Terminator Salvation and Mario Kart DX — briefly
+
+### Terminator Salvation — **HASP/Alladdin dongle, Linux ELF, drop-in currently inert**
+
+**[MEASURED]** Game dir `/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation `:
+`game` (7 764 284, 32-bit ELF), `t4-patch` (1 368 560), `ServiceDongleApp/ServiceDongleApp`
+(8 994 378, i386, **not stripped, with DWARF**), `hasp/` (a directory of thousands of 32-byte records
+plus `hhl_mem.dmp`, 128 B), `irgun/`, `T4Data/`, `T4User/`, `env/`,
+`GeneralPurposeStateMachine.txt`.
+**[MEASURED]** `patches/Terminator/` holds 32 top-level entries, including `hasp-haken.ini` (10 019 B),
+`find-dongle-symbols.py`, `find-dongle-adjacency.py`, `hasplijst-toets.c`, `hasp-meting.sh`,
+`BESCHERMINGSLAAG-PTRACE.md` (31 614 B), and `dropin/` with 4 files:
+`ravengun-hasp.so` (33 668), `ravengun-hasp/Terminator/dongle.json` (2 108),
+`ravengun-hasp/Terminator/memory/00000000000000001111111111110100` (128 B), `dropin.ini` (1 618).
+**[MEASURED]** `dropin.ini` says of its own drop-in: *"Daarom is deze drop-in voorlopig **INERT**: de
+bestanden worden in de view gezet, maar er is niets dat de emulator aanspreekt."* — and it gives the
+reason: `game` has **0** `hasp_` symbols in its dynsym (1 019 dynamic symbols, none with `hasp`), so
+there is no statically linked HASP client to hook by name; the addresses in `hasp-haken.ini` were
+derived from the unstripped `ServiceDongleApp`. The dongle memory image is not a reconstruction: it is
+the game's own `hhl_mem.dmp`, byte for byte.
+**[MEASURED]** `patches/Terminator/game.ini`: `Type = ElfLdr2`, `EmulationProfile = RawThrillsGUN`,
+`Executable = game`, `[Status] Status = playable`.
+**[INFERRED]** so the protection layer and the loader configuration disagree here too: the declared
+status is playable, while the protection drop-in is documented as inert.
+**[MEASURED — unresolved]** `packaging/game-options.json` says Terminator *"Works fullscreen via
+gamescope; also works through tp-shm."*
+
+### Mario Kart DX — **nothing held at all; a Namco certificate/daemon stack, and its dongle data dir is empty**
+
+**[MEASURED]** `ls -d ~/projects/ravengun-patches/patches/*[Mm]ario*` → *"No such file or directory"*.
+There is **no MKDX patch directory**, so we hold **nothing** for this title (no `game.ini`, no
+`dropin/`, no dongle descriptor, no findings). `packaging/game-options.json` does list two entries,
+`mkdx_1_10_22` and `mkdx_1_18_16`.
+**[MEASURED]** Game dir `/home/deck/mnt/spidernas_emulation/Teknoparrot/Mario Kart DX`:
+`MK_AGP3_FINAL.exe` (7 432 704), `AMCUS/` (`AMAuthd.exe` 281 088, `AMConfig.ini` 2 307,
+`AMUpdater.exe` 108 544, `iauthdll.dll` 9 728, `AMUpdaterData/`, `MuchaBin/`),
+`Mucha/` (`muchacd.exe` 273 408, `muchacd-debug.exe` 792 576, `cakey_mk3.pem` 1 651, `libeay32.dll`
+1 172 992, `ssleay32.dll` 271 360, `libcurl.dll` 270 848), `ShareK/` (`ShareK.exe.config`,
+`ipcsv.dll`, `Ionic.Zip.dll`), `PreprocessAmAuth.exe` (23 040), `ImportCertificate.exe` (5 120),
+`Nbam_QR_Code.dll` (142 336), `eOkao*.dll` (OKAO Vision, 6 files),
+`bngrw.dll` (114 176), `ipccl.dll` (13 312), `D3D11Ref.dll` (525 144),
+`Data/DongleData/` (**empty**), and `init.ps1`/`init_w7.ps1`/`init_w10.ps1`.
+**[MEASURED]** `init.ps1` picks the init script by CPU model:
+`if($processor.Name -match 'G2120') { # System ES3 (A Series) ... ./init_w7.ps1 } else { # System BNA1 ... ./init_w10.ps1 }`.
+**[INFERRED]** the protection is a **certificate/authentication stack with a licence daemon**
+(`AMAuthd.exe`, `PreprocessAmAuth.exe`, `ImportCertificate.exe`, `cakey_mk3.pem`, OpenSSL
+`libeay32`/`ssleay32`) and a **per-board dongle data directory** (`Data/DongleData/`), not a HASP and
+not the Sega `am` layer. This is inference from file names and from the scripts; I did **not** read
+any of those binaries, and `Data/DongleData/` being empty is measured but I cannot say read-only
+whether the game needs anything in it.
+
+---
+
+## 10. What I could NOT determine
+
+1. **Whether the `am` layer is the cause of the death.** `EXITBESLUIT.md` states the link is a
+   hypothesis with no measurement. The exit comes from encrypted bytecode in `.capcom0`; the failing
+   comparison inside it is not readable statically.
+2. **The name→address mapping of the 17 prologues.** I verified only that all 17 RVAs land in `.text`
+   and that the entry point lands in `.capcom1`. The names come from the log-tag strings the closed
+   core prints; two rows were explicitly called a "best assignment, not proof" in `AM-LAAG.md` §7.
+3. **The real cabinet values** — game id, model type, keychip id and keychip region. They are not in
+   the game file (packed), not in our dumps, not in the `am`-layer answers (all 0), and not in
+   `oxGetHwInfo.exe`'s strings (only the code that *would* read them). `SDCF` from `game.bat` is a
+   measured negative.
+4. **What `NEW CRC: D3DC9603` refers to.** The CRC32 of the game's own executable is `D09C2FAE`, so the
+   recorded value is not a whole-file CRC32 of the copy we have (§3.4).
+5. **Why `rg-pe-hook.log` reports `1 adres(sen) … OPVULLING` and never completes.** I did not sample
+   the hook's view at t = 4.8 s; the log does not record a timestamp per check.
+6. **`cores/lm/exe/orig/VACUUM.exe`** (3 436 556 B) is not a PE and I could not identify what it is,
+   read-only. It is not usable as a pristine reference; the `VACUUM.zip` decrypt is.
+7. **Whether `oxGetHwInfo.exe` / `SendFlash.exe` run at all on the working path.** `game.bat` calls
+   them, but the working route (`LADER-PLAN.md` §1) lists `sendFlash COM1 LMAIO.bin`, `oxGetHwInfo.exe`
+   and the `X:`/`Y:` drives as **not needed**. I did not attempt to run them.
+8. **Mario Kart DX beyond the file inventory of §9** — I read no MKDX binary, found no patch dir, and
+   did not look for MKDX in `packaging/games-status.md` beyond what is quoted.
+9. **Anything about the NAS beyond reading.** No write test, no mtime comparison, no change detection.
+
+---
+
+## 11. Raw logs
+
+`beschermingslaag-logs/` in this directory:
+
+| file | contents |
+|---|---|
+| `01-inventaris.txt` | every file in `patches/LuigisMansion/` with size and full sha256 |
+| `02-pe-en-rva.txt` | the `VACUUM.exe` section table, entry point, size of image, and the 17-RVA section check |
+| `03-oxgethwinfo-am-strings.txt` | the raw string extraction from `oxGetHwInfo.exe` |
+| `04-lader-config.txt` | the verbatim `game.ini` / `dropin.ini` / `teknoparrot.ini` / `game.bat`, `oxGetHwInfo.ini` and the working-game comparison rows |
+| `05-hook-en-view.txt` | the current `rg-pe-hook.log`, the grep counts, and the `rg-pe-hook-bytes.txt` header |
+| `06-ijkpunt-werkende-games.txt` | the patch-directory listings and dongle descriptors of Rabbids Hollywood, HOTDSD, Halo and LGI |
+| `07-terminator-en-mkdx.txt` | the Terminator and Mario Kart DX inventories and the Terminator drop-in manifest |
+
+---
+
+## 12. Corrected today (2026-10-13)
+
+Stale claims in our own material were corrected in place and minimally: the old text stays visible in every
+file and is marked superseded, so no correction can later be mistaken for a silent rewrite. Nothing was
+started (no game, launcher, emulator or container), nothing was killed, and the NAS was only read.
+
+| file | old claim (quoted; kept visible, marked superseded) | new claim | sha256 before -> after |
+|---|---|---|---|
+| `patches/LuigisMansion/README.md` | line 16 "geen `dropin/`"; line 25 "Wat de game dan wél vraagt: niets."; line 14 "regio/PCB: nee" | `dropin/` exists and IS used at launch; the game carries a Sega Nu `am` dongle/keychip layer and asks 17 `am` functions. The *region* dongle stays `nee` (no region read route) | `ebe6aead031d806a70bdf0c130db7360ded0892f1795f70c9d6aa05f24d13387` -> `2a8fa664c2556c737d8f029bde73ffe43b9242739d3276850e26c52ad5da764c` |
+| `patches/LuigisMansion/LADER-PLAN.md` | section 1 "Geen dongle, geen keychip, geen HASP." | only "geen HASP" holds; a dongle and keychip layer (Sega Nu `am`) IS present | `ca9c83f6368eeef3e94455c78b3cdb0673ad3183160c42b7fa56336c625f3d41` -> `b71ff1f0d9074b69dbc73f75386f995f3ac71efb1da45660c5953dc63b901f8b` |
+| `patches/LuigisMansion/BESCHERMINGSLAAG.md` | (this file is the source of truth; section 12 is its only change) | -- | `77e648d98b86aef3b25894e979f7962c5550fb0c7e6cb09c189e41eeb46100aa` -> see `beschermingslaag-logs/08-correctie-2026-10-13.txt` (a file cannot contain its own final sha256) |
+
+Backups of the originals, byte-identical (same sha256 as the "before" column):
+`README.md.voor-correctie-2026-10-13`, `LADER-PLAN.md.voor-correctie-2026-10-13`,
+`BESCHERMINGSLAAG.md.voor-correctie-2026-10-13`.
+
+### Verified absent by reading, not by assuming
+
+**[MEASURED]** In `patches/LuigisMansion/` all four of `patches.ini`, `dongle.json`, `manifest.json` and
+`ravengun.json` are **absent** (2026-10-13). Commands and raw output:
+
+```
+$ ls -la patches.ini dongle.json manifest.json ravengun.json
+ls: cannot access 'patches.ini': No such file or directory
+ls: cannot access 'dongle.json': No such file or directory
+ls: cannot access 'manifest.json': No such file or directory
+ls: cannot access 'ravengun.json': No such file or directory
+$ find . -name patches.ini ; find . -name dongle.json ; find . -name manifest.json ; find . -name ravengun.json
+(no output)
+```
+
+This confirms section 3.2 and section 5.4. `game.ini` carries no `[Dongle]`, no `[Region]` and no
+`[Patches]` section; its nine section headers are `[Game] [Launch] [Wine] [Input] [Status] [Identify]
+[Config] [ConfigType] [ConfigOptions]`. `dropin/` holds exactly three files: `dongle-haken.ini` (9 755 B),
+`dropin.ini` (3 204 B), `rg-pe-hook.dll` (134 437 B).
+
+### Found with nothing wrong
+
+* `README.md` line 15 ("| patches.ini | nee |") -- correct, re-verified today.
+* `patches/LuigisMansion/AM-LAAG.md`, `B0-LEGE-DLL.md`, `B0-VIJFMIN.md`, `EXITBESLUIT.md`,
+  `MECHANISME-PE-HOOK.md`, `PAKKER-FASE.md`, `pakker-meting.md` -- no stale claim about the per-board
+  layer; section 7 already names them the reliable, newest sources.
+* `patches/LuigisMansion/game.ini` -- no `[Dongle]`/`[Region]` section, consistent with the measured state.
+
+### Deliberately left alone, and why
+
+1. `~/projects/ravengun/docs/inventaris-dongle-per-game.md` -- the Luigi row (line 35) is
+   `| **LuigisMansion** | TeknoParrot | LuigisMansion | - | - | playable |`, i.e. no dongle at all, which
+   contradicts section 2.1. **Not changed: this file is in the loader repository `~/projects/ravengun`**
+   (real path `/home/deck/projects/ravengun/docs/inventaris-dongle-per-game.md`, a regular file, not a
+   symlink), and rule 3 of this task forbids touching the loader repository. It is itself generated: its
+   header says it is made by `scripts/gen-dongle-inventaris.py` and that the *Dongle* column comes from the
+   **existence of** `dropin/ravengun-hasp/<Game>/dongle.json`. That definition is the root cause here:
+   absence of `dongle.json` does not mean "no dongle", and Luigi's protection data lives in another format
+   (`dropin/dongle-haken.ini` + `rg-pe-hook.dll`, section 5.4).
+2. `~/projects/ravengun/packaging/games-status.md` -- line 103 ("Overige games: geen wijziging (Jurassic
+   Park, Luigi's Mansion, Let's Go Safari blijven geparkeerd)") and the summary row at line 166
+   ("geparkeerd: VACUUM.exe stopt na enkele seconden"). **Not changed: loader repository (rule 3).** Note
+   also that line 103 sits inside the dated section "Vierde ronde (2026-10-09, avond)" -- it is a *round
+   log*, i.e. history, and rewriting it would falsify the record; the honest fix is a new entry. The
+   `geparkeerd` wording is in any case closer to the measured state than `playable` (section 4.5: the
+   process dies at about 6 s on our core).
+3. `patches/STAND.md` line 64 and `patches/REGIO-PER-GAME.md` line 111 (Luigi row, last column `niets.`) --
+   these two cells are the upstream source of README's false rows. **Not changed:** they sit in `patches/`
+   but outside `patches/LuigisMansion/`, the only place rule 3 allows work in. They still need fixing.
+4. `patches/readme-gen.py` (generator of `README.md`) and `patches/regio-gen.py` (generator of
+   `REGIO-PER-GAME.md`) -- **not changed**, same scope reason. Two measured facts for whoever fixes them:
+   (a) `readme-gen.py`'s `is_stub()` (line 244) only rewrites a README that still contains `STUB_MARKER`
+   **and** has at most 12 lines, so a plain run will not regenerate this README -- but an explicit
+   `--game LuigisMansion` **would overwrite the CORRECTIE block added today**;
+   (b) `regio-gen.py` line 208 hard-codes `"LuigisMansion": ("nee", "niets.")`, i.e. it prints "what else
+   does the game ask: nothing" for a game whose evidence cell its own code fills with `amDongle` strings --
+   while the generator's own comment at lines 480-481 says the opposite: *"MedaruNoGunman/LuigisMansion:
+   amDongle zonder enige regio-leesroute = keychip."* That hard-coded cell is the origin of the
+   "asks nothing" claim.
+5. `patches/LADER-PLAN.md` section 1, the row "`sendFlash COM1 LMAIO.bin`, `oxGetHwInfo.exe`, `X:`/`Y:` |
+   **niet nodig**" -- **left alone**: whether `oxGetHwInfo.exe` runs on the working path cannot be settled
+   without starting the game, which is forbidden here. Section 2.2 measures only that `SendFlash` is inert,
+   and section 10.7 records the same open question.
+
+### Path error inside section 8.3 of this file (stated here, not rewritten in place)
+
+Section 8.3 cites `patches/inventaris-dongle-per-game.md` and `patches/games-status.md`. **[MEASURED]**
+neither path exists: `ls -la` returns "No such file or directory" for both, and `find
+~/projects/ravengun-patches -name ...` over the whole tree returns nothing. The real files are in the
+**loader repository**: `/home/deck/projects/ravengun/docs/inventaris-dongle-per-game.md` (11 257 B, mtime
+2026-10-11 22:56) and `/home/deck/projects/ravengun/packaging/games-status.md` (120 398 B, mtime
+2026-10-12 22:21). Because `~/projects/ravengun/patches` is a symlink to
+`~/projects/ravengun-patches/patches`, the section 8.3 claim that these two sit under `patches/` is a path
+error. Section 8.3's text is left as written; this paragraph is the correction.
+
+### Not settled, therefore unchanged
+
+* Whether `oxGetHwInfo.exe` / `SendFlash.exe` run on the working path (section 10.7).
+* Whether the `am` layer is the *cause* of the death at about 6 s (sections 2.3 and 10.1).
+* Whether `NEW CRC: D3DC9603` refers to anything we hold, and whether exit code 32 carries meaning
+  (sections 3.4 and 10.4).

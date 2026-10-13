@@ -1,0 +1,269 @@
+########## patches/LuigisMansion/game.ini ##########
+; Gegenereerd door scripts/migrate-game-settings.py (docs/per-game-patches.md). Sleutels die het script afleidt uit de oude bronnen worden bij
+; elke run opnieuw gezet; handwerk in andere sleutels blijft staan.
+;
+; Uit het oude UserProfiles/LuigisMansion.env:
+; 2026-10-10 nacht (WERKT: attract/titel met beeld): entry-point-route (TP_REMOTETHREAD=off), symlink-view
+; met werkmap exe\x64 (Data -> DataGlobal/EN/Data; Movie/ is een symlink naar de NAS-map),
+; en GStreamer-plug-ins asf + libav (lokaal uitgepakt uit de SteamOS-pakketten gst-plugins-ugly/gst-libav 1.28.5-2
+; in ~/.local/share/ravengun/tools/gst-extra/plugins) zodat winegstreamer de .wmv-films (title_movie e.d.) kan decoderen.
+; Zonder die plug-ins: game sluit af bij title_movie.wmv, of (lege Movie-map) zwart scherm.
+; Standaard wined3d in de gedeelde prefix; DXVK is niet nodig.
+
+[Game]
+Name = Luigi's Mansion Arcade
+Profile = LuigisMansion
+Type = TeknoParrot
+EmulationProfile = LuigisMansion
+Executable = VACUUM.exe
+Is64Bit = true
+ProfileRevision = 19
+
+[Launch]
+Mode = direct
+WorkingDirectory = .
+
+[Wine]
+GStreamerPlugins = ~/.local/share/ravengun/tools/gst-extra/plugins
+
+[Input]
+Route = tp-shm
+Layout = LuigisMansion
+Note = Speelbaar (2026-10-10): standaardroute van de lader (TP_REMOTETHREAD=off), symlink-view (Data -> DataGlobal/EN/Data), werkmap exe/x64, GStreamer asf+libav voor de wmv-films (scripts/fetch-gst-wmv.sh). Select switch = aux1.
+
+[Status]
+Status = playable
+Note = Valt op onze kern om met lader-exitcode 32, en dat is geen crash: in de trace met WINEDEBUG=+file opent het spelproces geen enkel bestand van zichzelf, en er komt geen enkele fout of unhandled exception uit Wine. Het vertrekt dus voordat het iets van zichzelf doet. Op de GESLOTEN kern blijft hij wel leven (na 20 s nog, met dezelfde maat gemeten), dus het is een verschil in de kern en niet in de collectie: exitcode 32 is volgens de werkvolgorde Capcoms anti-tamper-controle, en OpenParrot-patch 0005 (de COM-blokkade) lost dat niet op. Geparkeerd met die reden; een eigen per-game hook is hier nodig, geen generieke infrastructuur.
+NoteEN = Falls over on our core with loader exit code 32, and that is not a crash: in the WINEDEBUG=+file trace the game process opens no file of its own, and Wine produces no error and no unhandled exception. It therefore leaves before doing anything of its own. On the CLOSED core it does stay alive (still there after 20 s, measured with the same method), so this is a difference in the core and not in the collection: exit code 32 is Capcom's anti-tamper check according to the work order, and OpenParrot patch 0005 (the COM block) does not solve it. Parked for that reason; this one needs its own per-game hook, not generic infrastructure.
+Findings = findings/LuigisMansion.md
+
+; Profiel uit TeknoParrot-sjabloon GameProfiles/LuigisMansion.xml, revisie 19 (scripts/import-tp-profiles.py; opnieuw importeren in plaats van met de hand wijzigen)
+[Identify]
+Path = exe/x64/VACUUM.exe
+Size = 3436544
+
+[Config]
+General/Input API = RawInput
+General/Windowed = 1
+General/Use Relative Input = 0
+General/Player 1 Relative Sensitivity = 8
+General/Player 2 Relative Sensitivity = 8
+
+[ConfigType]
+General/Input API = Dropdown
+General/Windowed = Bool
+General/Use Relative Input = Bool
+General/Player 1 Relative Sensitivity = Slider
+General/Player 2 Relative Sensitivity = Slider
+
+[ConfigOptions]
+General/Input API = DirectInput|XInput|RawInput
+
+########## patches/LuigisMansion/dropin/dropin.ini ##########
+; Drop-in van RavenGun voor Luigi's Mansion Arcade (Sega Nu 1.1, x64 PE onder Wine).
+;
+; Twee bestanden, en ze horen bij elkaar:
+;   rg-pe-hook.dll     onze generieke PE-inline-hook (tools/rt-hasphook/rg_pe_hook*.c)
+;   dongle-haken.ini   de 17 adressen plus per functie het antwoord (of TODO)
+;
+; WAT DEZE DROP-IN DOET
+; ---------------------
+; De 17 `am`-functies van VACUUM.exe hebben een gewone functieprologue. De GESLOTEN kern vervangt
+; die 17 door `e9 <rel32>` naar zijn eigen pagina op 0x13fff0000; ONZE kern doet dat niet, en dan
+; roept het spel de echte code aan, vindt geen dongle, en stopt (exit 32, zie EXITBESLUIT.md). Deze
+; drop-in laat ONZE hook hetzelfde doen als de gesloten kern: per functie een stub met het antwoord.
+;
+; WAAROM GEEN DllOverride
+; -----------------------
+; `DllOverride` zet WINEDLLOVERRIDES en be√Ønvloedt welke DLL het spel bij NAAM importeert. Dat is
+; hier niet het kanaal: VACUUM.exe importeert deze DLL niet. Het bewezen kanaal (B0-LEGE-DLL.md) is
+; de lader: `OpenParrotLoader64.exe <kern-DLL> <exe>` laadt √©√©n DLL in het spelproces, en de kern is
+; niets anders dan `argv[1]` van die lader. Deze DLL moet dus in de plaats van (of naast) de kern
+; geladen worden -- dat is een keuze van de launcher, en dat is het enige punt dat nog niet vastligt.
+;
+; HOE JE CONTROLEERT DAT HIJ GELADEN IS
+; -------------------------------------
+;   1. `scripts/launch-direct.py LuigisMansion --plan` toont bij `dropins` per bestand de `dest`;
+;      staat `rg-pe-hook.dll` daar, dan rolt de drop-in uit;
+;   2. in het spelproces verschijnt `rg-pe-hook.log` in de werkmap (de view). Zonder dat logboek is
+;      de DLL niet geladen -- en dat is iets anders dan "hij vond niets", want de hook schrijft
+;      altijd eerst een PE-regel met ImageBase en SizeOfImage;
+;   3. het logboek noemt per adres het oordeel, en in de samenvatting
+;      `totaal aangehaakt: N van 17; afgekeurd: M; waarvan antwoord TODO: K`.
+;
+; LET OP: onder de GESLOTEN kern staan de prologues al op `e9`, en dan WEIGERT onze hook ze met
+; "al door een andere kern omgezet?" in plaats van een ketting van twee vervangingen te bouwen. Een
+; run met deze drop-in hoort dus met ONZE kern te gebeuren.
+
+[rg-pe-hook.dll]
+To = .
+Preload = true
+; Audit = false: dit is een Windows-PE-DLL, geen ELF. In LD_AUDIT weigert glibc hem met
+; "wrong ELF class" en dat is alleen ruis. Preload = true laat het pad in RG_DROPIN_PRELOAD
+; staan, en dat is het kanaal dat de lader gebruikt (TP_PRELOAD_DLL). Patroon overgenomen
+; van de inline-hook van Halo en JurassicPark (docs/dropins.md, "Audit = false").
+Audit = false
+Env = RG_HOOK_INI=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini;RG_HOOK_LOG=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook.log;RG_HOOK_BYTES_LOG=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt;RG_HOOK_IMAGE=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe
+
+; De adreslijst moet in de view staan, want de DLL leest hem daar (relatief, net als de
+; donglegegevens van Halo: de werkmap van het spelproces is de view).
+[dongle-haken.ini]
+To = .
+
+########## NAS: /home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade/game.bat ##########
+Ôªø@echo
+
+setlocal
+
+rem „Ç≤„Éº„É†ID
+set GAMEID=SDCF
+
+rem „Ç¢„Éó„É™„Éá„Éº„ÇøÈ†òÂüü„ÅÆÊéí‰ªñÂà©Áî®
+if not exist Y:\%GAMEID% (
+    rmdir /S /Q Y:\
+    mkdir Y:\%GAMEID%
+)
+
+
+start /wait sendFlash COM1 LMAIO.bin
+
+start /wait x:\exe\x64\VACUUM.exe
+
+########## NAS: /home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade/oxGetHwInfo.ini ##########
+[OS]
+os-version		= 0000.00.00			; àÀë∂Ç∑ÇÈOSÉoÅ[ÉWÉáÉìÇéwíËÅBéwíËÇµÇ»Ç¢èÍçáÇÕ 0000.00.00 ÇãLç⁄ÅB
+
+[Application]
+appname			= "game.bat"			; ÉAÉvÉäãNìÆópÉXÉNÉäÉvÉgÇéwíËÅBïKê{ÅB
+
+[System]
+platform-id		= AAV					; Nu êÍópÇ»ÇÁ"AAV0"ÅB Nuånìù Ç≈Ç‡ìÆçÏÇ∑ÇÈÇ»ÇÁ"AAV"ÅBïKê{ÅB
+										; NuSX êÍópÇ»ÇÁ"AAW0"ÅB NuSXånìù Ç≈Ç‡ìÆçÏÇ∑ÇÈÇ»ÇÁ"AAW"ÅB
+sub-storage		= 0						; ÉTÉuÉXÉgÉåÅ[ÉWÇïKóvÇ∆Ç∑ÇÈèÍçáÇÕ sub-storage = 1
+
+[Hardware]
+mem-size		= 4096					; ïKóvÇ∆Ç∑ÇÈÉÅÉCÉìÉÅÉÇÉäÉTÉCÉYÇãLì¸ÅB Nu Ç»ÇÁ 4096ÅB NuSX Ç»ÇÁ 3072ÅB
+appdata-size	= 0						; ÉAÉvÉäÉfÅ[É^óÃàÊÅiYÉhÉâÉCÉuÅjÇÉAÉvÉäÇ©ÇÁégópÇ∑ÇÈóeó ÇãLì¸ÅBïKê{ÅB
+resolution		= 1920x1080 | UNIQUE	; óvãÅÇ∑ÇÈâÊñ âëúìxÇ XXXXxYYYY ÇÃëÃçŸÇ≈éwíËÇ∑ÇÈÅBXXXXÇÕâ°ï˚å¸ÇÃâëúìxÅAYYYYÇÕècï˚å¸ÇÃâëúìxÅBïKê{ÅB
+vertical		= no					; ècâÊñ Ç»ÇÁ"yes"ÅBâ°âÊñ Ç»ÇÁ"no"ÇéwíËÅBïKê{ÅB
+;usb-device1		= 045e:028e | 045e:028f 
+;num-of-usb-device1	= 2
+
+########## NAS: /home/deck/mnt/spidernas_emulation/Teknoparrot/Luigi's Mansion Arcade/exe/x64/teknoparrot.ini ##########
+[GlobalHotkeys]
+ExitKey=0x1B
+PauseKey=0x13
+[General]
+Input API=RawInput
+Windowed=1
+Use Relative Input=0
+Player 1 Relative Sensitivity=8
+Player 2 Relative Sensitivity=8
+[Error]
+Unsupported Executable=Unsupported Executable, NEW CRC: D3DC9603!
+
+########## packaging/game-options.json :: games.luigis_mansion (first 2500 chars) ##########
+{
+  "id": "luigis_mansion",
+  "title": "Luigi's Mansion Arcade",
+  "nas_folder": "Luigi's Mansion Arcade",
+  "tp_profile": "LuigisMansion",
+  "platform": "Sega Nu 1.1 (64-bit, Capcom-packed exe)",
+  "exe": "exe/x64/VACUUM.exe",
+  "recommended_route": "nieuw",
+  "effort": "hoog",
+  "status_en": "Parked: VACUUM.exe stops after a few seconds; needs a COM1 firmware step and a packer-aware loader (see digest).",
+  "teknoparrot_ini": {
+    "file": "teknoparrot.ini",
+    "dir_en": "exe/x64 (directory of VACUUM.exe)"
+  },
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+    
+
+########## packaging/native-games.json :: which games ARE listed ##########
+games: ['GhostBusters', 'Halo', 'JurassicPark', 'Terminator']
+'luigi' present in file text: False
+
+########## the launch line (logs-exittrace-r7/launch.log) ##########
+2:[launch-direct 10:14:24] drop-in: rg-pe-hook.dll -> /home/deck/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll
+3:[launch-direct 10:14:24] drop-in: dongle-haken.ini -> /home/deck/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini
+4:[launch-direct 10:14:24] drop-in: preload: rg-pe-hook.dll -> TP_PRELOAD_DLL=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)
+5:[launch-direct 10:14:24] drop-in: /home/deck/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll is al actueel
+6:[launch-direct 10:14:24] drop-in: /home/deck/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini is al actueel
+7:[launch-direct 10:14:24] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0007exit/OpenParrotx64/OpenParrot64.dll sha256 3d84057dfb2b73702d71c96a3678374f4ab3d8af6ed70a9f7dd52ba5ef05c140
+22:Loader: Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\OpenParrotLoader64.exe (0.0.0.0)
+23:Core:   Z:\home\deck\.local\share\ravengun\openparrot\fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0007exit\OpenParrotx64\OpenParrot64.dll (1.0.0.0)
+24:Game:   Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe (0.0.0.0)
+25:Working directory: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64
+31:Loading requested compatibility DLL: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook.dll
+33:Requested compatibility DLL loaded successfully.
+37:[launch-direct 10:14:34] lader gestopt (exitcode 32); de game volgen
+40:[launch-direct 10:14:39] klaar (exitcode 32)

@@ -1,0 +1,261 @@
+########## Terminator Salvation: game dir ##########
+d	0	
+f	5782	GeneralPurposeStateMachine.txt
+d	0	ServiceDongleApp
+d	0	T4Data
+d	0	T4User
+d	0	env
+f	7764284	game
+d	0	hasp
+d	0	irgun
+f	1368560	t4-patch
+
+--- ServiceDongleApp/ and hasp/ (counts) ---
+total 8784
+drwxr-xr-x 2 deck deck       0 Oct  9 15:59 .
+drwxr-xr-x 2 deck deck       0 Oct  9 15:59 ..
+-rwxr-xr-x 1 deck deck 8994378 Dec 24  1996 ServiceDongleApp
+drwxr-xr-x 2 deck deck       0 Oct  9 15:59 data
+  hasp/ entries: 5413
+-rwxr-xr-x 1 deck deck 128 Dec 24  1996 /home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation /hasp/hhl_mem.dmp
+
+########## patches/Terminator: top level ##########
+d	4096	
+f	6730	128-maps-proef.sh
+f	7213	132-display-proef.sh
+f	8076	135-herstel-en-aanroeper.sh
+f	6453	142-venster-proef.sh
+f	7155	148-vensterlijst.sh
+f	5409	151-wayland-vensters.sh
+f	8410	153-showdesktop.sh
+f	7167	157-pid-en-glut.sh
+f	2145	159-imports-vensterpaden.sh
+f	6927	168-serie-proef.sh
+f	8971	170-herstelde-reeks.sh
+f	31614	BESCHERMINGSLAAG-PTRACE.md
+f	30968	DRAAIBOEK-BENCH.md
+f	14038	KETEN-EN-METHODE.md
+f	32141	KOPPELING-EN-IO.md
+f	48742	LADER-README.md
+f	7005	README.md
+f	9123	bestand-log.c
+f	9169	bestand-meting.sh
+f	12231	classify-elf.py
+f	1987	dlopen-orde-toets.c
+d	4096	dropin
+f	14543	find-dongle-adjacency.py
+f	8690	find-dongle-symbols.py
+f	7100	fork-log.c
+f	2424	game.ini
+f	8201	glut-log.c
+f	10019	hasp-haken.ini
+f	10314	hasp-meting.sh
+f	5695	hasplijst-toets.c
+f	2480	hasplijst-toets.sh
+f	8018	kind-analyse.py
+f	5301	kinderen-meting.sh
+f	9173	koppel-meting.sh
+f	10555	koppel2-meting.sh
+f	12155	koppel3-meting.sh
+f	8100	koppel4-meting.sh
+f	9010	koppel5-bibvolgorde.sh
+f	13836	loader-run.sh
+d	4096	logs-apparaten-20261013-1340
+d	4096	logs-argumenten-20261013-1347
+d	4096	logs-benchrun-20261013
+d	4096	logs-bestand-20261013-1150
+d	4096	logs-bibvolgorde-20261013-1348
+d	4096	logs-display-met-argumenten-20261013-1354
+d	4096	logs-display-zonder-argumenten-20261013-1354
+d	4096	logs-glut-20261013-1417
+d	4096	logs-glut-20261013-1418
+d	4096	logs-hasp-meting-20261013-1034
+d	4096	logs-herstel-20261013-1357
+d	4096	logs-hersteld-20261013-1434
+d	4096	logs-kinderen-20261013-1035
+d	4096	logs-koppel-20261013-1159
+d	4096	logs-koppel-20261013-1201
+d	4096	logs-koppel2-20261013-1211
+d	4096	logs-koppel3-20261013-1335
+d	4096	logs-lus-20261013-1341
+d	4096	logs-maps-elflrd2-eerst-20261013-1351
+d	4096	logs-maps-lib32-eerst-20261013-1351
+d	4096	logs-serie-20261013-1431
+d	4096	logs-showdesktop-20261013-1412
+d	4096	logs-venster-20261013-1402
+d	4096	logs-venster-20261013-1405
+d	4096	logs-venster-20261013-1407
+d	4096	logs-vensterlijst-20261013-1408
+d	4096	logs-wayland-20261013-1410
+d	4096	logs-yama-ab-20261013-0930
+d	4096	logs-zonderwaarnemers-20261013-1340
+f	3404	next-measurement.sh
+f	2556	pol.c
+f	2081	pol2.c
+f	5312	ptrace-log.c
+f	2406	ptracer-permit.c
+f	6999	serie-log.c
+f	25512	supervisor-analyse.txt
+f	11483	yama-ab.sh
+f	2857	yama-toets.c
+
+########## patches/Terminator/dropin: files ##########
+33668	ravengun-hasp.so
+2108	ravengun-hasp/Terminator/dongle.json
+1618	dropin.ini
+128	ravengun-hasp/Terminator/memory/00000000000000001111111111110100
+
+--- dropin.ini ---
+; Drop-in van Terminator Salvation (docs/dropins.md).
+;
+; De dongle van deze game staat in ravengun-hasp/Terminator/. De image daarin is GEEN
+; reconstructie: het is de HASP-HL-geheugendump `hhl_mem.dmp` die in de eigen hasp-map van de game
+; staat, byte voor byte overgenomen. Zie patches/Terminator/README.md en de `notes` in dongle.json.
+;
+; GEEN inline-hook. `game` heeft 0 hasp_-symbolen in zijn dynsym (1019 dynamische symbolen, geen
+; enkele met 'hasp') en 0 ongedefinieerde hasp-symbolen: er is geen statisch gelinkte HASP-client om
+; aan te haken. Dat de game wel een Aladdin/HASP-dongle gebruikt blijkt uit zijn eigen tekstregels
+; ('DongleInitialize() FAILED!', 'ReInitAladdinDongles called: %d times') en uit t4-patch ('failed
+; to find aladdin dongle'). Zie docs/hasp-elf-hook.md, sectie 5.
+;
+; Daarom is deze drop-in voorlopig INERT: de bestanden worden in de view gezet, maar er is niets dat
+; de emulator aanspreekt. Hij staat er omdat de dongle-beschrijving de enige vastgelegde bron van
+; deze dongle is, en omdat een latere hook (of de eigen lader) hem wel kan gebruiken.
+;
+; LET OP: elk bestand dat de game nodig heeft moet een EIGEN sectie hebben, anders wordt het niet
+; gekopieerd (docs/dropins.md).
+
+; De emulatorbibliotheek hoort volgens het drop-in-contract in de drop-in. GEEN Preload: glibc eist
+; van een bibliotheek in LD_AUDIT dat hij `la_version` exporteert, en ravengun-hasp.so doet dat niet
+; ("undefined symbol: la_version; ignored").
+[ravengun-hasp.so]
+To = .
+
+[ravengun-hasp/Terminator/dongle.json]
+To = .
+
+[ravengun-hasp/Terminator/memory/00000000000000001111111111110100]
+To = .
+
+--- game.ini [Game] + [Status] ---
+[Game]
+Name = Terminator Salvation
+Profile = Terminator
+Type = ElfLdr2
+EmulationProfile = RawThrillsGUN
+Executable = game
+ProfileRevision = 18
+
+[Launch]
+[Status]
+Status = playable
+Note = Werkt beeldvullend (via gamescope). Richten en schieten werken goed, ook via de IO-brug (tp-shm, 'play-halo.sh --route tp-shm').
+NoteEN = Works full screen (through gamescope). Aiming and shooting work well, also through the I/O bridge (shared memory route).
+Findings = findings/Terminator.md
+
+; Profiel uit TeknoParrot-sjabloon GameProfiles/Terminator.xml, revisie 18 (scripts/import-tp-profiles.py; opnieuw importeren in plaats van met de hand wijzigen)
+[Identify]
+
+########## Mario Kart DX: is there a patch dir? ##########
+ls: cannot access '/home/deck/projects/ravengun-patches/patches/*[Mm]ario*': No such file or directory
+  NO MKDX patch dir -- we hold nothing
+
+########## Mario Kart DX: game dir ##########
+d	0	
+d	0	AMCUS
+d	0	AMCUS/AMUpdaterData
+d	0	AMCUS/MuchaBin
+d	0	Data
+d	0	Data/Camera
+d	0	Data/Clone
+d	0	Data/Debug
+d	0	Data/DecoLine
+d	0	Data/Develop
+d	0	Data/DongleData
+d	0	Data/Effects
+d	0	Data/Event
+d	0	Data/Item
+d	0	Data/LineData
+d	0	Data/LineDataKiller
+d	0	Data/MenuParam
+d	0	Data/Model
+d	0	Data/ModelParam
+d	0	Data/Phys
+d	0	Data/PlayDemo
+d	0	Data/PlayerCarParam
+d	0	Data/RaceData
+d	0	Data/RenderParam
+d	0	Data/RivalCarParam
+d	0	Data/Sound
+d	0	Data/SteerEffect
+d	0	Data/System
+d	0	Data/TestMode
+d	0	Data/TxtMessage
+d	0	Data/attract
+d	0	Data/flash
+d	0	Data/hud
+d	0	Mucha
+d	0	ShareK
+f	108544	AMCUS/AMUpdater.exe
+f	11264	ShareK/ipcsv.dll
+f	114176	bngrw.dll
+f	1172992	Mucha/libeay32.dll
+f	13312	ipccl.dll
+f	142336	Nbam_QR_Code.dll
+f	151552	eOkaoPt.dll
+f	1531	ShareK/ShareK.exe.config
+f	155648	eOkaoAg.dll
+f	1651	Mucha/cakey_mk3.pem
+f	23040	PreprocessAmAuth.exe
+f	2307	AMCUS/AMConfig.ini
+f	270848	Mucha/libcurl.dll
+f	271360	Mucha/ssleay32.dll
+f	273408	Mucha/muchacd.exe
+f	2761	init_w7.ps1
+f	281088	AMCUS/AMAuthd.exe
+f	304	init.ps1
+f	3609	disp_wait_page.ps1
+f	372736	eOkaoDt.dll
+f	420	sharek.ps1
+f	462336	ShareK/Ionic.Zip.dll
+f	5120	ImportCertificate.exe
+f	525144	D3D11Ref.dll
+f	52702	Windows6.1-KB2685747-x64.cab
+f	52736	ShareK/ShareK.exe
+f	5368	init_w10.ps1
+f	5632	project_w10.ps1
+f	61440	eOkaoCo.dll
+f	69632	eOkaoPc.dll
+f	7432704	MK_AGP3_FINAL.exe
+f	77824	eOkaoGn.dll
+f	792576	Mucha/muchacd-debug.exe
+f	8725	project.ps1
+f	8725	project_w7.ps1
+f	9728	AMCUS/iauthdll.dll
+
+--- init.ps1 ---
+$processor = Get-WmiObject Win32_Processor
+if($processor.Name -match 'G2120') {
+    # System ES3 (A Series)
+    # Windows7”Å init.ps1 ŒÄ‚Ño‚µ
+    $initscript = "./init_w7.ps1"
+} else {
+    # System BNA1
+    # Windows10”Å init.ps1 ŒÄ‚Ño‚µ
+    $initscript = "./init_w10.ps1"
+}
+
+. $initscript
+
+--- Data/DongleData (measured empty?) ---
+total 0
+drwxr-xr-x 2 deck deck 0 Oct 10 13:40 .
+drwxr-xr-x 2 deck deck 0 Oct 10 13:42 ..
+
+--- packaging/game-options.json :: mkdx entries ---
+terminator -> {"id": "terminator", "title": "Terminator Salvation", "nas_folder": "Terminator Salvation ", "tp_profile": "Terminator", "platform": "Raw Thrills Linux PC Based (32-bit ELF, unmodified)", "exe": "game", "recommended_route": "evdev", "effort": "laag", "status_en": "Works fullscreen via gamescope; also works through tp-shm.", "teknoparrot_ini": {"file": "teknoparrot.ini", "dir_en": "directory of the 
+
+mkdx_1_10_22 -> {"id": "mkdx_1_10_22", "title": "Mario Kart Arcade GP DX 1.10.22", "nas_folder": "MKDX 1.10.22", "tp_profile": "MKDX", "platform": "Namco ES3 (32-bit, Win7/Win10 embedded, D3D11, ALL.Net + Mucha)", "exe": "MK_AGP3_FINAL.exe", "recommended_route": "nieuw", "effort": "hoog", "status_en": "Not a lightgun game (steering wheel, pedals, camera). Needs ALL.Net authentication and card stack.", "teknoparro 
+
+mkdx_1_18_16 -> {"id": "mkdx_1_18_16", "title": "Mario Kart Arcade GP DX 1.18.16", "nas_folder": "MKDX 1.18.16", "tp_profile": "MKDX118", "platform": "Namco ES3 (32-bit, Win7/Win10 embedded, D3D11, ALL.Net + Mucha)", "exe": "MK_AGP3_FINAL.exe", "recommended_route": "nieuw", "effort": "hoog", "status_en": "Not a lightgun game (steering wheel, pedals, camera). Needs ALL.Net authentication and card stack.", "teknopa 
+

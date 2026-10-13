@@ -9,11 +9,36 @@ Marker: **[gemeten]** = zelf of in een eerdere ronde met een trace/voorwaarde va
 
 ---
 
+> ## CORRECTIE 2026-10-13 -- section 1 is wrong on the dongle and the keychip
+>
+> **(a) old claim, quoted -- section 1, line 16:** "Geen dongle, geen keychip, geen HASP."
+>
+> **(b) measured now:** only the **HASP** half still holds. The game **does** carry a dongle and a keychip
+> layer, in the form of the Sega Nu `am` platform middleware: `oxGetHwInfo.exe` statically links it and its
+> strings include "SystemError : amDongleInit failed.", "amDongle Build:Jan  9 2014 02:12:04 ($Rev: 2644 $)",
+> "Error: amyDongleOpen() failed.", "SystemError : amSystemPropertyGetKeychipRegion failed." and
+> "Error : Can't access keychip." The closed TeknoParrot core detours **17** `am`-layer entry points in
+> `VACUUM.exe`'s `.text` (8 `amDongle*`, 5 `amHm*`, 4 `amMaster*`) and the game then survives 300 s.
+> No `matrix32.dll`/`matrix64.dll`, no `hasp/`, no `.rgd` and no licence file is present -- so the
+> "geen HASP" part of the old sentence is measured correct and stays.
+>
+> **(c) proof:** `patches/LuigisMansion/BESCHERMINGSLAAG.md` section 2.1 "The Sega `am` platform/dongle
+> layer -- the answer" and section 2.2 "There is no HASP, no Matrix/SBK, no licence file and no daemon in
+> this title".
+>
+> **(d) date:** 2026-10-13.
+>
+> The old sentence is kept in place below, struck through. Nothing else in this plan was re-measured today
+> and the rest of section 1 is left untouched.
+
+
+---
+
 ## 1. Wat de game is en welke route hij nodig heeft
 
 Sega Nu 1.1, x64 Windows, `VACUUM.exe` (3.436.544 B), D3D11, DirectInput, `bcrypt`,
 `setupapi`, `wlanapi`, `iphlpapi`. Capcom-gepakt (`.capcom0`/`.capcom1`, vijf secties met
-0 bytes in het bestand, entry point in `.capcom1`). Geen dongle, geen keychip, geen HASP.
+0 bytes in het bestand, entry point in `.capcom1`). ~~Geen dongle, geen keychip, geen HASP.~~ **[CORRECTIE 2026-10-13: only "geen HASP" holds -- a dongle and keychip layer (Sega Nu `am`) IS present. See the CORRECTIE block at the top of this file and BESCHERMINGSLAAG.md section 2.1.]**
 
 De route die werkt **[gemeten, ronde 57 en eerder]**:
 

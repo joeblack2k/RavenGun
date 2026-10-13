@@ -1,0 +1,23 @@
+Correctie 2026-10-13 -- Luigi's Mansion: stale claims corrected in place
+Host deck (192.168.2.247), workdir patches/LuigisMansion/, uitgerekend met sha256sum-voudige
+Python-hashlib.sha256 over de hele bestandsbytes. Niets gestart; niets gestopt; NAS alleen gelezen.
+
+file                     voor                                                       na
+README.md                ebe6aead031d806a70bdf0c130db7360ded0892f1795f70c9d6aa05f24d13387  2a8fa664c2556c737d8f029bde73ffe43b9242739d3276850e26c52ad5da764c
+LADER-PLAN.md            ca9c83f6368eeef3e94455c78b3cdb0673ad3183160c42b7fa56336c625f3d41  b71ff1f0d9074b69dbc73f75386f995f3ac71efb1da45660c5953dc63b901f8b
+BESCHERMINGSLAAG.md      77e648d98b86aef3b25894e979f7962c5550fb0c7e6cb09c189e41eeb46100aa  44f2edc2f79586243936da77a58d42800ae2576b736bfe659424f98bc9e33f59
+
+back-ups (byte-identiek aan 'voor'):
+  README.md.voor-correctie-2026-10-13
+  LADER-PLAN.md.voor-correctie-2026-10-13
+  BESCHERMINGSLAAG.md.voor-correctie-2026-10-13
+
+Nieuwe bestanden van deze correctie:
+  beschermingslaag-logs/08-correctie-2026-10-13.txt (dit bestand)
+
+Bewijs van afwezigheid, gelezen op 2026-10-13 in patches/LuigisMansion/:
+  ls -la patches.ini dongle.json manifest.json ravengun.json
+  -> alle vier: No such file or directory
+  find . -name patches.ini / dongle.json / manifest.json / ravengun.json -> geen uitvoer
+  dropin/ bevat: dongle-haken.ini (9755), dropin.ini (3204), rg-pe-hook.dll (134437)
+
