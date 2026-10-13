@@ -61,6 +61,27 @@ grep -qx "Exec=$P/bin/ravengun" "$H/Desktop/ravengun-qt.desktop" || fail "bureau
 if grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" 2>/dev/null | grep -q .; then
   grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" >&2; fail "de installatie noemt het repopad $REPO"
 fi
+# De patches per game: in de installatie staat ALLEEN wat de lader, de daemon en de app lezen (<Game>/*.ini,
+# <Game>/dongle.json, <Game>/README.md en <Game>/dropin/). De patches-repo is ook het dossier (logboeken van benchruns,
+# metingen, meetscripts, notities, foto's); dat is bewijs en gaat niet mee. De controle op het repopad hierboven blijft
+# over de HELE installatie gaan, dus ook over deze bestanden: een game.ini of een drop-in die een ontwikkelpad noemt
+# is een echt lek. Deze controle hieronder zorgt dat het dossier die test niet meer kan breken, en dat er niets
+# verdwijnt wat de lader nodig heeft.
+if [[ -d "$REPO/patches" ]]; then
+  SRC="$(cd "$REPO/patches" && pwd -P)"
+  [[ -d "$D/patches" ]] || fail "de patches per game zijn niet geinstalleerd"
+  VREEMD="$(cd "$D/patches" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|dongle\.json|README\.md)$|^[^/]+/dropin/' || true)"
+  [[ -z "$VREEMD" ]] || { echo "$VREEMD" | head -20 >&2; fail "in de installatie staat iets uit de patches-repo dat de lader niet leest (dossier hoort niet mee)"; }
+  LEEG="$(find "$D/patches" -type d -empty)"
+  [[ -z "$LEEG" ]] || { echo "$LEEG" | head >&2; fail "lege mappen in de geinstalleerde patches"; }
+  # Niets kwijt: elk bestand dat de lader leest staat er, met dezelfde inhoud.
+  NODIG="$(cd "$SRC" && find . -type f | sed 's|^\./||' | grep -E '^[^/]+/([^/]+\.ini|dongle\.json|README\.md)$|^[^/]+/dropin/' | sort)"
+  [[ -n "$NODIG" ]] || fail "de patches-map bevat geen enkele game.ini"
+  while IFS= read -r f; do
+    cmp -s "$SRC/$f" "$D/patches/$f" || fail "ontbreekt of wijkt af in de installatie: patches/$f"
+  done <<< "$NODIG"
+  [[ "$(cd "$D/patches" && find . -type f | wc -l)" -eq "$(wc -l <<< "$NODIG")" ]] || fail "het aantal geinstalleerde patchbestanden klopt niet"
+fi
 grep -q "enable ravengund.service" "$T/systemctl.log" || fail "de engine-service is niet geactiveerd (systemctl-log)"
 grep -q "now" "$T/systemctl.log" && fail "met --no-start mag de service niet gestart worden"
 

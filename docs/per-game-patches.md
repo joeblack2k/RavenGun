@@ -217,6 +217,96 @@ General/Windowed = 0                ; afwijkend van het sjabloon
   controleert. Een veld dat het profiel niet of als `false`, `0` of `Default` heeft, staat er niet.
 - `[Identify]` (zie "De game vinden"), `[Config]`, `[ConfigType]` en `[ConfigOptions]` (de ConfigValues).
 
+**Argumenten voor het spel (`[Launch] Arguments`).** Standaard geeft de launcher het spel niets mee behalve wat het profiel
+zegt (`ExtraParameters`, `CustomArguments`; meestal leeg). Geeft de eigen start van het spel (het `.bat`- of `.sh`-bestand
+dat de kast gebruikt) wel iets mee, zet dat dan per game in `game.ini`:
+
+```ini
+[Launch]
+Arguments = -launch="cabinet" -UserDir="C:\log map\nu" -NotInstalled -UNATTENDED
+```
+
+- `Arguments` schrijf je zoals op een opdrachtregel, met aanhalingstekens om een argument met spaties. De standaard is leeg.
+- `--plan` laat zien welke argumenten er meegaan (`argumenten voor <exe> (n): [..]  [..]`), uit welke sleutel, en hoe.
+- De OpenParrot-lader neemt precies **een** parameter voor het spel (`<DLL> <EXE> <param>`) en plakt die letterlijk achter het
+  pad van de exe. Voor die lader gaat daarom alles als een parameter mee, de tekst uit `Arguments` letterlijk; het spel deelt
+  hem zelf weer op, en een argument met spaties of aanhalingstekens komt heel aan. Geeft een profiel twee losse argumenten
+  (`-a -b` zonder aanhalingstekens eromheen), dan worden die ook een parameter: voorheen kreeg de lader er twee, toonde hij zijn
+  gebruiksregel en startte het spel niet. Andere laders (ElfLdr2, TeknoMacaw) krijgen de argumenten los mee.
+- Voor de tweede exe geldt hetzelfde met `[Launch] SecondArguments`.
+
+**Omgevingsvariabelen voor het spel (`[Env]`).** Elke regel `NAAM = waarde` onder `[Env]` komt in de omgeving van het
+spelproces (en van de tweede exe), met de naam zoals hij geschreven is en de waarde ongewijzigd (`IMAGE_ROOT_DIR = X:\`). De
+standaard is geen. `--plan` laat zien welke er meegaan: `omgevingsvariabelen voor het spel ([Env] in game.ini): GAMEID=SDCF`.
+
+**Het eigen startscript van het spel (`[Launch] StartScript`).** Veel spellen hebben een eigen start: `game.bat`, of bij een
+Linux-spel `utils/run_game.sh`. Dat script zet omgevingsvariabelen, kiest een werkmap, start soms eerst iets anders (een
+hardwarecontrole, een daemon) en geeft het spel argumenten mee. De launcher **leest** dat script en legt het naast zijn eigen
+plan; hij voert het **nooit uit**. `--plan` zegt dan wat de kast doet en wij niet:
+
+```
+eigen startscript van het spel: game.bat -- gelezen, NIET uitgevoerd
+  zet GAMEID=SDCF -- WIJ GEVEN DIE NIET MEE (het script gebruikt hem ook zelf)
+  start eerst  sendFlash COM1 LMAIO.bin -- WIJ NIET
+  start het spel: VACUUM.exe (zonder argumenten)
+    de argumenten zijn gelijk aan de onze
+  gebruikt de schijfletters X:, Y:
+  kastding (daarom niet uitvoeren): rmdir /S /Q Y:\ (voorwaardelijk)
+```
+
+- Zonder sleutel zoekt de launcher `game.bat`, `Start.bat`, `utils/run_game.sh` of `pm/utils/run_game.sh` in de spelmap.
+  `StartScript = <pad>` wijst een ander script aan; `StartScript = none` zet het lezen uit.
+- Wat het script uit de bestanden beslist (`if exist ...`, `if "%X%"=="y"`), beslist de lezer ook: hij volgt de tak die op deze
+  kopie van het spel genomen wordt, ook door aangeroepen scripts heen. Wat van de kast afhangt (een `errorlevel`, een bestand
+  op een andere schijf) raadt hij niet; wat in zo'n tak staat heet `(voorwaardelijk)`.
+- Het is informatie: de start zelf (argv, omgeving) verandert er niet door. Wat ervan nodig is zet je zelf in `game.ini`:
+  de variabelen onder `[Env]`, de argumenten in `[Launch] Arguments`, de werkmap in `[Launch] WorkingDirectory`, en de orde en
+  wachttijd van twee exe's (hieronder). Staat het erin, dan zegt `--plan` `-- wij ook` en `de argumenten zijn gelijk aan de onze`.
+- Los te gebruiken: `python3 scripts/startscript.py <script> --root <spelmap>` (ook `--json`).
+
+Waarom niet uitvoeren: het script start de exe rechtstreeks (dus zonder onze lader en kern), en het doet kastdingen (`reboot`,
+`rm -rf` van de gebruikersmap, `rmdir /S /Q Y:\`, `reg add`, een hardwarecontrole). Een stap die het script VOOR het spel doet
+(een hardwarecontrole die exitcode 0 moet geven, een flash naar een COM-poort) doet de launcher niet; `--plan` noemt hem.
+
+**Het spel vanaf een ander pad starten (`--exe`, `[Launch] Exe`) en schijfletters (`--drive`, `[Launch] Drives`).** Het eigen
+startscript van een spel start het soms vanaf een schijfletter (`x:\exe\x64\spel.exe`). Om dat na te bootsen:
+
+```
+scripts/launch-direct.py <Profiel> --plan --exe 'x:\exe\x64\spel.exe' --drive X=.
+```
+
+- `--exe PAD` (of `[Launch] Exe`) is het pad dat de lader voor het spel krijgt: een Windows-pad met een schijfletter, een
+  Unix-pad, of een pad relatief aan de view. **Alleen dat pad verandert**; de prefix, de werkmap van de start, de omgeving, de
+  lader en de kern, de JVS-brug, `teknoparrot.ini` naast het spel en de drop-ins blijven wat ze zonder override zijn. Zo ligt een
+  verschil in de uitkomst aan het pad en niet aan de opzet. Het bestand moet bestaan en binnen de view van het spel liggen.
+- `--drive X=MAP` (herhaalbaar; of `[Launch] Drives = X=.; Y=~/een/map`) zet een schijfletter in de Wine-prefix **voor de duur
+  van de run**: ervoor aangemaakt, erna weggehaald, ook als de run misgaat. `MAP` is relatief aan de view (`.` = de view zelf)
+  of een absoluut lokaal pad; een map op de NAS wordt geweigerd, net als de letters C en Z. Staat de letter al in de prefix en
+  wijst hij naar dezelfde map, dan blijft hij staan; wijst hij ergens anders heen, dan weigert de launcher. Wat een hard
+  gestopte run liet staan ruimt de volgende run op (de launcher houdt bij welke letters van hem zijn).
+- `--plan` laat het zien: `spel (OVERRIDE, opgegeven als ...): X:\exe\x64\spel.exe`, of het hetzelfde bestand is als in het
+  profiel, en `schijfletter X: -> <map>`. Zonder override staat er `spel: Z:\...` en verandert er niets.
+- Wat niet kan (een letter die niet bestaat, een bestand dat er niet is of buiten de view ligt) wordt in het plan geweigerd
+  met exitcode 5, voordat er iets start.
+
+**Twee exe's (`HasTwoExecutables`).** Een profiel met een los hulpprogramma naast het spel (een daemon) wordt door
+`launch-direct.py` in een vaste orde gestart: de tweede exe eerst als `LaunchSecondExecutableFirst = true`, anders het spel eerst;
+daarna de wachttijd; daarna de andere. Beide krijgen dezelfde wine, dezelfde lader en kern, dezelfde werkmap, dezelfde prefix en
+dezelfde omgeving, en `teknoparrot.ini` komt naast beide exe's. De tweede exe draait buiten gamescope. Sleutels:
+
+- het pad van de tweede exe: `[Game] GamePath2` (een eigen pad, zoals `GamePath`), anders `GamePath2` van het XML-profiel, anders
+  `[Identify] Path2` in dezelfde spelmap als `Path`. Staat het spel in een view, dan moet de tweede exe in DEZELFDE view staan; een
+  pad dat rechtstreeks naar de NAS wijst wordt het pad in de view, en lukt dat niet dan weigert de launcher (exitcode 4);
+- `[Launch] SecondWait`: de wachttijd in seconden tussen de twee starts (0 tot 600, standaard 5);
+- `[Launch] SecondArguments`: de argumenten van de tweede exe (anders `SecondExecutableArguments` van het XML-profiel).
+
+`--plan` laat beide starts zien met de orde en de wachttijd. Is een start al weg voordat de volgende begint, dan stopt de run met
+exitcode 7 en een FOUT-regel: een halve opstelling is geen geldige run. Een lader die eerder stopt dan het programma dat hij
+startte telt niet als weg (er wordt ook naar de procesnaam van de exe gekeken). Na het einde van het spel wordt de tweede exe
+gestopt. De uitvoer en de exitcode van elke start staan apart in `~/.local/state/ravengun/starts/<Profiel>-<tijd>/`
+(`1-<naam>.log`, `2-<naam>.log`, `starts.json`), en in het logboek draagt elke regel de naam van de start die hem schreef.
+Een game met een enkele exe gaat de oude weg, ongewijzigd.
+
 **ConfigValues.** De sleutel is `Categorie/Veldnaam` en wordt bij de eerste `/` gesplitst (categorieën bevatten er geen; veldnamen
 wel, zoals `Keyboard/Button Axis`). `[ConfigType]` bepaalt welke velden er zijn en in welke volgorde ze in `teknoparrot.ini` komen;
 `[Config]` geeft de waarde (afwezig of leeg = leeg veld); `[ConfigOptions]` de keuzelijst. Een sleutel in de gebruikerslaag wint per sleutel;
@@ -240,7 +330,7 @@ Het pad naar de game staat **nergens**: niet in de repo en normaal ook niet in d
    sha256 (`Sha256`) kloppen.
 
 `Path` is relatief aan de map van de game. `Size` is de grootte van dat bestand. `Path2` (alleen bij games met twee exe's, HOTDSD) is het pad van de tweede exe
-in dezelfde map; het wordt alleen gebruikt om `GamePath2` in de XML voor TeknoParrotUi te zetten. Hebben twee games een identiek hoofdbestand (twee Unity-games met
+in dezelfde map; het zet `GamePath2` in de XML voor TeknoParrotUi en is bij een directe start het pad van de tweede start (zie "Twee exe's" hieronder). Hebben twee games een identiek hoofdbestand (twee Unity-games met
 dezelfde `Game.exe`), dan legt de importer de `Sha256` vast en zo nodig `Folder` (de naam van de map, hoofdletters maken niet uit). Een andere
 versie van het bestand (andere grootte) wordt niet herkend; kies dan het pad zelf (`GamePath`) of importeer opnieuw. Python
 (`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de engine heeft geen hashfunctie en let

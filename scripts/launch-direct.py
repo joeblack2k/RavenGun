@@ -34,7 +34,22 @@
 #         --log-full (TP_LOGTOFILE=1 en een A11-samenvatting van de regels van de kern in ~/.local/state/ravengun/a11/).
 # Exitcodes: 0 klaar, 1 fout tijdens de start, 2 gebruik, 3 activering ontbreekt (val terug op TeknoParrotUi),
 #            4 profiel niet ondersteund door de directe start (val terug op TeknoParrotUi), 5 een ingeschakelde patch is geweigerd
-#            (geen terugval). Anders de exitcode van de lader.
+#            (geen terugval), 7 bij een profiel met twee exe's: een start was al weg voordat de volgende begon (halve
+#            opstelling; de run is afgebroken). Anders de exitcode van de lader (bij twee exe's: die van het spel).
+#
+# Twee exe's (HasTwoExecutables): beide starts staan in --plan ("starts", met de orde en de wachttijd) en krijgen dezelfde
+# lader, kern, werkmap, prefix en omgeving; uitvoer en exitcode per start in ~/.local/state/ravengun/starts/<Profiel>-<tijd>/.
+# Zie docs/per-game-patches.md, "Twee exe's".
+#
+# Argumenten voor het spel: [Launch] Arguments in game.ini (standaard leeg), naast ExtraParameters/CustomArguments van het
+# profiel. --plan laat zien welke er meegaan en hoe; de OpenParrot-lader krijgt ze als EEN parameter (meer neemt hij niet).
+# Omgevingsvariabelen voor het spel: [Env] in game.ini; --plan laat zien welke er meegaan.
+# Het spel vanaf een ander pad: --exe PAD of [Launch] Exe (bijvoorbeeld X:\exe\x64\spel.exe, zoals het eigen startscript het
+# doet); alleen het pad dat de lader krijgt verandert, de rest van de opstelling blijft gelijk. Schijfletters voor de run:
+# --drive X=MAP of [Launch] Drives; ze staan er precies zolang de run duurt. --plan laat beide zien.
+# Het eigen startscript van het spel (game.bat, run_game.sh; [Launch] StartScript) wordt GELEZEN, niet uitgevoerd: --plan
+# zegt welke variabelen, argumenten, programma's en werkmap de kast gebruikt en wij niet (scripts/startscript.py).
+# Zie docs/per-game-patches.md, "Argumenten voor het spel" en "Het eigen startscript van het spel".
 #
 # Drop-ins (docs/dropins.md): patches/<Game>/dropin/ bevat bestanden die letterlijk in de view van de game komen,
 # met per bestand een sectie in dropin.ini (To, DllOverride, Env, Preload). Dat is het algemene mechanisme waarmee een
@@ -62,6 +77,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I ne
 import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patches/<Game>/game.ini, patches.ini)
 import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
 import patchfile as pf  # noqa: E402  (de patchmotor: Kind = file op de game zelf en Kind = memory op de hoofdmodule)
+import startscript as ss  # noqa: E402  (het eigen startscript van een spel lezen, niet uitvoeren)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -79,6 +95,7 @@ STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".l
 EXIT_ACTIVATION = 3
 EXIT_UNSUPPORTED = 4
 EXIT_PATCH = 5       # een ingeschakelde patch is geweigerd: niet terugvallen op TeknoParrotUi (die zou de game zonder patch starten)
+EXIT_HALF = 7        # een profiel met meer dan een start: een start was al weg voordat de volgende begon (halve opstelling)
 
 # Profielen waarvoor TeknoParrotUi extra argumenten of voorbereidingen heeft die hier niet zijn nagebouwd: die vallen
 # terug op TeknoParrotUi (exit 4). Bron: GameLaunchArguments in TeknoParrotUI (net8-migration).
@@ -447,6 +464,16 @@ def dropin_toets(base, dest, wortel=None):
     wortel, delen = _dropin_keten(base, dest, wortel)
     if wortel is None:
         return False, delen, []
+    # Geen view om de gamemap heen (de wortel IS de gamemap) en de gamemap loopt zelf via een symlink: dan
+    # is er niets boven de gamemap dat lokaal gemaakt kan worden, en dropin_materialiseer() weigert het
+    # doel achteraf ("komt ... nog buiten de view uit"). Dat hoort het plan al te zeggen; anders meldt
+    # --plan een geldige start die --run daarna weigert. (Symlinks ONDER de gamemap maakt run() lokaal;
+    # na het materialiseren ligt de map van het doel dus op realpath(gamemap) + het relatieve pad.)
+    rel = os.path.relpath(os.path.dirname(os.path.abspath(dest)), wortel)
+    if wortel == os.path.abspath(base) and not _binnen(os.path.join(os.path.realpath(wortel), rel), wortel):
+        return False, ("de gamemap %s loopt via een symlink naar %s en er is geen view omheen om lokaal te "
+                       "maken; het bestand zou buiten de gamemap terechtkomen (maak een view: "
+                       "scripts/tp-add-game.py <Spel> <pad> --view)" % (wortel, os.path.realpath(wortel))), []
     lokaal, cur, werkelijk, gevolgd = [], wortel, wortel, False
     for deel in delen:
         cur = os.path.join(cur, deel)
@@ -653,6 +680,7 @@ def dropin_plan(plan):
 
 
 TP_PRELOAD_LADERS = ("openparrotloader.exe", "openparrotloader64.exe")   # deze laders lezen TP_PRELOAD_DLL (gemeten: strings)
+EEN_PARAMETER_LADERS = TP_PRELOAD_LADERS   # en nemen precies EEN parameter voor het spel (OpenParrotLoader/src/main.cpp: argc 3 of 4)
 
 
 def _lader_naam(plan):
@@ -1091,7 +1119,416 @@ def display_size(env):
     return 1920, 1080
 
 
-def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False, use_own=True):
+# ---------------------------------------------------------------------------------------------------------------------
+# Meer dan een start (profielen met HasTwoExecutables): een spel met een los hulpprogramma (een daemon) ernaast.
+
+DEFAULT_SECOND_WAIT = 5.0   # seconden tussen twee starts als game.ini niets zegt ([Launch] SecondWait)
+START_STAP = 0.25           # zo vaak wordt tijdens het wachten gekeken of wat al gestart is nog leeft
+
+
+def exe_comms(*namen):
+    """De procesnamen (comm, 15 tekens, kleine letters) van een of meer exe-namen ('a.exe;b.exe' of een pad)."""
+    uit = []
+    for naam in namen:
+        for part in re.split(r"[;|]", naam or ""):
+            b = part.replace("\\", "/").rsplit("/", 1)[-1].strip().lower()[:15]
+            if b and b not in uit:
+                uit.append(b)
+    return uit
+
+
+def in_dezelfde_view(game, second):
+    """Het pad van de tweede exe BINNEN de view van de eerste, of (None, reden).
+
+    Het profiel van TeknoParrotUi bewaart twee losse paden (GamePath en GamePath2). Wijst het eerste in een
+    view en het tweede rechtstreeks naar de NAS, dan zou het tweede programma buiten de view draaien: zonder
+    de drop-ins en de lokale bestanden van die view. Dat mag niet stil gebeuren. Ligt de tweede exe via de
+    symlinks van de view op dezelfde plek, dan nemen we het pad in de view; anders is het een fout."""
+    wortel = view_wortel(os.path.dirname(game))
+    if wortel == os.path.abspath(os.path.dirname(game)):
+        return second, ""                          # de eerste staat niet in een view: er valt niets gelijk te trekken
+    if _binnen(second, wortel):
+        return second, ""
+    rel = os.path.relpath(os.path.abspath(game), wortel)
+    echt = os.path.realpath(game)
+    if echt.endswith(os.sep + rel):                # waar de view naar wijst: de map van het spel zelf
+        bron = echt[:-len(rel)].rstrip(os.sep)
+        echt2 = os.path.realpath(second)
+        if _binnen(echt2, bron):
+            kandidaat = os.path.join(wortel, os.path.relpath(echt2, bron))
+            try:
+                if os.path.isfile(kandidaat) and os.path.samefile(kandidaat, echt2):
+                    return kandidaat, ""
+            except OSError:
+                pass
+    return None, ("de tweede exe %s ligt buiten de view %s van de eerste; beide moeten in dezelfde view draaien "
+                  "(maak de view opnieuw of zet [Game] GamePath2)" % (second, wortel))
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Argumenten voor het spel (docs/per-game-patches.md, "Argumenten voor het spel")
+
+def win_split(tekst):
+    """Een opdrachtregel-staart opdelen in argumenten zoals een Windows-programma dat doet (de regels van de C-runtime):
+    spaties scheiden, aanhalingstekens houden bij elkaar, 2n backslashes voor een aanhalingsteken worden er n, 2n+1 geven
+    n backslashes en een letterlijk aanhalingsteken, en "" binnen aanhalingstekens is een letterlijk aanhalingsteken.
+    Een backslash die niet voor een aanhalingsteken staat blijft staan (Windows-paden)."""
+    uit, cur, in_q, bezig, i, n = [], [], False, False, 0, len(tekst)
+    while i < n:
+        c = tekst[i]
+        if c == "\\":
+            j = i
+            while j < n and tekst[j] == "\\":
+                j += 1
+            aantal = j - i
+            if j < n and tekst[j] == '"':
+                cur.append("\\" * (aantal // 2))
+                if aantal % 2:
+                    cur.append('"')
+                    j += 1
+            else:
+                cur.append("\\" * aantal)
+            bezig, i = True, j
+            continue
+        if c == '"':
+            if in_q and i + 1 < n and tekst[i + 1] == '"':
+                cur.append('"')
+                i += 2
+                continue
+            in_q, bezig = not in_q, True
+        elif c in " \t" and not in_q:
+            if bezig:
+                uit.append("".join(cur))
+                cur, bezig = [], False
+        else:
+            cur.append(c)
+            bezig = True
+        i += 1
+    if bezig:
+        uit.append("".join(cur))
+    return uit
+
+
+def spel_argumenten(lader, profiel_delen, eigen_ruw):
+    """Hoe de argumenten bij het spel komen: {how, argv, param, list}.
+
+    profiel_delen: de argumenten uit de velden van het TeknoParrot-profiel, al opgedeeld (zoals altijd).
+    eigen_ruw:     de tekst van onze eigen sleutel in game.ini, zoals hij er staat.
+
+    De OpenParrot-lader neemt precies EEN parameter voor het spel (OpenParrotLoader/src/main.cpp: `<DLL> <EXE> <param>`,
+    argc 3 of 4) en plakt die letterlijk achter het pad van de exe: `"exe" <param>`. Krijgt hij er meer, dan toont hij
+    zijn gebruiksregel, wacht op een toets en geeft 0 terug -- het spel start dan niet en niemand merkt het. Daarom
+    gaat voor die lader alles als een parameter mee: de tekst uit game.ini letterlijk (zo komt hij bij het spel aan
+    zoals hij in het eigen startscript van het spel staat, aanhalingstekens inbegrepen), en de delen uit het profiel
+    met een spatie ertussen. Een profiel dat zijn argumenten als een geheel tussen aanhalingstekens zet (de gewoonte
+    van TeknoParrot, juist om deze reden) blijft precies werken zoals het deed.
+
+    Andere laders krijgen de argumenten los mee, elk als een eigen element; een argument met spaties blijft dan heel
+    omdat er geen shell tussen zit."""
+    eigen_ruw = (eigen_ruw or "").strip()
+    if os.path.basename(lader).lower() in EEN_PARAMETER_LADERS:
+        param = " ".join(x for x in (" ".join(profiel_delen), eigen_ruw) if x)
+        return {"how": "one-parameter", "argv": [param] if param else [], "param": param or None, "list": win_split(param)}
+    lijst = list(profiel_delen) + win_split(eigen_ruw)
+    return {"how": "separate", "argv": lijst, "param": None, "list": lijst}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Het spel vanaf een ander pad starten (--exe, [Launch] Exe) en schijfletters voor een run (--drive, [Launch] Drives)
+
+DRIVES_STATE = os.path.join(STATE_DIR, "drives.json")   # welke schijfletters wij in welke prefix hebben aangemaakt
+VASTE_LETTERS = ("C", "Z")                                # de prefix zelf en de Wine-wortel: nooit om te leggen
+
+
+def _zoek_zonder_hoofdletters(basis, rel):
+    """Een pad onder `basis` vinden zoals Windows dat doet (hoofdletters maken niet uit), of None."""
+    cur = basis
+    for deel in [d for d in rel.replace("\\", "/").split("/") if d and d != "."]:
+        if deel == "..":
+            return None
+        kandidaat = os.path.join(cur, deel)
+        if not os.path.lexists(kandidaat):
+            try:
+                gelijk = [n for n in os.listdir(cur) if n.lower() == deel.lower()]
+            except OSError:
+                return None
+            if len(gelijk) != 1:
+                return None
+            kandidaat = os.path.join(cur, gelijk[0])
+        cur = kandidaat
+    return cur
+
+
+def plan_drives(ini_tekst, cli, wortel, prefix):
+    """De schijfletters van deze run: [{letter, target, link, present}]. Uit [Launch] Drives ("X=.; Y=~/pad") en
+    --drive X=PAD (die wint). Een relatief pad is relatief aan de view van het spel. Alleen rekenen en controleren;
+    aanmaken doet run(). Weigert alles wat niet kan, zodat --plan het zegt voordat er iets start."""
+    ruw = {}
+    for stuk in [x for x in (ini_tekst or "").split(";")] + list(cli or []):
+        stuk = stuk.strip()
+        if not stuk:
+            continue
+        if "=" not in stuk:
+            raise SettingRefused("schijfletter %r is geen LETTER=MAP" % stuk)
+        letter, doel = stuk.split("=", 1)
+        letter = letter.strip().rstrip(":").upper()
+        if not re.match(r"^[A-Z]$", letter) or letter in VASTE_LETTERS:
+            raise SettingRefused("schijfletter %r kan niet (een letter van A tot Y, niet C)" % stuk.split("=", 1)[0].strip())
+        ruw[letter] = doel.strip()
+    uit = []
+    for letter in sorted(ruw):
+        doel = gs.expand_home(ruw[letter])
+        doel = os.path.normpath(doel if doel.startswith("/") else os.path.join(wortel, doel))
+        if not os.path.isdir(doel):
+            raise SettingRefused("schijf %s: de map %s bestaat niet" % (letter, doel))
+        if on_nas(doel):
+            raise SettingRefused("schijf %s: de map %s ligt op de NAS; een schijfletter van ons wijst naar een lokale map "
+                                 "(de view van het spel, of een eigen map)" % (letter, doel))
+        dd = os.path.join(prefix, "dosdevices")
+        link = os.path.join(dd, letter.lower() + ":")
+        if not os.path.isdir(dd):
+            raise SettingRefused("schijf %s: de prefix %s heeft geen dosdevices-map (nog niet aangemaakt; start het spel "
+                                 "een keer zonder schijfletters)" % (letter, prefix))
+        staat = False
+        if os.path.lexists(link):
+            if not (os.path.islink(link) and os.path.realpath(link) == os.path.realpath(doel)):
+                raise SettingRefused("schijf %s: bestaat al in de prefix %s en wijst naar %s, niet naar %s"
+                                     % (letter, prefix, os.path.realpath(link), doel))
+            staat = True
+        uit.append({"letter": letter, "target": doel, "link": link, "present": staat})
+    return uit
+
+
+def plan_exe(opgegeven, game, wortel, drives, prefix):
+    """Het spel vanaf een ANDER PAD starten: {given, passed, unix, same_file, drive} of None (geen override).
+
+    Alleen het pad dat de lader voor het spel krijgt verandert; alles eromheen (prefix, werkmap van de start,
+    omgeving, lader, kern, JVS-brug, teknoparrot.ini, drop-ins) blijft wat het was. Zo ligt een verschil in de
+    uitkomst aan het pad en niet aan de opzet. Vormen: een Windows-pad met een schijfletter (X:/exe/spel.exe; de
+    letter moet in de prefix bestaan of met --drive / [Launch] Drives zijn opgegeven), een Unix-pad, of een pad
+    relatief aan de view. Het bestand moet bestaan en binnen de view van het spel liggen."""
+    opgegeven = (opgegeven or "").strip().strip('"')
+    if not opgegeven:
+        return None
+    m = re.match(r"^([A-Za-z]):[\\/]*(.*)$", opgegeven)
+    letter = None
+    if m and m.group(1).upper() != "Z":
+        letter = m.group(1).upper()
+        basis = next((d["target"] for d in drives if d["letter"] == letter), None)
+        if basis is None:
+            link = os.path.join(prefix, "dosdevices", letter.lower() + ":")
+            if letter == "C" or not os.path.isdir(link):
+                raise SettingRefused("--exe %s: schijf %s: bestaat niet in de prefix %s; geef hem op met --drive %s=<map> "
+                                     "of [Launch] Drives (bijvoorbeeld %s=. voor de view van het spel)"
+                                     % (opgegeven, letter, prefix, letter, letter))
+            basis = os.path.realpath(link)
+        unix = _zoek_zonder_hoofdletters(basis, m.group(2))
+        door = letter + ":\\" + m.group(2).replace("/", "\\")
+    else:
+        pad = "/" + m.group(2).replace("\\", "/") if m else gs.expand_home(opgegeven)
+        unix = os.path.normpath(pad if pad.startswith("/") else os.path.join(wortel, pad))
+        door = wine_path(unix)
+    if not unix or not os.path.isfile(unix):
+        raise SettingRefused("--exe %s: dat bestand bestaat niet" % opgegeven)
+    try:
+        zelfde = os.path.samefile(unix, game)
+    except OSError:
+        zelfde = False
+    if not zelfde and not _binnen(unix, wortel):
+        raise SettingRefused("--exe %s: %s ligt buiten de view %s van het spel; de override verandert alleen het pad, "
+                             "niet de opstelling" % (opgegeven, unix, wortel))
+    return {"given": opgegeven, "passed": door, "unix": unix, "same_file": zelfde, "drive": letter}
+
+
+def exe_log_lines(plan):
+    """Welk pad de lader voor het spel krijgt, en de schijfletters van deze run (voor --plan en het logboek)."""
+    ge = plan.get("game_exe") or {}
+    ov = ge.get("override")
+    if not ov:
+        uit = ["spel: %s" % ge.get("passed", "")]
+    else:
+        uit = ["spel (OVERRIDE, opgegeven als %s): %s" % (ov["given"], ov["passed"]),
+               "  %s; de rest van de opstelling is gelijk aan die zonder override"
+               % ("hetzelfde bestand als in het profiel (%s), langs een ander pad" % plan["game"] if ov["same_file"]
+                  else "een ANDER bestand dan in het profiel (%s): %s" % (plan["game"], ov["unix"]))]
+    for d in plan.get("drives") or []:
+        uit.append("schijfletter %s: -> %s (%s)" % (d["letter"], d["target"],
+                                                   "staat al in de prefix" if d["present"] else
+                                                   "wordt voor deze run in de prefix gezet en na afloop weer weggehaald"))
+    return uit
+
+
+def _drives_state():
+    try:
+        with open(DRIVES_STATE) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _drives_state_schrijf(d):
+    os.makedirs(os.path.dirname(DRIVES_STATE), exist_ok=True)
+    tmp = DRIVES_STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(d, f, indent=1)
+        f.write("\n")
+    os.replace(tmp, DRIVES_STATE)
+
+
+def drives_opruimen(prefix, logf=None):
+    """Haal de schijfletters weg die WIJ in deze prefix hebben gezet (ook die van een run die is afgebroken voordat
+    hij kon opruimen). Een koppeling die intussen ergens anders heen wijst is niet meer van ons en blijft staan."""
+    staat = _drives_state()
+    for link, doel in list((staat.get(prefix) or {}).items()):
+        if os.path.islink(link) and os.readlink(link) == doel:
+            os.unlink(link)
+            if logf:
+                logf("schijfletter %s weggehaald uit de prefix" % os.path.basename(link).upper())
+    if prefix in staat:
+        del staat[prefix]
+        _drives_state_schrijf(staat)
+
+
+def drives_aan(plan, logf=None):
+    """Zet de schijfletters van het plan in de prefix. Geeft '' of een foutmelding (dan is er niets blijven staan)."""
+    prefix = plan["prefix"]
+    drives_opruimen(prefix, logf)          # resten van een afgebroken run eerst weg
+    staat = _drives_state()
+    gezet = {}
+    for d in plan["drives"]:
+        link = d["link"]
+        if os.path.lexists(link):
+            if os.path.islink(link) and os.path.realpath(link) == os.path.realpath(d["target"]):
+                continue                   # stond er al (niet van ons): laten staan, ook na afloop
+            for l in gezet:
+                os.unlink(l)
+            return "schijf %s: bestaat al in de prefix en wijst naar %s" % (d["letter"], os.path.realpath(link))
+        os.symlink(d["target"], link)
+        gezet[link] = d["target"]
+        staat[prefix] = dict(gezet)
+        _drives_state_schrijf(staat)       # meteen vastleggen: ook na een harde stop weten we wat van ons is
+        if logf:
+            logf("schijfletter %s: -> %s (in de prefix %s)" % (d["letter"], d["target"], prefix))
+    return ""
+
+
+STARTSCRIPTS = ("game.bat", "Start.bat", "utils/run_game.sh", "pm/utils/run_game.sh")   # waar een spel zijn eigen start bewaart
+
+
+def start_script(settings, gamedir):
+    """Het eigen startscript van het spel: (pad, wortel) of (None, wortel). [Launch] StartScript in game.ini wijst het
+    aan (een pad binnen de spelmap of de view; `none` = niet zoeken); anders het eerste bekende script dat er staat.
+    Het wordt alleen GELEZEN (scripts/startscript.py), nooit uitgevoerd."""
+    wortel = view_wortel(gamedir)
+    rel = (settings.get("Launch", {}).get("StartScript", "") or "").strip().replace("\\", "/").strip("/")
+    if rel.lower() in ("none", "geen", "-"):
+        return None, wortel
+    kandidaten = [rel] if rel else list(STARTSCRIPTS)
+    for k in kandidaten:
+        for basis in (wortel, gamedir):
+            pad = os.path.join(basis, k)
+            if os.path.isfile(pad) and _binnen(pad, wortel):
+                return pad, wortel
+    return ("?" + rel if rel else None), wortel
+
+
+def start_script_plan(settings, gamedir, plan):
+    """Wat het eigen startscript doet, naast ons startplan (voor --plan). None als het spel er geen heeft."""
+    pad, wortel = start_script(settings, gamedir)
+    if pad is None:
+        return None
+    if pad.startswith("?"):
+        return {"script": pad[1:], "found": False,
+                "lines": ["eigen startscript van het spel: [Launch] StartScript = %s -- NIET GEVONDEN in de spelmap" % pad[1:]]}
+    try:
+        feiten = ss.lees(pad, wortel)
+        v = ss.vergelijk(feiten, dict(plan, _script_root=wortel))
+    except (OSError, ValueError) as e:
+        return {"script": os.path.relpath(pad, wortel), "found": False,
+                "lines": ["eigen startscript van het spel: %s -- niet te lezen: %s" % (os.path.relpath(pad, wortel), e)]}
+    return {"script": feiten["script"], "found": True, "facts": feiten, "compare": v, "lines": ss.regels(feiten, v)}
+
+
+def env_log_lines(plan):
+    """De omgevingsvariabelen die deze game uit game.ini meekrijgt ([Env]), voor --plan en het logboek."""
+    eigen = plan.get("game_env") or {}
+    if not eigen:
+        return ["omgevingsvariabelen voor het spel ([Env] in game.ini): geen"]
+    return ["omgevingsvariabelen voor het spel ([Env] in game.ini): %s"
+            % "  ".join("%s=%s" % kv for kv in sorted(eigen.items()))]
+
+
+def arg_log_lines(plan):
+    """Welke argumenten er met elke start meegaan, en hoe (voor --plan en het logboek)."""
+    uit = []
+    for s in plan.get("starts") or []:
+        a = s.get("args") or {}
+        if not a.get("list"):
+            uit.append("argumenten voor %s: geen" % s["name"])
+            continue
+        uit.append("argumenten voor %s (%d): %s" % (s["name"], len(a["list"]), "  ".join("[%s]" % x for x in a["list"])))
+        if a.get("how") == "one-parameter":
+            uit.append("  als een parameter aan de lader, letterlijk: %s" % a["param"])
+        for b in a.get("sources") or []:
+            uit.append("  uit %s = %s" % (b["key"], b["value"]))
+    return uit
+
+
+def second_start(p, settings, game):
+    """De tweede start van een profiel met HasTwoExecutables: None (een gewone game) of
+    {path, args, first, wait}. Alles komt uit het profiel en uit game.ini; hier staat geen spelnaam.
+
+    Het pad: [Game] GamePath2 in game.ini, anders GamePath2 van het XML-profiel, anders [Identify] Path2
+    relatief aan dezelfde spelmap als [Identify] Path. De orde: LaunchSecondExecutableFirst. De argumenten:
+    [Launch] SecondArguments (letterlijk), anders SecondExecutableArguments van het profiel (zie spel_argumenten). De wachttijd tussen de twee
+    starts: [Launch] SecondWait in seconden (standaard DEFAULT_SECOND_WAIT)."""
+    if not truthy(p.get("HasTwoExecutables", "false")):
+        return None
+    launch = settings.get("Launch", {})
+    pad = gs.expand_home((settings.get("Game", {}).get("GamePath2", "") or "").strip()) or (p.get("GamePath2", "") or "").strip()
+    if not pad:
+        path, _size, _sha = op.identify_of(settings)
+        path2 = (settings.get(op.IDENTIFY, {}).get("Path2", "") or "").strip().replace("\\", "/").strip("/")
+        if path2:
+            root = game[:-len(path)].rstrip("/") if path and game.endswith("/" + path) else os.path.dirname(game)
+            pad = os.path.join(root, path2)
+    if not pad or not os.path.isfile(pad):
+        raise Unsupported("het profiel heeft twee exe's (HasTwoExecutables) maar de tweede is niet gevonden: %r "
+                          "(zet GamePath2 in het profiel, of [Identify] Path2 / [Game] GamePath2 in game.ini)" % pad)
+    pad, waarom = in_dezelfde_view(game, pad)
+    if pad is None:
+        raise Unsupported(waarom)
+    ruw = (launch.get("SecondWait", "") or "").strip().replace(",", ".")
+    try:
+        wacht = float(ruw) if ruw else DEFAULT_SECOND_WAIT
+    except ValueError:
+        wacht = -1.0
+    if not 0 <= wacht <= 600:
+        raise SettingRefused("[Launch] SecondWait = %s (een aantal seconden van 0 tot en met 600)" % ruw)
+    # [Launch] SecondArguments (onze sleutel, letterlijk) gaat voor op SecondExecutableArguments van het profiel.
+    eigen = launch.get("SecondArguments", "") if "SecondArguments" in launch else ""
+    profiel = "" if "SecondArguments" in launch else (p.get("SecondExecutableArguments", "") or "")
+    return {"path": pad, "profile_args": profiel, "own_args": eigen or "",
+            "first": truthy(p.get("LaunchSecondExecutableFirst", "false")), "wait": wacht}
+
+
+def start_log_lines(plan):
+    """De starts van dit plan in de orde waarin ze gebeuren, met de wachttijd ertussen (voor --plan en het logboek)."""
+    starts = plan.get("starts") or []
+    uit = []
+    for i, s in enumerate(starts):
+        if i:
+            uit.append("wachten: %g s; daarna alleen verder als elke eerdere start nog leeft" % s["wait_before"])
+        uit.append("start %d/%d: %s (%s%s) -- %s" % (i + 1, len(starts), s["name"],
+                                                    "het spel" if s["role"] == "main" else "tweede exe",
+                                                    ", in gamescope" if s["gamescope"] else "",
+                                                    " ".join(shlex.quote(a) for a in s["argv"])))
+    return uit
+
+
+def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False, use_own=True,
+               exe=None, drives=None):
     """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen); materialize_patches maakt ook de gepatchte
     kopieën (alleen bij --run). use_own=False negeert het eigen profiel in game.ini en leest altijd UserProfiles/<P>.xml (voor de vergelijking)."""
     # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
@@ -1110,8 +1547,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     game = p.get("GamePath", "")
     if not game or not os.path.isfile(game):
         raise Unsupported("game niet gevonden: %r%s" % (game, " (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)" if own else ""))
-    if truthy(p.get("HasTwoExecutables", "false")):
-        raise Unsupported("profielen met twee exe's worden niet direct gestart")
+    second = second_start(p, settings.settings, game)   # None bij een gewone game (een exe)
     exe_rel, dll_rel, is64 = resolve_loader(p, tp)
     et = p.get("EmulatorType", "")
     gamedir = os.path.dirname(game)
@@ -1214,13 +1650,40 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     launch["TP_LAUNCH_SESSION_ID"] = str(uuid.uuid4())
     env.update(launch)
 
+    # Het pad dat de lader voor het spel krijgt. Standaard het spel uit het profiel; --exe / [Launch] Exe geeft een ander
+    # pad naar het spel (bijvoorbeeld vanaf een schijfletter, zoals het eigen startscript van het spel het doet) terwijl
+    # al het andere in dit plan gelijk blijft. Schijfletters voor de run: --drive / [Launch] Drives.
+    launch_ini = settings.settings.get("Launch", {})
+    drive_plan = plan_drives(launch_ini.get("Drives", ""), drives, view_wortel(gamedir), prefix)
+    exe_ov = plan_exe(exe if exe is not None else launch_ini.get("Exe", ""), game, view_wortel(gamedir), drive_plan, prefix)
+    spel_win = exe_ov["passed"] if exe_ov else wine_path(game)
     args = [wine, loader]
     if dll_rel:
         args.append(wine_path(os.path.join(core_dir, dll_rel)))
-    args.append(wine_path(game))
-    for extra in (p.get("CustomArguments", ""), p.get("ExtraParameters", "")):
+    args.append(spel_win)
+    # De argumenten voor het spel: de velden van het profiel (CustomArguments, ExtraParameters) en onze eigen sleutel
+    # [Launch] Arguments in game.ini (standaard leeg). Hoe ze bij het spel komen hangt van de lader af: spel_argumenten().
+    profiel_delen, bronnen = [], []
+    for veld in ("CustomArguments", "ExtraParameters"):
+        extra = p.get(veld, "")
         if extra.strip():
-            args += shlex.split(extra.replace("\\", "\\\\"))
+            profiel_delen += shlex.split(extra.replace("\\", "\\\\"))
+            bronnen.append({"key": veld, "value": extra.strip()})
+    if (launch_ini.get("Arguments", "") or "").strip():
+        bronnen.append({"key": "[Launch] Arguments", "value": launch_ini["Arguments"].strip()})
+    spel_args = spel_argumenten(loader, profiel_delen, launch_ini.get("Arguments", ""))
+    spel_args["sources"] = bronnen
+    basis = list(args[:-1])
+    args += spel_args["argv"]
+    # De tweede exe krijgt dezelfde wine, dezelfde lader en dezelfde kern als de eerste: anders haakt de kern er niet aan.
+    args2, tweede_args = None, None
+    if second:
+        delen2 = shlex.split(second["profile_args"].replace("\\", "\\\\")) if second["profile_args"].strip() else []
+        tweede_args = spel_argumenten(loader, delen2, second["own_args"])
+        tweede_args["sources"] = [{"key": k, "value": v.strip()} for k, v in
+                                  (("SecondExecutableArguments", second["profile_args"]),
+                                   ("[Launch] SecondArguments", second["own_args"])) if v.strip()]
+        args2 = basis + [wine_path(second["path"])] + tweede_args["argv"]
 
     gamescope = None
     if env.get("TP_GAMESCOPE") == "1" and env.get("TP_NO_GAMESCOPE") != "1":
@@ -1237,6 +1700,10 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     tg = taito_gun_ini(p)
     if tg:
         files.append((os.path.join(gamedir, tg[0]), tg[1]))
+    # De kern leest teknoparrot.ini naast de exe waarin hij geladen is, dus ook naast de tweede. TeknoParrotUi schrijft
+    # daar hetzelfde bestand (gemeten: de twee bestanden naast de twee exe's van zo'n spel zijn byte-gelijk).
+    if second and os.path.dirname(second["path"]) != gamedir:
+        files.append((os.path.join(os.path.dirname(second["path"]), "teknoparrot.ini"), files[0][1]))
 
     pipe_mode = "pipe" if emu not in NO_JVS_PIPE else "shm"
     src = shm_source or SHM_PATH
@@ -1252,6 +1719,18 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
             b = part.replace("\\", "/").rsplit("/", 1)[-1].lower()[:15]
             if b:
                 comms.add(b)
+    # De starts in de orde waarin ze gebeuren. Een gewone game heeft er een, en die is gelijk aan "argv". De tweede
+    # exe draait buiten gamescope (hij heeft geen venster), in dezelfde werkmap, prefix en omgeving als de eerste.
+    hoofd = {"name": os.path.basename(game), "role": "main", "exe": game, "argv": (gamescope or []) + args, "cwd": cwd,
+             "gamescope": bool(gamescope), "wait_before": 0.0, "args": spel_args, "exe_passed": spel_win,
+             "comms": exe_comms(p.get("ExecutableName", ""), game, exe_ov["unix"] if exe_ov else "")}
+    starts = [hoofd]
+    if second:
+        tweede = {"name": os.path.basename(second["path"]), "role": "second", "exe": second["path"], "argv": args2, "cwd": cwd,
+                  "gamescope": False, "comms": exe_comms(p.get("ExecutableName2", ""), second["path"]), "wait_before": 0.0,
+                  "args": tweede_args}
+        starts = [tweede, hoofd] if second["first"] else [hoofd, tweede]
+        starts[1]["wait_before"] = second["wait"]
     uit = {
         "profile": name, "tp": tp, "emulator_type": et, "emulation_profile": emu, "is64": is64,
         "game": game, "cwd": cwd, "wine": wine, "prefix": prefix, "argv": (gamescope or []) + args,
@@ -1265,7 +1744,16 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "recipe": recipe_summary(tp, name),
         "needs_activation": needs_activation(p),
         "windows": is_pe(game),
+        "starts": starts,
+        "game_args": spel_args,
+        # De variabelen die deze game uit game.ini meekrijgt ([Env]); ze zitten ook in "env", dus in elk gestart proces.
+        "game_env": dict(settings.settings.get("Env", {})),
+        # Het pad dat de lader voor het spel krijgt ("game" blijft het bestand uit het profiel), en de schijfletters van de run.
+        "game_exe": {"passed": spel_win, "override": exe_ov},
+        "drives": drive_plan,
     }
+    # Het eigen startscript van het spel, gelezen en naast dit plan gelegd (niet uitgevoerd).
+    uit["start_script"] = start_script_plan(settings.settings, gamedir, uit)
     # Drop-ins (docs/dropins.md): altijd, niet alleen bij een dongle. Alleen rekenen; kopiëren doet run().
     uit["dropins"] = dropin_plan(uit)
     # De dongle vooraf beoordelen zodat --plan laat zien wat er zou gebeuren (zonder bijwerkingen en
@@ -1669,6 +2157,23 @@ class A11Collector:
 
 
 def run(plan):
+    """De run. Heeft het plan schijfletters, dan staan die er precies zolang de run duurt: ervoor gezet, erna weg, ook
+    als de run misgaat. Zonder schijfletters gebeurt er hier niets extra's."""
+    if not plan.get("drives"):
+        return _run(plan)
+    for line in exe_log_lines(plan):
+        log(line)
+    fout = drives_aan(plan, log)
+    if fout:
+        log("FOUT: %s -- de game wordt niet gestart" % fout)
+        return EXIT_PATCH
+    try:
+        return _run(plan)
+    finally:
+        drives_opruimen(plan["prefix"], log)
+
+
+def _run(plan):
     env = plan["env"]
     configure_jvs(env)
     # 0a. Drop-ins (docs/dropins.md): de bestanden in de view zetten en de omgeving bijwerken. Dit gebeurt
@@ -1745,7 +2250,11 @@ def run(plan):
     threading.Thread(target=helper_log, daemon=True).start()
     if not ready.wait(20):
         log("pipehelper meldde zich niet binnen 20 s; toch verder")
-    # 4. De lader (eventueel in gamescope).
+    # 4. De lader (eventueel in gamescope). Een profiel met meer dan een start gaat via run_starts(); een gewone game
+    # (een exe) neemt het pad hieronder, ongewijzigd.
+    if len(plan.get("starts") or []) > 1:
+        a11 = A11Collector(plan["profile"])
+        return run_einde(plan, run_starts(plan, env, a11), helper, server, a11)
     log("start: cwd=%s" % plan["cwd"])
     log("start: %s" % " ".join(shlex.quote(a) for a in plan["argv"]))
     log("omgeving: %s" % " ".join("%s=%s" % kv for kv in sorted(plan["launch_env"].items())))
@@ -1782,6 +2291,11 @@ def run(plan):
             quiet = quiet + 1 if not game_alive(set(plan["game_comms"])) else 0
             time.sleep(1)
     pt.join(2)
+    return run_einde(plan, rc, helper, server, a11)
+
+
+def run_einde(plan, rc, helper, server, a11):
+    """Het einde van een run: de logbestanden van de kern in het logboek, de A11-oogst, de helper en de pipe dicht."""
     files = []
     if plan["log_full"]:
         for cand in ("teknoparrot_log.txt", "tp_log.txt", "TeknoParrot/teknoparrot_log.txt"):
@@ -1803,6 +2317,162 @@ def run(plan):
     server.close()
     log("klaar (exitcode %s)" % (rc if rc is not None else "gestopt"))
     return 0 if rc is None else (rc & 0xFF)
+
+
+def _start_weg(r):
+    """True als deze start echt weg is: het gestarte proces is geeindigd EN er leeft geen proces meer met de naam
+    van zijn exe. De lader mag eerder stoppen dan het programma dat hij startte (OpenParrotLoader doet dat), dus het
+    einde van de lader alleen zegt niets. Twee keer gemeten met een stap ertussen, zodat een programma dat net
+    gestart is en zijn naam nog niet draagt niet voor dood wordt aangezien."""
+    for poging in (0, 1):
+        if r["proc"].poll() is None or game_alive(set(r["start"]["comms"])):
+            return False
+        if poging == 0:
+            time.sleep(START_STAP)
+    return True
+
+
+def _stop_start(r, waarom):
+    """Stop een start: het gestarte proces en wat er nog onder de naam van zijn exe leeft (alleen in onze eigen cgroup)."""
+    if r["proc"].poll() is None:
+        r["proc"].terminate()
+    me, comms = os.getpid(), set(r["start"]["comms"])
+    for sig, wachten in ((signal.SIGTERM, 20), (signal.SIGKILL, 4)):
+        pids = [pid for pid in own_cgroup_pids() if pid != me and comm_of(pid) in comms]
+        if not pids:
+            break
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+            except OSError:
+                pass
+        for _ in range(wachten):
+            if not any(comm_of(pid) in comms for pid in pids):
+                break
+            time.sleep(START_STAP)
+    r["stopped_by"] = waarom
+
+
+def run_starts(plan, env, a11):
+    """Start de starts van het plan in hun vaste orde, met de wachttijd ertussen, en volg het spel tot het weg is.
+
+    Elke start krijgt dezelfde omgeving (dus dezelfde Wine-prefix), dezelfde werkmap en dezelfde lader en kern.
+    De uitvoer en de exitcode van elke start worden apart bewaard (<state>/starts/<Profiel>-<tijd>/), en elke
+    regel in het logboek draagt de naam van de start die hem schreef.
+
+    Is een start al weg voordat de volgende begint, dan wordt dat luid gemeld, alles wat al liep wordt gestopt en
+    de run eindigt met EXIT_HALF: een halve opstelling is geen geldige run. Geeft de exitcode van de run."""
+    starts = plan["starts"]
+    n = len(starts)
+    logdir = os.path.join(STATE_DIR, "starts", "%s-%s" % (plan["profile"], time.strftime("%Y%m%d-%H%M%S")))
+    os.makedirs(logdir, exist_ok=True)
+    for line in start_log_lines(plan):
+        log(line)
+    log("omgeving (voor elke start dezelfde): %s" % " ".join("%s=%s" % kv for kv in sorted(plan["launch_env"].items())))
+    log("uitvoer en exitcode per start: %s" % logdir)
+    stop = {"flag": False}
+
+    def on_term(signum, frame):
+        stop["flag"] = True
+    signal.signal(signal.SIGTERM, on_term)
+    signal.signal(signal.SIGINT, on_term)
+
+    lopend = []
+
+    def begin(i, s):
+        r = {"n": i + 1, "start": s, "log": os.path.join(logdir, "%d-%s.log" % (i + 1, s["name"])), "stopped_by": "",
+             "meld": False}
+        log("start %d/%d (%s): cwd=%s" % (i + 1, n, s["name"], s["cwd"]))
+        r["proc"] = subprocess.Popen(s["argv"], cwd=s["cwd"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        r["pid"] = getattr(r["proc"], "pid", None)
+        r["started"] = time.strftime("%H:%M:%S")
+
+        def pump():
+            with open(r["log"], "w") as f:
+                for raw in r["proc"].stdout:
+                    line = decode_console(raw)
+                    f.write(line + "\n")
+                    f.flush()
+                    sys.stdout.write("[%s] %s\n" % (s["name"], line))
+                    sys.stdout.flush()
+                    if s["role"] == "main":
+                        a11.feed(line)
+        r["thread"] = threading.Thread(target=pump, daemon=True)
+        r["thread"].start()
+        lopend.append(r)
+        return r
+
+    def verslag(rc_run):
+        uit = []
+        for r in lopend:
+            r["thread"].join(2)
+            code = r["proc"].poll()
+            log("start %d/%d (%s): exitcode %s%s; uitvoer in %s"
+                % (r["n"], n, r["start"]["name"], "nog lopend" if code is None else code,
+                   " (gestopt door de launcher: %s)" % r["stopped_by"] if r["stopped_by"] else "", r["log"]))
+            uit.append({"n": r["n"], "name": r["start"]["name"], "role": r["start"]["role"], "argv": r["start"]["argv"],
+                        "pid": r["pid"], "started": r["started"], "exitcode": code,
+                        "exitcode_of": "het gestarte proces (wine met de lader); de lader kan eerder stoppen dan de exe",
+                        "stopped_by_launcher": r["stopped_by"], "output": r["log"]})
+        for s in starts[len(lopend):]:
+            uit.append({"n": starts.index(s) + 1, "name": s["name"], "role": s["role"], "argv": s["argv"],
+                        "pid": None, "started": None, "exitcode": None, "not_started": True})
+        with open(os.path.join(logdir, "starts.json"), "w") as f:
+            json.dump({"profile": plan["profile"], "exitcode_run": rc_run, "starts": uit}, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+
+    # De orde: start, wachten, controleren dat alles wat al liep nog leeft, volgende start.
+    for i, s in enumerate(starts):
+        if i:
+            log("wachten: %g s voor start %d/%d (%s)" % (s["wait_before"], i + 1, n, s["name"]))
+            dood = None
+            for _ in range(int(-(-s["wait_before"] // START_STAP))):
+                dood = next((r for r in lopend if _start_weg(r)), None)
+                if dood or stop["flag"]:
+                    break
+                time.sleep(START_STAP)
+            dood = dood or next((r for r in lopend if _start_weg(r)), None)
+            if stop["flag"] and not dood:
+                break
+            if dood:
+                log("FOUT: start %d/%d (%s) is GESTOPT (exitcode %s) voordat start %d/%d (%s) begon. De run wordt "
+                    "afgebroken: een halve opstelling is geen geldige run. De uitvoer van de gestopte start staat in %s"
+                    % (dood["n"], n, dood["start"]["name"], dood["proc"].poll(), i + 1, n, s["name"], dood["log"]))
+                print("Halve opstelling: start %d/%d (%s) stopte voordat start %d/%d (%s) begon"
+                      % (dood["n"], n, dood["start"]["name"], i + 1, n, s["name"]), file=sys.stderr)
+                for r in lopend:
+                    if r is not dood:
+                        _stop_start(r, "een eerdere start was weg voordat de volgende begon")
+                verslag(EXIT_HALF)
+                return EXIT_HALF
+        begin(i, s)
+
+    # Volgen: de run duurt zolang het spel leeft. Stopt een andere start onderweg, dan staat dat een keer in het logboek.
+    hoofd = next((r for r in lopend if r["start"]["role"] == "main"), None)
+    rc = None
+    while hoofd and not stop["flag"]:
+        rc = hoofd["proc"].poll()
+        if rc is not None:
+            break
+        for r in lopend:
+            if r is not hoofd and not r["meld"] and _start_weg(r):
+                r["meld"] = True
+                log("LET OP: start %d/%d (%s) is gestopt (exitcode %s) terwijl het spel nog draait; uitvoer in %s"
+                    % (r["n"], n, r["start"]["name"], r["proc"].poll(), r["log"]))
+        time.sleep(0.5)
+    if hoofd and rc is not None and not stop["flag"]:
+        log("lader van %s gestopt (exitcode %d); het spel volgen" % (hoofd["start"]["name"], rc))
+        quiet = 0
+        while not stop["flag"] and quiet < 3:
+            quiet = quiet + 1 if not game_alive(set(hoofd["start"]["comms"])) else 0
+            time.sleep(1)
+    # Het spel is weg (of de run is gestopt): wat er nog naast liep hoort er niet te blijven staan.
+    for r in lopend:
+        if r is not hoofd or stop["flag"]:
+            if not _start_weg(r):
+                _stop_start(r, "het spel is gestopt" if not stop["flag"] else "de run is gestopt")
+    verslag(None if rc is None else (rc & 0xFF))
+    return rc
 
 
 def dropin_weiger(plan):
@@ -1829,6 +2499,10 @@ def main(argv):
     ap.add_argument("--log-full", action="store_true")
     ap.add_argument("--enforce-activation", action="store_true", help=argparse.SUPPRESS)  # TP-Patreon-poort toch afdwingen (uit; zie docs/decisions.md)
     ap.add_argument("--env", action="append", default=[])
+    ap.add_argument("--exe", help="start het spel vanaf dit pad (X:\\map\\spel.exe, een Unix-pad, of relatief aan de view); "
+                                  "de rest van de opstelling blijft gelijk")
+    ap.add_argument("--drive", action="append", default=[], metavar="LETTER=MAP",
+                    help="zet deze schijfletter voor de duur van de run in de prefix (MAP relatief aan de view; herhaalbaar)")
     a = ap.parse_args(argv)
     extra = {}
     for e in a.env:
@@ -1838,7 +2512,8 @@ def main(argv):
         k, v = e.split("=", 1)
         extra[k] = v
     try:
-        plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run)
+        plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run,
+                          exe=a.exe, drives=a.drive)
         # TeknoParrots Patreon-activering is hun verdienmodel in hun software, geen beveiliging in de game zelf. Op
         # onze eigen, onafhankelijke stack (eigen lader/kern/launcher/JVS-brug) is er geen TeknoParrot-software meer
         # om voor te betalen, dus dwingen we die poort niet meer af (beslissing eigenaar 2026-10-12; docs/decisions.md).
@@ -1873,6 +2548,13 @@ def main(argv):
                     print("%s: %s" % (k, v))
             for line in dropin_log_lines(plan):
                 print("drop-in: " + line)
+            if len(plan["starts"]) > 1:
+                for line in start_log_lines(plan):
+                    print(line)
+            for line in exe_log_lines(plan) + arg_log_lines(plan) + env_log_lines(plan):
+                print(line)
+            for line in (plan.get("start_script") or {}).get("lines", []):
+                print(line)
         return dropin_weiger(plan)
     if dropin_weiger(plan):
         return EXIT_PATCH
