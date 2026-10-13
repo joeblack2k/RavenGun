@@ -344,6 +344,146 @@ afkeurde, en in mijn lezing op `00 00 00 00 00` op elk monster -- dezelfde tegen
 monster kreeg dat adres een echte prologue. Dat adres klopt dus niet in deze build en hoort uit de
 adreslijst, ongeacht welke van de twee lezingen juist is.
 
+## BESLECHTING 2026-10-13 (tweede meting): de hook derefereert HETZELFDE adres als ik, en we zien verschillende bytes
+
+Run met de nieuwe hook (`rg-pe-hook.dll`, 130.341 B, sha256 `4e6759c9474e804c`), ONZE kern, dichte
+cadans. Ruwe uitvoer: `/tmp/b0-vergelijk/`. De hook logt nu de aanwijzer die hij werkelijk gebruikt.
+
+**Wat vaststaat:**
+
+| | waarde |
+|---|---|
+| de hook: aanwijzer/basis | `VA 0x00000001402b3b70` met basis `0x140000000` |
+| mijn lezer: hetzelfde adres | `0x1402b3b70` (mijn `AM_ADRESSEN`) |
+| de hook zag daar | `bytes 40 53 48 83 ec 20 8b da`, keuring `prologue 40 53 48 83` |
+| ik zag daar | `2b3b70=0000000000`, op **alle 12 monsters** (0,2 s t/m 5,5 s) |
+| mijn lezing | `.text 100,0 % nul`, **`3496500 van 3496500 B gelezen`** bij elk monster |
+| tweede adres 0x1402b4740 | hook: `48 83 ec 28 48 8b 0d 1d`; ik: `0000000000` op alle 12 monsters |
+
+**Dus: geen verkeerde basis, geen kort lezing, geen timingverschil.** Beide instrumenten keken naar
+hetzelfde adres, in hetzelfde proces, op hetzelfde moment, en zagen andere bytes.
+
+**En mijn pid is aantoonbaar het juiste proces:** het aantal threads in mijn steekproef ging van **1 naar
+2 op het moment dat de drop-in geladen werd** (`drop-in 0/1 -> 1/1`). Dat is de eigen thread van de hook,
+die dus in het proces zit dat ik bemonster. Mijn lezer is ook niet bevroren: in hetzelfde proces zag ik
+het entry point veranderen (`EB FE` op 1,0 s, TRAMPOLINE op 2,5 s) en dat zit in `.capcom1`.
+
+**Wat overblijft zijn twee mogelijkheden, en deze run kan ze niet scheiden:**
+
+1. **de bytes in het logboek komen niet van het adres dat erbij staat** (een tweede logfout, zoals de
+   eerder gevonden fout waarbij de bytes pas NA het patchen werden gelezen);
+2. **`/proc/<pid>/mem` laat voor dit Wine-proces van `.text` iets anders zien dan de PE-code zelf**,
+   terwijl het voor `.capcom1` wel klopt (daar zie ik de trampoline en `EB FE`).
+
+**Per instrument wat het wel en niet kan:**
+
+| | mijn sampler (`/proc/<pid>/mem`) | het logboek van de hook (in-process) |
+|---|---|---|
+| kan | de hele sectie lezen met byte-telling, zonder het spel aan te raken; entry point, threads, open bestanden; leeftijd van het proces volgen | de bytes zien zoals het spel ze zelf ziet |
+| kan niet | niet zeggen of zijn beeld hetzelfde is als wat de PE-code ziet; als Wine voor `.text` een andere view geeft, ziet hij nullen waar het spel code ziet | geen onafhankelijk bewijs: hij leest met zijn eigen aanwijzer, en een fout in wat hij logt is van buiten niet te zien |
+
+**Wat dit beslecht, en dat is goedkoop:** laat de hook de bytes die hij las **naar een bestand schrijven**
+(bijvoorbeeld 16 regels met VA + 8 bytes, plus een hash per pagina) in plaats van ze alleen te loggen.
+Dat is een gegeven dat ik met een eigen instrument kan natrekken. Klopt dat bestand met zijn logregel, dan
+is het meningsverschil over de GEHEUGENVIEW en moet de volgende stap de mapping zijn -- niet een
+instrument. Klopt het niet, dan is de logregel de afwijkende.
+
+**Gevolg voor de conclusie:** "de pakker kwam niet klaar" is nog steeds niet te handhaven, en wijst nu
+eerder de andere kant op: de hook ziet op hetzelfde adres echte code. Zolang dit niet beslecht is, is de
+vraag of de am-laag geraakt wordt niet te beantwoorden.
+
+**Verder in deze run:** 16 van 16 aangehaakt, 0 afgekeurd (het adres `0x2b4270` is uit de lijst, goed);
+`.text` 100 % nul in mijn lezing; entry point op de trampoline van 2,5 s tot het einde; **spel weg op
+6,0 s**. De 16 prologue-bytes uit het logboek (4 bytes per functie) zijn doorgegeven; mijn eigen 5-byte
+lezing geeft nullen, dus de vijfde byte wacht op de beslechting hierboven.
+
+## BESLECHTING 2026-10-13 (derde meting): er is maar EEN mapping, en mijn lezer leest anonieme mappings goed
+
+Meting met `b0-mapping.py` (nieuw) op een lopend spelproces onder ONZE kern, op 4,5 s en 5,5 s.
+Ruwe uitvoer: `/tmp/b0-map/`.
+
+**De mappings van het beeldbereik:**
+
+```
+140000000-140001000 r--p  .../VACUUM.exe        <- file-backed, de header
+140001000-140357000 r-xp  (anoniem)             <- .text
+140357000-14049c000 r--p  (anoniem)             <- .rdata
+14049c000-140d46000 rw-p  (anoniem)             <- .data
+140d46000-140d71000 r--p  (anoniem)             <- .pdata
+140d71000-14125c000 r-xp  (anoniem)             <- .capcom0 + .capcom1
+14125c000-14125e000 r--p  (anoniem)
+```
+
+**Er is dus geen tweede mapping van het beeld.** De hypothese "een file-backed beeld plus een anonieme
+kopie waar de pakker in schrijft" is weerlegd: `.text` is EEN anonieme `r-xp`-mapping, en `.capcom1` is
+er ook een. En mijn lezer leest anonieme mappings aantoonbaar goed -- op het entry point in `.capcom1`,
+in dezelfde anonieme soort mapping, lees ik `eb 08 92 1b 19 00 00 00`, precies de ongerepte eerste sprong
+uit het bestand. De file-backed header lees ik ook goed: `4d 5a 90 00` = `MZ`, gelijk aan het bestand.
+
+| adres | dekkende mapping | mijn bytes |
+|---|---|---|
+| `0x1402b3b70` (am) | `0x140001000-0x140357000` anoniem `r-xp` | `00 00 00 00 00 00 00 00` |
+| `0x1402b4740` (am) | idem | `00 00 00 00 00 00 00 00` |
+| `0x140f23125` (entry) | `0x140d71000-0x14125c000` anoniem `r-xp` | `eb 08 92 1b 19 00 00 00` |
+| `0x140000000` (header) | file-backed | `4d 5a 90 00`, **gelijk aan het bestand** |
+
+**Conclusie: niet mijn lezer is de afwijkende.** Er is geen andere mapping om naar te kijken, en ik lees
+anonieme mappings aantoonbaar correct (het entry point in `.capcom1` bewijst het, in dezelfde run en
+hetzelfde proces). Wat overblijft is dat **de bytes in het logboek van de hook niet van het adres komen
+dat ernaast staat**. Dat is dezelfde soort fout als de eerder gevonden logfout (bytes lezen na het
+patchen), en het is de vierde keer dat dit instrument iets logt dat de meting niet ondersteunt.
+
+**En de scherpe gevolgtrekking voor game 1:** als `.text` werkelijk helemaal nul is op het moment dat de
+hook patcht, dan schrijft hij zijn 16 `e9 rel32`-sprongen **in een regio die de pakker later vult** -- en
+dan worden ze bij het ontpakken overschreven. Een run die "16 van 16 aangehaakt" meldt zegt dus niets
+over de am-laag zolang vaststaat dat `.text` op dat moment nul is. De juiste volgorde is: eerst laten
+ontpakken, dan pas haken. Dat verklaart ook waarom de levensduur niet veranderde.
+
+## BESLECHTING 2026-10-13 (vierde meting): de GESLOTEN kern ontpakt in DEZELFDE anonieme regio
+
+De vraag was: schrijft de pakker in dezelfde anonieme regio die ik lees (dan zou ik code moeten zien)
+of ergens anders? Antwoord uit de bestaande dump van de GESLOTEN kern op 8 s (`.text` 11,2 % nul, dus
+volledig ontpakt), `/tmp/b0-geheugen-b/maps-gesloten.txt`:
+
+```
+140000000-140001000 rwxp .../VACUUM.exe     <- file-backed, de kop
+140001000-140357000 r-xp 00000000 00:00 0   <- .text            <- DEZELFDE REGIO
+140357000-14049c000 r--p 00000000 00:00 0
+14049c000-140d46000 rwxp 00000000 00:00 0
+140d71000-140da2000 r-xp 00000000 00:00 0
+140f15000-14125e000 rwxp 00000000 00:00 0
+```
+
+Dekkende mapping per adres, onder de GESLOTEN kern in de ONTPAKTE toestand:
+
+| adres | dekkende mapping |
+|---|---|
+| `0x1402b3b70` | `0x140001000-0x140357000` anoniem `r-xp` -- **precies dezelfde regio die ik lees** |
+| `0x140001000` | idem |
+| `0x140f23125` | `0x140f15000-0x14125e000` anoniem |
+| `0x140000000` | file-backed `VACUUM.exe` |
+
+**En in diezelfde dump staat `.text` op 11,2 % nul: de regio bevat dan echte code.** Er is geen aparte
+mapping waar de pakker naartoe schrijft. **De pakker schrijft in dezelfde anonieme regio die ik lees.**
+
+**Wat dat betekent:** als de pakker klaar is, dan zou IK op `0x1402b3b70` code moeten zien -- en dat is
+precies wat er onder de gesloten kern gebeurt. Dat ik onder onze kern daar nullen zie, betekent dus dat
+de pakker daar NIET klaar is. En het logboek van de hook dat daar echte prologues meldt, kan daarmee
+niet van dat adres komen. **Mijn lezing is niet de afwijkende; die van de hook is het.**
+
+**En de conclusie over de VOLGORDE staat:** haken moet NA het ontpakken. Zolang de hook zijn 16 sprongen
+in een nog lege `.text` schrijft, vult de pakker die regio later en verdwijnen ze. Een run die "16 van
+16 aangehaakt" meldt zegt dan niets over de am-laag.
+
+**Wat nog niet gelukt is:** de vergelijking met het nieuwe artefact `rg-pe-hook-bytes.txt`. De run werd
+door mijn eigen bench-controle geweigerd omdat er nog een `wineserver` (760522) liep uit de vorige
+meting; er is dus niets gestart en niets gemeten. Die vergelijking staat nog open: artefact-bytes per
+tijdstip naast mijn bytes per tijdstip, op `0x1402b3b70` en `0x1402b4740`.
+
+**Per instrument, kort:** mijn lezer kan de hele sectie met byte-telling lezen en de mappings opvragen,
+maar niet zeggen wat de PE-code zelf ziet; de hook ziet wat het spel ziet, maar heeft geen
+onafhankelijke controle op zijn eigen bytes -- en op deze vier metingen is dat zijn zwakke punt gebleken.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

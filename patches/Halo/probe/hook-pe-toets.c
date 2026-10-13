@@ -82,6 +82,7 @@ int main(int argc, char **argv)
     int fd, verwacht = -1, i;
     uint64_t bel = 0, bel_net = 0;
     const char *ontpak = NULL;
+    const char *bytes_uit = "/tmp/rg-pe-hook-bytes.txt";
     int eigen = 0;
     int rc;
 
@@ -100,6 +101,8 @@ int main(int argc, char **argv)
             bel_net = strtoull(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--eigen-thread"))
             eigen = 1;
+        else if (!strcmp(argv[i], "--bytes-uit") && i + 1 < argc)
+            bytes_uit = argv[++i];
         else if (!strcmp(argv[i], "--ontpak-na") && i + 1 < argc)
             G_ontpak_ms = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--ontpak-rvas") && i + 1 < argc)
@@ -146,6 +149,8 @@ int main(int argc, char **argv)
     }
 
     memset(&G, 0, sizeof G);
+    G.bytes_pad = bytes_uit;
+    G.beeld_naam = beeld_pad;
     G.lijst_pad = lijst;
     G.beeld = beeld;
     G.beeld_n = (size_t)grootte;

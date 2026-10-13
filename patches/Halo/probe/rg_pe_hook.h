@@ -61,6 +61,7 @@ typedef struct {
     int is_export;
     uint32_t rva;            /* uitgerekend */
     uintptr_t doel_adres;    /* runtime-adres in dit beeld */
+    unsigned char gezien[8]; /* de bytes die de KEURING zag (vóór het patchen) */
     int geldig;
     int gehaakt;
     int wacht;               /* 1 = de pagina is nog niet uitgepakt; opnieuw proberen */
@@ -85,6 +86,14 @@ typedef struct {
     size_t beeld_n;
     FILE *log;                   /* NULL = stil */
     void (*todo_melder)(int idx);/* wordt door TODO-stubs aangeroepen */
+    /*
+     * Het BEWIJSARTEFACT: het pad waar de engine op het moment van de KEURING per adres de acht
+     * gelezen bytes wegschrijft, met de pagina-hash. NULL = geen artefact. En `beeld_naam` is de naam
+     * van het bestand waar het beeld vandaan komt, zodat er niets te raden valt.
+     */
+    const char *bytes_pad;
+    const char *beeld_naam;
+    FILE *bytes_log;
     /*
      * De afhandelaar van een omhul-hook (`antwoord = omhul`). De stub springt er met de ORIGINELE
      * argumentregisters naartoe, dus deze C-functie heeft dezelfde eerste vier integer-argumenten als

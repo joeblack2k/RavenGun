@@ -20,7 +20,7 @@ echo "############ 0. bouwen"
 [ -f "$LIJST" ] || { echo "  lijst ontbreekt: $LIJST"; exit 1; }
 echo "  beeld: $BEELD  ($(stat -c%s "$BEELD") B, sha256 $(sha256sum "$BEELD" | cut -c1-16))"
 echo "  lijst: $LIJST  ($(grep -c '^\[am' "$LIJST") regels)"
-gcc -Wall -Wextra -O2 -I"$H" -o "$TMP/toets" "$H/hook-pe-toets.c" "$H/rg_pe_hook.c" 2>&1 | head -20
+gcc -Wall -Wextra -O2 -I"$H" -o "$TMP/toets" "$H/hook-pe-toets.c" "/home/deck/projects/ravengun/tools/rt-hasphook/rg_pe_hook.c" 2>&1 | head -20
 echo "  gcc exitcode ${PIPESTATUS[0]}"
 [ -x "$TMP/toets" ] || { echo "  bouwen mislukt"; exit 1; }
 

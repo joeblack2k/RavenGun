@@ -558,6 +558,64 @@ static int rg_alles_nul(const unsigned char *p, size_t n)
     return 1;
 }
 
+/* Een korte, domme hash over de eerste 64 bytes van een pagina (FNV-1a, 32 bits). */
+static uint32_t rg_pagina_hash(const unsigned char *p, size_t n)
+{
+    uint32_t h = 2166136261u;
+    size_t i;
+    for (i = 0; i < n; i++) {
+        h ^= p[i];
+        h *= 16777619u;
+    }
+    return h;
+}
+
+/*
+ * Het BEWIJSARTEFACT: een regel per GELEZEN adres, geschreven OP HET MOMENT VAN DE KEURING -- niet
+ * bij het rapporteren, want dan is er al gepatcht en zie je de sprong in plaats van de prologue.
+ * Per regel: tijd, het absolute adres, de acht gelezen bytes, de paginabasis en TWEE hashes:
+ * de pagina-hash (eerste 64 B van de pagina) en de adres-hash (64 B VANAF HET ADRES). Die laatste
+ * beweegt mee op het moment dat de pakker de prologue schrijft; de pagina-hash kan gelijk blijven
+ * als het adres niet aan het begin van de pagina ligt.
+ */
+static void rg_schrijf_bewijs(rg_pe_ctx *c, const rg_pe_regel *r, const unsigned char *p,
+                              uint64_t imagebase)
+{
+    uint32_t pag, h_pag, h_adres;
+    unsigned char buf[64];
+    size_t k = 0;
+    if (!c->bytes_log)
+        return;
+    pag = r->rva & ~0xFFFu;
+    memset(buf, 0, sizeof buf);
+    if ((size_t)pag + sizeof buf <= c->beeld_n) {
+        memcpy(buf, c->beeld + pag, sizeof buf);
+        k = sizeof buf;
+    } else if ((size_t)pag < c->beeld_n) {
+        k = c->beeld_n - pag;
+        memcpy(buf, c->beeld + pag, k);
+    }
+    h_pag = rg_pagina_hash(buf, k);
+    /* de adres-hash: 64 bytes vanaf het adres zelf, dus de buurt die meebeweegt */
+    memset(buf, 0, sizeof buf);
+    k = 0;
+    if ((size_t)r->rva + sizeof buf <= c->beeld_n) {
+        memcpy(buf, c->beeld + r->rva, sizeof buf);
+        k = sizeof buf;
+    } else if ((size_t)r->rva < c->beeld_n) {
+        k = c->beeld_n - r->rva;
+        memcpy(buf, c->beeld + r->rva, k);
+    }
+    h_adres = rg_pagina_hash(buf, k);
+    fprintf(c->bytes_log,
+            "%llu  0x%016llx  %02x %02x %02x %02x %02x %02x %02x %02x  0x%016llx  pag %08x  "
+            "adres %08x\n",
+            (unsigned long long)rg_nu_ms(), (unsigned long long)r->doel_adres,
+            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
+            (unsigned long long)(imagebase + pag), h_pag, h_adres);
+    fflush(c->bytes_log);
+}
+
 /*
  * De keuring van EEN regel. Zet `geldig`, of `wacht` als de pagina nog niet is uitgepakt, of een
  * reden waarom het adres definitief wordt afgewezen. Apart gehouden omdat de wachtroute hem
@@ -596,6 +654,9 @@ static void rg_keur_een(rg_pe_ctx *c, const rg_pe_kop *kop, rg_pe_regel *r)
         return;
     }
     p = c->beeld + rva;
+    memset(r->gezien, 0, sizeof r->gezien);
+    memcpy(r->gezien, p, 8);   /* wat de KEURING ziet, niet wat er na het patchen staat */
+    rg_schrijf_bewijs(c, r, p, kop->imagebase);
     if (rg_alles_nul(p, 5)) {
         /* Nog niets: de pakker heeft deze pagina nog niet geschreven. Geen fout, wel te vroeg. */
         r->wacht = 1;
@@ -659,6 +720,35 @@ int rg_pe_hook(rg_pe_ctx *c)
            c->lijst_pad, c->beeld_vorm == RG_BEELD_PE ? "pe" : "elf",
            c->proloog == RG_PROLOOG_E9REL32 ? "e9rel32" : "standaard",
            c->basis_beeld ? "beeld" : "absoluut");
+
+    /*
+     * Het bewijsartefact openen en van een kop voorzien, zodat een andere partij het met een eigen
+     * instrument kan natrekken: welke module, welke basis, welk beeldbestand, en hoe de kolommen
+     * gelezen moeten worden.
+     */
+    if (c->bytes_pad && *c->bytes_pad) {
+        c->bytes_log = fopen(c->bytes_pad, "a");
+        if (c->bytes_log) {
+            fprintf(c->bytes_log, "\n");
+            fprintf(c->bytes_log, "# rg-pe-hook-bytes -- wat de KEURING las, op het moment van de keuring\n");
+            fprintf(c->bytes_log, "# tijd_ms        : %llu (monotoon, ms sinds de start van dit proces)\n",
+                    (unsigned long long)rg_nu_ms());
+            fprintf(c->bytes_log, "# modulebasis    : 0x%016llx\n", (unsigned long long)kop.imagebase);
+            fprintf(c->bytes_log, "# ImageBase      : 0x%016llx\n", (unsigned long long)kop.imagebase);
+            fprintf(c->bytes_log, "# SizeOfImage    : 0x%08x   entry 0x%08x   secties %d\n",
+                    kop.grootte_beeld, kop.ingang, kop.aantal_secties);
+            fprintf(c->bytes_log, "# beeldbestand   : %s\n",
+                    c->beeld_naam && *c->beeld_naam ? c->beeld_naam : "(niet opgegeven)");
+            fprintf(c->bytes_log, "# adreslijst     : %s\n", c->lijst_pad);
+            fprintf(c->bytes_log, "# geheugenvenster: %p .. %p (%zu bytes)\n", (void *)c->beeld,
+                    (void *)(c->beeld + c->beeld_n), c->beeld_n);
+            fprintf(c->bytes_log, "# kolommen: tijd_ms  VA  acht bytes  paginabasis  pagina-hash"
+                                  "(eerste 64 B van de pagina)  adres-hash(64 B vanaf het VA)\n");
+            fflush(c->bytes_log);
+        } else {
+            rg_log(c, "kon het bewijsartefact %s niet openen", c->bytes_pad);
+        }
+    }
 
     if (c->verwacht_grootte && c->verwacht_grootte != (uint64_t)kop.grootte_beeld) {
         rg_log(c, "lijst AFGEKEURD: grootte 0x%llx in de lijst, maar SizeOfImage is 0x%x",
@@ -791,9 +881,22 @@ int rg_pe_hook(rg_pe_ctx *c)
                r->antwoord == RG_ANTWOORD_TODO ? "  ANTWOORD = TODO" : "");
     }
 
-    /* het oordeel per regel, en de samenvatting in dezelfde vijf gevallen als de ELF-hook */
-    for (i = 0; i < c->n; i++)
-        rg_log(c, "  %-34s 0x%08x  %s", c->regels[i].naam, c->regels[i].rva, c->regels[i].reden);
+    /*
+     * Het oordeel per regel, en de samenvatting in dezelfde vijf gevallen als de ELF-hook.
+     *
+     * Per regel staan er TWEE dingen, omdat een tegenspraak tussen twee instrumenten anders niet te
+     * beslechten is: de AANWIJZER die werkelijk is gederefereerd (het absolute adres) met de
+     * MODULEBASIS die daarvoor is gebruikt, en de bytes die op dat moment op die plek stonden. Wie
+     * buiten het proces op het nominale adres leest en daar nullen ziet, kan dat hiernaast leggen.
+     */
+    for (i = 0; i < c->n; i++) {
+        rg_pe_regel *r = &c->regels[i];
+        rg_log(c, "  %-34s RVA 0x%08x  VA 0x%016llx (basis 0x%llx)  bytes %02x %02x %02x %02x "
+                  "%02x %02x %02x %02x", r->naam, r->rva, (unsigned long long)r->doel_adres,
+               (unsigned long long)kop.imagebase, r->gezien[0], r->gezien[1], r->gezien[2],
+               r->gezien[3], r->gezien[4], r->gezien[5], r->gezien[6], r->gezien[7]);
+        rg_log(c, "  %-34s %s", "", r->reden);
+    }
     for (i = 0; i < c->n; i++) {
         rg_pe_regel *r = &c->regels[i];
         if (r->gehaakt)
