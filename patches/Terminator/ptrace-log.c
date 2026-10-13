@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/ptrace.h>
@@ -29,6 +30,8 @@
 
 static long (*echte_ptrace)(enum __ptrace_request, ...);
 static FILE *log;
+static struct timespec t0;
+static int t0_gezet;
 
 static void meld(const char *fmt, ...)
 {
@@ -39,7 +42,17 @@ static void meld(const char *fmt, ...)
         if (!log) return;
         setvbuf(log, NULL, _IOLBF, 0);
     }
-    fprintf(log, "[ravengun-ptrace-log] pid %d ppid %d: ", (int)getpid(), (int)getppid());
+    /* Tijdstempel erbij: zonder tijden kun je niet zien of de gast WERKT of SPINT. Zie
+       BESCHERMINGSLAAG-PTRACE.md §8.5 en kind-analyse.py. */
+    {
+        struct timespec ts;
+        if (!t0_gezet) { clock_gettime(CLOCK_MONOTONIC, &t0); t0_gezet = 1; }
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        fprintf(log, "[ravengun-ptrace-log] +%9.6f pid %d ppid %d: ",
+                ((double)ts.tv_sec + (double)ts.tv_nsec / 1e9) -
+                ((double)t0.tv_sec + (double)t0.tv_nsec / 1e9),
+                (int)getpid(), (int)getppid());
+    }
     va_start(ap, fmt);
     vfprintf(log, fmt, ap);
     va_end(ap);

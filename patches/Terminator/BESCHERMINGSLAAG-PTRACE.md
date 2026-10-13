@@ -336,6 +336,13 @@ allemaal op dezelfde ouder (pid 752482), vanuit **392 verschillende kindprocesse
 In arm A waren dat er **twee regels** totaal. Daarna eindigt de gast met **exit 0** na **4 s** (arm A:
 exit 255 binnen 1 s).
 
+**Dit is het cijfer dat de poort opent: 390 van 390 geslaagde ATTACH's uit 392 verschillende
+kindprocessen, tegen twee in arm A.** Een groot en meetbaar verschil: de handshake die de gast wil, lukt
+nu volledig in plaats van één keer te mislukken. **AFGELEID** is wat er daarná gebeurt — of de gast met
+die 392 kinderen *werkt* (een werkerpool die per taak een proces opstart) of *spint* (een lus die zichzelf
+opjaagt) kan ik met deze gegevens **niet** scheiden. Daarom is er §8.5: dat is de meting die dat
+onderscheid moet maken, en die is zonder bench voorbereid.
+
 ### 8.3 Wat dit betekent, en vooral wat NIET
 
 **TREFFER volgens de tabel van §5.1, rij 1:** de ATTACH slaagt in arm B (390/390) en de gast leeft langer
@@ -378,6 +385,67 @@ kanttekening dat `PhysX.conf` in de spelmap ontbreekt.
 3. **`PhysX.conf`.** Als de gast dat bestand zoekt en niet vindt, is dat de volgende kandidaat; het staat
    niet in de spelmap (GEMETEN).
 
+### 8.5 De vervolgmeting: WERKT de gast of SPINT hij? (voorbereid, wacht op bench)
+
+Het cijfer van §8.2 (392 kinderen in 4 s) is de aanleiding. De vraag is niet triviaal: een werkerpool die
+per taak een proces opstart en een lus die zichzelf opjaagt zien er op één teller hetzelfde uit. Wat ze
+onderscheidt zijn **tijd en gelijktijdigheid**, dus die gaan we meten.
+
+**Wat er gebouwd is** (zonder bench, en **getest op twee proefprocessen met een bekende vorm**):
+
+- **`fork-log.c`** → `libravengun-fork-log.so`, een 32-bits preload die `fork`, `waitpid` **en** `wait`
+  wikkelt (de gast importeert `fork@GLIBC_2.0` en `waitpid@GLIBC_2.0` dynamisch; `wait` is een ánder
+  symbool, dus dat wikkelen we ook, anders zou een kind dat via `wait()` wordt opgeraapt voor de analyse
+  nog leven). Per regel een monotone tijdstempel, het pid en het ppid, met deze gebeurtenissen: `start`,
+  `kind-gemaakt kind=<pid>`, `kind-start`, `einde exit-code=<n>`, en
+  `kind-opgeraapt kind=<pid> status=.. <geëindigd met code N | GESTOPT door signaal N>`.
+  **De autoriteit is `kind-opgeraapt`, niet `einde exit-code`**: een kind dat via `_exit()` verdwijnt laat
+  geen exit-regel achter, en dat zegt **niets** over hoe het eindigde. Alleen het wachtstatus-cijfer bij de
+  ouder vertelt of een kind netjes eindigde of gestopt is. `kind-analyse.py` gebruikt daarom dat veld.
+  Geeft de gast `wait(NULL)` mee (geen status), dan loggen we `status=(niet opgevraagd door de gast)` —
+  levensduur en aantal zijn dan nog steeds gemeten.
+- **`ptrace-log.c`** heeft nu ook een tijdstempel per regel (`+<seconden>`), zodat de ptrace-aanroepen op
+  dezelfde tijdlijn staan als de kinderen.
+- **`kind-analyse.py`** rekent het uit en print de criteria mee, zodat de conclusie narekenbaar is:
+  1. aantal kinderen, waarneemvenster, **tempo in kinderen/s**;
+  2. **intervallen** tussen opeenvolgende kinderen (min/mediaan/max + verdeling in bakken) — een lus laat
+     intervallen naar nul zakken, een pool houdt ze grofweg regelmatig;
+  3. **levensduur per kind** en **maximale gelijktijdigheid** — een pool heeft een *gebonden* aantal
+     tegelijk en kinderen die lang genoeg leven om werk te doen; een lus heeft gelijktijdigheid 1 en een
+     levensduur van bijna nul;
+  4. wat elk kind deed (ptrace-aanroepen per kind, geslaagd/EPERM).
+
+**Zelfproef met bekende uitkomst (GEMETEN).** Op twee proefprocessen waarvan we de vorm zelf bepaalden:
+
+| proef | vorm | uitkomst van de analyse |
+|---|---|---|
+| A | 30 kinderen, elk 4 ms, geforkt elke 3 ms | 30/30 opgeraapt, intervallen 3 ms (100 % in de bak 1-5 ms), **gelijktijdigheid 30**, mediaan levensduur 48,7 ms → **"geen lus"** |
+| B | 200 kinderen, elk ~0 ms, strikt na elkaar | 200/200 opgeraapt, intervallen < 1 ms (199/200), **gelijktijdigheid 1**, mediaan levensduur 0,1 ms → **"LUS (SPINT)"** |
+
+De tool maakt het onderscheid dus op proeven waarvan we het antwoord kennen. Twee fouten in mijn eigen
+gereedschap kwamen daarbij boven — `wait` was niet gewikkeld, en een `NULL`-status werd overgeslagen —
+en die zijn gerepareerd. **Dat is precies waarom de zelfproef er is**, en het is ook de reden om de
+uitkomst op de echte gast pas te geloven als deze analyse er hetzelfde over zegt.
+
+**Wat de uitkomst dan betekent, vooraf:**
+
+| waarneming | betekenis | actie |
+|---|---|---|
+| gebonden gelijktijdigheid (bv. 2-16), kinderen leven milliseconden tot seconden, intervallen regelmatig | **werkerpool**: de gast doet echt werk per kind | dan is de vraag "waarom stopt hij na 4 s" en niet "waarom spint hij"; PhysX/`/g3/` blijven de kandidaten |
+| gelijktijdigheid 1, levensduur ≈ 0, intervallen < 1 ms die domineren, >100 kinderen | **lus**: de gast jaagt zichzelf op | dan is het zoeken naar de *reden* dat de cyclus niet stopt, en dat is een andere vraag dan een dichte poort |
+| geen enkel `kind-opgeraapt` | de ouder raapt zijn kinderen niet op (of vraagt geen status) | dan weten we alleen DAT ze gemaakt zijn; de volgende vraag is wie ze opruimt |
+| weinig kinderen deze keer | de gast gedroeg zich anders dan in de A/B | eerst vaststellen waarom de runs niet vergelijkbaar zijn |
+
+**AFGELEID blijft staan:** werkerpool versus lus is met alleen fork-tijden niet hard te maken. De analyse
+geeft een *richting*, geen bewijs; de scripttekst zegt dat er zelf bij.
+
+### 8.6 De HASP-aanroepmeting (voorbereid, wacht op bench)
+
+Zie `hasp-meting.sh` en `DRAAIBOEK-BENCH.md` §7. Die is **nu voor het eerst zinvol**: de gast komt
+aantoonbaar voorbij de poort (390 geslaagde ATTACH's), dus **nul `aanroep:`-regels betekent nu echt "de
+blokkade zit vóór de HASP-API"** in plaats van "we zijn er nooit geweest". De opzet is één run met de
+maatregel + de hook + beide waarnemers, en de uitkomsttabel staat in het script zelf.
+
 ---
 
 ## 9. Bestanden in deze map
@@ -387,6 +455,10 @@ kanttekening dat `PhysX.conf` in de spelmap ontbreekt.
 | `BESCHERMINGSLAAG-PTRACE.md` | dit dossier |
 | `yama-toets.c` | de microtoets: kind haakt ouder aan, met en zonder maatregel |
 | `ptracer-permit.c` | **de maatregel** (32-bits preload, zet `PR_SET_PTRACER_ANY`) |
-| `ptrace-log.c` | **de waarnemer** (32-bits preload, geen tracer, logt elke `ptrace`-aanroep) |
-| `yama-ab.sh` | de twee runs op de bench als één script (`--start` om echt te draaien) |
-| `DRAAIBOEK-BENCH.md` | §10 de eerdere laderrun, §10b de geslaagde run van de laderbouwer, §7 de adreslijstmeting |
+| `ptrace-log.c` | **de waarnemer** (32-bits preload, geen tracer, logt elke `ptrace`-aanroep, nu met tijd) |
+| `fork-log.c` | **de kind-waarnemer** (32-bits preload, logt `fork`/start/einde met tijd en ppid) |
+| `kind-analyse.py` | rekent werkerpool-vs-lus uit de twee logboeken, met de criteria erbij |
+| `yama-ab.sh` | de twee armen van de A/B als één script (`--start` om echt te draaien) |
+| `hasp-meting.sh` | de aanroepmeting van de HASP-hook als één script, met de uitkomsttabel vooraf |
+| `DRAAIBOEK-BENCH.md` | §7 de adreslijstmeting, §10 de eerdere laderrun, §10b de geslaagde run van de laderbouwer |
+| `logs-yama-ab-20261013-0930/` | de vijf logboeken van de A/B (arm A én arm B) |
