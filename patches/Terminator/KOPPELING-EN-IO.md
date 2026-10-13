@@ -466,3 +466,63 @@ metingen hadden**: mijn **displayscript is ze kwijtgeraakt** (de `/T4User`-overl
 
 
 
+
+---
+
+## 10. De NAS-grens, met een meting eronder (GEMETEN)
+
+Tot vandaag rustte de alleen-lezen-regel op onze discipline. Nu is er een meting:
+
+```
+bestanden in de spelmap gewijzigd na 13:40 : 0
+bestanden in de spelmap vandaag aangeraakt : 0
+mappen (., T4User, T4Data, env, hasp, irgun): allemaal 2026-10-09
+T4User/log/syslog_bb3.txt                  : 12.019 B, 2026-10-12 01:49  (onveranderd)
+GeneralPurposeStateMachine.txt              : 5.782 B, 2026-10-11
+```
+
+**Nul bestanden.** Dat is niet alleen een uitsluiting van "het spel heeft zijn eigen staat veranderd en
+leest nu iets anders"; het is **positief bewijs dat de NAS de hele dag niet beschreven is**, terwijl er
+tientallen runs zijn gedaan — allemaal met de spelmap als **read-only bron** en schrijfacties in een
+**overlay-upper in /tmp**. De eigenaar noemde dit zijn belangrijkste regel; dit is het bewijs ervan.
+
+---
+
+## 11. DE SLUITENDE CONCLUSIE: deze gast maakt geen venster, langs GEEN enkele weg
+
+**De gast LAADT alles, doet zijn bestandspeilingen, start zijn supervisor-lus van 10 ms en eindigt met
+`exit(0)` zonder ooit zijn tekenopzet aan te raken** — dezelfde vorm als het kind dat na zijn
+`PTRACE_DETACH` onvoorwaardelijk `exit(0)` doet. De vraag is daarmee niet meer "waarom komt er geen
+beeld" maar **"waarom bereikt de gast zijn GLUT-opzet niet"**, en dat gaat over de vroege besturing van de
+gast, niet over het scherm.
+
+### 11.1 Wat er GEMETEN is (met het laadbewijs erbij)
+```
++ 0.000001 pid=1052314 WIKKEL GELADEN (libravengun-glut-log actief in pid 1052314)
+glutCreateWindow 0x · glutInit 0x · glutInitDisplayMode 0x · glutInitWindowSize 0x
+glutInitWindowPosition 0x · glutGameModeString 0x · glutEnterGameMode 0x
+glutMainLoop 0x · glutDisplayFunc 0x · glutSwapBuffers 0x · glutPostRedisplay 0x
+exit=0  levensduur=4s  FOUT=21
+```
+**`glutInit` wordt niet eens aangeroepen** — de eerste regel van elk GLUT-programma, vóór alles. De
+constructor die bij het laden een regel schrijft, is wat "niet geladen" van "nooit aangeroepen"
+scheidt: **een instrument dat niet kan bewijzen dat het leeft, kan geen negatief melden.**
+
+### 11.2 En de andere wegen: uitgesloten door de IMPORTLIJST te lezen, niet door te draaien
+| weg | imports in `game` | verdict |
+|---|---|---|
+| **GLUT** | **15** (`glutInit` … `glutEnterGameMode`, `glutGameModeString`) | de enige vensterweg — en **niet aangeroepen** |
+| **GLX** | 4, allemaal query/extension: `glXGetClientString`, `glXGetProcAddressARB`, `glXQueryVersion`, `glXSwapIntervalSGI` | **geen `glXCreateWindow`/`glXCreateContext`/`glXMakeCurrent` -> uitgesloten** |
+| **X11** | 9, maar **geen** `XCreateWindow`, `XCreateSimpleWindow`, `XMapWindow`, `XMapRaised`, `XOpenDisplay` | **uitgesloten** |
+| **SDL · EGL · GLFW · GLEW** | **0** | **niet geïmporteerd -> gratis uitgesloten** |
+
+**Dit is sterker dan een proef zou zijn:** de importlijst is **uitputtend over de hele binary**, terwijl
+een runtime-probe steekproeft. De laatste ontsnapping in mijn eigen antwoord — "hij zou via GLX/SDL/X11
+kunnen" — is daarmee dicht, en dat kostte geen benchslot.
+
+### 11.3 Vier displayhypothesen, vier metingen, alle vier uitgesloten
+1. **het bord dat de focus houdt** — 14:07: bord én saver uit, spel tekende niet;
+2. **"Show Desktop" dat alle vensters verbergt** — `showingDesktop=false`, en `showDesktop(false)` verandert niets;
+3. **de desktoplaag over een getekend spel** — er is geen venster om over heen te liggen;
+4. **onze eigen instrumentatie** — de lus bestaat ook zonder onze waarnemers (`pol2`, 1.005.599 monsters).
+**De vraag is niet meer over het scherm.**

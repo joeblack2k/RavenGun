@@ -3,6 +3,47 @@
 *RavenGun, 2026-10-13, de loader-sessie. Alles hieronder is GELEZEN uit de code van `game` (Game Rev 57529) met `objdump`;
 er is niets gestart. Achter elke bewering staat het adres van de code waar het staat. Wat niet gelezen is, staat onderaan.*
 
+## 00. STAND 14:40 — de geweren lopen via het IO-BORD (klasse 0x4); hier staat de slotkaart
+
+Dit vervangt de richting van de secties hieronder. Alles is GELEZEN uit `game`; niets is gedraaid.
+
+**De invoerklassen.** Er is een vaste tabel van acht apparaatklassen op `0x16f8380` (0x80 per klasse: id, drie functies,
+gegevens). Klasse `0x8` is de camerageweer-laag (functies `0x623f30`, `0x624430`, `0x624110`), klasse `0x4` is het IO-bord
+(`0x61ff70`, `0x6200c0`, `0x6208e0`; gegevens `0x1815d20` = `0x180ae80 + 0xaea0`, de tafel waar de hulp al in schrijft).
+De lus per beeld (`0x61cb20`) roept alleen klassen aan waarvan het id in het masker `[0x181d8a0]` staat. Dat masker komt uit
+`[0x1766f40]` (gezet op `0x4ac5e4`, doorgegeven op `0x4acbe8`, opgeslagen op `0x61c972`); de enige zetter wordt een keer
+aangeroepen (`0x436485`) met een waarde uit `0x800`, `0x4`, `0x100` en `0x20000`, en later wordt alleen `0x100` aan- of
+uitgezet (`0x61cd10`, `0x61cd20`). **Bit `0x8` komt er dus nooit in**: de voeding en bijwerking van klasse 8 lopen niet, en
+de enige aanroepers van de richtpunt-lezer `0xdd6c60` en de knoplezer `0xdd5e50` zitten in die voeding.
+
+**Wat WEL van de camerageweer-laag gebruikt wordt:** de eigen geweermodule van het spel (`0x415000..0x417f00`) roept die laag
+rechtstreeks aan voor aanwezigheid (`0x417880 -> 0xdd4b10`: het apparaatblok) en voor de kalibratie. Die laag is dus niet dood;
+alleen het richtpunt en de knoppen komen er in deze build niet uit.
+
+**De bindingen.** Het spel legt met `0x4acdb0(invoer-id, actie-id)` vast welke invoer welke actie voedt; alle 187 aanroepen
+staan in `bindingen-ruw.txt` (in het geheugen: paren van 8 bytes vanaf `0x176f850`, aantal op `0x1771850`). Een invoer-id
+`0x239..0x298` is een bordvak: bord = (id-0x239)>>5, vak = (id-0x239)&31, adres = `0x1815d20 + bord*0x2200 + vak*0x50`.
+
+| Actie | Betekenis | Bord 0, vak | Adres van het vak |
+|---|---|---|---|
+| `0x206` | speler 1 richten X (dezelfde actie als het camerageweer-id `0x319`) | 17 | `0x1816270` |
+| `0x207` | speler 1 richten Y (`0x31a`) | 18 | `0x18162c0` |
+| `0x208`, `0x20a`, `0x209` | de drie geweerknoppen van speler 1 | 21, 22, 23 | `0x18163b0`, `0x1816400`, `0x1816450` |
+| `0x212`, `0x213` | speler 2 richten X, Y | 19, 20 | `0x1816310`, `0x1816360` |
+| `0x214`, `0x216`, `0x215` | de drie geweerknoppen van speler 2 | 25, 26, 27 | `0x18164f0`, `0x1816540`, `0x1816590` |
+
+Bord 1 heeft dezelfde indeling voor speler 3 en 4. De kastschakelaars zijn vak 0 tot 6 (start, volume, service, test, munt:
+zoals de hulp ze al kent) en 8 tot 13.
+
+**Een vak is een schakelaar of een analoog kanaal.** Het soortveld staat op vak+0: 0 = analoog, 1 of 2 = schakelaar (de twee
+getters `0x61ee70` en `0x61e890` rekenen hetzelfde adres uit en kijken alleen naar dat veld). Op vak+8 begint de toestand. Voor
+een analoog kanaal (zetter `0x61cdc0`): +0x4 = de waarde, +0xc = de ruwe waarde, +0x14 en +0x18 = minimum en maximum, +0x0 =
+vlaggen (bit 0 keert om). Gerekend vanaf het vak dus: **waarde op vak+0xc, ruw op vak+0x14.**
+
+**Niet gelezen:** (1) de eenheid van het richtpunt en wat de kalibratie van de vaste geweren (`mountedGun%iCalibration`) ermee
+doet; (2) welke van de drie knopacties de trekker is (aanname: `0x208`, vak 21); (3) welke tak van de bindingsfunctie bij ons
+kasttype hoort (de lijst bevat alle takken door elkaar; vak 19 en 20 gaan in een andere tak naar speler 4).
+
 ## 0. CORRECTIE (13:55, na de eerste run en een tweede lezing): deze laag is voor ONS kasttype waarschijnlijk niet de bron
 
 Wat hieronder staat klopt als lezing, maar de conclusie "schrijf het paar en de knoppen in deze laag" is te vroeg getrokken.

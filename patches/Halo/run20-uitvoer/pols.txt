@@ -1,0 +1,8 @@
+pols: pid=1063759 adres=0x1815d20 gedurende 80 s, elke 25 ms
+Traceback (most recent call last):
+  File "/home/deck/projects/ravengun-patches/patches/Halo/probe/pols.py", line 40, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/deck/projects/ravengun-patches/patches/Halo/probe/pols.py", line 29, in main
+    w = struct.unpack('<16I', d)
+struct.error: unpack requires a buffer of 64 bytes

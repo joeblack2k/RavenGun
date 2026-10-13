@@ -1,0 +1,17 @@
+run: showDesktop(false) + KWin-vensterscript
+datum: 2026-10-13T14:12:12+02:00
+showingDesktop VOOR : false
+showingDesktop NA    : false
+AANROEP 1: org.kde.KWin.showDesktop(false)   (tijdens de run)
+AANROEP 2: herstel naar de staat van vooraf
+AANROEP 3: org.kde.kwin.Scripting.unloadScript tsvenster   (script eruit)
+exitcode: 0
+levensduur: 6 s
+FOUT: 21
+-- opnamen --
+shot-1.png 1561828 9e5f07fcb888
+shot-2.png 1561828 9e5f07fcb888
+shot-3.png 1561828 9e5f07fcb888
+shot-4.png 1561828 9e5f07fcb888
+shot-5.png 1561828 9e5f07fcb888
+shot-6.png 1561828 9e5f07fcb888
