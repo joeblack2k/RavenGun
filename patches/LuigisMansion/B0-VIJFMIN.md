@@ -1,8 +1,18 @@
 # De 5-minutenproef voor Luigi's Mansion op ONZE lader
 
 RavenGun, 2026-10-12. Dit is de meetlat die de eigenaar heeft gezet: **onze eigen lader start
-Luigi's Mansion en het spel draait 5 MINUTEN.** Stand nu: **288 s met de GESLOTEN kern, 6,3 s met
-onze kern.**
+Luigi's Mansion en het spel draait 5 MINUTEN.**
+
+> **GEHAALD 2026-10-13 (op de tv gezien door de eigenaar): ~6 min 10 s attract/demo aaneen op ONZE
+> kern, beeldvullend, zonder foutmelding.** De oplossing is de per-game drop-in `dropin/rg-pe-hook.dll`,
+> die zich op de `.text`-verzegeling van de pakker plaatst en (1) de EIGEN `ExitProcess` van het spel
+> in zijn gevirtualiseerde WinMain (terugkeeradres `VACUUM.exe+0xf1374d`) opvangt en TERUGKEERT, (2)
+> het datapad op RVA `0x3d0c20` schrijft, (3) de 17 am-keychip-functies afvangt met
+> `amDongleIsAvailableInternal` -> **1** (anders ERROR 0949 "Keychip Not Found"). De run-reeks staat in
+> `/home/deck/.cache/ravengun-luigi/blok1/` (r5 headless 304 s; r6 tv rendert; r7 keychipfout weg;
+> r8 de 6-minutenrun met schermafdrukken elke 15 s). Onderstaande "STAND"-secties zijn het
+> onderzoekspad daarnaartoe; de eerdere "exit 32 = Capcom anti-tamper"-lezing is weerlegd (32 is de
+> lage byte van een pointer). Zie `docs/research/luigismansion-exit-trace.md` en `game.ini` `[Status]`.
 
 Bestanden: `b0-vijfmin.sh` (de proef), `b0-vijfmin-sampler.py` (de bemonstering, root),
 `b0-momenten.sh` / `b0-momenten.py` (de korte tijdlijn, voor de kernverificatie).

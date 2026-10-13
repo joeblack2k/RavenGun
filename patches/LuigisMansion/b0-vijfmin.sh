@@ -67,7 +67,7 @@ fi
 
 zeg "bench-controle"
 EIGEN=""; _p=$$
-while [[ "${_p:-0}" -gt 1 ]]; do EIGEN+="$_p "; _p=$(awk '{print $4}' "/proc/$_p/stat" 2>/dev/null); [[ -z "${_p:-}" ]] && break; done
+while [[ "${_p:-0}" -gt 1 ]]; do EIGEN+="$_p "; _p=$(awk '/^PPid:/{print $2}' "/proc/$_p/status" 2>/dev/null); [[ -z "${_p:-}" ]] && break; done
 AAN=""
 for pat in 'Game.exe' 'VACUUM.exe' 'OpenParrotLoade' 'BudgieLoader.ex' 'BudgieLoader_x6' \
            'TeknoParrotUi' 'TeknoMacaw.exe' 'TeknoMacaw64.ex' 'gamescope' 'gamescope-wl' \
