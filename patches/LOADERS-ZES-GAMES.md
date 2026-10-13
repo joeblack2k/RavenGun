@@ -289,3 +289,24 @@ Een game telt pas als **gehaald** wanneer er **5 minuten attract mode of game mo
 beginscherm telt NIET mee, en dat is bij deze games vaak juist het kalibratiescherm. Voor Halo
 betekent dat concreet: door de FileTest komen, de Webcam-stap, het netwerk en het kalibratiescherm zijn
 **stappen**, geen gehaalde game. Dat staat hier zodat niemand een tussenstand als eindstand leest.
+
+### De tijdvraag bij Halo is beslecht: het is de BESTANDSCACHE, niet het beeld
+
+| run | beeld | cache | eerste nieuwe logregel | verschil |
+|---|---|---|---|---|
+| 2 | headless | **koud** (eerste run na lange tijd) | 10:04:31 | **11 s** |
+| 3, 4, 5 | tv | warm | telkens dezelfde seconde | **1 s** |
+| tijdrun | **headless** | **warm** | dezelfde seconde | **1 s** |
+
+De tijdrun is headless en geeft 1 s, dus de verklaring is niet de gamescope-backend maar de schijfcache.
+**Les voor elke meting hierna:** bij een tijdvergelijking hoort te staan of de run warm of koud was. Een
+verschil van tien seconden in opstarttijd zegt niets over het spel en alles over de cache.
+
+### En de crash van Halo's run 4 is gevonden: een afkappende schrijver achter een mapping
+
+De invoerhulp las het schakelaarbeeld via `mmap`, terwijl hetzelfde bestand met `open(...,"wb")` werd
+geschreven -- en dat **kapt af**. Een afgekapt bestand achter een mapping laat de kernel SIGBUS sturen,
+en dat is precies wat er gebeurde. Reparatie aan twee kanten: de hulp leest nu met `pread` in plaats van
+`mmap`, en de pulsen schrijven op hun plaats met `pwrite` in plaats van `wb`. Bench-vrij bewezen: een
+mmap-lezer sterft met `Bus error`, een pread-lezer blijft leven. **En eerlijk vermeld:** run 5 veranderde
+drie dingen tegelijk, dus of de crash ook aan de vier borden lag is daarmee NIET bewezen.

@@ -190,3 +190,19 @@ is geen spelstart voor nodig -- wel een bench-afspraak, want het is een binary u
 * `docs/decisions.md` (de START-bit naar "Webcam Init") en `docs/procedures.md` (de bitindeling van het
   schakelaarbeeld).
 * `eFileMaps/fileMap000..006` in de spellmap (binair; geen leesbare namen).
+
+## 10. NOOIT HET STARTSCRIPT VAN EEN GAME UITVOEREN (waarschuwing, 2026-10-13)
+
+Een andere partij vond dat het eigen startscript van een spel de exe **rechtstreeks** start -- dus
+buiten onze lader en kern om -- en dat er dingen in staan die alleen op de kast horen. In de scripts
+die we hebben gevonden staat letterlijk: mdir /S /Q Y:\ (een schijf leegmaken),
+eboot -f / sync; reboot (herstarten, met codes 223 en 226 in un_game.sh), m -rf 
+(de gebruikersmap weggooien bij code 225), en passwd -l in go.sh. **Wie zo'n script klakkeloos
+draait, wist een schijf en vraagt een herstart aan.**
+
+Daarom, als regel: **een startscript wordt GELEZEN, nooit uitgevoerd.** Voor Halo betekent dat:
+utils/run_game.sh en utils/go.sh zijn bronnen van informatie (welke argumenten, welke werkmap,
+welke omgevingsvariabelen, welke probe eerst), en wat we nodig hebben nemen we **los** over -- zoals
+tinit -ct, dat ik als aparte probe voorstel en niet als onderdeel van een uitgevoerd script.
+Onze eigen start (play-native.sh) bepaalt zelf zijn argumenten, werkmap en omgeving; het script
+vertelt ons alleen wat we daarbij eventueel missen.
