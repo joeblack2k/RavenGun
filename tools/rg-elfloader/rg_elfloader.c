@@ -22,6 +22,8 @@
  * ElfLdr2/libs).
  *
  * Bouwen: scripts/build-elfloader.sh. Gebruik: LD_LIBRARY_PATH=<ElfLdr2/libs> rg-elfloader <game> [args].
+ * Analyseren zonder het spel te starten: rg-elfloader --ontleed-alleen <game> (alias --dry-run): doet
+ * segmenten -> dynamic -> lib-defs -> shim -> NEEDED-libs -> relocaties, toont aantallen en stopt.
  */
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -39,6 +41,7 @@
 #include <unistd.h>
 
 static int rg_verbose;
+static int rg_ontleed;   /* --ontleed-alleen: analyseren, het spel NIET starten */
 
 static void say(const char *fmt, ...)
 {
@@ -187,22 +190,64 @@ static void map_segments(int fd, const uint8_t *file, struct beeld *b)
 struct dyninfo {
     Elf32_Sym *symtab;
     const char *strtab;
-    uint32_t nchain;   /* aantal dynamische symbolen (uit DT_HASH) */
+    uint32_t nchain;   /* aantal dynamische symbolen (DT_HASH, anders (STRTAB-SYMTAB)/16; zie tel_dynsyms) */
+    int nchain_bron;   /* TEL_BRON_HASH of TEL_BRON_STRTAB_SYMTAB: waar nchain vandaan komt */
     Elf32_Rel *rel;    uint32_t relsz;
     Elf32_Rel *jmprel; uint32_t pltrelsz;
     uint32_t *init_array; uint32_t init_arraysz;
     void (*init)(void);
 };
 
+/* Het aantal dynamische symbolen bepalen. De ELF-spec geeft dat via DT_HASH (nchain), maar moderne
+ * linkers (ld --hash-style=gnu, de standaard) leveren ALLEEN DT_GNU_HASH, en dat tag bevat geen
+ * totaalaantal. Terugvaller: .dynstr staat bij GNU ld direct achter .dynsym, dus
+ * (DT_STRTAB - DT_SYMTAB) / sizeof(Elf32_Sym) is het aantal symbolen (gemeten op een echte
+ * GNU_HASH-only game: 1020 == readelf --dyn-syms). We raden NIET: als de afstand niet klopt (een tag
+ * ontbreekt, STRTAB niet achter SYMTAB, of geen veelvoud van 16) is dat een duidelijke fout.
+ * Geeft de bron (TEL_BRON_*) terug, of 0 met een foutmelding in *fout. Zuivere functie op de
+ * tag-waarden (adressen/offsets), zodat hij los te testen is. */
+enum { TEL_BRON_HASH = 1, TEL_BRON_STRTAB_SYMTAB = 2 };
+#define RG_HEEFT_TEL_DYNSYMS 1   /* voor tests/: de functie bestaat (oudere versies hadden alleen DT_HASH) */
+
+static int tel_dynsyms(uint32_t hash_nchain, uint32_t symtab, uint32_t strtab,
+                       uint32_t *aantal, const char **fout)
+{
+    uint32_t afstand;
+    *aantal = 0;
+    if (hash_nchain) {
+        *aantal = hash_nchain;
+        return TEL_BRON_HASH;
+    }
+    if (!symtab || !strtab) {
+        *fout = "geen DT_HASH en ook geen DT_SYMTAB+DT_STRTAB: kan het aantal gast-symbolen niet bepalen";
+        return 0;
+    }
+    if (strtab <= symtab) {
+        *fout = "geen DT_HASH en DT_STRTAB ligt niet achter DT_SYMTAB: "
+                "aantal gast-symbolen niet af te leiden uit (STRTAB-SYMTAB)";
+        return 0;
+    }
+    afstand = strtab - symtab;
+    if (afstand % sizeof(Elf32_Sym) != 0) {
+        *fout = "geen DT_HASH en (DT_STRTAB-DT_SYMTAB) is geen veelvoud van 16 (sizeof(Elf32_Sym)): "
+                "aantal gast-symbolen niet betrouwbaar af te leiden";
+        return 0;
+    }
+    *aantal = afstand / (uint32_t)sizeof(Elf32_Sym);
+    return TEL_BRON_STRTAB_SYMTAB;
+}
+
 static void lees_dyn(struct beeld *b, struct dyninfo *d)
 {
     Elf32_Dyn *dy;
+    uint32_t hash_nchain = 0;
+    const char *fout = "";
     memset(d, 0, sizeof(*d));
     for (dy = b->dyn; dy->d_tag != DT_NULL; dy++) {
         switch (dy->d_tag) {
         case DT_SYMTAB:       d->symtab = (Elf32_Sym *)dy->d_un.d_ptr; break;
         case DT_STRTAB:       d->strtab = (const char *)dy->d_un.d_ptr; break;
-        case DT_HASH:         d->nchain = ((uint32_t *)dy->d_un.d_ptr)[1]; break;  /* nchain = #symbolen */
+        case DT_HASH:         hash_nchain = ((uint32_t *)dy->d_un.d_ptr)[1]; break;  /* nchain = #symbolen */
         case DT_REL:          d->rel = (Elf32_Rel *)dy->d_un.d_ptr; break;
         case DT_RELSZ:        d->relsz = dy->d_un.d_val; break;
         case DT_JMPREL:       d->jmprel = (Elf32_Rel *)dy->d_un.d_ptr; break;
@@ -215,6 +260,12 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
     }
     if (!d->symtab || !d->strtab)
         fatal("geen DT_SYMTAB/DT_STRTAB");
+    d->nchain_bron = tel_dynsyms(hash_nchain, (uint32_t)(uintptr_t)d->symtab, (uint32_t)(uintptr_t)d->strtab,
+                                 &d->nchain, &fout);
+    if (!d->nchain_bron)
+        fatal("%s", fout);
+    dbg("%u gast-symbolen (bron: %s)", d->nchain,
+        d->nchain_bron == TEL_BRON_HASH ? "DT_HASH" : "(DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH");
 }
 
 /* -------- lib-defs: welke symbolen definiëren de NEEDED-libs (uit hun BESTAND, zonder dlopen) --------
@@ -223,17 +274,25 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
  * importeren echter gast-functies die in een data-tabel staan (R_386_GLOB_DAT), dus ze eisen de shim al
  * bij dlopen -- daarom moet de shim VÓÓR het laden klaar zijn, en lezen we de lib-definities hier uit het
  * bestand in plaats van via dlsym. Zie docs/research/eigen-elf-lader.md. */
-static char rg_defbuf[1u << 20];
+/* Ruim boven de praktijk: libc + libGL + de overige moderne 32-bits systeemlibs leveren samen ~16k
+ * symbolen via de STRTAB-SYMTAB-route (sinds de DT_GNU_HASH-terugval), dus 16384 was al te krap. 262144
+ * namen en 8 MiB tekst geven ~16x marge. def_add() telt bovendien wat er tóch niet past en de lader meldt
+ * dat luid (zie verzamel_lib_defs): een stille afkap gaf anders een smalle shim die een lib-symbool
+ * overschrijft -- precies het soort fout dat later onverklaarbaar is. */
+static char rg_defbuf[1u << 23];
 static uint32_t rg_defbuf_used;
-static char *rg_defname[16384];
+static char *rg_defname[262144];
 static int rg_defname_n;
+static int rg_defname_overflow;  /* aantal namen dat niet paste (0 = alles paste) */
 
 static void def_add(const char *naam)
 {
     size_t n = strlen(naam) + 1;
     if (rg_defname_n >= (int)(sizeof(rg_defname) / sizeof(rg_defname[0])) ||
-        rg_defbuf_used + n > sizeof(rg_defbuf))
+        rg_defbuf_used + n > sizeof(rg_defbuf)) {
+        rg_defname_overflow++;
         return;
+    }
     memcpy(rg_defbuf + rg_defbuf_used, naam, n);
     rg_defname[rg_defname_n++] = rg_defbuf + rg_defbuf_used;
     rg_defbuf_used += (uint32_t)n;
@@ -260,7 +319,16 @@ static uint32_t v2o(struct rg_load *L, int nl, uint32_t va)
     return 0;
 }
 
-static void parse_lib_file(const char *pad)
+/* Per gevonden bibliotheek wat we eruit lazen (voor --ontleed-alleen). */
+struct libinfo { char naam[128]; char pad[512]; int gevonden; uint32_t nsym; int bron; };
+static struct libinfo rg_libinfo[64];
+static int rg_libinfo_n;
+
+/* Leest de gedefinieerde symbolen van een lib uit het BESTAND. Geeft het aantal dynsyms terug (0 =
+   onleesbaar) en zet *bron_uit (TEL_BRON_*). Heeft de lib alleen DT_GNU_HASH (geen DT_HASH), dan telt
+   tel_dynsyms() via (STRTAB-SYMTAB)/16; vaddr-verschillen binnen een segment zijn gelijk aan
+   bestands-verschillen, dus dat werkt hier ook. */
+static uint32_t parse_lib_file(const char *pad, int *bron_uit)
 {
     int fd = open(pad, O_RDONLY);
     struct stat st;
@@ -272,30 +340,36 @@ static void parse_lib_file(const char *pad)
     int i, nl = 0;
     uint32_t symv = 0, strv = 0, nchain = 0, so, to;
     size_t len;
-    if (fd < 0) return;
-    if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf32_Ehdr)) { close(fd); return; }
+    const char *fout = "";
+    int bron;
+    *bron_uit = 0;
+    if (fd < 0) return 0;
+    if (fstat(fd, &st) != 0 || (size_t)st.st_size < sizeof(Elf32_Ehdr)) { close(fd); return 0; }
     len = st.st_size;
     m = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
-    if (m == MAP_FAILED) return;
+    if (m == MAP_FAILED) return 0;
     eh = (Elf32_Ehdr *)m;
     if (memcmp(eh->e_ident, ELFMAG, SELFMAG) || eh->e_ident[EI_CLASS] != ELFCLASS32 ||
         eh->e_machine != EM_386 || (size_t)eh->e_phoff + eh->e_phnum * sizeof(Elf32_Phdr) > len)
-        { munmap(m, len); return; }
+        { munmap(m, len); return 0; }
     ph = (Elf32_Phdr *)(m + eh->e_phoff);
     for (i = 0; i < eh->e_phnum; i++) {
         if (ph[i].p_type == PT_LOAD && nl < 24) { L[nl].v = ph[i].p_vaddr; L[nl].o = ph[i].p_offset; L[nl].sz = ph[i].p_filesz; nl++; }
         if (ph[i].p_type == PT_DYNAMIC && (size_t)ph[i].p_offset < len) dyn = (Elf32_Dyn *)(m + ph[i].p_offset);
     }
-    if (!dyn) { munmap(m, len); return; }
+    if (!dyn) { munmap(m, len); return 0; }
     for (dy = dyn; (uint8_t *)dy + sizeof(*dy) <= m + len && dy->d_tag != DT_NULL; dy++) {
         if (dy->d_tag == DT_SYMTAB) symv = dy->d_un.d_ptr;
         else if (dy->d_tag == DT_STRTAB) strv = dy->d_un.d_ptr;
         else if (dy->d_tag == DT_HASH) { uint32_t o = v2o(L, nl, dy->d_un.d_ptr); if (o + 8 <= len) nchain = *(uint32_t *)(m + o + 4); }
     }
+    /* Geen DT_HASH (of een lege)? Val terug op (STRTAB-SYMTAB)/16. Een lib waarvan het aantal niet
+       betrouwbaar af te leiden is slaan we over (zoals voorheen een lib zonder DT_HASH): geen gok. */
+    bron = tel_dynsyms(nchain, symv, strv, &nchain, &fout);
     so = v2o(L, nl, symv);
     to = v2o(L, nl, strv);
-    if (symv && strv && nchain && so && to && so + (size_t)nchain * sizeof(Elf32_Sym) <= len) {
+    if (bron && so && to && so + (size_t)nchain * sizeof(Elf32_Sym) <= len) {
         Elf32_Sym *syms = (Elf32_Sym *)(m + so);
         uint32_t k;
         for (k = 1; k < nchain; k++) {
@@ -304,8 +378,28 @@ static void parse_lib_file(const char *pad)
                 continue;
             def_add((const char *)(m + to + na));
         }
+        *bron_uit = bron;
+    } else {
+        nchain = 0;
     }
     munmap(m, len);
+    return nchain;
+}
+
+static void parse_en_noteer(const char *naam, const char *pad)
+{
+    struct libinfo *li = NULL;
+    if (rg_libinfo_n < (int)(sizeof(rg_libinfo) / sizeof(rg_libinfo[0]))) {
+        li = &rg_libinfo[rg_libinfo_n++];
+        snprintf(li->naam, sizeof li->naam, "%s", naam);
+        snprintf(li->pad, sizeof li->pad, "%s", pad ? pad : "");
+        li->gevonden = pad != NULL;
+    }
+    if (pad) {
+        int bron = 0;
+        uint32_t n = parse_lib_file(pad, &bron);
+        if (li) { li->nsym = n; li->bron = bron; }
+    }
 }
 
 static void vind_en_parse(const char *naam)
@@ -320,13 +414,14 @@ static void vind_en_parse(const char *naam)
         buf[sizeof buf - 1] = 0;
         for (dir = strtok_r(buf, ":", &save); dir; dir = strtok_r(NULL, ":", &save)) {
             snprintf(pad, sizeof pad, "%s/%s", dir, naam);
-            if (access(pad, R_OK) == 0) { parse_lib_file(pad); return; }
+            if (access(pad, R_OK) == 0) { parse_en_noteer(naam, pad); return; }
         }
     }
     for (k = 0; stdd[k]; k++) {
         snprintf(pad, sizeof pad, "%s/%s", stdd[k], naam);
-        if (access(pad, R_OK) == 0) { parse_lib_file(pad); return; }
+        if (access(pad, R_OK) == 0) { parse_en_noteer(naam, pad); return; }
     }
+    parse_en_noteer(naam, NULL);   /* niet gevonden in LD_LIBRARY_PATH/standaardmappen (dlopen zoekt zelf verder) */
 }
 
 static void verzamel_lib_defs(struct beeld *b, struct dyninfo *d)
@@ -337,6 +432,13 @@ static void verzamel_lib_defs(struct beeld *b, struct dyninfo *d)
             vind_en_parse(d->strtab + dy->d_un.d_val);
     qsort(rg_defname, rg_defname_n, sizeof rg_defname[0], def_cmp);
     dbg("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs gelezen", rg_defname_n);
+    if (rg_defname_overflow)
+        /* Altijd melden (ook zonder RG_ELFLOADER_VERBOSE): de lijst was vol en lib_defines() mist nu
+         * symbolen, dus de smalle shim kan er exporteren die een lib ook definieert. Verhoog rg_defname[]
+         * en rg_defbuf[], of zoek uit waarom er zoveel libs meedoen. */
+        fprintf(stderr, "rg-elfloader: WAARSCHUWING: lib-defs-lijst vol, %d symbolen weggevallen "
+                "(van %d+%d); verhoog rg_defname[]/rg_defbuf[]\n",
+                rg_defname_overflow, rg_defname_n, rg_defname_overflow);
 }
 
 /* Symbolen die de eigen CRT van de shim al definieert; die overslaan, anders "multiple definition". */
@@ -355,6 +457,8 @@ static int shim_skip(const char *naam)
     return 0;
 }
 
+static int rg_shim_symbolen;   /* aantal geexporteerde gast-symbolen in de shim (voor --ontleed-alleen) */
+
 /* De muur voor de Allegro-4-games: de gastbibliotheken (liballeg.so.4.0) importeren honderden symbolen
    UIT het spel-executable (de asm-scanline-routines zitten in de app). dlopen kan een met de hand
    gemapte ET_EXEC niet in de globale zoekruimte zetten, dus die imports zouden niet oplossen.
@@ -371,8 +475,8 @@ static void maak_shim(struct dyninfo *d)
     int cnt = 0;
     const char *inc = getenv("RG_ELFLOADER_INC");   /* evt. pad met gnu/stubs-32.h; meestal niet nodig */
 
-    if (!d->nchain)
-        fatal("geen DT_HASH: kan het aantal gast-symbolen niet bepalen (shim)");
+    if (!d->nchain)   /* lees_dyn() heeft het aantal al bepaald of afgebroken; dit is een vangnet */
+        fatal("aantal gast-symbolen onbekend (shim)");
     if (!tmp || !*tmp)
         tmp = "/tmp";
     snprintf(dir, sizeof dir, "%s/rg-elfloader-%d", tmp, (int)getpid());
@@ -432,6 +536,12 @@ static void maak_shim(struct dyninfo *d)
         fatal("kon de shim niet bouwen: %s", cmd);
     if (!dlopen(so, RTLD_NOW | RTLD_GLOBAL))
         fatal("dlopen(shim) mislukt: %s", dlerror());
+    rg_shim_symbolen = cnt;
+    if (rg_ontleed) {   /* analyse laat geen tijdelijke bestanden achter; de shim blijft geldig na unlink */
+        unlink(src);
+        unlink(so);
+        rmdir(dir);
+    }
     say("shim geladen: %d gast-symbolen in de globale scope", cnt);
 }
 
@@ -441,9 +551,19 @@ static void maak_shim(struct dyninfo *d)
 static void *rg_libs[64];   /* handvatten van de NEEDED-libs, voor R_386_COPY (de DEFINIËRENDE lib) */
 static int rg_libs_n;
 
+/* In --ontleed-alleen (rg_ontleed) is een lib die niet laadt GEEN reden om te stoppen: dat is juist wat de
+   analyse moet melden. We proberen de mislukte libs nog een keer nadat de rest geladen is (sommige libs
+   hebben geen eigen NEEDED voor libm/libstdc++ en lossen die pas op via een latere NEEDED), en
+   noteren wat daarna nog mist. In de gewone modus blijft het fataal, zoals altijd. */
+static char rg_nietgeladen[16][160];
+static int rg_nietgeladen_n;
+static uint32_t rg_nietgeladen_totaal;
+
 static void laad_needed(struct beeld *b, struct dyninfo *d)
 {
     Elf32_Dyn *dy;
+    const char *wacht[64];
+    int nw = 0, i, voortgang;
     for (dy = b->dyn; dy->d_tag != DT_NULL; dy++) {
         const char *naam;
         void *h;
@@ -451,11 +571,42 @@ static void laad_needed(struct beeld *b, struct dyninfo *d)
             continue;
         naam = d->strtab + dy->d_un.d_val;
         h = dlopen(naam, RTLD_NOW | RTLD_GLOBAL);   /* RTLD_NOW past ook liballeg's eigen relocaties toe */
-        if (!h)
-            fatal("dlopen(%s) mislukt: %s", naam, dlerror());
+        if (!h) {
+            if (!rg_ontleed)
+                fatal("dlopen(%s) mislukt: %s", naam, dlerror());
+            if (nw < (int)(sizeof(wacht) / sizeof(wacht[0])))
+                wacht[nw++] = naam;
+            continue;
+        }
         if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
             rg_libs[rg_libs_n++] = h;
         dbg("geladen: %s", naam);
+    }
+    do {   /* alleen --ontleed-alleen komt hier met nw > 0: nog een poging zolang er voortgang is */
+        voortgang = 0;
+        for (i = 0; i < nw; i++) {
+            void *h;
+            if (!wacht[i])
+                continue;
+            h = dlopen(wacht[i], RTLD_NOW | RTLD_GLOBAL);
+            if (!h)
+                continue;
+            if (rg_libs_n < (int)(sizeof(rg_libs) / sizeof(rg_libs[0])))
+                rg_libs[rg_libs_n++] = h;
+            dbg("geladen (2e poging): %s", wacht[i]);
+            wacht[i] = NULL;
+            voortgang = 1;
+        }
+    } while (voortgang);
+    for (i = 0; i < nw; i++) {
+        const char *fout;
+        if (!wacht[i])
+            continue;
+        fout = dlerror();   /* de fout van de laatste poging; voor de meeste libs is het ook de bijbehorende */
+        rg_nietgeladen_totaal++;
+        if (rg_nietgeladen_n < (int)(sizeof(rg_nietgeladen) / sizeof(rg_nietgeladen[0])))
+            snprintf(rg_nietgeladen[rg_nietgeladen_n++], sizeof rg_nietgeladen[0], "%s: %s", wacht[i],
+                     fout ? fout : "dlopen mislukt");
     }
 }
 
@@ -479,6 +630,49 @@ static void *zoek_in_libs(const char *naam)
     return NULL;
 }
 
+/* Boekhouding van toegepaste relocaties, voor --ontleed-alleen: totaal per soort + de eerste paar. */
+struct relrec { const char *welk; uint32_t type, waar; const char *naam; uint32_t waarde; };
+static struct relrec rg_relrec[12];
+static int rg_relrec_n;
+static uint32_t rg_rel_toegepast, rg_rel_relatief, rg_rel_onopgelost;
+
+static void rel_noteer(const char *welk, uint32_t type, uint32_t *waar, const char *naam, uint32_t waarde)
+{
+    rg_rel_toegepast++;
+    if (rg_relrec_n < (int)(sizeof(rg_relrec) / sizeof(rg_relrec[0]))) {
+        struct relrec *x = &rg_relrec[rg_relrec_n++];
+        x->welk = welk; x->type = type; x->waar = (uint32_t)(uintptr_t)waar; x->naam = naam; x->waarde = waarde;
+    }
+}
+
+static const char *reltype_naam(uint32_t t)
+{
+    switch (t) {
+    case R_386_32: return "R_386_32";
+    case R_386_PC32: return "R_386_PC32";
+    case R_386_GLOB_DAT: return "R_386_GLOB_DAT";
+    case R_386_JMP_SLOT: return "R_386_JMP_SLOT";
+    case R_386_COPY: return "R_386_COPY";
+    case R_386_RELATIVE: return "R_386_RELATIVE";
+    default: return "R_386_?";
+    }
+}
+
+/* Gewone modus: elke onopgeloste naam meteen melden (zoals altijd). --ontleed-alleen: er kunnen er
+   honderden zijn als een lib ontbreekt; dan bewaren we de eerste paar voor de samenvatting. */
+static char rg_onopgelost_namen[10][96];
+static int rg_onopgelost_namen_n;
+
+static void onopgelost_noteer(const char *welk, const char *naam)
+{
+    if (!rg_ontleed) {
+        say("  onopgelost %s: %s", welk, naam);
+        return;
+    }
+    if (rg_onopgelost_namen_n < (int)(sizeof(rg_onopgelost_namen) / sizeof(rg_onopgelost_namen[0])))
+        snprintf(rg_onopgelost_namen[rg_onopgelost_namen_n++], sizeof rg_onopgelost_namen[0], "%s %s", welk, naam);
+}
+
 static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char *welk)
 {
     uint32_t i;
@@ -492,6 +686,7 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
 
         if (type == R_386_RELATIVE) {
             /* basis = 0 voor ET_EXEC; *waar blijft gelijk. */
+            rg_rel_relatief++;
             continue;
         }
         if (sidx && *naam)
@@ -500,23 +695,27 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
         switch (type) {
         case R_386_GLOB_DAT:
         case R_386_JMP_SLOT:
-            if (!sym) { onopgelost++; if (*naam) say("  onopgelost %s: %s", welk, naam); break; }
+            if (!sym) { onopgelost++; if (*naam) onopgelost_noteer(welk, naam); break; }
             *waar = (uint32_t)(uintptr_t)sym; slots++;
+            rel_noteer(welk, type, waar, naam, *waar);
             break;
         case R_386_32:
             if (!sym) { onopgelost++; break; }
             *waar += (uint32_t)(uintptr_t)sym;
+            rel_noteer(welk, type, waar, naam, *waar);
             break;
         case R_386_PC32:
             if (!sym) { onopgelost++; break; }
             *waar += (uint32_t)(uintptr_t)sym - (uint32_t)(uintptr_t)waar;
+            rel_noteer(welk, type, waar, naam, *waar);
             break;
         case R_386_COPY: {
             /* De bron MOET de DEFINIËRENDE lib zijn (post-reloc), niet de shim/gast -- anders kopieert
                hij de lege gast-kopie op zichzelf. Zie zoek_in_libs(). */
             void *src = zoek_in_libs(naam);
-            if (!src) { onopgelost++; if (*naam) say("  onopgelost COPY: %s", naam); break; }
+            if (!src) { onopgelost++; if (*naam) onopgelost_noteer("COPY", naam); break; }
             memcpy(waar, src, d->symtab[sidx].st_size); copies++;
+            rel_noteer(welk, type, waar, naam, (uint32_t)(uintptr_t)src);
         }
             break;
         default:
@@ -524,8 +723,9 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
             break;
         }
     }
+    rg_rel_onopgelost += onopgelost;
     dbg("%s: %u toegepast, %u COPY, %u onopgelost", welk, slots, copies, onopgelost);
-    if (onopgelost)
+    if (onopgelost && !rg_ontleed)
         say("LET OP: %u onopgeloste symbolen in %s", onopgelost, welk);
 }
 
@@ -715,6 +915,49 @@ static void start_spel(struct beeld *b, int argc, char **argv)
     spring(b->entry, sp);
 }
 
+/* Samenvatting voor --ontleed-alleen: wat de lader gezien heeft, zonder het spel te starten. */
+static void toon_ontleding(struct dyninfo *d, const char *game)
+{
+    int i;
+    printf("ontleed-alleen: %s\n", game);
+    printf("gast-dynsyms: %u (bron: %s)\n", d->nchain,
+           d->nchain_bron == TEL_BRON_HASH ? "DT_HASH" : "(DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH");
+    printf("shim geladen: %d van de %u gast-symbolen in de globale scope\n", rg_shim_symbolen, d->nchain);
+    printf("bibliotheken (%d):\n", rg_libinfo_n);
+    for (i = 0; i < rg_libinfo_n; i++) {
+        struct libinfo *li = &rg_libinfo[i];
+        if (!li->gevonden)
+            printf("  %-28s niet gevonden in LD_LIBRARY_PATH/standaardmappen (dlopen zoekt zelf)\n", li->naam);
+        else if (!li->bron)
+            printf("  %-28s %s: dynsym-aantal niet af te leiden, defs overgeslagen\n", li->naam, li->pad);
+        else
+            printf("  %-28s %s: %u dynsyms (%s)\n", li->naam, li->pad, li->nsym,
+                   li->bron == TEL_BRON_HASH ? "DT_HASH" : "STRTAB-SYMTAB");
+    }
+    if (rg_nietgeladen_totaal) {
+        printf("NIET geladen (%u):\n", rg_nietgeladen_totaal);
+        for (i = 0; i < rg_nietgeladen_n; i++)
+            printf("  %s\n", rg_nietgeladen[i]);
+    }
+    printf("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs\n", rg_defname_n);
+    printf("relocaties: %u toegepast, %u RELATIVE (ongewijzigd), %u onopgelost\n",
+           rg_rel_toegepast, rg_rel_relatief, rg_rel_onopgelost);
+    if (rg_onopgelost_namen_n) {
+        printf("eerste onopgeloste symbolen:\n");
+        for (i = 0; i < rg_onopgelost_namen_n; i++)
+            printf("  %s\n", rg_onopgelost_namen[i]);
+    }
+    printf("eerste toegepaste relocaties:\n");
+    for (i = 0; i < rg_relrec_n; i++) {
+        struct relrec *x = &rg_relrec[i];
+        printf("  %-9s %-14s @%#010x %-32s -> %#x\n", x->welk, reltype_naam(x->type), x->waar,
+               x->naam, x->waarde);
+    }
+    printf("spel NIET gestart (--ontleed-alleen)\n");
+    fflush(stdout);
+}
+
+#ifndef RG_ELFLOADER_ZONDER_MAIN   /* tests/ kan dit bestand zo includen om losse functies te testen */
 int main(int argc, char **argv)
 {
     const char *game;
@@ -725,8 +968,15 @@ int main(int argc, char **argv)
     struct dyninfo d;
 
     rg_verbose = getenv("RG_ELFLOADER_VERBOSE") != NULL;
+    /* --ontleed-alleen (alias --dry-run): alles doen t/m de relocaties, de samenvatting tonen en stoppen
+       VOOR de sprong naar het spel. Alleen als eerste argument. */
+    if (argc >= 2 && (strcmp(argv[1], "--ontleed-alleen") == 0 || strcmp(argv[1], "--dry-run") == 0)) {
+        rg_ontleed = 1;
+        argc--;
+        argv++;
+    }
     if (argc < 2)
-        fatal("gebruik: rg-elfloader <game-elf> [args...]");
+        fatal("gebruik: rg-elfloader [--ontleed-alleen] <game-elf> [args...]");
     game = argv[1];
 
     fd = open(game, O_RDONLY);
@@ -746,6 +996,13 @@ int main(int argc, char **argv)
         pas_rel_toe(&d, d.jmprel, d.pltrelsz / sizeof(Elf32_Rel), "DT_JMPREL");
     repareer_eerste_plt(&b, &d);   /* gepakte klasse: eerste-PLT-slots op naam herstellen (gemapt => veilig) */
 
+    if (rg_ontleed) {
+        toon_ontleding(&d, game);
+        munmap(file, flen);
+        close(fd);
+        return 0;   /* hier eindigt de analyse: start_spel()/spring() worden NIET aangeroepen */
+    }
+
     munmap(file, flen);
     close(fd);
 
@@ -755,3 +1012,4 @@ int main(int argc, char **argv)
     start_spel(&b, argc - 1, &argv[1]);
     return 0;
 }
+#endif /* RG_ELFLOADER_ZONDER_MAIN */

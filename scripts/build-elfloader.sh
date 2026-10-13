@@ -43,4 +43,18 @@ file "$OUT"
 DEST="$HOME/.local/share/ravengun/bin"
 mkdir -p "$DEST"
 cp -f "$OUT" "$DEST/rg-elfloader"
-echo "geplaatst: $DEST/rg-elfloader"
+
+# Zichtbaar maken WELKE lader waar staat, zodat een benchrun nooit stil de oude geinstalleerde lader meet
+# (dat gebeurde: de geinstalleerde kopie liep achter op de DT_GNU_HASH-reparatie). tests/elfloader_install_test.sh
+# faalt als deze twee verschillen.
+BUILT_SHA="$(sha256sum "$OUT" | cut -d' ' -f1)"
+DEST_SHA="$(sha256sum "$DEST/rg-elfloader" | cut -d' ' -f1)"
+echo "gebouwd:    $OUT"
+echo "  sha256    $BUILT_SHA"
+echo "geplaatst:  $DEST/rg-elfloader"
+echo "  sha256    $DEST_SHA"
+if [[ "$BUILT_SHA" != "$DEST_SHA" ]]; then
+  echo "FOUT: de geplaatste lader verschilt van de gebouwde (installatie mislukt)" >&2
+  exit 1
+fi
+echo "ok: gebouwde en geplaatste lader zijn gelijk"
