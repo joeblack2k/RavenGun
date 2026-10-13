@@ -247,3 +247,38 @@ aan een moment, dan is wat die duur bepaalt de kern van de zaak.
 | Onze eigen lader werkt | ja voor de ELF-kant (bewezen) en voor de Sega- en Unity-kant; per game in het dossier |
 | Rabbids Hollywood 10 minuten | **GEAHAALD** |
 | Luigi's Mansion 5 minuten | **niet gehaald**; het spel sterft ongeveer 0,2 s na een voltooid ontpakken, en de vier stappen van zijn eigen startscript worden een voor een getest |
+
+---
+
+## Stand 2026-10-13, derde update: Halo komt DOOR de FileTest
+
+De TV-run (gamescope met een echt beeld in plaats van headless) liet het spel verder gaan dan het
+FileTest-oordeel waar het drie runs op bleef staan:
+
+```
+10:25:45  FileTest Failure: '/pm/g7/halo/game'
+10:26:05  FileTest Reported 1 errd files at startup!
+10:26:05  FMOD - Error initializing! Code: 52 - geen uitvoerstuurprogramma   (verwacht: --mute)
+10:26:14  Failed to load shader: cov_shield / elite_shield / energy_sword / jackal_shield / spirit_energy
+10:26:22  Failed to load FMOD sound bank: perm (ec 52)
+10:26:25  Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+10:26:25  Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+10:26:27  Network initialization completed.
+10:26:27  System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+```
+
+Dus: **de FileTest is passeerbaar** -- de START-indruk uit het schakelaarbeeld zet het spel verder,
+precies zoals het project eerder mat ("van het FileTest-scherm naar Webcam Init"). Daarna loopt de
+eigen opstart van het spel: shaders, soundbanken, **webcam-herkenning van de spelers**, netwerk, en
+zelfs het periodieke herstarten met de kast-exitcode 223.
+
+**De volgende blokkade is hardware**: de webcam voor de automatische spelerherkenning, bovenop het
+FTDI-geweerbord -- de tap zag in deze run nog steeds **geen enkele USB-opsomming**.
+
+**En de eigenaar gaf een concrete aanwijzing**: twee keer de **TEST-knop** slaat de kalibratie over.
+In de bitindeling van de invoerhulp is bit 0 = test, dus dat is met dezelfde hulp te geven. De volgende
+run doet: START op t=20 s om de FileTest te passeren, daarna twee TEST-pulsen om de kalibratie over te
+slaan -- en als dat lukt, hoort het spel in de attract-lus te komen.
+
+De vijf shader-fouten (`ec=-9596`) staan als apart punt genoteerd: die kunnen net zo goed aan de
+gamescope-omgeving liggen als aan het spel.
