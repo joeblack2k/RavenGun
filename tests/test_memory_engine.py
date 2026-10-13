@@ -539,6 +539,24 @@ class TestWineMotor(unittest.TestCase):
         cls.lijst_win = draai([WINE, "winepath", "-w", cls.lijst_unix],
                               env=cls.env, timeout=120).stdout.replace("\r", "").strip()
 
+    @classmethod
+    def tearDownClass(cls):
+        """De wineserver van DEZE prefix blijft na de laatste test nog staan. Andere partijen bewaken de bench op de
+        procesnamen wine en wineserver, dus een achtergebleven wineserver laat hun run weigeren terwijl er niets
+        draait. Opruimen dus, en uitsluitend met de eigen prefix: `wineserver -k` zonder WINEPREFIX richt zich op
+        een andere prefix, en in de gedeelde prefix van de games kan op dat moment een spel draaien."""
+        gedeeld = os.path.realpath(os.path.expanduser("~/.local/share/ravengun/prefixes"))
+        if os.path.realpath(PFX).startswith(gedeeld + os.sep):
+            return                               # nooit de wineserver van een prefix waarin games draaien
+        wineserver = os.path.join(os.path.dirname(WINE), "wineserver")
+        if not os.path.exists(wineserver):
+            return
+        for optie in ("-k", "-w"):               # stoppen, en wachten tot hij weg is
+            try:
+                draai([wineserver, optie], env={"WINEPREFIX": PFX}, timeout=30)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+
     def _draai(self, regels, extra=None, timeout=300):
         schrijf_lijst(self.lijst_unix, regels)
         env = dict(self.env)
