@@ -129,7 +129,7 @@ class Camera(unittest.TestCase):
     def test_de_opdrachtregel(self):
         self.ini(self.mee, "[Camera]\nUse = game\nDevice = /dev/video2\n")
         self.ini(self.mee, "[Camera]\nUse = soms\n", game="Fout")
-        env = dict(os.environ, RAVENGUN_PATCHES_DIR=self.mee, RAVENGUN_USER_PATCHES_DIR=self.eigen, XDG_CONFIG_HOME=os.path.join(self.d, "cfg"))
+        env = dict(os.environ, RAVENGUN_PATCHES_DIR=self.mee, RAVENGUN_LOADER_PATCHES_DIR=os.path.join(self.d, "geen-loader"), RAVENGUN_USER_PATCHES_DIR=self.eigen, XDG_CONFIG_HOME=os.path.join(self.d, "cfg"))
         def draai(*a):
             return subprocess.run([sys.executable, "-I", os.path.join(REPO, "scripts", "camera.py")] + list(a), env=env, capture_output=True, text=True)
         r = draai("resolve", "Spel")

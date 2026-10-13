@@ -6,6 +6,9 @@ Drie lagen, per sleutel samengevoegd (een latere laag wint; een lege waarde haal
     <patches>/_defaults/<Type>.ini      standaard per soort emulator (TeknoParrot, OpenParrot, ElfLdr2, Unity, ...)
     <patches>/<Game>/game.ini           meegeleverd (repo: patches/, installatie: <datadir>/patches/)
     <gebruiker>/<Game>/game.ini         gebruikerslaag, $XDG_DATA_HOME/ravengun/patches (standaard ~/.local/share/ravengun/patches)
+De wortels waarin dat gezocht wordt, en hun volgorde, staan op een plek: patch_layers()/patches_roots() hieronder
+(loader-patches/ onderaan, gebruiker, dan $RAVENGUN_PATCHES_DIR bovenaan). De map van een game wordt gevonden op [Game] Profile,
+niet alleen op de mapnaam (find_game_dir).
 Patches (patches.ini, secties "[Patch: <naam>]") volgen dezelfde lagen, met een extra laagje onderaan:
     <patches>/_defaults/<Type>.patches.ini   gedeelde definities (bv. een lader-patch voor alle games van dit type; Enabled = false)
     <patches>/<Game>/patches.ini             meegeleverd: eigen patches, of alleen "Enabled = true" bij een gedeelde patch
@@ -25,8 +28,8 @@ Gebruik (voor scripts en gebruikers):
     gamesettings.py has-profile PROFIEL                exit 0 als game.ini een eigen profiel heeft (docs/per-game-patches.md, "Het profiel van een game")
     gamesettings.py comms PROFIEL                      procesnamen van de game (voor play-halo.sh)
     gamesettings.py write-xml PROFIEL                  UserProfiles/<P>.xml uit het eigen profiel (alleen voor een start via TeknoParrotUi)
-    gamesettings.py dirs                               meegeleverde map en gebruikersmap
-Opties: --patches DIR (meegeleverde map; ook $RAVENGUN_PATCHES_DIR), --user DIR (gebruikersmap; ook $RAVENGUN_USER_PATCHES_DIR).
+    gamesettings.py dirs                               de lagen in zoekvolgorde (onderaan eerst; de laatste wint)
+Opties: --patches DIR (vervangt de meegeleverde lagen; anders loader-patches/ plus $RAVENGUN_PATCHES_DIR), --user DIR (gebruikersmap; ook $RAVENGUN_USER_PATCHES_DIR).
 """
 import configparser
 import json
@@ -57,23 +60,78 @@ FALSE_WORDS = ("false", "0", "no", "off")
 # ---------------------------------------------------------------------------------------------------------------------
 # Mappen
 
-def shipped_dir():
-    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <repo>/patches.
+def loader_dir():
+    """De eigen patches/ van de loader: <repo>/patches (installatie: <datadir>/patches). De onderste laag. Op een
+    ontwikkelmachine kan dit een koppeling naar de patches-repo zijn; dat maakt voor het zoeken niets uit.
+    $RAVENGUN_LOADER_PATCHES_DIR verplaatst deze onderste laag (een test die de echte patches/ buiten de deur wil houden, of
+    een pakket dat ze elders neerzet); in gewoon gebruik is hij niet gezet."""
+    return os.environ.get("RAVENGUN_LOADER_PATCHES_DIR") or os.path.join(ROOT, "patches")
 
-    De patches staan in hun EIGEN repo (ravengun-patches), niet in die van de loader: het is
-    gebruikersinhoud en de loader hoort schoon te zijn. Staat die repo niet naast de loader, dan
-    bestaat deze map niet en leest de loader alleen de gebruikerslaag -- dat is goed."""
-    return os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")
 
-
-def user_dir():
-    """De gebruikersmap: $RAVENGUN_USER_PATCHES_DIR, anders $XDG_DATA_HOME/ravengun/patches (standaard ~/.local/share/...)."""
-    d = os.environ.get("RAVENGUN_USER_PATCHES_DIR")
-    if d:
-        return d
+def _user_default():
     x = os.environ.get("XDG_DATA_HOME", "")
     base = x if x.startswith("/") else os.path.join(os.environ.get("HOME", HOME), ".local/share")
     return os.path.join(base, "ravengun", "patches")
+
+
+# DE zoekvolgorde. Er is maar een plek waar hij staat; alles wat patches/<Game>/ zoekt gaat hierlangs
+# (gamesettings zelf, amdaemon, region, matrix, hasp, camera, launch-direct, ...). Docs: docs/per-game-patches.md, "Zoekvolgorde".
+#
+#   onderaan  1. de eigen patches/ van de loader      <repo>/patches
+#             2. de gebruikerslaag                    $RAVENGUN_USER_PATCHES_DIR, anders $XDG_DATA_HOME/ravengun/patches
+#   bovenaan  3. een ontwikkel-checkout               $RAVENGUN_PATCHES_DIR (alleen als gezet)
+#
+# Per sleutel wint de LATERE laag (3 boven 2 boven 1); een lege waarde haalt de sleutel weg. Een zoekactie die de eerste treffer
+# neemt (bestand, drop-in) loopt dus omgekeerd: 3, dan 2, dan 1. $RAVENGUN_PATCHES_DIR vervangt de patches/ van de loader NIET,
+# het komt erbovenop (daarom kunnen per-game mappen later van de patches-repo naar de loader verhuizen zonder dat iets verandert).
+LAYER_ORDER = ("loader", "user", "dev")   # de soorten, onderaan eerst; "shipped" is een expliciet meegegeven meegeleverde map (vervangt loader)
+
+
+def _raw_layers(shipped=None, user=None):
+    """De lagen [(soort, pad)] in volgorde, zonder opschonen: de enige plek waar de volgorde staat."""
+    lagen = [("shipped", shipped)] if shipped else [("loader", loader_dir())]
+    lagen.append(("user", user or os.environ.get("RAVENGUN_USER_PATCHES_DIR") or _user_default()))
+    dev = os.environ.get("RAVENGUN_PATCHES_DIR") or ""
+    if dev and not shipped:
+        lagen.append(("dev", dev))
+    return lagen
+
+
+def patch_layers(shipped=None, user=None, only_existing=True):
+    """De lagen [(soort, pad)] in samenvoegvolgorde (de laatste wint). Soort: loader | shipped | user | dev.
+
+    shipped/user: een aanroeper die zelf een meegeleverde map of gebruikersmap meegeeft (tests, --patches, --user) vervangt
+    daarmee de loader-map en de ontwikkel-checkout resp. de gebruikersmap; de volgorde blijft meegeleverd, dan gebruiker.
+    only_existing: laat lagen weg die niet bestaan (de volgorde van de rest blijft). Dezelfde map (via realpath) komt maar
+    een keer voor, op de hoogste plek."""
+    lagen = _raw_layers(shipped, user)
+    uit = []
+    for i, (soort, pad) in enumerate(lagen):
+        rp = os.path.realpath(pad)
+        if any(os.path.realpath(p) == rp for _s, p in lagen[i + 1:]):
+            continue                      # een latere laag is dezelfde map: die plek wint
+        if only_existing and not os.path.isdir(pad):
+            continue
+        uit.append((soort, pad))
+    return uit
+
+
+def patches_roots(shipped=None, user=None):
+    """De paden van patch_layers(): de wortels waarin patches/<Game>/ gezocht wordt, onderaan (loader) eerst, bovenaan
+    (RAVENGUN_PATCHES_DIR) laatst. Samenvoegen: later wint. Eerste-treffer-zoeken: loop over reversed(patches_roots())."""
+    return [p for _s, p in patch_layers(shipped, user)]
+
+
+def shipped_dir():
+    """Voor wie een enkele meegeleverde map nodig heeft (schrijfdoel van een import, standaardwaarde van --patches): de
+    bovenste meegeleverde laag, dus $RAVENGUN_PATCHES_DIR als die gezet is, anders de patches/ van de loader. Afgeleid van
+    patch_layers; wie moet ZOEKEN gebruikt patches_roots()."""
+    return [p for s, p in _raw_layers() if s != "user"][-1]
+
+
+def user_dir():
+    """De gebruikersmap (afgeleid van patch_layers): $RAVENGUN_USER_PATCHES_DIR, anders $XDG_DATA_HOME/ravengun/patches."""
+    return [p for s, p in _raw_layers() if s == "user"][0]
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -239,7 +297,7 @@ def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
     g = load_for_profile(profile, tp, shipped=shipped, user=user)
     i, err = g.input_route()
     if not err:
-        mine, _ = read_ini(os.path.join(user or user_dir(), profile, "game.ini"))
+        mine, _ = read_ini(game_ini_path(profile, user or user_dir()) or os.devnull)
         return i, "user" if mine.get("Input", {}).get("Route") else "shipped"
     warn("%s: %s; de gebruikerslaag wordt genegeerd" % (profile, err))
     g2 = load_for_profile(profile, tp, shipped=shipped, user=os.path.join(os.devnull, "geen"))
@@ -262,16 +320,97 @@ def hid_vidpid(board, root=None):
 
 
 def list_games(shipped=None, user=None):
-    """Namen van de games met een map in een van beide lagen (geen map die met _ begint), gesorteerd."""
+    """Namen van de games met een map in een van de lagen (geen map die met _ of . begint), gesorteerd. De naam is het
+    [Game] Profile van de map als die er is (zo is hij te laden), anders de mapnaam."""
     names = set()
-    for d in (shipped or shipped_dir(), user or user_dir()):
+    for d in patches_roots(shipped, user):
         try:
             for e in os.listdir(d):
                 if not e.startswith((".", "_")) and os.path.isdir(os.path.join(d, e)):
-                    names.add(e)
+                    names.add(declared_profile(os.path.join(d, e, "game.ini")) or e)
         except OSError:
             pass
     return sorted(names, key=str.lower)
+
+
+_IDENT_CACHE = {}
+_WARNED = set()
+
+
+def declared_profile(game_ini):
+    """[Game] Profile uit een game.ini, of '' (geen bestand, geen veld). Gecachet op (pad, mtime, grootte)."""
+    try:
+        st = os.stat(game_ini)
+    except OSError:
+        return ""
+    key = (game_ini, st.st_mtime_ns, st.st_size)
+    if key not in _IDENT_CACHE:
+        sec, _w = read_ini(game_ini)
+        _IDENT_CACHE[key] = (sec.get("Game", {}).get("Profile", "") or "").strip()
+    return _IDENT_CACHE[key]
+
+
+def _warn_loud(msg, warnings):
+    """Een waarschuwing voor de Game (g.warnings) en op stderr, een keer per melding per proces."""
+    warnings.append(msg)
+    if msg not in _WARNED:
+        _WARNED.add(msg)
+        print("gamesettings: WAARSCHUWING: " + msg, file=sys.stderr)
+
+
+def find_game_dir(root, profile, warnings=None):
+    """De map van een game in een wortel, gezocht op IDENTITEIT: [Game] Profile in game.ini, niet op de mapnaam alleen.
+    Geeft het pad, of None als deze wortel de game niet heeft. Nooit stil "geen patches" als er wel een map is die zegt
+    deze game te zijn.
+
+    1. Snelle weg: <root>/<profile>/game.ini. Staat daar een [Game] Profile die niet <profile> is, dan klopt de naam van
+       de map niet met wat erin staat: luide waarschuwing, en we zoeken verder naar een map die wel dit Profile heeft.
+    2. Scan: een map in de wortel waarvan [Game] Profile == <profile> (een hernoemde map werkt dus gewoon). Meerdere
+       treffers: de eerste op naam, met een waarschuwing.
+    3. Valt de scan leeg, dan geldt de map met de naam van het profiel toch (game.ini zonder Profile, of een map zonder
+       game.ini maar met patches.ini of dropin/: de mapnaam is dan het enige wat er is)."""
+    warnings = [] if warnings is None else warnings
+    if not profile or not os.path.isdir(root):
+        return None
+    fast = os.path.join(root, profile)
+    fast_ok = os.path.isfile(os.path.join(fast, "game.ini"))
+    if fast_ok:
+        ident = declared_profile(os.path.join(fast, "game.ini"))
+        if not ident or ident == profile:
+            return fast
+        _warn_loud("%s: de map heet %r maar game.ini zegt [Game] Profile = %r; hernoem de map of corrigeer Profile (docs/per-game-patches.md, \"Identiteit\")"
+                   % (fast, profile, ident), warnings)
+    try:
+        names = sorted(e for e in os.listdir(root) if not e.startswith((".", "_")) and e != profile)
+    except OSError:
+        names = []
+    hits = [os.path.join(root, e) for e in names if declared_profile(os.path.join(root, e, "game.ini")) == profile]
+    if hits:
+        for h in hits:
+            _warn_loud("%s: de map heet %r maar game.ini zegt [Game] Profile = %r; gevonden op Profile, hernoem de map"
+                       % (h, os.path.basename(h), profile), warnings)
+        if len(hits) > 1:
+            _warn_loud("%s: %d mappen zeggen Profile = %r (%s); %s wordt gebruikt"
+                       % (root, len(hits), profile, ", ".join(os.path.basename(h) for h in hits), os.path.basename(hits[0])), warnings)
+        return hits[0]
+    return fast if os.path.isdir(fast) else None
+
+
+def game_ini_path(profile, root, warnings=None):
+    """<map van de game>/game.ini in deze wortel, of '' als de wortel de game niet heeft."""
+    d = find_game_dir(root, profile, warnings)
+    return os.path.join(d, "game.ini") if d else ""
+
+
+def locate_game_dirs(profile, shipped=None, user=None):
+    """[(soort, pad)] van de mappen die de game hebben, in samenvoegvolgorde (de laatste wint). Leeg = nergens gevonden;
+    dat is een duidelijke "niet gevonden" voor de aanroeper, geen uitzondering."""
+    uit = []
+    for soort, root in patch_layers(shipped, user):
+        d = find_game_dir(root, profile)
+        if d:
+            uit.append((soort, d))
+    return uit
 
 
 def _patches_from(sections):
@@ -285,21 +424,22 @@ def _patches_from(sections):
 def load_game(profile, type_hint="", shipped=None, user=None, legacy=None):
     """Leest de lagen van een game. type_hint: het soort als geen game.ini het noemt (bv. EmulatorType uit het profiel).
     legacy: (instellingen, {patchnaam: velden}) uit een oud .env-bestand (env_to_settings); laag onder het meegeleverde game.ini."""
-    shipped, user = shipped or shipped_dir(), user or user_dir()
+    layers_info = patch_layers(shipped, user)
     g = Game(profile)
-    layers = []   # (pad of naam, sections) van de game zelf, laag voor laag
+    layers = []   # sections van game.ini, laag voor laag (onderaan eerst)
     pl = []       # idem voor patches.ini
-    for d in (shipped, user):
-        gp = os.path.join(d, profile, "game.ini")
-        s, w = read_ini(gp)
-        if os.path.isfile(gp):
+    for _soort, d in layers_info:
+        gdir = find_game_dir(d, profile, g.warnings)
+        gp = os.path.join(gdir, "game.ini") if gdir else ""
+        s, w = read_ini(gp) if gp else ({}, [])
+        if gp and os.path.isfile(gp):
             g.exists = True
             g.sources.append(gp)
         g.warnings += ["%s: %s" % (gp, x) for x in w]
         layers.append(s)
-        pp = os.path.join(d, profile, "patches.ini")
-        s, w = read_ini(pp)
-        if os.path.isfile(pp):
+        pp = os.path.join(gdir, "patches.ini") if gdir else ""
+        s, w = read_ini(pp) if pp else ({}, [])
+        if pp and os.path.isfile(pp):
             g.sources.append(pp)
         g.warnings += ["%s: %s" % (pp, x) for x in w]
         pl.append(_patches_from(s))
@@ -315,25 +455,29 @@ def load_game(profile, type_hint="", shipped=None, user=None, legacy=None):
     merged = {}
     patches = {}
     order = []
+    shared = []   # gedeelde patchdefinities (_defaults/<Type>.patches.ini), laag voor laag
     if t:
-        dp = os.path.join(shipped, "_defaults", t + ".ini")
-        s, w = read_ini(dp)
-        if os.path.isfile(dp):
-            g.sources.append(dp)
-        g.warnings += ["%s: %s" % (dp, x) for x in w]
-        merge_into(merged, s)
-        dpp = os.path.join(shipped, "_defaults", t + ".patches.ini")
-        s, w = read_ini(dpp)
-        if os.path.isfile(dpp):
-            g.sources.append(dpp)
-        g.warnings += ["%s: %s" % (dpp, x) for x in w]
-        shared = _patches_from(s)
-    else:
-        shared = {}
+        # _defaults komt uit de meegeleverde lagen (loader, ontwikkel-checkout), in dezelfde volgorde als de rest; de
+        # gebruikerslaag levert geen _defaults (de C++-lezer leest ze ook alleen uit de meegeleverde map).
+        for soort, d in layers_info:
+            if soort == "user":
+                continue
+            dp = os.path.join(d, "_defaults", t + ".ini")
+            s, w = read_ini(dp)
+            if os.path.isfile(dp):
+                g.sources.append(dp)
+            g.warnings += ["%s: %s" % (dp, x) for x in w]
+            merge_into(merged, s)
+            dpp = os.path.join(d, "_defaults", t + ".patches.ini")
+            s, w = read_ini(dpp)
+            if os.path.isfile(dpp):
+                g.sources.append(dpp)
+            g.warnings += ["%s: %s" % (dpp, x) for x in w]
+            shared.append(_patches_from(s))
     merge_into(merged, legacy_settings)
     for s in layers:
         merge_into(merged, s)
-    for layer in [shared, legacy_patches] + pl:
+    for layer in shared + [legacy_patches] + pl:
         for name, kv in layer.items():
             if name not in patches:
                 order.append(name)
@@ -629,7 +773,7 @@ def write_user_settings(profile, updates, patch_updates=None, user=None):
     {sectie: {sleutel: waarde}}; een lege waarde schrijft 'Sleutel =' (zet de sleutel terug op 'niet gezet', ook tegenover een
     meegeleverde waarde)."""
     user = user or user_dir()
-    d = os.path.join(user, profile)
+    d = find_game_dir(user, profile) or os.path.join(user, profile)   # een hernoemde map met dit Profile blijft de plek
     os.makedirs(d, exist_ok=True)
     for fname, items in (("game.ini", updates or {}), ("patches.ini", {PATCH_PREFIX + " " + n: kv for n, kv in (patch_updates or {}).items()})):
         if not items:
@@ -686,9 +830,10 @@ def main(argv):
     p.add_argument("profile")
     p.add_argument("field", choices=["route", "layout", "board", "boards", "com_port", "hid_vidpid", "source", "launch"])
     a = ap.parse_args(argv)
-    shipped, user = a.patches or shipped_dir(), a.user or user_dir()
+    shipped, user = a.patches or None, a.user or None     # None = de zoekvolgorde van patch_layers()
     if a.cmd == "dirs":
-        print("shipped: %s\nuser: %s" % (shipped, user))
+        for soort, pad in patch_layers(shipped, user, only_existing=False):
+            print("%s: %s%s" % (soort, pad, "" if os.path.isdir(pad) else "  (bestaat niet)"))
         return 0
     if a.cmd == "list":
         print("\n".join(list_games(shipped, user)))

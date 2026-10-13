@@ -33,6 +33,8 @@ import sys
 
 sys.dont_write_bytecode = True
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+import gamesettings as gs  # noqa: E402  (de ene zoekvolgorde van patches/<Game>/)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
 
@@ -53,18 +55,9 @@ LETTERS = ("AMFS", "D", "Y")
 
 
 def patches_dirs():
-    """De mappen met patches/<Game>/: de gebruikerslaag eerst (die wint), dan de meegeleverde map."""
-    uit = []
-    user = os.environ.get("RAVENGUN_USER_PATCHES_DIR")
-    if not user:
-        xdg = os.environ.get("XDG_DATA_HOME", "")
-        base = xdg if xdg.startswith("/") else os.path.join(HOME, ".local/share")
-        user = os.path.join(base, "ravengun", "patches")
-    shipped = os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")
-    for d in (user, shipped):
-        if d and d not in uit:
-            uit.append(d)
-    return uit
+    """De mappen met patches/<Game>/ voor "eerste treffer wint": de zoekvolgorde van gamesettings.patches_roots(), omgekeerd
+    (ontwikkel-checkout, gebruiker, patches/ van de loader). Geen eigen kopie van die volgorde."""
+    return list(reversed(gs.patches_roots()))
 
 
 def views_dir():
@@ -95,8 +88,8 @@ def runtime_dir():
 def game_map(game):
     """De map patches/<Game>/ van de eerste laag die er een heeft, of None."""
     for d in patches_dirs():
-        p = os.path.join(d, str(game))
-        if os.path.isdir(p):
+        p = gs.find_game_dir(d, str(game))      # op [Game] Profile, niet alleen op de mapnaam
+        if p:
             return p
     return None
 

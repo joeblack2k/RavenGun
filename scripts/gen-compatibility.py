@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 import gamesettings as gs  # noqa: E402
 
 OUT = os.path.join(ROOT, 'docs', 'compatibility.md')
-PATCHES = os.environ.get('RAVENGUN_PATCHES_DIR') or os.path.join(ROOT, 'patches')
+PATCHES = gs.shipped_dir()   # de bovenste meegeleverde laag, afgeleid van gamesettings.patch_layers()
 
 SECTIONS = [
     ('playable', 'Playable',

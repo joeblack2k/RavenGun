@@ -28,8 +28,8 @@ atexit.register(shutil.rmtree, TMP, True)
 HOME = os.path.join(TMP, "home")
 DATA = os.path.join(HOME, ".local", "share")
 OMGEVING = {"HOME": HOME, "XDG_DATA_HOME": DATA, "XDG_STATE_HOME": os.path.join(HOME, ".local", "state"),
-            "RAVENGUN_PATCHES_DIR": os.path.join(TMP, "patches")}
-for _k in ("RAVENGUN_USER_PATCHES_DIR", "RAVENGUN_VIEWS_DIR", "RAVENGUN_TP_DIR", "TP_PRELOAD_DLL", "RG_DROPIN_PRELOAD"):
+            "RAVENGUN_LOADER_PATCHES_DIR": os.path.join(TMP, "patches")}   # "meegeleverd" = de onderste laag; de echte patches/ telt niet mee
+for _k in ("RAVENGUN_PATCHES_DIR", "RAVENGUN_USER_PATCHES_DIR", "RAVENGUN_VIEWS_DIR", "RAVENGUN_TP_DIR", "TP_PRELOAD_DLL", "RG_DROPIN_PRELOAD"):
     os.environ.pop(_k, None)
 os.environ.update(OMGEVING)
 os.makedirs(HOME)
@@ -46,7 +46,7 @@ def laad_launcher():
 ld = laad_launcher()
 
 TP = os.path.join(TMP, "tp")
-SHIPPED = OMGEVING["RAVENGUN_PATCHES_DIR"]
+SHIPPED = OMGEVING["RAVENGUN_LOADER_PATCHES_DIR"]
 VIEWS = os.path.join(DATA, "ravengun", "runtime", "views")
 NAS = os.path.join(HOME, "mnt", "nas")            # onder ~/mnt: voor de launcher is dit de NAS
 WINE = os.path.join(TMP, "wine", "bin", "wine")

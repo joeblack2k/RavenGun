@@ -373,9 +373,10 @@ def dropin_specs(game):
     in de meegeleverde map wordt dan overgeslagen."""
     import configparser
     specs, fouten = {}, []
-    for d in (gs.user_dir(), gs.shipped_dir()):
-        pad = os.path.join(d, game, "dropin", "dropin.ini")
-        if not os.path.isfile(pad):
+    for d in reversed(gs.patches_roots()):          # eerste treffer wint: ontwikkel-checkout, gebruiker, loader
+        gmap = gs.find_game_dir(d, game)
+        pad = os.path.join(gmap, "dropin", "dropin.ini") if gmap else ""
+        if not pad or not os.path.isfile(pad):
             continue
         cp = configparser.RawConfigParser()
         cp.optionxform = str          # sleutelnamen hoofdlettergevoelig laten (To, DllOverride, Env, Preload)

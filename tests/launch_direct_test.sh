@@ -16,7 +16,8 @@ script, tmp = sys.argv[1], sys.argv[2]
 home = os.path.join(tmp, "home")
 tp = os.path.join(tmp, "tp")
 shipped = os.path.join(tmp, "patches")          # nep-meegeleverde map (patches/ in de repo)
-os.environ["RAVENGUN_PATCHES_DIR"] = shipped
+os.environ.pop("RAVENGUN_PATCHES_DIR", None)       # een ontwikkel-checkout komt BOVEN de gebruikerslaag; dit is de onderste laag
+os.environ["RAVENGUN_LOADER_PATCHES_DIR"] = shipped   # de echte patches/ van de repo telt niet mee
 os.environ["XDG_DATA_HOME"] = os.path.join(home, ".local/share")    # gebruikerslaag: <home>/.local/share/ravengun/patches
 user = os.path.join(home, ".local/share/ravengun/patches")
 fails = []
@@ -48,7 +49,7 @@ def profile(name, emu_type, emu_profile, game, is64, fields, rev="3", extra=""):
 
 
 def run(*args, env=None):
-    e = dict(os.environ, HOME=home, WAYLAND_DISPLAY="wayland-0", RG_GAMESCOPE_RES="1280x720", RAVENGUN_PATCHES_DIR=shipped,
+    e = dict(os.environ, HOME=home, WAYLAND_DISPLAY="wayland-0", RG_GAMESCOPE_RES="1280x720", RAVENGUN_LOADER_PATCHES_DIR=shipped,
              XDG_DATA_HOME=os.path.join(home, ".local/share"))
     e.update(env or {})
     p = subprocess.run([sys.executable, "-I", script, *args, "--tp", tp], capture_output=True, text=True, env=e)

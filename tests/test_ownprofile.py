@@ -75,9 +75,11 @@ class Env(unittest.TestCase):
         self.lib = os.path.join(self.tmp, "library.json")
         os.makedirs(self.home)
         os.environ.update({"HOME": self.home, "XDG_DATA_HOME": os.path.join(self.home, ".local/share"), "RAVENGUN_TP_DIR": self.tp,
-                           "RAVENGUN_PATCHES_DIR": self.shipped, "RAVENGUN_USER_PATCHES_DIR": self.user, "RAVENGUN_LIBRARY_FILE": self.lib,
+                           "RAVENGUN_LOADER_PATCHES_DIR": self.shipped, "RAVENGUN_USER_PATCHES_DIR": self.user,   # "meegeleverd" = de onderste laag (loader); RAVENGUN_PATCHES_DIR zou erboven komen en de gebruikerslaag overrulen
+                            "RAVENGUN_LIBRARY_FILE": self.lib,
                            "RAVENGUN_NO_LEGACY_ENV": "1"})
         os.environ.pop("XDG_CONFIG_HOME", None)
+        os.environ.pop("RAVENGUN_PATCHES_DIR", None)
         for rel in ("OpenParrotWin32/OpenParrotLoader.exe", "OpenParrotWin32/OpenParrot.dll", "pipehelper.exe"):
             write(os.path.join(self.tp, rel), "x")
         write(os.path.join(self.tp, "ParrotData.xml"), "<ParrotData><ExitGameKey>0x1B</ExitGameKey><PauseGameKey>0x13</PauseGameKey></ParrotData>")

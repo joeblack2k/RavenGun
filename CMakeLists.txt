@@ -258,6 +258,12 @@ if(RAVENGUN_BUILD_TESTS)
     # omgeving die run() werkelijk opbouwt), een bestemming buiten de view faalt luid in --plan en --check/--run
     # weigeren, en de native route blijft LD_PRELOAD. Start niets: geen Wine, geen spel, niets op de NAS.
     add_test(NAME ravengun_dropin_preload_route COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dropin_preload_route.py")
+    # De zoekvolgorde van patches/<Game>/ (loader-patches/ onderaan, gebruiker, $RAVENGUN_PATCHES_DIR bovenaan; een plek, geen
+    # tweede kopie in amdaemon/region/matrix/hasp) en het vinden van een game op [Game] Profile in plaats van op de mapnaam.
+    add_test(NAME ravengun_patches_roots COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_patches_roots.py")
+    # Het schema van een gamemap (levering: game.ini, patches.ini, dropin/**, data/**; de rest is onderzoek en verhuist niet mee),
+    # tegen de echte patches/ van de loader en de patches-repo (dezelfde map via een koppeling wordt als een map gecontroleerd).
+    add_test(NAME ravengun_patches_layout COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_patches_layout.py")
     # Argumenten voor het spel per game ([Launch] Arguments): standaard leeg, zichtbaar in --plan, een argument met spaties of
     # aanhalingstekens blijft heel, en de OpenParrot-lader krijgt nooit meer dan een parameter. Start niets.
     add_test(NAME ravengun_spel_argumenten COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spel_argumenten.py")

@@ -40,7 +40,8 @@ zonder --game: alle games met een dongle.json van het soort region
 met --game:    die ene game (met of zonder dongle.json)
 Exit 0 = in orde, 1 = niet in orde, 2 = verkeerd gebruik.
 
-Voor tests: RAVENGUN_PATCHES_DIR, RAVENGUN_USER_PATCHES_DIR, RAVENGUN_TP_DIR, RAVENGUN_GAME_DIR.
+Voor tests: RAVENGUN_LOADER_PATCHES_DIR, RAVENGUN_USER_PATCHES_DIR, RAVENGUN_PATCHES_DIR (volgorde: docs/per-game-patches.md,
+"Zoekvolgorde"), RAVENGUN_TP_DIR, RAVENGUN_GAME_DIR.
 """
 
 import json
@@ -51,6 +52,7 @@ import xml.etree.ElementTree as ET
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ownprofile as op  # noqa: E402  (dezelfde gamemap-resolver als de launcher)
+import gamesettings as gs  # noqa: E402  (de ene zoekvolgorde van patches/<Game>/)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
@@ -124,36 +126,18 @@ CORE_64 = "TeknoParrot64.dll (64-bits, ALLS/amdaemon)"
 # ---------------------------------------------------------------------------------------------------------------------
 # Mappen
 
-def shipped_dir():
-    """De meegeleverde map: $RAVENGUN_PATCHES_DIR, anders <repo>/patches. De patches staan in hun
-    eigen repo (ravengun-patches); zie scripts/gamesettings.py."""
-    return os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")
-
-
-def user_dir():
-    """De gebruikerslaag: $RAVENGUN_USER_PATCHES_DIR, anders $XDG_DATA_HOME/ravengun/patches."""
-    d = os.environ.get("RAVENGUN_USER_PATCHES_DIR")
-    if d:
-        return d
-    x = os.environ.get("XDG_DATA_HOME", "")
-    base = x if x.startswith("/") else os.path.join(HOME, ".local/share")
-    return os.path.join(base, "ravengun", "patches")
-
-
 def patches_dirs():
-    """De mappen waarin gezocht wordt, in volgorde: de gebruikerslaag eerst (die wint)."""
-    uit = []
-    for d in (user_dir(), shipped_dir()):
-        if d and d not in uit:
-            uit.append(d)
-    return uit
+    """De mappen waarin gezocht wordt voor "eerste treffer wint": gamesettings.patches_roots() omgekeerd (ontwikkel-checkout,
+    gebruiker, patches/ van de loader). Geen eigen kopie van de volgorde of van de omgevingsvariabelen."""
+    return list(reversed(gs.patches_roots()))
 
 
 def find_in_patches(game, rel):
     """Het eerste bestaande <patches>/<Game>/<rel>, of None. De gebruikerslaag gaat voor."""
     for d in patches_dirs():
-        p = os.path.join(d, game, rel)
-        if os.path.exists(p):
+        g = gs.find_game_dir(d, game)
+        p = os.path.join(g, rel) if g else ""
+        if p and os.path.exists(p):
             return p
     return None
 
@@ -168,9 +152,10 @@ def dongle_json_pad(game):
     (patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json), dan de oudere losse plaats
     patches/<Game>/dongle.json. De gebruikerslaag gaat per plaats voor op de meegeleverde map."""
     for d in patches_dirs():
+        g = gs.find_game_dir(d, game)
         for rel in (os.path.join("dropin", DONGLE_LAAG, game, "dongle.json"), "dongle.json"):
-            p = os.path.join(d, game, rel)
-            if os.path.isfile(p):
+            p = os.path.join(g, rel) if g else ""
+            if p and os.path.isfile(p):
                 return p
     return None
 
@@ -230,8 +215,8 @@ def read_game_ini(game):
     sleutel (dezelfde regel als scripts/gamesettings.py)."""
     uit = {}
     for d in reversed(patches_dirs()):
-        p = os.path.join(d, game, "game.ini")
-        if not os.path.isfile(p):
+        p = gs.game_ini_path(game, d)
+        if not p or not os.path.isfile(p):
             continue
         for sectie, kv in read_ini(p).items():
             uit.setdefault(sectie, {}).update(kv)

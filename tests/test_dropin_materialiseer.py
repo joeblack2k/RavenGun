@@ -138,12 +138,11 @@ class TestDropinIni(unittest.TestCase):
         self.user = os.path.join(self.tmp, "gebruiker")
         os.makedirs(os.path.join(self.shipped, "ProefGame", "dropin"))
         os.makedirs(self.user)
-        self._user_dir, self._shipped_dir = ld.gs.user_dir, ld.gs.shipped_dir
-        ld.gs.user_dir = lambda: self.user
-        ld.gs.shipped_dir = lambda: self.shipped
+        self._lagen = ld.gs._raw_layers      # de ene plek waar de zoekvolgorde staat (user_dir/shipped_dir/patches_roots leiden ervan af)
+        ld.gs._raw_layers = lambda shipped=None, user=None: [("shipped", self.shipped), ("user", self.user)]
 
     def tearDown(self):
-        ld.gs.user_dir, ld.gs.shipped_dir = self._user_dir, self._shipped_dir
+        ld.gs._raw_layers = self._lagen
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def schrijf_ini(self, tekst, bom=False):
@@ -236,15 +235,14 @@ class TestNasControle(unittest.TestCase):
             f.write("[proef.dll]\nTo = .\n")
         with open(os.path.join(self.shipped, "ProefGame", "dropin", "proef.dll"), "w") as f:
             f.write("x")
-        self._user_dir, self._shipped_dir = ld.gs.user_dir, ld.gs.shipped_dir
+        self._lagen = ld.gs._raw_layers
         self._views_dir, self._on_nas = ld.op.views_dir, ld.on_nas
-        ld.gs.user_dir = lambda: self.user
-        ld.gs.shipped_dir = lambda: self.shipped
+        ld.gs._raw_layers = lambda shipped=None, user=None: [("shipped", self.shipped), ("user", self.user)]
         ld.op.views_dir = lambda: self.views
         ld.on_nas = lambda p: True          # net als op de Deck: alles onder de mount is "op de NAS"
 
     def tearDown(self):
-        ld.gs.user_dir, ld.gs.shipped_dir = self._user_dir, self._shipped_dir
+        ld.gs._raw_layers = self._lagen
         ld.op.views_dir, ld.on_nas = self._views_dir, self._on_nas
         shutil.rmtree(self.tmp, ignore_errors=True)
 
@@ -311,14 +309,13 @@ class TestPreloadKanaalEnKeten(unittest.TestCase):
         os.symlink(os.path.join(self.nas, "exe"), os.path.join(self.views, "ProefGame", "exe"))   # de symlink boven de gamemap
         os.symlink(os.path.join(self.nas, "Ram"), os.path.join(self.views, "ProefGame", "Ram"))
         self.spel = os.path.join(self.views, "ProefGame", "exe", "x64", "VACUUM.exe")
-        self._bewaard = (ld.gs.user_dir, ld.gs.shipped_dir, ld.op.views_dir, ld.on_nas)
-        ld.gs.user_dir = lambda: self.user
-        ld.gs.shipped_dir = lambda: self.shipped
+        self._bewaard = (ld.gs._raw_layers, ld.op.views_dir, ld.on_nas)
+        ld.gs._raw_layers = lambda shipped=None, user=None: [("shipped", self.shipped), ("user", self.user)]
         ld.op.views_dir = lambda: self.views
         ld.on_nas = lambda p: os.path.realpath(p).startswith(self.nas + os.sep)
 
     def tearDown(self):
-        ld.gs.user_dir, ld.gs.shipped_dir, ld.op.views_dir, ld.on_nas = self._bewaard
+        ld.gs._raw_layers, ld.op.views_dir, ld.on_nas = self._bewaard
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def ini(self, tekst, *bestanden):

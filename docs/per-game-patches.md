@@ -33,12 +33,90 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
 `<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de id uit
 `native-games.json`/`aagames-games.json`. Een eigen game maak je door in de gebruikersmap een map met een `game.ini` te zetten.
 
-Zoeken van de mappen (zelfde regels in Python, engine en app):
+### Zoekvolgorde
 
-- meegeleverd: `$RAVENGUN_PATCHES_DIR`, anders `<datamap>/patches`. De datamap is de repo bij ontwikkeling en
-  `<prefix>/share/ravengun` bij een installatie (dezelfde zoektocht als voor `scripts/` en `packaging/`, `src/ravengun/paths.hpp`).
-  Voor scripts is dat de map boven `scripts/`.
-- gebruiker: `$RAVENGUN_USER_PATCHES_DIR`, anders `$XDG_DATA_HOME/ravengun/patches`, anders `~/.local/share/ravengun/patches`.
+Er is **een** plek waar de volgorde staat: `patch_layers()` in `scripts/gamesettings.py` (`patches_roots()` geeft er de paden van).
+Alles wat `patches/<Game>/` zoekt (gamesettings, camera, launch-direct, amdaemon, region, matrix, hasp) gaat daarlangs; geen script
+leest `RAVENGUN_PATCHES_DIR` of `RAVENGUN_USER_PATCHES_DIR` zelf (`tests/test_patches_roots.py` controleert dat).
+
+| laag | map | rol |
+|---|---|---|
+| 1, onderaan | de eigen `patches/` van de loader: `<datamap>/patches` (repo bij ontwikkeling, `<prefix>/share/ravengun/patches` bij een installatie) | de basis |
+| 2 | de gebruikerslaag: `$RAVENGUN_USER_PATCHES_DIR`, anders `$XDG_DATA_HOME/ravengun/patches`, anders `~/.local/share/ravengun/patches` | afwijkingen van de gebruiker |
+| 3, bovenaan | `$RAVENGUN_PATCHES_DIR` (alleen als gezet): een ontwikkel-checkout van de patches | wint van alles |
+
+- **Per sleutel wint de latere laag** (3 boven 2 boven 1); een lege waarde haalt de sleutel weg, in welke laag dan ook. `patches.ini`
+  volgt dezelfde lagen.
+- **`$RAVENGUN_PATCHES_DIR` komt erbovenop, het vervangt de loader-map niet.** Een game die alleen in `patches/` van de loader staat,
+  blijft vindbaar als er een ontwikkel-checkout is. Daardoor kunnen gamemappen van de patches-repo naar de loader verhuizen (of
+  terug) zonder dat er iets verandert.
+- Een laag die niet bestaat valt weg; de volgorde van de rest blijft. Is dezelfde map (na `realpath`) tweemaal een laag, dan telt hij
+  een keer, op de hoogste plek. Op een ontwikkelmachine is `patches/` van de loader een koppeling naar de patches-repo; dat is
+  daarmee onschadelijk.
+- Een zoektocht die de **eerste treffer** neemt (een bestand, een drop-in) loopt omgekeerd: 3, dan 2, dan 1.
+- `_defaults/<Type>.ini` en `.patches.ini` komen uit de meegeleverde lagen (1 en 3), in die volgorde; de gebruikerslaag levert er geen.
+- Gevolg om te weten: staat `RAVENGUN_PATCHES_DIR` in de omgeving van de app of de service, dan overrulen de waarden daar de
+  gebruikerslaag (laag 2) per sleutel. Zet hem alleen in een ontwikkelshell.
+- Tests: `RAVENGUN_LOADER_PATCHES_DIR` verplaatst laag 1 (ook voor een pakket dat de patches elders neerzet). Een test die de echte
+  `patches/` buiten de deur wil houden zet hem op een tijdelijke map en laat `RAVENGUN_PATCHES_DIR` weg.
+- `--patches DIR` / `--user DIR` van `gamesettings.py` en de parameters `shipped=`/`user=` van de functies vervangen de meegeleverde
+  lagen (1 en 3) resp. laag 2; de volgorde blijft meegeleverd, dan gebruiker.
+- `gamesettings.py dirs` toont de lagen in deze volgorde. `shipped_dir()` (de bovenste meegeleverde laag: schrijfdoel van de importer)
+  en `user_dir()` bestaan nog, afgeleid van dezelfde lijst.
+- De C++-lezer (`src/ravengun/gamesettings/`) kent nog het oude of/of (`RAVENGUN_PATCHES_DIR` *of* `<datamap>/patches`) en is bij
+  deze wijziging **niet** aangepast; zie "Nog open" onderaan.
+
+### Identiteit: de game vinden op `[Game] Profile`
+
+De map van een game wordt niet alleen op haar naam gezocht (`find_game_dir()` in `gamesettings.py`; hetzelfde in amdaemon, region,
+matrix en hasp):
+
+1. Snelle weg: `<wortel>/<profiel>/game.ini`. Staat daar een `[Game] Profile` dat niet `<profiel>` is, dan klopt de naam van de map
+   niet met wat erin staat: een luide waarschuwing (in `Game.warnings` en op stderr, "WAARSCHUWING: ... de map heet ...").
+2. Scan: een andere map in dezelfde wortel waarvan `[Game] Profile` het gevraagde profiel is. Een hernoemde map werkt dus, met
+   dezelfde waarschuwing ("hernoem de map"). Meerdere treffers: de eerste op naam, met een waarschuwing.
+3. Niets gevonden maar er is wel een map met de naam van het profiel (een `game.ini` zonder `Profile`, of een map met alleen
+   `patches.ini`): die wordt gebruikt. Is er niets, dan is de game "niet gevonden" (`Game.exists = False`, `locate_game_dirs() == []`);
+   dat is geen fout en geeft geen waarschuwing.
+
+`list_games()` noemt de games met hun `Profile` (zo zijn ze te laden). Het schrijven naar de gebruikerslaag
+(`write_user_settings`) blijft in een bestaande, hernoemde map met dat profiel.
+
+### Indeling van een gamemap: levering en onderzoek
+
+Het schema staat in code (`scripts/patchlayout.py`) en wordt getest (`tests/test_patches_layout.py`). Eén regel beslist of een
+gamemap van de patches-repo naar de `patches/` van de loader mag verhuizen: **verhuizen neemt alleen de levering mee, nooit het onderzoek.**
+
+| soort | wat | verplicht |
+|---|---|---|
+| levering | `game.ini` | ja |
+| levering | `patches.ini` | nee |
+| levering | `dropin/**` (met `dropin/dropin.ini`) | nee; heeft een game `dropin/`, dan moet `dropin.ini` er zijn en elk bestand dat het noemt |
+| levering | `data/**` (runtimegegevens) | nee |
+| onderzoek | `*.md` (ook `README.md`, `*.md.voor-correctie-*`), `logs-*/`, `bewijs-*/`, `probe/`, `probes/`, `measurements/`, `*.voor-correctie*`, schermafbeeldingen (`*.png`, `*.jpg`, ...), `*.log`, `gamelog-*`, `usb-tap*` | nee, en nooit in de levering |
+| onderzoek, alleen bovenin de map | `*.txt`, `*.csv`, `*.sh`, `*.py`, `*.c`, `*.h`, `*-logs/`, `*-harness/`, `*.draft.*`, `*.kandidaat.*`, `*.schema-fragment.*`, `run*` | nee |
+| onbekend | al het andere | wordt gemeld door de test: het hoort of in de levering (en dan in de lijst hierboven), of bij het onderzoek |
+
+Binnen `dropin/` en `data/` zijn `.py`, `.sh`, `.txt` en `.json` gewone leveringsbestanden; daar telt alleen het onderzoek uit de
+eerste groep als besmetting.
+
+`ship_set(map)` geeft de levering (relatieve paden), `research_set(map)` het onderzoek op het hoogste niveau,
+`unknown_entries(map)` wat er in geen van beide valt. De tests:
+
+- **verplicht**: elke gamemap heeft `game.ini` (`missing-required`);
+- **levering compleet**: noemt `dropin/dropin.ini` een bestand dat er niet staat, of staat er `dropin/` zonder `dropin.ini`, dan faalt het
+  (`dropin-missing-file`, `dropin-no-ini`, `dropin-bad-ini`);
+- **levering zonder onderzoek**: geen enkel pad van `ship_set` is onderzoeksmateriaal (`ship-contaminated`), zodat verhuizen geen dossiers
+  of logs meesleept;
+- **geen onbekende namen** (`unknown-entry`) en **mapnaam = `[Game] Profile`** (`profile-mismatch`).
+
+`python3 scripts/patchlayout.py [wortel ...]` toont dezelfde afwijkingen.
+
+**Een map of twee?** Op een ontwikkelmachine is `patches/` van de loader een koppeling naar `../ravengun-patches/patches`: dezelfde map. De
+test stelt dat vast met `st_dev`/`st_ino` (niet met de tekst van het pad), legt die ene map tegen het schema en meldt dat hij geen
+vergelijking tussen twee repo's heeft gedaan; hij beweert dus nooit dat "de twee indelingen overeenkomen". Zijn het twee verschillende
+mappen (andere machine, of gamemappen zijn naar de loader verhuisd), dan worden beide tegen het schema gelegd en wordt elke game die op
+beide plaatsen staat op haar levering (paden en sha256) vergeleken.
 
 ### Samenvoegen
 
@@ -46,8 +124,8 @@ Per sleutel, in deze volgorde (een latere laag wint):
 
 1. `_defaults/<Type>.ini`. Het soort staat in `[Game] Type` (de gebruikerslaag gaat voor); zonder `Type` geldt de hint van de
    aanroeper (de launcher geeft de `EmulatorType` van het TeknoParrot-profiel mee).
-2. `patches/<Game>/game.ini` (meegeleverd).
-3. `<gebruiker>/<Game>/game.ini`.
+2. `patches/<Game>/game.ini` (meegeleverd: laag 1 en, als `RAVENGUN_PATCHES_DIR` gezet is, 3).
+3. `<gebruiker>/<Game>/game.ini`. (Volgorde van de lagen: zie "Zoekvolgorde"; een ontwikkel-checkout komt daar nog bovenop.)
 
 Een **lege waarde** (`Sleutel =`) haalt de sleutel weg, in welke laag dan ook: zo zet een game of de gebruiker een standaard van het
 soort terug op "niet gezet". Een sectie zonder sleutels bestaat niet. Wat de migratie niet kent, blijft staan.
@@ -614,3 +692,13 @@ geschreven. Een game zonder eigen profiel gedraagt zich als voorheen.
    runtime. Wat daarna van `UserProfiles/` overblijft is een uitvoerformaat voor TeknoParrotUi; de bibliotheek, de engine en de directe start hebben het
    niet meer nodig. De gamemappen die de games bevatten moeten in `library.json` staan (Settings > Paths > Game Folders, of
    `import-tp-profiles.py --game-folder DIR --add-to-library`).
+
+## Nog open
+
+- **De C++-lezers** (`src/ravengun/gamesettings/`, de engine en de instellingenvenster-code) kennen de zoekvolgorde en de identiteit nog
+  op de oude manier: een meegeleverde map (`RAVENGUN_PATCHES_DIR` *of* `<datamap>/patches`) en een gebruikersmap, een game op mapnaam.
+  Tot ze dezelfde `patch_layers`-volgorde en `find_game_dir`-regels volgen, wijkt de C++-kant af zodra `RAVENGUN_PATCHES_DIR` gezet is of
+  een map een andere naam heeft dan zijn `[Game] Profile`. Dit is bewust niet in dezelfde wijziging aangepast en niet gebouwd of getest.
+- **`hasp-haken.ini`** staat in `patches/Halo/` en `patches/Terminator/` op het hoogste niveau, maar de hook (`tools/rt-hasphook`) leest hem uit de
+  map van zijn eigen bibliotheek (of via `RAVENGUN_HASP_ELF_ADRESLIJST`), dus uit `dropin/`. `tests/test_patches_layout.py` meldt hem als
+  onbekende naam. Verplaatsen naar `dropin/` (met een sectie in `dropin.ini`) of als onderzoek aanmerken is een keuze van de eigenaar.

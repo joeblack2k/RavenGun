@@ -75,7 +75,8 @@ class Basis(unittest.TestCase):
         self.xdg = os.path.join(self.tmp, "xdg")
         os.makedirs(self.libuser)
         os.makedirs(self.xdg)
-        os.environ["RAVENGUN_PATCHES_DIR"] = self.shipped
+        os.environ.pop("RAVENGUN_PATCHES_DIR", None)          # een ontwikkel-checkout komt BOVEN de gebruikerslaag; "meegeleverd" is hier de onderste laag
+        os.environ["RAVENGUN_LOADER_PATCHES_DIR"] = self.shipped
         os.environ["RAVENGUN_USER_PATCHES_DIR"] = self.user
         os.environ["RAVENGUN_HASP_LIB_DIR"] = self.lib
         os.environ["RAVENGUN_USER_HASP_DIR"] = self.libuser

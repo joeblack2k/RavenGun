@@ -34,6 +34,8 @@ import shutil
 import sys
 
 sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+import gamesettings as gs  # noqa: E402  (de ene zoekvolgorde van patches/<Game>/)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
@@ -51,13 +53,9 @@ def data_home():
 
 
 def patches_dirs():
-    """De mappen met de game-mappen, in volgorde: de gebruikerslaag eerst (die wint), dan de meegeleverde map."""
-    uit = []
-    for d in (os.environ.get("RAVENGUN_USER_PATCHES_DIR") or os.path.join(data_home(), "ravengun", "patches"),
-              os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")):
-        if d and d not in uit:
-            uit.append(d)
-    return uit
+    """De mappen met de game-mappen voor "eerste treffer wint": gamesettings.patches_roots() omgekeerd (ontwikkel-checkout,
+    gebruiker, patches/ van de loader). Geen eigen kopie van de volgorde."""
+    return list(reversed(gs.patches_roots()))
 
 
 def out_dir():
@@ -72,7 +70,7 @@ def game_dir(game):
     de drop-in in de meegeleverde map, dan wint de map MET de drop-in. Anders meldt dit script ten
     onrechte "geen drop-in" voor elke game met een gebruikerslaag. Dat is dezelfde volgorde als
     dropin_specs in scripts/launch-direct.py: een laag zonder dropin.ini doet niet mee."""
-    kandidaten = [os.path.join(d, game) for d in patches_dirs()]
+    kandidaten = [gs.find_game_dir(d, game) or os.path.join(d, game) for d in patches_dirs()]
     for p in kandidaten:
         if os.path.isfile(os.path.join(p, "dropin", "dropin.ini")):
             return p

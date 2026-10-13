@@ -172,7 +172,7 @@ class LayerTest(Tmp):
     def test_cli_get_and_env(self):
         write(os.path.join(self.shipped, "G", "game.ini"),
               "[Game]\nType = OpenParrot\n[Wine]\nPrefix = shared\n[Display]\nGamescope = true\n[Env]\nA = b\n")
-        env = dict(os.environ, RAVENGUN_PATCHES_DIR=self.shipped, RAVENGUN_USER_PATCHES_DIR=self.user, RAVENGUN_NO_LEGACY_ENV="1")
+        env = dict(os.environ, RAVENGUN_PATCHES_DIR=self.shipped, RAVENGUN_LOADER_PATCHES_DIR=os.path.join(self.tmp, "geen-loader"), RAVENGUN_USER_PATCHES_DIR=self.user, RAVENGUN_NO_LEGACY_ENV="1")
         out = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "gamesettings.py"), "--tp", self.tmp, "env", "G"],
                              capture_output=True, text=True, env=env).stdout.split("\n")
         self.assertIn("TP_GAMESCOPE=1", out)
@@ -449,7 +449,7 @@ class TpAddGameTest(Tmp):
             exe = os.path.join(self.tmp, "spel", prof, "game.exe")
             write(exe, "x")
             env = dict(os.environ, HOME=home, XDG_DATA_HOME=os.path.join(home, ".local/share"), RAVENGUN_TP_DIR=tp,
-                       RAVENGUN_PATCHES_DIR=self.shipped, RAVENGUN_USER_PATCHES_DIR=self.user)
+                       RAVENGUN_PATCHES_DIR=self.shipped, RAVENGUN_LOADER_PATCHES_DIR=os.path.join(self.tmp, "geen-loader"), RAVENGUN_USER_PATCHES_DIR=self.user)
             r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "tp-add-game.py"), prof, exe, "--env", "TP_POSTSTART_REMOTETHREAD_MS=3000"]
                                if prof == "LGS" else [sys.executable, "-I", os.path.join(SCRIPTS, "tp-add-game.py"), prof, exe],
                                capture_output=True, text=True, env=env)

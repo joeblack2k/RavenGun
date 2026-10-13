@@ -127,10 +127,11 @@ def kies(rol_ruw, apparaat_ruw, keuze_ruw, cameras):
 
 def resolve(game, shipped=None, user=None, conf=None, sys_root="/sys/class/video4linux"):
     def laag(pad):
-        secties, _ = gs.read_ini(os.path.join(pad, game, "game.ini"))
+        secties, _ = gs.read_ini(gs.game_ini_path(game, pad) or os.devnull)
         return {k.lower(): v for k, v in secties.get("Camera", {}).items()}
-    inst = laag(shipped or gs.shipped_dir())
-    inst.update(laag(user or gs.user_dir()))       # de gebruikerslaag gaat per sleutel voor
+    inst = {}
+    for pad in gs.patches_roots(shipped, user):    # de zoekvolgorde van gamesettings; een latere laag gaat per sleutel voor
+        inst.update(laag(pad))
     return kies(inst.get("use", ""), inst.get("device", ""), app_keuze(conf), lijst(sys_root))
 
 

@@ -50,6 +50,8 @@ import re
 import sys
 
 sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+import gamesettings as gs  # noqa: E402  (de ene zoekvolgorde van patches/<Game>/)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("HOME", "/home/deck")
@@ -76,14 +78,9 @@ REQUIRED_FIELDS = ("game",)
 # Mappen
 
 def patches_dirs():
-    """De mappen met de games, in volgorde: de gebruikerslaag eerst (die wint), dan de meegeleverde map."""
-    uit = []
-    for d in (os.environ.get("RAVENGUN_USER_PATCHES_DIR"),
-              os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local/share"), "ravengun", "patches"),
-              os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(ROOT, "patches")):
-        if d and d not in uit:
-            uit.append(d)
-    return uit
+    """De mappen met de games voor "eerste treffer wint": gamesettings.patches_roots() omgekeerd (ontwikkel-checkout,
+    gebruiker, patches/ van de loader). Geen eigen kopie van de volgorde."""
+    return list(reversed(gs.patches_roots()))
 
 
 def emulator_dirs():
@@ -183,10 +180,11 @@ def dongle_json(name):
     `name` mag de mapnaam zijn (patches/<Game>/) of het veld "game" uit dongle.json."""
     gezocht = _norm(name)
     for d in patches_dirs():
-        direct = _dongle_pad(os.path.join(d, str(name)), str(name))
+        gmap = gs.find_game_dir(d, str(name))      # op [Game] Profile, niet alleen op de mapnaam
+        direct = _dongle_pad(gmap, str(name)) if gmap else None
         if direct:
             with open(direct, encoding="utf-8") as f:
-                return os.path.join(d, str(name)), direct, json.load(f)
+                return gmap, direct, json.load(f)
     # geen map met die naam: elke map met een dongle.json lezen en op het veld "game" vergelijken
     for d in patches_dirs():
         if not os.path.isdir(d):
