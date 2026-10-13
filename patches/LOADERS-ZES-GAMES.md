@@ -429,3 +429,22 @@ meldingen weg zijn. De route daarnaartoe, in deze orde:
    van hardware namaken. Onze hulp kan de service-schakelaar sturen (bit 3 -> k=3), dus een service-menu
    is bereikbaar;
 4. en pas als dat niet kan: het apparaat namaken met een identiteit die uit stap 1 komt, niet verzonnen.
+
+### Correctie op de Luigi-stand (2026-10-13, na 12:00)
+
+Ik heb de schijfletterkandidaat eerst als NEGATIEF gerapporteerd. **Dat was fout.** De werker vond het
+zelf: zijn sampler accepteert alleen een `VACUUM.exe` waarvan de commandoregel `LuigisMansion` bevat, en
+met het schijfletterpad staat daar `X:\exe\x64\VACUUM.exe`. **De sampler heeft het spelproces nooit
+gevonden**, dus "harde grens 40 s" en alle zeventien `<niet gelezen>` zeggen niets over het spel.
+
+De juiste stand van de vier stappen uit het officiele startscript:
+
+| stap | uitkomst |
+|---|---|
+| `GAMEID=SDCF` | **NEGATIEF** (dood 6,0 s) |
+| `sendFlash COM1 LMAIO.bin` | **INERT** (exit 0, niets verzonden) |
+| `Y:\SDCF` | **NEGATIEF** (vrijgave 6,2 s, ontpakken klaar, dood 6,5 s) |
+| starten vanaf `X:\exe\x64\` | **NOG NIET GEMETEN** -- de override WERKT (het laderbanner toont `Game: X:\exe\x64\VACUUM.exe`) en de `x:`-koppeling resolveerde, maar de meting wacht op een eenregelige reparatie van de sampler |
+
+Dus drie van de vier zijn weggestreept en de vierde is een instrumentreparatie verwijderd van een echte
+meting -- niet "afgedaan".
