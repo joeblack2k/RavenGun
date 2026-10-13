@@ -145,3 +145,105 @@ terug naar de pakker-fase. Beide uitkomsten zijn evenveel waard.
   groene ontleed-modus die de gewone run niet bewees, een leeg `tap start`-logboek dat als "niets
   gevonden" werd gelezen, een drop-in-teller die gegevensbestanden als "niet geladen" telde, en een
   `.text`-lezing die mogelijk het kapotte instrument is.
+
+---
+
+## Stand 2026-10-13, tweede update: de officiele startscripts en het exitbesluit
+
+### De vondst van de dag: elke game heeft een eigen startscript dat wij overslaan
+
+Zeven games hebben een `game.bat` naast de exe, en Halo heeft (als ELF) een `run_game.sh`. Ze doen
+allemaal hetzelfde soort dingen die wij niet doen: **eerst een hardwareprobe, dan de game**.
+
+| game | wat het startscript doet |
+|---|---|
+| LuigisMansion | `set GAMEID=SDCF`; `Y:\SDCF` klaarzetten (en `Y:\` wissen als het ontbreekt); **`sendFlash COM1 LMAIO.bin`**; dan `start /wait x:\exe\x64\VACUUM.exe` |
+| HOTDSD | `LAUNCH_ON_IMAGE=1`; `IMAGE_ROOT_DIR=X:\`; `call AppStartup.bat` (zet `LAUNCH_MODE`) en `StartApp.bat` geeft **`-UNATTENDED`** mee |
+| LGS / OG | `mxGetHwInfo.exe -s <ini>` en **alleen bij `%ERRORLEVEL% == 0`** start het spel |
+| MedaruNoGunman | `cd exe` en dan `start /wait game.exe` |
+| Halo | `utils/run_game.sh`: eerst **`rtinit -ct`** als hardwareprobe, en die code kiest de resolutie |
+
+Zie `patches/GAME-BAT-STARTS.md` voor de letterlijke inhoud. Dit is een **systemisch** verschil tussen
+onze start en de start van de kast, en het verklaart minstens een gemeten geval: Scarlet Dawn bleef 60 s
+op een foutvenster wachten omdat TeknoParrot geen argumenten meegeeft terwijl het eigen script
+`-UNATTENDED` gebruikt.
+
+### Luigi's Mansion: waar het nu staat
+
+**Wat uitgesloten is, met metingen:**
+* De pakker **komt klaar** onder onze kern: `.text` bereikt 11,2 procent nul (dezelfde eindtoestand als
+  de gesloten kern) en het spel sterft ongeveer 0,2 s daarna. Dat is in beide armen gemeten (met en
+  zonder drop-in) en nog eens bevestigd door de exit-trace: op het moment van beeindigen is `.text`
+  3.104.750 van 3.496.500 bytes niet-nul.
+* De **am-laag** is niet de oorzaak: de 16 haken kwamen op echte code en de dood verschoof mee met de
+  klok in plaats van te verdwijnen.
+* **`GAMEID=SDCF`** maakt geen verschil: het spel sterft nog op 6,0 s.
+* **`sendFlash COM1 LMAIO.bin`** is op onze bench een **no-op**: hij probeert het bord vijf keer
+  (35 bytes, `/i` `/e` met ETX), krijgt niets terug, verzendt de firmware van 140.688 B nooit, en
+  eindigt toch met exitcode 0. Zonder bord is die stap inert.
+
+**Nog open:** de schijfletterroute (`x:\exe\x64\VACUUM.exe`) en het klaarzetten van `Y:\SDCF`.
+
+**De exit is hop voor hop ontleed.** De keten: de init-routine op `VACUUM.exe+0x30f998` (stappen met elk
+een eigen foutcode 0x1b, 8, 9, en **geen enkele string**) roept met `call 0x14011c5f0` een thunk aan die
+naar `0x140e8189b` springt, waar de virtuele functie met tag `0x919e48fe` wordt binnengegaan; van
+binnenuit wordt met tag `0xb63f49fe` de exit bereikt op `0xf1374d`. Die virtuele functie heeft in het
+hele beeld **precies een aanroeper**.
+
+**En de "exitcode 32" bestaat niet.** De waarde die aan ExitProcess wordt doorgegeven is `0x140415820`:
+een tabel met vijf code-aanwijzers in `.rdata` (een vtable/typebeschrijving, met de string
+`can not mutex ctor!` er direct achter) met precies een verwijzing in het hele beeld. Het is dus een
+**restwaarde in rcx** die de VM bij zijn staartaanroep laat staan, en de 32 is alleen de laagste byte.
+Daarmee is een vraag gesloten die vanaf de eerste exitmeting is meegezeuld.
+
+**Nieuw over de pakker:** `.text` bevat **215 `jmp`-thunks naar `.capcom0`**. De pakker heeft code dus
+**gesplitst**, niet alleen gevirtualiseerd: `.capcom0` bevat de echte lichamen van 215 `.text`-functies.
+
+**En een open discrepantie die niet wordt weggepoetst:** de blootstelling na het ontpakken is ongeveer
+0,2 s in het ene harnas en 1,26 s in het andere -- een factor zes. Als de dood aan een DUUR hangt en niet
+aan een moment, dan is wat die duur bepaalt de kern van de zaak.
+
+### Halo Fireteam Raven
+
+* Run 2: uitkomst **(iii) hard**. De aangescherpte tap was aantoonbaar geladen (15 keer `tap start`) en
+  zag in 300 s niets anders; het spel is dus nooit bij `ftdi_usb_find_all()` aangekomen en het venster is
+  als verklaring uitgesloten. Het spel LEEDE de hele tijd (17 threads, 10 libfmod-mappings).
+* De **FileTest is een voorwaarde, geen zijspoor**: de FTDI-regels zijn er niet terwijl die controle
+  faalt. START overslaan is dus de route, en dat is een **al gemeten effect** (van het FileTest-scherm
+  naar Webcam Init).
+* Halo heeft **geen view en geen `game.bat`** (het is een Linux-ELF, geen Wine-spel), maar wel
+  `utils/run_game.sh`, en daarin staat dezelfde soort stap als bij de andere games: **`rtinit -ct`**.
+  Een onbekende code laat daar een LEEG resolutieargument achter (`game -f -n`).
+
+### Terminator Salvation
+
+* **Onze ELF-lader werkt**: 13 van 13 bibliotheken, `spring naar e_entry 0x8057240`, exitcode 255 van de
+  GAST, nul FATAAL-regels. Twee reparaties maakten dat verschil (de herkansings-lus in beide modi en het
+  plafond van de lib-defs-lijst dat zich luid meldt).
+* De gast stopt daarna op zijn **eigen ptrace-controle**. Die laag is met een A/B **geklaard**: arm A
+  bevestigt de bevinding zonder tracer, arm B laat **390 van 390** aanhakingen slagen (uit 392
+  kindprocessen) tegen twee regels in arm A. Maar de gast zegt daarna nog niets en exit 0 is een schone
+  zelfbeeindiging, geen spelbeeld. Volgende stappen: de 390 kinderen analyseren (werkerpool of lus) en de
+  HASP-aanroepmeting, die nu voor het eerst zinvol is.
+
+### House of the Dead Scarlet Dawn
+
+* **Volledigheid gemeten**: 0 van 2.081 bestanden leeg, 32 PE's niet afgekapt, 0 onopgeloste imports, en
+  de pak is aantoonbaar niet afgekapt. Wat niet gezegd kan worden staat expliciet in het dossier.
+* **Het spel heeft GESPEELD op deze machine**: zes sessies op 11-10, waarvan een van **7 minuten** met
+  `LoadMap(PL_Stage0)` en alle sublevels. Een crashte, vijf werden gestopt. De crash valt op het moment
+  dat Stage 0 opkomt; de 60 s stilte daarna komt doordat UE4 op een foutvenster wacht, en het eigen
+  startscript geeft daar **`-UNATTENDED`** voor mee. Geen OOM (22,7 GB vrij). Het is een **starter, geen
+  omvaller**: sessie 6 liep nog 105 s door na dezelfde map.
+* De daemon alleen sterft na 1 s in de **platformlaag** (`amPlatformGetPlatformInformation`), voor de
+  keychip. Vier concurrerende verklaringen zijn met 2 s-runs weerlegd; de kern blijft als hoofdverdachte.
+* `aimeId is invalid` is de enige fout die de game zelf meldt, deterministisch bij elke Login-stap, en
+  **blokkeert het spelen niet**.
+
+### De lat
+
+| eis | stand |
+|---|---|
+| Onze eigen lader werkt | ja voor de ELF-kant (bewezen) en voor de Sega- en Unity-kant; per game in het dossier |
+| Rabbids Hollywood 10 minuten | **GEAHAALD** |
+| Luigi's Mansion 5 minuten | **niet gehaald**; het spel sterft ongeveer 0,2 s na een voltooid ontpakken, en de vier stappen van zijn eigen startscript worden een voor een getest |
