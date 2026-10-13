@@ -73,19 +73,21 @@ static void *worker(void *arg) {
     /* Alleen op de bekende build. */
     if (memcmp((const void *)GETTER_ADDR, getter_sig, sizeof getter_sig) != 0) { logf_("andere game-build, geen invoer"); return 0; }
 
-    const volatile uint8_t *st = 0;
+    /* LET OP: hier stond een mmap van het schakelaarbeeld. Dat is gevaarlijk: een schrijver die het
+       bestand ook maar even afkapt (open met "wb" doet dat) maakt de mapping ongeldig, en dan sterft
+       het spel met SIGBUS op de eerstvolgende lezing. Dat is precies wat in run 4 gebeurde
+       (librg_rt_input.so+0x1f44, lezend op st+8). pread kan daar niet op stuklopen. */
+    int shm_fd = -1;
+    uint8_t buf[64];
     uint32_t prev = 0;
     uint64_t until[NMAP]; memset(until, 0, sizeof until);
     int active[NMAP]; memset(active, 0, sizeof active);
     uint64_t rel_until[NMAP]; memset(rel_until, 0, sizeof rel_until);
     for (;;) {
-        if (!st) {
-            int fd = open(shm, O_RDONLY | O_CLOEXEC);
-            if (fd >= 0) {
-                void *p = mmap(0, 64, PROT_READ, MAP_SHARED, fd, 0); close(fd);
-                if (p != MAP_FAILED) { st = (const volatile uint8_t *)p; logf_("gedeeld geheugen gekoppeld"); }
-            }
-            if (!st) { usleep(250000); continue; }
+        if (shm_fd < 0) {
+            shm_fd = open(shm, O_RDONLY | O_CLOEXEC);
+            if (shm_fd < 0) { usleep(250000); continue; }
+            logf_("gedeeld geheugen gekoppeld (pread)");
         }
         if (probe && now_ms() > probe_t + 250) {
             probe_t = now_ms();
@@ -93,16 +95,20 @@ static void *worker(void *arg) {
             if (pf) { int b, bd, k; if (fscanf(pf, "%d,%d,%d", &b, &bd, &k) == 3) for (int i = 0; i < NMAP; i++) if (MAP[i].bit == b) { MAP[i].board = bd; MAP[i].k = k; } fclose(pf); }
         }
         if (alltypes) for (int b = 0; b < 4; b++) for (int k = 0; k < 13; k++) entry(b, k)[0] = 1;   /* onderzoek: alle schakelaars als "aanwezig" markeren */
-        uint32_t bits = (uint32_t)st[8] | ((uint32_t)st[9] << 8) | ((uint32_t)st[10] << 16) | ((uint32_t)st[11] << 24);
+        ssize_t gelezen = pread(shm_fd, buf, sizeof buf, 0);
+        if (gelezen < 12) { usleep(10000); continue; }   /* bestand (nog) te kort: niets lezen */
+        uint32_t bits = (uint32_t)buf[8] | ((uint32_t)buf[9] << 8) | ((uint32_t)buf[10] << 16) | ((uint32_t)buf[11] << 24);
         uint64_t t = now_ms();
         for (int i = 0; i < NMAP; i++) {
             int now = (bits >> MAP[i].bit) & 1, was = (prev >> MAP[i].bit) & 1;
-            if (now && !was) { until[i] = t + (uint64_t)(pulse_override > 0 ? pulse_override : MAP[i].ms); active[i] = 1; { volatile uint32_t *e0 = entry(MAP[i].board, MAP[i].k); e0[6]++; } if (log_on) { char b[64]; snprintf(b, sizeof b, "indruk bit %d -> bord %d schakelaar %d", MAP[i].bit, MAP[i].board, MAP[i].k); logf_(b); } }
+            if (now && !was) { until[i] = t + (uint64_t)(pulse_override > 0 ? pulse_override : MAP[i].ms); active[i] = 1; { volatile uint32_t *e0 = entry(MAP[i].board, MAP[i].k); e0[6]++;
+                if (log_on) { char b[160]; snprintf(b, sizeof b, "tabel bord %d k %d NA de indruk: [0]=%u [3]=%u [4]=%u [5]=%u [6]=%u", MAP[i].board, MAP[i].k, e0[0], e0[3], e0[4], e0[5], e0[6]); logf_(b); } } if (log_on) { char b[64]; snprintf(b, sizeof b, "indruk bit %d -> bord %d schakelaar %d", MAP[i].bit, MAP[i].board, MAP[i].k); logf_(b); } }
             volatile uint32_t *e = entry(MAP[i].board, MAP[i].k);
             if (!active[i] && rel_until[i]) { if (t < rel_until[i]) e[4] = 1; else { e[4] = 0; rel_until[i] = 0; } }
             if (active[i]) {
                 if (t < until[i]) { e[0] = 1; e[3] = 1; e[5] = 1; }  /* soort 1 = actief; ingang+4 (= e[3]) = indruk in dit beeld; e[5] = vastgehouden */
-                else { e[3] = 0; e[5] = 0; e[7]++; active[i] = 0; rel_until[i] = t + 25; }   /* loslaten: ingang+8 (= e[4]) = loslating in dit beeld */
+                else { e[3] = 0; e[5] = 0; e[7]++; active[i] = 0; rel_until[i] = t + 25;
+                       if (log_on) { char b[160]; snprintf(b, sizeof b, "tabel bord %d k %d bij LOSLATEN: [0]=%u [3]=%u [4]=%u [5]=%u [7]=%u", MAP[i].board, MAP[i].k, e[0], e[3], e[4], e[5], e[7]); logf_(b); } }   /* loslaten: ingang+8 (= e[4]) = loslating in dit beeld */
             }
         }
         prev = bits;
