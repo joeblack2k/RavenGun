@@ -44,8 +44,15 @@ EOF
 # 1. vooraf: laat de lader zien wat hij gaat doen (welke exe, welke omgeving)
 python3 ~/projects/ravengun/scripts/launch-direct.py TransformersShadowsRising --plan
 
-# 2. de run zelf (huisvorm; zet zelf DISPLAY=:0 en XAUTHORITY voor de tv)
-bash /home/deck/starttest3.sh 240 TransformersShadowsRising
+# 2. de run zelf -- LET OP: play-halo.sh, NIET starttest3.sh.
+#    Gemeten op 2026-10-13: starttest3.sh roept alleen `launch-direct.py --run` aan en wapent de
+#    invoerroute NIET (geen `ravengunctl iobridge start`), dus dan bestaat er geen enkel virtueel bord --
+#    de daemon zegt zelf `IO-brug: geen (… route evdev)`. Alleen play-halo.sh doet `iobridge start`.
+# 1b. BENCHCONTROLE, altijd eerst: draait er een native game of een tweede gamescope? Wacht dan.
+#     De native route van een andere partij draait een proces dat 'game' heet (sandbox als /pm/g7/halo/game)
+#     plus zijn eigen gamescope; dat is aan de Wine-kant niet te zien. Gebeurde op 2026-10-13.
+pgrep -af 'pm/.*/game$|gamescope' | grep -v grep
+bash scripts/play-halo.sh --profile TransformersShadowsRising --no-wait-move
 ```
 
 Tijdens en na de run:
