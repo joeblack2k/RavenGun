@@ -133,12 +133,18 @@ def main():
                 try:
                     mem = open("/proc/%d/mem" % pid, "rb", buffering=0)
                     mem.seek(EP); ep = mem.read(EP_LEN)
-                    nul = tot = 0; off = 0
-                    while off < TEXT_LEN:
+                    # Goedkope steekproef: 8 blokken van 64 KB, gelijkmatig over de sectie.
+                    # De HELE sectie lezen kostte ongeveer een seconde per monster, waardoor de
+                    # cadans nooit echt 0,1 s kon worden (gemeten: nominaal 0,1 s, werkelijk ~0,3-1 s).
+                    # De levenslijn noemt het aantal gelezen bytes, zodat dit niet voor een
+                    # volledige lezing wordt aangezien.
+                    nul = tot = 0
+                    for k in range(8):
+                        off = (TEXT_LEN // 8) * k
                         mem.seek(TEXT_VA + off)
                         b = mem.read(min(BLOK, TEXT_LEN - off))
-                        if not b: break
-                        nul += b.count(0); tot += len(b); off += len(b)
+                        if not b: continue
+                        nul += b.count(0); tot += len(b)
                     am_nu = {}
                     for a in AM_ADRESSEN:
                         mem.seek(a)

@@ -71,13 +71,20 @@ while [[ "${_p:-0}" -gt 1 ]]; do EIGEN+="$_p "; _p=$(awk '{print $4}' "/proc/$_p
 AAN=""
 for pat in 'Game.exe' 'VACUUM.exe' 'OpenParrotLoade' 'BudgieLoader.ex' 'BudgieLoader_x6' \
            'TeknoParrotUi' 'TeknoMacaw.exe' 'TeknoMacaw64.ex' 'gamescope' 'gamescope-wl' \
-           'gamescopereaper' 'wineserver' 'rg-jvsbridge.ex' 'pipehelper.exe'; do
+           'gamescopereaper' 'rg-jvsbridge.ex' 'pipehelper.exe'; do
   for HIT in $(pgrep -x "$pat" 2>/dev/null || true); do
     [[ " $EIGEN " == *" $HIT "* ]] && continue
     AAN+="  comm $pat -> $HIT"$'\n'
   done
 done
 [[ -n "$AAN" ]] && { fout "de bench is NIET vrij."; printf '%s' "$AAN"; exit 3; }
+# Een achtergebleven wine/wineserver ZONDER spel, lader of gamescope is een rest van een andere
+# partij (testsuites laten er een achter die zichzelf even later opruimt), geen bezetting.
+if pgrep -x wineserver >/dev/null 2>&1; then
+  let_op "er loopt een wineserver zonder spel-, lader- of gamescope-proces: dat is een rest, geen bezetting. Ik ga door."
+  pgrep -a -x wineserver 2>/dev/null | sed 's/^/    /'
+  pgrep -a -x wine 2>/dev/null | sed 's/^/    /' || true
+fi
 zeg "bench vrij"
 [[ -f "$NIEUW" ]] || { fout "kern-DLL niet gevonden: $NIEUW"; exit 1; }
 mkdir -p "$UIT"
@@ -239,7 +246,17 @@ set -m
 PGID=$!
 set +m
 
-echo "$SUDOPW" | sudo -S env RG_B0_DROPIN_MAPS="${RG_B0_DROPIN_MAPS:-}" python3 "$HIER/b0-vijfmin-sampler.py" "$UIT" "vijfmin" "$STOP" "$HARD" 2>&1 | sed 's/^/  /'
+echo "$SUDOPW" | sudo -S env RG_B0_DROPIN_MAPS="${RG_B0_DROPIN_MAPS:-}" RG_B0_DICHT_TOT="${RG_B0_DICHT_TOT:-10}" RG_B0_DICHT_STAP="${RG_B0_DICHT_STAP:-0.5}" python3 "$HIER/b0-vijfmin-sampler.py" "$UIT" "vijfmin" "$STOP" "$HARD" 2>&1 | sed 's/^/  /'
+
+# BEWAAR HET BEWIJS VOOR HET OPRUIMEN. De hook schrijft rg-pe-hook.log en rg-pe-hook-bytes.txt in
+# de WERKMAP VAN HET SPEL (de view). Zonder deze stap is het bewijs van een run weg zodra de
+# volgende run de view leegmaakt -- dat is drie keer gebeurd, en het kostte telkens een meting.
+BEWAARMAP="${DROPIN_BASE:-$VIEW/exe/x64}"
+for f in rg-pe-hook.log rg-pe-hook-bytes.txt; do
+  if [ -f "$BEWAARMAP/$f" ]; then
+    cp -f "$BEWAARMAP/$f" "$UIT/$f" && echo "  [b0] bewaard: $UIT/$f"
+  fi
+done
 
 kill -9 -"$PGID" 2>/dev/null; wait "$PGID" 2>/dev/null
 RC=$?

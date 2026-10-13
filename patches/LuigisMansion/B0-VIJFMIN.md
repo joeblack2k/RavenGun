@@ -578,6 +578,64 @@ maar een overgang tussen twee monsters valt hem door het 0,5 s raster (dat is pr
 gebeurde); het artefact van de hook pollt op 20 ms en vangt zulke overgangen, maar heeft geen
 onafhankelijke controle op zijn eigen adresberekening -- de pagina-hash doet dat nu wel.
 
+## ZESDE STAND 2026-10-13: de dood hangt aan een DUUR, niet aan een moment (en drie correcties op mijzelf)
+
+Deze sectie staat bewust VOORAAN in de reeks: de cijfers hieronder bestonden anders alleen in
+berichten, en dat is precies hoe een meting verdwijnt.
+
+### De drie momenten per arm, onze kern, dichte bemonstering
+
+| arm | entry point vrijgegeven | `.text` 11,2 % nul gehaald? | dood | gat |
+|---|---|---|---|---|
+| MET drop-in | <= 6,5 s (`TERUGGEZET`, `.text 66,7 % nul`) | **niet waargenomen** (laagste 66,7 %) | **6,8 s** | ~0,3 s |
+| ZONDER drop-in | <= 4,5 s (`.text 44,2 % nul`) | **niet waargenomen** (laagste 44,2 %) | **4,8 s** | ~0,3 s |
+
+Per monster is 524.288 B gelezen (8 blokken van 64 KB), niet de hele sectie. Drie keer op een rij is
+hetzelfde patroon gezien: de drop-in stelt de vrijgave ongeveer 2 s uit en de dood ongeveer 2 s, en het
+gat tussen vrijgave en dood blijft ongeveer 0,3 s.
+
+### En de meting van de analist zegt iets anders, en dat verschil is het interessantste cijfer
+
+De dichte meter van de analist (1 MB blokken, 0,1 s) zag `100 -> 75,28 -> 11,20` op **4,6 en 4,7 s**, en
+de dood pas op **5,96 s**: het ontpakken was daar VOLTOOID en het spel leefde nog ongeveer **1,26 s**.
+In mijn armen is het laagste dat ik zie 44-67 % nul en sterft het ongeveer **0,3 s** na de vrijgave.
+
+**Beide kunnen waar zijn, en dan is de conclusie dat de dood niet aan een MOMENT hangt maar aan een
+DUUR ergens na** -- ongeveer 1,26 s in die meting, ongeveer 0,3 s in de mijne. Of mijn raster van ~0,3 s
+is nog te grof om de voltooiing te zien, of er is echte variatie tussen runs, of de harnassen
+verschillen. **Ik kies daar niet tussen**: met ~0,3 s kan ik het niet onderscheiden, en "de pakker komt
+niet klaar" beweren zou precies de fout zijn die ik al twee keer heb gemaakt.
+
+Wat dat betekent voor de volgende stap: **niet zoeken op een tijdstip maar naar het IETS waar die duur
+aan hangt.** Dat is een andere vraag dan "welke laag houdt het tegen".
+
+### Drie correcties op mijn eigen werk, zodat ze niet als resultaat de geschiedenis in gaan
+
+1. **De eerdere "dichte A/B" draaide de GESLOTEN kern, niet de onze.** Mijn eigen runner (`b0-dicht-run.sh`)
+   riep `launch-direct.py` aan zonder de kern te verwisselen, en voor `Type = TeknoParrot` is de
+   standaardkern de gesloten `TeknoParrot64.dll` (de `_defaults` nemen alleen ONZE lader, niet onze kern).
+   `b0-vijfmin.sh` verwisselt de kern wel, via `RG_B0_KERN_DLL`. **Die cijfers (`/tmp/b0d-met/`,
+   `/tmp/b0d-zonder/`) zijn dus geen A/B en mogen niet als zodanig in het dossier.** Wat ze wel laten
+   zien -- de drop-in stelt de vrijgave ongeveer een seconde uit -- is met een andere cadans
+   gereproduceerd en blijft staan.
+2. **Mijn "0,1 s cadans" was nominaal, niet echt.** Elke lezing las de HELE sectie (3.496.500 B) via
+   `/proc/<pid>/mem`, wat ongeveer 0,1-1 s kost. De werkelijke cadans was dus ongeveer 1 s, later
+   ongeveer 0,3 s. De sampler print nu per monster de echte tussentijd (`dt`) en het aantal gelezen
+   bytes, zodat dit niet meer gegokt hoeft te worden.
+3. **Ik zocht het logboek van de hook op de verkeerde plek.** De hook schrijft `rg-pe-hook.log` en
+   `rg-pe-hook-bytes.txt` in de WERKMAP VAN HET SPEL (de view), niet in mijn uitvoermap. Ik greep in
+   `/tmp/b0dc-met/` en vond niets, terwijl het bestand in de view stond -- en daarna ruimde ik de view
+   op, zodat het bewijs weg was. Dat is drie keer gebeurd. **Reparatie:** `b0-vijfmin.sh` kopieert
+   `rg-pe-hook.log` en `rg-pe-hook-bytes.txt` nu NA ELKE RUN en VOOR het opruimen naar de uitvoermap,
+   en meldt dat. Daarmee is het `17 van 17` van de laatste run niet meer op te halen, maar kan het de
+   volgende keer niet meer verdwijnen.
+
+### Bench-guard verfijnd
+
+Een achtergebleven `wine`/`wineserver` ZONDER spel-, lader- of gamescope-proces is een rest van een
+andere partij, geen bezetting: het script meldt het en gaat door. Met een spel-, lader- of
+gamescope-proces erbij weigert het nog steeds.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn
