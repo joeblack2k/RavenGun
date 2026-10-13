@@ -1,0 +1,13 @@
+Run r6 -- Terminator Salvation, REGRESSION CHECK after the loader was rebuilt. 2026-10-13.
+
+Why: the loader source changed (the per-game slot-table reader for Jurassic Park, tools/rg-elfloader/rg_elfloader.c) and
+the loader was rebuilt and installed: sha256 7f83edb2... -> 2792521b0174ab1a3abf359d51a2b1f0ffa9fcc98deb6bef05ff30b928b620e0.
+The thing that already worked was run again instead of assumed.
+
+start 22:53:23   START injected 22:54:01   attract from 22:54:14   end 22:55:54 (the run's own limit, rc 124, 150 s)
+Same recipe as r4 (GAME_ENV="force_glsl_version=120", both serial peers drained), with the new loader binary.
+Same sequence as r3/r4: the warning screen (capture byte-identical to the earlier runs, hash 5f70241b4f), START, the
+transient standby frame (hash d5148eb05f), then attract. 10 captures from 22:54:14, all distinct. One looked at:
+../shots/r6-225456-attract-na-herbouw-lader.jpg (the high-score table "EXPERT MODE: RESISTANCE LEADERS", FREEPLAY).
+Game log of the run: 1 shader failure (shader103b), the file-check warning, no fatal signal, no "jamma_msg" line.
+The new code is inert here: this title sets no RG_ELF_SLOT_TABLE.

@@ -1,0 +1,15 @@
+# exit.log van r2, alleen system(), exit(), _exit(), glutInit en signalen (volledig: 2414229 regels, 213573626 B; het volledige logboek is op 2026-10-14 uit /tmp verwijderd)
+[exitlog] + 0.000001 pid 1438908 CALL system("gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1438908/shim.so' '/run/user/1000/rg-elfloader-1438908/shim.c' 2>&1") from 0x565674ec
+[exitlog] + 1.087423 pid 1438924 CALL system("ls -r /g3/irgun/firmware/ | grep ".mcs" | head -n 1 | sed 's/prom_//g' | sed 's/.mcs//g' > /g3/irgun/cmgr238335.txt") from 0x843b123
+[exitlog] + 1.091239 pid 1438924 CALL system("rm /g3/irgun/cmgr238335.txt") from 0x843b1bb
+[exitlog] + 1.093444 pid 1438924 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr885386.txt") from 0x843aced
+[exitlog] + 1.094804 pid 1438924 CALL system("rm /g3/irgun/cmgr885386.txt") from 0x843ad47
+[exitlog] + 3.087570 pid 1438924 CALL glutInit(argc=3) from 0x80c47ee
+[exitlog] + 3.088027 pid 1438924 CALL glutInitDisplayMode(0x3a,0xf61a4bac,0x0) from 0x80c47fa
+[exitlog] + 3.088035 pid 1438924 CALL glutInitWindowSize(0x280,0x1e0,0x0) from 0x80c480c
+[exitlog] + 3.088043 pid 1438924 CALL glutInitWindowPosition(0x0,0x0,0x0) from 0x80c481e
+[exitlog] + 3.097015 pid 1438924 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr760492.txt") from 0x843aced
+[exitlog] + 3.099029 pid 1438924 CALL system("rm /g3/irgun/cmgr760492.txt") from 0x843ad47
+[exitlog] + 192.149969 pid 1438924 CALL exit(-1) from 0x80c403d
+[exitlog] + 192.180710 pid 1438908 CALL exit(255) from 0x82f302e
+# weggelaten: 17943 keer 'CALL exit(0) from 0x82f2e59'
