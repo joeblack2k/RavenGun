@@ -35,15 +35,30 @@ static uint64_t G_ib;
 static int G_ontpak_ms;
 static uint64_t G_rvas[64];
 static int G_nrvas;
+static volatile int G_vrij;      /* de pakker mag pas als de hoofdthread verdergaat */
+static int G_rc;
 
 static void *ontpakker(void *arg)
 {
     int i;
     (void)arg;
+    /* De pakker kan pas LOPEN als de hoofdthread verdergaat. Dat is precies de situatie in het spel:
+       de lader hervat de hoofdthread pas als de preload-DLL is teruggekeerd, en het ontpakken begint
+       pas daarna. Zonder deze poort laat de proef de deadlock niet zien. */
+    while (!G_vrij)
+        usleep(1000);
     usleep((useconds_t)G_ontpak_ms * 1000);
     for (i = 0; i < G_nrvas; i++)
-        memcpy(G_beeld + G_rvas[i], "\x55\x48\x89\xe5\x48", 5);
-    printf("   [ontpakker] %d prologues geschreven na %d ms\\n", G_nrvas, G_ontpak_ms);
+        memcpy(G_beeld + G_rvas[i], "\x40\x53\x48\x83\xec\x28", 6);
+    printf("   [ontpakker] %d prologues geschreven (%d ms nadat de hoofdthread verderging)\n",
+           G_nrvas, G_ontpak_ms);
+    return NULL;
+}
+
+static void *haak_thread(void *arg)
+{
+    (void)arg;
+    G_rc = rg_pe_hook(&G);
     return NULL;
 }
 
@@ -67,11 +82,13 @@ int main(int argc, char **argv)
     int fd, verwacht = -1, i;
     uint64_t bel = 0, bel_net = 0;
     const char *ontpak = NULL;
+    int eigen = 0;
     int rc;
 
     if (argc < 3) {
         fprintf(stderr, "gebruik: %s <beeld.bin> <lijst.ini> [--verwacht N] [--bel RVA] "
-                        "[--bel-net RVA]\n", argv[0]);
+                        "[--bel-net RVA] [--ontpak-na N --ontpak-rvas 0x..,0x..] [--eigen-thread]\n",
+                argv[0]);
         return 2;
     }
     beeld_pad = argv[1];
@@ -81,6 +98,8 @@ int main(int argc, char **argv)
             verwacht = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--bel-net") && i + 1 < argc)
             bel_net = strtoull(argv[++i], NULL, 0);
+        else if (!strcmp(argv[i], "--eigen-thread"))
+            eigen = 1;
         else if (!strcmp(argv[i], "--ontpak-na") && i + 1 < argc)
             G_ontpak_ms = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--ontpak-rvas") && i + 1 < argc)
@@ -140,8 +159,23 @@ int main(int argc, char **argv)
         pthread_detach(th);
     }
 
-    printf("2. de engine loslaten\n");
-    rc = rg_pe_hook(&G);
+    printf("2. de engine loslaten%s\n",
+           eigen ? " (op een EIGEN thread, zoals de DLL)" : " (op de HOOFDthread)");
+    if (eigen) {
+        pthread_t th;
+        if (pthread_create(&th, NULL, haak_thread, NULL) != 0) {
+            printf("   kon de eigen thread niet starten\n");
+            return 2;
+        }
+        G_vrij = 1;   /* de hoofdthread gaat verder -- zoals de lader doet */
+        printf("   [hoofdthread] ik ga verder; de hook draait op zijn eigen thread\n");
+        pthread_join(th, NULL);
+        rc = G_rc;
+    } else {
+        rc = rg_pe_hook(&G);
+        G_vrij = 1;   /* pas NU mag de pakker: dat is de fout van wachten op de hoofdthread */
+        printf("   [hoofdthread] de hook is klaar; nu mag de pakker pas\n");
+    }
     printf("   rg_pe_hook gaf %d\n", rc);
     if (rc < 0)
         return 1;

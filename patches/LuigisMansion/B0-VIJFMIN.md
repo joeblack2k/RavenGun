@@ -240,6 +240,63 @@ oorzaak. Sterft het met de DLL geladen nog rond 6 s, dan is de am-laag **niet** 
 werk terug naar de pakker-fase -- een even goede uitkomst. Leeft het spel zonder geladen drop-in, dan
 was de drop-in niet nodig, en dat wordt als eigen uitkomst gemeld en niet als succes.
 
+## DERDE STAND drop-in 2026-10-13: de DLL is geladen, maar het wachten op de hoofdthread blokkeert het ontpakken
+
+Run met ONZE kern (`fe2ecf8c`), de nieuwe drop-in (`rg-pe-hook.dll`, 128.880 B,
+sha256 `305b99cca3b696d1330139deb3e13ea53273b5ef9bbb02ee692175eec2cb3bd4`).
+Ruwe uitvoer: `/tmp/b0-dropin3/`.
+
+**De drie controles die slaagden:**
+
+1. het plan noemt 2 bestanden en zet de preload op `TP_PRELOAD_DLL=Z:\...\rg-pe-hook.dll` -- de
+   launcher-wiring werkt;
+2. de sha256 in de view is `305b99cca3b696d1...`, dus de NIEUWE build met de wachtroute, niet de oude;
+3. **het logboek van de DLL zelf is er** (5565 B), en dat is het bewijs dat de DLL echt geladen is.
+
+**De vierde controle was door MIJN meetfout onterecht rood.** Mijn proef eiste dat ELK drop-in-bestand
+in `/proc/<pid>/maps` staat, maar `dongle-haken.ini` is een GEGEVENSBESTAND dat de DLL leest en dat
+nooit gemapt wordt. De proef meldde dus `1 van 2` en "ONGELDIG", terwijl de DLL wel geladen was -- precies
+de verkeerde conclusie die vermeden moest worden. **Gerepareerd:** de proef telt nu alleen de bestanden
+die bedoeld zijn om geladen te worden (de `Preload`- en `DllOverride`-regels uit de planning), en
+gegevensbestanden worden apart behandeld (bestaan controleren; het logboek noemt de adreslijst en het
+pad en is het bewijs dat ze gelezen zijn).
+
+**De echte uitkomst, met de levenslijnen:**
+
+| t | entry point | `.text` | drop-in in proces |
+|---|---|---|---|
+| 0,2-2,0 | teruggezet / `EB FE` | 100 % nul | 0/1 |
+| 2,5-10,0 | **TRAMPOLINE -> 0x6ffffd36e410** | **100 % nul** | 1/1 |
+| **16,2** | PROCES WEG | -- | -- |
+
+Het logboek zegt precies wat er gebeurde:
+
+```
+[rg-pe-hook] wachtroute: 17 pagina('s) nog niet uitgepakt; ik blijf kijken (max 10 s, elke 20 ms)
+[rg-pe-hook] wachtroute: 17 pagina('s) na 10 s nog steeds niet uitgepakt; gestopt
+[rg-pe-hook] totaal aangehaakt: 0 van 17; afgekeurd: 17; waarvan antwoord TODO: 0
+```
+
+Alle 17 zijn afgekeurd met "de prologue op RVA 0x... is nog nul". **` .text` is het HELE leven 100 % nul:
+het spel heeft zich nooit uitgepakt.** Het entry point staat van 2,5 s tot 10 s op de trampoline van de
+lader. De DLL wordt via `TP_PRELOAD_DLL` geladen **op de hoofdthread, in de aanhechtingsfase, voordat het
+entry point van het spel loopt** -- en wacht daar 10 s op pagina's die pas gevuld kunnen worden NADAT de
+lader de hoofdthread hervat, en die hervat pas als de DLL terugkeert. **Het wachten op de hoofdthread is
+dus een deadlock by construction.**
+
+De langere levensduur is precies dat wachten en niets anders: **16,2 s = 10 s wachten + dezelfde ~6 s**
+(onze kern stierf eerder op 4,8-5,96 s). Er is dus niets opgelost; het proces werd alleen 10 s in de
+aanhechtingsfase vastgehouden.
+
+**Gevolg:** de am-laag is in deze run **niet** getest -- 0 van 17 aangehaakt. Deze run zegt dus niets over
+de vraag of die laag de oorzaak is. Wat hij wel vaststelt: de drop-in-route werkt nu van begin tot eind
+(plan -> view -> proces -> logboek), en het wachten moet naar een EIGEN thread, zodat de DLL meteen
+terugkeert en de lader de hoofdthread kan hervatten. Dat is aan de heeftphook-specialist.
+
+**En de 17 prologue-bytes konden NIET gelezen worden:** de tabel is helemaal nul, correct gemarkeerd als
+"nog allemaal nul: op dit moment niet ontpakt". Ze staan op de lijst voor de volgende run, waarin het
+wachten op een eigen thread staat en `.text` dus wel gevuld wordt.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

@@ -178,9 +178,26 @@ PY
   # de basenamen voor de maps-controle in het proces
   DROPIN_MAPS=$(python3 - "$PLAN_JSON" <<'PY'
 import json, os, sys
+LIB = (".dll", ".so", ".dylib")
 d = json.load(open(sys.argv[1]))
-namen = [os.path.basename(f.get("dest", "")) for f in ((d.get("dropins") or {}).get("files") or [])]
-print(":".join([n for n in namen if n]))
+bestanden = ((d.get("dropins") or {}).get("files") or [])
+laad, data = [], []
+for f in bestanden:
+    naam = os.path.basename(f.get("dest", "") or "")
+    if not naam:
+        continue
+    # 1) de naam zegt het (een bibliotheek wordt gemapt, een gegevensbestand niet)
+    is_lib = naam.lower().endswith(LIB)
+    # 2) en als het plan het wel zegt, gebruiken we dat erbij
+    if f.get("preload") or f.get("dll_override"):
+        is_lib = True
+    (laad if is_lib else data).append(naam)
+print(":".join(laad))
+if data:
+    sys.stderr.write("gegevensbestanden (worden gelezen, niet gemapt): %s\n" % ", ".join(data))
+if not laad and data:
+    sys.stderr.write("LET OP: geen enkel drop-in-bestand wordt GELADEN (alleen gegevens). "
+                     "Dan meet de maps-controle niets en is de run niet geldig.\n")
 PY
 )
   export RG_B0_DROPIN_MAPS="$DROPIN_MAPS"
@@ -205,7 +222,8 @@ PYX
 )
   HOOKLOG="${HOOKLOG_NAME:+$DROPIN_BASE/$HOOKLOG_NAME}"
   export HOOKLOG DROPIN_BASE
-  zeg "drop-in in het proces verwacht: ${DROPIN_MAPS:-<geen namen>}"
+  zeg "drop-in in het proces verwacht (alleen te LADEN bestanden): ${DROPIN_MAPS:-<geen>}"
+  zeg "(gegevensbestanden worden niet gemapt; die controleren we op bestaan, en het logboek van de DLL is het bewijs dat hij ze gelezen heeft)"
 else
   [[ "${RG_B0_DROPIN:-}" != "" ]] && { fout "opgegeven drop-in-map bestaat niet: $DROPIN_DIR"; exit 1; }
   zeg "geen drop-in voor deze game (map bestaat niet) -- dat is de huidige stand"
