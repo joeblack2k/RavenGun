@@ -150,6 +150,14 @@ def main():
         if not controleer_lezen(fd): return 2
         lees_en_schrijf(fd, adres, len(data), data)
         return 0
+    if op == 'vul':
+        # vul 0xADRES 0xWAARDE AANTAL   -- AANTAL dwords met dezelfde waarde, vanaf ADRES
+        adres = int(sys.argv[3], 0); waarde = int(sys.argv[4], 0); aantal = int(sys.argv[5], 0)
+        data = struct.pack('<I', waarde) * aantal
+        print('### rk vul %#x met %#x x %d dwords' % (adres, waarde, aantal))
+        if not controleer_lezen(fd): return 2
+        lees_en_schrijf(fd, adres, len(data), data)
+        return 0
     print('onbekende opdracht %s' % op); return 1
 
 if __name__ == '__main__':

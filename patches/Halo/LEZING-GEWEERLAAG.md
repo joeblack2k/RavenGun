@@ -44,6 +44,43 @@ vlaggen (bit 0 keert om). Gerekend vanaf het vak dus: **waarde op vak+0xc, ruw o
 doet; (2) welke van de drie knopacties de trekker is (aanname: `0x208`, vak 21); (3) welke tak van de bindingsfunctie bij ons
 kasttype hoort (de lijst bevat alle takken door elkaar; vak 19 en 20 gaan in een andere tak naar speler 4).
 
+## 000. AANVULLING 15:10 — wie de tafel vult, en wat de bordbibliotheek over de ingangen zegt
+
+Gelezen uit `game`, niets gedraaid. Dit beantwoordt "de tafel is leeg: wie hoort hem te vullen?".
+
+- **De voeding `0x6208e0` schrijft het soortveld NIET.** Zij leest het (`mov eax,[rbp-8]` op `0x620b5e`) en kiest: soort 0 ->
+  de waarde als kommagetal opslaan met `0x61cdc0` (`0x620b69..0x620b81`: `cvtsi2ss`, dus het GEHELE getal van het bord als
+  float); anders de schakelaarafhandeling (`0x620a30`). Zij loopt per bord alle 32 vakken af en vraagt de bordbibliotheek per
+  vak om de stand (`0x62e800(bord, vak, &waarde)` op `0x620b55`). Zonder bord (`[0x16f8a58] == 0`) keert zij meteen terug
+  (`0x62091d`).
+- **Het soortveld wordt geschreven door `0x621150`** (aangeroepen op `0x41d140` en `0x4adb71`): per gevonden bord en per vak
+  0..31 roept die `0x62ee20(bord, vak, 1, &vak, 0)` aan, en die schrijft het soort (`mov [rcx],eax` op `0x62ee70`) uit de
+  ingangentabel van het bordobject (`byte [bord + vak*8 + 0x2e10]`). De bordindeling komt dus van het AANGESLOTEN BORD, via de
+  bibliotheek. Geen bord: niets geschreven, een lege tafel. Er is geen vast bordbeeld in het spel.
+- **Wat een ingang KAN zijn staat wel vast**, in een tabel van 78 ingangen in `0x62eed0` (een bitmasker van toegestane
+  standen per ingang; de functie geeft 0 als `(1 << stand) & masker` niet nul is):
+
+  | Ingang | Masker | Toegestane standen |
+  |---|---|---|
+  | 0..3, 6..10, 21..25 | 14 | 1, 2, 3 (niet analoog) |
+  | **4, 5, 11..20** | 15 | **0 (analoog)**, 1, 2, 3 |
+  | 26..31 | 30 | 1, 2, 3, 4 |
+  | 32..41 | 8 | 3 |
+  | 42..77 | 16 | 4 |
+
+  **Vak 17, 18, 19 en 20 -- volgens de bindingen het richten van speler 1 en 2 -- horen bij de ingangen die analoog kunnen zijn;
+  vak 21 tot 23 (de geweerknoppen) niet.** Dat is een tweede, onafhankelijke aanwijzing voor de slotkaart van sectie 00.
+- **De inrichting van het bord door het spel** (`0x41cd40..0x41d140`): 24 aanroepen van `0x62eca0(bord, ingang, n)` (n = 4
+  voor ingang 0..3, 1 voor 4 en 5, 2 voor 6; AFGELEID: een filtertijd, geen stand), paren met `0x635070` ((11,10) en (13,12),
+  of (8,7) en (10,9), naar kasttype), en **alleen voor kasttype 4 en 9** (`0x41cf04..0x41cf1b`) twee groepen met `0x635710`:
+  groep 0 = ingang 74 en 75, groep 1 = ingang 76 en 77 (ingangen die alleen stand 4 toestaan). De voeding leest groepen met
+  `0x634d60` in de blokken op tafel+`0xb8a0` (de id's `0x299..0x318`). **Niet gelezen:** wat die groepen zijn en hoe het spel
+  ze gebruikt; geen enkele binding noemt een id uit dat bereik.
+- **Pas op bij "vakken die het spel pollt":** de getallen 0x254..0x258, 0x25a, 0x25f, 0x260, 0x288 en 0x28c zijn in de
+  bindingslijst ACTIES (het tweede argument van `0x4acdb0`), geen invoer-id's. Als bordvak gelezen worden dat bord 0 vak
+  27..31, bord 1 vak 1/6/7 en bord 2 vak 15/19, maar zo zijn ze niet bedoeld: 0x256 is de actie die aan bord 0 vak 0 (START)
+  hangt. De getters krijgen de invoer-id's uit de bindingstabel in een register (`0x4ad7fc..0x4ad80c`), niet als vast getal.
+
 ## 0. CORRECTIE (13:55, na de eerste run en een tweede lezing): deze laag is voor ONS kasttype waarschijnlijk niet de bron
 
 Wat hieronder staat klopt als lezing, maar de conclusie "schrijf het paar en de knoppen in deze laag" is te vroeg getrokken.
