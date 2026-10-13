@@ -127,11 +127,29 @@ export RAVENGUN_HASP_ELF_ADRESLIJST="$LIJST"
 export RAVENGUN_HASP_ELF_LOG="$W/log/B.hasp.log"
 export RAVENGUN_HASP_VERBOSE=1
 # de maatregel MOET mee (anders sterft de gast op de poort); daarna de hook en de twee waarnemers
+if [ -n "${RG_DROOG:-}" ]; then
+  exec timeout $PLAFOND env LD_PRELOAD="$W/libravengun-ptracer-permit.so" sh -c '$RG_DROOG'
+fi
 exec timeout $PLAFOND env LD_PRELOAD="$W/libravengun-ptracer-permit.so:$W/libravengun-fork-log.so:$W/libravengun-ptrace-log.so:$HOOK" "$LOADER" "$VIEW/game"
 EOF
 t0=$(date +%s); bash "$W/start.sh" >"$W/log/B.out" 2>&1; rc=$?; t1=$(date +%s)
 mkdir -p "$BEWAAR"; cp "$W/log/"* "$BEWAAR/" 2>/dev/null
+# De samenvatting NAAR SCHIJF: een afgekapte terminal mag de exitcode niet laten verdwijnen. Dat is
+# precies wat er bij de eerste run misging, dus dit is de reparatie daarvan.
+{
+  echo "run            : hasp-meting.sh"
+  echo "datum          : $(date -Is)"
+  echo "droogloop      : ${RG_DROOG:-nee}"
+  echo "exitcode       : $rc"
+  echo "levensduur     : $((t1-t0)) s"
+  echo "lader sha256   : $(sha256sum "$LOADER" | cut -d' ' -f1)"
+  echo "gast sha256    : $sha"
+  echo "yama scope     : $(cat /proc/sys/kernel/yama/ptrace_scope)"
+  echo "aanroep-regels : $(grep -c 'aanroep:' "$W/log/B.hasp.log" 2>/dev/null || true)"
+  echo "ATTACH ok      : $(grep -c 'PTRACE_ATTACH.*ok' "$W/log/B.ptrace.log" 2>/dev/null || true)"
+} > "$BEWAAR/RESULT.txt" 2>&1
 printf '  exit=%s  levensduur=%ss\n' "$rc" "$((t1-t0))"
+echo "  -- RESULT.txt --"; cat "$BEWAAR/RESULT.txt" | sed 's/^/    /'
 echo
 echo "-- 1. de hook (keuring + aanhaken) --"
 grep -E 'adreslijst|GELDIG|AFGEWEZEN|aangehaakt|totaal aangehaakt' "$W/log/B.hasp.log" 2>/dev/null | sed 's/^/    /' \

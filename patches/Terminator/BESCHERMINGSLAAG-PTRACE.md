@@ -448,7 +448,46 @@ maatregel + de hook + beide waarnemers, en de uitkomsttabel staat in het script 
 
 ---
 
-## 9. Bestanden in deze map
+## 9. De volgende meting: bestanden en `/g3/` (voorbereid, wacht op bench)
+
+De aanroepmeting van §8.6 heeft de blokkade **vóór** de HASP-API gelegd. De volgende vraag is dus: waar
+precies? De strace van de laderbouwer noemde al `PhysX.conf` en `libNxCooking.so`, en uit mijn eigen
+eerste dossier komt de `/g3/`-hypothese: de engine gebruikt **absolute** paden onder `/g3/`, en
+**`/g3` bestaat niet op deze host (GEMETEN)**.
+
+**Geen strace.** Dat is geen voorkeur maar een noodzaak: strace is zelf een tracer en laat de gast op
+zijn **eigen** ptrace-poort sterven (GEMETEN in §8.1: kind 2 krijgt EPERM zodra een vreemde al meeleest).
+Met strace bereik je het venster met de bestandsopeningen dus nooit.
+
+**Wat er gebouwd is:** `bestand-log.c` → `libravengun-bestand-log.so`, een 32-bits preload die vanuit het
+proces zelf meekijkt. Hij dekt precies de functies die de gast **importeert** (GEMETEN met `readelf`):
+`open`, `open64`, `openat`, `fopen`, `fopen64`, `opendir`, en de `stat`-familie zoals i386 die gebruikt:
+`__xstat`, `__lxstat`, `__fxstat`, `__xstat64`. Het logboek wordt met **rauwe syscalls** geschreven, want
+anders zou de waarnemer zijn eigen `fopen` aanroepen en recurseren.
+
+**Zelfproef (GEMETEN, bench-vrij):** op een proef die één bestaand en drie niet-bestaande paden aanraakt
+logt hij `open "/etc/hostname" -> ok (3)`, drie keer `FOUT errno=2`, waaronder
+`__xstat "/g3/ServiceDongleApp/data/conf/x" -> FOUT errno=2`, plus de `fopen`-variant. De `/g3`-detectie
+werkt dus. Eén van mijn twee "zou moeten slagen"-gevallen gaf `errno=75` omdat mijn **proef** de verkeerde
+`_STAT_VER` meegaf — een fout in de proef, niet in de waarnemer; de gast geeft zijn eigen correcte versie mee.
+
+**De verwachtingen staan vooraf in `bestand-meting.sh`**, met per uitkomst de betekenis:
+
+| waarneming | betekenis | label |
+|---|---|---|
+| `PhysX.conf -> FOUT errno=2` | de gast zoekt dat bestand en vindt het niet: eerste concrete kandidaat | GEMETEN zodra het in het logboek staat |
+| een `/g3/...`-pad `-> FOUT errno=2` | het absolute dataroot ontbreekt; de oplossing is dan een **host**-inrichting (pad leveren), geen gastwijziging | GEMETEN |
+| geen enkele ENOENT | de blokkade zit **niet** in een bestand; volgende verdachte is de engine-logica zelf of de socket/ioctl-kant | GEMETEN |
+| hetzelfde pad tientallen keren herhaald | de gast **pollt** daarop — dat verklaart de gepacede lus van 11 ms uit §8.5, één kind per tik | AFGELEID, tenzij de teller het onmiskenbaar maakt |
+| bijna geen regels | hij sterft vóór hij iets van zichzelf aanraakt | GEMETEN |
+
+**En de eerlijke grens vooraf:** als *alles* gevonden wordt, is deze meting een **negatief resultaat** en
+zeg ik dat met zoveel woorden; dan verschuift het naar de engine-logica of de socket-kant, en niet naar
+"nog een bestand zoeken".
+
+---
+
+## 10. Bestanden in deze map
 
 | bestand | wat het is |
 |---|---|

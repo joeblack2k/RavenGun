@@ -67,6 +67,9 @@ export RG_ELFLOADER_VERBOSE=1
 export RAVENGUN_FORK_LOG="$W/log/B.fork.log"
 export RAVENGUN_PTRACE_LOG="$W/log/B.ptrace.log"
 export RAVENGUN_PTRACER_LOG="$W/log/B.permit.log"
+if [ -n "${RG_DROOG:-}" ]; then
+  exec timeout $PLAFOND env LD_PRELOAD="$W/libravengun-ptracer-permit.so" sh -c '$RG_DROOG'
+fi
 exec timeout $PLAFOND env LD_PRELOAD="$W/libravengun-ptracer-permit.so:$W/libravengun-fork-log.so:$W/libravengun-ptrace-log.so" "$LOADER" "$VIEW/game"
 EOF
 t0=$(date +%s); bash "$W/start.sh" >"$W/log/B.out" 2>&1; rc=$?; t1=$(date +%s)
@@ -74,6 +77,7 @@ mkdir -p "$BEWAAR"; cp "$W/log/"* "$BEWAAR/" 2>/dev/null
 # Het kopsamenvatting ook NAAR SCHIJF: een afgekapte terminal mag de exitcode niet laten verdwijnen.
 { echo "run            : kinderen-meting.sh (geen HASP-hook)"
   echo "datum          : $(date -Is)"
+  echo "droogloop      : ${RG_DROOG:-nee}"
   echo "exitcode       : $rc"
   echo "levensduur     : $((t1-t0)) s"
   echo "lader sha256   : $(sha256sum "$LOADER" | cut -d' ' -f1)"
