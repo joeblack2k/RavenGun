@@ -1,0 +1,2 @@
+[ravengun-ptrace-log] pid 752447 ppid 752440: PTRACE_TRACEME() -> 0 (ok: ik laat mij volgen)
+[ravengun-ptrace-log] pid 752448 ppid 752440: PTRACE_ATTACH(pid 752440) -> -1 FOUT: Operation not permitted

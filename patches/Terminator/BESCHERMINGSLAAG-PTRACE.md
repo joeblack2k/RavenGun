@@ -298,7 +298,89 @@ LD_PRELOAD=$W/libravengun-ptrace-log.so    RAVENGUN_PTRACE_LOG=/tmp/t.log  $W/ya
 
 ---
 
-## 8. Bestanden in deze map
+## 8. DE METING VAN 2026-10-13 — UITKOMST (GEMETEN)
+
+`bash yama-ab.sh --start`, twee armen, verder identiek. Logboeken:
+`logs-yama-ab-20261013-0930/`. Lader: 35.204 B, sha256
+`7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549`.
+
+```
+  A    exit=255   levensduur=0s     ATTACH-ok=0    ATTACH-EPERM=1
+  B    exit=0     levensduur=4s     ATTACH-ok=390  ATTACH-EPERM=0
+```
+
+### 8.1 Arm A — de bevestiging ZONDER tracer (GEMETEN, en dit is het antwoord op taak (a))
+
+Het waarnemer-logboek in arm A is **compleet twee regels**:
+
+```
+[ravengun-ptrace-log] pid 752447 ppid 752440: PTRACE_TRACEME() -> 0 (ok: ik laat mij volgen)
+[ravengun-ptrace-log] pid 752448 ppid 752440: PTRACE_ATTACH(pid 752440) -> -1 FOUT: Operation not permitted
+```
+
+Dat is **exact de strace-bevinding**, nu uit een meting die zelf geen tracer is: kind 1 doet `TRACEME` en
+dat lukt; kind 2 haakt de ouder (752440) aan en krijgt `EPERM`; exit **255**. **De strace-lezing gaat dus
+ook zonder tracer op.** De gast gaf in arm A geen enkele eigen melding.
+
+### 8.2 Arm B — de maatregel haalt de blokkade weg (GEMETEN)
+
+Het maatregel-logboek bevestigt dat de `prctl` in het gastproces is gezet:
+
+```
+[ravengun-ptracer-permit] pid 752482: PR_SET_PTRACER_ANY gezet: dit proces mag door een willekeurig
+proces worden aangehaakt (yama ptrace_scope blijft ongemoeid)
+```
+
+En het waarnemer-logboek laat **390 van 390 `PTRACE_ATTACH` slagen** (`-> 0 (ok)`), met 390 `DETACH`,
+allemaal op dezelfde ouder (pid 752482), vanuit **392 verschillende kindprocessen**, en `TRACEME` één keer.
+In arm A waren dat er **twee regels** totaal. Daarna eindigt de gast met **exit 0** na **4 s** (arm A:
+exit 255 binnen 1 s).
+
+### 8.3 Wat dit betekent, en vooral wat NIET
+
+**TREFFER volgens de tabel van §5.1, rij 1:** de ATTACH slaagt in arm B (390/390) en de gast leeft langer
+(4 s tegen <1 s), met een andere exitcode (0 in plaats van 255). **De ptrace/Yama-laag is dus een echte
+blokkade en de maatregel haalt hem weg.**
+
+**Maar ik schrijf er meteen bij wat het NIET is, want dat is hier het belangrijkste:**
+
+- **De gast zegt nog steeds niets.** `A.out` en `B.out` zijn **identiek op twee dingen na**: de tijdelijke
+  padnaam en de stack-pointer in de `spring naar e_entry`-regel. Beide eindigen met die sprongregel en
+  hebben daarna **geen enkele regel van de gast**. Er is dus **geen eigen melding** in arm B.
+- **De exitcode 0 is geen "het spel loopt".** Het is een **schone zelfbeëindiging** van de gast. Dat is
+  iets anders dan arm A, waar de gast door zijn eigen bescherming werd afgebroken (255). Maar het is ook
+  niet het spelbeeld.
+- **Het patroon van 390 aanroepen in 4 s is nieuw en vraagt uitleg.** In arm A maakte de gast twee
+  kinderen voordat hij stierf; in arm B maakt hij er 392 en doet elk kind één `ATTACH`+`DETACH` op de
+  ouder. Dat leest als een lus of als een werker-per-taak-opstart. **AFGELEID** dat dit "de gast komt
+  voorbij de poort en begint zijn volgende fase" betekent — het is precies wat je zou verwachten als een
+  poort opengaat, maar met deze gegevens kan ik het niet bewijzen.
+
+**Conclusie, eerlijk:** de beschermingslaag is **opgeheven** (bewezen: 390/390 attach gelukt, geen 255
+meer), en daarmee is deze laag **niet** meer de blokkade. Het spel loopt nog niet. De gast beëindigt
+zichzelf schoon na 4 s zonder iets te zeggen, en **wat hem daartoe brengt is niet gemeten**.
+
+**Volgens de vooraf afgesproken tabel is dit rij 1 en niet rij 2**: rij 2 was "de ATTACH slaagt maar de
+gast stopt op dezelfde plek met **255** en zegt niets extra's" — de exitcode is hier **0**, niet 255, en
+de gast leeft 4 s in plaats van <1 s. De ptrace-stap is dus geen symptoom gebleken. Maar omdat de gast
+ook geen eigen melding geeft, is de eerlijke samenvatting: **deze laag is geklaard, de volgende is nog
+niet geïdentificeerd.** De eerstvolgende verdachte blijft de **PhysX-stap** (§2.5), met dezelfde
+kanttekening dat `PhysX.conf` in de spelmap ontbreekt.
+
+### 8.4 Wat de volgende run zou moeten uitwijzen
+
+1. **Waarom exit 0 en niet verder?** De logboeken van de gast zelf zijn leeg; de volgende stap is een
+   meting die laat zien **wat** de gast na de handshake doet — de HASP-hook (`DRAAIBOEK-BENCH.md` §7) is
+   nu wél zinvol, want de gast komt voorbij de poort. Nul `aanroep:`-regels zou dan voor het eerst
+   betekenen "de blokkade zit vóór de HASP-API", en dat is nu een geldige conclusie.
+2. **De 390 kinderen.** Uitzoeken of dat een werkerpool of een lus is (bijvoorbeeld door de ppid's en de
+   tijdstippen mee te loggen). Dat is de goedkoopste manier om te zien of de gast *werkt* of *spint*.
+3. **`PhysX.conf`.** Als de gast dat bestand zoekt en niet vindt, is dat de volgende kandidaat; het staat
+   niet in de spelmap (GEMETEN).
+
+---
+
+## 9. Bestanden in deze map
 
 | bestand | wat het is |
 |---|---|
