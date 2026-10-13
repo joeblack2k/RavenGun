@@ -124,18 +124,42 @@ staat vóór alle andere blokkades.** De volgorde die ik eerder opschreef was: (
 (2) mountletter-omleiding, (3) daemon starten. Punt 3 is nu geen kwestie van "de daemon starten" maar
 van "de daemon überhaupt laten initialiseren", en dat komt **vóór** punt 2.
 
-**De sterkste aanwijzing over wie dat gat vult.** Dezelfde `amdaemon.exe` (byte-identiek), in dezelfde
-prefix, onder dezelfde Wine, bereikt in de TeknoParrot-route wél `Process state: Advertise` — dat is
-eerder gemeten (`findings/HOTDScarletDawn.md`, ronde 15). Het enige verschil in die route is de
-**geïnjecteerde gesloten kern** `TeknoParrot64.dll`. De conclusie die zich opdringt is dus dat **de kern
-de platformcontrole bevredigt** — waarschijnlijk door de SetupAPI/CFGMGR32-apparaatopsomming te
-onderscheppen die `amPlatformGetPlatformInformation()` gebruikt. Dat is dezelfde soort haak als de
-schijfletter-omleiding, in hetzelfde proces.
+**Bijgewerkt na het lezen van de launcher-logs van 2026-10-11 — en er is nu écht bewijs, plus een
+correctie op mijn eigen formulering.**
 
-*Eerlijkheidshalve de alternatieven:* ik kan niet uitsluiten dat de prefix bij die ronde-15-meting een
-andere toestand had. Maar de gedocumenteerde route gebruikt `[Wine] Prefix = shared`, en mijn kopie
-daarvan is precies die prefix. Een andere verklaring zou zijn dat er toen iets in de prefix stond dat er
-nu niet meer is; ook dat is met één controle te beslechten.
+De directe launcher-logs van die ochtend bevatten de **stdout van de daemon**, opgevangen door de lader.
+Drie keer, in drie runs (08:41, 08:44, 08:46):
+
+```
+[2] amdaemonExe Ver.2437 Build:Apr 19 2018 23:13:37
+[2] Process state: setup Game Mode
+[2] Error 0
+[2] Process state: Advertise
+```
+
+De daemon **passeerde de platformcontrole dus wel** — en wel in de **directe route** (`launch-direct.py`
+met `OpenParrotLoader64.exe` + `TeknoParrot64`), niet via TeknoParrotUi. Dat is precies de A/B-arm die ik
+hieronder voorstel, en die is op 2026-10-11 dus al drie keer geslaagd. **De eerder geclaimde
+`Advertise`-meting is daarmee niet alleen bevestigd, maar ook van een primaire bron voorzien.**
+
+**Mijn eerdere formulering was te sterk.** Ik schreef "het enige verschil is de geïnjecteerde kern". Het
+verschil was niet enkelvoudig: die runs gebruikten ook een **andere prefix**
+(`~/.local/share/TeknoParrotUI/prefixes/shared/wine`, niet de `ravengun`-prefix), zetten
+`OPENSSL_ia32cap=:~0x20000000`, en startten de daemon **zonder argumenten**. Die alternatieven zijn nu
+**stuk voor stuk getest** (elk een run van 2 s, daemon alleen, prive-prefix, geen display):
+
+| Variabele | Test | Uitkomst |
+|---|---|---|
+| de prefix | daemon in een **kopie van de TeknoParrotUI-prefix**, zonder kern | **faalt identiek** — en die prefix heeft **ook geen SEGA-sectie** (`SEGA` 0×, `SystemProperty` 0×) |
+| de omgevingsvariabele | `OPENSSL_ia32cap=:~0x20000000` erbij | **faalt identiek** |
+| eerste-run-effect | tweede en derde run in dezelfde prefix, waarin de eerste run `System\SEGA\SystemProperty\Static` al had aangemaakt | **faalt identiek** |
+| de argumenten | zonder argumenten; alleen `-l`; alleen `-c` | **alle drie falen identiek** — zonder `-l` is de uitzondering zelfs onzichtbaar, wat verklaart waarom de 10-11-logs alleen de banner tonen als het misgaat |
+
+Wat overblijft is de **kern**, en dat is nu een stuk steviger dan een vermoeden: vier concurrerende
+verklaringen zijn weerlegd in plaats van weggeredeneerd. **Twee verschillen blijven ongetest** en horen
+in de A/B thuis: (a) de daemon werd met de **volledige NAS-boom** als modulepad gestart, terwijl mijn
+kopie alleen de map `AMDaemon/` bevat; (b) `TP_LAUNCH_SESSION_ID` en de werkmap van de lader. Zie
+[`AB-PLATFORMCHECK.md`](AB-PLATFORMCHECK.md) voor het ontwerp dat dit meeneemt.
 
 **Wat dit NIET verandert:**
 * de **volledigheid** van de bestanden — die is apart gemeten en staat los van dit (zie `VOLLEDIGHEID.md`);
@@ -143,6 +167,12 @@ nu niet meer is; ook dat is met één controle te beslechten.
 * het **keychip-ontwerp** (`REPORT.md` §10) — het is niet weerlegd, alleen nog niet bereikt; het zakt in
   prioriteit achter de platformlaag;
 * de **mountletter-omleiding** — die blijft nodig, alleen later in de rij.
+
+**En één nieuw feit dat de moeite waard is:** de directe route met **twee exe's heeft op 2026-10-11
+drie keer gedraaid** (`launch-direct.py` startte `amdaemon.exe` én de game, elk door de lader met de
+kern). De twee-exe-uitbreiding is dus al eens werkend geweest voordat hij werd teruggedraaid — dat maakt
+meting 2 een kwestie van een bekende wijziging terugzetten, niet van nieuw werk. Zie
+[`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md) §1.
 
 ## 5. De beslissende volgende meting (A/B, één commando)
 

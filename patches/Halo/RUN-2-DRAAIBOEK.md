@@ -111,6 +111,59 @@ De methode voor run 2:
 | **iii** | `tap start` en **nog steeds niets** (geen attribuut- en geen descriptorregels) | de game is in 300 s nog niet aan zijn FTDI-pad toegekomen. Dan zijn het venster of de FileTest de volgende verdachte -- en dan is de START-route via de shim de volgende stap, niet het wantrouwen van de tap | **nee, wel informatief** |
 | **iv** | regels met `03 04`/`01 60`, of `APPARAAT ... idVendor=0403 idProduct=6001 <<< DIT IS HET FTDI-BORD`, of `/dev/bus/usb`-regels | er **hangt** een bord (of iets dat zich als 0403:6001 voordoet). Dan is dit de meting met bord: logboek bewaren, en de `ctrl`-regels laten zien wat de game vraagt | **ja, en meer** |
 
+## 4b. VOORAF OPGESCHREVEN: wat ik zou concluderen rond de FileTest
+
+De enige dingen die tussen run 1 en run 2 verschillen zijn (1) er staat géén `usb-tap.log` meer in de
+wortel van de game, en (2) het venster is 300 s in plaats van 90 s. Alles hieronder is dus vooraf
+bedacht, zodat ik het niet achteraf hoef te passen op wat ik zie.
+
+**Wat run 1 precies zei, want daar hangt alles aan.** In het eigen logboek van de game staat:
+`Welcome to Halo v03.11` / `Game Rev: 57529, Library Rev: 1412, Country Code: 48`, en dan
+`FileTest Failure: '/pm/g7/halo/game'` -- **in dezelfde seconde** als het Welkom. De FileTest is dus
+niet eerst uren aan het scannen: hij komt meteen met een oordeel, en het genoemde bestand is `game`,
+de spelbinary zelf (precies het bestand dat het recept vervangt: 32 MiB opgevuld tegenover de
+originele 31.270.111 B). Dat maakt twee mechanismen mogelijk, en die zijn te onderscheiden:
+* **een bestandslijst-controle** (staat er iets in de map dat er niet hoort): dan is MIJN extra bestand
+  de aanleiding -- en dan zou hij eerder mijn bestand noemen dan `game`, of een aantal melden;
+* **een manifest/hash-controle per bestand**: dan is `game` zelf het probleem (het vervangen beeld), en
+  heeft mijn logbestand er niets mee te maken.
+
+**Geval A -- de FileTest gaat nu WEL goed (geen `FileTest Failure`-regel).**
+Dan beslist de **tijdstempel** welk verschil het deed: komt de eerste nieuwe regel na `Welcome` meteen
+(binnen dezelfde seconde), dan is het venster irrelevant en was het **mijn extra bestand**. Conclusie
+die dan vastligt: de game controleert de inhoud van zijn eigen map als **verzameling**, en elk
+onverwacht bestand in de wortel laat die controle mislukken. Dat is een herbruikbare regel: **nooit
+logboeken of hulpbestanden in de game-map schrijven** -- die hoort dan in `docs/` bij de native route,
+en de drop-in-specificatie verdient er een waarschuwing over.
+Blijft de FileTest juist **stil** (geen regel, ook geen goedkeuring), dan is er niets geleerd: dan is
+die controle gewoon langzaam (de eerdere metingen noemen ~25 minuten) en zegt deze run niets over A of B.
+
+**Geval B -- de FileTest mislukt opnieuw op `/pm/g7/halo/game`, even vroeg en met dezelfde tekst.**
+Dan was mijn extra bestand **onschuldig** en is het falen **inherent aan het vervangen beeld**: de
+manifest-controle vergelijkt `game` met een verwachte inhoud en de opgevulde binary komt daar niet mee
+overeen. Gevolgen die dan vastliggen: (1) in de drop-in of het recept valt hier niets te repareren;
+(2) het herstartgedrag (8 × `tap start` in run 1) is het normale gevolg van een mislukte FileTest en
+niet iets van de tap; (3) de route naar het FTDI-pad loopt dan via **START** (de input-shim), niet via
+de tap; (4) en de vraag wordt: komt de FTDI-opsomming **vóór of ná** de FileTest? Want als die erna
+komt, is zonder START niets te zien. Dat maakt run 2's tap juist waardevol: laat hij attribuut- en
+`APPARAAT`-regels zien terwijl de FileTest faalt, dan komt het FTDI-pad **vóór** de FileTest (of los
+ervan) en is de hele FileTest-kwestie een zijspoor.
+
+**Geval C -- geen `FileTest Failure`, geen `cmgr`-regels, geen USB-regels.** Dan is 300 s te kort en is
+het inderdaad de langzame scan. Geen uitspraak over A of B; volgende stap is een nog langer venster of START.
+
+**Geval D -- de FileTest noemt nu een ANDER bestand** (bijvoorbeeld als er toch ergens een logbestand
+in de game-map is beland). Dan is het bestandslijst-mechanisme bevestigd en noemt de melding precies de
+dader -- een beter resultaat dan A.
+
+**Wat de hypothese "mijn bestand was het" zou weerleggen**: dezelfde `FileTest Failure` op
+`/pm/g7/halo/game`, even vroeg, met dezelfde tekst. Dan is er geen aanwijzing dat een extra bestand in
+de wortel deze controle beïnvloedt en gaat die verklaring van tafel.
+
+**En wat deze run hoe dan ook niet beslist**: of de FileTest-uitkomst iets met het FTDI-pad te maken
+heeft. Dat staat of valt bij de vraag of de opsomming vóór of ná de FileTest gebeurt (geval B, punt 4).
+
+
 Extra te noteren, wat de uitkomst ook is: de **levensduur** van het proces (uit `gamelog.txt` en de
 procescontrole), of het entry point netjes teruggezet werd, en of de FileTest nu wél goed ging -- dat
 laatste is de schone herhaling van de vraag uit §1b.

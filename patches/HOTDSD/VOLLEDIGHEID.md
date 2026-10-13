@@ -15,7 +15,7 @@ dat onderscheid hoort bij elke uitspraak hieronder (zie §1).**
 | 3b | Zijn alle imports vindbaar? (het `DT_NEEDED`-equivalent) | **Ja** — spel 50/50, daemon 23/23, `hwvalue.exe` 7/7, `pxGetHwinfo.exe` 5/5; **0 onopgelost**, en alle 44 namen staan in de gedeelde Wine-prefix (`system32` én `syswow64`) |
 | 4 | Logisch van omvang en structuur voor dit soort game? | **Ja** — exact de verwachte UE4-cooked structuur; de 7,31 GB pak heeft een gave 44-byte footer en de index sluit **byte-exact** op het einde aan |
 | — | Verwijzingen in de eigen scripts die ontbreken | 9 stuks, **alle 9 met een gemeten onschuldige verklaring** (§6) |
-| — | **Sterkste bewijs: een echte speelsessie** | **Ja** — de UE4-logs in de prefix laten **zes sessies** op 2026-10-11 zien, waarvan één van **±7 minuten** die `Stage0` laadde en boekhouding bijhield (§12). Niet alleen "start", maar gespeeld |
+| — | **Sterkste bewijs: een echte speelsessie** | **Ja** — de UE4-logs in de prefix laten **zes sessies** op 2026-10-11 zien, waarvan één van **±7 minuten** die `Stage0` laadde en boekhouding bijhield (§12, [`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md)). Niet alleen "start", maar gespeeld — **met de eerlijke toevoeging dat één van de zes sessies in een crash eindigde**, 74 s na de start, en dat de andere vijf gestopt zijn |
 | — | **Eindoordeel** | **Structureel compleet.** Geen enkel ontbrekend bestand, geen afkapping, geen onopgeloste afhankelijkheid. Van de vier onbewijsbare punten in §7 is er inmiddels één beantwoord (§12); drie blijven open |
 
 **Correctie op een bestaande regel.** `patches/LOADERS-ZES-GAMES.md` regel 25 zegt bij Scarlet Dawn
@@ -129,8 +129,27 @@ game.bat, firewall.cfg, pxGetHwinfo.exe, pxGetHwInfo.ini
 
 Verdeling: pak **7,31 GB**, ADX-content **4,68 GB**, binaries **101 MB**, PhysX **90 MB**, rest klein.
 Dat is een logische verhouding voor deze titel: alle gameplay zit in de pak, het CRIWARE-beeld en -geluid
-staat los in `Hodzero_V1/ADX` (CRI's `NewProject.acf`, een UTF-tabel met `@UTF`-magic, is de index
-daarvan) [gemeten].
+staat los in `Hodzero_V1/ADX` [gemeten].
+
+**Correctie op deze regel (bijgewerkt na het lezen van de pak-index).** Ik schreef hier eerder dat
+`NewProject.acf` "de index daarvan" is. Dat is onjuist: het is de **CRI Atom-configuratietabel**
+(`VoiceLimitGroupTable`, `DspSettingTable`, `BusTable`, `AisacControlNameTable`, `CategoryTable`,
+`CueLimitWorkTable`, `GameVariableTable`, `SnapshotBackupWork`, `Md5Hash`, `VersionString`, …) en er
+staat **geen enkel bestandspad** in — 0 treffers op `usm`, `ADX` en `Hodzero`. De pak-index vertelt het
+echte verhaal, en dat is scherper dan ik dacht:
+
+| Verzameling | Aantal | Detail |
+|---|---|---|
+| pak, onder `HodZero_v1/ADX/` | **2.874** | 1.437 `.uasset` + 1.437 `.uexp` (UE4 bewaart een asset als dat paar) |
+| los op schijf, `Content/Hodzero_V1/ADX/` | **2.014** | 1.890 `.uasset` + 123 `.usm` + 1 `.acf` |
+| **los, en nergens in de pak** | **577** | 453 `.uasset` + 123 `.usm` + 1 `.acf` |
+
+Die **577 bestanden bestaan dus nergens anders** — de losse ADX-map is geen overbodige kopie. De 123
+`.usm`-films zijn samen circa 4,3 GB. **Risico voor later, met de bron:** de pak spelt die map
+`HodZero_v1` (27.311 indexregels, en **0** met `Hodzero_V1`) terwijl de schijf `Hodzero_V1` spelt; op
+deze CIFS-mount bestaat dat onderscheid niet, maar **op een hoofdlettergevoelig bestandssysteem kan een
+opzoeking van die 577 losse bestanden grijpen**. Zie [`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md) §4.
+Het is nu geen probleem: de game heeft zes sessies gespeeld.
 
 **De pak is niet afgekapt — en dat is te bewijzen zonder het spel te starten.** De laatste 44 bytes zijn
 een gave UE4-footer:
@@ -148,9 +167,11 @@ bestand. Er is geen ruimte voor ontbrekende inhoud en geen bungelende offset [ge
 
 Wat **ontbreekt maar hoort te ontbreken** in een cooked build: `Engine/Content`, `Engine/Plugins`,
 `Hodzero/Plugins`, `Hodzero/Config` en `Hodzero/Saved/Logs`. Bij een cooked Shipping-build zit de
-configuratie en de plug-incode in de pak; er is geen `Saved/Logs` omdat deze build geen UE4-log schrijft
-(dat is eerder al gemeten: `findings/HOTDScarletDawn.md`). Dit is **afgeleid uit het bouwtype**, niet uit
-een meting — een niet-cooked build zou die mappen wél hebben.
+configuratie en de plug-incode in de pak. **En dat is nu niet meer afgeleid maar gemeten:** de
+pak-index bevat **3.697** regels met `Engine/Content`, en in een echte sessie laadt de engine
+`../../../Engine/Content/EngineFonts/Faces/RobotoBold.ufont` met succes terwijl `Engine/Content` niet
+op schijf staat — **de pak levert die content dus**. Hetzelfde geldt voor de fonts
+(`../../../Hodzero/Content/HodZero_v1/Fonts/*.ufont`, 18 `.ufont`-regels in de index).
 
 ## 6. Verwijzingen in de eigen scripts en configs die niet bestaan
 
@@ -349,7 +370,14 @@ Dat is **fout**. De game schrijft zijn UE4-logs wel, maar niet in de speltmap �
 
 **Zes sessies op één dag, waarvan één van ±7 minuten — dat is het sterkste volledigheidsbewijs dat er is:
 het spel heeft op deze machine gespeeld, niet alleen gestart.** Dit is nog steeds een **structurele**
-meting: het bewijst dat de bestanden toereikend zijn, niet dat elke byte in de pak de verwachte is.
+meting: het bewijs dat de bestanden toereikend zijn, niet dat elke byte in de pak de verwachte is.
+
+**De eerlijke toevoeging, en die hoort in het eindoordeel.** Van die zes sessies **eindigde er één in een
+crash** (sessie 5, 08:52:40 → 08:54:54) en werden **vijf gestopt**. De crash valt **74 seconden** na de
+start — precies toen `PL_Stage0` klaar was en de match naar `InProgress` ging — met een **lege
+foutmelding**, géén callstack, en **22,7 GB RAM vrij**, dus geen geheugenprobleem. Er is een minidump van
+297.524 B bewaard. **Het is niet reproduceerbaar op dat punt:** sessie 6 laadde dezelfde `PL_Stage0` en
+liep daarna nog **105 seconden** door. Analyse en tijdlijn: [`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md).
 
 Wat de logs vastleggen [gemeten]:
 
@@ -363,22 +391,33 @@ Wat de logs vastleggen [gemeten]:
 * `LogApp: P2_CenterY : 622 / P2_RightX : 890 / P2_BottomY : 979` — kalibratiewaarden van speler 2;
 * `LogAppData: UBookkeeping:…` met `P1 GameTime`, `AddDamageLogCount`, `AddFirstDeathLogCount`,
   `AddSecondDeathLogCount`, `Ranking[0][0][2]` — het spel houdt zijn eigen boekhouding bij;
-* **`LogAMDaemon: Error: Exception caused. (Category:Logic Msg:'aimeId' is invalid.)`**, twee keer per
-  sessie (frame 288 en 344), **en het spel gaat door**. Dit is de AM-Daemon-plugin van de game die een
-  AiMe-fout meldt — concreet, en het raakt de keychip-/kaartlaag;
+* **`LogAMDaemon: Error: Exception caused. (Category:Logic Msg:'aimeId' is invalid.)`** — **één keer per
+  binnenkomst in de `[Login]`-stap** (niet twee per sessie: in de zevenminutensessie staat hij tweemaal
+  omdat de speler twee keer door Entry/Login ging), deterministisch op **regel 416** in elke sessie, en
+  **het spel gaat er direct daarna gewoon door** (`UPlayLog::StartPlayLog PlayCount=1`, dan
+  `Browse … PL_StageSelect`). Dit is de AMDaemon-plugin van de game die de AiMe-kaartidentiteit
+  valideert; de fout heeft een eigen code in de game, `EAMDaemonAimeErrorId::AimeIdInvalid`. Uitgewerkt in
+  [`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md) §3;
 * `CrashContext.runtime-xml`: `SecondsSinceStart 74`, `CrashType Crash`, `IsEnsure`/`IsAssert` false,
   `CallStack` leeg, `ErrorMessage` leeg, `bIsOOM 0` — een harde crash met een **lege melding**, 74 s na de
   start, in de sessie die ook `LogWindows: Could not start CrashReportClient.exe` logt (dat bestand wordt
-  niet meegeleverd).
+  niet meegeleverd). **Let op:** de `MemoryStats.*`-velden in dat bestand staan allemaal op 0 en zijn
+  onbruikbaar; gebruik de `LogMemory`-regels uit het sessielog.
 
 **Hiermee is §7 punt 3 beantwoord.** De game zoekt zijn content via de `[Core.System] Paths=` uit
 `Saved/Config/WindowsNoEditor/Engine.ini` (`../../../Engine/Content`, `%GAMEDIR%Content`, en
 plugin-Content-mappen), en die plugin-mappen (`Hodzero/Plugins/…`, `Engine/Plugins/2D/Paper2D`) **staan
-niet op schijf** — ze zitten in de pak. Dat was afgeleid en is nu in een echte run gezien.
+niet op schijf** — ze zitten in de pak. Dat was afgeleid en is nu in een echte run gezien. De pak-index
+bevestigt het cijfermatig: **3.697** regels met `Engine/Content`, en de engine laadt
+`../../../Engine/Content/EngineFonts/Faces/RobotoBold.ufont` met succes terwijl die map niet bestaat.
 
-**Eén portabiliteitsdetail dat eruit volgt.** De log vraagt letterlijk om
+**Eén portabiliteitsdetail dat eruit volgt, met de bron.** De log vraagt letterlijk om
 `../../../Hodzero/Content/HodZero_v1/Fonts/…` (`Z`, `v1`), terwijl de map op schijf
-`Content/Hodzero_V1/ADX` heet (`z`, `V1`). Op de CIFS-mount bestaat dat onderscheid niet — CIFS is
-hoofdletterongevoelig — dus daar werkt het. **Op een hoofdlettergevoelig bestandssysteem (ext4) kan dat
-breken**, wat relevant is voor iedereen die de game ooit lokaal kopieert.
+`Content/Hodzero_V1/ADX` heet (`z`, `V1`); de **pak spelt het ook met een hoofdletter Z** (27.311
+indexregels met `HodZero_v1`, **0** met `Hodzero_V1`). Op de CIFS-mount bestaat dat onderscheid niet —
+CIFS is hoofdletterongevoelig — dus daar werkt het. **Op een hoofdlettergevoelig bestandssysteem (ext4)
+kan dat breken**, en dan specifiek voor de **577 losse bestanden die nergens in de pak zitten** (453
+`.uasset` + 123 `.usm` + 1 `.acf`): de pak bedient zijn eigen spelling, het bestandssysteem niet. Zie
+[`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md) §4 voor de cijfers en voor wat er nog niet aan gemeten is
+(met welke spelling CRIWARE de `.usm`-films opent).
 

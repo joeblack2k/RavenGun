@@ -1,0 +1,278 @@
+### pak index: 34762 entries, of which 2874 mention ADX/
+   extensions of the pak's ADX entries:
+      uasset     1437
+      uexp       1437
+
+   -- the exact spelling the pak uses for that folder --
+      Content/HodZero_v1/ADX/   2874 entries
+
+### loose files in Content/Hodzero_V1/ADX: 2014
+      .uasset    1890
+      .usm       123
+      .acf       1
+
+   loose files whose basename is NOT in the pak's ADX set: 577
+      .uasset    453
+      .usm       123
+      .acf       1
+   examples:
+       167611104  adver_prime.usm
+       167348704  adver_dh_prime.usm
+       124614688  staffroll_prime.usm
+       121243104  0404_prime.usm
+       120456352  0404_dh_prime.usm
+       106593376  0204_prime.usm
+       105613600  0204_dh_prime.usm
+        91332736  0005_prime.usm
+        90481216  0005_dh_prime.usm
+        84462784  tutorial_prime.usm
+        82923296  0410_prime.usm
+        82905088  0410_dh_prime.usm
+
+### NewProject.acf (CRI, 32576 bytes): what names does it contain?
+   first 16 bytes: 40 55 54 46 00 00 7f 18 00 01 01 58 00 00 02 77
+   .usm         0
+   usm          0
+   ADX          0
+   HodZero      0
+   Hodzero      0
+   Movie        0
+   movie        1
+   .acb         0
+   .awb         0
+   NewProject   1
+   -- printable strings of >=6 chars in the acf --
+      Header
+      FileIdentifier
+      Version
+      Target
+      Md5Hash
+      VoiceLimitGroupTable
+      VoiceLimitGroupWork
+      DspSettingTable
+      BusTable
+      DspFxTable
+      BusLinkTable
+      AisacControlNameTable
+      GlobalAisacTable
+      GraphTable
+      GlobalAisacNameTable
+      AutoModulationTable
+      CategoryTable
+      CategoryNameTable
+      CommandTable
+      ReactTable
+      VersionString
+      CueLimitWorkTable
+      NumCueLimitListWorks
+      NumCueLimitNodeWorks
+      AisacTable
+      GameVariableTable
+      GameVariableNameTable
+      SnapshotBackupWork
+      DspSettingSnapshotTable
+      CategoriesParPlayback
+      CharacterEncodingType
+      LinkedCueCategoryLimitFlag
+      SelectorTable
+      StringValueTable
+      AisacControlIdTable
+      PreReadTime
+      BusNameTable
+      BusNameActiveWork
+      BusNameIndexListForAisacGraphType
+      RegistrationOption
+
+### the game exe: every string that mentions aime or the card identity
+   bIsAimePlay
+   AddPlayAimeOrGuestCount
+   GetAimePlayNum
+   GetAimeID
+   SetAimeID
+   AimeID
+   GetCloseSettingAimeStartPlayAlertTime
+   GetCloseSettingAimeStartPlayForbiddenTime
+   SetCloseSettingAimeStartPlayAlertTime
+   SetCloseSettingAimeStartPlayForbiddenTime
+   AimeStartPlayForbiddenTime
+   AimeStartPlayAlertTime
+   LoginForPreviewFromAimeID
+   InAimeID
+   AMDaemonAimePtr
+   AimeFirstPlayNum
+   MasterAimePlay
+   NormalAimePlay
+   aime_id
+   aime_serial_number
+   aimeid
+   IsAliveAimeServer
+   AimePtr
+   EPlayerPlayMode::Aime
+   IsSameAimeID
+   AdditionalClaimedResources
+   OnClaimedResourcesChange
+   NewlyClaimed
+   OnClaimedResourcesChangeSignature__DelegateSignature
+   OnGameplayTaskResourcesClaimed
+   SendAIMessage
+   EAMDaemonNetworkTestItem::Aime
+   GetPlayingAimeId
+   AimeId
+   EAMDaemonAimeLogStatus::Enter
+   EAMDaemonAimeLogStatus::Continue
+   AimeErrorInfo
+   EAMDaemonAimeLogStatus::Leave
+   EAMDaemonAimeLogStatus
+   EAMDaemonAimeCommand::ScanOffline
+   EAMDaemonAimeCommand::Scan
+   EAMDaemonAimeCommand
+   AimeUnit
+   AimeResult
+   EAMDaemonAimeConfirm::None
+   EAMDaemonAimeConfirm::FeliCaDB
+   EAMDaemonAimeConfirm::AimeDB
+   EAMDaemonAimeConfirm
+   EAMDaemonAimeErrorCategory::None
+   Conv_EAimeCommand_ToString
+   EAMDaemonAimeErrorCategory::Warning
+   Conv_EAimeCommand_ToText
+   EAMDaemonAimeErrorCategory::Network
+   Conv_EAimeConfirm_ToString
+   EAMDaemonAimeErrorCategory::Fatal
+   Conv_EAimeConfirm_ToText
+   EAMDaemonAimeErrorCategory::Unknown
+   Conv_EAimeErrorCategory_ToString
+   Conv_EAimeErrorCategory_ToText
+   Conv_EAimeErrorId_ToString
+   Conv_EAimeErrorId_ToText
+   Conv_EAimeLedStatus_ToString
+   Conv_EAimeLedStatus_ToText
+   Conv_EAimeLogStatus_ToString
+   Conv_EAimeLogStatus_ToText
+   EAMDaemonAimeErrorCategory
+   AimeCommand
+   EAMDaemonAimeErrorId::None
+   EAMDaemonAimeErrorId::ReaderSetupFail
+   EAMDaemonAimeErrorId::ReaderFirmFileInvalid
+   EAMDaemonAimeErrorId::ReaderFirmUpToDate
+   EAMDaemonAimeErrorId::ReaderAccessFail
+   EAMDaemonAimeErrorId::ReaderTimeout
+   EAMDaemonAimeErrorId::ReaderIncompatible
+   AimeOfflineId
+   EAMDaemonAimeErrorId::ReaderTwoOrMore
+   EAMDaemonAimeErrorId::DBResolveFail
+   EAMDaemonAimeErrorId::DBAccessTimeout
+   EAMDaemonAimeErrorId::DBAccessFail
+   EAMDaemonAimeErrorId::FeliCaInvalid
+   EAMDaemonAimeErrorId::FeliCaNotFound
+   EAMDaemonAimeErrorId::FeliCaRegisterFail
+   EAMDaemonAimeErrorId::AimeIdInvalid
+   EAMDaemonAimeErrorId::AimeIdNotFound
+   EAMDaemonAimeErrorId::AimeIdRegisterFail
+   EAMDaemonAimeErrorId::FeliCaRequired
+   EAMDaemonAimeErrorId::CardRequired
+   EAMDaemonAimeErrorId::NoBoardInfo
+   EAMDaemonAimeErrorId::LogRegisterFail
+   EAMDaemonAimeErrorId::FeliCaRegistered
+   EAMDaemonAimeErrorId::AimeIdRegistered
+   EAMDaemonAimeErrorId::LockBanSystemUser
+   EAMDaemonAimeErrorId::LockBanSystem
+   EAMDaemonAimeErrorId::LockBanUser
+   EAMDaemonAimeErrorId::LockBan
+   EAMDaemonAimeErrorId::LockSystemUser
+   EAMDaemonAimeErrorId::LockSystem
+   EAMDaemonAimeErrorId::LockUser
+   EAMDaemonAimeErrorId::ReaderFirmUpdateFail
+   EAMDaemonAimeErrorId::CampaignInfoFail
+   EAMDaemonAimeErrorId::ReaderDetectFail
+   EAMDaemonAimeErrorId::FeliCaComFail
+   EAMDaemonAimeErrorId
+   AimeConfirm
+   AMDaemonAimeResult
+   GetAimeId
+   GetRelatedAimeId
+   GetRelatedAimeIdCount
+   AMDaemonAimeOfflineId
+   AimeErrorCategory
+   AMDaemonAimeId
+   AMDaemonAimeErrorInfo
+   AimeErrorId
+   AimeLedStatus
+   AimeLogStatus
+   AMDaemonAimeUnit
+   EAMDaemonAimeLedStatus::None
+   EAMDaemonAimeLedStatus::Scanning
+   EAMDaemonAimeLedStatus::Success
+   EAMDaemonAimeLedStatus::Warning
+   EAMDaemonAimeLedStatus::Error
+   EAMDaemonAimeLedStatus
+   class amdaemon::AimeUnit &__cdecl amdaemon::Aime::getUnit(unsigned __int64)
+   D:\jenkins_work\workspace\all_build\libs\amdaemon\src\Aime.cpp
+   const class amdaemon::AimeUnit &__cdecl amdaemon::Aime::getUnit(unsigned __int64) const
+   void __cdecl amdaemon::PlayParamHolder::setAimeId(struct amdaemon::AimeId)
+   D:\jenkins_work\workspace\all_build\libs\amdaemon\src\ctrl\AimeCtrl.cpp
+   const struct amdaemon::AimeCampaignInfo &__cdecl amdaemon::ctrl::AimeCtrl::getCampaignInfo(unsigned __int64) const
+   class amdaemon::RequestState __cdecl amdaemon::ctrl::AimeCtrl::requestCampaignProgress(const struct amdaemon::AimeId &)
+   unsigned __int64 __cdecl amdaemon::ctrl::AimeCtrl::getCampaignProgressCount(const struct amdaemon::AimeId &) const
+   bool __cdecl amdaemon::ctrl::AimeCtrl::start(unsigned __int64,enum amdaemon::AimeCommand)
+   bool __cdecl amdaemon::ctrl::AimeCtrl::cancel(unsigned __int64)
+   bool __cdecl amdaemon::ctrl::AimeCtrl::isBusy(unsigned __int64) const
+   enum amdaemon::AimeCommand __cdecl amdaemon::ctrl::AimeCtrl::getBusyCommand(unsigned __int64) const
+   enum amdaemon::AimeConfirm __cdecl amdaemon::ctrl::AimeCtrl::getConfirm(unsigned __int64) const
+   bool __cdecl amdaemon::ctrl::AimeCtrl::acceptConfirm(unsigned __int64)
+   enum amdaemon::AimeLedStatus __cdecl amdaemon::ctrl::AimeCtrl::getLedStatus(unsigned __int64) const
+   bool __cdecl amdaemon::ctrl::AimeCtrl::setLedStatus(unsigned __int64,enum amdaemon::AimeLedStatus)
+   bool __cdecl amdaemon::ctrl::AimeCtrl::setLed(unsigned __int64,bool,bool,bool)
+   bool __cdecl amdaemon::ctrl::AimeCtrl::validResult(unsigned __int64) const
+   bool __cdecl amdaemon::ctrl::AimeCtrl::isReaderDetected(unsigned __int64) const
+   const wchar_t *__cdecl amdaemon::ctrl::AimeCtrl::getHardVersion(unsigned __int64) const
+   const wchar_t *__cdecl amdaemon::ctrl::AimeCtrl::getFirmVersion(unsigned __int64) const
+   const struct amdaemon::AimeOfflineId &__cdecl amdaemon::ctrl::AimeCtrl::getOfflineId(unsigned __int64) const
+   const struct amdaemon::AccessCode &__cdecl amdaemon::ctrl::AimeCtrl::getAccessCode(unsigned __int64) const
+   const struct amdaemon::AimeId &__cdecl amdaemon::ctrl::AimeCtrl::getAimeId(unsigned __int64) const
+   bool __cdecl amdaemon::ctrl::AimeCtrl::isSegaIdRegistered(unsigned __int64) const
+   struct amdaemon::AimeId __cdecl amdaemon::ctrl::SequenceCtrl::getPlayingAimeId(unsigned __int64) const
+   .?AVAimeErrorInfo@amdaemon@@
+   .?AVAimeCtrl@ctrl@amdaemon@@
+   .?AV?$RequestableCtrlBase@UClientData@aime@ipc@amdaemon@@@ctrl@amdaemon@@
+   .?AV?$_Func_base@XAEBTClientInfo@aime@ipc@amdaemon@@AEAUClientRequest@234@@std@@
+   .?AV?$_Func_base@XAEBTClientUnitInfo@aime@ipc@amdaemon@@AEAUClientUnitRequest@234@@std@@
+      AimeAlert             : %d
+      AimeForbidden         : %d
+   UAMDaemonAime
+   [Login] Prepare (AimeID:%d)
+   [Login] Prepare (AimeID:%d , UserID:%d)
+   AM Daemon AimeResult is not invalid. (UnitIndex:%d)
+   AM Daemon AimeID is not invalid. (UnitIndex:%d, AimeID:%d)
+   [Login] LoginForPreviewFromAimeID (UnitIndex:%d)
+   Aime preview login couldn't start.
+   [Login] LoginForPreviewFromUserID (AimeID:%d).
+   [Login] LoginForPreview (AimeID:%d Dummy?:%d)
+   [Login] PostPreviewForSuccess (AimeID:%d)
+   [Login] PostPreviewForFailure (AimeID:%d)
+   [Login] Cancel (AimeID:%d)
+   [Login] PostForSuccess (AimeID:%d)
+   [Login] PostForFailure (AimeID:%d ResponseKind:%s)
+   &AAIController::OnGameplayTaskResourcesClaimed
+   BEAMDaemonAimeLogStatus
+   rEAMDaemonAimeConfirm
+   UAMDaemonAimeOfflineIdLibrary
+   eAMDaemonAimeOfflineId
+   UAMDaemonAimeErrorInfoLibrary
+   UAMDaemonAimeResultLibrary
+   UAMDaemonAimeUnitLibrary
+   UAMDaemonAimeIdLibrary
+   UAMDaemonAimeLibrary
+   Aime
+   AimeDB
+   AimeIdInvalid
+   AimeIdNotFound
+   AimeIdRegisterFail
+   AimeIdRegistered
+   `aimeId` is invalid value.
+   aime
+   aimeId
+   relatedAimeIdCount
+   relatedAimeIds
+   withAime
+   p`aimeId` is invalid.
