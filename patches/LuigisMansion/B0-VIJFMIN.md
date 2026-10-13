@@ -910,6 +910,96 @@ Het haakgereedschap kent nu alleen **antwoord-vormen** (`ret0`, `ret1`, `void`, 
 LEEST en in het logboek zet zonder iets te beantwoorden**. Dat is gevraagd aan de heeftphook-specialist;
 zodra die er is, is de meting: leest `rcx` daar `0x140415820`, waarmee de exitcode-vraag gesloten is.
 
+
+## ELFDE STAND 2026-10-13: de exitwaarde is een DESCRIPTOR, en de statische data is vrijwel identiek
+
+Compact, want dit zijn de feiten en niet het verhaal.
+
+### De drie lezingen, en waarom A wegvalt
+
+* **(A) restwaarde in het register** -- afgevallen: `rcx` is geen toevallige waarde maar een **descriptor**.
+* **(B) verkeerd opgeloste aanroep** / **(C) terugval van de virtuele machine** -- beide leven nog.
+
+### Wat de twee `od`-lezingen laten zien
+
+```
+RVA 0x415820  40 33 17 40 01 00 00 00   -> 0x140174340
+              80 f0 02 40 01 00 00 00   -> 0x14002f080
+              80 f0 02 40 01 00 00 00   -> 0x14002f080
+              d0 34 17 40 01 00 00 00   -> 0x1401734d0
+              c0 33 17 40 01 00 00 00   -> 0x1401733c0
+              63 61 6e 27 74 20 6d 75 74 65 78 20 63 74 6f 72 21 00   "can't mutex ctor!"
+```
+
+Vijf codewijzers gevolgd door een naam: een **klasse-descriptor**, geen getal. En het terugkeeradres
+`VACUUM.exe+0xf1374d` in `.capcom0` is **geen x86-code** (hoge entropie, geen herkenbare `lea`/`call`),
+dus de aanroeper is gevirtualiseerd.
+
+**De exitwaarde is dus een descriptor, en het echte resultaat is de NAAM van de fout:
+`can't mutex ctor!`.** De "exitcode 32" is de onderste byte van een wijzer en betekent niets.
+
+### B -- de melder is niet statisch adresseerbaar
+
+De tekst staat in BEIDE dumps op precies **RVA 0x415848**. Het aantal verwijzingen naar die tekst als
+**absolute 8-byte immediate** (`48 58 41 40 01 00 00 00`) in het hele beeld: **0**.
+
+**Precisie:** nul absolute immediates betekent *niet* automatisch "gevirtualiseerd". Een rip-relatieve
+`lea` bevat de wijzer ook niet. Wat het wel vaststelt: de melder wordt **niet via een absolute wijzer**
+ gevonden, dus hij loopt via een tabel, een berekende wijzer of het versleutelde gebied.
+
+### C -- de statische data is vrijwel identiek (en dat verzwakt mijn eigen H1)
+
+| bereik | verschillende bytes | %nul (onze / gesloten) |
+|---|---|---|
+| `.data` 0x49c000-0xd46000 | 1.348 (0,015 %) | 98,82 / 98,81 |
+| `.rdata` 0x357000-0x49c000 | **41 (0,0031 %)** | 35,19 / 35,19 |
+| `.capcom0` 0xd71000-0xf15000 | **182 (0,0106 %)** | 7,45 / 7,45 |
+
+Ongeveer **1.571 bytes van 18 MB**, en de descriptor op `0x415800`-`0x4158A0` is **byte voor byte
+identiek** onder beide kernen.
+
+* De `.data`-verschillen zijn **wijzervormig** (module/heap-adressen) -- toewijzingsvariantie, geen object
+  dat nul bleef. **Mijn eigen H1 ("een RTL-object in `.data` is nog niet geconstrueerd") is daarmee
+  verzwakt**: het nulpatoom is in beide kernen 98,8 % en onderscheidt dus niets.
+* In `.capcom0` zijn het **kleine operandverschillen** (bijvoorbeeld `3f` tegen `45`, `02` tegen `05`):
+  het patroon van een virtuele machine die zich op een **ander punt in zijn eigen uitvoering** bevindt,
+  niet van beschadigde data.
+* **Geen verschil in de statische tabellen.** Daarmee is de familie "de lader moet iets in het beeld
+  oplossen" verzwakt: een verkeerd opgeloste import of sprongtabel zou hier zichtbaar zijn.
+
+### Het `../../Da`-spoor
+
+```
+RVA 0x3d0c20 (25 B)   onze: 00 00 00 00 00 00 00 00   gesloten: 2e 2e 2f 2e 2e 2f 44 61   = "../../Da"
+```
+
+Een **relatieve padstring** die onder onze kern op nullen staat en onder de gesloten kern gevuld is --
+dezelfde vorm als de paden die dit spel vanaf het begin gebruikt. Iets hoort die string bij het
+opstarten te vullen, en onder onze kern gebeurt dat niet.
+
+### De cijfertabel tegen de hulpbron-hypothese
+
+| | onze kern bij de dood | gesloten kern op 300 s |
+|---|---|---|
+| threads | **2-3** | **92** |
+
+Een mutex-constructie die bij drie threads aan een hulpbronlimiet stukloopt, zou een absurd laag limiet
+vergen -- en dan was de gesloten kern met 92 threads allang eerder omgevallen. **"Te veel objecten /
+geen naamruimte" is daarmee onwaarschijnlijk.**
+
+### En Ã©Ã©n dossierregel om te voorkomen dat er werk dubbel gebeurt
+
+De uitbreiding in `OpenParrot/src/Utility/RgExitTrace.cpp` is **NIET nodig**: de registers `rcx`, `rdx`,
+`r8` en `r9` worden al gelogd (Ã©Ã©n regel per register in `logs-exittrace-r7/exit-trace.log`). Niemand
+hoeft die wijziging te bouwen.
+
+### Wat nog openstaat
+
+**A is beslissend:** een run met `WINEDEBUG=+ntdll,+sync` -- een **mislukte** creatie
+(`NtCreateMutant`/`NtCreateEvent`/`RtlInitializeCriticalSection` met foutstatus) vlak voor het
+exit-moment betekent een echte omgevingsfout; het **uitblijven van elke poging** betekent een detectie
+op een ongebruikt object. Dat onderscheidt de laatste twee kandidaten.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn
