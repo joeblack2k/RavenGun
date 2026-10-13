@@ -286,6 +286,49 @@ gast niet**. Daarmee is de hele keten op deze game al bewezen, voordat de bench 
 
 ---
 
+## 10b. DE RUN VAN DE LADERBOUWER — **DE LADER HEEFT HET GEDAAN** (2026-10-13)
+
+Nadat de laderbouwer `laad_needed()` repareerde (de herkansings-lus in **beide** modi), deed hij een
+echte run op deze game. **Alle vier de succesregels zijn gehaald** en er is **nul** FATAAL-regel:
+
+```
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1 … libglut.so.3 … libstdc++.so.6      (13 van 13, 2 in een latere ronde)
+rg-elfloader: geladen; spel /tmp/.../game krijgt argv[0]=/tmp/.../game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf6d67e10, argc 1, envc 56, 17 auxv)
+exitcode 255   ← van de GAST, niet van ons
+```
+
+**T1 tot en met T3 van mijn eigen voorspelling zijn uitgekomen**, en dit is de derde bevestiging van de
+ONGEPAKTE klasse: geen enkele FATAAL, de sprong gehaald, en de 255 komt van de gast zelf.
+
+### 10b.1 Het bewijs dat de herkansings-lus het verschil maakte
+
+| | run vóór de reparatie (mijn run, §10) | run ná de reparatie (laderbouwer) |
+|---|---|---|
+| `libGLU.so.1` | `FATAAL: dlopen(libGLU.so.1) mislukt: undefined symbol: floor` | geladen, in een **latere ronde** |
+| `libtheora.so.0` | (nooit bereikt) | geladen, in een **latere ronde** |
+| einde | exit 127, geen sprong | exit 255 **van de gast**, sprong gehaald |
+| FATAAL-regels | 1 | **0** |
+
+Dat is precies de voorspelde uitwerking van de fix in §10.3: het faalpad vult nu ook `wacht[]` en de
+bestaande lus (regel 591-606) draait in beide modi, dus een bibliotheek die pas laadt als een eerdere
+`DT_NEEDED` er is, wordt nu in een tweede ronde alsnog geladen. **De droogloop-maskering van §10.2 is
+daarmee opgeheven** — een groene `--ontleed-alleen` én een groene echte run wijzen nu dezelfde kant op.
+
+### 10b.2 De adreslijst is nu dubbel bevestigd
+
+Mijn conclusie uit §10.4 blijft staan en is **dubbel bevestigd**: in de run van de laderbouwer zat de
+hook in het **laderproces** en haakte **10 van 11** doelen aan **op exact dezelfde adressen** als mijn
+statische symbolenkaart, met `hasp_free` om dezelfde reden afgewezen. Twee onafhankelijke runs, hetzelfde
+beeld — de kaart is dus niet aan één toeval-meting te danken.
+
+**Wat er nu nog open is:** de aanroepmeting (`aanroep:`-regels) uit §7 — en die is inmiddels
+achterhaald door §11: de gast bereikt de HASP-API niet omdat hij eerder op zijn eigen ptrace-controle
+stopt.
+
+---
+
 ## 10. DE BENCHRUN VAN 2026-10-13 — uitkomst, oorzaak en de fix
 
 **Uitkomst: de lader is NIET klaar. Hij sterft vóór de sprong, in `laad_needed()`.**
