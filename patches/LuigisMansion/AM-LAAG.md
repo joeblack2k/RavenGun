@@ -281,6 +281,126 @@ uit de aanroepen in dezelfde regio; niet alle lichamen zijn regel voor regel nag
 
 ---
 
+### 3.6 Wie ze aanroept — [GEMETEN]
+
+Scan van het hele beeld op `call rel32` naar elk van de 17 startadressen:
+
+| functie | aanroeper(s) (RVA) |
+|---|---|
+| `amDongleInit` | `0x0004d2df` |
+| `amDongleSetupKeychip` | `0x0004d2f7` |
+| `amDongleBillingGetKeychipId` | `0x0004d30d` |
+| `amDongleUpdate` | `0x0004d314`, `0x0004e7a9` |
+| `amDongleGetNetworkAddress` | `0x0004d33f` |
+| `amDongleGetGameId` | `0x0004d371` |
+| `amDongleGetModelType` | `0x0004d38a` |
+| `amDongleIsAvailableInternal` | `0x000ab8b9`, `0x001349d8` |
+| `amHmInit` | `0x0004d5ac` |
+| `amHmGetCautionFlag` | `0x0004d5cd` |
+| `amHmExit` | `0x0004e57b` |
+| `amHmUpdate` | `0x0004e75d` |
+| `amHmResetCautionFlag` | `0x000abc74` |
+| `amMasterInit` | `0x0004d9cd` |
+| `amMasterSetBackupEventLogParam` | `0x0004dc97` |
+| `amMasterExitInternal` | `0x0004e6cd` |
+| `amMasterUpdate` | `0x0004e735` |
+
+**Alle 17 worden direct aangeroepen; geen enkele via een functiepointertabel** — ik heb voor elk van
+de 17 naar 8-byte aanwijzers in het hele beeld gezocht: **0 treffers**. **[GEMETEN]**
+
+Er zijn twee clusters: een **opzetroutine** op `0x0004d250` (0x4d2df … 0x4dc97) en een
+**update/afsluitblok** op `0x0004e57b` … `0x0004e7a9`. Daarbuiten staan twee losse vragers van
+`amDongleIsAvailableInternal` op `0x000ab8b9` en `0x001349d8`. **[GEMETEN]**
+
+**Het foutpad van de opzetroutine — [GEMETEN]:**
+
+```
+14004d2df  e8 8c 6e 26 00            call 0x1402b4170          ; amDongleInit
+14004d2e4  48 8b 0b                  mov  rcx,[rbx]
+14004d2e7  89 41 04                  mov  dword [rcx+0x4],eax  ; status bewaren
+14004d2ea  48 8b 03                  mov  rax,[rbx]
+14004d2ed  83 78 04 00               cmp  dword [rax+0x4],0
+14004d2f1  0f 85 a3 00 00 00         jne  0x14004d39a        ; <-- FOUTPAD
+14004d2f7  e8 24 70 26 00            call 0x1402b4320          ; amDongleSetupKeychip
+14004d2fc  83 f8 02                  cmp  eax,0x2
+14004d2ff  74 f6                     je   0x14004d2f7          ; lus zolang eax == 2
+14004d301  48 8b 0b                  mov  rcx,[rbx]
+14004d306  48 81 c1 95 00 00 00      add  rcx,0x95
+14004d30d  e8 5e 68 26 00            call 0x1402b3b70          ; amDongleBillingGetKeychipId
+14004d312  8b f8                     mov  edi,eax
+14004d314  e8 27 74 26 00            call 0x1402b4740          ; amDongleUpdate
+14004d319  83 ff 01                  cmp  edi,0x1
+14004d31c  74 e3                     je   0x14004d301          ; lus zolang edi == 1
+14004d31e  85 ff                     test edi,edi
+14004d320  75 78                     jne  0x14004d39a        ; <-- FOUTPAD
+```
+
+Dus: **geeft `amDongleInit` iets anders dan 0 terug, of eindigt de keychip/update-lus met
+`edi != 0`, dan springt de game naar `0x0004d39a`.**
+
+**Wat daar staat — en dit is een belangrijke negatieve uitkomst — [GEMETEN]:**
+
+```
+14004d39a  48 8b 74 24 40      mov  rsi,[rsp+0x40]
+14004d39f  48 8b c3            mov  rax,rbx
+14004d3a2  48 8b 5c 24 30      mov  rbx,[rsp+0x30]
+14004d3a7  48 83 c4 20         add  rsp,0x20
+14004d3ab  5f                  pop  rdi
+14004d3ac  c3                  ret
+```
+
+`0x0004d39a` is **niet** een fout- of afsluitpad: het is de **gewone epilogue** van de functie. De
+routine geeft de dongle-structuur terug met de status in `[obj+0x4]`, en de *aanroeper* beslist
+verder. **Een mislukte dongle-controle beëindigt het spel dus niet van zichzelf.** **[GEMETEN]**
+
+Dat is een waarschuwing tegen een te makkelijke causaliteit: "`amDongleIsAvailableInternal` faalt →
+exit 32" is **niet** aangetoond, en het ziet er niet naar uit dat de `am`-laag zelf de exit neemt.
+
+**Wat ik verder niet gevolgd heb:** de aanroeper van `0x0004d250`, en waar de vlag `edi` uit
+`0x001349d8` naartoe leidt.
+
+**Zijspoor dat wél opvalt [GEMETEN]:** de functie direct ná dit blok (`0x0004d3b0`) opent een
+bestand met een **relatief pad**:
+
+```
+14004d409  4c 8d 0d 60 f6 38 00   lea  r9,[rip+0x38f660]   # 0x1403dca70  "../../Ram/"
+14004d410  4c 8d 05 69 f6 38 00   lea  r8,[rip+0x38f669]   # 0x1403dca80  "%sEEPROM_0x%08x.bin"
+14004d417  48 8d 4c 24 30         lea  rcx,[rsp+0x30]
+14004d41c  ba 00 01 00 00         mov  edx,0x100
+14004d425  e8 e2 d9 2b 00         call 0x14030ae0c
+14004d42a  48 8d 15 e3 b4 38 00   lea  rdx,[rip+0x38b4e3]   # 0x1403d8914  "rb"
+14004d436  e8 0d 81 2c 00         call 0x140315548          ; fopen-achtig
+```
+
+Dat is een **EEPROM-bestand** dat met een pad van twee niveaus omhoog gelezen wordt. Als de werkmap
+onder onze kern anders is, is dit een concrete plek waar het mis kan gaan. **[GEMETEN]** dat dit pad
+bestaat; **niet gemeten** dat het onder onze kern faalt.
+
+**De tweede vrager — [GEMETEN]:**
+
+```
+1401349cf  4c 39 35 da 23 3c 00      cmp  qword [0x1404f6db0],r14   ; r14 = 0
+1401349d6  74 0f                     je   0x1401349e7
+1401349d8  e8 93 f8 17 00            call 0x1402b4270               ; amDongleIsAvailableInternal
+1401349dd  40 0f b6 ff               movzx edi,dil
+1401349e1  85 c0                     test eax,eax
+1401349e3  41 0f 44 fe               cmove edi,r14d                 ; eax == 0  ->  edi = 0
+1401349e7  48 63 75 1c               movsxd rsi,[rbp+0x1c]
+1401349fa  83 fe 07                  cmp  esi,0x7
+1401349fd  0f 87 1c 0b 00 00         ja   0x14013551f
+140134a03  4c 8d 2d f6 b5 ec ff      lea  r13,[rip-0x134a0a]        ; = 0x140000000
+140134a0a  41 8b 84 b5 50 55 13 00   mov  eax,[r13+rsi*4+0x135550]  ; sprongtabel op RVA 0x135550
+140134a12  49 03 c5                  add  rax,r13
+140134a15  ff e0                     jmp  rax                       ; 8 takken
+```
+
+`amDongleIsAvailableInternal` wordt hier gebruikt om een vlag `edi` te zetten: **`edi` wordt op 0
+gezet als de dongle beschikbaar is**. Daarna volgt een gewone compilerswitch over `[rbp+0x1c]`
+(8 takken, tabel op RVA `0x135550`) — geen VM. **[GEMETEN]** Waar `edi` daarna toe leidt, heb ik
+**niet** gevolgd.
+
+---
+
 ## 4. Hoe de GESLOTEN kern ze afvangt — [GEMETEN] + [AFGELEID]
 
 **Wat gemeten is:**
@@ -421,3 +541,9 @@ volgende meting), en de runtime-kern terugzetten op `f5c7532d…`.
 * **`amDongleSetupKeychip` en `amDongleUpdate`**: lichamen niet regel voor regel nagelezen; alleen de
   aanwezigheid van hun log-tags en hun startadres zijn gemeten.
 * De naamtoewijzing van rij 12 en 14 in §1 is een beste toewijzing, geen bewijs.
+* **Het foutpad `0x0004d39a` van de opzetroutine is niet gevolgd**, en ook niet waar de vlag `edi` uit
+  `0x001349d8` naartoe leidt. Of een mislukte `amDongleInit` werkelijk tot de exit met 32 leidt, is
+  dus **niet gemeten**. Dat is de eerstvolgende statische stap: `0x0004d39a` uitlezen en kijken of
+  daar een foutcode gezet of een afsluitroute gekozen wordt.
+* Ik heb **geen** verband gemeten tussen `amDongleIsAvailableInternal` en het exitpunt
+  `VACUUM.exe+0xf1374d` (zie `EXITBESLUIT.md`).

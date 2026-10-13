@@ -94,6 +94,7 @@ def main():
     regels = ["# %s: stopgrens %.0f s game-tijd, harde grens %.0f s" % (tag, stop, hard),
               "# entry-point-bytes in het BESTAND: %s" % (EP_FILE.hex(" ") if EP_FILE else "<niet gelezen>")]
     pid = None; t0 = None; t = 0.0; volgende = 0.0
+    max_dropin = 0
     gezien_paden = set()
     uitkomst = "onbekend"
     while t < hard:
@@ -132,6 +133,9 @@ def main():
                     else:
                         ep_txt = "onbekend " + ep[:8].hex(" ")
                     nfd, paden = eigen_fds(pid)
+                    dp_n = dropin_in_proces(pid)
+                    if dp_n > max_dropin:
+                        max_dropin = dp_n
                     gezien_paden |= paden
                     regels.append("t=%6.1f  leeft ja  threads %2d  entry %-34s  .text %5.1f%% nul  "
                                   "eigen bestanden open %2d  drop-in in proces %d/%d"
@@ -147,6 +151,7 @@ def main():
         time.sleep(0.25); t += 0.25
     else:
         uitkomst = "harde grens %.0f s bereikt" % hard
+    regels.append("MAX drop-in in proces %d/%d" % (max_dropin, len(DROPIN)))
     regels.append("UITKOMST: %s" % uitkomst)
     regels.append("TOTAAL eigen databestanden gezien via open fds: %d" % len(gezien_paden))
     for p in sorted(gezien_paden)[:15]:

@@ -127,6 +127,49 @@ Bovenop de zes criteria hierboven komt:
 | **de run is ONGELDIG** (kern-sha256 uit launch-direct's log wijkt af) | er is niets gemeten. Opnieuw, en eerst uitzoeken waarom de verwisseling niet aankwam. |
 | **NAS-verschil** in de bekende doelen | het spel of de lader heeft op de NAS geschreven. Dat is toegestaan voor wat het spel zelf al deed (`Ram/`, `Log/`), maar `exe/x64/teknoparrot.ini` door ONZE kern is een pad dat dicht moet. |
 
+## BASELINE 2026-10-13: de GESLOTEN kern met ONZE lader haalt 5 minuten
+
+**Dit is een BASELINE en NIET het halen van de lat.** De lat is ONZE eigen kern. Deze run zegt alleen
+dat de OMGEVING 5 minuten toelaat -- dat er geen tweede probleem is (geen time-out, geen resourcelek,
+geen zelf-stop na een tijdje). Uitgevoerd met
+`RG_B0_KERN_DLL=<gesloten TeknoParrot64.dll> RG_B0_STOP=300 RG_B0_HARD=480 bash b0-vijfmin.sh`.
+Ruwe uitvoer: `/tmp/b0-baseline-gesloten/`.
+
+| t (game-tijd) | leeft | threads | entry point | `.text` | drop-in |
+|---|---|---|---|---|---|
+| 0,2 | ja | 1 | teruggezet, 20 bytes identiek aan bestand | 100 % nul | 0/0 |
+| 30 | ja | 21 | teruggezet | 11,2 % nul | 0/0 |
+| 60 | ja | 89 | teruggezet | 11,2 % | 0/0 |
+| 90-270 | ja | 88-92 | teruggezet | 11,2 % | 0/0 |
+| **300** | **ja** | 92 | teruggezet | 11,2 % | 0/0 |
+
+`UITKOMST: STOPGRENS gehaald op 300.0 s game-tijd, proces leefde nog`. Kern volgens launch-direct's
+eigen log: `f5c7532d...` = de bedoelde. Threads vlakken af op ongeveer 90 en blijven vlak.
+NAS over het venster: alleen `Ram/CreditConfig.bin`, `Ram/EEPROM_0x00001100.bin` en
+`Ram/SRAM_0x00004200.bin` -- de eigen EEPROM/SRAM/credit-schrijfactoren van het spel, de geaccepteerde
+uitzondering. Geen `teknoparrot.ini`, geen `Log/play_log.csv`.
+
+**Conclusie: de enige blokkade voor de lat is onze eigen kern.**
+
+### Twee lessen over het instrument, uit deze run
+
+1. **"Leest zijn eigen databestanden" is met `/proc/<pid>/fd` een VALSE NEGATIEF voor deze game.**
+   De run gaf `eigen bestanden open 0` op elk monster, terwijl de `+file`-trace eerder 393-762 eigen
+   datapaden liet zien. Het spel opent, leest en SLUIT zijn bestanden meteen, dus op een cadans van
+   30 s vangt de fd-telling er bijna nooit een. Criterium 5 is daarom uit deze proef gehaald en
+   wordt apart gemeten met `bash b0-run.sh a` (met de eerlijke opmerking dat `+file` het proces
+   vertraagt en de levensduur verandert). **Lees een 0 hier nooit als "het spel leest niets".**
+2. **De criteriumregels printten eerst grepentellingen in plaats van een oordeel** ("1. 300 s
+   game-tijd gehaald : 2"). Dat is nu per criterium JA/NEE met de gemeten waarde ernaast. De
+   levenslijntabel blijft de drager van het bewijs.
+
+### En de drop-in-regel die hieruit volgt
+
+Als er een drop-in is opgegeven en die staat NIET in `/proc/<pid>/maps` van het spelproces, dan is de
+run **ONGELDIG** -- ook als het spel 5 minuten leeft. Een spel dat 5 minuten leeft ZONDER de drop-in
+betekent dat de drop-in niet nodig was, en dat is een eigen uitkomst die gemeld moet worden in plaats
+van als succes door te gaan. De proef zegt dat nu met zoveel woorden in het oordeel.
+
 ## De kernverificatie (onafhankelijk van de laderbouwer)
 
 De laderbouwer instrumenteert en repareert nu `InitializeASI`. Zodra zijn nieuwe kern er is, draait

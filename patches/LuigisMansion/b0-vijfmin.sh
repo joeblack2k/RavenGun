@@ -257,12 +257,37 @@ PY
     echo "  (de maps-controle per monster staat in vijfmin-vijfmin.txt als 'drop-in in proces')"
   fi
   echo
-  echo "--- SUCCESCRITERIA ---"
+  echo "--- SUCCESCRITERIA: JA/NEE met de gemeten waarde ---"
   LAATSTE=$(grep -a '^t=' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | tail -1)
-  echo "1. 300 s game-tijd gehaald         : $(grep -ac 'STOPGRENS' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)"
-  echo "2. entry point teruggezet          : $(echo "$LAATSTE" | grep -c TERUGGEZET)"
-  echo "3. laatste regel                   : $LAATSTE"
-  echo "4. eigen databestanden             : $(grep -a 'TOTAAL eigen databestanden' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)"
+  GHAALD=$(grep -ac 'STOPGRENS' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null)
+  EP=$(echo "$LAATSTE" | grep -c 'TERUGGEZET')
+  TXT=$(echo "$LAATSTE" | grep -oE '\.text +[0-9.]+% nul')
+  THR=$(echo "$LAATSTE" | grep -oE 'threads +[0-9]+' | grep -oE '[0-9]+')
+  MAXD=$(grep -a 'MAX drop-in in proces' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | tail -1)
+  echo "1. 300 s game-tijd gehaald        : $([ "${GHAALD:-0}" -gt 0 ] && echo JA || echo NEE)"
+  echo "     laatste levenslijn: $LAATSTE"
+  echo "2. entry point teruggezet (20 B)  : $([ "${EP:-0}" -gt 0 ] && echo JA || echo NEE)"
+  echo "3. .text gevuld                   : $([ -n "$TXT" ] && echo JA || echo NEE)   ${TXT:-<geen meting>}"
+  echo "4. threads ruim boven 1           : $([ -n "$THR" ] && [ "${THR:-0}" -gt 1 ] && echo JA || echo NEE)   threads ${THR:-?}"
+  echo "5. eigen databestanden            : NIET GEMETEN met dit instrument."
+  echo "     Het spel opent, leest en SLUIT zijn bestanden meteen; op een cadans van 30 s vangt"
+  echo "     /proc/<pid>/fd er bijna nooit een. Dat is een VALSE NEGATIEF, geen nul."
+  echo "     Wordt apart gemeten met de +file-trace: bash b0-run.sh a   (die trace vertraagt het"
+  echo "     proces en verandert de levensduur, daarom staat hij los van deze proef)."
+  echo "6. geen onverwachte NAS-schrijfactie: $([ -s "$UIT/nas-verschil.txt" ] && echo CONTROLEREN || echo JA)   zie nas-verschil.txt"
+  echo "7. drop-in in het plan            : ${DROPIN_AANTAL:-?} bestand(en)"
+  echo "8. drop-in in de view (sha256)    : zie de DROP-IN-sectie hierboven"
+  echo "9. drop-in in het PROCES          : ${MAXD:-niet gemeten}"
+  if [ -n "${RG_B0_DROPIN_MAPS:-}" ]; then
+    PAAR=$(echo "${MAXD:-}" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+    MN=$(echo "$PAAR" | cut -d/ -f1); MT=$(echo "$PAAR" | cut -d/ -f2)
+    if [ -n "${MN:-}" ] && [ -n "${MT:-}" ] && [ "${MT:-0}" -gt 0 ] && [ "${MN:-0}" -lt "${MT:-0}" ]; then
+      echo
+      echo "!! DEZE RUN IS ONGELDIG: de drop-in is NIET geladen (${MN} van ${MT} in het proces)."
+      echo "   Ook als het spel leeft zegt dat niets over de drop-in: het betekent dan alleen dat de"
+      echo "   drop-in voor deze game NIET NODIG was. Dat is een eigen uitkomst, geen succes."
+    fi
+  fi
 } | tee "$UIT/oordeel.txt"
 
 zeg "alles staat in $UIT"
