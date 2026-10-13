@@ -89,6 +89,10 @@ typedef struct {
     /* type sega-scan */
     dongle_stage_t stages[DONGLE_MAX_STAGES];
     int           nstages;
+
+    /* opt-in: de tafel waaruit hasp_encrypt/hasp_decrypt antwoorden (zie dongle_crypto_replay).
+     * Leeg = niet gebruikt: dan laten die twee functies de buffer ongemoeid. */
+    char          crypto_table[512];
 } dongle_t;
 
 /* ---------------------------------------------------------------- laden */
@@ -134,6 +138,32 @@ int dongle_write_at(const dongle_t *d, unsigned int fileid, unsigned int offset,
 
 /* Geeft de beschreven grootte van een fileid, of 0 als hij niet bestaat. */
 unsigned int dongle_memory_size(const dongle_t *d, unsigned int fileid);
+
+/*
+ * OPT-IN antwoordtafel voor hasp_encrypt/hasp_decrypt (Terminator Salvation).
+ *
+ * Sommige games laten hun databestanden met een sleutel ontsleutelen die via de dongle loopt:
+ * het spel geeft een buffer aan hasp_encrypt/hasp_decrypt en gebruikt het resultaat. De echte
+ * dongle antwoordt daar deterministisch op, en de game levert die antwoorden zelf mee: in haar
+ * map `hasp/` staat een bestand per aanroep, genoemd naar de invoer. De regel (gemeten aan
+ * Terminator Salvation, 8 van 8 treffers):
+ *
+ *   naam = kleine hexadecimale tekst van de EERSTE 32 bytes van de invoerbuffer (64 tekens)
+ *          en, als dat bestand niet bestaat, van de eerste 16 bytes (32 tekens);
+ *   de 32-bytes-vorm wordt alleen geprobeerd als lengte >= 32;
+ *   de 16-bytes-vorm als lengte >= 16;
+ *   inhoud = het antwoord; de eerste min(lengte, bestandsgrootte) bytes komen in de buffer.
+ *
+ * Dezelfde map dient voor encrypt en decrypt. De map komt uit RAVENGUN_HASP_CRYPTO_TABLE, of
+ * anders uit het veld "crypto_table" van dongle.json. Een relatief pad geldt vanuit de werkmap
+ * van het proces. Is geen van beide gezet, dan doet dongle_crypto_replay niets en blijft de
+ * buffer zoals hij was (het gedrag van elke andere game).
+ *
+ * Geeft 1 bij een treffer (buffer is overschreven), 0 bij geen tafel of geen treffer.
+ * `*gebruikt` (mag NULL zijn) krijgt 1 als er een tafel was ingesteld, ook bij een misser.
+ */
+int dongle_crypto_replay(const dongle_t *d, void *buffer, size_t length, int *gebruikt,
+                         char *naam_uit, size_t naam_sz);
 
 /* ---------------------------------------------------------------- HASP-API */
 

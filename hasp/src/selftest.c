@@ -11,7 +11,9 @@
 #include "dongle.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static int failures = 0;
 
@@ -137,6 +139,48 @@ int main(int argc, char **argv)
     check(dongle_active() == NULL, "na dongle_uninstall is er geen actieve dongle");
     check(hasp_login(0, NULL, &h) == HASP_STATUS_NOT_FOUND,
           "zonder dongle geeft hasp_login een fout");
+
+    /* ---- 6. de opt-in antwoordtafel voor encrypt/decrypt ---- */
+    printf("\n6. dongle_crypto_replay (opt-in)\n");
+    {
+        char tdir[] = "/tmp/rg-cryptotafel-XXXXXX";
+        unsigned char in[32], b[64], gevuld[32];
+        char p[300];
+        int i, gebruikt = 9;
+        FILE *f;
+        for (i = 0; i < 32; i++) in[i] = (unsigned char)i;
+        unsetenv("RAVENGUN_HASP_CRYPTO_TABLE");
+        memcpy(b, in, 32);
+        check(dongle_crypto_replay(NULL, b, 32, &gebruikt, NULL, 0) == 0 && gebruikt == 0 && memcmp(b, in, 32) == 0,
+              "zonder tafel blijft de buffer ongemoeid (gedrag van Halo en Jurassic Park)");
+        if (mkdtemp(tdir)) {
+            setenv("RAVENGUN_HASP_CRYPTO_TABLE", tdir, 1);
+            memcpy(b, in, 32);
+            check(dongle_crypto_replay(NULL, b, 32, &gebruikt, NULL, 0) == 0 && gebruikt == 1 && memcmp(b, in, 32) == 0,
+                  "tafel zonder treffer: buffer ongemoeid, gebruikt=1");
+            memset(gevuld, 0xAA, 32);
+            snprintf(p, sizeof(p), "%s/000102030405060708090a0b0c0d0e0f", tdir);
+            f = fopen(p, "wb"); if (f) { fwrite(gevuld, 1, 32, f); fclose(f); }
+            memcpy(b, in, 32);
+            check(dongle_crypto_replay(NULL, b, 32, NULL, NULL, 0) == 1 && b[0] == 0xAA && b[31] == 0xAA,
+                  "32 bytes invoer: de naam van de eerste 16 bytes treft");
+            memset(gevuld, 0xBB, 32);
+            snprintf(p, sizeof(p), "%s/000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", tdir);
+            f = fopen(p, "wb"); if (f) { fwrite(gevuld, 1, 32, f); fclose(f); }
+            memcpy(b, in, 32);
+            check(dongle_crypto_replay(NULL, b, 32, NULL, NULL, 0) == 1 && b[0] == 0xBB,
+                  "de lange naam (eerste 32 bytes) gaat voor de korte");
+            memcpy(b, in, 32);
+            check(dongle_crypto_replay(NULL, b, 16, NULL, NULL, 0) == 1 && b[0] == 0xAA && b[16] == 0x10,
+                  "16 bytes invoer: alleen de korte naam, rest van de buffer onaangeroerd");
+            memcpy(b, in, 32); b[0] ^= 0xFF;
+            check(dongle_crypto_replay(NULL, b, 32, NULL, NULL, 0) == 0, "andere invoer: geen treffer");
+            snprintf(p, sizeof(p), "%s/000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", tdir); unlink(p);
+            snprintf(p, sizeof(p), "%s/000102030405060708090a0b0c0d0e0f", tdir); unlink(p);
+            rmdir(tdir);
+        }
+        unsetenv("RAVENGUN_HASP_CRYPTO_TABLE");
+    }
 
     printf("\n%s — %d fout(en)\n", failures ? "MISLUKT" : "GESLAAGD", failures);
     return failures ? 1 : 0;

@@ -23,6 +23,7 @@
 #include "core/BigPicture.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
+#include "core/SystemControl.h"
 
 #include <linux/input.h>
 

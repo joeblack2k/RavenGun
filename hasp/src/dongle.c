@@ -328,6 +328,8 @@ int dongle_load(const char *dir, dongle_t *out)
     json_array_objects(json, "memory", add_memory, out);
     json_array_objects(json, "stages", add_stage, out);
 
+    json_str(json, "crypto_table", out->crypto_table, sizeof(out->crypto_table));
+
     json_naam(json, "region", out->region, sizeof(out->region));
     json_naam(json, "pcb", out->pcb, sizeof(out->pcb));
 
@@ -744,25 +746,82 @@ int hasp_write(void *handle, unsigned int fileid, unsigned int offset, unsigned 
 }
 
 /*
- * Encrypt en decrypt laten de buffer ongemoeid: de dongle-image wordt niet ontsleuteld maar
- * één-op-één doorgegeven, precies zoals de bestaande ondersteuning doet. De functies werken
- * in de buffer zelf (greep, buffer, lengte), niet met een aparte uitvoerbuffer.
+ * OPT-IN antwoordtafel voor encrypt/decrypt; zie dongle.h. Zonder tafel is deze functie een
+ * no-op, zodat games die haar niet gebruiken (Halo, Jurassic Park) ongewijzigd blijven.
+ */
+static void hex_naam(const unsigned char *b, size_t n, char *uit)
+{
+    static const char H[] = "0123456789abcdef";
+    size_t i;
+    for (i = 0; i < n; i++) { uit[2 * i] = H[b[i] >> 4]; uit[2 * i + 1] = H[b[i] & 15]; }
+    uit[2 * n] = '\0';
+}
+
+int dongle_crypto_replay(const dongle_t *d, void *buffer, size_t length, int *gebruikt,
+                         char *naam_uit, size_t naam_sz)
+{
+    static const size_t vormen[2] = { 32, 16 };   /* eerst de lange naam, dan de korte */
+    const char *env = getenv("RAVENGUN_HASP_CRYPTO_TABLE");
+    const char *bron = (env && *env) ? env : (d ? d->crypto_table : "");
+    char dir[600], naam[65], pad[700];
+    int i;
+
+    if (gebruikt) *gebruikt = 0;
+    if (naam_uit && naam_sz) naam_uit[0] = '\0';
+    if (!buffer || !bron || !bron[0]) return 0;
+    if (gebruikt) *gebruikt = 1;
+    dongle_path(dir, sizeof(dir), bron);
+    for (i = 0; i < 2; i++) {
+        size_t k = vormen[i];
+        if (length < k) continue;
+        hex_naam((const unsigned char *)buffer, k, naam);
+        /* De laatst geprobeerde naam onthouden voor het spoor: op een treffer is dat de
+         * naam die trof, op een mis de korte (16-byte) naam -- precies de naam die in de
+         * tafel gezocht moet worden. */
+        if (naam_uit && naam_sz) { snprintf(naam_uit, naam_sz, "%s", naam); }
+        snprintf(pad, sizeof(pad), "%s/%s", dir, naam);
+        FILE *f = fopen(pad, "rb");
+        if (!f) continue;
+        {
+            unsigned char *tmp = (unsigned char *)malloc(length);
+            size_t rd = tmp ? fread(tmp, 1, length, f) : 0;
+            fclose(f);
+            if (tmp && rd > 0) { memcpy(buffer, tmp, rd); free(tmp); return 1; }
+            free(tmp);
+        }
+    }
+    return 0;
+}
+
+/*
+ * Encrypt en decrypt werken in de buffer zelf (greep, buffer, lengte), niet met een aparte
+ * uitvoerbuffer. Standaard laten ze de buffer ongemoeid: de dongle-image wordt niet
+ * ontsleuteld maar één-op-één doorgegeven, precies zoals de bestaande ondersteuning doet.
+ * Staat er een antwoordtafel ingesteld (dongle_crypto_replay), dan komt het antwoord daaruit.
  */
 int hasp_encrypt(void *handle, void *buffer, unsigned int length)
 {
-    char detail[80];
-    snprintf(detail, sizeof(detail), "(lengte=%u)", length);
+    char detail[160], naam[65] = "";
+    int gebruikt = 0, hit = dongle_crypto_replay(g_installed ? &g_active : NULL, buffer, length,
+                                                 &gebruikt, naam, sizeof(naam));
+    (void)handle;
+    snprintf(detail, sizeof(detail), "(lengte=%u%s%s%s)", length,
+             gebruikt ? (hit ? " tafel=treffer" : " tafel=MIS") : "",
+             (gebruikt && naam[0]) ? " sleutel=" : "", (gebruikt && naam[0]) ? naam : "");
     hasp_trace("hasp_encrypt", detail);
-    (void)handle; (void)buffer; (void)length;
     return HASP_STATUS_OK;
 }
 
 int hasp_decrypt(void *handle, void *buffer, unsigned int length)
 {
-    char detail[80];
-    snprintf(detail, sizeof(detail), "(lengte=%u)", length);
+    char detail[160], naam[65] = "";
+    int gebruikt = 0, hit = dongle_crypto_replay(g_installed ? &g_active : NULL, buffer, length,
+                                                 &gebruikt, naam, sizeof(naam));
+    (void)handle;
+    snprintf(detail, sizeof(detail), "(lengte=%u%s%s%s)", length,
+             gebruikt ? (hit ? " tafel=treffer" : " tafel=MIS") : "",
+             (gebruikt && naam[0]) ? " sleutel=" : "", (gebruikt && naam[0]) ? naam : "");
     hasp_trace("hasp_decrypt", detail);
-    (void)handle; (void)buffer; (void)length;
     return HASP_STATUS_OK;
 }
 
