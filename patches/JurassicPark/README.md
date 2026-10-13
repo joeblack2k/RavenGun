@@ -1,5 +1,13 @@
 # Jurassic Park Arcade
 
+> **STAND 2026-10-13, 23:25 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
+> lader (12 minuten, op de tv, onafhankelijk meegekeken), met de rode melding "RIO Disconnected" op elk beeld
+> en zonder invoer: hij demonstreert, hij is niet speelbaar. Hoe de 577 importsloten hun naam terugkregen
+> staat in `EERSTE-PLT-SLOTS.md`. Wat hieronder over de dongle staat is van 2026-10-11/12 en op vier punten
+> achterhaald (de game SCHRIJFT wel naar de dongle; de lezingen zijn 1 en 4 bytes; `hasp_decrypt` en
+> `hasp_encrypt` worden wel gebruikt; de donglecontrole wordt op onze lader wel bereikt en gehaald) — zie
+> `ATTRACT-RUN.md` §3 en §6. De image is nog steeds geconstrueerd, niet gedumpt.
+
 Instellingen: `game.ini`. Dit bestand gaat over de **HASP-dongle** van deze game.
 Bevindingen en meetgeschiedenis: `findings/JurassicPark.md` (op de NAS naast de games, niet in deze repo).
 

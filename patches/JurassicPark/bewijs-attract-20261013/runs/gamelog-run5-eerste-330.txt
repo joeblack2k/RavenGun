@@ -1,0 +1,331 @@
+Tue Oct 13 22:58:45 2026: -------------------------------------------------------------------------------
+Tue Oct 13 22:58:45 2026: Application Started
+Tue Oct 13 22:58:45 2026: Current time: October 13 2026 22:58:45
+Tue Oct 13 22:58:45 2026: Build: May 13 2015 15:34:06
+Tue Oct 13 22:58:45 2026: -------------------------------------------------------------------------------
+Tue Oct 13 22:58:46 2026: InputInit(): RIO not connected (error code: -3)
+Tue Oct 13 22:58:46 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Tue Oct 13 22:58:47 2026: Welcome to 1.08
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 22:58:48 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 22:58:48 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 22:58:48 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 22:58:48 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 22:58:48 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 22:58:49 2026: Before ImgLoad - glError(1280): invalid enumerant
+Tue Oct 13 22:58:49 2026: RIO Disconnected
+Tue Oct 13 22:58:51 2026: Adj_Save 'hardware\cabType' to 0
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/BangUp_DoorClose_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[5]: ERROR! couldn't open sound file 'sounds/BangUp_DoorClose_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/BarrelExplosion_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[10]: ERROR! couldn't open sound file 'sounds/BarrelExplosion_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/BigDino_Bite4_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[15]: ERROR! couldn't open sound file 'sounds/BigDino_Bite4_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/BigDino_Bite5_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[20]: ERROR! couldn't open sound file 'sounds/BigDino_Bite5_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Bones_Explosion2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[25]: ERROR! couldn't open sound file 'sounds/Bones_Explosion2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Bones_Impact2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[30]: ERROR! couldn't open sound file 'sounds/Bones_Impact2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call1_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[35]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call1_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[40]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call3_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[45]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call3_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call4_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[50]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call4_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call5_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[55]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call5_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call6_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[60]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call6_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call7_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[65]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call7_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call8_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[70]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call8_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_Call9_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[75]: ERROR! couldn't open sound file 'sounds/Brachiosaur_Call9_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_CallsHerd2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[80]: ERROR! couldn't open sound file 'sounds/Brachiosaur_CallsHerd2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Brachiosaur_CallsHerd_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[85]: ERROR! couldn't open sound file 'sounds/Brachiosaur_CallsHerd_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/BridgeCollapse_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[90]: ERROR! couldn't open sound file 'sounds/BridgeCollapse_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Bridge_Impact1_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[95]: ERROR! couldn't open sound file 'sounds/Bridge_Impact1_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/CameraShake_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[100]: ERROR! couldn't open sound file 'sounds/CameraShake_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Cannister_FireExplosion2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[105]: ERROR! couldn't open sound file 'sounds/Cannister_FireExplosion2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Cannister_FireExplosion_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[110]: ERROR! couldn't open sound file 'sounds/Cannister_FireExplosion_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/DoorClose_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[115]: ERROR! couldn't open sound file 'sounds/DoorClose_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/DoorOpen_Metal4_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[120]: ERROR! couldn't open sound file 'sounds/DoorOpen_Metal4_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/DoorOpen_Metal5_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[125]: ERROR! couldn't open sound file 'sounds/DoorOpen_Metal5_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Egg_Explode1_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[130]: ERROR! couldn't open sound file 'sounds/Egg_Explode1_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Egg_Explode2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[135]: ERROR! couldn't open sound file 'sounds/Egg_Explode2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/ElectricalBox_Explosion2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[140]: ERROR! couldn't open sound file 'sounds/ElectricalBox_Explosion2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/ElectricalBox_Explosion_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[145]: ERROR! couldn't open sound file 'sounds/ElectricalBox_Explosion_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/electrogun.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[150]: ERROR! couldn't open sound file 'sounds/electrogun.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Fire_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[155]: ERROR! couldn't open sound file 'sounds/Explosion_Fire_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Metallic_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[160]: ERROR! couldn't open sound file 'sounds/Explosion_Metallic_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Multiple_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[165]: ERROR! couldn't open sound file 'sounds/Explosion_Multiple_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Single2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[170]: ERROR! couldn't open sound file 'sounds/Explosion_Single2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Single3_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[175]: ERROR! couldn't open sound file 'sounds/Explosion_Single3_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Single4_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[180]: ERROR! couldn't open sound file 'sounds/Explosion_Single4_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Explosion_Single_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[185]: ERROR! couldn't open sound file 'sounds/Explosion_Single_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/FallingRocks1_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[190]: ERROR! couldn't open sound file 'sounds/FallingRocks1_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/FallingRocks2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[195]: ERROR! couldn't open sound file 'sounds/FallingRocks2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/FallingRocks3_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[200]: ERROR! couldn't open sound file 'sounds/FallingRocks3_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/FallingRocks4_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[205]: ERROR! couldn't open sound file 'sounds/FallingRocks4_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/FallingRocks5_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[210]: ERROR! couldn't open sound file 'sounds/FallingRocks5_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Falling_GuardTower_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[215]: ERROR! couldn't open sound file 'sounds/Falling_GuardTower_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/Freeze_Beam.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[220]: ERROR! couldn't open sound file 'sounds/Freeze_Beam.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GarageDoor_MetalHitExplode_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[225]: ERROR! couldn't open sound file 'sounds/GarageDoor_MetalHitExplode_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GarageDoor_MetalHit_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[230]: ERROR! couldn't open sound file 'sounds/GarageDoor_MetalHit_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GeneratorExplosion2_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[235]: ERROR! couldn't open sound file 'sounds/GeneratorExplosion2_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GeneratorExplosion_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[240]: ERROR! couldn't open sound file 'sounds/GeneratorExplosion_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GrenadeLauncher_1_wth_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[245]: ERROR! couldn't open sound file 'sounds/GrenadeLauncher_1_wth_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/GrenadeLauncher_LaunchFX_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: '/pm/g5/dino/data/snd/rumble/jps_rumble.txt'[250]: ERROR! couldn't open sound file 'sounds/GrenadeLauncher_LaunchFX_Rumble.wav' 
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
+Tue Oct 13 22:58:51 2026: JPS: jps_parse_addsound() Couldn't load sounds/HeliCrashMusic_Rumble.wav
+
+Tue Oct 13 22:58:51 2026: Assert File: g5/sound_jps.c line: 592
