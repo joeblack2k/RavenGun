@@ -219,6 +219,15 @@ tegen de echte lader met een lib van plafond + 1000 symbolen.
   rc 6, en de samenvatting zegt daar niets over.
 - rc 0 van de analyse betekent niet dat de gewone modus de sprong haalt: een lib die niet laadt is in de analyse
   een regel en in de gewone modus fataal. Lees "NIET geladen" en "sterk".
+  **Dit ging mis (zelfde dag, eerste echte run op Terminator):** de herkansing voor een lib die bij de eerste
+  poging niet laadt zat alleen in de analyse. `libGLU.so.1` heeft geen enkele `DT_NEEDED` en leunt op `libm` en
+  `libstdc++` verderop in de lijst; de analyse laadde hem in de tweede ronde en zei dat nergens in de
+  samenvatting, de gewone modus stierf op `undefined symbol: floor`. Een groene analyse bewees de gewone run
+  dus niet. Nu lopen beide modi dezelfde laadlus (alleen het einde verschilt: stoppen of melden), de
+  samenvatting noemt elke lib uit een latere ronde met de fout van de eerste poging, en de test start een gast
+  met zo'n leunende lib in de GEWONE modus (rc 11) en wordt rood als die modus niet herkanst. Op Terminator:
+  13 van de 13 geladen, waarvan 2 in een latere ronde (`libGLU.so.1`: `floor`; `libtheora.so.0`:
+  `oggpackB_readinit`); ruwe uitvoer in `~/bw/elf-ontleed/terminator-ontleed-laadorde.txt`.
 - "Start de gast niet" is niet "voert niets uit": `dlopen` draait de init-code van de dertien bibliotheken.
 - De module van een doel komt uit `dladdr` op het opgezochte adres; "de gast zelf" is een adres binnen het
   gemapte beeld.

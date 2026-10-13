@@ -94,7 +94,7 @@ en de starttest van 11 oktober geeft voor JurassicPark `exitcode -11` (SIGSEGV).
 
 | Sleutel | Betekenis |
 |---|---|
-| `Preload` | dit bestand moet in het proces van de game geladen worden (het pad komt in `RG_DROPIN_PRELOAD`) |
+| `Preload` | dit bestand moet in het proces van de game geladen worden (het pad komt in `RG_DROPIN_PRELOAD` en, waar de route dat leest, in `LD_AUDIT`; de tabel per route staat in `docs/dropins.md`) |
 | `Audit` | **mag dit bestand in `LD_AUDIT` van de Wine-start?** standaard `true`; `false` houdt het eruit |
 
 Met `Audit = false` blijft het pad in `RG_DROPIN_PRELOAD` staan — dat is het kanaal voor de native
