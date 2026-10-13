@@ -1,0 +1,60 @@
+RavenGun-wijziging 0005 op OpenParrot: Luigi's Mansion Arcade wordt herkend (alleen detectie).
+
+Wat deze patch doet: een nieuwe GameID::LuigisMansion en de detectie-case voor de genormaliseerde CRC
+0xd3dc9603 van VACUUM.exe (64-bit) in GameDetect.cpp. Meer niet. Het nut: de game valt niet meer in de
+default-tak, dus de kern schrijft geen "[Error] Unsupported Executable ... NEW CRC: D3DC9603!" meer in de
+teknoparrot.ini in de werkmap van het spel. Er hangt verder geen gedrag aan GameID::LuigisMansion.
+
+Wat er UIT is (2026-10-12): de COM-blokkade. Tot die datum heette dit bestand
+0005-luigismansion-com-block.patch en weigerde het in Hook_CreateFileA/W (amJvs.cpp) voor deze game elke naam
+die met "COM" begint, met INVALID_HANDLE_VALUE + ERROR_FILE_NOT_FOUND. De reden, in drie punten:
+  1. De waarneming waarop de blokkade rustte KLOPT. De gesloten kern heeft voor deze game een COM-tak: de
+     string "BLOCKING LUIGI COM PORT" staat precies een keer in het ontsleutelde geheugenbeeld van de gesloten
+     64-bits kern (findings/decompiled/TpHost64_7612_7ffbc7d40000_TeknoParrot64_dll.bin, offset 2943312;
+     docs/research/region-mechanisme.md, hoofdstuk 2), en de decompilatie plaatst hem in de CreateFileW-haak.
+     Een tussentijdse conclusie "niet terug te vinden in de gesloten kern" was fout: daar was in het
+     DLL-BESTAND gezocht, en dat bestand is gepakt. Een zoektocht die niets vindt bewijst pas iets als vaststaat
+     dat er op de goede plek gezocht is.
+  2. Maar voor DEZE game maakt de blokkade op onze kern geen meetbaar verschil. A/B op de echte game met COM1
+     aan een pty: met en zonder blokkade hetzelfde resultaat (exitcode 32, dezelfde levensduur, nul eigen
+     databestanden), en het spel raakt de poort in BEIDE gevallen nooit aan: nul blokken op de pty en nul
+     COM-namen in alle 77-86 CreateFileW-regels. Een kernloze meting laat hetzelfde zien: het spel eindigt
+     zonder een COM-naam te openen (docs/research/luigismansion-kernloze-meting.md).
+  3. De blokkade zet dus een deur dicht die de game hier niet gebruikt. Hij beschermt niets, en hij zou een
+     latere route waarin we de game juist een poort willen geven (het I/O-bord op COM1) stil saboteren:
+     precies het soort patch dat later onverklaarbaar gedrag geeft.
+Kortom: niet "de premisse is onwaar", maar "de premisse is waar en de patch doet hier niets, terwijl hij wel
+een deur dichtzet". Komt het spel op onze kern tot zijn I/O-init, dan is dit het eerste om opnieuw te meten;
+de weggehaalde tak staat in de git-historie van dit bestand onder de oude naam.
+
+Niet opgelost door deze patch: dat het spel op onze kern vroeg eindigt, en hoe het zijn invoer krijgt.
+
+Terugdraaien: verwijder dit patchbestand uit third_party/openparrot/patches/ en herbouw. De
+GameID::LuigisMansion-waarde en de case vervallen dan mee (ze staan alleen in deze patch).
+
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrot/src/Utility/GameDetect.cpp b/OpenParrot/src/Utility/GameDetect.cpp
+--- a/OpenParrot/src/Utility/GameDetect.cpp	2026-10-12 12:20:03.514764805 +0200
++++ b/OpenParrot/src/Utility/GameDetect.cpp	2026-10-12 12:23:28.262397338 +0200
+@@ -886,6 +886,9 @@
+ 		case 0x7e804704:
+ 			SetGameId(GameID::AmAuthD64, "AMAuthd for WMMT6");
+ 			break;
++		case 0xd3dc9603: // Luigi's Mansion Arcade (VACUUM.exe)
++			SetGameId(GameID::LuigisMansion, "LuigisMansion");
++			break;
+ #endif
+ 		default:
+ 			// RavenGun: een game die deze kern NIET herkent wordt niet meer geweigerd.
+diff -ruN a/OpenParrot/src/Utility/GameID.h b/OpenParrot/src/Utility/GameID.h
+--- a/OpenParrot/src/Utility/GameID.h	2026-09-11 14:23:52.000000000 +0200
++++ b/OpenParrot/src/Utility/GameID.h	2026-10-12 12:20:08.506665665 +0200
+@@ -146,5 +146,6 @@
+ 	HauntedMuseum2101J,
+ 	GaiaAttack4,
+ 	Friction,
+-	CrazySpeed
++	CrazySpeed,
++	LuigisMansion
+ };

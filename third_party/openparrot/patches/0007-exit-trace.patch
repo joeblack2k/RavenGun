@@ -1,0 +1,848 @@
+RavenGun-wijziging 0007 op OpenParrot: opt-in exit-trace (wie beëindigt het proces, en vanaf welk adres).
+
+Waarom: gemeten (2026-10-12, Luigi's Mansion Arcade) beëindigt het spel zichzelf ongeveer 0,2 s na de sprong naar
+zijn entry point met exitcode 0x40415820 (lage byte 32). Patch 0006 laat zien dat onze init dan al terug is; de
+vraag is dus welke instructie in het spel besluit te stoppen. Deze patch haakt de vier wegen waarlangs een proces
+zichzelf beëindigt (kernel32!ExitProcess, kernel32!TerminateProcess, ntdll!RtlExitUserProcess,
+ntdll!NtTerminateProcess) en schrijft per aanroep in het bestand van RG_INIT_TRACE:
+  - de volle code (het hele register, plus laag32 en laag8) en bij de twee Terminate-functies het handle;
+  - het terugkeeradres als module+offset met de sectienaam en de paginabescherming;
+  - de 16 bytes voor en de 16 bytes op het terugkeeradres;
+  - op x64 de vier argumentregisters (rcx, rdx, r8, r9) en de eerste 8 stapelwoorden boven het terugkeeradres, elk
+    met waar het heen wijst en wat daar staat (bytes en leesbare tekst). Bij een aanroep via een tussenstuk van een
+    pakker is het terugkeeradres dat tussenstuk; de echte aanroeper en de bedoelde argumenten staan dan hier;
+  - de stapel-scan (elk woord boven het terugkeeradres dat in uitvoerbaar geheugen wijst; werkt ook in code zonder
+    unwind-gegevens) en daarna de stackwalk van RtlCaptureStackBackTrace.
+  - een momentopname zonder iets te wijzigen: staan onze haken er nog zoals wij ze plaatsten (een later geplaatste
+    haak van een ander kan een aanroep inslikken voordat hij bij ons komt), per sectie van de hoofdmodule de
+    bescherming en het percentage bytes dat niet nul is (is het spel ontpakt?), en 32 bytes op elke RVA uit
+    RG_EXIT_PROBE (hex, door komma's gescheiden). De losse DLL maakt die momentopname ook bij de 1e, 5e, 20e en 60e
+    draad die het spel aanmaakt -- een later moment zonder zelf een draad te starten.
+  - bij elke momentopname een overzicht in een eigen bestand (<spoor>.overzicht-<nr>.txt): per geladen module elke
+    geëxporteerde functie met haar eerste 16 bytes (een haak is een sprong in die bytes), en de import-adres-tabel
+    van de hoofdmodule met per item waar het heen wijst. De kern maakt ook een momentopname direct na zijn init
+    (Main_DoInit), zodat te zien is welke haken er NA de init bij zijn gekomen, zijn overschreven of zijn weggehaald.
+  - met RG_EXIT_DUMP=1 bij elke momentopname het hele beeld van de hoofdmodule naar <spoor>.beeld-<nr>.bin
+    (offset = RVA). Twee beelden van twee runs naast elkaar laten zien welke bytes van het spel zelf verschillen.
+  - met RG_EXIT_PROTECT=1 een meekijkende haak op ntdll!NtProtectVirtualMemory: elke aanroep op het eigen proces
+    wordt ongewijzigd doorgegeven en gelogd (adres, grootte, nieuwe en oude bescherming, status, doel en aanroeper).
+Een aanroep die uit een andere gehaakte functie komt (ExitProcess -> RtlExitUserProcess -> NtTerminateProcess) krijgt
+alleen een kopregel met "(genest)".
+
+Een lege meting bewijst eerst dat hij gezocht heeft: per haak een installatieregel (doeladres, MinHook-status, de
+bytes voor en na het plaatsen), en een zelftest die TerminateProcess aanroept op een handle dat niet bestaat. Die
+mislukt onschadelijk (ERROR_INVALID_HANDLE) en moet een regel van TerminateProcess en een geneste van
+NtTerminateProcess opleveren.
+
+Standaard UIT: zonder RG_INIT_TRACE wordt er niets gehaakt. Generiek: geen game-specifieke code. Het nieuwe bestand
+hangt alleen van <windows.h> en MinHook af, zodat het met -DRG_EXITTRACE_STANDALONE ook als losse DLL te bouwen is
+(doel exittrace64 van build-in-container.sh, uitvoer OpenParrotx64/RgExitTrace64.dll). Die is voor een proces waar
+onze kern niet in zit: de lader laadt hem via TP_PRELOAD_DLL na de kern.
+
+Terugdraaien: verwijder dit patchbestand en herbouw.
+
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrot/src/dllmain.cpp b/OpenParrot/src/dllmain.cpp
+--- a/OpenParrot/src/dllmain.cpp	2026-10-13 07:20:02.473681814 +0200
++++ b/OpenParrot/src/dllmain.cpp	2026-10-13 07:39:53.909228918 +0200
+@@ -107,6 +107,7 @@
+ 	rgInitTrace("Main_DoInit begin");
+ 	RunMain();
+ 	rgInitTrace("Main_DoInit: RunMain terug");
++	rgExitTraceSnapshot("na de init");
+ 
+ 	DWORD oldProtect;
+ 	VirtualProtect(originalEP, 20, PAGE_EXECUTE_READWRITE, &oldProtect);
+diff -ruN a/OpenParrot/src/Utility/RgExitTrace.cpp b/OpenParrot/src/Utility/RgExitTrace.cpp
+--- a/OpenParrot/src/Utility/RgExitTrace.cpp	1970-01-01 01:00:00.000000000 +0100
++++ b/OpenParrot/src/Utility/RgExitTrace.cpp	2026-10-13 07:48:23.188638098 +0200
+@@ -0,0 +1,775 @@
++// RavenGun 0007: opt-in exit-trace. Haakt de vier wegen waarlangs een proces zichzelf beëindigt en schrijft per
++// aanroep WIE dat deed: de exitcode, het terugkeeradres als module+offset met de sectie, de bytes ervoor en erop,
++// en de stapel erboven. Alleen actief als RG_INIT_TRACE een bestandspad bevat (zelfde bestand als patch 0006);
++// zonder die variabele wordt er niets gehaakt. Zie third_party/openparrot/README.md.
++//
++// Het bestand hangt alleen van <windows.h> en MinHook af, zodat het met -DRG_EXITTRACE_STANDALONE ook als losse
++// DLL te bouwen is (RgExitTrace64.dll, via TP_PRELOAD_DLL van de lader) voor een proces waar onze kern niet in zit.
++#ifndef RG_EXITTRACE_STANDALONE
++#include <StdInc.h>
++#include <Utility/InitFunction.h>
++#else
++#include <windows.h>
++#endif
++#include <MinHook.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++extern "C" BOOL WINAPI K32EnumProcessModules(HANDLE process, HMODULE* modules, DWORD size, LPDWORD needed);
++
++namespace
++{
++char tracePath[MAX_PATH];
++int traceState; // 0 = nog niet bekeken, 1 = aan, 2 = uit
++volatile LONG depth;
++
++bool Enabled()
++{
++	if (traceState == 0)
++	{
++		const DWORD n = GetEnvironmentVariableA("RG_INIT_TRACE", tracePath, MAX_PATH);
++		traceState = (n > 0 && n < MAX_PATH) ? 1 : 2;
++	}
++	return traceState == 1;
++}
++
++// Elke regel meteen wegschrijven en het bestand weer sluiten: na deze regels bestaat het proces niet meer.
++void Line(const char* format, ...)
++{
++	char line[1024];
++	int used = _snprintf(line, sizeof(line), "[%10lu ms] tid %5lu  EXIT-HOOK ", GetTickCount(), GetCurrentThreadId());
++	if (used < 0)
++		return;
++	va_list args;
++	va_start(args, format);
++	int more = _vsnprintf(line + used, sizeof(line) - used - 3, format, args);
++	va_end(args);
++	if (more < 0)
++		more = static_cast<int>(sizeof(line)) - used - 3;
++	used += more;
++	line[used++] = '\r';
++	line[used++] = '\n';
++
++	HANDLE file = CreateFileA(tracePath, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
++		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
++	if (file == INVALID_HANDLE_VALUE)
++		return;
++	DWORD written = 0;
++	WriteFile(file, line, static_cast<DWORD>(used), &written, nullptr);
++	FlushFileBuffers(file);
++	CloseHandle(file);
++}
++
++bool Readable(const void* address, size_t length, MEMORY_BASIC_INFORMATION* info = nullptr)
++{
++	MEMORY_BASIC_INFORMATION mbi;
++	if (VirtualQuery(address, &mbi, sizeof(mbi)) != sizeof(mbi))
++		return false;
++	if (info != nullptr)
++		*info = mbi;
++	if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) != 0)
++		return false;
++	const char* end = static_cast<const char*>(mbi.BaseAddress) + mbi.RegionSize;
++	return static_cast<const char*>(address) + length <= end;
++}
++
++void Hex(const void* address, size_t length, char* out, size_t outSize)
++{
++	if (!Readable(address, length))
++	{
++		_snprintf(out, outSize, "<niet leesbaar>");
++		return;
++	}
++	const unsigned char* p = static_cast<const unsigned char*>(address);
++	size_t used = 0;
++	for (size_t i = 0; i < length && used + 4 < outSize; i++)
++		used += _snprintf(out + used, outSize - used, "%02x ", p[i]);
++	if (used > 0)
++		out[used - 1] = 0;
++}
++
++// "VACUUM.exe+0xf1374d sectie .capcom0 prot=0x20"; voor geheugen buiten een module "anoniem@<basis>+0x...".
++// executable: het adres ligt in uitvoerbaar geheugen (voor de stapel-scan).
++void Describe(const void* address, char* out, size_t outSize, bool* executable = nullptr)
++{
++	MEMORY_BASIC_INFORMATION mbi;
++	if (executable != nullptr)
++		*executable = false;
++	if (VirtualQuery(address, &mbi, sizeof(mbi)) != sizeof(mbi) || mbi.State != MEM_COMMIT)
++	{
++		_snprintf(out, outSize, "<geen geheugen>");
++		return;
++	}
++	if (executable != nullptr)
++		*executable = (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
++
++	const char* base = static_cast<const char*>(mbi.AllocationBase);
++	const unsigned long long offset = static_cast<unsigned long long>(static_cast<const char*>(address) - base);
++	char path[MAX_PATH];
++	const char* name = nullptr;
++	if (mbi.Type == MEM_IMAGE && GetModuleFileNameA(reinterpret_cast<HMODULE>(mbi.AllocationBase), path, MAX_PATH) > 0)
++	{
++		name = strrchr(path, '\\');
++		name = (name != nullptr) ? name + 1 : path;
++	}
++	if (name == nullptr)
++	{
++		_snprintf(out, outSize, "anoniem@%p+0x%llx prot=0x%lx type=0x%lx", static_cast<const void*>(base), offset,
++			mbi.Protect, mbi.Type);
++		return;
++	}
++
++	char section[16] = "<kop>";
++	const IMAGE_DOS_HEADER* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
++	if (Readable(dos, sizeof(*dos)) && dos->e_magic == IMAGE_DOS_SIGNATURE)
++	{
++		const IMAGE_NT_HEADERS* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
++		if (Readable(nt, sizeof(*nt)) && nt->Signature == IMAGE_NT_SIGNATURE)
++		{
++			const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
++			const WORD count = nt->FileHeader.NumberOfSections;
++			if (Readable(sec, sizeof(*sec) * count))
++			{
++				for (WORD i = 0; i < count; i++)
++				{
++					const DWORD size = sec[i].Misc.VirtualSize > sec[i].SizeOfRawData ? sec[i].Misc.VirtualSize : sec[i].SizeOfRawData;
++					if (offset >= sec[i].VirtualAddress && offset < static_cast<unsigned long long>(sec[i].VirtualAddress) + size)
++					{
++						memcpy(section, sec[i].Name, 8);
++						section[8] = 0;
++						break;
++					}
++				}
++			}
++		}
++		else
++			strcpy(section, "<kop weg>");
++	}
++	else
++		strcpy(section, "<kop weg>");
++	_snprintf(out, outSize, "%s+0x%llx sectie %s prot=0x%lx", name, offset, section, mbi.Protect);
++	out[outSize - 1] = 0;
++}
++
++void Snapshot(const char* moment);
++
++// Een waarde die een pointer kan zijn: waar wijst hij heen, en wat staat daar (bytes en leesbare tekst).
++void Pointee(const char* label, UINT_PTR value)
++{
++	const void* address = reinterpret_cast<const void*>(value);
++	char where[400];
++	Describe(address, where, sizeof(where));
++	if (!Readable(static_cast<const char*>(address) - 16, 48))
++	{
++		Line("  %s = 0x%llx %s", label, static_cast<unsigned long long>(value), Readable(address, 1) ? where : "(geen pointer naar leesbaar geheugen)");
++		return;
++	}
++	char before[64], at[112], text[40];
++	Hex(static_cast<const char*>(address) - 16, 16, before, sizeof(before));
++	Hex(address, 32, at, sizeof(at));
++	for (int i = 0; i < 32; i++)
++	{
++		const unsigned char c = static_cast<const unsigned char*>(address)[i];
++		text[i] = (c >= 0x20 && c < 0x7f) ? static_cast<char>(c) : '.';
++	}
++	text[32] = 0;
++	Line("  %s = 0x%llx %s", label, static_cast<unsigned long long>(value), where);
++	Line("   ervoor: %s", before);
++	Line("   erop:   %s  |%s|", at, text);
++}
++
++// Zelftest: een beëindiging van een handle dat niet bestaat. Die mislukt onschadelijk, maar loopt wel door de
++// haken op TerminateProcess en NtTerminateProcess. Zonder die regels in het spoor is een lege meting niets waard.
++const unsigned long selfTestCode = 0x5e1f7e57;
++
++// level: 1 = de buitenste aanroep (volledig verslag), hoger = een aanroep die uit een andere gehaakte functie komt
++// (ExitProcess -> RtlExitUserProcess -> NtTerminateProcess), alleen de kopregel. frame is het frame van de haak;
++// het terugkeeradres staat er vlak boven.
++// regs: de vier argumentregisters bij binnenkomst (rcx, rdx, r8, r9), of nullptr (32-bits).
++void Report(LONG level, const char* api, HANDLE handle, bool hasHandle, unsigned long long code, void* returnAddress, void* frame,
++	const UINT_PTR* regs)
++{
++	char where[400], before[64], at[64], target[32] = "";
++	Describe(returnAddress, where, sizeof(where));
++	if (hasHandle)
++		_snprintf(target, sizeof(target), " handle=%p", handle);
++	Line("%s%s%s code=0x%llx (laag32=0x%08lx laag8=%lu) terugkeeradres=%p %s", level > 1 ? "(genest) " : "", api, target,
++		code, static_cast<unsigned long>(code & 0xffffffffu), static_cast<unsigned long>(code & 0xffu), returnAddress, where);
++	if (level > 1 || code == selfTestCode)
++		return;
++
++	Hex(static_cast<const char*>(returnAddress) - 16, 16, before, sizeof(before));
++	Hex(returnAddress, 16, at, sizeof(at));
++	Line(" bytes voor terugkeeradres: %s", before);
++	Line(" bytes op  terugkeeradres: %s", at);
++
++	// De code is geen bedoelde foutcode als hij als pointer leest; dan zegt het doel iets over de aanroep die het
++	// spel eigenlijk wilde doen. Daarom ook de andere argumentregisters.
++	if (regs != nullptr)
++	{
++		Line(" argumentregisters bij binnenkomst:");
++		Pointee("rcx", regs[0]);
++		Pointee("rdx", regs[1]);
++		Pointee("r8 ", regs[2]);
++		Pointee("r9 ", regs[3]);
++	}
++
++	// Stapel-scan: elk woord boven het terugkeeradres dat in uitvoerbaar geheugen wijst. Dat zijn de kandidaat-
++	// aanroepers; het werkt ook in code zonder unwind-gegevens (de pakker), waar een echte stackwalk stopt.
++	const void* stackBase = reinterpret_cast<NT_TIB*>(NtCurrentTeb())->StackBase;
++	void** returnSlot = nullptr;
++	for (int i = 0; i < 128; i++)
++	{
++		void** slot = static_cast<void**>(frame) + i;
++		if (static_cast<const void*>(slot + 1) > stackBase || !Readable(slot, sizeof(void*)))
++			break;
++		if (*slot == returnAddress)
++		{
++			returnSlot = slot;
++			break;
++		}
++	}
++	if (returnSlot == nullptr)
++	{
++		Line(" stapel: terugkeeradres niet teruggevonden boven frame %p; geen stapel-scan", frame);
++		returnSlot = static_cast<void**>(const_cast<void*>(stackBase));
++	}
++	else
++		Line(" stapel: terugkeeradres staat op %p, stapelbasis %p", static_cast<void*>(returnSlot), stackBase);
++	// De eerste woorden boven het terugkeeradres, wat er ook in staat: bij een aanroep via een tussenstuk van de
++	// pakker staat de echte aanroeper hier.
++	if (static_cast<const void*>(returnSlot) != stackBase)
++	{
++		Line(" de eerste 8 stapelwoorden boven het terugkeeradres:");
++		for (int i = 1; i <= 8; i++)
++		{
++			void** slot = returnSlot + i;
++			if (static_cast<const void*>(slot + 1) > stackBase || !Readable(slot, sizeof(void*)))
++				break;
++			char label[16];
++			_snprintf(label, sizeof(label), "[+0x%02x]", static_cast<int>(i * sizeof(void*)));
++			Pointee(label, reinterpret_cast<UINT_PTR>(*slot));
++		}
++	}
++
++	int shown = 0;
++	for (int i = 1; i <= 256 && shown < 24 && static_cast<const void*>(returnSlot) != stackBase; i++)
++	{
++		void** slot = returnSlot + i;
++		if (static_cast<const void*>(slot + 1) > stackBase || !Readable(slot, sizeof(void*)))
++			break;
++		bool executable = false;
++		char desc[400];
++		Describe(*slot, desc, sizeof(desc), &executable);
++		if (!executable)
++			continue;
++		Line("  stapel[+0x%03x] = %p %s", static_cast<int>(i * sizeof(void*)), *slot, desc);
++		shown++;
++	}
++	Line(" stapel-scan klaar (%d woorden in uitvoerbaar geheugen)", shown);
++
++	// De echte stackwalk als extra bewijs; de regel ervoor staat er al als hij niet terugkomt.
++	Line(" stackwalk (RtlCaptureStackBackTrace) begin");
++	void* frames[24] = {};
++	const USHORT count = RtlCaptureStackBackTrace(0, 24, frames, nullptr);
++	for (USHORT i = 0; i < count; i++)
++	{
++		char desc[400];
++		Describe(frames[i], desc, sizeof(desc));
++		Line("  frame %2u = %p %s", static_cast<unsigned>(i), frames[i], desc);
++	}
++	Line(" stackwalk klaar (%u frames)", static_cast<unsigned>(count));
++	Snapshot("bij de beëindiging");
++}
++
++// De code als UINT_PTR: zo komt het hele register mee (een achtergebleven pointer is breder dan 32 bits). Op x64
++// nemen de haken ook de overige argumentregisters aan; in de Win64-aanroepconventie zijn extra parameters onschadelijk.
++// Op x86 (stdcall, de aangeroepene ruimt de stapel op) moet het aantal parameters exact kloppen, dus daar niet.
++#ifdef _WIN64
++#define RG_REST , UINT_PTR a3, UINT_PTR a4
++#define RG_REGS(a1, a2) const UINT_PTR regValues[4] = { (UINT_PTR)(a1), (UINT_PTR)(a2), a3, a4 }; const UINT_PTR* regs = regValues
++#else
++#define RG_REST
++#define RG_REGS(a1, a2) const UINT_PTR* regs = nullptr
++#endif
++
++void (WINAPI* origExitProcess)(UINT_PTR);
++BOOL (WINAPI* origTerminateProcess)(HANDLE, UINT_PTR);
++void (WINAPI* origRtlExitUserProcess)(UINT_PTR);
++LONG (WINAPI* origNtTerminateProcess)(HANDLE, UINT_PTR);
++
++#ifdef _WIN64
++__attribute__((noinline)) void WINAPI HookExitProcess(UINT_PTR code, UINT_PTR a2 RG_REST)
++#else
++__attribute__((noinline)) void WINAPI HookExitProcess(UINT_PTR code)
++#endif
++{
++	RG_REGS(code, a2);
++	Report(InterlockedIncrement(&depth), "ExitProcess", nullptr, false, code, __builtin_return_address(0), __builtin_frame_address(0), regs);
++	origExitProcess(code);
++}
++
++__attribute__((noinline)) BOOL WINAPI HookTerminateProcess(HANDLE process, UINT_PTR code RG_REST)
++{
++	RG_REGS(process, code);
++	Report(InterlockedIncrement(&depth), "TerminateProcess", process, true, code, __builtin_return_address(0), __builtin_frame_address(0), regs);
++	const BOOL result = origTerminateProcess(process, code);
++	InterlockedDecrement(&depth);
++	return result;
++}
++
++#ifdef _WIN64
++__attribute__((noinline)) void WINAPI HookRtlExitUserProcess(UINT_PTR code, UINT_PTR a2 RG_REST)
++#else
++__attribute__((noinline)) void WINAPI HookRtlExitUserProcess(UINT_PTR code)
++#endif
++{
++	RG_REGS(code, a2);
++	Report(InterlockedIncrement(&depth), "RtlExitUserProcess", nullptr, false, code, __builtin_return_address(0), __builtin_frame_address(0), regs);
++	origRtlExitUserProcess(code);
++}
++
++__attribute__((noinline)) LONG WINAPI HookNtTerminateProcess(HANDLE process, UINT_PTR code RG_REST)
++{
++	RG_REGS(process, code);
++	Report(InterlockedIncrement(&depth), "NtTerminateProcess", process, true, code, __builtin_return_address(0), __builtin_frame_address(0), regs);
++	const LONG status = origNtTerminateProcess(process, code);
++	InterlockedDecrement(&depth);
++	return status;
++}
++
++// Met RG_EXIT_PROTECT=1: elke NtProtectVirtualMemory op het eigen proces, ongewijzigd doorgegeven. Wat wordt er
++// gevraagd (adres, grootte, nieuwe bescherming), wie vraagt het, en wat antwoordt het systeem (status, oude bescherming).
++// Een spel dat zichzelf ontpakt doet dit per sectie; een kern die het ontpakte spel patcht doet het per patch.
++LONG (WINAPI* origNtProtectVirtualMemory)(HANDLE, PVOID*, SIZE_T*, ULONG, PULONG);
++volatile LONG protectBusy;
++volatile LONG protectCalls;
++
++__attribute__((noinline)) LONG WINAPI HookNtProtectVirtualMemory(HANDLE process, PVOID* base, SIZE_T* size, ULONG protect, PULONG oldProtect)
++{
++	void* const returnAddress = __builtin_return_address(0);
++	void* const askedBase = (base != nullptr) ? *base : nullptr;
++	const SIZE_T askedSize = (size != nullptr) ? *size : 0;
++	const LONG status = origNtProtectVirtualMemory(process, base, size, protect, oldProtect);
++	const LONG nr = InterlockedIncrement(&protectCalls);
++	// Niet loggen terwijl we zelf loggen (het wegschrijven kan dezelfde functie raken), en niet eindeloos.
++	if (process == GetCurrentProcess() && nr <= 1500 && InterlockedExchange(&protectBusy, 1) == 0)
++	{
++		char where[400], target[400];
++		Describe(returnAddress, where, sizeof(where));
++		Describe(askedBase, target, sizeof(target));
++		Line("protect #%ld adres=%p grootte=0x%llx nieuw=0x%lx -> status=0x%08lx oud=0x%lx | doel: %s | aanroeper: %s", nr, askedBase,
++			static_cast<unsigned long long>(askedSize), protect, static_cast<unsigned long>(status),
++			(oldProtect != nullptr) ? *oldProtect : 0ul, target, where);
++		InterlockedExchange(&protectBusy, 0);
++	}
++	return status;
++}
++
++struct ExitHook
++{
++	const wchar_t* module;
++	const char* moduleName;
++	const char* api;
++	void* detour;
++	void** original;
++	void* target;
++	unsigned char placed[16]; // de bytes op het doel direct na het plaatsen van de haak
++	bool active;
++};
++
++ExitHook hooks[] = {
++	{ L"kernel32.dll", "kernel32.dll", "ExitProcess", reinterpret_cast<void*>(&HookExitProcess), reinterpret_cast<void**>(&origExitProcess), nullptr, {}, false },
++	{ L"kernel32.dll", "kernel32.dll", "TerminateProcess", reinterpret_cast<void*>(&HookTerminateProcess), reinterpret_cast<void**>(&origTerminateProcess), nullptr, {}, false },
++	{ L"ntdll.dll", "ntdll.dll", "RtlExitUserProcess", reinterpret_cast<void*>(&HookRtlExitUserProcess), reinterpret_cast<void**>(&origRtlExitUserProcess), nullptr, {}, false },
++	{ L"ntdll.dll", "ntdll.dll", "NtTerminateProcess", reinterpret_cast<void*>(&HookNtTerminateProcess), reinterpret_cast<void**>(&origNtTerminateProcess), nullptr, {}, false },
++};
++
++// Het overzicht: wat is er in dit proces AANGERAAKT? Alleen lezen. Eén bestand per moment naast het spoor
++// (<spoor>.overzicht-<nr>.txt), in één keer weggeschreven:
++//  - per geladen module elke geëxporteerde functie met haar eerste 16 bytes. Een haak is een sprong in die bytes;
++//    vergelijk ze met het DLL-bestand op schijf, en tussen twee runs (scripts: zie de README);
++//  - de import-adres-tabel van de hoofdmodule: per item de naam en waar het nu heen wijst.
++struct Buffer
++{
++	char* data;
++	size_t size;
++	size_t used;
++
++	void Add(const char* format, ...)
++	{
++		if (data == nullptr || used + 600 > size)
++			return;
++		va_list args;
++		va_start(args, format);
++		const int n = _vsnprintf(data + used, 512, format, args);
++		va_end(args);
++		used += (n < 0) ? 512 : static_cast<size_t>(n);
++	}
++};
++
++const IMAGE_NT_HEADERS* NtHeaders(const char* base)
++{
++	const IMAGE_DOS_HEADER* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
++	if (!Readable(dos, sizeof(*dos)) || dos->e_magic != IMAGE_DOS_SIGNATURE)
++		return nullptr;
++	const IMAGE_NT_HEADERS* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
++	if (!Readable(nt, sizeof(*nt)) || nt->Signature != IMAGE_NT_SIGNATURE)
++		return nullptr;
++	return nt;
++}
++
++bool ReadableString(const char* text)
++{
++	return Readable(text, 1) && Readable(text, 64);
++}
++
++void SurveyExports(Buffer& out, const char* base, const char* moduleName)
++{
++	const IMAGE_NT_HEADERS* nt = NtHeaders(base);
++	if (nt == nullptr)
++	{
++		out.Add("module %s basis=%p: kop niet leesbaar\r\n", moduleName, base);
++		return;
++	}
++	const IMAGE_DATA_DIRECTORY& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
++	out.Add("module %s basis=%p grootte=0x%lx export-rva=0x%lx\r\n", moduleName, base, nt->OptionalHeader.SizeOfImage, dir.VirtualAddress);
++	if (dir.VirtualAddress == 0 || dir.Size < sizeof(IMAGE_EXPORT_DIRECTORY))
++		return;
++	const IMAGE_EXPORT_DIRECTORY* exp = reinterpret_cast<const IMAGE_EXPORT_DIRECTORY*>(base + dir.VirtualAddress);
++	if (!Readable(exp, sizeof(*exp)) || exp->NumberOfNames > 20000 || exp->NumberOfFunctions > 20000)
++		return;
++	const DWORD* functions = reinterpret_cast<const DWORD*>(base + exp->AddressOfFunctions);
++	const DWORD* names = reinterpret_cast<const DWORD*>(base + exp->AddressOfNames);
++	const WORD* ordinals = reinterpret_cast<const WORD*>(base + exp->AddressOfNameOrdinals);
++	if (!Readable(functions, sizeof(DWORD) * exp->NumberOfFunctions) || !Readable(names, sizeof(DWORD) * exp->NumberOfNames) ||
++		!Readable(ordinals, sizeof(WORD) * exp->NumberOfNames))
++		return;
++	for (DWORD i = 0; i < exp->NumberOfNames; i++)
++	{
++		const char* name = base + names[i];
++		if (ordinals[i] >= exp->NumberOfFunctions || !ReadableString(name))
++			continue;
++		const DWORD rva = functions[ordinals[i]];
++		if (rva >= dir.VirtualAddress && rva < dir.VirtualAddress + dir.Size)
++			continue; // doorverwijzing naar een andere DLL: geen code in deze module
++		char bytes[64];
++		Hex(base + rva, 16, bytes, sizeof(bytes));
++		out.Add("export %s!%.80s rva=0x%lx bytes=%s\r\n", moduleName, name, rva, bytes);
++	}
++}
++
++void SurveyImports(Buffer& out, const char* base)
++{
++	const IMAGE_NT_HEADERS* nt = NtHeaders(base);
++	if (nt == nullptr)
++		return;
++	const IMAGE_DATA_DIRECTORY& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
++	out.Add("iat hoofdmodule basis=%p import-rva=0x%lx\r\n", base, dir.VirtualAddress);
++	if (dir.VirtualAddress == 0)
++		return;
++	const IMAGE_IMPORT_DESCRIPTOR* desc = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(base + dir.VirtualAddress);
++	for (int d = 0; d < 256 && Readable(desc + d, sizeof(*desc)) && desc[d].Name != 0; d++)
++	{
++		const char* dll = base + desc[d].Name;
++		if (!ReadableString(dll))
++			break;
++		const IMAGE_THUNK_DATA* lookup = reinterpret_cast<const IMAGE_THUNK_DATA*>(base + (desc[d].OriginalFirstThunk != 0 ? desc[d].OriginalFirstThunk : desc[d].FirstThunk));
++		const IMAGE_THUNK_DATA* slots = reinterpret_cast<const IMAGE_THUNK_DATA*>(base + desc[d].FirstThunk);
++		for (int i = 0; i < 4096 && Readable(lookup + i, sizeof(*lookup)) && Readable(slots + i, sizeof(*slots)) && lookup[i].u1.AddressOfData != 0; i++)
++		{
++			char name[96];
++			if (IMAGE_SNAP_BY_ORDINAL(lookup[i].u1.Ordinal))
++				_snprintf(name, sizeof(name), "#%lu", static_cast<unsigned long>(IMAGE_ORDINAL(lookup[i].u1.Ordinal)));
++			else
++			{
++				const IMAGE_IMPORT_BY_NAME* byName = reinterpret_cast<const IMAGE_IMPORT_BY_NAME*>(base + lookup[i].u1.AddressOfData);
++				_snprintf(name, sizeof(name), "%.80s", ReadableString(reinterpret_cast<const char*>(byName->Name)) ? reinterpret_cast<const char*>(byName->Name) : "<naam niet leesbaar>");
++			}
++			name[sizeof(name) - 1] = 0;
++			char where[400];
++			Describe(reinterpret_cast<const void*>(slots[i].u1.Function), where, sizeof(where));
++			out.Add("iat %d/%d %.40s!%s slot-rva=0x%llx -> %s\r\n", d, i, dll, name,
++				static_cast<unsigned long long>(reinterpret_cast<const char*>(slots + i) - base), where);
++		}
++	}
++}
++
++void Survey(const char* moment)
++{
++	static volatile LONG sequence;
++	const LONG nr = InterlockedIncrement(&sequence);
++	Buffer out = { static_cast<char*>(VirtualAlloc(nullptr, 16 << 20, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)), 16 << 20, 0 };
++	if (out.data == nullptr)
++	{
++		Line("overzicht %ld (%s): geen geheugen", nr, moment);
++		return;
++	}
++	out.Add("overzicht %ld moment=%s tick=%lu tid=%lu\r\n", nr, moment, GetTickCount(), GetCurrentThreadId());
++
++	static HMODULE modules[1024];
++	DWORD needed = 0;
++	DWORD count = 0;
++	if (K32EnumProcessModules(GetCurrentProcess(), modules, sizeof(modules), &needed))
++		count = (needed < sizeof(modules) ? needed : static_cast<DWORD>(sizeof(modules))) / sizeof(HMODULE);
++	for (DWORD i = 0; i < count; i++)
++	{
++		char path[MAX_PATH] = "?";
++		GetModuleFileNameA(modules[i], path, MAX_PATH);
++		out.Add("pad %p %s\r\n", static_cast<void*>(modules[i]), path);
++		const char* name = strrchr(path, '\\');
++		SurveyExports(out, reinterpret_cast<const char*>(modules[i]), name != nullptr ? name + 1 : path);
++	}
++	SurveyImports(out, reinterpret_cast<const char*>(GetModuleHandleW(nullptr)));
++	out.Add("overzicht klaar\r\n");
++
++	char path[MAX_PATH + 40];
++	_snprintf(path, sizeof(path), "%s.overzicht-%ld.txt", tracePath, nr);
++	path[sizeof(path) - 1] = 0;
++	HANDLE file = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
++	DWORD written = 0;
++	if (file != INVALID_HANDLE_VALUE)
++	{
++		WriteFile(file, out.data, static_cast<DWORD>(out.used), &written, nullptr);
++		CloseHandle(file);
++	}
++	Line("overzicht %ld (%s): %lu modules, %lu bytes naar %s", nr, moment, count, written, path);
++	VirtualFree(out.data, 0, MEM_RELEASE);
++}
++
++// Met RG_EXIT_DUMP=1: het hele beeld van de hoofdmodule naar <spoor>.beeld-<nr>.bin (offset = RVA; niet-leesbare
++// pagina's blijven nul). Twee zulke beelden van twee runs naast elkaar laten zien welke bytes van het spel zelf
++// verschillen -- een kern die het ontpakte spel patcht, is zo aan te wijzen.
++void DumpImage(const char* moment)
++{
++	char flag[8];
++	if (GetEnvironmentVariableA("RG_EXIT_DUMP", flag, sizeof(flag)) == 0)
++		return;
++	static volatile LONG sequence;
++	const LONG nr = InterlockedIncrement(&sequence);
++	const char* base = reinterpret_cast<const char*>(GetModuleHandleW(nullptr));
++	const IMAGE_NT_HEADERS* nt = NtHeaders(base);
++	if (nt == nullptr)
++		return;
++	char path[MAX_PATH + 40];
++	_snprintf(path, sizeof(path), "%s.beeld-%ld.bin", tracePath, nr);
++	path[sizeof(path) - 1] = 0;
++	HANDLE file = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
++	if (file == INVALID_HANDLE_VALUE)
++		return;
++	const char* end = base + nt->OptionalHeader.SizeOfImage;
++	unsigned long long written = 0, skipped = 0;
++	for (const char* p = base; p < end;)
++	{
++		MEMORY_BASIC_INFORMATION mbi;
++		if (VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi))
++			break;
++		const char* regionEnd = static_cast<const char*>(mbi.BaseAddress) + mbi.RegionSize;
++		if (regionEnd > end)
++			regionEnd = end;
++		const DWORD length = static_cast<DWORD>(regionEnd - p);
++		DWORD done = 0;
++		if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) == 0)
++		{
++			LARGE_INTEGER offset;
++			offset.QuadPart = p - base;
++			SetFilePointerEx(file, offset, nullptr, FILE_BEGIN);
++			WriteFile(file, p, length, &done, nullptr);
++			written += done;
++		}
++		else
++			skipped += length;
++		p = regionEnd;
++	}
++	LARGE_INTEGER size;
++	size.QuadPart = nt->OptionalHeader.SizeOfImage;
++	SetFilePointerEx(file, size, nullptr, FILE_BEGIN);
++	SetEndOfFile(file);
++	CloseHandle(file);
++	Line("beeld %ld (%s): %llu bytes geschreven, %llu niet leesbaar, naar %s", nr, moment, written, skipped, path);
++}
++
++// Momentopname van de toestand, zonder iets te wijzigen:
++//  - staan onze haken er nog zoals wij ze plaatsten? Een later geplaatste haak van een ander (die een aanroep kan
++//    inslikken voordat hij bij ons komt) verandert die bytes;
++//  - per sectie van de hoofdmodule de bescherming en hoeveel procent van de bytes niet nul is (is het spel ontpakt?);
++//  - 32 bytes op elke RVA uit RG_EXIT_PROBE (hex, door komma's gescheiden, t.o.v. de hoofdmodule).
++void Snapshot(const char* moment)
++{
++	Line("momentopname %s:", moment);
++	for (const ExitHook& hook : hooks)
++	{
++		if (!hook.active)
++			continue;
++		char now[64];
++		Hex(hook.target, 16, now, sizeof(now));
++		const bool same = Readable(hook.target, 16) && memcmp(hook.target, hook.placed, 16) == 0;
++		Line(" haak %s: %s (%s)", hook.api, now, same ? "ongewijzigd sinds het plaatsen" : "GEWIJZIGD sinds het plaatsen");
++	}
++
++	const char* base = reinterpret_cast<const char*>(GetModuleHandleW(nullptr));
++	const IMAGE_DOS_HEADER* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
++	if (Readable(dos, sizeof(*dos)) && dos->e_magic == IMAGE_DOS_SIGNATURE)
++	{
++		const IMAGE_NT_HEADERS* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
++		if (Readable(nt, sizeof(*nt)) && nt->Signature == IMAGE_NT_SIGNATURE)
++		{
++			const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
++			for (WORD i = 0; i < nt->FileHeader.NumberOfSections && Readable(sec + i, sizeof(*sec)); i++)
++			{
++				char name[9] = {};
++				memcpy(name, sec[i].Name, 8);
++				const char* start = base + sec[i].VirtualAddress;
++				const char* end = start + sec[i].Misc.VirtualSize;
++				unsigned long long nonZero = 0, read = 0;
++				DWORD firstProtect = 0;
++				for (const char* p = start; p < end;)
++				{
++					MEMORY_BASIC_INFORMATION mbi;
++					if (VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi))
++						break;
++					if (p == start)
++						firstProtect = mbi.Protect;
++					const char* regionEnd = static_cast<const char*>(mbi.BaseAddress) + mbi.RegionSize;
++					if (regionEnd > end)
++						regionEnd = end;
++					if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) == 0)
++					{
++						for (const char* q = p; q < regionEnd; q++)
++							nonZero += (*q != 0);
++						read += static_cast<unsigned long long>(regionEnd - p);
++					}
++					p = regionEnd;
++				}
++				Line(" sectie %-8s rva=0x%lx grootte=%lu prot=0x%lx niet-nul=%llu van %llu gelezen (%.1f%%)", name,
++					sec[i].VirtualAddress, sec[i].Misc.VirtualSize, firstProtect, nonZero, read,
++					read != 0 ? 100.0 * static_cast<double>(nonZero) / static_cast<double>(read) : 0.0);
++			}
++		}
++	}
++
++	char probes[512];
++	const DWORD n = GetEnvironmentVariableA("RG_EXIT_PROBE", probes, sizeof(probes));
++	if (n > 0 && n < sizeof(probes))
++	{
++		for (char* token = strtok(probes, ","); token != nullptr; token = strtok(nullptr, ","))
++		{
++			const unsigned long long rva = _strtoui64(token, nullptr, 16);
++			char at[112];
++			Hex(base + rva, 32, at, sizeof(at));
++			Line(" probe hoofdmodule+0x%llx: %s", rva, at);
++		}
++	}
++	Line("momentopname klaar");
++	Survey(moment);
++	DumpImage(moment);
++}
++}
++
++void rgExitTraceSnapshot(const char* moment)
++{
++	if (Enabled())
++		Snapshot(moment);
++}
++
++void rgExitTraceInstall()
++{
++	if (!Enabled())
++		return;
++
++	const MH_STATUS init = MH_Initialize();
++	Line("installatie begin (MH_Initialize=%s)", MH_StatusToString(init));
++	for (ExitHook& hook : hooks)
++	{
++		const HMODULE module = GetModuleHandleW(hook.module);
++		hook.target = (module != nullptr) ? reinterpret_cast<void*>(GetProcAddress(module, hook.api)) : nullptr;
++		if (hook.target == nullptr)
++		{
++			Line("installatie %s!%s: NIET GEVONDEN (fout %lu)", hook.moduleName, hook.api, GetLastError());
++			continue;
++		}
++		// Een doorverwijzing (kernel32!ExitProcess -> ntdll!RtlExitUserProcess) levert hetzelfde adres op.
++		const ExitHook* same = nullptr;
++		for (const ExitHook& other : hooks)
++		{
++			if (&other == &hook)
++				break;
++			if (other.target == hook.target)
++				same = &other;
++		}
++		char where[400], before[64], after[64];
++		Describe(hook.target, where, sizeof(where));
++		if (same != nullptr)
++		{
++			Line("installatie %s!%s: doel=%p %s is hetzelfde adres als %s; die haak vangt beide", hook.moduleName, hook.api,
++				hook.target, where, same->api);
++			continue;
++		}
++		Hex(hook.target, 16, before, sizeof(before));
++		const MH_STATUS created = MH_CreateHook(hook.target, hook.detour, hook.original);
++		const MH_STATUS enabled = (created == MH_OK) ? MH_EnableHook(hook.target) : created;
++		Hex(hook.target, 16, after, sizeof(after));
++		if (enabled == MH_OK && Readable(hook.target, 16))
++		{
++			memcpy(hook.placed, hook.target, 16);
++			hook.active = true;
++		}
++		Line("installatie %s!%s: doel=%p %s create=%s enable=%s", hook.moduleName, hook.api, hook.target, where,
++			MH_StatusToString(created), MH_StatusToString(enabled));
++		Line(" bytes voor de haak: %s", before);
++		Line(" bytes na de haak:   %s", after);
++	}
++
++	char flag[8];
++	if (GetEnvironmentVariableA("RG_EXIT_PROTECT", flag, sizeof(flag)) != 0)
++	{
++		void* target = reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtProtectVirtualMemory"));
++		char where[400], before[64], after[64];
++		Describe(target, where, sizeof(where));
++		Hex(target, 16, before, sizeof(before));
++		const MH_STATUS created = MH_CreateHook(target, reinterpret_cast<void*>(&HookNtProtectVirtualMemory), reinterpret_cast<void**>(&origNtProtectVirtualMemory));
++		const MH_STATUS enabled = (created == MH_OK) ? MH_EnableHook(target) : created;
++		Hex(target, 16, after, sizeof(after));
++		Line("installatie ntdll.dll!NtProtectVirtualMemory (alleen meekijken): doel=%p %s create=%s enable=%s", target, where,
++			MH_StatusToString(created), MH_StatusToString(enabled));
++		Line(" bytes voor de haak: %s", before);
++		Line(" bytes na de haak:   %s", after);
++	}
++
++	Line("zelftest begin: TerminateProcess(handle 0xdead0, code 0x%lx) -- verwacht: een regel van TerminateProcess en een geneste van NtTerminateProcess", selfTestCode);
++	const BOOL result = TerminateProcess(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0xdead0)), selfTestCode);
++	Line("zelftest eind: TerminateProcess gaf %d, fout %lu (verwacht 0 en 6 = ERROR_INVALID_HANDLE)", result, GetLastError());
++	Line("installatie klaar");
++}
++
++#ifndef RG_EXITTRACE_STANDALONE
++static InitFunction rgExitTraceInit([]()
++{
++	rgExitTraceInstall();
++}, GameID::Global);
++#else
++BOOL WINAPI DllMain(HMODULE, DWORD reason, LPVOID)
++{
++	if (reason == DLL_PROCESS_ATTACH)
++	{
++		if (Enabled())
++			Line("losse RgExitTrace-DLL geladen");
++		rgExitTraceInstall();
++	}
++	else if (reason == DLL_THREAD_ATTACH && Enabled())
++	{
++		// Een later moment zonder zelf een draad te maken: het spel maakt ze, en elke nieuwe draad meldt zich hier.
++		static volatile LONG threads;
++		const LONG nr = InterlockedIncrement(&threads);
++		if (nr == 1 || nr == 5 || nr == 20 || nr == 60)
++		{
++			char moment[48];
++			_snprintf(moment, sizeof(moment), "bij draad-aanmaak nr %ld", nr);
++			Snapshot(moment);
++		}
++	}
++	return TRUE;
++}
++#endif
+diff -ruN a/OpenParrot/src/Utility/Utils.h b/OpenParrot/src/Utility/Utils.h
+--- a/OpenParrot/src/Utility/Utils.h	2026-10-13 07:20:02.473822332 +0200
++++ b/OpenParrot/src/Utility/Utils.h	2026-10-13 07:39:53.909200628 +0200
+@@ -8,6 +8,9 @@
+ void rgInitTrace(const char* format, ...);
+ // Adres als "module+0xOFFSET" t.o.v. deze DLL, zodat een regel bij een functie te zoeken is.
+ unsigned long long rgInitTraceOffset(const void* address);
++// RavenGun 0007: momentopname van wat er in het proces is aangeraakt (haken, secties, API-prologues, IAT). Alleen lezen;
++// doet niets zonder RG_INIT_TRACE. Zie Utility/RgExitTrace.cpp.
++void rgExitTraceSnapshot(const char* moment);
+ 
+ #ifdef _DEBUG
+ #define TpInfo(format, ...) info(format, ##__VA_ARGS__)

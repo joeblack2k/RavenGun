@@ -48,13 +48,42 @@ GCC voor het meeste, clang voor de bestanden met MSVC-SEH (`__try`) en MSVC-inli
    recursieve `mkdir -p` in `util.dll` op een NULL-pointer (0xC0000005, exitcode 5 na ~5 s, getraced). Met `d:`/`e:`/`f:` in de prefix leeft hij 20 s en
    schrijft hij NVRAM; deze patch doet dat in de kern in plaats van in de prefix. De crash zit in `CreateDirectoryA`, niet in `CreateFileA`, dus die haak
    moet mee. Generiek, geen per-game lijst. **Terugdraaien:** verwijder het patchbestand en herbouw.
-5. `0005-luigismansion-com-block.patch`: **Luigi's Mansion Arcade start niet meer uit op de COM-poort.** Nieuwe `GameID::LuigisMansion`
-   (genormaliseerde CRC `0xd3dc9603`) in `GameDetect.cpp`, en in `Hook_CreateFileA/W` (`amJvs.cpp`) wordt voor díe game elke naam die — na een
-   eventueel `\\.\`-voorvoegsel — met `COM` begint geweigerd met `INVALID_HANDLE_VALUE` + `SetLastError(ERROR_FILE_NOT_FOUND)`. Dit bootst de enige
-   Luigi-specifieke tak van de gesloten kern na ("BLOCKING LUIGI COM PORT"): zonder deze blokkade ging `COM1/COM2` door naar Wine (`ACCESS_DENIED`
-   i.p.v. "bestaat niet") en sloot de game met exitcode 32. Alleen voor Luigi; games die COM4 nodig hebben blijven ongemoeid. Of Luigi daarna zijn
-   invoer krijgt is een apart punt (de gesloten kern schrijft direct in procesgeheugen). **Terugdraaien:** verwijder het patchbestand en herbouw.
-6. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
+5. `0005-luigismansion-detect.patch`: **Luigi's Mansion Arcade wordt herkend (alleen detectie).** Nieuwe `GameID::LuigisMansion` en de
+   detectie-case voor de genormaliseerde CRC `0xd3dc9603` van `VACUUM.exe` in `GameDetect.cpp` (alleen in de 64-bit kern). Er hangt verder geen
+   gedrag aan; het nut is dat de game niet meer in de `default:`-tak valt en de kern dus geen `[Error] Unsupported Executable` meer in de
+   `teknoparrot.ini` in de werkmap schrijft. **Terugdraaien:** verwijder het patchbestand en herbouw.
+   **Vervallen op 2026-10-12: de COM-blokkade.** Tot die datum heette de patch `0005-luigismansion-com-block.patch` en weigerde hij in
+   `Hook_CreateFileA/W` (`amJvs.cpp`) voor deze game elke naam die met `COM` begint (`INVALID_HANDLE_VALUE` + `ERROR_FILE_NOT_FOUND`). De reden:
+   (1) De waarneming waarop de blokkade rustte klopt: de gesloten kern heeft voor deze game een COM-tak. De string "BLOCKING LUIGI COM PORT" staat
+   één keer in het ontsleutelde geheugenbeeld van de gesloten 64-bit kern (`docs/research/region-mechanisme.md`, hoofdstuk 2). Een tussentijdse
+   conclusie "niet terug te vinden" was fout, want daar was in het gepakte DLL-bestand gezocht.
+   (2) Voor deze game maakt de blokkade op onze kern geen meetbaar verschil: in een A/B op de echte game met COM1 aan een pty is het resultaat met
+   en zonder identiek (exitcode 32, dezelfde levensduur, nul eigen databestanden) en raakt het spel de poort in beide gevallen nooit aan (nul blokken
+   op de pty, nul COM-namen in alle 77-86 `CreateFileW`-regels). Een kernloze meting laat hetzelfde zien (`docs/research/luigismansion-kernloze-meting.md`).
+   (3) De blokkade zet dus een deur dicht die de game hier niet gebruikt: hij beschermt niets en zou een latere route waarin we de game juist een
+   poort willen geven stil saboteren. Kortom: de premisse is waar, de patch doet hier niets, en hij zet wel een deur dicht. Komt het spel op onze
+   kern tot zijn I/O-init, dan is dit het eerste om opnieuw te meten.
+   Build zonder de blokkade: `OpenParrot64.dll` sha256 `a9cd0e837f3e4a9934997d3ee6c3adf0f0376e754b0d890acba041907a203cfd`, `OpenParrot.dll`
+   `dbf8bb2014861f59fe504f434fdbe2acf2fb07606552f2f3c9ce624f6d2ac0e6`; de laders zijn byte-gelijk gebleven. De build met de blokkade was
+   `fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794` (64-bit).
+6. `0006-init-trace.patch`: **opt-in trace van de init van de kern.** Met `RG_INIT_TRACE=<bestand>` schrijft de kern een regel aan
+   het begin en eind van elke stap (DllMain, `Main_DoInit`, `RunMain`, elke init-functie). Zonder die variabele gebeurt er niets.
+   Meting: `docs/research/luigismansion-initializeasi-trace.md`. **Terugdraaien:** verwijder het patchbestand en herbouw.
+7. `0007-exit-trace.patch`: **opt-in exit-trace en overzicht van wat er in het proces is aangeraakt.** Nieuw bestand
+   `OpenParrot/src/Utility/RgExitTrace.cpp`, twee regels in `dllmain.cpp` en `Utils.h`. Alleen actief met `RG_INIT_TRACE`; schrijft in
+   hetzelfde bestand. Haakt `kernel32!ExitProcess`, `kernel32!TerminateProcess`, `ntdll!RtlExitUserProcess` en
+   `ntdll!NtTerminateProcess` en logt per aanroep de volle code, het terugkeeradres als module+offset met de sectie, de bytes ervoor en
+   erop, de argumentregisters, de stapel erboven en een stackwalk. Per haak een installatieregel en een zelftest, zodat een lege meting
+   eerst bewijst dat hij gezocht heeft. Daarnaast een momentopname die alleen leest (direct na de init, bij de beëindiging): staan de
+   haken er nog, hoe vol is elke sectie van de hoofdmodule, en een overzicht in een eigen bestand met de eerste 16 bytes van elke
+   geëxporteerde functie van elke geladen module en de import-adres-tabel van de hoofdmodule. Opties: `RG_EXIT_PROBE=<rva,rva>`
+   (32 bytes op die RVA's), `RG_EXIT_DUMP=1` (het beeld van de hoofdmodule), `RG_EXIT_PROTECT=1` (meekijken op
+   `NtProtectVirtualMemory`, ongewijzigd doorgegeven). Het bronbestand hangt alleen van `<windows.h>` en MinHook af en is daarom ook
+   als losse DLL te bouwen: doel `exittrace64` (niet in de standaarddoelen) geeft `OpenParrotx64/RgExitTrace64.dll`, die de lader via
+   `TP_PRELOAD_DLL` laadt in een proces waar onze kern niet in zit; die maakt zijn momentopnamen bij de 1e, 5e, 20e en 60e draad van
+   het spel. De overzichten leest `tools/exit-trace-overzicht.py` (`aangeraakt`: tegen het DLL-bestand op schijf; `verschil`: twee
+   runs naast elkaar). Meting: `docs/research/luigismansion-exit-trace.md`. **Terugdraaien:** verwijder het patchbestand en herbouw.
+8. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
    `shim.sh` (hoofdletter- en backslash-includes: `<Shlwapi.h>`, `Utility\Hooking.Patterns.h`; en de meegeleverde Microsoft-DirectX-SDK-headers worden vervangen
    door de MinGW-w64-headers), `win64init.S` (GNU-vertaling van `win64init.asm`), `openparrot32.def` (zelfde exportnamen als de MSVC-build, ook `_PrepareSafeInit@4`),
    `compile-one.sh`, `build-in-container.sh`.

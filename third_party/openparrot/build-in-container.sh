@@ -2,7 +2,7 @@
 # Draait IN de build-container (packaging/containers/openparrot/Containerfile), gestart door scripts/build-openparrot.sh.
 # Geen netwerk; /src is de (gepatchte) OpenParrot-bron, alleen-lezen; /out is de uitvoermap.
 # Alleen de loaders en de kern; premake en Visual Studio worden niet gebruikt (zie third_party/openparrot/README.md).
-# Doelen via $TARGETS (spatiegescheiden): loader32 loader64 core32 core64. Standaard: alles.
+# Doelen via $TARGETS (spatiegescheiden): loader32 loader64 core32 core64 (standaard alle vier) en op verzoek exittrace64.
 set -eu
 TARGETS="${TARGETS:-loader32 loader64 core32 core64}"
 OBJ=/tmp/obj
@@ -55,6 +55,19 @@ build_core() {  # arch uitvoernaam uitvoermap
     -Wl,--subsystem,windows -Wl,--allow-multiple-definition -lws2_32 -lwinmm -lshlwapi -ladvapi32 -lshell32 -luser32 -lntdll -ld3d9 -ld3dx9 -ld3d11 -ld3d12 -ldxguid -ldinput8 -lversion
 }
 
+# De exit-trace van patch 0007 als losse DLL (alleen op verzoek, niet in de standaarddoelen): voor een proces waar onze
+# kern niet in zit; de lader laadt hem via TP_PRELOAD_DLL. Zelfde bronbestand als in de kern, alleen <windows.h> en MinHook.
+build_exittrace() {  # arch uitvoernaam uitvoermap
+  arch="$1"; w="$OBJ/exittrace-$arch"; rm -rf "$w"; mkdir -p "$w"
+  hde=hde64; [ "$arch" = i686 ] && hde=hde32
+  for f in /src/deps/src/buffer.c /src/deps/src/hook.c /src/deps/src/trampoline.c /src/deps/src/hde/$hde.c; do
+    "$arch-w64-mingw32-gcc" -O2 -w -DNDEBUG -include string.h -I/src/deps/inc -c "$f" -o "$w/$(basename "$f").o"
+  done
+  "$arch-w64-mingw32-g++" -std=gnu++17 -O2 -DNDEBUG -DRG_EXITTRACE_STANDALONE -I/src/deps/inc \
+    -c /src/OpenParrot/src/Utility/RgExitTrace.cpp -o "$w/RgExitTrace.o"
+  "$arch-w64-mingw32-g++" -shared -static -s -o "/out/$3/$2" -Wl,--no-insert-timestamp "$w"/*.o -lntdll
+}
+
 for t in $TARGETS; do
   echo "== $t"
   case "$t" in
@@ -62,6 +75,7 @@ for t in $TARGETS; do
     loader64) build_loader x86_64 OpenParrotLoader64.exe OpenParrotx64 ;;
     core32) build_core i686 OpenParrot.dll OpenParrotWin32 ;;
     core64) build_core x86_64 OpenParrot64.dll OpenParrotx64 ;;
+    exittrace64) build_exittrace x86_64 RgExitTrace64.dll OpenParrotx64 ;;
     *) echo "onbekend doel $t" >&2; exit 2 ;;
   esac
 done

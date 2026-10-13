@@ -1,0 +1,208 @@
+RavenGun-wijziging 0006 op OpenParrot: opt-in trace van de initialisatie van de kern.
+
+Waarom: gemeten (2026-10-12, Luigi's Mansion Arcade) komt de initialisatie van onze kern in het spelproces
+niet terug, terwijl de gesloten kern dezelfde fase in ongeveer 2 s doorloopt. Om te zien WAAR hij blijft
+staan, schrijft de kern met deze patch een regel aan het begin en eind van elke stap:
+  DllMain attach, Main_DoInit, InitializeASI, RunMain (ini laden, DetectCurrentGame), RunFunctions per game,
+  en voor en na ELKE init-functie ("init #n ... functie=dll+0xOFFSET begin" / "eind (ms)").
+De laatste regel in het bestand wijst de plek aan; een "begin" zonder "eind" is de init-functie die niet
+terugkomt. De offset is ten opzichte van de DLL en is met de symbolen van de build bij een functie te zoeken.
+
+Standaard UIT: er gebeurt alleen iets als de omgevingsvariabele RG_INIT_TRACE een bestandspad bevat (bv.
+RG_INIT_TRACE=Z:\tmp\init-trace.log). Elke regel wordt meteen weggeschreven en het bestand weer gesloten,
+zodat de laatste regel blijft staan als het proces daarna hangt of verdwijnt. Generiek: geen game-specifieke
+code. De bestaande info() van de kern doet in een release-build niets (alleen _DEBUG), vandaar een eigen functie.
+
+Terugdraaien: verwijder dit patchbestand en herbouw.
+
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+diff -ruN a/OpenParrot/src/dllmain.cpp b/OpenParrot/src/dllmain.cpp
+--- a/OpenParrot/src/dllmain.cpp	2026-10-12 22:56:05.373916065 +0200
++++ b/OpenParrot/src/dllmain.cpp	2026-10-12 22:58:44.700184361 +0200
+@@ -3,6 +3,7 @@
+ #include <Utility/GameDetect.h>
+ linb::ini config;
+ #include <Functions/Global.h>
++#include <Utility/Utils.h>
+ 
+ #pragma optimize("", off)
+ 
+@@ -103,7 +104,9 @@
+ #if _M_IX86
+ 	AppendGhaInitTrace("Main_DoInit entered\r\n");
+ #endif
++	rgInitTrace("Main_DoInit begin");
+ 	RunMain();
++	rgInitTrace("Main_DoInit: RunMain terug");
+ 
+ 	DWORD oldProtect;
+ 	VirtualProtect(originalEP, 20, PAGE_EXECUTE_READWRITE, &oldProtect);
+@@ -111,6 +114,8 @@
+ 	memcpy(originalEP, &originalCode, sizeof(originalCode));
+ 
+ 	VirtualProtect(originalEP, 20, oldProtect, &oldProtect);
++	rgInitTrace("Main_DoInit: originele entry-bytes teruggezet (%02x %02x %02x %02x ...), nu de sprong naar het entry point van het spel",
++		originalEP[0], originalEP[1], originalEP[2], originalEP[3]);
+ 
+ #if _M_IX86
+ 	__asm jmp originalEP
+@@ -187,13 +192,12 @@
+ 
+ 	initialized = true;
+ 
+-	if (!config.load_file("teknoparrot.ini"))
+-	{
+-		//MessageBoxA(NULL, V("Failed to open config.ini"), V("TeknoParrot",) MB_OK);
+-		//std::_Exit(0);
+-	}
++	rgInitTrace("RunMain begin");
++	const bool rgIniOk = config.load_file("teknoparrot.ini");
++	rgInitTrace("RunMain: teknoparrot.ini geladen=%d", rgIniOk ? 1 : 0);
+ 
+ 	GameDetect::DetectCurrentGame();
++	rgInitTrace("RunMain: DetectCurrentGame klaar, game=%d", static_cast<int>(GameDetect::currentGame));
+ #if _M_IX86
+ 	char trace[128] = {};
+ 	sprintf_s(
+@@ -204,6 +208,7 @@
+ #endif
+ 	InitFunction::RunFunctions(GameID::Global);
+ 	InitFunction::RunFunctions(GameDetect::currentGame);
++	rgInitTrace("RunMain eind");
+ }
+ 
+ void* (*g_makeCall)(void* call);
+@@ -229,6 +234,7 @@
+ {
+ 	if (ul_reason_for_call == DLL_PROCESS_ATTACH)
+ 	{
++		rgInitTrace("DllMain attach (kern geladen)");
+ #if _M_IX86
+ 		WriteGhaInitTrace(hModule);
+ #endif
+@@ -257,7 +263,9 @@
+ 
+ extern "C" __declspec(dllexport) void InitializeASI()
+ {
++	rgInitTrace("InitializeASI begin");
+ 	RunMain();
++	rgInitTrace("InitializeASI eind");
+ }
+ 
+ extern "C" __declspec(dllexport) DWORD WINAPI PrepareSafeInit(LPVOID)
+diff -ruN a/OpenParrot/src/Utility/InitFunction.cpp b/OpenParrot/src/Utility/InitFunction.cpp
+--- a/OpenParrot/src/Utility/InitFunction.cpp	2026-10-12 22:56:05.375366815 +0200
++++ b/OpenParrot/src/Utility/InitFunction.cpp	2026-10-12 22:56:34.015796290 +0200
+@@ -1,5 +1,6 @@
+ #include <StdInc.h>
+ #include "InitFunction.h"
++#include "Utils.h"
+ 
+ #include <forward_list>
+ 
+@@ -98,8 +99,11 @@
+ 	g_initFunctions->push_front(this);
+ }
+ 
++static int rgInitNr;
++
+ void InitFunction::RunFunctions(GameID game)
+ {
++	rgInitTrace(" RunFunctions(game=%d) begin", static_cast<int>(game));
+ #if _M_IX86
+ 	TraceGhaInitFunctions(game, -1, false);
+ #endif
+@@ -113,7 +117,14 @@
+ #endif
+ 		if (it->game == game)
+ 		{
++			// RavenGun 0006: de laatste "begin"-regel zonder "eind" wijst de init-functie aan die niet terugkomt.
++			const int nr = rgInitNr++;
++			const DWORD t0 = GetTickCount();
++			rgInitTrace("  init #%d game=%d functie=dll+0x%llx begin", nr, static_cast<int>(game),
++				rgInitTraceOffset(reinterpret_cast<const void*>(it->callback)));
+ 			it->callback();
++			rgInitTrace("  init #%d eind (%lu ms)", nr, GetTickCount() - t0);
+ 		}
+ 	}
++	rgInitTrace(" RunFunctions(game=%d) eind", static_cast<int>(game));
+ }
+diff -ruN a/OpenParrot/src/Utility/Utils.cpp b/OpenParrot/src/Utility/Utils.cpp
+--- a/OpenParrot/src/Utility/Utils.cpp	2026-10-12 22:56:05.376738876 +0200
++++ b/OpenParrot/src/Utility/Utils.cpp	2026-10-12 22:56:34.015699622 +0200
+@@ -31,6 +31,59 @@
+ #endif
+ }
+ 
++// RavenGun 0006: opt-in init-trace (RG_INIT_TRACE=<bestand>). Elke regel wordt meteen weggeschreven en het
++// bestand weer gesloten, zodat de laatste regel blijft staan als het proces daarna blijft hangen of verdwijnt.
++static char rgTracePath[MAX_PATH];
++static int rgTraceState; // 0 = nog niet bekeken, 1 = aan, 2 = uit
++
++static bool rgTraceEnabled()
++{
++	if (rgTraceState == 0)
++	{
++		const DWORD n = GetEnvironmentVariableA("RG_INIT_TRACE", rgTracePath, MAX_PATH);
++		rgTraceState = (n > 0 && n < MAX_PATH) ? 1 : 2;
++	}
++	return rgTraceState == 1;
++}
++
++unsigned long long rgInitTraceOffset(const void* address)
++{
++	HMODULE self = nullptr;
++	if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++			reinterpret_cast<LPCSTR>(&rgInitTraceOffset), &self) || self == nullptr)
++		return 0;
++	return static_cast<unsigned long long>(reinterpret_cast<const char*>(address) - reinterpret_cast<const char*>(self));
++}
++
++void rgInitTrace(const char* format, ...)
++{
++	if (!rgTraceEnabled())
++		return;
++
++	char line[512];
++	int used = _snprintf(line, sizeof(line), "[%10lu ms] tid %5lu  ", GetTickCount(), GetCurrentThreadId());
++	if (used < 0)
++		return;
++	va_list args;
++	va_start(args, format);
++	int more = _vsnprintf(line + used, sizeof(line) - used - 3, format, args);
++	va_end(args);
++	if (more < 0)
++		more = static_cast<int>(sizeof(line)) - used - 3;
++	used += more;
++	line[used++] = '\r';
++	line[used++] = '\n';
++
++	HANDLE file = CreateFileA(rgTracePath, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
++		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
++	if (file == INVALID_HANDLE_VALUE)
++		return;
++	DWORD written = 0;
++	WriteFile(file, line, static_cast<DWORD>(used), &written, nullptr);
++	FlushFileBuffers(file);
++	CloseHandle(file);
++}
++
+ int strcmp(const char* str1, const char* str2, bool csensitive)
+ {
+ 	return (csensitive ? ::strcmp(str1, str2) : ::_stricmp(str1, str2));
+diff -ruN a/OpenParrot/src/Utility/Utils.h b/OpenParrot/src/Utility/Utils.h
+--- a/OpenParrot/src/Utility/Utils.h	2026-10-12 22:56:05.378067537 +0200
++++ b/OpenParrot/src/Utility/Utils.h	2026-10-12 22:56:34.015662902 +0200
+@@ -3,6 +3,11 @@
+ #include <MinHook.h>
+ 
+ void info(const char* format, ...);
++// RavenGun 0006: opt-in init-trace. Schrijft alleen als de omgevingsvariabele RG_INIT_TRACE een bestandspad
++// bevat; anders doet de aanroep niets. Zie third_party/openparrot/README.md.
++void rgInitTrace(const char* format, ...);
++// Adres als "module+0xOFFSET" t.o.v. deze DLL, zodat een regel bij een functie te zoeken is.
++unsigned long long rgInitTraceOffset(const void* address);
+ 
+ #ifdef _DEBUG
+ #define TpInfo(format, ...) info(format, ##__VA_ARGS__)
