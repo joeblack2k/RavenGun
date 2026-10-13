@@ -14,6 +14,7 @@ import os, sys, time
 
 BASE = 0x140000000
 TRAMP_VA, TRAMP_LEN = 0x13FFF0000, 0x1000
+TEXT_VA, TEXT_LEN = BASE + 0x1000, 3496500
 DONGLE_SLOT = BASE + 0x49CC68          # [0x14049cc68] -> dongle-object
 MASTER_SLOT = BASE + 0x49CCD8          # [0x14049ccd8] -> amMaster-object
 OBJ_LEN = 0x200
@@ -74,6 +75,24 @@ def monster(pid, moment):
         mem = open("/proc/%d/mem" % pid, "rb", buffering=0)
     except OSError as e:
         return ["", "t=%.1f  kon /proc/%d/mem niet openen: %s" % (moment, pid, e)]
+
+    # 0. .text nul-percentage (is het uitgepakt?)
+    try:
+        nul = tot = 0
+        off = 0
+        while off < TEXT_LEN:
+            mem.seek(TEXT_VA + off)
+            blk = mem.read(min(0x100000, TEXT_LEN - off))
+            if not blk:
+                break
+            nul += blk.count(0)
+            tot += len(blk)
+            off += len(blk)
+        pct = (100.0 * nul / tot) if tot else -1.0
+        regels.append("-- [0] .text 0x%08x len %d : %.2f%% nul  (%d van %d B gelezen)"
+                      % (TEXT_VA, TEXT_LEN, pct, nul, tot))
+    except OSError as e:
+        regels.append("-- [0] .text NIET LEESBAAR: %s" % e)
 
     # 1. trampolinepagina
     try:
@@ -145,7 +164,7 @@ def monster(pid, moment):
     for naam, doel in CORE_ADDRS:
         try:
             mem.seek(doel)
-            b = mem.read(0xC0)
+            b = mem.read(0x400)
             regels.append("      %-34s 0x%08x  %s" % (naam, doel, b[:24].hex(" ")))
             open(os.path.join(sys.argv[1], "kern-%s-%s.bin" % (naam, moment)), "wb").write(b)
         except OSError as e:
