@@ -45,7 +45,7 @@ std::vector<std::string> split_list(const std::string& s) {
 bool validate_route(const IoRoute& r, std::string& err) {
     if (!valid_route(r.route)) { err = r.game + ": ongeldige Route '" + r.route + "' in [Input]"; return false; }
     if (r.route == kRouteTpShm && r.layout.empty()) { err = r.game + ": route tp-shm vraagt een Layout in [Input]"; return false; }
-    if (r.route == kRouteHidBoard && r.board.empty()) { err = r.game + ": route hid-board vraagt een Board in [Input]"; return false; }
+    if (r.route == kRouteHidBoard && r.board.empty() && r.boards.empty()) { err = r.game + ": route hid-board vraagt een Board of Boards in [Input]"; return false; }
     if (r.route == kRouteJvs && r.board.empty() && r.boards.empty()) { err = r.game + ": route jvs vraagt een Board of Boards in [Input]"; return false; }
     for (const auto& k : r.coin_keys)
         if (ravengun::output::key_code(k) < 0) { err = r.game + ": onbekende toets '" + k + "' in CoinKeys"; return false; }

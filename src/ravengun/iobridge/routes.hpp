@@ -24,7 +24,9 @@ struct IoRoute {
     std::string game;     // TeknoParrot-profielnaam, bv. Halo
     std::string route;    // evdev | tp-shm | unity-tcp | hid-board | jvs
     std::string board;    // hid-board: naam van het bord in hid-boards.json; jvs: naam van het (enige) bord in jvs-boards.json
-    std::vector<std::string> boards;   // jvs: de borden van de keten in volgorde (leeg = alleen `board`)
+    std::vector<std::string> boards;   // jvs: de borden van de keten in volgorde; hid-board: meerdere borden naast
+                                       // elkaar, elk met zijn eigen transport (bv. de gun via uinput naast het
+                                       // IO-bord via uhid). Leeg = alleen `board`.
     std::string com_port;              // jvs: de COM-poort die de game opent (bv. COM4); voor het startscript, niet voor de daemon
     std::string layout;   // tp-shm: naam van het profiel in tp-shm-profiles.json (de EmulationProfile)
     std::string note;

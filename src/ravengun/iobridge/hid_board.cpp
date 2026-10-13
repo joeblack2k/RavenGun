@@ -656,4 +656,48 @@ std::string HidBoardDialect::status_json() const {
     return w.str();
 }
 
+// ---------------------------------------------------------------- meerdere borden op één route
+
+HidBoardsDialect::HidBoardsDialect(std::string game, std::vector<std::unique_ptr<HidBoardDialect>> boards)
+    : game_(std::move(game)), boards_(std::move(boards)) {}
+
+bool HidBoardsDialect::open(std::string& err) {
+    for (size_t i = 0; i < boards_.size(); ++i) {
+        std::string e;
+        if (!boards_[i]->open(e)) {
+            // Niets half open laten staan: de borden die al open zijn gaan weer dicht.
+            for (size_t j = 0; j < i; ++j) boards_[j]->close();
+            err = e;
+            return false;
+        }
+    }
+    return true;
+}
+
+void HidBoardsDialect::write(const IoState& s) {
+    for (auto& d : boards_) d->write(s);
+}
+
+void HidBoardsDialect::neutral() {
+    for (auto& d : boards_) d->neutral();
+}
+
+void HidBoardsDialect::close() {
+    for (auto& d : boards_) d->close();
+}
+
+std::string HidBoardsDialect::status_json() const {
+    json::Writer w;
+    w.begin_object();
+    w.key("boards").begin_array();
+    for (const auto& d : boards_) w.raw(d->status_json());
+    w.end_array();
+    w.end_object();
+    return w.str();
+}
+
+void HidBoardsDialect::set_trace(std::function<void(const std::string&)> f) {
+    for (auto& d : boards_) d->set_trace(f);
+}
+
 }  // namespace ravengun::iobridge

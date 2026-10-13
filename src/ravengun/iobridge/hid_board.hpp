@@ -191,4 +191,26 @@ private:
     HidBoardStats st_;
 };
 
+// Meerdere borden op één hid-board-route: de gun (uinput) naast bijvoorbeeld het cabinet-IO-bord (uhid). Elk bord
+// houdt zijn eigen HidBoardDialect met zijn eigen transport en apparaat; deze klasse verdeelt alleen de aanroepen.
+// Eén bord gaat gewoon door HidBoardDialect zelf, zodat het gedrag en de statusvorm daarvan niet veranderen.
+class HidBoardsDialect final : public IoDialect {
+public:
+    HidBoardsDialect(std::string game, std::vector<std::unique_ptr<HidBoardDialect>> boards);
+    ~HidBoardsDialect() override { close(); }
+    const char* name() const override { return "hid-board"; }
+    std::string game() const override { return game_; }
+    bool open(std::string& err) override;
+    void write(const IoState& s) override;
+    void neutral() override;
+    void close() override;
+    std::string status_json() const override;
+    void set_trace(std::function<void(const std::string&)> f);
+    size_t count() const { return boards_.size(); }
+
+private:
+    std::string game_;
+    std::vector<std::unique_ptr<HidBoardDialect>> boards_;
+};
+
 }  // namespace ravengun::iobridge

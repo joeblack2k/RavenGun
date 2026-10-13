@@ -369,6 +369,56 @@ void test_responses() {
     CHECK(log.size() == nlog + 1 && fp->sent.size() == nsend);
 }
 
+// Meerdere borden op één hid-board-route (de gun naast het cabinet-IO-bord): elk bord houdt zijn eigen transport
+// en zijn eigen rapportvorm, en de aanroepen worden verdeeld. Eén bord blijft de enkel-bord-vorm.
+void test_boards_dialect() {
+    const HidBoard& gun = sae();
+    const HidBoard& io = sae_io();
+    auto f1 = std::make_unique<Fake>();
+    Fake* p1 = f1.get();
+    auto f2 = std::make_unique<Fake>();
+    Fake* p2 = f2.get();
+    std::vector<std::unique_ptr<HidBoardDialect>> ds;
+    ds.push_back(std::make_unique<HidBoardDialect>(gun, "TransformersShadowsRising", std::move(f1)));
+    ds.push_back(std::make_unique<HidBoardDialect>(io, "TransformersShadowsRising", std::move(f2)));
+    HidBoardsDialect d("TransformersShadowsRising", std::move(ds));
+    std::vector<std::string> log;
+    d.set_trace([&](const std::string& l) { log.push_back(l); });
+    std::string err;
+    CHECK(d.count() == 2 && d.open(err) && p1->made && p2->made);
+    CHECK(p1->sent.size() == 1 && p2->sent.size() == 1);
+    CHECK(p1->sent[0].raw.empty());                  // de gun: berekend rapport (geen vast rapport)
+    CHECK(p2->sent[0].raw.size() == 15);             // het IO-bord: vast rapport van 15 bytes
+    IoState s;
+    s.armed = true;
+    s.player[0] = aim(0.4, 0.6);
+    const size_t g1 = p1->sent.size();
+    d.write(s);
+    CHECK(p1->sent.size() == g1 + 1);                // de gun kreeg het nieuwe beeld
+    // Het IO-bord antwoordt via zijn tabel; de gun heeft geen tabel en verandert niet vanzelf.
+    p2->out = {0x00, 0x74, 0xE0};
+    ++p2->outputs;
+    d.write(s);
+    CHECK(p2->sent.back().raw[12] == 0xB0);
+    CHECK(!log.empty() && log.back().find("0xB0") != std::string::npos);   // de trace is aan beide borden doorgegeven
+    const std::string st = d.status_json();
+    CHECK(json::parse(st).ok && st.find("SaeGunBoard") != std::string::npos &&
+          st.find("SaeIoBoard") != std::string::npos && st.find("\"boards\"") != std::string::npos);
+    d.neutral();
+    CHECK(p1->sent.back() == hid_board_neutral(gun) && p2->sent.back().raw.size() == 15);
+    d.close();
+    CHECK(p1->gone && p2->gone && !p1->made && !p2->made);   // allebei netjes opgeruimd
+    d.close();                                               // idempotent
+    // Mislukt het tweede bord, dan gaan de al geopende borden weer dicht en komt de fout terug.
+    auto g1b = std::make_unique<Fake>();
+    Fake* q1 = g1b.get();
+    std::vector<std::unique_ptr<HidBoardDialect>> half;
+    half.push_back(std::make_unique<HidBoardDialect>(gun, "X", std::move(g1b)));
+    half.push_back(std::make_unique<HidBoardDialect>(io, "X", nullptr));
+    HidBoardsDialect hd("X", std::move(half));
+    CHECK(!hd.open(err) && !err.empty() && q1->gone);
+}
+
 // uhid-transport tegen een FIFO: de bytes die naar /dev/uhid zouden gaan.
 void test_uhid(const std::string& dir) {
     const HidBoard& b0 = sae();
@@ -417,6 +467,7 @@ int main() {
     test_dialect();
     test_io_board();
     test_responses();
+    test_boards_dialect();
     test_uhid(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

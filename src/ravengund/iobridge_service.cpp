@@ -174,16 +174,32 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
 }
 
 // Route hid-board: een virtueel joystick/HID-apparaat dat het bord van de game nabootst (hid_board.hpp).
+// Meerdere borden mogen naast elkaar: `Boards = A, B` (net als bij jvs), elk met zijn eigen transport. Eén bord
+// houdt de enkel-bord-vorm, zodat bestaand gedrag en de bestaande statusvorm niet veranderen.
 std::string IoBridgeService::start_hid_board(const std::string& game, const IoRoute* r) {
-    if (!r || r->board.empty()) return "game '" + game + "' heeft geen Board in [Input] van game.ini";
-    const HidBoard* b = cfg_.boards.find(r->board);
-    if (!b) return "bord '" + r->board + "' ontbreekt in hid-boards.json";
-    std::unique_ptr<HidBoardDevice> dev;
-    if (cfg_.board_device) dev = cfg_.board_device(*b);
-    else dev = b->transport == "uhid" ? make_uhid_board_device(cfg_.uhid_path) : make_uinput_board_device();
-    auto d = std::make_unique<HidBoardDialect>(*b, game, std::move(dev));
-    // Per ontvangen uitvoerrapport een regel in het logboek: welke respons er gezet is, of dat er geen bij past.
-    d->set_trace([](const std::string& line) { logf("info", "hid-board: %s", line.c_str()); });
+    if (!r) return "game '" + game + "' heeft geen [Input] in game.ini";
+    std::vector<std::string> namen = r->boards;
+    if (namen.empty() && !r->board.empty()) namen.push_back(r->board);
+    if (namen.empty()) return "game '" + game + "' heeft geen Board of Boards in [Input] van game.ini";
+    auto trace = [](const std::string& line) { logf("info", "hid-board: %s", line.c_str()); };
+    std::vector<std::unique_ptr<HidBoardDialect>> borden;
+    std::string omschrijving;
+    for (const auto& naam : namen) {
+        const HidBoard* b = cfg_.boards.find(naam);
+        if (!b) return "bord '" + naam + "' ontbreekt in hid-boards.json";
+        std::unique_ptr<HidBoardDevice> dev;
+        if (cfg_.board_device) dev = cfg_.board_device(*b);
+        else dev = b->transport == "uhid" ? make_uhid_board_device(cfg_.uhid_path) : make_uinput_board_device();
+        auto d = std::make_unique<HidBoardDialect>(*b, game, std::move(dev));
+        // Per ontvangen uitvoerrapport een regel in het logboek: welke respons er gezet is, of dat er geen bij past.
+        d->set_trace(trace);
+        borden.push_back(std::move(d));
+        if (!omschrijving.empty()) omschrijving += ", ";
+        omschrijving += b->name + " via " + b->transport;
+    }
+    std::unique_ptr<IoDialect> d;
+    if (borden.size() == 1) d = std::move(borden.front());
+    else d = std::make_unique<HidBoardsDialect>(game, std::move(borden));
     std::string err;
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);
@@ -198,7 +214,7 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
     write_state_file(route_, game_);
-    logf("info", "IO-brug: hid-board voor %s (bord %s via %s)", game.c_str(), b->name.c_str(), b->transport.c_str());
+    logf("info", "IO-brug: hid-board voor %s (%s)", game.c_str(), omschrijving.c_str());
     cv_.notify_all();
     return {};
 }

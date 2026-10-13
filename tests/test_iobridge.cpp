@@ -431,6 +431,8 @@ void test_routes(const std::string& dir) {
     put(sh + "/F/game.ini", "[Input]\nRoute = evdev\nCoinKeys = bestaatniet\n");
     put(sh + "/G/game.ini", "[Game]\nType = Unity\n");                             // de route komt uit _defaults/Unity.ini
     put(sh + "/H/game.ini", "[Game]\nName = H\n");                                 // geen [Input]
+    put(sh + "/I/game.ini", "[Input]\nRoute = hid-board\nBoards = SaeGunBoard, SaeIoBoard\n");          // lijst
+    put(sh + "/J/game.ini", "[Input]\nRoute = hid-board\nBoard = SaeGunBoard\nBoards = SaeIoBoard\n");  // lijst wint
     put(sh + "/TC5/game.ini", "[Input]\nRoute = tp-shm\nLayout = TimeCrisis5\nCoinKeys = lshift,t\n");
     gamesettings::Dirs d{sh, {}};
     IoRoutes t = load_io_routes(d, err);
@@ -438,6 +440,10 @@ void test_routes(const std::string& dir) {
     CHECK(!t.find("A") && !t.find("B") && !t.find("D") && !t.find("E") && !t.find("F"));
     CHECK(t.find("C") && t.find("C")->boards.size() == 2 && t.find("C")->boards[1] == "Y" && t.find("C")->com_port == "COM2");
     CHECK(t.route_for("G") == "unity-tcp" && t.route_for("H") == "evdev" && !t.find("H"));
+    // hid-board mag één bord of een lijst hebben; de lijst is de vorm voor de gun naast het IO-bord.
+    CHECK(t.find("I") && t.find("I")->route == "hid-board" && t.find("I")->boards.size() == 2 &&
+          t.find("I")->boards[0] == "SaeGunBoard" && t.find("I")->boards[1] == "SaeIoBoard");
+    CHECK(t.find("J") && t.find("J")->boards.size() == 1 && t.find("J")->boards[0] == "SaeIoBoard");
     CHECK(t.route_for("TC5") == "tp-shm" && t.find("TC5")->coin_keys.size() == 2);
 
     // Gebruikerslaag: per sleutel over de meegeleverde laag; een lege waarde zet een sleutel terug.
