@@ -351,7 +351,24 @@ class _Lezer:
                 continue
             if eerste in ("then", "else", "elif", "do", "exit", "true", "false", "sleep", "echo", "return") or regel.endswith(")") and "(" not in regel:
                 continue
-            m = re.match(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$", regel)
+            # `NAAM=waarde commando args`: de variabele geldt alleen voor dat ene commando (en bereikt het dus wel).
+            # Zo start een kastscript zijn spel vaak: LD_PRELOAD=... /pad/game -f...
+            voorvoegsel = []
+            rest = regel
+            while True:
+                mm = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"]*\"|'[^']*'|\S*)\s+(\S.*)$", rest)
+                if not mm or regel.startswith("export "):
+                    break
+                w = mm.group(2)
+                if w.count("`") % 2 or w.count("(") != w.count(")"):
+                    break                       # X=`which y` of X=$(cat y): een gewone toekenning met spaties in de waarde
+                voorvoegsel.append((mm.group(1), mm.group(2).strip('"').strip("'")))
+                rest = mm.group(3)
+            if voorvoegsel:
+                for naam, waarde in voorvoegsel:
+                    self.feit("env", voor, bestand, nr, name=naam, value=self.sh_vul(waarde), exported=True, for_command=True)
+                regel = rest
+            m = re.match(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$", regel) if not voorvoegsel else None
             if m:
                 waarde = self.sh_vul(m.group(2).strip().strip('"').strip("'"))
                 self.vars[m.group(1)] = waarde

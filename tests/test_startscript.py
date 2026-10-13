@@ -247,6 +247,29 @@ class DeLezer(unittest.TestCase):
         self.assertEqual(v["args_missing"], ["-mg"])
         self.assertEqual([(r["exe"], r["before_game"]) for r in v["other_runs"]], [("rtinit", True)])
 
+    def test_een_variabele_voor_een_enkel_commando(self):
+        """`NAAM=waarde commando args`: zo start een kastscript zijn spel. De variabele bereikt het spel, en het
+        commando is een start -- niet een toekenning van de hele regel."""
+        self.zet("pm/game2")
+        script = self.zet("utils/run_game.sh",
+                          "GAMEDIR=/pm\nSCREEN_RES=1920x1080\ncd /pm\n"
+                          "LD_PRELOAD=/pm/hulp.so ${GAMEDIR}/game2 -f${SCREEN_RES} -n\n"
+                          "A=1 B='twee woorden' /pm/utils/tool --x\n"
+                          "XRANDR=`which xrandr`\nRES=$(cat /pm/res | awk '{ print $3 }')\n")
+        f = ss.lees(script, self.tmp)
+        self.assertEqual([(r["exe"], r["args"]) for r in f["runs"]], [("game2", "-f1920x1080 -n"), ("tool", "--x")])
+        voor = [(e["name"], e["value"]) for e in f["env"] if e.get("for_command")]
+        self.assertEqual(voor, [("LD_PRELOAD", "/pm/hulp.so"), ("A", "1"), ("B", "twee woorden")])
+        gewoon = {e["name"]: e["value"] for e in f["env"] if not e.get("for_command")}
+        self.assertEqual(gewoon.get("XRANDR"), "`which xrandr`")      # een toekenning met spaties in de waarde, geen commando
+        self.assertTrue(gewoon.get("RES", "").startswith("$(cat"))
+        self.assertEqual(f["runs"][0]["cwd"], "pm")
+        # en in de vergelijking: de variabele telt als iets dat het spel bereikt
+        v = ss.vergelijk(f, {"env": {}, "starts": [{"name": "game2", "role": "main", "exe": os.path.join(self.tmp, "pm/game2"),
+                                                    "args": {"list": ["-n"]}}], "_script_root": self.tmp})
+        self.assertIn("LD_PRELOAD", [e["name"] for e in v["env_missing"]])
+        self.assertEqual(v["args_missing"], ["-f1920x1080"])
+
     def test_cp932_en_een_leeg_script(self):
         pad = os.path.join(self.tmp, "game.bat")
         with open(pad, "wb") as f:
