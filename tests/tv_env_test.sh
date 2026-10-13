@@ -45,6 +45,19 @@ UIT=$(tv -- sh -c 'echo "$DISPLAY|$XAUTHORITY|$WAYLAND_DISPLAY"; exit 7' 2>/dev/
 [[ $RC -eq 7 ]] || fail "-- CMD: de exitcode van het commando komt niet terug ($RC)"
 [[ "$UIT" == ":77|$T/run dir/xauth|wayland-9" ]] || fail "-- CMD: de omgeving klopt niet: $UIT"
 
+# 3b. -- CMD neemt het scherm: er staat een houder met het pid van het commando zelf (het commando neemt het proces over), met
+#     de starttijd van dat proces erin, zolang het commando loopt. Met --no-hold niet.
+HD="$T/run dir/ravengun/tv-hold"
+rm -rf "$HD"      # de houder van stap 3 staat er nog (dat proces is weg; het bord ruimt hem op, dit script niet)
+UIT=$(tv -- sh -c 'echo "$$"; ls "$XDG_RUNTIME_DIR/ravengun/tv-hold"; head -1 "$XDG_RUNTIME_DIR/ravengun/tv-hold/$$"; awk "{print \$22}" /proc/$$/stat' 2>/dev/null)
+PIDC=$(sed -n 1p <<<"$UIT")
+[[ -n "$PIDC" && "$(sed -n 2p <<<"$UIT")" == "$PIDC" && "$(wc -l <<<"$UIT")" -eq 4 ]] || fail "-- CMD: geen houder (precies een) met het pid van het commando: $UIT"
+[[ "$(sed -n 3p <<<"$UIT")" == "$(sed -n 4p <<<"$UIT")" && "$(sed -n 3p <<<"$UIT")" != 0 ]] || fail "-- CMD: de houder noemt niet de starttijd van het proces: $UIT"
+rm -rf "$HD"
+UIT=$(tv --no-hold -- sh -c 'ls "$XDG_RUNTIME_DIR/ravengun/tv-hold" 2>/dev/null | wc -l; exit 5' 2>/dev/null); RC=$?
+[[ $RC -eq 5 && "$UIT" == 0 ]] || fail "--no-hold: exitcode $RC, houders: $UIT"
+"$S" --no-hold >/dev/null 2>&1 && fail "--no-hold zonder -- CMD wordt geaccepteerd"
+
 # 4. Een scherm dat de verbinding weigert: luid stoppen, het commando NIET starten.
 nep_xrandr 1
 ERR=$(tv -- sh -c "touch '$T/gestart'" 2>&1); RC=$?

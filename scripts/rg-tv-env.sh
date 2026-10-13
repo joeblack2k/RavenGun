@@ -8,7 +8,16 @@
 # Gebruik:
 #   scripts/rg-tv-env.sh                 de export-regels (voor: eval "$(scripts/rg-tv-env.sh)")
 #   scripts/rg-tv-env.sh --check         hetzelfde, en controleer dat het scherm echt bereikbaar is (xrandr)
-#   scripts/rg-tv-env.sh -- CMD [ARG..]  start CMD met die omgeving
+#   scripts/rg-tv-env.sh -- CMD [ARG..]  start CMD met die omgeving, en NEEM HET SCHERM: het statusbord gaat weg en blijft weg
+#                                        zolang CMD loopt (zie hieronder)
+#   scripts/rg-tv-env.sh --no-hold -- CMD  hetzelfde zonder het scherm te nemen (een schermafbeelding van het bord zelf)
+#
+# HET SCHERM NEMEN. Het statusbord (scripts/oled-saver.sh) is het rustscherm van de tv. Een run die hierlangs start heeft
+# beeld, dus het bord moet wijken -- anders ligt het bord over het spel en meet je het bord (gebeurd op 2026-10-13: acht
+# identieke opnames van de achtergrond van het bord). Daarom schrijft dit script voor de start een houder
+# ($XDG_RUNTIME_DIR/ravengun/tv-hold/<pid>, met de starttijd van het proces erin) en haalt het bord meteen weg. CMD neemt dit
+# proces over (exec), dus de houder geldt precies zolang CMD leeft; daarna ziet het bord dat het proces weg is, ruimt de
+# houder op en komt na zijn gewone wachttijd terug. Er is geen stap om te vergeten en niets om op te ruimen.
 #
 # Wordt er geen sessie gevonden, of is het scherm niet bereikbaar (--check en --), dan stopt het script met exitcode 1
 # en een melding. Het gaat nooit stil door: een run waarvan je denkt dat hij op de tv staat terwijl hij onzichtbaar
@@ -21,12 +30,13 @@ set -euo pipefail
 VARS=(DISPLAY XAUTHORITY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS)
 die() { echo "rg-tv-env: $*" >&2; exit 1; }
 
-MODE=print; CMD=()
+MODE=print; CMD=(); HOLD=1
+if [[ "${1:-}" == --no-hold ]]; then HOLD=0; shift; [[ "${1:-}" == -- ]] || die "--no-hold hoort voor -- CMD"; fi
 case "${1:-}" in
   "") ;;
   --check) MODE=check ;;
   --) shift; [[ $# -gt 0 ]] || die "na -- hoort een commando"; MODE=run; CMD=("$@") ;;
-  -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
   *) die "onbekende optie: $1 (zie --help)" ;;
 esac
 
@@ -88,6 +98,19 @@ case "$MODE" in
     for v in "${VARS[@]}"; do
       if [[ -n "${E[$v]:-}" ]]; then ENVV+=("$v=${E[$v]}"); fi
     done
+    if (( HOLD )); then
+      # De houder: ons pid (CMD neemt dit proces over) en de starttijd, zodat een later proces met hetzelfde pid niet telt.
+      HD="${E[XDG_RUNTIME_DIR]}/ravengun/tv-hold"
+      if mkdir -p "$HD" 2>/dev/null; then
+        { awk '{print $22}' "/proc/$$/stat" 2>/dev/null || echo 0; date +%H:%M:%S; printf '%s ' "${CMD[@]}"; echo; } > "$HD/$$" 2>/dev/null \
+          || echo "rg-tv-env: LET OP: de houder $HD/$$ is niet te schrijven; het statusbord kan over het spel heen liggen" >&2
+      else
+        echo "rg-tv-env: LET OP: $HD is niet te maken; het statusbord kan over het spel heen liggen" >&2
+      fi
+      # Het bord meteen weg, niet pas bij zijn volgende ronde (om de 3 s): anders liggen de eerste seconden van de run eronder.
+      SAVER="$(cd "$(dirname "$0")" && pwd)/oled-saver.sh"
+      if [[ -x "$SAVER" && -z "${RG_TV_ENV_FROM_PID:-}" ]]; then env XDG_RUNTIME_DIR="${E[XDG_RUNTIME_DIR]}" "$SAVER" --stop-view >/dev/null 2>&1 || true; fi
+    fi
     exec env "${ENVV[@]}" "${CMD[@]}"
     ;;
 esac

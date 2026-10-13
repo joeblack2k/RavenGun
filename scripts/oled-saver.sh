@@ -31,7 +31,25 @@ heeft_scherm() {
   [[ -r "$PROC/$1/environ" ]] || return 1
   tr '\0' '\n' < "$PROC/$1/environ" 2>/dev/null | grep -Eq '^(DISPLAY|WAYLAND_DISPLAY)=.' 
 }
+# Heeft een run het scherm genomen? scripts/rg-tv-env.sh schrijft voor een start met beeld een houder met het pid van die run
+# (en de starttijd van het proces, zodat een later proces met hetzelfde pid niet telt). Leeft dat proces, dan staat er een spel
+# op de tv, welk programma het ook is; een houder van een proces dat weg is wordt opgeruimd.
+HOLD_DIR="${RG_SAVER_HOLD_DIR:-$XDG_RUNTIME_DIR/ravengun/tv-hold}"
+scherm_genomen() {
+  local f pid start nu genomen=1
+  [[ -d "$HOLD_DIR" ]] || return 1
+  for f in "$HOLD_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    pid=${f##*/}; start=$(head -1 "$f" 2>/dev/null || true)
+    nu=""; if [[ -r "$PROC/$pid/stat" ]]; then nu=$(awk '{print $22}' "$PROC/$pid/stat" 2>/dev/null || true); fi
+    if [[ "$pid" =~ ^[0-9]+$ && -d "$PROC/$pid" && ( -z "$start" || "$start" == 0 || -z "$nu" || "$nu" == "$start" ) ]]; then genomen=0
+    else rm -f "$f" 2>/dev/null || true; fi
+  done
+  return $genomen
+}
 # geen | zichtbaar | onzichtbaar.
+#   0. Heeft een run het scherm genomen (een houder van rg-tv-env.sh met een levend proces), dan zichtbaar. Dit gaat voor alles:
+#      het hangt niet af van welk programma er draait.
 #   1. Een gamescope beslist als er een is: een gewone gamescope staat op de tv, een met `--backend headless` niet.
 #      (Wat BINNEN een headless gamescope draait heeft wel een DISPLAY, maar dat is het onzichtbare scherm van die gamescope.)
 #   2. Zonder gamescope: een start van ons (launch-direct.py --run, play-native.sh --game, een lader of Game.exe) telt als
@@ -39,6 +57,7 @@ heeft_scherm() {
 #   3. De eenheid van TeknoParrotUi telt als zichtbaar.
 game_state() {
   local gs_tv=0 gs_headless=0 met_scherm=0 zonder_scherm=0 pid args
+  if scherm_genomen; then echo zichtbaar; return; fi
   while read -r pid args; do
     [[ -n "$pid" && -n "${args:-}" ]] || continue
     case "$args" in

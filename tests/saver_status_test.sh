@@ -86,7 +86,7 @@ printf 'HOME=/x\0DISPLAY=:0\0' > "$T/proc/100/environ"       # een proces met ee
 printf 'HOME=/x\0PATH=/bin\0' > "$T/proc/200/environ"         # een proces zonder scherm
 staat() {   # $1 = verwacht; stdin = de proceslijst
   cat > "$T/ps.txt"
-  local uit; uit=$(RG_SAVER_PS_FILE="$T/ps.txt" RG_SAVER_PROC="$T/proc" "$O" --game-state 2>&1)
+  local uit; uit=$(RG_SAVER_PS_FILE="$T/ps.txt" RG_SAVER_PROC="$T/proc" RG_SAVER_HOLD_DIR="$T/hold" "$O" --game-state 2>&1)
   [[ "$uit" == "$1" ]] || fail "game-state: verwacht '$1', kreeg '$uit' bij: $(tr '\n' '|' < "$T/ps.txt")"
 }
 staat geen <<'EOF'
@@ -115,6 +115,26 @@ staat zichtbaar <<'EOF'
 300 /usr/bin/gamescope -W 1280 -H 720 -S fit -f --backend wayland -- /x/wine /x/BudgieLoader.exe Z:\game
 200 python3 -I /x/scripts/launch-direct.py Halo --run
 EOF
+
+# 7. Een run heeft het scherm genomen (de houder van scripts/rg-tv-env.sh): het bord wijkt, welk programma er ook draait --
+#    ook een dat het bord niet kent en dat zonder houder "geen spel" zou opleveren. Een houder van een proces dat weg is telt
+#    niet en wordt opgeruimd; een houder waarvan het pid nu van een ANDER proces is (andere starttijd) ook niet.
+mkdir -p "$T/hold" "$T/proc/300"
+printf 'x' > "$T/proc/300/environ"; printf '300 (bash) S 1 300 300 0 -1 4194304 0 0 0 0 0 0 0 0 20 0 1 0 5555 1 1\n' > "$T/proc/300/stat"
+ONBEKEND=$'1 /usr/lib/systemd/systemd --user\n300 /bin/bash /tmp/x/binnen.sh\n301 /x/rg-elfloader /tmp/x/view/game'
+staat geen <<<"$ONBEKEND"                                   # zonder houder: het bord kent dit programma niet
+printf '5555\n13:57:00\n/bin/bash /tmp/x/binnen.sh \n' > "$T/hold/300"
+staat zichtbaar <<<"$ONBEKEND"                              # met een levende houder: het bord wijkt
+[[ -f "$T/hold/300" ]] || fail "een levende houder is weggehaald"
+printf '4444\n13:57:00\niets anders \n' > "$T/hold/300"       # hetzelfde pid, een andere starttijd: een ander proces
+staat geen <<<"$ONBEKEND"
+[[ ! -e "$T/hold/300" ]] || fail "een houder van een ander proces met hetzelfde pid is niet opgeruimd"
+printf '1\n13:57:00\nweg \n' > "$T/hold/999"                  # het proces bestaat niet meer
+staat geen <<<"$ONBEKEND"
+[[ ! -e "$T/hold/999" ]] || fail "een houder van een proces dat weg is, is niet opgeruimd"
+printf '5555\n13:57:00\n/bin/bash /tmp/x/binnen.sh \n' > "$T/hold/300"
+staat zichtbaar <<<$'1 /usr/lib/systemd/systemd --user\n300 /bin/bash /tmp/x/binnen.sh\n70 gamescope --backend headless -W 1920 -H 1080 -- x'
+rm -f "$T/hold/300"
 
 [[ $FAILS -eq 0 ]] || { echo "$FAILS fout(en)"; exit 1; }
 echo "ok: het statusbord keurt onzin af, schrijft alleen wat klopt, en weet of er een spel draait"
