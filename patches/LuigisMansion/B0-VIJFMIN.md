@@ -788,6 +788,58 @@ En zoals eerder opgeschreven: **een echte TV-run is NIET te vergelijken met de h
 resolutie, geluid, en het laden van films en muziek zit in hetzelfde venster dat we meten. Hij antwoordt
 "toont het beeld en hoe lang leeft het", niet de 0,2 s.
 
+## NEGENDE STAND 2026-10-13: de scoreboard van het officiele startscript, en twee dingen die al gedaan zijn
+
+### De vier stappen van `game.bat`, een voor een afgevinkt
+
+| stap uit `game.bat` | uitkomst | cijfers |
+|---|---|---|
+| `set GAMEID=SDCF` | **NEGATIEF** | onze kern (`fe2ecf8c`, uit launch-direct's eigen log), vrijgegeven <= 5,8 s, dood op **6,0 s** |
+| `sendFlash COM1 LMAIO.bin` | **INERT** | exitcode **0**, 35 B in vijf blokken `/i\n/e\n\x03`, niets terug; de firmware van 140.688 B wordt **nooit** verzonden |
+| `Y:\SDCF` klaarzetten | **NEGATIEF** | vrijgegeven 6,2 s met `.text 10,0 % nul` (ontpakken KLAAR), dood op **6,5 s** |
+| starten vanaf `X:\exe\x64\` | **NIET MEETBAAR** | zie hieronder -- geblokkeerd door een gat in ONZE launcher, niet door het spel |
+
+**Drie van de vier stappen zijn dus goedkoop weggestreept.** Voor `Y:\SDCF` is alleen de map aangemaakt
+die patch 0004 voor die letter aanhoudt (`views/.../exe/x64/TeknoParrot/Y/SDCF`); er is **niets gewist**,
+omdat er geen echte `Y:`-schijf is en het doel van een wipe dus onduidelijk was.
+
+**Waarom `X:\` niet meetbaar is:** `launch-direct.py` leidt de executable uit de view af en heeft **geen
+overschrijving voor het exe-pad**. De schijfletter doet er alleen toe als *het pad dat wij de lader geven*,
+dus die test vraagt een directe lader-aanroep waarin de hulpketen (`rg-jvsbridge`, `TP_LAUNCH_SESSION_ID`,
+de juiste prefix en werkmap) opnieuw opgebouwd moet worden -- precies de route die eerder met **exitcode 5**
+stukliep. Een run zo gedaan zou om een andere reden mislukken of niet de werkende route zijn. **Er is een
+`--exe`-overschrijving bij de laderbouwer neergelegd;** daarna is dit een enkele schone run met
+`ln -s <view> dosdevices/x:` na het opwarmen van de wineserver en een opruimstap die de koppeling weghaalt
+(een blijvende `x:` verandert elke latere run in dat prefix).
+
+### Twee dingen die ik als "nog te doen" had opgeschreven maar die AL GEDAAN zijn
+
+1. **De achtste stand staat in dit dossier.** Mijn transfer van de fixer mislukte op een quoting-fout, maar
+   de cooerdinator heeft het bestand daarna zelf naar de Deck gekopieerd en gedraaid: `grep -c 'ACHTSTE STAND'`
+   geeft 1. Daarin staan: sendFlash inert, GAMEID negatief, de exit-trace-run met de 128 regels en het
+   formaat, het juiste pad van het trace-logboek, en de systemd-valkuil die mijn TV-run stil headless maakte.
+2. **De 128 exit-trace-regels zijn gelezen** -- door de cooerdinator en daarna door de partij die het
+   exitbesluit analyseert. Het resultaat staat in **`EXITBESLUIT.md` Â§8**: de exit komt van **binnen de
+   gevirtualiseerde functie met tag `0x919e48fe`**, die precies **een** aanroeper heeft, en de waarde die als
+   exitcode werd doorgegeven is een **RESTWAARDE in `rcx`** (een vtable-aanwijzer) -- **geen foutcode**.
+   Met andere woorden: **exitcode 32 is geen zinvolle foutcode** maar de rest van een register op het moment
+   van de aanroep. Het volgende meetstapje is een **logpunt op `0x14011c5f0` dat `rcx` leest**; dat
+   gereedschap bouwt de heeftphook-specialist (log-only modus, alleen registers vastleggen).
+
+   Dit zet ook mijn eigen eerdere aantekening recht: ik schreef dat de 128 regels nog gelezen moesten worden.
+   Dat is dus niet meer zo.
+
+### Wat nu werkelijk openstaat
+
+1. **Kandidaat 2** (`X:\exe\x64\`): wacht op de `--exe`-overschrijving in de launcher.
+2. **De log-only meting op `0x14011c5f0`** die `rcx` vastlegt: wacht op het gereedschap van de
+   heeftphook-specialist. Doel: bevestigen dat `rcx == 0x140415820` op het moment van de exit, waarmee de
+   exitcode-vraag in een meting gesloten is.
+3. **De zesvoudige blootstellingsvraag** (mijn ~0,2 s tegen de 1,26 s van de analist): nog niet beslecht;
+   twee armen met een verschillend zwaar harnas, dezelfde kern, zouden dat scheiden.
+4. **De lat zelf: 5 minuten op ONZE kern.** De omgeving laat het toe (baseline met de gesloten kern: 300 s),
+   het ontpakken lukt op onze kern, en de dood valt ongeveer 0,2 s daarna. Daar zit het werk.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

@@ -563,12 +563,36 @@ edit is durable; and the migration script preserves comments, so the explanation
 |---|---|---|
 | `ravengun_hid_board_tests` | 55 checks / 0 failed | **111 checks / 0 failed** |
 | `ravengun_iobridge_tests` | **SegFault** (null deref in `render()`) | **22287 checks / 0 failed** |
-| whole `ctest` | 29/35 passed, **6** failed | **30/35 passed, 5 failed** |
+| whole `ctest` | 29/35 passed, **6** failed | **43/44 passed, 1 failed** (suite grew while other work landed; after the `Boards` extension the A/B with only these files at `HEAD` is identical — 43/44 both ways) |
 
-The five remaining failures are the pre-existing, unrelated ones and are **untouched**: `launch_direct` (in-flight
-`scripts/launch-direct.py`), `compat_list` ("docs/compatibility.md is out of date"), `gamesettings_tests`
-(`patches.ini` `Source`/`memory`), `ravengund_web` and `install` (missing `patches/LGI/game.ini` in the manifest).
-My earlier note calling these "the other four" was a miscount — there are **five**.
+The one remaining failure is `ravengun_install` (missing `patches/LGI/game.ini` in the installed manifest) and is
+**untouched**; the four I reported earlier (`launch_direct`, `compat_list`, `gamesettings_tests`, `ravengund_web`)
+were fixed by others while this work was in flight. My earlier note calling the untouched set "the other four" was
+a miscount at the time — it was five, and it is now one.
+
+**Where the board data lives — a recorded decision, not drift.** The board definitions (`SaeGunBoard`,
+`SaeIoBoard`) and the five measured responses live in the **loader repo** (`packaging/hid-boards.json`), read by
+`src/ravengund/main.cpp:528` through `load_text`, which prefers `packaging/<file>` in the data directory and
+otherwise falls back to the **asset baked into the daemon**. The per-game *choice* lives in the patch folder
+(`Board`/`Boards` in `patches/TransformersShadowsRising/game.ini`). `dropin/` is for **binary** drop-ins
+(`docs/dropins.md`) and the `kind` table (`hasp`, `matrix`, `region`, `sega-scan`, `amdaemon`) has **no board
+kind**, so there is no per-game route to ship a board definition today. **Decision: it stays in that shared
+registry,** because a board definition is *generic* data (axes, buttons, report shapes, responses) and not a
+game-specific fact; the per-game choice is in the patch folder, which is the agreement that counts. This is
+recorded so it is a deliberate choice rather than a creeping deviation — `SaeGunBoard` and
+`packaging/tp-shm-profiles.json` have the same status. **If a board definition ever exists that applies to one
+game only, a new dropin `kind` is the way** — and that would then be a decision with a reason instead of habit.
+
+**Two config facts worth keeping, because they are easy to confuse.** (1) `Executable =
+shell.exe;Transformers2.exe` is **not** the loader's two-executable mechanism: that is `HasTwoExecutables` with
+`Executable2` (HOTDSD's `amdaemon.exe`), which `launch-direct.py` **refuses** — hence HOTDSD sits in
+`STARTTEST.md` as `niet-gestart` with "profielen met twee exe's worden". Here `Executable` is the TeknoParrot
+profile's *name list*, the loader starts **one** process (`shell/Shell.exe`, chosen via `[Identify] Path`), and
+the **shell itself** then launches the game. That is exactly why this title reaches START and HOTDSD does not.
+(2) The existing STARTTEST row for this game measures **`Shell.exe`, not the game**: `starttest3.sh` derives its
+process pattern from `launch-direct.py <Game> --plan`'s `game:` line, which is `[Identify] Path`. That the shell
+then starts `Transformers2.exe` is known only from `Mainthread - <datum>.log`. **The second process has never
+been measured**, and measuring it is the core of the verification run.
 
 **The schema decision is now built, not pending.** The response table above is exactly the shape you approved, and
 the run can therefore confirm the *whole* sequence, not just the first request.
@@ -736,6 +760,13 @@ names, `tool-tsr-strings.py` dumps strings by VA range, `tool-tsr-hit-table.py` 
 payload, and `tool-tsr-dis-ioboard.sh` wraps `objdump` over the IOBoard region.)
 
 ### 7.b The run — this is now the next measurement; needs the bench, please schedule it
+
+> **Voorbereiding apart:** de concrete opzet, de commando's, de vier uitkomsten (a–d) met hun betekenis, en
+> wat deze run toevoegt ten opzichte van wat de eigenaar al zag, staan in
+> `patches/TransformersShadowsRising/VERIFICATIERUN.md`. Kort samengevat: `starttest3.sh` meet het
+> **tweede** proces niet (het patroon komt uit `[Identify] Path`, dus `Shell.exe`), en het IO-bord wordt in
+> de huidige configuratie niet eens aangemaakt (`start_hid_board` neemt één bord), dus het IO-borddeel van
+> deze run vereist eerst de `Boards`-uitbreiding.
 
 Steps 9–11 are **done** (§3.5), so this run is a **full confirmation**: the board can be found, it answers, and the
 daemon logs each answer. With `SaeIoBoard` active as a **`uhid`** board (so `/dev/uhid` traffic is visible) and the
