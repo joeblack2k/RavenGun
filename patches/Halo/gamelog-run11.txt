@@ -1,0 +1,391 @@
+Sat Oct 10 17:31:33 2026: -------------------------------------------------------------------------------
+Sat Oct 10 17:31:33 2026: Welcome to Halo v03.11
+Sat Oct 10 17:31:33 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Sat Oct 10 17:32:03 2026: FileTest Reported 1 errd files at startup!
+Sat Oct 10 17:32:03 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Sat Oct 10 17:32:05 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:32:05 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:32:05 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:32:05 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:32:05 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Sat Oct 10 17:32:05 2026: Failed to load FMOD sound bank: perm (ec 52)
+Sat Oct 10 17:32:07 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Sat Oct 10 17:32:07 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Sat Oct 10 17:32:09 2026: Network initialization completed.
+Sat Oct 10 17:32:10 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Sat Oct 10 17:32:56 2026: Failed to load FMOD sound bank: attract (ec 52)
+Sat Oct 10 17:33:14 2026: Failed to load FMOD sound bank: level1 (ec 52)
+Sat Oct 10 17:33:46 2026: *****************************************************
+Sat Oct 10 17:33:46 2026:  Received FATAL signal SIGTERM (15)
+Sat Oct 10 17:33:46 2026: *****************************************************
+Sat Oct 10 17:33:46 2026: si_signo: 15    si_code: SEGV_ACCERR   si_errno: 0
+Sat Oct 10 17:33:46 2026: si_pid:   0    si_uid:  1000   si_addr:   0x3e800000000
+Sat Oct 10 17:33:46 2026: si_status: 0   si_band: 4294967296000
+Sat Oct 10 17:33:46 2026: uc_flags: 0x7   ss_sp: (nil)   ss_size: 0   ss_flags: 0x2
+Sat Oct 10 17:33:46 2026: General Registers:
+Sat Oct 10 17:33:46 2026: 	     GS: 0x0
+Sat Oct 10 17:33:46 2026: 	     FS: 0x0
+Sat Oct 10 17:33:46 2026: 	     ES: 0x0
+Sat Oct 10 17:33:46 2026: 	     DS: 0x246
+Sat Oct 10 17:33:46 2026: 	    EDI: 0x0
+Sat Oct 10 17:33:46 2026: 	    ESI: 0x0
+Sat Oct 10 17:33:46 2026: 	    EBP: 0x1fd82268
+Sat Oct 10 17:33:46 2026: 	    ESP: 0x783099d8
+Sat Oct 10 17:33:46 2026: 	    EBX: 0x783099d8
+Sat Oct 10 17:33:46 2026: 	    EDX: 0x1
+Sat Oct 10 17:33:46 2026: 	    ECX: 0x78309980
+Sat Oct 10 17:33:46 2026: 	    EAX: 0x2023c160
+Sat Oct 10 17:33:46 2026: 	 TRAPNO: 0xffffffff
+Sat Oct 10 17:33:46 2026: 	    ERR: 0xfffffffc
+Sat Oct 10 17:33:46 2026: 	    EIP: 0xd89fff2
+Sat Oct 10 17:33:46 2026: 	     CS: 0x78309958
+Sat Oct 10 17:33:46 2026: 	    EFL: 0xd89fff2
+Sat Oct 10 17:33:46 2026: 	   UESP: 0x246
+Sat Oct 10 17:33:46 2026: 	     SS: 0x33
+Sat Oct 10 17:33:46 2026: ############ STACK TRACE ############
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x9fff2) [0x7f6f0d89fff2]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x3e270) [0x7f6f0d83e270]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x9fff2) [0x7f6f0d89fff2]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x9403c) [0x7f6f0d89403c]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x94084) [0x7f6f0d894084]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(poll+0x1e) [0x7f6f0d90e68e]
+Sat Oct 10 17:33:46 2026: /usr/lib/libxcb.so.1(+0xd20b) [0x7f6f0df0020b]
+Sat Oct 10 17:33:46 2026: /usr/lib/libxcb.so.1(xcb_wait_for_special_event+0x9b) [0x7f6f0df0229b]
+Sat Oct 10 17:33:46 2026: /usr/lib/libgallium-26.1.2.so(+0x29968) [0x7f6e39a29968]
+Sat Oct 10 17:33:46 2026: /usr/lib/libgallium-26.1.2.so(loader_dri3_swap_buffers_msc+0x8aa) [0x7f6e39a2baea]
+Sat Oct 10 17:33:46 2026: /usr/lib/libGLX_mesa.so.0(+0x29cb6) [0x7f6e415aacb6]
+Sat Oct 10 17:33:46 2026: /usr/lib/libGLX_mesa.so.0(+0x1ae7f) [0x7f6e4159be7f]
+Sat Oct 10 17:33:46 2026: /pm/g7/halo/game() [0x4b186d]
+Sat Oct 10 17:33:46 2026: /pm/g7/halo/game() [0x54d9f3]
+Sat Oct 10 17:33:46 2026: /pm/g7/halo/game() [0x413eba]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(+0x27741) [0x7f6f0d827741]
+Sat Oct 10 17:33:46 2026: /usr/lib/libc.so.6(__libc_start_main+0x89) [0x7f6f0d827879]
+Sat Oct 10 17:33:46 2026: /pm/g7/halo/game() [0x414629]
+Sat Oct 10 17:33:46 2026: ########## END STACK TRACE ##########
+Sat Oct 10 17:33:46 2026: Program exiting...
+Sat Oct 10 17:33:46 2026: *****************************************************
+Tue Oct 13 08:57:21 2026: -------------------------------------------------------------------------------
+Tue Oct 13 08:57:21 2026: Welcome to Halo v03.11
+Tue Oct 13 08:57:21 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:04:31 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:04:31 2026: Welcome to Halo v03.11
+Tue Oct 13 10:04:31 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:25:45 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:25:45 2026: Welcome to Halo v03.11
+Tue Oct 13 10:25:45 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:26:05 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 10:26:05 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 10:26:14 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:26:14 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:26:14 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:26:14 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:26:14 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:26:22 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 10:26:25 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 10:26:25 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 10:26:27 2026: Network initialization completed.
+Tue Oct 13 10:26:27 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 10:28:43 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:28:43 2026: Welcome to Halo v03.11
+Tue Oct 13 10:28:43 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:30:08 2026: *****************************************************
+Tue Oct 13 10:30:08 2026:  Received FATAL signal SIGBUS (7)
+Tue Oct 13 10:30:08 2026: *****************************************************
+Tue Oct 13 10:30:08 2026: si_signo: 7    si_code: SEGV_ACCERR   si_errno: 0
+Tue Oct 13 10:30:08 2026: si_pid:   1526972424    si_uid:  32515   si_addr:   0x7f035b03c008
+Tue Oct 13 10:30:08 2026: si_status: 0   si_band: 139652388601864
+Tue Oct 13 10:30:08 2026: uc_flags: 0x7   ss_sp: (nil)   ss_size: 0   ss_flags: 0x2
+Tue Oct 13 10:30:08 2026: General Registers:
+Tue Oct 13 10:30:08 2026: 	     GS: 0x0
+Tue Oct 13 10:30:08 2026: 	     FS: 0x0
+Tue Oct 13 10:30:08 2026: 	     ES: 0x0
+Tue Oct 13 10:30:08 2026: 	     DS: 0x58ebd6c0
+Tue Oct 13 10:30:08 2026: 	    EDI: 0x58ebcc80
+Tue Oct 13 10:30:08 2026: 	    ESI: 0x58ebccf0
+Tue Oct 13 10:30:08 2026: 	    EBP: 0x0
+Tue Oct 13 10:30:08 2026: 	    ESP: 0x0
+Tue Oct 13 10:30:08 2026: 	    EBX: 0x5b03c000
+Tue Oct 13 10:30:08 2026: 	    EDX: 0x58ebcc40
+Tue Oct 13 10:30:08 2026: 	    ECX: 0x58ebcc00
+Tue Oct 13 10:30:08 2026: 	    EAX: 0x5b08d0c0
+Tue Oct 13 10:30:08 2026: 	 TRAPNO: 0x0
+Tue Oct 13 10:30:08 2026: 	    ERR: 0x0
+Tue Oct 13 10:30:08 2026: 	    EIP: 0x596134a0
+Tue Oct 13 10:30:08 2026: 	     CS: 0x58ebcb60
+Tue Oct 13 10:30:08 2026: 	    EFL: 0x5b089f44
+Tue Oct 13 10:30:08 2026: 	   UESP: 0x10246
+Tue Oct 13 10:30:08 2026: 	     SS: 0x33
+Tue Oct 13 10:30:08 2026: ############ STACK TRACE ############
+Tue Oct 13 10:30:08 2026: /rg/lib/librg_rt_input.so(+0x1f44) [0x7f035b089f44]
+Tue Oct 13 10:30:08 2026: /usr/lib/libc.so.6(+0x3e270) [0x7f035943e270]
+Tue Oct 13 10:30:08 2026: /rg/lib/librg_rt_input.so(+0x1f44) [0x7f035b089f44]
+Tue Oct 13 10:30:08 2026: /usr/lib/libc.so.6(+0x97739) [0x7f0359497739]
+Tue Oct 13 10:30:08 2026: /usr/lib/libc.so.6(+0x11bedc) [0x7f035951bedc]
+Tue Oct 13 10:30:08 2026: ########## END STACK TRACE ##########
+Tue Oct 13 10:30:08 2026: Program exiting...
+Tue Oct 13 10:30:08 2026: *****************************************************
+Tue Oct 13 10:44:37 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:44:37 2026: Welcome to Halo v03.11
+Tue Oct 13 10:44:37 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:44:56 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 10:44:57 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 10:45:06 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:45:06 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:45:06 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:45:06 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:45:06 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:45:15 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 10:45:17 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 10:45:17 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 10:45:20 2026: Network initialization completed.
+Tue Oct 13 10:45:20 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 10:47:54 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:47:54 2026: Welcome to Halo v03.11
+Tue Oct 13 10:47:54 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:52:23 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:52:23 2026: Welcome to Halo v03.11
+Tue Oct 13 10:52:23 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:58:31 2026: -------------------------------------------------------------------------------
+Tue Oct 13 10:58:31 2026: Welcome to Halo v03.11
+Tue Oct 13 10:58:31 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 10:58:42 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 10:58:44 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 10:58:55 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:58:55 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:58:55 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:58:55 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:58:55 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 10:59:04 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 10:59:06 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 10:59:06 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 10:59:09 2026: Network initialization completed.
+Tue Oct 13 10:59:09 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 11:10:54 2026: -------------------------------------------------------------------------------
+Tue Oct 13 11:10:54 2026: Welcome to Halo v03.11
+Tue Oct 13 11:10:54 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 11:11:05 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 11:11:06 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 11:11:13 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:11:13 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:11:13 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:11:13 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:11:13 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:11:20 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 11:11:23 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 11:11:23 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 11:11:25 2026: Network initialization completed.
+Tue Oct 13 11:11:25 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 11:19:06 2026: -------------------------------------------------------------------------------
+Tue Oct 13 11:19:06 2026: Welcome to Halo v03.11
+Tue Oct 13 11:19:06 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 11:19:18 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 11:19:18 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 11:19:25 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:19:26 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:19:26 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:19:26 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:19:26 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:19:33 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 11:19:35 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 11:19:35 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 11:19:37 2026: Network initialization completed.
+Tue Oct 13 11:19:37 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 11:19:50 2026: *****************************************************
+Tue Oct 13 11:19:50 2026:  Received FATAL signal SIGTERM (15)
+Tue Oct 13 11:19:50 2026: *****************************************************
+Tue Oct 13 11:19:50 2026: si_signo: 15    si_code: SEGV_ACCERR   si_errno: 0
+Tue Oct 13 11:19:50 2026: si_pid:   0    si_uid:  1000   si_addr:   0x3e800000000
+Tue Oct 13 11:19:50 2026: si_status: 0   si_band: 4294967296000
+Tue Oct 13 11:19:50 2026: uc_flags: 0x7   ss_sp: (nil)   ss_size: 0   ss_flags: 0x2
+Tue Oct 13 11:19:50 2026: General Registers:
+Tue Oct 13 11:19:50 2026: 	     GS: 0x0
+Tue Oct 13 11:19:50 2026: 	     FS: 0x0
+Tue Oct 13 11:19:50 2026: 	     ES: 0x0
+Tue Oct 13 11:21:31 2026: -------------------------------------------------------------------------------
+Tue Oct 13 11:21:31 2026: Welcome to Halo v03.11
+Tue Oct 13 11:21:31 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 11:21:43 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 11:21:44 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 11:21:52 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:21:52 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:21:52 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:21:52 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:21:52 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:22:00 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 11:22:02 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 11:22:02 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 11:22:04 2026: Network initialization completed.
+Tue Oct 13 11:22:04 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 11:23:11 2026: *****************************************************
+Tue Oct 13 11:23:11 2026:  Received FATAL signal SIGTERM (15)
+Tue Oct 13 11:23:11 2026: *****************************************************
+Tue Oct 13 11:23:11 2026: si_signo: 15    si_code: SEGV_ACCERR   si_errno: 0
+Tue Oct 13 11:23:11 2026: si_pid:   0    si_uid:  1000   si_addr:   0x3e800000000
+Tue Oct 13 11:23:11 2026: si_status: 0   si_band: 4294967296000
+Tue Oct 13 11:23:11 2026: uc_flags: 0x7   ss_sp: (nil)   ss_size: 0   ss_flags: 0x2
+Tue Oct 13 11:23:11 2026: General Registers:
+Tue Oct 13 11:23:11 2026: 	     GS: 0x0
+Tue Oct 13 11:23:11 2026: 	     FS: 0x0
+Tue Oct 13 11:38:20 2026: -------------------------------------------------------------------------------
+Tue Oct 13 11:38:20 2026: Welcome to Halo v03.11
+Tue Oct 13 11:38:20 2026: Game Rev: 57529, Library Rev: 1412, Country Code: 48
+FileTest Failure: '/pm/g7/halo/game'
+Tue Oct 13 11:38:31 2026: FileTest Reported 1 errd files at startup!
+Tue Oct 13 11:38:32 2026: FMOD - Error initializing! Code: 52 - The output device has no drivers installed.  If pre-init, FMOD_OUTPUT_NOSOUND is selected as the output mode.  If post-init, the function just fails.
+Tue Oct 13 11:38:41 2026: Failed to load shader: cov_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:38:41 2026: Failed to load shader: elite_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:38:41 2026: Failed to load shader: energy_sword (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:38:41 2026: Failed to load shader: jackal_shield (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:38:41 2026: Failed to load shader: spirit_energy (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 11:38:49 2026: Failed to load FMOD sound bank: perm (ec 52)
+Tue Oct 13 11:38:51 2026: Webcam: Could not ID device for player 0 (0, 0, 0, 0)
+Tue Oct 13 11:38:51 2026: Webcam: Aborting auto-id. All webcams reported brightness difference of 0.
+Tue Oct 13 11:38:54 2026: Network initialization completed.
+Tue Oct 13 11:38:54 2026: System set up periodic reboot after 43200 sec with code 223 at 5:00 hour
+Tue Oct 13 11:39:41 2026: Failed to load FMOD sound bank: attract (ec 52)
+Tue Oct 13 11:40:05 2026: Failed to load FMOD sound bank: level1 (ec 52)
+Tue Oct 13 11:40:17 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:17 2026: time: 93092266, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092249, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092232, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092216, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092199, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092182, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092166, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092149, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092132, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092116, pressed: 1
+Tue Oct 13 11:40:17 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:17 2026: time: 93092282, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092266, pressed: 0
+Tue Oct 13 11:40:17 2026: time: 93092249, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092232, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092216, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092199, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092182, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092166, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092149, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092132, pressed: 1
+Tue Oct 13 11:40:17 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:17 2026: time: 93092432, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092416, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092399, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092382, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092366, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092349, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092332, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092316, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092299, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092282, pressed: 0
+Tue Oct 13 11:40:17 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:17 2026: time: 93092449, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092432, pressed: 0
+Tue Oct 13 11:40:17 2026: time: 93092416, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092399, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092382, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092366, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092349, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092332, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092316, pressed: 1
+Tue Oct 13 11:40:17 2026: time: 93092299, pressed: 1
+Tue Oct 13 11:40:23 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:23 2026: time: 93098199, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098182, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098166, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098149, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098132, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098116, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098099, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098082, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098066, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098049, pressed: 1
+Tue Oct 13 11:40:23 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:23 2026: time: 93098216, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098199, pressed: 0
+Tue Oct 13 11:40:23 2026: time: 93098182, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098166, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098149, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098132, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098116, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098099, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098082, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098066, pressed: 1
+Tue Oct 13 11:40:23 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:23 2026: time: 93098366, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098349, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098332, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098316, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098299, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098282, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098266, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098249, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098232, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098216, pressed: 0
+Tue Oct 13 11:40:23 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:23 2026: time: 93098382, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098366, pressed: 0
+Tue Oct 13 11:40:23 2026: time: 93098349, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098332, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098316, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098299, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098282, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098266, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098249, pressed: 1
+Tue Oct 13 11:40:23 2026: time: 93098232, pressed: 1
+Tue Oct 13 11:40:29 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:29 2026: time: 93104116, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104099, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104083, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104066, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104049, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104033, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104016, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93103999, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93103983, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93103966, pressed: 1
+Tue Oct 13 11:40:29 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:29 2026: time: 93104133, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104116, pressed: 0
+Tue Oct 13 11:40:29 2026: time: 93104099, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104083, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104066, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104049, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104033, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104016, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93103999, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93103983, pressed: 1
+Tue Oct 13 11:40:29 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:29 2026: time: 93104283, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104266, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104249, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104233, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104216, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104199, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104183, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104166, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104149, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104133, pressed: 0
+Tue Oct 13 11:40:29 2026: WARNING: Detected more coin pulses than safely allowed on cashbox 0 coin 1!
+Tue Oct 13 11:40:29 2026: time: 93104299, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104283, pressed: 0
+Tue Oct 13 11:40:29 2026: time: 93104266, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104249, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104233, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104216, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104199, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104183, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104166, pressed: 1
+Tue Oct 13 11:40:29 2026: time: 93104149, pressed: 1
+Tue Oct 13 11:41:12 2026: Failed to load FMOD sound bank: level2 (ec 52)

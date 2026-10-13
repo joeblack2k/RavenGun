@@ -1,0 +1,36 @@
+  *** FileTest geeindigd na 1 START-pulsen (t=13s)
+  FileTest Reported staat erin
+  game-pid=884156; kalibratiescherm zou er moeten staan (t=38s)
+    bord 0 k=4: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+    bord 1 k=4: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+    bord 2 k=4: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+    bord 3 k=4: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+  t=38s TEST-puls 1 (alle vier borden)
+    gamelog: 256 regels
+  t=45s TEST-puls 2 (alle vier borden)
+    gamelog: 256 regels
+  t=53s TEST-puls 3 (alle vier borden)
+    gamelog: 256 regels
+  t=60s TEST-puls 4 (alle vier borden)
+    gamelog: 256 regels
+  t=67s TEST-puls 5 (alle vier borden)
+    gamelog: 256 regels
+  t=75s TEST-puls 6 (alle vier borden)
+    gamelog: 256 regels
+    bord 0 k=4: 00000001 00000000 00000000 00000000 00000000 00000000 00000006 00000006
+    bord 1 k=4: 00000001 00000000 00000000 00000000 00000000 00000000 00000006 00000006
+    bord 2 k=4: 00000001 00000000 00000000 00000000 00000000 00000000 00000006 00000006
+    bord 3 k=4: 00000001 00000000 00000000 00000000 00000000 00000000 00000006 00000006
+  t=82s START-puls 1
+    gamelog: 257 regels
+  t=89s START-puls 2
+    gamelog: 257 regels
+  t=97s START-puls 3
+    gamelog: 257 regels
+  t=104s START-puls 4
+    gamelog: 258 regels
+  t=111s munt-puls 1
+  t=117s munt-puls 2
+  t=123s munt-puls 3
+  t=129s munt-puls 4
+  gamelog aan het eind: 390 regels
