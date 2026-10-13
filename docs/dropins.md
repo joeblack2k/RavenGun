@@ -95,9 +95,60 @@ De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. C
 `scripts/launch-direct.py <Game> --plan`: bij `dropins` staat per bestand de `dest`.
 | `DllOverride` | waarde voor `WINEDLLOVERRIDES`: `native` zet `<naam>=n`, `builtin,native` zet `<naam>=n,b` |
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
-| `Preload` | `true` als dit bestand in het **ELF-proces** van de game geladen moet worden |
+| `Preload` | `true` als dit bestand in het **proces van de game** geladen moet worden (ELF of Windows-spel; zie "in welke variabele het pad belandt" hieronder) |
 
 | `Audit` | `false` als dit bestand **niet** in `LD_AUDIT` mag (zie hieronder); standaard `true` |
+
+### `Preload = true` — in welke variabele het pad belandt
+
+`Preload = true` betekent "dit bestand moet in het proces van de game geladen worden". Hoe dat gaat hangt
+af van hoe de game start, en de launcher kiest de variabele die op die route **werkelijk gelezen wordt**:
+
+| Route | Variabele | Formaat | Wie laadt het |
+|---|---|---|---|
+| Windows-spel onder Wine via `OpenParrotLoader(64).exe` (`Type = OpenParrot`, `TeknoParrot`) | `TP_PRELOAD_DLL` | **één** Wine-pad, `Z:\...\naam.dll` | de lader, na de kern en voordat het spel verdergaat (`OpenParrotLoader/src/main.cpp`) |
+| Linux-ELF onder Wine (`ElfLdr2`, `N2`, Lindbergh) | `LD_AUDIT` | paden met `:` ertussen | glibc, in het proces van de Cygwin-lader |
+| echte native start | `LD_PRELOAD` | paden met `:` ertussen | de dynamische linker |
+
+Het pad staat daarnaast altijd in `RG_DROPIN_PRELOAD`, voor de native route en de eigen ELF-lader. Op de
+Wine-routes leest **niemand** die variabele: een bestand dat alleen daar staat wordt niet geladen.
+
+`TP_PRELOAD_DLL` neemt precies één DLL, zonder scheidingsteken, en de lader geeft het pad door aan
+`LoadLibraryW` in het spelproces; daarom een Wine-pad en geen pad met schuine strepen. Bestaat het
+bestand niet of laadt het niet, dan beëindigt de lader het spel en geeft hij zelf 0 terug. Twee
+`Preload = true`-bestanden voor één Windows-spel, een lader die de variabele niet leest
+(`OpenParrotKonamiLoader.exe`, `TeknoMacaw`), of een `TP_PRELOAD_DLL` die al anders gezet is
+(`--env`), zijn daarom **fouten** in het plan.
+
+`--plan` zegt per bestand waar het belandt en of het geladen wordt:
+
+```
+drop-in: preload: rg-pe-hook.dll -> TP_PRELOAD_DLL=Z:\home\...\views\LuigisMansion\exe\x64\rg-pe-hook.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)
+drop-in: preload: libravengun-hasphook.so -> alleen RG_DROPIN_PRELOAD=...; WORDT NIET GELADEN door NIEMAND op deze route: ...
+```
+
+In `--plan --json` staat hetzelfde als `dropins.preload_env`: per bestand `var`, `value`, `loads` en `by`.
+
+*Gemeten op 2026-10-13 (Luigi's Mansion): tot dan zette de launcher het pad op de Wine-route alleen in
+`RG_DROPIN_PRELOAD`, en het spelproces had 0 van de 2 drop-in-bestanden in `/proc/<pid>/maps`.*
+
+### Een drop-in die niet geplaatst kan worden is een fout, geen waarschuwing
+
+Een run zonder zijn drop-in is een ongeldige run. Elke fout van de drop-in-motor (bestand ontbreekt in
+`dropin/`, doel buiten de view, geen view, geen kanaal voor de preload) staat in `--plan` als
+`drop-in: FOUT: ...`, en `--plan`, `--check` en `--run` geven dan exitcode 5 (zoals een geweigerde
+patch: niet starten en niet terugvallen op TeknoParrotUi). Lukt het plaatsen tijdens `--run` alsnog
+niet, dan stopt de launcher vóór hij iets start.
+
+**De view en de map van de exe.** Een view is een map met symlinks naar de NAS. Loopt de weg van de
+wortel van de view naar het doel via een symlink naar een map (ook **boven** de map van de exe:
+`views/LuigisMansion/exe` was een symlink en de game staat in `exe/x64`), dan maakt de launcher die
+mappen eerst lokaal: een echte map met symlinks naar de inhoud. `--plan` noemt ze
+(`dropins.materialise`). `scripts/tp-add-game.py --view` doet hetzelfde al bij het maken van de view
+voor de hele weg naar de exe, zodat het niet meer met de hand hoeft. Wat niet kan en dus een fout is:
+iets op die weg dat geen map is, of een view die zelf een symlink is. Gevolg om te kennen: een bestand
+dat het spel **nieuw** aanmaakt in een lokaal gemaakte map blijft in de view; bestaande bestanden zijn
+symlinks en gaan nog naar de NAS.
 
 ### `Audit = false` — wanneer een bibliotheek NIET in `LD_AUDIT` mag
 

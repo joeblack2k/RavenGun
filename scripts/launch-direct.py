@@ -411,7 +411,62 @@ def _binnen(path, base):
     return p == b or p.startswith(b + os.sep)
 
 
-def dropin_materialiseer(base, dest, log=None):
+def view_wortel(base):
+    """De wortel van de view waar `base` in ligt: views/<Game>. Ligt `base` niet onder de views-map (een
+    game in een gewone lokale map), dan is `base` zelf de wortel."""
+    views = os.path.abspath(op.views_dir())
+    b = os.path.abspath(base)
+    if b != views and _binnen(b, views):
+        return os.path.join(views, os.path.relpath(b, views).split(os.sep)[0])
+    return b
+
+
+def _dropin_keten(base, dest, wortel):
+    """(wortel, [padonderdelen van de wortel tot en met de map van dest]) of (None, foutmelding)."""
+    base = os.path.abspath(base)
+    dest = os.path.abspath(dest)
+    wortel = os.path.abspath(wortel) if wortel else base
+    if not _binnen(dest, base):
+        return None, "het doel %s ligt buiten de view %s" % (dest, base)
+    if not _binnen(base, wortel):
+        return None, "de gamemap %s ligt buiten de view %s" % (base, wortel)
+    if wortel != base and os.path.islink(wortel):
+        return None, "de view %s is zelf een symlink (naar %s); maak de view opnieuw" % (wortel, os.path.realpath(wortel))
+    rel = os.path.relpath(os.path.dirname(dest), wortel)
+    return wortel, ([] if rel == "." else rel.split(os.sep))
+
+
+def dropin_toets(base, dest, wortel=None):
+    """Kan `dest` lokaal in de view geplaatst worden? Verandert NIETS (voor --plan en voor de weigering
+    vooraf). Geeft (ok, melding, [mappen die run() eerst lokaal maakt]).
+
+    Een symlink naar een map op de weg is geen fout: die maakt dropin_materialiseer() lokaal. Wel fout:
+    een doel buiten de view, een view die zelf een symlink is, en iets op de weg dat geen map is of
+    een symlink naar iets dat geen map is. Dan komt het bestand nergens of buiten de view terecht, en
+    een run zonder zijn drop-in is een ongeldige run."""
+    wortel, delen = _dropin_keten(base, dest, wortel)
+    if wortel is None:
+        return False, delen, []
+    lokaal, cur, werkelijk, gevolgd = [], wortel, wortel, False
+    for deel in delen:
+        cur = os.path.join(cur, deel)
+        kandidaat = os.path.join(werkelijk, deel)
+        if not os.path.lexists(kandidaat):
+            break                       # bestaat nog niet: wordt een nieuwe lokale map, en alles eronder ook
+        if os.path.islink(kandidaat) or gevolgd:
+            doel = os.path.realpath(kandidaat)
+            if not os.path.isdir(doel):
+                return False, "%s wijst naar %s en dat is geen map" % (cur, doel), []
+            lokaal.append(cur)
+            werkelijk, gevolgd = doel, True
+        elif os.path.isdir(kandidaat):
+            werkelijk = kandidaat
+        else:
+            return False, "%s is een bestand, geen map" % cur, []
+    return True, "de map van %s is of wordt lokaal" % os.path.relpath(os.path.abspath(dest), wortel), lokaal
+
+
+def dropin_materialiseer(base, dest, log=None, wortel=None):
     """Zorg dat de map van `dest` een ECHTE map in de view is, ook als er een symlink naar de NAS
     tussen zit. Elke symlink-map op de weg wordt vervangen door een echte map met symlinks naar de
     inhoud, zodat alleen het drop-in-bestand zelf echt wordt en de rest hetzelfde blijft.
@@ -421,40 +476,41 @@ def dropin_materialiseer(base, dest, log=None):
     de NAS, en de regel "nooit naar de NAS schrijven" zou hem weigeren. In plaats van weigeren maken
     we de map lokaal -- dat is precies wat een view is.
 
+    `wortel` is de wortel van de view (view_wortel). De symlink kan ook BOVEN de gamemap zitten:
+    views/LuigisMansion/exe was een symlink naar de NAS en de game staat in exe/x64, dus een drop-in
+    met To = . kwam via `exe` op de NAS uit. Daarom loopt de weg vanaf de wortel en niet vanaf de
+    gamemap. Zonder `wortel` begint de weg bij `base` (zoals voorheen).
+
     Schrijft NOOIT op de NAS: er wordt alleen in de view gematerialiseerd en er wordt gecontroleerd
     dat de map van het doel daarna echt binnen de view uitkomt. Geeft (ok, melding)."""
-    base = os.path.abspath(base)
     dest = os.path.abspath(dest)
-    if not _binnen(dest, base):
-        return False, "het doel %s ligt buiten de view %s" % (dest, base)
-    ouder = os.path.dirname(dest)
-    rel = os.path.relpath(ouder, base)
-    delen = [] if rel == "." else rel.split(os.sep)
-    cur = base
+    wortel, delen = _dropin_keten(base, dest, wortel)
+    if wortel is None:
+        return False, delen
+    cur = wortel
     for deel in delen:
         cur = os.path.join(cur, deel)
         if os.path.islink(cur):
             doel = os.path.realpath(cur)
             if not os.path.isdir(doel):
                 return False, "%s is een symlink naar iets dat geen map is" % cur
-            tijdelijk = cur + ".ravengun-tmp"
-            if os.path.exists(tijdelijk):
-                shutil.rmtree(tijdelijk)
-            os.mkdir(tijdelijk)
-            for naam in os.listdir(doel):
-                os.symlink(os.path.join(doel, naam), os.path.join(tijdelijk, naam))
-            os.unlink(cur)
-            os.rename(tijdelijk, cur)
+            op.maak_map_lokaal(cur)
             if log:
                 log("%s was een symlink naar de NAS; vervangen door een echte map met symlinks"
-                    % os.path.relpath(cur, base))
+                    % os.path.relpath(cur, wortel))
+        elif os.path.lexists(cur) and not os.path.isdir(cur):
+            return False, "%s is een bestand, geen map" % cur
         elif not os.path.isdir(cur):
             os.makedirs(cur, exist_ok=True)
     if os.path.islink(dest):
         os.unlink(dest)
-    if not _binnen(os.path.realpath(os.path.dirname(dest)), base):
+    # De wortel zelf is geen symlink (hierboven getoetst); wat erboven ligt (bv. een gekoppelde
+    # thuismap) mag wel gevolgd worden. Begint de weg bij de gamemap, dan geldt die letterlijk.
+    anker = os.path.join(os.path.realpath(os.path.dirname(wortel)), os.path.basename(wortel)) \
+        if wortel != os.path.abspath(base) else wortel
+    if not _binnen(os.path.realpath(os.path.dirname(dest)), anker):
         return False, "de map van het doel %s komt na het materialiseren nog buiten de view uit" % dest
-    return True, "de map van %s is lokaal" % os.path.relpath(dest, base)
+    return True, "de map van %s is lokaal" % os.path.relpath(dest, wortel)
 
 
 def dropin_plan(plan):
@@ -471,8 +527,9 @@ def dropin_plan(plan):
     game = plan["profile"]
     specs, fouten = dropin_specs(game)
     base = os.path.dirname(plan["game"])
+    wortel = view_wortel(base)
     env, preload, overrides, bestanden = {}, [], [], []
-    audit, geen_audit = [], []
+    audit, geen_audit, materialiseren = [], [], []
     for s in specs:
         if not os.path.isfile(s["src"]):
             fouten.append("%s [%s]: %s ontbreekt in dropin/" % (s["ini"], s["name"], s["name"]))
@@ -496,6 +553,13 @@ def dropin_plan(plan):
             fouten.append("%s [%s]: het doel %s ligt buiten de view %s"
                           % (s["ini"], s["name"], dest, base))
             continue
+        # Vooraf toetsen of het bestand ook echt LOKAAL in de view kan komen. Kan dat niet, dan is het een
+        # fout en geen waarschuwing: de run zou doorgaan zonder zijn drop-in.
+        ok, waarom, lokaal = dropin_toets(base, dest, wortel)
+        if not ok:
+            fouten.append("%s [%s]: niet te plaatsen: %s" % (s["ini"], s["name"], waarom))
+            continue
+        materialiseren += [m for m in lokaal if m not in materialiseren]
         bestanden.append({"src": s["src"], "dest": dest, "name": s["name"]})
         if s["dll"]:
             dllnaam = s["name"][:-4] if s["name"].lower().endswith(".dll") else s["name"]
@@ -517,14 +581,38 @@ def dropin_plan(plan):
         #       libraries"). Cygwin kent LD_AUDIT niet, glibc wel, en de bibliotheek komt in
         #       hetzelfde adresbeeld als de game. Bewijs: docs/rt-glfix.md.
         #   echte native start          -> LD_PRELOAD, dat werkt daar gewoon.
-        #   anders                      -> RG_DROPIN_PRELOAD, dat de eigen lader oppakt.
+        #   Wine + Windows-spel         -> TP_PRELOAD_DLL, de variabele die de OpenParrot-lader leest
+        #       (OpenParrotLoader/src/main.cpp): na het laden van de kern laadt hij die ene DLL in het
+        #       spelproces, voordat het spel verdergaat. RG_DROPIN_PRELOAD leest daar niemand; een
+        #       drop-in met Preload = true kwam op deze route dus nooit in het spel (gemeten op
+        #       Luigi's Mansion: 0 van de 2 bestanden in /proc/<pid>/maps).
         elf_onder_wine = bool(plan.get("wine")) and not is_pe(plan["game"])
+        pe_onder_wine = bool(plan.get("wine")) and is_pe(plan["game"])
         if elf_onder_wine:
             var = "LD_AUDIT"
         elif not plan.get("wine"):
             var = "LD_PRELOAD"
         else:
             var = ""
+        if pe_onder_wine:
+            # De lader leest EEN pad (geen lijst, geen scheidingsteken) en geeft het aan LoadLibraryW in
+            # het spelproces: het moet dus een pad zijn dat Wine begrijpt (Z:\...). Bestaat het bestand
+            # niet of laadt het niet, dan beeindigt de lader het spel en geeft hij zelf 0 terug.
+            lader = _lader_naam(plan)
+            al = (plan["env"].get("TP_PRELOAD_DLL", "") or "").strip()
+            if lader.lower() not in TP_PRELOAD_LADERS:
+                fouten.append("Preload = true (%s): de lader %s leest geen TP_PRELOAD_DLL, dus op deze route "
+                              "is er geen kanaal om een DLL in het spelproces te laden"
+                              % (", ".join(os.path.basename(x) for x in preload), lader or "(onbekend)"))
+            elif len(preload) > 1:
+                fouten.append("Preload = true staat bij %d bestanden (%s), maar de lader laadt er via "
+                              "TP_PRELOAD_DLL precies een; laat de ene DLL de andere laden"
+                              % (len(preload), ", ".join(os.path.basename(x) for x in preload)))
+            elif al and al != wine_path(preload[0]):
+                fouten.append("Preload = true (%s): TP_PRELOAD_DLL staat al op %s en de lader laadt er "
+                              "precies een" % (os.path.basename(preload[0]), al))
+            else:
+                env["TP_PRELOAD_DLL"] = wine_path(preload[0])
         if var:
             # LD_AUDIT laadt de bibliotheek in het proces van de Cygwin-lader (ElfLdr2 laadt de
             # game-ELF in dat proces). Dat is voor librt-glfix het werkende kanaal, maar een
@@ -542,9 +630,37 @@ def dropin_plan(plan):
         # Het pad blijft altijd ook als RG_DROPIN_PRELOAD staan, zodat een eigen lader het kan oppakken.
         delen = [x for x in (plan["env"].get("RG_DROPIN_PRELOAD", "") or "").split(":") if x]
         env["RG_DROPIN_PRELOAD"] = ":".join(delen + [p for p in preload if p not in delen])
-    return {"base": base, "files": bestanden, "env": env, "overrides": overrides, "preload": preload,
+    # Per preload-bestand: in welke omgevingsvariabele het belandt en of die het ook LAADT. Zo hoeft een
+    # meting niet achteraf te ontdekken dat een bestand nooit in het spelproces kwam.
+    kanalen = []
+    for pad in preload:
+        if env.get("TP_PRELOAD_DLL") == wine_path(pad):
+            kanalen.append({"file": pad, "var": "TP_PRELOAD_DLL", "value": env["TP_PRELOAD_DLL"], "loads": True,
+                            "by": "de OpenParrot-lader (%s) laadt deze DLL na de kern in het spelproces" % _lader_naam(plan)})
+        elif pad in (env.get("LD_AUDIT", "") or "").split(":"):
+            kanalen.append({"file": pad, "var": "LD_AUDIT", "value": pad, "loads": True,
+                            "by": "glibc laadt dit in het proces van de Cygwin-lader, waar de game-ELF in geladen wordt"})
+        elif pad in (env.get("LD_PRELOAD", "") or "").split(":"):
+            kanalen.append({"file": pad, "var": "LD_PRELOAD", "value": pad, "loads": True,
+                            "by": "de dynamische linker van de native start"})
+        else:
+            kanalen.append({"file": pad, "var": "RG_DROPIN_PRELOAD", "value": pad, "loads": False,
+                            "by": "NIEMAND op deze route: alleen de native route en de eigen ELF-lader lezen deze variabele"})
+    return {"base": base, "root": wortel, "files": bestanden, "env": env, "overrides": overrides, "preload": preload,
+            "preload_env": kanalen, "materialise": materialiseren,
             "audit": audit, "geen_audit": geen_audit,
             "specs": specs, "errors": fouten}
+
+
+TP_PRELOAD_LADERS = ("openparrotloader.exe", "openparrotloader64.exe")   # deze laders lezen TP_PRELOAD_DLL (gemeten: strings)
+
+
+def _lader_naam(plan):
+    """De bestandsnaam van de lader in het startplan (het argument na wine); leeg als die er niet is."""
+    argv, wine = plan.get("argv") or [], plan.get("wine")
+    if wine and wine in argv and argv.index(wine) + 1 < len(argv):
+        return os.path.basename(argv[argv.index(wine) + 1])
+    return ""
 
 
 def dropin_log_lines(plan):
@@ -552,19 +668,26 @@ def dropin_log_lines(plan):
     dp = plan.get("dropins") or {}
     uit = []
     for e in dp.get("errors", []):
-        uit.append("LET OP: %s" % e)
+        uit.append("FOUT: %s" % e)
+    for m in dp.get("materialise", []):
+        uit.append("%s loopt via een symlink; wordt eerst een echte map met symlinks" % m)
     for f in dp.get("files", []):
         uit.append("%s -> %s" % (f["name"], f["dest"]))
     if dp.get("overrides"):
         uit.append("WINEDLLOVERRIDES += %s" % ", ".join(dp["overrides"]))
-    if dp.get("preload"):
-        uit.append("RG_DROPIN_PRELOAD += %s (de native route en de eigen lader zetten dit in LD_PRELOAD van "
-                   "het ELF-proces; in de omgeving van Wine kan het niet -- Cygwin sterft eraan)"
-                   % ", ".join(dp["preload"]))
-    if dp.get("geen_audit"):
+    for k in dp.get("preload_env", []):
+        if k["loads"]:
+            uit.append("preload: %s -> %s=%s (%s)" % (os.path.basename(k["file"]), k["var"], k["value"], k["by"]))
+        else:
+            uit.append("preload: %s -> alleen %s=%s; WORDT NIET GELADEN door %s"
+                       % (os.path.basename(k["file"]), k["var"], k["value"], k["by"]))
+    # Audit = false zegt alleen iets over LD_AUDIT; een bestand dat langs een ander kanaal geladen wordt
+    # (TP_PRELOAD_DLL, LD_PRELOAD) hoort hier niet nog eens als "niet geladen" te staan.
+    geladen = {k["file"] for k in dp.get("preload_env", []) if k["loads"]}
+    if [x for x in dp.get("geen_audit", []) if x not in geladen]:
         uit.append("niet in LD_AUDIT (Audit = false): %s -- deze bibliotheek hoort in het "
                    "spelproces en niet in het Cygwin-proces van de lader"
-                   % ", ".join(dp["geen_audit"]))
+                   % ", ".join(x for x in dp["geen_audit"] if x not in geladen))
     return uit
 
 
@@ -1552,13 +1675,20 @@ def run(plan):
     # vóór alles wat de game opent, en nooit op de NAS.
     for line in dropin_log_lines(plan):
         log("drop-in: " + line)
+    if plan["dropins"]["errors"]:
+        # main() weigert dit al voor het zover komt; dit is voor wie run() rechtstreeks aanroept.
+        log("drop-in: de game wordt niet gestart: een run zonder zijn drop-in is een ongeldige run")
+        return EXIT_PATCH
     for f in plan["dropins"]["files"]:
-        st, why = dropin_materialiseer(plan["dropins"]["base"], f["dest"], log)
+        st, why = dropin_materialiseer(plan["dropins"]["base"], f["dest"], log, plan["dropins"].get("root"))
         if not st:
-            log("drop-in: LET OP: %s" % why)
-            continue
+            log("drop-in: FOUT: %s -- de game wordt niet gestart" % why)
+            return EXIT_PATCH
         st, why = place_binary(f["src"], f["dest"])
         log("drop-in: " + why)
+        if st in ("fout", "nas"):
+            log("drop-in: FOUT: %s is niet geplaatst -- de game wordt niet gestart" % f["name"])
+            return EXIT_PATCH
     merge_env(plan, plan["dropins"]["env"])
     if plan.get("core_dll"):   # welke kern er echt draait, voor reproduceerbaarheid
         log("kern (%s): %s sha256 %s" % (plan.get("core_source"), plan["core_dll"], plan.get("core_sha256")))
@@ -1675,6 +1805,16 @@ def run(plan):
     return 0 if rc is None else (rc & 0xFF)
 
 
+def dropin_weiger(plan):
+    """EXIT_PATCH (en de fouten op stderr) als een drop-in van deze game niet geplaatst of niet geladen kan
+    worden; anders 0. Net als een geweigerde patch: niet starten en niet terugvallen op TeknoParrotUi, want
+    zonder zijn drop-in is het een andere game dan bedoeld en is elke meting eraan ongeldig."""
+    fouten = (plan.get("dropins") or {}).get("errors", [])
+    for e in fouten:
+        print("Drop-in geweigerd: %s" % e, file=sys.stderr)
+    return EXIT_PATCH if fouten else 0
+
+
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser(description="Directe start van een TeknoParrot-game zonder TeknoParrotUi")
@@ -1731,7 +1871,11 @@ def main(argv):
                                                          text.rstrip("\n").replace("\n", "\n  ")))
                 else:
                     print("%s: %s" % (k, v))
-        return 0
+            for line in dropin_log_lines(plan):
+                print("drop-in: " + line)
+        return dropin_weiger(plan)
+    if dropin_weiger(plan):
+        return EXIT_PATCH
     if a.check:
         print("ok: %s via %s" % (a.profile, os.path.basename(plan["argv"][plan["argv"].index(plan["wine"]) + 1])))
         return 0

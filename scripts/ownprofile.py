@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import xml.etree.ElementTree as ET
 
 import gamesettings as gs
@@ -59,6 +60,24 @@ def data_home():
 
 def views_dir():
     return os.path.join(data_home(), "runtime", "views")
+
+
+def maak_map_lokaal(pad):
+    """Vervang een symlink naar een map door een ECHTE map met symlinks naar de inhoud. De bron (de NAS)
+    wordt alleen gelezen. Is `pad` al een echte map, dan gebeurt er niets. Gebruikt door de view-maker
+    (scripts/tp-add-game.py --view) en door de launcher voordat hij een drop-in plaatst."""
+    if not os.path.islink(pad):
+        return False
+    doel = os.path.realpath(pad)
+    tijdelijk = pad + ".ravengun-tmp"
+    if os.path.lexists(tijdelijk):
+        shutil.rmtree(tijdelijk)
+    os.mkdir(tijdelijk)
+    for naam in os.listdir(doel):
+        os.symlink(os.path.join(doel, naam), os.path.join(tijdelijk, naam))
+    os.unlink(pad)
+    os.rename(tijdelijk, pad)
+    return True
 
 
 def wrapper_path():

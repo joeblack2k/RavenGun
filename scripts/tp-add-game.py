@@ -97,6 +97,26 @@ def link_tree(src, dst, empties, top=True):
                 os.symlink(sp, dp)
 
 
+def maak_keten_lokaal(src, view, rel_dir):
+    """De map van de exe, en elke map erboven tot aan de wortel van de view, wordt een ECHTE map met symlinks naar de inhoud
+    (in plaats van een symlink naar de NAS). Anders komt alles wat naast de exe moet staan (een drop-in met To = ., docs/dropins.md)
+    via die symlink op de NAS uit en kan het niet geplaatst worden; dat moest bij Luigi's Mansion (exe/x64/VACUUM.exe) met de hand.
+    Opnieuw te draaien: de links worden ververst en echte bestanden van een vorige keer (de drop-ins zelf) blijven staan. De bron
+    wordt alleen gelezen. Geeft de mappen terug die lokaal zijn gemaakt of ververst."""
+    gedaan = []
+    sp, dp = src, view
+    for deel in [d for d in rel_dir.split(os.sep) if d and d != '.']:
+        sp, dp = os.path.join(sp, deel), os.path.join(dp, deel)
+        if os.path.islink(dp): os.unlink(dp)
+        os.makedirs(dp, exist_ok=True)
+        for e in os.listdir(dp):
+            if os.path.islink(os.path.join(dp, e)): os.unlink(os.path.join(dp, e))
+        for e in os.listdir(sp):
+            if not os.path.lexists(os.path.join(dp, e)): os.symlink(os.path.join(sp, e), os.path.join(dp, e))
+        gedaan.append(dp)
+    return gedaan
+
+
 def prefix_env(path):
     """RG_WINEPREFIX-regel voor een prefix-pad (gamesettings.env_to_settings maakt er [Wine] Prefix = <naam> van)."""
     return f'RG_WINEPREFIX={path}'
@@ -182,6 +202,8 @@ def main():
             elif os.path.isdir(pth) and e != 'TeknoParrot' and not os.listdir(pth): os.rmdir(pth)   # lege mappen van een vorige keer
         empties = [argv_[i + 1] for i, a in enumerate(argv_) if a == '--empty-dir' and i + 1 < len(argv_)]
         link_tree(gdir, view, [e.strip('/').split('/') for e in empties])
+        for d in maak_keten_lokaal(gdir, view, os.path.dirname(rel)):
+            print(f'view: {os.path.relpath(d, view)}/ is een echte map met symlinks (de map van de exe hoort lokaal te zijn)')
         if '<EmulatorType>ElfLdr2</EmulatorType>' in open(src, encoding='utf-8-sig').read():
             os.symlink(os.path.join(TP, 'ElfLdr2'), os.path.join(view, 'ElfLdr2'))
         game = os.path.join(view, rel)
