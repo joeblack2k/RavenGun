@@ -349,7 +349,9 @@ gebruikerslaag gaat per sleutel voor):
 
 ```ini
 [Camera]
-Use = game      ; game = gebruikt de camera tijdens het spelen: doorgegeven | setup = alleen voor de inrichting: niet | none (standaard)
+Use = game      ; game = gebruikt de camera tijdens het spelen: het beeld van de echte camera
+                ; presence = wil alleen dat er een camera IS: een virtuele met een kunstbeeld, NOOIT de echte
+                ; setup = alleen voor de inrichting: niets | none = niets (standaard)
 Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN = precies die | none
 ```
 
@@ -360,6 +362,12 @@ Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN 
 - Op de native route bindt `play-native.sh` de camera in de sandbox met `--dev-bind-try` (zoals `/dev/dri`). Een gewone `--bind`
   werkt niet: de toegang van de gebruiker komt van een ACL op het apparaat en die overleeft de koppeling niet (gemeten:
   `open()` geeft `Permission denied`). `-try`: een machine zonder die camera geeft geen fout.
+- De echte camera kan maar door een proces tegelijk gestreamd worden (gemeten: naast de daemon geeft `VIDIOC_REQBUFS`
+  `Device or resource busy`). Met de rol `game` kan een spel hem dus openen maar niet streamen zolang de daemon draait; het
+  logboek zegt dat erbij. De virtuele camera (een bibliotheek in het spelproces, gevoed door de daemon) lost dat op en is er nog
+  niet; tot die tijd geeft de rol `presence` niets door, en het logboek zegt ook dat.
+- De instelling staat voor ELKE route in `game.ini`, ook voor een native spel (`patches/Halo/game.ini` bestaat; een `game.ini` in
+  de gebruikerslaag met alleen `[Camera]` is genoeg). `packaging/native-games.json` beschrijft de sandbox, niet de keuzes.
 - Een game.ini kan niets anders dan `/dev/videoN` vragen; een andere waarde, of een onbekende rol, stopt de start met een melding.
 - Het logboek van elke run zegt wat er gekozen is: `camera: /dev/video0 doorgegeven (rol game: ...)` of `camera: geen (rol ...)`.
 - Zelf nakijken: `python3 -I scripts/camera.py list` (de camera's) en `python3 -I scripts/camera.py resolve <Game>` (de keuze).

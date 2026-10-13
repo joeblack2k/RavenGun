@@ -61,7 +61,7 @@ rm -rf "$HOME/.local/opt"
 # --- 4. play-native.sh van begin tot eind, zonder iets te starten ---------------------------------------------------
 # Een namaak-datamap met het echte script, een eigen gegevensbestand met een nep-spel, een nep-NAS en een nep-bwrap.
 N="$T/native"; mkdir -p "$N/scripts" "$N/packaging" "$N/build" "$T/nas/Spel/pm" "$T/bin" "$T/extra"
-cp "$ROOT/scripts/play-native.sh" "$ROOT/scripts/rg-paths.sh" "$ROOT/scripts/rg-identiteit.sh" "$N/scripts/"
+cp "$ROOT/scripts/play-native.sh" "$ROOT/scripts/rg-paths.sh" "$ROOT/scripts/rg-identiteit.sh" "$ROOT/scripts/camera.py" "$ROOT/scripts/gamesettings.py" "$N/scripts/"
 printf 'x' > "$T/nas/Spel/pm/game"; printf 'onze bibliotheek\n' > "$N/build/librg_proef.so"; printf 'meegegeven\n' > "$T/extra/tap.so"
 cat > "$N/packaging/native-games.json" <<JSON
 {"defaults": {"res": "1280x720"},

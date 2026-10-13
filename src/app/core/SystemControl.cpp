@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "core/SystemControl.h"
 
+#include <algorithm>
+
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QHostAddress>
@@ -8,6 +11,7 @@
 #include <QPointer>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QTimer>
 
 #include "core/AppPaths.h"
@@ -121,6 +125,47 @@ QStringList SystemControl::lanAddresses() {
 QString SystemControl::oledDropInPath() {
     return AppPaths::configDir().section(QLatin1Char('/'), 0, -2) + QStringLiteral("/systemd/user/") + QLatin1String(kOledUnit) +
            QStringLiteral(".d/ravengun-app.conf");
+}
+
+namespace {
+QString cameraChoiceOrAuto(const QString& v) {
+    static const QRegularExpression dev(QStringLiteral("^/dev/video[0-9]+$"));
+    const QString s = v.trimmed();
+    return (s == QStringLiteral("none") || dev.match(s).hasMatch()) ? s : QStringLiteral("auto");
+}
+}  // namespace
+
+QString SystemControl::gameCamera() {
+    QSettings s(AppPaths::appSettingsFile(), QSettings::IniFormat);
+    return cameraChoiceOrAuto(s.value(QStringLiteral("Games/camera")).toString());
+}
+
+void SystemControl::setGameCamera(const QString& choice) {
+    QSettings s(AppPaths::appSettingsFile(), QSettings::IniFormat);
+    s.setValue(QStringLiteral("Games/camera"), cameraChoiceOrAuto(choice));
+    s.sync();
+}
+
+QList<QPair<QString, QString>> SystemControl::cameras(const QString& sysRoot) {
+    // Een camera heeft vaak twee nodes (beeld en metagegevens): alleen de eerste van elke camera (index 0) telt. Op nummer.
+    QList<QPair<int, QPair<QString, QString>>> found;
+    static const QRegularExpression node(QStringLiteral("^video([0-9]+)$"));
+    const auto readField = [&sysRoot](const QString& n, const char* field) {
+        QFile f(sysRoot + QLatin1Char('/') + n + QLatin1Char('/') + QLatin1String(field));
+        return f.open(QIODevice::ReadOnly) ? QString::fromUtf8(f.readAll()).trimmed() : QString();
+    };
+    for (const QString& n : QDir(sysRoot).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        const auto m = node.match(n);
+        if (!m.hasMatch()) continue;
+        const QString index = readField(n, "index");
+        if (!index.isEmpty() && index != QStringLiteral("0")) continue;
+        const QString name = readField(n, "name");
+        found.append({m.captured(1).toInt(), {QStringLiteral("/dev/") + n, name.isEmpty() ? n : name}});
+    }
+    std::sort(found.begin(), found.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    QList<QPair<QString, QString>> out;
+    for (const auto& c : found) out.append(c.second);
+    return out;
 }
 
 int SystemControl::oledIdleSeconds() {

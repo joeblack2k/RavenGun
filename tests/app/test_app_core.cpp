@@ -78,6 +78,7 @@ private Q_SLOTS:
     void dongleStatusText();
     void dongleSettingDifferencesOnly();
     void dongleDetectionRuns();
+    void gameCameraChoice();
     void runtimeCheck();
     // A3: echte game-options.json, invoerroute van de gebruiker, notities
     void realGameOptions();
@@ -790,6 +791,57 @@ void AppCoreTest::dongleSettingDifferencesOnly() {
     QVERIFY(OptionStore::writeSetting(c, QStringLiteral("Dongle"), QStringLiteral("Enabled"), QStringLiteral("true"), &err, QStringLiteral("false")));
     QVERIFY(!readAll(userIni).contains(QStringLiteral("Enabled")));
     QVERIFY(dongle().enabled);
+}
+
+void AppCoreTest::gameCameraChoice() {
+    // De camerakeuze voor de spellen: de app schrijft hem in ravengun-app.conf ([Games] camera) en scripts/camera.py leest hem
+    // bij een start. De echte aanroep van dat script laat zien dat beide kanten hetzelfde bestand en dezelfde sleutel bedoelen.
+    QCOMPARE(rg::SystemControl::gameCamera(), QStringLiteral("auto"));   // niets gekozen
+    rg::SystemControl::setGameCamera(QStringLiteral("/dev/video2"));
+    QCOMPARE(rg::SystemControl::gameCamera(), QStringLiteral("/dev/video2"));
+    QFile conf(rg::AppPaths::appSettingsFile());
+    QVERIFY(conf.open(QIODevice::ReadOnly));
+    const QString text = QString::fromUtf8(conf.readAll());
+    QVERIFY2(text.contains(QStringLiteral("[Games]")) && text.contains(QStringLiteral("camera=/dev/video2")), qPrintable(text));
+    // iets dat geen camera is komt er niet in
+    rg::SystemControl::setGameCamera(QStringLiteral("/dev/sda"));
+    QCOMPARE(rg::SystemControl::gameCamera(), QStringLiteral("auto"));
+    rg::SystemControl::setGameCamera(QStringLiteral("none"));
+    QCOMPARE(rg::SystemControl::gameCamera(), QStringLiteral("none"));
+
+    // de lijst: per camera een regel (de tweede node van dezelfde camera niet), op nummer
+    QTemporaryDir d;
+    QVERIFY(d.isValid());
+    const QString sys = d.filePath(QStringLiteral("sys"));
+    const auto node = [&](const char* n, const char* name, const char* index) {
+        writeFile(sys + QLatin1Char('/') + QLatin1String(n) + QStringLiteral("/name"), QByteArray(name) + "\n");
+        writeFile(sys + QLatin1Char('/') + QLatin1String(n) + QStringLiteral("/index"), QByteArray(index) + "\n");
+    };
+    node("video0", "USB Camera", "0");
+    node("video1", "USB Camera", "1");
+    node("video10", "Tenth", "0");
+    node("video2", "Second", "0");
+    const auto cams = rg::SystemControl::cameras(sys);
+    QCOMPARE(cams.size(), 3);
+    QCOMPARE(cams.at(0), qMakePair(QStringLiteral("/dev/video0"), QStringLiteral("USB Camera")));
+    QCOMPARE(cams.at(1).first, QStringLiteral("/dev/video2"));
+    QCOMPARE(cams.at(2).first, QStringLiteral("/dev/video10"));
+    QVERIFY(rg::SystemControl::cameras(d.filePath(QStringLiteral("missing"))).isEmpty());
+
+    // het script leest de keuze van de app: een spel dat de camera in het spel gebruikt krijgt precies die camera
+    rg::SystemControl::setGameCamera(QStringLiteral("/dev/video7"));
+    const QString patches = d.filePath(QStringLiteral("patches"));
+    writeFile(patches + QStringLiteral("/Spel/game.ini"), "[Camera]\nUse = game\n");
+    QProcess p;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("RAVENGUN_PATCHES_DIR"), patches);
+    env.insert(QStringLiteral("RAVENGUN_USER_PATCHES_DIR"), d.filePath(QStringLiteral("user")));
+    p.setProcessEnvironment(env);
+    p.start(QStringLiteral("python3"), {QStringLiteral("-I"), QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/camera.py"), QStringLiteral("resolve"), QStringLiteral("Spel")});
+    QVERIFY(p.waitForFinished(20000));
+    const QString out = QString::fromUtf8(p.readAllStandardOutput());
+    QVERIFY2(out.startsWith(QStringLiteral("/dev/video7\tgame\t")), qPrintable(out + QString::fromUtf8(p.readAllStandardError())));
+    rg::SystemControl::setGameCamera(QStringLiteral("auto"));
 }
 
 void AppCoreTest::dongleDetectionRuns() {

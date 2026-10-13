@@ -230,6 +230,22 @@ QWidget* SettingsWindow::MakeDisplayPane() {
     v->addWidget(box);
     v->addWidget(hint(tr("Uses the user service ravengun-oled-saver.service. The TV itself stays on (needed for HDMI); black "
                          "pixels are off on an OLED screen.")));
+    // De camera voor de spellen: WELKE camera een spel krijgt dat er in het spel een gebruikt (per game: [Camera] in game.ini).
+    auto* cam_box = new QGroupBox(tr("Camera for games"));
+    auto* cam_form = new QFormLayout(cam_box);
+    m_game_camera = new QComboBox;
+    m_game_camera->addItem(tr("Automatic (first camera)"), QStringLiteral("auto"));
+    m_game_camera->addItem(tr("No camera"), QStringLiteral("none"));
+    for (const auto& c : rg::SystemControl::cameras()) m_game_camera->addItem(tr("%1 (%2)").arg(c.second, c.first), c.first);
+    const QString cam = rg::SystemControl::gameCamera();
+    if (m_game_camera->findData(cam) < 0) m_game_camera->addItem(tr("%1 (not connected)").arg(cam), cam);
+    m_game_camera->setCurrentIndex(m_game_camera->findData(cam));
+    cam_form->addRow(tr("Camera:"), m_game_camera);
+    v->addWidget(cam_box);
+    v->addWidget(hint(tr("Only games that use a camera during play receive it; a game that only wants one for cabinet setup "
+                         "runs without. Which games those are is a per-game setting.")));
+    connect(m_game_camera, &QComboBox::currentIndexChanged, this,
+            [this] { rg::SystemControl::setGameCamera(m_game_camera->currentData().toString()); });
     v->addStretch(1);
     rg::SystemControl::unitState(QLatin1String(rg::kOledUnit), this, [this](const QString& active, const QString& enabled) {
         m_oled->setChecked(active == QStringLiteral("active") || enabled == QStringLiteral("enabled"));

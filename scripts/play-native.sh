@@ -229,9 +229,15 @@ CAM=$(python3 -I "$ROOT/scripts/camera.py" resolve "$GAME") || die "de camera-in
 IFS=$'\t' read -r CAMERA cam_rol cam_uitleg <<<"$CAM"
 if [[ "$CAMERA" == - || -z "$CAMERA" ]]; then
   CAMERA=""; CAMERA_REGEL="camera: geen (rol ${cam_rol:-none}: ${cam_uitleg:-geen instelling})"
+elif [[ "$CAMERA" == virtual ]]; then
+  # De virtuele camera (een kunstbeeld, nooit de echte) is een eigen bibliotheek in het spelproces. Zolang die er niet is gaat er
+  # niets naar het spel -- en zeker niet de echte camera als vervanging.
+  CAMERA=""; CAMERA_REGEL="camera: geen (rol $cam_rol: $cam_uitleg; de virtuele camera is nog niet gebouwd, dus er is niets doorgegeven)"
 else
   BW+=(--dev-bind-try "$CAMERA" "$CAMERA")
   CAMERA_REGEL="camera: $CAMERA doorgegeven (rol $cam_rol: $cam_uitleg)"
+  # De echte camera kan maar door een proces tegelijk gestreamd worden (gemeten: VIDIOC_REQBUFS geeft EBUSY naast de daemon).
+  if pgrep -x ravengund >/dev/null 2>&1; then CAMERA_REGEL+="; LET OP: de daemon draait en streamt deze camera, het spel kan hem openen maar niet streamen"; fi
 fi
 
 # De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
@@ -380,7 +386,7 @@ fi
 # Wie voert deze run uit: dit script, het gegevensbestand, en wat er van ons de sandbox in gaat (de eigen lader, onze eigen
 # bibliotheken uit build/ of lib/, en bestanden die met --bind-ro zijn meegegeven). Een oude kopie daarvan is een andere meting;
 # daarom staat het bovenaan het logboek van elke run (en bij --dry-run op stderr, zodat stdout het commando blijft).
-WIE=(gegevens="$JSON" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh")
+WIE=(gegevens="$JSON" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh" hulp="$ROOT/scripts/camera.py" hulp="$ROOT/scripts/gamesettings.py")
 if [[ -n "${LOADERBIN:-}" ]]; then WIE+=(lader="$LOADERBIN"); fi
 for l in "${LIBS[@]}"; do if [[ "$l" == "$RG_LIB"/* ]]; then WIE+=(bibliotheek="$l"); fi; done
 for ((i = 0; i < ${#BINDS[@]}; i += 2)); do

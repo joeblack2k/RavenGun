@@ -4,7 +4,9 @@
 // (alleen web.lan en web.require_token, die geen IPC-commando hebben) en hulpscripts uit de repo. Alles asynchroon via
 // QProcess. $RAVENGUN_SYSTEMCTL vervangt systemctl (voor tests en schermafdrukken).
 #include <QJsonObject>
+#include <QList>
 #include <QObject>
+#include <QPair>
 #include <QStringList>
 #include <functional>
 
@@ -34,6 +36,13 @@ public:
     static int oledIdleSeconds();
     static bool setOledIdleSeconds(int seconds, QString* err);  // schrijft de drop-in; daarna daemon-reload + herstart
     static QString oledDropInPath();
+
+    // De camera voor de spellen (docs/per-game-patches.md, "De camera"): de keuze van de gebruiker in ravengun-app.conf
+    // ([Games] camera = auto | none | /dev/videoN; scripts/camera.py leest hem bij een start) en de camera's van deze machine
+    // als (apparaat, naam). Een spel krijgt de camera alleen als het hem in het spel gebruikt; dat staat per game in game.ini.
+    static QString gameCamera();                       // "auto" als er niets gekozen is of de waarde niet klopt
+    static void setGameCamera(const QString& choice);  // "auto", "none" of /dev/videoN; iets anders wordt "auto"
+    static QList<QPair<QString, QString>> cameras(const QString& sysRoot = QStringLiteral("/sys/class/video4linux"));
 
     // Laatste regels van een logbestand.
     static QString tail(const QString& path, int maxLines = 400);

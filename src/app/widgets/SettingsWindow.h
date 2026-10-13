@@ -7,6 +7,7 @@
 #include "widgets/StackedSettingsWindow.h"
 
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -47,6 +48,7 @@ private:
     // Display
     QCheckBox* m_oled = nullptr;
     QSpinBox* m_oled_minutes = nullptr;
+    QComboBox* m_game_camera = nullptr;
     // Paths
     QListWidget* m_folders = nullptr;
     QPushButton* m_remove_folder = nullptr;

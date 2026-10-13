@@ -6,9 +6,11 @@ Een spel krijgt alleen een camera als het hem IN het spel gebruikt. Dat staat pe
 sleutel voor de meegeleverde):
 
     [Camera]
-    Use = game      ; game  = het spel gebruikt de camera tijdens het spelen: hij wordt doorgegeven
-                    ; setup = alleen voor de inrichting van de kast: NIET doorgegeven, het spel draait zonder
-                    ; none  = het spel heeft niets met een camera (de standaard, ook zonder deze sectie)
+    Use = game      ; game     = het spel gebruikt de camera tijdens het spelen: het krijgt het beeld van de echte camera
+                    ; presence = het spel wil alleen dat er een camera IS (anders blijft er een melding staan of wacht het):
+                    ;            het krijgt een VIRTUELE camera met een kunstbeeld, nooit de echte
+                    ; setup    = alleen voor de inrichting van de kast: NIET doorgegeven, het spel draait zonder
+                    ; none     = het spel heeft niets met een camera (de standaard, ook zonder deze sectie)
     Device = auto   ; auto  = de camera die in de instellingen van de app gekozen is
                     ; /dev/videoN = precies die; none = geen
 
@@ -17,7 +19,9 @@ WELKE camera "auto" is, kiest de gebruiker in de app (Settings, "Camera for game
 
 Gebruik:
     camera.py list                 de camera's van deze machine: apparaat<TAB>naam
-    camera.py resolve GAME         een regel: apparaat<TAB>rol<TAB>uitleg   (apparaat "-" = er wordt geen camera doorgegeven)
+    camera.py resolve GAME         een regel: apparaat<TAB>rol<TAB>uitleg
+                                   apparaat: /dev/videoN (de echte camera), "virtual" (een virtuele met een kunstbeeld),
+                                   of "-" (er wordt geen camera doorgegeven)
 Exitcode 2 bij een instelling die niet klopt (een onbekende rol, of een apparaat dat geen /dev/videoN is).
 """
 import os
@@ -28,7 +32,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
 import gamesettings as gs  # noqa: E402
 
-ROLLEN = ("game", "setup", "none")
+ROLLEN = ("game", "presence", "setup", "none")
+VIRTUEEL = "virtual"                            # geen echt apparaat: de virtuele camera met een kunstbeeld
 APPARAAT = re.compile(r"^/dev/video[0-9]+$")    # niets anders mag een game.ini de sandbox in vragen
 
 
@@ -97,11 +102,14 @@ def kies(rol_ruw, apparaat_ruw, keuze_ruw, cameras):
     """De beslissing: (apparaat of '', rol, uitleg)."""
     rol = (rol_ruw or "none").strip().lower()
     if rol not in ROLLEN:
-        raise Fout("[Camera] Use = '%s' is geen rol (game, setup of none)" % rol_ruw)
+        raise Fout("[Camera] Use = '%s' is geen rol (game, presence, setup of none)" % rol_ruw)
     if rol == "none":
         return "", rol, "dit spel vraagt geen camera"
     if rol == "setup":
         return "", rol, "het spel wil de camera alleen voor de inrichting: niet doorgegeven"
+    if rol == "presence":
+        # Nooit de echte camera, wat er ook gekozen is: het spel kijkt alleen of er een is.
+        return VIRTUEEL, rol, "het spel wil alleen dat er een camera is: een virtuele met een kunstbeeld, nooit de echte"
     eigen = _apparaat(apparaat_ruw or "auto", "[Camera] Device")
     if eigen == "none":
         return "", rol, "[Camera] Device = none"
