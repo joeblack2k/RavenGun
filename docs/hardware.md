@@ -99,6 +99,26 @@ Stilstandsjitter van de aim, in procent van het genormaliseerde bereik (breedte 
 - Ter vergelijking, de p95-afwijking van het gemiddelde over 60 s (drift telt hier wel mee): x 3,0 %, y 0,7 %.
 - De jitter in procenten hangt rechtstreeks af van de schaal (h_edge en v_edge). Met een andere schaal veranderen deze getallen evenredig.
 
+
+## Meting van de hele keten tot in het gedeelde geheugen (echte Move, 12 okt 2026)
+
+Overgenomen uit de meting in `STATUS.md` (2026-10-12); de cijfers hieronder vervangen die van 7 oktober waar ze hetzelfde meten.
+
+Rapporten en oriëntatie (Bluetooth, `hidraw4`):
+- 88 rapporten per seconde, 0,66 % gemist volgens de volgnummers. Op 7 oktober was dat 76,6 per seconde met ongeveer 15 % overgeslagen volgnummers; de oorzaak van de verbetering is niet vastgesteld.
+- Oriëntatie geldig; yaw binnen ±0,4° bij een minuut stilliggen.
+
+Gedeeld geheugen (route tp-shm, Luigi-indeling, `/dev/shm/ravengun_JvsState`):
+- Een richtpunt van 0,8/0,3 geeft byte 13 (x) = 202 en byte 12 (y) = 79.
+- Trekker zet bit 0x4, granaat 0x2, test 0x100.
+- Daarmee is de keten Move → `move_report` → `move_slot` → gedeeld geheugen gemeten en niet alleen uit de code afgeleid.
+
+Grenzen van deze meting:
+- Echte knoppen zijn niet gemeten: in het meetvenster drukte niemand iets in.
+- Het kompas is afgewezen: de dip was 74–78° tegen 60° in de referentie, dus de yaw-correctie vergrendelt niet. De ±0,4° geldt voor een minuut stilliggen, niet voor spelen.
+- De camera ziet de bol niet; het richtpunt komt alleen uit de oriëntatie.
+- USB levert geen rapporten omdat de code alleen Bluetooth kiest. Dat is een keuze in de code, geen blokkade.
+
 ## Meting camera en boltracking in ravengund (op echte hardware getest, 7 okt 2026, ongeveer 15:50)
 
 Methode: `ravengund` met de standaardinstellingen (camera automatisch gekozen via by-id, 640x480@60 YUYV, AE, AGC en AWB uit, exposure 50, gain 0, LED cyaan, tracker-tint −75 ± 30°). Na 3 s is 60 s opgenomen met `ravengunctl watch --json --rate 250`, gevolgd door `ravengunctl camera --json` en `status --json`. Daarna is de daemon gestopt (exit 0) en was de camera weer vrij. De Move lag stil, met de bol in beeld op ongeveer (359, 287) px. Er is geen beeld opgeslagen, alleen getallen.
