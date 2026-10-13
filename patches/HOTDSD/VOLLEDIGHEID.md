@@ -15,7 +15,8 @@ dat onderscheid hoort bij elke uitspraak hieronder (zie §1).**
 | 3b | Zijn alle imports vindbaar? (het `DT_NEEDED`-equivalent) | **Ja** — spel 50/50, daemon 23/23, `hwvalue.exe` 7/7, `pxGetHwinfo.exe` 5/5; **0 onopgelost**, en alle 44 namen staan in de gedeelde Wine-prefix (`system32` én `syswow64`) |
 | 4 | Logisch van omvang en structuur voor dit soort game? | **Ja** — exact de verwachte UE4-cooked structuur; de 7,31 GB pak heeft een gave 44-byte footer en de index sluit **byte-exact** op het einde aan |
 | — | Verwijzingen in de eigen scripts die ontbreken | 9 stuks, **alle 9 met een gemeten onschuldige verklaring** (§6) |
-| — | **Eindoordeel** | **Structureel compleet.** Geen enkel ontbrekend bestand, geen afkapping, geen onopgeloste afhankelijkheid. Drie dingen blijven onbewijsbaar zonder start (§7) |
+| — | **Sterkste bewijs: een echte speelsessie** | **Ja** — de UE4-logs in de prefix laten **zes sessies** op 2026-10-11 zien, waarvan één van **±7 minuten** die `Stage0` laadde en boekhouding bijhield (§12). Niet alleen "start", maar gespeeld |
+| — | **Eindoordeel** | **Structureel compleet.** Geen enkel ontbrekend bestand, geen afkapping, geen onopgeloste afhankelijkheid. Van de vier onbewijsbare punten in §7 is er inmiddels één beantwoord (§12); drie blijven open |
 
 **Correctie op een bestaande regel.** `patches/LOADERS-ZES-GAMES.md` regel 25 zegt bij Scarlet Dawn
 *"de volledigheid is nagerekend"*. Dat was **niet** gebeurd — er was geen meting, geen methode en geen
@@ -182,9 +183,9 @@ Dit staat er expliciet, en telt **niet** als compleet:
    `bEnablePakSigning` **0 keer** voor; `.sig` en `SecureHash` komen alleen in generieke UE-code voor.
    Dat is **structureel bewijs dat ondertekening hier niet speelt**, maar het is geen harde uitspraak:
    alleen een start laat zien of de pak mount. **Restrisico, klein.**
-3. **Welke mappen het spel tijdens het spelen opent.** Voor een cooked build zit de configuratie die dat
-   bepaalt in de pak, dus is niet statisch te lezen. `Hodzero/Saved/Logs` en `Hodzero/Config` ontbreken en
-   dat is voor dit bouwtype verwacht, maar dat is afgeleid en niet gemeten.
+3. **Welke mappen het spel tijdens het spelen opent** — *inmiddels beantwoord door een echte run, zie §12.*
+   Voor een cooked build zit de configuratie die dat bepaalt in de pak, dus statisch was het niet te lezen.
+   `Hodzero/Saved/Logs` en `Hodzero/Config` ontbreken en dat is voor dit bouwtype verwacht.
 4. **Of het gedrag van de 15 dynamisch geladen ThirdParty-DLL's klopt.** Ze zijn aanwezig en PE-heel; of
    de game ze ook daadwerkelijk kan laden (afhankelijkheden van die DLL's zelf) is niet nagelopen.
 
@@ -317,6 +318,67 @@ De vorige ronde staat in `REPORT.md` (dat is het Engelse verdiepingsrapport) en 
 
 **Eindoordeel: de bestanden van House of the Dead: Scarlet Dawn zijn structureel compleet.** Er ontbreekt
 geen bestand dat de game, de daemon of het profiel noemt; niets is afgekapt; geen enkele afhankelijkheid
-is onopgelost; en de omvang en de mappenstructuur passen bij een UE4-cooked Windows-build. De drie dingen
+is onopgelost; en de omvang en de mappenstructuur passen bij een UE4-cooked Windows-build. De twee dingen
 die een hash-controle zou toevoegen staan in §7 en zijn zonder start niet te meten — de pak-handtekening
 is daarvan het enige met een restrisico, en alles wijst erop dat die hier niet speelt.
+
+---
+
+## 12. Bijvangst uit de meting: de UE4-logs bestaan wél, en het spel heeft gespeeld
+
+*Toegevoegd na de daemonmeting van 2026-10-13. De volledige meting staat in
+[`METING-1-DAEMON.md`](METING-1-DAEMON.md).*
+
+`findings/HOTDScarletDawn.md` zegt: *"er is geen UE4-log: `Hodzero/Saved/Logs` wordt niet aangemaakt"*.
+Dat is **fout**. De game schrijft zijn UE4-logs wel, maar niet in de speltmap — in **de Wine-prefix**, op
+`%LOCALAPPDATA%\Hodzero\Saved\Logs\`:
+
+```
+~/.local/share/ravengun/prefixes/shared/wine/drive_c/users/steamuser/AppData/Local/Hodzero/
+  Saved/Logs/Hodzero.log                              117.045 B   (08:55:41 → 09:02:44, ±7 minuten)
+  Saved/Logs/Hodzero-backup-2026.10.11-08.44.21.log    22.252 B   (08:41:39 → 08:42:12)
+  Saved/Logs/Hodzero-backup-2026.10.11-08.46.26.log    22.249 B   (08:44:21 → 08:44:47)
+  Saved/Logs/Hodzero-backup-2026.10.11-08.47.52.log    22.248 B   (08:46:27 → 08:46:54)
+  Saved/Logs/Hodzero-backup-2026.10.11-08.52.40.log    56.577 B   (08:47:52 → 08:51:56)
+  Saved/Logs/Hodzero-backup-2026.10.11-08.55.41.log    49.042 B   (08:52:40 → 08:54:54)
+  Saved/Crashes/UE4CC-Windows-249AC8AF…_0000/
+      CrashContext.runtime-xml                          3.309 B
+      UE4Minidump.dmp                                 297.524 B
+      Hodzero.log                                      47.491 B
+```
+
+**Zes sessies op één dag, waarvan één van ±7 minuten — dat is het sterkste volledigheidsbewijs dat er is:
+het spel heeft op deze machine gespeeld, niet alleen gestart.** Dit is nog steeds een **structurele**
+meting: het bewijst dat de bestanden toereikend zijn, niet dat elke byte in de pak de verwachte is.
+
+Wat de logs vastleggen [gemeten]:
+
+* `EngineVersion 4.18.1-0+++UE4+Release-4.18` — bevestigt de UE4-versie uit het dossier;
+* `BaseDir Z:/home/deck/mnt/spidernas_emulation/…/Binaries/Win64/` — **direct van de NAS gedraaid**;
+* `CommandLine` **leeg** — de game speelt zonder argumenten (TeknoParrot's `ExtraParameters` is leeg);
+* de game bereikt `Match State Changed from WaitingToStart to InProgress`, laadt
+  `…/Maps/Stage0/PL_Stage0` (1,98 s en 5,20 s in twee sessies) en activeert alle `SL_Stage0*`-sublevels;
+* `LogPluginManager: Mounting plugin AMDaemon`, `CriWare`, `ABaaSGS`, `EmitMan`, `StateMan`, `TaskMan`,
+  `WidgetMan`, `ApexDestruction`, `Paper2D`, `LowEntryExtendedStandardLibrary`;
+* `LogApp: P2_CenterY : 622 / P2_RightX : 890 / P2_BottomY : 979` — kalibratiewaarden van speler 2;
+* `LogAppData: UBookkeeping:…` met `P1 GameTime`, `AddDamageLogCount`, `AddFirstDeathLogCount`,
+  `AddSecondDeathLogCount`, `Ranking[0][0][2]` — het spel houdt zijn eigen boekhouding bij;
+* **`LogAMDaemon: Error: Exception caused. (Category:Logic Msg:'aimeId' is invalid.)`**, twee keer per
+  sessie (frame 288 en 344), **en het spel gaat door**. Dit is de AM-Daemon-plugin van de game die een
+  AiMe-fout meldt — concreet, en het raakt de keychip-/kaartlaag;
+* `CrashContext.runtime-xml`: `SecondsSinceStart 74`, `CrashType Crash`, `IsEnsure`/`IsAssert` false,
+  `CallStack` leeg, `ErrorMessage` leeg, `bIsOOM 0` — een harde crash met een **lege melding**, 74 s na de
+  start, in de sessie die ook `LogWindows: Could not start CrashReportClient.exe` logt (dat bestand wordt
+  niet meegeleverd).
+
+**Hiermee is §7 punt 3 beantwoord.** De game zoekt zijn content via de `[Core.System] Paths=` uit
+`Saved/Config/WindowsNoEditor/Engine.ini` (`../../../Engine/Content`, `%GAMEDIR%Content`, en
+plugin-Content-mappen), en die plugin-mappen (`Hodzero/Plugins/…`, `Engine/Plugins/2D/Paper2D`) **staan
+niet op schijf** — ze zitten in de pak. Dat was afgeleid en is nu in een echte run gezien.
+
+**Eén portabiliteitsdetail dat eruit volgt.** De log vraagt letterlijk om
+`../../../Hodzero/Content/HodZero_v1/Fonts/…` (`Z`, `v1`), terwijl de map op schijf
+`Content/Hodzero_V1/ADX` heet (`z`, `V1`). Op de CIFS-mount bestaat dat onderscheid niet — CIFS is
+hoofdletterongevoelig — dus daar werkt het. **Op een hoofdlettergevoelig bestandssysteem (ext4) kan dat
+breken**, wat relevant is voor iedereen die de game ooit lokaal kopieert.
+

@@ -1,0 +1,6 @@
+<< 2026/10/13 09:51:27 >>
+Runtime exception occurred.
+File: D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_platform_manager.cpp
+Line: 102
+Function: void __cdecl am::platform::Manager::initialize(void)
+Message: amPlatformGetPlatformInformation(). ErrCode 0.
