@@ -472,3 +472,24 @@ meting -- niet "afgedaan".
 De volgorde blijft: eerst de zes huidige games, en deze titel komt daarna. Wel vastleggen zodat er niets
 verloren gaat: de naam, de twee eigenschappen hierboven, en dat er voor deze titel nog niets is
 onderzocht.
+
+### Correctie op de Luigi-tabel hierboven (2026-10-13, na de hermeting)
+
+In de tabel staat bij de vierde stap ("starten vanaf `X:\exe\x64\`") dat die **niet gemeten** is omdat de
+sampler alleen een proces met `LuigisMansion` in de opdrachtregel herkende. **Dat is achterhaald.** De
+werker heeft die sampler met één regel gerepareerd, de reparatie eerst met een nepproces BEWEZEN, en de
+meting daarna opnieuw gedaan:
+
+| moment | waarde |
+|---|---|
+| vrijgave, `.text` definitief | **6,8 s** -- `.text` 10,0 procent nul (ontpakken **klaar**) |
+| dood | **7,0 s** |
+| verschil | ongeveer 0,2 s |
+
+Op onze kern (`fe2ecf8c`), met `Game: X:\exe\x64\VACUUM.exe` in het laderbanner als bewijs dat de
+override werkte, en met de `x:`-koppeling daarna opgeruimd. **Dus alle vier de stappen uit het officiele
+startscript zijn nu met een eigen meting weggestreept** -- niet drie van de vier.
+
+En voor de volledigheid, want het staat in dezelfde familie: het aansporen van de koppeling moet NA het
+opwarmen van de wineserver gebeuren (Wine herschrijft de map `dosdevices`). Of een koppeling een
+herstart van de wineserver overleeft is **niet gemeten** en staat hier als aanname, niet als feit.
