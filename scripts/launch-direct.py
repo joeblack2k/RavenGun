@@ -666,12 +666,16 @@ def resolve_loader(p, tp):
 OWN_BUILD_DEFAULT = "~/.local/share/ravengun/openparrot/current"   # scripts/build-openparrot.sh zet de verwijzing "current"
 
 
-def own_build(loader_settings, et, exe_rel, dll_rel):
+def own_build(loader_settings, et, exe_rel, dll_rel, is64=False):
     """[Loader] Build = ravengun: de OpenParrot-lader (en -kern) uit de eigen build (scripts/build-openparrot.sh) in plaats van
-    uit de TeknoParrot-runtime. Geeft (lader, kern-map); (None, None) = alles uit de runtime (standaard).
+    uit de TeknoParrot-runtime. Geeft (lader, kern-map, kern-pad); (None, None, None) = alles uit de runtime (standaard).
       Build = teknoparrot | ravengun   lader en, bij EmulatorType OpenParrot, de kern
       Core  = teknoparrot | ravengun   alleen de kern apart (bv. eigen lader met de kern van TeknoParrot); leeg = volgt Build
-      Path  = <map>                    map met OpenParrotWin32/ en OpenParrotx64/ (standaard: .../ravengun/openparrot/current)"""
+      Path  = <map>                    map met OpenParrotWin32/ en OpenParrotx64/ (standaard: .../ravengun/openparrot/current)
+    Core = ravengun geldt ook voor EmulatorType TeknoParrot (bisectie per game): dan komt onze OpenParrot-kern in de plaats
+    van TeknoParrot(64).dll, als eerste argument van de lader (die plakt zelf ".dll" erachter). Alleen als Core er uitdrukkelijk
+    staat: Build = ravengun alleen laat een TeknoParrot-profiel zijn eigen kern houden. kern-pad is het pad (zonder .dll,
+    relatief aan kern-map) van de te gebruiken kern; het volgt is64 voor TeknoParrot, anders is het dll_rel."""
     build = loader_settings.get("Build", "").strip().lower()
     core = loader_settings.get("Core", "").strip().lower()
     for key, val in (("Build", build), ("Core", core)):
@@ -680,7 +684,7 @@ def own_build(loader_settings, et, exe_rel, dll_rel):
     if not core and build == "ravengun" and et == "OpenParrot":
         core = "ravengun"   # Build volgt voor de kern alleen bij EmulatorType OpenParrot; TeknoParrot-profielen houden hun eigen kern
     if build != "ravengun" and core != "ravengun":
-        return None, None
+        return None, None, None
     base = gs.expand_home(loader_settings.get("Path", "").strip() or OWN_BUILD_DEFAULT)
     loader = None
     if build == "ravengun":
@@ -688,15 +692,31 @@ def own_build(loader_settings, et, exe_rel, dll_rel):
             raise SettingRefused("[Loader] Build = ravengun bestaat alleen voor OpenParrotLoader(64).exe, "
                                  "niet voor %s" % exe_rel)
         loader = os.path.join(base, exe_rel)
-    core_dir = None
+    core_dir, core_rel = None, None
     if core == "ravengun":
-        if et != "OpenParrot" or not dll_rel:
-            raise SettingRefused("een eigen kern bestaat alleen voor EmulatorType OpenParrot (dit is %s)" % et)
+        if et not in ("OpenParrot", "TeknoParrot") or not dll_rel:
+            raise SettingRefused("een eigen kern bestaat alleen voor EmulatorType OpenParrot of TeknoParrot (dit is %s)" % et)
+        if not os.path.basename(exe_rel).lower().startswith("openparrotloader"):
+            raise SettingRefused("[Loader] Core = ravengun past alleen bij OpenParrotLoader(64).exe, niet bij %s" % exe_rel)
         core_dir = base
-    for f in (loader, os.path.join(core_dir, dll_rel + ".dll") if core_dir else None):
+        core_rel = dll_rel if et == "OpenParrot" else (
+            "OpenParrotx64/OpenParrot64" if is64 else "OpenParrotWin32/OpenParrot")
+    for f in (loader, os.path.join(core_dir, core_rel + ".dll") if core_dir else None):
         if f and not os.path.isfile(f):
             raise SettingRefused("eigen OpenParrot-build ontbreekt: %s (bouwen: scripts/build-openparrot.sh)" % f)
-    return loader, core_dir
+    return loader, core_dir, core_rel
+
+
+def file_sha256(path):
+    """sha256 (hex) van een bestand, of None als het er niet is; voor --plan en het logboek (reproduceerbaarheid)."""
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -995,13 +1015,16 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         for pt in settings.patches:
             if pt.name == gs.FPFIX_PATCH:
                 pt.fields["Enabled"] = "true"
-    own_loader, own_core_dir = own_build(settings.settings.get("Loader", {}), et, exe_rel, dll_rel)   # [Loader] Build/Core/Path
+    own_loader, own_core_dir, own_core_rel = own_build(settings.settings.get("Loader", {}), et, exe_rel, dll_rel, is64)   # [Loader] Build/Core/Path
     if own_loader:
         loader = own_loader
         for pt in settings.patches:   # de Wine-fix zit in de eigen lader zelf (broncodewijziging); de bytepatch past er niet op
             if pt.name == gs.FPFIX_PATCH:
                 pt.fields["Enabled"] = "false"
     core_dir = own_core_dir or tp
+    if own_core_rel:
+        dll_rel = own_core_rel   # eigen kern in de plaats van de kern van het profiel (ook bij EmulatorType TeknoParrot)
+    core_dll = os.path.join(core_dir, dll_rel + ".dll") if dll_rel else None
     targets = {"loader": loader, "core": os.path.join(core_dir, dll_rel + ".dll") if dll_rel else None}
     patched, patch_report = plan_file_patches(settings, targets, tp, materialize=materialize_patches, exe_path=game)
     # De patchmotor erbij: Kind = file op de game zelf en Kind = memory op de hoofdmodule. Additief,
@@ -1109,6 +1132,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     uit = {
         "profile": name, "tp": tp, "emulator_type": et, "emulation_profile": emu, "is64": is64,
         "game": game, "cwd": cwd, "wine": wine, "prefix": prefix, "argv": (gamescope or []) + args,
+        "core_dll": core_dll, "core_sha256": file_sha256(core_dll) if core_dll else None,
+        "core_source": "ravengun" if own_core_rel else "runtime",
         "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env, "patches": patch_report,
         "settings_sources": settings.sources, "profile_source": "game.ini" if own else "UserProfiles/%s.xml" % name,
         "game_source": p.get("_game_source", "xml"),
@@ -1535,6 +1560,8 @@ def run(plan):
         st, why = place_binary(f["src"], f["dest"])
         log("drop-in: " + why)
     merge_env(plan, plan["dropins"]["env"])
+    if plan.get("core_dll"):   # welke kern er echt draait, voor reproduceerbaarheid
+        log("kern (%s): %s sha256 %s" % (plan.get("core_source"), plan["core_dll"], plan.get("core_sha256")))
     # 0. Eén regel per patch (ook uitgeschakelde), in vaste vorm.
     for line in patch_log_lines(plan["patches"]):
         log(line)

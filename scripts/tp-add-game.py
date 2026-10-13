@@ -29,11 +29,13 @@ venstertitel): maakt een eigen prefix-kopie ravengun-test-<profiel> (reflink-kop
 zet daarin een Wine-virtueel bureaublad WxH (HKCU/Software/Wine/Explorer), zet Windowed=0 in het profiel en laat de game die
 prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix, VirtualDesktop). De gedeelde prefix blijft ongemoeid.
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
---view: maakt een lokale map met alleen symlinks naar de bestanden van de game (er wordt niets gekopieerd en
+--view: maakt een lokale map met symlinks naar de bestanden van de game (er wordt niets van de game gekopieerd, op BepInEx/ na, en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
 nodig voor 32-bit ElfLdr2-games, want TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relatief aan de
 gamemap. Ook nodig als de gamemap een spatie aan het eind heeft (Wine: "Directory name invalid"). Let op: nieuwe
-bestanden die de game in de view maakt blijven lokaal; bestaande bestanden en submappen zijn links naar de NAS.
+bestanden die de game in de view maakt blijven lokaal; bestaande bestanden en submappen zijn links naar de NAS (de games wonen
+op de NAS en schrijven daar zelf hun saves en instellingen; dat is zo ontworpen), behalve BepInEx/: dat is onze plugin met config, cache
+en log en wordt een lokale kopie.
 
 Vaste afspraak voor de gun-knoppen: trekker = LeftButton, herladen = RightButton, granaat = MiddleButton;
 toetsen: Coin = 5, Start P1 = 1, Test = F2, Service = F3. Knoppen van een bepaalde game (Let's Go Safari: A/S/D/F, stuur) staan
@@ -54,9 +56,29 @@ import tpxml
 TP = os.environ.get('RAVENGUN_TP_DIR') or os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
 
 
-def link_tree(src, dst, empties):
+# BepInEx/ is ONS artefact (onze plugin met zijn config, cache en LogOutput.log): die boom hoort lokaal in de view, nooit als symlink
+# naar de NAS (gemeten 2026-10-11, Rabbids Hollywood: BepInEx/ op de NAS beschreven via zo'n view). De eigen bestanden van de game
+# (saves, instellingen, kleine .ini/.json/.conf, NVRAM, dxvk-cache) blijven symlinks: de game woont op de NAS en schrijft daar zelf
+# (besluit van de eigenaar, 2026-10-12).
+LOKAAL_MAPPEN = {'bepinex'}
+
+
+def kopieer_lokaal(src, dst):
+    """Maak dst een echte map met echte kopieen van src (recursief). Bestaande lokale bestanden blijven staan; een symlink
+    op die plek wordt vervangen (alleen de link zelf wordt verwijderd, nooit wat erachter staat)."""
+    if os.path.islink(dst): os.unlink(dst)
+    os.makedirs(dst, exist_ok=True)
+    for e in os.listdir(src):
+        sp, dp = os.path.join(src, e), os.path.join(dst, e)
+        if os.path.islink(dp): os.unlink(dp)
+        if os.path.isdir(sp): kopieer_lokaal(sp, dp)
+        elif not os.path.lexists(dp): shutil.copyfile(sp, dp); shutil.copymode(sp, dp)
+
+
+def link_tree(src, dst, empties, top=True):
     """Link elke ingang van src in dst; een pad uit `empties` (lijst van padonderdelen) wordt een lege map, en de mappen
-    erlangs worden echte mappen met links voor de rest (alleen lokaal; de bron blijft ongewijzigd)."""
+    erlangs worden echte mappen met links voor de rest (alleen lokaal; de bron blijft ongewijzigd). Op het hoogste niveau
+    (top) wordt BepInEx/ lokaal gekopieerd in plaats van gelinkt."""
     os.makedirs(dst, exist_ok=True)
     first = {e[0] for e in empties}
     for e in os.listdir(src):
@@ -66,10 +88,13 @@ def link_tree(src, dst, empties):
             if [] in sub:      # dit onderdeel zelf wordt leeg
                 os.makedirs(dp, exist_ok=True)
             else:
-                link_tree(sp, dp, [x for x in sub if x])
+                link_tree(sp, dp, [x for x in sub if x], False)
+        elif top and e.lower() in LOKAAL_MAPPEN and os.path.isdir(sp):
+            kopieer_lokaal(sp, dp)
         else:
             if os.path.islink(dp): os.unlink(dp)      # een vorige keer
-            os.symlink(sp, dp)
+            if not os.path.lexists(dp):               # een echte map van een vorige keer (bijv. een gematerialiseerde drop-in-map) blijft staan
+                os.symlink(sp, dp)
 
 
 def prefix_env(path):

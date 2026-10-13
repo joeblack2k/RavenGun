@@ -23,16 +23,34 @@ Route 1 (demulshooter): de DemulShooter-release staat NIET in de repository (gee
 ~/.local/share/ravengun/demulshooter/<versie>/ (zie PROVENANCE.txt daar). Dit script voert geen enkel .exe uit de
 release uit en haalt alleen de plugin-bestanden uit Unity/<plugin_dir>.
 
-De view (~/.local/share/ravengun/runtime/views-aagames/<GAME>) bevat symlinks naar alle bestanden van de game op de NAS
-(er wordt niets van de game gekopieerd, de NAS wordt nooit gewijzigd), behalve:
-  - BepInEx/, winhttp.dll, doorstop_config.ini: lokaal, uit de DemulShooter-plugin (een BepInEx/doorstop van de
-    TeknoParrot-variant op de NAS wordt niet gebruikt);
-  - Game_Data/: een echte map met links naar elk onderdeel, zodat nieuwe bestanden van de game lokaal blijven;
-  - kleine configuratiebestanden (*.json, *.conf, *.cfg, minder dan 64 KiB) en lege vlagbestanden (Game.run, ForceReboot):
-    lokale kopie, want de game schrijft erin; *.log van de NAS komen niet in de view;
+De regel (besluit van de eigenaar, 2026-10-12): de games WONEN op de NAS en worden daarvandaan gestart; wat een game zelf
+schrijft (saves, instellingen, NVRAM, logs in zijn eigen spelmap) mag daar staan en is geen fout. Onze EIGEN artefacten
+komen nooit stilzwijgend in een spelmap op de NAS: drop-ins, patchbestanden, onze plugin-DLL's met hun config/cache/log
+(de BepInEx-boom), hulpbestanden. Die staan in de lokale view, en dit script stopt als zo'n plek toch op de NAS uitkomt.
+
+De view (~/.local/share/ravengun/runtime/views-aagames/<GAME>) bevat symlinks naar de grote, alleen-lezen bestanden van de
+game op de NAS (er wordt niets van de game gekopieerd, de NAS wordt nooit gewijzigd door dit script), behalve:
+  - BepInEx/, winhttp.dll, doorstop_config.ini: lokaal, uit de plugin-release (een BepInEx/doorstop van de
+    TeknoParrot-variant op de NAS wordt niet gebruikt). Dit is ONS artefact: BepInEx schrijft config, cache en LogOutput.log
+    naast de game; de view is daarom de enige werkmap van de game (play-unity.sh start met de view als werkmap);
+  - Game_Data/: een echte map met links naar elk onderdeel, zodat nieuwe bestanden van de game lokaal blijven. Daarin is
+    Game_Data/Plugins/ (met submappen) een LOKALE kopie (eenmalig uit de NAS gekopieerd, bestaande lokale bestanden
+    blijven staan): hier komen onze drop-ins (matrix64.dll, matrix/matrix.ini). Eerder was dit een symlink naar de NAS en
+    dan zou een drop-in op de alleen-lezen NAS zijn beland. De rest van Game_Data (Managed, Mono, GI, Resources, de
+    assets en levels, samen bijna 2 GiB) blijft symlink: alleen-lezen en groot. Een drop-in die daar toch in moet maakt de
+    map pas dan lokaal (scripts/launch-direct.py: dropin_materialiseer);
+  - eigen bestanden van de game die in de view lokaal staan, als gemak van deze route (niet omdat de NAS ze niet zou mogen
+    bevatten): kleine configuratiebestanden in de gamemap (*.json, *.conf, *.cfg, minder dan 64 KiB) en lege vlagbestanden
+    (Game.run, ForceReboot), kleine configuratiebestanden direct in Game_Data (boot.config, app.info, *.txt, *.ini, *.json,
+    *.conf, *.cfg, *.config) en Game_Data/StreamingAssets/. Zo blijft de toestand van deze route (instellingen,
+    ControllerBaseConfig.json) bij de view; *.log van de NAS komen niet in de view. De controle hieronder dwingt dit niet af;
   - teknoparrot.ini en TeknoParrot-onderdelen (Doorstop.dll, 0Harmony.dll in de gamemap): niet in de view.
-Bestaande lokale bestanden in de view blijven bij een nieuwe aanroep staan (bijv. NVRAM, de plugin-ini wordt opnieuw
-uit het sjabloon gemaakt met de resolutie uit het JSON-bestand).
+Na het klaarzetten controleert pruef_schrijfpaden() alleen onze artefacten: de view zelf, BepInEx/ en Game_Data/Plugins met alles
+erin mogen niet via een symlink op de NAS uitkomen; anders stopt het script met een foutmelding. Dat de spelmap zelf
+(de bron van de symlinks) op de NAS staat is de bedoeling en stopt niets. Bestaande lokale bestanden in de view blijven bij
+een nieuwe aanroep staan (bijv. NVRAM, een geplaatste drop-in; de plugin-ini wordt opnieuw uit het sjabloon gemaakt met de
+resolutie uit het JSON-bestand). Oude symlinks naar de NAS in de lokale Plugins-map (uit een eerdere versie of een
+drop-in-materialisatie) worden vervangen.
 """
 import glob, json, os, re, shutil, subprocess, sys
 
@@ -54,6 +72,10 @@ PROTON = os.path.join(HOME, '.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86
 SKIP = {'bepinex', 'winhttp.dll', 'doorstop_config.ini', 'teknoparrot.ini', 'doorstop.dll', '0harmony.dll',
         '.doorstop_version', 'game_data'}
 COPY_EXT = ('.json', '.conf', '.cfg')
+# Game_Data: Plugins is lokaal omdat onze drop-ins daar komen (verplicht, zie docstring); StreamingAssets is een eigen map van
+# de game die om gemak lokaal staat (mag ook op de NAS).
+LOCAL_DIRS = {'plugins', 'streamingassets'}
+GAMEDATA_COPY_EXT = COPY_EXT + ('.config', '.info', '.txt', '.ini')
 
 
 def die(msg):
@@ -67,8 +89,35 @@ def load(game):
     return cfg, cfg['games'][game]
 
 
-def link_all(src, dst, skip, copy_small):
-    """Symlink elke vermelding van src in dst (bestaande links worden vervangen, echte bestanden blijven)."""
+def onder(pad, wortel):
+    """Ligt `pad` (na het volgen van symlinks) in of onder `wortel`?"""
+    p, w = os.path.realpath(pad), os.path.realpath(wortel)
+    return p == w or p.startswith(w + os.sep)
+
+
+def kopieer_lokaal(src, dst, nas):
+    """Maak dst een ECHTE map met echte kopieen van src (recursief, eenmalig). Bestaande lokale bestanden blijven staan;
+    een symlink naar de NAS op die plek (van een eerdere versie of een drop-in-materialisatie) wordt vervangen door een kopie.
+    Schrijft nooit via een symlink: komt dst na het aanmaken toch op de NAS uit, dan stopt het script."""
+    if os.path.islink(dst):
+        os.unlink(dst)  # alleen de link zelf, nooit wat erachter staat
+    os.makedirs(dst, exist_ok=True)
+    if onder(dst, nas):
+        die(f'{dst} komt op de NAS uit; daar wordt nooit geschreven')
+    for e in sorted(os.listdir(src)):
+        s, d = os.path.join(src, e), os.path.join(dst, e)
+        if os.path.islink(d) and onder(d, nas):
+            os.unlink(d)
+        if os.path.isdir(s):
+            kopieer_lokaal(s, d, nas)
+        elif not os.path.lexists(d):
+            shutil.copyfile(s, d)
+            shutil.copymode(s, d)
+
+
+def link_all(src, dst, skip, copy_small, local_dirs=(), copy_ext=COPY_EXT):
+    """Symlink elke vermelding van src in dst (bestaande links worden vervangen, echte bestanden blijven).
+    Mappen in `local_dirs` (kleine letters) worden niet gelinkt maar lokaal gekopieerd (kopieer_lokaal)."""
     os.makedirs(dst, exist_ok=True)
     for e in os.listdir(dst):
         p = os.path.join(dst, e)
@@ -78,15 +127,51 @@ def link_all(src, dst, skip, copy_small):
         if e.lower() in skip:
             continue
         s, d = os.path.join(src, e), os.path.join(dst, e)
+        if e.lower() in local_dirs and os.path.isdir(s):
+            kopieer_lokaal(s, d, src)
+            continue
         if os.path.lexists(d):
             continue
         if copy_small and e.lower().endswith('.log'):
             continue  # logbestanden van de game: nieuwe ontstaan lokaal, oude van de NAS niet bijschrijven
         if copy_small and os.path.isfile(s) and (os.path.getsize(s) == 0 or
-                                                 (e.lower().endswith(COPY_EXT) and os.path.getsize(s) < 64 * 1024)):
+                                                 (e.lower().endswith(copy_ext) and os.path.getsize(s) < 64 * 1024)):
             shutil.copyfile(s, d)  # lege vlagbestanden en kleine configuratie: lokaal, de game schrijft erin
         else:
             os.symlink(s, d)
+
+
+def pruef_schrijfpaden(view, nas):
+    """Geef de lijst van plekken van ONZE artefacten in de view die op de NAS uitkomen (leeg = goed): de view zelf,
+    BepInEx/ met alles erin (onze plugin met config, cache en log) en Game_Data/Plugins met alles erin (drop-ins).
+    Een pad is fout als het (of een map erboven) een symlink is die onder de NAS uitkomt. Wat de game zelf schrijft
+    (eigen bestanden, StreamingAssets, saves) wordt NIET gecontroleerd: dat mag op de NAS staan."""
+    fouten = []
+
+    def check(p):
+        if os.path.islink(p) and onder(p, nas):
+            fouten.append(f'{p} -> {os.path.realpath(p)}')
+        elif onder(p, nas):
+            fouten.append(f'{p} ligt op de NAS')
+
+    def boom(p):
+        check(p)
+        if os.path.isdir(p) and not os.path.islink(p):
+            for e in sorted(os.listdir(p)):
+                boom(os.path.join(p, e))
+
+    if onder(view, nas):
+        fouten.append(f'de view {view} ligt op de NAS')
+        return fouten
+    for rel in ('BepInEx', 'Game_Data'):
+        if os.path.islink(os.path.join(view, rel)):
+            fouten.append(f'{os.path.join(view, rel)} is een symlink')
+    boom(os.path.join(view, 'BepInEx'))
+    gd = os.path.join(view, 'Game_Data')
+    for e in os.listdir(gd) if os.path.isdir(gd) else ():
+        if e.lower() == 'plugins':
+            boom(os.path.join(gd, e))
+    return fouten
 
 
 def plugin_ini(template, g):
@@ -123,9 +208,12 @@ def link_game(game, g):
     if not os.path.isfile(os.path.join(nas, g['exe'])):
         die(f'{g["exe"]} niet gevonden in {nas} (NAS gekoppeld?)')
     view = os.path.join(VIEWS, game)
+    if onder(view, nas):
+        die(f'de view {view} ligt op de NAS {nas}; de view moet altijd een lokale map zijn')
     link_all(nas, view, SKIP, True)
-    # Game_Data: echte map met links (nieuwe bestanden van de game blijven lokaal).
-    link_all(os.path.join(nas, 'Game_Data'), os.path.join(view, 'Game_Data'), set(), False)
+    # Game_Data: echte map met links (nieuwe bestanden van de game blijven lokaal). Plugins (onze drop-ins) is een echte, lokale
+    # kopie; StreamingAssets en kleine configuratiebestanden van de game zijn dat uit gemak ook.
+    link_all(os.path.join(nas, 'Game_Data'), os.path.join(view, 'Game_Data'), set(), True, LOCAL_DIRS, GAMEDATA_COPY_EXT)
     return view
 
 
@@ -202,6 +290,9 @@ def build_view(game, g, version, plugin='ravengun', cfg_root=None, reset_config=
         install_demulshooter(view, g, version)
     else:
         install_ravengun(view, game, g, cfg_root or {}, reset_config, build)
+    fouten = pruef_schrijfpaden(view, os.path.expanduser(g['nas_dir']))
+    if fouten:
+        die('schrijfpaden die op de NAS uitkomen (dat mag nooit):\n  ' + '\n  '.join(fouten))
     return view
 
 
