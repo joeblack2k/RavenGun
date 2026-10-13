@@ -256,6 +256,11 @@ if(RAVENGUN_BUILD_TESTS)
   # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
   add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")
   set_tests_properties(ravengun_launch_direct PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
+  add_test(NAME ravengun_elfloader_gnuhash COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_gnuhash_test.sh")
+  set_tests_properties(ravengun_elfloader_gnuhash PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME ravengun_elfloader_install COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(ravengun_elfloader_install PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
@@ -348,7 +353,17 @@ install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PE
 # gebruikerslaag (~/.local/share/ravengun/patches). Staat de map er wel (een ontwikkelcheckout met
 # een koppeling ernaartoe), dan gaan ze mee zoals altijd.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
-  install(DIRECTORY patches/ DESTINATION ${RAVENGUN_DATADIR}/patches)
+  # Eerst de koppeling herleiden: install(DIRECTORY) kopieert een symlink als symlink, en de relatieve
+  # koppeling "patches -> ../ravengun-patches/patches" wijst vanuit de installatie nergens heen. Dan ziet
+  # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
+  get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
+  # Mee: wat de lader en de daemon lezen (game.ini, patches.ini, dongle.json, _defaults/, dropin/) en de README per game.
+  # Niet mee: de onderzoeksnotities (*.md) en de meetscripts (probe/) uit de patches-repo. Die horen niet in een
+  # installatie en noemen ontwikkelpaden, waar tests/install_test.sh terecht op afkeurt.
+  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
+    PATTERN "*.md" EXCLUDE PATTERN "probe" EXCLUDE)
+  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
+    FILES_MATCHING PATTERN "README.md" PATTERN "probe" EXCLUDE)
 else()
   message(STATUS "geen patches/-map: die staan in de repo ravengun-patches (zie docs/geen-dongle-in-de-loader.md)")
 endif()

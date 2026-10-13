@@ -50,8 +50,9 @@ terugval met `--teknoparrot`.
 1. **Al los van TeknoParrot: 2 games.** Tomb Raider en Rabbids Hollywood starten via hun eigen BepInEx-plugin
    (`packaging/aagames-games.json`, plugin `ravengun`, TCP 33610) — daar zit geen enkel TeknoParrot-onderdeel
    meer in het startpad (`scripts/play-halo.sh` regel 205-211 stuurt ze naar `scripts/play-unity.sh`).
-   **Van die twee werkt er nu één:** Rabbids Hollywood stopt na ongeveer een minuut op zijn **eigen**
-   Matrix-donglecontrole, die niets met TeknoParrot te maken heeft.
+   **Beide starten via de eigen plugin.** Voor Rabbids Hollywood gold "stopt na ongeveer een minuut op zijn **eigen**
+   Matrix-donglecontrole"; dat bleek een uitrol-fout (verouderde plug-in in de view). Hermeting 2026-10-12: de game start en leeft
+   288 s in de attract-loop via `scripts/play-unity.sh`. Munt, start en richten zijn niet gemeten (headless); zie `packaging/games-status.md`.
 2. **Een donglelaag nodig: 19 games.** HASP 6 (waarvan GhostBusters onzeker), Matrix/SBK 4, regio/PCB 7,
    `amdaemon` 1, Sega-donglescan 1. **Dit is een andere dimensie dan punt 1 en 3:** 2 van die 19 (Tomb Raider
    en Rabbids Hollywood) staan óók in punt 1. De andere **16 games hebben geen enkele dongle-aanwijzing.**
@@ -300,7 +301,7 @@ de loskoppeling kent twee soorten werk die niet in elkaar te schuiven zijn:
 |---|---|
 | GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2 | lader **en** kern zijn al van ons (eigen OpenParrot-build); wat rest is de regio-dongle in `dongle.json` en de patches (die er al staan) |
 | TombRaider | loopt via de eigen Unity-plugin; alleen een Matrix-`dropin/` ontbreekt (en blokkeert niet) |
-| RabbidsHollywood | loopt via de eigen Unity-plugin; alleen een Matrix-`dropin/` ontbreekt — en die **blokkeert** wel |
+| RabbidsHollywood | loopt via de eigen Unity-plugin; alleen een Matrix-`dropin/` ontbreekt — voorheen gemeld als **blokkerend** ("stopt na ~1 min"), maar dat bleek een uitrol-fout; hermeting 2026-10-12: start en leeft 288 s in attract, zie `packaging/games-status.md` |
 
 **En welke ook werksoort 2 of 3 nodig hebben:** de andere **29** games. Daarvan zijn er 2 niet geïnstalleerd
 (3DCosplayMahjong, TankTankTank), zodat de verdeling is: **21 × werksoort 2** (eigen kern), **8 × werksoort 3**
@@ -350,7 +351,7 @@ afspraak wil: de kennis per game in de map, de motor één keer centraal.
 | 15 | **LGI3D** | `TeknoParrot` / `SegaJvsLetsGoIsland` (`USA`/`USA`) | eigen OpenParrotLoader | **regio/PCB (USA)** — als #14, met `USA` | als #14, prefix `ravengun-test-lgi3d` | als #14 | als #14 |
 | 16 | **LGS** | `TeknoParrot` / `LGS` (`USA`/`USA`) | eigen OpenParrotLoader | **regio/PCB (USA)** — als #14, met `USA` | eigen lader + **gesloten kern**; profielenset; pipehelper; prefix `ravengun-test-lgs`; Ui (geen `[Launch] Mode`) | als #14; Let's Go Safari is geen lightgun-game (stuurwiel) | Gesloten kern; ook de JVS-dienst op poort 40100 (`findings/LetsGoSafari.md`) |
 | 17 | **LethalEnforcers3** | `TeknoParrot` / `WartranTroopers` | eigen OpenParrotLoader | geen (geen donglebestand; `gunio.dll` en `iob.dll` zijn I/O-modules, geen dongle) | eigen lader + **gesloten kern**; profielenset; prefix; Ui | eigen kern met WartranTroopers-hooks | Gesloten kern; de game crasht op een `.m1v`-film — Wine mist 32-bit GStreamer (MPEG-1) |
-| 18 | **LuigisMansion** | `TeknoParrot` / `LuigisMansion` | eigen OpenParrotLoader64 | geen (geen donglebestand in `Luigi's Mansion Arcade`) | eigen lader + **gesloten kern**; profielenset; prefix; `TP_GAME_WORKING_DIRECTORY` | eigen kern; de kern blokkeert COM1 en neemt de I/O over — dat patroon moet nagebouwd | Gesloten kern; Capcom-packer op `VACUUM.exe`; de kern doet `BLOCKING LUIGI COM PORT` (`findings/14_openstellen.md` §4.4) |
+| 18 | **LuigisMansion** | `TeknoParrot` / `LuigisMansion` | eigen OpenParrotLoader64 | geen (geen donglebestand in `Luigi's Mansion Arcade`) | eigen lader + **gesloten kern**; profielenset; prefix; `TP_GAME_WORKING_DIRECTORY` | eigen kern; de gesloten kern heeft een COM-tak en neemt de I/O over. De COM-blokkade is op onze kern nagebouwd en op 2026-10-12 weer weggehaald: gemeten neutraal, het spel eindigt voordat het een poort opent (`third_party/openparrot/README.md`, patch 0005) | Gesloten kern; Capcom-packer op `VACUUM.exe`; de kern doet `BLOCKING LUIGI COM PORT` (`findings/14_openstellen.md` §4.4) |
 | 19 | **MedaruNoGunman** | `TeknoParrot` / `FarCry` | eigen OpenParrotLoader | geen — `keychip/` bevat alleen `SBRZ_Table.dat` en `SBTF_Table.dat` (tabeldata, geen dongle-API) | eigen lader + **gesloten kern**; profielenset; prefix; eigen prefix | eigen kern met FarCry-hooks | Gesloten kern; bij elke verse start `3001 RAM DATA IS BAD` / `3003 ROM HAS CHANGED` (SRAM/EEPROM-grootte) |
 | 20 | **MusicGunGun2** | `OpenParrot` / `MusicGunGun2` | **eigen** OpenParrotLoader | geen (geen donglebestand; `SECLIB.dll`/`ewfapi.dll` zijn geen dongle) | eigen lader + eigen kern; profielenset; pipehelper; prefix | kan al los van de gesloten kern | Game-eigen D3D9-probleem: eigen foutvenster "Direct3D-initialisatie mislukt" (ook met DXVK) |
 | 21 | **NERF** | `TeknoParrot` / `WartranTroopers` (`Patreon = true`) | eigen OpenParrotLoader64 | **HASP** — `NERF Arcade/Plugins/x86_64/libhasp_linux_23714.so` (en `Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so`) | eigen lader + **gesloten kern**; profielenset; prefix `ravengun-test-dxvk`; **abonnement** | eigen kern + eigen HASP-laag; de BepInEx-plugin-route (`NERFTPPlugin.dll`) is een alternatief | Gesloten kern; invoer komt niet aan (start en trekker); `Patreon` |
@@ -359,7 +360,7 @@ afspraak wil: de kennis per game in de map, de motor één keer centraal.
 | 24 | **Otomedius** | `TeknoParrot` / `WartranTroopers` (`Patreon = true`) | eigen OpenParrotLoader | geen (`libacio.dll`, `HIdGet.exe`, `HidBoot.id` zijn I/O, geen dongle) | eigen lader + **gesloten kern**; profielenset; prefix; Ui; **abonnement** | eigen kern + een ACIO-responder op een pty als COM2 (`src/ravengun/iobridge/`, protocol in `docs/research/antwoorden-tp-ronde5-22.md`) | Gesloten kern; de game zoekt een ACIO-micom op COM2 ("COM Port 2 Open Error"); `Patreon` |
 | 25 | **PacmanChomp** | `ElfLdr2` / `RawThrillsGUN` (`Patreon = true`) | BudgieLoader (gesloten, uit de view) | geen (geen donglebestand in `Pacman Chomp-Mania`) | gesloten lader; profielenset; prefix; gamescope; **abonnement** | eigen `LD_PRELOAD` (32-bit) | BudgieLoader gesloten; zwart beeld, dezelfde klasse als Jurassic Park |
 | 26 | **PigsMightFly** | `TeknoParrot` / `WartranTroopers` (`Patreon = true`) | eigen OpenParrotLoader | geen | eigen lader + **gesloten kern**; profielenset; prefix `ravengun-test-pigs`; **abonnement** | eigen kern; daarna de packer op `Shell.exe` | Gesloten kern; `Shell.exe` is ingepakt (injectie vanaf het startpunt geeft "Unhandled illegal instruction at address 0044A5F4") |
-| 27 | **RabbidsHollywood** | `TeknoParrot` / `WartranTroopers` | eigen OpenParrotLoader64 | **Matrix/SBK** — `matrix64.dll` en `matrix32.dll` in de spelmap (en in `Game_Data/Plugins/`); `SBK.Matrix.MatrixManager` roept `Dongle_Count(40)` aan en bij 0 volgt `DONGLE NOT FOUND` + `Application.Quit` | **niets van TeknoParrot in het standaardpad**: `play-halo.sh` stuurt het profiel naar `scripts/play-unity.sh` (eigen BepInEx-plugin, TCP 33610). De TeknoParrot-route bestaat nog als terugval | **kan al los** — de eigen plugin draait; alleen de Matrix-laag (27 `Dongle_*`-functies) ontbreekt | De **eigen** Matrix-donglecontrole van de game: hij stopt na ongeveer een minuut (`findings/MATRIX-dongle-API.md`) |
+| 27 | **RabbidsHollywood** | `TeknoParrot` / `WartranTroopers` | eigen OpenParrotLoader64 | **Matrix/SBK** — `matrix64.dll` en `matrix32.dll` in de spelmap (en in `Game_Data/Plugins/`); `SBK.Matrix.MatrixManager` roept `Dongle_Count(40)` aan en bij 0 volgt `DONGLE NOT FOUND` + `Application.Quit` | **niets van TeknoParrot in het standaardpad**: `play-halo.sh` stuurt het profiel naar `scripts/play-unity.sh` (eigen BepInEx-plugin, TCP 33610). De TeknoParrot-route bestaat nog als terugval | **kan al los** — de eigen plugin draait; alleen de Matrix-laag (27 `Dongle_*`-functies) ontbreekt | Voorheen gemeld: de **eigen** Matrix-donglecontrole van de game, hij stopt na ongeveer een minuut (`findings/MATRIX-dongle-API.md`). Hermeting 2026-10-12: dat was een uitrol-fout (verouderde plug-in in de view); de game leeft 288 s in de attract-loop |
 | 28 | **RaccoonRampage** | `TeknoParrot` / `WartranTroopers` | eigen OpenParrotLoader64 | geen | eigen lader + **gesloten kern**; profielenset; prefix `ravengun-test-dxvk`; Ui (geen `[Launch] Mode`) | eigen kern met WartranTroopers-hooks | Gesloten kern; de game meldt "guns are not calibrated" en het vizier staat vast linksboven |
 | 29 | **RainbowBombergirl** | `TeknoParrot` / `WartranTroopers` (`Patreon = true`) | eigen OpenParrotLoader64 | **regio/PCB (EXPORT)** — `teknoparrot.ini` `[General] Region=EXPORT`; profielveld `Region` (`GameProfiles/RainbowBombergirl.xml` regel 68) | eigen lader + **gesloten kern**; profielenset; prefix `ravengun-test-rainbowbombergirl`; **abonnement** | eigen kern + eigen regio-laag | Gesloten kern; de game komt niet verder dan het begin (aanraakscherm linksonder); `Patreon` |
 | 30 | **Rampage** | `TeknoParrot` / `WartranTroopers` | eigen OpenParrotLoader64 | **Matrix/SBK** — `matrix32.dll` en `matrix64.dll` in de spelmap en in `Game_Data/Plugins/`; `MATRIX_NO_DONGLE_FOUND` in `Assembly-CSharp.dll`; de game zoekt `C:\windows\SYSTEM\MATRIX.INI` (ontbreekt) | eigen lader + **gesloten kern**; profielenset; prefix `ravengun-test-dxvk` | eigen kern (de Matrix-controle blokkeert hier **niet**: de game speelt door zonder dongle) | Gesloten kern; geen echte blokkade — de game start en speelt; wel een filmprobleem (AAC-decoder, opgelost met `GST_PLUGIN_PATH`) |
@@ -396,7 +397,7 @@ staat** en **wat er nog moet**. `ini` = `game.ini`; `patch` = `patches.ini`; `re
 | **LGI3D** | `ini` + `readme` + **`dongle.json`** | `region` (USA/USA) — **aanwezig** | nee | als LGI |
 | **LGS** | `ini` + `readme` + **`dongle.json`** | `region` (USA/USA) — **aanwezig** | nee | werksoort 2 + de dienst op poort 40100 |
 | **LethalEnforcers3** | `ini` + `readme` | geen | nee | werksoort 2 + 32-bit GStreamer (MPEG-1) |
-| **LuigisMansion** | `ini` + `readme` | geen | nee | werksoort 2 + het COM1-blokkeerpatroon |
+| **LuigisMansion** | `ini` + `readme` | geen | nee | werksoort 2; het COM1-blokkeerpatroon is gemeten neutraal en vervallen (2026-10-12), het vroege einde (`0x40415820`) staat nog open |
 | **MedaruNoGunman** | `ini` + `readme` | geen | nee | werksoort 2 + de SRAM-grootte |
 | **MusicGunGun2** | `ini` + `patch` + `readme` | geen | nee | alleen de game-eigen D3D9-fout (werksoort 1 is klaar) |
 | **NERF** | `ini` + `readme` | `hasp` | ja: `ravengun-hasp` (en de BepInEx-plugin `NERFTPPlugin.dll`) | werksoort 2 + de HASP-gegevens uit `Plugins/x86_64/` |
@@ -537,8 +538,9 @@ De blokkades vallen in vier klassen. **Voor geen enkele game is de dongle de eni
 
 **En de dongle als blokkade, per game:**
 
-* **Blokkeert echt:** Rabbids Hollywood (Matrix — stopt na ~1 min), GhostBusters (waarschijnlijk HASP — de
-  lader weigert), Terminator (HASP — native exit 255 "de game wil een HASP-dongle").
+* **Blokkeert echt:** GhostBusters (waarschijnlijk HASP — de
+  lader weigert), Terminator (HASP — native exit 255 "de game wil een HASP-dongle"). Rabbids Hollywood (Matrix, voorheen "stopt na ~1 min")
+  staat hier niet meer: dat was een uitrol-fout, hermeting 2026-10-12 (288 s in attract; munt/start/richten niet gemeten).
 * **Blokkeert niet (meer):** Rampage (Matrix aanwezig, de game speelt door), Transformers (de donglescan
   faalt in fase 1, de game speelt door), GaiaAttack4/HM/HMII (regio `E`, de game komt voorbij de regio-check),
   en **LGI/LGI3D/LGS** — daar is het nu gemeten: `patches/LGI/dongle.json` zet `"enforced": false` met het
@@ -589,7 +591,7 @@ Deze punten heb ik gevonden maar niet kunnen afmaken; ze staan hier zodat een vo
    HASP-image, een `hasp/`-map, of iets anders? Zonder dat blijft GhostBusters "onbekend".
 4. **Waarom blokkeert Matrix bij Rabbids wél en bij Rampage niet?** `findings/MATRIX-dongle-API.md` §4 stelt
    deze vraag al; ik heb geen nieuw bewijs. Rampage laadt `matrix64.dll` en zoekt `MATRIX.INI`, Rabbids roept
-   `Dongle_Count(40)` aan en stopt. **Vraag:** roept Rampage `Dongle_Count` niet aan, of accepteert hij 0?
+   `Dongle_Count(40)` aan en stopt (voorheen gemeld; het "stopt" bleek een uitrol-fout, zie hermeting 2026-10-12 in `packaging/games-status.md`). **Vraag:** roept Rampage `Dongle_Count` niet aan, of accepteert hij 0?
    (Methode staat in dat document: `dnlib.py` op `Assembly-CSharp.dll`.)
 5. **Wat doet `matrix32.TEKNOPARROT.dll` in Infinity Blade FX?** Die DLL staat naast `matrix32.dll` en de
    `readme.txt` beschrijft een "matrix32/TPFIX"-oplossing, maar ik heb niet gelezen wat dat bestand doet of

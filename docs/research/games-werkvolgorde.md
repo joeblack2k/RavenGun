@@ -17,7 +17,7 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 4. GalagaAssault (Raw Thrills/BN, ~2019) — gepakt ELF
 5. Halo (Raw Thrills, 2018) — gepakt ELF64
 6. TombRaider (Adrenaline Amusements, 2018) — unity-tcp
-7. RabbidsHollywood (AA, 2018) — unity-tcp, self-quit op eigen dongle (geparkeerd)
+7. RabbidsHollywood (AA, 2018) — unity-tcp; niet meer geparkeerd: hermeting 2026-10-12, start en leeft 288 s in attract (munt/start/vizier niet gemeten, headless); het eerdere "self-quit op eigen dongle" was een uitrol-fout
 8. GhostBusters (Raw Thrills, 2011) — ongepakt ELF (eigen lader haalbaar)
 9. Terminator (Raw Thrills, 2010) — ongepakt ELF (eigen lader haalbaar)
 10. PacmanChomp (BN/Raw Thrills) — gepakt ELF
@@ -26,7 +26,7 @@ voor crashes), headless gemeten; zo niet, blocker parkeren.
 
 ## B. Japanse games (als laatste, nieuw → oud, bij benadering)
 - HOTDSD (Sega, 2018) — twee exe's (amdaemon), via TeknoParrotUi
-- LuigisMansion (Capcom, 2015) — exit 32 = Capcom anti-tamper (0005 lost dat niet op), geparkeerd
+- LuigisMansion (Capcom, 2015) — eindigt op onze kern en ook kernloos vroeg met `0x40415820` (kernloos gemeten: na 0,46 s) ("exit 32" is de lage byte), in de stub van de pakker; de COM-blokkade uit patch 0005 deed niets en is vervallen (2026-10-12); geparkeerd, zie `docs/research/luigismansion-kernloze-meting.md`
 - TC5 (Namco, 2015) — houdt de gesloten kern (bngrw/iDmacDrv)
 - GaiaAttack4 (Taito, 2012) — Type X2, op onze kern, leeft
 - LGI3D (Sega, 2012) — jvs/pipe, speelbaar
