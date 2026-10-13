@@ -1,0 +1,9 @@
+  *** FileTest weg na 1 pulsen
+  *** DE ATTRACT-BANK IS GELADEN op 11:43:56 (t=72s)
+  t=133s (min 1): gamelog=409 regels; banken: sound bank: perm sound bank: attract sound bank: level1 
+  t=193s (min 2): gamelog=410 regels; banken: sound bank: attract sound bank: level1 sound bank: level2 
+  t=254s (min 3): gamelog=411 regels; banken: sound bank: level1 sound bank: level2 sound bank: level3 
+  t=314s (min 4): gamelog=412 regels; banken: sound bank: level2 sound bank: level3 sound bank: level4 
+  t=374s (min 5): gamelog=412 regels; banken: sound bank: level2 sound bank: level3 sound bank: level4 
+  t=435s (min 6): gamelog=413 regels; banken: sound bank: level3 sound bank: level4 sound bank: level5 
+  (de launcher is klaar)

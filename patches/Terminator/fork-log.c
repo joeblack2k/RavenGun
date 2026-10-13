@@ -35,7 +35,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/syscall.h>
 
 static pid_t (*echte_fork)(void);
 static pid_t (*echte_waitpid)(pid_t, int *, int);
@@ -50,21 +52,31 @@ static double nu(void)
     return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
 }
 
-/* Per regel openen/sluiten: een gebufferde FILE* zou na fork() in het kind een kopie van de buffer
-   meedragen en bij _exit() kunnen wegvallen. */
+/* Per regel openen/sluiten, en met RAUWE syscalls in plaats van fopen. Reden: de bestands-waarnemer
+   wikkelt `fopen`, dus met fopen logde deze waarnemer zijn EIGEN logregels als bestandsopeningen van
+   de gast. In de meting van 2026-10-13 waren daardoor 2336 van de 2424 regels mijn eigen loggers.
+   Met syscall(SYS_open/SYS_write) blijft dat buiten de waarneming. */
 static void meld(const char *fmt, ...)
 {
-    const char *pad = getenv("RAVENGUN_FORK_LOG");
-    FILE *f = fopen(pad && *pad ? pad : "/tmp/ravengun-fork.log", "a");
+    char buf[1024], kern[768];
     va_list ap;
-    if (!f) return;
+    int fd, pre, n;
+    const char *pad = getenv("RAVENGUN_FORK_LOG");
+    if (!pad || !*pad) pad = "/tmp/ravengun-fork.log";
     if (!t0_gezet) { t0 = nu(); t0_gezet = 1; }
-    fprintf(f, "+%9.6f pid=%-6d ppid=%-6d ", nu() - t0, (int)getpid(), (int)getppid());
     va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
+    vsnprintf(kern, sizeof kern, fmt, ap);
     va_end(ap);
-    fputc('\n', f);
-    fclose(f);
+    pre = snprintf(buf, sizeof buf, "+%9.6f pid=%-6d ppid=%-6d ",
+                   nu() - t0, (int)getpid(), (int)getppid());
+    n = pre + snprintf(buf + pre, sizeof buf - pre, "%s\n", kern);
+    if (n <= 0 || n >= (int)sizeof buf) n = (int)sizeof buf - 1;
+    fd = (int)syscall(SYS_open, pad, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+        ssize_t r = syscall(SYS_write, fd, buf, (size_t)n);
+        (void)r;
+        syscall(SYS_close, fd);
+    }
 }
 
 pid_t fork(void)

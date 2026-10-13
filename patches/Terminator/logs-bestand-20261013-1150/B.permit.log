@@ -1,0 +1,1 @@
+[ravengun-ptracer-permit] pid 893030: PR_SET_PTRACER_ANY gezet: dit proces mag door een willekeurig proces worden aangehaakt (yama ptrace_scope blijft ongemoeid)
