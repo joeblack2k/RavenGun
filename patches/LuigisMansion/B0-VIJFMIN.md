@@ -840,6 +840,76 @@ stukliep. Een run zo gedaan zou om een andere reden mislukken of niet de werkend
 4. **De lat zelf: 5 minuten op ONZE kern.** De omgeving laat het toe (baseline met de gesloten kern: 300 s),
    het ontpakken lukt op onze kern, en de dood valt ongeveer 0,2 s daarna. Daar zit het werk.
 
+## TIENDE STAND 2026-10-13: kandidaat 2 -- eerst niet gemeten (instrumentfout), toen negatief
+
+### 1. De EERSTE poging: **NIET GEMETEN, instrumentfout**
+
+De run zelf werkte: de override deed zijn werk (`Game:   X:\exe\x64\VACUUM.exe` in de banner van de
+lader) en `X:\exe\x64\VACUUM.exe resolvet: JA` na de `x:`-koppeling. Maar mijn sampler meldde
+`UITKOMST: harde grens 40 s bereikt` en **alle zeventien prologues `<niet gelezen>`**.
+
+De oorzaak: `b0-vijfmin-sampler.py` accepteerde alleen een `VACUUM.exe` waarvan de **commandoregel
+`LuigisMansion` bevat**. Met het schijfletterpad staat daar `X:\exe\x64\VACUUM.exe`, zonder die
+tekenreeks, dus de sampler keek de hele run langs het proces heen.
+
+**Dit is geen uitkomst over het spel maar een fout in mijn instrument.** Wie deze twee runs later
+terugleest: de eerste zegt niets over het spel, de tweede wel. Ze zijn niet hetzelfde.
+
+### 2. De eenregelige reparatie, met bewijs VOOR de meting
+
+De herkenning matcht nu op `VACUUM.exe` in de commandoregel in plaats van op het view-pad. Bewijs
+zonder het spel: een nepproces met comm `VACUUM.exe` en commandoregel `/tmp/nep/VACUUM.exe 30`:
+
+```
+t=   0.0  spelproces 902514 verschenen
+t=   0.2  kon niet lezen: [Errno 5] Input/output error
+```
+
+Het instrument vond het nepproces (de leesfout is verwacht: het is geen PE-proces). De reparatie is
+dus bekend voordat er een meting op rust -- dat is de discipline die deze week drie metingen heeft gered.
+
+### 3. Het launcher-identiteitsblok, uit het logboek van de run
+
+```
+launcher: /home/deck/projects/ravengun/scripts/launch-direct.py
+  de versie uit de REPO (commit 5cdfaa8; scripts/ gelijk aan die commit);
+  sha256 327ca20f593e39af4c2c324db8232fe81b83734556d60382fffa379542421cc0;
+  hulpmodules (5) sha256 c882ade50b66ad0cd20260050983968dfc629aba9033c1e5233d92f5f364d656
+  de geinstalleerde launcher (.../opt/ravengun/share/ravengun/scripts/launch-direct.py) is dezelfde
+```
+
+### 4. De hermeting: NEGATIEF
+
+| moment | waarde |
+|---|---|
+| `x:`-koppeling | gelegd NA het opwarmen van de wineserver; resolveerde naar de spelmap |
+| spelpad dat de lader kreeg | `Game:   X:\exe\x64\VACUUM.exe` (de override werkte) |
+| entry vrijgegeven + `.text` eindtoestand | **t=6,8 s** -- `.text 10,0 % nul` (ontpakken **KLAAR**) |
+| dood | **t=7,0 s** (gat ~0,2 s) |
+| kern | `fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794` = **ONZE kern** |
+| opruimen | `[opruim] x: weggehaald`; runtime-kern daarna `f5c7532d...` |
+
+**Dus ook de schijfletterroute maakt geen verschil: het spel ontpakt volledig en sterft ~0,2 s later.**
+
+### 5. De vier stappen van het officiele startscript, compleet
+
+| stap | uitkomst | momenten |
+|---|---|---|
+| `set GAMEID=SDCF` | **NEGATIEF** | vrijgegeven <= 5,8 s; dood 6,0 s |
+| `sendFlash COM1 LMAIO.bin` | **INERT** | exitcode 0; 35 B in vijf blokken; firmware nooit verzonden |
+| `Y:\SDCF` klaarzetten | **NEGATIEF** | vrijgegeven 6,2 s; dood 6,5 s |
+| starten vanaf `X:\exe\x64\` | **NEGATIEF** | vrijgegeven 6,8 s; dood 7,0 s |
+
+**Alle vier zijn weg.** De hele resterende route ligt bij de kern en de gevirtualiseerde functie
+(tag `0x919e48fe`, zie `EXITBESLUIT.md` Â§8).
+
+### 6. Wat de laatste meting nog nodig heeft
+
+Het haakgereedschap kent nu alleen **antwoord-vormen** (`ret0`, `ret1`, `void`, `ret=`, `buf=`, `u32=`,
+`velden=rcx:...`). Wat er nodig is voor het logpunt op `0x14011c5f0` is een vorm die een **register
+LEEST en in het logboek zet zonder iets te beantwoorden**. Dat is gevraagd aan de heeftphook-specialist;
+zodra die er is, is de meting: leest `rcx` daar `0x140415820`, waarmee de exitcode-vraag gesloten is.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

@@ -1,0 +1,165 @@
+[launch-direct] legacy .env gelezen: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/UserProfiles/HOTDSD.env (game.ini wint; migreer met scripts/migrate-game-settings.py)
+[launch-direct 13:02:18] launcher: /home/deck/projects/ravengun/scripts/launch-direct.py
+[launch-direct 13:02:18]   de versie uit de REPO (commit 4f6a70a; met wijzigingen in scripts/ die niet in die commit zitten); sha256 9d3f03d73835587b10d8a53bfdb1519dadef5c2499ec0b7f9db9c16a6c6f6383; hulpmodules (5) sha256 b6c32bcd2ea5c16d8fd93b051e9113127da4c47ffb6e959d71cc4670d19afd0d
+[launch-direct 13:02:18]   de geinstalleerde launcher (/home/deck/.local/opt/ravengun/share/ravengun/scripts/launch-direct.py) is een ANDERE versie (sha256 327ca20f593e39af4c2c324db8232fe81b83734556d60382fffa379542421cc0): een run via de installatie gebruikt dus niet deze code
+[launch-direct 13:02:18] kern (runtime): /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll sha256 f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+[launch-direct 13:02:18] bestand: /home/deck/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/teknoparrot.ini is al actueel
+[launch-direct 13:02:18] bestand: /home/deck/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/teknoparrot.ini is al actueel
+[launch-direct 13:02:18] pipehelper: /home/deck/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe TeknoParrot_JVS 127.0.0.1 43357 TeknoParrot_JvsState 64 'Z:\dev\shm\TeknoParrot_JvsState'
+[launch-direct 13:02:19] helper: pipehelper: pipe TeknoParrot_JVS created, waiting for game...
+[launch-direct 13:02:19] helper: pipehelper: shm mirror active (TeknoParrot_JvsState <-> Z:\dev\shm\TeknoParrot_JvsState, 64 bytes) [created fresh]
+[launch-direct 13:02:19] start 1/2: amdaemon.exe (tweede exe) -- /home/deck/.local/share/ravengun/wrappers/wine-prefix /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe 'Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\TeknoParrot\TeknoParrot64' 'Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe'
+[launch-direct 13:02:19] wachten: 5 s; daarna alleen verder als elke eerdere start nog leeft
+[launch-direct 13:02:19] start 2/2: Hodzero-Win64-Shipping.exe (het spel, in gamescope) -- /usr/bin/gamescope -W 1920 -H 1080 -S fit -f --backend wayland -- /home/deck/.local/share/ravengun/wrappers/wine-prefix /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe 'Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\TeknoParrot\TeknoParrot64' 'Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping.exe'
+[launch-direct 13:02:19] omgeving (voor elke start dezelfde): OPENSSL_ia32cap=:~0x20000000 TP_LAUNCH_SESSION_ID=8bfda946-cfbe-449c-b321-a7981e7da9dc TP_REMOTETHREAD=1 WINEDEBUG=-all
+[launch-direct 13:02:19] uitvoer en exitcode per start: /home/deck/.local/state/ravengun/starts/HOTDSD-20261013-130219
+[launch-direct 13:02:19] start 1/2 (amdaemon.exe): cwd=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64
+[launch-direct 13:02:19] wachten: 5 s voor start 2/2 (Hodzero-Win64-Shipping.exe)
+[amdaemon.exe]   _______   _                _____                     _   
+[amdaemon.exe]  |__   __| | |              |  __ \                   | |  
+[amdaemon.exe]     | | ___| | ___ __   ___ | |__) |_ _ _ __ _ __ ___ | |_ 
+[amdaemon.exe]     | |/ _ \ |/ / '_ \ / _ \|  ___/ _` | '__| '__/ _ \| __|
+[amdaemon.exe]     | |  __/   <| | | | (_) | |  | (_| | |  | | | (_) | |_ 
+[amdaemon.exe]     |_|\___|_|\_\_| |_|\___/|_|   \__,_|_|  |_|  \___/ \__|
+[amdaemon.exe] 
+[amdaemon.exe] Loader: Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\OpenParrotLoader64.exe (0.0.0.0)
+[amdaemon.exe] Core:   Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\TeknoParrot\TeknoParrot64.dll (1.0.0.3761)
+[amdaemon.exe] Game:   Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe (0.0.0.0)
+[amdaemon.exe] Working directory: Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\AMDaemon
+[amdaemon.exe] 
+[amdaemon.exe] Loading game...
+[amdaemon.exe] Success!
+[amdaemon.exe] Loading core...
+[amdaemon.exe] Resolved target kernel32.dll procedure: local=00006FFFFFE8F81C remote=00006FFFFFE8F81C rva=0xF81C
+[launch-direct 13:02:24] start 2/2 (Hodzero-Win64-Shipping.exe): cwd=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mconsole:[0m gamescope version 3.16.30 (gcc 16.1.1)
+[Hodzero-Win64-Shipping.exe] Tracing is enabled
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/usr/share/gamescope/scripts'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/usr/share/gamescope/scripts/00-gamescope'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/usr/share/gamescope/scripts/00-gamescope/common'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/common/inspect.lua' (id: 0)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/common/modegen.lua' (id: 1)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/common/util.lua' (id: 2)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/usr/share/gamescope/scripts/00-gamescope/displays'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/asus.rogally.lcd.lua' (id: 3)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/deckhd.steamdeck.deckhd-lcd.lua' (id: 4)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/gpd.win4.lcd.lua' (id: 5)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/lenovo.legiongo.lcd.lua' (id: 6)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/lenovo.legiongo2.oled.lua' (id: 7)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/lenovo.legiongos.lcd.lua' (id: 8)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/onexplayer.f1.oled.lua' (id: 9)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/valve.steamdeck.lcd.lua' (id: 10)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/valve.steamdeck.oled.lua' (id: 11)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/usr/share/gamescope/scripts/00-gamescope/displays/zotac.zone.oled.lua' (id: 12)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/etc/gamescope/scripts'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;33mWarn[0m]  [0;37mscriptmgr:[0m Directory '/etc/gamescope/scripts' does not exist
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Loading scripts from: '/home/deck/.config/gamescope/scripts'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mscriptmgr:[0m Running script file '/home/deck/.config/gamescope/scripts/90-benq-pj-colorimetry.lua' (id: 13)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m selecting physical device 'AMD Radeon RX 6950 XT (RADV NAVI21)': queue family 1 (general queue family 0)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m physical device supports DRM format modifiers
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m [backend/headless/backend.c:60] Creating headless backend
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m Seat name: seat0
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m Initted Wayland backend
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m supported DRM formats for sampling usage:
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AR24 (0x34325241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XR24 (0x34325258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AB24 (0x34324241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XB24 (0x34324258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   RG16 (0x36314752)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   NV12 (0x3231564E)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AB4H (0x48344241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XB4H (0x48344258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AB48 (0x38344241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XB48 (0x38344258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AB30 (0x30334241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XB30 (0x30334258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   AR30 (0x30335241)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvulkan:[0m   XR30 (0x30335258)
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m Using explicit sync when available
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m [wayland] unable to lock lockfile /run/user/1000/gamescope-0.lock, maybe another compositor is running
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m Running compositor on wayland display 'gamescope-1'
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m [backend/headless/backend.c:17] Starting headless backend
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m Successfully initialized libei for input emulation!
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mwlserver:[0m [xwayland/server.c:108] Starting Xwayland on :2
+[Hodzero-Win64-Shipping.exe] The XKEYBOARD keymap compiler (xkbcomp) reports:
+[Hodzero-Win64-Shipping.exe] > Warning:          Multiple symbols for level 1/group 1 on key <FK23>
+[Hodzero-Win64-Shipping.exe] >                   Using F23, ignoring XF86TouchpadOff
+[Hodzero-Win64-Shipping.exe] > Warning:          Symbol map for key <FK23> redefined
+[Hodzero-Win64-Shipping.exe] >                   Using last definition for conflicting fields
+[Hodzero-Win64-Shipping.exe] > Warning:          Symbol map for key <FK24> redefined
+[Hodzero-Win64-Shipping.exe] >                   Using last definition for conflicting fields
+[Hodzero-Win64-Shipping.exe] > Warning:          Could not resolve keysym XF86ElectronicPrivacyScreenOn
+[Hodzero-Win64-Shipping.exe] > Warning:          Could not resolve keysym XF86ElectronicPrivacyScreenOff
+[Hodzero-Win64-Shipping.exe] > Warning:          Could not resolve keysym XF86ActionOnSelection
+[Hodzero-Win64-Shipping.exe] > Warning:          Could not resolve keysym XF86ContextualInsert
+[Hodzero-Win64-Shipping.exe] > Warning:          Could not resolve keysym XF86ContextualQuery
+[Hodzero-Win64-Shipping.exe] Errors from xkbcomp are not fatal to the X server
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mpipewire:[0m stream state changed: connecting
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mpipewire:[0m stream state changed: paused
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mpipewire:[0m stream available on node ID: 186
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m uMaxContentLightLevel: 80
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m HDR INFO
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   cv_hdr_enabled: false
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   uMaxLum: 80, uRefLum: 80
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   bExposeHDRSupport: false
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m uMaxContentLightLevel: 200
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m HDR INFO
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   cv_hdr_enabled: false
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   uMaxLum: 200, uRefLum: 63
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m   bExposeHDRSupport: false
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37medid:[0m Patching res 800x1280 -> 1920x1080
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mvblank:[0m Using timerfd.
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mxdg_backend:[0m Post-Initted Wayland backend
+[Hodzero-Win64-Shipping.exe]   _______   _                _____                     _   
+[Hodzero-Win64-Shipping.exe]  |__   __| | |              |  __ \                   | |  
+[Hodzero-Win64-Shipping.exe]     | | ___| | ___ __   ___ | |__) |_ _ _ __ _ __ ___ | |_ 
+[Hodzero-Win64-Shipping.exe]     | |/ _ \ |/ / '_ \ / _ \|  ___/ _` | '__| '__/ _ \| __|
+[Hodzero-Win64-Shipping.exe]     | |  __/   <| | | | (_) | |  | (_| | |  | | | (_) | |_ 
+[Hodzero-Win64-Shipping.exe]     |_|\___|_|\_\_| |_|\___/|_|   \__,_|_|  |_|  \___/ \__|
+[Hodzero-Win64-Shipping.exe] 
+[Hodzero-Win64-Shipping.exe] Loader: Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\OpenParrotLoader64.exe (0.0.0.0)
+[Hodzero-Win64-Shipping.exe] Core:   Z:\home\deck\.local\share\ravengun\runtime\TeknoParrotUi-2.0.0.130-linux-x64\TeknoParrot\TeknoParrot64.dll (1.0.0.3761)
+[Hodzero-Win64-Shipping.exe] Game:   Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping.exe (4.18.1.0)
+[Hodzero-Win64-Shipping.exe] Working directory: Z:\home\deck\.local\share\ravengun\runtime\views\HOTDSD\App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64
+[Hodzero-Win64-Shipping.exe] 
+[Hodzero-Win64-Shipping.exe] Loading game...
+[Hodzero-Win64-Shipping.exe] Success!
+[Hodzero-Win64-Shipping.exe] Loading core...
+[Hodzero-Win64-Shipping.exe] Resolved target kernel32.dll procedure: local=00006FFFFFE8F81C remote=00006FFFFFE8F81C rva=0xF81C
+[amdaemon.exe] Success!
+[amdaemon.exe] 
+[amdaemon.exe] Have fun :)
+[launch-direct 13:02:28] helper: pipehelper: game connected to pipe TeknoParrot_JVS
+[launch-direct 13:02:28] JVS-pipe: game verbonden (pipehelper via TCP)
+[launch-direct 13:02:28] helper: pipehelper: TCP attached to host 127.0.0.1:43357, bridging
+[amdaemon.exe]  amdaemonExe Ver.2437 Build:Apr 19 2018 23:13:37
+[amdaemon.exe] 
+[amdaemon.exe] Process state: setup Game Mode
+[amdaemon.exe] Error 0
+[amdaemon.exe] Process state: Advertise
+[Hodzero-Win64-Shipping.exe] Success!
+[Hodzero-Win64-Shipping.exe] 
+[Hodzero-Win64-Shipping.exe] Have fun :)
+[Hodzero-Win64-Shipping.exe]  ATTENTION: default value of option vk_xwayland_wait_ready overridden by environment.
+[Hodzero-Win64-Shipping.exe] ATTENTION: default value of option vk_xwayland_wait_ready overridden by environment.
+[Hodzero-Win64-Shipping.exe] ATTENTION: default value of option vk_xwayland_wait_ready overridden by environment.
+[Hodzero-Win64-Shipping.exe] [Gamescope WSI] No application info given.
+[Hodzero-Win64-Shipping.exe] [Gamescope WSI] Executable name: Hodzero-Win64-Shipping.exe
+[Hodzero-Win64-Shipping.exe] The XKEYBOARD keymap compiler (xkbcomp) reports:
+[Hodzero-Win64-Shipping.exe] > Warning:          Unsupported maximum keycode 709, clipping.
+[Hodzero-Win64-Shipping.exe] >                   X11 cannot support keycodes above 255.
+[Hodzero-Win64-Shipping.exe] > Warning:          Virtual modifier Hyper multiply defined
+[Hodzero-Win64-Shipping.exe] >                   Using 0, ignoring 0
+[Hodzero-Win64-Shipping.exe] > Warning:          Virtual modifier ScrollLock multiply defined
+[Hodzero-Win64-Shipping.exe] >                   Using 0, ignoring 0
+[Hodzero-Win64-Shipping.exe] Errors from xkbcomp are not fatal to the X server
+[Hodzero-Win64-Shipping.exe] [gamescopereaper] [[0;34mInfo[0m]  [0;37mreaper:[0m Parent of gamescopereaper was killed. Killing children.
+[launch-direct 13:04:48] JVS-pipe: verbinding dicht (0 bytes van de game, 0 pakketten, 0 beantwoord, 0 niet beantwoord)
+[Hodzero-Win64-Shipping.exe] XIO:  fatal IO error 110 (Connection timed out) on X server ":2"
+[Hodzero-Win64-Shipping.exe]       after 64 requests (64 known processed) with 0 events remaining.
+[Hodzero-Win64-Shipping.exe] [gamescope] [[0;34mInfo[0m]  [0;37mlaunch:[0m Primary child shut down!
+[launch-direct 13:04:48] start 1/2 (amdaemon.exe): exitcode -15 (gestopt door de launcher: de run is gestopt); uitvoer in /home/deck/.local/state/ravengun/starts/HOTDSD-20261013-130219/1-amdaemon.exe.log
+[launch-direct 13:04:48] start 2/2 (Hodzero-Win64-Shipping.exe): exitcode 0; uitvoer in /home/deck/.local/state/ravengun/starts/HOTDSD-20261013-130219/2-Hodzero-Win64-Shipping.exe.log
+[launch-direct 13:04:48] A11: overgeslagen 0, toegepast 0, koppeling 0, versie 3, fout 0
+[launch-direct 13:04:48] A11: samenvatting in /home/deck/.local/state/ravengun/a11/HOTDSD-20261013-130448.txt
+[launch-direct 13:04:48] klaar (exitcode gestopt)

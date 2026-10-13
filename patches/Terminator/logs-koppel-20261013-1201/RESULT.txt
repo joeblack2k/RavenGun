@@ -1,0 +1,15 @@
+run            : koppel-meting.sh (A/B met de twee koppelingen)
+datum          : 2026-10-13T12:01:29+02:00
+exitcode       : 0
+levensduur     : 5 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+gast sha256    : 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+yama scope     : 1
+koppeling /g3  : --dir /g3 --ro-bind '/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation ' /g3
+koppeling /T4User: --overlay-src '/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation /T4User' --overlay '/tmp/ts-koppelmeting/upper' '/tmp/ts-koppelmeting/work' /T4User
+sandbox        : bwrap --die-with-parent, per top-level pad --ro-bind, --bind /tmp,
+                 --ro-bind /home (= NAS onbereikbaar voor schrijven), GEEN --unshare-*
+terugdraaibaar : ja; niets op de host of de NAS aangeraakt, upper staat in /tmp
+bestand-regels : 89
+fouten         : 17
+ATTACH ok      : 409

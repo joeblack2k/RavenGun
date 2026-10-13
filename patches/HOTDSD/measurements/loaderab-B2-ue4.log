@@ -1,0 +1,187 @@
+﻿Log file open, 10/13/26 13:06:45
+LogWindows: Failed to load 'aqProf.dll' (GetLastError=126)
+LogWindows: File 'aqProf.dll' does not exist
+LogWindows: Failed to load 'VtuneApi.dll' (GetLastError=126)
+LogWindows: File 'VtuneApi.dll' does not exist
+LogWindows: Failed to load 'VtuneApi32e.dll' (GetLastError=126)
+LogWindows: File 'VtuneApi32e.dll' does not exist
+LogPlatformFile: Not using cached read wrapper
+LogInit: Display: RandInit(-747611719) SRandInit(-747611718).
+LogTaskGraph: Started task graph with 4 named threads and 16 total threads with 3 sets of task threads.
+LogD3D11RHI: Aftermath initialized
+LogPluginManager: Mounting plugin ApexDestruction
+LogPluginManager: Mounting plugin LowEntryExtendedStandardLibrary
+LogPluginManager: Mounting plugin EmitMan
+LogPluginManager: Mounting plugin StateMan
+LogPluginManager: Mounting plugin TaskMan
+LogPluginManager: Mounting plugin WidgetMan
+LogPluginManager: Mounting plugin ABaaSGS
+LogPluginManager: Mounting plugin AMDaemon
+LogPluginManager: Mounting plugin CriWare
+LogPluginManager: Mounting plugin Paper2D
+LogPluginManager: Mounting plugin LightPropagationVolume
+LogPluginManager: Mounting plugin FacialAnimation
+LogPluginManager: Mounting plugin CharacterAI
+LogPluginManager: Mounting plugin MediaCompositing
+LogPluginManager: Mounting plugin TcpMessaging
+LogPluginManager: Mounting plugin ActorSequence
+LogPluginManager: Mounting plugin OnlineSubsystemUtils
+LogPluginManager: Mounting plugin OnlineSubsystem
+LogPluginManager: Mounting plugin ArchVisCharacter
+LogPluginManager: Mounting plugin CableComponent
+LogPluginManager: Mounting plugin CustomMeshComponent
+LogPluginManager: Mounting plugin ExampleDeviceProfileSelector
+LogPluginManager: Mounting plugin ImmediatePhysics
+LogPluginManager: Mounting plugin PhysXVehicles
+LogPluginManager: Mounting plugin ProceduralMeshComponent
+LogPluginManager: Mounting plugin RuntimePhysXCooking
+LogInit: Using libcurl 7.37.1
+LogInit:  - built for x86_64-pc-win32
+LogInit:  - NO SSL SUPPORT!
+LogInit:  - other features:
+LogInit:      CURL_VERSION_ASYNCHDNS
+LogInit:      CURL_VERSION_LARGEFILE
+LogInit:  CurlRequestOptions (configurable via config and command line):
+LogInit:  - bVerifyPeer = false  - Libcurl will NOT verify peer certificate
+LogInit:  - bUseHttpProxy = false  - Libcurl will NOT use HTTP proxy
+LogInit:  - bDontReuseConnections = false  - Libcurl will reuse connections
+LogInit:  - CertBundlePath = nullptr  - Libcurl will use whatever was configured at build time.
+LogInit: Build: ++UE4+Release-4.18-CL-0
+LogInit: Engine Version: 4.18.1-0+++UE4+Release-4.18
+LogInit: Compatible Engine Version: 4.18.0-0+++UE4+Release-4.18
+LogInit: Net CL: 0
+LogInit: Compiled (64-bit): Jul 18 2018 14:26:26
+LogInit: Compiled with Visual C++: 19.00.24215.01
+LogInit: Build Configuration: Shipping
+LogInit: Branch Name: ++UE4+Release-4.18
+LogInit: Command line: 
+LogInit: Base directory: Z:/home/deck/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/
+LogInit: Installed Engine Build: 1
+LogInit: Presizing for max 2097152 objects, including 0 objects not considered by GC, pre-allocating 0 bytes for permanent pool.
+LogStreaming: Display: Async Loading initialized: Event Driven Loader: true, Async Loading Thread: false
+LogInit: Object subsystem initialized
+[2026.10.13-11.06.46:315][  0]LogInit: Selected Device Profile: [WindowsNoEditor]
+[2026.10.13-11.06.46:315][  0]LogInit: Applying CVar settings loaded from the selected device profile: [WindowsNoEditor]
+[2026.10.13-11.06.46:353][  0]LogInit: Computer: STEAMDECK
+[2026.10.13-11.06.46:353][  0]LogInit: User: steamuser
+[2026.10.13-11.06.46:353][  0]LogInit: CPU Page size=4096, Cores=8
+[2026.10.13-11.06.46:353][  0]LogInit: High frequency timer resolution =10.000000 MHz
+[2026.10.13-11.06.46:353][  0]LogMemory: Memory total: Physical=31.0GB (31GB approx)
+[2026.10.13-11.06.46:353][  0]LogMemory: Platform Memory Stats for WindowsNoEditor
+[2026.10.13-11.06.46:353][  0]LogMemory: Process Physical Memory: 311.62 MB used, 311.62 MB peak
+[2026.10.13-11.06.46:353][  0]LogMemory: Process Virtual Memory: 285.19 MB used, 285.19 MB peak
+[2026.10.13-11.06.46:353][  0]LogMemory: Physical Memory: 7099.77 MB used,  24605.36 MB free, 31705.13 MB total
+[2026.10.13-11.06.46:353][  0]LogMemory: Virtual Memory: 311.62 MB used,  24605.36 MB free, 134217728.00 MB total
+[2026.10.13-11.06.46:663][  0]LogInit: Using OS detected language (en-US).
+[2026.10.13-11.06.46:663][  0]LogInit: Using OS detected locale (en-US).
+[2026.10.13-11.06.46:829][  0]LogTextLocalizationManager: No specific localization for 'en-US' exists, so the 'en' localization will be used.
+[2026.10.13-11.06.47:551][  0]LogD3D11RHI: D3D11 adapters:
+[2026.10.13-11.06.47:569][  0]LogD3D11RHI:    0. 'ATI Radeon HD 5600 Series' (Feature Level 11_0)
+[2026.10.13-11.06.47:569][  0]LogD3D11RHI:       16384/0/15852 MB DedicatedVideo/DedicatedSystem/SharedSystem, Outputs:1, VendorId:0x1002
+[2026.10.13-11.06.47:569][  0]LogD3D11RHI: Chosen D3D11 Adapter: 0
+[2026.10.13-11.06.47:584][  0]LogD3D11RHI: Creating new Direct3DDevice
+[2026.10.13-11.06.47:586][  0]LogD3D11RHI:     GPU DeviceId: 0x68d8 (for the marketing name, search the web for "GPU Device Id")
+[2026.10.13-11.06.47:586][  0]LogWindows: EnumDisplayDevices:
+[2026.10.13-11.06.47:586][  0]LogWindows:    0. 'AMD Radeon RX 6950 XT (RADV NAVI21)' (P:1 D:1)
+[2026.10.13-11.06.47:587][  0]LogWindows: DebugString: GetVideoDriverDetailsInvalid PrimaryIsNotTheChoosenAdapter FoundDriverCount:0 
+[2026.10.13-11.06.47:587][  0]LogD3D11RHI:     Adapter Name: ATI Radeon HD 5600 Series
+[2026.10.13-11.06.47:587][  0]LogD3D11RHI:   Driver Version: Unknown (internal:Unknown, unified:Unknown)
+[2026.10.13-11.06.47:587][  0]LogD3D11RHI:      Driver Date: Unknown
+[2026.10.13-11.06.47:587][  0]LogRHI: Texture pool is 11468 MB (70% of 16384 MB)
+[2026.10.13-11.06.47:602][  0]LogD3D11RHI: Async texture creation enabled
+[2026.10.13-11.06.47:613][  0]LogD3D11RHI: GPU Timing Frequency: 1000.000000 (Debug: 2 2)
+[2026.10.13-11.06.47:638][  0]LogMaterial: Verifying Global Shaders for PCD3D_SM5
+[2026.10.13-11.06.47:638][  0]LogSlate: Using Freetype 2.6.0
+[2026.10.13-11.06.47:708][  0]LogSlate: SlateFontCache - WITH_FREETYPE: 1, WITH_HARFBUZZ: 1
+[2026.10.13-11.06.47:708][  0]LogSlate: SlateFontCache - WITH_FREETYPE: 1, WITH_HARFBUZZ: 1
+[2026.10.13-11.06.47:806][  0]LogAssetRegistry: FAssetRegistry took 0.0750 seconds to start up
+[2026.10.13-11.06.47:844][  0]LogPackageLocalizationCache: Processed 10 localized package path(s) for 2 prioritized culture(s) in 0.004359 seconds
+[2026.10.13-11.06.47:846][  0]LogPakFile: New pak file ../../../Hodzero/Content/Paks/Hodzero-WindowsNoEditor.pak added to pak precacher.
+[2026.10.13-11.06.47:880][  0]LogInit: Selected Device Profile: [WindowsNoEditor]
+[2026.10.13-11.06.48:271][  0]LogNetVersion: Hodzero , NetCL: 0, EngineNetVer: 2, GameNetVer: 0 (Checksum: 483397930)
+[2026.10.13-11.06.48:281][  0]HodzeroLog: UAppBackup::UAppBackup
+[2026.10.13-11.06.48:281][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.13-11.06.48:281][  0]HodzeroLog: FAppData::FAppData
+[2026.10.13-11.06.48:281][  0]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.13-11.06.48:281][  0]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.13-11.06.48:281][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.13-11.06.48:571][  0]LogCriWareRuntime: 'Speakers (Virtual Surround Sound)' found.
+[2026.10.13-11.06.48:571][  0]LogCriWareRuntime: 'Speakers (Navi 21/23 HDMI/DP Audio Controller)' found.
+[2026.10.13-11.06.48:571][  0]LogCriWareRuntime: 'Speakers (PulseAudio Output)' found.
+[2026.10.13-11.06.48:859][  0]LogInit: WinSock: version 1.1 (2.2), MaxSocks=32767, MaxUdp=65467
+[2026.10.13-11.06.49:024][  0]LogMoviePlayer: Initializing movie player
+[2026.10.13-11.06.49:240][  0]HodzeroLog: FHodzeroGameModule::StartupModule
+[2026.10.13-11.06.49:242][  0]LogUObjectArray: 35836 objects as part of root set at end of initial load.
+[2026.10.13-11.06.49:242][  0]LogUObjectAllocator: 6114080 out of 0 bytes used by permanent object pool.
+[2026.10.13-11.06.49:242][  0]LogUObjectArray: CloseDisregardForGC: 0/0 objects in disregard for GC pool
+[2026.10.13-11.06.49:245][  0]LogEngine: Initializing Engine...
+[2026.10.13-11.06.49:484][  0]LogInit: XAudio2 using 'Speakers (PulseAudio Output)' : 6 channels at 48 kHz using 32 bits per sample (channel mask 0x3f)
+[2026.10.13-11.06.49:492][  0]LogInit: FAudioDevice initialized.
+[2026.10.13-11.06.49:503][  0]LogInit: Texture streaming: Enabled
+[2026.10.13-11.06.51:536][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.13-11.06.51:536][  0]HodzeroLog: FAppData::FAppData
+[2026.10.13-11.06.51:541][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.13-11.06.51:541][  0]HodzeroLog: FAppData::FAppData
+[2026.10.13-11.06.51:627][  0]HodzeroLog: UAppGameInstance::CreateObjects
+[2026.10.13-11.06.51:627][  0]LogApp: FGunSensor::FGunSensor : 171014_1239
+[2026.10.13-11.06.51:628][  0]LogApp: FGunSensor::FGunSensor : SCI.Open failure
+[2026.10.13-11.06.51:628][  0]HodzeroLog: FLedController::FLedController : 171015_1707
+[2026.10.13-11.06.51:629][  0]HodzeroLog: FLedController::FLedController : SCI.Open failure
+[2026.10.13-11.06.51:629][  0]LogInit: Display: Game Engine Initialized.
+[2026.10.13-11.06.51:629][  0]LogGameplayTags: Display: UGameplayTagsManager::DoneAddingNativeTags. DelegateIsBound: 0
+[2026.10.13-11.06.51:665][  0]LogInit: Display: Starting Game.
+[2026.10.13-11.06.51:665][  0]LogNet: Browse: /Game/HodZero_v1/Maps/System/PL_InitializeTest?Name=Player
+[2026.10.13-11.06.51:665][  0]LogLoad: LoadMap: /Game/HodZero_v1/Maps/System/PL_InitializeTest?Name=Player
+[2026.10.13-11.06.52:445][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.13-11.06.52:511][  0]LogAIModule: Creating AISystem for world PL_InitializeTest
+[2026.10.13-11.06.52:512][  0]LogLoad: Game class is 'InitializeTestGameMode_C'
+[2026.10.13-11.06.52:512][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.13-11.06.52:512][  0]LogWorld: Bringing World /Game/HodZero_v1/Maps/System/PL_InitializeTest.PL_InitializeTest up for play (max tick rate 0) at 2026.10.13-13.06.52
+[2026.10.13-11.06.52:512][  0]LogWorld: Bringing up level for play took: 0.000163
+[2026.10.13-11.06.52:512][  0]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.13-11.06.52:512][  0]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.13-11.06.52:512][  0]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2026.10.13-11.06.52:512][  0]LogSpawn: Warning: SpawnActor failed because no class was specified
+[2026.10.13-11.06.52:513][  0]LogGameMode: Display: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.13-11.06.52:513][  0]LogGameState: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.13-11.06.52:513][  0]LogGameMode: Display: Match State Changed from WaitingToStart to InProgress
+[2026.10.13-11.06.52:513][  0]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.13-11.06.52:513][  0]LogApp: Get GunAdjustmentParam from GameSetting : Fail.
+[2026.10.13-11.06.52:513][  0]LogApp: GunAdjustmentParam:
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_TopY    : 155
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_LeftX   : 132
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_CenterX : 503
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_CenterY : 543
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_RightX  : 916
+[2026.10.13-11.06.52:513][  0]LogApp:  P1_BottomY : 934
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_TopY    : 146
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_LeftX   : 137
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_CenterX : 526
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_CenterY : 490
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_RightX  : 908
+[2026.10.13-11.06.52:513][  0]LogApp:  P2_BottomY : 983
+[2026.10.13-11.06.52:513][  0]LogAppData: UInitializeTestSequenceComponent::BeginPlay
+[2026.10.13-11.06.52:513][  0]LogGameState: Match State Changed from WaitingToStart to InProgress
+[2026.10.13-11.06.52:513][  0]LogLoad: Took 0.848291 seconds to LoadMap(/Game/HodZero_v1/Maps/System/PL_InitializeTest)
+[2026.10.13-11.06.52:555][  0]LogSlate: Took 0.041824 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/SEGA_KakuGothicDB.ufont' (2644K)
+[2026.10.13-11.06.53:113][  0]LogRenderer: Reallocating scene render targets to support 1920x1080 Format 10 NumSamples 1 (Frame:1).
+[2026.10.13-11.06.53:113][  0]LogLoad: (Engine Initialization) Total time: 9.00 seconds
+[2026.10.13-11.06.53:114][  0]LogExternalProfiler: No external profilers were discovered.  External profiling features will not be available.
+[2026.10.13-11.06.53:142][  0]LogContentStreaming: Texture pool size now 4000 MB
+[2026.10.13-11.06.53:658][  3]LogD3D11RHI: Timed out while waiting for GPU to catch up. (0.5 s)
+[2026.10.13-11.07.23:659][  4]LogWindows: Windows GetLastError: Success. (0)
+[2026.10.13-11.08.23:662][  4]LogWindows: Warning: CreateProc failed: File not found. (0x00000002)
+[2026.10.13-11.08.23:662][  4]LogWindows: Warning: URL: ../../../Engine/Binaries/Win64/CrashReportClient.exe "C:/users/steamuser/AppData/Local/Hodzero/Saved/Crashes/UE4CC-Windows-3F08557F4328D6B0FD481E9F94A7924E_0000" -AppName=UE4-Hodzero -CrashGUID=UE4CC-Windows-3F08557F4328D6B0FD481E9F94A7924E_0000 -DebugSymbols=..\..\..\Engine\Intermediate\Symbols
+[2026.10.13-11.08.23:662][  4]LogWindows: Could not start CrashReportClient.exe
+[2026.10.13-11.08.23:662][  4]LogMemory: Platform Memory Stats for WindowsNoEditor
+[2026.10.13-11.08.23:662][  4]LogMemory: Process Physical Memory: 759.74 MB used, 828.32 MB peak
+[2026.10.13-11.08.23:662][  4]LogMemory: Process Virtual Memory: 656.91 MB used, 656.91 MB peak
+[2026.10.13-11.08.23:662][  4]LogMemory: Physical Memory: 7535.43 MB used,  24169.70 MB free, 31705.13 MB total
+[2026.10.13-11.08.23:662][  4]LogMemory: Virtual Memory: 758.83 MB used,  24169.70 MB free, 134217728.00 MB total
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: === Critical error: ===
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: 
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: Fatal error: [File:C:\UE4_171113\UE4\Engine\Source\Runtime\RenderCore\Private\RenderingThread.cpp] [Line: 1015] 
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: GameThread timed out waiting for RenderThread after 30.00 secs
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: 
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: 
+[2026.10.13-11.08.23:662][  4]LogWindows: Error: 

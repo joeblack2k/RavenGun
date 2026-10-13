@@ -61,7 +61,9 @@ def spelpid():
         try:
             if open("/proc/%s/comm" % d).read().strip() != "VACUUM.exe":
                 continue
-            if "LuigisMansion" in open("/proc/%s/cmdline" % d, "rb").read().decode("utf-8", "replace"):
+            _cmd = open("/proc/%s/cmdline" % d, "rb").read().decode("utf-8", "replace")
+            # Niet op het view-pad matchen: met de --exe-override staat er X:\exe\x64\VACUUM.exe.
+            if "VACUUM.exe" in _cmd or "LuigisMansion" in _cmd:
                 return int(d)
         except OSError:
             pass

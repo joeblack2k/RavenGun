@@ -1,6 +1,6 @@
 # A/B: bevredigt de gesloten kern de platformcontrole?
 
-**VOORBEREID, NIET GEDRAAID.** Dit is de opzet voor de volgende benchrun, met de verwachtingen vooraf.
+**UITGEVOERD op 2026-10-13 (12:08–12:20). De uitkomst per arm staat in [`AB-UITKOMST.md`](AB-UITKOMST.md); hieronder staat de opzet en de verwachtingen zoals ze VOORAF zijn opgeschreven.**
 Het script is `ab-platformcheck.sh`; zonder `--run` doet het niets en print het alleen het plan.
 
 Dit hoort bij [`METING-1-DAEMON.md`](METING-1-DAEMON.md) §4–5 en [`SESSIES-EN-CRASH.md`](SESSIES-EN-CRASH.md).

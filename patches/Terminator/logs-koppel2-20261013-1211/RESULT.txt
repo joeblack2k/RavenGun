@@ -1,0 +1,17 @@
+run            : koppel2-meting.sh (koppeling + relatieve syslog + synthetische /dev/sierra2)
+datum          : 2026-10-13T12:11:09+02:00
+exitcode       : 0
+levensduur     : 4 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+gast sha256    : 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+yama scope     : 1
+koppeling /g3  : --dir /g3 --ro-bind '/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation ' /g3   (zelfde als meting 1)
+koppeling /T4User: --overlay-src '/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation /T4User' --overlay '/tmp/ts-koppel2/upper' '/tmp/ts-koppel2/work' /T4User   (zelfde)
+NIEUW 1        : syslog_bb3.txt in de werkmap = KOPIE van '/home/deck/mnt/spidernas_emulation/Teknoparrot/Terminator Salvation /T4User/log/syslog_bb3.txt'
+NIEUW 2        : /dev/sierra2 = --dev-bind van een PTY-slave (socat, mijn eigen pid);
+                 /dev is nu --dev /dev + expliciete --dev-bind-try per knoop, want in een
+                 gebonden /dev kun je geen nieuwe knoop aanmaken
+terugdraaibaar : ja; geen hostbestand, geen hostmount; upper en PTY staan in /tmp
+bestand-regels : 51
+fouten         : 11
+ATTACH ok      : 385

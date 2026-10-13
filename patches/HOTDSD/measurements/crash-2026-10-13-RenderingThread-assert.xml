@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FGenericCrashContext>
+<RuntimeProperties>
+<CrashVersion>3</CrashVersion>
+<CrashGUID>UE4CC-Windows-3F08557F4328D6B0FD481E9F94A7924E_0000</CrashGUID>
+<ProcessId>368</ProcessId>
+<IsInternalBuild>false</IsInternalBuild>
+<IsPerforceBuild>false</IsPerforceBuild>
+<IsSourceDistribution>false</IsSourceDistribution>
+<IsEnsure>false</IsEnsure>
+<IsAssert>true</IsAssert>
+<CrashType>Assert</CrashType>
+<SecondsSinceStart>0</SecondsSinceStart>
+<GameName>UE4-Hodzero</GameName>
+<ExecutableName>Hodzero-Win64-Shipping</ExecutableName>
+<BuildConfiguration>Shipping</BuildConfiguration>
+<GameSessionID></GameSessionID>
+<PlatformName>WindowsNoEditor</PlatformName>
+<PlatformNameIni>Windows</PlatformNameIni>
+<EngineMode>Game</EngineMode>
+<EngineModeEx>Unset</EngineModeEx>
+<DeploymentName></DeploymentName>
+<EngineVersion>4.18.1-0+++UE4+Release-4.18</EngineVersion>
+<CommandLine></CommandLine>
+<LanguageLCID>1033</LanguageLCID>
+<AppDefaultLocale>en-US</AppDefaultLocale>
+<BuildVersion>++UE4+Release-4.18-CL-0</BuildVersion>
+<IsUE4Release>true</IsUE4Release>
+<UserName></UserName>
+<BaseDir>Z:/home/deck/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/</BaseDir>
+<RootDir>Z:/home/deck/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/</RootDir>
+<MachineId>9824000F4919A387C2BAC89E456F3076</MachineId>
+<LoginId>9824000f4919a387c2bac89e456f3076</LoginId>
+<EpicAccountId></EpicAccountId>
+<CallStack></CallStack>
+<SourceContext></SourceContext>
+<UserDescription></UserDescription>
+<UserActivityHint></UserActivityHint>
+<ErrorMessage>Fatal error: [File:C:\UE4_171113\UE4\Engine\Source\Runtime\RenderCore\Private\RenderingThread.cpp] [Line: 1015] 
+GameThread timed out waiting for RenderThread after 30.00 secs
+</ErrorMessage>
+<CrashDumpMode>0</CrashDumpMode>
+<CrashReporterMessage></CrashReporterMessage>
+<Misc.NumberOfCores>8</Misc.NumberOfCores>
+<Misc.NumberOfCoresIncludingHyperthreads>16</Misc.NumberOfCoresIncludingHyperthreads>
+<Misc.Is64bitOperatingSystem>1</Misc.Is64bitOperatingSystem>
+<Misc.CPUVendor>AuthenticAMD</Misc.CPUVendor>
+<Misc.CPUBrand>AMD Ryzen 7 7800X3D 8-Core Processor           </Misc.CPUBrand>
+<Misc.PrimaryGPUBrand>AMD Radeon RX 6950 XT (RADV NAVI21)</Misc.PrimaryGPUBrand>
+<Misc.OSVersionMajor>Windows 10</Misc.OSVersionMajor>
+<Misc.OSVersionMinor></Misc.OSVersionMinor>
+<MemoryStats.TotalPhysical>33245233152</MemoryStats.TotalPhysical>
+<MemoryStats.TotalVirtual>140737488224256</MemoryStats.TotalVirtual>
+<MemoryStats.PageSize>4096</MemoryStats.PageSize>
+<MemoryStats.TotalPhysicalGB>31</MemoryStats.TotalPhysicalGB>
+<MemoryStats.AvailablePhysical>25343762432</MemoryStats.AvailablePhysical>
+<MemoryStats.AvailableVirtual>140736692535296</MemoryStats.AvailableVirtual>
+<MemoryStats.UsedPhysical>795688960</MemoryStats.UsedPhysical>
+<MemoryStats.PeakUsedPhysical>868552704</MemoryStats.PeakUsedPhysical>
+<MemoryStats.UsedVirtual>687923200</MemoryStats.UsedVirtual>
+<MemoryStats.PeakUsedVirtual>687923200</MemoryStats.PeakUsedVirtual>
+<MemoryStats.bIsOOM>0</MemoryStats.bIsOOM>
+<MemoryStats.OOMAllocationSize>0</MemoryStats.OOMAllocationSize>
+<MemoryStats.OOMAllocationAlignment>0</MemoryStats.OOMAllocationAlignment>
+</RuntimeProperties>
+<PlatformProperties>
+<PlatformIsRunningWindows>1</PlatformIsRunningWindows>
+<PlatformCallbackResult>0</PlatformCallbackResult>
+</PlatformProperties>
+</FGenericCrashContext>

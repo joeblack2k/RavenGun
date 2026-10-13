@@ -24,39 +24,51 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <dlfcn.h>
+#include <sys/syscall.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 
 static long (*echte_ptrace)(enum __ptrace_request, ...);
-static FILE *log;
 static struct timespec t0;
 static int t0_gezet;
 
+/* Met RAUWE syscalls in plaats van fopen/fprintf. Reden: de bestands-waarnemer wikkelt `fopen`, dus
+   met fopen logde deze waarnemer zijn eigen logregels als bestandsopeningen van de gast. In de meting
+   van 2026-10-13 waren 2336 van de 2424 regels daarvan afkomstig. Buiten de waarneming blijven dus
+   alleen de echte gast. */
 static void meld(const char *fmt, ...)
 {
+    char buf[1024], kern[768];
     va_list ap;
-    if (!log) {
-        const char *pad = getenv("RAVENGUN_PTRACE_LOG");
-        log = fopen(pad && *pad ? pad : "/tmp/ravengun-ptrace.log", "a");
-        if (!log) return;
-        setvbuf(log, NULL, _IOLBF, 0);
-    }
-    /* Tijdstempel erbij: zonder tijden kun je niet zien of de gast WERKT of SPINT. Zie
-       BESCHERMINGSLAAG-PTRACE.md §8.5 en kind-analyse.py. */
-    {
-        struct timespec ts;
-        if (!t0_gezet) { clock_gettime(CLOCK_MONOTONIC, &t0); t0_gezet = 1; }
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        fprintf(log, "[ravengun-ptrace-log] +%9.6f pid %d ppid %d: ",
-                ((double)ts.tv_sec + (double)ts.tv_nsec / 1e9) -
-                ((double)t0.tv_sec + (double)t0.tv_nsec / 1e9),
-                (int)getpid(), (int)getppid());
-    }
+    int fd, pre, n;
+    const char *pad;
+    struct timespec ts;
+    double dt;
+
+    if (!t0_gezet) { clock_gettime(CLOCK_MONOTONIC, &t0); t0_gezet = 1; }
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    dt = ((double)ts.tv_sec + (double)ts.tv_nsec / 1e9) -
+         ((double)t0.tv_sec + (double)t0.tv_nsec / 1e9);
+
     va_start(ap, fmt);
-    vfprintf(log, fmt, ap);
+    vsnprintf(kern, sizeof kern, fmt, ap);
     va_end(ap);
-    fputc('\n', log);
+
+    pre = snprintf(buf, sizeof buf, "[ravengun-ptrace-log] +%9.6f pid %d ppid %d: ",
+                   dt, (int)getpid(), (int)getppid());
+    n = pre + snprintf(buf + pre, sizeof buf - pre, "%s\n", kern);
+    if (n <= 0 || n >= (int)sizeof buf) n = (int)sizeof buf - 1;
+
+    pad = getenv("RAVENGUN_PTRACE_LOG");
+    if (!pad || !*pad) pad = "/tmp/ravengun-ptrace.log";
+    fd = (int)syscall(SYS_open, pad, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+        ssize_t r = syscall(SYS_write, fd, buf, (size_t)n);
+        (void)r;
+        syscall(SYS_close, fd);
+    }
 }
 
 static const char *req_naam(long r)

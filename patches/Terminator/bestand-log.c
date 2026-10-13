@@ -71,6 +71,23 @@ static void meld(const char *fmt, ...)
     }
 }
 
+/* De vlaggen meeloggen is GEEN luxe: of de gast een bestand wil LEZEN of SCHRIJVEN bepaalt of je het
+   met een kopie van bestaande inhoud moet leveren of met een leeg schrijfbaar bestand. Zonder dit veld
+   zou "hij mist syslog_bb3.txt" tot de verkeerde maatregel leiden. */
+static const char *flags_naam(int f)
+{
+    static char buf[128];
+    int acc = f & O_ACCMODE;
+    snprintf(buf, sizeof buf, "%s%s%s%s%s%s",
+             acc == O_RDONLY ? "O_RDONLY" : acc == O_WRONLY ? "O_WRONLY" : "O_RDWR",
+             (f & O_CREAT)   ? "|O_CREAT"   : "",
+             (f & O_APPEND)  ? "|O_APPEND"  : "",
+             (f & O_TRUNC)   ? "|O_TRUNC"   : "",
+             (f & O_EXCL)    ? "|O_EXCL"    : "",
+             (f & O_NONBLOCK)? "|O_NONBLOCK": "");
+    return buf;
+}
+
 static void meld_resultaat(const char *fn, const char *pad, long r, int bewaar_errno)
 {
     if (r >= 0)
@@ -78,6 +95,25 @@ static void meld_resultaat(const char *fn, const char *pad, long r, int bewaar_e
     else
         meld("%-10s \"%s\" -> FOUT errno=%d (%s)", fn, pad ? pad : "(null)", bewaar_errno,
              strerror(bewaar_errno));
+}
+
+static void meld_resultaat_flags(const char *fn, const char *pad, int flags, long r, int bewaar_errno)
+{
+    if (r >= 0)
+        meld("%-10s \"%s\" flags=0x%x(%s) -> ok (%ld)", fn, pad ? pad : "(null)", flags,
+             flags_naam(flags), r);
+    else
+        meld("%-10s \"%s\" flags=0x%x(%s) -> FOUT errno=%d (%s)", fn, pad ? pad : "(null)", flags,
+             flags_naam(flags), bewaar_errno, strerror(bewaar_errno));
+}
+
+static void meld_resultaat_mode(const char *fn, const char *pad, const char *mode, long r, int bewaar_errno)
+{
+    if (r >= 0)
+        meld("%-10s \"%s\" mode=\"%s\" -> ok (%ld)", fn, pad ? pad : "(null)", mode ? mode : "?", r);
+    else
+        meld("%-10s \"%s\" mode=\"%s\" -> FOUT errno=%d (%s)", fn, pad ? pad : "(null)",
+             mode ? mode : "?", bewaar_errno, strerror(bewaar_errno));
 }
 
 /* ---------------------------------------------------------------- open / openat */
@@ -93,7 +129,7 @@ int open(const char *pad, int flags, ...)
     if (!echt) echt = (int (*)(const char *, int, ...))dlsym(RTLD_NEXT, "open");
     if (!echt) { errno = ENOSYS; return -1; }
     errno = 0; r = echt(pad, flags, mode);
-    { int e = errno; meld_resultaat("open", pad, r, e); errno = e; }
+    { int e = errno; meld_resultaat_flags("open", pad, flags, r, e); errno = e; }
     return r;
 }
 
@@ -108,7 +144,7 @@ int open64(const char *pad, int flags, ...)
     if (!echt) echt = (int (*)(const char *, int, ...))dlsym(RTLD_NEXT, "open64");
     if (!echt) { errno = ENOSYS; return -1; }
     errno = 0; r = echt(pad, flags, mode);
-    { int e = errno; meld_resultaat("open64", pad, r, e); errno = e; }
+    { int e = errno; meld_resultaat_flags("open64", pad, flags, r, e); errno = e; }
     return r;
 }
 
@@ -123,7 +159,7 @@ int openat(int dirfd, const char *pad, int flags, ...)
     if (!echt) echt = (int (*)(int, const char *, int, ...))dlsym(RTLD_NEXT, "openat");
     if (!echt) { errno = ENOSYS; return -1; }
     errno = 0; r = echt(dirfd, pad, flags, mode);
-    { int e = errno; meld_resultaat("openat", pad, r, e); errno = e; }
+    { int e = errno; meld_resultaat_flags("openat", pad, flags, r, e); errno = e; }
     return r;
 }
 
@@ -136,7 +172,7 @@ FILE *fopen(const char *pad, const char *mode)
     if (!echt) echt = (FILE *(*)(const char *, const char *))dlsym(RTLD_NEXT, "fopen");
     if (!echt) { errno = ENOSYS; return NULL; }
     errno = 0; r = echt(pad, mode);
-    { int e = errno; meld_resultaat("fopen", pad, r ? 1 : -1, e); errno = e; }
+    { int e = errno; meld_resultaat_mode("fopen", pad, mode, r ? 1 : -1, e); errno = e; }
     return r;
 }
 
@@ -147,7 +183,7 @@ FILE *fopen64(const char *pad, const char *mode)
     if (!echt) echt = (FILE *(*)(const char *, const char *))dlsym(RTLD_NEXT, "fopen64");
     if (!echt) { errno = ENOSYS; return NULL; }
     errno = 0; r = echt(pad, mode);
-    { int e = errno; meld_resultaat("fopen64", pad, r ? 1 : -1, e); errno = e; }
+    { int e = errno; meld_resultaat_mode("fopen64", pad, mode, r ? 1 : -1, e); errno = e; }
     return r;
 }
 
@@ -208,3 +244,4 @@ int __xstat64(int ver, const char *pad, void *st)
     { int e = errno; meld_resultaat("__xstat64", pad, r, e); errno = e; }
     return r;
 }
+
