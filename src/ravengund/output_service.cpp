@@ -107,6 +107,7 @@ std::string OutputService::event_node(const Player& p) const {
 void OutputService::arm_player_locked(Player& p) {
     std::string err;
     const bool was = p.out->armed();
+    if (!was) p.ov.clear();  // een nieuwe arm begint schoon: geen synthetische stand van voor het disarmen
     if (!p.out->arm(err)) {
         logf("fout", "arm van speler %d mislukt: %s", p.number, err.c_str());
         return;
@@ -119,6 +120,7 @@ OutputResult OutputService::arm() {
     if (shut_) return {false, "unavailable", "uitvoer is afgesloten"};
     std::string err;
     const bool was_armed = armed_;
+    if (!p1().out->armed()) p1().ov.clear();
     // Volgorde: eerst speler 1 (en daarmee het toetsenbord), dan de andere spelers met een Move.
     if (!p1().out->arm(err)) {
         logf("fout", "arm mislukt: %s", err.c_str());
@@ -140,7 +142,7 @@ OutputResult OutputService::disarm() {
     std::unique_lock<std::mutex> lk(m_);
     stop_pattern_locked(lk);
     if (armed_) logf("info", "uitvoer ontwapend: knoppen vrijgegeven");
-    for (auto& p : players_) { p.out->disarm(); p.clock.clear(); }
+    for (auto& p : players_) { p.out->disarm(); p.clock.clear(); p.ov.clear(); }
     armed_ = false;
     return {};
 }
@@ -149,12 +151,13 @@ OutputResult OutputService::stop_pattern() {
     std::unique_lock<std::mutex> lk(m_);
     stop_pattern_locked(lk);
     p1().out->release_all();
+    p1().ov.clear();  // ook een synthetische down van output-button/key
     return {};
 }
 
 void OutputService::release_all() {
     std::lock_guard<std::mutex> g(m_);
-    for (auto& p : players_) p.out->release_all();
+    for (auto& p : players_) { p.out->release_all(); p.ov.clear(); }
 }
 
 bool OutputService::armed() const {
@@ -214,16 +217,23 @@ OutputResult OutputService::key(int player, int code, const std::string& action)
     if (player < 1 || player > kPlayers) return {false, "invalid_argument", "ongeldige speler"};
     if (action != "down" && action != "up" && action != "tap") return {false, "invalid_argument", "actie moet down, up of tap zijn"};
     std::unique_lock<std::mutex> lk(m_);
-    GunOutput& out = *players_[static_cast<size_t>(player - 1)].out;
+    Player& p = players_[static_cast<size_t>(player - 1)];
+    GunOutput& out = *p.out;
     if (!armed_ || !out.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
+    // Synthetisch (OR met de live stand): een live Move-rapport dat "los" zegt mag deze druk niet wegzetten. Na up of het
+    // einde van de tap volgt de toets weer de live stand.
     if (action == "up") {
-        if (!out.set_key(code, false)) return {false, "internal", "toets schrijven mislukt"};
+        p.ov.release_key(code);
+        if (!out.set_key(code, p.ov.want_key(code))) return {false, "internal", "toets schrijven mislukt"};
         return {};
     }
-    if (!out.set_key(code, true)) return {false, "internal", "toets schrijven mislukt"};
+    const uint64_t token = action == "tap" ? p.ov.tap_key(code) : 0;
+    if (action == "down") p.ov.hold_key(code);
+    if (!out.set_key(code, true)) { p.ov.release_key(code); return {false, "internal", "toets schrijven mislukt"}; }
     if (action == "tap") {
         cv_.wait_for(lk, std::chrono::milliseconds(80), [&] { return !out.armed(); });
-        out.set_key(code, false);
+        p.ov.end_tap_key(code, token);   // een nieuwere tap, een up of een disarm tussendoor laat dit ongemoeid
+        if (out.armed()) out.set_key(code, p.ov.want_key(code));
     }
     return {};
 }
@@ -277,6 +287,7 @@ void OutputService::feed_live(int player, const LiveAction& a) {
         for (int i = 0; i < kGunButtonCount; ++i) any = any || out.button_down(static_cast<GunButton>(i));
         any = any || !out.keys_down().empty();
         if (any) { out.release_all(); ++p.live_releases; }
+        p.ov.clear();   // bronuitval: ook een synthetische druk gaat los (veilig boven bench-gemak)
         p.clock.clear();
         return;
     }
@@ -300,12 +311,13 @@ void OutputService::feed_live(int player, const LiveAction& a) {
         ++p.live_invalid;  // ongeldige aim: niet bewegen (cursor blijft staan)
     }
     if (a.buttons) {
-        out.set_button(GunButton::Trigger, a.trigger);
-        out.set_button(GunButton::Reload, a.reload);
-        out.set_button(GunButton::Grenade, a.grenade);
-        out.set_button(GunButton::Aux1, a.aux1);
-        out.set_button(GunButton::Aux2, a.aux2);
-        for (const auto& k : a.keys) out.set_key(k.first, k.second);
+        // Live OR synthetisch: een rapport dat "los" meldt mag een lopende output-button/key-druk niet annuleren.
+        out.set_button(GunButton::Trigger, p.ov.live_button(GunButton::Trigger, a.trigger));
+        out.set_button(GunButton::Reload, p.ov.live_button(GunButton::Reload, a.reload));
+        out.set_button(GunButton::Grenade, p.ov.live_button(GunButton::Grenade, a.grenade));
+        out.set_button(GunButton::Aux1, p.ov.live_button(GunButton::Aux1, a.aux1));
+        out.set_button(GunButton::Aux2, p.ov.live_button(GunButton::Aux2, a.aux2));
+        for (const auto& k : a.keys) out.set_key(k.first, p.ov.live_key(k.first, k.second));
     }
 }
 
@@ -370,16 +382,23 @@ void OutputService::pattern_main(std::vector<PatternStep> steps, PatternParams p
 
 OutputResult OutputService::button(GunButton b, const std::string& action) {
     std::unique_lock<std::mutex> lk(m_);
-    GunOutput& out = *p1().out;
+    Player& p = p1();
+    GunOutput& out = *p.out;
     if (!out.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
-    if (action == "down") {
-        if (!out.set_button(b, true)) return {false, "internal", "knop schrijven mislukt"};
-    } else if (action == "up") {
-        if (!out.set_button(b, false)) return {false, "internal", "knop schrijven mislukt"};
-    } else {  // tap: 80 ms ingedrukt, zonder de lock lang vast te houden
-        if (!out.set_button(b, true)) return {false, "internal", "knop schrijven mislukt"};
+    // Synthetisch (OR met de live stand), zie key(): live rapporten annuleren deze druk niet.
+    if (action == "up") {
+        p.ov.release_button(b);
+        if (!out.set_button(b, p.ov.want_button(b))) return {false, "internal", "knop schrijven mislukt"};
+        return {};
+    }
+    const bool tap = action != "down";   // tap: 80 ms ingedrukt, zonder de lock lang vast te houden
+    const uint64_t token = tap ? p.ov.tap_button(b) : 0;
+    if (!tap) p.ov.hold_button(b);
+    if (!out.set_button(b, true)) { p.ov.release_button(b); return {false, "internal", "knop schrijven mislukt"}; }
+    if (tap) {
         cv_.wait_for(lk, std::chrono::milliseconds(80), [&] { return !out.armed(); });
-        out.set_button(b, false);
+        p.ov.end_tap_button(b, token);   // een nieuwere tap, een up of een disarm tussendoor laat dit ongemoeid
+        if (out.armed()) out.set_button(b, p.ov.want_button(b));
     }
     return {};
 }

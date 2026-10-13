@@ -1,13 +1,17 @@
 // Meerdere spelers zonder hardware: twee MoveSlots (elk een eigen pijplijn) met synthetische rapporten, een OutputService met
 // nep-guns en een nep-toetsenbord. Controleert dat elke Move zijn eigen gun stuurt, dat instellingen per controller gelden,
 // dat de Navigation Controller de knoppen van zijn speler aanvult, en het LED/rumble-rapport per speler.
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
+#include <thread>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -23,6 +27,7 @@
 #include "ravengun/config/settings.hpp"
 #include "ravengun/core/buttons.hpp"
 #include "ravengun/core/navcon.hpp"
+#include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/output/key_table.hpp"
 #include "shared.hpp"
@@ -80,6 +85,175 @@ core::RawReport rep(int64_t t_ns, double w_z, uint32_t buttons = 0) {
 
 const std::string A = "00:00:00:aa:00:01", B = "00:00:00:aa:00:02";
 
+// ---- Synthetische invoer naast live Move-rapporten -------------------------------------------------------------------
+// Een verbonden Move zet bij elk rapport (~80 Hz) zijn eigen knoppen en toetsen terug. Een synthetische druk
+// (ravengunctl output-button/key) moet daarom zijn hele duur zichtbaar blijven, ook voor wat de Move zelf koppelt.
+
+// Telt hoe vaak een niveau omhoog/omlaag gaat en hoeveel samples het aanwezig was (elke ~2 ms).
+struct Track {
+    int rises = 0, falls = 0, present = 0, samples = 0;
+    bool prev = false;
+    void add(bool v) {
+        ++samples;
+        if (v) ++present;
+        if (v && !prev) ++rises;
+        if (!v && prev) ++falls;
+        prev = v;
+    }
+};
+
+// Het byte-niveau zoals de tp-shm-route het schrijft: een 16-bit bitveld op byte 8 met een eigen profiel.
+iobridge::TpShmProfile bench_profile() {
+    iobridge::TpShmProfile p;
+    p.name = "Bench";
+    p.size = 64;
+    p.bits = {{"coin1", 8, 0}, {"p1.start", 8, 1}, {"p1.trigger", 8, 2}, {"p1.reload", 8, 3}, {"test", 8, 8}};
+    p.mirror_first = -1; p.mirror_last = -1;
+    return p;
+}
+
+uint16_t shm_word(OutputService& out, const iobridge::TpShmProfile& prof) {
+    iobridge::IoState st;
+    out.io_snapshot(st);
+    uint8_t b[64] = {};
+    iobridge::tp_shm_render(prof, st, b, sizeof b);
+    return static_cast<uint16_t>(b[8] | (b[9] << 8));
+}
+
+void test_synthetic_hold() {
+    std::map<int, FakeGun*> guns;
+    auto kbd = std::make_unique<FakeKbd>();
+    FakeKbd* kb = kbd.get();
+    OutputService out([&](int p) { auto g = std::make_unique<FakeGun>(p); guns[p] = g.get(); return g; }, std::move(kbd));
+    SharedState sh;
+    sh.output = &out;
+    HidOptions base;
+    base.bias_dir.clear();
+    base.recorder = nullptr;
+    config::Settings s;
+    config::register_controller(s, A, "move", "ZCM1", 1);
+    MoveSlot p1(1, sh, base);
+    p1.configure(A, config::effective(s, A), {});   // standaard: Vierkant = toets 1, Start/Driehoek = toets 5, Kruis = herladen
+    CHECK(out.arm().ok);
+    ControllerInfo ca;
+    ca.id = A; ca.model = "ZCM1"; ca.connection = "bluetooth";
+    p1.connect(ca, mono_ns());
+
+    // Live Move-rapporten op ~80 Hz in een eigen thread (zoals de HID-thread); de knoppen zijn live instelbaar.
+    std::atomic<uint32_t> live_buttons{0};
+    std::atomic<bool> stop{false};
+    std::thread feeder([&] {
+        while (!stop.load()) {
+            p1.on_report(rep(mono_ns(), 0, live_buttons.load()), NAN);
+            std::this_thread::sleep_for(std::chrono::microseconds(12500));
+        }
+    });
+    auto sleep_ms = [](int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); };
+    auto io = [&] { iobridge::IoState st; out.io_snapshot(st); return st; };
+    // Neemt ~`ms` lang samples van `pick` terwijl `act` in een eigen thread loopt (de tap blokkeert 80 ms).
+    auto measure = [&](int ms, const std::function<void()>& act, const std::function<bool(const iobridge::IoState&)>& pick) {
+        Track t;
+        std::thread th(act);
+        const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+        while (std::chrono::steady_clock::now() < end) {
+            t.add(pick(io()));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        th.join();
+        return t;
+    };
+    // Een tap van 80 ms moet in een venster van 140 ms precies een keer omhoog en omlaag gaan en ruim 60 ms zichtbaar zijn.
+    auto whole_tap = [](const Track& t) { return t.rises == 1 && t.falls == 1 && t.present >= 30 && !t.prev; };
+    sleep_ms(100);
+    CHECK(io().armed && !io().player[0].reload);
+
+    // Controle: de live Move werkt gewoon (Kruis = herladen) en laat los.
+    live_buttons.store(core::kBtnCross);
+    sleep_ms(60);
+    CHECK(io().player[0].reload && guns[1]->created());
+    live_buttons.store(0);
+    sleep_ms(60);
+    CHECK(!io().player[0].reload);
+
+    // Een toets die de Move niet koppelt (test = toets 0) blijft de hele tap staan.
+    CHECK(whole_tap(measure(140, [&] { out.key(1, output::key_code("0"), "tap"); }, [](const iobridge::IoState& st) { return st.sys.test; })));
+    // Dezelfde proef voor wat de Move wel koppelt: trekker, herladen, start (toets 1) en munt (toets 5).
+    CHECK(whole_tap(measure(140, [&] { out.button(output::GunButton::Trigger, "tap"); }, [](const iobridge::IoState& st) { return st.player[0].trigger; })));
+    CHECK(whole_tap(measure(140, [&] { out.button(output::GunButton::Reload, "tap"); }, [](const iobridge::IoState& st) { return st.player[0].reload; })));
+    CHECK(whole_tap(measure(140, [&] { out.key(1, output::key_code("1"), "tap"); }, [](const iobridge::IoState& st) { return st.player[0].start; })));
+    CHECK(whole_tap(measure(140, [&] { out.key(1, output::key_code("5"), "tap"); }, [](const iobridge::IoState& st) { return st.sys.coin[0]; })));
+    // En na afloop is alles weer los (geen blijvende synthetische stand).
+    CHECK(!io().player[0].trigger && !io().player[0].reload && !io().player[0].start && !io().sys.coin[0] && !io().sys.test);
+    CHECK(guns[1]->down.empty() && kb->pressed.empty());
+
+    // Op byteniveau (tp-shm): de bit van de trekker (0x4) staat de hele tap in het bitveld.
+    {
+        const auto prof = bench_profile();
+        Track t;
+        std::thread th([&] { out.button(output::GunButton::Trigger, "tap"); });
+        const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(140);
+        while (std::chrono::steady_clock::now() < end) { t.add((shm_word(out, prof) & 0x4) != 0); sleep_ms(2); }
+        th.join();
+        CHECK(whole_tap(t));
+        CHECK(shm_word(out, prof) == 0);
+        // Een toets zonder Move-koppeling (test, 0x100) en een gekoppelde (start, 0x2).
+        Track tt, ts;
+        std::thread th2([&] { out.key(1, output::key_code("0"), "tap"); });
+        const auto end2 = std::chrono::steady_clock::now() + std::chrono::milliseconds(140);
+        while (std::chrono::steady_clock::now() < end2) { tt.add((shm_word(out, prof) & 0x100) != 0); sleep_ms(2); }
+        th2.join();
+        CHECK(whole_tap(tt));
+        std::thread th3([&] { out.key(1, output::key_code("1"), "tap"); });
+        const auto end3 = std::chrono::steady_clock::now() + std::chrono::milliseconds(140);
+        while (std::chrono::steady_clock::now() < end3) { ts.add((shm_word(out, prof) & 0x2) != 0); sleep_ms(2); }
+        th3.join();
+        CHECK(whole_tap(ts));
+    }
+
+    // down blijft staan tot een expliciete up, ook als de Move steeds "los" meldt.
+    CHECK(out.button(output::GunButton::Trigger, "down").ok && out.key(1, output::key_code("1"), "down").ok);
+    sleep_ms(200);
+    CHECK(io().player[0].trigger && io().player[0].start && guns[1]->down.count(static_cast<int>(output::GunButton::Trigger)));
+    CHECK(out.button(output::GunButton::Trigger, "up").ok && out.key(1, output::key_code("1"), "up").ok);
+    sleep_ms(40);
+    CHECK(!io().player[0].trigger && !io().player[0].start);
+
+    // Een live druk tijdens een synthetische druk: het live loslaten wist de synthetische druk niet, en omgekeerd.
+    live_buttons.store(core::kBtnCross);
+    sleep_ms(50);
+    CHECK(out.button(output::GunButton::Reload, "down").ok);
+    live_buttons.store(0);
+    sleep_ms(80);
+    CHECK(io().player[0].reload);                           // live los, synthetisch nog vast
+    CHECK(out.button(output::GunButton::Reload, "up").ok);
+    sleep_ms(30);
+    CHECK(!io().player[0].reload);
+    live_buttons.store(core::kBtnCross);
+    sleep_ms(50);
+    CHECK(out.button(output::GunButton::Reload, "tap").ok);
+    CHECK(io().player[0].reload);                           // de live druk blijft na het einde van de tap staan
+    live_buttons.store(0);
+    sleep_ms(50);
+    CHECK(!io().player[0].reload);
+
+    // Disarm geeft alles vrij, ook een synthetische down; na opnieuw wapenen komt hij niet terug.
+    CHECK(out.button(output::GunButton::Trigger, "down").ok && out.key(1, output::key_code("0"), "down").ok);
+    sleep_ms(30);
+    CHECK(io().player[0].trigger && io().sys.test);
+    out.disarm();
+    CHECK(guns[1]->down.empty() && kb->pressed.empty() && !io().armed);
+    CHECK(out.arm().ok);
+    sleep_ms(100);
+    CHECK(io().armed && !io().player[0].trigger && !io().sys.test && guns[1]->down.empty() && kb->pressed.empty());
+
+    // Bronuitval (Move weg): ook een synthetische down gaat los.
+    CHECK(out.button(output::GunButton::Trigger, "down").ok);
+    stop.store(true);
+    feeder.join();
+    p1.disconnect(mono_ns());
+    CHECK(!io().player[0].trigger && guns[1]->down.empty());
+}
+
 }  // namespace
 
 int main() {
@@ -88,6 +262,7 @@ int main() {
     fs::create_directories(tmp);
     ::setenv("XDG_CONFIG_HOME", tmp.c_str(), 1);
     ::setenv("XDG_STATE_HOME", tmp.c_str(), 1);
+    test_synthetic_hold();
 
     std::map<int, FakeGun*> guns;
     auto kbd = std::make_unique<FakeKbd>();

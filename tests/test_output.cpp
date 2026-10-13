@@ -1211,6 +1211,107 @@ static void test_live_feed_nav() {
     CHECK(feed.update(lost, core::kNavL1).release_all);
 }
 
+// ---------------- Override-laag: synthetische invoer naast live rapporten ----------------
+
+// Zoals OutputService::feed_live: knoppen en toetsen van een live rapport, OR-ed met de synthetische stand.
+static void apply_live(GunOutput& o, OverrideLayer& ov, const LiveAction& a) {
+    if (a.release_all) { o.release_all(); ov.clear(); return; }
+    if (!o.armed()) return;
+    o.set_button(GunButton::Trigger, ov.live_button(GunButton::Trigger, a.trigger));
+    o.set_button(GunButton::Reload, ov.live_button(GunButton::Reload, a.reload));
+    o.set_button(GunButton::Grenade, ov.live_button(GunButton::Grenade, a.grenade));
+    o.set_button(GunButton::Aux1, ov.live_button(GunButton::Aux1, a.aux1));
+    o.set_button(GunButton::Aux2, ov.live_button(GunButton::Aux2, a.aux2));
+    for (const auto& k : a.keys) o.set_key(k.first, ov.live_key(k.first, k.second));
+}
+
+static void test_override_layer() {
+    FakeDevice d;
+    FakeKbd kb;
+    GunOutput o(d, &kb);
+    OverrideLayer ov;
+    LiveGunFeed feed(build_live_map(config::GunButtonSettings{}));   // Vierkant = toets 1, Kruis = herladen
+    std::string err;
+    CHECK(o.arm(err));
+    const int trig = static_cast<int>(GunButton::Trigger), rel = static_cast<int>(GunButton::Reload);
+
+    // Een tap van de trekker terwijl de Move ~80 Hz "niet ingedrukt" meldt: de druk blijft de hele tap staan.
+    const uint64_t t1 = ov.tap_button(GunButton::Trigger);
+    CHECK(o.set_button(GunButton::Trigger, true));
+    for (int i = 0; i < 7; ++i) {                       // 7 rapporten x 12,5 ms = de tap van 80 ms
+        apply_live(o, ov, feed.update(sample(0)));
+        CHECK(d.pressed.count(trig) && o.button_down(GunButton::Trigger));
+    }
+    ov.end_tap_button(GunButton::Trigger, t1);
+    CHECK(o.set_button(GunButton::Trigger, ov.want_button(GunButton::Trigger)));
+    CHECK(!d.pressed.count(trig) && d.count("down trigger") == 1 && d.count("up trigger") == 1);   // een druk, een los: geen geflikker
+
+    // Een toets die de Move ook koppelt (Vierkant = toets 1) en een die hij niet koppelt (0).
+    const uint64_t k1 = ov.tap_key(KEY_1), k0 = ov.tap_key(KEY_0);
+    CHECK(o.set_key(KEY_1, true) && o.set_key(KEY_0, true));
+    for (int i = 0; i < 7; ++i) {
+        apply_live(o, ov, feed.update(sample(0)));
+        CHECK(kb.pressed == (std::set<int>{KEY_1, KEY_0}));
+    }
+    ov.end_tap_key(KEY_1, k1);
+    ov.end_tap_key(KEY_0, k0);
+    CHECK(o.set_key(KEY_1, ov.want_key(KEY_1)) && o.set_key(KEY_0, ov.want_key(KEY_0)));
+    CHECK(kb.pressed.empty());
+
+    // Live drukken werkt ongewijzigd: Vierkant down/up volgt de Move, Kruis = herladen.
+    apply_live(o, ov, feed.update(sample(core::kBtnSquare | core::kBtnCross)));
+    CHECK(kb.pressed == std::set<int>{KEY_1} && d.pressed.count(rel));
+    apply_live(o, ov, feed.update(sample(0)));
+    CHECK(kb.pressed.empty() && !d.pressed.count(rel));
+
+    // Live loslaten wist een synthetische down niet; pas up (of clear) laat hem los. Live OR synthetisch.
+    ov.hold_button(GunButton::Reload);
+    CHECK(o.set_button(GunButton::Reload, true));
+    apply_live(o, ov, feed.update(sample(core::kBtnCross)));
+    apply_live(o, ov, feed.update(sample(0)));
+    CHECK(d.pressed.count(rel));
+    ov.release_button(GunButton::Reload);
+    CHECK(o.set_button(GunButton::Reload, ov.want_button(GunButton::Reload)) && !d.pressed.count(rel));
+    // up terwijl de Move zelf nog drukt: de live druk blijft staan.
+    apply_live(o, ov, feed.update(sample(core::kBtnCross)));
+    ov.hold_button(GunButton::Reload);
+    ov.release_button(GunButton::Reload);
+    CHECK(ov.want_button(GunButton::Reload) && d.pressed.count(rel));
+    apply_live(o, ov, feed.update(sample(0)));
+    CHECK(!d.pressed.count(rel));
+
+    // Een nieuwere tap vervangt de oudere: het einde van de oude laat de nieuwe staan.
+    const uint64_t a = ov.tap_button(GunButton::Grenade);
+    const uint64_t b = ov.tap_button(GunButton::Grenade);
+    CHECK(a != b);
+    ov.end_tap_button(GunButton::Grenade, a);
+    CHECK(ov.held_button(GunButton::Grenade));
+    ov.end_tap_button(GunButton::Grenade, b);
+    CHECK(!ov.held_button(GunButton::Grenade) && !ov.any_synthetic());
+    // Een tap na een down laat de down staan.
+    ov.hold_key(KEY_5);
+    const uint64_t kt = ov.tap_key(KEY_5);
+    ov.end_tap_key(KEY_5, kt);
+    CHECK(ov.held_key(KEY_5));
+    ov.release_key(KEY_5);
+    CHECK(!ov.held_key(KEY_5) && !ov.any_synthetic());
+
+    // Bronuitval, disarm en een stale token: alles los, ook de synthetische stand.
+    ov.hold_button(GunButton::Trigger);
+    ov.hold_key(KEY_0);
+    const uint64_t stale = ov.tap_key(KEY_5);
+    CHECK(o.set_button(GunButton::Trigger, true) && o.set_key(KEY_0, true) && o.set_key(KEY_5, true));
+    apply_live(o, ov, feed.update(sample(0, 0, 0, core::LinkState::Lost)));
+    CHECK(d.pressed.empty() && kb.pressed.empty() && !ov.any_synthetic() && o.armed());
+    ov.end_tap_key(KEY_5, stale);                        // een tap die na de bronuitval afloopt doet niets
+    CHECK(!ov.held_key(KEY_5) && !ov.want_key(KEY_5));
+    ov.hold_button(GunButton::Aux1);
+    ov.clear();
+    CHECK(!ov.any_synthetic() && !ov.want_button(GunButton::Aux1));
+    o.disarm();
+    CHECK(d.pressed.empty() && kb.pressed.empty());
+}
+
 int main() {
     test_gun_identity();
     test_key_mux();
@@ -1221,6 +1322,7 @@ int main() {
     test_live_feed_layout();
     test_live_feed_sharpshooter();
     test_keyboard_output();
+    test_override_layer();
     test_live_feed();
     test_transform_basic();
     test_transform_invert();

@@ -52,6 +52,41 @@ std::string describe_layout(const LiveButtonMap& m) {
     return s;
 }
 
+bool OverrideLayer::live_key(int code, bool live) {
+    if (live) live_keys_[code] = true; else live_keys_.erase(code);
+    return live || held_key(code);
+}
+
+bool OverrideLayer::want_key(int code) const {
+    auto it = live_keys_.find(code);
+    return (it != live_keys_.end() && it->second) || held_key(code);
+}
+
+bool OverrideLayer::held_key(int code) const {
+    auto it = keys_.find(code);
+    return it != keys_.end() && (it->second.down || it->second.tap != 0);
+}
+
+void OverrideLayer::end_tap_key(int code, uint64_t token) {
+    auto it = keys_.find(code);
+    if (it == keys_.end() || it->second.tap != token) return;
+    it->second.tap = 0;
+    if (!it->second.down) keys_.erase(it);
+}
+
+bool OverrideLayer::any_synthetic() const {
+    for (const auto& h : btn_) if (h.down || h.tap != 0) return true;
+    for (const auto& kv : keys_) if (kv.second.down || kv.second.tap != 0) return true;
+    return false;
+}
+
+void OverrideLayer::clear() {
+    btn_.fill({});
+    live_btn_.fill(false);
+    keys_.clear();
+    live_keys_.clear();
+}
+
 LiveAction LiveGunFeed::update(const core::InputSample& s, uint32_t nav) {
     LiveAction a;
     if (s.link == core::LinkState::Lost || s.link == core::LinkState::Disconnected) {

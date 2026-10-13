@@ -103,6 +103,7 @@ private:
         std::unique_ptr<ravengun::output::GunDevice> dev;
         std::unique_ptr<ravengun::output::GunOutput> out;
         ravengun::output::AimClock clock;
+        ravengun::output::OverrideLayer ov;  // synthetische knoppen/toetsen (button/key) naast de live stand; zie live_feed.hpp
         bool clock_idle = false;  // vastgehouden na de extrapolatielimiet: niet tikken tot het volgende rapport
         std::vector<std::pair<std::string, std::string>> layout;
         uint64_t clock_ticks = 0, clock_extrapolated = 0, clock_held = 0, clock_events = 0;

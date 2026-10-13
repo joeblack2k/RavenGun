@@ -15,7 +15,9 @@
 //  - Recenter is een verzoek bij de down-flank; de aanroeper voert het uit. De PS-knop is ALTIJD recenter
 //    (hard bedraad, ook als de uitvoer niet gewapend is); daarnaast kan een Move-knop in de map "recenter" zijn.
 // Bewust NIET gebruikt: de mapping sharp_shooter.buttons uit de kalibratie-UI (eerste meting fout).
+#include <array>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,6 +69,49 @@ struct LiveAction {
     bool release_all = false;   // bronuitval: alles los
     bool recenter = false;      // down-flank van de recenter-knop (PS of een Move-knop uit de map)
     bool recenter_ps = false;   // ... en die flank kwam van de PS-knop
+};
+
+// Override-laag voor synthetische invoer (ravengunctl output-button/key, webinterface) naast de live Move-rapporten.
+// Zonder deze laag zet elk Move-rapport (~80 Hz) alle gebonden knoppen en toetsen terug naar zijn eigen stand, zodat een
+// synthetische druk op iets wat de Move ook koppelt na enkele milliseconden weer los was. Regels:
+//  - Wat de uitvoer krijgt is OR van live en synthetisch: een live loslaten wist een synthetische druk niet, een live
+//    druk blijft werken zoals altijd.
+//  - Synthetisch is "down" (tot een expliciete up) of "tap" (tot de aanroeper het einde meldt met het token). Een nieuwere
+//    tap vervangt de oudere: het einde van de oude tap laat de nieuwe staan (token komt niet meer overeen).
+//  - up wist zowel down als lopende taps; clear() (disarm, stop, bronuitval, nieuwe arm) wist alles, ook de live stand.
+// Niet thread-safe: de eigenaar (OutputService) serialiseert met zijn mutex. Getest in tests/test_output.cpp.
+class OverrideLayer {
+public:
+    // Live stand van een knop/toets (per rapport); geeft terug wat er naar de uitvoer moet (live OR synthetisch).
+    bool live_button(GunButton b, bool live) { live_btn_[idx(b)] = live; return live || held_button(b); }
+    bool live_key(int code, bool live);
+    // Wat de uitvoer nu hoort te hebben (live OR synthetisch), zonder nieuw rapport.
+    bool want_button(GunButton b) const { return live_btn_[idx(b)] || held_button(b); }
+    bool want_key(int code) const;
+    // Alleen het synthetische deel.
+    bool held_button(GunButton b) const { const Hold& h = btn_[idx(b)]; return h.down || h.tap != 0; }
+    bool held_key(int code) const;
+
+    void hold_button(GunButton b) { btn_[idx(b)].down = true; }
+    uint64_t tap_button(GunButton b) { return btn_[idx(b)].tap = ++next_token_; }
+    void end_tap_button(GunButton b, uint64_t token) { Hold& h = btn_[idx(b)]; if (h.tap == token) h.tap = 0; }
+    void release_button(GunButton b) { btn_[idx(b)] = {}; }
+    void hold_key(int code) { keys_[code].down = true; }
+    uint64_t tap_key(int code) { return keys_[code].tap = ++next_token_; }
+    void end_tap_key(int code, uint64_t token);
+    void release_key(int code) { keys_.erase(code); }
+
+    bool any_synthetic() const;
+    void clear();   // alles, ook de live stand (die volgt bij het volgende rapport)
+
+private:
+    struct Hold { bool down = false; uint64_t tap = 0; };
+    static size_t idx(GunButton b) { return static_cast<size_t>(b); }
+    std::array<Hold, kGunButtonCount> btn_{};
+    std::array<bool, kGunButtonCount> live_btn_{};
+    std::map<int, Hold> keys_;      // synthetisch per toets
+    std::map<int, bool> live_keys_;
+    uint64_t next_token_ = 0;
 };
 
 class LiveGunFeed {
