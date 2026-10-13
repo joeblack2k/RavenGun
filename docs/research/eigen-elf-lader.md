@@ -38,6 +38,62 @@ dat de geïnstalleerde lader `GNU_STACK RWE` heeft, en zonder die vlag strandt h
 De shim wordt met gcc gebouwd; die 64-bits hulpprocessen krijgen de `LD_PRELOAD`/`LD_AUDIT` van het spel niet
 mee (anders zes regels `wrong ELF class: ELFCLASS32` per start). De gast ziet de variabele daarna weer.
 
+## Eerste echte run op Terminator Salvation (2026-10-13): de lader is klaar, de gast stopt zelf
+
+*Ruwe gegevens: `~/bw/terminator-elf/` (`VOORAF.txt` met de vooraf opgeschreven uitkomsten; per run `opzet.txt`,
+`run.out`, `verslag.txt`, `hook.log`; bij run 2 en 3 `strace.txt`). Gewone modus, geïnstalleerde lader sha256
+`7f83edb2…4549` (= gebouwd = uit de bron), op een kopie van het spel in `/tmp`, headless gamescope, de HASP-hook
+in `LD_PRELOAD` van de lader en **zonder** vooraf geladen `libGL`/`libm`/`libstdc++`. NAS: 0 gewijzigde bestanden.*
+
+**Run 1.** Alles kwam uit zoals vooraf opgeschreven:
+
+```
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen in een latere ronde: libGLU.so.1 (eerste poging: ...: undefined symbol: floor)
+rg-elfloader: geladen in een latere ronde: libtheora.so.0 (eerste poging: ...: undefined symbol: oggpackB_readinit)
+rg-elfloader: geladen; spel /tmp/rg-terminator-elf/view/game krijgt argv[0]=/tmp/rg-terminator-elf/view/game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf6d67e10, argc 1, envc 56, 17 auxv)
+```
+
+13 van de 13 bibliotheken geladen (11 meteen, 2 in een latere ronde), 1011 relocaties toegepast (510 in `DT_REL`, 6 `COPY`, 495 in `DT_JMPREL`), 2 zwak
+onopgelost (`__gmon_start__`), nul `FATAAL`-regels, nul regels `wrong ELF class`. Exitcode **255**, binnen 0,2 s na
+de start, zonder enige melding van de gast en zonder een aanroep van de HASP-functies (de hook haakte 10 van de 11
+aan en zag er geen).
+
+**Twee reparaties maakten het verschil** met de run die eerder op `dlopen(libGLU.so.1): undefined symbol: floor`
+stierf: de herkansing bij het laden werkt nu in beide modi (zie "De laadorde" hierboven), en het plafond van de
+lib-defs-lijst meldt zich luid in plaats van stil af te kappen (deze game heeft 16.440 lib-defs, 56 boven het
+oude plafond van 16.384).
+
+**Run 2 en 3: wat de gast na de sprong doet** (zelfde opzet onder `strace -f`, met een pseudo-terminal). De exit
+komt van de gast, niet van de lader (die geeft 127):
+
+```
+openat("/home/deck/.PhysX.conf") = -1 ENOENT      openat("/etc/PhysX.conf") = -1 ENOENT
+openat(".../ElfLdr2/libs/libNxCooking.so") = 4
+clone(... SIGCHLD)                    = <kind 1>
+<kind 1> ptrace(PTRACE_TRACEME)       = -1 EPERM      <kind 1> exit_group(-1)
+clone(... SIGCHLD)                    = <kind 2>      wait4(<kind 2>)
+<kind 2> ptrace(PTRACE_ATTACH, <ouder>) = -1 EPERM    <kind 2> exit_group(1)
+<ouder>  kill(<kind 1>, SIGKILL)      = 0
+<ouder>  exit_group(-1)                               -> exitcode 255
+```
+
+De gast controleert dus met twee kindprocessen en `ptrace` of iemand meekijkt: het ene kind laat zich volgen
+(`PTRACE_TRACEME`), het andere probeert zich aan de ouder te hechten (`PTRACE_ATTACH`), krijgt `EPERM`, en de
+ouder beëindigt daarop het eerste kind en zichzelf. Op dit systeem staat `kernel.yama.ptrace_scope` op 1.
+**Grens van deze meting:** `strace` is zelf een volger, dus onder `strace` mislukken beide `ptrace`-aanroepen
+hoe dan ook; de run laat de aanroepen en hun volgorde zien, niet waarom run 1 (zonder `strace`) dezelfde 255 gaf.
+
+**Hier eindigt de verantwoordelijkheid van de lader.** Hij heeft gedaan wat hij moest doen: alles ontleed, alle
+bibliotheken gevonden, de gast op zijn eigen entry point gezet. Wat de gast daarna doet is een controle van het
+spel zelf; dat is overgedragen en wordt niet in de lader opgelost. (Er bestaat één meting van na dit punt,
+`~/bw/terminator-elf/run4-ptracer/`, gedaan voordat de overdracht was uitgesproken; zij hoort bij de partij die
+dit overneemt en is geen onderdeel van de lader.)
+
+Wat de run verder liet zien over de lader zelf: de gewone modus laat zijn shim-map
+(`$XDG_RUNTIME_DIR/rg-elfloader-<pid>/`) staan; de analyse ruimt hem wel op.
+
 ## De shim: gast-exports in de globale scope (opgelost)
 De gastbibliotheken (liballeg.so.4.0) importeren honderden symbolen **uit het spel-executable zelf**
 (`_poly_scanline_*`, `_linear_putpixel*`; gemeten: `bowling_usa` definieert `_poly_scanline_gcol8` op

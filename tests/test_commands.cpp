@@ -549,7 +549,12 @@ static void test_games_commands(const std::string& dir) {
     // Een bestaand profiel start met een vaste opdrachtregel: elk argument is los, de profielnaam is het laatste.
     r = rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo"})", &ok);
     CHECK(ok);
-    for (int i = 0; i < 200; ++i) { std::lock_guard<std::mutex> g(sm); if (!spawned.empty()) break; std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+    // De mutex niet vasthouden tijdens het slapen: de werkdraad heeft hem nodig om zijn spawn te melden, en als de testdraad hem
+    // steeds meteen terugpakt verhongert die (gemeten: met een 20 ms latere werkdraad faalde de regel hieronder 5 van de 5 keer).
+    for (int i = 0; i < 200; ++i) {
+        { std::lock_guard<std::mutex> g(sm); if (!spawned.empty()) break; }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
     {
         std::lock_guard<std::mutex> g(sm);
         CHECK(spawned.size() == 1);
