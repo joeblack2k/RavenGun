@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# OLED-bescherming: staat er langer dan IDLE_S geen game op de tv, dan komt er een zwart scherm met een klein,
-# langzaam bewegend klokje (zwarte pixels staan op een OLED uit). Zodra er een game start, verdwijnt het binnen
-# enkele seconden. De tv kan niet uit vanwege de HDMI-handshake; daarom geen DPMS/blanking.
-# Het zwarte scherm is `ravengun --saver` (eigen Qt-venster).
-# Gebruik: scripts/oled-saver.sh --start | --stop | --status | --stop-view      (draait als user-unit ravengun-oled-saver)
+# OLED-bescherming en statusbord: staat er langer dan IDLE_S geen game op de tv, dan komt er een zwart scherm met een
+# langzaam bewegend statusbord (zwarte pixels staan op een OLED uit). Zodra er een game MET BEELD start, verdwijnt het
+# binnen enkele seconden. De tv kan niet uit vanwege de HDMI-handshake; daarom geen DPMS/blanking.
+# Het zwarte scherm is `ravengun --saver` (eigen Qt-venster); wat erop staat komt uit saver-status.txt
+# (scripts/rg-saver-status.sh) en uit saver-game.txt, dat dit script elke paar seconden schrijft.
+#
+# Draait er nu een spel? Drie antwoorden (`--game-state`):
+#   zichtbaar    er draait een spel met beeld op de tv: het bord gaat weg, je ziet het spel zelf.
+#   onzichtbaar  er draait een spel zonder beeld (een meting met een headless gamescope of zonder DISPLAY): het bord
+#                komt meteen en zegt dat er een spel draait -- anders zie je een leeg bureaublad terwijl er gemeten wordt.
+#   geen         er draait niets: het bord komt na IDLE_S seconden.
+# "Er draait een spel" zegt niets over de uitslag; die staat in saver-status.txt.
+# Gebruik: scripts/oled-saver.sh --start | --stop | --status | --stop-view | --game-state   (draait als user-unit ravengun-oled-saver)
 set -euo pipefail
 IDLE_S="${RG_SAVER_IDLE_S:-600}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,10 +19,44 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT=ravengun-oled-saver; VIEW=ravengun-oled-view
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-game_running() {
-  systemctl --user is-active --quiet ravengun-tpui.service && return 0
-  pgrep -x "BudgieLoader_x6|BudgieLoader.ex|Game.exe|gamescope" >/dev/null && return 0
-  return 1
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
+PROC="${RG_SAVER_PROC:-/proc}"          # voor de test: een namaak-/proc met <pid>/environ
+
+# De processen van deze gebruiker als regels "pid opdrachtregel". RG_SAVER_PS_FILE vervangt de echte lijst (test).
+proces_lijst() {
+  if [[ -n "${RG_SAVER_PS_FILE:-}" ]]; then cat "$RG_SAVER_PS_FILE"; else ps -u "$(id -u)" -o pid=,args= 2>/dev/null || true; fi
+}
+# Heeft dit proces een scherm (DISPLAY of WAYLAND_DISPLAY in zijn omgeving)? Niet te lezen = geen scherm aannemen.
+heeft_scherm() {
+  [[ -r "$PROC/$1/environ" ]] || return 1
+  tr '\0' '\n' < "$PROC/$1/environ" 2>/dev/null | grep -Eq '^(DISPLAY|WAYLAND_DISPLAY)=.' 
+}
+# geen | zichtbaar | onzichtbaar.
+#   1. Een gamescope beslist als er een is: een gewone gamescope staat op de tv, een met `--backend headless` niet.
+#      (Wat BINNEN een headless gamescope draait heeft wel een DISPLAY, maar dat is het onzichtbare scherm van die gamescope.)
+#   2. Zonder gamescope: een start van ons (launch-direct.py --run, play-native.sh --game, een lader of Game.exe) telt als
+#      zichtbaar als dat proces een scherm in zijn omgeving heeft, anders als onzichtbaar.
+#   3. De eenheid van TeknoParrotUi telt als zichtbaar.
+game_state() {
+  local gs_tv=0 gs_headless=0 met_scherm=0 zonder_scherm=0 pid args
+  while read -r pid args; do
+    [[ -n "$pid" && -n "${args:-}" ]] || continue
+    case "$args" in
+      *oled-saver.sh*|*rg-saver-status*) continue ;;                      # wijzelf
+      gamescope\ *|*/gamescope\ *)
+        if [[ "$args" == *"--backend headless"* ]]; then gs_headless=1; else gs_tv=1; fi ;;
+      *launch-direct.py*\ --run*|*play-native.sh\ *--game*|*BudgieLoader*|*Game.exe*)
+        if heeft_scherm "$pid"; then met_scherm=1; else zonder_scherm=1; fi ;;
+    esac
+  done < <(proces_lijst)
+  if (( gs_tv )); then echo zichtbaar; return; fi
+  if (( gs_headless )); then echo onzichtbaar; return; fi
+  if [[ -z "${RG_SAVER_PS_FILE:-}" ]] && systemctl --user is-active --quiet ravengun-tpui.service 2>/dev/null; then echo zichtbaar; return; fi
+  if (( met_scherm )); then echo zichtbaar; elif (( zonder_scherm )); then echo onzichtbaar; else echo geen; fi
+}
+schrijf_game_state() {   # atomair, zodat het bord nooit een half bestand leest
+  mkdir -p "$STATE"
+  printf '%s\n' "$1" > "$STATE/saver-game.txt.tmp" && mv -f "$STATE/saver-game.txt.tmp" "$STATE/saver-game.txt"
 }
 view_on() { systemctl --user is-active --quiet "$VIEW.service"; }
 view_start() {
@@ -41,6 +83,7 @@ case "${1:-}" in
     systemd-run --user --unit="$UNIT" --collect --quiet -E XDG_RUNTIME_DIR -E RG_SAVER_IDLE_S="$IDLE_S" "$0" --loop
     echo "OLED-bescherming aan (zwart scherm na $IDLE_S s zonder game)" ;;
   --stop) systemctl --user stop "$UNIT.service" 2>/dev/null || true; view_stop; echo "OLED-bescherming uit" ;;
+  --game-state) game_state ;;
   --stop-view) view_stop ;;   # ExecStopPost van de unit: ook bij 'systemctl stop' het zwarte scherm dichtdoen
   --status) systemctl --user is-active "$UNIT.service" || true; view_on && echo "zwart scherm staat aan" || echo "zwart scherm staat uit" ;;
   --loop)
@@ -48,10 +91,14 @@ case "${1:-}" in
     trap 'exit 0' TERM INT   # anders slaat bash bij SIGTERM de EXIT-trap over
     idle=0
     while :; do
-      if game_running; then idle=0; view_on && view_stop
-      else idle=$((idle+3)); if (( idle >= IDLE_S )) && ! view_on; then view_start; fi
-      fi
+      gs=$(game_state)
+      schrijf_game_state "$gs"
+      case "$gs" in
+        zichtbaar)   idle=0; if view_on; then view_stop; fi ;;
+        onzichtbaar) idle=$IDLE_S; if ! view_on; then view_start; fi ;;
+        *)           idle=$((idle+3)); if (( idle >= IDLE_S )) && ! view_on; then view_start; fi ;;
+      esac
       sleep 3
     done ;;
-  *) echo "Gebruik: $0 --start|--stop|--status" >&2; exit 2 ;;
+  *) echo "Gebruik: $0 --start|--stop|--status|--game-state" >&2; exit 2 ;;
 esac

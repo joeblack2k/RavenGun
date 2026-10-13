@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Het statusbord van de tv: scripts/rg-saver-status.sh (de stand van het werk) en scripts/oled-saver.sh --game-state
+# (draait er nu een spel). Hermetisch: een eigen statusmap, een namaak-proceslijst en een namaak-/proc.
+#
+# Wat hier wordt afgedwongen, omdat een verkeerd gelezen status erger is dan geen status:
+#   - ontbreekt het statusbestand of staat er onzin in, dan zegt het bord dat (exitcode 1), nooit "goed";
+#   - een status die niet klopt wordt NIET geschreven en het oude bestand blijft staan;
+#   - "draait er nu een spel" kent drie antwoorden, en een headless meting telt niet als een spel op de tv.
+# Overgeslagen (77) zonder de app (scripts/build-app.sh): de ontleder van het bord zit in de app.
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+APP="${RAVENGUN_APP_BIN:-}"
+for c in "$APP" "$ROOT/build-app/ravengun" "$ROOT/build/ravengun"; do [[ -n "$c" && -x "$c" ]] && { APP="$c"; break; }; done
+[[ -n "$APP" && -x "$APP" ]] || { echo "overgeslagen: geen app-build (scripts/build-app.sh)"; exit 77; }
+"$APP" --help 2>/dev/null | grep -q -- "--saver-check" || QT_QPA_PLATFORM=offscreen "$APP" --help 2>/dev/null | grep -q -- "--saver-check" \
+  || { echo "overgeslagen: deze app-build kent --saver-check nog niet (scripts/build-app.sh)"; exit 77; }
+T=$(mktemp -d) || exit 1
+trap 'rm -rf "$T"' EXIT
+FAILS=0
+fail() { echo "FAIL: $*"; FAILS=$((FAILS + 1)); }
+export XDG_STATE_HOME="$T/state" RAVENGUN_APP_BIN="$APP"
+F="$T/state/ravengun/saver-status.txt"
+S="$ROOT/scripts/rg-saver-status.sh"
+
+# 1. Geen bestand: het bord zegt dat er geen status is.
+UIT=$("$S" --show 2>&1); RC=$?
+[[ $RC -eq 1 ]] || fail "zonder bestand: exitcode $RC, verwacht 1"
+grep -q "Geen status beschikbaar" <<<"$UIT" && grep -q "het statusbestand ontbreekt" <<<"$UIT" || fail "zonder bestand: $UIT"
+grep -q "Het gaat goed" <<<"$UIT" && fail "zonder bestand staat er 'Het gaat goed'"
+
+# 2. Een goede status wordt geschreven en komt er in gewone taal uit.
+UIT=$("$S" --spel Halo --bezig "Richten en schieten testen" --stand goed --stap "3 van 5" \
+          --doel "Zien of de trekker aankomt" --klaar "Beeld op de tv; Kalibratie overgeslagen" --nog "Twee minuten spelen" \
+          --gehaald "Rabbids" 2>&1); RC=$?
+[[ $RC -eq 0 ]] || fail "goede status: exitcode $RC ($UIT)"
+[[ -f "$F" ]] || fail "goede status: het bestand is niet geschreven"
+for regel in "Halo: Richten en schieten testen" "Het gaat goed · stap 3 van 5" "Waarvoor: Zien of de trekker aankomt" \
+             "Al gedaan: Beeld op de tv · Kalibratie overgeslagen" "Nog te doen: Twee minuten spelen" \
+             "Gehaald (5 minuten attract of spel): Rabbids"; do
+  grep -qF "$regel" <<<"$UIT" || fail "goede status: de regel '$regel' ontbreekt in: $UIT"
+done
+grep -q "^spel: Halo$" "$F" && grep -q "^stand: goed$" "$F" || fail "het bestand heeft niet het afgesproken formaat: $(cat "$F")"
+"$S" --show >/dev/null 2>&1 || fail "--show keurt de zojuist geschreven status af"
+GOED=$(cat "$F")
+
+# 3. Een status die niet klopt wordt niet geschreven; het oude bestand blijft staan.
+nee() {   # $1 = wat er in de melding moet staan; de rest = de opties
+  local wat="$1"; shift
+  local uit rc; uit=$("$S" "$@" 2>&1); rc=$?
+  [[ $rc -eq 1 ]] || fail "moet geweigerd worden (exitcode $rc): $*"
+  grep -q "NIET geschreven" <<<"$uit" && grep -qF "$wat" <<<"$uit" || fail "melding klopt niet voor [$*]: $uit"
+  [[ "$(cat "$F")" == "$GOED" ]] || fail "het oude bestand is veranderd door een afgekeurde status: $*"
+}
+nee "'stand' ontbreekt" --spel Halo --bezig Testen
+nee "'spel' ontbreekt" --bezig Testen --stand goed
+nee "goed, slecht of bezig" --spel Halo --bezig Testen --stand prima
+nee "dat kan niet" --spel Halo --bezig Testen --stand goed --stap "6 van 5"
+nee "3 van 5" --spel Halo --bezig Testen --stand goed --stap "de derde"
+nee "te lang" --spel Halo --bezig "$(printf 'x%.0s' $(seq 1 200))" --stand goed
+
+# 4. Onzin in het bestand zelf (met de hand geschreven): het bord zegt dat, met de reden.
+onzin() {   # $1 = inhoud, $2 = wat er in de reden moet staan
+  printf '%b' "$1" > "$T/onzin.txt"
+  local uit rc; uit=$("$S" --check "$T/onzin.txt" 2>&1); rc=$?
+  [[ $rc -eq 1 ]] || fail "onzin moet exitcode 1 geven ($rc): $1"
+  grep -q "Geen status beschikbaar" <<<"$uit" && grep -qF "$2" <<<"$uit" || fail "onzin [$1]: $uit"
+  grep -q "Het gaat goed" <<<"$uit" && fail "onzin [$1] wordt als 'Het gaat goed' getoond"
+}
+onzin "" "leeg"
+onzin "alles goed\n" "geen 'sleutel: waarde'"
+onzin '{"spel": "Halo", "stand": "goed"}\n' "onbekende sleutel"
+onzin "spel: Halo\nbezig: Testen\nstand: goed\nkleur: groen\n" "onbekende sleutel 'kleur'"
+onzin "spel: Halo\nspel: Rabbids\nbezig: Testen\nstand: goed\n" "twee keer"
+onzin "spel: Halo\nbezig: Testen\nstand:\n" "'stand' ontbreekt"
+head -c 4096 /dev/urandom > "$T/ruis.txt"
+"$S" --check "$T/ruis.txt" >/dev/null 2>&1 && fail "willekeurige bytes worden als geldige status gelezen"
+
+# 5. --clear: daarna is er geen status.
+"$S" --clear >/dev/null || fail "--clear"
+"$S" --show >/dev/null 2>&1 && fail "na --clear is er nog een status"
+
+# 6. Draait er nu een spel? (scripts/oled-saver.sh --game-state)
+O="$ROOT/scripts/oled-saver.sh"
+mkdir -p "$T/proc/100" "$T/proc/200"
+printf 'HOME=/x\0DISPLAY=:0\0' > "$T/proc/100/environ"       # een proces met een scherm
+printf 'HOME=/x\0PATH=/bin\0' > "$T/proc/200/environ"         # een proces zonder scherm
+staat() {   # $1 = verwacht; stdin = de proceslijst
+  cat > "$T/ps.txt"
+  local uit; uit=$(RG_SAVER_PS_FILE="$T/ps.txt" RG_SAVER_PROC="$T/proc" "$O" --game-state 2>&1)
+  [[ "$uit" == "$1" ]] || fail "game-state: verwacht '$1', kreeg '$uit' bij: $(tr '\n' '|' < "$T/ps.txt")"
+}
+staat geen <<'EOF'
+1 /usr/lib/systemd/systemd --user
+50 /usr/bin/plasmashell --no-respawn
+60 bash /x/scripts/oled-saver.sh --loop
+EOF
+staat zichtbaar <<'EOF'
+300 gamescope -f -W 1920 -H 1080 -w 1920 -h 1080 --force-grab-cursor -- scripts/play-native.sh --game Halo
+100 bash scripts/play-native.sh --game Halo --res 1920x1080
+EOF
+staat onzichtbaar <<'EOF'
+300 gamescope --backend headless -W 1920 -H 1080 -w 1920 -h 1080 -- scripts/play-native.sh --game Halo --headless
+100 bash scripts/play-native.sh --game Halo --res 1920x1080 --headless
+EOF
+staat zichtbaar <<'EOF'
+100 python3 -I /x/scripts/launch-direct.py LuigisMansion --run
+EOF
+staat onzichtbaar <<'EOF'
+200 python3 -I /x/scripts/launch-direct.py LuigisMansion --run --log-full
+EOF
+staat geen <<'EOF'
+200 python3 -I /x/scripts/launch-direct.py LuigisMansion --plan --json
+EOF
+staat zichtbaar <<'EOF'
+300 /usr/bin/gamescope -W 1280 -H 720 -S fit -f --backend wayland -- /x/wine /x/BudgieLoader.exe Z:\game
+200 python3 -I /x/scripts/launch-direct.py Halo --run
+EOF
+
+[[ $FAILS -eq 0 ]] || { echo "$FAILS fout(en)"; exit 1; }
+echo "ok: het statusbord keurt onzin af, schrijft alleen wat klopt, en weet of er een spel draait"

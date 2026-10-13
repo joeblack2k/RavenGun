@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // RavenGun: de app (Qt 6 Widgets). Opties:
 //   --fullscreen           fullscreen-modus ("big picture") voor Steam Game Mode en de tv, zonder het hoofdvenster
-//   --saver                OLED-bescherming: zwart schermvullend venster met bewegend klokje (geen engine; stopt bij SIGTERM/SIGINT)
+//   --saver                OLED-bescherming: zwart schermvullend venster met een bewegend statusbord (geen engine; stopt bij SIGTERM/SIGINT)
+//   --saver-check          toon wat het statusbord zou tonen en stop (exitcode 1 als het statusbestand ontbreekt of niet klopt)
 //   --add-to-steam         RavenGun als niet-Steam-game toevoegen (zonder vragen; weigert als Steam draait) en stoppen
 //   --steam-account ID     bij --add-to-steam: deze Steam-gebruiker (map onder userdata/) in plaats van de laatst ingelogde
 //   --list-steam-shortcuts de niet-Steam-games van de laatst ingelogde gebruiker tonen (alleen lezen) en stoppen
@@ -17,6 +18,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QIcon>
+#include <QDateTime>
 #include <QSocketNotifier>
 #include <QTimer>
 #include <csignal>
@@ -77,6 +79,11 @@ int main(int argc, char** argv) {
     const QCommandLineOption library(QStringLiteral("library"), QStringLiteral("Library file."), QStringLiteral("PATH"));
     const QCommandLineOption noScan(QStringLiteral("no-scan"), QStringLiteral("Do not scan the game folders at start."));
     const QCommandLineOption saver(QStringLiteral("saver"), QStringLiteral("OLED screen saver: black full-screen window with a dim moving clock."));
+    const QCommandLineOption saverCheck(QStringLiteral("saver-check"),
+                                        QStringLiteral("Read the saver status file, print what the saver would show and quit (exit 1 if the file is missing or invalid)."));
+    const QCommandLineOption saverFile(QStringLiteral("saver-file"), QStringLiteral("Status file for --saver-check (default: the saver's own file)."),
+                                       QStringLiteral("PATH"));
+    p.addOptions({saverCheck, saverFile});
     p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
@@ -113,6 +120,16 @@ int main(int argc, char** argv) {
         const rg::ui::SteamAddOutcome o = rg::ui::AddToSteamQuiet(p.value(steamAccount));
         std::fprintf(o.ok ? stdout : stderr, "%s\n", qPrintable(o.message));
         return o.ok ? 0 : 3;
+    }
+
+    if (p.isSet(saverCheck)) {
+        // Wat het statusbord zou tonen, als gewone regels. Dezelfde ontleder als het venster: een status die hier
+        // wordt afgekeurd, toont het bord ook als "geen status".
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+        const rg::ui::SaverStatus st = rg::ui::SaverWindow::LoadStatus(p.isSet(saverFile) ? p.value(saverFile) : rg::ui::SaverWindow::StatusPath());
+        const QStringList lines = rg::ui::SaverWindow::Lines(st, rg::ui::SaverWindow::LoadGame(rg::ui::SaverWindow::GamePath(), now), now);
+        for (const QString& l : lines) std::printf("%s\n", qPrintable(l));
+        return st.ok ? 0 : 1;
     }
 
     if (p.isSet(saver)) {

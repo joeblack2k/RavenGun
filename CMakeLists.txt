@@ -252,10 +252,37 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_ownprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ownprofile.py")
     # Dongle (USB pass-through): detectie via een nep-sysfs, runtime-controle, nooit een serienummer (scripts/dongle.py).
     add_test(NAME ravengun_dongle_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dongle.py")
+    # Drop-ins (docs/dropins.md). De losse functies (materialiseren, dropin.ini, het kanaal van een preload) ...
+    add_test(NAME ravengun_dropin_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dropin_materialiseer.py")
+    # ... en de hele route door de voordeur: Preload = true komt in TP_PRELOAD_DLL van het SPELPROCES (--plan en de
+    # omgeving die run() werkelijk opbouwt), een bestemming buiten de view faalt luid in --plan en --check/--run
+    # weigeren, en de native route blijft LD_PRELOAD. Start niets: geen Wine, geen spel, niets op de NAS.
+    add_test(NAME ravengun_dropin_preload_route COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dropin_preload_route.py")
+    # Argumenten voor het spel per game ([Launch] Arguments): standaard leeg, zichtbaar in --plan, een argument met spaties of
+    # aanhalingstekens blijft heel, en de OpenParrot-lader krijgt nooit meer dan een parameter. Start niets.
+    add_test(NAME ravengun_spel_argumenten COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spel_argumenten.py")
+    # Omgevingsvariabelen per game ([Env]) in het spelproces en in --plan, en het eigen startscript van het spel (game.bat,
+    # run_game.sh): gelezen, nooit uitgevoerd, en naast het plan gelegd (variabelen, argumenten, programma's vooraf, werkmap).
+    add_test(NAME ravengun_startscript COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_startscript.py")
+    # Het spel vanaf een ander pad (--exe) en schijfletters voor een run (--drive): alleen het pad naar het spel verandert, de
+    # hele hulpketen blijft gelijk; een schijfletter staat er precies zolang de run duurt. Start niets.
+    add_test(NAME ravengun_exe_override COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exe_override.py")
+    # Profielen met twee exe's (HasTwoExecutables): beide starts in --plan, de vaste orde met de wachttijd, dezelfde view/prefix/
+    # omgeving, uitvoer en exitcode per start, geen halve opstelling (exitcode 7), en een enkele exe ongewijzigd. Start niets.
+    add_test(NAME ravengun_twee_starts COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_twee_starts.py")
+    # Schrijfpaden naar de NAS: geen route van ons schrijft eigen bestanden in een gamemap op de NAS.
+    add_test(NAME ravengun_nas_schrijfpaden_views COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nas_schrijfpaden_views.py")
+    add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")
   endif()
   # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
   add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")
   set_tests_properties(ravengun_launch_direct PROPERTIES SKIP_RETURN_CODE 77)
+  # Het statusbord van de tv (ravengun --saver): ontbreekt het statusbestand of staat er onzin in, dan zegt het bord dat; een status
+  # die niet klopt wordt niet geschreven; en "draait er nu een spel" (zichtbaar, onzichtbaar, geen). Skip (77) zonder app-build.
+  add_test(NAME ravengun_saver_status COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/saver_status_test.sh")
+  set_tests_properties(ravengun_saver_status PROPERTIES SKIP_RETURN_CODE 77)
+  # scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
+  add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
   add_test(NAME ravengun_elfloader_gnuhash COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_gnuhash_test.sh")
   set_tests_properties(ravengun_elfloader_gnuhash PROPERTIES SKIP_RETURN_CODE 77)
@@ -357,13 +384,40 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # koppeling "patches -> ../ravengun-patches/patches" wijst vanuit de installatie nergens heen. Dan ziet
   # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
-  # Mee: wat de lader en de daemon lezen (game.ini, patches.ini, dongle.json, _defaults/, dropin/) en de README per game.
-  # Niet mee: de onderzoeksnotities (*.md) en de meetscripts (probe/) uit de patches-repo. Die horen niet in een
-  # installatie en noemen ontwikkelpaden, waar tests/install_test.sh terecht op afkeurt.
+  # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
+  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/.
+  #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
+  # Al het andere in de patches-repo is DOSSIER: logboeken van benchruns, metingen, meetscripts, onderzoeksnotities,
+  # foto's, generatoren. Dat is bewijs en hoort in die repo, maar niet in een installatie: niets leest het daar, en het
+  # noemt ontwikkelpaden, waar tests/install_test.sh terecht op afkeurt ("de installatie noemt het repopad").
+  # Daarom een lijst van wat MEE gaat en geen lijst van wat niet mee gaat: een lijst met uitzonderingen loopt achter
+  # zodra iemand een nieuwe bewijsmap een nieuwe naam geeft (probe/, logs-*/, measurements/, probes/, ...), en dan
+  # breekt de installatietest op iets wat geen lek is. Een nieuw soort bestand dat de lader WEL moet lezen komt hier bij.
+  string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
   install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
-    PATTERN "*.md" EXCLUDE PATTERN "probe" EXCLUDE)
-  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
-    FILES_MATCHING PATTERN "README.md" PATTERN "probe" EXCLUDE)
+    FILES_MATCHING
+    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|dongle\\.json|README\\.md)$"
+    REGEX "^${_rg_patches_rx}/[^/]+/dropin/")
+  # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
+  install(CODE "
+    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
+    foreach(_rg_ronde RANGE 12)
+      file(GLOB_RECURSE _rg_d LIST_DIRECTORIES true \"\${_rg_p}/*\")
+      set(_rg_weg FALSE)
+      foreach(_rg_x IN LISTS _rg_d)
+        if(IS_DIRECTORY \"\${_rg_x}\" AND NOT IS_SYMLINK \"\${_rg_x}\")
+          file(GLOB _rg_c \"\${_rg_x}/*\")
+          if(NOT _rg_c)
+            file(REMOVE_RECURSE \"\${_rg_x}\")
+            set(_rg_weg TRUE)
+          endif()
+        endif()
+      endforeach()
+      if(NOT _rg_weg)
+        break()
+      endif()
+    endforeach()
+  ")
 else()
   message(STATUS "geen patches/-map: die staan in de repo ravengun-patches (zie docs/geen-dongle-in-de-loader.md)")
 endif()
