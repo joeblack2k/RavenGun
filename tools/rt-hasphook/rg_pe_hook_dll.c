@@ -107,6 +107,15 @@ static void rg_doe_het_werk(void)
     G.beeld_n = (size_t)kop.grootte_beeld;
     G.log = G_log;
     G.todo_melder = rg_todo_melder;
+    {
+        /* Het bewijsartefact: het pad komt uit de omgeving, zodat de drop-in het in de view kan
+           leggen waar de volgende partij het kan ophalen. */
+        const char *bl = getenv("RG_HOOK_BYTES_LOG");
+        const char *bn = getenv("RG_HOOK_IMAGE");
+        G.bytes_pad = (bl && *bl) ? bl : "rg-pe-hook-bytes.txt";
+        G.beeld_naam = (bn && *bn) ? bn : "(hoofdmodule van dit proces)";
+        rg_meld("bewijsartefact: %s   (beeldbestand: %s)", G.bytes_pad, G.beeld_naam);
+    }
 
     n = rg_pe_hook(&G);
     rg_meld("resultaat: %d van %d aangehaakt", n, G.n);
