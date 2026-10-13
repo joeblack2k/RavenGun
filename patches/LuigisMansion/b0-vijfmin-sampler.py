@@ -24,6 +24,25 @@ BLOK = 0x10000
 VIEWS = ("/home/deck/.local/share/ravengun/runtime/views/LuigisMansion/Data",
          "/home/deck/.local/share/ravengun/runtime/views/LuigisMansion/DataGlobal")
 CADANS = 30.0
+
+# De 17 am-functies in het spel (patches/LuigisMansion/dongle-haken.ini, AM-LAAG.md). Van elk
+# willen we de ORIGINELE 5 prologue-bytes, gelezen NADAT het spel zich uitgepakt heeft. Daarmee
+# kan elke regel in de adreslijst een verwachte waarde krijgen en weigert de hook een verkeerde
+# spelversie in plaats van te vertrouwen op "het lijkt een prologue".
+AM_ADRESSEN = [
+    0x1402b3b70, 0x1402b3d30, 0x1402b3ff0, 0x1402b40b0, 0x1402b4170, 0x1402b4270,
+    0x1402b4320, 0x1402b4740, 0x1402b50f0, 0x1402b5180, 0x1402b5200, 0x1402b55a0,
+    0x1402b56f0, 0x1402b5860, 0x1402b5cb0, 0x1402b6050, 0x1402b6160,
+]
+# De bemonstering is DICHT in de eerste seconden en daarna 30 s: een spel dat op 6 s sterft
+# wordt anders helemaal nooit bemonsterd -- dat is precies misgegaan in de eerste drop-in-runs,
+# waar alleen t=0,2 en daarna PROCES WEG in het verslag stond.
+DICHT_TOT = float(os.environ.get("RG_B0_DICHT_TOT", "10"))
+DICHT_STAP = float(os.environ.get("RG_B0_DICHT_STAP", "0.5"))
+
+
+def cadans(gt):
+    return DICHT_STAP if gt < DICHT_TOT else CADANS
 # Namen (basenamen) van drop-in-bestanden die in het PROCES van de game moeten zitten.
 # Dat is het bewijs dat een drop-in echt geladen is en niet alleen in de view staat.
 DROPIN = [x for x in os.environ.get("RG_B0_DROPIN_MAPS", "").split(":") if x]
@@ -95,6 +114,7 @@ def main():
               "# entry-point-bytes in het BESTAND: %s" % (EP_FILE.hex(" ") if EP_FILE else "<niet gelezen>")]
     pid = None; t0 = None; t = 0.0; volgende = 0.0
     max_dropin = 0
+    am_laatst = {}
     gezien_paden = set()
     uitkomst = "onbekend"
     while t < hard:
@@ -119,6 +139,10 @@ def main():
                         b = mem.read(min(BLOK, TEXT_LEN - off))
                         if not b: break
                         nul += b.count(0); tot += len(b); off += len(b)
+                    am_nu = {}
+                    for a in AM_ADRESSEN:
+                        mem.seek(a)
+                        am_nu[a] = mem.read(5)
                     mem.close()
                     pct = (100.0 * nul / tot) if tot else -1.0
                     if ep[:2] == b"\x48\xb8":
@@ -132,6 +156,7 @@ def main():
                             1 for x, y in zip(ep, EP_FILE) if x != y)
                     else:
                         ep_txt = "onbekend " + ep[:8].hex(" ")
+                    am_laatst = am_nu
                     nfd, paden = eigen_fds(pid)
                     dp_n = dropin_in_proces(pid)
                     if dp_n > max_dropin:
@@ -143,7 +168,7 @@ def main():
                                      dropin_in_proces(pid), len(DROPIN)))
                 except OSError as e:
                     regels.append("t=%6.1f  kon niet lezen: %s" % (gt, e))
-                volgende += CADANS
+                volgende += cadans(gt)
             if gt >= stop:
                 uitkomst = "STOPGRENS gehaald op %.1f s game-tijd, proces leefde nog" % gt
                 regels.append("t=%6.1f  STOPGRENS %.0f s gehaald" % (gt, stop))
@@ -152,6 +177,12 @@ def main():
     else:
         uitkomst = "harde grens %.0f s bereikt" % hard
     regels.append("MAX drop-in in proces %d/%d" % (max_dropin, len(DROPIN)))
+    regels.append("")
+    regels.append("ORIGINELE 5 PROLOGUE-BYTES OP DE 17 AM-ADRESSEN (laatste meting voor het einde):")
+    for a in AM_ADRESSEN:
+        b = am_laatst.get(a, b"")
+        regels.append("  0x%09x  %s%s" % (a, b.hex(" ") if b else "<niet gelezen>",
+                                          "   <- nog allemaal nul: op dit moment niet ontpakt" if b and not any(b) else ""))
     regels.append("UITKOMST: %s" % uitkomst)
     regels.append("TOTAAL eigen databestanden gezien via open fds: %d" % len(gezien_paden))
     for p in sorted(gezien_paden)[:15]:

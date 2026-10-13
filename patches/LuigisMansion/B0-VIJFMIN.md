@@ -170,6 +170,107 @@ run **ONGELDIG** -- ook als het spel 5 minuten leeft. Een spel dat 5 minuten lee
 betekent dat de drop-in niet nodig was, en dat is een eigen uitkomst die gemeld moet worden in plaats
 van als succes door te gaan. De proef zegt dat nu met zoveel woorden in het oordeel.
 
+## TUSSENSTAND drop-in 2026-10-13: twee ongeldige runs, de route is nog niet te meten
+
+Beide runs met ONZE kern (`fe2ecf8c`) en de drop-in
+(`patches/LuigisMansion/dropin/`: `rg-pe-hook.dll` 127.485 B, `dongle-haken.ini`, `dropin.ini` met
+`Preload = true`). Ruwe uitvoer: `/tmp/b0-dropin1/` en `/tmp/b0-dropin2/`.
+
+| | run 1 | run 2 (na de view-fix) |
+|---|---|---|
+| 1. in het plan | 2 bestanden, `dest` correct, geen fouten | idem |
+| 2. in de view, sha256 | **ONTBREEKT** | **OK**, `bron==doel: True` voor beide |
+| 3. in `/proc/<pid>/maps` | 0/2 | **0/2** |
+| 4. logboek van de drop-in | geen | **geen** |
+| spel | PROCES WEG op 5,0 s | PROCES WEG op 4,8 s |
+| oordeel | ONGELDIG | **ONGELDIG** |
+
+**Run 1: de bestanden kwamen niet in de view.** launch-direct's eigen log zegt waarom:
+
+```
+drop-in: LET OP: de map van het doel .../views/LuigisMansion/exe/x64/rg-pe-hook.dll komt na het
+         materialiseren nog buiten de view uit
+```
+
+De oorzaak: `views/LuigisMansion/exe` is een **symlink naar de NAS**, en `dropin_materialiseer`
+ontpakt wel symlink-mappen ONDER de basis, maar niet de basis zelf -- en die basis is hier
+`.../exe/x64`. De map van het doel resolveert dus naar de NAS en de NAS-bescherming weigert. Dit is
+een fout in de drop-in-route, niet in de drop-in.
+
+**Run 2: de bestanden staan er wel, maar de DLL komt niet in het proces.** Na het ontpakken van
+`views/LuigisMansion/exe` en `exe/x64` (dezelfde bewerking die de materialiseerder voor submappen
+doet) schrijft launch-direct beide bestanden weg en kloppen de sha256's. Maar `MAX drop-in in proces
+0/2` en er is **geen `rg-pe-hook.log`** -- en dat logboek is het directe bewijs, want de hook schrijft
+altijd eerst een PE-regel.
+
+**De wiring-fout, tot op de regel:** launch-direct zet `RG_DROPIN_PRELOAD=<view>/rg-pe-hook.dll`, maar
+de lader leest **`TP_PRELOAD_DLL`** (`OpenParrotLoader/src/main.cpp` laadt die DLL na de kern en voor
+het spel verdergaat). Er is niets dat het ene in het andere omzet, dus voor een `Type = TeknoParrot`-
+game onder Wine bereikt de preload de lader nooit. **Dat is werk voor de laderbouwer** (die zet de
+omzetting erin, laat `--plan` zien in welke variabele een preload belandt, en laat een doel buiten de
+view LUID falen in plaats van stil door te gaan).
+
+**Wat dit betekent:** de drop-in-route is nog **niet te meten**, en elke conclusie over het spel zou
+voorbarig zijn. Het spel stierf in beide runs rond 5 s, en dat is **verwacht**: de drop-in was niet
+geladen, dus er was geen enkele reden dat het anders zou gaan. Deze twee runs zeggen dus niets over de
+am-laag -- ze zeggen alleen dat de bedrading nog niet klopt.
+
+**En de view-wijziging moet blijven:** `views/LuigisMansion/exe` en `exe/x64` zijn nu echte mappen met
+symlinks in plaats van een symlink naar de NAS. Dat is nodig voor elke drop-in met `To = .` op deze
+game, en het is dezelfde bewerking die `dropin_materialiseer` voor submappen doet. Het is gevraagd om
+dit in `scripts/maak-views.sh` reproduceerbaar te maken, zodat een volgende view-opbouw het niet
+ongedaan maakt.
+
+## Klaar voor de derde run
+
+Zodra de launcher `RG_DROPIN_PRELOAD` omzet naar wat de lader leest, is de derde run de beslissende
+meting van game 1. De proef controleert dan **vier** dingen, en een run zonder het logboek is
+ongeldig:
+
+1. het plan noemt de bestanden (anders start de proef niet);
+2. de bestanden staan in de view met dezelfde sha256 als de bron;
+3. de bestanden staan in `/proc/<pid>/maps` van het SPELPROCES (`MAX drop-in in proces N/M`);
+4. **het logboek dat de drop-in zelf schrijft staat in de werkmap van het spel**, met de PE-regel
+   (ImageBase, SizeOfImage) en de samenvatting `totaal aangehaakt: N van 17; afgekeurd: M`. De proef
+   leest dat logboek nu zelf en print de eerste regels en de samenvatting.
+
+**Lezen van de uitkomst:** alles boven ongeveer 10 s is een treffer (onze kern haalt nu 5,96 s, de
+gesloten kern 300 s). Leeft het spel langer EN staat de DLL in het proces, dan was de am-laag de
+oorzaak. Sterft het met de DLL geladen nog rond 6 s, dan is de am-laag **niet** de oorzaak en gaat het
+werk terug naar de pakker-fase -- een even goede uitkomst. Leeft het spel zonder geladen drop-in, dan
+was de drop-in niet nodig, en dat wordt als eigen uitkomst gemeld en niet als succes.
+
+## Wat de derde run nog meer moet opleveren: de 17 originele prologues
+
+De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn
+meetbaar zodra het spel zich uitgepakt heeft (`.text` niet meer volledig nul). Daarmee kan elke regel
+in `dongle-haken.ini` een **verwachte waarde** krijgen, en dan weigert de hook een verkeerde spelversie
+in plaats van te vertrouwen op "het lijkt een prologue". Zonder die bytes zou een andere build van het
+spel stil verkeerd gepatcht kunnen worden.
+
+De sampler leest die 5 bytes nu op elk monster en zet de **laatste** meting in de uitvoer als tabel:
+
+```
+ORIGINELE 5 PROLOGUE-BYTES OP DE 17 AM-ADRESSEN (laatste meting voor het einde):
+  0x1402b3b70  40 53 48 83 ec
+  ...
+```
+
+De adressen komen uit `patches/LuigisMansion/dongle-haken.ini` en `AM-LAAG.md`. **De uitkomst hoort in
+dit verslag te belanden** als tabel (adres -> 5 bytes), zodat de specialist ze kan overnemen.
+
+**En de bemonstering is nu dicht in de eerste seconden** (elke 0,5 s tot 10 s, daarna 30 s). Dat is een
+reparatie van een echt gat: onze kern sterft rond 5-6 s, en met een cadans van 30 s stond er in de
+eerste drop-in-runs alleen `t=0,2` en dan `PROCES WEG` -- een spel dat op 6 s sterft werd dus nooit
+fatsoenlijk bemonsterd. Met de dichte cadans levert de derde run in ELK van de twee uitkomsten iets op:
+sterft het rond 6 s, dan zien we de laatste toestand seconde voor seconde; leeft het, dan zien we de
+eerste 10 s fijnmazig en daarna elke 30 s.
+
+**En het beslissende controlepunt blijft:** staat `rg-pe-hook.dll` in `/proc/<pid>/maps` van het
+SPELPROCES, en staat `rg-pe-hook.log` in de werkmap met de eerste PE-regel en de samenvatting
+`totaal aangehaakt: N van 17; afgekeurd: M`. **Zonder dat logboek is de run ongeldig, ook als het spel
+5 minuten leeft.**
+
 ## De kernverificatie (onafhankelijk van de laderbouwer)
 
 De laderbouwer instrumenteert en repareert nu `InitializeASI`. Zodra zijn nieuwe kern er is, draait

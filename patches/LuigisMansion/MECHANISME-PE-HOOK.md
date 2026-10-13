@@ -1,20 +1,14 @@
-# Het PE-hookmechanisme voor Luigi's Mansion — wat er ligt, en wanneer het omzet
+# Het PE-hookmechanisme voor Luigi's Mansion — stand, bewijs, en wat er nog moet
 
 *RavenGun, ronde "loader-specialist Halo", 2026-10-13. Bench-vrij gebouwd en bewezen: er is geen spel
 gestart, de NAS is alleen gelezen, de launcher en `packaging/native-games.json` zijn niet aangeraakt,
 en het dossier van de Luigi-werker is alleen gelezen. Geen commit.*
 
-**De am-laag is de leidende hypothese, niet een uitgesloten route.** De dichte bemonstering van ONZE
-kern laat zien dat het spel zichzelf **volledig ontpakt**: `.text` gaat van 100 procent nul op t=4,5 s
-naar 11,20 procent nul op t=4,7 s, en de prologue is op dat moment `40 53 48 83 ec` — de **originele**
-prologue, dus uitgepakt maar **niet** omgezet. Het proces sterft op t=5,96 s, ongeveer **1,3 s na een
-geslaagd uitpakken**. De gesloten kern ontpakt veel later (t=9 tot 10 s) en zet de prologues op
-hetzelfde moment om als waarop het uitpakken klaar is. Het enige gemeten verschil in het spelbeeld op
-het moment dat het uitgepakt is, is dus dat die 17 prologues origineel zijn in plaats van omgezet.
-
-*(Een eerdere versie van dit document zei dat de am-laag "nooit bereikt" werd en dat het proces op
-5,72 s stierf. Dat kwam van de eerste controlevlucht van de analist, die alleen t=0,1 tot 4,0 s
-bemonsterde — dus vóór het uitpakken. Die bewering is hiermee vervangen.)*
+**De am-laag is de leidende hypothese.** De dichte bemonstering van ONZE kern: `.text` gaat van 100
+procent nul op t=4,5 s naar 11,20 procent nul op t=4,7 s — het spel ontpakt zichzelf volledig — de
+prologue is dan origineel (`40 53 48 83 ec`) en het proces sterft op t=5,96 s, ongeveer 1,3 s later.
+De gesloten kern ontpakt pas op t=9 tot 10 s en zet op datzelfde moment om. Het enige gemeten verschil
+in het spelbeeld op het moment dat het uitgepakt is, is dat die 17 prologues origineel zijn.
 
 ---
 
@@ -22,157 +16,130 @@ bemonsterde — dus vóór het uitpakken. Die bewering is hiermee vervangen.)*
 
 | bestand | wat het is |
 |---|---|
-| `tools/rt-hasphook/rg_pe_hook.c` + `.h` | de **generieke engine**: PE-kop uit het beeld, keuring per adres, stubgeneratie, prologue-omzetting, en de wachtroute. Geen enkele Luigi-naam of Luigi-adres erin. |
-| `tools/rt-hasphook/rg_pe_hook_dll.c` | de Windows-kant: een DLL die in het spelproces het beeld van het hoofdprogramma pakt en de engine erop loslaat. |
-| `patches/LuigisMansion/dropin/dongle-haken.ini` | de **gegevens**: de 17 adressen met hun gemeten antwoord, plus de wachtroute. |
-| `patches/LuigisMansion/dropin/rg-pe-hook.dll` | de gebouwde DLL (127.485 B, sha256 `efa40444846e2bee`, pei-x86-64, met `.reloc`). |
-| `patches/LuigisMansion/dropin/dropin.ini` | de drop-in: `To`, **`Preload = true`**, `Audit = false`, en de omgevingsvariabelen. |
-| `patches/Halo/probe/{rg_pe_hook.c,rg_pe_hook.h,hook-pe-toets.c,pe-mechanisme-toets.sh,wacht-toets.sh}` | de Linux-toetsen op een echt PE-geheugenbeeld (het bewijs in §3 en §4). |
+| `tools/rt-hasphook/rg_pe_hook.c` + `.h` | de generieke engine: PE-kop uit het beeld, keuring per adres, stubgeneratie, prologue-omzetting, en de wachtroute. Geen Luigi-naam of Luigi-adres erin. |
+| `tools/rt-hasphook/rg_pe_hook_dll.c` | de Windows-kant: een DLL die in het spelproces het beeld van het hoofdprogramma pakt. |
+| `patches/LuigisMansion/dropin/dongle-haken.ini` | de gegevens: 17 adressen, hun gemeten antwoord, de wachtroute. |
+| `patches/LuigisMansion/dropin/rg-pe-hook.dll` | de gebouwde DLL (127.485 B, sha256 `efa40444846e2bee`, pei-x86-64, `.reloc`). |
+| `patches/LuigisMansion/dropin/dropin.ini` | de drop-in: `To`, `Preload`, `Audit`, en de absolute paden. |
+| `patches/Halo/probe/{pe-mechanisme-toets.sh,wacht-toets.sh,hook-pe-toets.c}` | de Linux-toetsen op een echt PE-geheugenbeeld. |
 
-De DLL is gebouwd met de mingw-image van het project (`podman run … localhost/ravengun-mingw`),
-hetzelfde recept als `scripts/build-hasp.sh` voor de bestaande HASP-Windows-DLL.
+## 2. De drop-in komt nu AAN — en waarom dat eerst niet ging
 
-## 2. Hoe het mechanisme de prologues omzet
+De vijfminproef gaf `drop-in in proces 0/2` en in de view ontbraken beide bestanden, met de melding
+*"de map van het doel … komt na het materialiseren nog buiten de view uit"*.
 
-1. **Het beeld.** De DLL pakt `GetModuleHandleW(NULL)` — het **spel**, niet zichzelf — en leest de
-   PE-kop uit dat geheugen (`offset == RVA`). De Linux-toets doet hetzelfde op een dump.
-2. **De lijst.** Lijstbrede sleutels (`beeld`, `basis`, `proloog`, `bewaar_args`, `wacht_s`,
-   `wacht_ms`, `grootte`, `ingang`) en per sectie `rva`, `antwoord`, `bytes`, `notitie`.
-3. **De keuring, per adres.** De RVA moet in een **uitvoerbare** sectie vallen, binnen het beeld, en
-   de eerste bytes moeten de verwachte prologue zijn. `grootte` (SizeOfImage) en `ingang`
-   (AddressOfEntryPoint) zijn versiecontroles: kloppen ze niet, dan wordt de hele lijst afgekeurd.
-   Staat er al `e9 …`, dan weigert de hook met *"al door een andere kern omgezet?"* in plaats van een
-   keten van twee vervangingen te bouwen.
-4. **De stubs.** In één uitvoerbare pagina genereert de engine per regel een stub met het antwoord
-   erin **gebakken**. Met `bewaar_args = 1` zet elke stub eerst de argumentregisters in de home space
-   van de aanroeper (`[rsp+8]` … `[rsp+0x20]`), precies zoals élke kern-implementatie van Luigi doet.
-5. **De omzetting.** De 5-byte prologue wordt `e9 rel32` naar de stub; de pagina wordt eerst dicht bij
-   het beeld gezocht zodat 5 bytes genoeg zijn, anders volgt een 12-byte absolute sprong.
+**De oorzaak, uit de code van de launcher** (`scripts/launch-direct.py`, `dropin_materialiseer`): het
+doel moet binnen `base` liggen, en `base` is `dirname(game-exe)` = `…/views/LuigisMansion/exe/x64`.
+De functie repareert een **symlink in de keten onder `base`** door hem te vervangen door een echte map
+met symlinks naar de NAS-kinderen — maar hij loopt alleen de delen *onder* `base` af. Was `base` zelf
+(een van `exe` of `exe/x64`) een symlink naar de NAS, dan kan hij dat niet repareren en faalt de
+eindcontrole `_binnen(realpath(dirname(dest)), base)`: de NAS valt buiten de view.
 
-## 3. WANNEER de hook omzet — en waarom dat het hele punt is
+**De stand nu, gemeten:** `views/LuigisMansion`, `…/exe` en `…/exe/x64` zijn alle drie **echte mappen**
+(geen symlinks), en de materialisatietoets met de functie van de launcher zelf zegt voor beide
+bestanden `ok=True — de map van … is lokaal`. De drop-in arriveert dus, en `To = .` is de juiste keuze:
+een pad *buiten* `base` wordt door de launcher geweigerd, dus de wortel van de view als doel kan niet.
 
-De prologues **bestaan pas** nadat de pakker de code heeft weggeschreven (t=4,7 s). Een hook die bij
-het **laden** van de DLL omzet, zet dus **niets** om: de pagina staat dan nog op nul. Daarom heeft de
-engine een **wachtroute**: `wacht_s` laat hem kijken (elke `wacht_ms`) tot de prologue er staat, en
-dan omzetten. Een pagina die nog nul is wordt niet als fout gemeld maar als *"NOG NIET UITGEPAKT"*.
+**Dit is wel fragiel:** komt `base` bij een nieuwe view als symlink terug, dan faalt het opnieuw — de
+reparatie dekt `base` niet. Dat is een gaatje in de launcher (niet mijn bestand): laat de reparatie ook
+`base` zelf behandelen, dan is het structureel opgelost.
 
-Bewezen met `patches/Halo/probe/wacht-toets.sh` op het echte beeld, met de 17 prologues op nul gezet en
-een gesimuleerde ontpakker die ze na 600 ms wegschrijft:
-
-```
-1b. de ontpakker start (schrijft de prologues na 600 ms)
-[rg-pe-hook] wachtroute: 17 pagina('s) nog niet uitgepakt; ik blijf kijken (max 5 s, elke 20 ms)
-   [ontpakker] 17 prologues geschreven na 600 ms
-[rg-pe-hook] wachtroute: de pagina's zijn uitgepakt na 602 ms; nu omzetten
-[rg-pe-hook] totaal aangehaakt: 17 van 17; afgekeurd: 0
-4. GESLAAGD: 17 van 17 aangehaakt (verwacht 17)
-```
-
-En de **controle** met `wacht_s = 0` (dus omzetten op het moment van laden) laat precies zien waarom
-dat niet werkt:
-
-```
-amDongleGetGameId   0x002b3d30  NOG NIET UITGEPAKT: de prologue op RVA 0x2b3d30 is nog nul
-totaal aangehaakt: 0 van 17
-```
-
-**Is dat vroeg genoeg?** Ja, met ruime marge: de hook zet om **2 ms** nadat de pagina's gevuld zijn, en
-het gemeten venster tussen het einde van het uitpakken (t=4,7 s) en de dood (t=5,96 s) is **1,3 s**.
-Zelfs met een poll-interval van 20 ms blijft er meer dan een seconde over.
-
-**De tweede, robuustere plek** is het aftappen van `ntdll!NtProtectVirtualMemory`: de pakker maakt zijn
-pagina's daar schrijfbaar en daarna uitvoerbaar, dus dat is het eerstvolgende moment waarop omzetten
-kan — deterministisch in plaats van pollend. Dat is nog **niet gebouwd**; zie §5.
-
-## 4. Het bewijs van het omzetten zelf
-
-`bash patches/Halo/probe/pe-mechanisme-toets.sh` op `image-gesloten.bin` (19.259.392 B, sha256
-`11bb710b7c71686b`; offset == RVA bij ImageBase `0x140000000`, SizeOfImage `0x125e000`, entry
-`0xf23125`):
-
-* **P1 — positief op de 17 ECHTE adressen** (met synthetische prologues, omdat de originele door de
-  gesloten kern overschreven zijn): `17 van 17 aangehaakt`, elk met `GELDIG: sectie .text …, prologue
-  55 48 89 e5`. De stubpagina komt op **0x13fff0000** — precies waar de gesloten kern zijn stubs legt.
-* **P2 — weigering op de ONGEWIJZIGDE dump**: alle 17 `AFGEWEZEN: eerste bytes e9 … zijn geen prologue
-  maar een sprong -- al door een andere kern omgezet?`, 0 van 17. Dat is de bescherming tegen een
-  ketting van twee vervangingen.
-* **P3 — ongeldige adressen**: `.rdata` → *"sectie .rdata is niet uitvoerbaar"*; buiten het beeld →
-  *"valt in geen sectie"*; verkeerde `grootte` → hele lijst afgekeurd.
-* **P4/P5 — de stubs DRAAIEN**: `amDongleInit` geeft 0 terug, en het enige gemeten kastantwoord komt
-  er ook uit: `buffer na de aanroep: c0 a8 01 00 (verwacht c0 a8 01 00 = 192.168.1.0)`, met
-  teruggeefwaarde 0.
-* **P6 — de TODO-vorm** bestaat nog voor een lijst waarin iets nog niet gemeten is.
-
-## 5. De API-route: ontwerp, en wat er nog niet is
-
-De gesloten kern haakt `ntdll!NtProtectVirtualMemory` en `ZwProtectVirtualMemory` aan, onze kern niet
-(gemeten). Het ontwerp dat daaruit volgt:
-
-1. de aanroep **gewoon doorlaten** — het gedrag verandert niet;
-2. kijken of de aanroep de `.text`-pagina's van het spel raakt (`0x140001000` en verder) en of het om
-   **uitvoerbaar maken** gaat;
-3. **op dat moment** de 17 prologues omzetten: de pagina schrijfbaar maken, de 5 bytes `e9 <rel32>`
-   schrijven, en de oorspronkelijke bescherming terugzetten.
-
-Dat vraagt **omhullen** in plaats van vervangen: de originele bytes bewaren, een trampoline bouwen, de
-echte functie aanroepen, en het resultaat teruggeven — precies wat mijn ELF-hook al doet
-(`hh_maak_trampoline` + `hh_koppel_echt`), en wat de PE-engine bewust nog niet heeft. De **bouwstenen
-staan klaar in de kop** (`export =`, `module =`, `RG_PROLOOG_API`, `RG_ANTWOORD_OMHUL`, de
-omhul-administratie en `rg_pe_herstel()`), maar de **uitvoering ervan is niet gebouwd en niet getest**.
-Het is dus een tweede mechanisme, geen vinkje.
-
-**Wat er nog uitgezocht moet worden:** of die protect-aanroep inderdaad in het venster t=4,6 tot 5,9 s
-langskomt. De analist doet daarvoor de `WINEDEBUG=+virtual`-meting op beide kernen. Zonder die
-bevestiging is §5 een ontwerp op papier — en de wachtroute van §3 werkt in de tussentijd zonder die
-bevestiging, want die kijkt naar de bytes zelf.
-
-## 6. De antwoorden, precies zoals gemeten
-
-Uit `AM-LAAG.md` §4/§5: **alle 17 geven 0 terug**, en de enige echte waarde is
-
-```
-amDongleGetNetworkAddress  ->  *(uint32_t*)rcx = 0x1a8c0 = c0 a8 01 00 = 192.168.1.0
-```
-
-Er is **geen** game-id, **geen** modeltype en **geen** keychip-id. De lijst doet daarom exact dat:
-16 × `ret0`, 1 × `buf=rcx:c0 a8 01 00`, met `bewaar_args = 1`. Er is niets verzonnen en er viel niets
-te verzinnen.
-
-De `e9`-bytes uit `AM-LAAG.md` §1 staan **niet** als `bytes =` in de lijst: dat is de toestand die de
-gesloten kern achterlaat, en ze daar verwachten zou de keuring omkeren. De **originele** 5 bytes zijn nu
-wél meetbaar (het spel ontpakt immers) — `40 53 48 83 ec` voor `amDongleInit` — en zodra ze per functie
-gemeten zijn kan elke regel een `bytes = …` krijgen en weigert de hook een verkeerde spelversie.
-
-## 7. De drop-in, en het kanaal
-
-`patches/LuigisMansion/dropin/dropin.ini`:
+**De paden staan absoluut in Wine-vorm**, want het spel werkt in de map op de NAS en een relatief pad
+komt daar niet uit:
 
 ```ini
 [rg-pe-hook.dll]
 To = .
 Preload = true
 Audit = false
-Env = RG_HOOK_INI=dongle-haken.ini;RG_HOOK_LOG=rg-pe-hook.log
+Env = RG_HOOK_INI=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini;RG_HOOK_LOG=Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook.log
 
 [dongle-haken.ini]
 To = .
 ```
 
-* **`Preload = true`** is het kanaal: de launcher zet het pad in `RG_DROPIN_PRELOAD` en de lader heeft
-  daarvoor de `TP_PRELOAD_DLL`-route. Zonder deze regel rolt het bestand wel uit naar de view maar
-  wordt het nooit geladen — en dan meet je niets.
-* **`Audit = false`** omdat dit een Windows-PE-DLL is en geen ELF: in `LD_AUDIT` weigert glibc hem met
-  *"wrong ELF class"* en dat is alleen ruis. Het patroon is overgenomen van de inline-hook van Halo en
-  JurassicPark (`docs/dropins.md`, "Audit = false").
-* **Gecontroleerd met de planning** (`python3 scripts/launch-direct.py LuigisMansion --plan`): de twee
-  bestanden rollen uit naar `…/views/LuigisMansion/exe/x64/`, en bij `preload` staat
-  `…/exe/x64/rg-pe-hook.dll`, met `RG_HOOK_INI=dongle-haken.ini` in `env` en `errors: []`.
+Gecontroleerd met `--plan` (exitcode 0): `'preload': ['…/exe/x64/rg-pe-hook.dll']`, beide `dest`'s
+binnen de view, `'errors': []`, en de omgevingsvariabelen komen er als `'Z:\\home\\deck\\…'` uit.
+`Audit = false` omdat dit een PE-DLL is en geen ELF: in `LD_AUDIT` weigert glibc hem met *"wrong ELF
+class"* en dat is alleen ruis; `Preload = true` zet het pad in `RG_DROPIN_PRELOAD`, en de lader heeft
+daarvoor de `TP_PRELOAD_DLL`-route (die repareert de laderbouwer — dat is het tweede, aparte punt).
 
-## 8. Wat er niet is
+## 3. WANNEER de hook omzet, en waarom dat het hele punt is
 
-* Geen benchrun: de DLL is niet onder Wine geladen. Bewezen is het mechanisme op een echt PE-beeld
-  (omzetten, weigeren, wachtroute, het gemeten antwoord); niet bewezen is of de DLL in het proces komt
-  en of de game daarna verder komt.
-* Geen API-omhulling (§5): de bouwstenen staan in de kop, de uitvoering niet.
-* Geen wijziging aan de launcher, aan `packaging/native-games.json`, of aan het dossier van de
-  Luigi-werker.
+De prologues bestaan pas **nadat** de pakker de code heeft weggeschreven (t=4,7 s). Een hook die bij
+het **laden** omzet, zet dus niets om. Daarom heeft de engine een **wachtroute**: een pagina die nog
+nul is wordt niet als fout gemarkeerd maar als `NOG NIET UITGEPAKT`, en de hook blijft kijken (elke
+`wacht_ms`) tot `wacht_s` verstreken is. In de lijst: `wacht_s = 10`, `wacht_ms = 20`.
+
+Bewezen (`patches/Halo/probe/wacht-toets.sh`), met de 17 prologues eerst op nul en een gesimuleerde
+ontpakker die ze na 600 ms schrijft:
+
+```
+wachtroute: 17 pagina('s) nog niet uitgepakt; ik blijf kijken (max 10 s, elke 20 ms)
+[ontpakker] 17 prologues geschreven na 600 ms
+wachtroute: de pagina's zijn uitgepakt na 602 ms; nu omzetten
+totaal aangehaakt: 17 van 17   ->  GESLAAGD
+```
+
+En de **controle** met `wacht_s = 0` laat precies het falen zien: per adres
+`NOG NIET UITGEPAKT: de prologue op RVA 0x… is nog nul`, 0 van 17.
+
+**Vroeg genoeg?** Ja: omzetten gebeurt 2 ms nadat de pagina's gevuld zijn, en het gemeten venster is
+1,3 s. Zelfs met een poll van 20 ms blijft er meer dan een seconde over.
+
+## 4. Het bewijs van het omzetten zelf
+
+`bash patches/Halo/probe/pe-mechanisme-toets.sh` op `image-gesloten.bin` (19.259.392 B, sha256
+`11bb710b7c71686b`; ImageBase `0x140000000`, SizeOfImage `0x125e000`, entry `0xf23125`):
+
+* **positief op de 17 ECHTE adressen**: `17 van 17 aangehaakt`, elk `GELDIG: sectie .text …`; de
+  stubpagina komt op **0x13fff0000**, precies waar de gesloten kern zijn stubs legt;
+* **weigering op de ONGEWIJZIGDE dump**: alle 17 `AFGEWEZEN: eerste bytes e9 … zijn geen prologue
+  maar een sprong -- al door een andere kern omgezet?`, 0 van 17;
+* **ongeldige adressen**: `.rdata` → *"is niet uitvoerbaar"*; buiten het beeld → *"valt in geen
+  sectie"*; verkeerde `grootte` → hele lijst afgekeurd;
+* **de stubs draaien**: `amDongleInit` geeft 0 terug, en het gemeten kastantwoord komt eruit —
+  `buffer na de aanroep: c0 a8 01 00` (192.168.1.0) met teruggeefwaarde 0;
+* **de TODO-vorm** bestaat nog voor een lijst waarin iets niet gemeten is.
+
+## 5. De API-route: NIET gebouwd, en dat is nu onderbouwd
+
+Eerder leek het aftappen van `ntdll!NtProtectVirtualMemory` de robuustere plek, omdat de gesloten kern
+die API aanhaakt en wij niet. **Dat is niet nodig, en het wordt niet gebouwd.** De `WINEDEBUG=+virtual`
+meting op beide kernen is **byte voor byte identiek**: vier aanroepen (`.text` naar RWX, dan naar RX;
+de pakkersectie idem), geen enkele fout in beide logboeken, en de laatste virtuele regels van onze run
+zijn de afsluitende eindpass van de ontpakker. Onze kern maakt `.text` dus net zo goed schrijfbaar als
+de gesloten kern; de protect-aanroep is **niet** het verschil. Een tweede mechanisme (omhullen +
+trampoline + terugzetten) zou geen gedrag toevoegen en alleen onderhoud vragen.
+
+De bouwstenen die ik daarvoor in de kop van de engine had gezet (`export =`, `module =`,
+`RG_PROLOOG_API`, `RG_ANTWOORD_OMHUL`, `rg_pe_herstel()`) blijven staan als **ongebruikte
+voorbereiding**; ze doen niets en er is geen code die ze aanroept.
+
+## 6. De antwoorden, en de stand van de `bytes`-keuring
+
+Uit `AM-LAAG.md` §4/§5: **alle 17 geven 0 terug**, en de enige echte waarde is
+`amDongleGetNetworkAddress` → `*(uint32_t*)rcx = 0x1a8c0 = c0 a8 01 00 = 192.168.1.0`. Er is **geen**
+game-id, **geen** modeltype en **geen** keychip-id. De lijst doet exact dat: 16 × `ret0`,
+1 × `buf=rcx:c0 a8 01 00`, met `bewaar_args = 1` (elke stub zet eerst de argumentregisters in de home
+space, zoals élke kern-implementatie doet).
+
+**De `bytes = …`-keuring per regel is er nog NIET, en dat is met opzet.** De dichte meting bemonstert
+**8 van de 17** adressen, en op t=4,7 s zijn die nog niet allemaal klaar: vier keer
+`40 53 48 83 ec`, twee keer `48 83 ec 28 48`, één keer `48 83 ec 28 83`, en één keer `cc cc cc cc cc`
+(`amDongleIsAvailableInternal` staat dan nog op padding). Dat is een momentopname **midden in het
+uitpakken** en geen betrouwbare bron per functie. Een halve of verkeerde `bytes`-regel is erger dan
+geen; daarom blijft `proloog = standaard` staan (bewezen, en het weigert de gesloten kern al correct).
+Wat het afmaakt: één dump van **alle 17** op een moment dat het uitpakken klaar is (t≈5,5 s, vóór de
+dood op 5,96 s) — dan krijgt elke regel zijn `bytes` en weigert de hook ook een verkeerde spelversie.
+
+## 7. Wat er nog moet
+
+1. **De laderbouwer:** `Preload` van een drop-in-DLL onder Wine op de `TP_PRELOAD_DLL`-route zetten
+   (nu zet de launcher alleen `RG_DROPIN_PRELOAD`, en dat kanaal werkt onder Wine niet).
+2. **De launcher:** de symlink-reparatie ook op `base` zelf toepassen (nu alleen eronder), dan is de
+   drop-in niet afhankelijk van de toevallige stand van de view.
+3. **De bench (vrij):** één dump van alle 17 prologues ná het uitpakken (t≈5,5 s) voor de
+   `bytes`-keuring; de analist kan dat met zijn bestaande dichte bemonstering.
+4. **Daarna:** de vijfminproef van de Luigi-werker om te bevestigen dat de DLL in het proces staat
+   (`rg-pe-hook.log` in de view) en of de game verder komt dan t=5,96 s.

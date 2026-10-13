@@ -184,6 +184,27 @@ print(":".join([n for n in namen if n]))
 PY
 )
   export RG_B0_DROPIN_MAPS="$DROPIN_MAPS"
+  # De werkmap van het spel (= de drop-in-basis) en het logboek dat de drop-in ZELF schrijft.
+  # Dat logboek is het directe bewijs dat de DLL GELADEN is; zonder logboek is hij niet geladen
+  # -- en dat is iets anders dan "hij vond niets", want de hook schrijft altijd eerst een PE-regel.
+  DROPIN_BASE=$(python3 - "$PLAN_JSON" <<'PYX'
+import json, sys
+try:
+    print((json.load(open(sys.argv[1])).get("dropins") or {}).get("base") or "")
+except Exception:
+    print("")
+PYX
+)
+  HOOKLOG_NAME=$(python3 - "$PLAN_JSON" <<'PYX'
+import json, sys
+try:
+    print((json.load(open(sys.argv[1])).get("dropins") or {}).get("env", {}).get("RG_HOOK_LOG", ""))
+except Exception:
+    print("")
+PYX
+)
+  HOOKLOG="${HOOKLOG_NAME:+$DROPIN_BASE/$HOOKLOG_NAME}"
+  export HOOKLOG DROPIN_BASE
   zeg "drop-in in het proces verwacht: ${DROPIN_MAPS:-<geen namen>}"
 else
   [[ "${RG_B0_DROPIN:-}" != "" ]] && { fout "opgegeven drop-in-map bestaat niet: $DROPIN_DIR"; exit 1; }
@@ -255,6 +276,18 @@ for f in ((d.get("dropins") or {}).get("files") or []):
     print("%s  %s  bron==doel: %s" % ("OK " if hs == hd else "WIJKT AF", os.path.basename(dest), hs == hd))
 PY
     echo "  (de maps-controle per monster staat in vijfmin-vijfmin.txt als 'drop-in in proces')"
+    echo
+    echo "  --- HET LOGBOEK VAN DE DROP-IN ZELF ---"
+    if [ -n "${HOOKLOG:-}" ] && [ -f "$HOOKLOG" ]; then
+      echo "  AANWEZIG: $HOOKLOG ($(stat -c%s "$HOOKLOG") B)"
+      echo "  eerste regels (de PE-regel met ImageBase en SizeOfImage hoort er altijd te staan):"
+      head -6 "$HOOKLOG" | sed 's/^/    /'
+      echo "  samenvatting:"
+      grep -aiE 'totaal|aangehaakt|afgekeurd|TODO' "$HOOKLOG" | tail -5 | sed 's/^/    /'
+    else
+      echo "  GEEN LOGBOEK (${HOOKLOG:-geen pad bekend}) -- dan is de DLL NIET GELADEN."
+      echo "  Dat is iets anders dan 'hij vond niets': de hook schrijft altijd eerst een PE-regel."
+    fi
   fi
   echo
   echo "--- SUCCESCRITERIA: JA/NEE met de gemeten waarde ---"
@@ -284,6 +317,7 @@ PY
     if [ -n "${MN:-}" ] && [ -n "${MT:-}" ] && [ "${MT:-0}" -gt 0 ] && [ "${MN:-0}" -lt "${MT:-0}" ]; then
       echo
       echo "!! DEZE RUN IS ONGELDIG: de drop-in is NIET geladen (${MN} van ${MT} in het proces)."
+      echo "   Ook het logboek van de drop-in zelf ontbreekt dan; zie de DROP-IN-sectie hierboven."
       echo "   Ook als het spel leeft zegt dat niets over de drop-in: het betekent dan alleen dat de"
       echo "   drop-in voor deze game NIET NODIG was. Dat is een eigen uitkomst, geen succes."
     fi
