@@ -405,3 +405,27 @@ FileTest-scherm, de webcamstap en het kalibratiescherm tellen NIET mee.
   geen van beide wordt geschreven. Dat is twee gerichte uitbreidingen van EEN functie -- geen nieuw
   apparaat. (Een geweer dat perfecte posities en trekkerindrukken uitzond veranderde niets, want het
   sprak een ander kanaal dan de game leest.)
+
+### Halo: een BLOKKERENDE EIS van de eigenaar (2026-10-13)
+
+De eigenaar: *"die Halo QR codes in beeld moet nog opgelost worden he, dat is nog niet acceptabel als
+final."* Op het scherm staat:
+
+```
+QR scanners need to be configured!
+P1 QR Scanner is not detected!      P2 QR Scanner is not detected!
+Factory Setup Has Not Been Completed!
+Press START to Begin                Money In: $16.75
+```
+
+**De attract-lus halen is dus NIET het eindpunt voor deze game.** Halo geldt pas als afgerond wanneer die
+meldingen weg zijn. De route daarnaartoe, in deze orde:
+1. de letterlijke teksten in de bestanden van het spel opzoeken en lezen wat eromheen staat (daar staan de
+   apparaatnamen of configuratiesleutels waar de game naar zoekt -- lezen, niet gokken);
+2. meten WAAR de game zoekt wanneer hij die melding maakt (hij laadt libudev en somt camera's op);
+3. **eerst de FABRIEKSINSTELLING zoeken**: "Factory Setup Has Not Been Completed" wijst op een
+   operationele installatiestap die een echte kast een keer doet. Als die stap de scanners op "niet
+   aanwezig" kan zetten, is dat de schone oplossing -- de kast vertellen dat hij ze niet heeft, in plaats
+   van hardware namaken. Onze hulp kan de service-schakelaar sturen (bit 3 -> k=3), dus een service-menu
+   is bereikbaar;
+4. en pas als dat niet kan: het apparaat namaken met een identiteit die uit stap 1 komt, niet verzonnen.
