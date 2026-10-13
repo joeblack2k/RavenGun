@@ -448,3 +448,27 @@ De juiste stand van de vier stappen uit het officiele startscript:
 
 Dus drie van de vier zijn weggestreept en de vierde is een instrumentreparatie verwijderd van een echte
 meting -- niet "afgedaan".
+
+---
+
+## ZEVENDE GAME (2026-10-13, op verzoek van de eigenaar): Mario Kart DX
+
+**Nog niet doen -- alleen op de lijst erbij.** Twee dingen die erbij horen en die de lader raken:
+
+1. **Het is GEEN lightgun-game.** Deze titel vraagt **controller-ondersteuning via Steam** (zoals de
+   Steam Controller). Dat is een NIEUWE tak voor deze lader: alles wat we tot nu toe deden ging over
+   geweren (virtuele lightguns, Move, JVS-borden, schakelaars en assen in de bordindeling). Een gewone
+   controller is een andere weg: het spel verwacht een gamepad, en de vraag wordt hoe wij de Steam
+   Controller (of een andere controller via Steam Input) als het apparaat aanbieden dat deze game zoekt.
+   Dat is dezelfde soort vraag als bij de lightgun, maar met een andere uitkomst: hier is het apparaat
+   geen muis- of joystickklasse-kwestie alleen, maar ook een kwestie van welke knappen- en assenindeling
+   het spel verwacht.
+2. **Het heeft WEBCAM-ondersteuning.** Dat sluit precies aan op de camera-keuze die de eigenaar in de
+   lader wil (een camera kiezen in de configuratie en het optiemenu, per game doorgeven, en alleen als het
+   spel hem echt gebruikt). Wie die keuze bouwt, moet deze titel als tweede voorbeeld meenemen naast Halo
+   -- en hier is de camera vermoedelijk WEL in het spel zelf in gebruik, in tegenstelling tot de
+   inrichtingsgevallen.
+
+De volgorde blijft: eerst de zes huidige games, en deze titel komt daarna. Wel vastleggen zodat er niets
+verloren gaat: de naam, de twee eigenschappen hierboven, en dat er voor deze titel nog niets is
+onderzocht.
