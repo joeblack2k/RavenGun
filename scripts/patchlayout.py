@@ -26,6 +26,10 @@ REQUIRED = ("game.ini",)
 SHIP_FILES = ("game.ini", "patches.ini", "hasp-haken.ini")
 SHIP_TREES = ("dropin", "data")
 
+# De gereserveerde naam op het hoogste niveau van een wortel: shared/ bevat GEDEELD materiaal (meer dan een game), geen
+# gamemap. game_folders() slaat hem over. Moet gelijk zijn aan gamesettings.SHARED_DIR (test: test_shared_items).
+SHARED_DIR = "shared"
+
 # Onderzoeksmateriaal op elke diepte (dus ook verboden BINNEN dropin/ en data/, want dat is de levering):
 RESEARCH_ANYWHERE = (
     "*.md", "*.md.*",                        # dossiers, uitkomsten, draaiboeken (ook *.md.voor-correctie-...)
@@ -166,13 +170,46 @@ def validate_game_folder(game_dir, check_profile=True):
 
 
 def game_folders(root):
-    """De gamemappen onder een wortel: mappen die niet met . of _ beginnen, plus _template (een sjabloon dat zelf aan het schema moet voldoen)."""
+    """De gamemappen onder een wortel: mappen die niet met . of _ beginnen (plus _template, een sjabloon dat zelf aan het
+    schema moet voldoen), en NIET de gereserveerde shared/ (gedeeld materiaal, geen game)."""
     uit = []
     for e in _entries(root):
         p = os.path.join(root, e)
+        if e == SHARED_DIR:
+            continue
         if os.path.isdir(p) and (not e.startswith((".", "_")) or e == "_template"):
             uit.append(p)
     return uit
+
+
+def shared_item_folders(root):
+    """De gedeelde items onder <wortel>/shared/: mappen die niet met . of _ beginnen."""
+    uit = []
+    for e in _entries(os.path.join(root, SHARED_DIR)):
+        p = os.path.join(root, SHARED_DIR, e)
+        if os.path.isdir(p) and not e.startswith((".", "_")):
+            uit.append(p)
+    return uit
+
+
+def shared_item_problems(item_dir):
+    """[(code, tekst)] voor een gedeeld item: het is LEVERING (runtime-materiaal dat meeverhuist), dus er hoort geen
+    onderzoeksmateriaal in (een *.md, logs-*, meetscript, ...). Een leeg item is ook een afwijking."""
+    uit = []
+    files = _walk_files(item_dir)
+    if not files:
+        uit.append(("empty", "%s: het gedeelde item is leeg" % item_dir))
+    for rel in files:
+        for deel in rel.split(os.sep):
+            if _match(deel, RESEARCH_ANYWHERE) or _match(deel, RESEARCH_TOPLEVEL):
+                uit.append(("research-in-shared", "%s: %s lijkt onderzoeksmateriaal; een gedeeld item is louter levering" % (item_dir, rel)))
+                break
+    return uit
+
+
+def shared_fingerprint(item_dir):
+    """{relatief pad: sha256} van ALLE bestanden van een gedeeld item: wat moet kloppen als hetzelfde item op twee plaatsen staat."""
+    return {rel: _digest(os.path.join(item_dir, rel)) for rel in _walk_files(item_dir)}
 
 
 def validate_root(root):
@@ -243,6 +280,10 @@ def check_roots(loader, repo):
     for r in aanwezig:
         rep["roots_validated"].append(r)
         rep["issues"].update(validate_root(r))
+        for item in shared_item_folders(r):
+            ps = shared_item_problems(item)
+            if ps:
+                rep["issues"][item] = ps
     if rep["mode"] == "distinct":
         rep["cross_repo_comparison"] = True
         namen = [{os.path.basename(d): d for d in game_folders(r)} for r in aanwezig]
@@ -251,8 +292,16 @@ def check_roots(loader, repo):
             if a != b:
                 verschil = sorted(set(a) ^ set(b)) + sorted(k for k in set(a) & set(b) if a[k] != b[k])
                 rep["conflicts"].append("%s staat op twee plaatsen met een verschillende levering: %s" % (n, ", ".join(verschil[:6])))
-        rep["notes"].append("twee verschillende mappen: beide tegen het schema gelegd en %d gedeelde games vergeleken"
-                            % len(set(namen[0]) & set(namen[1])))
+        # Gedeelde items net zo vergelijken: hetzelfde item op twee plaatsen moet byte voor byte kloppen, anders werkt een
+        # game "alleen op mijn machine" doordat het item in de ene repo anders is dan in de andere.
+        sitems = [{os.path.basename(d): d for d in shared_item_folders(r)} for r in aanwezig]
+        for n in sorted(set(sitems[0]) & set(sitems[1])):
+            a, b = shared_fingerprint(sitems[0][n]), shared_fingerprint(sitems[1][n])
+            if a != b:
+                verschil = sorted(set(a) ^ set(b)) + sorted(k for k in set(a) & set(b) if a[k] != b[k])
+                rep["conflicts"].append("gedeeld item %s staat op twee plaatsen met verschillende inhoud: %s" % (n, ", ".join(verschil[:6])))
+        rep["notes"].append("twee verschillende mappen: beide tegen het schema gelegd, %d gedeelde games en %d gedeelde items vergeleken"
+                            % (len(set(namen[0]) & set(namen[1])), len(set(sitems[0]) & set(sitems[1]))))
     return rep
 
 

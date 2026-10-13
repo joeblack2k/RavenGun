@@ -135,6 +135,99 @@ def user_dir():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Gedeeld materiaal (docs/per-game-patches.md, "Gedeelde items"). Een item onder <wortel>/shared/<item>/ dient meer dan
+# een game: het staat er EEN keer en wordt per game AANGEZET, niet per game gekopieerd. De zoekvolgorde is exact die van
+# patches/<Game>/ (patches_roots): er is maar EEN zoekvolgorde, niet een tweede om gelijk te houden. "shared" is daarom een
+# gereserveerde naam op het hoogste niveau van een wortel; patchlayout.game_folders slaat hem over.
+#
+# Een game kiest in [Shared] van game.ini WELKE items aan staan ("item = on|off"). Niets gaat impliciet aan: een game zonder
+# [Shared] gedraagt zich precies als vandaag. De lagen van een aangezet item, in oplopende voorrang (de LATERE wint), met de
+# wortel als buitenste sleutel en de soort (gedeelde standaard < eigen van de game) als binnenste:
+#     <loader>/shared/<item>   <loader>/<gamemap>/shared/<item>   <gebruiker>/shared/<item>   <gebruiker>/<gamemap>/shared/<item>   <dev>/...
+# Zo wint binnen een wortel de eigen map van de game van de gedeelde standaard, en wint een hogere wortel (gebruiker boven
+# loader) van beide. Dat is dezelfde voorrang als de patches: de eigen map gaat voor de standaard, de gebruiker boven beide.
+SHARED_DIR = "shared"
+
+
+def _walk_rel(base):
+    """Alle bestanden onder base, relatief aan base, gesorteerd; koppelingen naar mappen worden niet gevolgd."""
+    uit = []
+    for dirpath, _dirs, files in os.walk(base):
+        for fn in files:
+            uit.append(os.path.relpath(os.path.join(dirpath, fn), base))
+    return sorted(uit)
+
+
+def shared_root(root):
+    """<wortel>/shared: waar de gedeelde items van die wortel staan."""
+    return os.path.join(root, SHARED_DIR)
+
+
+def shared_items_available(shipped=None, user=None):
+    """De namen van alle gedeelde items die in enige wortel bestaan (voor de keuzelijst in de app), gesorteerd, uniek."""
+    namen = set()
+    for root in patches_roots(shipped, user):
+        try:
+            for e in os.listdir(shared_root(root)):
+                if not e.startswith((".", "_")) and os.path.isdir(os.path.join(shared_root(root), e)):
+                    namen.add(e)
+        except OSError:
+            pass
+    return sorted(namen)
+
+
+def shared_item_layers(profile, item, shipped=None, user=None):
+    """De BESTAANDE maplagen van een gedeeld item voor een game, in oplopende voorrang (de latere wint).
+    Elk is (soort, pad) met soort "shared" (de gedeelde standaard <wortel>/shared/<item>) of "game" (de eigen versie van de
+    game <gamemap>/shared/<item>). Per wortel eerst de gedeelde standaard, dan de eigen map van de game."""
+    uit = []
+    for root in patches_roots(shipped, user):
+        sd = os.path.join(shared_root(root), item)
+        if os.path.isdir(sd):
+            uit.append(("shared", sd))
+        gdir = find_game_dir(root, profile)
+        if gdir:
+            go = os.path.join(gdir, SHARED_DIR, item)
+            if os.path.isdir(go):
+                uit.append(("game", go))
+    return uit
+
+
+def shared_item_files(profile, item, shipped=None, user=None):
+    """{relatief pad: (absoluut pad, soort, maplaag)} na het samenvoegen van de lagen (de latere wint). Elk bestand noemt de
+    laag waaruit het komt -- genoeg om in een logboek te zeggen wat een run werkelijk gebruikt heeft."""
+    uit = {}
+    for soort, d in shared_item_layers(profile, item, shipped, user):
+        for rel in _walk_rel(d):
+            uit[rel] = (os.path.join(d, rel), soort, d)
+    return uit
+
+
+def enabled_shared(settings):
+    """Uit de samengevoegde [Shared]-sectie: {item: aan?} voor elke genoemde sleutel. (Een lege waarde is al door het
+    samenvoegen van de lagen weggehaald.) Niets staat impliciet aan: alleen een sleutel met een ware waarde telt als aan."""
+    return {item: truthy(v) for item, v in settings.get("Shared", {}).items()}
+
+
+def resolve_shared(profile, settings, shipped=None, user=None):
+    """De gedeelde items van een game na het samenvoegen: een lijst records, elk {item, enabled, layers, files, error}.
+    Een aangezet item zonder map in enige wortel krijgt een error (harde misconfiguratie; nooit stil). files is None voor een
+    uitgezet item of een item met een error, anders {relatief pad: {path, kind, dir}}."""
+    uit = []
+    for item, aan in enabled_shared(settings).items():
+        lagen = shared_item_layers(profile, item, shipped, user)
+        rec = {"item": item, "enabled": aan,
+               "layers": [{"kind": s, "dir": d} for s, d in lagen], "files": None, "error": None}
+        if aan and not lagen:
+            rec["error"] = "gedeeld item %r staat aan ([Shared] %s=on) maar bestaat in geen enkele wortel (shared/%s)" % (item, item, item)
+        elif aan:
+            rec["files"] = {rel: {"path": p, "kind": k, "dir": d}
+                            for rel, (p, k, d) in shared_item_files(profile, item, shipped, user).items()}
+        uit.append(rec)
+    return uit
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Lezen en samenvoegen
 
 def parse_ini(text):
@@ -258,6 +351,8 @@ class Game:
         self.sources = []        # bestanden die zijn gelezen (voor weergave en logboek)
         self.warnings = []
         self.exists = False      # er is een game.ini in de meegeleverde of de gebruikerslaag (of een .env-terugval)
+        self.shared = []         # gedeelde items (docs: "Gedeelde items"): [{item, enabled, layers, files, error}]
+        self.shared_errors = []  # aangezette items die in geen wortel bestaan (harde misconfiguratie)
 
     def get(self, section, key, default=None):
         return self.settings.get(section, {}).get(key, default)
@@ -287,7 +382,7 @@ class Game:
     def to_dict(self):
         return {"profile": self.profile, "type": self.type, "settings": self.settings,
                 "patches": [p.to_dict() for p in self.patches], "patch_errors": self.patch_errors, "sources": self.sources,
-                "warnings": self.warnings}
+                "warnings": self.warnings, "shared": self.shared, "shared_errors": self.shared_errors}
 
 
 def resolve_input(profile, tp=None, shipped=None, user=None, warn=None):
@@ -498,6 +593,15 @@ def load_game(profile, type_hint="", shipped=None, user=None, legacy=None):
         else:
             g.patches.append(patch)
     g.settings = {s: kv for s, kv in merged.items() if kv}
+    # Gedeelde items (docs/per-game-patches.md, "Gedeelde items"): welke staan AAN voor deze game en waar komen hun bestanden
+    # vandaan. Niets gaat impliciet aan; een aangezet item zonder map in enige wortel is een harde fout, geen stilte.
+    g.shared = resolve_shared(g.profile, merged, shipped, user)
+    for rec in g.shared:
+        if rec["error"]:
+            g.shared_errors.append(rec["error"])
+            g.warnings.append(rec["error"])
+        elif rec["enabled"] and rec["files"]:
+            g.sources += [f["path"] for f in rec["files"].values()]
     return g
 
 

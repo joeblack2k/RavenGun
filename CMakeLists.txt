@@ -264,6 +264,10 @@ if(RAVENGUN_BUILD_TESTS)
     # Het schema van een gamemap (levering: game.ini, patches.ini, dropin/**, data/**; de rest is onderzoek en verhuist niet mee),
     # tegen de echte patches/ van de loader en de patches-repo (dezelfde map via een koppeling wordt als een map gecontroleerd).
     add_test(NAME ravengun_patches_layout COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_patches_layout.py")
+    # Gedeelde items (shared/<item>): een item staat er een keer en wordt per game in [Shared] aangezet (niets impliciet); de
+    # voorrang is die van de patches (eigen map van de game boven de gedeelde standaard, gebruiker boven beide); elk opgelost
+    # bestand noemt zijn laag; een aangezet item dat nergens bestaat is een harde fout; de drift tussen twee repo's wordt gezien.
+    add_test(NAME ravengun_shared_items COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shared_items.py")
     # Argumenten voor het spel per game ([Launch] Arguments): standaard leeg, zichtbaar in --plan, een argument met spaties of
     # aanhalingstekens blijft heel, en de OpenParrot-lader krijgt nooit meer dan een parameter. Start niets.
     add_test(NAME ravengun_spel_argumenten COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spel_argumenten.py")
