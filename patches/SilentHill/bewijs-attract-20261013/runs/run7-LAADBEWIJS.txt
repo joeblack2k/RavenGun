@@ -1,0 +1,26 @@
+now 23:56:13
+pid 1805859 comm KSHG.exe threads 24 exe wine-preloader
+    maps: views/SilentHill/shaiolib.dll -> 1 mappings
+    maps: OpenParrotWin32/OpenParrot.dll -> 3 mappings
+    maps: TeknoParrot/TeknoParrot.dll -> 0 mappings
+    maps: winegstreamer.so -> 0 mappings
+    maps: GE-Proton10-34/files/lib/i386-linux-gnu/libgstreamer -> 0 mappings
+    maps: libgstlibav.so -> 0 mappings
+    maps: gst32/libvpx -> 0 mappings
+    maps: KSHG.exe -> 3 mappings
+    maps: quartz.dll -> 0 mappings
+    maps: d3d9.dll -> 6 mappings
+    maps: dsound.dll -> 6 mappings
+now 23:57:30
+pid 1805859 comm KSHG.exe threads 53 exe wine-preloader
+    maps: views/SilentHill/shaiolib.dll -> 1 mappings
+    maps: OpenParrotWin32/OpenParrot.dll -> 3 mappings
+    maps: TeknoParrot/TeknoParrot.dll -> 0 mappings
+    maps: winegstreamer.so -> 3 mappings
+    maps: GE-Proton10-34/files/lib/i386-linux-gnu/libgstreamer -> 5 mappings
+    maps: libgstlibav.so -> 5 mappings
+    maps: gst32/libvpx -> 6 mappings
+    maps: KSHG.exe -> 3 mappings
+    maps: quartz.dll -> 6 mappings
+    maps: d3d9.dll -> 6 mappings
+    maps: dsound.dll -> 6 mappings
