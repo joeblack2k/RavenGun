@@ -282,3 +282,10 @@ slaan -- en als dat lukt, hoort het spel in de attract-lus te komen.
 
 De vijf shader-fouten (`ec=-9596`) staan als apart punt genoteerd: die kunnen net zo goed aan de
 gamescope-omgeving liggen als aan het spel.
+
+### De lat, aangescherpt door de eigenaar
+
+Een game telt pas als **gehaald** wanneer er **5 minuten attract mode of game mode** loopt. Het
+beginscherm telt NIET mee, en dat is bij deze games vaak juist het kalibratiescherm. Voor Halo
+betekent dat concreet: door de FileTest komen, de Webcam-stap, het netwerk en het kalibratiescherm zijn
+**stappen**, geen gehaalde game. Dat staat hier zodat niemand een tussenstand als eindstand leest.
