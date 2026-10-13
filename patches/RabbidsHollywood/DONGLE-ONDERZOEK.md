@@ -438,4 +438,105 @@ Onze `MatrixEncrypt_Prefix`/`MatrixDecrypt_Prefix` blijven staan: bewezen onscha
 leefde in beide runs, NAS onaangeroerd) en ze dekken de semantiek die de drop-in al had. Ze kunnen dit
 probleem alleen **per definitie niet oplossen**, omdat het savegame-pad `MatrixManager` nooit aanraakt.
 
+---
+
+## 12. De 10-minutenrun: GEHAALD (2026-10-12 23:10:46-23:21:10)
+
+Eigenaarseis: Rabbids moet **10 minuten** draaien op onze eigen lader. Dat is nu gemeten. Script
+`/home/deck/rg_10min.sh`, log `/home/deck/rg-10min/main.log`, systemd-user-unit `rg-10min`, headless via
+gamescope (`--backend headless`), stopmoment 600 s game-tijd met een harde limiet van 720 s.
+
+### 12.1 Het verdict, met de cijfers
+
+| | |
+|---|---|
+| Game-tijd | **608 s** (10 min 8 s) — `t=608s STOPMOMENT (600s) bereikt` |
+| Einde | **zelf gestopt**, niet uitgevallen: `Game.exe` nog in leven op het stopmoment (`504342 Game.exe -popupwindow`), daarna pas `Game gestopt, uitvoer ontwapend.` |
+| Threads | 115 |
+| `Application.Quit` | **0** |
+| `DONGLE NOT FOUND` | **0** |
+| `DONGLE FOUND` | 1 (`**** DONGLE FOUND: 69420`) |
+| Verbinding | **120 pakketten/s op alle 20 levenslijnen** (`VERBONDEN met de game, 120 pakketten/s`), `uitvoerberichten` tot 22 — nooit weggevallen |
+| TeknoParrot in de cgroup | **geen enkel** (alleen python3, steam.exe, wineserver, services/plugplay/svchost/winedevice, Game.exe, explorer, rpcss, tabtip, xalia) |
+| NAS over het hele venster | 0 vermeldingen nieuwer dan 23:10:46; beide `matrix64.dll` nog `c86908ab…` |
+| Poort | view-DLL == build == `e0eaa423…` vóór de start |
+
+De 8 s boven de 600 s is de 30 s-tik van de levenslijn; het spel is niet te vroeg en niet te laat gestopt.
+
+### 12.2 Munt en start aangeslagen, en een ECHT level gespeeld
+
+In headless gamescope komen de virtuele toetsen van `ravengunctl key` niet aan, maar de game draait op
+gamescope's eigen Xwayland, en `DISPLAY=:1 xdotool key …` komt daar **wel** binnen. Daarmee is voor het
+eerst op deze route munt én start uitgeoefend:
+
+```
+[23:12:20] --- munt/start via xdotool (DISPLAY=:1) ---
+[23:12:27] Stand: credits 2,0 ammo 0 leven 100 speelt 0
+[23:12:27] Stand: credits 3,0 ammo 0 leven 100 speelt 0
+[23:12:27] Stand: credits 4,0 ammo 0 leven 100 speelt 0
+[23:12:27] Stand: credits 4,0 ammo 0 leven 100 speelt 1     <- start aangeslagen
+[23:12:27] Stand: credits 0,0 ammo 0 leven 100 speelt 1     <- credit verbruikt
+```
+
+En daarna speelde het spel een **level**, geen attract-lus — de levensbalk liep leeg en de speler ging dood,
+waarna het spel netjes terugkeerde naar attract:
+
+```
+leven 100 -> 44 -> 35 -> 25 -> 15 -> 4 -> -6 -> speelt 0 -> leven 100 speelt 0
+```
+
+De state-machine liep daarbij door menu -> demo -> spelen -> dood -> attract
+(`ArcadeGamePlayManager ::: OnDemoStateExit` / `OnMenuStateEnter` / `OnDemoStateEnter`). Dit is het verschil
+dat de eigenaar bedoelde: niet "levend", maar **speelbaar**.
+
+### 12.3 De eerlijke grenzen van deze run
+
+* **Trekker en trilling van een echte Move zijn niet uitgeoefend** — er is geen Move. De muismodus kan een
+  trekker geven (`BTN_LEFT`), maar dan moet er een fysieke muis bewogen worden, en dat kan headless niet.
+* **Het vizier is op het scherm niet visueel bevestigd** — headless is er geen scherm. Wat wél gemeten is:
+  de aim van de daemon is live (`ravengunctl output` las vóór elke ingreep `aim 0.543,0.498`, licht
+  drijvend naar 0.546 / 0.535 — de Steam Controller Puck als richt-muis), en een expliciet punt komt er
+  exact uit: `test-pattern point 0.3 0.3` gaf `Positie: aim 0.300,0.300 -> abs 9830,9830`, en `0.7 0.7` gaf
+  `0.700,0.700 -> abs 22937,22937`. Dat de daemon stuurt en het spel op invoer reageert staat dus vast; het
+  beeld zelf niet.
+
+### 12.4 Twee nieuwe savegame-feiten
+
+1. **Het spel HERSCHRIJFT zijn savegames tijdens het spelen** — alle drie de bestanden kregen een andere md5
+   in deze run (`MetricManager.svg`, `OperatorMenu.svg`, `SBK.OptionsManager.svg`). Het schrijfpad werkt dus
+   en wordt veel gebruikt.
+2. **`sxCoreSettings.txt` en `sxCore.dll` zijn ONVERANDERD**: md5 `0cd773e4612b9c6e73ca9f6503d827ff` resp.
+   `bdf048494c2b7320e8efdd53727bfbd4`, en de mtime van `sxCoreSettings.txt` bleef `2026-10-12 22:13:16`
+   (het kopieermoment). **De hypothese "de sleutel verandert per run via `sxCoreSettings`" is daarmee
+   weerlegd.**
+3. En de padding-fouten lopen **door tijdens het spelen**: `pkcs7=10 corrupted=3 resetted=3` in 10 minuten,
+   tegen 4 in de 2-minutenproef. Het is dus niet één slechte lezing bij het opstarten maar iets dat blijft
+   misgaan terwijl het spel speelt.
+
+### 12.5 Wat dit betekent voor de volgende stap
+
+De sleutel zit dus elders, of de **schrijfwijze** zelf is fout. Mijn twee beste kandidaten, met de reden:
+
+**Kandidaat 1 — het schrijf- en leesformaat verschillen per route (sterkste kandidaat, want al deels
+gemeten).** De oude TeknoParrot-route liet een **leesbaar** bestand achter:
+`NVRAM/savegame/OperatorMenu.svg` (10 oktober) begint met `efbeadde`, dan een 32-teken hex-id
+(`02a88957bf12d652be797e53e76d3ade`), dan `OperatorMenu`, dan `OperatorMenu+OperatorMenuSaveInfo` en pas
+daarna een grote blob — een gestructureerd bestand met platte tekst in de kop. De bestanden die onze route
+nu schrijft zijn **volledig hoog-entropisch**: geen enkele leesbare tekst, 80/112/8784 byte. Er is dus een
+component die toen een leesbaar bestand maakte en nu niet meedoet. Waarom: dat is de vraag, en het is
+precies het verschil tussen de twee routes. Zoeken in `IJGPGJJKJAG` (de IO-providerlaag) naar welke provider
+toen actief was — de logregel `"IO Provider '<naam>' was used to load empty data: file will be resetted."`
+noemt die naam, dus die staat in het logboek.
+
+**Kandidaat 2 — een sleutel of IV per sessie die nergens bewaard wordt.** De apparaat-ID ligt vast (69420,
+§11.1) en `sxCoreSettings` verandert niet (§12.4), dus elke resterende variatie per run moet bij het
+opstarten gegenereerd worden of uit een bron komen die de lader niet levert (server/cabinet-config,
+`RabbidsHollywood_Operator.conf`, `ControllerBaseConfig.json`). Als de sleutel per run nieuw is en niet in
+het bestand staat, is elk bestand van een vorige run per definitie onleesbaar — precies wat de twee-startproef
+liet zien. **Goedkoopste test:** twee runs met een leeggemaakte savegame-map en dan de **eerste 16 byte** van
+hetzelfde bestand vergelijken. Zijn die per run random, dan is dat een IV en zit de sleutel elders; zijn ze
+gelijk, dan is het niet de IV. Daarnaast: `strings` en de exportlijst van `sxCore.dll` (staat in de view,
+dus zonder bench te lezen) om te zien of die sleutelmateriaal of een KDF aanbiedt.
+
+
 
