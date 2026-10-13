@@ -86,7 +86,7 @@ veeg() {
 zeg "run starten en bemonsteren (max ${MAX}s)"
 set -m
 ( cd "$REPO" && env DISPLAY="${DISPLAY:-}" WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" WINEDEBUG="-all" \
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" WINEDEBUG="${RG_LM_WINEDEBUG:--all}" \
     timeout "$MAX" python3 scripts/launch-direct.py LuigisMansion --run ) >"$UIT/run.log" 2>&1 &
 PGID=$!
 set +m
