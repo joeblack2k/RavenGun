@@ -362,16 +362,28 @@ is.
 
 ## 7. Wat we op het scherm zagen
 
-**Van mijn eigen runs: niets.** Ik heb headless gedraaid (`DISPLAY` en `WAYLAND_DISPLAY` niet gezet), dus
-er was geen beeldserver en er kan niets gerenderd zijn. Dat is zichtbaar in het logboek: de sessie van
-vandaag stopt na **0,8 s** bij `LogInit: Using OS detected locale`, **vóór** elke `LogD3D11RHI`-regel en
-vóór het mounten van de plugins, terwijl op 10-11 `LogD3D11RHI: Aftermath initialized` er al vroeg in
-stond. Of dat komt doordat mijn `SIGTERM` het gebufferde logboek heeft weggegooid of doordat het spel in de
-initialisatie bleef steken, **kan ik niet scheiden** — dus ik claim geen schermwaarneming **GEMETEN**.
+**Zonder beeldscherm komt het spel niet ver.** Onze eerste run was headless (`DISPLAY` en
+`WAYLAND_DISPLAY` niet gezet) en stopte na **0,8 s** bij `LogInit: Using OS detected locale`, **vóór**
+elke `LogD3D11RHI`-regel en vóór het mounten van de plugins. Dat is een weergavefout, geen spel- of
+laderfout: met een beeldserver (gamescope op de tv) komt het spel **wél** voorbij `LogInit` en maakt het
+een D3D11-device aan (13 RHI-regels, `LogD3D11RHI: Aftermath initialized`) **GEMETEN**.
 
-**Wat de logboeken van 10-11 wél laten zien** (dus uit de bestanden, niet van een scherm) **GEMETEN**:
+**Met beeld komt het spel tot het attractiescherm.** Uit het eigen logboek van de game, niet van een
+scherm dat wij bekeken hebben **GEMETEN**:
 
-* `Match State Changed from WaitingToStart to InProgress` — het spel komt in de speeltoestand;
+* `Match State Changed from WaitingToStart to InProgress`;
+* `Took 1.427550 seconds to LoadMap(/Game/HodZero_v1/Maps/Advertise/PL_Advertise)` — de **attractiemap**,
+  met `ActivateLevel …/Advertise/SL_ButtonCommand` en `…/System/SL_EMoneyUI` (de knop- en
+  betaalprompt-UI);
+* daarna loopt de attractieboekhouding door (`LogAppData: Ranking[0][0][…]`, `UBookkeeping`), **zonder
+  één foutregel**.
+
+**Wat wij zelf op het scherm hebben gezien: niets.** Wij hebben de runs niet visueel bekeken; alles
+hierboven komt uit de logboeken van het spel. Wat de logboeken wél bewijzen is dat het spel rendert en in
+de attractiemodus staat — niet hoe het eruitziet.
+
+**Wat de logboeken van 10-11 verder laten zien** (dus uit de bestanden, niet van een scherm) **GEMETEN**:
+
 * `Took 5.198148 seconds to LoadMap(/Game/HodZero_v1/Maps/Stage0/PL_Stage0)`, en in een andere sessie
   **1,98 s** voor dezelfde map;
 * alle sublevels van dat level worden geactiveerd (`SL_Stage0_ITEM`, `…_BROKEN_OBJECT`, `…_COLLISION`,
@@ -389,24 +401,28 @@ initialisatie bleef steken, **kan ik niet scheiden** — dus ik claim geen scher
   kaartlezer, die in deze kopie ontbreekt; het spel kent een gast-pad naast het kaart-pad **GEMETEN**.
 
 **De lat.** Wij meten een titel als "gehaald" bij **vijf minuten attract- of spelmodus**; een laadscherm of
-het beginscherm telt niet. **Die lat is hier niet gehaald en ook niet gemeten** — mijn run was headless en
-duurde 88 s.
+het beginscherm telt niet. **Die lat is gehaald.** In de beste run op 2026-10-13 hield het spel
+**363 seconden attract** (van 13:48:31 tot 13:54:34), met **nul** foutregels, en de run is door **onze**
+limiet van 420 s gestopt en niet door het spel — dus de eerlijke formulering is "**minstens** 363 s".
 
 ## 8. Stand van zaken en open vragen
 
-**Stand: het spel start, de daemon bereikt in de volledige route `Process state: Advertise`, en op
-10-11 is het spel tot in het eerste level gekomen met boekhouding en kalibratie. Onze eigen route haalt de
-lat nog niet.**
+**Stand: het spel draait en haalt de lat.** Met een beeldserver komt het spel tot het attractiescherm en
+hield het in de beste run **minstens 363 s** attract met **nul** foutregels; op 10-11 kwam het tot in het
+eerste level met boekhouding en kalibratie. **De enige echte open vraag is betrouwbaarheid:** van de acht
+runs met beeld op 2026-10-13 haalden er **vier** attract en vielen er **vier** om, met dezelfde fout. Dat
+is geen spelprobleem en geen laderprobleem — zie punt 1.
 
 | # | Open punt | Volgende stap |
 |---|---|---|
-| 1 | **Geen schermwaarneming.** Mijn run was headless en het spel logt na 0,8 s niets meer. | Een run **met** een beeldserver (gamescope of de Xwayland van de eigenaar), langere limiet, en **netjes stoppen** in plaats van killen — anders is het logboek weer afgekapt. |
-| 2 | **Welke lader?** De route van vandaag gebruikt een lader van 1.227.264 B (`…/openparrot/current/…`, sha256 `1953d91a…`), de runs van 10-11 gebruikten die van 333.824 B (`…/runtime/TeknoParrotUi-2.0.0.130-linux-x64/OpenParrotx64/…`, sha256 `ad8528b2…`). De kern is wel dezelfde (`f5c7532d…`, 1.0.0.3761). | De twee laders met dezelfde opstelling vergelijken; dit is de eerste kandidaat voor "waarom komt het spel van vandaag niet verder dan 0,8 s terwijl het op 10-11 het eerste level haalde" — maar het kan net zo goed punt 1 zijn. |
-| 3 | **De twee voorwaarden van de platformcontrole** (injectie én kern) zijn niet tot één oorzaak te herleiden. | Een instrument in de kern dat laat zien welke aanroep de platformcontrole precies doet. |
-| 4 | **De beveiligingslaag is nooit bereikt**, in geen enkele arm. | Niet aan de orde zolang het spel niet voorbij de platformstap komt. Details staan bewust niet in deze pagina. |
-| 5 | **De mountletters** (`X:`, `Y:`, `D:`) worden door ons niet geleverd. De officiële keten zet ze klaar met `rmdir`/`mkdir` op `Y:\` en wij voeren dat niet uit. | Uitzoeken welke letters de daemon in onze route opzoekt; op 10-11 deed hij dat wél (zijn app-databestand werd geschreven). |
-| 6 | **De startmeting** (`patches/STARTTEST.md`) heeft voor dit spel nog geen rij: het kon niet gepland worden zolang de lader geen twee exe's startte. | Dat kan nu wél (§4). Een run met `starttest3.sh HOTDSD` levert de rij. |
-| 7 | **`DebugWithoutAMDaemon`** staat op `false` in de configuratie van het spel zelf. | Of het spel met die schakelaar op `true` zonder daemon speelt, is niet getest; zie §2. |
+| 1 | **Betrouwbaarheid: 4 van 8 runs.** De vier mislukte runs laden alleen `PL_InitializeTest`, loggen **dertig seconden lang niets** en eindigen met `Fatal error: … RenderCore\Private\RenderingThread.cpp [Line: 1015] · GameThread timed out waiting for RenderThread after 30.00 secs`. In een minidump van zo'n run staat **elke** thread in Wine's wachtlussen behalve **`wined3d_cs`**, en die zit in **`opengl32.dll`** — dus de vastloper zit in het OpenGL-pad van Wine (wined3d), niet in het spel. | **DXVK in plaats van wined3d**: dat vervangt de route `d3d11 → wined3d → opengl32` door `d3d11 → Vulkan` en omzeilt precies die thread. Dat is een **omgevingswijziging** (DXVK staat hier niet geïnstalleerd) en geen per-game gegeven. |
+| 2 | **De hangende GL-aanroep is niet benoemd.** Een diagnose-run met `WINEDEBUG=+wined3d,+d3d_shader` **haalde attract**, dus er was geen hang om te vangen (de trace van 65 MB is gewoon doorlopend shaderwerk). | Een **mislukte** run met diezelfde kanalen; dan is de staart van de trace de hangende aanroep. |
+| 3 | **De crashstaart met `-UNATTENDED` is niet gemeten.** Zonder die vlag parkeert het spel ±60 s op een foutvenster; met de vlag in `[Launch] Arguments` zou dat bijna nul moeten zijn — maar de run die hem had, crashte niet. | Een mislukte run met `-UNATTENDED` aan; meet het gat tussen de assert en `=== Critical error ===`. |
+| 4 | **De twee voorwaarden van de platformcontrole** (de injectie én de eigenlijke kern) zijn niet tot één oorzaak te herleiden. | Een instrument in de kern dat laat zien welke aanroep de platformcontrole precies doet. |
+| 5 | **De beveiligingslaag is nooit bereikt**, in geen enkele opstelling. | Niet aan de orde; details staan bewust niet in deze pagina. |
+| 6 | **De mountletters** (`X:`, `Y:`, `D:`) worden door ons niet geleverd. De officiële keten zet ze klaar met `rmdir`/`mkdir` op `Y:\` en wij voeren dat niet uit. | Uitzoeken welke letters de daemon in onze route opzoekt; op 10-11 deed hij dat wél (zijn app-databestand werd geschreven). |
+| 7 | **De startmeting** (`patches/STARTTEST.md`) heeft voor dit spel nog geen rij: het kon niet gepland worden zolang de lader geen twee exe's startte. | Dat kan nu wél (§4). Een run met `starttest3.sh HOTDSD` levert de rij. |
+| 8 | **`DebugWithoutAMDaemon`** staat op `false` in de configuratie van het spel zelf. | Of het spel met die schakelaar op `true` zonder daemon speelt, is niet getest; zie §2. |
 
 ## 9. Wat Linux-specifiek is (en wat je op Windows anders doet)
 

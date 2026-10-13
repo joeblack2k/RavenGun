@@ -1,0 +1,13 @@
+  -- tijdens de run: KWin-uitvoer --
+    rg-tv-env: scherm :0 bereikbaar (bron: plasmashell, pid 163020): HDMI-A-1 connected primary 1920x1080+0+0 
+    HDMI-A-1
+  -- en de X11-lijst --
+    Chromium clipboard
+    Qt Selection Owner for gmenudbusmenuproxy
+    Qt Selection Owner for kaccess
+    Qt Selection Owner for ksmserver
+    Qt Selection Owner for xembedsniproxy
+    Untitled
+    steam
+    steamwebhelper
+    xsettingsd

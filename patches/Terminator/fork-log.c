@@ -38,6 +38,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/syscall.h>
+#include <execinfo.h>     /* backtrace(): om te loggen WIE exit() aanroept */
 
 static pid_t (*echte_fork)(void);
 static pid_t (*echte_waitpid)(pid_t, int *, int);
@@ -157,7 +158,19 @@ pid_t wait(int *status)
 
 void exit(int code)
 {
-    meld("einde exit-code=%d", code);
+    /* WIE roept dit aan? De gast is niet-PIE en laadt op 0x08048000, dus een kaal adres is direct
+       bruikbaar: het is het adres in de gast dat `exit` aanriep (via zijn PLT). Met een kleine
+       terugloop krijg je de aanroepketen erbij, en dat is genoeg om het tegen de kaart van de gast
+       te leggen -- zonder tracer en zonder de bench. */
+    {
+        void *bt[6];
+        int n = backtrace(bt, 6), i;
+        char regel[256];
+        int p = 0;
+        for (i = 0; i < n && p < (int)sizeof regel - 16; i++)
+            p += snprintf(regel + p, sizeof regel - p, " %p", bt[i]);
+        meld("einde exit-code=%d aanroeper- keten:%s", code, n > 0 ? regel : " (geen)");
+    }
     if (!echte_exit)
         echte_exit = (void (*)(int))dlsym(RTLD_NEXT, "exit");
     if (echte_exit)

@@ -242,3 +242,227 @@ quoted veld pakt. Sinds de logger `mode="rb"` schrijft, was dat dus `rb` — met
 fix staat in het script: het pad is het **eerste** quoted veld (`s/^[^"]*"\([^"]*\)".*/\1/p`), en de
 vergelijking wordt **overgeslagen** als het nieuwe logboek leeg is.
 
+---
+
+## 7. De route en de launcher — waar ze staan, en wat ze met de lader doen
+
+**Zoek niet op de plek waar ik zocht.** Ik concludeerde eerst dat er geen launcher was, omdat ik keek in
+`~/projects/ravengun/`, `tools/`, `ravengun-patches/` en `~`. **Hij staat in `scripts/`:**
+
+| bestand | grootte | sha256 (kop) |
+|---|---|---|
+| `~/projects/ravengun/scripts/play-native.sh` | 24.594 B | `9f1fe80983e9a207…` |
+| `~/projects/ravengun/scripts/play-halo.sh` | 25.045 B | — |
+| `~/.local/opt/ravengun/share/ravengun/scripts/play-native.sh` | 20.274 B | de geïnstalleerde, **oudere** kop |
+
+**Dat was mijn negende instrumentfout van de dag, en van dezelfde soort als de andere acht: een zoekactie
+met de verkeerde REIKWIJDTE, niet een feit dat ontbrak.** De les staat hier zodat de volgende persoon niet
+dezelfde lege zoekactie doet.
+
+**Wat `play-native.sh` met de lader doet (GEMETEN, uit de bron):**
+* hij leest het spelprofiel uit `packaging/native-games.json` (via een ingebouwde Python-uitlezer);
+* hij kent een CLI-vlag `--loader` **en** een profielsleutel **`"loader": "rg-elfloader"`**; met die vlag
+  start hij de game via **onze eigen lader** in plaats van de kernel-`ld.so`: hij bindt de laderbinary op
+  `/rg/bin/rg-elfloader` en zet die vóór het gamecommando
+  (`GAMECMD=(/rg/bin/rg-elfloader "${GAMECMD[@]}")`). De comment erboven zegt letterlijk: *"Onze eigen
+  lader (rg-elfloader) voor de ElfLdr2-familie i.p.v. de kernel-ld.so."*
+* **Hij kiest NIET de gesloten ElfLdr2-lader.** Die hoort bij **TeknoParrot zelf**: volgens
+  `scripts/tp-add-game.py` start TeknoParrot 2.0.0.130 voor 32-bits ElfLdr2-games
+  **`ElfLdr2/BudgieLoader.exe`** relatief aan de view, en daarom zet dat script een link `ElfLdr2` in de
+  view. **De "gesloten route" is dus de TeknoParrot-route met BudgieLoader, niet `play-native.sh`.**
+
+**Het Terminator-profiel bestaat — en het is GEPARKEERD (GEMETEN):**
+```
+"title": "Terminator Salvation", "enabled": false, "status": "geparkeerd",
+"note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255
+         (DongleInitialize() FAILED ...); niet omzeild.",
+"arch": "i386", "mounts": [{"src":"@nas/Terminator Salvation ","dst":"/pm","mode":"overlay"}],
+"libs": [ElfLdr2: libPhysXLoader, libPhysXCore, libNxCharacter, libNxCooking;
+         lib32: libtheora, libglut, libXi, libGLU],
+"exe": "/pm/game", "cwd": "/pm", "home": "/pm", "args": ["-n","-f{res}"], "res": "1360x768",
+"route": "evdev"
+```
+Vier dingen die daaruit volgen en die ons werk raken:
+1. **De bibliotheekherkomst in het profiel is anders dan in mijn run:** het profiel haalt `libtheora` en
+   `libGLU` uit **`lib32`**, terwijl mijn lader ze uit **`ElfLdr2/libs`** laadde (GEMETEN in mijn uitvoer).
+   Daarmee is de proef met de bibliotheekvolgorde **niet willekeurig**: hij brengt mijn opzet **naar de
+   opzet die het project zelf opschrijft**, en dat is een sterker argument dan "één variabele".
+2. **Het spel hoort met argumenten te starten: `-n -f1360x768`.** Mijn runs gaven **argc 1, geen
+   argumenten** (GEMETEN in het laderlogboek). Dat is het grootste en nieuwste verschil met de bedoelde
+   start, en het raakt "geen beeld" direct. **Eerste meting die volgt.**
+3. **`"route": "evdev"`** — de invoer van de bedoelde route loopt via **evdev**, niet via een
+   geweer-knoop. Dat nuanceert het `/dev/sierra2`-spoor: de **aanroep** is gemeten, maar de route van het
+   project verwacht evdev.
+4. **`/pm` is hier het koppelpunt van het profiel, NIET een naamseis van de lader.** Dat heb ik eerst
+   verkeerd opgeschreven. De naamseis (`de map moet pm heten, anders GAME PATH CHECK FAILED`) hoort bij
+   **GhostBusters**, niet bij deze titel — de laderbouwer heeft dat bevestigd. **Voor Terminator geldt dus
+   geen mapnaam-eis**; het profiel koppelt de spelmap alleen op `/pm`.
+
+### 7a. De gesloten route: wat de laderbouwer heeft bevestigd (GEMETEN, niet door mij)
+
+* **Geen overlay op die route.** In de view zijn `game`, `T4Data` en `T4User` **symlinks naar de
+  NAS-map**, dus de schrijfacties van het spel in zijn eigen `T4User` gaan **naar de NAS**. Dat botst met
+  de grens die wij de hele dag hebben gehouden (en met de alleen-lezen-regel van de eigenaar), dus **die
+  arm draait niet zoals hij is ingericht** en ik werk er niet omheen. De eigenaar beslist over een overlay
+  voordat die route ooit start.
+* **De route was speelbaar op 2026-10-09**: vizier, start, trekker en herladen. De gesloten route is dus
+  voor deze titel in principe werkend geweest.
+* **Kern**: de launcher geeft er **geen** mee (`core_dll: None`) en BudgieLoader krijgt alleen het
+  spelpad; welke bibliotheek hij uit `ElfLdr2/` van de view laadt, is te lezen uit `/proc/<pid>/maps`
+  tijdens een run.
+* **Omgeving** van die route: `TP_REMOTETHREAD=1`, `tp_windowed=1`, `TP_LOGTOFILE=0`, `WINEDEBUG=-all`,
+  `WINEPREFIX=…/prefixes/shared/wine`, plus `TP_GAMESCOPE=1` en `TP_GAMESCOPE_PATH=/usr/bin/gamescope`.
+* **Beeld**: ja, en `rg-tv-env.sh` levert de bureaubladsessie; dat script **eindigt met 1 in plaats van
+  stil headless te gaan**, en dat is precies waarom een eerdere tv-run bruikbaar was.
+* Die route zet **drie drop-in-bestanden** van deze titel in de view; die horen bij wat er dan draait.
+* **De note in het profiel is verouderd** ("stopt direct met exit 255"): dat is van vóór mijn werk. Met de
+  ptrace-maatregel draait de gast **4 seconden**, doet zijn gepacede lus en eindigt met **exit 0**, met nog
+  **8** bestandsfouten. De laderbouwer werkt die tekst bij.
+
+
+**Wat nog bij de laderbouwer ligt** (niet mijn artefact om na te bouwen): of de **gesloten route**
+(TeknoParrot + BudgieLoader) deze titel **hoort te starten** gezien `enabled: false`/`geparkeerd`, met welk
+profiel en welke omgeving, en of een **beeldrun** daarvoor het juiste slot is.
+
+---
+
+## 8. De twee vervolgmetingen: argumenten en bibliotheekvolgorde (beide GEMETEN, beide NUL)
+
+Beide zijn één variabele t.o.v. **meting 3** (`logs-koppel3-20261013-1335`: 89 regels, FOUT 8, ATTACH 392,
+kinderen 393, lus 0,011 s / 0,4 ms / 2 tegelijk).
+
+### 8.1 Arm 1 — de argumenten `-n -f1360x768` (`logs-argumenten-20261013-1347`)
+**De variabele kwam aantoonbaar aan:** het laderlogboek zegt `argc 3` in de regel `spring naar e_entry`
+(en `argv[0]=…/view/game`). Dat is nagelezen, niet aangenomen.
+
+| maat | meting 3 | met argumenten |
+|---|---|---|
+| bestandsregels | 89 | **89** |
+| FOUT-regels | 8 | **8** |
+| ATTACH ok · kinderen | 392 · 393 | 390 · 391 |
+
+Niets nieuw, niets verdwenen; de lus identiek (391 kinderen, 4,137 s, 94,5/s, 0,010/0,011/0,011 s, 0,4 ms,
+gelijktijdigheid 2). **Dus: de argumenten veranderen deze fase niet.**
+**Grens, en die is belangrijk:** mijn sandbox heeft **geen display**, dus `-f1360x768` (volledig scherm) kan
+niet worden ingewilligd. De juiste lezing is **"geen effect zónder display"**, niet "geen effect". Het spel
+haakt er ook **niet** vroegtijdig van af. Voor het beeld zelf is een **displayslot** nodig, met
+`rg-tv-env.sh` (dat met 1 eindigt in plaats van stil headless te gaan).
+
+### 8.2 Arm 2 — de bibliotheekvolgorde (`logs-bibvolgorde-20261013-1348`)
+`LD_LIBRARY_PATH="$lib32:$ElfLdr2/libs"`, zodat `libGLU.so.1` en `libtheora.so.0` — die in **beide** mappen
+staan — uit **lib32** komen. Dat is de configuratie die het spelprofiel van het project zelf declareert.
+
+**Kwam de variabele aan? Ja, en het bewijs is een VINGERAFDRUK, niet een pad.** De regel
+`geladen: libGLU.so.1` bevat **geen pad** (het `bibliotheken (13)`-blok met paden verschijnt alleen in
+`--ontleed-alleen`, niet in een echte run). Maar het gedrag van de lader verschilt precies zoals een andere
+herkomst voorspelt:
+```
+meting 3 (ElfLdr2 eerst):
+  nog niet geladen (volgende ronde): libGLU.so.1: …/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor
+  nog niet geladen (volgende ronde): libtheora.so.0: …/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit
+  geladen in een latere ronde: libGLU.so.1 (eerste poging: … ElfLdr2 … undefined symbol: floor)
+nieuwe run (lib32 eerst):
+  geladen: libGLU.so.1        <- in de EERSTE ronde, zonder klacht
+  geladen: libtheora.so.0     <- idem
+```
+**Met ElfLdr2 vooraan MISLUKT de eerste laadpoging** van beide (ontbrekende symbolen) en lukt hij pas in een
+latere ronde; **met lib32 vooraan laden ze meteen.** Dat is een echt verschil tussen de twee ordes, en het
+betekent dat de door het project gedeclareerde configuratie **schoner laadt**.
+
+| maat | meting 3 | lib32 eerst |
+|---|---|---|
+| bestandsregels | 89 | **89** |
+| FOUT-regels | 8 | **8** |
+| ATTACH ok · kinderen | 392 · 393 | 380 · 381 |
+
+Niets nieuw, niets verdwenen; de lus identiek (381 kinderen, 4,029 s, 94,6/s, 0,010/0,011/0,011 s, 0,4 ms,
+gelijktijdigheid 2, 1 ptrace per kind). **Dus: de bibliotheken drijven de metronoom niet.**
+
+### 8.3 De vingerafdruk NAGETROKKEN met een GEPRINT PAD (`logs-maps-*-20261013-1351`)
+De vingerafdruk van §8.2 is daarna **bevestigd** met `/proc/<pid>/maps` tijdens de run — hetzelfde middel
+dat de laderbouwer voor de gesloten route noemde, en **op beide ordes toegepast** zodat de twee armen
+identiek beschreven zijn:
+```
+orde ElfLdr2 eerst -> maps: …/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1
+                            …/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0
+orde lib32 eerst   -> maps: …/ravengun/runtime/lib32/libGLU.so.1
+                            …/ravengun/runtime/lib32/libtheora.so.0
+```
+**Dus de variabele van arm 2 kwam definitief aan, en de vingerafdruk-lezing was juist.** Beide runs:
+exit 0, 4 s, **89 regels**. (FOUT is hier **9** in plaats van 8, in **beide** ordes: deze proef laat de
+synthetische `/dev/sierra2` weg — mijn bekende omissie — dus +1 fout. Omdat het in **beide** armen gebeurt,
+blijft de vergelijking tussen de twee ordes schoon.)
+**De conclusie van arm 2 staat daarmee op een geprint pad:** de bibliotheken drijven de metronoom niet.
+
+### 8.4 Wat dat samen betekent voor "wiens lus is het"
+Vier omgevingsveranderingen hebben de metronoom **niet** bewogen: de koppelingen (`/g3`, `/T4User`, de
+relatieve syslog, `sierra2`), de apparaatknopen (`dsp`, `js0`), de **argumenten** en de
+**bibliotheekvolgorde**. Daar staat tegenover dat onze **waarnemers** zijn uitgesloten (proef B: kinderen ook
+zónder enige preload behalve de toestemming, max 2 tegelijk) en dat de `fork`/`ptrace`-aanroepen uit
+**gastcode** komen (de lader **springt** naar `e_entry`).
+**De enige overgebleven kandidaat aan onze kant is dus de OPZET van onze route** — de sandbox, de view, de
+omgeving, of de lader zelf. De **gesloten route** blijft de scheidsrechter, en die draait niet zoals hij is
+ingericht (geen overlay: hij schrijft via symlinks naar de NAS). Zie §7a.
+**AFGELEID blijft AFGELEID:** dat de lus een wacht-/herkansingscadans van de gast is, is niet bewezen; alleen
+dat hij niet van onze bestanden, onze waarnemers, onze argumenten of onze bibliotheken komt.
+
+---
+
+## 9. HET BEELD — de eerste keer dat deze titel tekent (GEMETEN)
+
+Met de schermomgeving van de tv (`scripts/rg-tv-env.sh --check`: **`scherm :0 bereikbaar`**,
+**`HDMI-A-1 connected primary 1920x1080+0+0`**) tekent het spel zijn **attract-/uitlegscherm**:
+
+* **1920x1080, volledig scherm**;
+* bovenin een **rode balk "GAME DESCRIPTION"** in geel;
+* een **gerenderde 3D-scene**: een **zombie** in blauw overhemd met **rode strik** in een **donkere houten
+  hal** met een **verlichte kroonluchter** en een tegelvloer;
+* **links** een patroonband en **drie wapensymbolen** met munitie: geweer, pistool **"40"**, shotgun **"3"**;
+* **linksonder** een **karakterportret** met **"P1"** en **levensvlammen**;
+* **onderin**: **"PRESS START BUTTON"** met **"FREE PLAY"**.
+
+**De demo ANIMEERT:** de tweede opname (controle, zonder argumenten) toont hetzelfde scherm verder in de
+tijd — een **tekstvak** *"The creatures' attacks will deplete your life by one. Lose all of your life and
+you'll be able to go no further."*, de levens teruggebracht naar **twee**, met een **gele markering** om
+"P1" en de vlammen.
+
+**De attributie: het SCHERM geeft het beeld, de ARGUMENTEN doen niets.** Met en zonder
+`-n -f1360x768`: dezelfde 89 regels, dezelfde fouten, hetzelfde scherm, en `argc` 3 respectievelijk 1.
+**De LAT IS NIET GEHAALD:** beide runs eindigen met **exit 0 na ~4 seconden**. Vijf minuten is het doel.
+
+### 9.1 Wie beeindigt de vier seconden? **DE GAST zelf** (GEMETEN)
+* mijn fork-waarnemer schrijft `einde exit-code=N` **alleen** als de gast zelf `exit()`/`exit_group`
+  aanroept; de laatste twee regels zijn dat, voor **zowel het kind als de ouder**: `einde exit-code=0`;
+* de **laatste regel die onze kant schrijft** is `spring naar e_entry 0x8057240 …` — **daarna niets**: geen
+  lader-epiloog, geen opruimregel;
+* de laatste ptrace-regel is een schone `PTRACE_DETACH -> 0`;
+* **geen enkele timeout is afgegaan** (mijn startroute `timeout 45`, de runner `timeout 90`, levensduur 4 s).
+**Dus: het is een `exit(0)` van de gast, en het is GEEN laderwerk.** Dat gaat niet naar de laderbouwer.
+
+### 9.2 De lus en de vier seconden zijn **HETZELFDE verschijnsel** (GEMETEN)
+```
+eerste kind 0.025651 s · laatste kind 4.044253 s · laatste opraap 4.044661 s · EINDE 4.044665 s
+-> tussen het laatste kind en het einde: 0.000 s   ·   380 kinderen x 11 ms = 4,18 s
+```
+De kinderen worden gemaakt **tot op de milliseconde van het einde**, zonder pauze: de lus beslaat de **hele**
+levensduur en houdt **exact** op wanneer de gast zichzelf beeindigt. Daarmee heeft de lus een **betekenis**.
+**AFGELEID blijft:** dat de lus het einde *veroorzaakt*, of dat het einde "de lus die opraakt" is, is met
+tijdmeting niet te scheiden.
+
+### 9.3 CORRECTIE: de "13 nieuwe fouten door het scherm" waren van MIJ, niet van het scherm
+Ik rapporteerde FOUT 8 -> 21 met scherm en schreef dat toe aan het scherm. **Dat is fout.** De 21 regels zijn
+de 8 syslog-, 4 `/g3`-CSV-, 3 nethasp-, 2 PhysX-, 1 `sierra2`-, 1 `js0`-, 1 `dsp`- en 1 `ttyS0`-regel —
+**er zit geen enkele X-, GL- of fontfout bij**. De 13 "extra" zijn precies **de koppelingen die de eerdere
+metingen hadden**: mijn **displayscript is ze kwijtgeraakt** (de `/T4User`-overlay, de
+`syslog_bb3.txt`-kopie en de socat-PTY). Dus:
+* **het scherm kost 0 nieuwe verschillende paden**, en het **beeld werd getekend zonder die koppelingen** —
+  ze zijn voor het beeld niet nodig;
+* de hypothese "een ontbrekend font of GL-entrypunt breekt de attract af" is daarmee **niet weerlegd maar
+  ook niet getest**: zo'n fout bestond in deze run niet. **Eerst mijn displayscript repareren (verwachting:
+  8 fouten, beeld blijft), dan pas is die vraag echt gemeten.**
+* (Mijn eigen uitsplitsing bevatte twee spookpaden, `rb` en `a+b`, uit dezelfde gretige-regex-fout als
+  eerder; die horen er niet in.)
+
+
+
+

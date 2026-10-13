@@ -317,3 +317,102 @@ een keuze voor de eigenaar/laderbouwer, niet iets wat ik stilzwijgend doe.
 de launcher voegt hem samen in `WINEDLLOVERRIDES` (regel 604–605), en `patches/_defaults/OpenParrot.ini`
 gebruikt hem al (`DllOverrides = d3d9=b`). Zodra de DXVK-DLL's er staan is
 `[Wine] DllOverrides = d3d11=n,b; dxgi=n,b; d3d10core=n,b` dus genoeg, zonder nieuw mechanisme.
+
+---
+
+## 14. DE LAT IS GEHAALD — 363 s attract (2026-10-13, 13:48:21–13:54:34)
+
+**Configuratie:** de repo-launcher, de lader van vandaag (`1953d91a…`), de kern `f5c7532d…`, **lokale
+content** (via de 13 GB-kopie), gamescope op de tv, en `[Launch] Arguments = -UNATTENDED`. Er liep
+**niets anders** naast (voor- en nacontrole leeg).
+
+| | |
+|---|---|
+| UE4-logboek | **45.336 B, 584 regels** |
+| eerste regel | `Log file open, 10/13/26 13:48:21` |
+| `PL_InitializeTest` geladen | 13:48:23 |
+| **`PL_Advertise` geladen (LoadMap klaar)** | **13:48:31** |
+| laatste logregel | **13:54:34** (`LogAppData: Ranking[0][0][2]`, de attractieboekhouding) |
+| **ATTRACT-VENSTER** | **363 s** (6 min 3 s) — **de lat van 300 s is GEHAALD** |
+| **`Error:`-regels** | **0** |
+| RHI / MatchState / LoadMap | 13 / 10 / 2 |
+| spelproces geleefd | 408 s, daarna door **mijn eigen limiet** (420 s) gestopt |
+| crashmappen | geen nieuwe |
+
+**Eerlijkheid over de grens:** het spel is door **mijn** limiet gestopt, dus de meting is "**minstens**
+363 s attract", niet "precies 363 s". Er is geen enkele foutregel en geen crash.
+
+### De hele reeks van vandaag, met beeld
+
+| # | tijd | uitkomst | attract-venster | `Error:` | lader |
+|---|---|---|---|---|---|
+| 1 | 12:55 | mislukt (`PL_InitializeTest`) | 0 s | 8 | 10-11 |
+| 2 | 13:02 | **attract** | 96 s (mijn limiet 150 s) | 0 | vandaag |
+| 3 | 13:06 | mislukt | 0 s | 8 | vandaag |
+| 4 | 13:13 | mislukt | 0 s | 8 | 10-11 |
+| 5 | 13:23 | mislukt | 0 s | 8 | vandaag |
+| 6 | 13:42 | **attract** (+wined3d-diagnose) | 96 s (mijn limiet 140 s) | 0 | vandaag |
+| 7 | 13:44 | **attract** (`-UNATTENDED`) | 94 s (mijn limiet 150 s) | 0 | vandaag |
+| 8 | **13:48** | **attract — DE LAT** | **363 s** | **0** | vandaag |
+
+**Vier van de acht runs halen attract, vier niet** — de intermittentie is dus ongeveer fifty-fifty, en
+**elke geslaagde run werd eerder door mijn eigen limiet afgekapt**: de vensters van 94–96 s waren mijn
+plafond, niet dat van het spel. Met 420 s ruimte bleek het spel minstens zes minuten door te lopen.
+
+**Wat dat betekent:** het spel **draait**, en de faalmodus is de `wined3d_cs`-hang in het OpenGL-pad
+(§13) die ongeveer de helft van de keren toeslaat. De lat is gehaald; de **betrouwbaarheid** is de
+volgende vraag, en daar is de DXVK-route (§13b) de aangewezen hefboom.
+
+### Wat deze reeks NIET heeft opgeleverd
+
+* **De hangende GL-aanroep is niet benoemd.** De `+wined3d,+d3d_shader`-run **haalde attract** (run 6),
+  dus er was geen hang om te vangen; de trace van 65 MB loopt vol met gewone shader-constanten- en
+  programmawerk en **niet** met een compilatie die blijft hangen. Mijn voorspelling vooraf
+  (shadercompilatie) is dus **niet bevestigd en niet weerlegd** — de run reproduceerde de hang niet. De
+  tracegrootte per 5 s groeide van 0 naar 22 MB in de eerste 30 s, dan traag (30–90 s), dan weer snel
+  (95–125 s): dat is de engine-init, een lichte tussenfase en het laden van de attractiemap.
+* **De `-UNATTENDED`-crashstaart is niet gemeten.** Run 7 (met `-UNATTENDED`) crashte **niet**, dus er
+  was geen staart om te meten. De belofte "59 s → bijna niets" staat dus nog **open**; er is een
+  mislukte run met `-UNATTENDED` nodig om hem te toetsen.
+
+---
+
+## 15. Afsluiting: wat er staat, wat open is, en één les over instrumenten
+
+**Stand: de lat is gehaald (minstens 363 s attract, nul foutregels, §14).** Wat overblijft is
+**betrouwbaarheid**: van de acht runs met beeld haalden er **vier** attract en vielen er **vier** om in
+dezelfde fout. Dat is geen spelprobleem en geen laderprobleem — het is het OpenGL-pad van Wine (§13).
+
+### Open punten, expliciet als OPEN en niet als afgesloten
+
+| # | Open punt | Wat het nodig heeft |
+|---|---|---|
+| 1 | **Betrouwbaarheid 4/8** — de `wined3d_cs`-hang in `opengl32.dll` | **DXVK** in plaats van wined3d: dat is een **omgevingswijziging** (DXVK staat hier niet geïnstalleerd) en het besluit daarover ligt bij de laderbouwer. §13b staat klaar: `[Wine] DllOverrides` is de bestaande sleutel, en zodra de DLL's er zijn is het één regel per-game data |
+| 2 | **De hangende GL-aanroep is niet benoemd** | een **mislukte** run met `WINEDEBUG=+wined3d,+d3d_shader`; de diagnose-run van 13:42 **haalde attract**, dus er was geen hang om te vangen. Mijn voorspelling vooraf (shadercompilatie) is daarmee **onweersproken noch bevestigd** |
+| 3 | **De `-UNATTENDED`-crashstaart is niet gemeten** | een **mislukte** run met `-UNATTENDED` aan. De belofte "59 s → bijna niets" is nog **open**; de run die de vlag had (13:44) crashte niet. **Niet laten vallen** |
+| 4 | De platformcontrole is niet tot één oorzaak te herleiden (injectie én kern) | een instrument in de kern |
+| 5 | De mountletters (`X:`, `Y:`, `D:`) leveren wij niet | uitzoeken welke letters de daemon opzoekt |
+| 6 | Geen rij in `patches/STARTTEST.md` | kan nu wél: de launcher plant twee starts |
+| 7 | `DebugWithoutAMDaemon` staat op `false` | niet getest |
+
+### Eén les over instrumenten, en hij is van deze laag
+
+De attractievensters van de eerste geslaagde runs waren **94, 96, 96 en 94 seconden** — en dat leek een
+eigenschap van het spel. Het was **mijn eigen limiet**: elke geslaagde run werd door mijn `timeout`
+afgekapt (140–150 s), en omdat de attractiemap ~25 s na de start laadt, kwam er steeds ~95 s uit. Met
+**420 s** ruimte bleek dezelfde opstelling **363 s** te lopen. Ik heb dus een tijd lang **mijn eigen
+plafond als een eigenschap van het spel gelezen**.
+
+Dat is dezelfde soort fout als eerder vandaag: een instrument dat zich als een feit over zijn onderwerp
+voordoet (de verkeerde `wineserver -k` zonder prefix; de bestands-mtime die ik als `-UNATTENDED` las
+terwijl het mijn eigen `setpref` was). De conclusie die je hieruit moet houden: **een venster dat steeds
+ongeveer even groot is, is verdacht — het is meestal de rand van je meetopstelling, niet de rand van het
+gedrag.**
+
+### Status van dit dossier
+
+* **Gehaald:** de lat (minstens 363 s attract, 0 foutregels), de volledigheid van de bestanden, de
+  platformlaag-doorgrond, de twee-exe-start, en de identificatie van de faalmodus (`wined3d_cs`).
+* **Open:** betrouwbaarheid (4/8) en de drie metingen die een **mislukte** run nodig hebben (punten 2 en
+  3 hierboven).
+* **Wacht op een besluit, geen actie van mij:** DXVK. Geen omgevingswijzigingen tot dat besluit er is.

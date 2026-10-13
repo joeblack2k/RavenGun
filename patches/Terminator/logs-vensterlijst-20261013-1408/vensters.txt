@@ -1,0 +1,66 @@
+--- ronde 1 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 
+--- ronde 2 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 
+--- ronde 3 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 
+--- ronde 4 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 
+--- ronde 5 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 
+--- ronde 6 ---
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+steam
+steamwebhelper
+xsettingsd
+actief: 

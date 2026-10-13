@@ -3,6 +3,27 @@
 *RavenGun, 2026-10-13, de loader-sessie. Alles hieronder is GELEZEN uit de code van `game` (Game Rev 57529) met `objdump`;
 er is niets gestart. Achter elke bewering staat het adres van de code waar het staat. Wat niet gelezen is, staat onderaan.*
 
+## 0. CORRECTIE (13:55, na de eerste run en een tweede lezing): deze laag is voor ONS kasttype waarschijnlijk niet de bron
+
+Wat hieronder staat klopt als lezing, maar de conclusie "schrijf het paar en de knoppen in deze laag" is te vroeg getrokken.
+
+- **Het richtpunt op `0x1f392a0` is een UITVOER van het spel zelf.** De bijwerklus per speler (rond `0x dd58b5`) roept
+  `0xdd8350(speler, ..)` aan; levert die niets, dan zet het spel `byte [0x1aa37c0 + speler] = 1` (`0xdd5928`) en schrijft via
+  `0xddf850 -> 0xdd5cb0` het paar op **-1,-1**; levert die wel iets, dan `= 0` (`0xdd59c2`) en het berekende punt. Wie het paar
+  schrijft terwijl die lus loopt, wordt elke ronde overschreven. De poortbyte wordt bij het opstarten op 0 gezet (`memset` op
+  `0xdd525f`); 0 laat de lezer door.
+- **Die lus loopt alleen bij geweertype 7 tot 11** (`[0x1e94740]`, controle op `0xdd58a7`), en `0xdd8350` rekent het punt uit
+  een lijst beeldpunten per speler (`[0x1f392c0 + 4*speler]` = aantal, `[0x1e94760 + 8*speler]` = wijzer naar records van
+  `0x48`). Dit is dus de laag van een geweer met een CAMERA.
+- **In onze runs staat het type niet en is het aantal spelers 0** (gemeten door de Halo-werker). Dan loopt de bijwerklus niet en
+  loopt de lezer op `0x624120` nul keer: precies "de waarden blijven staan en er verandert niets op het scherm".
+- **Afleiding, niet gelezen:** ons kasttype (4) is de variant met VASTE geweren (het kalibratiescherm zegt "pull gun all the way
+  back and towards the left"; de binary heeft `mountedGun%iCalibration`), en die krijgt zijn richtpunt langs een andere weg.
+
+**Eerst te lezen, voor er weer een run met `zet`-regels op deze laag komt:** welke code het richtpunt levert bij kasttype 4.
+De kandidaat-tabel in `rt-invoer.kandidaat.ini` richt zich op de cameralaag en is daarmee voor dit kasttype waarschijnlijk de
+verkeerde plek. De drie regelsoorten in de hulp blijven bruikbaar; de adressen moeten opnieuw.
+
 ## 1. De schakelaartafel is niet waar de geweren zitten
 
 De getter op `0x61e890` is een algemene invoerlaag. Hij geeft voor een nummer een knopbeschrijving terug:

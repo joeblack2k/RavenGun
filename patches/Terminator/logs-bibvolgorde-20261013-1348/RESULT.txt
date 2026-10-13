@@ -1,0 +1,12 @@
+arm            : bibliotheekvolgorde (lib32 VOOR ElfLdr2/libs voor libGLU + libtheora)
+datum          : 2026-10-13T13:48:57+02:00
+exitcode       : 0
+levensduur     : 4 s
+LD_LIBRARY_PATH: /home/deck/.local/share/ravengun/runtime/lib32:/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+gast sha256    : 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+kern sha256    : f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+grens          : NAS onaangeroerd (overlay-upper in /tmp); alleen eigen PIDs opgeruimd
+regels         : 89
+FOUT           : 8
+ATTACH ok      : 380

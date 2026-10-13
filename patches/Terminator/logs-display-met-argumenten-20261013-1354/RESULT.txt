@@ -1,0 +1,10 @@
+run            : met-argumenten (argumenten: -n -f1360x768)
+datum          : 2026-10-13T13:54:08+02:00
+exitcode       : 0
+levensduur     : 4 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+regels         : 89
+FOUT           : 21
+ATTACH ok      : 379
+-- opnamen --
+shot-1.png 1935975
