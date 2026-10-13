@@ -1,0 +1,10 @@
+run            : hasp-meting.sh
+datum          : 2026-10-13T18:18:52+02:00
+droogloop      : nee
+exitcode       : 0
+levensduur     : 4 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+gast sha256    : 798dec07a71c5c37703242edab6dce6d5a7e018b8720a85986842e3ef99b206a
+yama scope     : 1
+aanroep-regels : 0
+ATTACH ok      : 386
