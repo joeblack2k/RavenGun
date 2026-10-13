@@ -142,6 +142,55 @@ fi
 } > "$UIT/opzet.txt"
 cat "$UIT/opzet.txt"
 
+# ---------------------------------------------------------------- 3b. DROP-IN (docs/dropins.md)
+# Een game-specifieke patch hoort in patches/<Game>/dropin/ met een dropin.ini, NIET in de lader.
+# De launcher zet die bestanden in de view en zet de Env-sleutels in de omgeving van de game.
+# Zonder controle dat de drop-in echt geladen is, is een meting niets waard.
+DROPIN_DIR="${RG_B0_DROPIN:-$HOME/projects/ravengun/patches/LuigisMansion/dropin}"
+PLAN_JSON="$UIT/plan.json"
+python3 "$REPO/scripts/launch-direct.py" LuigisMansion --plan --json > "$PLAN_JSON" 2>"$UIT/plan.err" || true
+DROPIN_AANTAL=$(python3 - "$PLAN_JSON" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print(-1); raise SystemExit
+print(len(((d.get("dropins") or {}).get("files") or [])))
+PY
+)
+zeg "drop-in: map $DROPIN_DIR -- het plan noemt $DROPIN_AANTAL bestand(en)"
+if [[ -d "$DROPIN_DIR" ]]; then
+  [[ -f "$DROPIN_DIR/dropin.ini" ]] || fout "drop-in-map zonder dropin.ini: elk bestand heeft een eigen sectie nodig"
+  if [[ "$DROPIN_AANTAL" == "0" || "$DROPIN_AANTAL" == "-1" ]]; then
+    fout "je gaf een drop-in op maar het plan kent er 0: dan wordt er niets gekopieerd."
+    fout "Controleer de sectienamen in dropin.ini (de sectienaam is de BESTANDSNAAM, met pad)."
+    exit 1
+  fi
+  python3 - "$PLAN_JSON" <<'PY' | sed 's/^/  /'
+import json, sys
+d = json.load(open(sys.argv[1]))
+dp = d.get("dropins") or {}
+for f in (dp.get("files") or []):
+    print("drop-in bestand: %s -> %s" % (f.get("src"), f.get("dest")))
+for k, v in (dp.get("env") or {}).items():
+    print("drop-in env   : %s=%s" % (k, v))
+PY
+  # de basenamen voor de maps-controle in het proces
+  DROPIN_MAPS=$(python3 - "$PLAN_JSON" <<'PY'
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+namen = [os.path.basename(f.get("dest", "")) for f in ((d.get("dropins") or {}).get("files") or [])]
+print(":".join([n for n in namen if n]))
+PY
+)
+  export RG_B0_DROPIN_MAPS="$DROPIN_MAPS"
+  zeg "drop-in in het proces verwacht: ${DROPIN_MAPS:-<geen namen>}"
+else
+  [[ "${RG_B0_DROPIN:-}" != "" ]] && { fout "opgegeven drop-in-map bestaat niet: $DROPIN_DIR"; exit 1; }
+  zeg "geen drop-in voor deze game (map bestaat niet) -- dat is de huidige stand"
+  export RG_B0_DROPIN_MAPS=""
+fi
+
 # ---------------------------------------------------------------- 4. de run + de bemonstering
 zeg "run starten en bemonsteren, elke 30 s game-tijd"
 set -m
@@ -151,7 +200,7 @@ set -m
 PGID=$!
 set +m
 
-echo "$SUDOPW" | sudo -S python3 "$HIER/b0-vijfmin-sampler.py" "$UIT" "vijfmin" "$STOP" "$HARD" 2>&1 | sed 's/^/  /'
+echo "$SUDOPW" | sudo -S env RG_B0_DROPIN_MAPS="${RG_B0_DROPIN_MAPS:-}" python3 "$HIER/b0-vijfmin-sampler.py" "$UIT" "vijfmin" "$STOP" "$HARD" 2>&1 | sed 's/^/  /'
 
 kill -9 -"$PGID" 2>/dev/null; wait "$PGID" 2>/dev/null
 RC=$?
@@ -180,6 +229,33 @@ zeg "oordeel"
   echo
   echo "--- NAS-verschil over het venster ---"
   if [ -s "$UIT/nas-verschil.txt" ]; then cat "$UIT/nas-verschil.txt"; else echo "  geen verschil in de bekende schrijfdoelen"; fi
+  echo
+  echo "--- DROP-IN ---"
+  if [[ "${RG_B0_DROPIN_MAPS:-}" == "" && ! -d "$DROPIN_DIR" ]]; then
+    echo "  geen drop-in opgegeven voor deze run"
+  else
+    echo "  drop-in in het proces verwacht: ${RG_B0_DROPIN_MAPS:-<geen>}"
+    echo "  regels uit het log van launch-direct:"
+    grep -ai 'drop-in\|dropin' "$UIT/run.log" | head -10 | sed 's/^/    /'
+    echo "  controles:"
+    python3 - "$PLAN_JSON" <<'PY' | sed 's/^/    /'
+import hashlib, json, os, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception as e:
+    print("plan niet leesbaar: %s" % e); raise SystemExit
+for f in ((d.get("dropins") or {}).get("files") or []):
+    src, dest = f.get("src"), f.get("dest")
+    if not (src and dest):
+        continue
+    if not os.path.exists(dest):
+        print("ONTBREEKT in de view: %s" % dest); continue
+    hs = hashlib.sha256(open(src, "rb").read()).hexdigest()
+    hd = hashlib.sha256(open(dest, "rb").read()).hexdigest()
+    print("%s  %s  bron==doel: %s" % ("OK " if hs == hd else "WIJKT AF", os.path.basename(dest), hs == hd))
+PY
+    echo "  (de maps-controle per monster staat in vijfmin-vijfmin.txt als 'drop-in in proces')"
+  fi
   echo
   echo "--- SUCCESCRITERIA ---"
   LAATSTE=$(grep -a '^t=' "$UIT/vijfmin-vijfmin.txt" 2>/dev/null | tail -1)

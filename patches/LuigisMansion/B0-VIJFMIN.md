@@ -73,6 +73,49 @@ volgt: `journalctl --user -u <unit> -f`. Uitvoer staat in `/tmp/b0-vijfmin-<datu
 | 5 | **het spel leest zijn eigen databestanden** | gesloten kern: 393-762 eigen paden |
 | 6 | **geen onverwachte schrijfactie naar de NAS** | de view is een symlink naar de NAS; onze kern schreef daar op 10:54 `teknoparrot.ini` |
 
+## Met een per-game drop-in erbij
+
+De afspraak in dit project: een game-specifieke patch staat in `patches/<Game>/dropin/` met een
+`dropin.ini`, **niet** in de lader (die blijft schoon). De launcher zet die bestanden in de view en
+zet de `Env`-sleutels in de omgeving van de game. Voor Luigi bestaat die map nog **niet** -- de route
+is dus open, en er is niets dat hem onmogelijk maakt.
+
+Zo draai je de proef met een drop-in:
+
+```bash
+RG_B0_DROPIN=$HOME/projects/ravengun/patches/LuigisMansion/dropin bash b0-vijfmin.sh
+```
+
+Sleutels per sectie in `dropin.ini` (zie `docs/dropins.md` en `patches/_template/dropin/dropin.ini`):
+`To` (doelmap, `.` = de map van de exe), `DllOverride` (`native` -> `<naam>=n`), `Env`
+(puntkomma-gescheiden), `Preload` (moet in het proces geladen worden), `Audit` (`false` = niet in
+`LD_AUDIT` van de Wine-start). **Elk bestand heeft een eigen sectie nodig**, en de sectienaam is de
+bestandsnaam met het pad erin -- een bestand zonder sectie wordt niet gekopieerd. Dat is de fout die
+het vaakst misgaat.
+
+**De proef controleert de drop-in op drie manieren, en zonder die controle is de meting niets waard:**
+
+1. **Vooraf, uit het plan**: `launch-direct.py --plan --json` moet de bestanden noemen. Geeft het plan
+   0 bestanden terwijl jij een drop-in opgaf, dan **weigert de proef te starten** -- dan wordt er
+   niets gekopieerd en zou je een lege meting doen.
+2. **Na de run, in de view**: elk doelbestand bestaat en zijn sha256 is gelijk aan de bron.
+3. **Tijdens de run, in het PROCES**: elk verwacht bestand moet in `/proc/<pid>/maps` van het
+   spelproces staan. Dat is het verschil tussen "het staat in de view" en "het is geladen" -- en dat
+   is precies de fout die bij de view-DLL van Rabbids is gemaakt.
+
+De sampler print per monster `drop-in in proces N/M`. **N blijft 0 terwijl M groter is, dan is de
+drop-in niet geladen en is de run ongeldig** -- ongeacht wat het spel verder doet.
+
+## Succescriteria met een drop-in erbij
+
+Bovenop de zes criteria hierboven komt:
+
+| # | criterium | waar het vandaan komt |
+|---|---|---|
+| 7 | het plan noemt de drop-in-bestanden (anders start de proef niet) | `launch-direct.py --plan --json` |
+| 8 | elk doelbestand staat in de view met dezelfde sha256 als de bron | na de run |
+| 9 | elk verwacht drop-in-bestand staat in `/proc/<pid>/maps` van het spelproces | per monster: `drop-in in proces N/M` met N == M |
+
 ## Faalwijzen, elk met een eigen betekenis
 
 | wat je ziet | wat het betekent |

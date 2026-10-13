@@ -24,6 +24,9 @@ BLOK = 0x10000
 VIEWS = ("/home/deck/.local/share/ravengun/runtime/views/LuigisMansion/Data",
          "/home/deck/.local/share/ravengun/runtime/views/LuigisMansion/DataGlobal")
 CADANS = 30.0
+# Namen (basenamen) van drop-in-bestanden die in het PROCES van de game moeten zitten.
+# Dat is het bewijs dat een drop-in echt geladen is en niet alleen in de view staat.
+DROPIN = [x for x in os.environ.get("RG_B0_DROPIN_MAPS", "").split(":") if x]
 # De entry-point-trampoline van de lader zet de originele 20 entry-point-bytes terug. Daarom
 # vergelijken we 20 bytes met het BESTAND: dat is het harde bewijs dat de trampoline is afgelopen,
 # niet alleen dat de eerste twee bytes toevallig op eb 08 lijken.
@@ -44,6 +47,17 @@ def spelpid():
         except OSError:
             pass
     return None
+
+
+def dropin_in_proces(pid):
+    """Hoeveel van de verwachte drop-in-bestanden staan in de maps van dit proces?"""
+    if not DROPIN:
+        return 0
+    try:
+        maps = open("/proc/%d/maps" % pid).read()
+    except OSError:
+        return 0
+    return sum(1 for n in DROPIN if n and n in maps)
 
 
 def threads(pid):
@@ -120,8 +134,9 @@ def main():
                     nfd, paden = eigen_fds(pid)
                     gezien_paden |= paden
                     regels.append("t=%6.1f  leeft ja  threads %2d  entry %-34s  .text %5.1f%% nul  "
-                                  "eigen bestanden open %2d (totaal gezien %d)"
-                                  % (gt, threads(pid), ep_txt, pct, nfd, len(gezien_paden)))
+                                  "eigen bestanden open %2d  drop-in in proces %d/%d"
+                                  % (gt, threads(pid), ep_txt, pct, nfd,
+                                     dropin_in_proces(pid), len(DROPIN)))
                 except OSError as e:
                     regels.append("t=%6.1f  kon niet lezen: %s" % (gt, e))
                 volgende += CADANS
