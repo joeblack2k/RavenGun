@@ -253,6 +253,41 @@ class Schijfletters(Basis):
         self.assertEqual(rc, 0, self.uitvoer.getvalue())
         self.assertFalse(os.path.lexists(self.x))
 
+    def test_een_letter_die_wine_bij_zijn_start_weghaalt_wordt_opnieuw_gelegd(self):
+        """Gemeten op de gedeelde prefix: een koppeling die er voor de wineserver stond was daarna weg. De launcher
+        kijkt daarom na de eerste Wine-start (de JVS-brug) opnieuw en legt hem terug voordat het spel start."""
+        gezien = {}
+
+        def gedrag(argv):
+            if "OpenParrotLoader" not in " ".join(argv):
+                if os.path.islink(self.x):
+                    os.unlink(self.x)                        # "Wine" haalt hem weg terwijl de brug start
+            else:
+                gezien["spel"] = os.readlink(self.x) if os.path.islink(self.x) else None
+            return None
+        nep.NepProces.gedrag = gedrag
+        rc, spel, _ = self.start(*OVERRIDE)
+        self.assertEqual(rc, 0, self.uitvoer.getvalue())
+        self.assertEqual(gezien.get("spel"), self.view, "bij het starten van het spel stond X: er niet")
+        self.assertIn("was na de eerste Wine-start verdwenen uit de prefix; opnieuw gelegd", self.uitvoer.getvalue())
+        self.assertFalse(os.path.lexists(self.x), "X: is na de run blijven staan")
+
+    def test_een_letter_die_bij_de_start_ergens_anders_heen_wijst_stopt_de_run(self):
+        elders = os.path.join(TMP, "elders")
+        os.makedirs(elders)
+
+        def gedrag(argv):
+            if "OpenParrotLoader" not in " ".join(argv) and os.path.islink(self.x):
+                os.unlink(self.x)
+                os.symlink(elders, self.x)                   # iets heeft X: omgelegd terwijl de brug startte
+            return None
+        nep.NepProces.gedrag = gedrag
+        rc, spel, nieuw = self.start(*OVERRIDE)
+        self.assertEqual(rc, ld.EXIT_PATCH, self.uitvoer.getvalue())
+        self.assertIsNone(spel, "het spel is gestart terwijl X: verkeerd stond")
+        self.assertIn("wijst vlak voor de start naar", self.uitvoer.getvalue())
+        self.assertEqual(os.readlink(self.x), elders)        # niet van ons: laten staan
+
     def test_wat_niet_van_ons_is_ruimen_we_niet_op(self):
         elders = os.path.join(TMP, "elders")
         os.makedirs(elders)

@@ -1485,6 +1485,35 @@ def drives_aan(plan, logf=None):
     return ""
 
 
+def drives_controleer(plan, logf=None):
+    """Staan de schijfletters van deze run er NU (nog), vlak voor het spel start? Geeft '' of een foutmelding.
+
+    Wine kan een koppeling in dosdevices weghalen als zijn server daarna pas start: dat is op de gedeelde prefix gemeten
+    (een koppeling die voor het starten van de wineserver was gelegd, was daarna weg), terwijl hij in een testprefix
+    bleef staan. Welke omstandigheid het verschil maakt is niet vastgesteld. Daarom: na de eerste Wine-start (de
+    JVS-brug) kijken, een verdwenen koppeling opnieuw leggen -- de server draait dan -- en het spel NIET starten als de
+    letter er daarna nog niet goed staat. Anders start de lader een pad dat niet bestaat, en dat ziet niemand."""
+    staat = _drives_state()
+    onze = dict(staat.get(plan["prefix"]) or {})
+    for d in plan.get("drives") or []:
+        link = d["link"]
+        goed = os.path.islink(link) and os.path.realpath(link) == os.path.realpath(d["target"])
+        if not goed and not os.path.lexists(link):
+            try:
+                os.symlink(d["target"], link)
+            except OSError as e:
+                return "schijf %s: de koppeling is verdwenen en opnieuw leggen lukt niet (%s)" % (d["letter"], e)
+            onze[link] = d["target"]
+            staat[plan["prefix"]] = onze
+            _drives_state_schrijf(staat)
+            if logf:
+                logf("LET OP: schijfletter %s: was na de eerste Wine-start verdwenen uit de prefix; opnieuw gelegd" % d["letter"])
+            goed = os.path.islink(link) and os.path.realpath(link) == os.path.realpath(d["target"])
+        if not goed:
+            return "schijf %s: wijst vlak voor de start naar %s in plaats van %s" % (d["letter"], os.path.realpath(link), d["target"])
+    return ""
+
+
 STARTSCRIPTS = ("game.bat", "Start.bat", "utils/run_game.sh", "pm/utils/run_game.sh")   # waar een spel zijn eigen start bewaart
 
 
@@ -2325,6 +2354,15 @@ def _run(plan):
     threading.Thread(target=helper_log, daemon=True).start()
     if not ready.wait(20):
         log("pipehelper meldde zich niet binnen 20 s; toch verder")
+    # De schijfletters van deze run: staan ze er nog nu de eerste Wine-start achter de rug is?
+    if plan.get("drives"):
+        fout = drives_controleer(plan, log)
+        if fout:
+            log("FOUT: %s -- de game wordt niet gestart" % fout)
+            if helper.poll() is None:
+                helper.terminate()
+            server.close()
+            return EXIT_PATCH
     # 4. De lader (eventueel in gamescope). Een profiel met meer dan een start gaat via run_starts(); een gewone game
     # (een exe) neemt het pad hieronder, ongewijzigd.
     if len(plan.get("starts") or []) > 1:
