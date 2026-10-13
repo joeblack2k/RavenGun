@@ -297,6 +297,53 @@ terugkeert en de lader de hoofdthread kan hervatten. Dat is aan de heeftphook-sp
 "nog allemaal nul: op dit moment niet ontpakt". Ze staan op de lijst voor de volgende run, waarin het
 wachten op een eigen thread staat en `.text` dus wel gevuld wordt.
 
+## BESLECHTING van de discrepantie 2026-10-13: mijn lezing was niet kort, de twee instrumenten zijn het oneens
+
+De verdenking was dat mijn `.text`-lezing kort terugkwam en dus "100 % nul over een klein stuk" printte.
+**Die verdenking is weerlegd:** de telling staat nu in de uitvoer en is op ELK monster
+`3496500 van 3496500 B gelezen`. Mijn lezing leest de hele sectie.
+
+Maar daarmee is het meningsverschil niet weg, het is scherper:
+
+| moment | mijn lezing via `/proc/<pid>/mem` | het logboek van de hook, in hetzelfde proces |
+|---|---|---|
+| t=0,2-5,5 | `.text` 100,0 % nul, volledig gelezen; **alle 17 adressen `00 00 00 00 00`** | `wachtroute: de pagina's zijn uitgepakt na 2421 ms` (~t=3,5 s), en **echte prologues gelezen**: `40 53 48 83`, `48 83 ec 28`, `40 53 48 81`, `48 83 ec 38` |
+
+Beide instrumenten keken naar dezelfde adressen (RVA 0x2b3b70 enz., dus VA 0x1402b3b70) in hetzelfde
+proces, op hetzelfde moment, en ze zijn het oneens. Mijn lezer is aantoonbaar levend: op hetzelfde pid
+zag ik het entry point wel veranderen (`EB FE` op 1,0 s, TRAMPOLINE op 2,5 s), dus ik lees het juiste
+proces. De hook leest echte code.
+
+**Wat elk instrument wel en niet kan:**
+
+| | mijn sampler (`/proc/<pid>/mem`) | het logboek van de hook (in-process) |
+|---|---|---|
+| kan | de hele sectie in een keer lezen, met byte-telling, zonder het spel aan te raken; entry point, threads, open bestanden | de bytes lezen zoals het spel ze zelf ziet, op het moment dat hij ze nodig heeft |
+| kan niet | zeggen WELKE mapping of welk adres het spel zelf gebruikt; als de pakker naar een andere mapping schrijft dan de nominale VA, ziet mijn lezing nullen waar het spel code ziet | geen onafhankelijke controle: hij leest met zijn eigen adresberekening (`beeld=pe, proloog=standaard, basis=beeld`), dus een fout in die berekening is niet te zien |
+
+**Twee kandidaten, en deze run kan ze niet scheiden:**
+
+1. de pakker schrijft de ontpakte code naar een ANDERE mapping dan `ImageBase + sectie-VA`, en de hook
+   leest die (via zijn eigen adresberekening) terwijl ik op de nominale VA nullen zie. Dat sluit aan op
+   de eerdere verdenking "de pakker legt het elders neer".
+2. de hook leest iets anders dan hij denkt (bijvoorbeeld via een verkeerde basis), en de prologues die
+   hij print komen niet van de adressen die hij noemt.
+
+**Wat dat zou beslechten, en wat ik daarvoor nodig heb:** laat de hook de **pointer** loggen die hij
+werkelijk derefereert bij het lezen van een prologue (niet de RVA, maar het adres dat hij in zijn hand
+heeft), plus de modulebasis die hij gebruikte. Dan is in een run te zien of dat 0x1402b3b70 is of iets
+anders -- en dan weet ik of mijn lezing of zijn berekening de afwijkende is.
+
+**Gevolg voor de conclusie over het spel:** zolang dit niet beslecht is, is "de pakker kwam niet klaar"
+niet te handhaven. Het kan ook zijn dat de pakker wel klaar is en dat mijn lezing naar de verkeerde
+mapping kijkt. De run zelf is verder geldig: drop-in 1/1 in het proces, 16 van 17 aangehaakt, spel weg
+op 6,0 s.
+
+**En over `0x1402b4270`:** die stond in het logboek op `cc cc cc cc` (int3-opvulling) toen de hook hem
+afkeurde, en in mijn lezing op `00 00 00 00 00` op elk monster -- dezelfde tegenstelling. In geen enkel
+monster kreeg dat adres een echte prologue. Dat adres klopt dus niet in deze build en hoort uit de
+adreslijst, ongeacht welke van de twee lezingen juist is.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

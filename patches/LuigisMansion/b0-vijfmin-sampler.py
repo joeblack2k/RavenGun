@@ -162,10 +162,12 @@ def main():
                     if dp_n > max_dropin:
                         max_dropin = dp_n
                     gezien_paden |= paden
-                    regels.append("t=%6.1f  leeft ja  threads %2d  entry %-34s  .text %5.1f%% nul  "
-                                  "eigen bestanden open %2d  drop-in in proces %d/%d"
-                                  % (gt, threads(pid), ep_txt, pct, nfd,
+                    regels.append("t=%6.1f  leeft ja  threads %2d  entry %-34s  .text %5.1f%% nul "
+                                  "(%d van %d B gelezen)  eigen bestanden %2d  drop-in %d/%d"
+                                  % (gt, threads(pid), ep_txt, pct, tot, TEXT_LEN, nfd,
                                      dropin_in_proces(pid), len(DROPIN)))
+                    regels.append("        prologues: " + " ".join(
+                        "%x=%s" % (a & 0xFFFFFF, am_nu[a].hex()) for a in AM_ADRESSEN))
                 except OSError as e:
                     regels.append("t=%6.1f  kon niet lezen: %s" % (gt, e))
                 volgende += cadans(gt)
@@ -179,6 +181,7 @@ def main():
     regels.append("MAX drop-in in proces %d/%d" % (max_dropin, len(DROPIN)))
     regels.append("")
     regels.append("ORIGINELE 5 PROLOGUE-BYTES OP DE 17 AM-ADRESSEN (laatste meting voor het einde):")
+    regels.append("(een 0x1402b4270 die cc cc cc cc blijft, is int3-opvulling: dat adres klopt dan niet in deze build)")
     for a in AM_ADRESSEN:
         b = am_laatst.get(a, b"")
         regels.append("  0x%09x  %s%s" % (a, b.hex(" ") if b else "<niet gelezen>",
