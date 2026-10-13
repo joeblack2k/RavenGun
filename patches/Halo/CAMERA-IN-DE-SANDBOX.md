@@ -13,9 +13,19 @@ ravengund:   fd 7 -> /dev/video0, TOESTAND STREAMING
              325.218 frames, 60,02 fps gemeten, 0 gemist, 0 fout, p50 interval 16,658 ms
 ```
 
-**En de driver laat een tweede opener toe** -- dat is de vraag die de coördinator stelde, en het antwoord
-is gemeten: buiten de sandbox lukte `open("/dev/video0", O_RDWR)` **terwijl ravengund aan het streamen
-was** (en ook `O_RDONLY`). De camera is dus niet bezet door de daemon.
+**OPENEN LUKT, MAAR STREAMEN NIET -- en dat onderscheid is belangrijk.** Buiten de sandbox lukte
+`open("/dev/video0", O_RDWR)` terwijl `ravengund` streamde. Ik schreef daar eerst bij: *"de camera is dus
+niet bezet door de daemon"*. **Dat was te ruim geformuleerd.** De laderbouwer heeft gemeten dat een
+tweede **capture** wel degelijk faalt: `VIDIOC_REQBUFS: Device or resource busy`. Openen is niet
+streamen, en die nuance had ik moeten maken.
+
+**De conclusie die daaruit volgt (en die het plan is):** de **daemon blijft de enige eigenaar** van de
+camera, publiceert **elke tweede frame (30 fps) in gedeeld geheugen**, en een shim **in het spel**
+onderschept de libc-V4L2-aanroepen. Dat past bij Halo omdat het spel `open`, `ioctl`, `read`, `select`,
+`poll`, `close`, `opendir`, `readdir` en `__xstat` uit libc haalt en **geen mmap** gebruikt. Zonder
+camera of zonder daemon levert die shim een **synthetische frame**, zodat het apparaat altijd bestaat.
+En er is een derde rolwaarde in het ontwerp: **`Use = presence`** -- het spel krijgt het **virtuele**
+apparaat met een synthetische voeding en nooit de echte camera.
 
 ## 2. Waarom het spel hem nooit zag (GEMETEN)
 

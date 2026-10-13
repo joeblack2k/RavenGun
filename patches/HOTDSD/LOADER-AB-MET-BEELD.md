@@ -147,3 +147,92 @@ opzet is dat `Content` en `Engine` **niet** als symlink maar als echte kopie in 
 * Er draait **niets** van ons; bij het opruimen zijn alleen de PIDs gestopt die deze runs zelf startten
   (launcher, `wine`-processen in de gedeelde prefix, de eigen gamescope).
 * De ruwe bestanden staan in `~/rg-loaderab/` op de Deck en in `measurements/loaderab*.txt` in deze map.
+
+---
+
+## 9. De vijfde run: volledige lokale content (13:23–13:30)
+
+**De variabele die ik veranderde: de inhoud lag nu volledig lokaal.** In de runs 3 en 4 waren `Content` en
+`Engine` symlinks naar de NAS (de pak van 7,8 GB werd dus via CIFS gelezen); in deze run is de hele
+spelboom een echte kopie: **13 GB, 2.081 bestanden, 0 symlinks**, met de pak lokaal
+(7.847.593.660 B). Verder alles gelijk: dezelfde lader (van vandaag), dezelfde kern (`f5c7532d…`),
+dezelfde gamescope, dezelfde prefix, dezelfde argumenten. *(`-UNATTENDED` zat er **niet** in — zie §10.)*
+
+| | run 5 |
+|---|---|
+| spel geleefd | **404 s** (daemon eveneens 404 s) |
+| **attract-venster** | **0 s** — `PL_Advertise` nooit geladen |
+| UE4-logboek | 14.671 B, 187 regels |
+| RHI-regels | 14 |
+| **`Error:`-regels** | **8** |
+| `MatchState` / `LoadMap` | 4 / 1 → alleen `/Game/HodZero_v1/Maps/System/PL_InitializeTest` |
+| eerste regel | `Log file open, 10/13/26 13:23:51` |
+| laatste regel | het `Fatal error`-blok, dezelfde assert (`RenderingThread.cpp` regel 1015) |
+| crashmappen in de prefix | 5 (één nieuwe) |
+
+**De hypothese is dus weerlegd: ook met alles lokaal faalt de run identiek.** De lat is **niet** gehaald —
+**0 seconden attract**, geen "bijna". Het enige attract-venster van vandaag blijft **94 s** (run 2), en dat
+is door mijn eigen limiet afgekapt.
+
+## 10. Waar de runs precies uit elkaar gaan (het belangrijkste resultaat van deze reeks)
+
+Ik heb het logboek van de **enige geslaagde** run (`loaderab-B1-ue4.log`) naast dat van run 5 gelegd,
+met tijdstempels en frame-nummers gestript. Ze zijn **identiek tot en met**:
+
+```
+LogRenderer: Reallocating scene render targets to support 1920x1080 Format 10 NumSamples 1 (Frame:1).
+LogLoad: (Engine Initialization) Total time: 11.55 seconds
+LogExternalProfiler: No external profilers were discovered.  External profiling features will not be available.
+LogContentStreaming: Texture pool size now 4000 MB
+```
+
+Daarna:
+
+* **de mislukte run** logt **niets meer** — 30 seconden lang, zonder één fout- of waarschuwingsregel —
+  en gaat dan direct het `Fatal error`-blok in. De spelthread staat dus stil op een plek die niets logt;
+* **de geslaagde run** gaat verder met de **eigen app-sequentie van het spel**:
+  `LogAppSequence: [InitializeTest] SetupRecords (Valid?:1)` →
+  `LogAppStrong: [BPC_InitializeTestController] Record_Bookkeeping : Valid / Record_GameSetting : Valid` →
+  `HodzeroLog: UAppBackup::UAppBackup` → `LogAppData: [AppBackup] ConvertBackupData` →
+  `FBookkeepingData::PrintLog` → `FirstPlay:NORMAL : 1` … en pas daarna `PL_Advertise`.
+  Er zijn **138 regels die alleen de geslaagde run heeft**.
+
+**Preciezer dan "de platformlaag":** de mislukte runs sterven **tussen het einde van de Unreal-
+engineinitialisatie en het begin van de eigen `[InitializeTest]`-sequentie** — dus precies vóór het moment
+waarop het spel zijn **back-up- en boekhoudgegevens** inleest. Dat is een veel smaller doel dan de
+platformlaag, en het is de regel om de volgende keer op te richten.
+
+**Een nuttige negatieve uitkomst:** het eigen logboek van de daemon is in **alle vijf** de runs **1.119 B**
+en eindigt altijd op `Process state: Advertise`. De daemon gedraagt zich dus identiek in de geslaagde en de
+mislukte runs; het verschil zit aan de **spel**kant.
+
+## 11. Het `-UNATTENDED`-besluit, toegepast en gecontroleerd
+
+Op besluit van de laderbouwer staat in `patches/HOTDSD/game.ini` nu:
+
+```ini
+[Launch]
+Arguments = -UNATTENDED
+Mode = tpui
+```
+
+Met `--plan` gecontroleerd **GEMETEN**: de **spel**start krijgt `param='-UNATTENDED'` en
+`argv=['-UNATTENDED']`, met `sources=[{'key': '[Launch] Arguments', 'value': '-UNATTENDED'}]`; de
+**daemon**start krijgt **geen** argumenten; en `-UNATTENDED` is uit de lijst "argumenten die wij NIET
+meegeven" verdwenen — die is nu `['-launch=cabinet', '-ABSLOG=…', '-UserDir=…', '-NotInstalled']`.
+`-NotInstalled` is zoals besloten **niet** meegegeven. Ook is de verouderde `[Input] Note` rechtgezet: die
+zei dat de launcher geen twee exe's kan starten, en dat is niet meer waar (hij plant ze als twee starts).
+De nieuwe sha256 van `game.ini` is `e9ab4755cb6302e90a0e3c29daa8b09c89e7053e55aa5e9b4b39e584828af646`.
+
+Let op: dit is een **bewuste wijziging** in de per-game data van dit spel, en geen runvariabele van run 5
+— dat is §9.
+
+## 12. Stand: twee hypotheses weerlegd
+
+| hypothese | status |
+|---|---|
+| de lader is de oorzaak van de "0,8 s" | **weerlegd** — beide laders komen met beeld voorbij `LogInit` (§1–2) |
+| de content via het netwerk veroorzaakt de time-out | **weerlegd** — met alles lokaal dezelfde fout (§9) |
+| het ontbreken van een beeldserver | **bevestigd als oorzaak van de 0,8 s**, maar niet van de time-out: met beeld faalt het nog 4 van 5 keer |
+| de daemon | **niet de oorzaak**: zijn log is in alle vijf de runs byte-gelijk (1.119 B, `Advertise`) |
+| wat overblijft | de stap **tussen engine-init en `[InitializeTest] SetupRecords`** — het inlezen van de back-up/boekhouding, of een race daarin (1 succes op 5) |
