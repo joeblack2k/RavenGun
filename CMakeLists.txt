@@ -166,7 +166,7 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     # Invoerhulp voor de native Raw Thrills-route (Halo): kastschakelaars uit het gedeelde geheugen van de IO-brug (tools/rt-input-shim/).
     add_library(rg_rt_input SHARED tools/rt-input-shim/rg_rt_input.c)
     target_compile_options(rg_rt_input PRIVATE -fno-stack-protector -w)
-    target_link_libraries(rg_rt_input PRIVATE pthread)
+    target_link_libraries(rg_rt_input PRIVATE pthread m ${CMAKE_DL_LIBS})
     set_target_properties(rg_rt_input PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_rt_input" C_VISIBILITY_PRESET default)
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
@@ -267,6 +267,9 @@ if(RAVENGUN_BUILD_TESTS)
     # De launcher zegt zelf welke launcher hij is (pad, sha256, repo of installatie) in --plan en bovenaan elk run-logboek:
     # een oude kopie waarvan niemand weet dat hij draait kost een meting. De genoemde sha256 is die van het bestand dat draaide.
     add_test(NAME ravengun_launcher_identiteit COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_launcher_identiteit.py")
+    # Welke camera een spel krijgt (scripts/camera.py): de rol per game, de keuze uit de instellingen, de gebruikerslaag, en dat
+    # een game.ini niets anders dan /dev/videoN de sandbox in kan vragen. Hermetisch.
+    add_test(NAME ravengun_camera_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_camera.py")
     # Het spel vanaf een ander pad (--exe) en schijfletters voor een run (--drive): alleen het pad naar het spel verandert, de
     # hele hulpketen blijft gelijk; een schijfletter staat er precies zolang de run duurt. Start niets.
     add_test(NAME ravengun_exe_override COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exe_override.py")
@@ -288,6 +291,20 @@ if(RAVENGUN_BUILD_TESTS)
   # run horen -- bovenaan het logboek van play-native.sh (echte doorloop met een nep-bwrap) en van play-halo.sh. Start niets.
   add_test(NAME ravengun_script_identiteit COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/identiteit_test.sh")
   set_tests_properties(ravengun_script_identiteit PROPERTIES SKIP_RETURN_CODE 77)
+  # De invoerhulp van de native route (tools/rt-input-shim): schakelaars, geweerknoppen en assen uit het bordbeeld naar de game,
+  # volgens een tabel per game. Zonder tabel het oude gedrag (byte voor byte vergeleken), de rekenregel van de IO-brug voor de
+  # assen, en een tabel die niet klopt wordt afgekeurd. Geen spel nodig. Skip (77) zonder C-compiler.
+  add_test(NAME ravengun_rt_input COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rt_input_test.sh")
+  set_tests_properties(ravengun_rt_input PROPERTIES SKIP_RETURN_CODE 77)
+  # De invoertabel per game op de native route: play-native.sh geeft patches/<Game>/rt-invoer.ini (gebruikerslaag voor
+  # meegeleverd) alleen-lezen aan de invoerhulp mee en noemt hem met zijn sha256 in het logboek; zonder tabel, of zonder de hulp,
+  # verandert er niets aan het commando. Echte doorloop van het script met een nep-bwrap. Start niets.
+  add_test(NAME ravengun_native_invoertabel COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_invoertabel_test.sh")
+  set_tests_properties(ravengun_native_invoertabel PROPERTIES SKIP_RETURN_CODE 77)
+  # De camera op de native route: alleen een spel dat de camera IN het spel gebruikt ([Camera] Use = game) krijgt hem, met
+  # --dev-bind-try; zonder instelling verandert er niets aan het commando; een instelling die niet klopt stopt de start; het
+  # logboek zegt welke keuze er gemaakt is. Echte doorloop van play-native.sh met een nep-bwrap. Start niets.
+  add_test(NAME ravengun_native_camera COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_camera_test.sh")
   # scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
   add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).

@@ -309,6 +309,63 @@ scripts/launch-direct.py <Profiel> --plan --exe 'x:\exe\x64\spel.exe' --drive X=
 - Wat niet kan (een letter die niet bestaat, een bestand dat er niet is of buiten de view ligt) wordt in het plan geweigerd
   met exitcode 5, voordat er iets start.
 
+**De invoertabel van de native route (`rt-invoer.ini`).** Een native Raw Thrills-spel leest zijn schakelaars, geweerknoppen en
+richtpunt uit zijn eigen bordstructuur, niet uit de invoerapparaten van het systeem. De invoerhulp (`librg_rt_input.so`,
+`tools/rt-input-shim/`) leest het bordbeeld van de daemon en zet de waarden in het geheugen van het spel. WAT waarheen gaat staat
+in een tabel per game, niet in de hulp: `patches/<Game>/rt-invoer.ini`, een regel per ding.
+
+```
+build       getter=0x61e890 signatuur=85ff0f88d0050000              # alleen op deze build iets doen
+tabel       basis=0x180ae80 eerste=0xaea0 per_bord=0x2200 per_schakelaar=0x50
+schakelaar  bit=6 bord=0 k=0 puls=300                              # start speler 1: een puls van 300 ms
+schakelaar  bit=7 bord=0 k=9 puls=0                                # een knop: ingedrukt zolang de bit staat
+bit         bit=7 adres=0x1234560 breedte=4 doelbit=0               # of: een bit in een woord van het spel
+as          bron=12 adres=0x1234570 soort=u8 min=0 max=255 inverteer=nee marge=2
+```
+
+- De bits en de assen zijn die van het bordbeeld (`packaging/tp-shm-profiles.json`): het bitveld op offset 8, de asbytes op 12..19.
+- Een as wordt omgerekend met de regel van de IO-brug (`src/ravengun/iobridge/tp_shm.cpp`): eerst afronden, dan inverteren, dan
+  klemmen tussen `min+marge` en `max-marge` -- behalve als de speler buiten beeld mikt (in het beeld een byte van 0, 1, 254 of
+  255): dan blijft de uiterste waarde staan.
+- `play-native.sh` geeft de tabel vanzelf mee: staat er een `rt-invoer.ini` in de patchmap van het spel en gebruikt de run de
+  hulp, dan gaat hij alleen-lezen de sandbox in (`/rg/tabel/rt-invoer.ini`) en krijgt de hulp het pad (`RG_RT_TABLE`). De
+  gebruikerslaag (`~/.local/share/ravengun/patches/<Game>/rt-invoer.ini`) gaat voor de meegeleverde -- als HEEL bestand, niet per
+  regel zoals bij `game.ini`. Het logboek van de run noemt de tabel met zijn sha256 (`invoertabel: <pad> sha256 ...`). Zonder
+  tabel verandert er niets aan het commando. Een `--env RG_RT_TABLE=<pad>` op de opdrachtregel gaat voor.
+- Buiten `play-native.sh` vindt de hulp de tabel via `RG_RT_TABLE=<pad>`, of als `rt-invoer.ini` naast de bibliotheek.
+- Drie regelsoorten voor een game die zijn geweren in een eigen laag houdt: `zet adres= breedte= waarde=` (een vaste waarde die
+  de hulp vasthoudt, bv. "er is een geweer"), `teller bit= adres= breedte= modulo=` (een knop die de game als overgangsteller
+  leest: een telling die omloopt, bit 0 = ingedrukt) en bij een as `schaal=`, `plus=` en `buiten=` (een kommagetal met een eigen
+  bereik: na de rekenregel maal schaal plus plus; buiten beeld een vaste waarde).
+- Zonder tabel doet de hulp wat hij altijd deed (alleen de kastschakelaars). Een tabel zonder `schakelaar`-regels houdt die
+  ingebouwde schakelaars en voegt toe; met `schakelaar`-regels vervangt hij ze.
+- Een tabel die niet klopt (een onbekend woord, een adres waar niet geschreven kan worden) wordt in zijn geheel afgekeurd, met de
+  reden op stderr, en dan komt er GEEN invoer: liever niets dan schrijven op een verkeerde plek.
+- Het volledige voorbeeld met uitleg: `tools/rt-input-shim/rt-invoer.voorbeeld.ini` (dat is precies de ingebouwde standaard).
+
+**De camera (`[Camera]`).** Een spel krijgt alleen een camera als het hem IN het spel gebruikt. Wil het hem alleen voor de
+inrichting van de kast, dan krijgt het er geen en hoort het zonder te draaien. Dat is een instelling per game, in `game.ini` (de
+gebruikerslaag gaat per sleutel voor):
+
+```ini
+[Camera]
+Use = game      ; game = gebruikt de camera tijdens het spelen: doorgegeven | setup = alleen voor de inrichting: niet | none (standaard)
+Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN = precies die | none
+```
+
+- Zonder `[Camera]` krijgt een spel geen camera en verandert er niets aan hoe het gestart wordt.
+- WELKE camera `auto` is, kiest de gebruiker in de app (Settings, Display, "Camera for games"): automatisch (de eerste camera
+  van de machine), een bepaalde camera, of geen. "Geen" daar wint ook van een spel dat erom vraagt. Het staat in
+  `~/.config/ravengun/ravengun-app.conf` als `[Games] camera = auto | none | /dev/videoN`.
+- Op de native route bindt `play-native.sh` de camera in de sandbox met `--dev-bind-try` (zoals `/dev/dri`). Een gewone `--bind`
+  werkt niet: de toegang van de gebruiker komt van een ACL op het apparaat en die overleeft de koppeling niet (gemeten:
+  `open()` geeft `Permission denied`). `-try`: een machine zonder die camera geeft geen fout.
+- Een game.ini kan niets anders dan `/dev/videoN` vragen; een andere waarde, of een onbekende rol, stopt de start met een melding.
+- Het logboek van elke run zegt wat er gekozen is: `camera: /dev/video0 doorgegeven (rol game: ...)` of `camera: geen (rol ...)`.
+- Zelf nakijken: `python3 -I scripts/camera.py list` (de camera's) en `python3 -I scripts/camera.py resolve <Game>` (de keuze).
+- Op de Wine-routes is er geen sandbox: het spel ziet daar elke camera die de gebruiker mag gebruiken, en deze instelling
+  verandert dat (nog) niet. Niet gemeten of een Wine-spel de camera daar vindt.
+
 **Twee exe's (`HasTwoExecutables`).** Een profiel met een los hulpprogramma naast het spel (een daemon) wordt door
 `launch-direct.py` in een vaste orde gestart: de tweede exe eerst als `LaunchSecondExecutableFirst = true`, anders het spel eerst;
 daarna de wachttijd; daarna de andere. Beide krijgen dezelfde wine, dezelfde lader en kern, dezelfde werkmap, dezelfde prefix en

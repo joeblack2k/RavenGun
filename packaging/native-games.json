@@ -9,7 +9,7 @@
       "title": "Halo: Fireteam Raven",
       "enabled": false,
       "status": "geparkeerd",
-      "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen (TEST/START) in de attract-lus; munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
+      "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen in de attract-lus, met START alleen (correctie 2026-10-13 op de eerdere notitie 'TEST/START': TEST doet op deze machine niets -- zes pulsen op alle vier de borden, logboek bleef op 256 regels -- en een run met alleen START haalde 'attract' om 11:56:32); munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
       "arch": "x86_64",
       "mounts": [
         {

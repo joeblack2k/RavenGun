@@ -178,6 +178,24 @@ done < <(emit "$GAME")
 # Profiel kan onze eigen lader vragen ("loader": "rg-elfloader"); CLI-vlag --loader blijft ook werken.
 [[ -n "${V[loader]:-}" ]] && USE_LOADER=1
 
+# De invoertabel van deze game (docs/per-game-patches.md, "rt-invoer.ini"): WAT de invoerhulp (librg_rt_input.so) waarheen
+# schrijft -- schakelaars, geweerknoppen, assen -- staat per game in patches/<Game>/rt-invoer.ini, niet in de hulp. De
+# gebruikerslaag ($DATA/patches/<Game>/rt-invoer.ini) gaat als heel bestand voor de meegeleverde. De tabel gaat alleen-lezen de
+# sandbox in en de hulp krijgt het pad. Staat er geen tabel, of gebruikt de run de hulp niet, dan verandert er niets: de hulp doet
+# dan wat hij altijd deed. Een RG_RT_TABLE die met --env is meegegeven gaat voor.
+RT_TABEL_DOEL=/rg/tabel/rt-invoer.ini
+rt_hulp=0; rt_eigen=0
+if [[ "${V[preload]}" == *librg_rt_input.so* ]]; then rt_hulp=1; fi
+for e in "${XENV[@]}"; do
+  if [[ "$e" == LD_PRELOAD=*librg_rt_input.so* ]]; then rt_hulp=1; fi
+  if [[ "$e" == RG_RT_TABLE=* ]]; then rt_eigen=1; fi
+done
+if (( rt_hulp == 1 && rt_eigen == 0 )); then
+  for tabel in "$DATA/patches/$GAME/rt-invoer.ini" "$ROOT/patches/$GAME/rt-invoer.ini"; do
+    if [[ -f "$tabel" ]]; then BINDS+=("$tabel" "$RT_TABEL_DOEL"); XENV+=("RG_RT_TABLE=$RT_TABEL_DOEL"); break; fi
+  done
+fi
+
 command -v bwrap >/dev/null || die "bwrap niet gevonden"
 [[ -d "$NAS" ]] || die "NAS-map $NAS niet bereikbaar (is de automount actief?)"
 OVLBASE="$DATA/native/$GAME"; mkdir -p "$OVLBASE" "$LOGDIR" "$IPC"; chmod 700 "$IPC"
@@ -200,6 +218,20 @@ if [[ -n "$INPUT_NODES" ]]; then
   BW+=(--dir /dev/input); for n in $INPUT_NODES; do BW+=(--dev-bind "/dev/input/$n" "/dev/input/$n"); done
 else
   BW+=(--dev-bind-try /dev/input /dev/input)
+fi
+
+# De camera (docs/per-game-patches.md, "De camera"): alleen een spel dat de camera IN het spel gebruikt ([Camera] Use = game in
+# game.ini) krijgt hem, en dan de camera die in de instellingen gekozen is; een spel dat hem alleen voor de inrichting wil, of er
+# niets mee doet, krijgt er geen. Met --dev-bind, zoals /dev/dri: de toegang van de gebruiker komt van een ACL op het apparaat en
+# die overleeft een gewone --bind niet (gemeten: open() geeft dan Permission denied). -try: een machine zonder die camera geeft
+# geen fout. Zonder [Camera] verandert er niets aan het commando; het logboek zegt bij elke run welke keuze er gemaakt is.
+CAM=$(python3 -I "$ROOT/scripts/camera.py" resolve "$GAME") || die "de camera-instelling van $GAME klopt niet (zie de melding hierboven)"
+IFS=$'\t' read -r CAMERA cam_rol cam_uitleg <<<"$CAM"
+if [[ "$CAMERA" == - || -z "$CAMERA" ]]; then
+  CAMERA=""; CAMERA_REGEL="camera: geen (rol ${cam_rol:-none}: ${cam_uitleg:-geen instelling})"
+else
+  BW+=(--dev-bind-try "$CAMERA" "$CAMERA")
+  CAMERA_REGEL="camera: $CAMERA doorgegeven (rol $cam_rol: $cam_uitleg)"
 fi
 
 # De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
@@ -351,17 +383,20 @@ fi
 WIE=(gegevens="$JSON" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh")
 if [[ -n "${LOADERBIN:-}" ]]; then WIE+=(lader="$LOADERBIN"); fi
 for l in "${LIBS[@]}"; do if [[ "$l" == "$RG_LIB"/* ]]; then WIE+=(bibliotheek="$l"); fi; done
-for ((i = 0; i < ${#BINDS[@]}; i += 2)); do if [[ -f "${BINDS[$i]}" ]]; then WIE+=(meegegeven="${BINDS[$i]}"); fi; done
+for ((i = 0; i < ${#BINDS[@]}; i += 2)); do
+  [[ -f "${BINDS[$i]}" ]] || continue
+  if [[ "${BINDS[$((i+1))]}" == "$RT_TABEL_DOEL" ]]; then WIE+=(invoertabel="${BINDS[$i]}"); else WIE+=(meegegeven="${BINDS[$i]}"); fi
+done
 IDENT=$(rg_identiteit "$0" "${WIE[@]}") || IDENT="script: $0 (identiteit niet vast te stellen)"
 
-if (( DRY )); then echo "$IDENT" >&2; printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
+if (( DRY )); then echo "$IDENT" >&2; echo "$CAMERA_REGEL" >&2; printf '%q ' "${BW[@]}" "${GAMECMD[@]}"; echo; exit 0; fi
 
 # Eén launcher tegelijk.
 exec 9>"$IPC/native.lock"
 flock -n 9 || die "er draait al een native launcher (zie $IPC/native.pid); stop die met --stop"
 echo $$ > "$IPC/native.pid"
 TS=$(date +%Y%m%d-%H%M%S); LOG="$LOGDIR/native-$GAME-$TS.log"
-{ echo "== play-native $GAME $TS"; echo "$IDENT"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
+{ echo "== play-native $GAME $TS"; echo "$IDENT"; echo "$CAMERA_REGEL"; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
 echo "play-native: $GAME (${V[title]}), res $RES, log $LOG"
 [[ "${V[status]}" == werkt ]] || echo "play-native: LET OP: status ${V[status]} (${V[note]})" >&2
 
