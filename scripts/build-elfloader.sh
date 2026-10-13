@@ -5,11 +5,20 @@
 #
 # De lader is i386 (hij deelt het adresbeeld met het 32-bits spel) en een gewoon glibc-programma dat
 # libdl gebruikt. Resultaat: tools/rg-elfloader/rg-elfloader (en een kopie in ~/.local/share/ravengun/bin/).
+#
+# --alleen-bouwen <uit>: bouw met precies dezelfde vlaggen naar <uit> en installeer NIETS. Daarmee
+# controleert tests/elfloader_install_test.sh of de gebouwde lader nog uit de huidige bron komt.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/tools/rg-elfloader/rg_elfloader.c"
 OUT="$ROOT/tools/rg-elfloader/rg-elfloader"
 CC="${CC:-gcc}"
+INSTALLEER=1
+if [[ "${1:-}" == "--alleen-bouwen" ]]; then
+  [[ -n "${2:-}" ]] || { echo "gebruik: $0 [--alleen-bouwen <uit>]" >&2; exit 2; }
+  OUT="$2"
+  INSTALLEER=0
+fi
 
 [[ -f "$SRC" ]] || { echo "geen $SRC" >&2; exit 1; }
 
@@ -39,6 +48,7 @@ echo "bouwen: i386 -> rg-elfloader"
 # -rdynamic lost de gast-`main` op naar liballeg, zoals het hoort.
 "$CC" -m32 -O2 -Wall -Wextra $EXTRA_INC -Wl,-z,execstack -o "$OUT" "$SRC" -ldl
 file "$OUT"
+[[ "$INSTALLEER" == 1 ]] || exit 0
 
 DEST="$HOME/.local/share/ravengun/bin"
 mkdir -p "$DEST"

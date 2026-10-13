@@ -7,6 +7,8 @@
  * Wordt gebouwd door tests/elfloader_gnuhash_test.sh (gcc -m32), met de lader-bron zelf geinclude
  * (RG_ELFLOADER_ZONDER_MAIN laat de main() van de lader weg).
  * Gebruik: elfloader_gnuhash_unit <lib-alleen-gnu-hash.so> <lib-met-dt-hash.so>
+ *          elfloader_gnuhash_unit --plafond   (drukt het aantal namen af dat de lib-defs-lijst kan houden,
+ *                                              zodat de shelltest een lib kan maken die er net overheen gaat)
  */
 #include RG_LADER_BRON
 
@@ -31,6 +33,10 @@ int main(int argc, char **argv)
     int b1 = 0, b2 = 0;
     uint32_t n1, n2;
 
+    if (argc == 2 && strcmp(argv[1], "--plafond") == 0) {
+        printf("%d\n", (int)(sizeof(rg_defname) / sizeof(rg_defname[0])));
+        return 0;
+    }
     if (argc < 3) { printf("gebruik: %s <gnu-hash.so> <hash.so>\n", argv[0]); return 2; }
 
     /* 1. DT_HASH wint als hij er is */
@@ -84,6 +90,26 @@ int main(int argc, char **argv)
         CHECK(rg_defname_overflow == extra, "overflow-teller moet %d zijn, is %d", extra, rg_defname_overflow);
         qsort(rg_defname, rg_defname_n, sizeof rg_defname[0], def_cmp);
         CHECK(lib_defines("s0000000"), "een naam die wel paste moet gevonden worden na vol-raken");
+    }
+
+    /* 6. Het andere plafond: de tekstbuffer. Met lange namen is die vol voordat de namenlijst het is, en
+          ook dat moet geteld worden in plaats van stil af te kappen. */
+    {
+        const int cap = (int)(sizeof(rg_defname) / sizeof(rg_defname[0]));
+        char naam[256];
+        const int past = (int)(sizeof(rg_defbuf) / sizeof naam);
+        int extra = 10;
+        CHECK(past < cap, "voorwaarde: de buffer (%d lange namen) moet eerder vol zijn dan de lijst (%d)", past, cap);
+        rg_defname_n = 0; rg_defbuf_used = 0; rg_defname_overflow = 0;
+        memset(naam, 'x', sizeof naam);
+        for (i = 0; i < (uint32_t)(past + extra); i++) {
+            snprintf(naam + sizeof naam - 9, 9, "%08u", (unsigned)i);
+            def_add(naam);
+        }
+        CHECK(rg_defname_n == past, "buffer moet precies vol zijn: %d van %d namen", rg_defname_n, past);
+        CHECK(rg_defbuf_used <= sizeof(rg_defbuf), "buffer overschreden: %u van %u", (unsigned)rg_defbuf_used,
+              (unsigned)sizeof(rg_defbuf));
+        CHECK(rg_defname_overflow == extra, "overflow-teller (buffer) moet %d zijn, is %d", extra, rg_defname_overflow);
     }
 
     if (fouten) { printf("%d fout(en)\n", fouten); return 1; }

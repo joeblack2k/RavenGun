@@ -8,6 +8,14 @@
 #   1. eenheidstest (tests/elfloader_gnuhash_unit.c): tel_dynsyms() + parse_lib_file() incl. de harde fouten;
 #   2. de echte lader: `rg-elfloader --ontleed-alleen <gast>` telt de symbolen, vindt de lib, past relocaties
 #      toe en STARTT DE GAST NIET (de gast schrijft bij start een markerbestand; dat mag er niet zijn).
+#      Vooraf de tegenproef: in de gewone modus start dezelfde gast WEL en staat het markerbestand er, dus
+#      een ontbrekend markerbestand zegt iets. En de samenvatting zegt van elke toegepaste relocatie naar
+#      welke module hij wees, en splitst onopgelost in zwak en sterk.
+#   3. het plafond van de lib-defs-lijst, tegen de echte lader: een gast die hangt aan een lib met meer
+#      symbolen dan de lijst kan houden. --ontleed-alleen moet dat op stderr en in de samenvatting melden;
+#      de gewone modus moet weigeren (FATAAL, rc 127) en de gast niet starten. Stil afkappen is fout.
+#   4. de analyse moet een gemis ook MELDEN, anders bewijst "0 sterk onopgelost" niets: een lib die niet te
+#      vinden is, en een lib waarin een symbool ontbreekt.
 # Geen game, geen NAS. Skip (77) zonder gcc -m32.
 #
 # Omgeving: RG_ELFLOADER_SRC = andere lader-bron (bv. de oude versie, om te zien dat de test dan faalt).
@@ -70,6 +78,12 @@ fi
 "$CC" -m32 -O2 -Wall -Wextra $INC -Wl,-z,execstack -o "$T/rg-elfloader" "$SRC" -ldl || fail "lader bouwen"
 export RG_TEST_MARKER="$T/marker"
 export XDG_RUNTIME_DIR="$T"
+# Tegenproef voor het markerbestand: de gewone modus start de gast (die 1+2+3 teruggeeft) en dan staat het er.
+LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast" >"$T/gewoon.log" 2>&1
+RC=$?
+[ "$RC" -eq 6 ] || { cat "$T/gewoon.log"; fail "tegenproef: de gewone modus gaf rc=$RC, verwacht 6 (de gast draait dan niet)"; }
+[ -e "$T/marker" ] || fail "tegenproef: de gast draaide maar schreef geen markerbestand; de controle hieronder bewijst dan niets"
+rm -f "$T/marker"
 OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" --ontleed-alleen "$T/gast" 2>&1)
 RC=$?
 echo "$OUT"
@@ -81,7 +95,70 @@ echo "$OUT" | grep -Eq "relocaties: [1-9][0-9]* toegepast" || fail "geen toegepa
 echo "$OUT" | grep -q "R_386_JMP_SLOT.*fakelib_a"        || fail "relocatie voor fakelib_a niet gezien"
 echo "$OUT" | grep -q "R_386_JMP_SLOT.*fakelib_c"        || fail "relocatie voor fakelib_c niet gezien"
 [ -e "$T/marker" ] && fail "de gast is gestart (markerbestand bestaat)"
+# Wiens adres is er ingevuld: elke toegepaste relocatie hoort bij een module, en geen enkele bij de lader zelf.
+TOEGEPAST=$(echo "$OUT" | sed -n 's/^relocaties: \([0-9][0-9]*\) toegepast.*/\1/p')
+PERMODULE=$(echo "$OUT" | sed -n '/^relocatiedoelen per module:/,/^[^ ]/p' | awk '$1 ~ /^[0-9]+$/ { n += $1 } END { print n + 0 }')
+[ -n "$TOEGEPAST" ] && [ "$PERMODULE" -eq "$TOEGEPAST" ] || fail "relocatiedoelen per module tellen op tot $PERMODULE, toegepast is $TOEGEPAST"
+echo "$OUT" | grep -Eq "^ +3  .*/libfakelib\.so$" || fail "verwachtte 3 relocatiedoelen in libfakelib.so"
+echo "$OUT" | grep -q "DE LADER ZELF" && fail "een relocatie wijst naar de lader zelf"
+echo "$OUT" | grep -q "onopgelost ([0-9]* zwak, 0 sterk)" || fail "verwachtte 0 sterk onopgelost bij een complete gast"
+# Tegenproef voor stap 3: een gast die ruim past mag de vol-melding niet geven.
+echo "$OUT" | grep -q "lib-defs-lijst vol\|LIJST VOL" && fail "vol-melding bij een gast die ruim past"
+
+# --- 3. het plafond van de lib-defs-lijst, tegen de echte lader ---
+PLAFOND=$("$T/unit" --plafond 2>/dev/null)
+case "$PLAFOND" in ''|*[!0-9]*) fail "plafond van de lib-defs-lijst niet af te lezen (eenheidstest --plafond)";; esac
+OVER=1000
+awk -v n=$((PLAFOND + OVER)) 'BEGIN { print ".text"; for (i = 0; i < n; i++) printf ".globl v%07d\nv%07d:\n", i, i; print "ret" }' > "$T/vol.s"
+"$CC" -m32 -shared -nostdlib -Wl,--hash-style=gnu -o "$T/libvol.so" "$T/vol.s" || fail "volle lib bouwen"
+"$CC" -m32 $INC -no-pie -Wl,--hash-style=gnu -Wl,-Ttext-segment=0x08048000 -o "$T/gast_vol" "$T/gast.c" \
+    -L"$T" -lfakelib -Wl,--no-as-needed -lvol || fail "gast (volle lib) bouwen"
+readelf -d "$T/gast_vol" | grep -q 'libvol.so' || fail "voorwaarde: gast_vol hangt niet aan libvol.so"
+VOL_SYMS=$(readelf --dyn-syms -W "$T/libvol.so" | awk '$1 ~ /^[0-9]+:$/ && $7 != "UND"' | wc -l)
+[ "$VOL_SYMS" -ge $((PLAFOND + OVER)) ] || fail "voorwaarde: libvol.so definieert $VOL_SYMS symbolen, minder dan $((PLAFOND + OVER))"
+
+OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" --ontleed-alleen "$T/gast_vol" 2>&1)
+RC=$?
+echo "$OUT" | grep "lib-defs\|spel NIET\|FATAAL"
+[ "$RC" -eq 0 ] || fail "--ontleed-alleen op de volle gast eindigde met rc=$RC"
+WEG=$(echo "$OUT" | sed -n 's/.*WAARSCHUWING: lib-defs-lijst vol, \([0-9][0-9]*\) symbolen weggevallen.*/\1/p')
+[ -n "$WEG" ] || fail "geen WAARSCHUWING bij een volle lib-defs-lijst (stil afgekapt)"
+[ "$WEG" -ge "$OVER" ] || fail "weggevallen: $WEG, verwacht minstens $OVER"
+echo "$OUT" | grep -q "lib-defs: $PLAFOND gedefinieerde symbolen" || fail "lijst niet precies vol ($PLAFOND)"
+echo "$OUT" | grep -q "lib-defs: LIJST VOL, $WEG symbolen weggevallen" || fail "de samenvatting noemt de volle lijst niet"
+echo "$OUT" | grep -q "spel NIET gestart" || fail "geen 'spel NIET gestart' (volle gast)"
+[ -e "$T/marker" ] && fail "de volle gast is gestart in de analysemodus"
+
+OUT=$(LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast_vol" 2>&1)
+RC=$?
+echo "$OUT" | grep "lib-defs\|FATAAL"
+[ "$RC" -eq 127 ] || fail "de gewone modus moet weigeren bij een volle lib-defs-lijst (rc=$RC, verwacht 127)"
+echo "$OUT" | grep -q "FATAAL: lib-defs-lijst vol, $WEG symbolen weggevallen" || fail "geen FATAAL met het aantal weggevallen symbolen"
+[ -e "$T/marker" ] && fail "de gast is gestart ondanks een volle lib-defs-lijst"
+
+# --- 4. een gemis moet gemeld worden ---
+mkdir -p "$T/leeg" "$T/half"
+OUT=$(LD_LIBRARY_PATH="$T/leeg" "$T/rg-elfloader" --ontleed-alleen "$T/gast" 2>&1)
+RC=$?
+echo "$OUT" | grep "NIET geladen\|^relocaties\|STERK\|fakelib"
+[ "$RC" -eq 0 ] || fail "--ontleed-alleen zonder de lib eindigde met rc=$RC (de analyse hoort door te gaan)"
+echo "$OUT" | grep -q "^NIET geladen (1):" || fail "een onvindbare lib is niet als NIET geladen gemeld"
+echo "$OUT" | grep -q "onopgelost ([0-9]* zwak, 3 sterk)" || fail "verwachtte 3 sterk onopgelost zonder libfakelib.so"
+for s in fakelib_a fakelib_b fakelib_c; do
+    echo "$OUT" | sed -n '/onopgeloste symbolen, STERK/,/^[^ ]/p' | grep -q " $s\$" || fail "$s staat niet bij de sterke onopgeloste symbolen"
+done
+[ -e "$T/marker" ] && fail "de gast is gestart in de analysemodus (zonder lib)"
+
+printf 'int fakelib_a(void) { return 1; }\nint fakelib_b(void) { return 2; }\n' > "$T/half/fakelib.c"
+"$CC" -m32 $INC -shared -fPIC -Wl,--hash-style=gnu -o "$T/half/libfakelib.so" "$T/half/fakelib.c" || fail "halve lib bouwen"
+OUT=$(LD_LIBRARY_PATH="$T/half" "$T/rg-elfloader" --ontleed-alleen "$T/gast" 2>&1)
+RC=$?
+echo "$OUT" | grep "NIET geladen\|^relocaties\|STERK\|fakelib_c"
+[ "$RC" -eq 0 ] || fail "--ontleed-alleen met de halve lib eindigde met rc=$RC"
+echo "$OUT" | grep -q "onopgelost ([0-9]* zwak, 1 sterk)" || fail "verwachtte 1 sterk onopgelost met de halve lib"
+echo "$OUT" | sed -n '/onopgeloste symbolen, STERK/,/^[^ ]/p' | grep -q " fakelib_c\$" || fail "fakelib_c staat niet bij de sterke onopgeloste symbolen"
+[ -e "$T/marker" ] && fail "de gast is gestart in de analysemodus (halve lib)"
 
 [ "$FAILS" -eq 0 ] || exit 1
-echo "ok: GNU_HASH-only gast + lib, analysemodus start de gast niet"
+echo "ok: GNU_HASH-only gast + lib, analysemodus start de gast niet; een volle lib-defs-lijst en een gemis melden zich"
 exit 0

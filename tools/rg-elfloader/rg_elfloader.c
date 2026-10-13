@@ -276,9 +276,9 @@ static void lees_dyn(struct beeld *b, struct dyninfo *d)
  * bestand in plaats van via dlsym. Zie docs/research/eigen-elf-lader.md. */
 /* Ruim boven de praktijk: libc + libGL + de overige moderne 32-bits systeemlibs leveren samen ~16k
  * symbolen via de STRTAB-SYMTAB-route (sinds de DT_GNU_HASH-terugval), dus 16384 was al te krap. 262144
- * namen en 8 MiB tekst geven ~16x marge. def_add() telt bovendien wat er tóch niet past en de lader meldt
- * dat luid (zie verzamel_lib_defs): een stille afkap gaf anders een smalle shim die een lib-symbool
- * overschrijft -- precies het soort fout dat later onverklaarbaar is. */
+ * namen en 8 MiB tekst geven ~16x marge. def_add() telt bovendien wat er tóch niet past en de lader
+ * weigert dan te starten (zie verzamel_lib_defs): een stille afkap gaf anders een smalle shim die een
+ * lib-symbool overschrijft -- precies het soort fout dat later onverklaarbaar is. */
 static char rg_defbuf[1u << 23];
 static uint32_t rg_defbuf_used;
 static char *rg_defname[262144];
@@ -432,13 +432,19 @@ static void verzamel_lib_defs(struct beeld *b, struct dyninfo *d)
             vind_en_parse(d->strtab + dy->d_un.d_val);
     qsort(rg_defname, rg_defname_n, sizeof rg_defname[0], def_cmp);
     dbg("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs gelezen", rg_defname_n);
-    if (rg_defname_overflow)
-        /* Altijd melden (ook zonder RG_ELFLOADER_VERBOSE): de lijst was vol en lib_defines() mist nu
-         * symbolen, dus de smalle shim kan er exporteren die een lib ook definieert. Verhoog rg_defname[]
-         * en rg_defbuf[], of zoek uit waarom er zoveel libs meedoen. */
+    if (rg_defname_overflow) {
+        /* De lijst was vol en lib_defines() mist nu symbolen, dus de smalle shim kan er exporteren die een
+         * lib ook definieert. Een spel starten met een shim waarvan we weten dat hij niet klopt doen we
+         * niet: een waarschuwing op stderr verdwijnt in een log en de crash daarna wijst nergens naar.
+         * Alleen --ontleed-alleen gaat door (dat start niets) en herhaalt het in zijn samenvatting.
+         * Verhoog rg_defname[] en rg_defbuf[], of zoek uit waarom er zoveel libs meedoen. */
+        if (!rg_ontleed)
+            fatal("lib-defs-lijst vol, %d symbolen weggevallen (van %d+%d); verhoog "
+                  "rg_defname[]/rg_defbuf[]", rg_defname_overflow, rg_defname_n, rg_defname_overflow);
         fprintf(stderr, "rg-elfloader: WAARSCHUWING: lib-defs-lijst vol, %d symbolen weggevallen "
                 "(van %d+%d); verhoog rg_defname[]/rg_defbuf[]\n",
                 rg_defname_overflow, rg_defname_n, rg_defname_overflow);
+    }
 }
 
 /* Symbolen die de eigen CRT van de shim al definieert; die overslaan, anders "multiple definition". */
@@ -635,10 +641,48 @@ struct relrec { const char *welk; uint32_t type, waar; const char *naam; uint32_
 static struct relrec rg_relrec[12];
 static int rg_relrec_n;
 static uint32_t rg_rel_toegepast, rg_rel_relatief, rg_rel_onopgelost;
+/* Een zwak ongedefinieerd symbool (__gmon_start__, _Jv_RegisterClasses) hoort onopgelost te blijven; een
+   sterk niet. Alleen het totaal tonen laat een sterk gemis schuilgaan achter de onschuldige. */
+static uint32_t rg_rel_onopgelost_zwak;
 
-static void rel_noteer(const char *welk, uint32_t type, uint32_t *waar, const char *naam, uint32_t waarde)
+/* Naar WELKE module wees elke toegepaste relocatie (--ontleed-alleen). "Toegepast" zegt alleen dat er
+   een adres is ingevuld, niet wiens adres: toen de lader nog met -rdynamic gebouwd werd loste het door de
+   gast geimporteerde `main` op naar de main van de lader zelf, en ook dat telde als toegepast. Een adres
+   zonder module erbij is dus geen bewijs (dezelfde les als het terugkeeradres in de exit-trace,
+   docs/research/luigismansion-exit-trace.md). */
+struct relmod { char naam[160]; uint32_t n; };
+static struct relmod rg_relmod[48];
+static int rg_relmod_n;
+static uint32_t rg_relmod_rest;             /* doelen in modules die niet meer in de tabel pasten */
+static uint32_t rg_beeld_lo, rg_beeld_hi;   /* het gemapte gastbeeld */
+
+static void relmod_tel(const void *doel)
+{
+    Dl_info di, zelf;
+    const char *m;
+    uint32_t a = (uint32_t)(uintptr_t)doel;
+    int i;
+    if (a >= rg_beeld_lo && a < rg_beeld_hi)
+        m = "(de gast zelf, via de shim)";
+    else if (!dladdr(doel, &di) || !di.dli_fname || !*di.dli_fname)
+        m = "(buiten elke module)";
+    else if (dladdr((void *)(uintptr_t)relmod_tel, &zelf) && zelf.dli_fbase == di.dli_fbase)
+        m = "(DE LADER ZELF)";
+    else
+        m = di.dli_fname;
+    for (i = 0; i < rg_relmod_n; i++)
+        if (strcmp(rg_relmod[i].naam, m) == 0) { rg_relmod[i].n++; return; }
+    if (rg_relmod_n >= (int)(sizeof(rg_relmod) / sizeof(rg_relmod[0]))) { rg_relmod_rest++; return; }
+    snprintf(rg_relmod[rg_relmod_n].naam, sizeof rg_relmod[0].naam, "%s", m);
+    rg_relmod[rg_relmod_n++].n = 1;
+}
+
+static void rel_noteer(const char *welk, uint32_t type, uint32_t *waar, const char *naam, uint32_t waarde,
+                       const void *doel)
 {
     rg_rel_toegepast++;
+    if (rg_ontleed)
+        relmod_tel(doel);
     if (rg_relrec_n < (int)(sizeof(rg_relrec) / sizeof(rg_relrec[0]))) {
         struct relrec *x = &rg_relrec[rg_relrec_n++];
         x->welk = welk; x->type = type; x->waar = (uint32_t)(uintptr_t)waar; x->naam = naam; x->waarde = waarde;
@@ -662,11 +706,19 @@ static const char *reltype_naam(uint32_t t)
    honderden zijn als een lib ontbreekt; dan bewaren we de eerste paar voor de samenvatting. */
 static char rg_onopgelost_namen[10][96];
 static int rg_onopgelost_namen_n;
+static char rg_onopgelost_zwak_namen[10][96];   /* apart, zodat zwakke namen de sterke niet verdringen */
+static int rg_onopgelost_zwak_namen_n;
 
-static void onopgelost_noteer(const char *welk, const char *naam)
+static void onopgelost_noteer(const char *welk, const char *naam, int zwak)
 {
     if (!rg_ontleed) {
-        say("  onopgelost %s: %s", welk, naam);
+        say("  onopgelost %s: %s%s", welk, naam, zwak ? " (zwak)" : "");
+        return;
+    }
+    if (zwak) {
+        if (rg_onopgelost_zwak_namen_n < (int)(sizeof(rg_onopgelost_zwak_namen) / sizeof(rg_onopgelost_zwak_namen[0])))
+            snprintf(rg_onopgelost_zwak_namen[rg_onopgelost_zwak_namen_n++], sizeof rg_onopgelost_zwak_namen[0],
+                     "%s %s", welk, naam);
         return;
     }
     if (rg_onopgelost_namen_n < (int)(sizeof(rg_onopgelost_namen) / sizeof(rg_onopgelost_namen[0])))
@@ -676,12 +728,13 @@ static void onopgelost_noteer(const char *welk, const char *naam)
 static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char *welk)
 {
     uint32_t i;
-    uint32_t onopgelost = 0, copies = 0, slots = 0;
+    uint32_t onopgelost = 0, zwakke = 0, copies = 0, slots = 0;
     for (i = 0; i < n; i++) {
         uint32_t type = ELF32_R_TYPE(r[i].r_info);
         uint32_t sidx = ELF32_R_SYM(r[i].r_info);
         uint32_t *waar = (uint32_t *)r[i].r_offset;
         const char *naam = sidx ? d->strtab + d->symtab[sidx].st_name : "";
+        int zwak = sidx && ELF32_ST_BIND(d->symtab[sidx].st_info) == STB_WEAK;
         void *sym = NULL;
 
         if (type == R_386_RELATIVE) {
@@ -695,27 +748,27 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
         switch (type) {
         case R_386_GLOB_DAT:
         case R_386_JMP_SLOT:
-            if (!sym) { onopgelost++; if (*naam) onopgelost_noteer(welk, naam); break; }
+            if (!sym) { onopgelost++; zwakke += zwak; if (*naam) onopgelost_noteer(welk, naam, zwak); break; }
             *waar = (uint32_t)(uintptr_t)sym; slots++;
-            rel_noteer(welk, type, waar, naam, *waar);
+            rel_noteer(welk, type, waar, naam, *waar, sym);
             break;
         case R_386_32:
-            if (!sym) { onopgelost++; break; }
+            if (!sym) { onopgelost++; zwakke += zwak; if (*naam) onopgelost_noteer(welk, naam, zwak); break; }
             *waar += (uint32_t)(uintptr_t)sym;
-            rel_noteer(welk, type, waar, naam, *waar);
+            rel_noteer(welk, type, waar, naam, *waar, sym);
             break;
         case R_386_PC32:
-            if (!sym) { onopgelost++; break; }
+            if (!sym) { onopgelost++; zwakke += zwak; if (*naam) onopgelost_noteer(welk, naam, zwak); break; }
             *waar += (uint32_t)(uintptr_t)sym - (uint32_t)(uintptr_t)waar;
-            rel_noteer(welk, type, waar, naam, *waar);
+            rel_noteer(welk, type, waar, naam, *waar, sym);
             break;
         case R_386_COPY: {
             /* De bron MOET de DEFINIËRENDE lib zijn (post-reloc), niet de shim/gast -- anders kopieert
                hij de lege gast-kopie op zichzelf. Zie zoek_in_libs(). */
             void *src = zoek_in_libs(naam);
-            if (!src) { onopgelost++; if (*naam) onopgelost_noteer("COPY", naam); break; }
+            if (!src) { onopgelost++; zwakke += zwak; if (*naam) onopgelost_noteer("COPY", naam, zwak); break; }
             memcpy(waar, src, d->symtab[sidx].st_size); copies++;
-            rel_noteer(welk, type, waar, naam, (uint32_t)(uintptr_t)src);
+            rel_noteer(welk, type, waar, naam, (uint32_t)(uintptr_t)src, src);
         }
             break;
         default:
@@ -724,6 +777,7 @@ static void pas_rel_toe(struct dyninfo *d, Elf32_Rel *r, uint32_t n, const char 
         }
     }
     rg_rel_onopgelost += onopgelost;
+    rg_rel_onopgelost_zwak += zwakke;
     dbg("%s: %u toegepast, %u COPY, %u onopgelost", welk, slots, copies, onopgelost);
     if (onopgelost && !rg_ontleed)
         say("LET OP: %u onopgeloste symbolen in %s", onopgelost, welk);
@@ -940,12 +994,26 @@ static void toon_ontleding(struct dyninfo *d, const char *game)
             printf("  %s\n", rg_nietgeladen[i]);
     }
     printf("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs\n", rg_defname_n);
-    printf("relocaties: %u toegepast, %u RELATIVE (ongewijzigd), %u onopgelost\n",
-           rg_rel_toegepast, rg_rel_relatief, rg_rel_onopgelost);
+    if (rg_defname_overflow)
+        printf("lib-defs: LIJST VOL, %d symbolen weggevallen; de shim hieronder is niet betrouwbaar en "
+               "de gewone modus weigert te starten\n", rg_defname_overflow);
+    printf("relocaties: %u toegepast, %u RELATIVE (ongewijzigd), %u onopgelost (%u zwak, %u sterk)\n",
+           rg_rel_toegepast, rg_rel_relatief, rg_rel_onopgelost, rg_rel_onopgelost_zwak,
+           rg_rel_onopgelost - rg_rel_onopgelost_zwak);
+    printf("relocatiedoelen per module:\n");
+    for (i = 0; i < rg_relmod_n; i++)
+        printf("  %6u  %s\n", rg_relmod[i].n, rg_relmod[i].naam);
+    if (rg_relmod_rest)
+        printf("  %6u  (in modules die niet meer in de tabel pasten)\n", rg_relmod_rest);
     if (rg_onopgelost_namen_n) {
-        printf("eerste onopgeloste symbolen:\n");
+        printf("eerste onopgeloste symbolen, STERK (de gast kan hierop stuklopen):\n");
         for (i = 0; i < rg_onopgelost_namen_n; i++)
             printf("  %s\n", rg_onopgelost_namen[i]);
+    }
+    if (rg_onopgelost_zwak_namen_n) {
+        printf("eerste onopgeloste symbolen, zwak (mogen leeg blijven):\n");
+        for (i = 0; i < rg_onopgelost_zwak_namen_n; i++)
+            printf("  %s\n", rg_onopgelost_zwak_namen[i]);
     }
     printf("eerste toegepaste relocaties:\n");
     for (i = 0; i < rg_relrec_n; i++) {
@@ -985,6 +1053,8 @@ int main(int argc, char **argv)
     file = map_file(game, &flen);
 
     map_segments(fd, file, &b);
+    rg_beeld_lo = b.lo;
+    rg_beeld_hi = b.hi;
     lees_dyn(&b, &d);
     verzamel_lib_defs(&b, &d);  /* uit de lib-BESTANDEN: welke symbolen definiëren zij (voor de smalle shim) */
     maak_shim(&d);        /* smalle shim: alleen gast-symbolen die geen lib definieert; zie maak_shim() */

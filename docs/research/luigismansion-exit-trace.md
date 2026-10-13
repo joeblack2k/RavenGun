@@ -3,7 +3,8 @@
 *RavenGun, 2026-10-13, op de bench gemeten. Ruwe gegevens: `~/bw/luigi-exittrace/` (per run `exit-trace.log`,
 `verslag.txt`, `opzet.txt`, `threads.tsv`, de overzichten; `VOORAF.txt` met de vooraf opgeschreven uitkomsten;
 `exitrun.sh` waarmee elke run is gestart; twee beelden van het spel). Instrument: OpenParrot-patch
-`third_party/openparrot/patches/0007-exit-trace.patch` en `tools/exit-trace-overzicht.py`.*
+`third_party/openparrot/patches/0007-exit-trace.patch` en `tools/exit-trace-overzicht.py` Hoofdstuk 9 is de
+ELF-kant en is zonder spel gemeten.*
 
 **Kort.** Het spel sterft onder onze kern niet in de pakker en niet in onze init. Het is volledig ontpakt, start
 zijn eigen code, en roept 1 ms na de laatste stap van de pakker `ExitProcess` aan vanuit zijn gevirtualiseerde
@@ -174,4 +175,63 @@ RG_EXIT_DUMP=1                             # het beeld van de hoofdmodule bij el
 RG_EXIT_PROTECT=1                          # meekijken op NtProtectVirtualMemory
 TP_PRELOAD_DLL=Z:\…\OpenParrotx64\RgExitTrace64.dll   # voor een proces zonder onze kern
 tools/exit-trace-overzicht.py verschil <overzicht A> <overzicht B>
+```
+
+## 9. Wat dit oplevert voor de ELF-kant (`rg-elfloader --ontleed-alleen`)
+
+*2026-10-13, zonder een spel te starten. Ruwe gegevens: `~/bw/elf-ontleed/` (`VOORAF.txt` met de vooraf
+opgeschreven uitkomsten, de twee ontledingen van Terminator Salvation, het testlog, de mutaties). Het spelbestand
+op de NAS is alleen gelezen (sha256 `798dec07…`; lijst, grootte en mtime van de map voor en na gelijk). Lader:
+sha256 `2190a168…`, gebouwd = geïnstalleerd = uit de huidige bron.*
+
+**Kort.** De ontleed-modus geeft dezelfde soort zekerheid als de trace voor alles tot aan de sprong naar het spel,
+en geen enkele voor wat daarna komt. Drie dingen die de trace wel had en de ontleding niet, zitten er nu in.
+
+| les uit de trace | wat de ontleding miste | nu |
+|---|---|---|
+| een lege meting bewijst eerst dat hij gezocht heeft (installatieregel per haak, zelftest) | "0 onopgelost" en "markerbestand ontbreekt" hadden geen tegenproef | de test laat de analyse een onvindbare lib en een ontbrekend symbool melden, en start dezelfde gast in de gewone modus (rc 6, markerbestand aanwezig) |
+| een adres zonder module is geen bewijs (terugkeeradres als module+offset; `.capcom0`, niet `.capcom1`) | "toegepast" zei alleen dat er een adres was ingevuld, niet wiens adres | per toegepaste relocatie de module van het doel; de som moet gelijk zijn aan "toegepast" |
+| zeg wat de meting niet ziet ("grens van de meting") | "onopgelost" telde zwakke en sterke symbolen bij elkaar, en toonde alleen de eerste tien namen | `N onopgelost (Z zwak, S sterk)`; de sterke namen staan in een eigen lijst |
+
+**Gemeten op Terminator Salvation** (statisch met `readelf` en met de lader; de twee tellingen sluiten):
+
+| | statisch | `--ontleed-alleen` |
+|---|---|---|
+| dynamische symbolen | 1020, geen `DT_HASH` | 1020 via `(DT_STRTAB-DT_SYMTAB)/16` |
+| bibliotheken | 13 `DT_NEEDED` | 13 gevonden en geladen, geen "NIET geladen" |
+| relocaties | 517 in `DT_REL` (511 `GLOB_DAT`, 6 `COPY`) + 496 in `DT_JMPREL` = 1013, geen `RELATIVE` | 1011 toegepast, 2 onopgelost (2 zwak, 0 sterk): twee keer `__gmon_start__` |
+| lib-defs | | 16.440; shim 515 van de 1020 |
+
+Doelen van de 1011 toegepaste relocaties: 509 de gast zelf (via de shim), 247 `libc`, 161 `libGL`, 21 `libm`,
+19 `libtheora`, 15 `libglut`, 14 `libogg`, 13 `libstdc++`, 8 `libGLU`, 3 `libPhysXLoader`, 1 `libgcc_s`. Nul naar
+de lader zelf: de fout uit de tijd van `-rdynamic` (het geïmporteerde `main` loste op naar de `main` van de
+lader, en telde als toegepast) zou hier als eigen regel staan.
+
+**Het plafond van de lib-defs-lijst.** 16.440 is 56 boven het oude plafond van 16.384. Dezelfde lader met dat
+plafond (losse bouw) laat op deze game 56 namen wegvallen; de shim blijft 515, dus het had hier geen gevolg,
+maar het gebeurde stil. Nu: 262.144 namen en 8 MiB tekst, en als de lijst toch vol raakt weigert de gewone modus
+te starten (`FATAAL`, rc 127) en meldt de analyse het op stderr en in de samenvatting. De test dwingt het af
+tegen de echte lader met een lib van plafond + 1000 symbolen.
+
+**Grens van de meting.**
+- De analyse stopt vóór de sprong. Wat de trace bij Luigi's Mansion liet zien (volledig geladen, en dan beëindigt
+  het spel zichzelf) kan zij niet zien: dezelfde synthetische gast geeft in de analyse rc 0 en in de gewone modus
+  rc 6, en de samenvatting zegt daar niets over.
+- rc 0 van de analyse betekent niet dat de gewone modus de sprong haalt: een lib die niet laadt is in de analyse
+  een regel en in de gewone modus fataal. Lees "NIET geladen" en "sterk".
+- "Start de gast niet" is niet "voert niets uit": `dlopen` draait de init-code van de dertien bibliotheken.
+- De module van een doel komt uit `dladdr` op het opgezochte adres; "de gast zelf" is een adres binnen het
+  gemapte beeld.
+- Niet gewijzigd en nog stil: `copyset[512]` (deze game: 6 `COPY`), `rg_libs[64]` en `rg_libinfo[64]` (deze game:
+  13), 24 `PT_LOAD`-segmenten per lib, 1024 stale slots.
+
+**De valkuil van de oude lader, een stap eerder.** `tests/elfloader_install_test.sh` vergeleek gebouwd met
+geïnstalleerd. Met een gewijzigde bron die niet herbouwd is zijn die twee gelijk en allebei oud, en bleef de test
+groen (gemeten). De test herbouwt nu uit de bron (`scripts/build-elfloader.sh --alleen-bouwen`, zelfde vlaggen,
+installeert niets) en eist dezelfde sha256; de bouw is reproduceerbaar, ook vanuit een andere map.
+
+```
+LD_LIBRARY_PATH=<ElfLdr2/libs>:<runtime/lib32> rg-elfloader --ontleed-alleen <game>
+sh tests/elfloader_gnuhash_test.sh      # RG_ELFLOADER_SRC=<andere bron> om een mutatie rood te zien worden
+sh tests/elfloader_install_test.sh
 ```
