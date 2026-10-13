@@ -1,0 +1,7 @@
+88620.058950 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88627.504691 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88635.924703 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88658.156259 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88664.061438 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88664.063739 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000
+88664.063815 tap start usbfs=/dev/bus/usb/ sysfs=/sys/bus/usb/devices/ max=50000

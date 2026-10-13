@@ -703,6 +703,91 @@ Gedraaid met `RG_B0_KERN_DLL=~/.local/share/ravengun/openparrot/<commit>-0007exi
   `VACUUM.exe+0xf1374d` in `.capcom0`, exitcode 32, en nu met het exacte moment meer bruikbare
   stack-regels dan de vorige keer.
 
+## ACHTSTE STAND 2026-10-13: sendFlash inert, GAMEID negatief, exit-trace 128 regels, en een valkuil in mijn eigen TV-run
+
+### 1. `sendFlash COM1 LMAIO.bin` is op onze bench een NO-OP
+
+`com1` naar een pty, `SendFlash.exe COM1 LMAIO.bin` in de view, alleen (geen spel). Ruwe log:
+`/tmp/luigi-com1-sendflash-20261013-102222.log`.
+
+```
+exitcode 0
+van het spel: 35 B in 5 blokken        (van ons: 0 B -- er kwam niets terug)
+2f 69 0a 2f 65 0a 03   (vijf keer, ongeveer 1,8 s uit elkaar)
+```
+
+35 bytes, vijf keer dezelfde 7 bytes, en niets terug. Dat is ASCII `/i\n/e\n\x03` -- een probe-paar
+met ETX. `LMAIO.bin` is 140.688 B en de firmware is dus **nooit verzonden**: SendFlash probeert het bord,
+krijgt geen antwoord, geeft op en eindigt TOCH met 0. **Deze stap kan de ontbrekende voorwaarde niet zijn:
+hij faalt niet en zendt niets.** Dat sluit kandidaat 1 af voor de flitskant.
+
+### 2. `GAMEID=SDCF` alleen: NEGATIEF
+
+Onze kern (bevestigd: launch-direct's eigen log zegt `fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794`),
+`--env GAMEID=SDCF`, dichte bemonstering. Uitvoer `/tmp/b0-gameid/`.
+
+| moment | waarde |
+|---|---|
+| entry vrijgegeven, eerste niet-100 % | t=5,8 s -- `.text 55,6 % nul` |
+| dood | **t=6,0 s** |
+
+Dus het spel sterft nog steeds rond 6 s, op hetzelfde moment en met dezelfde onvolledige `.text` als
+zonder `GAMEID`. **`GAMEID=SDCF` is de ontbrekende schakel niet.**
+
+### 3. De exit-trace: het kanaal werkt, 128 regels
+
+`exitrun.sh r7-ours ours 45`. Het kanaal moet AAN: **`RG_INIT_TRACE=<pad>` plus `RG_EXIT_PROTECT=1`** --
+zonder die twee variabelen is er geen uitvoer (mijn eerdere poging had ze niet, en dat was de hele reden).
+Uitkomst van die run: exitcode 32, looptijd 15,3 s, draden max 3, **`trace-regels 160 (128 van de exit-haak)`**,
+kern `3d84057dfb2b7370` (GELDIG), runtime-kern daarna weer `f5c7532d`, NAS ongewijzigd (0).
+
+Het logboek staat NIET in `~/bw/luigi-exittrace/<label>/` maar in de scratchpad van dat script:
+
+```
+/tmp/claude-1000/-home-deck-projects-ravengun/9f46723a-e1a6-4e94-90ce-9444f94b9176/scratchpad/runs/r7-ours/exit-trace.log
+```
+
+**De 128 regels van die run heb ik nog niet gelezen** -- dat is een commando en het is de eerste stap van
+de volgende sessie. Wat het FORMAAT wel al vaststelt (uit de eerdere run `r1-ours`):
+
+```
+frame  0 = OpenParrot64.dll+0x7bb8c   sectie .text
+frame  1 = OpenParrot64.dll+0x7bf01   sectie .text
+frame  2 = 0000000140F1374D  VACUUM.exe+0xf1374d  sectie .capcom0      <- zoals vooraf verwacht
+frame  3 = 000000014030FB00  VACUUM.exe+0x30fb00  sectie .text
+(genest) RtlExitUserProcess code=0x140415820 (laag8=32)
+(genest) NtTerminateProcess  handle=0 code=0x40415820 (laag8=32) ntdll.dll+0x29f71
+(genest) NtTerminateProcess  handle=-1 code=0x40415820 (laag8=32) ntdll.dll+0x29f8e
+```
+
+Dus: **de exitcode is 32 en de code die hem aanroept zit op `VACUUM.exe+0xf1374d` in `.capcom0`** -- het
+spel zelf, aangeroepen vanuit `VACUUM.exe+0x30fb00` in `.text`, met de frames van de kern erbovenop.
+De verwachting vooraf (dat adres, code 32, meer stack-regels dan de vorige keer) is daarmee bevestigd.
+
+### 4. Een VALKUIL in mijn eigen TV-run: de systemd-herstart gooit de omgeving weg
+
+Ik draaide de TV-run als `DISPLAY=:0 XAUTHORITY=... RG_B0_NO_GAMESCOPE=1 bash b0-vijfmin.sh`.
+Het script zet zichzelf in een systemd-user-unit, en die `systemd-run` geeft alleen de `--setenv`-variabelen
+mee die in het script staan (`RG_B0_UIT`, `RG_B0_KERN_DLL`, `RG_B0_STOP`, `RG_B0_HARD`, `RG_B0_IN_UNIT`,
+`RG_WINEPREFIX`). **`DISPLAY`, `XAUTHORITY` en `RG_B0_NO_GAMESCOPE` gaan dus verloren.** De opzet-regel van
+die run zegt het zelf: `route: ... headless gamescope`, `DISPLAY :1`.
+
+**Dus die run was HEADLESS, niet op de tv** -- en dat betekent ook dat zijn cijfers WEL met de headless
+reeks te vergelijken zijn (het was dezelfde opzet). Uitkomst: entry vrijgegeven op 6,0 s met `.text 10,0 % nul`
+(ontpakken KLAAR), dood op 6,2 s -- precies het patroon van de zevende meting. Kern `fe2ecf8c` (onze kern).
+
+**Voor een echte TV-run moet `RG_B0_NO_SYSTEMD=1` erbij**, anders herstart het script zichzelf en verliest
+het de display. Dat is de correcte aanroep:
+
+```bash
+RG_B0_NO_SYSTEMD=1 DISPLAY=:0 XAUTHORITY=/run/user/1000/xauth_CsRMXH RG_B0_NO_GAMESCOPE=1 \
+  RG_B0_DICHT_STAP=0.1 RG_B0_DICHT_TOT=10 bash b0-vijfmin.sh
+```
+
+En zoals eerder opgeschreven: **een echte TV-run is NIET te vergelijken met de headless reeks** -- andere
+resolutie, geluid, en het laden van films en muziek zit in hetzelfde venster dat we meten. Hij antwoordt
+"toont het beeld en hoe lang leeft het", niet de 0,2 s.
+
 ## Wat de derde run nog meer moet opleveren: de 17 originele prologues
 
 De heeftphook-specialist wil de **originele 5 prologue-bytes van elk van de 17 am-functies**. Die zijn

@@ -69,6 +69,74 @@ Venster 120 s is ruim: de FileTest is na ~11 s klaar (met START overgeslagen), e
 (Webcam Init, geweerkalibratie) zijn in de eerdere metingen seconden werk, geen minuten. `--seconds`
 groter maken kost alleen bench en voegt hier niets toe.
 
+## 2b. Met beeld op de tv (opdracht van de eigenaar), in plaats van `--headless`
+
+**Wat er verandert is één vlag, en dat is met opzet zo klein mogelijk.** In `play-native.sh`:
+
+| | met `--headless` (run 2) | met `--gamescope` (run 3) |
+|---|---|---|
+| de wrapper | `gamescope --backend headless -W 1920 -H 1080 -w W -h H` | `gamescope -f -W 1920 -H 1080 -w W -h H --force-grab-cursor` |
+| waar het beeld heen gaat | nergens (headless backend) | **beeldvullend op de tv** (`-f`) |
+| de game zelf | draait binnen gamescope, `-f1920x1080 -n` | **idem, ongewijzigd** |
+
+De **wrapper blijft dus staan**: alleen de backend van gamescope verandert. Dat is bewust -- als ik
+gamescope helemaal wegliet en de game in het sessievenster zette, dan veranderde ik **twee** dingen
+tegelijk (geen wrapper én een ander beeldpad) en was run 3 niet meer te vergelijken met run 2. Nu is
+het verschil precies één ding: waar gamescope zijn beeld naartoe stuurt.
+
+**Wat er aan de omgeving gebeurt** (GEMETEN in `play-native.sh`):
+
+* `DISPLAY` en `XAUTHORITY` worden door het script zelf opgehaald uit het commandoregel van
+  `kwin_wayland` (`--xwayland-display :0`, `--xwayland-xauthority /run/user/1000/xauth_CsRMXH`,
+  regels 247-258), want in een SSH-sessie staat `DISPLAY` leeg. Het `XAUTHORITY`-bestand wordt
+  read-only in de sandbox gehangen (regel 319) zodat de game bij Xwayland `:0` kan.
+* Op deze Deck hangt de tv aan **`card0-HDMI-A-1` en die status is `connected`** -- het beeldpad is er.
+* **Ik zet er `--mute` bij.** Zonder `--headless` slaat het script de geluidsopzet niet meer over
+  (regel 321: `if (( ! MUTE && ! HEADLESS ))`). Halo heeft toch geen geluid (FMOD 1.10 ontbreekt), dus
+  die stap kan alleen ruis of vertraging toevoegen; met `--mute` blijft het verschil met run 2 bij de
+  beeldbackend alleen. Dat is dezelfde afweging als bij de FileTest: het minst ingrijpende middel.
+
+**Het volledige commando voor run 3 wordt dus run 2 met `--headless` vervangen door `--gamescope`,
+plus `--mute`, plus de twee regels voor de START-route** (het schakelaarbeeld en `RG_RT_SHM`/`RG_RT_LOG`).
+
+**Moet de eigenaar iets doen? NEE.** De START-indruk komt uit het schakelaarbeeld: ik zet op de host
+bit 6 op **t ≈ 20 s** (en zo nodig nog eens op **t ≈ 60 s**), de invoerhulp leest dat bestand elke
+250 ms en zet de schakelaar als puls in de tabel van de game. Er hoeft dus niemand op een knop te
+drukken; hij kan gewoon kijken. Twee praktische dingen die ik wel vraag: **niet met muis of toetsenbord
+aanraken tijdens de run** (de game leest zijn eigen invoerapparaten, en gamescope heeft met
+`--force-grab-cursor` de aanwijzer vast), en niet schrikken van een zwart scherm in de eerste
+seconden -- dat is de opstart tot het venster er is.
+
+**Wat de eigenaar op de tv zou moeten zien als het lukt:** eerst het FileTest-scherm van de game, dan
+-- als de START-indruk aankomt -- de stap erna ("Webcam Init"), dan het kalibratiescherm. Blijft het
+FileTest-scherm staan, dan is dat geval B en weet ik dat de START-indruk niet is aangekomen (en dan
+meldt de hulp dat ook in het logboek).
+
+### Gevolgen voor de vergelijkbaarheid met run 2 (vooraf opgeschreven)
+
+Run 2 (headless) had: **start 10:04:20, eerste nieuwe regel in het logboek van de game 10:04:31 = elf
+seconden**, en dat was het FileTest-oordeel. Wat ik verwacht voor run 3 met beeld:
+
+* **Het FileTest-tijdstip hoort vrijwel gelijk te blijven.** Die controle is een bestandscontrole in de
+  opstart en gebeurt vóór zinvol beeldwerk; in run 2 was gamescope al lang op toen hij viel. Ik
+  verwacht dus opnieuw een oordeel in dezelfde orde (ca. 10-15 s).
+* **Wat kan schuiven:** de tijd tot gamescope klaar is (met een echte DRM-/wayland-uitgang erbij kan dat
+  een seconde of wat schelen), en alles wat ná de FileTest **beeldafhankelijk** is ("Webcam Init", het
+  kalibratiescherm). Voor die stappen heb ik geen run-2-vergelijking, want run 2 kwam er nooit.
+* **De vergelijking die ik achteraf maak:** het aantal seconden van de start (tijdstempel in de naam van
+  het launcherlogboek, `native-Halo-YYYYMMDD-HHMMSS`) tot de eerste nieuwe regel in `gamelog.txt`, en
+  tot de FileTest-regel. Ik noteer beide getallen naast die van run 2.
+* **En als het verschil groot is, is dat een bevinding over onze meetsetup en geen ruis:** dan betekent
+  het dat de beeldbackend van gamescope de opstarttijd van de game meetbaar beïnvloedt, en dan moeten
+  we bij elke vergelijking tussen runs het beeldpad meenemen. Dat zeg ik dan met de getallen erbij in
+  plaats van het weg te moffelen.
+
+**Als de tv-route niet lukt, draai ik headless door** en meld ik de fout: een meting die loopt is beter
+dan een opzet die mooi hoort te zijn. Concreet herken ik dat aan: gamescope start niet op (geen
+`node ID`-regel in `gamescope-Halo.log`), of het venster komt niet op de tv terwijl gamescope wel
+leeft, of de game start niet binnen ~30 s. In alle drie de gevallen: stoppen, `--headless` terug, en de
+fout letterlijk doorgeven.
+
 ## 3. De verwachtingen VOORAF (in dezelfde vorm als §4b van run 2)
 
 **Geval A -- de verwachte geslaagde meting zonder bord.** De hulp meldt `indruk bit 6 -> bord 0
@@ -111,6 +179,53 @@ leverde **niets** op -- de map werd onder de naam die ik probeerde niet eens uit
 dus **open en ongemeten**, en ik zeg dat liever dan dat ik het invul. Bij een volgende run waarin de
 game levend niets doet, is dit het eerste dat ik uitzoek: welk argument of welke omgevingsvariabele
 geeft de officiele start wel en wij niet.
+
+*(Die zoektocht is inmiddels gedaan: zie `STARTMANIER.md`. De argumenten zijn identiek -- er ontbreekt
+niets -- maar er is wel een echte stap die wij overslaan: `utils/rtinit -ct`, de hardwareprobe. Zie de
+derde kandidaat hieronder.)*
+
+### De derde kandidaat: `rtinit -ct` (mijn eigen vondst, `STARTMANIER.md` §3 en §8)
+
+De officiele start doet **eerst** een hardwareprobe en gebruikt de returncode daarvan als sleutel
+(`utils/run_game.sh`, regels 20-36):
+
+```sh
+/pm/g7/halo/utils/rtinit -ct
+RET="$?"
+if   [ $RET -eq 9 ]; then SCREEN_RES="3880x1080"   # originele dual-screen 4p
+elif [ $RET -eq 4 ]; then SCREEN_RES="1920x1080"   # mounted-gun 2p
+elif [ $RET -eq 3 ]; then SCREEN_RES="1920x1080"   # super-deluxe 4p tethered
+elif [ $RET -eq 8 ]; then SCREEN_RES="1920x1080"   # 55" dedicated 2p tethered
+fi
+cd /pm/g7/halo
+LD_PRELOAD=/pm/g7/halo/halo.so ${GAMEDIR}/game2 -f${SCREEN_RES} -n
+```
+
+**Wat het betekent als `rtinit -ct` op ONZE opstelling een code geeft die niet in die vier voorkomt**
+(dus niet 9, 4, 3 of 8 -- en dat is goed mogelijk, want er hangt geen kast en geen bord aan de Deck):
+
+* dan blijft `SCREEN_RES` **leeg** en wordt de officiele startregel letterlijk `game -f -n`, met een
+  **leeg resolutieargument**;
+* dan werkt de officiele route op onze opstelling dus **niet zoals bedoeld**, en is "wij geven de
+  resolutie expliciet" geen weglating van ons maar een **bewuste afwijking**: wij vervangen die tak
+  door een vaste `-f1920x1080`;
+* en dan kunnen we de resolutielogica van de officiele start **niet** als referentie voor onze
+  opstelling gebruiken, want die logica is hier niet van toepassing;
+* **en het is de derde kandidaat voor de blokkade** tussen de FileTest en de apparaatlijst: op de kast
+  loopt die probe voor de game en zou daar iets kunnen klaarzetten (cabinettype, of iets waar de
+  dongle-/cabinetkant van `rtinit.so`/`halo.so` op voortbouwt). Wij draaien hem nooit.
+
+**Wat ik bij de uitkomst meteen benoem**, in plaats van het dan pas te bedenken:
+
+* blijft de tap **leeg** terwijl START werkt (geval B), dan is `rtinit -ct` -- of wat daar hoort te
+  gebeuren -- een logische volgende verdachte, en niet de tap;
+* raakt de tap **gevuld** (geval A of D), dan is die probe voor het FTDI-pad blijkbaar niet nodig en
+  gaat deze kandidaat van tafel;
+* en blijft de game levend niets doen, dan staan er twee kandidaten naast elkaar: de FileTest (waarvan
+  `STARTMANIER.md` §6 juist zegt dat hij waarschijnlijk een **gemelde toestand** is en geen blokkade)
+  en `rtinit -ct` die wij overslaan. De goedkoopste manier om die twee te scheiden is de probe **los**
+  draaien met `halo.so` voorgeladen en kijken welke code eruit komt -- geen spelstart, maar wel een
+  binary uit de spelmap, dus dat hoort in een bench-afspraak.
 
 ## 4. De levenscheck (dezelfde methode als run 2, plus één signaal)
 
