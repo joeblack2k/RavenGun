@@ -216,6 +216,23 @@ def ververs_view(gdir, view, rel, empties=(), on_nas=None, log=None):
     for deel in [x for x in os.path.dirname(rel).split('/') if x and x != '.']:
         paren.append((os.path.join(paren[-1][0], deel), os.path.join(paren[-1][1], deel)))
     bij = weg = 0
+    # ViewEmptyDirs op een bestaande view: elk pad wordt een lege echte map. Een symlink gaat weg (alleen de link, nooit wat erachter
+    # staat), een ontbrekend pad wordt aangemaakt, een echte map (leeg of met inhoud) blijft zoals hij is. De mappen erboven moeten
+    # echte mappen zijn; achter een symlink is het niet van ons.
+    for e in empties:
+        delen = [x for x in e.strip('/').split('/') if x]
+        p = view
+        for k, deel in enumerate(delen):
+            p = os.path.join(p, deel)
+            if k + 1 < len(delen):
+                if os.path.islink(p) or not os.path.isdir(p):
+                    break
+                continue
+            if os.path.islink(p):
+                w(p); os.unlink(p); weg += 1
+            elif os.path.lexists(p):
+                break
+            w(p); os.makedirs(p, exist_ok=True)
     for i, (vd, sd) in enumerate(paren):
         if os.path.islink(vd) or not os.path.isdir(vd):
             break                                   # geen echte map (meer): wat eronder zit is niet van ons
