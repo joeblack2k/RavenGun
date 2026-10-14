@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2: 50, overgeslagen: 1.
+Stand: 20 van 81 titels WORKING (25%); doel 90% = 73 titels. Pass 1: 14, pass 2: 47, overgeslagen: 1.
 
-## WORKING (17)
+## WORKING (20)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -23,6 +23,9 @@ Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
 | Let's Go Safari | SEGA RingWide |  |
 | Mario Kart: Arcade GP DX | Namco ES3A | open: camera (het spel vraagt hem niet), Banapass-kaarten |
+| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
+| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
+| Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | NERF Arcade | Raw Thrills PC Based |  |
 | Rabbids Hollywood Arcade | ADRENALINE PC Based |  |
 | Raccoon Rampage | UNIS PC Based |  |
@@ -49,7 +52,7 @@ Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (50)
+## pass 2 (47)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -62,7 +65,6 @@ Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route klaar (profiel GSEVO): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Ghostbusters | ICE/RT Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
 | Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
@@ -89,8 +91,6 @@ Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | SEGA Golden Gun | SEGA RingWide | getest 2026-10-14: lader exitcode 5 (toegang geweigerd) direct na laden; diagnose loopt |
-| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route klaar (profiel Primevil): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
-| Rambo | SEGA Lindbergh Red EX | Lindbergh-route klaar (ramboM.elf, libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
