@@ -412,6 +412,21 @@ scripts/launch-direct.py <Profiel> --plan --exe 'x:\exe\x64\spel.exe' --drive X=
 - Wat niet kan (een letter die niet bestaat, een bestand dat er niet is of buiten de view ligt) wordt in het plan geweigerd
   met exitcode 5, voordat er iets start.
 
+**Een grotere stapel voor de hoofdthread (`[Launch] StackReserve = 16M`).** Onder Wine krijgt de hoofdthread van een Windows-game
+precies `SizeOfStackReserve` uit de PE-kop van de exe (vaak 1 MiB). Is dat te weinig, dan zet deze sleutel de exe in de **view** om
+in een lokale kopie met de opgegeven waarde (64K tot en met 256M; K en M zijn 1024-machten, ook `0x1000000` of een getal in bytes).
+Zo doet TeknoParrot het onder Wine voor Mario Kart Arcade GP DX (16 MiB). Wat er gebeurt (engine: `src/ravengun/launch/pe_stack.*`,
+`apply_direct`; script: `stack_plan`/`place_stack_copy` in `launch-direct.py`; het plan heeft `stack_reserve`, `stack_src`,
+`stack_dest` en `tests/direct_golden.py` vergelijkt ze):
+
+- alleen het veld `SizeOfStackReserve` en vier bytes in de opvulling van de DOS-stub (0x78) veranderen. Die vier bytes houden de
+  CRC32 van de eerste 0x400 bytes gelijk aan die van het origineel: daaraan herkent de OpenParrot-kern een game
+  (`GameDetect.cpp`, `GetCRC32(moduleBase, 0x400)`), dus de kopie wordt herkend als de exe zelf;
+- de koppeling van de view naar het origineel blijft als `<exe>.ravengun-orig` staan; een volgende start gaat van dat origineel uit,
+  en schrijft niets als de kopie al klopt. Heeft de exe zelf al minstens zoveel stapel, dan blijft alles zoals het is;
+- nooit op de NAS: ligt de game niet in een view (`scripts/tp-add-game.py <Game> <exe> --view`), dan weigert het plan met exitcode 5.
+  Terug naar het origineel: de sleutel weghalen en `<exe>` in de view vervangen door `<exe>.ravengun-orig`.
+
 **De invoertabel van de native route (`rt-invoer.ini`).** Een native Raw Thrills-spel leest zijn schakelaars, geweerknoppen en
 richtpunt uit zijn eigen bordstructuur, niet uit de invoerapparaten van het systeem. De invoerhulp (`librg_rt_input.so`,
 `tools/rt-input-shim/`) leest het bordbeeld van de daemon en zet de waarden in het geheugen van het spel. WAT waarheen gaat staat

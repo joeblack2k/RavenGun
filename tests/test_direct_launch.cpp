@@ -20,6 +20,7 @@
 
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
+#include "ravengun/launch/pe_stack.hpp"
 
 namespace fs = std::filesystem;
 using namespace ravengun::launch;
@@ -256,6 +257,122 @@ int main() {
         log.clear();
         CHECK(apply_direct(nasplan, p, log, err) && !fs::exists(nas / "teknoparrot.ini"));
         CHECK(contains(log.back(), "ligt op de NAS"));
+    }
+
+    // [Launch] StackReserve (pe_stack.hpp): de waarde, de PE-kop, het plan en de lokale kopie in de view.
+    {
+        uint64_t n = 0;
+        CHECK(parse_stack_size("16M", n) && n == 16u << 20);
+        CHECK(parse_stack_size(" 16 MiB ", n) && n == 16u << 20);
+        CHECK(parse_stack_size("512k", n) && n == 512u << 10);
+        CHECK(parse_stack_size("0x1000000", n) && n == 16u << 20);
+        CHECK(parse_stack_size("16777216", n) && n == 16u << 20);
+        CHECK(!parse_stack_size("", n) && !parse_stack_size("16G", n) && !parse_stack_size("zestien", n) && !parse_stack_size("0x", n));
+        CHECK(stack_size_text(16u << 20) == "16 MiB (16777216)" && stack_size_text(96u << 10) == "96 KiB (98304)" && stack_size_text(100) == "100");
+        // Een kleine PE32 en PE32+: e_lfanew 0x80, optionele kop op 0x98, SizeOfStackReserve op 0x98 + 72.
+        auto pe = [](bool plus, uint64_t reserve) {
+            std::string d(0x400, '\0');
+            d[0] = 'M'; d[1] = 'Z'; d[0x3c] = '\x80';
+            d.replace(0x80, 4, std::string("PE\0\0", 4));
+            d[0x84] = plus ? '\x64' : '\x4c'; d[0x85] = plus ? '\x86' : '\x01';
+            d[0x94] = static_cast<char>(plus ? 0xF0 : 0xE0);
+            d[0x98] = '\x0b'; d[0x99] = plus ? '\x02' : '\x01';
+            for (int i = 0; i < (plus ? 8 : 4); ++i) d[0x98 + 72 + i] = static_cast<char>((reserve >> (8 * i)) & 0xff);
+            return d;
+        };
+        std::string d32 = pe(false, 1u << 20), d64 = pe(true, 1u << 20), perr;
+        uint64_t r = 0;
+        CHECK(pe_stack_reserve(d32, r, perr) && r == 1u << 20);
+        CHECK(pe_stack_reserve(d64, r, perr) && r == 1u << 20);
+        const std::string vooraf = d32;
+        CHECK(pe_set_stack_reserve(d32, 16u << 20, perr) && pe_stack_reserve(d32, r, perr) && r == 16u << 20 && d32.size() == vooraf.size());
+        size_t anders = 0;
+        for (size_t i = 0; i < d32.size(); ++i) anders += d32[i] != vooraf[i];
+        CHECK(anders == 2);   // 0x00100000 -> 0x01000000: alleen de bytes van dat veld
+        CHECK(pe_set_stack_reserve(d64, 0x100000000ull, perr) && pe_stack_reserve(d64, r, perr) && r == 0x100000000ull);
+        CHECK(!pe_set_stack_reserve(d32, 0x100000000ull, perr) && contains(perr, "PE32"));
+        std::string geen = "MZ" + std::string(8, '\0');
+        CHECK(!pe_stack_reserve(geen, r, perr));
+        // De kop-CRC herstellen: bekende waarde (zlib.crc32(b"123456789") = cbf43926), en na een wijziging in de kop weer gelijk.
+        CHECK(crc32_bytes("123456789", 9) == 0xcbf43926u);
+        {
+            std::string k = pe(false, 1u << 20);
+            for (size_t i = 0x100; i < 0x400; ++i) k[i] = static_cast<char>(i * 7);
+            const uint32_t c = crc32_bytes(k, kHeaderCrcLength);
+            CHECK(pe_set_stack_reserve(k, 16u << 20, perr) && crc32_bytes(k, kHeaderCrcLength) != c);
+            CHECK(pe_keep_header_crc(k, c, perr) && crc32_bytes(k, kHeaderCrcLength) == c && pe_stack_reserve(k, r, perr) && r == 16u << 20);
+            std::string kort = k.substr(0, 0x200);
+            CHECK(!pe_keep_header_crc(kort, c, perr));
+        }
+
+        // Het plan: de exe in de view is een koppeling naar de (nep-)NAS.
+        const fs::path nas_exe = home / "mnt/nas/spel/spel.exe";
+        write(nas_exe, pe(false, 1u << 20));
+        const fs::path vexe = view / "bin/spel.exe";
+        const std::string oud = slurp(vexe);
+        fs::remove(vexe);
+        fs::create_symlink(nas_exe, vexe);
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Identify]\nSize = 1024\n[Launch]\nStackReserve = 16M\n");
+        DirectPlan sp;
+        std::string w;
+        Verdict sv = plan_direct("Spel", p, o, sp, w);
+        CHECK(sv == Verdict::Ok);
+        if (sv != Verdict::Ok) std::fprintf(stderr, "stapelplan: %s\n", w.c_str());
+        CHECK(sp.stack_reserve == 16ll << 20 && sp.stack_dest == vexe.string() && sp.stack_src == fs::canonical(nas_exe).string());
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(sp), back, err) && back.stack_reserve == sp.stack_reserve && back.stack_src == sp.stack_src &&
+                  back.stack_dest == sp.stack_dest);
+        }
+        // Plaatsen: de koppeling blijft als spel.exe.ravengun-orig staan, spel.exe wordt een lokale kopie met 16 MiB; de NAS blijft gelijk.
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(sp, p, log, err));
+        CHECK(!fs::is_symlink(vexe) && fs::is_symlink(view / "bin/spel.exe.ravengun-orig"));
+        {
+            const std::string kopie = slurp(vexe);
+            CHECK(pe_stack_reserve(kopie, r, perr) && r == 16u << 20 && kopie.size() == 0x400);
+            // De kern herkent de game aan CRC32(eerste 0x400 bytes): die is gelijk aan die van het origineel; alleen het stapelveld
+            // en de vier bytes in de DOS-stub verschillen.
+            const std::string bron = slurp(nas_exe);
+            CHECK(crc32_bytes(kopie, kHeaderCrcLength) == crc32_bytes(bron, kHeaderCrcLength));
+            size_t verschil = 0;
+            for (size_t i = 0; i < kopie.size(); ++i)
+                if (kopie[i] != bron[i]) {
+                    ++verschil;
+                    CHECK((i >= kHeaderCrcPatchAt && i < kHeaderCrcPatchAt + 4) || (i >= 0x98 + 72 && i < 0x98 + 76));
+                }
+            CHECK(verschil >= 2 && verschil <= 6);
+            CHECK(pe_stack_reserve(slurp(nas_exe), r, perr) && r == 1u << 20);
+        }
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "stapel: ") && contains(l, "-> 16 MiB"); }));
+        // Een volgende start gaat van het origineel uit (de -orig-koppeling) en schrijft niets.
+        CHECK(plan_direct("Spel", p, o, sp, w) == Verdict::Ok && sp.stack_src == fs::canonical(nas_exe).string());
+        log.clear();
+        CHECK(apply_direct(sp, p, log, err) && contains(log.back(), "is al actueel"));
+        // Is de exe zelf al groot genoeg, dan blijft alles zoals het is.
+        write(ugi, "[Identify]\nSize = 1024\n[Launch]\nStackReserve = 1M\n");
+        CHECK(plan_direct("Spel", p, o, sp, w) == Verdict::Ok);
+        log.clear();
+        CHECK(apply_direct(sp, p, log, err) && contains(log.back(), "heeft al SizeOfStackReserve"));
+        // Weigeren: een onzinnige waarde, en een game buiten een view (de kopie zou naast het origineel komen).
+        write(ugi, "[Identify]\nSize = 1024\n[Launch]\nStackReserve = 1G\n");
+        CHECK(plan_direct("Spel", p, o, sp, w) == Verdict::Refused && contains(w, "StackReserve = 1G"));
+        DirectPlan buiten = sp;
+        buiten.stack_reserve = 16ll << 20;
+        buiten.stack_src = nas_exe.string();
+        buiten.stack_dest = nas_exe.string();
+        buiten.dropin_files.clear();
+        buiten.files.clear();
+        log.clear();
+        CHECK(!apply_direct(buiten, p, log, err) && contains(err, "NAS") && pe_stack_reserve(slurp(nas_exe), r, perr) && r == 1u << 20);
+        // Opruimen voor de rest van de test.
+        fs::remove(ugi);
+        fs::remove(vexe);
+        fs::remove(view / "bin/spel.exe.ravengun-orig");
+        write(vexe, oud);
     }
 
     // De invoer: evdev met een indeling wordt tp-shm; zonder indeling via het script.

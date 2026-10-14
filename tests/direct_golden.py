@@ -4,7 +4,7 @@
 scripts/launch-direct.py (build_plan, droog: geen Wine, geen game, niets geschreven), voor ELK profiel in patches/ met [Launch] Mode = direct.
 Per game: dezelfde uitkomst (de engine start, het script beslist, of beide weigeren) en, als de engine start, dezelfde argv, werkmap,
 Wine en prefix, de VOLLEDIGE omgeving (met de drop-ins, zonder TP_LAUNCH_SESSION_ID), dezelfde geplaatste bestanden (teknoparrot.ini
-met inhoud, drop-ins met bron en doel, de mappen die eerst lokaal worden), de JVS-brug, de procesnamen, de regels per patch en per
+met inhoud, drop-ins met bron en doel, de mappen die eerst lokaal worden, de exe met de grotere stapel), de JVS-brug, de procesnamen, de regels per patch en per
 drop-in, en de besturingspipe ([Input] ControlPipe: indeling, pipe, bron, grootte, tempo). Daarnaast de invoerroute zoals
 play-halo.sh hem voor een directe start kiest, en de JVS-pakketten en -antwoorden.
 
@@ -94,6 +94,7 @@ def python_side(profiles, tp):
                     "core_dll": plan["core_dll"] or "", "patch_lines": ld.patch_log_lines(plan["patches"]), "cwd_is_tp": plan["cwd"] == tp,
                     "starts": [starts_view(s) for s in plan["starts"]],
                     "control_pipe": plan["control_pipe"],
+                    "stack": plan.get("stack"),
                 })
         out[name] = r
     print(json.dumps(out))
@@ -128,6 +129,7 @@ def cpp_side(rg, name, tp, patches, user, env):
             "starts": [starts_view(s) for s in p["starts"]],
             "control_pipe": {"profile": p["control_pipe"], "pipe": p["control_pipe_name"], "source": p["control_source"],
                              "size": p["control_size"], "interval_ms": p["control_interval_ms"]} if p.get("control_pipe") else None,
+            "stack": {"reserve": p["stack_reserve"], "src": p["stack_src"], "dest": p["stack_dest"]} if p.get("stack_reserve") else None,
         })
     return out
 
