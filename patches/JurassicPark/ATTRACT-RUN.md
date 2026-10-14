@@ -234,3 +234,9 @@ every call by name (`runs/run11-hasphook.samenvatting.log`).
   own loader it reaches and passes it.
 * The 30 / 29 / 26 `hasp_` symbol counts in various notes: the hook finds and hooks **11** functions by
   name, which is all it needs.
+
+## Full-resolution captures
+
+`bewijs-attract-20261013/opnames-run11/` holds the 75 captures of run 11 as they were taken (161 MB).
+They were moved here from the session's scratch folder in /tmp on 2026-10-14; each copy was compared
+byte for byte with its original.
