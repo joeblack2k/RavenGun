@@ -676,8 +676,8 @@
     "2Spicy": {
       "title": "Too Spicy",
       "enabled": true,
-      "status": "niet-getest",
-      "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0027A, niet de schone ELF. Mesa: libCg.so 2.0. Profielnaam = het TeknoParrot-sjabloon dat de bibliotheek stuurt. Nog niet gestart.",
+      "status": "werkt",
+      "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus, met stackalign (bench-captures/2Spicy). Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0027A, niet de schone ELF. Mesa: libCg.so 2.0. Profielnaam = het TeknoParrot-sjabloon dat de bibliotheek stuurt. Nog niet gestart.",
       "arch": "i386",
       "launcher": "gamescope",
       "route": "jvs",

@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 20 van 81 titels WORKING (25%); doel 90% = 73 titels. Pass 1: 14, pass 2: 47, overgeslagen: 1.
+Stand: 21 van 81 titels WORKING (26%); doel 90% = 73 titels. Pass 1: 14, pass 2: 46, overgeslagen: 1.
 
-## WORKING (20)
+## WORKING (21)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -31,6 +31,7 @@ Stand: 20 van 81 titels WORKING (25%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Raccoon Rampage | UNIS PC Based |  |
 | Rampage | ADRENALINE PC Based |  |
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
+| Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
 
 ## pass 1 (14)
@@ -52,7 +53,7 @@ Stand: 20 van 81 titels WORKING (25%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (47)
+## pass 2 (46)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -98,7 +99,6 @@ Stand: 20 van 81 titels WORKING (25%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route klaar (libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | The House of the Dead III | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Time Crisis 5 | Namco ES3X | invoer komt niet aan (onderzoek loopt) |
-| Too Spicy | SEGA Lindbergh Red | Lindbergh-route klaar (profiel 2Spicy, libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Transformers: Shadows Rising | Windows PC | bevriest ~1 min na START: SHELL_MSG_CHALLENGE (onderzoek loopt) |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |

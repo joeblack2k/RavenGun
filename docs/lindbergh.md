@@ -174,9 +174,38 @@ GPU bewezen: `/proc/<pid van de game>/maps` bevat `libvulkan_radeon.so` en `libg
 | `GSEVO` | munt, START, schieten, naast het scherm = herladen | Type 1-bord (8-bits assen). |
 | `Primevil` | munt, START, schieten, gun-knop | Eén scherm (`PRIMEVAL_HUNT_SCREEN_MODE = 1`); het aanraakscherm ontbreekt bewust. |
 
+### Gemeten op de bank (2026-10-15)
+
+| Profiel | Uitkomst |
+|---|---|
+| `Rambo` | **werkt**: dubbelklik, attract, munt, START, 5,5 min gespeeld in muismodus (zink) |
+| `GSEVO` | **werkt** na de extra bibliotheken hieronder; richtvenster nog niet gekalibreerd |
+| `Primevil` | **werkt** na de extra bibliotheken; het aanraakscherm ontbreekt bewust (het spel kiest op de timer) |
+| `2Spicy` | **werkt** met `stackalign` (zie hieronder) en `libsndio.so.7`; 5,5 min gespeeld |
+| `HOTD4SP`, `HOTD4` | SIGSEGV binnen een seconde; open |
+| `HOTDEX` | SIGABRT in `glXCreatePbuffer` (xcb-assert "Unknown sequence number"); open |
+
+**Bibliotheken.** De volledige NEEDED-afsluiting van elke ELF (objdump, recursief) moet in de sandbox te vinden zijn.
+SteamOS heeft voor i386 geen `libXt`, `libSM`, `libICE`, `libbsd` en `libmd`. Die komen nu uit de bouwcontainer in de laag.
+`libopenal.so.0` (uit `libs/` van lindbergh-loader) vraagt `libsndio.so.7`. Daarvoor bouwen we een eigen stub
+(`third_party/lindbergh-loader/sndio-stub.c`): `sio_open` mislukt en OpenAL valt terug op Pulse/ALSA.
+
+**Stapeluitlijning (`"stackalign": true` in het `lindbergh`-blok).** Deze games zijn gebouwd met een stapel die op 4 bytes
+uitgelijnd is. De lib32-bibliotheken van SteamOS zijn met SSE gebouwd en rekenen op 16 bytes. Op Debian, waar lindbergh-loader
+voor is gemaakt, is dat niet zo; daarom de waarschuwing "not in debian-like system".
+
+- Too Spicy viel daardoor op `movaps %xmm0,0xc(%esp)` in `libGLdispatch.so.0`.
+- `librg-stackalign.so` (`tools/rg-stackalign`, in de laag gebouwd) wikkelt elke geïmporteerde GL/X11/OpenAL-functie in een
+  wrapper die de stapel uitlijnt.
+- Hij moet **voor** `lindbergh.so` in `LD_PRELOAD` staan. Daarna komen ook de eigen aanroepen van `lindbergh.so` uitgelijnd
+  binnen.
+
+**Diagnose.** Met `RG_LB_SEGV_REPORT=1` in de sandbox meldt de SEGV-handler van lindbergh.so de echte fout: eip, adres, module
+plus offset en de bytes (`0002-segv-report.patch`). Normaal slaat de handler een byte over en raakt de processor uit de pas.
+
 ## 5. Open punten
 
-- Niets hiervan is op de bank gemeten: de route plant (tests en een droge plan-run met de echte paden), maar geen game is gestart.
+- HOTD4, HOTD4 Special en HOTD EX (tabel hierboven).
 - De opties uit `[Config]` van `game.ini` (TeknoParrot: FreePlay, regio, ...) gaan nog niet naar `lindbergh.ini`.
 - Uitgangen (lampen, recoil) van het bord: de daemon leest `32`/`37`, maar koppelt ze voor deze borden nog niet aan de uitvoer.
 - `jvs: emulate` (lindbergh.so is zelf het bord, invoer via evdev) bestaat als terugval in het profielformaat, maar geen profiel gebruikt het.
