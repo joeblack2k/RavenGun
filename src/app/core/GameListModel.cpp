@@ -44,7 +44,10 @@ QString GameListModel::statusText(const GameEntry& g) const {
     switch (g.kind) {
         case GameKind::TeknoParrot:
         case GameKind::Unity:
-            return g.exeExists ? QStringLiteral("Ready") : QStringLiteral("Game files missing");
+            if (!g.exeExists) return QStringLiteral("Game files missing");
+            // Working: gecontroleerd op onze eigen loader, rechtstreeks vanuit RavenGun gestart en gespeeld ([Status] Status = working).
+            if (data_ && !g.profile.isEmpty() && data_->playState(g.profile) == QStringLiteral("working")) return QStringLiteral("Working");
+            return QStringLiteral("Ready");
         case GameKind::Detected: return QStringLiteral("Not set up");
         case GameKind::Unconfigured: return QStringLiteral("Unconfigured");
     }
@@ -117,7 +120,7 @@ QVariant GameListModel::data(const QModelIndex& index, int role) const {
             if (role == Qt::DisplayRole || role == SORT_ROLE) return statusText(g);
             if (role == Qt::ForegroundRole) {
                 const QString s = statusText(g);
-                if (s == QStringLiteral("Running")) return QColor(0x2e, 0x9e, 0x44);
+                if (s == QStringLiteral("Running") || s == QStringLiteral("Working")) return QColor(0x2e, 0x9e, 0x44);
                 if (s != QStringLiteral("Ready")) return QColor(0xb0, 0x6a, 0x00);
             }
             break;

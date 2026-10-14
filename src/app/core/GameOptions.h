@@ -27,12 +27,15 @@
 namespace rg {
 
 struct OptionTarget {
-    enum class Kind { TpField, TpTag, Env, Ini, KeyValue, Unsupported };
+    // AdjVal: een instelling van een Raw Thrills-game in zijn eigen opslagvorm ("rtdt_adjval": lengte, SHA-1 van de tekst, lengte, tekst met
+    // "val = ..."), meestal in drie gelijke kopieen (pad met {0,1,2}). Met base "native_layer" staat het bestand in de lokale schrijflaag van de
+    // native route (~/.local/share/ravengun/native/<profiel>/0/upper, de overlay over de gamemap op de NAS); lezen valt dan terug op de gamemap.
+    enum class Kind { TpField, TpTag, Env, Ini, KeyValue, AdjVal, Unsupported };
     Kind kind = Kind::Unsupported;
     QString category;  // TpField (optioneel)
-    QString field;     // TpField: FieldName; TpTag: element; Env: variabele; Ini/KeyValue: sleutel
-    QString file;      // Ini/KeyValue: bestand (relatief aan de gamemap, of ~/... of absoluut; {placeholders})
-    QString section;   // Ini
+    QString field;     // TpField: FieldName; TpTag: element; Env: variabele; Ini/KeyValue: sleutel; AdjVal: naam
+    QString file;      // Ini/KeyValue/AdjVal: bestand (relatief aan de gamemap, of ~/... of absoluut; {placeholders})
+    QString section;   // Ini; AdjVal: "native_layer" of leeg (de gamemap)
     QString companion; // Env: extra "K=V" dat meegaat als de waarde aan staat (bool)
     QChar sep = QLatin1Char('=');  // KeyValue: scheidingsteken (tab_ini: tab, space_ini: spatie, colon: dubbele punt)
     QString trueWord, falseWord;   // ini_onoff / ini_yesno: woorden voor een bool (ON/OFF, YES/NO)
@@ -109,7 +112,7 @@ struct GameContext {
     QString userGameIni() const;           // <gebruiker>/<profiel>/game.ini (leeg zonder gebruikerslaag)
     QString userProfilePath() const;
     QString envPath() const;
-    QString expand(const QString& pattern) const;  // {profile} {tp_dir} {game_dir} {real_game_dir} {view_dir} {home} en ~
+    QString expand(const QString& pattern) const;  // {profile} {tp_dir} {game_dir} {real_game_dir} {view_dir} {native_layer} {home} en ~
     QString resolve(const QString& path, const QString& base = {}) const;  // relatief pad naar absoluut (leeg = onbekend)
 };
 

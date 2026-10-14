@@ -8,7 +8,8 @@
 // General > Input route) is een sleutel in het gebruikers-game.ini. De engine en scripts/gamesettings.py (play-halo.sh) lezen
 // dezelfde bestanden met dezelfde regels.
 //
-// Status en notities: [Status] Status (playable | parked | untested; de fullscreen-modus toont standaard alleen playable), Note
+// Status en notities: [Status] Status (working | playable | parked | untested; working = gecontroleerd op onze eigen loader en rechtstreeks
+// vanuit RavenGun gestart en gespeeld, de app toont dat groen als "Working"; de fullscreen-modus toont standaard working en playable), Note
 // (Nederlands, voor de webpagina en engine) en NoteEN (Engels, voor de app).
 #include <QHash>
 #include <QList>
@@ -74,7 +75,7 @@ public:
     QString userRoutesError() const { return userRoutesError_; }  // een ongeldige gebruikerslaag (dan genegeerd)
 
     QString note(const QString& profile) const;  // Engels: NoteEN, dan game-options.json, dan de Nederlandse tekst
-    QString playState(const QString& profile) const;  // playable | parked | untested
+    QString playState(const QString& profile) const;  // working | playable | parked | untested
     const GameOptionsDb& options() const { return options_; }
     QString gameOptionsPath() const { return optionsPath_; }
     QString loadError() const { return error_; }

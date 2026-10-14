@@ -2,6 +2,7 @@
 // Tests van de app-kern (src/app/core) zonder engine en zonder widgets: TP-profiel lezen/schrijven, de parser van
 // game-options.json, schrijven naar doelen (nooit naar de "NAS"), bibliotheek-scan op een nepmap, memory card,
 // ProfileSync en de runtime-controle. De "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -67,6 +68,7 @@ private Q_SLOTS:
     void expandBraces();
     void optionStoreWritesProfile();
     void optionStoreEnvAndIni();
+    void optionStoreAdjVal();
     void neverWritesToNas();
     void overlayForViewSymlink();
     void libraryScan();
@@ -293,6 +295,68 @@ void AppCoreTest::optionStoreWritesProfile() {
     QString reason;
     QVERIFY(!OptionStore::writable(fp, none, &reason));
     QCOMPARE(reason, QStringLiteral("set up the game first"));
+}
+
+void AppCoreTest::optionStoreAdjVal() {
+    // Een instelling van een Raw Thrills-game in zijn eigen opslagvorm (rtdt_adjval), zoals Jurassic Park ze heeft: drie kopieen op de NAS,
+    // schrijven gaat naar de lokale schrijflaag van de native route (XDG_DATA_HOME/ravengun/native/<profiel>/0/upper), de NAS blijft gelijk.
+    const QString game = games_ + QStringLiteral("/AdjGame");
+    const QString rel = QStringLiteral("/pmuser/adj/save/playerCost/freeplay.%1.txt");
+    QByteArray text("# RTDT Data Type AdjValStore\r\nname = freeplay\r\nversion = 0\r\ntime_set = 1704136932\r\nval = 1\r\n");
+    text.append('\0');
+    auto u32 = [](quint32 v) { QByteArray b(4, '\0'); for (int i = 0; i < 4; ++i) b[i] = char((v >> (8 * i)) & 0xff); return b; };
+    const QByteArray orig = u32(20) + QCryptographicHash::hash(text, QCryptographicHash::Sha1) + u32(quint32(text.size())) + text;
+    QCOMPARE(orig.size(), 121);  // de vorm van het echte bestand (freeplay.0.txt van Jurassic Park: 121 bytes)
+    for (int i = 0; i < 3; ++i) {
+        QDir().mkpath(QFileInfo(game + rel.arg(i)).path());
+        QFile f(game + rel.arg(i));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(orig);
+    }
+    GameOptionsDb db;
+    QVERIFY(db.loadData(R"({"schema":1,"games":{"adj":{"tp_profile":"AdjGame","options":[{"key":"adj.freeplay","name_en":"Free play","type":"bool",
+        "default":false,"target":{"kind":"game_config_file","path":"pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt","base":"native_layer",
+        "format":"rtdt_adjval","key":"freeplay","edit_outside_game":true}}]}}})"));
+    const GameOption& o = db.find(QStringLiteral("AdjGame"))->options[0];
+    QCOMPARE(o.target.kind, OptionTarget::Kind::AdjVal);
+    GameContext c;
+    c.profile = QStringLiteral("AdjGame");
+    c.gameDir = game;
+    bool present = false;
+    QCOMPARE(OptionStore::read(o, c, &present), QStringLiteral("1"));  // nog niets in de schrijflaag: de NAS
+    QVERIFY(present);
+    QString why, err;
+    QVERIFY2(OptionStore::writable(o, c, &why), qPrintable(why));
+    QVERIFY2(OptionStore::write(o, c, QStringLiteral("0"), &err), qPrintable(err));
+    QCOMPARE(OptionStore::read(o, c), QStringLiteral("0"));
+    const QString layer = tmp_.filePath(QStringLiteral("data")) + QStringLiteral("/ravengun/native/AdjGame/0/upper");
+    for (int i = 0; i < 3; ++i) {
+        QFile n(game + rel.arg(i));
+        QVERIFY(n.open(QIODevice::ReadOnly));
+        QCOMPARE(n.readAll(), orig);  // de NAS is niet aangeraakt
+        QFile f(layer + rel.arg(i));
+        QVERIFY2(f.open(QIODevice::ReadOnly), qPrintable(f.fileName()));
+        const QByteArray d = f.readAll();
+        const QByteArray t = d.mid(28);
+        QCOMPARE(d.left(4), u32(20));
+        QCOMPARE(d.mid(4, 20), QCryptographicHash::hash(t, QCryptographicHash::Sha1));  // de controlesom die de game controleert
+        QCOMPARE(d.mid(24, 4), u32(quint32(t.size())));
+        QVERIFY(t.contains("name = freeplay\r\n") && t.contains("val = 0\r\n") && t.endsWith('\0'));
+    }
+    // Een kapotte kopie in de schrijflaag wordt overgeslagen (zoals de game zelf doet): de volgende kopie telt.
+    QFile kapot(layer + rel.arg(0));
+    QVERIFY(kapot.open(QIODevice::ReadWrite));
+    kapot.seek(40);
+    kapot.write("X");
+    kapot.close();
+    QCOMPARE(OptionStore::read(o, c), QStringLiteral("0"));
+    // Zonder native_layer is het bestand op de NAS: alleen lezen.
+    GameOptionsDb nas;
+    QVERIFY(nas.loadData(R"({"schema":1,"games":{"adj":{"tp_profile":"AdjGame","options":[{"key":"adj.freeplay","type":"bool",
+        "target":{"kind":"game_config_file","path":"pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt","format":"rtdt_adjval","key":"freeplay",
+        "edit_outside_game":true}}]}}})"));
+    QVERIFY(!OptionStore::writable(nas.find(QStringLiteral("AdjGame"))->options[0], c, &why));
+    QCOMPARE(why, QStringLiteral("read-only (on NAS)"));
 }
 
 void AppCoreTest::optionStoreEnvAndIni() {
@@ -1060,7 +1124,7 @@ void AppCoreTest::extraIniFormats() {
       {"key":"r","type":"enum","values":["A","E"],"target":{"kind":"game_config_file","path":"MINIGUN.INI","format":"tab_ini","key":"REGION"}},
       {"key":"l","type":"enum","values":["EN","FR"],"target":{"kind":"game_config_file","path":"op.conf","format":"colon","key":"Language"}},
       {"key":"v","type":"bool","default":true,"target":{"kind":"game_config_file","path":"GameSettings.ini","format":"ini_onoff","section":"GameSettings","key":"REVIVAL"}},
-      {"key":"a","type":"int","target":{"kind":"game_config_file","path":"x.txt","format":"rtdt_adjval","key":"a"}}]}}})";
+      {"key":"a","type":"int","target":{"kind":"game_config_file","path":"x.txt","format":"csv","key":"a"}}]}}})";
     GameOptionsDb db;
     QVERIFY(db.loadData(json));
     const GameOptionsEntry* e = db.find(QStringLiteral("X"));
@@ -1081,7 +1145,7 @@ void AppCoreTest::extraIniFormats() {
     QVERIFY(readAll(dir + QStringLiteral("/GameSettings.ini")).contains(QStringLiteral("REVIVAL=OFF")));
     QString reason;
     QVERIFY(!OptionStore::writable(e->options[3], c, &reason));
-    QVERIFY(reason.contains(QStringLiteral("test menu")) || reason.contains(QStringLiteral("rtdt_adjval")));
+    QVERIFY(reason.contains(QStringLiteral("test menu")) || reason.contains(QStringLiteral("csv")));  // rtdt_adjval is wel schrijfbaar: optionStoreAdjVal
 }
 
 namespace {
@@ -1102,7 +1166,8 @@ void AppCoreTest::routeOverride() {
     // Keuzes per game: de aanbevolen route eerst, alleen routes waarvoor er een indeling of bord is.
     QCOMPARE(d.availableRoutes(QStringLiteral("TC5")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
     QCOMPARE(d.availableRoutes(QStringLiteral("Halo")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
-    QCOMPARE(d.availableRoutes(QStringLiteral("JurassicPark")), (QStringList{QStringLiteral("evdev"), QStringLiteral("tp-shm")}));
+    // Jurassic Park: tp-shm aanbevolen sinds de RIO-brug het lightgun-bord uit het bordbeeld van de daemon beantwoordt (2026-10-14).
+    QCOMPARE(d.availableRoutes(QStringLiteral("JurassicPark")), (QStringList{QStringLiteral("tp-shm"), QStringLiteral("evdev")}));
     QVERIFY(d.availableRoutes(QStringLiteral("TransformersShadowsRising")).contains(QStringLiteral("hid-board")));
     QVERIFY(d.availableRoutes(QStringLiteral("LGS")).contains(QStringLiteral("jvs")));
     QCOMPARE(d.availableRoutes(QStringLiteral("TombRaider")), QStringList{QStringLiteral("unity-tcp")});
@@ -1174,7 +1239,7 @@ void AppCoreTest::notesEnglish() {
     QVERIFY(d.note(QStringLiteral("TC5")).startsWith(QStringLiteral("Playable")));
     QVERIFY(d.note(QStringLiteral("Halo")).startsWith(QStringLiteral("Fully working")));
     QCOMPARE(d.playState(QStringLiteral("TC5")), QStringLiteral("playable"));
-    QCOMPARE(d.playState(QStringLiteral("JurassicPark")), QStringLiteral("parked"));
+    QCOMPARE(d.playState(QStringLiteral("GhostBusters")), QStringLiteral("parked"));
     QCOMPARE(d.playState(QStringLiteral("NoSuchGameProfile")), QStringLiteral("untested"));  // zonder status
     const gs::Dirs dirs = repoDirs();
     int withNote = 0;
@@ -1183,7 +1248,7 @@ void AppCoreTest::notesEnglish() {
         const std::string nl = g.get("Status", "Note"), en = g.get("Status", "NoteEN"), st = g.get("Status", "Status");
         QCOMPARE(nl.empty(), en.empty());                                   // elke notitie in beide talen
         if (!st.empty()) QVERIFY(!nl.empty());                              // een status zonder notitie bestaat niet
-        QVERIFY(st.empty() || st == "playable" || st == "parked" || st == "untested");
+        QVERIFY(st.empty() || st == "working" || st == "playable" || st == "parked" || st == "untested");
         if (!nl.empty()) ++withNote;
     }
     QVERIFY(withNote >= 28);
@@ -1444,7 +1509,7 @@ void AppCoreTest::bigPictureGameFilter() {
         g.kind = k;
         return g;
     };
-    QList<GameEntry> all{mk(QStringLiteral("TC5"), QStringLiteral("Time Crisis 5")), mk(QStringLiteral("JurassicPark"), QStringLiteral("Jurassic Park")),
+    QList<GameEntry> all{mk(QStringLiteral("TC5"), QStringLiteral("Time Crisis 5")), mk(QStringLiteral("GhostBusters"), QStringLiteral("Ghostbusters")),
                          mk(QStringLiteral("Halo"), QStringLiteral("Halo")), mk(QStringLiteral("GaiaAttack4"), QStringLiteral("Gaia Attack 4")),
                          mk(QStringLiteral("LGI"), QStringLiteral("Let's Go Island"), GameKind::Detected)};
     GameEntry missing = mk(QStringLiteral("Terminator"), QStringLiteral("Terminator"));

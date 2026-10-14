@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "core/GameOptions.h"
 
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -69,6 +71,9 @@ QString OptionTarget::describe() const {
         case Kind::Ini:
             return section.isEmpty() ? QStringLiteral("%1: %2").arg(file, field) : QStringLiteral("%1: [%2] %3").arg(file, section, field);
         case Kind::KeyValue: return QStringLiteral("%1: %2").arg(file, field);
+        case Kind::AdjVal:
+            return section == QStringLiteral("native_layer") ? QStringLiteral("game setting \"%1\" (%2, in the game's local write layer)").arg(field, file)
+                                                            : QStringLiteral("game setting \"%1\" (%2)").arg(field, file);
         case Kind::Unsupported: break;
     }
     return QStringLiteral("not editable here: %1").arg(raw);
@@ -164,8 +169,10 @@ OptionTarget GameOptionsDb::parseTarget(const QVariant& v) {
         else if (format == QStringLiteral("tab_ini") || format == QStringLiteral("space_ini") || format == QStringLiteral("colon")) {
             t.kind = OptionTarget::Kind::KeyValue;
             t.sep = format == QStringLiteral("tab_ini") ? QLatin1Char('\t') : format == QStringLiteral("space_ini") ? QLatin1Char(' ') : QLatin1Char(':');
-        } else t.readOnlyReason = QStringLiteral("file format \"%1\" is not editable here").arg(format);
-        if (!base.isEmpty() && base != QStringLiteral("game_dir")) {
+        } else if (format == QStringLiteral("rtdt_adjval")) t.kind = OptionTarget::Kind::AdjVal;
+        else t.readOnlyReason = QStringLiteral("file format \"%1\" is not editable here").arg(format);
+        if (t.kind == OptionTarget::Kind::AdjVal && base == QStringLiteral("native_layer")) t.section = base;
+        else if (!base.isEmpty() && base != QStringLiteral("game_dir")) {
             if (base == QStringLiteral("view_dir") || base == QStringLiteral("tp_dir") || base == QStringLiteral("home")) t.file = QLatin1Char('{') + base + QStringLiteral("}/") + t.file;
             else t.readOnlyReason = QStringLiteral("location \"%1\" is not supported yet").arg(base);
         }
@@ -174,7 +181,8 @@ OptionTarget GameOptionsDb::parseTarget(const QVariant& v) {
         if (!t.readOnlyReason.isEmpty()) t.kind = OptionTarget::Kind::Unsupported;
     }
     if (t.field.isEmpty() && t.kind != OptionTarget::Kind::Unsupported) t.kind = OptionTarget::Kind::Unsupported;
-    if ((t.kind == OptionTarget::Kind::Ini || t.kind == OptionTarget::Kind::KeyValue) && t.file.isEmpty()) t.kind = OptionTarget::Kind::Unsupported;
+    if ((t.kind == OptionTarget::Kind::Ini || t.kind == OptionTarget::Kind::KeyValue || t.kind == OptionTarget::Kind::AdjVal) && t.file.isEmpty())
+        t.kind = OptionTarget::Kind::Unsupported;
     return t;
 }
 
@@ -361,6 +369,9 @@ QString GameContext::expand(const QString& pattern) const {
     s.replace(QStringLiteral("{exe_dir}"), gameDir);
     s.replace(QStringLiteral("{real_game_dir}"), realGameDir.isEmpty() ? gameDir : realGameDir);
     s.replace(QStringLiteral("{view_dir}"), viewDir);
+    // De lokale schrijflaag van de native route (scripts/play-native.sh: de overlay van de eerste mount, meestal de gamemap).
+    if (s.contains(QStringLiteral("{native_layer}")))
+        s.replace(QStringLiteral("{native_layer}"), profile.isEmpty() ? QString() : AppPaths::dataDir() + QStringLiteral("/native/") + profile + QStringLiteral("/0/upper"));
     s.replace(QStringLiteral("{home}"), AppPaths::homeDir());
     return AppPaths::expandHome(s);
 }
@@ -495,6 +506,11 @@ QString OptionStore::targetFile(const OptionTarget& t, const GameContext& c) {
         case OptionTarget::Kind::Env: return c.envPath();
         case OptionTarget::Kind::Ini:
         case OptionTarget::Kind::KeyValue: return c.resolve(t.file);
+        case OptionTarget::Kind::AdjVal: {
+            const QStringList f = GameOptionsDb::expandBraces(t.file);
+            if (f.isEmpty()) return {};
+            return t.section == QStringLiteral("native_layer") ? QDir::cleanPath(c.expand(QStringLiteral("{native_layer}/") + f.first())) : c.resolve(f.first());
+        }
         case OptionTarget::Kind::Unsupported: break;
     }
     return {};
@@ -521,6 +537,59 @@ QString setTag(QString text, const QString& tag, const QString& value) {
     text.insert(end, QStringLiteral("  ") + repl + QLatin1Char('\n'));
     return text;
 }
+
+// --- AdjVal (rtdt_adjval): [u32 lengte][SHA-1 van de tekst][u32 lengte][tekst, met een NUL erachter], little-endian. Gemeten op
+// Jurassic Park (pmuser/adj/save/playerCost/freeplay.0.txt): de 20 bytes zijn sha1 over de tekst inclusief de NUL.
+bool adjNative(const OptionTarget& t) { return t.section == QStringLiteral("native_layer"); }
+QStringList adjFiles(const OptionTarget& t, const GameContext& c, bool layer) {
+    QStringList out;
+    for (const QString& f : GameOptionsDb::expandBraces(t.file)) {
+        const QString p = layer ? c.expand(QStringLiteral("{native_layer}/") + f) : c.resolve(f);
+        if (!p.isEmpty() && !p.startsWith(QStringLiteral("{native_layer}"))) out << QDir::cleanPath(p);
+    }
+    return out;
+}
+quint32 adjU32(const QByteArray& d, int at) {
+    return quint32(uchar(d[at])) | quint32(uchar(d[at + 1])) << 8 | quint32(uchar(d[at + 2])) << 16 | quint32(uchar(d[at + 3])) << 24;
+}
+// De tekst van een kopie, alleen als de controlesom klopt (een kapotte kopie slaat de game ook over).
+bool adjParse(const QByteArray& d, QString* text) {
+    if (d.size() < 8) return false;
+    const quint32 hl = adjU32(d, 0);
+    if (hl == 0 || hl > 64 || d.size() < qsizetype(8 + hl)) return false;
+    const quint32 tl = adjU32(d, int(4 + hl));
+    if (d.size() < qsizetype(8 + hl + tl)) return false;
+    const QByteArray t = d.mid(qsizetype(8 + hl), qsizetype(tl));
+    if (QCryptographicHash::hash(t, QCryptographicHash::Sha1) != d.mid(4, qsizetype(hl))) return false;
+    *text = QString::fromLatin1(t).remove(QChar(0));
+    return true;
+}
+QString adjField(const QString& text, const QString& key, bool* found = nullptr) {
+    const QRegularExpression re(QStringLiteral("^\\s*%1\\s*=\\s*(.*?)\\s*$").arg(QRegularExpression::escape(key)), QRegularExpression::MultilineOption);
+    const auto m = re.match(text);
+    if (found) *found = m.hasMatch();
+    return m.hasMatch() ? m.captured(1) : QString();
+}
+// Lezen: de eerste kopie die klopt; de schrijflaag gaat voor de gamemap.
+bool adjRead(const OptionTarget& t, const GameContext& c, QString* text) {
+    QStringList kand;
+    if (adjNative(t)) kand << adjFiles(t, c, true);
+    kand << adjFiles(t, c, false);
+    for (const QString& p : kand) {
+        QFile f(p);
+        if (f.open(QIODevice::ReadOnly) && adjParse(f.readAll(), text)) return true;
+    }
+    return false;
+}
+QByteArray adjBuild(const QString& name, const QString& version, const QString& value) {
+    const QByteArray t = QStringLiteral("# RTDT Data Type AdjValStore\r\nname = %1\r\nversion = %2\r\ntime_set = %3\r\nval = %4\r\n")
+                             .arg(name, version, QString::number(QDateTime::currentSecsSinceEpoch()), value)
+                             .toLatin1() +
+                         QByteArray(1, '\0');
+    const QByteArray h = QCryptographicHash::hash(t, QCryptographicHash::Sha1);
+    auto u32 = [](quint32 v) { QByteArray b(4, '\0'); for (int i = 0; i < 4; ++i) b[i] = char((v >> (8 * i)) & 0xff); return b; };
+    return u32(quint32(h.size())) + h + u32(quint32(t.size())) + t;
+}
 }  // namespace
 
 QString OptionStore::read(const GameOption& o, const GameContext& c, bool* present, QString* err) {
@@ -539,6 +608,13 @@ QString OptionStore::read(const GameOption& o, const GameContext& c, bool* prese
         if (present) *present = found;
         if (!found) return o.defaultValue;
         return iniToOption(r, v ? QString::fromStdString(*v) : QString(), o);
+    }
+    if (o.target.kind == OptionTarget::Kind::AdjVal) {
+        QString text;
+        bool found = false;
+        const QString v = adjRead(o.target, c, &text) ? adjField(text, QStringLiteral("val"), &found) : QString();
+        if (present) *present = found;
+        return found ? v : o.defaultValue;
     }
     const QString file = targetFile(o.target, c);
     if (file.isEmpty()) {
@@ -591,6 +667,21 @@ bool OptionStore::writable(const GameOption& o, const GameContext& c, QString* r
         if (!w.ok && reason) *reason = w.reason.isEmpty() ? QStringLiteral("read-only") : w.reason;
         return w.ok;
     }
+    if (o.target.kind == OptionTarget::Kind::AdjVal) {
+        const QStringList kopie = adjFiles(o.target, c, adjNative(o.target));
+        if (kopie.isEmpty()) {
+            if (reason) *reason = QStringLiteral("game folder unknown");
+            return false;
+        }
+        for (const QString& p : kopie) {
+            const WriteCheck w = checkWritable(p);
+            if (!w.ok || w.needsOverlay) {
+                if (reason) *reason = QStringLiteral("read-only (on NAS)");
+                return false;
+            }
+        }
+        return true;
+    }
     const QString file = targetFile(o.target, c);
     if (file.isEmpty()) {
         if (reason) *reason = QStringLiteral("game folder unknown");
@@ -630,6 +721,23 @@ bool OptionStore::write(const GameOption& o, const GameContext& c, const QString
                                 value == o.trueValue ? o.target.companion.mid(eq + 1) : QString(), err);
         }
         return done;
+    }
+    if (o.target.kind == OptionTarget::Kind::AdjVal) {
+        // Alle kopieen dezelfde nieuwe inhoud; naam en versie uit de bestaande instelling (schrijflaag of gamemap), anders de sleutel.
+        QString oud;
+        const bool had = adjRead(o.target, c, &oud);
+        bool f = false;
+        const QString name = had ? adjField(oud, QStringLiteral("name"), &f) : QString();
+        const QString version = had ? adjField(oud, QStringLiteral("version")) : QString();
+        const QByteArray data = adjBuild(f && !name.isEmpty() ? name : o.target.field, version.isEmpty() ? QStringLiteral("0") : version, value.trimmed());
+        for (const QString& p : adjFiles(o.target, c, adjNative(o.target))) {
+            if (!QDir().mkpath(QFileInfo(p).path())) {
+                if (err) *err = QStringLiteral("cannot create %1").arg(QFileInfo(p).path());
+                return false;
+            }
+            if (!writeTextAtomic(p, data, err)) return false;
+        }
+        return true;
     }
     const QString file = targetFile(o.target, c);
     if (o.target.kind == OptionTarget::Kind::TpField || o.target.kind == OptionTarget::Kind::TpTag) {

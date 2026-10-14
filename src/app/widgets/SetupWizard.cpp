@@ -374,7 +374,10 @@ void SetupWizard::UpdateGames() {
     int ready = 0, playable = 0;
     for (const auto& g : games) {
         if (g.hasProfile()) ++ready;
-        if (g.hasProfile() && core_->gameData()->playState(g.profile) == QStringLiteral("playable")) ++playable;
+        if (g.hasProfile()) {
+            const QString st = core_->gameData()->playState(g.profile);
+            if (st == QStringLiteral("playable") || st == QStringLiteral("working")) ++playable;
+        }
     }
     QString t = folders.isEmpty() ? mark(0) + tr("No game folder yet.") : mark(1) + tr("Game folders:") + QStringLiteral("<br>") + folders.join(QStringLiteral("<br>"));
     t += QStringLiteral("<br><br>");

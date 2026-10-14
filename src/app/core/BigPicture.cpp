@@ -27,12 +27,14 @@ QList<GameEntry> games(const QList<GameEntry>& all, const GameData& data, bool s
     QList<GameEntry> out;
     for (const GameEntry& g : all) {
         if (!GameLauncher::whyNotPlayable(g).isEmpty() || !g.exeExists) continue;
-        if (!showAll && data.playState(g.profile) != QStringLiteral("playable")) continue;
+        const QString st = data.playState(g.profile);
+        if (!showAll && st != QStringLiteral("playable") && st != QStringLiteral("working")) continue;
         out << g;
     }
     std::stable_sort(out.begin(), out.end(), [&data](const GameEntry& a, const GameEntry& b) {
-        const bool pa = data.playState(a.profile) == QStringLiteral("playable");
-        const bool pb = data.playState(b.profile) == QStringLiteral("playable");
+        auto good = [&data](const GameEntry& e) { const QString s = data.playState(e.profile); return s == QStringLiteral("playable") || s == QStringLiteral("working"); };
+        const bool pa = good(a);
+        const bool pb = good(b);
         if (pa != pb) return pa;
         return a.displayName().compare(b.displayName(), Qt::CaseInsensitive) < 0;
     });
