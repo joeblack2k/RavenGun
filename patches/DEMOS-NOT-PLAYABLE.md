@@ -10,6 +10,23 @@ would have to be true for the game to count as **played** rather than demoing.
 **Read "on our core" strictly.** Where a game is only playable on the closed TeknoParrot route, that is
 said in its row; it does not count.
 
+## My judgement (what you asked for)
+
+**The single biggest obstacle is that there is no one input bridge, and there cannot be a cheap one:**
+every cabinet reads its gun, coins and buttons through its own device or library — a Raw Thrills RIO USB
+board (JP, NERF), the game's own `UsbPluginsDll.dll` (Raccoon), a `shaiolib.dll` (Silent Hill), the
+WartranTroopers shared memory (Halo, Terminator) — so "wire the gun" is a different adapter for almost
+every title. The daemon already holds the intent (aim, trigger, coin); the wall is the per-game adapter
+from that intent to the game's own input source. Boot is solved everywhere; this is the whole remaining
+distance.
+
+**If you told me to pick one next, I would do the RIO board (Jurassic Park + NERF).** It is the only wall
+that clears **two** titles with one fix; it is the **most readable** of them — `librio.so` keeps its
+export names (`RIO_GetReport`, `RIO_SampleInput`, `RIO_SW_Count`, `RIO_ADC_Val`) and both games open the
+**same** USB device `0c70:0780`, so the report format can be read statically before any run; and both
+titles already hold attract on our core, so inputs are the only thing left between them and a real-gun
+playthrough. Everything else serves one title, or (HOTDSD) is not on our core yet.
+
 | game | how it clears the bar | the unmet thing, with its evidence | what would make it count as PLAYED |
 |---|---|---|---|
 | **Luigi's Mansion** | **demo, our core** — ~6 min continuous attract, no error banner (drop-in `rg-pe-hook.dll`) | nearest to "demos and nothing else known missing": no banner is up. But **no input is wired** and it carries an unused OKAO/QR webcam layer (`Nbam_QR_Code.dll`, `eOkao*` in `BESCHERMINGSLAAG.md §624`). | aim + trigger wired from the daemon, and a person plays it on our core with the gun. |
