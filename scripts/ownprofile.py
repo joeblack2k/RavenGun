@@ -341,6 +341,115 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+# De sha256-cache (src/ravengun/launch/gamefind.cpp HashCache, zelfde bestand en indeling): per (pad, grootte, mtime) in het geheugen en in
+# $XDG_CACHE_HOME/ravengun/sha256-cache.tsv (anders ~/.cache/...; RAVENGUN_HASH_CACHE kiest een ander bestand, "off" = alleen in het
+# geheugen). Een tweede start of lijst hasht niets opnieuw van de NAS; er wordt nooit naast het gehashte bestand geschreven.
+HASH_CACHE_HEADER = "# ravengun sha256-cache v1: sha256, grootte, mtime (ns), pad"
+_hash_mem = {}
+_hash_loaded = set()
+
+
+def hash_cache_file():
+    v = os.environ.get("RAVENGUN_HASH_CACHE")
+    if v is not None:
+        return "" if v in ("", "off") else v
+    x = os.environ.get("XDG_CACHE_HOME", "")
+    if x.startswith("/"):
+        return os.path.join(x, "ravengun", "sha256-cache.tsv")
+    home = os.environ.get("HOME", "")
+    return os.path.join(home, ".cache", "ravengun", "sha256-cache.tsv") if home.startswith("/") else ""
+
+
+def _hash_cache_read(cfile):
+    out = {}
+    try:
+        with open(cfile, encoding="utf-8", errors="surrogateescape") as f:
+            for line in f:
+                line = line.rstrip("\n")
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("\t", 3)
+                if len(parts) != 4 or not re.fullmatch(r"[0-9a-f]{64}", parts[0]) or not parts[3].startswith("/"):
+                    continue
+                try:
+                    out.setdefault(parts[3], (int(parts[1]), int(parts[2]), parts[0]))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+def _hash_cache_write(cfile):
+    merged = _hash_cache_read(cfile)
+    merged.update({p: e for (cf, p), e in _hash_mem.items() if cf == cfile})
+    tmp = "%s.tmp-%d" % (cfile, os.getpid())
+    try:
+        os.makedirs(os.path.dirname(cfile), exist_ok=True)
+        with open(tmp, "w", encoding="utf-8", errors="surrogateescape") as f:
+            f.write(HASH_CACHE_HEADER + "\n")
+            for p in sorted(merged):
+                size, mtime, sha = merged[p]
+                f.write("%s\t%d\t%d\t%s\n" % (sha, size, mtime, p))
+        os.replace(tmp, cfile)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def sha256_cached(path):
+    """sha256_file met de cache; OSError als het bestand niet te lezen is (zoals sha256_file)."""
+    st = os.stat(path)
+    cfile = hash_cache_file()
+    if cfile and cfile not in _hash_loaded:
+        _hash_loaded.add(cfile)
+        for p, e in _hash_cache_read(cfile).items():
+            _hash_mem.setdefault((cfile, p), e)
+    e = _hash_mem.get((cfile, path))
+    if e and e[0] == st.st_size and e[1] == st.st_mtime_ns:
+        return e[2]
+    sha = sha256_file(path)
+    st2 = os.stat(path)
+    if (st2.st_size, st2.st_mtime_ns) == (st.st_size, st.st_mtime_ns):   # veranderde het tijdens het hashen, dan niet onthouden
+        _hash_mem[(cfile, path)] = (st.st_size, st.st_mtime_ns, sha)
+        if cfile and path.startswith("/") and not any(c in path for c in "\t\r\n"):
+            _hash_cache_write(cfile)
+    return sha
+
+
+def library_roots(name, path, library=None):
+    """De kandidaatmappen voor profiel `name` uit library.json ("games": "folder", en de map van "exe" als exe op /<path> eindigt), zonder
+    dubbele (launch::library_roots in src/ravengun/launch/gamefind.cpp)."""
+    try:
+        with open(library or library_file(), encoding="utf-8") as f:
+            games = json.load(f).get("games", [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    out = []
+
+    def norm(p):
+        return os.path.normpath(gs.expand_home(p))
+
+    def add(p):
+        if p.startswith("/") and p not in out:
+            out.append(p)
+    for g in games if isinstance(games, list) else []:
+        if not isinstance(g, dict) or g.get("profile") != name:
+            continue
+        fo = g.get("folder")
+        if isinstance(fo, str) and fo:
+            add(norm(fo))
+        ex = g.get("exe")
+        if isinstance(ex, str) and ex and path:
+            exe = norm(ex)
+            suffix = "/" + path
+            if len(exe) > len(suffix) and exe.endswith(suffix):
+                add(exe[:-len(suffix)])
+    return out
+
+
 def matches(root, path, size, sha, folder=""):
     """Is root/path het hoofdbestand van de game? Grootte is een goedkope controle (stat), sha256 de zekere; folder (alleen bij games
     waarvan het hoofdbestand identiek is aan dat van een andere game, bv. twee Unity-games met dezelfde Game.exe) is de mapnaam."""
@@ -352,7 +461,7 @@ def matches(root, path, size, sha, folder=""):
             return False
         if size is not None and os.stat(full).st_size != size:
             return False
-        return not sha or sha256_file(full) == sha
+        return not sha or sha256_cached(full) == sha
     except OSError:
         return False
 
@@ -386,9 +495,11 @@ def find_in_folders(settings, folders):
     return found[0] if found else ""
 
 
-def locate_game(name, settings, folders=None, views=None):
-    """Het pad van de game, afgeleid en niet opgeslagen. Volgorde: een afwijkend pad van de gebruiker ([Game] GamePath), een lokale view
-    (runtime/views/<Game>/, door tp-add-game --view gemaakt) en dan de gamemappen. Geeft (pad, bron) met bron override|view|folders|''."""
+def locate_game(name, settings, folders=None, views=None, hints=None):
+    """Het pad van de game, afgeleid en niet opgeslagen. Volgorde (eerst wat goedkoop is, gelijk aan gamesettings::locate_game in C++): een
+    afwijkend pad van de gebruiker ([Game] GamePath), een lokale view (runtime/views/<Game>/, door tp-add-game --view gemaakt), met
+    [Identify] Folder <gamemap>/<Folder> in elke gamemap, de mappen die library.json bij dit profiel heeft (hints; standaard
+    library_roots), en dan de gamemappen doorzoeken. Geeft (pad, bron) met bron override|view|folders|''."""
     ov = gs.expand_home(settings.get("Game", {}).get("GamePath", "").strip())
     if ov:
         return ov, "override"
@@ -398,7 +509,19 @@ def locate_game(name, settings, folders=None, views=None):
     view = os.path.join(views or views_dir(), name)
     if os.path.isdir(view) and matches(view, path, size, sha):   # een view is van deze game: Folder telt hier niet
         return os.path.join(view, path), "view"
-    found = find_in_folders(settings, library_folders() if folders is None else folders)
+    if hints is None:   # alleen bij de gamemappen van library.json ook de games van library.json; een eigen lijst mappen beperkt het zoeken
+        hints = library_roots(name, path) if folders is None else []
+    folders = library_folders() if folders is None else folders
+    folder = settings.get(IDENTIFY, {}).get("Folder", "").strip()
+    if folder and "/" not in folder and folder not in (".", ".."):
+        for f in folders:
+            root = os.path.join(f, folder)
+            if os.path.isdir(root) and matches(root, path, size, sha, folder):
+                return os.path.join(root, path), "folders"
+    for root in hints:
+        if root and os.path.isdir(root) and matches(root, path, size, sha, folder):
+            return os.path.join(root, path), "folders"
+    found = find_in_folders(settings, folders)
     return (found, "folders") if found else ("", "")
 
 

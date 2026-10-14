@@ -25,6 +25,7 @@
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/launch/gamefind.hpp"
 #include "ravengun/launch/native.hpp"
 
 extern char** environ;
@@ -370,7 +371,10 @@ std::string locate(const std::string& profile, const gsn::Ini& settings, const D
         if (how) *how = "override";
         return expand_home(ov, p.home);
     }
-    return gsn::locate_game(profile, settings, library_folders(p), p.views(), p.home, how, [](const std::string& f) { return sha256_file(f); });
+    // De sha256 uit de cache (per pad, grootte en mtime), library.json als hint voor het zoeken: een start hasht de NAS niet opnieuw.
+    return gsn::locate_game(profile, settings, library_folders(p), p.views(), p.home, how,
+                            [](const std::string& f) { return default_hash_cache().sha256(f); },
+                            library_roots(p.library_file, profile, gsn::identify_of(settings).path, p.home));
 }
 
 std::string user_xml(const DirectPaths& p, const std::string& profile) { return p.tp + "/UserProfiles/" + profile + ".xml"; }

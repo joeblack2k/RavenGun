@@ -328,6 +328,63 @@ class LocateTest(Env):
         self.assertEqual(op.locate_game("A", gs.load_game("A").settings, [self.games]), ("/ergens/anders/game.exe", "override"))
 
 
+class CheapLocateTest(Env):
+    """Eerst wat goedkoop is (gelijk aan gamesettings::locate_game in C++): [Identify] Folder, dan library.json, dan zoeken; de sha256 uit
+    de cache (zelfde bestand en indeling als launch::HashCache)."""
+
+    def settings(self, **ident):
+        return {"Game": {"Executable": "game.exe"}, "Identify": dict({"Path": "game.exe", "Size": "3"}, **ident)}
+
+    def test_order_and_hints(self):
+        other = os.path.join(self.games, "Een andere", "game.exe")   # sorteert voor "Spel A"
+        write(other, "abc")
+        s = self.settings()
+        self.assertEqual(op.locate_game("A", s), (other, "folders"))                       # zoeken: de eerste in de gamemap
+        self.assertEqual(op.locate_game("A", self.settings(Folder="Spel A")), (self.exe, "folders"))
+        # library.json kent de map van dit profiel: die gaat voor het zoeken (folder, of de map van exe).
+        with open(self.lib, encoding="utf-8") as f:
+            lib = json.load(f)
+        lib["games"] = [{"profile": "A", "folder": os.path.dirname(self.exe) + "/"}, {"profile": "B", "folder": os.path.dirname(other)}]
+        write(self.lib, json.dumps(lib))
+        self.assertEqual(op.library_roots("A", "game.exe"), [os.path.dirname(self.exe)])
+        self.assertEqual(op.locate_game("A", s), (self.exe, "folders"))
+        self.assertEqual(op.locate_game("A", s, [self.games]), (other, "folders"))       # een eigen lijst mappen: geen hints
+        lib["games"] = [{"profile": "A", "exe": self.exe}]
+        write(self.lib, json.dumps(lib))
+        self.assertEqual(op.library_roots("A", "game.exe"), [os.path.dirname(self.exe)])
+        self.assertEqual(op.library_roots("A", "anders.exe"), [])
+
+    def test_hash_cache(self):
+        cache = os.path.join(self.tmp, "cache", "sha256-cache.tsv")
+        os.environ["RAVENGUN_HASH_CACHE"] = cache
+        sha = op.sha256_file(self.exe)
+        calls = []
+        real = op.sha256_file
+        op.sha256_file = lambda p: calls.append(p) or real(p)
+        try:
+            op._hash_mem.clear()
+            op._hash_loaded.clear()
+            self.assertEqual(op.locate_game("A", self.settings(Sha256=sha)), (self.exe, "folders"))
+            self.assertEqual(op.locate_game("A", self.settings(Sha256=sha)), (self.exe, "folders"))
+            self.assertEqual(calls, [self.exe])                                              # een keer gehasht
+            with open(cache, encoding="utf-8") as f:
+                lines = f.read().splitlines()
+            st = os.stat(self.exe)
+            self.assertEqual(lines[1], "%s\t%d\t%d\t%s" % (sha, st.st_size, st.st_mtime_ns, self.exe))
+            op._hash_mem.clear()                                                             # een nieuw proces: uit het bestand
+            op._hash_loaded.clear()
+            self.assertEqual(op.sha256_cached(self.exe), sha)
+            self.assertEqual(len(calls), 1)
+            write(self.exe, "xyz")                                                           # andere inhoud en mtime: opnieuw
+            os.utime(self.exe, ns=(st.st_atime_ns, st.st_mtime_ns + 5 * 10**9))
+            self.assertNotEqual(op.sha256_cached(self.exe), sha)
+            self.assertEqual(len(calls), 2)
+        finally:
+            op.sha256_file = real
+            op._hash_mem.clear()
+            op._hash_loaded.clear()
+
+
 class LaunchTest(Env):
     def setUp(self):
         super().setUp()

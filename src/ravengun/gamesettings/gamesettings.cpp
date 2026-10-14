@@ -656,7 +656,7 @@ bool identify_matches(const std::string& root, const Identify& id, bool check_fo
 }  // namespace
 
 std::string locate_game(const std::string& profile, const Ini& settings, const std::vector<std::string>& folders, const std::string& views_dir,
-                        const std::string& home, std::string* how, const HashFn& hash) {
+                        const std::string& home, std::string* how, const HashFn& hash, const std::vector<std::string>& hints) {
     namespace fs = std::filesystem;
     auto result = [&](const std::string& p, const char* h) {
         if (how) *how = p.empty() ? "" : h;
@@ -674,6 +674,15 @@ std::string locate_game(const std::string& profile, const Ini& settings, const s
         const std::string view = views_dir + "/" + profile;
         if (fs::is_directory(view, ec) && identify_matches(view, id, false, hash)) return result((fs::path(view) / id.path).string(), "view");
     }
+    // Goedkoop voor het zoeken: de map uit [Identify] Folder in elke gamemap, dan wat library.json bij dit profiel heeft.
+    if (!id.folder.empty() && id.folder.find('/') == std::string::npos && id.folder != "." && id.folder != "..")
+        for (const std::string& f : folders) {
+            const std::string root = (fs::path(f) / id.folder).string();
+            if (fs::is_directory(root, ec) && identify_matches(root, id, true, hash)) return result((fs::path(root) / id.path).string(), "folders");
+        }
+    for (const std::string& root : hints)
+        if (!root.empty() && fs::is_directory(root, ec) && identify_matches(root, id, true, hash))
+            return result((fs::path(root) / id.path).string(), "folders");
     for (const std::string& f : folders) {
         std::vector<std::string> subs;
         for (fs::directory_iterator it(f, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {

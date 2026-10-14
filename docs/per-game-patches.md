@@ -514,15 +514,23 @@ Het pad naar de game staat **nergens**: niet in de repo en normaal ook niet in d
 
 1. `[Game] GamePath` in de gebruikerslaag (een afwijkend pad dat de gebruiker zelf koos; de uitzondering, nooit in de repo);
 2. een lokale view `~/.local/share/ravengun/runtime/views/<Game>/` (door `tp-add-game.py --view` gemaakt) waarin `Path` bestaat;
-3. de gamemappen: elke submap van een gamemap (en de gamemap zelf) waarin `Path` bestaat en waarvan de grootte (`Size`) en eventueel de
-   sha256 (`Sha256`) kloppen.
+3. met `Folder`: de map `<gamemap>/<Folder>` in elke gamemap (zonder de andere mappen te bekijken);
+4. de map die de app in `library.json` (`games`: `folder`, of de map van `exe`) bij dit profiel heeft;
+5. de gamemappen doorzoeken: elke submap van een gamemap (en de gamemap zelf) waarin `Path` bestaat en waarvan de grootte (`Size`) en
+   eventueel de sha256 (`Sha256`) kloppen.
+
+Bij 3 en 4 gelden dezelfde controles als bij 5; ze zijn er omdat elke kandidaat op de NAS stat-aanroepen kost en een `Sha256` het hele
+hoofdbestand laat lezen. De sha256 wordt onthouden per pad, grootte en mtime: in het geheugen en in
+`~/.cache/ravengun/sha256-cache.tsv` (`$XDG_CACHE_HOME`; `RAVENGUN_HASH_CACHE` kiest een ander bestand, `off` = alleen in het geheugen),
+gedeeld door de engine, rg-direct en de scripts. Een tweede start hasht dus niets opnieuw; op de NAS wordt niets geschreven.
 
 `Path` is relatief aan de map van de game. `Size` is de grootte van dat bestand. `Path2` (alleen bij games met twee exe's, HOTDSD) is het pad van de tweede exe
 in dezelfde map; het zet `GamePath2` in de XML voor TeknoParrotUi en is bij een directe start het pad van de tweede start (zie "Twee exe's" hieronder). Hebben twee games een identiek hoofdbestand (twee Unity-games met
 dezelfde `Game.exe`), dan legt de importer de `Sha256` vast en zo nodig `Folder` (de naam van de map, hoofdletters maken niet uit). Een andere
 versie van het bestand (andere grootte) wordt niet herkend; kies dan het pad zelf (`GamePath`) of importeer opnieuw. Python
-(`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de engine heeft geen hashfunctie en let
-dan op pad, grootte en mapnaam.
+(`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de gamelijst van de engine hasht
+niet en let dan op pad, grootte en mapnaam (de directe route van de engine en de scripts controleren de sha256 wel, uit de cache; de
+bibliotheekscan van de app hasht zelf, zonder de cache).
 
 ### Importer
 

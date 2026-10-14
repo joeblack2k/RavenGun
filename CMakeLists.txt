@@ -52,6 +52,7 @@ add_library(ravengun STATIC
   src/ravengun/launch/native.cpp
   src/ravengun/launch/unity.cpp
   src/ravengun/launch/direct.cpp
+  src/ravengun/launch/gamefind.cpp
   src/ravengun/launch/jvs_pipe.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp

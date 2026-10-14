@@ -178,10 +178,18 @@ struct Identify {
 Identify identify_of(const Ini& settings);
 using HashFn = std::function<std::string(const std::string& path)>;   // sha256 (kleine hex) van een bestand; leeg = niet te lezen
 
-// Het pad van de game, afgeleid en niet opgeslagen: een override van de gebruiker ([Game] GamePath), een lokale view (views_dir/<profile>/)
-// en dan de gamemappen (elke submap van een gamemap, en de gamemap zelf). how: override | view | folders ("" = niet gevonden). Zonder
-// `hash` (de engine heeft er geen) wordt een sha256 in [Identify] niet gecontroleerd: pad, grootte en mapnaam gelden dan.
+// Het pad van de game, afgeleid en niet opgeslagen. Eerst wat goedkoop is, pas dan zoeken (elke kandidaat kost stat-aanroepen op de NAS en
+// bij een sha256 het hele hoofdbestand lezen):
+//   1. een override van de gebruiker ([Game] GamePath);
+//   2. een lokale view (views_dir/<profile>/);
+//   3. met [Identify] Folder: <gamemap>/<Folder> in elke gamemap;
+//   4. `hints`: mappen die de app al bij dit profiel kent (library.json, launch::library_roots);
+//   5. de gamemappen doorzoeken (elke submap van een gamemap, en de gamemap zelf).
+// Bij 3 tot 5 gelden pad, grootte, mapnaam en sha256 uit [Identify] allemaal. how: override | view | folders ("" = niet gevonden). Zonder
+// `hash` (de engine heeft er geen) wordt een sha256 in [Identify] niet gecontroleerd: pad, grootte en mapnaam gelden dan. Gelijk aan
+// scripts/ownprofile.py locate_game.
 std::string locate_game(const std::string& profile, const Ini& settings, const std::vector<std::string>& folders, const std::string& views_dir,
-                        const std::string& home, std::string* how = nullptr, const HashFn& hash = {});
+                        const std::string& home, std::string* how = nullptr, const HashFn& hash = {},
+                        const std::vector<std::string>& hints = {});
 
 }  // namespace ravengun::gamesettings
