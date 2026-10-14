@@ -402,6 +402,31 @@ static void parse_en_noteer(const char *naam, const char *pad)
     }
 }
 
+/* Een DT_NEEDED met een ABSOLUUT pad (Aliens Armageddon, Walking Dead en GhostBusters: "/usr/lib/libcsv.so", zo gelinkt op de
+ * kast). In de sandbox is /usr die van de host en daar staat zo'n bestand niet; een bestand over een pad in een alleen-lezen /usr
+ * heen tonen kan bwrap niet (het aankoppelpunt kan er niet gemaakt worden). Bestaat het absolute pad niet, dan zoeken we de
+ * basisnaam zoals een gewone NEEDED (LD_LIBRARY_PATH, dus /rg/lib met de libs uit het profiel). Bestaat het pad wel, dan blijft
+ * het zoals het is. Eén melding per naam. */
+static const char *needed_naam(const char *naam)
+{
+    static char gemeld[8][256];
+    static int ngemeld;
+    const char *basis;
+    int i;
+    if (naam[0] != '/' || access(naam, R_OK) == 0)
+        return naam;
+    basis = strrchr(naam, '/') + 1;
+    if (!*basis)
+        return naam;
+    for (i = 0; i < ngemeld; i++)
+        if (!strcmp(gemeld[i], naam))
+            return basis;
+    if (ngemeld < (int)(sizeof(gemeld) / sizeof(gemeld[0])))
+        snprintf(gemeld[ngemeld++], sizeof gemeld[0], "%s", naam);
+    say("NEEDED %s bestaat niet: gezocht als %s (LD_LIBRARY_PATH)", naam, basis);
+    return basis;
+}
+
 static void vind_en_parse(const char *naam)
 {
     const char *ldp = getenv("LD_LIBRARY_PATH");
@@ -429,7 +454,7 @@ static void verzamel_lib_defs(struct beeld *b, struct dyninfo *d)
     Elf32_Dyn *dy;
     for (dy = b->dyn; dy->d_tag != DT_NULL; dy++)
         if (dy->d_tag == DT_NEEDED)
-            vind_en_parse(d->strtab + dy->d_un.d_val);
+            vind_en_parse(needed_naam(d->strtab + dy->d_un.d_val));
     qsort(rg_defname, rg_defname_n, sizeof rg_defname[0], def_cmp);
     dbg("lib-defs: %d gedefinieerde symbolen uit de NEEDED-libs gelezen", rg_defname_n);
     if (rg_defname_overflow) {
@@ -617,7 +642,7 @@ static void laad_needed(struct beeld *b, struct dyninfo *d)
         if (dy->d_tag != DT_NEEDED)
             continue;
         rg_needed_totaal++;
-        naam = d->strtab + dy->d_un.d_val;
+        naam = needed_naam(d->strtab + dy->d_un.d_val);
         h = dlopen(naam, RTLD_NOW | RTLD_GLOBAL);   /* RTLD_NOW past ook liballeg's eigen relocaties toe */
         if (!h) {
             const char *fout = dlerror();
