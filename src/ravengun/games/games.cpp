@@ -19,6 +19,7 @@
 #include "ravengun/json.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/launch/gamefind.hpp"
 
 extern char** environ;
 
@@ -196,14 +197,38 @@ bool own_profile_installed(const Config& c, const std::string& profile, const st
     if (c.dirs.shipped.empty() && c.dirs.user.empty()) return false;
     ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     if (!ravengun::gamesettings::has_own_profile(g.settings)) return false;
-    if (ravengun::gamesettings::locate_game(profile, g.settings, folders, c.views_dir, c.home).empty()) return false;
+    // Zonder hash (alleen stat-aanroepen), met library.json als hint: de lijst doorzoekt de NAS niet voor een game die de app al kent.
+    const std::vector<std::string> hints =
+        ravengun::launch::library_roots(c.library_file, profile, ravengun::gamesettings::identify_of(g.settings).path, c.home);
+    if (ravengun::gamesettings::locate_game(profile, g.settings, folders, c.views_dir, c.home, nullptr, {}, hints).empty()) return false;
     if (out) *out = std::move(g);
     return true;
 }
 
 }  // namespace
 
-std::vector<Game> list_games(const Config& c) {
+std::vector<Game> own_profile_games(const Config& c) {
+    std::vector<Game> out;
+    if (c.library_file.empty() && c.views_dir.empty()) return out;
+    const std::vector<std::string> folders = library_folders(c.library_file, c.home);
+    for (const std::string& name : ravengun::gamesettings::list_games(c.dirs)) {
+        if (!valid_profile_name(name)) continue;
+        std::error_code e2;
+        if (!c.tp_dir.empty() && fs::is_regular_file(fs::path(c.tp_dir) / "UserProfiles" / (name + ".xml"), e2)) continue;   // staat al in de lijst
+        ravengun::gamesettings::Game own;
+        if (!own_profile_installed(c, name, folders, &own)) continue;
+        Game g;
+        g.profile = name;
+        g.name = own.get("Game", "Name");
+        if (g.name.empty()) g.name = humanize(name);
+        std::error_code e3;
+        if (fs::is_regular_file(fs::path(c.tp_dir) / "Icons" / (name + ".png"), e3) && !e3) g.icon_file = name + ".png";
+        out.push_back(std::move(g));
+    }
+    return out;
+}
+
+std::vector<Game> list_games(const Config& c, const std::vector<Game>* own_games) {
     std::vector<Game> out;
     if (c.tp_dir.empty()) return out;
     std::error_code ec;
@@ -233,24 +258,14 @@ std::vector<Game> list_games(const Config& c) {
         for (const auto& n : notes) if (n.first == stem) g.note = n.second;
         out.push_back(std::move(g));
     }
-    // Games met een eigen profiel in game.ini die niet ook als UserProfiles-XML bestaan.
-    if (!c.library_file.empty() || !c.views_dir.empty()) {
-        const std::vector<std::string> folders = library_folders(c.library_file, c.home);
-        for (const std::string& name : ravengun::gamesettings::list_games(c.dirs)) {
-            if (!valid_profile_name(name)) continue;
-            bool have = false;
-            for (const Game& g : out) have = have || g.profile == name;
-            ravengun::gamesettings::Game own;
-            if (have || !own_profile_installed(c, name, folders, &own)) continue;
-            Game g;
-            g.profile = name;
-            g.name = own.get("Game", "Name");
-            if (g.name.empty()) g.name = humanize(name);
-            std::error_code e3;
-            if (fs::is_regular_file(fs::path(c.tp_dir) / "Icons" / (name + ".png"), e3) && !e3) g.icon_file = name + ".png";
-            for (const auto& n : notes) if (n.first == name) g.note = n.second;
-            out.push_back(std::move(g));
-        }
+    // Games met een eigen profiel in game.ini die niet ook als UserProfiles-XML bestaan (dat zoekt in de gamemappen: de NAS).
+    const std::vector<Game> own = own_games ? std::vector<Game>() : own_profile_games(c);
+    for (Game g : own_games ? *own_games : own) {
+        bool have = false;
+        for (const Game& x : out) have = have || x.profile == g.profile;
+        if (have) continue;
+        for (const auto& n : notes) if (n.first == g.profile) g.note = n.second;
+        out.push_back(std::move(g));
     }
     std::sort(out.begin(), out.end(), [](const Game& a, const Game& b) {
         std::string x = a.name, y = b.name;
@@ -590,29 +605,31 @@ int run_process(const std::vector<std::string>& argv, std::string& err) {
 
 GameService::GameService(Config c, Spawner s) : c_(std::move(c)), spawn_(std::move(s)) {}
 
-GameService::~GameService() { join_worker(); }
+GameService::~GameService() {
+    join_worker();
+    wait_own_games();
+}
+
+void GameService::wait_own_games() {
+    std::thread t;
+    {
+        std::lock_guard<std::mutex> g(own_m_);
+        t = std::move(own_thread_);
+    }
+    if (t.joinable()) t.join();
+}
 
 void GameService::join_worker() {
     if (worker_.joinable()) worker_.join();
 }
 
 Result GameService::start(const std::string& profile, const std::string& launch) {
+    // Alleen goedkope controles in het IPC-verzoek (geen NAS): de route kiezen en plannen gebeurt in de worker, zodat de daemon tijdens
+    // een start op alles blijft antwoorden. Een weigering of fout eindigt daar in de toestand "failed" met de melding.
     if (!valid_profile_name(profile)) return {false, "invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -)"};
     if (!valid_launch(launch)) return {false, "invalid_argument", "ongeldige startwijze '" + launch + "'"};
     if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen eigen profiel in patches/" + profile + "/game.ini en geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
-    const bool native = native_route(c_, profile);
-    const bool unity = !native && unity_route(c_, profile, launch);
-    // De directe route (A10): de engine zelf, of het script (ook als dat zelf naar TeknoParrotUi terugvalt). Wat launch-direct.py
-    // --check zou weigeren (exit 5), start niet: play-halo.sh stopt dan ook, zonder TeknoParrotUi.
-    ravengun::launch::DirectInput din;
-    std::string dwhy;
-    const ravengun::launch::Verdict dv =
-        native || unity ? ravengun::launch::Verdict::Fallback : direct_route(c_, profile, launch, dwhy, &din);
-    if (dv == ravengun::launch::Verdict::Refused) return {false, "unavailable", profile + ": " + dwhy};
-    const bool direct = dv == ravengun::launch::Verdict::Ok;
-    if (!native && !unity && !direct && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
-        return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
     const int sc = script_state(c_.proc_root, c_.play_script);
@@ -632,39 +649,65 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     failed_profile_.clear();
     busy_.store(true);
     busy_stop_ = false;
-    native_ = native || unity || direct;
+    native_ = true;   // tijdens het plannen is het een eigen start: stoppen breekt hem af (cancel_)
     cancel_.store(false);
-    if (native || unity || direct) {
-        worker_ = std::thread([this, profile, unity, direct, din] {
-            const std::string msg = unity ? run_unity(profile) : direct ? run_direct(profile, din) : run_native(profile);
+    worker_ = std::thread([this, profile, launch] { run_start(profile, launch); });
+    return {};
+}
+
+// De worker van een start: de route kiezen (native, Unity, direct of het script) en die uitvoeren.
+void GameService::run_start(const std::string& profile, const std::string& launch) {
+    namespace L = ravengun::launch;
+    const bool native = native_route(c_, profile);
+    const bool unity = !native && unity_route(c_, profile, launch);
+    // De directe route (A10): de engine zelf, of het script (ook als dat zelf naar TeknoParrotUi terugvalt). Wat launch-direct.py
+    // --check zou weigeren (exit 5), start niet: play-halo.sh stopt dan ook, zonder TeknoParrotUi.
+    L::DirectInput din;
+    std::string dwhy;
+    const L::Verdict dv = native || unity ? L::Verdict::Fallback : direct_route(c_, profile, launch, dwhy, &din);
+    const bool direct = dv == L::Verdict::Ok;
+    std::string msg;
+    bool own = false;   // een eigen route liep (die kan invoer of een unit achterlaten; stoppen ruimt dat dan op)
+    if (dv == L::Verdict::Refused) msg = profile + ": " + dwhy;
+    else if (cancel_.load()) msg = "de start is afgebroken";
+    else if (native || unity || direct) {
+        own = true;
+        msg = unity ? run_unity(profile) : direct ? run_direct(profile, din) : run_native(profile);
+    }
+    else if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0) msg = "het startscript ontbreekt of is niet uitvoerbaar";
+    else {
+        // Het script: vanaf hier stopt stoppen het script (zoals altijd), niet meer de eigen start.
+        {
             std::lock_guard<std::mutex> lk(m_);
-            if (!msg.empty()) {
+            if (cancel_.load()) msg = "de start is afgebroken";
+            else native_ = false;
+        }
+        if (msg.empty()) {
+            std::string err;
+            const int rc = spawn_(start_argv(c_, profile, launch), err);
+            std::lock_guard<std::mutex> lk(m_);
+            if (rc == 0) {
+                launched_ = true;
+                launched_ms_ = now_ms();
+            } else {
                 failed_ = true;
                 failed_profile_ = profile;
-                failed_msg_ = msg;
+                failed_msg_ = rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + "); draait er al een start?"
+                                     : "het starten mislukte: " + err;
             }
-            waiting_.store(false);
             busy_.store(false);
-        });
-        return {};
-    }
-    std::vector<std::string> argv = start_argv(c_, profile, launch);
-    worker_ = std::thread([this, argv, profile] {
-        std::string err;
-        int rc = spawn_(argv, err);
-        std::lock_guard<std::mutex> lk(m_);
-        if (rc == 0) {
-            launched_ = true;
-            launched_ms_ = now_ms();
-        } else {
-            failed_ = true;
-            failed_profile_ = profile;
-            failed_msg_ = rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + "); draait er al een start?"
-                                 : "het starten mislukte: " + err;
+            return;
         }
-        busy_.store(false);
-    });
-    return {};
+    }
+    std::lock_guard<std::mutex> lk(m_);
+    if (!msg.empty()) {
+        failed_ = true;
+        failed_profile_ = profile;
+        failed_msg_ = msg;
+        if (!own) native_ = false;   // er is niets van de daemon zelf op te ruimen
+    }
+    waiting_.store(false);
+    busy_.store(false);
 }
 
 Result GameService::stop() {
@@ -1044,8 +1087,25 @@ std::string GameService::list_json() {
     json::Writer w;
     w.begin_object().key("available").value(avail);
     if (!avail) w.key("message").value("De TeknoParrot-profielen zijn niet gevonden. Controleer of TeknoParrot is geinstalleerd.");
+    // De games met een eigen profiel uit de cache; is die oud of leeg, dan zoekt een achtergrondthread opnieuw (het verzoek wacht niet).
+    std::vector<Game> own;
+    {
+        std::lock_guard<std::mutex> g(own_m_);
+        own = own_games_;
+        if (!own_busy_ && (own_ms_ < 0 || now_ms() - own_ms_ > kOwnGamesTtlMs)) {
+            own_busy_ = true;
+            if (own_thread_.joinable()) own_thread_.join();   // de vorige is klaar (own_busy_ was false)
+            own_thread_ = std::thread([this] {
+                std::vector<Game> found = own_profile_games(c_);
+                std::lock_guard<std::mutex> lk(own_m_);
+                own_games_ = std::move(found);
+                own_ms_ = now_ms();
+                own_busy_ = false;
+            });
+        }
+    }
     w.key("games").begin_array();
-    for (const auto& g : list_games(c_)) {
+    for (const auto& g : list_games(c_, &own)) {
         w.begin_object().key("profile").value(g.profile).key("name").value(g.name);
         if (g.icon_file.empty()) w.key("icon").null(); else w.key("icon").value("/api/game-icon/" + g.icon_file);
         if (g.note.empty()) w.key("note").null(); else w.key("note").value(g.note);

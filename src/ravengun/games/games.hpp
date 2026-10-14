@@ -20,6 +20,7 @@
 //   /proc (BudgieLoader, het script) en het logbestand van de laatste start; er is geen wachtende thread.
 // Ontwerp: docs/web-ui.md, tab Games.
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -38,6 +39,7 @@ inline constexpr const char* kPlayUnit = "ravengun-play";
 inline constexpr const char* kStopUnit = "ravengun-play-stop";
 inline constexpr size_t kMaxIconBytes = 3 * 1024 * 1024;
 inline constexpr size_t kMaxNoteChars = 300;   // tekens (UTF-8), geen bytes
+inline constexpr int64_t kOwnGamesTtlMs = 30000;   // zo lang geldt de lijst van games met een eigen profiel (GameService::list_json)
 
 // [A-Za-z0-9_-]{1,64}
 bool valid_profile_name(std::string_view s);
@@ -96,7 +98,11 @@ struct Game {
 
 // De games van de UI: de profielen uit <tp_dir>/UserProfiles/*.xml, en de games met een eigen profiel in game.ini (patches/<Game>/ met de
 // gebruikerslaag) die in een gamemap of een lokale view staan (docs/per-game-patches.md, "Het profiel van een game").
-std::vector<Game> list_games(const Config& c);
+// own_games: de games met een eigen profiel als die al bekend zijn (own_profile_games, de cache van GameService); nullptr = nu zoeken.
+std::vector<Game> list_games(const Config& c, const std::vector<Game>* own_games = nullptr);
+// De games met een eigen profiel (zonder UserProfiles-XML) die in een view of gamemap staan. Zoekt in de gamemappen (de NAS, alleen stat,
+// geen hash): GameService doet dit buiten het IPC-verzoek en bewaart het resultaat (kOwnGamesTtlMs).
+std::vector<Game> own_profile_games(const Config& c);
 // Een bestaand profiel: UserProfiles/<profile>.xml, of een eigen profiel in game.ini (dan is de XML niet nodig).
 bool profile_exists(const Config& c, const std::string& profile);
 // De gamemappen uit library.json (leeg bij een ontbrekend of kapot bestand).
@@ -160,15 +166,22 @@ public:
     GameService(const GameService&) = delete;
     GameService& operator=(const GameService&) = delete;
 
-    // launch: "" (play-halo.sh kiest per profiel), "direct" (--direct) of "teknoparrot-ui" (--tpui).
+    // launch: "" (play-halo.sh kiest per profiel), "direct" (--direct) of "teknoparrot-ui" (--tpui). Antwoordt meteen: alleen naam, profiel en
+    // "er loopt niets" worden hier gecontroleerd; de route kiezen en plannen (dat kan de NAS lezen) doet de worker, de toestand is dan
+    // "starting" en een weigering of fout eindigt in "failed" met de melding. Stoppen tijdens het plannen breekt de start af.
     Result start(const std::string& profile, const std::string& launch = "");
     Result stop();
     std::string status_json();  // {"state":...,"text":...,"profile":...,"message":...}
-    std::string list_json();    // {"available":..,"games":[...],"status":{...}}
+    // {"available":..,"games":[...],"status":{...}}. Zoekt niet zelf op de NAS: de games met een eigen profiel komen uit een cache die
+    // een achtergrondthread ververst (ouder dan kOwnGamesTtlMs of nog leeg); tot de eerste keer klaar is ontbreken die games.
+    std::string list_json();
+    // Wacht tot de achtergrondthread van de lijst klaar is (tests).
+    void wait_own_games();
     const Config& config() const { return c_; }
 
 private:
     void join_worker();
+    void run_start(const std::string& profile, const std::string& launch);   // de worker van start(): route kiezen, plannen, starten
     std::string run_native(const std::string& profile);   // de native start in de worker; leeg = gelukt, anders de melding
     std::string run_unity(const std::string& profile);    // idem voor de Unity-route
     std::string run_direct(const std::string& profile, const ravengun::launch::DirectInput& in);   // idem, de directe route
@@ -187,6 +200,12 @@ private:
     bool native_ = false;                 // de daemon startte de laatste game zelf: native, Unity of direct (stoppen ruimt dan zelf op)
     std::atomic<bool> waiting_{false};    // de eigen start wacht op een lightgun
     std::atomic<bool> cancel_{false};     // stoppen tijdens een eigen start
+    // De cache van own_profile_games() voor list_json, ververst door own_thread_.
+    std::mutex own_m_;
+    std::vector<Game> own_games_;
+    int64_t own_ms_ = -1;                 // -1 = nog nooit gezocht
+    bool own_busy_ = false;
+    std::thread own_thread_;
 };
 
 }  // namespace ravengun::games

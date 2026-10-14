@@ -15,6 +15,8 @@
 
 #include "ravengun/games/games.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/launch/gamefind.hpp"
+#include "ravengun/launch/native.hpp"
 #include "ravengun/sysinfo/navcon.hpp"
 
 using namespace ravengun;
@@ -313,7 +315,10 @@ static void test_service(const std::string& d) {
     Config c2 = c;
     c2.play_script = d + "/bestaat-niet.sh";
     GameService svc2(c2, [&](const std::vector<std::string>&, std::string&) { return 0; });
-    CHECK(svc2.start("Halo").code == "unavailable");
+    // De route kiezen gebeurt in de worker: start() antwoordt meteen, de start eindigt in "failed" met de melding.
+    CHECK(svc2.start("Halo").ok);
+    wait_idle_worker(svc2);
+    CHECK(state_of(svc2, &msg) == "failed" && msg.find("startscript ontbreekt") != std::string::npos);
     // Startwijze (A10): direct -> --direct, teknoparrot-ui -> --tpui, leeg/auto -> niets extra (het script kiest per profiel).
     {
         auto a = start_argv(c, "Halo", "direct");
@@ -422,6 +427,21 @@ static void test_own_profile(const std::string& d) {
     write(c.tp_dir + "/UserProfiles/Eigen.xml", "<GameProfile><GameNameInternal>Uit de XML</GameNameInternal></GameProfile>");
     games = list_games(c);
     CHECK(games.size() == 2);
+    // De lijst van de daemon (list_json) zoekt niet zelf in de gamemappen: een achtergrondthread vult de cache, het verzoek wacht niet.
+    {
+        GameService svc(c, [](const std::vector<std::string>&, std::string&) { return 0; });
+        auto count = [&] {
+            const auto pr = json::parse(svc.list_json());
+            const json::Value* gs = pr.value.find("games");
+            return gs && gs->is_array() ? gs->arr.size() : size_t(0);
+        };
+        CHECK(count() >= 1);   // de XML-profielen staan er meteen in; de eigen profielen zodra de thread klaar is
+        svc.wait_own_games();
+        CHECK(count() == 2);
+        fs::remove_all(c.views_dir + "/Elders");
+        CHECK(count() == 2);   // uit de cache (kOwnGamesTtlMs), geen nieuwe zoektocht
+        CHECK(own_profile_games(c).empty());   // Eigen staat als XML in de lijst, Elders is weg
+    }
 }
 
 // De native route zonder script: de daemon wacht op een lightgun, wapent, start de route, zet de schrijflaag, schrijft het logboek en
@@ -695,9 +715,16 @@ static void test_direct_service(const std::string& d) {
         events.push_back("spawn " + argv[0]);
         return 0;
     });
-    // Weigeren: niets gestart, een melding.
+    // Weigeren: niets gestart, een melding (in de toestand: start() antwoordt meteen, het plan weigert in de worker).
     const Result r = svc.start("Weg");
-    CHECK(!r.ok && r.message.find("Instelling geweigerd") != std::string::npos);
+    CHECK(r.ok);
+    wait_idle_worker(svc);
+    {
+        std::string wmsg;
+        CHECK(state_of(svc, &wmsg) == "failed" && wmsg.find("Instelling geweigerd") != std::string::npos);
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.empty() && events.empty());
+    }
     CHECK(svc.start("Dir").ok);
     for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -806,6 +833,142 @@ static void test_direct_service(const std::string& d) {
         std::lock_guard<std::mutex> g(m);
         CHECK(calls.size() == 1 && !calls.empty() && calls[0].size() > 2 && calls[0][calls[0].size() - 3] == b + "/play.sh" && calls[0].back() == "Dir");
     }
+    fs::remove_all(b + "/user/Dir");
+
+    // Een traag plan (een NAS die niet antwoordt): start() antwoordt meteen, de toestand en de lijst ook, en stoppen breekt de start af.
+    {
+        Config slow = c;
+        std::atomic<bool> hold{true};
+        std::atomic<int> planning{0};
+        slow.session_env = [&] {
+            ++planning;
+            while (hold.load()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return ravengun::launch::EnvMap{{"HOME", home}, {"PATH", "/usr/bin:/bin"}, {"DISPLAY", ":0"}};
+        };
+        std::vector<std::vector<std::string>> scalls;
+        GameService ss(slow, [&](const std::vector<std::string>& argv, std::string&) {
+            std::lock_guard<std::mutex> g(m);
+            scalls.push_back(argv);
+            return 0;
+        });
+        using clk = std::chrono::steady_clock;
+        auto ms_since = [](clk::time_point t) { return std::chrono::duration_cast<std::chrono::milliseconds>(clk::now() - t).count(); };
+        auto t0 = clk::now();
+        CHECK(ss.start("Dir").ok);
+        CHECK(ms_since(t0) < 500);
+        for (int i = 0; i < 400 && planning.load() == 0; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        CHECK(planning.load() == 1);   // de worker zit in het plan
+        t0 = clk::now();
+        CHECK(state_of(ss) == "starting");
+        CHECK(ss.list_json().find("\"state\":\"starting\"") != std::string::npos);
+        CHECK(ss.start("Dir").code == "unavailable");   // al bezig
+        CHECK(ms_since(t0) < 500);
+        // Stoppen tijdens het plannen: afgebroken, er wordt niets gestart.
+        const Result st = ss.stop();
+        CHECK(st.ok && st.message.find("afgebroken") != std::string::npos);
+        hold.store(false);
+        wait_idle_worker(ss);
+        std::string smsg;
+        CHECK(state_of(ss, &smsg) == "failed" && smsg.find("afgebroken") != std::string::npos);
+        { std::lock_guard<std::mutex> g(m); CHECK(scalls.empty()); }
+        CHECK(ss.stop().ok);   // niets meer op te ruimen
+        { std::lock_guard<std::mutex> g(m); CHECK(scalls.empty()); }
+        // Opnieuw, nu loopt het plan door: de start gaat gewoon verder.
+        hold.store(true);
+        planning.store(0);
+        CHECK(ss.start("Dir").ok);
+        for (int i = 0; i < 400 && planning.load() == 0; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        CHECK(state_of(ss) == "starting");
+        hold.store(false);
+        for (int i = 0; i < 400 && (state_of(ss) == "waiting_move" || state_of(ss) == "starting"); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        CHECK(state_of(ss, &smsg) != "failed");
+        { std::lock_guard<std::mutex> g(m); CHECK(scalls.size() == 1); }
+        CHECK(ss.stop().ok);
+        wait_idle_worker(ss);
+    }
+}
+
+// De sha256-cache: per (pad, grootte, mtime) in het geheugen en op schijf; een tweede start of lijst hasht niets opnieuw.
+static void test_hash_cache(const std::string& d) {
+    namespace L = ravengun::launch;
+    const std::string dir = d + "/hc", file = dir + "/Game.exe", cache = dir + "/cache/ravengun/sha256-cache.tsv";
+    write(file, "MZ eerste versie");
+    std::atomic<int> real{0};
+    auto counting = [&](const std::string& p) { ++real; return L::sha256_file(p); };
+    const std::string want = L::sha256_file(file);
+    {
+        L::HashCache hc(cache, counting);
+        CHECK(hc.sha256(file) == want && real.load() == 1);
+        CHECK(hc.sha256(file) == want && real.load() == 1);   // uit het geheugen
+        CHECK(hc.sha256(dir + "/bestaat-niet").empty() && real.load() == 1);
+        CHECK(fs::exists(cache));
+    }
+    {
+        L::HashCache hc(cache, counting);   // een nieuw proces: uit het bestand
+        CHECK(hc.sha256(file) == want && real.load() == 1 && hc.hashed() == 0);
+        // Ander bestand op hetzelfde pad (andere grootte en mtime): opnieuw hashen.
+        write(file, "MZ tweede, langere versie");
+        fs::last_write_time(file, fs::last_write_time(file) + std::chrono::seconds(5));
+        const std::string want2 = L::sha256_file(file);
+        CHECK(want2 != want && hc.sha256(file) == want2 && real.load() == 2);
+        CHECK(hc.sha256(file) == want2 && real.load() == 2);
+    }
+    {
+        L::HashCache mem({}, counting);   // zonder bestand: alleen in het geheugen
+        CHECK(!mem.sha256(file).empty() && real.load() == 3 && !mem.sha256(file).empty() && real.load() == 3);
+    }
+    // Een kapotte regel in het bestand is geen fout.
+    {
+        std::ofstream f(cache, std::ios::app);
+        f << "kapot\n" << std::string(64, 'a') << "\tx\t1\t/abs\n";
+    }
+    {
+        L::HashCache hc(cache, counting);
+        CHECK(!hc.sha256(file).empty() && real.load() == 3);
+    }
+
+    // locate_game met de cache: de view hasht een keer, ook bij vijf keer zoeken (plan_direct zoekt meer dan eens per start).
+    const std::string views = dir + "/views", nas = dir + "/nas";
+    write(views + "/Spel/Game.exe", "MZ eerste versie");
+    write(nas + "/Spel/Game.exe", "MZ eerste versie");
+    write(nas + "/Ander/Game.exe", "MZ eerste versie");
+    ravengun::gamesettings::Ini s;
+    s.set("Identify", "Path", "Game.exe");
+    s.set("Identify", "Size", std::to_string(fs::file_size(views + "/Spel/Game.exe")));
+    s.set("Identify", "Sha256", want);
+    L::HashCache hc({}, counting);
+    real.store(0);
+    std::string how;
+    for (int i = 0; i < 5; ++i)
+        CHECK(ravengun::gamesettings::locate_game("Spel", s, {nas}, views, "", &how, [&](const std::string& p) { return hc.sha256(p); }) ==
+                  views + "/Spel/Game.exe" && how == "view");
+    CHECK(real.load() == 1);
+    // Zonder view: [Identify] Folder gaat direct naar <gamemap>/<Folder> (geen andere map gehasht), de hint uit library.json ook.
+    s.set("Identify", "Folder", "Spel");
+    real.store(0);
+    CHECK(ravengun::gamesettings::locate_game("Spel", s, {nas}, dir + "/geen-views", "", &how, counting) == nas + "/Spel/Game.exe" && how == "folders");
+    CHECK(real.load() == 1);
+    ravengun::gamesettings::Ini s2 = s;
+    s2.set("Identify", "Folder", "");
+    real.store(0);
+    CHECK(ravengun::gamesettings::locate_game("Spel", s2, {nas}, dir + "/geen-views", "", &how, counting, {nas + "/Spel"}) ==
+              nas + "/Spel/Game.exe" && real.load() == 1);
+    real.store(0);   // zonder hint: zoeken, de eerste passende map in alfabetische volgorde (Ander)
+    CHECK(ravengun::gamesettings::locate_game("Spel", s2, {nas}, dir + "/geen-views", "", &how, counting) == nas + "/Ander/Game.exe");
+    // Een hint die niet past (andere mapnaam bij Folder, of geen bestand) telt niet.
+    CHECK(ravengun::gamesettings::locate_game("Spel", s, {nas}, dir + "/geen-views", "", &how, counting, {nas + "/Ander"}) == nas + "/Spel/Game.exe");
+
+    // library_roots: folder en de map van exe voor dit profiel, ~ uitgeklapt, geen dubbele; andere profielen niet.
+    write(dir + "/library.json",
+          "{\"folders\":[{\"path\":\"" + nas + "\"}],\"games\":["
+          "{\"profile\":\"Spel\",\"folder\":\"" + nas + "/Spel/\",\"exe\":\"" + views + "/Spel/Game.exe\"},"
+          "{\"profile\":\"Spel\",\"folder\":\"~/x\",\"exe\":\"" + nas + "/Spel/Game.exe\"},"
+          "{\"profile\":\"Ander\",\"folder\":\"" + nas + "/Ander\"}]}");
+    const auto roots = L::library_roots(dir + "/library.json", "Spel", "Game.exe", "/thuis");
+    CHECK(roots.size() == 3 && roots[0] == nas + "/Spel" && roots[1] == views + "/Spel" && roots[2] == "/thuis/x");
+    CHECK(L::library_roots(dir + "/bestaat-niet.json", "Spel", "Game.exe", "").empty());
+    CHECK(L::library_roots(dir + "/library.json", "Niemand", "Game.exe", "").empty());
 }
 
 int main() {
@@ -821,6 +984,7 @@ int main() {
     test_native_service(d);
     test_unity_service(d);
     test_direct_service(d);
+    test_hash_cache(d);
     test_unit_cgroup(d);
     test_navcon(d);
     fs::remove_all(d);

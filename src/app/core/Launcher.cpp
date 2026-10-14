@@ -197,7 +197,12 @@ bool EngineBackend::prepare(const GameEntry& g, QString* err) {
 void EngineBackend::start(const GameEntry& g, Done done) {
     QJsonObject f{{QStringLiteral("profile"), g.profile}};
     if (!launch_.isEmpty()) f.insert(QStringLiteral("launch"), launch_);
-    engine_->request(QStringLiteral("game_start"), f, [done](const EngineReply& r) { done(r.ok, r.errorMessage); });
+    engine_->request(QStringLiteral("game_start"), f, [done](const EngineReply& r) {
+        // Geen antwoord op tijd is geen mislukte start: de engine kan nog bezig zijn (een oudere engine plande in het verzoek zelf). De
+        // toestand uit de polling (starting, running of failed met de melding) laat zien hoe het afloopt.
+        if (r.errorCode == QStringLiteral("timeout")) return done(true, {});
+        done(r.ok, r.errorMessage);
+    });
 }
 
 void EngineBackend::stop(Done done) {
