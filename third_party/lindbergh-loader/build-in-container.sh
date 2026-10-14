@@ -4,7 +4,9 @@
 # FAudio, statisch voor libsegaapi.so), dan lindbergh-loader zelf met de Makefile van de bron, en zet de runtime in /out:
 #   lindbergh.so libsegaapi.so libkswapapi.so libposixtime.so(.1, .2.4)  -- de Lindbergh-laag (bron, CC BY-NC-SA 4.0)
 #   libSDL3.so.0 libSDL3_ttf.so.0 libSDL3_image.so.0                        -- gebouwd uit de vastgepinde bron (zlib)
-#   libstdc++.so.5 libncurses.so.5 libtinfo.so.5 libXmu.so.6                -- i386 uit Ubuntu 22.04; SteamOS heeft ze niet
+#   libstdc++.so.5 libncurses.so.5 libtinfo.so.5 libXmu.so.6 libXt.so.6     -- i386 uit Ubuntu 22.04; SteamOS heeft ze niet
+#   libSM.so.6 libICE.so.6 libbsd.so.0 libmd.so.0                           -- idem (wat libXt verder vraagt)
+#   libsndio.so.7                                                           -- onze stub (sndio-stub.c), voor libopenal.so.0
 #   libCg.so libopenal.so.0                                                 -- uit libs/ van de lindbergh-loader-bron
 # Invoer: /src/<naam> (alleen lezen), /work (schrijfbaar, de bouwmappen), /out.
 set -eu
@@ -53,4 +55,8 @@ for so in libSDL3.so.0 libSDL3_ttf.so.0 libSDL3_image.so.0; do cp -L "$L/$so" "/
 cp -L "$L/libstdc++.so.5" "$L/libXmu.so.6" /out/
 cp -L /lib/i386-linux-gnu/libncurses.so.5 /lib/i386-linux-gnu/libtinfo.so.5 /out/
 cp -L libs/libCg.so libs/libopenal.so.0 /out/
+# libXmu.so.6 vraagt libXt.so.6 (GSEVO, Primevil: "libXt.so.6: cannot open shared object file", bench 2026-10-15); SteamOS heeft
+# geen i386-libXt. libopenal.so.0 vraagt libsndio.so.7: onze stub (sndio-stub.c), want ook sndio is er niet voor i386.
+cp -L "$L/libXt.so.6" "$L/libSM.so.6" "$L/libICE.so.6" "$L/libbsd.so.0" "$L/libmd.so.0" /out/   # libXt -> libSM, libICE -> libbsd -> libmd (libuuid heeft SteamOS wel)
+gcc -m32 -O2 -shared -fPIC -Wl,-soname,libsndio.so.7 -o /out/libsndio.so.7 /sndio-stub.c
 echo "afhankelijkheden van lindbergh.so:"; objdump -p /out/lindbergh.so | sed -n 's/^ *NEEDED */  /p'

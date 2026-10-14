@@ -1,0 +1,52 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Wijziging op lindbergh-loader (src/lindbergh/hook.c), onder dezelfde licentie als die bron (CC BY-NC-SA 4.0);
+zie third_party/lindbergh-loader/README.md. Dit bestand is geen deel van de GPL-code van RavenGun.
+
+Diagnose, alleen met RG_LB_SEGV_REPORT=1 (zonder die variabele verandert er niets): handleSegfault slaat bij een onbekende
+instructie EIP een byte over ("Skipping SEGFAULT F"); bij een twee-byte-opcode (0x0F ..) raakt de processor dan uit de pas
+en valt het spel later op een ander adres (HOTD4 Special: thread springt naar 0, bench 2026-10-15). Met de variabele meldt de
+handler de echte fout op stderr (RG_LB_SEGV: eip, adres, registers, module + offset, 12 bytes) en zet hij SIG_DFL terug, zodat
+de kern op de echte instructie valt.
+
+--- a/src/lindbergh/hook.c
++++ b/src/lindbergh/hook.c
+@@ -7,6 +7,7 @@
+ #undef __x86_64__
+ #include <ctype.h>
+ #include <dirent.h>
++#include <dlfcn.h>
+ #include <link.h>
+ #include <math.h>
+ #include <net/if.h>
+@@ -157,6 +158,31 @@
+         break;
+ 
+         default:
++            // RavenGun: met RG_LB_SEGV_REPORT=1 geen byte overslaan maar de echte fout melden (EIP, adres, module + offset, de
++            // eerste 12 bytes) en de standaardafhandeling terugzetten, zodat de kern op de echte fout valt.
++            if (getenv("RG_LB_SEGV_REPORT") != NULL)
++            {
++                Dl_info dli;
++                const char *mod = "?";
++                unsigned long off = 0;
++                if (dladdr(code, &dli) && dli.dli_fname)
++                {
++                    mod = dli.dli_fname;
++                    off = (unsigned long)((size_t)code - (size_t)dli.dli_fbase);
++                }
++                fprintf(stderr, "RG_LB_SEGV: eip=%08lx addr=%p esp=%08lx eax=%08lx ecx=%08lx edx=%08lx module=%s+0x%lx bytes=",
++                        (unsigned long)eip_value, info->si_addr, (unsigned long)ctx->uc_mcontext.gregs[REG_ESP],
++                        (unsigned long)ctx->uc_mcontext.gregs[REG_EAX], (unsigned long)ctx->uc_mcontext.gregs[REG_ECX],
++                        (unsigned long)ctx->uc_mcontext.gregs[REG_EDX], mod, off);
++                for (int i = 0; i < 12; i++)
++                    fprintf(stderr, "%02x ", code[i]);
++                fprintf(stderr, "\n");
++                fflush(stderr);
++                struct sigaction dfl = {0};   // de parameter heet hier 'signal': geen signal() maar sigaction
++                dfl.sa_handler = SIG_DFL;
++                sigaction(SIGSEGV, &dfl, NULL);
++                return;
++            }
+             // repeat_printf("Skipping SEGFAULT %X\n", *code);
+             log_warn("Skipping SEGFAULT %X\n", *code);
+             ctx->uc_mcontext.gregs[REG_EIP]++;

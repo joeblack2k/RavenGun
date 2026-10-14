@@ -639,8 +639,8 @@
     "Rambo": {
       "title": "Rambo",
       "enabled": true,
-      "status": "niet-getest",
-      "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0069: ramboM.elf, niet ramboD.elf (ID 0x98eacb5f, onbekend voor lindbergh.so). Niet de schone ELF. Mesa: libCg.so 2.0. Nog niet gestart.",
+      "status": "werkt",
+      "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/Rambo). Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0069: ramboM.elf, niet ramboD.elf (ID 0x98eacb5f, onbekend voor lindbergh.so). Niet de schone ELF. Mesa: libCg.so 2.0. Nog niet gestart.",
       "arch": "i386",
       "launcher": "gamescope",
       "route": "jvs",
@@ -713,8 +713,8 @@
     "GSEVO": {
       "title": "Ghost Squad Evolution",
       "enabled": true,
-      "status": "niet-getest",
-      "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0029A, Type 1-bord (LindberghType1, 8-bits assen). Mesa: de laag patcht de ARB-shaders. Nog niet gestart.",
+      "status": "werkt",
+      "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/GSEVO); richtvenster nog niet gekalibreerd. Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0029A, Type 1-bord (LindberghType1, 8-bits assen). Mesa: de laag patcht de ARB-shaders. Nog niet gestart.",
       "arch": "i386",
       "launcher": "gamescope",
       "route": "jvs",

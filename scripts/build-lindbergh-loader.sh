@@ -101,7 +101,8 @@ for d in "${DEPS[@]}"; do IFS='|' read -r n r c <<<"$d"; export_src "$n" "$c"; d
 rm -rf "$OUT"; mkdir -p "$OUT"
 podman run --rm --network=none \
   -v "$WORK/src:/src:ro" -v "$WORK/work:/work" -v "$ROOT/third_party/lindbergh-loader/patches:/patches:ro" \
-  -v "$ROOT/third_party/lindbergh-loader/build-in-container.sh:/build.sh:ro" -v "$OUT:/out" \
+  -v "$ROOT/third_party/lindbergh-loader/build-in-container.sh:/build.sh:ro" \
+  -v "$ROOT/third_party/lindbergh-loader/sndio-stub.c:/sndio-stub.c:ro" -v "$OUT:/out" \
   "$IMAGE" sh /build.sh
 
 # --- 5. vastleggen -----------------------------------------------------------------------------------------------
@@ -109,7 +110,7 @@ podman run --rm --network=none \
   echo "lindbergh-loader $LL_REPO @ $LL_COMMIT (licentie CC BY-NC-SA 4.0; alleen voor eigen, niet-commercieel gebruik)"
   for d in "${DEPS[@]}"; do IFS='|' read -r n r c <<<"$d"; echo "$n $r @ $c"; done
   echo "gebouwd: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "patches:"; (cd "$ROOT/third_party/lindbergh-loader" && sha256sum patches/*.patch build-in-container.sh | sed 's/^/  /')
+  echo "patches:"; (cd "$ROOT/third_party/lindbergh-loader" && sha256sum patches/*.patch build-in-container.sh sndio-stub.c | sed 's/^/  /')
   echo "container: $IMAGE"; toolchain_versions | sed 's/^/  /'
   echo "uitvoer:"; (cd "$OUT" && find . -maxdepth 1 -type f ! -name BUILDINFO.txt -print0 | sort -z | xargs -0 sha256sum | sed 's/^/  /')
 } > "$OUT/BUILDINFO.txt"
