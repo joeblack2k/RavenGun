@@ -59,35 +59,22 @@ run's logs) named them, and the runs went through them one at a time.
 | m5 | the view's Shell.exe is a local copy with a **nine-byte I/O-board change**, argument `/k=e6222935` | past gates A+B: logs "Failed to find valid cabinet SKU" and **"Updates : Scanning"** (gate C passed) — then stops at **gate D** |
 | **m6** | `[Debug] NoVerify=1` in the view's Game.ini | **all four gates pass**: "Closing down shell ready for game launch", "Launched …\MIB\MIB.exe" — then §1 |
 
-**The four gates, the order and where each answer comes from are the SEGA Game Shell recipe, shared with
-Transformers: Shadows Rising and written once in `patches/SEGA-GAME-SHELL.md`.** Below is this title's run
-of them.
+**The four gates, their order, where each answer comes from, and the pre-patched/stock distinction are
+the SEGA Game Shell recipe — written once in `patches/SEGA-GAME-SHELL.md`, shared with Transformers:
+Shadows Rising. Read that for the recipe; this file does not repeat it.** What is specific to Men in
+Black, measured here:
 
-### The four gates (MEASURED, static read of `Shell.exe` 230307RED; each confirmed by a run)
-
-* **A — checksum of its own file.** The shell reads `/k=<8 hex>` off its command line and compares it to
-  a CRC of the file `shell.exe` in its working directory (table and seed inside the binary). No match →
-  it parks. On the cabinet `SystemLauncher.exe` computes and passes it. For the unmodified file the value
-  is `/k=0d051181` (m3); for the view's modified copy it is `/k=e6222935` (m5–m6). The script
-  `harness/mib-shell-copy.sh` computes it the way the shell does.
-* **B — the I/O board.** The shell polls for a HID device (vendor `0x1043`) and, if it is not there after
-  5 s, shows "IO BOARD FAILURE" and stops. The dump of the sister title Transformers: Shadows Rising
-  carries a **nine-byte change** in its own `Shell.exe` that makes the shell believe the board is there;
-  the same change at the same place (file offset `0xbc21`, `cmp [flag],0; je` → set the flag and `nop`)
-  is applied to the view's **local copy** of `Shell.exe` by `harness/mib-shell-copy.sh`. It does **not**
-  emulate the board — the shell gets no data from it (m6's I/O log is 2,815 lines of "WriteHID — Lost
-  HiD Handle!"). That the board is only believed, not present, is an open item of this title.
-* **C — the DK2 security key.** "Unable to find security key." → the shell would park, unless
-  `[Debug] SecurityDisabled=1` is set, which lets it carry on (and log "Failed to find valid cabinet SKU",
-  because the cabinet type normally comes from the dongle).
-* **D — the game's integrity/backup check.** Without `[Debug] NoVerify=1` the shell wants a backup copy
-  of the game's install file (the dump's `backup/` is empty) and would log "UPDATE FAILED"; with it set
-  it skips that and the per-file checksum and goes straight to the launch.
-
-The two `[Debug]` switches are exactly the two the Transformers dump sets in its own `Game.ini`
-(`SecurityDisabled=1`, `NoVerify=1`); that shell is also patched in the same I/O spot. So this is the
-same recipe the working sister title already uses, applied to local copies — **the share is never
-written** (§5).
+* This dump is the **stock** shape (gate A demands `/k=`, gate B wants a real board, the `Game.ini`
+  sets neither switch), so all four gates are answered on view-local copies; the share is never written
+  (§5).
+* **Gate A** `/k=` values: `/k=0d051181` for the dump's unmodified `Shell.exe` (m3), `/k=e6222935` for
+  the view's local copy with the I/O change (m5–m6); `harness/mib-shell-copy.sh` computes both.
+* **Gate B** I/O change: the same nine bytes the Transformers dump already carries, at file offset
+  `0xbc21` of `Shell.exe` 230307RED (`cmp [flag],0; je` → set the flag and `nop`). It makes the shell
+  believe a board is there; it gets no data (m6's I/O log is 2,815 lines of "WriteHID — Lost HiD
+  Handle!"). The board being only believed, not present, is this title's open item.
+* **Gates C, D** are the two `[Debug]` switches `SecurityDisabled=1` (m4) and `NoVerify=1` (m6), the two
+  the Transformers `Game.ini` sets; `harness/mib-gameini.sh` sets them in the view's local copy.
 
 ### What the game then does (MEASURED, m6 `Networking`/`GameStateMachine` logs + Unity log)
 
