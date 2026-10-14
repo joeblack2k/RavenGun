@@ -16,3 +16,13 @@ opdrachtregel `/h=00010080 /k=831ccadb`, gestart door de Shell na ~30 s). Een sc
 Vermoeden (niet gemeten): na de eerste ronde wisselt het spel van venster/resolutie (staand beeld) en geeft Wine dan een zwart
 schermvullend venster. Te doen: dezelfde proef met gamescope (`[Display] Gamescope = true`), en vergelijken met de route via
 TeknoParrotUi. Status blijft `playable`.
+
+## Vervolg 2026-10-14 (17:54 - 18:04)
+
+| Opstelling | Na de eerste ronde |
+|---|---|
+| gamescope, wined3d (Direct3D 9 via OpenGL) | beeld bevriest: drie opnames over twee minuten identiek (`pmf9.png`), processen leven |
+| gamescope + DXVK voor Direct3D 9 (d3d9.dll uit GE-Proton10-34 in syswow64 van `ravengun-test-pigs`, `DllOverrides = d3d9=n,b`) | beeld leeft: drie opnames verschillen (`pmf10.png`) |
+
+Beide instellingen staan nu in game.ini. Het origineel van d3d9.dll staat in de prefix als `d3d9.dll.wined3d-bewaard`.
+Niet verder getest (geen 5 minuten, geen ronde bekeken): de eigenaar speelt dit spel niet (staand beeld, 90 graden gedraaid).
