@@ -98,3 +98,7 @@ cd ~/projects/ravengun
 python3 tools/verify-all.py TransformersShadowsRising
 python3 scripts/launch-direct.py TransformersShadowsRising --plan
 ```
+
+## De SEGA Game Shell
+
+Deze game start via de SEGA Game Shell (`Shell.exe` start `Transformers2.exe`). Deze dump is **voor-gepatcht**: zijn `Shell.exe` forceert het IO-bord en slaat de `/k=`-checksum over, en zijn `Game.ini` heeft `SecurityDisabled=1` en `NoVerify=1` — daardoor start hij onder onze lader zonder wijziging van ons. De vier poorten van de shell, de volgorde en waar elk antwoord vandaan komt (en het verschil tussen een voor-gepatchte en een kale dump) staan eenmalig in `patches/SEGA-GAME-SHELL.md`. Het IO-bord van de shell (voor lampen/toetsen/recoil) is iets anders dan het gun-bord van het spel (`SaeGunBoard`, `REPORT-io-board-and-loader.md`).

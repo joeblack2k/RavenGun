@@ -59,6 +59,10 @@ run's logs) named them, and the runs went through them one at a time.
 | m5 | the view's Shell.exe is a local copy with a **nine-byte I/O-board change**, argument `/k=e6222935` | past gates A+B: logs "Failed to find valid cabinet SKU" and **"Updates : Scanning"** (gate C passed) — then stops at **gate D** |
 | **m6** | `[Debug] NoVerify=1` in the view's Game.ini | **all four gates pass**: "Closing down shell ready for game launch", "Launched …\MIB\MIB.exe" — then §1 |
 
+**The four gates, the order and where each answer comes from are the SEGA Game Shell recipe, shared with
+Transformers: Shadows Rising and written once in `patches/SEGA-GAME-SHELL.md`.** Below is this title's run
+of them.
+
 ### The four gates (MEASURED, static read of `Shell.exe` 230307RED; each confirmed by a run)
 
 * **A — checksum of its own file.** The shell reads `/k=<8 hex>` off its command line and compares it to
