@@ -159,6 +159,8 @@ static void test_lindbergh(const fs::path& root, NativePaths p) {
     CHECK(has_seq(a, {"--setenv", "LINDBERGH_CONFIG_PATH", "/rg/lindbergh.ini"}));
     CHECK(has_seq(a, {"--setenv", "MESA_LOADER_DRIVER_OVERRIDE", "zink"}));
     CHECK(has_seq(a, {"--ro-bind", p.data + "/native/Lb/lindbergh.ini", "/rg/lindbergh.ini"}));
+    CHECK(has_seq(a, {"--bind", p.data + "/native/Lb/var-tmp", "/var/tmp"}));
+    CHECK(std::any_of(pl.layer.begin(), pl.layer.end(), [&](const LayerStep& s) { return s.kind == LayerStep::Kind::Mkdir && s.to == p.data + "/native/Lb/var-tmp"; }));
     CHECK(has_seq(a, {"-w", "1024", "-h", "768"}));
     CHECK(a.back() == "/lb/elf/game.elf" && pl.comm == "game.elf");
     CHECK(std::find(a.begin(), a.end(), "/rg/bin/rg-elfloader") == a.end());

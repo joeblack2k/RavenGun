@@ -516,6 +516,11 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
                              made, {}, "/rg/lindbergh.ini"});
         bw.insert(bw.end(), {"--ro-bind", made, "/rg/lindbergh.ini"});
         out.identity.push_back("lindbergh-ini=" + ini);
+        // /var/tmp: de games zetten daar markeringen ("touch /var/tmp/atr_init" in HOTD4 Special, /var/tmp/warning in Too Spicy;
+        // zonder de map mislukt dat, bench 2026-10-15). Blijvend per game, zoals op de kast; nooit op de NAS.
+        const std::string vartmp = ovlbase + "/var-tmp";
+        out.layer.push_back({LayerStep::Kind::Mkdir, {}, vartmp, {}, {}});
+        bw.insert(bw.end(), {"--bind", vartmp, "/var/tmp"});
     }
     for (const SrcDst& l : pr.libdirs) {
         if (!is_dir(l.src)) { err = "bibliotheekmap ontbreekt: " + l.src; return false; }

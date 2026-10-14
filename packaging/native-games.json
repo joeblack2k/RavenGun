@@ -538,7 +538,7 @@
         "ini": "@patches/HOTD4SP/lindbergh.ini",
         "jvs": "passthrough",
         "libcg": false
-      },
+      , "stackalign": true},
       "mounts": [
         {
           "src": "@nas/The House of the Dead 4 Special",
@@ -575,7 +575,7 @@
         "ini": "@patches/HOTD4/lindbergh.ini",
         "jvs": "passthrough",
         "libcg": false
-      },
+      , "stackalign": true},
       "mounts": [
         {
           "src": "@nas/The House of the Dead 4",
@@ -612,7 +612,7 @@
         "ini": "@patches/HOTDEX/lindbergh.ini",
         "jvs": "passthrough",
         "libcg": true
-      },
+      , "stackalign": true},
       "mounts": [
         {
           "src": "@nas/The House of the Dead EX",
