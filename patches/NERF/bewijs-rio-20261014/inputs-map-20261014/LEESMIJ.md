@@ -60,6 +60,26 @@ this is a path that *looks like* the input, not the input.** If it turns out to 
 it is a way to *configure* the cabinet — useful — but it is **not** the thing that makes the gun shoot,
 and it must not go on the board as if it were.
 
+## UPDATE (same day) — the correct input model is a HELD level, and it opens the operator menu
+
+Two more runs settled the shape of the question. First, forcing `RIO_GetValue(33)/(34)` (the only other
+read path the game uses) to all-ones and to all-zeros does **nothing** (`gvONES`, `gvZEROS`) — so the
+test/service switches are **not** read through `RIO_GetValue`; that hypothesis is refuted.
+
+Then the real correction: a real button is a **held level**, not a rapid toggle. Feeding `RIO_SW_Count` a
+**steady constant** for every id (no press activity — the opposite of the mash) **opens the operator
+MAIN MENU** and holds it there (`steady-operator-menu.jpg`, `sheet-wSTEADY-steady-opens-menu.jpg`):
+FACTORY SET UP / DIAGNOSTICS / PRICING / GAME SETTINGS / AUDITS / VOLUME / **CALIBRATION** / UTILITIES /
+SYSTEM INFORMATION, "COST TO PLAY: FREE PLAY." Its own footer names the operator buttons:
+**"Navigation: Vol +/−   Select Item: Test, Trigger   Go Back: Service, Shoulder."**
+
+So the rdtsc **mash was the wrong input model** — a toggle, not a press. The right model is a steady held
+level. Under it, **held switches → the operator menu** (a `Test` button held), which is a different state
+from the mash's TIME-counter. That makes the mash "game-start" look like an artifact of toggle-noise, not
+a real round — but which single held switch is `Test`, and whether a single held `Start` begins a real
+round, is the steady-single isolation now in progress. **The positive control the question needed — the
+operator menu actually opening — is in hand** (`wSTEADY`); naming each button is the next measurement.
+
 ## What this run did NOT establish
 
 * The exact minimal start-set (it is broad, ≥7 switches; bounded but deliberately not pinned — chasing
