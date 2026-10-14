@@ -308,6 +308,35 @@ int main() {
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Drop-in geweigerd") && contains(why, "buiten de view"));
     fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
 
+    // --- de besturingspipe ([Input] ControlPipe): het ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe ----------------------------
+    {
+        CHECK(pl.control_pipe.empty() && pl.control_size == 0);   // zonder ControlPipe: geen besturingspipe
+        write(user, "[Input]\nControlPipe = AllsUsbIo\n");
+        CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm" && in.control_pipe == "AllsUsbIo");   // evdev + Layout
+        o.control_source = (root / "control").string();
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok);
+        CHECK(pl.control_pipe == "AllsUsbIo" && pl.control_pipe_name == "TeknoParrotPipe" && pl.control_source == (root / "control").string());
+        CHECK(pl.control_size == 64 && pl.control_interval_ms == 15);
+        DirectPlan back;
+        std::string err;
+        CHECK(plan_from_json(plan_to_json(pl), back, err) && back.control_pipe == "AllsUsbIo" && back.control_pipe_name == "TeknoParrotPipe" &&
+              back.control_source == pl.control_source && back.control_size == 64 && back.control_interval_ms == 15);
+        DirectPlan kapot = pl;
+        kapot.control_size = 0;
+        CHECK(!plan_from_json(plan_to_json(kapot), back, err) && contains(err, "besturingspipe"));
+        DirectOptions o2 = o;
+        o2.control_source.clear();
+        CHECK(plan_direct("Spel", p, o2, pl, why) == Verdict::Ok && pl.control_source == "/dev/shm/ravengun_ControlPipe");
+        // Een onbekende indeling weigert (zoals launch-direct.py: Instelling geweigerd).
+        write(user, "[Input]\nControlPipe = Bestaatniet\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Instelling geweigerd") && contains(why, "ControlPipe = Bestaatniet"));
+        // ControlPipe hoort bij tp-shm: bij route jvs is de gebruikerslaag ongeldig (de meegeleverde route geldt, zonder pipe).
+        write(user, "[Input]\nRoute = jvs\nBoard = LGI\nControlPipe = AllsUsbIo\n");
+        CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm" && in.control_pipe.empty());
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.control_pipe.empty());
+        write(user, "");
+    }
+
     // --- twee exe's (HasTwoExecutables, zoals HOTDSD): amdaemon.exe eerst, wachten, dan het spel ------------------------------------
     write(fs::path(p.dirs.shipped) / "Twee/game.ini",
           "[Game]\nProfile = Twee\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = Spel-Win64-Shipping-lang.exe\n"
@@ -508,6 +537,86 @@ int main() {
         CHECK(!contains(slurp(out / "order"), "spel "));
         if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (halve opstelling) ---\n%s\n", log.c_str());
         fs::remove(fs::path(p.dirs.user) / "Twee/game.ini");
+    }
+    // De besturingspipe: een tweede helper ("TeknoParrotPipe 127.0.0.1 <poort>") verbindt over TCP en krijgt elke 15 ms het rapport
+    // uit het bestand van de daemon, ongewijzigd; het logboek noemt de knoppen die aan staan (hier START van speler 1) en de munt.
+    {
+        const fs::path out = root / "out3";
+        fs::create_directories(out);
+        write(wine,
+              "#!/usr/bin/env bash\n"
+              "case \"$1\" in\n"
+              "  */pipehelper.exe|*/rg-jvsbridge.exe)\n"
+              "    shift\n"
+              "    if [ \"$1\" = TeknoParrotPipe ]; then\n"
+              "      echo \"$@\" > \"$OUT/control-args\"\n"
+              "      echo \"pipehelper: pipe TeknoParrotPipe created, waiting for game...\" >&2\n"
+              "      exec 3<>/dev/tcp/127.0.0.1/$3\n"
+              "      head -c 640 <&3 > \"$OUT/control-reports.tmp\"; mv \"$OUT/control-reports.tmp\" \"$OUT/control-reports\"\n"
+              "      exec sleep 30\n"
+              "    fi\n"
+              "    echo \"$@\" > \"$OUT/helper-args\"\n"
+              "    echo \"pipehelper: pipe created\" >&2\n"
+              "    exec sleep 30 ;;\n"
+              "  *)\n"
+              "    for i in $(seq 100); do [ -f \"$OUT/control-reports\" ] && break; sleep 0.05; done\n"
+              "    echo \"BudgieLoader 1.0 start\"\n"
+              "    exit 3 ;;\n"
+              "esac\n",
+              true);
+        std::string report(64, '\0');
+        report[0] = 0x01;              // kanaal 0 (de aim zelf maakt niet uit: rg-direct stuurt het rapport ongewijzigd door)
+        report[25] = 3;                // munt 1: teller 3
+        report[28] = static_cast<char>(0x80);   // START van speler 1
+        write(root / "control", report);
+        write(fs::path(p.dirs.user) / "Spel/game.ini", "[Input]\nControlPipe = AllsUsbIo\n");
+        o.base_env["OUT"] = out.string();
+        o.control_source = (root / "control").string();
+        DirectPlan cp;
+        CHECK(plan_direct("Spel", p, o, cp, why) == Verdict::Ok && cp.control_pipe == "AllsUsbIo");
+        cp.state = (root / "state3").string();
+        const fs::path planf = root / "plan3.json", logf = root / "run3.log";
+        write(planf, plan_to_json(cp));
+        posix_spawn_file_actions_t fa;
+        posix_spawn_file_actions_init(&fa);
+        posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_adddup2(&fa, 1, 2);
+        std::string bin = RG_DIRECT_BIN;
+        std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+        extern char** environ;
+        pid_t pid = 0;
+        CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) == 0);
+        posix_spawn_file_actions_destroy(&fa);
+        int st = 0;
+        waitpid(pid, &st, 0);
+        const std::string log = slurp(logf);
+        const int f0 = g_failures;
+        CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 3);
+        CHECK(slurp(out / "control-args").rfind("TeknoParrotPipe 127.0.0.1 ", 0) == 0);   // alleen pipe, host en poort: geen gedeeld geheugen
+        CHECK(contains(log, "besturingspipe AllsUsbIo: " + cp.pipehelper + " TeknoParrotPipe 127.0.0.1 "));
+        CHECK(contains(log, "helper (TeknoParrotPipe): pipehelper: pipe TeknoParrotPipe created"));
+        CHECK(contains(log, "besturingspipe: game verbonden (TeknoParrotPipe via TCP, verbinding 1)"));
+        CHECK(contains(log, "besturingspipe: eerste rapport verstuurd (64 bytes)") && contains(log, "besturingspipe: aan: p1.start"));
+        CHECK(!contains(log, "besturingspipe: aan: p1.trigger"));
+        CHECK(contains(log, "besturingspipe: verbinding 1 dicht (") && contains(log, "klaar (exitcode 3)"));
+        std::string want;
+        for (int i = 0; i < 10; ++i) want += report;
+        CHECK(slurp(out / "control-reports") == want);   // tien rapporten, byte voor byte het bestand van de daemon
+        // Het JVS-deel blijft zoals het was.
+        CHECK(contains(slurp(out / "helper-args"), "TeknoParrot_JVS 127.0.0.1 ") && contains(log, "helper: pipehelper: pipe created"));
+        // Zonder het bestand van de daemon start er niets (zoals bij het gedeelde geheugen).
+        fs::remove(root / "control");
+        DirectPlan kort = cp;
+        write(planf, plan_to_json(kort));
+        posix_spawn_file_actions_init(&fa);
+        posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_adddup2(&fa, 1, 2);
+        CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) == 0);
+        posix_spawn_file_actions_destroy(&fa);
+        waitpid(pid, &st, 0);
+        CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 1 && contains(slurp(logf), "van de besturingspipe bestaat niet"));
+        if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (besturingspipe) ---\n%s\n", log.c_str());
+        fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
     }
 #endif
 

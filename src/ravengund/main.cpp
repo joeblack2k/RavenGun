@@ -640,6 +640,10 @@ int main(int argc, char** argv) {
         io_cfg.dirs = games_cfg.dirs;   // [Input] van patches/<Game>/game.ini, bij elke start opnieuw gelezen
         if (io_cfg.dirs.shipped.empty()) logf("waarschuwing", "IO-brug: de map patches/ is niet gevonden (alle games gebruiken evdev)");
         io_cfg.profiles = ravengun::iobridge::parse_tp_shm_profiles(load_text("tp-shm-profiles.json", "tp-shm-profiles.json"), e2);
+        std::string e5;
+        io_cfg.control_pipes =
+            ravengun::iobridge::parse_control_pipe_profiles(load_text("control-pipe-profiles.json", "control-pipe-profiles.json"), e5);
+        if (!e5.empty()) logf("waarschuwing", "IO-brug: %s (geen besturingspipes)", e5.c_str());
         io_cfg.boards = ravengun::iobridge::parse_hid_boards(load_text("hid-boards.json", "hid-boards.json"), e3);
         std::string e4;
         io_cfg.jvs_boards = ravengun::iobridge::parse_jvs_boards(load_text("jvs-boards.json", "jvs-boards.json"), e4);

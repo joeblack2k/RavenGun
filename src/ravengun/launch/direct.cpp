@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 
+#include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/launch/native.hpp"
@@ -32,6 +33,7 @@ namespace ravengun::launch {
 
 namespace fs = std::filesystem;
 namespace gsn = ravengun::gamesettings;
+namespace iob = ravengun::iobridge;
 
 namespace {
 
@@ -1423,6 +1425,22 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (!isfile(pl.pipehelper)) pl.pipehelper = pjoin(tp, "pipehelper.exe");
     if (!isfile(pl.pipehelper))
         return unsupported("JVS-brug ontbreekt: bouw rg-jvsbridge (scripts/build-jvsbridge.sh) of zorg voor pipehelper.exe in de runtime-map");
+    // De besturingspipe ([Input] ControlPipe op route tp-shm): de daemon schrijft het rapport, rg-direct stroomt het naar de pipe.
+    {
+        DirectInput din;
+        std::string iwhy;
+        if (direct_input(name, p, din, iwhy) == Verdict::Ok && din.route == "tp-shm" && !din.control_pipe.empty()) {
+            std::string perr;
+            const iob::ControlPipeProfiles cps = iob::builtin_control_pipe_profiles(perr);
+            const iob::ControlPipeProfile* cp = cps.find(din.control_pipe);
+            if (!cp) return setting_refused("[Input] ControlPipe = " + din.control_pipe + " staat niet in packaging/control-pipe-profiles.json");
+            pl.control_pipe = cp->name;
+            pl.control_pipe_name = cp->pipe;
+            pl.control_source = o.control_source.empty() ? std::string(iob::kDefaultControlPipePath) : o.control_source;
+            pl.control_size = cp->size;
+            pl.control_interval_ms = cp->interval_ms;
+        }
+    }
     std::set<std::string> comms = {"budgieloader.ex", "budgieloader_x6", "openparrotloade", "teknomacaw.exe", "teknomacaw64.ex"};
     for (const char* key : {"ExecutableName", "GamePath"})
         for (std::string part : split(pr.get(key), ';')) {
@@ -1628,8 +1646,10 @@ std::string plan_to_json(const DirectPlan& pl) {
              {"game", &pl.game}, {"game_source", &pl.game_source}, {"cwd", &pl.cwd}, {"wine", &pl.wine}, {"prefix", &pl.prefix},
              {"loader", &pl.loader}, {"pipe_mode", &pl.pipe_mode}, {"shm_source", &pl.shm_source}, {"pipehelper", &pl.pipehelper},
              {"core_dll", &pl.core_dll}, {"core_source", &pl.core_source}, {"state", &pl.state}, {"dropin_base", &pl.dropin_base},
-             {"dropin_root", &pl.dropin_root}})
+             {"dropin_root", &pl.dropin_root}, {"control_pipe", &pl.control_pipe}, {"control_pipe_name", &pl.control_pipe_name},
+             {"control_source", &pl.control_source}})
         w.key(k).value(*v);
+    w.key("control_size").value(pl.control_size).key("control_interval_ms").value(pl.control_interval_ms);
     w.key("is64").value(pl.is64).key("gamescope").value(pl.gamescope).key("windowed_override").value(pl.windowed_override);
     w.key("log_full").value(pl.log_full).key("windows").value(pl.windows);
     strs("argv", pl.argv);
@@ -1677,6 +1697,9 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     s("game", pl.game); s("game_source", pl.game_source); s("cwd", pl.cwd); s("wine", pl.wine); s("prefix", pl.prefix); s("loader", pl.loader);
     s("pipe_mode", pl.pipe_mode); s("shm_source", pl.shm_source); s("pipehelper", pl.pipehelper); s("core_dll", pl.core_dll);
     s("core_source", pl.core_source); s("state", pl.state); s("dropin_base", pl.dropin_base); s("dropin_root", pl.dropin_root);
+    s("control_pipe", pl.control_pipe); s("control_pipe_name", pl.control_pipe_name); s("control_source", pl.control_source);
+    auto n = [&](const char* k, int& out) { const auto* x = v.find(k); if (x && x->is_number()) out = static_cast<int>(x->num); };
+    n("control_size", pl.control_size); n("control_interval_ms", pl.control_interval_ms);
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
     sv("patch_lines", pl.patch_lines); sv("notes", pl.notes);
@@ -1709,6 +1732,11 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
             pl.starts.push_back(std::move(d));
         }
     if (pl.argv.empty() || pl.cwd.empty() || pl.wine.empty() || pl.pipehelper.empty()) { err = "plan: argv, cwd, wine of pipehelper ontbreekt"; return false; }
+    if (!pl.control_pipe.empty() && (pl.control_pipe_name.empty() || pl.control_source.empty() || pl.control_size < 1 || pl.control_size > 4096 ||
+                                     pl.control_interval_ms < 1 || pl.control_interval_ms > 1000)) {
+        err = "plan: besturingspipe zonder naam, bron, geldige grootte of tempo";
+        return false;
+    }
     return true;
 }
 
@@ -1734,6 +1762,7 @@ Verdict direct_input(const std::string& profile, const DirectPaths& p, DirectInp
         const std::string r = s.get("Input", "Route", "evdev").empty() ? "evdev" : s.get("Input", "Route", "evdev");
         if (r != "evdev" && r != "tp-shm" && r != "unity-tcp" && r != "hid-board" && r != "jvs") { err = "ongeldige Route '" + r + "'"; return false; }
         if (r == "tp-shm" && s.get("Input", "Layout").empty()) { err = "route tp-shm vraagt een Layout"; return false; }
+        if (!s.get("Input", "ControlPipe").empty() && r != "tp-shm" && r != "evdev") { err = "ControlPipe hoort bij route tp-shm"; return false; }
         if (r == "hid-board" && s.get("Input", "Board").empty()) { err = "route hid-board vraagt een Board (bordnaam)"; return false; }
         if (r == "jvs" && s.get("Input", "Board").empty() && s.get("Input", "Boards").empty()) { err = "route jvs vraagt een Board of Boards"; return false; }
         return true;
@@ -1754,6 +1783,7 @@ Verdict direct_input(const std::string& profile, const DirectPaths& p, DirectInp
     out.layout = input.get("Input", "Layout");
     out.board = input.get("Input", "Board");
     if (out.board.empty()) out.board = trim(split(input.get("Input", "Boards"), ',')[0]);
+    out.control_pipe = input.get("Input", "ControlPipe");
     out.com_port = input.get("Input", "ComPort");
     if (out.com_port.empty()) out.com_port = "COM4";
     out.transport = getenv_or(profile_env(profile, p), "RG_JVS_TRANSPORT");

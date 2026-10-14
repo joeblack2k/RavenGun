@@ -599,9 +599,9 @@
    ]
   },
   "HOTDSDPipe": {
-   "description": "House of the Dead: Scarlet Dawn (profiel HOTDSD, EmulationProfile ALLSHOTDSD). Control (offset 8): alleen de trekkers (P1ButtonUp = 0x1, P2ButtonUp = 0x2). Start, subtrekker (P1Button1), controllerkeuze, munt en test lopen via TeknoParrotUi's eigen bindingen. Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0.",
+   "description": "House of the Dead: Scarlet Dawn (profiel HOTDSD, EmulationProfile ALLSHOTDSD). Control (offset 8): alleen de trekkers (P1ButtonUp = 0x1, P2ButtonUp = 0x2). Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0. Meer schrijft TeknoParrotUi niet in het gedeelde geheugen (HOTDSDPipe). Start, service, test, subtrekker (Button1), controllerkeuze (Down) en munt gaan over de besturingspipe TeknoParrotPipe (ALLS USB-IO-rapport): in game.ini [Input] ControlPipe = AllsUsbIo (packaging/control-pipe-profiles.json).",
    "size": 64,
-   "complete": false,
+   "complete": true,
    "mirror_bytes": [
     0,
     7

@@ -373,6 +373,8 @@ class Game:
             return i, "ongeldige Route %r" % r
         if r == "tp-shm" and not i.get("Layout"):
             return i, "route tp-shm vraagt een Layout"
+        if i.get("ControlPipe") and r not in ("tp-shm", "evdev"):
+            return i, "ControlPipe hoort bij route tp-shm"
         if r == "hid-board" and not i.get("Board"):
             return i, "route hid-board vraagt een Board (bordnaam)"
         if r == "jvs" and not i.get("Board") and not i.get("Boards"):

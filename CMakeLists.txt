@@ -18,6 +18,7 @@ embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_S
   "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
   "hid-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/hid-boards.json"
   "jvs-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/jvs-boards.json"
+  "control-pipe-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/control-pipe-profiles.json"
   "tp-shm-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/tp-shm-profiles.json")
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
@@ -57,6 +58,7 @@ add_library(ravengun STATIC
   src/ravengun/gamesettings/gamepad_settings.cpp
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
+  src/ravengun/iobridge/control_pipe.cpp
   src/ravengun/iobridge/hid_board.cpp
   src/ravengun/iobridge/jvs.cpp
   src/ravengun/iobridge/jvs_dialect.cpp
@@ -323,6 +325,8 @@ if(RAVENGUN_BUILD_TESTS)
     # Profielen met twee exe's (HasTwoExecutables): beide starts in --plan, de vaste orde met de wachttijd, dezelfde view/prefix/
     # omgeving, uitvoer en exitcode per start, geen halve opstelling (exitcode 7), en een enkele exe ongewijzigd. Start niets.
     add_test(NAME ravengun_twee_starts COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_twee_starts.py")
+    # De besturingspipe ([Input] ControlPipe) in launch-direct.py: rapporten ongewijzigd, in tempo, opnieuw na een verbreking.
+    add_test(NAME ravengun_besturingspipe_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_besturingspipe.py")
     # Schrijfpaden naar de NAS: geen route van ons schrijft eigen bestanden in een gamemap op de NAS.
     add_test(NAME ravengun_nas_schrijfpaden_views COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nas_schrijfpaden_views.py")
     add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")

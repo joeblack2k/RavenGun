@@ -19,6 +19,9 @@
 #      starten ("<pipe> 127.0.0.1 <poort> TeknoParrot_JvsState 64 <bron>"): die maakt \\.\pipe\TeknoParrot_JVS en de
 #      Windows-mapping en spiegelt het bronbestand (bij route tp-shm het bestand van de engine). De TCP-kant van de pipe
 #      bedient dit script: verbind-vlag (byte 0) bij JVS-reset/-adres, zoals TeknoParrotUi; overig JVS-verkeer wordt gelogd.
+#   5b. Besturingspipe ([Input] ControlPipe, bv. het ALLS USB-IO-rapport): de IO-brug schrijft het rapport in
+#      /dev/shm/ravengun_ControlPipe; dit script stroomt het over TCP naar een tweede helper "TeknoParrotPipe 127.0.0.1 <poort>",
+#      die \\.\pipe\TeknoParrotPipe maakt (ControlPipeServer; gelijk aan tools/rg-direct).
 #   6. Gamescope als TP_GAMESCOPE=1: gamescope -W <b> -H <h> -S fit -f --backend wayland -- wine ...
 #   7. Wachten tot de game weg is (lader en exe in de eigen cgroup), dan opruimen. Dit script draait als hoofdproces van
 #      de unit ravengun-tpui (scripts/play-halo.sh --direct), op de plaats van TeknoParrotUi.
@@ -95,6 +98,9 @@ SHM_NAME = "TeknoParrot_JvsState"
 SHM_PATH = "/dev/shm/" + SHM_NAME
 SHM_SIZE = 64
 JVS_PIPE = "TeknoParrot_JVS"
+# De besturingspipe ([Input] ControlPipe op route tp-shm): het rapport dat de IO-brug van de daemon schrijft, en de indelingen.
+CONTROL_PATH = "/dev/shm/ravengun_ControlPipe"
+CONTROL_PROFILES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "packaging", "control-pipe-profiles.json")
 STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.join(HOME, ".local/state")), "ravengun")
 
 EXIT_ACTIVATION = 3
@@ -1632,8 +1638,29 @@ def start_log_lines(plan):
     return uit
 
 
+def control_pipe_plan(name, tp, control_source=None):
+    """De besturingspipe van de game (src/ravengun/launch/direct.cpp, plan_direct): [Input] ControlPipe als de invoerroute bij een
+    directe start tp-shm is (ook evdev met een Layout). None = geen. Een naam die niet in control-pipe-profiles.json staat: geweigerd."""
+    i, _src = gs.resolve_input(name, tp)
+    route = i.get("Route", "evdev") or "evdev"
+    if route == "evdev" and i.get("Layout"):
+        route = "tp-shm"
+    naam = i.get("ControlPipe", "")
+    if route != "tp-shm" or not naam:
+        return None
+    try:
+        with open(CONTROL_PROFILES) as f:
+            prof = json.load(f)["profiles"].get(naam)
+    except (OSError, ValueError, KeyError):
+        prof = None
+    if not prof:
+        raise SettingRefused("[Input] ControlPipe = %s staat niet in packaging/control-pipe-profiles.json" % naam)
+    return {"profile": naam, "pipe": prof.get("pipe", "TeknoParrotPipe"), "source": control_source or CONTROL_PATH,
+            "size": int(prof.get("size", 64)), "interval_ms": int(prof.get("interval_ms", 15))}
+
+
 def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False, use_own=True,
-               exe=None, drives=None):
+               exe=None, drives=None, control_source=None):
     """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen); materialize_patches maakt ook de gepatchte
     kopieën (alleen bij --run). use_own=False negeert het eigen profiel in game.ini en leest altijd UserProfiles/<P>.xml (voor de vergelijking)."""
     # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
@@ -1817,6 +1844,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         helper = os.path.join(tp, "pipehelper.exe")
     if not os.path.isfile(helper):
         raise Unsupported("JVS-brug ontbreekt: bouw rg-jvsbridge (scripts/build-jvsbridge.sh) of zorg voor pipehelper.exe in de runtime-map")
+    control = control_pipe_plan(name, tp, control_source)
 
     comms = {"budgieloader.ex", "budgieloader_x6", "openparrotloade", "teknomacaw.exe", "teknomacaw64.ex"}
     for key in ("ExecutableName", "GamePath"):
@@ -1846,6 +1874,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "settings_sources": settings.sources, "profile_source": "game.ini" if own else "UserProfiles/%s.xml" % name,
         "game_source": p.get("_game_source", "xml"),
         "files": files, "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
+        "control_pipe": control,
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
         "needs_activation": needs_activation(p),
@@ -2194,6 +2223,75 @@ class JvsPipeServer(threading.Thread):
             pass
 
 
+class ControlPipeServer(threading.Thread):
+    """TCP-kant van \\\\.\\pipe\\TeknoParrotPipe (de besturingspipe; tools/rg-direct ControlPipeServer): een tweede helper in de
+    prefix verbindt hierheen zodra de game de pipe opent; elke interval_ms gaat het rapport uit het bestand van de daemon ongewijzigd
+    mee, zoals TeknoParrotUi het schrijft (alleen schrijven). Na een verbreking wacht hij op de volgende verbinding."""
+
+    def __init__(self, control):
+        super().__init__(daemon=True)
+        self.c = control
+        self.stop = threading.Event()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(1)
+        self.sock.settimeout(0.2)
+        self.port = self.sock.getsockname()[1]
+
+    def run(self):
+        n = 0
+        while not self.stop.is_set():
+            try:
+                conn, _ = self.sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            n += 1
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            log("besturingspipe: game verbonden (%s via TCP, verbinding %d)" % (self.c["pipe"], n))
+            sent = self.serve(conn)
+            log("besturingspipe: verbinding %d dicht (%d rapporten van %d bytes verstuurd)" % (n, sent, self.c["size"]))
+            conn.close()
+
+    def serve(self, conn):
+        size, step, sent = self.c["size"], self.c["interval_ms"] / 1000.0, 0
+        nxt = time.monotonic()
+        while not self.stop.is_set():
+            r, _, _ = select.select([conn], [], [], 0)
+            if r:
+                try:
+                    if not conn.recv(512, socket.MSG_DONTWAIT):
+                        break
+                except BlockingIOError:
+                    pass
+                except OSError:
+                    break
+            try:
+                with open(self.c["source"], "rb") as f:
+                    data = f.read(size)
+            except OSError:
+                data = b""
+            try:
+                conn.sendall(data.ljust(size, b"\0")[:size])
+            except OSError:
+                break
+            sent += 1
+            if sent == 1:
+                log("besturingspipe: eerste rapport verstuurd (%d bytes)" % size)
+            nxt = max(nxt + step, time.monotonic())
+            time.sleep(max(0.0, nxt - time.monotonic()))
+        return sent
+
+    def close(self):
+        self.stop.set()
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Uitvoeren
 
@@ -2330,6 +2428,16 @@ def _run(plan):
     if not os.path.exists(src):
         log("bronbestand %s bestaat niet (start de IO-brug eerst)" % src)
         return 1
+    control = plan.get("control_pipe")
+    if control:   # het rapport van de besturingspipe komt ook van de IO-brug
+        for _ in range(100):
+            if os.path.exists(control["source"]):
+                break
+            time.sleep(0.1)
+        if not os.path.exists(control["source"]):
+            log("bronbestand %s van de besturingspipe bestaat niet (start de IO-brug eerst; [Input] ControlPipe = %s)"
+                % (control["source"], control["profile"]))
+            return 1
     # 3. JVS-pipe en pipehelper.exe in de prefix (vóór de game, zoals TeknoParrotUi).
     server = JvsPipeServer(board=truthy(plan["env"].get("RG_JVS_BOARD", "0")),
                            f1_once=truthy(plan["env"].get("RG_JVS_F1_ONCE", "0")),
@@ -2358,6 +2466,28 @@ def _run(plan):
     threading.Thread(target=helper_log, daemon=True).start()
     if not ready.wait(20):
         log("pipehelper meldde zich niet binnen 20 s; toch verder")
+    # 3b. De besturingspipe (TeknoParrotPipe): de TCP-kant en een tweede helper die de pipe in de prefix maakt.
+    if control:
+        cserver = ControlPipeServer(control)
+        cserver.start()
+        cargs = [plan["wine"], plan["pipehelper"], control["pipe"], "127.0.0.1", str(cserver.port)]
+        log("besturingspipe %s: %s (rapport uit %s, elke %d ms)" % (control["profile"], " ".join(shlex.quote(a) for a in cargs[1:]),
+                                                                     control["source"], control["interval_ms"]))
+        chelper = subprocess.Popen(cargs, cwd=plan["tp"], env=henv, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                   text=True, errors="replace")
+        cready = threading.Event()
+
+        def chelper_log():
+            for line in chelper.stderr:
+                line = line.rstrip()
+                if "pipehelper" in line:
+                    log("helper (%s): %s" % (control["pipe"], line))
+                    if "created" in line:
+                        cready.set()
+        threading.Thread(target=chelper_log, daemon=True).start()
+        if not cready.wait(20):
+            log("besturingspipe: de helper meldde zich niet binnen 20 s; toch verder")
+        plan["_control_run"] = (chelper, cserver)
     # De schijfletters van deze run: staan ze er nog nu de eerste Wine-start achter de rug is?
     if plan.get("drives"):
         fout = drives_controleer(plan, log)
@@ -2366,6 +2496,9 @@ def _run(plan):
             if helper.poll() is None:
                 helper.terminate()
             server.close()
+            if plan.get("_control_run"):
+                plan["_control_run"][0].terminate()
+                plan["_control_run"][1].close()
             return EXIT_PATCH
     # 4. De lader (eventueel in gamescope). Een profiel met meer dan een start gaat via run_starts(); een gewone game
     # (een exe) neemt het pad hieronder, ongewijzigd.
@@ -2432,6 +2565,11 @@ def run_einde(plan, rc, helper, server, a11):
     if helper.poll() is None:
         helper.terminate()
     server.close()
+    if plan.get("_control_run"):
+        chelper, cserver = plan["_control_run"]
+        if chelper.poll() is None:
+            chelper.terminate()
+        cserver.close()
     log("klaar (exitcode %s)" % (rc if rc is not None else "gestopt"))
     return 0 if rc is None else (rc & 0xFF)
 
@@ -2613,6 +2751,7 @@ def main(argv):
     g.add_argument("--run", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--shm-source")
+    ap.add_argument("--control-source", help="het rapport van de besturingspipe ([Input] ControlPipe); standaard " + CONTROL_PATH)
     ap.add_argument("--log-full", action="store_true")
     ap.add_argument("--enforce-activation", action="store_true", help=argparse.SUPPRESS)  # TP-Patreon-poort toch afdwingen (uit; zie docs/decisions.md)
     ap.add_argument("--env", action="append", default=[])
@@ -2630,7 +2769,7 @@ def main(argv):
         extra[k] = v
     try:
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run,
-                          exe=a.exe, drives=a.drive)
+                          exe=a.exe, drives=a.drive, control_source=a.control_source)
         # TeknoParrots Patreon-activering is hun verdienmodel in hun software, geen beveiliging in de game zelf. Op
         # onze eigen, onafhankelijke stack (eigen lader/kern/launcher/JVS-brug) is er geen TeknoParrot-software meer
         # om voor te betalen, dus dwingen we die poort niet meer af (beslissing eigenaar 2026-10-12; docs/decisions.md).
