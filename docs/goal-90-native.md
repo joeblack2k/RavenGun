@@ -6,13 +6,16 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2: 52, overgeslagen: 1.
+Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2: 51, overgeslagen: 1.
 
-## WORKING (13)
+## WORKING (16)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
+| Drakons: Realm Keepers | Adrenaline Amusements PC-Based |  |
 | Dream Raiders | SEGA RingWide |  |
+| Elevator Action Invasion | UNIS PC Based |  |
+| Gashaaaan!!!! | Konami PC Based |  |
 | HALO Fireteam Raven | RAW Thrills Linux PC Based |  |
 | House of the Dead: Scarlet Dawn | SEGA ALLS |  |
 | Jurassic Park Arcade | RAW Thrills Linux PC Based |  |
@@ -26,7 +29,7 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
 
-## pass 1 (16)
+## pass 1 (14)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -36,10 +39,8 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
-| Drakons: Realm Keepers | Adrenaline Amusements PC-Based | profiel + direct, Adrenaline (recept Rampage) |
 | Friction | Unique PC Based | profiel + direct, OpenParrot |
 | Gashaaaan Refill!!!! | Konami PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
-| Gashaaaan!!!! | Konami PC Based | dubbelklik, 5 min (route bestaat) |
 | Go Go Strike | PAOKAI Linux PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
@@ -47,7 +48,7 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (52)
+## pass 2 (51)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -57,7 +58,6 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Bug Busters | EM-Teck PC Based | getest 2026-10-14 (2x, ook met view en lege video-map): munt+START tot MODE SELECT, daarna exitcode 5; oorzaak open |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | Taito Type X2 / OpenParrot |
-| Elevator Action Invasion | UNIS PC Based | getest 2026-10-14: lader exitcode 1 na laden; diagnose loopt |
 | Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
