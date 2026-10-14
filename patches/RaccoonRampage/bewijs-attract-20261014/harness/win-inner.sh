@@ -11,7 +11,12 @@ mkdir -p $O/$TAG-shots
 ( i=0; while [ ! -e $O/$TAG-shots/stop ]; do i=$((i+1)); spectacle -b -n -f -o $O/$TAG-shots/shot-$(printf %03d $i)-$(date +%H%M%S).png >/dev/null 2>&1; sleep ${SHOTSECS:-10}; done ) &
 SH=$!
 cd /home/deck/projects/ravengun
-if [ "${WIN_SHARE:-ro}" = overlay ]; then SHARE=(--overlay-src "$NAS" --tmp-overlay "$NAS"); else SHARE=(--ro-bind "$NAS" "$NAS"); fi
+# WIN_SHARE=overlay-keep: the same writable layer, but KEPT on disk ($HOME/.local/state/ravengun/bench-upper/<tag>/upper), so what
+# the game wrote during the run can be read afterwards. The share itself is still never written.
+KEEP=$HOME/.local/state/ravengun/bench-upper/$TAG
+if [ "${WIN_SHARE:-ro}" = overlay ]; then SHARE=(--overlay-src "$NAS" --tmp-overlay "$NAS")
+elif [ "${WIN_SHARE:-ro}" = overlay-keep ]; then mkdir -p "$KEEP/upper" "$KEEP/work"; SHARE=(--overlay-src "$NAS" --overlay "$KEEP/upper" "$KEEP/work" "$NAS")
+else SHARE=(--ro-bind "$NAS" "$NAS"); fi
 echo "share mode: ${WIN_SHARE:-ro}  shm source: ${WIN_SHM_SOURCE:-launcher default}" > $O/$TAG.mode
 # the first thing inside the sandbox writes into the run's record how the share's game folder is mounted THERE
 env "$@" bwrap --die-with-parent --unshare-pid --dev-bind / / --proc /proc --tmpfs /tmp/.X11-unix "${SHARE[@]}" -- \

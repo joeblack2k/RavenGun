@@ -29,5 +29,7 @@ wait $WATCH 2>/dev/null
 { echo "ENDED $(date '+%Y-%m-%d %H:%M:%S') -- launcher: $(grep -a 'klaar' $O/$TAG.out | tail -1 | sed 's/^\[launch-direct //; s/\]//') -- $(tail -1 $O/$TAG.out) (124 = stopped by the run's own limit)"
   echo "left running afterwards:"; bash $O/win-left.sh | sed 's/^/    /'
   echo "files in the share's game folder newer than the start of this run: $(find "$NAS" -newermt "$START" 2>/dev/null | wc -l)"
+  K=$HOME/.local/state/ravengun/bench-upper/$TAG/upper
+  [ -d "$K" ] && { echo "what the game wrote into the kept write layer ($K):"; (cd "$K" && find . -type f -printf '    %TT %9s %p\n' | cut -c1-140 | sort | head -60); }
   echo "captures: $(ls $O/$TAG-shots 2>/dev/null | grep -c png), first $(ls $O/$TAG-shots | grep png | head -1), last $(ls $O/$TAG-shots | grep png | tail -1)"
 } >> $REC

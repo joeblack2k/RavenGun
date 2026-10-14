@@ -69,10 +69,11 @@ everything else the same, the banner is not there (§4).
    **demos; it is not playable on our core.**
 3. **Nothing has been played**, and no gun has been tried.
 4. **Sound was not judged.** Nobody listened.
-5. **Coins: not determined.** Read-only folder: two coin presses changed nothing, on either core.
-   Writable layer: player 1 already has saved credits, so the HUD cannot show an added coin.
-6. On the closed core only TEST was re-measured tonight. That aiming, trigger and coin work there is
-   **DATED** (2026-10-11).
+5. **Coins: only partly determined.** Read-only folder: two coin presses (key 5) changed nothing, on
+   either core. Writable layer: player 1 already has saved credits, so the HUD cannot show an added
+   coin. On the closed core the game booked the START press as a coin for player 1 (§9).
+6. On the closed core — the route the owner plays — START, aiming and the trigger were measured later
+   the same night (run or1, §9): the game was played there and the score rose to 17,936.
 
 ---
 
@@ -286,3 +287,46 @@ The harness scripts carry the path of the session's scratch folder; change `O=` 
 * Strings in the plug-in (**MEASURED**): `HID\Vid_0471&Pid_485e` (the guns), `\\.\COM%d` and
   `CComPort::OpenESIO Com(%d)` (a serial board), `\\.\BeaconMS_USBfilter` (a driver device), classes
   `CUnisIo`, `CAmusementParkIO`, `CZlbDev`, `CCoDongle2`.
+
+---
+
+## 9. The two routes — which one the owner is handed, and what it would take to switch
+
+`game.ini` leaves the core at its default, and that is what the app starts. That default is **not
+ours**: our launcher and our loader executable start it, but the core is TeknoParrot's closed
+`TeknoParrot64.dll`. It cannot count for the bar. It is the game the owner actually plays, so it was run
+tonight, past five minutes and with a played part, to prove that it still works with the films restored.
+
+| | the route in `game.ini` (what the app starts) | our own core |
+|---|---|---|
+| what differs | core `TeknoParrot/TeknoParrot64.dll` (`f5c7532d…`) | core `OpenParrotx64/OpenParrot64.dll` (`fe2ecf8c…`), selected by `[Loader] Core = ravengun` |
+| run | **or1**, 02:18:34 – 02:26:36 (own limit, 480 s) | **rr10**, 01:13:25 – 01:26:27 |
+| attract, untouched | 02:18:55 (splash) – 02:24:02: **5 min 07 s**, films playing | 12 min 50 s, films playing |
+| "The guns are not calibrated" | **not shown** | on every frame |
+| START (key 1, through the daemon's bridge) | 02:24:02 → player 1 joins: "Assign Cards", "Select Map", "Tips"; the game writes `Setting_System.ini` in that second (`CoinNum_1P` 0 → 1) | nothing arrives (TEST measured, rr7/rr9) |
+| aiming and trigger | five aimed shots 02:24:16 – 02:24:34; crosshair at the aimed points; score 1,018 → 17,936 | not possible |
+| counts for the bar | **no** | **yes** (attract only) |
+
+Evidence for or1: `runs/or1.run` (16 samples, each naming `TeknoParrot/TeknoParrot64.dll`, none naming
+our core), `runs/or1-play.txt`, `runs/or1-wat-de-game-schreef.txt`, `shots/or1-sheet-attract.jpg`,
+`or1-sheet-play.jpg`, `or1-sheet-edges.jpg`, and the 47 captures in `opnames-or1/`.
+
+**How or1 differs from the owner's own start.** Same launcher command with the bridge started first, but
+inside the bench wrapper with a kept write layer over the share; his start writes the game's
+`Setting_*.ini` to the share itself. Nothing was written to the share in or1 — so the credit that or1
+used is not missing from his saved game.
+
+**Which is the better answer.** Our own core — no closed component — **but it should not replace the
+closed core yet**: on ours the game demos with the banner and takes no input. What it takes to switch:
+
+1. **Inputs on our core.** The game talks to its cabinet through `RSGame/Plugins/UsbPluginsDll.dll`
+   (107 `BIND_*` functions) and does not read the daemon's shared state itself (§4.1). Our core has to
+   answer those functions from that state — by hooks for this executable, or by a replacement plug-in
+   with the same exports (the way Silent Hill's I/O library was done).
+2. **The calibration state.** What makes the banner go away on the closed core is not determined; it
+   is part of the same interface (`BIND_OpenGunDevice`, `BIND_GetGunData`, `BIND_EnterCalibrate`).
+3. **Then the proof**: five minutes of play on our core, on the TV — the same test or1 passed — and
+   only then `[Loader] Core = ravengun` in `game.ini`.
+
+**Coins, now determined on this route:** the START press was booked by the game as a coin for player 1
+(`CoinNum_1P` 0 → 1 in the kept layer). Whether key 5 does the same was not repeated.
