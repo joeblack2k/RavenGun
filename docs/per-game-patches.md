@@ -182,6 +182,7 @@ CustomResolution =            ; informatie: 1920x1080 als het profiel een eigen 
 [Input]
 Route = jvs                   ; evdev | tp-shm | unity-tcp | hid-board | jvs
 Layout =                      ; tp-shm: indeling uit tp-shm-profiles.json
+ControlPipe =                 ; tp-shm: ook het rapport voor \\.\pipe\TeknoParrotPipe (indeling uit control-pipe-profiles.json, bv. AllsUsbIo)
 Board = LGI                   ; hid-board: bord uit hid-boards.json; jvs: bord uit jvs-boards.json
 Boards =                      ; jvs: de keten, gescheiden door komma's
 ComPort = COM4                ; jvs: de COM-poort die de game opent
@@ -248,6 +249,13 @@ Properties > General > Gamepad, met de herkomst per regel. Volledige beschrijvin
 
 `[Input] Layout` bij de route jvs: de daemon schrijft dan naast het JVS-bord ook die tp-shm-indeling (Let's Go Safari leest het stuur alleen uit het
 gedeelde geheugen), en de directe start spiegelt het bestand van de daemon naar de game.
+
+`[Input] ControlPipe` bij de route tp-shm (of evdev, dat de directe start tot tp-shm maakt; bij andere routes is `[Input]` ongeldig): sommige games
+lezen een deel van hun invoer niet uit het gedeelde geheugen maar uit de besturingspipe `\\.\pipe\TeknoParrotPipe`, waarin TeknoParrotUi elke
+~15 ms een rapport schrijft. De daemon schrijft dat rapport dan zelf (indeling uit `packaging/control-pipe-profiles.json`, bestand
+`/dev/shm/ravengun_ControlPipe`) en de directe start stroomt het naar de pipe in de prefix (een tweede `rg-jvsbridge`). Een naam die niet in dat
+bestand staat, weigert de directe start ("Instelling geweigerd"). House of the Dead: Scarlet Dawn: `Route = tp-shm`, `Layout = HOTDSDPipe`,
+`ControlPipe = AllsUsbIo` (start, service, test, subtrekker, controllerkeuze en munt gaan over de pipe; de trekkers en de aim over het geheugen).
 
 `_defaults/<Type>.ini` heeft dezelfde vorm, plus een sectie `[NewGame]` die alleen `tp-add-game.py` leest:
 `EnablePatches = <naam>, <naam>` zet die gedeelde patches aan in de gebruikerslaag van een nieuwe game van dat soort.
