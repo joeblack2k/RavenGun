@@ -374,10 +374,11 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
             if (v && !v->is_string()) { err = game + ": 'lindbergh." + key + "' is geen tekst"; return false; }
             if (v) *dst = v->str;
         }
-        if (const Value* c = lb->find("libcg")) {
-            if (!c->is_bool()) { err = game + ": 'lindbergh.libcg' is geen true/false"; return false; }
-            s.libcg = c->b;
-        }
+        for (auto [key, dst] : std::initializer_list<std::pair<const char*, bool*>>{{"libcg", &s.libcg}, {"stackalign", &s.stackalign}})
+            if (const Value* c = lb->find(key)) {
+                if (!c->is_bool()) { err = game + ": 'lindbergh." + key + "' is geen true/false"; return false; }
+                *dst = c->b;
+            }
         s.ini = expand(s.ini, p);
         s.id = lower(s.id);
         bool hex = s.id.size() == 10 && s.id.compare(0, 2, "0x") == 0;
@@ -474,13 +475,15 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         const std::string dir = !p.lindbergh.empty() ? p.lindbergh : p.data + "/lindbergh-loader/current";
         std::vector<std::string> need{"lindbergh.so", "libsegaapi.so", "libkswapapi.so", "libposixtime.so"};
         if (s.libcg) need.push_back("libCg.so");
+        if (s.stackalign) need.push_back("librg-stackalign.so");
         std::string missing;
         for (const std::string& f : need)
             if (!exists(dir + "/" + f)) missing += (missing.empty() ? "" : " ") + f;
         if (!missing.empty()) { err = "Lindbergh-laag onvolledig in " + dir + " (" + missing + "): bouw met scripts/build-lindbergh-loader.sh"; return false; }
         bw.insert(bw.end(), {"--ro-bind", dir, "/rg/lindbergh"});
         ldpath = "/rg/lindbergh";
-        lb_preload = "/rg/lindbergh/lindbergh.so";
+        // De shim eerst: de game komt dan uitgelijnd binnen, ook in lindbergh.so en in wat die zelf aanroept.
+        lb_preload = s.stackalign ? "/rg/lindbergh/librg-stackalign.so:/rg/lindbergh/lindbergh.so" : "/rg/lindbergh/lindbergh.so";
         out.identity.push_back("lindbergh-laag=" + dir + "/lindbergh.so");
         if (exists(dir + "/BUILDINFO.txt")) out.identity.push_back("lindbergh-bouw=" + dir + "/BUILDINFO.txt");
         // De spel-ID: lindbergh.so herkent de game alleen aan deze CRC; een andere ELF (bv. ramboD.elf in plaats van ramboM.elf)

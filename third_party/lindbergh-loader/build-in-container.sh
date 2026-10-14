@@ -7,6 +7,7 @@
 #   libstdc++.so.5 libncurses.so.5 libtinfo.so.5 libXmu.so.6 libXt.so.6     -- i386 uit Ubuntu 22.04; SteamOS heeft ze niet
 #   libSM.so.6 libICE.so.6 libbsd.so.0 libmd.so.0                           -- idem (wat libXt verder vraagt)
 #   libsndio.so.7                                                           -- onze stub (sndio-stub.c), voor libopenal.so.0
+#   librg-stackalign.so                                                     -- onze GL-shim (tools/rg-stackalign), per profiel
 #   libCg.so libopenal.so.0                                                 -- uit libs/ van de lindbergh-loader-bron
 # Invoer: /src/<naam> (alleen lezen), /work (schrijfbaar, de bouwmappen), /out.
 set -eu
@@ -59,4 +60,6 @@ cp -L libs/libCg.so libs/libopenal.so.0 /out/
 # geen i386-libXt. libopenal.so.0 vraagt libsndio.so.7: onze stub (sndio-stub.c), want ook sndio is er niet voor i386.
 cp -L "$L/libXt.so.6" "$L/libSM.so.6" "$L/libICE.so.6" "$L/libbsd.so.0" "$L/libmd.so.0" /out/   # libXt -> libSM, libICE -> libbsd -> libmd (libuuid heeft SteamOS wel)
 gcc -m32 -O2 -shared -fPIC -Wl,-soname,libsndio.so.7 -o /out/libsndio.so.7 /sndio-stub.c
+# librg-stackalign.so (tools/rg-stackalign, eigen code): GL-aanroepen van oude games met een uitgelijnde stapel; per profiel in "preload".
+gcc -m32 -O2 -shared -fPIC -Wall -Wextra -Werror -o /out/librg-stackalign.so /rg_stackalign.c -ldl
 echo "afhankelijkheden van lindbergh.so:"; objdump -p /out/lindbergh.so | sed -n 's/^ *NEEDED */  /p'

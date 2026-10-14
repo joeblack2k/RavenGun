@@ -206,6 +206,22 @@ static void test_lindbergh(const fs::path& root, NativePaths p) {
     for (const LayerStep& s : pl.layer) if (s.kind == LayerStep::Kind::Write) w = &s;
     CHECK(w && w->from.find("EMULATE_JVS = true") != std::string::npos && w->from.find("LIBCG_PATH = \"/rg/lindbergh/libCg.so\"") != std::string::npos);
 
+    // stackalign: de shim VOOR lindbergh.so in LD_PRELOAD; zonder de shim in de laag een fout met het bouwscript.
+    {
+        const std::string js = R"({"schema":1,"games":{"LbAlign":{"route":"jvs","lindbergh":{"id":")" + id +
+                               R"(","ini":"@patches/Lb/lindbergh.ini","stackalign":true},"mounts":[{"src":"@nas/Lb","dst":"/lb","mode":"overlay"}],)"
+                               R"("exe":"/lb/elf/game.elf","cwd":"/lb/elf"},"LbAlignFout":{"route":"jvs","lindbergh":{"id":")" + id +
+                               R"(","ini":"x","stackalign":"ja"},"exe":"/x"}}})";
+        NativeProfile pa;
+        CHECK(load_profile(js, "LbAlign", p, pa, err) && pa.lindbergh.stackalign);
+        CHECK(!load_profile(js, "LbAlignFout", p, pa, err) && err.find("lindbergh.stackalign") != std::string::npos);
+        CHECK(load_profile(js, "LbAlign", p, pa, err));
+        CHECK(!plan(pa, p, PlanOptions{}, pl, err) && err.find("librg-stackalign.so") != std::string::npos);
+        write(layer / "librg-stackalign.so", "x");
+        CHECK(plan(pa, p, PlanOptions{}, pl, err));
+        CHECK(has_seq(pl.argv, {"--setenv", "LD_PRELOAD", "/rg/lindbergh/librg-stackalign.so:/rg/lindbergh/lindbergh.so"}));
+    }
+
     // Een andere ELF dan het profiel verwacht: niet starten.
     CHECK(load_profile(json, "Lb", p, pr, err));
     write_elf(p.nas + "/Lb/elf/game.elf", 0x200, 0x55);

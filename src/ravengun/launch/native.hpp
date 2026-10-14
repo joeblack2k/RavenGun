@@ -50,6 +50,9 @@ struct LindberghSpec {
     bool on = false;
     std::string id, ini, jvs = "passthrough";
     bool libcg = false;
+    // librg-stackalign.so (tools/rg-stackalign) VOOR lindbergh.so in LD_PRELOAD: GL/X11/OpenAL-aanroepen van de game met een op
+    // 16 bytes uitgelijnde stapel. Nodig als de game op een movaps in een lib32-bibliotheek van SteamOS valt (Too Spicy).
+    bool stackalign = false;
 };
 
 // Het pad van de JVS-lijn in de sandbox en de plaatsaanduiding in het commando die resolve_jvs() invult.

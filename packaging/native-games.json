@@ -686,7 +686,7 @@
         "ini": "@patches/2Spicy/lindbergh.ini",
         "jvs": "passthrough",
         "libcg": true
-      },
+      , "stackalign": true},
       "mounts": [
         {
           "src": "@nas/Too Spicy",
