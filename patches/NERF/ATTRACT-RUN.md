@@ -44,6 +44,9 @@ START, coin, TEST and — as far as is known — the guns come from. It is the d
 demos" and "it plays", the same shape as Jurassic Park's "RIO Disconnected" and Raccoon Rampage's
 "guns are not calibrated".
 
+**It is ONE open item shared with Jurassic Park, not two:** both games open the same USB device
+(vendor `0x0C70`, product `0x0780`) with the same library code. See `patches/RIO-BORD.md`.
+
 **NOT shown — the other open items, stated plainly:**
 
 1. **No inputs were sent and none were tried.** Nothing was pressed in any run. Whether a keyboard key

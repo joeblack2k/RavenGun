@@ -31,6 +31,9 @@ captions, gameplay demos, the Universal and Raw Thrills logos, high-score tables
    test button. That is the whole difference between "it demos" and "it is playable" for this title,
    and it is not solved. The game logs `InputInit(): RIO not connected (error code: -3)` and
    `ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'` on every boot.
+   **Shared with NERF Arcade (added 2026-10-14):** NERF shows the same banner, and both games open
+   the same USB device (vendor `0x0C70`, product `0x0780`) with the same library code. It is one open
+   item for two titles: `patches/RIO-BORD.md`.
 2. **Nothing has been played**, and no gun has been tried. `Joysticks Found=0`.
 3. **Four shaders fail to compile** (`shader108`, `shader108c_sk`, `shader108d`, `shader108d_sk`,
    `ec=-9596`). The attract loop ran 12 minutes without them; what they draw has not been looked at.
