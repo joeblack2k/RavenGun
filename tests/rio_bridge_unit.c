@@ -42,6 +42,11 @@ int main(int argc, char **argv) {
     bit(6, 1); CHECK(sw(7) == 1 && sw(15) == 2, "bit 6 -> id 7: %u (id 15 blijft 2: %u)", sw(7), sw(15));
     bit(6, 0); CHECK(sw(7) == 2, "id 7 na loslaten: %u, verwacht 2", sw(7));
     CHECK(sw(9) == 0, "id zonder schakelaar geeft %u, verwacht 0", sw(9));
+    /* min=300: een korte druk (30 ms) blijft voor het spel minstens 300 ms ingedrukt, daarna los. */
+    bit(9, 1); bit(9, 0);
+    CHECK(sw(11) == 1, "id 11 (min=300) kort na een korte druk: %u, verwacht 1 (nog ingedrukt)", sw(11));
+    usleep(350000);
+    CHECK(sw(11) == 2, "id 11 na 350 ms: %u, verwacht 2 (los)", sw(11));
 
     /* Kanalen: bron 12 -> ch 19 (0..4095), bron 13 -> ch 20 geinverteerd. round(min + f*(max-min)), dan inverteren. */
     beeld[12] = 0; beeld[13] = 0; schrijf();

@@ -23,7 +23,8 @@
  *               rol: verbonden (geeft 0 = verbonden), schakelaar (teller per id), adc (waarde per kanaal),
  *               adc_ex (waarde per kanaal + delta via de tweede parameter). sig: de eerste bytes van de functie in DEZE build.
  *               Kloppen de bytes niet, dan wordt die bibliotheek in zijn geheel NIET aangepast (melding op stderr).
- *   schakelaar  bit=7 id=7                             bit uit het beeld -> schakelaar id; meer bits op een id = OF
+ *   schakelaar  bit=7 id=7 [min=300]                   bit uit het beeld -> schakelaar id; meer bits op een id = OF. min = minimale
+ *               druktijd in ms: een kortere druk blijft zo lang staan (gemeten op NERF: START van 0,12 s telt niet, 0,35 s wel)
  *   kanaal      bron=12 ch=19 min=0 max=255 inverteer=nee
  *               asbyte bron (0..255 uit het beeld, links/boven = 0) -> kanaal ch: round(min + f*(max-min)), daarna
  *               eventueel inverteren (min + max - v). Zonder beeld staat een kanaal in het midden.
@@ -85,7 +86,7 @@
 enum { ROL_VERBONDEN, ROL_SCHAKELAAR, ROL_ADC, ROL_ADC_EX };
 
 struct rg_functie { char naam[64]; int rol; unsigned char sig[16]; int nsig; };
-struct rg_sw { int bit; int id; };
+struct rg_sw { int bit; int id; int min_ms; };
 struct rg_kanaal { int bron; int ch; double min, max; int inverteer; };
 
 static struct {
@@ -112,6 +113,8 @@ static _Atomic uint32_t n_open, n_lees, n_schrijf, n_sluit;
 
 static int actief, log_on;
 static _Atomic uint32_t teller[RG_MAX_ID];
+static int minhold[RG_MAX_ID];          /* minimale druktijd per id (ms), uit de tabel */
+static uint64_t druk_ms[RG_MAX_ID];      /* wanneer de huidige druk begon */
 static _Atomic int32_t kwaarde[RG_MAX_CH], kvorig[RG_MAX_CH];
 static _Atomic uint64_t n_sw, n_adc, n_adcex, n_verb;
 static _Atomic uint32_t laatste_bits;
@@ -168,7 +171,7 @@ static int getal(const char *s, double *out) { if (!s || !*s) return 0; char *e;
 static int lees_tabel(const char *pad) {
     FILE *f = fopen(pad, "r");
     if (!f) { meld("geen tabel (RG_RIO_TABLE): de hulp doet niets"); return 0; }
-    memset(&T, 0, sizeof T); T.beeld_bits = 8; memset(&U, 0, sizeof U);
+    memset(&T, 0, sizeof T); T.beeld_bits = 8; memset(&U, 0, sizeof U); memset(minhold, 0, sizeof minhold);
     char regel[512]; int nr = 0, fout = 0;
     while (fgets(regel, sizeof regel, f)) {
         nr++;
@@ -193,7 +196,10 @@ static int lees_tabel(const char *pad) {
             T.nf++;
         } else if (!strcmp(s, "schakelaar") && T.nsw < RG_MAX_SW) {
             if (!getal(waarde(kv, nkv, "bit"), &a) || !getal(waarde(kv, nkv, "id"), &b) || a < 0 || a > 31 || b < 0 || b >= RG_MAX_ID) { fout = nr; continue; }
-            T.sw[T.nsw].bit = (int)a; T.sw[T.nsw].id = (int)b; T.nsw++;
+            double mn = 0;
+            if (waarde(kv, nkv, "min") && (!getal(waarde(kv, nkv, "min"), &mn) || mn < 0 || mn > 5000)) { fout = nr; continue; }
+            T.sw[T.nsw].bit = (int)a; T.sw[T.nsw].id = (int)b; T.sw[T.nsw].min_ms = (int)mn; T.nsw++;
+            if ((int)mn > minhold[(int)b]) minhold[(int)b] = (int)mn;
         } else if (!strcmp(s, "kanaal") && T.nk < RG_MAX_KANAAL) {
             struct rg_kanaal *k = &T.k[T.nk]; double ch;
             const char *inv = waarde(kv, nkv, "inverteer");
@@ -465,7 +471,9 @@ static void zet_tellers(uint32_t bits) {
         for (int i = 0; i < nprobe; i++) if (probe[i].id == id) { heeft = 1; if (bits >> probe[i].bit & 1) stand = 1; }
         if (heeft) ooit[id] = 1; else if (!ooit[id]) continue;
         uint32_t t = atomic_load(&teller[id]);
-        if ((int)(t & 1) != stand) atomic_store(&teller[id], t + 1);
+        if ((int)(t & 1) == stand) continue;
+        if (stand) { druk_ms[id] = nu_ms(); atomic_store(&teller[id], t + 1); }              /* indrukken: meteen */
+        else if (!minhold[id] || nu_ms() - druk_ms[id] >= (uint64_t)minhold[id]) atomic_store(&teller[id], t + 1);   /* los: na min */
     }
 }
 static void lees_probe(const char *pad) {

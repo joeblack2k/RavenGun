@@ -28,6 +28,7 @@ functie naam=RIO_ADC_Val    rol=adc        sig=89ff488d04bf488d
 functie naam=RIO_ADC_Val_Ex rol=adc_ex     sig=8d47ed83f8037740
 schakelaar bit=7 id=15
 schakelaar bit=6 id=7
+schakelaar bit=9 id=11 min=300
 kanaal bron=12 ch=19 min=0 max=4095 inverteer=nee
 kanaal bron=13 ch=20 min=0 max=4095 inverteer=ja
 INI
