@@ -112,8 +112,11 @@ Op de evdev-route (TeknoParrotUi leest het virtuele toetsenbord en de gun) werke
 Gemeten op de bench: Let's Go Safari (route jvs over de pipe `TeknoParrot_JVS`, `[Input] Layout = LGS`) stuurt alleen JVS `0x20`
 (schakelaars), `0x21` (munten) en `0x32` (lampen), nooit `0x22` (analoog). Het stuur komt uit het gedeelde geheugen: de indeling `LGS`
 is één byte op offset 12. Daarom schrijft de daemon op de route jvs met een `Layout` in `[Input]` ook die tp-shm-indeling (naast het
-JVS-bord), en zet de directe start (`DirectInput::writes_tp_shm`, `play-halo.sh --shm-source`) het bestand van de daemon
-(`/dev/shm/ravengun_JvsState`) als bron van de spiegel van de pipehelper. De as van `LGS` is `p1.wheel`.
+JVS-bord). Hij schrijft ze rechtstreeks in het bestand dat rg-direct naar de game spiegelt (`/dev/shm/TeknoParrot_JvsState`), en
+alleen de eigen bytes van de indeling (`TpShmDialect::set_owned_only`). In byte 0 van dat bestand zet rg-direct de verbindingsvlag
+(sense) van de JVS-bus. Een eerste versie spiegelde een kopie in het bestand van de daemon: dan kwam die vlag te laat bij de game, en
+die zag na `SETADDR 01` een tweede bord (`F1 02` zonder antwoord, game na 30 s weg; gemeten 2026-10-14). rg-direct zet het bestand
+ook bij elke start op nul, net als TeknoParrotUi. De as van `LGS` is `p1.wheel`.
 
 ## Code en tests
 

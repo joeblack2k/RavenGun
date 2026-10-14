@@ -733,6 +733,12 @@ void test_service(const std::string& dir) {
         IoBridgeService br4(sh, c4);
         sh.iobridge = &br4;
         CHECK(br4.route_for("LGS") == "jvs" && br4.effective_routes().find("LGS")->board == "LGS" && br4.effective_routes().find("LGS")->com_port == "COM4");
+        {   // het bestand van rg-direct (TeknoParrot_JvsState) met de verbindingsvlag in byte 0: die mag de daemon nooit aanraken
+            std::ofstream f(c4.tpui_shm_path, std::ios::binary);
+            std::string b(64, '\0');
+            b[0] = 1;
+            f << b;
+        }
         CHECK(br4.start("LGS").empty());
         CHECK(br4.active() && br4.active_route() == "jvs" && fs::is_symlink(c4.jvs_link));
         CHECK(!fs::exists(state));                          // geen herstart-toestand voor jvs (de game houdt de oude pty vast)
@@ -769,13 +775,14 @@ void test_service(const std::string& dir) {
         const json::Value* det = js4.value.find("detail");
         CHECK(det && det->find("addressed")->b && det->find("switch_polls")->num >= 1 && det->find("analog_polls")->num >= 1);
         // Layout = LGS in [Input]: de daemon schrijft ook het gedeelde geheugen (het stuur op offset 12, p1.wheel = aim-x zonder
-        // gamepad). Gemeten: de game vraagt nooit 0x22, het stuur komt alleen hieruit.
+        // gamepad), rechtstreeks in het bestand van rg-direct en alleen zijn eigen bytes. Gemeten: de game vraagt nooit 0x22.
         auto shm_byte = [&](size_t i) {
-            std::ifstream f(c4.shm_path, std::ios::binary);
+            std::ifstream f(c4.tpui_shm_path, std::ios::binary);
             std::string b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
             return b.size() > i ? static_cast<uint8_t>(b[i]) : 0;
         };
         CHECK(wait_for([&] { return shm_byte(12) == 255; }));
+        CHECK(shm_byte(0) == 1);   // de verbindingsvlag van rg-direct staat er nog
         CHECK(det && det->find("shm") && det->find("shm")->find("layout")->str == "LGS");
         out.disarm();   // neutraal: stuur in het midden, geen knoppen
         CHECK(wait_for([&] { return shm_byte(12) == 128; }));
@@ -784,6 +791,7 @@ void test_service(const std::string& dir) {
         if (fd >= 0) ::close(fd);
         br4.stop();
         CHECK(!br4.active() && !fs::exists(c4.jvs_link) && !fs::exists(c4.jvs_modem_file) && !fs::exists(c4.shm_path));
+        CHECK(fs::exists(c4.tpui_shm_path) && shm_byte(0) == 1);   // het bestand van rg-direct blijft staan, met zijn vlag
         CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // geen [Input] in game.ini: nette fout
         sh.iobridge = nullptr;
     }

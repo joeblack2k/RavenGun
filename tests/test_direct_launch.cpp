@@ -117,8 +117,8 @@ int main() {
         CHECK(in.writes_tp_shm());
         in.route = "jvs";
         CHECK(!in.writes_tp_shm());
-        in.layout = "LGS";   // Let's Go Safari: het stuur komt alleen uit het gedeelde geheugen
-        CHECK(in.writes_tp_shm());
+        in.layout = "LGS";   // Let's Go Safari: de daemon schrijft het stuur in het bestand van rg-direct, de spiegel blijft dat lezen
+        CHECK(!in.writes_tp_shm());
         in.route = "hid-board";
         CHECK(!in.writes_tp_shm());
     }

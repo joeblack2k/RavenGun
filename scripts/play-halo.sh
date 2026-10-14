@@ -358,12 +358,10 @@ elif [[ "$LAUNCH" == direct ]]; then
   # Directe start (A10): launch-direct.py is het hoofdproces van dezelfde unit, op de plaats van TeknoParrotUi. Het leest zelf
   # patches/<P>/game.ini; de extra omgeving (--env) gaat ook mee als omgeving van de unit, net als bij TeknoParrotUi.
   LOG="$LOGDIR/direct-$(date +%Y%m%d-%H%M%S).log"
-  # Het bestand van de daemon als bron van de spiegel: bij tp-shm, en bij jvs met een Layout in [Input] (de daemon schrijft dan ook
-  # die tp-shm-indeling, bv. het stuur van Let's Go Safari; zelfde regel als DirectInput::writes_tp_shm in de engine).
+  # Het bestand van de daemon als bron van de spiegel alleen bij tp-shm. Bij jvs met een Layout schrijft de daemon zijn bytes in het
+  # bestand van de lader zelf (zelfde regel als DirectInput::writes_tp_shm in de engine).
   DARGS=(--run)
-  if [[ "$ROUTE" == tp-shm ]] || { [[ "$ROUTE" == jvs ]] && [[ -n "$(gset input "$PROFILE" layout 2>/dev/null || true)" ]]; }; then
-    DARGS+=(--shm-source /dev/shm/ravengun_JvsState)
-  fi
+  [[ "$ROUTE" == tp-shm ]] && DARGS+=(--shm-source /dev/shm/ravengun_JvsState)
   [[ $LOG_FULL -eq 1 ]] && DARGS+=(--log-full)
   say "Start direct (zonder TeknoParrotUi)."
   wie_ben_ik

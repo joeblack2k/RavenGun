@@ -113,7 +113,9 @@ struct DirectInput {
     // Schrijft de daemon op deze route het gedeelde geheugen (/dev/shm/ravengun_JvsState), zodat de pipehelper dat bestand naar de
     // game spiegelt? tp-shm altijd; jvs als [Input] ook een Layout heeft (Let's Go Safari: het stuur komt alleen uit het gedeelde
     // geheugen, de game vraagt nooit JVS 0x22). Zelfde regel als play-halo.sh (--shm-source).
-    bool writes_tp_shm() const { return route == "tp-shm" || (route == "jvs" && !layout.empty()); }
+    // Alleen tp-shm: bij jvs met een Layout schrijft de daemon zijn bytes in het bestand van rg-direct zelf (iobridge_service.cpp,
+    // start_jvs), dus de spiegel blijft dat bestand lezen.
+    bool writes_tp_shm() const { return route == "tp-shm"; }
 };
 // [Input] van de game, gecontroleerd zoals gamesettings.resolve_input (klopt de gebruikerslaag niet, dan de meegeleverde, anders evdev).
 // Fallback: een route die de engine niet zelf voorbereidt (evdev zonder indeling, unity-tcp, jvs over een COM-poort).

@@ -274,11 +274,16 @@ std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r
     std::unique_ptr<IoDialect> d = std::move(jd);
     std::string shm_note;
     if (!r->layout.empty()) {
-        // Met een Layout schrijft de daemon ook die tp-shm-indeling (bv. het stuur van Let's Go Safari, dat niet over JVS gaat).
+        // Met een Layout schrijft de daemon ook die tp-shm-indeling (bv. het stuur van Let's Go Safari, dat niet over JVS gaat), en wel
+        // rechtstreeks in het bestand dat rg-direct naar de game spiegelt (TeknoParrot_JvsState), alleen de eigen bytes. Zo bereikt de
+        // verbindingsvlag van rg-direct (byte 0) de game in een stap: via een kopie door de daemon kwam hij te laat, en de game zag
+        // na SETADDR 01 een tweede bord (gemeten: F1 02 zonder antwoord, game na 30 s weg).
         const TpShmProfile* prof = cfg_.profiles.find(r->layout);
         if (!prof) return "tp-shm-indeling '" + r->layout + "' ontbreekt in tp-shm-profiles.json";
-        d = std::make_unique<JvsWithShmDialect>(std::move(d), std::make_unique<TpShmDialect>(*prof, game, cfg_.shm_path, cfg_.tpui_shm_path));
-        shm_note = ", plus tp-shm-indeling " + prof->name + " in " + cfg_.shm_path;
+        auto shm = std::make_unique<TpShmDialect>(*prof, game, cfg_.tpui_shm_path, std::string());
+        shm->set_owned_only(true);
+        d = std::make_unique<JvsWithShmDialect>(std::move(d), std::move(shm));
+        shm_note = ", plus tp-shm-indeling " + prof->name + " in " + cfg_.tpui_shm_path + " (alleen de eigen bytes)";
     }
     std::string err;
     if (!d->open(err)) return err;

@@ -211,7 +211,7 @@ bool TpShmDialect::open(std::string& err) {
         return false;
     }
     map_ = static_cast<uint8_t*>(m);
-    if (profile_.mirror_first >= 0) {
+    if (profile_.mirror_first >= 0 && !owned_only_) {
         tpui_fd_ = ::open(tpui_path_.c_str(), O_RDONLY | O_CLOEXEC);
         st_.tpui_present = tpui_fd_ >= 0;
     }
@@ -221,7 +221,7 @@ bool TpShmDialect::open(std::string& err) {
 
 void TpShmDialect::apply(const IoState& s) {
     // TeknoParrotUi maakt zijn eigen bestand pas bij zijn start: tot het er is elke ~250 schrijfacties opnieuw proberen.
-    if (tpui_fd_ < 0 && profile_.mirror_first >= 0 && st_.writes % 250 == 0) {
+    if (tpui_fd_ < 0 && profile_.mirror_first >= 0 && !owned_only_ && st_.writes % 250 == 0) {
         tpui_fd_ = ::open(tpui_path_.c_str(), O_RDONLY | O_CLOEXEC);
         st_.tpui_present = tpui_fd_ >= 0;
     }
@@ -236,10 +236,20 @@ void TpShmDialect::apply(const IoState& s) {
         }
     }
     uint64_t changed = 0;
-    for (size_t i = 0; i < buf.size(); ++i) {
-        if (map_[i] != buf[i]) {
-            map_[i] = buf[i];
-            ++changed;
+    if (owned_only_) {
+        for (int i : owned_) {
+            const size_t u = static_cast<size_t>(i);
+            if (u < buf.size() && map_[u] != buf[u]) {
+                map_[u] = buf[u];
+                ++changed;
+            }
+        }
+    } else {
+        for (size_t i = 0; i < buf.size(); ++i) {
+            if (map_[i] != buf[i]) {
+                map_[i] = buf[i];
+                ++changed;
+            }
         }
     }
     st_.bytes_changed += changed;

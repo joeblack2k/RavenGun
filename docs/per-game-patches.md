@@ -247,7 +247,7 @@ over die standaard heen, en de gebruikerslaag wint zoals altijd. De daemon past 
 Properties > General > Gamepad, met de herkomst per regel. Volledige beschrijving: `docs/gamepad.md`.
 
 `[Input] Layout` bij de route jvs: de daemon schrijft dan naast het JVS-bord ook die tp-shm-indeling (Let's Go Safari leest het stuur alleen uit het
-gedeelde geheugen), en de directe start spiegelt het bestand van de daemon naar de game.
+gedeelde geheugen), rechtstreeks in het bestand dat rg-direct naar de game spiegelt en alleen de eigen bytes (zie `docs/gamepad.md`).
 
 `_defaults/<Type>.ini` heeft dezelfde vorm, plus een sectie `[NewGame]` die alleen `tp-add-game.py` leest:
 `EnablePatches = <naam>, <naam>` zet die gedeelde patches aan in de gebruikerslaag van een nieuwe game van dat soort.

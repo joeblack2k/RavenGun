@@ -91,6 +91,11 @@ public:
     void close() override;
     std::string status_json() const override;
 
+    // Alleen de eigen bytes van de indeling schrijven (geen overgenomen bytes, de rest van het bestand nooit aanraken). Voor een bestand
+    // dat een ander proces ook schrijft: de jvs-route met een Layout schrijft zo in het bestand van rg-direct, dat in byte 0 de
+    // verbindingsvlag van de JVS-bus zet; een volledige schrijfronde zou die met een oudere waarde kunnen overschrijven.
+    void set_owned_only(bool on) { owned_only_ = on; }
+
     const TpShmProfile& profile() const { return profile_; }
     const std::string& path() const { return path_; }
     TpShmStats stats() const;
@@ -106,6 +111,7 @@ private:
     int fd_ = -1, tpui_fd_ = -1;
     uint8_t* map_ = nullptr;
     std::vector<int> owned_;
+    bool owned_only_ = false;
     std::vector<uint8_t> last_;
     IoState last_state_;
     mutable TpShmStats st_;
