@@ -209,6 +209,13 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -fno-stack-protector -D_FILE_OFFSET_BITS=64 -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rio-bridge/rg_rio_bridge.c\" -lpthread -lm -ldl || echo 'waarschuwing: 32-bit RIO-brug niet gebouwd (gcc -m32)'"
       DEPENDS tools/rio-bridge/rg_rio_bridge.c VERBATIM)
     add_custom_target(rg_rio_bridge32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so")
+    # Twee paden als één seriële verbinding (tools/rg-ptylink/): Target: Terror Gold koppelde /dev/ttyS0 van de game en
+    # /tmp/ttyJamma van zijn bordemulator met socat; dit doet dat zonder socat en zonder shell. 32-bits, zoals het spel.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-ptylink/rg_ptylink.c\" -ldl -lpthread || echo 'waarschuwing: 32-bit ptylink (librg_ptylink.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-ptylink/rg_ptylink.c VERBATIM)
+    add_custom_target(rg_ptylink32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so")
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
   endif()
@@ -354,6 +361,15 @@ if(RAVENGUN_BUILD_TESTS)
   # en de tabellen van NERF. Geen spel nodig. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_rio_bridge COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rio_bridge_test.sh")
   set_tests_properties(ravengun_rio_bridge PROPERTIES SKIP_RETURN_CODE 77)
+  # De RIO-brug als USB-bord (32-bits): een nep-game zonder PIE met vier pmrt_usb-functies en een xrtea; handvat, trampolines,
+  # rapport type 2 met tellers, kanaal en controlesom, met en zonder versleuteling (Aliens Armageddon/Walking Dead), afkeuren
+  # zonder versleutelingsregel, niets bij een verkeerde handtekening, en de usb-tabellen in patches/. Skip (77) zonder gcc -m32.
+  add_test(NAME ravengun_rio_bridge_usb COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rio_bridge_usb_test.sh")
+  set_tests_properties(ravengun_rio_bridge_usb PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-ptylink: twee paden die niet bestaan als één rauwe pty-verbinding (Target: Terror Gold, /dev/ttyS0 <-> /tmp/ttyJamma),
+  # 64- en 32-bits, met tegenproef zonder de bibliotheek. Skip (77) zonder C-compiler.
+  add_test(NAME ravengun_ptylink COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/ptylink_test.sh")
+  set_tests_properties(ravengun_ptylink PROPERTIES SKIP_RETURN_CODE 77)
   # De invoertabel per game op de native route: play-native.sh geeft patches/<Game>/rt-invoer.ini (gebruikerslaag voor
   # meegeleverd) alleen-lezen aan de invoerhulp mee en noemt hem met zijn sha256 in het logboek; zonder tabel, of zonder de hulp,
   # verandert er niets aan het commando. Echte doorloop van het script met een nep-bwrap. Start niets.
@@ -371,6 +387,10 @@ if(RAVENGUN_BUILD_TESTS)
   # rg-elfloader: de slottabel per game (RG_ELF_SLOT_TABLE) voor de gepakte klasse -- een synthetische gast met stale eerste-PLT-slots.
   add_test(NAME ravengun_elfloader_slottabel COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_slottabel_test.sh")
   set_tests_properties(ravengun_elfloader_slottabel PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-elfloader: een DT_NEEDED met een absoluut pad dat in de sandbox niet bestaat (/usr/lib/libcsv.so) -> de basisnaam via
+  # LD_LIBRARY_PATH; een bestaand absoluut pad blijft. Aliens Armageddon, Walking Dead, GhostBusters.
+  add_test(NAME ravengun_elfloader_absneeded COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_absneeded_test.sh")
+  set_tests_properties(ravengun_elfloader_absneeded PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME ravengun_elfloader_install COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(ravengun_elfloader_install PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
@@ -489,7 +509,7 @@ endif()
 if(TARGET rg_comm_shim)
   install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge LIBRARY DESTINATION lib)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
-                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.

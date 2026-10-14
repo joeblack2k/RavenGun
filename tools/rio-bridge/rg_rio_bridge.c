@@ -49,7 +49,11 @@
  *               5 bytes); die worden in de trampoline uitgevoerd. Pas als ALLE haken en de versleuteling hun bytes hebben
  *               (het beeld is dan door de lader gezet) wordt er iets veranderd; anders niets.
  *   versleuteling adres=083715dd sig=5589e5575653 sleutel=08b26d5c       xrtea(buf, +1 versleutelen / -1 ontsleutelen, sleutel)
- *   veld        id=7 byte=8 deel=hoog                                    schakelaar id -> 4-bits teller in een nibble van het rapport
+ *   versleuteling geen                                                   een OUDERE bibliotheek zonder xrtea (Aliens Armageddon,
+ *               Walking Dead: RIO_GetReport leest het rapport en geeft het onversleuteld door; gemeten met objdump, er is
+ *               geen aanroep na pmrt_usb_interrupt_read en de XTEA-sleutel van JP/NERF staat niet in het beeld). Dan gaat het
+ *               rapport zoals het is; zonder een `versleuteling`-regel wordt een usb-bord nog steeds afgekeurd.
+ *   veld       id=7 byte=8 deel=hoog                                    schakelaar id -> 4-bits teller in een nibble van het rapport
  *   adcveld     ch=19 hoog=14 deel=hoog laag=16                          12-bits kanaal: hoge 4 bits in een nibble, lage 8 in een byte
  *
  * Gebruik: LD_PRELOAD=/pad/librg_rio_bridge.so, en de daemon met de IO-brug (ravengunctl iobridge start <Game>).
@@ -105,6 +109,7 @@ static struct {
     int aan, vid, pid, interval, type, lengte, som;
     struct rg_haak h[HAAK_N];
     uintptr_t xrtea, sleutel; unsigned char xsig[16]; int nxsig;
+    int zonder;                     /* `versleuteling geen`: de bibliotheek van de game versleutelt niet */
     struct rg_veld v[RG_MAX_SW]; int nv;
     struct rg_adcveld a[RG_MAX_KANAAL]; int na;
 } U;
@@ -225,11 +230,14 @@ static int lees_tabel(const char *pad) {
             h->adres = (uintptr_t)strtoul(ad, 0, 16); h->nsig = hexbytes(g, h->sig, sizeof h->sig);
             if (!h->adres || h->nsig < 5) { fout = nr; continue; }
             h->gezet = 1;
+        } else if (!strcmp(s, "versleuteling") && nkv == 1 && !strcmp(kv[0], "geen")) {
+            U.zonder = 1; U.xrtea = 0; U.nxsig = 0;
         } else if (!strcmp(s, "versleuteling")) {
             const char *ad = waarde(kv, nkv, "adres"), *g = waarde(kv, nkv, "sig"), *k = waarde(kv, nkv, "sleutel");
             if (!ad || !g || !k) { fout = nr; continue; }
             U.xrtea = (uintptr_t)strtoul(ad, 0, 16); U.sleutel = (uintptr_t)strtoul(k, 0, 16); U.nxsig = hexbytes(g, U.xsig, sizeof U.xsig);
             if (!U.xrtea || !U.sleutel || U.nxsig < 4) { fout = nr; continue; }
+            U.zonder = 0;
         } else if (!strcmp(s, "veld") && U.nv < RG_MAX_SW) {
             const char *d = waarde(kv, nkv, "deel");
             if (!getal(waarde(kv, nkv, "id"), &a) || !getal(waarde(kv, nkv, "byte"), &b) || !d || a < 0 || a >= RG_MAX_ID || b < 0 || b >= 64) { fout = nr; continue; }
@@ -243,7 +251,7 @@ static int lees_tabel(const char *pad) {
     }
     fclose(f);
     char b[200];
-    int usb_ok = U.aan && U.h[HAAK_OPEN].gezet && U.h[HAAK_LEES].gezet && U.h[HAAK_SCHRIJF].gezet && U.h[HAAK_SLUIT].gezet && U.xrtea;
+    int usb_ok = U.aan && U.h[HAAK_OPEN].gezet && U.h[HAAK_LEES].gezet && U.h[HAAK_SCHRIJF].gezet && U.h[HAAK_SLUIT].gezet && (U.xrtea || U.zonder);
     if (fout || (U.aan ? !usb_ok : (!T.bib[0] || !T.nf))) {
         snprintf(b, sizeof b, "tabel %s afgekeurd (regel %d, of geen bibliotheek/functie, of een usb-bord zonder vier haken en versleuteling): "
                  "de hulp doet niets", pad, fout); meld(b);
@@ -338,6 +346,7 @@ static unsigned char nep_dev[256];                         /* het handvat van on
 static int memfd = -1;
 
 static void xrtea(void *buf, int richting) {
+    if (U.zonder) return;                                  /* `versleuteling geen`: het rapport gaat zoals het is */
     rg_xrtea f; uintptr_t a = U.xrtea; memcpy(&f, &a, sizeof f);
     f(buf, richting, (void *)U.sleutel);
 }
@@ -351,6 +360,7 @@ static uint64_t nu_us(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, 
 static int toets_versleuteling(void) {
     static int uitslag;                                    /* 0 nog niet, 1 goed, -1 fout */
     if (uitslag) return uitslag > 0;
+    if (U.zonder) { uitslag = 1; meld("usb: geen versleuteling (tabel: versleuteling geen), rapporten gaan onversleuteld"); return 1; }
     uint8_t p[64], x[64];
     for (int i = 0; i < 64; i++) p[i] = (uint8_t)(i * 37 + 11);
     memcpy(x, p, 64); xrtea(x, 1);
@@ -402,7 +412,7 @@ static intptr_t usb_schrijf(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d
     uint32_t n = atomic_fetch_add(&n_schrijf, 1);
     if (log_on && n < 12 && len > 0) {
         uint8_t k[64] = {0}; memcpy(k, (void *)buf, (size_t)(len < 64 ? len : 64)); xrtea(k, -1);
-        char b[200]; int o = snprintf(b, sizeof b, "usb: de game stuurt (%d bytes, ontsleuteld):", (int)len);
+        char b[200]; int o = snprintf(b, sizeof b, "usb: de game stuurt (%d bytes%s):", (int)len, U.zonder ? "" : ", ontsleuteld");
         for (int i = 0; i < 24 && o < 190; i++) o += snprintf(b + o, sizeof b - o, " %02x", k[i]);
         meld(b);
     }
@@ -421,7 +431,7 @@ static int usb_aanhaken(void) {
     unsigned char b[16];
     if (memfd < 0) memfd = open("/proc/self/mem", O_RDWR | O_CLOEXEC);
     for (int i = 0; i < HAAK_N; i++) if (!lees_mem(U.h[i].adres, b, (size_t)U.h[i].nsig) || memcmp(b, U.h[i].sig, (size_t)U.h[i].nsig)) return 0;
-    if (!lees_mem(U.xrtea, b, (size_t)U.nxsig) || memcmp(b, U.xsig, (size_t)U.nxsig)) return 0;
+    if (!U.zonder && (!lees_mem(U.xrtea, b, (size_t)U.nxsig) || memcmp(b, U.xsig, (size_t)U.nxsig))) return 0;
     /* Hier wordt geen code van de game uitgevoerd: alleen sprongen geschreven (via /proc/self/mem, dus ongeacht de rechten). */
     unsigned char *tr = mmap(0, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (tr == MAP_FAILED) { meld("usb: geen geheugen voor de trampolines -- het bord wordt NIET nagedaan"); return 1; }
@@ -551,7 +561,8 @@ __attribute__((constructor)) static void rg_rio_bridge_init(void) {
     }
     actief = 1;
     char b[300];   /* pas hier melden: een hulpprogramma dat de preload erft (FlushBuffers.sh) blijft zo stil */
-    if (U.aan) snprintf(b, sizeof b, "tabel %s: usb-bord %04x:%04x, %d schakelaars, %d kanalen, %d velden, %d kanaalvelden", pad, U.vid, U.pid, T.nsw, T.nk, U.nv, U.na);
+    if (U.aan) snprintf(b, sizeof b, "tabel %s: usb-bord %04x:%04x, %d schakelaars, %d kanalen, %d velden, %d kanaalvelden%s", pad, U.vid, U.pid, T.nsw, T.nk, U.nv, U.na,
+                       U.zonder ? ", zonder versleuteling" : "");
     else snprintf(b, sizeof b, "tabel %s: bibliotheek %s, %d functies, %d schakelaars, %d kanalen", pad, T.bib, T.nf, T.nsw, T.nk);
     meld(b);
     pthread_t th;
