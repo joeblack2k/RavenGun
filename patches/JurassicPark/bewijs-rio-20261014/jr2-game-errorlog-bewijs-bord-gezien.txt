@@ -1,0 +1,6 @@
+# JP game-side errorlog.txt (pmuser/errorlog.txt). Evidence for 'the board is seen': the 'RIO Disconnected' lines
+# are all 2026-10-13 (unpatched) and NONE 2026-10-14 (patched). The tail is tonight's patched run (jr2),
+# ending on the same four shader108 asserts the SUCCESSFUL attract run also has -- so those are not the blocker,
+# and the render blocker under the patch is NOT determined. See LEESMIJ.md.
+--- all RIO Disconnected lines (note the dates):
+--- tail of the log after the last (patched) run:

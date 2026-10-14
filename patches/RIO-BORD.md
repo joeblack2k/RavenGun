@@ -72,33 +72,42 @@ Run nr1 (2026-10-14): patched `librio.so` bound over both plugin paths; the attr
 NERF only *checks* the connected flag; clearing it is the whole fix for the banner. (Inputs are a
 separate, later piece — the board's **reports** answered.)
 
-### Jurassic Park — the board is answered, and the game moved PAST it to a new wall. (NOT the same result)
+### Jurassic Park — the board is answered; the game then does NOT render. (Two parts, and I checked my own claim.)
 
-Runs jr1/jr2 (2026-10-14): patched `game` (RIO_Connected → connected) bound over `/pm/game`. The old
-line `InputInit(): RIO not connected (error code: -3)` is **gone** — the board is seen. The game then
-goes *further than it ever had*: past `InputInit`, through the card-reader open (`xicoOpenPort(): Error`,
-`msr100OpenPort(): Error` — handled gracefully, the game logs and continues), into a **loop of
-`hasp_decrypt (lengte=792)`** — and it **renders black**; no attract, no frame with the banner gone.
+**Part 1 — the board is seen. TRUE, evidenced.** Runs jr1/jr2 (2026-10-14): patched `game`
+(`RIO_Connected` at `0x836b320` → connected) bound over `/pm/game`. JP writes "RIO Disconnected" /
+"STR_ERRORMSG_RIO_DISCONNECTED" to its own `pmuser/errorlog.txt` on every boot. **That file carries
+those lines for every 2026-10-13 run and for NONE of tonight's patched runs** — so the patch stops the
+RIO-disconnected state; the board is seen.
 
-So for JP the banner is a **mode gate**, not a cosmetic flag: telling the game the cabinet is present
-takes it out of its safe "RIO Disconnected" attract and into full-cabinet init, which needs the rest of
-the cabinet answered. **This is an advance — the wall moved forward — but it is NOT the NERF result:
-JP does not yet produce a banner-gone frame.**
+**Part 2 — but JP does not render attract with the patch.** jr1/jr2 show black frames; the earlier
+unpatched runs reached attract (with the banner). So forcing RIO connected appears to stop JP reaching
+its attract render. **The specific blocker is NOT pinned, and I corrected a wrong claim here:** an
+earlier version of this note said the wall was a `hasp_decrypt(792)` loop "only reached once the cabinet
+is present." I checked that against the logs and it is **false** — the 792-byte decrypt appears in
+2026-10-13 runs too (e.g. `…-225845.log`, 52 of them), without the patch, so it is **not** the
+differentiator. jr2's game-side log ends on the **same four `shader108` compile asserts the successful
+attract run also has** (`g5/shader_gl.c:2180`), which are known and not fatal there. So what stops the
+render under the patch is **not determined**; it needs a controlled comparison (patched vs unpatched in
+the same harness, run long enough), which needs the bench.
+
+So, stated plainly: **for JP the board is answered (seen), but the patch does not yet yield a
+banner-gone attract frame — the game does not render, and why is not yet known.** That is an advance
+(the RIO-disconnected state is gone) but it is **not** the NERF result, and it is **not** a finished
+"wall moved to the dongle" claim.
 
 **What xico/msr100 is:** the **Xico 7104USB**, a USB magnetic **card reader** (`g5/cardreader.c`,
 `msr100_change_to_HID_mode`, `CardReaderSetCallback`, "creditCardSwipes"). Same *shape* as the RIO board
-(a USB device), **but it is not JP's wall** — the game handles its absence and continues. The wall is
-the next thing: a HASP dongle **792-byte `hasp_decrypt`** the game calls in a tight loop and our dongle
-emulator does not satisfy (it answered the 512- and 256-byte decrypts that reach attract, not this 792-
-byte one, which is only reached once the cabinet is "present"). So JP's remaining distance after RIO is
-the **dongle** (a known-hard item — `patches/JurassicPark/EERSTE-PLT-SLOTS.md §6`), not the card reader
-and not more RIO.
+(a USB device), and the game handles its absence gracefully (`xicoOpenPort(): Error` /
+`msr100OpenPort(): Error`, then it continues) — so it is **not** JP's blocker either.
 
 ### Determined now (was "not determined")
 
-* The report format is not needed to clear the banner (the connected flag alone does it); it **is**
-  needed for inputs, and is readable from `librio.so`'s exported names.
+* The report format is not needed to clear the banner (the connected flag alone does it, for NERF); it
+  **is** needed for inputs, and is readable from `librio.so`'s exported names.
 * The guns of NERF go through the RIO (the board the game polls); JP's gun is separate (a serial-numbered
   gun, "Found gun with serial #%s"), distinct from the card reader.
 * A single unified fix (one virtual USB device for both) needs `vhci_hcd`/`dummy_hcd` + root, which the
   bench user does not have (a system change for the owner). The per-title patches need no root.
+* **NOT determined:** why JP does not render attract once RIO is forced connected. The 792-decrypt loop
+  is ruled out as the cause (it occurs without the patch).
