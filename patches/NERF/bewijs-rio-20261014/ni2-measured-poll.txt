@@ -1,0 +1,17 @@
+NERF — measured RIO read poll (run ni2, attract, instrumented librio.so logging each read call's id)
+Decode: each logged line is "<PFX>:<char>"; id = ord(char) - 0x41. Counts are over the whole run.
+
+read function          calls    ids polled (count each)
+---------------------  -------  ------------------------------------------------
+RIO_SW_Count   (RSC)   72436    0,1,2,3,4,5,6,7,8,13,15,16,17  (5572 each; 13 ids)
+RIO_GetValue   (RGV)       8    33 (4), 34 (4)
+RIO_SW_State   (RSW)       0    (never called)
+RIO_SW_StateEx (RSE)       0    (never called)
+
+MEASURED: the game reads switches through RIO_SW_Count(id), every frame, for those 13 ids. It does NOT
+use RIO_SW_State/StateEx at all. The gun is RIO_ADC_Val (not instrumented in this run).
+
+NOT yet measured (would be INFERRED): which id is start / trigger / coin / service / test. Next step:
+feed one id at a time and watch which game action results.
+
+Raw instrumented stderr: bench-captures/NERF/ni2-instrumented-stderr.log (out of git, 437 KB).
