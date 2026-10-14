@@ -1,0 +1,12 @@
+RUN n2 -- NERF Arcade -- started 2026-10-14 01:37:09
+DECLARED: route=native (Nerf.x86_64 via scripts/play-native.sh --game NERF; no Wine, no TeknoParrot core, no BepInEx)  limit=90s  captures every 6s  gamescope=1
+THIS RUN: against n1: run inside gamescope (the game could not open the display in n1). Nothing emulated.
+extra launcher arguments: 
+game process first seen 01:37:10
+01:37:20 alive: pid 1872719, exe /pm/Nerf.x86_64, 63 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+01:37:50 alive: pid 1872719, exe /pm/Nerf.x86_64, 66 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+01:38:20 alive: pid 1872719, exe /pm/Nerf.x86_64, 66 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+ENDED 2026-10-14 01:38:41 -- launcher exit: rc=0
+left running afterwards: (end of list)
+files in the share's game folder newer than the start of this run: 0
+captures: 15, first shot-001-013709.png, last shot-015-013838.png

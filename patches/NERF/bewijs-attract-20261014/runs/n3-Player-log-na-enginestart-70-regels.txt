@@ -1,0 +1,16 @@
+UnloadTime: 0.267000 ms
+DontDestroyOnLoad only work for root GameObjects or components on root GameObjects.
+ 
+(Filename:  Line: 501)
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+requesting resize 1920 x 1080
+Using native desktop resolution 1920 x 1080
+requesting fullscreen 1920 x 1080 at 60 Hz
+Desktop is 1920 x 1080 @ 60 Hz
+UnloadTime: 35.264000 ms
+Unloading 27 unused Assets to reduce memory usage. Loaded Objects now: 73197.
+Total: 161.927000 ms (FindLiveObjects: 1.727000 ms CreateObjectMapping: 0.191000 ms MarkObjects: 159.750000 ms  DeleteObjects: 0.259000 ms)
+Unloading 4 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 28.015000 ms
+Unloading 1208 unused Assets to reduce memory usage. Loaded Objects now: 16077.
+Total: 118.492000 ms (FindLiveObjects: 0.684000 ms CreateObjectMapping: 0.109000 ms MarkObjects: 116.988000 ms  DeleteObjects: 0.710000 ms)

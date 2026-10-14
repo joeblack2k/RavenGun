@@ -1,5 +1,18 @@
 # NERF Arcade
 
+> **STAND 2026-10-14, 02:00 — lees eerst `ATTRACT-RUN.md`.** De dump bevat het ORIGINEEL: `Nerf.x86_64`, een
+> Unity-speler voor Linux (ELF 64-bits), met zijn eigen plug-ins. Die draait zijn attract-lus **native** op
+> onze eigen launcher (`scripts/play-native.sh --game NERF --gamescope`; run n5: 12 min 46 s, op de tv),
+> zonder Wine, zonder TeknoParrot-kern, zonder BepInEx en zonder TeknoParrots plugin; er wordt niets
+> geëmuleerd, ook de dongle niet. **Open punt, door de game zelf genoemd: "RIO DISCONNECTED" op elk
+> beeld**; er is geen invoer geprobeerd: hij demonstreert, hij is op deze route niet speelbaar.
+>
+> Wat hieronder staat (2026-10-12) gaat over de dongle op de Windows-route en klopt daar nog. Twee zinnen
+> vragen door de meting van vannacht een kanttekening: "Geen `dropin/`" klopt nog, maar er is nu wel `data/udev-rules.d/`, nodig op
+> de native route (bewust niet in `dropin/`: dat is wat de Windows-launcher in de view zet), en "Wat deze game nodig heeft is een plugin-route" (de native route heeft geen plugin
+> nodig). De vraag onderaan, "of de Linux-build ooit nodig is", is beantwoord: hij is de kortste weg, en
+> voor de attract-lus vraagt hij geen dongle-gegevens.
+
 Instellingen: `game.ini`. Dit bestand gaat over de **dongle** van deze game.
 Bevindingen en meetgeschiedenis: `findings/NERF.md` (op de NAS naast de games, niet in deze repo).
 

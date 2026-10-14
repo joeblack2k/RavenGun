@@ -1,0 +1,60 @@
+01:37:29 Oct 14 2026: Game booted up.
+01:37:29 Oct 14 2026: Creating USB mount rules at /etc/udev/rules.d/10-usb-automount.rules
+01:37:29 Oct 14 2026: Unity.Exception: UnauthorizedAccessException: Access to the path "/etc/udev/rules.d/10-usb-automount.rules" is denied.
+System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.Boolean anonymous, System.IO.FileOptions options) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.IO.FileOptions options, System.String msgPath, System.Boolean bFromProxy, System.Boolean useLongPath, System.Boolean checkHost) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+(wrapper remoting-invoke-with-check) System.IO.FileStream..ctor(string,System.IO.FileMode,System.IO.FileAccess,System.IO.FileShare,int,System.IO.FileOptions,string,bool,bool,bool)
+System.IO.StreamWriter.CreateFile (System.String path, System.Boolean append, System.Boolean checkHost) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+System.IO.StreamWriter..ctor (System.String path, System.Boolean append, System.Text.Encoding encoding, System.Int32 bufferSize, System.Boolean checkHost) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+System.IO.StreamWriter..ctor (System.String path, System.Boolean append, System.Text.Encoding encoding, System.Int32 bufferSize) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+System.IO.StreamWriter..ctor (System.String path, System.Boolean append) (at <f2e6809acb14476a81f399aeb800f8f2>:0)
+(wrapper remoting-invoke-with-check) System.IO.StreamWriter..ctor(string,bool)
+Sys_Linux.CreateUSBMountRules () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+Game.Awake () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:30 Oct 14 2026: VO Volume set to 22 (6.67).
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:37:31 Oct 14 2026: Unity.Exception: IndexOutOfRangeException: Index was outside the bounds of the array.
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+

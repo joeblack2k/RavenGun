@@ -1,0 +1,70 @@
+UnloadTime: 0.298000 ms
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+DllNotFoundException: UnityNatives
+  at (wrapper managed-to-native) UnityNatives.ReadCoinAuditsFromFile(CoinAudits_ForReadWrite&)
+  at AuditManager.LoadCoinAudFromFile () [0x0000a] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+  at AuditManager.Initialize () [0x00060] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+  at Game.Awake () [0x000d0] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+DontDestroyOnLoad only work for root GameObjects or components on root GameObjects.
+ 
+(Filename:  Line: 501)
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/UnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives.so
+Fallback handler could not load library /pm/Nerf_Data/Mono/libUnityNatives
+DllNotFoundException: UnityNatives
+  at (wrapper managed-to-native) UnityNatives.HaspLogin(int,int&)
+  at DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) [0x00000] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+  at TestPreferences.BuildDefaultPrefs () [0x00030] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+  at TestPreferences..ctor () [0x00042] in <ae0b50bf09524e7084c587f3a3e5a585>:0 

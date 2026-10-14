@@ -1,0 +1,70 @@
+UnloadTime: 0.271000 ms
+UnauthorizedAccessException: Access to the path "/etc/udev/rules.d/10-usb-automount.rules" is denied.
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.Boolean anonymous, System.IO.FileOptions options) [0x0019e] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.IO.FileOptions options, System.String msgPath, System.Boolean bFromProxy, System.Boolean useLongPath, System.Boolean checkHost) [0x00000] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at (wrapper remoting-invoke-with-check) System.IO.FileStream..ctor(string,System.IO.FileMode,System.IO.FileAccess,System.IO.FileShare,int,System.IO.FileOptions,string,bool,bool,bool)
+  at System.IO.StreamWriter.CreateFile (System.String path, System.Boolean append, System.Boolean checkHost) [0x0001c] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at System.IO.StreamWriter..ctor (System.String path, System.Boolean append, System.Text.Encoding encoding, System.Int32 bufferSize, System.Boolean checkHost) [0x00055] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at System.IO.StreamWriter..ctor (System.String path, System.Boolean append, System.Text.Encoding encoding, System.Int32 bufferSize) [0x00000] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at System.IO.StreamWriter..ctor (System.String path, System.Boolean append) [0x00008] in <f2e6809acb14476a81f399aeb800f8f2>:0 
+  at (wrapper remoting-invoke-with-check) System.IO.StreamWriter..ctor(string,bool)
+  at Sys_Linux.CreateUSBMountRules () [0x00023] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+  at Game.Awake () [0x000a9] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <f2e6809acb14476a81f399aeb800f8f2> Line: 0)
+DontDestroyOnLoad only work for root GameObjects or components on root GameObjects.
+ 
+(Filename:  Line: 501)
+requesting resize 1920 x 1080
+Using native desktop resolution 1920 x 1080
+requesting fullscreen 1920 x 1080 at 60 Hz
+Desktop is 1920 x 1080 @ 60 Hz
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.
+  at Level.Update () [0x005b6] in <ae0b50bf09524e7084c587f3a3e5a585>:0 
+ 
+(Filename: <ae0b50bf09524e7084c587f3a3e5a585> Line: 0)
+IndexOutOfRangeException: Index was outside the bounds of the array.

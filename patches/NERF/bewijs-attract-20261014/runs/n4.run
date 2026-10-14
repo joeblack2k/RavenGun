@@ -1,0 +1,16 @@
+RUN n4 -- NERF Arcade -- started 2026-10-14 01:42:14
+DECLARED: route=native (Nerf.x86_64 via scripts/play-native.sh --game NERF; no Wine, no TeknoParrot core, no BepInEx)  limit=100s  captures every 6s  gamescope=1
+THIS RUN: against n3: the extra mount of the plug-ins at Nerf_Data/Plugins/x86_64 removed from the profile (Unity loads x86_64_ori itself; with the mount every plug-in was loaded twice). Nothing emulated.
+extra launcher arguments: --bind-ro /home/deck/projects/ravengun-patches/patches/NERF/dropin/udev-rules.d /etc/udev/rules.d
+game process first seen 01:42:15
+01:42:25 alive: pid 1876689, exe /pm/Nerf.x86_64, 58 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+01:42:55 alive: pid 1876689, exe /pm/Nerf.x86_64, 60 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+01:43:25 alive: pid 1876689, exe /pm/Nerf.x86_64, 60 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+01:43:55 NO game process
+gamelog.txt: 22936328 bytes, 329458 lines (first 400 kB kept)
+errorlog.txt: 22935604 bytes, 329446 lines (first 400 kB kept)
+Player.log: 30040417 bytes, 464324 lines (first 400 kB kept)
+ENDED 2026-10-14 01:43:56 -- launcher exit: rc=0
+left running afterwards: (end of list)
+files in the share's game folder newer than the start of this run: 0
+captures: 16, first shot-001-014214.png, last shot-016-014351.png
