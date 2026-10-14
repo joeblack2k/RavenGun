@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (11)
+## Working (12)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -18,10 +18,11 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
 - **Rabbids Hollywood Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly), aim and trigger; ran 5:19 min with a played round. The dongle check (SBK.Matrix) is answered, see DONGLE-ONDERZOEK.md. Not yet measured: whether the savegame survives two starts, and playing with the real Move buttons.
 - **Raccoon Rampage**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader). Measured on the TV in mouse mode: trigger = start, aim and shoot, played up to a boss (score 22046), ran 5:17 min. Coin (key 5), test menu (key 0, F3, F4); calibration is stored in the game's save data. Not yet played with the real Move on this route.
+- **Rampage**: WORKING on our own route (2026-10-14): double-click in RavenGun, no scripts and no TeknoParrotUi (rg-direct, Wine, input through the tp-shm I/O bridge). Not a lightgun game: joystick and attack for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: coin, START, intro, walking and smashing in the city ($19,000 damage), 5:09 min.
 - **Terminator Salvation**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, full screen through gamescope). Measured on the TV in mouse mode: START (hold key 1 briefly), mission select with the trigger, aim, shoot, reload (right button), a kill; ran 6:32 min. Not yet played with the real Move on this route.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
 
-## Playable (8)
+## Playable (7)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
@@ -30,7 +31,6 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **Luigi's Mansion Arcade**: Starts by double-click in RavenGun (2026-10-14): on our own OpenParrot core and through gamescope the game runs full screen in attract (with the closed core it stopped after ~13 s). Measured earlier: ~6 min of continuous attract/demo on our core (BEWIJS-5MIN.md), with the drop-in rg-pe-hook.dll (see MECHANISME-PE-HOOK.md). NOT playable yet: coin and TEST do not reach the game (DIRECT-ROUTE-INVOER.md).
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
-- **Rampage**: Playable, but not a lightgun game: a joystick-and-attack game for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: intro movie, tutorial, climbing, walking left and right, demolishing buildings ($ 7,500). Runs with DXVK and gst-libav (AAC decoder for the movies); no crosshair. Real Move buttons, players 2 and 3 and the test menu not tested.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
