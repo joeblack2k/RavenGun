@@ -1,0 +1,12 @@
+09:05:00 attract reached
+09:05:03 key 1 tap (start, id 7)
+09:05:08 baseline frame
+09:05:12 candidate 0: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 0=6 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=1833 sw=19175 adc=5900 adc_ex=0
+09:05:18 candidate 1: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 1=4 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=2432 sw=26962 adc=8296 adc_ex=0
+09:05:23 candidate 2: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 2=2 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=3032 sw=34762 adc=10696 adc_ex=0
+09:05:28 candidate 4: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 4=0 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=3632 sw=42562 adc=13096 adc_ex=0
+09:05:34 candidate 13: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 13=0 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=4232 sw=50362 adc=15496 adc_ex=0
+09:05:39 candidate 15: [rg_rio_bridge] probe: bit 7 -> id 15
+09:05:45 candidate 16: [rg_rio_bridge] probe: bit 7 -> id 16
+09:05:50 candidate 17: [rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 7=2 8=0 3=0 5=0 6=0 17=10 | kanalen 19=2056 20=2248 21=2056 22=2039 | aanroepen verbonden=6628 sw=81510 adc=25080 adc_ex=0
+09:05:51 done

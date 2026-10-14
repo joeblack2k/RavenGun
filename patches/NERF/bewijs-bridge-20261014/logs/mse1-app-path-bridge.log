@@ -1,0 +1,42 @@
+== play-native NERF 20261014-092151
+invoerroute: tp-shm; IO-brug: route tp-shm voor NERF, dialect tp-shm, indeling WartranTroopers, 90 schrijfacties, bytes 8..27: 0000000080998080808080800000000000000000, P1 aim 0.500,0.600
+display=:1 res=1920x1080 headless=0 preload=/rg/lib/librg_rio_bridge.so
+  bibliotheek: /home/deck/projects/ravengun/build/librg_rio_bridge.so sha256 af3e48621f9b054954b93fa1c41146cab54976b456c23c12ca291baef691b4e1
+display=:1 res=1920x1080 headless=0 preload=/rg/lib/librg_rio_bridge.so
+[rg_rio_bridge] tabel /rg/tabel/rio-invoer.ini: bibliotheek librio.so, 4 functies, 7 schakelaars, 4 kanalen
+[rg_rio_bridge] bordbeeld gekoppeld: /dev/shm/ravengun_JvsState
+[rg_rio_bridge] aangepast: /pm/Nerf_Data/Plugins/x86_64/librio.so (basis 0x7f2de0200000): 4 functies
+[rg_rio_bridge] aangepast: /pm/Nerf_Data/Plugins/x86_64_ori/librio.so (basis 0x7f2dca800000): 4 functies
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=0 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=0 sw=0 adc=0 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=0 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=0 sw=0 adc=0 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=0 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=0 sw=0 adc=0 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=0 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=53 sw=13 adc=4 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=0 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=653 sw=3835 adc=1180 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=1253 sw=11635 adc=3580 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=1853 sw=19435 adc=5980 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=2453 sw=27235 adc=8380 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=3053 sw=35035 adc=10780 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=3652 sw=42822 adc=13176 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=4252 sw=50622 adc=15576 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=4852 sw=58422 adc=17976 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=5452 sw=66222 adc=20376 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=6052 sw=74022 adc=22776 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=6652 sw=81822 adc=25176 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=7229 sw=89323 adc=27484 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=7828 sw=97110 adc=29880 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=8428 sw=104910 adc=32280 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=9028 sw=112710 adc=34680 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=9628 sw=120510 adc=37080 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=10227 sw=128297 adc=39476 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=10827 sw=136097 adc=41876 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=11426 sw=143884 adc=44272 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=12026 sw=151684 adc=46672 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=12626 sw=159484 adc=49072 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=13226 sw=167284 adc=51472 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=1638 21=2056 22=2039 | aanroepen verbonden=13825 sw=175071 adc=53868 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=0 7=2 8=0 3=0 5=0 6=0 | kanalen 19=1220 20=1558 21=2056 22=2039 | aanroepen verbonden=14424 sw=182858 adc=56264 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000080 | tellers 15=25 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2329 20=1558 21=2056 22=2039 | aanroepen verbonden=15000 sw=190346 adc=58568 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=50 7=2 8=0 3=0 5=0 6=0 | kanalen 19=2056 20=2039 21=2056 22=2039 | aanroepen verbonden=15599 sw=198133 adc=60964 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=60 7=2 8=0 3=0 5=0 6=0 | kanalen 19=1638 20=2248 21=2056 22=2039 | aanroepen verbonden=16199 sw=205933 adc=63364 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=60 7=2 8=0 3=0 5=0 6=0 | kanalen 19=1638 20=2248 21=2056 22=2039 | aanroepen verbonden=16798 sw=213720 adc=65760 adc_ex=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 15=60 7=2 8=0 3=0 5=0 6=0 | kanalen 19=1638 20=2248 21=2056 22=2039 | aanroepen verbonden=17398 sw=221520 adc=68160 adc_ex=0

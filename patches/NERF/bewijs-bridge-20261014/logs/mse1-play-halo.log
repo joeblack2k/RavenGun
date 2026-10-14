@@ -1,0 +1,5 @@
+rg-tv-env: scherm :0 bereikbaar (bron: plasmashell, pid 163020): HDMI-A-1 connected primary 1920x1080+0+0 
+Invoerroute: tp-shm (de daemon schrijft de invoer).
+legacy .env gelezen: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/UserProfiles/NERF.env (game.ini wint; migreer met scripts/migrate-game-settings.py)
+Extra omgeving: WINEDLLOVERRIDES=winhttp=n,b;d3d11,d3d10core,dxgi=n,b RG_WINEPREFIX=/home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk TP_REMOTETHREAD=off
+NERF start. Move verbonden, lightgun klaar.
