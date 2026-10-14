@@ -83,7 +83,18 @@ GCC voor het meeste, clang voor de bestanden met MSVC-SEH (`__try`) en MSVC-inli
    `TP_PRELOAD_DLL` laadt in een proces waar onze kern niet in zit; die maakt zijn momentopnamen bij de 1e, 5e, 20e en 60e draad van
    het spel. De overzichten leest `tools/exit-trace-overzicht.py` (`aangeraakt`: tegen het DLL-bestand op schijf; `verschil`: twee
    runs naast elkaar). Meting: `docs/research/luigismansion-exit-trace.md`. **Terugdraaien:** verwijder het patchbestand en herbouw.
-8. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
+8. `0008-parked-entry-hold-suspended.patch`: **de parked-entry-point-route zonder race.** `OpenParrotLoader/src/main.cpp`: met
+   `TP_ENTRYPOINT_REMOTETHREAD_MS` zet de lader na de wachttijd de hoofdthread stil (`SuspendThread`, en hij controleert dat EIP/RIP
+   op het startpunt staat), schrijft de originele 20 bytes terug en laadt **dan** pas de kern en de drop-ins via een remote thread.
+   Met `TP_LOADER_MANAGED_INIT` vergelijkt hij daarna het startpunt met het origineel: heeft de kern het zelf gehaakt, dan geen eigen
+   trampoline (en dus geen tweede `InitializeASI`). De extra `SuspendThread` voor de trampoline is weg; de `ResumeThread` aan het eind
+   blijft in balans. Reden (gemeten op Mario Kart DX, `patches/MarioKartDX/NETWERK-INVOER-CAMERA.md` 5c): upstream bleef de
+   hoofdthread op `EB FE` draaien terwijl de kern laadde. De gesloten kern 1.0.0.3761 negeert `TP_LOADER_MANAGED_INIT` en schrijft in
+   DllMain byte voor byte `E9 <rel32>` op het startpunt; de draaiende thread voerde `E9 FE 06 00 00` uit en sprong midden in een
+   instructie (#UD op 0x8C753D). De kern bewaarde bovendien `EB FE` als "originele" code. Nieuwe logregels: `Primary thread suspended
+   at the entry point; original entry bytes restored before loading the core.` en `Core hooked the entry point itself (..);
+   skipping the loader-managed initializer.` **Terugdraaien:** verwijder het patchbestand en herbouw.
+9. Hulpbestanden (geen wijziging van bronbestanden): `mingw-compat.h` (standaardheaders en SAL-macro's die MSVC stilzwijgend meebrengt),
    `shim.sh` (hoofdletter- en backslash-includes: `<Shlwapi.h>`, `Utility\Hooking.Patterns.h`; en de meegeleverde Microsoft-DirectX-SDK-headers worden vervangen
    door de MinGW-w64-headers), `win64init.S` (GNU-vertaling van `win64init.asm`), `openparrot32.def` (zelfde exportnamen als de MSVC-build, ook `_PrepareSafeInit@4`),
    `compile-one.sh`, `build-in-container.sh`.

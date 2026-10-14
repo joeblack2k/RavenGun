@@ -1,0 +1,108 @@
+RavenGun-wijziging 0008 op OpenParrot: de parked-entry-point-route (TP_ENTRYPOINT_REMOTETHREAD_MS) houdt de hoofdthread stil op het startpunt.
+Na de wachttijd: SuspendThread, controle EIP/RIP == startpunt, de originele 20 bytes terug, pas dan kern en drop-ins laden.
+Met TP_LOADER_MANAGED_INIT: heeft de kern het startpunt zelf gehaakt (bytes ongelijk aan het origineel), dan geen eigen trampoline.
+Waarom: Mario Kart DX, #UD op 0x8C753D: de gesloten kern schrijft E9 + rel32 byte voor byte terwijl de thread nog op EB FE draait.
+Zie third_party/openparrot/README.md (punt 8) en patches/MarioKartDX/NETWERK-INVOER-CAMERA.md (sectie 5c).
+SPDX-License-Identifier: GPL-3.0-or-later (zelfde licentie als OpenParrot)
+
+--- a/OpenParrotLoader/src/main.cpp
++++ b/OpenParrotLoader/src/main.cpp
+@@ -844,6 +844,62 @@
+ 			}
+ 			Sleep(entryPointRemoteThreadDelay);
+ 			wprintf(L"Game entry point is parked; target modules are ready.\n");
++
++			// RavenGun modification: hold the primary thread suspended at the entry
++			// point and put the original entry bytes back BEFORE any DLL is loaded.
++			// A core that ignores TP_LOADER_MANAGED_INIT (the closed TeknoParrot.dll
++			// 1.0.0.3761) hooks the entry point from DllMain in the remote thread,
++			// one byte at a time (E9, then rel32). A thread still spinning on EB FE
++			// can then execute E9 FE xx xx xx, a jump to entry+5+0x??FE into the
++			// middle of an instruction (measured: Mario Kart DX, #UD at 0x8C753D =
++			// 0x8C6E3F + 0x6FE). The core would also save our EB FE as the "original"
++			// code and spin forever after its own init. Suspended at the entry point
++			// with the real bytes in place, both problems are gone; the final
++			// ResumeThread below releases the thread.
++			bool heldAtEntryPoint = false;
++			for (int attempt = 0; attempt < 40 && !heldAtEntryPoint; ++attempt)
++			{
++				if (SuspendThread(pi.hThread) == static_cast<DWORD>(-1))
++					break;
++				CONTEXT entryContext = {};
++				entryContext.ContextFlags = CONTEXT_CONTROL;
++				if (GetThreadContext(pi.hThread, &entryContext))
++				{
++#ifdef _M_IX86
++					const DWORD_PTR ip = entryContext.Eip;
++#else
++					const DWORD_PTR ip = entryContext.Rip;
++#endif
++					if (ip == reinterpret_cast<DWORD_PTR>(parkedEntryPoint))
++					{
++						heldAtEntryPoint = true;
++						break;
++					}
++				}
++				ResumeThread(pi.hThread);
++				Sleep(250);
++			}
++			if (!heldAtEntryPoint)
++			{
++				wprintf(L"Primary thread did not reach the parked entry point! (0x%X)\n",
++					GetLastError());
++				TerminateProcess(pi.hProcess, 0);
++				return 1;
++			}
++
++			SIZE_T restored = 0;
++			if (!WriteProcessMemory(pi.hProcess, parkedEntryPoint,
++				parkedOriginalEntryPoint, sizeof(parkedOriginalEntryPoint), &restored) ||
++				restored != sizeof(parkedOriginalEntryPoint))
++			{
++				wprintf(L"Failed to restore parked game entry point! (0x%X)\n",
++					GetLastError());
++				TerminateProcess(pi.hProcess, 0);
++				return 1;
++			}
++			FlushInstructionCache(pi.hProcess, parkedEntryPoint,
++				sizeof(parkedOriginalEntryPoint));
++			wprintf(L"Primary thread suspended at the entry point; original entry bytes restored before loading the core.\n");
+ 		}
+ 		else if (postStartRemoteThreadDelay != 0)
+ 		{
+@@ -1041,15 +1097,32 @@
+ 		// LoadLibrary has now returned, so Wine's target loader lock is free and
+ 		// the primary thread is spinning at the real game entry point. Install a
+ 		// primary-thread trampoline instead of starting another remote thread.
+-		if (SuspendThread(pi.hThread) == static_cast<DWORD>(-1))
++		// RavenGun modification: the primary thread is already suspended at the
++		// entry point (see above), so no second SuspendThread. If the core has
++		// hooked the entry point itself (it ignored TP_LOADER_MANAGED_INIT), the
++		// bytes there are no longer the original ones: keep the core's own hook
++		// and do not run InitializeASI a second time.
++		BYTE currentEntryPoint[sizeof(parkedOriginalEntryPoint)] = {};
++		SIZE_T currentRead = 0;
++		if (!ReadProcessMemory(pi.hProcess, parkedEntryPoint, currentEntryPoint,
++			sizeof(currentEntryPoint), &currentRead) ||
++			currentRead != sizeof(currentEntryPoint))
+ 		{
+-			wprintf(L"Failed to suspend parked game entry point! (0x%X)\n",
++			wprintf(L"Failed to read game entry point after core load! (0x%X)\n",
+ 				GetLastError());
+ 			TerminateProcess(pi.hProcess, 0);
+ 			return 0;
+ 		}
+ 
+-		if (!InstallEntryPointInitializer(corePathW, parkedEntryPoint,
++		if (memcmp(currentEntryPoint, parkedOriginalEntryPoint,
++			sizeof(currentEntryPoint)) != 0)
++		{
++			wprintf(L"Core hooked the entry point itself (%02X %02X %02X %02X %02X); "
++				L"skipping the loader-managed initializer.\n",
++				currentEntryPoint[0], currentEntryPoint[1], currentEntryPoint[2],
++				currentEntryPoint[3], currentEntryPoint[4]);
++		}
++		else if (!InstallEntryPointInitializer(corePathW, parkedEntryPoint,
+ 			parkedOriginalEntryPoint))
+ 		{
+ 			TerminateProcess(pi.hProcess, 0);
