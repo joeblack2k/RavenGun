@@ -52,9 +52,9 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Action Deka | Konami PC Based | getest 2026-10-14: lader exitcode 5 direct na laden; diagnose loopt |
-| After Dark | UNIS PC Based | getest 2026-10-14: lader: Failed to run the process (GamePlayer.exe); diagnose loopt |
+| After Dark | UNIS PC Based | getest 2026-10-14: MFC 9.0 in de gedeelde prefix lost "Failed to run the process" op; nu een venster "Initialization Error" |
 | Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
-| Bug Busters | EM-Teck PC Based | getest 2026-10-14: munt+START werken (MODE SELECT), daarna exitcode 5; diagnose loopt |
+| Bug Busters | EM-Teck PC Based | getest 2026-10-14 (2x, ook met view en lege video-map): munt+START tot MODE SELECT, daarna exitcode 5; oorzaak open |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | Taito Type X2 / OpenParrot |
 | Elevator Action Invasion | UNIS PC Based | getest 2026-10-14: lader exitcode 1 na laden; diagnose loopt |
@@ -72,7 +72,7 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Lethal Enforcers 3 | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
-| Mario Kart: Arcade GP DX | Namco ES3A | PRIORITEIT eigenaar: starten, gamepad als stuur, netwerk (ALL.Net zoals TeknoParrot), webcam |
+| Mario Kart: Arcade GP DX | Namco ES3A | PRIORITEIT eigenaar. Gemeten: stack 16M, standaardroute: toegangsfout op 0x00835E60 in de spelcode na init (race bij geparkeerd startpunt opgelost); RemoteThread ook niet. Agent onderzoekt |
 | Mars Sortie | UDC PC Based | getest 2026-10-14: Shooter.exe (Unity, BepInEx, Sentinel dog_windows) draait, beeld zwart: ook met gamescope en met DXVK-prefix; diagnose loopt |
 | Medaru No Gunman | SEGA RingWide | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
