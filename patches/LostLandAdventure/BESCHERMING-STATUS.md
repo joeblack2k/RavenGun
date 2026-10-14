@@ -225,3 +225,70 @@ plaats van 16; de ijking gaf onmiddellijk FAIL en de uitslagen zijn pas ná repa
 **Gereedschap (op de deck, herhaalbaar):** `/home/deck/hasp_work/hasp_measure.py`,
 `hasp_measure2.py`, `pelib.py`, `hasp_measure3.py`, `hasp_measure5.py`; uitvoer in `d.out` … `h.out`.
 Alles read-only; er is geen spel, lader of sandbox gestart.
+
+---
+
+## 7. Aanvulling 2026-10-14 (tweede meetronde): de AMCUS-laag in de familietabel
+
+*Toegevoegd door een tweede meetronde in dezelfde lane, **statisch, alleen gelezen, niets gestart**. Deze
+sectie vervangt niets hierboven; §2b blijft de primaire beschrijving van de AMCUS-laag. Wat hier wordt
+toegevoegd: de verplichte familietabel-regel voor deze titel, de importmeting van `PreprocessAmAuth.exe`,
+en de plaats van deze titel naast de andere daemon-titels.*
+
+**Hoort bij:** [`../AMDAEMON-FAMILIE-20261014.md`](../AMDAEMON-FAMILIE-20261014.md)
+
+### 7.1 De tabelregel
+
+| Game | bescherming | wat het vraagt | antwoorden wij het? | wat ontbreekt | voorgestelde proef |
+|---|---|---|---|---|---|
+| **Lost Land Adventure** | **twee onafhankelijke lagen:** (a) Sentinel LDK / HASP/Aladdin-dongle (zie §1–§5 hierboven); (b) Namco **AMCUS** = ALL.Net + MUCHA | (b) `amdcfg-authType=ALL.NET`, `allcfg-gameID=SDBK`, `amdcfg-offlineMode=DISABLE`, MUCHA-server `https://lla-front.mucha-prd.nbgi-amnet.jp:10232/mucha_front/` met `sslcafile=.\for_mucha.pem`, `game_cd=LLA1`, `game_board_id=PCB`; `muchacd` luistert op `tcp:0.0.0.0:12345`, de cliënt verbindt met `tcp:127.0.0.1:12345`. `PreprocessAmAuth.exe` bouwt die config **met de HASP-dongle erbij** | **nee.** TeknoParrot start `RSLauncher.exe` (`LostLand.xml`, `EmulatorType=TeknoParrot`), niet de daemon. Voor laag (a) hebben we de shim (§3); voor AMCUS niets | het ALL.Net/MUCHA-antwoord; en de wetenschap **of `PreprocessAmAuth` de dongle nodig heeft om de config te bouwen** (dat koppelt de twee lagen) | één daemonrun met de HASP-shim in **sonde-modus** én `AMConfig_EXDevOffline.ini` (die zet `offlineMode=ENABLE`): meet of `AMAuthd` zonder server doorstart en welke dongle-`fileid` `PreprocessAmAuth` leest |
+
+### 7.2 Wat deze ronde extra gemeten heeft
+
+**MEASURED** — `objdump -p AMCUS/PreprocessAmAuth.exe` (36.864 B, PE32+ x64 console): importeert
+`KERNEL32.dll`, `MSVCP100.dll`, `MSVCR100.dll`, **`SETUPAPI.dll`**, **`hasp_windows_x64_106993.dll`**,
+`ole32.dll`. De koppeling tussen de donglelaag en de AMCUS-laag is daarmee in de importtabel te zien:
+dit is het enige AMCUS-bestand dat de dongle-runtime aanraakt.
+
+**MEASURED** — de AMCUS-bestanden zijn hier **64-bits** en die van Mario Kart DX **32-bits**:
+`AMAuthd.exe` 294.400 B PE32+ x64 (MK DX: 281.088 B PE32 i386), `AMUpdater.exe` 124.928 B x64
+(MK DX: 108.544 B i386), `iauthdll.dll` 11.264 B x64 (MK DX: 9.728 B i386). Hetzelfde geldt voor
+`muchacd.exe` (324.608 B x64 tegen 278.016 B i386). Een drop-in of haak voor de ene titel past dus
+**niet** op de andere.
+
+**MEASURED** — de spelwortel van deze titel bevat naast de AMCUS-map: `RSLauncher.exe` (3.652.096 B),
+`RSWatchDog.exe` (8.704 B), `hasp_windows_x64_106993.dll` (788.992 B), `haspdinst.exe` (11.586.664 B),
+`bng_cert.pem` (3.637 B), `libeay32.dll`/`ssleay32.dll`, `nbamMfCapture.dll`, `nbamsavdat.dll`,
+`Nbam_QR_Code.dll`, `wajvio.dll` (Namco's WAJ VIO-printplaatstuurprogramma), `testmode.xml`,
+`project.ps1` en zes `initT_*.ps1`-varianten (EXDevLan/EXDevOffline/EXDevWan/JPDevLan/JPDevOffline/
+JPDevWan). **`RSLauncher.exe` + `hasp_windows_x64_106993.dll` + `haspdinst.exe` is exact de vorm van
+Time Crisis 5** — dat is de reden dat §1–§5 van dit bestand op de dongle mogen vertrouwen.
+
+**MEASURED** — deze titel heeft **geen `amdaemon.exe`** en geen `AMFS`/`appfile`-boom: de vorm van
+House of the Dead: Scarlet Dawn ([`../HOTDSD/`](../HOTDSD/)) is hier dus **niet** van toepassing. De
+poort is bij Scarlet Dawn lokaal (`amPlatformGetPlatformInformation()`), bij deze titel netwerk
+(ALL.Net + MUCHA). Dat verschil staat in
+[`../AMDAEMON-FAMILIE-20261014.md`](../AMDAEMON-FAMILIE-20261014.md) §5 en het is de reden dat de
+Scarlet Dawn-aanpak hier niet zonder meer werkt.
+
+**MEASURED** — de drie `offline`-varianten die de titel meelevert zijn `AMConfig_EXDevOffline.ini` en
+`AMConfig_JPDevOffline.ini` (beide `amdcfg-offlineMode=ENABLE`; de EX-variant zet daarnaast
+`amdcfg-authType=CHARGE`) en `AMConfig_EXDevLan.ini`/`..._JPDevLan.ini`/`..._Wan.ini`. De hoofdconfig
+`AMConfig.ini` zet `amdcfg-offlineMode=DISABLE`. **Een offline-modus bestaat dus aantoonbaar** — de
+vraag is alleen of de game er zonder server mee doorstart, en dat is een daemonrun, geen statische
+meting.
+
+### 7.3 Wat open blijft in deze aanvulling
+
+1. **Of de offline-modus genoeg is** — niet gemeten, en dat kan alleen met een daemonrun (bench).
+2. **Welke `fileid` `PreprocessAmAuth.exe` van de dongle leest** — dezelfde leemte als §4 punt 2, en
+   dezelfde sonde-run kan het antwoorden.
+3. **Of de AMCUS- en de donglelaag elkaar nodig hebben.** `PreprocessAmAuth` importeert de
+   dongle-runtime, dus de volgorde is vermoedelijk: dongle openen → authconfig bouwen → `AMAuthd`
+   starten. Zolang dat niet is aangetoond, mogen de twee lagen niet als onafhankelijk worden behandeld.
+
+**IJking:** dezelfde als in §6 van dit bestand. De toegevoegde metingen komen uit
+`/home/deck/rgwork/s7_step2inv.sh` en `s8_daemon.sh` op de deck; de ijkpunten daarvan staan in
+[`../AMDAEMON-FAMILIE-20261014.md`](../AMDAEMON-FAMILIE-20261014.md) §6 (`AMAuthd.exe` moet
+`KERNEL32.dll` importeren; de importlezer moet `hasp_windows_x64_106993.dll` + `SETUPAPI` bij
+`PreprocessAmAuth.exe` tonen).
