@@ -194,13 +194,14 @@ void AppWidgetTest::routeChoiceInProperties() {
 void AppWidgetTest::gamepadMapping() {
     // Properties > General: de gamepad-indeling van de game met per regel de herkomst (standaard, meegeleverd, gebruiker).
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
-    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGS/game.ini"));
+    // LGI heeft geen meegeleverd [Gamepad]-blok (de standaard is dan zichtbaar); LGS wel (de meegeleverde regels heten "Game").
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGI/game.ini"));
     writeFile(user, "[Gamepad]\nLB = btn4\nRightX = wheel\nQ = gas\n");
     GameEntry g;
-    g.id = QStringLiteral("tp:LGS");
+    g.id = QStringLiteral("tp:LGI");
     g.kind = GameKind::TeknoParrot;
-    g.profile = QStringLiteral("LGS");
-    g.name = QStringLiteral("Let's Go Safari");
+    g.profile = QStringLiteral("LGI");
+    g.name = QStringLiteral("Let's Go Island");
     {
         ui::PropertiesDialog d(&core, g);
         QTreeWidget* t = d.GamepadTree();
@@ -219,6 +220,18 @@ void AppWidgetTest::gamepadMapping() {
     {
         ui::PropertiesDialog d(&core, g);
         QCOMPARE(d.GamepadTree()->topLevelItemCount(), 11);   // de standaardindeling
+    }
+    {
+        GameEntry lgs = g;
+        lgs.id = QStringLiteral("tp:LGS");
+        lgs.profile = QStringLiteral("LGS");
+        lgs.name = QStringLiteral("Let's Go Safari");
+        ui::PropertiesDialog d(&core, lgs);
+        QTreeWidget* t = d.GamepadTree();
+        QString leftx;
+        for (int i = 0; i < t->topLevelItemCount(); ++i)
+            if (t->topLevelItem(i)->text(0) == QStringLiteral("LeftX")) leftx = t->topLevelItem(i)->text(2);
+        QVERIFY(leftx.startsWith(QStringLiteral("Game")));   // het stuur uit patches/LGS/game.ini ("Game (shipped game.ini)")
     }
     // Controller Settings zonder engine: de sectie Gamepads bestaat, de keuzes staan uit, de live weergave tekent.
     ui::ControllersWindow w(&core);
