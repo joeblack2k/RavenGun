@@ -4,3 +4,4 @@ Full capture sets (PNG, not in git): /home/deck/.local/share/ravengun/bench-capt
   final-run/  24 frames, 13:00:45-13:06:57, started by double-click (installed copy), attract + a played round, no RIO banner
   *.png       single frames referred to in LEESMIJ.md (app screens, options dialog, shader/zink comparison)
   mouse-run/  22 frames, 13:14:49-13:20:30, started by double-click, played with the Steam Controller's mouse only
+  move-run/   15 frames + aim.txt, 13:50:51-13:52:47, the owner playing with a PS Move (after the Y-axis fix)
