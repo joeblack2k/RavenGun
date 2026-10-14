@@ -85,10 +85,8 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Point Blank X | Namco ES4 | Namco ES4 |
-| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route bouwen |
 | Pull The Trigger | COVIELSA PC-Based | getest 2026-10-14: PTW.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Rambo | SEGA Lindbergh Red EX | Lindbergh-route bouwen |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | SEGA Golden Gun | SEGA RingWide | getest 2026-10-14: lader exitcode 5 (toegang geweigerd) direct na laden; diagnose loopt |
 | Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route klaar (profiel Primevil): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
