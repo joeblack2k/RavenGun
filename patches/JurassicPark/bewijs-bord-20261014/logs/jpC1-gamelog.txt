@@ -1,0 +1,143 @@
+Wed Oct 14 04:54:55 2026: -------------------------------------------------------------------------------
+Wed Oct 14 04:54:55 2026: Application Started
+Wed Oct 14 04:54:55 2026: Current time: October 14 2026 04:54:55
+Wed Oct 14 04:54:55 2026: Build: May 13 2015 15:34:06
+Wed Oct 14 04:54:55 2026: -------------------------------------------------------------------------------
+Wed Oct 14 04:54:55 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Wed Oct 14 04:54:56 2026: Welcome to 1.08
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 04:54:57 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 04:54:57 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 04:54:57 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 04:54:57 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:54:57 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:54:57 2026: Before ImgLoad - glError(1280): invalid enumerant
+Wed Oct 14 04:54:58 2026: Boot proc start.
+Wed Oct 14 04:54:58 2026: Loading perm assets.
+Wed Oct 14 04:55:06 2026: DuplicateTextures: blastsphere=r1particles_difa
+Wed Oct 14 04:55:12 2026: Loading perm sound bank.
+Wed Oct 14 04:55:39 2026: Loading perm programs.
+Wed Oct 14 04:55:39 2026: Boot proc kill.
+Wed Oct 14 04:55:39 2026: Entering attract mode.
+Wed Oct 14 04:55:39 2026: Compressor Tank Purge Valve Open
+Wed Oct 14 04:55:49 2026: Compressor Tank Purge Valve Closed
+Wed Oct 14 10:38:14 2026: -------------------------------------------------------------------------------
+Wed Oct 14 10:38:14 2026: Application Started
+Wed Oct 14 10:38:14 2026: Current time: October 14 2026 10:38:14
+Wed Oct 14 10:38:14 2026: Build: May 13 2015 15:34:06
+Wed Oct 14 10:38:14 2026: -------------------------------------------------------------------------------
+Wed Oct 14 10:38:15 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Wed Oct 14 10:38:16 2026: Welcome to 1.08
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:38:17 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:38:17 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:38:17 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:38:17 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:38:17 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:38:18 2026: Before ImgLoad - glError(1280): invalid enumerant
+Wed Oct 14 10:38:21 2026: Boot proc start.
+Wed Oct 14 10:38:21 2026: Loading perm assets.
+Wed Oct 14 10:38:31 2026: DuplicateTextures: blastsphere=r1particles_difa
+Wed Oct 14 10:38:39 2026: Loading perm sound bank.
+Wed Oct 14 10:38:46 2026: Loading perm programs.
+Wed Oct 14 10:38:46 2026: Boot proc kill.
+Wed Oct 14 10:38:46 2026: Entering attract mode.
+Wed Oct 14 10:38:47 2026: Compressor Tank Purge Valve Open
+Wed Oct 14 10:38:57 2026: Compressor Tank Purge Valve Closed
+Wed Oct 14 10:41:16 2026: -------------------------------------------------------------------------------
+Wed Oct 14 10:41:16 2026: Application Started
+Wed Oct 14 10:41:16 2026: Current time: October 14 2026 10:41:16
+Wed Oct 14 10:41:16 2026: Build: May 13 2015 15:34:06
+Wed Oct 14 10:41:16 2026: -------------------------------------------------------------------------------
+Wed Oct 14 10:41:17 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Wed Oct 14 10:41:18 2026: Welcome to 1.08
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:41:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:41:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:41:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+Wed Oct 14 10:41:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 10:41:19 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 10:41:20 2026: Before ImgLoad - glError(1280): invalid enumerant
+Wed Oct 14 10:41:22 2026: Boot proc start.
+Wed Oct 14 10:41:22 2026: Loading perm assets.
+Wed Oct 14 10:41:31 2026: DuplicateTextures: blastsphere=r1particles_difa
+Wed Oct 14 10:41:37 2026: Loading perm sound bank.
+Wed Oct 14 10:41:42 2026: Loading perm programs.
+Wed Oct 14 10:41:42 2026: Boot proc kill.
+Wed Oct 14 10:41:42 2026: Entering attract mode.
+Wed Oct 14 10:41:42 2026: Compressor Tank Purge Valve Open
+Wed Oct 14 10:41:52 2026: Compressor Tank Purge Valve Closed
+Wed Oct 14 10:42:46 2026: Player 1 joined.
+Wed Oct 14 10:42:46 2026: Game Started
+Wed Oct 14 10:42:46 2026: DuplicateTextures: screen_levelselect4=LS_ldscrn2_difa
+Wed Oct 14 10:42:46 2026: Load Scene 'screen_levelselect3' took 209 ms
+Wed Oct 14 10:42:46 2026: Start cam "smoke_cam".
+Wed Oct 14 10:42:53 2026: Player 2 joined.
+Wed Oct 14 10:43:00 2026: Coin in. Type: 0. Clicks: 1. Current unspent: $0.50
+Wed Oct 14 10:43:07 2026: Coin in. Type: 1. Clicks: 1. Current unspent: $0.75
+Wed Oct 14 10:43:14 2026: Coin in. Type: 3. Clicks: 1. Current unspent: $1.00
+Wed Oct 14 10:43:21 2026: Coin in. Type: 4. Clicks: 1. Current unspent: $2.00
+Wed Oct 14 10:43:35 2026: Adj_Save 'sound\gameVolume' to 94
+Wed Oct 14 10:43:42 2026: Adj_Save 'sound\gameVolume' to 80
+Wed Oct 14 10:43:44 2026: Level Selected: level=0 act=0
+Wed Oct 14 10:43:45 2026: Adj_Save 'sound\gameVolume' to 80
+Wed Oct 14 10:43:45 2026: Difficulty adjustment: 0.40
+Wed Oct 14 10:43:47 2026: Load Scene 'level_tricera' took 2525 ms
+Wed Oct 14 10:43:47 2026: VMem used: 33.63 (2.59) GB / 50.94 GB -- PMem used: 31.74 (1.60) GB / 33.24 GB
+Wed Oct 14 10:43:47 2026: Start general_0
+Wed Oct 14 10:43:47 2026: Frame 0:	Start cam "g0_camera1_export". (0/9146.87)
+Wed Oct 14 10:44:03 2026: Frame 964:	Player 2 fired grenade.
+Wed Oct 14 10:44:04 2026: Frame 1050:	Player 1 took 5.59 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:06 2026: Frame 1139:	Player 2 took 5.59 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:08 2026: Frame 1282:	Player 1 took 3 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:09 2026: Frame 1365:	Player 2 took 3 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:10 2026: Frame 1401:	Player 1 fired grenade.
+Wed Oct 14 10:44:11 2026: Frame 1510:	Player 1 took 3 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:12 2026: Frame 1543:	Player 2 took 3 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:13 2026: Frame 1616:	Player 1 took 3 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:21 2026: Frame 1739:	Circle sequence start.
+Wed Oct 14 10:44:24 2026: Frame 1763:	Circle sequence fail. (0 / 3 killed)
+Wed Oct 14 10:44:24 2026: Frame 1765:	Player 1 took 0.39 damage from "circle". (diff = 0.40)
+Wed Oct 14 10:44:24 2026: Frame 1765:	Player 2 took 3 damage from "circle". (diff = 0.40)
+Wed Oct 14 10:44:24 2026: Frame 1765:	Player 1 died.
+Wed Oct 14 10:44:28 2026: Frame 1999:	Circle sequence start.
+Wed Oct 14 10:44:31 2026: Frame 2024:	Player 2 fired grenade.
+Wed Oct 14 10:44:31 2026: Frame 2025:	Circle sequence fail. (0 / 5 killed)
+Wed Oct 14 10:44:31 2026: Frame 2027:	Player 2 took 0.19 damage from "circle". (diff = 0.40)
+Wed Oct 14 10:44:36 2026: Frame 2305:	Player 2 took 0.09 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:41 2026: Frame 2634:	Player 2 took 0.04 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:43 2026: Frame 2723:	Player 2 took 0.02 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:45 2026: Frame 2889:	Player 2 took 0.01 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:47 2026: Frame 2973:	Player 2 took 0 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 10:44:52 2026: Entering Diag Menu
+Wed Oct 14 10:44:52 2026: Frame 3292:	general_0 time/credit: 0m : 50.66s

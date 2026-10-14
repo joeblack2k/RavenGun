@@ -1,5 +1,9 @@
 # Jurassic Park — the RIO board answered, the "RIO Disconnected" banner GONE, in a frame
 
+> **Correction 2026-10-14, afternoon:** "the board answered" below means *the banner is gone*, nothing more. The board
+> still does not answer: the device init fails and the game drops its RIO backend (measured in
+> `../bewijs-bord-20261014/`). The banner result itself stands.
+
 **Date:** 2026-10-14. This is the Jurassic Park half of the RIO item (`patches/RIO-BORD.md`), and it is
 **delivered**: the board is answered and the banner is gone, in a frame — the same result as NERF.
 **Evidence:** `rio-banner-boven-voor-onder-na.jpg` (top = unpatched, the gameplay demo with "RIO

@@ -115,3 +115,25 @@ patch stopping the render) are recorded in the JP folder; the render was never R
 * **The JP black screen was never the RIO patch** (controlled: both arms black). It was the jp-bench
   harness missing the `programs_dec`-over-`programs_enc` bind (and `SDL12COMPAT_OPENGL_SCALING=0`); with
   those restored JP renders and the patched game shows no banner. Fixed, not an open item.
+
+---
+
+## Correction and result — 2026-10-14, afternoon (Jurassic Park: the board needs events)
+
+**"Jurassic Park — the board is answered" above is too strong.** The three-byte change removes the banner; it does not
+make the lightgun board answer. MEASURED, with a meter inside the live game process
+(`JurassicPark/bewijs-bord-20261014/`): the device init still fails (`pmrt_usb_open` → NULL), the game drops its RIO
+backend from its input loop (mask `0x1240`, bit `0x2` missing), and the library's read thread never runs. Forcing the
+connect too (`RIO_Connect` → 0) puts the backend back in the loop, but zero board events arrive.
+
+**What the board needs, measured:** Jurassic Park takes every switch and lightgun channel as an **event** (a callback
+queued by the library's USB read thread from an XTEA-encrypted 64-byte report). It polls nothing: `RIO_SW_Count` and
+`RIO_ADC_Val_Ex` have no caller in `game`. The NERF table (replace the return value of polled functions, in a 64-bit
+`librio.so`) cannot express that. A positive control, events placed in the library's own queue, drove the game: start,
+P2 join, coins, volume, Test → operator menu, grenades, all confirmed in the game's own log in the same second. Work
+stopped there as ordered; the options (answer at `pmrt_usb_*`, inject events, kernel virtual USB) are in that folder.
+
+**Same device: yes.** Same USB id, same XTEA key, same report layout for switches 0–18 and lightgun channels 19–22, and
+the same switch ids (7 P1 Start, 8 P2 Start, 3 Test, 5/6 volume) in both titles. What differs, and matters: the library
+generation (JP 0.13, NERF 0.16), how each game consumes the board (events vs polling), and the packaging (i386 inside
+`game` vs an x86-64 `librio.so`).

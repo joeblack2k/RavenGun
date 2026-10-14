@@ -1,0 +1,5 @@
+# arm P: a few events into the library's own queue while the RIO backend is (expected) inactive
+100 sw 7 1
+102 sw 7 2
+106 sw 3 1
+108 sw 3 2

@@ -1,0 +1,2 @@
+jpC1 start 10:41:16 game=69f9c95456ed78ce meter=9d16ae5487cb4534
+jpC1 outer-rc=0 end 10:45:17 log=/home/deck/.local/state/ravengun/logs/native-JurassicPark-20261014-104116.log

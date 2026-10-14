@@ -1,0 +1,4 @@
+10:39:54 t=100 inject: sw 7 1
+10:39:56 t=102 inject: sw 7 2
+10:40:00 t=106 inject: sw 3 1
+10:40:02 t=108 inject: sw 3 2
