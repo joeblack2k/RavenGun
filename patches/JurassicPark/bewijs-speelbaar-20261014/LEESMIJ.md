@@ -69,7 +69,7 @@ game no shader failure since; the glow on hit targets is visible (`sheet-play.jp
 * **The PS Move**: played by the owner (see the table); whether up/down now feels right was the owner's call after the fix.
 * The ten settings in the app are the game's own `adj` values; region (country) lives in the dongle record (byte `0x1c`) and is
   not in the app yet.
-* Sound: an audio stream exists; nobody listened.
+* **Sound — fixed, and it was not the game.** The owner heard nothing. MEASURED: the game has its own stream (`rg-elfloader`, PulseAudio on PipeWire, 100 %, not muted) and it carries sound (3 s recorded from the stream itself: RMS ~560, peak 1654). The system's default output, HDMI 7.1 to the TV, had **front-left and front-right at 0 %** (the other six channels at 100 %), so every stereo stream was silent — the virtual-surround plugin's own output too. Set to 100 % (`pactl set-sink-volume <hdmi sink> 100% ×8`; the previous state is saved in the session scratchpad); the owner then heard the game on the Sonos. What set them to 0 % was not found (the surround plugin does not set volumes). The game's second sound system (JPS, OSS `/dev/dsp`) drives the guns' rumble only and is not started while 'Gun rumble' is off.
 
 ## 6. Files
 
