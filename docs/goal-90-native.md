@@ -39,7 +39,7 @@ Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
-| Friction | Unique PC Based | profiel + direct, OpenParrot |
+| Friction | Unique PC Based | getest 2026-10-14: "Shader UI_VS is not supported" (HLSL-compilatie), ook met DXVK; echte d3dx9 nodig (zoals Medaru) |
 | Gashaaaan Refill!!!! | Konami PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
 | Go Go Strike | PAOKAI Linux PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
