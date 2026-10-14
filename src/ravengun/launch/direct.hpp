@@ -70,6 +70,11 @@ struct DirectPlan {
     std::string dropin_base, dropin_root;
     std::vector<DropinFile> dropin_files;
     std::vector<std::string> dropin_materialise, dropin_lines;
+    // [Launch] StackReserve (0 = niet): de exe van de game (stack_dest, in de view) wordt een lokale kopie van stack_src met
+    // SizeOfStackReserve = stack_reserve (pe_stack.hpp). stack_src is het origineel: de koppeling <exe>.ravengun-orig als die er al
+    // is, anders waar de koppeling van de view naar wijst, anders de exe zelf.
+    long long stack_reserve = 0;
+    std::string stack_src, stack_dest;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct
@@ -98,7 +103,8 @@ struct DirectOptions {
 // Het plan. Ok: `out` is volledig. Fallback/Refused: `why` zegt waarom (Nederlands, de melding van launch-direct.py waar die er is).
 Verdict plan_direct(const std::string& profile, const DirectPaths& p, const DirectOptions& o, DirectPlan& out, std::string& why);
 
-// De drop-ins en de gegenereerde bestanden in de view zetten (wat launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.
+// De drop-ins, de gegenereerde bestanden en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
+// launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.
 // false + err = de game hoort niet te starten. `log` krijgt een regel per stap.
 bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err);
 

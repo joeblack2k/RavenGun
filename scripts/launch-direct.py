@@ -79,6 +79,7 @@ import time
 import uuid
 import xml.etree.ElementTree as ET
 import hashlib
+import zlib
 
 sys.dont_write_bytecode = True   # geen __pycache__ in scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
@@ -374,6 +375,174 @@ def place_binary(src, dest):
     except OSError as e:
         return "fout", "%s niet te schrijven: %s" % (dest, e)
     return "geschreven", "%s geschreven (%d bytes)" % (dest, len(data))
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# [Launch] StackReserve: de hoofdthread een grotere stapel geven (src/ravengun/launch/pe_stack.* in de engine).
+# Onder Wine krijgt de hoofdthread precies SizeOfStackReserve uit de PE-kop. TeknoParrot start Mario Kart Arcade GP DX
+# onder Wine (Winlator) vanaf een kopie van de exe met dezelfde naam en 16 MiB in dat veld; wij maken die kopie in de view
+# van de game (nooit op de NAS) en laten de koppeling naar het origineel als <exe>.ravengun-orig staan.
+
+STACK_RESERVE_MIN = 64 * 1024
+STACK_RESERVE_MAX = 256 * 1024 * 1024
+STACK_ORIG_SUFFIX = ".ravengun-orig"
+
+
+def parse_stack_size(text):
+    """"16M", "16 MiB", "16MB", "512K", "0x1000000" of "16777216" -> bytes (K/M zijn 1024-machten), of None."""
+    t = "".join((text or "").split())
+    if not t:
+        return None
+    if t[:2].lower() == "0x":
+        return int(t[2:], 16) if t[2:] and all(c in "0123456789abcdefABCDEF" for c in t[2:]) else None
+    m = re.match(r"^([0-9]+)([A-Za-z]*)$", t)
+    if not m:
+        return None
+    mul = {"": 1, "b": 1, "k": 1024, "kb": 1024, "kib": 1024, "m": 1 << 20, "mb": 1 << 20, "mib": 1 << 20}.get(m.group(2).lower())
+    return int(m.group(1)) * mul if mul else None
+
+
+def stack_size_text(n):
+    if n and n % (1 << 20) == 0:
+        return "%d MiB (%d)" % (n >> 20, n)
+    if n and n % 1024 == 0:
+        return "%d KiB (%d)" % (n >> 10, n)
+    return str(n)
+
+
+def _pe_stack_field(data):
+    """(plaats, breedte) van SizeOfStackReserve in de bytes van een PE32/PE32+-bestand; ValueError als het geen PE is."""
+    if len(data) < 0x40 or data[:2] != b"MZ":
+        raise ValueError("geen MZ-kop")
+    pe = int.from_bytes(data[0x3c:0x40], "little")
+    if pe + 26 > len(data) or data[pe:pe + 4] != b"PE\0\0":
+        raise ValueError("geen PE-handtekening")
+    opt_size = int.from_bytes(data[pe + 20:pe + 22], "little")
+    opt = pe + 24
+    magic = int.from_bytes(data[opt:opt + 2], "little")
+    width = {0x10b: 4, 0x20b: 8}.get(magic)
+    if not width:
+        raise ValueError("onbekende optionele kop (magic 0x%x)" % magic)
+    if opt_size < 72 + width or opt + 72 + width > len(data):
+        raise ValueError("optionele kop te kort")
+    return opt + 72, width
+
+
+def pe_stack_reserve(data):
+    at, width = _pe_stack_field(data)
+    return int.from_bytes(data[at:at + width], "little")
+
+
+def pe_set_stack_reserve(data, reserve):
+    at, width = _pe_stack_field(data)
+    if reserve >= 1 << (8 * width):
+        raise ValueError("past niet in een PE32-kop")
+    return data[:at] + reserve.to_bytes(width, "little") + data[at + width:]
+
+
+HEADER_CRC_LENGTH = 0x400   # de kern herkent de game aan CRC32(eerste 0x400 bytes) (OpenParrot GameDetect.cpp)
+HEADER_CRC_PATCH_AT = 0x78  # de opvulling achter "$" in de DOS-stub: Windows en Wine lezen die nooit
+_CRC_POLY = 0xEDB88320
+
+
+def _crc_unstep_bit(reg):
+    return (((reg ^ _CRC_POLY) << 1) | 1) & 0xFFFFFFFF if reg & 0x80000000 else (reg << 1) & 0xFFFFFFFF
+
+
+def pe_keep_header_crc(data, crc):
+    """Zet de vier bytes op HEADER_CRC_PATCH_AT zo dat zlib.crc32(data[:0x400]) weer `crc` is (zie pe_stack.hpp in de
+    engine). ValueError als dat niet kan (te kort, of de PE-kop begint in de stub)."""
+    if len(data) < HEADER_CRC_LENGTH:
+        raise ValueError("korter dan 0x400 bytes")
+    if int.from_bytes(data[0x3c:0x40], "little") < HEADER_CRC_PATCH_AT + 4:
+        raise ValueError("geen ruimte in de DOS-stub")
+    at = HEADER_CRC_PATCH_AT
+    voor = zlib.crc32(data[:at]) ^ 0xFFFFFFFF          # het register na de bytes voor de plek
+    na = crc ^ 0xFFFFFFFF
+    for b in reversed(data[at + 4:HEADER_CRC_LENGTH]):  # terug vanaf het einde
+        for _ in range(8):
+            na = _crc_unstep_bit(na)
+        na ^= b
+    for _ in range(32):
+        na = _crc_unstep_bit(na)
+    data = data[:at] + (na ^ voor).to_bytes(4, "little") + data[at + 4:]
+    if zlib.crc32(data[:HEADER_CRC_LENGTH]) != crc:
+        raise ValueError("CRC32 van de kop niet te herstellen")
+    return data
+
+
+def stack_plan(launch_ini, game):
+    """[Launch] StackReserve -> {"reserve", "src", "dest"} of None. Weigert (SettingRefused) een onleesbare of te grote
+    waarde en een game buiten een view (de kopie komt nooit naast het origineel op de NAS)."""
+    ruw = (launch_ini.get("StackReserve", "") or "").strip()
+    if not ruw:
+        return None
+    n = parse_stack_size(ruw)
+    if n is None or n < STACK_RESERVE_MIN or n > STACK_RESERVE_MAX:
+        raise SettingRefused("[Launch] StackReserve = %s (een grootte van 64K tot en met 256M, bijvoorbeeld 16M)" % ruw)
+    if not _binnen(os.path.abspath(game), os.path.abspath(op.views_dir())) or on_nas(os.path.dirname(game)):
+        raise SettingRefused("[Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): "
+                             "de exe met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; %s ligt daar niet" % game)
+    orig = game + STACK_ORIG_SUFFIX
+    src = os.path.realpath(orig) if os.path.islink(orig) else os.path.realpath(game) if os.path.islink(game) else game
+    return {"reserve": n, "src": src, "dest": game}
+
+
+def place_stack_copy(stack, log):
+    """De exe in de view wordt een lokale kopie van het origineel met de grotere stapel (zie stack_plan). False = niet starten."""
+    if not stack:
+        return True
+    want, src, dest = stack["reserve"], stack["src"], stack["dest"]
+
+    def fout(m):
+        log("stapel: FOUT: %s -- de game wordt niet gestart" % m)
+        return False
+    if on_nas(os.path.dirname(dest)):
+        return fout("%s ligt op de NAS; daar wordt nooit een exe geschreven" % dest)
+    try:
+        with open(src, "rb") as f:
+            data = f.read()
+    except OSError:
+        return fout("%s is niet te lezen" % src)
+    try:
+        was = pe_stack_reserve(data)
+    except ValueError as e:
+        return fout("%s: %s" % (src, e))
+    if was >= want:
+        log("stapel: %s heeft al SizeOfStackReserve %s (gevraagd %s); niets geschreven"
+            % (os.path.basename(dest), stack_size_text(was), stack_size_text(want)))
+        return True
+    kop_crc = zlib.crc32(data[:HEADER_CRC_LENGTH])   # blijft gelijk: daaraan herkent de kern de game
+    try:
+        data = pe_keep_header_crc(pe_set_stack_reserve(data, want), kop_crc)
+    except ValueError as e:
+        return fout("%s: %s" % (src, e))
+    if not os.path.islink(dest) and os.path.isfile(dest):
+        try:
+            with open(dest, "rb") as f:
+                if f.read() == data:
+                    log("stapel: %s is al actueel (SizeOfStackReserve %s, bron %s)" % (dest, stack_size_text(want), src))
+                    return True
+        except OSError:
+            pass
+    orig = dest + STACK_ORIG_SUFFIX
+    try:
+        if os.path.islink(dest):
+            if not os.path.lexists(orig):
+                os.rename(dest, orig)
+            else:
+                os.unlink(dest)
+        tmp = dest + ".ravengun-tmp"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, dest)
+        os.chmod(dest, 0o755)
+    except OSError as e:
+        return fout("%s: %s" % (dest, e))
+    log("stapel: %s geschreven: lokale kopie van %s met SizeOfStackReserve %s -> %s, CRC32 van de kop gelijk (%08x)%s"
+        % (dest, src, stack_size_text(was), stack_size_text(want), kop_crc,
+           "; het origineel blijft bereikbaar als %s" % os.path.basename(orig) if os.path.islink(orig) else ""))
+    return True
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1440,6 +1609,10 @@ def exe_log_lines(plan):
         uit.append("schijfletter %s: -> %s (%s)" % (d["letter"], d["target"],
                                                    "staat al in de prefix" if d["present"] else
                                                    "wordt voor deze run in de prefix gezet en na afloop weer weggehaald"))
+    st = plan.get("stack")
+    if st:
+        uit.append("stapel: %s wordt een lokale kopie van %s met SizeOfStackReserve %s ([Launch] StackReserve)"
+                   % (st["dest"], st["src"], stack_size_text(st["reserve"])))
     return uit
 
 
@@ -1839,6 +2012,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     # daar hetzelfde bestand (gemeten: de twee bestanden naast de twee exe's van zo'n spel zijn byte-gelijk).
     if second and os.path.dirname(second["path"]) != gamedir:
         files.append((os.path.join(os.path.dirname(second["path"]), "teknoparrot.ini"), files[0][1]))
+    # [Launch] StackReserve: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread (run()).
+    stack = stack_plan(launch_ini, game)
 
     pipe_mode = "pipe" if emu not in NO_JVS_PIPE else "shm"
     src = shm_source or SHM_PATH
@@ -1876,7 +2051,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env, "patches": patch_report,
         "settings_sources": settings.sources, "profile_source": "game.ini" if own else "UserProfiles/%s.xml" % name,
         "game_source": p.get("_game_source", "xml"),
-        "files": files, "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
+        "files": files, "stack": stack,
+        "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
         "control_pipe": control,
         "log_full": log_full, "windowed_override": windowed_override,
         "recipe": recipe_summary(tp, name),
@@ -2413,6 +2589,9 @@ def _run(plan):
     for path, text in plan["files"]:
         st, why = place_file(path, text)
         log("bestand: " + why)
+    # 1a. [Launch] StackReserve: de exe met de grotere stapel in de view (nooit op de NAS).
+    if not place_stack_copy(plan.get("stack"), log):
+        return EXIT_PATCH
     # 1b. Extra GStreamer-plug-ins (wmv-films, Luigi's Mansion): ontbreken ze, dan eenmalig ophalen (fetch-gst-wmv.sh).
     gst = env.get("GST_PLUGIN_PATH", "")
     if gst and not os.path.isfile(os.path.join(gst, "libgstasf.so")):

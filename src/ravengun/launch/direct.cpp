@@ -27,6 +27,7 @@
 #include "ravengun/json_parse.hpp"
 #include "ravengun/launch/gamefind.hpp"
 #include "ravengun/launch/native.hpp"
+#include "ravengun/launch/pe_stack.hpp"
 
 extern char** environ;
 
@@ -37,6 +38,9 @@ namespace gsn = ravengun::gamesettings;
 namespace iob = ravengun::iobridge;
 
 namespace {
+
+// [Launch] StackReserve: de koppeling van de view naar de oorspronkelijke exe blijft onder deze naam naast de lokale kopie staan.
+constexpr const char* kStackOrigSuffix = ".ravengun-orig";
 
 // --- tekst --------------------------------------------------------------------------------------------------------------------------
 std::string trim(const std::string& s) {
@@ -1424,6 +1428,20 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     // De kern leest teknoparrot.ini naast de exe waarin hij geladen is, dus ook naast de tweede (TeknoParrotUi schrijft daar hetzelfde).
     if (have_second && dirname(second.path) != gamedir) pl.files.emplace_back(pjoin(dirname(second.path), "teknoparrot.ini"), ini);
 
+    // 6b. [Launch] StackReserve: de hoofdthread een grotere stapel geven via een lokale kopie van de exe in de view (pe_stack.hpp).
+    if (const std::string sr = trim(lini("StackReserve")); !sr.empty()) {
+        uint64_t n = 0;
+        if (!parse_stack_size(sr, n) || n < kStackReserveMin || n > kStackReserveMax)
+            return setting_refused("[Launch] StackReserve = " + sr + " (een grootte van 64K tot en met 256M, bijvoorbeeld 16M)");
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de exe "
+                                   "met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; " + game + " ligt daar niet");
+        const std::string orig = game + kStackOrigSuffix;
+        pl.stack_reserve = static_cast<long long>(n);
+        pl.stack_dest = game;
+        pl.stack_src = islink(orig) ? realpath_(orig) : islink(game) ? realpath_(game) : game;
+    }
+
     // 7. De JVS-brug en de procesnamen.
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
     pl.pipe_mode = no_pipe.count(emu) ? "shm" : "pipe";
@@ -1576,6 +1594,57 @@ bool write_atomic(const std::string& path, const std::string& data, std::string&
     return true;
 }
 
+// [Launch] StackReserve (launch-direct.py place_stack_copy): de exe in de view wordt een lokale kopie van het origineel met een
+// grotere SizeOfStackReserve. De koppeling naar het origineel blijft als <exe>.ravengun-orig staan, zodat een volgende start weer
+// van het origineel uitgaat. Al groot genoeg of al actueel: niets schrijven.
+bool place_stack_copy(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    if (pl.stack_reserve <= 0) return true;
+    const uint64_t want = static_cast<uint64_t>(pl.stack_reserve);
+    const std::string& dest = pl.stack_dest;
+    auto fout = [&](const std::string& m) {
+        log.push_back("stapel: FOUT: " + m + " -- de game wordt niet gestart");
+        err = "stapel: " + m;
+        return false;
+    };
+    if (dest.empty() || pl.stack_src.empty()) return fout("plan zonder bron of doel");
+    if (on_nas(dirname(dest), p)) return fout(dest + " ligt op de NAS; daar wordt nooit een exe geschreven");
+    std::string data;
+    if (!read_file(pl.stack_src, data)) return fout(pl.stack_src + " is niet te lezen");
+    uint64_t was = 0;
+    std::string perr;
+    if (!pe_stack_reserve(data, was, perr)) return fout(pl.stack_src + ": " + perr);
+    if (was >= want) {
+        log.push_back("stapel: " + basename(dest) + " heeft al SizeOfStackReserve " + stack_size_text(was) + " (gevraagd " +
+                      stack_size_text(want) + "); niets geschreven");
+        return true;
+    }
+    // De CRC32 van de eerste 0x400 bytes blijft gelijk: daaraan herkent de kern de game (pe_stack.hpp, pe_keep_header_crc).
+    const uint32_t kop_crc = crc32_bytes(data, kHeaderCrcLength);
+    if (!pe_set_stack_reserve(data, want, perr) || !pe_keep_header_crc(data, kop_crc, perr)) return fout(pl.stack_src + ": " + perr);
+    std::string cur;
+    if (!islink(dest) && isfile(dest) && read_file(dest, cur) && cur == data) {
+        log.push_back("stapel: " + dest + " is al actueel (SizeOfStackReserve " + stack_size_text(want) + ", bron " + pl.stack_src + ")");
+        return true;
+    }
+    const std::string orig = dest + kStackOrigSuffix;
+    if (islink(dest)) {
+        if (!lexists(orig)) {
+            if (::rename(dest.c_str(), orig.c_str()) != 0) return fout(dest + " -> " + orig + ": " + std::strerror(errno));
+        } else if (::unlink(dest.c_str()) != 0) {
+            return fout(dest + ": " + std::strerror(errno));
+        }
+    }
+    std::string werr;
+    if (!write_atomic(dest, data, werr)) return fout(werr);
+    ::chmod(dest.c_str(), 0755);
+    char crc_hex[16];
+    std::snprintf(crc_hex, sizeof crc_hex, "%08x", kop_crc);
+    log.push_back("stapel: " + dest + " geschreven: lokale kopie van " + pl.stack_src + " met SizeOfStackReserve " + stack_size_text(was) +
+                  " -> " + stack_size_text(want) + ", CRC32 van de kop gelijk (" + crc_hex + ")" +
+                  (islink(orig) ? "; het origineel blijft bereikbaar als " + basename(orig) : ""));
+    return true;
+}
+
 }  // namespace
 
 bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
@@ -1629,7 +1698,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
         if (!write_atomic(path, text, werr)) { err = "bestand " + path + ": " + werr; return false; }
         log.push_back("bestand: " + path + " geschreven");
     }
-    return true;
+    return place_stack_copy(pl, p, log, err);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -1654,8 +1723,9 @@ std::string plan_to_json(const DirectPlan& pl) {
              {"loader", &pl.loader}, {"pipe_mode", &pl.pipe_mode}, {"shm_source", &pl.shm_source}, {"pipehelper", &pl.pipehelper},
              {"core_dll", &pl.core_dll}, {"core_source", &pl.core_source}, {"state", &pl.state}, {"dropin_base", &pl.dropin_base},
              {"dropin_root", &pl.dropin_root}, {"control_pipe", &pl.control_pipe}, {"control_pipe_name", &pl.control_pipe_name},
-             {"control_source", &pl.control_source}})
+             {"control_source", &pl.control_source}, {"stack_src", &pl.stack_src}, {"stack_dest", &pl.stack_dest}})
         w.key(k).value(*v);
+    w.key("stack_reserve").value(pl.stack_reserve);
     w.key("control_size").value(pl.control_size).key("control_interval_ms").value(pl.control_interval_ms);
     w.key("is64").value(pl.is64).key("gamescope").value(pl.gamescope).key("windowed_override").value(pl.windowed_override);
     w.key("log_full").value(pl.log_full).key("windows").value(pl.windows);
@@ -1707,6 +1777,13 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     s("control_pipe", pl.control_pipe); s("control_pipe_name", pl.control_pipe_name); s("control_source", pl.control_source);
     auto n = [&](const char* k, int& out) { const auto* x = v.find(k); if (x && x->is_number()) out = static_cast<int>(x->num); };
     n("control_size", pl.control_size); n("control_interval_ms", pl.control_interval_ms);
+    s("stack_src", pl.stack_src); s("stack_dest", pl.stack_dest);
+    if (const auto* x = v.find("stack_reserve"); x && x->is_number()) pl.stack_reserve = static_cast<long long>(x->num);
+    if (pl.stack_reserve < 0 || static_cast<uint64_t>(pl.stack_reserve) > kStackReserveMax ||
+        (pl.stack_reserve > 0 && (pl.stack_src.empty() || pl.stack_dest.empty()))) {
+        err = "plan: stack_reserve buiten de grenzen of zonder bron en doel";
+        return false;
+    }
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
     sv("patch_lines", pl.patch_lines); sv("notes", pl.notes);

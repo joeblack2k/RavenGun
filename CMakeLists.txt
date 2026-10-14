@@ -52,6 +52,7 @@ add_library(ravengun STATIC
   src/ravengun/launch/native.cpp
   src/ravengun/launch/unity.cpp
   src/ravengun/launch/direct.cpp
+  src/ravengun/launch/pe_stack.cpp
   src/ravengun/launch/gamefind.cpp
   src/ravengun/launch/jvs_pipe.cpp
   src/ravengun/games/aagames.cpp
@@ -331,6 +332,9 @@ if(RAVENGUN_BUILD_TESTS)
     # Het spel vanaf een ander pad (--exe) en schijfletters voor een run (--drive): alleen het pad naar het spel verandert, de
     # hele hulpketen blijft gelijk; een schijfletter staat er precies zolang de run duurt. Start niets.
     add_test(NAME ravengun_exe_override COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exe_override.py")
+    # [Launch] StackReserve: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread (alleen het veld
+    # SizeOfStackReserve verandert), de koppeling naar het origineel blijft staan, op de NAS verandert niets. Start niets.
+    add_test(NAME ravengun_stack_reserve_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stack_reserve.py")
     # Profielen met twee exe's (HasTwoExecutables): beide starts in --plan, de vaste orde met de wachttijd, dezelfde view/prefix/
     # omgeving, uitvoer en exitcode per start, geen halve opstelling (exitcode 7), en een enkele exe ongewijzigd. Start niets.
     add_test(NAME ravengun_twee_starts COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_twee_starts.py")
