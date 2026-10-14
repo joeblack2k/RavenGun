@@ -215,12 +215,14 @@ void AppWidgetTest::patchesTab() {
     QVERIFY(it->data(0, Qt::UserRole + 1).toString().contains(QStringLiteral("MXCSR")));
     // Uitvinken schrijft de gebruikerslaag (niet de meegeleverde laag).
     it->setCheckState(0, Qt::Unchecked);
+    QCoreApplication::processEvents();                                                 // de lijst wordt na het signaal opnieuw opgebouwd
     const QString userFile = userRoot + QStringLiteral("/GaiaAttack4/patches.ini");
     QVERIFY(readAll(userFile).contains(QStringLiteral("Enabled = false")));
     QCOMPARE(core.gameData()->patches(QStringLiteral("GaiaAttack4"))[0].enabled, false);
     QCOMPARE(t->topLevelItem(0)->checkState(0), Qt::Unchecked);
     QVERIFY(t->topLevelItem(0)->text(3).contains(QStringLiteral("choice")));
     t->topLevelItem(0)->setCheckState(0, Qt::Checked);                                 // gelijk aan de meegeleverde stand: keuze weg
+    QCoreApplication::processEvents();
     QVERIFY(!readAll(userFile).contains(QStringLiteral("Enabled")));
     // De effectieve instellingen staan er read-only bij, met hun laag.
     QTreeWidget* s = d.SettingsTree();

@@ -832,7 +832,8 @@ QWidget* PropertiesDialog::MakePatchesPane() {
         } else if (core_->launcher()->canStop() && core_->launcher()->runningProfile() == prof) {
             patch_status_->setText(tr("The game is running: the change applies from the next start."));
         }
-        RefreshPatches();
+        // Pas na dit signaal opnieuw opbouwen: clear() verwijdert het item dat itemChanged nog uitzendt (Qt gebruikt het daarna nog).
+        QMetaObject::invokeMethod(this, [this] { RefreshPatches(); }, Qt::QueuedConnection);
     });
     return w;
 }
