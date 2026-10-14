@@ -165,6 +165,49 @@ per-game patch; wel de 16 MiB-stapelkopie (Android).
   `Primary thread suspended at the entry point; original entry bytes restored before loading the core.` en
   `Core hooked the entry point itself (E9 .. .. .. ..); skipping the loader-managed initializer.`
 
+## 5d. Toegangsfout op 0x835E60 op de standaardroute (bench 2026-10-14 23:24) en de fix
+
+**Gemeten** (`WINEDEBUG=-all,+seh,err+all`, zonder gamescope, standaardroute, 16 MiB stapel): geen `c000001d` meer. De kern laadt,
+rg-mfcam laadt, "Have fun :)", en het spel draait zijn eigen code: 13 `OutputDebugString`-meldingen (de laatste twee zijn dezelfde
+regel, wide en ANSI) (`*INF* Game Start`,
+`*WRN* ShareKSaveErrorInfo load failed.` + `file reset.`, `ContentsInfoCl/OV/Md/Sv: ver:16102602 ...`, `ContentsVer_Client:0`,
+`ContentsVer_Server:0`, `ContentsDisableFlag:1`, `ContentsVer_Client_Old:0`, en `プレイデータ保存フォルダ作成：./Fplaydata/1812/`),
+dan wined3d die een shader bouwt (de D3D-device bestaat), dan `EXCEPTION_ACCESS_VIOLATION` op `0x00835E60`, lezen van adres 0,
+`eax=0`. De handlers van het spel (`_except_handler4`, filter `0x8C6D30` = `_XcptFilter`) laten hem door: onafgehandeld.
+De `SINGLE_STEP`-regels vóór "Have fun" zijn de beschermde kern zelf (handler `71A29764` in `teknoparrot`): normaal.
+
+**Wat er op 0x835E60 staat (READ, objdump):** functie `0x835E20` (de 2D-polygoonrenderer, `xelib`): als de D3D10-device (`[0xEABAA8]`)
+er is, `call 0x838940` met `ecx = "Polygon2D_D3D10.fx"` en `"fx_4_0"`; de uitkomst gaat naar `[esi+0x4E20]` en meteen
+`835e60: mov ecx,[eax]` (de vtable, voor `GetTechniqueByName("Render")`). Geen NULL-controle. `0x838940` zet het pad ervoor
+(`0x866E40`, `Data/System/Shader/`) en roept `D3DX10CreateEffectFromFileA(pad, NULL, NULL, "fx_4_0", 0x800 (0x802 bij .cfx), 0, device,
+NULL, NULL, &effect, &errors, &hr)` aan (import `0x94377C`); bij `hr < 0` geeft hij NULL terug. De foutmeldingen (`errors`) leest het
+spel nooit.
+
+**Waarom alleen deze (READ):** het spel laadt 24 effecten via `0x838940`; 23 zijn voorgecompileerd (`PostEffect.cfx`, `Bloom.cfx`,
+`PositionColor3D_D3D10.cfx`, ...), alleen `Polygon2D_D3D10.fx` is HLSL-bron. Op Windows compileert de native `d3dx10_43` die bron.
+Wine's `d3dx10_43` (proton-11.0-2) roept in `create_effect` (0x10009720) `D3DCompile` van `d3dcompiler_47` (vkd3d-shader) aan,
+**behalve** als het blok met `DXBC` begint: dan gaat het rechtstreeks naar `D3D10CreateEffectFromMemory` (READ: disassemblage, de
+vergelijking op 0x10009820). De bron gebruikt wat een effectcompiler zwaar valt: shaderarrays met een variabele index
+(`SetPixelShader(ps[g_texture_type])`, een preshader-expressie), `uniform`-parameters in `CompileShader(ps_4_0, PS(1))`,
+samplerarrays met initialisatie, `technique10` en Shift-JIS in commentaar. **INFERRED** dat vkd3d-shader dit niet compileert (zelfde
+soort fout als Medaru No Gunman, fx_2_0: "Writing fx_2_0 sampler objects initializers is not implemented"); niet gemeten welke
+regel het is. Wine's `d3d10` kent wel indexexpressies in een gecompileerd effect (`Failed to evaluate index expression`, preshader).
+
+**Niet de oorzaak:** de camera (0x835E60 is code van het spel, rg-mfcam staat op 0x711A0000; `rg-mfcam.log` heeft in geen enkele run
+een regel `MFEnumDeviceSources #1`, dus het spel heeft nog geen camera gevraagd; MEASURED), AMCUS/ALL.Net, de dongle, de F:-paden, de stuurwielopsomming: de fout ligt in de opbouw van de 2D-renderer.
+De JVS-pipe ontbreekt omdat `clBootCheck` (COM3) pas na deze opbouw komt.
+
+**De fix (`game.ini`):** `[Launch] ViewLinks = Data/System/Shader/Polygon2D_D3D10.fx -> Data/System/Shader/Polygon2D_D3D10.cfx`
+(nieuwe engine-sleutel, `docs/per-game-patches.md`). In de view worden `Data`, `Data/System` en `Data/System/Shader` echte mappen met
+symlinks en wordt `Polygon2D_D3D10.fx` een symlink naar de `.cfx` op de NAS. Die `.cfx` is hetzelfde effect, gecompileerd met
+fxc 9.29.952.3111 (de compiler van `d3dx10_43`), met `Render`, `RenderQuad`, `ChainLine`, `g_texture`, `g_textureCube`,
+`g_texture3D`, `g_texture_type`, `g_animation`, `cb1`, `ps`, `ps2` (MEASURED: `strings`). Niets gekopieerd, niets op de NAS.
+Logregel: `viewlink: .../Data/System/Shader/Polygon2D_D3D10.fx -> .../Polygon2D_D3D10.cfx (alleen in de view)`.
+
+**Terugvaloptie** als Wine's `d3d10` het gecompileerde effect weigert: de native `d3dx10_43.dll` + `d3dcompiler_43.dll` uit de
+DirectX-herdistribueerbare (Jun2010) in een eigen prefix, `native,builtin`, zoals bij Medaru No Gunman. Dat is een prefixwijziging en
+een Microsoft-bestand: eerst aan de eigenaar vragen.
+
 ## 6. Open (alleen op de tv te zien)
 
 0. Komt het spel met de fix hierboven langer dan 27 s en opent het de JVS-pipe? Bewijsregels in het logboek, in deze volgorde:
