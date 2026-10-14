@@ -153,6 +153,8 @@ Mode = direct                 ; direct | tpui (leeg = tpui)
 WorkingDirectory = .          ; relatief aan de map van de game-exe, of een Windows-pad (Z:\...)
 View =                        ; auto (leeg) | off | N: de lokale view van een game op de NAS (zie "De view"); N = --view-up N
 ViewEmptyDirs =               ; mappen die in de view leeg en lokaal zijn (--empty-dir), bv. RSGame/Content/Movies
+ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink naar het bestand van B (zie "ViewLinks" hieronder)
+StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 
 [Loader]
 RemoteThread = off            ; off = standaardroute van de lader; 1 = remote thread; leeg = niet gezet (de launcher kiest 1)
@@ -427,6 +429,21 @@ Zo doet TeknoParrot het onder Wine voor Mario Kart Arcade GP DX (16 MiB). Wat er
   en schrijft niets als de kopie al klopt. Heeft de exe zelf al minstens zoveel stapel, dan blijft alles zoals het is;
 - nooit op de NAS: ligt de game niet in een view (`scripts/tp-add-game.py <Game> <exe> --view`), dan weigert het plan met exitcode 5.
   Terug naar het origineel: de sleutel weghalen en `<exe>` in de view vervangen door `<exe>.ravengun-orig`.
+
+**Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
+een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.
+Paden ten opzichte van de map van de exe, relatief, zonder `..`; meerdere paren gescheiden door komma's. Voorbeeld: Mario Kart
+Arcade GP DX laadt `Data/System/Shader/Polygon2D_D3D10.fx` als HLSL-bron (`D3DX10CreateEffectFromFileA`, `fx_4_0`) en die bron
+compileert de shadercompiler van Wine niet; de game levert hetzelfde effect voorgecompileerd mee (`Polygon2D_D3D10.cfx`) en
+`d3dx10` van Wine neemt een voorgecompileerd effect (`DXBC`) zonder compiler. Wat er gebeurt (engine: `parse_view_links`,
+`place_view_links` in `direct.cpp`; script: `view_links_plan`/`place_view_links` in `launch-direct.py`; het plan heeft
+`view_links` en `tests/direct_golden.py` vergelijkt ze):
+
+- de mappen op weg naar `A` worden eerst echte lokale mappen met symlinks (zoals bij een drop-in), dan wordt `A` de symlink;
+- een volgende start schrijft niets als de link al klopt (`viewlink: ... is al actueel`); een ontbrekend `B`, of een echt (lokaal)
+  bestand op de plaats van `A`, is een fout: dan start de game niet;
+- ligt de game niet in een view, dan weigert het plan met exitcode 5. Terug naar het origineel: de sleutel weghalen en in de view
+  `ln -sfn <gamemap>/A <view>/A`.
 
 **De invoertabel van de native route (`rt-invoer.ini`).** Een native Raw Thrills-spel leest zijn schakelaars, geweerknoppen en
 richtpunt uit zijn eigen bordstructuur, niet uit de invoerapparaten van het systeem. De invoerhulp (`librg_rt_input.so`,

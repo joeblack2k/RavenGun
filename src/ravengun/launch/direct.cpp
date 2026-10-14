@@ -1519,6 +1519,15 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         pl.stack_dest = game;
         pl.stack_src = islink(orig) ? realpath_(orig) : islink(game) ? realpath_(game) : game;
     }
+    // 6c. [Launch] ViewLinks: een bestand in de view wordt een symlink naar een ander bestand van dezelfde game (alleen in de view;
+    // Mario Kart DX: Polygon2D_D3D10.fx -> de meegeleverde voorgecompileerde Polygon2D_D3D10.cfx, NETWERK-INVOER-CAMERA.md 5d).
+    if (const std::string vl = trim(lini("ViewLinks")); !vl.empty()) {
+        std::string verr;
+        if (!parse_view_links(vl, dirname(game), pl.view_links, verr)) return setting_refused("[Launch] ViewLinks = " + vl + " (" + verr + ")");
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewLinks vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de links "
+                                   "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
+    }
 
     // 7. De JVS-brug en de procesnamen.
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
@@ -1605,6 +1614,34 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     }
     merge_env(pl, dr.env);
     return Verdict::Ok;
+}
+
+bool parse_view_links(const std::string& text, const std::string& base, std::vector<std::pair<std::string, std::string>>& out,
+                      std::string& err) {
+    out.clear();
+    for (const std::string& ruw : split(text, ',')) {
+        const std::string item = trim(ruw);
+        if (item.empty()) continue;
+        const size_t pijl = item.find("->");
+        if (pijl == std::string::npos || item.find("->", pijl + 2) != std::string::npos) {
+            err = "'" + item + "': verwacht <link> -> <doel>, meerdere gescheiden door komma's";
+            return false;
+        }
+        std::string rel[2] = {trim(item.substr(0, pijl)), trim(item.substr(pijl + 2))};
+        for (std::string& r : rel) {
+            std::replace(r.begin(), r.end(), '\\', '/');
+            const std::string n = normpath(r);
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || starts_with(n, "../")) {
+                err = "'" + r + "': een pad binnen de gamemap, relatief en zonder ..";
+                return false;
+            }
+            r = n;
+        }
+        if (rel[0] == rel[1]) { err = "'" + item + "': link en doel zijn hetzelfde"; return false; }
+        out.emplace_back(normpath(pjoin(base, rel[0])), normpath(pjoin(base, rel[1])));
+    }
+    if (out.empty()) { err = "geen link"; return false; }
+    return true;
 }
 
 bool needs_gst_fetch(const DirectPlan& pl) {
@@ -1723,6 +1760,39 @@ bool place_stack_copy(const DirectPlan& pl, const DirectPaths& p, std::vector<st
     return true;
 }
 
+// [Launch] ViewLinks (launch-direct.py place_view_links): de link in de view wordt een symlink naar het bestand waar het doel naar
+// wijst (realpath). De mappen op de weg worden eerst echte lokale mappen (zoals bij een drop-in); een echt bestand op de plaats van de
+// link blijft staan (dan niet starten). Op de NAS verandert niets: alleen een symlink in een lokale map wordt vervangen.
+bool place_view_links(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    for (const auto& [link, doel] : pl.view_links) {
+        auto fout = [&](const std::string& m) {
+            log.push_back("viewlink: FOUT: " + m + " -- de game wordt niet gestart");
+            err = "viewlink: " + m;
+            return false;
+        };
+        if (!isfile(doel)) return fout(doel + " bestaat niet of is geen bestand");
+        const std::string bron = realpath_(doel);
+        std::string waarom;
+        std::vector<std::string> lokaal;
+        if (!dropin_toets(pl.dropin_base, link, pl.dropin_root, waarom, lokaal)) return fout(link + ": " + waarom);
+        if (lokaal.empty() && islink(link)) {
+            std::error_code ec;
+            if (fs::read_symlink(link, ec).string() == bron && !ec) {
+                log.push_back("viewlink: " + link + " is al actueel (-> " + bron + ")");
+                continue;
+            }
+        }
+        if (lokaal.empty() && lexists(link) && !islink(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
+        std::string msg;
+        if (!dropin_materialiseer(pl.dropin_base, link, pl.dropin_root, log, msg)) return fout(msg);
+        if (on_nas(dirname(link), p)) return fout(dirname(link) + " ligt op de NAS; daar wordt nooit een link gezet");
+        if (lexists(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
+        if (::symlink(bron.c_str(), link.c_str()) != 0) return fout(link + ": " + std::strerror(errno));
+        log.push_back("viewlink: " + link + " -> " + bron + " (alleen in de view)");
+    }
+    return true;
+}
+
 }  // namespace
 
 bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
@@ -1778,6 +1848,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
         if (!write_atomic(path, text, werr)) { err = "bestand " + path + ": " + werr; return false; }
         log.push_back("bestand: " + path + " geschreven");
     }
+    if (!place_view_links(pl, p, log, err)) return false;
     return place_stack_copy(pl, p, log, err);
 }
 
@@ -1814,6 +1885,9 @@ std::string plan_to_json(const DirectPlan& pl) {
     map("launch_env", pl.launch_env);
     w.key("files").begin_array();
     for (const auto& [a, b] : pl.files) w.begin_array().value(a).value(b).end_array();
+    w.end_array();
+    w.key("view_links").begin_array();
+    for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     w.key("dropin_files").begin_array();
     for (const auto& f : pl.dropin_files) w.begin_object().key("src").value(f.src).key("dest").value(f.dest).key("name").value(f.name).end_object();
@@ -1871,6 +1945,9 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("files"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.files.emplace_back(e.arr[0].str, e.arr[1].str);
+    if (const auto* f = v.find("view_links"); f && f->is_array())
+        for (const auto& e : f->arr)
+            if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.view_links.emplace_back(e.arr[0].str, e.arr[1].str);
     if (const auto* f = v.find("dropin_files"); f && f->is_array())
         for (const auto& e : f->arr) {
             DropinFile d;
