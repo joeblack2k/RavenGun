@@ -2,5 +2,29 @@
 # are all 2026-10-13 (unpatched) and NONE 2026-10-14 (patched). The tail is tonight's patched run (jr2),
 # ending on the same four shader108 asserts the SUCCESSFUL attract run also has -- so those are not the blocker,
 # and the render blocker under the patch is NOT determined. See LEESMIJ.md.
---- all RIO Disconnected lines (note the dates):
---- tail of the log after the last (patched) run:
+
+--- all 'RIO Disconnected' / 'RIO_DISCONNECTED' lines (note the dates: all Oct 13, none Oct 14):
+21:Tue Oct 13 23:00:37 2026: RIO Disconnected
+754:Tue Oct 13 23:00:38 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+857:Tue Oct 13 23:03:18 2026: RIO Disconnected
+1590:Tue Oct 13 23:03:19 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+1611:Tue Oct 13 23:05:52 2026: RIO Disconnected
+1612:Tue Oct 13 23:05:53 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+1625:Tue Oct 13 23:08:14 2026: RIO Disconnected
+1626:Tue Oct 13 23:08:16 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+
+--- tail of the log after the last (patched) run jr2 (Oct 14 04:08):
+Wed Oct 14 03:53:01 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:08:35 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:08:35 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:08:35 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:08:35 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:08:35 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:08:35 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 04:08:35 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 04:08:35 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
