@@ -91,3 +91,33 @@ operator menu actually opening — is in hand** (`wSTEADY`); naming each button 
 
 Selected contact sheets + the two close-up frames are here. The full raw frame sets and run records are
 out of git under `~/.local/share/ravengun/bench-captures/NERF/inputs-map/` (`OPNAMES.txt` in the parent).
+
+## UPDATE 2 (same day) — the discriminator is answered, and what that does and does not settle
+
+**TEST is id 3, with its control.** Holding id 3 alone opens the operator MAIN MENU (`hold3-TEST-opens-menu.jpg`);
+holding each of the other twelve polled ids alone does not (`holdsingle-0-5-overview.jpg`,
+`holdsingle-6-17-overview.jpg`). That is the claim "the test menu opened", not just "the screen changed",
+and the footer text ("Select Item: Test, Trigger") agrees with it. Measured: the id-3 → menu link.
+Not measured: that id 3 is *physically* the cabinet's Test button (it is the id the game treats as Test).
+
+**Play or test — the one yes/no:** the TIME-counter round was reached **without** id 3 asserted. Run lGE5
+mashed {5,6,7,8,13,15,16,17} — no id 3 — and a round started (TIME 167→141 in `sheet-lGE5.jpg`).
+So the round state does **not** need TEST; it is not the operator path. That is the result the earlier
+"unresolved" section was waiting for, and it points to real play.
+What it does **not** show: *how* a real round is meant to be started. The mash that did it hit eight
+switches in rapid toggles; no single held id starts one. A single Start press probably has to be a
+**transition** (the function is a transition counter), which a steady level can't make — **that is a guess,
+not a measurement**, and it is the next test (one id at a time, one discrete press every few seconds).
+
+**Corrections to what I wrote above:** the mash "game-start" is *not* a toggle-noise artifact of the test
+path, as I suggested in the first UPDATE — it is real play reached through a path that doesn't need TEST.
+The first UPDATE's reading of the steady/held model was right about the menu and over-reached about the
+round.
+
+**Open and not interpreted:** ids 7 and 8 each bring up the scrolling Credits roll (`sheet-h7-credits.jpg`,
+`sheet-h8-credits.jpg`). I did not look at every other frame for Credits, so "only these" is not established.
+Same reaction on two ids — not a distinct map entry yet.
+
+**Still not touched:** the gun. `RIO_ADC_Val` (0xa6d0) reads a 4-byte value per channel from the same
+957-byte report buffer as the switches; which channels are aim X/Y is unmeasured.
+

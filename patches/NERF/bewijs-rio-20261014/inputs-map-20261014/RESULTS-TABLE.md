@@ -51,3 +51,24 @@ of these are in range.
   ({0–4} and/or {15–17}), **not** the middle {6,7,8} ({5,6,7,8,13} and the {5,x,13} triples do not start).
 * **The boundary is non-monotone in the awkward way:** `{5,6,7,8,13}` does not start even though it is a
   subset of two sets that do (lLE13 and lGE5). So there is **no small minimal start-set** to name.
+
+## Second series — a steady HELD level instead of the rdtsc mash (same day, later)
+
+The mash above toggles every frame; a real button is a held level. These runs feed `RIO_SW_Count` a
+steady `1` (never changing) for the named id(s), real body for every other id. Read by what the screen
+shows. All runs: `librio.so` mapped, 70 s, captures every 6 s.
+
+| run | held | what the screen did | sheet |
+|---|---|---|---|
+| gvONES / gvZEROS | `RIO_GetValue` forced 0xffffffff / 0 (switches untouched) | nothing (not the test path) | — |
+| wSTEADY | **every** id | **operator MAIN MENU opens and stays** | `sheet-wSTEADY-steady-opens-menu.jpg` |
+| h3 | id 3 only | **operator MAIN MENU opens** | `hold3-TEST-opens-menu.jpg`, `holdsingle-0-5-overview.jpg` |
+| h0, h1, h2, h4, h5 | one id each | nothing (normal attract) | `holdsingle-0-5-overview.jpg` |
+| h6, h13, h15, h16, h17 | one id each | nothing (normal attract) | `holdsingle-6-17-overview.jpg` |
+| h7 | id 7 only | attract loop shows a scrolling **Credits** roll instead of the Hasbro bumper / Nerf Masters page | `sheet-h7-credits.jpg` |
+| h8 | id 8 only | same Credits roll as h7 | `sheet-h8-credits.jpg` |
+
+* **id 3 is the only single held id that opens the operator menu** — the other 12 are the controls.
+* **No single held id starts a round.** Start is not a held level on any one of these ids.
+* ids 7 and 8 give the **same** reaction (Credits). That breaks the "neighbouring ids do something
+  different" expectation, so they are not yet a map entry: not shown to be two different buttons.
