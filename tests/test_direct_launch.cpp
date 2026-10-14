@@ -375,6 +375,60 @@ int main() {
         write(vexe, oud);
     }
 
+    // [Launch] ViewLinks: een bestand in de view wordt een symlink naar een ander bestand van de game; de mappen op de weg worden lokaal
+    // en de NAS blijft gelijk (Mario Kart DX: Polygon2D_D3D10.fx -> Polygon2D_D3D10.cfx).
+    {
+        const fs::path nas_data = home / "mnt/nas/spel/Data";
+        write(nas_data / "Shader/a.fx", "bron");
+        write(nas_data / "Shader/a.cfx", "DXBC-voorgecompileerd");
+        write(nas_data / "Shader/b.cfx", "ander");
+        const fs::path vdata = view / "bin/Data";
+        fs::create_symlink(nas_data, vdata);
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Launch]\nViewLinks = Data/Shader/a.fx -> Data/Shader/a.cfx\n");
+        DirectPlan vp;
+        std::string w;
+        Verdict vv = plan_direct("Spel", p, o, vp, w);
+        CHECK(vv == Verdict::Ok);
+        if (vv != Verdict::Ok) std::fprintf(stderr, "viewlinkplan: %s\n", w.c_str());
+        const fs::path link = vdata / "Shader/a.fx";
+        CHECK(vp.view_links.size() == 1 && vp.view_links[0].first == link.string() && vp.view_links[0].second == (vdata / "Shader/a.cfx").string());
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(vp), back, err) && back.view_links == vp.view_links);
+        }
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(vp, p, log, err));
+        CHECK(!fs::is_symlink(vdata) && !fs::is_symlink(vdata / "Shader") && fs::is_symlink(link));
+        CHECK(fs::read_symlink(link) == fs::canonical(nas_data / "Shader/a.cfx") && slurp(link) == "DXBC-voorgecompileerd");
+        CHECK(slurp(nas_data / "Shader/a.fx") == "bron" && fs::is_symlink(vdata / "Shader/b.cfx"));
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "viewlink: ") && contains(l, "alleen in de view"); }));
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err) && std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "is al actueel (->"); }));
+        // Een ander doel: de link wordt omgezet.
+        write(ugi, "[Launch]\nViewLinks = Data/Shader/a.fx -> Data/Shader/b.cfx\n");
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok);
+        CHECK(apply_direct(vp, p, log, err) && slurp(link) == "ander");
+        // Een doel dat er niet is: niet starten.
+        write(ugi, "[Launch]\nViewLinks = Data/Shader/a.fx -> Data/Shader/weg.cfx\n");
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok);
+        CHECK(!apply_direct(vp, p, log, err) && contains(err, "bestaat niet"));
+        // Weigeren: buiten de gamemap, geen pijl, link gelijk aan doel.
+        for (const char* fout : {"../x -> a", "/abs -> a", "a.fx", "a -> ./a", "a -> b -> c"}) {
+            write(ugi, std::string("[Launch]\nViewLinks = ") + fout + "\n");
+            CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "ViewLinks"));
+        }
+        std::vector<std::pair<std::string, std::string>> twee;
+        std::string perr;
+        CHECK(parse_view_links("x\\y.fx -> y.cfx, , a -> b", "/v", twee, perr) && twee.size() == 2 && twee[0].first == "/v/x/y.fx" &&
+              twee[1].second == "/v/b");
+        fs::remove(ugi);
+        fs::remove_all(vdata);
+        fs::remove_all(nas_data);
+    }
+
     // De invoer: evdev met een indeling wordt tp-shm; zonder indeling via het script.
     DirectInput in;
     CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm" && !in.note.empty());

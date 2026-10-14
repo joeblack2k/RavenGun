@@ -75,6 +75,9 @@ struct DirectPlan {
     // is, anders waar de koppeling van de view naar wijst, anders de exe zelf.
     long long stack_reserve = 0;
     std::string stack_src, stack_dest;
+    // [Launch] ViewLinks: per paar (link, doel), beide absolute paden in de view. apply_direct() maakt van de link een symlink naar
+    // het bestand waar het doel naar wijst (realpath, meestal op de NAS); de mappen op de weg worden eerst lokaal. Alleen de view.
+    std::vector<std::pair<std::string, std::string>> view_links;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct
@@ -105,7 +108,12 @@ struct DirectOptions {
 // Het plan. Ok: `out` is volledig. Fallback/Refused: `why` zegt waarom (Nederlands, de melding van launch-direct.py waar die er is).
 Verdict plan_direct(const std::string& profile, const DirectPaths& p, const DirectOptions& o, DirectPlan& out, std::string& why);
 
-// De drop-ins, de gegenereerde bestanden en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
+// [Launch] ViewLinks = "<link> -> <doel>[, ...]": paden ten opzichte van `base` (de map van de exe), relatief en zonder "..".
+// out krijgt per paar de absolute paden. false + err (Nederlands) bij een onleesbare waarde.
+bool parse_view_links(const std::string& text, const std::string& base, std::vector<std::pair<std::string, std::string>>& out,
+                      std::string& err);
+
+// De drop-ins, de gegenereerde bestanden, de links van [Launch] ViewLinks en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
 // launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.
 // false + err = de game hoort niet te starten. `log` krijgt een regel per stap.
 bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err);

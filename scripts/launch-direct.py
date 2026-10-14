@@ -491,6 +491,86 @@ def stack_plan(launch_ini, game):
     return {"reserve": n, "src": src, "dest": game}
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# [Launch] ViewLinks = "<link> -> <doel>[, ...]": een bestand in de view wordt een symlink naar een ander bestand van
+# dezelfde game (parse_view_links/place_view_links in src/ravengun/launch/direct.cpp). Alleen in de view, nooit op de NAS.
+# Mario Kart DX laadt Polygon2D_D3D10.fx als HLSL-bron (fx_4_0) en dat compileert Wine niet; de game levert dezelfde
+# effectfile voorgecompileerd mee (.cfx), en die neemt d3dx10 van Wine zonder compiler (NETWERK-INVOER-CAMERA.md, 5d).
+
+def parse_view_links(text, base):
+    """[(link, doel)] als absolute paden onder `base` (de map van de exe); ValueError met de melding bij een fout."""
+    uit = []
+    for ruw in text.split(","):
+        item = ruw.strip()
+        if not item:
+            continue
+        pijl = item.find("->")
+        if pijl < 0 or item.find("->", pijl + 2) >= 0:
+            raise ValueError("'%s': verwacht <link> -> <doel>, meerdere gescheiden door komma's" % item)
+        rel = []
+        for r in (item[:pijl].strip(), item[pijl + 2:].strip()):
+            r = r.replace("\\", "/")
+            n = os.path.normpath(r) if r else "."
+            if not r or r.startswith("/") or n in (".", "..") or n.startswith("../"):
+                raise ValueError("'%s': een pad binnen de gamemap, relatief en zonder .." % r)
+            rel.append(n)
+        if rel[0] == rel[1]:
+            raise ValueError("'%s': link en doel zijn hetzelfde" % item)
+        uit.append([os.path.normpath(os.path.join(base, rel[0])), os.path.normpath(os.path.join(base, rel[1]))])
+    if not uit:
+        raise ValueError("geen link")
+    return uit
+
+
+def view_links_plan(launch_ini, game):
+    """[Launch] ViewLinks -> [[link, doel], ...] (leeg = niets). Weigert (SettingRefused) een onleesbare waarde en een
+    game buiten een view."""
+    ruw = (launch_ini.get("ViewLinks", "") or "").strip()
+    if not ruw:
+        return []
+    try:
+        links = parse_view_links(ruw, os.path.dirname(game))
+    except ValueError as e:
+        raise SettingRefused("[Launch] ViewLinks = %s (%s)" % (ruw, e))
+    if not _binnen(os.path.abspath(game), os.path.abspath(op.views_dir())) or on_nas(os.path.dirname(game)):
+        raise SettingRefused("[Launch] ViewLinks vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de links "
+                             "komen alleen in de view, nooit op de NAS; %s ligt daar niet" % game)
+    return links
+
+
+def place_view_links(links, base, wortel, log):
+    """De link in de view wordt een symlink naar realpath(doel); de mappen op de weg worden eerst lokaal (zoals bij een
+    drop-in). Een echt bestand op de plaats van de link blijft staan. False = niet starten."""
+    for link, doel in links or []:
+        def fout(m):
+            log("viewlink: FOUT: %s -- de game wordt niet gestart" % m)
+            return False
+        if not os.path.isfile(doel):
+            return fout("%s bestaat niet of is geen bestand" % doel)
+        bron = os.path.realpath(doel)
+        ok, waarom, lokaal = dropin_toets(base, link, wortel)
+        if not ok:
+            return fout("%s: %s" % (link, waarom))
+        if not lokaal and os.path.islink(link) and os.readlink(link) == bron:
+            log("viewlink: %s is al actueel (-> %s)" % (link, bron))
+            continue
+        if not lokaal and os.path.lexists(link) and not os.path.islink(link):
+            return fout("%s is een echt bestand in de view; niet vervangen" % link)
+        ok, msg = dropin_materialiseer(base, link, log, wortel)
+        if not ok:
+            return fout(msg)
+        if on_nas(os.path.dirname(link)):
+            return fout("%s ligt op de NAS; daar wordt nooit een link gezet" % os.path.dirname(link))
+        if os.path.lexists(link):
+            return fout("%s is een echt bestand in de view; niet vervangen" % link)
+        try:
+            os.symlink(bron, link)
+        except OSError as e:
+            return fout("%s: %s" % (link, e.strerror))
+        log("viewlink: %s -> %s (alleen in de view)" % (link, bron))
+    return True
+
+
 def place_stack_copy(stack, log):
     """De exe in de view wordt een lokale kopie van het origineel met de grotere stapel (zie stack_plan). False = niet starten."""
     if not stack:
@@ -2079,6 +2159,8 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         files.append((os.path.join(os.path.dirname(second["path"]), "teknoparrot.ini"), files[0][1]))
     # [Launch] StackReserve: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread (run()).
     stack = stack_plan(launch_ini, game)
+    # [Launch] ViewLinks: een bestand in de view wordt een symlink naar een ander bestand van de game (run()).
+    view_links = view_links_plan(launch_ini, game)
 
     pipe_mode = "pipe" if emu not in NO_JVS_PIPE else "shm"
     src = shm_source or SHM_PATH
@@ -2116,7 +2198,7 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         "gamescope": bool(gamescope), "launch_env": launch, "profile_env": prof_env, "env": env, "patches": patch_report,
         "settings_sources": settings.sources, "profile_source": "game.ini" if own else "UserProfiles/%s.xml" % name,
         "game_source": p.get("_game_source", "xml"),
-        "files": files, "stack": stack,
+        "files": files, "stack": stack, "view_links": view_links,
         "pipe_mode": pipe_mode, "shm_source": src, "pipehelper": helper, "game_comms": sorted(comms),
         "control_pipe": control,
         "log_full": log_full, "windowed_override": windowed_override,
@@ -2654,7 +2736,9 @@ def _run(plan):
     for path, text in plan["files"]:
         st, why = place_file(path, text)
         log("bestand: " + why)
-    # 1a. [Launch] StackReserve: de exe met de grotere stapel in de view (nooit op de NAS).
+    # 1a. [Launch] ViewLinks en StackReserve: alleen in de view (nooit op de NAS).
+    if not place_view_links(plan.get("view_links"), plan["dropins"]["base"], plan["dropins"].get("root"), log):
+        return EXIT_PATCH
     if not place_stack_copy(plan.get("stack"), log):
         return EXIT_PATCH
     # 1b. Extra GStreamer-plug-ins (wmv-films, Luigi's Mansion): ontbreken ze, dan eenmalig ophalen (fetch-gst-wmv.sh).

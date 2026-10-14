@@ -95,6 +95,7 @@ def python_side(profiles, tp, make_view=False):
                     "starts": [starts_view(s) for s in plan["starts"]],
                     "control_pipe": plan["control_pipe"],
                     "stack": plan.get("stack"),
+                    "view_links": [list(x) for x in plan.get("view_links") or []],
                 })
         out[name] = r
     print(json.dumps(out))
@@ -130,6 +131,7 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
             "control_pipe": {"profile": p["control_pipe"], "pipe": p["control_pipe_name"], "source": p["control_source"],
                              "size": p["control_size"], "interval_ms": p["control_interval_ms"]} if p.get("control_pipe") else None,
             "stack": {"reserve": p["stack_reserve"], "src": p["stack_src"], "dest": p["stack_dest"]} if p.get("stack_reserve") else None,
+            "view_links": p.get("view_links", []),
         })
     return out
 
