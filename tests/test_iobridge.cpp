@@ -10,7 +10,6 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -667,34 +666,28 @@ void test_service(const std::string& dir) {
         sh.iobridge = nullptr;
     }
     {
-        // Route hid-board: een nep-apparaat vangt de beelden op (geen /dev/uinput nodig).
+        // Route hid-board: een nep-apparaat vangt de beelden op (geen /dev/uinput nodig). Transformers kan meer dan een bord hebben
+        // (Boards = SaeGunBoard, SaeIoBoard in game.ini): de beelden van het geweerbord tellen hieronder.
         struct Rec {
             std::mutex m;
             std::vector<HidBoardFrame> frames;
             bool created = false, destroyed = false;
         };
         struct FakeBoard : HidBoardDevice {
-            explicit FakeBoard(std::shared_ptr<Rec> r) : rec(std::move(r)) {}
+            explicit FakeBoard(std::shared_ptr<Rec> r, bool gun) : rec(std::move(r)), gun(gun) {}
             bool create(const HidBoard&, std::string&) override { std::lock_guard<std::mutex> l(rec->m); rec->created = true; return true; }
-            bool send(const HidBoardFrame& f) override { std::lock_guard<std::mutex> l(rec->m); rec->frames.push_back(f); return true; }
+            bool send(const HidBoardFrame& f) override { std::lock_guard<std::mutex> l(rec->m); if (gun) rec->frames.push_back(f); return true; }
             void destroy() override { std::lock_guard<std::mutex> l(rec->m); rec->created = false; rec->destroyed = true; }
             bool created() const override { std::lock_guard<std::mutex> l(rec->m); return rec->created; }
             std::shared_ptr<Rec> rec;
+            bool gun;
         };
-        // Per bord een eigen opname: Transformers kan in de meegeleverde game.ini meer borden hebben (Boards = SaeGunBoard, SaeIoBoard);
-        // de beelden van het geweerbord mogen niet met die van een ander bord door elkaar lopen.
-        auto recs = std::make_shared<std::map<std::string, std::shared_ptr<Rec>>>();
         auto rec = std::make_shared<Rec>();
-        (*recs)["SaeGunBoard"] = rec;
         IoBridgeService::Config c3 = cfg;
         std::string e3;
         c3.boards = parse_hid_boards(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/hid-boards.json"), e3);
         CHECK(e3.empty() && c3.boards.find("SaeGunBoard"));
-        c3.board_device = [recs](const HidBoard& b) {
-            auto& r = (*recs)[b.name.find("Gun") != std::string::npos ? std::string("SaeGunBoard") : b.name];
-            if (!r) r = std::make_shared<Rec>();
-            return std::make_unique<FakeBoard>(r);
-        };
+        c3.board_device = [rec](const HidBoard& b) { return std::make_unique<FakeBoard>(rec, b.name == "SaeGunBoard"); };
         IoBridgeService br3(sh, c3);
         sh.iobridge = &br3;
         CHECK(br3.start("TransformersShadowsRising").empty());
@@ -710,19 +703,16 @@ void test_service(const std::string& dir) {
         CHECK(out.button(output::GunButton::Trigger, "down").ok);
         CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 557 && f.axis[1] == -217 && (f.buttons & (1u << 2)); }));   // X = p1.y, Y = p1.x, uitvoerbereik -217..557
         auto js3 = json::parse(br3.status_json());
-        // Eén bord: detail is dat bord; meer borden: detail.boards[] met per bord dezelfde vorm.
-        const json::Value* gun = nullptr;
-        if (js3.ok && js3.value.find("detail")) {
-            const json::Value* d = js3.value.find("detail");
-            if (const json::Value* bs = d->find("boards"); bs && bs->is_array()) {
-                for (const auto& b : bs->arr)
-                    if (const json::Value* n = b.find("board"); n && n->str == "SaeGunBoard") gun = &b;
-            } else if (const json::Value* n = d->find("board"); n && n->str == "SaeGunBoard") {
-                gun = d;
-            }
+        CHECK(js3.ok && js3.value.find("route")->str == "hid-board");
+        {
+            // Eén bord: het bord zelf; meer borden: "boards" met het geweerbord erin.
+            const json::Value* det = js3.ok ? js3.value.find("detail") : nullptr;
+            const json::Value* gun = det;
+            if (det && det->find("boards"))
+                for (const auto& b : det->find("boards")->arr)
+                    if (b.find("board") && b.find("board")->str == "SaeGunBoard") gun = &b;
+            CHECK(gun && gun->find("board") && gun->find("board")->str == "SaeGunBoard" && gun->find("created") && gun->find("created")->b);
         }
-        CHECK(js3.ok && js3.value.find("route") && js3.value.find("route")->str == "hid-board" && gun);
-        CHECK(gun && gun->find("created") && gun->find("created")->b);
         out.disarm();   // neutraal: as in het midden van het uitvoerbereik, geen knoppen
         CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 170 && f.axis[1] == 170 && f.buttons == 0; }));
         br3.stop();
@@ -778,12 +768,22 @@ void test_service(const std::string& dir) {
         CHECK(js4.ok && js4.value.find("route")->str == "jvs" && js4.value.find("dialect")->str == "jvs");
         const json::Value* det = js4.value.find("detail");
         CHECK(det && det->find("addressed")->b && det->find("switch_polls")->num >= 1 && det->find("analog_polls")->num >= 1);
+        // Layout = LGS in [Input]: de daemon schrijft ook het gedeelde geheugen (het stuur op offset 12, p1.wheel = aim-x zonder
+        // gamepad). Gemeten: de game vraagt nooit 0x22, het stuur komt alleen hieruit.
+        auto shm_byte = [&](size_t i) {
+            std::ifstream f(c4.shm_path, std::ios::binary);
+            std::string b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            return b.size() > i ? static_cast<uint8_t>(b[i]) : 0;
+        };
+        CHECK(wait_for([&] { return shm_byte(12) == 255; }));
+        CHECK(det && det->find("shm") && det->find("shm")->find("layout")->str == "LGS");
         out.disarm();   // neutraal: stuur in het midden, geen knoppen
+        CHECK(wait_for([&] { return shm_byte(12) == 128; }));
         CHECK(wait_for([&] { auto r = ask({0x22, 0x01}, 8); return r.size() == 8 && r[5] == 0x80 && r[6] == 0x00; }));
         CHECK(wait_for([&] { auto r = ask({0x20, 0x01, 0x03}, 10); return r.size() == 10 && r[7] == 0; }));
         if (fd >= 0) ::close(fd);
         br4.stop();
-        CHECK(!br4.active() && !fs::exists(c4.jvs_link) && !fs::exists(c4.jvs_modem_file));
+        CHECK(!br4.active() && !fs::exists(c4.jvs_link) && !fs::exists(c4.jvs_modem_file) && !fs::exists(c4.shm_path));
         CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // geen [Input] in game.ini: nette fout
         sh.iobridge = nullptr;
     }

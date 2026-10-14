@@ -110,6 +110,19 @@ int main() {
     CHECK(wine_path("/a/b c") == "Z:\\a\\b c");
     CHECK(new_uuid4().size() == 36 && new_uuid4()[14] == '4');
 
+    // --- welke routes het gedeelde geheugen van de daemon laten spiegelen (play-halo.sh --shm-source) ---------------------------
+    {
+        DirectInput in;
+        in.route = "tp-shm";
+        CHECK(in.writes_tp_shm());
+        in.route = "jvs";
+        CHECK(!in.writes_tp_shm());
+        in.layout = "LGS";   // Let's Go Safari: het stuur komt alleen uit het gedeelde geheugen
+        CHECK(in.writes_tp_shm());
+        in.route = "hid-board";
+        CHECK(!in.writes_tp_shm());
+    }
+
     // --- joystick-ids (wine-joyid.sh) --------------------------------------------------------------------------------------------
     const std::string reg =
         "HKEY_CURRENT_USER\\System\\CurrentControlSet\\Control\\MediaProperties\\PrivateProperties\\DirectInput\\VID_054C&PID_03D5\\Calibration\\0\r\n"

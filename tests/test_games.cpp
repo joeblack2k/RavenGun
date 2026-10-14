@@ -749,7 +749,8 @@ static void test_direct_service(const std::string& d) {
         CHECK(calls.size() == 2 && calls[1].back() == "ravengun-tpui.service" && events.back() == "stop_inputs");
     }
     // jvs over de pipe: zonder pty-koppeling van de daemon stopt de start (en de invoer gaat weer dicht); met koppeling RG_JVS_PTY.
-    write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\nJvsTransport = pipe\n");
+    // "Layout =" haalt de meegeleverde tp-shm-indeling weg (zoals Let's Go Island: alleen het JVS-bord).
+    write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\nJvsTransport = pipe\nLayout =\n");
     { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
     CHECK(svc.start("Dir").ok);
     for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
@@ -771,6 +772,27 @@ static void test_direct_service(const std::string& d) {
             ravengun::launch::DirectPlan pl;
             std::string err;
             CHECK(ravengun::launch::plan_from_json(text, pl, err) && pl.env.at("RG_JVS_PTY") == c.jvs_link && pl.shm_source == "/dev/shm/TeknoParrot_JvsState");
+        }
+    }
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
+    // jvs met een Layout (Let's Go Safari: het stuur staat alleen in het gedeelde geheugen): de daemon schrijft ook de tp-shm-indeling,
+    // dus de spiegel van rg-direct leest het bestand van de daemon.
+    write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\nJvsTransport = pipe\n");
+    { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+    CHECK(svc.start("Dir").ok);
+    for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(state_of(svc, &msg) != "failed");
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 1 && std::find(events.begin(), events.end(), "route Dir jvs") != events.end());
+        if (!calls.empty()) {
+            std::ifstream f(calls[0].back());
+            std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            ravengun::launch::DirectPlan pl;
+            std::string err;
+            CHECK(ravengun::launch::plan_from_json(text, pl, err) && pl.env.at("RG_JVS_PTY") == c.jvs_link && pl.shm_source == "/dev/shm/ravengun_JvsState");
         }
     }
     CHECK(svc.stop().ok);

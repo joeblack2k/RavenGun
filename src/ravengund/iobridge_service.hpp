@@ -99,6 +99,7 @@ private:
     std::condition_variable cv_;
     std::unique_ptr<ravengun::iobridge::IoDialect> dialect_;
     std::string game_, route_;
+    bool shm_ = false;                                  // route jvs schrijft ook een tp-shm-indeling (Layout in [Input])
     std::vector<int> coin_codes_;                       // evdev-codes van coin_keys van de actieve game
     std::array<bool, ravengun::iobridge::kIoPlayers> coin_prev_{};
     bool quit_ = false;

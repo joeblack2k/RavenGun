@@ -497,7 +497,7 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
     L::DirectOptions o;
     o.base_env = c.session_env ? c.session_env() : direct_session_env(c.proc_root);
     if (in.route == "jvs") o.base_env["RG_JVS_PTY"] = c.jvs_link;
-    if (in.route == "tp-shm") o.shm_source = ravengun::iobridge::kDefaultTpShmPath;
+    if (in.writes_tp_shm()) o.shm_source = ravengun::iobridge::kDefaultTpShmPath;
     L::DirectPlan pl;
     v = L::plan_direct(profile, c.direct, o, pl, why);
     if (v == L::Verdict::Ok && L::needs_gst_fetch(pl)) {
@@ -773,6 +773,11 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
             return fail("De daemon maakte geen pty-symlink (" + c_.jvs_link + ").");
         base["RG_JVS_PTY"] = c_.jvs_link;
         prep.push_back("Invoerroute: jvs over de JVS-pipe (de daemon is het JVS-bord achter TeknoParrot_JVS).");
+        if (in.writes_tp_shm()) {
+            // Layout in [Input]: de daemon schrijft ook de tp-shm-indeling; de pipehelper spiegelt dat bestand naar de game.
+            shm = ravengun::iobridge::kDefaultTpShmPath;
+            prep.push_back("Plus tp-shm-indeling " + in.layout + " (de daemon schrijft het gedeelde geheugen, bv. het stuur).");
+        }
     }
     if (cancel_.load()) return fail("de start is afgebroken");
     // 3. Het plan (opnieuw, nu met de omgeving van de route), de drop-ins en teknoparrot.ini in de view.

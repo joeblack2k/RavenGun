@@ -110,6 +110,10 @@ struct DirectInput {
     std::string route;          // tp-shm | hid-board | jvs (na de regel "evdev met een indeling wordt tp-shm")
     std::string layout, board, transport, com_port;
     std::string note;           // "Directe start: invoer via tp-shm ..." als evdev is omgezet
+    // Schrijft de daemon op deze route het gedeelde geheugen (/dev/shm/ravengun_JvsState), zodat de pipehelper dat bestand naar de
+    // game spiegelt? tp-shm altijd; jvs als [Input] ook een Layout heeft (Let's Go Safari: het stuur komt alleen uit het gedeelde
+    // geheugen, de game vraagt nooit JVS 0x22). Zelfde regel als play-halo.sh (--shm-source).
+    bool writes_tp_shm() const { return route == "tp-shm" || (route == "jvs" && !layout.empty()); }
 };
 // [Input] van de game, gecontroleerd zoals gamesettings.resolve_input (klopt de gebruikerslaag niet, dan de meegeleverde, anders evdev).
 // Fallback: een route die de engine niet zelf voorbereidt (evdev zonder indeling, unity-tcp, jvs over een COM-poort).

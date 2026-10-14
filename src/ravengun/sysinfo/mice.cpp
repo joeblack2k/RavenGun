@@ -64,6 +64,24 @@ std::string find_handler(const std::vector<std::string>& hs, std::string_view pr
     return {};
 }
 
+// "1f 0 ffff00000000" -> woorden met het laagste woord eerst; leeg bij iets wat geen hex is.
+std::vector<unsigned long long> bitmap_words(std::string_view value) {
+    std::vector<unsigned long long> out;
+    auto words = split_ws(value);
+    for (auto it = words.rbegin(); it != words.rend(); ++it) {
+        if (it->size() > 16) return {};
+        for (char c : *it) if (!std::isxdigit(static_cast<unsigned char>(c))) return {};
+        out.push_back(std::strtoull(it->c_str(), nullptr, 16));
+    }
+    return out;
+}
+
+bool bit_set(const std::vector<unsigned long long>& w, int code) {
+    if (code < 0) return false;
+    const size_t i = static_cast<size_t>(code) / 64;
+    return i < w.size() && ((w[i] >> (static_cast<unsigned>(code) % 64)) & 1ULL) != 0;
+}
+
 void finish_block(InputDevice& d, bool& any, std::vector<InputDevice>& out) {
     if (any) out.push_back(std::move(d));
     d = InputDevice{};
@@ -71,6 +89,9 @@ void finish_block(InputDevice& d, bool& any, std::vector<InputDevice>& out) {
 }
 
 }  // namespace
+
+bool InputDevice::has_key(int code) const { return bit_set(key_bits, code); }
+bool InputDevice::has_abs(int code) const { return bit_set(abs_bits, code); }
 
 std::string InputDevice::event_handler() const { return find_handler(handlers, "event"); }
 std::string InputDevice::mouse_handler() const { return find_handler(handlers, "mouse"); }
@@ -109,12 +130,16 @@ std::vector<InputDevice> parse_input_devices(std::string_view text) {
             case 'P':
                 if (rest.rfind("Phys=", 0) == 0) cur.phys = std::string(rest.substr(5));
                 break;
+            case 'U':
+                if (rest.rfind("Uniq=", 0) == 0) cur.uniq = std::string(rest.substr(5));
+                break;
             case 'H':
                 if (rest.rfind("Handlers=", 0) == 0) cur.handlers = split_ws(rest.substr(9));
                 break;
             case 'B':
                 if (rest.rfind("REL=", 0) == 0) { cur.has_rel_bitmap = true; cur.has_rel_xy = xy_bits(rest.substr(4)); }
-                else if (rest.rfind("ABS=", 0) == 0) { cur.has_abs_bitmap = true; cur.has_abs_xy = xy_bits(rest.substr(4)); }
+                else if (rest.rfind("ABS=", 0) == 0) { cur.has_abs_bitmap = true; cur.has_abs_xy = xy_bits(rest.substr(4)); cur.abs_bits = bitmap_words(rest.substr(4)); }
+                else if (rest.rfind("KEY=", 0) == 0) cur.key_bits = bitmap_words(rest.substr(4));
                 break;
             default: break;
         }
@@ -133,7 +158,7 @@ bool mouse_id_valid(std::string_view id) {
     return true;
 }
 
-std::vector<Mouse> list_mice(std::string_view proc_text, const std::string& byid_dir) {
+std::map<std::string, std::vector<std::string>> byid_links(const std::string& byid_dir) {
     // eventN -> namen van by-id-symlinks die ernaar wijzen (alfabetisch, dus deterministisch).
     std::map<std::string, std::vector<std::string>> byid;
     std::error_code ec;
@@ -147,8 +172,13 @@ std::vector<Mouse> list_mice(std::string_view proc_text, const std::string& byid
         const std::string name = it->path().filename().string();
         if (mouse_id_valid(name)) byid[ev].push_back(name);
     }
+    for (auto& kv : byid) std::sort(kv.second.begin(), kv.second.end());
+    return byid;
+}
+
+std::vector<Mouse> list_mice(std::string_view proc_text, const std::string& byid_dir) {
+    std::map<std::string, std::vector<std::string>> byid = byid_links(byid_dir);
     for (auto& kv : byid) {
-        std::sort(kv.second.begin(), kv.second.end());
         // Liefst de naam die op een muis wijst ("...-event-mouse").
         std::stable_partition(kv.second.begin(), kv.second.end(), [](const std::string& n) {
             return n.size() >= 12 && n.compare(n.size() - 12, 12, "-event-mouse") == 0;

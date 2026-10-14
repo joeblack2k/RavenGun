@@ -17,6 +17,7 @@
 #include "ravengun/parse.hpp"               // redact_mac
 #include "ravengun/json.hpp"
 #include "ravengun/output/key_table.hpp"
+#include "ravengun/sysinfo/mice.hpp"   // mouse_id_valid (ook voor gamepad-ids)
 
 namespace ravengun::config {
 
@@ -497,6 +498,10 @@ std::string validate(const Settings& s) {
         std::string m = check_gun_action(kv.second, canon);
         if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;
     }
+    for (int i = 0; i < kMaxPlayers; ++i) {
+        const std::string& g = s.gamepads[static_cast<size_t>(i)];
+        if (!g.empty() && !sysinfo::mouse_id_valid(g)) return "gamepads." + std::to_string(i + 1) + " is geen geldig gamepad-id";
+    }
     return validate_controllers(s);
 }
 
@@ -638,6 +643,9 @@ std::string to_json(const Settings& s, bool pretty, bool redact) {
         }
         w.end_object();
     }) + "," + nl;
+    out += section("gamepads", [&](json::Writer& w) {
+        for (int i = 0; i < kMaxPlayers; ++i) w.key(std::to_string(i + 1)).value(s.gamepads[static_cast<size_t>(i)]);
+    }) + "," + nl;
     // Controllers: een regel per controller (leesbaar en met de hand te herstellen).
     out += std::string(ind) + "\"controllers\":" + (pretty ? " " : "") + "{";
     bool first = true;
@@ -700,7 +708,7 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
     }
     if (warnings) {
         for (const auto& kv : root.obj) {
-            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons", "rumble", "controllers"};
+            static const char* known[] = {"schema", "led", "tracker", "camera", "filter", "aim", "output", "web", "sharp_shooter", "fusion", "gun_buttons", "rumble", "controllers", "gamepads"};
             bool k = false;
             for (const char* n : known) if (kv.first == n) k = true;
             if (!k) warnings->push_back("onbekende sleutel '" + kv.first + "' genegeerd");
@@ -822,6 +830,16 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
                     if (!kv.second.is_string() || kv.second.str.size() > 32) { c.fail("gun_buttons.map." + kv.first + " moet een korte tekst zijn"); break; }
                     s.gun_buttons.map[kv.first] = kv.second.str;  // validate() controleert knop en actie
                 }
+        }
+    }
+    if (const json::Value* o = sec("gamepads")) {
+        Section c{*o, "gamepads", e, warnings};
+        c.unknown({"1", "2", "3", "4"});
+        for (int i = 0; i < kMaxPlayers && e.empty(); ++i) {
+            const json::Value* v = o->find(std::to_string(i + 1));
+            if (!v) continue;
+            if (!v->is_string() || v->str.size() > sysinfo::kMouseIdMax) { c.fail("gamepads." + std::to_string(i + 1) + " moet een gamepad-id zijn"); break; }
+            s.gamepads[static_cast<size_t>(i)] = v->str;   // validate() controleert de tekens
         }
     }
     if (const json::Value* cs = sec("controllers"); cs && e.empty()) {

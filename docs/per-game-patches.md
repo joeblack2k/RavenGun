@@ -194,6 +194,13 @@ JvsIdent =                    ; RG_JVS_IDENT (proef)
 JvsFeatures =                 ; RG_JVS_FEATURES (proef)
 Note =                        ; toelichting bij de route
 
+[Gamepad]
+; optioneel: gamepad naast de lightgun (docs/gamepad.md); per sleutel over de standaardindeling heen, none haalt weg
+LeftX = wheel                 ; stuur (zonder gamepad stuurt de aim-x)
+RT = gas
+LT = brake
+LB = btn1                     ; extra kastknop (pN.btn1 in de IO-brug)
+
 [Dongle]
 Enabled = false               ; true = de echte, fysieke dongle van de eigenaar gebruiken (USB pass-through); standaard false (zie "Dongle per game")
 Source = usb-passthrough      ; enige waarde nu; de lijst is uitbreidbaar. Leeg = usb-passthrough
@@ -231,6 +238,16 @@ de lader (`OpenParrotLoader(64).exe`) en kern uit de TeknoParrot-runtime; met `B
 (`scripts/build-openparrot.sh`, `third_party/openparrot/README.md`). De Wine-fix zit dan in de lader zelf, dus de bytepatch `OpenParrotLoader zonder CONTEXT_FLOATING_POINT`
 wordt overgeslagen (`overgeslagen ... [uit]` in het log). Een onbekende waarde, een ontbrekende build (met de hint `scripts/build-openparrot.sh`) of `Build = ravengun` bij een
 andere lader dan OpenParrotLoader (BudgieLoader, Konami, Macaw) weigert de start (exitcode 5, geen terugval op TeknoParrotUi).
+
+`[Gamepad]` (optioneel) kiest wat een gamepad naast de lightgun doet: sleutels zijn bedieningen (`A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`,
+`Start`, `Back`, `Guide`, `LS`, `RS`, `DPadUp/Down/Left/Right`, `LeftX`, `LeftY`, `RightX`, `RightY`), waarden zijn signalen (`wheel`, `gas`, `brake`,
+`trigger`, `reload`, `grenade`, `aux1`, `aux2`, `start`, `coin`, `btn1`..`btn8`, `key:<naam>`, `none`). Zonder sectie geldt de standaardindeling
+(linkerstick = stuur, RT/LT = gas/rem, A/B/X/Y = trekker/herladen/granaat/aux1, LB/RB = btn1/btn2, Start/Back = start/munt); een sectie gaat per sleutel
+over die standaard heen, en de gebruikerslaag wint zoals altijd. De daemon past de indeling toe van de game die de IO-brug start; de app toont hem in
+Properties > General > Gamepad, met de herkomst per regel. Volledige beschrijving: `docs/gamepad.md`.
+
+`[Input] Layout` bij de route jvs: de daemon schrijft dan naast het JVS-bord ook die tp-shm-indeling (Let's Go Safari leest het stuur alleen uit het
+gedeelde geheugen), en de directe start spiegelt het bestand van de daemon naar de game.
 
 `_defaults/<Type>.ini` heeft dezelfde vorm, plus een sectie `[NewGame]` die alleen `tp-add-game.py` leest:
 `EnablePatches = <naam>, <naam>` zet die gedeelde patches aan in de gebruikerslaag van een nieuwe game van dat soort.

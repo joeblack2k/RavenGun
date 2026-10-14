@@ -32,6 +32,7 @@
 #include "ravengun/core/bias_store.hpp"
 #include "ipc_server.hpp"
 #include "mouse_service.hpp"
+#include "gamepad_service.hpp"
 #include "output_service.hpp"
 #include "recorder.hpp"
 #include "ravengun/rec/recording.hpp"
@@ -650,6 +651,22 @@ int main(int argc, char** argv) {
         if (sl != std::string::npos) io_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";
         io_cfg.tpui_procs = games_cfg.tpui_procs;
     }
+    // Gamepad naast de lightgun (docs/gamepad.md): toewijzingen bewaard in config.json, [Gamepad] van de game die de IO-brug start.
+    // Met --no-hid worden er geen apparaten geopend (tests).
+    GamepadServiceConfig pad_cfg;
+    pad_cfg.dirs = games_cfg.dirs;
+    pad_cfg.open_devices = opt.enabled;
+    if (use_config) {
+        pad_cfg.load = [&settings_store] { return settings_store.get().gamepads; };
+        pad_cfg.save = [&settings_store](const GamepadServiceConfig::Assignments& a) {
+            const auto r = settings_store.update([&](ravengun::config::Settings& s) { s.gamepads = a; });
+            return r.ok ? std::string() : r.message;
+        };
+    }
+    GamepadService gamepad(output, std::move(pad_cfg));
+    shared.gamepad = &gamepad;
+    gamepad.start();
+    if (!opt.enabled) logf("info", "gamepads: --no-hid, er worden geen gamepads geopend");
     AagamesService aagames(shared, std::move(aa_cfg));
     shared.aagames = &aagames;
     IoBridgeService iobridge(shared, std::move(io_cfg));
@@ -736,6 +753,7 @@ int main(int argc, char** argv) {
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
     mouse.stop();          // geeft de knoppen van alle muisspelers vrij
+    gamepad.stop();        // idem voor de gamepadspelers
     camera.stop();
     controllers.stop();
     aagames.stop();

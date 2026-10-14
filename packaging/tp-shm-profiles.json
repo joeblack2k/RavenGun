@@ -471,7 +471,7 @@
    "offscreen_margin": 0
   },
   "LGS": {
-   "description": "Let's Go Safari. De open bron schrijft in het gedeelde geheugen alleen het stuurwiel (offset 12, 1 byte); schakelaars, munt en de rest lopen via echte JVS-pakketten (de JVS-pipe van TeknoParrotUi) en staan dus niet in deze indeling. Alleen als as P1 X (het stuurwiel); de game start bovendien nog niet.",
+   "description": "Let's Go Safari. De open bron schrijft in het gedeelde geheugen alleen het stuurwiel (offset 12, 1 byte); schakelaars, munt en de rest lopen via echte JVS-pakketten (de JVS-pipe) en staan dus niet in deze indeling. Gemeten op de bench: de game vraagt nooit JVS 0x22 (analoog), het stuur komt alleen uit dit bestand; de daemon schrijft het daarom ook op de route jvs (Layout in [Input]). Signaal p1.wheel: de linkerstick van een gamepad, of zonder gamepad de aim-x van de lightgun (docs/gamepad.md).",
    "size": 64,
    "mirror_bytes": [
     0,
@@ -481,7 +481,7 @@
    "bits": [],
    "axes": [
     {
-     "signal": "p1.x",
+     "signal": "p1.wheel",
      "offset": 12,
      "bytes": 1,
      "min": 0,

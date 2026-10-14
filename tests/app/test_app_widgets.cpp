@@ -28,6 +28,7 @@
 #include "core/FileSafety.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
+#include "widgets/ControllersWindow.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SaverWindow.h"
 #include "widgets/SetupWizard.h"
@@ -65,6 +66,7 @@ private Q_SLOTS:
     void routeChoiceInProperties();
     void patchesTab();
     void dongleGroup();
+    void gamepadMapping();
 public Q_SLOTS:
     void recordUrl(const QUrl& u) { g_opened << u.toLocalFile(); }
 private Q_SLOTS:
@@ -187,6 +189,52 @@ void AppWidgetTest::routeChoiceInProperties() {
     u.profile = QStringLiteral("TombRaider");
     ui::PropertiesDialog du(&core, u);
     QVERIFY(!du.RouteCombo()->isEnabled());
+}
+
+void AppWidgetTest::gamepadMapping() {
+    // Properties > General: de gamepad-indeling van de game met per regel de herkomst (standaard, meegeleverd, gebruiker).
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGS/game.ini"));
+    writeFile(user, "[Gamepad]\nLB = btn4\nRightX = wheel\nQ = gas\n");
+    GameEntry g;
+    g.id = QStringLiteral("tp:LGS");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("LGS");
+    g.name = QStringLiteral("Let's Go Safari");
+    {
+        ui::PropertiesDialog d(&core, g);
+        QTreeWidget* t = d.GamepadTree();
+        QVERIFY(t);
+        QHash<QString, QPair<QString, QString>> rows;
+        for (int i = 0; i < t->topLevelItemCount(); ++i)
+            rows.insert(t->topLevelItem(i)->text(0), {t->topLevelItem(i)->text(1), t->topLevelItem(i)->text(2)});
+        QVERIFY(rows.value(QStringLiteral("LB")).first.contains(QStringLiteral("Cabinet button 4")));
+        QVERIFY(rows.value(QStringLiteral("LB")).second.startsWith(QStringLiteral("Yours")));
+        QVERIFY(rows.value(QStringLiteral("RightX")).first.contains(QStringLiteral("Steering wheel")));
+        QVERIFY(rows.value(QStringLiteral("LeftX")).second == QStringLiteral("Default"));
+        QVERIFY(rows.value(QStringLiteral("A")).first == QStringLiteral("Trigger"));
+        QVERIFY(!rows.contains(QStringLiteral("Q")));
+    }
+    QFile::remove(user);
+    {
+        ui::PropertiesDialog d(&core, g);
+        QCOMPARE(d.GamepadTree()->topLevelItemCount(), 11);   // de standaardindeling
+    }
+    // Controller Settings zonder engine: de sectie Gamepads bestaat, de keuzes staan uit, de live weergave tekent.
+    ui::ControllersWindow w(&core);
+    w.show();
+    QCoreApplication::processEvents();
+    for (int p = 1; p <= 4; ++p) {
+        QVERIFY(w.PadCombo(p));
+        QVERIFY(!w.PadCombo(p)->isEnabled());
+    }
+    ui::PadLiveView* live = w.PadLive(1);
+    QVERIFY(live);
+    live->setLive(QJsonObject{{QStringLiteral("axes"), QJsonObject{{QStringLiteral("LeftX"), 1.0}, {QStringLiteral("RT"), 0.5}}},
+                              {QStringLiteral("buttons"), QJsonArray{QStringLiteral("A")}}});
+    QVERIFY(!live->grab().isNull());
+    live->setLive({});
+    QVERIFY(!live->grab().isNull());
 }
 
 void AppWidgetTest::patchesTab() {

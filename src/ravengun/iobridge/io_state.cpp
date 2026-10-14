@@ -33,6 +33,7 @@ bool io_button_signal(const IoState& s, const std::string& name, bool& v) {
     else if (r == "grenade") v = p.grenade;
     else if (r == "aux1") v = p.aux1;
     else if (r == "aux2") v = p.aux2;
+    else if (r.size() == 4 && r.compare(0, 3, "btn") == 0 && r[3] >= '1' && r[3] < '1' + kIoPadButtons) v = p.btn[static_cast<size_t>(r[3] - '1')];
     else return false;
     return true;
 }
@@ -44,8 +45,21 @@ bool io_axis_signal(const IoState& s, const std::string& name, double& v) {
     const IoPlayer& p = s.player[static_cast<size_t>(i)];
     if (r == "x") v = p.x;
     else if (r == "y") v = p.y;
+    else if (r == "wheel") v = p.wheel_from_pad ? p.wheel : p.x;   // zonder gamepad-stuur: richten is sturen
+    else if (r == "gas") v = p.gas;
+    else if (r == "brake") v = p.brake;
     else return false;
     return true;
+}
+
+bool io_axis_live(const IoState& s, const std::string& name) {
+    int i;
+    std::string r;
+    if (!split_player(name, i, r)) return true;
+    const IoPlayer& p = s.player[static_cast<size_t>(i)];
+    if (r == "wheel") return p.wheel_from_pad || p.valid;
+    if (r == "gas" || r == "brake") return p.pad;
+    return p.valid;
 }
 
 bool valid_button_signal(const std::string& name) {

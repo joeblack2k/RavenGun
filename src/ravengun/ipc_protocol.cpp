@@ -57,6 +57,8 @@ const char* to_string(Cmd c) {
         case Cmd::OutputKey: return "output_key";
         case Cmd::Mice: return "mice";
         case Cmd::SetMouseGun: return "set_mouse_gun";
+        case Cmd::Pads: return "pads";
+        case Cmd::SetPad: return "set_pad";
     }
     return "?";
 }
@@ -71,7 +73,7 @@ bool takes_selector(Cmd c) {
     }
 }
 
-bool needs_player(Cmd c) { return c == Cmd::SetMouseGun; }
+bool needs_player(Cmd c) { return c == Cmd::SetMouseGun || c == Cmd::SetPad; }
 
 namespace {
 
@@ -491,6 +493,18 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             return err("invalid_argument", "'mouse' bevat ongeldige tekens (een id uit 'mice' bestaat uit letters, cijfers en _ . : + @ , = -)", r.id_json);
         r.mouse = m->str;
         if (!opt_int(o, "counts_per_screen", kMouseCountsMin, kMouseCountsMax, r.counts_per_screen, e, r.id_json)) return e;
+    } else if (cmd == "pads") {
+        r.cmd = Cmd::Pads;
+        if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "set_pad") {
+        r.cmd = Cmd::SetPad;
+        if (!allowed(o, {"pad"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* m = o.find("pad");
+        if (!m || !m->is_string()) return err("invalid_argument", "'pad' (een id uit 'pads', of \"\" om los te koppelen) ontbreekt", r.id_json);
+        if (m->str.size() > sysinfo::kMouseIdMax) return err("invalid_argument", "'pad' is te lang (hoogstens 128 tekens)", r.id_json);
+        if (!m->str.empty() && !sysinfo::mouse_id_valid(m->str))
+            return err("invalid_argument", "'pad' bevat ongeldige tekens (een id uit 'pads' bestaat uit letters, cijfers en _ . : + @ , = -)", r.id_json);
+        r.pad = m->str;
     } else if (cmd == "info" || cmd == "settings" || cmd == "diagnostics") {
         r.cmd = cmd == "info" ? Cmd::Info : cmd == "settings" ? Cmd::Settings : Cmd::Diagnostics;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -697,6 +711,10 @@ std::string make_request(const Request& r) {
             w.key("mouse").value(r.mouse.value_or(""));
             if (r.counts_per_screen) w.key("counts_per_screen").value(*r.counts_per_screen);
             break;
+        case Cmd::SetPad:
+            w.key("pad").value(r.pad.value_or(""));
+            break;
+        case Cmd::Pads:
         case Cmd::Mice:
         case Cmd::Info:
         case Cmd::Settings:

@@ -148,7 +148,7 @@ void tp_shm_render(const TpShmProfile& p, const IoState& s, uint8_t* bytes, size
         double f = a.idle;
         int pi = a.signal[1] - '1';
         const IoPlayer& pl = s.player[static_cast<size_t>(pi)];
-        if (pl.valid) io_axis_signal(s, a.signal, f);
+        if (io_axis_live(s, a.signal)) io_axis_signal(s, a.signal, f);
         f = std::min(1.0, std::max(0.0, f));
         // Eerst afronden, dan pas inverteren (min+max-waarde): bij 0..255 het complement van de byte, zoals de bron het doet.
         double v = std::round(a.min + f * (a.max - a.min));
@@ -315,6 +315,9 @@ std::string TpShmDialect::status_json() const {
         auto add = [&](bool on, const char* n) { if (on) { if (!b.empty()) b += ","; b += n; } };
         add(pl.trigger, "trigger"); add(pl.reload, "reload"); add(pl.grenade, "grenade"); add(pl.aux1, "aux1");
         add(pl.aux2, "aux2"); add(pl.start, "start"); add(last_state_.sys.coin[static_cast<size_t>(p)], "coin");
+        static const char* kBtn[] = {"btn1", "btn2", "btn3", "btn4", "btn5", "btn6", "btn7", "btn8"};
+        for (int k = 0; k < kIoPadButtons; ++k) add(pl.btn[static_cast<size_t>(k)], kBtn[k]);
+        if (pl.pad || pl.wheel_from_pad) w.key("pad").value(pl.pad).key("wheel").value(pl.wheel).key("gas").value(pl.gas).key("brake").value(pl.brake);
         w.key("buttons").value(b).end_object();
     }
     w.end_array();

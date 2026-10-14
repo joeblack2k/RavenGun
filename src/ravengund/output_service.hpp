@@ -82,6 +82,9 @@ public:
     // Move of een muis heeft; een gewapende uitvoer maakt hem meteen.
     void set_mouse_players(unsigned mask);
     unsigned mouse_players() const;
+    // Gamepad (GamepadService): stuur, gas, rem en btn1..8 van speler 1..4 voor de IO-brug (io_snapshot). Knoppen die op gun-
+    // knoppen of toetsen vallen gaan als live bron 2 door feed_live. Een lege IoPadInput = geen gamepad.
+    void set_pad_input(int player, const ravengun::iobridge::IoPadInput& in);
     // Uitvoerklok (fase 6): live instelbaar; hz = 0 zet hem uit (positie alleen per rapport).
     ravengun::output::OutputClockConfig clock_config() const;
     void set_clock(const ravengun::output::OutputClockConfig& c);
@@ -127,6 +130,7 @@ private:
     std::array<Player, kPlayers> players_;
     unsigned active_ = 1;
     unsigned mouse_ = 0;   // spelers met een muis als bron (set_mouse_players)
+    std::array<ravengun::iobridge::IoPadInput, kPlayers> pads_{};   // set_pad_input
     bool armed_ = false;
     // Uitvoerklok: eigen thread, schrijft onder m_ de geëxtrapoleerde positie tussen de rapporten (zie aim_clock.hpp).
     ravengun::output::OutputClockConfig clock_cfg_;

@@ -93,7 +93,11 @@ void usage(FILE* f) {
         "  mouse-gun --player N --mouse ID [--counts C] | --off   muis ID (uit 'mice') als bron van de virtuele lightgun van speler N,\n"
         "              of --off om los te koppelen; C = counts per schermbreedte (100..20000, standaard 1920). Alleen\n"
         "              runtime: niet bewaard, de app past het opnieuw toe bij het verbinden. De muis wordt niet gegrabd\n"
-        "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
+        "  pads [--all] gamepads (evdev) naast de lightgun: aangesloten pads met live stand, toewijzing per speler en de\n"
+    "              indeling van de actieve game; --all toont per invoerapparaat waarom het wel of geen gamepad is\n"
+    "  pad --player N --pad ID | --off   gamepad ID (uit 'pads') bij speler N, of --off om los te koppelen (speler 1 krijgt dan\n"
+    "              automatisch de enige aangesloten pad). Bewaard in config.json; de pad wordt niet gegrabd\n"
+    "  set-output  transformatie van de uitvoer: --invert-x 0|1, --invert-y 0|1, --scale-x/-y S,\n"
         "              --offset-x/-y D, --letterbox SCHERM_ASPECT CONTENT_ASPECT (bv. 1.7778 1.3333)\n"
         "\n"
         "opties:\n"
@@ -285,6 +289,17 @@ std::string mouse_assignment_text(const json::Value& a) {
     std::string t = "speler " + fmt(num(a, {"player"}, 0), "%.0f") + ": ";
     if (!m || !m->is_string()) return t + "geen muis";
     t += m->str + (boolean(a, {"connected"}) ? " verbonden" : " NIET verbonden") + ", " + fmt(num(a, {"counts_per_screen"}, 0), "%.0f") + " counts per schermbreedte";
+    if (!str(a, {"last_error"}, "").empty()) t += " (" + str(a, {"last_error"}, "") + ")";
+    return t;
+}
+
+// Eén toewijzing uit `pads`/`set_pad`: "speler 1: <id> verbonden (automatisch)".
+std::string pad_assignment_text(const json::Value& a) {
+    const json::Value* m = a.find("pad");
+    std::string t = "speler " + fmt(num(a, {"player"}, 0), "%.0f") + ": ";
+    if (!m || !m->is_string()) return t + "geen gamepad";
+    t += m->str + (boolean(a, {"connected"}) ? " verbonden" : " NIET verbonden");
+    if (boolean(a, {"auto"})) t += " (automatisch: de enige aangesloten pad)";
     if (!str(a, {"last_error"}, "").empty()) t += " (" + str(a, {"last_error"}, "") + ")";
     return t;
 }
@@ -977,6 +992,8 @@ int main(int argc, char** argv) {
         std::string io_route;   // iobridge start: route afdwingen
         std::string mouse_id;   // mouse-gun --mouse
         bool have_mouse = false;
+        std::string pad_id;     // pad --pad
+        bool have_pad = false, all_devices = false;
         double mouse_counts = -1;
         bool ctl_reset = false, ctl_blink = false, ctl_forget = false;
         auto need = [&](int& i, const char* name, double lo, double hi) -> double {
@@ -1027,6 +1044,8 @@ int main(int argc, char** argv) {
             else if (a == "--player") g_player = static_cast<int>(need(i, "--player", 1, 4));
             else if (a == "--route" && i + 1 < argc) io_route = argv[++i];
             else if (a == "--mouse" && i + 1 < argc) { mouse_id = argv[++i]; have_mouse = true; }
+            else if (a == "--pad" && i + 1 < argc) { pad_id = argv[++i]; have_pad = true; }
+            else if (a == "--all") all_devices = true;
             else if (a == "--counts") mouse_counts = need(i, "--counts", ipc::kMouseCountsMin, ipc::kMouseCountsMax);
             else if (a == "--name" && i + 1 < argc) ctl_name = argv[++i];
             else if (a == "--led" && i + 1 < argc) ctl_led = argv[++i];
@@ -1294,6 +1313,65 @@ int main(int argc, char** argv) {
             std::printf("Toewijzingen:\n");
             if (const json::Value* as = path(*res, {"assignments"}); as && as->is_array())
                 for (const auto& a : as->arr) std::printf("  %s\n", mouse_assignment_text(a).c_str());
+            return kExitOk;
+        }
+        if (cmd == "pads") {
+            if (!pos.empty() || !arg2.empty()) { std::fprintf(stderr, "ravengunctl: pads heeft geen argumenten (alleen --all)\n"); return kExitUsage; }
+            rq.cmd = ipc::Cmd::Pads;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            const json::Value* res = path(r.v, {"result"});
+            if (!res) return kExitProtocol;
+            std::printf("Gamepads:\n");
+            const json::Value* ps = path(*res, {"pads"});
+            if (!ps || !ps->is_array() || ps->arr.empty()) std::printf("  (geen gevonden)\n");
+            else for (const auto& p : ps->arr) {
+                std::string live;
+                if (const json::Value* l = p.find("live"); l && l->is_object()) {
+                    if (const json::Value* ax = l->find("axes"); ax && ax->is_object())
+                        for (const auto& kv : ax->obj) live += " " + kv.first + "=" + fmt(kv.second.num, "%.2f");
+                    std::string b;
+                    if (const json::Value* bs = l->find("buttons"); bs && bs->is_array())
+                        for (const auto& x : bs->arr) b += (b.empty() ? "" : ",") + x.str;
+                    live += " knoppen=" + (b.empty() ? std::string("-") : b);
+                }
+                std::printf("  %s  \"%s\" (%s, %s:%s)%s\n", str(p, {"id"}).c_str(), str(p, {"name"}).c_str(), str(p, {"event"}).c_str(),
+                            str(p, {"vendor"}).c_str(), str(p, {"product"}).c_str(), live.c_str());
+            }
+            std::printf("Toewijzingen:\n");
+            if (const json::Value* as = path(*res, {"assignments"}); as && as->is_array())
+                for (const auto& a : as->arr) std::printf("  %s\n", pad_assignment_text(a).c_str());
+            const json::Value* g = path(*res, {"game"});
+            std::printf("Indeling (%s):", g && g->is_string() ? g->str.c_str() : "standaard, geen game gestart");
+            if (const json::Value* ms = path(*res, {"mapping"}); ms && ms->is_array())
+                for (const auto& m : ms->arr) std::printf(" %s=%s", str(m, {"control"}).c_str(), str(m, {"target"}).c_str());
+            std::printf("\n");
+            if (const json::Value* ws = path(*res, {"warnings"}); ws && ws->is_array())
+                for (const auto& w : ws->arr) std::printf("  let op: %s\n", w.str.c_str());
+            if (all_devices) {
+                std::printf("Invoerapparaten:\n");
+                if (const json::Value* ds = path(*res, {"devices"}); ds && ds->is_array())
+                    for (const auto& d : ds->arr)
+                        std::printf("  %-9s \"%s\" (%s:%s): %s\n", str(d, {"event"}).empty() ? "-" : str(d, {"event"}).c_str(), str(d, {"name"}).c_str(),
+                                    str(d, {"vendor"}).c_str(), str(d, {"product"}).c_str(), str(d, {"why"}).c_str());
+            }
+            return kExitOk;
+        }
+        if (cmd == "pad") {
+            const bool off = filter_on == 0;
+            if (g_player < 1 || (have_pad == off) || !pos.empty() || !arg2.empty()) {
+                std::fprintf(stderr, "ravengunctl: pad --player N --pad ID | pad --player N --off\n");
+                return kExitUsage;
+            }
+            rq.cmd = ipc::Cmd::SetPad;
+            rq.player = g_player;
+            rq.pad = off ? std::string() : pad_id;
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) std::printf("%s\n", r.line.c_str());
+            else if (const json::Value* res = path(r.v, {"result"})) std::printf("%s\n", pad_assignment_text(*res).c_str());
+            else return kExitProtocol;
             return kExitOk;
         }
         if (cmd == "mouse-gun") {
