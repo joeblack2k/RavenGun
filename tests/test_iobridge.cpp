@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -680,12 +681,20 @@ void test_service(const std::string& dir) {
             bool created() const override { std::lock_guard<std::mutex> l(rec->m); return rec->created; }
             std::shared_ptr<Rec> rec;
         };
+        // Per bord een eigen opname: Transformers kan in de meegeleverde game.ini meer borden hebben (Boards = SaeGunBoard, SaeIoBoard);
+        // de beelden van het geweerbord mogen niet met die van een ander bord door elkaar lopen.
+        auto recs = std::make_shared<std::map<std::string, std::shared_ptr<Rec>>>();
         auto rec = std::make_shared<Rec>();
+        (*recs)["SaeGunBoard"] = rec;
         IoBridgeService::Config c3 = cfg;
         std::string e3;
         c3.boards = parse_hid_boards(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/hid-boards.json"), e3);
         CHECK(e3.empty() && c3.boards.find("SaeGunBoard"));
-        c3.board_device = [rec](const HidBoard&) { return std::make_unique<FakeBoard>(rec); };
+        c3.board_device = [recs](const HidBoard& b) {
+            auto& r = (*recs)[b.name.find("Gun") != std::string::npos ? std::string("SaeGunBoard") : b.name];
+            if (!r) r = std::make_shared<Rec>();
+            return std::make_unique<FakeBoard>(r);
+        };
         IoBridgeService br3(sh, c3);
         sh.iobridge = &br3;
         CHECK(br3.start("TransformersShadowsRising").empty());
@@ -701,8 +710,19 @@ void test_service(const std::string& dir) {
         CHECK(out.button(output::GunButton::Trigger, "down").ok);
         CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 557 && f.axis[1] == -217 && (f.buttons & (1u << 2)); }));   // X = p1.y, Y = p1.x, uitvoerbereik -217..557
         auto js3 = json::parse(br3.status_json());
-        CHECK(js3.ok && js3.value.find("route")->str == "hid-board" && js3.value.find("detail")->find("board")->str == "SaeGunBoard");
-        CHECK(js3.value.find("detail")->find("created")->b);
+        // Eén bord: detail is dat bord; meer borden: detail.boards[] met per bord dezelfde vorm.
+        const json::Value* gun = nullptr;
+        if (js3.ok && js3.value.find("detail")) {
+            const json::Value* d = js3.value.find("detail");
+            if (const json::Value* bs = d->find("boards"); bs && bs->is_array()) {
+                for (const auto& b : bs->arr)
+                    if (const json::Value* n = b.find("board"); n && n->str == "SaeGunBoard") gun = &b;
+            } else if (const json::Value* n = d->find("board"); n && n->str == "SaeGunBoard") {
+                gun = d;
+            }
+        }
+        CHECK(js3.ok && js3.value.find("route") && js3.value.find("route")->str == "hid-board" && gun);
+        CHECK(gun && gun->find("created") && gun->find("created")->b);
         out.disarm();   // neutraal: as in het midden van het uitvoerbereik, geen knoppen
         CHECK(wait_for([&] { HidBoardFrame f = last(); return f.axis.size() == 4 && f.axis[0] == 170 && f.axis[1] == 170 && f.buttons == 0; }));
         br3.stop();
