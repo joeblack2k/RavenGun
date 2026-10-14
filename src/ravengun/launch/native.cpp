@@ -4,12 +4,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 
 #include "ravengun/json_parse.hpp"
 
@@ -117,7 +119,156 @@ struct Sha256 {
     }
 };
 
+// CRC-32 (IEEE, gespiegeld, zoals zlib): de spel-ID van lindbergh.so.
+uint32_t crc32(const unsigned char* p, size_t n) {
+    uint32_t c = 0xFFFFFFFFu;
+    for (size_t i = 0; i < n; ++i) {
+        c ^= p[i];
+        for (int k = 0; k < 8; ++k) c = (c & 1) ? (c >> 1) ^ 0xEDB88320u : c >> 1;
+    }
+    return ~c;
+}
+
+std::string lower(std::string s) {
+    for (auto& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return s;
+}
+std::string trim(const std::string& s) {
+    const size_t a = s.find_first_not_of(" \t\r\n");
+    if (a == std::string::npos) return {};
+    const size_t b = s.find_last_not_of(" \t\r\n");
+    return s.substr(a, b - a + 1);
+}
+std::string read_file(const std::string& path, bool& ok) {
+    std::ifstream f(path, std::ios::binary);
+    ok = static_cast<bool>(f);
+    if (!ok) return {};
+    std::string s((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    return s;
+}
+
+// Het pad op de host van een pad in de sandbox, langs de mounts (de langste dst wint); leeg = valt onder geen mount.
+std::string host_of(const std::vector<Mount>& mounts, const std::string& path) {
+    const Mount* best = nullptr;
+    for (const Mount& m : mounts)
+        if ((path == m.dst || (path.size() > m.dst.size() && path.compare(0, m.dst.size(), m.dst) == 0 && path[m.dst.size()] == '/')) &&
+            (!best || m.dst.size() > best->dst.size()))
+            best = &m;
+    return best ? best->src + path.substr(best->dst.size()) : std::string();
+}
+
+std::string parent_dir(const std::string& path) {
+    const size_t sl = path.rfind('/');
+    return sl == std::string::npos || sl == 0 ? std::string("/") : path.substr(0, sl);
+}
+
 }  // namespace
+
+std::string lindbergh_game_id(const std::string& elf_path) {
+    std::ifstream f(elf_path, std::ios::binary);
+    if (!f) return {};
+    unsigned char eh[52];
+    if (!f.read(reinterpret_cast<char*>(eh), sizeof eh)) return {};
+    if (std::memcmp(eh, "\x7f" "ELF", 4) != 0 || eh[4] != 1 /* ELFCLASS32 */ || eh[5] != 1 /* little endian */) return {};
+    auto u16 = [&](int o) { return static_cast<uint32_t>(eh[o] | eh[o + 1] << 8); };
+    auto u32 = [](const unsigned char* b) { return static_cast<uint32_t>(b[0] | b[1] << 8 | b[2] << 16 | static_cast<uint32_t>(b[3]) << 24); };
+    const uint32_t phoff = u32(eh + 28), phentsize = u16(42), phnum = u16(44);
+    if (phnum < 3 || phentsize < 32) return {};
+    unsigned char ph[32];
+    f.seekg(static_cast<std::streamoff>(phoff) + 2 * static_cast<std::streamoff>(phentsize));
+    if (!f.read(reinterpret_cast<char*>(ph), sizeof ph)) return {};
+    // lindbergh.so (dl_iterate_phdr): de derde programmakop moet PT_LOAD met vlaggen R+X (5) zijn; dan 0x4000 bytes vanaf
+    // p_vaddr + 10 in het geheugen, wat in het bestand p_offset + 10 is (het segment is uit het bestand gemapt).
+    if (u32(ph) != 1 /* PT_LOAD */ || u32(ph + 24) != 5) return {};
+    std::vector<unsigned char> buf(0x4000);
+    f.seekg(static_cast<std::streamoff>(u32(ph + 4)) + 10);
+    if (!f.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()))) return {};
+    char out[16];
+    std::snprintf(out, sizeof out, "0x%08x", crc32(buf.data(), buf.size()));
+    return out;
+}
+
+std::string lindbergh_ini(const std::string& base, const std::vector<IniKey>& forced) {
+    std::vector<std::string> lines;
+    {
+        size_t at = 0;
+        while (at < base.size()) {
+            size_t nl = base.find('\n', at);
+            if (nl == std::string::npos) nl = base.size();
+            std::string l = base.substr(at, nl - at);
+            if (!l.empty() && l.back() == '\r') l.pop_back();
+            lines.push_back(l);
+            at = nl + 1;
+        }
+    }
+    std::vector<bool> done(forced.size(), false);
+    std::vector<std::string> out;
+    std::string section;
+    auto flush_section = [&](const std::string& sec) {
+        // Ontbrekende sleutels van deze sectie achteraan; lege regels aan het eind van de sectie blijven erna staan.
+        size_t blanks = 0;
+        while (!out.empty() && trim(out.back()).empty()) { out.pop_back(); ++blanks; }
+        for (size_t i = 0; i < forced.size(); ++i)
+            if (!done[i] && lower(forced[i].section) == lower(sec)) {
+                out.push_back(forced[i].key + " = " + forced[i].value);
+                done[i] = true;
+            }
+        out.insert(out.end(), blanks, std::string());
+    };
+    for (const std::string& l : lines) {
+        const std::string t = trim(l);
+        if (t.size() >= 2 && t.front() == '[' && t.back() == ']') {
+            if (!section.empty()) flush_section(section);
+            section = t.substr(1, t.size() - 2);
+            out.push_back(l);
+            continue;
+        }
+        const size_t eq = t.find('=');
+        if (!section.empty() && eq != std::string::npos && t[0] != ';' && t[0] != '#') {
+            const std::string key = trim(t.substr(0, eq));
+            bool replaced = false;
+            for (size_t i = 0; i < forced.size(); ++i)
+                if (lower(forced[i].section) == lower(section) && lower(forced[i].key) == lower(key)) {
+                    if (!done[i]) out.push_back(forced[i].key + " = " + forced[i].value);
+                    done[i] = true;
+                    replaced = true;
+                }
+            if (replaced) continue;
+        }
+        out.push_back(l);
+    }
+    if (!section.empty()) flush_section(section);
+    // Secties die er nog niet waren.
+    for (size_t i = 0; i < forced.size(); ++i) {
+        if (done[i]) continue;
+        if (!out.empty() && !trim(out.back()).empty()) out.push_back("");
+        out.push_back("[" + forced[i].section + "]");
+        for (size_t j = i; j < forced.size(); ++j)
+            if (!done[j] && lower(forced[j].section) == lower(forced[i].section)) {
+                out.push_back(forced[j].key + " = " + forced[j].value);
+                done[j] = true;
+            }
+    }
+    while (!out.empty() && trim(out.back()).empty()) out.pop_back();
+    std::string s;
+    for (const std::string& l : out) s += l + "\n";
+    return s;
+}
+
+bool resolve_jvs(NativePlan& pl, const std::string& link, std::string& err) {
+    if (!pl.needs_jvs_pty) return true;
+    char buf[4096];
+    const ssize_t n = link.empty() ? -1 : ::readlink(link.c_str(), buf, sizeof buf - 1);
+    if (n <= 0) { err = "de jvs-route heeft geen pty (" + (link.empty() ? std::string("geen symlink") : link) + "): is de IO-brug gestart?"; return false; }
+    std::string target(buf, static_cast<size_t>(n));
+    if (target[0] != '/') target = parent_dir(link) + "/" + target;
+    if (::access(target.c_str(), R_OK | W_OK) != 0) { err = "de pty van de jvs-route (" + target + ") is niet te openen"; return false; }
+    for (std::string& a : pl.argv)
+        if (a == kJvsPtyPlaceholder) a = target;
+    pl.needs_jvs_pty = false;
+    pl.notes.push_back(std::string("JVS: ") + kLindberghJvsDev + " in de sandbox = " + target + " (de pty van de IO-brug, " + link + ")");
+    return true;
+}
 
 std::string sha256_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
@@ -214,6 +365,30 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
             out.env.emplace_back(k, v.str);
         }
     }
+    if (const Value* lb = g->find("lindbergh")) {
+        if (!lb->is_object()) { err = game + ": 'lindbergh' is geen object"; return false; }
+        LindberghSpec& s = out.lindbergh;
+        s.on = true;
+        for (auto [key, dst] : std::initializer_list<std::pair<const char*, std::string*>>{{"id", &s.id}, {"ini", &s.ini}, {"jvs", &s.jvs}}) {
+            const Value* v = lb->find(key);
+            if (v && !v->is_string()) { err = game + ": 'lindbergh." + key + "' is geen tekst"; return false; }
+            if (v) *dst = v->str;
+        }
+        if (const Value* c = lb->find("libcg")) {
+            if (!c->is_bool()) { err = game + ": 'lindbergh.libcg' is geen true/false"; return false; }
+            s.libcg = c->b;
+        }
+        s.ini = expand(s.ini, p);
+        s.id = lower(s.id);
+        bool hex = s.id.size() == 10 && s.id.compare(0, 2, "0x") == 0;
+        for (size_t i = 2; hex && i < s.id.size(); ++i) hex = std::isxdigit(static_cast<unsigned char>(s.id[i])) != 0;
+        if (!hex) { err = game + ": 'lindbergh.id' moet 0x plus acht hexcijfers zijn (de spel-ID van lindbergh.so)"; return false; }
+        if (s.ini.empty()) { err = game + ": 'lindbergh.ini' ontbreekt"; return false; }
+        if (s.jvs != "passthrough" && s.jvs != "emulate") { err = game + ": 'lindbergh.jvs' is passthrough of emulate"; return false; }
+        if (s.jvs == "passthrough" && out.route != "jvs") { err = game + ": lindbergh.jvs = passthrough vraagt route jvs (het JVS-bord van de daemon)"; return false; }
+        if (!out.arch.empty() && out.arch != "i386") { err = game + ": een Lindbergh-game is i386"; return false; }
+        if (!out.loader.empty()) { err = game + ": een Lindbergh-game draait zonder lader (geen 'loader')"; return false; }
+    }
     if (out.exe.empty()) { err = game + ": geen exe"; return false; }
     return true;
 }
@@ -291,6 +466,54 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         out.layer.push_back({LayerStep::Kind::Link, l.src, up, low, l.dst});
     }
     std::string ldpath;
+    // Lindbergh: de laag (lindbergh.so en de vervangende bibliotheken van het baseboard) vooraan in het zoekpad, de spel-ID van de
+    // exe nagerekend, lindbergh.ini met de vaste sleutels in de toestandsmap, en de JVS-lijn naar het bord van de daemon.
+    std::string lb_preload;
+    if (pr.lindbergh.on) {
+        const LindberghSpec& s = pr.lindbergh;
+        const std::string dir = !p.lindbergh.empty() ? p.lindbergh : p.data + "/lindbergh-loader/current";
+        std::vector<std::string> need{"lindbergh.so", "libsegaapi.so", "libkswapapi.so", "libposixtime.so"};
+        if (s.libcg) need.push_back("libCg.so");
+        std::string missing;
+        for (const std::string& f : need)
+            if (!exists(dir + "/" + f)) missing += (missing.empty() ? "" : " ") + f;
+        if (!missing.empty()) { err = "Lindbergh-laag onvolledig in " + dir + " (" + missing + "): bouw met scripts/build-lindbergh-loader.sh"; return false; }
+        bw.insert(bw.end(), {"--ro-bind", dir, "/rg/lindbergh"});
+        ldpath = "/rg/lindbergh";
+        lb_preload = "/rg/lindbergh/lindbergh.so";
+        out.identity.push_back("lindbergh-laag=" + dir + "/lindbergh.so");
+        if (exists(dir + "/BUILDINFO.txt")) out.identity.push_back("lindbergh-bouw=" + dir + "/BUILDINFO.txt");
+        // De spel-ID: lindbergh.so herkent de game alleen aan deze CRC; een andere ELF (bv. ramboD.elf in plaats van ramboM.elf)
+        // krijgt geen patches en hangt op de dongle.
+        const std::string host_exe = host_of(pr.mounts, pr.exe);
+        if (host_exe.empty()) { err = "exe " + pr.exe + " valt niet onder een mount"; return false; }
+        const std::string id = lindbergh_game_id(host_exe);
+        if (id.empty()) { err = "exe " + host_exe + " is niet te lezen of geen i386-ELF met een uitvoerbaar segment"; return false; }
+        if (id != s.id) { err = "verkeerde ELF voor " + pr.name + ": " + host_exe + " heeft spel-ID " + id + ", het profiel verwacht " + s.id; return false; }
+        out.notes.push_back("lindbergh: spel-ID " + id + " (" + pr.exe + ")");
+        // lindbergh.ini: de gebruikerslaag gaat voor de meegeleverde; de engine zet de sleutels die bij deze route horen.
+        std::string ini = s.ini;
+        if (!p.user_patches.empty() && fs::is_regular_file(p.user_patches + "/" + pr.name + "/lindbergh.ini")) ini = p.user_patches + "/" + pr.name + "/lindbergh.ini";
+        bool ok = false;
+        const std::string base = read_file(ini, ok);
+        if (!ok) { err = "lindbergh.ini ontbreekt: " + ini; return false; }
+        std::vector<IniKey> forced{{"Display", "WIDTH", W}, {"Display", "HEIGHT", H}, {"Display", "FULLSCREEN", "true"}};
+        if (s.jvs == "passthrough") {
+            forced.push_back({"Emulation", "EMULATE_JVS", "false"});
+            forced.push_back({"Paths", "JVS_PATH", std::string("\"") + kLindberghJvsDev + "\""});
+            bw.insert(bw.end(), {"--dev-bind", kJvsPtyPlaceholder, kLindberghJvsDev});
+            out.needs_jvs_pty = true;
+        } else {
+            forced.push_back({"Emulation", "EMULATE_JVS", "true"});
+        }
+        if (s.libcg) forced.push_back({"Paths", "LIBCG_PATH", "\"/rg/lindbergh/libCg.so\""});
+        const std::string made = ovlbase + "/lindbergh.ini";
+        out.layer.push_back({LayerStep::Kind::Write, "; Gemaakt door RavenGun uit " + ini + " (docs/lindbergh.md); wordt bij elke start opnieuw geschreven.\n" +
+                                                         lindbergh_ini(base, forced),
+                             made, {}, "/rg/lindbergh.ini"});
+        bw.insert(bw.end(), {"--ro-bind", made, "/rg/lindbergh.ini"});
+        out.identity.push_back("lindbergh-ini=" + ini);
+    }
     for (const SrcDst& l : pr.libdirs) {
         if (!is_dir(l.src)) { err = "bibliotheekmap ontbreekt: " + l.src; return false; }
         bw.insert(bw.end(), {"--ro-bind", l.src, l.dst});
@@ -362,8 +585,15 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
 
     bw.insert(bw.end(), {"--chdir", pr.cwd.empty() ? "/" : pr.cwd, "--setenv", "HOME", pr.home.empty() ? "/tmp" : pr.home, "--setenv", "PATH",
                          "/usr/bin", "--setenv", "XDG_RUNTIME_DIR", rundir, "--setenv", "LANG", "C.UTF-8", "--unsetenv", "WAYLAND_DISPLAY"});
+    if (pr.lindbergh.on) {
+        // Zoals de starter van lindbergh-loader: de map van de game, daarin lib/ en ../lib (librnalindbergh_jr.so e.d.).
+        const std::string gd = pr.cwd.empty() ? parent_dir(pr.exe) : pr.cwd;
+        ldpath += ":" + gd + ":" + gd + "/lib:" + parent_dir(gd) + "/lib";
+        bw.insert(bw.end(), {"--setenv", "LINDBERGH_CONFIG_PATH", "/rg/lindbergh.ini", "--setenv", "LINDBERGH_LOADER_CURRENT_DIR", "/rg/lindbergh"});
+    }
     if (!ldpath.empty()) bw.insert(bw.end(), {"--setenv", "LD_LIBRARY_PATH", ldpath});
-    if (!pr.preload.empty()) bw.insert(bw.end(), {"--setenv", "LD_PRELOAD", pr.preload});
+    const std::string preload = lb_preload.empty() ? pr.preload : pr.preload.empty() ? lb_preload : lb_preload + ":" + pr.preload;
+    if (!preload.empty()) bw.insert(bw.end(), {"--setenv", "LD_PRELOAD", preload});
     for (const auto& [k, v] : pr.env) bw.insert(bw.end(), {"--setenv", k, v});
     for (const auto& [k, v] : table_env) bw.insert(bw.end(), {"--setenv", k, v});
 
@@ -388,6 +618,15 @@ bool apply_layer(const NativePlan& pl, std::vector<std::string>& log, std::strin
         if (s.kind == LayerStep::Kind::Mkdir) {
             fs::create_directories(s.to, ec);
             if (ec) { err = "map " + s.to + " maken: " + ec.message(); return false; }
+            continue;
+        }
+        if (s.kind == LayerStep::Kind::Write) {
+            fs::create_directories(fs::path(s.to).parent_path(), ec);
+            std::ofstream f(s.to, std::ios::trunc | std::ios::binary);
+            f << s.from;
+            f.close();
+            if (!f) { err = "schrijven van " + s.to + " mislukt"; return false; }
+            log.push_back("geschreven: " + s.label + " (" + s.to + ")");
             continue;
         }
         const std::string what = s.kind == LayerStep::Kind::Seed ? "seed" : "link";

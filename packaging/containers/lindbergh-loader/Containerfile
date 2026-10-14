@@ -1,0 +1,27 @@
+# Build-omgeving voor de Lindbergh-laag (scripts/build-lindbergh-loader.sh): Ubuntu 22.04 met i386-multiarch, zoals het
+# Dockerfile van lindbergh-loader zelf. Vastgepind: de basis-image op digest en de pakketten via een momentopname van
+# snapshot.ubuntu.com (datum hieronder). Alleen ca-certificates komt uit het gewone archief: zonder dat pakket kan apt de
+# momentopname (alleen https) niet lezen. Er wordt niets van de game uitgevoerd; de bouw zelf draait zonder netwerk.
+FROM docker.io/library/ubuntu@sha256:5ec03bb3441e8b0bf3b4f9cd4629a1ae763010dc3035bb8da3ae6cf026486401
+ARG SNAPSHOT=20261001T000000Z
+ENV DEBIAN_FRONTEND=noninteractive
+# snapshot.ubuntu.com antwoordt onder last met 503 (gemeten 2026-10-14): apt mag elk pakket een paar keer opnieuw vragen.
+RUN echo 'Acquire::Retries "20";' > /etc/apt/apt.conf.d/80-retries \
+    && echo 'Acquire::Queue-Mode "access";' >> /etc/apt/apt.conf.d/80-retries \
+    && apt-get update -q \
+    && apt-get install -y -q --no-install-recommends ca-certificates \
+    && printf '%s\n' \
+       "deb [arch=amd64,i386] https://snapshot.ubuntu.com/ubuntu/${SNAPSHOT} jammy main universe" \
+       "deb [arch=amd64,i386] https://snapshot.ubuntu.com/ubuntu/${SNAPSHOT} jammy-updates main universe" \
+       "deb [arch=amd64,i386] https://snapshot.ubuntu.com/ubuntu/${SNAPSHOT} jammy-security main universe" \
+       > /etc/apt/sources.list \
+    && dpkg --add-architecture i386 \
+    && apt-get update -q \
+    && apt-get install -y -q --no-install-recommends \
+       build-essential gcc-multilib g++-multilib cmake ninja-build pkg-config patch file \
+       libgl-dev:i386 libglu1-mesa-dev:i386 freeglut3-dev:i386 \
+       libx11-dev:i386 libxext-dev:i386 libxcursor-dev:i386 libxfixes-dev:i386 libxi-dev:i386 libxrandr-dev:i386 \
+       libxss-dev:i386 libxxf86vm-dev:i386 libxtst-dev:i386 libxkbcommon-dev:i386 \
+       libudev-dev:i386 libasound2-dev:i386 libpulse-dev:i386 libdbus-1-dev:i386 libfreetype6-dev:i386 \
+       libstdc++5:i386 libncurses5:i386 libtinfo5:i386 libxmu6:i386 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*

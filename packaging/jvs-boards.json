@@ -155,6 +155,72 @@
     { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
    ],
    "coins": ["coin1", "coin2"]
+  },
+  "Lindbergh": {
+   "description": "Sega Lindbergh-gungames (HOTD4, HOTD4 Special, HOTD EX, Too Spicy, Rambo, Primeval Hunt) op de Lindbergh-route (docs/lindbergh.md): het Type 3-bord 837-14572 zoals lindbergh-loader het voor deze games emuleert (SEGA_TYPE_3 in jvs.c: versies 0x13/0x30/0x10, 2 spelers, 14 schakelbits, 2 munten, 8 analoge kanalen van 10 bit, 20 uitgangen). Kanalen 0..3 = P1 X, P1 Y, P2 X, P2 Y, niet omgekeerd (0 = links/boven; LA_GunX/GunY in sdlInput.c). Schakelaars per speler: trigger = BUTTON_1 (byte 0 bit 1), herladen = BUTTON_2 (byte 0 bit 0) met pN.offscreen (naast het scherm richten of de herlaadknop; zo doet lindbergh-loader het met de muis), gun-knop = BUTTON_3 (byte 1 bit 7, Primeval Hunt en Rambo), actieknop = BUTTON_4 (byte 1 bit 6). Het venster (0..255) is de hele as; de games kalibreren zelf in hun testmenu (EEPROM in de lokale schrijflaag). Nog niet met een game gemeten.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x30",
+   "command_rev": "0x13",
+   "players": 2,
+   "buttons": 14,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "analog": [
+    { "signal": "p1.x", "min": 0, "max": 255 },
+    { "signal": "p1.y", "min": 0, "max": 255 },
+    { "signal": "p2.x", "min": 0, "max": 255 },
+    { "signal": "p2.y", "min": 0, "max": 255 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.trigger" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.offscreen" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.grenade" },
+    { "player": 1, "byte": 1, "bit": 6, "signal": "p1.aux1" },
+    { "player": 2, "byte": 0, "bit": 7, "signal": "p2.start" },
+    { "player": 2, "byte": 0, "bit": 1, "signal": "p2.trigger" },
+    { "player": 2, "byte": 0, "bit": 0, "signal": "p2.offscreen" },
+    { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" },
+    { "player": 2, "byte": 1, "bit": 6, "signal": "p2.aux1" }
+   ],
+   "coins": ["coin1", "coin2"]
+  },
+  "LindberghType1": {
+   "description": "Ghost Squad Evolution op de Lindbergh-route (docs/lindbergh.md): het oudere Type 1-bord 837-13551 zoals lindbergh-loader het voor deze game emuleert (SEGA_TYPE_1 in jvs.c: versies 0x11/0x30/0x10, 2 spelers, 13 schakelbits, 2 munten, 8 analoge kanalen van 8 bit, 6 uitgangen). Kanalen 0..3 = P1 X, P1 Y, P2 X, P2 Y; herladen = BUTTON_2 (byte 0 bit 0) met pN.offscreen (lindbergh-loader zet bij deze game BUTTON_2 als de gun naast het scherm wijst). Nog niet met de game gemeten.",
+   "identify": "SEGA ENTERPRISESLTD.;I/O BD JVS;837-13551;Ver1.00;98/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x30",
+   "command_rev": "0x11",
+   "players": 2,
+   "buttons": 13,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 8,
+   "gp_outputs": 6,
+   "analog": [
+    { "signal": "p1.x", "min": 0, "max": 255 },
+    { "signal": "p1.y", "min": 0, "max": 255 },
+    { "signal": "p2.x", "min": 0, "max": 255 },
+    { "signal": "p2.y", "min": 0, "max": 255 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.trigger" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.offscreen" },
+    { "player": 1, "byte": 1, "bit": 7, "signal": "p1.grenade" },
+    { "player": 2, "byte": 0, "bit": 7, "signal": "p2.start" },
+    { "player": 2, "byte": 0, "bit": 1, "signal": "p2.trigger" },
+    { "player": 2, "byte": 0, "bit": 0, "signal": "p2.offscreen" },
+    { "player": 2, "byte": 1, "bit": 7, "signal": "p2.grenade" }
+   ],
+   "coins": ["coin1", "coin2"]
   }
  }
 }

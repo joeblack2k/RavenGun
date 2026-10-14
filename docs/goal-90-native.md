@@ -61,7 +61,7 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route bouwen |
+| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route klaar (profiel GSEVO): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Ghostbusters | ICE/RT Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
 | Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
@@ -91,14 +91,16 @@ Stand: 13 van 81 titels WORKING (16%); doel 90% = 73 titels. Pass 1: 16, pass 2:
 | Rambo | SEGA Lindbergh Red EX | Lindbergh-route bouwen |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | SEGA Golden Gun | SEGA RingWide | getest 2026-10-14: lader exitcode 5 (toegang geweigerd) direct na laden; diagnose loopt |
+| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route klaar (profiel Primevil): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
+| Rambo | SEGA Lindbergh Red EX | Lindbergh-route klaar (ramboM.elf, libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
-| Star Trek Voyager | Team Play PC Based | Lindbergh-route bouwen |
-| The House of the Dead 4 Special | SEGA Lindbergh Yellow | Lindbergh-route bouwen |
-| The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route bouwen |
+| Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
+| The House of the Dead 4 Special | SEGA Lindbergh Yellow | EERSTE Lindbergh-titel: laag bouwen (scripts/build-lindbergh-loader.sh), dubbelklik, 5 min (docs/lindbergh.md); map "The House of the Dead 4" is Rev C = profiel HOTD4 |
+| The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route klaar (libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | The House of the Dead III | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Time Crisis 5 | Namco ES3X | invoer komt niet aan (onderzoek loopt) |
-| Too Spicy | SEGA Lindbergh Red | Lindbergh-route bouwen |
+| Too Spicy | SEGA Lindbergh Red | Lindbergh-route klaar (profiel 2Spicy, libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Transformers: Shadows Rising | Windows PC | bevriest ~1 min na START: SHELL_MSG_CHALLENGE (onderzoek loopt) |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |

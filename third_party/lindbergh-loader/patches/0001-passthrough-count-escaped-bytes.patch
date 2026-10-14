@@ -1,0 +1,49 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Wijziging op lindbergh-loader (src/lindbergh/passthrough.c), onder dezelfde licentie als die bron (CC BY-NC-SA 4.0);
+zie third_party/lindbergh-loader/README.md. Dit bestand is geen deel van de GPL-code van RavenGun.
+
+JVS-doorgifte (EMULATE_JVS = 0): de leesdraad telt de lengte van een antwoord in ruwe bytes. Een escape (0xD0 gevolgd
+door de waarde min 1) maakt het pakket op de lijn een byte langer dan de lengtebyte zegt, dus een antwoord met 0xD0 of
+0xE0 in de gegevens of in de som (lightgun-assen rond 0xD0xx, 1 op 128 sommen) werd afgekapt: de game kreeg een pakket
+zonder som. Daarnaast werd een lengte boven 0x7F negatief (char met teken).
+
+--- a/src/lindbergh/passthrough.c
++++ b/src/lindbergh/passthrough.c
+@@ -156,7 +156,7 @@
+ void *readJVSFrameThread(void * arg)
+ {
+     int fd = *((int *) arg);
+-    int byteCount, bytesRead, ackSize, waitForEnd;
++    int byteCount, bytesRead, ackSize, waitForEnd, escapePending;
+     int ctsRetry = CTS_ON_RETRY;
+     char localBuffer[JVSBUFFER_SIZE];
+
+@@ -166,6 +166,7 @@
+         byteCount = 0;
+         ackSize = 0;
+         waitForEnd = 0;
++        escapePending = 0;
+
+         do
+         {
+@@ -186,9 +187,18 @@
+                     waitForEnd = 1;
+                 }
+
+-                // Size byte
++                // Size byte (unsigned: a length above 0x7F must not turn negative)
+                 if (byteCount == 2) {
+-                    ackSize = localBuffer[byteCount] + 3;
++                    ackSize = (unsigned char) localBuffer[byteCount] + 3;
++                }
++                // The size counts unescaped bytes; an escape (0xD0) adds one byte on the wire
++                else if (byteCount > 2 && waitForEnd) {
++                    if (escapePending) {
++                        escapePending = 0;
++                    } else if (localBuffer[byteCount] == (char) 0xD0) {
++                        escapePending = 1;
++                        ackSize++;
++                    }
+                 }
+
+                 // Start counting bytes only if SYNC has been found

@@ -30,6 +30,7 @@ bool io_button_signal(const IoState& s, const std::string& name, bool& v) {
     if (r == "start") v = p.start;
     else if (r == "trigger") v = p.trigger;
     else if (r == "reload") v = p.reload;
+    else if (r == "offscreen") v = p.reload || (p.valid && p.offscreen);   // herladen door naast het scherm te richten (Sega-gun)
     else if (r == "grenade") v = p.grenade;
     else if (r == "aux1") v = p.aux1;
     else if (r == "aux2") v = p.aux2;
