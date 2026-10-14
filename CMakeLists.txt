@@ -18,6 +18,7 @@ embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_S
   "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
   "hid-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/hid-boards.json"
   "jvs-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/jvs-boards.json"
+  "control-pipe-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/control-pipe-profiles.json"
   "tp-shm-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/tp-shm-profiles.json")
 
 # Bouwinformatie voor de infopagina (git-commit bij het uitvoeren van cmake; PSMoveAPI-pin zoals in docs/build.md).
@@ -57,6 +58,7 @@ add_library(ravengun STATIC
   src/ravengun/gamesettings/gamepad_settings.cpp
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
+  src/ravengun/iobridge/control_pipe.cpp
   src/ravengun/iobridge/hid_board.cpp
   src/ravengun/iobridge/jvs.cpp
   src/ravengun/iobridge/jvs_dialect.cpp

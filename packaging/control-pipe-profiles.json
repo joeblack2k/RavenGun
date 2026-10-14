@@ -1,0 +1,34 @@
+{
+ "schema": 1,
+ "comment": "Rapporten voor de besturingspipe \\\\.\\pipe\\TeknoParrotPipe, per indeling ([Input] ControlPipe in game.ini), voor de IO-brug naast tp-shm (src/ravengun/iobridge/control_pipe.hpp). analog: kanalen van 16 bits little-endian vanaf offset, waarde min(byte*257+1, 65534); axes: as-signaal naar kanaal; bits: bit N van het little-endian bitveld vanaf offset, aan als een van signals aan is en geen van unless; coins: teller die optelt bij het loslaten, als 16 bits little-endian (teller*scale). Bron: beschrijving van het rapport uit de open TeknoParrotUI-bron (ALLSUsbIoPipe), feiten, geen code overgenomen; schakelaars nagelopen tegen AMDaemon/config.json van House of the Dead: Scarlet Dawn.",
+ "profiles": {
+  "AllsUsbIo": {
+   "description": "Sega ALLS USB-IO (EmulationProfile ALLS, ALLSHOTDSD, ALLSFGO): 64 bytes elke ~15 ms. 0-15 acht analoge kanalen, 24-25 munttellier 1 (byte 24 = 0, byte 25 = teller), 28-29 schakelaars speler 1, 30-31 speler 2 (index = bit van het 16-bit-woord: 7 start, 6 service, 5 Up = trekker, 4 Down = controllerkeuze, 1 Button1 = subtrekker, 9 test). Up en Down nooit samen: de trekker wint. Aim: kanaal 0/2 = P1 X/Y, 4/6 = P2 X/Y (Analog0/2/4/6 van het profiel HOTDSD), links/boven = 0.",
+   "pipe": "TeknoParrotPipe",
+   "size": 64,
+   "interval_ms": 15,
+   "analog": {"offset": 0, "channels": 8, "idle_byte": 0},
+   "axes": [
+    {"signal": "p1.x", "channel": 0},
+    {"signal": "p1.y", "channel": 2},
+    {"signal": "p2.x", "channel": 4},
+    {"signal": "p2.y", "channel": 6}
+   ],
+   "coins": [
+    {"signals": ["coin1"], "offset": 24, "scale": 256}
+   ],
+   "bits": [
+    {"signals": ["p1.start"], "offset": 28, "bit": 7},
+    {"signals": ["service"], "offset": 28, "bit": 6},
+    {"signals": ["p1.trigger"], "offset": 28, "bit": 5},
+    {"signals": ["p1.aux1", "p1.btn1"], "unless": ["p1.trigger"], "offset": 28, "bit": 4},
+    {"signals": ["p1.grenade"], "offset": 28, "bit": 1},
+    {"signals": ["test"], "offset": 28, "bit": 9},
+    {"signals": ["p2.start"], "offset": 30, "bit": 7},
+    {"signals": ["p2.trigger"], "offset": 30, "bit": 5},
+    {"signals": ["p2.aux1", "p2.btn1"], "unless": ["p2.trigger"], "offset": 30, "bit": 4},
+    {"signals": ["p2.grenade"], "offset": 30, "bit": 1}
+   ]
+  }
+ }
+}

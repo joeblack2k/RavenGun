@@ -18,6 +18,7 @@
 
 #include "iobridge_service.hpp"
 #include "output_service.hpp"
+#include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/jvs_dialect.hpp"
 #include "ravengun/iobridge/routes.hpp"
@@ -74,6 +75,13 @@ struct FakeKbd : output::KeyDevice {
 TpShmProfiles load_profiles() {
     std::string err;
     TpShmProfiles p = parse_tp_shm_profiles(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/tp-shm-profiles.json"), err);
+    CHECK(err.empty());
+    return p;
+}
+
+ControlPipeProfiles load_control_pipes() {
+    std::string err;
+    ControlPipeProfiles p = parse_control_pipe_profiles(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/control-pipe-profiles.json"), err);
     CHECK(err.empty());
     return p;
 }
@@ -235,10 +243,10 @@ void test_layouts() {
         auto n = render(p, IoState{});
         CHECK(control(n) == 0 && n[12] == 128 && n[40] == 128);
     }
-    // HOTDSDPipe (House of the Dead: Scarlet Dawn): twee trekkers, vier assen.
+    // HOTDSDPipe (House of the Dead: Scarlet Dawn): twee trekkers, vier assen; de rest gaat over de besturingspipe (AllsUsbIo).
     {
         const TpShmProfile& p = *ps.find("HOTDSDPipe");
-        CHECK(!p.complete && p.axes.size() == 4 && p.bits.size() == 2);
+        CHECK(p.complete && p.axes.size() == 4 && p.bits.size() == 2);
         IoState s;
         s.player[0] = aim(0.2, 0.4);
         s.player[0].trigger = true;
@@ -414,10 +422,13 @@ void test_routes(const std::string& dir) {
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
     CHECK(r.find("TC5")->coin_keys.size() == 2 && r.find("TC5")->coin_keys[0] == "lshift");
     CHECK(r.find("LGS")->route == "jvs" && r.find("LGS")->board == "LGS" && r.find("LGS")->com_port == "COM4");
-    // Elke layout in patches/*/game.ini bestaat in tp-shm-profiles.json.
+    // Elke layout in patches/*/game.ini bestaat in tp-shm-profiles.json, elke ControlPipe in control-pipe-profiles.json.
     TpShmProfiles ps = load_profiles();
-    for (const auto& g : r.games)
+    const ControlPipeProfiles cps = load_control_pipes();
+    for (const auto& g : r.games) {
         if (!g.layout.empty()) CHECK(ps.find(g.layout));
+        if (!g.control_pipe.empty()) CHECK(cps.find(g.control_pipe));
+    }
 
     // Eigen map in de test: controles per route, lijsten en de gebruikerslaag.
     const std::string sh = dir + "/rt-shipped", us = dir + "/rt-user";
@@ -435,10 +446,15 @@ void test_routes(const std::string& dir) {
     put(sh + "/I/game.ini", "[Input]\nRoute = hid-board\nBoards = SaeGunBoard, SaeIoBoard\n");          // lijst
     put(sh + "/J/game.ini", "[Input]\nRoute = hid-board\nBoard = SaeGunBoard\nBoards = SaeIoBoard\n");  // lijst wint
     put(sh + "/TC5/game.ini", "[Input]\nRoute = tp-shm\nLayout = TimeCrisis5\nCoinKeys = lshift,t\n");
+    put(sh + "/K/game.ini", "[Input]\nRoute = jvs\nBoard = LGS\nControlPipe = AllsUsbIo\n");      // ControlPipe hoort bij tp-shm
+    put(sh + "/L/game.ini", "[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n");
+    put(sh + "/M/game.ini", "[Input]\nControlPipe = AllsUsbIo\n");                                  // evdev: mag (de directe start maakt er tp-shm van)
     gamesettings::Dirs d{sh, {}};
     IoRoutes t = load_io_routes(d, err);
     CHECK(!err.empty());                                                           // de eerste melding
-    CHECK(!t.find("A") && !t.find("B") && !t.find("D") && !t.find("E") && !t.find("F"));
+    CHECK(!t.find("A") && !t.find("B") && !t.find("D") && !t.find("E") && !t.find("F") && !t.find("K"));
+    CHECK(t.find("L") && t.find("L")->control_pipe == "AllsUsbIo" && t.find("M") && t.find("M")->route == "evdev" && t.find("M")->control_pipe == "AllsUsbIo");
+    CHECK(t.find("TC5") && t.find("TC5")->control_pipe.empty());
     CHECK(t.find("C") && t.find("C")->boards.size() == 2 && t.find("C")->boards[1] == "Y" && t.find("C")->com_port == "COM2");
     CHECK(t.route_for("G") == "unity-tcp" && t.route_for("H") == "evdev" && !t.find("H"));
     // hid-board mag één bord of een lijst hebben; de lijst is de vorm voor de gun naast het IO-bord.
@@ -448,7 +464,7 @@ void test_routes(const std::string& dir) {
     CHECK(t.route_for("TC5") == "tp-shm" && t.find("TC5")->coin_keys.size() == 2);
 
     // Gebruikerslaag: per sleutel over de meegeleverde laag; een lege waarde zet een sleutel terug.
-    for (const char* bad : {"A", "B", "D", "E", "F"}) fs::remove_all(sh + "/" + bad);   // de ongeldige games hierboven
+    for (const char* bad : {"A", "B", "D", "E", "F", "K"}) fs::remove_all(sh + "/" + bad);   // de ongeldige games hierboven
     d.user = us;
     put(us + "/TC5/game.ini", "[Input]\nRoute = evdev\n");
     put(us + "/Nieuw/game.ini", "[Input]\nRoute = evdev\n");
@@ -467,6 +483,123 @@ void test_routes(const std::string& dir) {
     CHECK(u.route_for("TC5") == "tp-shm" && !err.empty());
     fs::remove_all(us);
     CHECK(load_io_routes(d, err).route_for("TC5") == "tp-shm" && err.empty());
+}
+
+uint16_t word(const std::vector<uint8_t>& b, size_t off) { return static_cast<uint16_t>(b[off] | (b[off + 1] << 8)); }
+
+// De besturingspipe (ALLS USB-IO-rapport van TeknoParrotUi, packaging/control-pipe-profiles.json): bytes exact, munt bij het loslaten,
+// Up en Down nooit samen, controle van de indeling, en het dialect op een echt bestand (ook na een herstart: de munt telt door).
+void test_control_pipe(const std::string& dir) {
+    const ControlPipeProfiles cps = load_control_pipes();
+    const ControlPipeProfile* pp = cps.find("AllsUsbIo");
+    CHECK(pp != nullptr);
+    if (!pp) return;
+    const ControlPipeProfile& p = *pp;
+    CHECK(p.pipe == "TeknoParrotPipe" && p.size == 64 && p.interval_ms == 15 && p.analog_channels == 8 && p.axes.size() == 4);
+    {   // de ingebouwde kopie (voor het plan van de directe start en rg-direct) is dezelfde
+        std::string e;
+        const ControlPipeProfiles bi = builtin_control_pipe_profiles(e);
+        CHECK(e.empty() && bi.find("AllsUsbIo") && bi.find("AllsUsbIo")->bits.size() == p.bits.size());
+    }
+    // min(byte * 65535/255 + 1, 65534)
+    CHECK(control_pipe_analog(0) == 1 && control_pipe_analog(1) == 258 && control_pipe_analog(128) == 32897 && control_pipe_analog(254) == 65279);
+    CHECK(control_pipe_analog(255) == 65534 && control_pipe_analog(300) == 65534);
+    // Neutraal: aim in het midden (byte 128) op de vier gebruikte kanalen, de andere kanalen byte 0, verder alles nul.
+    IoState s;
+    auto b = control_pipe_render(p, s, {0});
+    CHECK(b.size() == 64);
+    CHECK(word(b, 0) == 32897 && word(b, 2) == 1 && word(b, 4) == 32897 && word(b, 6) == 1 && word(b, 8) == 32897 && word(b, 12) == 32897);
+    CHECK(word(b, 10) == 1 && word(b, 14) == 1);
+    {
+        bool rest_nul = true;
+        for (size_t i = 16; i < 64; ++i) rest_nul = rest_nul && b[i] == 0;
+        CHECK(rest_nul);
+    }
+    // Alles tegelijk: P1 links onder, trekker, start, subtrekker, test en service; P2 rechts boven, start en controllerkeuze.
+    s.player[0] = aim(0.0, 1.0);
+    s.player[0].trigger = s.player[0].start = s.player[0].grenade = true;
+    s.player[1] = aim(1.0, 0.0);
+    s.player[1].start = s.player[1].aux1 = true;
+    s.sys.test = s.sys.service = true;
+    b = control_pipe_render(p, s, {3});
+    CHECK(word(b, 0) == 1 && word(b, 4) == 65534 && word(b, 8) == 65534 && word(b, 12) == 1);   // P1 X, P1 Y, P2 X, P2 Y
+    CHECK(b[24] == 0 && b[25] == 3);                                                            // munttellier 1 (teller * 256)
+    CHECK(b[28] == (0x80 | 0x40 | 0x20 | 0x02) && b[29] == 0x02);                              // start, service, Up, Button1; test
+    CHECK(b[30] == (0x80 | 0x10) && b[31] == 0);                                                // P2: start, Down
+    // Up en Down nooit samen: de trekker wint; controllerkeuze ook van de gamepad (btn1).
+    IoState t;
+    t.player[0].aux1 = true;
+    CHECK(control_pipe_render(p, t, {0})[28] == 0x10);
+    t.player[0].trigger = true;
+    CHECK(control_pipe_render(p, t, {0})[28] == 0x20);
+    IoState g;
+    g.player[0].btn[0] = true;
+    CHECK(control_pipe_render(p, g, {0})[28] == 0x10);
+    // Herladen, aux2 en munt 2 staan niet in het rapport.
+    IoState n;
+    n.player[0].reload = n.player[0].aux2 = true;
+    n.sys.coin[1] = true;
+    b = control_pipe_render(p, n, {0});
+    CHECK(b[28] == 0 && b[29] == 0 && b[25] == 0);
+    CHECK(control_pipe_render(p, IoState{}, {300})[25] == (300 & 0xFF));   // de teller loopt rond in een byte, zoals bij TeknoParrotUi
+
+    // Controle van de indeling.
+    auto bad = [&](const char* text) { std::string e; parse_control_pipe_profiles(text, e); return !e.empty(); };
+    CHECK(bad("[]") && bad(R"({"profiles":1})"));
+    CHECK(bad(R"({"profiles":{"X":{"bits":[{"signals":["p1.vliegen"],"offset":28,"bit":1}]}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"bits":[{"signals":["p1.start"],"offset":28,"bit":1},{"signals":["p1.trigger"],"offset":29,"bit":-7}]}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"bits":[{"signals":["p1.start"],"offset":28,"bit":1},{"signals":["p2.start"],"offset":28,"bit":1}]}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"analog":{"offset":0,"channels":8},"bits":[{"signals":["p1.start"],"offset":4,"bit":0}]}}})"));   // in een kanaal
+    CHECK(bad(R"({"profiles":{"X":{"analog":{"offset":0,"channels":2},"axes":[{"signal":"p1.x","channel":2}]}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"analog":{"offset":60,"channels":8}}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"coins":[{"signals":["coin1"],"offset":63}]}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"pipe":"a\\b"}}})") && bad(R"({"profiles":{"X":{"interval_ms":0}}})") && bad(R"({"profiles":{"X":{"size":"64"}}})"));
+    CHECK(bad(R"({"profiles":{"X":{"bits":[{"signals":["p1.start"],"unless":["nee"],"offset":28,"bit":1}]}}})"));
+    CHECK(!bad(R"({"profiles":{"X":{"bits":[{"signal":"p1.start","offset":28,"bit":1}]}}})"));   // "signal" mag ook
+
+    // Het dialect op een echt bestand.
+    const std::string path = dir + "/control";
+    {
+        ControlPipeDialect d(p, "HOTDSD", path);
+        std::string err;
+        CHECK(d.open(err) && fs::file_size(path) == 64);
+        CHECK(slurp(path).size() == 64 && static_cast<uint8_t>(slurp(path)[0]) == 0x81);
+        IoState c;
+        c.sys.coin[0] = true;
+        d.write(c);
+        CHECK(d.coins()[0] == 0);                 // ingedrukt telt nog niet
+        c.sys.coin[0] = false;
+        d.write(c);
+        CHECK(d.coins()[0] == 1);                 // bij het loslaten
+        c.player[0].start = true;
+        d.write(c);
+        std::string f = slurp(path);
+        CHECK(static_cast<uint8_t>(f[25]) == 1 && static_cast<uint8_t>(f[28]) == 0x80);
+        c.sys.coin[0] = true;
+        d.write(c);
+        d.neutral();                              // een munt die nog vastzat telt bij neutraal niet
+        f = slurp(path);
+        CHECK(d.coins()[0] == 1 && static_cast<uint8_t>(f[25]) == 1 && f[28] == 0);
+        CHECK(d.status_json().find("\"profile\":\"AllsUsbIo\"") != std::string::npos && d.status_json().find("\"coins\":[1]") != std::string::npos);
+        c.sys.coin[0] = false;
+        d.write(c);                               // na neutraal: geen flank meer
+        CHECK(d.coins()[0] == 1);
+        d.close();
+    }
+    {   // Herstart: de teller loopt door vanaf wat in het bestand staat.
+        ControlPipeDialect d(p, "HOTDSD", path);
+        std::string err;
+        CHECK(d.open(err) && d.coins()[0] == 1);
+        IoState c;
+        c.sys.coin[0] = true;
+        d.write(c);
+        c.sys.coin[0] = false;
+        d.write(c);
+        CHECK(d.coins()[0] == 2 && static_cast<uint8_t>(slurp(path)[25]) == 2);
+    }
+    ControlPipeDialect d3(p, "HOTDSD", dir + "/bestaat-niet/control");
+    std::string err;
+    CHECK(!d3.open(err) && !err.empty());
 }
 
 // Dialect op een echt bestand: aanmaken, schrijven, neutraal, sluiten; overname van TeknoParrotUi's vlag-bytes.
@@ -551,6 +684,31 @@ void test_user_routes(const std::string& dir) {
     put_user("JurassicPark", "[Input]\nRoute = tp-shm\n");
     CHECK(br.start("JurassicPark").empty() && br.active() && br.active_route() == "tp-shm");   // Layout uit de meegeleverde laag
     br.stop();
+    // House of the Dead: Scarlet Dawn met de besturingspipe: het gedeelde geheugen en het rapport, en bij het stoppen beide weg.
+    put_user("HOTDSD", "[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n");
+    CHECK(!br.start("HOTDSD").empty() && !br.active());           // de brug kent geen besturingspipes (cfg zonder control_pipes)
+    br.shutdown();
+    {
+        IoBridgeService::Config c2 = cfg;
+        c2.control_pipes = load_control_pipes();
+        c2.control_pipe_path = dir + "/ur-control";
+        IoBridgeService b2(sh, c2);
+        CHECK(b2.start("HOTDSD").empty() && b2.active() && b2.active_route() == "tp-shm");
+        CHECK(fs::file_size(c2.shm_path) == 64 && fs::file_size(c2.control_pipe_path) == 64);
+        CHECK(static_cast<uint8_t>(slurp(c2.control_pipe_path)[0]) == 0x81);   // neutraal: aim in het midden
+        auto js2 = json::parse(b2.status_json());
+        const json::Value* det = js2.ok ? js2.value.find("detail") : nullptr;
+        CHECK(det && det->find("layout")->str == "HOTDSDPipe" && det->find("control_pipe") && det->find("control_pipe")->find("pipe")->str == "TeknoParrotPipe");
+        // Een andere route (zonder besturingspipe) ruimt het rapport op; stoppen ruimt alles op.
+        CHECK(b2.start("JurassicPark").empty() && !fs::exists(c2.control_pipe_path));
+        CHECK(b2.start("HOTDSD").empty() && fs::exists(c2.control_pipe_path));
+        b2.stop();
+        CHECK(!fs::exists(c2.control_pipe_path) && !fs::exists(c2.shm_path));
+        put_user("HOTDSD", "[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = Bestaatniet\n");
+        CHECK(b2.start("HOTDSD").find("Bestaatniet") != std::string::npos && !b2.active());
+        b2.shutdown();
+    }
+    fs::remove_all(cfg.dirs.user + "/HOTDSD");
     put_user("TC5", "[Input]\nRoute = onzin\n");
     CHECK(br.route_for("TC5") == "tp-shm");                       // ongeldig: genegeerd
     js = json::parse(br.status_json());
@@ -787,6 +945,42 @@ void test_service(const std::string& dir) {
         CHECK(!br4.start("OnbekendeGame", "jvs").empty());   // geen [Input] in game.ini: nette fout
         sh.iobridge = nullptr;
     }
+    {
+        // Route tp-shm met de besturingspipe (HOTDSD): start (toets 1), munt (toets 5, telt bij het loslaten), trekker en aim komen in
+        // het rapport; de trekker ook in het gedeelde geheugen. Dit is wat rg-direct naar \\.\pipe\TeknoParrotPipe stroomt.
+        IoBridgeService::Config c5 = cfg;
+        c5.dirs.user = sdir + "/user5";
+        put(c5.dirs.user + "/HOTDSD/game.ini", "[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n");
+        c5.control_pipes = load_control_pipes();
+        c5.control_pipe_path = sdir + "/control";
+        IoBridgeService br5(sh, c5);
+        sh.iobridge = &br5;
+        CHECK(br5.start("HOTDSD").empty() && br5.active_route() == "tp-shm");
+        auto rep = [&] {
+            const std::string t = slurp(c5.control_pipe_path);
+            return std::vector<uint8_t>(t.begin(), t.end());
+        };
+        CHECK(out.arm().ok);
+        output::PatternParams pp;
+        pp.kind = output::PatternKind::Point;
+        pp.x = 1.0;
+        pp.y = 0.0;
+        CHECK(out.start_pattern(pp).ok);
+        CHECK(out.key(1, KEY_1, "down").ok);
+        CHECK(wait_for([&] { auto r = rep(); return r.size() == 64 && r[28] == 0x80 && word(r, 0) == 65534 && word(r, 4) == 1; }));
+        CHECK(out.key(1, KEY_1, "up").ok);
+        CHECK(out.key(1, KEY_5, "down").ok);
+        CHECK(wait_for([&] { return br5.status_json().find("\"buttons\":\"coin\"") != std::string::npos; }));   // de brug zag de munt ingedrukt
+        CHECK(out.key(1, KEY_5, "up").ok);
+        CHECK(wait_for([&] { auto r = rep(); return r.size() == 64 && r[25] == 1 && r[28] == 0; }));
+        CHECK(out.button(output::GunButton::Trigger, "down").ok);
+        CHECK(wait_for([&] { auto r = rep(); auto m = read_file(); return r.size() == 64 && r[28] == 0x20 && (control(m) & 0x1u); }));
+        out.disarm();
+        CHECK(wait_for([&] { auto r = rep(); return r.size() == 64 && r[28] == 0 && r[25] == 1 && word(r, 0) == 32897; }));
+        br5.stop();
+        CHECK(!fs::exists(c5.control_pipe_path) && !fs::exists(c5.shm_path));
+        sh.iobridge = nullptr;
+    }
     // Zonder gewapende uitvoer is de toestand neutraal; de bron meldt dat.
     IoState s;
     CHECK(!out.io_snapshot(s) || out.armed());
@@ -804,6 +998,7 @@ int main() {
     test_offscreen_rule();
     test_routes(dir);
     test_dialect_file(dir);
+    test_control_pipe(dir);
     test_service(dir);
     test_user_routes(dir);
     fs::remove_all(dir);

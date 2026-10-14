@@ -18,6 +18,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/iobridge/dialect.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/jvs.hpp"
@@ -35,6 +36,10 @@ public:
         // route-vraag opnieuw gelezen, dus een keuze in de app geldt zonder herstart van de daemon.
         ravengun::gamesettings::Dirs dirs;
         ravengun::iobridge::TpShmProfiles profiles;
+        // Rapporten voor de besturingspipe ([Input] ControlPipe, packaging/control-pipe-profiles.json): op route tp-shm schrijft de brug
+        // dat rapport naast het gedeelde geheugen in control_pipe_path; rg-direct stroomt het naar \\.\pipe\TeknoParrotPipe.
+        ravengun::iobridge::ControlPipeProfiles control_pipes;
+        std::string control_pipe_path = ravengun::iobridge::kDefaultControlPipePath;
         ravengun::iobridge::HidBoards boards;
         ravengun::iobridge::JvsBoards jvs_boards;
         std::string jvs_link;         // vaste symlink naar de pty van de jvs-route ($XDG_RUNTIME_DIR/ravengun/jvs-com); leeg = geen link
@@ -100,6 +105,7 @@ private:
     std::unique_ptr<ravengun::iobridge::IoDialect> dialect_;
     std::string game_, route_;
     bool shm_ = false;                                  // route jvs schrijft ook een tp-shm-indeling (Layout in [Input])
+    bool control_ = false;                              // route tp-shm schrijft ook het rapport van de besturingspipe (ControlPipe)
     std::vector<int> coin_codes_;                       // evdev-codes van coin_keys van de actieve game
     std::array<bool, ravengun::iobridge::kIoPlayers> coin_prev_{};
     bool quit_ = false;

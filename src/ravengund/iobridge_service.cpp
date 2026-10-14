@@ -55,6 +55,38 @@ private:
     std::unique_ptr<IoDialect> jvs_;
     std::unique_ptr<TpShmDialect> shm_;
 };
+
+// Route tp-shm met ControlPipe in [Input]: het gedeelde geheugen EN het rapport voor de besturingspipe (House of the Dead: Scarlet Dawn:
+// de trekkers en de aim uit het geheugen, start, test, subtrekker en munt uit het ALLS USB-IO-rapport). Naar buiten is dit het
+// tp-shm-dialect; de status krijgt "control_pipe" erbij.
+class WithControlPipeDialect final : public IoDialect {
+public:
+    WithControlPipeDialect(std::unique_ptr<IoDialect> main, std::unique_ptr<ControlPipeDialect> cp) : main_(std::move(main)), cp_(std::move(cp)) {}
+    ~WithControlPipeDialect() override { close(); }
+    const char* name() const override { return main_->name(); }
+    std::string game() const override { return main_->game(); }
+    bool open(std::string& err) override {
+        if (!cp_->open(err)) return false;
+        if (!main_->open(err)) { cp_->close(); return false; }
+        return true;
+    }
+    void write(const IoState& s) override { main_->write(s); cp_->write(s); }
+    void neutral() override { main_->neutral(); cp_->neutral(); }
+    void close() override { main_->close(); cp_->close(); }
+    IoOutputs outputs() const override { return main_->outputs(); }
+    std::string status_json() const override {
+        std::string j = main_->status_json();
+        if (!j.empty() && j.back() == '}') {
+            j.pop_back();
+            j += std::string(j.size() > 1 ? "," : "") + "\"control_pipe\":" + cp_->status_json() + "}";
+        }
+        return j;
+    }
+
+private:
+    std::unique_ptr<IoDialect> main_;
+    std::unique_ptr<ControlPipeDialect> cp_;
+};
 }  // namespace
 
 IoBridgeService::IoBridgeService(SharedState& sh, Config cfg) : sh_(sh), cfg_(std::move(cfg)) {
@@ -187,11 +219,19 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     if (!r || r->layout.empty()) return "game '" + game + "' heeft geen tp-shm-indeling (Layout in [Input] van game.ini)";
     const TpShmProfile* prof = cfg_.profiles.find(r->layout);
     if (!prof) return "tp-shm-indeling '" + r->layout + "' ontbreekt in tp-shm-profiles.json";
-    auto d = std::make_unique<TpShmDialect>(*prof, game, cfg_.shm_path, cfg_.tpui_shm_path);
+    std::unique_ptr<IoDialect> d = std::make_unique<TpShmDialect>(*prof, game, cfg_.shm_path, cfg_.tpui_shm_path);
+    std::string cp_note;
+    if (!r->control_pipe.empty()) {
+        const ControlPipeProfile* cp = cfg_.control_pipes.find(r->control_pipe);
+        if (!cp) return "besturingspipe '" + r->control_pipe + "' ontbreekt in control-pipe-profiles.json";
+        d = std::make_unique<WithControlPipeDialect>(std::move(d), std::make_unique<ControlPipeDialect>(*cp, game, cfg_.control_pipe_path));
+        cp_note = ", besturingspipe " + cp->name + " (" + cp->pipe + ") in " + cfg_.control_pipe_path;
+    }
     std::string err;
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);
     if (dialect_) { dialect_->neutral(); dialect_->close(); }
+    if (control_ && cp_note.empty()) ::unlink(cfg_.control_pipe_path.c_str());   // de vorige route had een besturingspipe, deze niet
     dialect_ = std::move(d);
     coin_codes_.clear();
     coin_prev_ = {};
@@ -199,11 +239,12 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     game_ = game;
     route_ = kRouteTpShm;
     shm_ = false;
+    control_ = !cp_note.empty();
     seen_alive_ = false;
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
     write_state_file(route_, game_);
-    logf("info", "IO-brug: tp-shm voor %s (indeling %s, %s)", game.c_str(), prof->name.c_str(), cfg_.shm_path.c_str());
+    logf("info", "IO-brug: tp-shm voor %s (indeling %s, %s%s)", game.c_str(), prof->name.c_str(), cfg_.shm_path.c_str(), cp_note.c_str());
     cv_.notify_all();
     return {};
 }
@@ -239,6 +280,7 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);
     if (dialect_) { apply_coin_keys(IoState{}); dialect_->neutral(); dialect_->close(); }
+    if (control_) { ::unlink(cfg_.control_pipe_path.c_str()); control_ = false; }
     dialect_ = std::move(d);
     coin_codes_.clear();
     coin_prev_ = {};
@@ -284,6 +326,7 @@ std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);
     if (dialect_) { apply_coin_keys(IoState{}); dialect_->neutral(); dialect_->close(); }
+    if (control_) { ::unlink(cfg_.control_pipe_path.c_str()); control_ = false; }
     dialect_ = std::move(d);
     coin_codes_.clear();
     coin_prev_ = {};
@@ -340,7 +383,9 @@ void IoBridgeService::stop_locked() {
     dialect_->neutral();
     dialect_->close();
     if (route_ == kRouteTpShm || shm_) ::unlink(cfg_.shm_path.c_str());
+    if (control_) ::unlink(cfg_.control_pipe_path.c_str());
     shm_ = false;
+    control_ = false;
     dialect_.reset();
     coin_codes_.clear();
     route_.clear();

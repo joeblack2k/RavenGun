@@ -45,6 +45,10 @@ std::vector<std::string> split_list(const std::string& s) {
 bool validate_route(const IoRoute& r, std::string& err) {
     if (!valid_route(r.route)) { err = r.game + ": ongeldige Route '" + r.route + "' in [Input]"; return false; }
     if (r.route == kRouteTpShm && r.layout.empty()) { err = r.game + ": route tp-shm vraagt een Layout in [Input]"; return false; }
+    if (!r.control_pipe.empty() && r.route != kRouteTpShm && r.route != kRouteEvdev) {
+        err = r.game + ": ControlPipe in [Input] hoort bij route tp-shm (niet " + r.route + ")";
+        return false;
+    }
     if (r.route == kRouteHidBoard && r.board.empty() && r.boards.empty()) { err = r.game + ": route hid-board vraagt een Board of Boards in [Input]"; return false; }
     if (r.route == kRouteJvs && r.board.empty() && r.boards.empty()) { err = r.game + ": route jvs vraagt een Board of Boards in [Input]"; return false; }
     for (const auto& k : r.coin_keys)
@@ -53,7 +57,7 @@ bool validate_route(const IoRoute& r, std::string& err) {
 }
 
 bool has_input(const gs::Game& g) {
-    for (const char* k : {"Route", "Layout", "Board", "Boards"})
+    for (const char* k : {"Route", "Layout", "ControlPipe", "Board", "Boards"})
         if (g.settings.has("Input", k)) return true;
     return false;
 }
@@ -63,6 +67,7 @@ IoRoute build(const gs::Game& g) {
     r.game = g.profile;
     r.route = g.get("Input", "Route", kRouteEvdev);
     r.layout = g.get("Input", "Layout");
+    r.control_pipe = g.get("Input", "ControlPipe");
     r.board = g.get("Input", "Board");
     r.boards = split_list(g.get("Input", "Boards"));
     r.com_port = g.get("Input", "ComPort");
