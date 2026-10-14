@@ -38,6 +38,8 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <array>
+#include <cerrno>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -711,10 +713,15 @@ int run_plan(const std::string& plan_file) {
 
     // 2. Gedeeld geheugen en de bron voor de helper.
     {
+        // Elke start begint schoon, zoals een kast na het aanzetten (TeknoParrotUi: JvsPackageEmulator.Initialize -> ResetState).
+        // Byte 0 is de sense-lijn van de JVS-bus (de verbindingsvlag, 1 na een adres). Een 1 van de vorige run laat de game na
+        // SETADDR 01 een tweede bord zien: hij vraagt adres 02, krijgt geen antwoord en stopt (gemeten met Let's Go Safari,
+        // 2026-10-14: "F1 02 (geen antwoord)", game na 30 s weg).
         const int fd = ::open(g_shm_path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
         if (fd >= 0) {
-            struct stat st{};
-            if (::fstat(fd, &st) == 0 && st.st_size < kShmSize) (void)!::ftruncate(fd, kShmSize);
+            const std::array<uint8_t, kShmSize> zero{};
+            if (::ftruncate(fd, kShmSize) != 0 || ::pwrite(fd, zero.data(), zero.size(), 0) != static_cast<ssize_t>(zero.size()))
+                log("gedeeld geheugen " + g_shm_path + " niet op nul gezet: " + std::strerror(errno));
             ::close(fd);
         }
     }

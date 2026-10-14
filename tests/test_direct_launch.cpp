@@ -388,6 +388,7 @@ int main() {
         write(planf, plan_to_json(pl));
         const fs::path logf = root / "run.log";
         setenv("RG_DIRECT_SHM_PATH", (root / "shm").c_str(), 1);
+        write(root / "shm", std::string(64, '\xAB'));   // een vorige run liet rommel achter, ook een sense-byte die aan staat
         setenv("RG_ALLEEN_IN_DE_TEST", "1", 1);   // mag niet in het spel komen: de omgeving komt uit het plan
         posix_spawn_file_actions_t fa;
         posix_spawn_file_actions_init(&fa);
@@ -410,6 +411,7 @@ int main() {
         CHECK(contains(log, "A11: overgeslagen 0, toegepast 0, koppeling 0, versie 1, fout 0"));
         CHECK(slurp(out / "helper-reply") == "e00003010105");                       // het antwoord op de adrestoekenning
         CHECK(slurp(root / "shm").size() == 64 && slurp(root / "shm")[0] == 1);      // verbind-vlag aan
+        CHECK(slurp(root / "shm").substr(1) == std::string(63, '\0'));               // de rest op nul: elke start begint schoon
         const std::string args = slurp(out / "helper-args");
         CHECK(contains(args, "TeknoParrot_JvsState 64 " + wine_path((root / "src").string())));
         CHECK(slurp(out / "game-cwd") == p.tp + "\n");
