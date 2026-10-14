@@ -13,6 +13,11 @@
 #     klaar: Beeld op de tv; Kalibratie overgeslagen                        (optioneel, met ; ertussen)
 #     nog: Twee minuten spelen                                              (optioneel, met ; ertussen)
 #     gehaald: Rabbids                 (optioneel: spellen die 5 minuten attract of spel haalden)
+#     vraag: Mag Halo zonder kalibratie?   (optioneel: een vraag voor de eigenaar; het bord toont hem als grote, pulserende
+#                                          balk "Vraag voor jou". Bij de volgende status zonder --vraag is hij weer weg.)
+#     doelen: Alle 13 spellen halen; Wiki   (optioneel: de grotere doelen, klein getoond; met ; ertussen)
+# Daarnaast de activiteitenlijst: ~/.local/state/ravengun/saver-feed.txt, een regel `2026-10-14T21:03:11 tekst` per
+# gebeurtenis (de laatste 50 blijven); het bord toont de nieuwste 7 met hun tijd. Schrijf ze met --feed.
 # Je mag het bestand ook zelf schrijven. Het bord leest het elke 12 seconden opnieuw.
 #
 # Een verkeerd gelezen status is erger dan geen status. Dit script keurt de status daarom eerst met de ontleder van
@@ -22,15 +27,20 @@
 #
 # Gebruik:
 #   scripts/rg-saver-status.sh --spel Halo --bezig "Richten en schieten testen" --stand goed \
-#        [--stap "3 van 5"] [--doel "..."] [--klaar "a; b"] [--nog "c; d"] [--gehaald "x; y"]
+#        [--stap "3 van 5"] [--doel "..."] [--klaar "a; b"] [--nog "c; d"] [--gehaald "x; y"] \
+#        [--vraag "..."] [--doelen "a; b"] [--feed "wat er net gebeurde"]
+#   scripts/rg-saver-status.sh --feed "Halo gestart op de tv"     alleen een regel aan de activiteitenlijst toevoegen
 #   scripts/rg-saver-status.sh --show            wat het bord nu toont (exitcode 1 als de status ontbreekt of niet klopt)
 #   scripts/rg-saver-status.sh --check BESTAND   een bestand keuren zonder iets te schrijven
 #   scripts/rg-saver-status.sh --clear           het statusbestand weghalen (het bord zegt dan dat er geen status is)
+#   scripts/rg-saver-status.sh --clear-feed      de activiteitenlijst leegmaken
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
 FILE="$STATE/saver-status.txt"
+FEED="$STATE/saver-feed.txt"
+FEED_KEEP=50
 die() { echo "rg-saver-status: $*" >&2; exit 2; }
 
 # De ontleder van het bord zelf. Zonder die ontleder wordt er niets geschreven: ongekeurd schrijven is juist het risico.
@@ -46,15 +56,21 @@ keur() {   # $1 = bestand; drukt af wat het bord zou tonen; exitcode 1 als het n
   QT_QPA_PLATFORM=offscreen "$bin" --saver-check --saver-file "$1"
 }
 
-declare -A V=(); ORDE=(spel bezig stand stap doel klaar nog gehaald)
-[[ $# -gt 0 ]] || { sed -n '2,29p' "$0"; exit 2; }
+declare -A V=(); ORDE=(spel bezig stand stap doel klaar nog gehaald vraag doelen); NIEUW=""
+[[ $# -gt 0 ]] || { sed -n '2,36p' "$0"; exit 2; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --show)  keur "$FILE"; exit $? ;;
     --check) [[ $# -ge 2 ]] || die "--check vereist een bestand"; keur "$2"; exit $? ;;
     --clear) rm -f "$FILE"; echo "rg-saver-status: het statusbestand is weg; het bord zegt nu dat er geen status is"; exit 0 ;;
-    -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
-    --spel|--bezig|--stand|--stap|--doel|--klaar|--nog|--gehaald)
+    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
+    --clear-feed) rm -f "$FEED"; echo "rg-saver-status: de activiteitenlijst is leeg"; exit 0 ;;
+    --feed)
+      [[ $# -ge 2 ]] || die "--feed vereist een tekst"
+      NIEUW="${2//[$'\t\r\n']/ }"; NIEUW="${NIEUW:0:160}"
+      [[ -n "${NIEUW//[[:space:]]/}" ]] || die "--feed: lege tekst"
+      shift ;;
+    --spel|--bezig|--stand|--stap|--doel|--klaar|--nog|--gehaald|--vraag|--doelen)
       [[ $# -ge 2 ]] || die "$1 vereist een waarde"
       [[ "$2" != *$'\n'* ]] || die "$1: een waarde is een regel"
       V[${1#--}]="$2"; shift ;;
@@ -64,6 +80,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$STATE"
+feed() {   # een regel met tijd toevoegen en de laatste $FEED_KEEP houden
+  [[ -n "$NIEUW" ]] || return 0
+  local t; t=$(mktemp "$STATE/saver-feed.XXXXXX")
+  { [[ -f "$FEED" ]] && tail -n $((FEED_KEEP - 1)) "$FEED"; printf '%s %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$NIEUW"; } > "$t"
+  chmod 644 "$t"; mv -f "$t" "$FEED"
+  echo "rg-saver-status: activiteit toegevoegd: $NIEUW"
+}
+# Alleen --feed: de status blijft zoals hij is.
+if [[ ${#V[@]} -eq 0 && -n "$NIEUW" ]]; then feed; exit 0; fi
 TMP=$(mktemp "$STATE/saver-status.XXXXXX")
 trap 'rm -f "$TMP"' EXIT
 for k in "${ORDE[@]}"; do
@@ -78,3 +103,4 @@ chmod 644 "$TMP"
 mv -f "$TMP" "$FILE"
 trap - EXIT
 printf '%s\n' "$UIT"
+feed

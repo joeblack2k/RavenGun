@@ -2,6 +2,7 @@
 // RavenGun: de app (Qt 6 Widgets). Opties:
 //   --fullscreen           fullscreen-modus ("big picture") voor Steam Game Mode en de tv, zonder het hoofdvenster
 //   --saver                OLED-bescherming: zwart schermvullend venster met een bewegend statusbord (geen engine; stopt bij SIGTERM/SIGINT)
+//   --saver-snapshot PNG   het statusbord als PNG bewaren (zonder iets te tonen; --saver-size BxH, standaard 1920x1080) en stoppen
 //   --saver-check          toon wat het statusbord zou tonen en stop (exitcode 1 als het statusbestand ontbreekt of niet klopt)
 //   --add-to-steam         RavenGun als niet-Steam-game toevoegen (zonder vragen; weigert als Steam draait) en stoppen
 //   --steam-account ID     bij --add-to-steam: deze Steam-gebruiker (map onder userdata/) in plaats van de laatst ingelogde
@@ -83,7 +84,11 @@ int main(int argc, char** argv) {
                                         QStringLiteral("Read the saver status file, print what the saver would show and quit (exit 1 if the file is missing or invalid)."));
     const QCommandLineOption saverFile(QStringLiteral("saver-file"), QStringLiteral("Status file for --saver-check (default: the saver's own file)."),
                                        QStringLiteral("PATH"));
-    p.addOptions({saverCheck, saverFile});
+    const QCommandLineOption saverSnap(QStringLiteral("saver-snapshot"), QStringLiteral("Render the saver board to a PNG (use with QT_QPA_PLATFORM=offscreen) and quit."),
+                                       QStringLiteral("PNG"));
+    const QCommandLineOption saverSize(QStringLiteral("saver-size"), QStringLiteral("Size for --saver-snapshot, WxH."), QStringLiteral("WxH"),
+                                       QStringLiteral("1920x1080"));
+    p.addOptions({saverCheck, saverFile, saverSnap, saverSize});
     p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
@@ -130,6 +135,21 @@ int main(int argc, char** argv) {
         const QStringList lines = rg::ui::SaverWindow::Lines(st, rg::ui::SaverWindow::LoadGame(rg::ui::SaverWindow::GamePath(), now), now);
         for (const QString& l : lines) std::printf("%s\n", qPrintable(l));
         return st.ok ? 0 : 1;
+    }
+
+    if (p.isSet(saverSnap)) {
+        const QStringList wh = p.value(saverSize).split(QLatin1Char('x'));
+        const QSize size(wh.value(0).toInt(), wh.value(1).toInt());
+        if (wh.size() != 2 || size.width() < 320 || size.height() < 240) {
+            std::fprintf(stderr, "--saver-size: use WxH, for example 1920x1080\n");
+            return 2;
+        }
+        rg::ui::SaverWindow saverWin;
+        if (!saverWin.SaveSnapshot(p.value(saverSnap), size)) {
+            std::fprintf(stderr, "could not write %s\n", qPrintable(p.value(saverSnap)));
+            return 1;
+        }
+        return 0;
     }
 
     if (p.isSet(saver)) {

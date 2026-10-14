@@ -43,6 +43,27 @@ grep -q "^spel: Halo$" "$F" && grep -q "^stand: goed$" "$F" || fail "het bestand
 "$S" --show >/dev/null 2>&1 || fail "--show keurt de zojuist geschreven status af"
 GOED=$(cat "$F")
 
+# 2b. De nieuwe sleutels: vraag en doelen, en de activiteitenlijst (--feed).
+UIT=$("$S" --spel Halo --bezig Testen --stand bezig --vraag "Met of zonder kalibratie?" --doelen "Alles halen; Wiki" 2>&1); RC=$?
+[[ $RC -eq 0 ]] || fail "vraag: exitcode $RC ($UIT)"
+grep -qF "Vraag voor jou: Met of zonder kalibratie?" <<<"$UIT" || fail "vraag ontbreekt in: $UIT"
+grep -q "^vraag: Met of zonder kalibratie?$" "$F" && grep -q "^doelen: Alles halen; Wiki$" "$F" || fail "vraag/doelen niet in het bestand: $(cat "$F")"
+"$S" --spel Halo --bezig Testen --stand bezig >/dev/null 2>&1; grep -q "^vraag:" "$F" && fail "de vraag blijft staan na een status zonder --vraag"
+GOED=$(cat "$F")
+FD="$T/state/ravengun/saver-feed.txt"
+"$S" --feed "Halo gestart" >/dev/null || fail "--feed alleen"
+[[ "$(cat "$F")" == "$GOED" ]] || fail "--feed alleen heeft de status veranderd"
+grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2} Halo gestart$' "$FD" || fail "feedregel klopt niet: $(cat "$FD")"
+for i in $(seq 1 60); do "$S" --feed "regel $i" >/dev/null; done
+[[ $(wc -l < "$FD") -eq 50 ]] || fail "de feed houdt $(wc -l < "$FD") regels, verwacht 50"
+tail -n 1 "$FD" | grep -q "regel 60$" || fail "de nieuwste feedregel staat niet onderaan"
+"$S" --spel Halo --bezig Testen --stand bezig --feed "samen met status" >/dev/null || fail "status met --feed"
+tail -n 1 "$FD" | grep -q "samen met status$" || fail "feed bij status ontbreekt"
+LEN=$(wc -l < "$FD")
+"$S" --spel Halo --bezig Testen --stand prima --feed "niet schrijven" >/dev/null 2>&1
+[[ $(wc -l < "$FD") -eq $LEN ]] || fail "een afgekeurde status schreef toch een feedregel"
+"$S" --clear-feed >/dev/null; [[ ! -e "$FD" ]] || fail "--clear-feed"
+
 # 3. Een status die niet klopt wordt niet geschreven; het oude bestand blijft staan.
 nee() {   # $1 = wat er in de melding moet staan; de rest = de opties
   local wat="$1"; shift

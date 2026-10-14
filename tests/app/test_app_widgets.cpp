@@ -76,6 +76,7 @@ private Q_SLOTS:
     void addToSteamOnCopy();
     void saverWindow();
     void saverStatusParsing();
+    void saverQuestionAndFeed();
 
 private:
     QTemporaryDir tmp_;
@@ -106,7 +107,11 @@ void AppWidgetTest::propertiesForAllGames() {
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
     core.library()->load();
     const GameOptionsDb& db = core.gameData()->options();
-    QCOMPARE(db.entries().size(), 37);
+    // De tellers staan in het bestand zelf (counts); een verwijderde game hoort dus niet langer een vast getal in de test te breken.
+    QFile countsFile(QStringLiteral(RAVENGUN_SOURCE_DIR "/packaging/game-options.json"));
+    QVERIFY(countsFile.open(QIODevice::ReadOnly));
+    const QJsonObject counts = QJsonDocument::fromJson(countsFile.readAll()).object().value(QStringLiteral("counts")).toObject();
+    QCOMPARE(db.entries().size(), counts.value(QStringLiteral("games")).toInt());
     const QString tc5 = readAll(QStringLiteral(RAVENGUN_TEST_DATA "/TC5.xml"));
     g_messages.clear();
     const QtMessageHandler old = qInstallMessageHandler(collect);
@@ -146,8 +151,8 @@ void AppWidgetTest::propertiesForAllGames() {
     }
     qInstallMessageHandler(old);
     QVERIFY2(g_messages.isEmpty(), qPrintable(g_messages.join(QLatin1Char('\n'))));
-    QCOMPARE(dialogs, 37);
-    QCOMPARE(total, 564);
+    QCOMPARE(dialogs, counts.value(QStringLiteral("games")).toInt());
+    QCOMPARE(total, counts.value(QStringLiteral("options")).toInt());
     qInfo("Properties: %d dialogs, %d option rows shown in Options (%d of %d elsewhere)", dialogs, rows, total - rows, total);
 }
 
@@ -277,8 +282,9 @@ void AppWidgetTest::dongleGroup() {
         QCOMPARE(d.DongleCheck()->text(), QStringLiteral("Use dongle"));
         QVERIFY(d.DongleCheck()->isEnabled());
         QVERIFY(!d.DongleCheck()->isChecked());                                           // standaard uit
-        QCOMPARE(d.DongleSourceCombo()->count(), 1);
+        QCOMPARE(d.DongleSourceCombo()->count(), 2);                                      // usb-passthrough en drop-in (dongleSources())
         QCOMPARE(d.DongleSourceCombo()->itemText(0), QStringLiteral("USB pass-through (physical dongle)"));
+        QCOMPARE(d.DongleSourceCombo()->itemData(1).toString(), QStringLiteral("drop-in"));
         QCOMPARE(d.DongleSourceCombo()->currentData().toString(), QStringLiteral("usb-passthrough"));
         QVERIFY(!d.DongleSourceCombo()->isEnabled() && !d.DongleStatusLabel()->isEnabled() && !d.DongleRefreshButton()->isEnabled());   // uit: grijs
         QVERIFY(d.DongleStatusLabel()->text().isEmpty());
@@ -339,7 +345,15 @@ void AppWidgetTest::bigPictureLightgun() {
     w.resize(1920, 1080);
     w.show();
     QVERIFY(QTest::qWaitForWindowExposed(&w));
-    QCOMPARE(w.GameCount(), 4);  // Jurassic Park is geparkeerd: alleen met "Show All Games"
+    // Zonder "Show All Games" alleen de games die de meegeleverde game.ini playable of working noemt (de status verandert met het
+    // werk aan een game, dus geen vast getal): hier uit dezelfde gegevens geteld.
+    int speelbaar = 0;
+    for (const char* p : {"Halo", "TC5", "Terminator", "TombRaider", "JurassicPark"}) {
+        const QString st = core.gameData()->playState(QLatin1String(p));
+        if (st == QStringLiteral("playable") || st == QStringLiteral("working")) ++speelbaar;
+    }
+    QVERIFY(speelbaar > 0);
+    QCOMPARE(w.GameCount(), speelbaar);
     QString message;
     connect(core.launcher(), &GameLauncher::message, this, [&message](const QString& t, bool) { message = t; });
     // Vizier op tegel 1, één schot: nog niets; tweede schot: starten (hier: "engine is not running").
@@ -663,6 +677,58 @@ void AppWidgetTest::saverStatusParsing() {
     QCOMPARE(SaverWindow::LoadGame(dir.path() + QStringLiteral("/nee.txt"), now), SaverGame::Unknown);
     QCOMPARE(SaverWindow::Lines(ok, SaverGame::Unknown, 1000).value(0), QStringLiteral("Onbekend of er nu een spel draait"));
     QCOMPARE(SaverWindow::Lines(ok, SaverGame::None, 1000).value(0), QStringLiteral("Er draait nu geen spel"));
+}
+
+void AppWidgetTest::saverQuestionAndFeed() {
+    // Nieuwe sleutels: vraag en doelen. Een oud bestand zonder ze blijft gewoon werken.
+    using ui::SaverGame;
+    using ui::SaverWindow;
+    const QString base = QStringLiteral("spel: Halo\nbezig: Testen\nstand: bezig\n");
+    const ui::SaverStatus old = SaverWindow::ParseStatus(base);
+    QVERIFY(old.ok);
+    QVERIFY(old.question.isEmpty());
+    QVERIFY(old.goals.isEmpty());
+    const ui::SaverStatus q = SaverWindow::ParseStatus(base + QStringLiteral("vraag: Met of zonder kalibratie?\ndoelen: Alles halen; Wiki\n"));
+    QVERIFY2(q.ok, qPrintable(q.error));
+    QCOMPARE(q.question, QStringLiteral("Met of zonder kalibratie?"));
+    QCOMPARE(q.goals, (QStringList{QStringLiteral("Alles halen"), QStringLiteral("Wiki")}));
+    const QStringList lines = SaverWindow::Lines(q, SaverGame::None, 1000);
+    QCOMPARE(lines.value(1), QStringLiteral("Vraag voor jou: Met of zonder kalibratie?"));
+    QVERIFY(lines.join(QLatin1Char('\n')).contains(QStringLiteral("Doelen: Alles halen · Wiki")));
+    QVERIFY(!SaverWindow::ParseStatus(base + QStringLiteral("vraag: ") + QString(301, QLatin1Char('x')) + QLatin1Char('\n')).ok);
+    QVERIFY(SaverWindow::ParseStatus(base + QStringLiteral("vraag: ") + QString(250, QLatin1Char('x')) + QLatin1Char('\n')).ok);
+    QVERIFY(!SaverWindow::ParseStatus(base + QStringLiteral("vraag: a\nvraag: b\n")).ok);
+
+    // De feed: nieuwste eerst, onzin overgeslagen, afgekapt op het gevraagde aantal.
+    const auto feed = SaverWindow::ParseFeed(QStringLiteral("2026-10-14T10:00:00 eerste\nonzin\n\n2026-10-14T10:05:00 tweede\n2026-10-14T10:09:00 derde\n"), 2);
+    QCOMPARE(feed.size(), 2);
+    QCOMPARE(feed.at(0).text, QStringLiteral("derde"));
+    QCOMPARE(feed.at(1).text, QStringLiteral("tweede"));
+    QCOMPARE(QDateTime::fromSecsSinceEpoch(feed.at(0).time).time().toString(QStringLiteral("HH:mm")), QStringLiteral("10:09"));
+    QVERIFY(SaverWindow::ParseFeed(QStringLiteral("zomaar tekst\n"), 5).isEmpty());
+
+    // Snapshot met een vraag: de balk is fel, de rest blijft donker; zonder bestanden is er geen balk en geen feed.
+    QTemporaryDir state;
+    qputenv("XDG_STATE_HOME", state.path().toUtf8());
+    QVERIFY(QDir().mkpath(state.path() + QStringLiteral("/ravengun")));
+    writeFile(state.path() + QStringLiteral("/ravengun/saver-status.txt"), (base + QStringLiteral("vraag: Welke Move?\n")).toUtf8());
+    writeFile(state.path() + QStringLiteral("/ravengun/saver-feed.txt"), "2026-10-14T10:00:00 Halo gestart\n");
+    ui::SaverWindow w;
+    const QString png = tmp_.filePath(QStringLiteral("saver.png"));
+    QVERIFY(w.SaveSnapshot(png, QSize(1920, 1080)));
+    const QImage img(png);
+    QCOMPARE(img.size(), QSize(1920, 1080));
+    QVERIFY(w.ShownLines().value(1).startsWith(QStringLiteral("Vraag voor jou")));
+    qint64 lit = 0;
+    for (int y = 0; y < img.height(); ++y)
+        for (int x = 0; x < img.width(); ++x) lit += qGray(img.pixel(x, y)) > 16 ? 1 : 0;
+    QVERIFY2(lit * 100 < qint64(img.width()) * img.height() * 25, qPrintable(QString::number(lit)));
+    QVERIFY(lit > 20000);   // er staat echt iets
+    // Een oude status: dezelfde snapshot werkt en toont geen vraag.
+    writeFile(state.path() + QStringLiteral("/ravengun/saver-status.txt"), base.toUtf8());
+    QVERIFY(w.SaveSnapshot(png, QSize(1280, 720)));
+    QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("Vraag voor jou")));
+    qunsetenv("XDG_STATE_HOME");
 }
 
 QTEST_MAIN(AppWidgetTest)
