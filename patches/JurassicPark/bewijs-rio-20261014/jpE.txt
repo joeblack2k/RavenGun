@@ -1,0 +1,2 @@
+jpE start 04:51:55
+jpE outer-rc=0 end 04:54:26 log=/home/deck/.local/state/ravengun/logs/native-JurassicPark-20261014-045155.log

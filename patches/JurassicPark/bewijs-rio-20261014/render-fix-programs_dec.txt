@@ -1,0 +1,7 @@
+# JP RIO render fix (2026-10-14). The RIO runs first rendered BLACK because the jp-bench harness dropped two
+# things from run 11's recipe (JP ATTRACT-RUN.md section 4): the programs_dec bind and SDL12COMPAT_OPENGL_SCALING=0.
+# Restoring them: 'Silent failure loading program' went 3.7M -> 0 and JP renders.
+#   --env SDL12COMPAT_OPENGL_SCALING=0
+#   --bind-ro "<share>/Jurassic Park/programs_dec" /pm/g5/dino/data/programs_enc
+# jpE = unpatched + full recipe -> renders attract WITH 'RIO Disconnected'.
+# jpF = patched  + full recipe -> renders attract WITHOUT the banner (rio-banner-boven-voor-onder-na.jpg, bottom).
