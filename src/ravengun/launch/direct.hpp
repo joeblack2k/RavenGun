@@ -71,6 +71,12 @@ struct DirectPlan {
     std::vector<DropinFile> dropin_files;
     std::vector<std::string> dropin_materialise, dropin_lines;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
+    // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
+    // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct
+    // luistert dan op een TCP-poort, stroomt het bestand elke control_interval_ms naar een tweede rg-jvsbridge in de prefix
+    // ("<pipe> 127.0.0.1 <poort>"), die de pipe voor de game maakt; zoals TeknoParrotUi alleen schrijven, geen handdruk.
+    std::string control_pipe, control_pipe_name, control_source;
+    int control_size = 0, control_interval_ms = 0;
     std::vector<std::string> game_comms;                   // procesnamen (comm, kleine letters, 15 tekens) die "de game draait" zijn
     std::vector<DirectStart> starts;                       // de starts in hun orde (een gewone game: een)
     std::string core_dll, core_source;                     // de kern (leeg = geen) en waar hij vandaan komt (runtime | ravengun)
@@ -82,6 +88,7 @@ struct DirectPlan {
 struct DirectOptions {
     EnvMap base_env;            // os.environ van launch-direct.py: de omgeving van de unit (plus de extra variabelen van play-halo.sh)
     std::string shm_source;     // --shm-source (leeg = /dev/shm/TeknoParrot_JvsState)
+    std::string control_source; // --control-source: het rapport van de besturingspipe (leeg = /dev/shm/ravengun_ControlPipe)
     bool log_full = false;      // --log-full
     std::string session_id;     // TP_LAUNCH_SESSION_ID (leeg = een nieuwe uuid4)
     // Breedte en hoogte van het scherm voor gamescope zonder RG_GAMESCOPE_RES (leeg = xrandr --current, anders 1920x1080).
@@ -109,6 +116,7 @@ bool plan_from_json(const std::string& text, DirectPlan& out, std::string& err);
 struct DirectInput {
     std::string route;          // tp-shm | hid-board | jvs (na de regel "evdev met een indeling wordt tp-shm")
     std::string layout, board, transport, com_port;
+    std::string control_pipe;   // [Input] ControlPipe (alleen bij tp-shm, ook na de omzetting van evdev): het rapport voor TeknoParrotPipe
     std::string note;           // "Directe start: invoer via tp-shm ..." als evdev is omgezet
     // Schrijft de daemon op deze route het gedeelde geheugen (/dev/shm/ravengun_JvsState), zodat de pipehelper dat bestand naar de
     // game spiegelt? tp-shm altijd; jvs als [Input] ook een Layout heeft (Let's Go Safari: het stuur komt alleen uit het gedeelde
@@ -116,7 +124,8 @@ struct DirectInput {
     bool writes_tp_shm() const { return route == "tp-shm" || (route == "jvs" && !layout.empty()); }
 };
 // [Input] van de game, gecontroleerd zoals gamesettings.resolve_input (klopt de gebruikerslaag niet, dan de meegeleverde, anders evdev).
-// Fallback: een route die de engine niet zelf voorbereidt (evdev zonder indeling, unity-tcp, jvs over een COM-poort).
+// Fallback: een route die de engine niet zelf voorbereidt (evdev zonder indeling, unity-tcp, jvs over een COM-poort). ControlPipe hoort
+// bij tp-shm (of evdev, dat hier tp-shm wordt); bij een andere route is [Input] ongeldig (dan de meegeleverde laag, anders evdev).
 Verdict direct_input(const std::string& profile, const DirectPaths& p, DirectInput& out, std::string& why);
 // [Launch] Mode van de game (direct | teknoparrot-ui | leeg), met de gebruikerslaag eroverheen.
 std::string launch_mode(const std::string& profile, const DirectPaths& p);

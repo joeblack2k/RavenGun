@@ -5,7 +5,8 @@ scripts/launch-direct.py (build_plan, droog: geen Wine, geen game, niets geschre
 Per game: dezelfde uitkomst (de engine start, het script beslist, of beide weigeren) en, als de engine start, dezelfde argv, werkmap,
 Wine en prefix, de VOLLEDIGE omgeving (met de drop-ins, zonder TP_LAUNCH_SESSION_ID), dezelfde geplaatste bestanden (teknoparrot.ini
 met inhoud, drop-ins met bron en doel, de mappen die eerst lokaal worden), de JVS-brug, de procesnamen, de regels per patch en per
-drop-in. Daarnaast de invoerroute zoals play-halo.sh hem voor een directe start kiest, en de JVS-pakketten en -antwoorden.
+drop-in, en de besturingspipe ([Input] ControlPipe: indeling, pipe, bron, grootte, tempo). Daarnaast de invoerroute zoals
+play-halo.sh hem voor een directe start kiest, en de JVS-pakketten en -antwoorden.
 
 Twee standen:
   (standaard) hermetisch: een tijdelijke HOME met een nep-runtime, nep-laders, de games als views (een met een koppeling naar een
@@ -33,6 +34,9 @@ REAL_TP = os.path.join(REAL_HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2
 # Games die in de vergelijking meedoen alsof [Launch] Mode = direct (de meegeleverde game.ini zegt nog tpui). Hermetisch zet de
 # gebruikerslaag van de opstelling Mode = direct; met --real blijft de machine ongemoeid (het plan zelf leest Mode niet).
 FORCE_DIRECT = ("HOTDSD",)   # twee exe's: amdaemon.exe eerst, 5 s wachten, dan het spel
+# Invoer die hermetisch in de gebruikerslaag komt (de meegeleverde game.ini zegt nog evdev): HOTDSD via tp-shm met de besturingspipe
+# (ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe). Beide plannen moeten die pipe dan hebben, met dezelfde naam, bron en tempo.
+FORCE_INPUT = {"HOTDSD": "\n[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n"}
 
 
 def load(path, name):
@@ -89,6 +93,7 @@ def python_side(profiles, tp):
                     "game_comms": plan["game_comms"], "gamescope": plan["gamescope"], "windowed_override": plan["windowed_override"],
                     "core_dll": plan["core_dll"] or "", "patch_lines": ld.patch_log_lines(plan["patches"]), "cwd_is_tp": plan["cwd"] == tp,
                     "starts": [starts_view(s) for s in plan["starts"]],
+                    "control_pipe": plan["control_pipe"],
                 })
         out[name] = r
     print(json.dumps(out))
@@ -121,6 +126,8 @@ def cpp_side(rg, name, tp, patches, user, env):
             "shm_source": p["shm_source"], "pipehelper": p["pipehelper"], "game_comms": p["game_comms"], "gamescope": p["gamescope"],
             "windowed_override": p["windowed_override"], "core_dll": p["core_dll"], "patch_lines": p["patch_lines"], "cwd_is_tp": p["cwd"] == tp,
             "starts": [starts_view(s) for s in p["starts"]],
+            "control_pipe": {"profile": p["control_pipe"], "pipe": p["control_pipe_name"], "source": p["control_source"],
+                             "size": p["control_size"], "interval_ms": p["control_interval_ms"]} if p.get("control_pipe") else None,
         })
     return out
 
@@ -213,6 +220,8 @@ def fixture(tmp, patches, profiles, gs):
     for name in profiles:
         if name in FORCE_DIRECT:
             extra.append((name, "\n[Launch]\nMode = direct\n"))
+        if name in FORCE_INPUT:
+            extra.append((name, FORCE_INPUT[name]))
     for name, text in extra:
         pth = os.path.join(user, name, "game.ini")
         write(pth, (open(pth).read() if os.path.isfile(pth) else "") + text)
@@ -336,6 +345,8 @@ def main(argv):
                 notes.append("[Launch] Mode volgens de engine: %r" % c.get("launch_mode"))
             if name in FORCE_DIRECT and not uitkomst.startswith("engine start") and not a.real:
                 notes.append("%s is geforceerd direct en hoort door de engine te gaan" % name)
+            if name in FORCE_INPUT and not a.real and not ((c.get("plan") or {}).get("control_pipe") and (p.get("plan") or {}).get("control_pipe")):
+                notes.append("%s heeft hermetisch [Input] ControlPipe en hoort in beide plannen een besturingspipe te hebben" % name)
             hard = [x for x in notes if not x.startswith("andere melding")]
             fails += bool(hard)
             rows.append((name, uitkomst + ("" if not hard else "  <-- FOUT"), notes, croute))
@@ -344,8 +355,9 @@ def main(argv):
               % ("deze machine" if a.real else "hermetisch", len(profiles), ", ".join(n for n in FORCE_DIRECT if n in profiles) or "geen"))
         for name, u, notes, route in rows:
             starts = (py[name].get("plan") or {}).get("starts") or []
-            print("  %-26s %-9s %s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
-                                         if len(starts) > 1 else ""))
+            cpipe = (py[name].get("plan") or {}).get("control_pipe")
+            print("  %-26s %-9s %s%s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
+                                           if len(starts) > 1 else "", "  [besturingspipe %s -> %s]" % (cpipe["profile"], cpipe["pipe"]) if cpipe else ""))
             for x in notes if (a.verbose or "FOUT" in u) else []:
                 print("      " + x)
         print("JVS-pakketten: %d gevallen, %d verschillen" % (n, len(bad)))

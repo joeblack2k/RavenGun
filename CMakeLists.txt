@@ -325,6 +325,8 @@ if(RAVENGUN_BUILD_TESTS)
     # Profielen met twee exe's (HasTwoExecutables): beide starts in --plan, de vaste orde met de wachttijd, dezelfde view/prefix/
     # omgeving, uitvoer en exitcode per start, geen halve opstelling (exitcode 7), en een enkele exe ongewijzigd. Start niets.
     add_test(NAME ravengun_twee_starts COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_twee_starts.py")
+    # De besturingspipe ([Input] ControlPipe) in launch-direct.py: rapporten ongewijzigd, in tempo, opnieuw na een verbreking.
+    add_test(NAME ravengun_besturingspipe_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_besturingspipe.py")
     # Schrijfpaden naar de NAS: geen route van ons schrijft eigen bestanden in een gamemap op de NAS.
     add_test(NAME ravengun_nas_schrijfpaden_views COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nas_schrijfpaden_views.py")
     add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")

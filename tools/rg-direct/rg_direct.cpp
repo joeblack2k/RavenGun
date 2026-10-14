@@ -3,7 +3,8 @@
  * rg-direct: het hoofdproces van de unit ravengun-tpui bij een directe start (A10), op de plaats van scripts/launch-direct.py --run.
  *
  *   rg-direct --run PLAN.json          het plan van de daemon uitvoeren (src/ravengun/launch/direct.*)
- *   rg-direct --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] [--shm-source PAD] [--log-full] [--session-id ID]
+ *   rg-direct --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] [--shm-source PAD] [--control-source PAD] [--log-full]
+ *                    [--session-id ID]
  *                                      het plan als JSON tonen (geen bijwerkingen; voor tests/direct_golden.py)
  *   rg-direct --jvs-check              per regel hex van stdin: de pakketten en de antwoorden van het standaard JVS-bord
  *
@@ -11,7 +12,9 @@
  *   1. /dev/shm/TeknoParrot_JvsState (64 bytes) aanmaken en wachten op het bronbestand (de IO-brug van de daemon);
  *   2. de TCP-kant van \\.\pipe\TeknoParrot_JVS (verbind-vlag in byte 0 bij reset/adres, het standaardbord bij RG_JVS_BOARD=true,
  *      of alles naar de pty van de daemon bij RG_JVS_PTY);
- *   3. rg-jvsbridge.exe of pipehelper.exe in de prefix starten en wachten tot hij zich meldt;
+ *   3. rg-jvsbridge.exe of pipehelper.exe in de prefix starten en wachten tot hij zich meldt; heeft het plan een besturingspipe
+ *      ([Input] ControlPipe, bv. het ALLS USB-IO-rapport van House of the Dead: Scarlet Dawn), dan ook de TCP-kant daarvan (het
+ *      rapport van de daemon uit control_source, elke control_interval_ms) en een tweede helper "<pipe> 127.0.0.1 <poort>";
  *   4. de lader starten (in gamescope als het plan dat zegt), zijn uitvoer in het logboek, en volgen tot de game weg is; bij twee exe's
  *      (HasTwoExecutables) de starts in hun orde met de wachttijd ertussen, een halve opstelling afbreken (exitcode 7), het spel volgen
  *      en daarna de andere start stoppen (launch-direct.py run_starts);
@@ -55,6 +58,7 @@
 #include <vector>
 
 #include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
@@ -296,6 +300,153 @@ private:
     std::string pty_;
     J::Board bd_;
     int sock_ = -1, conn_ = -1, port_ = 0;
+    std::atomic<bool> closing_{false};
+    std::thread th_;
+};
+
+// --- de besturingspipe (TeknoParrotPipe) ----------------------------------------------------------------------------------------
+// TeknoParrotUi schrijft bij sommige profielen (Sega ALLS: ALLSUsbIoPipe) elke ~15 ms een rapport in \\.\pipe\TeknoParrotPipe en
+// leest nooit iets terug. Hier: de TCP-kant voor een tweede rg-jvsbridge in de prefix ("<pipe> 127.0.0.1 <poort>"), die pas verbindt
+// als de game de pipe opent en na een verbreking een nieuwe pipe maakt. Het rapport komt uit het bestand van de daemon (IO-brug,
+// [Input] ControlPipe); dit proces leest het en stuurt het ongewijzigd door. Kent rg-direct de indeling (ingebouwd, op naam), dan
+// staat elke knop die aan of uit gaat en elke munt in het logboek ("besturingspipe: aan: p1.start"): het bewijs dat START aankomt.
+class ControlPipeServer {
+public:
+    ControlPipeServer(std::string source, int size, int interval_ms, std::string pipe, const ravengun::iobridge::ControlPipeProfile* prof)
+        : source_(std::move(source)), size_(size), interval_ms_(interval_ms), pipe_(std::move(pipe)) {
+        if (prof) prof_ = *prof, have_prof_ = true;
+    }
+    bool listen() {
+        sock_ = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        if (sock_ < 0) return false;
+        int one = 1;
+        ::setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+        sockaddr_in a{};
+        a.sin_family = AF_INET;
+        a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        a.sin_port = 0;
+        if (::bind(sock_, reinterpret_cast<sockaddr*>(&a), sizeof a) != 0 || ::listen(sock_, 1) != 0) return false;
+        socklen_t l = sizeof a;
+        ::getsockname(sock_, reinterpret_cast<sockaddr*>(&a), &l);
+        port_ = ntohs(a.sin_port);
+        th_ = std::thread([this] { run(); });
+        return true;
+    }
+    int port() const { return port_; }
+    void close() {
+        closing_.store(true);
+        if (sock_ >= 0) { ::shutdown(sock_, SHUT_RDWR); ::close(sock_); sock_ = -1; }
+        {
+            std::lock_guard<std::mutex> g(cm_);
+            if (conn_ >= 0) ::shutdown(conn_, SHUT_RDWR);
+        }
+        if (th_.joinable()) th_.join();
+    }
+
+private:
+    bool send_all(const std::vector<uint8_t>& b) {
+        size_t off = 0;
+        while (off < b.size()) {
+            const ssize_t n = ::send(conn_, b.data() + off, b.size() - off, MSG_NOSIGNAL);
+            if (n <= 0) return false;
+            off += static_cast<size_t>(n);
+        }
+        return true;
+    }
+    void run() {
+        int verbinding = 0;
+        while (!closing_.load()) {
+            pollfd p{sock_, POLLIN, 0};
+            const int r = ::poll(&p, 1, 200);
+            if (r < 0 && errno != EINTR) return;
+            if (r <= 0) continue;
+            const int c = ::accept4(sock_, nullptr, nullptr, SOCK_CLOEXEC);
+            if (c < 0) continue;
+            {
+                std::lock_guard<std::mutex> g(cm_);
+                conn_ = c;
+            }
+            int one = 1;
+            ::setsockopt(conn_, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+            ++verbinding;
+            log("besturingspipe: game verbonden (" + pipe_ + " via TCP, verbinding " + std::to_string(verbinding) + ")");
+            const long n = serve();
+            log("besturingspipe: verbinding " + std::to_string(verbinding) + " dicht (" + std::to_string(n) + " rapporten van " +
+                std::to_string(size_) + " bytes verstuurd)");
+            std::lock_guard<std::mutex> g(cm_);
+            ::close(conn_);
+            conn_ = -1;
+        }
+    }
+    // Stuurt elke interval_ms het rapport tot de verbinding weg is; geeft het aantal verstuurde rapporten.
+    long serve() {
+        const int fd = ::open(source_.c_str(), O_RDONLY | O_CLOEXEC);
+        if (fd < 0) log("besturingspipe: " + source_ + " niet te openen: " + std::strerror(errno) + " (nullen tot het er is)");
+        int src = fd;
+        std::vector<uint8_t> buf(static_cast<size_t>(size_));
+        long sent = 0;
+        auto next = std::chrono::steady_clock::now();
+        while (!closing_.load()) {
+            // Wat van de pipe-kant komt (de game schrijft niets terug) weglezen; 0 = de helper sloot de verbinding.
+            pollfd p{conn_, POLLIN, 0};
+            if (::poll(&p, 1, 0) > 0) {
+                uint8_t rb[512];
+                const ssize_t n = ::recv(conn_, rb, sizeof rb, MSG_DONTWAIT);
+                if (n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR)) break;
+            }
+            if (src < 0) src = ::open(source_.c_str(), O_RDONLY | O_CLOEXEC);
+            std::fill(buf.begin(), buf.end(), 0);
+            if (src >= 0 && ::pread(src, buf.data(), buf.size(), 0) < 0) std::fill(buf.begin(), buf.end(), 0);
+            if (!send_all(buf)) break;
+            if (++sent == 1) log("besturingspipe: eerste rapport verstuurd (" + std::to_string(size_) + " bytes)");
+            if (have_prof_) watch(buf);
+            next += std::chrono::milliseconds(interval_ms_);
+            const auto now = std::chrono::steady_clock::now();
+            if (next < now) next = now;
+            std::this_thread::sleep_until(next);
+        }
+        if (src >= 0) ::close(src);
+        return sent;
+    }
+    // Knoppen en munten uit het rapport, met de namen uit de indeling; een regel per verandering (hoogstens kMaxLines).
+    void watch(const std::vector<uint8_t>& b) {
+        static constexpr int kMaxLines = 400;
+        if (lines_ >= kMaxLines) return;
+        if (state_.empty()) state_.assign(prof_.bits.size() + prof_.coins.size(), -1);
+        for (size_t i = 0; i < prof_.bits.size() && lines_ < kMaxLines; ++i) {
+            const auto& bit = prof_.bits[i];
+            const size_t at = static_cast<size_t>(bit.offset + bit.bit / 8);
+            const int on = at < b.size() && (b[at] & (1u << (bit.bit % 8))) ? 1 : 0;
+            if (on == state_[i] || (state_[i] < 0 && !on)) { state_[i] = on; continue; }
+            state_[i] = on;
+            std::string naam;
+            for (const auto& s : bit.signals) naam += (naam.empty() ? "" : "|") + s;
+            log(std::string("besturingspipe: ") + (on ? "aan: " : "uit: ") + naam);
+            if (++lines_ == kMaxLines) log("besturingspipe: genoeg regels; verdere knoppen niet meer in het logboek");
+        }
+        for (size_t i = 0; i < prof_.coins.size() && lines_ < kMaxLines; ++i) {
+            const auto& c = prof_.coins[i];
+            const size_t at = static_cast<size_t>(c.offset);
+            const int v = at + 1 < b.size() ? static_cast<int>((b[at] | (b[at + 1] << 8)) / c.scale) : 0;
+            int& was = state_[prof_.bits.size() + i];
+            if (v == was) continue;
+            if (was >= 0) {
+                log("besturingspipe: munt " + c.signals[0] + ": teller " + std::to_string(v));
+                ++lines_;
+            }
+            was = v;
+        }
+    }
+
+    std::string source_;
+    int size_, interval_ms_;
+    std::string pipe_;
+    ravengun::iobridge::ControlPipeProfile prof_;
+    bool have_prof_ = false;
+    std::vector<int> state_;
+    int lines_ = 0;
+    int sock_ = -1, conn_ = -1, port_ = 0;
+    std::mutex cm_;
     std::atomic<bool> closing_{false};
     std::thread th_;
 };
@@ -675,7 +826,51 @@ int run_starts(const L::DirectPlan& plan, const L::EnvMap& env, A11& a11, bool& 
     return rc;
 }
 
-int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, const Child& helper, std::thread& helper_log, JvsPipeServer& server, A11& a11);
+// Een helper in de prefix (rg-jvsbridge.exe of pipehelper.exe): zijn regels met "pipehelper" in het logboek (met `tag` ervoor), en
+// klaar zodra hij "created" of "shm mirror active" meldt.
+struct Helper {
+    Child c;
+    std::thread log_th;
+    std::mutex m;
+    std::condition_variable cv;
+    bool ready = false;
+    void start(const std::vector<std::string>& args, const std::string& cwd, const L::EnvMap& env, const std::string& tag) {
+        c = spawn(args, cwd, env, true, true);
+        if (c.out < 0) return;
+        log_th = std::thread([this, tag, fd = c.out] {
+            read_lines(fd, [&](const std::string& raw) {
+                std::string line = raw;
+                while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) line.pop_back();
+                if (line.find("pipehelper") == std::string::npos) return;
+                log(tag + line);
+                if (line.find("created") != std::string::npos || line.find("shm mirror active") != std::string::npos) {
+                    std::lock_guard<std::mutex> g(m);
+                    ready = true;
+                    cv.notify_all();
+                }
+            });
+        });
+    }
+    bool wait_ready(int seconds) {
+        std::unique_lock<std::mutex> lk(m);
+        return cv.wait_for(lk, std::chrono::seconds(seconds), [&] { return ready; });
+    }
+    void stop() {
+        if (c.pid > 0) {
+            int st = 0;
+            if (::waitpid(c.pid, &st, WNOHANG) == 0) ::kill(c.pid, SIGTERM);
+        }
+        if (log_th.joinable()) log_th.detach();
+    }
+};
+
+// De besturingspipe van een run (alleen als het plan er een heeft).
+struct ControlSide {
+    std::unique_ptr<ControlPipeServer> server;
+    Helper helper;
+};
+
+int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, JvsPipeServer& server, ControlSide* ctl, A11& a11);
 
 int run_plan(const std::string& plan_file) {
     std::string text;
@@ -720,6 +915,14 @@ int run_plan(const std::string& plan_file) {
     }
     for (int i = 0; i < 100 && ::access(plan.shm_source.c_str(), F_OK) != 0; ++i) ::usleep(100000);
     if (::access(plan.shm_source.c_str(), F_OK) != 0) { log("bronbestand " + plan.shm_source + " bestaat niet (start de IO-brug eerst)"); return 1; }
+    if (!plan.control_pipe.empty()) {   // het rapport van de besturingspipe komt ook van de IO-brug
+        for (int i = 0; i < 100 && ::access(plan.control_source.c_str(), F_OK) != 0; ++i) ::usleep(100000);
+        if (::access(plan.control_source.c_str(), F_OK) != 0) {
+            log("bronbestand " + plan.control_source + " van de besturingspipe bestaat niet (start de IO-brug eerst; [Input] ControlPipe = " +
+                plan.control_pipe + ")");
+            return 1;
+        }
+    }
 
     // 3. De JVS-pipe en de helper in de prefix (voor de game, zoals TeknoParrotUi).
     JvsPipeServer server(ld_truthy(env_get(env, "RG_JVS_BOARD")), ld_truthy(env_get(env, "RG_JVS_F1_ONCE")),
@@ -733,28 +936,30 @@ int run_plan(const std::string& plan_file) {
     L::EnvMap henv = env;
     henv["TP_PIPEHELPER_OWNER_PID"] = std::to_string(::getpid());
     log("pipehelper: " + join_quoted(hargs, 1));
-    Child helper = spawn(hargs, plan.tp, henv, true, true);
-    std::mutex rm;
-    std::condition_variable rcv;
-    bool ready = false;
-    std::thread helper_log;
-    if (helper.out >= 0)
-        helper_log = std::thread([&, fd = helper.out] {
-            read_lines(fd, [&](const std::string& raw) {
-                std::string line = raw;
-                while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) line.pop_back();
-                if (line.find("pipehelper") == std::string::npos) return;
-                log("helper: " + line);
-                if (line.find("created") != std::string::npos || line.find("shm mirror active") != std::string::npos) {
-                    std::lock_guard<std::mutex> g(rm);
-                    ready = true;
-                    rcv.notify_all();
-                }
-            });
-        });
-    {
-        std::unique_lock<std::mutex> lk(rm);
-        if (!rcv.wait_for(lk, std::chrono::seconds(20), [&] { return ready; })) log("pipehelper meldde zich niet binnen 20 s; toch verder");
+    Helper helper;
+    helper.start(hargs, plan.tp, henv, "helper: ");
+    if (!helper.wait_ready(20)) log("pipehelper meldde zich niet binnen 20 s; toch verder");
+
+    // 3b. De besturingspipe (TeknoParrotPipe): de TCP-kant en een tweede helper die de pipe in de prefix maakt (vóór de game, zoals
+    // TeknoParrotUi zijn ControlPipe start voordat het spel draait).
+    std::unique_ptr<ControlSide> ctl;
+    if (!plan.control_pipe.empty()) {
+        ctl = std::make_unique<ControlSide>();
+        std::string perr;
+        const auto profs = ravengun::iobridge::builtin_control_pipe_profiles(perr);
+        const auto* prof = profs.find(plan.control_pipe);
+        ctl->server = std::make_unique<ControlPipeServer>(plan.control_source, plan.control_size, plan.control_interval_ms, plan.control_pipe_name, prof);
+        if (!ctl->server->listen()) {
+            log("besturingspipe: luisteren op 127.0.0.1 mislukt");
+            helper.stop();
+            server.close();
+            return 1;
+        }
+        const std::vector<std::string> cargs{plan.wine, plan.pipehelper, plan.control_pipe_name, "127.0.0.1", std::to_string(ctl->server->port())};
+        log("besturingspipe " + plan.control_pipe + ": " + join_quoted(cargs, 1) + " (rapport uit " + plan.control_source + ", elke " +
+            std::to_string(plan.control_interval_ms) + " ms" + (prof ? "" : "; indeling onbekend in deze build, knoppen niet in het logboek") + ")");
+        ctl->helper.start(cargs, plan.tp, henv, "helper (" + plan.control_pipe_name + "): ");
+        if (!ctl->helper.wait_ready(20)) log("besturingspipe: de helper meldde zich niet binnen 20 s; toch verder");
     }
 
     // 4. De lader (eventueel in gamescope). Een profiel met meer dan een start (twee exe's) gaat via run_starts(); een gewone game
@@ -764,7 +969,7 @@ int run_plan(const std::string& plan_file) {
     int rc = 0;
     if (plan.starts.size() > 1) {
         rc = run_starts(plan, env, a11, have_rc);
-        return run_einde(plan, have_rc, rc, helper, helper_log, server, a11);
+        return run_einde(plan, have_rc, rc, helper, server, ctl.get(), a11);
     }
     log("start: cwd=" + plan.cwd);
     log("start: " + join_quoted(plan.argv));
@@ -808,11 +1013,11 @@ int run_plan(const std::string& plan_file) {
         while (now_ms() < until && !pump_done.load()) ::usleep(50000);
         if (pump_done.load()) pump.join(); else pump.detach();
     }
-    return run_einde(plan, have_rc, rc, helper, helper_log, server, a11);
+    return run_einde(plan, have_rc, rc, helper, server, ctl.get(), a11);
 }
 
 // 5. run_einde(): de logbestanden van de kern in het logboek, de A11-oogst, de helper en de pipe dicht.
-int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, const Child& helper, std::thread& helper_log, JvsPipeServer& server, A11& a11) {
+int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, JvsPipeServer& server, ControlSide* ctl, A11& a11) {
     std::vector<std::string> files;
     if (plan.log_full) {
         const std::time_t now = std::time(nullptr);
@@ -832,18 +1037,18 @@ int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, const Child& help
         }
     }
     a11.write(files);
-    if (helper.pid > 0) {
-        int st = 0;
-        if (::waitpid(helper.pid, &st, WNOHANG) == 0) ::kill(helper.pid, SIGTERM);
-    }
+    helper.stop();
     server.close();
-    if (helper_log.joinable()) helper_log.detach();
+    if (ctl) {
+        ctl->helper.stop();
+        if (ctl->server) ctl->server->close();
+    }
     log(std::string("klaar (exitcode ") + (have_rc ? std::to_string(rc) : std::string("gestopt")) + ")");
     return have_rc ? (rc & 0xFF) : 0;
 }
 
 int show_plan(int argc, char** argv) {
-    std::string profile, tp, patches, user, shm, session;
+    std::string profile, tp, patches, user, shm, session, control;
     bool log_full = false;
     for (int i = 2; i < argc; ++i) {
         const std::string a = argv[i];
@@ -852,6 +1057,7 @@ int show_plan(int argc, char** argv) {
         else if (a == "--patches") next(patches);
         else if (a == "--user") next(user);
         else if (a == "--shm-source") next(shm);
+        else if (a == "--control-source") next(control);
         else if (a == "--session-id") next(session);
         else if (a == "--log-full") log_full = true;
         else if (profile.empty() && a[0] != '-') profile = a;
@@ -867,6 +1073,7 @@ int show_plan(int argc, char** argv) {
     L::DirectOptions o;
     o.base_env = env;
     o.shm_source = shm;
+    o.control_source = control;
     o.log_full = log_full;
     o.session_id = session;
     L::DirectPlan plan;
@@ -877,7 +1084,7 @@ int show_plan(int argc, char** argv) {
     ravengun::json::Writer w;
     w.begin_object().key("verdict").value(L::verdict_name(v)).key("why").value(why);
     w.key("input").begin_object().key("verdict").value(L::verdict_name(iv)).key("why").value(iwhy).key("route").value(in.route);
-    w.key("layout").value(in.layout).key("board").value(in.board).key("transport").value(in.transport).end_object();
+    w.key("layout").value(in.layout).key("board").value(in.board).key("transport").value(in.transport).key("control_pipe").value(in.control_pipe).end_object();
     w.key("launch_mode").value(L::launch_mode(profile, p));
     w.key("plan").raw(v == L::Verdict::Ok ? L::plan_to_json(plan) : std::string("null"));
     w.end_object();
