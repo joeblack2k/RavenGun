@@ -416,7 +416,8 @@ void test_routes(const std::string& dir) {
     CHECK(err.empty());
     CHECK(r.route_for("TransformersShadowsRising") == "hid-board" && r.route_for("TC5") == "tp-shm");
     CHECK(r.find("TransformersShadowsRising")->board == "SaeGunBoard");
-    CHECK(r.route_for("HOTDSD") == "evdev" && r.route_for("TombRaider") == "unity-tcp");
+    // HOTDSD loopt sinds 2026-10-14 zonder TeknoParrotUi over tp-shm met de besturingspipe; geen meegeleverd spel staat nog op evdev.
+    CHECK(r.route_for("HOTDSD") == "tp-shm" && r.route_for("TombRaider") == "unity-tcp");
     CHECK(r.route_for("JurassicPark") == "tp-shm");     // het lightgun-bord via de RIO-brug (2026-10-14)
     CHECK(r.route_for("OnbekendeGame") == "evdev");     // standaardroute
     CHECK(r.find("TC5")->layout == "TimeCrisis5");
@@ -750,11 +751,11 @@ void test_service(const std::string& dir) {
     {
         IoBridgeService br(sh, cfg);
         sh.iobridge = &br;
-        CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("HOTDSD") == "evdev");
+        CHECK(br.route_for("TC5") == "tp-shm" && br.route_for("OnbekendeGame") == "evdev");
         // Zonder gebruikerslaag: alleen de meegeleverde instellingen (de gebruikerslaag volgt in test_user_routes).
         CHECK(!br.active());
         // Route evdev: niets te doen. Onbekende override: fout. tp-shm zonder layout: fout.
-        CHECK(br.start("HOTDSD").empty() && !br.active());
+        CHECK(br.start("HOTDSD", "evdev").empty() && !br.active());   // evdev afgedwongen: geen dialect
         CHECK(!br.start("HOTDSD", "bluetooth").empty());
         CHECK(!br.start("OnbekendeGame", "tp-shm").empty());
         CHECK(!fs::exists(sdir + "/shm"));
@@ -815,7 +816,7 @@ void test_service(const std::string& dir) {
         CHECK(wait_for([&] { return !kbp->shift.load() && !kbp->t.load(); }));
         CHECK(out.key(1, KEY_5, "down").ok);
         CHECK(wait_for([&] { return kbp->t.load(); }));
-        CHECK(br2.start("HOTDSD").empty() && !br2.active());   // stoppen laat vastgehouden munttoetsen los
+        CHECK(br2.start("HOTDSD", "evdev").empty() && !br2.active());   // stoppen laat vastgehouden munttoetsen los
         CHECK(!kbp->shift.load() && !kbp->t.load());
         out.key(1, KEY_5, "up");
         // Een toestandsbestand met een route die niet te hervatten is wordt opgeruimd.
