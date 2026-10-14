@@ -32,7 +32,7 @@ de opdracht. De hoogste stand die we eerlijk mogen opschrijven is WACHT-OP-HARDW
 | Jurassic Park | WACHT-OP-HARDWARE | 12 min attract, en sinds vanavond de RIO-melding WEG in een frame | Het bord moet ANTWOORDEN, niet alleen aanwezig zijn; daarna vizier en trekker |
 | Silent Hill The Arcade | WACHT-OP-HARDWARE | 12 min attract op onze kern | De invoerbrug in onze vervangende bibliotheek levert nog niets |
 | Raccoon Rampage | WACHT-OP-HARDWARE | 12 min 52 s attract, onafhankelijk gemeten | De kalibratiemelding weg krijgen, dan vizier en trekker |
-| NERF Arcade | WACHT-OP-HARDWARE | 12 min 51 s attract; RIO-melding weg; het spel reageert echt op de bordrapporten (teller 180 naar 177) en de vizierkanalen worden nu in kaart gebracht | De vizierkanalen afmaken, en dan de echte proef |
+| NERF Arcade | **WACHT-OP-HARDWARE (verst)** | **11 minuten GESPEELD op onze eigen kern** via de RIO-brug en het app-pad: start, vizier en trekker uit de daemon, twee rondes, 1.176 trekkerdrukken, en de ronde staat in de eigen topscoretabel van het spel als "8. DART 94,350" (`bewijs-bridge-20261014/`, o.a. `08-highscore-table-our-round-94350.jpg`, `11-mouse-at-075-035-crosshair-follows.jpg`) | De echte arcade-lightgun in een mensenhand -- het meten gebeurde met de daemon en met een muis; en de laatste ~65 s van de run gaf de daemon neutrale invoer omdat de run buiten de app-eenheid startte |
 | House of the Dead Scarlet Dawn | DEELS | Alleen op de GESLOTEN kern getoond (TeknoParrotUi, `TeknoParrot64.dll`); onze eigen kern heeft het nooit gedraaid | Eerst op onze eigen kern zien te draaien, dan de rest |
 | Men in Black | GEBLOKKEERD | De keten start op onze kern, het spel laadt, toont het logo en stopt na ~4 s; de kast herstart het acht keer in vier minuten | De onbeantwoorde uitdaging van het spel aan de kast (bij mij in behandeling) |
 | Metal Gear Arcade | NIET-BEGONNEN | Door de eigenaar uitgesteld | Alles |
@@ -53,3 +53,10 @@ de opdracht. De hoogste stand die we eerlijk mogen opschrijven is WACHT-OP-HARDW
 De ongeveer tachtig spellen op de NAS die niet in de dertien van de eigenaar staan. Daarvan is de
 bescherming in kaart gebracht (zie de beschermingsinventaris en de familiedossiers); de meesten zijn nog
 niet aan de beurt geweest.
+
+
+## Update 2026-10-14, later die ochtend
+
+**NERF Arcade is de eerste titel die GESPEELD is op onze eigen kern.** Niet "het draait" en niet "het demo't": elf minuten op de native route (`Nerf.x86_64`, geen Wine, geen TeknoParrot-kern, geen BepInEx), met start, vizier en trekker uit onze eigen daemon via de nieuwe RIO-brug (`tools/rio-bridge/`, tabel `patches/NERF/rio-invoer.ini`). Twee rondes gespeeld, punten gescoord, en de ronde is opgenomen in de topscoretabel van het spel zelf. Dezelfde keten liep ook door het opstartpad van de app, waar een muis richtte en vuurde.
+
+**Wat er nog niet is:** de fysieke arcade-lightgun in een mensenhand. Dat blijft de enige reden waarom hier WACHT-OP-HARDWARE staat en niet WORKING, en het is de proef die de eigenaar zelf moet doen.
