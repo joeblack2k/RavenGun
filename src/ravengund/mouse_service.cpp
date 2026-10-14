@@ -160,6 +160,13 @@ std::string MouseService::status_json() const {
     return s + "]";
 }
 
+bool MouseService::any_connected() const {
+    std::lock_guard<std::mutex> g(m_);
+    for (const Slot& s : slots_)
+        if (!s.mouse.empty() && s.connected) return true;
+    return false;
+}
+
 std::string MouseService::mice_json() const {
     json::Writer w;
     w.begin_object().key("mice").begin_array();

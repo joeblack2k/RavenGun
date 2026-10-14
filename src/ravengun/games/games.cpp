@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -369,6 +370,65 @@ std::vector<std::string> stop_script_argv(const Config& c) {
             "--description=RavenGun: game stoppen", "--", c.play_script, "--stop"};
 }
 
+namespace {
+std::string read_text(const std::string& path, size_t max_bytes = 1024 * 1024) {
+    std::ifstream f(path, std::ios::binary);
+    std::string s;
+    if (!f) return s;
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    s = ss.str();
+    if (s.size() > max_bytes) s.clear();
+    return s;
+}
+// Draait er in de cgroup van de unit een proces met deze naam (/proc/<pid>/comm)?
+bool unit_has_comm(const std::string& cgroup_procs, const std::string& proc_root, const std::string& comm) {
+    if (cgroup_procs.empty() || comm.empty()) return false;
+    std::ifstream f(cgroup_procs);
+    std::string pid;
+    while (f && std::getline(f, pid)) {
+        pid = trim(pid);
+        if (pid.empty()) continue;
+        std::ifstream c(proc_root + "/" + pid + "/comm");
+        std::string name;
+        if (c && std::getline(c, name) && name == comm) return true;
+    }
+    return false;
+}
+std::string stamp(const char* fmt) {
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+    localtime_r(&t, &tm);
+    char b[64];
+    std::strftime(b, sizeof b, fmt, &tm);
+    return b;
+}
+}  // namespace
+
+bool native_route(const Config& c, const std::string& profile) {
+    if (c.native.json.empty()) return false;
+    const std::string text = read_text(c.native.json);
+    if (text.empty() || !ravengun::launch::profile_enabled(text, profile)) return false;
+    // Een game die de camera IN het spel gebruikt, gaat nog via het script (dat kiest het apparaat met scripts/camera.py).
+    const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
+    const std::string* cam = g.settings.find("Camera", "Use");
+    return !(cam && trim(*cam) == "game");
+}
+
+std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log) {
+    std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
+                               "--description=RavenGun: game (native, gestart door de daemon)", "--property=TimeoutStopSec=10"};
+    bool plain = !log.empty();
+    for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
+    if (plain) {
+        a.push_back("--property=StandardOutput=append:" + log);
+        a.push_back("--property=StandardError=append:" + log);
+    }
+    a.push_back("--");
+    a.insert(a.end(), game_argv.begin(), game_argv.end());
+    return a;
+}
+
 int run_process(const std::vector<std::string>& argv, std::string& err) {
     if (argv.empty()) { err = "geen programma"; return -1; }
     std::vector<char*> av;
@@ -409,7 +469,8 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     if (!valid_launch(launch)) return {false, "invalid_argument", "ongeldige startwijze '" + launch + "'"};
     if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen eigen profiel in patches/" + profile + "/game.ini en geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
-    if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
+    const bool native = native_route(c_, profile);
+    if (!native && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
         return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
@@ -430,6 +491,22 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     failed_profile_.clear();
     busy_.store(true);
     busy_stop_ = false;
+    native_ = native;
+    cancel_.store(false);
+    if (native) {
+        worker_ = std::thread([this, profile] {
+            const std::string msg = run_native(profile);
+            std::lock_guard<std::mutex> lk(m_);
+            if (!msg.empty()) {
+                failed_ = true;
+                failed_profile_ = profile;
+                failed_msg_ = msg;
+            }
+            waiting_.store(false);
+            busy_.store(false);
+        });
+        return {};
+    }
     std::vector<std::string> argv = start_argv(c_, profile, launch);
     worker_ = std::thread([this, argv, profile] {
         std::string err;
@@ -453,8 +530,30 @@ Result GameService::stop() {
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
     const int sc = script_state(c_.proc_root, c_.play_script);
     std::lock_guard<std::mutex> g(m_);
+    if (native_ && busy_.load() && !busy_stop_) {   // een native start die nog wacht of loopt: afbreken
+        cancel_.store(true);
+        return {true, "", "de start wordt afgebroken"};
+    }
     if (busy_.load()) return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even"};
-    if (!game_run && sc == 0 && !launched_) return {true, "", "er draait geen game"};
+    if (!game_run && sc == 0 && !launched_ && !native_) return {true, "", "er draait geen game"};
+    if (native_) {
+        join_worker();
+        launched_ = false;
+        failed_ = false;
+        busy_.store(true);
+        busy_stop_ = true;
+        std::vector<std::string> a1 = stop_unit_argv(c_);
+        a1.back() = c_.tpui_unit + ".service";
+        worker_ = std::thread([this, a1] {
+            std::string err;
+            spawn_(a1, err);                      // de game (gamescope, bwrap, het spel) in een keer
+            if (c_.stop_inputs) c_.stop_inputs(); // IO-brug neutraal en dicht, uitvoer ontwapend
+            std::lock_guard<std::mutex> lk(m_);
+            native_ = false;
+            busy_.store(false);
+        });
+        return {};
+    }
     if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
         return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
     join_worker();
@@ -479,6 +578,79 @@ Result GameService::stop() {
     return {};
 }
 
+std::string GameService::run_native(const std::string& profile) {
+    namespace L = ravengun::launch;
+    // 1. Een lightgun: een verbonden Move of een muis die als lightgun is toegewezen (zoals het script, maar zonder het script).
+    if (c_.lightgun_ready && !c_.lightgun_ready()) {
+        waiting_.store(true);
+        const int64_t until = now_ms() + c_.lightgun_wait_ms;
+        while (!c_.lightgun_ready()) {
+            if (cancel_.load()) { waiting_.store(false); return "de start is afgebroken"; }
+            if (now_ms() > until) { waiting_.store(false); return "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."; }
+            ::usleep(200000);
+        }
+        waiting_.store(false);
+    }
+    // 2. Het profiel en het commando.
+    const std::string text = read_text(c_.native.json);
+    L::NativeProfile pr;
+    L::NativePlan pl;
+    std::string err;
+    if (!L::load_profile(text, profile, c_.native, pr, err)) return err;
+    L::PlanOptions po;
+    if (const char* w = std::getenv("WAYLAND_DISPLAY"); w && *w) po.wayland_display = w;
+    if (const char* d = std::getenv("DISPLAY"); d && *d) po.host_display = d;
+    if (const char* x = std::getenv("XAUTHORITY"); x && *x) po.host_xauthority = x;
+    if (!L::plan(pr, c_.native, po, pl, err)) return err;
+    // 3. Invoer: uitvoer wapenen, dan de route van het profiel (tp-shm: de daemon schrijft het bordbeeld; evdev: de brug dicht).
+    if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
+    if (c_.start_route) {
+        const std::string e = c_.start_route(profile, pr.route.empty() ? std::string("evdev") : pr.route);
+        if (!e.empty()) { if (c_.stop_inputs) c_.stop_inputs(); return "IO-brug: " + e; }
+    }
+    if (cancel_.load()) { if (c_.stop_inputs) c_.stop_inputs(); return "de start is afgebroken"; }
+    // 4. De schrijflaag en het logboek.
+    std::vector<std::string> layer_log;
+    if (!L::apply_layer(pl, layer_log, err)) { if (c_.stop_inputs) c_.stop_inputs(); return err; }
+    std::string log;
+    if (!c_.native_log_dir.empty()) {
+        std::error_code ec;
+        fs::create_directories(c_.native_log_dir, ec);
+        log = c_.native_log_dir + "/native-" + profile + "-" + stamp("%Y%m%d-%H%M%S") + ".log";
+        std::ofstream f(log, std::ios::app);
+        f << "== native " << profile << " " << stamp("%Y%m%d-%H%M%S") << " (gestart door ravengund, zonder script)\n";
+        for (const std::string& l : L::identity_lines(pl)) f << l << "\n";
+        for (const std::string& l : pl.notes) f << l << "\n";
+        f << "invoerroute: " << (pr.route.empty() ? "evdev" : pr.route) << "; res " << pl.res << "; proces " << pl.comm << "\n";
+        for (const std::string& l : layer_log) f << l << "\n";
+        f << "cmd:";
+        for (const std::string& a : pl.argv) f << " " << a;
+        f << "\n";
+    }
+    // 5. Starten in de unit van de game.
+    std::string serr;
+    const int rc = spawn_(native_unit_argv(c_, pl.argv, log), serr);
+    if (rc != 0) {
+        if (c_.stop_inputs) c_.stop_inputs();
+        return rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr;
+    }
+    // 6. Wachten tot het spelproces er is (of de unit al weer weg is).
+    if (c_.tpui_procs.empty()) return {};   // tests zonder cgroup: niets te volgen
+    const int64_t until = now_ms() + c_.game_wait_ms;
+    ::usleep(500000);
+    while (!unit_has_comm(c_.tpui_procs, c_.proc_root, pl.comm)) {
+        if (cancel_.load()) return "de start is afgebroken";
+        if (!unit_alive(c_.tpui_procs)) {
+            if (c_.stop_inputs) c_.stop_inputs();
+            const std::string last = log.empty() ? std::string() : last_line(log);
+            return "de game stopte meteen" + (last.empty() ? std::string() : ": " + last) + (log.empty() ? "" : " (logboek: " + log + ")");
+        }
+        if (now_ms() > until) return pr.title.empty() ? profile + " is niet gestart" : pr.title + " is niet gestart" + (log.empty() ? "" : " (logboek: " + log + ")");
+        ::usleep(250000);
+    }
+    return {};
+}
+
 std::string GameService::status_json() {
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
     const int sc = script_state(c_.proc_root, c_.play_script);
@@ -487,7 +659,12 @@ std::string GameService::status_json() {
     bool have_profile = false;
     {
         std::lock_guard<std::mutex> g(m_);
-        if (busy_.load()) {
+        if (busy_.load() && !busy_stop_ && waiting_.load()) {
+            state = "waiting_move";
+            text = "Wacht op de Move: druk op de PS-knop.";
+            have_profile = true;
+            profile = profile_;
+        } else if (busy_.load()) {
             state = busy_stop_ ? "stopping" : "starting";
             text = busy_stop_ ? "De game wordt gestopt..." : "De game wordt gestart...";
             have_profile = !busy_stop_;

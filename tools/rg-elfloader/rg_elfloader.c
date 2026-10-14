@@ -906,6 +906,8 @@ static uint32_t rg_trampoline(void)
     return (uint32_t)(uintptr_t)tr;
 }
 
+static int rg_slottabel_gelezen;   /* gezet door pas_slottabel_toe (verderop) */
+
 /* Scan de uitvoerbare segmenten naar eerste-PLT-stubs (`ff 25 <abs-slot>`), en herstel elk GOT-slot
    waarvan de waarde een stale adres uit de map is, naar dlsym(naam). b->ph wijst nog in het (nog niet
    ge-munmap'te) bestand. */
@@ -951,6 +953,48 @@ static void repareer_eerste_plt(struct beeld *b, struct dyninfo *d)
     }
     say("eerste-PLT: %d op naam hersteld, %d no-op-trampoline, %d naam-niet-gevonden (van %d stale-namen)",
         hersteld, tramp, gemist, rg_stale_n);
+    /* Met een slottabel hoort er niets meer op de no-op te staan: een stil nul-antwoord is dan een gat in de tabel. */
+    if (rg_slottabel_gelezen && tramp)
+        say("LET OP: slottabel gelezen en toch %d stale slot(s) op de no-op-trampoline: de tabel dekt dit beeld niet volledig", tramp);
+}
+
+
+/* Slottabel per game (gepakte klasse). Bij een image dat uit een draaiende kast is gedumpt staan de namen van de
+ * eerste-PLT-imports niet meer in het bestand: elke stub pusht 0xdeadbeef en elk GOT-slot houdt het adres dat de functie
+ * op DE KAST had. De stale-map hierboven vindt alleen de namen die toevallig ook in de tweede tabel staan (Jurassic Park:
+ * 33 van de 577). De rest is kennis van die ene game-versie en hoort dus als DATA bij de game (patches/<Game>/), niet in
+ * deze code: een TSV met per regel  stub <tab> slot <tab> stale <tab> naam [<tab> ...]  (hex; '#'-regels en de kopregel
+ * worden overgeslagen). RG_ELF_SLOT_TABLE wijst het bestand aan; zonder die variabele doet dit niets.
+ *
+ * Veilig: een slot wordt alleen geschreven als het NOG de stale waarde uit de tabel bevat. Een tabel van een andere
+ * versie van het spel raakt zo niets, en een slot dat JMPREL al gezet heeft (fork) blijft staan. Een naam die geen
+ * enkele geladen bibliotheek kent wordt gemeld en overgeslagen; dat slot valt daarna onder repareer_eerste_plt. */
+static int rg_slottabel_gelezen = 0;
+static void pas_slottabel_toe(struct beeld *b)
+{
+    const char *pad = getenv("RG_ELF_SLOT_TABLE");
+    FILE *f; char regel[2048];
+    int ok = 0, nietgevonden = 0, anders = 0, buiten = 0, zwak = 0;
+    if (!pad || !*pad) return;
+    f = fopen(pad, "r");
+    if (!f) fatal("kan slottabel %s niet openen", pad);
+    while (fgets(regel, sizeof regel, f)) {
+        unsigned stub, slot, stale; char naam[512]; void *sym; uint32_t nu;
+        if (regel[0] == '#' || sscanf(regel, "%x\t%x\t%x\t%511[^\t\n]", &stub, &slot, &stale, naam) != 4) continue;
+        if (slot < b->lo || slot + 4 > b->hi) { buiten++; continue; }
+        nu = *(volatile uint32_t *)(uintptr_t)slot;
+        if (stale == 0) { zwak++; continue; }                  /* zwak (__gmon_start__): blijft 0 */
+        if (nu != stale) { anders++; continue; }               /* al door JMPREL gezet (fork) of een andere game-versie */
+        sym = zoek_symbool(naam);
+        if (!sym) { nietgevonden++; say("  slottabel: %s niet gevonden (slot %#x)", naam, slot); continue; }
+        *(volatile uint32_t *)(uintptr_t)slot = (uint32_t)(uintptr_t)sym;
+        if (rg_ontleed) relmod_tel(sym);
+        ok++;
+    }
+    fclose(f);
+    rg_slottabel_gelezen = 1;
+    say("slottabel %s: %d slots op naam gezet, %d naam-niet-gevonden, %d slot-had-andere-waarde, %d zwak/0, %d buiten beeld",
+        pad, ok, nietgevonden, anders, zwak, buiten);
 }
 
 /* ------------------------------------------------------------------ de startstack + sprong */
@@ -1127,6 +1171,7 @@ int main(int argc, char **argv)
         pas_rel_toe(&d, d.rel, d.relsz / sizeof(Elf32_Rel), "DT_REL");
     if (d.jmprel && d.pltrelsz)
         pas_rel_toe(&d, d.jmprel, d.pltrelsz / sizeof(Elf32_Rel), "DT_JMPREL");
+    pas_slottabel_toe(&b);       /* gepakte klasse: namen uit de slottabel van de game (patches/<Game>/), indien gegeven */
     repareer_eerste_plt(&b, &d);   /* gepakte klasse: eerste-PLT-slots op naam herstellen (gemapt => veilig) */
 
     if (rg_ontleed) {

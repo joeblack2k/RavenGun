@@ -58,6 +58,8 @@ public:
     std::string assignment_json(int player) const;
     // De vier toewijzingen als JSON-array (voor het blok "mouse_guns" in de status).
     std::string status_json() const;
+    // Is er een muis als lightgun toegewezen en geopend (verbonden)? Zo ja, dan hoeft een start niet op een Move te wachten.
+    bool any_connected() const;
 
 private:
     struct Slot {

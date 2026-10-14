@@ -39,11 +39,16 @@ set(RAVENGUN_BUILD_DEFS
   "RAVENGUN_GIT_COMMIT=\"${RAVENGUN_GIT_COMMIT}\""
   "RAVENGUN_PSMOVEAPI_PIN=\"${RAVENGUN_PSMOVEAPI_PIN}\"")
 
+# rg-exec (tools/rg-exec): het hulpprogramma tussen gamescope en bwrap van de native route; laat alleen DISPLAY van gamescope door.
+add_executable(rg-exec tools/rg-exec/rg_exec.cpp)
+install(TARGETS rg-exec RUNTIME DESTINATION bin)
+
 add_library(ravengun STATIC
   src/ravengun/config/settings.cpp
   src/ravengun/config/led_color.cpp
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
+  src/ravengun/launch/native.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/iobridge/io_state.cpp
@@ -168,6 +173,27 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     target_compile_options(rg_rt_input PRIVATE -fno-stack-protector -w)
     target_link_libraries(rg_rt_input PRIVATE pthread m ${CMAKE_DL_LIBS})
     set_target_properties(rg_rt_input PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_rt_input" C_VISIBILITY_PRESET default)
+    # Invoerbrug voor het RIO-lightgun-bord van de native Raw Thrills-Unity-route (NERF): librio.so van de game leest het bordbeeld
+    # van de IO-brug (tools/rio-bridge/, tabel patches/<Game>/rio-invoer.ini).
+    add_library(rg_rio_bridge SHARED tools/rio-bridge/rg_rio_bridge.c)
+    target_compile_options(rg_rio_bridge PRIVATE -fno-stack-protector)
+    target_link_libraries(rg_rio_bridge PRIVATE pthread m ${CMAKE_DL_LIBS})
+    set_target_properties(rg_rio_bridge PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_rio_bridge" C_VISIBILITY_PRESET default)
+    # Draadhulp voor de native i386-route (Jurassic Park): een draad die SCHED_FIFO vraagt en dat als gewone gebruiker niet mag,
+    # start toch met de planning van de aanroeper (tools/rg-threadprio/). 32-bits, zoals het spel. SteamOS heeft geen
+    # gnu/stubs-32.h; dan een lege stub in de build, zoals scripts/build-elfloader.sh. Lukt het niet, dan alleen een waarschuwing.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-threadprio/rg_threadprio.c\" -ldl || echo 'waarschuwing: 32-bit draadhulp (librg-threadprio.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-threadprio/rg_threadprio.c VERBATIM)
+    add_custom_target(rg_threadprio32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so")
+    # De RIO-brug ook 32-bits: Jurassic Park heeft de RIO-bibliotheek in zijn i386-spelbeeld; de brug antwoordt daar als het
+    # bord zelf over USB (tools/rio-bridge/, tabel patches/JurassicPark/rio-invoer.ini).
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -fno-stack-protector -D_FILE_OFFSET_BITS=64 -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rio-bridge/rg_rio_bridge.c\" -lpthread -lm -ldl || echo 'waarschuwing: 32-bit RIO-brug niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rio-bridge/rg_rio_bridge.c VERBATIM)
+    add_custom_target(rg_rio_bridge32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so")
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
   endif()
@@ -306,6 +332,11 @@ if(RAVENGUN_BUILD_TESTS)
   # assen, en een tabel die niet klopt wordt afgekeurd. Geen spel nodig. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_rt_input COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rt_input_test.sh")
   set_tests_properties(ravengun_rt_input PROPERTIES SKIP_RETURN_CODE 77)
+  # De RIO-brug (tools/rio-bridge): het lightgun-bord van de native Raw Thrills-Unity-route (NERF) uit het bordbeeld. Echte dlopen
+  # van een nep-librio.so, aanpassen, schakelaars als tellers van overgangen, kanalen, een andere build met rust laten, de probe,
+  # en de tabellen van NERF. Geen spel nodig. Skip (77) zonder C-compiler.
+  add_test(NAME ravengun_rio_bridge COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rio_bridge_test.sh")
+  set_tests_properties(ravengun_rio_bridge PROPERTIES SKIP_RETURN_CODE 77)
   # De invoertabel per game op de native route: play-native.sh geeft patches/<Game>/rt-invoer.ini (gebruikerslaag voor
   # meegeleverd) alleen-lezen aan de invoerhulp mee en noemt hem met zijn sha256 in het logboek; zonder tabel, of zonder de hulp,
   # verandert er niets aan het commando. Echte doorloop van het script met een nep-bwrap. Start niets.
@@ -320,6 +351,9 @@ if(RAVENGUN_BUILD_TESTS)
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
   add_test(NAME ravengun_elfloader_gnuhash COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_gnuhash_test.sh")
   set_tests_properties(ravengun_elfloader_gnuhash PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-elfloader: de slottabel per game (RG_ELF_SLOT_TABLE) voor de gepakte klasse -- een synthetische gast met stale eerste-PLT-slots.
+  add_test(NAME ravengun_elfloader_slottabel COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_slottabel_test.sh")
+  set_tests_properties(ravengun_elfloader_slottabel PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME ravengun_elfloader_install COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(ravengun_elfloader_install PROPERTIES SKIP_RETURN_CODE 77)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
@@ -338,6 +372,12 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_gamesettings_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_gamesettings_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_gamesettings_tests COMMAND ravengun_gamesettings_tests)
+  # De native route zonder shellscripts (src/ravengun/launch/native.*): profiel, commando, invoertabel, schrijflaag, sha256.
+  # rg-exec: alleen de genoemde variabelen gaan mee (gamescope -> rg-exec --keep DISPLAY -> bwrap).
+  add_test(NAME ravengun_rg_exec COMMAND sh -c "out=$(env FOO=1 DISPLAY=:9 \"$<TARGET_FILE:rg-exec>\" --keep DISPLAY -- /usr/bin/env) && test \"$out\" = DISPLAY=:9")
+  add_executable(ravengun_native_launch_tests tests/test_native_launch.cpp)
+  target_link_libraries(ravengun_native_launch_tests PRIVATE ravengun)
+  add_test(NAME ravengun_native_launch_tests COMMAND ravengun_native_launch_tests)
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
   add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
@@ -401,8 +441,10 @@ if(RAVENGUN_BUILD_DAEMON)
   endif()
 endif()
 if(TARGET rg_comm_shim)
-  install(TARGETS rg_comm_shim rg_rt_input LIBRARY DESTINATION lib)
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" DESTINATION lib/lib32 OPTIONAL)
+  install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge LIBRARY DESTINATION lib)
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so"
+          DESTINATION lib/lib32 OPTIONAL)
 endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
@@ -419,7 +461,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
   # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
-  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/.
+  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en
+  #   <Game>/data/ (bestanden die het profiel in packaging/native-games.json in de sandbox zet, zoals data/udev-rules.d van
+  #   NERF en Jurassic Park; zonder die map weigert play-native.sh de start: "bestand ontbreekt").
   #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
   # Al het andere in de patches-repo is DOSSIER: logboeken van benchruns, metingen, meetscripts, onderzoeksnotities,
   # foto's, generatoren. Dat is bewijs en hoort in die repo, maar niet in een installatie: niets leest het daar, en het
@@ -431,7 +475,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
     FILES_MATCHING
     REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|dongle\\.json|README\\.md)$"
-    REGEX "^${_rg_patches_rx}/[^/]+/dropin/")
+    REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
+    REGEX "^${_rg_patches_rx}/[^/]+/data/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
   install(CODE "
     set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")

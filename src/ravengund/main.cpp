@@ -469,6 +469,55 @@ int main(int argc, char** argv) {
         auto l = shared.get().sample.link;
         return l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
     };
+    // De native route zonder script (packaging/native-games.json, src/ravengun/launch/native.*): de daemon start zo'n game zelf.
+    {
+        auto envs = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
+        ravengun::launch::NativePaths& np = games_cfg.native;
+        if (!data_root.empty()) np.json = data_root + "/packaging/native-games.json";
+        const std::string xdh = envs("XDG_DATA_HOME");
+        const std::string data_dir = (!xdh.empty() && xdh[0] == '/' ? xdh : home + "/.local/share") + "/ravengun";
+        np.data = data_dir;
+        np.lib32 = data_dir + "/runtime/lib32";
+        np.nas = !envs("RAVENGUN_NAS_TP").empty() ? envs("RAVENGUN_NAS_TP") : home + "/mnt/spidernas_emulation/Teknoparrot";
+        np.tpui = !envs("RAVENGUN_TPUI").empty() ? envs("RAVENGUN_TPUI") : data_dir + "/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+        // Eigen bibliotheken zoals scripts/rg-paths.sh: <prefix>/lib bij een installatie (<prefix>/share/ravengun), build/ in de repo.
+        std::string lib = envs("RAVENGUN_LIB_DIR");
+        if (lib.empty() && !data_root.empty()) {
+            const std::string suffix = "/share/ravengun";
+            const bool installed = data_root.size() > suffix.size() && data_root.compare(data_root.size() - suffix.size(), suffix.size(), suffix) == 0;
+            lib = installed ? data_root.substr(0, data_root.size() - suffix.size()) + "/lib" : data_root + "/build";
+        }
+        np.build = lib;
+        np.patches = games_cfg.dirs.shipped;
+        np.user_patches = games_cfg.dirs.user;
+        np.loader = envs("RAVENGUN_ELFLOADER");
+        np.runtime_dir = envs("XDG_RUNTIME_DIR");
+        np.home = home;
+        {   // rg-exec staat naast ravengund (<prefix>/bin bij een installatie, build/ in de repo)
+            char self[4096];
+            const ssize_t n = ::readlink("/proc/self/exe", self, sizeof self - 1);
+            if (n > 0) { self[n] = 0; std::string d(self); np.exec_helper = d.substr(0, d.rfind('/')) + "/rg-exec"; }
+        }
+        if (!games_cfg.log_path.empty()) games_cfg.native_log_dir = games_cfg.log_path.substr(0, games_cfg.log_path.rfind('/'));
+        games_cfg.lightgun_ready = [&shared] {
+            auto l = shared.get().sample.link;
+            const bool move = l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
+            return move || (shared.mouse && shared.mouse->any_connected());
+        };
+        games_cfg.arm = [&shared]() -> std::string {
+            if (!shared.output) return "geen uitvoer";
+            const auto r = shared.output->arm();
+            return r.ok ? std::string() : r.message;
+        };
+        games_cfg.start_route = [&shared](const std::string& game, const std::string& route) -> std::string {
+            return shared.iobridge ? shared.iobridge->start(game, route) : std::string("geen IO-brug");
+        };
+        games_cfg.stop_inputs = [&shared] {
+            if (shared.iobridge) shared.iobridge->stop();
+            if (shared.output) shared.output->disarm();
+        };
+        if (!np.json.empty()) logf("info", "games: native profielen uit %s start de daemon zelf (zonder script)", np.json.c_str());
+    }
     ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
     if (games_dry_run) {
         // Geen invloed van echte processen op de host (tests): geen cgroup van de unit, een niet-bestaande procesmap.

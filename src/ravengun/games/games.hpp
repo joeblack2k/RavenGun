@@ -5,7 +5,10 @@
 //   [A-Za-z0-9_-]{1,64}.xml tellen mee; de naam komt uit <GameNameInternal>, het icoon uit <IconName>.
 // - read_icon(): serveert uitsluitend bestanden uit <tp_dir>/Icons (naam [A-Za-z0-9_-]+.png|jpg|jpeg|gif|webp,
 //   realpath binnen de Icons-map, gewoon bestand, hoogstens 3 MiB). Nooit een pad van buiten.
-// - GameService: start/stopt via `systemd-run --user` met een vaste unitnaam het script scripts/play-halo.sh. De
+// - GameService: een game met een native profiel dat aan staat (packaging/native-games.json) start de daemon ZELF, zonder
+//   shellscripts: wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek, en dan
+//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Alle
+//   andere games start/stopt hij via `systemd-run --user` met een vaste unitnaam en het script scripts/play-halo.sh. De
 //   profielnaam is altijd een bestaand bestand uit UserProfiles en komt als los argument (geen shell, geen
 //   interpolatie) op de opdrachtregel. De toestand (wacht op Move, start, draait, mislukt) wordt afgeleid uit
 //   /proc (BudgieLoader, het script) en het logbestand van de laatste start; er is geen wachtende thread.
@@ -19,6 +22,7 @@
 #include <vector>
 
 #include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/launch/native.hpp"
 
 namespace ravengun::games {
 
@@ -50,6 +54,17 @@ struct Config {
     std::string tpui_procs;
     int start_grace_ms = 6000; // zolang na het starten is "start" de toestand, ook als het script nog niet zichtbaar is
     std::function<bool()> move_connected;  // leeg = onbekend (geen "wacht op Move")
+
+    // De native route zonder script. Leeg native.json = elke game via het script.
+    ravengun::launch::NativePaths native;
+    std::string native_log_dir;    // logs/native-<profiel>-<tijd>.log (leeg = geen logboek)
+    std::string tpui_unit = "ravengun-tpui";   // de unit van de game (stoppen, OLED-bescherming en de IO-brug kijken daarnaar)
+    std::function<bool()> lightgun_ready;      // Move verbonden of een muis als lightgun (leeg = niet wachten)
+    std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
+    std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
+    std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)
+    int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis
+    int game_wait_ms = 120000;                 // zo lang wachten tot het spelproces er is
 };
 
 struct Game {
@@ -90,6 +105,11 @@ std::vector<std::string> start_argv(const Config& c, const std::string& profile,
 std::vector<std::string> stop_unit_argv(const Config& c);   // systemctl --user stop ravengun-play.service
 std::vector<std::string> stop_script_argv(const Config& c); // systemd-run ... play-halo.sh --stop
 
+// Gaat dit profiel via de native route van de daemon? (native-games.json leesbaar, profiel enabled, geen camera in de game)
+bool native_route(const Config& c, const std::string& profile);
+// Het commando waarmee de daemon een native game in de unit start (systemd-run, geen shell); `log` = uitvoer van de game.
+std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
+
 // Voert een proces uit en wacht tot het klaar is (hoogstens 10 s). Geeft de exitcode, of -1 met `err`.
 int run_process(const std::vector<std::string>& argv, std::string& err);
 
@@ -116,6 +136,7 @@ public:
 
 private:
     void join_worker();
+    std::string run_native(const std::string& profile);   // de native start in de worker; leeg = gelukt, anders de melding
     Config c_;
     Spawner spawn_;
     std::mutex m_;
@@ -127,6 +148,9 @@ private:
     int64_t launched_ms_ = 0;
     bool failed_ = false;
     std::string failed_msg_, failed_profile_;
+    bool native_ = false;                 // de laatste start ging via de native route (stoppen ruimt dan zelf op)
+    std::atomic<bool> waiting_{false};    // de native start wacht op een lightgun
+    std::atomic<bool> cancel_{false};     // stoppen tijdens een native start
 };
 
 }  // namespace ravengun::games

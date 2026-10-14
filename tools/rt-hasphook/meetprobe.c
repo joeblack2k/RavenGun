@@ -76,7 +76,6 @@ static int lees_zelf(void)
     char pad[4096];
     ssize_t n;
     const char *env = getenv("HF_PROBE_GAME");
-    int i;
 
     /* Het proces is wine-preloader; /proc/self/exe is dus NIET de game. De game-ELF staat op
        schijf; we vinden hem via de werkmap van het proces en via de commandoregel. */
@@ -103,13 +102,10 @@ static int lees_zelf(void)
             zeg("  cmdline = %s", pad);
         }
     }
-    for (i = 0; i < 2; i++) {
-        const char *vast = i == 0 ? "/home/deck/.local/share/ravengun/runtime/views/JurassicPark/game"
-                                  : "/home/deck/.local/share/ravengun/runtime/views/GalagaAssault/game";
-        if (lees_elf_pad(vast, "vast pad"))
-            goto klaar;
-    }
-    zeg("  GEEN game-ELF gevonden (zet HF_PROBE_GAME)");
+    /* Geen vast pad: een meetprogramma dat een game bij naam kent meet alleen die game, en een pad in iemands
+       thuismap is elders gewoon fout. De game komt uit HF_PROBE_GAME, de werkmap of de opdrachtregel (hierboven);
+       vindt geen van de drie hem, dan zegt de probe dat en meet hij niets. */
+    zeg("  GEEN game-ELF gevonden: zet HF_PROBE_GAME=<pad naar de game-ELF> (werkmap/game en de opdrachtregel leverden niets)");
     return 0;
 
 klaar:

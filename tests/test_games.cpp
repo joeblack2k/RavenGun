@@ -1,9 +1,13 @@
 // Tests van de games-laag (lijst, iconen, starten/stoppen met nep-spawner en nep-/proc) en de Navigation Controller.
 // Geen echte processen, geen systemd, geen hardware.
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -420,6 +424,115 @@ static void test_own_profile(const std::string& d) {
     CHECK(games.size() == 2);
 }
 
+// De native route zonder script: de daemon wacht op een lightgun, wapent, start de route, zet de schrijflaag, schrijft het logboek en
+// start de game met systemd-run in de unit ravengun-tpui (geen play-halo.sh, geen play-native.sh); stoppen ruimt zelf op.
+static void test_native_service(const std::string& d) {
+    const std::string b = d + "/nat";
+    for (const char* prog : {"bwrap", "env", "gamescope", "rg-exec"}) {
+        write(b + "/bin/" + prog, "#!/bin/sh\n");
+        fs::permissions(b + "/bin/" + prog, fs::perms::owner_all);
+    }
+    const std::string old_path = std::getenv("PATH") ? std::getenv("PATH") : "";
+    setenv("PATH", (b + "/bin").c_str(), 1);
+    fs::create_directories(b + "/nas/Spel");
+    write(b + "/tp/UserProfiles/Nat.xml", "<GameProfile/>");
+    write(b + "/native-games.json", R"({"games":{"Nat":{"title":"Natief spel","enabled":true,"launcher":"gamescope",
+        "mounts":[{"src":"@nas/Spel","dst":"/pm","mode":"overlay"}],"links":[{"target":"../../pmuser","dst":"/pm/a/b/pmuser"}],
+        "exe":"/pm/game","cwd":"/pm","args":["-f{res}"],"res":"1360x768","route":"tp-shm"},
+      "Script":{"enabled":false,"exe":"/x"}}})");
+    Config c;
+    c.tp_dir = b + "/tp";
+    c.play_script = b + "/bestaat-niet.sh";          // de native route heeft het script niet nodig
+    c.proc_root = b + "/proc";
+    c.start_grace_ms = 0;
+    c.native.json = b + "/native-games.json";
+    c.native.nas = b + "/nas";
+    c.native.data = b + "/data";
+    c.native.runtime_dir = b + "/run";
+    c.native.home = b + "/home";
+    c.native.exec_helper = b + "/bin/rg-exec";
+    c.native_log_dir = b + "/logs";
+    c.lightgun_wait_ms = 2000;
+    std::atomic<bool> gun{false};
+    std::mutex m;
+    std::vector<std::string> events;
+    std::vector<std::vector<std::string>> calls;
+    c.lightgun_ready = [&] { return gun.load(); };
+    c.arm = [&] { std::lock_guard<std::mutex> g(m); events.push_back("arm"); return std::string(); };
+    c.start_route = [&](const std::string& game, const std::string& route) { std::lock_guard<std::mutex> g(m); events.push_back("route " + game + " " + route); return std::string(); };
+    c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
+    CHECK(native_route(c, "Nat"));
+    CHECK(!native_route(c, "Script"));
+    GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
+        std::lock_guard<std::mutex> g(m);
+        calls.push_back(argv);
+        events.push_back("spawn " + argv[0]);
+        return 0;
+    });
+
+    // Zonder lightgun: wachten (de UI toont "wacht op de Move"), met een lightgun: verder.
+    CHECK(svc.start("Nat").ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    CHECK(state_of(svc) == "waiting_move");
+    { std::lock_guard<std::mutex> g(m); CHECK(events.empty() && calls.empty()); }
+    gun.store(true);
+    for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::string msg;
+    CHECK(state_of(svc, &msg) != "failed");
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(events.size() == 3 && events[0] == "arm" && events[1] == "route Nat tp-shm" && events[2] == "spawn systemd-run");
+        CHECK(calls.size() == 1);
+        const auto& a = calls[0];
+        auto has = [&](const std::string& x) { return std::find(a.begin(), a.end(), x) != a.end(); };
+        CHECK(has("--unit=ravengun-tpui") && has("--user") && has("--") && has(b + "/bin/rg-exec") && has("DISPLAY"));
+        CHECK(has(b + "/bin/env") && has("-i") && has(b + "/bin/gamescope") && has(b + "/bin/bwrap") && a.back() == "-f1360x768");
+        bool script = false, out = false;
+        for (const auto& x : a) {
+            if (x.find("play-halo") != std::string::npos || x.find("play-native") != std::string::npos || x == "sh" || x == "/bin/sh") script = true;
+            if (x.rfind("--property=StandardOutput=append:" + b + "/logs/native-Nat-", 0) == 0) out = true;
+        }
+        CHECK(!script);   // geen script en geen shell in de keten
+        CHECK(out);
+    }
+    // De schrijflaag en het logboek.
+    CHECK(fs::is_symlink(b + "/data/native/Nat/0/upper/a/b/pmuser"));
+    bool logged = false;
+    for (const auto& e : fs::directory_iterator(b + "/logs")) {
+        std::ifstream f(e.path());
+        std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        logged = all.find("== native Nat") == 0 && all.find("gegevens: " + b + "/native-games.json sha256 ") != std::string::npos &&
+                 all.find("link: /pm/a/b/pmuser -> ../../pmuser gezet") != std::string::npos && all.find("cmd: ") != std::string::npos;
+    }
+    CHECK(logged);
+
+    // Stoppen: de unit van de game weg, de invoer neutraal en ontwapend; geen script.
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 2 && calls[1].size() >= 4 && calls[1][calls[1].size() - 1] == "ravengun-tpui.service" && calls[1][calls[1].size() - 2] == "stop");
+        CHECK(events.back() == "stop_inputs");
+    }
+
+    // Stoppen terwijl de start op een lightgun wacht: afbreken, niets gespawnd.
+    gun.store(false);
+    { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+    CHECK(svc.start("Nat").ok);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    CHECK(svc.stop().ok);
+    for (int i = 0; i < 400 && state_of(svc) == "waiting_move"; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(state_of(svc, &msg) == "failed" && msg.find("afgebroken") != std::string::npos);
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+
+    // Een game die de camera in het spel gebruikt, gaat (nog) via het script.
+    c.dirs.shipped = b + "/patches";
+    write(b + "/patches/Nat/game.ini", "[Game]\nName = Nat\n[Camera]\nUse = game\n");
+    CHECK(!native_route(c, "Nat"));
+    setenv("PATH", old_path.c_str(), 1);
+}
+
 int main() {
     std::string d = (fs::temp_directory_path() / ("rg-games-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(d);
@@ -430,6 +543,7 @@ int main() {
     test_own_profile(d);
     test_processes(d);
     test_service(d);
+    test_native_service(d);
     test_unit_cgroup(d);
     test_navcon(d);
     fs::remove_all(d);
