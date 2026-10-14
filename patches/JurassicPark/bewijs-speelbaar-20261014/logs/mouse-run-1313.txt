@@ -1,0 +1,28 @@
+# mouse-only run: double-click 13:13:43; P1 lightgun = the Steam Controller's mouse (event7, ravengunctl mouse-gun); every input injected into that device node
+## daemon aim after mouse moves (ravengunctl iobridge): start 0.500,0.500 | rel -400,0 -> 0.292,0.500 | rel 0,-300 -> 0.292,0.217 | rel 800,400 -> 0.708,0.587 | left down -> board bits 0x20 (p1.trigger), up -> 0
+## bridge, last counter line (START id 7 = 0: never pressed; trigger id 15 = 277)
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 3=0 0=0 1=0 4=0 7=0 15=282 13=0 8=0 12=0 5=0 6=0 | kanalen 19=4095 20=3769 21=2056 22=2056 | usb aangehaakt: open=1 rapporten=106048 van-de-game=1043 sluit=0
+## game log
+Wed Oct 14 13:14:24 2026: Player 1 joined.
+Wed Oct 14 13:14:24 2026: Game Started
+Wed Oct 14 13:14:54 2026: Level Selected: level=0 act=0
+Wed Oct 14 13:15:18 2026: Frame 1293:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:15:20 2026: Frame 1438:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:15:49 2026: Frame 2482:	Player 1 died.
+Wed Oct 14 13:15:51 2026: Frame 2513:	Player 1 continued.
+Wed Oct 14 13:15:56 2026: Frame 2792:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:16:09 2026: Frame 3606:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:16:10 2026: Frame 3676:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:16:10 2026: Frame 3707:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:16:11 2026: Frame 3755:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:16:12 2026: Frame 3813:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:16:12 2026: Frame 3833:	Player 1 killed attacker "raptor grapple".
+Wed Oct 14 13:16:12 2026: Frame 3836:	Player 1 killed attacker "raptor grapple".
+Wed Oct 14 13:16:18 2026: Frame 4201:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:16:18 2026: Frame 4229:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:16:38 2026: Frame 5295:	Player 1 died.
+Wed Oct 14 13:16:41 2026: Frame 5328:	Player 1 continued.
+Wed Oct 14 13:16:41 2026: Frame 5372:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:16:44 2026: Frame 5511:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:16:50 2026: Frame 5890:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:17:47 2026: Frame 9097:	Player 1 died (abandoned).
