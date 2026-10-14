@@ -28,3 +28,12 @@ Status blijft `playable` (via TeknoParrotUi); niet `working` op de directe route
 
 Bijvangst van deze proef (opgelost in de loader, commit 0e467e3): met een Move EN een muis op dezelfde speler wiste elk
 Move-rapport een vastgehouden muisknop. De knoppen tellen nu per bron als OR.
+
+## Vervolg 2026-10-14 19:35
+
+- Onderzoek (open TeknoParrotUI-bron): TC5 heeft GEEN named pipe (PipeFactory geeft null), alleen TC5Pipe naar het gedeelde
+  geheugen; onze indeling `TimeCrisis5` is byte voor byte gelijk aan TC5Pipe.cs. Prefix en lader gelijk aan de oude route.
+- Getest: het bronbestand bij de start op nul (rg-direct, commit c305efa). Bytes 8..19 daarna schoon (`00 00 00 00 82 00 00 00 7f`),
+  maar de game reageert nog steeds niet op pedalen of trekker (tc2224.png). Die hypothese is weerlegd.
+- Open: of de kern de bytes in Wine ziet (een probe in de prefix die TeknoParrot_JvsState leest), de HASP-drop-in (sinds 11-10, de
+  oude werkende route had hem niet), pipehelper.exe in plaats van rg-jvsbridge.exe. Pass 2 (docs/goal-90-native.md).
