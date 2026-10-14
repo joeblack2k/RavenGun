@@ -1,0 +1,15 @@
+RUN nr1 -- NERF Arcade -- started 2026-10-14 03:47:05
+DECLARED: route=native (Nerf.x86_64 via scripts/play-native.sh --game NERF; no Wine, no TeknoParrot core, no BepInEx)  limit=90s  captures every 6s  gamescope=1
+THIS RUN: RIO board: patched librio.so (RIO_Connected returns connected) bound over both plugin paths. The bar: is the RIO DISCONNECTED banner gone in a frame?
+extra launcher arguments: --bind-ro /home/deck/.local/share/ravengun/rio/NERF/librio.so /pm/Nerf_Data/Plugins/x86_64/librio.so --bind-ro /home/deck/.local/share/ravengun/rio/NERF/librio.so /pm/Nerf_Data/Plugins/x86_64_ori/librio.so --bind-ro /home/deck/projects/ravengun-patches/patches/NERF/data/udev-rules.d /etc/udev/rules.d
+game process first seen 03:47:06
+03:47:16 alive: pid 1961917, exe /pm/Nerf.x86_64, 49 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+03:47:46 alive: pid 1961917, exe /pm/Nerf.x86_64, 63 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+03:48:17 alive: pid 1961917, exe /pm/Nerf.x86_64, 63 threads; hasp mapped: /pm/Nerf_Data/Plugins/x86_64/libhasp_linux_23714.so /pm/Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so ; libRIO2.so librio.so libUnityNatives.so libRIO2.so libUnityNatives.so ; Wine/TeknoParrot/OpenParrot/BepInEx mappings: 0
+gamelog.txt: 1328 bytes, 30 lines (first 400 kB kept)
+errorlog.txt: 554 bytes, 17 lines (first 400 kB kept)
+Player.log: 8845 bytes, 57 lines (first 400 kB kept)
+ENDED 2026-10-14 03:48:38 -- launcher exit: rc=0
+left running afterwards: (end of list)
+files in the share's game folder newer than the start of this run: 0
+captures: 14, first shot-001-034705.png, last shot-015-034835.png
