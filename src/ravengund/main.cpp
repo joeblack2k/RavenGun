@@ -514,9 +514,23 @@ int main(int argc, char** argv) {
         };
         games_cfg.stop_inputs = [&shared] {
             if (shared.iobridge) shared.iobridge->stop();
+            if (shared.aagames) shared.aagames->stop();   // de TCP-klant van de Unity-plugin
             if (shared.output) shared.output->disarm();
         };
         if (!np.json.empty()) logf("info", "games: native profielen uit %s start de daemon zelf (zonder script)", np.json.c_str());
+        // De Unity-route zonder script (packaging/aagames-games.json, src/ravengun/launch/unity.*): view, Proton, TCP-klant.
+        ravengun::launch::UnityPaths& up = games_cfg.unity;
+        if (!aagames_config.empty()) up.json = aagames_config;
+        else if (!data_root.empty()) up.json = data_root + "/packaging/aagames-games.json";
+        up.home = home;
+        up.data = data_dir;
+        // De plugin (scripts/build-unity-plugin.sh): $RAVENGUN_UNITY_PLUGIN_OUT, de gebruikersdata, dan naast de eigen bibliotheken
+        // (<prefix>/lib/unity-plugin bij een installatie, build/unity-plugin in de repo).
+        up.plugin_dirs = {envs("RAVENGUN_UNITY_PLUGIN_OUT"), data_dir + "/unity-plugin", lib.empty() ? std::string() : lib + "/unity-plugin"};
+        if (!data_root.empty()) up.plugin_src = data_root + "/plugins/unity/src";
+        up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON")
+                                                           : home + "/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64";
+        if (!up.json.empty()) logf("info", "games: Unity-games uit %s start de daemon zelf (zonder script)", up.json.c_str());
     }
     ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
     if (games_dry_run) {

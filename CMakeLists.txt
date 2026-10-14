@@ -49,6 +49,7 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/launch/native.cpp
+  src/ravengun/launch/unity.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/iobridge/io_state.cpp
@@ -378,6 +379,10 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_native_launch_tests tests/test_native_launch.cpp)
   target_link_libraries(ravengun_native_launch_tests PRIVATE ravengun)
   add_test(NAME ravengun_native_launch_tests COMMAND ravengun_native_launch_tests)
+  # De Unity-route zonder shellscripts (src/ravengun/launch/unity.*): de view met de NAS-controle en het Proton-commando.
+  add_executable(ravengun_unity_launch_tests tests/test_unity_launch.cpp)
+  target_link_libraries(ravengun_unity_launch_tests PRIVATE ravengun)
+  add_test(NAME ravengun_unity_launch_tests COMMAND ravengun_unity_launch_tests)
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
   add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
@@ -506,6 +511,9 @@ install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURC
   PATTERN "desktop/teknoparrot.desktop" EXCLUDE PATTERN "desktop/ravengun-stop.desktop" EXCLUDE
   PATTERN "desktop/ravengun.desktop" EXCLUDE PATTERN "desktop/ravengun-qt.desktop" EXCLUDE PATTERN "desktop/ravengun-web.desktop" EXCLUDE)
 install(DIRECTORY plugins/unity DESTINATION ${RAVENGUN_DATADIR}/plugins)
+# De gebouwde Unity-plugins (scripts/build-unity-plugin.sh schrijft ze in de repo naar build/unity-plugin/<Game>/): naast de eigen
+# bibliotheken, waar de daemon ze zoekt bij een start zonder script (src/ravengun/launch/unity.*). Nog niet gebouwd = overgeslagen.
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/unity-plugin/" DESTINATION lib/unity-plugin OPTIONAL)
 install(DIRECTORY tools/fmod-stub DESTINATION ${RAVENGUN_DATADIR}/tools)
 install(FILES docs/user-guide.md DESTINATION ${RAVENGUN_DATADIR}/docs)
 install(FILES LICENSE THIRD_PARTY.md DESTINATION ${RAVENGUN_DATADIR})

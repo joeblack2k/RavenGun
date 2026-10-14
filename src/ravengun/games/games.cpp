@@ -382,7 +382,14 @@ std::string read_text(const std::string& path, size_t max_bytes = 1024 * 1024) {
     return s;
 }
 // Draait er in de cgroup van de unit een proces met deze naam (/proc/<pid>/comm)?
-bool unit_has_comm(const std::string& cgroup_procs, const std::string& proc_root, const std::string& comm) {
+bool same_name(const std::string& a, const std::string& b, bool icase) {
+    if (!icase) return a == b;
+    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+               return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+           });
+}
+// Draait er in de unit een proces met deze naam? icase: hoofdletters tellen niet (Wine: "Game.exe" of "game.exe").
+bool unit_has_comm(const std::string& cgroup_procs, const std::string& proc_root, const std::string& comm, bool icase = false) {
     if (cgroup_procs.empty() || comm.empty()) return false;
     std::ifstream f(cgroup_procs);
     std::string pid;
@@ -391,7 +398,7 @@ bool unit_has_comm(const std::string& cgroup_procs, const std::string& proc_root
         if (pid.empty()) continue;
         std::ifstream c(proc_root + "/" + pid + "/comm");
         std::string name;
-        if (c && std::getline(c, name) && name == comm) return true;
+        if (c && std::getline(c, name) && same_name(name, comm, icase)) return true;
     }
     return false;
 }
@@ -426,6 +433,32 @@ std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std
     }
     a.push_back("--");
     a.insert(a.end(), game_argv.begin(), game_argv.end());
+    return a;
+}
+
+bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {
+    if (c.unity.json.empty() || launch == "teknoparrot-ui") return false;
+    const std::string text = read_text(c.unity.json);
+    if (text.empty() || !ravengun::launch::unity_game_known(text, profile)) return false;
+    // Zoals play-halo.sh: een game die in game.ini om tp-shm vraagt gaat niet over de Unity-route.
+    const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
+    const std::string* route = g.settings.find("Input", "Route");
+    return !(route && trim(*route) == "tp-shm");
+}
+
+std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log) {
+    std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
+                               "--description=RavenGun: game (Unity, gestart door de daemon)", "--property=TimeoutStopSec=10",
+                               "--working-directory=" + plan.cwd};
+    for (const auto& [k, v] : plan.env) a.push_back("--setenv=" + k + "=" + v);
+    bool plain = !log.empty();
+    for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
+    if (plain) {
+        a.push_back("--property=StandardOutput=append:" + log);
+        a.push_back("--property=StandardError=append:" + log);
+    }
+    a.push_back("--");
+    a.insert(a.end(), plan.argv.begin(), plan.argv.end());
     return a;
 }
 
@@ -470,7 +503,8 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen eigen profiel in patches/" + profile + "/game.ini en geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
     const bool native = native_route(c_, profile);
-    if (!native && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
+    const bool unity = !native && unity_route(c_, profile, launch);
+    if (!native && !unity && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
         return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
@@ -491,11 +525,11 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     failed_profile_.clear();
     busy_.store(true);
     busy_stop_ = false;
-    native_ = native;
+    native_ = native || unity;
     cancel_.store(false);
-    if (native) {
-        worker_ = std::thread([this, profile] {
-            const std::string msg = run_native(profile);
+    if (native || unity) {
+        worker_ = std::thread([this, profile, unity] {
+            const std::string msg = unity ? run_unity(profile) : run_native(profile);
             std::lock_guard<std::mutex> lk(m_);
             if (!msg.empty()) {
                 failed_ = true;
@@ -578,19 +612,24 @@ Result GameService::stop() {
     return {};
 }
 
+// Een lightgun: een verbonden Move of een muis die als lightgun is toegewezen (zoals het script, maar zonder het script).
+std::string GameService::wait_lightgun() {
+    if (!c_.lightgun_ready || c_.lightgun_ready()) return {};
+    waiting_.store(true);
+    const int64_t until = now_ms() + c_.lightgun_wait_ms;
+    while (!c_.lightgun_ready()) {
+        if (cancel_.load()) { waiting_.store(false); return "de start is afgebroken"; }
+        if (now_ms() > until) { waiting_.store(false); return "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."; }
+        ::usleep(200000);
+    }
+    waiting_.store(false);
+    return {};
+}
+
 std::string GameService::run_native(const std::string& profile) {
     namespace L = ravengun::launch;
-    // 1. Een lightgun: een verbonden Move of een muis die als lightgun is toegewezen (zoals het script, maar zonder het script).
-    if (c_.lightgun_ready && !c_.lightgun_ready()) {
-        waiting_.store(true);
-        const int64_t until = now_ms() + c_.lightgun_wait_ms;
-        while (!c_.lightgun_ready()) {
-            if (cancel_.load()) { waiting_.store(false); return "de start is afgebroken"; }
-            if (now_ms() > until) { waiting_.store(false); return "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."; }
-            ::usleep(200000);
-        }
-        waiting_.store(false);
-    }
+    // 1. Een lightgun.
+    if (const std::string e = wait_lightgun(); !e.empty()) return e;
     // 2. Het profiel en het commando.
     const std::string text = read_text(c_.native.json);
     L::NativeProfile pr;
@@ -646,6 +685,73 @@ std::string GameService::run_native(const std::string& profile) {
             return "de game stopte meteen" + (last.empty() ? std::string() : ": " + last) + (log.empty() ? "" : " (logboek: " + log + ")");
         }
         if (now_ms() > until) return pr.title.empty() ? profile + " is niet gestart" : pr.title + " is niet gestart" + (log.empty() ? "" : " (logboek: " + log + ")");
+        ::usleep(250000);
+    }
+    return {};
+}
+
+std::string GameService::run_unity(const std::string& profile) {
+    namespace L = ravengun::launch;
+    // 1. Een lightgun.
+    if (const std::string e = wait_lightgun(); !e.empty()) return e;
+    // 2. De game, de view (symlinks naar de NAS, BepInEx en onze plugin lokaal) en het commando.
+    const std::string text = read_text(c_.unity.json);
+    const char* po = std::getenv("RAVENGUN_UNITY_PLUGIN");
+    L::UnityGame g;
+    std::string err, view;
+    std::vector<std::string> view_log;
+    if (!L::load_unity_game(text, profile, c_.unity.home, po ? po : "", g, err)) return err;
+    if (!L::build_view(g, c_.unity, view, view_log, err)) return err;
+    L::UnityOptions o;
+    auto env = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
+    o.runtime_dir = !c_.native.runtime_dir.empty() ? c_.native.runtime_dir : env("XDG_RUNTIME_DIR");
+    if (!env("WAYLAND_DISPLAY").empty()) o.wayland_display = env("WAYLAND_DISPLAY");
+    if (!env("DISPLAY").empty()) o.display = env("DISPLAY");
+    o.xauthority = !env("XAUTHORITY").empty() ? env("XAUTHORITY") : L::find_xwayland_xauthority(c_.proc_root);
+    o.dbus = env("DBUS_SESSION_BUS_ADDRESS");
+    L::UnityPlan pl;
+    if (!L::plan_unity(g, c_.unity, view, o, pl, err)) return err;
+    // 3. Invoer: uitvoer wapenen, dan de TCP-klant van de plugin (hij verbindt zodra de game luistert).
+    if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
+    if (c_.start_route) {
+        const std::string e = c_.start_route(profile, "unity-tcp");
+        if (!e.empty()) { if (c_.stop_inputs) c_.stop_inputs(); return "Unity-route: " + e; }
+    }
+    if (cancel_.load()) { if (c_.stop_inputs) c_.stop_inputs(); return "de start is afgebroken"; }
+    // 4. Het logboek.
+    std::string log;
+    if (!c_.native_log_dir.empty()) {
+        std::error_code ec;
+        fs::create_directories(c_.native_log_dir, ec);
+        log = c_.native_log_dir + "/unity-" + profile + "-" + stamp("%Y%m%d-%H%M%S") + ".log";
+        std::ofstream f(log, std::ios::app);
+        f << "== unity " << profile << " " << stamp("%Y%m%d-%H%M%S") << " (gestart door ravengund, zonder script)\n";
+        f << "game: " << g.name << " (" << g.nas_dir << "/" << g.exe << "); plugin " << g.plugin << "; poort " << g.port << "\n";
+        for (const std::string& l : view_log) f << l << "\n";
+        for (const std::string& l : pl.notes) f << l << "\n";
+        f << "cmd:";
+        for (const std::string& a : pl.argv) f << " " << a;
+        f << "\n";
+    }
+    // 5. Starten in de unit van de game.
+    std::string serr;
+    const int rc = spawn_(unity_unit_argv(c_, pl, log), serr);
+    if (rc != 0) {
+        if (c_.stop_inputs) c_.stop_inputs();
+        return rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr;
+    }
+    // 6. Wachten tot het spelproces er is (Proton start eerst zijn eigen hulpprogramma's).
+    if (c_.tpui_procs.empty()) return {};
+    const int64_t until = now_ms() + c_.game_wait_ms;
+    ::usleep(500000);
+    while (!unit_has_comm(c_.tpui_procs, c_.proc_root, pl.comm, true)) {
+        if (cancel_.load()) return "de start is afgebroken";
+        if (!unit_alive(c_.tpui_procs)) {
+            if (c_.stop_inputs) c_.stop_inputs();
+            const std::string last = log.empty() ? std::string() : last_line(log);
+            return "de game stopte meteen" + (last.empty() ? std::string() : ": " + last) + (log.empty() ? "" : " (logboek: " + log + ")");
+        }
+        if (now_ms() > until) return g.name + " is niet gestart" + (log.empty() ? "" : " (logboek: " + log + ")");
         ::usleep(250000);
     }
     return {};

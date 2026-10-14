@@ -533,6 +533,103 @@ static void test_native_service(const std::string& d) {
     setenv("PATH", old_path.c_str(), 1);
 }
 
+// De Unity-route zonder script: de daemon zet de view klaar (symlinks naar de NAS, BepInEx en de plugin lokaal), wapent, start de
+// TCP-klant (route unity-tcp) en start `proton run Game.exe -popupwindow` met systemd-run in de unit ravengun-tpui, met de view als
+// werkmap; geen play-halo.sh, geen play-unity.sh, geen aagames-setup.py.
+static void test_unity_service(const std::string& d) {
+    const std::string b = d + "/uni";
+    write(b + "/home/nas/Spel/Game.exe", "MZ");
+    write(b + "/home/nas/Spel/Game_Data/level0", "x");
+    write(b + "/data/bepinex/5.4.21.0/x64/BepInEx/core/BepInEx.dll", "core");
+    write(b + "/data/bepinex/5.4.21.0/x64/winhttp.dll", "doorstop");
+    write(b + "/data/bepinex/5.4.21.0/x64/doorstop_config.ini", "");
+    write(b + "/plug/Uni/RavenGun.Uni.dll", "plugin");
+    write(b + "/proton/proton", "#!/bin/sh\n");
+    fs::permissions(b + "/proton/proton", fs::perms::owner_all);
+    write(b + "/tp/UserProfiles/Uni.xml", "<GameProfile/>");
+    write(b + "/aagames.json", R"({"port":33610,"games":{"Uni":{"name":"Unity-spel","nas_dir":"~/nas/Spel","exe":"Game.exe"}}})");
+    Config c;
+    c.tp_dir = b + "/tp";
+    c.play_script = b + "/bestaat-niet.sh";          // de Unity-route heeft het script niet nodig
+    c.proc_root = b + "/proc";
+    c.start_grace_ms = 0;
+    c.unity.json = b + "/aagames.json";
+    c.unity.home = b + "/home";
+    c.unity.data = b + "/data";
+    c.unity.plugin_dirs = {"", b + "/plug"};
+    c.unity.proton = b + "/proton";
+    c.native.runtime_dir = b + "/run";
+    c.native_log_dir = b + "/logs";
+    std::mutex m;
+    std::vector<std::string> events;
+    std::vector<std::vector<std::string>> calls;
+    c.lightgun_ready = [] { return true; };
+    c.arm = [&] { std::lock_guard<std::mutex> g(m); events.push_back("arm"); return std::string(); };
+    c.start_route = [&](const std::string& game, const std::string& route) { std::lock_guard<std::mutex> g(m); events.push_back("route " + game + " " + route); return std::string(); };
+    c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
+    CHECK(unity_route(c, "Uni"));
+    CHECK(unity_route(c, "Uni", "direct"));
+    CHECK(!unity_route(c, "Uni", "teknoparrot-ui"));   // uitdrukkelijk via TeknoParrotUi: het script
+    CHECK(!unity_route(c, "Ander"));
+    GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
+        std::lock_guard<std::mutex> g(m);
+        calls.push_back(argv);
+        events.push_back("spawn " + argv[0]);
+        return 0;
+    });
+    CHECK(svc.start("Uni").ok);
+    wait_idle_worker(svc);
+    std::string msg;
+    CHECK(state_of(svc, &msg) != "failed");
+    if (!msg.empty()) std::fprintf(stderr, "unity: %s\n", msg.c_str());
+    const std::string view = b + "/data/runtime/views-aagames/Uni";
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(events.size() == 3 && events[0] == "arm" && events[1] == "route Uni unity-tcp" && events[2] == "spawn systemd-run");
+        CHECK(calls.size() == 1);
+        if (!calls.empty()) {
+            const auto& a = calls[0];
+            auto has = [&](const std::string& x) { return std::find(a.begin(), a.end(), x) != a.end(); };
+            CHECK(has("--unit=ravengun-tpui") && has("--user") && has("--working-directory=" + view));
+            CHECK(has("--setenv=WINEDLLOVERRIDES=winhttp=n,b") && has("--setenv=STEAM_COMPAT_DATA_PATH=" + b + "/data/prefixes/unity-aagames"));
+            CHECK(has("--setenv=XDG_RUNTIME_DIR=" + b + "/run"));
+            const size_t dd = static_cast<size_t>(std::find(a.begin(), a.end(), "--") - a.begin());
+            CHECK(dd + 4 < a.size() + 1 && a.size() == dd + 5 && a[dd + 1] == b + "/proton/proton" && a[dd + 2] == "run" &&
+                  a[dd + 3] == "Game.exe" && a[dd + 4] == "-popupwindow");
+            bool script = false, out = false;
+            for (const auto& x : a) {
+                if (x.find("play-halo") != std::string::npos || x.find("play-unity") != std::string::npos || x.find("aagames-setup") != std::string::npos ||
+                    x == "sh" || x == "/bin/sh") script = true;
+                if (x.rfind("--property=StandardOutput=append:" + b + "/logs/unity-Uni-", 0) == 0) out = true;
+            }
+            CHECK(!script);
+            CHECK(out);
+        }
+    }
+    // De view: de game als symlink naar de NAS, onze plugin lokaal.
+    CHECK(fs::is_symlink(view + "/Game.exe"));
+    CHECK(fs::is_regular_file(view + "/BepInEx/plugins/RavenGun.Uni.dll") && !fs::is_symlink(view + "/BepInEx/plugins/RavenGun.Uni.dll"));
+    // Stoppen: de unit weg, de invoer (ook de TCP-klant) uit; geen script.
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 2 && calls[1].back() == "ravengun-tpui.service");
+        CHECK(events.back() == "stop_inputs");
+    }
+    // Zonder plugin: een duidelijke melding, niets gestart, de invoer weer uit.
+    fs::remove(b + "/plug/Uni/RavenGun.Uni.dll");
+    { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+    CHECK(svc.start("Uni").ok);
+    wait_idle_worker(svc);
+    CHECK(state_of(svc, &msg) == "failed" && msg.find("build-unity-plugin.sh Uni") != std::string::npos);
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+    // game.ini vraagt om tp-shm: dan niet de Unity-route.
+    c.dirs.shipped = b + "/patches";
+    write(b + "/patches/Uni/game.ini", "[Game]\nName = Uni\n[Input]\nRoute = tp-shm\n");
+    CHECK(!unity_route(c, "Uni"));
+}
+
 int main() {
     std::string d = (fs::temp_directory_path() / ("rg-games-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(d);
@@ -544,6 +641,7 @@ int main() {
     test_processes(d);
     test_service(d);
     test_native_service(d);
+    test_unity_service(d);
     test_unit_cgroup(d);
     test_navcon(d);
     fs::remove_all(d);

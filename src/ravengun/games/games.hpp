@@ -7,7 +7,9 @@
 //   realpath binnen de Icons-map, gewoon bestand, hoogstens 3 MiB). Nooit een pad van buiten.
 // - GameService: een game met een native profiel dat aan staat (packaging/native-games.json) start de daemon ZELF, zonder
 //   shellscripts: wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek, en dan
-//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Alle
+//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Een
+//   Unity-game uit packaging/aagames-games.json (Tomb Raider, Rabbids Hollywood) start hij ook zelf: de view klaarzetten, dan
+//   `systemd-run ... -- proton run Game.exe -popupwindow`, en de TCP-klant van de plugin (src/ravengun/launch/unity.*). Alle
 //   andere games start/stopt hij via `systemd-run --user` met een vaste unitnaam en het script scripts/play-halo.sh. De
 //   profielnaam is altijd een bestaand bestand uit UserProfiles en komt als los argument (geen shell, geen
 //   interpolatie) op de opdrachtregel. De toestand (wacht op Move, start, draait, mislukt) wordt afgeleid uit
@@ -23,6 +25,7 @@
 
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/launch/native.hpp"
+#include "ravengun/launch/unity.hpp"
 
 namespace ravengun::games {
 
@@ -63,6 +66,8 @@ struct Config {
     std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
     std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)
+    // De Unity-route zonder script. Leeg unity.json = Unity-games via het script.
+    ravengun::launch::UnityPaths unity;
     int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis
     int game_wait_ms = 120000;                 // zo lang wachten tot het spelproces er is
 };
@@ -110,6 +115,11 @@ bool native_route(const Config& c, const std::string& profile);
 // Het commando waarmee de daemon een native game in de unit start (systemd-run, geen shell); `log` = uitvoer van de game.
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
 
+// Gaat dit profiel via de Unity-route van de daemon? (in aagames-games.json, niet via TeknoParrotUi gevraagd, geen tp-shm in game.ini)
+bool unity_route(const Config& c, const std::string& profile, const std::string& launch = "");
+// Het commando waarmee de daemon een Unity-game in de unit start: werkmap = de view, de omgeving van het plan, `log` = uitvoer.
+std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log);
+
 // Voert een proces uit en wacht tot het klaar is (hoogstens 10 s). Geeft de exitcode, of -1 met `err`.
 int run_process(const std::vector<std::string>& argv, std::string& err);
 
@@ -137,6 +147,8 @@ public:
 private:
     void join_worker();
     std::string run_native(const std::string& profile);   // de native start in de worker; leeg = gelukt, anders de melding
+    std::string run_unity(const std::string& profile);    // idem voor de Unity-route
+    std::string wait_lightgun();                          // wacht op een Move of muis; leeg = er is er een
     Config c_;
     Spawner spawn_;
     std::mutex m_;
@@ -148,9 +160,9 @@ private:
     int64_t launched_ms_ = 0;
     bool failed_ = false;
     std::string failed_msg_, failed_profile_;
-    bool native_ = false;                 // de laatste start ging via de native route (stoppen ruimt dan zelf op)
-    std::atomic<bool> waiting_{false};    // de native start wacht op een lightgun
-    std::atomic<bool> cancel_{false};     // stoppen tijdens een native start
+    bool native_ = false;                 // de daemon startte de laatste game zelf, native of Unity (stoppen ruimt dan zelf op)
+    std::atomic<bool> waiting_{false};    // de eigen start wacht op een lightgun
+    std::atomic<bool> cancel_{false};     // stoppen tijdens een eigen start
 };
 
 }  // namespace ravengun::games
