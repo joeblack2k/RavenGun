@@ -9,6 +9,9 @@ banner across the top); bottom = run nr1 (after, a clean top edge, attract runni
 This is the first half of the two-title RIO item (`patches/RIO-BORD.md`). It is **NERF only**; Jurassic
 Park is a different claim (see that file).
 
+**Independently confirmed:** the coordinator looked at NERF's attract frame themselves and it carries
+no "RIO DISCONNECTED" banner — checked by someone other than the run that produced it.
+
 ## What was measured, and what the fix is
 
 * **The board is a USB device** `0c70:0780`, opened through libusb by `pmrt_usb_open` inside the game's

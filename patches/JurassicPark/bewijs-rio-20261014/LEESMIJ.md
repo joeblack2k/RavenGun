@@ -6,6 +6,9 @@
 Disconnected"; bottom = patched, the same kind of gameplay demo with a clean top edge, no banner);
 `jpF-banner-gone-frame.jpg`.
 
+**Independently confirmed:** the coordinator looked at Jurassic Park's high-score-table frame themselves
+and it carries no "RIO Disconnected" banner — checked by someone other than the run that produced it.
+
 This file replaces two earlier wrong readings I made tonight (both retracted below). The fix and the
 truth took a controlled comparison and then a missing harness bind to reach.
 

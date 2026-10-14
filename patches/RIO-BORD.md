@@ -56,6 +56,11 @@ not stripped of its exported names; the same code is in Jurassic Park's executab
 
 ## Result — 2026-10-14 (BOTH titles: the banner is gone, in a frame)
 
+**Independently confirmed.** The coordinator checked both banner-gone frames themselves — NERF's
+attract screen and Jurassic Park's high-score table — and neither carries the "RIO Disconnected"
+banner. So the claim is confirmed by someone other than the run that produced it, which is the part
+that makes it worth anything.
+
 **The board is a USB device `0c70:0780` we can answer in software.** MEASURED: `RIO_Connect` sets the
 connected flag the instant `pmrt_usb_open` returns non-NULL — no handshake. The game polls
 `RIO_Connected`, which returns `0` (connected) when the flag is set and `-3` (the "RIO not connected"
