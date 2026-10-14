@@ -5,10 +5,11 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (6)
+## Working (7)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
+- **HALO Fireteam Raven**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, input through the tp-shm I/O bridge). Measured on the TV in mouse mode: skip calibration with TEST twice (hold key 0 briefly), coin (key 5), START (key 1), aim, shoot, reload (right button), a kill; ran 5:12 min. The native route (Linux, own loader) also exists and skips calibration with START.
 - **Jurassic Park Arcade**: WORKING: runs on our own loader, started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts), native Linux, OpenGL on Vulkan (zink); played with a PS Move and with a mouse (2026-10-14). The lightgun board answers as the real USB board (RIO bridge, rio-invoer.ini): no more "RIO Disconnected"; START (key 1), aim and trigger work (score and kills measured), the game's own settings (free play, difficulty, volume, ...) are in the app. Four glow shaders Mesa rejected are fixed (data/shaders). Not measured: player 2's trigger, a physical mouse and the PS Move. See bewijs-speelbaar-20261014/LEESMIJ.md.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
 - **Rabbids Hollywood Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly), aim and trigger; ran 5:19 min with a played round. The dongle check (SBK.Matrix) is answered, see DONGLE-ONDERZOEK.md. Not yet measured: whether the savegame survives two starts, and playing with the real Move buttons.
@@ -16,14 +17,13 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Terminator Salvation**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, full screen through gamescope). Measured on the TV in mouse mode: START (hold key 1 briefly), mission select with the trigger, aim, shoot, reload (right button), a kill; ran 6:32 min. Not yet played with the real Move on this route.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
 
-## Playable (13)
+## Playable (12)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
 - **Gashaaaan Refill!!!!**: Playable after a one-time setup in the test menu (clock, screen, free play; now stored in the game's save data). Then start, aiming and trigger (the ball) work. Test menu: key 0, select with start, execute with P1 aux1.
 - **Gashaaaan!!!!**: Playable: coin (key 5), start (key 1), aiming and trigger (the ball) work. First start shows 'BACKUP DATA ERROR': press TEST (key 0) once to repair. Free play can be set in the test menu (P1 aux1 = execute).
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
-- **HALO Fireteam Raven**: Fully working: lightgun, buttons and rumble.
 - **House of the Dead: Scarlet Dawn**: Playable through the TeknoParrot UI (two programs: AM Daemon and the game): start (key 1), crosshair (measured at the corners and centre), trigger (left button) and sub trigger (right button, switches weapon) work; free play, one round played. Loading to the first stage takes about 1.5 minutes. Real Move buttons, player 2 and the test menu not tested.
 - **Let's Go Island 3D: Lost on the Island of Tropics**: Playable: starts through to the attract, 3D calibration (red-cyan picture), start (key 1) and play. The crosshair follows the aim (measured on a grid in the cutscene) and the trigger fires. Loading takes about a minute. Real Move buttons and sound not checked.
 - **Let's Go Island: Lost on the Island of Tropics**: Playable: starts through to the attract, start (key 1) and play. The crosshair follows the aim (measured on a grid) and the trigger fires. Fullscreen, no title bar. Loading takes about a minute. Real Move buttons and sound not checked.
