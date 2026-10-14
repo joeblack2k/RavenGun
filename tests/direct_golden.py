@@ -49,7 +49,7 @@ def load(path, name):
 # ---------------------------------------------------------------------------------------------------------------------------------
 # De Python-kant (in een eigen proces: launch-direct.py leest HOME en de XDG-variabelen bij het importeren)
 
-def python_side(profiles, tp):
+def python_side(profiles, tp, make_view=False):
     sys.path.insert(0, SCRIPTS)
     ld = load(os.path.join(SCRIPTS, "launch-direct.py"), "launch_direct")
     gs = ld.gs
@@ -69,7 +69,7 @@ def python_side(profiles, tp):
         except Exception as e:   # noqa: BLE001
             r["route"] = "fout: %s" % e
         try:
-            plan = ld.build_plan(name, tp, base_env=dict(os.environ))
+            plan = ld.build_plan(name, tp, base_env=dict(os.environ), make_view=make_view)
         except ld.SettingRefused as e:
             r.update(verdict="refused", why="Instelling geweigerd: %s" % e)
         except ld.PatchRefused as e:
@@ -112,8 +112,8 @@ def norm(p):
     return p
 
 
-def cpp_side(rg, name, tp, patches, user, env):
-    r = subprocess.run([rg, "--plan", name, "--tp", tp, "--patches", patches, "--user", user], capture_output=True, text=True, env=env)
+def cpp_side(rg, name, tp, patches, user, env, extra=()):
+    r = subprocess.run([rg, "--plan", name, "--tp", tp, "--patches", patches, "--user", user, *extra], capture_output=True, text=True, env=env)
     if r.returncode != 0:
         return {"verdict": "fout", "why": r.stderr.strip()}
     d = json.loads(r.stdout)
@@ -292,9 +292,10 @@ def main(argv):
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--python-side", nargs="+")   # intern: de Python-kant in een eigen proces
     ap.add_argument("--tp")
+    ap.add_argument("--make-view", action="store_true")   # intern: de Python-kant maakt de views zoals een start
     a = ap.parse_args(argv)
     if a.python_side:
-        python_side(a.python_side, a.tp)
+        python_side(a.python_side, a.tp, a.make_view)
         return 0
     patches = os.path.realpath(a.patches)
     if not os.path.isdir(patches) or not os.path.isfile(a.rg_direct):
@@ -315,59 +316,118 @@ def main(argv):
             user = env.get("RAVENGUN_USER_PATCHES_DIR") or os.path.join(REAL_HOME, ".local/share/ravengun/patches")
         else:
             env, tp, user = fixture(tmp, patches, profiles, gs)
-        r = subprocess.run([sys.executable, "-I", os.path.abspath(__file__), "--rg-direct", a.rg_direct, "--tp", tp, "--python-side", *profiles],
-                           capture_output=True, text=True, env=env)
-        if r.returncode != 0:
-            print("de Python-kant faalde:\n" + r.stderr)
+        def py_side(make_view=False):
+            r = subprocess.run([sys.executable, "-I", os.path.abspath(__file__), "--rg-direct", a.rg_direct, "--tp", tp, "--python-side", *profiles]
+                               + (["--make-view"] if make_view else []), capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                print("de Python-kant faalde:\n" + r.stderr)
+                return None
+            return json.loads(r.stdout.strip().splitlines()[-1])
+        py = py_side()
+        if py is None:
             return 1
-        py = json.loads(r.stdout.strip().splitlines()[-1])
-        fails, rows = 0, []
-        for name in profiles:
-            p, c = py[name], cpp_side(a.rg_direct, name, tp, patches, user, env)
-            notes = []
-            if c["verdict"] == "ok" and p["verdict"] == "ok":
-                d = diff(p["plan"], c["plan"])
-                uitkomst = "engine start, plan GELIJK" if not d else "engine start, plan VERSCHILT"
-                notes += d
-            elif c["verdict"] == "fallback" and c["why"].startswith("nog niet in de engine"):
-                uitkomst = "via het script (%s); script: %s" % (c["why"], p["verdict"])
-            elif c["verdict"] == p["verdict"] and (c["why"] == p["why"] or c["verdict"] == "fallback"):
-                uitkomst = "beide %s: %s" % (c["verdict"], c["why"].splitlines()[0][:160])
-                if c["why"] != p["why"]:
-                    notes.append("andere melding: script %r, engine %r" % (p["why"], c["why"]))
-            else:
-                uitkomst = "UITKOMST VERSCHILT"
-                notes.append("script %s (%s), engine %s (%s)" % (p["verdict"], p["why"], c["verdict"], c["why"]))
-            # De invoerroute (play-halo.sh) tegen die van de engine.
-            ci = c.get("input", {})
-            croute = ci.get("route") if ci.get("verdict") == "ok" else "fallback"
-            if croute != p.get("route"):
-                notes.append("invoerroute: script %r, engine %r" % (p.get("route"), croute))
-            if c.get("launch_mode") != "direct" and not (a.real and name in FORCE_DIRECT):
-                notes.append("[Launch] Mode volgens de engine: %r" % c.get("launch_mode"))
-            if name in FORCE_DIRECT and not uitkomst.startswith("engine start") and not a.real:
-                notes.append("%s is geforceerd direct en hoort door de engine te gaan" % name)
-            if name in FORCE_INPUT and not a.real and not ((c.get("plan") or {}).get("control_pipe") and (p.get("plan") or {}).get("control_pipe")):
-                notes.append("%s heeft hermetisch [Input] ControlPipe en hoort in beide plannen een besturingspipe te hebben" % name)
-            hard = [x for x in notes if not x.startswith("andere melding")]
-            fails += bool(hard)
-            rows.append((name, uitkomst + ("" if not hard else "  <-- FOUT"), notes, croute))
+        fails, rows = vergelijk(a, profiles, py, {name: cpp_side(a.rg_direct, name, tp, patches, user, env) for name in profiles})
+        # Een start ([Launch] View = auto, docs/per-game-patches.md "De view"): hermetisch plannen beide kanten nog eens met de views
+        # zoals een start ze maakt (launch-direct.py --check/--run, de daemon; rg-direct --plan --make-view). Een game op de nep-NAS
+        # (TC5) krijgt dan een view en zijn drop-ins kunnen geplaatst worden: droog weigeren beide, bij een start starten beide. Eerst
+        # de engine, dan worden de nieuwe views weggehaald en maakt het script ze opnieuw: dezelfde plannen en dezelfde bomen.
+        view_rows, view_msg, py2 = [], [], py
+        if not a.real:
+            views = os.path.join(env["XDG_DATA_HOME"], "ravengun/runtime/views")
+            voor = set(os.listdir(views))
+            cres = {name: cpp_side(a.rg_direct, name, tp, patches, user, env, ["--make-view"]) for name in profiles}
+            nieuw = sorted(set(os.listdir(views)) - voor)
+            boom_c = {v: boom(os.path.join(views, v)) for v in nieuw}
+            for v in nieuw:
+                shutil.rmtree(os.path.join(views, v))
+            py2 = py_side(make_view=True)
+            if py2 is None:
+                return 1
+            boom_p = {v: boom(os.path.join(views, v)) for v in sorted(set(os.listdir(views)) - voor)}
+            f2, view_rows = vergelijk(a, profiles, py2, cres)
+            fails += f2
+            if boom_c != boom_p:
+                fails += 1
+                view_msg.append("views VERSCHILLEN: engine %s, script %s" % (sorted(boom_c), sorted(boom_p)))
+            if "TC5" in profiles and "TC5" not in nieuw:
+                fails += 1
+                view_msg.append("TC5 (op de nep-NAS) kreeg geen view")
+            view_msg.insert(0, "views gemaakt bij een start: %s (engine en script %s)" % (", ".join(nieuw) or "geen",
+                                                                                           "gelijk" if boom_c == boom_p else "VERSCHILLEN"))
         n, bad = jvs_compare(a.rg_direct, load(os.path.join(SCRIPTS, "launch-direct.py"), "ld_jvs"))
         print("directe route, %s: %d games met [Launch] Mode = direct (geforceerd: %s)"
               % ("deze machine" if a.real else "hermetisch", len(profiles), ", ".join(n for n in FORCE_DIRECT if n in profiles) or "geen"))
-        for name, u, notes, route in rows:
-            starts = (py[name].get("plan") or {}).get("starts") or []
-            cpipe = (py[name].get("plan") or {}).get("control_pipe")
-            print("  %-26s %-9s %s%s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
-                                           if len(starts) > 1 else "", "  [besturingspipe %s -> %s]" % (cpipe["profile"], cpipe["pipe"]) if cpipe else ""))
-            for x in notes if (a.verbose or "FOUT" in u) else []:
-                print("      " + x)
+        for titel, rws, pyx in (("", rows, py), ("met de views van een start (--make-view):", view_rows, py2)):
+            if titel and rws:
+                print(titel)
+                for x in view_msg:
+                    print("  " + x)
+            for name, u, notes, route in rws:
+                starts = (pyx[name].get("plan") or {}).get("starts") or []
+                cpipe = (pyx[name].get("plan") or {}).get("control_pipe")
+                print("  %-26s %-9s %s%s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
+                                               if len(starts) > 1 else "", "  [besturingspipe %s -> %s]" % (cpipe["profile"], cpipe["pipe"]) if cpipe else ""))
+                for x in notes if (a.verbose or "FOUT" in u) else []:
+                    print("      " + x)
         print("JVS-pakketten: %d gevallen, %d verschillen" % (n, len(bad)))
         for x in bad[:10]:
             print("   ", x)
         return 1 if fails or bad else 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def boom(top):
+    """De boom van een view zonder links te volgen: {rel: ("L", doel) | ("D",) | ("F", inhoud)}."""
+    out = {}
+    for dp, dirs, files in os.walk(top, followlinks=False):
+        for n in dirs + files:
+            p = os.path.join(dp, n)
+            rel = os.path.relpath(p, top)
+            if os.path.islink(p):
+                out[rel] = ("L", os.readlink(p))
+            elif os.path.isdir(p):
+                out[rel] = ("D",)
+            else:
+                with open(p, "rb") as f:
+                    out[rel] = ("F", f.read())
+    return out
+
+
+def vergelijk(a, profiles, py, cres):
+    """Per game de uitkomst en het plan van het script (py) tegen die van de engine (cres). Geeft (aantal fouten, regels)."""
+    fails, rows = 0, []
+    for name in profiles:
+        p, c = py[name], cres[name]
+        notes = []
+        if c["verdict"] == "ok" and p["verdict"] == "ok":
+            d = diff(p["plan"], c["plan"])
+            uitkomst = "engine start, plan GELIJK" if not d else "engine start, plan VERSCHILT"
+            notes += d
+        elif c["verdict"] == "fallback" and c["why"].startswith("nog niet in de engine"):
+            uitkomst = "via het script (%s); script: %s" % (c["why"], p["verdict"])
+        elif c["verdict"] == p["verdict"] and (c["why"] == p["why"] or c["verdict"] == "fallback"):
+            uitkomst = "beide %s: %s" % (c["verdict"], c["why"].splitlines()[0][:160])
+            if c["why"] != p["why"]:
+                notes.append("andere melding: script %r, engine %r" % (p["why"], c["why"]))
+        else:
+            uitkomst = "UITKOMST VERSCHILT"
+            notes.append("script %s (%s), engine %s (%s)" % (p["verdict"], p["why"], c["verdict"], c["why"]))
+        # De invoerroute (play-halo.sh) tegen die van de engine.
+        ci = c.get("input", {})
+        croute = ci.get("route") if ci.get("verdict") == "ok" else "fallback"
+        if croute != p.get("route"):
+            notes.append("invoerroute: script %r, engine %r" % (p.get("route"), croute))
+        if c.get("launch_mode") != "direct" and not (a.real and name in FORCE_DIRECT):
+            notes.append("[Launch] Mode volgens de engine: %r" % c.get("launch_mode"))
+        if name in FORCE_DIRECT and not uitkomst.startswith("engine start") and not a.real:
+            notes.append("%s is geforceerd direct en hoort door de engine te gaan" % name)
+        if name in FORCE_INPUT and not a.real and not ((c.get("plan") or {}).get("control_pipe") and (p.get("plan") or {}).get("control_pipe")):
+            notes.append("%s heeft hermetisch [Input] ControlPipe en hoort in beide plannen een besturingspipe te hebben" % name)
+        hard = [x for x in notes if not x.startswith("andere melding")]
+        fails += bool(hard)
+        rows.append((name, uitkomst + ("" if not hard else "  <-- FOUT"), notes, croute))
+    return fails, rows
 
 
 if __name__ == "__main__":

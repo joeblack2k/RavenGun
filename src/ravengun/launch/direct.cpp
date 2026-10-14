@@ -26,6 +26,7 @@
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/launch/gamefind.hpp"
+#include "ravengun/launch/gameview.hpp"
 #include "ravengun/launch/native.hpp"
 #include "ravengun/launch/pe_stack.hpp"
 
@@ -652,6 +653,74 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
     return b;
 }
 
+// --- de view ([Launch] View; launch-direct.py plan_view, de opbouw in gameview.cpp) ------------------------------------------------
+// Het pad van de game waarmee het plan verder rekent. auto: staat de game op de NAS en is er nog geen view, dan wordt views/<Profiel>
+// gemaakt zoals tp-add-game.py --view (de wortel waar [Identify] Path begint); een getal N: altijd een view, N mappen omhoog; off: de
+// oude route. Een bestaande view met deze game blijft staan, alleen de links worden ververst. Zonder o.make_view (--plan) wordt er
+// niets gemaakt. false + err = weigeren (een ongeldige instelling, een view die er al is zonder deze game, of iets op de NAS).
+bool samefile(const std::string& a, const std::string& b);
+bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& game, const std::string& et, const DirectPaths& p, bool make,
+               std::vector<std::string>& notes, std::string& err) {
+    ViewSetting vs;
+    if (!parse_view_setting(settings.get("Launch", "View"), settings.get("Launch", "ViewEmptyDirs"), vs, err)) return false;
+    if (vs.mode == ViewSetting::Mode::Off) return true;
+    const NasFn nas = [&p](const std::string& x) { return on_nas(x, p); };
+    const std::string views = p.views();
+    auto log_into = [&](const std::vector<std::string>& l) { notes.insert(notes.end(), l.begin(), l.end()); };
+    if (binnen(game, views) && abspath(game) != abspath(views)) {   // al in een view: alleen de links verversen
+        const std::string wortel = view_wortel(dirname(game), p), rel = relpath(abspath(game), wortel), echt = realpath_(game);
+        if (make && ends_with(echt, "/" + rel) && !islink(wortel)) {
+            std::vector<std::string> l;
+            if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}}, nas, l, err)) {
+                err = "view: " + err;
+                return false;
+            }
+            log_into(l);
+        }
+        return true;
+    }
+    if (vs.mode == ViewSetting::Mode::Auto && !on_nas(game, p)) return true;
+    int n = vs.up;
+    if (vs.mode == ViewSetting::Mode::Auto) {
+        const std::string idp = gsn::identify_of(settings).path;
+        n = 0;
+        if (!idp.empty() && ends_with(game, "/" + idp))
+            for (const std::string& d : split(dirname(idp), '/')) n += d.empty() ? 0 : 1;
+    }
+    std::string gdir = dirname(abspath(game));
+    for (int i = 0; i < n; ++i) gdir = dirname(gdir);
+    const std::string rel = relpath(abspath(game), gdir), view = pjoin(views, name), vgame = pjoin(view, rel);
+    const GameViewSpec spec{gdir, view, rel, vs.empty_dirs, et == "ElfLdr2" ? pjoin(p.tp, "ElfLdr2") : std::string()};
+    bool leeg = false;
+    if (isdir(view) && !islink(view)) {
+        std::error_code ec;
+        leeg = fs::is_empty(view, ec) && !ec;
+    }
+    if (lexists(view) && !leeg) {
+        if (isfile(vgame) && samefile(vgame, game)) {
+            if (make) {
+                std::vector<std::string> l;
+                if (!refresh_game_view(spec, nas, l, err)) { err = "view: " + err; return false; }
+                log_into(l);
+            }
+            game = vgame;
+            return true;
+        }
+        err = "view: " + view + " bestaat al maar bevat de game niet op " + rel + "; de view blijft ongemoeid (maak hem opnieuw met "
+              "scripts/tp-add-game.py " + name + " <pad> --view, of zet [Launch] View = off)";
+        return false;
+    }
+    if (!make) {
+        notes.push_back("view: " + view + " ontbreekt; wordt bij de start gemaakt (links naar " + gdir + ")");
+        return true;
+    }
+    std::vector<std::string> l;
+    if (!make_game_view(spec, nas, l, err)) { err = "view: " + err; return false; }
+    log_into(l);
+    game = vgame;
+    return true;
+}
+
 // --- twee exe's (in_dezelfde_view, second_start) -------------------------------------------------------------------------------------
 bool samefile(const std::string& a, const std::string& b) {
     struct stat sa{}, sb{};
@@ -1160,7 +1229,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         }
     }
     std::string how;
-    const std::string game = locate(name, settings.settings, p, &how);
+    std::string game = locate(name, settings.settings, p, &how);
     Profile pr = profile_from_settings(name, settings.settings, game, p);
     pl.game_source = how;
     std::map<std::string, std::string> pd;
@@ -1185,6 +1254,15 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (unsupported_emu.count(emu)) return unsupported("EmulationProfile " + emu + " heeft eigen startargumenten in TeknoParrotUi (niet nagebouwd)");
     if (game.empty() || !isfile(game))
         return unsupported("game niet gevonden: '" + game + "' (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)");
+    // De view ([Launch] View): een game op de NAS draait vanuit een lokale view (alleen bij een start gemaakt; o.make_view).
+    {
+        std::string verr;
+        if (!plan_view(name, settings.settings, game, pr.get("EmulatorType"), p, o.make_view, pl.notes, verr)) return setting_refused(verr);
+        if (game != pr.get("GamePath")) {
+            pr.s["GamePath"] = game;
+            pl.game_source = how + " -> view";
+        }
+    }
     // Twee exe's (HasTwoExecutables): de tweede start, uit het profiel en game.ini (second_start).
     SecondStart second;
     {
@@ -1689,7 +1767,9 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
         std::string cur;
         const bool have = read_file(path, cur);
         if (have && cur == text) { log.push_back("bestand: " + path + " is al actueel"); continue; }
-        if (on_nas(path, p)) {
+        // Een symlink in een lokale map (de view) wordt een eigen lokaal bestand, ook als hij naar een bestand op de NAS wijst: dan
+        // wordt alleen de link weggehaald en blijft het bestand op de NAS ongemoeid.
+        if (on_nas(path, p) && !(islink(path) && !on_nas(dirname(abspath(path)), p))) {
             log.push_back("bestand: " + path + " ligt op de NAS en " + (have ? "wijkt af" : "ontbreekt") + "; niet geschreven (de game gebruikt het bestaande bestand)");
             continue;
         }

@@ -87,6 +87,7 @@ import gamesettings as gs  # noqa: E402  (instellingen en patches per game: patc
 import ownprofile as op  # noqa: E402  (het eigen profiel in game.ini; gamemappen en herkenning)
 import patchfile as pf  # noqa: E402  (de patchmotor: Kind = file op de game zelf en Kind = memory op de hoofdmodule)
 import startscript as ss  # noqa: E402  (het eigen startscript van een spel lezen, niet uitvoeren)
+import gameview as gv  # noqa: E402  (de view van een game: [Launch] View, gelijk aan tp-add-game.py --view)
 
 HOME = os.environ.get("HOME", "/home/deck")
 DEFAULT_TP = os.path.join(HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
@@ -330,7 +331,9 @@ def place_file(path, text, dry=False):
         cur = None
     if cur == data:
         return "gelijk", "%s is al actueel" % path
-    if on_nas(path):
+    # Een symlink in een lokale map (de view) wordt een eigen lokaal bestand, ook als hij naar een bestand op de NAS wijst: dan wordt
+    # alleen de link weggehaald en blijft het bestand op de NAS ongemoeid.
+    if on_nas(path) and not (os.path.islink(path) and not on_nas(os.path.dirname(os.path.abspath(path)))):
         return "nas", ("%s ligt op de NAS en %s; niet geschreven (de game gebruikt het bestaande bestand)"
                        % (path, "ontbreekt" if cur is None else "wijkt af"))
     if dry:
@@ -1835,10 +1838,69 @@ def control_pipe_plan(name, tp, control_source=None):
             "size": int(prof.get("size", 64)), "interval_ms": int(prof.get("interval_ms", 15))}
 
 
+def plan_view(name, settings, game, et, tp, make_view, log=None):
+    """[Launch] View (docs/per-game-patches.md, "De view"): het pad van de game waarmee het plan verder rekent, en de view eromheen.
+    auto (standaard): staat de game op de NAS en is er nog geen view, dan wordt views/<Profiel> gemaakt zoals tp-add-game.py --view dat
+    doet (de wortel waar [Identify] Path begint; [Launch] ViewEmptyDirs = --empty-dir), zodat teknoparrot.ini en drop-ins lokaal
+    kunnen staan. Een getal N: altijd een view, de wortel N mappen boven die van de exe (--view-up N). off: rechtstreeks van de NAS
+    (de oude route). Een bestaande view met deze game blijft zoals hij is; alleen de links worden ververst. Droog (make_view False,
+    --plan) wordt er niets gemaakt en rekent het plan met het pad op de NAS. Gelijk aan de engine (direct.cpp, plan_view)."""
+    log = log or (lambda m: print("[launch-direct] " + m, file=sys.stderr))
+    lnch = settings.get("Launch", {})
+    try:
+        stand, up, lege = gv.view_instelling(lnch.get("View", ""), lnch.get("ViewEmptyDirs", ""))
+    except ValueError as e:
+        raise SettingRefused(str(e))
+    if stand == "off":
+        return game
+    views = op.views_dir()
+    elf = os.path.join(tp, "ElfLdr2") if et == "ElfLdr2" else None
+    if _binnen(game, views) and os.path.abspath(game) != os.path.abspath(views):
+        wortel = view_wortel(os.path.dirname(game))   # al in een view: alleen de links verversen
+        rel = os.path.relpath(os.path.abspath(game), wortel)
+        echt = os.path.realpath(game)
+        if make_view and echt.endswith(os.sep + rel) and not os.path.islink(wortel):
+            try:
+                gv.ververs_view(echt[:-len(rel) - 1], wortel, rel, lege, on_nas, log)
+            except (gv.ViewFout, OSError) as e:
+                raise SettingRefused("view: %s" % e)
+        return game
+    if stand == "auto" and not on_nas(game):
+        return game
+    if stand == "levels":
+        n = up
+    else:
+        idp = op.identify_of(settings)[0]
+        n = len([d for d in os.path.dirname(idp).split("/") if d]) if idp and game.endswith("/" + idp) else 0
+    gdir = os.path.dirname(os.path.abspath(game))
+    for _ in range(n):
+        gdir = os.path.dirname(gdir)
+    rel = os.path.relpath(os.path.abspath(game), gdir)
+    view = os.path.join(views, name)
+    vgame = os.path.join(view, rel)
+    if os.path.lexists(view) and not (os.path.isdir(view) and not os.path.islink(view) and not os.listdir(view)):
+        if os.path.isfile(vgame) and os.path.samefile(vgame, game):
+            if make_view:
+                try:
+                    gv.ververs_view(gdir, view, rel, lege, on_nas, log)
+                except (gv.ViewFout, OSError) as e:
+                    raise SettingRefused("view: %s" % e)
+            return vgame
+        raise SettingRefused("view: %s bestaat al maar bevat de game niet op %s; de view blijft ongemoeid (maak hem opnieuw met "
+                             "scripts/tp-add-game.py %s <pad> --view, of zet [Launch] View = off)" % (view, rel, name))
+    if not make_view:
+        log("view: %s ontbreekt; wordt bij de start gemaakt (links naar %s)" % (view, gdir))
+        return game
+    try:
+        return gv.maak_view(gdir, view, rel, lege, elf, on_nas, log)
+    except (gv.ViewFout, OSError) as e:
+        raise SettingRefused("view: %s" % e)
+
+
 def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_env=None, materialize_patches=False, use_own=True,
-               exe=None, drives=None, control_source=None):
+               exe=None, drives=None, control_source=None, make_view=False):
     """Alles wat de start nodig heeft, zonder bijwerkingen (behalve xrandr lezen); materialize_patches maakt ook de gepatchte
-    kopieën (alleen bij --run). use_own=False negeert het eigen profiel in game.ini en leest altijd UserProfiles/<P>.xml (voor de vergelijking)."""
+    kopieën (alleen bij --run) en make_view de view van een game op de NAS (--check en --run; plan_view). use_own=False negeert het eigen profiel in game.ini en leest altijd UserProfiles/<P>.xml (voor de vergelijking)."""
     # Instellingen van de game: patches/<Game>/game.ini (meegeleverd, dan de gebruiker); het oude .env als laagste laag.
     settings = gs.load_for_profile(name, tp, log=lambda m: print("[launch-direct] " + m, file=sys.stderr))
     for w in settings.warnings:
@@ -1855,6 +1917,9 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     game = p.get("GamePath", "")
     if not game or not os.path.isfile(game):
         raise Unsupported("game niet gevonden: %r%s" % (game, " (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)" if own else ""))
+    # De view ([Launch] View): een game op de NAS draait vanuit een lokale view (alleen bij een start gemaakt; make_view).
+    game = plan_view(name, settings.settings, game, p.get("EmulatorType", ""), tp, make_view)
+    p["GamePath"] = game
     second = second_start(p, settings.settings, game)   # None bij een gewone game (een exe)
     exe_rel, dll_rel, is64 = resolve_loader(p, tp)
     et = p.get("EmulatorType", "")
@@ -2932,6 +2997,7 @@ def main(argv):
     g.add_argument("--check", action="store_true")
     g.add_argument("--run", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--make-view", action="store_true", help="ook bij --plan de view maken of verversen ([Launch] View; --check en --run doen dat altijd)")
     ap.add_argument("--shm-source")
     ap.add_argument("--control-source", help="het rapport van de besturingspipe ([Input] ControlPipe); standaard " + CONTROL_PATH)
     ap.add_argument("--log-full", action="store_true")
@@ -2951,7 +3017,7 @@ def main(argv):
         extra[k] = v
     try:
         plan = build_plan(a.profile, a.tp, extra, a.shm_source, a.log_full, materialize_patches=a.run,
-                          exe=a.exe, drives=a.drive, control_source=a.control_source)
+                          exe=a.exe, drives=a.drive, control_source=a.control_source, make_view=a.run or a.check or a.make_view)
         # TeknoParrots Patreon-activering is hun verdienmodel in hun software, geen beveiliging in de game zelf. Op
         # onze eigen, onafhankelijke stack (eigen lader/kern/launcher/JVS-brug) is er geen TeknoParrot-software meer
         # om voor te betalen, dus dwingen we die poort niet meer af (beslissing eigenaar 2026-10-12; docs/decisions.md).

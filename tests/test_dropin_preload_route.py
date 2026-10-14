@@ -24,7 +24,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import launcher_nep as nep  # noqa: E402  (de nep-wereld; laadt de launcher met een tijdelijke thuismap)
-from launcher_nep import NAS, REPO, TMP, VIEWS, WINE, boom, cli, dropin, ld, profiel, schrijf  # noqa: E402
+from launcher_nep import NAS, REPO, SHIPPED, TMP, VIEWS, WINE, boom, cli, dropin, ld, profiel, schrijf  # noqa: E402
 
 
 class PreloadKomtInHetSpelproces(nep.Route):
@@ -206,8 +206,32 @@ class BuitenDeViewFaaltLuid(nep.Route):
         self.weigert("zelf een symlink")
 
     def test_een_game_rechtstreeks_van_de_nas(self):
+        """[Launch] View = off: de oude route, rechtstreeks van de NAS. Dan kan de drop-in nergens heen en weigert alles."""
         profiel(self.GAME, os.path.join(self.nas_spel, "exe", "x64", "SPEL.exe"))
+        schrijf(os.path.join(SHIPPED, self.GAME, "game.ini"), "[Launch]\nView = off\n")
         self.weigert("rechtstreeks van de NAS")
+        self.assertFalse(os.path.lexists(self.view))
+
+    def test_een_game_rechtstreeks_van_de_nas_krijgt_bij_de_start_een_view(self):
+        """[Launch] View = auto (standaard): --plan (droog) maakt niets en weigert zoals voorheen, maar een start maakt eerst een
+        lokale view (zoals tp-add-game.py --view) en zet de drop-in daarin. Op de NAS verandert niets."""
+        nas_exe = os.path.join(self.nas_spel, "exe", "x64", "SPEL.exe")
+        profiel(self.GAME, nas_exe)
+        dropin(self.GAME, self.INI, "rg-hook.dll")
+        nas_voor = boom(NAS)
+        rc, plan, err = self.plan_json()
+        self.assertEqual(rc, ld.EXIT_PATCH, err)
+        self.assertIn("rechtstreeks van de NAS", plan["dropins"]["errors"][0])
+        self.assertFalse(os.path.lexists(self.view), "--plan heeft een view gemaakt")
+        dest = os.path.join(self.view, "rg-hook.dll")     # zonder [Identify] Path begint de view bij de map van de exe
+        rc, spel, _ = self.start("--env", "RG_TEST_VERWACHT_BESTAND=" + dest)
+        self.assertEqual(rc, 0, self.uitvoer.getvalue() + self.fouten.getvalue())
+        self.assertIsNotNone(spel)
+        self.assertTrue(spel.bestand_stond_er, "het spel is gestart terwijl de drop-in er niet stond")
+        self.assertEqual(os.path.realpath(dest), dest)
+        self.assertEqual(os.readlink(os.path.join(self.view, "SPEL.exe")), nas_exe)
+        self.assertEqual(spel.env.get("TP_PRELOAD_DLL"), "Z:" + dest.replace("/", "\\"))
+        self.assertEqual(boom(NAS), nas_voor, "er is op de NAS geschreven")
 
     def test_to_wijst_lexicaal_buiten_de_view(self):
         self.view_goed()

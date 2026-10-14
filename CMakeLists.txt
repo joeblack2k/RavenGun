@@ -53,6 +53,7 @@ add_library(ravengun STATIC
   src/ravengun/launch/unity.cpp
   src/ravengun/launch/direct.cpp
   src/ravengun/launch/pe_stack.cpp
+  src/ravengun/launch/gameview.cpp
   src/ravengun/launch/gamefind.cpp
   src/ravengun/launch/jvs_pipe.cpp
   src/ravengun/games/aagames.cpp
@@ -440,6 +441,11 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_direct_golden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/direct_golden.py"
       --rg-direct "$<TARGET_FILE:rg-direct>" --patches "${CMAKE_CURRENT_SOURCE_DIR}/patches")
     set_tests_properties(ravengun_direct_golden PROPERTIES SKIP_RETURN_CODE 77)
+    # De automatische view ([Launch] View): tp-add-game.py --view, de engine en launch-direct.py maken dezelfde boom op een nep-NAS;
+    # verversen, View = off, weigeren en niets op de NAS schrijven.
+    add_test(NAME ravengun_gameview COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gameview.py"
+      --rg-direct "$<TARGET_FILE:rg-direct>")
+    set_tests_properties(ravengun_gameview PROPERTIES SKIP_RETURN_CODE 77)
   endif()
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)

@@ -3,9 +3,10 @@
  * rg-direct: het hoofdproces van de unit ravengun-tpui bij een directe start (A10), op de plaats van scripts/launch-direct.py --run.
  *
  *   rg-direct --run PLAN.json          het plan van de daemon uitvoeren (src/ravengun/launch/direct.*)
- *   rg-direct --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] [--shm-source PAD] [--control-source PAD] [--log-full]
+ *   rg-direct --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] [--shm-source PAD] [--control-source PAD] [--log-full] [--make-view]
  *                    [--session-id ID]
- *                                      het plan als JSON tonen (geen bijwerkingen; voor tests/direct_golden.py)
+ *                                      het plan als JSON tonen (geen bijwerkingen, behalve met --make-view: dan
+ *                                      de view van een game op de NAS maken zoals een start; voor tests/direct_golden.py)
  *   rg-direct --jvs-check              per regel hex van stdin: de pakketten en de antwoorden van het standaard JVS-bord
  *
  * --run doet wat launch-direct.py in _run() doet nadat de drop-ins en teknoparrot.ini geplaatst zijn (dat deed de daemon al):
@@ -1069,7 +1070,7 @@ int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, J
 
 int show_plan(int argc, char** argv) {
     std::string profile, tp, patches, user, shm, session, control;
-    bool log_full = false;
+    bool log_full = false, make_view = false;
     for (int i = 2; i < argc; ++i) {
         const std::string a = argv[i];
         auto next = [&](std::string& v) { if (i + 1 < argc) v = argv[++i]; };
@@ -1080,6 +1081,7 @@ int show_plan(int argc, char** argv) {
         else if (a == "--control-source") next(control);
         else if (a == "--session-id") next(session);
         else if (a == "--log-full") log_full = true;
+        else if (a == "--make-view") make_view = true;   // ook bij --plan de view maken of verversen ([Launch] View)
         else if (profile.empty() && a[0] != '-') profile = a;
         else { std::fprintf(stderr, "rg-direct: onbekende optie %s\n", a.c_str()); return 64; }
     }
@@ -1096,6 +1098,7 @@ int show_plan(int argc, char** argv) {
     o.control_source = control;
     o.log_full = log_full;
     o.session_id = session;
+    o.make_view = make_view;
     L::DirectPlan plan;
     std::string why, iwhy;
     const L::Verdict v = L::plan_direct(profile, p, o, plan, why);

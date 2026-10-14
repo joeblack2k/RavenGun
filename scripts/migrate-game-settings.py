@@ -222,7 +222,7 @@ def write_if_changed(path, text, dry, stats):
 
 KEY_ORDER = {
     "Game": ["Name", "Profile", "Type", "EmulationProfile", "DongleRegion", "PcbRegion", "ExeSha256"],
-    "Launch": ["Mode", "WorkingDirectory", "View"],
+    "Launch": ["Mode", "WorkingDirectory", "View", "ViewEmptyDirs"],
     "Loader": ["RemoteThread", "PostStartMs", "EntryPointMs"],
     "Wine": ["Prefix", "PrefixDirect", "Binary", "VirtualDesktop", "NativeDlls", "WindowsVersion", "DllOverrides", "Debug",
              "GStreamerPlugins"],
