@@ -4,6 +4,7 @@
 // een verschil tussen beide in tests/direct_golden.py naar een plek te herleiden is.
 #include "ravengun/launch/direct.hpp"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/stat.h>
@@ -904,9 +905,84 @@ struct DropinResult {
     std::vector<Kanaal> kanalen;
 };
 
+// [Launch] Dxvk: de DLL's die DXVK vervangt; een map telt pas als ze er allemaal staan.
+const char* const kDxvkDlls[] = {"d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"};
+
+bool dxvk_compleet(const std::string& dir) {
+    for (const char* d : kDxvkDlls) if (!isfile(pjoin(dir, d))) return false;
+    return true;
+}
+
+// Waar DXVK staat, in deze volgorde: RAVENGUN_DXVK (een map met x32/ en x64/), ~/.local/share/ravengun/dxvk/current
+// (scripts/fetch-dxvk.sh), en anders de nieuwste Proton van Steam (compatibilitytools.d/*, steamapps/common/Proton*:
+// files/lib/wine/dxvk/{i386,x86_64}-windows). `from` zegt welke het werd, met de versie als die erbij staat.
+std::string find_dxvk(const DirectPaths& p, const EnvMap& env, bool is64, std::string& from) {
+    const std::string sub = is64 ? "x64" : "x32", wsub = is64 ? "x86_64-windows" : "i386-windows";
+    auto versie = [](const std::string& f) {
+        std::string t;
+        if (!read_file(f, t)) return std::string();
+        t = trim(t.substr(0, t.find('\n')));
+        return t.empty() ? std::string() : " (" + t + ")";
+    };
+    for (const std::string& root : {getenv_or(env, "RAVENGUN_DXVK"), p.home + "/.local/share/ravengun/dxvk/current"}) {
+        if (root.empty() || !dxvk_compleet(pjoin(root, sub))) continue;
+        from = realpath_(root) + versie(pjoin(root, "version"));
+        return pjoin(root, sub);
+    }
+    std::vector<std::string> kandidaten;
+    for (const std::string& base : {p.home + "/.local/share/Steam/compatibilitytools.d", p.home + "/.local/share/Steam/steamapps/common"}) {
+        DIR* d = ::opendir(base.c_str());
+        if (!d) continue;
+        while (dirent* e = ::readdir(d)) {
+            const std::string n = e->d_name;
+            if (n == "." || n == "..") continue;
+            if (ends_with(base, "/common") && !starts_with(n, "Proton")) continue;
+            const std::string dir = base + "/" + n + "/files/lib/wine/dxvk";
+            if (dxvk_compleet(pjoin(dir, wsub))) kandidaten.push_back(dir);
+        }
+        ::closedir(d);
+    }
+    if (kandidaten.empty()) return {};
+    // De nieuwste: de hoogste versie in het versiebestand van DXVK ("<hash> dxvk (v2.7.1-509-g...)"), anders de naam.
+    auto sleutel = [&](const std::string& dir) {
+        std::string t;
+        read_file(pjoin(dir, "version"), t);
+        const size_t v = t.find("(v");
+        std::vector<int> nums;
+        if (v != std::string::npos) {
+            int cur = -1;
+            for (size_t i = v + 2; i < t.size(); ++i) {
+                if (std::isdigit(static_cast<unsigned char>(t[i]))) cur = (cur < 0 ? 0 : cur * 10) + (t[i] - '0');
+                else { if (cur >= 0) nums.push_back(cur); cur = -1; if (t[i] != '.' && t[i] != '-') break; }
+            }
+            if (cur >= 0) nums.push_back(cur);
+        }
+        return std::make_pair(nums, dir);
+    };
+    std::sort(kandidaten.begin(), kandidaten.end(), [&](const std::string& a, const std::string& b) { return sleutel(a) > sleutel(b); });
+    const std::string dir = kandidaten.front();
+    std::string t;
+    read_file(pjoin(dir, "version"), t);
+    const size_t v = t.find("(v"), e = t.find(')', v == std::string::npos ? 0 : v);
+    from = dir + (v != std::string::npos && e != std::string::npos ? " (dxvk " + t.substr(v + 1, e - v - 1) + ")" : "");
+    return pjoin(dir, wsub);
+}
+
 DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
     DropinResult r;
-    const std::vector<DropinSpec> specs = dropin_specs(pl.profile, p, r.errors);
+    std::vector<DropinSpec> specs = dropin_specs(pl.profile, p, r.errors);
+    // [Launch] Dxvk: de DLL's van DXVK als drop-ins (een eigen drop-in met dezelfde naam in dropin/ wint).
+    if (!pl.dxvk_dir.empty())
+        for (const char* d : kDxvkDlls) {
+            if (std::any_of(specs.begin(), specs.end(), [&](const DropinSpec& s) { return lower(s.name) == d; })) continue;
+            DropinSpec s;
+            s.name = d;
+            s.to = ".";
+            s.dll = "native";
+            s.ini = "[Launch] Dxvk";
+            s.src = pjoin(pl.dxvk_dir, d);
+            specs.push_back(std::move(s));
+        }
     const std::string base = dirname(pl.game), wortel = view_wortel(base, p);
     pl.dropin_base = base;
     pl.dropin_root = wortel;
@@ -996,6 +1072,7 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
     for (const auto& m : pl.dropin_materialise) pl.dropin_lines.push_back(m + " loopt via een symlink; wordt eerst een echte map met symlinks");
     for (const auto& f : pl.dropin_files) pl.dropin_lines.push_back(f.name + " -> " + f.dest);
     if (!r.overrides.empty()) pl.dropin_lines.push_back("WINEDLLOVERRIDES += " + join(r.overrides, ", "));
+    if (!pl.dxvk_dir.empty()) pl.dropin_lines.push_back("dxvk: " + pl.dxvk_dir + " uit " + pl.dxvk_from);
     std::set<std::string> geladen;
     for (const auto& k : r.kanalen) {
         if (k.loads) {
@@ -1527,6 +1604,18 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
             return setting_refused("[Launch] ViewLinks vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de links "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
+    }
+    // 6d. [Launch] Dxvk: Direct3D 8 tot en met 11 via DXVK (Vulkan) in plaats van wined3d (OpenGL), per game in de view (docs/dxvk.md).
+    // Mario Kart DX: met wined3d ontbrak de 2D-laag (geen tekst, geen menu's) en kwamen er duizenden GL-fouten; met DXVK niet.
+    if (const std::string dx = lower(trim(lini("Dxvk"))); !dx.empty() && dx != "false" && dx != "0" && dx != "off") {
+        if (dx != "true" && dx != "1" && dx != "on") return setting_refused("[Launch] Dxvk = " + lini("Dxvk") + " (true of false)");
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] Dxvk vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de DLL's van "
+                                   "DXVK komen naast de exe in de view, nooit op de NAS; " + game + " ligt daar niet");
+        pl.dxvk_dir = find_dxvk(p, env, is64, pl.dxvk_from);
+        if (pl.dxvk_dir.empty())
+            return setting_refused(std::string("[Launch] Dxvk = true, maar DXVK (") + (is64 ? "64" : "32") + " bits) is niet gevonden: draai "
+                                   "scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)");
     }
 
     // 7. De JVS-brug en de procesnamen.

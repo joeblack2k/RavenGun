@@ -429,6 +429,60 @@ int main() {
         fs::remove_all(nas_data);
     }
 
+    // [Launch] Dxvk: de DLL's van DXVK (bitbreedte van de game; Spel is 64 bits) als drop-ins in de view met <naam>=n. Bron: eerst
+    // RAVENGUN_DXVK, dan ~/.local/share/ravengun/dxvk/current, dan de nieuwste Proton van Steam; niets gevonden = niet starten.
+    {
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        const char* dlls[] = {"d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"};
+        auto vul = [&](const fs::path& dir, const std::string& merk) { for (const char* d : dlls) write(dir / d, merk + d); };
+        write(ugi, "[Launch]\nDxvk = true\n");
+        DirectPlan dp;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "fetch-dxvk.sh") && contains(w, "64 bits"));
+        // Steam: twee Protons; de nieuwste DXVK-versie wint, niet de naam.
+        const fs::path steam = home / ".local/share/Steam";
+        vul(steam / "compatibilitytools.d/GE-Proton10-4/files/lib/wine/dxvk/x86_64-windows", "oud-");
+        write(steam / "compatibilitytools.d/GE-Proton10-4/files/lib/wine/dxvk/version", "aaa dxvk (v2.6-12-gaaa)\n");
+        vul(steam / "steamapps/common/Proton 10.0/files/lib/wine/dxvk/x86_64-windows", "nieuw-");
+        write(steam / "steamapps/common/Proton 10.0/files/lib/wine/dxvk/version", "bbb dxvk (v2.7.1-509-gbbb)\n");
+        vul(steam / "steamapps/common/Proton 10.0/files/lib/wine/dxvk/i386-windows", "x32-");
+        Verdict dv = plan_direct("Spel", p, o, dp, w);
+        CHECK(dv == Verdict::Ok);
+        if (dv != Verdict::Ok) std::fprintf(stderr, "dxvkplan: %s\n", w.c_str());
+        CHECK(contains(dp.dxvk_dir, "Proton 10.0") && contains(dp.dxvk_dir, "x86_64-windows") && contains(dp.dxvk_from, "v2.7.1-509"));
+        const std::string ov = dp.env.count("WINEDLLOVERRIDES") ? dp.env.at("WINEDLLOVERRIDES") : std::string();
+        for (const char* n : {"d3d8=n", "d3d9=n", "d3d10core=n", "d3d11=n", "dxgi=n"}) CHECK(contains(ov, n));
+        const fs::path vbin = view / "bin";
+        CHECK(std::any_of(dp.dropin_files.begin(), dp.dropin_files.end(), [&](const DropinFile& f) {
+            return f.dest == (vbin / "d3d11.dll").string() && contains(f.src, "Proton 10.0");
+        }));
+        CHECK(std::any_of(dp.dropin_lines.begin(), dp.dropin_lines.end(), [](const std::string& l) { return l.rfind("dxvk: ", 0) == 0; }));
+        // RAVENGUN_DXVK gaat voor Steam; een onvolledige map telt niet.
+        const fs::path eigen = root / "dxvk-eigen";
+        vul(eigen / "x64", "eigen-");
+        write(eigen / "version", "dxvk 9.9 (proef)\n");
+        DirectOptions o2 = o;
+        o2.base_env["RAVENGUN_DXVK"] = eigen.string();
+        CHECK(plan_direct("Spel", p, o2, dp, w) == Verdict::Ok && dp.dxvk_dir == (eigen / "x64").string() && contains(dp.dxvk_from, "9.9"));
+        fs::remove(eigen / "x64/dxgi.dll");
+        CHECK(plan_direct("Spel", p, o2, dp, w) == Verdict::Ok && contains(dp.dxvk_dir, "Proton 10.0"));
+        // Een eigen drop-in met dezelfde naam wint van DXVK.
+        write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[d3d9.dll]\nTo = .\nDllOverride = builtin,native\n");
+        write(fs::path(p.dirs.user) / "Spel/dropin/d3d9.dll", "eigen d3d9");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok);
+        CHECK(std::count_if(dp.dropin_files.begin(), dp.dropin_files.end(), [](const DropinFile& f) { return f.name == "d3d9.dll"; }) == 1);
+        CHECK(dp.env.count("WINEDLLOVERRIDES") && contains(dp.env.at("WINEDLLOVERRIDES"), "d3d9=n,b"));
+        fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+        // Uit, en een onzinnige waarde.
+        write(ugi, "[Launch]\nDxvk = false\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && dp.dxvk_dir.empty());
+        write(ugi, "[Launch]\nDxvk = misschien\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "Dxvk = misschien"));
+        fs::remove(ugi);
+        fs::remove_all(steam);
+        fs::remove_all(eigen);
+    }
+
     // De invoer: evdev met een indeling wordt tp-shm; zonder indeling via het script.
     DirectInput in;
     CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm" && !in.note.empty());

@@ -152,6 +152,12 @@ if [[ $WAS_ACTIVE -eq 1 && $NOSTART -eq 0 ]]; then
     echo "The engine is still running the old version (a game is running). Restart it later: Engine > Restart in the app." >&2
   fi
 fi
+# DXVK voor games met [Launch] Dxvk = true (docs/dxvk.md): eenmalig ophalen; zonder netwerk zoekt rg-direct het in Proton van Steam.
+if [[ ! -e "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/dxvk/current" && -x "$DATA/scripts/fetch-dxvk.sh" ]]; then
+  say "Fetching DXVK for games that use it"
+  bash "$DATA/scripts/fetch-dxvk.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/dxvk" ||
+    echo "DXVK could not be fetched now; games with Dxvk = true will use the DXVK of an installed Proton, or run $DATA/scripts/fetch-dxvk.sh later." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"

@@ -78,6 +78,9 @@ struct DirectPlan {
     // [Launch] ViewLinks: per paar (link, doel), beide absolute paden in de view. apply_direct() maakt van de link een symlink naar
     // het bestand waar het doel naar wijst (realpath, meestal op de NAS); de mappen op de weg worden eerst lokaal. Alleen de view.
     std::vector<std::pair<std::string, std::string>> view_links;
+    // [Launch] Dxvk = true: de map met de DXVK-DLL's van de bitbreedte van de game (d3d8, d3d9, d3d10core, d3d11, dxgi) en waar die
+    // vandaan komt (docs/dxvk.md). dropin_plan() zet ze als drop-in in de view met WINEDLLOVERRIDES <naam>=n. Leeg = geen DXVK.
+    std::string dxvk_dir, dxvk_from;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct
