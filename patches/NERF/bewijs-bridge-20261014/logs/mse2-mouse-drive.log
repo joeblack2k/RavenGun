@@ -1,0 +1,12 @@
+09:28:26 attract reached (log /home/deck/.local/state/ravengun/logs/native-NERF-20261014-092800.log)
+09:28:26 mouse-gun: speler 1: usb-Valve_Software_Steam_Controller_Puck_FXB9955202923-if02-event-mouse verbonden, 1920 counts per schermbreedte
+09:28:29 START (key 1)
+09:28:34 mouse to top-left: kanalen 19=2056 20=2039 21=2056 22=2039 
+09:28:38 mouse at px (480,378) = (0.25 0.35): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=1028 20=2682 21=2056 22=2039  
+09:28:46 mouse at px (960,378) = (0.5 0.35): tellers 15=20 7=2 8=0 3=0 5=0 6=0  kanalen 19=2039 20=2682 21=2056 22=2039  
+09:28:54 mouse at px (1440,378) = (0.75 0.35): tellers 15=20 7=2 8=0 3=0 5=0 6=0  kanalen 19=3067 20=2682 21=2056 22=2039  
+09:29:01 mouse at px (1440,594) = (0.75 0.55): tellers 15=40 7=2 8=0 3=0 5=0 6=0  kanalen 19=3067 20=1863 21=2056 22=2039  
+09:29:09 mouse at px (960,594) = (0.5 0.55): tellers 15=40 7=2 8=0 3=0 5=0 6=0  kanalen 19=2039 20=1863 21=2056 22=2039  
+09:29:17 mouse at px (480,594) = (0.25 0.55): tellers 15=60 7=2 8=0 3=0 5=0 6=0  kanalen 19=1028 20=1863 21=2056 22=2039  
+09:29:21 mouse-gun off: speler 1: geen muis
+09:29:21 mouse driver done

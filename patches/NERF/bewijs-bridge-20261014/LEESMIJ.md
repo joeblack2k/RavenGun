@@ -4,7 +4,8 @@
 BepInEx). **Result:** NERF ran **11 minutes** on our core while being **played through the RavenGun daemon**: start, aim and
 trigger from the daemon, rounds played, points scored, a round entered the game's own high-score table. The arcade lightgun
 input reaches the game through a new piece, the **RIO bridge** (`tools/rio-bridge/` in the loader repo, table
-`patches/NERF/rio-invoer.ini`). The same chain also ran through the **app's own launch path** (`scripts/play-halo.sh`).
+`patches/NERF/rio-invoer.ini`). The same chain also ran through the **app's own launch path** (`scripts/play-halo.sh`), and there **a mouse** aimed and fired
+through RavenGun's mouse gun (point 6).
 **Labels:** MEASURED = seen on screen or in a log; INTERPRETATION = mine; NOT MEASURED.
 
 ## What is shown
@@ -52,14 +53,22 @@ input reaches the game through a new piece, the **RIO bridge** (`tools/rio-bridg
    exactly at the daemon's aim (0.5, 0.6 → `09-app-path-crosshair-at-daemon-aim.jpg`); aiming and firing from the daemon
    scored 0 → 1,700 (`10-app-path-score-1700.png`); the IO bridge stayed up for the whole session.
 
-## The mouse / PS Move leg — what this does and does not show
+6. **MEASURED — the game sees a mouse through RavenGun** (session mse2, app path again, `logs/mse2-mouse-drive.log`,
+   `logs/mse2-app-path-bridge.log`). RavenGun's own mouse gun (`ravengunctl mouse-gun --player 1 --mouse …if02-event-mouse`:
+   "verbonden") read a real mouse device — the Steam Controller Puck's mouse interface, the kind of node the daemon is allowed
+   to read (`user:deck:rw-` from `70-ravengun.rules`). Its motion and left clicks were injected into that device node
+   (`write()` on `/dev/input/event7`: every reader, the daemon included, receives them as the device's own); only the hand was
+   synthetic. The lightgun channels followed the mouse — (0.25,0.35) → 1028/2682, (0.75,0.35) → 3067/2682, (0.75,0.55) →
+   3067/1863 — P1's crosshair sat on the mouse position on screen ((0.75,0.34) in `11-mouse-at-075-035-crosshair-follows.jpg`,
+   (0.25,0.54) in `12-mouse-at-025-055-score-10100.jpg`), and the 30 left clicks fired: score 1,000 → 10,100. The mouse gun
+   was released afterwards ("speler 1: geen muis").
 
-The game sees **the daemon's lightgun output** — aim, trigger, start, test, menu keys. A PS Move and a mouse (`ravengunctl
-mouse-gun`) feed that same output; every step from the daemon to the game is measured above. **NOT MEASURED here: a mouse or a
-Move moving it.** A virtual uinput mouse was made for the test, but the daemon could not read it ("event258 NIET verbonden …
-geen toegang tot /dev/input/event258", `logs/mse1-mouse-drive.log`): device nodes created through uinput get no user ACL,
-while real mice do (the Steam Controller Puck's mouse node carries `user:deck:rw-` from `70-ravengun.rules`). Giving the bench
-mouse access would need a root udev change — not done. The real mouse and the Move are the owner's test, as asked.
+## The PS Move leg
+
+NOT MEASURED here, as agreed (the owner tests it). The Move feeds the same daemon output stage as the mouse and the test pattern;
+everything from that stage to the game is measured above. A first try with a virtual uinput mouse failed on permissions, not on
+the game: the daemon cannot read uinput-created nodes ("event258 NIET verbonden … geen toegang", `logs/mse1-mouse-drive.log`),
+which is why the real mouse node was used in point 6.
 
 ## How it works (short)
 
