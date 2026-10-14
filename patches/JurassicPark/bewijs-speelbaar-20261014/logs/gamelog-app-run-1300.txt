@@ -1,0 +1,79 @@
+Wed Oct 14 13:00:07 2026: -------------------------------------------------------------------------------
+Wed Oct 14 13:00:07 2026: Application Started
+Wed Oct 14 13:00:07 2026: Current time: October 14 2026 13:00:07
+Wed Oct 14 13:00:07 2026: Build: May 13 2015 15:34:06
+Wed Oct 14 13:00:07 2026: -------------------------------------------------------------------------------
+Wed Oct 14 13:00:08 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Wed Oct 14 13:00:09 2026: Welcome to 1.08
+Wed Oct 14 13:00:10 2026: Before ImgLoad - glError(1280): invalid enumerant
+Wed Oct 14 13:00:11 2026: Boot proc start.
+Wed Oct 14 13:00:11 2026: Loading perm assets.
+Wed Oct 14 13:00:29 2026: Loading perm sound bank.
+Wed Oct 14 13:00:36 2026: Loading perm programs.
+Wed Oct 14 13:00:36 2026: Boot proc kill.
+Wed Oct 14 13:00:36 2026: Entering attract mode.
+Wed Oct 14 13:01:09 2026: Player 1 joined.
+Wed Oct 14 13:01:09 2026: Game Started
+Wed Oct 14 13:01:39 2026: Level Selected: level=0 act=0
+Wed Oct 14 13:01:40 2026: Difficulty adjustment: 0.40
+Wed Oct 14 13:01:43 2026: VMem used: 33.26 (2.65) GB / 50.94 GB -- PMem used: 29.16 (1.60) GB / 33.24 GB
+Wed Oct 14 13:01:43 2026: Start general_0
+Wed Oct 14 13:01:43 2026: Frame 0:	Frame spike: 74 ms
+Wed Oct 14 13:02:00 2026: Frame 1049:	Player 1 took 2.79 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:00 2026: Frame 1073:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:02 2026: Frame 1223:	Player 1 took 2.79 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:04 2026: Frame 1307:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:04 2026: Frame 1331:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:06 2026: Frame 1478:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:07 2026: Frame 1535:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:09 2026: Frame 1629:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:09 2026: Frame 1655:	Player 1 got pickup: "minigun".
+Wed Oct 14 13:02:17 2026: Frame 1740:	Circle sequence start.
+Wed Oct 14 13:02:19 2026: Frame 1760:	Player 1 killed attacker "circle".
+Wed Oct 14 13:02:19 2026: Frame 1763:	Circle sequence fail. (1 / 3 killed)
+Wed Oct 14 13:02:20 2026: Frame 1765:	Player 1 took 1.50 damage from "circle". (diff = 0.40)
+Wed Oct 14 13:02:23 2026: Frame 1999:	Circle sequence start.
+Wed Oct 14 13:02:26 2026: Frame 2024:	Player 1 switched trigger 0 to default.
+Wed Oct 14 13:02:26 2026: Frame 2025:	Circle sequence fail. (0 / 5 killed)
+Wed Oct 14 13:02:27 2026: Frame 2027:	Player 1 took 1.50 damage from "circle". (diff = 0.40)
+Wed Oct 14 13:02:31 2026: Frame 2306:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:32 2026: Frame 2323:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:35 2026: Frame 2512:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:36 2026: Frame 2617:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:37 2026: Frame 2660:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:38 2026: Frame 2713:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:41 2026: Frame 2898:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:02:43 2026: Frame 3034:	Player 1 took 0.39 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:02:43 2026: Frame 3034:	Player 1 died.
+Wed Oct 14 13:02:46 2026: Frame 3066:	Player 1 continued.
+Wed Oct 14 13:02:47 2026: Frame 3116:	Player 1 got pickup: "grenade".
+Wed Oct 14 13:02:54 2026: Frame 3565:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:02:55 2026: Frame 3653:	Player 1 took 1.50 damage from "raptor chase". (diff = 0.40)
+Wed Oct 14 13:02:57 2026: Frame 3733:	Player 1 took 1.50 damage from "raptor chase". (diff = 0.40)
+Wed Oct 14 13:02:58 2026: Frame 3821:	Player 1 killed attacker "raptor grapple".
+Wed Oct 14 13:02:58 2026: Frame 3821:	UnregisterGrapple unpaused camera
+Wed Oct 14 13:02:58 2026: Frame 3824:	Player 1 killed attacker "raptor grapple".
+Wed Oct 14 13:02:58 2026: Frame 3826:	Player 1 took 1.50 damage from "raptor chase". (diff = 0.40)
+Wed Oct 14 13:02:58 2026: Frame 3833:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:02:59 2026: Frame 3858:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:02:59 2026: Frame 3885:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:03:00 2026: Frame 3935:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:03:00 2026: Frame 3972:	Player 1 killed attacker "raptor chase".
+Wed Oct 14 13:03:02 2026: Frame 4093:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:03 2026: Frame 4124:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:03:05 2026: Frame 4247:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:03:05 2026: Frame 4247:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:06 2026: Frame 4317:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:07 2026: Frame 4382:	Player 1 switched trigger 0 to default.
+Wed Oct 14 13:03:07 2026: Frame 4382:	Player 2 switched trigger 0 to default.
+Wed Oct 14 13:03:07 2026: Frame 4382:	Player 3 switched trigger 0 to default.
+Wed Oct 14 13:03:07 2026: Frame 4382:	Player 4 switched trigger 0 to default.
+Wed Oct 14 13:03:21 2026: Frame 5122:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:03:24 2026: Frame 5281:	Player 1 killed attacker "pteranodon".
+Wed Oct 14 13:03:27 2026: Frame 5468:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:28 2026: Frame 5552:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:30 2026: Frame 5699:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:32 2026: Frame 5807:	Player 1 took 1.50 damage from "pteranodon". (diff = 0.40)
+Wed Oct 14 13:03:32 2026: Frame 5807:	Player 1 died.
+Wed Oct 14 13:04:03 2026: Frame 5838:	general_0 time/credit: 0m : 53.18s
+Wed Oct 14 13:04:03 2026: Entering attract mode.

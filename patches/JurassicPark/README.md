@@ -1,5 +1,9 @@
 # Jurassic Park Arcade
 
+> **STAND 2026-10-14, avond — lees eerst `bewijs-speelbaar-20261014/LEESMIJ.md`.** Speelbaar vanuit de RavenGun-app (dubbelklik): het
+> lightgun-bord antwoordt als USB-bord (RIO-brug, `rio-invoer.ini`), START/richten/trekker werken, vier glow-shaders gerepareerd
+> (`data/shaders`), opties in de app. Wat hieronder staat is ouder.
+
 > **STAND 2026-10-13, 23:25 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
 > lader (12 minuten, op de tv, onafhankelijk meegekeken), met de rode melding "RIO Disconnected" op elk beeld
 > en zonder invoer: hij demonstreert, hij is niet speelbaar. Hoe de 577 importsloten hun naam terugkregen

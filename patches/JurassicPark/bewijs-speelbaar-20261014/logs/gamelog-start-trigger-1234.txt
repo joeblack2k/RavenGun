@@ -1,0 +1,16 @@
+Wed Oct 14 12:34:36 2026: Player 1 joined.
+Wed Oct 14 12:34:36 2026: Game Started
+Wed Oct 14 12:34:36 2026: Load Scene 'screen_levelselect3' took 233 ms
+Wed Oct 14 12:34:36 2026: Start cam "smoke_cam".
+Wed Oct 14 12:35:00 2026: Level Selected: level=2 act=0
+Wed Oct 14 12:35:01 2026: Difficulty adjustment: 0.40
+Wed Oct 14 12:35:04 2026: Load Scene 'level_brach' took 2942 ms
+Wed Oct 14 12:35:04 2026: VMem used: 33.42 (2.79) GB / 50.94 GB -- PMem used: 31.06 (1.65) GB / 33.24 GB
+Wed Oct 14 12:35:04 2026: Frame 0:	Start cam "brach_intro_Cam1_export". (0/115.19)
+Wed Oct 14 12:35:04 2026: Frame 2:	Frame spike: 175 ms
+Wed Oct 14 12:35:06 2026: Frame 120:	Start cam "brach_intro_Cam2_export". (120/220.79)
+Wed Oct 14 12:35:09 2026: Frame 350:	Start cam "brach_intro_Cam4_export". (350/177.59)
+Wed Oct 14 12:35:12 2026: Frame 0:	Start cam "g1_cam_1_export". (0/10261.43)
+Wed Oct 14 12:35:12 2026: Frame 2:	Start general_1
+Wed Oct 14 12:35:17 2026: Frame 375:	Player 1 took 2.79 damage from "raptor". (diff = 0.40)
+Wed Oct 14 12:35:20 2026: Frame 537:	Player 1 took 2.79 damage from "raptor". (diff = 0.40)

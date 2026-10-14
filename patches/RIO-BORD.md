@@ -137,3 +137,22 @@ stopped there as ordered; the options (answer at `pmrt_usb_*`, inject events, ke
 the same switch ids (7 P1 Start, 8 P2 Start, 3 Test, 5/6 volume) in both titles. What differs, and matters: the library
 generation (JP 0.13, NERF 0.16), how each game consumes the board (events vs polling), and the packaging (i386 inside
 `game` vs an x86-64 `librio.so`).
+
+---
+
+## Result — 2026-10-14, evening (Jurassic Park: the lightgun board ANSWERS, as the USB board itself)
+
+The owner asked for "RIO DISCONNECTED" to be solved, so option A from the correction above was built: the RIO bridge
+(`tools/rio-bridge/rg_rio_bridge.c`, now also 32-bit) got a second attachment that **answers as the board over USB**. It hooks
+the four `pmrt_usb_*` functions of Jurassic Park's image for device `0c70:0780` only (everything else goes to the real code
+through trampolines), hands the game its own handle, and gives the library's read thread a type-2 input report every 4 ms,
+built from the daemon's board image and **encrypted with the game's own `xrtea`**. Table: `JurassicPark/rio-invoer.ini`.
+
+MEASURED (`JurassicPark/bewijs-speelbaar-20261014/`): the game opens the board, reads 250 reports/s, its own messages to the
+board decrypt to structured data, no "RIO Disconnected" in the game log or on screen; START (id 7) starts a game, the trigger
+(id 15, the same id as NERF's P1 trigger) fires and scores, the crosshair follows the lightgun channels 19/20 — started by a
+double-click in the RavenGun app.
+
+**Same device, one board model, two attachments:** NERF (events polled from a 64-bit `librio.so`) keeps the function
+replacement; Jurassic Park (events from encrypted USB reports, library inside a 32-bit `game`) gets the USB answer. The switch
+counters and lightgun channels come from the same code and the same board image in both.
