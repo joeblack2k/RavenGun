@@ -69,6 +69,8 @@ build_game_comms() {
   GAME_COMMS="|budgieloader_x6|budgieloader.ex|openparrotloade|"
   # Native route: de game draait onder dit comm (bestandsnaam van de exe uit native-games.json, op 15 tekens afgekapt).
   [[ -n "${NATIVE_EXE:-}" ]] && { n="${NATIVE_EXE,,}"; GAME_COMMS+="${n:0:15}|"; }
+  # Met onze eigen lader ("loader" in native-games.json) is de lader het proces van de game: /rg/bin/rg-elfloader.
+  [[ -n "${NATIVE_LOADER:-}" ]] && { n="${NATIVE_LOADER,,}"; GAME_COMMS+="${n:0:15}|"; }
   # Eigen profiel in game.ini (Executable, Executable2 en het afgeleide pad); anders de XML van TeknoParrotUi.
   v=$(python3 -I "$ROOT/scripts/gamesettings.py" --tp "$TP" comms "$PROFILE" 2>/dev/null || true)
   if [[ -n "$v" ]]; then GAME_COMMS+="$v|"; return 0; fi
@@ -178,21 +180,21 @@ fi
 [[ $USE_TP -eq 1 ]] && ROUTE=evdev
 
 # Native route (zonder TeknoParrot/Wine): profiel in packaging/native-games.json. enabled=true is de standaard, --native forceert.
-NATIVE=0; NATIVE_EXE=""
+NATIVE=0; NATIVE_EXE=""; NATIVE_LOADER=""
 if [[ $USE_TP -eq 0 ]]; then
   NINFO=$(python3 -I - "$ROOT/packaging/native-games.json" "$PROFILE" <<'PY' 2>/dev/null || true
 import json, sys
 try:
     g = json.load(open(sys.argv[1]))["games"].get(sys.argv[2])
     if g:
-        print("%d\t%s\t%s" % (1 if g.get("enabled") else 0, g.get("exe", "").rsplit("/", 1)[-1], g.get("route", "")))
+        print("%d\t%s\t%s\t%s" % (1 if g.get("enabled") else 0, g.get("exe", "").rsplit("/", 1)[-1], g.get("route", ""), g.get("loader", "")))
 except Exception:
     pass
 PY
 )
   if [[ -n "$NINFO" ]]; then
-    IFS=$'\t' read -r NEN NEXE NROUTE <<<"$NINFO"
-    if [[ "$NEN" == 1 || $FORCE_NATIVE -eq 1 ]]; then NATIVE=1; NATIVE_EXE="$NEXE"; fi
+    IFS=$'\t' read -r NEN NEXE NROUTE NLOADER <<<"$NINFO"
+    if [[ "$NEN" == 1 || $FORCE_NATIVE -eq 1 ]]; then NATIVE=1; NATIVE_EXE="$NEXE"; NATIVE_LOADER="$NLOADER"; fi
     # De invoerroute van een native game staat in native-games.json (tenzij --route die overschrijft).
     [[ $NATIVE -eq 1 && -z "$ROUTE_FORCED" && -n "$NROUTE" ]] && ROUTE="$NROUTE"
   elif [[ $FORCE_NATIVE -eq 1 ]]; then
@@ -252,10 +254,16 @@ fi
 systemctl --user is-active --quiet ravengund.service || systemctl --user start ravengund.service
 for _ in $(seq 1 20); do "$CTL" status >/dev/null 2>&1 && break; sleep 0.5; done
 
-if [[ $WAIT_MOVE -eq 1 ]]; then
+# Een lightgun is er: een verbonden Move, of een gewone muis die als lightgun van een speler is toegewezen (ravengunctl mouse-gun;
+# de daemon maakt daar dezelfde virtuele lightgun van). Zonder het tweede kon een spel met een muis als lightgun niet starten.
+gun_ready() {
+  "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' && return 0
+  "$CTL" mice 2>/dev/null | grep -E '^ *speler [0-9]+: .* verbonden,' | grep -vq 'NIET verbonden'
+}
+if [[ $WAIT_MOVE -eq 1 ]] && ! gun_ready; then
   say "Zet de Move aan: druk op de PS-knop."
-  for _ in $(seq 1 120); do "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' && break; sleep 1; done
-  "$CTL" status 2>/dev/null | grep -q '^Move:.*verbonden (' || fail "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."
+  for _ in $(seq 1 120); do gun_ready && break; sleep 1; done
+  gun_ready || fail "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."
 fi
 
 "$CTL" arm >/dev/null

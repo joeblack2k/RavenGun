@@ -19,6 +19,9 @@ OUT = os.path.join(ROOT, 'docs', 'compatibility.md')
 PATCHES = gs.shipped_dir()   # de bovenste meegeleverde laag, afgeleid van gamesettings.patch_layers()
 
 SECTIONS = [
+    ('working', 'Working',
+     'These games run on RavenGun\'s own loader and start straight from RavenGun (double-click), without TeknoParrot; they were '
+     'played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.'),
     ('playable', 'Playable',
      'These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in '
      'every detail; the note says what was tested.'),

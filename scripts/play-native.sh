@@ -77,12 +77,12 @@ done
 
 # Het gegevensbestand als regels voor de shell: soort<TAB>veld1<TAB>veld2<TAB>veld3. Paden met @nas, @tpui, @data en @lib32 worden hier ingevuld.
 emit() {
-  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" "$RG_LIB" <<'PY'
+  python3 -I - "$JSON" "$1" "$NAS" "$TPUI" "$DATA" "$LIB32" "$RG_LIB" "$ROOT/patches" <<'PY'
 import json, sys
-path, game, nas, tpui, data, lib32, build = sys.argv[1:8]
+path, game, nas, tpui, data, lib32, build, patches = sys.argv[1:9]
 d = json.load(open(path))
 def ex(s):
-    for k, v in (("@nas", nas), ("@tpui", tpui), ("@data", data), ("@lib32", lib32), ("@build", build)):
+    for k, v in (("@nas", nas), ("@tpui", tpui), ("@data", data), ("@lib32", lib32), ("@build", build), ("@patches", patches)):
         s = s.replace(k, v)
     return s
 if game == "--list":
@@ -110,6 +110,10 @@ for e in g.get("extra_ro", []):
     print("EXTRA\t%s" % ex(e))
 for l in g.get("libdirs", []):
     print("LIBDIR\t%s\t%s" % (ex(l["src"]), l["dst"]))
+for s in g.get("seed", []):
+    print("SEED\t%s\t%s" % (ex(s["src"]), s["dst"]))
+for l in g.get("links", []):
+    print("LINK\t%s\t%s" % (l["target"], l["dst"]))
 for a in g.get("args", []):
     print("ARG\t%s" % a)
 for k, v in g.get("env", {}).items():
@@ -132,7 +136,10 @@ if [[ "$ACTION" == stage ]]; then
     [[ -e "$c/libglut.so.3" ]] && SN="$c" && break
   done
   [[ -n "$SN" ]] || die "geen i386-runtime met libglut gevonden (Steam Linux Runtime sniper)"
-  for l in libglut.so.3 libXi.so.6 libGLU.so.1 libtheora.so.0 libXrandr.so.2 libXrender.so.1; do
+  # libsamplerate/libXcursor/libxkbcommon/libdecor: wat de i386-libSDL2 hieronder zelf vraagt en SteamOS niet voor i386 heeft
+  # (zonder: "Failed loading SDL2 library", gemeten 2026-10-13 op Jurassic Park).
+  for l in libglut.so.3 libXi.so.6 libGLU.so.1 libtheora.so.0 libXrandr.so.2 libXrender.so.1 \
+           libsamplerate.so.0 libXcursor.so.1 libxkbcommon.so.0 libdecor-0.so.0; do
     [[ -e "$SN/$l" ]] || { echo "ontbreekt in de runtime: $l" >&2; continue; }
     cp -L --no-preserve=ownership "$SN/$l" "$LIB32/$l"; echo "gezet: $LIB32/$l"
   done
@@ -158,13 +165,15 @@ if [[ "$ACTION" == stop ]]; then
 fi
 
 [[ -n "$GAME" ]] || die "--game vereist (zie --list)"
-declare -A V=(); EXTRAS=(); MOUNTS=(); FILES=(); LIBS=(); LIBDIRS=(); GARGS=(); GENV=()
+declare -A V=(); EXTRAS=(); MOUNTS=(); FILES=(); LIBS=(); LIBDIRS=(); GARGS=(); GENV=(); SEEDS=(); LINKS=()
 while IFS=$'\t' read -r kind a b c; do
   case "$kind" in
     ERR) die "$a" ;;
     VAR) V["$a"]="$b" ;;
     MOUNT) MOUNTS+=("$a"$'\t'"$b"$'\t'"$c") ;;
     FILE) FILES+=("$a"$'\t'"$b") ;;
+    SEED) SEEDS+=("$a"$'\t'"$b") ;;
+    LINK) LINKS+=("$a"$'\t'"$b") ;;
     LIB) LIBS+=("$a") ;;
     LIBDIR) LIBDIRS+=("$a"$'\t'"$b") ;;
     EXTRA) EXTRAS+=("$a") ;;
@@ -193,6 +202,20 @@ done
 if (( rt_hulp == 1 && rt_eigen == 0 )); then
   for tabel in "$DATA/patches/$GAME/rt-invoer.ini" "$ROOT/patches/$GAME/rt-invoer.ini"; do
     if [[ -f "$tabel" ]]; then BINDS+=("$tabel" "$RT_TABEL_DOEL"); XENV+=("RG_RT_TABLE=$RT_TABEL_DOEL"); break; fi
+  done
+fi
+# Hetzelfde voor de RIO-brug (tools/rio-bridge, librg_rio_bridge.so: het lightgun-bord van Raw Thrills-Unity-games zoals NERF):
+# patches/<Game>/rio-invoer.ini, de gebruikerslaag gaat voor. Zonder tabel doet de brug niets (liever geen invoer dan een gok).
+RIO_TABEL_DOEL=/rg/tabel/rio-invoer.ini
+rio_hulp=0; rio_eigen=0
+if [[ "${V[preload]}" == *librg_rio_bridge.so* ]]; then rio_hulp=1; fi
+for e in "${XENV[@]}"; do
+  if [[ "$e" == LD_PRELOAD=*librg_rio_bridge.so* ]]; then rio_hulp=1; fi
+  if [[ "$e" == RG_RIO_TABLE=* ]]; then rio_eigen=1; fi
+done
+if (( rio_hulp == 1 && rio_eigen == 0 )); then
+  for tabel in "$DATA/patches/$GAME/rio-invoer.ini" "$ROOT/patches/$GAME/rio-invoer.ini"; do
+    if [[ -f "$tabel" ]]; then BINDS+=("$tabel" "$RIO_TABEL_DOEL"); XENV+=("RG_RIO_TABLE=$RIO_TABEL_DOEL"); break; fi
   done
 fi
 
@@ -256,12 +279,13 @@ if [[ "${V[route]:-}" == tp-shm ]]; then
 fi
 
 # De NAS-mounts. overlay: NAS als lezende onderlaag, schrijfacties naar $OVLBASE/<n>/{upper,work}.
-n=0
+n=0; OVL=()   # OVL: per overlay-mount "doel<TAB>NAS-bron<TAB>schrijflaag", voor seed/links hieronder
 for m in "${MOUNTS[@]}"; do
   IFS=$'\t' read -r mode src dst <<<"$m"
   [[ -d "$src" ]] || die "bron ontbreekt: $src"
   case "$mode" in
-    overlay) mkdir -p "$OVLBASE/$n/upper" "$OVLBASE/$n/work"; BW+=(--overlay-src "$src" --overlay "$OVLBASE/$n/upper" "$OVLBASE/$n/work" "$dst") ;;
+    overlay) mkdir -p "$OVLBASE/$n/upper" "$OVLBASE/$n/work"; BW+=(--overlay-src "$src" --overlay "$OVLBASE/$n/upper" "$OVLBASE/$n/work" "$dst")
+             OVL+=("$dst"$'\t'"$src"$'\t'"$OVLBASE/$n/upper") ;;
     ro) BW+=(--ro-bind "$src" "$dst") ;;
     *) die "onbekende mount-modus: $mode" ;;
   esac
@@ -403,7 +427,8 @@ fi
 # daarom staat het bovenaan het logboek van elke run (en bij --dry-run op stderr, zodat stdout het commando blijft).
 WIE=(gegevens="$JSON" hulp="$ROOT/scripts/rg-paths.sh" hulp="$ROOT/scripts/rg-identiteit.sh" hulp="$ROOT/scripts/camera.py" hulp="$ROOT/scripts/gamesettings.py")
 if [[ -n "${LOADERBIN:-}" ]]; then WIE+=(lader="$LOADERBIN"); fi
-for l in "${LIBS[@]}"; do if [[ "$l" == "$RG_LIB"/* ]]; then WIE+=(bibliotheek="$l"); fi; done
+for l in "${LIBS[@]}"; do if [[ "$l" == "$RG_LIB"/* || "$l" == "$ROOT/patches"/* ]]; then WIE+=(bibliotheek="$l"); fi; done
+for f in "${FILES[@]}"; do IFS=$'\t' read -r src _ <<<"$f"; if [[ -f "$src" ]]; then WIE+=(meegegeven="$src"); fi; done
 for ((i = 0; i < ${#BINDS[@]}; i += 2)); do
   [[ -f "${BINDS[$i]}" ]] || continue
   if [[ "${BINDS[$((i+1))]}" == "$RT_TABEL_DOEL" ]]; then WIE+=(invoertabel="${BINDS[$i]}"); else WIE+=(meegegeven="${BINDS[$i]}"); fi
@@ -418,6 +443,35 @@ flock -n 9 || die "er draait al een native launcher (zie $IPC/native.pid); stop 
 echo $$ > "$IPC/native.pid"
 TS=$(date +%Y%m%d-%H%M%S); LOG="$LOGDIR/native-$GAME-$TS.log"
 { echo "== play-native $GAME $TS"; echo "$IDENT"; echo "$CAMERA_REGEL"; if [[ -n "$ROUTE_REGEL" ]]; then echo "$ROUTE_REGEL"; fi; echo "display=$DISPLAY res=$RES headless=$HEADLESS preload=${V[preload]:-geen}"; echo "cmd: ${GAMECMD[*]}"; } >>"$LOG"
+# seed en links: begintoestand in de lokale schrijflaag van een overlay-mount (nooit op de NAS). Alleen als het pad er nog niet
+# is, in de schrijflaag noch op de NAS: wat de game daarna zelf schrijft (een dongle die zijn muntenteller bijhoudt) blijft staan.
+# seed = kopie van een bestand of map uit de patches; links = een symbolische koppeling (Jurassic Park schrijft onder
+# /pm/g5/dino/pmuser, op de NAS staat pmuser bovenaan).
+schrijflaag() {   # $1 = pad in de sandbox -> "NAS-pad<TAB>pad in de schrijflaag" van de overlay-mount waar het onder valt
+  local o odst osrc oupper
+  for o in "${OVL[@]}"; do
+    IFS=$'\t' read -r odst osrc oupper <<<"$o"
+    if [[ "$1" == "$odst"/* ]]; then printf '%s\t%s\n' "$osrc/${1#"$odst"/}" "$oupper/${1#"$odst"/}"; return 0; fi
+  done
+  return 1
+}
+for s in "${SEEDS[@]}"; do
+  IFS=$'\t' read -r src dst <<<"$s"
+  [[ -e "$src" ]] || die "seed-bron ontbreekt: $src"
+  r=$(schrijflaag "$dst") || die "seed $dst valt niet onder een overlay-mount"
+  IFS=$'\t' read -r laag boven <<<"$r"
+  if [[ -e "$boven" || -L "$boven" || -e "$laag" || -L "$laag" ]]; then echo "seed: $dst bestaat al (blijft)" >>"$LOG"; continue; fi
+  mkdir -p "$(dirname "$boven")" && cp -a "$src" "$boven" || die "seed $dst: kopiëren mislukt"
+  echo "seed: $dst gezet uit $src" >>"$LOG"
+done
+for l in "${LINKS[@]}"; do
+  IFS=$'\t' read -r doel dst <<<"$l"
+  r=$(schrijflaag "$dst") || die "link $dst valt niet onder een overlay-mount"
+  IFS=$'\t' read -r laag boven <<<"$r"
+  if [[ -e "$boven" || -L "$boven" || -e "$laag" || -L "$laag" ]]; then echo "link: $dst bestaat al (blijft)" >>"$LOG"; continue; fi
+  mkdir -p "$(dirname "$boven")" && ln -s "$doel" "$boven" || die "link $dst: maken mislukt"
+  echo "link: $dst -> $doel gezet" >>"$LOG"
+done
 echo "play-native: $GAME (${V[title]}), res $RES, log $LOG"
 [[ "${V[status]}" == werkt ]] || echo "play-native: LET OP: status ${V[status]} (${V[note]})" >&2
 if [[ "$ROUTE_REGEL" == *"LET OP"* ]]; then echo "play-native: $ROUTE_REGEL" >&2; fi

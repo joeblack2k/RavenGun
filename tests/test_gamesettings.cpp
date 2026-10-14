@@ -279,7 +279,7 @@ static void test_repo_tree() {
         if (!g.warnings.empty()) std::fprintf(stderr, "  %s: %s\n", name.c_str(), g.warnings[0].c_str());
         CHECK(g.warnings.empty());
         const std::string st = g.get("Status", "Status");
-        CHECK(st.empty() || st == "playable" || st == "parked" || st == "untested");
+        CHECK(st.empty() || st == "working" || st == "playable" || st == "parked" || st == "untested");
     }
     gs::Game lgi = gs::load_game(d, "LGI");
     CHECK(lgi.type == "TeknoParrot" && lgi.get("Input", "Route") == "jvs" && lgi.get("Wine", "Prefix") == "ravengun-test-lgi");

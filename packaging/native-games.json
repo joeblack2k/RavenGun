@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). extra_ro: bestanden van de host die read-only in de sandbox verschijnen (het gedeelde geheugen van de IO-brug voor rg_rt_input). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | geparkeerd | niet-getest, met reden in note.",
+  "comment": "Raw Thrills-games die native op Linux draaien (zonder Wine/BudgieLoader), gestart door scripts/play-native.sh --game PROFIEL in een bubblewrap-sandbox. Paden: @nas = NAS-map Teknoparrot (alleen lezend; schrijfacties van de game landen in een lokale overlay onder ~/.local/share/ravengun/native/<profiel>/), @tpui = lokale TeknoParrotUi-map, @data = ~/.local/share/ravengun, @lib32 = ~/.local/share/ravengun/runtime/lib32 (i386-bibliotheken, gevuld door play-native.sh --stage-libs). mounts: overlay = NAS-map als lezende onderlaag met een lokale schrijflaag; ro = alleen lezend. files: bestanden die in de sandbox over een pad in een mount heen worden getoond (de oorspronkelijke versie van hulpbestanden, zodat de FileTest van de game ze zo ziet). seed: een bestand of map die EENMALIG in de lokale schrijflaag van een overlay-mount wordt gekopieerd als het pad er nog niet is (toestand die de game daarna zelf bijhoudt, zoals een dongle met zijn muntenteller); links: idem voor een symbolische koppeling. extra_ro: bestanden van de host die read-only in de sandbox verschijnen (het gedeelde geheugen van de IO-brug voor rg_rt_input). libs: losse bibliotheekbestanden die als /rg/lib/<naam> verschijnen (LD_LIBRARY_PATH). preload: de vooraf te laden bibliotheek van TeknoParrot (halo.so); er is geen eigen dongle-, keychip- of integriteitsafhandeling. enabled=true laat play-halo.sh --profile automatisch de native route nemen; anders alleen met --native (experiment). status: werkt | demo (draait zijn attract-lus, niet speelbaar) | geparkeerd | niet-getest, met reden in note.",
   "defaults": {
     "res": "1920x1080"
   },
@@ -58,15 +58,64 @@
     },
     "JurassicPark": {
       "title": "Jurassic Park Arcade",
-      "enabled": false,
-      "status": "geparkeerd",
-      "note": "Met libSDL-1.2 (sdl12-compat, i386) en de PhysX/theora-bibliotheken uit ElfLdr2/libs laadt de herschreven ELF, maar springt dan naar een vast adres uit de dump (SIGSEGV op 0xb7227dc0 voor main); de beveiligingslaag die BudgieLoader op dat adres zet, is er native niet. Er is geen halo.so-equivalent in de gamemap (alleen libhasp_linux_*.so van de echte dongle).",
+      "enabled": true,
+      "status": "werkt",
+      "note": "Speelbaar op onze eigen lader, gestart met een dubbelklik in de app (2026-10-14; patches/JurassicPark/bewijs-speelbaar-20261014/). Het lightgun-bord (RIO, USB 0c70:0780) antwoordt als het bord zelf: de RIO-brug (32-bits lib32/librg_rio_bridge.so, tabel patches/JurassicPark/rio-invoer.ini) haakt de vier pmrt_usb-functies van het spelbeeld aan en geeft de leesdraad van de game versleutelde invoerrapporten uit het bordbeeld van de IO-brug (route tp-shm, indeling RawThrillsGUN); geen 'RIO Disconnected' meer. Verder brengt dit profiel mee: de slottabel van het gedumpte beeld (RG_ELF_SLOT_TABLE, onze lader rg-elfloader), de HASP-haak met emulator en de dongle (eenmalig in de schrijflaag gezet: het spel houdt er zijn muntenteller in bij), de draadhulp (librg-threadprio.so), de udev-regels, de ontsleutelde scripts van de dump (programs_dec) over programs_enc, SDL1.2-OpenGL-schaling uit, OpenGL via Vulkan (Mesa zink op RADV: de keuze van de eigenaar; het spel zelf kent alleen OpenGL; weghalen = gewone OpenGL), vier glow-shaders die Mesa weigerde omdat ze gl_FragData mengen met out_Bloom (data/shaders, gemaakt door maak-shaders.py; NVIDIA liet dat toe), en de koppeling g5/dino/pmuser -> ../../pmuser in de schrijflaag. force_glsl_version=120 moet UIT (crash). Niet gemeten: de trekker van speler 2, een echte muis, de PS Move.",
       "arch": "i386",
+      "loader": "rg-elfloader",
+      "launcher": "gamescope",
       "mounts": [
         {
           "src": "@nas/Jurassic Park",
           "dst": "/pm",
           "mode": "overlay"
+        },
+        {
+          "src": "@nas/Jurassic Park/programs_dec",
+          "dst": "/pm/g5/dino/data/programs_enc",
+          "mode": "ro"
+        }
+      ],
+      "files": [
+        {
+          "src": "@patches/JurassicPark/dropin/eerste-plt-slots.tsv",
+          "dst": "/rg/jp-slots.tsv"
+        },
+        {
+          "src": "@patches/JurassicPark/data/udev-rules.d",
+          "dst": "/etc/udev/rules.d"
+        },
+        {
+          "src": "@patches/JurassicPark/data/shaders/shader108.shader",
+          "dst": "/pm/g5/shaders/shader108.shader"
+        },
+        {
+          "src": "@patches/JurassicPark/data/shaders/shader108/frag.gls",
+          "dst": "/pm/g5/shaders/shader108/frag.gls"
+        },
+        {
+          "src": "@patches/JurassicPark/data/shaders/shader108d/frag.gls",
+          "dst": "/pm/g5/shaders/shader108d/frag.gls"
+        },
+        {
+          "src": "@patches/JurassicPark/data/shaders/shader108c_sk/frag.gls",
+          "dst": "/pm/g5/shaders/shader108c_sk/frag.gls"
+        },
+        {
+          "src": "@patches/JurassicPark/data/shaders/shader108d_sk/frag.gls",
+          "dst": "/pm/g5/shaders/shader108d_sk/frag.gls"
+        }
+      ],
+      "seed": [
+        {
+          "src": "@patches/JurassicPark/dropin/ravengun-hasp",
+          "dst": "/pm/ravengun-hasp"
+        }
+      ],
+      "links": [
+        {
+          "target": "../../pmuser",
+          "dst": "/pm/g5/dino/pmuser"
         }
       ],
       "libs": [
@@ -81,9 +130,28 @@
         "@lib32/libXi.so.6",
         "@lib32/libGLU.so.1",
         "@lib32/libSDL-1.2.so.0",
-        "@lib32/libSDL2-2.0.so.0"
+        "@lib32/libSDL2-2.0.so.0",
+        "@lib32/libsamplerate.so.0",
+        "@lib32/libXcursor.so.1",
+        "@lib32/libxkbcommon.so.0",
+        "@lib32/libdecor-0.so.0",
+        "@lib32/libXrandr.so.2",
+        "@lib32/libXrender.so.1",
+        "@patches/JurassicPark/dropin/libravengun-hasphook.so",
+        "@patches/JurassicPark/dropin/ravengun-hasp.so",
+        "@build/lib32/librg-threadprio.so",
+        "@build/lib32/librg_rio_bridge.so"
       ],
-      "preload": "",
+      "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so",
+      "env": {
+        "RG_ELF_SLOT_TABLE": "/rg/jp-slots.tsv",
+        "SDL12COMPAT_OPENGL_SCALING": "0",
+        "RAVENGUN_HASP_GAME": "JurassicPark",
+        "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
+        "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+        "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+        "RG_RIO_LOG": "1"
+      },
       "exe": "/pm/game",
       "cwd": "/pm",
       "home": "/pm",
@@ -92,7 +160,10 @@
         "-f{res}"
       ],
       "res": "1360x768",
-      "route": "evdev"
+      "route": "tp-shm",
+      "extra_ro": [
+        "/dev/shm/ravengun_JvsState"
+      ]
     },
     "Terminator": {
       "title": "Terminator Salvation",
@@ -159,6 +230,47 @@
       "res": "1280x720",
       "route": "evdev",
       "note": "Native niet verder dan de lader: het binair wil /usr/lib/libcsv.so (absoluut pad) en libesd.so.0 (i386, niet beschikbaar), en controleert een dongle (Game dongle initialization failed)."
+    },
+    "NERF": {
+      "title": "NERF Arcade",
+      "enabled": true,
+      "status": "werkt",
+      "note": "Speelbaar op onze eigen kern sinds 2026-10-14 (patches/NERF/bewijs-bridge-20261014/): de invoer komt via de RIO-brug (preload librg_rio_bridge.so, tools/rio-bridge; tabel patches/NERF/rio-invoer.ini): het lightgun-bord van de game (librio.so, RIO_Connected/RIO_SW_Count/RIO_ADC_Val/RIO_ADC_Val_Ex) leest het bordbeeld van de IO-brug (route tp-shm, indeling WartranTroopers). De lightguns zijn gekalibreerd in het eigen operatormenu van de game (opgeslagen in de lokale schrijflaag). De dump bevat het origineel: Nerf.x86_64, een Unity 2018.2.21f1-speler voor Linux (ELF 64-bits), met zijn eigen Mono en zijn native plug-ins (libUnityNatives, librio, libRIO2, libhasp_linux_23714); de Windows-kant in dezelfde map (Nerf.exe, UnityPlayer.dll, BepInEx, NERFTPPlugin.dll) is de omzetting van TeknoParrot en wordt op deze route niet gebruikt. De plug-ins staan in de dump onder Nerf_Data/Plugins/x86_64_ori; de tweede mount zet ze op Nerf_Data/Plugins/x86_64, waar de game-code ze zoekt. Die mount is NODIG (gemeten, run n4: zonder hem 'DllNotFoundException: UnityNatives' en 'rio', 329.000 logregels in 100 s); dat de speler ze daardoor twee keer voorlaadt is de prijs van de hernoemde map. Dit profiel zet zelf gamescope aan (launcher; zonder krijgt de game geen beeldscherm: 'Authorization required') en toont patches/NERF/data/udev-rules.d als /etc/udev/rules.d (files; zonder 10-usb-automount.rules breekt Game.Awake() af op een UnauthorizedAccessException). Stand en metingen: patches/NERF/.",
+      "arch": "x86_64",
+      "mounts": [
+        {
+          "src": "@nas/NERF Arcade",
+          "dst": "/pm",
+          "mode": "overlay"
+        },
+        {
+          "src": "@nas/NERF Arcade/Nerf_Data/Plugins/x86_64_ori",
+          "dst": "/pm/Nerf_Data/Plugins/x86_64",
+          "mode": "ro"
+        }
+      ],
+      "files": [
+        {
+          "src": "@patches/NERF/data/udev-rules.d",
+          "dst": "/etc/udev/rules.d"
+        }
+      ],
+      "launcher": "gamescope",
+      "route": "tp-shm",
+      "libs": [
+        "@build/librg_rio_bridge.so"
+      ],
+      "extra_ro": [
+        "/dev/shm/ravengun_JvsState"
+      ],
+      "preload": "/rg/lib/librg_rio_bridge.so",
+      "env": {
+        "RG_RIO_LOG": "1"
+      },
+      "exe": "/pm/Nerf.x86_64",
+      "cwd": "/pm",
+      "home": "/pm",
+      "args": []
     }
   }
 }
