@@ -37,6 +37,10 @@ of these are in range.
 
 ## What the table says, read straight off it
 
+*(All of this first series used the rdtsc **toggle** — every chosen switch flipping every frame. The
+second series below shows a toggle is not how a button behaves; read these as "how the game reacts to a
+toggle", not as the button map. id 3 = Test, a clean single-switch entry, comes from the second series.)*
+
 * **No single switch does anything** — 13 ids, each inert.
 * **Two different reactions, and they live in different places.** The **volume/service** overlay (a
   diagnostic) comes from the **low group {0–8}** (gLE8), labelled "Attract Volume" in attract and
