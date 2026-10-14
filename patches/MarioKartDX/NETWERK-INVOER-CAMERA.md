@@ -121,12 +121,56 @@ gamescope maakt daar "exitcode 0" van. Bewijs nog nodig: de benchproef hieronder
 
 Proeven: zie het rapport van 2026-10-14 (coördinator); de bewijsregels staan hieronder bij "Open".
 
+## 5c. #UD op 0x8C753D met de parked-entrypoint-route (bench 2026-10-14 21:00) en de fix
+
+**Gemeten** (`WINEDEBUG=-all,+debugstr,+seh,err+all`, zonder gamescope): de hoofdthread `0110` van `MK_AGP3_FINAL.exe` krijgt
+`EXCEPTION_ILLEGAL_INSTRUCTION` (c000001d) op `0x008C753D`, onafgehandeld; winedbg, lader exitcode 222. Registers: `eax=ebx=003f1000`
+(de PEB), `edx=008c6e3a` (het startpunt), `esi=edi=ecx=0`. In het logboek staat de uitzondering tussen de `SINGLE_STEP`-regels van de
+remote thread `0164` die de gesloten kern laadt (handler `71A29764` in `teknoparrot`) en `Loading requested compatibility DLL`: het
+spel stierf terwijl de kern nog in DllMain zat, vóór rg-mfcam en vóór de trampoline van de lader.
+
+**Wat er op 0x8C753D staat (READ, objdump):** het startpunt is `8c6e3a: e8 b4 06 00 00 call 0x8c74f3` (`__security_init_cookie`),
+dan `e9 6b fd ff ff jmp 0x8c6baf`. `0x8C753D` ligt **midden in** `8c753c: 33 f0 xor esi,eax`; vanaf `0x8C753D` leest de CPU
+`f0 ff 15 b0 30 94 00` = `lock call [GetCurrentThreadId]`, en een lock-prefix voor een call is altijd #UD. Geen bewuste `ud2`,
+geen AVX-512/SSE4a, geen versleutelde code: het spel is in een instructie gesprongen. De registers zeggen ook waar vandaan: `esi`
+en `edi` zijn nog 0, dus `__security_init_cookie` heeft geen enkele instructie gedraaid (`8c750a mov edi,0xbb40e64e`); de thread
+kwam rechtstreeks van het startpunt.
+
+**De oorzaak (INFERRED, sterk: de rekensom klopt op de byte).** De lader parkeert het startpunt met `EB FE` (spinlus) en laadt de
+kern na 3 s in een **remote thread**, terwijl de hoofdthread op die spinlus blijft draaien. De gesloten kern 1.0.0.3761 haakt in
+DllMain zelf het startpunt, zoals `Main_SetSafeInit` in de OpenParrot-bron: `ep[0] = 0xE9; memcpy(&ep[1], &rel32, 4);`, byte voor
+byte (de kern let dus niet op `TP_LOADER_MANAGED_INIT`; onze eigen kern wel, `dllmain.cpp`). Tussen die twee schrijfacties ziet de
+draaiende thread `E9 FE 06 00 00` = `jmp 0x8C6E3F + 0x6FE` = **`0x8C753D`** (en `E8 FE 06 00 00` zou op hetzelfde adres uitkomen).
+De `SINGLE_STEP`-uitzonderingen van de beschermde kern maken dat venster microseconden breed. Zonder die race was het ook mis gegaan:
+de kern bewaart `EB FE ...` als "originele" code en zet die na zijn init terug, waarna de thread voorgoed spint (tot de lader de
+trampoline schrijft, die `InitializeASI` dan een tweede keer aanroept).
+
+**Niet de oorzaak (MEASURED, `cmp -l` origineel tegen kopie):** de StackReserve-kopie verschilt in precies 6 bytes: 4 in de DOS-stub
+(bestandsoffset 0x78-0x7B, CRC32-correctie van de kop) en 2 in `SizeOfStackReserve` (0x182-0x183, 0x00100000 -> 0x01000000). Geen
+sectie, relocatie, import of code anders; het PE-veld `CheckSum` (0x00726326) is ongewijzigd. Op het startpunt staan in beide
+bestanden dezelfde bytes.
+
+**TeknoParrot (READ, TeknoParrotUI-bron):** de preset `parked-entrypoint` staat alleen in de Android-recepten `MKDX.json` en
+`MKDXUSA106.json` (Box64, waar een JIT-blok de spinlus anders uitvoert). Voor **MKDX118** is er geen Android-recept; TeknoParrotUi op
+de desktop start met `TP_REMOTETHREAD=1` (`ProtonLauncher.cs`), op Windows met de standaardroute. Geen andere exe, geen IPS of
+per-game patch; wel de 16 MiB-stapelkopie (Android).
+
+**De fix:**
+- `game.ini`: `EntryPointMs` en `[Env] TP_LOADER_MANAGED_INIT` zijn weg; de game draait op de standaardroute van de lader
+  (`RemoteThread = off`, `_defaults/TeknoParrot.ini`) met de 16 MiB-stapel. Daar laadt de hoofdthread zelf de kern (geen tweede thread
+  die tegelijk op het startpunt schrijft) en haakt de kern het startpunt over de echte bytes.
+- Lader (RavenGun-patch `third_party/openparrot/patches/0008-parked-entry-hold-suspended.patch`): de parked-route zet de hoofdthread na
+  de wachttijd stil (`SuspendThread`, controle EIP == startpunt), zet de originele 20 bytes terug en laadt **dan** de kern; met
+  `TP_LOADER_MANAGED_INIT` slaat hij de eigen trampoline over als de kern het startpunt zelf al gehaakt heeft. Nieuwe logregels:
+  `Primary thread suspended at the entry point; original entry bytes restored before loading the core.` en
+  `Core hooked the entry point itself (E9 .. .. .. ..); skipping the loader-managed initializer.`
+
 ## 6. Open (alleen op de tv te zien)
 
 0. Komt het spel met de fix hierboven langer dan 27 s en opent het de JVS-pipe? Bewijsregels in het logboek, in deze volgorde:
-   `stapel: ... geschreven: lokale kopie van ... SizeOfStackReserve 1 MiB (1048576) -> 16 MiB (16777216), CRC32 van de kop gelijk
-   (1ae07e00)`, `Using parked-entry-point RemoteThread injection method (3000 ms)...`, `Primary-thread x86 OpenParrot initializer
-   installed at ...`, `JVS-pipe: game verbonden (pipehelper via TCP)`, en het spel draait langer dan 5 minuten.
+   `stapel: ... MK_AGP3_FINAL.exe is al actueel (SizeOfStackReserve 16 MiB (16777216) ...)` (of `geschreven: ...`), géén
+   `Using parked-entry-point ...`, `Have fun :)`, `JVS-pipe: game verbonden (pipehelper via TCP)`, en het spel draait langer dan
+   5 minuten. Geen `c000001d` in een `+seh`-logboek.
 
 1. Start de kern de game en komt hij voorbij het ALL.Net-scherm (netwerk)?
 2. Richting en bereik van het stuur (kanaal 0, `invert`), en of gas/rem 0..255 het hele pedaal is.
