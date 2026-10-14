@@ -717,6 +717,20 @@ void AppCoreTest::libraryFindsOwnProfiles() {
     for (const GameEntry& g : r.games)
         if (g.id == QStringLiteral("tp:TC5")) tc5 = g;
     QVERIFY(tc5.exePath.startsWith(in.viewsDir));
+    // [Launch] StackReserve: de exe in de view is een lokale kopie, met de koppeling <exe>.ravengun-orig naar het origineel. Zonder die
+    // koppeling hoort de gamemap bij niemand en komt hij als tweede game in de lijst (Mario Kart DX); met de koppeling hoort hij bij TC5.
+    const QString viewExe = in.viewsDir + QStringLiteral("/TC5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe");
+    const QString gameDirId = QStringLiteral("dir:") + games + QStringLiteral("/Time Crisis 5");
+    auto dirEntries = [&](const ScanResult& res) {
+        int n = 0;
+        for (const GameEntry& g : res.games) n += g.id == gameDirId ? 1 : 0;
+        return n;
+    };
+    QCOMPARE(dirEntries(r), 1);
+    QVERIFY(QFile::link(games + QStringLiteral("/Time Crisis 5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), viewExe + QStringLiteral(".ravengun-orig")));
+    r = LibraryScanner::scan(in);
+    QCOMPARE(dirEntries(r), 0);
+    QFile::remove(viewExe + QStringLiteral(".ravengun-orig"));
     // Een override van de gebruiker wint; zonder bestand is de game niet gevonden.
     writeFile(user + QStringLiteral("/TC5/game.ini"), ("[Game]\nGamePath = " + games + "/Andere Map/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe\n").toUtf8());
     data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));

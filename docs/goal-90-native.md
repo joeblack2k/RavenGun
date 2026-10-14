@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2: 51, overgeslagen: 1.
+Stand: 17 van 81 titels WORKING (21%); doel 90% = 73 titels. Pass 1: 14, pass 2: 50, overgeslagen: 1.
 
-## WORKING (16)
+## WORKING (17)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -22,6 +22,7 @@ Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
 | Let's Go Safari | SEGA RingWide |  |
+| Mario Kart: Arcade GP DX | Namco ES3A | open: camera (het spel vraagt hem niet), Banapass-kaarten |
 | NERF Arcade | Raw Thrills PC Based |  |
 | Rabbids Hollywood Arcade | ADRENALINE PC Based |  |
 | Raccoon Rampage | UNIS PC Based |  |
@@ -48,7 +49,7 @@ Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (51)
+## pass 2 (50)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -72,7 +73,6 @@ Stand: 16 van 81 titels WORKING (19%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Lethal Enforcers 3 | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
-| Mario Kart: Arcade GP DX | Namco ES3A | PRIORITEIT eigenaar. Gemeten: stack 16M, standaardroute: toegangsfout op 0x00835E60 in de spelcode na init (race bij geparkeerd startpunt opgelost); RemoteThread ook niet. Agent onderzoekt |
 | Mars Sortie | UDC PC Based | getest 2026-10-14: Shooter.exe (Unity, BepInEx, Sentinel dog_windows) draait, beeld zwart: ook met gamescope en met DXVK-prefix; diagnose loopt |
 | Medaru No Gunman | SEGA RingWide | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |

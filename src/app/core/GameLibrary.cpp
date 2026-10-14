@@ -319,6 +319,13 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
     // 1. Gebruikersprofielen.
     QList<GameEntry> tp;
     QHash<QString, QString> exeToProfile;  // canoniek GamePath -> profiel
+    // [Launch] StackReserve maakt de exe in de view een lokale kopie; de koppeling naar het origineel blijft als <exe>.ravengun-orig
+    // ernaast staan. Ook die telt, anders is de map op de NAS voor de scan van niemand en komt de game er een tweede keer in.
+    auto addExe = [&exeToProfile](const QString& exe, const QString& prof) {
+        exeToProfile.insert(canon(exe), prof);
+        const QString orig = exe + QStringLiteral(".ravengun-orig");
+        if (QFileInfo(orig).isSymLink()) exeToProfile.insert(canon(orig), prof);
+    };
     if (!tpDir.isEmpty()) {
         const QDir ud(tpDir + QStringLiteral("/UserProfiles"));
         for (const QString& f : ud.entryList({QStringLiteral("*.xml")}, QDir::Files, QDir::Name)) {
@@ -328,7 +335,7 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
             if (!p.load(ud.filePath(f))) continue;
             GameEntry g = tpEntry(tpDir, prof, p);
             g.exeExists = g.exePath.isEmpty() || QFileInfo::exists(g.exePath);
-            if (!g.exePath.isEmpty()) exeToProfile.insert(canon(g.exePath), prof);
+            if (!g.exePath.isEmpty()) addExe(g.exePath, prof);
             tp << g;
         }
         r.log << QStringLiteral("TeknoParrot user profiles: %1 (%2)").arg(tp.size()).arg(tpDir);
@@ -367,7 +374,7 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
             const QString rel = QString::fromStdString(ravengun::gamesettings::identify_of(og.settings).path);
             g.folder = !rel.isEmpty() && g.exePath.endsWith(QLatin1Char('/') + rel) ? g.exePath.left(g.exePath.size() - rel.size() - 1) : QFileInfo(g.exePath).path();
             g.exeExists = true;
-            exeToProfile.insert(canon(g.exePath), og.profile);
+            addExe(g.exePath, og.profile);
             if (byProfile.contains(og.profile)) tp[byProfile.value(og.profile)] = g;
             else {
                 byProfile.insert(og.profile, static_cast<int>(tp.size()));
