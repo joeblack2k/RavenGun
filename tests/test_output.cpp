@@ -1225,6 +1225,50 @@ static void apply_live(GunOutput& o, OverrideLayer& ov, const LiveAction& a) {
     for (const auto& k : a.keys) o.set_key(k.first, ov.live_key(k.first, k.second));
 }
 
+// Twee live bronnen voor dezelfde speler (Move = 0, muis = 1): de Move meldt ~80 Hz "los", de muis houdt het pedaal vast.
+// Zoals OutputService::feed_live met src: de knoppen van beide bronnen tellen als OR.
+static void test_live_sources() {
+    FakeDevice d;
+    GunOutput o(d);
+    OverrideLayer ov;
+    std::string err;
+    CHECK(o.arm(err));
+    const int gren = static_cast<int>(GunButton::Grenade);
+    auto feed = [&](const LiveAction& a, int src) {
+        o.set_button(GunButton::Trigger, ov.live_button(GunButton::Trigger, a.trigger, src));
+        o.set_button(GunButton::Grenade, ov.live_button(GunButton::Grenade, a.grenade, src));
+    };
+    LiveAction mouse_down, move_up;
+    mouse_down.buttons = move_up.buttons = true;
+    mouse_down.grenade = true;
+    feed(mouse_down, 1);                                 // muis: middenknop (granaat, bv. het pedaal van Time Crisis 5) vast
+    for (int i = 0; i < 80; ++i) {                       // een seconde Move-rapporten zonder knoppen
+        feed(move_up, 0);
+        CHECK(d.pressed.count(gren) && o.button_down(GunButton::Grenade));
+    }
+    CHECK(d.count("down grenade") == 1 && d.count("up grenade") == 0);   // geen geflikker
+    LiveAction mouse_up;
+    mouse_up.buttons = true;
+    feed(mouse_up, 1);                                   // muis laat los: nu pas los
+    CHECK(!d.pressed.count(gren) && d.count("up grenade") == 1);
+    // Omgekeerd: de Move drukt de trekker, een muisrapport zonder knoppen laat hem staan.
+    LiveAction move_trig = move_up;
+    move_trig.trigger = true;
+    feed(move_trig, 0);
+    feed(mouse_up, 1);
+    CHECK(o.button_down(GunButton::Trigger));
+    feed(move_up, 0);
+    CHECK(!o.button_down(GunButton::Trigger));
+    // clear() (bronuitval, disarm) wist de stand van alle bronnen.
+    feed(mouse_down, 1);
+    ov.clear();
+    o.release_all();
+    feed(move_up, 0);
+    CHECK(!o.button_down(GunButton::Grenade));
+    // Een ongeldige bron telt als de Move.
+    CHECK(ov.live_button(GunButton::Aux1, true, 7) && ov.live_button(GunButton::Aux1, false, 0) == false);
+}
+
 static void test_override_layer() {
     FakeDevice d;
     FakeKbd kb;
@@ -1323,6 +1367,7 @@ int main() {
     test_live_feed_sharpshooter();
     test_keyboard_output();
     test_override_layer();
+    test_live_sources();
     test_live_feed();
     test_transform_basic();
     test_transform_invert();

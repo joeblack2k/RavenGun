@@ -188,7 +188,7 @@ void MouseService::close_and_release(size_t i) {
     const bool pressed = s.gun.button(output::GunButton::Trigger) || s.gun.button(output::GunButton::Reload) ||
                          s.gun.button(output::GunButton::Grenade) || s.gun.button(output::GunButton::Aux1) ||
                          s.gun.button(output::GunButton::Aux2);
-    if (was_open || pressed) out_.feed_live(static_cast<int>(i) + 1, s.gun.release());
+    if (was_open || pressed) out_.feed_live(static_cast<int>(i) + 1, s.gun.release(), 1);
 }
 
 void MouseService::lose(size_t i, const std::string& why) {
@@ -269,7 +269,7 @@ void MouseService::try_open(size_t i) {
     cv_.notify_all();
     if (ok) {
         logf("info", "muis van speler %zu verbonden (%s)", i + 1, id.c_str());
-        out_.feed_live(static_cast<int>(i) + 1, s.gun.snapshot());
+        out_.feed_live(static_cast<int>(i) + 1, s.gun.snapshot(), 1);
     }
 }
 
@@ -292,7 +292,7 @@ void MouseService::drain(size_t i) {
             input_event ev;
             std::memcpy(&ev, s.carry.data() + off, kEv);
             off += kEv;
-            if (auto a = s.gun.event(ev.type, ev.code, ev.value)) out_.feed_live(static_cast<int>(i) + 1, *a);
+            if (auto a = s.gun.event(ev.type, ev.code, ev.value)) out_.feed_live(static_cast<int>(i) + 1, *a, 1);   // bron 1: de muis
         }
         s.carry.erase(0, off);
         if (static_cast<size_t>(n) < sizeof buf) return;

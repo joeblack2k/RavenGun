@@ -83,6 +83,7 @@ bool OverrideLayer::any_synthetic() const {
 void OverrideLayer::clear() {
     btn_.fill({});
     live_btn_.fill(false);
+    for (auto& s : live_src_) s.fill(false);
     keys_.clear();
     live_keys_.clear();
 }

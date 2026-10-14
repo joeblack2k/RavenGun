@@ -54,8 +54,9 @@ public:
     void release_all();
     // De live Move van speler 1 (feed_live(a)) of speler `player` (HID-thread, per sample). Alleen als de uitvoer gewapend is
     // en er geen testpatroon loopt; release_all werkt altijd. Zie ravengun/output/live_feed.hpp.
+    // `src`: 0 = de Move, 1 = een muis als lightgun; de knoppen van beide bronnen tellen als OR (OverrideLayer).
     void feed_live(const ravengun::output::LiveAction& a) { feed_live(1, a); }
-    void feed_live(int player, const ravengun::output::LiveAction& a);
+    void feed_live(int player, const ravengun::output::LiveAction& a, int src = 0);
     bool armed() const;
     // Momentopname van de aim en knoppen van een speler, zoals de virtuele gun ze nu heeft (na transformatie, voorspelling en
     // uitvoerklok): voor de Unity-route (aagames_service), die dezelfde aim als pixels naar de game stuurt. u/v zijn de

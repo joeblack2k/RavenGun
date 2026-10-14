@@ -274,7 +274,7 @@ void OutputService::set_layout(int player, const std::vector<std::pair<std::stri
     players_[static_cast<size_t>(player - 1)].layout = layout;
 }
 
-void OutputService::feed_live(int player, const LiveAction& a) {
+void OutputService::feed_live(int player, const LiveAction& a, int src) {
     if (player < 1 || player > kPlayers) return;
     std::lock_guard<std::mutex> g(m_);
     if (shut_) return;
@@ -312,11 +312,12 @@ void OutputService::feed_live(int player, const LiveAction& a) {
     }
     if (a.buttons) {
         // Live OR synthetisch: een rapport dat "los" meldt mag een lopende output-button/key-druk niet annuleren.
-        out.set_button(GunButton::Trigger, p.ov.live_button(GunButton::Trigger, a.trigger));
-        out.set_button(GunButton::Reload, p.ov.live_button(GunButton::Reload, a.reload));
-        out.set_button(GunButton::Grenade, p.ov.live_button(GunButton::Grenade, a.grenade));
-        out.set_button(GunButton::Aux1, p.ov.live_button(GunButton::Aux1, a.aux1));
-        out.set_button(GunButton::Aux2, p.ov.live_button(GunButton::Aux2, a.aux2));
+        // ... en per bron: een Move die "los" meldt laat een vastgehouden muisknop van dezelfde speler staan (en omgekeerd).
+        out.set_button(GunButton::Trigger, p.ov.live_button(GunButton::Trigger, a.trigger, src));
+        out.set_button(GunButton::Reload, p.ov.live_button(GunButton::Reload, a.reload, src));
+        out.set_button(GunButton::Grenade, p.ov.live_button(GunButton::Grenade, a.grenade, src));
+        out.set_button(GunButton::Aux1, p.ov.live_button(GunButton::Aux1, a.aux1, src));
+        out.set_button(GunButton::Aux2, p.ov.live_button(GunButton::Aux2, a.aux2, src));
         for (const auto& k : a.keys) out.set_key(k.first, p.ov.live_key(k.first, k.second));
     }
 }

@@ -79,11 +79,21 @@ struct LiveAction {
 //  - Synthetisch is "down" (tot een expliciete up) of "tap" (tot de aanroeper het einde meldt met het token). Een nieuwere
 //    tap vervangt de oudere: het einde van de oude tap laat de nieuwe staan (token komt niet meer overeen).
 //  - up wist zowel down als lopende taps; clear() (disarm, stop, bronuitval, nieuwe arm) wist alles, ook de live stand.
+//  - De live stand wordt per bron bijgehouden (0 = de Move, 1 = een muis als lightgun) en telt als OR: stuurt een Move EN een
+//    muis dezelfde speler, dan wist een Move-rapport dat "los" meldt (~80 Hz) een vastgehouden muisknop niet (en omgekeerd).
 // Niet thread-safe: de eigenaar (OutputService) serialiseert met zijn mutex. Getest in tests/test_output.cpp.
 class OverrideLayer {
 public:
-    // Live stand van een knop/toets (per rapport); geeft terug wat er naar de uitvoer moet (live OR synthetisch).
-    bool live_button(GunButton b, bool live) { live_btn_[idx(b)] = live; return live || held_button(b); }
+    static constexpr int kLiveSources = 2;   // 0 = Move, 1 = muis
+    // Live stand van een knop/toets (per rapport van bron `src`); geeft terug wat er naar de uitvoer moet (live van alle bronnen OR
+    // synthetisch).
+    bool live_button(GunButton b, bool live, int src = 0) {
+        live_src_[static_cast<size_t>(src < 0 || src >= kLiveSources ? 0 : src)][idx(b)] = live;
+        bool any = false;
+        for (const auto& s : live_src_) any = any || s[idx(b)];
+        live_btn_[idx(b)] = any;
+        return any || held_button(b);
+    }
     bool live_key(int code, bool live);
     // Wat de uitvoer nu hoort te hebben (live OR synthetisch), zonder nieuw rapport.
     bool want_button(GunButton b) const { return live_btn_[idx(b)] || held_button(b); }
@@ -108,7 +118,8 @@ private:
     struct Hold { bool down = false; uint64_t tap = 0; };
     static size_t idx(GunButton b) { return static_cast<size_t>(b); }
     std::array<Hold, kGunButtonCount> btn_{};
-    std::array<bool, kGunButtonCount> live_btn_{};
+    std::array<bool, kGunButtonCount> live_btn_{};                            // OR van de bronnen hieronder
+    std::array<std::array<bool, kGunButtonCount>, kLiveSources> live_src_{};  // live stand per bron
     std::map<int, Hold> keys_;      // synthetisch per toets
     std::map<int, bool> live_keys_;
     uint64_t next_token_ = 0;
