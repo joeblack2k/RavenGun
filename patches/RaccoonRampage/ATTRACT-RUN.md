@@ -39,6 +39,11 @@ Looked at: `shots/rr10-sheet-start.jpg` (01:13:25 … 01:14:06), `rr10-sheet-a.j
 `rr10-sheet-whole.jpg` (twelve across the run), `rr10-sheet-end.jpg` (the last twelve, to 01:26:25).
 Single frames: `shots/rr10-shot-003-011346.jpg`, `-032-011848.jpg`, `-076-012625.jpg`.
 
+**The full-resolution captures of rr10 no longer exist.** I deleted them from the session's scratch
+folder in /tmp at about 01:30, after the coordinator's confirmation and before the instruction to keep
+such captures in the game's folder. What is left of rr10's pictures is in this folder: five contact
+sheets, three frames at 1280 pixels wide, and the index with every capture's time, hash and size.
+
 **Independently witnessed.** The coordinator recorded the same run from their side: 01:13:37 – 01:26:29,
 12 min 52 s, loaded by our own core; 27 substantive frames out of 38 samples (eleven samples failed to
 capture — real frames appear again after each gap, including at 01:25:02), and the frame they looked at
