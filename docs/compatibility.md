@@ -34,13 +34,29 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Tomb Raider Arcade**: Works without the TeknoParrot UI: lightgun, reload, coin and start, rumble when shooting. Not yet played with the real Move buttons.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (3)
+## Not tested yet (19)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
 - **3D Cosplay Mahjong**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
+- **Aliens Armageddon**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Armageddon (Raw Thrills): native 32-bit Linux ELF with a statically linked HASP/Aladdin dongle (aksusbd/NetHASP).
+- **Aliens Extermination**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Extermination (Global VR): 32-bit Windows PE with a statically linked HASP4 dongle and a USB HID check.
+- **Drakons Realm Keepers**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Drakons Realm Keepers: Matrix/SBK dongle; matrix64.dll answers everything, but no drop-in exists yet.
+- **Ghost Squad Evolution**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Ghost Squad Evolution: native Sega Lindbergh ELF with the older amDongle (Ver.0.12), no keychip layer.
+- **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
+- **Let's Go Jungle**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle: native Lindbergh ELF with the older amDongle, a backup layer carrying a region and a TEA_DIR path.
+- **Let's Go Jungle Special**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle Special: sibling of LGJ with the same protection shape; the cabinet script always passes an X config file.
+- **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.
+- **Mario Kart Arcade GP DX**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Mario Kart Arcade GP DX (Namco ES3, 32-bit Windows): a steering-wheel game, not a lightgun title; the protection is AMCUS (AMAuthd, ALL.Net).
 - **Operation G.H.O.S.T.**: Started, not played. The game starts and keeps running (STARTTEST.md with our own loader; ZONDER-LADER.md with no loader at all, 20 and 70 s). The region/PCB dongle is not enforced: without any region source it starts anyway. Playability was not measured.
+- **Rambo**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Rambo (Sega Lindbergh, 32-bit ELF): amDongle inside the ELF, the check is already forced in all four ELFs.
+- **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
+- **The House of the Dead 4**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead 4 (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.05 inside the ELF, check path unpatched.
+- **The House of the Dead 4 Special**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead 4 Special (Sega Lindbergh, 32-bit ELF): same amDongle layer as HOTD4, unpatched check path.
+- **The House of the Dead EX**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead EX (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.12, check already forced to succeed.
+- **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
+- **Too Spicy**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Too Spicy / Apache (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.12 inside the ELF, check path unpatched.
 
 ## Not working yet (17)
 

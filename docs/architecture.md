@@ -504,7 +504,7 @@ Redenen van ongeldigheid: `no_candidate`, `too_small`, `too_large`, `not_round`,
 
 ## Qt-app (app-laag, 2026-10-10)
 
-Geïmplementeerd; de kern is automatisch getest (`ravengun_app_tests`, Qt Test, 36 gevallen), de vensters met `ravengun_app_widget_tests` (10 gevallen: Properties voor alle 37 games uit de echte game-options.json, route-keuze, fullscreen met vizier en toetsen, aim-stroom met een nep-engine, wizard met een nep-pkexec, afbeeldingen, Add to Steam op een kopie) en op schermafdrukken tegen een test-engine (`--screenshot-dir`, offscreen). Niet op de tv en niet met een echte game of Move geprobeerd. Besluiten: `docs/decisions.md` (Qt 6.11 uit een container, Dolphin-overname, RavenGun vervangt TeknoParrotUi, nooit naar de NAS schrijven). Bouwen: `docs/build.md`. Bediening: `docs/user-guide.md`.
+Geïmplementeerd; de kern is automatisch getest (`ravengun_app_tests`, Qt Test, 36 gevallen), de vensters met `ravengun_app_widget_tests` (10 gevallen: Properties voor alle 33 games uit de echte game-options.json, route-keuze, fullscreen met vizier en toetsen, aim-stroom met een nep-engine, wizard met een nep-pkexec, afbeeldingen, Add to Steam op een kopie) en op schermafdrukken tegen een test-engine (`--screenshot-dir`, offscreen). Niet op de tv en niet met een echte game of Move geprobeerd. Besluiten: `docs/decisions.md` (Qt 6.11 uit een container, Dolphin-overname, RavenGun vervangt TeknoParrotUi, nooit naar de NAS schrijven). Bouwen: `docs/build.md`. Bediening: `docs/user-guide.md`.
 
 De app (`build-app/ravengun`, bron `src/app`) is de enige plek die de gebruiker ziet. Ze praat met de engine alleen via de IPC-socket; ze opent geen hardware en start geen games zelf.
 

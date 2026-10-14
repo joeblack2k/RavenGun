@@ -1065,7 +1065,7 @@ QString repoFile(const QString& rel) { return QStringLiteral(RAVENGUN_SOURCE_DIR
 }  // namespace
 
 void AppCoreTest::realGameOptions() {
-    // Het echte bestand uit de repo: 37 games, 564 opties, 76 memory-card-items (de tellers in het bestand zelf).
+    // Het echte bestand uit de repo: 33 games, 529 opties, 67 memory-card-items (de tellers in het bestand zelf).
     GameOptionsDb db;
     QString err;
     QVERIFY2(db.load(repoFile(QStringLiteral("packaging/game-options.json")), &err), qPrintable(err));
@@ -1290,7 +1290,7 @@ void AppCoreTest::patchesAndSettings() {
             ++info;
             QVERIFY(!i.enabled && i.appliedByCore && !i.version.isEmpty() && i.source.contains(QStringLiteral("TypeX2Generic.cpp")));
         }
-    QCOMPARE(info, 4);
+    QCOMPARE(info, 6);   // drie per build: versie 2100 (onze dump) en 2101J (andere build, alleen documentatie)
     QVERIFY(d.patchErrors(QStringLiteral("GaiaAttack4")).isEmpty());
     QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
     // Uitzetten: het gebruikers-patches.ini krijgt Enabled = false; de meegeleverde stand blijft zichtbaar.

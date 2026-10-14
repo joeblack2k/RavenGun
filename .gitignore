@@ -29,3 +29,4 @@ __pycache__/
 # loader hoort schoon te zijn. Op een ontwikkelmachine staat hier een koppeling naar die repo; die
 # is bewust niet vastgelegd. Zie docs/geen-dongle-in-de-loader.md en de README van ravengun-patches.
 /patches
+build-saver/
