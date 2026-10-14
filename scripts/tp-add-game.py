@@ -29,7 +29,9 @@ venstertitel): maakt een eigen prefix-kopie ravengun-test-<profiel> (reflink-kop
 zet daarin een Wine-virtueel bureaublad WxH (HKCU/Software/Wine/Explorer), zet Windowed=0 in het profiel en laat de game die
 prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix, VirtualDesktop). De gedeelde prefix blijft ongemoeid.
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
---view: maakt een lokale map met symlinks naar de bestanden van de game (er wordt niets van de game gekopieerd, op BepInEx/ na, en
+--view: (een start doet dit voor een game op de NAS vanzelf, met [Launch] View = N voor --view-up N en [Launch] ViewEmptyDirs voor
+--empty-dir; docs/per-game-patches.md "De view"; de opbouw staat in scripts/gameview.py)
+maakt een lokale map met symlinks naar de bestanden van de game (er wordt niets van de game gekopieerd, op BepInEx/ na, en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
 nodig voor 32-bit ElfLdr2-games, want TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relatief aan de
 gamemap. Ook nodig als de gamemap een spatie aan het eind heeft (Wine: "Directory name invalid"). Let op: nieuwe
@@ -56,65 +58,10 @@ import tpxml
 TP = os.environ.get('RAVENGUN_TP_DIR') or os.path.expanduser('~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64')
 
 
-# BepInEx/ is ONS artefact (onze plugin met zijn config, cache en LogOutput.log): die boom hoort lokaal in de view, nooit als symlink
-# naar de NAS (gemeten 2026-10-11, Rabbids Hollywood: BepInEx/ op de NAS beschreven via zo'n view). De eigen bestanden van de game
-# (saves, instellingen, kleine .ini/.json/.conf, NVRAM, dxvk-cache) blijven symlinks: de game woont op de NAS en schrijft daar zelf
-# (besluit van de eigenaar, 2026-10-12).
-LOKAAL_MAPPEN = {'bepinex'}
-
-
-def kopieer_lokaal(src, dst):
-    """Maak dst een echte map met echte kopieen van src (recursief). Bestaande lokale bestanden blijven staan; een symlink
-    op die plek wordt vervangen (alleen de link zelf wordt verwijderd, nooit wat erachter staat)."""
-    if os.path.islink(dst): os.unlink(dst)
-    os.makedirs(dst, exist_ok=True)
-    for e in os.listdir(src):
-        sp, dp = os.path.join(src, e), os.path.join(dst, e)
-        if os.path.islink(dp): os.unlink(dp)
-        if os.path.isdir(sp): kopieer_lokaal(sp, dp)
-        elif not os.path.lexists(dp): shutil.copyfile(sp, dp); shutil.copymode(sp, dp)
-
-
-def link_tree(src, dst, empties, top=True):
-    """Link elke ingang van src in dst; een pad uit `empties` (lijst van padonderdelen) wordt een lege map, en de mappen
-    erlangs worden echte mappen met links voor de rest (alleen lokaal; de bron blijft ongewijzigd). Op het hoogste niveau
-    (top) wordt BepInEx/ lokaal gekopieerd in plaats van gelinkt."""
-    os.makedirs(dst, exist_ok=True)
-    first = {e[0] for e in empties}
-    for e in os.listdir(src):
-        sp, dp = os.path.join(src, e), os.path.join(dst, e)
-        if e in first:
-            sub = [x[1:] for x in empties if x[0] == e]
-            if [] in sub:      # dit onderdeel zelf wordt leeg
-                os.makedirs(dp, exist_ok=True)
-            else:
-                link_tree(sp, dp, [x for x in sub if x], False)
-        elif top and e.lower() in LOKAAL_MAPPEN and os.path.isdir(sp):
-            kopieer_lokaal(sp, dp)
-        else:
-            if os.path.islink(dp): os.unlink(dp)      # een vorige keer
-            if not os.path.lexists(dp):               # een echte map van een vorige keer (bijv. een gematerialiseerde drop-in-map) blijft staan
-                os.symlink(sp, dp)
-
-
-def maak_keten_lokaal(src, view, rel_dir):
-    """De map van de exe, en elke map erboven tot aan de wortel van de view, wordt een ECHTE map met symlinks naar de inhoud
-    (in plaats van een symlink naar de NAS). Anders komt alles wat naast de exe moet staan (een drop-in met To = ., docs/dropins.md)
-    via die symlink op de NAS uit en kan het niet geplaatst worden; dat moest bij Luigi's Mansion (exe/x64/VACUUM.exe) met de hand.
-    Opnieuw te draaien: de links worden ververst en echte bestanden van een vorige keer (de drop-ins zelf) blijven staan. De bron
-    wordt alleen gelezen. Geeft de mappen terug die lokaal zijn gemaakt of ververst."""
-    gedaan = []
-    sp, dp = src, view
-    for deel in [d for d in rel_dir.split(os.sep) if d and d != '.']:
-        sp, dp = os.path.join(sp, deel), os.path.join(dp, deel)
-        if os.path.islink(dp): os.unlink(dp)
-        os.makedirs(dp, exist_ok=True)
-        for e in os.listdir(dp):
-            if os.path.islink(os.path.join(dp, e)): os.unlink(os.path.join(dp, e))
-        for e in os.listdir(sp):
-            if not os.path.lexists(os.path.join(dp, e)): os.symlink(os.path.join(sp, e), os.path.join(dp, e))
-        gedaan.append(dp)
-    return gedaan
+# De view (--view): scripts/gameview.py, gedeeld met launch-direct.py ([Launch] View = auto) en gelijk aan de C++-tweeling
+# (src/ravengun/launch/gameview.*; tests/test_gameview.py).
+from gameview import LOKAAL_MAPPEN, kopieer_lokaal, link_tree, maak_keten_lokaal, maak_view, ViewFout  # noqa: E402,F401
+from gameview import on_nas as gv_on_nas  # noqa: E402
 
 
 def prefix_env(path):
@@ -195,17 +142,12 @@ def main():
         for _ in range(up): gdir = os.path.dirname(gdir)
         rel = os.path.relpath(game, gdir)          # pad van de exe ten opzichte van de view-wortel
         view = os.path.expanduser(f'~/.local/share/ravengun/runtime/views/{prof}')
-        os.makedirs(view, exist_ok=True)
-        for e in os.listdir(view):
-            pth = os.path.join(view, e)
-            if os.path.islink(pth): os.unlink(pth)
-            elif os.path.isdir(pth) and e != 'TeknoParrot' and not os.listdir(pth): os.rmdir(pth)   # lege mappen van een vorige keer
         empties = [argv_[i + 1] for i, a in enumerate(argv_) if a == '--empty-dir' and i + 1 < len(argv_)]
-        link_tree(gdir, view, [e.strip('/').split('/') for e in empties])
-        for d in maak_keten_lokaal(gdir, view, os.path.dirname(rel)):
-            print(f'view: {os.path.relpath(d, view)}/ is een echte map met symlinks (de map van de exe hoort lokaal te zijn)')
-        if '<EmulatorType>ElfLdr2</EmulatorType>' in open(src, encoding='utf-8-sig').read():
-            os.symlink(os.path.join(TP, 'ElfLdr2'), os.path.join(view, 'ElfLdr2'))
+        elf = os.path.join(TP, 'ElfLdr2') if '<EmulatorType>ElfLdr2</EmulatorType>' in open(src, encoding='utf-8-sig').read() else None
+        try:
+            maak_view(gdir, view, rel, empties, elf, on_nas=gv_on_nas, log=print)
+        except ViewFout as e:
+            sys.exit(f'view: {e}')
         game = os.path.join(view, rel)
     if os.path.exists(dst):
         if not force: sys.exit(f'bestaat al: {dst} (gebruik --force)')

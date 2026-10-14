@@ -513,6 +513,7 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
     o.base_env = c.session_env ? c.session_env() : direct_session_env(c.proc_root);
     if (in.route == "jvs") o.base_env["RG_JVS_PTY"] = c.jvs_link;
     if (in.writes_tp_shm()) o.shm_source = ravengun::iobridge::kDefaultTpShmPath;
+    o.make_view = true;   // dit is de start: een game op de NAS krijgt hier zijn view ([Launch] View; zoals launch-direct.py --check)
     L::DirectPlan pl;
     v = L::plan_direct(profile, c.direct, o, pl, why);
     if (v == L::Verdict::Ok && L::needs_gst_fetch(pl)) {
@@ -829,6 +830,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     L::DirectOptions o;
     o.base_env = base;
     o.shm_source = shm;
+    o.make_view = true;
     L::DirectPlan pl;
     std::string why;
     if (L::plan_direct(profile, c_.direct, o, pl, why) != L::Verdict::Ok) return fail(profile + ": " + why);

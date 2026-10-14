@@ -388,6 +388,50 @@ int main() {
         fs::remove(tuser);
     }
 
+    // --- de automatische view ([Launch] View = auto): een game op de (nep-)NAS krijgt bij een start een lokale view -----------------
+    // (de boom zelf vergelijkt tests/test_gameview.py met tp-add-game.py --view; hier het plan en het plaatsen van teknoparrot.ini)
+    {
+        const fs::path ngame = home / "mnt/nas/Nas Spel";
+        write(ngame / "bin/nas.exe", "MZnas");
+        write(ngame / "bin/teknoparrot.ini", "oud van de NAS");
+        write(ngame / "Data/d.bin", "d");
+        write(fs::path(p.dirs.shipped) / "Nas/game.ini",
+              "[Game]\nProfile = Nas\nType = TeknoParrot\nEmulationProfile = WartranTroopers\nExecutable = nas.exe\nIs64Bit = true\n"
+              "GamePath = ~/mnt/nas/Nas Spel/bin/nas.exe\n\n[Launch]\nMode = direct\n\n[Input]\nRoute = evdev\nLayout = WartranTroopers\n\n"
+              "[Identify]\nPath = bin/nas.exe\n\n[Config]\nGeneral/Windowed = 1\n\n[ConfigType]\nGeneral/Windowed = Bool\n");
+        const fs::path nview = fs::path(p.views()) / "Nas";
+        DirectOptions mo = o;
+        // Droog (--plan): niets gemaakt, het plan rekent met de NAS en zegt dat de view bij de start komt.
+        CHECK(plan_direct("Nas", p, o, pl, why) == Verdict::Ok && pl.game == (ngame / "bin/nas.exe").string() && !fs::exists(nview));
+        CHECK(std::any_of(pl.notes.begin(), pl.notes.end(), [](const std::string& l) { return contains(l, "wordt bij de start gemaakt"); }));
+        // Een start: de view komt er (wortel = waar [Identify] Path begint), het plan rekent ermee.
+        mo.make_view = true;
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok);
+        CHECK(pl.game == (nview / "bin/nas.exe").string() && pl.game_source == "override -> view");
+        CHECK(fs::is_directory(nview / "bin") && !fs::is_symlink(nview / "bin") && fs::is_symlink(nview / "Data") && fs::is_symlink(nview / "bin/nas.exe"));
+        CHECK(pl.files.size() == 1 && pl.files[0].first == (nview / "bin/teknoparrot.ini").string());
+        // teknoparrot.ini: de link naar het bestand op de NAS wordt een eigen lokaal bestand; dat op de NAS blijft zoals het was.
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(pl, p, log, err));
+        CHECK(!fs::is_symlink(nview / "bin/teknoparrot.ini") && slurp(nview / "bin/teknoparrot.ini") == pl.files[0].second);
+        CHECK(slurp(ngame / "bin/teknoparrot.ini") == "oud van de NAS");
+        // Een volgende start: de view blijft (het lokale teknoparrot.ini ook), alleen de links worden ververst.
+        write(ngame / "bin/nieuw.dll", "MZ");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok && pl.game == (nview / "bin/nas.exe").string());
+        CHECK(fs::is_symlink(nview / "bin/nieuw.dll") && !fs::is_symlink(nview / "bin/teknoparrot.ini"));
+        // View = off: de oude route; een ongeldige waarde weigert.
+        const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+        write(nuser, "[Launch]\nView = off\n");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok && pl.game == (ngame / "bin/nas.exe").string());
+        write(nuser, "[Launch]\nView = misschien\n");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Refused && contains(why, "View = misschien"));
+        write(nuser, "[Launch]\nViewEmptyDirs = ../buiten\n");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Refused && contains(why, "buiten de view"));
+        fs::remove(nuser);
+        CHECK(!fs::exists(ngame / "Data/teknoparrot.ini") && !fs::exists(ngame / "teknoparrot.ini"));
+    }
+
     // --- rg-direct --run met een nep-wine -----------------------------------------------------------------------------------------
 #ifdef RG_DIRECT_BIN
     {

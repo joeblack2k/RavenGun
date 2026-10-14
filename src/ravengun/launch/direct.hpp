@@ -93,6 +93,8 @@ struct DirectOptions {
     std::string session_id;     // TP_LAUNCH_SESSION_ID (leeg = een nieuwe uuid4)
     // Breedte en hoogte van het scherm voor gamescope zonder RG_GAMESCOPE_RES (leeg = xrandr --current, anders 1920x1080).
     std::function<std::pair<int, int>(const EnvMap& env)> display_size;
+    // De view ([Launch] View, plan_view): maken of verversen (een start; launch-direct.py --check en --run) of alleen melden (--plan).
+    bool make_view = false;
 };
 
 // Het plan. Ok: `out` is volledig. Fallback/Refused: `why` zegt waarom (Nederlands, de melding van launch-direct.py waar die er is).

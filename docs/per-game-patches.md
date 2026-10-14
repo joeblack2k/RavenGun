@@ -151,7 +151,8 @@ ExeSha256 =                   ; optioneel: patches gelden alleen voor deze exe-v
 [Launch]
 Mode = direct                 ; direct | tpui (leeg = tpui)
 WorkingDirectory = .          ; relatief aan de map van de game-exe, of een Windows-pad (Z:\...)
-View =                        ; informatie: symlink-view (bv. Data -> DataGlobal/EN/Data); de launcher leest dit niet
+View =                        ; auto (leeg) | off | N: de lokale view van een game op de NAS (zie "De view"); N = --view-up N
+ViewEmptyDirs =               ; mappen die in de view leeg en lokaal zijn (--empty-dir), bv. RSGame/Content/Movies
 
 [Loader]
 RemoteThread = off            ; off = standaardroute van de lader; 1 = remote thread; leeg = niet gezet (de launcher kiest 1)
@@ -520,7 +521,7 @@ Het pad naar de game staat **nergens**: niet in de repo en normaal ook niet in d
 `[Identify]` (bij Dolphin het game-ID). Het pad wordt afgeleid, in deze volgorde:
 
 1. `[Game] GamePath` in de gebruikerslaag (een afwijkend pad dat de gebruiker zelf koos; de uitzondering, nooit in de repo);
-2. een lokale view `~/.local/share/ravengun/runtime/views/<Game>/` (door `tp-add-game.py --view` gemaakt) waarin `Path` bestaat;
+2. een lokale view `~/.local/share/ravengun/runtime/views/<Game>/` (door `tp-add-game.py --view` gemaakt, of vanzelf bij een start: zie "De view") waarin `Path` bestaat;
 3. met `Folder`: de map `<gamemap>/<Folder>` in elke gamemap (zonder de andere mappen te bekijken);
 4. de map die de app in `library.json` (`games`: `folder`, of de map van `exe`) bij dit profiel heeft;
 5. de gamemappen doorzoeken: elke submap van een gamemap (en de gamemap zelf) waarin `Path` bestaat en waarvan de grootte (`Size`) en
@@ -538,6 +539,46 @@ versie van het bestand (andere grootte) wordt niet herkend; kies dan het pad zel
 (`ownprofile.locate_game`), de app (`gamesettings::locate_game`) en de engine gebruiken dezelfde regels; de gamelijst van de engine hasht
 niet en let dan op pad, grootte en mapnaam (de directe route van de engine en de scripts controleren de sha256 wel, uit de cache; de
 bibliotheekscan van de app hasht zelf, zonder de cache).
+
+### De view (`[Launch] View`)
+
+Een game op de NAS (`~/mnt`, of een cifs/smb/nfs/sshfs-koppeling) draait op de directe route vanuit een **view**: een lokale map
+`~/.local/share/ravengun/runtime/views/<Game>/` met symlinks naar de gamemap. Wij schrijven nooit op de NAS; zonder view kreeg zo'n game
+geen `teknoparrot.ini` (Windowed, FreePlay, resolutie, DongleRegion, netwerk: "ligt op de NAS en ontbreekt; niet geschreven") en konden
+drop-ins nergens heen. In een view staan:
+
+- symlinks voor alles van de game (grote bestanden, de eigen saves en instellingen van de game: die woont op de NAS en schrijft daar zelf);
+- **echte lokale mappen** voor de map van de exe en elke map erboven tot de wortel van de view (daar komen `teknoparrot.ini` en drop-ins met
+  `To = .`), voor `BepInEx/` (onze plugin; lokaal gekopieerd) en voor de mappen uit `ViewEmptyDirs` (leeg);
+- bij een 32-bit ElfLdr2-game een link `ElfLdr2` naar de lader van TeknoParrot.
+
+Een start (de app/daemon, `launch-direct.py --check`/`--run`, `rg-direct --plan --make-view`) maakt de view **vanzelf** als die nog niet
+bestaat, met precies de opbouw van `scripts/tp-add-game.py <Game> <exe> --view [--view-up N] [--empty-dir REL]` (C++:
+`src/ravengun/launch/gameview.*`, Python: `scripts/gameview.py`, dat ook `tp-add-game.py` gebruikt; `tests/test_gameview.py` vergelijkt de
+drie bomen op een nep-NAS). Daarna rekent het plan met de exe in de view, en `teknoparrot.ini` wordt lokaal naast de exe geschreven (staat
+er een link naar een `teknoparrot.ini` op de NAS, dan gaat alleen die link weg; het bestand op de NAS blijft ongemoeid).
+
+| sleutel | waarde | gelijk aan |
+|---|---|---|
+| `[Launch] View` | `auto` (leeg, standaard): een view als de game op de NAS staat; de wortel is de map waar `[Identify] Path` begint (zonder `Path` de map van de exe). `off`: de oude route, rechtstreeks van de NAS (geen view, geen `teknoparrot.ini`, drop-ins geweigerd). Een getal `N` (0..99): altijd een view, ook voor een lokale game, met de wortel `N` mappen boven de map van de exe. | `--view`, `--view-up N` |
+| `[Launch] ViewEmptyDirs` | paden ten opzichte van de view-wortel, gescheiden door komma of puntkomma; elk wordt een lege lokale map in plaats van een link (bv. `RSGame/Content/Movies` voor Raccoon Rampage). `..` mag niet. | `--empty-dir REL` (herhaalbaar) |
+
+Regels:
+
+- **Bestaat de view al** en bevat hij deze game, dan blijft hij zoals hij is (ook een met de hand gemaakte); alleen de links worden
+  ververst: in de wortel en in de echte mappen op weg naar de exe komt een link bij voor wat er op de NAS bij is gekomen, en links naar een
+  verdwenen bestand in de gamemap gaan weg. Echte bestanden en mappen (lokale `teknoparrot.ini`, drop-ins, lege mappen, `BepInEx/`)
+  blijven staan. Een bestaande, niet-lege `views/<Game>/` zonder deze game wordt niet aangeraakt: de start weigert dan ("bestaat al maar
+  bevat de game niet"; maak hem opnieuw of zet `View = off`).
+- **NAS-veiligheid.** Elke stap (map maken, link zetten of weghalen, bestand kopieren) controleert eerst dat de map waarin hij schrijft
+  lokaal is (gevolgd); komt de view-map zelf op de NAS uit, dan weigert de start met een melding. Na het maken controleert de launcher
+  onze schrijfpaden (de view, de mappen op weg naar de exe, `BepInEx/`, de lege mappen), zoals `pruef_schrijfpaden` in
+  `scripts/aagames-setup.py` en `nas_write_errors` in `unity.cpp`.
+- **Droog plannen maakt niets.** `launch-direct.py --plan` en `rg-direct --plan` (en dus `tests/direct_golden.py`, ook `--real`) maken
+  of verversen geen view: voor een game op de NAS zonder view rekent het plan dan met het pad op de NAS en meldt het "wordt bij de start
+  gemaakt". Dat is het enige verschil met een start; `tests/direct_golden.py` plant hermetisch beide kanten nog eens met de views van
+  een start (`--make-view`) en vergelijkt plannen en bomen (TC5 op de nep-NAS: droog geweigerd, bij een start een view en gelijk).
+- Een ongeldige waarde (`View = soms`) weigert de start ("Instelling geweigerd").
 
 ### Importer
 
