@@ -211,6 +211,7 @@ JvsBoards parse_jvs_boards(const std::string& text, std::string& err) {
         b.description = str_or(o, "description", "");
         b.identify = str_or(o, "identify", b.identify);
         if (const json::Value* c = o.find("complete"); c && c->is_bool()) b.complete = c->b;
+        if (const json::Value* c = o.find("namco"); c && c->is_bool()) b.namco = c->b;
         bool ok = int_field(o, "comm_version", b.comm_version) && int_field(o, "jvs_version", b.jvs_version) &&
                   int_field(o, "command_rev", b.command_rev) && int_field(o, "players", b.players) && int_field(o, "buttons", b.buttons) &&
                   int_field(o, "coin_slots", b.coin_slots) && int_field(o, "analog_channels", b.analog_channels) &&
@@ -299,6 +300,24 @@ int arg_length(const std::vector<uint8_t>& d, size_t pos, uint8_t cmd) {
 
 }  // namespace
 
+size_t jvs_namco_command_length(const std::vector<uint8_t>& d, size_t pos) {
+    if (pos >= d.size()) return 0;
+    const size_t rest = d.size() - pos;
+    auto clamp = [&](size_t n) { return std::min(n, rest); };
+    const uint8_t cmd = d[pos];
+    if (cmd >= 0x78 && cmd <= 0x80) return clamp(15);
+    if (cmd != 0x70) return 0;
+    if (rest < 2) return rest;
+    switch (d[pos + 1]) {
+        case 0x03: case 0x15: case 0x16: return clamp(4);
+        case 0x05: {   // de derde byte is de lengte van het hele commando (minstens commando, sub en die lengtebyte zelf)
+            if (rest < 3) return rest;
+            return clamp(std::max<size_t>(3, d[pos + 2]));
+        }
+        default: return rest;   // 0x18 en onbekende subcommando's: de rest van het packet
+    }
+}
+
 std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadcast, bool can_take_address) {
     std::vector<uint8_t> rep;   // rapporten (zonder status)
     bool answer = !broadcast;   // een broadcast krijgt alleen antwoord van de node die het adres neemt
@@ -306,8 +325,24 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
     ++stats_.requests;
     size_t pos = 0;
     while (pos < d.size()) {
+        if (board_.namco) {
+            // De eigen commando's van een Namco-hoofdbord (zie JvsBoard::namco): lezen, kort beantwoorden, verder.
+            if (const size_t nl = jvs_namco_command_length(d, pos)) {
+                const uint8_t c = d[pos];
+                ++stats_.commands[c];
+                rep.push_back(kJvsReportOk);
+                if (c == 0x70 && nl >= 2) {
+                    const uint8_t sub = d[pos + 1];
+                    if (sub == 0x03) rep.push_back(0x00);
+                    else if (sub == 0x05 || sub == 0x15 || sub == 0x16 || sub == 0x18) rep.push_back(0x01);
+                }
+                pos += nl;
+                continue;
+            }
+        }
         const uint8_t cmd = d[pos++];
         const int al = arg_length(d, pos, cmd);
+        if (al == -1 && board_.namco) { ++stats_.unknown; continue; }   // Namco: een onbekende byte overslaan, zonder antwoord
         if (al == -1) { status = kJvsStatusUnknownCmd; ++stats_.unknown; break; }
         if (al == -2 || pos + static_cast<size_t>(al) > d.size()) { rep.push_back(kJvsReportBadParamCount); break; }
         const uint8_t* a = d.data() + pos;

@@ -1,6 +1,8 @@
 #include "iobridge_service.hpp"
 
 #include <algorithm>
+#include <climits>
+#include <cstdlib>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -14,6 +16,7 @@
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/output/key_table.hpp"
+#include "ravengun/vision/camera_feed.hpp"
 
 namespace ravengund {
 
@@ -197,6 +200,13 @@ IoRoutes IoBridgeService::effective_routes() const {
 }
 
 std::string IoBridgeService::start(const std::string& game, const std::string& route_override) {
+    const std::string err = start_route(game, route_override);
+    // De camera voor het spel pas na de route: het wisselen van route stopt eerst de vorige (en daarmee de camera).
+    if (err.empty()) apply_game_camera(game);
+    return err;
+}
+
+std::string IoBridgeService::start_route(const std::string& game, const std::string& route_override) {
     const IoRoutes routes = effective_routes();
     std::string route = route_override.empty() ? routes.route_for(game) : route_override;
     if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp, hid-board of jvs)";
@@ -382,7 +392,37 @@ bool IoBridgeService::resume() {
     return true;
 }
 
+void IoBridgeService::apply_game_camera(const std::string& game) {
+    if (!sh_.set_game_camera || !sh_.game_camera_on) return;
+    const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(cfg_.dirs, game);
+    std::string app = "auto";
+    if (!cfg_.app_conf.empty()) {
+        std::ifstream f(cfg_.app_conf);
+        std::stringstream ss;
+        ss << f.rdbuf();
+        app = ravengun::vision::app_camera_setting(ss.str());
+    }
+    const auto c = ravengun::vision::camera_choice(g.settings.get("Camera", "Use"), g.settings.get("Camera", "Device"), app);
+    if (c.error) logf("waarschuwing", "camera voor %s: %s", game.c_str(), c.why.c_str());
+    bool on = !c.device.empty();
+    std::string why = game + ": " + c.why;
+    if (on && c.device != "auto") {
+        // Alleen de camera die de daemon zelf open heeft kan hij doorgeven; een tweede camera opent (nog) niemand voor het spel.
+        char a[PATH_MAX], b[PATH_MAX];
+        const std::string mine = sh_.camera_device ? sh_.camera_device() : std::string();
+        const bool same = !mine.empty() && ::realpath(c.device.c_str(), a) && ::realpath(mine.c_str(), b) && std::string(a) == b;
+        if (!same) {
+            on = false;
+            why = game + ": gekozen camera " + c.device + " is niet de camera van de daemon (" + (mine.empty() ? std::string("geen") : mine) +
+                  "); een tweede camera wordt nog niet aan een spel doorgegeven";
+        }
+    }
+    if (on && sh_.camera_enabled && !sh_.camera_enabled()) why += " (maar de camera van de daemon staat uit: --no-camera)";
+    if (on || sh_.game_camera_on()) sh_.set_game_camera(on, why);
+}
+
 void IoBridgeService::stop_locked() {
+    if (sh_.game_camera_on && sh_.set_game_camera && sh_.game_camera_on()) sh_.set_game_camera(false, "de IO-brug stopt (game weg of gestopt)");
     if (!dialect_) return;
     apply_coin_keys(IoState{});   // vastgehouden munttoetsen loslaten
     dialect_->neutral();

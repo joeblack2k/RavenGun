@@ -53,6 +53,8 @@ public:
         std::string tpui_procs;       // cgroup.procs van ravengun-tpui.service (leeg = geen bewaking)
         std::string shm_path = ravengun::iobridge::kDefaultTpShmPath;
         std::string tpui_shm_path = ravengun::iobridge::kTpuiShmPath;
+        // ravengun-app.conf van de app ([Games] camera: welke camera een spel krijgt); leeg = alleen [Camera] uit game.ini.
+        std::string app_conf;
         int tick_hz = 250;
         int grace_ms = 8000;          // zo lang na het verdwijnen van de game stopt de route
         int never_ms = 10 * 60 * 1000; // zo lang wachten op een game die niet verschijnt
@@ -96,6 +98,10 @@ private:
     void apply_coin_keys(const ravengun::iobridge::IoState& s);
     void write_state_file(const std::string& route, const std::string& game);
     void stop_locked();
+    // De camera voor deze game ([Camera] in game.ini en de keuze in de app): de daemon zet het beeld van zijn camera aan of uit
+    // voor het spel (CameraService::set_game_feed; src/ravengun/vision/camera_feed.hpp).
+    void apply_game_camera(const std::string& game);
+    std::string start_route(const std::string& game, const std::string& route_override);
     SharedState& sh_;
     Config cfg_;
     mutable std::mutex routes_m_;

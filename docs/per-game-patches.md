@@ -474,8 +474,15 @@ Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN 
 - Een game.ini kan niets anders dan `/dev/videoN` vragen; een andere waarde, of een onbekende rol, stopt de start met een melding.
 - Het logboek van elke run zegt wat er gekozen is: `camera: /dev/video0 doorgegeven (rol game: ...)` of `camera: geen (rol ...)`.
 - Zelf nakijken: `python3 -I scripts/camera.py list` (de camera's) en `python3 -I scripts/camera.py resolve <Game>` (de keuze).
-- Op de Wine-routes is er geen sandbox: het spel ziet daar elke camera die de gebruiker mag gebruiken, en deze instelling
-  verandert dat (nog) niet. Niet gemeten of een Wine-spel de camera daar vindt.
+- Op de Wine-routes is er geen sandbox, maar Wine zelf biedt geen videocamera's aan via Media Foundation (gemeten in `mf.dll`
+  van proton-11.0-2: `MFEnumDeviceSources` geeft bij VIDCAP `*count = 0`). Daarom de **virtuele camera van de daemon**: start de
+  IO-brug een game met `Use = game` en is de gekozen camera die van de daemon (`auto`, of hetzelfde `/dev/videoN`), dan schrijft de
+  daemon het beeld van zijn camera (YUY2, de tracking loopt door) in `/dev/shm/ravengun_Camera`
+  (`src/ravengun/vision/camera_feed_format.h`); stopt de route, dan is het bestand weg. In het spelproces biedt de drop-in
+  `rg-mfcam.dll` (`tools/rg-mfcam/`, bouwen met `scripts/build-mfcam.sh`, `Preload = true`) dat bestand aan als Media
+  Foundation-camera ("RavenGun camera"; YUY2, NV12 en RGB32). Eerste gebruiker: Mario Kart Arcade GP DX. Een tweede camera
+  (niet die van de daemon) wordt op de Wine-route nog niet doorgegeven; het logboek van de daemon zegt dat
+  (`camera voor het spel aan/uit: ...`). `ravengunctl --json camera` toont `game_feed`.
 
 **Twee exe's (`HasTwoExecutables`).** Een profiel met een los hulpprogramma naast het spel (een daemon) wordt door
 `launch-direct.py` in een vaste orde gestart: de tweede exe eerst als `LaunchSecondExecutableFirst = true`, anders het spel eerst;

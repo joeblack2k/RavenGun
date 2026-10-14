@@ -654,6 +654,10 @@ int main(int argc, char** argv) {
         if (sl != std::string::npos) io_cfg.state_path = sock.substr(0, sl) + "/iobridge.json";
         if (sl != std::string::npos) io_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";
         io_cfg.tpui_procs = games_cfg.tpui_procs;
+        if (use_config && !home.empty()) {
+            const char* xc = std::getenv("XDG_CONFIG_HOME");
+            io_cfg.app_conf = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/ravengun-app.conf";
+        }
     }
     // Gamepad naast de lightgun (docs/gamepad.md): toewijzingen bewaard in config.json, [Gamepad] van de game die de IO-brug start.
     // Met --no-hid worden er geen apparaten geopend (tests).
@@ -699,6 +703,10 @@ int main(int argc, char** argv) {
     CameraService camera(shared, cam);
     shared.camera = &camera;
     shared.camera_status = [&camera] { return camera.status_json(); };
+    shared.set_game_camera = [&camera](bool on, const std::string& why) { camera.set_game_feed(on, why); };
+    shared.game_camera_on = [&camera] { return camera.game_feed(); };
+    shared.camera_device = [&camera] { return camera.device_path(); };
+    shared.camera_enabled = [&camera] { return camera.enabled(); };
     if (cam.enabled)
         logf("info", "camera aan (%s, %dx%d@%d, %s), LED %s (%d,%d,%d), tracker-tint %.0f +- %.0f graden",
              cam.device.empty() ? "automatisch" : cam.device.c_str(), cam.width, cam.height, cam.fps,
@@ -765,6 +773,13 @@ int main(int argc, char** argv) {
     hid.join();
     ipc.join();
     if (web.joinable()) web.join();
+    // De camera gaat eerder uit de lucht dan de IO-brug (die bij het stoppen de camera voor het spel uitzet).
+    shared.camera = nullptr;
+    shared.camera_status = nullptr;
+    shared.set_game_camera = nullptr;
+    shared.game_camera_on = nullptr;
+    shared.camera_device = nullptr;
+    shared.camera_enabled = nullptr;
     if (wfd >= 0) ::close(wfd);
     output.shutdown();  // patroon stoppen, alle knoppen vrijgeven, apparaat verwijderen
     ::close(sfd);
