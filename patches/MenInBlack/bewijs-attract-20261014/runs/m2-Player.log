@@ -1,0 +1,40 @@
+Mono path[0] = 'Z:/home/deck/.local/share/ravengun/runtime/views/MenInBlack/MIB/MIB_Data/Managed'
+Mono config path = 'Z:/home/deck/.local/share/ravengun/runtime/views/MenInBlack/MIB/MonoBleedingEdge/etc'
+Initialize engine version: 2020.3.14f1 (d0d1bb862f9d)
+[Subsystems] Discovering subsystems at path Z:/home/deck/.local/share/ravengun/runtime/views/MenInBlack/MIB/MIB_Data/UnitySubsystems
+GfxDevice: creating device client; threaded=1
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: AMD Radeon RX 6950 XT (RADV NAVI21) (ID=0x73a5)
+    Vendor:   
+    VRAM:     16368 MB
+    Driver:   35.0.99999.9999
+Begin MonoManager ReloadAssembly
+- Completed reload, in  1.194 seconds
+Shader 'Effects/Explosions/DistortionFresnel': fallback shader 'Effects/Distortion/Free/CullOff' not found
+Shader 'ASESampleShaders/Terrain/TerrainSnowCoverageFirstPass': dependency 'BaseMapShader' shader 'ASESampleShaders/TerrainBase' not found
+D3D11 device created for Microsoft Media Foundation video decoding.
+<RI> Initializing input.
+<RI> Input initialized.
+<RI> Initialized touch support.
+UnloadTime: 0.331000 ms
+Curl error 7: Failed to connect to config.uca.cloud.unity3d.com port 443: Connection refused
+
+HighScore Cleared
+
+Curl error 7: Failed to connect to cdp.cloud.unity3d.com port 443: Connection refused
+
+CONNECTING TO SERIAL
+
+SUCCESS! Connected to COM33
+
+Assigning top most flag to window of title: MIB
+
+Credit Init
+
+Setting up 4 worker threads for Enlighten.
+  Thread -> id: 2b8 -> priority: 1 
+  Thread -> id: 2bc -> priority: 1 
+  Thread -> id: 2c0 -> priority: 1 
+  Thread -> id: 2c4 -> priority: 1 
+Curl error 42: Callback aborted

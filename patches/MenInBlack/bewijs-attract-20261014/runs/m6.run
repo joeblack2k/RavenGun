@@ -1,0 +1,43 @@
+RUN m6 -- MenInBlack -- started 2026-10-14 02:51:54
+DECLARED: core=ravengun  share=overlay-keep  shm-source=launcher default  exe=from the profile  limit=240s  captures every 6s
+THIS RUN: against m5: [Debug] NoVerify=1 in the view's local Game.ini. Local shell copy with the I/O change, /k=e6222935, SecurityDisabled=1.
+user layer (/home/deck/.local/share/ravengun/patches/MenInBlack/game.ini) at start:
+    (none)
+launcher plan (scripts/launch-direct.py MenInBlack --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/MenInBlack/shell/Shell.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-mib
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll
+    core_sha256: 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-mib', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:51:56
+launcher says: [launch-direct 02:51:55] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll sha256 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+02:52:07 alive: pid 1932317, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:52:37 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1932589, 80 threads, started 02:52:12, core DLL in it: none
+02:53:07 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:53:37 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1933673, 86 threads, started 02:53:09, core DLL in it: none
+02:54:07 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1934388, 78 threads, started 02:53:43, core DLL in it: none
+02:54:37 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1935035, 78 threads, started 02:54:15, core DLL in it: none
+02:55:07 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1935618, 78 threads, started 02:54:45, core DLL in it: none
+02:55:37 alive: pid 1932317, 16 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: pid 1936279, 78 threads, started 02:55:18, core DLL in it: none
+ENDED 2026-10-14 02:55:58 -- launcher: 02:55:57 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:55:58
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/m6/upper):
+    02:52:06.5638388860       204 ./shell/variables/erlg
+    02:52:06.5686375010       204 ./shell/variables/erlg.bak
+    02:52:24.1546619100         8 ./shell/variables/p1tt
+    02:52:24.1921096320         8 ./shell/variables/p1tt.bak
+    02:52:24.1969687660         5 ./shell/variables/p1fv
+    02:52:24.3078753940         5 ./shell/variables/p1fv.bak
+    02:52:24.6551899800         8 ./shell/variables/p2tt
+    02:52:24.6991049380         8 ./shell/variables/p2tt.bak
+    02:52:24.7469833360         5 ./shell/variables/p2fv
+    02:52:24.7741042430         5 ./shell/variables/p2fv.bak
+    02:55:04.2436294350         8 ./shell/variables/tton
+    02:55:04.2446294260         8 ./shell/variables/tton.bak
+captures: 39, first shot-001-025154.png, last shot-039-025555.png

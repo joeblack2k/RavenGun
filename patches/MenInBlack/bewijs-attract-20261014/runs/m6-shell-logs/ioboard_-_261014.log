@@ -1,0 +1,70 @@
+Log Started : 14/10/2026 - 00:52:01:611
+[ 00:52:01:613 ] IOMkII: IOBOARD_INITIALISE
+[ 00:52:01:616 ] InitIOBoard : Couldn't find IOBoard device
+[ 00:52:02:615 ] IOMkII: IOBOARD_INITIALISE
+[ 00:52:02:619 ] InitIOBoard : Couldn't find IOBoard device
+[ 00:52:04:538 ] Sending output hid 0
+[ 00:52:04:539 ] Sending 0x00 to 0x00 0x00 0x00
+[ 00:52:04:539 ] WriteHID - Lost HiD Handle!
+[ 00:52:04:549 ] Sending output hid 16384
+[ 00:52:04:549 ] Sending 0x4000 to 0x00 0x00 0x40
+[ 00:52:04:549 ] WriteHID - Lost HiD Handle!
+[ 00:52:07:883 ] HIDioShutdown : Called
+[ 00:52:07:884 ] HIDioShutdown : Suspended
+[ 00:52:23:657 ] Sending output hid 0
+[ 00:52:23:657 ] Sending 0x00 to 0x00 0x00 0x00
+[ 00:52:23:657 ] WriteHID - Lost HiD Handle!
+[ 00:52:23:809 ] Sending output hid 0
+[ 00:52:23:809 ] Sending 0x00 to 0x00 0x00 0x00
+[ 00:52:23:809 ] WriteHID - Lost HiD Handle!
+[ 00:52:24:062 ] Sending output hid 48
+...
+# distinct messages across all 2815 lines, with counts:
+    936 WriteHID - Lost HiD Handle!
+    395 Sending output hid 0
+    395 Sending 0x00 to 0x00 0x00 0x00
+    382 Sending output hid 48
+    382 Sending 0x30 to 0x00 0x30 0x00
+     23 Sending output hid 16384
+     23 Sending 0x4000 to 0x00 0x00 0x40
+     19 Sending output hid 16449
+     19 Sending 0x4041 to 0x00 0x41 0x40
+     12 Sending output hid 16448
+     12 Sending output hid 16385
+     12 Sending 0x4040 to 0x00 0x40 0x40
+     12 Sending 0x4001 to 0x00 0x01 0x40
+     11 Sending output hid 2352
+     11 Sending 0x930 to 0x00 0x30 0x09
+     10 Sending output hid 7024
+     10 Sending output hid 4720
+     10 Sending output hid 14064
+     10 Sending output hid 11696
+     10 Sending 0x36f0 to 0x00 0xf0 0x36
+     10 Sending 0x2db0 to 0x00 0xb0 0x2d
+     10 Sending 0x1b70 to 0x00 0x70 0x1b
+     10 Sending 0x1270 to 0x00 0x70 0x12
+      7 Sending output hid 6976
+      7 Sending output hid 4672
+      7 Sending output hid 2304
+      7 Sending output hid 14016
+      7 Sending output hid 11648
+      7 Sending 0x900 to 0x00 0x00 0x09
+      7 Sending 0x36c0 to 0x00 0xc0 0x36
+      7 Sending 0x2d80 to 0x00 0x80 0x2d
+      7 Sending 0x1b40 to 0x00 0x40 0x1b
+      7 Sending 0x1240 to 0x00 0x40 0x12
+      2 Sending output hid 816
+      2 Sending output hid 6256
+      2 Sending 0x330 to 0x00 0x30 0x03
+      2 Sending 0x1870 to 0x00 0x70 0x18
+      2 IOMkII: IOBOARD_INITIALISE
+      2 InitIOBoard : Couldn't find IOBoard device
+      1 Sending output hid 768
+      1 Sending output hid 6208
+      1 Sending output hid 11184
+      1 Sending 0x300 to 0x00 0x00 0x03
+      1 Sending 0x2bb0 to 0x00 0xb0 0x2b
+      1 Sending 0x1840 to 0x00 0x40 0x18
+      1 Log Started : 14/10/2026 - 00:52:01:611
+      1 HIDioShutdown : Suspended
+      1 HIDioShutdown : Called

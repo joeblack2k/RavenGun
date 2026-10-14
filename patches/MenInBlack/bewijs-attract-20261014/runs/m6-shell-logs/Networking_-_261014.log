@@ -1,0 +1,81 @@
+Log Started : 14/10/2026 - 00:52:04:490
+[ 00:52:13:292 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:52:13:315 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:52:13:315 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:52:22:327 ] NetworkServerProcess : Game connected
+[ 00:52:23:633 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:52:23:645 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:52:23:646 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:52:33:434 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:52:43:440 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:53:00:713 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:53:04:758 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:53:04:758 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:53:04:758 ] NetworkServerShutdown : OK
+[ 00:53:10:147 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:53:10:155 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:53:10:155 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:53:18:468 ] NetworkServerProcess : Game connected
+[ 00:53:19:596 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:53:19:607 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:53:19:607 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:53:29:391 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:53:35:769 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:53:38:710 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:53:38:710 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:53:38:710 ] NetworkServerShutdown : OK
+[ 00:53:44:038 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:53:44:046 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:53:44:046 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:53:51:730 ] NetworkServerProcess : Game connected
+[ 00:53:52:860 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:53:52:870 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:53:52:871 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:54:02:710 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:54:07:402 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:54:10:289 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:54:10:289 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:54:10:289 ] NetworkServerShutdown : OK
+[ 00:54:15:613 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:54:15:622 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:54:15:622 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:54:23:060 ] NetworkServerProcess : Game connected
+[ 00:54:24:220 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:54:24:230 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:54:24:230 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:54:34:013 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:54:37:468 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:54:40:368 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:54:40:368 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:54:40:368 ] NetworkServerShutdown : OK
+[ 00:54:45:704 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:54:45:712 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:54:45:712 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:54:53:186 ] NetworkServerProcess : Game connected
+[ 00:54:54:315 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:54:54:326 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:54:54:326 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:55:04:220 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:55:10:109 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:55:13:063 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:55:13:063 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:55:13:063 ] NetworkServerShutdown : OK
+[ 00:55:18:362 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:55:18:370 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:55:18:370 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:55:25:796 ] NetworkServerProcess : Game connected
+[ 00:55:26:930 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:55:26:941 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:55:26:942 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD
+[ 00:55:36:795 ] 	GAME_MSG_SECURITY_CHALLENGE
+[ 00:55:39:896 ] 	GAME_MSG_FINISHED_LOADING_ASSETS
+[ 00:55:42:784 ] NetworkReceiveData : Socket Closed by Client!
+[ 00:55:42:809 ] NetworkReceiveCommand : WARNING - Socket is invalid
+[ 00:55:42:809 ] NetworkServerShutdown : OK
+[ 00:55:48:125 ] NetworkServerProcess : WINSock 2.2 initialised
+[ 00:55:48:133 ] NetworkServerProcess : ServerSocket bound OK
+[ 00:55:48:133 ] NetworkServerProcess : ServerSocket listening OK
+[ 00:55:55:576 ] NetworkServerProcess : Game connected
+[ 00:55:56:716 ] 	GAME_MSG_LAUNCHED_OK dlen=0 seq=2
+[ 00:55:56:725 ] SET_CREDIT_VALUE = 3 (0 of 1)
+[ 00:55:56:726 ] Sent:SHELL_MSG_SET_SKU sent - Cab Type = STANDARD

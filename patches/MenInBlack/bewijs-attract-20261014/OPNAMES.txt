@@ -1,0 +1,4 @@
+The full-resolution capture sets of all six runs (m1..m6, 143 MB) are kept OUTSIDE this repository, at
+~/.local/share/ravengun/bench-captures/MenInBlack/<run>-shots/ on the bench machine. In git are the contact
+sheets and a few selected frames (shots/). Most runs show only the desktop or a black window -- the evidence of
+those is the logs in runs/, not the frames.
