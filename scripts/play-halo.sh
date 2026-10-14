@@ -29,7 +29,8 @@
 #           (route tp-shm; een profiel met route evdev schakelt over op tp-shm als er een indeling is). Staat in game.ini
 #           [Launch] Mode = direct, dan is dit de standaard; --tpui dwingt dan TeknoParrotUi af. Kan de directe start
 #           niet (activering niet in de prefix, profiel niet ondersteund), dan valt het script terug op TeknoParrotUi (behalve
-#           met --direct: dan stopt het met een melding).
+#           met --direct: dan stopt het met een melding). Vanuit de app start de daemon zo'n game zelf (GameService,
+#           src/ravengun/launch/direct.*, tools/rg-direct); dit script krijgt dan alleen wat de engine (nog) niet kan.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"   # RG_BIN en RG_LIB: repo (build/) of installatie (<prefix>/bin en lib)

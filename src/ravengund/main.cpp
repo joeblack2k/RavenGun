@@ -19,7 +19,9 @@
 #include "controllers.hpp"
 #include "ravengun/games/aagames.hpp"
 #include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/routes.hpp"
+#include "ravengun/launch/direct.hpp"
 #include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/paths.hpp"
@@ -517,12 +519,60 @@ int main(int argc, char** argv) {
             if (shared.output) shared.output->disarm();
         };
         if (!np.json.empty()) logf("info", "games: native profielen uit %s start de daemon zelf (zonder script)", np.json.c_str());
+        // De directe route (A10, [Launch] Mode = direct): de daemon start zo'n game zelf met rg-direct als hoofdproces van de unit,
+        // op de plaats van play-halo.sh -> launch-direct.py. Wat de engine nog niet kan, gaat via het script (src/ravengun/launch/direct.hpp).
+        ravengun::launch::DirectPaths& dp = games_cfg.direct;
+        dp = ravengun::launch::default_direct_paths(ravengun::launch::environ_map());
+        dp.dirs = games_cfg.dirs;
+        if (!games_cfg.library_file.empty()) dp.library_file = games_cfg.library_file;
+        if (!np.exec_helper.empty()) {
+            const std::string runner = np.exec_helper.substr(0, np.exec_helper.rfind('/')) + "/rg-direct";
+            if (::access(runner.c_str(), X_OK) == 0) games_cfg.direct_runner = runner;
+        }
+        {
+            const size_t sl = sock.rfind('/');
+            if (sl != std::string::npos) games_cfg.jvs_link = sock.substr(0, sl) + "/jvs-com";   // gelijk aan io_cfg.jvs_link hieronder
+        }
+        games_cfg.input_by_id = "/dev/input/by-id";
+        auto packaging_text = [data_root](const char* file) {
+            std::string text;
+            if (data_root.empty()) return text;
+            if (FILE* f = std::fopen((data_root + "/packaging/" + file).c_str(), "rb")) {
+                char buf[4096];
+                size_t n;
+                while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < 256 * 1024) text.append(buf, n);
+                std::fclose(f);
+            }
+            return text;
+        };
+        games_cfg.hid_vidpid = [packaging_text](const std::string& board) -> std::string {
+            std::string text = packaging_text("hid-boards.json"), err;
+            if (text.empty())
+                if (const auto* a = ravengun::web::find_asset("hid-boards.json")) text = a->data;
+            const auto boards = ravengun::iobridge::parse_hid_boards(text, err);
+            const auto* b = boards.find(board);
+            if (!b) return {};
+            char v[16];
+            std::snprintf(v, sizeof v, "%04X:%04X", b->vendor & 0xFFFF, b->product & 0xFFFF);
+            return v;
+        };
+        games_cfg.unity_game = [packaging_text](const std::string& profile) {
+            std::string err;
+            return ravengun::games::parse_aagames_config(packaging_text("aagames-games.json"), err).find(profile) != nullptr;
+        };
+        if (!games_cfg.direct_runner.empty())
+            logf("info", "games: directe starten ([Launch] Mode = direct) doet de daemon zelf met %s", games_cfg.direct_runner.c_str());
+        else
+            logf("waarschuwing", "games: rg-direct ontbreekt naast ravengund; directe starten gaan via scripts/play-halo.sh");
     }
     ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
     if (games_dry_run) {
         // Geen invloed van echte processen op de host (tests): geen cgroup van de unit, een niet-bestaande procesmap.
         games_cfg.tpui_procs.clear();
         games_cfg.proc_root = "/nonexistent-ravengun-proc";
+        // De directe route zet drop-ins en teknoparrot.ini in de view voordat hij iets start: in een droge run niet (via het script, dat
+        // hier ook niet echt draait).
+        games_cfg.direct_runner.clear();
         spawner = [](const std::vector<std::string>& argv, std::string&) {
             std::string line;
             for (const auto& a : argv) line += (line.empty() ? "" : " ") + a;

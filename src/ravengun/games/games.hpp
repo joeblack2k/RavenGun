@@ -7,8 +7,12 @@
 //   realpath binnen de Icons-map, gewoon bestand, hoogstens 3 MiB). Nooit een pad van buiten.
 // - GameService: een game met een native profiel dat aan staat (packaging/native-games.json) start de daemon ZELF, zonder
 //   shellscripts: wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek, en dan
-//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Alle
-//   andere games start/stopt hij via `systemd-run --user` met een vaste unitnaam en het script scripts/play-halo.sh. De
+//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Een
+//   game met [Launch] Mode = direct start hij ook zelf (src/ravengun/launch/direct.*): dezelfde voorbereiding als play-halo.sh
+//   (lightgun, wapenen, de invoerroute tp-shm/hid-board/jvs over de pipe), de drop-ins en teknoparrot.ini in de view, en dan
+//   `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>` (tools/rg-direct, op de plaats van launch-direct.py).
+//   Wat de engine daar nog niet kan (direct.hpp), en alle andere games, start/stopt hij via `systemd-run --user` met een vaste
+//   unitnaam en het script scripts/play-halo.sh. De
 //   profielnaam is altijd een bestaand bestand uit UserProfiles en komt als los argument (geen shell, geen
 //   interpolatie) op de opdrachtregel. De toestand (wacht op Move, start, draait, mislukt) wordt afgeleid uit
 //   /proc (BudgieLoader, het script) en het logbestand van de laatste start; er is geen wachtende thread.
@@ -22,6 +26,7 @@
 #include <vector>
 
 #include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/native.hpp"
 
 namespace ravengun::games {
@@ -64,6 +69,16 @@ struct Config {
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
     std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)
     int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis
+
+    // De directe route zonder script (A10). Leeg direct.tp of leeg direct_runner = elke directe start via het script.
+    ravengun::launch::DirectPaths direct;
+    std::string direct_runner;                 // rg-direct (tools/rg-direct): het hoofdproces van de unit
+    std::string jvs_link;                      // de pty-koppeling van de IO-brug (jvs over de pipe: RG_JVS_PTY)
+    std::string input_by_id;                   // na het wapenen wachten op de virtuele lightgun en het toetsenbord hier (leeg = niet)
+    std::function<std::string(const std::string& board)> hid_vidpid;   // VVVV:PPPP van een hid-bord (leeg = geen joystick-id zetten)
+    std::function<bool(const std::string& profile)> unity_game;          // staat in aagames-games.json (de Unity-route van play-halo.sh)
+    std::function<ravengun::launch::EnvMap()> session_env;               // omgeving van de game-unit (leeg = direct_session_env())
+    ravengun::launch::CaptureRunner capture = ravengun::launch::run_capture;   // wine reg (joystick-id bij hid-board)
     int game_wait_ms = 120000;                 // zo lang wachten tot het spelproces er is
 };
 
@@ -110,6 +125,15 @@ bool native_route(const Config& c, const std::string& profile);
 // Het commando waarmee de daemon een native game in de unit start (systemd-run, geen shell); `log` = uitvoer van de game.
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
 
+// Gaat deze start via de directe route van de daemon? Ok: de engine; Fallback: het script (why = reden, voor het logboek);
+// Refused: niet starten (why = de melding, zoals launch-direct.py --check met exit 5). launch zoals bij start().
+ravengun::launch::Verdict direct_route(const Config& c, const std::string& profile, const std::string& launch, std::string& why,
+                                       ravengun::launch::DirectInput* input = nullptr);
+// De omgeving waarin play-halo.sh een directe start doet: die van de daemon zonder de variabelen van zijn eigen unit, met
+// XDG_RUNTIME_DIR, WAYLAND_DISPLAY, DISPLAY, DBUS_SESSION_BUS_ADDRESS en XAUTHORITY (van kwin_wayland) zoals het script ze aanvult.
+ravengun::launch::EnvMap direct_session_env(const std::string& proc_root = "/proc");
+std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log);
+
 // Voert een proces uit en wacht tot het klaar is (hoogstens 10 s). Geeft de exitcode, of -1 met `err`.
 int run_process(const std::vector<std::string>& argv, std::string& err);
 
@@ -137,6 +161,8 @@ public:
 private:
     void join_worker();
     std::string run_native(const std::string& profile);   // de native start in de worker; leeg = gelukt, anders de melding
+    std::string run_direct(const std::string& profile, const ravengun::launch::DirectInput& in);   // idem, de directe route
+    std::string wait_lightgun();                           // leeg = er is een lightgun
     Config c_;
     Spawner spawn_;
     std::mutex m_;
@@ -148,7 +174,7 @@ private:
     int64_t launched_ms_ = 0;
     bool failed_ = false;
     std::string failed_msg_, failed_profile_;
-    bool native_ = false;                 // de laatste start ging via de native route (stoppen ruimt dan zelf op)
+    bool native_ = false;                 // de laatste start ging via de daemon zelf (native of direct; stoppen ruimt dan zelf op)
     std::atomic<bool> waiting_{false};    // de native start wacht op een lightgun
     std::atomic<bool> cancel_{false};     // stoppen tijdens een native start
 };
