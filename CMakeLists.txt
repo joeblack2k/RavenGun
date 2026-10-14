@@ -54,6 +54,7 @@ add_library(ravengun STATIC
   src/ravengun/launch/jvs_pipe.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
+  src/ravengun/gamesettings/gamepad_settings.cpp
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
   src/ravengun/iobridge/hid_board.cpp
@@ -63,6 +64,7 @@ add_library(ravengun STATIC
   src/ravengun/iobridge/unity_tcp.cpp
   src/ravengun/sysinfo/navcon.cpp
   src/ravengun/sysinfo/mice.cpp
+  src/ravengun/sysinfo/gamepads.cpp
   src/ravengun/sysinfo/hidraw_scan.cpp
   src/ravengun/pairing/pairing.cpp
   src/ravengun/json.cpp
@@ -87,6 +89,7 @@ add_library(ravengun STATIC
   src/ravengun/core/navcon.cpp
   src/ravengun/output/live_feed.cpp
   src/ravengun/output/mouse_gun.cpp
+  src/ravengun/output/gamepad.cpp
   src/ravengun/output/aim_clock.cpp
   src/ravengun/output/rumble.cpp
   src/ravengun/core/move_report.cpp
@@ -136,6 +139,7 @@ if(RAVENGUN_BUILD_DAEMON)
     src/ravengund/aagames_service.cpp
     src/ravengund/iobridge_service.cpp
     src/ravengund/mouse_service.cpp
+    src/ravengund/gamepad_service.cpp
     src/ravengund/camera.cpp
     src/ravengund/hidraw_tap.cpp
     src/ravengund/hid_aux.cpp
@@ -415,22 +419,29 @@ if(RAVENGUN_BUILD_TESTS)
     target_include_directories(ravengun_mouse_tests PRIVATE src/ravengund)
     target_link_libraries(ravengun_mouse_tests PRIVATE ravengun Threads::Threads)
     add_test(NAME ravengun_mouse_tests COMMAND ravengun_mouse_tests)
+    # Gamepad naast de lightgun: opsomming (met redenen), PadReader, indeling uit [Gamepad], IPC-parser, IoState-signalen en
+    # GamepadService met een FIFO als nep-apparaat (nooit een echte gamepad).
+    add_executable(ravengun_gamepad_tests tests/test_gamepad.cpp src/ravengund/gamepad_service.cpp src/ravengund/output_service.cpp)
+    target_include_directories(ravengun_gamepad_tests PRIVATE src/ravengund)
+    target_link_libraries(ravengun_gamepad_tests PRIVATE ravengun Threads::Threads)
+    target_compile_definitions(ravengun_gamepad_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+    add_test(NAME ravengun_gamepad_tests COMMAND ravengun_gamepad_tests)
     # Opdrachtlaag van de daemon (set_led, set_camera, info, ...) zonder hardware: nep-HID-context.
     add_executable(ravengund_command_tests tests/test_commands.cpp src/ravengund/commands.cpp src/ravengund/controllers.cpp
       src/ravengund/camera.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp
-      src/ravengund/mouse_service.cpp)
+      src/ravengund/mouse_service.cpp src/ravengund/gamepad_service.cpp)
     target_include_directories(ravengund_command_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_command_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengund_command_tests PRIVATE ${RAVENGUN_BUILD_DEFS})
     add_test(NAME ravengund_command_tests COMMAND ravengund_command_tests)
     add_executable(ravengund_players_tests tests/test_players.cpp src/ravengund/move_slot.cpp src/ravengund/hid_aux.cpp
       src/ravengund/hidraw_tap.cpp src/ravengund/recorder.cpp src/ravengund/output_service.cpp
-      src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp)
+      src/ravengund/aagames_service.cpp src/ravengund/iobridge_service.cpp src/ravengund/gamepad_service.cpp)
     target_include_directories(ravengund_players_tests PRIVATE src/ravengund)
     target_link_libraries(ravengund_players_tests PRIVATE ravengun Threads::Threads)
     add_test(NAME ravengund_players_tests COMMAND ravengund_players_tests)
     add_executable(ravengun_iobridge_tests tests/test_iobridge.cpp src/ravengund/output_service.cpp src/ravengund/aagames_service.cpp
-      src/ravengund/iobridge_service.cpp)
+      src/ravengund/iobridge_service.cpp src/ravengund/gamepad_service.cpp)
     target_include_directories(ravengun_iobridge_tests PRIVATE src/ravengund)
     target_link_libraries(ravengun_iobridge_tests PRIVATE ravengun Threads::Threads)
     target_compile_definitions(ravengun_iobridge_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")

@@ -23,7 +23,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
                  SetGunButtons, Games, GameStart, GameStop,
                  Controllers, SetController, Blink, Unpair, Pair,
-                 Aagames, OutputKey, Iobridge, Mice, SetMouseGun };
+                 Aagames, OutputKey, Iobridge, Mice, SetMouseGun, Pads, SetPad };
 const char* to_string(Cmd c);
 
 struct Request {
@@ -100,10 +100,12 @@ struct Request {
     // optioneel counts_per_screen (100..20000).
     std::optional<std::string> mouse;
     std::optional<double> counts_per_screen;
+    // set_pad: `player` (1..4, verplicht; geen `controller`) en `pad` = een id uit `pads` of "" (loskoppelen). Bewaard in config.json.
+    std::optional<std::string> pad;
 };
 // Commando's met een spelerkeuze (player/controller).
 bool takes_selector(Cmd c);
-// Commando's met een verplicht `player` (1..4) als gewoon veld, zonder `controller`: set_mouse_gun.
+// Commando's met een verplicht `player` (1..4) als gewoon veld, zonder `controller`: set_mouse_gun, set_pad.
 bool needs_player(Cmd c);
 
 struct Error {

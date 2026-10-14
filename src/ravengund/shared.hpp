@@ -27,6 +27,7 @@ class ControllerService;  // gedefinieerd in controllers.hpp
 class AagamesService;     // gedefinieerd in aagames_service.hpp
 class IoBridgeService;    // gedefinieerd in iobridge_service.hpp
 class MouseService;       // gedefinieerd in mouse_service.hpp
+class GamepadService;     // gedefinieerd in gamepad_service.hpp
 
 inline int64_t mono_ns() {
     timespec t{};
@@ -181,6 +182,8 @@ public:
     IoBridgeService* iobridge = nullptr;
     // Gewone muis als bron voor de gun van een speler (runtime-toewijzingen); nullptr = niet beschikbaar.
     MouseService* mouse = nullptr;
+    // Gamepad naast de lightgun (bewaarde toewijzingen, [Gamepad] per game); nullptr = niet beschikbaar.
+    GamepadService* gamepad = nullptr;
     // Bit p-1 gezet: de rumble van speler p komt uit de game (Recoil-vlag van de plugin) in plaats van uit de trekker.
     std::atomic<unsigned> game_rumble_mask{0};
     // Aantal Recoil-vlaggen per speler (door de klantthread opgehoogd, door de HID-thread gelezen).

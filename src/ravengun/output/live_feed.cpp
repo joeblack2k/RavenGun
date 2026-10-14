@@ -52,14 +52,26 @@ std::string describe_layout(const LiveButtonMap& m) {
     return s;
 }
 
-bool OverrideLayer::live_key(int code, bool live) {
-    if (live) live_keys_[code] = true; else live_keys_.erase(code);
-    return live || held_key(code);
+bool OverrideLayer::live_key(int code, bool live, int src) {
+    const size_t si = static_cast<size_t>(src < 0 || src >= kLiveSources ? 0 : src);
+    auto it = live_keys_.find(code);
+    if (live) {
+        live_keys_[code][si] = true;
+    } else if (it != live_keys_.end()) {
+        it->second[si] = false;
+        bool any = false;
+        for (bool b : it->second) any = any || b;
+        if (!any) live_keys_.erase(it);
+    }
+    return want_key(code);
 }
 
 bool OverrideLayer::want_key(int code) const {
     auto it = live_keys_.find(code);
-    return (it != live_keys_.end() && it->second) || held_key(code);
+    bool any = false;
+    if (it != live_keys_.end())
+        for (bool b : it->second) any = any || b;
+    return any || held_key(code);
 }
 
 bool OverrideLayer::held_key(int code) const {

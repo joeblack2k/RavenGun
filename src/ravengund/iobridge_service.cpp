@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "aagames_service.hpp"
+#include "gamepad_service.hpp"
 #include "output_service.hpp"
 #include "ravengun/games/games.hpp"
 #include "ravengun/json.hpp"
@@ -23,6 +24,37 @@ namespace {
 int64_t steady_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+
+// Route jvs met een Layout in [Input]: het JVS-bord EN de tp-shm-indeling. Gemeten bij Let's Go Safari: de game vraagt nooit JVS
+// 0x22 (analoog); het stuur komt alleen uit het gedeelde geheugen. Naar buiten is dit het jvs-dialect; de status krijgt "shm" erbij.
+class JvsWithShmDialect final : public IoDialect {
+public:
+    JvsWithShmDialect(std::unique_ptr<IoDialect> jvs, std::unique_ptr<TpShmDialect> shm) : jvs_(std::move(jvs)), shm_(std::move(shm)) {}
+    ~JvsWithShmDialect() override { close(); }
+    const char* name() const override { return jvs_->name(); }
+    std::string game() const override { return jvs_->game(); }
+    bool open(std::string& err) override {
+        if (!shm_->open(err)) return false;
+        if (!jvs_->open(err)) { shm_->close(); return false; }
+        return true;
+    }
+    void write(const IoState& s) override { jvs_->write(s); shm_->write(s); }
+    void neutral() override { jvs_->neutral(); shm_->neutral(); }
+    void close() override { jvs_->close(); shm_->close(); }
+    IoOutputs outputs() const override { return jvs_->outputs(); }
+    std::string status_json() const override {
+        std::string j = jvs_->status_json();
+        if (!j.empty() && j.back() == '}') {
+            j.pop_back();
+            j += std::string(j.size() > 1 ? "," : "") + "\"shm\":" + shm_->status_json() + "}";
+        }
+        return j;
+    }
+
+private:
+    std::unique_ptr<IoDialect> jvs_;
+    std::unique_ptr<TpShmDialect> shm_;
+};
 }  // namespace
 
 IoBridgeService::IoBridgeService(SharedState& sh, Config cfg) : sh_(sh), cfg_(std::move(cfg)) {
@@ -136,6 +168,8 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     const IoRoutes routes = effective_routes();
     std::string route = route_override.empty() ? routes.route_for(game) : route_override;
     if (!valid_route(route)) return "onbekende route '" + route + "' (evdev, tp-shm, unity-tcp, hid-board of jvs)";
+    // Vanaf nu geldt de gamepad-indeling van deze game ([Gamepad] in game.ini), op elke route (ook evdev: toetsen en knoppen).
+    if (sh_.gamepad) sh_.gamepad->set_game(game);
     if (route == kRouteEvdev) {
         stop();
         if (sh_.aagames) sh_.aagames->stop();
@@ -164,6 +198,7 @@ std::string IoBridgeService::start(const std::string& game, const std::string& r
     for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
     game_ = game;
     route_ = kRouteTpShm;
+    shm_ = false;
     seen_alive_ = false;
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
@@ -210,6 +245,7 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
     for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
     game_ = game;
     route_ = kRouteHidBoard;
+    shm_ = false;
     seen_alive_ = false;
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
@@ -233,8 +269,17 @@ std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r
         boards.push_back(*b);
     }
     std::unique_ptr<JvsTransport> t = cfg_.jvs_transport ? cfg_.jvs_transport() : make_pty_transport(cfg_.jvs_link);
-    auto d = std::make_unique<JvsDialect>(std::move(boards), game, std::move(t), cfg_.jvs_modem_file);
-    d->set_trace([](const std::string& line) { logf("info", "JVS: %s", line.c_str()); });
+    auto jd = std::make_unique<JvsDialect>(std::move(boards), game, std::move(t), cfg_.jvs_modem_file);
+    jd->set_trace([](const std::string& line) { logf("info", "JVS: %s", line.c_str()); });
+    std::unique_ptr<IoDialect> d = std::move(jd);
+    std::string shm_note;
+    if (!r->layout.empty()) {
+        // Met een Layout schrijft de daemon ook die tp-shm-indeling (bv. het stuur van Let's Go Safari, dat niet over JVS gaat).
+        const TpShmProfile* prof = cfg_.profiles.find(r->layout);
+        if (!prof) return "tp-shm-indeling '" + r->layout + "' ontbreekt in tp-shm-profiles.json";
+        d = std::make_unique<JvsWithShmDialect>(std::move(d), std::make_unique<TpShmDialect>(*prof, game, cfg_.shm_path, cfg_.tpui_shm_path));
+        shm_note = ", plus tp-shm-indeling " + prof->name + " in " + cfg_.shm_path;
+    }
     std::string err;
     if (!d->open(err)) return err;
     std::lock_guard<std::mutex> lk(m_);
@@ -249,7 +294,9 @@ std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
     if (!cfg_.state_path.empty()) ::unlink(cfg_.state_path.c_str());   // geen herstart-toestand voor deze route
-    logf("info", "IO-brug: jvs voor %s (%zu bord(en), lijn %s)", game.c_str(), names.size(), cfg_.jvs_link.empty() ? "zonder symlink" : cfg_.jvs_link.c_str());
+    shm_ = !shm_note.empty();
+    logf("info", "IO-brug: jvs voor %s (%zu bord(en), lijn %s%s)", game.c_str(), names.size(), cfg_.jvs_link.empty() ? "zonder symlink" : cfg_.jvs_link.c_str(),
+         shm_note.c_str());
     cv_.notify_all();
     return {};
 }
@@ -292,7 +339,8 @@ void IoBridgeService::stop_locked() {
     apply_coin_keys(IoState{});   // vastgehouden munttoetsen loslaten
     dialect_->neutral();
     dialect_->close();
-    if (route_ == kRouteTpShm) ::unlink(cfg_.shm_path.c_str());
+    if (route_ == kRouteTpShm || shm_) ::unlink(cfg_.shm_path.c_str());
+    shm_ = false;
     dialect_.reset();
     coin_codes_.clear();
     route_.clear();

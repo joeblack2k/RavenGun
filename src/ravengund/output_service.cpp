@@ -188,8 +188,16 @@ bool OutputService::io_snapshot(ravengun::iobridge::IoState& s) const {
     s.armed = true;
     for (int n = 1; n <= kPlayers; ++n) {
         const Player& p = players_[static_cast<size_t>(n - 1)];
-        if (!should_exist(n) || !p.out->armed()) continue;
         IoPlayer& o = s.player[static_cast<size_t>(n - 1)];
+        // De gamepad-signalen gelden ook voor een speler zonder eigen gun (alleen een gamepad).
+        const ravengun::iobridge::IoPadInput& pad = pads_[static_cast<size_t>(n - 1)];
+        o.pad = pad.pad;
+        o.wheel_from_pad = pad.wheel_from_pad;
+        o.wheel = pad.wheel;
+        o.gas = pad.gas;
+        o.brake = pad.brake;
+        o.btn = pad.btn;
+        if (!should_exist(n) || !p.out->armed()) continue;
         o.valid = p.out->have_position();
         if (o.valid) {
             o.x = static_cast<double>(p.out->last_abs_x()) / kAbsMax;
@@ -268,6 +276,12 @@ unsigned OutputService::mouse_players() const {
     return mouse_;
 }
 
+void OutputService::set_pad_input(int player, const ravengun::iobridge::IoPadInput& in) {
+    if (player < 1 || player > kPlayers) return;
+    std::lock_guard<std::mutex> g(m_);
+    pads_[static_cast<size_t>(player - 1)] = in;
+}
+
 void OutputService::set_layout(int player, const std::vector<std::pair<std::string, std::string>>& layout) {
     if (player < 1 || player > kPlayers) return;
     std::lock_guard<std::mutex> g(m_);
@@ -292,9 +306,10 @@ void OutputService::feed_live(int player, const LiveAction& a, int src) {
         return;
     }
     if (!out.armed()) { p.clock.clear(); return; }
-    if (pattern_running_ && player == 1) { ++p.live_suspended; return; }  // testpatroon heeft voorrang
-    p.live_aim_valid = a.move;
-    if (a.move) {
+    if (pattern_running_ && player == 1 && !a.no_aim) { ++p.live_suspended; return; }  // testpatroon heeft voorrang (op de aim)
+    if (a.no_aim) {
+        // Gamepad: geen richtpunt, alleen knoppen en toetsen (hieronder).
+    } else if ((p.live_aim_valid = a.move)) {
         if (p.clock.config().enabled()) {
             // Anker voor de uitvoerklok en meteen de positie op dit moment (anker + snelheid * leeftijd): geen wachttijd tot de volgende tik.
             const bool wake = p.clock_idle || !p.clock.anchor().valid;
@@ -318,7 +333,7 @@ void OutputService::feed_live(int player, const LiveAction& a, int src) {
         out.set_button(GunButton::Grenade, p.ov.live_button(GunButton::Grenade, a.grenade, src));
         out.set_button(GunButton::Aux1, p.ov.live_button(GunButton::Aux1, a.aux1, src));
         out.set_button(GunButton::Aux2, p.ov.live_button(GunButton::Aux2, a.aux2, src));
-        for (const auto& k : a.keys) out.set_key(k.first, p.ov.live_key(k.first, k.second));
+        for (const auto& k : a.keys) out.set_key(k.first, p.ov.live_key(k.first, k.second, src));
     }
 }
 

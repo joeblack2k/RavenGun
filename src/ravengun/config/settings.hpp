@@ -6,6 +6,7 @@
 //   terug op de laatst-goede kopie (config.json.bak) of op de standaardwaarden, en meldt dat.
 // - Atomisch schrijven: tijdelijk bestand (0600) in dezelfde map, fsync, rename.
 // - De opdrachtregel van de daemon heeft voorrang op dit bestand (zie docs/web-ui.md).
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -157,6 +158,9 @@ struct Settings : ControllerValues {
     WebSettings web;
     SharpShooterSettings sharp_shooter;
     std::map<std::string, ControllerEntry> controllers;  // adres (kleine letters) -> controller
+    // Gamepad per speler (id uit `pads`, sysinfo/gamepads.hpp; leeg = geen). Bewaard, zodat een herstart van de daemon de keuze
+    // niet wist (anders dan de muis, die alleen runtime is). Zie docs/gamepad.md.
+    std::array<std::string, kMaxPlayers> gamepads{};
 };
 
 // ---- Per-controller-instellingen ----

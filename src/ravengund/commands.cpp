@@ -9,6 +9,7 @@
 #include "aagames_service.hpp"
 #include "iobridge_service.hpp"
 #include "mouse_service.hpp"
+#include "gamepad_service.hpp"
 #include "build_info.hpp"
 #include "camera.hpp"
 #include "controllers.hpp"
@@ -127,6 +128,10 @@ std::string status_result(SharedState& sh, bool full_ids, std::string& err, int 
     if (sh.mouse && !res.empty() && res.back() == '}') {
         res.pop_back();
         res += ",\"mouse_guns\":" + sh.mouse->status_json() + "}";
+    }
+    if (sh.gamepad && !res.empty() && res.back() == '}') {
+        res.pop_back();
+        res += ",\"gamepads\":" + sh.gamepad->status_json() + "}";
     }
     if (!res.empty() && res.back() == '}') {
         res.pop_back();
@@ -942,6 +947,16 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             if (!sh.mouse->assign(r.player.value_or(1), r.mouse.value_or(""), counts, code, msg))
                 return ipc::error_response({code, msg, r.id_json});
             return ipc::ok_response(r.id_json, sh.mouse->assignment_json(r.player.value_or(1)));
+        }
+        case ipc::Cmd::Pads: {
+            if (!sh.gamepad) return ipc::error_response({"unavailable", "gamepadservice is niet beschikbaar in deze daemon", r.id_json});
+            return ipc::ok_response(r.id_json, sh.gamepad->pads_json());
+        }
+        case ipc::Cmd::SetPad: {
+            if (!sh.gamepad) return ipc::error_response({"unavailable", "gamepadservice is niet beschikbaar in deze daemon", r.id_json});
+            std::string code, msg;
+            if (!sh.gamepad->assign(r.player.value_or(1), r.pad.value_or(""), code, msg)) return ipc::error_response({code, msg, r.id_json});
+            return ipc::ok_response(r.id_json, sh.gamepad->assignment_json(r.player.value_or(1)));
         }
         case ipc::Cmd::Info: return ipc::ok_response(r.id_json, info_json(sh));
         case ipc::Cmd::Settings: return handle_settings(sh, r);

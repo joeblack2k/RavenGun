@@ -69,6 +69,8 @@ struct LiveAction {
     bool release_all = false;   // bronuitval: alles los
     bool recenter = false;      // down-flank van de recenter-knop (PS of een Move-knop uit de map)
     bool recenter_ps = false;   // ... en die flank kwam van de PS-knop
+    // Bron zonder richtpunt (een gamepad): alleen knoppen en toetsen; positie, uitvoerklok en aim-geldigheid blijven ongemoeid.
+    bool no_aim = false;
 };
 
 // Override-laag voor synthetische invoer (ravengunctl output-button/key, webinterface) naast de live Move-rapporten.
@@ -79,12 +81,13 @@ struct LiveAction {
 //  - Synthetisch is "down" (tot een expliciete up) of "tap" (tot de aanroeper het einde meldt met het token). Een nieuwere
 //    tap vervangt de oudere: het einde van de oude tap laat de nieuwe staan (token komt niet meer overeen).
 //  - up wist zowel down als lopende taps; clear() (disarm, stop, bronuitval, nieuwe arm) wist alles, ook de live stand.
-//  - De live stand wordt per bron bijgehouden (0 = de Move, 1 = een muis als lightgun) en telt als OR: stuurt een Move EN een
-//    muis dezelfde speler, dan wist een Move-rapport dat "los" meldt (~80 Hz) een vastgehouden muisknop niet (en omgekeerd).
+//  - De live stand wordt per bron bijgehouden (0 = de Move, 1 = een muis als lightgun, 2 = een gamepad) en telt als OR: stuurt
+//    een Move EN een muis of gamepad dezelfde speler, dan wist een Move-rapport dat "los" meldt (~80 Hz) een vastgehouden knop of
+//    toets van de andere bron niet (en omgekeerd). Dat geldt voor gun-knoppen en voor toetsen.
 // Niet thread-safe: de eigenaar (OutputService) serialiseert met zijn mutex. Getest in tests/test_output.cpp.
 class OverrideLayer {
 public:
-    static constexpr int kLiveSources = 2;   // 0 = Move, 1 = muis
+    static constexpr int kLiveSources = 3;   // 0 = Move, 1 = muis, 2 = gamepad
     // Live stand van een knop/toets (per rapport van bron `src`); geeft terug wat er naar de uitvoer moet (live van alle bronnen OR
     // synthetisch).
     bool live_button(GunButton b, bool live, int src = 0) {
@@ -94,7 +97,7 @@ public:
         live_btn_[idx(b)] = any;
         return any || held_button(b);
     }
-    bool live_key(int code, bool live);
+    bool live_key(int code, bool live, int src = 0);
     // Wat de uitvoer nu hoort te hebben (live OR synthetisch), zonder nieuw rapport.
     bool want_button(GunButton b) const { return live_btn_[idx(b)] || held_button(b); }
     bool want_key(int code) const;
@@ -121,7 +124,7 @@ private:
     std::array<bool, kGunButtonCount> live_btn_{};                            // OR van de bronnen hieronder
     std::array<std::array<bool, kGunButtonCount>, kLiveSources> live_src_{};  // live stand per bron
     std::map<int, Hold> keys_;      // synthetisch per toets
-    std::map<int, bool> live_keys_;
+    std::map<int, std::array<bool, kLiveSources>> live_keys_;   // live stand per toets en per bron
     uint64_t next_token_ = 0;
 };
 
