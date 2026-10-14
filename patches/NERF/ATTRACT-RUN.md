@@ -28,6 +28,8 @@ Start!" for player 1 and player 2.
 banner from 01:44:44; the game's own log: "Game booted up" at 01:44:42. Counted from 01:44:44 the
 five-minute mark is 01:49:44; the run went on for 7 min 36 s past it and was stopped by its own limit.
 75 captures, one every 10 s, all distinct, none missing (`runs/n5-opnames-index.txt`: time, hash, size).
+The captures themselves, full resolution, are in `bewijs-attract-20261014/opnames-n5/` (232 MB; each file
+matches its hash in the index).
 Looked at: `shots/n5-sheet-start.jpg` (01:44:23 … 01:45:37), `n5-sheet-mark.jpg` (twelve, 01:49:17 …
 01:51:13, across the five-minute mark), `n5-sheet-whole.jpg` (thirteen across the run),
 `n5-sheet-end.jpg` (the last twelve, to 01:57:20). Single frames: `shots/n5-shot-003-014444.jpg`,
@@ -62,7 +64,9 @@ demos" and "it plays", the same shape as Jurassic Park's "RIO Disconnected" and 
 7. **Two things are passed on the command line, not by the profile:** `--gamescope`, and the bind of
    the rules file (§3, the list, points 3 and 4). The native launcher has no way yet to name a file in a
    game's own folder from its profile.
-8. **An independent capture** by the coordinator had not been reported when this was written.
+8. **Independently witnessed.** The coordinator's own record of n5: 01:44:36 – 01:57:27, 12 min 51 s, 37
+   frames, the attract scene with the Hasbro notice, "Free Play / Player 1 and 2" and the red banner.
+   Their record is theirs; it is not in this folder.
 
 ---
 
