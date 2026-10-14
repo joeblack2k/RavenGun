@@ -210,6 +210,32 @@ def main(argv):
         check(r.returncode == 0 and "nieuw.txt" not in snapshot(view), "verversen (script): de link naar het verdwenen nieuw.txt staat er nog")
         nas_voor = snapshot(nas)
 
+        # ViewEmptyDirs op een bestaande view: symlink -> lege map; lege map blijft; echte map met inhoud blijft ongemoeid.
+        # Beide tweelingen (engine en launch-direct.py), met de NAS-bron erachter intact.
+        def ververs(tweeling):
+            if tweeling == "engine":
+                rg_plan("Grote", "user-engine")
+            else:
+                subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), "Grote", "--tp", tp, "--plan", "--make-view", "--json"],
+                               capture_output=True, text=True, env=env_for("user-engine"))
+
+        for tweeling in ("engine", "script"):
+            movies = os.path.join(view, "RSGame/Content/Movies")
+            shutil.rmtree(movies)
+            os.symlink(os.path.join(nas, g["dir"], "RSGame/Content/Movies"), movies)
+            nas_voor = snapshot(nas)
+            ververs(tweeling)
+            check(os.path.isdir(movies) and not os.path.islink(movies) and os.listdir(movies) == [],
+                  "ViewEmptyDirs (%s): de symlink werd geen lege map" % tweeling)
+            check(snapshot(nas) == nas_voor, "ViewEmptyDirs (%s): de NAS is veranderd" % tweeling)
+            ververs(tweeling)
+            check(os.path.isdir(movies) and not os.path.islink(movies) and os.listdir(movies) == [],
+                  "ViewEmptyDirs (%s): een lege map bleef niet staan" % tweeling)
+            write(os.path.join(movies, "eigen.txt"), "eigen")
+            ververs(tweeling)
+            check(os.listdir(movies) == ["eigen.txt"], "ViewEmptyDirs (%s): een echte map met inhoud is aangeraakt" % tweeling)
+        nas_voor = snapshot(nas)
+
         # View = off: de oude route (rechtstreeks van de NAS), er wordt niets gemaakt.
         write(os.path.join(tmp, "user-off/Elf/game.ini"), "[Launch]\nView = off\n")
         check(not os.path.lexists(os.path.join(views, "Elf")), "de view van Elf hoort hier weg te zijn")

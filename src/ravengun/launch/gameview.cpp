@@ -249,6 +249,21 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     for (const std::string& deel : split_rel(rel_dir_of(s.exe_rel)))
         paren.emplace_back(pjoin(paren.back().first, deel), pjoin(paren.back().second, deel));
     int bij = 0, weg = 0;
+    // ViewEmptyDirs op een bestaande view: elk pad wordt een lege echte map. Een symlink gaat weg (alleen de link, nooit wat erachter
+    // staat), een ontbrekend pad wordt aangemaakt, een echte map (leeg of met inhoud) blijft zoals hij is. De mappen erboven moeten
+    // echte mappen zijn; achter een symlink is het niet van ons.
+    for (const std::string& e : s.empty_dirs) {
+        std::string p = s.view;
+        const std::vector<std::string> delen = split_rel(strip_slashes(e));
+        for (size_t k = 0; k < delen.size(); ++k) {
+            p = pjoin(p, delen[k]);
+            const bool laatste = k + 1 == delen.size();
+            if (!laatste) { if (islink(p) || !isdir(p)) break; continue; }
+            if (islink(p)) { if (!do_unlink(p, g)) return false; ++weg; }
+            else if (lexists(p)) break;
+            if (!do_mkdirs(p, g)) return false;
+        }
+    }
     for (size_t i = 0; i < paren.size(); ++i) {
         const auto& [vd, sd] = paren[i];
         if (islink(vd) || !isdir(vd)) break;   // geen echte map (meer): wat eronder zit is niet van ons
