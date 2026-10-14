@@ -217,10 +217,8 @@ HidBoardFrame hid_board_frame(const HidBoard& b, const IoState& s) {
         const HidBoardAxis& a = b.axes[i];
         double v = 0;
         if (!io_axis_signal(s, a.signal, v)) continue;
-        // Een speler zonder geldige aim blijft op idle.
-        if (a.signal.size() > 2 && a.signal[0] == 'p' && a.signal[1] >= '1' && a.signal[1] <= '4' &&
-            !s.player[static_cast<size_t>(a.signal[1] - '1')].valid)
-            continue;
+        // Een as zonder levende bron (geen aim, geen gamepad; io_axis_live) blijft op idle.
+        if (!io_axis_live(s, a.signal)) continue;
         v = std::clamp(v, 0.0, 1.0);
         if (a.invert) v = 1.0 - v;
         const int lo = a.has_out ? a.out_min : a.min, hi = a.has_out ? a.out_max : a.max;

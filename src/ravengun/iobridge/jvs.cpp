@@ -107,10 +107,8 @@ int jvs_switch_bytes(const JvsBoard& b) { return std::max(1, (b.buttons + 7) / 8
 uint16_t jvs_analog_value(const JvsAnalogChannel& c, const IoState& s) {
     double t = c.idle;
     if (!c.signal.empty()) {
-        // Alleen een geldige aim telt; een speler zonder aim (Move weg, niet gewapend) blijft op idle.
-        bool valid = s.armed;
-        if (c.signal.size() > 3 && c.signal[0] == 'p' && c.signal[1] >= '1' && c.signal[1] <= '4' && c.signal[2] == '.')
-            valid = valid && s.player[static_cast<size_t>(c.signal[1] - '1')].valid;
+        // Alleen een levende bron telt (io_axis_live: aim of gamepad); zonder bron (Move weg, niet gewapend) blijft de as op idle.
+        const bool valid = s.armed && io_axis_live(s, c.signal);
         double v = 0;
         if (valid && io_axis_signal(s, c.signal, v)) t = c.invert ? 1.0 - v : v;
     }
