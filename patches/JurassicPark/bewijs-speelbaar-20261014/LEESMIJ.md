@@ -74,3 +74,7 @@ game no shader failure since; the glow on hit targets is visible (`sheet-play.jp
 ## 6. Files
 
 `logs/` — bridge excerpt, game-log excerpts, load proof. `OPNAMES.txt` — where the full capture sets are (outside git).
+
+## 7. Working (2026-10-14, 14:35-14:45)
+
+The RavenGun engine now starts native games itself (`src/ravengun/launch/native.*`, no `play-halo.sh`/`play-native.sh`): MEASURED, double-click 14:39:04, process chain `gamescope -> bwrap -> rg-elfloader` (`rg-exec --keep DISPLAY` in between, so the game gets only DISPLAY from gamescope: a first try without it loaded gamescope's WSI layer into zink and showed "Gamescope WSI Layer Error"), attract 14:39:35, board answered, played with the mouse (score 3,225). `game.ini` [Status] Status = working: the app shows a green "Working" (`06-app-working-green.jpg`). NERF Arcade the same day through the same starter: START, mouse play, score 12,050 (`../../NERF/working-c++-starter-20261014.jpg`).
