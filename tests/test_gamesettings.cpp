@@ -283,7 +283,9 @@ static void test_repo_tree() {
     }
     gs::Game lgi = gs::load_game(d, "LGI");
     CHECK(lgi.type == "TeknoParrot" && lgi.get("Input", "Route") == "jvs" && lgi.get("Wine", "Prefix") == "ravengun-test-lgi");
-    CHECK(lgi.get("Status", "Status") == "playable" && !lgi.get("Status", "Note").empty() && !lgi.get("Status", "NoteEN").empty());
+    // De status zelf verandert met de bench-runs (LGI werd working op 2026-10-14); hier telt dat hij gelezen wordt, met beide notities.
+    const std::string lgi_st = lgi.get("Status", "Status");
+    CHECK((lgi_st == "playable" || lgi_st == "working") && !lgi.get("Status", "Note").empty() && !lgi.get("Status", "NoteEN").empty());
     gs::Game gaia = gs::load_game(d, "GaiaAttack4");
     const gs::Patch* p = gaia.patch("OpenParrotLoader zonder CONTEXT_FLOATING_POINT");
     CHECK(p && p->enabled() && p->kind() == "file" && p->get("Count") == "1" && !p->reason().empty());
