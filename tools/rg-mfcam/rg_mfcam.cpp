@@ -22,10 +22,20 @@
 //   (MFEnumDeviceSources, het formaat dat het kiest, start/stop) en het aantal geleverde beelden. Zonder dat logboek is de DLL niet
 //   geladen.
 //
+// TWEEDE TAAK: pHResult van d3dx10
+//   De lader neemt maar een preload-DLL per spel, dus deze DLL repareert ook iets van Wine dat Mario Kart laat vallen. Het spel
+//   laadt zijn effecten met D3DX10CreateEffectFromFileA(..., pump = NULL, &effect, &errors, &hr) en kijkt daarna ALLEEN naar `hr`
+//   (0x838AE9 in MK_AGP3_FINAL.exe: `hr < 0` geeft NULL, en 0x76C8C0 leest dan zonder controle door die NULL). Windows zet `*pHResult`
+//   ook zonder pump; Wine (proton-11.0-2) laat hem ongemoeid (gemeten met een proefprogramma: de waarde bleef 0xDEADBEEF). Dan
+//   beslist wat er toevallig op de stapel stond, en het spel viel na ~3 minuten attract bij "AttractGameDemo Unload" (TireTrace_Nml.cfx).
+//   De omzetting hier: de vier d3dx10-functies met een pHResult roepen het origineel aan en zetten daarna `*pHResult` op de uitkomst
+//   als er geen pump is (wat Windows ook doet).
+//
 // OMGEVING
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
 //   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
 //   RG_MFCAM_OFF=1   niets doen (alleen een regel in het logboek)
+//   RG_D3DX10_HRFIX=0  de pHResult-reparatie niet aanzetten
 //
 // Clean-room: alleen de openbare Media Foundation-interfaces en wat we zelf aan het spel en aan Wine gemeten hebben.
 #define WIN32_LEAN_AND_MEAN
@@ -715,6 +725,75 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
     return nullptr;
 }
 
+// --- d3dx10: pHResult zoals Windows (zie TWEEDE TAAK bovenaan) ---------------------------------------------------------------------------
+// Alleen de argumenten die we aanraken hebben een type; de rest gaat ongezien door. Een schildwacht in *pHResult laat in het logboek zien
+// of het origineel hem zelf zette (dan is de reparatie overbodig) of ongemoeid liet.
+constexpr HRESULT kHrSentinel = static_cast<HRESULT>(0x5247A11Bu);
+using FxFileAFn = HRESULT(WINAPI*)(const char*, const void*, void*, const char*, UINT, UINT, void*, void*, void*, void**, void**, HRESULT*);
+using FxFileWFn = HRESULT(WINAPI*)(const wchar_t*, const void*, void*, const char*, UINT, UINT, void*, void*, void*, void**, void**, HRESULT*);
+using SrvFileAFn = HRESULT(WINAPI*)(void*, const char*, void*, void*, void**, HRESULT*);
+using SrvMemFn = HRESULT(WINAPI*)(void*, const void*, SIZE_T, void*, void*, void**, HRESULT*);
+FxFileAFn g_fx_a = nullptr;
+FxFileWFn g_fx_w = nullptr;
+SrvFileAFn g_srv_a = nullptr;
+SrvMemFn g_srv_mem = nullptr;
+LONG g_hr_fixed = 0, g_hr_set_by_orig = 0;
+
+void hr_fix(const char* fn, HRESULT hr, void* pump, HRESULT* phr) {
+    if (!phr || pump) return;
+    if (*phr == kHrSentinel) {
+        *phr = hr;
+        const LONG n = InterlockedIncrement(&g_hr_fixed);
+        if (n <= 3 || n % 500 == 0) rg_log("d3dx10: %s liet pHResult ongemoeid; nu 0x%08lx (%ld keer)", fn, static_cast<unsigned long>(hr), static_cast<long>(n));
+    } else if (InterlockedIncrement(&g_hr_set_by_orig) <= 3) {
+        rg_log("d3dx10: %s zette pHResult zelf (0x%08lx)", fn, static_cast<unsigned long>(*phr));
+    }
+}
+
+HRESULT WINAPI rg_FxFileA(const char* f, const void* d, void* i, const char* p, UINT h, UINT x, void* dev, void* pool, void* pump, void** fx, void** err, HRESULT* phr) {
+    if (phr && !pump) *phr = kHrSentinel;
+    const HRESULT hr = g_fx_a(f, d, i, p, h, x, dev, pool, pump, fx, err, phr);
+    hr_fix("D3DX10CreateEffectFromFileA", hr, pump, phr);
+    return hr;
+}
+HRESULT WINAPI rg_FxFileW(const wchar_t* f, const void* d, void* i, const char* p, UINT h, UINT x, void* dev, void* pool, void* pump, void** fx, void** err, HRESULT* phr) {
+    if (phr && !pump) *phr = kHrSentinel;
+    const HRESULT hr = g_fx_w(f, d, i, p, h, x, dev, pool, pump, fx, err, phr);
+    hr_fix("D3DX10CreateEffectFromFileW", hr, pump, phr);
+    return hr;
+}
+HRESULT WINAPI rg_SrvFileA(void* dev, const char* f, void* info, void* pump, void** srv, HRESULT* phr) {
+    if (phr && !pump) *phr = kHrSentinel;
+    const HRESULT hr = g_srv_a(dev, f, info, pump, srv, phr);
+    hr_fix("D3DX10CreateShaderResourceViewFromFileA", hr, pump, phr);
+    return hr;
+}
+HRESULT WINAPI rg_SrvMem(void* dev, const void* data, SIZE_T size, void* info, void* pump, void** srv, HRESULT* phr) {
+    if (phr && !pump) *phr = kHrSentinel;
+    const HRESULT hr = g_srv_mem(dev, data, size, info, pump, srv, phr);
+    hr_fix("D3DX10CreateShaderResourceViewFromMemory", hr, pump, phr);
+    return hr;
+}
+
+template <typename Fn>
+void hook_d3dx10(const char* func, Fn repl, Fn& orig) {
+    void* old = patch_iat(GetModuleHandleW(nullptr), "d3dx10_43.dll", func, reinterpret_cast<void*>(repl));
+    if (old) orig = reinterpret_cast<Fn>(old);
+    rg_log("importtabel: d3dx10_43.dll!%s %s", func, old ? "omgezet (pHResult zoals Windows)" : "niet in het spel");
+}
+
+void setup_d3dx10_hrfix() {
+    wchar_t buf[8];
+    if (GetEnvironmentVariableW(L"RG_D3DX10_HRFIX", buf, 8) > 0 && buf[0] == L'0') {
+        rg_log("RG_D3DX10_HRFIX=0: pHResult van d3dx10 niet gerepareerd");
+        return;
+    }
+    hook_d3dx10("D3DX10CreateEffectFromFileA", &rg_FxFileA, g_fx_a);
+    hook_d3dx10("D3DX10CreateEffectFromFileW", &rg_FxFileW, g_fx_w);
+    hook_d3dx10("D3DX10CreateShaderResourceViewFromFileA", &rg_SrvFileA, g_srv_a);
+    hook_d3dx10("D3DX10CreateShaderResourceViewFromMemory", &rg_SrvMem, g_srv_mem);
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Logboek naast deze DLL.
@@ -735,6 +814,7 @@ void setup() {
     char src8[MAX_PATH] = {};
     WideCharToMultiByte(CP_UTF8, 0, g_source, -1, src8, MAX_PATH, nullptr, nullptr);
     rg_log("rg-mfcam geladen in %s (camerabestand %s, %d fps)", exe, src8, g_fps);
+    setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
