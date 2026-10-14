@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "ravengun/json.hpp"
+#include "ravengun/iobridge/tp_shm.hpp"
 #include "ravengun/json_parse.hpp"
 
 extern char** environ;
@@ -402,6 +403,22 @@ bool unit_has_comm(const std::string& cgroup_procs, const std::string& proc_root
     }
     return false;
 }
+// Idem voor een lijst namen in kleine letters (de procesnamen van een directe start, zoals launch-direct.py ze vergelijkt).
+bool unit_has_any_comm(const std::string& cgroup_procs, const std::string& proc_root, const std::vector<std::string>& lower_comms) {
+    if (cgroup_procs.empty() || lower_comms.empty()) return false;
+    std::ifstream f(cgroup_procs);
+    std::string pid;
+    while (f && std::getline(f, pid)) {
+        pid = trim(pid);
+        if (pid.empty()) continue;
+        std::ifstream c(proc_root + "/" + pid + "/comm");
+        std::string name;
+        if (!(c && std::getline(c, name))) continue;
+        for (auto& ch : name) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        if (std::find(lower_comms.begin(), lower_comms.end(), name) != lower_comms.end()) return true;
+    }
+    return false;
+}
 std::string stamp(const char* fmt) {
     std::time_t t = std::time(nullptr);
     std::tm tm{};
@@ -462,6 +479,88 @@ std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch
     return a;
 }
 
+ravengun::launch::Verdict direct_route(const Config& c, const std::string& profile, const std::string& launch, std::string& why,
+                                       ravengun::launch::DirectInput* input) {
+    namespace L = ravengun::launch;
+    if (c.direct.tp.empty() || c.direct_runner.empty() || ::access(c.direct_runner.c_str(), X_OK) != 0) {
+        why = "rg-direct ontbreekt (" + c.direct_runner + ")";
+        return L::Verdict::Fallback;
+    }
+    if (launch == "teknoparrot-ui") { why = "TeknoParrotUi gevraagd"; return L::Verdict::Fallback; }
+    const std::string mode = launch == "direct" ? std::string("direct") : L::launch_mode(profile, c.direct);
+    if (mode != "direct") { why = "[Launch] Mode is niet direct"; return L::Verdict::Fallback; }
+    L::DirectInput in;
+    L::Verdict v = L::direct_input(profile, c.direct, in, why);
+    if (v != L::Verdict::Ok) return v;
+    // play-halo.sh: een game uit aagames-games.json met een andere route dan tp-shm gaat via de Unity-route (play-unity.sh).
+    if (c.unity_game && c.unity_game(profile) && (in.route != "tp-shm" || !in.note.empty())) { why = "Unity-route (aagames-games.json)"; return L::Verdict::Fallback; }
+    L::DirectOptions o;
+    o.base_env = c.session_env ? c.session_env() : direct_session_env(c.proc_root);
+    if (in.route == "jvs") o.base_env["RG_JVS_PTY"] = c.jvs_link;
+    if (in.route == "tp-shm") o.shm_source = ravengun::iobridge::kDefaultTpShmPath;
+    L::DirectPlan pl;
+    v = L::plan_direct(profile, c.direct, o, pl, why);
+    if (v == L::Verdict::Ok && L::needs_gst_fetch(pl)) {
+        why = "nog niet in de engine: de GStreamer-plug-ins ophalen (scripts/fetch-gst-wmv.sh)";
+        return L::Verdict::Fallback;
+    }
+    if (input) *input = in;
+    return v;
+}
+
+ravengun::launch::EnvMap direct_session_env(const std::string& proc_root) {
+    ravengun::launch::EnvMap e = ravengun::launch::environ_map();
+    // De variabelen van de unit van de daemon zelf horen niet bij de game (systemd zet in de game-unit zijn eigen).
+    for (const char* k : {"INVOCATION_ID", "JOURNAL_STREAM", "SYSTEMD_EXEC_PID", "MANAGERPID", "NOTIFY_SOCKET", "LISTEN_PID", "LISTEN_FDS",
+                          "LISTEN_FDNAMES", "WATCHDOG_PID", "WATCHDOG_USEC"})
+        e.erase(k);
+    auto dflt = [&](const char* k, const std::string& v) { if (e[k].empty()) e[k] = v; };
+    dflt("XDG_RUNTIME_DIR", "/run/user/" + std::to_string(::getuid()));
+    dflt("WAYLAND_DISPLAY", "wayland-0");
+    dflt("DISPLAY", ":0");
+    dflt("DBUS_SESSION_BUS_ADDRESS", "unix:path=" + e["XDG_RUNTIME_DIR"] + "/bus");
+    if (e["XAUTHORITY"].empty()) {
+        e.erase("XAUTHORITY");
+        // Zoals play-halo.sh: het xauth-bestand van Xwayland uit de opdrachtregel van kwin_wayland (pgrep -x kwin_wayland | head -1).
+        long best = -1;
+        std::string auth;
+        std::error_code ec;
+        for (fs::directory_iterator it(proc_root, ec), end; !ec && it != end; it.increment(ec)) {
+            const std::string name = it->path().filename().string();
+            if (name.empty() || !std::all_of(name.begin(), name.end(), [](char ch) { return ch >= '0' && ch <= '9'; })) continue;
+            std::ifstream cf(it->path() / "comm");
+            std::string comm;
+            if (!(cf && std::getline(cf, comm)) || comm != "kwin_wayland") continue;
+            const long pid = std::stol(name);
+            if (best >= 0 && pid > best) continue;
+            const std::string raw = read_head((it->path() / "cmdline").string(), 65536);
+            std::vector<std::string> args;
+            std::string cur;
+            for (char ch : raw) { if (ch == '\0') { args.push_back(cur); cur.clear(); } else cur += ch; }
+            std::string found;
+            for (size_t i = 0; i + 1 < args.size(); ++i) if (args[i] == "--xwayland-xauthority") found = args[i + 1];
+            best = pid;
+            auth = found;
+        }
+        if (!auth.empty()) e["XAUTHORITY"] = auth;
+    }
+    return e;
+}
+
+std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log) {
+    std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
+                               "--description=RavenGun: game (direct, gestart door de daemon)", "--property=TimeoutStopSec=10",
+                               "--working-directory=" + c.direct.tp};
+    bool plain = !log.empty();
+    for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
+    if (plain) {
+        a.push_back("--property=StandardOutput=append:" + log);
+        a.push_back("--property=StandardError=append:" + log);
+    }
+    a.insert(a.end(), {"--", c.direct_runner, "--run", plan_file});
+    return a;
+}
+
 int run_process(const std::vector<std::string>& argv, std::string& err) {
     if (argv.empty()) { err = "geen programma"; return -1; }
     std::vector<char*> av;
@@ -504,7 +603,15 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     std::error_code ec;
     const bool native = native_route(c_, profile);
     const bool unity = !native && unity_route(c_, profile, launch);
-    if (!native && !unity && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
+    // De directe route (A10): de engine zelf, of het script (ook als dat zelf naar TeknoParrotUi terugvalt). Wat launch-direct.py
+    // --check zou weigeren (exit 5), start niet: play-halo.sh stopt dan ook, zonder TeknoParrotUi.
+    ravengun::launch::DirectInput din;
+    std::string dwhy;
+    const ravengun::launch::Verdict dv =
+        native || unity ? ravengun::launch::Verdict::Fallback : direct_route(c_, profile, launch, dwhy, &din);
+    if (dv == ravengun::launch::Verdict::Refused) return {false, "unavailable", profile + ": " + dwhy};
+    const bool direct = dv == ravengun::launch::Verdict::Ok;
+    if (!native && !unity && !direct && (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0))
         return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
@@ -525,11 +632,11 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     failed_profile_.clear();
     busy_.store(true);
     busy_stop_ = false;
-    native_ = native || unity;
+    native_ = native || unity || direct;
     cancel_.store(false);
-    if (native || unity) {
-        worker_ = std::thread([this, profile, unity] {
-            const std::string msg = unity ? run_unity(profile) : run_native(profile);
+    if (native || unity || direct) {
+        worker_ = std::thread([this, profile, unity, direct, din] {
+            const std::string msg = unity ? run_unity(profile) : direct ? run_direct(profile, din) : run_native(profile);
             std::lock_guard<std::mutex> lk(m_);
             if (!msg.empty()) {
                 failed_ = true;
@@ -623,6 +730,106 @@ std::string GameService::wait_lightgun() {
         ::usleep(200000);
     }
     waiting_.store(false);
+    return {};
+}
+
+std::string GameService::run_direct(const std::string& profile, const ravengun::launch::DirectInput& in) {
+    namespace L = ravengun::launch;
+    // 1. Een lightgun, dan wapenen; de virtuele lightgun en het toetsenbord moeten er zijn voordat de game zijn invoer opent.
+    if (std::string e = wait_lightgun(); !e.empty()) return e;
+    if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
+    auto fail = [&](const std::string& m) { if (c_.stop_inputs) c_.stop_inputs(); return m; };
+    if (!c_.input_by_id.empty())
+        for (const char* dev : {"usb-RavenGun_Virtual_Lightgun-event-mouse", "usb-RavenGun_Virtual_Keyboard-event-kbd"}) {
+            const std::string pth = c_.input_by_id + "/" + dev;
+            for (int i = 0; i < 20 && ::access(pth.c_str(), F_OK) != 0; ++i) ::usleep(250000);
+            if (::access(pth.c_str(), F_OK) != 0) return fail(std::string("Invoerapparaat ontbreekt: ") + dev);
+        }
+    // 2. De invoerroute, zoals play-halo.sh hem voor een directe start voorbereidt.
+    std::vector<std::string> prep;
+    if (!in.note.empty()) prep.push_back(in.note);
+    L::EnvMap base = c_.session_env ? c_.session_env() : direct_session_env(c_.proc_root);
+    std::string shm;
+    if (c_.start_route) {
+        const std::string e = c_.start_route(profile, in.route);
+        if (!e.empty()) return fail("IO-brug (" + in.route + ") starten mislukt voor " + profile + ": " + e);
+    }
+    if (in.route == "tp-shm") {
+        shm = ravengun::iobridge::kDefaultTpShmPath;
+        prep.push_back("Invoerroute: tp-shm (de daemon schrijft de invoer).");
+    } else if (in.route == "hid-board") {
+        // Het bord krijgt joystick-id 0 in de prefix van het profiel (scripts/wine-joyid.sh), anders opent de game de Move zelf.
+        const std::string pfx = L::profile_env(profile, c_.direct)["RG_WINEPREFIX"];
+        const std::string vidpid = c_.hid_vidpid ? c_.hid_vidpid(in.board) : std::string();
+        if (!pfx.empty() && !vidpid.empty()) {
+            std::string wine = base.count("RG_WINE") ? base["RG_WINE"] : std::string();
+            if (wine.empty()) wine = c_.direct.home + "/.local/share/ravengun/wine/proton-11.0-2/bin/wine";
+            L::wine_joystick_zero(wine, pfx, vidpid, base, c_.capture, prep);
+        }
+        prep.push_back("Invoerroute: hid-board (de daemon is het invoerbord van de game).");
+    } else if (in.route == "jvs") {
+        struct stat st{};
+        if (c_.jvs_link.empty() || ::lstat(c_.jvs_link.c_str(), &st) != 0 || !S_ISLNK(st.st_mode))
+            return fail("De daemon maakte geen pty-symlink (" + c_.jvs_link + ").");
+        base["RG_JVS_PTY"] = c_.jvs_link;
+        prep.push_back("Invoerroute: jvs over de JVS-pipe (de daemon is het JVS-bord achter TeknoParrot_JVS).");
+    }
+    if (cancel_.load()) return fail("de start is afgebroken");
+    // 3. Het plan (opnieuw, nu met de omgeving van de route), de drop-ins en teknoparrot.ini in de view.
+    L::DirectOptions o;
+    o.base_env = base;
+    o.shm_source = shm;
+    L::DirectPlan pl;
+    std::string why;
+    if (L::plan_direct(profile, c_.direct, o, pl, why) != L::Verdict::Ok) return fail(profile + ": " + why);
+    std::vector<std::string> placed;
+    std::string err;
+    if (!L::apply_direct(pl, c_.direct, placed, err)) return fail(profile + ": " + err);
+    // 4. Het logboek en het plan voor rg-direct.
+    std::string log, plan_file;
+    {
+        std::string dir = c_.native_log_dir;
+        if (dir.empty()) dir = c_.direct.state + "/logs";
+        std::error_code ec;
+        fs::create_directories(dir, ec);
+        const std::string st = stamp("%Y%m%d-%H%M%S");
+        log = dir + "/direct-" + profile + "-" + st + ".log";
+        plan_file = dir + "/direct-" + profile + "-" + st + ".plan.json";
+        {
+            std::ofstream pf(plan_file, std::ios::trunc);
+            pf << L::plan_to_json(pl) << "\n";
+            if (!pf) return fail("het plan " + plan_file + " is niet te schrijven");
+        }
+        ::chmod(plan_file.c_str(), 0600);   // de hele omgeving van de sessie staat erin
+        std::ofstream f(log, std::ios::app);
+        f << "== direct " << profile << " " << st << " (gestart door ravengund, zonder script)\n";
+        for (const std::string& l : pl.notes) f << l << "\n";
+        for (const std::string& l : prep) f << l << "\n";
+        f << "plan: " << plan_file << "\n";
+        f << "spel: " << pl.game << " (" << pl.game_source << ")\n";
+        for (const std::string& l : placed) f << l << "\n";
+        f << "cmd:";
+        for (const std::string& a : direct_unit_argv(c_, plan_file, log)) f << " " << a;
+        f << "\n";
+    }
+    if (cancel_.load()) return fail("de start is afgebroken");
+    // 5. Starten in de unit van de game: rg-direct is het hoofdproces, op de plaats van launch-direct.py.
+    std::string serr;
+    const int rc = spawn_(direct_unit_argv(c_, plan_file, log), serr);
+    if (rc != 0) return fail(rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr);
+    // 6. Wachten tot de lader of de game draait (of de unit al weer weg is).
+    if (c_.tpui_procs.empty()) return {};
+    const int64_t until = now_ms() + c_.game_wait_ms;
+    ::usleep(500000);
+    while (!unit_has_any_comm(c_.tpui_procs, c_.proc_root, pl.game_comms)) {
+        if (cancel_.load()) return "de start is afgebroken";
+        if (!unit_alive(c_.tpui_procs)) {
+            const std::string last = last_line(log);
+            return fail(profile + " is niet gestart" + (last.empty() ? std::string() : ": " + last) + " (logboek: " + log + ")");
+        }
+        if (now_ms() > until) return profile + " is niet gestart; zie " + log;
+        ::usleep(250000);
+    }
     return {};
 }
 

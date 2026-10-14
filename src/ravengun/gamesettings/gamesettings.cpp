@@ -325,7 +325,7 @@ Dirs default_dirs(const std::string& data_dir) {
 
 std::string game_dir(const std::string& layer_dir, const std::string& profile) { return layer_dir.empty() ? std::string() : layer_dir + "/" + profile; }
 
-Game load_game(const Dirs& dirs, const std::string& profile, const std::string& type_hint) {
+Game load_game(const Dirs& dirs, const std::string& profile, const std::string& type_hint, const Ini* legacy) {
     Game g;
     g.profile = profile;
     std::vector<Ini> layers;          // game.ini: meegeleverd, gebruiker
@@ -346,7 +346,8 @@ Game load_game(const Dirs& dirs, const std::string& profile, const std::string& 
         layers.push_back(std::move(gi));
         pl.push_back(patches_from(pi));
     }
-    std::string type;
+    std::string type = legacy ? legacy->get("Game", "Type") : std::string();
+    if (legacy && !legacy->sections.empty()) g.exists = true;
     for (const auto& l : layers) {
         const std::string t = l.get("Game", "Type");
         if (!t.empty()) type = t;
@@ -365,6 +366,7 @@ Game load_game(const Dirs& dirs, const std::string& profile, const std::string& 
         if (existed) g.sources.push_back(dpp);
         shared = patches_from(dpi);
     }
+    if (legacy) merge_into(g.settings, *legacy);
     for (const auto& l : layers) merge_into(g.settings, l);
     // Lege secties vallen weg.
     g.settings.sections.erase(std::remove_if(g.settings.sections.begin(), g.settings.sections.end(), [](const Section& s) { return s.kv.empty(); }),

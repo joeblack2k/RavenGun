@@ -1,0 +1,362 @@
+// Tests voor de directe route zonder scripts (src/ravengun/launch/direct.*, jvs_pipe.*, tools/rg-direct): het plan (lader, eigen build,
+// argumenten als een parameter, omgeving met drop-ins, teknoparrot.ini met DropdownIndex en een regiokeuze), de uitkomsten die naar het
+// script gaan of weigeren, het plaatsen van drop-ins in een view met een koppeling naar de (nep-)NAS zonder op de NAS te schrijven, de
+// invoerroute, het JSON-plan, de joystick-ids van wine-joyid.sh, en rg-direct --run met een nep-wine (de JVS-pipe over TCP, de helper,
+// de lader, de omgeving van het spel). Alles in een tijdelijke map; start geen Wine en geen game, raakt /dev/shm/TeknoParrot_JvsState niet.
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "ravengun/launch/direct.hpp"
+#include "ravengun/launch/jvs_pipe.hpp"
+
+namespace fs = std::filesystem;
+using namespace ravengun::launch;
+
+static int g_failures = 0;
+static int g_checks = 0;
+#define CHECK(cond)                                                              \
+    do {                                                                         \
+        ++g_checks;                                                              \
+        if (!(cond)) {                                                           \
+            ++g_failures;                                                        \
+            std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); \
+        }                                                                        \
+    } while (0)
+
+static void write(const fs::path& p, const std::string& text, bool exec = false) {
+    fs::create_directories(p.parent_path());
+    std::ofstream(p, std::ios::binary) << text;
+    if (exec) ::chmod(p.c_str(), 0755);
+}
+static std::string slurp(const fs::path& p) {
+    std::ifstream f(p, std::ios::binary);
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+static bool contains(const std::string& s, const std::string& part) { return s.find(part) != std::string::npos; }
+
+static const char* kGameIni = R"([Game]
+Profile = Spel
+Name = Testspel
+Type = TeknoParrot
+EmulationProfile = WartranTroopers
+Executable = spel.exe
+Is64Bit = true
+ProfileRevision = 3
+DongleRegion = USA
+
+[Launch]
+Mode = direct
+Arguments = /k=1 "met spatie"
+
+[Loader]
+Build = ravengun
+RemoteThread = off
+
+[Wine]
+DllOverrides = d3d11=n,b
+
+[Input]
+Route = evdev
+Layout = WartranTroopers
+
+[Env]
+EIGEN = ja
+
+[Identify]
+Path = bin/spel.exe
+Size = 10
+
+[Config]
+General/Windowed = 0
+General/DongleRegion = JAPAN
+General/Mode = B
+
+[ConfigType]
+General/Windowed = Bool
+General/DongleRegion = Dropdown
+General/Mode = DropdownIndex
+
+[ConfigOptions]
+General/DongleRegion = JAPAN|USA
+General/Mode = A|B|C
+)";
+
+int main() {
+    char tmpl[] = "/tmp/rg-direct-XXXXXX";
+    const char* t = mkdtemp(tmpl);
+    if (!t) { std::perror("mkdtemp"); return 2; }
+    const fs::path root = t;
+    const fs::path home = root / "home";
+
+    // --- kleine hulpen -----------------------------------------------------------------------------------------------------------
+    CHECK((shlex_split(R"(a "b c" 'd e' f\ g)") == std::vector<std::string>{"a", "b c", "d e", "f g"}));
+    CHECK((shlex_split(R"(x "" y)") == std::vector<std::string>{"x", "", "y"}));
+    { bool ok = true; shlex_split("\"open", &ok); CHECK(!ok); }
+    CHECK((win_split(R"(/k=1 "met spatie" C:\pad\ "a\"b")") == std::vector<std::string>{"/k=1", "met spatie", R"(C:\pad\)", "a\"b"}));
+    CHECK(wine_path("/a/b c") == "Z:\\a\\b c");
+    CHECK(new_uuid4().size() == 36 && new_uuid4()[14] == '4');
+
+    // --- joystick-ids (wine-joyid.sh) --------------------------------------------------------------------------------------------
+    const std::string reg =
+        "HKEY_CURRENT_USER\\System\\CurrentControlSet\\Control\\MediaProperties\\PrivateProperties\\DirectInput\\VID_054C&PID_03D5\\Calibration\\0\r\n"
+        "    Joystick Id    REG_BINARY    00000000\r\n\r\n"
+        "HKEY_CURRENT_USER\\System\\CurrentControlSet\\Control\\MediaProperties\\PrivateProperties\\DirectInput\\VID_1209&PID_72F0\\Calibration\\0\r\n"
+        "    Joystick Id    REG_BINARY    02000000\r\n";
+    const auto ids = parse_joy_ids(reg);
+    CHECK(ids.size() == 2 && ids[0].key == "VID_054C&PID_03D5\\Calibration\\0" && ids[0].id == 0 && ids[1].id == 2);
+    const auto ch = joy_id_changes(ids, "1209:72f0");
+    CHECK(ch.size() == 2 && ch[0].key == "VID_054C&PID_03D5\\Calibration\\0" && ch[0].id == 1 && ch[1].key == "VID_1209&PID_72F0\\Calibration\\0" && ch[1].id == 0);
+    const auto nieuw = joy_id_changes({}, "1209:72F0");
+    CHECK(nieuw.size() == 1 && nieuw[0].key == "VID_1209&PID_72F0\\Calibration\\0" && nieuw[0].id == 0);
+    {   // uitvoeren met een nep-runner: query, twee keer add, wineserver -w
+        std::vector<std::vector<std::string>> calls;
+        std::vector<std::string> log;
+        fs::create_directories(root / "pfx");
+        wine_joystick_zero("/w/bin/wine", (root / "pfx").string(), "1209:72F0", {}, [&](const std::vector<std::string>& a, const EnvMap& e, std::string* out) {
+            calls.push_back(a);
+            CHECK(e.at("WINEPREFIX") == (root / "pfx").string() && e.at("WINEDEBUG") == "-all");
+            if (out) *out = reg;
+            return 0;
+        }, log);
+        CHECK(calls.size() == 4 && calls[0][1] == "reg" && calls[0][2] == "query" && calls[1][2] == "add" && calls[1].back() == "/f");
+        CHECK(std::find(calls[1].begin(), calls[1].end(), "01000000") != calls[1].end());
+        CHECK(calls[3][0] == "/w/bin/wineserver" && calls[3][1] == "-w");
+    }
+
+    // --- JVS -----------------------------------------------------------------------------------------------------------------------
+    {
+        namespace J = jvspipe;
+        J::Bytes rest;
+        auto fr = J::frames({0x00, 0xE0, 0xFF, 0x03, 0xF1, 0x01, 0xF4, 0xE0, 0x01}, rest);
+        CHECK(fr.size() == 1 && J::hex(fr[0]) == "ff03f101f4" && J::hex(rest) == "e001");
+        fr = J::frames({0xE0, 0x01, 0x02, 0xD0, 0xDF, 0x03}, rest);   // escape: D0 DF = E0
+        CHECK(fr.size() == 1 && J::hex(fr[0]) == "0102e003" && rest.empty());
+        const J::Board b = J::default_board();
+        CHECK(!J::answer(b, {0xF0}));
+        CHECK(J::hex(*J::answer(b, {0x11})) == "010113");
+        CHECK(J::hex(*J::answer(b, {0x77})) == "0102");
+        CHECK(J::hex(J::pack({0x01, 0xD0})) == "e00003" "01d0cf" "d4");
+        J::Board c = b;
+        CHECK(J::configure(c, "X", "01 02 00") && J::hex(c.ident) == "5800" && J::hex(c.features) == "010200");
+        CHECK(!J::configure(c, "", "zz"));
+    }
+
+    // --- de opstelling ---------------------------------------------------------------------------------------------------------------
+    DirectPaths p;
+    p.home = home.string();
+    p.tp = (home / "tp").string();
+    p.data = (home / ".local/share/ravengun").string();
+    p.state = (home / ".local/state/ravengun").string();
+    p.dirs = {(root / "patches").string(), (root / "user").string()};
+    p.library_file = (home / "library.json").string();
+    p.mounts = (root / "mounts").string();
+    write(p.mounts, "proc /proc proc rw 0 0\n");
+    for (const char* rel : {"OpenParrotx64/OpenParrotLoader64.exe", "TeknoParrot/TeknoParrot64.dll", "pipehelper.exe"}) write(fs::path(p.tp) / rel, "x");
+    write(fs::path(p.tp) / "ParrotData.xml", "\xEF\xBB\xBF<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapterName /></ParrotData>");
+    write(fs::path(p.tp) / "GameProfiles/Spel.xml", "<GameProfile><GameProfileRevision>3</GameProfileRevision></GameProfile>");
+    const fs::path own = fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrotLoader64.exe";
+    write(own, "x");
+    const fs::path wine = home / ".local/share/ravengun/wine/proton-11.0-2/bin/wine";
+    write(fs::path(p.dirs.shipped) / "Spel/game.ini", kGameIni);
+    write(fs::path(p.dirs.shipped) / "Spel/dropin/hook.dll", "MZhook");
+    write(fs::path(p.dirs.shipped) / "Spel/dropin/data/x.ini", "x=1\n");
+    write(fs::path(p.dirs.shipped) / "Spel/dropin/dropin.ini",
+          "; commentaar\n[hook.dll]\nTo = .\nDllOverride = native\nPreload = true\nEnv = A=1;B=2\n\n[data/x.ini]\nTo = sub\n");
+    const fs::path view = fs::path(p.views()) / "Spel";
+    write(view / "bin/spel.exe", std::string("MZ") + std::string(8, '\0'));
+    const fs::path nas = home / "mnt/nas/sub";
+    write(nas / "y.dat", "nas");
+    fs::create_directory_symlink(nas, view / "bin/sub");
+    write(root / "src", std::string(64, '\0'));
+
+    DirectOptions o;
+    o.base_env = {{"PATH", std::getenv("PATH") ? std::getenv("PATH") : "/usr/bin:/bin"}, {"HOME", p.home}, {"WINEDLLOVERRIDES", "basis=b"}};
+    o.session_id = "sessie";
+    o.shm_source = (root / "src").string();
+    DirectPlan pl;
+    std::string why;
+
+    // De standaard-wine ontbreekt nog niet: launch-direct.py controleert hem niet (alleen de wrapper en TP_WINE).
+    Verdict v = plan_direct("Spel", p, o, pl, why);
+    CHECK(v == Verdict::Ok);
+    if (v != Verdict::Ok) std::fprintf(stderr, "plan: %s\n", why.c_str());
+    const std::string game = (view / "bin/spel.exe").string();
+    CHECK(pl.game == game && pl.game_source == "view" && pl.cwd == p.tp);
+    CHECK((pl.argv == std::vector<std::string>{wine.string(), own.string(), wine_path(p.tp + "/TeknoParrot/TeknoParrot64"), wine_path(game),
+                                                "/k=1 \"met spatie\""}));   // de OpenParrot-lader: een parameter, letterlijk
+    CHECK(pl.core_dll == p.tp + "/TeknoParrot/TeknoParrot64.dll" && pl.core_source == "runtime");
+    CHECK(pl.prefix == p.home + "/.local/share/ravengun/prefixes/shared/wine" && pl.env.at("WINEPREFIX") == pl.prefix);
+    CHECK(!pl.env.count("TP_REMOTETHREAD") && pl.env.at("WINEDEBUG") == "-all" && pl.env.at("TP_LAUNCH_SESSION_ID") == "sessie");
+    CHECK(pl.env.at("WINEDLLOVERRIDES") == "d3d11=n,b;hook=n");   // game.ini wint van de basis, de drop-in komt erbij
+    CHECK(pl.env.at("EIGEN") == "ja" && pl.env.at("A") == "1" && pl.env.at("B") == "2");
+    CHECK(pl.env.at("TP_PRELOAD_DLL") == wine_path((view / "bin/hook.dll").string()));
+    CHECK(pl.env.at("RG_DROPIN_PRELOAD") == (view / "bin/hook.dll").string() && !pl.env.count("LD_AUDIT"));
+    CHECK(pl.launch_env.at("A") == "1" && !pl.launch_env.count("EIGEN"));
+    CHECK(pl.files.size() == 1 && pl.files[0].first == (view / "bin/teknoparrot.ini").string());
+    CHECK(pl.files[0].second == "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nWindowed=0\nDongleRegion=USA\nMode=1\n");
+    CHECK(pl.dropin_materialise.size() == 1 && pl.dropin_materialise[0] == (view / "bin/sub").string());
+    CHECK(pl.dropin_files.size() == 2 && pl.dropin_files[1].dest == (view / "bin/sub/data/x.ini").string());
+    CHECK(pl.pipe_mode == "pipe" && pl.pipehelper == p.tp + "/pipehelper.exe" && pl.shm_source == (root / "src").string());
+    CHECK(std::find(pl.game_comms.begin(), pl.game_comms.end(), "spel.exe") != pl.game_comms.end());
+    CHECK(!needs_gst_fetch(pl));
+
+    // JSON heen en terug.
+    {
+        DirectPlan back;
+        std::string err;
+        CHECK(plan_from_json(plan_to_json(pl), back, err));
+        CHECK(back.argv == pl.argv && back.env == pl.env && back.files == pl.files && back.dropin_files.size() == 2 && back.game_comms == pl.game_comms);
+        CHECK(!plan_from_json("{}", back, err));
+    }
+
+    // Plaatsen: de koppeling naar de NAS wordt een echte map met koppelingen; op de NAS komt niets bij.
+    {
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(pl, p, log, err));
+        CHECK(!fs::is_symlink(view / "bin/sub") && fs::is_symlink(view / "bin/sub/y.dat"));
+        CHECK(slurp(view / "bin/sub/data/x.ini") == "x=1\n" && slurp(view / "bin/hook.dll") == "MZhook");
+        CHECK(!fs::exists(nas / "data"));
+        CHECK(slurp(view / "bin/teknoparrot.ini") == pl.files[0].second);
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "was een symlink naar de NAS"); }));
+        log.clear();
+        CHECK(apply_direct(pl, p, log, err));
+        CHECK(std::count_if(log.begin(), log.end(), [](const std::string& l) { return contains(l, "is al actueel"); }) == 3);
+        // Een gegenereerd bestand op de NAS wordt nooit geschreven.
+        DirectPlan nasplan = pl;
+        nasplan.dropin_files.clear();
+        nasplan.files = {{(nas / "teknoparrot.ini").string(), "x"}};
+        log.clear();
+        CHECK(apply_direct(nasplan, p, log, err) && !fs::exists(nas / "teknoparrot.ini"));
+        CHECK(contains(log.back(), "ligt op de NAS"));
+    }
+
+    // De invoer: evdev met een indeling wordt tp-shm; zonder indeling via het script.
+    DirectInput in;
+    CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm" && !in.note.empty());
+    CHECK(launch_mode("Spel", p) == "direct");
+    const fs::path user = fs::path(p.dirs.user) / "Spel/game.ini";
+    write(user, "[Input]\nLayout =\n");
+    CHECK(direct_input("Spel", p, in, why) == Verdict::Fallback && contains(why, "evdev"));
+    // jvs: over de pipe (het oude .env zet RG_JVS_TRANSPORT) door de engine, over een COM-poort via het script.
+    write(user, "[Input]\nRoute = jvs\nBoard = LGI\n");
+    CHECK(direct_input("Spel", p, in, why) == Verdict::Fallback && contains(why, "COM-poort"));
+    write(fs::path(p.tp) / "UserProfiles/Spel.env", "RG_JVS_TRANSPORT=pipe\nRG_WINEPREFIX=" + p.home + "/.local/share/ravengun/prefixes/eigen  # oud\n");
+    CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "jvs" && in.board == "LGI" && in.transport == "pipe");
+    CHECK(profile_env("Spel", p).at("RG_WINEPREFIX") == p.home + "/.local/share/ravengun/prefixes/eigen");
+    // Een ongeldige gebruikerslaag telt niet mee (de meegeleverde route geldt).
+    write(user, "[Input]\nRoute = onzin\n");
+    CHECK(direct_input("Spel", p, in, why) == Verdict::Ok && in.route == "tp-shm");
+    fs::remove(fs::path(p.tp) / "UserProfiles/Spel.env");
+
+    // Weigeren (launch-direct.py exit 5) en via het script.
+    write(user, "[Game]\nDongleRegion = EUR\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Instelling geweigerd") && contains(why, "JAPAN, USA"));
+    write(user, "[Loader]\nBuild = eigen\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "kies teknoparrot of ravengun"));
+    fs::rename(own, own.string() + ".weg");
+    write(user, "[Game]\nDongleRegion =\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "eigen OpenParrot-build ontbreekt"));
+    fs::rename(own.string() + ".weg", own);
+    write(user, "[Game]\nHasTwoExecutables = true\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "nog niet in de engine") && contains(why, "twee exe"));
+    write(user, "[Launch]\nDrives = X=.\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Drives"));
+    write(user, "[Game]\nProfileRevision = 2\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "profielrevisie 2"));
+    write(user, "[Game]\nEmulationProfile = NamcoPokken\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Niet direct te starten"));
+    write(user, "");
+    write(fs::path(p.dirs.user) / "Spel/patches.ini", "[Patch: test]\nEnabled = true\nKind = file\nCategory = loader\nTarget = loader\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "patch 'test' staat aan"));
+    write(fs::path(p.dirs.user) / "Spel/patches.ini", "[Patch: test]\nEnabled = true\nKind = file\n");   // geen Category: afgewezen en aan
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Patch geweigerd"));
+    write(fs::path(p.dirs.user) / "Spel/patches.ini", "[Patch: test]\nEnabled = false\nKind = file\nCategory = loader\nTarget = loader\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok);
+    CHECK(pl.patch_lines.size() == 1 && pl.patch_lines[0] == "overgeslagen 'test' @loader [uit]");
+    // Een drop-in die buiten de view zou komen: weigeren.
+    write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[weg.dll]\nTo = ../..\n");
+    write(fs::path(p.dirs.user) / "Spel/dropin/weg.dll", "x");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Drop-in geweigerd") && contains(why, "buiten de view"));
+    fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+
+    // --- rg-direct --run met een nep-wine -----------------------------------------------------------------------------------------
+#ifdef RG_DIRECT_BIN
+    {
+        const fs::path out = root / "out";
+        fs::create_directories(out);
+        write(wine,
+              "#!/usr/bin/env bash\n"
+              "case \"$1\" in\n"
+              "  */pipehelper.exe|*/rg-jvsbridge.exe)\n"
+              "    shift; echo \"$@\" > \"$OUT/helper-args\"\n"
+              "    exec 3<>/dev/tcp/127.0.0.1/$3\n"
+              "    printf '\\xe0\\xff\\x03\\xf1\\x01\\xf4' >&3\n"
+              "    head -c 6 <&3 | od -An -tx1 | tr -d ' \\n' > \"$OUT/helper-reply\"\n"
+              "    echo \"pipehelper: pipe created\" >&2\n"
+              "    exec sleep 30 ;;\n"
+              "  *)\n"
+              "    pwd > \"$OUT/game-cwd\"; env | sort > \"$OUT/game-env\"\n"
+              "    echo \"BudgieLoader 1.0 start\"\n"
+              "    printf 'h\\0i\\0\\n\\0'\n"
+              "    exit 3 ;;\n"
+              "esac\n",
+              true);
+        o.base_env["OUT"] = out.string();
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok);
+        pl.state = (root / "state").string();
+        const fs::path planf = root / "plan.json";
+        write(planf, plan_to_json(pl));
+        const fs::path logf = root / "run.log";
+        setenv("RG_DIRECT_SHM_PATH", (root / "shm").c_str(), 1);
+        setenv("RG_ALLEEN_IN_DE_TEST", "1", 1);   // mag niet in het spel komen: de omgeving komt uit het plan
+        posix_spawn_file_actions_t fa;
+        posix_spawn_file_actions_init(&fa);
+        posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_adddup2(&fa, 1, 2);
+        std::string bin = RG_DIRECT_BIN;
+        std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+        extern char** environ;
+        pid_t pid = 0;
+        CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) == 0);
+        posix_spawn_file_actions_destroy(&fa);
+        int st = 0;
+        waitpid(pid, &st, 0);
+        const std::string log = slurp(logf);
+        CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 3);
+        CHECK(contains(log, "pipehelper: " + p.tp + "/pipehelper.exe TeknoParrot_JVS 127.0.0.1 "));
+        CHECK(contains(log, "JVS-pipe: game verbonden") && contains(log, "helper: pipehelper: pipe created"));
+        CHECK(contains(log, "start: cwd=" + p.tp) && contains(log, "BudgieLoader 1.0 start") && contains(log, "\nhi\n"));
+        CHECK(contains(log, "lader gestopt (exitcode 3); de game volgen") && contains(log, "klaar (exitcode 3)"));
+        CHECK(contains(log, "A11: overgeslagen 0, toegepast 0, koppeling 0, versie 1, fout 0"));
+        CHECK(slurp(out / "helper-reply") == "e00003010105");                       // het antwoord op de adrestoekenning
+        CHECK(slurp(root / "shm").size() == 64 && slurp(root / "shm")[0] == 1);      // verbind-vlag aan
+        const std::string args = slurp(out / "helper-args");
+        CHECK(contains(args, "TeknoParrot_JvsState 64 " + wine_path((root / "src").string())));
+        CHECK(slurp(out / "game-cwd") == p.tp + "\n");
+        const std::string genv = "\n" + slurp(out / "game-env");
+        CHECK(contains(genv, "\nA=1\n") && contains(genv, "TP_PRELOAD_DLL=") && contains(genv, "WINEDLLOVERRIDES=d3d11=n,b;hook=n\n"));
+        CHECK(!contains(genv, "RG_ALLEEN_IN_DE_TEST") && !contains(genv, "TP_PIPEHELPER_OWNER_PID"));
+        CHECK(fs::exists(root / "state/a11"));
+        if (g_failures) std::fprintf(stderr, "--- rg-direct log ---\n%s\n", log.c_str());
+    }
+#endif
+
+    fs::remove_all(root);
+    std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
+    return g_failures ? 1 : 0;
+}

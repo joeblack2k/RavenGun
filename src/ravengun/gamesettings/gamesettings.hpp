@@ -102,7 +102,9 @@ struct Game {
     const Patch* patch(const std::string& name) const;
 };
 
-Game load_game(const Dirs& dirs, const std::string& profile, const std::string& type_hint = {});
+// legacy: de instellingen uit het oude UserProfiles/<P>.env (scripts/gamesettings.py, env_to_settings) als laag tussen _defaults en het
+// meegeleverde game.ini, zoals load_for_profile() in Python. nullptr = geen.
+Game load_game(const Dirs& dirs, const std::string& profile, const std::string& type_hint = {}, const Ini* legacy = nullptr);
 // Eén laag zonder samenvoegen: game.ini of patches.ini van een game in een map (leeg als het bestand ontbreekt). Voor weergave
 // ("deze waarde komt uit de gebruikerslaag") en om te zien of de gebruiker een sleutel zelf zet.
 Ini read_layer(const std::string& layer_dir, const std::string& profile, const std::string& file = "game.ini");

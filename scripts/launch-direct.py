@@ -22,6 +22,9 @@
 #   6. Gamescope als TP_GAMESCOPE=1: gamescope -W <b> -H <h> -S fit -f --backend wayland -- wine ...
 #   7. Wachten tot de game weg is (lader en exe in de eigen cgroup), dan opruimen. Dit script draait als hoofdproces van
 #      de unit ravengun-tpui (scripts/play-halo.sh --direct), op de plaats van TeknoParrotUi.
+# Een start vanuit de app doet de daemon zelf, zonder dit script: src/ravengun/launch/direct.* rekent hetzelfde plan uit en
+# tools/rg-direct is het hoofdproces van de unit. Een wijziging hier hoort daar ook; tests/direct_golden.py vergelijkt beide plannen
+# per game in patches/. Wat de engine (nog) niet doet, laat hij aan dit script over (zie direct.hpp).
 # Niet nagebouwd: keychip en integriteit (blijven in de lader/kern), en de activering: die moet al in de prefix
 # staan (TeknoParrotUi zet hem daar bij een start); is hij er niet of niet actueel, dan stopt dit script met exitcode 3
 # en valt play-halo.sh terug op TeknoParrotUi.

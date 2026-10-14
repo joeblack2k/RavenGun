@@ -630,6 +630,162 @@ static void test_unity_service(const std::string& d) {
     CHECK(!unity_route(c, "Uni"));
 }
 
+// De directe route ([Launch] Mode = direct) zonder script: wachten op een lightgun, wapenen, de route (tp-shm, jvs over de pipe met de
+// pty-koppeling in RG_JVS_PTY), de drop-ins en teknoparrot.ini in de view, het plan voor rg-direct, en systemd-run met rg-direct als
+// hoofdproces van de unit. Een route die de engine niet doet gaat via play-halo.sh; wat launch-direct.py weigert start niet.
+static void test_direct_service(const std::string& d) {
+    const std::string b = d + "/dir", home = b + "/home", tp = home + "/tp";
+    for (const char* rel : {"/OpenParrotWin32/OpenParrotLoader.exe", "/TeknoParrot/TeknoParrot.dll", "/pipehelper.exe"}) write(tp + rel, "x");
+    write(tp + "/GameProfiles/Dir.xml", "<GameProfile><GameProfileRevision>1</GameProfileRevision></GameProfile>");
+    write(home + "/.local/share/ravengun/runtime/views/Dir/spel.exe", "MZ");
+    write(b + "/patches/Dir/game.ini",
+          "[Game]\nType = TeknoParrot\nExecutable = spel.exe\nProfileRevision = 1\n[Launch]\nMode = direct\n[Input]\nRoute = tp-shm\nLayout = L\n"
+          "[Identify]\nPath = spel.exe\n[Config]\nGeneral/Windowed = 1\n[ConfigType]\nGeneral/Windowed = Bool\n");
+    write(b + "/patches/Dir/dropin/dropin.ini", "[hook.dll]\nTo = .\n");
+    write(b + "/patches/Dir/dropin/hook.dll", "MZhook");
+    write(b + "/patches/Evd/game.ini", "[Game]\nType = TeknoParrot\nExecutable = e.exe\n[Launch]\nMode = direct\n");
+    write(b + "/patches/Weg/game.ini",
+          "[Game]\nType = TeknoParrot\nExecutable = spel.exe\nProfileRevision = 1\nDongleRegion = MARS\n[Launch]\nMode = direct\n[Input]\nRoute = tp-shm\nLayout = L\n"
+          "[Game]\nGamePath = " + home + "/.local/share/ravengun/runtime/views/Dir/spel.exe\n");
+    write(b + "/play.sh", "#!/bin/sh\n");
+    fs::permissions(b + "/play.sh", fs::perms::owner_all);
+    write(b + "/bin/rg-direct", "#!/bin/sh\n");
+    fs::permissions(b + "/bin/rg-direct", fs::perms::owner_all);
+    Config c;
+    c.tp_dir = tp;
+    c.play_script = b + "/play.sh";
+    c.proc_root = b + "/proc";
+    c.start_grace_ms = 0;
+    c.dirs = {b + "/patches", b + "/user"};
+    c.native_log_dir = b + "/logs";
+    c.direct.tp = tp;
+    c.direct.home = home;
+    c.direct.data = home + "/.local/share/ravengun";
+    c.direct.state = home + "/.local/state/ravengun";
+    c.direct.dirs = c.dirs;
+    c.direct.mounts = b + "/geen-mounts";
+    c.direct_runner = b + "/bin/rg-direct";
+    c.jvs_link = b + "/run/jvs-com";
+    c.session_env = [&] { return ravengun::launch::EnvMap{{"HOME", home}, {"PATH", "/usr/bin:/bin"}, {"DISPLAY", ":0"}}; };
+    c.lightgun_wait_ms = 2000;
+    std::atomic<bool> gun{true};
+    std::mutex m;
+    std::vector<std::string> events;
+    std::vector<std::vector<std::string>> calls;
+    c.lightgun_ready = [&] { return gun.load(); };
+    c.arm = [&] { std::lock_guard<std::mutex> g(m); events.push_back("arm"); return std::string(); };
+    c.start_route = [&](const std::string& game, const std::string& route) { std::lock_guard<std::mutex> g(m); events.push_back("route " + game + " " + route); return std::string(); };
+    c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
+
+    std::string why;
+    CHECK(direct_route(c, "Dir", "", why) == ravengun::launch::Verdict::Ok);
+    CHECK(direct_route(c, "Dir", "teknoparrot-ui", why) == ravengun::launch::Verdict::Fallback);
+    CHECK(direct_route(c, "Evd", "", why) == ravengun::launch::Verdict::Fallback && why.find("evdev") != std::string::npos);
+    CHECK(direct_route(c, "Weg", "", why) == ravengun::launch::Verdict::Refused && why.find("DongleRegion") != std::string::npos);
+    Config norunner = c;
+    norunner.direct_runner = b + "/bin/bestaat-niet";
+    CHECK(direct_route(norunner, "Dir", "", why) == ravengun::launch::Verdict::Fallback);
+    Config unity = c;
+    unity.unity_game = [](const std::string&) { return true; };
+    CHECK(direct_route(unity, "Dir", "", why) == ravengun::launch::Verdict::Ok);   // tp-shm gaat niet via de Unity-route
+
+    GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
+        std::lock_guard<std::mutex> g(m);
+        calls.push_back(argv);
+        events.push_back("spawn " + argv[0]);
+        return 0;
+    });
+    // Weigeren: niets gestart, een melding.
+    const Result r = svc.start("Weg");
+    CHECK(!r.ok && r.message.find("Instelling geweigerd") != std::string::npos);
+    CHECK(svc.start("Dir").ok);
+    for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::string msg;
+    CHECK(state_of(svc, &msg) != "failed");
+    if (!msg.empty()) std::fprintf(stderr, "direct: %s\n", msg.c_str());
+    std::string plan_file;
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(events.size() == 3 && events[0] == "arm" && events[1] == "route Dir tp-shm" && events[2] == "spawn systemd-run");
+        CHECK(calls.size() == 1);
+        if (!calls.empty()) {
+            const auto& a = calls[0];
+            auto has = [&](const std::string& x) { return std::find(a.begin(), a.end(), x) != a.end(); };
+            CHECK(has("--unit=ravengun-tpui") && has("--working-directory=" + tp) && has("--run") && has(b + "/bin/rg-direct"));
+            for (const auto& x : a)
+                CHECK(x.find("play-halo") == std::string::npos && x.find("launch-direct") == std::string::npos && x != "sh" && x != "/bin/sh" &&
+                      x.find("python") == std::string::npos);
+            plan_file = a.back();
+        }
+    }
+    // Het plan voor rg-direct: de lader, het bronbestand van de IO-brug, de drop-in in de omgeving. De bestanden staan in de view.
+    {
+        std::ifstream f(plan_file);
+        std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        ravengun::launch::DirectPlan pl;
+        std::string err;
+        CHECK(ravengun::launch::plan_from_json(text, pl, err));
+        CHECK(pl.shm_source == "/dev/shm/ravengun_JvsState" && pl.argv.size() >= 4 && pl.env.at("HOME") == home);
+        CHECK(pl.argv[1] == tp + "/OpenParrotWin32/OpenParrotLoader.exe");
+        CHECK(fs::exists(home + "/.local/share/ravengun/runtime/views/Dir/hook.dll"));
+        CHECK(fs::exists(home + "/.local/share/ravengun/runtime/views/Dir/teknoparrot.ini"));
+        CHECK((fs::status(plan_file).permissions() & fs::perms::others_read) == fs::perms::none);
+    }
+    bool logged = false;
+    for (const auto& e : fs::directory_iterator(b + "/logs")) {
+        if (e.path().extension() != ".log") continue;
+        std::ifstream f(e.path());
+        std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        logged = all.find("== direct Dir") == 0 && all.find("Invoerroute: tp-shm") != std::string::npos && all.find("drop-in: ") != std::string::npos &&
+                 all.find("bestand: ") != std::string::npos && all.find("rg-direct --run") != std::string::npos;
+    }
+    CHECK(logged);
+    // Stoppen: de unit weg, de invoer neutraal; geen script.
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 2 && calls[1].back() == "ravengun-tpui.service" && events.back() == "stop_inputs");
+    }
+    // jvs over de pipe: zonder pty-koppeling van de daemon stopt de start (en de invoer gaat weer dicht); met koppeling RG_JVS_PTY.
+    write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\nJvsTransport = pipe\n");
+    { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+    CHECK(svc.start("Dir").ok);
+    for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(state_of(svc, &msg) == "failed" && msg.find("pty-symlink") != std::string::npos);
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty() && events.back() == "stop_inputs"); }
+    fs::create_directories(b + "/run");
+    fs::create_symlink("/dev/pts/99", c.jvs_link);
+    CHECK(svc.start("Dir").ok);
+    for (int i = 0; i < 400 && (state_of(svc) == "waiting_move" || state_of(svc) == "starting"); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(state_of(svc, &msg) != "failed");
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 1 && std::find(events.begin(), events.end(), "route Dir jvs") != events.end());
+        if (!calls.empty()) {
+            std::ifstream f(calls[0].back());
+            std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            ravengun::launch::DirectPlan pl;
+            std::string err;
+            CHECK(ravengun::launch::plan_from_json(text, pl, err) && pl.env.at("RG_JVS_PTY") == c.jvs_link && pl.shm_source == "/dev/shm/TeknoParrot_JvsState");
+        }
+    }
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
+    // Een directe game waarvan de route niet door de engine gaat: het script, met de profielnaam als los argument.
+    write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\n");
+    { std::lock_guard<std::mutex> g(m); calls.clear(); }
+    CHECK(svc.start("Dir").ok);
+    wait_idle_worker(svc);
+    {
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 1 && !calls.empty() && calls[0].size() > 2 && calls[0][calls[0].size() - 3] == b + "/play.sh" && calls[0].back() == "Dir");
+    }
+}
+
 int main() {
     std::string d = (fs::temp_directory_path() / ("rg-games-test-" + std::to_string(::getpid()))).string();
     fs::remove_all(d);
@@ -642,6 +798,7 @@ int main() {
     test_service(d);
     test_native_service(d);
     test_unity_service(d);
+    test_direct_service(d);
     test_unit_cgroup(d);
     test_navcon(d);
     fs::remove_all(d);

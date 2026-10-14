@@ -50,6 +50,8 @@ add_library(ravengun STATIC
   src/ravengun/games/games.cpp
   src/ravengun/launch/native.cpp
   src/ravengun/launch/unity.cpp
+  src/ravengun/launch/direct.cpp
+  src/ravengun/launch/jvs_pipe.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/iobridge/io_state.cpp
@@ -115,6 +117,10 @@ target_link_libraries(ravengunctl PRIVATE ravengun)
 # ravengund: de daemon. PSMoveAPI wordt user-local verwacht (zie docs/build.md).
 option(RAVENGUN_BUILD_DAEMON "Bouw ravengund" ON)
 find_package(Threads REQUIRED)
+# rg-direct (tools/rg-direct): het hoofdproces van de unit bij een directe start (A10), op de plaats van launch-direct.py --run.
+add_executable(rg-direct tools/rg-direct/rg_direct.cpp)
+target_link_libraries(rg-direct PRIVATE ravengun Threads::Threads)
+install(TARGETS rg-direct RUNTIME DESTINATION bin)
 set(PSMOVEAPI_ROOT "$ENV{HOME}/.local/share/ravengun/psmoveapi" CACHE PATH "Prefix van de PSMoveAPI-installatie")
 if(RAVENGUN_BUILD_DAEMON)
   find_package(Threads REQUIRED)
@@ -383,6 +389,20 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_unity_launch_tests tests/test_unity_launch.cpp)
   target_link_libraries(ravengun_unity_launch_tests PRIVATE ravengun)
   add_test(NAME ravengun_unity_launch_tests COMMAND ravengun_unity_launch_tests)
+  # De directe route zonder scripts (src/ravengun/launch/direct.*, jvs_pipe.*, tools/rg-direct): plan, weigeren en terugvallen op het
+  # script, drop-ins plaatsen zonder op de (nep-)NAS te schrijven, invoerroute, joystick-ids, en rg-direct --run met een nep-wine.
+  add_executable(ravengun_direct_launch_tests tests/test_direct_launch.cpp)
+  target_link_libraries(ravengun_direct_launch_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_direct_launch_tests PRIVATE "RG_DIRECT_BIN=\"$<TARGET_FILE:rg-direct>\"")
+  add_dependencies(ravengun_direct_launch_tests rg-direct)
+  add_test(NAME ravengun_direct_launch_tests COMMAND ravengun_direct_launch_tests)
+  # Gouden vergelijking: het plan van de engine tegen dat van scripts/launch-direct.py voor elk profiel in patches/ met
+  # [Launch] Mode = direct (hermetisch: tijdelijke HOME, nep-runtime, views en gamemappen). Skip (77) zonder patches/.
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME ravengun_direct_golden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/direct_golden.py"
+      --rg-direct "$<TARGET_FILE:rg-direct>" --patches "${CMAKE_CURRENT_SOURCE_DIR}/patches")
+    set_tests_properties(ravengun_direct_golden PROPERTIES SKIP_RETURN_CODE 77)
+  endif()
   add_executable(ravengun_paths_tests tests/test_paths.cpp)
   target_link_libraries(ravengun_paths_tests PRIVATE ravengun)
   add_test(NAME ravengun_paths_tests COMMAND ravengun_paths_tests)
