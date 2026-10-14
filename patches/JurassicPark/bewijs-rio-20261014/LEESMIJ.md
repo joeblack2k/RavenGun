@@ -1,40 +1,47 @@
-# Jurassic Park — the RIO board is answered (board seen); the game then does not render (why: not known)
+# Jurassic Park — the RIO board is seen (controlled); the black screen is NOT the patch (also controlled)
 
-**Date:** 2026-10-14. This is the Jurassic Park half of the RIO item (`patches/RIO-BORD.md`), and it is a
-**different, and smaller, claim than NERF**. For NERF the board is answered and the banner is gone, in a
-frame. For JP there are two parts, and the second is unfinished — **I corrected a wrong claim here, see
-below.**
+**Date:** 2026-10-14. This is the Jurassic Park half of the RIO item (`patches/RIO-BORD.md`). It is a
+**different, and smaller, claim than NERF**: for NERF the board is answered and the banner is gone, in a
+frame. For JP a **controlled comparison** (patched vs unpatched, one variable) settles two things — and
+it corrected a wrong story I had told first (the "dongle-792 wall", retracted below).
 
-## Part 1 — the board is seen (TRUE, evidenced)
+## The comparison (one thing different)
 
-`RIO_Connected` (at `0x836b320` in `game`) was patched to report connected (`jp-game-rio-patch.sh`).
-JP writes "RIO Disconnected" / "STR_ERRORMSG_RIO_DISCONNECTED" to its own
-`pmuser/errorlog.txt` on every boot. That file carries those lines for **every 2026-10-13 run and for
-NONE of tonight's patched runs** — so the patch stops the RIO-disconnected state. The board is seen.
+Two arms, identical harness, both binding a **local** copy of `game` over `/pm/game`, differing in
+**exactly three bytes** (`RIO_Connected` at file offset `0x323320`: `55 89 e5` → `31 c0 c3`). Arm A
+unpatched (ran 04:23), arm B patched (ran 04:26), 180 s each. Both loaded cleanly (slot table 576 slots,
+jump to `e_entry`) — so neither is an invalid run. Evidence: `jpAB-controlled-comparison.txt`.
 
-## Part 2 — the game does not render attract with the patch (cause NOT determined)
+## Result 1 — the board is SEEN (the patch works at the state level) ✓
 
-jr1/jr2 (2026-10-14) show **black frames**; the earlier unpatched runs reached attract (with the banner).
-So forcing RIO connected appears to stop JP reaching its attract render. **What stops it is not pinned.**
+**Controlled:** arm A (unpatched) writes `Wed Oct 14 04:23:22 RIO Disconnected` and
+`STR_ERRORMSG_RIO_DISCONNECTED` to its own `pmuser/errorlog.txt`; arm B (patched) writes **neither**. One
+variable, opposite outcomes — the three-byte `RIO_Connected` patch is what removes the RIO-disconnected
+state. So JP's RIO board **is** answered at the state level.
 
-**A wrong claim, corrected.** An earlier version of this note and of the commit said the wall was a
-`hasp_decrypt(792)` loop "only reached once the cabinet is present." I checked that against the logs and
-it is **false**: the 792-byte decrypt appears in 2026-10-13 runs too (e.g. `…-225845.log` has 52 of
-them), **without** the patch — so it is not the differentiator. jr2's game-side log ends on the **same
-four `shader108` compile asserts the successful attract run also has** (`g5/shader_gl.c:2180`), which are
-known and not fatal there. So the render blocker under the patch is **not determined**; it needs a
-controlled comparison (patched vs unpatched in the same harness, long enough to render), which needs the
-bench.
+## Result 2 — the black screen is NOT the patch (also controlled)
 
-## What xico/msr100 is (it is NOT the blocker)
+**Both** arms render **pure black** (every game frame; `jpA-black-frame-unpatched.jpg` is the unpatched
+arm). So forcing RIO connected does **not** cause the black screen — the unpatched control is equally
+black. The no-render is **independent of the patch**. Both arms hit the same `shader108` compile failures
+(`ec=-9596`, `g5/shader_gl.c:2180`); that render failure, not RIO, is why there is no picture tonight —
+and it is a **separate problem** (the witnessed attract run of 2026-10-13 rendered; something in this
+harness/session regressed since).
 
-The **Xico 7104USB**, a USB magnetic **card reader** (`g5/cardreader.c`, `msr100_change_to_HID_mode`,
-`CardReaderSetCallback`, "creditCardSwipes"). Same *shape* as the RIO board (a USB device). The game
-handles its absence gracefully (`xicoOpenPort(): Error` / `msr100OpenPort(): Error`, then continues), so
-it is not where JP stalls.
+## What this means for the bar
 
-## Bottom line
+JP's RIO fix **works** (board seen, controlled). But a **banner-gone frame cannot be produced for JP**
+until JP renders a picture in this harness again — and that is blocked by the render failure (shader108),
+**not** by RIO. So: RIO answered for JP at the log level; the frame is owed by a separate render fix.
 
-For JP the board is **answered (seen)**; the patch does **not** yet yield a banner-gone attract frame —
-the game does not render, and why is **not yet known**. The RIO-disconnected state is gone (an advance),
-but this is **not** the NERF result and **not** a finished "wall moved to the dongle" claim.
+## Retracted
+
+An earlier version said the patch pushed JP into a `hasp_decrypt(792)` loop "only reached once the
+cabinet is present," a dongle wall. **False** — the 792-decrypt occurs in unpatched runs too, and the
+controlled comparison shows both arms black regardless. The dongle is not the wall here; the render is,
+and the render is not the patch.
+
+## What xico/msr100 is (still true, not the blocker)
+
+The **Xico 7104USB**, a USB magnetic **card reader** (`g5/cardreader.c`, `msr100_change_to_HID_mode`).
+The game handles its absence gracefully and continues; not where JP stalls.
