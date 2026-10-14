@@ -28,10 +28,12 @@
 
 #include "core/AppPaths.h"
 #include "core/FileSafety.h"
+#include "core/GamepadText.h"
 #include "core/GameOptions.h"
 #include "core/Launcher.h"
 #include "core/TextConfig.h"
 #include "widgets/QtUtils.h"
+#include "ravengun/gamesettings/gamepad_settings.hpp"
 
 namespace rg::ui {
 
@@ -279,6 +281,7 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     if (routes.size() <= 1) routeHint = tr("This game has only one input route.");
     rf->addRow(hintLabel(routeHint));
     v->addWidget(route);
+    v->addWidget(MakeGamepadGroup(prof));
 
     auto* notes = new QGroupBox(tr("Notes"));
     auto* nl = new QVBoxLayout(notes);
@@ -291,6 +294,39 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     v->addWidget(notes);
     v->addStretch(1);
     return w;
+}
+
+// De gamepad-indeling die deze game gebruikt (docs/gamepad.md): [Gamepad] in game.ini over de standaardindeling heen, met per regel
+// de herkomst (standaard, meegeleverd game.ini of het game.ini van de gebruiker). Alleen lezen; wijzigen gaat in game.ini zelf.
+QWidget* PropertiesDialog::MakeGamepadGroup(const QString& prof) {
+    auto* box = new QGroupBox(tr("Gamepad"));
+    auto* v = new QVBoxLayout(box);
+    const auto gm = ravengun::gamesettings::gamepad_mapping_for(core_->gameData()->dirs(), prof.toStdString());
+    v->addWidget(hintLabel(gm.has_section
+                               ? tr("A gamepad next to the lightgun gives this game the controls below. This game changes the default "
+                                    "mapping in the [Gamepad] section of its game.ini.")
+                               : tr("A gamepad next to the lightgun gives this game the controls below. This game uses the default "
+                                    "mapping (it has no [Gamepad] section in its game.ini).")));
+    gamepad_tree_ = new QTreeWidget;
+    gamepad_tree_->setHeaderLabels({tr("Gamepad control"), tr("Does"), tr("From")});
+    gamepad_tree_->setRootIsDecorated(false);
+    gamepad_tree_->setSelectionMode(QAbstractItemView::NoSelection);
+    for (const auto& r : gm.rows) {
+        auto* it = new QTreeWidgetItem(gamepad_tree_);
+        it->setText(0, QString::fromStdString(r.control));
+        it->setText(1, rg::GamepadText::target(QString::fromStdString(r.target)));
+        it->setText(2, rg::GamepadText::source(QString::fromStdString(r.source)));
+    }
+    for (int c = 0; c < 3; ++c) gamepad_tree_->resizeColumnToContents(c);
+    gamepad_tree_->setMinimumHeight(std::min(320, 28 + 22 * static_cast<int>(gm.rows.size())));
+    v->addWidget(gamepad_tree_);
+    for (const auto& w : gm.warnings) v->addWidget(hintLabel(tr("Ignored: %1").arg(QString::fromStdString(w))));
+    v->addWidget(hintLabel(tr("To change it, add lines like \"RightX = wheel\", \"LB = btn3\" or \"LT = none\" under [Gamepad] in your "
+                              "game.ini (Patches > Open user folder); your lines win over the shipped ones. Controls: A, B, X, Y, LB, RB, "
+                              "LT, RT, Start, Back, Guide, LS, RS, DPadUp/Down/Left/Right, LeftX, LeftY, RightX, RightY. Actions: wheel, "
+                              "gas, brake, trigger, reload, grenade, aux1, aux2, start, coin, btn1 to btn8, key:<name>, none. See "
+                              "docs/gamepad.md. Applies from the next start of the game.")));
+    return box;
 }
 
 void PropertiesDialog::SaveGeneral() {

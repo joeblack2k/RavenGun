@@ -10,8 +10,10 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QJsonDocument>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -20,6 +22,8 @@
 #include <QVBoxLayout>
 
 #include "core/AppPaths.h"
+#include "core/GamepadText.h"
+#include "ravengun/output/gamepad.hpp"
 #include "widgets/MoveConfigDialog.h"
 #include "widgets/PairWizardDialog.h"
 #include "widgets/QtUtils.h"
@@ -51,7 +55,83 @@ QString typeText(const QJsonObject& c) {
     return t;
 }
 
+// De standaardindeling als tabel (twee paren per regel), uit dezelfde code als de engine.
+QString defaultMappingTable() {
+    const auto rows = ravengun::output::describe_gamepad_map(ravengun::output::default_gamepad_map());
+    QString t = QStringLiteral("<table cellspacing=\"0\" cellpadding=\"2\">");
+    const int half = static_cast<int>((rows.size() + 1) / 2);
+    for (int i = 0; i < half; ++i) {
+        t += QStringLiteral("<tr>");
+        for (int col = 0; col < 2; ++col) {
+            const size_t k = static_cast<size_t>(i + col * half);
+            if (k >= rows.size()) { t += QStringLiteral("<td></td><td></td>"); continue; }
+            t += QStringLiteral("<td><b>%1</b></td><td style=\"padding-right:18px\">%2</td>")
+                     .arg(QString::fromStdString(rows[k].first).toHtmlEscaped(), rg::GamepadText::target(QString::fromStdString(rows[k].second)).toHtmlEscaped());
+        }
+        t += QStringLiteral("</tr>");
+    }
+    return t + QStringLiteral("</table>");
+}
+
 }  // namespace
+
+// --- PadLiveView -----------------------------------------------------------------------------------------------------
+
+PadLiveView::PadLiveView(QWidget* parent) : QWidget(parent) { setMinimumSize(sizeHint()); }
+
+QSize PadLiveView::sizeHint() const { return {300, 54}; }
+
+void PadLiveView::setLive(const QJsonObject& live) {
+    if (live == live_) return;
+    live_ = live;
+    update();
+}
+
+void PadLiveView::paintEvent(QPaintEvent*) {
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const QPalette& pal = palette();
+    const bool on = !live_.isEmpty();
+    const QColor fg = on ? pal.color(QPalette::Highlight) : pal.color(QPalette::Disabled, QPalette::WindowText);
+    const QColor rim = pal.color(QPalette::Mid);
+    const QJsonObject ax = live_.value(QStringLiteral("axes")).toObject();
+    auto val = [&](const char* k, double def) { return ax.value(QLatin1String(k)).toDouble(def); };
+    const int r = 22, cy = height() / 2;
+    // Sticks: 0..1 met het midden op 0,5 (links/boven = 0).
+    auto stick = [&](int cx, double x, double y) {
+        p.setPen(rim);
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPoint(cx, cy), r, r);
+        p.setPen(Qt::NoPen);
+        p.setBrush(fg);
+        p.drawEllipse(QPointF(cx + (x - 0.5) * 2 * (r - 4), cy + (y - 0.5) * 2 * (r - 4)), 4, 4);
+    };
+    stick(r + 2, val("LeftX", 0.5), val("LeftY", 0.5));
+    stick(3 * r + 10, val("RightX", 0.5), val("RightY", 0.5));
+    // Triggers: balkjes van onder naar boven.
+    auto bar = [&](int x, double v, const QString& label) {
+        const int h = 2 * r - 12, top = cy - r;
+        p.setPen(rim);
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(x, top, 10, h);
+        p.setPen(Qt::NoPen);
+        p.setBrush(fg);
+        const int fill = static_cast<int>(std::clamp(v, 0.0, 1.0) * (h - 2));
+        p.drawRect(x + 1, top + h - 1 - fill, 8, fill);
+        p.setPen(pal.color(QPalette::WindowText));
+        p.drawText(QRect(x - 6, top + h, 22, 14), Qt::AlignCenter, label);
+    };
+    bar(4 * r + 22, val("LT", 0), QStringLiteral("LT"));
+    bar(4 * r + 44, val("RT", 0), QStringLiteral("RT"));
+    QStringList pressed;
+    for (const auto& b : live_.value(QStringLiteral("buttons")).toArray()) pressed << b.toString();
+    p.setPen(pal.color(on ? QPalette::Active : QPalette::Disabled, QPalette::WindowText));
+    const QRect text(4 * r + 66, 0, width() - (4 * r + 66), height());
+    p.drawText(text, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextWordWrap,
+               !on ? tr("not connected") : pressed.isEmpty() ? tr("no buttons pressed") : pressed.join(QStringLiteral(" ")));
+}
+
+// --- ControllersWindow -----------------------------------------------------------------------------------------------
 
 ControllersWindow::ControllersWindow(rg::AppCore* core, QWidget* parent) : QDialog(parent), core_(core) {
     setWindowTitle(tr("Controller Settings"));
@@ -61,14 +141,23 @@ ControllersWindow::ControllersWindow(rg::AppCore* core, QWidget* parent) : QDial
     connect(core_->engine(), &rg::EngineClient::connectedChanged, this, [this] {
         Refresh();
         RefreshMice();
+        RefreshPads();
     });
     auto* t = new QTimer(this);
     t->setInterval(3000);
     connect(t, &QTimer::timeout, this, &ControllersWindow::RefreshMice);
     t->start();
+    // Gamepads: vaak genoeg voor de live weergave, alleen zolang het venster open is.
+    m_pad_timer = new QTimer(this);
+    m_pad_timer->setInterval(150);
+    connect(m_pad_timer, &QTimer::timeout, this, [this] {
+        if (isVisible()) RefreshPads();
+    });
+    m_pad_timer->start();
     Refresh();
     RefreshMice();
-    resize(760, 620);
+    RefreshPads();
+    resize(800, 900);
 }
 
 void ControllersWindow::CreateLayout() {
@@ -96,6 +185,7 @@ void ControllersWindow::CreateLayout() {
     m_mouse_note->setWordWrap(true);
     m_players_layout->addWidget(m_mouse_note, m_players_layout->rowCount(), 0, 1, 4);
     layout->addWidget(m_players_box);
+    layout->addWidget(CreateGamepadsBox());
 
     auto* known = new QGroupBox(tr("Controllers"));
     auto* kl = new QVBoxLayout(known);
@@ -389,6 +479,141 @@ void ControllersWindow::OnConfigure(int player) {
                                      RefreshMice();
                                  });
     }
+}
+
+QWidget* ControllersWindow::CreateGamepadsBox() {
+    auto* box = new QGroupBox(tr("Gamepads"));
+    auto* v = new QVBoxLayout(box);
+    auto* help = new QLabel(
+        tr("<p>A gamepad (Xbox controller, Steam Controller or any other gamepad) adds the controls a lightgun lacks: a steering "
+           "wheel, gas and brake, and extra cabinet buttons (camera, wipers, horn, gear shift). It works next to the lightgun of the "
+           "same player: the buttons of both work, and the desktop keeps the gamepad too. Without a gamepad, the steering wheel "
+           "follows where the lightgun aims.</p>"
+           "<p>If player 1 has no gamepad and exactly one gamepad is connected, it is used for player 1 automatically. The engine "
+           "keeps your choice when it restarts.</p>"
+           "<p><b>Default mapping</b> (for every game without its own):</p>%1"
+           "<p>Each game can change this in the <b>[Gamepad]</b> section of its game.ini, for example <tt>RightX = wheel</tt>, "
+           "<tt>LB = btn3</tt> or <tt>LT = none</tt>. Properties &gt; General shows the mapping a game uses and where each line "
+           "comes from. Format and all controls: docs/gamepad.md.</p>")
+            .arg(defaultMappingTable()));
+    help->setWordWrap(true);
+    help->setTextFormat(Qt::RichText);
+    v->addWidget(help);
+    auto* grid = new QGridLayout;
+    grid->setVerticalSpacing(7);
+    grid->setColumnStretch(1, 1);
+    for (int i = 0; i < kPlayers; i++) {
+        auto* box2 = m_pad_combos[static_cast<size_t>(i)] = new QComboBox;
+        auto* live = m_pad_live[static_cast<size_t>(i)] = new PadLiveView;
+        auto* state = m_pad_state[static_cast<size_t>(i)] = new QLabel;
+        state->setMinimumWidth(150);
+        state->setWordWrap(true);
+        grid->addWidget(new QLabel(tr("Player %1").arg(i + 1)), i, 0);
+        grid->addWidget(box2, i, 1);
+        grid->addWidget(live, i, 2);
+        grid->addWidget(state, i, 3);
+        connect(box2, &QComboBox::currentIndexChanged, this, [this, i] { OnPadChanged(i + 1); });
+    }
+    v->addLayout(grid);
+    m_pad_active = new QLabel;
+    m_pad_active->setWordWrap(true);
+    v->addWidget(m_pad_active);
+    return box;
+}
+
+void ControllersWindow::RefreshPads() {
+    if (!core_->engine()->isConnected() || !m_pads_supported || m_pads_pending) {
+        if (!core_->engine()->isConnected()) PopulatePads(true);
+        return;
+    }
+    m_pads_pending = true;
+    core_->engine()->request(QStringLiteral("pads"), {}, [this](const rg::EngineReply& r) {
+        m_pads_pending = false;
+        if (!r.ok) {
+            if (r.errorCode == QStringLiteral("unknown_command")) {
+                m_pads_supported = false;
+                PopulatePads(true);
+            }
+            return;
+        }
+        m_pads = r.object();
+        // Pads en toewijzingen zonder de live stand: verandert dat, dan de keuzelijsten opnieuw opbouwen.
+        QJsonArray pads;
+        for (const auto& v : m_pads.value(QStringLiteral("pads")).toArray()) {
+            QJsonObject o = v.toObject();
+            o.remove(QStringLiteral("live"));
+            pads.append(o);
+        }
+        const QByteArray sig = QJsonDocument(QJsonObject{{QStringLiteral("p"), pads}, {QStringLiteral("a"), m_pads.value(QStringLiteral("assignments"))},
+                                                         {QStringLiteral("g"), m_pads.value(QStringLiteral("game"))}})
+                                   .toJson(QJsonDocument::Compact);
+        const bool rebuild = sig != m_pads_sig;
+        m_pads_sig = sig;
+        PopulatePads(rebuild);
+    });
+}
+
+void ControllersWindow::PopulatePads(bool rebuild) {
+    const bool connected = core_->engine()->isConnected();
+    const QJsonArray pads = m_pads.value(QStringLiteral("pads")).toArray();
+    const QJsonArray as = m_pads.value(QStringLiteral("assignments")).toArray();
+    for (int i = 0; i < kPlayers; ++i) {
+        const int player = i + 1;
+        QJsonObject a;
+        for (const auto& v : as)
+            if (v.toObject().value(QStringLiteral("player")).toInt() == player) a = v.toObject();
+        const QString id = a.value(QStringLiteral("pad")).toString();
+        const bool isAuto = a.value(QStringLiteral("auto")).toBool();
+        QJsonObject pad;
+        for (const auto& v : pads)
+            if (v.toObject().value(QStringLiteral("id")).toString() == id && !id.isEmpty()) pad = v.toObject();
+        if (rebuild) {
+            m_updating = true;
+            QComboBox* box = m_pad_combos[static_cast<size_t>(i)];
+            box->clear();
+            box->addItem(player == 1 ? tr("None (or automatic: the only connected gamepad)") : tr("None"), QString());
+            for (const auto& v : pads) {
+                const QJsonObject o = v.toObject();
+                box->addItem(QStringLiteral("%1 (%2)").arg(o.value(QStringLiteral("name")).toString(), o.value(QStringLiteral("event")).toString()),
+                             o.value(QStringLiteral("id")).toString());
+                box->setItemData(box->count() - 1, o.value(QStringLiteral("id")).toString(), Qt::ToolTipRole);
+            }
+            const QString want = isAuto ? QString() : id;
+            if (!want.isEmpty() && box->findData(want) < 0) box->addItem(tr("%1 (not connected)").arg(want), want);
+            box->setCurrentIndex(std::max(0, box->findData(want)));
+            box->setEnabled(connected && m_pads_supported);
+            m_updating = false;
+        }
+        QString state;
+        if (!m_pads_supported) state = tr("needs a newer engine");
+        else if (id.isEmpty()) state = tr("no gamepad");
+        else if (!a.value(QStringLiteral("last_error")).isNull()) state = a.value(QStringLiteral("last_error")).toString();
+        else if (a.value(QStringLiteral("connected")).toBool())
+            state = isAuto ? tr("automatic: %1").arg(pad.value(QStringLiteral("name")).toString()) : tr("connected");
+        else state = tr("not connected");
+        m_pad_state[static_cast<size_t>(i)]->setText(state);
+        m_pad_live[static_cast<size_t>(i)]->setLive(pad.value(QStringLiteral("live")).toObject());
+    }
+    if (!connected) {
+        m_pad_active->setText(tr("<i>The engine is not running.</i>"));
+    } else if (!m_pads_supported) {
+        m_pad_active->setText(tr("<i>Gamepads need a newer engine (IPC command \"pads\"). Update and restart the engine.</i>"));
+    } else {
+        const QJsonValue g = m_pads.value(QStringLiteral("game"));
+        m_pad_active->setText(g.isString() ? tr("<i>Mapping in use: %1 (from the last started game).</i>").arg(g.toString().toHtmlEscaped())
+                                           : tr("<i>Mapping in use: the default (no game started yet).</i>"));
+    }
+}
+
+void ControllersWindow::OnPadChanged(int player) {
+    if (m_updating) return;
+    const QString id = m_pad_combos[static_cast<size_t>(player - 1)]->currentData().toString();
+    core_->engine()->request(QStringLiteral("set_pad"), {{QStringLiteral("player"), player}, {QStringLiteral("pad"), id}},
+                             [this](const rg::EngineReply& r) {
+                                 if (!r.ok) QMessageBox::warning(this, tr("Gamepads"), r.errorMessage);
+                                 m_pads_sig.clear();   // de keuzelijsten opnieuw opbouwen (ook na een fout: terug naar wat geldt)
+                                 RefreshPads();
+                             });
 }
 
 void ControllersWindow::ReapplyMouseAssignments(rg::AppCore* core) {

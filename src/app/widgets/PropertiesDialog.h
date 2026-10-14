@@ -63,12 +63,15 @@ public:
     QCheckBox* DongleCheck() const { return dongle_use_; }
     QComboBox* DongleSourceCombo() const { return dongle_source_; }
     QLabel* DongleStatusLabel() const { return dongle_status_; }
+    // Voor tests: de gamepad-indeling in General (bediening, doel, herkomst).
+    QTreeWidget* GamepadTree() const { return gamepad_tree_; }
     QPushButton* DongleRefreshButton() const { return dongle_refresh_; }
 
 private:
     QWidget* MakeGeneralPane();
     QWidget* MakeOptionsPane();
     QWidget* MakeDongleGroup();
+    QWidget* MakeGamepadGroup(const QString& profile);
     void RefreshDongle();
     QWidget* MakeDisplayPane();
     QWidget* MakePatchesPane();
@@ -85,6 +88,7 @@ private:
     QList<rg::TpField> profileFields() const;
     // General
     QLineEdit* name_edit_ = nullptr;
+    QTreeWidget* gamepad_tree_ = nullptr;
     QComboBox* template_combo_ = nullptr;
     QPlainTextEdit* note_edit_ = nullptr;
     QComboBox* route_combo_ = nullptr;
