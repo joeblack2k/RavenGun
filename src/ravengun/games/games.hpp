@@ -69,7 +69,7 @@ struct Config {
     ravengun::launch::NativePaths native;
     std::string native_log_dir;    // logs/native-<profiel>-<tijd>.log (leeg = geen logboek)
     std::string tpui_unit = "ravengun-tpui";   // de unit van de game (stoppen, OLED-bescherming en de IO-brug kijken daarnaar)
-    std::function<bool()> lightgun_ready;      // Move verbonden of een muis als lightgun (leeg = niet wachten)
+    std::function<bool()> lightgun_ready;      // Move verbonden, een muis als lightgun of een verbonden gamepad van een speler (leeg = niet wachten)
     std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
     std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)

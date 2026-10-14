@@ -507,7 +507,8 @@ int main(int argc, char** argv) {
         games_cfg.lightgun_ready = [&shared] {
             auto l = shared.get().sample.link;
             const bool move = l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
-            return move || (shared.mouse && shared.mouse->any_connected());
+            // Een verbonden gamepad van een speler telt ook: een racespel (Mario Kart) speel je met de pad, niet met een Move.
+            return move || (shared.mouse && shared.mouse->any_connected()) || (shared.gamepad && shared.gamepad->any_player_connected());
         };
         games_cfg.arm = [&shared]() -> std::string {
             if (!shared.output) return "geen uitvoer";

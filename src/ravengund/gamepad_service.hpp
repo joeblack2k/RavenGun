@@ -74,6 +74,8 @@ public:
     std::string assignment_json(int player) const;
     // De vier toewijzingen als JSON-array (blok "gamepads" in de status).
     std::string status_json() const;
+    // Is er een speler met een toegewezen (of automatisch gekozen) gamepad die nu verbonden is? Een start wacht dan niet op een Move.
+    bool any_player_connected() const;
     // Voor tests: wacht tot de werkerthread een volledige ronde heeft gedaan.
     bool wait_round(int timeout_ms = 2000);
 

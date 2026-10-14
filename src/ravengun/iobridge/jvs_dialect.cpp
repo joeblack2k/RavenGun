@@ -234,8 +234,8 @@ void JvsDialect::handle_bytes(const uint8_t* p, size_t n) {
             }
             std::vector<uint8_t> wire = bus_.process(f);
             publish_modem(bus_.modem_status());
-            std::string line = std::to_string(now) + " <- node " + hex({f.node}) + " [" + hex(f.data) + "]" + (f.checksum_ok ? "" : " SOMFOUT");
-            line += wire.empty() ? "  (geen antwoord)" : "  -> [" + hex(wire) + "]";
+            std::string line = std::to_string(now) + " <- node " + hex({f.node}) + " [" + hex(f.data, 256) + "]" + (f.checksum_ok ? "" : " SOMFOUT");
+            line += wire.empty() ? "  (geen antwoord)" : "  -> [" + hex(wire, 256) + "]";
             recent_.push_back(line);
             while (recent_.size() > 16) recent_.pop_front();
             // Elk nieuw soort packet (zelfde bytes) één keer in het logboek, de eerste 100.

@@ -468,6 +468,15 @@ std::string GamepadService::assignment_locked(int player) const {
     return w.str();
 }
 
+bool GamepadService::any_player_connected() const {
+    std::lock_guard<std::mutex> lk(m_);
+    for (const std::string& id : effective_locked()) {
+        auto it = id.empty() ? live_.end() : live_.find(id);
+        if (it != live_.end() && it->second.connected) return true;
+    }
+    return false;
+}
+
 std::string GamepadService::assignments_locked() const {
     std::string s = "[";
     for (int p = 1; p <= kPlayers; ++p) {
