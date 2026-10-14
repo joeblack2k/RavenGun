@@ -208,14 +208,68 @@ Logregel: `viewlink: .../Data/System/Shader/Polygon2D_D3D10.fx -> .../Polygon2D_
 DirectX-herdistribueerbare (Jun2010) in een eigen prefix, `native,builtin`, zoals bij Medaru No Gunman. Dat is een prefixwijziging en
 een Microsoft-bestand: eerst aan de eigenaar vragen.
 
-## 6. Open (alleen op de tv te zien)
+## 5e. Weg na ~3 minuten attract, en geen 2D-laag (bench 2026-10-14 23:43 tot 2026-10-15 00:25) en de fixes
 
-0. Komt het spel met de fix hierboven langer dan 27 s en opent het de JVS-pipe? Bewijsregels in het logboek, in deze volgorde:
-   `stapel: ... MK_AGP3_FINAL.exe is al actueel (SizeOfStackReserve 16 MiB (16777216) ...)` (of `geschreven: ...`), géén
-   `Using parked-entry-point ...`, `Have fun :)`, `JVS-pipe: game verbonden (pipehelper via TCP)`, en het spel draait langer dan
-   5 minuten. Geen `c000001d` in een `+seh`-logboek.
+**Gemeten.**
 
-1. Start de kern de game en komt hij voorbij het ALL.Net-scherm (netwerk)?
-2. Richting en bereik van het stuur (kanaal 0, `invert`), en of gas/rem 0..255 het hele pedaal is.
-3. Pakt het spel de camera, en welk formaat kiest het (`rg-mfcam.log`)?
-4. Laadt het spel zijn eigen `bngrw.dll` (de echte kaartlezerbibliotheek van Namco, niet die van OpenParrot) zonder fout?
+- Met de fix van 5d start het spel en verbindt het met de JVS-pipe. De attract-race loopt in beeld.
+- Ongeveer 3 minuten na de JVS-verbinding stopt het spel met exitcode 0. Dat gebeurde twee keer, met en zonder knoppen
+  (23:44:23 → 23:47:20 en 23:50:01 → 23:52:51).
+- Een `+seh`-logboek geeft het moment: `*INF* AttractGameDemo Unload Start`, dan `EXCEPTION_ACCESS_VIOLATION` op `0x0076C8C0`
+  (lezen van 0, `eax=0`), onafgehandeld.
+
+**Wat er staat (READ).** `0x76C8B2` roept dezelfde effectlader `0x838940` aan, met `TireTrace_Nml.cfx` (bandensporen). De NULL
+wordt daarna zonder controle gelezen.
+
+**Waarom NULL (MEASURED).**
+
+- `0x838940` geeft NULL als het `HRESULT` dat via de laatste parameter van `D3DX10CreateEffectFromFileA` terugkomt negatief is.
+- Een proefprogramma onder Wine (zelfde prefix, `fxtest.exe`) laadt `TireTrace_Nml.cfx` gewoon (hr 0). Maar `*pHResult` blijft
+  daarbij ongemoeid: een vooraf gezette `0xDEADBEEF` staat er na de aanroep nog.
+- Windows zet die waarde ook zonder pump. Het spel leest dus wat er toevallig op de stapel stond. Elk effect kan zo "mislukken".
+- Ook de crash uit 5d op `0x835E60` loopt via deze lader.
+
+**Fix 1: pHResult zoals Windows.** `rg-mfcam.dll` is de enige preload-DLL van dit spel. Die zet nu ook vier d3dx10-invoeren in de
+importtabel om: `D3DX10CreateEffectFromFileA/W` en `D3DX10CreateShaderResourceViewFromFileA/FromMemory`. Ze roepen het origineel
+aan en zetten daarna `*pHResult` op de uitkomst als er geen pump is. In `rg-mfcam.log`:
+
+```
+importtabel: d3dx10_43.dll!D3DX10CreateEffectFromFileA omgezet (pHResult zoals Windows)
+d3dx10: D3DX10CreateEffectFromFileA liet pHResult ongemoeid; nu 0x00000000
+```
+
+**Fix 1 laat zien dat de ViewLink van 5d nodig blijft (MEASURED).**
+
+- Zonder de link geeft `Polygon2D_D3D10.fx` (bron) nu een echte fout: `0x80004001` (E_NOTIMPL). Het spel stopt dan na 28 s.
+- Met de link naar de `.cfx` geeft dezelfde aanroep 0.
+- Een eerdere proef van mij die zei dat de `.fx` gewoon compileerde, liep per ongeluk via de link: die las de `.cfx`.
+
+**Fix 2: DXVK.**
+
+- Met wined3d (OpenGL) ontbrak de hele 2D-laag: geen tekst, geen menu's, geen "FREE PLAY".
+- Het logboek gaf 144.000 keer `GL_INVALID_OPERATION in glDrawArraysInstanced`.
+- Na een knop werd het beeld zwart terwijl het spel doorliep.
+- Met DXVK v2.7.1 (`[Launch] Dxvk = true`, `docs/dxvk.md`) staat alles in beeld. Te zien zijn de attract met "FREE PLAY", de
+  Banapass-vraag, de personagekeuze, Grand Prix en 50cc, en de races.
+
+**Invoer (MEASURED, nep-Xbox-pad als speler 1).**
+
+- Item (A) start het spel en bevestigt.
+- Linkerstick links/rechts kiest in de menu's.
+- RT is gas.
+- Er is geen START nodig: de kast staat op FREE PLAY.
+- Munt (Back) telt wel op het bord (`coins 2`), maar het spel toont geen credits.
+
+**Twee rondes gespeeld (5,5 min).** Ronde 1/2 en 2/2, de slot chance, "Continue?" en een nieuwe personagekeuze. Opnames:
+`~/.local/share/ravengun/bench-captures/MarioKartDX/`.
+
+## 6. Open
+
+1. **Camera.** De attract zegt "現在、カメラは使用できません" (camera nu niet te gebruiken). `rg-mfcam.log` heeft geen
+   `MFEnumDeviceSources`, dus het spel vraagt de camera niet eens. Mogelijk staat hij uit in de instellingen van het spel
+   (testmenu) of hangt hij aan `ContentsDisableFlag:1`. Nog niet onderzocht.
+2. **Banapass.** "Kaarten kunnen nu niet gekocht worden". Spelen zonder kaart werkt.
+3. **Richting en bereik van het stuur** (kanaal 0), en of gas/rem 0..255 het hele pedaal is. Het spel stuurt mee, maar het venster
+   is niet gemeten.
+4. **JVS.** Op `30 03 70 15` (wat wij als munt aftrekken in slot 3 lezen, binnen een Namco-`0x70`-blok) geeft ons bord rapport 03.
+   TeknoParrot geeft daar altijd 01. Het spel speelt er niet minder om; niet aangepast.
