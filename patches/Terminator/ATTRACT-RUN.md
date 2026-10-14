@@ -357,3 +357,10 @@ captures, the game's own syslog, and the coordinator's independent capture.
 way, check `/proc/<pid>/maps` of the process you mean.**
 **Instrument lesson 11: a trace with a line limit goes quiet exactly when the run gets interesting.
 Know the limit, and keep a second counter that has none.**
+
+## Full-resolution captures
+
+`bewijs-attract-20261013/opnames-r3-tv/`, `opnames-r4-tv/` and `opnames-r6-tv/` hold the captures of the
+three witness runs as they were taken (`shots/`, 128 MB, 208 MB and 24 MB), with each run's `env.txt`,
+`gamescope.log` and capture log. They were moved here from `/tmp/ts-c/log/` on 2026-10-14; each copy was
+compared byte for byte with its original.
