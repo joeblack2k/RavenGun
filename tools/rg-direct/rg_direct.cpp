@@ -922,6 +922,19 @@ int run_plan(const std::string& plan_file) {
     }
     for (int i = 0; i < 100 && ::access(plan.shm_source.c_str(), F_OK) != 0; ++i) ::usleep(100000);
     if (::access(plan.shm_source.c_str(), F_OK) != 0) { log("bronbestand " + plan.shm_source + " bestaat niet (start de IO-brug eerst)"); return 1; }
+    if (plan.shm_source != g_shm_path) {
+        // Het bronbestand van de daemon (/dev/shm/ravengun_JvsState) houdt bij een nieuwe game de bytes van de vorige: de daemon
+        // schrijft alleen de bytes van zijn eigen indeling. De helper kopieert het hele bestand naar de game. TeknoParrotUi begint
+        // met 64 nullen; een oude byte op 9..11 of 13..19 (bv. van Rampage) kan een game die 16 of 32 bits leest in de war brengen
+        // (Time Crisis 5, 2026-10-14). Op nul zetten; de daemon zet zijn eigen bytes bij de volgende tik terug.
+        const int sfd = ::open(plan.shm_source.c_str(), O_RDWR | O_CLOEXEC);
+        if (sfd >= 0) {
+            const std::array<uint8_t, kShmSize> zero{};
+            if (::pwrite(sfd, zero.data(), zero.size(), 0) != static_cast<ssize_t>(zero.size()))
+                log("bronbestand " + plan.shm_source + " niet op nul gezet: " + std::strerror(errno));
+            ::close(sfd);
+        }
+    }
     if (!plan.control_pipe.empty()) {   // het rapport van de besturingspipe komt ook van de IO-brug
         for (int i = 0; i < 100 && ::access(plan.control_source.c_str(), F_OK) != 0; ++i) ::usleep(100000);
         if (::access(plan.control_source.c_str(), F_OK) != 0) {

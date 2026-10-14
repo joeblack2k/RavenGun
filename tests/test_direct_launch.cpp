@@ -418,6 +418,7 @@ int main() {
         const fs::path logf = root / "run.log";
         setenv("RG_DIRECT_SHM_PATH", (root / "shm").c_str(), 1);
         write(root / "shm", std::string(64, '\xAB'));   // een vorige run liet rommel achter, ook een sense-byte die aan staat
+        write(root / "src", std::string(64, '\x80'));   // en het bronbestand van de daemon bytes van een andere game (TC5 na Rampage)
         setenv("RG_ALLEEN_IN_DE_TEST", "1", 1);   // mag niet in het spel komen: de omgeving komt uit het plan
         posix_spawn_file_actions_t fa;
         posix_spawn_file_actions_init(&fa);
@@ -441,6 +442,7 @@ int main() {
         CHECK(slurp(out / "helper-reply") == "e00003010105");                       // het antwoord op de adrestoekenning
         CHECK(slurp(root / "shm").size() == 64 && slurp(root / "shm")[0] == 1);      // verbind-vlag aan
         CHECK(slurp(root / "shm").substr(1) == std::string(63, '\0'));               // de rest op nul: elke start begint schoon
+        CHECK(slurp(root / "src") == std::string(64, '\0'));                         // het bronbestand ook (de daemon zet zijn bytes terug)
         const std::string args = slurp(out / "helper-args");
         CHECK(contains(args, "TeknoParrot_JvsState 64 " + wine_path((root / "src").string())));
         CHECK(slurp(out / "game-cwd") == p.tp + "\n");
