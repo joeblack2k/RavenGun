@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,179 @@ static bool has_seq(const std::vector<std::string>& v, const std::vector<std::st
 }
 static size_t index_of(const std::vector<std::string>& v, const std::string& s) {
     return static_cast<size_t>(std::find(v.begin(), v.end(), s) - v.begin());
+}
+
+// Referentie voor de spel-ID: CRC-32 met een tabel (een andere uitvoering dan die in native.cpp).
+static uint32_t crc32_ref(const unsigned char* p, size_t n) {
+    static uint32_t t[256];
+    static bool init = false;
+    if (!init) {
+        for (uint32_t i = 0; i < 256; ++i) {
+            uint32_t c = i;
+            for (int k = 0; k < 8; ++k) c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+            t[i] = c;
+        }
+        init = true;
+    }
+    uint32_t c = 0xFFFFFFFFu;
+    for (size_t i = 0; i < n; ++i) c = t[(c ^ p[i]) & 0xFF] ^ (c >> 8);
+    return c ^ 0xFFFFFFFFu;
+}
+
+// Een kleine i386-ELF met drie programmakoppen; de derde is PT_LOAD R+X op bestandsoffset `seg`. Geeft de verwachte spel-ID.
+static std::string write_elf(const fs::path& path, uint32_t seg, unsigned char fill) {
+    std::vector<unsigned char> f(seg + 10 + 0x4000 + 64, 0);
+    auto put32 = [&](size_t o, uint32_t v) { for (int i = 0; i < 4; ++i) f[o + i] = static_cast<unsigned char>(v >> (8 * i)); };
+    auto put16 = [&](size_t o, uint16_t v) { f[o] = static_cast<unsigned char>(v); f[o + 1] = static_cast<unsigned char>(v >> 8); };
+    f[0] = 0x7f; f[1] = 'E'; f[2] = 'L'; f[3] = 'F'; f[4] = 1; f[5] = 1; f[6] = 1;
+    put16(16, 2); put16(18, 3);           // ET_EXEC, EM_386
+    put32(28, 52);                        // e_phoff
+    put16(42, 32); put16(44, 3);          // e_phentsize, e_phnum
+    const size_t ph2 = 52 + 2 * 32;
+    put32(ph2, 1); put32(ph2 + 4, seg); put32(ph2 + 8, 0x08048000 + seg); put32(ph2 + 24, 5);
+    for (size_t i = seg; i < f.size(); ++i) f[i] = static_cast<unsigned char>(fill + i * 7);
+    fs::create_directories(path.parent_path());
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char*>(f.data()), static_cast<std::streamsize>(f.size()));
+    char id[16];
+    std::snprintf(id, sizeof id, "0x%08x", crc32_ref(f.data() + seg + 10, 0x4000));
+    return id;
+}
+
+static std::string slurp(const std::string& path) {
+    std::ifstream f(path);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+}
+
+// De Lindbergh-route: spel-ID, lindbergh.ini met de vaste sleutels, de laag in het zoekpad, de JVS-pty als apparaat.
+static void test_lindbergh(const fs::path& root, NativePaths p) {
+    write(root / "bin" / "gamescope", "#!/bin/sh\nexit 0\n", true);
+
+    // Spel-ID tegen de referentie; geen ELF, een te kort bestand of een verkeerde derde programmakop: leeg.
+    const std::string id = write_elf(p.nas + "/Lb/elf/game.elf", 0x200, 0x11);
+    CHECK(lindbergh_game_id(p.nas + "/Lb/elf/game.elf") == id);
+    CHECK(id.size() == 10 && id.compare(0, 2, "0x") == 0);
+    write(root / "geen.elf", "geen elf");
+    CHECK(lindbergh_game_id((root / "geen.elf").string()).empty());
+    CHECK(lindbergh_game_id((root / "ontbreekt.elf").string()).empty());
+    {
+        const std::string other = write_elf(root / "ander.elf", 0x200, 0x12);
+        CHECK(other != id);
+        std::fstream f(root / "ander.elf", std::ios::in | std::ios::out | std::ios::binary);
+        f.seekp(52 + 2 * 32 + 24);
+        f.put(6);   // RW in plaats van R+X: lindbergh.so slaat zo'n kop over
+        f.close();
+        CHECK(lindbergh_game_id((root / "ander.elf").string()).empty());
+    }
+    // Gemeten op de NAS (2026-10-14): de dump van HOTD4 Special is Rev B (0x7d6ab3e3 in config.h van lindbergh-loader).
+    if (const char* h = std::getenv("HOME")) {
+        const std::string nas = std::string(h) + "/mnt/spidernas_emulation/Teknoparrot/The House of the Dead 4 Special/elf/hod4M.elf";
+        if (fs::exists(nas)) CHECK(lindbergh_game_id(nas) == "0x7d6ab3e3");
+    }
+
+    // lindbergh.ini: vervangen in de sectie, aanvullen achteraan de sectie, nieuwe sectie, commentaar blijft.
+    const std::string base =
+        "; mijn instellingen\n[Display]\nWIDTH = 640\nHEIGHT = 480\n\n[Emulation]\nemulate_jvs = true\nFREEPLAY = true\n\n[Graphics]\nGPU_VENDOR = 2\n";
+    const std::string ini = lindbergh_ini(base, {{"Display", "WIDTH", "1024"}, {"Display", "HEIGHT", "768"}, {"Display", "FULLSCREEN", "true"},
+                                                 {"Emulation", "EMULATE_JVS", "false"}, {"Paths", "JVS_PATH", "\"/dev/ttyRG0\""}});
+    CHECK(ini.find("; mijn instellingen\n[Display]\nWIDTH = 1024\nHEIGHT = 768\nFULLSCREEN = true\n\n[Emulation]\n") == 0);
+    CHECK(ini.find("EMULATE_JVS = false\nFREEPLAY = true\n") != std::string::npos);
+    CHECK(ini.find("emulate_jvs = true") == std::string::npos && ini.find("640") == std::string::npos);
+    CHECK(ini.find("[Graphics]\nGPU_VENDOR = 2\n\n[Paths]\nJVS_PATH = \"/dev/ttyRG0\"\n") != std::string::npos);
+    CHECK(lindbergh_ini("", {{"Paths", "JVS_PATH", "x"}}) == "[Paths]\nJVS_PATH = x\n");
+
+    // Het profiel.
+    const fs::path layer = root / "lindbergh-loader";
+    for (const char* f : {"lindbergh.so", "libsegaapi.so", "libkswapapi.so", "libposixtime.so", "BUILDINFO.txt"}) write(layer / f, "x");
+    p.lindbergh = layer.string();
+    write(p.patches + "/Lb/lindbergh.ini", "[Graphics]\nGPU_VENDOR = 2\n");
+    const std::string json = R"({"schema":1,"games":{
+      "Lb":{"title":"Lindbergh-test","enabled":true,"arch":"i386","launcher":"gamescope","route":"jvs",
+        "lindbergh":{"id":")" + id + R"(","ini":"@patches/Lb/lindbergh.ini","jvs":"passthrough"},
+        "mounts":[{"src":"@nas/Lb","dst":"/lb","mode":"overlay"}],
+        "libdirs":[{"src":"@lib32","dst":"/rg/lib32"}],
+        "env":{"MESA_LOADER_DRIVER_OVERRIDE":"zink"},
+        "exe":"/lb/elf/game.elf","cwd":"/lb/elf","home":"/lb/elf","res":"1024x768"},
+      "LbEmu":{"route":"evdev","lindbergh":{"id":")" + id + R"(","ini":"@patches/Lb/lindbergh.ini","jvs":"emulate","libcg":true},
+        "mounts":[{"src":"@nas/Lb","dst":"/lb","mode":"overlay"}],"exe":"/lb/elf/game.elf","cwd":"/lb/elf"},
+      "LbFoutRoute":{"route":"tp-shm","lindbergh":{"id":"0x12345678","ini":"x"},"exe":"/x"},
+      "LbFoutId":{"route":"jvs","lindbergh":{"id":"7d6ab3e3","ini":"x"},"exe":"/x"},
+      "LbFoutLader":{"route":"jvs","loader":"rg-elfloader","lindbergh":{"id":"0x12345678","ini":"x"},"exe":"/x"}}})";
+    NativeProfile pr;
+    std::string err;
+    CHECK(load_profile(json, "Lb", p, pr, err));
+    CHECK(pr.lindbergh.on && pr.lindbergh.id == id && pr.lindbergh.ini == p.patches + "/Lb/lindbergh.ini" && pr.lindbergh.jvs == "passthrough" && !pr.lindbergh.libcg);
+    CHECK(!load_profile(json, "LbFoutRoute", p, pr, err) && err.find("route jvs") != std::string::npos);
+    CHECK(!load_profile(json, "LbFoutId", p, pr, err) && err.find("acht hexcijfers") != std::string::npos);
+    CHECK(!load_profile(json, "LbFoutLader", p, pr, err) && err.find("zonder lader") != std::string::npos);
+
+    CHECK(load_profile(json, "Lb", p, pr, err));
+    NativePlan pl;
+    err.clear();
+    CHECK(plan(pr, p, PlanOptions{}, pl, err));
+    if (!err.empty()) std::fprintf(stderr, "plan: %s\n", err.c_str());
+    const auto& a = pl.argv;
+    CHECK(has_seq(a, {"--ro-bind", layer.string(), "/rg/lindbergh"}));
+    CHECK(has_seq(a, {"--dev-bind", kJvsPtyPlaceholder, "/dev/ttyRG0"}));
+    CHECK(pl.needs_jvs_pty);
+    CHECK(has_seq(a, {"--setenv", "LD_PRELOAD", "/rg/lindbergh/lindbergh.so"}));
+    CHECK(has_seq(a, {"--setenv", "LD_LIBRARY_PATH", "/rg/lindbergh:/rg/lib32:/lb/elf:/lb/elf/lib:/lb/lib"}));
+    CHECK(has_seq(a, {"--setenv", "LINDBERGH_CONFIG_PATH", "/rg/lindbergh.ini"}));
+    CHECK(has_seq(a, {"--setenv", "MESA_LOADER_DRIVER_OVERRIDE", "zink"}));
+    CHECK(has_seq(a, {"--ro-bind", p.data + "/native/Lb/lindbergh.ini", "/rg/lindbergh.ini"}));
+    CHECK(has_seq(a, {"-w", "1024", "-h", "768"}));
+    CHECK(a.back() == "/lb/elf/game.elf" && pl.comm == "game.elf");
+    CHECK(std::find(a.begin(), a.end(), "/rg/bin/rg-elfloader") == a.end());
+    // De ini staat in de schrijfstappen, met de sleutels van de route.
+    const LayerStep* w = nullptr;
+    for (const LayerStep& s : pl.layer) if (s.kind == LayerStep::Kind::Write) w = &s;
+    CHECK(w && w->to == p.data + "/native/Lb/lindbergh.ini");
+    if (w) {
+        CHECK(w->from.find("[Graphics]\nGPU_VENDOR = 2\n") != std::string::npos);
+        CHECK(w->from.find("EMULATE_JVS = false") != std::string::npos && w->from.find("JVS_PATH = \"/dev/ttyRG0\"") != std::string::npos);
+        CHECK(w->from.find("WIDTH = 1024") != std::string::npos && w->from.find("FULLSCREEN = true") != std::string::npos);
+    }
+    std::vector<std::string> log;
+    CHECK(apply_layer(pl, log, err));
+    CHECK(slurp(p.data + "/native/Lb/lindbergh.ini").find("JVS_PATH = \"/dev/ttyRG0\"") != std::string::npos);
+    const auto ids = identity_lines(pl);
+    CHECK(std::any_of(ids.begin(), ids.end(), [&](const std::string& l) { return l.find("lindbergh-laag: " + layer.string() + "/lindbergh.so sha256 ") != std::string::npos; }));
+    CHECK(std::any_of(pl.notes.begin(), pl.notes.end(), [&](const std::string& l) { return l.find("spel-ID " + id) != std::string::npos; }));
+
+    // De pty: zonder link een duidelijke fout; met link het doel in het commando.
+    NativePlan pj = pl;
+    CHECK(!resolve_jvs(pj, (root / "run/geen-link").string(), err) && err.find("pty") != std::string::npos);
+    write(root / "pts/7", "");
+    fs::create_directories(root / "run/ravengun");
+    fs::create_symlink(root / "pts/7", root / "run/ravengun/jvs-com");
+    CHECK(resolve_jvs(pj, (root / "run/ravengun/jvs-com").string(), err));
+    CHECK(has_seq(pj.argv, {"--dev-bind", (root / "pts/7").string(), "/dev/ttyRG0"}) && !pj.needs_jvs_pty);
+    CHECK(std::find(pj.argv.begin(), pj.argv.end(), kJvsPtyPlaceholder) == pj.argv.end());
+
+    // De gebruikerslaag van lindbergh.ini gaat voor.
+    write(p.user_patches + "/Lb/lindbergh.ini", "[Emulation]\nFREEPLAY = false\n");
+    CHECK(plan(pr, p, PlanOptions{}, pl, err));
+    w = nullptr;
+    for (const LayerStep& s : pl.layer) if (s.kind == LayerStep::Kind::Write) w = &s;
+    CHECK(w && w->from.find("FREEPLAY = false") != std::string::npos && w->from.find("GPU_VENDOR") == std::string::npos);
+
+    // Emulatie: geen pty, wel libCg; zonder libCg.so in de laag een fout met het bouwscript.
+    CHECK(load_profile(json, "LbEmu", p, pr, err));
+    CHECK(!plan(pr, p, PlanOptions{}, pl, err) && err.find("libCg.so") != std::string::npos && err.find("build-lindbergh-loader.sh") != std::string::npos);
+    write(layer / "libCg.so", "x");
+    CHECK(plan(pr, p, PlanOptions{}, pl, err));
+    CHECK(!pl.needs_jvs_pty);
+    CHECK(std::find(pl.argv.begin(), pl.argv.end(), kJvsPtyPlaceholder) == pl.argv.end());
+    w = nullptr;
+    for (const LayerStep& s : pl.layer) if (s.kind == LayerStep::Kind::Write) w = &s;
+    CHECK(w && w->from.find("EMULATE_JVS = true") != std::string::npos && w->from.find("LIBCG_PATH = \"/rg/lindbergh/libCg.so\"") != std::string::npos);
+
+    // Een andere ELF dan het profiel verwacht: niet starten.
+    CHECK(load_profile(json, "Lb", p, pr, err));
+    write_elf(p.nas + "/Lb/elf/game.elf", 0x200, 0x55);
+    CHECK(!plan(pr, p, PlanOptions{}, pl, err) && err.find("verkeerde ELF") != std::string::npos);
+    // Laag niet gebouwd.
+    p.lindbergh = (root / "geen-laag").string();
+    CHECK(!plan(pr, p, PlanOptions{}, pl, err) && err.find("build-lindbergh-loader.sh") != std::string::npos);
 }
 
 int main() {
@@ -193,6 +367,8 @@ int main() {
     CHECK(has_seq(pl.argv, {"--ro-bind", "/tmp/.X11-unix/X0", "/tmp/.X11-unix/X0", "--setenv", "DISPLAY", ":0"}));
     CHECK(has_seq(pl.argv, {"--ro-bind", (root / "xauth").string(), "/tmp/.Xauthority"}));
     CHECK(std::find(pl.argv.begin(), pl.argv.end(), "-f") == pl.argv.end());
+
+    test_lindbergh(root, p);
 
     fs::remove_all(root);
     std::printf("native-launch: %d controles, %d fout\n", g_checks, g_failures);

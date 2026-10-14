@@ -908,6 +908,8 @@ std::string GameService::run_native(const std::string& profile) {
         const std::string e = c_.start_route(profile, pr.route.empty() ? std::string("evdev") : pr.route);
         if (!e.empty()) { if (c_.stop_inputs) c_.stop_inputs(); return "IO-brug: " + e; }
     }
+    // Lindbergh met JVS-doorgifte: de pty bestaat pas nu (de route jvs maakte hem); het doel gaat als apparaat de sandbox in.
+    if (pl.needs_jvs_pty && !L::resolve_jvs(pl, c_.jvs_link, err)) { if (c_.stop_inputs) c_.stop_inputs(); return err; }
     if (cancel_.load()) { if (c_.stop_inputs) c_.stop_inputs(); return "de start is afgebroken"; }
     // 4. De schrijflaag en het logboek.
     std::vector<std::string> layer_log;

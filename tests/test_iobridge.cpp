@@ -126,6 +126,16 @@ void test_model() {
     CHECK(io_button_signal(s, "coin3", v) && v);
     CHECK(io_button_signal(s, "test", v) && v);
     CHECK(!io_button_signal(s, "p5.trigger", v) && !io_button_signal(s, "p1.zzz", v) && !io_button_signal(s, "coin5", v));
+    // pN.offscreen: de herlaadschakelaar van een Sega-gun (Lindbergh, BUTTON_2): de aim buiten beeld of de herlaadknop.
+    CHECK(io_button_signal(s, "p1.offscreen", v) && !v);
+    s.player[0].valid = true;
+    s.player[0].offscreen = true;
+    CHECK(io_button_signal(s, "p1.offscreen", v) && v);
+    s.player[0].valid = false;   // zonder geldige aim telt de rand niet
+    CHECK(io_button_signal(s, "p1.offscreen", v) && !v);
+    s.player[0].reload = true;
+    CHECK(io_button_signal(s, "p1.offscreen", v) && v);
+    s.player[0] = IoPlayer{};
     s.player[3].x = 0.25;
     double d = 0;
     CHECK(io_axis_signal(s, "p4.x", d) && d == 0.25);

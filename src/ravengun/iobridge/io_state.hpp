@@ -59,7 +59,8 @@ struct IoOutputs {
 };
 
 // Namen van de signalen in de dialectbestanden: "test", "service", "coin1".."coin4", "volume_up", "volume_down" en
-// "p1.start", "p1.trigger", "p1.reload", "p1.grenade", "p1.aux1", "p1.aux2", "p1.btn1".."p1.btn8" (p1..p4), voor assen "p1.x",
+// "p1.start", "p1.trigger", "p1.reload", "p1.offscreen" (de herlaadknop of een geldige aim buiten het scherm: de offscreen-schakelaar
+// van een Sega-gun), "p1.grenade", "p1.aux1", "p1.aux2", "p1.btn1".."p1.btn8" (p1..p4), voor assen "p1.x",
 // "p1.y", "p1.wheel", "p1.gas", "p1.brake".
 // Geeft de waarde van een knopsignaal; false als de naam onbekend is.
 bool io_button_signal(const IoState& s, const std::string& name, bool& value);

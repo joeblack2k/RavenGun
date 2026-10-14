@@ -494,6 +494,8 @@ int main(int argc, char** argv) {
         np.patches = games_cfg.dirs.shipped;
         np.user_patches = games_cfg.dirs.user;
         np.loader = envs("RAVENGUN_ELFLOADER");
+        // De Lindbergh-laag (scripts/build-lindbergh-loader.sh): standaard <data>/lindbergh-loader/current.
+        np.lindbergh = envs("RAVENGUN_LINDBERGH");
         np.runtime_dir = envs("XDG_RUNTIME_DIR");
         np.home = home;
         {   // rg-exec staat naast ravengund (<prefix>/bin bij een installatie, build/ in de repo)

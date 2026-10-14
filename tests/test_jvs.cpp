@@ -542,8 +542,68 @@ void test_namco_mkdx() {
 
 }  // namespace
 
+// Hoeveel bytes de leesdraad van lindbergh-loader (passthrough.c, JVS-doorgifte) als een antwoord neemt: vanaf de sync tot de
+// lengte uit de lengtebyte + 3. Zonder de patch (third_party/lindbergh-loader/patches/0001-*) telt hij ruwe bytes, met de patch
+// telt een escape een byte extra. Een model van het gedrag, voor de test.
+size_t lindbergh_reader(const Bytes& wire, bool patched) {
+    int count = 0, ack = 0;
+    bool wait = false, esc = false;
+    for (uint8_t b : wire) {
+        if (count == 0 && b == 0xE0) wait = true;
+        if (count == 2) ack = (patched ? static_cast<int>(b) : static_cast<int>(static_cast<int8_t>(b))) + 3;
+        else if (patched && count > 2 && wait) {
+            if (esc) esc = false;
+            else if (b == 0xD0) { esc = true; ++ack; }
+        }
+        if (wait) ++count;
+        if (count == ack) return static_cast<size_t>(count);
+    }
+    return static_cast<size_t>(count);
+}
+
+// De borden van de Lindbergh-route (docs/lindbergh.md): gelijk aan wat lindbergh-loader zelf emuleert (jvs.c, SEGA_TYPE_3 en
+// SEGA_TYPE_1), de herlaadschakelaar op BUTTON_2, en een antwoord met een escape dat de doorgifte heel moet doorgeven.
+void test_lindbergh() {
+    const JvsBoards bs = load();
+    const JvsBoard* t3 = bs.find("Lindbergh");
+    const JvsBoard* t1 = bs.find("LindberghType1");
+    CHECK(t3 && t1);
+    if (!t3 || !t1) return;
+    CHECK(t3->comm_version == 0x10 && t3->jvs_version == 0x30 && t3->command_rev == 0x13 && t3->analog_bits == 10 && t3->gp_outputs == 20);
+    CHECK(t1->comm_version == 0x10 && t1->jvs_version == 0x30 && t1->command_rev == 0x11 && t1->analog_bits == 8 && t1->gp_outputs == 6);
+    JvsBus bus;
+    bus.add_node(*t3);
+    talk(bus, "E0 FF 03 F1 01 F4");
+    // Functielijst: spelers 2 x 14, munten 2, analoog 8 x 10 bit, uitgangen 20 (de volgorde van writeFeatures in jvs.c).
+    const Bytes f = ask(bus, 0x01, "14");
+    const std::string fh = hex(f);
+    CHECK(fh.find("01 02 0E 00 02 02 00 00 03 08 0A 00") != std::string::npos && fh.find("12 14 00 00 00") != std::string::npos);
+    // Naast het scherm richten = BUTTON_2 (byte 0 bit 0) van die speler; de trigger is BUTTON_1 (bit 1).
+    IoState s = armed_state();
+    s.player[0].valid = true;
+    s.player[0].x = 0.0;
+    s.player[0].offscreen = true;
+    s.player[0].trigger = true;
+    bus.set_input(s);
+    const Bytes sw = ask(bus, 0x01, "20 02 02");   // E0 00 len 01 01 sys p1b0 p1b1 p2b0 p2b1 som
+    CHECK(sw.size() >= 11 && sw[6] == 0x03 && sw[8] == 0x00);
+    // Een as met hoge byte D0 (x = 0xD0 / 0xFF): het antwoord heeft een escape; de doorgifte zonder patch kapt het af.
+    s.player[0].offscreen = false;
+    s.player[0].x = 208.0 / 255.0;
+    bus.set_input(s);
+    const Bytes an = ask(bus, 0x01, "22 01");
+    CHECK(hex(an).find("D0 CF") != std::string::npos);
+    CHECK(lindbergh_reader(an, true) == an.size());
+    CHECK(lindbergh_reader(an, false) < an.size());   // 208 x 257 = 0xD0D0: twee escapes, twee bytes te weinig
+    // Zonder escape lezen beide hetzelfde.
+    const Bytes plain = ask(bus, 0x01, "10");
+    CHECK(lindbergh_reader(plain, false) == plain.size() && lindbergh_reader(plain, true) == plain.size());
+    CHECK(hex(plain).find(hex(Bytes(t3->identify.begin(), t3->identify.end()))) != std::string::npos);
+}
+
 int main() {
     test_framing();
+    test_lindbergh();
     test_board_file();
     test_commands();
     test_inputs();
