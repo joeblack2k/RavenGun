@@ -5,10 +5,11 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (12)
+## Working (13)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
+- **Dream Raiders**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, JVS over the pipe to the SegaGun2P board). First start: the game asks for calibration (CONTROLLER ADJUSTMENT): SERVICE (F3) to CALIBRATION, START-1, then shoot the four corners (top-left, top-right, bottom-left, bottom-right); the calibration is kept. Measured with the test pattern: START, shooting in the game, result screen, new game; 6:39 min. Not yet played with the real Move.
 - **HALO Fireteam Raven**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, input through the tp-shm I/O bridge). Measured on the TV in mouse mode: skip calibration with TEST twice (hold key 0 briefly), coin (key 5), START (key 1), aim, shoot, reload (right button), a kill; ran 5:12 min. The native route (Linux, own loader) also exists and skips calibration with START.
 - **House of the Dead: Scarlet Dawn**: WORKING without TeknoParrotUi (2026-10-14): a double-click in RavenGun starts amdaemon.exe and the game through rg-direct (two executables, the closed core). All input comes from the daemon: triggers and aim through the shared memory (HOTDSDPipe), START, sub-trigger, controller select, test and coin through the ALLS USB-IO report on TeknoParrotPipe (control pipe AllsUsbIo). Measured on the TV (the daemon's test pattern and trigger): START -> title -> MODE SELECT -> STORY MODE -> ITEMS -> in the level, CONTINUE, GAME OVER and ranking; 8:44 min continuous. An earlier run stopped after ~3 min with exit code 3 while my mouse injection was clicking on the desktop (cause not established). Not yet played with the real Move; sub-trigger and controller select not checked separately.
 - **Jurassic Park Arcade**: WORKING: runs on our own loader, started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts), native Linux, OpenGL on Vulkan (zink); played with a PS Move and with a mouse (2026-10-14). The lightgun board answers as the real USB board (RIO bridge, rio-invoer.ini): no more "RIO Disconnected"; START (key 1), aim and trigger work (score and kills measured), the game's own settings (free play, difficulty, volume, ...) are in the app. Four glow shaders Mesa rejected are fixed (data/shaders). Not measured: player 2's trigger, a physical mouse and the PS Move. See bewijs-speelbaar-20261014/LEESMIJ.md.
@@ -34,29 +35,45 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (19)
+## Not tested yet (35)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
 - **3D Cosplay Mahjong**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
+- **Action Deka**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **After Dark**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Aliens Armageddon**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Armageddon (Raw Thrills): native 32-bit Linux ELF with a statically linked HASP/Aladdin dongle (aksusbd/NetHASP).
 - **Aliens Extermination**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Extermination (Global VR): 32-bit Windows PE with a statically linked HASP4 dongle and a USB HID check.
+- **Block King Ball Shooter**: Prepared, not run (pass 1, Type-X PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Bug Busters**: Prepared, not run (pass 1, EM-Teck PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Coopers's 9**: Prepared, not run (pass 1, KONAMI PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Drakons Realm Keepers**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Drakons Realm Keepers: Matrix/SBK dongle; matrix64.dll answers everything, but no drop-in exists yet.
+- **Elevator Action Invasion**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Far Cry Paradise Lost**: Prepared, not run (pass 1, Global VR PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Friction**: Prepared, not run (pass 1, Unique PC Based (OpenParrot)): profile, identification and input route are in place; nothing has been measured yet.
 - **Ghost Squad Evolution**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Ghost Squad Evolution: native Sega Lindbergh ELF with the older amDongle (Ver.0.12), no keychip layer.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
 - **Let's Go Jungle**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle: native Lindbergh ELF with the older amDongle, a backup layer carrying a region and a TEA_DIR path.
 - **Let's Go Jungle Special**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle Special: sibling of LGJ with the same protection shape; the cabinet script always passes an X config file.
 - **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.
-- **Mario Kart Arcade GP DX**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Mario Kart Arcade GP DX (Namco ES3, 32-bit Windows): a steering-wheel game, not a lightgun title; the protection is AMCUS (AMAuthd, ALL.Net).
+- **Mario Kart Arcade GP DX**: Ready for its first start through rg-direct (2026-10-14), not started yet: jvs route over the pipe to the Namco board MKDX (wheel, gas, brake from a gamepad), ALL.Net/AMCUS answered by the closed core inside the game process ([Network] in teknoparrot.ini, as TeknoParrot does), camera from the daemon through the drop-in rg-mfcam.dll (Media Foundation; Wine itself has no video capture devices). See NETWERK-INVOER-CAMERA.md.
+- **Mars Sortie**: Prepared, not run (pass 1, UDC PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.
+- **Night Hunter - After Dark, Chapter 2**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Operation G.H.O.S.T.**: Started, not played. The game starts and keeps running (STARTTEST.md with our own loader; ZONDER-LADER.md with no loader at all, 20 and 70 s). The region/PCB dongle is not enforced: without any region source it starts anyway. Playability was not measured.
+- **Pull The Trigger**: Prepared, not run (pass 1, COVIELSA PC-Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Rambo**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Rambo (Sega Lindbergh, 32-bit ELF): amDongle inside the ELF, the check is already forced in all four ELFs.
+- **Robin Hood**: Prepared, not run (pass 1, ICE PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
+- **SEGA Golden Gun**: Prepared, not run (pass 1, SEGA RingWide): profile, identification and input route are in place; nothing has been measured yet.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
 - **The House of the Dead 4**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead 4 (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.05 inside the ELF, check path unpatched.
 - **The House of the Dead 4 Special**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead 4 Special (Sega Lindbergh, 32-bit ELF): same amDongle layer as HOTD4, unpatched check path.
 - **The House of the Dead EX**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). The House of the Dead EX (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.12, check already forced to succeed.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
 - **Too Spicy**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Too Spicy / Apache (Sega Lindbergh, 32-bit ELF): amDongle Ver.0.12 inside the ELF, check path unpatched.
+- **Wartran Troopers**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Wild West Shootout**: Prepared, not run (pass 1, Coastal PC-Based): profile, identification and input route are in place; nothing has been measured yet.
 
 ## Not working yet (17)
 

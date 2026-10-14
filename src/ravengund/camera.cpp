@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "ravengun/json.hpp"
+#include "ravengun/vision/camera_feed.hpp"
 #include "ravengun/vision/frame_timing.hpp"
 #include "ravengun/vision/latest_queue.hpp"
 
@@ -235,6 +236,12 @@ struct CameraService::Impl {
     std::array<TrackerConfig, kPlayers> pending_tracker{};
     std::array<bool, kPlayers> tracker_on{{true, false, false, false}};
     std::atomic<uint64_t> tracker_gen{0};
+    // De virtuele camera voor een spel (set_game_feed): aan/uit en het pad; de tracker-thread schrijft (en is de enige die `feed` aanraakt).
+    std::atomic<bool> feed_on{false};
+    std::atomic<uint64_t> feed_gen{0};
+    std::mutex fm;
+    std::string feed_path = ravengun::vision::kCameraFeedPath;
+    ravengun::vision::CameraFeedWriter feed;
     // Per speler (onder m): geldige metingen en het laatste resultaat (speler 1 staat ook in de bestaande velden).
     std::array<uint64_t, kPlayers> p_processed{}, p_valid{};
     std::array<TrackResult, kPlayers> p_last{};
@@ -572,6 +579,8 @@ struct CameraService::Impl {
         std::vector<BallTracker> trackers;
         for (const auto& c : cfg) trackers.emplace_back(c);
         uint64_t seen_gen = tracker_gen.load();
+        uint64_t seen_feed = feed_gen.load();
+        bool feed_failed = false;
         int seen_w = 0, seen_h = 0;
         while (run.load()) {
             if (tracker_gen.load() != seen_gen) {
@@ -587,7 +596,31 @@ struct CameraService::Impl {
                 seen_gen = tracker_gen.load();
             }
             auto f = q.pop_latest(std::chrono::milliseconds(200));
+            if (feed_gen.load() != seen_feed) {   // aan, uit of een ander pad: eerst het oude bestand weg
+                seen_feed = feed_gen.load();
+                feed_failed = false;
+                if (feed.is_open()) {
+                    logf("info", "camera voor het spel: %s gestopt na %u beelden", feed.path().c_str(), feed.frames());
+                    feed.close(true);
+                }
+            }
             if (!f) continue;
+            if (feed_on.load()) {
+                if (!feed.is_open()) {
+                    std::string path, e;
+                    { std::lock_guard<std::mutex> g(fm); path = feed_path; }
+                    const uint32_t fps = static_cast<uint32_t>(std::max(0, opt.fps));
+                    if (feed.open(path, static_cast<uint32_t>(f->width), static_cast<uint32_t>(f->height), static_cast<uint32_t>(f->stride), fps, 1, e))
+                        logf("info", "camera voor het spel: beeld %dx%d YUY2 naar %s", f->width, f->height, path.c_str());
+                    else if (!feed_failed) {
+                        logf("waarschuwing", "camera voor het spel: %s", e.c_str());
+                        feed_failed = true;
+                    }
+                } else if (feed.width() != static_cast<uint32_t>(f->width) || feed.height() != static_cast<uint32_t>(f->height)) {
+                    feed.close(true);   // modus gewisseld: volgende beeld legt het bestand opnieuw aan
+                }
+                if (feed.is_open()) feed.write(f->data.data(), static_cast<uint32_t>(f->t_frame_ns / 1'000'000));
+            }
             if (f->width != seen_w || f->height != seen_h) {  // modus gewisseld: oude volgtoestand is ongeldig
                 if (seen_w) for (auto& t : trackers) t.reset();
                 seen_w = f->width; seen_h = f->height;
@@ -640,6 +673,7 @@ struct CameraService::Impl {
             }
             q.recycle(std::move(*f));
         }
+        if (feed.is_open()) feed.close(true);
         logf("info", "tracker-thread gestopt");
     }
 };
@@ -662,6 +696,26 @@ void CameraService::stop() {
 }
 
 bool CameraService::enabled() const { return d_->opt.enabled; }
+
+void CameraService::set_game_feed(bool on, const std::string& why, const std::string& path) {
+    {
+        std::lock_guard<std::mutex> g(d_->fm);
+        const std::string p = path.empty() ? std::string(ravengun::vision::kCameraFeedPath) : path;
+        if (on == d_->feed_on.load() && p == d_->feed_path) return;
+        d_->feed_path = p;
+    }
+    d_->feed_on.store(on);
+    d_->feed_gen.fetch_add(1);
+    if (!on) ::unlink(d_->feed_path.c_str());   // ook zonder lopende tracker (camera uit): geen oud bestand laten staan
+    logf("info", "camera voor het spel %s: %s", on ? "aan" : "uit", why.c_str());
+}
+
+bool CameraService::game_feed() const { return d_->feed_on.load(); }
+
+std::string CameraService::device_path() const {
+    std::lock_guard<std::mutex> g(d_->m);
+    return d_->ident.path;
+}
 
 vision::TrackerConfig CameraService::tracker(int player) const {
     if (player <= 1) {
@@ -733,6 +787,7 @@ std::string CameraService::status_json() const {
     w.key("driver").value(d.ident.driver).key("card").value(d.ident.card).key("bus_info").value(d.ident.bus);
     w.key("opens").value(static_cast<unsigned long long>(d.opens));
     w.end_object();
+    w.key("game_feed").value(d.feed_on.load());   // de virtuele camera voor een spel (set_game_feed)
 
     w.key("mode").begin_object();
     w.key("format").value(d.fourcc == V4L2_PIX_FMT_YUYV ? "YUYV" : (d.fourcc ? "?" : ""));

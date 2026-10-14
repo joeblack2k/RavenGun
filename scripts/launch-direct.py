@@ -110,9 +110,12 @@ EXIT_HALF = 7        # een profiel met meer dan een start: een start was al weg 
 
 # Profielen waarvoor TeknoParrotUi extra argumenten of voorbereidingen heeft die hier niet zijn nagebouwd: die vallen
 # terug op TeknoParrotUi (exit 4). Bron: GameLaunchArguments in TeknoParrotUI (net8-migration).
+# NamcoMkdx staat er niet (meer) in: TeknoParrotUi doet voor Mario Kart Arcade GP DX alleen een opruimstap (oude MK_AGP3_FINAL-processen
+# beeindigen; een directe start draait in zijn eigen systemd-unit, die bij elke stop alles opruimt) en geen extra argumenten. ALL.Net
+# en AMCUS beantwoordt de gesloten kern in het spelproces (teknoparrot.ini [Network]); AMAuthd wordt door niemand gestart.
 UNSUPPORTED_EMULATION = {
     "AfterBurnerClimax", "TaitoTypeXBattleGear", "NamcoMachStorm", "NamcoPokken", "GuiltyGearRE2", "GuiltyGearAPM3",
-    "SiN", "ALLSSWDC", "ALLSSCHRONO", "NamcoMkdx", "EXVS2", "EXVS2XB", "SegaToolsIDZ", "APM3Direct", "Vf5Lindbergh",
+    "SiN", "ALLSSWDC", "ALLSSCHRONO", "EXVS2", "EXVS2XB", "SegaToolsIDZ", "APM3Direct", "Vf5Lindbergh",
     "Vf5cLindbergh",
 }
 OPENSSL_FIX = {"ALLSSWDC", "IDZ", "ALLSSCHRONO", "NxL2", "RawThrillsFNF", "ALLSHOTDSD", "ALLSFGO", "TimeCrisis5",

@@ -105,6 +105,14 @@ struct JvsBoard {
     std::vector<JvsSwitchBit> switches;
     std::vector<std::string> coins;            // munt-signalen per sleuf (standaard coin1, coin2, ...)
     bool complete = true;
+    // Namco-bord (NA-JV, "namco": true): het hoofdbord van een Namco-kast (ES3: Mario Kart Arcade GP DX) stuurt naast de gewone
+    // commando's eigen commando's die geen JVS-standaard zijn. Zo'n bord leest ze in plaats van met status 2 te stoppen:
+    //   0x70 <sub> ...  Namco-subcommando; lengte en antwoord per sub (zie namco_command_length in jvs.cpp), rapport 01;
+    //   0x78..0x80      vaste lengte van 15 bytes (commando plus 14), rapport 01;
+    //   elk ander onbekend commando: een byte overslaan zonder antwoord, en verder met de rest van het packet.
+    // Feiten (lengtes en antwoordbytes) uit de beschrijving van de JVS-node van de open TeknoParrotUI-bron (NBGI_MarioKart3,
+    // Namco = true); geen code overgenomen (docs/decisions.md).
+    bool namco = false;
 };
 
 struct JvsBoards {
@@ -122,6 +130,10 @@ int jvs_switch_bytes(const JvsBoard& b);
 uint16_t jvs_analog_value(const JvsAnalogChannel& c, const IoState& s);
 // Zuiver: de schakelbytes van cmd 0x20 voor `players` spelers van `bytes` bytes: eerst de systeembyte, dan per speler.
 std::vector<uint8_t> jvs_switch_report(const JvsBoard& b, const IoState& s, int players, int bytes);
+
+// Namco-commando (alleen voor een bord met `namco`): het aantal bytes dat het commando op d[pos] (de commandobyte zelf) inneemt,
+// MET de commandobyte; 0 = geen Namco-commando (de gewone regels gelden). Zuiver, voor de tests.
+size_t jvs_namco_command_length(const std::vector<uint8_t>& d, size_t pos);
 
 // ---- een node (I/O-bord) en de bus
 

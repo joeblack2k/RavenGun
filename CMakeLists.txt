@@ -106,6 +106,7 @@ add_library(ravengun STATIC
   src/ravengun/rec/latency.cpp
   src/ravengun/vision/ball_tracker.cpp
   src/ravengun/vision/frame_timing.cpp
+  src/ravengun/vision/camera_feed.cpp
   src/ravengun/parse.cpp
   src/ravengun/paths.cpp
   src/ravengun/probe.cpp
@@ -379,6 +380,10 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
+  # De camera voor een spel: het bestand van de daemon voor rg-mfcam.dll (src/ravengun/vision/camera_feed.*).
+  add_executable(ravengun_camera_feed_tests tests/test_camera_feed.cpp)
+  target_link_libraries(ravengun_camera_feed_tests PRIVATE ravengun)
+  add_test(NAME ravengun_camera_feed_tests COMMAND ravengun_camera_feed_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (scripts/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-compatibility.py" --check)

@@ -158,6 +158,12 @@ public:
     std::atomic<int> recording_player{1};
     // Levert de camerastatus als JSON-object (thread-safe); leeg = geen camera-service.
     std::function<std::string()> camera_status;
+    // De camera voor een spel (CameraService::set_game_feed: het beeld van de daemon in /dev/shm voor het spelproces), aan/uit,
+    // de huidige stand, het apparaat van de daemon en of de camera aan staat. Leeg = geen camera-service (tests).
+    std::function<void(bool on, const std::string& why)> set_game_camera;
+    std::function<bool()> game_camera_on;
+    std::function<std::string()> camera_device;
+    std::function<bool()> camera_enabled;
     // Uitvoer (virtueel lightgun-apparaat); niet-eigenaar, geset door main vóór de threads starten.
     OutputService* output = nullptr;
     // Wordt na elke optische meting aangeroepen (in de tracker-thread) met het spelernummer; vóór het starten van de

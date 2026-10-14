@@ -491,6 +491,24 @@
    ],
    "offscreen_margin": 0
   },
+  "MKDX": {
+   "description": "Mario Kart Arcade GP DX (EmulationProfile NamcoMkdx, profielen MKDX en MKDX118). Stuur, pedalen en knoppen lopen via echte JVS-pakketten (het bord MKDX in jvs-boards.json, route jvs over de pipe TeknoParrot_JVS); in het gedeelde geheugen schrijft de open bron alleen de Banapass-kaart: bit 0 van het besturingswoord op offset 8 (de pipe BanapassButton van TeknoParrotUi, uit P1Button2). Signaal p1.aux1 (gamepad Y, of aux1 van de lightgun); dezelfde knop zet ook de kaartbit van het JVS-bord.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 0
+    }
+   ],
+   "axes": [],
+   "offscreen_margin": 0
+  },
   "MusicGunGun2Pipe": {
    "description": "Taito Type X2 via OpenParrot (Gaia Attack 4, Haunted Museum 1 en 2, Music GunGun 2; profielen GaiaAttack4, HauntedMuseum, HauntedMuseum2, MusicGunGun2). De pipe telt spelers vanaf 0, dus 'P2Button1' is bit 0. Control (offset 8) kent maar zes bits: trekker speler 1 (0x1, TeknoParrot 'P2Button1'), trekker speler 2 (0x4, 'P2Button3'), volume omhoog/omlaag (0x10 en 0x20, 'P2Button5/6') en trekker speler 3 en 4 (0x40 en 0x80, 'P2ButtonUp/Down'; alleen Gaia Attack 4). Start (P1ButtonUp/Down), munt, test, service en de extra knoppen lopen bij Type X2 via de JVS-pipe (COM2, ExtensionOne) van TeknoParrotUi: die blijft draaien, die toetsen komen uit zijn eigen bindingen. Aim: 8 kanalen van 1 byte met stride 4 op offset 12..40 (P1 X/Y = 12/16, P2 = 20/24, P3 = 28/32, P4 = 36/40), links/boven = 0 (InvertedMouseAxis).",
    "size": 64,

@@ -78,6 +78,14 @@ public:
     void set_tracker_enabled(int player, bool on);
     bool tracker_enabled(int player) const;
     bool enabled() const;
+    // De virtuele camera voor een spel (src/ravengun/vision/camera_feed.hpp): aan = de tracker-thread schrijft elk beeld ook in
+    // `path` (standaard /dev/shm/ravengun_Camera), zodat een spel dat de camera IN het spel gebruikt ([Camera] Use = game) het
+    // beeld krijgt zonder het apparaat zelf te openen (de daemon blijft de enige eigenaar; de tracking loopt door). Uit = het
+    // bestand weg: het spel ziet geen camera. `why` komt in het logboek.
+    void set_game_feed(bool on, const std::string& why, const std::string& path = {});
+    bool game_feed() const;
+    // Het apparaat dat de daemon gebruikt (zoals gevonden bij het openen; leeg zolang er geen camera open is).
+    std::string device_path() const;
 
 private:
     struct Impl;

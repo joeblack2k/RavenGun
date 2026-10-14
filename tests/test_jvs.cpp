@@ -450,6 +450,96 @@ void test_dialect_pty() {
     fs::remove_all(dir);
 }
 
+// ---------------------------------------------------------------- Namco-bord (Mario Kart Arcade GP DX)
+
+// Het antwoord van de bus als gegevens (status en rapporten, zonder sync, lengte en checksum).
+Bytes reply_data(JvsBus& bus, uint8_t node, const char* data_hex) {
+    const Bytes wire = ask(bus, node, data_hex);
+    JvsFrameParser p;
+    std::vector<JvsFrame> fr;
+    p.feed(wire.data(), wire.size(), fr);
+    CHECK(fr.size() == 1);
+    if (fr.size() != 1) return {};
+    CHECK(fr[0].checksum_ok && fr[0].node == 0x00);
+    return fr[0].data;
+}
+
+void test_namco_mkdx() {
+    static const JvsBoards bs = load();
+    const JvsBoard* mk = bs.find("MKDX");
+    CHECK(mk != nullptr);
+    if (!mk) return;
+    // Het bord volgens JvsSetup.cs (NamcoMkdx): NBGI_MarioKart3, versies 0x31, 0x18 schakelaars, 2 spelers.
+    CHECK(mk->namco);
+    CHECK(mk->identify == "NBGI.;NA-JV;Ver6.01;JPN,MK3100-1-NA-APR0-A01");
+    CHECK(mk->comm_version == 0x31 && mk->jvs_version == 0x31 && mk->command_rev == 0x31);
+    CHECK(mk->players == 2 && mk->buttons == 24 && jvs_switch_bytes(*mk) == 3 && mk->analog_channels == 8 && mk->gp_outputs == 20);
+    CHECK(!lgs().namco);   // een gewoon bord blijft een gewoon bord
+
+    // Lengtes van de Namco-commando's (met de commandobyte).
+    CHECK(jvs_namco_command_length(from_hex("70 03 00 00 11"), 0) == 4);
+    CHECK(jvs_namco_command_length(from_hex("70 15 00 00"), 0) == 4);
+    CHECK(jvs_namco_command_length(from_hex("70 16 00"), 0) == 3);              // afgekapt op wat er is
+    CHECK(jvs_namco_command_length(from_hex("70 18 01 02 03"), 0) == 5);        // de rest van het packet
+    CHECK(jvs_namco_command_length(from_hex("70 05 05 AA BB 11"), 0) == 5);     // derde byte = lengte
+    CHECK(jvs_namco_command_length(from_hex("70 05 01 11"), 0) == 3);           // nooit korter dan commando, sub en lengte
+    CHECK(jvs_namco_command_length(from_hex("70 99 01 02"), 0) == 4);           // onbekend sub: de rest
+    CHECK(jvs_namco_command_length(from_hex("11 78 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11"), 1) == 15);
+    CHECK(jvs_namco_command_length(from_hex("80 00"), 0) == 2);
+    CHECK(jvs_namco_command_length(from_hex("11"), 0) == 0);                    // geen Namco-commando
+    CHECK(jvs_namco_command_length(from_hex("77"), 0) == 0);
+
+    JvsBus bus;
+    bus.add_node(*mk);
+    talk(bus, "E0 FF 03 F0 D9 CB");
+    CHECK(hex(talk(bus, "E0 FF 03 F1 01 F4")) == "E0 00 03 01 01 05");
+    CHECK(hex(reply_data(bus, 0x01, "11 12 13")) == "01 01 31 01 31 01 31");
+    // Functies: 2 spelers x 24 schakelaars, 2 muntsleuven, 8 kanalen van 10 bit, 20 uitgangen.
+    CHECK(hex(reply_data(bus, 0x01, "14")) == "01 01 01 02 18 00 02 02 00 00 03 08 0A 00 12 14 00 00 00");
+    // Identificatie: de ID-string met de afsluitende nul.
+    {
+        const Bytes d = reply_data(bus, 0x01, "10");
+        CHECK(d.size() > 2 && d[0] == 0x01 && d[1] == 0x01);
+        const std::string id(d.size() > 2 ? d.begin() + 2 : d.end(), d.end());
+        CHECK(id == std::string("NBGI.;NA-JV;Ver6.01;JPN,MK3100-1-NA-APR0-A01") + '\0');
+    }
+    // Namco 0x70: een rapport per commando, daarna gaat het packet gewoon verder.
+    CHECK(hex(reply_data(bus, 0x01, "70 03 00 00")) == "01 01 00");
+    CHECK(hex(reply_data(bus, 0x01, "70 18 01 02 03")) == "01 01 01");
+    CHECK(hex(reply_data(bus, 0x01, "70 15 00 00 11")) == "01 01 01 01 31");
+    CHECK(hex(reply_data(bus, 0x01, "70 05 05 AA BB 20 02 01")) == "01 01 01 01 00 00 00");
+    // 0x78..0x80: vaste lengte 15, alleen een rapport.
+    CHECK(hex(reply_data(bus, 0x01, "78 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11")) == "01 01 01 31");
+    // Een onbekend commando wordt overgeslagen (een gewoon bord stopt daar met status 2).
+    CHECK(hex(reply_data(bus, 0x01, "99 11")) == "01 01 31");
+    CHECK(bus.node(0).stats().unknown == 1);
+
+    // Invoer: stuur, gas en rem van een gamepad op kanaal 0..2; Item = trekker, Mario-knop = herladen, kaart = aux1.
+    IoState s = armed_state();
+    s.player[0].pad = true;
+    s.player[0].wheel_from_pad = true;
+    s.player[0].wheel = 1.0;
+    s.player[0].gas = 0.5;
+    s.player[0].brake = 0.0;
+    s.player[0].start = true;
+    s.player[0].aux1 = true;
+    s.player[0].trigger = true;
+    s.player[0].reload = true;
+    bus.set_input(s);
+    CHECK(hex(reply_data(bus, 0x01, "22 03")) == "01 01 FF FF 80 00 00 00");
+    CHECK(hex(reply_data(bus, 0x01, "20 01 03")) == "01 01 00 81 20 02");
+    s.player[0] = IoPlayer{};
+    s.player[0].grenade = true;      // Enter
+    s.player[0].btn[0] = true;       // Menu Up
+    s.sys.test = true;
+    s.sys.service = true;
+    bus.set_input(s);
+    CHECK(hex(reply_data(bus, 0x01, "20 02 03")) == "01 01 80 62 00 00 00 00 00");
+    // Zonder gamepad en zonder aim: stuur in het midden, pedalen los.
+    bus.set_input(armed_state());
+    CHECK(hex(reply_data(bus, 0x01, "22 03")) == "01 01 80 00 00 00 00 00");
+}
+
 }  // namespace
 
 int main() {
@@ -460,6 +550,7 @@ int main() {
     test_analog_window_and_escape();
     test_chain();
     test_dialect_pty();
+    test_namco_mkdx();
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

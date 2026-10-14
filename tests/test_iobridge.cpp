@@ -998,6 +998,59 @@ void test_service(const std::string& dir) {
 
 }  // namespace
 
+// De camera voor een spel: bij elke start van de IO-brug kiest de daemon met [Camera] in game.ini (en [Games] camera in de app) of
+// het beeld van zijn camera naar het spel gaat (CameraService::set_game_feed via SharedState); bij het stoppen gaat het uit.
+void test_game_camera(const std::string& dir) {
+    SharedState sh;
+    std::vector<std::pair<bool, std::string>> calls;
+    bool on = false;
+    sh.set_game_camera = [&](bool v, const std::string& why) { calls.emplace_back(v, why); on = v; };
+    sh.game_camera_on = [&] { return on; };
+    sh.camera_device = [] { return std::string("/dev/video0"); };
+    sh.camera_enabled = [] { return true; };
+    IoBridgeService::Config cfg;
+    cfg.dirs.shipped = repo_patches();
+    cfg.dirs.user = dir + "/cam-user";
+    cfg.app_conf = dir + "/cam-app.conf";
+    cfg.shm_path = dir + "/cam-shm";
+    cfg.tpui_shm_path = dir + "/cam-geen-tpui";
+    fs::remove_all(cfg.dirs.user);
+    {
+        IoBridgeService br(sh, cfg);
+        // Mario Kart Arcade GP DX: [Camera] Use = game (patches/MarioKartDX/game.ini). Route evdev afgedwongen: geen bord nodig.
+        CHECK(br.start("MarioKartDX", "evdev").empty());
+        CHECK(calls.size() == 1 && calls.back().first && calls.back().second.find("MarioKartDX") != std::string::npos);
+        // Een game zonder [Camera]: uit.
+        CHECK(br.start("TC5", "evdev").empty());
+        CHECK(calls.size() == 2 && !calls.back().first);
+        // Nog een game zonder camera: geen nieuwe oproep (stond al uit).
+        CHECK(br.start("HOTDSD", "evdev").empty());
+        CHECK(calls.size() == 2);
+        // 'Geen camera' in de app wint.
+        put(cfg.app_conf, "[Games]\ncamera = none\n");
+        CHECK(br.start("MarioKartDX", "evdev").empty());
+        CHECK(calls.size() == 2 && !on);
+        // Een andere camera dan die van de daemon wordt (nog) niet doorgegeven.
+        put(cfg.app_conf, "[Games]\ncamera = auto\n");
+        put(cfg.dirs.user + "/MarioKartDX/game.ini", "[Camera]\nDevice = /dev/video77\n");
+        CHECK(br.start("MarioKartDX", "evdev").empty());
+        CHECK(calls.size() == 2 && !on);
+        fs::remove_all(cfg.dirs.user);
+        CHECK(br.start("MarioKartDX", "evdev").empty());
+        CHECK(calls.size() == 3 && on);
+        // Stoppen: uit.
+        br.stop();
+        CHECK(calls.size() == 4 && !calls.back().first && !on);
+        br.shutdown();
+    }
+    // Zonder camera-service (hooks leeg): niets, en geen fout.
+    SharedState leeg;
+    IoBridgeService br2(leeg, cfg);
+    CHECK(br2.start("MarioKartDX", "evdev").empty());
+    br2.shutdown();
+    fs::remove_all(cfg.dirs.user);
+}
+
 int main() {
     const std::string dir = (fs::temp_directory_path() / ("rg_iobridge_" + std::to_string(::getpid()))).string();
     fs::create_directories(dir);
@@ -1010,6 +1063,7 @@ int main() {
     test_control_pipe(dir);
     test_service(dir);
     test_user_routes(dir);
+    test_game_camera(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

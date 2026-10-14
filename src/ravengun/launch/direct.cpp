@@ -1168,8 +1168,11 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         }
     }
     const std::string emu = pr.get("EmulationProfile");
+    // NamcoMkdx (Mario Kart Arcade GP DX) staat er niet in: TeknoParrotUi heeft daar alleen een opruimstap (oude MK_AGP3_FINAL-processen
+    // beeindigen; onze start draait in een eigen unit die bij elke stop alles opruimt). ALL.Net/AMCUS beantwoordt de gesloten kern in
+    // het spelproces met [Network] uit teknoparrot.ini; AMAuthd start niemand (GameLaunchArguments.cs, ApplyPerGamePreLaunch).
     static const std::set<std::string> unsupported_emu = {"AfterBurnerClimax", "TaitoTypeXBattleGear", "NamcoMachStorm", "NamcoPokken", "GuiltyGearRE2",
-                                                          "GuiltyGearAPM3", "SiN", "ALLSSWDC", "ALLSSCHRONO", "NamcoMkdx", "EXVS2", "EXVS2XB",
+                                                          "GuiltyGearAPM3", "SiN", "ALLSSWDC", "ALLSSCHRONO", "EXVS2", "EXVS2XB",
                                                           "SegaToolsIDZ", "APM3Direct", "Vf5Lindbergh", "Vf5cLindbergh"};
     if (unsupported_emu.count(emu)) return unsupported("EmulationProfile " + emu + " heeft eigen startargumenten in TeknoParrotUi (niet nagebouwd)");
     if (game.empty() || !isfile(game))

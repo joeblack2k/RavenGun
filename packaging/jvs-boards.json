@@ -28,6 +28,38 @@
    ],
    "coins": ["coin1", "coin2"]
   },
+  "MKDX": {
+   "description": "Mario Kart Arcade GP DX (Namco ES3, TeknoParrot-profielen MKDX/MKDX118/MKDXUSA, EmulationProfile NamcoMkdx): het Namco-bord NA-JV (ID NBGI_MarioKart3, versies 0x31, 2 spelers, 24 schakelbits, 8 analoge kanalen van 10 bit, 20 uitgangen) met de eigen Namco-commando's (namco = true). Analoog: kanaal 0 = stuur, 1 = gas, 2 = rem (TeknoParrot Analog0/2/4). Schakelaars volgens de profielbindingen: Start (byte 0 bit 7), Service (bit 6), Menu Up/Down (bit 5/4), Enter (bit 1), Banapass-kaart (bit 0, P1Button2; de kaart zelf loopt via bit 0 van offset 8 in het gedeelde geheugen, indeling MKDX), Item (byte 1 bit 5, P1Button5) en de Mario-knop (byte 2 bit 1, ExtensionButton1_2); Test in de systeembyte. Signalen: Item = p1.trigger, Mario = p1.reload, Enter = p1.grenade, kaart = p1.aux1, Menu Up/Down = p1.btn1/p1.btn2, zodat de standaardindeling van een gamepad (A/B/X/Y, LB/RB) en de Move allebei werken. Richting en venster van het stuur zijn nog niet gemeten.",
+   "identify": "NBGI.;NA-JV;Ver6.01;JPN,MK3100-1-NA-APR0-A01",
+   "comm_version": "0x31",
+   "jvs_version": "0x31",
+   "command_rev": "0x31",
+   "players": 2,
+   "buttons": 24,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "namco": true,
+   "complete": false,
+   "analog": [
+    { "signal": "p1.wheel", "min": 0, "max": 255, "idle": 0.5 },
+    { "signal": "p1.gas", "min": 0, "max": 255, "idle": 0 },
+    { "signal": "p1.brake", "min": 0, "max": 255, "idle": 0 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 7, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 5, "signal": "p1.btn1" },
+    { "player": 1, "byte": 0, "bit": 4, "signal": "p1.btn2" },
+    { "player": 1, "byte": 0, "bit": 1, "signal": "p1.grenade" },
+    { "player": 1, "byte": 0, "bit": 0, "signal": "p1.aux1" },
+    { "player": 1, "byte": 1, "bit": 5, "signal": "p1.trigger" },
+    { "player": 1, "byte": 2, "bit": 1, "signal": "p1.reload" }
+   ],
+   "coins": ["coin1", "coin2"]
+  },
   "SegaGun2P": {
    "description": "Generiek Sega-JVS-gunbord (837-14572, standaardbord van de TeknoParrot-JVS-profielen SegaJvs, SegaJvsGoldenGun, SegaJvsLetsGoIsland, SegaJvsDreamRaiders, SegaJvsLetsGoJungle): 2 spelers, 14 schakelbits, 8 analoge kanalen van 10 bit; kanaal 0 tot 3 = P1 X, P1 Y, P2 X, P2 Y (08_gun_axis_math.md). Het kalibratievenster (hier 0..255) verschilt per game en staat in de TeknoParrot-profielen (bv. Dream Raiders 63..207 x 63..191); bord per game kopieren en het venster aanpassen. Nog niet met een game gemeten.",
    "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
