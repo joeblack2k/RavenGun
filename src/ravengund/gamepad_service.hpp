@@ -128,6 +128,8 @@ private:
     std::array<Sent, kPlayers> sent_{};
     uint64_t applied_gen_ = 0;
     std::string verdict_sig_;
+    int64_t verdict_log_ms_ = 0;     // laatste volledige lijst in het logboek
+    int verdict_changes_ = 0;        // wijzigingen sindsdien die niet als lijst gelogd zijn
     int wake_fd_ = -1;
     std::thread th_;
 };

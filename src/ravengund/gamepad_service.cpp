@@ -176,11 +176,22 @@ void GamepadService::set_game(const std::string& game) {
 void GamepadService::rescan() {
     std::vector<sysinfo::GamepadVerdict> v;
     auto list = enumerate(&v);
-    // Per invoerapparaat waarom het wel of geen gamepad is, maar alleen als er iets veranderde (geen regels elke 2 s).
+    // Per invoerapparaat waarom het wel of geen gamepad is, maar alleen als er iets veranderde, en hoogstens een keer per minuut de hele
+    // lijst: een pad die steeds verschijnt en verdwijnt (gemeten 2026-10-14: hid-steam meldt de Steam Controller ~15 keer per seconde
+    // af en aan, ook zonder daemon) zou het logboek anders vullen. Tussendoor telt een regel de wijzigingen.
     std::string sig;
     for (const auto& x : v) sig += x.event + "|" + x.name + "|" + x.why + "\n";
-    if (sig != verdict_sig_) {
+    const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (sig != verdict_sig_ && verdict_log_ms_ && now - verdict_log_ms_ < 60000) {
         verdict_sig_ = sig;
+        ++verdict_changes_;
+    } else if (sig != verdict_sig_ || (verdict_changes_ && now - verdict_log_ms_ >= 60000)) {
+        verdict_sig_ = sig;
+        if (verdict_changes_)
+            logf("waarschuwing", "gamepads: de lijst veranderde %d keer in de laatste minuut (een apparaat dat steeds verschijnt en verdwijnt?)",
+                 verdict_changes_);
+        verdict_changes_ = 0;
+        verdict_log_ms_ = now;
         logf("info", "gamepads: %zu gevonden; invoerapparaten:", list.size());
         for (const auto& x : v)
             logf("info", "  %s \"%s\" (%s:%s): %s", x.event.empty() ? "-" : x.event.c_str(), x.name.c_str(), hex4(x.vendor).c_str(),
