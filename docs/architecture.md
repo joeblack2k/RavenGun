@@ -312,6 +312,8 @@ Een verzoek heeft de vorm `{"v":1,"cmd":"<commando>","id":<optioneel getal of st
 - `set_fusion` (`mode` mahony, mahony_mag, vqf of vqf_mag): de oriëntatieschatter, direct en bewaard in `config.json`. Omschakelen geeft geen sprong; bij inschakelen wordt de huidige stand de referentie.
 - Spelerkeuze (sinds 2026-10-09): `status`, `sample`, `watch`, `recenter`, `clear_trim`, `set_filter`, `set_aim`, `set_rumble`, `rumble_test`, `set_led`, `set_fusion`, `set_gun_buttons`, `record`, `calib_mag` en `blink` nemen optioneel `player` (1..4) of `controller` (Bluetooth-adres, `controller_key` of `"default"`), nooit allebei. Zonder keuze: speler 1. Andere commando's weigeren die velden.
 - Muis als lightgun (zie "Muis als lightgun"): `mice` (geen velden) en `set_mouse_gun` (`player` 1..4 verplicht, `mouse` verplicht: een `id` uit `mice` of `""` om los te koppelen, optioneel `counts_per_screen` 100..20000). Hier is `player` een gewoon, verplicht veld; `controller` bestaat niet bij dit commando. `status` bevat daarnaast het blok `mouse_guns`.
+- Gamepad (zie "Gamepad naast de lightgun"): `pads` (geen velden) en `set_pad` (`player` 1..4 verplicht, `pad` verplicht: een `id` uit `pads` of
+  `""`). Bewaard in `config.json`. `status` bevat het blok `gamepads`. CLI: `ravengunctl pads [--all]`, `ravengunctl pad --player N --pad ID` of `--off`.
 - Controllers: `controllers` (`full_ids`), `pair` (`action` start, status, confirm of cancel), `unpair` (`controller`, `keep_settings`, standaard waar), `set_controller` (`controller`, en `name`, `new_player` 1..4 en/of `reset_settings`) en `blink` (`ms` 200..10000). Een adres moet de vorm AA:BB:CC:DD:EE:FF hebben (geen nul- of broadcastadres); al het andere geeft `invalid_argument`.
 
 Een antwoord is `{"v":1,"ok":true,"id":…,"result":…}` of `{"v":1,"ok":false,"id":…,"error":{"code":…,"message":…}}`. De foutcodes zijn `parse_error`, `bad_request`, `unsupported_version`, `unknown_command`, `invalid_argument`, `line_too_long`, `unavailable` en `internal`.
@@ -359,6 +361,15 @@ Een gewone systeemmuis (evdev) kan de virtuele lightgun van een speler (1..4) aa
 - IPC `mice`: `{"mice":[{"id","name","absolute","event"}...],"assignments":[{"player":1,"mouse":"<id>"|null,"connected":bool,"last_error":"..."|null,"counts_per_screen":N}...]}` (altijd vier toewijzingen). IPC `set_mouse_gun` (`player`, `mouse`, optioneel `counts_per_screen`; zonder `counts_per_screen` blijft de huidige waarde): het antwoord is de nieuwe toewijzing van die speler (één object zoals hierboven). De daemon wacht hoogstens 0,4 s op de eerste openpoging, zodat een fout (bijvoorbeeld `EACCES`) meteen in dat antwoord staat. Fouten: `invalid_argument` bij een ongeldige speler of gevoeligheid, een ongeldig of onbekend id, of een muis die al bij een andere speler zit; `bad_request` bij een onbekend veld (ook `controller`); `unavailable` zonder muisservice. `status.mouse_guns` herhaalt de vier toewijzingen.
 - Veiligheid: de daemon opent alleen een apparaat uit zijn eigen opsomming. Het id uit het verzoek wordt alleen vergeleken met die lijst; het pad (`/dev/input/<eventN>`) komt uit de opsomming, nooit uit het verzoek, en de eventnaam wordt nog eens gecontroleerd op padtekens. Er wordt nooit geschreven naar het apparaat.
 - CLI: `ravengunctl mice` en `ravengunctl mouse-gun --player N --mouse ID [--counts C]` of `--off`.
+
+### Gamepad naast de lightgun
+
+Een gamepad is een extra bediening van een speler (stuur, gas en rem, extra kastknoppen), naast zijn lightgun; zie `docs/gamepad.md`.
+`GamepadService` (`src/ravengund/gamepad_service.*`) is gemodelleerd naar de muisservice, met twee verschillen: de toewijzingen staan in
+`config.json` (`gamepads`) en speler 1 krijgt automatisch de enige aangesloten pad. Knoppen die op gun-knoppen of toetsen vallen gaan als
+live bron 2 (zonder aim, `LiveAction::no_aim`) door `OutputService::feed_live`; de `OverrideLayer` houdt knoppen en toetsen per bron bij
+(0 = Move, 1 = muis, 2 = gamepad), zodat een Move-rapport een vastgehouden padknop niet wist. Stuur, gas, rem en `btn1..8` gaan via
+`OutputService::set_pad_input` naar `io_snapshot`. De indeling komt uit `[Gamepad]` van de game die `IoBridgeService::start` het laatst kreeg.
 
 ### Knoppenindeling (`gun_buttons`)
 
