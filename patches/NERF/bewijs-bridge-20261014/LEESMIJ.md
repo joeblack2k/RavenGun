@@ -38,7 +38,7 @@ through RavenGun's mouse gun (point 6).
    ending with "Calibration complete. Press Service/Shoulder to exit." (`04-calibration-complete.jpg`). The game stored
    P1 and P2 Gun Min/Max X/Y = 32 / 4063 itself (`logs/calibration-prefs.txt`), in the native route's local write layer
    (`~/.local/share/ravengun/native/NERF/`), not on the NAS. Player 2 was calibrated from the daemon's Player-1 sources with a
-   calibration-only table (`patches/NERF/rio-invoer-kalibratie.ini`): the daemon builds no Player-2 state without a second
+   calibration-only table (`patches/NERF/bewijs-bridge-20261014/tabellen/rio-invoer-kalibratie.ini` (research table via RG_RIO_TABLE; the launcher only ever reads `rio-invoer.ini`)): the daemon builds no Player-2 state without a second
    lightgun.
 
 4. **MEASURED — the trigger is RIO switch id 15, not id 7.** Firing the daemon's trigger through each candidate id at one aim
