@@ -5,7 +5,10 @@
 FROM docker.io/library/ubuntu@sha256:5ec03bb3441e8b0bf3b4f9cd4629a1ae763010dc3035bb8da3ae6cf026486401
 ARG SNAPSHOT=20261001T000000Z
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -q \
+# snapshot.ubuntu.com antwoordt onder last met 503 (gemeten 2026-10-14): apt mag elk pakket een paar keer opnieuw vragen.
+RUN echo 'Acquire::Retries "20";' > /etc/apt/apt.conf.d/80-retries \
+    && echo 'Acquire::Queue-Mode "access";' >> /etc/apt/apt.conf.d/80-retries \
+    && apt-get update -q \
     && apt-get install -y -q --no-install-recommends ca-certificates \
     && printf '%s\n' \
        "deb [arch=amd64,i386] https://snapshot.ubuntu.com/ubuntu/${SNAPSHOT} jammy main universe" \
