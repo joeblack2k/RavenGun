@@ -1235,10 +1235,15 @@ void AppCoreTest::notesEnglish() {
     namespace gs = ravengun::gamesettings;
     GameData d;
     d.loadFrom(repoDirs(), {});
-    // De app toont Engels (NoteEN); de Nederlandse tekst (Note) blijft voor de webpagina en de engine.
-    QVERIFY(d.note(QStringLiteral("TC5")).startsWith(QStringLiteral("Playable")));
-    QVERIFY(d.note(QStringLiteral("Halo")).startsWith(QStringLiteral("Fully working")));
-    QCOMPARE(d.playState(QStringLiteral("TC5")), QStringLiteral("playable"));
+    // De app toont Engels (NoteEN); de Nederlandse tekst (Note) blijft voor de webpagina en de engine. Vergeleken met game.ini zelf:
+    // de teksten en de status veranderen met elke bench-run, het mechanisme niet.
+    for (const char* name : {"TC5", "Halo"}) {
+        const gs::Game g = gs::load_game(repoDirs(), name);
+        const QString en = QString::fromStdString(g.get("Status", "NoteEN")), nl = QString::fromStdString(g.get("Status", "Note"));
+        QVERIFY(!en.isEmpty() && en != nl);
+        QVERIFY(d.note(QString::fromLatin1(name)).startsWith(en.left(40)));
+        QCOMPARE(d.playState(QString::fromLatin1(name)), QString::fromStdString(g.get("Status", "Status")));
+    }
     QCOMPARE(d.playState(QStringLiteral("GhostBusters")), QStringLiteral("parked"));
     QCOMPARE(d.playState(QStringLiteral("NoSuchGameProfile")), QStringLiteral("untested"));  // zonder status
     const gs::Dirs dirs = repoDirs();
