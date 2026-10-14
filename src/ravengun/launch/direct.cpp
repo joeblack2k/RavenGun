@@ -642,6 +642,113 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
     return b;
 }
 
+// --- twee exe's (in_dezelfde_view, second_start) -------------------------------------------------------------------------------------
+bool samefile(const std::string& a, const std::string& b) {
+    struct stat sa{}, sb{};
+    return ::stat(a.c_str(), &sa) == 0 && ::stat(b.c_str(), &sb) == 0 && sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
+}
+
+// Het pad van de tweede exe BINNEN de view van de eerste; leeg + reden als hij erbuiten ligt (zie launch-direct.py in_dezelfde_view).
+std::string in_dezelfde_view(const std::string& game, const std::string& second, const DirectPaths& p, std::string& waarom) {
+    const std::string wortel = view_wortel(dirname(game), p);
+    if (wortel == abspath(dirname(game))) return second;   // de eerste staat niet in een view: er valt niets gelijk te trekken
+    if (binnen(second, wortel)) return second;
+    const std::string rel = relpath(abspath(game), wortel);
+    const std::string echt = realpath_(game);
+    if (ends_with(echt, "/" + rel)) {   // waar de view naar wijst: de map van het spel zelf
+        std::string bron = echt.substr(0, echt.size() - rel.size());
+        while (!bron.empty() && bron.back() == '/') bron.pop_back();
+        const std::string echt2 = realpath_(second);
+        if (binnen(echt2, bron)) {
+            const std::string kandidaat = pjoin(wortel, relpath(echt2, bron));
+            if (isfile(kandidaat) && samefile(kandidaat, echt2)) return kandidaat;
+        }
+    }
+    waarom = "de tweede exe " + second + " ligt buiten de view " + wortel + " van de eerste; beide moeten in dezelfde view draaien "
+             "(maak de view opnieuw of zet [Game] GamePath2)";
+    return {};
+}
+
+// float() van Python voor [Launch] SecondWait: decimaal of met exponent, inf en nan; geen hex. false = geen getal.
+bool py_float(const std::string& s, double& out) {
+    const std::string t = trim(s);
+    if (t.empty() || lower(t).find('x') != std::string::npos) return false;
+    char* end = nullptr;
+    out = std::strtod(t.c_str(), &end);
+    return end && *end == '\0';
+}
+
+struct SecondStart { std::string path, profile_args, own_args; bool first = false; double wait = 5.0; };
+constexpr double kDefaultSecondWait = 5.0;   // DEFAULT_SECOND_WAIT: seconden tussen twee starts als game.ini niets zegt
+
+// second_start(): 0 = een gewone game (een exe), 1 = `out` gevuld, -1 = niet direct te starten, -2 = instelling geweigerd (melding in `m`).
+int second_start(const Profile& pr, const gsn::Ini& settings, const std::string& game, const DirectPaths& p, SecondStart& out, std::string& m) {
+    if (!ld_truthy(pr.get("HasTwoExecutables", "false"))) return 0;
+    std::string pad = expand_home(trim(settings.get("Game", "GamePath2")), p.home);
+    if (pad.empty()) pad = trim(pr.get("GamePath2"));
+    if (pad.empty()) {
+        const std::string path = gsn::identify_of(settings).path;
+        std::string path2 = trim(settings.get("Identify", "Path2"));
+        std::replace(path2.begin(), path2.end(), '\\', '/');
+        while (!path2.empty() && path2.front() == '/') path2.erase(path2.begin());
+        while (!path2.empty() && path2.back() == '/') path2.pop_back();
+        if (!path2.empty()) {
+            std::string root;
+            if (!path.empty() && ends_with(game, "/" + path)) {
+                root = game.substr(0, game.size() - path.size());
+                while (!root.empty() && root.back() == '/') root.pop_back();
+            } else {
+                root = dirname(game);
+            }
+            pad = pjoin(root, path2);
+        }
+    }
+    if (pad.empty() || !isfile(pad)) {
+        m = "het profiel heeft twee exe's (HasTwoExecutables) maar de tweede is niet gevonden: '" + pad +
+            "' (zet GamePath2 in het profiel, of [Identify] Path2 / [Game] GamePath2 in game.ini)";
+        return -1;
+    }
+    std::string waarom;
+    pad = in_dezelfde_view(game, pad, p, waarom);
+    if (pad.empty()) { m = waarom; return -1; }
+    std::string ruw = trim(settings.get("Launch", "SecondWait"));
+    std::replace(ruw.begin(), ruw.end(), ',', '.');
+    double wacht = kDefaultSecondWait;
+    if (!ruw.empty() && !py_float(ruw, wacht)) wacht = -1.0;
+    if (!(wacht >= 0 && wacht <= 600)) {
+        m = "[Launch] SecondWait = " + ruw + " (een aantal seconden van 0 tot en met 600)";
+        return -2;
+    }
+    // [Launch] SecondArguments (onze sleutel, letterlijk) gaat voor op SecondExecutableArguments van het profiel.
+    const bool eigen = settings.find("Launch", "SecondArguments") != nullptr;
+    out.path = pad;
+    out.own_args = eigen ? settings.get("Launch", "SecondArguments") : std::string();
+    out.profile_args = eigen ? std::string() : pr.get("SecondExecutableArguments");
+    out.first = ld_truthy(pr.get("LaunchSecondExecutableFirst", "false"));
+    out.wait = wacht;
+    return 1;
+}
+
+// spel_argumenten(): de OpenParrot-lader krijgt alles als EEN parameter (profiel met spaties, dan de eigen tekst letterlijk); andere
+// laders de delen los (profiel, dan de eigen tekst opgedeeld zoals Windows dat doet).
+std::vector<std::string> spel_argumenten(const std::string& loader, const std::vector<std::string>& profiel_delen, const std::string& eigen_ruw) {
+    const std::string eigen = trim(eigen_ruw);
+    const std::string ll = lower(basename(loader));
+    std::vector<std::string> out;
+    if (ll == "openparrotloader.exe" || ll == "openparrotloader64.exe") {
+        std::vector<std::string> parts;
+        if (!join(profiel_delen, " ").empty()) parts.push_back(join(profiel_delen, " "));
+        if (!eigen.empty()) parts.push_back(eigen);
+        const std::string param = join(parts, " ");
+        if (!param.empty()) out.push_back(param);
+        return out;
+    }
+    out = profiel_delen;
+    const auto w = win_split(eigen);
+    out.insert(out.end(), w.begin(), w.end());
+    return out;
+}
+
 // (_dropin_keten) wortel en de padonderdelen tot de map van dest; false + melding bij een fout.
 bool dropin_keten(const std::string& base_in, const std::string& dest_in, const std::string& wortel_in, std::string& wortel,
                   std::vector<std::string>& delen, std::string& err) {
@@ -875,6 +982,32 @@ std::string wine_path(const std::string& p) {
     return out;
 }
 
+std::vector<std::string> exe_comms(const std::vector<std::string>& names) {
+    std::vector<std::string> out;
+    for (const std::string& naam : names) {
+        size_t a = 0;
+        for (;;) {   // re.split(r"[;|]", naam)
+            const size_t b = naam.find_first_of(";|", a);
+            std::string part = naam.substr(a, b == std::string::npos ? std::string::npos : b - a);
+            std::replace(part.begin(), part.end(), '\\', '/');
+            std::string n = lower(trim(basename(part)));
+            if (n.size() > 15) n.resize(15);
+            if (!n.empty() && std::find(out.begin(), out.end(), n) == out.end()) out.push_back(n);
+            if (b == std::string::npos) break;
+            a = b + 1;
+        }
+    }
+    return out;
+}
+
+std::vector<std::string> plan_comms(const DirectPlan& pl) {
+    std::vector<std::string> out = pl.game_comms;
+    for (const DirectStart& s : pl.starts)
+        for (const std::string& c : s.comms)
+            if (std::find(out.begin(), out.end(), c) == out.end()) out.push_back(c);
+    return out;
+}
+
 std::string new_uuid4() {
     unsigned char b[16] = {0};
     std::ifstream f("/dev/urandom", std::ios::binary);
@@ -1039,7 +1172,16 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (unsupported_emu.count(emu)) return unsupported("EmulationProfile " + emu + " heeft eigen startargumenten in TeknoParrotUi (niet nagebouwd)");
     if (game.empty() || !isfile(game))
         return unsupported("game niet gevonden: '" + game + "' (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)");
-    if (ld_truthy(pr.get("HasTwoExecutables", "false"))) return engine("twee exe's (HasTwoExecutables)");
+    // Twee exe's (HasTwoExecutables): de tweede start, uit het profiel en game.ini (second_start).
+    SecondStart second;
+    {
+        std::string m;
+        const int r = second_start(pr, settings.settings, game, p, second, m);
+        if (r == -1) return unsupported(m);
+        if (r == -2) return setting_refused(m);
+        if (r == 0) second.path.clear();
+    }
+    const bool have_second = !second.path.empty();
     // resolve_loader()
     const std::string et = pr.get("EmulatorType");
     const bool is64 = ld_truthy(pr.get("Is64Bit", "false"));
@@ -1222,18 +1364,26 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (!ok) return engine(std::string(veld) + " is niet op te delen (geen sluitend aanhalingsteken)");
         profiel_delen.insert(profiel_delen.end(), delen.begin(), delen.end());
     }
-    const std::string eigen = trim(lini("Arguments"));
-    const std::string ll = lower(basename(loader));
-    if (ll == "openparrotloader.exe" || ll == "openparrotloader64.exe") {
-        std::vector<std::string> parts;
-        if (!join(profiel_delen, " ").empty()) parts.push_back(join(profiel_delen, " "));
-        if (!eigen.empty()) parts.push_back(eigen);
-        const std::string param = join(parts, " ");
-        if (!param.empty()) args.push_back(param);
-    } else {
-        args.insert(args.end(), profiel_delen.begin(), profiel_delen.end());
-        const auto w = win_split(eigen);
-        args.insert(args.end(), w.begin(), w.end());
+    const std::vector<std::string> basis(args.begin(), args.end() - 1);   // wine, lader, kern: de tweede exe krijgt dezelfde
+    {
+        const auto spel_args = spel_argumenten(loader, profiel_delen, lini("Arguments"));
+        args.insert(args.end(), spel_args.begin(), spel_args.end());
+    }
+    // De tweede exe krijgt dezelfde wine, dezelfde lader en dezelfde kern als de eerste: anders haakt de kern er niet aan.
+    std::vector<std::string> args2;
+    if (have_second) {
+        std::vector<std::string> delen2;
+        if (!trim(second.profile_args).empty()) {
+            std::string dbl;
+            for (char c : second.profile_args) { dbl += c; if (c == '\\') dbl += '\\'; }
+            bool ok = true;
+            delen2 = shlex_split(dbl, &ok);
+            if (!ok) return engine("SecondExecutableArguments is niet op te delen (geen sluitend aanhalingsteken)");
+        }
+        args2 = basis;
+        args2.push_back(wine_path(second.path));
+        const auto a2 = spel_argumenten(loader, delen2, second.own_args);
+        args2.insert(args2.end(), a2.begin(), a2.end());
     }
     std::vector<std::string> gamescope;
     if (getenv_or(env, "TP_GAMESCOPE") == "1" && getenv_or(env, "TP_NO_GAMESCOPE") != "1") {
@@ -1262,6 +1412,8 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         std::string tn, tt;
         if (taito_gun_ini(pr, tn, tt)) pl.files.emplace_back(pjoin(gamedir, tn), tt);
     }
+    // De kern leest teknoparrot.ini naast de exe waarin hij geladen is, dus ook naast de tweede (TeknoParrotUi schrijft daar hetzelfde).
+    if (have_second && dirname(second.path) != gamedir) pl.files.emplace_back(pjoin(dirname(second.path), "teknoparrot.ini"), ini);
 
     // 7. De JVS-brug en de procesnamen.
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
@@ -1280,6 +1432,32 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             if (!b.empty()) comms.insert(b);
         }
     pl.game_comms.assign(comms.begin(), comms.end());
+    // De starts in de orde waarin ze gebeuren. De tweede exe draait buiten gamescope (hij heeft geen venster), in dezelfde werkmap,
+    // prefix en omgeving als de eerste.
+    {
+        DirectStart hoofd;
+        hoofd.name = basename(game);
+        hoofd.role = "main";
+        hoofd.exe = game;
+        hoofd.argv = gamescope;
+        hoofd.argv.insert(hoofd.argv.end(), args.begin(), args.end());
+        hoofd.cwd = cwd;
+        hoofd.gamescope = !gamescope.empty();
+        hoofd.comms = exe_comms({pr.get("ExecutableName"), game});
+        if (!have_second) {
+            pl.starts = {hoofd};
+        } else {
+            DirectStart tweede;
+            tweede.name = basename(second.path);
+            tweede.role = "second";
+            tweede.exe = second.path;
+            tweede.argv = args2;
+            tweede.cwd = cwd;
+            tweede.comms = exe_comms({pr.get("ExecutableName2"), second.path});
+            pl.starts = second.first ? std::vector<DirectStart>{tweede, hoofd} : std::vector<DirectStart>{hoofd, tweede};
+            pl.starts[1].wait_before = second.wait;
+        }
+    }
 
     pl.emulator_type = et;
     pl.emulation_profile = emu;
@@ -1468,6 +1646,14 @@ std::string plan_to_json(const DirectPlan& pl) {
     strs("game_comms", pl.game_comms);
     strs("patch_lines", pl.patch_lines);
     strs("notes", pl.notes);
+    w.key("starts").begin_array();
+    for (const DirectStart& s : pl.starts) {
+        w.begin_object().key("name").value(s.name).key("role").value(s.role).key("exe").value(s.exe).key("cwd").value(s.cwd);
+        strs("argv", s.argv);
+        strs("comms", s.comms);
+        w.key("gamescope").value(s.gamescope).key("wait_before").value(s.wait_before).end_object();
+    }
+    w.end_array();
     w.end_object();
     return w.str();
 }
@@ -1505,6 +1691,22 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
             if (const auto* x = e.find("dest"); x && x->is_string()) d.dest = x->str;
             if (const auto* x = e.find("name"); x && x->is_string()) d.name = x->str;
             pl.dropin_files.push_back(d);
+        }
+    if (const auto* f = v.find("starts"); f && f->is_array())
+        for (const auto& e : f->arr) {
+            if (!e.is_object()) continue;
+            DirectStart d;
+            auto es = [&](const char* k, std::string& out) { const auto* x = e.find(k); if (x && x->is_string()) out = x->str; };
+            auto ev = [&](const char* k, std::vector<std::string>& out) {
+                const auto* x = e.find(k);
+                if (x && x->is_array()) for (const auto& y : x->arr) if (y.is_string()) out.push_back(y.str);
+            };
+            es("name", d.name); es("role", d.role); es("exe", d.exe); es("cwd", d.cwd);
+            ev("argv", d.argv); ev("comms", d.comms);
+            if (const auto* x = e.find("gamescope"); x && x->is_bool()) d.gamescope = x->b;
+            if (const auto* x = e.find("wait_before"); x && x->is_number()) d.wait_before = x->num;
+            if (d.argv.empty() || d.cwd.empty()) { err = "plan: een start zonder argv of cwd"; return false; }
+            pl.starts.push_back(std::move(d));
         }
     if (pl.argv.empty() || pl.cwd.empty() || pl.wine.empty() || pl.pipehelper.empty()) { err = "plan: argv, cwd, wine of pipehelper ontbreekt"; return false; }
     return true;

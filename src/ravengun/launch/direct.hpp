@@ -8,7 +8,7 @@
 //
 // Gelijk aan launch-direct.py: dezelfde argv, dezelfde omgeving, dezelfde geplaatste bestanden (tests/direct_golden.py vergelijkt het
 // plan per game uit patches/ met dat van het script). Wat de engine (nog) niet doet, laat hij aan het script over (Verdict::Fallback,
-// met de reden): een profiel zonder eigen profiel in game.ini (alleen een UserProfiles-XML), twee exe's (HasTwoExecutables), een
+// met de reden): een profiel zonder eigen profiel in game.ini (alleen een UserProfiles-XML), een
 // ingeschakelde patch (de patchmotor), ExeSha256, [Launch] Exe en Drives, ontbrekende GStreamer-plug-ins (fetch-gst-wmv.sh), en de
 // invoerroutes unity-tcp en jvs over een COM-poort. Wat het script zou weigeren (exit 5: instelling of patch geweigerd, drop-in niet te
 // plaatsen) weigert de engine ook (Verdict::Refused): dan start er niets, ook geen TeknoParrotUi.
@@ -48,6 +48,17 @@ const char* verdict_name(Verdict v);   // ok | fallback | refused
 
 struct DropinFile { std::string src, dest, name; };
 
+// Een start van het plan (launch-direct.py "starts"). Een gewone game heeft er een (role "main", argv gelijk aan DirectPlan::argv); een
+// profiel met HasTwoExecutables twee, in de orde waarin ze gebeuren (LaunchSecondExecutableFirst), met de wachttijd voor de tweede
+// ([Launch] SecondWait, standaard 5 s). Beide krijgen dezelfde wine, lader, kern, werkmap, prefix en omgeving.
+struct DirectStart {
+    std::string name, role, exe, cwd;                      // role: main | second
+    std::vector<std::string> argv;
+    std::vector<std::string> comms;                        // procesnamen van deze start (exe_comms)
+    bool gamescope = false;
+    double wait_before = 0.0;                              // seconden wachten voor deze start (de eerste: 0)
+};
+
 struct DirectPlan {
     std::string profile, tp, emulator_type, emulation_profile, game, game_source, cwd, wine, prefix, loader;
     bool is64 = false, gamescope = false, windowed_override = false, log_full = false, windows = false;
@@ -61,6 +72,7 @@ struct DirectPlan {
     std::vector<std::string> dropin_materialise, dropin_lines;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     std::vector<std::string> game_comms;                   // procesnamen (comm, kleine letters, 15 tekens) die "de game draait" zijn
+    std::vector<DirectStart> starts;                       // de starts in hun orde (een gewone game: een)
     std::string core_dll, core_source;                     // de kern (leeg = geen) en waar hij vandaan komt (runtime | ravengun)
     std::vector<std::string> patch_lines;                  // een regel per patch (ook uitgeschakelde), zoals launch-direct.py
     std::vector<std::string> notes;                        // extra regels voor het logboek (instellingen, legacy .env)
@@ -85,6 +97,9 @@ bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std:
 
 // Ontbreken de extra GStreamer-plug-ins (GST_PLUGIN_PATH zonder libgstasf.so)? Dan haalt het script ze eerst op (fetch-gst-wmv.sh).
 bool needs_gst_fetch(const DirectPlan& plan);
+
+// Alle procesnamen van het plan: game_comms plus die van elke start (bij twee exe's ook de tweede, bv. amdaemon.exe).
+std::vector<std::string> plan_comms(const DirectPlan& plan);
 
 // Het plan als JSON voor rg-direct --run, en terug.
 std::string plan_to_json(const DirectPlan& plan);
@@ -120,6 +135,7 @@ void wine_joystick_zero(const std::string& wine, const std::string& prefix, cons
 std::vector<std::string> shlex_split(const std::string& s, bool* ok = nullptr);   // shlex.split (POSIX)
 std::vector<std::string> win_split(const std::string& s);                          // de regels van de C-runtime van Windows
 std::string wine_path(const std::string& p);                                       // Z:\pad\naar
+std::vector<std::string> exe_comms(const std::vector<std::string>& names);         // procesnamen van exe-namen ('a.exe;b.exe' of een pad)
 std::string new_uuid4();
 EnvMap environ_map();                                                              // de omgeving van dit proces
 

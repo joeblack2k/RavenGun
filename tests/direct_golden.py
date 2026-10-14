@@ -30,6 +30,9 @@ SCRIPTS = os.path.join(ROOT, "scripts")
 sys.dont_write_bytecode = True
 REAL_HOME = os.environ.get("HOME", "/home/deck")
 REAL_TP = os.path.join(REAL_HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
+# Games die in de vergelijking meedoen alsof [Launch] Mode = direct (de meegeleverde game.ini zegt nog tpui). Hermetisch zet de
+# gebruikerslaag van de opstelling Mode = direct; met --real blijft de machine ongemoeid (het plan zelf leest Mode niet).
+FORCE_DIRECT = ("HOTDSD",)   # twee exe's: amdaemon.exe eerst, 5 s wachten, dan het spel
 
 
 def load(path, name):
@@ -85,9 +88,16 @@ def python_side(profiles, tp):
                     "pipe_mode": plan["pipe_mode"], "shm_source": plan["shm_source"], "pipehelper": plan["pipehelper"],
                     "game_comms": plan["game_comms"], "gamescope": plan["gamescope"], "windowed_override": plan["windowed_override"],
                     "core_dll": plan["core_dll"] or "", "patch_lines": ld.patch_log_lines(plan["patches"]), "cwd_is_tp": plan["cwd"] == tp,
+                    "starts": [starts_view(s) for s in plan["starts"]],
                 })
         out[name] = r
     print(json.dumps(out))
+
+
+def starts_view(s):
+    """Wat er van een start vergeleken wordt: orde (via de lijst), rol, exe, argv, werkmap, gamescope, wachttijd en procesnamen."""
+    return {"name": s["name"], "role": s["role"], "exe": s["exe"], "argv": s["argv"], "cwd": s["cwd"], "gamescope": s["gamescope"],
+            "wait_before": float(s["wait_before"]), "comms": s["comms"]}
 
 
 def norm(p):
@@ -110,6 +120,7 @@ def cpp_side(rg, name, tp, patches, user, env):
             "dropin_materialise": p["dropin_materialise"], "dropin_lines": p["dropin_lines"], "pipe_mode": p["pipe_mode"],
             "shm_source": p["shm_source"], "pipehelper": p["pipehelper"], "game_comms": p["game_comms"], "gamescope": p["gamescope"],
             "windowed_override": p["windowed_override"], "core_dll": p["core_dll"], "patch_lines": p["patch_lines"], "cwd_is_tp": p["cwd"] == tp,
+            "starts": [starts_view(s) for s in p["starts"]],
         })
     return out
 
@@ -184,6 +195,10 @@ def fixture(tmp, patches, profiles, gs):
             sparse(os.path.join(games, name, path), size, magic)
         else:
             sparse(os.path.join(views, name, path), size, magic)
+        # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
+        path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
+        if path2 and name not in ("TC5", "Rampage"):
+            sparse(os.path.join(games if n % 2 else views, name, path2), 64, magic)
         if g.get("Identify", "Sha256", ""):
             # De echte exe is er niet (sha256): het pad komt als override van de gebruiker ([Game] GamePath), zoals de app dat zet.
             extra.append((name, "\n[Game]\nGamePath = %s\n" % os.path.join(views if name == "Rampage" or not n % 2 else games, name, path)))
@@ -195,6 +210,9 @@ def fixture(tmp, patches, profiles, gs):
         src = os.path.join(REAL_HOME, ".local/share/ravengun/patches", name, "game.ini")
         if os.path.isfile(src):
             write(os.path.join(user, name, "game.ini"), open(src).read().replace(REAL_HOME, home))
+    for name in profiles:
+        if name in FORCE_DIRECT:
+            extra.append((name, "\n[Launch]\nMode = direct\n"))
     for name, text in extra:
         pth = os.path.join(user, name, "game.ini")
         write(pth, (open(pth).read() if os.path.isfile(pth) else "") + text)
@@ -275,7 +293,8 @@ def main(argv):
     os.environ.pop("RAVENGUN_PATCHES_DIR", None)
     sys.path.insert(0, SCRIPTS)
     import gamesettings as gs   # noqa: E402
-    profiles = [n for n in gs.list_games() if gs.load_game(n).launch_mode == "direct"]
+    alle = gs.list_games()
+    profiles = [n for n in alle if gs.load_game(n).launch_mode == "direct" or n in FORCE_DIRECT]
     tmp = tempfile.mkdtemp(prefix="rg-direct-golden-")
     try:
         if a.real:
@@ -313,15 +332,20 @@ def main(argv):
             croute = ci.get("route") if ci.get("verdict") == "ok" else "fallback"
             if croute != p.get("route"):
                 notes.append("invoerroute: script %r, engine %r" % (p.get("route"), croute))
-            if c.get("launch_mode") != "direct":
+            if c.get("launch_mode") != "direct" and not (a.real and name in FORCE_DIRECT):
                 notes.append("[Launch] Mode volgens de engine: %r" % c.get("launch_mode"))
+            if name in FORCE_DIRECT and not uitkomst.startswith("engine start") and not a.real:
+                notes.append("%s is geforceerd direct en hoort door de engine te gaan" % name)
             hard = [x for x in notes if not x.startswith("andere melding")]
             fails += bool(hard)
             rows.append((name, uitkomst + ("" if not hard else "  <-- FOUT"), notes, croute))
         n, bad = jvs_compare(a.rg_direct, load(os.path.join(SCRIPTS, "launch-direct.py"), "ld_jvs"))
-        print("directe route, %s: %d games met [Launch] Mode = direct" % ("deze machine" if a.real else "hermetisch", len(profiles)))
+        print("directe route, %s: %d games met [Launch] Mode = direct (geforceerd: %s)"
+              % ("deze machine" if a.real else "hermetisch", len(profiles), ", ".join(n for n in FORCE_DIRECT if n in profiles) or "geen"))
         for name, u, notes, route in rows:
-            print("  %-26s %-9s %s" % (name, route, u))
+            starts = (py[name].get("plan") or {}).get("starts") or []
+            print("  %-26s %-9s %s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
+                                         if len(starts) > 1 else ""))
             for x in notes if (a.verbose or "FOUT" in u) else []:
                 print("      " + x)
         print("JVS-pakketten: %d gevallen, %d verschillen" % (n, len(bad)))

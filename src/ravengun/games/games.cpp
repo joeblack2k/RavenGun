@@ -821,7 +821,9 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     if (c_.tpui_procs.empty()) return {};
     const int64_t until = now_ms() + c_.game_wait_ms;
     ::usleep(500000);
-    while (!unit_has_any_comm(c_.tpui_procs, c_.proc_root, pl.game_comms)) {
+    // Bij twee exe's telt ook de tweede (bv. amdaemon.exe, die eerst start) als "draait".
+    const std::vector<std::string> comms = L::plan_comms(pl);
+    while (!unit_has_any_comm(c_.tpui_procs, c_.proc_root, comms)) {
         if (cancel_.load()) return "de start is afgebroken";
         if (!unit_alive(c_.tpui_procs)) {
             const std::string last = last_line(log);

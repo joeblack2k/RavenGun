@@ -12,7 +12,9 @@
  *   2. de TCP-kant van \\.\pipe\TeknoParrot_JVS (verbind-vlag in byte 0 bij reset/adres, het standaardbord bij RG_JVS_BOARD=true,
  *      of alles naar de pty van de daemon bij RG_JVS_PTY);
  *   3. rg-jvsbridge.exe of pipehelper.exe in de prefix starten en wachten tot hij zich meldt;
- *   4. de lader starten (in gamescope als het plan dat zegt), zijn uitvoer in het logboek, en volgen tot de game weg is;
+ *   4. de lader starten (in gamescope als het plan dat zegt), zijn uitvoer in het logboek, en volgen tot de game weg is; bij twee exe's
+ *      (HasTwoExecutables) de starts in hun orde met de wachttijd ertussen, een halve opstelling afbreken (exitcode 7), het spel volgen
+ *      en daarna de andere start stoppen (launch-direct.py run_starts);
  *   5. de A11-samenvatting, de helper en de pipe dicht.
  * Geen shell en geen Python: elk proces wordt met posix_spawn gestart, met de omgeving uit het plan.
  */
@@ -32,6 +34,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -42,6 +45,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <regex>
 #include <set>
@@ -454,6 +458,225 @@ int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
+std::string stamp(const char* fmt) {
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+    localtime_r(&t, &tm);
+    char b[32];
+    std::strftime(b, sizeof b, fmt, &tm);
+    return b;
+}
+std::string fmt_g(double v) {   // Python "%g"
+    char b[32];
+    std::snprintf(b, sizeof b, "%g", v);
+    return b;
+}
+
+// --- meer dan een start (launch-direct.py run_starts, _start_weg, _stop_start) -----------------------------------------------------
+constexpr int kExitHalf = 7;            // EXIT_HALF: een start was al weg voordat de volgende begon (halve opstelling)
+constexpr useconds_t kStartStap = 250000;   // START_STAP: zo vaak wordt tijdens het wachten gekeken of wat al gestart is nog leeft
+
+struct StartRun {
+    int n = 0;
+    const L::DirectStart* s = nullptr;
+    std::string log, stopped_by, started;
+    bool meld = false, done = false;
+    pid_t pid = -1;
+    int rc = 0;
+    std::thread pump;
+    std::atomic<bool> pump_done{false};
+    // proc.poll(): true als het gestarte proces (wine met de lader) geeindigd is; de exitcode staat dan in rc.
+    bool poll() {
+        if (done) return true;
+        if (pid < 0) { done = true; rc = 1; return true; }
+        int st = 0;
+        if (::waitpid(pid, &st, WNOHANG) == pid) { done = true; rc = WIFEXITED(st) ? WEXITSTATUS(st) : -WTERMSIG(st); }
+        return done;
+    }
+};
+
+// True als deze start echt weg is: het gestarte proces is geeindigd EN er leeft geen proces meer met de naam van zijn exe. Twee keer
+// gemeten met een stap ertussen, zodat een programma dat net gestart is en zijn naam nog niet draagt niet voor dood wordt aangezien.
+bool start_weg(StartRun& r) {
+    const std::set<std::string> comms(r.s->comms.begin(), r.s->comms.end());
+    for (int poging = 0; poging < 2; ++poging) {
+        if (!r.poll() || game_alive(comms)) return false;
+        if (poging == 0) ::usleep(kStartStap);
+    }
+    return true;
+}
+
+// Stop een start: het gestarte proces en wat er nog onder de naam van zijn exe leeft (alleen in onze eigen cgroup).
+void stop_start(StartRun& r, const std::string& waarom) {
+    if (!r.poll() && r.pid > 0) ::kill(r.pid, SIGTERM);
+    const int me = ::getpid();
+    const std::set<std::string> comms(r.s->comms.begin(), r.s->comms.end());
+    for (const auto& [sig, wachten] : {std::pair<int, int>{SIGTERM, 20}, {SIGKILL, 4}}) {
+        std::vector<int> pids;
+        for (int pid : own_cgroup_pids())
+            if (pid != me && comms.count(comm_of(pid))) pids.push_back(pid);
+        if (pids.empty()) break;
+        for (int pid : pids) ::kill(pid, sig);
+        for (int i = 0; i < wachten; ++i) {
+            if (std::none_of(pids.begin(), pids.end(), [&](int pid) { return comms.count(comm_of(pid)) > 0; })) break;
+            ::usleep(kStartStap);
+        }
+    }
+    r.poll();
+    r.stopped_by = waarom;
+}
+
+// De starts van het plan in hun vaste orde, met de wachttijd ertussen, en het spel volgen tot het weg is. Elke start krijgt dezelfde
+// omgeving, werkmap, lader en kern; uitvoer en exitcode per start in <state>/starts/<Profiel>-<tijd>/. Is een start al weg voordat de
+// volgende begint, dan wordt alles wat al liep gestopt en is de uitkomst kExitHalf. have_rc = false: gestopt (geen exitcode).
+int run_starts(const L::DirectPlan& plan, const L::EnvMap& env, A11& a11, bool& have_rc) {
+    have_rc = false;
+    const auto& starts = plan.starts;
+    const size_t n = starts.size();
+    const std::string N = std::to_string(n);
+    const std::string logdir = plan.state + "/starts/" + plan.profile + "-" + stamp("%Y%m%d-%H%M%S");
+    std::error_code ec;
+    std::filesystem::create_directories(logdir, ec);
+    for (size_t i = 0; i < n; ++i) {   // start_log_lines()
+        const auto& s = starts[i];
+        if (i) log("wachten: " + fmt_g(s.wait_before) + " s; daarna alleen verder als elke eerdere start nog leeft");
+        log("start " + std::to_string(i + 1) + "/" + N + ": " + s.name + " (" + (s.role == "main" ? "het spel" : "tweede exe") +
+            (s.gamescope ? ", in gamescope" : "") + ") -- " + join_quoted(s.argv));
+    }
+    {
+        std::string e;
+        for (const auto& [k, v] : plan.launch_env) e += (e.empty() ? "" : " ") + k + "=" + v;
+        log("omgeving (voor elke start dezelfde): " + e);
+    }
+    log("uitvoer en exitcode per start: " + logdir);
+
+    std::vector<std::unique_ptr<StartRun>> lopend;
+    std::vector<StartRun*> blijft;
+    auto begin = [&](size_t i, const L::DirectStart& s) {
+        auto r = std::make_unique<StartRun>();
+        r->n = static_cast<int>(i + 1);
+        r->s = &s;
+        r->log = logdir + "/" + std::to_string(i + 1) + "-" + s.name + ".log";
+        log("start " + std::to_string(i + 1) + "/" + N + " (" + s.name + "): cwd=" + s.cwd);
+        Child c = spawn(s.argv, s.cwd, env, true, false);
+        r->pid = c.pid;
+        r->started = stamp("%H:%M:%S");
+        StartRun* rp = r.get();
+        const bool main = s.role == "main";
+        if (c.out >= 0)
+            r->pump = std::thread([rp, main, &a11, fd = c.out] {
+                std::ofstream f(rp->log, std::ios::trunc);
+                read_lines(fd, [&](const std::string& raw) {
+                    const std::string line = decode_console(raw);
+                    f << line << "\n";
+                    f.flush();
+                    out_line("[" + rp->s->name + "] " + line);
+                    if (main) a11.feed(line);
+                });
+                rp->pump_done.store(true);
+            });
+        else
+            r->pump_done.store(true);
+        lopend.push_back(std::move(r));
+    };
+    auto verslag = [&](bool have, int rc_run) {
+        ravengun::json::Writer w;
+        w.begin_object().key("profile").value(plan.profile).key("exitcode_run");
+        if (have) w.value(rc_run); else w.null();
+        w.key("starts").begin_array();
+        for (auto& r : lopend) {
+            if (r->pump.joinable()) {   // net als thread.join(2)
+                const int64_t until = now_ms() + 2000;
+                while (now_ms() < until && !r->pump_done.load()) ::usleep(50000);
+                if (r->pump_done.load()) r->pump.join(); else r->pump.detach();
+            }
+            if (!r->pump_done.load()) blijft.push_back(r.get());   // de losgelaten pomp leest nog: deze start blijft bestaan tot het einde
+            const bool klaar = r->poll();
+            log("start " + std::to_string(r->n) + "/" + N + " (" + r->s->name + "): exitcode " + (klaar ? std::to_string(r->rc) : std::string("nog lopend")) +
+                (r->stopped_by.empty() ? std::string() : " (gestopt door de launcher: " + r->stopped_by + ")") + "; uitvoer in " + r->log);
+            w.begin_object().key("n").value(r->n).key("name").value(r->s->name).key("role").value(r->s->role).key("argv").begin_array();
+            for (const auto& a : r->s->argv) w.value(a);
+            w.end_array().key("pid").value(static_cast<long long>(r->pid)).key("started").value(r->started).key("exitcode");
+            if (klaar) w.value(r->rc); else w.null();
+            w.key("exitcode_of").value("het gestarte proces (wine met de lader); de lader kan eerder stoppen dan de exe");
+            w.key("stopped_by_launcher").value(r->stopped_by).key("output").value(r->log).end_object();
+        }
+        for (size_t i = lopend.size(); i < n; ++i) {
+            w.begin_object().key("n").value(static_cast<long long>(i + 1)).key("name").value(starts[i].name).key("role").value(starts[i].role).key("argv").begin_array();
+            for (const auto& a : starts[i].argv) w.value(a);
+            w.end_array().key("pid").null().key("started").null().key("exitcode").null().key("not_started").value(true).end_object();
+        }
+        w.end_array().end_object();
+        std::ofstream(logdir + "/starts.json", std::ios::trunc) << w.str() << "\n";
+        for (auto& r : lopend)   // een start met een losgelaten pomp niet opruimen (de pomp schrijft er nog in)
+            if (std::find(blijft.begin(), blijft.end(), r.get()) != blijft.end()) (void)r.release();
+    };
+
+    // De orde: start, wachten, controleren dat alles wat al liep nog leeft, volgende start.
+    for (size_t i = 0; i < n; ++i) {
+        const auto& s = starts[i];
+        if (i) {
+            log("wachten: " + fmt_g(s.wait_before) + " s voor start " + std::to_string(i + 1) + "/" + N + " (" + s.name + ")");
+            StartRun* dood = nullptr;
+            auto zoek = [&]() -> StartRun* { for (auto& r : lopend) if (start_weg(*r)) return r.get(); return nullptr; };
+            const long stappen = static_cast<long>(std::ceil(s.wait_before / 0.25));
+            for (long k = 0; k < stappen; ++k) {
+                dood = zoek();
+                if (dood || g_stop.load()) break;
+                ::usleep(kStartStap);
+            }
+            if (!dood) dood = zoek();
+            if (g_stop.load() && !dood) break;
+            if (dood) {
+                const std::string code = dood->poll() ? std::to_string(dood->rc) : std::string("None");
+                log("FOUT: start " + std::to_string(dood->n) + "/" + N + " (" + dood->s->name + ") is GESTOPT (exitcode " + code + ") voordat start " +
+                    std::to_string(i + 1) + "/" + N + " (" + s.name + ") begon. De run wordt afgebroken: een halve opstelling is geen geldige run. "
+                    "De uitvoer van de gestopte start staat in " + dood->log);
+                std::fprintf(stderr, "Halve opstelling: start %d/%zu (%s) stopte voordat start %zu/%zu (%s) begon\n", dood->n, n, dood->s->name.c_str(),
+                             i + 1, n, s.name.c_str());
+                for (auto& r : lopend)
+                    if (r.get() != dood) stop_start(*r, "een eerdere start was weg voordat de volgende begon");
+                verslag(true, kExitHalf);
+                have_rc = true;
+                return kExitHalf;
+            }
+        }
+        begin(i, s);
+    }
+
+    // Volgen: de run duurt zolang het spel leeft. Stopt een andere start onderweg, dan staat dat een keer in het logboek.
+    StartRun* hoofd = nullptr;
+    for (auto& r : lopend) if (r->s->role == "main") { hoofd = r.get(); break; }
+    int rc = 0;
+    while (hoofd && !g_stop.load()) {
+        if (hoofd->poll()) { have_rc = true; rc = hoofd->rc; break; }
+        for (auto& r : lopend)
+            if (r.get() != hoofd && !r->meld && start_weg(*r)) {
+                r->meld = true;
+                log("LET OP: start " + std::to_string(r->n) + "/" + N + " (" + r->s->name + ") is gestopt (exitcode " + std::to_string(r->rc) +
+                    ") terwijl het spel nog draait; uitvoer in " + r->log);
+            }
+        ::usleep(500000);
+    }
+    if (hoofd && have_rc && !g_stop.load()) {
+        log("lader van " + hoofd->s->name + " gestopt (exitcode " + std::to_string(rc) + "); het spel volgen");
+        const std::set<std::string> comms(hoofd->s->comms.begin(), hoofd->s->comms.end());
+        int quiet = 0;
+        while (!g_stop.load() && quiet < 3) {
+            quiet = game_alive(comms) ? 0 : quiet + 1;
+            ::sleep(1);
+        }
+    }
+    // Het spel is weg (of de run is gestopt): wat er nog naast liep hoort er niet te blijven staan.
+    for (auto& r : lopend)
+        if (r.get() != hoofd || g_stop.load())
+            if (!start_weg(*r)) stop_start(*r, g_stop.load() ? "de run is gestopt" : "het spel is gestopt");
+    verslag(have_rc, rc & 0xFF);
+    return rc;
+}
+
+int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, const Child& helper, std::thread& helper_log, JvsPipeServer& server, A11& a11);
+
 int run_plan(const std::string& plan_file) {
     std::string text;
     {
@@ -534,7 +757,15 @@ int run_plan(const std::string& plan_file) {
         if (!rcv.wait_for(lk, std::chrono::seconds(20), [&] { return ready; })) log("pipehelper meldde zich niet binnen 20 s; toch verder");
     }
 
-    // 4. De lader (eventueel in gamescope).
+    // 4. De lader (eventueel in gamescope). Een profiel met meer dan een start (twee exe's) gaat via run_starts(); een gewone game
+    // (een exe) neemt het pad hieronder.
+    A11 a11(plan.profile, plan.state);
+    bool have_rc = false;
+    int rc = 0;
+    if (plan.starts.size() > 1) {
+        rc = run_starts(plan, env, a11, have_rc);
+        return run_einde(plan, have_rc, rc, helper, helper_log, server, a11);
+    }
     log("start: cwd=" + plan.cwd);
     log("start: " + join_quoted(plan.argv));
     {
@@ -542,7 +773,6 @@ int run_plan(const std::string& plan_file) {
         for (const auto& [k, v] : plan.launch_env) e += (e.empty() ? "" : " ") + k + "=" + v;
         log("omgeving: " + e);
     }
-    A11 a11(plan.profile, plan.state);
     Child game = spawn(plan.argv, plan.cwd, env, true, false);
     std::thread pump;
     std::atomic<bool> pump_done{false};
@@ -555,8 +785,6 @@ int run_plan(const std::string& plan_file) {
             });
             pump_done.store(true);
         });
-    bool have_rc = false;
-    int rc = 0;
     while (game.pid > 0 && !g_stop.load()) {
         int st = 0;
         const pid_t w = ::waitpid(game.pid, &st, WNOHANG);
@@ -580,8 +808,11 @@ int run_plan(const std::string& plan_file) {
         while (now_ms() < until && !pump_done.load()) ::usleep(50000);
         if (pump_done.load()) pump.join(); else pump.detach();
     }
+    return run_einde(plan, have_rc, rc, helper, helper_log, server, a11);
+}
 
-    // 5. run_einde()
+// 5. run_einde(): de logbestanden van de kern in het logboek, de A11-oogst, de helper en de pipe dicht.
+int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, const Child& helper, std::thread& helper_log, JvsPipeServer& server, A11& a11) {
     std::vector<std::string> files;
     if (plan.log_full) {
         const std::time_t now = std::time(nullptr);

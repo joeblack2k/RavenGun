@@ -273,7 +273,8 @@ int main() {
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "eigen OpenParrot-build ontbreekt"));
     fs::rename(own.string() + ".weg", own);
     write(user, "[Game]\nHasTwoExecutables = true\n");
-    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "nog niet in de engine") && contains(why, "twee exe"));
+    // Twee exe's zonder tweede pad: launch-direct.py zegt "niet direct te starten" (de engine plant twee exe's zelf, zie hieronder).
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Niet direct te starten") && contains(why, "de tweede is niet gevonden: ''"));
     write(user, "[Launch]\nDrives = X=.\n");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Drives"));
     write(user, "[Game]\nProfileRevision = 2\n");
@@ -293,6 +294,57 @@ int main() {
     write(fs::path(p.dirs.user) / "Spel/dropin/weg.dll", "x");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Drop-in geweigerd") && contains(why, "buiten de view"));
     fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+
+    // --- twee exe's (HasTwoExecutables, zoals HOTDSD): amdaemon.exe eerst, wachten, dan het spel ------------------------------------
+    write(fs::path(p.dirs.shipped) / "Twee/game.ini",
+          "[Game]\nProfile = Twee\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = Spel-Win64-Shipping-lang.exe\n"
+          "Executable2 = amdaemon.exe\nIs64Bit = true\nHasTwoExecutables = true\nLaunchSecondExecutableFirst = true\n\n"
+          "[Launch]\nArguments = -UNATTENDED\nMode = direct\n\n[Input]\nRoute = evdev\nLayout = HOTDSDPipe\n\n"
+          "[Identify]\nPath = App/bin/Spel-Win64-Shipping-lang.exe\nPath2 = App/daemon/amdaemon.exe\n");
+    const fs::path tview = fs::path(p.views()) / "Twee";
+    const std::string tgame = (tview / "App/bin/Spel-Win64-Shipping-lang.exe").string(), tdaemon = (tview / "App/daemon/amdaemon.exe").string();
+    write(tgame, "MZ");
+    write(tdaemon, "MZ");
+    {
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Ok);
+        if (!pl.starts.empty() && pl.starts.size() != 2) std::fprintf(stderr, "twee: %s\n", why.c_str());
+        CHECK(pl.starts.size() == 2);
+        if (pl.starts.size() == 2) {
+            const DirectStart &a = pl.starts[0], &b = pl.starts[1];
+            const std::string ldr = p.tp + "/OpenParrotx64/OpenParrotLoader64.exe", kern = wine_path(p.tp + "/TeknoParrot/TeknoParrot64");
+            CHECK(a.role == "second" && a.name == "amdaemon.exe" && a.exe == tdaemon && a.wait_before == 0.0 && !a.gamescope);
+            CHECK((a.argv == std::vector<std::string>{wine.string(), ldr, kern, wine_path(tdaemon)}));   // geen argumenten van het spel
+            CHECK((a.comms == std::vector<std::string>{"amdaemon.exe"}));
+            CHECK(b.role == "main" && b.name == "Spel-Win64-Shipping-lang.exe" && b.wait_before == 5.0 && b.argv == pl.argv);
+            CHECK((b.argv == std::vector<std::string>{wine.string(), ldr, kern, wine_path(tgame), "-UNATTENDED"}));
+            CHECK((b.comms == std::vector<std::string>{"spel-win64-ship"}));
+            CHECK(a.cwd == p.tp && b.cwd == p.tp);
+        }
+        // teknoparrot.ini ook naast de tweede exe (dezelfde inhoud); de procesnamen van het plan dekken beide.
+        CHECK(pl.files.size() == 2 && pl.files[1].first == (tview / "App/daemon/teknoparrot.ini").string() && pl.files[1].second == pl.files[0].second);
+        CHECK(std::find(pl.game_comms.begin(), pl.game_comms.end(), "amdaemon.exe") == pl.game_comms.end());   // zoals launch-direct.py
+        const auto all = plan_comms(pl);
+        CHECK(std::find(all.begin(), all.end(), "amdaemon.exe") != all.end() && std::find(all.begin(), all.end(), "spel-win64-ship") != all.end());
+        DirectPlan back;
+        std::string err;
+        CHECK(plan_from_json(plan_to_json(pl), back, err) && back.starts.size() == 2 && back.starts[0].argv == pl.starts[0].argv &&
+              back.starts[1].wait_before == 5.0 && back.starts[0].comms == pl.starts[0].comms && back.starts[1].role == "main");
+        const fs::path tuser = fs::path(p.dirs.user) / "Twee/game.ini";
+        write(tuser, "[Game]\nLaunchSecondExecutableFirst = false\n\n[Launch]\nSecondWait = 0,5\nSecondArguments = -x \"a b\"\n");
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Ok && pl.starts.size() == 2 && pl.starts[0].role == "main" &&
+              pl.starts[1].role == "second" && pl.starts[1].wait_before == 0.5 && pl.starts[1].argv.back() == "-x \"a b\"");
+        write(tuser, "[Launch]\nSecondWait = 700\n");
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Refused && contains(why, "SecondWait = 700"));
+        write(tuser, "[Launch]\nSecondWait = vijf\n");
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Refused && contains(why, "SecondWait = vijf"));
+        write(tuser, "[Identify]\nPath2 = App/weg/amdaemon.exe\n");
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Fallback && contains(why, "de tweede is niet gevonden") && contains(why, "App/weg/amdaemon.exe"));
+        // Een tweede exe buiten de view van de eerste (rechtstreeks een ander pad): niet stil buiten de view draaien.
+        write(root / "elders/amdaemon.exe", "MZ");
+        write(tuser, "[Game]\nGamePath2 = " + (root / "elders/amdaemon.exe").string() + "\n");
+        CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Fallback && contains(why, "ligt buiten de view"));
+        fs::remove(tuser);
+    }
 
     // --- rg-direct --run met een nep-wine -----------------------------------------------------------------------------------------
 #ifdef RG_DIRECT_BIN
@@ -353,6 +405,94 @@ int main() {
         CHECK(!contains(genv, "RG_ALLEEN_IN_DE_TEST") && !contains(genv, "TP_PIPEHELPER_OWNER_PID"));
         CHECK(fs::exists(root / "state/a11"));
         if (g_failures) std::fprintf(stderr, "--- rg-direct log ---\n%s\n", log.c_str());
+    }
+    // Twee exe's: amdaemon.exe eerst (blijft lopen), wachten, dan het spel; na het spel wordt de daemon gestopt. En de halve opstelling:
+    // stopt de daemon voordat het spel begint, dan start het spel niet en is de exitcode 7.
+    {
+        const fs::path out = root / "out2";
+        fs::create_directories(out);
+        write(wine,
+              "#!/usr/bin/env bash\n"
+              "case \"$1\" in\n"
+              "  */pipehelper.exe|*/rg-jvsbridge.exe)\n"
+              "    echo \"pipehelper: pipe created\" >&2\n"
+              "    exec sleep 30 ;;\n"
+              "esac\n"
+              "case \"$*\" in\n"
+              "  *amdaemon.exe*)\n"
+              "    echo \"daemon $(date +%s%N) $*\" >> \"$OUT/order\"; pwd > \"$OUT/daemon-cwd\"; env | sort > \"$OUT/daemon-env\"\n"
+              "    echo \"AM Daemon klaar\"\n"
+              "    [ -n \"$DAEMON_STOPT\" ] && exit 9\n"
+              "    trap 'kill $k; echo daemon-term >> \"$OUT/order\"; exit 143' TERM\n"
+              "    sleep 30 >/dev/null 2>&1 & k=$!; wait ;;\n"
+              "  *)\n"
+              "    echo \"spel $(date +%s%N) $*\" >> \"$OUT/order\"; env | sort > \"$OUT/game-env\"\n"
+              "    echo \"BudgieLoader 1.0 start\"\n"
+              "    exit 3 ;;\n"
+              "esac\n",
+              true);
+        auto run = [&](const std::string& extra_ini, std::string& log) {
+            write(fs::path(p.dirs.user) / "Twee/game.ini", "[Launch]\nSecondWait = 0.5\n" + extra_ini);
+            o.base_env["OUT"] = out.string();
+            DirectPlan tp;
+            std::string w;
+            if (plan_direct("Twee", p, o, tp, w) != Verdict::Ok) { std::fprintf(stderr, "plan Twee: %s\n", w.c_str()); return -1; }
+            tp.state = (root / "state2").string();
+            const fs::path planf = root / "plan2.json", logf = root / "run2.log";
+            write(planf, plan_to_json(tp));
+            posix_spawn_file_actions_t fa;
+            posix_spawn_file_actions_init(&fa);
+            posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            posix_spawn_file_actions_adddup2(&fa, 1, 2);
+            std::string bin = RG_DIRECT_BIN;
+            std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+            extern char** environ;
+            pid_t pid = 0;
+            if (posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) != 0) return -1;
+            posix_spawn_file_actions_destroy(&fa);
+            int st = 0;
+            waitpid(pid, &st, 0);
+            log = slurp(logf);
+            return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+        };
+        std::string log;
+        CHECK(run("", log) == 3);
+        const std::string order = slurp(out / "order");
+        const size_t d = order.find("daemon "), s = order.find("spel "), term = order.find("daemon-term");
+        CHECK(d != std::string::npos && s != std::string::npos && d < s && term != std::string::npos && s < term);   // daemon, spel, daemon gestopt
+        if (d != std::string::npos && s != std::string::npos) {
+            const long long td = std::atoll(order.c_str() + d + 7), ts = std::atoll(order.c_str() + s + 5);
+            CHECK(ts - td >= 400000000LL);   // minstens de wachttijd (0,5 s) tussen de twee starts
+        }
+        CHECK(contains(order, "amdaemon.exe") && contains(order, "-UNATTENDED") && !contains(order.substr(0, s), "-UNATTENDED"));
+        CHECK(slurp(out / "daemon-cwd") == p.tp + "\n");
+        CHECK(slurp(out / "daemon-env") == slurp(out / "game-env"));   // dezelfde omgeving voor elke start
+        CHECK(contains(log, "start 1/2: amdaemon.exe (tweede exe) -- ") && contains(log, "wachten: 0.5 s; daarna alleen verder"));
+        CHECK(contains(log, "start 2/2: Spel-Win64-Shipping-lang.exe (het spel) -- "));
+        CHECK(contains(log, "[amdaemon.exe] AM Daemon klaar") && contains(log, "[Spel-Win64-Shipping-lang.exe] BudgieLoader 1.0 start"));
+        CHECK(contains(log, "lader van Spel-Win64-Shipping-lang.exe gestopt (exitcode 3); het spel volgen"));
+        CHECK(contains(log, "(gestopt door de launcher: het spel is gestopt)") && contains(log, "klaar (exitcode 3)"));
+        CHECK(contains(log, "A11: overgeslagen 0, toegepast 0, koppeling 0, versie 1, fout 0"));   // alleen de uitvoer van het spel telt
+        {
+            std::vector<fs::path> dirs;
+            for (const auto& e : fs::directory_iterator(root / "state2/starts")) dirs.push_back(e.path());
+            CHECK(dirs.size() == 1);
+            if (dirs.size() == 1) {
+                const std::string sj = slurp(dirs[0] / "starts.json");
+                CHECK(contains(sj, "\"exitcode_run\":3") && contains(sj, "\"stopped_by_launcher\":\"het spel is gestopt\""));
+                CHECK(contains(slurp(dirs[0] / "1-amdaemon.exe.log"), "AM Daemon klaar") && contains(slurp(dirs[0] / "2-Spel-Win64-Shipping-lang.exe.log"), "BudgieLoader"));
+            }
+        }
+        if (g_failures) std::fprintf(stderr, "--- rg-direct log (twee exe's) ---\n%s\n", log.c_str());
+        // De halve opstelling.
+        fs::remove(out / "order");
+        const int f0 = g_failures;
+        CHECK(run("\n[Env]\nDAEMON_STOPT = 1\n", log) == 7);
+        CHECK(contains(log, "FOUT: start 1/2 (amdaemon.exe) is GESTOPT (exitcode 9) voordat start 2/2 (Spel-Win64-Shipping-lang.exe) begon"));
+        CHECK(contains(log, "Halve opstelling: start 1/2 (amdaemon.exe)") && contains(log, "klaar (exitcode 7)"));
+        CHECK(!contains(slurp(out / "order"), "spel "));
+        if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (halve opstelling) ---\n%s\n", log.c_str());
+        fs::remove(fs::path(p.dirs.user) / "Twee/game.ini");
     }
 #endif
 
