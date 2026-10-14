@@ -167,3 +167,9 @@ The game's folder on the share was mounted read-only for every run (`harness/sh-
 attempt inside the wrapper fails with "Read-only file system"). What the game writes went to the local
 folders of its view: `rg-shaiolib.log`, six Konami `*.log` files, `teknoparrot.ini`, and the
 bookkeeping under `Data/eng/TeknoParrot/`. `setting.1` and `gun.1` were not rewritten.
+
+## Full-resolution captures
+
+`bewijs-attract-20261013/opnames-run7/` holds the 75 captures of run 7 as they were taken (70 MB).
+They were moved here from the session's scratch folder in /tmp on 2026-10-14; each copy was compared
+byte for byte with its original.
