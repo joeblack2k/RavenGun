@@ -76,3 +76,21 @@ shows. All runs: `librio.so` mapped, 70 s, captures every 6 s.
 * **No single held id starts a round.** Start is not a held level on any one of these ids.
 * ids 7 and 8 give the **same** reaction (Credits). That breaks the "neighbouring ids do something
   different" expectation, so they are not yet a map entry: not shown to be two different buttons.
+
+## Third series — a DISCRETE TAP (one press ~every 1 s), and the gun channels
+
+`RIO_SW_Count(id)` returns the high 32 bits of the TSC: a count that ticks up ~once a second = discrete
+presses (not the per-frame mash, not a steady hold). One id at a time; all-mash control in the same batch.
+
+| run | tapped | what the screen did | sheet |
+|---|---|---|---|
+| tap7 | id 7 | **Player-1 round starts** (TIME 178→139) | `tap7-id7-starts-round.jpg` |
+| tap8 | id 8 | **Player-2 round starts** (TIME ~140) | `tap-sweep-overview.jpg` |
+| tap3 | id 3 | "Hold test button…" prompt | `tap-sweep-overview.jpg` |
+| tap5, tap6 | id 5 / id 6 | "Attract Volume" overlay | `tap-sweep-overview.jpg` |
+| tap0,1,2,4,13,15,16,17 | one id each | nothing (normal attract) | `tap-sweep-overview.jpg` |
+| tapCTL | all (mash) | round starts — instrument-live control | `tap-sweep-overview.jpg` |
+| aADC | all (mash) + ADC logger | round runs; game reads `RIO_ADC_Val` **channels 19,20,21,22** only (39 each) | `adc-channel-log.txt` |
+
+So under a real press the board **is** per-button: id 7/8 = per-player start, id 5/6 = volume, id 3 =
+Test, gun aim = ADC 19–22. The ">=8 switches, non-monotone" result above is the mash stimulus only.

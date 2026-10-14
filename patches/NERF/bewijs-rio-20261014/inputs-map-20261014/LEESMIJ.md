@@ -5,6 +5,13 @@ Question: feed the board's switch reports and find which switch does what. Run-b
 `RESULTS-TABLE.md`. This file is what it means, in the order it matters.
 **Labels:** MEASURED = seen on screen or in a log; INTERPRETATION = mine, not measured; NOT MEASURED.
 
+> **The per-button map is in `MAP.md`** (written after this note, with the discrete-tap series). Short
+> version, all MEASURED: a single discrete press (tap) on **id 7 starts a Player-1 round**, **id 8 a
+> Player-2 round** — the clean single-button Start neither mash nor hold could show; **id 3** held = the
+> operator menu (TEST); **id 5/6** tapped = Attract Volume. Gun aim = **`RIO_ADC_Val` channels 19,20,21,22**
+> (logged during a round). The "no small set starts a round" result below is true only of the **mash**
+> stimulus, which the tap series showed is the wrong model of a button.
+
 ## The findings, top first
 
 1. **MEASURED — the game acts on injected switch reports.** Feeding `RIO_SW_Count` makes NERF leave
@@ -35,13 +42,19 @@ Question: feed the board's switch reports and find which switch does what. Run-b
    not show that the board has no per-button structure — finding (2) is a clean per-button entry at this
    same layer.
 
-6. **MEASURED — the toggle was the wrong input model; a held level is right.** A steady constant on
-   every id (no toggling) opens the operator menu and holds it (`steady-operator-menu.jpg`,
-   `sheet-wSTEADY-steady-opens-menu.jpg`), which the toggle never did in 35 runs: it cannot hold a switch
-   for the menu's two seconds. **No single held id starts a round** either. INTERPRETATION: Start is
-   probably a *transition* (the function is a transition counter) — one press and release — which
-   neither a toggle nor a steady level is. NOT MEASURED; that is the next test (one id at a time, one
-   discrete press every few seconds).
+6. **MEASURED — a single discrete press is the right model, and it gives the per-button map.** Mash is a
+   toggle; hold is pressed-and-never-released; neither is a press. A **discrete tap** (the switch's count
+   ticking up ≈ once a second) is. Tapping **id 7 starts a Player-1 round**, tapping **id 8 a Player-2
+   round** (TIME counting down — `tap7-id7-starts-round.jpg`, `tap-sweep-overview.jpg`); the all-mash
+   control in the same batch started a round, so the silent taps are real negatives. This is the clean
+   single-button Start the mash hid. It also confirms (5) is a property of the mash stimulus, not of the
+   board: the board **does** have per-button structure. Earlier I guessed Start might be unreachable as a
+   single id — withdrawn; it is id 7 / id 8. Full map and the other buttons: `MAP.md`.
+
+7. **MEASURED — the gun channels.** During a round the game reads `RIO_ADC_Val` channels **19, 20, 21, 22**
+   every frame (`adc-channel-log.txt`, 39 reads each) — four channels, two players × two aim axes. Which
+   is X vs Y per player is NOT measured. This is the piece that decides aiming can work at all: the aim
+   values have a home, and we know exactly which four to fill.
 
 ## What it means for the bridge
 
