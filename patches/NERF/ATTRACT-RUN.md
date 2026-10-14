@@ -195,5 +195,54 @@ what the Windows launcher places into a game's view, and this file has no busine
 * Nothing was written to the share: the launcher shows it read-only under a local write layer, and each
   run's record counts 0 files newer than its start.
 * `game.ini` is unchanged in what it selects: the Windows route on TeknoParrot's closed core with its
-  plug-in, on which this title is playable (**DATED**, 2026-10-11; not started tonight). The native route
+  plug-in, on which this title is playable — measured the same night in run on1 (§7). The native route
   is a second route next to it, reached only through `play-native.sh`.
+
+---
+
+## 7. The two routes — which one the owner is handed, and what it would take to switch
+
+`game.ini` selects the Windows route, and that is the route the app starts. It is **not ours**: our
+launcher and our loader executable start it, but the core is TeknoParrot's closed `TeknoParrot64.dll`
+and the game's cabinet side is answered by TeknoParrot's BepInEx plug-in (the profile is marked
+subscriber-only). It therefore cannot count for the bar. What it can do is be the game the owner
+actually plays, so it was run tonight to prove that it still works.
+
+| | the route in `game.ini` (what the app starts) | the native route |
+|---|---|---|
+| what runs | `Nerf.exe` + `UnityPlayer.dll` under Wine/DXVK; TeknoParrot's closed core; BepInEx + `NERFTPPlugin.dll` | `Nerf.x86_64` and its own libraries; nothing of TeknoParrot, no Wine |
+| run | **on1**, 02:10:12 – 02:18:14 (own limit, 480 s) | **n5**, 01:44:23 – 01:57:25 |
+| attract, untouched | 02:10:43 (Raw Thrills logo) – 02:16:04: **5 min 21 s** | 12 min 46 s |
+| "RIO DISCONNECTED" | **not shown** | on every frame |
+| START (key 1, through the daemon's bridge) | 02:16:04 → the game's own log, same second: "Player 1 joined game (level = Hangar)" | not tried; no board |
+| aiming and trigger | five aimed shots 02:16:17 – 02:16:36; the crosshair is at the aimed points; score 0 → 2,100 → 3,350; levels Lagoon, Base, Graveyard | not tried |
+| counts for the bar | **no** | **yes** (attract only) |
+
+Evidence for on1: `runs/on1.run` (16 samples, each naming `TeknoParrot/TeknoParrot64.dll`),
+`runs/on1-play.txt` (every press with its time and the bridge's state), `runs/on1-gamelog-vannacht.txt`
+(the game's own log), `runs/on1-BepInEx-LogOutput.log` ("Loading [NERF 1.0]"), `shots/on1-sheet-attract.jpg`,
+`on1-sheet-play.jpg`, `on1-sheet-edges.jpg`, and the 46 captures in `opnames-on1/` (the three identical
+ones are the desktop before the window opened). Harness: `harness-windows-route/`.
+
+**How on1 differs from the owner's own start.** Same launcher command
+(`scripts/launch-direct.py NERF --run --shm-source /dev/shm/ravengun_JvsState`, bridge started first), but
+inside the bench wrapper with a kept write layer over the share, where his start
+(`scripts/play-halo.sh --profile NERF`) lets the game write BepInEx's log and cache, `LocalData/` and
+`teknoparrot.ini` to the share itself. Nothing was written to the share in on1.
+
+**Which is the better answer.** The native route: it is the original program, it needs no Wine, no
+closed core, no third-party plug-in and no subscription, and it already runs. **But it should not
+replace the Windows route yet**, because today it has no inputs and switching would take a playable game
+away. What it takes to switch the owner over, in order:
+
+1. **The RIO board** — the shared open item (`patches/RIO-BORD.md`): START, coin, TEST.
+2. **The guns**: where this cabinet's guns come in (through the RIO or a separate device) is not
+   determined; then a bridge from the daemon's gun state.
+3. **The launcher**: `--gamescope` and the rules file belong in the profile, the profile has to be
+   enabled, and the app's game list has to start the native route for this title.
+4. **The particle plug-in** (a stub for `libbfd-2.28-system.so`), and a look at what is drawn with it.
+5. **The dongle question**: with the settings saved in the dump the game asks nothing; whether coin
+   audits or a fresh cabinet need the dongle is not determined.
+6. **Then the proof**: five minutes of play, natively, on the TV — the same test on1 passed.
+
+Until 1 and 2 are done the native route demos and the Windows route plays.
