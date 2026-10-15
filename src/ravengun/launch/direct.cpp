@@ -1640,6 +1640,23 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         const std::string oud = getenv_or(env, "WINEDLLOVERRIDES");
         launch["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"] = oud.empty() ? join(ov, ";") : oud + ";" + join(ov, ";");
     }
+    // 6g. [Launch] Registry: .reg-bestanden uit patches/<Game>/ (meestal data/; gebruikerslaag eerst) die rg-direct één keer per prefix inleest met
+    // "wine reg import" in de registerweergave van de game (32 of 64 bits; docs/registry.md). Operation G.H.O.S.T.: .wmv via de
+    // GStreamer-splitter in plaats van de ASF-lezer van Proton, die bij Stop vastliep (2026-10-15).
+    if (const std::string rg = trim(lini("Registry")); !rg.empty()) {
+        for (std::string naam : nonempty_split(rg, ',')) {
+            naam = trim(naam);
+            if (naam.empty() || naam.front() == '/' || naam.find("..") != std::string::npos || !ends_with(lower(naam), ".reg"))
+                return setting_refused("[Launch] Registry = " + rg + " ('" + naam + "' is geen .reg-bestand in de map van de game, "
+                                       "bijvoorbeeld data/naam.reg)");
+            std::string pad;
+            for (const std::string& root : {p.dirs.user, p.dirs.shipped})
+                if (!root.empty() && pad.empty() && isfile(pjoin(pjoin(root, name), naam))) pad = pjoin(pjoin(root, name), naam);
+            if (pad.empty()) return setting_refused("[Launch] Registry: " + naam + " staat niet in patches/" + name + "/");
+            pl.reg_files.push_back(pad);
+            pl.notes.push_back("register: " + pad + " (wine reg import, eenmalig per prefix)");
+        }
+    }
     // 6e. [Launch] Gst32: een 32-bits GStreamer voor films via DirectShow/Media Foundation (docs/gst32.md). SteamOS heeft er geen; Proton
     // van Steam wel. scripts/setup-gst32.sh zet die klaar in <data>/ravengun/gst32 (proton/, plugins/, lib/). Bug Busters viel zonder
     // na MODE SELECT: "Failed to create filter for GStreamer splitter filter", dan een NULL-lezing (bench 2026-10-15).
@@ -1744,6 +1761,26 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         return Verdict::Refused;
     }
     merge_env(pl, dr.env);
+    // 9. gamescope heeft cap_sys_nice (setcap): de dynamische linker draait hem dan in secure-execution en haalt LD_LIBRARY_PATH,
+    // LD_PRELOAD en LD_AUDIT uit zijn omgeving, dus ook uit die van de game. Achter "--" zet env ze terug. Operation G.H.O.S.T.:
+    // zonder deze stap vond de 32-bits winegstreamer.so libgstaudio niet (Gst32) en faalde de WM-lezer op de titelfilm (2026-10-15).
+    if (pl.gamescope) {
+        std::vector<std::string> terug;
+        for (const char* k : {"LD_LIBRARY_PATH", "LD_PRELOAD", "LD_AUDIT"})
+            if (const std::string v = getenv_or(pl.env, k); !v.empty()) terug.push_back(std::string(k) + "=" + v);
+        if (!terug.empty()) {
+            auto zet_terug = [&](std::vector<std::string>& argv) {
+                auto it = std::find(argv.begin(), argv.end(), "--");
+                if (it == argv.end()) return;
+                std::vector<std::string> in = {"/usr/bin/env"};
+                in.insert(in.end(), terug.begin(), terug.end());
+                argv.insert(it + 1, in.begin(), in.end());
+            };
+            zet_terug(pl.argv);
+            for (auto& s : pl.starts)
+                if (s.gamescope) zet_terug(s.argv);
+        }
+    }
     return Verdict::Ok;
 }
 
@@ -2043,6 +2080,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.key("native_dlls").begin_array();
     for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
+    strs("reg_files", pl.reg_files);
     w.key("dropin_files").begin_array();
     for (const auto& f : pl.dropin_files) w.begin_object().key("src").value(f.src).key("dest").value(f.dest).key("name").value(f.name).end_object();
     w.end_array();
@@ -2094,7 +2132,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     }
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
-    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes);
+    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files);
     mp("env", pl.env); mp("launch_env", pl.launch_env);
     if (const auto* f = v.find("files"); f && f->is_array())
         for (const auto& e : f->arr)

@@ -34,4 +34,6 @@ in `redist/`, dan start de game niet. De melding noemt het script.
 - Met Wine's `xactengine3_3` viel het spel na het geluidscontrolescherm, met een access violation op `0x7142A0F3` in een
   XACT-thread.
 - Met de native XACT 3.3 (`Nov2008_XACT_x86.cab`) loopt het door tot de attract (FREE PLAY).
-- Na de attract volgt nog een tweede crash op `0x0051CFCC` in `gs2.exe`. Die is open.
+- De tweede crash, op `0x0051CFCC` in `gs2.exe`, was een titelfilm die niet laadde (NULL-textuur): de 32-bits
+  GStreamer kwam in gamescope niet aan (docs/gst32.md). Daarna liep de film vast in de ASF-lezer van Proton
+  (docs/registry.md). Met beide opgelost is het spel speelbaar.

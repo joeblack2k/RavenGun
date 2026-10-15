@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (27)
+## Working (29)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -26,6 +26,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Lethal Enforcers 3**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with Gst32 (docs/gst32.md): the videos through the 32-bit GStreamer from Proton; without it the game crashed at the first video. Played 5.5 min in mouse mode (FREE PLAY).
 - **Mario Kart Arcade GP DX**: WORKING on our own route (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi, 16 MiB stack, DXVK ([Launch] Dxvk), the Polygon2D view link and the d3dx10 pHResult repair in rg-mfcam.dll. Played with a gamepad (5.5 min, two races): Item (A) starts and confirms, left stick steers, RT gas, LT brake; the cabinet is on FREE PLAY. Open: the camera (the game never asks for it), Banapass cards. See NETWERK-INVOER-CAMERA.md, 5e.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
+- **Operation G.H.O.S.T.**: WORKING via double-click in the app (2026-10-15): attract, START, shooting in the train with a rising score, played 5.5 min. Movies via Gst32 + data/wmv-asyncreader.reg (Proton's ASF reader hung on Stop), native XACT 3.3, gamescope fullscreen. Picture is 4:3 (the game picks 1024x768).
 - **Primeval Hunt**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, main.exe with lindbergh-loader's lindbergh.so, JVS through the daemon, zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading. The touch screen (choosing a destination) is deliberately absent; the game picks one when the timer runs out.
 - **Pull The Trigger**: WORKING (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi. Played 5.5 min in mouse mode: coin (5), shoot to start, reload (PULL BACK/RELEASE), chapters and bonus select. The earlier black screen did not come back.
 - **Rabbids Hollywood Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly), aim and trigger; ran 5:19 min with a played round. The dongle check (SBK.Matrix) is answered, see DONGLE-ONDERZOEK.md. Not yet measured: whether the savegame survives two starts, and playing with the real Move buttons.
@@ -36,6 +37,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **The House of the Dead EX**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, hodexRI.elf with lindbergh.so and librg-stackalign.so (without the shim it died on an xcb assert in glXCreatePbuffer), /var/tmp per game, JVS through the daemon, zink. Played 5.5 min in mouse mode.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
 - **Too Spicy**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, apacheM.elf with lindbergh.so and librg-stackalign.so (old i386 code given a 16-byte aligned stack into SteamOS's GL libraries), a libsndio stub for OpenAL, JVS through the daemon. Played 5.5 min in mouse mode.
+- **Wild West Shootout**: WORKING (2026-10-15): rg-direct with DXVK (Vulkan) and winhttp=n,b for BepInEx (plugin WWS 1.4, the input). Played 5.5 min in mouse mode: coin (5), START (1), shooting, boss.
 
 ## Playable (6)
 
@@ -48,7 +50,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (31)
+## Not tested yet (29)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -70,7 +72,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Mars Sortie**: Measured 2026-10-15: with DXVK ([Launch] Dxvk) attract and game render (without it: black); double-click, coin, START and shooting work (bullet holes). After the first game the weekly ranking screen stays up, also without input (it most likely waits for the ranking server). Not Working yet.
 - **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.
 - **Night Hunter - After Dark, Chapter 2**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
-- **Operation G.H.O.S.T.**: Started, not played. The game starts and keeps running (STARTTEST.md with our own loader; ZONDER-LADER.md with no loader at all, 20 and 70 s). The region/PCB dongle is not enforced: without any region source it starts anyway. Playability was not measured.
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.
 - **Robin Hood**: Prepared, not run (pass 1, ICE PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
@@ -82,7 +83,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 - **Wartran Troopers**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
-- **Wild West Shootout**: Prepared, not run (pass 1, Coastal PC-Based): profile, identification and input route are in place; nothing has been measured yet.
 
 ## Not working yet (16)
 

@@ -527,6 +527,39 @@ int main() {
         write(ugi, "[Launch]\nNativeDlls = ../x\n");
         CHECK(plan_direct("Spel", p, o4, dp, w) == Verdict::Refused && contains(w, "geen DLL-naam"));
         fs::remove_all(rd);
+        // [Launch] Registry: een .reg uit de map van de game (gebruikerslaag eerst) in het plan; ontbreekt hij, of is het geen
+        // .reg binnen de map, dan geen start.
+        write(ugi, "[Launch]\nRegistry = data/wmv.reg\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "data/wmv.reg staat niet in patches/Spel/"));
+        const fs::path reg = fs::path(p.dirs.user) / "Spel/data/wmv.reg";
+        write(reg, "Windows Registry Editor Version 5.00\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && dp.reg_files == std::vector<std::string>{reg.string()});
+        {
+            DirectPlan back;
+            std::string jerr;
+            CHECK(plan_from_json(plan_to_json(dp), back, jerr) && back.reg_files == dp.reg_files);
+        }
+        write(ugi, "[Launch]\nRegistry = ../wmv.reg\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "geen .reg-bestand"));
+        write(ugi, "[Launch]\nRegistry = data/wmv.txt\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "geen .reg-bestand"));
+        fs::remove_all(fs::path(p.dirs.user) / "Spel/data");
+        // In gamescope (cap_sys_nice: secure-execution) komen LD_LIBRARY_PATH en LD_PRELOAD niet door; env zet ze achter "--" terug.
+        write(ugi, "[Launch]\n");
+        DirectOptions o5 = o;
+        o5.base_env["TP_GAMESCOPE"] = "1";
+        o5.base_env["RG_GAMESCOPE_RES"] = "1920x1080";
+        o5.base_env["LD_LIBRARY_PATH"] = "/gst/lib";
+        CHECK(plan_direct("Spel", p, o5, dp, w) == Verdict::Ok && dp.gamescope);
+        {
+            const auto it = std::find(dp.argv.begin(), dp.argv.end(), "--");
+            CHECK(it != dp.argv.end() && it + 2 < dp.argv.end() && *(it + 1) == "/usr/bin/env" && *(it + 2) == "LD_LIBRARY_PATH=/gst/lib");
+            CHECK(!dp.starts.empty() && dp.starts[0].argv == dp.argv);
+        }
+        o5.base_env.erase("LD_LIBRARY_PATH");
+        CHECK(plan_direct("Spel", p, o5, dp, w) == Verdict::Ok);
+        if (!dp.env.count("LD_LIBRARY_PATH") && !dp.env.count("LD_PRELOAD") && !dp.env.count("LD_AUDIT"))
+            CHECK(std::find(dp.argv.begin(), dp.argv.end(), "/usr/bin/env") == dp.argv.end());
         fs::remove(ugi);
         fs::remove_all(steam);
         fs::remove_all(eigen);

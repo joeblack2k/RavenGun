@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 27 van 80 titels WORKING (34%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 12, pass 2: 41, overgeslagen: 3.
+Stand: 29 van 80 titels WORKING (36%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 11, pass 2: 40, overgeslagen: 3.
 
-## WORKING (27)
+## WORKING (29)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -17,30 +17,32 @@ Stand: 27 van 80 titels WORKING (34%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Dream Raiders | SEGA RingWide |  |
 | Elevator Action Invasion | UNIS PC Based |  |
 | Gashaaaan!!!! | Konami PC Based |  |
+| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
 | HALO Fireteam Raven | RAW Thrills Linux PC Based |  |
 | House of the Dead: Scarlet Dawn | SEGA ALLS |  |
 | Jurassic Park Arcade | RAW Thrills Linux PC Based |  |
-| Lethal Enforcers 3 | Konami PC Based | Gst32 (films) |
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
 | Let's Go Jungle Lost on the Island of Spice | SEGA Lindbergh Red | Lindbergh-route, stackalign, doorgiftefix 0003 |
 | Let's Go Jungle Special | SEGA Lindbergh Yellow | ride-versie: START voor de ride-reset; patches 0003 en 0004 |
 | Let's Go Safari | SEGA RingWide |  |
+| Lethal Enforcers 3 | Konami PC Based | Gst32 (films) |
 | Mario Kart: Arcade GP DX | Namco ES3A | open: camera (het spel vraagt hem niet), Banapass-kaarten |
-| Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
-| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
-| Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | NERF Arcade | Raw Thrills PC Based |  |
+| Operation G.H.O.S.T. | SEGA RingWide | Gst32, native XACT 3.3, .wmv via [Launch] Registry; beeld 4:3 (spel kiest 1024x768) |
+| Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
 | Pull The Trigger | COVIELSA PC-Based |  |
 | Rabbids Hollywood Arcade | ADRENALINE PC Based |  |
 | Raccoon Rampage | UNIS PC Based |  |
+| Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | Rampage | ADRENALINE PC Based |  |
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
 | The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route met stackalign |
-| Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
+| Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
+| Wild West Shootout | Coastal PC-Based | DXVK, winhttp=n,b |
 
-## pass 1 (12)
+## pass 1 (11)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -55,9 +57,8 @@ Stand: 27 van 80 titels WORKING (34%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Target: Terror Gold | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
-| Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (41)
+## pass 2 (40)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -84,7 +85,6 @@ Stand: 27 van 80 titels WORKING (34%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Night Hunter - After Dark, Chapter 2 | UNIS PC Based | getest 2026-10-14: blijft op Initializing... (qumo2_en.exe draait); diagnose loopt |
 | Omatsuri Yasan - Ganso Takoyaki | CAVE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Omatsuri Yasan - Kingyo Sukui | CAVE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Operation G.H.O.S.T. | SEGA RingWide | getest 2026-10-14: crash: Exception EXCEPTION_ACCESS_VIOLATION-dialoog (gs2.exe); diagnose loopt |
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Point Blank X | Namco ES4 | Namco ES4 |

@@ -957,6 +957,30 @@ int run_plan(const std::string& plan_file) {
         }
     }
 
+    // 2b. [Launch] Registry: elk .reg-bestand één keer per prefix inlezen ("wine reg import" in de weergave van de game, 32 of 64
+    // bits). Een markering <prefix>/.ravengun-reg/<naam>.<sha256>.<bits> houdt bij wat al is ingelezen; een gewijzigd bestand gaat
+    // opnieuw. Lukt het inlezen niet, dan geen start: een run zonder zijn instelling is een ongeldige run (zoals bij de drop-ins).
+    for (const std::string& reg : plan.reg_files) {
+        const std::string bits = plan.is64 ? "64" : "32";
+        const std::string mdir = plan.prefix + "/.ravengun-reg";
+        const std::string mark = mdir + "/" + std::filesystem::path(reg).filename().string() + "." + L::sha256_file(reg).substr(0, 16) + "." + bits;
+        if (::access(mark.c_str(), F_OK) == 0) { log("register: " + std::filesystem::path(reg).filename().string() + " is al ingelezen (" + bits + " bits)"); continue; }
+        const std::vector<std::string> rargs{plan.wine, "reg", "import", L::wine_path(reg), "/reg:" + bits};
+        log("register: " + join_quoted(rargs));
+        Child c = spawn(rargs, plan.tp, env, true, false);
+        if (c.pid <= 0) return 1;
+        read_lines(c.out, [&](const std::string& l) { log("register: " + decode_console(l)); });
+        int st = 0;
+        ::waitpid(c.pid, &st, 0);
+        if (!WIFEXITED(st) || WEXITSTATUS(st) != 0) {
+            log("register: " + std::filesystem::path(reg).filename().string() + " niet ingelezen (status " + std::to_string(st) + "); de game wordt niet gestart");
+            return 1;
+        }
+        ::mkdir(mdir.c_str(), 0755);
+        if (FILE* f = std::fopen(mark.c_str(), "w")) { std::fputs(reg.c_str(), f); std::fclose(f); }
+        log("register: " + std::filesystem::path(reg).filename().string() + " ingelezen in " + plan.prefix + " (" + bits + " bits)");
+    }
+
     // 3. De JVS-pipe en de helper in de prefix (voor de game, zoals TeknoParrotUi).
     JvsPipeServer server(ld_truthy(env_get(env, "RG_JVS_BOARD")), ld_truthy(env_get(env, "RG_JVS_F1_ONCE")),
                          ld_truthy(env_get(env, "RG_JVS_DEBUG")), env_get(env, "RG_JVS_PTY"), board);

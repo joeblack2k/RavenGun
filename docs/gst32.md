@@ -30,6 +30,13 @@ Het script kopieert of downloadt niets; het legt alleen links naar wat Steam al 
 
 Staat de map er niet, dan start de game niet. De melding noemt het script.
 
+**In gamescope.** `/usr/bin/gamescope` heeft `cap_sys_nice` (setcap). De dynamische linker draait hem daardoor in
+secure-execution mode en haalt `LD_LIBRARY_PATH`, `LD_PRELOAD` en `LD_AUDIT` uit zijn omgeving. Die van de game
+verdwijnen dan ook. Daarom zet rg-direct ze achter `--` terug met `/usr/bin/env LD_LIBRARY_PATH=... wine ...`.
+Gemeten met Operation G.H.O.S.T. (2026-10-15). Zonder deze stap meldde Wine
+`failed to load .../i386-unix/winegstreamer.so: libgstaudio-1.0.so.0: cannot open shared object file`, en de WM-lezer
+gaf `0x8007000e` op de titelfilm.
+
 ## Gemeten
 
 **Bug Busters** (2026-10-15). Zonder Gst32 gebeurde dit direct na MODE SELECT:
