@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 25, overgeslagen: 11.
+Stand: 37 van 71 titels WORKING (52%); doel 90% = 64 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 24, overgeslagen: 12.
 
 ## WORKING (37)
 
@@ -60,16 +60,16 @@ Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaa
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
-| Friction | Unique PC Based | DXVK + native d3dx9_42/d3dcompiler_42 en tp-shm Friction (uit TeknoParrotUi): laadschermen in beeld, daarna zwart (ook 1920x1080); open |
+| Friction | Unique PC Based | 2026-10-15: onder gamescope draait UpdateWindow eindeloos (zwart); zonder gamescope laadschermen met 60 fps, daarna zwart met 7 fps |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (25)
+## pass 2 (24)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
-| Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
+| Block King Ball Shooter | Type-X PC Based | 2026-10-15: draad valt direct op 0x01F5000F (geen module) terwijl een andere draad zijn eigen context leest en SINGLE_STEP: beschermingslaag; exitcode 1 |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | profiel + tp-shm EADP (2026-10-15): zwart, opent de JVS-pipe niet (zoals Gaia Attack 4) |
 | Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
@@ -83,8 +83,7 @@ Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaa
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
-| Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
+| Robin Hood | ICE PC Based | 2026-10-15 (meetdraad): D3D9 1280x720, hoofddraad in zijn berichtenlus, geen Present; 57% CPU in /proc-lezingen (GetThreadTimes) |
 | Silent Hill: The Arcade | Konami PC Based | invoer werkt (shaiolib-brug, tp-shm SilentHill); 4:3 zonder 16:9: besluit eigenaar (skip-regel) |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
@@ -95,7 +94,7 @@ Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaa
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (11)
+## overgeslagen (12)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -110,3 +109,4 @@ Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaa
 | Wartran Troopers | Konami PC Based | skip-regel eigenaar 2026-10-15: 4:3 (twee schermen van 640x480 gemeten in de DXVK-log, TP-profiel met bezel-optie); map naar emulation/skipped (eerst geweigerd door de NAS, later gelukt) |
 | Otomedius Excellent | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten: regiocode GGG:J, Japanse foutmelding, 4:3-beeld); map naar emulation/skipped |
 | Rainbow Bombergirl | KONAMI PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst (gemeten: ボンバーガール レインボー, PASELI; staand beeld); map naar emulation/skipped |
+| Pacman Chomp-Mania | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Gashaaaan Refill en Go Go Strike |
