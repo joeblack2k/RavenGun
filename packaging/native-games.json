@@ -791,8 +791,8 @@
     "LGJ": {
       "title": "Let's Go Jungle! Lost on the Island of Spice!",
       "enabled": true,
-      "status": "niet-getest",
-      "note": "Lindbergh-route (docs/lindbergh.md) zoals Rambo: lindbergh.so en librg-stackalign.so in LD_PRELOAD, libCg 2.0 van de laag, JVS naar het bord Lindbergh van de daemon, zink. Profiel 2026-10-15; nog niet gemeten.",
+      "status": "werkt",
+      "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/LGJ); doorgiftefix 0003. Lindbergh-route (docs/lindbergh.md) zoals Rambo: lindbergh.so en librg-stackalign.so in LD_PRELOAD, libCg 2.0 van de laag, JVS naar het bord Lindbergh van de daemon, zink. Profiel 2026-10-15; nog niet gemeten.",
       "arch": "i386",
       "launcher": "gamescope",
       "route": "jvs",

@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 25 van 80 titels WORKING (31%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 12, pass 2: 43, overgeslagen: 3.
+Stand: 26 van 80 titels WORKING (33%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 12, pass 2: 42, overgeslagen: 3.
 
-## WORKING (25)
+## WORKING (26)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -23,6 +23,7 @@ Stand: 25 van 80 titels WORKING (31%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Lethal Enforcers 3 | Konami PC Based | Gst32 (films) |
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
+| Let's Go Jungle Lost on the Island of Spice | SEGA Lindbergh Red | Lindbergh-route, stackalign, doorgiftefix 0003 |
 | Let's Go Safari | SEGA RingWide |  |
 | Mario Kart: Arcade GP DX | Namco ES3A | open: camera (het spel vraagt hem niet), Banapass-kaarten |
 | Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
@@ -55,7 +56,7 @@ Stand: 25 van 80 titels WORKING (31%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (43)
+## pass 2 (42)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -72,8 +73,7 @@ Stand: 25 van 80 titels WORKING (31%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Haunted Museum II | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Infinity Blade FX | ADRENALINE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Let's Go Jungle Lost on the Island of Spice |  | geen profiel in de bibliotheek: koppelen (recept Let's Go Island) |
-| Let's Go Jungle Special |  | geen profiel in de bibliotheek: koppelen (recept Let's Go Island) |
+| Let's Go Jungle Special | SEGA Lindbergh Yellow | Lindbergh-route (ride-versie): ride-reset met START, dan attract; spelstart nog open (ride-signalen, zoals HOTD4 Special) |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Mars Sortie | UDC PC Based | met DXVK in beeld en speelbaar; na een spel blijft de wekelijkse ranglijst hangen (rankingserver?) |
