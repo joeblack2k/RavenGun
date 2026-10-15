@@ -1640,7 +1640,12 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (gs_bin.empty()) gs_bin = "/usr/bin/gamescope";
         std::string backend = getenv_or(env, "TP_GAMESCOPE_BACKEND");
         if (backend.empty()) backend = getenv_or(env, "WAYLAND_DISPLAY").empty() ? "" : "wayland";
-        gamescope = {gs_bin, "-W", std::to_string(wh.first), "-H", std::to_string(wh.second), "-S", "fit", "-f"};
+        // [Display] GamescopeScale (RG_GAMESCOPE_SCALE): fit (standaard, beeldverhouding van het spel), stretch (schermvullend,
+        // voor een spel dat in 4:3 rendert maar met een 16:9-camera), fill, integer, auto.
+        static const std::set<std::string> scales = {"auto", "integer", "fit", "fill", "stretch"};
+        std::string scale = lower(trim(getenv_or(env, "RG_GAMESCOPE_SCALE")));
+        if (!scales.count(scale)) scale = "fit";
+        gamescope = {gs_bin, "-W", std::to_string(wh.first), "-H", std::to_string(wh.second), "-S", scale, "-f"};
         if (!backend.empty()) gamescope.insert(gamescope.end(), {"--backend", backend});
         gamescope.push_back("--");
     }

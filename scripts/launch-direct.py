@@ -2152,7 +2152,10 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
         w, h = display_size(env)
         gs_bin = env.get("TP_GAMESCOPE_PATH") or "/usr/bin/gamescope"
         backend = env.get("TP_GAMESCOPE_BACKEND") or ("wayland" if env.get("WAYLAND_DISPLAY") else "")
-        gamescope = [gs_bin, "-W", str(w), "-H", str(h), "-S", "fit", "-f"] + (["--backend", backend] if backend else []) + ["--"]
+        scale = (env.get("RG_GAMESCOPE_SCALE") or "").strip().lower()   # [Display] GamescopeScale; zie direct.cpp
+        if scale not in ("auto", "integer", "fit", "fill", "stretch"):
+            scale = "fit"
+        gamescope = [gs_bin, "-W", str(w), "-H", str(h), "-S", scale, "-f"] + (["--backend", backend] if backend else []) + ["--"]
     windowed_override = bool(gamescope) and p.get("GamescopeGameWindowCompatibility") == "RequireWindowed" and \
         (field(p, "Windowed") or {}).get("value") == "0"
 

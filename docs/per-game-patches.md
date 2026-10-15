@@ -184,6 +184,7 @@ Gamescope = true              ; TP_GAMESCOPE=1: de game draait schermvullend in 
 GamescopePath =               ; TP_GAMESCOPE_PATH
 GamescopeBackend =            ; TP_GAMESCOPE_BACKEND
 GamescopeResolution =         ; RG_GAMESCOPE_RES
+GamescopeScale =              ; RG_GAMESCOPE_SCALE: fit (standaard) | stretch | fill | integer | auto (gamescope -S)
 DisplayMode =                 ; informatie: de optie DisplayMode van het profiel (bv. Fullscreen Windowed); de launcher leest dit niet
 CustomResolution =            ; informatie: 1920x1080 als het profiel een eigen resolutie aan heeft; de launcher leest dit niet
 

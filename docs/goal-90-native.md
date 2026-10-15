@@ -106,7 +106,7 @@ Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Wartran Troopers | Konami PC Based | skip-regel eigenaar 2026-10-15: 4:3 (twee schermen van 640x480 gemeten in de DXVK-log, TP-profiel met bezel-optie); map naar emulation/skipped (eerst geweigerd door de NAS, later gelukt) |
 | Otomedius Excellent | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten: regiocode GGG:J, Japanse foutmelding, 4:3-beeld); map naar emulation/skipped |
 | Rainbow Bombergirl | KONAMI PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst (gemeten: ボンバーガール レインボー, PASELI; staand beeld); map naar emulation/skipped |
-| Pacman Chomp-Mania | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Gashaaaan Refill en Go Go Strike |
+| Pacman Chomp-Mania | RAW Thrills Linux PC Based | eigenaar 2026-10-15: overgeslagen en weg (geen spelbestanden; profiel verwijderd) |
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
-| Galaga Assault | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Pacman Chomp-Mania |
+| Galaga Assault | RAW Thrills Linux PC Based | eigenaar 2026-10-15: overgeslagen en weg (geen spelbestanden; profiel verwijderd) |
