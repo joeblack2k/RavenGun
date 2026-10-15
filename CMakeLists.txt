@@ -211,6 +211,13 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-glslfix/rg_glslfix.c\" -ldl || echo 'waarschuwing: 32-bit GLSL-hulp (librg-glslfix.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-glslfix/rg_glslfix.c VERBATIM)
     add_custom_target(rg_glslfix32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so")
+    # Eigen libcaca.so.0 (32-bits stub) voor The Walking Dead: de game linkt libcaca, SteamOS heeft geen i386-versie
+    # (tools/rg-caca-stub/).
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -Wl,-soname,libcaca.so.0 -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-caca-stub/caca_stub.c\" || echo 'waarschuwing: 32-bit libcaca-stub niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-caca-stub/caca_stub.c VERBATIM)
+    add_custom_target(rg_caca_stub32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0")
     # De RIO-brug ook 32-bits: Jurassic Park heeft de RIO-bibliotheek in zijn i386-spelbeeld; de brug antwoordt daar als het
     # bord zelf over USB (tools/rio-bridge/, tabel patches/JurassicPark/rio-invoer.ini).
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so"
@@ -527,7 +534,7 @@ if(TARGET rg_comm_shim)
   install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge LIBRARY DESTINATION lib)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
-                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.

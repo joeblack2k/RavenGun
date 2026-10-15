@@ -536,6 +536,19 @@ static int bouw_zonder_preload(const char *cmd)
    PT_LOAD (RW: glibc past op i386 de d_ptr-waarden in .dynamic ter plekke aan), PT_DYNAMIC en PT_GNU_STACK met X (zoals de
    oude -z execstack). Inhoud: .hash (SysV), .dynsym, .dynstr, .dynamic. glibc >= 2.28 verplaatst SHN_ABS-symbolen niet.
    Met RG_ELF_SHIM_GCC=1 gaat het nog via gcc (vergelijking/diagnose). */
+/* RG_ELF_ENTRY=0xADRES (per game in native-games.json): spring daarheen in plaats van naar e_entry. Bij The Walking Dead is
+   e_entry in de dump `main` zelf; de echte startcode (die __libc_start_main aanroept met main) staat op 0x8055e47 (gemeten,
+   patches/WalkingDead/EERSTE-PLT-SLOTS.md). Zonder de startcode slaat de gast de C-runtime en de statische constructors over. */
+static uint32_t gast_ingang(uint32_t e_entry)
+{
+    const char *e = getenv("RG_ELF_ENTRY");
+    if (e && *e) {
+        uint32_t v = (uint32_t)strtoul(e, NULL, 0);
+        if (v) return v;
+    }
+    return e_entry;
+}
+
 static uint32_t elf_hash_sysv(const char *n)
 {
     uint32_t h = 0, g;
@@ -796,8 +809,20 @@ static void laad_needed(struct beeld *b, struct dyninfo *d)
 
 static void *zoek_symbool(const char *naam)
 {
-    void *a = dlsym(RTLD_DEFAULT, naam);
-    return a;   /* RTLD_DEFAULT doorzoekt de globale scope incl. onze RTLD_GLOBAL-dlopens + libc/libm */
+    void *a = dlsym(RTLD_DEFAULT, naam);   /* RTLD_DEFAULT doorzoekt de globale scope incl. onze RTLD_GLOBAL-dlopens + libc/libm */
+    /* glibc 2.31 heeft de __<f>_finite-namen (__pow_finite, __exp_finite, ...) weggehaald; het waren aliassen van <f> zelf.
+       Een gast van Ubuntu 14.04 (The Walking Dead) importeert ze nog. */
+    if (!a && strncmp(naam, "__", 2) == 0) {
+        size_t n = strlen(naam);
+        if (n > 9 && strcmp(naam + n - 7, "_finite") == 0 && n - 9 < 64) {
+            char kort[64];
+            memcpy(kort, naam + 2, n - 9);
+            kort[n - 9] = 0;
+            a = dlsym(RTLD_DEFAULT, kort);
+            if (a) say("  %s -> %s (glibc heeft de _finite-alias niet meer)", naam, kort);
+        }
+    }
+    return a;
 }
 
 /* De DEFINIËRENDE lib van een symbool (NIET de gast/shim). Voor R_386_COPY: de beginwaarde moet uit de
@@ -1134,6 +1159,7 @@ static void spring(uint32_t entry, uint32_t *esp)
 
 static void start_spel(struct beeld *b, int argc, char **argv)
 {
+    const uint32_t ingang = gast_ingang(b->entry);
     /* onze eigen auxv lezen (voor AT_RANDOM, AT_SYSINFO, AT_HWCAP, AT_PAGESZ enz.) */
     static uint32_t aux[64 * 2];
     int naux = 0;
@@ -1173,7 +1199,7 @@ static void start_spel(struct beeld *b, int argc, char **argv)
         AUX(AT_PAGESZ, PAGE);
         AUX(AT_BASE, 0);            /* geen interp geladen */
         AUX(AT_FLAGS, 0);
-        AUX(AT_ENTRY, b->entry);
+        AUX(AT_ENTRY, ingang);
         AUX(AT_UID, getuid()); AUX(AT_EUID, geteuid());
         AUX(AT_GID, getgid()); AUX(AT_EGID, getegid());
         AUX(AT_SECURE, 0);
@@ -1198,9 +1224,25 @@ static void start_spel(struct beeld *b, int argc, char **argv)
             else say("PR_SET_PTRACER_ANY mislukt");
         }
     }
+    if (ingang != b->entry)
+        say("ingang %#x uit RG_ELF_ENTRY (e_entry van het beeld: %#x)", ingang, b->entry);
+    /* RG_ELF_MAIN=1: de ingang is `main` zelf en wordt als C-functie aangeroepen, main(argc, argv, envp), zonder de startcode van
+       de gast. Voor een dump die NA de statische constructors is gemaakt (The Walking Dead: e_entry = main, en de gegevens bevatten
+       al wijzers uit de heap van de kast, bv. 0x900d620 -> 0xa49e948): de startcode zou de constructors opnieuw draaien op die
+       oude wijzers (gemeten: SIGSEGV op 0x86df51d). libc is in dit proces al opgestart (de lader deelt libc.so.6 met de gast). */
+    {
+        const char *hm = getenv("RG_ELF_MAIN");
+        if (hm && *hm == '1') {
+            int (*hoofd)(int, char **, char **) = (int (*)(int, char **, char **))(uintptr_t)ingang;
+            char **gargv = (char **)(sp + 1);
+            char **genvp = gargv + argc + 1;
+            say("roep main %#x aan als functie (RG_ELF_MAIN=1, argc %d)", ingang, argc);
+            exit(hoofd(argc, gargv, genvp));
+        }
+    }
     say("spring naar e_entry %#x (esp %p, argc %d, envc %d, %d auxv)",
-        b->entry, (void *)sp, argc, envc, naux);
-    spring(b->entry, sp);
+        ingang, (void *)sp, argc, envc, naux);
+    spring(ingang, sp);
 }
 
 /* Samenvatting voor --ontleed-alleen: wat de lader gezien heeft, zonder het spel te starten. */
