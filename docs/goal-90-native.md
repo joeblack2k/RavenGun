@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 36, overgeslagen: 4.
+Stand: 33 van 75 titels WORKING (44%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 32, overgeslagen: 8.
 
 ## WORKING (33)
 
@@ -61,7 +61,7 @@ Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (36)
+## pass 2 (32)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -79,12 +79,8 @@ Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Infinity Blade FX | ADRENALINE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
-| Medaru No Gunman | SEGA RingWide | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
-| Metal Gear Arcade | Konami PC-Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Night Hunter - After Dark, Chapter 2 | UNIS PC Based | getest 2026-10-14: blijft op Initializing... (qumo2_en.exe draait); diagnose loopt |
-| Omatsuri Yasan - Ganso Takoyaki | CAVE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Omatsuri Yasan - Kingyo Sukui | CAVE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Point Blank X | Namco ES4 | Namco ES4 |
@@ -102,7 +98,7 @@ Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Wartran Troopers | Konami PC Based | getest 2026-10-14: zwart beeld (wined3d en DXVK d3d9), game.exe draait; diagnose loopt |
 
-## overgeslagen (4)
+## overgeslagen (8)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -110,3 +106,7 @@ Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Gashaaaan Refill!!!! | Konami PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
 | Go Go Strike | PAOKAI Linux PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
 | Action Deka | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten); map naar emulation/skipped |
+| Metal Gear Arcade | Konami PC-Based | skip-regel eigenaar 2026-10-15: Japanse tekst (README: Shift-JIS, regio J); map naar emulation/skipped |
+| Medaru No Gunman | SEGA RingWide | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
+| Omatsuri Yasan - Ganso Takoyaki | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
+| Omatsuri Yasan - Kingyo Sukui | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
