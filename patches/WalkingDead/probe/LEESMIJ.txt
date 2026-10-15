@@ -1,0 +1,39 @@
+The scripts that produced dropin/eerste-plt-slots.tsv (2026-10-15). Research material, not delivery.
+See ../EERSTE-PLT-SLOTS.md for the method, the evidence and the limits. Adapted from ../../JurassicPark/probe/.
+
+  elfp.py             parse the dumped image through PT_DYNAMIC (there are no section headers); copied unchanged from JP
+  slots.py            the 813 first-PLT stubs (0x8052a20..0x8055ce0) and their GOT slots; clusters of stale 0xb6/0xb7 values
+  anchors.py          the envelope's DT_JMPREL entries (106): name, bound value, and whether that value is also in the first GOT
+  anchorfit.py        one candidate library against those named anchors: one shared delta = this build at that base
+  ifuncmap.py         names the IFUNC implementations of a stripped library from its resolvers (no -dbg package was reachable)
+  align.py            fits all candidate libraries at once (page-aligned base per library, best path over the sorted stale
+                      values); small libraries can be pinned with "fixed" in the JSON argument
+  glfit.py            every libGL*.so* of every unpacked NVIDIA driver against the stale values in the libGL gap
+  layout.py           base + mapped size per fitted library: the libraries must tile without overlap
+  anchorcheck.py      every relocation-table name against the fit (the "certain" check)
+  callers.py          direct call/jmp references per stub (second opinion; written to a pickle)
+  mktable.py          writes the table
+  fetch.sh, nvx.sh    download helpers: an Ubuntu .deb from a pool mirror; the libGL files out of an NVIDIA .run
+                      (the payload is untarred after the makeself header's skip= line; the .run is never executed)
+
+How the table was made (W = a scratch directory, G = the game on the share, read-only):
+  # the cabinet's userland: the Ubuntu 14.04.5 desktop i386 image (old-releases.ubuntu.com), only three paths unpacked
+  curl -o $W/iso/14.04.5.iso http://old-releases.ubuntu.com/releases/14.04.5/ubuntu-14.04.5-desktop-i386.iso
+  7z e -o$W/iso $W/iso/14.04.5.iso casper/filesystem.squashfs
+  unsquashfs -no-xattrs -d $W/pkgs/iso-14.04.5 $W/iso/filesystem.squashfs lib/i386-linux-gnu usr/lib/i386-linux-gnu var/lib/dpkg/status
+  # libGL: NVIDIA Linux-x86 drivers 361.42 .. 390.157 (25 versions), libGL files only
+  ./nvx.sh $W/nv 361.42 364.19 367.57 370.28 375.10 375.20 375.26 375.39 375.66 375.82 378.13 381.22 384.47 384.59 \
+           384.69 384.90 384.98 384.111 384.130 387.34 390.25 390.48 390.87 390.116 390.157
+  python3 -I glfit.py . $G $W/nv
+  python3 -I callers.py . $G $W/work/callers.pkl
+  python3 -I align.py . $G $W/pkgs/iso-14.04.5 \
+     '{"libs":{"libGL.so.1":"'$W'/nv/x375.20/libGL.so.1.0.0"},"fixed":{"libpulse-simple.so.0":"0xb72fd000","libGLU.so.1":"0xb767c000","libcsv.so":"0xb775e000"}}' \
+     $W/work/alignA.json
+  python3 -I layout.py . $W/work/alignA.json $W/pkgs/iso-14.04.5 $W/nv/x375.20/libGL.so.1.0.0
+  python3 -I anchorcheck.py . $G $W/work/alignA.json
+  python3 -I mktable.py . $G $W/work/alignA.json $W/work/callers.pkl $W/pkgs/iso-14.04.5 $W/nv/x375.20/libGL.so.1.0.0 ../dropin/eerste-plt-slots.tsv
+
+Also tried, as comparison only (see the write-up): libc6 2.23-0ubuntu3 / 2.23-0ubuntu11.3 / 2.27-3ubuntu1 (archive.ubuntu.com),
+2.19-10ubuntu2 / 2.21-0ubuntu4 / 2.24-3ubuntu1 (old-releases.ubuntu.com), and 2.19-0ubuntu6.15 from the Docker Hub image
+i386/ubuntu:14.04. launchpadlibrarian.net (older point releases, -dbg packages) did not answer from this host.
+None of the downloads are in this repository; they were only read with readelf/objdump, nothing from them runs.
