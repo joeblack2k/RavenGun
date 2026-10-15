@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 24 van 82 titels WORKING (29%); doel 90% = 74 titels. Pass 1: 14, pass 2: 44, overgeslagen: 1.
+Stand: 25 van 82 titels WORKING (30%); doel 90% = 74 titels. Pass 1: 14, pass 2: 43, overgeslagen: 1.
 
-## WORKING (24)
+## WORKING (25)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -20,6 +20,7 @@ Stand: 24 van 82 titels WORKING (29%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | HALO Fireteam Raven | RAW Thrills Linux PC Based |  |
 | House of the Dead: Scarlet Dawn | SEGA ALLS |  |
 | Jurassic Park Arcade | RAW Thrills Linux PC Based |  |
+| Lethal Enforcers 3 | Konami PC Based | Gst32 (films) |
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
 | Let's Go Safari | SEGA RingWide |  |
@@ -56,7 +57,7 @@ Stand: 24 van 82 titels WORKING (29%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (44)
+## pass 2 (43)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -75,7 +76,6 @@ Stand: 24 van 82 titels WORKING (29%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Infinity Blade FX | ADRENALINE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Let's Go Jungle Lost on the Island of Spice |  | geen profiel in de bibliotheek: koppelen (recept Let's Go Island) |
 | Let's Go Jungle Special |  | geen profiel in de bibliotheek: koppelen (recept Let's Go Island) |
-| Lethal Enforcers 3 | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Mars Sortie | UDC PC Based | met DXVK in beeld en speelbaar; na een spel blijft de wekelijkse ranglijst hangen (rankingserver?) |

@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (24)
+## Working (25)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -21,6 +21,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Let's Go Island 3D: Lost on the Island of Tropics**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader; JVS over the pipe to the daemon's board). Measured on the TV in mouse mode: START (hold key 1 briefly), aim, shoot, combos (score 37500); 5:15 min of attract and play after the first attract screen. Red-cyan 3D picture (the 2D button was not checked). Not yet played with the real Move on this route.
 - **Let's Go Island: Lost on the Island of Tropics**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader; JVS over the pipe to the daemon's board). Measured on the TV in mouse mode: START (hold key 1 briefly), aim, shoot, continue after CONTINUE, up to a boss (score 36600); 5:23 min of attract and play after the first attract screen. The in-game texts are Japanese (region JAPAN in game.ini). Not yet played with the real Move on this route.
 - **Let's Go Safari**: WORKING without TeknoParrotUi (2026-10-14): a double-click in RavenGun starts the game through rg-direct, JVS over the pipe to the daemon's LGS board, full screen through gamescope (17:33, 5:49 min). Measured with a gamepad (18:35, 5:38 min): steering with the left stick (contact sheet bench-captures/LGS/seq_sheet.png), START with Start, the colored buttons A/B/X/Y = red/blue/yellow/green. Without a pad the lightgun's horizontal aim steers. Not measured yet: camera, wipers, horn, fireworks, and playing with the real Move.
+- **Lethal Enforcers 3**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with Gst32 (docs/gst32.md): the videos through the 32-bit GStreamer from Proton; without it the game crashed at the first video. Played 5.5 min in mouse mode (FREE PLAY).
 - **Mario Kart Arcade GP DX**: WORKING on our own route (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi, 16 MiB stack, DXVK ([Launch] Dxvk), the Polygon2D view link and the d3dx10 pHResult repair in rg-mfcam.dll. Played with a gamepad (5.5 min, two races): Item (A) starts and confirms, left stick steers, RT gas, LT brake; the cabinet is on FREE PLAY. Open: the camera (the game never asks for it), Banapass cards. See NETWERK-INVOER-CAMERA.md, 5e.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
 - **Primeval Hunt**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, main.exe with lindbergh-loader's lindbergh.so, JVS through the daemon, zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading. The touch screen (choosing a destination) is deliberately absent; the game picks one when the timer runs out.
@@ -83,7 +84,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Wartran Troopers**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Wild West Shootout**: Prepared, not run (pass 1, Coastal PC-Based): profile, identification and input route are in place; nothing has been measured yet.
 
-## Not working yet (17)
+## Not working yet (16)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
@@ -93,7 +94,6 @@ These games do not start, or are blocked by something RavenGun does not work aro
 - **Haunted Museum**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Haunted Museum II**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
-- **Lethal Enforcers 3**: Does not start yet: the game crashes when it opens a .m1v movie; Wine has no 32-bit GStreamer (lib32-gstreamer plus an MPEG-1 decoder), which the SteamOS repos do not offer. Parked.
 - **Medaru No Gunman**: Does not start cleanly yet: picture, coin (key 5), reload, trigger and aim work, but on every fresh start the game reports 3001 RAM DATA IS BAD or 3003 ROM HAS CHANGED. After one pass through its test menu it plays (that process only). Window 1024x768, top left.
 - **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.
 - **Metal Gear Arcade**: Assessed only (2026-10-14), not started. Konami AVS/e-Amusement; the only loader is TeknoParrot's closed TeknoMacaw -- no own-core route. See README.md.
