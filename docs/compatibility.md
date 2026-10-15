@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (37)
+## Working (38)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -39,6 +39,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Rambo**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, ramboM.elf with lindbergh-loader's lindbergh.so (no TeknoParrot), JVS through the daemon's board, OpenGL via zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading by aiming off-screen.
 - **Rampage**: WORKING on our own route (2026-10-14): double-click in RavenGun, no scripts and no TeknoParrotUi (rg-direct, Wine, input through the tp-shm I/O bridge). Not a lightgun game: joystick and attack for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: coin, START, intro, walking and smashing in the city ($19,000 damage), 5:09 min.
 - **SEGA Golden Gun**: WORKING via double-click in the app (2026-10-15): attract in English (region EXPORT), START, shooting with crosshair, score, continue; played 5.5 min. Gamescope fullscreen 16:9.
+- **Silent Hill: The Arcade**: Playable from the app (double-click, 2026-10-15): coin and START, then stage 1 with the lightgun (aim, shoot, reload); played for 5.5 minutes. Our shaiolib.dll reads the input (tp-shm SilentHill); stereo sound. Open: a 16:9 patch and the e-AMUSEMENT PASS.
 - **Target: Terror Gold**: WORKING via double-click in the app (2026-10-15), native: title, START, Mission Select, played 5.5 min; shots arrive (reload, enemies down). Requires the virtual gun to have a USB phys path (libXshooter only takes devices with phys usb*). Picture 4:3 (1024x768); aiming on a 16:9 TV spans the whole TV, no pillarbox correction yet.
 - **Terminator Salvation**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, full screen through gamescope). Measured on the TV in mouse mode: START (hold key 1 briefly), mission select with the trigger, aim, shoot, reload (right button), a kill; ran 6:32 min. Not yet played with the real Move on this route.
 - **The House of the Dead EX**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, hodexRI.elf with lindbergh.so and librg-stackalign.so (without the shim it died on an xcb assert in glXCreatePbuffer), /var/tmp per game, JVS through the daemon, zink. Played 5.5 min in mouse mode.
@@ -84,7 +85,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Profile from the TeknoParrot template (2026-10-15). Measured: in gamescope (Windowed 0) and with a 1920x1080 Wine virtual desktop the exe runs (~60% CPU) but stays black and never opens the JVS pipe (2+ min). Open.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (9)
+## Not working yet (8)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
@@ -96,4 +97,3 @@ These games do not start, or are blocked by something RavenGun does not work aro
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
 - **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.
 - **Pac-Man Chomp-Mania**: Parked: TeknoParrot's loader does not get it past start-up under Wine. Measured statically (see patches/ELF-LADER-SPEC.md): 442 PLT stubs, zero section headers, every stub pushes 0xdeadbeef and the GOT is already filled in the file with absolute 0xb7xxxxxx addresses from a running process on the original cabinet. The number of stubs equals the number of UND imports, but how many of those lost their name cannot be measured for this game: the UND table grows with whichever upper bound you pick, so the end of the table was not found here. Same class as Jurassic Park, where it was measured that the rt-glfix bridge removes the GL blocker but the game then falls over on an unresolved non-GL import. Waiting on the resolution table from a running ElfLdr2 run.
-- **SilentHill**: Plays its attract movie on OUR OWN core (2026-10-13, on the TV) -- but is NOT playable: the replacement I/O library delivers no inputs yet (no buttons, coins or guns). What got it there: our own shaiolib.dll in the drop-in (the original waits for two serial boards and the security plug: "LOW CONTROL ERROR 5-1500"), a 32-bit GStreamer for Wine (without it the game quits when the opening movie should start), and a three-byte in-memory patch that removes the StopWhenReady call (without it the movie stays black). The region is Asia for now (model code GNGHLAAA); Europe needs a speaker setting the dump does not have. See ATTRACT-RUN.md.
