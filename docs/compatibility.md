@@ -5,10 +5,11 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (35)
+## Working (36)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
+- **After Dark**: WORKING via double-click in the app (2026-10-15): attract with movie, coin, START, two stages (Silent Valley, Castle of Shadows), continue, score 69000; played 5.5 min in mouse mode. Recipe: rg-compat (DirectInput with a NULL HINSTANCE), Gst32 + data/wmv-asyncreader.reg (movie), DXVK + Microsoft d3dx9_41 (without those the world renders black), gamescope. Open: the owner heard audio hitches in the first run (wined3d); not re-checked after DXVK.
 - **Bug Busters**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with the 32-bit GStreamer from Proton ([Launch] Gst32, docs/gst32.md) for the MPEG-1 videos; without it the game died after MODE SELECT. Played 5.5 min in mouse mode. Runs in a window (taskbar visible).
 - **Drakons Realm Keepers**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, Wine, tp-shm I/O bridge with the WartranTroopers layout). Measured with the test pattern: coin (key 5), START (key 1), world select, aim and shoot, CONTINUE, score 400; more than 5 min. Not yet played with the real Move.
 - **Dream Raiders**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, JVS over the pipe to the SegaGun2P board). First start: the game asks for calibration (CONTROLLER ADJUSTMENT): SERVICE (F3) to CALIBRATION, START-1, then shoot the four corners (top-left, top-right, bottom-left, bottom-right); the calibration is kept. Measured with the test pattern: START, shooting in the game, result screen, new game; 6:39 min. Not yet played with the real Move.
@@ -56,12 +57,11 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (26)
+## Not tested yet (25)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
 - **3D Cosplay Mahjong**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
-- **After Dark**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Aliens Armageddon**: Never started. Statically prepared for the native route (2026-10-14): i386, unpacked, own loader (rg-elfloader: /usr/lib/libcsv.so by basename), RIO board through the bridge without encryption (addresses measured with objdump, same report as Jurassic Park). Open: (1) the HASP dongle is static and classic (aksusbd/NetHASP, like Terminator; BESCHERMING-STATUS.md): expect "DongleInitialize() FAILED" until there is a hasp-haken.ini or a daemon route; (2) aim through the IR cameras in the guns (cmgr/FTDI) is not emulated; (3) the switch ids are taken from Jurassic Park.
 - **Aliens Extermination**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Extermination (Global VR): 32-bit Windows PE with a statically linked HASP4 dongle and a USB HID check.
 - **America's Army Arcade**: Never started. Statically examined (2026-10-14): i386, unpacked, Unreal Engine 2 (armyops-bin, SDL 1.2 from the game folder, libstdc++.so.5 from ElfLdr2/libs). Input through SDL (X mouse and keyboard). Open: START is F1 and coin is C in the game, the daemon sends 1 and 5; the virtual lightgun does not move the X cursor (LIBINPUT_IGNORE_DEVICE), so aiming only works with a physical mouse.
