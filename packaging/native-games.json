@@ -426,58 +426,6 @@
       "res": "800x600",
       "route": "evdev"
     },
-    "BBHPro": {
-      "title": "Big Buck Hunter Pro",
-      "enabled": false,
-      "status": "niet-getest",
-      "note": "Nooit gestart; statisch onderzocht (2026-10-14). i386, ongepakt (188 dynamische symbolen, gewone PLT), gewone ld.so. Het IO-bord (knoppen, munt, geweren) hangt aan de seriële poort /dev/ttyS0; de dongle is een Rockey (/dev/rockey); geluid via OSS (/dev/dsp). Geen van drie bestaat in de sandbox en er is nog geen nabootsing: de game start, maar krijgt geen invoer. Volgende stap: het protocol van het bord lezen (de schrijvers/lezers van /dev/ttyS0) en een pty met dat protocol (zoals rg-ptylink, met de daemon aan de andere kant).",
-      "arch": "i386",
-      "launcher": "gamescope",
-      "mounts": [
-        {
-          "src": "@nas/Big Buck Hunter Pro",
-          "dst": "/pm",
-          "mode": "overlay"
-        }
-      ],
-      "libs": [
-        "@lib32/libglut.so.3",
-        "@lib32/libXi.so.6",
-        "@lib32/libGLU.so.1"
-      ],
-      "preload": "",
-      "exe": "/pm/game",
-      "cwd": "/pm",
-      "home": "/pm",
-      "args": [],
-      "route": "evdev"
-    },
-    "BBHHome": {
-      "title": "Big Buck Hunter Pro Home",
-      "enabled": false,
-      "status": "niet-getest",
-      "note": "Nooit gestart; statisch onderzocht (2026-10-14). Zelfde familie als BBHPro (i386, ongepakt, IO-bord op /dev/ttyS0, Rockey-dongle /dev/rockey, OSS); deze build linkt daarnaast libusb (/proc/bus/usb, /dev/bus/usb). Open: zoals BBHPro.",
-      "arch": "i386",
-      "launcher": "gamescope",
-      "mounts": [
-        {
-          "src": "@nas/Big Buck Hunter Pro Home",
-          "dst": "/pm",
-          "mode": "overlay"
-        }
-      ],
-      "libs": [
-        "@lib32/libglut.so.3",
-        "@lib32/libXi.so.6",
-        "@lib32/libGLU.so.1"
-      ],
-      "preload": "",
-      "exe": "/pm/game",
-      "cwd": "/pm",
-      "home": "/pm",
-      "args": [],
-      "route": "evdev"
-    },
     "CrossfirePaintball": {
       "title": "Crossfire: Maximum Paintball",
       "enabled": false,

@@ -57,7 +57,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (24)
+## Not tested yet (22)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -65,8 +65,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Aliens Armageddon**: Never started. Statically prepared for the native route (2026-10-14): i386, unpacked, own loader (rg-elfloader: /usr/lib/libcsv.so by basename), RIO board through the bridge without encryption (addresses measured with objdump, same report as Jurassic Park). Open: (1) the HASP dongle is static and classic (aksusbd/NetHASP, like Terminator; BESCHERMING-STATUS.md): expect "DongleInitialize() FAILED" until there is a hasp-haken.ini or a daemon route; (2) aim through the IR cameras in the guns (cmgr/FTDI) is not emulated; (3) the switch ids are taken from Jurassic Park.
 - **Aliens Extermination**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Extermination (Global VR): 32-bit Windows PE with a statically linked HASP4 dongle and a USB HID check.
 - **America's Army Arcade**: Never started. Statically examined (2026-10-14): i386, unpacked, Unreal Engine 2 (armyops-bin, SDL 1.2 from the game folder, libstdc++.so.5 from ElfLdr2/libs). Input through SDL (X mouse and keyboard). Open: START is F1 and coin is C in the game, the daemon sends 1 and 5; the virtual lightgun does not move the X cursor (LIBINPUT_IGNORE_DEVICE), so aiming only works with a physical mouse.
-- **Big Buck Hunter Pro**: Never started. Statically examined (2026-10-14): i386, unpacked (188 dynamic symbols, normal PLT), only system libraries plus libglut/libGLU. Open: (1) the I/O board on /dev/ttyS0 (protocol not read); (2) the Rockey dongle (/dev/rockey); (3) sound through OSS (/dev/dsp).
-- **Big Buck Hunter Pro Home**: Never started. Statically examined (2026-10-14): i386, unpacked, same family as Big Buck Hunter Pro (I/O board on /dev/ttyS0, Rockey dongle /dev/rockey, OSS); this build also links libusb (/proc/bus/usb, /dev/bus/usb). Open: as BBHPro.
 - **Block King Ball Shooter**: Prepared, not run (pass 1, Type-X PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Coopers's 9**: Prepared, not run (pass 1, KONAMI PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Crossfire: Maximum Paintball**: Never started. Statically examined (2026-10-14): i386, unpacked, small (med_pball 161 kB). I/O through I/O ports (iopl, inb/outb; "/dev/p37c must exist or user must be root") and the guns through the kernel driver /dev/mjg; neither exists natively. Needed: a shim that lets iopl succeed and emulates the port instructions (SIGSEGV), and a fake /dev/mjg. Same engine as Police Trainer 2.

@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 37 van 71 titels WORKING (52%); doel 90% = 64 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 24, overgeslagen: 12.
+Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 24, overgeslagen: 14.
 
 ## WORKING (37)
 
@@ -50,15 +50,13 @@ Stand: 37 van 71 titels WORKING (52%); doel 90% = 64 titels; sessiedoel (eigenaa
 | After Dark | UNIS PC Based | DXVK + native d3dx9_41, Gst32 + AsyncReader, rg-compat (DirectInput); open: geluid hapert (eigenaar, wined3d-run) |
 | Transformers: Shadows Rising | Windows PC | hid-board (SaeGunBoard + SaeIoBoard); bevriezing van 10-14 niet teruggezien; hendel niet nagedaan |
 
-## pass 1 (10)
+## pass 1 (8)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Aliens Armageddon | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Aliens: Extermination | Global VR PC Based | tp-shm AliensExtermination (uit TeknoParrotUi); getest 2026-10-15: valt na ~18 s op 0x456DF1 in beschermde code (HASP4/USB-HID?) |
 | America's Army Arcade | Global VR PC Based | native (Global VR Linux, ElfLdr2) |
-| Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
-| Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
 | Friction | Unique PC Based | 2026-10-15: onder gamescope draait UpdateWindow eindeloos (zwart); zonder gamescope laadschermen met 60 fps, daarna zwart met 7 fps |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
@@ -94,7 +92,7 @@ Stand: 37 van 71 titels WORKING (52%); doel 90% = 64 titels; sessiedoel (eigenaa
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (12)
+## overgeslagen (14)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -110,3 +108,5 @@ Stand: 37 van 71 titels WORKING (52%); doel 90% = 64 titels; sessiedoel (eigenaa
 | Otomedius Excellent | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten: regiocode GGG:J, Japanse foutmelding, 4:3-beeld); map naar emulation/skipped |
 | Rainbow Bombergirl | KONAMI PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst (gemeten: ボンバーガール レインボー, PASELI; staand beeld); map naar emulation/skipped |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Gashaaaan Refill en Go Go Strike |
+| Big Buck Hunter Pro | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
+| Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
