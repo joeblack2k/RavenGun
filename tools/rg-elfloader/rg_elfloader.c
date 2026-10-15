@@ -531,6 +531,78 @@ static int bouw_zonder_preload(const char *cmd)
     return rc;
 }
 
+/* De shim zonder gcc (2026-10-15): een verse SteamOS heeft geen compiler. De shim is niets anders dan een gedeelde bibliotheek
+   met absolute symbolen (SHN_ABS, zoals gcc ze maakt van `.set naam, 0xADDR`); die schrijven we zelf als ELF32 ET_DYN: een
+   PT_LOAD (RW: glibc past op i386 de d_ptr-waarden in .dynamic ter plekke aan), PT_DYNAMIC en PT_GNU_STACK met X (zoals de
+   oude -z execstack). Inhoud: .hash (SysV), .dynsym, .dynstr, .dynamic. glibc >= 2.28 verplaatst SHN_ABS-symbolen niet.
+   Met RG_ELF_SHIM_GCC=1 gaat het nog via gcc (vergelijking/diagnose). */
+static uint32_t elf_hash_sysv(const char *n)
+{
+    uint32_t h = 0, g;
+    while (*n) {
+        h = (h << 4) + (unsigned char)*n++;
+        g = h & 0xf0000000u;
+        if (g) h ^= g >> 24;
+        h &= ~g;
+    }
+    return h;
+}
+
+static int schrijf_shim_elf(const char *pad, const char **namen, const uint32_t *waarden, int n)
+{
+    uint32_t nsym = (uint32_t)n + 1, nbucket = nsym / 2 + 1, i, strsz = 1;
+    for (i = 0; i < (uint32_t)n; i++) strsz += (uint32_t)strlen(namen[i]) + 1;
+    const uint32_t off_ph = sizeof(Elf32_Ehdr), nph = 3;
+    const uint32_t off_hash = off_ph + nph * sizeof(Elf32_Phdr);
+    const uint32_t hashsz = (2 + nbucket + nsym) * 4;
+    const uint32_t off_sym = off_hash + hashsz;
+    const uint32_t off_str = off_sym + nsym * sizeof(Elf32_Sym);
+    const uint32_t off_dyn = (off_str + strsz + 3) & ~3u;
+    const uint32_t ndyn = 6, totaal = off_dyn + ndyn * sizeof(Elf32_Dyn);
+    unsigned char *m = calloc(1, totaal);
+    if (!m) return -1;
+    Elf32_Ehdr *eh = (Elf32_Ehdr *)m;
+    memcpy(eh->e_ident, ELFMAG, SELFMAG);
+    eh->e_ident[EI_CLASS] = ELFCLASS32; eh->e_ident[EI_DATA] = ELFDATA2LSB; eh->e_ident[EI_VERSION] = EV_CURRENT;
+    eh->e_type = ET_DYN; eh->e_machine = EM_386; eh->e_version = EV_CURRENT;
+    eh->e_phoff = off_ph; eh->e_ehsize = sizeof(Elf32_Ehdr); eh->e_phentsize = sizeof(Elf32_Phdr); eh->e_phnum = nph;
+    Elf32_Phdr *ph = (Elf32_Phdr *)(m + off_ph);
+    ph[0].p_type = PT_LOAD; ph[0].p_offset = 0; ph[0].p_vaddr = ph[0].p_paddr = 0;
+    ph[0].p_filesz = ph[0].p_memsz = totaal; ph[0].p_flags = PF_R | PF_W; ph[0].p_align = 0x1000;
+    ph[1].p_type = PT_DYNAMIC; ph[1].p_offset = ph[1].p_vaddr = ph[1].p_paddr = off_dyn;
+    ph[1].p_filesz = ph[1].p_memsz = ndyn * sizeof(Elf32_Dyn); ph[1].p_flags = PF_R | PF_W; ph[1].p_align = 4;
+    ph[2].p_type = PT_GNU_STACK; ph[2].p_flags = PF_R | PF_W | PF_X; ph[2].p_align = 16;
+    uint32_t *hash = (uint32_t *)(m + off_hash), *bucket = hash + 2, *chain = bucket + nbucket;
+    hash[0] = nbucket; hash[1] = nsym;
+    Elf32_Sym *sym = (Elf32_Sym *)(m + off_sym);
+    char *str = (char *)(m + off_str);
+    uint32_t so = 1;
+    for (i = 1; i < nsym; i++) {
+        const char *naam = namen[i - 1];
+        sym[i].st_name = so;
+        strcpy(str + so, naam); so += (uint32_t)strlen(naam) + 1;
+        sym[i].st_value = waarden[i - 1];
+        sym[i].st_size = 0;
+        sym[i].st_info = ELF32_ST_INFO(STB_GLOBAL, STT_NOTYPE);
+        sym[i].st_shndx = SHN_ABS;
+        uint32_t b = elf_hash_sysv(naam) % nbucket;
+        chain[i] = bucket[b];
+        bucket[b] = i;
+    }
+    Elf32_Dyn *dyn = (Elf32_Dyn *)(m + off_dyn);
+    dyn[0].d_tag = DT_HASH;   dyn[0].d_un.d_ptr = off_hash;
+    dyn[1].d_tag = DT_STRTAB; dyn[1].d_un.d_ptr = off_str;
+    dyn[2].d_tag = DT_SYMTAB; dyn[2].d_un.d_ptr = off_sym;
+    dyn[3].d_tag = DT_STRSZ;  dyn[3].d_un.d_val = strsz;
+    dyn[4].d_tag = DT_SYMENT; dyn[4].d_un.d_val = sizeof(Elf32_Sym);
+    dyn[5].d_tag = DT_NULL;
+    FILE *f = fopen(pad, "wb");
+    int ok = f && fwrite(m, 1, totaal, f) == totaal;
+    if (f) fclose(f);
+    free(m);
+    return ok ? 0 : -1;
+}
+
 static void maak_shim(struct dyninfo *d)
 {
     const char *tmp = getenv("XDG_RUNTIME_DIR");
@@ -567,6 +639,10 @@ static void maak_shim(struct dyninfo *d)
         }
     }
 
+    const char **namen = calloc(d->nchain, sizeof *namen);
+    uint32_t *waarden = calloc(d->nchain, sizeof *waarden);
+    if (!namen || !waarden)
+        fatal("geen geheugen voor de shim");
     f = fopen(src, "w");
     if (!f)
         fatal("kan %s niet schrijven", src);
@@ -590,15 +666,26 @@ static void maak_shim(struct dyninfo *d)
                 continue;   /* lib-gedefinieerd en geen COPY -> de lib houdt zijn eigen (geen preemptie) */
         }
         fprintf(f, "__asm__(\".globl %s\\n.set %s, 0x%x\\n\");\n", naam, naam, s->st_value);
+        namen[cnt] = naam;
+        waarden[cnt] = s->st_value;
         cnt++;
     }
     fclose(f);
 
-    snprintf(cmd, sizeof cmd, "gcc -m32 -shared -fPIC -Wl,-z,execstack %s%s -o '%s' '%s' 2>&1",
-             inc && *inc ? "-I" : "", inc && *inc ? inc : "", so, src);
-    dbg("shim bouwen (%d gast-symbolen): %s", cnt, cmd);
-    if (bouw_zonder_preload(cmd) != 0)
-        fatal("kon de shim niet bouwen: %s", cmd);
+    const char *viagcc = getenv("RG_ELF_SHIM_GCC");
+    if (viagcc && *viagcc == '1') {
+        snprintf(cmd, sizeof cmd, "gcc -m32 -shared -fPIC -Wl,-z,execstack %s%s -o '%s' '%s' 2>&1",
+                 inc && *inc ? "-I" : "", inc && *inc ? inc : "", so, src);
+        dbg("shim bouwen met gcc (%d gast-symbolen): %s", cnt, cmd);
+        if (bouw_zonder_preload(cmd) != 0)
+            fatal("kon de shim niet bouwen: %s", cmd);
+    } else {
+        if (schrijf_shim_elf(so, namen, waarden, cnt) != 0)
+            fatal("kon de shim niet schrijven: %s", so);
+        dbg("shim zelf geschreven (%d gast-symbolen, zonder gcc): %s", cnt, so);
+    }
+    free(namen);
+    free(waarden);
     if (!dlopen(so, RTLD_NOW | RTLD_GLOBAL))
         fatal("dlopen(shim) mislukt: %s", dlerror());
     rg_shim_symbolen = cnt;
