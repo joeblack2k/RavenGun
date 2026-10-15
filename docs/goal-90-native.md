@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 24, overgeslagen: 14.
+Stand: 37 van 68 titels WORKING (54%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 23, overgeslagen: 15.
 
 ## WORKING (37)
 
@@ -54,16 +54,16 @@ Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaa
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
-| Aliens Armageddon | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
+| Aliens Armageddon | RAW Thrills Linux PC Based | 2026-10-15 NATIVE route werkt (dongle-hook, RIO-brug fork-bestendig, rg-glslfix, PTRACER): attract, kalibratie, spel; GEBLOKKEERD: 16 .g6-modellen ontbreken in de NAS-map (brute*, buddy*, bullet, burn_*, cams, camtest2, capella, c_interior*) |
 | Aliens: Extermination | Global VR PC Based | tp-shm AliensExtermination (uit TeknoParrotUi); getest 2026-10-15: valt na ~18 s op 0x456DF1 in beschermde code (HASP4/USB-HID?) |
 | America's Army Arcade | Global VR PC Based | native (Global VR Linux, ElfLdr2) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
 | Friction | Unique PC Based | 2026-10-15: onder gamescope draait UpdateWindow eindeloos (zwart); zonder gamescope laadschermen met 60 fps, daarna zwart met 7 fps |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
-| Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
+| Walking Dead | RAW Thrills Linux PC Based | 2026-10-15 native: slottabel 806/806, RG_ELF_MAIN, libcaca-stub, dongle-hook; "Welcome to Walking Dead"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 
-## pass 2 (24)
+## pass 2 (23)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -72,8 +72,7 @@ Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaa
 | Elevator Action Death Parade | Taito Type X2 | profiel + tp-shm EADP (2026-10-15): zwart, opent de JVS-pipe niet (zoals Gaia Attack 4) |
 | Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Ghostbusters | ICE/RT Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
+| Ghostbusters | ICE/RT Linux PC Based | 2026-10-15 native: dongle-hook, RIO-brug; "Welcome to Ghostbusters"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
 | Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Haunted Museum II | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
@@ -92,7 +91,7 @@ Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaa
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (14)
+## overgeslagen (15)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -110,3 +109,4 @@ Stand: 37 van 69 titels WORKING (54%); doel 90% = 63 titels; sessiedoel (eigenaa
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Gashaaaan Refill en Go Go Strike |
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
+| Galaga Assault | RAW Thrills Linux PC Based | 2026-10-15: spelbestanden niet op de NAS (geen map, geen view); verborgen in de app, zoals Pacman Chomp-Mania |
