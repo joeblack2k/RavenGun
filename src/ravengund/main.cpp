@@ -518,10 +518,22 @@ int main(int argc, char** argv) {
         games_cfg.start_route = [&shared](const std::string& game, const std::string& route) -> std::string {
             return shared.iobridge ? shared.iobridge->start(game, route) : std::string("geen IO-brug");
         };
-        games_cfg.stop_inputs = [&shared] {
+        // [Display] AimAspect: de viewport van de lightgun per game; daarna (en bij stoppen) weer de standaard van de start.
+        const ravengun::output::GunTransform basis_transform = out_transform;
+        games_cfg.set_aim_aspect = [&shared, basis_transform, screen_aspect](double a) {
+            if (!shared.output) return;
+            ravengun::output::GunTransform t = basis_transform;
+            if (a > 0) t.viewport = ravengun::output::letterbox_viewport(screen_aspect, a);
+            shared.output->set_transform(t);
+            logf("info", "games: aim-ruimte %s", a > 0 ? ("op het beeld van het spel (" + std::to_string(a).substr(0, 5) + ")").c_str() : "standaard");
+        };
+        games_cfg.stop_inputs = [&shared, basis_transform] {
             if (shared.iobridge) shared.iobridge->stop();
             if (shared.aagames) shared.aagames->stop();   // de TCP-klant van de Unity-plugin
-            if (shared.output) shared.output->disarm();
+            if (shared.output) {
+                shared.output->disarm();
+                shared.output->set_transform(basis_transform);
+            }
         };
         if (!np.json.empty()) logf("info", "games: native profielen uit %s start de daemon zelf (zonder script)", np.json.c_str());
         // De Unity-route zonder script (packaging/aagames-games.json, src/ravengun/launch/unity.*): view, Proton, TCP-klant.

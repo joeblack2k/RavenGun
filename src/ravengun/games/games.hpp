@@ -73,6 +73,9 @@ struct Config {
     std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
     std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)
+    // [Display] AimAspect van de game (breedte/hoogte van het beeld van het spel op de tv, bv. 4:3): de daemon legt de aim-ruimte
+    // van de lightgun op dat deel van het scherm (pillarbox/letterbox). 0 = terug naar de standaard. Leeg = niet ondersteund.
+    std::function<void(double content_aspect)> set_aim_aspect;
     // De Unity-route zonder script. Leeg unity.json = Unity-games via het script.
     ravengun::launch::UnityPaths unity;
     int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis

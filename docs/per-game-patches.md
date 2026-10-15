@@ -157,6 +157,10 @@ ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink na
 ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 
+[Display]
+AimAspect =                   ; bv. 4:3 of 1024x768: het beeld van het spel op de tv; de daemon legt de aim-ruimte van de lightgun
+                              ; voor deze game op dat deel van het scherm (pillarbox/letterbox) en zet hem bij stoppen terug
+
 [Loader]
 RemoteThread = off            ; off = standaardroute van de lader; 1 = remote thread; leeg = niet gezet (de launcher kiest 1)
 PostStartMs =                 ; TP_POSTSTART_REMOTETHREAD_MS

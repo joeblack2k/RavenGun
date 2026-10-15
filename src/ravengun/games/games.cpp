@@ -777,11 +777,24 @@ std::string GameService::wait_lightgun() {
     return {};
 }
 
+// [Display] AimAspect = 4:3 | 5:3 | 1024x768 | 1.333: het beeld van het spel op de tv. 0 = niet gezet of onleesbaar.
+static double aim_aspect_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
+    const std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Display", "AimAspect");
+    if (v.empty()) return 0;
+    double a = 0, b = 0;
+    char sep = 0;
+    if (std::sscanf(v.c_str(), " %lf %c %lf", &a, &sep, &b) == 3 && (sep == ':' || sep == 'x' || sep == 'X' || sep == '/') && a > 0 && b > 0)
+        return a / b;
+    if (std::sscanf(v.c_str(), " %lf", &a) == 1 && a > 0.2 && a < 5) return a;
+    return 0;
+}
+
 std::string GameService::run_direct(const std::string& profile, const ravengun::launch::DirectInput& in) {
     namespace L = ravengun::launch;
     // 1. Een lightgun, dan wapenen; de virtuele lightgun en het toetsenbord moeten er zijn voordat de game zijn invoer opent.
     if (std::string e = wait_lightgun(); !e.empty()) return e;
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
+    if (c_.set_aim_aspect) c_.set_aim_aspect(aim_aspect_of(c_.direct.dirs, profile));
     auto fail = [&](const std::string& m) { if (c_.stop_inputs) c_.stop_inputs(); return m; };
     if (!c_.input_by_id.empty())
         for (const char* dev : {"usb-RavenGun_Virtual_Lightgun-event-mouse", "usb-RavenGun_Virtual_Keyboard-event-kbd"}) {
@@ -904,6 +917,7 @@ std::string GameService::run_native(const std::string& profile) {
     if (!L::plan(pr, c_.native, po, pl, err)) return err;
     // 3. Invoer: uitvoer wapenen, dan de route van het profiel (tp-shm: de daemon schrijft het bordbeeld; evdev: de brug dicht).
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
+    if (c_.set_aim_aspect) c_.set_aim_aspect(aim_aspect_of(c_.direct.dirs, profile));
     if (c_.start_route) {
         const std::string e = c_.start_route(profile, pr.route.empty() ? std::string("evdev") : pr.route);
         if (!e.empty()) { if (c_.stop_inputs) c_.stop_inputs(); return "IO-brug: " + e; }
