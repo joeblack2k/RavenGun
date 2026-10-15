@@ -478,6 +478,23 @@ int main() {
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && dp.dxvk_dir.empty());
         write(ugi, "[Launch]\nDxvk = misschien\n");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "Dxvk = misschien"));
+        // [Launch] Gst32: de 32-bits GStreamer uit <data>/gst32 (of RAVENGUN_GST32) in LD_LIBRARY_PATH en het plug-inpad.
+        write(ugi, "[Launch]\nGst32 = true\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "setup-gst32.sh"));
+        const fs::path gst = root / "gst32";
+        write(gst / "proton/libgstreamer-1.0.so.0", "x");
+        fs::create_directories(gst / "plugins");
+        fs::create_directories(gst / "lib");
+        DirectOptions o3 = o;
+        o3.base_env["RAVENGUN_GST32"] = gst.string();
+        o3.base_env["LD_LIBRARY_PATH"] = "/al/eerder";
+        CHECK(plan_direct("Spel", p, o3, dp, w) == Verdict::Ok);
+        CHECK(dp.env.count("LD_LIBRARY_PATH") && dp.env.at("LD_LIBRARY_PATH") == (gst / "proton").string() + ":" + (gst / "lib").string() + ":/al/eerder");
+        CHECK(dp.env.count("GST_PLUGIN_SYSTEM_PATH_1_0") && dp.env.at("GST_PLUGIN_SYSTEM_PATH_1_0") == (gst / "plugins").string());
+        CHECK(dp.launch_env.count("GST_REGISTRY_1_0"));
+        write(ugi, "[Launch]\nGst32 = soms\n");
+        CHECK(plan_direct("Spel", p, o3, dp, w) == Verdict::Refused && contains(w, "Gst32 = soms"));
+        fs::remove_all(gst);
         fs::remove(ugi);
         fs::remove_all(steam);
         fs::remove_all(eigen);

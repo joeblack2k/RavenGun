@@ -6,12 +6,13 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 23 van 82 titels WORKING (28%); doel 90% = 74 titels. Pass 1: 14, pass 2: 45, overgeslagen: 1.
+Stand: 24 van 82 titels WORKING (29%); doel 90% = 74 titels. Pass 1: 14, pass 2: 44, overgeslagen: 1.
 
-## WORKING (23)
+## WORKING (24)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
+| Bug Busters | EM-Teck PC Based | Gst32 (films); draait in een venster |
 | Drakons: Realm Keepers | Adrenaline Amusements PC-Based |  |
 | Dream Raiders | SEGA RingWide |  |
 | Elevator Action Invasion | UNIS PC Based |  |
@@ -55,14 +56,13 @@ Stand: 23 van 82 titels WORKING (28%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (45)
+## pass 2 (44)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Action Deka | Konami PC Based | getest 2026-10-14: lader exitcode 5 direct na laden; diagnose loopt |
 | After Dark | UNIS PC Based | getest 2026-10-14: MFC 9.0 in de gedeelde prefix lost "Failed to run the process" op; nu een venster "Initialization Error" |
 | Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
-| Bug Busters | EM-Teck PC Based | getest 2026-10-14 (2x, ook met view en lege video-map): munt+START tot MODE SELECT, daarna exitcode 5; oorzaak open |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | Taito Type X2 / OpenParrot |
 | Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |

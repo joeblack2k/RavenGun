@@ -158,6 +158,12 @@ if [[ ! -e "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/dxvk/current" && -x "$
   bash "$DATA/scripts/fetch-dxvk.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/dxvk" ||
     echo "DXVK could not be fetched now; games with Dxvk = true will use the DXVK of an installed Proton, or run $DATA/scripts/fetch-dxvk.sh later." >&2
 fi
+# 32-bits GStreamer voor films in games met [Launch] Gst32 = true (docs/gst32.md): links naar Proton van Steam, niets gedownload.
+if [[ ! -e "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/gst32/proton" && -x "$DATA/scripts/setup-gst32.sh" ]]; then
+  say "Linking a 32-bit GStreamer from Steam's Proton for game videos"
+  bash "$DATA/scripts/setup-gst32.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/gst32" ||
+    echo "No Proton with a 32-bit GStreamer found; games with Gst32 = true need Proton in Steam, then run $DATA/scripts/setup-gst32.sh." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"

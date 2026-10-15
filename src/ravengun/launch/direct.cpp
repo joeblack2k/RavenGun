@@ -1617,6 +1617,25 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused(std::string("[Launch] Dxvk = true, maar DXVK (") + (is64 ? "64" : "32") + " bits) is niet gevonden: draai "
                                    "scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)");
     }
+    // 6e. [Launch] Gst32: een 32-bits GStreamer voor films via DirectShow/Media Foundation (docs/gst32.md). SteamOS heeft er geen; Proton
+    // van Steam wel. scripts/setup-gst32.sh zet die klaar in <data>/ravengun/gst32 (proton/, plugins/, lib/). Bug Busters viel zonder
+    // na MODE SELECT: "Failed to create filter for GStreamer splitter filter", dan een NULL-lezing (bench 2026-10-15).
+    if (const std::string gs = lower(trim(lini("Gst32"))); !gs.empty() && gs != "false" && gs != "0" && gs != "off") {
+        if (gs != "true" && gs != "1" && gs != "on") return setting_refused("[Launch] Gst32 = " + lini("Gst32") + " (true of false)");
+        std::string g = getenv_or(env, "RAVENGUN_GST32");
+        if (g.empty()) g = p.home + "/.local/share/ravengun/gst32";
+        if (!isdir(pjoin(g, "plugins")) || !isdir(pjoin(g, "proton")) || !isfile(pjoin(g, "proton/libgstreamer-1.0.so.0")))
+            return setting_refused("[Launch] Gst32 = true, maar de 32-bits GStreamer staat niet klaar in " + g +
+                                   ": draai scripts/setup-gst32.sh (leest hem uit Proton van Steam; docs/gst32.md)");
+        auto voeg = [&](const std::string& k, const std::string& v) {
+            const std::string oud = getenv_or(env, k);
+            launch[k] = oud.empty() ? v : v + ":" + oud;
+            env[k] = launch[k];
+        };
+        voeg("LD_LIBRARY_PATH", pjoin(g, "proton") + ":" + pjoin(g, "lib"));
+        launch["GST_PLUGIN_SYSTEM_PATH_1_0"] = env["GST_PLUGIN_SYSTEM_PATH_1_0"] = pjoin(g, "plugins");
+        launch["GST_REGISTRY_1_0"] = env["GST_REGISTRY_1_0"] = pjoin(g, "registry.i386.bin");
+    }
 
     // 7. De JVS-brug en de procesnamen.
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
