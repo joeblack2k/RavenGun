@@ -7,9 +7,9 @@
   "games": {
     "Halo": {
       "title": "Halo: Fireteam Raven",
-      "enabled": false,
-      "status": "geparkeerd",
-      "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot), gemeten 2026-10-15: Story Mode 5,5 minuten gespeeld met trekker, richtpunt en herladen. Geweren: tools/rt-irtrack doet twee IRTrack-camera's (FTDI) na in het spel en geeft het richtpunt rechtstreeks (patches/Halo/irtrack.ini, IRTRACK-PROTOCOL.md); het kasttype 8 (STANDARD MOUNTED) komt uit dezelfde tabel. Invoer van de kast: tools/rt-input-shim (rt-invoer.ini), met de vlag 'fabrieksinstelling klaar' (0x174a220). Adjustments in de schrijflaag (seed): freeplay, hardware/p1gun en p2gun (zonder p%igun doet een speler niet mee). Geluid: tools/fmod-stub (stil). QR-scanners: tools/v4l2-fake (fake_video: 2). Open: bij elke start de WELCOME-wizard (TEST begint, per geweer TEST = kalibratie overslaan, TEST = connectiviteit verlaten) en de START van speler 2 (CabStart1) zit nog niet op een gemeten schakelaar. Tot dan blijft de route uit; Halo speelt via BudgieLoader.",
+      "enabled": true,
+      "status": "werkt",
+      "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot), gemeten 2026-10-15: start met een dubbelklik in de attract (geen WELCOME-wizard, geen 'Factory Setup', geen 'GUN NOT CONNECTED'); Story Mode 5,5 minuten gespeeld met trekker, richtpunt en herladen. Geweren: tools/rt-irtrack doet twee IRTrack-camera's (FTDI) na in het spel en geeft het richtpunt rechtstreeks (patches/Halo/irtrack.ini, IRTRACK-PROTOCOL.md); het kasttype 8 (STANDARD MOUNTED) komt uit dezelfde tabel. Kastinvoer: tools/rt-input-shim (rt-invoer.ini), met de vlag 'fabrieksinstelling klaar' (0x174a220). Seeds in de schrijflaag: freeplay, hardware/p1gun en p2gun (zonder p%igun doet een speler niet mee) en de kalibratie-audits gun0/gun1Calibration (zonder die audits toont het spel bij elke start de WELCOME-wizard). De rechterspeler is in deze kast intern speler 3 (CabStart3, gun 1, p2gun). Geluid: tools/fmod-stub (stil; echte FMOD Studio 1.10 ontbreekt). QR-scanners: tools/v4l2-fake (fake_video: 2).",
       "arch": "x86_64",
       "mounts": [
         {
@@ -31,6 +31,16 @@
         {
           "src": "@nas/Halo Fireteam/g7/halo/utils/run_game.sh_original",
           "dst": "/pm/g7/halo/utils/run_game.sh"
+        },
+        {
+          "src": "@nas/Halo Fireteam/g7/halo/game",
+          "dst": "/pm/g7/bin/game",
+          "note": "de uitgepakte game draait vanaf een eigen pad"
+        },
+        {
+          "src": "@nas/Halo Fireteam/g7/halo/game_original",
+          "dst": "/pm/g7/halo/game",
+          "note": "de bestandstest van de game leest /pm/g7/halo/game: zo ziet hij het origineel en slaagt hij (gemeten 2026-10-15; met de uitgepakte game: 'FileSystem integrity test failed!' en wachten op START)"
         }
       ],
       "libdirs": [
@@ -48,10 +58,34 @@
         {
           "src": "@patches/Halo/data/adj/playerCost",
           "dst": "/pm/g7/halo/pmuser/adj/save/playerCost"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun0Calibration.0.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.0.xml"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun0Calibration.1.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.1.xml"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun0Calibration.2.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.2.xml"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun1Calibration.0.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.0.xml"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun1Calibration.1.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.1.xml"
+        },
+        {
+          "src": "@patches/Halo/data/aud/gun1Calibration.2.xml",
+          "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.2.xml"
         }
       ],
       "preload": "/rg/lib/librg_rt_input.so:/rg/lib/librg_v4l2_fake.so:/rg/lib/librg_irtrack.so:/pm/g7/halo/halo.so",
-      "exe": "/pm/g7/halo/game",
+      "exe": "/pm/g7/bin/game",
       "cwd": "/pm/g7/halo",
       "home": "/pm/g7/halo",
       "args": [
