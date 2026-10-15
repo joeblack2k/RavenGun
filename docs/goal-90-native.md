@@ -52,7 +52,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Aliens Armageddon | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
-| Aliens: Extermination | Global VR PC Based | profiel + direct, Global VR |
+| Aliens: Extermination | Global VR PC Based | tp-shm AliensExtermination (uit TeknoParrotUi); getest 2026-10-15: valt na ~18 s op 0x456DF1 in beschermde code (HASP4/USB-HID?) |
 | America's Army Arcade | Global VR PC Based | native (Global VR Linux, ElfLdr2) |
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |

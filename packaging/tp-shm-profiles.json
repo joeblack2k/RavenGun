@@ -1165,6 +1165,122 @@
     }
    ],
    "offscreen_margin": 0
+  },
+  "AliensExtermination": {
+   "description": "Aliens: Extermination (Global VR, profiel AliensExtermination). Control (32 bits op offset 8; TeknoParrotUi AliensExterminationPipe): test 0x40, service (Select) 0x80, volume omhoog 0x8000 en omlaag 0x10000, munt 1/2 0x400/0x800, speler 1 start 0x100, trekker 0x200, special 0x10 (bij ons granaat), vlam 0x20 (bij ons extra knop 1); speler 2 start 0x2000, trekker 0x4000, special 0x04, vlam 0x08. Richtingen (0x100000.., niet gekoppeld). Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "coin2",
+     "offset": 8,
+     "bit": 11
+    },
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 15
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 16
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 13
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 14
+    },
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p2.aux1",
+     "offset": 8,
+     "bit": 3
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
   }
  }
 }
