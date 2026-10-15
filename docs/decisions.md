@@ -727,3 +727,20 @@ controleerde voor die profielen dat de TeknoParrotUi-activering aanwezig was (`n
 - **Wat NIET verandert.** We kraken of omzeilen TeknoParrots activering niet (we roepen de controle alleen niet meer aan op onze eigen stack),
   en de echte **game-beveiliging — dongle, keychip, integriteit — blijft volledig gerespecteerd en onaangeroerd**. Alleen USB-pass-through van
   een echte fysieke dongle, zoals eerder vastgelegd.
+
+## 2026-10-15 — Geluid voor Halo native: FMOD-wrapper met de echte FMOD 1.10.2 onder Wine, STEREO of LPCM 5.1
+
+- **Probleem.** Halo vraagt FMOD Studio 1.10 (`libfmod.so.10`, `libfmodstudio.so.10`). Die is propriëtair; een Linux-versie staat nergens
+  (niet op de NAS, niet in TeknoParrot, niet op het systeem). TeknoParrot levert wel de Windows-versie 1.10.2 mee (`ElfLdr2/x64/libs/fmod64.dll`,
+  `fmodstudio64.dll`; gemeten: FileVersion 1.10.2 build 92217), dezelfde versie als de banks van Halo.
+- **Besluit.** Een wrapper in twee delen (`tools/fmod-bridge/`). In het spel `libfmod.so.10`/`libfmodstudio.so.10` met de 60 namen die Halo
+  gebruikt; elke aanroep gaat over een pijp naar `rg-fmod-host.exe`, dat de wrapper in de sandbox onder Wine start en dat de echte FMOD via
+  de C-API aanroept. Callbacks komen terug in het antwoord op `update()` en lopen op de draad van de game. Geen FMOD-code in onze repo's;
+  de DLL's komen uit de eigen TeknoParrot-installatie van de gebruiker (`ro-try`: zonder die DLL's start Halo gewoon, zonder geluid).
+- **Niet gekozen.** De DLL's in het Linux-proces laden (een groot deel van Windows nabouwen: statische CRT, TLS, uitzonderingen, WASAPI/COM);
+  zelf banks en FSB5/Vorbis afspelen (eventlogica van FMOD nabouwen).
+- **5.1.** De mix van Halo zelf is stereo (gemeten: ook met FMOD in 5.1 alleen FL/FR). Voor LPCM 5.1 zet de wrapper een eigen DSP op de
+  master van FMOD: FL/FR blijven, midden = som, LFE = som door 120 Hz laagdoorlaat, achter = verschil (L-R), 15 ms later en boven 7 kHz zachter.
+  PipeWire-upmix viel af: Wine opent het 7.1-apparaat met 8 kanalen, dus er valt voor PipeWire niets op te mengen.
+- **Keuze voor de gebruiker.** In de opties van de game in de app: "Audio output" = STEREO of LPCM 5.1 (`[Audio] Speakers` in game.ini,
+  gebruikerslaag; de daemon geeft het als `RG_FMOD_SPEAKERS` aan de native start). Standaard LPCM 5.1.

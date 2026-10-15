@@ -200,6 +200,15 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     target_compile_options(rg_irtrack PRIVATE -Wall -Wextra -Wno-pedantic -fno-stack-protector)
     target_link_libraries(rg_irtrack PRIVATE pthread ${CMAKE_DL_LIBS})
     set_target_properties(rg_irtrack PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_irtrack" C_VISIBILITY_PRESET default)
+    # FMOD-wrapper voor Halo (tools/fmod-bridge): libfmod.so.10 en libfmodstudio.so.10 uit een bron, in build/fmod (de libdir van het
+    # profiel); de echte FMOD 1.10.2 draait onder Wine in rg-fmod-host.exe (scripts/build-fmod-bridge.sh, patches/Halo/data/fmod).
+    foreach(_fm fmod fmodstudio)
+      add_library(rg_${_fm}10 SHARED tools/fmod-bridge/fmod_bridge.c)
+      target_compile_options(rg_${_fm}10 PRIVATE -Wall -Wextra -Wno-pedantic -fvisibility=hidden)
+      target_link_libraries(rg_${_fm}10 PRIVATE pthread)
+      set_target_properties(rg_${_fm}10 PROPERTIES PREFIX "lib" OUTPUT_NAME "${_fm}" SUFFIX ".so.10" C_VISIBILITY_PRESET hidden
+                            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fmod")
+    endforeach()
     # Invoerbrug voor het RIO-lightgun-bord van de native Raw Thrills-Unity-route (NERF): librio.so van de game leest het bordbeeld
     # van de IO-brug (tools/rio-bridge/, tabel patches/<Game>/rio-invoer.ini).
     add_library(rg_rio_bridge SHARED tools/rio-bridge/rg_rio_bridge.c)
@@ -542,6 +551,7 @@ if(RAVENGUN_BUILD_DAEMON)
 endif()
 if(TARGET rg_comm_shim)
   install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge rg_v4l2_fake rg_irtrack LIBRARY DESTINATION lib)
+  install(TARGETS rg_fmod10 rg_fmodstudio10 LIBRARY DESTINATION lib/fmod)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"

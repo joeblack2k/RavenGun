@@ -432,14 +432,20 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
     std::vector<Ovl> ovl;
     for (size_t n = 0; n < pr.mounts.size(); ++n) {
         const Mount& m = pr.mounts[n];
-        if (!is_dir(m.src)) { err = "bron ontbreekt: " + m.src; return false; }
+        if (!is_dir(m.src)) {
+            // ro-try: iets wat de gebruiker zelf heeft of niet (de FMOD-DLL's van een TeknoParrot-installatie); zonder bron start de
+            // game gewoon, en wie de bron nodig heeft valt zelf terug (de FMOD-wrapper speelt dan stil).
+            if (m.mode == "ro-try") { out.notes.push_back("bron ontbreekt, niet gekoppeld: " + m.src + " -> " + m.dst); continue; }
+            err = "bron ontbreekt: " + m.src;
+            return false;
+        }
         if (m.mode == "overlay") {
             const std::string up = ovlbase + "/" + std::to_string(n) + "/upper", wk = ovlbase + "/" + std::to_string(n) + "/work";
             out.layer.push_back({LayerStep::Kind::Mkdir, {}, up, {}, {}});
             out.layer.push_back({LayerStep::Kind::Mkdir, {}, wk, {}, {}});
             bw.insert(bw.end(), {"--overlay-src", m.src, "--overlay", up, wk, m.dst});
             ovl.push_back({m.dst, m.src, up});
-        } else if (m.mode == "ro") {
+        } else if (m.mode == "ro" || m.mode == "ro-try") {
             bw.insert(bw.end(), {"--ro-bind", m.src, m.dst});
         } else {
             err = "onbekende mount-modus: " + m.mode;
@@ -614,6 +620,7 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
     const std::string preload = lb_preload.empty() ? pr.preload : pr.preload.empty() ? lb_preload : lb_preload + ":" + pr.preload;
     if (!preload.empty()) bw.insert(bw.end(), {"--setenv", "LD_PRELOAD", preload});
     for (const auto& [k, v] : pr.env) bw.insert(bw.end(), {"--setenv", k, v});
+    for (const auto& [k, v] : o.env) bw.insert(bw.end(), {"--setenv", k, v});
     for (const auto& [k, v] : table_env) bw.insert(bw.end(), {"--setenv", k, v});
 
     // Schone omgeving voor gamescope (en dus voor bwrap): alleen wat nodig is; gamescope voegt DISPLAY e.d. toe voor zijn kind.

@@ -21,6 +21,16 @@
           "src": "@nas/Halo Fireteam/g7/dump",
           "dst": "/pm/g7/dump",
           "mode": "ro"
+        },
+        {
+          "src": "@data/wine/proton-11.0-2",
+          "dst": "/rg/wine",
+          "mode": "ro-try"
+        },
+        {
+          "src": "@tpui/ElfLdr2/x64/libs",
+          "dst": "/rg/fmodwin",
+          "mode": "ro-try"
         }
       ],
       "files": [
@@ -45,9 +55,9 @@
       ],
       "libdirs": [
         {
-          "src": "@data/runtime/lib-fmodstub",
+          "src": "@build/fmod",
           "dst": "/rg/libfmod",
-          "note": "FMOD 1.10 ontbreekt (propriëtair); de stub geeft geen geluid"
+          "note": "FMOD-wrapper (tools/fmod-bridge): libfmod.so.10 en libfmodstudio.so.10 sturen de aanroepen naar rg-fmod-host.exe, dat onder Wine de echte FMOD Studio 1.10.2 (fmod64.dll, fmodstudio64.dll uit de TeknoParrot-installatie van de gebruiker) draait; STEREO of LPCM 5.1 via de opties van de game ([Audio] Speakers)"
         }
       ],
       "seed": [
@@ -96,8 +106,15 @@
       "libs": [
         "@build/librg_rt_input.so",
         "@build/librg_v4l2_fake.so",
-        "@build/librg_irtrack.so"
+        "@build/librg_irtrack.so",
+        "@patches/Halo/data/fmod/rg-fmod-host.exe"
       ],
+      "env": {
+        "RG_FMOD_WINE": "/rg/wine/bin/wine",
+        "RG_FMOD_HOST": "/rg/lib/rg-fmod-host.exe",
+        "RG_FMOD_DLLDIR": "/rg/fmodwin",
+        "WINEPREFIX": "/pm/g7/halo/rg-fmod-prefix"
+      },
       "extra_ro": [
         "/dev/shm/ravengun_JvsState"
       ],

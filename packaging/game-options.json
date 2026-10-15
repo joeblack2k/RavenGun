@@ -405,6 +405,24 @@
      "source": [
       "repo:packaging/games-status.md"
      ]
+    },
+    {
+     "key": "audio.speakers",
+     "name_en": "Audio output",
+     "type": "enum",
+     "values": [
+      "STEREO",
+      "LPCM 5.1"
+     ],
+     "default": "LPCM 5.1",
+     "target": {
+      "kind": "launch_env",
+      "name": "RG_FMOD_SPEAKERS"
+     },
+     "description_en": "Native route: STEREO plays the game's own stereo mix; LPCM 5.1 sends 6-channel PCM (front, center, LFE, surround) made from the game's stereo mix by RavenGun's FMOD wrapper. Applies at the next start.",
+     "source": [
+      "ravengun:fmod-bridge"
+     ]
     }
    ],
    "memory_card": {
@@ -12493,7 +12511,7 @@
  "counts": {
   "games": 33,
   "games_with_tp_profile": 32,
-  "options": 529,
+  "options": 530,
   "memory_card_items": 67
  }
 }

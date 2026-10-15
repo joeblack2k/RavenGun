@@ -634,6 +634,7 @@ ENV_MAP = [
     ("Input", "JvsDebug", "RG_JVS_DEBUG", "boolT"),
     ("Input", "JvsIdent", "RG_JVS_IDENT", ""),
     ("Input", "JvsFeatures", "RG_JVS_FEATURES", ""),
+    ("Audio", "Speakers", "RG_FMOD_SPEAKERS", ""),
 ]
 ENV_BY_VAR = {m[2]: m for m in ENV_MAP}
 # Variabele die alleen de patch "gedeelde lader-patch" aanzet (oude naam; alleen voor de .env-terugval en de migratie).

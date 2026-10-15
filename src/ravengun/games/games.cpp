@@ -795,6 +795,17 @@ static double aim_aspect_of(const ravengun::gamesettings::Dirs& dirs, const std:
     return 0;
 }
 
+// [Audio] Speakers uit game.ini ("STEREO" of "LPCM 5.1", zoals de opties van de app hem schrijven) als waarde voor de FMOD-wrapper:
+// "stereo" of "5.1". Leeg = niets gekozen (de wrapper gebruikt dan zijn standaard, 5.1).
+static std::string speakers_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
+    std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Audio", "Speakers");
+    for (char& ch : v) ch = (char)std::tolower((unsigned char)ch);
+    if (v.find("stereo") != std::string::npos) return "stereo";
+    if (v.find("5.1") != std::string::npos) return "5.1";
+    if (v.find("7.1") != std::string::npos) return "7.1";
+    return {};
+}
+
 std::string GameService::run_direct(const std::string& profile, const ravengun::launch::DirectInput& in) {
     namespace L = ravengun::launch;
     // 1. Een lightgun, dan wapenen; de virtuele lightgun en het toetsenbord moeten er zijn voordat de game zijn invoer opent.
@@ -920,6 +931,8 @@ std::string GameService::run_native(const std::string& profile) {
     if (const char* w = std::getenv("WAYLAND_DISPLAY"); w && *w) po.wayland_display = w;
     if (const char* d = std::getenv("DISPLAY"); d && *d) po.host_display = d;
     if (const char* x = std::getenv("XAUTHORITY"); x && *x) po.host_xauthority = x;
+    // Geluid (FMOD-wrapper, tools/fmod-bridge): de keuze uit de opties van de game ([Audio] Speakers in game.ini, de gebruikerslaag gaat voor).
+    if (const std::string spk = speakers_of(c_.direct.dirs, profile); !spk.empty()) po.env.emplace_back("RG_FMOD_SPEAKERS", spk);
     if (!L::plan(pr, c_.native, po, pl, err)) return err;
     // 3. Invoer: uitvoer wapenen, dan de route van het profiel (tp-shm: de daemon schrijft het bordbeeld; evdev: de brug dicht).
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }

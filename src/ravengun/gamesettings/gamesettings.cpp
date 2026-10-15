@@ -562,6 +562,7 @@ const EnvMapEntry kEnvMap[] = {
     {"Input", "JvsDebug", "RG_JVS_DEBUG", "boolT"},
     {"Input", "JvsIdent", "RG_JVS_IDENT", ""},
     {"Input", "JvsFeatures", "RG_JVS_FEATURES", ""},
+    {"Audio", "Speakers", "RG_FMOD_SPEAKERS", ""},   // FMOD-wrapper (tools/fmod-bridge): STEREO of LPCM 5.1
 };
 const size_t kEnvMapCount = sizeof(kEnvMap) / sizeof(kEnvMap[0]);
 
