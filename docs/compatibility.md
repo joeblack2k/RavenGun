@@ -57,7 +57,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (25)
+## Not tested yet (24)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -85,7 +85,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
 - **Transformers: Human Alliance**: Profile from the TeknoParrot template (2026-10-15). Measured: in gamescope (Windowed 0) and with a 1920x1080 Wine virtual desktop the exe runs (~60% CPU) but stays black and never opens the JVS pipe (2+ min). Open.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
-- **Wartran Troopers**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
 
 ## Not working yet (11)
 

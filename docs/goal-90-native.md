@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 36 van 75 titels WORKING (48%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 29, overgeslagen: 8.
+Stand: 36 van 74 titels WORKING (49%); doel 90% = 67 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 28, overgeslagen: 9.
 
 ## WORKING (36)
 
@@ -64,7 +64,7 @@ Stand: 36 van 75 titels WORKING (48%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (29)
+## pass 2 (28)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -96,9 +96,8 @@ Stand: 36 van 75 titels WORKING (48%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Transformers: Shadows Rising | Windows PC | bevriest ~1 min na START: SHELL_MSG_CHALLENGE (onderzoek loopt) |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
-| Wartran Troopers | Konami PC Based | getest 2026-10-14: zwart beeld (wined3d en DXVK d3d9), game.exe draait; diagnose loopt |
 
-## overgeslagen (8)
+## overgeslagen (9)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -110,3 +109,4 @@ Stand: 36 van 75 titels WORKING (48%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Medaru No Gunman | SEGA RingWide | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
 | Omatsuri Yasan - Ganso Takoyaki | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
 | Omatsuri Yasan - Kingyo Sukui | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
+| Wartran Troopers | Konami PC Based | skip-regel eigenaar 2026-10-15: 4:3 (twee schermen van 640x480 gemeten in de DXVK-log, TP-profiel met bezel-optie); map naar emulation/skipped |

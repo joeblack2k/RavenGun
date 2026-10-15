@@ -15,9 +15,18 @@
  *    0x700 / 0x500 / 0x300) aan; Wine weigert een lege HINSTANCE met DIERR_INVALIDPARAM en de speler stopt met "Initalization
  *    Error - Cannot Initalize Input Manager" (WINEDEBUG=+dinput, 2026-10-15). De fix vult dan GetModuleHandle(NULL) in.
  *
+ * 3. Meetinstrument, alleen met RG_COMPAT_SAMPLE=<ms> in de omgeving: een draad die elke <ms> milliseconden de andere draden
+ *    van het proces kort stilzet (SuspendThread + GetThreadContext) en hun instructiewijzer telt, met de eerste twee
+ *    terugkeeradressen op de stapel die in het hoofdbeeld vallen. Elke 5 s schrijft hij per draad de meest geziene plekken als
+ *    module+RVA naar RG_COMPAT_SAMPLE_LOG (Windows-pad; standaard %TEMP%\rg-compat-<pid>.txt, in de prefix). Zo is een
+ *    bezige lus of een wachtende draad te vinden zonder ptrace of debugger (winedbg legt de games om; ptrace_scope = 1).
+ *
  * BOUWEN: scripts/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
+#include <tlhelp32.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* ---------------------------------------------------------------- IAT */
@@ -96,10 +105,140 @@ static HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD
     return hr;
 }
 
+/* --------------------------------------------- 3. RG_COMPAT_SAMPLE (meten) */
+
+#define SAMPLE_SLOTS 8192
+typedef struct {
+    DWORD tid;
+    ULONG_PTR pc, c1, c2;
+    unsigned count;
+} sample_t;
+static sample_t samples[SAMPLE_SLOTS];
+static ULONG_PTR exe_lo, exe_hi;
+
+static void sample_add(DWORD tid, ULONG_PTR pc, ULONG_PTR c1, ULONG_PTR c2) {
+    size_t h = ((size_t)tid * 2654435761u ^ pc ^ (c1 << 7) ^ (c2 << 13)) % SAMPLE_SLOTS;
+    for (size_t i = 0; i < SAMPLE_SLOTS; ++i, h = (h + 1) % SAMPLE_SLOTS) {
+        sample_t *s = &samples[h];
+        if (s->count && (s->tid != tid || s->pc != pc || s->c1 != c1 || s->c2 != c2)) continue;
+        s->tid = tid, s->pc = pc, s->c1 = c1, s->c2 = c2, s->count++;
+        return;
+    }
+}
+
+static void where(ULONG_PTR a, char *out, size_t n) {
+    HMODULE m = NULL;
+    char path[MAX_PATH];
+    if (!a) {
+        snprintf(out, n, "-");
+        return;
+    }
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)a, &m) && m &&
+        GetModuleFileNameA(m, path, sizeof path)) {
+        const char *b = strrchr(path, '\\');
+        snprintf(out, n, "%s+0x%lx", b ? b + 1 : path, (unsigned long)(a - (ULONG_PTR)m));
+    } else {
+        snprintf(out, n, "%p", (void *)a);
+    }
+}
+
+static int by_count(const void *a, const void *b) {
+    const sample_t *x = a, *y = b;
+    if (x->tid != y->tid) return x->tid < y->tid ? -1 : 1;
+    return (int)y->count - (int)x->count;
+}
+
+static void sample_dump(const char *path, unsigned rounds) {
+    static sample_t copy[SAMPLE_SLOTS];
+    size_t n = 0;
+    for (size_t i = 0; i < SAMPLE_SLOTS; ++i)
+        if (samples[i].count) copy[n++] = samples[i];
+    qsort(copy, n, sizeof *copy, by_count);
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    fprintf(f, "rg-compat sample %02d:%02d:%02d pid %lu, %u rondes; per draad de 12 meest geziene plekken (aantal pc | aanroeper 1 | aanroeper 2)\n",
+            t.wHour, t.wMinute, t.wSecond, (unsigned long)GetCurrentProcessId(), rounds);
+    DWORD cur = 0;
+    int shown = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (copy[i].tid != cur) cur = copy[i].tid, shown = 0, fprintf(f, "draad %lu\n", (unsigned long)cur);
+        if (shown++ >= 12) continue;
+        char a[300], b[300], c[300];
+        where(copy[i].pc, a, sizeof a), where(copy[i].c1, b, sizeof b), where(copy[i].c2, c, sizeof c);
+        fprintf(f, "  %6u %s | %s | %s\n", copy[i].count, a, b, c);
+    }
+    fclose(f);
+}
+
+static DWORD WINAPI sample_thread(LPVOID arg) {
+    const DWORD ms = (DWORD)(ULONG_PTR)arg, self = GetCurrentThreadId(), pid = GetCurrentProcessId();
+    char path[MAX_PATH];
+    if (!GetEnvironmentVariableA("RG_COMPAT_SAMPLE_LOG", path, sizeof path)) {
+        char tmp[MAX_PATH - 32];
+        if (!GetTempPathA(sizeof tmp, tmp)) tmp[0] = 0;
+        snprintf(path, sizeof path, "%srg-compat-%lu.txt", tmp, (unsigned long)pid);
+    }
+    unsigned rounds = 0;
+    DWORD last = GetTickCount();
+    for (;;) {
+        Sleep(ms);
+        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (snap == INVALID_HANDLE_VALUE) continue;
+        THREADENTRY32 te = {.dwSize = sizeof te};
+        for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+            if (te.th32OwnerProcessID != pid || te.th32ThreadID == self) continue;
+            HANDLE th = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
+            if (!th) continue;
+            if (SuspendThread(th) != (DWORD)-1) {
+                CONTEXT ctx = {.ContextFlags = CONTEXT_CONTROL};
+                if (GetThreadContext(th, &ctx)) {
+#ifdef _WIN64
+                    const ULONG_PTR pc = ctx.Rip, sp = ctx.Rsp;
+#else
+                    const ULONG_PTR pc = ctx.Eip, sp = ctx.Esp;
+#endif
+                    ULONG_PTR c[2] = {0, 0};
+                    MEMORY_BASIC_INFORMATION mi;
+                    if (VirtualQuery((LPCVOID)sp, &mi, sizeof mi) && mi.State == MEM_COMMIT) {
+                        const ULONG_PTR end = (ULONG_PTR)mi.BaseAddress + mi.RegionSize;
+                        int k = 0;
+                        for (ULONG_PTR p = sp; p + sizeof(ULONG_PTR) <= end && p < sp + 4096 && k < 2; p += sizeof(ULONG_PTR)) {
+                            const ULONG_PTR v = *(const ULONG_PTR *)p;
+                            if (v >= exe_lo && v < exe_hi && v != pc) c[k++] = v;
+                        }
+                    }
+                    sample_add(te.th32ThreadID, pc, c[0], c[1]);
+                }
+                ResumeThread(th);
+            }
+            CloseHandle(th);
+        }
+        CloseHandle(snap);
+        ++rounds;
+        if (GetTickCount() - last >= 5000) last = GetTickCount(), sample_dump(path, rounds);
+    }
+    return 0;
+}
+
+static void sample_start(void) {
+    char v[32];
+    if (!GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v)) return;
+    const long ms = strtol(v, NULL, 10);
+    if (ms <= 0) return;
+    BYTE *base = (BYTE *)GetModuleHandleA(NULL);
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew);
+    exe_lo = (ULONG_PTR)base, exe_hi = exe_lo + nt->OptionalHeader.SizeOfImage;
+    HANDLE h = CreateThread(NULL, 0, sample_thread, (LPVOID)(ULONG_PTR)ms, 0, NULL);
+    if (h) CloseHandle(h), OutputDebugStringA("rg-compat: meetdraad gestart (RG_COMPAT_SAMPLE)\n");
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
     if (reason == DLL_PROCESS_ATTACH) {
+        sample_start();
         HMODULE exe = GetModuleHandleA(NULL);
         real_abc = (abc_fn)patch_import(exe, "gdi32.dll", "GetCharABCWidthsA", (void *)rg_GetCharABCWidthsA);
         if (real_abc) OutputDebugStringA("rg-compat: GDI32!GetCharABCWidthsA omgeleid\n");
