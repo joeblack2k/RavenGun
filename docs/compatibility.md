@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (25)
+## Working (27)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -20,6 +20,8 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Jurassic Park Arcade**: WORKING: runs on our own loader, started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts), native Linux, OpenGL on Vulkan (zink); played with a PS Move and with a mouse (2026-10-14). The lightgun board answers as the real USB board (RIO bridge, rio-invoer.ini): no more "RIO Disconnected"; START (key 1), aim and trigger work (score and kills measured), the game's own settings (free play, difficulty, volume, ...) are in the app. Four glow shaders Mesa rejected are fixed (data/shaders). Not measured: player 2's trigger, a physical mouse and the PS Move. See bewijs-speelbaar-20261014/LEESMIJ.md.
 - **Let's Go Island 3D: Lost on the Island of Tropics**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader; JVS over the pipe to the daemon's board). Measured on the TV in mouse mode: START (hold key 1 briefly), aim, shoot, combos (score 37500); 5:15 min of attract and play after the first attract screen. Red-cyan 3D picture (the 2D button was not checked). Not yet played with the real Move on this route.
 - **Let's Go Island: Lost on the Island of Tropics**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader; JVS over the pipe to the daemon's board). Measured on the TV in mouse mode: START (hold key 1 briefly), aim, shoot, continue after CONTINUE, up to a boss (score 36600); 5:23 min of attract and play after the first attract screen. The in-game texts are Japanese (region JAPAN in game.ini). Not yet played with the real Move on this route.
+- **Let's Go Jungle**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, lgj_final (Rev A) with lindbergh.so and librg-stackalign.so, JVS through the daemon after passthrough fix 0003 (the game waits 1 s for a reply). Played 5.5 min in mouse mode: coin (5), START (1), shooting.
+- **Let's Go Jungle Special**: WORKING on the Lindbergh route (2026-10-15): lgjsp_app (ride version) with lindbergh.so, librg-stackalign.so, passthrough fix 0003 and ride patch 0004 (after-game replies). At boot press START for the ride reset; then coin (5) and START (1). Played 5.5 min in mouse mode: game rounds, GAME OVER, next game.
 - **Let's Go Safari**: WORKING without TeknoParrotUi (2026-10-14): a double-click in RavenGun starts the game through rg-direct, JVS over the pipe to the daemon's LGS board, full screen through gamescope (17:33, 5:49 min). Measured with a gamepad (18:35, 5:38 min): steering with the left stick (contact sheet bench-captures/LGS/seq_sheet.png), START with Start, the colored buttons A/B/X/Y = red/blue/yellow/green. Without a pad the lightgun's horizontal aim steers. Not measured yet: camera, wipers, horn, fireworks, and playing with the real Move.
 - **Lethal Enforcers 3**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with Gst32 (docs/gst32.md): the videos through the 32-bit GStreamer from Proton; without it the game crashed at the first video. Played 5.5 min in mouse mode (FREE PLAY).
 - **Mario Kart Arcade GP DX**: WORKING on our own route (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi, 16 MiB stack, DXVK ([Launch] Dxvk), the Polygon2D view link and the d3dx10 pHResult repair in rg-mfcam.dll. Played with a gamepad (5.5 min, two races): Item (A) starts and confirms, left stick steers, RT gas, LT brake; the cabinet is on FREE PLAY. Open: the camera (the game never asks for it), Banapass cards. See NETWERK-INVOER-CAMERA.md, 5e.
@@ -46,7 +48,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (33)
+## Not tested yet (31)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -64,8 +66,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Far Cry Paradise Lost**: Prepared, not run (pass 1, Global VR PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Friction**: Prepared, not run (pass 1, Unique PC Based (OpenParrot)): profile, identification and input route are in place; nothing has been measured yet.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
-- **Let's Go Jungle**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle: native Lindbergh ELF with the older amDongle, a backup layer carrying a region and a TEA_DIR path.
-- **Let's Go Jungle Special**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Let's Go Jungle Special: sibling of LGJ with the same protection shape; the cabinet script always passes an X config file.
 - **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.
 - **Mars Sortie**: Measured 2026-10-15: with DXVK ([Launch] Dxvk) attract and game render (without it: black); double-click, coin, START and shooting work (bullet holes). After the first game the weekly ranking screen stays up, also without input (it most likely waits for the ranking server). Not Working yet.
 - **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.

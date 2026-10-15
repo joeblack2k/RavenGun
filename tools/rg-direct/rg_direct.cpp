@@ -121,11 +121,22 @@ std::string env_get(const L::EnvMap& e, const char* k) { auto it = e.find(k); re
 std::atomic<bool> g_stop{false};
 void on_term(int) { g_stop.store(true); }
 
+// Het bronbestand dat de helper naar het gedeelde geheugen van de game spiegelt (plan.shm_source). Op de route tp-shm is dat
+// /dev/shm/ravengun_JvsState van de daemon, en de helper kopieert byte 0 daaruit vlak voor elk antwoord; leeg = gelijk aan g_shm_path.
+std::string g_shm_mirror_source;
+
+// De verbind-vlag (byte 0): de kern meldt "geadresseerd" in de modemstatus alleen als die niet nul is. Hij moet in BEIDE bestanden
+// staan voordat het antwoord op F1 de game bereikt. Stond hij alleen in TeknoParrot_JvsState, dan zette de spiegel er bij het volgende
+// antwoord de oude 0 uit de bron overheen (de daemon zet hem pas een tik later): Gaia Attack 4 en Haunted Museum deelden dan adres na
+// adres uit aan borden die er niet zijn en kwamen nooit aan pollen toe (gelezen in game.exe, gemeten in de logboeken, 2026-10-15).
 void set_connect_flag(uint8_t v) {
-    const int fd = ::open(g_shm_path.c_str(), O_RDWR);
-    if (fd < 0) return;
-    (void)!::pwrite(fd, &v, 1, 0);
-    ::close(fd);
+    for (const std::string* path : {&g_shm_path, &g_shm_mirror_source}) {
+        if (path->empty() || (path == &g_shm_mirror_source && *path == g_shm_path)) continue;
+        const int fd = ::open(path->c_str(), O_RDWR);
+        if (fd < 0) continue;
+        (void)!::pwrite(fd, &v, 1, 0);
+        ::close(fd);
+    }
 }
 
 // --- de JVS-pipe (JvsPipeServer) -------------------------------------------------------------------------------------------------
@@ -923,6 +934,7 @@ int run_plan(const std::string& plan_file) {
     }
     for (int i = 0; i < 100 && ::access(plan.shm_source.c_str(), F_OK) != 0; ++i) ::usleep(100000);
     if (::access(plan.shm_source.c_str(), F_OK) != 0) { log("bronbestand " + plan.shm_source + " bestaat niet (start de IO-brug eerst)"); return 1; }
+    g_shm_mirror_source = plan.shm_source;
     if (plan.shm_source != g_shm_path) {
         // Het bronbestand van de daemon (/dev/shm/ravengun_JvsState) houdt bij een nieuwe game de bytes van de vorige: de daemon
         // schrijft alleen de bytes van zijn eigen indeling. De helper kopieert het hele bestand naar de game. TeknoParrotUi begint

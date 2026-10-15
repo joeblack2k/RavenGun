@@ -408,7 +408,7 @@ def vergelijk(a, profiles, py, cres):
             notes += d
         elif c["verdict"] == "fallback" and c["why"].startswith("nog niet in de engine"):
             uitkomst = "via het script (%s); script: %s" % (c["why"], p["verdict"])
-        elif c["verdict"] == "refused" and ("[Launch] Dxvk" in c.get("why", "") or "[Launch] Gst32" in c.get("why", "")):
+        elif c["verdict"] == "refused" and any(k in c.get("why", "") for k in ("[Launch] Dxvk", "[Launch] Gst32", "[Launch] NativeDlls")):
             # [Launch] Dxvk en Gst32 bestaan alleen in de engine (docs/dxvk.md, docs/gst32.md); hermetisch is er geen view, geen DXVK en
             # geen gst32-map, dus weigert hij terecht.
             uitkomst = "alleen de engine kent deze [Launch]-sleutel: %s" % c["why"].splitlines()[0][:120]

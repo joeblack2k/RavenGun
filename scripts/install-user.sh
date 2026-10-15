@@ -164,6 +164,12 @@ if [[ ! -e "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/gst32/proton" && -x "$
   bash "$DATA/scripts/setup-gst32.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/gst32" ||
     echo "No Proton with a 32-bit GStreamer found; games with Gst32 = true need Proton in Steam, then run $DATA/scripts/setup-gst32.sh." >&2
 fi
+# Native DirectX-DLL's uit Steam's eigen herdistribueerbare, voor games met [Launch] NativeDlls (docs/redist.md); niets gedownload.
+if [[ ! -d "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/redist/x86" && -x "$DATA/scripts/setup-redist.sh" ]]; then
+  say "Extracting DirectX DLLs from Steam's redistributables for games that need them"
+  bash "$DATA/scripts/setup-redist.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/redist" ||
+    echo "Steam's DirectX redistributables were not found; games with NativeDlls need Steam, then run $DATA/scripts/setup-redist.sh." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"

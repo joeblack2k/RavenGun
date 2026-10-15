@@ -495,6 +495,38 @@ int main() {
         write(ugi, "[Launch]\nGst32 = soms\n");
         CHECK(plan_direct("Spel", p, o3, dp, w) == Verdict::Refused && contains(w, "Gst32 = soms"));
         fs::remove_all(gst);
+        // [Launch] NativeDlls: uit <data>/redist/<x64> (Spel is 64 bits) naar system32 van de prefix, met <naam>=n; de ingebouwde
+        // van Wine wordt bewaard; een tweede keer schrijft niets.
+        write(ugi, "[Launch]\nNativeDlls = XactEngine3_3.dll\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "setup-redist.sh"));
+        const fs::path rd = root / "redist";
+        write(rd / "x64/xactengine3_3.dll", "MZ native");
+        DirectOptions o4 = o;
+        o4.base_env["RAVENGUN_REDIST"] = rd.string();
+        CHECK(plan_direct("Spel", p, o4, dp, w) == Verdict::Ok);
+        CHECK(dp.native_dlls.size() == 1 && dp.native_dlls[0].first == (rd / "x64/xactengine3_3.dll").string() &&
+              contains(dp.native_dlls[0].second, "drive_c/windows/system32/xactengine3_3.dll"));
+        CHECK(dp.env.count("WINEDLLOVERRIDES") && contains(dp.env.at("WINEDLLOVERRIDES"), "xactengine3_3=n"));
+        {
+            DirectPlan back;
+            std::string jerr;
+            CHECK(plan_from_json(plan_to_json(dp), back, jerr) && back.native_dlls == dp.native_dlls);
+        }
+        write(dp.native_dlls[0].second, "Wine builtin");
+        std::vector<std::string> nlog;
+        std::string nerr;
+        DirectPlan alleen = dp;
+        alleen.files.clear();
+        alleen.dropin_files.clear();
+        alleen.view_links.clear();
+        alleen.stack_reserve = 0;
+        CHECK(apply_direct(alleen, p, nlog, nerr));
+        CHECK(slurp(dp.native_dlls[0].second) == "MZ native" && slurp(dp.native_dlls[0].second + ".wine-bewaard") == "Wine builtin");
+        nlog.clear();
+        CHECK(apply_direct(alleen, p, nlog, nerr) && std::any_of(nlog.begin(), nlog.end(), [](const std::string& l) { return contains(l, "al actueel"); }));
+        write(ugi, "[Launch]\nNativeDlls = ../x\n");
+        CHECK(plan_direct("Spel", p, o4, dp, w) == Verdict::Refused && contains(w, "geen DLL-naam"));
+        fs::remove_all(rd);
         fs::remove(ugi);
         fs::remove_all(steam);
         fs::remove_all(eigen);
@@ -738,7 +770,9 @@ int main() {
         CHECK(slurp(out / "helper-reply") == "e00003010105");                       // het antwoord op de adrestoekenning
         CHECK(slurp(root / "shm").size() == 64 && slurp(root / "shm")[0] == 1);      // verbind-vlag aan
         CHECK(slurp(root / "shm").substr(1) == std::string(63, '\0'));               // de rest op nul: elke start begint schoon
-        CHECK(slurp(root / "src") == std::string(64, '\0'));                         // het bronbestand ook (de daemon zet zijn bytes terug)
+        // Het bronbestand ook op nul (de daemon zet zijn bytes terug), behalve de verbind-vlag: die moet ook daar staan, anders zet de
+        // spiegel van de helper hem bij het volgende antwoord weer op 0 (Gaia Attack 4: adres na adres, nooit pollen).
+        CHECK(slurp(root / "src").size() == 64 && slurp(root / "src")[0] == 1 && slurp(root / "src").substr(1) == std::string(63, '\0'));
         const std::string args = slurp(out / "helper-args");
         CHECK(contains(args, "TeknoParrot_JvsState 64 " + wine_path((root / "src").string())));
         CHECK(slurp(out / "game-cwd") == p.tp + "\n");

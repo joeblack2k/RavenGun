@@ -81,6 +81,10 @@ struct DirectPlan {
     // [Launch] Dxvk = true: de map met de DXVK-DLL's van de bitbreedte van de game (d3d8, d3d9, d3d10core, d3d11, dxgi) en waar die
     // vandaan komt (docs/dxvk.md). dropin_plan() zet ze als drop-in in de view met WINEDLLOVERRIDES <naam>=n. Leeg = geen DXVK.
     std::string dxvk_dir, dxvk_from;
+    // [Launch] NativeDlls: per DLL (bron in <data>/redist/<x86|x64>/, doel in system32/syswow64 van de prefix). apply_direct() zet de
+    // native DLL op het doel (de ingebouwde van Wine eenmalig bewaard als <naam>.wine-bewaard) en WINEDLLOVERRIDES krijgt <naam>=n.
+    // Voor COM-DLL's (XACT) die Wine altijd uit system32 laadt; zonder override blijft Wine zijn ingebouwde gebruiken (docs/redist.md).
+    std::vector<std::pair<std::string, std::string>> native_dlls;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct

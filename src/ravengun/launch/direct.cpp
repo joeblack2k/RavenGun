@@ -1617,6 +1617,29 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused(std::string("[Launch] Dxvk = true, maar DXVK (") + (is64 ? "64" : "32") + " bits) is niet gevonden: draai "
                                    "scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)");
     }
+    // 6f. [Launch] NativeDlls: Microsoft-DLL's die Steam al meebrengt (DirectX-herdistribueerbare in Steamworks Shared), klaargezet door
+    // scripts/setup-redist.sh in <data>/redist; nooit in git. Operation G.H.O.S.T. viel in Wine's ingebouwde xactengine3_3 (2026-10-15).
+    if (const std::string nd = trim(lini("NativeDlls")); !nd.empty()) {
+        const std::string arch = is64 ? "x64" : "x86";
+        std::string rd = getenv_or(env, "RAVENGUN_REDIST");
+        if (rd.empty()) rd = p.home + "/.local/share/ravengun/redist";
+        const std::string sysdir = pjoin(prefix, std::string("drive_c/windows/") + (is64 ? "system32" : "syswow64"));
+        std::vector<std::string> ov;
+        for (std::string naam : nonempty_split(nd, ',')) {
+            naam = lower(trim(naam));
+            if (ends_with(naam, ".dll")) naam = naam.substr(0, naam.size() - 4);
+            if (naam.empty() || naam.find('/') != std::string::npos || naam.find("..") != std::string::npos)
+                return setting_refused("[Launch] NativeDlls = " + nd + " ('" + naam + "' is geen DLL-naam)");
+            const std::string bron = pjoin(pjoin(rd, arch), naam + ".dll");
+            if (!isfile(bron))
+                return setting_refused("[Launch] NativeDlls: " + naam + ".dll (" + arch + ") staat niet in " + pjoin(rd, arch) +
+                                       ": draai scripts/setup-redist.sh (haalt hem uit de DirectX-map van Steam; docs/redist.md)");
+            pl.native_dlls.emplace_back(bron, pjoin(sysdir, naam + ".dll"));
+            ov.push_back(naam + "=n");
+        }
+        const std::string oud = getenv_or(env, "WINEDLLOVERRIDES");
+        launch["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"] = oud.empty() ? join(ov, ";") : oud + ";" + join(ov, ";");
+    }
     // 6e. [Launch] Gst32: een 32-bits GStreamer voor films via DirectShow/Media Foundation (docs/gst32.md). SteamOS heeft er geen; Proton
     // van Steam wel. scripts/setup-gst32.sh zet die klaar in <data>/ravengun/gst32 (proton/, plugins/, lib/). Bug Busters viel zonder
     // na MODE SELECT: "Failed to create filter for GStreamer splitter filter", dan een NULL-lezing (bench 2026-10-15).
@@ -1901,6 +1924,25 @@ bool place_view_links(const DirectPlan& pl, const DirectPaths& p, std::vector<st
     return true;
 }
 
+// [Launch] NativeDlls: de native DLL op zijn plaats in de prefix (nooit op de NAS). Staat er al precies deze DLL, dan niets.
+bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    for (const auto& [bron, doel] : pl.native_dlls) {
+        std::string want, have;
+        if (!read_file(bron, want)) { err = "native DLL " + bron + " niet te lezen"; return false; }
+        if (on_nas(dirname(doel), p)) { err = "native DLL: " + doel + " ligt op de NAS"; return false; }
+        if (read_file(doel, have) && have == want) { log.push_back("native: " + doel + " is al actueel"); continue; }
+        const std::string bewaard = doel + ".wine-bewaard";
+        if (isfile(doel) && !lexists(bewaard) && ::rename(doel.c_str(), bewaard.c_str()) != 0) {
+            err = "native DLL: " + doel + " niet te bewaren: " + std::strerror(errno);
+            return false;
+        }
+        std::string werr;
+        if (!write_atomic(doel, want, werr)) { err = "native DLL " + doel + ": " + werr; return false; }
+        log.push_back("native: " + doel + " <- " + bron + " (Wine's eigen versie bewaard als " + basename(bewaard) + ")");
+    }
+    return true;
+}
+
 }  // namespace
 
 bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
@@ -1957,6 +1999,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
         log.push_back("bestand: " + path + " geschreven");
     }
     if (!place_view_links(pl, p, log, err)) return false;
+    if (!place_native_dlls(pl, p, log, err)) return false;
     return place_stack_copy(pl, p, log, err);
 }
 
@@ -1996,6 +2039,9 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.end_array();
     w.key("view_links").begin_array();
     for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
+    w.end_array();
+    w.key("native_dlls").begin_array();
+    for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     w.key("dropin_files").begin_array();
     for (const auto& f : pl.dropin_files) w.begin_object().key("src").value(f.src).key("dest").value(f.dest).key("name").value(f.name).end_object();
@@ -2056,6 +2102,9 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("view_links"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.view_links.emplace_back(e.arr[0].str, e.arr[1].str);
+    if (const auto* f = v.find("native_dlls"); f && f->is_array())
+        for (const auto& e : f->arr)
+            if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.native_dlls.emplace_back(e.arr[0].str, e.arr[1].str);
     if (const auto* f = v.find("dropin_files"); f && f->is_array())
         for (const auto& e : f->arr) {
             DropinFile d;
