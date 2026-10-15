@@ -57,7 +57,8 @@ PlayerId=
 ```
 
 `ServerAddress`/`ServerPort` zijn de gemeenschapsserver van TeknoParrot (online spelen); `PlayerId` leeg = geen online-ID
-(TeknoParrotUi vult hem uit `ParrotData.xml` `MarioKartId`, en die is leeg). Wie geen verbinding met die server wil, zet in de
+(TeknoParrotUi vult hem uit `ParrotData.xml` `MarioKartId`, en die is leeg). **Besluit eigenaar (2026-10-15):** de server van TeknoParrot mag blijven, zolang het spel via onze eigen lader draait (rg-direct).
+Wie geen verbinding met die server wil, zet in de
 gebruikerslaag `Network/ServerAddress = 127.0.0.1`; of het spel dan nog offline doorstart is NIET GEMETEN.
 
 ## 5. Camera: Media Foundation, gevoed door de daemon
