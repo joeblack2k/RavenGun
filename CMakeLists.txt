@@ -204,6 +204,13 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-threadprio/rg_threadprio.c\" -ldl || echo 'waarschuwing: 32-bit draadhulp (librg-threadprio.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-threadprio/rg_threadprio.c VERBATIM)
     add_custom_target(rg_threadprio32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so")
+    # GLSL-hulp voor de native i386-route (Aliens Armageddon): herschrijft fragment-shaders die gl_FragData mengen met eigen
+    # uitvoeren (out_Color/out_Bloom), wat Mesa weigert en NVIDIA toeliet (tools/rg-glslfix/). 32-bits, zoals het spel.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-glslfix/rg_glslfix.c\" -ldl || echo 'waarschuwing: 32-bit GLSL-hulp (librg-glslfix.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-glslfix/rg_glslfix.c VERBATIM)
+    add_custom_target(rg_glslfix32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so")
     # De RIO-brug ook 32-bits: Jurassic Park heeft de RIO-bibliotheek in zijn i386-spelbeeld; de brug antwoordt daar als het
     # bord zelf over USB (tools/rio-bridge/, tabel patches/JurassicPark/rio-invoer.ini).
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so"
@@ -520,6 +527,7 @@ if(TARGET rg_comm_shim)
   install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge LIBRARY DESTINATION lib)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
 # De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
