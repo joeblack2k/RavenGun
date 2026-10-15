@@ -1,0 +1,21 @@
+{
+ "kind": "hasp",
+ "game": "AliensArmageddon",
+ "haspid": 1,
+ "crypto_table": "hasp",
+ "memory": [
+  {
+   "name": "licentie",
+   "fileid": 65522,
+   "size": 64,
+   "file": "memory/00000000000000001111111111110010"
+  },
+  {
+   "name": "hoofd",
+   "fileid": 65520,
+   "size": 48,
+   "file": "memory/00000000000000001111111111110000"
+  }
+ ],
+ "notes": "Aliens Armageddon (2026-10-15). Zelfde indeling als patches/Terminator (daar gemeten en geijkt): de dump hasp/hhl_mem.dmp uit de eigen spelmap (128 bytes, sha256 5f56e18a46a63474eacfc7f846396c6e695381aaeaa348dea5ff9f587ed07bc9) = 0xFFF0 'hoofd' dump[0x00:0x30] (CRC32 over 36 bytes op offset 36 klopt) + 0xFFF2 'licentie' dump[0x30:0x70] (landcode 0, serienummer 1018) + een staart van 16 bytes ('WBPT...', bij geen van beide). Let op: bij AA zijn de kenmerkwoorden in de licentie 00 (= aan), bij Terminator FF; niet uitwisselen. De antwoordtafel is de map hasp/ van de game zelf (relatief aan de werkmap /pm), 14.674 antwoorden; zie BESCHERMING-STATUS.md. haspid 1 (GEMETEN in de code, 2026-10-15): de game leest het haspid uit hasp_get_sessioninfo(keyinfo) en zet het in een vlag (0x88a8638, beginwaarde 1); SysGetCryptoSeed() gebruikt alleen bij vlag == 1 de vaste sleutel van de versleutelde databestanden, anders een sleutel uit het donglegeheugen. Met haspid 0 faalden de RTDT- en auditbestanden (\"Error Loading RTDT Defs File\"). Op de kast-runs in de eigen gamelog faalde het lezen van het id, bleef de vlag 1 en laadde alles."
+}
