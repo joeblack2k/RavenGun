@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2: 46, overgeslagen: 1.
+Stand: 23 van 82 titels WORKING (28%); doel 90% = 74 titels. Pass 1: 14, pass 2: 45, overgeslagen: 1.
 
-## WORKING (22)
+## WORKING (23)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -27,6 +27,7 @@ Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
 | Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | NERF Arcade | Raw Thrills PC Based |  |
+| Pull The Trigger | COVIELSA PC-Based |  |
 | Rabbids Hollywood Arcade | ADRENALINE PC Based |  |
 | Raccoon Rampage | UNIS PC Based |  |
 | Rampage | ADRENALINE PC Based |  |
@@ -54,7 +55,7 @@ Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Wild West Shootout | Coastal PC-Based | profiel + direct |
 
-## pass 2 (46)
+## pass 2 (45)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -77,7 +78,7 @@ Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Lethal Enforcers 3 | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
-| Mars Sortie | UDC PC Based | getest 2026-10-14: Shooter.exe (Unity, BepInEx, Sentinel dog_windows) draait, beeld zwart: ook met gamescope en met DXVK-prefix; diagnose loopt |
+| Mars Sortie | UDC PC Based | met DXVK in beeld en speelbaar; na een spel blijft de wekelijkse ranglijst hangen (rankingserver?) |
 | Medaru No Gunman | SEGA RingWide | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
 | Metal Gear Arcade | Konami PC-Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
@@ -89,7 +90,6 @@ Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Point Blank X | Namco ES4 | Namco ES4 |
-| Pull The Trigger | COVIELSA PC-Based | getest 2026-10-14: PTW.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | SEGA Golden Gun | SEGA RingWide | getest 2026-10-14: lader exitcode 5 (toegang geweigerd) direct na laden; diagnose loopt |
