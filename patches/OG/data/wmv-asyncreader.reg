@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; Operation G.H.O.S.T.: .wmv via de gewone bestandsbron (AsyncReader) en de GStreamer-splitter in plaats van de WM ASF-lezer
+; (qasf) van Proton. Die lezer stopt zijn leesthreads voordat hij zijn allocators vrijgeeft; de audio-leesthread bleef dan in
+; GetBuffer hangen en het spel bevroor op het titelscherm (graph Stop -> WMReader_Stop, 2026-10-15). De splitter geeft de
+; allocators eerst vrij. Ingelezen door rg-direct met "wine reg import ... /reg:32" ([Launch] Registry, docs/registry.md).
+
+[HKEY_CLASSES_ROOT\Media Type\Extensions\.wmv]
+"Source Filter"="{e436ebb5-524f-11ce-9f53-0020af0ba770}"
+"Media Type"="{e436eb83-524f-11ce-9f53-0020af0ba770}"
+"Subtype"="{6b6d0801-9ada-11d0-a520-00a0d10129c0}"
