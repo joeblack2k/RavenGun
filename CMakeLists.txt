@@ -195,6 +195,11 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     target_compile_options(rg_v4l2_fake PRIVATE -Wall -Wextra)
     target_link_libraries(rg_v4l2_fake PRIVATE pthread ${CMAKE_DL_LIBS})
     set_target_properties(rg_v4l2_fake PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_v4l2_fake" C_VISIBILITY_PRESET default)
+    # IRTrack-geweren (FTDI-camera's) voor Halo op de native route; tools/rt-irtrack/rg_irtrack.c, tabel patches/<Game>/irtrack.ini.
+    add_library(rg_irtrack SHARED tools/rt-irtrack/rg_irtrack.c)
+    target_compile_options(rg_irtrack PRIVATE -Wall -Wextra -Wno-pedantic -fno-stack-protector)
+    target_link_libraries(rg_irtrack PRIVATE pthread ${CMAKE_DL_LIBS})
+    set_target_properties(rg_irtrack PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_irtrack" C_VISIBILITY_PRESET default)
     # Invoerbrug voor het RIO-lightgun-bord van de native Raw Thrills-Unity-route (NERF): librio.so van de game leest het bordbeeld
     # van de IO-brug (tools/rio-bridge/, tabel patches/<Game>/rio-invoer.ini).
     add_library(rg_rio_bridge SHARED tools/rio-bridge/rg_rio_bridge.c)
@@ -536,7 +541,7 @@ if(RAVENGUN_BUILD_DAEMON)
   endif()
 endif()
 if(TARGET rg_comm_shim)
-  install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge rg_v4l2_fake LIBRARY DESTINATION lib)
+  install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge rg_v4l2_fake rg_irtrack LIBRARY DESTINATION lib)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"

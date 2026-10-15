@@ -6,7 +6,7 @@
 //
 // Gelijk aan het script: dezelfde mounts (overlay = NAS als lezende onderlaag, schrijfacties in
 // <data>/native/<profiel>/<n>/{upper,work}), files, seed en links (alleen als het pad er nog niet is, in de laag noch op de NAS),
-// libs (/rg/lib), libdirs, extra_ro, binds_rw, de invoertabellen rt-invoer.ini en rio-invoer.ini (gebruikerslaag voor de
+// libs (/rg/lib), libdirs, extra_ro, binds_rw, de invoertabellen rt-invoer.ini, rio-invoer.ini en irtrack.ini (gebruikerslaag voor de
 // meegeleverde), de eigen lader, preload alleen in de sandbox, het profiel-env. Anders dan het script: het X-scherm van gamescope is
 // bij het plannen nog niet bekend, dus de hele map /tmp/.X11-unix gaat alleen-lezen mee; gamescope start via `env -i` en zijn kind
 // is `rg-exec --keep DISPLAY -- bwrap ...`, zodat het spel van gamescope alleen DISPLAY krijgt (geen ENABLE_GAMESCOPE_WSI, vk_*, ...). De camera

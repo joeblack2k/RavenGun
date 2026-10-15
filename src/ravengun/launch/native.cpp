@@ -570,6 +570,7 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
     };
     table("librg_rt_input.so", "rt-invoer.ini", "RG_RT_TABLE");
     table("librg_rio_bridge.so", "rio-invoer.ini", "RG_RIO_TABLE");
+    table("librg_irtrack.so", "irtrack.ini", "RG_IRT_TABLE");
     for (const SrcDst& b : pr.binds_rw) bw.insert(bw.end(), {"--bind", b.src, b.dst});
 
     // Het scherm. Met gamescope: diens Xwayland (DISPLAY komt van gamescope, het nummer is nu nog onbekend: de hele socketmap).
