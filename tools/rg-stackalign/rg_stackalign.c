@@ -5370,6 +5370,13 @@ static void *rg_pool_wrap(void *target) {
     return rg_pool_fns[k];
 }
 
+// RG_XINITTHREADS=1: XInitThreads() voordat de game X gebruikt (oude games roepen het niet aan, maar laden texturen in een tweede
+// thread met een eigen GLX-context; HOTD EX gaf zonder shim een xcb-assert "Unknown sequence number").
 __attribute__((constructor)) static void rg_init(void) {
     if (getenv("RG_STACKALIGN_QUIET") == NULL) fprintf(stderr, "rg-stackalign: %d GL-functies en %d voor glXGetProcAddress met uitgelijnde stapel\n", RG_N, RG_POOL);
+    const char *xt = getenv("RG_XINITTHREADS");
+    if (xt && xt[0] == '1') {
+        int (*xinit)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "XInitThreads");
+        fprintf(stderr, "rg-stackalign: XInitThreads %s\n", xinit ? (xinit() ? "aan" : "mislukt") : "niet gevonden");
+    }
 }
