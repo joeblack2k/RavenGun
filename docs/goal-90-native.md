@@ -18,7 +18,7 @@ Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Elevator Action Invasion | UNIS PC Based |  |
 | Gashaaaan!!!! | Konami PC Based |  |
 | Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
-| HALO Fireteam Raven | RAW Thrills Linux PC Based |  |
+| HALO Fireteam Raven | RAW Thrills Linux PC Based | native sinds 2026-10-15 (eigen lader, IRTrack-geweren via tools/rt-irtrack, geen TeknoParrot-lader); geluid stil (FMOD-stub) |
 | House of the Dead: Scarlet Dawn | SEGA ALLS |  |
 | Jurassic Park Arcade | RAW Thrills Linux PC Based |  |
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
