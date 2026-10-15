@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 27, overgeslagen: 9.
+Stand: 37 van 72 titels WORKING (51%); doel 90% = 65 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 25, overgeslagen: 11.
 
 ## WORKING (37)
 
@@ -65,7 +65,7 @@ Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (27)
+## pass 2 (25)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -83,9 +83,7 @@ Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
-| Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | Silent Hill: The Arcade | Konami PC Based | invoer werkt (shaiolib-brug, tp-shm SilentHill); 4:3 zonder 16:9: besluit eigenaar (skip-regel) |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
@@ -97,7 +95,7 @@ Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (9)
+## overgeslagen (11)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -109,4 +107,6 @@ Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Medaru No Gunman | SEGA RingWide | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
 | Omatsuri Yasan - Ganso Takoyaki | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
 | Omatsuri Yasan - Kingyo Sukui | CAVE PC Based | skip-regel eigenaar 2026-10-15: 4:3 (venster 1024x768 gemeten), alleen Japan; map naar emulation/skipped |
-| Wartran Troopers | Konami PC Based | skip-regel eigenaar 2026-10-15: 4:3 (twee schermen van 640x480 gemeten in de DXVK-log, TP-profiel met bezel-optie); map naar emulation/skipped |
+| Wartran Troopers | Konami PC Based | skip-regel eigenaar 2026-10-15: 4:3 (twee schermen van 640x480 gemeten in de DXVK-log, TP-profiel met bezel-optie); map naar emulation/skipped (eerst geweigerd door de NAS, later gelukt) |
+| Otomedius Excellent | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten: regiocode GGG:J, Japanse foutmelding, 4:3-beeld); map naar emulation/skipped |
+| Rainbow Bombergirl | KONAMI PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst (gemeten: ボンバーガール レインボー, PASELI; staand beeld); map naar emulation/skipped |

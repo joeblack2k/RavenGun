@@ -677,6 +677,12 @@ void GameService::run_start(const std::string& profile, const std::string& launc
     }
     else if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0) msg = "het startscript ontbreekt of is niet uitvoerbaar";
     else {
+        // Waarom de eigen route niet liep, in het startlogboek: anders is achteraf niet te zien dat het script (en daarmee
+        // TeknoParrotUi) het overnam (2026-10-15: Otomedius en Infinity Blade FX zonder [Launch] Mode = direct).
+        if (!c_.log_path.empty() && !dwhy.empty()) {
+            std::ofstream lg(c_.log_path, std::ios::app);
+            lg << "route: geen eigen route voor " << profile << " (" << dwhy << "); het startscript neemt over\n";
+        }
         // Het script: vanaf hier stopt stoppen het script (zoals altijd), niet meer de eigen start.
         {
             std::lock_guard<std::mutex> lk(m_);
