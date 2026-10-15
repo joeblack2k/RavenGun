@@ -182,8 +182,11 @@ GPU bewezen: `/proc/<pid van de game>/maps` bevat `libvulkan_radeon.so` en `libg
 | `GSEVO` | **werkt** na de extra bibliotheken hieronder; richtvenster nog niet gekalibreerd |
 | `Primevil` | **werkt** na de extra bibliotheken; het aanraakscherm ontbreekt bewust (het spel kiest op de timer) |
 | `2Spicy` | **werkt** met `stackalign` (zie hieronder) en `libsndio.so.7`; 5,5 min gespeeld |
-| `HOTD4SP`, `HOTD4` | SIGSEGV binnen een seconde; open |
-| `HOTDEX` | SIGABRT in `glXCreatePbuffer` (xcb-assert "Unknown sequence number"); open |
+| `HOTD4SP` | draait met `stackalign` en `/var/tmp`; ride-reset met START, dan attract (spelstart: zie patch 0004) |
+| `HOTD4` | draait met `stackalign`; attract klopt, maar tijdens het spel wit beeld (shaders uitgesloten); open |
+| `LGJ` | **werkt** met `stackalign` en patch 0003 |
+| `LGJS` | **werkt** (ride-versie) met `stackalign` en patches 0003 en 0004; bij de start eerst START voor de ride-reset |
+| `HOTDEX` | **werkt** met `stackalign` |
 
 **Bibliotheken.** De volledige NEEDED-afsluiting van elke ELF (objdump, recursief) moet in de sandbox te vinden zijn.
 SteamOS heeft voor i386 geen `libXt`, `libSM`, `libICE`, `libbsd` en `libmd`. Die komen nu uit de bouwcontainer in de laag.
@@ -199,6 +202,16 @@ voor is gemaakt, is dat niet zo; daarom de waarschuwing "not in debian-like syst
   wrapper die de stapel uitlijnt.
 - Hij moet **voor** `lindbergh.so` in `LD_PRELOAD` staan. Daarna komen ook de eigen aanroepen van `lindbergh.so` uitgelijnd
   binnen.
+
+**Doorgifte (patch 0003).** Na elke leestime-out (100 ms) publiceerde de leesdraad een leeg frame als "klaar".
+
+- Let's Go Jungle wacht 1 s tussen verzoek en lezen, en kreeg zo steeds het lege frame in plaats van ons antwoord.
+- Nu gaat een compleet antwoord altijd voor. Een leeg frame ("geen antwoord", nodig na de reset) komt er alleen als er niets
+  ongelezens klaarstaat.
+
+**Ride-versies (patch 0004).** HOTD4 Special en LGJ Special sturen na een spel 0x18 of 0x19 naar de ride en wachten op 5 of 6.
+De emulatie gaf daar een verkeerd antwoord op. Bij de start vraagt de ride om START voor de reset. Dat werkt alleen als de game
+`/var/tmp` kan schrijven; die map krijgt elke Lindbergh-game nu blijvend per game.
 
 **Diagnose.** Met `RG_LB_SEGV_REPORT=1` in de sandbox meldt de SEGV-handler van lindbergh.so de echte fout: eip, adres, module
 plus offset en de bytes (`0002-segv-report.patch`). Normaal slaat de handler een byte over en raakt de processor uit de pas.
