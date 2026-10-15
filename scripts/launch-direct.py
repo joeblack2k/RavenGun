@@ -2101,6 +2101,15 @@ def build_plan(name, tp, extra_env=None, shm_source=None, log_full=False, base_e
     elif "WINEDEBUG" not in env:
         launch["WINEDEBUG"] = "-all"
     launch["TP_LAUNCH_SESSION_ID"] = str(uuid.uuid4())
+    # Geluid: Wine's DirectSound mengt niet goed naar 8 kanalen (geen volume/pan/3D boven 6 kanalen; een mono-buffer laat 7
+    # kanalen oude inhoud staan: een zoem). Het spel krijgt daarom een stereo-apparaat: pipewire-pulse geeft de formaattest
+    # van winepulse (FIX_CHANNELS) de indeling uit pulse.fix.position, uit PULSE_PROP. Zie src/ravengun/launch/direct.cpp.
+    if "PULSE_PROP" not in env:
+        ch = (settings.settings.get("Audio", {}).get("Channels", "") or "").strip().lower()
+        if ch == "5.1":
+            launch["PULSE_PROP"] = "pulse.fix.position='[ FL FR FC LFE RL RR ]'"
+        elif ch != "native":
+            launch["PULSE_PROP"] = "pulse.fix.position='[ FL FR ]'"
     env.update(launch)
 
     # Het pad dat de lader voor het spel krijgt. Standaard het spel uit het profiel; --exe / [Launch] Exe geeft een ander

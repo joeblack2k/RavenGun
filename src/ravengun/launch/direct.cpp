@@ -1510,6 +1510,17 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (o.log_full) launch["WINEDEBUG"] = getenv_or(env, "RG_WINEDEBUG_FULL", "-all,+debugstr,err+module");
     else if (!env.count("WINEDEBUG")) launch["WINEDEBUG"] = "-all";
     launch["TP_LAUNCH_SESSION_ID"] = o.session_id.empty() ? new_uuid4() : o.session_id;
+    // Geluid: Wine's DirectSound (proton-11.0-2) mengt niet goed naar 8 kanalen. Boven DS_MAX_CHANNELS (6) slaat het volume,
+    // pan en 3D over, en een mono-buffer schrijft alleen kanaal 0: de andere 7 houden oude inhoud van tmp_buffer, die elke
+    // mixperiode terugkomt (een zoem bij elk mono-effect; Silent Hill: The Arcade op de 7.1-HDMI-uitgang, 2026-10-15).
+    // winepulse bepaalt het apparaatformaat met een stream met FIX_CHANNELS; pipewire-pulse geeft die stream de indeling uit
+    // de clienteigenschap pulse.fix.position, die libpulse uit PULSE_PROP haalt. [Audio] Channels = stereo (standaard) | 5.1 | native.
+    if (!env.count("PULSE_PROP")) {
+        const gsn::Section* audio = settings.settings.section("Audio");
+        const std::string ch = lower(trim(audio ? kv_get(audio->kv, "Channels") : std::string()));
+        if (ch == "5.1") launch["PULSE_PROP"] = "pulse.fix.position='[ FL FR FC LFE RL RR ]'";
+        else if (ch != "native") launch["PULSE_PROP"] = "pulse.fix.position='[ FL FR ]'";
+    }
     for (const auto& kv : launch) env[kv.first] = kv.second;
 
     // 5. De opdrachtregel.

@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 37 van 68 titels WORKING (54%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 23, overgeslagen: 15.
+Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 22, overgeslagen: 15.
 
-## WORKING (37)
+## WORKING (38)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -49,6 +49,7 @@ Stand: 37 van 68 titels WORKING (54%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Wild West Shootout | Coastal PC-Based | DXVK, winhttp=n,b |
 | After Dark | UNIS PC Based | DXVK + native d3dx9_41, Gst32 + AsyncReader, rg-compat (DirectInput); open: geluid hapert (eigenaar, wined3d-run) |
 | Transformers: Shadows Rising | Windows PC | hid-board (SaeGunBoard + SaeIoBoard); bevriezing van 10-14 niet teruggezien; hendel niet nagedaan |
+| Silent Hill: The Arcade | Konami PC Based | widescreen-patch (16:9) onderzoeken; e-AMUSEMENT PASS (kaart + netwerkdienst) emuleren; START werkt pas na een munt |
 
 ## pass 1 (8)
 
@@ -63,7 +64,7 @@ Stand: 37 van 68 titels WORKING (54%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | 2026-10-15 native: slottabel 806/806, RG_ELF_MAIN, libcaca-stub, dongle-hook; "Welcome to Walking Dead"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 
-## pass 2 (23)
+## pass 2 (22)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -81,7 +82,6 @@ Stand: 37 van 68 titels WORKING (54%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
 | Robin Hood | ICE PC Based | 2026-10-15 (meetdraad): D3D9 1280x720, hoofddraad in zijn berichtenlus, geen Present; 57% CPU in /proc-lezingen (GetThreadTimes) |
-| Silent Hill: The Arcade | Konami PC Based | invoer werkt (shaiolib-brug, tp-shm SilentHill); 4:3 zonder 16:9: besluit eigenaar (skip-regel) |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
 | The House of the Dead 4 | SEGA Lindbergh Red | draait (stackalign): attract, munt, START, intro; tijdens het spel wit beeld (shaders uitgesloten), dan GAME OVER |

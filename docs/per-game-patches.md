@@ -203,6 +203,10 @@ JvsIdent =                    ; RG_JVS_IDENT (proef)
 JvsFeatures =                 ; RG_JVS_FEATURES (proef)
 Note =                        ; toelichting bij de route
 
+[Audio]
+Channels = stereo             ; stereo (standaard) | 5.1 | native: het geluidsapparaat dat Wine ziet (PULSE_PROP=pulse.fix.position=...).
+                              ; Wine's DirectSound mengt niet goed naar 7.1 (geen volume/pan boven 6 kanalen, zoem bij mono-effecten).
+
 [Gamepad]
 ; optioneel: gamepad naast de lightgun (docs/gamepad.md); per sleutel over de standaardindeling heen, none haalt weg
 LeftX = wheel                 ; stuur (zonder gamepad stuurt de aim-x)
