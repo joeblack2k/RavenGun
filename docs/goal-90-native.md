@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 21 van 81 titels WORKING (26%); doel 90% = 73 titels. Pass 1: 14, pass 2: 46, overgeslagen: 1.
+Stand: 22 van 82 titels WORKING (27%); doel 90% = 74 titels. Pass 1: 14, pass 2: 46, overgeslagen: 1.
 
-## WORKING (21)
+## WORKING (22)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -31,6 +31,7 @@ Stand: 21 van 81 titels WORKING (26%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Raccoon Rampage | UNIS PC Based |  |
 | Rampage | ADRENALINE PC Based |  |
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
+| The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
 
@@ -95,8 +96,8 @@ Stand: 21 van 81 titels WORKING (26%); doel 90% = 73 titels. Pass 1: 14, pass 2:
 | Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
-| The House of the Dead 4 Special | SEGA Lindbergh Yellow | EERSTE Lindbergh-titel: laag bouwen (scripts/build-lindbergh-loader.sh), dubbelklik, 5 min (docs/lindbergh.md); map "The House of the Dead 4" is Rev C = profiel HOTD4 |
-| The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route klaar (libCg): laag bouwen, dubbelklik, 5 min (docs/lindbergh.md) |
+| The House of the Dead 4 | SEGA Lindbergh Red | draait (stackalign): attract, munt, START, intro; tijdens het spel wit beeld (shaders uitgesloten), dan GAME OVER |
+| The House of the Dead 4 Special | SEGA Lindbergh Yellow | draait (stackalign, /var/tmp): ride-reset en 5 min attract; munt+START starten geen spel (ride-signalen) |
 | The House of the Dead III | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Time Crisis 5 | Namco ES3X | invoer komt niet aan (onderzoek loopt) |
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
