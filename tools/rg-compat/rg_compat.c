@@ -21,6 +21,13 @@
  *    module+RVA naar RG_COMPAT_SAMPLE_LOG (Windows-pad; standaard %TEMP%\rg-compat-<pid>.txt, in de prefix). Zo is een
  *    bezige lus of een wachtende draad te vinden zonder ptrace of debugger (winedbg legt de games om; ptrace_scope = 1).
  *
+ * 4. WM_PAINT dat nooit geldig wordt, alleen met RG_COMPAT_PAINT=1 (user32!UpdateWindow en DispatchMessageA/W in de importtabel)
+ *    Wine's UpdateWindow (win32u update_now) blijft WM_PAINT sturen zolang het venster ongeldig is; Windows stuurt het een keer.
+ *    Een game die WM_PAINT zelf afhandelt zonder BeginPaint/ValidateRect draait dan eindeloos in UpdateWindow (Far Cry Paradise
+ *    Lost en Friction onder gamescope, gemeten met de meetdraad en perf, 2026-10-15), en in een PeekMessage-lus krijgt hij steeds
+ *    weer WM_PAINT zodat de teken-stap nooit aan de beurt komt. De fix: UpdateWindow stuurt WM_PAINT een keer en maakt het venster
+ *    dan geldig; na elk verdeeld WM_PAINT wordt het venster geldig gemaakt.
+ *
  * BOUWEN: scripts/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
@@ -105,6 +112,54 @@ static HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD
     return hr;
 }
 
+/* ------------------------------------------- 4. RG_COMPAT_PAINT (WM_PAINT) */
+
+typedef BOOL(WINAPI *updwin_fn)(HWND);
+typedef LRESULT(WINAPI *dispatch_fn)(const MSG *);
+static updwin_fn real_updatewindow;
+static dispatch_fn real_dispatch_a, real_dispatch_w;
+static volatile LONG paint_updates, paint_dispatched, paint_validated;
+
+static BOOL WINAPI rg_UpdateWindow(HWND hwnd) {
+    InterlockedIncrement(&paint_updates);
+    if (!IsWindow(hwnd)) return real_updatewindow(hwnd);
+    if (GetUpdateRect(hwnd, NULL, FALSE)) {
+        SendMessageW(hwnd, WM_PAINT, 0, 0);
+        if (GetUpdateRect(hwnd, NULL, FALSE)) ValidateRect(hwnd, NULL), InterlockedIncrement(&paint_validated);
+    }
+    return TRUE;
+}
+
+static void after_paint(const MSG *m) {
+    if (!m || m->message != WM_PAINT || !m->hwnd) return;
+    InterlockedIncrement(&paint_dispatched);
+    if (GetUpdateRect(m->hwnd, NULL, FALSE)) ValidateRect(m->hwnd, NULL), InterlockedIncrement(&paint_validated);
+}
+
+static LRESULT WINAPI rg_DispatchMessageA(const MSG *m) {
+    const LRESULT r = real_dispatch_a(m);
+    after_paint(m);
+    return r;
+}
+
+static LRESULT WINAPI rg_DispatchMessageW(const MSG *m) {
+    const LRESULT r = real_dispatch_w(m);
+    after_paint(m);
+    return r;
+}
+
+static void paint_start(HMODULE exe) {
+    char v[8];
+    if (!GetEnvironmentVariableA("RG_COMPAT_PAINT", v, sizeof v) || v[0] != '1') return;
+    real_updatewindow = (updwin_fn)patch_import(exe, "user32.dll", "UpdateWindow", (void *)rg_UpdateWindow);
+    real_dispatch_a = (dispatch_fn)patch_import(exe, "user32.dll", "DispatchMessageA", (void *)rg_DispatchMessageA);
+    real_dispatch_w = (dispatch_fn)patch_import(exe, "user32.dll", "DispatchMessageW", (void *)rg_DispatchMessageW);
+    char msg[160];
+    snprintf(msg, sizeof msg, "rg-compat: WM_PAINT-fix (UpdateWindow %s, DispatchMessageA %s, DispatchMessageW %s)\n",
+             real_updatewindow ? "ja" : "nee", real_dispatch_a ? "ja" : "nee", real_dispatch_w ? "ja" : "nee");
+    OutputDebugStringA(msg);
+}
+
 /* --------------------------------------------- 3. RG_COMPAT_SAMPLE (meten) */
 
 #define SAMPLE_SLOTS 8192
@@ -160,6 +215,8 @@ static void sample_dump(const char *path, unsigned rounds) {
     GetLocalTime(&t);
     fprintf(f, "rg-compat sample %02d:%02d:%02d pid %lu, %u rondes; per draad de 12 meest geziene plekken (aantal pc | aanroeper 1 | aanroeper 2)\n",
             t.wHour, t.wMinute, t.wSecond, (unsigned long)GetCurrentProcessId(), rounds);
+    fprintf(f, "WM_PAINT-fix: UpdateWindow %ld, WM_PAINT verdeeld %ld, geldig gemaakt %ld\n", (long)paint_updates, (long)paint_dispatched,
+            (long)paint_validated);
     DWORD cur = 0;
     int shown = 0;
     for (size_t i = 0; i < n; ++i) {
@@ -244,6 +301,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         if (real_abc) OutputDebugStringA("rg-compat: GDI32!GetCharABCWidthsA omgeleid\n");
         real_cocreate = (cocreate_fn)patch_import(exe, "ole32.dll", "CoCreateInstance", (void *)rg_CoCreateInstance);
         if (real_cocreate) OutputDebugStringA("rg-compat: ole32!CoCreateInstance omgeleid\n");
+        paint_start(exe);
     }
     return TRUE;
 }

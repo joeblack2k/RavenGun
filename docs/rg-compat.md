@@ -11,6 +11,7 @@ game-adres.
 |---|---|---|
 | `GDI32!GetCharABCWidthsA` (importtabel van de exe) | schrijft met een Japans lettertype twee ABC's waar de game ruimte voor één heeft | Action Deka (overgeslagen) |
 | `IDirectInput::Initialize(NULL, ...)` via `ole32!CoCreateInstance` (importtabel) | weigert een lege HINSTANCE (`DIERR_INVALIDPARAM`) | After Dark (Virtools): "Cannot Initalize Input Manager" |
+| `UpdateWindow` + `DispatchMessageA/W`, alleen met `RG_COMPAT_PAINT=1` | `UpdateWindow` blijft WM_PAINT sturen tot het venster geldig is (Windows: een keer) | Friction in een venster onder gamescope: draaide eindeloos in `UpdateWindow`, met de fix "LOADING LEVEL" in beeld |
 
 ## Meetdraad: `RG_COMPAT_SAMPLE`
 
