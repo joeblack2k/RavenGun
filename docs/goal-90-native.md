@@ -57,7 +57,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Big Buck Hunter Pro | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
-| Friction | Unique PC Based | getest 2026-10-15: met DXVK + native d3dx9_42 en d3dcompiler_42 (gebruikerslaag) laadschermen in beeld, daarna zwart; gamescope-focus klopt (spelvenster). Zonder DXVK slechter |
+| Friction | Unique PC Based | DXVK + native d3dx9_42/d3dcompiler_42 en tp-shm Friction (uit TeknoParrotUi): laadschermen in beeld, daarna zwart (ook 1920x1080); open |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |

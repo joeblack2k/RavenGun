@@ -1281,6 +1281,107 @@
     }
    ],
    "offscreen_margin": 0
+  },
+  "Friction": {
+   "description": "Friction (Unique PC Based, profiel Friction). Control (offset 8; TeknoParrotUi FrictionPipe): test 0x1, munt 0x2, trekker speler 1 0x4 en speler 2 0x8, menukeuze 0x10 (bij ons F4, volume_up), start speler 1 0x20 en speler 2 0x40, menu omhoog 0x80 (geen signaal), menu omlaag 0x100 (F5, volume_down), herladen speler 1 0x200 en speler 2 0x400, munt 2 0x800. Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "coin2",
+     "offset": 8,
+     "bit": 11
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
   }
  }
 }
