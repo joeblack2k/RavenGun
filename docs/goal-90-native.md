@@ -86,7 +86,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
-| Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
+| Silent Hill: The Arcade | Konami PC Based | invoer werkt (shaiolib-brug, tp-shm SilentHill); 4:3 zonder 16:9: besluit eigenaar (skip-regel) |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
 | The House of the Dead 4 | SEGA Lindbergh Red | draait (stackalign): attract, munt, START, intro; tijdens het spel wit beeld (shaders uitgesloten), dan GAME OVER |

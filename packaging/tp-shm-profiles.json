@@ -1382,6 +1382,117 @@
     }
    ],
    "offscreen_margin": 0
+  },
+  "SilentHill": {
+   "description": "Silent Hill: The Arcade (Konami, profiel SilentHill). Control (offset 8; TeknoParrotUi SilentHillPipe): test 0x1, service 0x2, start speler 1 0x4, trekker 0x8, Option L 0x10 (bij ons granaat), Option R 0x20 (extra knop 1), munt 0x40, speler 2 start 0x80, trekker 0x100, Option L 0x200, Option R 0x400, herladen speler 1 0x800 en speler 2 0x1000. Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0. Gelezen door onze vervangende shaiolib.dll (patches/SilentHill/shaiolib_rg.c, rg_poll_inputs).",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": true,
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p2.grenade",
+     "offset": 8,
+     "bit": 9
+    },
+    {
+     "signal": "p2.aux1",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 11
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 12
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
   }
  }
 }
