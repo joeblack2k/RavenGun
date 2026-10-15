@@ -12,6 +12,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <set>
 
 namespace ravengun::launch {
 
@@ -264,6 +265,8 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
             if (!do_mkdirs(p, g)) return false;
         }
     }
+    std::set<std::string> leeg_bedoeld;
+    for (const std::string& e : s.empty_dirs) leeg_bedoeld.insert(strip_slashes(e));
     for (size_t i = 0; i < paren.size(); ++i) {
         const auto& [vd, sd] = paren[i];
         if (islink(vd) || !isdir(vd)) break;   // geen echte map (meer): wat eronder zit is niet van ons
@@ -272,6 +275,22 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
             for (const std::string& e : names) {
                 if (i == 0 && lokaal_map(e)) continue;
                 const std::string dp = pjoin(vd, e);
+                // Een LEGE echte map die niet in ViewEmptyDirs staat, waar de gamemap een map met inhoud heeft, is een overblijfsel
+                // (Bug Busters: video/ van een eerdere proef met ViewEmptyDirs; het spel vond zijn films niet en viel, 2026-10-15).
+                // Die wordt weer een link. Een map met inhoud, of een die bewust leeg is, blijft staan.
+                if (lexists(dp) && !islink(dp) && isdir(dp)) {
+                    const std::string rel = fs::path(dp).lexically_relative(s.view).generic_string();
+                    std::vector<std::string> in_view, in_bron;
+                    if (!leeg_bedoeld.count(rel) && listdir(dp, in_view) && in_view.empty() && isdir(pjoin(sd, e)) &&
+                        listdir(pjoin(sd, e), in_bron) && !in_bron.empty()) {
+                        std::error_code ec;
+                        if (!fs::remove(dp, ec) || ec) { err = "kan de lege map " + dp + " niet weghalen: " + ec.message(); return false; }
+                        if (!do_symlink(pjoin(sd, e), dp, g)) return false;
+                        ++bij;
+                        log.push_back("view: " + rel + "/ was een lege map zonder ViewEmptyDirs; weer een link naar de gamemap");
+                    }
+                    continue;
+                }
                 if (lexists(dp)) continue;
                 if (!do_symlink(pjoin(sd, e), dp, g)) return false;
                 ++bij;

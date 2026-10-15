@@ -408,13 +408,16 @@ def vergelijk(a, profiles, py, cres):
             notes += d
         elif c["verdict"] == "fallback" and c["why"].startswith("nog niet in de engine"):
             uitkomst = "via het script (%s); script: %s" % (c["why"], p["verdict"])
+        elif c["verdict"] == "refused" and "[Launch] Dxvk" in c.get("why", ""):
+            # [Launch] Dxvk bestaat alleen in de engine (docs/dxvk.md); hermetisch is er geen view en geen DXVK, dus weigert hij terecht.
+            uitkomst = "alleen de engine kent [Launch] Dxvk: %s" % c["why"].splitlines()[0][:120]
         elif c["verdict"] == p["verdict"] and (c["why"] == p["why"] or c["verdict"] == "fallback"):
             uitkomst = "beide %s: %s" % (c["verdict"], c["why"].splitlines()[0][:160])
             if c["why"] != p["why"]:
                 notes.append("andere melding: script %r, engine %r" % (p["why"], c["why"]))
         else:
             uitkomst = "UITKOMST VERSCHILT"
-            notes.append("script %s (%s), engine %s (%s)" % (p["verdict"], p["why"], c["verdict"], c["why"]))
+            notes.append("script %s (%s), engine %s (%s)" % (p["verdict"], p.get("why", ""), c["verdict"], c.get("why", "")))
         # De invoerroute (play-halo.sh) tegen die van de engine.
         ci = c.get("input", {})
         croute = ci.get("route") if ci.get("verdict") == "ok" else "fallback"

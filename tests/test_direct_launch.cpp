@@ -653,6 +653,16 @@ int main() {
         CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Refused && contains(why, "View = misschien"));
         write(nuser, "[Launch]\nViewEmptyDirs = ../buiten\n");
         CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Refused && contains(why, "buiten de view"));
+        // Een lege echte map zonder ViewEmptyDirs (overblijfsel van een eerdere proef) wordt bij de volgende start weer een link
+        // (Bug Busters, video/); staat hij wel in ViewEmptyDirs, dan blijft hij leeg.
+        fs::remove(nuser);
+        fs::remove(nview / "Data");
+        fs::create_directory(nview / "Data");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok && fs::is_symlink(nview / "Data") && slurp(nview / "Data/d.bin") == "d");
+        write(nuser, "[Launch]\nViewEmptyDirs = Data\n");
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok && fs::is_directory(nview / "Data") && !fs::is_symlink(nview / "Data") &&
+              fs::is_empty(nview / "Data"));
+        CHECK(plan_direct("Nas", p, mo, pl, why) == Verdict::Ok && !fs::is_symlink(nview / "Data") && fs::is_empty(nview / "Data"));
         fs::remove(nuser);
         CHECK(!fs::exists(ngame / "Data/teknoparrot.ini") && !fs::exists(ngame / "teknoparrot.ini"));
     }
