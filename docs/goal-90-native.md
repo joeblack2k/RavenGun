@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 33 van 75 titels WORKING (44%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 32, overgeslagen: 8.
+Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 31, overgeslagen: 8.
 
-## WORKING (33)
+## WORKING (34)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -32,6 +32,7 @@ Stand: 33 van 75 titels WORKING (44%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Music GunGun 2 | Taito Type X2 | HD-build van de dump via ViewLinks; JVS-bord van de daemon |
 | NERF Arcade | Raw Thrills PC Based |  |
 | Operation G.H.O.S.T. | SEGA RingWide | Gst32, native XACT 3.3, .wmv via [Launch] Registry; beeld 4:3 (spel kiest 1024x768) |
+| Point Blank X | Namco ES4 | tp-shm PointBlankX; eenmalig testmenu: taal en-US |
 | Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
 | Pull The Trigger | COVIELSA PC-Based |  |
 | Rabbids Hollywood Arcade | ADRENALINE PC Based |  |
@@ -61,7 +62,7 @@ Stand: 33 van 75 titels WORKING (44%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (32)
+## pass 2 (31)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -83,7 +84,6 @@ Stand: 33 van 75 titels WORKING (44%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Night Hunter - After Dark, Chapter 2 | UNIS PC Based | getest 2026-10-14: blijft op Initializing... (qumo2_en.exe draait); diagnose loopt |
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Point Blank X | Namco ES4 | Namco ES4 |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
 | Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |

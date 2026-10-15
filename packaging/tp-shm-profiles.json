@@ -1074,6 +1074,97 @@
      "invert": false
     }
    ]
+  },
+  "PointBlankX": {
+   "description": "Point Blank X (Namco ES4, profiel PointBlankX, EmulationProfile PointBlankX). Control (offset 8): munt 0x1, service 0x2, test 0x4, omhoog 0x8, omlaag 0x10 en enter 0x20 (testmenu), start speler 1 0x40, trekker speler 1 0x80, start speler 2 0x400, trekker speler 2 0x800 (TeknoParrotUi PointBlankPipe). Aim: P1 X/Y = 12/16, P2 X/Y = 20/24, 1 byte, links/boven = 0 (aanname zoals de andere 1-byte-indelingen; nagemeten op de bench). Testmenu: omlaag = volume_down (F5), enter = volume_up (F4), zoals de menuknoppen bij de andere indelingen; omhoog heeft geen signaal.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 6
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 7
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 11
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
   }
  }
 }

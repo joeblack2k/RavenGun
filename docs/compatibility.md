@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (33)
+## Working (34)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -29,6 +29,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Music GunGun 2**: WORKING via double-click in the app (2026-10-15): the dump's HD build via ViewLinks (1360x768 does not exist in Xwayland), the daemon's JVS board; attract, coin, START, training choice, songs with score, hiscore entry; played 5.5 min.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
 - **Operation G.H.O.S.T.**: WORKING via double-click in the app (2026-10-15): attract, START, shooting in the train with a rising score, played 5.5 min. Movies via Gst32 + data/wmv-asyncreader.reg (Proton's ASF reader hung on Stop), native XACT 3.3, gamescope fullscreen. Picture is 4:3 (the game picks 1024x768).
+- **Point Blank X**: WORKING via double-click in the app (2026-10-15): own tp-shm layout PointBlankX (TeknoParrotUi PointBlankPipe); 3 coins, START, mode and stage select, play with score and continue; played 5.5 min. First start: the ticket dispenser reports 21-1 and the language is ja-JP; once press TEST (0), set OTHERS > LANGUAGE to en-US (F5 choose, F4 enter); afterwards it starts in English directly (stored in the view, TeknoParrot/F|G/savedata.bin). Open: white background in the attract (movie).
 - **Primeval Hunt**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, main.exe with lindbergh-loader's lindbergh.so, JVS through the daemon, zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading. The touch screen (choosing a destination) is deliberately absent; the game picks one when the timer runs out.
 - **Pull The Trigger**: WORKING (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi. Played 5.5 min in mouse mode: coin (5), shoot to start, reload (PULL BACK/RELEASE), chapters and bonus select. The earlier black screen did not come back.
 - **Rabbids Hollywood Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly), aim and trigger; ran 5:19 min with a played round. The dongle check (SBK.Matrix) is answered, see DONGLE-ONDERZOEK.md. Not yet measured: whether the savegame survives two starts, and playing with the real Move buttons.
