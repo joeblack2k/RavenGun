@@ -37,3 +37,14 @@ Move-rapport een vastgehouden muisknop. De knoppen tellen nu per bron als OR.
   maar de game reageert nog steeds niet op pedalen of trekker (tc2224.png). Die hypothese is weerlegd.
 - Open: of de kern de bytes in Wine ziet (een probe in de prefix die TeknoParrot_JvsState leest), de HASP-drop-in (sinds 11-10, de
   oude werkende route had hem niet), pipehelper.exe in plaats van rg-jvsbridge.exe. Pass 2 (docs/goal-90-native.md).
+
+## Vervolg 2026-10-15
+
+- **HASP-drop-in uit** (de drie `hasp_windows_x64*.dll`-secties tijdelijk uit `dropin.ini`, in de view weer links naar de originele
+  runtime van 788 KB): de game start, munt werkt, maar het linkerpedaal (positie blijft R), de trekker (munitie blijft 9) en het
+  schieten op SKIP doen niets. De drop-in is dus niet de oorzaak; hij staat weer aan.
+- **Injectie bij het entry point** (`[Loader] RemoteThread = off`, `PostStartMs =` leeg): de kern laadt ("Resolved target
+  kernel32.dll procedure"), maar nu komt zelfs de munt (Shift+T) niet meer aan. Teruggezet naar `PostStartMs = 3000`.
+- De kern `TeknoParrot64.dll` is gepakt (code in een versleutelde sectie `.teknoGo`); hoe hij de USIO-invoer (WinUsb) voor TC5
+  invult, is alleen in een draaiend proces te zien. Volgende stap: een geheugendump van het spelproces, of de TeknoParrotUi-route
+  ter vergelijking (die schreef eerder wel invoer door).
