@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (29)
+## Working (30)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -33,6 +33,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Raccoon Rampage**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader). Measured on the TV in mouse mode: trigger = start, aim and shoot, played up to a boss (score 22046), ran 5:17 min. Coin (key 5), test menu (key 0, F3, F4); calibration is stored in the game's save data. Not yet played with the real Move on this route.
 - **Rambo**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, ramboM.elf with lindbergh-loader's lindbergh.so (no TeknoParrot), JVS through the daemon's board, OpenGL via zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading by aiming off-screen.
 - **Rampage**: WORKING on our own route (2026-10-14): double-click in RavenGun, no scripts and no TeknoParrotUi (rg-direct, Wine, input through the tp-shm I/O bridge). Not a lightgun game: joystick and attack for three players. Player 1: up = trigger, down = reload, left = grenade, right = aux1, attack = key F4, coin = key F5, start = key 1 (player 2: coin key 5, start key 2). Measured: coin, START, intro, walking and smashing in the city ($19,000 damage), 5:09 min.
+- **Target: Terror Gold**: WORKING via double-click in the app (2026-10-15), native: title, START, Mission Select, played 5.5 min; shots arrive (reload, enemies down). Requires the virtual gun to have a USB phys path (libXshooter only takes devices with phys usb*). Picture 4:3 (1024x768); aiming on a 16:9 TV spans the whole TV, no pillarbox correction yet.
 - **Terminator Salvation**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, full screen through gamescope). Measured on the TV in mouse mode: START (hold key 1 briefly), mission select with the trigger, aim, shoot, reload (right button), a kill; ran 6:32 min. Not yet played with the real Move on this route.
 - **The House of the Dead EX**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, hodexRI.elf with lindbergh.so and librg-stackalign.so (without the shim it died on an xcb assert in glXCreatePbuffer), /var/tmp per game, JVS through the daemon, zink. Played 5.5 min in mouse mode.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
@@ -50,7 +51,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (29)
+## Not tested yet (28)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -77,7 +78,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
 - **SEGA Golden Gun**: Prepared, not run (pass 1, SEGA RingWide): profile, identification and input route are in place; nothing has been measured yet.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
-- **Target: Terror Gold**: Never started. Prepared for the native route (2026-10-14): i386, unpacked, plain ld.so. The dump carries its own emulator of the JAMMA board and the dongle (tt_emu.so, LD_PRELOAD, as runGame.sh on the cabinet); the /dev/ttyS0 <-> /tmp/ttyJamma link that tt_daemon.sh made with socat is done by librg_ptylink.so. Keys and guns: see [Input]. Not measured: whether Xshooter accepts the virtual lightgun as a gun, and sound (OSS /dev/dsp).
 - **The House of the Dead 4**: Never started. Lindbergh route ready (2026-10-14, docs/lindbergh.md): the folder 'The House of the Dead 4' is Rev C (hod4M.elf, game ID 0xe213414d, clean ELF), NOT the Special; the library currently links that folder to HOTD4SP and must point it to HOTD4. Static study of the protection: BESCHERMING-STATUS.md.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.

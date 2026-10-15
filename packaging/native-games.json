@@ -360,9 +360,9 @@
     },
     "TargetTerrorGold": {
       "title": "Target: Terror Gold",
-      "enabled": false,
-      "status": "niet-getest",
-      "note": "Nooit gestart; voorbereid (2026-10-14). i386, ongepakt, gewone ld.so. De dump brengt een eigen emulator van het JAMMA-bord en de dongle mee (tt_emu.so + libXshooter.so; runGame.sh op de kast: LD_PRELOAD=./tt_emu.so ./game). De pty-koppeling /dev/ttyS0 <-> /tmp/ttyJamma die tt_daemon.sh met socat maakte, doet librg_ptylink.so (RG_PTYLINK). Toetsen: tt_emu leest het virtuele toetsenbord van de daemon rechtstreeks (KBD_HOOK=/dev/input/ravengun-kbd; gemeten in zijn InputLoop: 1/2 START, 5/6 munt, 7 service, 8 test, 0 biljet, pijl op/neer volume). Geweren: libXshooter zoekt evdev-apparaten met ABS_X/ABS_Y uit Xshooter.ini (de virtuele lightguns 1209:7202/7203; patches/TargetTerrorGold/data). Niet gemeten, daarom enabled=false: of Xshooter de virtuele lightgun aanneemt, beeld in gamescope, en geluid (OSS /dev/dsp; de kast laadde de OSS-module).",
+      "enabled": true,
+      "status": "werkt",
+      "note": "WERKT (2026-10-15, dubbelklik, 5,5 min gespeeld). i386, ongepakt, gewone ld.so. De dump brengt een eigen emulator van het JAMMA-bord en de dongle mee (tt_emu.so + libXshooter.so; runGame.sh op de kast: LD_PRELOAD=./tt_emu.so ./game). De pty-koppeling /dev/ttyS0 <-> /tmp/ttyJamma die tt_daemon.sh met socat maakte, doet librg_ptylink.so (RG_PTYLINK). Toetsen: tt_emu leest het virtuele toetsenbord van de daemon rechtstreeks (KBD_HOOK=/dev/input/ravengun-kbd: 1/2 START, 5/6 munt, 7 service, 8 test, 0 biljet, pijl op/neer volume). Geweren: libXshooter neemt alleen evdev-apparaten met ABS_X/ABS_Y, BTN_LEFT/RIGHT/MIDDLE en een fysiek pad dat met usb begint (EVIOCGPHYS); de virtuele gun heeft daarom phys usb-ravengun/inputN. Geluid (OSS /dev/dsp) niet gemeten.",
       "arch": "i386",
       "launcher": "gamescope",
       "mounts": [

@@ -65,6 +65,10 @@ bool UinputGun::create(std::string& err) {
     us.id.product = id_.product;
     us.id.version = 1;
     std::strncpy(us.name, id_.name.c_str(), UINPUT_MAX_NAME_SIZE - 1);
+    // Een fysiek pad zoals dat van een echt USB-geweer: libXshooter van Raw Thrills (Target: Terror Gold) neemt alleen
+    // apparaten waarvan EVIOCGPHYS met "usb" begint (gemeten 2026-10-15: zonder pad "No raw input devices found").
+    const std::string phys = "usb-ravengun/input" + std::to_string(id_.player - 1);
+    ok = ok && ioctl(fd, UI_SET_PHYS, phys.c_str()) == 0;
     ok = ok && ioctl(fd, UI_DEV_SETUP, &us) == 0 && ioctl(fd, UI_DEV_CREATE) == 0;
     if (!ok) {
         err = std::string("uinput instellen mislukt: ") + std::strerror(errno);

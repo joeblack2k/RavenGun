@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 29 van 80 titels WORKING (36%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 11, pass 2: 40, overgeslagen: 3.
+Stand: 30 van 80 titels WORKING (38%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 40, overgeslagen: 3.
 
-## WORKING (29)
+## WORKING (30)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -36,13 +36,14 @@ Stand: 29 van 80 titels WORKING (36%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Raccoon Rampage | UNIS PC Based |  |
 | Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | Rampage | ADRENALINE PC Based |  |
+| Target: Terror Gold | Raw Thrills Linux PC Based | native (eigen bordemulator tt_emu.so); virtuele gun met USB-pad; richten bij 4:3 zonder pillarbox-correctie |
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
 | The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
 | Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Wild West Shootout | Coastal PC-Based | DXVK, winhttp=n,b |
 
-## pass 1 (11)
+## pass 1 (10)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -55,7 +56,6 @@ Stand: 29 van 80 titels WORKING (36%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Friction | Unique PC Based | getest 2026-10-15: met DXVK + native d3dx9_42 en d3dcompiler_42 (gebruikerslaag) laadschermen in beeld, daarna zwart; gamescope-focus klopt (spelvenster). Zonder DXVK slechter |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
-| Target: Terror Gold | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
 ## pass 2 (40)
