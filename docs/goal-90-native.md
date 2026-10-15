@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 30 van 80 titels WORKING (38%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 40, overgeslagen: 3.
+Stand: 31 van 80 titels WORKING (39%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 39, overgeslagen: 3.
 
-## WORKING (30)
+## WORKING (31)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -36,6 +36,7 @@ Stand: 30 van 80 titels WORKING (38%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Raccoon Rampage | UNIS PC Based |  |
 | Rambo | SEGA Lindbergh Red EX | Lindbergh-route |
 | Rampage | ADRENALINE PC Based |  |
+| SEGA Golden Gun | SEGA RingWide | recept Let's Go Island; gamescope schermvullend; regio EXPORT (Engels) |
 | Target: Terror Gold | Raw Thrills Linux PC Based | native (eigen bordemulator tt_emu.so); virtuele gun met USB-pad; richten bij 4:3 zonder pillarbox-correctie |
 | Terminator Salvation | RAW Thrills Linux PC Based |  |
 | The House of the Dead EX | SEGA Lindbergh Red | Lindbergh-route met stackalign |
@@ -58,7 +59,7 @@ Stand: 30 van 80 titels WORKING (38%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (40)
+## pass 2 (39)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -90,7 +91,6 @@ Stand: 30 van 80 titels WORKING (38%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Point Blank X | Namco ES4 | Namco ES4 |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Robin Hood | ICE PC Based | getest 2026-10-14: game.exe draait, geen beeld (achter de app of zwart); diagnose loopt |
-| SEGA Golden Gun | SEGA RingWide | getest 2026-10-14: lader exitcode 5 (toegang geweigerd) direct na laden; diagnose loopt |
 | Silent Hill: The Arcade | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
