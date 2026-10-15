@@ -54,12 +54,11 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (26)
+## Not tested yet (25)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
 - **3D Cosplay Mahjong**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
-- **Action Deka**: Prepared, not run (pass 1, Konami PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **After Dark**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Aliens Armageddon**: Never started. Statically prepared for the native route (2026-10-14): i386, unpacked, own loader (rg-elfloader: /usr/lib/libcsv.so by basename), RIO board through the bridge without encryption (addresses measured with objdump, same report as Jurassic Park). Open: (1) the HASP dongle is static and classic (aksusbd/NetHASP, like Terminator; BESCHERMING-STATUS.md): expect "DongleInitialize() FAILED" until there is a hasp-haken.ini or a daemon route; (2) aim through the IR cameras in the guns (cmgr/FTDI) is not emulated; (3) the switch ids are taken from Jurassic Park.
 - **Aliens Extermination**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Aliens Extermination (Global VR): 32-bit Windows PE with a statically linked HASP4 dongle and a USB HID check.

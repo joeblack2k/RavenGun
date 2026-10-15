@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 33 van 80 titels WORKING (41%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 37, overgeslagen: 3.
+Stand: 33 van 79 titels WORKING (42%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 36, overgeslagen: 4.
 
 ## WORKING (33)
 
@@ -61,11 +61,10 @@ Stand: 33 van 80 titels WORKING (41%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (37)
+## pass 2 (36)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
-| Action Deka | Konami PC Based | getest 2026-10-14: lader exitcode 5 direct na laden; diagnose loopt |
 | After Dark | UNIS PC Based | getest 2026-10-14: MFC 9.0 in de gedeelde prefix lost "Failed to run the process" op; nu een venster "Initialization Error" |
 | Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
@@ -103,10 +102,11 @@ Stand: 33 van 80 titels WORKING (41%); doel 90% = 72 titels; sessiedoel (eigenaa
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Wartran Troopers | Konami PC Based | getest 2026-10-14: zwart beeld (wined3d en DXVK d3d9), game.exe draait; diagnose loopt |
 
-## overgeslagen (3)
+## overgeslagen (4)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Pigs Might Fly | SEGA PC-Based | eigenaar: niet spelen (staand beeld) |
 | Gashaaaan Refill!!!! | Konami PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
 | Go Go Strike | PAOKAI Linux PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
+| Action Deka | Konami PC Based | skip-regel eigenaar 2026-10-15: Japanse tekst en 4:3 (gemeten); map naar emulation/skipped |
