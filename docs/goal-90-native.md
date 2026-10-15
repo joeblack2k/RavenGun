@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 25 van 82 titels WORKING (30%); doel 90% = 74 titels. Pass 1: 14, pass 2: 43, overgeslagen: 1.
+Stand: 25 van 80 titels WORKING (31%); doel 90% = 72 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 12, pass 2: 43, overgeslagen: 3.
 
 ## WORKING (25)
 
@@ -38,7 +38,7 @@ Stand: 25 van 82 titels WORKING (30%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Tomb Raider Arcade | ADRENALINE PC Based |  |
 
-## pass 1 (14)
+## pass 1 (12)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -49,8 +49,6 @@ Stand: 25 van 82 titels WORKING (30%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
 | Friction | Unique PC Based | getest 2026-10-14: "Shader UI_VS is not supported" (HLSL-compilatie), ook met DXVK; echte d3dx9 nodig (zoals Medaru) |
-| Gashaaaan Refill!!!! | Konami PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
-| Go Go Strike | PAOKAI Linux PC Based | spelbestanden ontbreken lokaal: map zoeken/koppelen, dan dubbelklik |
 | Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Target: Terror Gold | Raw Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
@@ -105,8 +103,10 @@ Stand: 25 van 82 titels WORKING (30%); doel 90% = 74 titels. Pass 1: 14, pass 2:
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Wartran Troopers | Konami PC Based | getest 2026-10-14: zwart beeld (wined3d en DXVK d3d9), game.exe draait; diagnose loopt |
 
-## overgeslagen (1)
+## overgeslagen (3)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Pigs Might Fly | SEGA PC-Based | eigenaar: niet spelen (staand beeld) |
+| Gashaaaan Refill!!!! | Konami PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
+| Go Go Strike | PAOKAI Linux PC Based | eigenaar 2026-10-15: spelbestanden niet op de NAS; weghalen en overslaan (verborgen in de app) |
