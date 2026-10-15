@@ -117,6 +117,20 @@ static _Atomic int usb_klaar;
 static _Atomic uint32_t n_open, n_lees, n_schrijf, n_sluit;
 
 static int actief, log_on;
+/* Fork-bestendig (2026-10-15, Aliens Armageddon): de game forkt en doet zijn bord-I/O in het kind. Draden overleven een fork niet,
+   dus het kind had geen werker die de invoer uit het bordbeeld in de tellers zet. werker_pid is het proces met een werker; een
+   proces dat het bord leest of opent zonder eigen werker, start er een. De haken zelf zijn geerfd en worden niet opnieuw gezet. */
+static _Atomic int werker_pid, usb_haken_gezet;
+static void *werker(void *arg);
+static void meld(const char *m);
+static void zorg_voor_werker(void) {
+    int pid = (int)getpid();
+    if (!actief || atomic_load(&werker_pid) == pid) return;
+    atomic_store(&werker_pid, pid);
+    pthread_t th;
+    if (pthread_create(&th, 0, werker, 0) == 0) pthread_detach(th);
+    if (log_on) { char b[100]; snprintf(b, sizeof b, "werker gestart in proces %d (na een fork)", pid); meld(b); }
+}
 static _Atomic uint32_t teller[RG_MAX_ID];
 static int minhold[RG_MAX_ID];          /* minimale druktijd per id (ms), uit de tabel */
 static uint64_t druk_ms[RG_MAX_ID];      /* wanneer de huidige druk begon */
@@ -373,6 +387,7 @@ static int toets_versleuteling(void) {
 
 static intptr_t usb_open(intptr_t vid, intptr_t pid, intptr_t c, intptr_t d, intptr_t e) {
     if ((vid & 0xffff) == U.vid && (pid & 0xffff) == U.pid && toets_versleuteling()) {
+        zorg_voor_werker();
         if (atomic_fetch_add(&n_open, 1) < 8) { char b[100]; snprintf(b, sizeof b, "usb: bord %04x:%04x geopend (ons handvat)", U.vid, U.pid); meld(b); }
         return (intptr_t)nep_dev;
     }
@@ -382,6 +397,7 @@ static intptr_t usb_open(intptr_t vid, intptr_t pid, intptr_t c, intptr_t d, int
    rapport), een rapport uit de tellers en kanalen, controlesom, versleuteld. 0 = gelukt, zoals pmrt_usb_interrupt_read. */
 static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, intptr_t e) {
     if (dev != (intptr_t)nep_dev) return echt(HAAK_LEES)(dev, buf, len, d, e);
+    zorg_voor_werker();
     static uint64_t volgende; static uint16_t volgnr;
     uint64_t nu = nu_us();
     if (!volgende || nu > volgende + 100000) volgende = nu;
@@ -503,13 +519,14 @@ static void *werker(void *arg) {
     const char *probepad = getenv("RG_RIO_PROBE");
     uint8_t buf[RG_BEELD]; int fd = -1;
     uint64_t start = nu_ms(), volgende_log = start + 5000, volgende_zoek = 0, volgende_probe = 0;
-    int usb_gedaan = !U.aan;
+    int usb_gedaan = !U.aan || atomic_load(&usb_haken_gezet);
     zet_kanalen(0);
     for (;;) {
         uint64_t t = nu_ms();
         if (T.bib[0] && t >= volgende_zoek) { zoek_en_pas_aan(); volgende_zoek = t + (t - start < 60000 ? 20 : 1000); }
         if (!usb_gedaan) {
             usb_gedaan = usb_aanhaken();
+            if (usb_gedaan) atomic_store(&usb_haken_gezet, 1);
             if (!usb_gedaan && t - start > 120000) { meld("usb: na 120 s geen spelbeeld met deze bytes (ander binair?) -- het bord wordt NIET nagedaan"); usb_gedaan = 1; }
         }
         if (probepad && t >= volgende_probe) { lees_probe(probepad); volgende_probe = t + 250; }
@@ -565,6 +582,7 @@ __attribute__((constructor)) static void rg_rio_bridge_init(void) {
                        U.zonder ? ", zonder versleuteling" : "");
     else snprintf(b, sizeof b, "tabel %s: bibliotheek %s, %d functies, %d schakelaars, %d kanalen", pad, T.bib, T.nf, T.nsw, T.nk);
     meld(b);
+    atomic_store(&werker_pid, (int)getpid());
     pthread_t th;
     if (pthread_create(&th, 0, werker, 0) == 0) pthread_detach(th);
 }

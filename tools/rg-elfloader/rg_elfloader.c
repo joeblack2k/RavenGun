@@ -37,6 +37,13 @@
 #include <string.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_PTRACER
+#define PR_SET_PTRACER 0x59616d61
+#endif
+#ifndef PR_SET_PTRACER_ANY
+#define PR_SET_PTRACER_ANY ((unsigned long)-1)
+#endif
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -1092,6 +1099,18 @@ static void start_spel(struct beeld *b, int argc, char **argv)
         *p++ = AT_NULL; *p++ = 0;
     }
 
+    /* RG_ELF_PTRACER_ANY=1 (per game in native-games.json): sommige Play Mechanix/Raw Thrills-games forken bij de start een kind
+     * dat ptrace(PTRACE_ATTACH) op zijn vader doet als anti-debugcontrole; lukt dat niet, dan breekt het kind de start af (Aliens
+     * Armageddon: 0x8347966, gemeten met gdb 2026-10-15; Terminator: patches/Terminator/BESCHERMINGSLAAG-PTRACE.md). Op de kast
+     * was er geen Yama; hier verbiedt ptrace_scope=1 een kind zijn vader aan te haken. PR_SET_PTRACER is daarvoor de eigen
+     * uitweg van de kernel: per proces, zonder root, en weg zodra het spel stopt. */
+    {
+        const char *pa = getenv("RG_ELF_PTRACER_ANY");
+        if (pa && *pa == '1') {
+            if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == 0) say("PR_SET_PTRACER_ANY gezet (RG_ELF_PTRACER_ANY=1)");
+            else say("PR_SET_PTRACER_ANY mislukt");
+        }
+    }
     say("spring naar e_entry %#x (esp %p, argc %d, envc %d, %d auxv)",
         b->entry, (void *)sp, argc, envc, naux);
     spring(b->entry, sp);
