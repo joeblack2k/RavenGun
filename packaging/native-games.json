@@ -9,7 +9,7 @@
       "title": "Halo: Fireteam Raven",
       "enabled": false,
       "status": "geparkeerd",
-      "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot) gemeten 2026-10-15: beeld, FileTest overslaan en kalibratie overslaan met START, attract met FREEPLAY (adjustment playerCost/freeplay in de lokale schrijflaag). Invoer: tools/rt-input-shim leest nu het bestand van de daemon (/dev/shm/ravengun_JvsState); het oude TeknoParrot_JvsState stond stil. Geluid: tools/fmod-stub is een stille FMOD (alles FMOD_OK); echte FMOD Studio 1.10 ontbreekt. Open: spelers kunnen niet meedoen -- de geweren zijn camera's en de game vindt er geen ('Webcam: Aborting auto-id ... brightness difference of 0'), dus spelersaantal 0 en geen spelerstructuur. Tot dat is nagedaan blijft de route uit; Halo speelt via BudgieLoader.",
+      "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot) gemeten 2026-10-15: beeld, FileTest overslaan en kalibratie overslaan met START, attract met FREEPLAY (adjustment playerCost/freeplay in de lokale schrijflaag). Invoer: tools/rt-input-shim leest nu het bestand van de daemon (/dev/shm/ravengun_JvsState); het oude TeknoParrot_JvsState stond stil. Geluid: tools/fmod-stub is een stille FMOD (alles FMOD_OK); echte FMOD Studio 1.10 ontbreekt. QR-scanners: de 'webcams' van Halo zijn de QR-scanners (webcamID/qr%i.ppm), niet de geweren; tools/v4l2-fake geeft er twee (fake_video: 2): het spel ziet nu '2 webcams present'. Kindprocessen (popen: ls, sha1sum, find) krijgen geen LD_PRELOAD meer: halo.so liet ze stil sterven. Open: spelers kunnen niet meedoen -- de geweren zijn op een mechanische steun (kalibratie 'pull gun all the way back ... limits of the gun'; analoge kanalen 793/794); die richting is nog niet nagedaan, net als het meedoen met START. Tot dan blijft de route uit; Halo speelt via BudgieLoader.",
       "arch": "x86_64",
       "mounts": [
         {
@@ -40,7 +40,7 @@
           "note": "FMOD 1.10 ontbreekt (propriëtair); de stub geeft geen geluid"
         }
       ],
-      "preload": "/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so",
+      "preload": "/rg/lib/librg_rt_input.so:/rg/lib/librg_v4l2_fake.so:/pm/g7/halo/halo.so",
       "exe": "/pm/g7/halo/game",
       "cwd": "/pm/g7/halo",
       "home": "/pm/g7/halo",
@@ -50,11 +50,13 @@
       ],
       "route": "tp-shm",
       "libs": [
-        "@build/librg_rt_input.so"
+        "@build/librg_rt_input.so",
+        "@build/librg_v4l2_fake.so"
       ],
       "extra_ro": [
         "/dev/shm/ravengun_JvsState"
-      ]
+      ],
+      "fake_video": 2
     },
     "JurassicPark": {
       "title": "Jurassic Park Arcade",

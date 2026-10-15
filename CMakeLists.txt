@@ -190,6 +190,11 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     target_compile_options(rg_rt_input PRIVATE -fno-stack-protector -w)
     target_link_libraries(rg_rt_input PRIVATE pthread m ${CMAKE_DL_LIBS})
     set_target_properties(rg_rt_input PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_rt_input" C_VISIBILITY_PRESET default)
+    # Virtuele webcams voor games die met camera's in de geweren richten (Halo); tools/v4l2-fake/rg_v4l2_fake.c.
+    add_library(rg_v4l2_fake SHARED tools/v4l2-fake/rg_v4l2_fake.c)
+    target_compile_options(rg_v4l2_fake PRIVATE -Wall -Wextra)
+    target_link_libraries(rg_v4l2_fake PRIVATE pthread ${CMAKE_DL_LIBS})
+    set_target_properties(rg_v4l2_fake PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_v4l2_fake" C_VISIBILITY_PRESET default)
     # Invoerbrug voor het RIO-lightgun-bord van de native Raw Thrills-Unity-route (NERF): librio.so van de game leest het bordbeeld
     # van de IO-brug (tools/rio-bridge/, tabel patches/<Game>/rio-invoer.ini).
     add_library(rg_rio_bridge SHARED tools/rio-bridge/rg_rio_bridge.c)
@@ -531,7 +536,7 @@ if(RAVENGUN_BUILD_DAEMON)
   endif()
 endif()
 if(TARGET rg_comm_shim)
-  install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge LIBRARY DESTINATION lib)
+  install(TARGETS rg_comm_shim rg_rt_input rg_rio_bridge rg_v4l2_fake LIBRARY DESTINATION lib)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"

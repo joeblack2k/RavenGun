@@ -62,6 +62,7 @@ inline constexpr const char* kJvsPtyPlaceholder = "@jvs-pty";
 struct NativeProfile {
     std::string name, title, status, note, arch, preload, exe, cwd, home, route, launcher, loader, res;
     bool enabled = false, share_ipc = false;
+    int fake_video = 0;   // virtuele webcams /dev/video0..N-1 in de sandbox (tools/v4l2-fake; Halo richt met camera's in de geweren)
     LindberghSpec lindbergh;
     std::vector<Mount> mounts;
     std::vector<SrcDst> files, seeds, links /* src = doel van de link */, libdirs, binds_rw;

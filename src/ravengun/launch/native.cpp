@@ -317,6 +317,13 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
     out.enabled = en && en->is_bool() && en->b;
     const Value* si = g->find("share_ipc");
     out.share_ipc = si && si->is_bool() && si->b;
+    if (const Value* fv = g->find("fake_video")) {
+        if (!fv->is_number() || fv->num < 0 || fv->num > 4 || fv->num != static_cast<int>(fv->num)) {
+            err = game + ": 'fake_video' is een getal van 0 tot en met 4";
+            return false;
+        }
+        out.fake_video = static_cast<int>(fv->num);
+    }
     auto pairs = [&](const char* key, const char* a, const char* b, std::vector<SrcDst>& to) {
         const Value* v = g->find(key);
         if (!v) return true;
@@ -539,6 +546,9 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         ldpath += (ldpath.empty() ? "" : ":") + std::string("/rg/lib");
     }
     for (const std::string& e : pr.extra_ro) bw.insert(bw.end(), {"--ro-bind-try", e, e});
+    // Virtuele webcams: het spel zoekt ze met `ls -1 /dev/video*`; open/ioctl/read vangt tools/v4l2-fake af (RG_V4L2_FAKE).
+    for (int i = 0; i < pr.fake_video; ++i) bw.insert(bw.end(), {"--ro-bind", "/dev/null", "/dev/video" + std::to_string(i)});
+    if (pr.fake_video > 0) bw.insert(bw.end(), {"--setenv", "RG_V4L2_FAKE", std::to_string(pr.fake_video)});
 
     // De invoertabellen: WAT een invoerhulp waarheen schrijft staat per game in patches/<Game>/, de gebruikerslaag gaat voor.
     std::vector<std::pair<std::string, std::string>> table_env;
