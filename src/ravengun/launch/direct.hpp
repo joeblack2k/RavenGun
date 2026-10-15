@@ -59,6 +59,12 @@ struct DirectStart {
     double wait_before = 0.0;                              // seconden wachten voor deze start (de eerste: 0)
 };
 
+// [Launch] Drives: een schijfletter in de prefix voor de duur van de run (rg-direct zet hem en haalt hem weg als hij er niet al stond).
+struct DirectDrive {
+    std::string letter, target, link;   // "W", de lokale map, <prefix>/dosdevices/w:
+    bool present = false;               // stond er al (en wees naar dezelfde map): dan laat rg-direct hem staan
+};
+
 struct DirectPlan {
     std::string profile, tp, emulator_type, emulation_profile, game, game_source, cwd, wine, prefix, loader;
     bool is64 = false, gamescope = false, windowed_override = false, log_full = false, windows = false;
@@ -85,6 +91,8 @@ struct DirectPlan {
     // native DLL op het doel (de ingebouwde van Wine eenmalig bewaard als <naam>.wine-bewaard) en WINEDLLOVERRIDES krijgt <naam>=n.
     // Voor COM-DLL's (XACT) die Wine altijd uit system32 laadt; zonder override blijft Wine zijn ingebouwde gebruiken (docs/redist.md).
     std::vector<std::pair<std::string, std::string>> native_dlls;
+    std::vector<DirectDrive> drives;                       // [Launch] Drives
+    std::string exe_override;                              // [Launch] Exe: het Windows-pad dat de lader voor het spel krijgt
     std::vector<std::string> view_copies;                  // [Launch] ViewCopies: links in de view die een lokale kopie worden
     std::vector<std::string> reg_files;                    // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe

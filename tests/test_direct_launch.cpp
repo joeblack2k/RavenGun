@@ -629,8 +629,34 @@ int main() {
     write(user, "[Game]\nHasTwoExecutables = true\n");
     // Twee exe's zonder tweede pad: launch-direct.py zegt "niet direct te starten" (de engine plant twee exe's zelf, zie hieronder).
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Niet direct te starten") && contains(why, "de tweede is niet gevonden: ''"));
-    write(user, "[Launch]\nDrives = X=.\n");
-    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "Drives"));
+    // [Launch] Drives en Exe: een schijfletter voor de run en het spel vanaf die letter (Far Cry Paradise Lost: W:).
+    write(user, "");
+    {
+        DirectPlan basis;
+        CHECK(plan_direct("Spel", p, o, basis, why) == Verdict::Ok);
+        std::string exe_naam = fs::relative(basis.game, view).string();   // relatief aan de view-wortel (X: = .)
+        std::replace(exe_naam.begin(), exe_naam.end(), '/', '\\');
+        fs::create_directories(fs::path(basis.prefix) / "dosdevices");
+        write(user, "[Launch]\nDrives = X=.\nExe = x:\\" + exe_naam + "\n");
+        const Verdict dv = plan_direct("Spel", p, o, pl, why);
+        CHECK(dv == Verdict::Ok);
+        if (dv != Verdict::Ok) std::fprintf(stderr, "drives/exe: %s\n", why.c_str());
+        CHECK(pl.drives.size() == 1 && pl.drives[0].letter == "X" && !pl.drives[0].present &&
+              pl.drives[0].link == (fs::path(basis.prefix) / "dosdevices/x:").string());
+        CHECK(pl.exe_override == "X:\\" + exe_naam && std::find(pl.argv.begin(), pl.argv.end(), "X:\\" + exe_naam) != pl.argv.end());
+        {
+            DirectPlan back;
+            std::string jerr;
+            CHECK(plan_from_json(plan_to_json(pl), back, jerr) && back.exe_override == pl.exe_override && back.drives.size() == 1 &&
+                  back.drives[0].link == pl.drives[0].link);
+        }
+        write(user, "[Launch]\nDrives = C=.\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "niet C"));
+        write(user, "[Launch]\nDrives = X=.\nExe = Y:\\spel.exe\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat niet in de prefix"));
+        write(user, "[Launch]\nDrives = X=.\nExe = X:\\bestaat-niet.exe\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat niet"));
+    }
     write(user, "[Game]\nProfileRevision = 2\n");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, "profielrevisie 2"));
     write(user, "[Game]\nEmulationProfile = NamcoPokken\n");

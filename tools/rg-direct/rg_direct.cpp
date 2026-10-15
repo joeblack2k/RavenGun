@@ -982,6 +982,19 @@ int run_plan(const std::string& plan_file) {
         log("register: " + std::filesystem::path(reg).filename().string() + " ingelezen in " + plan.prefix + " (" + bits + " bits)");
     }
 
+    // 2c. [Launch] Drives: de schijfletters voor deze run (een die er al stond blijft; de rest gaat na afloop weer weg).
+    std::vector<std::string> gezette_letters;
+    for (const auto& d : plan.drives) {
+        if (d.present) { log("schijfletter " + d.letter + ": staat al in de prefix (-> " + d.target + ")"); continue; }
+        if (::symlink(d.target.c_str(), d.link.c_str()) != 0) {
+            log("schijfletter " + d.letter + ": niet te zetten (" + d.link + "): " + std::strerror(errno) + "; de game wordt niet gestart");
+            for (const auto& l : gezette_letters) ::unlink(l.c_str());
+            return 1;
+        }
+        gezette_letters.push_back(d.link);
+        log("schijfletter " + d.letter + ": -> " + d.target + " (voor deze run)");
+    }
+
     // 3. De JVS-pipe en de helper in de prefix (voor de game, zoals TeknoParrotUi).
     JvsPipeServer server(ld_truthy(env_get(env, "RG_JVS_BOARD")), ld_truthy(env_get(env, "RG_JVS_F1_ONCE")),
                          ld_truthy(env_get(env, "RG_JVS_DEBUG")), env_get(env, "RG_JVS_PTY"), board);
@@ -1100,6 +1113,11 @@ int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, J
     if (ctl) {
         ctl->helper.stop();
         if (ctl->server) ctl->server->close();
+    }
+    for (const auto& d : plan.drives) {   // [Launch] Drives: wat deze run zette weer weghalen
+        char buf[4096];
+        const ssize_t n = d.present ? -1 : ::readlink(d.link.c_str(), buf, sizeof buf - 1);
+        if (n > 0 && std::string(buf, static_cast<size_t>(n)) == d.target && ::unlink(d.link.c_str()) == 0) log("schijfletter " + d.letter + ": weggehaald");
     }
     log(std::string("klaar (exitcode ") + (have_rc ? std::to_string(rc) : std::string("gestopt")) + ")");
     return have_rc ? (rc & 0xFF) : 0;

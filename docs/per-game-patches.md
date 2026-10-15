@@ -415,6 +415,10 @@ scripts/launch-direct.py <Profiel> --plan --exe 'x:\exe\x64\spel.exe' --drive X=
   profiel, en `schijfletter X: -> <map>`. Zonder override staat er `spel: Z:\...` en verandert er niets.
 - Wat niet kan (een letter die niet bestaat, een bestand dat er niet is of buiten de view ligt) wordt in het plan geweigerd
   met exitcode 5, voordat er iets start.
+- De C++-engine (rg-direct, de route van de daemon) kent beide sleutels ook (2026-10-15): het plan heeft `drives`
+  (`letter`, `target`, `link`, `present`) en `exe_override`; rg-direct zet de letters vlak voor de start en haalt ze in
+  `run_einde` weer weg. In de engine moet de letter van `Exe` in `Drives` staan. Far Cry Paradise Lost gebruikt
+  `Drives = W=.` en `Exe = W:\Farcry_R.exe`, zoals `Runme.bat` van de kast.
 
 **Een grotere stapel voor de hoofdthread (`[Launch] StackReserve = 16M`).** Onder Wine krijgt de hoofdthread van een Windows-game
 precies `SizeOfStackReserve` uit de PE-kop van de exe (vaak 1 MiB). Is dat te weinig, dan zet deze sleutel de exe in de **view** om

@@ -1515,9 +1515,73 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     // 5. De opdrachtregel.
     const gsn::Section* launch_ini = settings.settings.section("Launch");
     auto lini = [&](const char* k) { return launch_ini ? kv_get(launch_ini->kv, k) : std::string(); };
-    if (!trim(lini("Drives")).empty()) return engine("[Launch] Drives (schijfletters voor de run)");
-    if (!trim(lini("Exe")).empty()) return engine("[Launch] Exe (het spel vanaf een ander pad)");
-    const std::string spel_win = wine_path(game);
+    // [Launch] Drives = W=.; Y=~/map: schijfletters voor de duur van de run; een relatief pad is relatief aan de view van het spel.
+    // [Launch] Exe = W:\spel.exe: het pad dat de lader voor het spel krijgt (alleen dat pad verandert). Far Cry Paradise Lost
+    // controleert in WinMain of hij vanaf W: draait (Runme.bat: subst W: .), 2026-10-15. Zie docs/per-game-patches.md.
+    const std::string view_root = view_wortel(dirname(game), p);
+    for (std::string stuk : nonempty_split(lini("Drives"), ';')) {
+        stuk = trim(stuk);
+        if (stuk.empty()) continue;
+        const size_t is = stuk.find('=');
+        if (is == std::string::npos) return setting_refused("schijfletter '" + stuk + "' is geen LETTER=MAP");
+        std::string letter = upper(trim(stuk.substr(0, is)));
+        if (!letter.empty() && letter.back() == ':') letter.pop_back();
+        if (letter.size() != 1 || letter[0] < 'A' || letter[0] > 'Y' || letter == "C")
+            return setting_refused("schijfletter '" + trim(stuk.substr(0, is)) + "' kan niet (een letter van A tot Y, niet C)");
+        std::string doel = trim(stuk.substr(is + 1));
+        if (starts_with(doel, "~/")) doel = p.home + doel.substr(1);
+        doel = normpath(doel.size() && doel[0] == '/' ? doel : pjoin(view_root, doel));
+        if (!isdir(doel)) return setting_refused("schijf " + letter + ": de map " + doel + " bestaat niet");
+        if (on_nas(doel, p)) return setting_refused("schijf " + letter + ": de map " + doel + " ligt op de NAS; een schijfletter van ons wijst naar een lokale map (de view van het spel, of een eigen map)");
+        DirectDrive d;
+        d.letter = letter;
+        d.target = doel;
+        d.link = pjoin(pjoin(prefix, "dosdevices"), lower(letter) + ":");
+        if (!isdir(pjoin(prefix, "dosdevices"))) return setting_refused("schijf " + letter + ": de prefix " + prefix + " heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)");
+        if (lexists(d.link)) {
+            if (!islink(d.link) || realpath_(d.link) != realpath_(doel))
+                return setting_refused("schijf " + letter + ": bestaat al in de prefix " + prefix + " en wijst naar " + realpath_(d.link) + ", niet naar " + doel);
+            d.present = true;
+        }
+        pl.drives.push_back(d);
+    }
+    if (std::string ex = trim(lini("Exe")); !ex.empty()) {
+        if (ex.size() >= 2 && ex.front() == '"' && ex.back() == '"') ex = ex.substr(1, ex.size() - 2);
+        if (ex.size() < 3 || ex[1] != ':' || std::toupper(static_cast<unsigned char>(ex[0])) == 'Z')
+            return setting_refused("[Launch] Exe = " + ex + " (een Windows-pad met een schijfletter uit [Launch] Drives, bv. W:\\spel.exe)");
+        const std::string letter(1, static_cast<char>(std::toupper(static_cast<unsigned char>(ex[0]))));
+        auto it = std::find_if(pl.drives.begin(), pl.drives.end(), [&](const DirectDrive& d) { return d.letter == letter; });
+        if (it == pl.drives.end()) return setting_refused("--exe " + ex + ": schijf " + letter + ": bestaat niet in de prefix " + prefix + "; geef hem op met --drive " + letter + "=<map> of [Launch] Drives (bijvoorbeeld " + letter + "=. voor de view van het spel)");
+        std::string rest = ex.substr(2);
+        std::replace(rest.begin(), rest.end(), '\\', '/');
+        // Zoeken zoals Windows: hoofdletters maken niet uit.
+        std::string cur = it->target;
+        for (const std::string& deel : nonempty_split(rest, '/')) {
+            if (deel == ".") continue;
+            if (deel == "..") return setting_refused("[Launch] Exe = " + ex + " (geen ..)");
+            std::string kand = pjoin(cur, deel);
+            if (!lexists(kand)) {
+                std::error_code ec;
+                std::string gevonden;
+                for (const auto& e : fs::directory_iterator(cur, ec))
+                    if (lower(e.path().filename().string()) == lower(deel)) gevonden = e.path().string();
+                if (gevonden.empty()) return setting_refused("--exe " + ex + ": dat bestand bestaat niet");
+                kand = gevonden;
+            }
+            cur = kand;
+        }
+        if (!isfile(cur)) return setting_refused("--exe " + ex + ": dat bestand bestaat niet");
+        if (!binnen(abspath(cur), abspath(view_root)))
+            return setting_refused("--exe " + ex + ": " + cur + " ligt buiten de view " + view_root + " van het spel; de override verandert alleen het pad, niet de opstelling");
+        std::string door = ex;
+        door[0] = letter[0];
+        std::replace(door.begin(), door.end(), '/', '\\');
+        pl.exe_override = door;
+        pl.notes.push_back("spel (OVERRIDE, [Launch] Exe): " + door + " (" + cur + ")");
+    }
+    for (const auto& d : pl.drives)
+        pl.notes.push_back("schijfletter " + d.letter + ": -> " + d.target + (d.present ? " (staat al in de prefix)" : " (voor deze run gezet, daarna weggehaald)"));
+    const std::string spel_win = pl.exe_override.empty() ? wine_path(game) : pl.exe_override;
     std::vector<std::string> args{wine, loader};
     if (!dll_rel.empty()) args.push_back(wine_path(pjoin(core_dir, dll_rel)));
     args.push_back(spel_win);
@@ -2118,6 +2182,11 @@ std::string plan_to_json(const DirectPlan& pl) {
     for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     strs("view_copies", pl.view_copies);
+    w.key("exe_override").value(pl.exe_override);
+    w.key("drives").begin_array();
+    for (const auto& d : pl.drives)
+        w.begin_object().key("letter").value(d.letter).key("target").value(d.target).key("link").value(d.link).key("present").value(d.present).end_object();
+    w.end_array();
     w.key("native_dlls").begin_array();
     for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
@@ -2184,6 +2253,16 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("native_dlls"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.native_dlls.emplace_back(e.arr[0].str, e.arr[1].str);
+    if (const auto* f = v.find("exe_override"); f && f->is_string()) pl.exe_override = f->str;
+    if (const auto* f = v.find("drives"); f && f->is_array())
+        for (const auto& e : f->arr) {
+            DirectDrive d;
+            if (const auto* x = e.find("letter"); x && x->is_string()) d.letter = x->str;
+            if (const auto* x = e.find("target"); x && x->is_string()) d.target = x->str;
+            if (const auto* x = e.find("link"); x && x->is_string()) d.link = x->str;
+            if (const auto* x = e.find("present"); x && x->is_bool()) d.present = x->b;
+            pl.drives.push_back(d);
+        }
     if (const auto* f = v.find("dropin_files"); f && f->is_array())
         for (const auto& e : f->arr) {
             DropinFile d;
