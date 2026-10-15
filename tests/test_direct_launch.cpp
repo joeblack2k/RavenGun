@@ -429,6 +429,40 @@ int main() {
         fs::remove_all(nas_data);
     }
 
+    // [Launch] ViewCopies: een link in de view wordt een lokale kopie; de NAS blijft gelijk en een lokaal bestand blijft staan
+    // (Mars Sortie: GameRecords1/2.dat).
+    {
+        const fs::path nas_rec = home / "mnt/nas/spel/GameRecords1.dat";
+        write(nas_rec, "records van de NAS");
+        const fs::path vrec = view / "bin/GameRecords1.dat";
+        fs::create_symlink(nas_rec, vrec);
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Launch]\nViewCopies = GameRecords1.dat\n");
+        DirectPlan vp;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok && vp.view_copies == std::vector<std::string>{vrec.string()});
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(vp), back, err) && back.view_copies == vp.view_copies);
+        }
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(vp, p, log, err));
+        CHECK(!fs::is_symlink(vrec) && slurp(vrec) == "records van de NAS" && slurp(nas_rec) == "records van de NAS");
+        write(vrec, "stand van de game");
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err) && slurp(vrec) == "stand van de game" && slurp(nas_rec) == "records van de NAS");
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "al een lokaal bestand"); }));
+        for (const char* fout : {"../x", "/abs"}) {
+            write(ugi, std::string("[Launch]\nViewCopies = ") + fout + "\n");
+            CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "ViewCopies"));
+        }
+        fs::remove(ugi);
+        fs::remove(vrec);
+        fs::remove_all(home / "mnt/nas/spel/GameRecords1.dat");
+    }
+
     // [Launch] Dxvk: de DLL's van DXVK (bitbreedte van de game; Spel is 64 bits) als drop-ins in de view met <naam>=n. Bron: eerst
     // RAVENGUN_DXVK, dan ~/.local/share/ravengun/dxvk/current, dan de nieuwste Proton van Steam; niets gevonden = niet starten.
     {

@@ -85,6 +85,7 @@ struct DirectPlan {
     // native DLL op het doel (de ingebouwde van Wine eenmalig bewaard als <naam>.wine-bewaard) en WINEDLLOVERRIDES krijgt <naam>=n.
     // Voor COM-DLL's (XACT) die Wine altijd uit system32 laadt; zonder override blijft Wine zijn ingebouwde gebruiken (docs/redist.md).
     std::vector<std::pair<std::string, std::string>> native_dlls;
+    std::vector<std::string> view_copies;                  // [Launch] ViewCopies: links in de view die een lokale kopie worden
     std::vector<std::string> reg_files;                    // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de

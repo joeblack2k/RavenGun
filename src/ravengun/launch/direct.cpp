@@ -1605,6 +1605,22 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused("[Launch] ViewLinks vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de links "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
     }
+    // 6c2. [Launch] ViewCopies: bestanden die de game zelf beschrijft (records, instellingen) worden in de view één keer een eigen
+    // lokale kopie van het origineel, zodat de game nooit naar de NAS schrijft. Mars Sortie schreef GameRecords1/2.dat via de
+    // view-link op de NAS (2026-10-15). Een bestaand lokaal bestand blijft staan: dat is de stand van de game.
+    if (const std::string vc = trim(lini("ViewCopies")); !vc.empty()) {
+        for (std::string r : nonempty_split(vc, ',')) {
+            r = trim(r);
+            std::replace(r.begin(), r.end(), '\\', '/');
+            const std::string n = normpath(r);
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || starts_with(n, "../"))
+                return setting_refused("[Launch] ViewCopies = " + vc + " ('" + r + "': een pad binnen de gamemap, relatief en zonder ..)");
+            pl.view_copies.push_back(normpath(pjoin(dirname(game), n)));
+        }
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewCopies vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de kopieën "
+                                   "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
+    }
     // 6d. [Launch] Dxvk: Direct3D 8 tot en met 11 via DXVK (Vulkan) in plaats van wined3d (OpenGL), per game in de view (docs/dxvk.md).
     // Mario Kart DX: met wined3d ontbrak de 2D-laag (geen tekst, geen menu's) en kwamen er duizenden GL-fouten; met DXVK niet.
     if (const std::string dx = lower(trim(lini("Dxvk"))); !dx.empty() && dx != "false" && dx != "0" && dx != "off") {
@@ -1961,6 +1977,29 @@ bool place_view_links(const DirectPlan& pl, const DirectPaths& p, std::vector<st
     return true;
 }
 
+// [Launch] ViewCopies: een link in de view wordt een lokale kopie van het bestand erachter (lezen van de NAS mag, schrijven nooit).
+// Al een echt bestand: niets doen (de game heeft het al beschreven).
+bool place_view_copies(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    for (const std::string& pad : pl.view_copies) {
+        auto fout = [&](const std::string& m) {
+            log.push_back("viewcopy: FOUT: " + m + " -- de game wordt niet gestart");
+            err = "viewcopy: " + m;
+            return false;
+        };
+        if (lexists(pad) && !islink(pad)) { log.push_back("viewcopy: " + pad + " is al een lokaal bestand"); continue; }
+        if (!isfile(pad)) return fout(pad + " bestaat niet of is geen bestand");
+        if (on_nas(dirname(pad), p)) return fout(dirname(pad) + " ligt op de NAS; daar wordt nooit iets geschreven");
+        const std::string bron = realpath_(pad);
+        std::string data;
+        if (!read_file(bron, data)) return fout(bron + " is niet te lezen");
+        ::unlink(pad.c_str());
+        std::string werr;
+        if (!write_atomic(pad, data, werr)) return fout(werr);
+        log.push_back("viewcopy: " + pad + " is nu een lokale kopie van " + bron + " (" + std::to_string(data.size()) + " bytes)");
+    }
+    return true;
+}
+
 // [Launch] NativeDlls: de native DLL op zijn plaats in de prefix (nooit op de NAS). Staat er al precies deze DLL, dan niets.
 bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
     for (const auto& [bron, doel] : pl.native_dlls) {
@@ -2036,6 +2075,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
         log.push_back("bestand: " + path + " geschreven");
     }
     if (!place_view_links(pl, p, log, err)) return false;
+    if (!place_view_copies(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
     return place_stack_copy(pl, p, log, err);
 }
@@ -2077,6 +2117,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.key("view_links").begin_array();
     for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
     w.end_array();
+    strs("view_copies", pl.view_copies);
     w.key("native_dlls").begin_array();
     for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
@@ -2132,7 +2173,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     }
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
-    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files);
+    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies);
     mp("env", pl.env); mp("launch_env", pl.launch_env);
     if (const auto* f = v.find("files"); f && f->is_array())
         for (const auto& e : f->arr)

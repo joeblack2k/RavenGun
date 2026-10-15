@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (32)
+## Working (33)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -25,6 +25,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Let's Go Safari**: WORKING without TeknoParrotUi (2026-10-14): a double-click in RavenGun starts the game through rg-direct, JVS over the pipe to the daemon's LGS board, full screen through gamescope (17:33, 5:49 min). Measured with a gamepad (18:35, 5:38 min): steering with the left stick (contact sheet bench-captures/LGS/seq_sheet.png), START with Start, the colored buttons A/B/X/Y = red/blue/yellow/green. Without a pad the lightgun's horizontal aim steers. Not measured yet: camera, wipers, horn, fireworks, and playing with the real Move.
 - **Lethal Enforcers 3**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with Gst32 (docs/gst32.md): the videos through the 32-bit GStreamer from Proton; without it the game crashed at the first video. Played 5.5 min in mouse mode (FREE PLAY).
 - **Mario Kart Arcade GP DX**: WORKING on our own route (2026-10-15): double-click in RavenGun, rg-direct without TeknoParrotUi, 16 MiB stack, DXVK ([Launch] Dxvk), the Polygon2D view link and the d3dx10 pHResult repair in rg-mfcam.dll. Played with a gamepad (5.5 min, two races): Item (A) starts and confirms, left stick steers, RT gas, LT brake; the cabinet is on FREE PLAY. Open: the camera (the game never asks for it), Banapass cards. See NETWERK-INVOER-CAMERA.md, 5e.
+- **Mars Sortie**: WORKING via double-click in the app (2026-10-15): DXVK, attract, coin, START, game; played 5.5 min. After a game with score >= 10 a reward screen follows (setting ScoreOfReward = 10 in GameRecords): hold the trigger for 5 s to continue (not a hang). GameRecords1/2.dat are local copies in the view (ViewCopies); the NAS stays unchanged.
 - **Music GunGun 2**: WORKING via double-click in the app (2026-10-15): the dump's HD build via ViewLinks (1360x768 does not exist in Xwayland), the daemon's JVS board; attract, coin, START, training choice, songs with score, hiscore entry; played 5.5 min.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
 - **Operation G.H.O.S.T.**: WORKING via double-click in the app (2026-10-15): attract, START, shooting in the train with a rising score, played 5.5 min. Movies via Gst32 + data/wmv-asyncreader.reg (Proton's ASF reader hung on Stop), native XACT 3.3, gamescope fullscreen. Picture is 4:3 (the game picks 1024x768).
@@ -53,7 +54,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (27)
+## Not tested yet (26)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -72,7 +73,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Friction**: Prepared, not run (pass 1, Unique PC Based (OpenParrot)): profile, identification and input route are in place; nothing has been measured yet.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
 - **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.
-- **Mars Sortie**: Measured 2026-10-15: with DXVK ([Launch] Dxvk) attract and game render (without it: black); double-click, coin, START and shooting work (bullet holes). After the first game the weekly ranking screen stays up, also without input (it most likely waits for the ranking server). Not Working yet.
 - **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.
 - **Night Hunter - After Dark, Chapter 2**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.

@@ -154,6 +154,7 @@ WorkingDirectory = .          ; relatief aan de map van de game-exe, of een Wind
 View =                        ; auto (leeg) | off | N: de lokale view van een game op de NAS (zie "De view"); N = --view-up N
 ViewEmptyDirs =               ; mappen die in de view leeg en lokaal zijn (--empty-dir), bv. RSGame/Content/Movies
 ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink naar het bestand van B (zie "ViewLinks" hieronder)
+ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 
 [Loader]
@@ -429,6 +430,14 @@ Zo doet TeknoParrot het onder Wine voor Mario Kart Arcade GP DX (16 MiB). Wat er
   en schrijft niets als de kopie al klopt. Heeft de exe zelf al minstens zoveel stapel, dan blijft alles zoals het is;
 - nooit op de NAS: ligt de game niet in een view (`scripts/tp-add-game.py <Game> <exe> --view`), dan weigert het plan met exitcode 5.
   Terug naar het origineel: de sleutel weghalen en `<exe>` in de view vervangen door `<exe>.ravengun-orig`.
+
+**Een bestand dat de game zelf beschrijft lokaal maken (`[Launch] ViewCopies = A, B`).** Sommige games schrijven records of
+instellingen naast de exe. In de view is zo'n bestand een link naar de NAS, dus de game zou daar schrijven. Met `ViewCopies` wordt
+de link bij de start één keer een lokale kopie van het origineel (lezen van de NAS mag). Daarna blijft het lokale bestand staan,
+want dat is de stand van de game. Paden zijn relatief aan de map van de exe, zonder `..`. De game moet in een view staan, anders
+weigert het plan. Mars Sortie (2026-10-15) schreef bij elke start `GameRecords1.dat` en `GameRecords2.dat`. Zonder `ViewCopies`
+kregen die bestanden op de NAS een nieuwe mtime; met `ViewCopies` blijft de NAS gelijk. In de engine: `place_view_copies` in
+`direct.cpp`, in het plan `view_copies`.
 
 **Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
 een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.
