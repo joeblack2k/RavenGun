@@ -5,7 +5,7 @@
  * komt er niets binnen. Een virtueel lichtgeweer (een muis of joystick) helpt niet: de game leest zijn EIGEN bordstructuur, niet de
  * invoerapparaten van het systeem. De vooraf te laden bibliotheek van TeknoParrot (halo.so) doet alleen de dongle, geen invoer.
  *
- * Deze bibliotheek is invoer en niets anders: zij leest het bordbeeld van de daemon (/dev/shm/TeknoParrot_JvsState, geschreven
+ * Deze bibliotheek is invoer en niets anders: zij leest het bordbeeld van de daemon (/dev/shm/ravengun_JvsState, geschreven
  * door de IO-brug: een bitveld met de schakelaars en knoppen, en een byte per as) en zet de waarden in het geheugen van de game,
  * op de plek waar de game ze zelf leest. Zij emuleert geen bord, geen beveiligingschip, geen dongle en omzeilt geen controle van
  * de game: de game ziet nog steeds geen bord; alleen de invoer komt binnen.
@@ -46,7 +46,7 @@
  *
  * Gebruik: LD_PRELOAD=/pad/librg_rt_input.so:/pm/g7/halo/halo.so ... De daemon moet de IO-brug (tp-shm) draaien.
  * Omgeving: RG_RT_TABLE=pad (de tabel; anders rt-invoer.ini naast deze bibliotheek, anders de ingebouwde standaard),
- *           RG_RT_SHM=pad (standaard /dev/shm/TeknoParrot_JvsState), RG_RT_LOG=1 (meldingen op stderr), RG_RT_PULSE_MS.
+ *           RG_RT_SHM=pad (standaard /dev/shm/ravengun_JvsState), RG_RT_LOG=1 (meldingen op stderr), RG_RT_PULSE_MS.
  * Onderzoek: RG_RT_PROBE=pad (bestand met "bit,bord,k", live gelezen) en RG_RT_ALLTYPES=1 (alle schakelaars als aanwezig markeren).
  * Eigen code.
  */
@@ -448,7 +448,7 @@ static int rg_tabel_kies(struct rg_tabel *t) {
 static void *worker(void *arg) {
     (void)arg;
     const char *env = getenv("RG_RT_LOG"); log_on = env && *env == '1';
-    const char *shm = getenv("RG_RT_SHM"); if (!shm) shm = "/dev/shm/TeknoParrot_JvsState";
+    const char *shm = getenv("RG_RT_SHM"); if (!shm) shm = "/dev/shm/ravengun_JvsState";   /* het bestand van de daemon (iobridge/tp_shm.hpp) */
     const char *pm = getenv("RG_RT_PULSE_MS"); int pulse_override = pm ? atoi(pm) : 0;
 
     /* Onderzoek: RG_RT_PROBE=pad naar een bestand met "bit,bord,k" zet een schakelaar van de tabel (live, elke 250 ms gelezen) op een andere plek. */

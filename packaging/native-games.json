@@ -9,7 +9,7 @@
       "title": "Halo: Fireteam Raven",
       "enabled": false,
       "status": "geparkeerd",
-      "note": "Start native op de NAS (beeld, FileTest van de game zelf; START slaat hem over). Invoer: START/TEST/munt/service komen alleen van het RIO2-bord; tools/rt-input-shim zet ze uit het gedeelde geheugen van de IO-brug in de schakelaartabel van de game. Met de gerepareerde FMOD-stub (tools/fmod-stub) komt de game na de gun-kalibratieschermen in de attract-lus, met START alleen (correctie 2026-10-13 op de eerdere notitie 'TEST/START': TEST doet op deze machine niets -- zes pulsen op alle vier de borden, logboek bleef op 256 regels -- en een run met alleen START haalde 'attract' om 11:56:32); munt werkt ($0,25 per indruk). START start het spel daar niet reproduceerbaar (een keer wel). Aim/trekker niet getest, geen geluid (FMOD 1.10 ontbreekt). halo.so levert alleen de HASP-dongle, geen invoer.",
+      "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot) gemeten 2026-10-15: beeld, FileTest overslaan en kalibratie overslaan met START, attract met FREEPLAY (adjustment playerCost/freeplay in de lokale schrijflaag). Invoer: tools/rt-input-shim leest nu het bestand van de daemon (/dev/shm/ravengun_JvsState); het oude TeknoParrot_JvsState stond stil. Geluid: tools/fmod-stub is een stille FMOD (alles FMOD_OK); echte FMOD Studio 1.10 ontbreekt. Open: spelers kunnen niet meedoen -- de geweren zijn camera's en de game vindt er geen ('Webcam: Aborting auto-id ... brightness difference of 0'), dus spelersaantal 0 en geen spelerstructuur. Tot dat is nagedaan blijft de route uit; Halo speelt via BudgieLoader.",
       "arch": "x86_64",
       "mounts": [
         {
@@ -53,7 +53,7 @@
         "@build/librg_rt_input.so"
       ],
       "extra_ro": [
-        "/dev/shm/TeknoParrot_JvsState"
+        "/dev/shm/ravengun_JvsState"
       ]
     },
     "JurassicPark": {
