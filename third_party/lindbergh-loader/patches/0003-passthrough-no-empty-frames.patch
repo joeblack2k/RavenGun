@@ -1,0 +1,34 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Wijziging op lindbergh-loader (src/lindbergh/passthrough.c), onder dezelfde licentie als die bron (CC BY-NC-SA 4.0);
+zie third_party/lindbergh-loader/README.md. Dit bestand is geen deel van de GPL-code van RavenGun. Toe te passen na 0001.
+
+JVS-doorgifte: de leesdraad publiceerde na elke leestime-out (VTIME = 100 ms) zonder frame een LEEG frame met ready = 1. Zo
+werd een echt antwoord dat de game nog niet had opgehaald ~100 ms later overschreven. Games die meteen lezen merkten dat niet;
+Let's Go Jungle (en Special) wacht na elk verzoek 1 s (usleep in _sInterfaceJvsManager::initializeHardware), kreeg steeds het
+lege frame, herhaalde identificatie en functies ~10 keer om de 3 s en gaf het op (bench 2026-10-15). Nu wordt alleen een
+compleet frame (byteCount == ackSize) altijd gepubliceerd; een leeg of onvolledig frame ("geen antwoord", nodig na een broadcast
+zoals de reset) alleen als er geen ongelezen compleet antwoord klaarstaat. (Eerste versie die nooit een leeg frame publiceerde:
+de game bleef na de reset wachten, gemeten.)
+
+--- a/src/lindbergh/passthrough.c
++++ b/src/lindbergh/passthrough.c
+@@ -215,9 +215,16 @@
+ 
+         // Lock the buffer while we write to it
+         pthread_mutex_lock(&jvsBuffer_lock);
+-        memcpy(jvsFrameBuffer.buffer, localBuffer, byteCount);
+-        jvsFrameBuffer.size = byteCount;
+-        jvsFrameBuffer.ready = 1;
++        // RavenGun 0003: a read timeout (VTIME) without a complete frame still publishes what it has (an empty frame means
++        // "no reply", which a broadcast such as the reset needs), but never over a complete reply the game has not read yet.
++        // Let's Go Jungle waits 1 s before it reads; the empty frame ~100 ms after the reply used to replace that reply.
++        const int complete = byteCount > 0 && byteCount == ackSize;
++        if (complete || !(jvsFrameBuffer.ready == 1 && jvsFrameBuffer.size > 0))
++        {
++            memcpy(jvsFrameBuffer.buffer, localBuffer, byteCount);
++            jvsFrameBuffer.size = byteCount;
++            jvsFrameBuffer.ready = 1;
++        }
+         ctsRetry = CTS_ON_RETRY;
+         pthread_mutex_unlock(&jvsBuffer_lock);
+     }

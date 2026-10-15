@@ -537,8 +537,9 @@
         "id": "0x7d6ab3e3",
         "ini": "@patches/HOTD4SP/lindbergh.ini",
         "jvs": "passthrough",
-        "libcg": false
-      , "stackalign": true},
+        "libcg": false,
+        "stackalign": true
+      },
       "mounts": [
         {
           "src": "@nas/The House of the Dead 4 Special",
@@ -574,8 +575,9 @@
         "id": "0xe213414d",
         "ini": "@patches/HOTD4/lindbergh.ini",
         "jvs": "passthrough",
-        "libcg": false
-      , "stackalign": true},
+        "libcg": false,
+        "stackalign": true
+      },
       "mounts": [
         {
           "src": "@nas/The House of the Dead 4",
@@ -611,8 +613,9 @@
         "id": "0x20115a92",
         "ini": "@patches/HOTDEX/lindbergh.ini",
         "jvs": "passthrough",
-        "libcg": true
-      , "stackalign": true},
+        "libcg": true,
+        "stackalign": true
+      },
       "mounts": [
         {
           "src": "@nas/The House of the Dead EX",
@@ -685,8 +688,9 @@
         "id": "0x46bb306e",
         "ini": "@patches/2Spicy/lindbergh.ini",
         "jvs": "passthrough",
-        "libcg": true
-      , "stackalign": true},
+        "libcg": true,
+        "stackalign": true
+      },
       "mounts": [
         {
           "src": "@nas/Too Spicy",
@@ -783,6 +787,82 @@
       "home": "/lb/prog",
       "args": [],
       "res": "640x480"
+    },
+    "LGJ": {
+      "title": "Let's Go Jungle! Lost on the Island of Spice!",
+      "enabled": true,
+      "status": "niet-getest",
+      "note": "Lindbergh-route (docs/lindbergh.md) zoals Rambo: lindbergh.so en librg-stackalign.so in LD_PRELOAD, libCg 2.0 van de laag, JVS naar het bord Lindbergh van de daemon, zink. Profiel 2026-10-15; nog niet gemeten.",
+      "arch": "i386",
+      "launcher": "gamescope",
+      "route": "jvs",
+      "lindbergh": {
+        "id": "0xc697c4fb",
+        "ini": "@patches/LGJ/lindbergh.ini",
+        "jvs": "passthrough",
+        "libcg": true,
+        "stackalign": true
+      },
+      "mounts": [
+        {
+          "src": "@nas/Let's Go Jungle Lost on the Island of Spice",
+          "dst": "/lb",
+          "mode": "overlay"
+        }
+      ],
+      "libdirs": [
+        {
+          "src": "@lib32",
+          "dst": "/rg/lib32"
+        }
+      ],
+      "env": {
+        "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+        "LIBGL_KOPPER_DRI2": "1"
+      },
+      "exe": "/lb/lgj_final",
+      "cwd": "/lb",
+      "home": "/lb",
+      "args": [],
+      "res": "1360x768"
+    },
+    "LGJS": {
+      "title": "Let's Go Jungle! Special!",
+      "enabled": true,
+      "status": "niet-getest",
+      "note": "Lindbergh-route (docs/lindbergh.md) zoals Rambo: lindbergh.so en librg-stackalign.so in LD_PRELOAD, libCg 2.0 van de laag, JVS naar het bord Lindbergh van de daemon, zink. Profiel 2026-10-15; nog niet gemeten.",
+      "arch": "i386",
+      "launcher": "gamescope",
+      "route": "jvs",
+      "lindbergh": {
+        "id": "0x240beedc",
+        "ini": "@patches/LGJS/lindbergh.ini",
+        "jvs": "passthrough",
+        "libcg": true,
+        "stackalign": true
+      },
+      "mounts": [
+        {
+          "src": "@nas/Let's Go Jungle Special",
+          "dst": "/lb",
+          "mode": "overlay"
+        }
+      ],
+      "libdirs": [
+        {
+          "src": "@lib32",
+          "dst": "/rg/lib32"
+        }
+      ],
+      "env": {
+        "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+        "LIBGL_KOPPER_DRI2": "1"
+      },
+      "exe": "/lb/lgjsp_app",
+      "cwd": "/lb",
+      "home": "/lb",
+      "args": [],
+      "res": "1024x768"
     }
   }
 }
