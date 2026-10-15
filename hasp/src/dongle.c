@@ -626,7 +626,10 @@ int dongle_install_from_env(void)
  * er niet maar 4 bytes in geschreven worden. */
 static void zet_handle(void **handle)
 {
-    if (handle) *(void **)handle = (void *)(size_t)DONGLE_HANDLE_VALUE;
+    /* hasp_handle_t is in de Sentinel-API een 32-bits unsigned int, ook op 64-bits systemen. Een pointer (8 bytes) schrijven
+       overschreef op x86_64 de 4 bytes naast de greep op de stapel van het spel (Halo: Fireteam Raven, 2026-10-15: het spel
+       stopte direct na hasp_login). Op i386 viel dat samen, daarom was het bij de 32-bits games nooit te zien. */
+    if (handle) *(unsigned int *)handle = DONGLE_HANDLE_VALUE;
 }
 
 int hasp_login(unsigned int vendor_code, const char *scope, void **handle)
