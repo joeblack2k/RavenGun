@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 31, overgeslagen: 8.
+Stand: 35 van 75 titels WORKING (47%); doel 90% = 68 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 30, overgeslagen: 8.
 
-## WORKING (34)
+## WORKING (35)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -31,6 +31,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Mars Sortie | UDC PC Based | DXVK; ViewCopies (GameRecords lokaal); beloningsscherm: trekker 5 s vasthouden |
 | Music GunGun 2 | Taito Type X2 | HD-build van de dump via ViewLinks; JVS-bord van de daemon |
 | NERF Arcade | Raw Thrills PC Based |  |
+| Night Hunter - After Dark, Chapter 2 | UNIS PC Based | zonder DXVK (AVPro-video), BepInEx NHAD2, gst-extra, gamescope |
 | Operation G.H.O.S.T. | SEGA RingWide | Gst32, native XACT 3.3, .wmv via [Launch] Registry; beeld 4:3 (spel kiest 1024x768) |
 | Point Blank X | Namco ES4 | tp-shm PointBlankX; eenmalig testmenu: taal en-US |
 | Primeval Hunt | SEGA Lindbergh Red | Lindbergh-route; aanraakscherm bewust afwezig |
@@ -62,7 +63,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (31)
+## pass 2 (30)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -81,7 +82,6 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
-| Night Hunter - After Dark, Chapter 2 | UNIS PC Based | getest 2026-10-14: blijft op Initializing... (qumo2_en.exe draait); diagnose loopt |
 | Otomedius Excellent | Konami PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Pacman Chomp-Mania | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Rainbow Bombergirl | KONAMI PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |

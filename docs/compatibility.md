@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (34)
+## Working (35)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -28,6 +28,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Mars Sortie**: WORKING via double-click in the app (2026-10-15): DXVK, attract, coin, START, game; played 5.5 min. After a game with score >= 10 a reward screen follows (setting ScoreOfReward = 10 in GameRecords): hold the trigger for 5 s to continue (not a hang). GameRecords1/2.dat are local copies in the view (ViewCopies); the NAS stays unchanged.
 - **Music GunGun 2**: WORKING via double-click in the app (2026-10-15): the dump's HD build via ViewLinks (1360x768 does not exist in Xwayland), the daemon's JVS board; attract, coin, START, training choice, songs with score, hiscore entry; played 5.5 min.
 - **NERF Arcade**: WORKING: runs on our own core (native Linux, Nerf.x86_64), started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts). The lightgun board (RIO) answers through the RIO bridge: START (key 1 / Move START), aim and trigger (mouse 2026-10-14: score 12,050). The Windows route (TeknoParrot, DXVK, BepInEx) is no longer needed. Not tested: player 2.
+- **Night Hunter - After Dark, Chapter 2**: WORKING via double-click in the app (2026-10-15): attract (ranking), START, mission select, play with score, game over and continue; played 5.5 min. Without DXVK (with DXVK it stayed on Initializing...: the AVPro video), BepInEx plugin NHAD2 for input, GStreamer plugins for the movie, gamescope.
 - **Operation G.H.O.S.T.**: WORKING via double-click in the app (2026-10-15): attract, START, shooting in the train with a rising score, played 5.5 min. Movies via Gst32 + data/wmv-asyncreader.reg (Proton's ASF reader hung on Stop), native XACT 3.3, gamescope fullscreen. Picture is 4:3 (the game picks 1024x768).
 - **Point Blank X**: WORKING via double-click in the app (2026-10-15): own tp-shm layout PointBlankX (TeknoParrotUi PointBlankPipe); 3 coins, START, mode and stage select, play with score and continue; played 5.5 min. First start: the ticket dispenser reports 21-1 and the language is ja-JP; once press TEST (0), set OTHERS > LANGUAGE to en-US (F5 choose, F4 enter); afterwards it starts in English directly (stored in the view, TeknoParrot/F|G/savedata.bin). Open: white background in the attract (movie).
 - **Primeval Hunt**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, main.exe with lindbergh-loader's lindbergh.so, JVS through the daemon, zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading. The touch screen (choosing a destination) is deliberately absent; the game picks one when the timer runs out.
@@ -55,7 +56,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (27)
+## Not tested yet (26)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -75,7 +76,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
 - **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.
 - **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.
-- **Night Hunter - After Dark, Chapter 2**: Prepared, not run (pass 1, UNIS PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.
 - **Robin Hood**: Prepared, not run (pass 1, ICE PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
