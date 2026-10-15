@@ -447,7 +447,9 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
             if (seenDirs.contains(cdir)) continue;
             seenDirs.insert(cdir);
             const QString base = QFileInfo(dir).fileName();
-            if (base.startsWith(QLatin1Char('.'))) continue;
+            // Verborgen mappen en werk-/archiefmappen met een liggend streepje ervoor (_ia_work, _meta-quarantaine-...) zijn geen games;
+            // anders stonden ze als "Unconfigured" in de lijst (2026-10-15).
+            if (base.startsWith(QLatin1Char('.')) || base.startsWith(QLatin1Char('_'))) continue;
             if (isTeknoParrotDir(dir)) {
                 if (r.detectedTpDir.isEmpty()) r.detectedTpDir = dir;
                 r.log << QStringLiteral("TeknoParrot installation (not a game): %1").arg(dir);
