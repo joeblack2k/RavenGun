@@ -1493,6 +1493,82 @@
     }
    ],
    "offscreen_margin": 0
+  },
+  "EADP": {
+   "description": "Elevator Action Death Parade (Taito Type X2 via OpenParrot, profiel EADP). Control (offset 8; TeknoParrotUi EADPPipe): trekker speler 1 0x1 (TeknoParrot P1Button3), knop 4 speler 1 0x2 (bij ons herladen), trekker speler 2 0x4, knop 4 speler 2 0x8, volume omhoog 0x10 en omlaag 0x20. Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0. Start, munt, test, service en de actieknop lopen via de JVS-pipe (Route jvs, het bord van de daemon), zoals bij Music GunGun 2.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "complete": false,
+   "bits": [
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 5
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ],
+   "offscreen_margin": 0
   }
  }
 }

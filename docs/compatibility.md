@@ -55,7 +55,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 - **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
-## Not tested yet (26)
+## Not tested yet (27)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -69,6 +69,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Block King Ball Shooter**: Prepared, not run (pass 1, Type-X PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Coopers's 9**: Prepared, not run (pass 1, KONAMI PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Crossfire: Maximum Paintball**: Never started. Statically examined (2026-10-14): i386, unpacked, small (med_pball 161 kB). I/O through I/O ports (iopl, inb/outb; "/dev/p37c must exist or user must be root") and the guns through the kernel driver /dev/mjg; neither exists natively. Needed: a shim that lets iopl succeed and emulates the port instructions (SIGSEGV), and a fake /dev/mjg. Same engine as Police Trainer 2.
+- **Elevator Action Death Parade**: Profile from the TeknoParrot template (2026-10-15). Measured: runs (~55% CPU) in gamescope, 1920x1080 window, but black; never opens the JVS pipe and prints no debug strings (same pattern as Gaia Attack 4). English texts present. Open.
 - **Far Cry Paradise Lost**: Prepared, not run (pass 1, Global VR PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Friction**: Prepared, not run (pass 1, Unique PC Based (OpenParrot)): profile, identification and input route are in place; nothing has been measured yet.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).

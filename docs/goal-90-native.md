@@ -69,7 +69,7 @@ Stand: 34 van 75 titels WORKING (45%); doel 90% = 68 titels; sessiedoel (eigenaa
 | After Dark | UNIS PC Based | getest 2026-10-14: MFC 9.0 in de gedeelde prefix lost "Failed to run the process" op; nu een venster "Initialization Error" |
 | Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
-| Elevator Action Death Parade | Taito Type X2 | Taito Type X2 / OpenParrot |
+| Elevator Action Death Parade | Taito Type X2 | profiel + tp-shm EADP (2026-10-15): zwart, opent de JVS-pipe niet (zoals Gaia Attack 4) |
 | Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
