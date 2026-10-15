@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (36)
+## Working (37)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -44,9 +44,10 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **The House of the Dead EX**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, hodexRI.elf with lindbergh.so and librg-stackalign.so (without the shim it died on an xcb assert in glXCreatePbuffer), /var/tmp per game, JVS through the daemon, zink. Played 5.5 min in mouse mode.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
 - **Too Spicy**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, apacheM.elf with lindbergh.so and librg-stackalign.so (old i386 code given a 16-byte aligned stack into SteamOS's GL libraries), a libsndio stub for OpenAL, JVS through the daemon. Played 5.5 min in mouse mode.
+- **Transformers: Shadows Rising**: WORKING via double-click in the app (2026-10-15): ~2 min loading, then played 6.5 min in mouse mode: coin, START, aim and shoot, continue, boss, score 29402. The freeze of 2026-10-14 (~1 min after START) did not return in two runs. Open: the lever ('PUSH THE LEVER') is not emulated; the game carries on without it.
 - **Wild West Shootout**: WORKING (2026-10-15): rg-direct with DXVK (Vulkan) and winhttp=n,b for BepInEx (plugin WWS 1.4, the input). Played 5.5 min in mouse mode: coin (5), START (1), shooting, boss.
 
-## Playable (6)
+## Playable (5)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
@@ -55,7 +56,6 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Luigi's Mansion Arcade**: Starts by double-click in RavenGun (2026-10-14): on our own OpenParrot core and through gamescope the game runs full screen in attract (with the closed core it stopped after ~13 s). Measured earlier: ~6 min of continuous attract/demo on our core (BEWIJS-5MIN.md), with the drop-in rg-pe-hook.dll (see MECHANISME-PE-HOOK.md). NOT playable yet: coin and TEST do not reach the game (DIRECT-ROUTE-INVOER.md).
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
-- **Transformers: Shadows Rising**: Playable with the Move: the engine acts as the gun board of the game (hid-board route). Crosshair checked on the TV (2026-10-11): within 1.5% of the screen at every grid point. Start (Move Start), trigger and aiming work; loading takes about 4 minutes.
 
 ## Not tested yet (24)
 
@@ -71,7 +71,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Coopers's 9**: Prepared, not run (pass 1, KONAMI PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Crossfire: Maximum Paintball**: Never started. Statically examined (2026-10-14): i386, unpacked, small (med_pball 161 kB). I/O through I/O ports (iopl, inb/outb; "/dev/p37c must exist or user must be root") and the guns through the kernel driver /dev/mjg; neither exists natively. Needed: a shim that lets iopl succeed and emulates the port instructions (SIGSEGV), and a fake /dev/mjg. Same engine as Police Trainer 2.
 - **Elevator Action Death Parade**: Profile from the TeknoParrot template (2026-10-15). Measured: runs (~55% CPU) in gamescope, 1920x1080 window, but black; never opens the JVS pipe and prints no debug strings (same pattern as Gaia Attack 4). English texts present. Open.
-- **Far Cry Paradise Lost**: Prepared, not run (pass 1, Global VR PC Based): profile, identification and input route are in place; nothing has been measured yet.
+- **Far Cry Paradise Lost**: Started 2026-10-15: without gamescope and at 1920x1080 it gets past the window and mode-switch hangs and creates its D3D9 device, but it draws nothing (black, no Present). Suspected: waiting on its dongle (HASP) or USB IO. See [Display].
 - **Friction**: Prepared, not run (pass 1, Unique PC Based (OpenParrot)): profile, identification and input route are in place; nothing has been measured yet.
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
 - **Lost Land Adventure**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Lost Land Adventure (Namco ES3X, 64-bit Windows): same dongle runtime as Time Crisis 5; RSLauncher also uses hasp_write.

@@ -6,9 +6,9 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 36 van 74 titels WORKING (49%); doel 90% = 67 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 28, overgeslagen: 9.
+Stand: 37 van 74 titels WORKING (50%); doel 90% = 67 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 10, pass 2: 27, overgeslagen: 9.
 
-## WORKING (36)
+## WORKING (37)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -48,6 +48,7 @@ Stand: 36 van 74 titels WORKING (49%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Too Spicy | SEGA Lindbergh Red | Lindbergh-route met stackalign |
 | Wild West Shootout | Coastal PC-Based | DXVK, winhttp=n,b |
 | After Dark | UNIS PC Based | DXVK + native d3dx9_41, Gst32 + AsyncReader, rg-compat (DirectInput); open: geluid hapert (eigenaar, wined3d-run) |
+| Transformers: Shadows Rising | Windows PC | hid-board (SaeGunBoard + SaeIoBoard); bevriezing van 10-14 niet teruggezien; hendel niet nagedaan |
 
 ## pass 1 (10)
 
@@ -64,14 +65,14 @@ Stand: 36 van 74 titels WORKING (49%); doel 90% = 67 titels; sessiedoel (eigenaa
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | native (Raw Thrills Linux, recept NERF/JP) |
 
-## pass 2 (28)
+## pass 2 (27)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
 | Block King Ball Shooter | Type-X PC Based | getest 2026-10-14: lader exitcode 1; diagnose loopt |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | profiel + tp-shm EADP (2026-10-15): zwart, opent de JVS-pipe niet (zoals Gaia Attack 4) |
-| Far Cry Paradise Lost | Global VR PC Based | getest 2026-10-14: draait (Farcry_R.exe), beeld zwart; diagnose loopt |
+| Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
 | Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Galaga Assault | RAW Thrills Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Ghostbusters | ICE/RT Linux PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
@@ -94,7 +95,6 @@ Stand: 36 van 74 titels WORKING (49%); doel 90% = 67 titels; sessiedoel (eigenaa
 | The House of the Dead III | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 | Time Crisis 5 | Namco ES3X | invoer komt niet aan (onderzoek loopt) |
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
-| Transformers: Shadows Rising | Windows PC | bevriest ~1 min na START: SHELL_MSG_CHALLENGE (onderzoek loopt) |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
 ## overgeslagen (9)
