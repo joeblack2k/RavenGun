@@ -204,6 +204,8 @@
       "enabled": false,
       "status": "geparkeerd",
       "arch": "i386",
+      "loader": "rg-elfloader",
+      "launcher": "gamescope",
       "mounts": [
         {
           "src": "@nas/GhostBusters",
@@ -211,14 +213,41 @@
           "mode": "overlay"
         }
       ],
+      "files": [
+        {
+          "src": "@patches/GhostBusters/dropin/hasp-haken.ini",
+          "dst": "/rg/hasp-haken.ini"
+        }
+      ],
+      "seed": [
+        {
+          "src": "@patches/GhostBusters/dropin/ravengun-hasp",
+          "dst": "/pm/ravengun-hasp"
+        }
+      ],
       "libs": [
         "@tpui/ElfLdr2/libs/libcsv.so",
         "@lib32/libglut.so.3",
         "@lib32/libXi.so.6",
         "@lib32/libGLU.so.1",
-        "@lib32/libesd.so.0"
+        "@lib32/libesd.so.0",
+        "@build/lib32/librg-threadprio.so",
+        "@build/lib32/librg_rio_bridge.so",
+        "@build/lib32/librg-glslfix.so",
+        "@patches/GhostBusters/dropin/libravengun-hasphook.so",
+        "@patches/GhostBusters/dropin/ravengun-hasp.so"
       ],
-      "preload": "",
+      "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so:/rg/lib/librg-glslfix.so",
+      "env": {
+        "RAVENGUN_HASP_GAME": "GhostBusters",
+        "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
+        "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+        "RAVENGUN_HASP_ELF_ADRESLIJST": "/rg/hasp-haken.ini",
+        "RAVENGUN_HASP_VERBOSE": "1",
+        "RG_RIO_LOG": "1",
+        "RG_ELF_PTRACER_ANY": "1",
+        "RG_GLSLFIX_LOG": "1"
+      },
       "exe": "/pm/game",
       "cwd": "/pm",
       "home": "/pm",
@@ -227,9 +256,12 @@
         "-e",
         "-mg"
       ],
-      "res": "1280x720",
-      "route": "evdev",
-      "note": "Native niet verder dan de lader: het binair wil /usr/lib/libcsv.so (absoluut pad) en libesd.so.0 (i386, niet beschikbaar), en controleert een dongle (Game dongle initialization failed)."
+      "res": "1920x1080",
+      "route": "tp-shm",
+      "note": "Native route opgezet (2026-10-15), zelfde opzet als Aliens Armageddon: rg-elfloader, HASP-hook met adreslijst (anker: patch uit de map van Aliens Armageddon, zelfde bibliotheek, verschuiving +0x1c53a0), RIO-brug (haken met verschuiving -0x5F0C0 t.o.v. AA), RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: de game start, de dongleaanroepen komen binnen, \"Welcome to Ghostbusters v01.17\". GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer da13ebd0..., anders dan AA) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; zonder die antwoorden faalt \"Error Loading RTDT Defs File\" en valt de game om.",
+      "extra_ro": [
+        "/dev/shm/ravengun_JvsState"
+      ]
     },
     "NERF": {
       "title": "NERF Arcade",
