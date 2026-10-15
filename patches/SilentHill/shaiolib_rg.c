@@ -7,8 +7,8 @@
  * original's export wrappers (0x10001180..0x10001ba2) and in KSHG.exe.
  *
  * This is a boot stub: no serial ports, no boards, no security plug.
- * There is NO input bridge yet; the one place where it belongs is
- * rg_poll_inputs() below.
+ * The input bridge is rg_poll_inputs() below (tp-shm layout SilentHill);
+ * it reads the named mapping TeknoParrot_JvsState of the RavenGun direct route.
  *
  * kernel32 only, no C runtime. Build: see build.sh.
  *
@@ -253,8 +253,57 @@ static int g_coins;
  * Until then everything stays idle.
  * ==================================================================
  */
+/*
+ * The bridge (2026-10-15): the RavenGun daemon writes the TeknoParrot input record (tp-shm layout
+ * "SilentHill", packaging/tp-shm-profiles.json, after TeknoParrotUi's SilentHillPipe) and the pipe
+ * helper of rg-direct mirrors it into the named mapping "TeknoParrot_JvsState" inside the prefix.
+ * Offset 8: Test 0x1, Service 0x2, P1 Start 0x4, P1 Trigger 0x8, P1 Option L 0x10, P1 Option R 0x20,
+ * Coin 0x40, P2 Start 0x80, P2 Trigger 0x100, P2 Option L 0x200, P2 Option R 0x400, P1 Reload 0x800,
+ * P2 Reload 0x1000. Offsets 12/16/20/24: P1 X/Y, P2 X/Y, one byte each, 0 = left/top.
+ */
+static const volatile unsigned char *g_shm;
+static DWORD g_shm_next_try;
+static DWORD g_prev_ctl;
+
+static void rg_button(int idx, int held)
+{
+    const int was = (g_buttons[idx] & 0x80) != 0;
+    g_buttons[idx] = (unsigned char)((held ? 0x80 : 0) | (held && !was ? 0x01 : 0));
+}
+
 static void rg_poll_inputs(void)
 {
+    DWORD ctl;
+    int p;
+    if (!g_shm) {
+        HANDLE h;
+        const DWORD now = GetTickCount();
+        if ((LONG)(now - g_shm_next_try) < 0) return;
+        g_shm_next_try = now + 1000;
+        h = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+        if (!h) return;
+        g_shm = (const volatile unsigned char *)MapViewOfFile(h, FILE_MAP_READ, 0, 0, 64);
+        if (!g_shm) return;
+    }
+    ctl = (DWORD)g_shm[8] | ((DWORD)g_shm[9] << 8) | ((DWORD)g_shm[10] << 16) | ((DWORD)g_shm[11] << 24);
+    rg_button(0, (ctl & 0x0001) != 0);   /* Test        */
+    rg_button(1, (ctl & 0x0002) != 0);   /* Service     */
+    rg_button(3, (ctl & 0x0020) != 0);   /* P1 Option R */
+    rg_button(4, (ctl & 0x0400) != 0);   /* P2 Option R */
+    rg_button(5, (ctl & 0x0010) != 0);   /* P1 Option L */
+    rg_button(6, (ctl & 0x0004) != 0);   /* P1 Start    */
+    rg_button(7, (ctl & 0x0200) != 0);   /* P2 Option L */
+    rg_button(8, (ctl & 0x0080) != 0);   /* P2 Start    */
+    if ((ctl & 0x0040) && !(g_prev_ctl & 0x0040) && g_coins < 99) g_coins++;
+    for (p = 0; p < 2; p++) {
+        const DWORD trig = p ? 0x0100 : 0x0008, rel = p ? 0x1000 : 0x0800;
+        const unsigned bx = g_shm[12 + 8 * p], by = g_shm[16 + 8 * p];
+        g_guns[p].x = (int)(bx * 640u / 256u);
+        g_guns[p].y = (int)(by * 480u / 256u);
+        g_guns[p].offscreen = (ctl & rel) != 0;
+        g_guns[p].trigger = (ctl & (trig | rel)) != 0;   /* reload = a shot off-screen */
+    }
+    g_prev_ctl = ctl;
 }
 
 /* ------------------------------------------------------------------ */
