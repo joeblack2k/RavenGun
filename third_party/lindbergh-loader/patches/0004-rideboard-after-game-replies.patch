@@ -1,0 +1,24 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Wijziging op lindbergh-loader (src/lindbergh/rideBoard.c), onder dezelfde licentie als die bron (CC BY-NC-SA 4.0);
+zie third_party/lindbergh-loader/README.md. Dit bestand is geen deel van de GPL-code van RavenGun.
+
+Ride-emulatie (HOTD4 Special, Let's Go Jungle Special): na een spel stuurt de game commando 0x18 (muntspel) of 0x19 (free play)
+en wacht op antwoord 5 of 6 voordat hij de attract verlaat (lgjsp_app: setGameStatusADV 0x822285c, CheckToPreparation
+0x80779da; gelezen). 0x18 viel in de default (echo 0x18) en 0x19 viel door naar 0x05 (antwoord 5). Nu 0x18 -> 5, 0x19 -> 6.
+
+--- a/src/lindbergh/rideBoard.c
++++ b/src/lindbergh/rideBoard.c
+@@ -245,8 +245,12 @@
+     case 0x04: // Reset Success
+         state->CommandReply = 0x05;
+         break;
+-    case 0x19: // Work out what ADF means?
++    case 0x18: // After a game, coin play (RavenGun 0004: the game waits for 5, as for 0x05)
++        state->CommandReply = 0x05;
++        break;
++    case 0x19: // After a game, free play (RavenGun 0004: the game waits for 6; this used to fall through to 5)
+         state->CommandReply = 0x06;
++        break;
+     case 0x05: // Coin play, not coined up
+         state->CommandReply = 0x05;
+         break;
