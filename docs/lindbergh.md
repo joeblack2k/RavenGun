@@ -183,7 +183,7 @@ GPU bewezen: `/proc/<pid van de game>/maps` bevat `libvulkan_radeon.so` en `libg
 | `Primevil` | **werkt** na de extra bibliotheken; het aanraakscherm ontbreekt bewust (het spel kiest op de timer) |
 | `2Spicy` | **werkt** met `stackalign` (zie hieronder) en `libsndio.so.7`; 5,5 min gespeeld |
 | `HOTD4SP` | draait met `stackalign` en `/var/tmp`; ride-reset met START, dan attract (spelstart: zie patch 0004) |
-| `HOTD4` | draait met `stackalign`; attract klopt, maar tijdens het spel wit beeld (shaders uitgesloten); open |
+| `HOTD4` | draait met `stackalign`; attract klopt, maar tijdens het spel wit beeld (shaders uitgesloten; met radeonsi i.p.v. zink ook wit, 2026-10-15); open |
 | `LGJ` | **werkt** met `stackalign` en patch 0003 |
 | `LGJS` | **werkt** (ride-versie) met `stackalign` en patches 0003 en 0004; bij de start eerst START voor de ride-reset |
 | `HOTDEX` | **werkt** met `stackalign` |
