@@ -70,14 +70,24 @@ on Windows; under Wine it is not used — Wine's own GStreamer-based filters dec
 0 = failure/false**. `KSHG.exe` imports 38 of them. The groups: lifecycle (`initialize`, `start_boot`,
 `update`, `is_boot_*`, `is_error`, `get_lasterror`), guns (`GUN_status(int[8])` — two guns ×
 {x, y, trigger, offscreen}), buttons (`BUTTON_status(uint8_t[9])`, per byte bit 7 = held, bit 0 = edge;
-bytes 0..8 → Test, Service, ?, Option R P1, Option R P2, Option L P1, Start P1, Option L P2, Start P2),
+bytes 0..8 → Test, Service, ?, Start P1, Start P2, Option L P1, Option R P1, Option L P2, Option R P2; measured in the game's INPUT CHECK screen on 2026-10-15),
 coins (`COIN_count`, `COIN_consume`), 10-key, LEDs, IC card, security, and system ids.
 
 Our replacement is `dropin/shaiolib.dll`, source `shaiolib_rg.c`, built by `build-shaiolib.sh` (the
 rebuild is byte-identical). It says the boards are there, answers the security check for one model
 code (`RG_SHAIO_MODEL`, default `GNGHLAAA`), returns synthetic system ids (`0140` + `5247…`), and
-delivers **no inputs yet** — the place where they will come from is marked `rg_poll_inputs()`. It
-writes `rg-shaiolib.log` next to itself and applies `rg-shaiolib.patches` at load.
+reads the inputs in `rg_poll_inputs()` from the mapping `TeknoParrot_JvsState` (tp-shm layout
+`SilentHill`, written by the RavenGun daemon). It writes `rg-shaiolib.log` next to itself and applies
+`rg-shaiolib.patches` at load.
+
+**Playable since 2026-10-15** (double-click in the app, 5.5 min of stage 1: `bewijs-speelbaar-20261015/`).
+What it took on top of the attract run: the button table above (START and OPTION R were swapped; measured
+in the game's own TEST > I/O CHECK > INPUT CHECK screen, `input-check-p1-p2.png`) and stereo sound. Wine's
+DirectSound mixes badly to the 7.1 HDMI output: above six channels it skips volume, pan and 3D, and a mono
+buffer leaves stale data in the other seven channels, which you hear as a buzz on every mono effect. The
+loader therefore gives Wine a stereo device (`PULSE_PROP=pulse.fix.position='[ FL FR ]'`; `[Audio] Channels`
+in `docs/per-game-patches.md`). START only starts a game after a coin, although the screen says FREE PLAY
+(not yet explained). The game's test menu has SOUND, GAME, COIN, NETWORK and IC CARD pages.
 
 ## For comparison: TeknoParrot
 

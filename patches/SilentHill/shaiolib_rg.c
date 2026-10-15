@@ -244,8 +244,10 @@ static int g_coins;
  *
  * g_buttons[i] -> game mask (KSHG.exe 0x4d0700):
  *   [0] Test   [1] Service   [2] unidentified (mask 0x4)
- *   [3] P1 Option R   [4] P2 Option R   [5] P1 Option L
- *   [6] P1 Start      [7] P2 Option L   [8] P2 Start
+ *   [3] P1 Start      [4] P2 Start      [5] P1 Option L
+ *   [6] P1 Option R   [7] P2 Option L   [8] P2 Option R
+ *   Measured 2026-10-15 in the game's own I/O CHECK > INPUT CHECK screen ([7] not yet: the bridge has no P2 Option L
+ *   source); the earlier table had Start and Option R swapped, so START did nothing outside the coin path.
  * g_guns[p]: KSHG only reads x/y while trigger != 0 (0x4d1464), and
  *   offscreen != 0 marks the shot as off-screen (reload).
  * g_coins: KSHG reads the count and consumes it in the same frame
@@ -288,12 +290,12 @@ static void rg_poll_inputs(void)
     ctl = (DWORD)g_shm[8] | ((DWORD)g_shm[9] << 8) | ((DWORD)g_shm[10] << 16) | ((DWORD)g_shm[11] << 24);
     rg_button(0, (ctl & 0x0001) != 0);   /* Test        */
     rg_button(1, (ctl & 0x0002) != 0);   /* Service     */
-    rg_button(3, (ctl & 0x0020) != 0);   /* P1 Option R */
-    rg_button(4, (ctl & 0x0400) != 0);   /* P2 Option R */
+    rg_button(3, (ctl & 0x0004) != 0);   /* P1 Start    */
+    rg_button(4, (ctl & 0x0080) != 0);   /* P2 Start    */
     rg_button(5, (ctl & 0x0010) != 0);   /* P1 Option L */
-    rg_button(6, (ctl & 0x0004) != 0);   /* P1 Start    */
+    rg_button(6, (ctl & 0x0020) != 0);   /* P1 Option R */
     rg_button(7, (ctl & 0x0200) != 0);   /* P2 Option L */
-    rg_button(8, (ctl & 0x0080) != 0);   /* P2 Start    */
+    rg_button(8, (ctl & 0x0400) != 0);   /* P2 Option R */
     if ((ctl & 0x0040) && !(g_prev_ctl & 0x0040) && g_coins < 99) g_coins++;
     for (p = 0; p < 2; p++) {
         const DWORD trig = p ? 0x0100 : 0x0008, rel = p ? 0x1000 : 0x0800;
@@ -698,7 +700,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
         p = rg_puts(p, end, mod);
         p = rg_puts(p, end, " model=");
         p = rg_puts(p, end, g_model);
-        p = rg_puts(p, end, " (RavenGun stub, no input bridge)");
+        p = rg_puts(p, end, " (RavenGun, input from tp-shm SilentHill)");
         *p = 0;
         rg_log_line(line, NULL, NULL);
         rg_apply_patches();
