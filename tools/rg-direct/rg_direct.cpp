@@ -241,6 +241,7 @@ private:
                     std::string extra;
                     if (cmd != 0xF0 && cmd != 0xF1)
                         extra = board_ ? " - beantwoord met het standaard JVS-bord (A10)" : " - niet beantwoord (geen JVS-bord in de directe start)";
+                    if (debug_) extra += ": " + J::hex(fr);
                     log(b + extra);
                 }
             }
