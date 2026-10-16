@@ -91,7 +91,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
-- **Elevator Action Death Parade**: 2026-10-16: now opens the JVS pipe and polls, shows the TEAM FRONTLINE logo, then crashes after ~30 s (null D3D9 object in a loading thread). Parked with the Direct3D 9 work.
+- **Elevator Action Death Parade**: 2026-10-16: crashes after the logo because the PhysX 2.8 SDK cannot be created: it needs the PhysX 2.8.1 core (legacy NVIDIA PhysX System Software), which is not installed.
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
 - **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.
