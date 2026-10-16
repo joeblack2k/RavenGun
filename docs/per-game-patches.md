@@ -177,7 +177,7 @@ RemoteThread = off            ; off = standaardroute van de lader; 1 = remote th
 PostStartMs =                 ; TP_POSTSTART_REMOTETHREAD_MS
 EntryPointMs =                ; TP_ENTRYPOINT_REMOTETHREAD_MS
 Build =                       ; leeg/teknoparrot = de lader uit de TeknoParrot-runtime; ravengun = de eigen OpenParrot-lader en (bij Type = OpenParrot) -kern uit scripts/build-openparrot.sh
-Core =                        ; alleen de kern apart (teknoparrot | ravengun); leeg volgt Build (bij Type = OpenParrot), een eigen kern bestaat alleen voor Type = OpenParrot
+Core =                        ; alleen de kern apart (teknoparrot | ravengun | none); leeg volgt Build (bij Type = OpenParrot), een eigen kern bestaat alleen voor Type = OpenParrot; none = geen lader en geen kern: Wine start de exe zelf (games zonder TeknoParrot-profiel, zoals Mighty Moto)
 Path =                        ; map met OpenParrotWin32/ en OpenParrotx64/ (standaard ~/.local/share/ravengun/openparrot/current)
 
 [Wine]

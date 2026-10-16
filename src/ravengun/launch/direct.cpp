@@ -161,14 +161,23 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     std::map<std::string, bool> enabled;
     for (const auto& pt : settings.patches) enabled[pt.name] = pt.enabled();
     if ((legacy_fpfix_file || gsn::truthy(getenv_or(env, "RG_LOADER_FPFIX", "0"))) && enabled.count(kFpfix)) enabled[kFpfix] = true;
-    // own_build(): [Loader] Build/Core/Path
+    // own_build(): [Loader] Build/Core/Path. Core = none: geen lader en geen kern, Wine start de exe zelf (een game zonder
+    // TeknoParrot-profiel, zoals Mighty Moto: de TeknoParrot-kern stopt dan met exitcode 57 en OpenParrot met "Unsupported Executable").
     std::string core_dir = tp;
+    bool zonder_lader = false;
     {
         const gsn::Section* ls = settings.settings.section("Loader");
         auto lget = [&](const char* k) { return ls ? kv_get(ls->kv, k) : std::string(); };
         std::string build = lower(trim(lget("Build"))), core = lower(trim(lget("Core")));
         for (const auto& [key, val] : {std::pair<std::string, std::string>{"Build", build}, {"Core", core}})
-            if (!val.empty() && val != "teknoparrot" && val != "ravengun") return setting_refused("[Loader] " + key + " = " + val + " (kies teknoparrot of ravengun)");
+            if (!val.empty() && val != "teknoparrot" && val != "ravengun" && !(key == "Core" && val == "none"))
+                return setting_refused("[Loader] " + key + " = " + val + (key == "Core" ? " (kies teknoparrot, ravengun of none)" : " (kies teknoparrot of ravengun)"));
+        if (core == "none") {
+            zonder_lader = true;
+            dll_rel.clear();
+            core.clear();
+            if (enabled.count(kFpfix)) enabled[kFpfix] = false;   // die patch hoort bij de lader
+        }
         if (core.empty() && build == "ravengun" && et == "OpenParrot") core = "ravengun";
         if (build == "ravengun" || core == "ravengun") {
             const std::string pth = trim(lget("Path"));
@@ -365,7 +374,12 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     for (const auto& d : pl.drives)
         pl.notes.push_back("schijfletter " + d.letter + ": -> " + d.target + (d.present ? " (staat al in de prefix)" : " (voor deze run gezet, daarna weggehaald)"));
     const std::string spel_win = pl.exe_override.empty() ? wine_path(game) : pl.exe_override;
-    std::vector<std::string> args{wine, loader};
+    if (zonder_lader) {
+        loader.clear();
+        pl.notes.push_back("[Loader] Core = none: Wine start de exe zelf, zonder lader en kern");
+    }
+    std::vector<std::string> args{wine};
+    if (!zonder_lader) args.push_back(loader);
     if (!dll_rel.empty()) args.push_back(wine_path(pjoin(core_dir, dll_rel)));
     args.push_back(spel_win);
     std::vector<std::string> profiel_delen;
@@ -379,7 +393,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (!ok) return engine(std::string(veld) + " is niet op te delen (geen sluitend aanhalingsteken)");
         profiel_delen.insert(profiel_delen.end(), delen.begin(), delen.end());
     }
-    const std::vector<std::string> basis(args.begin(), args.end() - 1);   // wine, lader, kern: de tweede exe krijgt dezelfde
+    const std::vector<std::string> basis(args.begin(), args.end() - 1);   // wine, lader, kern (of alleen wine): de tweede exe krijgt dezelfde
     {
         const auto spel_args = spel_argumenten(loader, profiel_delen, lini("Arguments"));
         args.insert(args.end(), spel_args.begin(), spel_args.end());

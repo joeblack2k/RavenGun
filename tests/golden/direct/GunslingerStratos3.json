@@ -12,13 +12,24 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\BlockKing\\game.exe"
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\GunslingerStratos3\\game.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
    "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
    "cwd_is_tp": true,
    "dropin_files": [],
@@ -33,6 +44,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -43,11 +55,11 @@
    },
    "files": [
     [
-     "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nFpsLimitEnable=0\nFpsLimit=60\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nUseLocaleEmulator=1\nEnglishTestMenu=0\nGameMode=2 PLAYERS\n[Crosshair]\nEnable=0\n"
+     "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nHide Cursor=1\nRemoveNesysMessages=1\n[Graphics]\nDisplayMode=Fullscreen Windowed\nUse Custom Resolution=1\nResolution Width=1920\nResolution Height=1080\n[Controls]\nMirror Left Gun to Right=1\nLeft Stick Button Mode=0\nRight Stick Button Mode=1\n[Network]\nDhcp=1\nIpAddress=192.168.1.2\nMask=255.255.255.0\nGateway=192.168.1.1\nDns1=192.168.1.1\n"
     ]
    ],
-   "game": "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/game.exe",
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/game.exe",
    "game_comms": [
     "budgieloader.ex",
     "budgieloader_x6",
@@ -56,14 +68,14 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
-   "pipe_mode": "pipe",
+   "pipe_mode": "shm",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
    "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
@@ -71,17 +83,28 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\BlockKing\\game.exe"
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\GunslingerStratos3\\game.exe"
      ],
      "comms": [
       "game.exe"
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/game.exe",
-     "gamescope": false,
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/game.exe",
+     "gamescope": true,
      "name": "game.exe",
      "role": "main",
      "wait_before": 0.0
@@ -107,13 +130,24 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\BlockKing\\game.exe"
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\GunslingerStratos3\\game.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
    "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
    "cwd_is_tp": true,
    "dropin_files": [],
@@ -128,6 +162,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -138,11 +173,11 @@
    },
    "files": [
     [
-     "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nFpsLimitEnable=0\nFpsLimit=60\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nUseLocaleEmulator=1\nEnglishTestMenu=0\nGameMode=2 PLAYERS\n[Crosshair]\nEnable=0\n"
+     "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nHide Cursor=1\nRemoveNesysMessages=1\n[Graphics]\nDisplayMode=Fullscreen Windowed\nUse Custom Resolution=1\nResolution Width=1920\nResolution Height=1080\n[Controls]\nMirror Left Gun to Right=1\nLeft Stick Button Mode=0\nRight Stick Button Mode=1\n[Network]\nDhcp=1\nIpAddress=192.168.1.2\nMask=255.255.255.0\nGateway=192.168.1.1\nDns1=192.168.1.1\n"
     ]
    ],
-   "game": "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/game.exe",
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/game.exe",
    "game_comms": [
     "budgieloader.ex",
     "budgieloader_x6",
@@ -151,14 +186,14 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
-   "pipe_mode": "pipe",
+   "pipe_mode": "shm",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
    "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
@@ -166,17 +201,28 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\BlockKing\\game.exe"
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\GunslingerStratos3\\game.exe"
      ],
      "comms": [
       "game.exe"
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/BlockKing/game.exe",
-     "gamescope": false,
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/GunslingerStratos3/game.exe",
+     "gamescope": true,
      "name": "game.exe",
      "role": "main",
      "wait_before": 0.0

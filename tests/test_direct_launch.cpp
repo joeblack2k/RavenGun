@@ -573,6 +573,12 @@ int main() {
         write(ugi, "[Launch]\nPhysX = soms\n");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "PhysX = soms"));
         fs::remove(physx);
+        // [Loader] Core = none: Wine start de exe zelf, zonder lader en kern (een game zonder TeknoParrot-profiel). Deze game heeft
+        // een drop-in met Preload: zonder lader is daar geen kanaal voor, dus geen start (en de melding zegt waarom).
+        write(ugi, "[Loader]\nCore = none\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "TP_PRELOAD_DLL"));
+        write(ugi, "[Loader]\nCore = soms\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "of none"));
         // [Launch] Registry: een .reg uit de map van de game (gebruikerslaag eerst) in het plan; ontbreekt hij, of is het geen
         // .reg binnen de map, dan geen start.
         write(ugi, "[Launch]\nRegistry = data/wmv.reg\n");
