@@ -536,7 +536,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
   # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
-  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/native.json (het native profiel, docs/native-profiel.md),
+  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/native.json (het native profiel, docs/native-profiel.md), <Game>/options.json (opties en memory card voor de app, docs/game-opties.md),
   #   <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en <Game>/data/ (bestanden die het native profiel in
   #   de sandbox zet, zoals data/udev-rules.d van NERF en Jurassic Park; zonder die map weigert de daemon de start).
   #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
@@ -549,7 +549,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
   install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
     FILES_MATCHING
-    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|dongle\\.json|README\\.md)$"
+    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|options\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.

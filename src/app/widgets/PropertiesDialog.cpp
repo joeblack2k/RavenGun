@@ -449,10 +449,11 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
     v->addWidget(MakeDongleGroup());
     const rg::GameOptionsEntry* entry = core_->gameData()->entryFor(game_);
     const rg::GameOverride stored = core_->library()->override_(game_.id);
-    if (core_->gameData()->gameOptionsPath().isEmpty())
-        v->addWidget(hintLabel(tr("No packaging/game-options.json was found, so there are no game-specific options yet.")));
+    const QString optionsError = core_->gameData()->optionsError(game_.profile.isEmpty() ? game_.templateProfile : game_.profile);
+    if (!optionsError.isEmpty())
+        v->addWidget(hintLabel(tr("The options file of this game could not be read, so there are no options: %1").arg(optionsError)));
     else if (!entry || entry->options.isEmpty())
-        v->addWidget(hintLabel(tr("There are no options for this game in game-options.json.")));
+        v->addWidget(hintLabel(tr("There are no options for this game in its options.json.")));
     struct OptRow {
         rg::GameOption opt;
         QWidget* widget;
@@ -530,7 +531,7 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
         }
     }
 
-    // Overige velden van het launch-profiel die game-options.json (nog) niet noemt.
+    // Overige velden van het launch-profiel die options.json (nog) niet noemt.
     TpFieldEditor* tpEditor = nullptr;
     if (!profilePath_.isEmpty()) {
         QList<rg::TpField> fields;

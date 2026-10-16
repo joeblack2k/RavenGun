@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// packaging/game-options.json: per game instelbare opties en "memory card"-bestanden. Schema en uitleg:
-// docs/architecture.md, "Qt-app", en het voorbeeld tests/app/data/game-options.json.
+// patches/<Game>/options.json: per game de instelbare opties en de "memory card"-bestanden (docs/game-opties.md). De gebruikerslaag
+// (~/.local/share/ravengun/patches/<Game>/options.json) vervangt het meegeleverde bestand als geheel; een kapot bestand geeft deze game
+// geen opties, zonder stille terugval op het meegeleverde (GameData laadt, GameOptionsDb parseert).
 //
-// Verwachte vorm (schema 1, zoals gegenereerd voor de app):
-//   {"schema":1, "games": {"<id>": {"title", "tp_profile", "nas_folder", "platform", "exe", "recommended_route",
-//     "status_en", "notes_en", "options": [{"key", "name_en", "type": bool|int|enum|string, "values", "min", "max",
+// Verwachte vorm van een bestand (het object is de game; de mapnaam is het profiel):
+//   {"title", "nas_folder", "platform", "exe", "options": [{"key", "name_en", "type": bool|int|enum|string, "values", "min", "max",
 //     "default", "description_en", "note_en", "target": {...}}], "memory_card": {"items": [{"id", "path", "base", "kind",
-//     "description_en", "safe_to_erase": yes|no|unknown, "erase_effect_en"}], "notes_en"}}}}
+//     "description_en", "safe_to_erase": yes|no|unknown, "erase_effect_en"}], "notes_en"}}
 // Doelen: tp_profile_field (category, field), tp_profile_attr (element), launch_env (name, companion "K=V"),
 // game_config_file (path, base game_dir, format ini|ini_onoff|ini_yesno|tab_ini|space_ini|colon, section, key,
 // edit_outside_game; andere formaten zoals rtdt_adjval, csv, xml en shell_arg zijn alleen-lezen). Ook toegestaan (ruimer, voor
-// handwerk en tests): games als lijst, name/label/description, memory_card als lijst, en doelen als korte tekst
+// handwerk en tests): name/label/description, memory_card als lijst, en doelen als korte tekst
 // ("tp:Categorie/Veld", "env:VAR", "ini:BESTAND#Sectie/Sleutel", "cfg:BESTAND#Sleutel"). Onbekende velden worden genegeerd.
 //
 // Lezen en schrijven van een waarde gaat via OptionStore, alleen naar lokale bestanden (rg::checkWritable): een bestand op
@@ -68,10 +68,9 @@ struct MemoryCardSpec {
 };
 
 struct GameOptionsEntry {
-    QString id;        // sleutel in games
-    QString profile;   // tp_profile (kan leeg zijn: nog geen profiel)
-    QString title, nasFolder, platform, exe, route;
-    QString note;      // status_en / notes_en / note
+    QString profile;   // de mapnaam in patches/ (= het profiel)
+    QString file;      // het gelezen options.json
+    QString title, nasFolder, platform, exe;
     QString memoryNotes;
     QList<GameOption> options;
     QList<MemoryCardSpec> memoryCard;
@@ -79,9 +78,13 @@ struct GameOptionsEntry {
 
 class GameOptionsDb {
 public:
-    bool load(const QString& path, QString* err = nullptr);
-    bool loadData(const QByteArray& json, QString* err = nullptr);
-    const GameOptionsEntry* find(const QString& profile) const;          // op tp_profile
+    // Een game erbij: `game` is de mapnaam in patches/, `file` het options.json (of de tekst met loadGameData). Bij een fout (kan niet
+    // lezen, geen JSON-object) geeft het false met een Engelse melding in err en komt er niets voor deze game bij.
+    bool loadGame(const QString& game, const QString& file, QString* err = nullptr);
+    bool loadGameData(const QString& game, const QByteArray& json, QString* err = nullptr, const QString& file = {});
+    void clear() { entries_.clear(); warnings_.clear(); }
+    void removeGame(const QString& game);
+    const GameOptionsEntry* find(const QString& profile) const;          // op de mapnaam (= profiel)
     const GameOptionsEntry* findByFolder(const QString& folderName) const;  // op nas_folder (mapnaam)
     const QList<GameOptionsEntry>& entries() const { return entries_; }
     const QStringList& warnings() const { return warnings_; }
@@ -101,7 +104,7 @@ struct GameContext {
     QString profile;      // profielnaam
     QString tpDir;        // runtime-map (UserProfiles/)
     QString gameDir;      // map van het uitvoerbare bestand zoals de game draait (een view-map als die er is)
-    QString rootDir;      // de gamemap ("game_dir" in game-options.json); zonder gegevens = gameDir
+    QString rootDir;      // de gamemap ("game_dir" in options.json); zonder gegevens = gameDir
     QString realGameDir;  // de werkelijke map van het uitvoerbare bestand (op de NAS)
     QString viewDir;      // ~/.local/share/ravengun/runtime/views/<profiel> (kan ontbreken)
     // Heeft de game een eigen profiel in game.ini (docs/per-game-patches.md)? Dan gaan de opties van het profiel (velden, profielvelden en

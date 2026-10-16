@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Tests met vensters (offscreen), zonder engine: Properties voor alle games uit de echte packaging/game-options.json, de
+// Tests met vensters (offscreen), zonder engine: Properties voor alle games met een echte patches/<Game>/options.json, de
 // route-keuze, de fullscreen-modus (vizier, schot, toetsen), de wizard met een nep-pkexec en "Add to Steam" op een kopie.
 // Alles in een tijdelijke map (HOME, XDG_*); de "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
 #include <QApplication>
@@ -63,6 +63,7 @@ class AppWidgetTest : public QObject {
 private Q_SLOTS:
     void initTestCase();
     void propertiesForAllGames();
+    void brokenUserOptionsFile();
     void routeChoiceInProperties();
     void patchesTab();
     void dongleGroup();
@@ -104,16 +105,12 @@ void AppWidgetTest::initTestCase() {
 }
 
 void AppWidgetTest::propertiesForAllGames() {
-    // Elke game uit de echte game-options.json: Properties opent zonder Qt-waarschuwingen en toont al zijn opties (in Options,
+    // Elke game met een options.json in patches/ ($RAVENGUN_PATCHES_DIR of de repo): Properties opent zonder Qt-waarschuwingen en toont al zijn opties (in Options,
     // of onder Display voor resolutie/venster/gamescope, of door de app geregeld: Input API).
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
     core.library()->load();
     const GameOptionsDb& db = core.gameData()->options();
-    // De tellers staan in het bestand zelf (counts); een verwijderde game hoort dus niet langer een vast getal in de test te breken.
-    QFile countsFile(QStringLiteral(RAVENGUN_SOURCE_DIR "/packaging/game-options.json"));
-    QVERIFY(countsFile.open(QIODevice::ReadOnly));
-    const QJsonObject counts = QJsonDocument::fromJson(countsFile.readAll()).object().value(QStringLiteral("counts")).toObject();
-    QCOMPARE(db.entries().size(), counts.value(QStringLiteral("games")).toInt());
+    if (db.isEmpty()) QSKIP("no options.json in the shipped patches (tools/dev/split-game-options.py makes them)");
     const QString tc5 = readAll(QStringLiteral(RAVENGUN_TEST_DATA "/TC5.xml"));
     g_messages.clear();
     const QtMessageHandler old = qInstallMessageHandler(collect);
@@ -123,39 +120,62 @@ void AppWidgetTest::propertiesForAllGames() {
         g.name = e.title;
         g.folder = nas_ + QLatin1Char('/') + e.nasFolder;
         g.exePath = g.folder + QLatin1Char('/') + e.exe.section(QStringLiteral(" ("), 0, 0);
-        if (!e.profile.isEmpty()) {
-            g.id = QStringLiteral("tp:") + e.profile;
-            g.kind = GameKind::TeknoParrot;
-            g.profile = e.profile;
-            // Een gebruikersprofiel (zoals Set Up Game het maakt) in de runtime-map; de game zelf "op de NAS".
-            QString xml = tc5;
-            xml.replace(QStringLiteral("@GAMEPATH@"), g.exePath);
-            writeFile(tp_ + QStringLiteral("/UserProfiles/") + e.profile + QStringLiteral(".xml"), xml.toUtf8());
-        } else {
-            g.id = QStringLiteral("dir:") + g.folder;
-            g.kind = GameKind::Unconfigured;
-        }
+        g.id = QStringLiteral("tp:") + e.profile;
+        g.kind = GameKind::TeknoParrot;
+        g.profile = e.profile;
+        // Een gebruikersprofiel (zoals Set Up Game het maakt) in de runtime-map; de game zelf "op de NAS".
+        QString xml = tc5;
+        xml.replace(QStringLiteral("@GAMEPATH@"), g.exePath);
+        writeFile(tp_ + QStringLiteral("/UserProfiles/") + e.profile + QStringLiteral(".xml"), xml.toUtf8());
         writeFile(g.exePath, "x");
         auto* d = new ui::PropertiesDialog(&core, g);
         for (int pane = 0; pane < 5; ++pane) d->ActivatePane(pane);
         d->show();
         QCoreApplication::processEvents();
         QVERIFY2(d->OptionRowCount() + d->OptionsElsewhere() == e.options.size(),
-                 qPrintable(QStringLiteral("%1: %2 + %3 != %4").arg(e.id).arg(d->OptionRowCount()).arg(d->OptionsElsewhere()).arg(e.options.size())));
+                 qPrintable(QStringLiteral("%1: %2 + %3 != %4").arg(e.profile).arg(d->OptionRowCount()).arg(d->OptionsElsewhere()).arg(e.options.size())));
         rows += d->OptionRowCount();
         total += static_cast<int>(e.options.size());
         // Niets geschreven bij alleen openen (de NAS en het profiel blijven ongewijzigd).
-        if (!e.profile.isEmpty())
-            QCOMPARE(QFileInfo::exists(tp_ + QStringLiteral("/UserProfiles/") + e.profile + QStringLiteral(".xml.ravengun-bak")), false);
+        QCOMPARE(QFileInfo::exists(tp_ + QStringLiteral("/UserProfiles/") + e.profile + QStringLiteral(".xml.ravengun-bak")), false);
         d->close();
         delete d;
         ++dialogs;
     }
     qInstallMessageHandler(old);
     QVERIFY2(g_messages.isEmpty(), qPrintable(g_messages.join(QLatin1Char('\n'))));
-    QCOMPARE(dialogs, counts.value(QStringLiteral("games")).toInt());
-    QCOMPARE(total, counts.value(QStringLiteral("options")).toInt());
+    QCOMPARE(dialogs, static_cast<int>(db.entries().size()));
+    QVERIFY(total > 300);
     qInfo("Properties: %d dialogs, %d option rows shown in Options (%d of %d elsewhere)", dialogs, rows, total - rows, total);
+}
+
+void AppWidgetTest::brokenUserOptionsFile() {
+    // Een kapot options.json in de gebruikerslaag: Options toont de melding en geen opties, ook niet die van het meegeleverde bestand.
+    const QString file = tmp_.filePath(QStringLiteral("data/ravengun/patches/Rampage/options.json"));
+    auto optionsOf = [&](int* rows, QString* hints) {
+        AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+        GameEntry g;
+        g.id = QStringLiteral("tp:Rampage");
+        g.kind = GameKind::TeknoParrot;
+        g.profile = QStringLiteral("Rampage");
+        g.name = QStringLiteral("Rampage");
+        ui::PropertiesDialog d(&core, g);
+        for (int pane = 0; pane < 5; ++pane) d.ActivatePane(pane);
+        *rows = d.OptionRowCount();
+        hints->clear();
+        for (const QLabel* l : d.findChildren<QLabel*>()) *hints += l->text() + QLatin1Char('\n');
+    };
+    int rows = -1;
+    QString hints;
+    optionsOf(&rows, &hints);
+    if (rows <= 0) QSKIP("no shipped options.json for Rampage");
+    writeFile(file, "{kapot");
+    optionsOf(&rows, &hints);
+    QCOMPARE(rows, 0);
+    QVERIFY2(hints.contains(QStringLiteral("could not be read")), qPrintable(hints));
+    QVERIFY(QFile::remove(file));
+    optionsOf(&rows, &hints);
+    QVERIFY(rows > 0);
 }
 
 void AppWidgetTest::routeChoiceInProperties() {

@@ -9,7 +9,7 @@
 // - "direct": de directe route afdwingen (rg-direct start de lader BudgieLoader/OpenParrotLoader zelf; de invoer komt van de engine).
 // Een game zonder eigen route start niet; de engine zegt waarom.
 // Het profiel van een game staat in game.ini (patches/<Game>/ met de gebruikerslaag; docs/per-game-patches.md). ProfileSync schrijft de
-// instellingen uit onze bibliotheek (library.json, game-options.json) daarheen, in de gebruikerslaag en alleen als ze van de meegeleverde
+// instellingen uit onze bibliotheek (library.json, options.json) daarheen, in de gebruikerslaag en alleen als ze van de meegeleverde
 // waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) is een uitvoerformaat voor een start via
 // TeknoParrotUi (scripts/play-halo.sh maakt het uit game.ini) en geldt alleen nog als terugval voor een game zonder eigen profiel: ProfileSync
 // schrijft dan, zoals voorheen, in dat bestand.
@@ -40,7 +40,7 @@ struct RuntimeCheck {
 // Schrijft de instellingen van een game uit de bibliotheek naar de uitvoerbestanden van de backend (profiel, .env, ini).
 class ProfileSync {
 public:
-    // Alle opgeslagen waarden (game-options.json-opties en losse profielvelden) van deze game naar hun doel. errors: Engels.
+    // Alle opgeslagen waarden (options.json-opties en losse profielvelden) van deze game naar hun doel. errors: Engels.
     static bool apply(const GameEntry& g, const GameLibrary& lib, const GameData& data, QStringList* errors = nullptr);
 };
 

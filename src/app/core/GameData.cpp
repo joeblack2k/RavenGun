@@ -18,12 +18,9 @@ namespace rg {
 namespace gs = ravengun::gamesettings;
 
 void GameData::load() {
-    // $RAVENGUN_GAME_OPTIONS: ander game-options.json (ontwikkelaars en schermafdrukken).
-    const QString opts = qEnvironmentVariable("RAVENGUN_GAME_OPTIONS");
     setRouteSources(AppPaths::packagingFile(QStringLiteral("hid-boards.json")), AppPaths::packagingFile(QStringLiteral("jvs-boards.json")),
                     AppPaths::packagingFile(QStringLiteral("aagames-games.json")));
-    loadFrom(gs::default_dirs(AppPaths::dataRoot().toStdString()),
-             opts.isEmpty() ? AppPaths::packagingFile(QStringLiteral("game-options.json")) : opts);
+    loadFrom(gs::default_dirs(AppPaths::dataRoot().toStdString()));
 }
 
 void GameData::setRouteSources(const QString& hidBoards, const QString& jvsBoards, const QString& aagames) {
@@ -83,7 +80,7 @@ QString validateRoute(const QString& name, const RouteInfo& i) {
 
 }  // namespace
 
-void GameData::loadFrom(const gs::Dirs& dirs, const QString& gameOptions) {
+void GameData::loadFrom(const gs::Dirs& dirs) {
     dirs_ = dirs;
     baseRoutes_.clear();
     routes_.clear();
@@ -94,15 +91,33 @@ void GameData::loadFrom(const gs::Dirs& dirs, const QString& gameOptions) {
     shippedGames_.clear();
     routeErrors_.clear();
     userRoutesError_.clear();
-    error_.clear();
-    for (const std::string& name : gs::list_games(dirs_)) loadGame(QString::fromStdString(name));
-    optionsPath_ = gameOptions;
-    options_ = GameOptionsDb();
-    if (!gameOptions.isEmpty()) {
-        QString err;
-        if (!options_.load(gameOptions, &err)) error_ = err;
+    options_.clear();
+    optionsFiles_.clear();
+    optionsErrors_.clear();
+    for (const std::string& name : gs::list_games(dirs_)) {
+        loadGame(QString::fromStdString(name));
+        loadOptions(QString::fromStdString(name));
     }
 }
+
+void GameData::loadOptions(const QString& profile) {
+    // Zoals game.ini en native.json: de gebruikerslaag eerst, en dat bestand vervangt het meegeleverde als geheel. Is het kapot, dan
+    // heeft de game geen opties (met de melding in optionsError); er is geen stille terugval op het meegeleverde bestand.
+    optionsFiles_.remove(profile);
+    optionsErrors_.remove(profile);
+    options_.removeGame(profile);
+    for (const std::string& layer : {dirs_.user, dirs_.shipped}) {
+        if (layer.empty()) continue;
+        const QString file = QString::fromStdString(gs::game_dir(layer, profile.toStdString())) + QStringLiteral("/options.json");
+        if (!QFileInfo::exists(file)) continue;
+        optionsFiles_.insert(profile, file);
+        QString err;
+        if (!options_.loadGame(profile, file, &err)) optionsErrors_.insert(profile, err);
+        return;
+    }
+}
+
+QString GameData::optionsFile(const QString& profile) const { return optionsFiles_.value(profile); }
 
 void GameData::loadGame(const QString& profile) {
     const std::string name = profile.toStdString();
@@ -187,7 +202,6 @@ bool GameData::setUserRoute(const QString& profile, const QString& route, QStrin
 
 QString GameData::note(const QString& profile) const {
     if (const QString en = notesEn_.value(profile); !en.isEmpty()) return en;
-    if (const GameOptionsEntry* e = options_.find(profile); e && !e->note.isEmpty()) return e->note;
     return notes_.value(profile);
 }
 
@@ -363,7 +377,7 @@ GameContext GameData::context(const GameEntry& g, const QString& tpDir) const {
     c.realGameDir = canonExe.isEmpty() ? c.gameDir : QFileInfo(canonExe).path();
     const QString view = AppPaths::viewsDir() + QLatin1Char('/') + c.profile;
     if (!c.profile.isEmpty() && QFileInfo(view).isDir()) c.viewDir = view;
-    // Gamemap: GamePath min het relatieve `exe` uit game-options.json ("TC5/Binaries/Win64/x.exe" -> de map erboven).
+    // Gamemap: GamePath min het relatieve `exe` uit options.json ("TC5/Binaries/Win64/x.exe" -> de map erboven).
     c.rootDir = g.folder.isEmpty() ? c.gameDir : g.folder;
     if (const GameOptionsEntry* e = entryFor(g); e && !e->exe.isEmpty() && !g.exePath.isEmpty()) {
         QString rel = e->exe.section(QStringLiteral(" ("), 0, 0).trimmed();

@@ -2,7 +2,7 @@
 #pragma once
 // Gegevens over games: instellingen en patches per game uit patches/<Game>/game.ini en patches.ini (meegeleverd, met de
 // gebruikerslaag in ~/.local/share/ravengun/patches eroverheen; src/ravengun/gamesettings, docs/per-game-patches.md) en opties en
-// memory card uit packaging/game-options.json (bestanden uit de repo gaan voor de ingebouwde kopie, AppPaths::packagingFile).
+// memory card uit patches/<Game>/options.json (gebruikerslaag eerst; een kapot bestand geeft geen opties).
 //
 // Invoerroute: [Input] in game.ini. De aanbevolen route is die van de meegeleverde laag; de keuze van de gebruiker (Properties >
 // General > Input route) is een sleutel in het gebruikers-game.ini. De engine en scripts/gamesettings.py (play-halo.sh) lezen
@@ -61,9 +61,10 @@ struct SettingEntry {
 
 class GameData {
 public:
-    void load();  // uit AppPaths::dataRoot() (patches/) en AppPaths::packagingFile
-    // Voor tests: eigen mappen met instellingen (dirs.user leeg = geen gebruikerslaag) en een eigen game-options.json.
-    void loadFrom(const ravengun::gamesettings::Dirs& dirs, const QString& gameOptions);
+    void load();  // uit AppPaths::dataRoot() (patches/, met de gebruikerslaag) en AppPaths::packagingFile
+    // Voor tests: eigen mappen met instellingen (dirs.user leeg = geen gebruikerslaag). Per game komen game.ini, patches.ini en
+    // options.json uit die mappen; options.json van de gebruikerslaag vervangt het meegeleverde bestand als geheel.
+    void loadFrom(const ravengun::gamesettings::Dirs& dirs);
     // Extra bronnen voor de routekeuze (voor tests; load() zet ze zelf). Leeg = niet gebruiken.
     void setRouteSources(const QString& hidBoards, const QString& jvsBoards, const QString& aagames);
 
@@ -74,11 +75,13 @@ public:
     bool setUserRoute(const QString& profile, const QString& route, QString* err = nullptr);
     QString userRoutesError() const { return userRoutesError_; }  // een ongeldige gebruikerslaag (dan genegeerd)
 
-    QString note(const QString& profile) const;  // Engels: NoteEN, dan game-options.json, dan de Nederlandse tekst
+    QString note(const QString& profile) const;  // Engels: [Status] NoteEN, dan de Nederlandse Note (game.ini)
     QString playState(const QString& profile) const;  // working | playable | parked | untested
     const GameOptionsDb& options() const { return options_; }
-    QString gameOptionsPath() const { return optionsPath_; }
-    QString loadError() const { return error_; }
+    // Het options.json dat voor deze game geldt (gebruikerslaag eerst, anders het meegeleverde; leeg als er geen is), en de melding
+    // als dat bestand kapot is (dan heeft de game geen opties; het meegeleverde bestand telt dan niet).
+    QString optionsFile(const QString& profile) const;
+    QString optionsError(const QString& profile) const { return optionsErrors_.value(profile); }
 
     // Patches en instellingen van een game (Properties > Patches).
     QList<PatchInfo> patches(const QString& profile) const;
@@ -104,15 +107,16 @@ public:
 
     static QString routeLabel(const QString& route);  // Engels, voor de lijst
     static QString routeDescription(const QString& route);  // Engels, één zin voor de keuze
-    // Context (mappen) van een game voor opties en memory card. De gamemap (rootDir) volgt uit `exe` in game-options.json
+    // Context (mappen) van een game voor opties en memory card. De gamemap (rootDir) volgt uit `exe` in options.json
     // (het uitvoerbare bestand relatief aan de gamemap), anders de gevonden map.
     GameContext context(const GameEntry& g, const QString& tpDir) const;
-    // Gegevens uit game-options.json voor deze game (op profiel, dan op mapnaam); nullptr als er niets is.
+    // Gegevens uit options.json voor deze game (op profiel, dan op mapnaam); nullptr als er niets is.
     const GameOptionsEntry* entryFor(const GameEntry& g) const;
     QList<KnownGame> knownGames() const;  // voor de herkenning bij het scannen
 
 private:
     void loadGame(const QString& profile);   // (her)leest één game uit beide lagen
+    void loadOptions(const QString& profile);   // options.json: gebruikerslaag eerst, geen terugval als dat kapot is
     ravengun::gamesettings::Dirs dirs_;
     QHash<QString, RouteInfo> baseRoutes_, routes_;
     QHash<QString, QString> notes_, notesEn_, state_;
@@ -121,7 +125,7 @@ private:
     QSet<QString> hidBoards_, jvsBoards_, unityGames_;
     QString userRoutesError_;
     GameOptionsDb options_;
-    QString optionsPath_, error_;
+    QHash<QString, QString> optionsFiles_, optionsErrors_;
 };
 
 }  // namespace rg

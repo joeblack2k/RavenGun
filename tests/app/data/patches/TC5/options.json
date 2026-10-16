@@ -1,0 +1,159 @@
+{
+  "title": "Time Crisis 5",
+  "nas_folder": "Time Crisis 5",
+  "platform": "Namco ES3X (UE3, 64-bit)",
+  "exe": "TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe",
+  "options": [
+    {
+      "key": "general.freeplay",
+      "name_en": "FreePlay",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "FreePlay"
+      },
+      "description_en": "Free play: no coin needed to start."
+    },
+    {
+      "key": "arguments.text_language",
+      "name_en": "Text Language",
+      "type": "enum",
+      "values": [
+        "English",
+        "Spanish"
+      ],
+      "default": "English",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Arguments",
+        "field": "Text Language"
+      }
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity"
+      }
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "TC5",
+        "element": "WineRunnerPath"
+      }
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/TC5.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      }
+    },
+    {
+      "key": "launch.gamescope",
+      "name_en": "Run inside gamescope",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/TC5.env",
+        "name": "TP_GAMESCOPE",
+        "companion": "TP_GAMESCOPE_PATH=/usr/bin/gamescope"
+      }
+    },
+    {
+      "key": "game.volume",
+      "name_en": "Volume",
+      "type": "int",
+      "min": 0,
+      "max": 100,
+      "default": 80,
+      "target": {
+        "kind": "game_config_file",
+        "path": "TC5/Config/Game.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Sound",
+        "key": "Volume"
+      }
+    },
+    {
+      "key": "adj.difficulty",
+      "name_en": "Difficulty",
+      "type": "int",
+      "min": 0,
+      "max": 10,
+      "default": 3,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/game/difficulty.{0,1,2}.txt",
+        "base": "game_dir",
+        "format": "rtdt_adjval",
+        "key": "difficulty",
+        "edit_outside_game": false
+      }
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "ranking",
+        "path": "TeknoParrot/{c,f}/TC5RankingData.bin",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Ranking data.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears rankings."
+      },
+      {
+        "id": "testmode",
+        "path": "TeknoParrot/g",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Test-menu settings.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Not verified."
+      },
+      {
+        "id": "dongle",
+        "path": "hasp",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "Dongle data.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "The game will not start."
+      },
+      {
+        "id": "prefix",
+        "path": "drive_c/x.bin",
+        "base": "wine_prefix",
+        "kind": "nvram",
+        "description_en": "Not resolvable.",
+        "safe_to_erase": "unknown"
+      }
+    ],
+    "notes_en": "Example notes."
+  }
+}

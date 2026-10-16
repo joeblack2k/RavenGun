@@ -1,0 +1,7 @@
+{
+  "title": "Mystery Gun Arcade",
+  "nas_folder": "Mystery Gun",
+  "platform": "Example PC",
+  "exe": "bin/mystery.exe",
+  "options": []
+}

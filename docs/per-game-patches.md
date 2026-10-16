@@ -23,12 +23,15 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
     game.ini                       instellingen (Dolphin: GameSettings)
     patches.ini                    patches van deze game, of "Enabled = true" bij een gedeelde patch; optioneel
     native.json                    het native profiel (sandbox, exe, bibliotheken; docs/native-profiel.md); optioneel
+    options.json                   de opties en memory card die de app toont (docs/game-opties.md); optioneel
     README.md                      korte uitleg en verwijzing naar findings/<Game>.md; alleen als er zo'n bestand is
     <extra bestanden>              bv. een .reg voor de eigen prefix; optioneel
 
 ~/.local/share/ravengun/patches/   gebruiker ($XDG_DATA_HOME/ravengun/patches), zelfde indeling; wint per sleutel
   <Game>/game.ini
   <Game>/patches.ini
+  <Game>/native.json               vervangt het meegeleverde bestand als geheel (geen samenvoeging); kapot = geen profiel
+  <Game>/options.json              idem: vervangt het meegeleverde bestand als geheel; kapot = geen opties
 ```
 
 `<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de id uit
@@ -93,6 +96,7 @@ gamemap van de patches-repo naar de `patches/` van de loader mag verhuizen: **ve
 | levering | `game.ini` | ja |
 | levering | `patches.ini` | nee |
 | levering | `native.json` (het native profiel, docs/native-profiel.md; de gebruikerslaag vervangt het als geheel) | nee |
+| levering | `options.json` (opties en memory card voor de app, docs/game-opties.md; de gebruikerslaag vervangt het als geheel) | nee |
 | levering | `dropin/**` (met `dropin/dropin.ini`) | nee; heeft een game `dropin/`, dan moet `dropin.ini` er zijn en elk bestand dat het noemt |
 | levering | `data/**` (runtimegegevens) | nee |
 | onderzoek | `*.md` (ook `README.md`, `*.md.voor-correctie-*`), `logs-*/`, `bewijs-*/`, `probe/`, `probes/`, `measurements/`, `*.voor-correctie*`, schermafbeeldingen (`*.png`, `*.jpg`, ...), `*.log`, `gamelog-*`, `usb-tap*` | nee, en nooit in de levering |
@@ -782,7 +786,7 @@ integriteits- of abonnementscontroles, en niets op uitgepakte beschermde code. D
 | `scripts/play-halo.sh` | `[Input]` (route, indeling, bord, poort), `[Launch] Mode`, de omgeving (`gamesettings.py env`) voor de eenheid, de procesnamen (`gamesettings.py comms`) en, voor een start via TeknoParrotUi, `gamesettings.py write-xml` |
 | engine (`iobridge/routes.cpp`, `games/games.cpp`) | `[Input]`, bij elke start opnieuw (een keuze in de app geldt zonder herstart); `[Status] Note` voor de web-UI |
 | engine (`games/games.cpp`) | `[Game]` (eigen profiel: een game met `Executable` of `ProfileRevision` is een geldig profiel zonder XML en staat in de lijst als hij in een gamemap of view staat), `[Identify]` |
-| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
+| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `options.json` (opties en memory card, docs/game-opties.md), `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
 | `scripts/tp-add-game.py` | schrijft het profiel (uit het sjabloon) en de keuzes in het gebruikers-`game.ini` (en `patches.ini`), plus `UserProfiles/<P>.xml` als uitvoerformaat; leest `[Bindings]` en `[NewGame]` |
 | `scripts/import-tp-profiles.py` | maakt de profieldelen van `game.ini` uit de runtime (zie "Importer") |
 | `tools/dev/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |

@@ -492,7 +492,7 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
                 }
             }
             if (isUnity) continue;
-            // c. Bekend uit game-options.json (mapnaam)?
+            // c. Bekend uit options.json (mapnaam)?
             const KnownGame* known = nullptr;
             for (const KnownGame& k : in.known)
                 if (k.folder == base || k.folder.trimmed().compare(base.trimmed(), Qt::CaseInsensitive) == 0) known = &k;
@@ -561,7 +561,7 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
                 g.kind = GameKind::Unconfigured;
             }
             if (known) {
-                // game-options.json kent deze map: titel en platform daarvandaan, profiel als dat er is.
+                // options.json kent deze map: titel en platform daarvandaan, profiel als dat er is.
                 if (!known->title.isEmpty()) g.name = known->title;
                 if (!known->platform.isEmpty()) g.platform = known->platform;
                 if (!known->profile.isEmpty()) {

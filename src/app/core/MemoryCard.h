@@ -2,11 +2,11 @@
 #pragma once
 // "Memory card" van een game: spelstanden, NVRAM en highscores.
 //
-// Bronnen: (1) de items uit game-options.json (memory_card), en (2) de view-map van het profiel
+// Bronnen: (1) de items uit options.json (memory_card), en (2) de view-map van het profiel
 // (~/.local/share/ravengun/runtime/views/<profiel>): alles wat daar een echt bestand is en geen symlink, heeft de game
 // zelf lokaal gemaakt (scripts/tp-add-game.py --view: "nieuwe bestanden die de game in de view maakt blijven lokaal").
 // Wissen kan alleen bij lokale bestanden die als wisbaar zijn gemarkeerd (safe_to_erase yes of unknown); een bestand op de
-// NAS wordt alleen getoond, ook als game-options.json het als lokaal markeert (de app schrijft nooit naar de NAS).
+// NAS wordt alleen getoond, ook als options.json het als lokaal markeert (de app schrijft nooit naar de NAS).
 #include <QDateTime>
 #include <QList>
 #include <QString>
@@ -17,7 +17,7 @@ namespace rg {
 
 struct MemoryCardFile {
     QString path;
-    QString label;   // uit game-options.json of "Created by the game (local view)"
+    QString label;   // uit options.json of "Created by the game (local view)"
     QString kind;
     QString safeToErase = QStringLiteral("yes");  // yes | no | unknown
     QString eraseEffect;

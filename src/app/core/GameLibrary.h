@@ -72,7 +72,7 @@ struct LibraryFolder {
 struct GameOverride {
     QString name, note, templateProfile;
     bool hidden = false;
-    QVariantMap options;   // game-options.json: sleutel -> waarde (opslagvorm, tekst)
+    QVariantMap options;   // options.json: sleutel -> waarde (opslagvorm, tekst)
     QVariantMap tpFields;  // losse profielvelden: "Categorie/Veld" -> waarde
 };
 
@@ -101,7 +101,7 @@ struct TemplateInfo {
     bool gunGame = false;
 };
 
-// Een game die game-options.json kent (mapnaam op de NAS, titel, profiel): herkent een map ook zonder uitvoerbaar bestand.
+// Een game die options.json kent (mapnaam op de NAS, titel, profiel): herkent een map ook zonder uitvoerbaar bestand.
 struct KnownGame {
     QString folder, title, profile, platform, exe;
 };

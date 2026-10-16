@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Tests van de app-kern (src/app/core) zonder engine en zonder widgets: TP-profiel lezen/schrijven, de parser van
-// game-options.json, schrijven naar doelen (nooit naar de "NAS"), bibliotheek-scan op een nepmap, memory card,
+// options.json per game (met lagen), schrijven naar doelen (nooit naar de "NAS"), bibliotheek-scan op een nepmap, memory card,
 // ProfileSync en de runtime-controle. De "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
 #include <QCryptographicHash>
 #include <QDir>
@@ -33,6 +33,17 @@ using namespace rg;
 namespace {
 
 QString dataFile(const QString& name) { return QStringLiteral(RAVENGUN_TEST_DATA "/") + name; }
+
+// De drie testgames uit tests/app/data/patches/<Game>/options.json.
+const QStringList& fixtureGames() {
+    static const QStringList g{QStringLiteral("TC5"), QStringLiteral("MysteryGun"), QStringLiteral("ShooterX")};
+    return g;
+}
+bool loadFixtureOptions(GameOptionsDb& db, QString* err = nullptr) {
+    for (const QString& g : fixtureGames())
+        if (!db.loadGame(g, dataFile(QStringLiteral("patches/") + g + QStringLiteral("/options.json")), err)) return false;
+    return true;
+}
 
 QString readAll(const QString& path) {
     QFile f(path);
@@ -83,8 +94,9 @@ private Q_SLOTS:
     void dongleDetectionRuns();
     void gameCameraChoice();
     void runtimeCheck();
-    // A3: echte game-options.json, invoerroute van de gebruiker, notities
+    // A3: echte options.json-bestanden, invoerroute van de gebruiker, notities
     void realGameOptions();
+    void optionsLayers();
     void extraIniFormats();
     void routeOverride();
     void routeOverrideInvalid();
@@ -186,13 +198,13 @@ void AppCoreTest::textConfig() {
 void AppCoreTest::gameOptionsParser() {
     GameOptionsDb db;
     QString err;
-    QVERIFY2(db.load(dataFile(QStringLiteral("game-options.json")), &err), qPrintable(err));
+    QVERIFY2(loadFixtureOptions(db, &err), qPrintable(err));
     QCOMPARE(db.entries().size(), 3);
     const GameOptionsEntry* e = db.find(QStringLiteral("TC5"));
     QVERIFY(e);
-    QCOMPARE(e->id, QStringLiteral("time_crisis_5"));
+    QCOMPARE(e->profile, QStringLiteral("TC5"));
     QCOMPARE(e->title, QStringLiteral("Time Crisis 5"));
-    QCOMPARE(e->note, QStringLiteral("Playable via tp-shm."));
+    QVERIFY(e->file.endsWith(QStringLiteral("/patches/TC5/options.json")));
     QCOMPARE(e->options.size(), 8);
     const GameOption& fp = e->options[0];
     QCOMPARE(fp.type, QStringLiteral("bool"));
@@ -218,26 +230,25 @@ void AppCoreTest::gameOptionsParser() {
     QVERIFY(db.findByFolder(QStringLiteral("Mystery Gun")));
     const GameOptionsEntry* none = db.findByFolder(QStringLiteral("Shooter X"));
     QVERIFY(none);
-    QVERIFY(none->profile.isEmpty());
+    QCOMPARE(none->profile, QStringLiteral("ShooterX"));
     QVERIFY(!db.find(QString()));
     QVERIFY(db.warnings().isEmpty());
 }
 
 void AppCoreTest::gameOptionsTolerant() {
-    // Ruimere vorm: games als lijst, doelen als korte tekst, memory_card als lijst.
-    const QByteArray json = R"({"games":[{"profile":"Halo","note":"Works.","options":[
+    // Ruimere vorm: doelen als korte tekst, memory_card als lijst.
+    const QByteArray json = R"({"options":[
         {"key":"fp","label":"Free play","type":"checkbox","target":"tp:General/FreePlay"},
         {"key":"vol","type":"number","range":[0,10],"target":"ini:cfg/game.ini#Audio/Volume"},
         {"key":"gs","type":"bool","target":"env:TP_GAMESCOPE"},
         {"key":"lang","values":[{"value":"en","label":"English"},{"value":"nl","label":"Dutch"}],"target":"cfg:lang.txt#Lang"},
         {"key":"bad","type":"weird","target":{"kind":"nonsense"}},
         {"name":"no key"}],
-      "memory_card":["nvram/*.bin", {"path":"save","label":"Saves","local":true}]}]})";
+      "memory_card":["nvram/*.bin", {"path":"save","label":"Saves","local":true}]})";
     GameOptionsDb db;
-    QVERIFY(db.loadData(json));
+    QVERIFY(db.loadGameData(QStringLiteral("Halo"), json));
     const GameOptionsEntry* e = db.find(QStringLiteral("Halo"));
     QVERIFY(e);
-    QCOMPARE(e->note, QStringLiteral("Works."));
     QCOMPARE(e->options.size(), 5);
     QCOMPARE(e->options[0].type, QStringLiteral("bool"));
     QCOMPARE(e->options[0].name, QStringLiteral("Free play"));
@@ -254,8 +265,18 @@ void AppCoreTest::gameOptionsTolerant() {
     QVERIFY(db.warnings().size() >= 3);  // onbekend type, onbekend doel, optie zonder sleutel
     GameOptionsDb bad;
     QString err;
-    QVERIFY(!bad.loadData("{nope", &err));
-    QVERIFY(!err.isEmpty());
+    QVERIFY(!bad.loadGameData(QStringLiteral("Halo"), "{nope", &err));
+    QVERIFY(err.contains(QStringLiteral("Halo/options.json")));
+    QVERIFY(!bad.find(QStringLiteral("Halo")));
+    QVERIFY(!bad.loadGameData(QStringLiteral("Halo"), "[1,2]", &err));   // een JSON-lijst is geen game
+    QVERIFY(!bad.loadGame(QStringLiteral("Halo"), tmp_.filePath(QStringLiteral("bestaat-niet.json")), &err));
+    // Opnieuw laden vervangt de entry van deze game; een mislukte lading laat niets van de oude over.
+    QVERIFY(bad.loadGameData(QStringLiteral("Halo"), R"({"title":"A"})"));
+    QVERIFY(bad.loadGameData(QStringLiteral("Halo"), R"({"title":"B"})"));
+    QCOMPARE(bad.entries().size(), 1);
+    QCOMPARE(bad.find(QStringLiteral("Halo"))->title, QStringLiteral("B"));
+    QVERIFY(!bad.loadGameData(QStringLiteral("Halo"), "x"));
+    QVERIFY(bad.isEmpty());
 }
 
 void AppCoreTest::expandBraces() {
@@ -268,7 +289,7 @@ void AppCoreTest::optionStoreWritesProfile() {
     const QString tp = tmp_.filePath(QStringLiteral("tp-store"));
     writeProfile(tp + QStringLiteral("/UserProfiles/TC5.xml"), QStringLiteral("/x/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"));
     GameOptionsDb db;
-    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    QVERIFY(loadFixtureOptions(db));
     const GameOptionsEntry* e = db.find(QStringLiteral("TC5"));
     GameContext c;
     c.profile = QStringLiteral("TC5");
@@ -314,9 +335,9 @@ void AppCoreTest::optionStoreAdjVal() {
         f.write(orig);
     }
     GameOptionsDb db;
-    QVERIFY(db.loadData(R"({"schema":1,"games":{"adj":{"tp_profile":"AdjGame","options":[{"key":"adj.freeplay","name_en":"Free play","type":"bool",
+    QVERIFY(db.loadGameData(QStringLiteral("AdjGame"), R"({"options":[{"key":"adj.freeplay","name_en":"Free play","type":"bool",
         "default":false,"target":{"kind":"game_config_file","path":"pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt","base":"native_layer",
-        "format":"rtdt_adjval","key":"freeplay","edit_outside_game":true}}]}}})"));
+        "format":"rtdt_adjval","key":"freeplay","edit_outside_game":true}}]})"));
     const GameOption& o = db.find(QStringLiteral("AdjGame"))->options[0];
     QCOMPARE(o.target.kind, OptionTarget::Kind::AdjVal);
     GameContext c;
@@ -352,9 +373,9 @@ void AppCoreTest::optionStoreAdjVal() {
     QCOMPARE(OptionStore::read(o, c), QStringLiteral("0"));
     // Zonder native_layer is het bestand op de NAS: alleen lezen.
     GameOptionsDb nas;
-    QVERIFY(nas.loadData(R"({"schema":1,"games":{"adj":{"tp_profile":"AdjGame","options":[{"key":"adj.freeplay","type":"bool",
+    QVERIFY(nas.loadGameData(QStringLiteral("AdjGame"), R"({"options":[{"key":"adj.freeplay","type":"bool",
         "target":{"kind":"game_config_file","path":"pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt","format":"rtdt_adjval","key":"freeplay",
-        "edit_outside_game":true}}]}}})"));
+        "edit_outside_game":true}}]})"));
     QVERIFY(!OptionStore::writable(nas.find(QStringLiteral("AdjGame"))->options[0], c, &why));
     QCOMPARE(why, QStringLiteral("read-only (on NAS)"));
 }
@@ -363,7 +384,7 @@ void AppCoreTest::optionStoreEnvAndIni() {
     const QString tp = tmp_.filePath(QStringLiteral("tp-env"));
     writeProfile(tp + QStringLiteral("/UserProfiles/TC5.xml"), QStringLiteral("/x/game.exe"));
     GameOptionsDb db;
-    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    QVERIFY(loadFixtureOptions(db));
     const GameOptionsEntry* e = db.find(QStringLiteral("TC5"));
     GameContext c;
     c.profile = QStringLiteral("TC5");
@@ -401,7 +422,7 @@ void AppCoreTest::neverWritesToNas() {
     QVERIFY(isOnNetwork(game + QStringLiteral("/TC5/Config/Game.ini")));
     QVERIFY(!isOnNetwork(tmp_.filePath(QStringLiteral("localgame"))));
     GameOptionsDb db;
-    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    QVERIFY(loadFixtureOptions(db));
     const GameOption& vol = db.find(QStringLiteral("TC5"))->options[6];
     GameContext c;
     c.profile = QStringLiteral("TC5");
@@ -505,7 +526,7 @@ void AppCoreTest::libraryScan() {
     QCOMPARE(a.kind, GameKind::Unconfigured);  // twee kandidaten, geen naamgelijkenis
     QCOMPARE(a.candidates.size(), 2);
     const GameEntry m = find(QStringLiteral("dir:") + lib + QStringLiteral("/Mystery Gun"));
-    QCOMPARE(m.kind, GameKind::Detected);  // via game-options.json (nas_folder)
+    QCOMPARE(m.kind, GameKind::Detected);  // via options.json (nas_folder)
     QCOMPARE(m.templateProfile, QStringLiteral("MysteryGun"));
     QCOMPARE(m.name, QStringLiteral("Mystery Gun Arcade"));
     QCOMPARE(find(QStringLiteral("dir:") + lib + QStringLiteral("/Something Else")).kind, GameKind::Unconfigured);
@@ -581,7 +602,7 @@ void AppCoreTest::memoryCardList() {
     writeFile(view + QStringLiteral("/hiscore.dat"), "hs");
     QVERIFY(QFile::link(nasRank, view + QStringLiteral("/linked.bin")));
     GameOptionsDb db;
-    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    QVERIFY(loadFixtureOptions(db));
     GameContext c;
     c.rootDir = root;
     c.gameDir = root + QStringLiteral("/TC5/Binaries/Win64");
@@ -638,7 +659,7 @@ void AppCoreTest::profileSyncFromLibrary() {
     lib.load();
     GameData data;
     const QString userSettings = tmp_.filePath(QStringLiteral("sync-user-settings"));
-    data.loadFrom(ravengun::gamesettings::Dirs{{}, userSettings.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    data.loadFrom(ravengun::gamesettings::Dirs{dataFile(QStringLiteral("patches")).toStdString(), userSettings.toStdString()});
     QStringList errors;
     QVERIFY2(ProfileSync::apply(g, lib, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
     TpProfile p;
@@ -659,7 +680,7 @@ void AppCoreTest::profileSyncFromLibrary() {
     QVERIFY(!readAll(tp + QStringLiteral("/UserProfiles/TC5.env")).contains(QStringLiteral("TP_GAMESCOPE")));
     const QString userIni2 = readAll(userSettings + QStringLiteral("/TC5/game.ini"));
     QVERIFY(userIni2.contains(QStringLiteral("Gamescope =\n")) && !userIni2.contains(QStringLiteral("Gamescope = true")));
-    // Context: de gamemap volgt uit `exe` in game-options.json.
+    // Context: de gamemap volgt uit `exe` in options.json.
     const GameContext c = data.context(g, tp);
     QCOMPARE(c.rootDir, QStringLiteral("/x"));
     QCOMPARE(c.gameDir, QStringLiteral("/x/TC5/Binaries/Win64"));
@@ -677,6 +698,10 @@ QString writeOwnTc5(const QString& patches) {
               "[Config]\nGeneral/FreePlay = 0\nGeneral/Windowed = 0\nArguments/Text Language = English\n"
               "[ConfigType]\nGeneral/FreePlay = Bool\nGeneral/Windowed = Bool\nArguments/Text Language = Dropdown\n"
               "[ConfigOptions]\nArguments/Text Language = English|Spanish\n");
+    for (const QString& g : fixtureGames()) {   // en de opties van de testgames, zoals patches/<Game>/options.json
+        QDir().mkpath(patches + QLatin1Char('/') + g);
+        QFile::copy(dataFile(QStringLiteral("patches/") + g + QStringLiteral("/options.json")), patches + QLatin1Char('/') + g + QStringLiteral("/options.json"));
+    }
     return patches;
 }
 
@@ -691,7 +716,7 @@ void AppCoreTest::libraryFindsOwnProfiles() {
     writeFile(games + QStringLiteral("/Time Crisis 5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), "abc");
     writeFile(games + QStringLiteral("/Andere Map/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"), "abcdef");   // andere versie
     GameData data;
-    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()});
     QVERIFY(data.hasOwnProfile(QStringLiteral("TC5")));
     QCOMPARE(data.ownGames().size(), 1);
     ScanInput in;
@@ -733,7 +758,7 @@ void AppCoreTest::libraryFindsOwnProfiles() {
     QFile::remove(viewExe + QStringLiteral(".ravengun-orig"));
     // Een override van de gebruiker wint; zonder bestand is de game niet gevonden.
     writeFile(user + QStringLiteral("/TC5/game.ini"), ("[Game]\nGamePath = " + games + "/Andere Map/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe\n").toUtf8());
-    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()});
     in.ownGames = data.ownGames();
     r = LibraryScanner::scan(in);
     for (const GameEntry& g : r.games)
@@ -743,7 +768,7 @@ void AppCoreTest::libraryFindsOwnProfiles() {
     QDir(games).removeRecursively();
     QDir().mkpath(games);
     writeFile(user + QStringLiteral("/TC5/game.ini"), "");
-    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()});
     in.ownGames = data.ownGames();
     r = LibraryScanner::scan(in);
     for (const GameEntry& g : r.games) QVERIFY(g.id != QStringLiteral("tp:TC5"));
@@ -754,7 +779,7 @@ void AppCoreTest::ownProfileOptionsWriteUserLayer() {
     const QString user = tmp_.filePath(QStringLiteral("opt-user"));
     const QString tp = tmp_.filePath(QStringLiteral("opt-tp"));
     GameOptionsDb db;
-    QVERIFY(db.load(dataFile(QStringLiteral("game-options.json"))));
+    QVERIFY(loadFixtureOptions(db));
     const GameOptionsEntry* e = db.find(QStringLiteral("TC5"));
     GameContext c;
     c.profile = QStringLiteral("TC5");
@@ -1001,7 +1026,7 @@ void AppCoreTest::profileSyncOwnProfile() {
     GameLibrary lib(libFile);
     lib.load();
     GameData data;
-    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()}, dataFile(QStringLiteral("game-options.json")));
+    data.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()});
     QStringList errors;
     QVERIFY2(ProfileSync::apply(g, lib, data, &errors), qPrintable(errors.join(QLatin1Char(';'))));
     const QString ini = readAll(user + QStringLiteral("/TC5/game.ini"));
@@ -1072,50 +1097,116 @@ void AppCoreTest::runtimeCheck() {
              QString());   // de oude keuze wordt auto: geen startwijze meer die de engine weigert
 }
 
-// --- A3: echte game-options.json, invoerroute van de gebruiker, notities ------------------------------------------------
+// --- A3: echte options.json-bestanden, invoerroute van de gebruiker, notities ------------------------------------------------
 
 namespace {
 QString repoFile(const QString& rel) { return QStringLiteral(RAVENGUN_SOURCE_DIR "/") + rel; }
+// De meegeleverde patches: $RAVENGUN_PATCHES_DIR, anders patches/ in de repo (een symlink naar de ravengun-patches-repo).
+QString realPatchesDir() {
+    const QString env = qEnvironmentVariable("RAVENGUN_PATCHES_DIR");
+    return env.isEmpty() ? repoFile(QStringLiteral("patches")) : env;
+}
 }  // namespace
 
+void AppCoreTest::optionsLayers() {
+    // patches/<Game>/options.json, zoals game.ini en native.json: de gebruikerslaag vervangt het meegeleverde bestand als geheel; een
+    // kapot bestand geeft deze game geen opties en er is geen stille terugval op het meegeleverde bestand.
+    const QString shipped = tmp_.filePath(QStringLiteral("opt-shipped"));
+    const QString user = tmp_.filePath(QStringLiteral("opt-user-layer"));
+    const QByteArray a = R"({"title":"Shipped A","options":[{"key":"o1","type":"bool"},{"key":"o2","type":"bool"}],"memory_card":[{"path":"save"}]})";
+    const QByteArray b = R"({"title":"Shipped B","options":[{"key":"b1","type":"bool"}]})";
+    writeFile(shipped + QStringLiteral("/GameA/options.json"), a);
+    writeFile(shipped + QStringLiteral("/GameB/options.json"), b);
+    writeFile(shipped + QStringLiteral("/GameC/game.ini"), "[Game]\nName = C\n");   // een game zonder options.json
+    writeFile(shipped + QStringLiteral("/GameD/options.json"), "{kapot");
+    GameData d;
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), {}});
+    QCOMPARE(d.options().entries().size(), 2);
+    QCOMPARE(d.options().find(QStringLiteral("GameA"))->options.size(), 2);
+    QCOMPARE(d.options().find(QStringLiteral("GameA"))->memoryCard.size(), 1);
+    QCOMPARE(d.optionsFile(QStringLiteral("GameA")), shipped + QStringLiteral("/GameA/options.json"));
+    QVERIFY(d.optionsFile(QStringLiteral("GameC")).isEmpty());
+    QVERIFY(d.optionsError(QStringLiteral("GameC")).isEmpty());
+    QVERIFY(!d.options().find(QStringLiteral("GameD")));   // kapot (ook zonder gebruikerslaag): geen opties, met een melding
+    QVERIFY(d.optionsError(QStringLiteral("GameD")).contains(QStringLiteral("GameD/options.json")));
+    // De gebruikerslaag vervangt het bestand als geheel (geen samenvoeging); een game die alleen daar staat, telt ook.
+    writeFile(user + QStringLiteral("/GameA/options.json"), R"({"title":"User A","options":[{"key":"u1","type":"int"}]})");
+    writeFile(user + QStringLiteral("/GameE/options.json"), R"({"options":[{"key":"e1","type":"bool"}]})");
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), user.toStdString()});
+    const GameOptionsEntry* ua = d.options().find(QStringLiteral("GameA"));
+    QVERIFY(ua);
+    QCOMPARE(ua->title, QStringLiteral("User A"));
+    QCOMPARE(ua->options.size(), 1);
+    QCOMPARE(ua->options[0].key, QStringLiteral("u1"));
+    QVERIFY(ua->memoryCard.isEmpty());                                   // niet uit het meegeleverde bestand overgenomen
+    QCOMPARE(d.optionsFile(QStringLiteral("GameA")), user + QStringLiteral("/GameA/options.json"));
+    QCOMPARE(d.options().find(QStringLiteral("GameB"))->title, QStringLiteral("Shipped B"));
+    QVERIFY(d.options().find(QStringLiteral("GameE")));
+    // Kapot in de gebruikerslaag: geen opties voor deze game, en het meegeleverde bestand telt niet.
+    writeFile(user + QStringLiteral("/GameB/options.json"), "{\"options\": [");
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), user.toStdString()});
+    QVERIFY(!d.options().find(QStringLiteral("GameB")));
+    QVERIFY(d.optionsError(QStringLiteral("GameB")).contains(user + QStringLiteral("/GameB/options.json")));
+    QCOMPARE(d.optionsFile(QStringLiteral("GameB")), user + QStringLiteral("/GameB/options.json"));
+    QVERIFY(d.options().find(QStringLiteral("GameA")));                  // de andere games blijven werken
+    // Een leeg bestand in de gebruikerslaag is ook kapot (geen JSON); `{}` is geldig en betekent geen opties.
+    writeFile(user + QStringLiteral("/GameB/options.json"), "");
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), user.toStdString()});
+    QVERIFY(!d.optionsError(QStringLiteral("GameB")).isEmpty());
+    writeFile(user + QStringLiteral("/GameB/options.json"), "{}");
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), user.toStdString()});
+    QVERIFY(d.optionsError(QStringLiteral("GameB")).isEmpty());
+    QVERIFY(d.options().find(QStringLiteral("GameB"))->options.isEmpty());
+    // De bibliotheek-scan kent de games met een nas_folder uit deze bestanden.
+    writeFile(shipped + QStringLiteral("/GameC/options.json"), R"({"title":"C Title","nas_folder":"Game C Folder","platform":"P","exe":"bin/c.exe"})");
+    d.loadFrom(ravengun::gamesettings::Dirs{shipped.toStdString(), {}});
+    const QList<KnownGame> known = d.knownGames();
+    QCOMPARE(known.size(), 1);
+    QCOMPARE(known[0].folder, QStringLiteral("Game C Folder"));
+    QCOMPARE(known[0].profile, QStringLiteral("GameC"));
+    QCOMPARE(known[0].exe, QStringLiteral("bin/c.exe"));
+}
+
+
 void AppCoreTest::realGameOptions() {
-    // Het echte bestand uit de repo: 33 games, 529 opties, 67 memory-card-items (de tellers in het bestand zelf).
-    GameOptionsDb db;
-    QString err;
-    QVERIFY2(db.load(repoFile(QStringLiteral("packaging/game-options.json")), &err), qPrintable(err));
-    const QJsonObject counts = QJsonDocument::fromJson([] {
-                                   QFile f(repoFile(QStringLiteral("packaging/game-options.json")));
-                                   if (!f.open(QIODevice::ReadOnly)) return QByteArray();
-                                   return f.readAll();
-                               }()).object().value(QStringLiteral("counts")).toObject();
-    QCOMPARE(db.entries().size(), counts.value(QStringLiteral("games")).toInt());
+    // De echte bestanden: patches/<Game>/options.json van de meegeleverde laag.
+    const QString dir = realPatchesDir();
+    GameData data;
+    data.loadFrom(ravengun::gamesettings::Dirs{dir.toStdString(), {}});
+    for (const std::string& game : ravengun::gamesettings::list_games(ravengun::gamesettings::Dirs{dir.toStdString(), {}}))
+        QVERIFY2(data.optionsError(QString::fromStdString(game)).isEmpty(), qPrintable(data.optionsError(QString::fromStdString(game))));
+    const GameOptionsDb& db = data.options();
+    if (db.isEmpty()) QSKIP(qPrintable(QStringLiteral("no options.json under %1 (tools/dev/split-game-options.py makes them)").arg(dir)));
+    QVERIFY(db.entries().size() >= 20);
     int options = 0, items = 0, editable = 0, readOnly = 0;
     for (const GameOptionsEntry& e : db.entries()) {
         options += static_cast<int>(e.options.size());
         items += static_cast<int>(e.memoryCard.size());
         for (const GameOption& o : e.options) {
-            QVERIFY2(!o.key.isEmpty() && !o.name.isEmpty(), qPrintable(e.id));
+            QVERIFY2(!o.key.isEmpty() && !o.name.isEmpty(), qPrintable(e.profile));
             QVERIFY2(o.type == QStringLiteral("bool") || o.type == QStringLiteral("int") || o.type == QStringLiteral("enum") ||
                          o.type == QStringLiteral("string"),
-                     qPrintable(e.id + QLatin1Char('/') + o.key));
+                     qPrintable(e.profile + QLatin1Char('/') + o.key));
             if (o.target.kind == OptionTarget::Kind::Unsupported) {
-                QVERIFY2(!o.target.readOnlyReason.isEmpty(), qPrintable(e.id + QLatin1Char('/') + o.key));  // altijd met reden
+                QVERIFY2(!o.target.readOnlyReason.isEmpty(), qPrintable(e.profile + QLatin1Char('/') + o.key));  // altijd met reden
                 ++readOnly;
             } else {
                 ++editable;
             }
         }
     }
-    QCOMPARE(options, counts.value(QStringLiteral("options")).toInt());
-    QCOMPARE(items, counts.value(QStringLiteral("memory_card_items")).toInt());
     QVERIFY2(db.warnings().isEmpty(), qPrintable(db.warnings().join(QLatin1Char('\n'))));
-    QVERIFY(editable > 450);
-    qInfo("game-options.json: %d games, %d options (%d editable, %d read-only), %d memory-card items", static_cast<int>(db.entries().size()),
+    QVERIFY(editable > 300);
+    qInfo("options.json: %d games, %d options (%d editable, %d read-only), %d memory-card items", static_cast<int>(db.entries().size()),
           options, editable, readOnly, items);
     // Steekproef: profielveld, element, env met companion, INI met woorden (ON/OFF).
+    const GameOptionsEntry* tc5 = db.find(QStringLiteral("TC5"));
+    QVERIFY(tc5);
+    QCOMPARE(tc5->options[0].target.kind, OptionTarget::Kind::TpField);
+    // Een native game (Halo) toont geen TeknoParrot-profielvelden: de native route leest het profiel niet.
     const GameOptionsEntry* halo = db.find(QStringLiteral("Halo"));
     QVERIFY(halo);
-    QCOMPARE(halo->options[0].target.kind, OptionTarget::Kind::TpField);
+    for (const GameOption& o : halo->options) QVERIFY2(o.target.kind != OptionTarget::Kind::TpField, qPrintable(o.key));
     const GameOptionsEntry* tsr = db.find(QStringLiteral("TransformersShadowsRising"));
     QVERIFY(tsr);
     bool sawOnOff = false;
@@ -1134,13 +1225,13 @@ void AppCoreTest::extraIniFormats() {
     writeFile(dir + QStringLiteral("/MINIGUN.INI"), "REGION\tE\r\nLANG\tEN\r\n");
     writeFile(dir + QStringLiteral("/op.conf"), "Language: EN\nVolume: 5\n");
     writeFile(dir + QStringLiteral("/GameSettings.ini"), "[GameSettings]\nREVIVAL=ON\n");
-    const QByteArray json = R"({"games":{"X":{"tp_profile":"X","options":[
+    const QByteArray json = R"({"options":[
       {"key":"r","type":"enum","values":["A","E"],"target":{"kind":"game_config_file","path":"MINIGUN.INI","format":"tab_ini","key":"REGION"}},
       {"key":"l","type":"enum","values":["EN","FR"],"target":{"kind":"game_config_file","path":"op.conf","format":"colon","key":"Language"}},
       {"key":"v","type":"bool","default":true,"target":{"kind":"game_config_file","path":"GameSettings.ini","format":"ini_onoff","section":"GameSettings","key":"REVIVAL"}},
-      {"key":"a","type":"int","target":{"kind":"game_config_file","path":"x.txt","format":"csv","key":"a"}}]}}})";
+      {"key":"a","type":"int","target":{"kind":"game_config_file","path":"x.txt","format":"csv","key":"a"}}]})";
     GameOptionsDb db;
-    QVERIFY(db.loadData(json));
+    QVERIFY(db.loadGameData(QStringLiteral("X"), json));
     const GameOptionsEntry* e = db.find(QStringLiteral("X"));
     QVERIFY(e && e->options.size() == 4);
     GameContext c;
@@ -1174,7 +1265,7 @@ void AppCoreTest::routeOverride() {
     GameData d;
     d.setRouteSources(repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")),
                       repoFile(QStringLiteral("packaging/aagames-games.json")));
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
     // Keuzes per game: de aanbevolen route eerst, alleen routes waarvoor er een indeling of bord is.
@@ -1199,7 +1290,7 @@ void AppCoreTest::routeOverride() {
     // Een tweede GameData (een herstart van de app) leest dezelfde keuzes.
     GameData d2;
     d2.setRouteSources({}, {}, {});
-    d2.loadFrom(repoDirs(user), {});
+    d2.loadFrom(repoDirs(user));
     QCOMPARE(d2.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
     QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("evdev"));
     // Niet beschikbaar: geweigerd. Terug naar de aanbevolen route: de keuze verdwijnt uit het bestand.
@@ -1219,7 +1310,7 @@ void AppCoreTest::routeOverride() {
     QVERIFY(kept.contains(QStringLiteral("; mijn notitie")) && kept.contains(QStringLiteral("FOO = bar")) && kept.contains(QStringLiteral("Route = evdev")));
     // Zonder gebruikersmap kan er niets gekozen worden.
     GameData d3;
-    d3.loadFrom(repoDirs(), {});
+    d3.loadFrom(repoDirs());
     QVERIFY(!d3.setUserRoute(QStringLiteral("TC5"), QStringLiteral("evdev"), &err));
 }
 
@@ -1229,18 +1320,18 @@ void AppCoreTest::routeOverrideInvalid() {
     writeFile(user + QStringLiteral("/TC5/game.ini"), "[Input]\nRoute = onzin\n");
     writeFile(user + QStringLiteral("/Nieuw/game.ini"), "[Input]\nRoute = tp-shm\n");   // zonder Layout
     GameData d;
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.userRoutesError().isEmpty());
     QCOMPARE(d.route(QStringLiteral("Nieuw")).route, QStringLiteral("evdev"));
     writeFile(user + QStringLiteral("/TC5/game.ini"), "[Input]\nRoute = hid-board\n");   // zonder Board
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.userRoutesError().isEmpty());
     QFile::remove(user + QStringLiteral("/TC5/game.ini"));
     QFile::remove(user + QStringLiteral("/Nieuw/game.ini"));
     writeFile(user + QStringLiteral("/NieuweGame/game.ini"), "[Input]\nRoute = evdev\n");
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QVERIFY(d.userRoutesError().isEmpty());
     QCOMPARE(d.route(QStringLiteral("NieuweGame")).route, QStringLiteral("evdev"));
 }
@@ -1248,7 +1339,7 @@ void AppCoreTest::routeOverrideInvalid() {
 void AppCoreTest::notesEnglish() {
     namespace gs = ravengun::gamesettings;
     GameData d;
-    d.loadFrom(repoDirs(), {});
+    d.loadFrom(repoDirs());
     // De app toont Engels (NoteEN); de Nederlandse tekst (Note) blijft voor de webpagina en de engine. Vergeleken met game.ini zelf:
     // de teksten en de status veranderen met elke bench-run, het mechanisme niet.
     for (const char* name : {"TC5", "Halo"}) {
@@ -1271,19 +1362,18 @@ void AppCoreTest::notesEnglish() {
         if (!nl.empty()) ++withNote;
     }
     QVERIFY(withNote >= 28);
-    // Zonder Engelse notitie: de Engelse status uit game-options.json gaat voor de Nederlandse tekst.
+    // Zonder Engelse notitie geldt de Nederlandse tekst uit game.ini; het options.json van de game speelt geen rol meer.
     const QString shipped = tmp_.filePath(QStringLiteral("notes-nl"));
     writeFile(shipped + QStringLiteral("/TC5/game.ini"), "[Status]\nNote = Nederlands\n");
-    GameData d2;
-    d2.loadFrom(gs::Dirs{shipped.toStdString(), {}}, dataFile(QStringLiteral("game-options.json")));
-    QVERIFY(d2.note(QStringLiteral("TC5")) != QStringLiteral("Nederlands"));
+    QFile::copy(dataFile(QStringLiteral("patches/TC5/options.json")), shipped + QStringLiteral("/TC5/options.json"));
     GameData d3;
-    d3.loadFrom(gs::Dirs{shipped.toStdString(), {}}, {});
+    d3.loadFrom(gs::Dirs{shipped.toStdString(), {}});
+    QVERIFY(!d3.options().isEmpty());
     QCOMPARE(d3.note(QStringLiteral("TC5")), QStringLiteral("Nederlands"));
     // De gebruikerslaag gaat voor.
     writeFile(tmp_.filePath(QStringLiteral("notes-user/TC5/game.ini")), "[Status]\nNoteEN = My note\n");
     GameData d4;
-    d4.loadFrom(gs::Dirs{shipped.toStdString(), tmp_.filePath(QStringLiteral("notes-user")).toStdString()}, {});
+    d4.loadFrom(gs::Dirs{shipped.toStdString(), tmp_.filePath(QStringLiteral("notes-user")).toStdString()});
     QCOMPARE(d4.note(QStringLiteral("TC5")), QStringLiteral("My note"));
 }
 
@@ -1291,7 +1381,7 @@ void AppCoreTest::patchesAndSettings() {
     namespace gs = ravengun::gamesettings;
     const QString user = tmp_.filePath(QStringLiteral("patches-user"));
     GameData d;
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     // De lader-patch voor Type X2: gedeeld gedefinieerd, door de game aangezet.
     const QString name = QStringLiteral("OpenParrotLoader zonder CONTEXT_FLOATING_POINT");
     QList<PatchInfo> p = d.patches(QStringLiteral("GaiaAttack4"));
@@ -1326,23 +1416,23 @@ void AppCoreTest::patchesAndSettings() {
     QVERIFY(!gs::read_layer(user.toStdString(), "GaiaAttack4", "patches.ini").has("Patch: " + name.toStdString(), "Enabled"));
     // Een patch die alleen de gebruiker kent; en de gedeelde definitie van een game die hem niet aanzet staat er ook (uit).
     writeFile(user + QStringLiteral("/NERF/patches.ini"), "[Patch: Eigen]\nEnabled = true\nKind = file\nCategory = crash\nTarget = core\nFind = 00\nReplace = 01\n");
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     p = d.patches(QStringLiteral("NERF"));
     QCOMPARE(p.size(), 1);
     QVERIFY(p[0].enabled && p[0].userDefined && p[0].userSet);
     // Een eigen patch zonder Category wordt afgewezen en als melding getoond.
     writeFile(user + QStringLiteral("/TC5/patches.ini"), "[Patch: Zonder]\nEnabled = true\nKind = file\n");
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QVERIFY(d.patches(QStringLiteral("TC5")).isEmpty());
     QVERIFY(d.patchErrors(QStringLiteral("TC5")).value(0).contains(QStringLiteral("Category ontbreekt")));
     QFile::remove(user + QStringLiteral("/TC5/patches.ini"));
     // Zonder gebruikersmap geen schrijven.
     GameData ro;
-    ro.loadFrom(repoDirs(), {});
+    ro.loadFrom(repoDirs());
     QVERIFY(!ro.setPatchEnabled(QStringLiteral("GaiaAttack4"), name, false, &err));
     // Effectieve instellingen met de laag waar ze vandaan komen.
     writeFile(user + QStringLiteral("/GaiaAttack4/game.ini"), "[Env]\nFOO = bar\n[Input]\nRoute = evdev\n");
-    d.loadFrom(repoDirs(user), {});
+    d.loadFrom(repoDirs(user));
     QHash<QString, QString> layers;
     for (const SettingEntry& e : d.settings(QStringLiteral("GaiaAttack4"))) layers.insert(e.section + QLatin1Char('.') + e.key, e.layer);
     QCOMPARE(layers.value(QStringLiteral("Wine.DllOverrides")), QStringLiteral("default"));   // van het soort OpenParrot
@@ -1519,7 +1609,7 @@ void AppCoreTest::gamepadMapping() {
 
 void AppCoreTest::bigPictureGameFilter() {
     GameData d;
-    d.loadFrom(repoDirs(), {});
+    d.loadFrom(repoDirs());
     auto mk = [](const QString& prof, const QString& name, GameKind k = GameKind::TeknoParrot) {
         GameEntry g;
         g.id = QStringLiteral("tp:") + prof;

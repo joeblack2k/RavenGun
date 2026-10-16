@@ -6,7 +6,7 @@
   - packaging/games-notes.json    -> [Status] (Status, Note = Nederlands, NoteEN = Engels)
   - <runtime>/UserProfiles/*.env  -> [Loader], [Wine], [Display], [Input] Jvs*, [Launch] WorkingDirectory, [Env] en de lader-patch
   - <runtime>/UserProfiles/*.xml  -> het soort (EmulatorType) en de map van de game (alleen gelezen)
-  - packaging/game-options.json   -> [Game] Name
+  - packaging/game-options.json   -> [Game] Name (bron weg sinds 2026-10-16: git show <rev>:packaging/game-options.json)
 
 Opnieuw te draaien (idempotent): het script leidt per bron alleen de sleutels af die die bron kent, haalt die eerst weg en zet ze
 opnieuw; andere sleutels en secties in een bestaand game.ini (handwerk) blijven staan. Een bron die er niet is (bv. na het

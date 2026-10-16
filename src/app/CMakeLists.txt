@@ -39,7 +39,7 @@ target_link_libraries(ravengun_app_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
 # packaging/*.json als terugval in de binary (de bestanden in de repo gaan voor, zie AppPaths::packagingFile).
 set(_rg_qrc "${CMAKE_CURRENT_BINARY_DIR}/packaging.qrc")
 set(_rg_qrc_body "<RCC><qresource prefix=\"/packaging\">\n")
-foreach(_f aagames-games.json game-options.json hid-boards.json jvs-boards.json)
+foreach(_f aagames-games.json hid-boards.json jvs-boards.json)
   if(EXISTS "${PROJECT_SOURCE_DIR}/packaging/${_f}")
     string(APPEND _rg_qrc_body "  <file alias=\"${_f}\">${PROJECT_SOURCE_DIR}/packaging/${_f}</file>\n")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/packaging/${_f}")
@@ -93,7 +93,7 @@ if(RAVENGUN_BUILD_TESTS)
       "RAVENGUN_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"")
     add_test(NAME ravengun_app_tests COMMAND ravengun_app_tests)
     set_tests_properties(ravengun_app_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    # Vensters met de echte packaging/game-options.json (alle games), de fullscreen-modus, de wizard en Steam-afbeeldingen.
+    # Vensters met de echte patches/<Game>/options.json (alle games; patches/ in de repo of RAVENGUN_PATCHES_DIR), de fullscreen-modus, de wizard en Steam-afbeeldingen.
     add_executable(ravengun_app_widget_tests "${PROJECT_SOURCE_DIR}/tests/app/test_app_widgets.cpp" resources/app.qrc "${_rg_qrc}")
     target_link_libraries(ravengun_app_widget_tests PRIVATE ravengun_app_widgets Qt6::Test)
     set_target_properties(ravengun_app_widget_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

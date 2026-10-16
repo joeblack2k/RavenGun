@@ -186,146 +186,134 @@ OptionTarget GameOptionsDb::parseTarget(const QVariant& v) {
     return t;
 }
 
-bool GameOptionsDb::load(const QString& path, QString* err) {
-    QFile f(path);
+bool GameOptionsDb::loadGame(const QString& game, const QString& file, QString* err) {
+    removeGame(game);
+    QFile f(file);
     if (!f.open(QIODevice::ReadOnly)) {
-        if (err) *err = f.errorString();
+        if (err) *err = QStringLiteral("%1: %2").arg(file, f.errorString());
         return false;
     }
-    return loadData(f.readAll(), err);
+    return loadGameData(game, f.readAll(), err, file);
 }
 
-bool GameOptionsDb::loadData(const QByteArray& json, QString* err) {
-    entries_.clear();
-    warnings_.clear();
+bool GameOptionsDb::loadGameData(const QString& game, const QByteArray& json, QString* err, const QString& file) {
+    removeGame(game);
+    const QString name = file.isEmpty() ? game + QStringLiteral("/options.json") : file;
     QJsonParseError pe{};
     const QJsonDocument doc = QJsonDocument::fromJson(json, &pe);
     if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-        if (err) *err = QStringLiteral("game-options.json: %1").arg(pe.errorString());
+        if (err) *err = QStringLiteral("%1: %2").arg(name, pe.error != QJsonParseError::NoError ? pe.errorString() : QStringLiteral("not a JSON object"));
         return false;
     }
-    const QVariantMap root = doc.object().toVariantMap();
-    QList<QPair<QString, QVariantMap>> games;
-    const QVariant g = root.value(QStringLiteral("games"));
-    if (g.typeId() == QMetaType::QVariantMap) {
-        const QVariantMap gm = g.toMap();
-        for (auto it = gm.begin(); it != gm.end(); ++it) games.append({it.key(), it->toMap()});
-    } else if (g.typeId() == QMetaType::QVariantList) {
-        for (const QVariant& e : g.toList()) {
-            const QVariantMap m = e.toMap();
-            games.append({firstString(m, {"id", "key", "profile", "tp_profile", "game"}), m});
-        }
-    }
-    for (const auto& [id, m] : games) {
-        if (id.isEmpty() || id.startsWith(QLatin1Char('_'))) continue;
-        GameOptionsEntry e;
-        e.id = id;
-        // tp_profile kan expliciet leeg (null) zijn: de game heeft nog geen profiel.
-        e.profile = m.contains(QStringLiteral("tp_profile")) ? m.value(QStringLiteral("tp_profile")).toString()
-                                                             : (m.contains(QStringLiteral("profile")) ? m.value(QStringLiteral("profile")).toString() : id);
-        e.title = firstString(m, {"title", "name_en", "name"});
-        e.nasFolder = firstString(m, {"nas_folder", "folder"});
-        e.platform = firstString(m, {"platform"});
-        e.exe = firstString(m, {"exe"});
-        e.route = firstString(m, {"recommended_route", "route"});
-        e.note = firstString(m, {"note_en", "note", "status_en", "notes_en", "status_note", "notes"});
-        for (const QVariant& ov : firstValue(m, {"options"}).toList()) {
-            const QVariantMap om = ov.toMap();
-            GameOption o;
-            o.key = firstString(om, {"key", "id"});
-            o.name = firstString(om, {"name_en", "name", "label", "title"});
-            if (o.name.isEmpty()) o.name = o.key;
-            o.type = normType(firstString(om, {"type"}));
-            o.description = firstString(om, {"description_en", "description", "hint", "help", "tooltip"});
-            const QString note = firstString(om, {"note_en", "note"});
-            if (!note.isEmpty()) o.description += (o.description.isEmpty() ? QString() : QStringLiteral(" ")) + note;
-            o.category = firstString(om, {"category", "group", "section_name"});
-            if (om.contains(QStringLiteral("true_value"))) o.trueValue = om.value(QStringLiteral("true_value")).toString();
-            if (om.contains(QStringLiteral("false_value"))) o.falseValue = om.value(QStringLiteral("false_value")).toString();
-            for (const QVariant& vv : firstValue(om, {"values", "options", "choices"}).toList()) {
-                if (vv.typeId() == QMetaType::QVariantMap) {
-                    const QVariantMap vm = vv.toMap();
-                    const QString val = valueToText(firstValue(vm, {"value", "id", "key"}), o);
-                    o.values << val;
-                    const QString lab = firstString(vm, {"label_en", "label", "name", "title"});
-                    o.labels << (lab.isEmpty() ? val : lab);
-                } else {
-                    o.values << valueToText(vv, o);
-                    o.labels << valueToText(vv, o);
-                }
-            }
-            const QVariant range = firstValue(om, {"range"});
-            if (range.typeId() == QMetaType::QVariantList && range.toList().size() >= 2) {
-                o.hasRange = true;
-                o.min = range.toList()[0].toDouble();
-                o.max = range.toList()[1].toDouble();
-                if (range.toList().size() >= 3) o.step = range.toList()[2].toDouble();
-            } else if (range.typeId() == QMetaType::QVariantMap) {
-                const QVariantMap rm = range.toMap();
-                o.hasRange = rm.contains(QStringLiteral("min")) && rm.contains(QStringLiteral("max"));
-                o.min = rm.value(QStringLiteral("min")).toDouble();
-                o.max = rm.value(QStringLiteral("max")).toDouble();
-                o.step = rm.value(QStringLiteral("step"), 1).toDouble();
-            } else if (om.contains(QStringLiteral("min")) && om.contains(QStringLiteral("max"))) {
-                o.hasRange = true;
-                o.min = om.value(QStringLiteral("min")).toDouble();
-                o.max = om.value(QStringLiteral("max")).toDouble();
-                o.step = om.value(QStringLiteral("step"), 1).toDouble();
-            }
-            if (o.type.isEmpty()) o.type = !o.values.isEmpty() ? QStringLiteral("enum") : o.hasRange ? QStringLiteral("int") : QStringLiteral("string");
-            const QVariant def = firstValue(om, {"default", "default_value"});
-            if (def.isValid()) o.defaultValue = valueToText(def, o);
-            o.target = parseTarget(firstValue(om, {"target", "where", "destination"}));
-            if (o.type == QStringLiteral("bool") && !o.target.trueWord.isEmpty() && !om.contains(QStringLiteral("true_value"))) {
-                o.trueValue = o.target.trueWord;
-                o.falseValue = o.target.falseWord;
-                if (def.isValid()) o.defaultValue = valueToText(def, o);
-            }
-            if (o.key.isEmpty()) {
-                warnings_ << QStringLiteral("%1: option without key skipped").arg(id);
-                continue;
-            }
-            if (o.type != QStringLiteral("bool") && o.type != QStringLiteral("int") && o.type != QStringLiteral("enum") &&
-                o.type != QStringLiteral("string")) {
-                warnings_ << QStringLiteral("%1/%2: unknown type '%3', shown as text").arg(id, o.key, o.type);
-                o.type = QStringLiteral("string");
-            }
-            if (o.type == QStringLiteral("enum") && o.values.isEmpty()) {
-                warnings_ << QStringLiteral("%1/%2: enum without values, shown as text").arg(id, o.key);
-                o.type = QStringLiteral("string");
-            }
-            if (o.target.kind == OptionTarget::Kind::Unsupported && o.target.readOnlyReason.isEmpty())
-                warnings_ << QStringLiteral("%1/%2: unsupported target (%3)").arg(id, o.key, o.target.raw);
-            e.options << o;
-        }
-        QVariant mc = firstValue(m, {"memory_card", "memory_cards", "memory-card", "memorycard", "saves", "save_files"});
-        if (mc.typeId() == QMetaType::QVariantMap) {
-            e.memoryNotes = firstString(mc.toMap(), {"notes_en", "notes", "note"});
-            mc = mc.toMap().value(QStringLiteral("items"));
-        }
-        for (const QVariant& mv : mc.toList()) {
-            MemoryCardSpec s;
-            if (mv.typeId() == QMetaType::QString) {
-                s.path = mv.toString();
+    const QVariantMap m = doc.object().toVariantMap();
+    const QString id = game;
+    GameOptionsEntry e;
+    e.profile = game;
+    e.file = file;
+    e.title = firstString(m, {"title", "name_en", "name"});
+    e.nasFolder = firstString(m, {"nas_folder", "folder"});
+    e.platform = firstString(m, {"platform"});
+    e.exe = firstString(m, {"exe"});
+    for (const QVariant& ov : firstValue(m, {"options"}).toList()) {
+        const QVariantMap om = ov.toMap();
+        GameOption o;
+        o.key = firstString(om, {"key", "id"});
+        o.name = firstString(om, {"name_en", "name", "label", "title"});
+        if (o.name.isEmpty()) o.name = o.key;
+        o.type = normType(firstString(om, {"type"}));
+        o.description = firstString(om, {"description_en", "description", "hint", "help", "tooltip"});
+        const QString note = firstString(om, {"note_en", "note"});
+        if (!note.isEmpty()) o.description += (o.description.isEmpty() ? QString() : QStringLiteral(" ")) + note;
+        o.category = firstString(om, {"category", "group", "section_name"});
+        if (om.contains(QStringLiteral("true_value"))) o.trueValue = om.value(QStringLiteral("true_value")).toString();
+        if (om.contains(QStringLiteral("false_value"))) o.falseValue = om.value(QStringLiteral("false_value")).toString();
+        for (const QVariant& vv : firstValue(om, {"values", "options", "choices"}).toList()) {
+            if (vv.typeId() == QMetaType::QVariantMap) {
+                const QVariantMap vm = vv.toMap();
+                const QString val = valueToText(firstValue(vm, {"value", "id", "key"}), o);
+                o.values << val;
+                const QString lab = firstString(vm, {"label_en", "label", "name", "title"});
+                o.labels << (lab.isEmpty() ? val : lab);
             } else {
-                const QVariantMap mm = mv.toMap();
-                s.id = firstString(mm, {"id"});
-                s.path = firstString(mm, {"path", "glob", "file", "dir"});
-                s.base = firstString(mm, {"base"});
-                s.label = firstString(mm, {"description_en", "label", "name", "description"});
-                s.kind = firstString(mm, {"kind", "type"});
-                s.eraseEffect = firstString(mm, {"erase_effect_en", "erase_effect"});
-                const QVariant safe = mm.value(QStringLiteral("safe_to_erase"));
-                if (safe.typeId() == QMetaType::Bool) s.safeToErase = safe.toBool() ? QStringLiteral("yes") : QStringLiteral("no");
-                else if (safe.isValid() && !safe.isNull()) s.safeToErase = safe.toString().toLower();
-                if (s.kind == QStringLiteral("protected_data")) s.safeToErase = QStringLiteral("no");
-                s.local = mm.value(QStringLiteral("local")).toBool();
+                o.values << valueToText(vv, o);
+                o.labels << valueToText(vv, o);
             }
-            if (!s.path.isEmpty()) e.memoryCard << s;
         }
-        entries_ << e;
+        const QVariant range = firstValue(om, {"range"});
+        if (range.typeId() == QMetaType::QVariantList && range.toList().size() >= 2) {
+            o.hasRange = true;
+            o.min = range.toList()[0].toDouble();
+            o.max = range.toList()[1].toDouble();
+            if (range.toList().size() >= 3) o.step = range.toList()[2].toDouble();
+        } else if (range.typeId() == QMetaType::QVariantMap) {
+            const QVariantMap rm = range.toMap();
+            o.hasRange = rm.contains(QStringLiteral("min")) && rm.contains(QStringLiteral("max"));
+            o.min = rm.value(QStringLiteral("min")).toDouble();
+            o.max = rm.value(QStringLiteral("max")).toDouble();
+            o.step = rm.value(QStringLiteral("step"), 1).toDouble();
+        } else if (om.contains(QStringLiteral("min")) && om.contains(QStringLiteral("max"))) {
+            o.hasRange = true;
+            o.min = om.value(QStringLiteral("min")).toDouble();
+            o.max = om.value(QStringLiteral("max")).toDouble();
+            o.step = om.value(QStringLiteral("step"), 1).toDouble();
+        }
+        if (o.type.isEmpty()) o.type = !o.values.isEmpty() ? QStringLiteral("enum") : o.hasRange ? QStringLiteral("int") : QStringLiteral("string");
+        const QVariant def = firstValue(om, {"default", "default_value"});
+        if (def.isValid()) o.defaultValue = valueToText(def, o);
+        o.target = parseTarget(firstValue(om, {"target", "where", "destination"}));
+        if (o.type == QStringLiteral("bool") && !o.target.trueWord.isEmpty() && !om.contains(QStringLiteral("true_value"))) {
+            o.trueValue = o.target.trueWord;
+            o.falseValue = o.target.falseWord;
+            if (def.isValid()) o.defaultValue = valueToText(def, o);
+        }
+        if (o.key.isEmpty()) {
+            warnings_ << QStringLiteral("%1: option without key skipped").arg(id);
+            continue;
+        }
+        if (o.type != QStringLiteral("bool") && o.type != QStringLiteral("int") && o.type != QStringLiteral("enum") &&
+            o.type != QStringLiteral("string")) {
+            warnings_ << QStringLiteral("%1/%2: unknown type '%3', shown as text").arg(id, o.key, o.type);
+            o.type = QStringLiteral("string");
+        }
+        if (o.type == QStringLiteral("enum") && o.values.isEmpty()) {
+            warnings_ << QStringLiteral("%1/%2: enum without values, shown as text").arg(id, o.key);
+            o.type = QStringLiteral("string");
+        }
+        if (o.target.kind == OptionTarget::Kind::Unsupported && o.target.readOnlyReason.isEmpty())
+            warnings_ << QStringLiteral("%1/%2: unsupported target (%3)").arg(id, o.key, o.target.raw);
+        e.options << o;
     }
+    QVariant mc = firstValue(m, {"memory_card", "memory_cards", "memory-card", "memorycard", "saves", "save_files"});
+    if (mc.typeId() == QMetaType::QVariantMap) {
+        e.memoryNotes = firstString(mc.toMap(), {"notes_en", "notes", "note"});
+        mc = mc.toMap().value(QStringLiteral("items"));
+    }
+    for (const QVariant& mv : mc.toList()) {
+        MemoryCardSpec s;
+        if (mv.typeId() == QMetaType::QString) {
+            s.path = mv.toString();
+        } else {
+            const QVariantMap mm = mv.toMap();
+            s.id = firstString(mm, {"id"});
+            s.path = firstString(mm, {"path", "glob", "file", "dir"});
+            s.base = firstString(mm, {"base"});
+            s.label = firstString(mm, {"description_en", "label", "name", "description"});
+            s.kind = firstString(mm, {"kind", "type"});
+            s.eraseEffect = firstString(mm, {"erase_effect_en", "erase_effect"});
+            const QVariant safe = mm.value(QStringLiteral("safe_to_erase"));
+            if (safe.typeId() == QMetaType::Bool) s.safeToErase = safe.toBool() ? QStringLiteral("yes") : QStringLiteral("no");
+            else if (safe.isValid() && !safe.isNull()) s.safeToErase = safe.toString().toLower();
+            if (s.kind == QStringLiteral("protected_data")) s.safeToErase = QStringLiteral("no");
+            s.local = mm.value(QStringLiteral("local")).toBool();
+        }
+        if (!s.path.isEmpty()) e.memoryCard << s;
+    }
+    entries_ << e;
     return true;
+}
+
+void GameOptionsDb::removeGame(const QString& game) {
+    entries_.removeIf([&](const GameOptionsEntry& e) { return e.profile == game; });
 }
 
 const GameOptionsEntry* GameOptionsDb::find(const QString& profile) const {
