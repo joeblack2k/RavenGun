@@ -8,6 +8,19 @@ Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels 
 
 Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 19, overgeslagen: 15.
 
+## Doel eigenaar 2026-10-16: 95% start (zonder Raw Thrills)
+
+"ga door totdat 95% van de games starten excluded Raw Thrills titels" (downloaden mag altijd). Telt mee: elke titel buiten
+"overgeslagen" en buiten Raw Thrills (Halo, Jurassic Park, NERF, Target: Terror Gold, Terminator, Aliens Armageddon, Walking Dead,
+Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
+de tv; zwart, een foutmelding of een crash telt niet.
+
+Stand: **41 van 60** starten (alle WORKING zonder Raw Thrills, plus Elevator Action Death Parade, The House of the Dead 4, The House of
+the Dead 4 Special, Luigi's Mansion Arcade, Time Crisis 5). Nog niet: Robin Hood, Friction, Far Cry Paradise Lost, Lost Land Adventure,
+The House of the Dead III, Virtua Cop 3, America's Army Arcade, Police Trainer 2, Crossfire, Aliens: Extermination, Block King Ball
+Shooter, Cooper's 9, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human
+Alliance, Star Trek Voyager.
+
 ## Taken per familie
 
 Opdracht van de eigenaar (2026-10-16): een taak per familie, Raw Thrills geparkeerd. Een fix werkt vaak voor de hele familie, dus
