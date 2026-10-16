@@ -514,6 +514,14 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         const std::string oud = getenv_or(env, "WINEDLLOVERRIDES");
         launch["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"] = oud.empty() ? join(ov, ";") : oud + ";" + join(ov, ";");
     }
+    // 6f2. [Launch] PhysX: de PhysX-systeemsoftware van NVIDIA moet in de prefix staan (scripts/setup-physx.sh). Een game met PhysX 2.x
+    // zoekt de kern via het register; zonder installatie geeft NxCreatePhysicsSDK NULL (Elevator Action Death Parade, 2026-10-16).
+    if (const std::string px = lower(trim(lini("PhysX"))); !px.empty() && px != "false" && px != "0" && px != "off") {
+        if (px != "true" && px != "1" && px != "on") return setting_refused("[Launch] PhysX = " + lini("PhysX") + " (true of false)");
+        if (!isfile(pjoin(prefix, "drive_c/Program Files (x86)/NVIDIA Corporation/PhysX/Engine/v2.8.1/PhysXCore.dll")))
+            return setting_refused("[Launch] PhysX = true, maar de PhysX-systeemsoftware staat niet in " + prefix +
+                                   ": draai scripts/setup-physx.sh " + prefix + " (docs/redist.md)");
+    }
     // 6g. [Launch] Registry: .reg-bestanden uit patches/<Game>/ (meestal data/; gebruikerslaag eerst) die rg-direct één keer per prefix inleest met
     // "wine reg import" in de registerweergave van de game (32 of 64 bits; docs/registry.md). Operation G.H.O.S.T.: .wmv via de
     // GStreamer-splitter in plaats van de ASF-lezer van Proton, die bij Stop vastliep (2026-10-15).

@@ -561,6 +561,18 @@ int main() {
         write(ugi, "[Launch]\nNativeDlls = ../x\n");
         CHECK(plan_direct("Spel", p, o4, dp, w) == Verdict::Refused && contains(w, "geen DLL-naam"));
         fs::remove_all(rd);
+        // [Launch] PhysX: zonder de PhysX-systeemsoftware in de prefix geen start (de melding noemt het script), met wel.
+        write(ugi, "[Launch]\nPhysX = true\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "setup-physx.sh"));
+        write(ugi, "[Launch]\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && !dp.prefix.empty());
+        const fs::path physx = fs::path(dp.prefix) / "drive_c/Program Files (x86)/NVIDIA Corporation/PhysX/Engine/v2.8.1/PhysXCore.dll";
+        write(physx, "MZ physx");
+        write(ugi, "[Launch]\nPhysX = true\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok);
+        write(ugi, "[Launch]\nPhysX = soms\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "PhysX = soms"));
+        fs::remove(physx);
         // [Launch] Registry: een .reg uit de map van de game (gebruikerslaag eerst) in het plan; ontbreekt hij, of is het geen
         // .reg binnen de map, dan geen start.
         write(ugi, "[Launch]\nRegistry = data/wmv.reg\n");

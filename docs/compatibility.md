@@ -51,10 +51,11 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Transformers: Shadows Rising**: WORKING via double-click in the app (2026-10-15): ~2 min loading, then played 6.5 min in mouse mode: coin, START, aim and shoot, continue, boss, score 29402. The freeze of 2026-10-14 (~1 min after START) did not return in two runs. Open: the lever ('PUSH THE LEVER') is not emulated; the game carries on without it.
 - **Wild West Shootout**: WORKING (2026-10-15): rg-direct with DXVK (Vulkan) and winhttp=n,b for BepInEx (plugin WWS 1.4, the input). Played 5.5 min in mouse mode: coin (5), START (1), shooting, boss.
 
-## Playable (5)
+## Playable (6)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
+- **Elevator Action Death Parade**: 2026-10-16: starts by double-click (JVS, PhysX 2.8 system software) and runs its attract. Open: the picture is a narrow portrait strip; controls and calibration not yet measured.
 - **Gashaaaan Refill!!!!**: Playable after a one-time setup in the test menu (clock, screen, free play; now stored in the game's save data). Then start, aiming and trigger (the ball) work. Test menu: key 0, select with start, execute with P1 aux1.
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **Luigi's Mansion Arcade**: Starts by double-click in RavenGun (2026-10-14): on our own OpenParrot core and through gamescope the game runs full screen in attract (with the closed core it stopped after ~13 s). Measured earlier: ~6 min of continuous attract/demo on our core (BEWIJS-5MIN.md), with the drop-in rg-pe-hook.dll (see MECHANISME-PE-HOOK.md). NOT playable yet: coin and TEST do not reach the game (DIRECT-ROUTE-INVOER.md).
@@ -87,11 +88,10 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Profile from the TeknoParrot template (2026-10-15). Measured: in gamescope (Windowed 0) and with a 1920x1080 Wine virtual desktop the exe runs (~60% CPU) but stays black and never opens the JVS pipe (2+ min). Open.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (4)
+## Not working yet (3)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
-- **Elevator Action Death Parade**: 2026-10-16: crashes after the logo because the PhysX 2.8 SDK cannot be created: it needs the PhysX 2.8.1 core (legacy NVIDIA PhysX System Software), which is not installed.
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
 - **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.

@@ -189,6 +189,7 @@ Debug =                       ; WINEDEBUG
 GStreamerPlugins =            ; GST_PLUGIN_PATH, bv. ~/.local/share/ravengun/tools/gst-extra/plugins (asf, libav)
 VirtualDesktop = 1920x1080    ; vastgelegd door tp-add-game --vdesktop (het zit in de prefix); de launcher leest dit niet
 NativeDlls =                  ; idem: bv. d3dx9_40, bron: de Microsoft-herdistribueerbare van de gebruiker
+PhysX =                       ; true: de PhysX-systeemsoftware van NVIDIA moet in de prefix staan (scripts/setup-physx.sh; docs/redist.md)
 
 [Display]
 Gamescope = true              ; TP_GAMESCOPE=1: de game draait schermvullend in gamescope

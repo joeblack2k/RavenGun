@@ -37,3 +37,20 @@ in `redist/`, dan start de game niet. De melding noemt het script.
 - De tweede crash, op `0x0051CFCC` in `gs2.exe`, was een titelfilm die niet laadde (NULL-textuur): de 32-bits
   GStreamer kwam in gamescope niet aan (docs/gst32.md). Daarna liep de film vast in de ASF-lezer van Proton
   (docs/registry.md). Met beide opgelost is het spel speelbaar.
+
+## PhysX (`[Launch] PhysX`)
+
+Games met PhysX 2.x leveren alleen `PhysXLoader.dll` mee; de kern (`PhysXCore.dll`) zoekt de lader via
+`HKLM\Software\AGEIA Technologies` (`PhysXCore Path`) in `Program Files\NVIDIA Corporation\PhysX\Engine\v2.8.x`. Zonder de
+systeemsoftware van NVIDIA geeft `NxCreatePhysicsSDK` NULL. **Elevator Action Death Parade** (2026-10-16): lader 2.8.1, het spel vraagt
+SDK 2.8.0, de PhysX-scene bleef NULL en het spel crashte na het logo; de 2.8.4-kern van een andere game werkte niet (ook niet lokaal met
+`enableLocalPhysXCore`). Met de systeemsoftware 9.12.0613 (engines 2.3.1 tot en met 2.8.4) loopt het spel door tot de attract.
+
+```ini
+[Launch]
+PhysX = true
+```
+
+`scripts/setup-physx.sh [PREFIX...]` downloadt het pakket van NVIDIA (sha256 gecontroleerd, in `~/.cache/ravengun/downloads/physx`)
+en installeert het met `msiexec /qn` in de prefix (standaard de gedeelde); `install-user.sh` doet dat één keer. Het plan weigert een
+game met `PhysX = true` als `Engine/v2.8.1/PhysXCore.dll` in zijn prefix ontbreekt, en noemt het script. Niets ervan komt in git.

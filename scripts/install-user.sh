@@ -183,6 +183,14 @@ if [[ ! -d "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/redist/x86" && -x "$DA
   bash "$DATA/scripts/setup-redist.sh" "${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/redist" ||
     echo "Steam's DirectX redistributables were not found; games with NativeDlls need Steam, then run $DATA/scripts/setup-redist.sh." >&2
 fi
+# PhysX-systeemsoftware van NVIDIA (download) in de gedeelde prefix, voor games met [Launch] PhysX (docs/redist.md, "PhysX").
+SHARED_PFX="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/prefixes/shared/wine"
+if [[ -d $SHARED_PFX/drive_c && ! -f "$SHARED_PFX/drive_c/Program Files (x86)/NVIDIA Corporation/PhysX/Engine/v2.8.1/PhysXCore.dll" &&
+      -x "$DATA/scripts/setup-physx.sh" ]]; then
+  say "Installing NVIDIA PhysX (legacy system software) for games that need it"
+  bash "$DATA/scripts/setup-physx.sh" "$SHARED_PFX" ||
+    echo "PhysX could not be installed (no network?); games with PhysX = true need it: run $DATA/scripts/setup-physx.sh." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"
