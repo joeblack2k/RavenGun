@@ -124,7 +124,8 @@ target_include_directories(ravengun PUBLIC src)
 target_include_directories(ravengun PRIVATE third_party/vqf)
 set_source_files_properties(third_party/vqf/vqf.cpp PROPERTIES COMPILE_OPTIONS "-w")
 
-add_executable(ravengunctl src/ravengunctl/main.cpp)
+add_executable(ravengunctl src/ravengunctl/main.cpp src/ravengunctl/ctl_common.cpp src/ravengunctl/ctl_status.cpp src/ravengunctl/ctl_record.cpp
+  src/ravengunctl/ctl_controllers.cpp src/ravengunctl/ctl_calibrate.cpp)
 target_link_libraries(ravengunctl PRIVATE ravengun)
 
 # ravengund: de daemon. PSMoveAPI wordt user-local verwacht (zie docs/build.md).

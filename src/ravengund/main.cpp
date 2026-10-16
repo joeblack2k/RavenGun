@@ -609,9 +609,9 @@ int main(int argc, char** argv) {
         games_cfg.direct_runner.clear();
         games_cfg.unity.patches.clear();   // de Unity-route zet de view klaar voordat hij iets start: in een droge run ook niet
         games_cfg.unity.user_patches.clear();
-        spawner = [](const std::vector<std::string>& argv, std::string&) {
+        spawner = [](const std::vector<std::string>& args, std::string&) {
             std::string line;
-            for (const auto& a : argv) line += (line.empty() ? "" : " ") + a;
+            for (const auto& a : args) line += (line.empty() ? "" : " ") + a;
             logf("info", "games (dry-run): %s", line.c_str());
             return 0;
         };

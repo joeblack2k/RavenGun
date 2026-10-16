@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "ravengun/model.hpp"
+#include "ravengun/strutil.hpp"  // trim
 
 namespace ravengun {
 
@@ -18,7 +19,6 @@ bool is_move(UsbId id);
 bool is_ps3eye(UsbId id);
 
 std::string strip_ansi(std::string_view s);
-std::string trim(std::string_view s);
 
 // Regels "Device AA:BB:.. naam" uit `bluetoothctl devices` (ANSI-kleuren worden genegeerd).
 std::vector<BtDevice> parse_bluetoothctl_devices(std::string_view text);

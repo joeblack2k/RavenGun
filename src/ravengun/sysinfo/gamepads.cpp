@@ -18,13 +18,7 @@ namespace {
 
 constexpr unsigned kOwnVendor = 0x1209;   // pid.codes-testbereik: de virtuele apparaten van RavenGun (en libvirtualhid)
 
-bool starts_with(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 bool contains(const std::string& s, const char* p) { return s.find(p) != std::string::npos; }
-
-bool ends_with(const std::string& s, const char* suf) {
-    const std::string x(suf);
-    return s.size() >= x.size() && s.compare(s.size() - x.size(), x.size(), x) == 0;
-}
 
 uint32_t fnv1a(const std::string& s) {
     uint32_t h = 2166136261u;
@@ -56,7 +50,7 @@ std::vector<Gamepad> list_gamepads(std::string_view proc_text, const std::string
     auto byid = byid_links(byid_dir);
     for (auto& kv : byid)
         // Liefst de naam die op een joystick/gamepad wijst ("...-event-joystick").
-        std::stable_partition(kv.second.begin(), kv.second.end(), [](const std::string& n) { return ends_with(n, "-event-joystick"); });
+        std::stable_partition(kv.second.begin(), kv.second.end(), [](const std::string& n) { return n.ends_with("-event-joystick"); });
     std::vector<Gamepad> out;
     std::set<std::string> used;
     for (const auto& d : parse_input_devices(proc_text)) {
@@ -65,8 +59,8 @@ std::vector<Gamepad> list_gamepads(std::string_view proc_text, const std::string
         v.event = d.event_handler();
         v.vendor = d.vendor;
         v.product = d.product;
-        if (starts_with(d.name, "libvirtualhid")) v.why = "libvirtualhid (virtueel apparaat)";
-        else if (starts_with(d.name, "RavenGun")) v.why = "eigen virtueel apparaat (naam RavenGun...)";
+        if (d.name.starts_with("libvirtualhid")) v.why = "libvirtualhid (virtueel apparaat)";
+        else if (d.name.starts_with("RavenGun")) v.why = "eigen virtueel apparaat (naam RavenGun...)";
         else if (d.vendor == kOwnVendor) v.why = "eigen virtueel apparaat (vendor 1209)";
         else if (contains(d.name, "Motion Controller")) v.why = "PS Move (Motion Controller)";
         else if (v.event.empty()) v.why = "geen eventN-handler";

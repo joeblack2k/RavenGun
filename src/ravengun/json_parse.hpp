@@ -38,6 +38,4 @@ struct ParseResult {
 
 ParseResult parse(std::string_view text);
 
-const char* type_name(Value::Type t);
-
 }  // namespace ravengun::json

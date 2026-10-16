@@ -565,9 +565,9 @@ int main() {
         // .reg binnen de map, dan geen start.
         write(ugi, "[Launch]\nRegistry = data/wmv.reg\n");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "data/wmv.reg staat niet in patches/Spel/"));
-        const fs::path reg = fs::path(p.dirs.user) / "Spel/data/wmv.reg";
-        write(reg, "Windows Registry Editor Version 5.00\n");
-        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && dp.reg_files == std::vector<std::string>{reg.string()});
+        const fs::path regfile = fs::path(p.dirs.user) / "Spel/data/wmv.reg";
+        write(regfile, "Windows Registry Editor Version 5.00\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok && dp.reg_files == std::vector<std::string>{regfile.string()});
         {
             DirectPlan back;
             std::string jerr;

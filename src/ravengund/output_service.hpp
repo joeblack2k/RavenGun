@@ -76,7 +76,6 @@ public:
     // Welke spelers 2..4 een Move hebben (bit p-1 voor speler p; speler 1 telt altijd). Een gewapende uitvoer maakt de gun van
     // een nieuwe speler meteen; een speler die wegvalt houdt zijn apparaat tot het afsluiten (een lopende game blijft het zien).
     void set_active_players(unsigned mask);
-    unsigned active_players() const;
     // Welke spelers 2..4 een muis als bron hebben (bit p-1 voor speler p; MouseService): hetzelfde als set_active_players, in
     // een eigen masker zodat het bestaande gedrag voor Moves onaangeroerd blijft. De gun van een speler bestaat als hij een
     // Move of een muis heeft; een gewapende uitvoer maakt hem meteen.

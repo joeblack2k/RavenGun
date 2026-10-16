@@ -359,10 +359,10 @@ void ControllersWindow::Populate() {
         for (const auto& v : m_controllers) {
             const QJsonObject c = v.toObject();
             if (c.value(QStringLiteral("removed")).toBool() || c.value(QStringLiteral("type")).toString() != QStringLiteral("move")) continue;
-            const QString data = QStringLiteral("move:") + c.value(QStringLiteral("key")).toString();
-            box->addItem(Resources::GetThemeIcon("classic"), tr("PS Move: %1").arg(c.value(QStringLiteral("name")).toString()), data);
+            const QString dataKey = QStringLiteral("move:") + c.value(QStringLiteral("key")).toString();
+            box->addItem(Resources::GetThemeIcon("classic"), tr("PS Move: %1").arg(c.value(QStringLiteral("name")).toString()), dataKey);
             if (c.value(QStringLiteral("player")).toInt() == player) {
-                current = data;
+                current = dataKey;
                 state = batteryText(c);
             }
         }
@@ -400,7 +400,7 @@ void ControllersWindow::Populate() {
 void ControllersWindow::OnTypeChanged(int player) {
     if (m_updating) return;
     QComboBox* box = m_combos[player - 1];
-    const QString data = box->currentData().toString();
+    const QString dataKey = box->currentData().toString();
     QString moveKey, mouseNow;
     for (const auto& v : m_controllers) {
         const QJsonObject c = v.toObject();
@@ -423,10 +423,10 @@ void ControllersWindow::OnTypeChanged(int player) {
         if (!id.isEmpty() && counts > 0) f.insert(QStringLiteral("counts_per_screen"), counts);
         core_->engine()->request(QStringLiteral("set_mouse_gun"), f, done);
     };
-    if (data.startsWith(QStringLiteral("move:"))) {
+    if (dataKey.startsWith(QStringLiteral("move:"))) {
         if (!mouseNow.isEmpty()) setMouse(QString());
         core_->engine()->request(QStringLiteral("set_controller"),
-                                 {{QStringLiteral("controller"), data.mid(5)}, {QStringLiteral("new_player"), player}}, done);
+                                 {{QStringLiteral("controller"), dataKey.mid(5)}, {QStringLiteral("new_player"), player}}, done);
         return;
     }
     if (!moveKey.isEmpty()) {
@@ -437,20 +437,20 @@ void ControllersWindow::OnTypeChanged(int player) {
         Populate();
         return;
     }
-    if (data.startsWith(QStringLiteral("mouse:"))) setMouse(data.mid(6));
+    if (dataKey.startsWith(QStringLiteral("mouse:"))) setMouse(dataKey.mid(6));
     else if (!mouseNow.isEmpty()) setMouse(QString());
 }
 
 void ControllersWindow::OnConfigure(int player) {
-    const QString data = m_combos[player - 1]->currentData().toString();
-    if (data.startsWith(QStringLiteral("move:"))) {
+    const QString dataKey = m_combos[player - 1]->currentData().toString();
+    if (dataKey.startsWith(QStringLiteral("move:"))) {
         auto* d = new MoveConfigDialog(core_, player, this);
         d->setAttribute(Qt::WA_DeleteOnClose, true);
         d->setWindowModality(Qt::WindowModal);
         d->show();
         return;
     }
-    if (data.startsWith(QStringLiteral("mouse:"))) {
+    if (dataKey.startsWith(QStringLiteral("mouse:"))) {
         QDialog d(this);
         d.setWindowTitle(tr("Mouse for Player %1").arg(player));
         auto* form = new QFormLayout(&d);
@@ -461,7 +461,7 @@ void ControllersWindow::OnConfigure(int player) {
         for (const auto& v : m_assignments)
             if (v.toObject().value(QStringLiteral("player")).toInt() == player) cur = v.toObject().value(QStringLiteral("counts_per_screen")).toInt(1920);
         counts->setValue(cur);
-        form->addRow(tr("Mouse:"), new QLabel(data.mid(6)));
+        form->addRow(tr("Mouse:"), new QLabel(dataKey.mid(6)));
         form->addRow(tr("Mouse movement per screen width:"), counts);
         auto* hint = new QLabel(tr("Lower is faster. The left button is the trigger, right is reload, middle is grenade."));
         hint->setWordWrap(true);
@@ -473,7 +473,7 @@ void ControllersWindow::OnConfigure(int player) {
         if (d.exec() != QDialog::Accepted) return;
         settings().setValue(QStringLiteral("mice/counts%1").arg(player), counts->value());
         core_->engine()->request(QStringLiteral("set_mouse_gun"),
-                                 {{QStringLiteral("player"), player}, {QStringLiteral("mouse"), data.mid(6)}, {QStringLiteral("counts_per_screen"), counts->value()}},
+                                 {{QStringLiteral("player"), player}, {QStringLiteral("mouse"), dataKey.mid(6)}, {QStringLiteral("counts_per_screen"), counts->value()}},
                                  [this](const rg::EngineReply& r) {
                                      if (!r.ok) QMessageBox::warning(this, tr("Mouse"), r.errorMessage);
                                      RefreshMice();

@@ -85,11 +85,11 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
             }
         }
         if (!ov.tpFields.isEmpty()) {
-            const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(ctx.layers, ctx.profile.toStdString());
+            const ravengun::gamesettings::Game game = ravengun::gamesettings::load_game(ctx.layers, ctx.profile.toStdString());
             for (auto it = ov.tpFields.begin(); it != ov.tpFields.end(); ++it) {
                 const QString key = it.key();   // "Categorie/Veld" (de sleutel in [Config])
                 const int slash = key.indexOf(QLatin1Char('/'));
-                const std::string cfgKey = ravengun::gamesettings::find_config_key(g.settings, key.mid(slash + 1).toStdString(),
+                const std::string cfgKey = ravengun::gamesettings::find_config_key(game.settings, key.mid(slash + 1).toStdString(),
                                                                                   slash >= 0 ? key.left(slash).toStdString() : std::string());
                 if (cfgKey.empty()) continue;   // het profiel kent dit veld niet (meer)
                 QString err;

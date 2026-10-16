@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "ravengun/launch/direct.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace ravengun::launch {
 
@@ -23,11 +24,7 @@ namespace direct_detail {
 inline constexpr const char* kStackOrigSuffix = ".ravengun-orig";
 
 // --- direct_util.cpp: tekst, paden (posixpath), XML ------------------------------------------------------------------------------------
-std::string trim(const std::string& s);
-std::string lower(std::string s);
 std::string upper(std::string s);
-bool starts_with(const std::string& s, const std::string& p);
-bool ends_with(const std::string& s, const std::string& p);
 std::vector<std::string> split(const std::string& s, char sep);
 std::string join(const std::vector<std::string>& v, const std::string& sep);
 std::vector<std::string> nonempty_split(const std::string& s, char sep);

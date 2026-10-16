@@ -62,10 +62,8 @@ public:
     void set_trace(std::function<void(const std::string&)> f) { trace_ = std::move(f); }
     // Voor tests: één ronde lezen en antwoorden zonder thread (wacht maximaal `timeout_ms` op bytes).
     int pump(int timeout_ms);
-    JvsBusStats bus_stats() const;
     JvsStats stats() const;
     uint8_t modem_status() const;
-    std::vector<uint8_t> node_addresses() const;
 
 private:
     void loop();

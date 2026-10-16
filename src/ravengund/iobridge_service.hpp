@@ -87,8 +87,6 @@ public:
     void clear_external(const std::string& route);
     // De toestand zoals de brug hem nu uitleest (voor het Unity-dialect en tests).
     bool snapshot(ravengun::iobridge::IoState& s) const;
-    // Voor tests: één tik zonder thread.
-    void tick_once();
     const Config& config() const { return cfg_; }
 
 private:

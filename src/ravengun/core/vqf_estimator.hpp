@@ -87,7 +87,6 @@ public:
 
     // Diagnose.
     Vec3 bias() const;                   // VQF's eigen schatting (rad/s)
-    bool rest_detected() const;
     bool mag_disturbed() const;
     double mag_ref_norm() const;
     double mag_ref_dip_deg() const;

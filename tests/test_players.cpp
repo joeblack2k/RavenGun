@@ -382,19 +382,19 @@ int main() {
         // PS-knop lang vasthouden = game stoppen (ps_hold_elapsed, klok los van echte tijd). Drempel 3 s, één keer per keer
         // vasthouden, reset bij loslaten. Een korte druk (recenter) raakt dit niet.
         {
-            const int64_t s = 1'000'000'000, t0 = 10'000'000'000;  // 1 s in ns, een willekeurig startmoment
+            const int64_t sec = 1'000'000'000, t0 = 10'000'000'000;  // 1 s in ns, een willekeurig startmoment
             CHECK(!p1.ps_hold_elapsed(true, t0));                  // net ingedrukt
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 2 * s));          // 2 s: nog niet
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 3 * s - 1));      // net voor 3 s: nog niet
-            CHECK(p1.ps_hold_elapsed(true, t0 + 3 * s));           // 3 s: stoppen
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 5 * s));          // blijft vastgehouden: niet nog eens
-            CHECK(!p1.ps_hold_elapsed(false, t0 + 6 * s));         // losgelaten: reset
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 6 * s));          // opnieuw ingedrukt
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 8 * s));          // 2 s sinds opnieuw: nog niet
-            CHECK(p1.ps_hold_elapsed(true, t0 + 9 * s));           // weer 3 s: stoppen
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 2 * sec));          // 2 s: nog niet
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 3 * sec - 1));      // net voor 3 s: nog niet
+            CHECK(p1.ps_hold_elapsed(true, t0 + 3 * sec));           // 3 s: stoppen
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 5 * sec));          // blijft vastgehouden: niet nog eens
+            CHECK(!p1.ps_hold_elapsed(false, t0 + 6 * sec));         // losgelaten: reset
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 6 * sec));          // opnieuw ingedrukt
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 8 * sec));          // 2 s sinds opnieuw: nog niet
+            CHECK(p1.ps_hold_elapsed(true, t0 + 9 * sec));           // weer 3 s: stoppen
             // Een korte druk (minder dan 3 s) stopt niet.
-            CHECK(!p1.ps_hold_elapsed(false, t0 + 10 * s));
-            CHECK(!p1.ps_hold_elapsed(true, t0 + 10 * s) && !p1.ps_hold_elapsed(false, t0 + 10 * s + s / 2));
+            CHECK(!p1.ps_hold_elapsed(false, t0 + 10 * sec));
+            CHECK(!p1.ps_hold_elapsed(true, t0 + 10 * sec) && !p1.ps_hold_elapsed(false, t0 + 10 * sec + sec / 2));
         }
 
         // Status per speler.
@@ -449,18 +449,18 @@ int main() {
                 if (::poll(&rp, 1, 50) > 0) { uint8_t b[512]; ssize_t r = ::recv(cfd, b, sizeof b, 0); if (r <= 0) break; got.insert(got.end(), b, b + r); }
             }
             CHECK(got.size() >= 42 * 20);
-            const size_t base = (got.size() / 42 - 1) * 42;     // het laatste volledige pakket (de stroom heeft geen kaders)
+            const size_t pkt = (got.size() / 42 - 1) * 42;     // het laatste volledige pakket (de stroom heeft geen kaders)
             float x2, y2, x1;
-            std::memcpy(&x1, &got[base], 4);
-            std::memcpy(&x2, &got[base + 4], 4);                // Axis_X speler 2
-            std::memcpy(&y2, &got[base + 16 + 4], 4);           // Axis_Y speler 2
+            std::memcpy(&x1, &got[pkt], 4);
+            std::memcpy(&x2, &got[pkt + 4], 4);                // Axis_X speler 2
+            std::memcpy(&y2, &got[pkt + 16 + 4], 4);           // Axis_Y speler 2
             OutputService::AimSnapshot as2;
             CHECK(out.aim_snapshot(2, as2));
             CHECK(std::fabs(x2 - as2.u * 1919) < 1.0f);
             CHECK(std::fabs(y2 - (1.0 - as2.v) * 1079) < 1.0f);  // Y-oorsprong onderaan (Unity)
             OutputService::AimSnapshot as1;
             CHECK(out.aim_snapshot(1, as1) && std::fabs(x1 - as1.u * 1919) < 1.0f);   // speler 1: de laatste positie blijft staan
-            CHECK(got[base + 32] == 1);                          // EnableInputsHack
+            CHECK(got[pkt + 32] == 1);                          // EnableInputsHack
             // Recoil van speler 2 (60-byte uitvoer): de teller van SharedState gaat omhoog.
             const uint64_t rc0 = sh.game_recoil[1].load();      // staat al op 1 door het rumble-blok hierboven
             std::vector<uint8_t> fr(65, 0);

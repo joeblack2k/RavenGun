@@ -1,5 +1,7 @@
 #include "hidraw_tap.hpp"
 
+#include "ravengun/strutil.hpp"
+
 #include <cctype>
 #include <cerrno>
 #include <cstring>
@@ -10,16 +12,9 @@
 
 namespace ravengund {
 
-namespace {
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
-}  // namespace
-
 bool HidrawTap::open_for(const std::string& address, std::string& err) {
     close();
-    std::string want = lower(address);
+    std::string want = ravengun::lower(address);
     DIR* d = ::opendir("/sys/class/hidraw");
     if (!d) { err = "/sys/class/hidraw niet leesbaar"; return false; }
     std::string found;
@@ -28,8 +23,8 @@ bool HidrawTap::open_for(const std::string& address, std::string& err) {
         std::ifstream f(std::string("/sys/class/hidraw/") + e->d_name + "/device/uevent");
         std::string line, uniq, id;
         while (std::getline(f, line)) {
-            if (line.rfind("HID_UNIQ=", 0) == 0) uniq = lower(line.substr(9));
-            if (line.rfind("HID_ID=", 0) == 0) id = lower(line.substr(7));
+            if (line.rfind("HID_UNIQ=", 0) == 0) uniq = ravengun::lower(line.substr(9));
+            if (line.rfind("HID_ID=", 0) == 0) id = ravengun::lower(line.substr(7));
         }
         // Alleen ZCM1 via Bluetooth (bus 0005, Sony 054c, product 03d5): alleen dat rapport parsen we.
         if (uniq == want && id == "0005:0000054c:000003d5") { found = e->d_name; break; }

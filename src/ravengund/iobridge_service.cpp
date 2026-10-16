@@ -129,16 +129,6 @@ void IoBridgeService::apply_coin_keys(const IoState& s) {
     }
 }
 
-void IoBridgeService::tick_once() {
-    std::lock_guard<std::mutex> lk(m_);
-    if (!dialect_) return;
-    IoState s;
-    snapshot(s);   // niet gewapend: s blijft neutraal
-    dialect_->write(s);
-    apply_coin_keys(s);
-    ++ticks_;
-}
-
 void IoBridgeService::main_loop() {
     using namespace std::chrono;
     std::unique_lock<std::mutex> lk(m_);

@@ -192,7 +192,6 @@ Vec3 VqfEstimator::bias() const {
     return {b[0], b[1], b[2]};
 }
 
-bool VqfEstimator::rest_detected() const { return vqf_->getRestDetected(); }
 bool VqfEstimator::mag_disturbed() const { return vqf_->getMagDistDetected(); }
 double VqfEstimator::mag_ref_norm() const { return vqf_->getMagRefNorm(); }
 double VqfEstimator::mag_ref_dip_deg() const { return vqf_->getMagRefDip() * kDegPerRad; }

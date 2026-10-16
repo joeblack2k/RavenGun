@@ -235,8 +235,4 @@ void rg_pe_maak_haak12(unsigned char *uit12, uint64_t doel);
    ImageBase, `eerder_terug` = hoeveel keer al teruggekeerd (dit geteld NIET mee). */
 int rg_pe_uitgang_besluit(const rg_pe_ctx *c, uint64_t ra_rva, long eerder_terug);
 
-/* Zet elke omhul-hook terug: de bewaarde originele bytes gaan weer op hun plaats.
-   Geeft het aantal teruggezette functies terug. */
-int rg_pe_herstel(rg_pe_ctx *c);
-
 #endif /* RG_PE_HOOK_H */

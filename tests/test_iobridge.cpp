@@ -843,7 +843,7 @@ void test_service(const std::string& dir) {
             bool created = false, destroyed = false;
         };
         struct FakeBoard : HidBoardDevice {
-            explicit FakeBoard(std::shared_ptr<Rec> r, bool gun) : rec(std::move(r)), gun(gun) {}
+            explicit FakeBoard(std::shared_ptr<Rec> r, bool is_gun) : rec(std::move(r)), gun(is_gun) {}
             bool create(const HidBoard&, std::string&) override { std::lock_guard<std::mutex> l(rec->m); rec->created = true; return true; }
             bool send(const HidBoardFrame& f) override { std::lock_guard<std::mutex> l(rec->m); if (gun) rec->frames.push_back(f); return true; }
             void destroy() override { std::lock_guard<std::mutex> l(rec->m); rec->created = false; rec->destroyed = true; }

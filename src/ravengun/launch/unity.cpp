@@ -16,6 +16,7 @@
 
 #include "ravengun/json_parse.hpp"
 #include "ravengun/launch/native.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace fs = std::filesystem;
 
@@ -24,13 +25,6 @@ namespace {
 
 using json::Value;
 
-std::string lower(std::string s) {
-    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
-bool ends_with(const std::string& s, const std::string& suf) {
-    return s.size() >= suf.size() && s.compare(s.size() - suf.size(), suf.size(), suf) == 0;
-}
 bool lexists(const std::string& p) { struct stat st{}; return ::lstat(p.c_str(), &st) == 0; }
 bool is_link(const std::string& p) { struct stat st{}; return ::lstat(p.c_str(), &st) == 0 && S_ISLNK(st.st_mode); }
 bool is_dir(const std::string& p) { struct stat st{}; return ::stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode); }
@@ -156,12 +150,12 @@ bool link_all(const std::string& src, const std::string& dst, const std::set<std
             continue;
         }
         if (lexists(d)) continue;
-        if (copy_small && ends_with(le, ".log")) continue;   // logbestanden van de game: nieuwe ontstaan lokaal
+        if (copy_small && le.ends_with(".log")) continue;   // logbestanden van de game: nieuwe ontstaan lokaal
         bool small = false;
         if (copy_small && is_file(s)) {
             const long long sz = size_of(s);
             bool ext = false;
-            for (const std::string& x : copy_ext) ext = ext || ends_with(le, x);
+            for (const std::string& x : copy_ext) ext = ext || le.ends_with(x);
             small = sz == 0 || (ext && sz < 64 * 1024);
         }
         if (small) {
@@ -292,7 +286,7 @@ bool install_demulshooter(const std::string& view, const UnityGame& g, const Uni
     }
     if (!enable_disk_log(view, err)) return false;
     for (const std::string& f : list_sorted(pl + "/BepInEx/plugins"))
-        if (ends_with(f, ".ini") && !write_file(view + "/BepInEx/plugins/" + f, plugin_ini(read_file(pl + "/BepInEx/plugins/" + f), g), err))
+        if (f.ends_with(".ini") && !write_file(view + "/BepInEx/plugins/" + f, plugin_ini(read_file(pl + "/BepInEx/plugins/" + f), g), err))
             return false;
     log.push_back("plugin: DemulShooter " + g.demulshooter_version + " (" + pl + ")");
     return true;

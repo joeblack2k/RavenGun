@@ -9,13 +9,6 @@ namespace ravengun {
 bool is_move(UsbId id) { return id == kMoveZcm1 || id == kMoveZcm2; }
 bool is_ps3eye(UsbId id) { return id == kPs3EyeId; }
 
-std::string trim(std::string_view s) {
-    size_t b = 0, e = s.size();
-    while (b < e && std::isspace(static_cast<unsigned char>(s[b]))) ++b;
-    while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1]))) --e;
-    return std::string(s.substr(b, e - b));
-}
-
 std::string strip_ansi(std::string_view s) {
     std::string r;
     r.reserve(s.size());

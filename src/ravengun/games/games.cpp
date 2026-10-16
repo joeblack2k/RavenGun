@@ -766,7 +766,7 @@ static double aim_aspect_of(const ravengun::gamesettings::Dirs& dirs, const std:
 // "stereo" of "5.1". Leeg = niets gekozen (de wrapper gebruikt dan zijn standaard, 5.1).
 static std::string speakers_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
     std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Audio", "Speakers");
-    for (char& ch : v) ch = (char)std::tolower((unsigned char)ch);
+    for (char& ch : v) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     if (v.find("stereo") != std::string::npos) return "stereo";
     if (v.find("5.1") != std::string::npos) return "5.1";
     if (v.find("7.1") != std::string::npos) return "7.1";

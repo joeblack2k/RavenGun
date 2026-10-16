@@ -205,15 +205,6 @@ void tracker_for_led(const LedSettings& l, TrackerSettings& t) {
 
 }  // namespace
 
-const std::vector<std::string>& controller_value_keys() {
-    static const std::vector<std::string> k = [] {
-        std::vector<std::string> v;
-        for (const auto& c : copiers()) v.emplace_back(c.key);
-        return v;
-    }();
-    return k;
-}
-
 bool controller_key_valid(const std::string& key) {
     std::string b;
     if (is_map_key(key, b)) return true;
@@ -499,8 +490,8 @@ std::string validate(const Settings& s) {
         if (!m.empty()) return "gun_buttons.map." + kv.first + ": " + m;
     }
     for (int i = 0; i < kMaxPlayers; ++i) {
-        const std::string& g = s.gamepads[static_cast<size_t>(i)];
-        if (!g.empty() && !sysinfo::mouse_id_valid(g)) return "gamepads." + std::to_string(i + 1) + " is geen geldig gamepad-id";
+        const std::string& gp = s.gamepads[static_cast<size_t>(i)];
+        if (!gp.empty() && !sysinfo::mouse_id_valid(gp)) return "gamepads." + std::to_string(i + 1) + " is geen geldig gamepad-id";
     }
     return validate_controllers(s);
 }

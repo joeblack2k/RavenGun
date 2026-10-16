@@ -14,6 +14,7 @@
 #include <iterator>
 
 #include "ravengun/json_parse.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace fs = std::filesystem;
 
@@ -144,10 +145,6 @@ uint32_t crc32(const unsigned char* p, size_t n) {
     return ~c;
 }
 
-std::string lower(std::string s) {
-    for (auto& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    return s;
-}
 std::string trim(const std::string& s) {
     const size_t a = s.find_first_not_of(" \t\r\n");
     if (a == std::string::npos) return {};

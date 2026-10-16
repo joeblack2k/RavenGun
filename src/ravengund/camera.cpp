@@ -748,11 +748,6 @@ void CameraService::set_tracker_enabled(int player, bool on) {
     d_->tracker_gen.fetch_add(1);
 }
 
-bool CameraService::tracker_enabled(int player) const {
-    std::lock_guard<std::mutex> g(d_->tm);
-    return d_->tracker_on[static_cast<size_t>(SharedState::clamp_player(player) - 1)];
-}
-
 CameraApplyResult CameraService::apply(const CameraChange& ch) {
     CameraApplyResult r;
     r.code = "unavailable";

@@ -29,22 +29,10 @@ namespace ravengun::launch {
 namespace direct_detail {
 
 // --- tekst --------------------------------------------------------------------------------------------------------------------------
-std::string trim(const std::string& s) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b - 1]))) --b;
-    return s.substr(a, b - a);
-}
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
 std::string upper(std::string s) {
     for (auto& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     return s;
 }
-bool starts_with(const std::string& s, const std::string& p) { return s.compare(0, p.size(), p) == 0; }
-bool ends_with(const std::string& s, const std::string& p) { return s.size() >= p.size() && s.compare(s.size() - p.size(), p.size(), p) == 0; }
 std::vector<std::string> split(const std::string& s, char sep) {
     std::vector<std::string> out;
     size_t a = 0;
@@ -131,7 +119,7 @@ std::string relpath(const std::string& path, const std::string& start) {
 }
 bool binnen(const std::string& path, const std::string& base) {
     const std::string p = abspath(path), b = abspath(base);
-    return p == b || starts_with(p, b == "/" ? "/" : b + "/");
+    return p == b || p.starts_with(b == "/" ? "/" : b + "/");
 }
 bool isfile(const std::string& p) {
     struct stat st{};
@@ -164,14 +152,14 @@ std::string strip_bom(std::string s) {
 }
 std::string expand_home(const std::string& p, const std::string& home) {
     if (p == "~") return home;
-    if (starts_with(p, "~/")) return pjoin(home, p.substr(2));
+    if (p.starts_with("~/")) return pjoin(home, p.substr(2));
     return p;
 }
 std::string shrink_home(const std::string& p, const std::string& home) {
     std::string h = home;
     while (h.size() > 1 && h.back() == '/') h.pop_back();
     if (p == h) return "~";
-    return starts_with(p, h + "/") ? "~/" + p.substr(h.size() + 1) : p;
+    return p.starts_with(h + "/") ? "~/" + p.substr(h.size() + 1) : p;
 }
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def) {
     auto it = env.find(k);
@@ -181,7 +169,7 @@ std::string getenv_or(const EnvMap& env, const std::string& k, const std::string
 // launch-direct.py on_nas(): ~/mnt of een netwerkbestandssysteem (langste koppelpunt in /proc/self/mounts).
 bool on_nas(const std::string& path, const DirectPaths& p) {
     const std::string real = realpath_(path);
-    if (starts_with(real, pjoin(p.home, "mnt") + "/")) return true;
+    if (real.starts_with(pjoin(p.home, "mnt") + "/")) return true;
     std::ifstream f(p.mounts);
     if (!f) return false;
     std::string line, best, fstype;
@@ -192,7 +180,7 @@ bool on_nas(const std::string& path, const DirectPaths& p) {
         for (size_t at = mp.find("\\040"); at != std::string::npos; at = mp.find("\\040", at + 1)) mp.replace(at, 4, " ");
         std::string mps = mp;
         while (!mps.empty() && mps.back() == '/') mps.pop_back();
-        if ((real == mp || starts_with(real, mps + "/")) && mp.size() > best.size()) { best = mp; fstype = type; }
+        if ((real == mp || real.starts_with(mps + "/")) && mp.size() > best.size()) { best = mp; fstype = type; }
     }
     return fstype == "cifs" || fstype == "smb3" || fstype == "smbfs" || fstype == "nfs" || fstype == "nfs4" || fstype == "fuse.sshfs";
 }
@@ -419,12 +407,12 @@ DirectPaths default_direct_paths(const EnvMap& env) {
     if (p.home.empty())   // zonder HOME: de thuismap van deze gebruiker volgens het systeem
         if (const struct passwd* pw = ::getpwuid(::getuid()); pw && pw->pw_dir) p.home = pw->pw_dir;
     const std::string xd = getenv_or(env, "XDG_DATA_HOME"), xs = getenv_or(env, "XDG_STATE_HOME"), xc = getenv_or(env, "XDG_CONFIG_HOME");
-    p.data = (starts_with(xd, "/") ? xd : p.home + "/.local/share") + "/ravengun";
+    p.data = (xd.starts_with("/") ? xd : p.home + "/.local/share") + "/ravengun";
     p.state = (xs.empty() ? p.home + "/.local/state" : xs) + "/ravengun";
     p.tp = getenv_or(env, "RAVENGUN_TP_DIR");
     if (p.tp.empty()) p.tp = p.home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     p.library_file = getenv_or(env, "RAVENGUN_LIBRARY_FILE");
-    if (p.library_file.empty()) p.library_file = (starts_with(xc, "/") ? xc : p.home + "/.config") + "/ravengun/library.json";
+    if (p.library_file.empty()) p.library_file = (xc.starts_with("/") ? xc : p.home + "/.config") + "/ravengun/library.json";
     return p;
 }
 
@@ -438,7 +426,7 @@ std::vector<JoyId> parse_joy_ids(const std::string& output) {
     std::string line, key;
     while (std::getline(is, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (starts_with(line, "HKEY_CURRENT_USER") && line.find("Calibration") != std::string::npos) {
+        if (line.starts_with("HKEY_CURRENT_USER") && line.find("Calibration") != std::string::npos) {
             const size_t at = line.rfind("DirectInput\\");
             key = at == std::string::npos ? line : line.substr(at + 12);
         }
@@ -460,9 +448,9 @@ std::vector<JoyId> joy_id_changes(const std::vector<JoyId>& ids_in, const std::s
     const size_t colon = vidpid.find(':');
     const std::string ours = "VID_" + upper(vidpid.substr(0, colon)) + "&PID_" + upper(colon == std::string::npos ? vidpid : vidpid.substr(colon + 1));
     std::set<int> used;
-    for (const auto& j : ids) if (!starts_with(j.key, ours)) used.insert(j.id);
+    for (const auto& j : ids) if (!j.key.starts_with(ours)) used.insert(j.id);
     for (const auto& j : ids)
-        if (!starts_with(j.key, ours) && j.id == 0) {
+        if (!j.key.starts_with(ours) && j.id == 0) {
             int n = 1;
             while (used.count(n)) ++n;
             used.insert(n);
@@ -470,7 +458,7 @@ std::vector<JoyId> joy_id_changes(const std::vector<JoyId>& ids_in, const std::s
         }
     bool have = false;
     for (const auto& j : ids)
-        if (starts_with(j.key, ours)) {
+        if (j.key.starts_with(ours)) {
             have = true;
             if (j.id != 0) out.push_back({j.key, 0});
         }

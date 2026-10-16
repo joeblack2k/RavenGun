@@ -900,7 +900,7 @@ int cmd_drift(const char* path, const char* mode_s, const char* cal_path) {
     for (const auto& d : r.intervals) {
         char temp[32] = "-";
         if (d.temp_begin >= 0) std::snprintf(temp, sizeof temp, "%d>%d", d.temp_begin, d.temp_end);
-        char sat[16] = "-";
+        char sat[24] = "-";
         if (d.saturated >= 0) std::snprintf(sat, sizeof sat, "%lld", static_cast<long long>(d.saturated));
         std::printf("%3d %7.1f %7.1f %+8.2f %+8.2f %+8.2f %+8.2f %8.0f %7.0f %6llu %6.1f%% %5.0f %5s %9s %+7.3f\n", ++i, d.t0_s, d.duration_s, d.yaw_deg,
                     d.yaw_per_min, d.pitch_deg, d.pitch_per_min, d.rotated_deg, d.max_rate_dps, static_cast<unsigned long long>(d.lost), d.lost_pct,

@@ -190,7 +190,7 @@ static RunResult run_pipeline(Sim& sim, double dur, FusionMode mode, bool with_c
             if (std::getenv("RG_DEBUG") && static_cast<int>(o.t * 88.7) % 443 == 0)
                 std::printf("  t %6.1f err %+6.2f pend %+6.2f total %+6.2f bv %+.3f drift %+.3f state %s rs %u rate %.2f used %llu rej %llu\n", o.t, e,
                             s.yaw_pending_deg, s.yaw_corr_total_deg, s.yaw_vertical_bias_deg_s, p.mag().status().drift_dps, s.mag_state, p.mag().status().last.reasons, p.mag().status().last.rate_err_deg_s,
-                            (unsigned long long)p.mag().status().used_samples, (unsigned long long)p.mag().status().innov_rejected);
+                            static_cast<unsigned long long>(p.mag().status().used_samples), static_cast<unsigned long long>(p.mag().status().innov_rejected));
         }
     }
     res.st = p.mag().status();
@@ -421,7 +421,7 @@ static void test_interrupt_reacquire() {
         if (o.t > 29.8 && o.t < 30.2) continue;  // gat: rapporten weg, controller draait
         double before = p.mag().status().total_deg;
         InputSample smp = p.on_report(o.r);
-        if (std::getenv("RG_DEBUG") && o.t > 29 && o.t < 36 && static_cast<int>(o.t * 88.7) % 20 == 0) { const auto& st = p.mag().status(); std::printf("  r t %.2f locked %d state %s used %d pend %.2f sig %.2f reacq %d rej %llu reasons %u acc %llu\n", o.t, st.locked, smp.mag_state, st.used, st.pending_deg, st.sigma_deg, st.reacquire, (unsigned long long)st.innov_rejected, st.last.reasons, (unsigned long long)st.accel_skipped); }
+        if (std::getenv("RG_DEBUG") && o.t > 29 && o.t < 36 && static_cast<int>(o.t * 88.7) % 20 == 0) { const auto& st = p.mag().status(); std::printf("  r t %.2f locked %d state %s used %d pend %.2f sig %.2f reacq %d rej %llu reasons %u acc %llu\n", o.t, st.locked, smp.mag_state, st.used, st.pending_deg, st.sigma_deg, st.reacquire, static_cast<unsigned long long>(st.innov_rejected), st.last.reasons, static_cast<unsigned long long>(st.accel_skipped)); }
         max_step = std::max(max_step, std::fabs(smp.yaw_corr_total_deg - before));
         double err = wrap_pi((yaw_deg_of(smp.q_wb) - yaw_deg_of(o.q_true)) * kRadPerDeg) * kDegPerRad;
         if (!have && o.t > 20) { ref = err; have = true; }

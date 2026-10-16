@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include "ravengun/json.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace ravengun::sysinfo {
 
@@ -20,11 +21,6 @@ std::string slurp(const fs::path& p, size_t max = 4096) {
     std::string s(max, '\0');
     f.read(s.data(), static_cast<std::streamsize>(max));
     s.resize(static_cast<size_t>(f.gcount()));
-    return s;
-}
-
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 

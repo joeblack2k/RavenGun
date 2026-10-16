@@ -30,13 +30,13 @@ namespace {
 std::string prefix_path(std::string v, const DirectPaths& p) {
     v = trim(v);
     if (v == "shared") return shared_prefix(p);
-    if (starts_with(v, "/") || starts_with(v, "~")) return expand_home(v, p.home);
+    if (v.starts_with("/") || v.starts_with("~")) return expand_home(v, p.home);
     return pjoin(prefixes_dir(p), v);
 }
 std::string prefix_value(const std::string& path, const DirectPaths& p) {
     if (path == shared_prefix(p)) return "shared";
     const std::string pre = prefixes_dir(p) + "/";
-    if (starts_with(path, pre)) {
+    if (path.starts_with(pre)) {
         const std::string rest = path.substr(pre.size());
         if (rest.find('/') == std::string::npos && rest != "shared") return rest;
     }
@@ -66,10 +66,10 @@ EnvMap to_env(const gsn::Ini& s, const std::string& gamedir, const DirectPaths& 
             v = prefix_path(v, p);
         } else if (kind == "workdir") {
             v = expand_home(v, p.home);
-            if (!(is_drive_path(v) || starts_with(v, "/"))) {
+            if (!(is_drive_path(v) || v.starts_with("/"))) {
                 if (gamedir.empty()) continue;
                 v = wine_path(normpath(pjoin(gamedir, v)));
-            } else if (starts_with(v, "/")) {
+            } else if (v.starts_with("/")) {
                 v = wine_path(v);
             }
         }
@@ -124,19 +124,19 @@ gsn::Ini env_to_settings(const std::vector<std::pair<std::string, std::string>>&
         else if (kind == "path") out = shrink_home(val, p.home);
         else if (kind == "prefix") out = prefix_value(val, p);
         else if (kind == "workdir") {
-            if (!gamedir.empty() && starts_with(val, "Z:")) {
+            if (!gamedir.empty() && val.starts_with("Z:")) {
                 std::string posix = val.substr(2);
                 std::replace(posix.begin(), posix.end(), '\\', '/');
                 std::string gd = gamedir;
                 while (gd.size() > 1 && gd.back() == '/') gd.pop_back();
-                if (posix == gamedir || starts_with(posix, gd + "/")) {
+                if (posix == gamedir || posix.starts_with(gd + "/")) {
                     const std::string rel = relpath(posix, gamedir);
                     gsn::Ini probe;
                     probe.set("Launch", "WorkingDirectory", rel);
                     if (getenv_or(to_env(probe, gamedir, p), var) == val) out = rel;
                 }
             }
-            if (out == val) out = starts_with(val, "/") ? shrink_home(val, p.home) : val;
+            if (out == val) out = val.starts_with("/") ? shrink_home(val, p.home) : val;
         }
         s.set(m->section, m->key, out);
     }

@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "ravengun/output/key_table.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace ravengun::output {
 
@@ -14,18 +15,6 @@ namespace {
 
 constexpr const char* kNames[kPadControls] = {"A",     "B",    "X",     "Y",  "LB", "RB",     "LT",       "RT",       "Start",     "Back",      "Guide",
                                               "LS",    "RS",   "DPadUp", "DPadDown", "DPadLeft", "DPadRight", "LeftX", "LeftY", "RightX", "RightY"};
-
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
-
-std::string trim(const std::string& s) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b - 1]))) --b;
-    return s.substr(a, b - a);
-}
 
 size_t ix(PadControl c) { return static_cast<size_t>(c); }
 

@@ -395,15 +395,15 @@ int main() {
         CHECK(profile_file(q, "Per").empty() && profile_text(q, "Per").empty());
         write(q.patches + "/Per/native.json", R"({"title":"Meegeleverd","enabled":true,"exe":"/pm/game"})");
         CHECK(profile_file(q, "Per") == q.patches + "/Per/native.json");
-        std::string t = profile_text(q, "Per");
-        CHECK(profile_enabled(t, "Per"));
+        std::string ptxt = profile_text(q, "Per");
+        CHECK(profile_enabled(ptxt, "Per"));
         NativeProfile pp;
-        CHECK(load_profile(t, "Per", q, pp, err) && pp.title == "Meegeleverd" && pp.res == "1920x1080");
+        CHECK(load_profile(ptxt, "Per", q, pp, err) && pp.title == "Meegeleverd" && pp.res == "1920x1080");
         write(q.user_patches + "/Per/native.json", R"({"title":"Eigen","enabled":false,"exe":"/pm/game"})");
         CHECK(profile_file(q, "Per") == q.user_patches + "/Per/native.json");
-        t = profile_text(q, "Per");
-        CHECK(!profile_enabled(t, "Per"));
-        CHECK(load_profile(t, "Per", q, pp, err) && pp.title == "Eigen");
+        ptxt = profile_text(q, "Per");
+        CHECK(!profile_enabled(ptxt, "Per"));
+        CHECK(load_profile(ptxt, "Per", q, pp, err) && pp.title == "Eigen");
         // Kapot in de gebruikerslaag: geen profiel (niet stil terug naar het meegeleverde).
         write(q.user_patches + "/Per/native.json", "{kapot");
         CHECK(profile_text(q, "Per").empty());
@@ -424,16 +424,16 @@ int main() {
         NativePaths q = p;
         q.json.clear();
         q.nas.clear();
-        const std::string a = (root / "spelmap-a").string(), b = (root / "spelmap-b").string();
-        fs::create_directories(a);
+        const std::string mapa = (root / "spelmap-a").string(), b = (root / "spelmap-b").string();
+        fs::create_directories(mapa);
         fs::create_directories(b + "/Teknoparrot/Spel X/bin");
-        q.nas_roots = {a, b};
+        q.nas_roots = {mapa, b};
         write(q.patches + "/Lib/native.json", R"({"enabled":true,"exe":"/pm/game","mounts":[{"src":"@nas/Spel X/bin","dst":"/pm","mode":"ro"}]})");
         NativeProfile lp;
         CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err));
         CHECK(lp.mounts.size() == 1 && lp.mounts[0].src == b + "/Teknoparrot/Spel X/bin");
-        fs::create_directories(a + "/Spel X/bin");
-        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == a + "/Spel X/bin");
+        fs::create_directories(mapa + "/Spel X/bin");
+        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == mapa + "/Spel X/bin");
         q.nas = b;   // vast
         CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == b + "/Spel X/bin");
         q.nas.clear();

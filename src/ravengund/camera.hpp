@@ -76,7 +76,6 @@ public:
     ravengun::vision::TrackerConfig tracker(int player = 1) const;
     // De tracker van speler 2..4 zoekt alleen als die speler een Move heeft (speler 1 zoekt altijd).
     void set_tracker_enabled(int player, bool on);
-    bool tracker_enabled(int player) const;
     bool enabled() const;
     // De virtuele camera voor een spel (src/ravengun/vision/camera_feed.hpp): aan = de tracker-thread schrijft elk beeld ook in
     // `path` (standaard /dev/shm/ravengun_Camera), zodat een spel dat de camera IN het spel gebruikt ([Camera] Use = game) het

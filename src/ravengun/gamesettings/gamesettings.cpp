@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/strutil.hpp"
 
 #include <sys/stat.h>
 
@@ -17,18 +18,6 @@ namespace ravengun::gamesettings {
 namespace {
 
 bool is_space(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
-
-std::string trim(const std::string& s) {
-    size_t a = 0, b = s.size();
-    while (a < b && is_space(s[a])) ++a;
-    while (b > a && is_space(s[b - 1])) --b;
-    return s.substr(a, b - a);
-}
-
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
 
 std::vector<std::string> split_lines(const std::string& text) {
     std::vector<std::string> out;

@@ -1,4 +1,5 @@
 #include "ravengun/vision/camera_feed.hpp"
+#include "ravengun/strutil.hpp"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -22,18 +23,6 @@ void store_seq(uint8_t* map, uint32_t v) {
     // De seq staat op een uitgelijnd adres (offset 8 in een pagina-uitgelijnde mapping): een atomaire 32-bits schrijfactie, met een
     // release-volgorde zodat de lezer na een even seq ook het beeld ziet.
     __atomic_store_n(reinterpret_cast<uint32_t*>(map + 8), v, __ATOMIC_RELEASE);
-}
-
-std::string trim(const std::string& s) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b - 1]))) --b;
-    return s.substr(a, b - a);
-}
-
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
 }
 
 }  // namespace

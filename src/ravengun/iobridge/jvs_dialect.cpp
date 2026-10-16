@@ -255,11 +255,6 @@ void JvsDialect::handle_bytes(const uint8_t* p, size_t n) {
     }
 }
 
-JvsBusStats JvsDialect::bus_stats() const {
-    std::lock_guard<std::mutex> lk(m_);
-    return bus_.stats();
-}
-
 JvsStats JvsDialect::stats() const {
     std::lock_guard<std::mutex> lk(m_);
     return st_;
@@ -268,13 +263,6 @@ JvsStats JvsDialect::stats() const {
 uint8_t JvsDialect::modem_status() const {
     std::lock_guard<std::mutex> lk(m_);
     return bus_.modem_status();
-}
-
-std::vector<uint8_t> JvsDialect::node_addresses() const {
-    std::lock_guard<std::mutex> lk(m_);
-    std::vector<uint8_t> v;
-    for (size_t i = 0; i < bus_.node_count(); ++i) v.push_back(bus_.node(i).address());
-    return v;
 }
 
 std::string JvsDialect::status_json() const {

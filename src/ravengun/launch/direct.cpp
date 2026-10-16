@@ -174,7 +174,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             const std::string pth = trim(lget("Path"));
             const std::string base = expand_home(pth.empty() ? std::string("~/.local/share/ravengun/openparrot/current") : pth, p.home);
             std::string own_loader, own_core_rel;
-            const bool op_loader = starts_with(lower(basename(exe_rel)), "openparrotloader");
+            const bool op_loader = lower(basename(exe_rel)).starts_with("openparrotloader");
             if (build == "ravengun") {
                 if (!op_loader) return setting_refused("[Loader] Build = ravengun bestaat alleen voor OpenParrotLoader(64).exe, niet voor " + exe_rel);
                 own_loader = pjoin(base, exe_rel);
@@ -312,7 +312,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (letter.size() != 1 || letter[0] < 'A' || letter[0] > 'Y' || letter == "C")
             return setting_refused("schijfletter '" + trim(stuk.substr(0, is)) + "' kan niet (een letter van A tot Y, niet C)");
         std::string doel = trim(stuk.substr(is + 1));
-        if (starts_with(doel, "~/")) doel = p.home + doel.substr(1);
+        if (doel.starts_with("~/")) doel = p.home + doel.substr(1);
         doel = normpath(doel.size() && doel[0] == '/' ? doel : pjoin(view_root, doel));
         if (!isdir(doel)) return setting_refused("schijf " + letter + ": de map " + doel + " bestaat niet");
         if (on_nas(doel, p)) return setting_refused("schijf " + letter + ": de map " + doel + " ligt op de NAS; een schijfletter van ons wijst naar een lokale map (de view van het spel, of een eigen map)");
@@ -471,7 +471,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             r = trim(r);
             std::replace(r.begin(), r.end(), '\\', '/');
             const std::string n = normpath(r);
-            if (r.empty() || r[0] == '/' || n == "." || n == ".." || starts_with(n, "../"))
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
                 return setting_refused("[Launch] ViewCopies = " + vc + " ('" + r + "': een pad binnen de gamemap, relatief en zonder ..)");
             pl.view_copies.push_back(normpath(pjoin(dirname(game), n)));
         }
@@ -501,7 +501,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         std::vector<std::string> ov;
         for (std::string naam : nonempty_split(nd, ',')) {
             naam = lower(trim(naam));
-            if (ends_with(naam, ".dll")) naam = naam.substr(0, naam.size() - 4);
+            if (naam.ends_with(".dll")) naam = naam.substr(0, naam.size() - 4);
             if (naam.empty() || naam.find('/') != std::string::npos || naam.find("..") != std::string::npos)
                 return setting_refused("[Launch] NativeDlls = " + nd + " ('" + naam + "' is geen DLL-naam)");
             const std::string bron = pjoin(pjoin(rd, arch), naam + ".dll");
@@ -520,7 +520,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (const std::string rg = trim(lini("Registry")); !rg.empty()) {
         for (std::string naam : nonempty_split(rg, ',')) {
             naam = trim(naam);
-            if (naam.empty() || naam.front() == '/' || naam.find("..") != std::string::npos || !ends_with(lower(naam), ".reg"))
+            if (naam.empty() || naam.front() == '/' || naam.find("..") != std::string::npos || !lower(naam).ends_with(".reg"))
                 return setting_refused("[Launch] Registry = " + rg + " ('" + naam + "' is geen .reg-bestand in de map van de game, "
                                        "bijvoorbeeld data/naam.reg)");
             std::string pad;

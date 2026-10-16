@@ -164,8 +164,6 @@ struct Settings : ControllerValues {
 };
 
 // ---- Per-controller-instellingen ----
-// Alle sleutels die per controller mogen afwijken (zonder de "gun_buttons.map.<knop>"-sleutels, die per knop gelden).
-const std::vector<std::string>& controller_value_keys();
 bool controller_key_valid(const std::string& key);
 // Kopieert het veld `key` van src naar dst. false bij een onbekende sleutel.
 bool copy_controller_value(const std::string& key, ControllerValues& dst, const ControllerValues& src);

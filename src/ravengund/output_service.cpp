@@ -256,11 +256,6 @@ void OutputService::set_active_players(unsigned mask) {
         if (added & (1u << (p.number - 1))) arm_player_locked(p);
 }
 
-unsigned OutputService::active_players() const {
-    std::lock_guard<std::mutex> g(m_);
-    return active_;
-}
-
 void OutputService::set_mouse_players(unsigned mask) {
     std::lock_guard<std::mutex> g(m_);
     const unsigned now = mask & ~1u & ((1u << kPlayers) - 1);   // speler 1 bestaat altijd

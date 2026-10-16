@@ -259,9 +259,9 @@ int main(int argc, char** argv) {
             const AaClientStats s = client.stats();
             const AaOutputs& o = s.last;
             std::printf("[%5.1fs] %s pakketten %.0f/s (totaal %llu, gedropt %llu) uitvoer %llu", t, s.connected ? "VERBONDEN" : "wacht op game",
-                        s.packets_per_s, (unsigned long long)s.packets_sent, (unsigned long long)s.send_dropped, (unsigned long long)s.output_frames);
+                        s.packets_per_s, static_cast<unsigned long long>(s.packets_sent), static_cast<unsigned long long>(s.send_dropped), static_cast<unsigned long long>(s.output_frames));
             if (s.have_outputs) std::printf(" | P1 speelt %d ammo %d leven %.2f credits %d recoil %llu | P2 speelt %d", o.playing[0], o.ammo[0], static_cast<double>(o.life[0]), o.credits[0],
-                                            (unsigned long long)s.recoils[0], o.playing[1]);
+                                            static_cast<unsigned long long>(s.recoils[0]), o.playing[1]);
             if (use_ipc) std::printf(" | rumble-pulsen %d", rumbles_sent);
             if (use_ipc) std::printf(" | daemon %s aim P1 %.3f,%.3f %s%s", armed ? "gewapend" : "NIET gewapend", in[0].u, in[0].v,
                                      in[0].trigger ? "T" : "-", in[0].reload ? "R" : "-");

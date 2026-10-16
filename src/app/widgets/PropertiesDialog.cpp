@@ -587,7 +587,7 @@ QWidget* PropertiesDialog::MakeOptionsPane() {
         for (const OptRow& r : *rows) {
             if (!r.widget->isEnabled() || r.opt.defaultValue.isEmpty()) continue;
             if (auto* c = qobject_cast<QCheckBox*>(r.widget)) c->setChecked(r.opt.defaultValue == r.opt.trueValue || isTrue(r.opt.defaultValue));
-            else if (auto* c = qobject_cast<QComboBox*>(r.widget)) c->setCurrentIndex(std::max(0, c->findData(r.opt.defaultValue)));
+            else if (auto* cmb = qobject_cast<QComboBox*>(r.widget)) cmb->setCurrentIndex(std::max(0, cmb->findData(r.opt.defaultValue)));
             else if (auto* s = qobject_cast<QSpinBox*>(r.widget)) s->setValue(r.opt.defaultValue.toInt());
             else if (auto* e = qobject_cast<QLineEdit*>(r.widget)) e->setText(r.opt.defaultValue);
         }
@@ -655,8 +655,8 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
         QString val;
         if (ctx_.ownProfile) {
             // game.ini: [Display] Gamescope (alle lagen); true = aan.
-            const QString v = rg::OptionStore::readSetting(ctx_, QStringLiteral("Display"), QStringLiteral("Gamescope"), &found).trimmed().toLower();
-            val = (v == QStringLiteral("true") || v == QStringLiteral("1") || v == QStringLiteral("yes") || v == QStringLiteral("on")) ? QStringLiteral("1") : QStringLiteral("0");
+            const QString gs = rg::OptionStore::readSetting(ctx_, QStringLiteral("Display"), QStringLiteral("Gamescope"), &found).trimmed().toLower();
+            val = (gs == QStringLiteral("true") || gs == QStringLiteral("1") || gs == QStringLiteral("yes") || gs == QStringLiteral("on")) ? QStringLiteral("1") : QStringLiteral("0");
         } else {
             QFile f(envPath);
             QString text;
@@ -850,7 +850,7 @@ QWidget* PropertiesDialog::MakePatchesPane() {
     auto* w = new QWidget;
     auto* v = new QVBoxLayout(w);
     const QString prof = ctx_.profile;
-    const rg::GameData* data = core_->gameData();
+    const rg::GameData* gdata = core_->gameData();
     v->addWidget(hintLabel(tr("Patches change a copy of a file of the game runtime when the game starts (never the original, and never "
                               "a file on the NAS). Tick a patch to turn it on; your choice is saved in your own settings folder and "
                               "applies from the next start. Patches are applied by the direct start only.")));
@@ -908,8 +908,8 @@ QWidget* PropertiesDialog::MakePatchesPane() {
         open_shipped_->setEnabled(false);
         return w;
     }
-    open_shipped_->setEnabled(QFileInfo(data->shippedGameDir(prof)).isDir());
-    open_user_->setEnabled(!data->userGameDir(prof).isEmpty());
+    open_shipped_->setEnabled(QFileInfo(gdata->shippedGameDir(prof)).isDir());
+    open_user_->setEnabled(!gdata->userGameDir(prof).isEmpty());
     RefreshPatches();
     connect(patch_tree_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* it) {
         patch_desc_->setPlainText(it ? it->data(0, Qt::UserRole + 1).toString() : QString());
@@ -931,11 +931,11 @@ QWidget* PropertiesDialog::MakePatchesPane() {
 
 void PropertiesDialog::RefreshPatches() {
     const QString prof = ctx_.profile;
-    const rg::GameData* data = core_->gameData();
+    const rg::GameData* gdata = core_->gameData();
     refreshing_patches_ = true;
     const QString keep = patch_tree_->currentItem() ? patch_tree_->currentItem()->data(0, Qt::UserRole).toString() : QString();
     patch_tree_->clear();
-    const QList<rg::PatchInfo> patches = data->patches(prof);
+    const QList<rg::PatchInfo> patches = gdata->patches(prof);
     QTreeWidgetItem* select = nullptr;
     for (const rg::PatchInfo& p : patches) {
         auto* it = new QTreeWidgetItem(patch_tree_);
@@ -961,14 +961,14 @@ void PropertiesDialog::RefreshPatches() {
     }
     for (int c = 0; c < 4; ++c) patch_tree_->resizeColumnToContents(c);
     if (select) patch_tree_->setCurrentItem(select);
-    const QStringList rejected = data->patchErrors(prof);
+    const QStringList rejected = gdata->patchErrors(prof);
     if (!rejected.isEmpty()) patch_status_->setText(tr("Patches that were rejected (every patch needs a known Category):") + QLatin1Char('\n') + rejected.join(QLatin1Char('\n')));
     else if (patches.isEmpty()) patch_status_->setText(tr("This game has no patches."));
     else if (!patch_status_->text().contains(tr("running"))) patch_status_->setText(QString());
     refreshing_patches_ = false;
 
     settings_tree_->clear();
-    for (const rg::SettingEntry& e : data->settings(prof)) {
+    for (const rg::SettingEntry& e : gdata->settings(prof)) {
         auto* it = new QTreeWidgetItem(settings_tree_);
         it->setText(0, e.section);
         it->setText(1, e.key);

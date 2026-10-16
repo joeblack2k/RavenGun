@@ -12,6 +12,7 @@
 
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/strutil.hpp"
 
 namespace ravengun::web {
 
@@ -47,11 +48,6 @@ const char* kCommonHeaders =
     "Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
     "img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'\r\n"
     "Connection: close\r\n";
-
-std::string lower(std::string s) {
-    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return s;
-}
 
 std::string trim(std::string_view s) {
     size_t a = 0, b = s.size();

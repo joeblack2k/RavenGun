@@ -120,7 +120,7 @@ std::vector<DropinSpec> dropin_specs(const std::string& game, const DirectPaths&
             if (to.empty()) to = ".";
             std::string tos = to;
             while (!tos.empty() && tos.back() == '/') tos.pop_back();
-            if (to != "." && starts_with(naam, tos + "/")) {
+            if (to != "." && naam.starts_with(tos + "/")) {
                 fouten.push_back(pad + " [" + naam + "]: de sectienaam begint ook met To = " + to +
                                  ", dus het bestand komt dubbel in de view te staan; laat To weg of zet To = . (docs/dropins.md)");
                 continue;
@@ -181,7 +181,7 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
     auto log_into = [&](const std::vector<std::string>& l) { notes.insert(notes.end(), l.begin(), l.end()); };
     if (binnen(game, views) && abspath(game) != abspath(views)) {   // al in een view: alleen de links verversen
         const std::string wortel = view_wortel(dirname(game), p), rel = relpath(abspath(game), wortel), echt = realpath_(game);
-        if (make && ends_with(echt, "/" + rel) && !islink(wortel)) {
+        if (make && echt.ends_with("/" + rel) && !islink(wortel)) {
             std::vector<std::string> l;
             if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}}, nas, l, err)) {
                 err = "view: " + err;
@@ -196,7 +196,7 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
     if (vs.mode == ViewSetting::Mode::Auto) {
         const std::string idp = gsn::identify_of(settings).path;
         n = 0;
-        if (!idp.empty() && ends_with(game, "/" + idp))
+        if (!idp.empty() && game.ends_with("/" + idp))
             for (const std::string& d : split(dirname(idp), '/')) n += d.empty() ? 0 : 1;
     }
     std::string gdir = dirname(abspath(game));
@@ -243,7 +243,7 @@ std::string in_dezelfde_view(const std::string& game, const std::string& second,
     if (binnen(second, wortel)) return second;
     const std::string rel = relpath(abspath(game), wortel);
     const std::string echt = realpath_(game);
-    if (ends_with(echt, "/" + rel)) {   // waar de view naar wijst: de map van het spel zelf
+    if (echt.ends_with("/" + rel)) {   // waar de view naar wijst: de map van het spel zelf
         std::string bron = echt.substr(0, echt.size() - rel.size());
         while (!bron.empty() && bron.back() == '/') bron.pop_back();
         const std::string echt2 = realpath_(second);
@@ -274,7 +274,7 @@ int second_start(const Profile& pr, const gsn::Ini& settings, const std::string&
         while (!path2.empty() && path2.back() == '/') path2.pop_back();
         if (!path2.empty()) {
             std::string root;
-            if (!path.empty() && ends_with(game, "/" + path)) {
+            if (!path.empty() && game.ends_with("/" + path)) {
                 root = game.substr(0, game.size() - path.size());
                 while (!root.empty() && root.back() == '/') root.pop_back();
             } else {
@@ -421,7 +421,7 @@ std::string find_dxvk(const DirectPaths& p, const EnvMap& env, bool is64, std::s
         while (dirent* e = ::readdir(d)) {
             const std::string n = e->d_name;
             if (n == "." || n == "..") continue;
-            if (ends_with(base, "/common") && !starts_with(n, "Proton")) continue;
+            if (base.ends_with("/common") && !n.starts_with("Proton")) continue;
             const std::string dir = base + "/" + n + "/files/lib/wine/dxvk";
             if (dxvk_compleet(pjoin(dir, wsub))) kandidaten.push_back(dir);
         }
@@ -490,7 +490,7 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
             if (std::find(pl.dropin_materialise.begin(), pl.dropin_materialise.end(), m) == pl.dropin_materialise.end()) pl.dropin_materialise.push_back(m);
         pl.dropin_files.push_back({s.src, dest, s.name});
         if (!s.dll.empty()) {
-            const std::string dllnaam = ends_with(lower(s.name), ".dll") ? s.name.substr(0, s.name.size() - 4) : s.name;
+            const std::string dllnaam = lower(s.name).ends_with(".dll") ? s.name.substr(0, s.name.size() - 4) : s.name;
             r.overrides.push_back(dllnaam + "=" + (s.dll == "native" ? "n" : "n,b"));
         }
         if (s.preload) {
@@ -614,7 +614,7 @@ bool parse_view_links(const std::string& text, const std::string& base, std::vec
         for (std::string& r : rel) {
             std::replace(r.begin(), r.end(), '\\', '/');
             const std::string n = normpath(r);
-            if (r.empty() || r[0] == '/' || n == "." || n == ".." || starts_with(n, "../")) {
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../")) {
                 err = "'" + r + "': een pad binnen de gamemap, relatief en zonder ..";
                 return false;
             }

@@ -11,18 +11,6 @@ const Value* Value::find(std::string_view key) const {
     return nullptr;
 }
 
-const char* type_name(Value::Type t) {
-    switch (t) {
-        case Value::Type::Null: return "null";
-        case Value::Type::Bool: return "boolean";
-        case Value::Type::Number: return "number";
-        case Value::Type::String: return "string";
-        case Value::Type::Array: return "array";
-        case Value::Type::Object: return "object";
-    }
-    return "?";
-}
-
 namespace {
 
 constexpr int kMaxDepth = 32;
