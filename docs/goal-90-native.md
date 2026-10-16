@@ -17,7 +17,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Taak | Familie | Titels | Stand |
 |---|---|---|---|
 | T1 | Taito Type X2 | Gaia Attack 4, Elevator Action Death Parade, Haunted Museum, Haunted Museum II | 3 van 4 WORKING (JVS-herverbinden, 0x22-kanalen, borden TaitoGun/TaitoEADP met Taito-commando's, zaaigoed, ViewRealDirs); EADP geparkeerd: PhysX 2.8.1-kern ontbreekt (NxCreatePhysicsSDK = NULL; oude PhysX-systeemsoftware van NVIDIA nodig) |
-| T2 | Windows D3D9 zonder Present | Far Cry Paradise Lost, Robin Hood, Friction | open; diep: Vulkan/Proton, eigen wrapper als het moet |
+| T2 | Windows D3D9 zonder Present | Far Cry Paradise Lost, Robin Hood, Friction | bezig: Far Cry gemeten (berichtenlus loopt, spel wacht op I/O of dongle, geen D3D9-hang); Robin Hood en Friction volgen |
 | T3 | SEGA Lindbergh | The House of the Dead 4, The House of the Dead 4 Special | open |
 | T4 | Namco ES3X | Time Crisis 5, Lost Land Adventure | open |
 | T5 | Werkende titels: open punten | Mario Kart DX (camera), Ghost Squad Evolution (wisselvallig), Point Blank X (attract-film), runtime-keuze zonder daemonherstart | open |
@@ -94,7 +94,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Block King Ball Shooter | Type-X PC Based | 2026-10-15: draad valt direct op 0x01F5000F (geen module) terwijl een andere draad zijn eigen context leest en SINGLE_STEP: beschermingslaag; exitcode 1 |
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | 2026-10-16: JVS werkt (bord TaitoEADP), logo, dan crash: NxCreatePhysicsSDK(2.8.0) geeft NULL, de PhysX 2.8.1-kern (oude PhysX-systeemsoftware van NVIDIA) ontbreekt; 2.8.4 van Infinity Blade FX werkt niet; ook met DXVK. Eigenaar: PhysX 2.8.1 aanleveren of downloaden? |
-| Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
+| Far Cry Paradise Lost | Global VR PC Based | 2026-10-16 (meetdraad): hoofddraad in zijn berichtenlus (PeekMessage), werkdraden wachten; geen D3D9-hang maar spellogica die op dongle of USB-IO wacht (gesloten kern TeknoParrot.dll) |
 | Ghostbusters | ICE/RT Linux PC Based | 2026-10-15 native: dongle-hook, RIO-brug; "Welcome to Ghostbusters"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
 | Infinity Blade FX | ADRENALINE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
