@@ -21,6 +21,14 @@ game.ini -> daemon (`RG_FMOD_SPEAKERS 5.1` / `stereo` in het startcommando) -> w
 
 Spelen: 5 minuten Story Mode met LPCM 5.1 (contact-lpcm51.jpg), plus 90 s met STEREO.
 
+## De keuze in de app
+
+Properties van HALO Fireteam Raven -> Options -> Launch -> "Audio output": STEREO of LPCM 5.1 (app-opties-audio-output.jpg,
+app-keuze-stereo-lpcm51.jpg). Gemeten via de app zelf: STEREO kiezen + Apply schreef `[Audio] Speakers = STEREO` in de gebruikerslaag
+(~/.local/share/ravengun/patches/Halo/game.ini); terug naar LPCM 5.1 + Apply schreef `Speakers = LPCM 5.1` ("Saved. The new settings
+apply the next time the game starts.", app-opgeslagen.jpg). De daemon zet die waarde bij de start om in `RG_FMOD_SPEAKERS`
+(gemeten in het startcommando: `stereo` en `5.1`).
+
 ## Open
 
 - De muziek en wapens van het spel zelf pieken af en toe boven 0 dBFS op FL (enkele samples per 20-30 s; in de attract-muziek meer).
