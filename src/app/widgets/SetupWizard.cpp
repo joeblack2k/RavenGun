@@ -155,8 +155,8 @@ void SetupWizard::RefreshChecks() {
                             : cam.found ? tr("<b>Camera</b>: %1 (%2); a PlayStation Eye is optional").arg(cam.name.toHtmlEscaped(), cam.device)
                                         : tr("<b>Camera</b>: none (optional; aiming works without it)")));
     const rg::RuntimeCheck rc = rg::RuntimeCheck::check(core_->library()->tpDir());
-    check_runtime_->setText(mark(rc.ok && rc.hasUi ? 1 : 0) +
-                            (rc.ok && rc.hasUi ? tr("<b>Game runtime</b> (TeknoParrot): %1").arg(rc.dir.toHtmlEscaped())
+    check_runtime_->setText(mark(rc.ok ? 1 : 0) +
+                            (rc.ok ? tr("<b>Game runtime</b> (TeknoParrot): %1").arg(rc.dir.toHtmlEscaped())
                                                : tr("<b>Game runtime</b> (TeknoParrot): not found or incomplete. Choose it later in "
                                                     "Settings > Paths.")));
     const QString steamRoot = rg::SteamShortcuts::steamRoot();

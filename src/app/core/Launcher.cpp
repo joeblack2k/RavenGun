@@ -43,12 +43,11 @@ RuntimeCheck RuntimeCheck::check(const QString& dir) {
     const bool templates = QFileInfo(dir + QStringLiteral("/GameProfiles")).isDir();
     if (templates) c.found << QStringLiteral("game profiles");
     else c.missing << QStringLiteral("game profiles (GameProfiles/)");
+    // TeknoParrotUi zelf start RavenGun niet meer (sinds 2026-10-16): alleen ter informatie, geen eis en niet in found/missing.
     c.hasUi = QFileInfo(dir + QStringLiteral("/TeknoParrotUi")).isFile();
-    if (c.hasUi) c.found << QStringLiteral("TeknoParrotUi (used headless as loader)");
-    else c.missing << QStringLiteral("TeknoParrotUi");
     c.ok = loaderCount > 0 && templates;
     if (!c.ok) c.summary = QStringLiteral("Runtime incomplete: no loader or game profiles found in %1").arg(dir);
-    else c.summary = QStringLiteral("Runtime found: %1 loader(s)%2").arg(loaderCount).arg(c.hasUi ? QString() : QStringLiteral(", but TeknoParrotUi is missing"));
+    else c.summary = QStringLiteral("Runtime found: %1 loader(s)").arg(loaderCount);
     return c;
 }
 

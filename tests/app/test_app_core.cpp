@@ -1039,11 +1039,12 @@ void AppCoreTest::runtimeCheck() {
     writeFile(rt + QStringLiteral("/ElfLdr2/BudgieLoader.exe"), "x");
     writeFile(rt + QStringLiteral("/GameProfiles/a.xml"), "x");
     c = RuntimeCheck::check(rt);
-    QVERIFY(c.ok);
+    QVERIFY(c.ok);   // zonder TeknoParrotUi: RavenGun start er niets mee, dus geen eis en niet als ontbrekend gemeld
     QVERIFY(!c.hasUi);
+    QVERIFY(!c.summary.contains(QStringLiteral("TeknoParrotUi")) && !c.missing.join(QLatin1Char(' ')).contains(QStringLiteral("TeknoParrotUi")));
     writeFile(rt + QStringLiteral("/TeknoParrotUi"), "x");
     c = RuntimeCheck::check(rt);
-    QVERIFY(c.hasUi);
+    QVERIFY(c.ok && c.hasUi);
     // Backends (A10): auto en direct hebben alleen laders en profielen nodig; TeknoParrotUi start RavenGun niet meer.
     GameLibrary lib(tmp_.filePath(QStringLiteral("launcher-lib.json")));
     lib.setTpDir(tmp_.filePath(QStringLiteral("leeg")));
