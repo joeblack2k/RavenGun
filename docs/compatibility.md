@@ -61,7 +61,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (22)
+## Not tested yet (21)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -72,7 +72,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Block King Ball Shooter**: Prepared, not run (pass 1, Type-X PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Coopers's 9**: Prepared, not run (pass 1, KONAMI PC Based): profile, identification and input route are in place; nothing has been measured yet.
 - **Crossfire: Maximum Paintball**: Never started. Statically examined (2026-10-14): i386, unpacked, small (med_pball 161 kB). I/O through I/O ports (iopl, inb/outb; "/dev/p37c must exist or user must be root") and the guns through the kernel driver /dev/mjg; neither exists natively. Needed: a shim that lets iopl succeed and emulates the port instructions (SIGSEGV), and a fake /dev/mjg. Same engine as Police Trainer 2.
-- **Elevator Action Death Parade**: Profile from the TeknoParrot template (2026-10-15). Measured: runs (~55% CPU) in gamescope, 1920x1080 window, but black; never opens the JVS pipe and prints no debug strings (same pattern as Gaia Attack 4). English texts present. Open.
 - **Far Cry Paradise Lost**: Started 2026-10-15: without gamescope and at 1920x1080 it gets past the window and mode-switch hangs and creates its D3D9 device, but it draws nothing (black, no Present). Suspected: waiting on its dongle (HASP) or USB IO. See [Display].
 - **Friction**: 2026-10-15: black under gamescope (UpdateWindow spins forever); without gamescope loading screens, then black at 7 fps. See [Display].
 - **Gunslinger Stratos 3**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Gunslinger Stratos 3 (Taito, 64-bit Windows): the protection is NESYS (HTTPS with a client certificate).
@@ -88,10 +87,11 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Profile from the TeknoParrot template (2026-10-15). Measured: in gamescope (Windowed 0) and with a 1920x1080 Wine virtual desktop the exe runs (~60% CPU) but stays black and never opens the JVS pipe (2+ min). Open.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (3)
+## Not working yet (4)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
+- **Elevator Action Death Parade**: 2026-10-16: now opens the JVS pipe and polls, shows the TEAM FRONTLINE logo, then crashes after ~30 s (null D3D9 object in a loading thread). Parked with the Direct3D 9 work.
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
 - **Infinity Blade FX**: Does not start yet: UE3 starts (needs Wine Mono and a first-run dialog for TeknoParrot.dll), then a white or black picture; the log stops at 'Kaboom: InitLib() failed'. Parked.
 - **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.

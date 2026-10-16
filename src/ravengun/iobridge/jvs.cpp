@@ -353,6 +353,13 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
             else if (cmd == 0x03) rep.push_back(0x01);
             continue;
         }
+        if (board_.taito && cmd >= 0x78 && cmd <= 0x80) {
+            // Zoals bij een Namco-bord: vaste lengte van 15 bytes (commando plus 14, of de rest van het packet), rapport 01.
+            pos = std::min(d.size(), pos + 14);
+            ++stats_.commands[cmd];
+            rep.push_back(kJvsReportOk);
+            continue;
+        }
         const int al = arg_length(d, pos, cmd);
         if (al == -1 && board_.namco) { ++stats_.unknown; continue; }   // Namco: een onbekende byte overslaan, zonder antwoord
         if (al == -1) { status = kJvsStatusUnknownCmd; ++stats_.unknown; break; }

@@ -188,6 +188,9 @@ void test_board_file() {
         talk(sega, "E0 FF 03 F1 01 F4");
         CHECK(ask(sega, 0x00, "05 03 E8").empty());                         // een gewoon bord: node 0 is de host, geen antwoord
         CHECK(hex(ask(sega, 0x01, "05 03 E8")) == "E0 00 02 02 04");       // en 0x05 is onbekend (status 2)
+        // Elevator Action Death Parade: 0x7D (vaste lengte 15) slikt de rest van het packet in, ook de 0x22 erachter.
+        const Bytes eadp = ask(bus, 0x01, "21 01 20 01 04 32 02 04 0F 7D 00 22 07");
+        CHECK(eadp.size() == 3 + 1 + 3 + 6 + 1 + 1 + 1 && eadp[3] == kJvsStatusOk && eadp[eadp.size() - 2] == kJvsReportOk);
     }
 
     std::string err;

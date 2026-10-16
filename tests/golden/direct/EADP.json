@@ -1,7 +1,7 @@
 {
  "plan": {
   "input": {
-   "board": "SegaGun2P",
+   "board": "TaitoEADP",
    "control_pipe": "",
    "layout": "EADP",
    "route": "jvs",
@@ -60,7 +60,7 @@
    "files": [
     [
      "@TMP@/home/games/EADP/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHide Shoot the display msg=1\nMulti Screen=0\nRender Hook=Present\nScale Test Menu=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\nWidth Thickness=0\nHeight Thickness=0\nScale=0\n[Border]\nEnable=0\nThickness=0\nScale=0\n[Attraction Doors]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHide Shoot the display msg=1\nMulti Screen=0\nRender Hook=Present\nScale Test Menu=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\nWidth Thickness=0\nHeight Thickness=0\nScale=0\n[Border]\nEnable=0\nThickness=0\nScale=0\n[Attraction Doors]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/EADP/Game.exe",
@@ -125,7 +125,7 @@
  },
  "start": {
   "input": {
-   "board": "SegaGun2P",
+   "board": "TaitoEADP",
    "control_pipe": "",
    "layout": "EADP",
    "route": "jvs",
@@ -184,7 +184,7 @@
    "files": [
     [
      "@TMP@/home/games/EADP/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHide Shoot the display msg=1\nMulti Screen=0\nRender Hook=Present\nScale Test Menu=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\nWidth Thickness=0\nHeight Thickness=0\nScale=0\n[Border]\nEnable=0\nThickness=0\nScale=0\n[Attraction Doors]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHide Shoot the display msg=1\nMulti Screen=0\nRender Hook=Present\nScale Test Menu=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\nWidth Thickness=0\nHeight Thickness=0\nScale=0\n[Border]\nEnable=0\nThickness=0\nScale=0\n[Attraction Doors]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/EADP/Game.exe",

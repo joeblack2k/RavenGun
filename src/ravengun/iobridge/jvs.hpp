@@ -119,9 +119,11 @@ struct JvsBoard {
     // Taito-bord ("taito": true; Taito Type X2-geweerspellen, Haunted Museum): de game stuurt na de functies ook pakketten aan
     // node 0 en eigen commando's die geen JVS-standaard zijn. Zo'n bord neemt node 0 als zijn eigen adres en beantwoordt:
     //   0x01 <p>      rapport 01, dan 01 01;   0x03 <p>      rapport 01, dan 01;
-    //   0x04          rapport 01;              0x05 <p> <q>  rapport 01.
+    //   0x04          rapport 01;              0x05 <p> <q>  rapport 01;
+    //   0x78..0x80    vaste lengte van 15 bytes (of de rest van het packet), rapport 01 (zoals bij namco).
     // Feiten (lengtes en antwoorden) uit de beschrijving van de JVS-node van de open TeknoParrotUI-bron (JvsTaito01..05), gemeten
-    // 2026-10-16: Haunted Museum stuurt 00 04 05 03 E8 en wacht op antwoord; geen code overgenomen (docs/decisions.md).
+    // 2026-10-16: Haunted Museum stuurt 00 04 05 03 E8 en wacht op antwoord, Elevator Action Death Parade stuurt 21 01 20 01 04 32 02 04
+    // 0F 7D 00 22 07 (0x7D slikt de 0x22 in); geen code overgenomen (docs/decisions.md).
     bool taito = false;
 };
 
