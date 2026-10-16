@@ -139,6 +139,19 @@ APPDIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
 mkdir -p "$STATE/logs"
 
+# De Unity-plugins: de daemon weigert een plugin die ouder is dan een bronbestand (src/ravengun/launch/unity.cpp). Zeg het hier al,
+# niet pas bij een dubbelklik (2026-10-16: een gewijzigde opmerking in Settings.cs hield Tomb Raider en Rabbids tegen).
+if [[ -d $DATA/plugins/unity/src && -d $PREFIX/lib/unity-plugin ]]; then
+  newest_src="$(find "$DATA/plugins/unity/src" -name '*.cs' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)"
+  for dll in "$PREFIX"/lib/unity-plugin/*/RavenGun.*.dll; do
+    [[ -f $dll ]] || continue
+    if [[ -n $newest_src ]] && awk -v a="$newest_src" -v b="$(stat -c %.9Y "$dll")" 'BEGIN { exit !(a > b) }'; then
+      g="$(basename "$(dirname "$dll")")"
+      echo "WARNING: the Unity plugin for $g is older than its sources and will not start; rebuild it: scripts/build-unity-plugin.sh $g" >&2
+    fi
+  done
+fi
+
 # --- 3. Gebruikersservices ---------------------------------------------------------------------------------------------------
 # Engine: het sjabloon invullen en activeren (install-service.sh uit de geïnstalleerde kopie).
 WAS_ACTIVE=0
