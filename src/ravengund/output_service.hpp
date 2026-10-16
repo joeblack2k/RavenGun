@@ -45,9 +45,11 @@ public:
 
     OutputResult arm();
     OutputResult disarm();                  // stopt een lopend patroon, geeft alle knoppen vrij
-    OutputResult start_pattern(const ravengun::output::PatternParams& p);  // vereist armed (speler 1)
+    // Testpatroon en testknop voor speler `player` (1..4, standaard 1; vereist armed). Een tweede speler maakt het kalibreren van
+    // P2 in een testmenu mogelijk (Haunted Museum II: NOT CALIBRATED voor P1 en P2).
+    OutputResult start_pattern(const ravengun::output::PatternParams& p, int player = 1);
     OutputResult stop_pattern();
-    OutputResult button(ravengun::output::GunButton b, const std::string& action);  // down|up|tap (vereist armed; speler 1)
+    OutputResult button(ravengun::output::GunButton b, const std::string& action, int player = 1);  // down|up|tap
     OutputResult set_transform(const ravengun::output::GunTransform& t);
 
     // Geeft alle knoppen en toetsen van alle spelers vrij (bronuitval) zonder te disarmen.
@@ -115,7 +117,10 @@ private:
     };
     Player& p1() { return players_[0]; }
     const Player& p1() const { return players_[0]; }
-    bool should_exist(int player) const { return player == 1 || ((active_ | mouse_) & (1u << (player - 1))) != 0; }
+    bool should_exist(int player) const { return player == 1 || ((active_ | mouse_ | test_) & (1u << (player - 1))) != 0; }
+    // Een testpatroon, testknop of testtoets voor speler `player` maakt zijn gun (als de uitvoer gewapend is); telt tot disarm.
+    // false = niet gewapend.
+    bool test_source_locked(Player& p);
     void arm_player_locked(Player& p);
     void pattern_main(std::vector<ravengun::output::PatternStep> steps, ravengun::output::PatternParams p, uint64_t run_id);
     void stop_pattern_locked(std::unique_lock<std::mutex>& lk);
@@ -129,6 +134,7 @@ private:
     std::array<Player, kPlayers> players_;
     unsigned active_ = 1;
     unsigned mouse_ = 0;   // spelers met een muis als bron (set_mouse_players)
+    unsigned test_ = 0;    // spelers met een testbron (testpatroon of testknop, tot disarm)
     std::array<ravengun::iobridge::IoPadInput, kPlayers> pads_{};   // set_pad_input
     bool armed_ = false;
     // Uitvoerklok: eigen thread, schrijft onder m_ de geëxtrapoleerde positie tussen de rapporten (zie aim_clock.hpp).
@@ -139,6 +145,7 @@ private:
 
     std::thread pattern_thread_;
     bool pattern_running_ = false;
+    int pattern_player_ = 1;   // de speler van het lopende of laatste patroon
     bool pattern_stop_ = false;
     uint64_t pattern_run_ = 0;
     ravengun::output::PatternParams pattern_params_;

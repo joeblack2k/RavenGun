@@ -613,13 +613,13 @@ std::string handle_output(SharedState& sh, const ipc::Request& r) {
             if (r.x) p.x = *r.x;
             if (r.y) p.y = *r.y;
             if (r.rate_hz_pattern) p.rate_hz = *r.rate_hz_pattern;
-            return output_reply(r, o.start_pattern(p), sh);
+            return output_reply(r, o.start_pattern(p, r.player.value_or(1)), sh);
         }
         case ipc::Cmd::OutputButton: {
             output::GunButton b;
             if (!output::parse_button(r.button, b))
                 return ipc::error_response({"invalid_argument", "onbekende knop '" + r.button + "' (trigger, reload, grenade, aux1, aux2)", r.id_json});
-            return output_reply(r, o.button(b, r.action), sh);
+            return output_reply(r, o.button(b, r.action, r.player.value_or(1)), sh);
         }
         case ipc::Cmd::SetOutput: {
             output::GunTransform t = o.transform();

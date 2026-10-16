@@ -93,7 +93,8 @@
    "coins": ["coin1", "coin2"]
   },
   "TaitoGun": {
-   "description": "Taito Type X2-geweerspellen (Gaia Attack 4, Haunted Museum I/II): hetzelfde bord als SegaGun2P (TeknoParrot gebruikt zijn standaardbord), maar bedraad zoals de TeknoParrot-profielen: START van speler 1 op P1 omhoog, START van speler 2 op P1 omlaag. Trekkers en richten gaan via de besturingsbytes van MusicGunGun2Pipe (tp-shm), niet via JVS. Gemeten 2026-10-16: Gaia Attack 4 leest 0x20 voor 1 speler x 3 bytes en 0x22 voor 10 kanalen.",
+   "description": "Taito Type X2-geweerspellen (Gaia Attack 4, Haunted Museum I/II): hetzelfde bord als SegaGun2P (TeknoParrot gebruikt zijn standaardbord), maar bedraad zoals de TeknoParrot-profielen: START van speler 1 op P1 omhoog, START van speler 2 op P1 omlaag. Trekkers en richten gaan via de besturingsbytes van MusicGunGun2Pipe (tp-shm), niet via JVS. Gemeten 2026-10-16: Gaia Attack 4 leest 0x20 voor 1 speler x 3 bytes en 0x22 voor 10 kanalen; Haunted Museum stuurt daarna 00 04 05 03 E8 (taito: node 0 en de commando's 0x01..0x05).",
+   "taito": true,
    "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
    "comm_version": "0x10",
    "jvs_version": "0x20",

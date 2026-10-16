@@ -179,6 +179,15 @@ void test_board_file() {
         s.player[1].start = true;
         bus.set_input(s);
         CHECK(hex(ask(bus, 0x01, "20 01 03")) == "E0 00 07 01 01 00 10 00 00 19");   // P2 START = P1 omlaag (bit 4)
+        // Taito: een pakket aan node 0 en de eigen commando's (Haunted Museum: 00 04 05 03 E8).
+        CHECK(t->taito && !g->taito);
+        CHECK(hex(ask(bus, 0x00, "05 03 E8")) == "E0 00 03 01 01 05");
+        CHECK(hex(ask(bus, 0x01, "01 00 03 00 04")) == "E0 00 08 01 01 01 01 01 01 01 0F");
+        JvsBus sega;
+        sega.add_node(*g);
+        talk(sega, "E0 FF 03 F1 01 F4");
+        CHECK(ask(sega, 0x00, "05 03 E8").empty());                         // een gewoon bord: node 0 is de host, geen antwoord
+        CHECK(hex(ask(sega, 0x01, "05 03 E8")) == "E0 00 02 02 04");       // en 0x05 is onbekend (status 2)
     }
 
     std::string err;

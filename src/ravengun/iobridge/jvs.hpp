@@ -116,6 +116,13 @@ struct JvsBoard {
     // Feiten (lengtes en antwoordbytes) uit de beschrijving van de JVS-node van de open TeknoParrotUI-bron (NBGI_MarioKart3,
     // Namco = true); geen code overgenomen (docs/decisions.md).
     bool namco = false;
+    // Taito-bord ("taito": true; Taito Type X2-geweerspellen, Haunted Museum): de game stuurt na de functies ook pakketten aan
+    // node 0 en eigen commando's die geen JVS-standaard zijn. Zo'n bord neemt node 0 als zijn eigen adres en beantwoordt:
+    //   0x01 <p>      rapport 01, dan 01 01;   0x03 <p>      rapport 01, dan 01;
+    //   0x04          rapport 01;              0x05 <p> <q>  rapport 01.
+    // Feiten (lengtes en antwoorden) uit de beschrijving van de JVS-node van de open TeknoParrotUI-bron (JvsTaito01..05), gemeten
+    // 2026-10-16: Haunted Museum stuurt 00 04 05 03 E8 en wacht op antwoord; geen code overgenomen (docs/decisions.md).
+    bool taito = false;
 };
 
 struct JvsBoards {

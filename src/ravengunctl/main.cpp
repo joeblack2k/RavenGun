@@ -80,6 +80,7 @@ void usage(FILE* f) {
         "  test-pattern center|corners|grid|sweep|stop   synthetische posities zonder Move (vereist arm)\n"
         "  test-pattern point X Y                         één punt, X en Y in [0,1] (linksboven 0 0)\n"
         "  output-button trigger|reload|grenade|aux1|aux2 [down|up|tap]   testknop (standaard tap)\n"
+        "              test-pattern en output-button: --player N voor speler N (standaard 1; bv. P2 kalibreren in een testmenu)\n"
         "  key NAAM [down|up|tap]    toets op het virtuele toetsenbord (munt 5, start 1..4, test 0), standaard tap;\n"
         "              --player N kiest de speler; vereist arm\n"
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
@@ -576,6 +577,7 @@ int main(int argc, char** argv) {
             if (duration > 0) rq.duration_s = duration;
             if (margin >= 0) rq.margin = margin;
             if (rate > 0) rq.rate_hz_pattern = rate;
+            if (g_player > 0) rq.player = g_player;
             Reply r = call(c, rq);
             if (r.code != kExitOk) return r.code;
             if (json) std::printf("%s\n", r.line.c_str());
@@ -588,6 +590,7 @@ int main(int argc, char** argv) {
             rq.cmd = ipc::Cmd::OutputButton;
             rq.button = pos[0];
             rq.action = pos.size() > 1 ? pos[1] : "tap";
+            if (g_player > 0) rq.player = g_player;
             Reply r = call(c, rq);
             if (r.code != kExitOk) return r.code;
             if (json) std::printf("%s\n", r.line.c_str());

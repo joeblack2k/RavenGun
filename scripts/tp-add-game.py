@@ -23,14 +23,16 @@ hetzelfde relatieve pad. Standaard 0.
 --empty-dir REL: (herhaalbaar, met --view) maakt in de view van REL (pad ten opzichte van de gamemap) een lege map in plaats
 van een link naar de NAS; de rest van de boom blijft links. Voor Raccoon Rampage: --empty-dir RSGame/Content/Movies (de
 intro-video's vragen een AAC-decoder die deze Wine mist; het spel stopt dan met exitcode 1).
+--real-dir REL: (herhaalbaar, met --view) maakt in de view van REL een echte map met links naar de inhoud in plaats van een link
+naar de NAS. Proton meldt een gelinkte map als reparse point (0x410); Haunted Museum II wil voor data/ precies 0x10.
 --vdesktop WxH: voor games die in volledig scherm vastlopen onder Wine (Let's Go Island: ChangeDisplaySettingsEx wacht
 eindeloos terwijl de hoofdthread niet pompt) en in vensterstand door de kern crashen (CreateWindowExW met een klasse-atoom als
 venstertitel): maakt een eigen prefix-kopie ravengun-test-<profiel> (reflink-kopie van shared/wine, zonder de link C:/Sega),
 zet daarin een Wine-virtueel bureaublad WxH (HKCU/Software/Wine/Explorer), zet Windowed=0 in het profiel en laat de game die
 prefix gebruiken (wrappers/wine-prefix, [Wine] Prefix, VirtualDesktop). De gedeelde prefix blijft ongemoeid.
 --fullscreen: zet Windowed uit en (waar de sjabloon dat veld heeft) een eigen resolutie 1920x1080 aan.
---view: (een start doet dit voor een game op de NAS vanzelf, met [Launch] View = N voor --view-up N en [Launch] ViewEmptyDirs voor
---empty-dir; docs/per-game-patches.md "De view"; de opbouw staat in scripts/gameview.py)
+--view: (een start doet dit voor een game op de NAS vanzelf, met [Launch] View = N voor --view-up N, [Launch] ViewEmptyDirs voor
+--empty-dir en [Launch] ViewRealDirs voor --real-dir; docs/per-game-patches.md "De view"; de opbouw staat in scripts/gameview.py)
 maakt een lokale map met symlinks naar de bestanden van de game (er wordt niets van de game gekopieerd, op BepInEx/ na, en
 de bron blijft ongewijzigd). Bij ElfLdr2-games komt er een link ElfLdr2 naar de loader van TeknoParrot bij:
 nodig voor 32-bit ElfLdr2-games, want TeknoParrot 2.0.0.130 start daar "ElfLdr2/BudgieLoader.exe" relatief aan de
@@ -124,9 +126,10 @@ def main():
     argv = sys.argv[1:]
     envs = [argv[i + 1] for i, a in enumerate(argv) if a == '--env' and i + 1 < len(argv)]
     empties_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--empty-dir' and i + 1 < len(argv)]
+    echte_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--real-dir' and i + 1 < len(argv)]
     up_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--view-up' and i + 1 < len(argv)]
     vd_arg = [argv[i + 1] for i, a in enumerate(argv) if a == '--vdesktop' and i + 1 < len(argv)]
-    args = [a for a in args if a not in envs and a not in empties_arg and a not in up_arg and a not in vd_arg]
+    args = [a for a in args if a not in envs and a not in empties_arg and a not in echte_arg and a not in up_arg and a not in vd_arg]
     if len(args) != 2:
         sys.exit(__doc__)
     prof, game = args[0], os.path.abspath(os.path.expanduser(args[1]))
@@ -143,9 +146,10 @@ def main():
         rel = os.path.relpath(game, gdir)          # pad van de exe ten opzichte van de view-wortel
         view = os.path.expanduser(f'~/.local/share/ravengun/runtime/views/{prof}')
         empties = [argv_[i + 1] for i, a in enumerate(argv_) if a == '--empty-dir' and i + 1 < len(argv_)]
+        echte = [argv_[i + 1] for i, a in enumerate(argv_) if a == '--real-dir' and i + 1 < len(argv_)]
         elf = os.path.join(TP, 'ElfLdr2') if '<EmulatorType>ElfLdr2</EmulatorType>' in open(src, encoding='utf-8-sig').read() else None
         try:
-            maak_view(gdir, view, rel, empties, elf, on_nas=gv_on_nas, log=print)
+            maak_view(gdir, view, rel, empties, elf, on_nas=gv_on_nas, log=print, echte=echte)
         except ViewFout as e:
             sys.exit(f'view: {e}')
         game = os.path.join(view, rel)

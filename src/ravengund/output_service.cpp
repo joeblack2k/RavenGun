@@ -115,6 +115,13 @@ void OutputService::arm_player_locked(Player& p) {
     if (!was) logf("info", "virtuele lightgun speler %d: %s (%s)", p.number, p.id.name.c_str(), event_node(p).c_str());
 }
 
+bool OutputService::test_source_locked(Player& p) {
+    if (!armed_) return false;
+    test_ |= 1u << (p.number - 1);
+    if (!p.out->armed()) arm_player_locked(p);
+    return p.out->armed();
+}
+
 OutputResult OutputService::arm() {
     std::unique_lock<std::mutex> lk(m_);
     if (shut_) return {false, "unavailable", "uitvoer is afgesloten"};
@@ -144,6 +151,7 @@ OutputResult OutputService::disarm() {
     if (armed_) logf("info", "uitvoer ontwapend: knoppen vrijgegeven");
     for (auto& p : players_) { p.out->disarm(); p.clock.clear(); p.ov.clear(); }
     armed_ = false;
+    test_ = 0;
     return {};
 }
 
@@ -227,7 +235,7 @@ OutputResult OutputService::key(int player, int code, const std::string& action)
     std::unique_lock<std::mutex> lk(m_);
     Player& p = players_[static_cast<size_t>(player - 1)];
     GunOutput& out = *p.out;
-    if (!armed_ || !out.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
+    if (!test_source_locked(p)) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
     // Synthetisch (OR met de live stand): een live Move-rapport dat "los" zegt mag deze druk niet wegzetten. Na up of het
     // einde van de tap volgt de toets weer de live stand.
     if (action == "up") {
@@ -301,7 +309,7 @@ void OutputService::feed_live(int player, const LiveAction& a, int src) {
         return;
     }
     if (!out.armed()) { p.clock.clear(); return; }
-    if (pattern_running_ && player == 1 && !a.no_aim) { ++p.live_suspended; return; }  // testpatroon heeft voorrang (op de aim)
+    if (pattern_running_ && player == pattern_player_ && !a.no_aim) { ++p.live_suspended; return; }  // testpatroon heeft voorrang (op de aim)
     if (a.no_aim) {
         // Gamepad: geen richtpunt, alleen knoppen en toetsen (hieronder).
     } else if ((p.live_aim_valid = a.move)) {
@@ -347,15 +355,18 @@ void OutputService::shutdown() {
     armed_ = false;
 }
 
-OutputResult OutputService::start_pattern(const PatternParams& p) {
+OutputResult OutputService::start_pattern(const PatternParams& p, int player) {
+    if (player < 1 || player > kPlayers) return {false, "invalid_argument", "ongeldige speler"};
     std::string err;
     auto steps = generate_pattern(p, err);
     if (steps.empty()) return {false, "invalid_argument", err.empty() ? "ongeldig patroon" : err};
     std::unique_lock<std::mutex> lk(m_);
-    if (!p1().out->armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
+    Player& pl = players_[static_cast<size_t>(player - 1)];
+    if (!test_source_locked(pl)) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
     stop_pattern_locked(lk);
-    if (!p1().out->armed()) return {false, "unavailable", "uitvoer is niet gewapend"};
-    p1().clock.clear();  // het patroon heeft voorrang; geen verouderd anker dat daarna terugspringt
+    if (!pl.out->armed()) return {false, "unavailable", "uitvoer is niet gewapend"};
+    pl.clock.clear();  // het patroon heeft voorrang; geen verouderd anker dat daarna terugspringt
+    pattern_player_ = player;
     pattern_stop_ = false;
     pattern_running_ = true;
     pattern_state_ = "running";
@@ -373,7 +384,7 @@ void OutputService::pattern_main(std::vector<PatternStep> steps, PatternParams p
     auto t0 = steady_clock::now();
     auto at = [&](double s) { return t0 + std::chrono::duration_cast<steady_clock::duration>(duration<double>(s)); };
     std::unique_lock<std::mutex> lk(m_);
-    GunOutput& out = *p1().out;
+    GunOutput& out = *players_[static_cast<size_t>(pattern_player_ - 1)].out;
     bool stopped = false;
     for (size_t i = 0; i < steps.size(); ++i) {
         if (cv_.wait_until(lk, at(steps[i].t_s), [&] { return pattern_stop_ || !out.armed(); })) { stopped = true; break; }
@@ -391,11 +402,12 @@ void OutputService::pattern_main(std::vector<PatternStep> steps, PatternParams p
     }
 }
 
-OutputResult OutputService::button(GunButton b, const std::string& action) {
+OutputResult OutputService::button(GunButton b, const std::string& action, int player) {
+    if (player < 1 || player > kPlayers) return {false, "invalid_argument", "ongeldige speler"};
     std::unique_lock<std::mutex> lk(m_);
-    Player& p = p1();
+    Player& p = players_[static_cast<size_t>(player - 1)];
     GunOutput& out = *p.out;
-    if (!out.armed()) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
+    if (!test_source_locked(p)) return {false, "unavailable", "uitvoer is niet gewapend: gebruik eerst 'arm'"};
     // Synthetisch (OR met de live stand), zie key(): live rapporten annuleren deze druk niet.
     if (action == "up") {
         p.ov.release_button(b);

@@ -68,15 +68,21 @@ def show_diff(a, b):
 GAMES = {
     # Een UE4-achtige game diep in zijn map (--view-up 3), met BepInEx/ (lokaal gekopieerd) en een lege map (--empty-dir).
     "Grote": {
-        "dir": "Grote Game", "exe": "RSGame/Binaries/Win64/Game.exe", "type": "TeknoParrot", "up": 3, "empty": ["RSGame/Content/Movies"],
+        "dir": "Grote Game", "exe": "RSGame/Binaries/Win64/Game.exe", "type": "TeknoParrot", "up": 3, "empty": ["RSGame/Content/Movies"], "real": [],
         "files": {"RSGame/Binaries/Win64/Game.exe": b"MZgame", "RSGame/Binaries/Win64/x.dll": b"MZx", "RSGame/Content/Movies/intro.mp4": b"m",
                   "RSGame/Content/Paks/a.pak": b"pak", "Engine/Binaries/e.dll": b"e", "BepInEx/config/c.cfg": b"cfg",
                   "BepInEx/plugins/p.dll": b"MZp", "readme.txt": b"lees", "met spatie.txt": b" ", "RSGame/Binaries/Win64/teknoparrot.ini": b"oud"},
     },
     # Een 32-bit ElfLdr2-game een map diep: de link ElfLdr2 naar de lader van TeknoParrot komt erbij.
     "Elf": {
-        "dir": "Elf Game", "exe": "game/elf.bin", "type": "ElfLdr2", "up": 1, "empty": [],
+        "dir": "Elf Game", "exe": "game/elf.bin", "type": "ElfLdr2", "up": 1, "empty": [], "real": [],
         "files": {"game/elf.bin": b"\x7fELFgame", "game/lib.so": b"\x7fELFlib", "data/d.bin": b"d", "top.txt": b"t"},
+    },
+    # Een Type X2-game die op precies FILE_ATTRIBUTE_DIRECTORY controleert (Haunted Museum II): data/ een echte map met links
+    # (--real-dir, [Launch] ViewRealDirs); de submappen erin blijven links.
+    "Taito": {
+        "dir": "Taito Game", "exe": "game.exe", "type": "TeknoParrot", "up": 0, "empty": [], "real": ["data"],
+        "files": {"game.exe": b"MZgame", "data/sound/a.csb": b"s", "data/t.lst": b"t", "OpenParrot/x.cfg": b"c"},
     },
 }
 
@@ -112,7 +118,8 @@ def main(argv):
             write(os.path.join(tp, "GameProfiles", name + ".xml"),
                   "<GameProfile><GameProfileRevision>1</GameProfileRevision><EmulatorType>%s</EmulatorType>"
                   "<GameNameInternal>%s</GameNameInternal><Is64Bit>false</Is64Bit><ConfigValues /></GameProfile>" % (g["type"], name))
-            launch = "[Launch]\nMode = direct\n" + ("ViewEmptyDirs = %s\n" % ", ".join(g["empty"]) if g["empty"] else "")
+            launch = "[Launch]\nMode = direct\n" + ("ViewEmptyDirs = %s\n" % ", ".join(g["empty"]) if g["empty"] else "") + \
+                ("ViewRealDirs = %s\n" % ", ".join(g["real"]) if g["real"] else "")
             write(os.path.join(patches, name, "game.ini"),
                   "[Game]\nProfile = %s\nType = %s\nExecutable = %s\nProfileRevision = 1\n\n%s\n[Input]\nRoute = tp-shm\nLayout = WartranTroopers\n\n"
                   "[Identify]\nPath = %s\nSize = %d\nFolder = %s\n\n[Config]\nGeneral/Windowed = 1\n\n[ConfigType]\nGeneral/Windowed = Bool\n"
@@ -141,6 +148,8 @@ def main(argv):
             cmd = [sys.executable, "-I", os.path.join(SCRIPTS, "tp-add-game.py"), name, src_exe, "--view", "--view-up", str(g["up"])]
             for e in g["empty"]:
                 cmd += ["--empty-dir", e]
+            for e in g["real"]:
+                cmd += ["--real-dir", e]
             r = subprocess.run(cmd, capture_output=True, text=True, env=env_for("user-script"))
             check(r.returncode == 0, "%s: tp-add-game.py: %s%s" % (name, r.stdout, r.stderr))
             script = snapshot(view)
@@ -154,8 +163,12 @@ def main(argv):
                 check(script.get("BepInEx/config/c.cfg", ("",))[0] == "F", "Grote: BepInEx/ is niet lokaal gekopieerd")
                 check(script.get("RSGame/Content/Movies") == ("D",) and "RSGame/Content/Movies/intro.mp4" not in script, "Grote: Movies is niet leeg")
                 check(script.get("Engine") == ("L", os.path.join(nas, g["dir"], "Engine")), "Grote: Engine is geen link")
-            else:
+            elif name == "Elf":
                 check(script.get("ElfLdr2") == ("L", os.path.join(tp, "ElfLdr2")), "Elf: de link ElfLdr2 ontbreekt")
+            else:
+                check(script.get("data") == ("D",) and script.get("data/t.lst") == ("L", os.path.join(nas, g["dir"], "data/t.lst")) and
+                      script.get("data/sound") == ("L", os.path.join(nas, g["dir"], "data/sound")), "Taito: data/ is geen echte map met links")
+                check(script.get("OpenParrot") == ("L", os.path.join(nas, g["dir"], "OpenParrot")), "Taito: OpenParrot is geen link")
             shutil.rmtree(view)
             # 2. De engine bij een start.
             d = rg_plan(name, "user-engine")
@@ -172,6 +185,19 @@ def main(argv):
                                capture_output=True, text=True, env=env_for("user-engine"))
             check(not os.path.lexists(view), "%s: rg-direct --plan zonder --make-view maakte een view" % name)
             check(r.returncode == 0 and json.loads(r.stdout)["plan"]["game"] == src_exe, "%s: droog plan rekent niet met de NAS" % name)
+
+        # ViewRealDirs op een bestaande view: een data/ die nog een link is wordt bij de volgende start een echte map met links.
+        tv = os.path.join(views, "Taito")
+        rg_plan("Taito", "user-engine")
+        shutil.rmtree(os.path.join(tv, "data"))
+        os.symlink(os.path.join(nas, "Taito Game", "data"), os.path.join(tv, "data"))
+        write(os.path.join(nas, "Taito Game", "data", "nieuw.bin"), "n")
+        rg_plan("Taito", "user-engine")
+        na = snapshot(tv)
+        check(na.get("data") == ("D",) and na.get("data/nieuw.bin", ("",))[0] == "L", "verversen: data/ werd geen echte map met links")
+        os.unlink(os.path.join(nas, "Taito Game", "data", "nieuw.bin"))
+        rg_plan("Taito", "user-engine")
+        check("data/nieuw.bin" not in snapshot(tv), "verversen: de link naar het verdwenen data/nieuw.bin staat er nog")
 
         # Een tweede start: de view staat er al; alleen de links worden ververst, lokale bestanden blijven.
         g = GAMES["Grote"]

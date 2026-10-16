@@ -613,6 +613,7 @@ er een link naar een `teknoparrot.ini` op de NAS, dan gaat alleen die link weg; 
 |---|---|---|
 | `[Launch] View` | `auto` (leeg, standaard): een view als de game op de NAS staat; de wortel is de map waar `[Identify] Path` begint (zonder `Path` de map van de exe). `off`: de oude route, rechtstreeks van de NAS (geen view, geen `teknoparrot.ini`, drop-ins geweigerd). Een getal `N` (0..99): altijd een view, ook voor een lokale game, met de wortel `N` mappen boven de map van de exe. | `--view`, `--view-up N` |
 | `[Launch] ViewEmptyDirs` | paden ten opzichte van de view-wortel, gescheiden door komma of puntkomma; elk wordt een lege lokale map in plaats van een link (bv. `RSGame/Content/Movies` voor Raccoon Rampage). `..` mag niet. | `--empty-dir REL` (herhaalbaar) |
+| `[Launch] ViewRealDirs` | idem; elk wordt een **echte** lokale map met links naar de inhoud, zoals de map van de exe. Proton meldt een gelinkte map als map plus reparse point (`GetFileAttributes` = 0x410, gemeten 2026-10-16); een game die op precies `FILE_ATTRIBUTE_DIRECTORY` (0x10) controleert, mist hem dan (Haunted Museum II: `.\data` -> `chdir("..\")`, SOUND ERROR). Een bestaande view wordt bij de volgende start omgezet. | `--real-dir REL` (herhaalbaar) |
 
 Regels:
 

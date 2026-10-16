@@ -67,7 +67,7 @@ bool takes_selector(Cmd c) {
     switch (c) {
         case Cmd::Status: case Cmd::Sample: case Cmd::Recenter: case Cmd::ClearTrim: case Cmd::Watch: case Cmd::SetFilter:
         case Cmd::SetAim: case Cmd::SetRumble: case Cmd::RumbleTest: case Cmd::SetLed: case Cmd::SetFusion: case Cmd::SetGunButtons:
-        case Cmd::Record: case Cmd::CalibMag: case Cmd::Blink: case Cmd::OutputKey:
+        case Cmd::Record: case Cmd::CalibMag: case Cmd::Blink: case Cmd::OutputKey: case Cmd::TestPattern: case Cmd::OutputButton:
             return true;
         default: return false;
     }

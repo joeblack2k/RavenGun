@@ -6,7 +6,7 @@ Werkwijze: pass 1 = titels met een bekend recept (snel), pass 2 = titels die nie
 dubbelklik in de app en 5 minuten attract of spel op de tv, met bewijs in `~/.local/share/ravengun/bench-captures/<Game>/`.
 Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels komen niet meer terug.
 
-Stand: 39 van 68 titels WORKING (57%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 21, overgeslagen: 15.
+Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 19, overgeslagen: 15.
 
 ## Taken per familie
 
@@ -16,7 +16,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 
 | Taak | Familie | Titels | Stand |
 |---|---|---|---|
-| T1 | Taito Type X2 | Gaia Attack 4, Elevator Action Death Parade, Haunted Museum, Haunted Museum II | bezig: Gaia Attack 4 WORKING (JVS-herverbinden, 0x22-kanalen, bord TaitoGun, zaaigoed-kalibratie); nu Haunted Museum I/II, EADP |
+| T1 | Taito Type X2 | Gaia Attack 4, Elevator Action Death Parade, Haunted Museum, Haunted Museum II | bezig: Gaia Attack 4, Haunted Museum en Haunted Museum II WORKING (JVS-herverbinden, 0x22-kanalen, bord TaitoGun met Taito-commando's, zaaigoed, ViewRealDirs); nu EADP |
 | T2 | Windows D3D9 zonder Present | Far Cry Paradise Lost, Robin Hood, Friction | open; diep: Vulkan/Proton, eigen wrapper als het moet |
 | T3 | SEGA Lindbergh | The House of the Dead 4, The House of the Dead 4 Special | open |
 | T4 | Namco ES3X | Time Crisis 5, Lost Land Adventure | open |
@@ -28,7 +28,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
 | geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
 
-## WORKING (39)
+## WORKING (41)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -37,6 +37,8 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Dream Raiders | SEGA RingWide | View = off (vanuit de view SOUND FUNCTION NOT FOUND) en gamescope (2026-10-16) |
 | Elevator Action Invasion | UNIS PC Based |  |
 | Gaia Attack 4 | Taito Type X2 | JVS-pipe met herverbinden, bord TaitoGun (START op P1 omhoog/omlaag), gamescope + Windowed = 1, geweerkalibratie als zaaigoed (2026-10-16) |
+| Haunted Museum | Taito Type X2 | recept Gaia Attack 4; bord TaitoGun beantwoordt de Taito-commando's (0x05 aan node 0); kalibratie als zaaigoed (2026-10-16) |
+| Haunted Museum II | Taito Type X2 | recept Gaia Attack 4 + ViewRealDirs = data (Proton: gelinkte map = reparse point, SOUND ERROR); kalibratie P1+P2, datum en 1 munt per credit als zaaigoed (2026-10-16) |
 | Gashaaaan!!!! | Konami PC Based | schermvullend via gamescope; BACKUP DATA ERROR opgelost door de schrijflaag (NVRAM bleef niet bewaard, 2026-10-16) |
 | Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
 | HALO Fireteam Raven | RAW Thrills Linux PC Based | native sinds 2026-10-15 (eigen lader, IRTrack-geweren via tools/rt-irtrack, geen TeknoParrot-lader); geluid via de FMOD-wrapper (native FMOD 1.10 als drop-in, STEREO of LPCM 5.1) |
@@ -85,7 +87,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | 2026-10-15 native: slottabel 806/806, RG_ELF_MAIN, libcaca-stub, dongle-hook; "Welcome to Walking Dead"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 
-## pass 2 (21)
+## pass 2 (19)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -95,8 +97,6 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
 | Ghostbusters | ICE/RT Linux PC Based | 2026-10-15 native: dongle-hook, RIO-brug; "Welcome to Ghostbusters"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
-| Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
-| Haunted Museum II | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Infinity Blade FX | ADRENALINE PC Based | geparkeerd; zie patches/<Game>/game.ini [Status] |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |

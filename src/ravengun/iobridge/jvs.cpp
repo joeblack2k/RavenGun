@@ -212,6 +212,7 @@ JvsBoards parse_jvs_boards(const std::string& text, std::string& err) {
         b.identify = str_or(o, "identify", b.identify);
         if (const json::Value* c = o.find("complete"); c && c->is_bool()) b.complete = c->b;
         if (const json::Value* c = o.find("namco"); c && c->is_bool()) b.namco = c->b;
+        if (const json::Value* c = o.find("taito"); c && c->is_bool()) b.taito = c->b;
         bool ok = int_field(o, "comm_version", b.comm_version) && int_field(o, "jvs_version", b.jvs_version) &&
                   int_field(o, "command_rev", b.command_rev) && int_field(o, "players", b.players) && int_field(o, "buttons", b.buttons) &&
                   int_field(o, "coin_slots", b.coin_slots) && int_field(o, "analog_channels", b.analog_channels) &&
@@ -341,6 +342,17 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
             }
         }
         const uint8_t cmd = d[pos++];
+        if (board_.taito && cmd >= 0x01 && cmd <= 0x05 && cmd != 0x02) {
+            // De eigen commando's van een Taito-bord (zie JvsBoard::taito).
+            const size_t tl = cmd == 0x05 ? 2 : (cmd == 0x04 ? 0 : 1);
+            if (pos + tl > d.size()) { rep.push_back(kJvsReportBadParamCount); break; }
+            pos += tl;
+            ++stats_.commands[cmd];
+            rep.push_back(kJvsReportOk);
+            if (cmd == 0x01) { rep.push_back(0x01); rep.push_back(0x01); }
+            else if (cmd == 0x03) rep.push_back(0x01);
+            continue;
+        }
         const int al = arg_length(d, pos, cmd);
         if (al == -1 && board_.namco) { ++stats_.unknown; continue; }   // Namco: een onbekende byte overslaan, zonder antwoord
         if (al == -1) { status = kJvsStatusUnknownCmd; ++stats_.unknown; break; }
@@ -504,7 +516,8 @@ std::vector<uint8_t> JvsBus::process(const JvsFrame& f) {
     std::vector<uint8_t> payload;
     bool sense = true;   // de sense-lijn staat bij de eerste node zonder adres, als alle voorgaande al een adres hebben
     for (auto& n : nodes_) {
-        const bool for_me = broadcast || (n.address() != 0 && n.address() == f.node);
+        // Een Taito-bord neemt ook node 0 (zie JvsBoard::taito), zodra het een adres heeft.
+        const bool for_me = broadcast || (n.address() != 0 && (n.address() == f.node || (f.node == kJvsHostAddr && n.board().taito)));
         if (for_me) {
             std::vector<uint8_t> r = n.handle(f.data, broadcast, sense);
             if (!r.empty()) { payload = std::move(r); break; }

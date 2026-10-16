@@ -172,9 +172,11 @@ def schrijf_fouten(view, rel, empties, on_nas=None):
     return fouten
 
 
-def maak_view(gdir, view, rel, empties=(), elfldr2=None, on_nas=None, log=None):
+def maak_view(gdir, view, rel, empties=(), elfldr2=None, on_nas=None, log=None, echte=()):
     """De view zoals tp-add-game.py --view hem maakt: links en lege mappen van een vorige keer weg, alles linken (BepInEx/ lokaal,
-    `empties` leeg), de keten naar de exe echte mappen, en ElfLdr2 (een link naar de lader van TeknoParrot) als `elfldr2` is gegeven.
+    `empties` leeg), de keten naar de exe echte mappen, de paden uit `echte` ([Launch] ViewRealDirs, --real-dir) ook echte mappen met
+    links (Proton meldt een gelinkte map als reparse point, 0x410; Haunted Museum II wil precies 0x10), en ElfLdr2 (een link naar de
+    lader van TeknoParrot) als `elfldr2` is gegeven.
     gdir = de gamemap die de view spiegelt, rel = de exe ten opzichte van gdir. Geeft het pad van de exe in de view."""
     log = log or (lambda m: None)
     nas = on_nas or _nooit
@@ -194,6 +196,9 @@ def maak_view(gdir, view, rel, empties=(), elfldr2=None, on_nas=None, log=None):
     link_tree(gdir, view, [e.strip('/').split('/') for e in empties], on_nas=on_nas)
     for d in maak_keten_lokaal(gdir, view, os.path.dirname(rel), on_nas):
         log('view: %s/ is een echte map met symlinks (de map van de exe hoort lokaal te zijn)' % os.path.relpath(d, view))
+    for r in echte:
+        maak_keten_lokaal(gdir, view, r.strip('/'), on_nas)
+        log('view: %s/ is een echte map met symlinks (ViewRealDirs)' % r.strip('/'))
     if elfldr2 and not os.path.lexists(os.path.join(view, 'ElfLdr2')):
         w(os.path.join(view, 'ElfLdr2')); os.symlink(elfldr2, os.path.join(view, 'ElfLdr2'))
     fouten = schrijf_fouten(view, rel, empties, on_nas)
@@ -203,10 +208,10 @@ def maak_view(gdir, view, rel, empties=(), elfldr2=None, on_nas=None, log=None):
     return os.path.join(view, rel)
 
 
-def ververs_view(gdir, view, rel, empties=(), on_nas=None, log=None):
-    """Een bestaande view alleen verversen: in de wortel en in de mappen op weg naar de exe (echte mappen) een link voor wat er in
-    de gamemap bij is gekomen, en links die naar een verdwenen bestand in de gamemap wijzen weg. Echte bestanden en mappen blijven
-    staan (ook lege mappen en BepInEx/)."""
+def ververs_view(gdir, view, rel, empties=(), on_nas=None, log=None, echte=()):
+    """Een bestaande view alleen verversen: in de wortel, in de mappen op weg naar de exe en in de echte mappen van `echte` een link
+    voor wat er in de gamemap bij is gekomen, en links die naar een verdwenen bestand in de gamemap wijzen weg. Een pad uit `echte`
+    dat nog een link is, wordt een echte map. Echte bestanden en mappen blijven staan (ook lege mappen en BepInEx/)."""
     log = log or (lambda m: None)
     nas = on_nas or _nooit
     if nas(view):
@@ -215,6 +220,20 @@ def ververs_view(gdir, view, rel, empties=(), on_nas=None, log=None):
     paren = [(view, gdir)]
     for deel in [x for x in os.path.dirname(rel).split('/') if x and x != '.']:
         paren.append((os.path.join(paren[-1][0], deel), os.path.join(paren[-1][1], deel)))
+    echte_paren = []
+    for r in echte:
+        delen = [x for x in r.strip('/').split('/') if x]
+        vd, sd = os.path.join(view, *delen), os.path.join(gdir, *delen)
+        pad = view
+        echt = True
+        for deel in delen:
+            pad = os.path.join(pad, deel)
+            if os.path.islink(pad) or not os.path.isdir(pad):
+                echt = False
+        if not echt:
+            maak_keten_lokaal(gdir, view, r.strip('/'), on_nas)
+            log('view: %s/ is een echte map met symlinks geworden (ViewRealDirs)' % r.strip('/'))
+        echte_paren.append((vd, sd))
     bij = weg = 0
     # ViewEmptyDirs op een bestaande view: elk pad wordt een lege echte map. Een symlink gaat weg (alleen de link, nooit wat erachter
     # staat), een ontbrekend pad wordt aangemaakt, een echte map (leeg of met inhoud) blijft zoals hij is. De mappen erboven moeten
@@ -233,25 +252,35 @@ def ververs_view(gdir, view, rel, empties=(), on_nas=None, log=None):
             elif os.path.lexists(p):
                 break
             w(p); os.makedirs(p, exist_ok=True)
-    for i, (vd, sd) in enumerate(paren):
-        if os.path.islink(vd) or not os.path.isdir(vd):
-            break                                   # geen echte map (meer): wat eronder zit is niet van ons
+    def ververs(vd, sd, wortel):
+        """Een echte map van de view: links bij voor wat er in de gamemap bij kwam, verdwenen links weg. Geeft (bij, weg)."""
+        b = x = 0
         try:
             namen = sorted(os.listdir(sd))
         except OSError:
             namen = []
         for e in namen:
-            if i == 0 and e.lower() in LOKAAL_MAPPEN:
+            if wortel and e.lower() in LOKAAL_MAPPEN:
                 continue
             dp = os.path.join(vd, e)
             if not os.path.lexists(dp):
                 w(dp); os.symlink(os.path.join(sd, e), dp)
-                bij += 1
+                b += 1
         for e in sorted(os.listdir(vd)):
             dp = os.path.join(vd, e)
             if os.path.islink(dp) and not os.path.exists(dp) and os.readlink(dp).startswith(sd + '/'):
                 w(dp); os.unlink(dp)
-                weg += 1
+                x += 1
+        return b, x
+
+    for i, (vd, sd) in enumerate(paren):
+        if os.path.islink(vd) or not os.path.isdir(vd):
+            break                                   # geen echte map (meer): wat eronder zit is niet van ons
+        b, x = ververs(vd, sd, i == 0)
+        bij, weg = bij + b, weg + x
+    for vd, sd in echte_paren:
+        b, x = ververs(vd, sd, False)
+        bij, weg = bij + b, weg + x
     if bij or weg:
         log('view: %s ververst (%d links bij, %d verdwenen links weg)' % (view, bij, weg))
     # Geen schrijf_fouten() hier: een bestaande view blijft zoals hij is (ook een met de hand gemaakte waarin de map van de exe nog een

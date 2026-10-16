@@ -174,7 +174,8 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
 bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& game, const std::string& et, const DirectPaths& p, bool make,
                std::vector<std::string>& notes, std::string& err) {
     ViewSetting vs;
-    if (!parse_view_setting(settings.get("Launch", "View"), settings.get("Launch", "ViewEmptyDirs"), vs, err)) return false;
+    if (!parse_view_setting(settings.get("Launch", "View"), settings.get("Launch", "ViewEmptyDirs"), vs, err, settings.get("Launch", "ViewRealDirs")))
+        return false;
     if (vs.mode == ViewSetting::Mode::Off) return true;
     const NasFn nas = [&p](const std::string& x) { return on_nas(x, p); };
     const std::string views = p.views();
@@ -183,7 +184,7 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
         const std::string wortel = view_wortel(dirname(game), p), rel = relpath(abspath(game), wortel), echt = realpath_(game);
         if (make && echt.ends_with("/" + rel) && !islink(wortel)) {
             std::vector<std::string> l;
-            if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}}, nas, l, err)) {
+            if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}, vs.real_dirs}, nas, l, err)) {
                 err = "view: " + err;
                 return false;
             }
@@ -202,7 +203,7 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
     std::string gdir = dirname(abspath(game));
     for (int i = 0; i < n; ++i) gdir = dirname(gdir);
     const std::string rel = relpath(abspath(game), gdir), view = pjoin(views, name), vgame = pjoin(view, rel);
-    const GameViewSpec spec{gdir, view, rel, vs.empty_dirs, et == "ElfLdr2" ? pjoin(p.tp, "ElfLdr2") : std::string()};
+    const GameViewSpec spec{gdir, view, rel, vs.empty_dirs, et == "ElfLdr2" ? pjoin(p.tp, "ElfLdr2") : std::string(), vs.real_dirs};
     bool leeg = false;
     if (isdir(view) && !islink(view)) {
         std::error_code ec;

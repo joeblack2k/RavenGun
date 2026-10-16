@@ -232,6 +232,11 @@ bool make_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<std:
     if (!maak_keten_lokaal(s.source, s.view, rel_dir_of(s.exe_rel), gedaan, g)) return false;
     for (const std::string& d : gedaan)
         log.push_back("view: " + fs::path(d).lexically_relative(s.view).string() + "/ is een echte map met symlinks (de map van de exe hoort lokaal te zijn)");
+    for (const std::string& r : s.real_dirs) {
+        gedaan.clear();
+        if (!maak_keten_lokaal(s.source, s.view, strip_slashes(r), gedaan, g)) return false;
+        log.push_back("view: " + strip_slashes(r) + "/ is een echte map met symlinks (ViewRealDirs)");
+    }
     if (!s.elfldr2.empty() && !lexists(pjoin(s.view, "ElfLdr2")) && !do_symlink(s.elfldr2, pjoin(s.view, "ElfLdr2"), g)) return false;
     const std::vector<std::string> fout = view_write_errors(s, on_nas);
     if (!fout.empty()) {
@@ -249,6 +254,23 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     std::vector<std::pair<std::string, std::string>> paren{{s.view, s.source}};
     for (const std::string& deel : split_rel(rel_dir_of(s.exe_rel)))
         paren.emplace_back(pjoin(paren.back().first, deel), pjoin(paren.back().second, deel));
+    // ViewRealDirs: een pad dat (nog) een link is wordt een echte map met links; daarna ververst zoals de keten naar de exe.
+    std::vector<std::pair<std::string, std::string>> echte;
+    for (const std::string& r : s.real_dirs) {
+        std::string vd = s.view, sd = s.source;
+        bool echt = true;
+        for (const std::string& deel : split_rel(strip_slashes(r))) {
+            vd = pjoin(vd, deel);
+            sd = pjoin(sd, deel);
+            if (islink(vd) || !isdir(vd)) echt = false;
+        }
+        if (!echt) {
+            std::vector<std::string> gedaan;
+            if (!maak_keten_lokaal(s.source, s.view, strip_slashes(r), gedaan, g)) return false;
+            log.push_back("view: " + strip_slashes(r) + "/ is een echte map met symlinks geworden (ViewRealDirs)");
+        }
+        echte.emplace_back(vd, sd);
+    }
     int bij = 0, weg = 0;
     // ViewEmptyDirs op een bestaande view: elk pad wordt een lege echte map. Een symlink gaat weg (alleen de link, nooit wat erachter
     // staat), een ontbrekend pad wordt aangemaakt, een echte map (leeg of met inhoud) blijft zoals hij is. De mappen erboven moeten
@@ -267,13 +289,12 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     }
     std::set<std::string> leeg_bedoeld;
     for (const std::string& e : s.empty_dirs) leeg_bedoeld.insert(strip_slashes(e));
-    for (size_t i = 0; i < paren.size(); ++i) {
-        const auto& [vd, sd] = paren[i];
-        if (islink(vd) || !isdir(vd)) break;   // geen echte map (meer): wat eronder zit is niet van ons
+    // Een echte map van de view verversen: links bij voor wat er in de gamemap bij kwam, verdwenen links weg.
+    auto ververs = [&](const std::string& vd, const std::string& sd, bool wortel) -> bool {
         std::vector<std::string> names;
         if (listdir(sd, names))
             for (const std::string& e : names) {
-                if (i == 0 && lokaal_map(e)) continue;
+                if (wortel && lokaal_map(e)) continue;
                 const std::string dp = pjoin(vd, e);
                 // Een LEGE echte map die niet in ViewEmptyDirs staat, waar de gamemap een map met inhoud heeft, is een overblijfsel
                 // (Bug Busters: video/ van een eerdere proef met ViewEmptyDirs; het spel vond zijn films niet en viel, 2026-10-15).
@@ -305,7 +326,15 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
             if (!do_unlink(dp, g)) return false;
             ++weg;
         }
+        return true;
+    };
+    for (size_t i = 0; i < paren.size(); ++i) {
+        const auto& [vd, sd] = paren[i];
+        if (islink(vd) || !isdir(vd)) break;   // geen echte map (meer): wat eronder zit is niet van ons
+        if (!ververs(vd, sd, i == 0)) return false;
     }
+    for (const auto& [vd, sd] : echte)
+        if (!ververs(vd, sd, false)) return false;
     if (bij || weg) log.push_back("view: " + s.view + " ververst (" + std::to_string(bij) + " links bij, " + std::to_string(weg) + " verdwenen links weg)");
     // Geen view_write_errors() hier: een bestaande view blijft zoals hij is (ook een met de hand gemaakte waarin de map van de exe nog
     // een link is; de drop-ins maken die zelf lokaal en teknoparrot.ini wordt dan niet op de NAS geschreven). Verversen schrijft zelf
@@ -343,7 +372,7 @@ std::vector<std::string> view_write_errors(const GameViewSpec& s, const NasFn& o
     return fouten;
 }
 
-bool parse_view_setting(const std::string& view_in, const std::string& empty_in, ViewSetting& out, std::string& err) {
+bool parse_view_setting(const std::string& view_in, const std::string& empty_in, ViewSetting& out, std::string& err, const std::string& real_in) {
     out = ViewSetting{};
     std::string v;
     for (char c : view_in)
@@ -357,25 +386,28 @@ bool parse_view_setting(const std::string& view_in, const std::string& empty_in,
         err = "[Launch] View = " + view_in + " (auto, off, of het aantal mappen boven de map van de exe waar de view begint)";
         return false;
     }
-    std::string cur;
-    auto flush = [&]() -> bool {
-        std::string t;
-        size_t a = 0, b = cur.size();
-        while (a < b && std::isspace(static_cast<unsigned char>(cur[a]))) ++a;
-        while (b > a && std::isspace(static_cast<unsigned char>(cur[b - 1]))) --b;
-        t = strip_slashes(cur.substr(a, b - a));
-        cur.clear();
-        if (t.empty()) return true;
-        for (const std::string& deel : split_rel(t))
-            if (deel == "..") { err = "[Launch] ViewEmptyDirs = " + empty_in + ": '" + t + "' gaat buiten de view"; return false; }
-        out.empty_dirs.push_back(t);
-        return true;
+    // Een lijst paden ten opzichte van de view-wortel, gescheiden door komma of puntkomma; `..` mag niet.
+    auto paden = [&](const std::string& key, const std::string& in, std::vector<std::string>& uit) -> bool {
+        std::string cur;
+        auto flush = [&]() -> bool {
+            size_t a = 0, b = cur.size();
+            while (a < b && std::isspace(static_cast<unsigned char>(cur[a]))) ++a;
+            while (b > a && std::isspace(static_cast<unsigned char>(cur[b - 1]))) --b;
+            const std::string t = strip_slashes(cur.substr(a, b - a));
+            cur.clear();
+            if (t.empty()) return true;
+            for (const std::string& deel : split_rel(t))
+                if (deel == "..") { err = "[Launch] " + key + " = " + in + ": '" + t + "' gaat buiten de view"; return false; }
+            uit.push_back(t);
+            return true;
+        };
+        for (char c : in) {
+            if (c == ',' || c == ';') { if (!flush()) return false; }
+            else cur += c;
+        }
+        return flush();
     };
-    for (char c : empty_in) {
-        if (c == ',' || c == ';') { if (!flush()) return false; }
-        else cur += c;
-    }
-    return flush();
+    return paden("ViewEmptyDirs", empty_in, out.empty_dirs) && paden("ViewRealDirs", real_in, out.real_dirs);
 }
 
 }  // namespace ravengun::launch

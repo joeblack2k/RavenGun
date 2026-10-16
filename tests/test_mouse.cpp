@@ -22,6 +22,7 @@
 #include "mouse_service.hpp"
 #include "output_service.hpp"
 #include "ravengun/ipc_protocol.hpp"
+#include "ravengun/output/key_table.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/output/mouse_gun.hpp"
@@ -446,6 +447,27 @@ size_t buttons_down(ravengund::OutputService& out, int p) {
 
 }  // namespace
 
+// Een testbron voor speler N (testknop en testpatroon; ravengunctl --player N): zijn gun komt erbij zonder Move of muis, zodat P2..P4
+// in een testmenu te kalibreren zijn (Haunted Museum II, 2026-10-16). Na disarm telt de testbron niet meer.
+static void test_test_source() {
+    std::map<int, FakeGun*> guns;
+    ravengund::OutputService out([&](int p) { auto g = std::make_unique<FakeGun>(); guns[p] = g.get(); return g; }, std::make_unique<FakeKbd>());
+    CHECK(!out.button(output::GunButton::Trigger, "tap", 2).ok);   // niet gewapend
+    CHECK(out.arm().ok && !guns[3]->exists);
+    CHECK(out.key(2, output::key_code("2"), "tap").ok && guns[2]->exists);   // START van speler 2
+    CHECK(out.button(output::GunButton::Trigger, "tap", 3).ok && guns[3]->exists);
+    output::PatternParams pp;
+    CHECK(output::parse_pattern("point", pp.kind));
+    pp.x = 0.25;
+    pp.y = 0.75;
+    CHECK(out.start_pattern(pp, 3).ok);
+    ravengund::OutputService::AimSnapshot s;
+    CHECK(wait_for([&] { return out.aim_snapshot(3, s) && s.have_position && std::fabs(s.u - 0.25) < 0.001 && std::fabs(s.v - 0.75) < 0.001; }));
+    CHECK(!out.button(output::GunButton::Trigger, "tap", 5).ok && !out.start_pattern(pp, 0).ok);
+    CHECK(out.disarm().ok && out.arm().ok && !out.aim_snapshot(3, s));   // de testbron is weg
+    out.shutdown();
+}
+
 static void test_service(const std::string& dir) {
     const std::string devdir = dir + "/dev-input";
     fs::create_directories(devdir);
@@ -634,6 +656,7 @@ int main() {
     test_parser(dir);
     test_mouse_gun();
     test_ipc_parser();
+    test_test_source();
     test_service(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);
