@@ -52,6 +52,10 @@ add_library(ravengun STATIC
   src/ravengun/launch/native.cpp
   src/ravengun/launch/unity.cpp
   src/ravengun/launch/direct.cpp
+  src/ravengun/launch/direct_util.cpp
+  src/ravengun/launch/direct_profile.cpp
+  src/ravengun/launch/direct_files.cpp
+  src/ravengun/launch/direct_apply.cpp
   src/ravengun/launch/pe_stack.cpp
   src/ravengun/launch/gameview.cpp
   src/ravengun/launch/gamefind.cpp
