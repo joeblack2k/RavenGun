@@ -5,6 +5,16 @@
 donglegegevens en drop-in: `dropin/`. Algemene bevindingen over de hele ElfLdr2-familie:
 `docs/elfldr2-route.md` in de loader-repo.*
 
+
+## Native route: geluid (drop-in)
+
+Halo vraagt FMOD Studio 1.10 voor Linux (`libfmod.so.10`, `libfmodstudio.so.10`); die zit niet in de dump en RavenGun levert hem
+niet mee. Zet je eigen exemplaren (64-bits) in `~/.local/share/ravengun/patches/Halo/dropin/fmod/`, bijvoorbeeld uit
+`steamapps/common/Celeste/lib64/` (Celeste levert FMOD 1.10.14; gemeten: laadt alle banks van Halo). De wrapper
+(`tools/fmod-bridge`) gebruikt die dan rechtstreeks, zonder Wine. In de opties van de game kies je STEREO of LPCM 5.1.
+Zonder drop-in valt hij terug op de Windows-FMOD van een TeknoParrot-installatie onder Wine, en anders speelt Halo stil.
+Bewijs: `bewijs-geluid-20261015/`.
+
 ## 1. Eindstand van de meting
 
 De game **start en blijft draaien**. Bewijs uit één start (`halo_shot2.sh`, logboek
