@@ -479,6 +479,7 @@ WriteLayer write_layer(const Config& c, const std::string& profile, const std::v
         w.dirs.push_back(base + "/work");
         w.prefix.insert(w.prefix.end(), {"--overlay-src", r, "--overlay", base + "/upper", base + "/work", r});
         w.log.push_back("schrijflaag: " + r + " (alleen lezen) -> " + base + "/upper");
+        w.layers.push_back({r, base + "/upper"});
     }
     // Ligt onze eigen datamap (prefixen, views, de schrijflaag zelf) binnen een spelmap (bv. de spelmap is ~), dan komt hij na de
     // overlays weer rechtstreeks terug: wat de daemon buiten de unit in de prefix zet, moet de game zien.
@@ -851,6 +852,12 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         fs::create_directories(d, ec);
         if (ec) return fail("schrijflaag " + d + " maken: " + ec.message());
     }
+    // Zaaigoed (patches/<Game>/seed/, seed.hpp): bv. de geweerkalibratie, in de schrijflaag als de game er nog geen heeft.
+    std::vector<std::string> seed_dirs;
+    for (const std::string& d : {c_.dirs.user, c_.dirs.shipped})
+        if (!d.empty()) seed_dirs.push_back(d + "/" + profile + "/seed");
+    const std::vector<std::string> seeded = seed_files(seed_dirs, fs::path(pl.game).parent_path().string(), wl.layers, err);
+    if (!err.empty()) return fail(profile + ": " + err);
     std::string log, plan_file;
     {
         std::string dir = c_.native_log_dir;
@@ -874,6 +881,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         f << "spel: " << pl.game << " (" << pl.game_source << ")\n";
         for (const std::string& l : placed) f << l << "\n";
         for (const std::string& l : wl.log) f << l << "\n";
+        for (const std::string& l : seeded) f << l << "\n";
         f << "cmd:";
         for (const std::string& a : direct_unit_argv(c_, plan_file, log, wl.prefix)) f << " " << a;
         f << "\n";

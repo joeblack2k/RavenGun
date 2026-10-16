@@ -62,7 +62,7 @@ if grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" 2>/de
   grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" >&2; fail "de installatie noemt het repopad $REPO"
 fi
 # De patches per game: in de installatie staat ALLEEN wat de lader, de daemon en de app lezen (<Game>/*.ini,
-# <Game>/native.json, <Game>/unity.json, <Game>/options.json, <Game>/dongle.json, <Game>/README.md, <Game>/dropin/ en <Game>/data/: wat het native profiel in de sandbox zet). De patches-repo is ook het dossier (logboeken van benchruns,
+# <Game>/native.json, <Game>/unity.json, <Game>/options.json, <Game>/dongle.json, <Game>/README.md, <Game>/dropin/ en <Game>/data/: wat het native profiel in de sandbox zet; <Game>/seed/: zaaigoed voor de schrijflaag). De patches-repo is ook het dossier (logboeken van benchruns,
 # metingen, meetscripts, notities, foto's); dat is bewijs en gaat niet mee. De controle op het repopad hierboven blijft
 # over de HELE installatie gaan, dus ook over deze bestanden: een game.ini of een drop-in die een ontwikkelpad noemt
 # is een echt lek. Deze controle hieronder zorgt dat het dossier die test niet meer kan breken, en dat er niets
@@ -70,12 +70,12 @@ fi
 if [[ -d "$REPO/patches" ]]; then
   SRC="$(cd "$REPO/patches" && pwd -P)"
   [[ -d "$D/patches" ]] || fail "de patches per game zijn niet geinstalleerd"
-  VREEMD="$(cd "$D/patches" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data)/' || true)"
+  VREEMD="$(cd "$D/patches" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' || true)"
   [[ -z "$VREEMD" ]] || { echo "$VREEMD" | head -20 >&2; fail "in de installatie staat iets uit de patches-repo dat de lader niet leest (dossier hoort niet mee)"; }
   LEEG="$(find "$D/patches" -type d -empty)"
   [[ -z "$LEEG" ]] || { echo "$LEEG" | head >&2; fail "lege mappen in de geinstalleerde patches"; }
   # Niets kwijt: elk bestand dat de lader leest staat er, met dezelfde inhoud.
-  NODIG="$(cd "$SRC" && find . -type f | sed 's|^\./||' | grep -E '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data)/' | sort)"
+  NODIG="$(cd "$SRC" && find . -type f | sed 's|^\./||' | grep -E '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' | sort)"
   [[ -n "$NODIG" ]] || fail "de patches-map bevat geen enkele game.ini"
   while IFS= read -r f; do
     cmp -s "$SRC/$f" "$D/patches/$f" || fail "ontbreekt of wijkt af in de installatie: patches/$f"

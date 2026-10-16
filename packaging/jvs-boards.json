@@ -92,6 +92,32 @@
    ],
    "coins": ["coin1", "coin2"]
   },
+  "TaitoGun": {
+   "description": "Taito Type X2-geweerspellen (Gaia Attack 4, Haunted Museum I/II): hetzelfde bord als SegaGun2P (TeknoParrot gebruikt zijn standaardbord), maar bedraad zoals de TeknoParrot-profielen: START van speler 1 op P1 omhoog, START van speler 2 op P1 omlaag. Trekkers en richten gaan via de besturingsbytes van MusicGunGun2Pipe (tp-shm), niet via JVS. Gemeten 2026-10-16: Gaia Attack 4 leest 0x20 voor 1 speler x 3 bytes en 0x22 voor 10 kanalen.",
+   "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",
+   "comm_version": "0x10",
+   "jvs_version": "0x20",
+   "command_rev": "0x13",
+   "players": 2,
+   "buttons": 14,
+   "coin_slots": 2,
+   "analog_channels": 8,
+   "analog_bits": 10,
+   "gp_outputs": 20,
+   "analog": [
+    { "signal": "p1.x", "min": 0, "max": 255 },
+    { "signal": "p1.y", "min": 0, "max": 255 },
+    { "signal": "p2.x", "min": 0, "max": 255 },
+    { "signal": "p2.y", "min": 0, "max": 255 }
+   ],
+   "switches": [
+    { "player": 0, "byte": 0, "bit": 7, "signal": "test" },
+    { "player": 1, "byte": 0, "bit": 6, "signal": "service" },
+    { "player": 1, "byte": 0, "bit": 5, "signal": "p1.start" },
+    { "player": 1, "byte": 0, "bit": 4, "signal": "p2.start" }
+   ],
+   "coins": ["coin1", "coin2"]
+  },
   "LGI": {
    "description": "Let's Go Island (Sega RingWide, TeknoParrot-profiel LGI, EmulationProfile SegaJvsLetsGoIsland): het gewone Sega-gunbord 837-14572. Kanaalvolgorde per speler volgens de bindingen van het profiel (Gun Y = Analog0, Gun X = Analog2, speler 2 Analog4 en Analog6): kanaal 0 = P1 Y, 1 = P1 X, 2 = P2 Y, 3 = P2 X. Het spel rekent de ruwe waarde om met een eigen venster, omgekeerd: x 131..228 en y 141..220 (aan het vizier in het scherm gemeten, 2026-10-11; het venster x 27..208, y 35..178 van het profiel geeft een vizier dat 1,87 maal te snel loopt). Zie findings/LetsGoIsland.md.",
    "identify": "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10",

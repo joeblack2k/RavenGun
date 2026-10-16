@@ -1672,7 +1672,7 @@ void AppCoreTest::bigPictureGameFilter() {
         return g;
     };
     QList<GameEntry> all{mk(QStringLiteral("TC5"), QStringLiteral("Time Crisis 5")), mk(QStringLiteral("GhostBusters"), QStringLiteral("Ghostbusters")),
-                         mk(QStringLiteral("Halo"), QStringLiteral("Halo")), mk(QStringLiteral("GaiaAttack4"), QStringLiteral("Gaia Attack 4")),
+                         mk(QStringLiteral("Halo"), QStringLiteral("Halo")), mk(QStringLiteral("WalkingDead"), QStringLiteral("Walking Dead")),
                          mk(QStringLiteral("LGI"), QStringLiteral("Let's Go Island"), GameKind::Detected)};
     GameEntry missing = mk(QStringLiteral("Terminator"), QStringLiteral("Terminator"));
     missing.exeExists = false;
@@ -1684,7 +1684,8 @@ void AppCoreTest::bigPictureGameFilter() {
     const QList<GameEntry> every = bigpicture::games(all, d, true);
     QCOMPARE(every.size(), 4);  // niet opgezet en ontbrekende bestanden nooit
     QCOMPARE(every[0].profile, QStringLiteral("Halo"));  // speelbaar eerst
-    QCOMPARE(every[2].profile, QStringLiteral("GaiaAttack4"));
+    QCOMPARE(every[2].profile, QStringLiteral("GhostBusters"));  // daarna op naam
+    QCOMPARE(every[3].profile, QStringLiteral("WalkingDead"));
 }
 
 // --- A8: binaire VDF en Steam -----------------------------------------------------------------------------------------

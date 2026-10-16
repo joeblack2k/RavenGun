@@ -168,6 +168,18 @@ void test_board_file() {
     CHECK(g && g->identify == "SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10" && g->comm_version == 0x10 && g->jvs_version == 0x20 &&
           g->command_rev == 0x13 && g->players == 2 && g->buttons == 14 && jvs_switch_bytes(*g) == 2 && g->analog_channels == 8);
     for (const auto& b : bs.boards) CHECK(validate_jvs_board(b).empty());
+    // TaitoGun: hetzelfde bord, START van beide spelers op P1 omhoog en omlaag (TeknoParrot-profielen Gaia Attack 4, Haunted Museum).
+    const JvsBoard* t = bs.find("TaitoGun");
+    CHECK(t && g && t->identify == g->identify && t->analog_channels == g->analog_channels);
+    if (t) {
+        JvsBus bus;
+        bus.add_node(*t);
+        talk(bus, "E0 FF 03 F1 01 F4");
+        IoState s = armed_state();
+        s.player[1].start = true;
+        bus.set_input(s);
+        CHECK(hex(ask(bus, 0x01, "20 01 03")) == "E0 00 07 01 01 00 10 00 00 19");   // P2 START = P1 omlaag (bit 4)
+    }
 
     std::string err;
     parse_jvs_boards("{", err);

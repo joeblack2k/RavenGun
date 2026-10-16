@@ -40,6 +40,11 @@ static void write(const std::string& path, const std::string& text) {
     f << text;
 }
 
+static std::string slurp(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+}
+
 static void test_names() {
     for (const char* ok : {"Halo", "Jurassic_Park-2", "a", "X9"}) CHECK(valid_profile_name(ok));
     for (const char* bad : {"", "Halo.xml", "../Halo", "a b", "a/b", "a\\b", "Halo;", "$(id)", "`id`", "é", "a\n"}) CHECK(!valid_profile_name(bad));
@@ -401,6 +406,30 @@ static void test_own_profile(const std::string& d) {
         const auto it = std::find(argv.begin(), argv.end(), w.bwrap);
         CHECK(it != argv.end() && *(it - 1) == "--" && argv.back() == "/p.json" && *(argv.end() - 3) == "/x/rg-direct");
         CHECK(std::find(argv.begin(), argv.end(), "--expand-environment=no") < it);   // systemd-run vervangt geen ${...} in paden
+        CHECK(wl.layers.size() == 2 && wl.layers[1].root == d + "/wl-games" && wl.layers[1].upper == lb + "/upper");
+    }
+    // Zaaigoed (seed.hpp): via de links van een view naar de bovenlaag van de spelmap, gebruikerslaag eerst, de NAS-versie
+    // onaangeroerd, en wat er al in de laag staat (de eigen kalibratie van de speler) blijft staan.
+    {
+        const std::string nas = d + "/zaai/nas", up = d + "/zaai/upper", view = d + "/zaai/view";
+        write(nas + "/Spel/OpenParrot/GA40.CFG", "fabriek");
+        fs::create_directories(view);
+        fs::create_directory_symlink(nas + "/Spel/OpenParrot", view + "/OpenParrot");
+        write(d + "/zaai/user/OpenParrot/GA40.CFG", "gebruiker");
+        write(d + "/zaai/shipped/OpenParrot/GA40.CFG", "meegeleverd");
+        write(d + "/zaai/shipped/OpenParrot/GA41.CFG", "meegeleverd 41");
+        write(d + "/zaai/shipped/lokaal.txt", "lokaal");
+        const std::vector<std::string> dirs{d + "/zaai/user", d + "/zaai/bestaat-niet", d + "/zaai/shipped"};
+        std::string err;
+        auto lines = seed_files(dirs, view, {{nas, up}}, err);
+        CHECK(err.empty() && lines.size() == 3);
+        CHECK(slurp(up + "/Spel/OpenParrot/GA40.CFG") == "gebruiker" && slurp(up + "/Spel/OpenParrot/GA41.CFG") == "meegeleverd 41");
+        CHECK(slurp(nas + "/Spel/OpenParrot/GA40.CFG") == "fabriek" && !fs::exists(nas + "/Spel/OpenParrot/GA41.CFG"));
+        CHECK(slurp(view + "/lokaal.txt") == "lokaal");   // geen spelmap: rechtstreeks
+        write(up + "/Spel/OpenParrot/GA40.CFG", "eigen kalibratie");
+        lines = seed_files(dirs, view, {{nas, up}}, err);
+        CHECK(err.empty() && lines.size() == 3 && slurp(up + "/Spel/OpenParrot/GA40.CFG") == "eigen kalibratie");
+        CHECK(lines[0].find("staat er al") != std::string::npos);
     }
     // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
     write(c.views_dir + "/Elders/x.exe", "x");

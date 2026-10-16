@@ -48,6 +48,7 @@ add_library(ravengun STATIC
   src/ravengun/config/led_color.cpp
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
+  src/ravengun/games/seed.cpp
   src/ravengun/launch/native.cpp
   src/ravengun/launch/gamefolder.cpp
   src/ravengun/launch/unity.cpp
@@ -541,7 +542,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
   #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/native.json (het native profiel, docs/native-profiel.md), <Game>/options.json (opties en memory card voor de app, docs/game-opties.md),
   #   <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en <Game>/data/ (bestanden die het native profiel in
-  #   de sandbox zet, zoals data/udev-rules.d van NERF en Jurassic Park; zonder die map weigert de daemon de start).
+  #   de sandbox zet, zoals data/udev-rules.d van NERF en Jurassic Park; zonder die map weigert de daemon de start) en
+  #   <Game>/seed/ (zaaigoed voor de schrijflaag van de Wine-routes, src/ravengun/games/seed.hpp: de geweerkalibratie van Gaia Attack 4).
   #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
   # Al het andere in de patches-repo is DOSSIER: logboeken van benchruns, metingen, meetscripts, onderzoeksnotities,
   # foto's, generatoren. Dat is bewijs en hoort in die repo, maar niet in een installatie: niets leest het daar, en het
@@ -554,7 +556,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
     FILES_MATCHING
     REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
-    REGEX "^${_rg_patches_rx}/[^/]+/data/")
+    REGEX "^${_rg_patches_rx}/[^/]+/data/"
+    REGEX "^${_rg_patches_rx}/[^/]+/seed/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
   install(CODE "
     set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")

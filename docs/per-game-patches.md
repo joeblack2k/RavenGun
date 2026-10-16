@@ -26,6 +26,7 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
     options.json                   de opties en memory card die de app toont (docs/game-opties.md); optioneel
     unity.json                     het profiel van een Unity-game (Tomb Raider, Rabbids Hollywood; zie "Unity-games" hieronder); optioneel
     README.md                      korte uitleg en verwijzing naar findings/<Game>.md; alleen als er zo'n bestand is
+    seed/                          zaaigoed voor de schrijflaag van de Wine-routes (zie "Zaaigoed" hieronder); optioneel
     <extra bestanden>              bv. een .reg voor de eigen prefix; optioneel
 
 ~/.local/share/ravengun/patches/   gebruiker ($XDG_DATA_HOME/ravengun/patches), zelfde indeling; wint per sleutel
@@ -34,6 +35,7 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
   <Game>/native.json               vervangt het meegeleverde bestand als geheel (geen samenvoeging); kapot = geen profiel
   <Game>/options.json              idem: vervangt het meegeleverde bestand als geheel; kapot = geen opties
   <Game>/unity.json                idem: vervangt het meegeleverde bestand als geheel; kapot = een melding bij de start, geen terugval
+  <Game>/seed/                     wint per bestand van het meegeleverde zaaigoed
 ```
 
 `<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de naam van de map met
@@ -709,6 +711,19 @@ er gezocht werd en in welke gamemappen. De bibliotheek van de app herkent de gam
 De instellingen voor alle Unity-games samen (poort van de plugin 33610, versie van BepInEx, versie van DemulShooter voor de terugval) staan
 in `packaging/unity-route.json`; ontbreekt dat bestand, dan gelden dezelfde waarden als standaard. Voor de scripts
 (`tools/dev/aagames-setup.py`, `scripts/build-unity-plugin.sh`) leest `scripts/unityprofile.py` dezelfde bestanden en dezelfde regel.
+
+## Zaaigoed (`seed/`)
+
+Sommige games bewaren iets in hun eigen map dat ze nodig hebben om goed te spelen, en de fabrieksversie is niet goed genoeg. Gaia
+Attack 4 bewaart zijn geweerkalibratie in `OpenParrot/GA40.CFG` en `GA41.CFG` (met een `.CRC` ernaast). De fabriekskalibratie
+ligt 20% naast het beeld. `patches/<Game>/seed/` heeft dezelfde mappen als de spelmap. Bij elke directe start
+(`src/ravengun/games/seed.hpp`) komt elk bestand daaruit in de schrijflaag van de spelmap, maar alleen als het daar nog niet
+staat. Wat de game zelf schrijft gaat dus altijd voor: kalibreert een speler opnieuw in het testmenu, dan blijft die kalibratie
+staan. Een versie op de NAS telt niet mee. Die blijft onaangeroerd en het zaaigoed ligt eroverheen. Dat is anders dan `seed` in
+`native.json`, waar een bestand op de NAS wint. De links van een view worden gevolgd, en een doel buiten de spelmappen (een
+lokale map in de view) krijgt de kopie rechtstreeks. Het logboek noemt elk bestand ("zaaigoed: ... -> ..." of "staat er al").
+Zaaigoed maak je door het spel zelf te laten schrijven (het testmenu, met de muismodus van de daemon) en het resultaat uit
+`~/.local/share/ravengun/writelayer/<Game>/<spelmap>/upper/` te kopieren. Nooit dongle- of sleutelgegevens.
 
 ## Dongle per game
 

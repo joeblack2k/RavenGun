@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (38)
+## Working (39)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -14,6 +14,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Drakons Realm Keepers**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, Wine, tp-shm I/O bridge with the WartranTroopers layout). Measured with the test pattern: coin (key 5), START (key 1), world select, aim and shoot, CONTINUE, score 400; more than 5 min. Not yet played with the real Move.
 - **Dream Raiders**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, JVS over the pipe to the SegaGun2P board). First start: the game asks for calibration (CONTROLLER ADJUSTMENT): SERVICE (F3) to CALIBRATION, START-1, then shoot the four corners (top-left, top-right, bottom-left, bottom-right); the calibration is kept. Measured with the test pattern: START, shooting in the game, result screen, new game; 6:39 min. Not yet played with the real Move.
 - **Elevator Action Invasion**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct; automatic local view with teknoparrot.ini; Unreal Engine 4 with DXVK and the GStreamer plugins, like Raccoon Rampage; tp-shm I/O bridge). Portrait cabinet: the picture is a narrow column in the middle. Measured with the test pattern: START, movie, aim and shoot, Continue, score 50236; more than 5 min. Not yet played with the real Move.
+- **Gaia Attack 4**: WORKING via double-click (2026-10-16): attract, coin, START, area select, mission; ran 5.5 min. Gun calibration ships with RavenGun (made in the test menu); to recalibrate: TEST > GUN CHECK > START 1, save with TEST.
 - **Gashaaaan!!!!**: WORKING on our own route (2026-10-14): double-click in RavenGun, no TeknoParrotUi (rg-direct, tp-shm I/O bridge). First start: OPTION/BOOKKEEPING BACKUP DATA ERROR, TEST (key 0) repairs the data. Measured with the test pattern: coin (key 5), START (key 1), a round of throwing balls, back to attract; more than 5 min. Still open: the picture is not full screen (the taskbar stays visible).
 - **Ghost Squad Evolution**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, vsg with lindbergh-loader's lindbergh.so, Type 1 board (LindberghType1) through the daemon, zink. Played 5.5 min in mouse mode: coin (5), START (1), shooting, reloading. The aim window is not calibrated yet.
 - **HALO Fireteam Raven**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, input through the tp-shm I/O bridge). Measured on the TV in mouse mode: skip calibration with TEST twice (hold key 0 briefly), coin (key 5), START (key 1), aim, shoot, reload (right button), a kill; ran 5:12 min. The native route (Linux, own loader) also exists and skips calibration with START.
@@ -85,11 +86,10 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Profile from the TeknoParrot template (2026-10-15). Measured: in gamescope (Windowed 0) and with a 1920x1080 Wine virtual desktop the exe runs (~60% CPU) but stays black and never opens the JVS pipe (2+ min). Open.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (6)
+## Not working yet (5)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
-- **Gaia Attack 4**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
 - **Haunted Museum**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.
 - **Haunted Museum II**: Does not start yet: no picture. The Wine crash (MXCSR=0 caused by the loader) is worked around (RG_LOADER_FPFIX); the game runs through the JVS chain but stays black (no 0x20 polling). Parked; see games-status.md, eleventh round.

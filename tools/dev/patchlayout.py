@@ -5,7 +5,7 @@
 EEN schema, in code, waar de tests (tests/test_patches_layout.py) en de documentatie op leunen. Een gamemap kan van de
 patches-repo naar de eigen patches/ van de loader verhuizen (en terug); het schema is wat zegt of dat veilig is.
 
-    LEVERING (shipped; verhuist mee)           game.ini (verplicht), patches.ini, native.json, unity.json, options.json, *.ini-tabellen, dropin/**, data/**
+    LEVERING (shipped; verhuist mee)           game.ini (verplicht), patches.ini, native.json, unity.json, options.json, *.ini-tabellen, dropin/**, data/**, seed/**
     ONDERZOEK (research; verhuist NIET mee)    *.md, logs-*/, bewijs-*/, probe*/, measurements/, *.voor-correctie*, schermafbeeldingen,
                                                meetlogboeken, meetscripts (*.sh *.py *.c *.h *.txt), *-logs/, *-harness/, ...
     ONBEKEND                                   al het andere in de map; de test meldt het (hoort of in de levering, of bij het onderzoek)
@@ -30,7 +30,8 @@ REQUIRED = ("game.ini",)
 # (docs/lindbergh.md): levering.
 SHIP_FILES = ("game.ini", "patches.ini", "native.json", "unity.json", "options.json", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini",
               "lindbergh.ini")
-SHIP_TREES = ("dropin", "data")
+# seed/ is zaaigoed voor de schrijflaag van de Wine-routes (src/ravengun/games/seed.hpp): levering.
+SHIP_TREES = ("dropin", "data", "seed")
 
 # De gereserveerde naam op het hoogste niveau van een wortel: shared/ bevat GEDEELD materiaal (meer dan een game), geen
 # gamemap. game_folders() slaat hem over. Moet gelijk zijn aan gamesettings.SHARED_DIR (test: test_shared_items).
@@ -154,7 +155,7 @@ def validate_game_folder(game_dir, check_profile=True):
         if not os.path.isfile(os.path.join(game_dir, r)):
             uit.append(("missing-required", "%s: %s ontbreekt" % (game_dir, r)))
     for e in unknown_entries(game_dir):
-        uit.append(("unknown-entry", "%s: %r is geen levering (game.ini, patches.ini, dropin/, data/) en geen bekend onderzoeksmateriaal" % (game_dir, e)))
+        uit.append(("unknown-entry", "%s: %r is geen levering (game.ini, patches.ini, dropin/, data/, seed/) en geen bekend onderzoeksmateriaal" % (game_dir, e)))
     for rel in research_in_ship(game_dir):
         uit.append(("ship-contaminated", "%s: onderzoeksmateriaal in de levering: %s" % (game_dir, rel)))
     if os.path.isdir(os.path.join(game_dir, "dropin")):

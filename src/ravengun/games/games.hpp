@@ -26,6 +26,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/games/seed.hpp"
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/native.hpp"
@@ -149,6 +150,7 @@ struct WriteLayer {
     std::vector<std::string> dirs;     // te maken vóór de start: upper en work per spelmap
     std::vector<std::string> log;      // regels voor het logboek
     std::string error;                 // niet leeg = niet starten (bwrap ontbreekt)
+    std::vector<LayerMap> layers;      // per spelmap de bovenlaag (voor het zaaigoed, seed.hpp)
 };
 WriteLayer write_layer(const Config& c, const std::string& profile, const std::vector<std::string>& extra = {});
 // Gaat deze start via de directe route van de daemon? Ok: de engine; Fallback: het script (why = reden, voor het logboek);
