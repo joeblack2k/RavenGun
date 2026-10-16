@@ -12,20 +12,20 @@ Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaa
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
-| Bug Busters | EM-Teck PC Based | Gst32 (films); draait in een venster |
+| Bug Busters | EM-Teck PC Based | Gst32 (films); schermvullend via gamescope + Windowed = 1 (2026-10-16) |
 | Drakons: Realm Keepers | Adrenaline Amusements PC-Based |  |
-| Dream Raiders | SEGA RingWide |  |
+| Dream Raiders | SEGA RingWide | View = off (vanuit de view SOUND FUNCTION NOT FOUND) en gamescope (2026-10-16) |
 | Elevator Action Invasion | UNIS PC Based |  |
-| Gashaaaan!!!! | Konami PC Based |  |
+| Gashaaaan!!!! | Konami PC Based | schermvullend via gamescope; BACKUP DATA ERROR opgelost door de schrijflaag (NVRAM bleef niet bewaard, 2026-10-16) |
 | Ghost Squad Evolution | SEGA Lindbergh Red | Lindbergh-route; richtvenster nog niet gekalibreerd |
-| HALO Fireteam Raven | RAW Thrills Linux PC Based | native sinds 2026-10-15 (eigen lader, IRTrack-geweren via tools/rt-irtrack, geen TeknoParrot-lader); geluid stil (FMOD-stub) |
+| HALO Fireteam Raven | RAW Thrills Linux PC Based | native sinds 2026-10-15 (eigen lader, IRTrack-geweren via tools/rt-irtrack, geen TeknoParrot-lader); geluid via de FMOD-wrapper (native FMOD 1.10 als drop-in, STEREO of LPCM 5.1) |
 | House of the Dead: Scarlet Dawn | SEGA ALLS |  |
 | Jurassic Park Arcade | RAW Thrills Linux PC Based |  |
 | Let's Go Island 3D: Lost on the Island of Tropics | SEGA RingEdge |  |
 | Let's Go Island: Lost on the Island of Tropics | SEGA RingWide |  |
 | Let's Go Jungle Lost on the Island of Spice | SEGA Lindbergh Red | Lindbergh-route, stackalign, doorgiftefix 0003 |
 | Let's Go Jungle Special | SEGA Lindbergh Yellow | ride-versie: START voor de ride-reset; patches 0003 en 0004 |
-| Let's Go Safari | SEGA RingWide |  |
+| Let's Go Safari | SEGA RingWide | Windowed = 1 in gamescope (met 0 wit beeld sinds de lokale view, 2026-10-16) |
 | Lethal Enforcers 3 | Konami PC Based | Gst32 (films) |
 | Mario Kart: Arcade GP DX | Namco ES3A | open: camera (het spel vraagt hem niet), Banapass-kaarten |
 | Mars Sortie | UDC PC Based | DXVK; ViewCopies (GameRecords lokaal); beloningsscherm: trekker 5 s vasthouden |
@@ -72,7 +72,7 @@ Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaa
 | Coopers's 9 | KONAMI PC Based | getest 2026-10-14: draait (game.exe), geen zichtbaar venster; diagnose loopt |
 | Elevator Action Death Parade | Taito Type X2 | profiel + tp-shm EADP (2026-10-15): zwart, opent de JVS-pipe niet (zoals Gaia Attack 4) |
 | Far Cry Paradise Lost | Global VR PC Based | 2026-10-15 (rg-compat-meetdraad): venster- en modushang opgelost (zonder gamescope, 1920x1080); D3D9-apparaat er, maar geen Present; vermoeden: wacht op HASP-dongle of USB-IO |
-| Gaia Attack 4 | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
+| Gaia Attack 4 | Taito Type X2 | 2026-10-16: zwart komt door gamescope; in een venster beeld met "I/O ERROR 2" na JVS 0x14 (bord meldt hetzelfde als TeknoParrot); volgende: het tweede I/O-pad (MusicGunGun2Pipe, MINIGUN.INI) |
 | Ghostbusters | ICE/RT Linux PC Based | 2026-10-15 native: dongle-hook, RIO-brug; "Welcome to Ghostbusters"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 | Gunslinger Stratos 3 | Taito Type X4 | Taito Type X4 |
 | Haunted Museum | Taito Type X2 | geparkeerd; zie patches/<Game>/game.ini [Status] |
