@@ -1494,6 +1494,61 @@
    ],
    "offscreen_margin": 0
   },
+   "LostLandAdventures": {
+    "description": "Lost Land Adventure (Namco ES3X, TeknoParrot-kern; profiel LostLandAdventures, TeknoParrotUi LostLandPipe). Control (offset 8): trekker speler 1 (0x1, TeknoParrot 'P2Button1') en speler 2 (0x2, 'P2Button2'). Aim: 4 kanalen van 1 byte met stride 4 op offset 12..24 (P1 X/Y = 12/16, P2 = 20/24). Start, munt en service (P1Button3/4, Coin1, Service1) zijn nog niet gemeten. Toegevoegd 2026-10-16.",
+    "size": 64,
+    "complete": false,
+    "mirror_bytes": [
+     0,
+     7
+    ],
+    "bits": [
+     {
+      "signal": "p1.trigger",
+      "offset": 8,
+      "bit": 0
+     },
+     {
+      "signal": "p2.trigger",
+      "offset": 8,
+      "bit": 1
+     }
+    ],
+    "axes": [
+     {
+      "signal": "p1.x",
+      "offset": 12,
+      "bytes": 1,
+      "min": 0,
+      "max": 255,
+      "invert": false
+     },
+     {
+      "signal": "p1.y",
+      "offset": 16,
+      "bytes": 1,
+      "min": 0,
+      "max": 255,
+      "invert": false
+     },
+     {
+      "signal": "p2.x",
+      "offset": 20,
+      "bytes": 1,
+      "min": 0,
+      "max": 255,
+      "invert": false
+     },
+     {
+      "signal": "p2.y",
+      "offset": 24,
+      "bytes": 1,
+      "min": 0,
+      "max": 255,
+      "invert": false
+     }
+    ]
+   },
   "EADP": {
    "description": "Elevator Action Death Parade (Taito Type X2 via OpenParrot, profiel EADP). Control (offset 8; TeknoParrotUi EADPPipe): trekker speler 1 0x1 (TeknoParrot P1Button3), knop 4 speler 1 0x2 (bij ons herladen), trekker speler 2 0x4, knop 4 speler 2 0x8, volume omhoog 0x10 en omlaag 0x20. Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0. Start, munt, test, service en de actieknop lopen via de JVS-pipe (Route jvs, het bord van de daemon), zoals bij Music GunGun 2.",
    "size": 64,

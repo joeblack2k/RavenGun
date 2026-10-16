@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "LostLandAdventures",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] NativeDlls: mfc100u.dll (x64) staat niet in @TMP@/home/.local/share/ravengun/redist/x64: draai scripts/setup-redist.sh (haalt hem uit de DirectX-map van Steam; docs/redist.md)"
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "LostLandAdventures",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] NativeDlls: mfc100u.dll (x64) staat niet in @TMP@/home/.local/share/ravengun/redist/x64: draai scripts/setup-redist.sh (haalt hem uit de DirectX-map van Steam; docs/redist.md)"
+ }
+}

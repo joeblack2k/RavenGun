@@ -30,5 +30,22 @@ for arch in x86 x64; do
   done
   echo "$arch: $n DLL's"
 done
+# Visual C++ 2010 (MFC en CRT: mfc100u, mfcm100u, msvcr100, msvcp100, atl100) uit _CommonRedist/vcredist/2010: het installatiepakket
+# zet onder Wine niets neer, dus de DLL's komen er net als DirectX via [Launch] NativeDlls in (Lost Land Adventure: mfc100u, 2026-10-16).
+VC="$(dirname "$(dirname "$SRC")")/vcredist/2010"
+if [[ -f "$VC/vcredist_x64.exe" ]] && command -v 7z >/dev/null; then
+  for arch in x86 x64; do
+    [[ -f "$VC/vcredist_$arch.exe" ]] || continue
+    mkdir -p "$T/vc$arch/cab"
+    7z x -y -o"$T/vc$arch" "$VC/vcredist_$arch.exe" >/dev/null
+    for c in "$T/vc$arch"/*.cab; do [[ -f $c ]] && 7z x -y -o"$T/vc$arch/cab" "$c" >/dev/null; done
+    n=0
+    for naam in mfc100u mfcm100u mfc100 msvcr100 msvcp100 atl100; do
+      f="$T/vc$arch/cab/F_CENTRAL_${naam}_$arch"
+      [[ -f $f ]] && { install -m 0644 "$f" "$DEST/$arch/$naam.dll"; n=$((n + 1)); }
+    done
+    echo "$arch: $n DLL's uit Visual C++ 2010"
+  done
+fi
 echo "bron: $SRC" > "$DEST/BRON.txt"
 echo "klaar: $DEST"
