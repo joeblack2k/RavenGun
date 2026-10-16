@@ -23,6 +23,8 @@ printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/Slecht naam.xml"
 printf 'PNGDATA' > "$TP/Icons/Halo.png"
 printf 'GEHEIM' > "$TP/geheim.png"
 mkdir -p "$T/data/packaging"; printf '{}\n' > "$T/data/packaging/tp-shm-profiles.json"
+# Ook geen meegeleverde patches: anders vindt de daemon uit build/ de patches/ van de repo (met de native profielen, native.json).
+mkdir -p "$T/data/patches"; export RAVENGUN_PATCHES_DIR="$T/data/patches"
 # Een notitie van 767 tekens in de gebruikerslaag (die voorgaat): de daemon moet hem afkappen, niet weglaten.
 mkdir -p "$HOME/.local/share/ravengun/patches/JurassicPark"
 { printf '[Status]\nNote = Lange notitie'; i=0; while [ $i -lt 150 ]; do printf ' vier'; i=$((i+1)); done; printf ' 767\n'; } \

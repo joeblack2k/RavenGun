@@ -22,6 +22,7 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
   <Game>/
     game.ini                       instellingen (Dolphin: GameSettings)
     patches.ini                    patches van deze game, of "Enabled = true" bij een gedeelde patch; optioneel
+    native.json                    het native profiel (sandbox, exe, bibliotheken; docs/native-profiel.md); optioneel
     README.md                      korte uitleg en verwijzing naar findings/<Game>.md; alleen als er zo'n bestand is
     <extra bestanden>              bv. een .reg voor de eigen prefix; optioneel
 
@@ -31,7 +32,7 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
 ```
 
 `<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de id uit
-`native-games.json`/`aagames-games.json`. Een eigen game maak je door in de gebruikersmap een map met een `game.ini` te zetten.
+`aagames-games.json`. Een eigen game maak je door in de gebruikersmap een map met een `game.ini` te zetten.
 
 ### Zoekvolgorde
 
@@ -91,6 +92,7 @@ gamemap van de patches-repo naar de `patches/` van de loader mag verhuizen: **ve
 |---|---|---|
 | levering | `game.ini` | ja |
 | levering | `patches.ini` | nee |
+| levering | `native.json` (het native profiel, docs/native-profiel.md; de gebruikerslaag vervangt het als geheel) | nee |
 | levering | `dropin/**` (met `dropin/dropin.ini`) | nee; heeft een game `dropin/`, dan moet `dropin.ini` er zijn en elk bestand dat het noemt |
 | levering | `data/**` (runtimegegevens) | nee |
 | onderzoek | `*.md` (ook `README.md`, `*.md.voor-correctie-*`), `logs-*/`, `bewijs-*/`, `probe/`, `probes/`, `measurements/`, `*.voor-correctie*`, schermafbeeldingen (`*.png`, `*.jpg`, ...), `*.log`, `gamelog-*`, `usb-tap*` | nee, en nooit in de levering |
@@ -525,7 +527,7 @@ Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN 
   logboek zegt dat erbij. De virtuele camera (een bibliotheek in het spelproces, gevoed door de daemon) lost dat op en is er nog
   niet; tot die tijd geeft de rol `presence` niets door, en het logboek zegt ook dat.
 - De instelling staat voor ELKE route in `game.ini`, ook voor een native spel (`patches/Halo/game.ini` bestaat; een `game.ini` in
-  de gebruikerslaag met alleen `[Camera]` is genoeg). `packaging/native-games.json` beschrijft de sandbox, niet de keuzes.
+  de gebruikerslaag met alleen `[Camera]` is genoeg). `native.json` beschrijft de sandbox, niet de keuzes.
 - Een game.ini kan niets anders dan `/dev/videoN` vragen; een andere waarde, of een onbekende rol, stopt de start met een melding.
 - Het logboek van elke run zegt wat er gekozen is: `camera: /dev/video0 doorgegeven (rol game: ...)` of `camera: geen (rol ...)`.
 - Zelf nakijken: `python3 -I scripts/camera.py list` (de camera's) en `python3 -I scripts/camera.py resolve <Game>` (de keuze).

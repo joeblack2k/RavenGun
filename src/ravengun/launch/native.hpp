@@ -1,16 +1,15 @@
 #pragma once
-// De native route zonder shellscripts. Een profiel uit packaging/native-games.json wordt hier een kant-en-klaar commando
-// (env -i -> gamescope -> bwrap -> [rg-elfloader] -> game, zonder shell en zonder tweede start van een script binnen gamescope)
-// plus de voorbereiding van de lokale schrijflaag. De daemon voert het uit bij een start uit de app (GameService). Dit vervangt
-// scripts/play-native.sh voor die start; het script blijft als benchgereedschap (--seconds, --strace, --gdb, --headless).
+// De native route zonder shellscripts. Het profiel van een game (patches/<Game>/native.json, formaat in docs/native-profiel.md)
+// wordt hier een kant-en-klaar commando (env -i -> gamescope -> bwrap -> [rg-elfloader] -> game, zonder shell) plus de voorbereiding
+// van de lokale schrijflaag. De daemon voert het uit bij een start uit de app (GameService).
 //
-// Gelijk aan het script: dezelfde mounts (overlay = NAS als lezende onderlaag, schrijfacties in
-// <data>/native/<profiel>/<n>/{upper,work}), files, seed en links (alleen als het pad er nog niet is, in de laag noch op de NAS),
-// libs (/rg/lib), libdirs, extra_ro, binds_rw, de invoertabellen rt-invoer.ini, rio-invoer.ini en irtrack.ini (gebruikerslaag voor de
-// meegeleverde), de eigen lader, preload alleen in de sandbox, het profiel-env. Anders dan het script: het X-scherm van gamescope is
-// bij het plannen nog niet bekend, dus de hele map /tmp/.X11-unix gaat alleen-lezen mee; gamescope start via `env -i` en zijn kind
-// is `rg-exec --keep DISPLAY -- bwrap ...`, zodat het spel van gamescope alleen DISPLAY krijgt (geen ENABLE_GAMESCOPE_WSI, vk_*, ...). De camera
-// ([Camera] in game.ini) zit hier nog niet in: zo'n game gaat nog via het script (zie GameService).
+// Mounts (overlay = NAS als lezende onderlaag, schrijfacties in <data>/native/<profiel>/<n>/{upper,work}), files, seed en links
+// (alleen als het pad er nog niet is, in de laag noch op de NAS), libs (/rg/lib), libdirs, extra_ro, binds_rw, de invoertabellen
+// rt-invoer.ini, rio-invoer.ini en irtrack.ini (gebruikerslaag voor de meegeleverde), de eigen lader, preload alleen in de sandbox,
+// het profiel-env. Het X-scherm van gamescope is bij het plannen nog niet bekend, dus de hele map /tmp/.X11-unix gaat alleen-lezen
+// mee; gamescope start via `env -i` en zijn kind is `rg-exec --keep DISPLAY -- bwrap ...`, zodat het spel van gamescope alleen
+// DISPLAY krijgt (geen ENABLE_GAMESCOPE_WSI, vk_*, ...). De camera ([Camera] in game.ini) zit hier nog niet in: zo'n game heeft
+// nog geen eigen route (zie GameService).
 // Een profiel met een blok "lindbergh" is een Sega Lindbergh-game (LindberghSpec hieronder, docs/lindbergh.md).
 #include <string>
 #include <utility>
@@ -19,7 +18,7 @@
 namespace ravengun::launch {
 
 struct NativePaths {
-    std::string json;          // packaging/native-games.json
+    std::string json;          // optioneel: een bestand met meerdere profielen ({"games":{...}}; tests); de daemon leest patches/<Game>/native.json
     std::string nas;           // @nas: de map Teknoparrot op de NAS
     std::string tpui;          // @tpui: de lokale TeknoParrotUi-map
     std::string data;          // @data: ~/.local/share/ravengun
@@ -73,6 +72,12 @@ struct NativeProfile {
 // Leest profiel `game` met de @-paden ingevuld. false + err (Nederlands) bij een fout, een onbekend profiel of een ongeldige waarde.
 bool load_profile(const std::string& json_text, const std::string& game, const NativePaths& p, NativeProfile& out, std::string& err);
 // Staat dit profiel in het bestand op enabled? (false bij elke fout)
+// Het bestand met het native profiel van een game: patches/<Game>/native.json, de gebruikerslaag eerst (die vervangt het
+// meegeleverde bestand als geheel), anders NativePaths::json (leeg = geen). Ook de regel `gegevens=` van de identiteit.
+std::string profile_file(const NativePaths& p, const std::string& game);
+// Dat profiel als tekst in de vorm {"defaults":{...},"games":{"<game>":{...}}} (wat profile_enabled en load_profile lezen).
+// Leeg = deze game heeft geen (leesbaar) native profiel; een kapot bestand in de gebruikerslaag valt niet terug op het meegeleverde.
+std::string profile_text(const NativePaths& p, const std::string& game);
 bool profile_enabled(const std::string& json_text, const std::string& game);
 
 struct LayerStep {

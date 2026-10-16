@@ -388,6 +388,36 @@ int main() {
 
     test_lindbergh(root, p);
 
+    // Het profiel per game: patches/<Game>/native.json, de gebruikerslaag vervangt het meegeleverde als geheel.
+    {
+        NativePaths q = p;
+        q.json.clear();
+        CHECK(profile_file(q, "Per").empty() && profile_text(q, "Per").empty());
+        write(q.patches + "/Per/native.json", R"({"title":"Meegeleverd","enabled":true,"exe":"/pm/game"})");
+        CHECK(profile_file(q, "Per") == q.patches + "/Per/native.json");
+        std::string t = profile_text(q, "Per");
+        CHECK(profile_enabled(t, "Per"));
+        NativeProfile pp;
+        CHECK(load_profile(t, "Per", q, pp, err) && pp.title == "Meegeleverd" && pp.res == "1920x1080");
+        write(q.user_patches + "/Per/native.json", R"({"title":"Eigen","enabled":false,"exe":"/pm/game"})");
+        CHECK(profile_file(q, "Per") == q.user_patches + "/Per/native.json");
+        t = profile_text(q, "Per");
+        CHECK(!profile_enabled(t, "Per"));
+        CHECK(load_profile(t, "Per", q, pp, err) && pp.title == "Eigen");
+        // Kapot in de gebruikerslaag: geen profiel (niet stil terug naar het meegeleverde).
+        write(q.user_patches + "/Per/native.json", "{kapot");
+        CHECK(profile_text(q, "Per").empty());
+        // Een naam met een pad erin wordt niet gezocht; het bestand met meerdere profielen blijft de terugval.
+        CHECK(profile_file(q, "../Per").empty());
+        CHECK(profile_file(p, "Game") == p.json && profile_enabled(profile_text(p, "Game"), "Game"));
+        // De identiteit noemt het bestand dat gelezen is.
+        write(q.user_patches + "/Per/native.json", R"({"enabled":true,"exe":"/pm/game","mounts":[{"src":"@nas/Game","dst":"/pm","mode":"overlay"}]})");
+        CHECK(load_profile(profile_text(q, "Per"), "Per", q, pp, err));
+        write(root / "bin/gamescope", "#!/bin/sh\nexit 0\n", true);
+        CHECK(plan(pp, q, PlanOptions{}, pl, err));
+        CHECK(!pl.identity.empty() && pl.identity[0] == "gegevens=" + q.user_patches + "/Per/native.json");
+    }
+
     fs::remove_all(root);
     std::printf("native-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

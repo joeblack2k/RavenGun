@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  *
  * fmod_bridge.c -- FMOD-wrapper voor Raw Thrills-games die FMOD Studio 1.10 vragen (libfmod.so.10, libfmodstudio.so.10;
- * Halo: Fireteam Raven) terwijl er geen Linux-versie van die bibliotheken is. Dit is GEEN FMOD-implementatie en bevat geen
- * FMOD-code: het zijn de 60 namen die de game opvraagt (tools/fmod-stub/symbols.txt), met de handtekening van de FMOD Studio
- * 1.10-API, en elke aanroep gaat over een pijp naar rg-fmod-host.exe (rg_fmod_host.c). Dat hulpprogramma draait onder Wine en
- * laadt de echte FMOD Studio 1.10.2 voor Windows (fmod64.dll, fmodstudio64.dll) uit de eigen installatie van de gebruiker; FMOD
- * mengt daar in 5.1 en Wine speelt het af via PipeWire/PulseAudio.
+ * Halo: Fireteam Raven); de game levert die bibliotheken niet mee. Dit is GEEN FMOD-implementatie en bevat geen FMOD-code: het
+ * zijn de 60 namen die de game opvraagt (tools/fmod-bridge/symbols.txt), met de handtekening van de FMOD Studio 1.10-API. Heeft
+ * de gebruiker een native FMOD 1.10 als drop-in (RG_FMOD_NATIVE_DIRS, hieronder), dan gaat elke aanroep rechtstreeks daarheen.
+ * Anders gaat hij over een pijp naar rg-fmod-host.exe (rg_fmod_host.c). Dat hulpprogramma draait onder Wine en laadt de echte
+ * FMOD Studio 1.10.2 voor Windows (fmod64.dll, fmodstudio64.dll) uit de eigen installatie van de gebruiker; FMOD mengt daar in
+ * 5.1 en Wine speelt het af via PipeWire/PulseAudio. Zonder beide blijft het stil.
  *
  * Handles: de waarden van FMOD in het hulpprogramma gaan ongewijzigd naar de game (die ze alleen teruggeeft). Wat de game zelf
  * aan een handle hangt (userdata, callbacks) blijft hier. Callbacks: het hulpprogramma verzamelt ze en geeft ze mee in het

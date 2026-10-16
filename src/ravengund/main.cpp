@@ -462,11 +462,10 @@ int main(int argc, char** argv) {
         games_cfg.library_file = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/library.json";
         games_cfg.views_dir = (xd && *xd == '/' ? std::string(xd) : home + "/.local/share") + "/ravengun/runtime/views";
     }
-    // De native route zonder script (packaging/native-games.json, src/ravengun/launch/native.*): de daemon start zo'n game zelf.
+    // De native route (patches/<Game>/native.json, src/ravengun/launch/native.*): de daemon start zo'n game zelf.
     {
         auto envs = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
         ravengun::launch::NativePaths& np = games_cfg.native;
-        if (!data_root.empty()) np.json = data_root + "/packaging/native-games.json";
         const std::string xdh = envs("XDG_DATA_HOME");
         const std::string data_dir = (!xdh.empty() && xdh[0] == '/' ? xdh : home + "/.local/share") + "/ravengun";
         np.data = data_dir;
@@ -525,7 +524,7 @@ int main(int argc, char** argv) {
                 shared.output->set_transform(basis_transform);
             }
         };
-        if (!np.json.empty()) logf("info", "games: native profielen uit %s start de daemon zelf (zonder script)", np.json.c_str());
+        logf("info", "games: native profielen uit patches/<Game>/native.json (gebruikerslaag %s, meegeleverd %s)", np.user_patches.c_str(), np.patches.c_str());
         // De Unity-route zonder script (packaging/aagames-games.json, src/ravengun/launch/unity.*): view, Proton, TCP-klant.
         ravengun::launch::UnityPaths& up = games_cfg.unity;
         if (!aagames_config.empty()) up.json = aagames_config;

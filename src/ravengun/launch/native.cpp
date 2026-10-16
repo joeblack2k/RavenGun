@@ -283,6 +283,31 @@ std::string sha256_file(const std::string& path) {
     return s.hex();
 }
 
+std::string profile_file(const NativePaths& p, const std::string& game) {
+    // Alleen een gewone profielnaam: hij komt in een pad en in de JSON-tekst.
+    if (game.empty() || game.size() > 64) return {};
+    for (char ch : game)
+        if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) return {};
+    for (const std::string& dir : {p.user_patches, p.patches}) {
+        if (dir.empty()) continue;
+        const std::string f = dir + "/" + game + "/native.json";
+        if (exists(f)) return f;
+    }
+    return p.json;
+}
+
+std::string profile_text(const NativePaths& p, const std::string& game) {
+    const std::string f = profile_file(p, game);
+    if (f.empty()) return {};
+    bool ok = false;
+    const std::string text = read_file(f, ok);
+    if (!ok) return {};
+    if (f == p.json) return text;
+    const auto r = json::parse(text);
+    if (!r.ok || !r.value.is_object()) return {};   // een kapot bestand in de gebruikerslaag: niet terugvallen op het meegeleverde
+    return R"({"defaults":{"res":"1920x1080"},"games":{")" + game + "\":" + text + "}}";
+}
+
 bool profile_enabled(const std::string& json_text, const std::string& game) {
     const auto r = json::parse(json_text);
     if (!r.ok) return false;
@@ -294,7 +319,7 @@ bool profile_enabled(const std::string& json_text, const std::string& game) {
 
 bool load_profile(const std::string& json_text, const std::string& game, const NativePaths& p, NativeProfile& out, std::string& err) {
     const auto r = json::parse(json_text);
-    if (!r.ok) { err = "native-games.json: " + r.error; return false; }
+    if (!r.ok) { err = "native.json: " + r.error; return false; }
     const Value* games = r.value.find("games");
     const Value* g = games && games->is_object() ? games->find(game) : nullptr;
     if (!g || !g->is_object()) { err = "onbekend native profiel: " + game; return false; }
@@ -634,7 +659,7 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
     }
     out.argv.insert(out.argv.end(), bw.begin(), bw.end());
     out.argv.insert(out.argv.end(), gamecmd.begin(), gamecmd.end());
-    if (!p.json.empty()) out.identity.insert(out.identity.begin(), "gegevens=" + p.json);
+    if (const std::string f = profile_file(p, pr.name); !f.empty()) out.identity.insert(out.identity.begin(), "gegevens=" + f);
     return true;
 }
 

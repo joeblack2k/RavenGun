@@ -70,10 +70,10 @@ lindbergh-loader; "schoon" = de CRC van de hele file staat in de lijst `cleanElf
 
 ## 3. De route zoals gebouwd
 
-Het profiel staat in `packaging/native-games.json`, met een blok `lindbergh`:
+Het profiel staat in `patches/HOTD4SP/native.json` (docs/native-profiel.md), met een blok `lindbergh`:
 
 ```json
-"HOTD4SP": {
+{
   "enabled": true, "arch": "i386", "launcher": "gamescope", "route": "jvs",
   "lindbergh": {"id": "0x7d6ab3e3", "ini": "@patches/HOTD4SP/lindbergh.ini", "jvs": "passthrough", "libcg": false},
   "mounts": [{"src": "@nas/The House of the Dead 4 Special", "dst": "/lb", "mode": "overlay"}],

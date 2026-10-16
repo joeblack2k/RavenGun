@@ -205,7 +205,8 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     target_link_libraries(rg_irtrack PRIVATE pthread ${CMAKE_DL_LIBS})
     set_target_properties(rg_irtrack PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_irtrack" C_VISIBILITY_PRESET default)
     # FMOD-wrapper voor Halo (tools/fmod-bridge): libfmod.so.10 en libfmodstudio.so.10 uit een bron, in build/fmod (de libdir van het
-    # profiel); de echte FMOD 1.10.2 draait onder Wine in rg-fmod-host.exe (scripts/build-fmod-bridge.sh, patches/Halo/data/fmod).
+    # profiel). Echte FMOD: een native drop-in van de gebruiker, anders FMOD 1.10.2 onder Wine in rg-fmod-host.exe
+    # (scripts/build-fmod-bridge.sh, patches/Halo/data/fmod), anders stil.
     foreach(_fm fmod fmodstudio)
       add_library(rg_${_fm}10 SHARED tools/fmod-bridge/fmod_bridge.c)
       target_compile_options(rg_${_fm}10 PRIVATE -Wall -Wextra -Wno-pedantic -fvisibility=hidden)
@@ -576,9 +577,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
   # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
-  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en
-  #   <Game>/data/ (bestanden die het profiel in packaging/native-games.json in de sandbox zet, zoals data/udev-rules.d van
-  #   NERF en Jurassic Park; zonder die map weigert play-native.sh de start: "bestand ontbreekt").
+  #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/native.json (het native profiel, docs/native-profiel.md),
+  #   <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en <Game>/data/ (bestanden die het native profiel in
+  #   de sandbox zet, zoals data/udev-rules.d van NERF en Jurassic Park; zonder die map weigert de daemon de start).
   #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
   # Al het andere in de patches-repo is DOSSIER: logboeken van benchruns, metingen, meetscripts, onderzoeksnotities,
   # foto's, generatoren. Dat is bewijs en hoort in die repo, maar niet in een installatie: niets leest het daar, en het
@@ -589,7 +590,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
   install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
     FILES_MATCHING
-    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|dongle\\.json|README\\.md)$"
+    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
@@ -624,7 +625,6 @@ install(DIRECTORY plugins/unity DESTINATION ${RAVENGUN_DATADIR}/plugins)
 # De gebouwde Unity-plugins (scripts/build-unity-plugin.sh schrijft ze in de repo naar build/unity-plugin/<Game>/): naast de eigen
 # bibliotheken, waar de daemon ze zoekt bij een start zonder script (src/ravengun/launch/unity.*). Nog niet gebouwd = overgeslagen.
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/unity-plugin/" DESTINATION lib/unity-plugin OPTIONAL)
-install(DIRECTORY tools/fmod-stub DESTINATION ${RAVENGUN_DATADIR}/tools)
 install(FILES docs/user-guide.md DESTINATION ${RAVENGUN_DATADIR}/docs)
 install(FILES LICENSE THIRD_PARTY.md DESTINATION ${RAVENGUN_DATADIR})
 install(DIRECTORY third_party/ DESTINATION ${RAVENGUN_DATADIR}/third_party FILES_MATCHING PATTERN "README.md" PATTERN "LICENSE*")

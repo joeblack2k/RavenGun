@@ -131,7 +131,7 @@ Engine en app hangen niet meer van `~/projects/ravengun` af. Standaardprefix: `~
 
 - `bin/`: `ravengun` (de Qt-app), `ravengund` (de engine), `ravengunctl`. Rpath `$ORIGIN/../lib`.
 - `lib/`: `libpsmoveapi.so` (de enige niet-systeembibliotheek) en de LD_PRELOAD-hulpen `librg_comm_shim.so`, `lib32/librg_comm_shim.so` en `librg_rt_input.so`. Qt, hidapi, BlueZ, dbus en libudev komen van het systeem (Qt 6.11 of nieuwer).
-- `share/ravengun/` (de "datamap"): `scripts/`, `packaging/` (JSON-gegevens, sjablonen voor units en snelkoppelingen, udev-regels, icons, `containers/unity-plugin`), `docs/user-guide.md`, `plugins/unity/`, `tools/fmod-stub/`, `third_party/` (readmes en licenties), `LICENSE`, `THIRD_PARTY.md`, `VERSION` (versie en commit) en bij een releasebouw `REQUIRES` (de glibc-eis) en `licenses/`. Niet mee: `scripts/build-app.sh`, `scripts/make-release.sh`, de containers van de Qt-app en de release, en de per-game snelkoppelingen van deze machine.
+- `share/ravengun/` (de "datamap"): `scripts/`, `packaging/` (JSON-gegevens, sjablonen voor units en snelkoppelingen, udev-regels, icons, `containers/unity-plugin`), `docs/user-guide.md`, `plugins/unity/`, `third_party/` (readmes en licenties), `LICENSE`, `THIRD_PARTY.md`, `VERSION` (versie en commit) en bij een releasebouw `REQUIRES` (de glibc-eis) en `licenses/`. Niet mee: `scripts/build-app.sh`, `scripts/make-release.sh`, de containers van de Qt-app en de release, en de per-game snelkoppelingen van deze machine.
 
 Zoekvolgorde voor de datamap (engine: `src/ravengun/paths.*`, app: `AppPaths::dataRoot`, scripts: `scripts/rg-paths.sh`; beide C++-kanten hebben tests: `ravengun_paths_tests` en `AppCoreTest::dataRootOrder`):
 

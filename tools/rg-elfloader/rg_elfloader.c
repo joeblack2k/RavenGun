@@ -536,7 +536,7 @@ static int bouw_zonder_preload(const char *cmd)
    PT_LOAD (RW: glibc past op i386 de d_ptr-waarden in .dynamic ter plekke aan), PT_DYNAMIC en PT_GNU_STACK met X (zoals de
    oude -z execstack). Inhoud: .hash (SysV), .dynsym, .dynstr, .dynamic. glibc >= 2.28 verplaatst SHN_ABS-symbolen niet.
    Met RG_ELF_SHIM_GCC=1 gaat het nog via gcc (vergelijking/diagnose). */
-/* RG_ELF_ENTRY=0xADRES (per game in native-games.json): spring daarheen in plaats van naar e_entry. Bij The Walking Dead is
+/* RG_ELF_ENTRY=0xADRES (per game in patches/<Game>/native.json): spring daarheen in plaats van naar e_entry. Bij The Walking Dead is
    e_entry in de dump `main` zelf; de echte startcode (die __libc_start_main aanroept met main) staat op 0x8055e47 (gemeten,
    patches/WalkingDead/EERSTE-PLT-SLOTS.md). Zonder de startcode slaat de gast de C-runtime en de statische constructors over. */
 static uint32_t gast_ingang(uint32_t e_entry)
@@ -1212,7 +1212,7 @@ static void start_spel(struct beeld *b, int argc, char **argv)
         *p++ = AT_NULL; *p++ = 0;
     }
 
-    /* RG_ELF_PTRACER_ANY=1 (per game in native-games.json): sommige Play Mechanix/Raw Thrills-games forken bij de start een kind
+    /* RG_ELF_PTRACER_ANY=1 (per game in patches/<Game>/native.json): sommige Play Mechanix/Raw Thrills-games forken bij de start een kind
      * dat ptrace(PTRACE_ATTACH) op zijn vader doet als anti-debugcontrole; lukt dat niet, dan breekt het kind de start af (Aliens
      * Armageddon: 0x8347966, gemeten met gdb 2026-10-15; Terminator: patches/Terminator/BESCHERMINGSLAAG-PTRACE.md). Op de kast
      * was er geen Yama; hier verbiedt ptrace_scope=1 een kind zijn vader aan te haken. PR_SET_PTRACER is daarvoor de eigen

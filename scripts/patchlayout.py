@@ -5,7 +5,7 @@
 EEN schema, in code, waar de tests (tests/test_patches_layout.py) en de documentatie op leunen. Een gamemap kan van de
 patches-repo naar de eigen patches/ van de loader verhuizen (en terug); het schema is wat zegt of dat veilig is.
 
-    LEVERING (shipped; verhuist mee)           game.ini (verplicht), patches.ini, dropin/**, data/**
+    LEVERING (shipped; verhuist mee)           game.ini (verplicht), patches.ini, native.json, *.ini-tabellen, dropin/**, data/**
     ONDERZOEK (research; verhuist NIET mee)    *.md, logs-*/, bewijs-*/, probe*/, measurements/, *.voor-correctie*, schermafbeeldingen,
                                                meetlogboeken, meetscripts (*.sh *.py *.c *.h *.txt), *-logs/, *-harness/, ...
     ONBEKEND                                   al het andere in de map; de test meldt het (hoort of in de levering, of bij het onderzoek)
@@ -23,11 +23,13 @@ REQUIRED = ("game.ini",)
 # hasp-haken.ini is de adreslijst die de HASP-ELF-hook bij het draaien leest (RAVENGUN_HASP_ELF_ADRESLIJST,
 # of naast de lib in dropin/). Het is dus LEVERING (runtime-materiaal dat meeverhuist), geen onderzoek.
 # (Open: voor een game die hem ook in dropin/ heeft staan de twee kopieen dubbel; opruimen is een latere stap.)
-# rt-invoer.ini, rio-invoer.ini en irtrack.ini zijn de invoertabellen die de starter (scripts/play-native.sh en de daemon,
-# src/ravengun/launch/native.cpp) bij het draaien aan de invoerhulp en de RIO-brug geeft: ook levering.
+# rt-invoer.ini, rio-invoer.ini en irtrack.ini zijn de invoertabellen die de daemon (src/ravengun/launch/native.cpp) bij het
+# draaien aan de invoerhulp en de RIO-brug geeft: ook levering. native.json is het native profiel van de game
+# (docs/native-profiel.md): levering.
 # lindbergh.ini zijn de instellingen van de Lindbergh-laag die de daemon bij elke start aanvult en aan lindbergh.so geeft
 # (docs/lindbergh.md): levering.
-SHIP_FILES = ("game.ini", "patches.ini", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini", "lindbergh.ini")
+SHIP_FILES = ("game.ini", "patches.ini", "native.json", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini",
+              "lindbergh.ini")
 SHIP_TREES = ("dropin", "data")
 
 # De gereserveerde naam op het hoogste niveau van een wortel: shared/ bevat GEDEELD materiaal (meer dan een game), geen

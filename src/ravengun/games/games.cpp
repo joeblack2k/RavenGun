@@ -398,8 +398,7 @@ std::string stamp(const char* fmt) {
 }  // namespace
 
 bool native_route(const Config& c, const std::string& profile) {
-    if (c.native.json.empty()) return false;
-    const std::string text = read_text(c.native.json);
+    const std::string text = ravengun::launch::profile_text(c.native, profile);   // patches/<Game>/native.json, gebruikerslaag eerst
     if (text.empty() || !ravengun::launch::profile_enabled(text, profile)) return false;
     // Een game die de camera IN het spel gebruikt heeft nog geen native route (het kiezen van het apparaat zit nog niet in de engine).
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
@@ -825,7 +824,7 @@ std::string GameService::run_native(const std::string& profile) {
     // 1. Een lightgun.
     if (const std::string e = wait_lightgun(); !e.empty()) return e;
     // 2. Het profiel en het commando.
-    const std::string text = read_text(c_.native.json);
+    const std::string text = L::profile_text(c_.native, profile);
     L::NativeProfile pr;
     L::NativePlan pl;
     std::string err;

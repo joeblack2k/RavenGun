@@ -5,19 +5,17 @@
 //   [A-Za-z0-9_-]{1,64}.xml tellen mee; de naam komt uit <GameNameInternal>, het icoon uit <IconName>.
 // - read_icon(): serveert uitsluitend bestanden uit <tp_dir>/Icons (naam [A-Za-z0-9_-]+.png|jpg|jpeg|gif|webp,
 //   realpath binnen de Icons-map, gewoon bestand, hoogstens 3 MiB). Nooit een pad van buiten.
-// - GameService: een game met een native profiel dat aan staat (packaging/native-games.json) start de daemon ZELF, zonder
-//   shellscripts: wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek, en dan
-//   `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*). Een
-//   Unity-game uit packaging/aagames-games.json (Tomb Raider, Rabbids Hollywood) start hij ook zelf: de view klaarzetten, dan
-//   `systemd-run ... -- proton run Game.exe -popupwindow`, en de TCP-klant van de plugin (src/ravengun/launch/unity.*). Een
-//   game met [Launch] Mode = direct start hij ook zelf (src/ravengun/launch/direct.*): dezelfde voorbereiding als play-halo.sh
-//   (lightgun, wapenen, de invoerroute tp-shm/hid-board/jvs over de pipe), de drop-ins en teknoparrot.ini in de view, en dan
-//   `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>` (tools/rg-direct, op de plaats van launch-direct.py).
-//   Wat de engine daar nog niet kan (direct.hpp), en alle andere games, start/stopt hij via `systemd-run --user` met een vaste
-//   unitnaam en het script scripts/play-halo.sh. De
-//   profielnaam is altijd een bestaand bestand uit UserProfiles en komt als los argument (geen shell, geen
-//   interpolatie) op de opdrachtregel. De toestand (wacht op Move, start, draait, mislukt) wordt afgeleid uit
-//   /proc (BudgieLoader, het script) en het logbestand van de laatste start; er is geen wachtende thread.
+// - GameService: de daemon start en stopt elke game ZELF, zonder shellscripts. Een game met een native profiel dat aan staat
+//   (patches/<Game>/native.json): wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek,
+//   en dan `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*).
+//   Een Unity-game uit packaging/aagames-games.json (Tomb Raider, Rabbids Hollywood): de view klaarzetten, dan
+//   `systemd-run ... -- proton run Game.exe -popupwindow`, en de TCP-klant van de plugin (src/ravengun/launch/unity.*). Een game
+//   met [Launch] Mode = direct (src/ravengun/launch/direct.*): lightgun, wapenen, de invoerroute tp-shm/hid-board/jvs over de pipe,
+//   de drop-ins en teknoparrot.ini in de view, en dan `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>`
+//   (tools/rg-direct). Een game zonder zo'n route start niet ("nog geen eigen route"). De profielnaam is altijd een bestaand
+//   bestand uit UserProfiles of een eigen profiel en komt als los argument (geen shell, geen interpolatie) op de opdrachtregel.
+//   De toestand (wacht op Move, start, draait, mislukt) wordt afgeleid uit /proc en het logbestand van de laatste start; er is
+//   geen wachtende thread.
 // Ontwerp: docs/web-ui.md, tab Games.
 #include <atomic>
 #include <cstdint>
@@ -60,7 +58,7 @@ struct Config {
     // Niet leeg = er draait iets. Leeg pad = niet gebruiken.
     std::string tpui_procs;
 
-    // De native route. Leeg native.json = geen native games.
+    // De native route: patches/<Game>/native.json (NativePaths::patches en user_patches).
     ravengun::launch::NativePaths native;
     std::string native_log_dir;    // logs/native-<profiel>-<tijd>.log (leeg = geen logboek)
     std::string tpui_unit = "ravengun-tpui";   // de unit van de game (stoppen, OLED-bescherming en de IO-brug kijken daarnaar)
@@ -81,7 +79,7 @@ struct Config {
     std::string jvs_link;                      // de pty-koppeling van de IO-brug (jvs over de pipe: RG_JVS_PTY)
     std::string input_by_id;                   // na het wapenen wachten op de virtuele lightgun en het toetsenbord hier (leeg = niet)
     std::function<std::string(const std::string& board)> hid_vidpid;   // VVVV:PPPP van een hid-bord (leeg = geen joystick-id zetten)
-    std::function<bool(const std::string& profile)> unity_game;          // staat in aagames-games.json (de Unity-route van play-halo.sh)
+    std::function<bool(const std::string& profile)> unity_game;          // staat in aagames-games.json (de Unity-route)
     std::function<ravengun::launch::EnvMap()> session_env;               // omgeving van de game-unit (leeg = direct_session_env())
     ravengun::launch::CaptureRunner capture = ravengun::launch::run_capture;   // wine reg (joystick-id bij hid-board)
     int game_wait_ms = 120000;                 // zo lang wachten tot het spelproces er is
@@ -124,7 +122,7 @@ std::string default_tpui_procs(unsigned uid);
 // Argumenten (zonder shell) voor het stoppen: systemctl --user stop <unit van de game>.service.
 std::vector<std::string> stop_unit_argv(const Config& c);
 
-// Gaat dit profiel via de native route van de daemon? (native-games.json leesbaar, profiel enabled, geen camera in de game)
+// Gaat dit profiel via de native route van de daemon? (patches/<Game>/native.json leesbaar, enabled, geen camera in de game)
 bool native_route(const Config& c, const std::string& profile);
 // Het commando waarmee de daemon een native game in de unit start (systemd-run, geen shell); `log` = uitvoer van de game.
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
@@ -137,8 +135,8 @@ std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch
 // Refused: niet starten (why = de melding, zoals launch-direct.py --check met exit 5). launch zoals bij start().
 ravengun::launch::Verdict direct_route(const Config& c, const std::string& profile, const std::string& launch, std::string& why,
                                        ravengun::launch::DirectInput* input = nullptr);
-// De omgeving waarin play-halo.sh een directe start doet: die van de daemon zonder de variabelen van zijn eigen unit, met
-// XDG_RUNTIME_DIR, WAYLAND_DISPLAY, DISPLAY, DBUS_SESSION_BUS_ADDRESS en XAUTHORITY (van kwin_wayland) zoals het script ze aanvult.
+// De omgeving van een directe start: die van de daemon zonder de variabelen van zijn eigen unit, aangevuld met
+// XDG_RUNTIME_DIR, WAYLAND_DISPLAY, DISPLAY, DBUS_SESSION_BUS_ADDRESS en XAUTHORITY (van kwin_wayland).
 ravengun::launch::EnvMap direct_session_env(const std::string& proc_root = "/proc");
 std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log);
 
@@ -159,7 +157,7 @@ public:
     GameService(const GameService&) = delete;
     GameService& operator=(const GameService&) = delete;
 
-    // launch: "" (play-halo.sh kiest per profiel), "direct" (--direct) of "teknoparrot-ui" (--tpui). Antwoordt meteen: alleen naam, profiel en
+    // launch: "" (de route volgt uit het profiel) of "direct"; "teknoparrot-ui" wordt geweigerd. Antwoordt meteen: alleen naam, profiel en
     // "er loopt niets" worden hier gecontroleerd; de route kiezen en plannen (dat kan de NAS lezen) doet de worker, de toestand is dan
     // "starting" en een weigering of fout eindigt in "failed" met de melding. Stoppen tijdens het plannen breekt de start af.
     Result start(const std::string& profile, const std::string& launch = "");

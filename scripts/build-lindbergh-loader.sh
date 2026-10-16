@@ -115,7 +115,7 @@ podman run --rm --network=none \
   echo "container: $IMAGE"; toolchain_versions | sed 's/^/  /'
   echo "uitvoer:"; (cd "$OUT" && find . -maxdepth 1 -type f ! -name BUILDINFO.txt -print0 | sort -z | xargs -0 sha256sum | sed 's/^/  /')
 } > "$OUT/BUILDINFO.txt"
-# De standaardmap die de daemon leest (@lindbergh in packaging/native-games.json): <...>/lindbergh-loader/current -> <commit>
+# De standaardmap die de daemon leest voor een profiel met een blok "lindbergh" (patches/<Game>/native.json): <...>/lindbergh-loader/current -> <commit>
 if [[ "$(basename "$OUT")" == "$LL_COMMIT" ]]; then
   ln -sfn "$LL_COMMIT" "$(dirname "$OUT")/current"
 fi

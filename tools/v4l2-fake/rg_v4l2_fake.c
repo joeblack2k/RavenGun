@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  *
  * rg_v4l2_fake.c -- virtuele webcams voor arcadegames die met camera's in de geweren richten (Raw Thrills: Halo: Fireteam Raven).
- * Wordt met LD_PRELOAD in het spelproces geladen (native route, packaging/native-games.json: "preload" + "fake_video").
+ * Wordt met LD_PRELOAD in het spelproces geladen (native route, patches/<Game>/native.json: "preload" + "fake_video").
  *
  * Het spel vindt zijn camera's met `ls -1 /dev/video*` en opent ze met open(); de lader zet daarom in de sandbox voor elke
  * virtuele camera een knooppunt /dev/videoN (een binding van /dev/null). Deze bibliotheek vangt open() van zo'n pad af en geeft
