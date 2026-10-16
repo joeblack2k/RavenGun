@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "TimeCrisis5",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Dxvk = true, maar DXVK (32 bits) is niet gevonden: draai scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)"
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "TimeCrisis5",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Dxvk = true, maar DXVK (32 bits) is niet gevonden: draai scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)"
+ }
+}

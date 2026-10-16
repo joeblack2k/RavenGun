@@ -58,7 +58,7 @@
    "files": [
     [
      "@TMP@/home/games/Coopers9/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nFpsLimitEnable=1\nFpsLimit=60\nCustomResolution=0\nResolutionWidth=1280\nResolutionHeight=720\n[FFB Blaster]\nEnable=0\n[Crosshair]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nFpsLimitEnable=1\nFpsLimit=60\nCustomResolution=0\nResolutionWidth=1280\nResolutionHeight=720\n[FFB Blaster]\nEnable=0\n[Crosshair]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Coopers9/game.exe",
@@ -177,7 +177,7 @@
    "files": [
     [
      "@TMP@/home/games/Coopers9/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nFpsLimitEnable=1\nFpsLimit=60\nCustomResolution=0\nResolutionWidth=1280\nResolutionHeight=720\n[FFB Blaster]\nEnable=0\n[Crosshair]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nFpsLimitEnable=1\nFpsLimit=60\nCustomResolution=0\nResolutionWidth=1280\nResolutionHeight=720\n[FFB Blaster]\nEnable=0\n[Crosshair]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Coopers9/game.exe",

@@ -15,11 +15,13 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand: **41 van 60** starten (alle WORKING zonder Raw Thrills, plus Elevator Action Death Parade, The House of the Dead 4, The House of
-the Dead 4 Special, Luigi's Mansion Arcade, Time Crisis 5). Nog niet: Robin Hood, Friction, Far Cry Paradise Lost, Lost Land Adventure,
-The House of the Dead III, Virtua Cop 3, America's Army Arcade, Police Trainer 2, Crossfire, Aliens: Extermination, Block King Ball
-Shooter, Cooper's 9, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human
-Alliance, Star Trek Voyager.
+Stand 2026-10-17 00:20: **48 van 58** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c), dus 58 titels en 95% = 56. Erbij sinds de vorige stand: America's Army
+(native route aan), Lost Land Adventure (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise Lost en
+Friction (alle vijf: Windowed = 1 in gamescope; met 0 bleven ze zwart). Nog niet: The House of the Dead III en Virtua Cop 3
+(Chihiro; Cxbx-Reloaded blijft in segaboot op 0 FPS), Aliens: Extermination (stopt na een paar seconden, exitcode 5), Block King
+Ball Shooter, Silent Scope: Bone Eater, Infinity Blade FX (UE3-opstartscherm, dan wit), Men in Black, Gunslinger Stratos 3, Star
+Trek Voyager (alleen 4:3, zelfde I/O als Police Trainer 2), Mighty Moto (geen lightgun-spel, waarschijnlijk Chinees en 4:3).
 
 ## Taken per familie
 

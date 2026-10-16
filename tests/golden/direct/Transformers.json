@@ -58,7 +58,7 @@
    "files": [
     [
      "@TMP@/home/games/Transformers/exe/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=0\nHideCursor=0\nEnable Outputs=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=1\nHideCursor=0\nEnable Outputs=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Transformers/exe/TF_Gun_R_Ring_dumped.exe",
@@ -178,7 +178,7 @@
    "files": [
     [
      "@TMP@/home/games/Transformers/exe/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=0\nHideCursor=0\nEnable Outputs=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=1\nHideCursor=0\nEnable Outputs=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Transformers/exe/TF_Gun_R_Ring_dumped.exe",

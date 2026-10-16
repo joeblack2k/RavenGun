@@ -58,7 +58,7 @@
    "files": [
     [
      "@TMP@/home/games/RobinHood/data/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
     ]
    ],
    "game": "@TMP@/home/games/RobinHood/data/game.exe",
@@ -177,7 +177,7 @@
    "files": [
     [
      "@TMP@/home/games/RobinHood/data/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
     ]
    ],
    "game": "@TMP@/home/games/RobinHood/data/game.exe",
