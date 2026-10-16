@@ -15,15 +15,14 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand 2026-10-17 09:30: **49 van 57** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
-RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter is overgeslagen (skip-regel: Japanse tekst), dus
-57 titels en 95% = 55. Erbij sinds de vorige stand: America's Army (native route aan), Lost Land Adventure (mfc100u), Transformers:
-Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise Lost en Friction (alle vijf: Windowed = 1 in gamescope; met 0 bleven ze
-zwart), Infinity Blade FX (matrix-exports op de ordinalen van het origineel, plus Windowed = 1). Nog niet: The House of the Dead III
-en Virtua Cop 3 (Chihiro; Cxbx-Reloaded blijft in segaboot op 0 FPS), Aliens: Extermination (stopt na een paar seconden, exitcode
-5), Silent Scope: Bone Eater, Men in Black, Gunslinger Stratos 3 (geparkeerd: crash op 0x4FD8AED0 vóór de injectie), Star Trek
-Voyager (alleen 4:3, zelfde I/O als Police Trainer 2), Mighty Moto (start met [Loader] Core = none, dan "Unable to access HASP SRM
-Run-time Environment (H0033)").
+Stand 2026-10-17 09:50: **49 van 56** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst) en Mighty Moto (4:3) zijn
+overgeslagen, dus 56 titels en 95% = 54. Erbij sinds de vorige stand: America's Army (native route aan), Lost Land Adventure
+(mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise Lost en Friction (alle vijf: Windowed = 1 in
+gamescope; met 0 bleven ze zwart), Infinity Blade FX (matrix-exports op de ordinalen van het origineel, plus Windowed = 1). Nog niet:
+The House of the Dead III en Virtua Cop 3 (Chihiro; Cxbx-Reloaded blijft in segaboot op 0 FPS), Aliens: Extermination (stopt na een
+paar seconden, exitcode 5), Silent Scope: Bone Eater, Men in Black, Gunslinger Stratos 3 (geparkeerd: crash op 0x4FD8AED0 vóór de
+injectie), Star Trek Voyager (alleen 4:3, zelfde I/O als Police Trainer 2).
 
 ## Taken per familie
 
@@ -40,7 +39,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T5 | Werkende titels: open punten | Mario Kart DX (camera), Ghost Squad Evolution (wisselvallig), Point Blank X (attract-film), runtime-keuze zonder daemonherstart | open |
 | T6 | Linux native, nog niet geprobeerd | America's Army Arcade, Police Trainer 2, Crossfire: Maximum Paintball | open |
 | T7 | Windows met bescherming of crash | Aliens: Extermination, Block King Ball Shooter, Cooper's 9 | Cooper's 9 start (Windowed = 1); Block King overgeslagen (Japanse tekst); Aliens: Extermination open |
-| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 geparkeerd; Mighty Moto: [Loader] Core = none, dan HASP SRM (H0033); rest open |
+| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 geparkeerd; Mighty Moto overgeslagen (4:3); rest open |
 | T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | alleen meten of een passthrough-lader (Cxbx-achtig, x86 native) haalbaar is |
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
 | geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
@@ -100,7 +99,6 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | America's Army Arcade | Global VR PC Based | native (Global VR Linux, ElfLdr2) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
 | Friction | Unique PC Based | 2026-10-15: onder gamescope draait UpdateWindow eindeloos (zwart); zonder gamescope laadschermen met 60 fps, daarna zwart met 7 fps |
-| Mighty Moto | UNIS PC Based (Unity, 32-bit) with a local SmartFoxServer 1.6.6 (Java) | profiel + direct (Unity 32-bit) |
 | Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | 2026-10-15 native: slottabel 806/806, RG_ELF_MAIN, libcaca-stub, dongle-hook; "Welcome to Walking Dead"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 
@@ -127,7 +125,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (16)
+## overgeslagen (17)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -147,3 +145,4 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Big Buck Hunter Pro Home | Raw Thrills Linux PC Based | eigenaar 2026-10-15: niet zijn genre; map naar emulation/skipped |
 | Galaga Assault | RAW Thrills Linux PC Based | eigenaar 2026-10-15: overgeslagen en weg (geen spelbestanden; profiel verwijderd) |
 | Block King Ball Shooter | Type-X PC Based | skip-regel eigenaar 2026-10-16: Japanse tekst (gemeten); profiel weg, map naar emulation/skipped |
+| Mighty Moto | UNIS PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de eigen output_log.txt van de kast: desktop 1024x768; geen resolutie-optie); daarbij HASP SRM-envelope met volledig versleutelde code (.text entropie 8,0, "Unable to access HASP SRM Run-time Environment (H0033)"); profiel weg, map naar emulation/skipped |

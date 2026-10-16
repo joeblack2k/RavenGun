@@ -63,7 +63,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (19)
+## Not tested yet (18)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -76,7 +76,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Far Cry Paradise Lost**: Starts by double-click (2026-10-17): under gamescope with Windowed = 1 the attract text shows (pull trigger to start, free play) on a black background. Play not measured.
 - **Friction**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (4:3). Play not measured.
 - **Lost Land Adventure**: Starts by double-click (2026-10-16): attract (DEMO PLAY) after ~2 min loading. Open: the text is Japanese; coin and start not measured.
-- **Mighty Moto**: Prepared, not run (pass 1, UNIS PC Based, Unity 32-bit): identification only; there is no TeknoParrot template, no input layout, and the local SmartFoxServer needs its own start. Nothing measured.
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.
 - **Robin Hood**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (press start, free play). Play not measured.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
