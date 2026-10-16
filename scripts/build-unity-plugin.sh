@@ -2,13 +2,14 @@
 # Bouwt de RavenGun BepInEx-plugin (plugins/unity/) in een rootless podman-container (Mono-compiler).
 #
 # Gebruik: scripts/build-unity-plugin.sh [GAME|all] [--image-only]
-#   GAME   sleutel uit packaging/aagames-games.json (TombRaider, RabbidsHollywood); standaard all
+#   GAME   een game met patches/<Game>/unity.json (TombRaider, RabbidsHollywood); standaard all
 # Resultaat: build/unity-plugin/<GAME>/RavenGun.<GAME>.dll
 #
 # Referenties (read-only gemount, niets wordt gekopieerd of gewijzigd):
 #  - BepInEx 5.4.21 (LGPL-2.1) + HarmonyX (MIT): ~/.local/share/ravengun/bepinex/5.4.21.0/x64/BepInEx/core
 #    (zie PROVENANCE.txt daar; override met RAVENGUN_BEPINEX)
-#  - de game-assemblies van de eigen dump op de NAS (<nas_dir>/Game_Data/Managed): Assembly-CSharp.dll e.d.
+#  - de game-assemblies van de eigen dump op de NAS (<map van de game>/Game_Data/Managed): Assembly-CSharp.dll e.d. De map staat in unity.json
+#    als mapnaam en wordt gezocht in de gamemappen van library.json (scripts/unityprofile.py).
 # De image wordt gebouwd uit packaging/containers/unity-plugin/Containerfile als hij nog niet bestaat.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,27 +28,19 @@ if ! podman image exists "$IMAGE"; then
 fi
 [[ " $* " == *" --image-only "* ]] && exit 0
 
-# game-sleutel -> nas_dir en bronmap, uit het gedeelde JSON-bestand
-game_info() {  # GAME veld
-  python3 -I - "$ROOT/packaging/aagames-games.json" "$1" "$2" <<'PY'
-import json, os, sys
-cfg = json.load(open(sys.argv[1], encoding='utf-8'))
-g = cfg['games'][sys.argv[2]]
-if sys.argv[3] == 'nas_dir':
-    print(os.path.expanduser(g['nas_dir']))
-elif sys.argv[3] == 'src':
-    print({'tomb_raider': 'tombraider', 'rabbids_hollywood': 'rabbids'}[g['type']])
-PY
+# game-sleutel -> map op de NAS en bronmap, uit patches/<Game>/unity.json (gebruikerslaag eerst; scripts/unityprofile.py)
+game_info() {  # GAME nas|src
+  python3 -I "$ROOT/scripts/unityprofile.py" "$2" "$1"
 }
 
 if [[ "$WHICH" == all ]]; then
-  GAMES=$(python3 -I -c "import json,sys; print(' '.join(json.load(open(sys.argv[1]))['games']))" "$ROOT/packaging/aagames-games.json")
+  GAMES=$(python3 -I "$ROOT/scripts/unityprofile.py" games)
 else
   GAMES="$WHICH"
 fi
 
 for G in $GAMES; do
-  NAS="$(game_info "$G" nas_dir)"; SRC="$(game_info "$G" src)"
+  NAS="$(game_info "$G" nas)" || exit 1; SRC="$(game_info "$G" src)" || exit 1
   MANAGED="$NAS/Game_Data/Managed"
   [[ -f "$MANAGED/Assembly-CSharp.dll" ]] || { echo "$G: $MANAGED/Assembly-CSharp.dll niet gevonden (NAS gekoppeld?)" >&2; exit 1; }
   mkdir -p "$OUT/$G"

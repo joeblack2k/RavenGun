@@ -80,6 +80,10 @@ std::string profile_file(const NativePaths& p, const std::string& game);
 // Leeg = deze game heeft geen (leesbaar) native profiel; een kapot bestand in de gebruikerslaag valt niet terug op het meegeleverde.
 std::string profile_text(const NativePaths& p, const std::string& game);
 bool profile_enabled(const std::string& json_text, const std::string& game);
+// De map `folder` van een game in de spelmappen van de app: eerst <root>/<folder>, dan een niveau dieper (<root>/*/<folder>, op
+// naam gesorteerd; een spelmap die de map Teknoparrot zelf bevat). De naam moet exact kloppen (ook een spatie aan het eind).
+// Leeg = nergens (of een naam met '/'). Gedeeld door de native route (@nas) en de Unity-route (unity.json "folder").
+std::string find_game_folder(const std::string& folder, const std::vector<std::string>& roots);
 
 struct LayerStep {
     enum class Kind { Mkdir, Seed, Link, Write } kind = Kind::Mkdir;

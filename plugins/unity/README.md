@@ -39,7 +39,7 @@ van 42 bytes (Tomb Raider) of 38 bytes (Rabbids), zonder kop. Uitvoer van de plu
 
 BepInEx maakt bij de eerste start `BepInEx/config/nl.studiodamon.ravengun.<game>.cfg` aan (met uitleg bij elke instelling).
 `tools/dev/aagames-setup.py` schrijft dat bestand alleen als het ontbreekt (poort, resolutie, beeldvullend uit
-`packaging/aagames-games.json`); daarna beheert de eigenaar het zelf. Met `--reset-config` wordt het opnieuw gemaakt.
+`patches/<Game>/unity.json` en `packaging/unity-route.json`); daarna beheert de eigenaar het zelf. Met `--reset-config` wordt het opnieuw gemaakt.
 
 Voornaamste instellingen: `Kanaal/Poort` (standaard 33610), `Scherm/Breedte`, `Hoogte`, `Beeldvullend`, `ResolutieAfdwingen`,
 `Vizier/Modus` (FromDaemon, Show of Hide), `Bord/IOBordUitschakelen`, `Toetsen/*` en `Log/Uitgebreid`.
@@ -51,7 +51,7 @@ Arch Linux met Mono) en refereert read-only aan:
 
 - BepInEx 5.4.21 en HarmonyX uit `~/.local/share/ravengun/bepinex/5.4.21.0/x64/BepInEx/core` (herkomst en SHA-256 in
   `PROVENANCE.txt` daar; download alleen van github.com/BepInEx);
-- de eigen game-assemblies op de NAS (`<nas_dir>/Game_Data/Managed`). Die worden niet gekopieerd en niet gewijzigd.
+- de eigen game-assemblies op de NAS (`<map van de game>/Game_Data/Managed`; de map staat in `unity.json` als mapnaam en wordt gezocht in de gamemappen van `library.json`, `scripts/unityprofile.py`). Die worden niet gekopieerd en niet gewijzigd.
 
 Resultaat: `build/unity-plugin/<GAME>/RavenGun.<GAME>.dll` (door git genegeerd).
 

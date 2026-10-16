@@ -386,18 +386,41 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
         r.log << QStringLiteral("Games with their own profile: %1 of %2 found").arg(located).arg(in.ownGames.size());
     }
 
-    // 2. Unity-route.
-    struct Unity { QString key, name, dir, exe; };
+    // 2. Unity-route: de mapnaam uit unity.json in de gamemappen, met dezelfde regel als de daemon (<gamemap>/<folder>, dan een niveau
+    //    dieper; de naam moet exact kloppen), of het eigen pad van de gebruiker (nasDir).
+    struct Unity { QString key, name, dir, exe; bool matched = false; QString root; };
     QList<Unity> unity;
-    if (!in.aagamesJson.isEmpty()) {
-        const QJsonObject games = readJson(in.aagamesJson).object().value(QStringLiteral("games")).toObject();
-        for (auto it = games.begin(); it != games.end(); ++it) {
-            const QJsonObject g = it->toObject();
-            Unity u{it.key(), g.value(QStringLiteral("name")).toString(),
-                    QDir::cleanPath(AppPaths::expandHome(g.value(QStringLiteral("nas_dir")).toString())), g.value(QStringLiteral("exe")).toString()};
-            if (u.name.isEmpty()) u.name = humanize(u.key);
-            unity << u;
+    for (const UnityGameInfo& info : in.unityGames) {
+        if (!info.error.isEmpty()) {
+            r.log << QStringLiteral("Unity game %1: unity.json is broken (%2)").arg(info.key, info.error);
+            continue;
         }
+        Unity u{info.key, info.name, {}, info.exe, false, {}};
+        if (u.name.isEmpty()) u.name = humanize(u.key);
+        if (!info.nasDir.isEmpty()) {
+            u.dir = QDir::cleanPath(AppPaths::expandHome(info.nasDir));
+        } else if (!info.folder.isEmpty()) {
+            for (const LibraryFolder& lf : in.folders) {
+                const QString root = QDir::cleanPath(AppPaths::expandHome(lf.path));
+                if (QFileInfo(root + QLatin1Char('/') + info.folder).isDir()) { u.dir = root + QLatin1Char('/') + info.folder; u.root = lf.path; break; }
+            }
+            if (u.dir.isEmpty())
+                for (const LibraryFolder& lf : in.folders) {
+                    const QString root = QDir::cleanPath(AppPaths::expandHome(lf.path));
+                    for (const QFileInfo& sub : QDir(root).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name))
+                        if (QFileInfo(sub.absoluteFilePath() + QLatin1Char('/') + info.folder).isDir()) {
+                            u.dir = sub.absoluteFilePath() + QLatin1Char('/') + info.folder;
+                            u.root = lf.path;
+                            break;
+                        }
+                    if (!u.dir.isEmpty()) break;
+                }
+        }
+        if (u.dir.isEmpty()) {
+            r.log << QStringLiteral("Unity game %1: folder \"%2\" not found in the game folders").arg(info.key, info.folder);
+            continue;
+        }
+        unity << u;
     }
     QSet<QString> tpProfiles;
     for (const auto& g : tp) tpProfiles.insert(g.profile);
@@ -468,9 +491,10 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
             }
             // b. Unity-route?
             bool isUnity = false;
-            for (const Unity& u : unity) {
+            for (Unity& u : unity) {
                 if (canon(u.dir) == cdir) {
                     isUnity = true;
+                    u.matched = true;
                     if (tpProfiles.contains(u.key)) {
                         tp[tpIndex.value(u.key)].folder = dir;
                         tp[tpIndex.value(u.key)].sourceFolder = lf.path;
@@ -574,6 +598,27 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
             }
             found << g;
         }
+    }
+    // Een Unity-game die niet rechtstreeks in een gamemap staat (een niveau dieper, of een eigen pad) en dus geen kandidaat was.
+    for (const Unity& u : unity) {
+        if (u.matched || cancelled() || !QFileInfo(u.dir).isDir()) continue;
+        if (tpProfiles.contains(u.key)) {
+            tp[tpIndex.value(u.key)].folder = u.dir;
+            tp[tpIndex.value(u.key)].sourceFolder = u.root;
+            continue;
+        }
+        GameEntry g;
+        g.id = QStringLiteral("unity:") + u.key;
+        g.kind = GameKind::Unity;
+        g.profile = u.key;
+        g.name = u.name;
+        g.folder = u.dir;
+        g.exePath = u.dir + QLatin1Char('/') + u.exe;
+        g.platform = QStringLiteral("Unity (PC)");
+        g.gunGame = true;
+        g.sourceFolder = u.root;
+        g.iconPath = iconIn(tpDir, u.key + QStringLiteral(".png"));
+        found << g;
     }
     r.games = tp + found;
     r.log << QStringLiteral("Games: %1 (%2 from TeknoParrot, %3 from game folders)").arg(r.games.size()).arg(tp.size()).arg(found.size());
@@ -690,7 +735,7 @@ void GameLibrary::rescan() {
     in.tpDir = data_.effectiveTpDir();
     in.ownGames = own_;
     in.viewsDir = AppPaths::viewsDir();
-    in.aagamesJson = AppPaths::packagingFile(QStringLiteral("aagames-games.json"));
+    in.unityGames = unity_;
     const quint64 gen = ++gen_;
     cancel_ = std::make_shared<std::atomic<bool>>(false);
     auto cancel = cancel_;

@@ -11,13 +11,15 @@
 
 #include "ravengun/games/aagames.hpp"
 #include "ravengun/iobridge/unity_tcp.hpp"
+#include "ravengun/launch/unity.hpp"
 #include "shared.hpp"
 
 namespace ravengund {
 
 class AagamesService {
 public:
-    AagamesService(SharedState& sh, ravengun::games::AaConfig cfg);
+    // `paths`: waar patches/<Game>/unity.json (beide lagen) en packaging/unity-route.json staan; elke start leest ze opnieuw.
+    AagamesService(SharedState& sh, ravengun::launch::UnityPaths paths);
     ~AagamesService();
     AagamesService(const AagamesService&) = delete;
     AagamesService& operator=(const AagamesService&) = delete;
@@ -28,7 +30,6 @@ public:
     bool active() const;
     // {"active":false,"games":[...]} of de status van de klant met "active":true.
     std::string status_json() const;
-    const ravengun::games::AaConfig& config() const { return cfg_; }
     // De route stopt vanzelf als de game weg is (de verbinding was er en is langer dan grace_ms weg) of als de game nooit
     // verbond binnen never_ms. Zo blijft de rumble niet aan de game gebonden nadat hij met Esc is afgesloten.
     void set_timeouts(int grace_ms, int never_ms) { std::lock_guard<std::mutex> lk(m_); grace_ms_ = grace_ms; never_ms_ = never_ms; }
@@ -37,7 +38,7 @@ private:
     void stop_locked();
     void watch_main();
     SharedState& sh_;
-    ravengun::games::AaConfig cfg_;
+    ravengun::launch::UnityPaths paths_;
     mutable std::mutex m_;
     std::unique_ptr<ravengun::iobridge::UnityTcpDialect> client_;   // dialect unity-tcp van de IO-brug
     int grace_ms_ = 8000, never_ms_ = 15 * 60 * 1000;

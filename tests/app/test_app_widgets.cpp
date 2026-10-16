@@ -179,6 +179,8 @@ void AppWidgetTest::brokenUserOptionsFile() {
 }
 
 void AppWidgetTest::routeChoiceInProperties() {
+    // TombRaider is een Unity-game als hij een unity.json heeft (patches/<Game>/unity.json; hier in de gebruikerslaag).
+    writeFile(tmp_.filePath(QStringLiteral("data/ravengun/patches/TombRaider/unity.json")), R"({"name":"Tomb Raider Arcade","type":"tomb_raider","folder":"Tomb Raider"})");
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
     GameEntry g;
     g.id = QStringLiteral("tp:TC5");

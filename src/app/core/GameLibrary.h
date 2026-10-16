@@ -5,8 +5,9 @@
 // Herkenning (LibraryScanner::scan, zonder Qt-GUI, in een eigen thread):
 //  1. TeknoParrot-profielen: elk UserProfiles/<P>.xml in de TeknoParrot-map is een game (kind TeknoParrot), met naam en
 //     platform uit Metadata/<P>.json, icoon uit Icons/.
-//  2. Unity-route: packaging/aagames-games.json (nas_dir) herkent Tomb Raider en Rabbids Hollywood; een TeknoParrot-profiel
-//     met dezelfde naam gaat voor (dat start via play-halo.sh ook de Unity-route).
+//  2. Unity-route: patches/<Game>/unity.json (ScanInput::unityGames) herkent Tomb Raider en Rabbids Hollywood aan de mapnaam ("folder")
+//     in de gamemappen hieronder (zelfde regel als de daemon: <gamemap>/<folder>, of een niveau dieper), of aan een eigen pad ("nas_dir",
+//     alleen in de gebruikerslaag); een TeknoParrot-profiel met dezelfde naam gaat voor.
 //  1b. Games met een eigen profiel in game.ini (patches/<Game>/ met de gebruikerslaag; ScanInput::ownGames): het pad wordt niet opgeslagen
 //     maar afgeleid, uit de lokale view van de game of uit de gamemappen aan [Identify] (Dolphin: ISOPath0..N en het game-ID). Zo'n
 //     game staat zonder UserProfiles-XML in de lijst; een profiel dat ook als XML bestaat komt uit game.ini.
@@ -113,13 +114,19 @@ struct OwnGame {
     ravengun::gamesettings::Ini settings;   // samengevoegd (standaard van het soort, meegeleverd, gebruiker)
 };
 
+// Een Unity-game uit patches/<Game>/unity.json (gebruikerslaag eerst, een kapot bestand vervangt het meegeleverde ook): de mapnaam in de
+// gamemappen, of een eigen pad van de gebruiker. `error` gevuld = het bestand is kapot (de game wordt niet herkend; de daemon meldt het bij de start).
+struct UnityGameInfo {
+    QString key, name, folder, nasDir, exe, error;
+};
+
 struct ScanInput {
     QList<LibraryFolder> folders;
     QList<KnownGame> known;
     QList<OwnGame> ownGames;   // games met een eigen profiel; de views en de gamemappen worden doorzocht
     QString viewsDir;          // runtime/views (leeg = geen)
     QString tpDir;
-    QString aagamesJson;  // pad naar packaging/aagames-games.json (leeg = geen)
+    QList<UnityGameInfo> unityGames;   // Unity-games (patches/<Game>/unity.json)
     int maxDepth = 6;
     int maxEntriesPerGame = 6000;
 };
@@ -178,6 +185,7 @@ public:
     void rescan();
     void setKnownGames(const QList<KnownGame>& known) { known_ = known; }
     void setOwnGames(const QList<OwnGame>& own) { own_ = own; }
+    void setUnityGames(const QList<UnityGameInfo>& unity) { unity_ = unity; }
 
 signals:
     void gamesChanged();
@@ -195,6 +203,7 @@ private:
     QStringList log_;
     QList<KnownGame> known_;
     QList<OwnGame> own_;
+    QList<UnityGameInfo> unity_;
     bool scanning_ = false;
     quint64 gen_ = 0;
     std::shared_ptr<std::atomic<bool>> cancel_;

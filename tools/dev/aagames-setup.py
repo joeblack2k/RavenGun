@@ -4,20 +4,21 @@ DemulShooter.exe te draaien: lokale game-view + eigen Wine-prefix. Zie docs/deci
 
 Gebruik: python3 -I tools/dev/aagames-setup.py GAME [--plugin ravengun|demulshooter] [--version V] [--no-prefix]
                                               [--print-view] [--reset-config] [--no-build]
-  GAME     sleutel uit packaging/aagames-games.json (TombRaider, RabbidsHollywood)
+  GAME     een game met patches/<Game>/unity.json (TombRaider, RabbidsHollywood); de map op de NAS komt uit de gamemappen van
+           library.json (scripts/unityprofile.py), tenzij het unity.json van de gebruiker een eigen pad (nas_dir) geeft
   --plugin  welke BepInEx-plugin in de game komt: "ravengun" (route 2, onze eigen plugin uit plugins/unity/, standaard)
             of "demulshooter" (route 1, terugval). Standaard: de omgevingsvariabele RAVENGUN_UNITY_PLUGIN, anders het
-            veld "plugin" van de game in het JSON-bestand, anders "ravengun".
-  --version  map onder ~/.local/share/ravengun/demulshooter/ (standaard uit het JSON-bestand; alleen demulshooter)
+            veld "plugin" van de game in unity.json, anders "ravengun".
+  --version  map onder ~/.local/share/ravengun/demulshooter/ (standaard uit unity-route.json; alleen demulshooter)
   --no-prefix  alleen de view (geen Wine-prefix aanmaken)
   --print-view  druk alleen het pad van de view af (voor play-unity.sh)
-  --reset-config  (ravengun) schrijf het plugin-configuratiebestand opnieuw uit het JSON-bestand
+  --reset-config  (ravengun) schrijf het plugin-configuratiebestand opnieuw uit unity.json
   --no-build  (ravengun) bouw de plugin niet automatisch als hij ontbreekt of verouderd is
 
 Route 2 (ravengun): BepInEx 5.4.21 komt van github.com/BepInEx (LGPL-2.1) uit ~/.local/share/ravengun/bepinex/<versie>/
 (zie PROVENANCE.txt daar), de plugin-DLL uit build/unity-plugin/<GAME>/ (scripts/build-unity-plugin.sh). Het configuratie-
 bestand BepInEx/config/nl.studiodamon.ravengun.<game>.cfg wordt alleen aangemaakt als het ontbreekt (de waarden komen dan uit
-het JSON-bestand: poort, resolutie, beeldvullend); daarna beheert de eigenaar het zelf (of --reset-config).
+patches/<Game>/unity.json en packaging/unity-route.json: poort, resolutie, beeldvullend); daarna beheert de eigenaar het zelf (of --reset-config).
 
 Route 1 (demulshooter): de DemulShooter-release staat NIET in de repository (geen licentie): download hem apart naar
 ~/.local/share/ravengun/demulshooter/<versie>/ (zie PROVENANCE.txt daar). Dit script voert geen enkel .exe uit de
@@ -49,14 +50,17 @@ Na het klaarzetten controleert pruef_schrijfpaden() alleen onze artefacten: de v
 erin mogen niet via een symlink op de NAS uitkomen; anders stopt het script met een foutmelding. Dat de spelmap zelf
 (de bron van de symlinks) op de NAS staat is de bedoeling en stopt niets. Bestaande lokale bestanden in de view blijven bij
 een nieuwe aanroep staan (bijv. NVRAM, een geplaatste drop-in; de plugin-ini wordt opnieuw uit het sjabloon gemaakt met de
-resolutie uit het JSON-bestand). Oude symlinks naar de NAS in de lokale Plugins-map (uit een eerdere versie of een
+resolutie uit unity.json). Oude symlinks naar de NAS in de lokale Plugins-map (uit een eerdere versie of een
 drop-in-materialisatie) worden vervangen.
 """
 import glob, json, os, re, shutil, subprocess, sys
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'scripts'))
+import unityprofile  # noqa: E402  patches/<Game>/unity.json en packaging/unity-route.json
+
 HOME = os.path.expanduser('~')
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CFG = os.path.join(ROOT, 'packaging', 'aagames-games.json')
 DS = os.path.join(HOME, '.local/share/ravengun/demulshooter')
 BEPINEX = os.path.join(HOME, '.local/share/ravengun/bepinex')
 PLUGIN_SRC = os.path.join(ROOT, 'plugins', 'unity', 'src')
@@ -83,10 +87,12 @@ def die(msg):
 
 
 def load(game):
-    cfg = json.load(open(CFG, encoding='utf-8'))
-    if game not in cfg['games']:
-        die(f'onbekende game {game!r}; kies uit: ' + ', '.join(cfg['games']))
-    return cfg, cfg['games'][game]
+    """(gedeelde instellingen, de game met nas_dir ingevuld): patches/<Game>/unity.json, de gebruikerslaag eerst."""
+    try:
+        route, g, _bron = unityprofile.load_game(game)
+    except unityprofile.UnityError as e:
+        die(str(e))
+    return route, g
 
 
 def onder(pad, wortel):
@@ -246,7 +252,7 @@ def plugin_stale(dll):
 
 
 def ravengun_cfg_text(cfg_root, g):
-    """Beginwaarden van het plugin-configuratiebestand (BepInEx-indeling), uit het JSON-bestand."""
+    """Beginwaarden van het plugin-configuratiebestand (BepInEx-indeling), uit unity.json en unity-route.json."""
     b = lambda v: 'true' if v else 'false'
     return ('[Kanaal]\n\nPoort = %d\n\n[Scherm]\n\nBreedte = %d\nHoogte = %d\nBeeldvullend = %s\nResolutieAfdwingen = true\n'
             % (cfg_root.get('port', 33610), g['width'], g['height'], b(g.get('fullscreen', True))))

@@ -15,7 +15,6 @@ option(RAVENGUN_BUILD_CAMPROBE "Bouw het camera-meetprogramma" ON)
 include(cmake/EmbedWebAssets.cmake)
 embed_web_assets("${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/ravengund/web"
   index.html app.css app-core.js app.js calibrate.html calibrate.css calibrate-core.js calibrate.js
-  "aagames-games.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/aagames-games.json"
   "hid-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/hid-boards.json"
   "jvs-boards.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/jvs-boards.json"
   "control-pipe-profiles.json=${CMAKE_CURRENT_SOURCE_DIR}/packaging/control-pipe-profiles.json"
@@ -355,6 +354,8 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_camera_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_camera.py")
     # Schrijfpaden naar de NAS: geen route van ons schrijft eigen bestanden in een gamemap op de NAS.
     add_test(NAME ravengun_nas_schrijfpaden_views COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nas_schrijfpaden_views.py")
+    # Het profiel van een Unity-game voor de scripts (scripts/unityprofile.py): lagen, mapnaam in de gamemappen, eigen pad, kapot = fout.
+    add_test(NAME ravengun_unityprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_unityprofile.py")
     add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")
   endif()
   # Het statusbord van de tv (ravengun --saver): ontbreekt het statusbestand of staat er onzin in, dan zegt het bord dat; een status
@@ -549,7 +550,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
   install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
     FILES_MATCHING
-    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|options\\.json|dongle\\.json|README\\.md)$"
+    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.

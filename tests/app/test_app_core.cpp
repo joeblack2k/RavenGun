@@ -87,6 +87,7 @@ private Q_SLOTS:
     void memoryCardList();
     void profileSyncFromLibrary();
     void libraryFindsOwnProfiles();
+    void unityGamesPerGame();
     void ownProfileOptionsWriteUserLayer();
     void profileSyncOwnProfile();
     void dongleStatusText();
@@ -774,6 +775,57 @@ void AppCoreTest::libraryFindsOwnProfiles() {
     for (const GameEntry& g : r.games) QVERIFY(g.id != QStringLiteral("tp:TC5"));
 }
 
+void AppCoreTest::unityGamesPerGame() {
+    // Unity-games: patches/<Game>/unity.json, de gebruikerslaag eerst en als geheel. De map staat als mapnaam in het bestand en wordt
+    // gezocht in de gamemappen (zoals de daemon doet); alleen de gebruikerslaag mag een eigen pad geven.
+    const QString patches = tmp_.filePath(QStringLiteral("unity-patches")), user = tmp_.filePath(QStringLiteral("unity-user"));
+    const QString games = tmp_.filePath(QStringLiteral("unity-games")), elders = tmp_.filePath(QStringLiteral("unity-elders"));
+    writeFile(patches + QStringLiteral("/Uni/unity.json"), R"({"name":"Uni Game","folder":"Uni Map ","exe":"Game.exe"})");
+    writeFile(patches + QStringLiteral("/Diep/unity.json"), R"({"folder":"Diep Map"})");
+    writeFile(patches + QStringLiteral("/Eigen/unity.json"), R"({"name":"Eigen","folder":"Bestaat Niet"})");
+    writeFile(patches + QStringLiteral("/Kapot/unity.json"), R"({"folder":"Kapot Map"})");
+    writeFile(user + QStringLiteral("/Eigen/unity.json"), ("{\"name\":\"Eigen\",\"nas_dir\":\"" + elders + "/Eigen Plek\"}").toUtf8());
+    writeFile(user + QStringLiteral("/Kapot/unity.json"), "{kapot");
+    writeFile(games + QStringLiteral("/Uni Map /Game.exe"), "MZ");
+    writeFile(games + QStringLiteral("/Teknoparrot/Diep Map/Game.exe"), "MZ");   // een niveau dieper dan de gamemap
+    writeFile(games + QStringLiteral("/Kapot Map/Game.exe"), "MZ");
+    writeFile(elders + QStringLiteral("/Eigen Plek/Game.exe"), "MZ");
+    GameData d;
+    d.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), user.toStdString()});
+    QCOMPARE(d.unityGames().size(), 4);
+    QCOMPARE(d.availableRoutes(QStringLiteral("Uni")), QStringList{QStringLiteral("unity-tcp")});
+    QCOMPARE(d.availableRoutes(QStringLiteral("Kapot")), QStringList{QStringLiteral("unity-tcp")});   // het blijft een Unity-game
+    QCOMPARE(d.availableRoutes(QStringLiteral("Weg")), QStringList{QStringLiteral("evdev")});
+    ScanInput in;
+    in.folders << LibraryFolder{games, true};
+    in.unityGames = d.unityGames();
+    in.viewsDir = tmp_.filePath(QStringLiteral("unity-views"));
+    ScanResult r = LibraryScanner::scan(in);
+    QHash<QString, GameEntry> byId;
+    for (const GameEntry& g : r.games) byId.insert(g.id, g);
+    QVERIFY(byId.contains(QStringLiteral("unity:Uni")));
+    QCOMPARE(byId.value(QStringLiteral("unity:Uni")).folder, games + QStringLiteral("/Uni Map "));
+    QCOMPARE(byId.value(QStringLiteral("unity:Uni")).name, QStringLiteral("Uni Game"));
+    QCOMPARE(byId.value(QStringLiteral("unity:Uni")).kind, GameKind::Unity);
+    QCOMPARE(byId.value(QStringLiteral("unity:Uni")).exePath, games + QStringLiteral("/Uni Map /Game.exe"));
+    QVERIFY(byId.contains(QStringLiteral("unity:Diep")));
+    QCOMPARE(byId.value(QStringLiteral("unity:Diep")).folder, games + QStringLiteral("/Teknoparrot/Diep Map"));
+    // Het eigen pad van de gebruiker gaat voor de mapnaam uit het meegeleverde bestand (dat vervangen is als geheel).
+    QVERIFY(byId.contains(QStringLiteral("unity:Eigen")));
+    QCOMPARE(byId.value(QStringLiteral("unity:Eigen")).folder, elders + QStringLiteral("/Eigen Plek"));
+    // Kapot in de gebruikerslaag: geen terugval op de meegeleverde mapnaam (de map staat er wel), en een regel in het logboek.
+    QVERIFY(!byId.contains(QStringLiteral("unity:Kapot")));
+    QVERIFY(r.log.join(QLatin1Char('\n')).contains(QStringLiteral("Unity game Kapot: unity.json is broken")));
+    // Zonder de gebruikerslaag: de meegeleverde bestanden.
+    d.loadFrom(ravengun::gamesettings::Dirs{patches.toStdString(), {}});
+    in.unityGames = d.unityGames();
+    r = LibraryScanner::scan(in);
+    byId.clear();
+    for (const GameEntry& g : r.games) byId.insert(g.id, g);
+    QVERIFY(byId.contains(QStringLiteral("unity:Kapot")));
+    QVERIFY(!byId.contains(QStringLiteral("unity:Eigen")));   // "Bestaat Niet" staat in geen gamemap
+}
+
 void AppCoreTest::ownProfileOptionsWriteUserLayer() {
     const QString patches = writeOwnTc5(tmp_.filePath(QStringLiteral("opt-patches")));
     const QString user = tmp_.filePath(QStringLiteral("opt-user"));
@@ -1263,8 +1315,9 @@ void AppCoreTest::routeOverride() {
     namespace gs = ravengun::gamesettings;
     const QString user = tmp_.filePath(QStringLiteral("routes-user"));
     GameData d;
-    d.setRouteSources(repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")),
-                      repoFile(QStringLiteral("packaging/aagames-games.json")));
+    d.setRouteSources(repoFile(QStringLiteral("packaging/hid-boards.json")), repoFile(QStringLiteral("packaging/jvs-boards.json")));
+    // TombRaider is een Unity-game: patches/TombRaider/unity.json (hier een bestand in de gebruikerslaag, zodat de test de patches-repo niet nodig heeft).
+    writeFile(user + QStringLiteral("/TombRaider/unity.json"), R"({"name":"Tomb Raider Arcade","type":"tomb_raider","folder":"Tomb Raider"})");
     d.loadFrom(repoDirs(user));
     QCOMPARE(d.route(QStringLiteral("TC5")).route, QStringLiteral("tp-shm"));
     QVERIFY(!d.route(QStringLiteral("TC5")).userChoice);
@@ -1289,7 +1342,7 @@ void AppCoreTest::routeOverride() {
     QVERIFY(d.setUserRoute(QStringLiteral("Halo"), QStringLiteral("evdev"), &err));
     // Een tweede GameData (een herstart van de app) leest dezelfde keuzes.
     GameData d2;
-    d2.setRouteSources({}, {}, {});
+    d2.setRouteSources({}, {});
     d2.loadFrom(repoDirs(user));
     QCOMPARE(d2.route(QStringLiteral("TC5")).route, QStringLiteral("evdev"));
     QCOMPARE(d2.route(QStringLiteral("Halo")).route, QStringLiteral("evdev"));

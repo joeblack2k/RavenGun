@@ -505,11 +505,15 @@ static void test_unity_service(const std::string& d) {
     write(b + "/proton/proton", "#!/bin/sh\n");
     fs::permissions(b + "/proton/proton", fs::perms::owner_all);
     write(b + "/tp/UserProfiles/Uni.xml", "<GameProfile/>");
-    write(b + "/aagames.json", R"({"port":33610,"games":{"Uni":{"name":"Unity-spel","nas_dir":"~/nas/Spel","exe":"Game.exe"}}})");
+    // Het profiel is patches/<Game>/unity.json met een mapnaam; de map zelf wordt gezocht in de gamemappen van library.json, bij elke start.
+    write(b + "/uniroute/Uni/unity.json", R"({"name":"Unity-spel","folder":"Spel","exe":"Game.exe"})");
+    write(b + "/library.json", R"({"folders":[{"path":"~/nas","recursive":true}]})");
     Config c;
     c.tp_dir = b + "/tp";
     c.proc_root = b + "/proc";
-    c.unity.json = b + "/aagames.json";
+    c.library_file = b + "/library.json";
+    c.home = b + "/home";
+    c.unity.patches = b + "/uniroute";
     c.unity.home = b + "/home";
     c.unity.data = b + "/data";
     c.unity.plugin_dirs = {"", b + "/plug"};
@@ -579,6 +583,29 @@ static void test_unity_service(const std::string& d) {
     wait_idle_worker(svc);
     CHECK(state_of(svc, &msg) == "failed" && msg.find("build-unity-plugin.sh Uni") != std::string::npos);
     { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+    // Een gamemap die de app nog niet kent: een duidelijke melding, niets gestart. Een net toegevoegde gamemap telt bij de volgende start.
+    write(b + "/library.json", R"({"folders":[{"path":"~/elders"}]})");
+    { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+    write(b + "/plug/Uni/RavenGun.Uni.dll", "plugin");
+    CHECK(svc.start("Uni").ok);
+    wait_idle_worker(svc);
+    CHECK(state_of(svc, &msg) == "failed" && msg.find("'Spel'") != std::string::npos && msg.find("staat in geen gamemap") != std::string::npos);
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+    write(b + "/library.json", R"({"folders":[{"path":"~/elders"},{"path":"~/nas"}]})");
+    CHECK(svc.start("Uni").ok);
+    wait_idle_worker(svc);
+    CHECK(state_of(svc, &msg) != "failed");
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.size() == 1); }
+    // Een kapot unity.json in de gebruikerslaag: de melding noemt dat bestand, geen terugval op het meegeleverde bestand.
+    c.unity.user_patches = b + "/uniuser";
+    write(b + "/uniuser/Uni/unity.json", "{kapot");
+    CHECK(unity_route(c, "Uni"));
+    GameService svc2(c, [&](const std::vector<std::string>&, std::string&) { return 0; });
+    CHECK(svc2.start("Uni").ok);
+    wait_idle_worker(svc2);
+    CHECK(state_of(svc2, &msg) == "failed" && msg.find(b + "/uniuser/Uni/unity.json") != std::string::npos);
+    fs::remove_all(b + "/uniuser");
+    c.unity.user_patches.clear();
     // game.ini vraagt om tp-shm: dan niet de Unity-route.
     c.dirs.shipped = b + "/patches";
     write(b + "/patches/Uni/game.ini", "[Game]\nName = Uni\n[Input]\nRoute = tp-shm\n");

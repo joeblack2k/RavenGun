@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -18,15 +19,13 @@ namespace rg {
 namespace gs = ravengun::gamesettings;
 
 void GameData::load() {
-    setRouteSources(AppPaths::packagingFile(QStringLiteral("hid-boards.json")), AppPaths::packagingFile(QStringLiteral("jvs-boards.json")),
-                    AppPaths::packagingFile(QStringLiteral("aagames-games.json")));
+    setRouteSources(AppPaths::packagingFile(QStringLiteral("hid-boards.json")), AppPaths::packagingFile(QStringLiteral("jvs-boards.json")));
     loadFrom(gs::default_dirs(AppPaths::dataRoot().toStdString()));
 }
 
-void GameData::setRouteSources(const QString& hidBoards, const QString& jvsBoards, const QString& aagames) {
+void GameData::setRouteSources(const QString& hidBoards, const QString& jvsBoards) {
     hidBoards_.clear();
     jvsBoards_.clear();
-    unityGames_.clear();
     auto keys = [](const QString& file, const char* member, QSet<QString>& out) {
         if (file.isEmpty()) return;
         const QJsonObject o = readJson(file).object().value(QLatin1String(member)).toObject();
@@ -34,7 +33,6 @@ void GameData::setRouteSources(const QString& hidBoards, const QString& jvsBoard
     };
     keys(hidBoards, "boards", hidBoards_);
     keys(jvsBoards, "boards", jvsBoards_);
-    keys(aagames, "games", unityGames_);
 }
 
 namespace {
@@ -94,9 +92,40 @@ void GameData::loadFrom(const gs::Dirs& dirs) {
     options_.clear();
     optionsFiles_.clear();
     optionsErrors_.clear();
+    loadUnity();
     for (const std::string& name : gs::list_games(dirs_)) {
         loadGame(QString::fromStdString(name));
         loadOptions(QString::fromStdString(name));
+    }
+}
+
+void GameData::loadUnity() {
+    // Zoals options.json en native.json: de gebruikerslaag eerst, en dat bestand vervangt het meegeleverde als geheel. Is het kapot, dan
+    // is de game wel een Unity-game (de route klopt) maar herkent de bibliotheek hem niet; de daemon meldt de fout bij de start.
+    unity_.clear();
+    static const QRegularExpression plain(QStringLiteral("^[A-Za-z0-9_-]{1,64}$"));
+    for (const std::string& layer : {dirs_.user, dirs_.shipped}) {
+        if (layer.empty()) continue;
+        const QString base = QString::fromStdString(layer);
+        for (const QString& name : QDir(base).entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+            const QString file = base + QLatin1Char('/') + name + QStringLiteral("/unity.json");
+            if (!plain.match(name).hasMatch() || !QFileInfo(file).isFile() || unity_.contains(name)) continue;
+            UnityGameInfo i;
+            i.key = name;
+            QString err;
+            const QJsonDocument doc = readJson(file, &err);
+            if (!err.isEmpty() || !doc.isObject()) {
+                i.error = err.isEmpty() ? QStringLiteral("not a JSON object") : err;
+            } else {
+                const QJsonObject o = doc.object();
+                i.name = o.value(QStringLiteral("name")).toString();
+                i.folder = o.value(QStringLiteral("folder")).toString();
+                i.nasDir = o.value(QStringLiteral("nas_dir")).toString();
+                i.exe = o.value(QStringLiteral("exe")).toString(QStringLiteral("Game.exe"));
+                if (i.folder.isEmpty() && i.nasDir.isEmpty()) i.error = QStringLiteral("no \"folder\"");
+            }
+            unity_.insert(name, i);
+        }
     }
 }
 
@@ -160,7 +189,7 @@ RouteInfo GameData::route(const QString& profile) const {
 
 QStringList GameData::availableRoutes(const QString& profile) const {
     // Unity-games starten altijd via hun plugin (play-halo.sh gaat naar play-unity.sh): geen andere keuze.
-    if (unityGames_.contains(profile)) return QStringList{QStringLiteral("unity-tcp")};
+    if (unity_.contains(profile)) return QStringList{QStringLiteral("unity-tcp")};
     const RouteInfo base = baseRoutes_.value(profile);
     const QString recommended = baseRoutes_.contains(profile) ? base.route : QStringLiteral("evdev");
     QStringList out{recommended};

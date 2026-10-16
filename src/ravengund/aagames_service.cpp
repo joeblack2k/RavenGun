@@ -10,7 +10,7 @@ namespace ravengund {
 
 using namespace ravengun::games;
 
-AagamesService::AagamesService(SharedState& sh, AaConfig cfg) : sh_(sh), cfg_(std::move(cfg)) {
+AagamesService::AagamesService(SharedState& sh, ravengun::launch::UnityPaths paths) : sh_(sh), paths_(std::move(paths)) {
     watch_ = std::thread(&AagamesService::watch_main, this);
 }
 
@@ -42,8 +42,15 @@ void AagamesService::watch_main() {
 }
 
 std::string AagamesService::start(const std::string& game_key) {
-    const AaGame* g = cfg_.find(game_key);
-    if (!g) return "onbekende game '" + game_key + "' (zie packaging/aagames-games.json)";
+    namespace L = ravengun::launch;
+    const std::string text = L::unity_text(paths_, game_key);
+    if (text.empty()) return "onbekende game '" + game_key + "' (geen patches/" + game_key + "/unity.json)";
+    AaGame game;
+    std::string perr;
+    if (!parse_aagames_game(game_key, text, game, perr)) return perr;
+    L::UnityRoute route;
+    if (!L::load_unity_route(paths_, route, perr)) return perr;
+    const AaGame* g = &game;
     std::lock_guard<std::mutex> lk(m_);
     if (client_) { client_->close(); client_.reset(); }
     SharedState& sh = sh_;
@@ -51,14 +58,14 @@ std::string AagamesService::start(const std::string& game_key) {
     sh.game_rumble_mask.store((1u << kPlayers) - 1u);
     // De toestand komt uit dezelfde bron als bij de andere dialecten van de IO-brug (OutputService::io_snapshot).
     auto c = std::make_unique<ravengun::iobridge::UnityTcpDialect>(
-        *g, cfg_.port,
+        *g, route.port,
         [&sh](ravengun::iobridge::IoState& s) { return sh.output && sh.output->io_snapshot(s); },
         [&sh](int player) { sh.game_recoil[static_cast<size_t>(player - 1)].fetch_add(1, std::memory_order_relaxed); });
     std::string oerr;
     c->open(oerr);
     client_ = std::move(c);
     if (sh_.iobridge) sh_.iobridge->set_external(ravengun::iobridge::kRouteUnityTcp, g->key);
-    logf("info", "Unity-route: %s, klant naar 127.0.0.1:%d (%dx%d, %d Hz)", g->name.c_str(), cfg_.port, g->width, g->height, g->send_hz);
+    logf("info", "Unity-route: %s, klant naar 127.0.0.1:%d (%dx%d, %d Hz)", g->name.c_str(), route.port, g->width, g->height, g->send_hz);
     return {};
 }
 
@@ -90,7 +97,7 @@ std::string AagamesService::status_json() const {
     }
     json::Writer w;
     w.begin_object().key("active").value(false).key("games").begin_array();
-    for (const auto& g : cfg_.games) w.value(g.key);
+    for (const std::string& g : ravengun::launch::unity_games(paths_)) w.value(g);
     w.end_array().end_object();
     return w.str();
 }

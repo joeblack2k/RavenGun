@@ -8,7 +8,7 @@
 // - GameService: de daemon start en stopt elke game ZELF, zonder shellscripts. Een game met een native profiel dat aan staat
 //   (patches/<Game>/native.json): wachten op een lightgun (Move of muis), uitvoer wapenen, de IO-brug, de schrijflaag, het logboek,
 //   en dan `systemd-run --user --unit=ravengun-tpui -- env -i ... gamescope ... -- bwrap ... game` (src/ravengun/launch/native.*).
-//   Een Unity-game uit packaging/aagames-games.json (Tomb Raider, Rabbids Hollywood): de view klaarzetten, dan
+//   Een Unity-game met patches/<Game>/unity.json (Tomb Raider, Rabbids Hollywood): de view klaarzetten, dan
 //   `systemd-run ... -- proton run Game.exe -popupwindow`, en de TCP-klant van de plugin (src/ravengun/launch/unity.*). Een game
 //   met [Launch] Mode = direct (src/ravengun/launch/direct.*): lightgun, wapenen, de invoerroute tp-shm/hid-board/jvs over de pipe,
 //   de drop-ins en teknoparrot.ini in de view, en dan `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>`
@@ -69,7 +69,8 @@ struct Config {
     // [Display] AimAspect van de game (breedte/hoogte van het beeld van het spel op de tv, bv. 4:3): de daemon legt de aim-ruimte
     // van de lightgun op dat deel van het scherm (pillarbox/letterbox). 0 = terug naar de standaard. Leeg = niet ondersteund.
     std::function<void(double content_aspect)> set_aim_aspect;
-    // De Unity-route zonder script. Leeg unity.json = Unity-games via het script.
+    // De Unity-route: patches/<Game>/unity.json (UnityPaths::patches en user_patches), de gebruikerslaag eerst. Zonder beide lagen is er
+    // geen enkele Unity-game.
     ravengun::launch::UnityPaths unity;
     int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis
 
@@ -79,7 +80,7 @@ struct Config {
     std::string jvs_link;                      // de pty-koppeling van de IO-brug (jvs over de pipe: RG_JVS_PTY)
     std::string input_by_id;                   // na het wapenen wachten op de virtuele lightgun en het toetsenbord hier (leeg = niet)
     std::function<std::string(const std::string& board)> hid_vidpid;   // VVVV:PPPP van een hid-bord (leeg = geen joystick-id zetten)
-    std::function<bool(const std::string& profile)> unity_game;          // staat in aagames-games.json (de Unity-route)
+    std::function<bool(const std::string& profile)> unity_game;          // heeft een unity.json (de Unity-route)
     std::function<ravengun::launch::EnvMap()> session_env;               // omgeving van de game-unit (leeg = direct_session_env())
     ravengun::launch::CaptureRunner capture = ravengun::launch::run_capture;   // wine reg (joystick-id bij hid-board)
     int game_wait_ms = 120000;                 // zo lang wachten tot het spelproces er is
@@ -129,7 +130,7 @@ bool native_route(const Config& c, const std::string& profile);
 // Het commando waarmee de daemon een native game in de unit start (systemd-run, geen shell); `log` = uitvoer van de game.
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
 
-// Gaat dit profiel via de Unity-route van de daemon? (in aagames-games.json, niet via TeknoParrotUi gevraagd, geen tp-shm in game.ini)
+// Gaat dit profiel via de Unity-route van de daemon? (patches/<Game>/unity.json, niet via TeknoParrotUi gevraagd, geen tp-shm in game.ini)
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch = "");
 // Het commando waarmee de daemon een Unity-game in de unit start: werkmap = de view, de omgeving van het plan, `log` = uitvoer.
 std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log);

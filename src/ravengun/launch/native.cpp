@@ -24,22 +24,16 @@ using json::Value;
 
 bool is_dir(const std::string& path);
 
-// De spelmap voor "@nas/<Map>/...": een vaste (p.nas), anders de eerste spelmap van de app waarin <Map> staat, ook een niveau
-// dieper (een spelmap die de map Teknoparrot zelf bevat). Staat hij nergens, dan de eerste spelmap: de fout volgt bij de mount.
+// De spelmap voor "@nas/<Map>/...": een vaste (p.nas), anders de eerste spelmap van de app waarin <Map> staat (find_game_folder).
+// Staat hij nergens, dan de eerste spelmap: de fout volgt bij de mount.
 std::string nas_for(const std::string& s, const NativePaths& p) {
     if (!p.nas.empty() || p.nas_roots.empty()) return p.nas;
     const size_t at = s.find("@nas/");
     if (at == std::string::npos) return p.nas_roots.front();
     const size_t b = at + 5, e = s.find('/', b);
     const std::string map = s.substr(b, e == std::string::npos ? std::string::npos : e - b);
-    for (const std::string& r : p.nas_roots)
-        if (is_dir(r + "/" + map)) return r;
-    for (const std::string& r : p.nas_roots) {
-        std::error_code ec;
-        for (const auto& d : fs::directory_iterator(r, fs::directory_options::skip_permission_denied, ec))
-            if (d.is_directory(ec) && is_dir(d.path().string() + "/" + map)) return d.path().string();
-    }
-    return p.nas_roots.front();
+    const std::string f = find_game_folder(map, p.nas_roots);
+    return f.empty() ? p.nas_roots.front() : f.substr(0, f.size() - map.size() - 1);
 }
 
 std::string expand(std::string s, const NativePaths& p) {
@@ -327,6 +321,23 @@ std::string profile_text(const NativePaths& p, const std::string& game) {
     const auto r = json::parse(text);
     if (!r.ok || !r.value.is_object()) return {};   // een kapot bestand in de gebruikerslaag: niet terugvallen op het meegeleverde
     return R"({"defaults":{"res":"1920x1080"},"games":{")" + game + "\":" + text + "}}";
+}
+
+std::string find_game_folder(const std::string& folder, const std::vector<std::string>& roots) {
+    if (folder.empty() || folder.find('/') != std::string::npos) return {};
+    for (const std::string& r : roots)
+        if (!r.empty() && is_dir(r + "/" + folder)) return r + "/" + folder;
+    for (const std::string& r : roots) {
+        if (r.empty()) continue;
+        std::vector<std::string> subs;
+        std::error_code ec;
+        for (const auto& d : fs::directory_iterator(r, fs::directory_options::skip_permission_denied, ec))
+            if (d.is_directory(ec)) subs.push_back(d.path().filename().string());
+        std::sort(subs.begin(), subs.end());
+        for (const std::string& sd : subs)
+            if (is_dir(r + "/" + sd + "/" + folder)) return r + "/" + sd + "/" + folder;
+    }
+    return {};
 }
 
 bool profile_enabled(const std::string& json_text, const std::string& game) {

@@ -1,5 +1,5 @@
 // Instellingen van de plugin, bewaard door BepInEx in BepInEx/config/<GUID>.cfg (tekstbestand; de view-opbouw van
-// tools/dev/aagames-setup.py zet de waarden uit packaging/aagames-games.json erin).
+// tools/dev/aagames-setup.py zet de waarden uit patches/<Game>/unity.json en packaging/unity-route.json erin).
 using System;
 using BepInEx.Configuration;
 using UnityEngine;

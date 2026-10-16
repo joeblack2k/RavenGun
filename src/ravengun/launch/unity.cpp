@@ -15,6 +15,7 @@
 #include <sstream>
 
 #include "ravengun/json_parse.hpp"
+#include "ravengun/launch/native.hpp"
 
 namespace fs = std::filesystem;
 
@@ -297,10 +298,12 @@ bool install_demulshooter(const std::string& view, const UnityGame& g, const Uni
     return true;
 }
 
-const Value* game_of(const json::ParseResult& r, const std::string& game) {
-    const Value* games = r.ok ? r.value.find("games") : nullptr;
-    const Value* g = games && games->is_object() ? games->find(game) : nullptr;
-    return g && g->is_object() ? g : nullptr;
+// Alleen een gewone game-naam: hij komt in een pad.
+bool plain_name(const std::string& game) {
+    if (game.empty() || game.size() > 64) return false;
+    for (char ch : game)
+        if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) return false;
+    return true;
 }
 
 }  // namespace
@@ -338,40 +341,112 @@ std::vector<std::string> nas_write_errors(const std::string& view, const std::st
     return errors;
 }
 
-bool unity_game_known(const std::string& json_text, const std::string& game) {
-    return game_of(json::parse(json_text), game) != nullptr;
+bool parse_unity_route(const std::string& json_text, UnityRoute& out, std::string& err) {
+    out = UnityRoute{};
+    err.clear();
+    if (json_text.empty()) return true;
+    const auto r = json::parse(json_text);
+    if (!r.ok || !r.value.is_object()) { err = "unity-route.json: " + (r.ok ? std::string("geen JSON-object") : r.error); return false; }
+    if (const Value* v = r.value.find("port")) {
+        if (!v->is_number() || v->num < 1 || v->num > 65535) { err = "unity-route.json: ongeldige poort"; return false; }
+        out.port = static_cast<int>(v->num);
+    }
+    for (auto [key, dst] : std::initializer_list<std::pair<const char*, std::string*>>{
+             {"bepinex_version", &out.bepinex_version}, {"demulshooter_version", &out.demulshooter_version}}) {
+        const Value* v = r.value.find(key);
+        if (!v) continue;
+        if (!v->is_string() || v->str.find('/') != std::string::npos || v->str == "..") { err = std::string("unity-route.json: ongeldige waarde voor ") + key; return false; }
+        *dst = v->str;
+    }
+    return true;
 }
 
-bool load_unity_game(const std::string& json_text, const std::string& game, const std::string& home, const std::string& plugin_override,
-                     UnityGame& out, std::string& err) {
+bool load_unity_route(const UnityPaths& p, UnityRoute& out, std::string& err) {
+    if (p.route_json.empty() || !is_file(p.route_json)) { out = UnityRoute{}; err.clear(); return true; }
+    return parse_unity_route(read_file(p.route_json), out, err);
+}
+
+std::string unity_file(const UnityPaths& p, const std::string& game) {
+    if (!plain_name(game)) return {};
+    for (const std::string& dir : {p.user_patches, p.patches}) {
+        if (dir.empty()) continue;
+        const std::string f = dir + "/" + game + "/unity.json";
+        if (is_file(f)) return f;
+    }
+    return {};
+}
+
+std::vector<std::string> unity_games(const UnityPaths& p) {
+    std::set<std::string> keys;
+    for (const std::string& dir : {p.user_patches, p.patches}) {
+        if (dir.empty()) continue;
+        for (const std::string& e : list_sorted(dir))
+            if (plain_name(e) && is_file(dir + "/" + e + "/unity.json")) keys.insert(e);
+    }
+    return {keys.begin(), keys.end()};
+}
+
+bool unity_game_known(const UnityPaths& p, const std::string& game) { return !unity_file(p, game).empty(); }
+
+std::string unity_text(const UnityPaths& p, const std::string& game) {
+    const std::string f = unity_file(p, game);
+    return f.empty() ? std::string() : read_file(f);
+}
+
+std::string resolve_unity_dir(const std::string& folder, const std::vector<std::string>& game_folders) {
+    return find_game_folder(folder, game_folders);   // dezelfde regel als "@nas/<Map>" van de native route
+}
+
+bool parse_unity_game(const std::string& json_text, const std::string& source, const std::string& game, const UnityRoute& route, const std::string& home,
+                      const std::vector<std::string>& game_folders, const std::string& plugin_override, UnityGame& out, std::string& err) {
     const auto r = json::parse(json_text);
-    if (!r.ok) { err = "aagames-games.json: " + r.error; return false; }
-    const Value* g = game_of(r, game);
-    if (!g) { err = "onbekende Unity-game: " + game; return false; }
+    const std::string file = source.empty() ? std::string("unity.json") : source;
+    if (!r.ok || !r.value.is_object()) { err = file + ": " + (r.ok ? std::string("geen JSON-object") : r.error); return false; }
+    const Value* g = &r.value;
     out = UnityGame{};
     out.key = game;
+    out.source = source;
     for (auto [key, dst] : std::initializer_list<std::pair<const char*, std::string*>>{
-             {"name", &out.name}, {"nas_dir", &out.nas_dir}, {"exe", &out.exe}, {"plugin", &out.plugin},
+             {"name", &out.name}, {"folder", &out.folder}, {"nas_dir", &out.nas_dir}, {"exe", &out.exe}, {"plugin", &out.plugin},
              {"plugin_dir", &out.plugin_dir}, {"language", &out.language}}) {
         const Value* v = g->find(key);
-        if (v && !v->is_string()) { err = game + ": '" + key + "' is geen tekst"; return false; }
+        if (v && !v->is_string()) { err = file + ": '" + key + "' is geen tekst"; return false; }
         if (v) *dst = v->str;
     }
     for (auto [key, dst] : std::initializer_list<std::pair<const char*, int*>>{{"width", &out.width}, {"height", &out.height}}) {
         const Value* v = g->find(key);
-        if (v && (!v->is_number() || v->num < 1 || v->num > 16384)) { err = game + ": '" + key + "' is geen geldige maat"; return false; }
+        if (v && (!v->is_number() || v->num < 1 || v->num > 16384)) { err = file + ": '" + key + "' is geen geldige maat"; return false; }
         if (v) *dst = static_cast<int>(v->num);
     }
     if (const Value* v = g->find("fullscreen"); v && v->is_bool()) out.fullscreen = v->b;
-    if (const Value* v = r.value.find("port"); v && v->is_number() && v->num >= 1 && v->num <= 65535) out.port = static_cast<int>(v->num);
-    if (const Value* v = r.value.find("bepinex_version"); v && v->is_string()) out.bepinex_version = v->str;
-    if (const Value* v = r.value.find("demulshooter_version"); v && v->is_string()) out.demulshooter_version = v->str;
-    if (out.nas_dir.empty()) { err = game + ": nas_dir ontbreekt"; return false; }
-    if (out.nas_dir.rfind("~/", 0) == 0) out.nas_dir = home + out.nas_dir.substr(1);
+    out.port = route.port;
+    out.bepinex_version = route.bepinex_version;
+    out.demulshooter_version = route.demulshooter_version;
     if (out.exe.empty()) out.exe = "Game.exe";
-    if (out.exe.find('/') != std::string::npos || out.exe == "." || out.exe == "..") { err = game + ": ongeldige exe " + out.exe; return false; }
+    if (out.exe.find('/') != std::string::npos || out.exe == "." || out.exe == "..") { err = file + ": ongeldige exe " + out.exe; return false; }
     for (const std::string* s : {&out.bepinex_version, &out.demulshooter_version, &out.plugin_dir})
-        if (s->find('/') != std::string::npos || *s == "..") { err = game + ": ongeldige waarde " + *s; return false; }
+        if (s->find('/') != std::string::npos || *s == "..") { err = file + ": ongeldige waarde " + *s; return false; }
+    if (!out.folder.empty() && (out.folder.find('/') != std::string::npos || out.folder == "." || out.folder == "..")) {
+        err = file + ": 'folder' is een mapnaam binnen een gamemap, geen pad (een eigen pad is 'nas_dir' in de gebruikerslaag)";
+        return false;
+    }
+    // De map van de game: een eigen pad van de gebruiker gaat voor, anders de mapnaam in de gamemappen van library.json.
+    if (!out.nas_dir.empty()) {
+        if (out.nas_dir.rfind("~/", 0) == 0) out.nas_dir = home + out.nas_dir.substr(1);
+        if (out.nas_dir[0] != '/') { err = file + ": 'nas_dir' moet een absoluut pad zijn"; return false; }
+    } else if (out.folder.empty()) {
+        err = file + ": 'folder' ontbreekt (de mapnaam van de game in een gamemap)";
+        return false;
+    } else {
+        out.nas_dir = resolve_unity_dir(out.folder, game_folders);
+        if (out.nas_dir.empty()) {
+            std::string where;
+            for (const std::string& f : game_folders) where += (where.empty() ? "" : ", ") + f;
+            err = "de map '" + out.folder + "' van " + game + " staat in geen gamemap (" + (where.empty() ? std::string("geen gamemappen in library.json") : where) +
+                  "); NAS gekoppeld, en de map toegevoegd in de app (Add Folder)?";
+            return false;
+        }
+    }
     if (!plugin_override.empty()) out.plugin = plugin_override;
     if (out.plugin.empty()) out.plugin = "ravengun";
     if (out.plugin != "ravengun" && out.plugin != "demulshooter") {
@@ -380,6 +455,15 @@ bool load_unity_game(const std::string& json_text, const std::string& game, cons
     }
     if (out.name.empty()) out.name = game;
     return true;
+}
+
+bool load_unity_game(const UnityPaths& p, const std::vector<std::string>& game_folders, const std::string& game, const std::string& plugin_override,
+                     UnityGame& out, std::string& err) {
+    const std::string file = unity_file(p, game);
+    if (file.empty()) { err = "onbekende Unity-game: " + game + " (geen patches/" + game + "/unity.json)"; return false; }
+    UnityRoute route;
+    if (!load_unity_route(p, route, err)) return false;
+    return parse_unity_game(read_file(file), file, game, route, p.home, game_folders, plugin_override, out, err);
 }
 
 bool build_view(const UnityGame& g, const UnityPaths& p, std::string& view, std::vector<std::string>& log, std::string& err) {

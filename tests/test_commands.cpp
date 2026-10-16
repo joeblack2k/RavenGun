@@ -567,7 +567,7 @@ static void test_games_commands(const std::string& dir) {
 }
 
 // Unity-route: IPC-opdrachten aagames en output_key, en de status.
-static void test_aagames_commands() {
+static void test_aagames_commands(const std::string& dir) {
     // Zonder service of uitvoer: nette fouten.
     {
         Rig bare;
@@ -580,13 +580,15 @@ static void test_aagames_commands() {
     }
     Rig rig;
     OutputService out;   // niet gewapend: er wordt geen apparaat gemaakt
-    games::AaConfig cfg;
-    cfg.port = 9;        // niets luistert hier: de klant blijft proberen
-    games::AaGame g;
-    g.key = "TombRaider";
-    g.name = "Tomb Raider Arcade";
-    cfg.games.push_back(g);
-    AagamesService svc(rig.sh, cfg);
+    // De game komt uit patches/<Game>/unity.json, de poort uit unity-route.json.
+    const std::string pd = dir + "/aagames-patches";
+    fs::create_directories(pd + "/TombRaider");
+    std::ofstream(pd + "/TombRaider/unity.json") << R"({"name":"Tomb Raider Arcade","type":"tomb_raider","folder":"Tomb Raider"})";
+    std::ofstream(dir + "/aagames-route.json") << R"({"port":9})";   // niets luistert hier: de klant blijft proberen
+    ravengun::launch::UnityPaths up;
+    up.patches = pd;
+    up.route_json = dir + "/aagames-route.json";
+    AagamesService svc(rig.sh, up);
     rig.sh.output = &out;
     rig.sh.aagames = &svc;
     bool ok = false;
@@ -862,7 +864,7 @@ int main() {
     test_set_gun_buttons(dir);
     test_fusion_and_learning(dir);
     test_games_commands(dir);
-    test_aagames_commands();
+    test_aagames_commands(dir);
     test_mouse_commands();
     test_controllers(dir);
     fs::remove_all(dir);

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <set>
@@ -427,14 +428,14 @@ int main() {
             ::listen(lfd, 1);
             socklen_t al = sizeof a;
             ::getsockname(lfd, reinterpret_cast<sockaddr*>(&a), &al);
-            games::AaConfig acfg;
-            acfg.port = ntohs(a.sin_port);
-            games::AaGame ag;
-            ag.key = "T";
-            ag.type = games::AaType::TombRaider;
-            ag.send_hz = 200;
-            acfg.games.push_back(ag);
-            AagamesService svc(sh, acfg);
+            // patches/T/unity.json (de game) en unity-route.json (de poort van deze nep-plugin).
+            fs::create_directories(tmp + "/unity-patches/T");
+            std::ofstream(tmp + "/unity-patches/T/unity.json") << R"({"type":"tomb_raider","folder":"T","send_hz":200})";
+            std::ofstream(tmp + "/unity-route.json") << "{\"port\":" << ntohs(a.sin_port) << "}";
+            ravengun::launch::UnityPaths up;
+            up.patches = tmp + "/unity-patches";
+            up.route_json = tmp + "/unity-route.json";
+            AagamesService svc(sh, up);
             svc.set_timeouts(400, 5000);
             CHECK(!svc.start("Bestaat niet").empty() && !svc.active());
             CHECK(svc.start("T").empty() && svc.active() && sh.game_rumble_mask.load() == 0xF);

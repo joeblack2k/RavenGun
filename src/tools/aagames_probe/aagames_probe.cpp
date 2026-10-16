@@ -5,9 +5,11 @@
 // (IPC `rumble_test`). Munt, start en test kan de probe als eigen virtueel toetsenbord (uinput, eigen identiteit
 // 1209:72f0, dus zonder de udev-links van ravengund) naar de game sturen.
 //
-// Gebruik: ravengun-aagames-probe --game TombRaider|RabbidsHollywood [--config PAD] [--source ipc|fixed|circle]
+// Gebruik: ravengun-aagames-probe --game TombRaider|RabbidsHollywood [--config PAD] [--route PAD] [--source ipc|fixed|circle]
 //            [--u 0.5 --v 0.5] [--trigger] [--reload] [--seconds N] [--hex] [--no-rumble] [--y-origin top|bottom]
 //            [--key NAAM[@SEC]]... (toets op SEC seconden na de start, 300 ms ingedrukt; namen: 0-9, enter, up, down, esc)
+//   --config PAD   het unity.json van de game (standaard patches/<Game>/unity.json, de gebruikerslaag eerst)
+//   --route PAD    packaging/unity-route.json (poort; standaard die naast build/)
 //   ipc     de aim en knoppen van de echte Move, via ravengund (speler 1..4 volgens de daemon)
 //   fixed   vast punt (--u/--v), met optioneel --trigger/--reload
 //   circle  een cirkel om het midden (1 s per ronde), om de richting van X en Y te zien
@@ -30,6 +32,8 @@
 #include <vector>
 
 #include "ravengun/games/aagames.hpp"
+#include "ravengun/gamesettings/gamesettings.hpp"
+#include "ravengun/launch/unity.hpp"
 #include "ravengun/ipc_client.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/output/key_table.hpp"
@@ -148,7 +152,7 @@ struct TimedKey { int code; double at_s; bool down = false, done = false; double
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::string game_key, cfg_path, source = "ipc", y_origin;
+    std::string game_key, cfg_path, route_path, source = "ipc", y_origin;
     double u = 0.5, v = 0.5, seconds = 0;
     bool trigger = false, reload = false, hex = false, rumble = true, force_trigger = false;
     int rumbles_sent = 0;
@@ -158,6 +162,7 @@ int main(int argc, char** argv) {
         auto val = [&]() -> std::string { return i + 1 < argc ? argv[++i] : std::string(); };
         if (a == "--game") game_key = val();
         else if (a == "--config") cfg_path = val();
+        else if (a == "--route") route_path = val();
         else if (a == "--source") source = val();
         else if (a == "--y-origin") y_origin = val();
         else if (a == "--u") u = std::atof(val().c_str());
@@ -178,22 +183,29 @@ int main(int argc, char** argv) {
         } else { std::fprintf(stderr, "onbekende optie %s (zie de kop van aagames_probe.cpp)\n", a.c_str()); return 64; }
     }
     if (game_key.empty()) { std::fprintf(stderr, "--game vereist\n"); return 64; }
-    if (cfg_path.empty()) {   // build/ravengun-aagames-probe -> ../packaging/aagames-games.json
+    std::string root;   // build/ravengun-aagames-probe -> de map boven build/ (de repo of de datamap)
+    {
         char exe[4096];
         const ssize_t n = ::readlink("/proc/self/exe", exe, sizeof exe - 1);
         if (n > 0) {
             exe[n] = 0;
-            std::string d = exe;
-            for (int up = 0; up < 2; ++up) { const size_t sl = d.rfind('/'); if (sl == std::string::npos) break; d.resize(sl); }
-            cfg_path = d + "/packaging/aagames-games.json";
+            root = exe;
+            for (int up = 0; up < 2; ++up) { const size_t sl = root.rfind('/'); if (sl == std::string::npos) break; root.resize(sl); }
         }
     }
-    std::string err;
-    AaConfig cfg = parse_aagames_config(slurp(cfg_path), err);
-    if (!err.empty()) { std::fprintf(stderr, "%s\n", err.c_str()); return 66; }
-    const AaGame* gp = cfg.find(game_key);
-    if (!gp) { std::fprintf(stderr, "onbekende game %s\n", game_key.c_str()); return 64; }
-    AaGame g = *gp;
+    launch::UnityPaths paths;
+    {
+        const gamesettings::Dirs dirs = gamesettings::default_dirs(root);
+        paths.patches = dirs.shipped;
+        paths.user_patches = dirs.user;
+        paths.route_json = !route_path.empty() ? route_path : root + "/packaging/unity-route.json";
+    }
+    std::string err, text = cfg_path.empty() ? launch::unity_text(paths, game_key) : slurp(cfg_path);
+    if (text.empty()) { std::fprintf(stderr, "geen unity.json voor %s (gezocht in %s en %s)\n", game_key.c_str(), paths.user_patches.c_str(), paths.patches.c_str()); return 64; }
+    AaGame g;
+    if (!parse_aagames_game(game_key, text, g, err)) { std::fprintf(stderr, "%s\n", err.c_str()); return 66; }
+    launch::UnityRoute route;
+    if (!launch::load_unity_route(paths, route, err)) { std::fprintf(stderr, "%s\n", err.c_str()); return 66; }
     if (!y_origin.empty()) g.y_origin = y_origin;
     std::signal(SIGINT, on_sig);
     std::signal(SIGTERM, on_sig);
@@ -211,7 +223,7 @@ int main(int argc, char** argv) {
     bool armed = false;
     std::atomic<int> recoil_pending[kAaPlayers] = {};
     AaClient client;
-    client.start(g, cfg.port,
+    client.start(g, route.port,
         [&](AaInputs& in) {
             std::lock_guard<std::mutex> lk(mu);
             in = cur;

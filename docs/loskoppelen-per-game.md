@@ -48,7 +48,7 @@ terugval met `--teknoparrot`.
 **De drie aantallen die de opdracht vraagt:**
 
 1. **Al los van TeknoParrot: 2 games.** Tomb Raider en Rabbids Hollywood starten via hun eigen BepInEx-plugin
-   (`packaging/aagames-games.json`, plugin `ravengun`, TCP 33610) — daar zit geen enkel TeknoParrot-onderdeel
+   (`patches/<Game>/unity.json`, plugin `ravengun`, TCP 33610) — daar zit geen enkel TeknoParrot-onderdeel
    meer in het startpad (`scripts/play-halo.sh` regel 205-211 stuurt ze naar `scripts/play-unity.sh`).
    **Beide starten via de eigen plugin.** Voor Rabbids Hollywood gold "stopt na ongeveer een minuut op zijn **eigen**
    Matrix-donglecontrole"; dat bleek een uitrol-fout (verouderde plug-in in de view). Hermeting 2026-10-12: de game start en leeft

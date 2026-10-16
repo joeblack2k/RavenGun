@@ -625,7 +625,7 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
         }
         v->addWidget(box);
     } else if (game_.kind == rg::GameKind::Unity) {
-        v->addWidget(hintLabel(tr("Unity games use the resolution from packaging/aagames-games.json.")));
+        v->addWidget(hintLabel(tr("Unity games take their resolution from patches/%1/unity.json (a copy in your own patches folder wins).").arg(game_.profile)));
     } else {
         v->addWidget(hintLabel(tr("This game is not set up yet, so there are no display settings.")));
     }

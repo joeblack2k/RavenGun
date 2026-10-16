@@ -10,6 +10,7 @@ AppCore::AppCore(QObject* parent, const QString& socketPath, const QString& libr
     data_.load();
     library_.setKnownGames(data_.knownGames());
     library_.setOwnGames(data_.ownGames());
+    library_.setUnityGames(data_.unityGames());
     model_ = new GameListModel(&library_, &data_, this);
     connect(&engine_, &EngineClient::gamesUpdated, this, [this](const QJsonObject& g) {
         const QJsonObject st = g.value(QStringLiteral("status")).toObject();
@@ -32,6 +33,7 @@ void AppCore::reloadGameData() {
     data_.load();
     library_.setKnownGames(data_.knownGames());
     library_.setOwnGames(data_.ownGames());
+    library_.setUnityGames(data_.unityGames());
     model_->reload();
 }
 

@@ -54,11 +54,6 @@ std::string str_or(const json::Value& o, const char* key, const std::string& def
 
 const char* to_string(AaType t) { return t == AaType::TombRaider ? "tomb_raider" : "rabbids_hollywood"; }
 
-const AaGame* AaConfig::find(const std::string& key) const {
-    for (const auto& g : games) if (g.key == key) return &g;
-    return nullptr;
-}
-
 std::string validate_aagames_game(const AaGame& g) {
     if (g.key.empty()) return "game zonder sleutel";
     if (g.width < 320 || g.width > 8192 || g.height < 240 || g.height > 8192) return g.key + ": ongeldige resolutie";
@@ -69,45 +64,34 @@ std::string validate_aagames_game(const AaGame& g) {
     return {};
 }
 
-AaConfig parse_aagames_config(const std::string& text, std::string& err) {
-    AaConfig c;
+bool parse_aagames_game(const std::string& key, const std::string& text, AaGame& out, std::string& err) {
     err.clear();
+    const std::string file = "patches/" + key + "/unity.json";
     auto pr = json::parse(text);
-    if (!pr.ok || !pr.value.is_object()) { err = "aagames-games.json is geen geldig JSON-object" + (pr.error.empty() ? std::string() : ": " + pr.error); return {}; }
-    const json::Value& root = pr.value;
-    bool ok = true;
-    c.port = static_cast<int>(num_or(root, "port", kAaDefaultPort, ok));
-    c.demulshooter_version = str_or(root, "demulshooter_version", "");
-    if (!ok || c.port < 1 || c.port > 65535) { err = "aagames-games.json: ongeldige poort"; return {}; }
-    const json::Value* games = root.find("games");
-    if (!games || !games->is_object()) { err = "aagames-games.json: 'games' ontbreekt"; return {}; }
-    for (const auto& kv : games->obj) {
-        const json::Value& o = kv.second;
-        if (!o.is_object()) { err = "aagames-games.json: game " + kv.first + " is geen object"; return {}; }
-        AaGame g;
-        g.key = kv.first;
-        g.name = str_or(o, "name", kv.first);
-        const std::string type = str_or(o, "type", "");
-        if (type == "tomb_raider") g.type = AaType::TombRaider;
-        else if (type == "rabbids_hollywood") g.type = AaType::RabbidsHollywood;
-        else { err = "aagames-games.json: " + kv.first + ": onbekend type '" + type + "'"; return {}; }
-        g.nas_dir = str_or(o, "nas_dir", "");
-        g.exe = str_or(o, "exe", "Game.exe");
-        g.plugin_dir = str_or(o, "plugin_dir", "");
-        bool nok = true;
-        g.width = static_cast<int>(num_or(o, "width", g.width, nok));
-        g.height = static_cast<int>(num_or(o, "height", g.height, nok));
-        g.offset_x = num_or(o, "offset_x", 0, nok);
-        g.offset_y = num_or(o, "offset_y", 0, nok);
-        g.scale_x = num_or(o, "scale_x", 1, nok);
-        g.scale_y = num_or(o, "scale_y", 1, nok);
-        g.send_hz = static_cast<int>(num_or(o, "send_hz", g.send_hz, nok));
-        g.y_origin = str_or(o, "y_origin", g.y_origin);
-        if (!nok) { err = "aagames-games.json: " + kv.first + ": een getalveld bevat geen getal"; return {}; }
-        if (std::string bad = validate_aagames_game(g); !bad.empty()) { err = "aagames-games.json: " + bad; return {}; }
-        c.games.push_back(std::move(g));
-    }
-    return c;
+    if (!pr.ok || !pr.value.is_object()) { err = file + " is geen geldig JSON-object" + (pr.error.empty() ? std::string() : ": " + pr.error); return false; }
+    const json::Value& o = pr.value;
+    AaGame g;
+    g.key = key;
+    g.name = str_or(o, "name", key);
+    const std::string type = str_or(o, "type", "");
+    if (type == "tomb_raider") g.type = AaType::TombRaider;
+    else if (type == "rabbids_hollywood") g.type = AaType::RabbidsHollywood;
+    else { err = file + ": onbekend type '" + type + "'"; return false; }
+    g.exe = str_or(o, "exe", "Game.exe");
+    g.plugin_dir = str_or(o, "plugin_dir", "");
+    bool nok = true;
+    g.width = static_cast<int>(num_or(o, "width", g.width, nok));
+    g.height = static_cast<int>(num_or(o, "height", g.height, nok));
+    g.offset_x = num_or(o, "offset_x", 0, nok);
+    g.offset_y = num_or(o, "offset_y", 0, nok);
+    g.scale_x = num_or(o, "scale_x", 1, nok);
+    g.scale_y = num_or(o, "scale_y", 1, nok);
+    g.send_hz = static_cast<int>(num_or(o, "send_hz", g.send_hz, nok));
+    g.y_origin = str_or(o, "y_origin", g.y_origin);
+    if (!nok) { err = file + ": een getalveld bevat geen getal"; return false; }
+    if (std::string bad = validate_aagames_game(g); !bad.empty()) { err = file + ": " + bad; return false; }
+    out = std::move(g);
+    return true;
 }
 
 AaPixel to_pixels(const AaGame& g, double u, double v) {

@@ -118,8 +118,9 @@ void usage(FILE* f) {
         "                                   ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)\n"
         "  --data-dir MAP                   datamap met packaging/ en patches/ (standaard $RAVENGUN_DATA_DIR,\n"
         "                                   <prefix>/share/ravengun of de repo)\n"
-        "  --aagames-config PAD             instellingen van de Unity-route (Tomb Raider, Rabbids Hollywood zonder TeknoParrot;\n"
-        "                                   standaard packaging/aagames-games.json in de datamap, anders ingebouwd)\n"
+        "  --aagames-config PAD             gedeelde instellingen van de Unity-route (poort, versies; Tomb Raider, Rabbids Hollywood\n"
+        "                                   zonder TeknoParrot; standaard packaging/unity-route.json in de datamap, anders de\n"
+        "                                   standaardwaarden). De games zelf: patches/<Game>/unity.json\n"
         "  --games-dry-run                  nooit echt starten of stoppen (voor tests): alleen de opdrachtregel loggen;\n"
         "                                   draaiende processen op de host tellen dan niet mee\n"
         "\n"
@@ -533,10 +534,13 @@ int main(int argc, char** argv) {
             }
         };
         logf("info", "games: native profielen uit patches/<Game>/native.json (gebruikerslaag %s, meegeleverd %s)", np.user_patches.c_str(), np.patches.c_str());
-        // De Unity-route zonder script (packaging/aagames-games.json, src/ravengun/launch/unity.*): view, Proton, TCP-klant.
+        // De Unity-route (patches/<Game>/unity.json, src/ravengun/launch/unity.*): view, Proton, TCP-klant. De gedeelde instellingen
+        // (poort, versies) staan in packaging/unity-route.json.
         ravengun::launch::UnityPaths& up = games_cfg.unity;
-        if (!aagames_config.empty()) up.json = aagames_config;
-        else if (!data_root.empty()) up.json = data_root + "/packaging/aagames-games.json";
+        if (!aagames_config.empty()) up.route_json = aagames_config;
+        else if (!data_root.empty()) up.route_json = data_root + "/packaging/unity-route.json";
+        up.patches = games_cfg.dirs.shipped;
+        up.user_patches = games_cfg.dirs.user;
         up.home = home;
         up.data = data_dir;
         // De plugin (scripts/build-unity-plugin.sh): $RAVENGUN_UNITY_PLUGIN_OUT, de gebruikersdata, dan naast de eigen bibliotheken
@@ -545,7 +549,8 @@ int main(int argc, char** argv) {
         if (!data_root.empty()) up.plugin_src = data_root + "/plugins/unity/src";
         up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON")
                                                            : home + "/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64";
-        if (!up.json.empty()) logf("info", "games: Unity-games uit %s start de daemon zelf (zonder script)", up.json.c_str());
+        logf("info", "games: Unity-games uit patches/<Game>/unity.json (gebruikerslaag %s, meegeleverd %s), instellingen %s", up.user_patches.c_str(),
+             up.patches.c_str(), up.route_json.c_str());
         // De directe route (A10, [Launch] Mode = direct): de daemon start zo'n game zelf met rg-direct als hoofdproces van de unit,
         // met rg-direct als hoofdproces. Wat de engine nog niet kan, start niet (de melding zegt waarom).
         ravengun::launch::DirectPaths& dp = games_cfg.direct;
@@ -584,15 +589,13 @@ int main(int argc, char** argv) {
             std::snprintf(v, sizeof v, "%04X:%04X", b->vendor & 0xFFFF, b->product & 0xFFFF);
             return v;
         };
-        games_cfg.unity_game = [packaging_text](const std::string& profile) {
-            std::string err;
-            return ravengun::games::parse_aagames_config(packaging_text("aagames-games.json"), err).find(profile) != nullptr;
-        };
+        games_cfg.unity_game = [unity = games_cfg.unity](const std::string& profile) { return ravengun::launch::unity_game_known(unity, profile); };
         if (!games_cfg.direct_runner.empty())
             logf("info", "games: directe starten ([Launch] Mode = direct) doet de daemon zelf met %s", games_cfg.direct_runner.c_str());
         else
             logf("waarschuwing", "games: rg-direct ontbreekt naast ravengund; directe starten werken niet");
     }
+    const ravengun::launch::UnityPaths unity_paths = games_cfg.unity;   // voor AagamesService; een droge run leegt de lagen hieronder
     ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
     if (games_dry_run) {
         // Geen invloed van echte processen op de host (tests): geen cgroup van de unit, een niet-bestaande procesmap.
@@ -601,7 +604,8 @@ int main(int argc, char** argv) {
         // De directe route zet drop-ins en teknoparrot.ini in de view voordat hij iets start: in een droge run niet (via het script, dat
         // hier ook niet echt draait).
         games_cfg.direct_runner.clear();
-        games_cfg.unity.json.clear();   // de Unity-route zet de view klaar voordat hij iets start: in een droge run ook niet
+        games_cfg.unity.patches.clear();   // de Unity-route zet de view klaar voordat hij iets start: in een droge run ook niet
+        games_cfg.unity.user_patches.clear();
         spawner = [](const std::vector<std::string>& argv, std::string&) {
             std::string line;
             for (const auto& a : argv) line += (line.empty() ? "" : " ") + a;
@@ -611,25 +615,6 @@ int main(int argc, char** argv) {
     }
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
-    // Unity-route: instellingen per game (resolutie, kalibratie) uit het JSON-bestand in de datamap, anders ingebouwd.
-    if (aagames_config.empty() && !data_root.empty()) {
-        const std::string cand = data_root + "/packaging/aagames-games.json";
-        if (::access(cand.c_str(), R_OK) == 0) aagames_config = cand;
-    }
-    std::string aa_text;
-    if (!aagames_config.empty()) {
-        if (FILE* f = std::fopen(aagames_config.c_str(), "rb")) {
-            char buf[4096];
-            size_t n;
-            while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && aa_text.size() < 256 * 1024) aa_text.append(buf, n);
-            std::fclose(f);
-        }
-    }
-    if (aa_text.empty())
-        if (const auto* a = ravengun::web::find_asset("aagames-games.json")) aa_text = a->data;
-    std::string aa_err;
-    ravengun::games::AaConfig aa_cfg = ravengun::games::parse_aagames_config(aa_text, aa_err);
-    if (!aa_err.empty()) logf("waarschuwing", "Unity-route: %s (alleen de ingebouwde lijst ontbreekt dan; geen games)", aa_err.c_str());
     // IO-brug: routes per game (patches/<Game>/game.ini) en de gedeelde bibliotheken (JSON in de datamap, anders ingebouwd).
     auto load_text = [&](const std::string& file, const std::string& asset) {
         std::string text;
@@ -688,7 +673,8 @@ int main(int argc, char** argv) {
     shared.gamepad = &gamepad;
     gamepad.start();
     if (!opt.enabled) logf("info", "gamepads: --no-hid, er worden geen gamepads geopend");
-    AagamesService aagames(shared, std::move(aa_cfg));
+    // De Unity-route leest patches/<Game>/unity.json bij elke start (de lagen van de games, ook in een droge run).
+    AagamesService aagames(shared, unity_paths);
     shared.aagames = &aagames;
     IoBridgeService iobridge(shared, std::move(io_cfg));
     shared.iobridge = &iobridge;

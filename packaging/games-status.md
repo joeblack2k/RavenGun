@@ -309,7 +309,7 @@ Veranderd op de NAS (map "Let's Go Safari"): `teknoparrot.ini` (nieuw).
 
 Status (2026-10-09, tweede ronde): speelbaar zonder TeknoParrot en zonder DemulShooter.exe, zelfde route als Tomb Raider. De game sluit niet meer na 45 s af. Op de tv gezien: titelscherm (nu in het Engels), "Insérer/Insert credits" per speler met kwartmunten, na vier munten en Start het laadscherm en het spel met vizier, wapen en levensbalk.
 
-Startcommando: `scripts/play-halo.sh --profile RabbidsHollywood` (naar `scripts/play-unity.sh --game RabbidsHollywood`). De map op de NAS heeft een spatie aan het eind van de naam; de lokale view lost dat op (het pad in `aagames-games.json` bevat die spatie).
+Startcommando: `scripts/play-halo.sh --profile RabbidsHollywood` (naar `scripts/play-unity.sh --game RabbidsHollywood`). De map op de NAS heeft een spatie aan het eind van de naam; de lokale view lost dat op (`folder` in `patches/RabbidsHollywood/unity.json` bevat die spatie).
 
 Live gemeten (zelfde methode):
 - a. `BepInEx/LogOutput.log`: BepInEx 5.4.21 onder Unity 2017.2, "Loading [RabbidsHollywood_BepInEx_DemulShooter_Plugin 17.0.0.0]", "Plugin Loaded".

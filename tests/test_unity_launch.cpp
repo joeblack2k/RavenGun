@@ -1,4 +1,4 @@
-// Tests voor de Unity-route zonder shellscripts (src/ravengun/launch/unity.*): de game lezen uit aagames-games.json, de view
+// Tests voor de Unity-route zonder shellscripts (src/ravengun/launch/unity.*): de game lezen uit patches/<Game>/unity.json (twee lagen, mapnaam in de gamemappen), de view
 // (symlinks naar de nep-NAS, lokale kopieen, BepInEx en onze plugin), de controle dat niets van ons op de NAS uitkomt, en het
 // Proton-commando. Gebouwd met tijdelijke mappen; start niets.
 #include <sys/stat.h>
@@ -54,31 +54,97 @@ int main() {
     const fs::path home = root / "home";
     const fs::path nas = home / "nas" / "Rabbids Hollywood ";   // met spatie aan het eind, zoals op de echte NAS
 
-    const std::string json = R"({
-  "schema": 1, "port": 33611, "demulshooter_version": "v17.9", "bepinex_version": "5.4.21.0",
-  "games": {
-    "RabbidsHollywood": {"name": "Rabbids Hollywood Arcade", "nas_dir": "~/nas/Rabbids Hollywood ", "exe": "Game.exe",
-                         "plugin": "ravengun", "plugin_dir": "RabbidsHollywood", "fullscreen": true, "language": "EN",
-                         "width": 1280, "height": 720},
-    "Kapot": {"nas_dir": 5}
-  }
-})";
+    // De lagen: meegeleverd (patches/) en gebruiker; de gedeelde instellingen in unity-route.json; de gamemappen uit library.json.
+    const fs::path shipped = root / "patches", user = root / "user-patches";
+    const std::string rh_json = R"({"name": "Rabbids Hollywood Arcade", "folder": "Rabbids Hollywood ", "exe": "Game.exe",
+        "plugin": "ravengun", "plugin_dir": "RabbidsHollywood", "fullscreen": true, "language": "EN", "width": 1280, "height": 720})";
+    write(shipped / "RabbidsHollywood/unity.json", rh_json);
+    write(shipped / "Kapot/unity.json", R"({"folder": 5})");
+    write(shipped / "ZonderMap/unity.json", R"({"name": "x"})");
+    write(shipped / "Pad/unity.json", R"({"folder": "a/b"})");
+    write(shipped / "Alleen/game.ini", "[Game]\n");   // geen unity.json: geen Unity-game
+    write(root / "unity-route.json", R"({"schema": 1, "port": 33611, "demulshooter_version": "v17.9", "bepinex_version": "5.4.21.0"})");
+    UnityPaths lp;
+    lp.route_json = (root / "unity-route.json").string();
+    lp.patches = shipped.string();
+    lp.user_patches = user.string();   // de map bestaat nog niet
+    lp.home = home.string();
+    const std::vector<std::string> folders = {(home / "nas").string()};
 
-    // Lezen.
-    CHECK(unity_game_known(json, "RabbidsHollywood"));
-    CHECK(!unity_game_known(json, "TombRaider"));
-    CHECK(!unity_game_known("{kapot", "RabbidsHollywood"));
-    UnityGame g;
+    // Welke games, en welk bestand.
+    CHECK(unity_game_known(lp, "RabbidsHollywood") && unity_game_known(lp, "Kapot"));
+    CHECK(!unity_game_known(lp, "TombRaider") && !unity_game_known(lp, "Alleen"));
+    CHECK(!unity_game_known(lp, "") && !unity_game_known(lp, "../x") && !unity_game_known(lp, "Rabbids Hollywood"));
+    CHECK(unity_file(lp, "RabbidsHollywood") == (shipped / "RabbidsHollywood/unity.json").string());
+    CHECK((unity_games(lp) == std::vector<std::string>{"Kapot", "Pad", "RabbidsHollywood", "ZonderMap"}));
+    CHECK(unity_text(lp, "RabbidsHollywood") == rh_json && unity_text(lp, "TombRaider").empty());
+
+    // De gedeelde instellingen: standaardwaarden bij een leeg of ontbrekend bestand, een melding bij een kapot bestand.
+    UnityRoute rt;
     std::string err;
-    CHECK(load_unity_game(json, "RabbidsHollywood", home.string(), "", g, err));
-    CHECK(g.nas_dir == nas.string());
+    CHECK(parse_unity_route("", rt, err) && rt.port == 33610 && rt.bepinex_version == "5.4.21.0");
+    CHECK(parse_unity_route(R"({"port": 40000, "bepinex_version": "5.4.22.0"})", rt, err) && rt.port == 40000 && rt.bepinex_version == "5.4.22.0");
+    CHECK(!parse_unity_route("{kapot", rt, err) && err.find("unity-route.json") != std::string::npos);
+    CHECK(!parse_unity_route(R"({"port": 0})", rt, err) && !parse_unity_route(R"({"bepinex_version": "../x"})", rt, err));
+    UnityPaths noroute = lp;
+    noroute.route_json = (root / "bestaat-niet.json").string();
+    CHECK(load_unity_route(noroute, rt, err) && rt.port == 33610);
+
+    // Lezen: de map komt uit de gamemappen, niet uit het bestand.
+    UnityGame g;
+    CHECK(!load_unity_game(lp, folders, "RabbidsHollywood", "", g, err) && err.find("Rabbids Hollywood ") != std::string::npos &&
+          err.find("staat in geen gamemap") != std::string::npos);   // de nep-NAS staat er nog niet
+    write(nas / "Game.exe", "MZ");
+    CHECK(load_unity_game(lp, folders, "RabbidsHollywood", "", g, err));
+    CHECK(g.nas_dir == nas.string() && g.folder == "Rabbids Hollywood " && g.source == (shipped / "RabbidsHollywood/unity.json").string());
     CHECK(g.exe == "Game.exe" && g.plugin == "ravengun" && g.width == 1280 && g.height == 720 && g.port == 33611);
     CHECK(g.name == "Rabbids Hollywood Arcade" && g.language == "EN" && g.bepinex_version == "5.4.21.0");
     UnityGame g2;
-    CHECK(load_unity_game(json, "RabbidsHollywood", home.string(), "demulshooter", g2, err) && g2.plugin == "demulshooter");
-    CHECK(!load_unity_game(json, "RabbidsHollywood", home.string(), "iets", g2, err));
-    CHECK(!load_unity_game(json, "Kapot", home.string(), "", g2, err) && err.find("nas_dir") != std::string::npos);
-    CHECK(!load_unity_game(json, "Onbekend", home.string(), "", g2, err));
+    CHECK(load_unity_game(lp, folders, "RabbidsHollywood", "demulshooter", g2, err) && g2.plugin == "demulshooter");
+    CHECK(!load_unity_game(lp, folders, "RabbidsHollywood", "iets", g2, err));
+    CHECK(!load_unity_game(lp, folders, "Kapot", "", g2, err) && err.find("folder") != std::string::npos);
+    CHECK(!load_unity_game(lp, folders, "ZonderMap", "", g2, err) && err.find("'folder' ontbreekt") != std::string::npos);
+    CHECK(!load_unity_game(lp, folders, "Pad", "", g2, err) && err.find("geen pad") != std::string::npos);
+    CHECK(!load_unity_game(lp, folders, "Onbekend", "", g2, err) && err.find("geen patches/Onbekend/unity.json") != std::string::npos);
+    CHECK(!load_unity_game(lp, {}, "RabbidsHollywood", "", g2, err) && err.find("geen gamemappen") != std::string::npos);
+
+    // De mapnaam: dezelfde regel als @nas/<Map> van de native route: <gamemap>/<map>, anders een niveau dieper; de naam moet exact kloppen.
+    CHECK(resolve_unity_dir("Rabbids Hollywood ", folders) == nas.string());
+    CHECK(resolve_unity_dir("Rabbids Hollywood", folders).empty());          // zonder de spatie aan het eind is het een andere map
+    CHECK(resolve_unity_dir("rabbids hollywood ", folders).empty());
+    CHECK(resolve_unity_dir("", folders).empty() && resolve_unity_dir("Rabbids Hollywood ", {}).empty());
+    write(home / "diep/Teknoparrot/Spel Een/Game.exe", "MZ");
+    CHECK(resolve_unity_dir("Spel Een", {(home / "leeg").string(), (home / "diep").string()}) == (home / "diep/Teknoparrot/Spel Een").string());
+    CHECK(resolve_unity_dir("Spel Een", {(home / "diep/Teknoparrot").string()}) == (home / "diep/Teknoparrot/Spel Een").string());
+    // Een directe treffer in een latere gamemap gaat voor een diepere in een eerdere.
+    write(home / "tweede/Spel Een/Game.exe", "MZ");
+    CHECK(resolve_unity_dir("Spel Een", {(home / "diep").string(), (home / "tweede").string()}) == (home / "tweede/Spel Een").string());
+
+    // Lagen: de gebruikerslaag vervangt het meegeleverde bestand als geheel (ook de velden die ze niet noemt, zoals de resolutie).
+    write(user / "RabbidsHollywood/unity.json", R"({"folder": "Spel Een", "exe": "Game.exe", "width": 1600, "height": 900})");
+    CHECK(unity_file(lp, "RabbidsHollywood") == (user / "RabbidsHollywood/unity.json").string());
+    CHECK(load_unity_game(lp, {(home / "tweede").string()}, "RabbidsHollywood", "", g2, err));
+    CHECK(g2.nas_dir == (home / "tweede/Spel Een").string() && g2.width == 1600 && g2.name == "RabbidsHollywood" && g2.language.empty());
+    CHECK(g2.source == (user / "RabbidsHollywood/unity.json").string());
+    // Een eigen pad in de gebruikerslaag gaat voor de mapnaam; ~ wordt ingevuld; een relatief pad kan niet.
+    write(user / "RabbidsHollywood/unity.json", R"({"folder": "Rabbids Hollywood ", "nas_dir": "~/elders/Rabbids"})");
+    CHECK(load_unity_game(lp, folders, "RabbidsHollywood", "", g2, err) && g2.nas_dir == (home / "elders/Rabbids").string());
+    write(user / "RabbidsHollywood/unity.json", R"({"nas_dir": "/mnt/ergens/Rabbids"})");
+    CHECK(load_unity_game(lp, {}, "RabbidsHollywood", "", g2, err) && g2.nas_dir == "/mnt/ergens/Rabbids");   // ook zonder gamemappen
+    write(user / "RabbidsHollywood/unity.json", R"({"nas_dir": "relatief/pad"})");
+    CHECK(!load_unity_game(lp, folders, "RabbidsHollywood", "", g2, err) && err.find("absoluut") != std::string::npos);
+    // Kapot in de gebruikerslaag: een melding met dat bestand, GEEN terugval op het meegeleverde bestand.
+    write(user / "RabbidsHollywood/unity.json", "{kapot");
+    CHECK(unity_game_known(lp, "RabbidsHollywood"));                               // het is nog steeds een Unity-game
+    CHECK(!load_unity_game(lp, folders, "RabbidsHollywood", "", g2, err) && err.find((user / "RabbidsHollywood/unity.json").string()) != std::string::npos);
+    write(user / "RabbidsHollywood/unity.json", "");
+    CHECK(!load_unity_game(lp, folders, "RabbidsHollywood", "", g2, err));
+    // Een game alleen in de gebruikerslaag.
+    write(user / "EigenGame/unity.json", R"({"folder": "Spel Een", "exe": "Game.exe"})");
+    CHECK(unity_game_known(lp, "EigenGame") && load_unity_game(lp, {(home / "tweede").string()}, "EigenGame", "", g2, err));
+    CHECK((unity_games(lp) == std::vector<std::string>{"EigenGame", "Kapot", "Pad", "RabbidsHollywood", "ZonderMap"}));
+    fs::remove_all(user);
+    CHECK(load_unity_game(lp, folders, "RabbidsHollywood", "", g, err) && g.width == 1280);   // zonder de gebruikerslaag weer het meegeleverde
 
     // De nep-NAS: de game, een log, kleine en grote configuratie, een TeknoParrot-onderdeel, Game_Data met Plugins en assets.
     write(nas / "Game.exe", "MZ");
@@ -103,8 +169,7 @@ int main() {
     write(bep / "winhttp.dll", "bep-doorstop");
     write(bep / "doorstop_config.ini", "[General]\nenabled=true\n");
     const fs::path plugins = root / "build/unity-plugin";
-    UnityPaths p;
-    p.json = (root / "aagames.json").string();
+    UnityPaths p = lp;
     p.home = home.string();
     p.data = data.string();
     p.plugin_dirs = {(root / "leeg").string(), plugins.string()};

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <netinet/in.h>
 #include <poll.h>
@@ -257,26 +258,35 @@ int main() {
         CHECK(!ps.next(r) && ps.skipped() == 2);
     }
 
-    // ---- Configuratie ----
+    // ---- Configuratie: patches/<Game>/unity.json ----
     {
         std::string err;
-        AaConfig c = parse_aagames_config(slurp(std::string(RAVENGUN_SOURCE_DIR) + "/packaging/aagames-games.json"), err);
-        CHECK(err.empty() && c.port == 33610 && c.games.size() == 2);
-        const AaGame* g = c.find("TombRaider");
-        CHECK(g && g->type == AaType::TombRaider && g->width == 1920 && g->height == 1080 && g->send_hz > 0);
-        const AaGame* h = c.find("RabbidsHollywood");
-        CHECK(h && h->type == AaType::RabbidsHollywood && h->plugin_dir == "RabbidsHollywood");
-        CHECK(!c.find("Bestaat niet"));
-        parse_aagames_config("{", err);
-        CHECK(!err.empty());
-        parse_aagames_config(R"({"games":{"X":{"type":"onbekend"}}})", err);
-        CHECK(err.find("onbekend type") != std::string::npos);
-        parse_aagames_config(R"({"games":{"X":{"type":"tomb_raider","scale_x":0}}})", err);
-        CHECK(err.find("schaal") != std::string::npos);
-        parse_aagames_config(R"({"games":{"X":{"type":"tomb_raider","y_origin":"midden"}}})", err);
-        CHECK(err.find("y_origin") != std::string::npos);
-        AaConfig d = parse_aagames_config(R"({"port":40000,"games":{"X":{"type":"rabbids_hollywood","width":1280,"height":720,"offset_y":0.05,"y_origin":"top"}}})", err);
-        CHECK(err.empty() && d.port == 40000 && d.games[0].width == 1280 && d.games[0].offset_y == 0.05 && d.games[0].y_origin == "top");
+        AaGame g;
+        // De echte bestanden (de meegeleverde laag: $RAVENGUN_PATCHES_DIR, anders patches/ in de repo); overgeslagen als ze er niet zijn.
+        const char* pd = std::getenv("RAVENGUN_PATCHES_DIR");
+        const std::string patches = pd && *pd ? std::string(pd) : std::string(RAVENGUN_SOURCE_DIR) + "/patches";
+        const std::string tr_text = slurp(patches + "/TombRaider/unity.json"), rh_text = slurp(patches + "/RabbidsHollywood/unity.json");
+        if (tr_text.empty() || rh_text.empty()) {
+            std::printf("aagames: geen unity.json in %s (echte bestanden overgeslagen)\n", patches.c_str());
+        } else {
+            CHECK(parse_aagames_game("TombRaider", tr_text, g, err) && err.empty());
+            CHECK(g.type == AaType::TombRaider && g.width == 1920 && g.height == 1080 && g.send_hz > 0 && g.plugin_dir == "TombRaider");
+            CHECK(parse_aagames_game("RabbidsHollywood", rh_text, g, err));
+            CHECK(g.type == AaType::RabbidsHollywood && g.plugin_dir == "RabbidsHollywood");
+            // Het meegeleverde bestand noemt geen pad van een machine: de map van de game is een mapnaam in de gamemappen.
+            for (const std::string* t : {&tr_text, &rh_text}) {
+                CHECK(t->find("nas_dir") == std::string::npos && t->find("/home/") == std::string::npos && t->find("/mnt/") == std::string::npos);
+                CHECK(t->find("\"folder\"") != std::string::npos);
+            }
+        }
+        CHECK(!parse_aagames_game("X", "{", g, err) && !err.empty());
+        CHECK(!parse_aagames_game("X", R"({"type":"onbekend"})", g, err) && err.find("onbekend type") != std::string::npos);
+        CHECK(err.find("patches/X/unity.json") != std::string::npos);
+        CHECK(!parse_aagames_game("X", R"({"type":"tomb_raider","scale_x":0})", g, err) && err.find("schaal") != std::string::npos);
+        CHECK(!parse_aagames_game("X", R"({"type":"tomb_raider","y_origin":"midden"})", g, err) && err.find("y_origin") != std::string::npos);
+        CHECK(!parse_aagames_game("X", R"({"type":"tomb_raider","width":"breed"})", g, err) && err.find("getal") != std::string::npos);
+        CHECK(parse_aagames_game("X", R"({"type":"rabbids_hollywood","width":1280,"height":720,"offset_y":0.05,"y_origin":"top"})", g, err));
+        CHECK(err.empty() && g.key == "X" && g.name == "X" && g.width == 1280 && g.offset_y == 0.05 && g.y_origin == "top");
     }
 
     // ---- Klant tegen een nep-plugin ----

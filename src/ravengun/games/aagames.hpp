@@ -2,7 +2,7 @@
 // Unity-games zonder TeknoParrot (Tomb Raider Arcade, Rabbids Hollywood Arcade): de BepInEx-plugin van DemulShooter
 // draait in de game en luistert als TCP-server op 127.0.0.1:33610; ravengund neemt de rol van DemulShooterX64.exe over en
 // is de client. Dit bestand bevat het protocol (clean-room: alleen de feiten over de bytes, geen code van DemulShooter),
-// het lezen van packaging/aagames-games.json en de verbindingsklant met herverbinden. Onderzoek: docs/research/
+// het lezen van patches/<Game>/unity.json (de kant van de klant: resolutie, kalibratie) en de verbindingsklant met herverbinden. Onderzoek: docs/research/
 // demulshooter-integratie.md; de geverifieerde bytevolgorde staat in docs/decisions.md.
 //
 // Protocol (alles little-endian, geen padding):
@@ -38,7 +38,6 @@ struct AaGame {
     std::string key;           // TombRaider, RabbidsHollywood
     std::string name;
     AaType type = AaType::TombRaider;
-    std::string nas_dir;
     std::string exe = "Game.exe";
     std::string plugin_dir;
     int width = 1920, height = 1080;        // resolutie van het gamevenster (pixels)
@@ -48,15 +47,10 @@ struct AaGame {
     int send_hz = 120;                      // hoe vaak het invoerpakket gaat (1..1000)
 };
 
-struct AaConfig {
-    int port = kAaDefaultPort;
-    std::string demulshooter_version;
-    std::vector<AaGame> games;
-    const AaGame* find(const std::string& key) const;
-};
-
-// Leest packaging/aagames-games.json. Bij een fout is het resultaat leeg en staat er een Nederlandse melding in err.
-AaConfig parse_aagames_config(const std::string& json_text, std::string& err);
+// Leest het unity.json van een game (patches/<Game>/unity.json; de sleutel is de mapnaam). false + een Nederlandse melding in err bij een
+// fout. Alleen de velden van de klant: wat de lader nodig heeft (folder, plugin, ...) leest launch::parse_unity_game. De poort staat
+// in packaging/unity-route.json (launch::load_unity_route).
+bool parse_aagames_game(const std::string& key, const std::string& json_text, AaGame& out, std::string& err);
 // Leeg = geldig.
 std::string validate_aagames_game(const AaGame& g);
 

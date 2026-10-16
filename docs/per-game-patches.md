@@ -24,6 +24,7 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
     patches.ini                    patches van deze game, of "Enabled = true" bij een gedeelde patch; optioneel
     native.json                    het native profiel (sandbox, exe, bibliotheken; docs/native-profiel.md); optioneel
     options.json                   de opties en memory card die de app toont (docs/game-opties.md); optioneel
+    unity.json                     het profiel van een Unity-game (Tomb Raider, Rabbids Hollywood; zie "Unity-games" hieronder); optioneel
     README.md                      korte uitleg en verwijzing naar findings/<Game>.md; alleen als er zo'n bestand is
     <extra bestanden>              bv. een .reg voor de eigen prefix; optioneel
 
@@ -32,10 +33,11 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
   <Game>/patches.ini
   <Game>/native.json               vervangt het meegeleverde bestand als geheel (geen samenvoeging); kapot = geen profiel
   <Game>/options.json              idem: vervangt het meegeleverde bestand als geheel; kapot = geen opties
+  <Game>/unity.json                idem: vervangt het meegeleverde bestand als geheel; kapot = een melding bij de start, geen terugval
 ```
 
-`<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de id uit
-`aagames-games.json`. Een eigen game maak je door in de gebruikersmap een map met een `game.ini` te zetten.
+`<Game>` is de TeknoParrot-profielnaam (`LGI`, `NERF`, `LuigisMansion`), voor eigen routes de naam van de map met
+`unity.json`/`native.json`. Een eigen game maak je door in de gebruikersmap een map met een `game.ini` te zetten.
 
 ### Zoekvolgorde
 
@@ -97,6 +99,7 @@ gamemap van de patches-repo naar de `patches/` van de loader mag verhuizen: **ve
 | levering | `patches.ini` | nee |
 | levering | `native.json` (het native profiel, docs/native-profiel.md; de gebruikerslaag vervangt het als geheel) | nee |
 | levering | `options.json` (opties en memory card voor de app, docs/game-opties.md; de gebruikerslaag vervangt het als geheel) | nee |
+| levering | `unity.json` (het profiel van een Unity-game, zie "Unity-games"; de gebruikerslaag vervangt het als geheel) | nee |
 | levering | `dropin/**` (met `dropin/dropin.ini`) | nee; heeft een game `dropin/`, dan moet `dropin.ini` er zijn en elk bestand dat het noemt |
 | levering | `data/**` (runtimegegevens) | nee |
 | onderzoek | `*.md` (ook `README.md`, `*.md.voor-correctie-*`), `logs-*/`, `bewijs-*/`, `probe/`, `probes/`, `measurements/`, `*.voor-correctie*`, schermafbeeldingen (`*.png`, `*.jpg`, ...), `*.log`, `gamelog-*`, `usb-tap*` | nee, en nooit in de levering |
@@ -661,6 +664,52 @@ game zonder eigen profiel gedraagt zich als voorheen (XML, en het oude `.env` al
 waarde in de gebruikerslaag telt niet. `check_activation` is ongewijzigd (alleen kijken of TeknoParrotUi de activering in de prefix zette); er wordt
 geen sleutelwaarde gelezen en geen activering geïmporteerd of nagebootst. `Patreon` in `game.ini` is een informatieve true of false, nooit een sleutel.
 
+## Unity-games (`unity.json`)
+
+Tomb Raider Arcade en Rabbids Hollywood Arcade draaien zonder TeknoParrot: de daemon zet een lokale view klaar (symlinks naar de game
+op de NAS, BepInEx en onze plugin lokaal), start `proton run Game.exe` en is de TCP-klant van de plugin in de game
+(`src/ravengun/launch/unity.*`, `src/ravengun/games/aagames.*`). Het profiel van zo'n game is `patches/<Game>/unity.json`; een game met
+dat bestand gaat over de Unity-route (tenzij `[Input] Route = tp-shm` in `game.ini` staat). Zoals `game.ini` en `native.json`: de
+gebruikerslaag eerst, en dat bestand vervangt het meegeleverde als geheel; is het kapot, dan meldt de start dat (met het bestand), zonder
+terugval op het meegeleverde bestand. De daemon leest het bij elke start, de app bij het laden van de gamegegevens.
+
+```json
+{
+  "name": "Tomb Raider Arcade",
+  "type": "tomb_raider",
+  "folder": "Tomb Raider",
+  "exe": "Game.exe",
+  "plugin": "ravengun",
+  "plugin_dir": "TombRaider",
+  "fullscreen": true,
+  "width": 1920, "height": 1080,
+  "offset_x": 0.0, "offset_y": 0.0, "scale_x": 1.0, "scale_y": 1.0,
+  "y_origin": "bottom",
+  "send_hz": 120
+}
+```
+
+| sleutel | betekenis |
+|---|---|
+| `name` | weergavenaam (standaard de mapnaam van het profiel) |
+| `type` | `tomb_raider` of `rabbids_hollywood`: het draadprotocol (42 of 38 bytes invoer, andere uitvoer) |
+| `folder` | de **mapnaam** van de game in een gamemap, exact (ook een spatie aan het eind: `"Rabbids Hollywood "`); geen pad |
+| `nas_dir` | alleen in de gebruikerslaag: een eigen, absoluut pad (`~/` mag); gaat voor `folder` |
+| `exe` | het uitvoerbare bestand in die map (standaard `Game.exe`) |
+| `plugin` | `ravengun` (standaard, `plugins/unity/`) of `demulshooter` (terugval); `RAVENGUN_UNITY_PLUGIN` gaat voor |
+| `plugin_dir` | map van de DemulShooter-plugin (alleen bij `demulshooter`) |
+| `fullscreen`, `width`, `height`, `language` | beginwaarden van het configuratiebestand van de plugin in de view (alleen als dat ontbreekt) en de resolutie van het gamevenster voor de aim |
+| `offset_x/_y`, `scale_x/_y`, `y_origin`, `send_hz` | kalibratie van de aim (na de `set_output`-transformatie van de gun), Y-oorsprong en pakketten per seconde |
+
+**De map van de game** staat dus niet als pad in het bestand (dat is per machine anders) maar als mapnaam, en wordt bij elke start
+gezocht in de gamemappen van de app (`library.json`, `folders`), met dezelfde regel als `@nas/<Map>` van de native route: eerst
+`<gamemap>/<folder>` in elke gamemap, dan een niveau dieper (`<gamemap>/*/<folder>`). Staat hij er niet, dan zegt de start welke map
+er gezocht werd en in welke gamemappen. De bibliotheek van de app herkent de game op dezelfde manier.
+
+De instellingen voor alle Unity-games samen (poort van de plugin 33610, versie van BepInEx, versie van DemulShooter voor de terugval) staan
+in `packaging/unity-route.json`; ontbreekt dat bestand, dan gelden dezelfde waarden als standaard. Voor de scripts
+(`tools/dev/aagames-setup.py`, `scripts/build-unity-plugin.sh`) leest `scripts/unityprofile.py` dezelfde bestanden en dezelfde regel.
+
 ## Dongle per game
 
 **De loader weet niets van dongles.** Dat is de beslissing van de eigenaar (ronde 12) en die staat in
@@ -785,8 +834,9 @@ integriteits- of abonnementscontroles, en niets op uitgepakte beschermde code. D
 | `scripts/launch-direct.py` | `[Game]`, `[Launch]`, `[Loader]`, `[Wine]`, `[Display]`, `[Input] Jvs*`, `[Dongle]`, `[Env]`, `[Identify]`, `[Config*]`, `patches.ini` (via `gamesettings.py` en `ownprofile.py`); zonder eigen profiel de XML |
 | `scripts/play-halo.sh` | `[Input]` (route, indeling, bord, poort), `[Launch] Mode`, de omgeving (`gamesettings.py env`) voor de eenheid, de procesnamen (`gamesettings.py comms`) en, voor een start via TeknoParrotUi, `gamesettings.py write-xml` |
 | engine (`iobridge/routes.cpp`, `games/games.cpp`) | `[Input]`, bij elke start opnieuw (een keuze in de app geldt zonder herstart); `[Status] Note` voor de web-UI |
+| engine (`launch/unity.cpp`, `games/aagames.cpp`, `games/games.cpp`) | `unity.json` (de Unity-route; gebruikerslaag eerst) en `packaging/unity-route.json`; de gamemappen uit `library.json` |
 | engine (`games/games.cpp`) | `[Game]` (eigen profiel: een game met `Executable` of `ProfileRevision` is een geldig profiel zonder XML en staat in de lijst als hij in een gamemap of view staat), `[Identify]` |
-| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `options.json` (opties en memory card, docs/game-opties.md), `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
+| app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `options.json` (opties en memory card, docs/game-opties.md), `unity.json` (de bibliotheek herkent Unity-games aan `folder` in de gamemappen), `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
 | `scripts/tp-add-game.py` | schrijft het profiel (uit het sjabloon) en de keuzes in het gebruikers-`game.ini` (en `patches.ini`), plus `UserProfiles/<P>.xml` als uitvoerformaat; leest `[Bindings]` en `[NewGame]` |
 | `scripts/import-tp-profiles.py` | maakt de profieldelen van `game.ini` uit de runtime (zie "Importer") |
 | `tools/dev/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |

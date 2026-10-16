@@ -124,10 +124,6 @@ std::string last_line(const std::string& path) {
     return clean;
 }
 
-bool ends_with(const std::string& s, const std::string& suf) {
-    return s.size() >= suf.size() && s.compare(s.size() - suf.size(), suf.size(), suf) == 0;
-}
-
 }  // namespace
 
 bool valid_profile_name(std::string_view s) {
@@ -353,16 +349,6 @@ std::vector<std::string> stop_unit_argv(const Config& c) {
 }
 
 namespace {
-std::string read_text(const std::string& path, size_t max_bytes = 1024 * 1024) {
-    std::ifstream f(path, std::ios::binary);
-    std::string s;
-    if (!f) return s;
-    std::ostringstream ss;
-    ss << f.rdbuf();
-    s = ss.str();
-    if (s.size() > max_bytes) s.clear();
-    return s;
-}
 // Draait er in de cgroup van de unit een proces met deze naam (/proc/<pid>/comm)?
 bool same_name(const std::string& a, const std::string& b, bool icase) {
     if (!icase) return a == b;
@@ -435,9 +421,7 @@ std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std
 
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {
     (void)launch;   // auto en direct gaan allebei over de Unity-route als de game daar bij hoort
-    if (c.unity.json.empty()) return false;
-    const std::string text = read_text(c.unity.json);
-    if (text.empty() || !ravengun::launch::unity_game_known(text, profile)) return false;
+    if (!ravengun::launch::unity_game_known(c.unity, profile)) return false;   // patches/<Game>/unity.json, gebruikerslaag eerst
     // Een game die in game.ini om tp-shm vraagt gaat niet over de Unity-route (die gaat direct).
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     const std::string* route = g.settings.find("Input", "Route");
@@ -472,8 +456,8 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
     L::DirectInput in;
     L::Verdict v = L::direct_input(profile, c.direct, in, why);
     if (v != L::Verdict::Ok) return v;
-    // Een game uit aagames-games.json met een andere route dan tp-shm hoort bij de Unity-route, niet bij de directe.
-    if (c.unity_game && c.unity_game(profile) && (in.route != "tp-shm" || !in.note.empty())) { why = "Unity-route (aagames-games.json)"; return L::Verdict::Fallback; }
+    // Een game uit patches/<Game>/unity.json met een andere route dan tp-shm hoort bij de Unity-route, niet bij de directe.
+    if (c.unity_game && c.unity_game(profile) && (in.route != "tp-shm" || !in.note.empty())) { why = "Unity-route (unity.json)"; return L::Verdict::Fallback; }
     L::DirectOptions o;
     o.base_env = c.session_env ? c.session_env() : direct_session_env(c.proc_root);
     if (in.route == "jvs") o.base_env["RG_JVS_PTY"] = c.jvs_link;
@@ -909,12 +893,12 @@ std::string GameService::run_unity(const std::string& profile) {
     // 1. Een lightgun.
     if (const std::string e = wait_lightgun(); !e.empty()) return e;
     // 2. De game, de view (symlinks naar de NAS, BepInEx en onze plugin lokaal) en het commando.
-    const std::string text = read_text(c_.unity.json);
+    //    De map van de game komt uit de gamemappen van library.json (de bron van de app), niet uit een pad in het profiel.
     const char* po = std::getenv("RAVENGUN_UNITY_PLUGIN");
     L::UnityGame g;
     std::string err, view;
     std::vector<std::string> view_log;
-    if (!L::load_unity_game(text, profile, c_.unity.home, po ? po : "", g, err)) return err;
+    if (!L::load_unity_game(c_.unity, library_folders(c_.library_file, c_.home), profile, po ? po : "", g, err)) return err;
     if (!L::build_view(g, c_.unity, view, view_log, err)) return err;
     L::UnityOptions o;
     auto env = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
@@ -941,6 +925,7 @@ std::string GameService::run_unity(const std::string& profile) {
         std::ofstream f(log, std::ios::app);
         f << "== unity " << profile << " " << stamp("%Y%m%d-%H%M%S") << " (gestart door ravengund, zonder script)\n";
         f << "game: " << g.name << " (" << g.nas_dir << "/" << g.exe << "); plugin " << g.plugin << "; poort " << g.port << "\n";
+        f << "gegevens: " << g.source << (g.folder.empty() ? "" : "; map '" + g.folder + "' uit de gamemappen") << "\n";
         for (const std::string& l : view_log) f << l << "\n";
         for (const std::string& l : pl.notes) f << l << "\n";
         f << "cmd:";

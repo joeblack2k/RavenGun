@@ -77,7 +77,7 @@ struct Request {
     // game_start: startwijze (A10), optioneel: "direct" (de directe route afdwingen) of leeg/"auto" (de route uit het profiel:
     // native, Unity of [Launch] Mode = direct in game.ini). De daemon start elke game zelf; zonder eigen route start er niets.
     std::string launch;
-    // aagames (Unity-route zonder TeknoParrot): action = start | stop | status, game = sleutel uit packaging/aagames-games.json.
+    // aagames (Unity-route zonder TeknoParrot): action = start | stop | status, game = een game met patches/<Game>/unity.json.
     // output_key: een toets op het virtuele toetsenbord (key = naam uit output/key_table.hpp, action down|up|tap, player 1..4).
     std::string game, key_name;
     // iobridge: action = start | stop | status | route, game = TeknoParrot-profielnaam, route = evdev | tp-shm | unity-tcp (optioneel).

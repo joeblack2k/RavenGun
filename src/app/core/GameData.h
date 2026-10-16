@@ -66,7 +66,7 @@ public:
     // options.json uit die mappen; options.json van de gebruikerslaag vervangt het meegeleverde bestand als geheel.
     void loadFrom(const ravengun::gamesettings::Dirs& dirs);
     // Extra bronnen voor de routekeuze (voor tests; load() zet ze zelf). Leeg = niet gebruiken.
-    void setRouteSources(const QString& hidBoards, const QString& jvsBoards, const QString& aagames);
+    void setRouteSources(const QString& hidBoards, const QString& jvsBoards);
 
     RouteInfo route(const QString& profile) const;
     // Routes die voor deze game kunnen (er is een indeling of bord voor), de aanbevolen route eerst.
@@ -113,16 +113,20 @@ public:
     // Gegevens uit options.json voor deze game (op profiel, dan op mapnaam); nullptr als er niets is.
     const GameOptionsEntry* entryFor(const GameEntry& g) const;
     QList<KnownGame> knownGames() const;  // voor de herkenning bij het scannen
+    // De Unity-games (patches/<Game>/unity.json, gebruikerslaag eerst; een kapot bestand in de gebruikerslaag blijft staan met `error`).
+    QList<UnityGameInfo> unityGames() const { return unity_.values(); }
 
 private:
     void loadGame(const QString& profile);   // (her)leest één game uit beide lagen
+    void loadUnity();   // unity.json van alle games: gebruikerslaag eerst, geen terugval als dat kapot is
     void loadOptions(const QString& profile);   // options.json: gebruikerslaag eerst, geen terugval als dat kapot is
     ravengun::gamesettings::Dirs dirs_;
     QHash<QString, RouteInfo> baseRoutes_, routes_;
     QHash<QString, QString> notes_, notesEn_, state_;
     QHash<QString, ravengun::gamesettings::Game> games_, shippedGames_;   // samengevoegd, en zonder de gebruikerslaag
     QHash<QString, QString> routeErrors_;
-    QSet<QString> hidBoards_, jvsBoards_, unityGames_;
+    QSet<QString> hidBoards_, jvsBoards_;
+    QHash<QString, UnityGameInfo> unity_;
     QString userRoutesError_;
     GameOptionsDb options_;
     QHash<QString, QString> optionsFiles_, optionsErrors_;

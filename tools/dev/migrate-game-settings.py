@@ -277,8 +277,8 @@ def migrate(out_dir, io_routes, notes, runtime, dry=False):
         options = {}
     names = titles(options)
     try:
-        unity = set(load_json(os.path.join(ROOT, "packaging", "aagames-games.json")).get("games", {}))
-    except (OSError, ValueError):
+        unity = set(n for n in os.listdir(os.path.join(ROOT, "patches")) if os.path.isfile(os.path.join(ROOT, "patches", n, "unity.json")))
+    except OSError:
         unity = set()
     prof_dir = os.path.join(runtime, "UserProfiles") if runtime else ""
     profiles = set(routes) | set(nl) | set(en) | set(status)
