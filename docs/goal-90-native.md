@@ -8,6 +8,26 @@ Deze lijst is de enige werklijst; na elke titel bijgewerkt. Overgeslagen titels 
 
 Stand: 38 van 68 titels WORKING (56%); doel 90% = 62 titels; sessiedoel (eigenaar, 2026-10-15): 50 speelbaar. Pass 1: 8, pass 2: 22, overgeslagen: 15.
 
+## Taken per familie
+
+Opdracht van de eigenaar (2026-10-16): een taak per familie, Raw Thrills geparkeerd. Een fix werkt vaak voor de hele familie, dus
+de taak is pas af als elke titel erin WORKING is of een gemeten reden heeft om te blijven staan. Per titel staat de stand in de
+tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Werkvolgorde: T1 tot en met T9.
+
+| Taak | Familie | Titels | Stand |
+|---|---|---|---|
+| T1 | Taito Type X2 | Gaia Attack 4, Elevator Action Death Parade, Haunted Museum, Haunted Museum II | bezig: tweede I/O-pad achter "I/O ERROR 2" |
+| T2 | Windows D3D9 zonder Present | Far Cry Paradise Lost, Robin Hood, Friction | open; diep: Vulkan/Proton, eigen wrapper als het moet |
+| T3 | SEGA Lindbergh | The House of the Dead 4, The House of the Dead 4 Special | open |
+| T4 | Namco ES3X | Time Crisis 5, Lost Land Adventure | open |
+| T5 | Werkende titels: open punten | Mario Kart DX (camera), Ghost Squad Evolution (wisselvallig), Point Blank X (attract-film), runtime-keuze zonder daemonherstart | open |
+| T6 | Linux native, nog niet geprobeerd | America's Army Arcade, Police Trainer 2, Crossfire: Maximum Paintball | open |
+| T7 | Windows met bescherming of crash | Aliens: Extermination, Block King Ball Shooter, Cooper's 9 | open |
+| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | open |
+| T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | alleen meten of een passthrough-lader (Cxbx-achtig, x86 native) haalbaar is |
+| T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
+| geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
+
 ## WORKING (38)
 
 | Titel | Platform | Volgende stap |
