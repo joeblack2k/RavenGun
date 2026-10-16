@@ -128,8 +128,6 @@ bool ends_with(const std::string& s, const std::string& suf) {
     return s.size() >= suf.size() && s.compare(s.size() - suf.size(), suf.size(), suf) == 0;
 }
 
-constexpr const char* kSuccessMarker = "lightgun klaar.";  // laatste regel van scripts/play-halo.sh bij succes
-
 }  // namespace
 
 bool valid_profile_name(std::string_view s) {
@@ -334,56 +332,11 @@ std::string default_tpui_procs(unsigned uid) {
     return "/sys/fs/cgroup/user.slice/user-" + u + ".slice/user@" + u + ".service/app.slice/ravengun-tpui.service/cgroup.procs";
 }
 
-int script_state(const std::string& proc_root, const std::string& script) {
-    int found = 0;
-    std::error_code ec;
-    for (fs::directory_iterator it(proc_root, ec), end; !ec && it != end; it.increment(ec)) {
-        const std::string name = it->path().filename().string();
-        if (name.empty() || !std::all_of(name.begin(), name.end(), [](char ch) { return ch >= '0' && ch <= '9'; })) continue;
-        std::string raw = read_head((it->path() / "cmdline").string(), 8192);
-        if (raw.empty()) continue;
-        std::vector<std::string> args;
-        std::string cur;
-        for (char ch : raw) { if (ch == '\0') { args.push_back(cur); cur.clear(); } else cur += ch; }
-        if (!cur.empty()) args.push_back(cur);
-        size_t at = args.size();
-        // Het script zelf, of een shell die het uitvoert (geen editor of ander programma met het pad als argument).
-        std::string prog = args.empty() ? std::string() : args[0].substr(args[0].rfind('/') == std::string::npos ? 0 : args[0].rfind('/') + 1);
-        if (!args.empty() && args[0] == script) at = 0;
-        else if (args.size() > 1 && args[1] == script && (prog == "bash" || prog == "sh" || prog == "dash" || prog == "env")) at = 1;
-        if (at == args.size()) continue;
-        bool stop = false;
-        for (size_t i = at + 1; i < args.size(); ++i) if (args[i] == "--stop") stop = true;
-        if (stop) return 2;
-        found = 1;
-    }
-    return found;
-}
-
-bool valid_launch(std::string_view s) { return s.empty() || s == "auto" || s == "direct" || s == "teknoparrot-ui"; }
-
-std::vector<std::string> start_argv(const Config& c, const std::string& profile, const std::string& launch) {
-    std::vector<std::string> a{c.systemd_run, "--user", std::string("--unit=") + kPlayUnit, "--collect", "--quiet",
-                               "--description=RavenGun: game starten"};
-    bool plain = !c.log_path.empty();
-    for (unsigned char ch : c.log_path) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
-    if (plain) a.push_back("--property=StandardOutput=file:" + c.log_path);
-    a.push_back("--");
-    a.push_back(c.play_script);
-    a.push_back("--profile");
-    a.push_back(profile);
-    if (launch == "direct") a.push_back("--direct");
-    else if (launch == "teknoparrot-ui") a.push_back("--tpui");
-    return a;
-}
+// De startwijze uit het verzoek: leeg/auto (de route uit het profiel) of direct. TeknoParrotUi start RavenGun niet meer.
+bool valid_launch(std::string_view s) { return s.empty() || s == "auto" || s == "direct"; }
 
 std::vector<std::string> stop_unit_argv(const Config& c) {
-    return {c.systemctl, "--user", "stop", std::string(kPlayUnit) + ".service"};
-}
-
-std::vector<std::string> stop_script_argv(const Config& c) {
-    return {c.systemd_run, "--user", std::string("--unit=") + kStopUnit, "--collect", "--quiet",
-            "--description=RavenGun: game stoppen", "--", c.play_script, "--stop"};
+    return {c.systemctl, "--user", "stop", c.tpui_unit + ".service"};   // de unit van de game (native, Unity, direct)
 }
 
 namespace {
@@ -448,7 +401,7 @@ bool native_route(const Config& c, const std::string& profile) {
     if (c.native.json.empty()) return false;
     const std::string text = read_text(c.native.json);
     if (text.empty() || !ravengun::launch::profile_enabled(text, profile)) return false;
-    // Een game die de camera IN het spel gebruikt, gaat nog via het script (dat kiest het apparaat met scripts/camera.py).
+    // Een game die de camera IN het spel gebruikt heeft nog geen native route (het kiezen van het apparaat zit nog niet in de engine).
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     const std::string* cam = g.settings.find("Camera", "Use");
     return !(cam && trim(*cam) == "game");
@@ -469,10 +422,11 @@ std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std
 }
 
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {
-    if (c.unity.json.empty() || launch == "teknoparrot-ui") return false;
+    (void)launch;   // auto en direct gaan allebei over de Unity-route als de game daar bij hoort
+    if (c.unity.json.empty()) return false;
     const std::string text = read_text(c.unity.json);
     if (text.empty() || !ravengun::launch::unity_game_known(text, profile)) return false;
-    // Zoals play-halo.sh: een game die in game.ini om tp-shm vraagt gaat niet over de Unity-route.
+    // Een game die in game.ini om tp-shm vraagt gaat niet over de Unity-route (die gaat direct).
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     const std::string* route = g.settings.find("Input", "Route");
     return !(route && trim(*route) == "tp-shm");
@@ -501,13 +455,12 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
         why = "rg-direct ontbreekt (" + c.direct_runner + ")";
         return L::Verdict::Fallback;
     }
-    if (launch == "teknoparrot-ui") { why = "TeknoParrotUi gevraagd"; return L::Verdict::Fallback; }
     const std::string mode = launch == "direct" ? std::string("direct") : L::launch_mode(profile, c.direct);
     if (mode != "direct") { why = "[Launch] Mode is niet direct"; return L::Verdict::Fallback; }
     L::DirectInput in;
     L::Verdict v = L::direct_input(profile, c.direct, in, why);
     if (v != L::Verdict::Ok) return v;
-    // play-halo.sh: een game uit aagames-games.json met een andere route dan tp-shm gaat via de Unity-route (play-unity.sh).
+    // Een game uit aagames-games.json met een andere route dan tp-shm hoort bij de Unity-route, niet bij de directe.
     if (c.unity_game && c.unity_game(profile) && (in.route != "tp-shm" || !in.note.empty())) { why = "Unity-route (aagames-games.json)"; return L::Verdict::Fallback; }
     L::DirectOptions o;
     o.base_env = c.session_env ? c.session_env() : direct_session_env(c.proc_root);
@@ -517,7 +470,7 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
     L::DirectPlan pl;
     v = L::plan_direct(profile, c.direct, o, pl, why);
     if (v == L::Verdict::Ok && L::needs_gst_fetch(pl)) {
-        why = "nog niet in de engine: de GStreamer-plug-ins ophalen (scripts/fetch-gst-wmv.sh)";
+        why = "de GStreamer-plug-ins voor de films ontbreken nog: haal ze op met scripts/fetch-gst-wmv.sh";
         return L::Verdict::Fallback;
     }
     if (input) *input = in;
@@ -628,14 +581,14 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     // Alleen goedkope controles in het IPC-verzoek (geen NAS): de route kiezen en plannen gebeurt in de worker, zodat de daemon tijdens
     // een start op alles blijft antwoorden. Een weigering of fout eindigt daar in de toestand "failed" met de melding.
     if (!valid_profile_name(profile)) return {false, "invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -)"};
+    if (launch == "teknoparrot-ui") return {false, "invalid_argument", "RavenGun start games niet meer via TeknoParrotUi; kies auto of direct"};
     if (!valid_launch(launch)) return {false, "invalid_argument", "ongeldige startwijze '" + launch + "'"};
     if (!profile_exists(c_, profile)) return {false, "invalid_argument", "onbekend profiel '" + profile + "': er is geen eigen profiel in patches/" + profile + "/game.ini en geen bestand " + profile + ".xml in UserProfiles"};
     std::error_code ec;
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
-    const int sc = script_state(c_.proc_root, c_.play_script);
     std::lock_guard<std::mutex> g(m_);
-    if (busy_.load() || sc != 0 || (launched_ && now_ms() - launched_ms_ < c_.start_grace_ms))
+    if (busy_.load())
         return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even of druk op Stoppen"};
     if (game_run) return {false, "unavailable", "er draait al een game; stop die eerst"};
     join_worker();
@@ -644,7 +597,6 @@ Result GameService::start(const std::string& profile, const std::string& launch)
         std::ofstream trunc(c_.log_path, std::ios::trunc);  // oude melding niet voor een nieuwe aanzien
     }
     profile_ = profile;
-    launched_ = false;
     failed_ = false;
     failed_msg_.clear();
     failed_profile_.clear();
@@ -656,13 +608,12 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     return {};
 }
 
-// De worker van een start: de route kiezen (native, Unity, direct of het script) en die uitvoeren.
+// De worker van een start: de route kiezen (native, Unity of direct) en die uitvoeren.
 void GameService::run_start(const std::string& profile, const std::string& launch) {
     namespace L = ravengun::launch;
     const bool native = native_route(c_, profile);
     const bool unity = !native && unity_route(c_, profile, launch);
-    // De directe route (A10): de engine zelf, of het script (ook als dat zelf naar TeknoParrotUi terugvalt). Wat launch-direct.py
-    // --check zou weigeren (exit 5), start niet: play-halo.sh stopt dan ook, zonder TeknoParrotUi.
+    // De directe route (A10): de engine zelf. Wat de directe route weigert (Refused) start niet; zonder eigen route ook niet.
     L::DirectInput din;
     std::string dwhy;
     const L::Verdict dv = native || unity ? L::Verdict::Fallback : direct_route(c_, profile, launch, dwhy, &din);
@@ -675,35 +626,13 @@ void GameService::run_start(const std::string& profile, const std::string& launc
         own = true;
         msg = unity ? run_unity(profile) : direct ? run_direct(profile, din) : run_native(profile);
     }
-    else if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0) msg = "het startscript ontbreekt of is niet uitvoerbaar";
     else {
-        // Waarom de eigen route niet liep, in het startlogboek: anders is achteraf niet te zien dat het script (en daarmee
-        // TeknoParrotUi) het overnam (2026-10-15: Otomedius en Infinity Blade FX zonder [Launch] Mode = direct).
-        if (!c_.log_path.empty() && !dwhy.empty()) {
+        // Geen eigen route: niet starten (er is geen startscript of TeknoParrotUi meer om op terug te vallen). De reden staat in de
+        // melding en in het startlogboek.
+        msg = profile + ": nog geen eigen route" + (dwhy.empty() ? std::string() : " (" + dwhy + ")");
+        if (!c_.log_path.empty()) {
             std::ofstream lg(c_.log_path, std::ios::app);
-            lg << "route: geen eigen route voor " << profile << " (" << dwhy << "); het startscript neemt over\n";
-        }
-        // Het script: vanaf hier stopt stoppen het script (zoals altijd), niet meer de eigen start.
-        {
-            std::lock_guard<std::mutex> lk(m_);
-            if (cancel_.load()) msg = "de start is afgebroken";
-            else native_ = false;
-        }
-        if (msg.empty()) {
-            std::string err;
-            const int rc = spawn_(start_argv(c_, profile, launch), err);
-            std::lock_guard<std::mutex> lk(m_);
-            if (rc == 0) {
-                launched_ = true;
-                launched_ms_ = now_ms();
-            } else {
-                failed_ = true;
-                failed_profile_ = profile;
-                failed_msg_ = rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + "); draait er al een start?"
-                                     : "het starten mislukte: " + err;
-            }
-            busy_.store(false);
-            return;
+            lg << "route: " << msg << "\n";
         }
     }
     std::lock_guard<std::mutex> lk(m_);
@@ -719,51 +648,25 @@ void GameService::run_start(const std::string& profile, const std::string& launc
 
 Result GameService::stop() {
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
-    const int sc = script_state(c_.proc_root, c_.play_script);
     std::lock_guard<std::mutex> g(m_);
-    if (native_ && busy_.load() && !busy_stop_) {   // een native start die nog wacht of loopt: afbreken
+    if (native_ && busy_.load() && !busy_stop_) {   // een start die nog plant of wacht: afbreken
         cancel_.store(true);
         return {true, "", "de start wordt afgebroken"};
     }
     if (busy_.load()) return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even"};
-    if (!game_run && sc == 0 && !launched_ && !native_) return {true, "", "er draait geen game"};
-    if (native_) {
-        join_worker();
-        launched_ = false;
-        failed_ = false;
-        busy_.store(true);
-        busy_stop_ = true;
-        std::vector<std::string> a1 = stop_unit_argv(c_);
-        a1.back() = c_.tpui_unit + ".service";
-        worker_ = std::thread([this, a1] {
-            std::string err;
-            spawn_(a1, err);                      // de game (gamescope, bwrap, het spel) in een keer
-            if (c_.stop_inputs) c_.stop_inputs(); // IO-brug neutraal en dicht, uitvoer ontwapend
-            std::lock_guard<std::mutex> lk(m_);
-            native_ = false;
-            busy_.store(false);
-        });
-        return {};
-    }
-    if (c_.play_script.empty() || ::access(c_.play_script.c_str(), X_OK) != 0)
-        return {false, "unavailable", "het startscript ontbreekt of is niet uitvoerbaar"};
+    if (!game_run && !native_) return {true, "", "er draait geen game"};
+    // De game draait in de unit van de game (ook na een herstart van de daemon, als native_ niet meer staat): die stoppen.
     join_worker();
-    launched_ = false;
     failed_ = false;
     busy_.store(true);
     busy_stop_ = true;
-    std::vector<std::string> a1 = stop_unit_argv(c_), a2 = stop_script_argv(c_);
-    worker_ = std::thread([this, a1, a2] {
+    const std::vector<std::string> a1 = stop_unit_argv(c_);
+    worker_ = std::thread([this, a1] {
         std::string err;
-        spawn_(a1, err);  // een start die nog op de Move wacht afbreken; geen unit is geen fout
-        err.clear();
-        int rc = spawn_(a2, err);
+        spawn_(a1, err);                      // de game (gamescope, bwrap, het spel) in een keer
+        if (c_.stop_inputs) c_.stop_inputs(); // IO-brug neutraal en dicht, uitvoer ontwapend
         std::lock_guard<std::mutex> lk(m_);
-        if (rc != 0) {
-            failed_ = true;
-            failed_profile_.clear();
-            failed_msg_ = "het stoppen mislukte: " + (rc > 0 ? "code " + std::to_string(rc) : err);
-        }
+        native_ = false;
         busy_.store(false);
     });
     return {};
@@ -1055,8 +958,6 @@ std::string GameService::run_unity(const std::string& profile) {
 
 std::string GameService::status_json() {
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
-    const int sc = script_state(c_.proc_root, c_.play_script);
-    const bool move = c_.move_connected ? c_.move_connected() : true;
     std::string state, text, profile, message;
     bool have_profile = false;
     {
@@ -1071,25 +972,7 @@ std::string GameService::status_json() {
             text = busy_stop_ ? "De game wordt gestopt..." : "De game wordt gestart...";
             have_profile = !busy_stop_;
             profile = profile_;
-        } else if (sc == 2) {
-            state = "stopping";
-            text = "De game wordt gestopt...";
-        } else if (sc == 1 || (launched_ && now_ms() - launched_ms_ < c_.start_grace_ms)) {
-            // Het script draait nog (het wacht op de Move, op de game of controleert iets): de game telt nog niet als draaiend.
-            state = move ? "starting" : "waiting_move";
-            text = move ? "De game wordt gestart..." : "Wacht op de Move: druk op de PS-knop.";
-            have_profile = true;
-            profile = profile_;
         } else {
-            if (launched_) {  // het script is klaar: de laatste regel van het script beslist of de start gelukt is
-                launched_ = false;
-                std::string last = c_.log_path.empty() ? std::string() : last_line(c_.log_path);
-                if (!ends_with(last, kSuccessMarker) && !(game_run && c_.log_path.empty())) {
-                    failed_ = true;
-                    failed_profile_ = profile_;
-                    failed_msg_ = last.empty() ? "het startscript stopte zonder melding" : last;
-                }
-            }
             if (failed_) {
                 state = "failed";
                 text = "Starten is mislukt.";

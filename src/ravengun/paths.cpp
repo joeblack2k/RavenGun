@@ -30,7 +30,7 @@ const char* source_name(Source s) {
 
 bool looks_like_data_dir(const std::string& dir) {
     if (!abs_path(dir)) return false;
-    return ::access((dir + "/scripts/play-halo.sh").c_str(), F_OK) == 0 && ::access((dir + "/packaging").c_str(), F_OK) == 0;
+    return ::access((dir + "/packaging/tp-shm-profiles.json").c_str(), F_OK) == 0;
 }
 
 std::string prefix_of_exe(const std::string& exe) { return parent(parent(exe)); }

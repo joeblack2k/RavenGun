@@ -3,13 +3,11 @@
 // Starten van games via verwisselbare backends (besluit 2026-10-10: RavenGun vervangt de TeknoParrot-UI voor de gebruiker;
 // docs/decisions.md, "Qt-app vervangt TeknoParrotUi").
 //
-// Alle backends starten via de engine (IPC game_start), die scripts/play-halo.sh in de unit ravengun-play start; ze
-// verschillen alleen in de startwijze die ze meegeven (A10, docs/decisions.md "A10: games direct starten"):
-// - "auto" (standaard): play-halo.sh kiest per profiel ([Launch] Mode in patches/<profiel>/game.ini of de keuze van de gebruiker):
-//   direct waar dat werkt, anders TeknoParrotUi; kan direct niet (activering, profiel), dan valt het script terug.
-// - "direct": altijd zonder TeknoParrotUi (scripts/launch-direct.py start de lader BudgieLoader/OpenParrotLoader zelf, met
-//   pipehelper.exe en het gedeelde geheugen; de invoer komt van de engine). Faalt als dat voor de game niet kan.
-// - "teknoparrot-ui": altijd via TeknoParrotUi --profile=<P>.xml (headless, als lader).
+// Alle backends starten via de engine (IPC game_start); de engine start elke game zelf in de unit ravengun-tpui (geen startscript,
+// geen TeknoParrotUi). Ze verschillen alleen in de startwijze die ze meegeven (A10, docs/decisions.md "A10: games direct starten"):
+// - "auto" (standaard): de route uit het profiel (native, Unity of [Launch] Mode = direct in patches/<profiel>/game.ini).
+// - "direct": de directe route afdwingen (rg-direct start de lader BudgieLoader/OpenParrotLoader zelf; de invoer komt van de engine).
+// Een game zonder eigen route start niet; de engine zegt waarom.
 // Het profiel van een game staat in game.ini (patches/<Game>/ met de gebruikerslaag; docs/per-game-patches.md). ProfileSync schrijft de
 // instellingen uit onze bibliotheek (library.json, game-options.json) daarheen, in de gebruikerslaag en alleen als ze van de meegeleverde
 // waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) is een uitvoerformaat voor een start via
@@ -32,7 +30,7 @@ class GameData;
 
 struct RuntimeCheck {
     bool ok = false;        // genoeg voor de gekozen backend
-    bool hasUi = false;     // TeknoParrotUi aanwezig (nodig voor de backend teknoparrot-ui)
+    bool hasUi = false;     // TeknoParrotUi aanwezig (alleen ter informatie: RavenGun start er niets meer mee)
     QString dir;
     QStringList found, missing;
     QString summary;        // Engels, één regel
@@ -80,16 +78,7 @@ class AutoBackend final : public EngineBackend {
 public:
     AutoBackend(EngineClient* engine, GameLibrary* library, GameData* data) : EngineBackend(engine, library, data, QString()) {}
     QString id() const override { return QStringLiteral("auto"); }
-    QString displayName() const override { return QStringLiteral("Automatic (direct where possible, otherwise TeknoParrotUi)"); }
-};
-
-class TeknoParrotUiBackend final : public EngineBackend {
-public:
-    TeknoParrotUiBackend(EngineClient* engine, GameLibrary* library, GameData* data)
-        : EngineBackend(engine, library, data, QStringLiteral("teknoparrot-ui")) {}
-    QString id() const override { return QStringLiteral("teknoparrot-ui"); }
-    QString displayName() const override { return QStringLiteral("TeknoParrot runtime via TeknoParrotUi (headless)"); }
-    bool available(QString* why) const override;
+    QString displayName() const override { return QStringLiteral("Automatic (the route from the game's profile)"); }
 };
 
 class DirectBackend final : public EngineBackend {

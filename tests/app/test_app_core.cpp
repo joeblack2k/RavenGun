@@ -528,7 +528,7 @@ void AppCoreTest::libraryRoundTrip() {
     d.folders << LibraryFolder{QStringLiteral("/games"), false};
     d.tpDir = QStringLiteral("/tp");
     d.defaultGame = QStringLiteral("tp:Halo");
-    d.launcher = QStringLiteral("teknoparrot-ui");
+    d.launcher = QStringLiteral("direct");
     GameOverride o;
     o.name = QStringLiteral("My Halo");
     o.hidden = true;
@@ -548,7 +548,7 @@ void AppCoreTest::libraryRoundTrip() {
     QCOMPARE(e.folders.size(), 1);
     QVERIFY(!e.folders[0].recursive);
     QCOMPARE(e.defaultGame, QStringLiteral("tp:Halo"));
-    QCOMPARE(e.launcher, QStringLiteral("teknoparrot-ui"));
+    QCOMPARE(e.launcher, QStringLiteral("direct"));
     const GameOverride x = e.overrides.value(QStringLiteral("tp:Halo"));
     QCOMPARE(x.name, QStringLiteral("My Halo"));
     QVERIFY(x.hidden);
@@ -1044,7 +1044,7 @@ void AppCoreTest::runtimeCheck() {
     writeFile(rt + QStringLiteral("/TeknoParrotUi"), "x");
     c = RuntimeCheck::check(rt);
     QVERIFY(c.hasUi);
-    // Backends (A10): auto en direct hebben alleen laders en profielen nodig, teknoparrot-ui ook TeknoParrotUi.
+    // Backends (A10): auto en direct hebben alleen laders en profielen nodig; TeknoParrotUi start RavenGun niet meer.
     GameLibrary lib(tmp_.filePath(QStringLiteral("launcher-lib.json")));
     lib.setTpDir(tmp_.filePath(QStringLiteral("leeg")));
     QString why;
@@ -1055,21 +1055,20 @@ void AppCoreTest::runtimeCheck() {
         QVERIFY(!b->available(&why));
         QVERIFY(!why.isEmpty());
     }
-    QCOMPARE(backendIds(), (QStringList{QStringLiteral("auto"), QStringLiteral("direct"), QStringLiteral("teknoparrot-ui")}));
+    QCOMPARE(backendIds(), (QStringList{QStringLiteral("auto"), QStringLiteral("direct")}));
+    QCOMPARE(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));   // oude keuze in library.json
     QCOMPARE(makeBackend(QString(), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));
     QCOMPARE(makeBackend(QStringLiteral("onbekend"), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));
     lib.setTpDir(rt);
     QVERIFY(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr)->available(&why));
     QVERIFY(makeBackend(QStringLiteral("auto"), nullptr, &lib, nullptr)->available(&why));
-    QVERIFY(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->available(&why));  // TeknoParrotUi staat er nu
     QFile::remove(rt + QStringLiteral("/TeknoParrotUi"));
-    QVERIFY(!makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->available(&why));
     QVERIFY(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr)->available(&why));
     // De startwijze die game_start meekrijgt.
     QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("direct"), nullptr, &lib, nullptr).get())->launchMode(), QStringLiteral("direct"));
     QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("auto"), nullptr, &lib, nullptr).get())->launchMode(), QString());
     QCOMPARE(static_cast<EngineBackend*>(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr).get())->launchMode(),
-             QStringLiteral("teknoparrot-ui"));
+             QString());   // de oude keuze wordt auto: geen startwijze meer die de engine weigert
 }
 
 // --- A3: echte game-options.json, invoerroute van de gebruiker, notities ------------------------------------------------
@@ -1796,8 +1795,7 @@ void AppCoreTest::setupCommands() {
 
 void AppCoreTest::dataRootOrder() {
     auto makeData = [&](const QString& d) {
-        writeFile(d + QStringLiteral("/scripts/play-halo.sh"), "#!/bin/sh\n");
-        QDir().mkpath(d + QStringLiteral("/packaging"));
+        writeFile(d + QStringLiteral("/packaging/tp-shm-profiles.json"), "{}\n");
     };
     const QString base = tmp_.filePath(QStringLiteral("a9"));
     const QString prefix = base + QStringLiteral("/opt/ravengun");
@@ -1815,7 +1813,7 @@ void AppCoreTest::dataRootOrder() {
     makeData(other);
     QCOMPARE(AppPaths::findDataRoot(other, {}, bin, home), other);
     QCOMPARE(AppPaths::findDataRoot(base + QStringLiteral("/bestaat-niet"), {}, bin, home), prefix + QStringLiteral("/share/ravengun"));
-    // Repo bij ontwikkeling: build-app/ naast scripts/ en packaging/.
+    // Repo bij ontwikkeling: build-app/ naast packaging/.
     const QString repo = base + QStringLiteral("/repo");
     makeData(repo);
     QDir().mkpath(repo + QStringLiteral("/build-app"));

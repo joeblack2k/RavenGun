@@ -180,16 +180,9 @@ static void fake_proc(const std::string& root, int pid, const std::string& comm,
 static void test_processes(const std::string& d) {
     const std::string proc = d + "/proc";
     fs::create_directories(proc);
-    CHECK(!game_process_running(proc) && script_state(proc, "/x/play-halo.sh") == 0);
+    CHECK(!game_process_running(proc));
     fake_proc(proc, 100, "bash", {"bash", "/home/u/editor.sh"});
-    fake_proc(proc, 101, "vim", {"vim", "/x/play-halo.sh"});  // het script als argument van iets anders telt niet
-    CHECK(script_state(proc, "/x/play-halo.sh") == 0);
-    fake_proc(proc, 102, "play-halo.sh", {"/bin/bash", "/x/play-halo.sh", "--profile", "Halo"});
-    CHECK(script_state(proc, "/x/play-halo.sh") == 1);
-    fake_proc(proc, 103, "play-halo.sh", {"/x/play-halo.sh", "--stop"});
-    CHECK(script_state(proc, "/x/play-halo.sh") == 2);
-    fs::remove_all(proc + "/102");
-    fs::remove_all(proc + "/103");
+    CHECK(!game_process_running(proc));
     fake_proc(proc, 104, "BudgieLoader_x6", {"BudgieLoader_x64.exe"});
     CHECK(game_process_running(proc));
     fs::remove_all(proc + "/104");
@@ -217,26 +210,16 @@ static void wait_idle_worker(GameService& s) {
 static void test_service(const std::string& d) {
     Config c;
     c.tp_dir = d + "/tp2";
-    c.play_script = d + "/play.sh";
     c.log_path = d + "/logs/play-last.log";
     c.proc_root = d + "/proc2";
-    c.start_grace_ms = 0;
     write(d + "/tp2/UserProfiles/Halo.xml", "<GameProfile/>");
-    write(d + "/play.sh", "#!/bin/sh\n");
-    fs::permissions(d + "/play.sh", fs::perms::owner_all);
     fs::create_directories(c.proc_root);
-    bool move = false;
-    c.move_connected = [&move] { return move; };
     std::mutex m;
     std::vector<std::vector<std::string>> calls;
-    int rc = 0;
-    std::string script_output;  // wat het (nep)startscript in het logbestand zet
-    GameService svc(c, [&](const std::vector<std::string>& argv, std::string& err) {
+    GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
         std::lock_guard<std::mutex> g(m);
         calls.push_back(argv);
-        if (!script_output.empty() && argv[0] == "systemd-run" && argv.back() != "--stop") write(c.log_path, script_output);
-        if (rc < 0) err = "systemd-run: bestaat niet";
-        return rc;
+        return 0;
     });
     CHECK(state_of(svc) == "idle");
 
@@ -245,95 +228,46 @@ static void test_service(const std::string& d) {
     CHECK(svc.start("Nope").code == "invalid_argument" && svc.start("a;b").code == "invalid_argument");
     { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
 
-    // Een geslaagde start; zonder script of game daarna en zonder succesregel in het log is de start mislukt.
-    script_output = "Zet de Move aan: druk op de PS-knop.\nGeen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw.\n";
-    CHECK(svc.start("Halo").ok);
-    wait_idle_worker(svc);
-    { std::lock_guard<std::mutex> g(m);
-      CHECK(calls.size() == 1 && calls[0].back() == "Halo" && calls[0][calls[0].size() - 2] == "--profile");
-      bool prop = false;
-      for (const auto& a : calls[0]) if (a == "--property=StandardOutput=file:" + c.log_path) prop = true;
-      CHECK(prop); }
+    // Zonder eigen route (geen native, geen Unity, geen directe route) start niets: geen script, geen TeknoParrotUi. De start eindigt
+    // in "failed" met de reden, ook in het startlogboek.
     std::string msg;
-    CHECK(state_of(svc, &msg) == "failed" && msg.find("Geen Move gevonden") == 0);
-    CHECK(state_of(svc) == "failed");  // blijft staan tot de volgende start
-
-    // Script draait: wacht op Move, daarna starten; game draait: draait.
-    fake_proc(d + "/proc2", 10, "play-halo.sh", {"/bin/bash", d + "/play.sh", "--profile", "Halo"});
-    CHECK(svc.start("Halo").code == "unavailable");  // er loopt al een start
-    CHECK(state_of(svc) == "waiting_move" || state_of(svc) == "failed");  // (failed zolang de oude start nog sticky is)
-    CHECK(svc.stop().code == "" );
-    wait_idle_worker(svc);
-    fs::remove_all(d + "/proc2/10");
-    CHECK(state_of(svc) == "idle");
-    { std::lock_guard<std::mutex> g(m);
-      CHECK(calls.size() == 3);  // start, systemctl stop, systemd-run --stop
-      CHECK(calls[1][0] == "systemctl" && calls[1].back() == "ravengun-play.service");
-      CHECK(calls[2].back() == "--stop" && calls[2][calls[2].size() - 2] == d + "/play.sh"); }
-
-    // Tweede start: script draait zonder Move -> wacht op Move; met Move -> start; game -> draait.
-    script_output = "Halo start. Move verbonden, lightgun klaar.\n";
     CHECK(svc.start("Halo").ok);
     wait_idle_worker(svc);
-    fake_proc(d + "/proc2", 11, "play-halo.sh", {d + "/play.sh", "--profile", "Halo"});
-    move = false;
-    CHECK(state_of(svc) == "waiting_move");
-    move = true;
-    CHECK(state_of(svc) == "starting");
-    fs::remove_all(d + "/proc2/11");
-    fake_proc(d + "/proc2", 12, "BudgieLoader_x6", {"BudgieLoader_x64.exe"});
-    CHECK(state_of(svc) == "running");
-    CHECK(svc.start("Halo").code == "unavailable");  // er draait al een game
-    fs::remove_all(d + "/proc2/12");
-    CHECK(state_of(svc) == "idle");  // game ten einde, geen foutmelding
-    CHECK(state_of(svc) == "idle");
+    CHECK(state_of(svc, &msg) == "failed" && msg.find("nog geen eigen route") != std::string::npos);
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+    {
+        std::ifstream lf(c.log_path);
+        const std::string inhoud((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+        CHECK(inhoud.find("route: Halo: nog geen eigen route") != std::string::npos);
+    }
 
-    // Systemd-run faalt (code of niet startbaar).
-    rc = 1;
-    CHECK(svc.start("Halo").ok);
-    wait_idle_worker(svc);
-    CHECK(state_of(svc, &msg) == "failed" && msg.find("code 1") != std::string::npos);
-    rc = -1;
-    CHECK(svc.start("Halo").ok);
-    wait_idle_worker(svc);
-    CHECK(state_of(svc, &msg) == "failed" && msg.find("bestaat niet") != std::string::npos);
+    // Startwijze: auto en direct; TeknoParrotUi bestaat niet meer.
+    CHECK(valid_launch("direct") && valid_launch("auto") && valid_launch(""));
+    CHECK(!valid_launch("teknoparrot-ui") && !valid_launch("Direct") && !valid_launch("--direct") && !valid_launch("x"));
+    {
+        const Result r = svc.start("Halo", "teknoparrot-ui");
+        CHECK(!r.ok && r.code == "invalid_argument" && r.message.find("TeknoParrotUi") != std::string::npos);
+        CHECK(svc.start("Halo", "--tpui;rm").code == "invalid_argument");
+    }
 
     // Stoppen zonder game is geen fout en spawnt niets.
-    rc = 0;
-    fs::remove_all(d + "/proc2");
-    fs::create_directories(d + "/proc2");
-    script_output = "Halo start. Move verbonden, lightgun klaar.\n";
-    CHECK(svc.start("Halo").ok);   // reset de mislukking van hierboven
-    wait_idle_worker(svc);
-    CHECK(state_of(svc) == "idle");
-    size_t before;
-    { std::lock_guard<std::mutex> g(m); before = calls.size(); }
     CHECK(svc.stop().ok);
-    { std::lock_guard<std::mutex> g(m); CHECK(calls.size() == before); }
+    { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
 
-    // Zonder uitvoerbaar script wordt niet gestart.
-    Config c2 = c;
-    c2.play_script = d + "/bestaat-niet.sh";
-    GameService svc2(c2, [&](const std::vector<std::string>&, std::string&) { return 0; });
-    // De route kiezen gebeurt in de worker: start() antwoordt meteen, de start eindigt in "failed" met de melding.
-    CHECK(svc2.start("Halo").ok);
-    wait_idle_worker(svc2);
-    CHECK(state_of(svc2, &msg) == "failed" && msg.find("startscript ontbreekt") != std::string::npos);
-    // Startwijze (A10): direct -> --direct, teknoparrot-ui -> --tpui, leeg/auto -> niets extra (het script kiest per profiel).
+    // Een game die al draait (bv. gestart voor een herstart van de daemon): starten weigert, stoppen stopt de unit van de game.
+    fake_proc(d + "/proc2", 12, "BudgieLoader_x6", {"BudgieLoader_x64.exe"});
+    CHECK(state_of(svc) == "failed" || state_of(svc) == "running");
+    CHECK(svc.start("Halo").code == "unavailable");
+    CHECK(svc.stop().ok);
+    wait_idle_worker(svc);
     {
-        auto a = start_argv(c, "Halo", "direct");
-        CHECK(a.size() >= 3 && a[a.size() - 2] == "Halo" && a.back() == "--direct");
-        a = start_argv(c, "Halo", "teknoparrot-ui");
-        CHECK(a.back() == "--tpui");
-        CHECK(start_argv(c, "Halo").back() == "Halo" && start_argv(c, "Halo", "").back() == "Halo");
-        CHECK(valid_launch("direct") && valid_launch("teknoparrot-ui") && valid_launch("auto") && valid_launch(""));
-        CHECK(!valid_launch("Direct") && !valid_launch("--direct") && !valid_launch("x"));
-        GameService svc3(c, [&](const std::vector<std::string>&, std::string&) { return 0; });
-        CHECK(svc3.start("Halo", "--tpui;rm").code == "invalid_argument");
+        std::lock_guard<std::mutex> g(m);
+        CHECK(calls.size() == 1 && calls[0][0] == "systemctl" && calls[0].back() == c.tpui_unit + ".service");
     }
-    // De opdrachtregels bevatten nooit een shell.
-    for (const auto& a : {start_argv(c, "Halo"), start_argv(c, "Halo", "direct"), stop_unit_argv(c), stop_script_argv(c)})
-        for (const auto& x : a) CHECK(x != "sh" && x != "bash" && x != "-c" && x != "/bin/sh");
+    fs::remove_all(d + "/proc2/12");
+
+    // De opdrachtregel van het stoppen bevat nooit een shell.
+    for (const auto& x : stop_unit_argv(c)) CHECK(x != "sh" && x != "bash" && x != "-c" && x != "/bin/sh");
 }
 
 static void test_unit_cgroup(const std::string& d) {
@@ -348,7 +282,6 @@ static void test_unit_cgroup(const std::string& d) {
     // Een game die buiten Budgie om draait (ander loader-proces) telt via de cgroup van de unit.
     Config c;
     c.tp_dir = d + "/tp3";
-    c.play_script = d + "/play.sh";
     c.proc_root = d + "/proc3";
     c.tpui_procs = f;
     c.log_path = d + "/logs/p3.log";
@@ -462,9 +395,7 @@ static void test_native_service(const std::string& d) {
       "Script":{"enabled":false,"exe":"/x"}}})");
     Config c;
     c.tp_dir = b + "/tp";
-    c.play_script = b + "/bestaat-niet.sh";          // de native route heeft het script niet nodig
     c.proc_root = b + "/proc";
-    c.start_grace_ms = 0;
     c.native.json = b + "/native-games.json";
     c.native.nas = b + "/nas";
     c.native.data = b + "/data";
@@ -546,7 +477,7 @@ static void test_native_service(const std::string& d) {
     CHECK(state_of(svc, &msg) == "failed" && msg.find("afgebroken") != std::string::npos);
     { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
 
-    // Een game die de camera in het spel gebruikt, gaat (nog) via het script.
+    // Een game die de camera in het spel gebruikt, heeft (nog) geen native route.
     c.dirs.shipped = b + "/patches";
     write(b + "/patches/Nat/game.ini", "[Game]\nName = Nat\n[Camera]\nUse = game\n");
     CHECK(!native_route(c, "Nat"));
@@ -570,9 +501,7 @@ static void test_unity_service(const std::string& d) {
     write(b + "/aagames.json", R"({"port":33610,"games":{"Uni":{"name":"Unity-spel","nas_dir":"~/nas/Spel","exe":"Game.exe"}}})");
     Config c;
     c.tp_dir = b + "/tp";
-    c.play_script = b + "/bestaat-niet.sh";          // de Unity-route heeft het script niet nodig
     c.proc_root = b + "/proc";
-    c.start_grace_ms = 0;
     c.unity.json = b + "/aagames.json";
     c.unity.home = b + "/home";
     c.unity.data = b + "/data";
@@ -589,7 +518,6 @@ static void test_unity_service(const std::string& d) {
     c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
     CHECK(unity_route(c, "Uni"));
     CHECK(unity_route(c, "Uni", "direct"));
-    CHECK(!unity_route(c, "Uni", "teknoparrot-ui"));   // uitdrukkelijk via TeknoParrotUi: het script
     CHECK(!unity_route(c, "Ander"));
     GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
         std::lock_guard<std::mutex> g(m);
@@ -652,7 +580,7 @@ static void test_unity_service(const std::string& d) {
 
 // De directe route ([Launch] Mode = direct) zonder script: wachten op een lightgun, wapenen, de route (tp-shm, jvs over de pipe met de
 // pty-koppeling in RG_JVS_PTY), de drop-ins en teknoparrot.ini in de view, het plan voor rg-direct, en systemd-run met rg-direct als
-// hoofdproces van de unit. Een route die de engine niet doet gaat via play-halo.sh; wat launch-direct.py weigert start niet.
+// hoofdproces van de unit. Een route die de engine niet doet start niet; wat de directe route weigert ook niet.
 static void test_direct_service(const std::string& d) {
     const std::string b = d + "/dir", home = b + "/home", tp = home + "/tp";
     for (const char* rel : {"/OpenParrotWin32/OpenParrotLoader.exe", "/TeknoParrot/TeknoParrot.dll", "/pipehelper.exe"}) write(tp + rel, "x");
@@ -667,15 +595,11 @@ static void test_direct_service(const std::string& d) {
     write(b + "/patches/Weg/game.ini",
           "[Game]\nType = TeknoParrot\nExecutable = spel.exe\nProfileRevision = 1\nDongleRegion = MARS\n[Launch]\nMode = direct\n[Input]\nRoute = tp-shm\nLayout = L\n"
           "[Game]\nGamePath = " + home + "/.local/share/ravengun/runtime/views/Dir/spel.exe\n");
-    write(b + "/play.sh", "#!/bin/sh\n");
-    fs::permissions(b + "/play.sh", fs::perms::owner_all);
     write(b + "/bin/rg-direct", "#!/bin/sh\n");
     fs::permissions(b + "/bin/rg-direct", fs::perms::owner_all);
     Config c;
     c.tp_dir = tp;
-    c.play_script = b + "/play.sh";
     c.proc_root = b + "/proc";
-    c.start_grace_ms = 0;
     c.dirs = {b + "/patches", b + "/user"};
     c.native_log_dir = b + "/logs";
     c.direct.tp = tp;
@@ -699,7 +623,6 @@ static void test_direct_service(const std::string& d) {
 
     std::string why;
     CHECK(direct_route(c, "Dir", "", why) == ravengun::launch::Verdict::Ok);
-    CHECK(direct_route(c, "Dir", "teknoparrot-ui", why) == ravengun::launch::Verdict::Fallback);
     CHECK(direct_route(c, "Evd", "", why) == ravengun::launch::Verdict::Fallback && why.find("evdev") != std::string::npos);
     CHECK(direct_route(c, "Weg", "", why) == ravengun::launch::Verdict::Refused && why.find("DongleRegion") != std::string::npos);
     Config norunner = c;
@@ -824,14 +747,16 @@ static void test_direct_service(const std::string& d) {
     }
     CHECK(svc.stop().ok);
     wait_idle_worker(svc);
-    // Een directe game waarvan de route niet door de engine gaat: het script, met de profielnaam als los argument.
+    // Een directe game waarvan de route niet door de engine gaat: hij start niet (geen script meer), met de reden in de melding.
     write(b + "/user/Dir/game.ini", "[Input]\nRoute = jvs\nBoard = LGI\n");
     { std::lock_guard<std::mutex> g(m); calls.clear(); }
     CHECK(svc.start("Dir").ok);
     wait_idle_worker(svc);
     {
+        std::string why2;
+        CHECK(state_of(svc, &why2) == "failed" && why2.find("nog geen eigen route") != std::string::npos);
         std::lock_guard<std::mutex> g(m);
-        CHECK(calls.size() == 1 && !calls.empty() && calls[0].size() > 2 && calls[0][calls[0].size() - 3] == b + "/play.sh" && calls[0].back() == "Dir");
+        CHECK(calls.empty());
     }
     fs::remove_all(b + "/user/Dir");
 

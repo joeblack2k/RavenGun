@@ -28,8 +28,7 @@ QString AppPaths::defaultTpDir() { return dataDir() + QStringLiteral("/runtime/T
 QString AppPaths::viewsDir() { return dataDir() + QStringLiteral("/runtime/views"); }
 
 bool AppPaths::looksLikeDataRoot(const QString& d) {
-    return !d.isEmpty() && QDir::isAbsolutePath(d) && QFileInfo::exists(d + QStringLiteral("/scripts/play-halo.sh")) &&
-           QFileInfo::exists(d + QStringLiteral("/packaging"));
+    return !d.isEmpty() && QDir::isAbsolutePath(d) && QFileInfo::exists(d + QStringLiteral("/packaging/tp-shm-profiles.json"));
 }
 
 QStringList AppPaths::dataRootCandidates(const QString& dataDirEnv, const QString& rootEnv, const QString& appDir, const QString& home) {

@@ -175,16 +175,6 @@ bool EngineBackend::available(QString* why) const {
     return true;
 }
 
-bool TeknoParrotUiBackend::available(QString* why) const {
-    const RuntimeCheck c = RuntimeCheck::check(library_->tpDir());
-    if (!c.ok || !c.hasUi) {
-        if (why) *why = c.ok ? QStringLiteral("The game runtime is incomplete (TeknoParrotUi is missing). See Settings > Paths.")
-                             : QStringLiteral("The game runtime was not found. Choose it in Settings > Paths.");
-        return false;
-    }
-    return true;
-}
-
 bool EngineBackend::prepare(const GameEntry& g, QString* err) {
     QStringList errors;
     if (!ProfileSync::apply(g, *library_, *data_, &errors)) {
@@ -209,12 +199,11 @@ void EngineBackend::stop(Done done) {
     engine_->request(QStringLiteral("game_stop"), {}, [done](const EngineReply& r) { done(r.ok, r.errorMessage); });
 }
 
-QStringList backendIds() { return {QStringLiteral("auto"), QStringLiteral("direct"), QStringLiteral("teknoparrot-ui")}; }
+QStringList backendIds() { return {QStringLiteral("auto"), QStringLiteral("direct")}; }
 
 std::unique_ptr<LaunchBackend> makeBackend(const QString& id, EngineClient* engine, GameLibrary* library, GameData* data) {
     if (id == QStringLiteral("direct")) return std::make_unique<DirectBackend>(engine, library, data);
-    if (id == QStringLiteral("teknoparrot-ui")) return std::make_unique<TeknoParrotUiBackend>(engine, library, data);
-    return std::make_unique<AutoBackend>(engine, library, data);  // "auto", leeg of onbekend
+    return std::make_unique<AutoBackend>(engine, library, data);  // "auto", leeg of onbekend (ook het oude "teknoparrot-ui")
 }
 
 }  // namespace rg

@@ -23,9 +23,8 @@ static int g_checks = 0;
     } while (0)
 
 static void make_data_dir(const fs::path& d) {
-    fs::create_directories(d / "scripts");
     fs::create_directories(d / "packaging");
-    std::ofstream(d / "scripts/play-halo.sh") << "#!/bin/sh\n";
+    std::ofstream(d / "packaging/tp-shm-profiles.json") << "{}\n";
 }
 
 int main() {
@@ -41,8 +40,8 @@ int main() {
     CHECK(looks_like_data_dir(a.string()));
     CHECK(!looks_like_data_dir("relatief/pad"));
     CHECK(!looks_like_data_dir(""));
-    fs::create_directories(root / "leeg/scripts");
-    CHECK(!looks_like_data_dir((root / "leeg").string()));  // geen play-halo.sh en geen packaging/
+    fs::create_directories(root / "leeg/packaging");
+    CHECK(!looks_like_data_dir((root / "leeg").string()));  // packaging/ zonder tp-shm-profiles.json
 
     // Installatie: <prefix>/bin/ravengund, <prefix>/share/ravengun met scripts en packaging.
     const fs::path prefix = root / "opt/ravengun";

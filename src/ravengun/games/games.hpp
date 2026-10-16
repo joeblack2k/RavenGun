@@ -35,22 +35,19 @@
 
 namespace ravengun::games {
 
-inline constexpr const char* kPlayUnit = "ravengun-play";
-inline constexpr const char* kStopUnit = "ravengun-play-stop";
 inline constexpr size_t kMaxIconBytes = 3 * 1024 * 1024;
 inline constexpr size_t kMaxNoteChars = 300;   // tekens (UTF-8), geen bytes
 inline constexpr int64_t kOwnGamesTtlMs = 30000;   // zo lang geldt de lijst van games met een eigen profiel (GameService::list_json)
 
 // [A-Za-z0-9_-]{1,64}
 bool valid_profile_name(std::string_view s);
-// Startwijze van game_start: "direct", "teknoparrot-ui" of "auto" (leeg = auto).
+// Startwijze van game_start: "direct" of "auto" (leeg = auto). "teknoparrot-ui" bestaat niet meer.
 bool valid_launch(std::string_view s);
 // [A-Za-z0-9_-]{1,64}.(png|jpg|jpeg|gif|webp), alleen kleine letters in de extensie.
 bool valid_icon_file(std::string_view s);
 
 struct Config {
     std::string tp_dir;        // TeknoParrot-map met UserProfiles/ en Icons/
-    std::string play_script;   // absoluut pad naar scripts/play-halo.sh
     std::string log_path;      // uitvoer van de laatste start (leeg = geen)
     ravengun::gamesettings::Dirs dirs;   // patches/ (meegeleverd en gebruiker): [Status] Note per game (leeg = geen notities)
     std::string library_file;  // library.json van de app (de gamemappen); leeg = games met een eigen profiel worden niet in de gamemappen gezocht
@@ -59,13 +56,11 @@ struct Config {
     std::string systemd_run = "systemd-run";
     std::string systemctl = "systemctl";
     std::string proc_root = "/proc";
-    // cgroup.procs van de transient unit ravengun-tpui.service (TeknoParrotUi, Wine en de game leven daarin; het startscript
-    // maakt hem aan). Niet leeg = er draait iets van een test. Leeg pad = niet gebruiken.
+    // cgroup.procs van de transient unit ravengun-tpui.service (de game en wat erbij hoort leven daarin; de daemon maakt hem aan).
+    // Niet leeg = er draait iets. Leeg pad = niet gebruiken.
     std::string tpui_procs;
-    int start_grace_ms = 6000; // zolang na het starten is "start" de toestand, ook als het script nog niet zichtbaar is
-    std::function<bool()> move_connected;  // leeg = onbekend (geen "wacht op Move")
 
-    // De native route zonder script. Leeg native.json = elke game via het script.
+    // De native route. Leeg native.json = geen native games.
     ravengun::launch::NativePaths native;
     std::string native_log_dir;    // logs/native-<profiel>-<tijd>.log (leeg = geen logboek)
     std::string tpui_unit = "ravengun-tpui";   // de unit van de game (stoppen, OLED-bescherming en de IO-brug kijken daarnaar)
@@ -126,13 +121,8 @@ bool game_process_running(const std::string& proc_root);
 bool unit_alive(const std::string& cgroup_procs);
 // Het standaardpad van cgroup.procs van ravengun-tpui.service voor deze gebruiker (user@UID.service/app.slice).
 std::string default_tpui_procs(unsigned uid);
-// 0 = geen, 1 = het startscript draait, 2 = het script draait met --stop
-int script_state(const std::string& proc_root, const std::string& script);
-
-// Argumenten (zonder shell) voor het starten/stoppen. Alleen aanroepen met een gevalideerde profielnaam.
-std::vector<std::string> start_argv(const Config& c, const std::string& profile, const std::string& launch = "");
-std::vector<std::string> stop_unit_argv(const Config& c);   // systemctl --user stop ravengun-play.service
-std::vector<std::string> stop_script_argv(const Config& c); // systemd-run ... play-halo.sh --stop
+// Argumenten (zonder shell) voor het stoppen: systemctl --user stop <unit van de game>.service.
+std::vector<std::string> stop_unit_argv(const Config& c);
 
 // Gaat dit profiel via de native route van de daemon? (native-games.json leesbaar, profiel enabled, geen camera in de game)
 bool native_route(const Config& c, const std::string& profile);
@@ -196,8 +186,6 @@ private:
     std::atomic<bool> busy_{false};       // de worker draait
     bool busy_stop_ = false;              // ... en stopt
     std::string profile_;                 // laatst gestarte profiel
-    bool launched_ = false;               // systemd-run slaagde en het resultaat is nog niet afgehandeld
-    int64_t launched_ms_ = 0;
     bool failed_ = false;
     std::string failed_msg_, failed_profile_;
     bool native_ = false;                 // de daemon startte de laatste game zelf: native, Unity of direct (stoppen ruimt dan zelf op)

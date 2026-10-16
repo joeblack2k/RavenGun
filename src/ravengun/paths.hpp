@@ -4,7 +4,7 @@
 //   1. $RAVENGUN_DATA_DIR (als die een geldige datamap is),
 //   2. <prefix>/share/ravengun, met <prefix> = de map boven de map van het programma (bin/..),
 //   3. de repo bij ontwikkeling: $RAVENGUN_ROOT, <programmamap>/.. (build/), <programmamap>/../.. , ~/projects/ravengun.
-// Een geldige datamap bevat scripts/play-halo.sh en packaging/. De Qt-app heeft dezelfde volgorde in AppPaths (src/app/core).
+// Een geldige datamap bevat packaging/tp-shm-profiles.json (de gedeelde invoerindelingen). De Qt-app heeft dezelfde volgorde in AppPaths (src/app/core).
 #pragma once
 #include <string>
 #include <utility>
@@ -29,7 +29,7 @@ struct DataDir {
 
 const char* source_name(Source s);
 
-// scripts/play-halo.sh en packaging/ aanwezig?
+// packaging/tp-shm-profiles.json aanwezig?
 bool looks_like_data_dir(const std::string& dir);
 
 // De kandidaten in volgorde (zonder te controleren of ze bestaan).

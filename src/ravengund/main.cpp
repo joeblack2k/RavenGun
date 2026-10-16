@@ -113,13 +113,13 @@ void usage(FILE* f) {
         "  --controllers-fake PAD           nep-systeem (JSON) voor de controllerlijst en de koppelwizard; voor tests en\n"
         "                                   schermafdrukken zonder hardware (raakt Bluetooth en hidraw niet)\n"
         "\n"
-        "games (starten vanuit de webinterface via systemd-run en scripts/play-halo.sh):\n"
+        "games (starten vanuit de webinterface; de daemon start elke game zelf in de unit ravengun-tpui):\n"
         "  --tp-dir MAP                     TeknoParrot-map met UserProfiles/ en Icons/ (standaard\n"
         "                                   ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64)\n"
-        "  --play-script PAD                startscript (standaard scripts/play-halo.sh in de datamap: $RAVENGUN_DATA_DIR,\n"
+        "  --data-dir MAP                   datamap met packaging/ en patches/ (standaard $RAVENGUN_DATA_DIR,\n"
         "                                   <prefix>/share/ravengun of de repo)\n"
         "  --aagames-config PAD             instellingen van de Unity-route (Tomb Raider, Rabbids Hollywood zonder TeknoParrot;\n"
-        "                                   standaard packaging/aagames-games.json naast het startscript, anders ingebouwd)\n"
+        "                                   standaard packaging/aagames-games.json in de datamap, anders ingebouwd)\n"
         "  --games-dry-run                  nooit echt starten of stoppen (voor tests): alleen de opdrachtregel loggen;\n"
         "                                   draaiende processen op de host tellen dan niet mee\n"
         "\n"
@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
     const char* home_env = std::getenv("HOME");
     const std::string home = home_env ? home_env : "";
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
-    std::string play_script;
+    std::string data_dir_opt;
     std::string aagames_config;
     bool games_dry_run = false;
     std::string controllers_fake;  // nep-systeem voor de controllerlijst en het koppelen (tests, schermafdrukken)
@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
             (a == "--out-content-aspect" ? content_aspect : screen_aspect) = static_cast<double>(bw) / bh;
         }
         else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
-        else if (a == "--play-script" && i + 1 < argc) play_script = argv[++i];
+        else if (a == "--data-dir" && i + 1 < argc) data_dir_opt = argv[++i];
         else if (a == "--aagames-config" && i + 1 < argc) aagames_config = argv[++i];
         else if (a == "--games-dry-run") games_dry_run = true;
         else if (a == "--controllers-fake" && i + 1 < argc) controllers_fake = argv[++i];
@@ -429,25 +429,19 @@ int main(int argc, char** argv) {
     shared.optical_hook = [&recorder, &shared](int player, const ravengun::core::OpticalSample& o) {
         if (player == shared.recording_player.load()) recorder.push_optical(o);
     };
-    // Games: het startscript staat in de datamap (RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo bij ontwikkeling,
-    // zie src/ravengun/paths.hpp). Met --play-script bepaalt dat script waar packaging/ staat (twee mappen omhoog).
-    std::string data_root;
-    if (play_script.empty()) {
-        const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process());
-        if (dd) {
+    // Games: de datamap (packaging/ en patches/): --data-dir, anders RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo bij
+    // ontwikkeling (src/ravengun/paths.hpp).
+    std::string data_root = data_dir_opt;
+    if (data_root.empty()) {
+        if (const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process())) {
             data_root = dd.path;
-            play_script = dd.path + "/scripts/play-halo.sh";
             logf("info", "datamap: %s (%s)", dd.path.c_str(), ravengun::paths::source_name(dd.source));
         } else {
-            logf("waarschuwing", "datamap met scripts/ en packaging/ niet gevonden (RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo): games starten werkt niet");
+            logf("waarschuwing", "datamap met packaging/ niet gevonden (RAVENGUN_DATA_DIR, <prefix>/share/ravengun of de repo): games starten werkt niet");
         }
-    } else {
-        data_root = play_script;
-        for (int up = 0; up < 2; ++up) { size_t sl = data_root.rfind('/'); if (sl == std::string::npos) { data_root.clear(); break; } data_root.resize(sl); }
     }
     ravengun::games::Config games_cfg;
     games_cfg.tp_dir = tp_dir;
-    games_cfg.play_script = play_script;
     games_cfg.tpui_procs = ravengun::games::default_tpui_procs(static_cast<unsigned>(::getuid()));
     {
         const char* xs = std::getenv("XDG_STATE_HOME");
@@ -455,7 +449,7 @@ int main(int argc, char** argv) {
         if (!state.empty()) games_cfg.log_path = state + "/ravengun/logs/play-last.log";
     }
     // Notities per game ([Status] Note in patches/<Game>/game.ini); de gebruikerslaag alleen met de gewone configuratie.
-    std::string patches_base = data_root;   // met --play-script volgt data_root uit dat script; patches/ zoeken we dan zelf
+    std::string patches_base = data_root;   // zonder patches/ in de datamap zoeken we de gewone datamap
     if (patches_base.empty() || ::access((patches_base + "/patches").c_str(), R_OK) != 0)
         if (const auto dd = ravengun::paths::find_data_dir(ravengun::paths::env_from_process())) patches_base = dd.path;
     games_cfg.dirs = ravengun::gamesettings::default_dirs(patches_base);
@@ -468,10 +462,6 @@ int main(int argc, char** argv) {
         games_cfg.library_file = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/library.json";
         games_cfg.views_dir = (xd && *xd == '/' ? std::string(xd) : home + "/.local/share") + "/ravengun/runtime/views";
     }
-    games_cfg.move_connected = [&shared] {
-        auto l = shared.get().sample.link;
-        return l != ravengun::core::LinkState::Lost && l != ravengun::core::LinkState::Disconnected;
-    };
     // De native route zonder script (packaging/native-games.json, src/ravengun/launch/native.*): de daemon start zo'n game zelf.
     {
         auto envs = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
@@ -550,7 +540,7 @@ int main(int argc, char** argv) {
                                                            : home + "/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64";
         if (!up.json.empty()) logf("info", "games: Unity-games uit %s start de daemon zelf (zonder script)", up.json.c_str());
         // De directe route (A10, [Launch] Mode = direct): de daemon start zo'n game zelf met rg-direct als hoofdproces van de unit,
-        // op de plaats van play-halo.sh -> launch-direct.py. Wat de engine nog niet kan, gaat via het script (src/ravengun/launch/direct.hpp).
+        // met rg-direct als hoofdproces. Wat de engine nog niet kan, start niet (de melding zegt waarom).
         ravengun::launch::DirectPaths& dp = games_cfg.direct;
         dp = ravengun::launch::default_direct_paths(ravengun::launch::environ_map());
         dp.dirs = games_cfg.dirs;
@@ -593,7 +583,7 @@ int main(int argc, char** argv) {
         if (!games_cfg.direct_runner.empty())
             logf("info", "games: directe starten ([Launch] Mode = direct) doet de daemon zelf met %s", games_cfg.direct_runner.c_str());
         else
-            logf("waarschuwing", "games: rg-direct ontbreekt naast ravengund; directe starten gaan via scripts/play-halo.sh");
+            logf("waarschuwing", "games: rg-direct ontbreekt naast ravengund; directe starten werken niet");
     }
     ravengun::games::GameService::Spawner spawner = ravengun::games::run_process;
     if (games_dry_run) {
@@ -613,7 +603,7 @@ int main(int argc, char** argv) {
     }
     ravengun::games::GameService games(games_cfg, spawner);
     shared.games = &games;
-    // Unity-route: instellingen per game (resolutie, kalibratie) uit het JSON-bestand naast het startscript, anders ingebouwd.
+    // Unity-route: instellingen per game (resolutie, kalibratie) uit het JSON-bestand in de datamap, anders ingebouwd.
     if (aagames_config.empty() && !data_root.empty()) {
         const std::string cand = data_root + "/packaging/aagames-games.json";
         if (::access(cand.c_str(), R_OK) == 0) aagames_config = cand;
@@ -632,7 +622,7 @@ int main(int argc, char** argv) {
     std::string aa_err;
     ravengun::games::AaConfig aa_cfg = ravengun::games::parse_aagames_config(aa_text, aa_err);
     if (!aa_err.empty()) logf("waarschuwing", "Unity-route: %s (alleen de ingebouwde lijst ontbreekt dan; geen games)", aa_err.c_str());
-    // IO-brug: routes per game (patches/<Game>/game.ini) en de gedeelde bibliotheken (JSON naast het startscript, anders ingebouwd).
+    // IO-brug: routes per game (patches/<Game>/game.ini) en de gedeelde bibliotheken (JSON in de datamap, anders ingebouwd).
     auto load_text = [&](const std::string& file, const std::string& asset) {
         std::string text;
         std::string cand = data_root;

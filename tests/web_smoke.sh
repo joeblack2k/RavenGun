@@ -14,7 +14,7 @@ PID=""
 fail() { echo "FAIL: $*"; [ -n "$PID" ] && kill "$PID" 2>/dev/null; cat "$T/log" 2>/dev/null | tail -5; rm -rf "$T"; exit 1; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
-# Nep-TeknoParrot in de eigen HOME (standaardlocatie) en een nep-startscript; --games-dry-run start nooit echt iets.
+# Nep-TeknoParrot in de eigen HOME (standaardlocatie) en een lege datamap (geen eigen routes); --games-dry-run start nooit echt iets.
 TP="$HOME/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64"
 mkdir -p "$TP/UserProfiles" "$TP/Icons"
 printf '<GameProfile><GameNameInternal>HALO Test</GameNameInternal><IconName>Icons/Halo.png</IconName></GameProfile>' > "$TP/UserProfiles/Halo.xml"
@@ -22,13 +22,13 @@ printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/JurassicPark.xml"
 printf '<GameProfile></GameProfile>' > "$TP/UserProfiles/Slecht naam.xml"
 printf 'PNGDATA' > "$TP/Icons/Halo.png"
 printf 'GEHEIM' > "$TP/geheim.png"
-printf '#!/bin/sh\nexit 0\n' > "$T/play.sh"; chmod +x "$T/play.sh"
+mkdir -p "$T/data/packaging"; printf '{}\n' > "$T/data/packaging/tp-shm-profiles.json"
 # Een notitie van 767 tekens in de gebruikerslaag (die voorgaat): de daemon moet hem afkappen, niet weglaten.
 mkdir -p "$HOME/.local/share/ravengun/patches/JurassicPark"
 { printf '[Status]\nNote = Lange notitie'; i=0; while [ $i -lt 150 ]; do printf ' vier'; i=$((i+1)); done; printf ' 767\n'; } \
   > "$HOME/.local/share/ravengun/patches/JurassicPark/game.ini"
 
-"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --play-script "$T/play.sh" --games-dry-run 2>"$T/log" &
+"$D" --no-hid --no-bias-store --no-camera --web-port "$PORT" --data-dir "$T/data" --games-dry-run 2>"$T/log" &
 PID=$!
 i=0
 until curl -s -o /dev/null "$B/api/csrf"; do
@@ -141,9 +141,11 @@ for bad in 'Nope' '../UserProfiles/Halo' 'Halo;id' 'Halo.xml' 'Slecht naam' '$(i
 done
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"Halo","cmd":"x"}' "$B/api/games/start")" = 400 ] || fail "game start met extra veld"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"Halo"}' "$B/api/games/start")" = 200 ] || fail "game start (dry-run)"
-grep -q 'games (dry-run): systemd-run --user --unit=ravengun-play .* -- .*/play.sh --profile Halo$' "$T/log" || fail "games: opdrachtregel niet zoals verwacht"
-curl -s "$B/api/games" | grep -q '"state":"waiting_move"' || fail "games: toestand na de start"
-[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"JurassicPark"}' "$B/api/games/start")" = 503 ] || fail "tweede start tijdens de eerste"
+# Zonder eigen route (lege datamap) start er niets: geen script, geen TeknoParrotUi; de toestand zegt waarom.
+i=0; until curl -s "$B/api/games" | grep -q '"state":"failed"'; do i=$((i+1)); [ $i -gt 50 ] && fail "games: toestand na de start"; sleep 0.1; done
+curl -s "$B/api/games" | grep -q 'nog geen eigen route' || fail "games: melding zonder eigen route"
+grep -q 'games (dry-run): .*play' "$T/log" && fail "games: er werd toch een script gestart"
+[ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{"profile":"Halo","launch":"teknoparrot-ui"}' "$B/api/games/start")" = 400 ] || fail "game start via TeknoParrotUi moet 400 geven"
 [ "$(code -X POST -H "$J" -H "X-CSRF-Token: $CSRF" -d '{}' "$B/api/games/stop")" = 200 ] || fail "game stop"
 
 # Knoppenindeling live aanpassen en bewaren

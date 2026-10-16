@@ -74,8 +74,8 @@ struct Request {
     std::map<std::string, std::string> gun_map;
     // game_start: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
     std::string profile;
-    // game_start: startwijze (A10), optioneel: "direct" (zonder TeknoParrotUi, play-halo.sh --direct), "teknoparrot-ui"
-    // (--tpui) of leeg/"auto" (play-halo.sh kiest per profiel, [Launch] Mode in game.ini).
+    // game_start: startwijze (A10), optioneel: "direct" (de directe route afdwingen) of leeg/"auto" (de route uit het profiel:
+    // native, Unity of [Launch] Mode = direct in game.ini). De daemon start elke game zelf; zonder eigen route start er niets.
     std::string launch;
     // aagames (Unity-route zonder TeknoParrot): action = start | stop | status, game = sleutel uit packaging/aagames-games.json.
     // output_key: een toets op het virtuele toetsenbord (key = naam uit output/key_table.hpp, action down|up|tap, player 1..4).

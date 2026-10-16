@@ -502,13 +502,10 @@ static void test_games_commands(const std::string& dir) {
     { std::ofstream f(dir + "/tp/UserProfiles/Halo.xml"); f << "<GameProfile><GameNameInternal>HALO Test</GameNameInternal><IconName>Icons/Halo.png</IconName></GameProfile>"; }
     { std::ofstream f(dir + "/tp/UserProfiles/TombRaider.xml"); f << "<GameProfile></GameProfile>"; }
     { std::ofstream f(dir + "/tp/Icons/Halo.png", std::ios::binary); f << "png"; }
-    { std::ofstream f(dir + "/play.sh"); f << "#!/bin/sh\n"; }
-    fs::permissions(dir + "/play.sh", fs::perms::owner_all);
     fs::create_directories(dir + "/proc");
 
     games::Config gc;
     gc.tp_dir = dir + "/tp";
-    gc.play_script = dir + "/play.sh";
     gc.log_path = dir + "/logs/play-last.log";
     gc.proc_root = dir + "/proc";  // lege nep-procesmap: er draait niets
     fs::create_directories(dir + "/patches/TombRaider");
@@ -539,42 +536,27 @@ static void test_games_commands(const std::string& dir) {
     CHECK(!ok && code == "invalid_argument");
     rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo;touch x"})", &ok, &code);
     CHECK(!ok);
-    // Startwijze (A10): alleen direct, teknoparrot-ui of auto.
+    // Startwijze (A10): alleen direct of auto.
     rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo","launch":"--direct"})", &ok, &code);
     CHECK(!ok && code == "invalid_argument");
     rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo","launch":3})", &ok, &code);
     CHECK(!ok && code == "invalid_argument");
     { std::lock_guard<std::mutex> g(sm); CHECK(spawned.empty()); }
 
-    // Een bestaand profiel start met een vaste opdrachtregel: elk argument is los, de profielnaam is het laatste.
+    // Een bestaand profiel zonder eigen route (geen native, Unity of direct in deze opstelling): de start wordt aangenomen en eindigt
+    // in 'failed' met de reden; er wordt niets gestart (geen startscript, geen TeknoParrotUi).
     r = rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo"})", &ok);
     CHECK(ok);
-    // De mutex niet vasthouden tijdens het slapen: de werkdraad heeft hem nodig om zijn spawn te melden, en als de testdraad hem
-    // steeds meteen terugpakt verhongert die (gemeten: met een 20 ms latere werkdraad faalde de regel hieronder 5 van de 5 keer).
-    for (int i = 0; i < 200; ++i) {
-        { std::lock_guard<std::mutex> g(sm); if (!spawned.empty()) break; }
+    for (int i = 0; i < 400; ++i) {
+        r = rig.call(R"({"v":1,"cmd":"games"})", &ok);
+        if (r.find("status")->find("state")->str == "failed") break;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-    {
-        std::lock_guard<std::mutex> g(sm);
-        CHECK(spawned.size() == 1);
-        if (!spawned.empty()) {
-            const auto& a = spawned[0];
-            CHECK(a.size() >= 8 && a[0] == "systemd-run" && a[1] == "--user" && a[2] == "--unit=ravengun-play");
-            CHECK(a[a.size() - 3] == gc.play_script && a[a.size() - 2] == "--profile" && a.back() == "Halo");
-            bool dash = false;
-            for (const auto& x : a) if (x == "--") dash = true;
-            CHECK(dash);
-            for (const auto& x : a) CHECK(x.find("sh -c") == std::string::npos && x != "/bin/sh" && x != "bash");
-        }
-    }
-    // Direct daarna: toestand 'starting' (binnen de coulance), dubbel starten wordt geweigerd.
-    for (int i = 0; i < 200; ++i) { r = rig.call(R"({"v":1,"cmd":"games"})", &ok); if (!r.find("status")->find("busy")->b || r.find("status")->find("state")->str == "starting") break; }
-    r = rig.call(R"({"v":1,"cmd":"games"})", &ok);
-    CHECK(r.find("status")->find("state")->str == "starting" && r.find("status")->find("profile")->str == "Halo");
-    rig.call(R"({"v":1,"cmd":"game_start","profile":"TombRaider"})", &ok, &code, &msg);
-    CHECK(!ok && code == "unavailable" && contains(msg, "al een game"));
-    { std::lock_guard<std::mutex> g(sm); CHECK(spawned.size() == 1); }
+    CHECK(r.find("status")->find("state")->str == "failed");
+    CHECK(r.find("status")->find("message")->is_string() && contains(r.find("status")->find("message")->str, "nog geen eigen route"));
+    rig.call(R"({"v":1,"cmd":"game_start","profile":"Halo","launch":"teknoparrot-ui"})", &ok, &code, &msg);
+    CHECK(!ok && code == "invalid_argument" && contains(msg, "TeknoParrotUi"));
+    { std::lock_guard<std::mutex> g(sm); CHECK(spawned.empty()); }
 
     // Zonder instellingen/games-service: nette fout.
     Rig bare;

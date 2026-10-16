@@ -394,8 +394,10 @@ std::variant<Request, Error> parse_request(std::string_view line) {
             return err("invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -, hoogstens 64 tekens)", r.id_json);
         r.profile = p->str;
         if (const json::Value* l = o.find("launch")) {
+            if (l->is_string() && l->str == "teknoparrot-ui")
+                return err("invalid_argument", "RavenGun start games niet meer via TeknoParrotUi; kies auto of direct", r.id_json);
             if (!l->is_string() || !games::valid_launch(l->str))
-                return err("invalid_argument", "'launch' moet direct, teknoparrot-ui of auto zijn", r.id_json);
+                return err("invalid_argument", "'launch' moet direct of auto zijn", r.id_json);
             r.launch = l->str == "auto" ? std::string() : l->str;
         }
     } else if (cmd == "calibrate_ui") {
