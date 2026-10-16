@@ -146,6 +146,10 @@ def fixture(tmp, patches, profiles, gs):
     write(os.path.join(data, "wrappers/wine-prefix"), "x")
     write(os.path.join(data, "jvsbridge/rg-jvsbridge.exe"), "x")
     os.makedirs(os.path.join(home, ".local/share/ravengun/prefixes/shared/wine"), exist_ok=True)
+    # De PhysX-systeemsoftware (scripts/setup-physx.sh) zoals op een ingerichte machine: anders plant een game met PhysX = true niet.
+    physx = os.path.join(home, ".local/share/ravengun/prefixes/shared/wine/drive_c/Program Files (x86)/NVIDIA Corporation/PhysX/Engine/v2.8.1")
+    os.makedirs(physx, exist_ok=True)
+    open(os.path.join(physx, "PhysXCore.dll"), "wb").close()
     views = os.path.join(data, "runtime/views")
     os.makedirs(views, exist_ok=True)
     games = os.path.join(home, "games")
