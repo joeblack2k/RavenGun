@@ -54,6 +54,7 @@ public:
     int OptionRowCount() const { return options_shown_; }
     int OptionsElsewhere() const { return options_elsewhere_; }
     QComboBox* RouteCombo() const { return route_combo_; }
+    QComboBox* CameraCombo() const { return camera_combo_; }   // Display: [Camera] Use (direct opgeslagen, zoals de route)
     // Voor tests: het paneel Patches (lijst met vinkjes, effectieve instellingen en de knoppen "Open ... folder").
     QTreeWidget* PatchTree() const { return patch_tree_; }
     QTreeWidget* SettingsTree() const { return settings_tree_; }
@@ -92,6 +93,7 @@ private:
     QComboBox* template_combo_ = nullptr;
     QPlainTextEdit* note_edit_ = nullptr;
     QComboBox* route_combo_ = nullptr;
+    QComboBox* camera_combo_ = nullptr;
     int options_shown_ = 0, options_elsewhere_ = 0;
     // Options > Dongle ([Dongle] in game.ini; de echte, fysieke dongle via USB pass-through)
     QCheckBox* dongle_use_ = nullptr;

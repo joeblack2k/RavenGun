@@ -661,6 +661,43 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
         v->addWidget(box);
     }
 
+    // Camera: [Camera] Use in game.ini (de gebruikerslaag). Off = geen camera; game = de camera uit Settings > Display > "Camera for
+    // games" in het spel (op de Wine-route via de virtuele camera van de daemon). Een andere waarde (presence, setup) blijft staan.
+    if (!ctx_.profile.isEmpty() && !ctx_.layers.user.empty()) {
+        auto initialCam = std::make_shared<QString>();
+        auto* box = new QGroupBox(tr("Camera"));
+        auto* bl = new QVBoxLayout(box);
+        *initialCam = rg::OptionStore::readSetting(ctx_, QStringLiteral("Camera"), QStringLiteral("Use")).trimmed().toLower();
+        if (initialCam->isEmpty()) *initialCam = QStringLiteral("none");
+        auto* camera = camera_combo_ = new QComboBox;
+        camera->addItem(tr("Off"), QStringLiteral("none"));
+        camera->addItem(tr("Use the camera in the game"), QStringLiteral("game"));
+        if (camera->findData(*initialCam) < 0) camera->addItem(*initialCam, *initialCam);
+        camera->setCurrentIndex(camera->findData(*initialCam));
+        const rg::WriteCheck wc = rg::checkWritable(ctx_.userGameIni());
+        camera->setEnabled(wc.ok);
+        if (!wc.ok) camera->setToolTip(wc.reason);
+        bl->addWidget(camera);
+        auto* camStatus = hintLabel(tr("Which camera is used is set in Settings > Display > Camera for games; \"None\" there turns the "
+                                       "camera off for every game."));
+        bl->addWidget(camStatus);
+        v->addWidget(box);
+        // Direct opslaan, zoals de route onder General: gelijk aan de meegeleverde waarde = de sleutel uit de gebruikerslaag.
+        connect(camera, &QComboBox::activated, this, [this, camera, initialCam, camStatus](int) {
+            const QString val = camera->currentData().toString();
+            if (val == *initialCam) return;
+            QString err;
+            if (!rg::OptionStore::writeSetting(ctx_, QStringLiteral("Camera"), QStringLiteral("Use"), val, &err, QStringLiteral("none"))) {
+                camStatus->setText(QStringLiteral("<span style='color:#c0392b'>%1</span>").arg(err.toHtmlEscaped()));
+                camera->setCurrentIndex(camera->findData(*initialCam));
+                return;
+            }
+            *initialCam = val;
+            core_->gameData()->reloadGame(ctx_.profile);
+            camStatus->setText(tr("Saved. The new setting applies the next time the game starts."));
+        });
+    }
+
     auto* buttons = new QHBoxLayout;
     auto* status = new QLabel;
     status->setWordWrap(true);

@@ -65,6 +65,7 @@ private Q_SLOTS:
     void propertiesForAllGames();
     void brokenUserOptionsFile();
     void routeChoiceInProperties();
+    void cameraChoiceInProperties();
     void patchesTab();
     void dongleGroup();
     void gamepadMapping();
@@ -211,6 +212,43 @@ void AppWidgetTest::routeChoiceInProperties() {
     u.profile = QStringLiteral("TombRaider");
     ui::PropertiesDialog du(&core, u);
     QVERIFY(!du.RouteCombo()->isEnabled());
+}
+
+void AppWidgetTest::cameraChoiceInProperties() {
+    // Display > Camera: [Camera] Use in de gebruikerslaag van game.ini, direct opgeslagen; gelijk aan de meegeleverde waarde = weg.
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    GameEntry g;
+    g.id = QStringLiteral("tp:TC5");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("TC5");
+    ui::PropertiesDialog d(&core, g);
+    QComboBox* c = d.CameraCombo();
+    QVERIFY(c);
+    QVERIFY(c->isEnabled());
+    QCOMPARE(c->currentData().toString(), QStringLiteral("none"));   // zonder [Camera]: uit
+    const int on = c->findData(QStringLiteral("game"));
+    QVERIFY(on >= 0);
+    c->setCurrentIndex(on);
+    emit c->activated(on);
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/TC5/game.ini"));
+    QVERIFY2(readAll(user).contains(QStringLiteral("[Camera]\nUse = game\n")), qPrintable(readAll(user)));
+    const int off = c->findData(QStringLiteral("none"));
+    c->setCurrentIndex(off);
+    emit c->activated(off);
+    QVERIFY2(!readAll(user).contains(QStringLiteral("Use = ")), qPrintable(readAll(user)));
+    // Mario Kart DX vraagt de camera in de meegeleverde laag: uitzetten schrijft "none" in de gebruikerslaag.
+    GameEntry mk;
+    mk.id = QStringLiteral("tp:MarioKartDX");
+    mk.kind = GameKind::TeknoParrot;
+    mk.profile = QStringLiteral("MarioKartDX");
+    ui::PropertiesDialog dm(&core, mk);
+    QComboBox* cm = dm.CameraCombo();
+    QVERIFY(cm);
+    if (cm->currentData().toString() != QStringLiteral("game")) QSKIP("geen meegeleverde patches/MarioKartDX/game.ini met [Camera] Use = game");
+    const int mkOff = cm->findData(QStringLiteral("none"));
+    cm->setCurrentIndex(mkOff);
+    emit cm->activated(mkOff);
+    QVERIFY(readAll(tmp_.filePath(QStringLiteral("data/ravengun/patches/MarioKartDX/game.ini"))).contains(QStringLiteral("Use = none")));
 }
 
 void AppWidgetTest::gamepadMapping() {
