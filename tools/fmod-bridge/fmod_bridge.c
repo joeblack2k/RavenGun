@@ -288,34 +288,126 @@ static int vraag_handle(uint32_t op, buf_t *b, void **uit) {
     return r;
 }
 
+/* ------------------------------------------------------------------ de native FMOD uit de drop-in (voorkeur) */
+/* RG_FMOD_NATIVE_DIRS: mappen (gescheiden door ':') waar de gebruiker libfmod.so.10 en libfmodstudio.so.10 (FMOD Studio 1.10,
+   Linux x86_64; bijvoorbeeld uit lib64/ van Celeste) neerzet: patches/<Game>/dropin/fmod/, de gebruikerslaag eerst. Staan ze er,
+   dan gaat elke aanroep van de game rechtstreeks naar die echte FMOD, in hetzelfde proces, zonder Wine; alleen de luidsprekerkeuze
+   en de upmix komen erbij. RTLD_GLOBAL: de echte studio-bibliotheek vindt zijn libfmod.so.10 dan via het globale bereik (de naam
+   libfmod.so.10 is al van deze wrapper; de 60 gedeelde namen lopen via de wrapper en gaan van hier door naar de echte). */
+#include <dlfcn.h>
+#include "fmod_upmix.h"
+static void *nat_ll, *nat_st;
+static pthread_once_t kies_once = PTHREAD_ONCE_INIT;
+static int luidsprekers = 6, upmix = 1;   /* FMOD_SPEAKERMODE: 3 stereo, 6 5.1, 7 7.1; -1 = wat de game vraagt */
+static const char *luidsprekers_naam = "5.1";
+static void kies_luidsprekers(void) {
+    const char *e = getenv("RG_FMOD_SPEAKERS");
+    if (e && strcasestr(e, "stereo")) luidsprekers = 3, upmix = 0, luidsprekers_naam = "stereo";
+    else if (e && strstr(e, "7.1")) luidsprekers = 7, upmix = 0, luidsprekers_naam = "7.1";
+    else if (e && !strcasecmp(e, "game")) luidsprekers = -1, upmix = 0, luidsprekers_naam = "game";
+}
+static void kies(void) {
+    const char *l = getenv("RG_FMOD_LOG");
+    log_on = l && *l == '1';
+    kies_luidsprekers();
+    const char *dirs = getenv("RG_FMOD_NATIVE_DIRS");
+    if (!dirs || !*dirs) return;
+    char *kopie = strdup(dirs), *bewaar = NULL;
+    for (char *d = strtok_r(kopie, ":", &bewaar); d; d = strtok_r(NULL, ":", &bewaar)) {
+        char pl[1024], ps[1024];
+        snprintf(pl, sizeof pl, "%s/libfmod.so.10", d);
+        snprintf(ps, sizeof ps, "%s/libfmodstudio.so.10", d);
+        if (access(pl, R_OK) || access(ps, R_OK)) continue;
+        void *ll = dlopen(pl, RTLD_NOW | RTLD_GLOBAL);
+        void *st = ll ? dlopen(ps, RTLD_NOW | RTLD_GLOBAL) : NULL;
+        if (!st) { fprintf(stderr, "rg_fmod: native FMOD in %s niet te laden (%s)\n", d, dlerror()); continue; }
+        nat_ll = ll, nat_st = st;
+        fprintf(stderr, "rg_fmod: geluid via de native FMOD uit %s (drop-in), uitvoer %s\n", d, upmix ? "LPCM 5.1" : luidsprekers_naam);
+        break;
+    }
+    free(kopie);
+}
+static int direct_aan(void) { pthread_once(&kies_once, kies); return nat_st != NULL; }
+static void *nat_sym(const char *naam) { return dlsym(strstr(naam, "6Studio") || !strncmp(naam, "FMOD_Studio", 11) ? nat_st : nat_ll, naam); }
+/* Rechtstreeks naar de echte functie met dezelfde naam (de typering komt van de eigen functie). */
+#define DIRECT(naam, ...)                                                                                                      \
+    do {                                                                                                                       \
+        if (direct_aan()) {                                                                                                    \
+            static __typeof__(&naam) d_;                                                                                       \
+            if (!d_) d_ = (__typeof__(&naam))nat_sym(#naam);                                                                   \
+            if (d_) return d_(__VA_ARGS__);                                                                                    \
+        }                                                                                                                      \
+    } while (0)
+/* Na Studio::System::create: de luidsprekeropstelling (voor initialize), en het versienummer in het logboek. */
+static void nat_na_create(void *studio) {
+    int (*getll)(void *, void **) = nat_sym("FMOD_Studio_System_GetLowLevelSystem");
+    int (*fmt)(void *, int, int, int) = nat_sym("FMOD_System_SetSoftwareFormat");
+    int (*ver)(void *, unsigned *) = nat_sym("FMOD_System_GetVersion");
+    void *ll = NULL; unsigned v = 0;
+    if (!getll || getll(studio, &ll) || !ll) return;
+    if (ver && !ver(ll, &v)) fprintf(stderr, "rg_fmod: FMOD %x.%02x.%02x\n", v >> 16, (v >> 8) & 0xff, v & 0xff);
+    if (luidsprekers >= 0 && fmt) logf_("luidsprekers %s: %d", luidsprekers_naam, fmt(ll, 48000, luidsprekers, 0));
+}
+/* Na Studio::System::initialize: de upmix voor LPCM 5.1, en wat FMOD er echt van maakte. */
+static void nat_na_initialize(void *studio) {
+    int (*getll)(void *, void **) = nat_sym("FMOD_Studio_System_GetLowLevelSystem");
+    int (*getfmt)(void *, int *, int *, int *) = nat_sym("FMOD_System_GetSoftwareFormat");
+    int (*getout)(void *, int *) = nat_sym("FMOD_System_GetOutput");
+    void *ll = NULL; int sr = 0, sm = 0, raw = 0, out = -1;
+    if (!getll || getll(studio, &ll) || !ll) return;
+    if (getfmt) getfmt(ll, &sr, &sm, &raw);
+    if (getout) getout(ll, &out);
+    fprintf(stderr, "rg_fmod: FMOD klaar: uitvoer %d, menging %d (%s), %d Hz\n", out, sm, sm == 6 ? "5.1" : sm == 3 ? "stereo" : sm == 7 ? "7.1" : "?", sr);
+    if (upmix && sm == 6) {
+        int f[3];
+        int ok = rg_upmix_installeer(ll, sr > 0 ? sr : 48000, (int (*)(void *, const void *, void **))nat_sym("FMOD_System_CreateDSP"),
+                                     (int (*)(void *, void **))nat_sym("FMOD_System_GetMasterChannelGroup"),
+                                     (int (*)(void *, int, void *))nat_sym("FMOD_ChannelGroup_AddDSP"), (int (*)(void *, int))nat_sym("FMOD_DSP_SetActive"), f) == 0;
+        fprintf(stderr, "rg_fmod: 5.1-upmix (stereo -> 5.1) op de master: %s (%d/%d/%d)\n", ok ? "aan" : "MISLUKT", f[0], f[1], f[2]);
+    }
+}
+
 /* ------------------------------------------------------------------ libfmod (laag niveau) */
-EXPORT int FMOD_Debug_Initialize(unsigned flags, int mode, void *cb, const char *file) { (void)flags, (void)mode, (void)cb, (void)file; return FMOD_OK; }
+EXPORT int FMOD_Debug_Initialize(unsigned flags, int mode, void *cb, const char *file) {
+    DIRECT(FMOD_Debug_Initialize, flags, mode, cb, file); (void)flags, (void)mode, (void)cb, (void)file; return FMOD_OK; }
 EXPORT int FMOD_Memory_Initialize(void *pool, int len, void *a, void *r, void *f, unsigned type) {
+    DIRECT(FMOD_Memory_Initialize, pool, len, a, r, f, type);
     (void)pool, (void)len, (void)a, (void)r, (void)f, (void)type;
     return FMOD_OK;
 }
 
-EXPORT int _ZN4FMOD14ChannelControl11getUserDataEPPv(void *self, void **ud) { OUT(ud, lees_ud(self)); return FMOD_OK; }
+EXPORT int _ZN4FMOD14ChannelControl11getUserDataEPPv(void *self, void **ud) {
+    DIRECT(_ZN4FMOD14ChannelControl11getUserDataEPPv, self, ud); OUT(ud, lees_ud(self)); return FMOD_OK; }
 EXPORT int _ZN4FMOD14ChannelControl11setCallbackEPF11FMOD_RESULTP19FMOD_CHANNELCONTROL24FMOD_CHANNELCONTROL_TYPE33FMOD_CHANNELCONTROL_CALLBACK_TYPEPvS6_E(void *self, void *cb) {
+    DIRECT(_ZN4FMOD14ChannelControl11setCallbackEPF11FMOD_RESULTP19FMOD_CHANNELCONTROL24FMOD_CHANNELCONTROL_TYPE33FMOD_CHANNELCONTROL_CALLBACK_TYPEPvS6_E, self, cb);
     zet_cb(self, cb, 0);
     B; put_u64(&b, self); put_i32(&b, cb != NULL); VUUR(RG_FM_CC_SETCALLBACK);
 }
-EXPORT int _ZN4FMOD14ChannelControl11setUserDataEPv(void *self, void *ud) { zet_ud(self, ud); return FMOD_OK; }
+EXPORT int _ZN4FMOD14ChannelControl11setUserDataEPv(void *self, void *ud) {
+    DIRECT(_ZN4FMOD14ChannelControl11setUserDataEPv, self, ud); zet_ud(self, ud); return FMOD_OK; }
 EXPORT int _ZN4FMOD14ChannelControl15set3DAttributesEPK11FMOD_VECTORS3_S3_(void *self, const void *p, const void *v, const void *a) {
+    DIRECT(_ZN4FMOD14ChannelControl15set3DAttributesEPK11FMOD_VECTORS3_S3_, self, p, v, a);
     static const char nul[12];
     B; put_u64(&b, self); put_u32(&b, (p ? 1u : 0u) | (v ? 2u : 0u) | (a ? 4u : 0u));
     put(&b, p ? p : nul, 12); put(&b, v ? v : nul, 12); put(&b, a ? a : nul, 12);
     VUUR(RG_FM_CC_SET3D);
 }
-EXPORT int _ZN4FMOD14ChannelControl4stopEv(void *self) { B; put_u64(&b, self); VUUR(RG_FM_CC_STOP); }
-EXPORT int _ZN4FMOD14ChannelControl6getDSPEiPPNS_3DSPE(void *self, int i, void **dsp) { B; put_u64(&b, self); put_i32(&b, i); return vraag_handle(RG_FM_CC_GETDSP, &b, dsp); }
-EXPORT int _ZN4FMOD14ChannelControl6setPanEf(void *self, float v) { B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_CC_SETPAN); }
-EXPORT int _ZN4FMOD14ChannelControl7setModeEj(void *self, unsigned m) { B; put_u64(&b, self); put_u32(&b, m); VUUR(RG_FM_CC_SETMODE); }
-EXPORT int _ZN4FMOD14ChannelControl9setPausedEb(void *self, bool p) { B; put_u64(&b, self); put_i32(&b, p); VUUR(RG_FM_CC_SETPAUSED); }
-EXPORT int _ZN4FMOD14ChannelControl9setVolumeEf(void *self, float v) { B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_CC_SETVOLUME); }
+EXPORT int _ZN4FMOD14ChannelControl4stopEv(void *self) {
+    DIRECT(_ZN4FMOD14ChannelControl4stopEv, self); B; put_u64(&b, self); VUUR(RG_FM_CC_STOP); }
+EXPORT int _ZN4FMOD14ChannelControl6getDSPEiPPNS_3DSPE(void *self, int i, void **dsp) {
+    DIRECT(_ZN4FMOD14ChannelControl6getDSPEiPPNS_3DSPE, self, i, dsp); B; put_u64(&b, self); put_i32(&b, i); return vraag_handle(RG_FM_CC_GETDSP, &b, dsp); }
+EXPORT int _ZN4FMOD14ChannelControl6setPanEf(void *self, float v) {
+    DIRECT(_ZN4FMOD14ChannelControl6setPanEf, self, v); B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_CC_SETPAN); }
+EXPORT int _ZN4FMOD14ChannelControl7setModeEj(void *self, unsigned m) {
+    DIRECT(_ZN4FMOD14ChannelControl7setModeEj, self, m); B; put_u64(&b, self); put_u32(&b, m); VUUR(RG_FM_CC_SETMODE); }
+EXPORT int _ZN4FMOD14ChannelControl9setPausedEb(void *self, bool p) {
+    DIRECT(_ZN4FMOD14ChannelControl9setPausedEb, self, p); B; put_u64(&b, self); put_i32(&b, p); VUUR(RG_FM_CC_SETPAUSED); }
+EXPORT int _ZN4FMOD14ChannelControl9setVolumeEf(void *self, float v) {
+    DIRECT(_ZN4FMOD14ChannelControl9setVolumeEf, self, v); B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_CC_SETVOLUME); }
 
 /* FMOD_DSP_METERING_INFO: int numsamples; float peaklevel[32]; float rmslevel[32]; short numchannels (264 bytes met uitlijning). */
 EXPORT int _ZN4FMOD3DSP15getMeteringInfoEP22FMOD_DSP_METERING_INFOS2_(void *self, void *in, void *out) {
+    DIRECT(_ZN4FMOD3DSP15getMeteringInfoEP22FMOD_DSP_METERING_INFOS2_, self, in, out);
     B; put_u64(&b, self);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_DSP_GETMETERING, &b, &a, &n);
@@ -330,8 +422,10 @@ EXPORT int _ZN4FMOD3DSP15getMeteringInfoEP22FMOD_DSP_METERING_INFOS2_(void *self
     free(a);
     return r;
 }
-EXPORT int _ZN4FMOD3DSP18setMeteringEnabledEbb(void *self, bool i, bool o) { B; put_u64(&b, self); put_i32(&b, i); put_i32(&b, o); VUUR(RG_FM_DSP_SETMETERING); }
-EXPORT int _ZN4FMOD5Sound7releaseEv(void *self) { B; put_u64(&b, self); VUUR(RG_FM_SOUND_RELEASE); }
+EXPORT int _ZN4FMOD3DSP18setMeteringEnabledEbb(void *self, bool i, bool o) {
+    DIRECT(_ZN4FMOD3DSP18setMeteringEnabledEbb, self, i, o); B; put_u64(&b, self); put_i32(&b, i); put_i32(&b, o); VUUR(RG_FM_DSP_SETMETERING); }
+EXPORT int _ZN4FMOD5Sound7releaseEv(void *self) {
+    DIRECT(_ZN4FMOD5Sound7releaseEv, self); B; put_u64(&b, self); VUUR(RG_FM_SOUND_RELEASE); }
 
 /* FMOD_CREATESOUNDEXINFO (1.10): we sturen de getallen mee; wijzers (callbacks, lijsten, userdata) kunnen niet naar een ander
    proces en blijven leeg. Gelijke indeling op Linux (LP64) en Windows (LLP64): er zit geen 'long' in. */
@@ -347,6 +441,7 @@ typedef struct {
 #define FMOD_OPENMEMORY 0x00000800u
 #define FMOD_OPENMEMORY_POINT 0x10000000u
 EXPORT int _ZN4FMOD6System11createSoundEPKcjP22FMOD_CREATESOUNDEXINFOPPNS_5SoundE(void *self, const char *n, unsigned m, void *ex, void **s) {
+    DIRECT(_ZN4FMOD6System11createSoundEPKcjP22FMOD_CREATESOUNDEXINFOPPNS_5SoundE, self, n, m, ex, s);
     zorg_voor_host();
     const exinfo_t *x = ex;
     B; put_u64(&b, self); put_u32(&b, m); put_u32(&b, x != NULL);
@@ -369,6 +464,7 @@ EXPORT int _ZN4FMOD6System11createSoundEPKcjP22FMOD_CREATESOUNDEXINFOPPNS_5Sound
     return vraag_handle(RG_FM_LL_CREATESOUND, &b, s);
 }
 EXPORT int _ZN4FMOD6System13get3DSettingsEPfS1_S1_(void *self, float *doppler, float *dist, float *rolloff) {
+    DIRECT(_ZN4FMOD6System13get3DSettingsEPfS1_S1_, self, doppler, dist, rolloff);
     B; put_u64(&b, self);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_LL_GET3DSETTINGS, &b, &a, &n);
@@ -380,6 +476,7 @@ EXPORT int _ZN4FMOD6System13get3DSettingsEPfS1_S1_(void *self, float *doppler, f
 }
 EXPORT int _ZN4FMOD6System13getDriverInfoEiPciP9FMOD_GUIDPiP16FMOD_SPEAKERMODES4_(void *self, int id, char *name, int len, void *guid, int *rate,
                                                                                     int *mode, int *channels) {
+    DIRECT(_ZN4FMOD6System13getDriverInfoEiPciP9FMOD_GUIDPiP16FMOD_SPEAKERMODES4_, self, id, name, len, guid, rate, mode, channels);
     B; put_u64(&b, self); put_i32(&b, id); put_i32(&b, len);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_LL_GETDRIVERINFO, &b, &a, &n);
@@ -421,31 +518,51 @@ static int vraag_f32(uint32_t op, buf_t *b, float *uit, float stub) {
     free(a);
     return r < 0 ? FMOD_OK : r;
 }
-EXPORT int _ZN4FMOD6System13getNumDriversEPi(void *self, int *n) { B; put_u64(&b, self); return vraag_i32(RG_FM_LL_GETNUMDRIVERS, &b, n, 1); }
-EXPORT int _ZN4FMOD6System13set3DSettingsEfff(void *self, float a, float c, float d) { B; put_u64(&b, self); put_f32(&b, a); put_f32(&b, c); put_f32(&b, d); VUUR(RG_FM_LL_SET3DSETTINGS); }
+EXPORT int _ZN4FMOD6System13getNumDriversEPi(void *self, int *n) {
+    DIRECT(_ZN4FMOD6System13getNumDriversEPi, self, n); B; put_u64(&b, self); return vraag_i32(RG_FM_LL_GETNUMDRIVERS, &b, n, 1); }
+EXPORT int _ZN4FMOD6System13set3DSettingsEfff(void *self, float a, float c, float d) {
+    DIRECT(_ZN4FMOD6System13set3DSettingsEfff, self, a, c, d); B; put_u64(&b, self); put_f32(&b, a); put_f32(&b, c); put_f32(&b, d); VUUR(RG_FM_LL_SET3DSETTINGS); }
 EXPORT int _ZN4FMOD6System17setSoftwareFormatEi16FMOD_SPEAKERMODEi(void *self, int rate, int mode, int raw) {
+    if (direct_aan()) {
+        static __typeof__(&_ZN4FMOD6System17setSoftwareFormatEi16FMOD_SPEAKERMODEi) d_;
+        if (!d_) d_ = (__typeof__(&_ZN4FMOD6System17setSoftwareFormatEi16FMOD_SPEAKERMODEi))nat_sym("_ZN4FMOD6System17setSoftwareFormatEi16FMOD_SPEAKERMODEi");
+        logf_("setSoftwareFormat: de game vraagt modus %d, het wordt %d", mode, luidsprekers >= 0 ? luidsprekers : mode);
+        return d_ ? d_(self, rate, luidsprekers >= 0 ? luidsprekers : mode, luidsprekers >= 0 ? 0 : raw) : 28;
+    }
     logf_("setSoftwareFormat %d Hz, modus %d, raw %d (de game)", rate, mode, raw);
     B; put_u64(&b, self); put_i32(&b, rate); put_i32(&b, mode); put_i32(&b, raw);
     int r = stuur(RG_FM_LL_SETSWFORMAT, &b, NULL, NULL);
     return r < 0 ? FMOD_OK : r;
 }
-EXPORT int _ZN4FMOD6System9getDriverEPi(void *self, int *d) { B; put_u64(&b, self); return vraag_i32(RG_FM_LL_GETDRIVER, &b, d, 0); }
+EXPORT int _ZN4FMOD6System9getDriverEPi(void *self, int *d) {
+    DIRECT(_ZN4FMOD6System9getDriverEPi, self, d); B; put_u64(&b, self); return vraag_i32(RG_FM_LL_GETDRIVER, &b, d, 0); }
 EXPORT int _ZN4FMOD6System9playSoundEPNS_5SoundEPNS_12ChannelGroupEbPPNS_7ChannelE(void *self, void *s, void *g, bool paused, void **ch) {
+    DIRECT(_ZN4FMOD6System9playSoundEPNS_5SoundEPNS_12ChannelGroupEbPPNS_7ChannelE, self, s, g, paused, ch);
     B; put_u64(&b, self); put_u64(&b, s); put_u64(&b, g); put_i32(&b, paused);
     return vraag_handle(RG_FM_LL_PLAYSOUND, &b, ch);
 }
 EXPORT int _ZN4FMOD6System9setDriverEi(void *self, int d) {
+    DIRECT(_ZN4FMOD6System9setDriverEi, self, d);
     logf_("setDriver %d (de game)", d);
     B; put_u64(&b, self); put_i32(&b, d);
     int r = stuur(RG_FM_LL_SETDRIVER, &b, NULL, NULL);
     return r < 0 ? FMOD_OK : r;
 }
-EXPORT int _ZN4FMOD7Channel11setPositionEjj(void *self, unsigned p, unsigned u) { B; put_u64(&b, self); put_u32(&b, p); put_u32(&b, u); VUUR(RG_FM_CH_SETPOSITION); }
-EXPORT int _ZN4FMOD7Channel12setLoopCountEi(void *self, int n) { B; put_u64(&b, self); put_i32(&b, n); VUUR(RG_FM_CH_SETLOOPCOUNT); }
+EXPORT int _ZN4FMOD7Channel11setPositionEjj(void *self, unsigned p, unsigned u) {
+    DIRECT(_ZN4FMOD7Channel11setPositionEjj, self, p, u); B; put_u64(&b, self); put_u32(&b, p); put_u32(&b, u); VUUR(RG_FM_CH_SETPOSITION); }
+EXPORT int _ZN4FMOD7Channel12setLoopCountEi(void *self, int n) {
+    DIRECT(_ZN4FMOD7Channel12setLoopCountEi, self, n); B; put_u64(&b, self); put_i32(&b, n); VUUR(RG_FM_CH_SETLOOPCOUNT); }
 
 /* ------------------------------------------------------------------ libfmodstudio */
 static void *laag_niveau; /* het laag-niveausysteem van FMOD in het hulpprogramma */
 EXPORT int _ZN4FMOD6Studio6System6createEPPS1_j(void **sys, unsigned version) {
+    if (direct_aan()) {
+        static __typeof__(&_ZN4FMOD6Studio6System6createEPPS1_j) d_;
+        if (!d_) d_ = (__typeof__(&_ZN4FMOD6Studio6System6createEPPS1_j))nat_sym("_ZN4FMOD6Studio6System6createEPPS1_j");
+        int r = d_ ? d_(sys, version) : 28;
+        if (r == 0 && sys && *sys) nat_na_create(*sys);
+        return r;
+    }
     zorg_voor_host();
     logf_("Studio::System::create (headerversie %#x)", version);
     B;
@@ -459,6 +576,13 @@ EXPORT int _ZN4FMOD6Studio6System6createEPPS1_j(void **sys, unsigned version) {
     return r;
 }
 EXPORT int _ZN4FMOD6Studio6System10initializeEijjPv(void *self, int maxch, unsigned sf, unsigned f, void *extra) {
+    if (direct_aan()) {
+        static __typeof__(&_ZN4FMOD6Studio6System10initializeEijjPv) d_;
+        if (!d_) d_ = (__typeof__(&_ZN4FMOD6Studio6System10initializeEijjPv))nat_sym("_ZN4FMOD6Studio6System10initializeEijjPv");
+        int r = d_ ? d_(self, maxch, sf, f, extra) : 28;
+        if (r == 0) nat_na_initialize(self);
+        return r;
+    }
     (void)extra;
     logf_("Studio::System::initialize maxch %d, studioflags %#x, flags %#x", maxch, sf, f);
     B; put_u64(&b, self); put_i32(&b, maxch); put_u32(&b, sf); put_u32(&b, f);
@@ -466,6 +590,7 @@ EXPORT int _ZN4FMOD6Studio6System10initializeEijjPv(void *self, int maxch, unsig
     return r < 0 ? FMOD_OK : r;
 }
 EXPORT int _ZN4FMOD6Studio6System12loadBankFileEPKcjPPNS0_4BankE(void *self, const char *file, unsigned flags, void **bank) {
+    DIRECT(_ZN4FMOD6Studio6System12loadBankFileEPKcjPPNS0_4BankE, self, file, flags, bank);
     char *w = file && file[0] == '/' ? unix_naar_windows(file) : NULL;
     B; put_u64(&b, self); put_str(&b, w ? w : file); put_u32(&b, flags);
     free(w);
@@ -473,8 +598,10 @@ EXPORT int _ZN4FMOD6Studio6System12loadBankFileEPKcjPPNS0_4BankE(void *self, con
     logf_("loadBankFile %s: %d", file ? file : "", r);
     return r;
 }
-EXPORT int _ZN4FMOD6Studio6System13flushCommandsEv(void *self) { B; put_u64(&b, self); int r = stuur(RG_FM_FLUSH, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
+EXPORT int _ZN4FMOD6Studio6System13flushCommandsEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio6System13flushCommandsEv, self); B; put_u64(&b, self); int r = stuur(RG_FM_FLUSH, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
 EXPORT int _ZN4FMOD6Studio6System21setListenerAttributesEiPK18FMOD_3D_ATTRIBUTES(void *self, int l, const void *a) {
+    DIRECT(_ZN4FMOD6Studio6System21setListenerAttributesEiPK18FMOD_3D_ATTRIBUTES, self, l, a);
     if (!a) return FMOD_OK;
     B; put_u64(&b, self); put_i32(&b, l); put(&b, a, 48); VUUR(RG_FM_SET_LISTENER);
 }
@@ -518,6 +645,7 @@ static void doe_callbacks(rd_t *rd) {
     }
 }
 EXPORT int _ZN4FMOD6Studio6System6updateEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio6System6updateEv, self);
     B; put_u64(&b, self);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_UPDATE, &b, &a, &n);
@@ -527,36 +655,48 @@ EXPORT int _ZN4FMOD6Studio6System6updateEv(void *self) {
     free(a);
     return r;
 }
-EXPORT int _ZN4FMOD6Studio6System7releaseEv(void *self) { B; put_u64(&b, self); int r = stuur(RG_FM_STUDIO_RELEASE, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
+EXPORT int _ZN4FMOD6Studio6System7releaseEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio6System7releaseEv, self); B; put_u64(&b, self); int r = stuur(RG_FM_STUDIO_RELEASE, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
 EXPORT int _ZNK4FMOD6Studio6System17getLowLevelSystemEPPNS_6SystemE(const void *self, void **ll) {
+    DIRECT(_ZNK4FMOD6Studio6System17getLowLevelSystemEPPNS_6SystemE, self, ll);
     (void)self;
     OUT(ll, up ? laag_niveau : STUB); /* kwam mee met create */
     return FMOD_OK;
 }
 EXPORT int _ZNK4FMOD6Studio6System6getBusEPKcPPNS0_3BusE(const void *self, const char *path, void **bus) {
+    DIRECT(_ZNK4FMOD6Studio6System6getBusEPKcPPNS0_3BusE, self, path, bus);
     B; put_u64(&b, self); put_str(&b, path);
     int r = vraag_handle(RG_FM_GET_BUS, &b, bus);
     logf_("getBus %s: %d", path ? path : "", r);
     return r;
 }
 EXPORT int _ZNK4FMOD6Studio6System8getEventEPKcPPNS0_16EventDescriptionE(const void *self, const char *path, void **d) {
+    DIRECT(_ZNK4FMOD6Studio6System8getEventEPKcPPNS0_16EventDescriptionE, self, path, d);
     B; put_u64(&b, self); put_str(&b, path);
     int r = vraag_handle(RG_FM_GET_EVENT, &b, d);
     if (r) logf_("getEvent %s: %d", path ? path : "", r);
     return r;
 }
 
-EXPORT int _ZN4FMOD6Studio4Bank14loadSampleDataEv(void *self) { B; put_u64(&b, self); int r = stuur(RG_FM_BANK_LOADSAMPLE, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
-EXPORT int _ZN4FMOD6Studio4Bank6unloadEv(void *self) { B; put_u64(&b, self); int r = stuur(RG_FM_BANK_UNLOAD, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
-EXPORT int _ZN4FMOD6Studio3Bus13stopAllEventsE21FMOD_STUDIO_STOP_MODE(void *self, int m) { B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_BUS_STOPALL); }
-EXPORT int _ZN4FMOD6Studio3Bus7setMuteEb(void *self, bool m) { B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_BUS_SETMUTE); }
-EXPORT int _ZN4FMOD6Studio3Bus9setVolumeEf(void *self, float v) { B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_BUS_SETVOLUME); }
-EXPORT int _ZNK4FMOD6Studio3Bus15getChannelGroupEPPNS_12ChannelGroupE(const void *self, void **g) { B; put_u64(&b, self); return vraag_handle(RG_FM_BUS_GETCG, &b, g); }
+EXPORT int _ZN4FMOD6Studio4Bank14loadSampleDataEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio4Bank14loadSampleDataEv, self); B; put_u64(&b, self); int r = stuur(RG_FM_BANK_LOADSAMPLE, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
+EXPORT int _ZN4FMOD6Studio4Bank6unloadEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio4Bank6unloadEv, self); B; put_u64(&b, self); int r = stuur(RG_FM_BANK_UNLOAD, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
+EXPORT int _ZN4FMOD6Studio3Bus13stopAllEventsE21FMOD_STUDIO_STOP_MODE(void *self, int m) {
+    DIRECT(_ZN4FMOD6Studio3Bus13stopAllEventsE21FMOD_STUDIO_STOP_MODE, self, m); B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_BUS_STOPALL); }
+EXPORT int _ZN4FMOD6Studio3Bus7setMuteEb(void *self, bool m) {
+    DIRECT(_ZN4FMOD6Studio3Bus7setMuteEb, self, m); B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_BUS_SETMUTE); }
+EXPORT int _ZN4FMOD6Studio3Bus9setVolumeEf(void *self, float v) {
+    DIRECT(_ZN4FMOD6Studio3Bus9setVolumeEf, self, v); B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_BUS_SETVOLUME); }
+EXPORT int _ZNK4FMOD6Studio3Bus15getChannelGroupEPPNS_12ChannelGroupE(const void *self, void **g) {
+    DIRECT(_ZNK4FMOD6Studio3Bus15getChannelGroupEPPNS_12ChannelGroupE, self, g); B; put_u64(&b, self); return vraag_handle(RG_FM_BUS_GETCG, &b, g); }
 
 EXPORT int _ZNK4FMOD6Studio16EventDescription14createInstanceEPPNS0_13EventInstanceE(const void *self, void **inst) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription14createInstanceEPPNS0_13EventInstanceE, self, inst);
     B; put_u64(&b, self); return vraag_handle(RG_FM_DESC_CREATEINST, &b, inst);
 }
 EXPORT int _ZNK4FMOD6Studio16EventDescription15getInstanceListEPPNS0_13EventInstanceEiPi(const void *self, void **arr, int cap, int *count) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription15getInstanceListEPPNS0_13EventInstanceEiPi, self, arr, cap, count);
     B; put_u64(&b, self); put_i32(&b, cap);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_DESC_GETINSTLIST, &b, &a, &n);
@@ -568,10 +708,14 @@ EXPORT int _ZNK4FMOD6Studio16EventDescription15getInstanceListEPPNS0_13EventInst
     free(a);
     return r;
 }
-EXPORT int _ZNK4FMOD6Studio16EventDescription16getInstanceCountEPi(const void *self, int *count) { B; put_u64(&b, self); return vraag_i32(RG_FM_DESC_GETINSTCOUNT, &b, count, 0); }
-EXPORT int _ZNK4FMOD6Studio16EventDescription18getMaximumDistanceEPf(const void *self, float *d) { B; put_u64(&b, self); return vraag_f32(RG_FM_DESC_GETMAXDIST, &b, d, 100.0f); }
-EXPORT int _ZNK4FMOD6Studio16EventDescription18getMinimumDistanceEPf(const void *self, float *d) { B; put_u64(&b, self); return vraag_f32(RG_FM_DESC_GETMINDIST, &b, d, 1.0f); }
+EXPORT int _ZNK4FMOD6Studio16EventDescription16getInstanceCountEPi(const void *self, int *count) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription16getInstanceCountEPi, self, count); B; put_u64(&b, self); return vraag_i32(RG_FM_DESC_GETINSTCOUNT, &b, count, 0); }
+EXPORT int _ZNK4FMOD6Studio16EventDescription18getMaximumDistanceEPf(const void *self, float *d) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription18getMaximumDistanceEPf, self, d); B; put_u64(&b, self); return vraag_f32(RG_FM_DESC_GETMAXDIST, &b, d, 100.0f); }
+EXPORT int _ZNK4FMOD6Studio16EventDescription18getMinimumDistanceEPf(const void *self, float *d) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription18getMinimumDistanceEPf, self, d); B; put_u64(&b, self); return vraag_f32(RG_FM_DESC_GETMINDIST, &b, d, 1.0f); }
 EXPORT int _ZNK4FMOD6Studio16EventDescription7getPathEPciPi(const void *self, char *path, int size, int *got) {
+    DIRECT(_ZNK4FMOD6Studio16EventDescription7getPathEPciPi, self, path, size, got);
     B; put_u64(&b, self); put_i32(&b, size);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_DESC_GETPATH, &b, &a, &n);
@@ -586,25 +730,36 @@ EXPORT int _ZNK4FMOD6Studio16EventDescription7getPathEPciPi(const void *self, ch
 }
 
 EXPORT int _ZN4FMOD6Studio13EventInstance11setCallbackEPF11FMOD_RESULTjP25FMOD_STUDIO_EVENTINSTANCEPvEj(void *self, void *cb, unsigned mask) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance11setCallbackEPF11FMOD_RESULTjP25FMOD_STUDIO_EVENTINSTANCEPvEj, self, cb, mask);
     zet_cb(self, cb, mask);
     B; put_u64(&b, self); put_u32(&b, cb ? mask : 0); VUUR(RG_FM_EI_SETCALLBACK);
 }
-EXPORT int _ZN4FMOD6Studio13EventInstance11setUserDataEPv(void *self, void *ud) { zet_ud(self, ud); return FMOD_OK; }
+EXPORT int _ZN4FMOD6Studio13EventInstance11setUserDataEPv(void *self, void *ud) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance11setUserDataEPv, self, ud); zet_ud(self, ud); return FMOD_OK; }
 EXPORT int _ZN4FMOD6Studio13EventInstance15set3DAttributesEPK18FMOD_3D_ATTRIBUTES(void *self, const void *a) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance15set3DAttributesEPK18FMOD_3D_ATTRIBUTES, self, a);
     if (!a) return FMOD_OK;
     B; put_u64(&b, self); put(&b, a, 48); VUUR(RG_FM_EI_SET3D);
 }
-EXPORT int _ZN4FMOD6Studio13EventInstance17setParameterValueEPKcf(void *self, const char *n, float v) { B; put_u64(&b, self); put_str(&b, n); put_f32(&b, v); VUUR(RG_FM_EI_SETPARAM); }
-EXPORT int _ZN4FMOD6Studio13EventInstance4stopE21FMOD_STUDIO_STOP_MODE(void *self, int m) { B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_EI_STOP); }
-EXPORT int _ZN4FMOD6Studio13EventInstance5startEv(void *self) { B; put_u64(&b, self); VUUR(RG_FM_EI_START); }
-EXPORT int _ZN4FMOD6Studio13EventInstance7releaseEv(void *self) { B; put_u64(&b, self); VUUR(RG_FM_EI_RELEASE); }
-EXPORT int _ZN4FMOD6Studio13EventInstance9setVolumeEf(void *self, float v) { B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_EI_SETVOLUME); }
-EXPORT int _ZNK4FMOD6Studio13EventInstance11getUserDataEPPv(const void *self, void **ud) { OUT(ud, lees_ud(self)); return FMOD_OK; }
+EXPORT int _ZN4FMOD6Studio13EventInstance17setParameterValueEPKcf(void *self, const char *n, float v) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance17setParameterValueEPKcf, self, n, v); B; put_u64(&b, self); put_str(&b, n); put_f32(&b, v); VUUR(RG_FM_EI_SETPARAM); }
+EXPORT int _ZN4FMOD6Studio13EventInstance4stopE21FMOD_STUDIO_STOP_MODE(void *self, int m) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance4stopE21FMOD_STUDIO_STOP_MODE, self, m); B; put_u64(&b, self); put_i32(&b, m); VUUR(RG_FM_EI_STOP); }
+EXPORT int _ZN4FMOD6Studio13EventInstance5startEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance5startEv, self); B; put_u64(&b, self); VUUR(RG_FM_EI_START); }
+EXPORT int _ZN4FMOD6Studio13EventInstance7releaseEv(void *self) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance7releaseEv, self); B; put_u64(&b, self); VUUR(RG_FM_EI_RELEASE); }
+EXPORT int _ZN4FMOD6Studio13EventInstance9setVolumeEf(void *self, float v) {
+    DIRECT(_ZN4FMOD6Studio13EventInstance9setVolumeEf, self, v); B; put_u64(&b, self); put_f32(&b, v); VUUR(RG_FM_EI_SETVOLUME); }
+EXPORT int _ZNK4FMOD6Studio13EventInstance11getUserDataEPPv(const void *self, void **ud) {
+    DIRECT(_ZNK4FMOD6Studio13EventInstance11getUserDataEPPv, self, ud); OUT(ud, lees_ud(self)); return FMOD_OK; }
 EXPORT int _ZNK4FMOD6Studio13EventInstance14getDescriptionEPPNS0_16EventDescriptionE(const void *self, void **d) {
+    DIRECT(_ZNK4FMOD6Studio13EventInstance14getDescriptionEPPNS0_16EventDescriptionE, self, d);
     B; put_u64(&b, self); return vraag_handle(RG_FM_EI_GETDESC, &b, d);
 }
 /* FMOD_3D_ATTRIBUTES: vier FMOD_VECTOR's (positie, snelheid, voor, boven) = 48 bytes. */
 EXPORT int _ZNK4FMOD6Studio13EventInstance15get3DAttributesEP18FMOD_3D_ATTRIBUTES(const void *self, void *a) {
+    DIRECT(_ZNK4FMOD6Studio13EventInstance15get3DAttributesEP18FMOD_3D_ATTRIBUTES, self, a);
     B; put_u64(&b, self);
     unsigned char *an; size_t n;
     int r = stuur(RG_FM_EI_GET3D, &b, &an, &n);
@@ -613,6 +768,7 @@ EXPORT int _ZNK4FMOD6Studio13EventInstance15get3DAttributesEP18FMOD_3D_ATTRIBUTE
     return r < 0 ? FMOD_OK : r;
 }
 EXPORT bool _ZNK4FMOD6Studio13EventInstance7isValidEv(const void *self) {
+    DIRECT(_ZNK4FMOD6Studio13EventInstance7isValidEv, self);
     if (!self) return false;
     B; put_u64(&b, self);
     unsigned char *a; size_t n;

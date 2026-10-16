@@ -205,7 +205,7 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     foreach(_fm fmod fmodstudio)
       add_library(rg_${_fm}10 SHARED tools/fmod-bridge/fmod_bridge.c)
       target_compile_options(rg_${_fm}10 PRIVATE -Wall -Wextra -Wno-pedantic -fvisibility=hidden)
-      target_link_libraries(rg_${_fm}10 PRIVATE pthread)
+      target_link_libraries(rg_${_fm}10 PRIVATE pthread ${CMAKE_DL_LIBS} m)
       set_target_properties(rg_${_fm}10 PROPERTIES PREFIX "lib" OUTPUT_NAME "${_fm}" SUFFIX ".so.10" C_VISIBILITY_PRESET hidden
                             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fmod")
     endforeach()

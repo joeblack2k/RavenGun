@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
 done
 mkdir -p "$LIB" "$EXE"
 for so in libfmod.so.10 libfmodstudio.so.10; do
-  cc -O2 -shared -fPIC -fvisibility=hidden -Wall -Wextra -Werror -Wl,-soname,"$so" "$SRC/fmod_bridge.c" -o "$LIB/$so.tmp" -lpthread
+  cc -O2 -shared -fPIC -fvisibility=hidden -Wall -Wextra -Werror -Wno-pedantic -Wl,-soname,"$so" "$SRC/fmod_bridge.c" -o "$LIB/$so.tmp" -lpthread -ldl -lm
   mv "$LIB/$so.tmp" "$LIB/$so"
 done
 # Elke naam uit symbols.txt moet geëxporteerd zijn (de game zoekt ze zelf op met dlsym).

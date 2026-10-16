@@ -23,6 +23,16 @@
           "mode": "ro"
         },
         {
+          "src": "@data/patches/Halo/dropin/fmod",
+          "dst": "/rg/fmod-dropin-gebruiker",
+          "mode": "ro-try"
+        },
+        {
+          "src": "@patches/Halo/dropin/fmod",
+          "dst": "/rg/fmod-dropin",
+          "mode": "ro-try"
+        },
+        {
           "src": "@data/wine/proton-11.0-2",
           "dst": "/rg/wine",
           "mode": "ro-try"
@@ -57,7 +67,7 @@
         {
           "src": "@build/fmod",
           "dst": "/rg/libfmod",
-          "note": "FMOD-wrapper (tools/fmod-bridge): libfmod.so.10 en libfmodstudio.so.10 sturen de aanroepen naar rg-fmod-host.exe, dat onder Wine de echte FMOD Studio 1.10.2 (fmod64.dll, fmodstudio64.dll uit de TeknoParrot-installatie van de gebruiker) draait; STEREO of LPCM 5.1 via de opties van de game ([Audio] Speakers)"
+          "note": "FMOD-wrapper (tools/fmod-bridge): met de native FMOD Studio 1.10 van de gebruiker als drop-in (patches/Halo/dropin/fmod/: libfmod.so.10 en libfmodstudio.so.10, Linux x86_64, bv. uit lib64/ van Celeste) gaat alles rechtstreeks naar die FMOD, zonder Wine; zonder drop-in naar rg-fmod-host.exe, dat onder Wine de Windows-FMOD 1.10.2 van een TeknoParrot-installatie draait; zonder beide stil. STEREO of LPCM 5.1 via de opties van de game ([Audio] Speakers)"
         }
       ],
       "seed": [
@@ -110,6 +120,7 @@
         "@patches/Halo/data/fmod/rg-fmod-host.exe"
       ],
       "env": {
+        "RG_FMOD_NATIVE_DIRS": "/rg/fmod-dropin-gebruiker:/rg/fmod-dropin",
         "RG_FMOD_WINE": "/rg/wine/bin/wine",
         "RG_FMOD_HOST": "/rg/lib/rg-fmod-host.exe",
         "RG_FMOD_DLLDIR": "/rg/fmodwin",

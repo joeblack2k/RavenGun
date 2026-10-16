@@ -744,3 +744,8 @@ controleerde voor die profielen dat de TeknoParrotUi-activering aanwezig was (`n
   PipeWire-upmix viel af: Wine opent het 7.1-apparaat met 8 kanalen, dus er valt voor PipeWire niets op te mengen.
 - **Keuze voor de gebruiker.** In de opties van de game in de app: "Audio output" = STEREO of LPCM 5.1 (`[Audio] Speakers` in game.ini,
   gebruikerslaag; de daemon geeft het als `RG_FMOD_SPEAKERS` aan de native start). Standaard LPCM 5.1.
+- **Aanvulling 2026-10-16: native FMOD als drop-in gaat voor.** Celeste (Steam, Linux) levert FMOD Studio 1.10.14 voor Linux
+  (`lib64/libfmod.so.10`, `libfmodstudio.so.10`; gemeten: laadt alle banks van Halo). Wie zulke bestanden heeft zet ze in
+  `patches/Halo/dropin/fmod/` (liefst de gebruikerslaag); de wrapper laadt ze dan zelf (RTLD_GLOBAL) en stuurt elke aanroep
+  rechtstreeks door, in het spelproces, zonder Wine. Volgorde: native drop-in, dan de Windows-FMOD van TeknoParrot onder Wine, dan
+  stil. FMOD-bestanden gaan niet in git; ieder levert zijn eigen (zoals de Microsoft-DLL's).
