@@ -164,11 +164,17 @@ public:
     void close() {
         closing_.store(true);
         if (sock_ >= 0) { ::shutdown(sock_, SHUT_RDWR); ::close(sock_); sock_ = -1; }
-        if (conn_ >= 0) ::shutdown(conn_, SHUT_RDWR);
+        {
+            std::lock_guard<std::mutex> g(cm_);
+            if (conn_ >= 0) ::shutdown(conn_, SHUT_RDWR);
+        }
         if (th_.joinable()) th_.join();
     }
 
 private:
+    // Na zoveel verbindingen alleen nog de telling: een game die blijft herverbinden mag het logboek niet vullen.
+    static constexpr int kLogConnections = 10;
+
     void send_all(const J::Bytes& b) {
         size_t off = 0;
         while (off < b.size()) {
@@ -177,21 +183,38 @@ private:
             off += static_cast<size_t>(n);
         }
     }
+    // Een game mag de pipe sluiten en opnieuw openen: Gaia Attack 4 doet dat na de eerste bordcontrole, en zonder antwoord op
+    // de tweede verbinding meldt hij "I/O ERROR 2". Elke verbinding krijgt het bord dus opnieuw. accept met een poll, zodat
+    // close() de wachtende thread ook zonder verbinding loslaat.
     void run() {
-        // accept met een poll, zodat close() de wachtende thread ook zonder verbinding loslaat
-        for (;;) {
-            if (closing_.load()) return;
+        int verbinding = 0;
+        while (!closing_.load()) {
             pollfd p{sock_, POLLIN, 0};
             const int r = ::poll(&p, 1, 200);
-            if (r > 0) break;
             if (r < 0 && errno != EINTR) return;
+            if (r <= 0) continue;
+            const int c = ::accept4(sock_, nullptr, nullptr, SOCK_CLOEXEC);
+            if (c < 0) continue;
+            {
+                std::lock_guard<std::mutex> g(cm_);
+                conn_ = c;
+            }
+            int one = 1;
+            ::setsockopt(c, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+            ++verbinding;
+            verbose_ = verbinding <= kLogConnections;
+            if (verbose_)
+                log("JVS-pipe: game verbonden (pipehelper via TCP" + (verbinding > 1 ? ", verbinding " + std::to_string(verbinding) : "") + ")");
+            if (!pty_.empty()) run_pty_bridge();
+            else serve_board();
+            std::lock_guard<std::mutex> g(cm_);
+            ::close(conn_);
+            conn_ = -1;
         }
-        conn_ = ::accept4(sock_, nullptr, nullptr, SOCK_CLOEXEC);
-        if (conn_ < 0) return;
-        int one = 1;
-        ::setsockopt(conn_, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
-        log("JVS-pipe: game verbonden (pipehelper via TCP)");
-        if (!pty_.empty()) { run_pty_bridge(); ::close(conn_); return; }
+        if (verbinding > kLogConnections) log("JVS-pipe: " + std::to_string(verbinding) + " verbindingen in totaal");
+    }
+    // Het standaard JVS-bord in dit proces (zonder pty van de daemon).
+    void serve_board() {
         J::Bytes buf;
         std::set<std::pair<int, int>> seen;
         long bytes_in = 0, packets = 0, answered = 0, unanswered = 0, rest_logged = 0;
@@ -235,7 +258,7 @@ private:
                         ++unanswered;
                     }
                 }
-                if (seen.insert({node, cmd}).second) {
+                if (verbose_ && seen.insert({node, cmd}).second) {
                     char b[96];
                     std::snprintf(b, sizeof b, "JVS-pipe: pakket node %02X commando %02X (%zu bytes)", node, cmd, fr.size());
                     std::string extra;
@@ -246,9 +269,9 @@ private:
                 }
             }
         }
-        log("JVS-pipe: verbinding dicht (" + std::to_string(bytes_in) + " bytes van de game, " + std::to_string(packets) + " pakketten, " +
-            std::to_string(answered) + " beantwoord, " + std::to_string(unanswered) + " niet beantwoord)");
-        ::close(conn_);
+        if (verbose_)
+            log("JVS-pipe: verbinding dicht (" + std::to_string(bytes_in) + " bytes van de game, " + std::to_string(packets) + " pakketten, " +
+                std::to_string(answered) + " beantwoord, " + std::to_string(unanswered) + " niet beantwoord)");
     }
     // RG_JVS_PTY: alle JVS-bytes ongewijzigd naar de pty van de daemon en terug; alleen meekijken voor de verbind-vlag.
     void run_pty_bridge() {
@@ -264,10 +287,13 @@ private:
             t.c_cc[VTIME] = 0;
             ::tcsetattr(fd, TCSANOW, &t);
         }
+        // Wat de daemon nog naar een vorige verbinding stuurde, hoort niet bij deze: weg ermee voordat de game iets leest.
+        ::tcflush(fd, TCIOFLUSH);
         std::atomic<bool> stop{false};
         std::atomic<long> back{0};
         std::thread to_game([&] {
             uint8_t b[4096];
+            long chunks = 0;
             while (!stop.load()) {
                 pollfd p{fd, POLLIN, 0};
                 const int r = ::poll(&p, 1, 200);
@@ -276,6 +302,7 @@ private:
                 if (n < 0) break;
                 if (n == 0) continue;
                 back += n;
+                if (debug_ && ++chunks <= 300) log("JVS-pipe: van de daemon: " + J::hex(J::Bytes(b, b + n)));
                 send_all(J::Bytes(b, b + n));
             }
         });
@@ -297,7 +324,7 @@ private:
                 if (cmd == 0xF0) set_connect_flag(0);
                 else if (cmd == 0xF1) set_connect_flag(1);
                 if (debug_ && packets <= 300) log("JVS-pipe: #" + std::to_string(packets) + " van de game: " + J::hex(fr));
-                if (seen.insert({fr[0], cmd}).second) {
+                if (verbose_ && seen.insert({fr[0], cmd}).second) {
                     char b[120];
                     std::snprintf(b, sizeof b, "JVS-pipe: pakket node %02X commando %02X (%zu bytes) - naar de pty van de daemon", fr[0], cmd, fr.size());
                     log(b);
@@ -307,14 +334,17 @@ private:
         stop.store(true);
         to_game.join();
         ::close(fd);
-        log("JVS-pipe: verbinding dicht (" + std::to_string(bytes_in) + " bytes van de game, " + std::to_string(packets) + " pakketten, " +
-            std::to_string(back.load()) + " bytes van de daemon terug)");
+        if (verbose_)
+            log("JVS-pipe: verbinding dicht (" + std::to_string(bytes_in) + " bytes van de game, " + std::to_string(packets) + " pakketten, " +
+                std::to_string(back.load()) + " bytes van de daemon terug)");
     }
 
     bool board_, f1_once_, debug_;
+    bool verbose_ = true;
     std::string pty_;
     J::Board bd_;
     int sock_ = -1, conn_ = -1, port_ = 0;
+    std::mutex cm_;   // conn_ wordt door close() gelezen terwijl run() hem wisselt
     std::atomic<bool> closing_{false};
     std::thread th_;
 };

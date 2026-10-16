@@ -878,6 +878,10 @@ int main() {
               "    exec 3<>/dev/tcp/127.0.0.1/$3\n"
               "    printf '\\xe0\\xff\\x03\\xf1\\x01\\xf4' >&3\n"
               "    head -c 6 <&3 | od -An -tx1 | tr -d ' \\n' > \"$OUT/helper-reply\"\n"
+              // Gaia Attack 4 sluit de pipe na de eerste bordcontrole en opent hem opnieuw: ook die verbinding krijgt antwoord.
+              "    exec 3>&-; exec 3<>/dev/tcp/127.0.0.1/$3\n"
+              "    printf '\\xe0\\xff\\x03\\xf1\\x01\\xf4' >&3\n"
+              "    head -c 6 <&3 | od -An -tx1 | tr -d ' \\n' > \"$OUT/helper-reply2\"\n"
               "    echo \"pipehelper: pipe created\" >&2\n"
               "    exec sleep 30 ;;\n"
               "  *)\n"
@@ -917,6 +921,8 @@ int main() {
         CHECK(contains(log, "lader gestopt (exitcode 3); de game volgen") && contains(log, "klaar (exitcode 3)"));
         CHECK(contains(log, "A11: overgeslagen 0, toegepast 0, koppeling 0, versie 1, fout 0"));
         CHECK(slurp(out / "helper-reply") == "e00003010105");                       // het antwoord op de adrestoekenning
+        CHECK(slurp(out / "helper-reply2") == "e00003010105");                      // ook op de tweede verbinding
+        CHECK(contains(log, "JVS-pipe: game verbonden (pipehelper via TCP, verbinding 2)"));
         CHECK(slurp(root / "shm").size() == 64 && slurp(root / "shm")[0] == 1);      // verbind-vlag aan
         CHECK(slurp(root / "shm").substr(1) == std::string(63, '\0'));               // de rest op nul: elke start begint schoon
         // Het bronbestand ook op nul (de daemon zet zijn bytes terug), behalve de verbind-vlag: die moet ook daar staan, anders zet de

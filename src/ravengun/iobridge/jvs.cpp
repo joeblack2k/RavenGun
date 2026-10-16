@@ -169,7 +169,7 @@ std::string validate_jvs_board(const JvsBoard& b) {
     if (b.players < 0 || b.players > 4) return pre + "'players' buiten 0..4";
     if (b.buttons < 0 || b.buttons > 32) return pre + "'buttons' buiten 0..32";
     if (b.coin_slots < 0 || b.coin_slots > 8) return pre + "'coin_slots' buiten 0..8";
-    if (b.analog_channels < 0 || b.analog_channels > 32) return pre + "'analog_channels' buiten 0..32";
+    if (b.analog_channels < 0 || b.analog_channels > kJvsMaxAnalogChannels) return pre + "'analog_channels' buiten 0..32";
     if (b.analog_bits < 0 || b.analog_bits > 16) return pre + "'analog_bits' buiten 0..16";
     if (b.gp_outputs < 0 || b.gp_outputs > 255) return pre + "'gp_outputs' buiten 0..255";
     if (static_cast<int>(b.analog.size()) > b.analog_channels) return pre + "meer 'analog'-kanalen dan 'analog_channels'";
@@ -404,8 +404,10 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
                 break;
             }
             case kCmdAnalog: {
+                // Zoveel kanalen als de game vraagt, ook boven het eigen aantal (zoals TeknoParrot): Gaia Attack 4 vraagt er 10 aan
+                // een bord met 8, en een foutrapport geeft "I/O ERROR". Kanalen zonder bron staan in rust.
                 const int ch = a[0];
-                if (ch > board_.analog_channels) { rep.push_back(kJvsReportBadParamData); break; }
+                if (ch > kJvsMaxAnalogChannels) { rep.push_back(kJvsReportBadParamData); break; }
                 rep.push_back(kJvsReportOk);
                 for (int i = 0; i < ch; ++i) {
                     JvsAnalogChannel c;

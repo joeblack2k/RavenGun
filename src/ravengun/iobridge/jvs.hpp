@@ -30,6 +30,9 @@ inline constexpr uint8_t kJvsHostAddr = 0x00;
 inline constexpr uint8_t kJvsStatusOk = 0x01, kJvsStatusUnknownCmd = 0x02, kJvsStatusSumError = 0x03, kJvsStatusOverflow = 0x04;
 inline constexpr uint8_t kJvsReportOk = 0x01, kJvsReportBadParamCount = 0x02, kJvsReportBadParamData = 0x03, kJvsReportBusy = 0x04;
 
+// Hoogste aantal analoge kanalen: in een bordbestand en in een 0x22-verzoek (32 x 2 bytes past ruim in een packet).
+inline constexpr int kJvsMaxAnalogChannels = 32;
+
 // Commandocodes.
 enum JvsCmd : uint8_t {
     kCmdReset = 0xF0, kCmdSetAddress = 0xF1,

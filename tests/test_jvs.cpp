@@ -224,6 +224,25 @@ void test_commands() {
     CHECK(bus.stats().bad_sum == 3);
 }
 
+// Gaia Attack 4 (gemeten 2026-10-16): een packet met 0x20, 0x32, 0x21 en 0x22 voor 10 kanalen aan SegaGun2P (8 kanalen). Elk
+// commando krijgt zijn rapport; de kanalen 9 en 10 staan in rust. Meer dan 32 kanalen blijft een fout.
+void test_more_analog_than_board() {
+    JvsBoards bs = load();
+    const JvsBoard* g = bs.find("SegaGun2P");
+    CHECK(g != nullptr);
+    if (!g) return;
+    JvsBus bus;
+    bus.add_node(*g);
+    CHECK(hex(talk(bus, "E0 FF 03 F1 01 F4")) == "E0 00 03 01 01 05");
+    const Bytes r = ask(bus, 0x01, "20 01 03 32 03 01 00 00 21 01 22 0A");
+    // E0 00 len status | 01 + 4 (schakelaars) | 01 (uitgang) | 01 + 2 (munt) | 01 + 20 (analoog) | checksum
+    CHECK(r.size() == 3 + 1 + 5 + 1 + 3 + 21 + 1);
+    CHECK(r.size() > 14 && r[3] == kJvsStatusOk && r[13] == kJvsReportOk);
+    CHECK(r.size() > 34 && r[32] == 0x80 && r[33] == 0x00);   // kanaal 10: rust
+    const Bytes te_veel = ask(bus, 0x01, "22 21");
+    CHECK(te_veel.size() == 6 && te_veel[3] == kJvsStatusOk && te_veel[4] == kJvsReportBadParamData);
+}
+
 void test_inputs() {
     JvsBus bus;
     bus.add_node(lgs());
@@ -283,12 +302,12 @@ void test_inputs() {
     s.player[0].x = 0.5;
     bus.set_input(s);
     CHECK(hex(ask(bus, 0x01, "22 01")) == "E0 00 05 01 01 80 00 87");
-    // Geen geldige aim: idle (midden); te veel kanalen: parameterfout.
+    // Geen geldige aim: idle (midden). Meer kanalen dan het bord heeft: die staan in rust (test_more_analog_than_board).
     s.player[0].x = 1.0;
     s.player[0].valid = false;
     bus.set_input(s);
     CHECK(hex(ask(bus, 0x01, "22 01")) == "E0 00 05 01 01 80 00 87");
-    CHECK(hex(ask(bus, 0x01, "22 09")) == "E0 00 03 01 03 07");
+    CHECK(ask(bus, 0x01, "22 09").size() == 3 + 2 + 18 + 1);
 
     // Uitgangen en de rest die minimaal beantwoord wordt.
     CHECK(hex(ask(bus, 0x01, "32 03 01 02 03")) == "E0 00 03 01 01 05");
@@ -608,6 +627,7 @@ int main() {
     test_commands();
     test_inputs();
     test_analog_window_and_escape();
+    test_more_analog_than_board();
     test_chain();
     test_dialect_pty();
     test_namco_mkdx();
