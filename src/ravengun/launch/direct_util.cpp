@@ -2,6 +2,7 @@
 // De directe route (A10): tekst-, pad- en XML-hulpen van launch-direct.py (posixpath, shlex, ...), de kleine publieke hulpen uit direct.hpp
 // (wine_path, shlex_split, win_split, ...) en de joystick-id-hulpen van de hid-board-route. Zie direct.hpp en direct_internal.hpp.
 #include <fcntl.h>
+#include <pwd.h>
 #include <spawn.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -414,7 +415,9 @@ const char* verdict_name(Verdict v) { return v == Verdict::Ok ? "ok" : v == Verd
 
 DirectPaths default_direct_paths(const EnvMap& env) {
     DirectPaths p;
-    p.home = getenv_or(env, "HOME", "/home/deck");
+    p.home = getenv_or(env, "HOME");
+    if (p.home.empty())   // zonder HOME: de thuismap van deze gebruiker volgens het systeem
+        if (const struct passwd* pw = ::getpwuid(::getuid()); pw && pw->pw_dir) p.home = pw->pw_dir;
     const std::string xd = getenv_or(env, "XDG_DATA_HOME"), xs = getenv_or(env, "XDG_STATE_HOME"), xc = getenv_or(env, "XDG_CONFIG_HOME");
     p.data = (starts_with(xd, "/") ? xd : p.home + "/.local/share") + "/ravengun";
     p.state = (xs.empty() ? p.home + "/.local/state" : xs) + "/ravengun";

@@ -103,6 +103,8 @@ std::vector<Game> own_profile_games(const Config& c);
 bool profile_exists(const Config& c, const std::string& profile);
 // De gamemappen uit library.json (leeg bij een ontbrekend of kapot bestand).
 std::vector<std::string> library_folders(const std::string& library_file, const std::string& home);
+// De TeknoParrot-runtime die de gebruiker in de app koos (tp_dir in library.json; ~ = home). Leeg = geen keuze of geen bestand.
+std::string library_tp_dir(const std::string& library_file, const std::string& home);
 
 // Leest een icoon. Leeg resultaat in `err` = gelukt; anders "invalid" (naam niet toegestaan) of "not_found".
 std::string read_icon(const Config& c, const std::string& file, std::string& content_type, std::string& data);

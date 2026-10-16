@@ -196,6 +196,7 @@ int main(int argc, char** argv) {
     const char* home_env = std::getenv("HOME");
     const std::string home = home_env ? home_env : "";
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+    bool tp_dir_given = false;   // --tp-dir; anders gaat de keuze van de app voor (tp_dir in library.json)
     std::string data_dir_opt;
     std::string aagames_config;
     bool games_dry_run = false;
@@ -269,7 +270,7 @@ int main(int argc, char** argv) {
             }
             (a == "--out-content-aspect" ? content_aspect : screen_aspect) = static_cast<double>(bw) / bh;
         }
-        else if (a == "--tp-dir" && i + 1 < argc) tp_dir = argv[++i];
+        else if (a == "--tp-dir" && i + 1 < argc) { tp_dir = argv[++i]; tp_dir_given = true; }
         else if (a == "--data-dir" && i + 1 < argc) data_dir_opt = argv[++i];
         else if (a == "--aagames-config" && i + 1 < argc) aagames_config = argv[++i];
         else if (a == "--games-dry-run") games_dry_run = true;
@@ -461,6 +462,12 @@ int main(int argc, char** argv) {
         games_cfg.home = home;
         games_cfg.library_file = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/library.json";
         games_cfg.views_dir = (xd && *xd == '/' ? std::string(xd) : home + "/.local/share") + "/ravengun/runtime/views";
+        // De runtime die de gebruiker in de app koos (Settings > Paths); zonder keuze de standaardmap.
+        if (!tp_dir_given)
+            if (const std::string t = ravengun::games::library_tp_dir(games_cfg.library_file, home); !t.empty()) {
+                tp_dir = t;
+                games_cfg.tp_dir = t;
+            }
     }
     // De native route (patches/<Game>/native.json, src/ravengun/launch/native.*): de daemon start zo'n game zelf.
     {
@@ -470,8 +477,9 @@ int main(int argc, char** argv) {
         const std::string data_dir = (!xdh.empty() && xdh[0] == '/' ? xdh : home + "/.local/share") + "/ravengun";
         np.data = data_dir;
         np.lib32 = data_dir + "/runtime/lib32";
-        np.nas = !envs("RAVENGUN_NAS_TP").empty() ? envs("RAVENGUN_NAS_TP") : home + "/mnt/spidernas_emulation/Teknoparrot";
-        np.tpui = !envs("RAVENGUN_TPUI").empty() ? envs("RAVENGUN_TPUI") : data_dir + "/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+        // @nas: de spelmappen van de app (library.json), bij elke start opnieuw gelezen (GameService); RAVENGUN_NAS_TP zet er een vast.
+        np.nas = envs("RAVENGUN_NAS_TP");
+        np.tpui = !envs("RAVENGUN_TPUI").empty() ? envs("RAVENGUN_TPUI") : tp_dir;
         // Eigen bibliotheken zoals scripts/rg-paths.sh: <prefix>/lib bij een installatie (<prefix>/share/ravengun), build/ in de repo.
         std::string lib = envs("RAVENGUN_LIB_DIR");
         if (lib.empty() && !data_root.empty()) {
@@ -542,6 +550,7 @@ int main(int argc, char** argv) {
         // met rg-direct als hoofdproces. Wat de engine nog niet kan, start niet (de melding zegt waarom).
         ravengun::launch::DirectPaths& dp = games_cfg.direct;
         dp = ravengun::launch::default_direct_paths(ravengun::launch::environ_map());
+        if (std::getenv("RAVENGUN_TP_DIR") == nullptr && !tp_dir.empty()) dp.tp = tp_dir;   // dezelfde runtime als de rest van de daemon (--tp-dir of de app)
         dp.dirs = games_cfg.dirs;
         if (!games_cfg.library_file.empty()) dp.library_file = games_cfg.library_file;
         if (!np.exec_helper.empty()) {

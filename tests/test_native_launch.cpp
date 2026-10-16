@@ -371,7 +371,7 @@ int main() {
     CHECK(!plan(bad, p, PlanOptions{}, pl, err) && err.find("bibliotheken ontbreken") != std::string::npos);
     NativePaths nonas = p;
     nonas.nas = (root / "geen-nas").string();
-    CHECK(!plan(pr, nonas, PlanOptions{}, pl, err) && err.find("NAS-map") != std::string::npos);
+    CHECK(!plan(pr, nonas, PlanOptions{}, pl, err) && err.find("spelmap") != std::string::npos);
     fs::remove(root / "bin/gamescope");
     CHECK(!plan(pr, p, PlanOptions{}, pl, err) && err.find("gamescope") != std::string::npos);
     // Zonder gamescope (launcher leeg): het X-scherm van de host, met xauth.
@@ -416,6 +416,30 @@ int main() {
         write(root / "bin/gamescope", "#!/bin/sh\nexit 0\n", true);
         CHECK(plan(pp, q, PlanOptions{}, pl, err));
         CHECK(!pl.identity.empty() && pl.identity[0] == "gegevens=" + q.user_patches + "/Per/native.json");
+    }
+
+    // De spelmappen van de app: "@nas/<Map>" komt uit de eerste spelmap waarin <Map> staat (ook een niveau dieper); een vaste
+    // spelmap (nas, RAVENGUN_NAS_TP) gaat voor; staat de map nergens, dan de eerste (de fout volgt bij de mount).
+    {
+        NativePaths q = p;
+        q.json.clear();
+        q.nas.clear();
+        const std::string a = (root / "spelmap-a").string(), b = (root / "spelmap-b").string();
+        fs::create_directories(a);
+        fs::create_directories(b + "/Teknoparrot/Spel X/bin");
+        q.nas_roots = {a, b};
+        write(q.patches + "/Lib/native.json", R"({"enabled":true,"exe":"/pm/game","mounts":[{"src":"@nas/Spel X/bin","dst":"/pm","mode":"ro"}]})");
+        NativeProfile lp;
+        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err));
+        CHECK(lp.mounts.size() == 1 && lp.mounts[0].src == b + "/Teknoparrot/Spel X/bin");
+        fs::create_directories(a + "/Spel X/bin");
+        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == a + "/Spel X/bin");
+        q.nas = b;   // vast
+        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == b + "/Spel X/bin");
+        q.nas.clear();
+        q.nas_roots = {(root / "geen").string()};
+        CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == (root / "geen").string() + "/Spel X/bin");
+        CHECK(!plan(lp, q, PlanOptions{}, pl, err) && err.find("spelmappen") != std::string::npos);
     }
 
     fs::remove_all(root);

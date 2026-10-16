@@ -22,8 +22,29 @@ namespace {
 
 using json::Value;
 
+bool is_dir(const std::string& path);
+
+// De spelmap voor "@nas/<Map>/...": een vaste (p.nas), anders de eerste spelmap van de app waarin <Map> staat, ook een niveau
+// dieper (een spelmap die de map Teknoparrot zelf bevat). Staat hij nergens, dan de eerste spelmap: de fout volgt bij de mount.
+std::string nas_for(const std::string& s, const NativePaths& p) {
+    if (!p.nas.empty() || p.nas_roots.empty()) return p.nas;
+    const size_t at = s.find("@nas/");
+    if (at == std::string::npos) return p.nas_roots.front();
+    const size_t b = at + 5, e = s.find('/', b);
+    const std::string map = s.substr(b, e == std::string::npos ? std::string::npos : e - b);
+    for (const std::string& r : p.nas_roots)
+        if (is_dir(r + "/" + map)) return r;
+    for (const std::string& r : p.nas_roots) {
+        std::error_code ec;
+        for (const auto& d : fs::directory_iterator(r, fs::directory_options::skip_permission_denied, ec))
+            if (d.is_directory(ec) && is_dir(d.path().string() + "/" + map)) return d.path().string();
+    }
+    return p.nas_roots.front();
+}
+
 std::string expand(std::string s, const NativePaths& p) {
-    const std::pair<const char*, const std::string*> keys[] = {{"@nas", &p.nas},     {"@tpui", &p.tpui},   {"@data", &p.data},
+    const std::string nas = nas_for(s, p);
+    const std::pair<const char*, const std::string*> keys[] = {{"@nas", &nas},       {"@tpui", &p.tpui},   {"@data", &p.data},
                                                                {"@lib32", &p.lib32}, {"@build", &p.build}, {"@patches", &p.patches}};
     for (const auto& [k, v] : keys) {
         const size_t kl = std::strlen(k);
@@ -441,7 +462,12 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         err = "rg-exec niet gevonden (" + p.exec_helper + "): het hulpprogramma tussen gamescope en bwrap";
         return false;
     }
-    if (!is_dir(p.nas)) { err = "NAS-map " + p.nas + " niet bereikbaar (is de automount actief?)"; return false; }
+    if (!p.nas.empty() && !is_dir(p.nas)) { err = "spelmap " + p.nas + " niet bereikbaar (is de automount actief?)"; return false; }
+    if (p.nas.empty() && !p.nas_roots.empty() && std::none_of(p.nas_roots.begin(), p.nas_roots.end(), [](const std::string& r) { return is_dir(r); })) {
+        err = "geen van de spelmappen van de app is bereikbaar (" + p.nas_roots.front() + (p.nas_roots.size() > 1 ? ", ..." : "") +
+              "; is de automount actief?)";
+        return false;
+    }
     const std::string rundir = p.runtime_dir.empty() ? "/run/user/" + std::to_string(::getuid()) : p.runtime_dir;
     const std::string ovlbase = p.data + "/native/" + pr.name;
 

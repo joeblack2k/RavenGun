@@ -354,6 +354,13 @@ static void test_own_profile(const std::string& d) {
     CHECK(games.size() == 1 && games[0].profile == "Eigen" && games[0].name == "Eigen Spel" && games[0].note == "Speelbaar.");
     CHECK(library_folders(c.library_file, c.home).size() == 1);
     CHECK(library_folders(d + "/bestaat-niet.json", "").empty());
+    // De runtime-keuze van de app (tp_dir; ~ = home); geen keuze, null of geen bestand = leeg (de daemon neemt dan zijn standaard).
+    CHECK(library_tp_dir(c.library_file, c.home).empty());
+    write(d + "/tp-library.json", "{\"tp_dir\":\"~/rt/TP\"}");
+    CHECK(library_tp_dir(d + "/tp-library.json", "/home/x") == "/home/x/rt/TP");
+    write(d + "/tp-library.json", "{\"tp_dir\":null}");
+    CHECK(library_tp_dir(d + "/tp-library.json", "/home/x").empty());
+    CHECK(library_tp_dir(d + "/bestaat-niet.json", "/home/x").empty());
     // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
     write(c.views_dir + "/Elders/x.exe", "x");
     CHECK(list_games(c).size() == 2);

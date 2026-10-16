@@ -19,7 +19,8 @@ namespace ravengun::launch {
 
 struct NativePaths {
     std::string json;          // optioneel: een bestand met meerdere profielen ({"games":{...}}; tests); de daemon leest patches/<Game>/native.json
-    std::string nas;           // @nas: de map Teknoparrot op de NAS
+    std::string nas;           // @nas: vaste spelmap (RAVENGUN_NAS_TP of tests); leeg = de eerste uit nas_roots waarin de map staat
+    std::vector<std::string> nas_roots;   // de spelmappen van de app (library.json): "@nas/<Map>/..." = de eerste root met <Map>
     std::string tpui;          // @tpui: de lokale TeknoParrotUi-map
     std::string data;          // @data: ~/.local/share/ravengun
     std::string lib32;         // @lib32: @data/runtime/lib32

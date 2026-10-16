@@ -188,6 +188,19 @@ std::vector<std::string> library_folders(const std::string& library_file, const 
     return out;
 }
 
+std::string library_tp_dir(const std::string& library_file, const std::string& home) {
+    if (library_file.empty()) return {};
+    std::ifstream f(library_file, std::ios::binary);
+    if (!f) return {};
+    const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    const auto r = ravengun::json::parse(text);
+    const auto* t = r.ok && r.value.is_object() ? r.value.find("tp_dir") : nullptr;
+    if (!t || !t->is_string() || t->str.empty()) return {};
+    std::string p = t->str;
+    if (!home.empty() && (p == "~" || p.rfind("~/", 0) == 0)) p = home + p.substr(1);
+    return p;
+}
+
 namespace {
 
 // Games met een eigen profiel in game.ini die op deze machine staan (view of gamemap).
@@ -824,18 +837,21 @@ std::string GameService::run_native(const std::string& profile) {
     // 1. Een lightgun.
     if (const std::string e = wait_lightgun(); !e.empty()) return e;
     // 2. Het profiel en het commando.
-    const std::string text = L::profile_text(c_.native, profile);
+    // De spelmappen van de app (library.json) bij elke start opnieuw: een map die de gebruiker net toevoegde telt meteen mee.
+    L::NativePaths np = c_.native;
+    if (np.nas.empty()) np.nas_roots = library_folders(c_.library_file, c_.home);
+    const std::string text = L::profile_text(np, profile);
     L::NativeProfile pr;
     L::NativePlan pl;
     std::string err;
-    if (!L::load_profile(text, profile, c_.native, pr, err)) return err;
+    if (!L::load_profile(text, profile, np, pr, err)) return err;
     L::PlanOptions po;
     if (const char* w = std::getenv("WAYLAND_DISPLAY"); w && *w) po.wayland_display = w;
     if (const char* d = std::getenv("DISPLAY"); d && *d) po.host_display = d;
     if (const char* x = std::getenv("XAUTHORITY"); x && *x) po.host_xauthority = x;
     // Geluid (FMOD-wrapper, tools/fmod-bridge): de keuze uit de opties van de game ([Audio] Speakers in game.ini, de gebruikerslaag gaat voor).
     if (const std::string spk = speakers_of(c_.direct.dirs, profile); !spk.empty()) po.env.emplace_back("RG_FMOD_SPEAKERS", spk);
-    if (!L::plan(pr, c_.native, po, pl, err)) return err;
+    if (!L::plan(pr, np, po, pl, err)) return err;
     // 3. Invoer: uitvoer wapenen, dan de route van het profiel (tp-shm: de daemon schrijft het bordbeeld; evdev: de brug dicht).
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
     if (c_.set_aim_aspect) c_.set_aim_aspect(aim_aspect_of(c_.direct.dirs, profile));
