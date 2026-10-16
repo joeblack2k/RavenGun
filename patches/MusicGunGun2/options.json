@@ -1,0 +1,154 @@
+{
+  "title": "Music GunGun 2",
+  "nas_folder": "Music GunGun 2",
+  "platform": "Taito Type X2 (32-bit, OpenParrot core)",
+  "exe": "game.exe (Patch/4K, Patch/HD, Patch/ORI hold variants)",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MusicGunGun2",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:MusicGunGun2"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MusicGunGun2",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:MusicGunGun2"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MusicGunGun2",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:MusicGunGun2"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MusicGunGun2",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:MusicGunGun2"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MusicGunGun2",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:MusicGunGun2"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "MusicGunGun2",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/MusicGunGun2.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [],
+    "notes_en": "No save file in the dump; score/*.dpk and system/*.dpk are song charts and default rankings (game content). The save location is not named in the findings."
+  }
+}

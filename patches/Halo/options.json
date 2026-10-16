@@ -1,0 +1,59 @@
+{
+  "title": "HALO Fireteam Raven",
+  "nas_folder": "Halo Fireteam",
+  "platform": "Raw Thrills Linux PC Based (64-bit ELF)",
+  "exe": "g7/halo/game",
+  "options": [
+    {
+      "key": "audio.speakers",
+      "name_en": "Audio output",
+      "type": "enum",
+      "values": [
+        "STEREO",
+        "LPCM 5.1"
+      ],
+      "default": "LPCM 5.1",
+      "target": {
+        "kind": "launch_env",
+        "name": "RG_FMOD_SPEAKERS"
+      },
+      "description_en": "Native route: STEREO plays the game's own stereo mix; LPCM 5.1 sends 6-channel PCM (front, center, LFE, surround) made from the game's stereo mix by RavenGun's FMOD wrapper. Applies at the next start.",
+      "source": [
+        "ravengun:fmod-bridge"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "pmuser",
+        "path": "g7/halo/pmuser",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Persistent operator/user store of the Raw Thrills engine (adjustments, audits, highscores, gamelog.txt). Created at first run; in the RavenGun sandbox it lives in the overlay (~/.local/share/ravengun/halo-overlay/upper/pmuser).",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets highscores, audits and operator adjustments to defaults. The game recreates the folder. Exit code 225 of the game itself is a factory reset.",
+        "source": [
+          "findings/scripts_dump.md (save_pmuser_to_flash.sh)",
+          "findings/16_halo_fireteam.md (exit codes 222-226)",
+          "repo:STATUS.md"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "dongle_data",
+        "path": "g7/halo/fff4",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "Dongle data image read by the game through the HASP shim (a second copy has the 32-bit binary file id as its name). Not user data.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "The game will not start (or runs in a degraded mode) without it. Do not erase or edit.",
+        "source": [
+          "findings/17_hasp_dongle.md (existence only)"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "notes_en": "Operator adjustment definitions under data/prod/adj/*/defs are encrypted/binary in this dump and cannot be listed."
+  }
+}

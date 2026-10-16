@@ -1,0 +1,466 @@
+{
+  "title": "Let's Go Island 3D: Lost on the Island of Tropics",
+  "nas_folder": "Let's Go Island 3D Lost on the Island of Tropics",
+  "platform": "Sega RingEdge (32-bit, stereoscopic 3D display)",
+  "exe": "LGI.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.dongleregion",
+      "name_en": "Dongle Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "USA",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "DongleRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "DongleRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated dongle. Changes language, currency and test-menu defaults.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.pcbregion",
+      "name_en": "Pcb Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "USA",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "PcbRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "PcbRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated PCB. Keep equal to DongleRegion.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "ffb_blaster.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "FFB Blaster",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "FFB Blaster",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Load the FFB Blaster plugin for force feedback to a wheel or gun device. RavenGun does not use this.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.enable_outputs",
+      "name_en": "Enable Outputs",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Enable Outputs",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Enable Outputs"
+        }
+      },
+      "description_en": "Load the outputblaster DLL (only if present in the game folder) so game lamps/outputs are forwarded.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.hidecursor",
+      "name_en": "Hide Cursor",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "HideCursor",
+        "also_in_ini": {
+          "section": "General",
+          "key": "HideCursor"
+        }
+      },
+      "description_en": "Hide the mouse cursor over the game window.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "cheats.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "Cheats",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Master switch for the cheat options below.",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "cheats.p1_unlimited_health",
+      "name_en": "P1 Unlimited Health",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "Cheats",
+        "field": "P1 Unlimited Health",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P1 Unlimited Health"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P1 Unlimited Health' (the profile gives no description).",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "cheats.p2_unlimited_health",
+      "name_en": "P2 Unlimited Health",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGI3D",
+        "category": "Cheats",
+        "field": "P2 Unlimited Health",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P2 Unlimited Health"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P2 Unlimited Health' (the profile gives no description).",
+      "source": [
+        "tp_profile:LGI3D"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "LGI3D",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/LGI3D.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "config.dongle_region",
+      "name_en": "Dongle region (config.ini)",
+      "type": "enum",
+      "default": "JAPAN",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "General",
+        "key": "DongleRegion"
+      },
+      "description_en": "Region in the game config.ini (same as the TeknoParrot field).",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:config.ini"
+      ]
+    },
+    {
+      "key": "config.pcb_region",
+      "name_en": "PCB region (config.ini)",
+      "type": "enum",
+      "default": "JAPAN",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "General",
+        "key": "PcbRegion"
+      },
+      "description_en": "PCB region in config.ini.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:config.ini"
+      ]
+    },
+    {
+      "key": "config.free_play",
+      "name_en": "Free play (config.ini)",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "General",
+        "key": "FreePlay"
+      },
+      "description_en": "Free play in config.ini.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:config.ini"
+      ]
+    },
+    {
+      "key": "config.dhcp",
+      "name_en": "Network DHCP",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Network",
+        "key": "Dhcp"
+      },
+      "description_en": "Network setting of the original cabinet; irrelevant offline.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:config.ini"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "sram_img",
+        "path": "data/Fraw/fwSRAM/SRAM_EEP.img, SRAM_FrawEEP.img, SRAM_FrawSRAM.img, SRAM_User.img",
+        "base": "game_dir",
+        "kind": "nvram",
+        "description_en": "Sega Fraw SRAM/EEPROM images shipped with the dump (the game writes to them).",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Back up first and restore the shipped copy instead of deleting; deleting may stop the game from starting.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "low"
+      },
+      {
+        "id": "display_cfg",
+        "path": "data/DisplayConfigurator.xml",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "VisuMotion 3D display configuration, copied by game.bat to the Windows All Users profile.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Only relevant for the 3D display.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": "game.bat runs mxGetHwInfo.exe first; the TeknoParrot core does not replace that check (see digest)."
+  }
+}

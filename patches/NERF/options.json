@@ -1,0 +1,141 @@
+{
+  "title": "NERF Arcade",
+  "nas_folder": "NERF Arcade",
+  "platform": "Raw Thrills PC Based (Unity Mono; Windows exe plus a native Linux build)",
+  "exe": "Nerf.exe (also Nerf.x86_64)",
+  "options": [
+    {
+      "key": "prefs.free_play",
+      "name_en": "Free play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "LocalData/testmenu/prefs/preferences.txt",
+        "base": "game_dir",
+        "format": "colon_text",
+        "key": "FreePlay",
+        "edit_outside_game": false
+      },
+      "description_en": "Operator pref FreePlay (human-readable mirror of the binary prefs files; edit in the game test menu).",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:preferences.txt"
+      ]
+    },
+    {
+      "key": "prefs.coins_to_play",
+      "name_en": "Coins to play",
+      "type": "int",
+      "default": 4,
+      "min": 1,
+      "max": 20,
+      "target": {
+        "kind": "game_config_file",
+        "path": "LocalData/testmenu/prefs/preferences.txt",
+        "base": "game_dir",
+        "format": "colon_text",
+        "key": "Coins To Play",
+        "edit_outside_game": false
+      },
+      "description_en": "Coins needed per play.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:preferences.txt"
+      ]
+    },
+    {
+      "key": "prefs.volume",
+      "name_en": "Volume",
+      "type": "int",
+      "default": 18,
+      "min": 0,
+      "max": 30,
+      "target": {
+        "kind": "game_config_file",
+        "path": "LocalData/testmenu/prefs/preferences.txt",
+        "base": "game_dir",
+        "format": "colon_text",
+        "key": "Volume",
+        "edit_outside_game": false
+      },
+      "description_en": "Game volume.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:preferences.txt"
+      ]
+    },
+    {
+      "key": "prefs.attract_volume",
+      "name_en": "Attract volume",
+      "type": "int",
+      "default": 15,
+      "min": 0,
+      "max": 30,
+      "target": {
+        "kind": "game_config_file",
+        "path": "LocalData/testmenu/prefs/preferences.txt",
+        "base": "game_dir",
+        "format": "colon_text",
+        "key": "Attract Volume",
+        "edit_outside_game": false
+      },
+      "description_en": "Attract volume.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:preferences.txt"
+      ]
+    },
+    {
+      "key": "prefs.leaderboard",
+      "name_en": "Leaderboard",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "LocalData/testmenu/prefs/preferences.txt",
+        "base": "game_dir",
+        "format": "colon_text",
+        "key": "Leaderboard",
+        "edit_outside_game": false
+      },
+      "description_en": "Show the leaderboard.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:preferences.txt"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "highscores",
+        "path": "LocalData/highscores/HST.txt, HST2.txt, HST3.txt",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Highscore tables.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears highscores.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "gamemap:LocalData/highscores"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "prefs",
+        "path": "LocalData/testmenu/prefs/{prefs,prefs2,prefs3,default_prefs,preferences.txt}",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Operator preferences (binary, three copies) plus default_prefs and a readable mirror.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets operator preferences to default_prefs.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": "Dongle library libhasp_linux_23714.so in Plugins/x86_64 is part of the native Linux build."
+  }
+}

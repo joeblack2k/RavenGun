@@ -1,0 +1,329 @@
+{
+  "title": "Gashaaaan!!!!",
+  "nas_folder": "Gashaaaan!!!!",
+  "platform": "Konami PC Based (32-bit)",
+  "exe": "bin/ballshooting.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.hidecursor",
+      "name_en": "Hide Cursor",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "HideCursor",
+        "also_in_ini": {
+          "section": "General",
+          "key": "HideCursor"
+        }
+      },
+      "description_en": "Hide the mouse cursor over the game window.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.player_3_relative_sensitivity",
+      "name_en": "Player 3 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Player 3 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 3 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 3 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.player_4_relative_sensitivity",
+      "name_en": "Player 4 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "Player 4 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 4 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 4 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.uselocaleemulator",
+      "name_en": "Use Locale Emulator",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "UseLocaleEmulator",
+        "also_in_ini": {
+          "section": "General",
+          "key": "UseLocaleEmulator"
+        }
+      },
+      "description_en": "Run the game under a Japanese locale so Japanese texts display correctly. Fixes japanese texts.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "general.screenfix",
+      "name_en": "Screen Fix",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "General",
+        "field": "ScreenFix",
+        "also_in_ini": {
+          "section": "General",
+          "key": "ScreenFix"
+        }
+      },
+      "description_en": "Fixes screens alignment.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "crosshairs.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "Crosshairs",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Crosshairs",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Draw a custom crosshair image (P1.png, P2.png ... in the game folder). Place files p1/p2/p3/p4.png in game folder.",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "bezel.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Gashaaaan",
+        "category": "Bezel",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Bezel",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Draw a custom fullscreen bezel image (bezel.png in the game folder).",
+      "source": [
+        "tp_profile:Gashaaaan"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "Gashaaaan",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/Gashaaaan.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "balls.nvram_dir",
+      "name_en": "NVRAM drive",
+      "type": "string",
+      "default": "F:\\",
+      "target": {
+        "kind": "game_config_file",
+        "path": "bin/BALLS.INI",
+        "base": "game_dir",
+        "format": "space_ini",
+        "key": "NVRAM_DIR"
+      },
+      "description_en": "Drive letter where the game keeps its NVRAM (RAW_DIR E:\\ and ROMFILE D:\\TYPE.BIN follow the same scheme).",
+      "source": [
+        "findings/config_inventory.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "nvram",
+        "path": "F:\\ (Wine drive f:)",
+        "base": "wine_prefix",
+        "kind": "nvram",
+        "description_en": "NVRAM drive named by NVRAM_DIR in BALLS.INI. Not present in the game folder; it is a drive mapping in the Wine prefix.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Not verified. Probably resets rankings and bookkeeping.",
+        "source": [
+          "findings/config_inventory.md"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": "config/testmode-*.bin are test-menu layout files, not saves."
+  }
+}

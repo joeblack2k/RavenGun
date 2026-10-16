@@ -1,0 +1,525 @@
+{
+  "title": "Mario Kart Arcade GP DX 1.18.16",
+  "nas_folder": "MKDX 1.18.16",
+  "platform": "Namco ES3 (32-bit, Win7/Win10 embedded, D3D11, ALL.Net + Mucha)",
+  "exe": "MK_AGP3_FINAL.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput"
+      ],
+      "default": "DirectInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "ffb_blaster.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "FFB Blaster",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "FFB Blaster",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Load the FFB Blaster plugin for force feedback to a wheel or gun device. RavenGun does not use this.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.enable_outputs",
+      "name_en": "Enable Outputs",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Enable Outputs",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Enable Outputs"
+        }
+      },
+      "description_en": "Load the outputblaster DLL (only if present in the game folder) so game lamps/outputs are forwarded.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.freezecountdowntimer",
+      "name_en": "Freeze Countdown Timer",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "FreezeCountdownTimer",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreezeCountdownTimer"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'FreezeCountdownTimer' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.autoaccloff",
+      "name_en": "Auto Accl Off",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "AutoAcclOff",
+        "also_in_ini": {
+          "section": "General",
+          "key": "AutoAcclOff"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'AutoAcclOff' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.experimental_webcam_hack",
+      "name_en": "Experimental Webcam Hack",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Experimental Webcam Hack",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Experimental Webcam Hack"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Experimental Webcam Hack' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.customresolution",
+      "name_en": "Custom Resolution",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "CustomResolution",
+        "also_in_ini": {
+          "section": "General",
+          "key": "CustomResolution"
+        }
+      },
+      "description_en": "Use the width/height below instead of the default resolution.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.use_keyboard_button_for_axis",
+      "name_en": "Use Keyboard/Button For Axis",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Use Keyboard/Button For Axis",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Keyboard/Button For Axis"
+        }
+      },
+      "description_en": "Drive the analog axis from keys or buttons instead of an analog device.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.keyboard_button_axis_wheel_sensitivity",
+      "name_en": "Keyboard/Button Axis Wheel Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 127,
+      "default": 10,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Keyboard/Button Axis Wheel Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Keyboard/Button Axis Wheel Sensitivity"
+        }
+      },
+      "description_en": "Steering speed when the wheel axis is driven by keys or buttons.",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.keyboard_button_axis_pedal_sensitivity",
+      "name_en": "Keyboard/Button Axis Pedal Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 255,
+      "default": 10,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "Keyboard/Button Axis Pedal Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Keyboard/Button Axis Pedal Sensitivity"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Keyboard/Button Axis Pedal Sensitivity' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.resolutionwidth",
+      "name_en": "Resolution Width",
+      "type": "int",
+      "default": 1360,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "ResolutionWidth",
+        "also_in_ini": {
+          "section": "General",
+          "key": "ResolutionWidth"
+        }
+      },
+      "description_en": "Horizontal resolution in pixels (used when custom resolution is on, or by the game launcher).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "general.resolutionheight",
+      "name_en": "Resolution Height",
+      "type": "int",
+      "default": 768,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "General",
+        "field": "ResolutionHeight",
+        "also_in_ini": {
+          "section": "General",
+          "key": "ResolutionHeight"
+        }
+      },
+      "description_en": "Vertical resolution in pixels (used when custom resolution is on, or by the game launcher).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "network.gateway",
+      "name_en": "Gateway",
+      "type": "string",
+      "default": "192.168.1.1",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "Network",
+        "field": "Gateway",
+        "also_in_ini": {
+          "section": "Network",
+          "key": "Gateway"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Gateway' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "network.serveraddress",
+      "name_en": "Server Address",
+      "type": "string",
+      "default": "164.132.246.154",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "Network",
+        "field": "ServerAddress",
+        "also_in_ini": {
+          "section": "Network",
+          "key": "ServerAddress"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'ServerAddress' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "network.serverport",
+      "name_en": "Server Port",
+      "type": "int",
+      "default": 49200,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "Network",
+        "field": "ServerPort",
+        "also_in_ini": {
+          "section": "Network",
+          "key": "ServerPort"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'ServerPort' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "network.playerid",
+      "name_en": "Player Id",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "MKDX118",
+        "category": "Network",
+        "field": "PlayerId",
+        "also_in_ini": {
+          "section": "Network",
+          "key": "PlayerId"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'PlayerId' (the profile gives no description).",
+      "source": [
+        "tp_profile:MKDX118"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "MKDX118",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/MKDX118.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "amconfig.h_resol",
+      "name_en": "Horizontal resolution",
+      "type": "int",
+      "default": 1360,
+      "min": 640,
+      "max": 3840,
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "AMUpdaterConfig",
+        "key": "amucfg-h_resol"
+      },
+      "description_en": "Resolution of the updater/launcher screen.",
+      "source": [
+        "findings/mkdx_configs.md"
+      ]
+    },
+    {
+      "key": "amconfig.v_resol",
+      "name_en": "Vertical resolution",
+      "type": "int",
+      "default": 768,
+      "min": 480,
+      "max": 2160,
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "AMUpdaterConfig",
+        "key": "amucfg-v_resol"
+      },
+      "description_en": "Vertical resolution of the updater screen.",
+      "source": [
+        "findings/mkdx_configs.md"
+      ]
+    },
+    {
+      "key": "amconfig.lang",
+      "name_en": "Language",
+      "type": "enum",
+      "default": "JP",
+      "values": [
+        "JP"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "AMUpdaterConfig",
+        "key": "amucfg-lang"
+      },
+      "description_en": "Updater language (only JP shown).",
+      "source": [
+        "findings/mkdx_configs.md"
+      ]
+    },
+    {
+      "key": "amconfig.show_console",
+      "name_en": "Show auth console",
+      "type": "enum",
+      "default": "ENABLE",
+      "values": [
+        "ENABLE",
+        "DISABLE"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "AMAuthdConfig",
+        "key": "amdcfg-showConsole"
+      },
+      "description_en": "Show the ALL.Net auth daemon console window.",
+      "source": [
+        "findings/readfirst.md",
+        "findings/mkdx_configs.md"
+      ]
+    },
+    {
+      "key": "amconfig.auth_type",
+      "name_en": "Authentication type",
+      "type": "enum",
+      "default": "ALL.NET",
+      "values": [
+        "ALL.NET"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "AMAuthdConfig",
+        "key": "amdcfg-authType"
+      },
+      "description_en": "Authentication scheme; the game expects an ALL.Net server (the emulation profile has its own server fields).",
+      "source": [
+        "findings/mkdx_configs.md"
+      ]
+    },
+    {
+      "key": "amconfig.muchaapp_loglevel",
+      "name_en": "Mucha app log level",
+      "type": "enum",
+      "default": "INFO",
+      "values": [
+        "DEBUG",
+        "INFO"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "AMCUS/AMConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "MuchaAppConfig",
+        "key": "appcfg-loglevel"
+      },
+      "description_en": "Log level of the card/content stack (findings suggest DEBUG for diagnosis).",
+      "source": [
+        "findings/antwoorden.md",
+        "findings/mkdx_configs.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [],
+    "notes_en": "Progress lives on the (emulated) ALL.Net server / Banapass card, not in local files. findings/mkdx_research.md has an empty NVRAM/save/card section. AMConfig.ini of both versions is byte-identical (allcfg-gameVer=1.10 in 1.18.16 too)."
+  }
+}

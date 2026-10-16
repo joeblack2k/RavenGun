@@ -1,0 +1,103 @@
+{
+  "title": "Rampage",
+  "nas_folder": "Rampage",
+  "platform": "Adrenaline PC Based (Unity, 64-bit)",
+  "exe": "Game.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput"
+      ],
+      "default": "DirectInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Rampage",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:Rampage"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Rampage",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:Rampage"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "Rampage",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/Rampage.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "reg_files",
+        "path": "game.reg, key.reg, key1.reg",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Registry import files that configure the cabinet software.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Not verified.",
+        "source": [
+          "gamemap"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": "Game_Data/Plugins/sxCoreSettings.txt holds the tracking-device settings."
+  }
+}

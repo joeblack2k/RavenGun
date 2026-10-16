@@ -1,0 +1,559 @@
+{
+  "title": "Transformers: Shadows Rising",
+  "nas_folder": "Sega",
+  "platform": "Sega PC Based (Hollywood Gaming shell + 32-bit game)",
+  "exe": "Sega/shell/Shell.exe -> Transformers2/Transformers2.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TransformersShadowsRising",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:TransformersShadowsRising"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "TransformersShadowsRising",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/TransformersShadowsRising.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "gs.language",
+      "name_en": "Language",
+      "type": "enum",
+      "default": "ENGLISH",
+      "values": [
+        "ENGLISH"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "GameSettings",
+        "key": "LANGUAGE"
+      },
+      "description_en": "Game language.",
+      "source": [
+        "findings/nvram_inventory.md",
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.game_difficulty",
+      "name_en": "Game difficulty",
+      "type": "enum",
+      "default": "NORMAL",
+      "values": [
+        "EASY",
+        "NORMAL",
+        "HARD"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "GameSettings",
+        "key": "GAME DIFFICULTY"
+      },
+      "description_en": "Difficulty.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.advertise_sound",
+      "name_en": "Advertise sound",
+      "type": "enum",
+      "default": "NORMAL",
+      "values": [
+        "OFF",
+        "LOW",
+        "NORMAL",
+        "HIGH"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "GameSettings",
+        "key": "ADVERTISE SOUND"
+      },
+      "description_en": "Attract-mode sound level.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.revival",
+      "name_en": "Revival",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "REVIVAL"
+      },
+      "description_en": "Allow revival.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.p1_reaction",
+      "name_en": "Player 1 controller reaction",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "PLAYER1 CONTROLLER REACTION"
+      },
+      "description_en": "Recoil/feedback for player 1.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.p2_reaction",
+      "name_en": "Player 2 controller reaction",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "PLAYER2 CONTROLLER REACTION"
+      },
+      "description_en": "Recoil/feedback for player 2.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.continue_countdown",
+      "name_en": "Continue countdown (s)",
+      "type": "int",
+      "default": 20,
+      "min": 5,
+      "max": 60,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "GameSettings",
+        "key": "CONTINUE COUNTDOWN"
+      },
+      "description_en": "Seconds of the continue countdown.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.enemy_boost",
+      "name_en": "Enemy boost",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "ENEMY BOOST"
+      },
+      "description_en": "Stronger enemies.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.kids_mode",
+      "name_en": "Kids mode",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "KIDS MODE"
+      },
+      "description_en": "Easier mode for kids.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.select_stage",
+      "name_en": "Select stage",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "SELECT STAGE"
+      },
+      "description_en": "Let the player choose the stage.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.english_subtitles",
+      "name_en": "English subtitles",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "ENGLISH SUBTITLES"
+      },
+      "description_en": "Show English subtitles.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "gs.swipe_card",
+      "name_en": "Swipe card to play",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "format": "ini_onoff",
+        "section": "GameSettings",
+        "key": "SWIPE CARD TO PLAY"
+      },
+      "description_en": "Require a card swipe.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:Sega/ShellData/GameSettings.ini"
+      ]
+    },
+    {
+      "key": "shell.fullscreen",
+      "name_en": "Shell fullscreen",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/shell/Game.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Window",
+        "key": "Fullscreen"
+      },
+      "description_en": "Shell window mode.",
+      "source": [
+        "gamemap:Sega/shell/Game.ini"
+      ]
+    },
+    {
+      "key": "shell.width",
+      "name_en": "Shell width",
+      "type": "int",
+      "default": 1920,
+      "min": 640,
+      "max": 7680,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/shell/Game.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Window",
+        "key": "Width"
+      },
+      "description_en": "Shell window width.",
+      "source": [
+        "gamemap:Sega/shell/Game.ini"
+      ]
+    },
+    {
+      "key": "shell.height",
+      "name_en": "Shell height",
+      "type": "int",
+      "default": 1080,
+      "min": 480,
+      "max": 4320,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/shell/Game.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Window",
+        "key": "Height"
+      },
+      "description_en": "Shell window height.",
+      "source": [
+        "gamemap:Sega/shell/Game.ini"
+      ]
+    },
+    {
+      "key": "shell.test_button",
+      "name_en": "Test button number",
+      "type": "int",
+      "default": 13,
+      "min": 0,
+      "max": 32,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/shell/config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "system",
+        "key": "TEST"
+      },
+      "description_en": "Joystick button number the shell reads for TEST (zero or one based is not established).",
+      "source": [
+        "findings/settings_per_game.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "shell.service_button",
+      "name_en": "Service button number",
+      "type": "int",
+      "default": 14,
+      "min": 0,
+      "max": 32,
+      "target": {
+        "kind": "game_config_file",
+        "path": "Sega/shell/config.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "system",
+        "key": "SERVICE"
+      },
+      "description_en": "Joystick button number for SERVICE.",
+      "source": [
+        "findings/settings_per_game.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "variables",
+        "path": "Sega/shell/variables/* (each with .bak)",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Shell state store: four-letter files such as crdi, cred, dply, fply, erlg, tton (credits, play counters, error log). Written by game and shell; each value has a .bak.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Probably resets credits and counters. Delete a value with its .bak.",
+        "source": [
+          "gamemap:Sega/shell/variables",
+          "repo:packaging/games-status.md"
+        ],
+        "confidence": "low"
+      },
+      {
+        "id": "game_settings",
+        "path": "Sega/ShellData/GameSettings.ini",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Operator game settings (see options).",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Probably recreated with defaults by the shell; not verified. Back up first.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "cal",
+        "path": "Sega/Transformers2/fs (calibration state)",
+        "base": "game_dir",
+        "kind": "nvram",
+        "description_en": "Gun calibration is done by the game (testcalibrate.xml); where it stores the result is not established.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Not verified.",
+        "source": [
+          "repo:packaging/games-status.md"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": "testbookkeeping*.xml are test-menu page definitions, not data. Dongle runtime DLLs (dk2win32.dll) sit in Sega/shell."
+  }
+}
