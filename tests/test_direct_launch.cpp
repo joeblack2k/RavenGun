@@ -790,6 +790,16 @@ int main() {
         fs::remove(tuser);
     }
 
+    // --- [Launch] View = off: nooit een view, ook niet een die er al staat (Dream Raiders, 2026-10-16) ----------------------------
+    {
+        const fs::path suser = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(suser, "[Launch]\nView = off\n");
+        const Verdict vo = plan_direct("Spel", p, o, pl, why);
+        CHECK(vo != Verdict::Ok || pl.game_source != "view");   // Spel staat alleen in de view: zonder view geen spel uit de view
+        fs::remove(suser);
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.game_source == "view");
+    }
+
     // --- de automatische view ([Launch] View = auto): een game op de (nep-)NAS krijgt bij een start een lokale view -----------------
     // (de boom zelf vergelijkt tests/test_gameview.py met tp-add-game.py --view; hier het plan en het plaatsen van teknoparrot.ini)
     {

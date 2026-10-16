@@ -15,6 +15,7 @@
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/direct_internal.hpp"
 #include "ravengun/launch/gamefind.hpp"
+#include "ravengun/launch/gameview.hpp"
 
 namespace ravengun::launch {
 
@@ -166,8 +167,14 @@ std::string locate(const std::string& profile, const gsn::Ini& settings, const D
         if (how) *how = "override";
         return expand_home(ov, p.home);
     }
+    // [Launch] View = off: nooit een view, ook niet een die er al staat (Dream Raiders: vanuit de view "SOUND FUNCTION NOT FOUND",
+    // vanuit de gamemap niet; gemeten 2026-10-16). Een ongeldige waarde weigert plan_view later met een melding.
+    ViewSetting vs;
+    std::string verr;
+    const bool no_view = parse_view_setting(settings.get("Launch", "View"), settings.get("Launch", "ViewEmptyDirs"), vs, verr) &&
+                         vs.mode == ViewSetting::Mode::Off;
     // De sha256 uit de cache (per pad, grootte en mtime), library.json als hint voor het zoeken: een start hasht de NAS niet opnieuw.
-    return gsn::locate_game(profile, settings, library_folders(p), p.views(), p.home, how,
+    return gsn::locate_game(profile, settings, library_folders(p), no_view ? std::string() : p.views(), p.home, how,
                             [](const std::string& f) { return default_hash_cache().sha256(f); },
                             library_roots(p.library_file, profile, gsn::identify_of(settings).path, p.home));
 }
