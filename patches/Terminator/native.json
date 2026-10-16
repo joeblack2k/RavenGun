@@ -1,0 +1,34 @@
+{
+  "title": "Terminator Salvation",
+  "enabled": false,
+  "status": "geparkeerd",
+  "note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255 (DongleInitialize() FAILED: de game wil de HASP-dongle); niet omzeild.",
+  "arch": "i386",
+  "mounts": [
+    {
+      "src": "@nas/Terminator Salvation ",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "libs": [
+    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
+    "@tpui/ElfLdr2/libs/libPhysXCore.so",
+    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
+    "@tpui/ElfLdr2/libs/libNxCooking.so",
+    "@lib32/libtheora.so.0",
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1"
+  ],
+  "preload": "",
+  "exe": "/pm/game",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": [
+    "-n",
+    "-f{res}"
+  ],
+  "res": "1360x768",
+  "route": "evdev"
+}

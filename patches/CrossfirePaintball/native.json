@@ -1,0 +1,26 @@
+{
+  "title": "Crossfire: Maximum Paintball",
+  "enabled": false,
+  "status": "niet-getest",
+  "note": "Nooit gestart; statisch onderzocht (2026-10-14). i386, ongepakt, gewone ld.so (med_pball). IO via I/O-poorten (iopl + inb/outb in de code zelf; \"/dev/p37c must exist or user must be root\") en de geweren via de kerneldriver /dev/mjg (lichtpulsen). Natively faalt iopl (geen root) en bestaan /dev/p37c en /dev/mjg niet. Nodig: een shim die iopl laat slagen en de in/out-instructies via SIGSEGV nadoet, en een nep-/dev/mjg; zelfde motor als Police Trainer 2.",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Crossfire Maximum Paintball",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "libs": [
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1"
+  ],
+  "preload": "",
+  "exe": "/pm/med_pball",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": [],
+  "route": "evdev"
+}

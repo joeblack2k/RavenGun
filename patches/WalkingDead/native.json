@@ -1,0 +1,69 @@
+{
+  "title": "The Walking Dead (Raw Thrills)",
+  "enabled": false,
+  "status": "niet-getest",
+  "arch": "i386",
+  "loader": "rg-elfloader",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Walking Dead",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/WalkingDead/dropin/eerste-plt-slots.tsv",
+      "dst": "/rg/wd-slots.tsv"
+    },
+    {
+      "src": "@patches/WalkingDead/dropin/hasp-haken.ini",
+      "dst": "/rg/hasp-haken.ini"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/WalkingDead/dropin/ravengun-hasp",
+      "dst": "/pm/ravengun-hasp"
+    }
+  ],
+  "libs": [
+    "@tpui/ElfLdr2/libs/libcsv.so",
+    "@tpui/ElfLdr2/libs/libssl.so.1.0.0",
+    "@tpui/ElfLdr2/libs/libcrypto.so.1.0.0",
+    "@lib32/libGLU.so.1",
+    "@build/lib32/libcaca.so.0",
+    "@build/lib32/librg-threadprio.so",
+    "@build/lib32/librg_rio_bridge.so",
+    "@build/lib32/librg-glslfix.so",
+    "@patches/WalkingDead/dropin/libravengun-hasphook.so",
+    "@patches/WalkingDead/dropin/ravengun-hasp.so"
+  ],
+  "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so:/rg/lib/librg-glslfix.so",
+  "env": {
+    "RG_ELF_SLOT_TABLE": "/rg/wd-slots.tsv",
+    "RAVENGUN_HASP_GAME": "WalkingDead",
+    "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+    "RAVENGUN_HASP_ELF_ADRESLIJST": "/rg/hasp-haken.ini",
+    "RAVENGUN_HASP_VERBOSE": "1",
+    "RG_RIO_LOG": "1",
+    "RG_ELF_PTRACER_ANY": "1",
+    "RG_GLSLFIX_LOG": "1",
+    "RG_ELF_MAIN": "1"
+  },
+  "note": "Native route opgezet (2026-10-15): rg-elfloader met de eerste-PLT-slottabel (806/806, __pow_finite -> pow), RG_ELF_MAIN=1 (de dump is na de constructors gemaakt; main wordt als functie aangeroepen), eigen libcaca-stub, HASP-hook met adreslijst (anker: patch van Aliens Armageddon, verschuiving +0x15e970), RIO-brug, RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: \"Welcome to Walking Dead v01.05\", dongleaanroepen komen binnen. GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer f3348bcd..., c0f440bd...) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; 41 RTDT/adj-bestanden laden niet en de game valt om.",
+  "exe": "/pm/game",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": [
+    "-f{res}",
+    "-e"
+  ],
+  "res": "1920x1080",
+  "route": "tp-shm",
+  "extra_ro": [
+    "/dev/shm/ravengun_JvsState"
+  ]
+}

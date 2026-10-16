@@ -1,0 +1,25 @@
+{
+  "title": "America's Army Arcade",
+  "enabled": false,
+  "status": "niet-getest",
+  "note": "Nooit gestart; statisch onderzocht (2026-10-14). i386, ongepakt, Unreal Engine 2 (System/armyops-bin) met SDL 1.2 uit de spelmap (RPATH \".\", werkmap System) en libstdc++.so.5 uit ElfLdr2/libs. Invoer via SDL: X-muis en -toetsenbord. In System/DefUser.ini: F1/F2 = START speler 1/2, C = munt (Simulate_Coin). Open, daarom enabled=false: de daemon stuurt 1 en 5 (niet F1 en C) en de virtuele lightgun beweegt de X-cursor niet (udev: LIBINPUT_IGNORE_DEVICE), dus alleen met een echte muis te richten. HOME = System/env/home (de env-map van de dump).",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/America's Army Arcade",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "libs": [
+    "@tpui/ElfLdr2/libs/libstdc++.so.5"
+  ],
+  "preload": "",
+  "exe": "/pm/System/armyops-bin",
+  "cwd": "/pm/System",
+  "home": "/pm/System/env/home",
+  "args": [],
+  "res": "800x600",
+  "route": "evdev"
+}
