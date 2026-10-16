@@ -556,6 +556,7 @@ const EnvMapEntry kEnvMap[] = {
     {"Display", "GamescopeBackend", "TP_GAMESCOPE_BACKEND", ""},
     {"Display", "GamescopeResolution", "RG_GAMESCOPE_RES", ""},
     {"Display", "GamescopeScale", "RG_GAMESCOPE_SCALE", ""},
+    {"Display", "GamescopeGameResolution", "RG_GAMESCOPE_GAME_RES", ""},   // interne resolutie van gamescope (-w/-h), bv. 1360x768
     {"Input", "JvsTransport", "RG_JVS_TRANSPORT", ""},
     {"Input", "JvsPipeBoard", "RG_JVS_BOARD", "boolT"},
     {"Input", "JvsF1Once", "RG_JVS_F1_ONCE", "boolT"},

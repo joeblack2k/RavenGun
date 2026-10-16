@@ -591,6 +591,17 @@ int main() {
             CHECK(!dp.starts.empty() && dp.starts[0].argv == dp.argv);
         }
         o5.base_env.erase("LD_LIBRARY_PATH");
+        // De interne resolutie van gamescope ([Display] GamescopeGameResolution): -w/-h voor games met een vaste modus.
+        CHECK(std::find(dp.argv.begin(), dp.argv.end(), "-w") == dp.argv.end());
+        o5.base_env["RG_GAMESCOPE_GAME_RES"] = "1360x768";
+        CHECK(plan_direct("Spel", p, o5, dp, w) == Verdict::Ok);
+        {
+            auto seq = [&](const std::vector<std::string>& q) { return std::search(dp.argv.begin(), dp.argv.end(), q.begin(), q.end()) != dp.argv.end(); };
+            CHECK(seq({"-W", "1920", "-H", "1080"}) && seq({"-w", "1360", "-h", "768"}));
+        }
+        o5.base_env["RG_GAMESCOPE_GAME_RES"] = "groot";
+        CHECK(plan_direct("Spel", p, o5, dp, w) == Verdict::Ok && std::find(dp.argv.begin(), dp.argv.end(), "-w") == dp.argv.end());
+        o5.base_env.erase("RG_GAMESCOPE_GAME_RES");
         CHECK(plan_direct("Spel", p, o5, dp, w) == Verdict::Ok);
         if (!dp.env.count("LD_LIBRARY_PATH") && !dp.env.count("LD_PRELOAD") && !dp.env.count("LD_AUDIT"))
             CHECK(std::find(dp.argv.begin(), dp.argv.end(), "/usr/bin/env") == dp.argv.end());

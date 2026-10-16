@@ -138,7 +138,32 @@ Geïmplementeerd en automatisch getest (`ravengun_jvs_tests`: vaste byte-reeksen
 
 Alles wat per game anders is staat in `patches/<Game>/game.ini` en `patches.ini` (meegeleverd, met een gebruikerslaag in `~/.local/share/ravengun/patches/` die per sleutel wint) en `patches/_defaults/<Type>.ini`; formaat en betekenis van de sleutels: `docs/per-game-patches.md`. Eén lezer per taal, zelfde regels, getest tegen dezelfde voorbeeldbestanden: `scripts/gamesettings.py` (Python: `launch-direct.py`, `play-halo.sh`, `tp-add-game.py`, `gen-compatibility.py`, de migratie) en `src/ravengun/gamesettings/` (C++, alleen de standaardbibliotheek: de IO-brug en de gamelijst van de engine, de app). `ENV_MAP` in `gamesettings.py` is de enige plek waar een sleutel aan een omgevingsvariabele van TeknoParrot of de lader hangt. De gedeelde bibliotheken (tp-shm-indelingen, JVS- en HID-borden) blijven in `packaging/*.json`; een game verwijst ernaar met een naam.
 
-## Directe start zonder TeknoParrotUi (A10, 2026-10-10)
+## Wine-routes: de unit en de schrijflaag (2026-10-16)
+
+Een Wine-game (directe route `[Launch] Mode = direct`, en de Unity-route) start de daemon zelf, zonder script:
+`systemd-run --user --unit=ravengun-tpui -- bwrap ... -- rg-direct --run <plan.json>` (Unity: `... -- bwrap ... -- proton run Game.exe`).
+Het plan maakt `launch::plan_direct` (`src/ravengun/launch/direct*.cpp`; `rg-direct --plan PROFIEL` toont het zonder bijwerkingen);
+`tests/golden/direct/` bewaart de plannen van alle games met de directe route.
+
+**De schrijflaag** (`games::write_layer`). De NAS-koppeling is schrijfbaar, en een game schrijft saves, logs en NVRAM in zijn eigen map
+(rechtstreeks of via de links van een lokale view). Gemeten 2026-10-16: 370 bestanden op de NAS sinds 14-10. Daarom start de unit in
+bwrap met:
+- `--dev-bind / /`: de hele host zoals hij is (beeld, geluid, /dev/shm van de IO-brug, het netwerk voor de JVS-pipe);
+- `--tmpfs /tmp --dir /tmp/.X11-unix`: een eigen /tmp, dus een eigen wineserver (Wine laat bestanden openen door de wineserver; een
+  wineserver van buiten zou de overlay omzeilen) en een eigen socketmap voor de Xwayland van gamescope (die van de host is van root, en
+  root bestaat niet in de namespace). Een game zonder gamescope bereikt het X-scherm van de host via de abstracte socket;
+- over elke spelmap van de app (library.json; een map binnen een andere telt niet apart) en de echte map achter de exe een overlay:
+  wat de game schrijft komt in `~/.local/share/ravengun/writelayer/<profiel>/<n>/upper`; de spelmap blijft onaangeroerd.
+Zonder bwrap start een Wine-game niet. Het logboek noemt elke laag (`schrijflaag: <map> (alleen lezen) -> <upper>`). De native route
+heeft dezelfde techniek in zijn eigen sandbox (`launch::plan`, mounts met `overlay`).
+
+Gevolg: de stand van een game (de herstelde backup van Gashaaaan, kalibraties, highscores) staat per profiel in de schrijflaag.
+Opnieuw beginnen = die map weghalen.
+
+## Directe start zonder TeknoParrotUi (A10, 2026-10-10; geschiedenis)
+
+*Tot 2026-10-16 liep dit via `scripts/play-halo.sh` en `scripts/launch-direct.py`; die zijn weg (zie hierboven). De beschrijving van
+het plan hieronder geldt nog voor `launch::plan_direct`, die de uitkomst van het script bewaart.*
 
 Gebouwd en live gemeten (Terminator, Time Crisis 5, Transformers, Halo, Go Go Strike, Raccoon Rampage; `packaging/games-status.md`, achtste ronde); automatisch getest met `tests/launch_direct_test.sh` (nep-runtime: startplan, `teknoparrot.ini`, activering, NAS-bescherming, JVS-pakketten). Besluit en afwegingen: `docs/decisions.md`, "A10".
 

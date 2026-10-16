@@ -628,6 +628,7 @@ ENV_MAP = [
     ("Display", "GamescopeBackend", "TP_GAMESCOPE_BACKEND", ""),
     ("Display", "GamescopeResolution", "RG_GAMESCOPE_RES", ""),
     ("Display", "GamescopeScale", "RG_GAMESCOPE_SCALE", ""),
+    ("Display", "GamescopeGameResolution", "RG_GAMESCOPE_GAME_RES", ""),
     ("Input", "JvsTransport", "RG_JVS_TRANSPORT", ""),
     ("Input", "JvsPipeBoard", "RG_JVS_BOARD", "boolT"),
     ("Input", "JvsF1Once", "RG_JVS_F1_ONCE", "boolT"),

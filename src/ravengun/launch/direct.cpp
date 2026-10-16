@@ -418,6 +418,12 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         std::string scale = lower(trim(getenv_or(env, "RG_GAMESCOPE_SCALE")));
         if (!scales.count(scale)) scale = "fit";
         gamescope = {gs_bin, "-W", std::to_string(wh.first), "-H", std::to_string(wh.second), "-S", scale, "-f"};
+        // [Display] GamescopeGameResolution (RG_GAMESCOPE_GAME_RES): de interne resolutie (-w/-h). De Xwayland van gamescope biedt
+        // dan precies die modus; een game die een vaste modus vraagt (Taito Type X2: 1360x768) krijgt zijn Direct3D-apparaat, en
+        // gamescope schaalt op naar de tv (-W/-H). Zonder: de modus van de tv.
+        const std::string game_res = getenv_or(env, "RG_GAMESCOPE_GAME_RES");
+        std::smatch gm;
+        if (std::regex_match(game_res, gm, res)) gamescope.insert(gamescope.end(), {"-w", gm[1].str(), "-h", gm[2].str()});
         if (!backend.empty()) gamescope.insert(gamescope.end(), {"--backend", backend});
         gamescope.push_back("--");
     }
