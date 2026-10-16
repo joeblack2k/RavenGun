@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Rampage
-Comment=Start Rampage met de Move als lightgun (RavenGun)
-Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile Rampage
-Icon=input-gaming
-Terminal=false
-Categories=Game;

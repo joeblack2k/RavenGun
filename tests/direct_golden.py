@@ -1,116 +1,60 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Gouden vergelijking van de directe route: het plan van de engine (rg-direct --plan, src/ravengun/launch/direct.*) tegen dat van
-scripts/launch-direct.py (build_plan, droog: geen Wine, geen game, niets geschreven), voor ELK profiel in patches/ met [Launch] Mode = direct.
-Per game: dezelfde uitkomst (de engine start, het script beslist, of beide weigeren) en, als de engine start, dezelfde argv, werkmap,
-Wine en prefix, de VOLLEDIGE omgeving (met de drop-ins, zonder TP_LAUNCH_SESSION_ID), dezelfde geplaatste bestanden (teknoparrot.ini
-met inhoud, drop-ins met bron en doel, de mappen die eerst lokaal worden, de exe met de grotere stapel), de JVS-brug, de procesnamen, de regels per patch en per
-drop-in, en de besturingspipe ([Input] ControlPipe: indeling, pipe, bron, grootte, tempo). Daarnaast de invoerroute zoals
-play-halo.sh hem voor een directe start kiest, en de JVS-pakketten en -antwoorden.
+"""Gouden vergelijking van de directe route: het plan van de engine (rg-direct --plan, src/ravengun/launch/direct.*) tegen de
+VASTGELEGDE plannen in tests/golden/direct/, voor ELK profiel in patches/ met [Launch] Mode = direct (plus FORCE_DIRECT).
 
-Twee standen:
-  (standaard) hermetisch: een tijdelijke HOME met een nep-runtime, nep-laders, de games als views (een met een koppeling naar een
-              nep-NAS onder ~/mnt, zodat drop-ins een map lokaal moeten maken) en in gamemappen (een op de nep-NAS: drop-ins
-              weigeren), het oude UserProfiles/<P>.env en de gebruikerslaag van deze machine als die er zijn (met HOME omgezet).
-  --real      tegen deze machine zoals hij is (alleen gelezen): de echte runtime, views, gamemappen en gebruikerslaag.
-Gebruik: tests/direct_golden.py --rg-direct build/rg-direct [--patches patches] [--real] [--verbose]
+Herkomst van de gouden bestanden: ze zijn op 2026-10-16 gemaakt toen scripts/launch-direct.py (de Python-tweeling, sindsdien
+weg) er nog was. Toen gold voor elk profiel: dezelfde uitkomst als het script en, als de engine startte, hetzelfde plan (argv,
+werkmap, Wine en prefix, de volledige omgeving, teknoparrot.ini met inhoud, drop-ins met bron en doel, de mappen die eerst lokaal
+worden, de exe met de grotere stapel, de JVS-brug, de procesnamen, de regels per patch en per drop-in, de besturingspipe, de
+starts); ook met de views van een start (--make-view) en dezelfde boom van die views. De JVS-pakketten en -antwoorden
+(jvs.json) komen rechtstreeks uit het script. Alleen wat het script niet kende ([Launch] Dxvk, Gst32, NativeDlls, ViewCopies,
+Registry) is de melding van de engine zelf.
+
+Per profiel een bestand <Profiel>.json met:
+  plan   de uitkomst van `rg-direct --plan` (verdict, why, invoerroute, [Launch] Mode en de vergeleken velden van het plan)
+  start  idem met --make-view (de views zoals een start ze maakt)
+en _views.json met de bomen van de views die bij een start nieuw gemaakt worden (een koppeling met zijn doel, een map, of een
+bestand met zijn sha256).
+
+Alles is hermetisch: een tijdelijke HOME met een nep-runtime, nep-laders, de games als views (een met een koppeling naar een
+nep-NAS onder ~/mnt, zodat drop-ins een map lokaal moeten maken) en in gamemappen (een op de nep-NAS: drop-ins weigeren). Niets
+van deze machine doet mee (geen ParrotData.xml, .env of gebruikerslaag van hier). Paden worden genormaliseerd: de tijdelijke
+map wordt @TMP@ (de nep-HOME is @TMP@/home), patches/ wordt @PATCHES@ en de repo @REPO@, ook in de Wine-vorm (Z:\\...).
+
+Wat het plan bepaalt staat ook in patches/ (een eigen repo, ravengun-patches): een bewuste wijziging daar, of in de engine,
+verandert de gouden bestanden. Dan opnieuw vastleggen en het verschil nalezen:
+    tests/direct_golden.py --rg-direct build/rg-direct --update
+Gebruik: tests/direct_golden.py --rg-direct build/rg-direct [--patches patches] [--golden DIR] [--update] [--verbose]
 Exit 0 als alles gelijk is, 1 bij een verschil, 77 zonder patches/ of rg-direct."""
 import argparse
-import importlib.util
+import hashlib
 import json
 import os
-import random
 import shutil
 import subprocess
 import sys
 import tempfile
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCRIPTS = os.path.join(ROOT, "scripts")
+GOLDEN = os.path.join(HERE, "golden", "direct")
 sys.dont_write_bytecode = True
-REAL_HOME = os.environ.get("HOME", "/home/deck")
-REAL_TP = os.path.join(REAL_HOME, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
-# Games die in de vergelijking meedoen alsof [Launch] Mode = direct (de meegeleverde game.ini zegt nog tpui). Hermetisch zet de
-# gebruikerslaag van de opstelling Mode = direct; met --real blijft de machine ongemoeid (het plan zelf leest Mode niet).
+# Games die in de vergelijking meedoen alsof [Launch] Mode = direct (de meegeleverde game.ini zegt nog tpui): de gebruikerslaag
+# van de opstelling zet Mode = direct.
 FORCE_DIRECT = ("HOTDSD",)   # twee exe's: amdaemon.exe eerst, 5 s wachten, dan het spel
-# Invoer die hermetisch in de gebruikerslaag komt (de meegeleverde game.ini zegt nog evdev): HOTDSD via tp-shm met de besturingspipe
-# (ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe). Beide plannen moeten die pipe dan hebben, met dezelfde naam, bron en tempo.
+# Invoer die in de gebruikerslaag komt (de meegeleverde game.ini zegt nog evdev): HOTDSD via tp-shm met de besturingspipe
+# (ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe).
 FORCE_INPUT = {"HOTDSD": "\n[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n"}
-
-
-def load(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
-# ---------------------------------------------------------------------------------------------------------------------------------
-# De Python-kant (in een eigen proces: launch-direct.py leest HOME en de XDG-variabelen bij het importeren)
-
-def python_side(profiles, tp, make_view=False):
-    sys.path.insert(0, SCRIPTS)
-    ld = load(os.path.join(SCRIPTS, "launch-direct.py"), "launch_direct")
-    gs = ld.gs
-    out = {}
-    for name in profiles:
-        r = {"verdict": "ok"}
-        # De invoerroute zoals play-halo.sh die bij een directe start kiest.
-        try:
-            i, _src = gs.resolve_input(name, tp)
-            route = i.get("Route", "evdev") or "evdev"
-            env = gs.to_env(gs.load_for_profile(name, tp).settings, gs.profile_gamedir(tp, name))
-            if route == "evdev":
-                route = "tp-shm" if i.get("Layout") else "fallback"
-            if route == "unity-tcp" or (route == "jvs" and env.get("RG_JVS_TRANSPORT") != "pipe"):
-                route = "fallback"
-            r["route"] = route
-        except Exception as e:   # noqa: BLE001
-            r["route"] = "fout: %s" % e
-        try:
-            plan = ld.build_plan(name, tp, base_env=dict(os.environ), make_view=make_view)
-        except ld.SettingRefused as e:
-            r.update(verdict="refused", why="Instelling geweigerd: %s" % e)
-        except ld.PatchRefused as e:
-            r.update(verdict="refused", why="Patch geweigerd: %s" % e)
-        except ld.Unsupported as e:
-            r.update(verdict="fallback", why="Niet direct te starten: %s" % e)
-        except Exception as e:   # noqa: BLE001 -- een fout van het script zelf; dan valt play-halo.sh ook terug
-            r.update(verdict="fallback", why="launch-direct.py: %s: %s" % (type(e).__name__, e))
-        else:
-            if plan["dropins"]["errors"]:
-                r.update(verdict="refused", why="\n".join("Drop-in geweigerd: %s" % e for e in plan["dropins"]["errors"]))
-            else:
-                dl = ld.dropin_log_lines(plan)
-                ld.merge_env(plan, plan["dropins"]["env"])
-                r["plan"] = norm({
-                    "argv": plan["argv"], "cwd": plan["cwd"], "wine": plan["wine"], "prefix": plan["prefix"], "game": plan["game"],
-                    "env": plan["env"], "launch_env": plan["launch_env"], "files": [list(f) for f in plan["files"]],
-                    "dropin_files": [[f["src"], f["dest"]] for f in plan["dropins"]["files"]],
-                    "dropin_materialise": plan["dropins"]["materialise"], "dropin_lines": dl,
-                    "pipe_mode": plan["pipe_mode"], "shm_source": plan["shm_source"], "pipehelper": plan["pipehelper"],
-                    "game_comms": plan["game_comms"], "gamescope": plan["gamescope"], "windowed_override": plan["windowed_override"],
-                    "core_dll": plan["core_dll"] or "", "patch_lines": ld.patch_log_lines(plan["patches"]), "cwd_is_tp": plan["cwd"] == tp,
-                    "starts": [starts_view(s) for s in plan["starts"]],
-                    "control_pipe": plan["control_pipe"],
-                    "stack": plan.get("stack"),
-                    "view_links": [list(x) for x in plan.get("view_links") or []],
-                })
-        out[name] = r
-    print(json.dumps(out))
+PARROT_DATA = "<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapterName /></ParrotData>"
 
 
 def starts_view(s):
     """Wat er van een start vergeleken wordt: orde (via de lijst), rol, exe, argv, werkmap, gamescope, wachttijd en procesnamen."""
     return {"name": s["name"], "role": s["role"], "exe": s["exe"], "argv": s["argv"], "cwd": s["cwd"], "gamescope": s["gamescope"],
             "wait_before": float(s["wait_before"]), "comms": s["comms"]}
-
-
-def norm(p):
-    for k in ("env", "launch_env"):
-        p[k] = {a: b for a, b in p[k].items() if a != "TP_LAUNCH_SESSION_ID"}
-    return p
 
 
 def cpp_side(rg, name, tp, patches, user, env, extra=()):
@@ -121,9 +65,11 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
     out = {"verdict": d["verdict"], "why": d["why"], "input": d["input"], "launch_mode": d["launch_mode"]}
     if d["plan"]:
         p = d["plan"]
-        out["plan"] = norm({
-            "argv": p["argv"], "cwd": p["cwd"], "wine": p["wine"], "prefix": p["prefix"], "game": p["game"], "env": p["env"],
-            "launch_env": p["launch_env"], "files": p["files"], "dropin_files": [[f["src"], f["dest"]] for f in p["dropin_files"]],
+        out["plan"] = {
+            "argv": p["argv"], "cwd": p["cwd"], "wine": p["wine"], "prefix": p["prefix"], "game": p["game"],
+            "env": {k: v for k, v in p["env"].items() if k != "TP_LAUNCH_SESSION_ID"},
+            "launch_env": {k: v for k, v in p["launch_env"].items() if k != "TP_LAUNCH_SESSION_ID"},
+            "files": p["files"], "dropin_files": [[f["src"], f["dest"]] for f in p["dropin_files"]],
             "dropin_materialise": p["dropin_materialise"], "dropin_lines": p["dropin_lines"], "pipe_mode": p["pipe_mode"],
             "shm_source": p["shm_source"], "pipehelper": p["pipehelper"], "game_comms": p["game_comms"], "gamescope": p["gamescope"],
             "windowed_override": p["windowed_override"], "core_dll": p["core_dll"], "patch_lines": p["patch_lines"], "cwd_is_tp": p["cwd"] == tp,
@@ -132,8 +78,32 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
                              "size": p["control_size"], "interval_ms": p["control_interval_ms"]} if p.get("control_pipe") else None,
             "stack": {"reserve": p["stack_reserve"], "src": p["stack_src"], "dest": p["stack_dest"]} if p.get("stack_reserve") else None,
             "view_links": p.get("view_links", []),
-        })
+        }
     return out
+
+
+class Norm:
+    """Paden van deze run en deze machine naar vaste plaatshouders (ook in de Wine-vorm met backslashes)."""
+
+    def __init__(self, tmp, patches):
+        pairs = [(os.path.realpath(tmp), "@TMP@"), (tmp, "@TMP@"), (patches, "@PATCHES@"), (os.path.realpath(ROOT), "@REPO@"), (ROOT, "@REPO@")]
+        self.pairs = []
+        for a, b in pairs:
+            for x in (a, a.replace("/", "\\")):
+                if (x, b) not in self.pairs:
+                    self.pairs.append((x, b))
+        self.pairs.sort(key=lambda ab: -len(ab[0]))   # langste eerst: de tijdelijke map kan onder een andere liggen
+
+    def __call__(self, v):
+        if isinstance(v, str):
+            for a, b in self.pairs:
+                v = v.replace(a, b)
+            return v
+        if isinstance(v, list):
+            return [self(x) for x in v]
+        if isinstance(v, dict):
+            return {self(k): self(x) for k, x in v.items()}
+        return v
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
@@ -152,18 +122,18 @@ def sparse(path, size, magic):
         f.truncate(max(size, len(magic)))
 
 
+def in_gamemap(name):
+    """Vaste keuze per naam (niet per plaats in de lijst): een nieuw profiel verschuift de andere niet."""
+    return zlib.crc32(name.encode()) % 2 == 1
+
+
 def fixture(tmp, patches, profiles, gs):
     home = os.path.join(tmp, "home")
     tp = os.path.join(home, ".local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64")
     data = os.path.join(home, ".local/share/ravengun")
     user = os.path.join(data, "patches")
     os.makedirs(user, exist_ok=True)
-    pd = os.path.join(REAL_TP, "ParrotData.xml")
-    if os.path.isfile(pd):
-        os.makedirs(tp, exist_ok=True)
-        shutil.copy(pd, os.path.join(tp, "ParrotData.xml"))
-    else:
-        write(os.path.join(tp, "ParrotData.xml"), "<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapterName /></ParrotData>")
+    write(os.path.join(tp, "ParrotData.xml"), PARROT_DATA)
     for rel in ("ElfLdr2/BudgieLoader.exe", "ElfLdr2/x64/BudgieLoader_x64.exe", "OpenParrotx64/OpenParrotLoader64.exe",
                 "OpenParrotWin32/OpenParrotLoader.exe", "TeknoParrot/TeknoParrot.dll", "TeknoParrot/TeknoParrot64.dll",
                 "OpenParrotWin32/OpenParrot.dll", "OpenParrotx64/OpenParrot64.dll", "pipehelper.exe", "TeknoParrot/BudgieLoader.exe",
@@ -177,11 +147,12 @@ def fixture(tmp, patches, profiles, gs):
     write(os.path.join(data, "jvsbridge/rg-jvsbridge.exe"), "x")
     os.makedirs(os.path.join(home, ".local/share/ravengun/prefixes/shared/wine"), exist_ok=True)
     views = os.path.join(data, "runtime/views")
+    os.makedirs(views, exist_ok=True)
     games = os.path.join(home, "games")
     nas = os.path.join(home, "mnt/nas")
     write(os.path.join(home, ".config/ravengun/library.json"), json.dumps({"folders": [games, "~/mnt/nas/games"]}))
     extra = []
-    for n, name in enumerate(sorted(profiles)):
+    for name in sorted(profiles):
         g = gs.load_game(name)
         path = (g.get("Identify", "Path", "") or g.get("Game", "Executable", "").split(";")[0]).replace("\\", "/").strip("/")
         size = int(g.get("Identify", "Size", "0") or 0) if (g.get("Identify", "Size", "") or "").isdigit() else 64
@@ -202,25 +173,17 @@ def fixture(tmp, patches, profiles, gs):
             os.makedirs(os.path.join(nas, name, "Game_Data/Plugins"), exist_ok=True)
             write(os.path.join(nas, name, "Game_Data/Plugins/al-aanwezig.dll"), "x")
             os.symlink(os.path.join(nas, name, "Game_Data"), os.path.join(views, name, "Game_Data"))
-        elif n % 2:
+        elif in_gamemap(name):
             sparse(os.path.join(games, name, path), size, magic)
         else:
             sparse(os.path.join(views, name, path), size, magic)
         # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
         path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
         if path2 and name not in ("TC5", "Rampage"):
-            sparse(os.path.join(games if n % 2 else views, name, path2), 64, magic)
+            sparse(os.path.join(games if in_gamemap(name) else views, name, path2), 64, magic)
         if g.get("Identify", "Sha256", ""):
             # De echte exe is er niet (sha256): het pad komt als override van de gebruiker ([Game] GamePath), zoals de app dat zet.
-            extra.append((name, "\n[Game]\nGamePath = %s\n" % os.path.join(views if name == "Rampage" or not n % 2 else games, name, path)))
-    # Het oude .env en de gebruikerslaag van deze machine, met de thuismap omgezet.
-    for name in profiles:
-        src = os.path.join(REAL_TP, "UserProfiles", name + ".env")
-        if os.path.isfile(src):
-            write(os.path.join(tp, "UserProfiles", name + ".env"), open(src).read().replace(REAL_HOME, home))
-        src = os.path.join(REAL_HOME, ".local/share/ravengun/patches", name, "game.ini")
-        if os.path.isfile(src):
-            write(os.path.join(user, name, "game.ini"), open(src).read().replace(REAL_HOME, home))
+            extra.append((name, "\n[Game]\nGamePath = %s\n" % os.path.join(views if name == "Rampage" or not in_gamemap(name) else games, name, path)))
     for name in profiles:
         if name in FORCE_DIRECT:
             extra.append((name, "\n[Launch]\nMode = direct\n"))
@@ -229,76 +192,70 @@ def fixture(tmp, patches, profiles, gs):
     for name, text in extra:
         pth = os.path.join(user, name, "game.ini")
         write(pth, (open(pth).read() if os.path.isfile(pth) else "") + text)
-    env = {"HOME": home, "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "XDG_DATA_HOME": os.path.join(home, ".local/share"),
+    env = {"HOME": home, "PATH": "/usr/bin:/bin", "XDG_DATA_HOME": os.path.join(home, ".local/share"),
            "XDG_STATE_HOME": os.path.join(home, ".local/state"), "XDG_CONFIG_HOME": os.path.join(home, ".config"),
            "RAVENGUN_TP_DIR": tp, "RAVENGUN_LOADER_PATCHES_DIR": patches, "RAVENGUN_USER_PATCHES_DIR": user,
            "WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":97", "XDG_RUNTIME_DIR": os.path.join(tmp, "run"), "LANG": "C.UTF-8"}
-    return env, tp, user
+    return env, tp, user, views
 
 
-# ---------------------------------------------------------------------------------------------------------------------------------
-
-def diff(a, b, path=""):
-    out = []
-    if isinstance(a, dict) and isinstance(b, dict):
-        for k in sorted(set(a) | set(b)):
-            if k not in a:
-                out.append("%s.%s alleen in de engine: %r" % (path, k, b[k]))
-            elif k not in b:
-                out.append("%s.%s alleen in het script: %r" % (path, k, a[k]))
+def boom(top, norm):
+    """De boom van een view zonder links te volgen: {rel: ["L", doel] | ["D"] | ["F", sha256]}."""
+    out = {}
+    for dp, dirs, files in os.walk(top, followlinks=False):
+        for n in dirs + files:
+            p = os.path.join(dp, n)
+            rel = os.path.relpath(p, top)
+            if os.path.islink(p):
+                out[rel] = ["L", norm(os.readlink(p))]
+            elif os.path.isdir(p):
+                out[rel] = ["D"]
             else:
-                out += diff(a[k], b[k], "%s.%s" % (path, k))
-    elif a != b:
-        out.append("%s: script %r, engine %r" % (path, a, b))
+                with open(p, "rb") as f:
+                    out[rel] = ["F", hashlib.sha256(f.read()).hexdigest()]
+    return dict(sorted(out.items()))
+
+
+def diff(want, got, path=""):
+    out = []
+    if isinstance(want, dict) and isinstance(got, dict):
+        for k in sorted(set(want) | set(got)):
+            if k not in want:
+                out.append("%s.%s alleen in de engine: %r" % (path, k, got[k]))
+            elif k not in got:
+                out.append("%s.%s alleen in het gouden bestand: %r" % (path, k, want[k]))
+            else:
+                out += diff(want[k], got[k], "%s.%s" % (path, k))
+    elif want != got:
+        out.append("%s: gouden %r, engine %r" % (path, want, got))
     return out
 
 
-def jvs_compare(rg, ld):
-    rnd = random.Random(1234)
-    cases = ["e0010210f1", "e0ff03f00105", "e00102f0f3", "e001021011", "e00103140118", "e0010420020224e0010211",
-             "e00105210222000000", "e001d0df0310", "e00102", "e0010414e0010210", "e00104150500"]
-    for _ in range(300):
-        node = rnd.choice([1, 2, 0xFF])
-        body = bytes(rnd.choice([0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x30, 0x32, 0x35, 0x77, 0xE0, 0xD0, 2, 1])
-                     for _ in range(rnd.randint(1, 6)))
-        raw = bytes([node, len(body) + 1]) + body
-        raw += bytes([sum(raw) & 0xFF])
-        enc = bytearray(b"\xe0")
-        for b in raw:
-            enc += bytes([0xD0, (b - 1) & 0xFF]) if b in (0xE0, 0xD0) else bytes([b])
-        cases.append(enc.hex() + (enc[:rnd.randint(0, len(enc))].hex() if rnd.random() < 0.3 else ""))
-    want, skip = [], set()
-    for i, c in enumerate(cases):
-        frames, rest = ld.jvs_frames(bytes.fromhex(c))
-        s = ""
-        for fr in frames:
-            s += fr.hex() + ":"
-            if len(fr) >= 3:
-                a = ld.jvs_answer(fr[2:-1])
-                try:
-                    s += "reset" if a is None else ld.jvs_pack(a).hex()
-                except ValueError:   # een antwoord van meer dan 254 bytes: het script zelf loopt hier vast (de pipe-thread stopt)
-                    skip.add(i)
-            s += " "
-        want.append("%srest=%s" % (s, rest.hex()))
-    got = subprocess.run([rg, "--jvs-check"], input="\n".join(cases) + "\n", capture_output=True, text=True).stdout.splitlines()
-    bad = [(c, w, g) for i, (c, w, g) in enumerate(zip(cases, want, got)) if w != g and i not in skip]
-    return len(cases) - len(skip), bad + ([("aantal", len(want), len(got))] if len(got) != len(want) else [])
+def jvs_check(rg, golden_dir):
+    """De JVS-pakketten en -antwoorden van rg-direct --jvs-check tegen jvs.json (gemaakt met launch-direct.py)."""
+    with open(os.path.join(golden_dir, "jvs.json")) as f:
+        g = json.load(f)
+    got = subprocess.run([rg, "--jvs-check"], input="\n".join(g["cases"]) + "\n", capture_output=True, text=True).stdout.splitlines()
+    bad = [(c, w, x) for c, w, x in zip(g["cases"], g["want"], got) if w != x]
+    if len(got) != len(g["want"]):
+        bad.append(("aantal", len(g["want"]), len(got)))
+    return len(g["cases"]), bad
+
+
+def dump(path, obj):
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=1, sort_keys=True, ensure_ascii=False)
+        f.write("\n")
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--rg-direct", required=True)
     ap.add_argument("--patches", default=os.path.join(ROOT, "patches"))
-    ap.add_argument("--real", action="store_true")
+    ap.add_argument("--golden", default=GOLDEN)
+    ap.add_argument("--update", action="store_true", help="de gouden bestanden opnieuw schrijven uit de engine (nalezen!)")
     ap.add_argument("--verbose", action="store_true")
-    ap.add_argument("--python-side", nargs="+")   # intern: de Python-kant in een eigen proces
-    ap.add_argument("--tp")
-    ap.add_argument("--make-view", action="store_true")   # intern: de Python-kant maakt de views zoals een start
     a = ap.parse_args(argv)
-    if a.python_side:
-        python_side(a.python_side, a.tp, a.make_view)
-        return 0
     patches = os.path.realpath(a.patches)
     if not os.path.isdir(patches) or not os.path.isfile(a.rg_direct):
         print("geen patches/ (%s) of geen rg-direct" % patches)
@@ -307,133 +264,67 @@ def main(argv):
     os.environ.pop("RAVENGUN_PATCHES_DIR", None)
     sys.path.insert(0, SCRIPTS)
     import gamesettings as gs   # noqa: E402
-    alle = gs.list_games()
-    profiles = [n for n in alle if gs.load_game(n).launch_mode == "direct" or n in FORCE_DIRECT]
+    profiles = sorted(n for n in gs.list_games() if gs.load_game(n).launch_mode == "direct" or n in FORCE_DIRECT)
     tmp = tempfile.mkdtemp(prefix="rg-direct-golden-")
     try:
-        if a.real:
-            env = dict(os.environ)
-            env["RAVENGUN_LOADER_PATCHES_DIR"] = patches
-            tp = env.get("RAVENGUN_TP_DIR", REAL_TP)
-            user = env.get("RAVENGUN_USER_PATCHES_DIR") or os.path.join(REAL_HOME, ".local/share/ravengun/patches")
-        else:
-            env, tp, user = fixture(tmp, patches, profiles, gs)
-        def py_side(make_view=False):
-            r = subprocess.run([sys.executable, "-I", os.path.abspath(__file__), "--rg-direct", a.rg_direct, "--tp", tp, "--python-side", *profiles]
-                               + (["--make-view"] if make_view else []), capture_output=True, text=True, env=env)
-            if r.returncode != 0:
-                print("de Python-kant faalde:\n" + r.stderr)
-                return None
-            return json.loads(r.stdout.strip().splitlines()[-1])
-        py = py_side()
-        if py is None:
-            return 1
-        fails, rows = vergelijk(a, profiles, py, {name: cpp_side(a.rg_direct, name, tp, patches, user, env) for name in profiles})
-        # Een start ([Launch] View = auto, docs/per-game-patches.md "De view"): hermetisch plannen beide kanten nog eens met de views
-        # zoals een start ze maakt (launch-direct.py --check/--run, de daemon; rg-direct --plan --make-view). Een game op de nep-NAS
-        # (TC5) krijgt dan een view en zijn drop-ins kunnen geplaatst worden: droog weigeren beide, bij een start starten beide. Eerst
-        # de engine, dan worden de nieuwe views weggehaald en maakt het script ze opnieuw: dezelfde plannen en dezelfde bomen.
-        view_rows, view_msg, py2 = [], [], py
-        if not a.real:
-            views = os.path.join(env["XDG_DATA_HOME"], "ravengun/runtime/views")
-            voor = set(os.listdir(views))
-            cres = {name: cpp_side(a.rg_direct, name, tp, patches, user, env, ["--make-view"]) for name in profiles}
-            nieuw = sorted(set(os.listdir(views)) - voor)
-            boom_c = {v: boom(os.path.join(views, v)) for v in nieuw}
-            for v in nieuw:
-                shutil.rmtree(os.path.join(views, v))
-            py2 = py_side(make_view=True)
-            if py2 is None:
-                return 1
-            boom_p = {v: boom(os.path.join(views, v)) for v in sorted(set(os.listdir(views)) - voor)}
-            f2, view_rows = vergelijk(a, profiles, py2, cres)
-            fails += f2
-            if boom_c != boom_p:
+        env, tp, user, views = fixture(tmp, patches, profiles, gs)
+        norm = Norm(tmp, patches)
+        got = {name: {"plan": norm(cpp_side(a.rg_direct, name, tp, patches, user, env))} for name in profiles}
+        # Een start ([Launch] View = auto, docs/per-game-patches.md "De view"): nog eens plannen met de views zoals een start ze
+        # maakt. Een game op de nep-NAS (TC5) krijgt dan een view en zijn drop-ins kunnen geplaatst worden.
+        voor = set(os.listdir(views))
+        for name in profiles:
+            got[name]["start"] = norm(cpp_side(a.rg_direct, name, tp, patches, user, env, ["--make-view"]))
+        got_views = {v: boom(os.path.join(views, v), norm) for v in sorted(set(os.listdir(views)) - voor)}
+
+        if a.update:
+            os.makedirs(a.golden, exist_ok=True)
+            for f in os.listdir(a.golden):
+                if f.endswith(".json") and not f.startswith("_") and f != "jvs.json" and f[:-5] not in got:
+                    os.unlink(os.path.join(a.golden, f))
+                    print("weg: %s (geen profiel meer)" % f)
+            for name, r in got.items():
+                dump(os.path.join(a.golden, name + ".json"), r)
+            dump(os.path.join(a.golden, "_views.json"), got_views)
+            print("vastgelegd: %d profielen en %d nieuwe views in %s (jvs.json blijft)" % (len(got), len(got_views), a.golden))
+            return 0
+
+        fails = 0
+        print("directe route tegen de gouden plannen: %d games met [Launch] Mode = direct (geforceerd: %s)"
+              % (len(profiles), ", ".join(n for n in FORCE_DIRECT if n in profiles) or "geen"))
+        for name in profiles:
+            gpath = os.path.join(a.golden, name + ".json")
+            if not os.path.isfile(gpath):
                 fails += 1
-                view_msg.append("views VERSCHILLEN: engine %s, script %s" % (sorted(boom_c), sorted(boom_p)))
-            if "TC5" in profiles and "TC5" not in nieuw:
-                fails += 1
-                view_msg.append("TC5 (op de nep-NAS) kreeg geen view")
-            view_msg.insert(0, "views gemaakt bij een start: %s (engine en script %s)" % (", ".join(nieuw) or "geen",
-                                                                                           "gelijk" if boom_c == boom_p else "VERSCHILLEN"))
-        n, bad = jvs_compare(a.rg_direct, load(os.path.join(SCRIPTS, "launch-direct.py"), "ld_jvs"))
-        print("directe route, %s: %d games met [Launch] Mode = direct (geforceerd: %s)"
-              % ("deze machine" if a.real else "hermetisch", len(profiles), ", ".join(n for n in FORCE_DIRECT if n in profiles) or "geen"))
-        for titel, rws, pyx in (("", rows, py), ("met de views van een start (--make-view):", view_rows, py2)):
-            if titel and rws:
-                print(titel)
-                for x in view_msg:
-                    print("  " + x)
-            for name, u, notes, route in rws:
-                starts = (pyx[name].get("plan") or {}).get("starts") or []
-                cpipe = (pyx[name].get("plan") or {}).get("control_pipe")
-                print("  %-26s %-9s %s%s%s" % (name, route, u, "  [%d starts: %s]" % (len(starts), ", ".join(s["name"] for s in starts))
-                                               if len(starts) > 1 else "", "  [besturingspipe %s -> %s]" % (cpipe["profile"], cpipe["pipe"]) if cpipe else ""))
-                for x in notes if (a.verbose or "FOUT" in u) else []:
-                    print("      " + x)
+                print("  %-26s GEEN GOUDEN BESTAND (nieuw profiel? leg vast met --update en lees het na)  <-- FOUT" % name)
+                continue
+            with open(gpath) as f:
+                want = json.load(f)
+            d = diff(want, got[name])
+            fails += bool(d)
+            r = got[name]["plan"]
+            print("  %-26s %-8s %s" % (name, r["verdict"], "gelijk" if not d else "VERSCHILT  <-- FOUT"))
+            for x in d[:40] if (d or a.verbose) else []:
+                print("      " + x)
+        weg = sorted(f[:-5] for f in os.listdir(a.golden)
+                     if f.endswith(".json") and not f.startswith("_") and f != "jvs.json" and f[:-5] not in got)
+        if weg:
+            fails += 1
+            print("gouden bestanden zonder profiel met [Launch] Mode = direct: %s  <-- FOUT" % ", ".join(weg))
+        with open(os.path.join(a.golden, "_views.json")) as f:
+            want_views = json.load(f)
+        dv = diff(want_views, got_views)
+        fails += bool(dv)
+        print("views gemaakt bij een start: %s (%s)" % (", ".join(got_views) or "geen", "gelijk" if not dv else "VERSCHILT  <-- FOUT"))
+        for x in dv[:40]:
+            print("    " + x)
+        n, bad = jvs_check(a.rg_direct, a.golden)
         print("JVS-pakketten: %d gevallen, %d verschillen" % (n, len(bad)))
         for x in bad[:10]:
             print("   ", x)
         return 1 if fails or bad else 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-
-
-def boom(top):
-    """De boom van een view zonder links te volgen: {rel: ("L", doel) | ("D",) | ("F", inhoud)}."""
-    out = {}
-    for dp, dirs, files in os.walk(top, followlinks=False):
-        for n in dirs + files:
-            p = os.path.join(dp, n)
-            rel = os.path.relpath(p, top)
-            if os.path.islink(p):
-                out[rel] = ("L", os.readlink(p))
-            elif os.path.isdir(p):
-                out[rel] = ("D",)
-            else:
-                with open(p, "rb") as f:
-                    out[rel] = ("F", f.read())
-    return out
-
-
-def vergelijk(a, profiles, py, cres):
-    """Per game de uitkomst en het plan van het script (py) tegen die van de engine (cres). Geeft (aantal fouten, regels)."""
-    fails, rows = 0, []
-    for name in profiles:
-        p, c = py[name], cres[name]
-        notes = []
-        if c["verdict"] == "ok" and p["verdict"] == "ok":
-            d = diff(p["plan"], c["plan"])
-            uitkomst = "engine start, plan GELIJK" if not d else "engine start, plan VERSCHILT"
-            notes += d
-        elif c["verdict"] == "fallback" and c["why"].startswith("nog niet in de engine"):
-            uitkomst = "via het script (%s); script: %s" % (c["why"], p["verdict"])
-        elif c["verdict"] == "refused" and any(k in c.get("why", "") for k in ("[Launch] Dxvk", "[Launch] Gst32", "[Launch] NativeDlls", "[Launch] ViewCopies", "[Launch] Registry")):
-            # [Launch] Dxvk en Gst32 bestaan alleen in de engine (docs/dxvk.md, docs/gst32.md); hermetisch is er geen view, geen DXVK en
-            # geen gst32-map, dus weigert hij terecht.
-            uitkomst = "alleen de engine kent deze [Launch]-sleutel: %s" % c["why"].splitlines()[0][:120]
-        elif c["verdict"] == p["verdict"] and (c["why"] == p["why"] or c["verdict"] == "fallback"):
-            uitkomst = "beide %s: %s" % (c["verdict"], c["why"].splitlines()[0][:160])
-            if c["why"] != p["why"]:
-                notes.append("andere melding: script %r, engine %r" % (p["why"], c["why"]))
-        else:
-            uitkomst = "UITKOMST VERSCHILT"
-            notes.append("script %s (%s), engine %s (%s)" % (p["verdict"], p.get("why", ""), c["verdict"], c.get("why", "")))
-        # De invoerroute (play-halo.sh) tegen die van de engine.
-        ci = c.get("input", {})
-        croute = ci.get("route") if ci.get("verdict") == "ok" else "fallback"
-        if croute != p.get("route"):
-            notes.append("invoerroute: script %r, engine %r" % (p.get("route"), croute))
-        if c.get("launch_mode") != "direct" and not (a.real and name in FORCE_DIRECT):
-            notes.append("[Launch] Mode volgens de engine: %r" % c.get("launch_mode"))
-        if name in FORCE_DIRECT and not uitkomst.startswith("engine start") and not a.real:
-            notes.append("%s is geforceerd direct en hoort door de engine te gaan" % name)
-        if name in FORCE_INPUT and not a.real and not ((c.get("plan") or {}).get("control_pipe") and (p.get("plan") or {}).get("control_pipe")):
-            notes.append("%s heeft hermetisch [Input] ControlPipe en hoort in beide plannen een besturingspipe te hebben" % name)
-        hard = [x for x in notes if not x.startswith("andere melding")]
-        fails += bool(hard)
-        rows.append((name, uitkomst + ("" if not hard else "  <-- FOUT"), notes, croute))
-    return fails, rows
 
 
 if __name__ == "__main__":

@@ -5,8 +5,7 @@
 Op een nep-NAS (~/mnt/nas in een tijdelijke HOME) en per game:
   1. scripts/tp-add-game.py <Spel> <exe> --view [--view-up N] [--empty-dir REL]   (met de hand, zoals tot nu toe)
   2. rg-direct --plan <Spel> --make-view                                            (de engine: src/ravengun/launch/gameview.*)
-  3. scripts/launch-direct.py <Spel> --plan --make-view --json                      (de Python-tweeling: scripts/gameview.py)
-Na elke stap wordt de view vastgelegd (soort, linkdoel, inhoud en rechten van echte bestanden) en weer weggehaald; de drie moeten gelijk zijn.
+Na elke stap wordt de view vastgelegd (soort, linkdoel, inhoud en rechten van echte bestanden) en weer weggehaald; ze moeten gelijk zijn.
 Daarna: het plan rekent met de exe in de view en teknoparrot.ini komt in de (lokale) map van de exe; een tweede start ververst alleen
 de links (een nieuw bestand op de NAS krijgt een link, een verdwenen bestand verliest zijn link, lokale bestanden blijven); de NAS is
 na alles byte voor byte gelijk. Gebruik: tests/test_gameview.py --rg-direct build/rg-direct. Exit 0 = goed, 1 = fout, 77 = geen rg-direct."""
@@ -167,16 +166,6 @@ def main(argv):
             check(plan.get("game") == os.path.join(view, g["exe"]), "%s: het plan rekent niet met de exe in de view: %s" % (name, plan.get("game")))
             files = [f[0] for f in plan.get("files", [])]
             check(files[:1] == [os.path.join(view, os.path.dirname(g["exe"]), "teknoparrot.ini")], "%s: teknoparrot.ini: %s" % (name, files))
-            shutil.rmtree(view)
-            # 3. De Python-tweeling (launch-direct.py).
-            r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), name, "--tp", tp, "--plan", "--make-view", "--json"],
-                               capture_output=True, text=True, env=env_for("user-engine"))
-            check(r.returncode == 0, "%s: launch-direct.py --plan --make-view: %s" % (name, r.stderr.strip()[-600:]))
-            py = snapshot(view)
-            check(py == script, "%s: view van launch-direct.py wijkt af van tp-add-game.py --view:\n%s" % (name, show_diff(script, py)))
-            if r.returncode == 0:
-                pplan = json.loads(r.stdout)
-                check(pplan.get("game") == os.path.join(view, g["exe"]), "%s: plan van het script: %s" % (name, pplan.get("game")))
             # Droog (--plan zonder --make-view) maakt niets.
             shutil.rmtree(view)
             r = subprocess.run([rg, "--plan", name, "--tp", tp, "--patches", patches, "--user", os.path.join(tmp, "user-engine")],
@@ -203,23 +192,18 @@ def main(argv):
         check(na.get("RSGame/Binaries/Win64/teknoparrot.ini.lokaal", ("",))[0] == "F", "verversen: een lokaal bestand is weg")
         check(na.get("RSGame/Content/Movies/eigen.txt", ("",))[0] == "F" and "RSGame/Content/Movies/intro.mp4" not in na,
               "verversen: de lege map kreeg links of verloor zijn inhoud")
-        # Het script ververst op dezelfde manier: dezelfde boom.
+        # Een bestand dat van de NAS verdwijnt verliest bij de volgende start zijn link.
         os.unlink(os.path.join(nas, g["dir"], "nieuw.txt"))
-        r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), "Grote", "--tp", tp, "--plan", "--make-view", "--json"],
-                           capture_output=True, text=True, env=env_for("user-engine"))
-        check(r.returncode == 0 and "nieuw.txt" not in snapshot(view), "verversen (script): de link naar het verdwenen nieuw.txt staat er nog")
+        rg_plan("Grote", "user-engine")
+        check("nieuw.txt" not in snapshot(view), "verversen: de link naar het verdwenen nieuw.txt staat er nog")
         nas_voor = snapshot(nas)
 
         # ViewEmptyDirs op een bestaande view: symlink -> lege map; lege map blijft; echte map met inhoud blijft ongemoeid.
-        # Beide tweelingen (engine en launch-direct.py), met de NAS-bron erachter intact.
+        # De engine, met de NAS-bron erachter intact.
         def ververs(tweeling):
-            if tweeling == "engine":
-                rg_plan("Grote", "user-engine")
-            else:
-                subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), "Grote", "--tp", tp, "--plan", "--make-view", "--json"],
-                               capture_output=True, text=True, env=env_for("user-engine"))
+            rg_plan("Grote", "user-engine")
 
-        for tweeling in ("engine", "script"):
+        for tweeling in ("engine",):
             movies = os.path.join(view, "RSGame/Content/Movies")
             shutil.rmtree(movies)
             os.symlink(os.path.join(nas, g["dir"], "RSGame/Content/Movies"), movies)
@@ -258,16 +242,13 @@ def main(argv):
         os.symlink(os.path.join(nas, "views-op-nas"), views)
         d = rg_plan("Elf", "user-engine")
         check(d.get("verdict") == "refused" and "NAS" in d.get("why", ""), "views-map op de NAS: %s" % d)
-        r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), "Elf", "--tp", tp, "--plan", "--make-view"],
-                           capture_output=True, text=True, env=env_for("user-engine"))
-        check(r.returncode == 5 and "NAS" in r.stderr, "views-map op de NAS (script): %s %s" % (r.returncode, r.stderr[-300:]))
         check(snapshot(nas) == nas_voor, "er is iets op de NAS geschreven:\n%s" % show_diff(nas_voor, snapshot(nas)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if FOUTEN:
         print("%d fout(en)" % len(FOUTEN))
         return 1
-    print("gameview: tp-add-game.py --view, de engine en launch-direct.py maken dezelfde view; verversen, View = off, weigeren en NAS-veiligheid kloppen")
+    print("gameview: tp-add-game.py --view en de engine maken dezelfde view; verversen, View = off, weigeren en NAS-veiligheid kloppen")
     return 0
 
 

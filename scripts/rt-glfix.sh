@@ -142,10 +142,6 @@ for g in "${GAMES[@]}"; do
 done
 
 echo
-echo "klaar. Testen met (Jurassic Park):"
-echo "  cd ~/projects/ravengun"
-echo "  XAUTHORITY=/run/user/1000/xauth_NBglcp DISPLAY=:0 \\"
-echo "    python3 scripts/launch-direct.py JurassicPark --run \\"
-echo "    --env LD_AUDIT=\$HOME/.local/share/ravengun/runtime/views/JurassicPark/$LIB"
-echo "Het logboek komt in de view te staan (RAVENGUN_GLFIX_LOG=rt-glfix.log)."
-echo "Zonder de drop-in (ter vergelijking) laat je --env weg."
+echo "klaar. De drop-in werkt alleen op de directe route (BudgieLoader, [Launch] Mode = direct): de daemon zet hem in de view"
+echo "(patches/<Game>/dropin/dropin.ini). Jurassic Park start sinds 2026-10-14 native (patches/JurassicPark/native.json) en"
+echo "gebruikt hem dan niet. Het logboek komt in de view te staan (RAVENGUN_GLFIX_LOG=rt-glfix.log)."

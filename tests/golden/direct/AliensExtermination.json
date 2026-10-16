@@ -1,0 +1,196 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "AliensExtermination",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\games\\AliensExtermination\\DATA\\aliens dehasped.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/AliensExtermination/DATA/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nCustomResolution=0\nResolutionWidth=800\nResolutionHeight=600\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP1 Unlimited Flame=0\nP1 Unlimited Grenades=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\nP2 Unlimited Flame=0\nP2 Unlimited Grenades=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/AliensExtermination/DATA/aliens dehasped.exe",
+   "game_comms": [
+    "aliens dehasped",
+    "aliens.exe",
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\games\\AliensExtermination\\DATA\\aliens dehasped.exe"
+     ],
+     "comms": [
+      "aliens.exe",
+      "aliens dehasped"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/AliensExtermination/DATA/aliens dehasped.exe",
+     "gamescope": false,
+     "name": "aliens dehasped.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "AliensExtermination",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\games\\AliensExtermination\\DATA\\aliens dehasped.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/AliensExtermination/DATA/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nCustomResolution=0\nResolutionWidth=800\nResolutionHeight=600\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[FFB Blaster]\nEnable=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP1 Unlimited Flame=0\nP1 Unlimited Grenades=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\nP2 Unlimited Flame=0\nP2 Unlimited Grenades=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/AliensExtermination/DATA/aliens dehasped.exe",
+   "game_comms": [
+    "aliens dehasped",
+    "aliens.exe",
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\games\\AliensExtermination\\DATA\\aliens dehasped.exe"
+     ],
+     "comms": [
+      "aliens.exe",
+      "aliens dehasped"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/AliensExtermination/DATA/aliens dehasped.exe",
+     "gamescope": false,
+     "name": "aliens dehasped.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

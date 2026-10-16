@@ -1,7 +1,7 @@
 #pragma once
-// De directe route (A10) zonder scripts: wat scripts/launch-direct.py --plan uitrekent (profiel uit game.ini, Wine en prefix, lader en
-// kern, eigen build, teknoparrot.ini, drop-ins, omgeving, gamescope, de JVS-brug) en wat play-halo.sh voor zo'n game voorbereidt (de
-// invoerroute). De daemon voert het plan uit (GameService): drop-ins en bestanden plaatsen, dan
+// De directe route (A10) zonder scripts: het plan (profiel uit game.ini, Wine en prefix, lader en kern, eigen build, teknoparrot.ini,
+// drop-ins, omgeving, gamescope, de JVS-brug) en de invoerroute; tot 2026-10-16 deden scripts/launch-direct.py en play-halo.sh dat,
+// tests/golden/direct/ bewaart hun uitkomst. De daemon voert het plan uit (GameService): drop-ins en bestanden plaatsen, dan
 // `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>`. rg-direct (tools/rg-direct) is het C++-hoofdproces van de
 // unit op de plaats van launch-direct.py --run: gedeeld geheugen, de JVS-pipe (TCP-kant), pipehelper/rg-jvsbridge in de prefix, de lader,
 // het spel volgen tot het weg is, opruimen. Geen shell en geen Python in de keten.

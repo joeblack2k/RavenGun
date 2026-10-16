@@ -1,0 +1,296 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/x64/BudgieLoader_x64.exe",
+    "Z:@TMP@\\home\\games\\Halo\\game"
+   ],
+   "control_pipe": null,
+   "core_dll": "",
+   "cwd": "@TMP@/home/games/Halo",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp-x64.so",
+     "@TMP@/home/games/Halo/ravengun-hasp-x64.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/libravengun-hasphook-x64.so",
+     "@TMP@/home/games/Halo/libravengun-hasphook-x64.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/libravengun-hasphook.so",
+     "@TMP@/home/games/Halo/libravengun-hasphook.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/dongle.json",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/dongle.json"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/00000000000000001111111111110100",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110100"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/00000000000000001111111111110101",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110101"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/fff4",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/fff4"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-hasp-x64.so -> @TMP@/home/games/Halo/ravengun-hasp-x64.so",
+    "libravengun-hasphook-x64.so -> @TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "libravengun-hasphook.so -> @TMP@/home/games/Halo/libravengun-hasphook.so",
+    "ravengun-hasp/Halo/dongle.json -> @TMP@/home/games/Halo/ravengun-hasp/Halo/dongle.json",
+    "ravengun-hasp/Halo/memory/00000000000000001111111111110100 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110100",
+    "ravengun-hasp/Halo/memory/00000000000000001111111111110101 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110101",
+    "ravengun-hasp/Halo/memory/fff4 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/fff4",
+    "preload: ravengun-hasp-x64.so -> alleen RG_DROPIN_PRELOAD=@TMP@/home/games/Halo/ravengun-hasp-x64.so; WORDT NIET GELADEN door NIEMAND op deze route: alleen de native route en de eigen ELF-lader lezen deze variabele",
+    "preload: libravengun-hasphook-x64.so -> alleen RG_DROPIN_PRELOAD=@TMP@/home/games/Halo/libravengun-hasphook-x64.so; WORDT NIET GELADEN door NIEMAND op deze route: alleen de native route en de eigen ELF-lader lezen deze variabele",
+    "niet in LD_AUDIT (Audit = false): @TMP@/home/games/Halo/ravengun-hasp-x64.so, @TMP@/home/games/Halo/libravengun-hasphook-x64.so -- deze bibliotheek hoort in het spelproces en niet in het Cygwin-proces van de lader"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_HASP_DIR": "ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LOG": "hasphook.log",
+    "RAVENGUN_HASP_GAME": "Halo",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Halo/ravengun-hasp-x64.so:@TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "TP_LOGTOFILE": "0",
+    "TP_REMOTETHREAD": "1",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state",
+    "tp_windowed": "1"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/Halo/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nHideCursor=1\nWindowed=1\nBypassFilesystemIntegrityTest=0\nTPCheckAndFixBadDump=0\nCabinetType=STANDARD TETHERED\nCustomResolution=0\nResolutionWidth=1920\nResolutionHeight=1080\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/Halo/game",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "game",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_HASP_DIR": "ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LOG": "hasphook.log",
+    "RAVENGUN_HASP_GAME": "Halo",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Halo/ravengun-hasp-x64.so:@TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "TP_LOGTOFILE": "0",
+    "TP_REMOTETHREAD": "1",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "tp_windowed": "1"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/x64/BudgieLoader_x64.exe",
+      "Z:@TMP@\\home\\games\\Halo\\game"
+     ],
+     "comms": [
+      "game"
+     ],
+     "cwd": "@TMP@/home/games/Halo",
+     "exe": "@TMP@/home/games/Halo/game",
+     "gamescope": false,
+     "name": "game",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/x64/BudgieLoader_x64.exe",
+    "Z:@TMP@\\home\\games\\Halo\\game"
+   ],
+   "control_pipe": null,
+   "core_dll": "",
+   "cwd": "@TMP@/home/games/Halo",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp-x64.so",
+     "@TMP@/home/games/Halo/ravengun-hasp-x64.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/libravengun-hasphook-x64.so",
+     "@TMP@/home/games/Halo/libravengun-hasphook-x64.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/libravengun-hasphook.so",
+     "@TMP@/home/games/Halo/libravengun-hasphook.so"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/dongle.json",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/dongle.json"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/00000000000000001111111111110100",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110100"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/00000000000000001111111111110101",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110101"
+    ],
+    [
+     "@PATCHES@/Halo/dropin/ravengun-hasp/Halo/memory/fff4",
+     "@TMP@/home/games/Halo/ravengun-hasp/Halo/memory/fff4"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-hasp-x64.so -> @TMP@/home/games/Halo/ravengun-hasp-x64.so",
+    "libravengun-hasphook-x64.so -> @TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "libravengun-hasphook.so -> @TMP@/home/games/Halo/libravengun-hasphook.so",
+    "ravengun-hasp/Halo/dongle.json -> @TMP@/home/games/Halo/ravengun-hasp/Halo/dongle.json",
+    "ravengun-hasp/Halo/memory/00000000000000001111111111110100 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110100",
+    "ravengun-hasp/Halo/memory/00000000000000001111111111110101 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/00000000000000001111111111110101",
+    "ravengun-hasp/Halo/memory/fff4 -> @TMP@/home/games/Halo/ravengun-hasp/Halo/memory/fff4",
+    "preload: ravengun-hasp-x64.so -> alleen RG_DROPIN_PRELOAD=@TMP@/home/games/Halo/ravengun-hasp-x64.so; WORDT NIET GELADEN door NIEMAND op deze route: alleen de native route en de eigen ELF-lader lezen deze variabele",
+    "preload: libravengun-hasphook-x64.so -> alleen RG_DROPIN_PRELOAD=@TMP@/home/games/Halo/libravengun-hasphook-x64.so; WORDT NIET GELADEN door NIEMAND op deze route: alleen de native route en de eigen ELF-lader lezen deze variabele",
+    "niet in LD_AUDIT (Audit = false): @TMP@/home/games/Halo/ravengun-hasp-x64.so, @TMP@/home/games/Halo/libravengun-hasphook-x64.so -- deze bibliotheek hoort in het spelproces en niet in het Cygwin-proces van de lader"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_HASP_DIR": "ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LOG": "hasphook.log",
+    "RAVENGUN_HASP_GAME": "Halo",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Halo/ravengun-hasp-x64.so:@TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "TP_LOGTOFILE": "0",
+    "TP_REMOTETHREAD": "1",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state",
+    "tp_windowed": "1"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/Halo/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nHideCursor=1\nWindowed=1\nBypassFilesystemIntegrityTest=0\nTPCheckAndFixBadDump=0\nCabinetType=STANDARD TETHERED\nCustomResolution=0\nResolutionWidth=1920\nResolutionHeight=1080\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\n[Crosshairs]\nEnable=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/Halo/game",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "game",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_HASP_DIR": "ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LOG": "hasphook.log",
+    "RAVENGUN_HASP_GAME": "Halo",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Halo/ravengun-hasp-x64.so:@TMP@/home/games/Halo/libravengun-hasphook-x64.so",
+    "TP_LOGTOFILE": "0",
+    "TP_REMOTETHREAD": "1",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "tp_windowed": "1"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/x64/BudgieLoader_x64.exe",
+      "Z:@TMP@\\home\\games\\Halo\\game"
+     ],
+     "comms": [
+      "game"
+     ],
+     "cwd": "@TMP@/home/games/Halo",
+     "exe": "@TMP@/home/games/Halo/game",
+     "gamescope": false,
+     "name": "game",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

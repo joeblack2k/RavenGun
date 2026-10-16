@@ -1,0 +1,17 @@
+{
+ "TC5": {
+  "TC5": [
+   "D"
+  ],
+  "TC5/Binaries": [
+   "D"
+  ],
+  "TC5/Binaries/Win64": [
+   "D"
+  ],
+  "TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe": [
+   "L",
+   "@TMP@/home/mnt/nas/games/TC5/TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe"
+  ]
+ }
+}

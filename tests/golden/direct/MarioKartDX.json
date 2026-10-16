@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "MKDX",
+   "control_pipe": "",
+   "layout": "MKDX",
+   "route": "jvs",
+   "transport": "pipe",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de exe met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; @TMP@/home/games/MarioKartDX/MK_AGP3_FINAL.exe ligt daar niet"
+ },
+ "start": {
+  "input": {
+   "board": "MKDX",
+   "control_pipe": "",
+   "layout": "MKDX",
+   "route": "jvs",
+   "transport": "pipe",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de exe met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; @TMP@/home/games/MarioKartDX/MK_AGP3_FINAL.exe ligt daar niet"
+ }
+}

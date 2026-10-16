@@ -3,7 +3,7 @@
 """verify-all — zet alle games van de repo naast elkaar en laat zien wat er staat en wat ontbreekt.
 
 Dit is het controleprogramma van `docs/dongle-per-game.md`-achtige tabellen: het haalt elke game
-door de launcher zelf (`launch-direct.py --plan`), kijkt naar de dongle, de patches en de drop-ins,
+door de engine zelf (`rg-direct --plan`, het plan van een directe start), kijkt naar de dongle, de patches en de drop-ins,
 en schrijft één tabel.
 
 Gebruik (op de Deck, in ~/projects/ravengun):
@@ -113,14 +113,30 @@ def patch_state(game, exe, loader="", core=""):
 
 
 def run_plan(game, timeout=180):
+    """rg-direct --plan (start niets). Het JSON-plan wordt in de regels gezet die plan_field, classify en dropin_from_plan lezen
+    (emulator_type:, game:, argv:, dropins:). rc 0 = de engine start deze game; 4 = niet (verdict en reden in de uitvoer)."""
+    rg = os.environ.get("RG_DIRECT") or os.path.join(REPO, "build", "rg-direct")
     try:
-        p = subprocess.run([sys.executable, "scripts/launch-direct.py", game, "--plan"],
-                           cwd=REPO, capture_output=True, text=True, timeout=timeout)
-        return p.returncode, p.stdout + p.stderr
+        p = subprocess.run([rg, "--plan", game, "--patches", PATCHES], cwd=REPO, capture_output=True, text=True,
+                           timeout=timeout)
     except subprocess.TimeoutExpired:
         return -1, "(timeout)"
     except OSError as e:
         return -1, str(e)
+    try:
+        d = json.loads(p.stdout)
+    except ValueError:
+        return p.returncode or -1, p.stdout + p.stderr
+    plan = d.get("plan")
+    if not plan:
+        return 4, "verdict: %s\nwhy: %s\n" % (d.get("verdict"), d.get("why"))
+    files = [{"src": f.get("src"), "dest": f.get("dest")} for f in plan.get("dropin_files") or []]
+    return 0, "\n".join([
+        "emulator_type: %s" % plan.get("emulator_type", "-"),
+        "game: %s" % plan.get("game", "-"),
+        "argv: %r" % list(plan.get("argv") or []),
+        "dropins: %r" % {"files": files, "overrides": [], "preload": [], "errors": []},
+    ]) + "\n"
 
 
 def plan_field(out, name):
@@ -312,7 +328,7 @@ def main():
     ap = argparse.ArgumentParser(description="Zet alle games naast elkaar: lader, kern, dongle, patches, drop-ins.")
     ap.add_argument("games", nargs="*", help="alleen deze games (standaard: alle)")
     ap.add_argument("--md", default="", help="schrijf de tabel ook als markdown naar dit pad")
-    ap.add_argument("--no-plan", action="store_true", help="sla launch-direct.py --plan over (sneller)")
+    ap.add_argument("--no-plan", action="store_true", help="sla rg-direct --plan over (sneller)")
     args = ap.parse_args()
 
     names = args.games or games()

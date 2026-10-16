@@ -135,7 +135,7 @@ Engine en app hangen niet meer van `~/projects/ravengun` af. Standaardprefix: `~
 
 Zoekvolgorde voor de datamap (engine: `src/ravengun/paths.*`, app: `AppPaths::dataRoot`, scripts: `scripts/rg-paths.sh`; beide C++-kanten hebben tests: `ravengun_paths_tests` en `AppCoreTest::dataRootOrder`):
 
-1. `$RAVENGUN_DATA_DIR` (als die scripts/play-halo.sh en packaging/ bevat),
+1. `$RAVENGUN_DATA_DIR` (als die scripts/ en packaging/ bevat),
 2. `<prefix>/share/ravengun`, met `<prefix>` = de map boven de map van het programma (`bin/..`),
 3. de repo bij ontwikkeling: `$RAVENGUN_ROOT`, de map boven `build/` of `build-app/`, en als laatste `~/projects/ravengun`.
 
@@ -170,7 +170,7 @@ Inhoud van het archief (`ravengun-<versie>-x86_64-steamos/`, ongeveer 3 MB gecom
 
 Gekozen voor de tarball met `install.sh`. Een AppImage past slecht bij dit programma:
 
-- Systemd-gebruikersunits en `systemd-run`-scripts: de engine is een service die bij het inloggen start, en de scripts (`play-halo.sh` e.d.) worden door de engine via `systemd-run` gestart. Een AppImage koppelt zichzelf bij elk proces op een wisselend pad `/tmp/.mount_XXXX` (FUSE) en dat pad bestaat alleen zolang dat proces leeft. Een unit met `ExecStart=` op het AppImage-bestand zou bij elke start een FUSE-koppeling maken, en de scripts en JSON-bestanden die de engine later nodig heeft staan op een pad dat niet blijft.
+- Systemd-gebruikersunits en `systemd-run`-scripts: de engine is een service die bij het inloggen start, en de engine start elke game zelf via `systemd-run` (geen startscript meer). Een AppImage koppelt zichzelf bij elk proces op een wisselend pad `/tmp/.mount_XXXX` (FUSE) en dat pad bestaat alleen zolang dat proces leeft. Een unit met `ExecStart=` op het AppImage-bestand zou bij elke start een FUSE-koppeling maken, en de scripts en JSON-bestanden die de engine later nodig heeft staan op een pad dat niet blijft.
 - `pkexec` en root: de wizard voert `install-permissions.sh` uit als root. Root kan een gebruikers-FUSE-koppeling standaard niet lezen (geen `allow_other`), dus die scripts, de udev-regels en de Bluetooth-hulp moeten sowieso uitgepakt op een gewoon pad staan.
 - FUSE op SteamOS: libfuse2 staat nu op de Deck (`/usr/lib/libfuse.so.2`), maar het is geen gegarandeerd onderdeel van SteamOS; zonder moet de gebruiker `--appimage-extract-and-run` kennen, en dan is het in feite een uitgepakte tarball.
 - Qt: de app is gebouwd tegen Qt 6.11, dezelfde hoofd/minor-versie als de systeem-Qt van SteamOS (zie "De app `ravengun`"). Een AppImage zou Qt, de platformplugins en ICU zelf moeten meeleveren (grofweg 60 MB of meer, gebundeld met `linuxdeploy`, dus met netwerkdownloads en slecht reproduceerbaar). Een meegeleverde Qt laadt bovendien de KDE-platformthema-plugin van het systeem (Breeze, Plasma-integratie) niet en ziet er in Desktop Mode anders uit dan de rest. Met de systeem-Qt gebruikt de app het thema en de dialogen van de gebruiker en blijft de download klein. Binaire compatibiliteit: een bouw tegen Qt 6.11 draait op elke latere 6.x; een nieuwere glibc op de bouwmachine wordt door `REQUIRES` afgevangen.

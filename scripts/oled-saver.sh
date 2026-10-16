@@ -52,9 +52,9 @@ scherm_genomen() {
 #      het hangt niet af van welk programma er draait.
 #   1. Een gamescope beslist als er een is: een gewone gamescope staat op de tv, een met `--backend headless` niet.
 #      (Wat BINNEN een headless gamescope draait heeft wel een DISPLAY, maar dat is het onzichtbare scherm van die gamescope.)
-#   2. Zonder gamescope: een start van ons (launch-direct.py --run, play-native.sh --game, een lader of Game.exe) telt als
+#   2. Zonder gamescope: een start van ons (rg-direct --run, een lader of Game.exe) telt als
 #      zichtbaar als dat proces een scherm in zijn omgeving heeft, anders als onzichtbaar.
-#   3. De eenheid van TeknoParrotUi telt als zichtbaar.
+#   3. De eenheid van de game (ravengun-tpui, ook de native route) telt als zichtbaar.
 game_state() {
   local gs_tv=0 gs_headless=0 met_scherm=0 zonder_scherm=0 pid args
   if scherm_genomen; then echo zichtbaar; return; fi
@@ -64,7 +64,7 @@ game_state() {
       *oled-saver.sh*|*rg-saver-status*) continue ;;                      # wijzelf
       gamescope\ *|*/gamescope\ *)
         if [[ "$args" == *"--backend headless"* ]]; then gs_headless=1; else gs_tv=1; fi ;;
-      *launch-direct.py*\ --run*|*play-native.sh\ *--game*|*BudgieLoader*|*Game.exe*)
+      *rg-direct\ --run*|*BudgieLoader*|*Game.exe*)
         if heeft_scherm "$pid"; then met_scherm=1; else zonder_scherm=1; fi ;;
     esac
   done < <(proces_lijst)

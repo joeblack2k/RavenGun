@@ -92,7 +92,7 @@ To = .
 ```
 
 De launcher meldt de foute vorm als fout in plaats van hem stil uit te rollen. Controleer met
-`scripts/launch-direct.py <Game> --plan`: bij `dropins` staat per bestand de `dest`.
+`build/rg-direct --plan <Game>`: bij `dropin_files` staat per bestand de `dest`.
 | `DllOverride` | waarde voor `WINEDLLOVERRIDES`: `native` zet `<naam>=n`, `builtin,native` zet `<naam>=n,b` |
 | `Env` | extra omgevingsvariabele(n), puntkomma-gescheiden |
 | `Preload` | `true` als dit bestand in het **proces van de game** geladen moet worden (ELF of Windows-spel; zie "in welke variabele het pad belandt" hieronder) |
@@ -174,7 +174,7 @@ Daarom is `Audit` een keuze **per bibliotheek**:
 | `Audit` | `true`/`false` | `true` | mag dit bestand in `LD_AUDIT` van de Wine-start? |
 
 Met `Audit = false` blijft het pad in `RG_DROPIN_PRELOAD` staan — het kanaal voor de native route
-(`scripts/play-native.sh`) en voor een eigen lader — maar het bestand wordt niet in het proces van de
+(`src/ravengun/launch/native.*`) en voor een eigen lader — maar het bestand wordt niet in het proces van de
 Cygwin-lader geladen. `--plan` laat de keuze zien:
 
 ```ini

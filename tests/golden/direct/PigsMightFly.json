@@ -1,0 +1,240 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\games\\PigsMightFly\\Sega\\Shell\\Shell.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-pigs",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/PigsMightFly/Sega/Shell/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=0\nCustomResolution=0\nResolutionWidth=1366\nResolutionHeight=768\n[Bezel]\nEnable=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/PigsMightFly/Sega/Shell/Shell.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "shell.exe",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-pigs",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\games\\PigsMightFly\\Sega\\Shell\\Shell.exe"
+     ],
+     "comms": [
+      "shell.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/PigsMightFly/Sega/Shell/Shell.exe",
+     "gamescope": true,
+     "name": "Shell.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\games\\PigsMightFly\\Sega\\Shell\\Shell.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-pigs",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/PigsMightFly/Sega/Shell/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=0\nCustomResolution=0\nResolutionWidth=1366\nResolutionHeight=768\n[Bezel]\nEnable=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/PigsMightFly/Sega/Shell/Shell.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "shell.exe",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-pigs",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\games\\PigsMightFly\\Sega\\Shell\\Shell.exe"
+     ],
+     "comms": [
+      "shell.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/PigsMightFly/Sega/Shell/Shell.exe",
+     "gamescope": true,
+     "name": "Shell.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

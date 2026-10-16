@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "FarCryPipe",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: schijf W: de prefix @TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)"
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "FarCryPipe",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: schijf W: de prefix @TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)"
+ }
+}

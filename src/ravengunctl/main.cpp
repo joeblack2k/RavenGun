@@ -86,7 +86,9 @@ void usage(FILE* f) {
         "  key NAAM [down|up|tap]    toets op het virtuele toetsenbord (munt 5, start 1..4, test 0), standaard tap;\n"
         "              --player N kiest de speler; vereist arm\n"
         "  aagames start GAME|stop|status   Unity-route zonder TeknoParrot (Tomb Raider, Rabbids Hollywood): de daemon wordt\n"
-        "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood (zie scripts/play-unity.sh)\n"
+        "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood\n"
+        "  game start PROFIEL|stop|status   een game starten of stoppen zoals een dubbelklik in de app (de daemon start hem zelf,\n"
+        "              zonder script); status = de toestand van de laatste start\n"
         "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board|jvs] | stop | status | route GAME   IO-brug van de daemon: de\n"
         "              route van een game ([Input] in patches/<Game>/game.ini) starten of stoppen, de actieve route tonen\n"
         "  mice        gewone muizen (evdev) die als lightgun-bron kunnen dienen en de toewijzing per speler\n"
@@ -1054,7 +1056,8 @@ int main(int argc, char** argv) {
             else if (a == "--forget") ctl_forget = true;
             else if (!a.empty() && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) { std::fprintf(stderr, "ravengunctl: onbekende optie '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
             else if (cmd.empty()) cmd = a;
-            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble" || cmd == "key" || cmd == "aagames" || cmd == "iobridge") pos.push_back(a);
+            else if (cmd == "test-pattern" || cmd == "output-button" || cmd == "rumble" || cmd == "key" || cmd == "aagames" || cmd == "iobridge" ||
+                     cmd == "game") pos.push_back(a);
             else if (arg2.empty() && (cmd == "calibrate" || cmd == "led" || cmd == "fusion" || cmd == "trim" || cmd == "predict" || cmd == "clock" ||
                                       cmd == "unpair" || cmd == "controller")) arg2 = a;
             else { std::fprintf(stderr, "ravengunctl: onverwacht argument '%s'\n\n", a.c_str()); usage(stderr); return kExitUsage; }
@@ -1276,6 +1279,25 @@ int main(int argc, char** argv) {
             if (json) std::printf("%s\n", r.line.c_str());
             else if (const json::Value* res = path(r.v, {"result"})) std::printf("%s\n", aagames_text(*res).c_str());
             else return kExitProtocol;
+            return kExitOk;
+        }
+        if (cmd == "game") {
+            const std::string action = pos.empty() ? "status" : pos[0];
+            if (pos.size() > 2 || (action != "start" && action != "stop" && action != "status") || (action == "start") != (pos.size() == 2)) {
+                std::fprintf(stderr, "ravengunctl: game start PROFIEL | stop | status\n");
+                return kExitUsage;
+            }
+            rq.cmd = action == "start" ? ipc::Cmd::GameStart : action == "stop" ? ipc::Cmd::GameStop : ipc::Cmd::Games;
+            if (action == "start") rq.profile = pos[1];
+            Reply r = call(c, rq);
+            if (r.code != kExitOk) return r.code;
+            if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            const json::Value* st = action == "status" ? path(r.v, {"result", "status"}) : path(r.v, {"result"});
+            if (!st || !st->is_object()) return kExitProtocol;
+            const json::Value* text = st->find("text");
+            const json::Value* msg = st->find("message");
+            std::printf("%s%s%s\n", text && text->is_string() ? text->str.c_str() : "?", msg && msg->is_string() ? " " : "",
+                        msg && msg->is_string() ? msg->str.c_str() : "");
             return kExitOk;
         }
         if (cmd == "iobridge") {

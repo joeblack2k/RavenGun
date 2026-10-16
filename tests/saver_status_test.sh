@@ -116,25 +116,25 @@ staat geen <<'EOF'
 60 bash /x/scripts/oled-saver.sh --loop
 EOF
 staat zichtbaar <<'EOF'
-300 gamescope -f -W 1920 -H 1080 -w 1920 -h 1080 --force-grab-cursor -- scripts/play-native.sh --game Halo
-100 bash scripts/play-native.sh --game Halo --res 1920x1080
+300 gamescope -f -W 1920 -H 1080 -w 1920 -h 1080 --force-grab-cursor -- /x/bin/rg-exec --keep DISPLAY -- /usr/bin/bwrap --die-with-parent
+100 /x/bin/rg-exec --keep DISPLAY -- /usr/bin/bwrap --die-with-parent
 EOF
 staat onzichtbaar <<'EOF'
-300 gamescope --backend headless -W 1920 -H 1080 -w 1920 -h 1080 -- scripts/play-native.sh --game Halo --headless
-100 bash scripts/play-native.sh --game Halo --res 1920x1080 --headless
+300 gamescope --backend headless -W 1920 -H 1080 -w 1920 -h 1080 -- /x/bin/rg-exec --keep DISPLAY -- /usr/bin/bwrap --die-with-parent
+100 /x/bin/rg-exec --keep DISPLAY -- /usr/bin/bwrap --die-with-parent
 EOF
 staat zichtbaar <<'EOF'
-100 python3 -I /x/scripts/launch-direct.py LuigisMansion --run
+100 /x/bin/rg-direct --run /x/state/ravengun/direct/LuigisMansion.json
 EOF
 staat onzichtbaar <<'EOF'
-200 python3 -I /x/scripts/launch-direct.py LuigisMansion --run --log-full
+200 /x/bin/rg-direct --run /x/state/ravengun/direct/LuigisMansion.json
 EOF
 staat geen <<'EOF'
-200 python3 -I /x/scripts/launch-direct.py LuigisMansion --plan --json
+200 /x/bin/rg-direct --plan LuigisMansion
 EOF
 staat zichtbaar <<'EOF'
 300 /usr/bin/gamescope -W 1280 -H 720 -S fit -f --backend wayland -- /x/wine /x/BudgieLoader.exe Z:\game
-200 python3 -I /x/scripts/launch-direct.py Halo --run
+200 /x/bin/rg-direct --run /x/state/ravengun/direct/Halo.json
 EOF
 
 # 7. Een run heeft het scherm genomen (de houder van scripts/rg-tv-env.sh): het bord wijkt, welk programma er ook draait --

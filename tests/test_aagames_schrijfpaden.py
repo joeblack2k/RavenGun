@@ -68,7 +68,7 @@ def onder(pad, wortel):
 def schrijfpaden(view, gamedata=True):
     """Plekken in de view waar ONZE artefacten komen (map-ingangen en bestanden): de view, BepInEx/ en Game_Data/Plugins.
     gamedata=False laat Game_Data weg: bij de TeknoParrot-view wordt die map pas bij het plaatsen van een drop-in lokaal
-    gemaakt (launch-direct.dropin_materialiseer, getest in test_dropin_materialiseer.py)."""
+    gemaakt (dropin_materialiseer van de engine, getest in tests/test_direct_launch.cpp)."""
     uit = [view]
     for rel in ("BepInEx",) + (("Game_Data/Plugins",) if gamedata else ()):
         top = os.path.join(view, rel)
@@ -231,7 +231,7 @@ class TestAagamesSetup(Basis):
         self.assertEqual([], schendingen(view, self.nas_wortel))
 
     def test_oude_symlink_in_plugins_wordt_vervangen(self):
-        """De drop-in-materialisatie (launch-direct) laat symlinks naar NAS-bestanden in een echte Plugins-map achter."""
+        """De drop-in-materialisatie (de engine) laat symlinks naar NAS-bestanden in een echte Plugins-map achter."""
         view = self.bouw()
         p = os.path.join(view, "Game_Data", "Plugins", "matrix64.dll")
         os.unlink(p)

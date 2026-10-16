@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests voor scripts/gamesettings.py (lagen, lege waarden, patches aan/uit), de migratie (scripts/migrate-game-settings.py) en de
 nieuwe tp-add-game.py (gebruikerslaag en [Bindings]). Raakt alleen tijdelijke mappen. De bestandspatch-machine zelf (Find/Count,
-cachepad, NAS) wordt getest in tests/launch_direct_test.sh. Uitvoeren: python3 -I tests/test_gamesettings.py"""
+cachepad, NAS) zat in tests/launch_direct_test.sh (weg met scripts/launch-direct.py; de engine past geen bestandspatches toe); de motor zelf: tests/test_patchfile.py. Uitvoeren: python3 -I tests/test_gamesettings.py"""
 import json
 import os
 import subprocess

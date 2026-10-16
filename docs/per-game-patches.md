@@ -386,25 +386,11 @@ Waarom niet uitvoeren: het script start de exe rechtstreeks (dus zonder onze lad
 `rm -rf` van de gebruikersmap, `rmdir /S /Q Y:\`, `reg add`, een hardwarecontrole). Een stap die het script VOOR het spel doet
 (een hardwarecontrole die exitcode 0 moet geven, een flash naar een COM-poort) doet de launcher niet; `--plan` noemt hem.
 
-**Welke launcher draait er?** `--plan` begint met, en het logboek van elke run begint met:
-
-```
-launcher: /home/deck/projects/ravengun/scripts/launch-direct.py
-  de versie uit de REPO (commit 13e9abf; met wijzigingen in scripts/ die niet in die commit zitten); sha256 7a9a...; hulpmodules (5) sha256 c882...
-  de geinstalleerde launcher (~/.local/opt/ravengun/share/ravengun/scripts/launch-direct.py) is een ANDERE versie (sha256 19ba...)
-```
-
-De sha256 is die van het bestand dat werkelijk draaide, en dat is wat telt; de commit (repo) of het versienummer
-(installatie) is de omschrijving erbij. De hulpmodules (`gamesettings.py`, `startscript.py`, ...) krijgen samen een eigen
-sha256. Vanuit de repo zegt de derde regel of de geinstalleerde kopie dezelfde is; in `--plan --json` staat alles onder
-`launcher`. Zo zegt elk logboek zelf met welke code de run gedaan is.
-
-De andere twee startscripts doen hetzelfde (`scripts/rg-identiteit.sh`). `play-native.sh` zet bovenaan het logboek van elke
-run zijn eigen pad en sha256, of het de versie uit de repo of de geinstalleerde is, en de sha256 van wat bij de run hoort: het
-gegevensbestand `native-games.json`, de eigen ELF-lader (als die gebruikt wordt), onze eigen bibliotheken die de sandbox in gaan,
-en bestanden die met `--bind-ro` zijn meegegeven. Bij `--dry-run` staat het op stderr, zodat stdout het commando blijft.
-`play-halo.sh` schrijft zijn eigen regels voor elke start in het logboek. Een bestand dat ontbreekt wordt als `ONTBREEKT`
-genoemd, niet overgeslagen.
+**Met welke code draaide een run?** (Stand 2026-10-16: `scripts/launch-direct.py`, `play-native.sh`, `play-halo.sh` en
+`scripts/rg-identiteit.sh` zijn weg; de daemon start de game zelf.) De native route zet bovenaan het logboek van elke run een
+identiteitsblok (`identity_lines` in `src/ravengun/launch/native.cpp`): het gegevensbestand van het profiel, de eigen ELF-lader,
+onze eigen bibliotheken die de sandbox in gaan en de invoertabel, elk met zijn sha256; een bestand dat niet te lezen is staat er als
+`(niet te lezen)`, niet overgeslagen.
 
 **Het spel vanaf een ander pad starten (`--exe`, `[Launch] Exe`) en schijfletters (`--drive`, `[Launch] Drives`).** Het eigen
 startscript van een spel start het soms vanaf een schijfletter (`x:\exe\x64\spel.exe`). Om dat na te bootsen:

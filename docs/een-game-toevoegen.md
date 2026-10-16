@@ -89,8 +89,8 @@ Zet hier nooit een bestand van TeknoParrot zelf neer; alleen wat wij bouwen.
 ## Stap 7 — Testen
 
 ```bash
-python3 scripts/launch-direct.py <JouwGame> --plan     # wat gaat er gebeuren?
-python3 scripts/launch-direct.py <JouwGame> --run      # echt starten
+build/rg-direct --plan <JouwGame>     # wat gaat er gebeuren? (start niets)
+# echt starten: dubbelklik in de app (de daemon start de game zelf)
 ```
 
 `--plan` laat zien welke lader, welke kern, welke patches en welke dongle gekozen worden. Draait er
@@ -117,7 +117,7 @@ Zet je uitgebreidere bevindingen in `findings/<JouwGame>.md`.
 - [ ] `patches.ini` met per patch `Enabled`, `Kind`, `Category`, `Source` en `Reason`
 - [ ] `dropin/` + `dropin.ini` alleen als er bestanden van ons nodig zijn
 - [ ] `README.md` met je eigen metingen
-- [ ] `python3 scripts/launch-direct.py <JouwGame> --plan` geeft geen weigering
+- [ ] `build/rg-direct --plan <JouwGame>` geeft geen weigering ("verdict": "ok")
 - [ ] `python3 -m unittest discover -s tests -q` blijft groen
 
 ---

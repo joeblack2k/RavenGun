@@ -13,14 +13,14 @@ Daarom twee klassen:
                 (de eigen BepInEx van een game uit de TeknoParrot-dump, zonder plugin van ons).
   (b) artefact  onze artefacten die op de NAS kunnen landen. Dit zijn de echte bevindingen. Rollen:
                 bepinex          onze BepInEx-boom (aagames-view, of met een plugin/config van ons erin) komt op de NAS uit
-                dropin-doel      de doelmap van een drop-in (scripts/launch-direct.py: dropin_plan; per-game dropin/dropin.ini) komt op de NAS uit
+                dropin-doel      de doelmap van een drop-in (het plan van de engine, rg-direct --plan; per-game dropin/dropin.ini) komt op de NAS uit
                 plugins          Game_Data/Plugins van een aagames-view (daar komen de drop-ins) komt op de NAS uit
                 gepatcht         de map voor gepatchte binaries (~/.local/share/ravengun/patched) komt op de NAS uit
                 aanwezig-op-nas  een artefact van ons staat al in een spelmap op de NAS (restant; opruimen is aan de eigenaar)
-                Status per bevinding: "open" = zonder bescherming (telt mee in uitkomst/afsluitcode), "gedekt" = launch-direct
-                maakt de map bij het plaatsen lokaal (dropin_materialiseer) en place_binary weigert de NAS, "restant" = al aanwezig.
+                Status per bevinding: "open" = zonder bescherming (telt mee in uitkomst/afsluitcode), "gedekt" = de engine
+                maakt de map bij het plaatsen lokaal (dropin_materialiseer) en schrijft nooit op de NAS, "restant" = al aanwezig.
 
-Dit script leest alleen (os.lstat/readlink/listdir, sha256 van drop-inbestanden, en `launch-direct.py --plan --json`, dat niets
+Dit script leest alleen (os.lstat/readlink/listdir, sha256 van drop-inbestanden, en `rg-direct --plan`, dat niets
 start) en schrijft niets, ook niet op de NAS.
 
 Gebruik (in ~/projects/ravengun):
@@ -28,13 +28,14 @@ Gebruik (in ~/projects/ravengun):
     python3 -I tools/nas-schrijfpaden-scan.py --md         # twee tabellen in markdown (voor docs/research/nas-schrijfpaden-inventaris.md)
     python3 -I tools/nas-schrijfpaden-scan.py --json       # alles als JSON
     python3 -I tools/nas-schrijfpaden-scan.py LuigisMansion RabbidsHollywood   # alleen deze views
-    python3 -I tools/nas-schrijfpaden-scan.py --geen-plan  # sla launch-direct --plan over (sneller; exe-map wordt geschat)
+    python3 -I tools/nas-schrijfpaden-scan.py --geen-plan  # sla rg-direct --plan over (sneller; exe-map wordt geschat)
 Afsluitcode 1 alleen als klasse (b) een bevinding met status "open" heeft, anders 0.
 """
 import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -58,11 +59,11 @@ SCHRIJFNAMEN = {
     "coinaud": "muntgegevens", "messages": "berichten",
 }
 SCHRIJVERS = {
-    "werkmap-view": "play-unity.sh/Proton: werkmap van de game; de game (logs Gun_*.log, NVRAM)",
-    "werkmap-plan": "launch-direct: werkmap van het lader-proces; relatieve schrijfacties van de loader",
+    "werkmap-view": "Unity-route/Proton: werkmap van de game; de game (logs Gun_*.log, NVRAM)",
+    "werkmap-plan": "de directe route: werkmap van het lader-proces; relatieve schrijfacties van de loader",
     "werkmap-game": "OpenParrot-kern (teknoparrot.ini [Error], ScoreSubmission.ini, .\\TeknoParrot\\<letter>\\), "
                     "game (logs/NVRAM relatief aan de werkmap)",
-    "exe-map": "teknoparrot.ini door de kern (launch-direct weigert op de NAS), DXVK state cache (<exe>.dxvk-cache), game",
+    "exe-map": "teknoparrot.ini door de kern (de engine schrijft niet op de NAS), DXVK state cache (<exe>.dxvk-cache), game",
 }
 BESLUIT = "bekend en geaccepteerd (besluit eigenaar 2026-10-12: de games wonen op de NAS)"
 # namen van onze eigen artefacten (voor het zoeken van restanten op de NAS)
@@ -296,7 +297,7 @@ def artefacten_view(view, nas=None, aagames=False, dropin_doelen=(), gedekt=Fals
     - BepInEx/ (onze plugin met config, cache, LogOutput.log): de map zelf, plugins/config/cache/patchers en LogOutput.log;
     - elke doelmap van een drop-in (dropin_doelen: de doelpaden van de bestanden; de eerste bestaande map erboven telt);
     - aagames: Game_Data/Plugins (daar komen de drop-ins).
-    gedekt: launch-direct maakt een symlinkmap bij het plaatsen lokaal (dropin_materialiseer) en place_binary weigert de NAS;
+    gedekt: de engine maakt een symlinkmap bij het plaatsen lokaal (dropin_materialiseer) en place_binary weigert de NAS;
     de bevinding krijgt dan status "gedekt" in plaats van "open". Leest alleen."""
     nas = os.path.realpath(nas or NAS)
     kand = {}   # pad -> (rol, status)
@@ -426,14 +427,35 @@ def restanten_op_nas(spelmap, dropin_paren=(), max_diepte=3):
     return uit
 
 
+def rg_direct():
+    """rg-direct: $RG_DIRECT, de build van de repo, of het pad."""
+    for c in (os.environ.get("RG_DIRECT", ""), os.path.join(REPO, "build", "rg-direct")):
+        if c and os.access(c, os.X_OK):
+            return c
+    return shutil.which("rg-direct")
+
+
 def startplan(profiel):
-    """launch-direct --plan --json (start niets). Geeft het plan of None."""
+    """rg-direct --plan (start niets, maakt niets). Geeft het plan in de vorm die deze scan leest, of None als de engine
+    deze game niet start (of rg-direct er niet is)."""
+    rg = rg_direct()
+    if not rg:
+        return None
+    cmd = [rg, "--plan", profiel]
+    if os.path.isdir(os.path.join(REPO, "patches")):
+        cmd += ["--patches", os.path.join(REPO, "patches")]
     try:
-        r = subprocess.run([sys.executable, "-I", os.path.join(REPO, "scripts", "launch-direct.py"), "--plan", "--json", profiel],
-                           capture_output=True, text=True, timeout=120)
-        return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        d = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
+    p = (d or {}).get("plan")
+    if not p:
+        return None
+    return {"game": p["game"], "cwd": p.get("cwd"), "profile_env": p.get("env") or {}, "launch_env": p.get("launch_env") or {},
+            "emulator_type": p.get("emulator_type", "?"),
+            "dropins": {"files": [{"src": f["src"], "dest": f["dest"]} for f in p.get("dropin_files") or []],
+                        "base": p.get("dropin_base") or None}}
 
 
 def spelmap_op_nas(pad, nas=None):
@@ -474,7 +496,7 @@ def scan_alles(namen=None, plan=True, nas=None):
                 b += artefacten_view(view, nas, aagames=True, dropin_doelen=doelen, gedekt=False)
                 nasdir = spelmap_op_nas(spel, nas)
                 b += restanten_op_nas(nasdir, [(src, os.path.join(os.path.dirname(os.path.realpath(spel)), r)) for (src, r) in paren])
-                uit.append({"view": n, "soort": soort, "plan": "n.v.t. (play-unity.sh)", "bevindingen": b})
+                uit.append({"view": n, "soort": soort, "plan": "n.v.t. (Unity-route)", "bevindingen": b})
                 continue
             if p:
                 workdir = tp_pad_naar_unix((p.get("profile_env") or {}).get("TP_GAME_WORKING_DIRECTORY")

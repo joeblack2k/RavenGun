@@ -1,0 +1,258 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "AllsUsbIo",
+   "layout": "HOTDSDPipe",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\Hodzero-Win64-Shipping.exe",
+    "-UNATTENDED"
+   ],
+   "control_pipe": {
+    "interval_ms": 15,
+    "pipe": "TeknoParrotPipe",
+    "profile": "AllsUsbIo",
+    "size": 64,
+    "source": "/dev/shm/ravengun_ControlPipe"
+   },
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "OPENSSL_ia32cap": ":~0x20000000",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_UNSET_REMOTETHREAD": "1",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "TP_REMOTETHREAD": "1",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nHideCursor=1\nScale Menu By Resolution=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable Native=0\nEnable Custom=0\n[Border]\nEnable Custom=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\n[Score]\nEnable Submission=0\nEnable GUI=0\nEnable Capture=0\n"
+    ],
+    [
+     "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nHideCursor=1\nScale Menu By Resolution=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable Native=0\nEnable Custom=0\n[Border]\nEnable Custom=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\n[Score]\nEnable Submission=0\nEnable GUI=0\nEnable Capture=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "hodzero-win64-s",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "OPENSSL_ia32cap": ":~0x20000000",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "TP_REMOTETHREAD": "1",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\AMDaemon\\amdaemon.exe"
+     ],
+     "comms": [
+      "amdaemon.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/amdaemon.exe",
+     "gamescope": false,
+     "name": "amdaemon.exe",
+     "role": "second",
+     "wait_before": 0.0
+    },
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\Hodzero-Win64-Shipping.exe",
+      "-UNATTENDED"
+     ],
+     "comms": [
+      "hodzero-win64-s"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe",
+     "gamescope": false,
+     "name": "Hodzero-Win64-Shipping.exe",
+     "role": "main",
+     "wait_before": 5.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "AllsUsbIo",
+   "layout": "HOTDSDPipe",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\Hodzero-Win64-Shipping.exe",
+    "-UNATTENDED"
+   ],
+   "control_pipe": {
+    "interval_ms": 15,
+    "pipe": "TeknoParrotPipe",
+    "profile": "AllsUsbIo",
+    "size": 64,
+    "source": "/dev/shm/ravengun_ControlPipe"
+   },
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "OPENSSL_ia32cap": ":~0x20000000",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_UNSET_REMOTETHREAD": "1",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "TP_REMOTETHREAD": "1",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nHideCursor=1\nScale Menu By Resolution=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable Native=0\nEnable Custom=0\n[Border]\nEnable Custom=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\n[Score]\nEnable Submission=0\nEnable GUI=0\nEnable Capture=0\n"
+    ],
+    [
+     "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nFreePlay=1\nWindowed=0\nHideCursor=1\nScale Menu By Resolution=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n[Crosshairs]\nEnable Native=0\nEnable Custom=0\n[Border]\nEnable Custom=0\n[Cheats]\nEnable=0\nP1 Unlimited Health=0\nP1 Unlimited Ammo=0\nP2 Unlimited Health=0\nP2 Unlimited Ammo=0\n[Score]\nEnable Submission=0\nEnable GUI=0\nEnable Capture=0\n"
+    ]
+   ],
+   "game": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "hodzero-win64-s",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "OPENSSL_ia32cap": ":~0x20000000",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "TP_REMOTETHREAD": "1",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\AMDaemon\\amdaemon.exe"
+     ],
+     "comms": [
+      "amdaemon.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/amdaemon.exe",
+     "gamescope": false,
+     "name": "amdaemon.exe",
+     "role": "second",
+     "wait_before": 0.0
+    },
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\games\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\Hodzero-Win64-Shipping.exe",
+      "-UNATTENDED"
+     ],
+     "comms": [
+      "hodzero-win64-s"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/games/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe",
+     "gamescope": false,
+     "name": "Hodzero-Win64-Shipping.exe",
+     "role": "main",
+     "wait_before": 5.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

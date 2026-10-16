@@ -39,7 +39,7 @@ P="$H/.local/opt/ravengun"; D="$P/share/ravengun"
 # --- 1. Installeren vanuit de repo --------------------------------------------------------------------------------------------
 cd "$T" || exit 1
 "${E[@]}" "$REPO/scripts/install-user.sh" --no-start --build-dir "$BUILD" --app-build-dir "$APPBUILD" > "$T/install.log" 2>&1 || { cat "$T/install.log" >&2; fail "install-user.sh (repo) faalde"; }
-for f in bin/ravengund bin/ravengunctl bin/ravengun share/ravengun/scripts/play-halo.sh share/ravengun/scripts/install-user.sh \
+for f in bin/ravengund bin/ravengunctl bin/ravengun share/ravengun/scripts/tp-add-game.py share/ravengun/scripts/install-user.sh \
          share/ravengun/scripts/uninstall-user.sh share/ravengun/scripts/rg-paths.sh share/ravengun/patches/LGI/game.ini share/ravengun/patches/_defaults/OpenParrot.patches.ini \
          share/ravengun/packaging/systemd/ravengund.service.in share/ravengun/packaging/udev/70-ravengun.rules \
          share/ravengun/docs/user-guide.md share/ravengun/LICENSE share/ravengun/THIRD_PARTY.md share/ravengun/VERSION; do
@@ -122,7 +122,7 @@ kill "$ENGINE_PID"; wait "$ENGINE_PID" 2>/dev/null; ENGINE_PID=""
 "${E[@]}" "$REPO/scripts/install-user.sh" --no-start --build-dir "$BUILD" --app-build-dir "$APPBUILD" > "$T/install2.log" 2>&1 || { cat "$T/install2.log" >&2; fail "tweede installatie (bijwerken) faalde"; }
 P2="$H/.local/opt/ravengun2"
 "${E[@]}" "$D/scripts/install-user.sh" --prefix "$P2" --no-start > "$T/install3.log" 2>&1 || { cat "$T/install3.log" >&2; fail "installatie vanuit een geïnstalleerde boom faalde"; }
-[[ -x $P2/bin/ravengund && -f $P2/share/ravengun/scripts/play-halo.sh ]] || fail "de gekopieerde installatie is onvolledig"
+[[ -x $P2/bin/ravengund && -f $P2/share/ravengun/scripts/tp-add-game.py ]] || fail "de gekopieerde installatie is onvolledig"
 grep -qx "ExecStart=$P2/bin/ravengund" "$U/ravengund.service" || fail "de unit wijst na de tweede installatie niet naar $P2"
 OUT="$("${E[@]}" QT_QPA_PLATFORM=offscreen "$P2/bin/ravengun" --print-paths 2>&1)"
 echo "$OUT" | grep -qx "data-dir: $P2/share/ravengun" || fail "de tweede installatie vindt zijn datamap niet: $OUT"

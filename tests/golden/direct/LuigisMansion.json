@@ -1,0 +1,294 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "LuigisMansion",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotx64\\OpenParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [
+    [
+     "@PATCHES@/LuigisMansion/dropin/rg-pe-hook.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll"
+    ],
+    [
+     "@PATCHES@/LuigisMansion/dropin/dongle-haken.ini",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-pe-hook.dll -> @TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "dongle-haken.ini -> @TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini",
+    "preload: rg-pe-hook.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "GST_PLUGIN_PATH": "@TMP@/home/.local/share/ravengun/tools/gst-extra/plugins",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
+    "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
+    "RG_HOOK_INI": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\dongle-haken.ini",
+    "RG_HOOK_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.log",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_GAME_WORKING_DIRECTORY": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex",
+    "vacuum.exe"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
+    "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
+    "RG_HOOK_INI": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\dongle-haken.ini",
+    "RG_HOOK_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.log",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotx64\\OpenParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe"
+     ],
+     "comms": [
+      "vacuum.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
+     "gamescope": true,
+     "name": "VACUUM.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "LuigisMansion",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotx64\\OpenParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [
+    [
+     "@PATCHES@/LuigisMansion/dropin/rg-pe-hook.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll"
+    ],
+    [
+     "@PATCHES@/LuigisMansion/dropin/dongle-haken.ini",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-pe-hook.dll -> @TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "dongle-haken.ini -> @TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/dongle-haken.ini",
+    "preload: rg-pe-hook.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "GST_PLUGIN_PATH": "@TMP@/home/.local/share/ravengun/tools/gst-extra/plugins",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
+    "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
+    "RG_HOOK_INI": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\dongle-haken.ini",
+    "RG_HOOK_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.log",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_GAME_WORKING_DIRECTORY": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex",
+    "vacuum.exe"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
+    "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
+    "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
+    "RG_HOOK_INI": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\dongle-haken.ini",
+    "RG_HOOK_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.log",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook.dll",
+    "WINEDEBUG": "-all",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotx64\\OpenParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe"
+     ],
+     "comms": [
+      "vacuum.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
+     "gamescope": true,
+     "name": "VACUUM.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

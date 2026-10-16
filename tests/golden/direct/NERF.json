@@ -1,0 +1,192 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\NERF\\Nerf.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "winhttp=n,b;d3d11,d3d10core,dxgi=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/NERF/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nDisableHardcodedKeys=1\nDisplayCrosshair=1\nDisplayLaser=1\nGraphicsFix=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/NERF/Nerf.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "nerf.exe",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\NERF\\Nerf.exe"
+     ],
+     "comms": [
+      "nerf.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/NERF/Nerf.exe",
+     "gamescope": false,
+     "name": "Nerf.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "plan": {
+   "argv": [
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\NERF\\Nerf.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "cwd_is_tp": true,
+   "dropin_files": [],
+   "dropin_lines": [],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "winhttp=n,b;d3d11,d3d10core,dxgi=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/NERF/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nDisableHardcodedKeys=1\nDisplayCrosshair=1\nDisplayLaser=1\nGraphicsFix=0\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/NERF/Nerf.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "nerf.exe",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": false,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot64",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\NERF\\Nerf.exe"
+     ],
+     "comms": [
+      "nerf.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/NERF/Nerf.exe",
+     "gamescope": false,
+     "name": "Nerf.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
+ }
+}

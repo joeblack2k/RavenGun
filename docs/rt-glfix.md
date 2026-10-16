@@ -429,9 +429,8 @@ teller zelf is wel gebouwd en de zelftest van de brug blijft `goed`.
 |---|---|
 | `rt_glfix.c` | de bibliotheek (dit is wat de games gebruiken) |
 | `gastheer32.c` | kleine 32-bits gastheer om de bibliotheek zonder game te laden (voor de zelftest) |
-| `probe.py` | start een game als *voorouder* van het wine-proces, zodat `/proc/<pid>/mem` leesbaar en beschrijfbaar is (yama `ptrace_scope=1` staat aan), en leest/schrijft/schermafdrukt op verzoek |
-| `analyze.py` | GOT-inventaris: PLT-stubs zoeken, elke invoer aan een module en een exportnaam koppelen |
 | `inc/gnu/stubs-32.h` | lokaal gemaakt; de 32-bits dev-header ontbreekt in lib32-glibc op SteamOS |
 
-`probe.py` en `analyze.py` zijn meetgereedschap, geen onderdeel van de fix; ze zijn er om elke
-bewering in dit document opnieuw te kunnen doen.
+De meetprogramma's `probe.py` en `analyze.py` (een game als voorouder van het wine-proces starten, GOT-inventaris) zijn op
+2026-10-16 verwijderd: ze startten de game via `scripts/launch-direct.py`, dat er niet meer is. Ze staan in de git-geschiedenis
+(tot a951f81); de metingen hieronder zijn ermee gedaan. Een lopend spelproces lezen kan nu met `sudo gdb` (alleen lezen).

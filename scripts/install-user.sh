@@ -85,7 +85,7 @@ if [[ "$(basename "$(dirname "$ROOT")")" == share && -x "$ROOT/../../bin/ravengu
   fi
 else
   # Vanuit de repo: cmake --install. De app-build eerst, daarna de gewone build (die gaat voor bij dubbele bestanden).
-  [[ -f $ROOT/CMakeLists.txt && -f $ROOT/scripts/play-halo.sh ]] || die "this is neither a release folder nor a source checkout: $ROOT"
+  [[ -f $ROOT/CMakeLists.txt && -f $ROOT/scripts/tp-add-game.py ]] || die "this is neither a release folder nor a source checkout: $ROOT"
   command -v cmake >/dev/null || die "cmake is missing (needed to install from a source checkout)"
   BUILD="${BUILD:-$ROOT/build}"; APPBUILD="${APPBUILD:-$ROOT/build-app}"
   [[ -x $BUILD/ravengund && -x $BUILD/ravengunctl ]] || die "ravengund/ravengunctl not found in $BUILD (build first: docs/build.md)"
@@ -97,7 +97,7 @@ fi
 
 if [[ -n $STAGE ]]; then
   [[ -x $STAGE/bin/ravengund && -x $STAGE/bin/ravengunctl ]] || die "ravengund or ravengunctl is missing in the tree to install"
-  [[ -f $STAGE/share/ravengun/scripts/play-halo.sh && -d $STAGE/share/ravengun/packaging ]] || die "the data folder (share/ravengun, with packaging/) is missing in the tree to install"
+  [[ -f $STAGE/share/ravengun/scripts/tp-add-game.py && -d $STAGE/share/ravengun/packaging ]] || die "the data folder (share/ravengun, with packaging/) is missing in the tree to install"
   # De patches per game staan in hun eigen repo (ravengun-patches), niet in die van de loader: het is
   # gebruikersinhoud en de loader hoort schoon te zijn. Ze zijn dus optioneel -- staat de map er (een
   # ontwikkelcheckout met een koppeling ernaartoe), dan gaan ze mee; zo niet, dan zegt de installer

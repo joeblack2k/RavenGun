@@ -340,12 +340,6 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_ownprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ownprofile.py")
     # Dongle (USB pass-through): detectie via een nep-sysfs, runtime-controle, nooit een serienummer (scripts/dongle.py).
     add_test(NAME ravengun_dongle_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dongle.py")
-    # Drop-ins (docs/dropins.md). De losse functies (materialiseren, dropin.ini, het kanaal van een preload) ...
-    add_test(NAME ravengun_dropin_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dropin_materialiseer.py")
-    # ... en de hele route door de voordeur: Preload = true komt in TP_PRELOAD_DLL van het SPELPROCES (--plan en de
-    # omgeving die run() werkelijk opbouwt), een bestemming buiten de view faalt luid in --plan en --check/--run
-    # weigeren, en de native route blijft LD_PRELOAD. Start niets: geen Wine, geen spel, niets op de NAS.
-    add_test(NAME ravengun_dropin_preload_route COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dropin_preload_route.py")
     # De zoekvolgorde van patches/<Game>/ (loader-patches/ onderaan, gebruiker, $RAVENGUN_PATCHES_DIR bovenaan; een plek, geen
     # tweede kopie in amdaemon/region/matrix/hasp) en het vinden van een game op [Game] Profile in plaats van op de mapnaam.
     add_test(NAME ravengun_patches_roots COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_patches_roots.py")
@@ -356,44 +350,17 @@ if(RAVENGUN_BUILD_TESTS)
     # voorrang is die van de patches (eigen map van de game boven de gedeelde standaard, gebruiker boven beide); elk opgelost
     # bestand noemt zijn laag; een aangezet item dat nergens bestaat is een harde fout; de drift tussen twee repo's wordt gezien.
     add_test(NAME ravengun_shared_items COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shared_items.py")
-    # Argumenten voor het spel per game ([Launch] Arguments): standaard leeg, zichtbaar in --plan, een argument met spaties of
-    # aanhalingstekens blijft heel, en de OpenParrot-lader krijgt nooit meer dan een parameter. Start niets.
-    add_test(NAME ravengun_spel_argumenten COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spel_argumenten.py")
-    # Omgevingsvariabelen per game ([Env]) in het spelproces en in --plan, en het eigen startscript van het spel (game.bat,
-    # run_game.sh): gelezen, nooit uitgevoerd, en naast het plan gelegd (variabelen, argumenten, programma's vooraf, werkmap).
-    add_test(NAME ravengun_startscript COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_startscript.py")
-    # De launcher zegt zelf welke launcher hij is (pad, sha256, repo of installatie) in --plan en bovenaan elk run-logboek:
-    # een oude kopie waarvan niemand weet dat hij draait kost een meting. De genoemde sha256 is die van het bestand dat draaide.
-    add_test(NAME ravengun_launcher_identiteit COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_launcher_identiteit.py")
     # Welke camera een spel krijgt (scripts/camera.py): de rol per game, de keuze uit de instellingen, de gebruikerslaag, en dat
     # een game.ini niets anders dan /dev/videoN de sandbox in kan vragen. Hermetisch.
     add_test(NAME ravengun_camera_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_camera.py")
-    # Het spel vanaf een ander pad (--exe) en schijfletters voor een run (--drive): alleen het pad naar het spel verandert, de
-    # hele hulpketen blijft gelijk; een schijfletter staat er precies zolang de run duurt. Start niets.
-    add_test(NAME ravengun_exe_override COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exe_override.py")
-    # [Launch] StackReserve: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread (alleen het veld
-    # SizeOfStackReserve verandert), de koppeling naar het origineel blijft staan, op de NAS verandert niets. Start niets.
-    add_test(NAME ravengun_stack_reserve_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stack_reserve.py")
-    # Profielen met twee exe's (HasTwoExecutables): beide starts in --plan, de vaste orde met de wachttijd, dezelfde view/prefix/
-    # omgeving, uitvoer en exitcode per start, geen halve opstelling (exitcode 7), en een enkele exe ongewijzigd. Start niets.
-    add_test(NAME ravengun_twee_starts COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_twee_starts.py")
-    # De besturingspipe ([Input] ControlPipe) in launch-direct.py: rapporten ongewijzigd, in tempo, opnieuw na een verbreking.
-    add_test(NAME ravengun_besturingspipe_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_besturingspipe.py")
     # Schrijfpaden naar de NAS: geen route van ons schrijft eigen bestanden in een gamemap op de NAS.
     add_test(NAME ravengun_nas_schrijfpaden_views COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nas_schrijfpaden_views.py")
     add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")
   endif()
-  # Directe start zonder TeknoParrotUi (A10): startplan, teknoparrot.ini, activering en NAS-bescherming (scripts/launch-direct.py).
-  add_test(NAME ravengun_launch_direct COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_direct_test.sh")
-  set_tests_properties(ravengun_launch_direct PROPERTIES SKIP_RETURN_CODE 77)
   # Het statusbord van de tv (ravengun --saver): ontbreekt het statusbestand of staat er onzin in, dan zegt het bord dat; een status
   # die niet klopt wordt niet geschreven; en "draait er nu een spel" (zichtbaar, onzichtbaar, geen). Skip (77) zonder app-build.
   add_test(NAME ravengun_saver_status COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/saver_status_test.sh")
   set_tests_properties(ravengun_saver_status PROPERTIES SKIP_RETURN_CODE 77)
-  # De startscripts zeggen zelf wie ze zijn (scripts/rg-identiteit.sh): pad, sha256, repo of installatie, en de bestanden die bij de
-  # run horen -- bovenaan het logboek van play-native.sh (echte doorloop met een nep-bwrap) en van play-halo.sh. Start niets.
-  add_test(NAME ravengun_script_identiteit COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/identiteit_test.sh")
-  set_tests_properties(ravengun_script_identiteit PROPERTIES SKIP_RETURN_CODE 77)
   # De invoerhulp van de native route (tools/rt-input-shim): schakelaars, geweerknoppen en assen uit het bordbeeld naar de game,
   # volgens een tabel per game. Zonder tabel het oude gedrag (byte voor byte vergeleken), de rekenregel van de IO-brug voor de
   # assen, en een tabel die niet klopt wordt afgekeurd. Geen spel nodig. Skip (77) zonder C-compiler.
@@ -413,15 +380,6 @@ if(RAVENGUN_BUILD_TESTS)
   # 64- en 32-bits, met tegenproef zonder de bibliotheek. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_ptylink COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/ptylink_test.sh")
   set_tests_properties(ravengun_ptylink PROPERTIES SKIP_RETURN_CODE 77)
-  # De invoertabel per game op de native route: play-native.sh geeft patches/<Game>/rt-invoer.ini (gebruikerslaag voor
-  # meegeleverd) alleen-lezen aan de invoerhulp mee en noemt hem met zijn sha256 in het logboek; zonder tabel, of zonder de hulp,
-  # verandert er niets aan het commando. Echte doorloop van het script met een nep-bwrap. Start niets.
-  add_test(NAME ravengun_native_invoertabel COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_invoertabel_test.sh")
-  set_tests_properties(ravengun_native_invoertabel PROPERTIES SKIP_RETURN_CODE 77)
-  # De camera op de native route: alleen een spel dat de camera IN het spel gebruikt ([Camera] Use = game) krijgt hem, met
-  # --dev-bind-try; zonder instelling verandert er niets aan het commando; een instelling die niet klopt stopt de start; het
-  # logboek zegt welke keuze er gemaakt is. Echte doorloop van play-native.sh met een nep-bwrap. Start niets.
-  add_test(NAME ravengun_native_camera COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_camera_test.sh")
   # scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
   add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
@@ -473,13 +431,14 @@ if(RAVENGUN_BUILD_TESTS)
   target_compile_definitions(ravengun_direct_launch_tests PRIVATE "RG_DIRECT_BIN=\"$<TARGET_FILE:rg-direct>\"")
   add_dependencies(ravengun_direct_launch_tests rg-direct)
   add_test(NAME ravengun_direct_launch_tests COMMAND ravengun_direct_launch_tests)
-  # Gouden vergelijking: het plan van de engine tegen dat van scripts/launch-direct.py voor elk profiel in patches/ met
-  # [Launch] Mode = direct (hermetisch: tijdelijke HOME, nep-runtime, views en gamemappen). Skip (77) zonder patches/.
+  # Gouden vergelijking: het plan van de engine tegen de vastgelegde plannen in tests/golden/direct/ (gemaakt en nagerekend met
+  # de Python-tweeling launch-direct.py toen die er nog was) voor elk profiel in patches/ met [Launch] Mode = direct (hermetisch:
+  # tijdelijke HOME, nep-runtime, views en gamemappen). Skip (77) zonder patches/. Bewuste wijziging: tests/direct_golden.py --update.
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_direct_golden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/direct_golden.py"
       --rg-direct "$<TARGET_FILE:rg-direct>" --patches "${CMAKE_CURRENT_SOURCE_DIR}/patches")
     set_tests_properties(ravengun_direct_golden PROPERTIES SKIP_RETURN_CODE 77)
-    # De automatische view ([Launch] View): tp-add-game.py --view, de engine en launch-direct.py maken dezelfde boom op een nep-NAS;
+    # De automatische view ([Launch] View): tp-add-game.py --view en de engine maken dezelfde boom op een nep-NAS;
     # verversen, View = off, weigeren en niets op de NAS schrijven.
     add_test(NAME ravengun_gameview COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_gameview.py"
       --rg-direct "$<TARGET_FILE:rg-direct>")

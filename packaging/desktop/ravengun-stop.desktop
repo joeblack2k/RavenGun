@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Game stoppen
-Comment=Stopt de draaiende arcadegame en zet de lightgun uit
-Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --stop
-Icon=process-stop
-Terminal=false
-Categories=Game;

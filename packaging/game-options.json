@@ -9,7 +9,7 @@
  "target_kinds": {
   "tp_profile_field": "TeknoParrot profile field (UserProfiles/<profile>.xml ConfigValues/FieldInformation: CategoryName + FieldName). TeknoParrotUi mirrors the value into teknoparrot.ini next to the launched exe as [CategoryName] FieldName=value (checked against the ini files of Jurassic Park, Time Crisis 5, Let's Go Safari, Luigi, Rabbids, Tomb Raider).",
   "tp_profile_attr": "Top-level element of the profile XML (for example WineRunnerPath).",
-  "launch_env": "Environment variable read by scripts/play-halo.sh from UserProfiles/<profile>.env.",
+  "launch_env": "Environment variable read by the daemon from UserProfiles/<profile>.env when it starts the game.",
   "game_config_file": "A config file in the game folder. format: ini, tab_ini (KEY<TAB>VALUE), space_ini, csv, colon (Key:Value), colon_text, xml, ini_onoff / ini_yesno (ON/OFF or YES/NO words), shell_arg, rtdt_adjval (Raw Thrills checksummed adjustment store; edit_outside_game=false means change it in the in-game TEST menu only)."
  },
  "memory_card_vocabulary": {

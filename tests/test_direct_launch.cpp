@@ -650,6 +650,16 @@ int main() {
             CHECK(plan_from_json(plan_to_json(pl), back, jerr) && back.exe_override == pl.exe_override && back.drives.size() == 1 &&
                   back.drives[0].link == pl.drives[0].link);
         }
+        // Een letter die al naar dezelfde map wijst blijft staan (present); een die ergens anders heen wijst: niet starten.
+        // (Uit tests/test_exe_override.py, toen launch-direct.py de tweeling was.)
+        const fs::path xlink = fs::path(basis.prefix) / "dosdevices/x:";
+        fs::create_directory_symlink(view, xlink);
+        write(user, "[Launch]\nDrives = X=.\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.drives.size() == 1 && pl.drives[0].present);
+        fs::remove(xlink);
+        fs::create_directory_symlink(root, xlink);
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat al in de prefix"));
+        fs::remove(xlink);
         write(user, "[Launch]\nDrives = C=.\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "niet C"));
         write(user, "[Launch]\nDrives = X=.\nExe = Y:\\spel.exe\n");
@@ -674,6 +684,31 @@ int main() {
     write(fs::path(p.dirs.user) / "Spel/dropin/weg.dll", "x");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Drop-in geweigerd") && contains(why, "buiten de view"));
     fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+    // Preload onder de OpenParrot-lader: die laadt via TP_PRELOAD_DLL precies een DLL. Twee preloads, of een TP_PRELOAD_DLL die al
+    // ergens anders heen wijst: niet starten, in plaats van zonder drop-in door te gaan (uit tests/test_dropin_materialiseer.py).
+    write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[twee.dll]\nTo = .\nPreload = true\n");
+    write(fs::path(p.dirs.user) / "Spel/dropin/twee.dll", "MZtwee");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "precies een"));
+    if (!contains(why, "precies een")) std::fprintf(stderr, "twee preloads: %s\n", why.c_str());
+    fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+    write(user, "[Env]\nTP_PRELOAD_DLL = Z:\\\\anders.dll\n");
+    CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "TP_PRELOAD_DLL staat al op"));
+    if (!contains(why, "TP_PRELOAD_DLL staat al op")) std::fprintf(stderr, "TP_PRELOAD_DLL al gezet: %s\n", why.c_str());
+    // [Loader] Core = ravengun bij EmulatorType TeknoParrot: onze kern in plaats van TeknoParrot64.dll als eerste argument van de
+    // lader; ontbreekt hij, dan niet starten met de bouwhint (uit tests/launch_direct_test.sh).
+    {
+        const fs::path own_core = fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrot64.dll";
+        write(own_core, "x");
+        write(user, "[Loader]\nCore = ravengun\n");
+        const Verdict cv = plan_direct("Spel", p, o, pl, why);
+        CHECK(cv == Verdict::Ok);
+        if (cv != Verdict::Ok) std::fprintf(stderr, "Core = ravengun: %s\n", why.c_str());
+        CHECK(pl.argv.size() > 2 && pl.argv[1] == own.string() && pl.argv[2] == wine_path((fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrot64").string()));
+        CHECK(pl.core_source == "ravengun" && pl.core_dll == own_core.string());
+        fs::remove(own_core);
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "eigen OpenParrot-build ontbreekt") && contains(why, "build-openparrot.sh"));
+    }
+    write(user, "");
 
     // --- de besturingspipe ([Input] ControlPipe): het ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe ----------------------------
     {
@@ -1041,6 +1076,60 @@ int main() {
         waitpid(pid, &st, 0);
         CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 1 && contains(slurp(logf), "van de besturingspipe bestaat niet"));
         if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (besturingspipe) ---\n%s\n", log.c_str());
+        fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
+    }
+    // [Launch] Drives: de schijfletter staat er precies zolang de run duurt (ervoor gezet, erna weg); een letter die er al goed stond
+    // blijft staan (uit tests/test_exe_override.py, toen launch-direct.py de tweeling was).
+    {
+        const fs::path out = root / "out4";
+        fs::create_directories(out);
+        write(wine,
+              "#!/usr/bin/env bash\n"
+              "case \"$1\" in\n"
+              "  */pipehelper.exe|*/rg-jvsbridge.exe) echo \"pipehelper: pipe created\" >&2; exec sleep 30 ;;\n"
+              "  *) readlink \"$WINEPREFIX/dosdevices/x:\" > \"$OUT/drive-x\"; exit 3 ;;\n"
+              "esac\n",
+              true);
+        write(root / "src", std::string(64, '\0'));
+        write(fs::path(p.dirs.user) / "Spel/game.ini", "[Launch]\nDrives = X=.\n");
+        o.base_env["OUT"] = out.string();
+        o.control_source.clear();
+        auto run = [&](std::string& log) {
+            DirectPlan dp;
+            std::string w;
+            if (plan_direct("Spel", p, o, dp, w) != Verdict::Ok || dp.drives.size() != 1) { std::fprintf(stderr, "plan drives: %s\n", w.c_str()); return -1; }
+            dp.state = (root / "state4").string();
+            const fs::path planf = root / "plan4.json", logf = root / "run4.log";
+            write(planf, plan_to_json(dp));
+            posix_spawn_file_actions_t fa;
+            posix_spawn_file_actions_init(&fa);
+            posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            posix_spawn_file_actions_adddup2(&fa, 1, 2);
+            std::string bin = RG_DIRECT_BIN;
+            std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+            extern char** environ;
+            pid_t pid = 0;
+            if (posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) != 0) return -1;
+            posix_spawn_file_actions_destroy(&fa);
+            int st = 0;
+            waitpid(pid, &st, 0);
+            log = slurp(logf);
+            return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+        };
+        DirectPlan bp;
+        CHECK(plan_direct("Spel", p, o, bp, why) == Verdict::Ok);
+        const fs::path xlink = fs::path(bp.prefix) / "dosdevices/x:";
+        const int f0 = g_failures;
+        std::string log;
+        CHECK(run(log) == 3);
+        CHECK(slurp(out / "drive-x") == fs::canonical(view).string() + "\n" || slurp(out / "drive-x") == view.string() + "\n");   // tijdens de run
+        CHECK(!fs::exists(fs::symlink_status(xlink)));                                                                        // erna weg
+        CHECK(contains(log, "schijfletter X: -> ") && contains(log, "schijfletter X: weggehaald"));
+        // Stond hij er al goed, dan blijft hij staan.
+        fs::create_directory_symlink(view, xlink);
+        CHECK(run(log) == 3 && fs::is_symlink(xlink) && contains(log, "schijfletter X: staat al in de prefix"));
+        fs::remove(xlink);
+        if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (schijfletters) ---\n%s\n", log.c_str());
         fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
     }
 #endif

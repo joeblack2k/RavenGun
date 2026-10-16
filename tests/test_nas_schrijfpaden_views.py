@@ -20,9 +20,9 @@ LAAG A -- deterministisch, namaak-NAS in een tijdelijke map, raakt niets echts a
     python3 -B tests/test_nas_schrijfpaden_views.py LaagA_Checker
 
 LAAG B -- de echte views onder ~/.local/share/ravengun/runtime/views en views-aagames, alleen lezen
-  (`launch-direct.py --plan --json` start niets). FAALT alleen als een plek van ONZE artefacten op de echte NAS uitkomt zonder
+  (`rg-direct --plan` start niets). FAALT alleen als een plek van ONZE artefacten op de echte NAS uitkomt zonder
   bescherming (status "open") en noemt dan elke view met plek, doel en rol. Restanten die al op de NAS staan (status "restant") en
-  drop-indoelen die launch-direct bij het plaatsen lokaal maakt ("gedekt") worden alleen getoond. Slaat zichzelf over als de
+  drop-indoelen die de engine bij het plaatsen lokaal maakt ("gedekt") worden alleen getoond. Slaat zichzelf over als de
   NAS niet gekoppeld is.
     python3 -B tests/test_nas_schrijfpaden_views.py LaagB_EchteViews
 Alles: python3 -B tests/test_nas_schrijfpaden_views.py
@@ -335,7 +335,7 @@ class LaagB_EchteViews(unittest.TestCase):
             self.fail("\n" + "\n".join(regels))
 
     def test_de_aagames_views_zijn_schoon(self):
-        """De aagames-views (play-unity.sh) hebben BepInEx en Game_Data/Plugins lokaal en moeten dat blijven."""
+        """De aagames-views (de Unity-route) hebben BepInEx en Game_Data/Plugins lokaal en moeten dat blijven."""
         slecht = [(v["view"], b["map"]) for v in self.res if v["soort"] == "aagames" for b in v["bevindingen"] if scan.ernstig(b)]
         self.assertEqual([], slecht)
         for v in self.res:

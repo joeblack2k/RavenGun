@@ -137,6 +137,13 @@ tail -1 "$F" | grep -q '"k":"end"' || fail "eindregel ontbreekt"
 [ $? -eq 75 ] || fail "calibrate mag zonder Move moet exit 75 geven"
 "$C" calibrate mag --status --json | grep -q '"calibrated":false' || fail "calibrate mag --status"
 "$C" status --json | grep -q '"timebase":{' || fail "timebase ontbreekt in status"
+# game: alleen status en weigeringen (stop zou de echte unit ravengun-tpui van de sessie kunnen raken).
+"$C" game status >/dev/null || fail "game status"
+"$C" game status --json | grep -q '"status":{' || fail "game status --json"
+"$C" game start 2>/dev/null
+[ $? -eq 64 ] || fail "game start zonder profiel moet exit 64 geven"
+"$C" game start 'x/y' 2>/dev/null
+[ $? -eq 76 ] || fail "game start met een ongeldige profielnaam moet exit 76 geven"
 
 kill -TERM "$PID"
 wait "$PID"

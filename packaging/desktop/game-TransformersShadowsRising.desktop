@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Transformers Shadows Rising
-Comment=Start Transformers Shadows Rising met de Move als lightgun (RavenGun)
-Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile TransformersShadowsRising
-Icon=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/Icons/TransformersShadowsRising.png
-Terminal=false
-Categories=Game;

@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Let's Go Island 3D
-Comment=Start Let's Go Island 3D met de Move als lightgun (RavenGun)
-Exec=/home/deck/projects/ravengun/scripts/play-halo.sh --profile LGI3D
-Icon=input-gaming
-Terminal=false
-Categories=Game;

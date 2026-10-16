@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests voor het eigen spelprofiel in game.ini (docs/per-game-patches.md, "Het profiel van een game"): ConfigValues schrijven en lezen,
-de importer (scripts/import-tp-profiles.py) met round-trip en behoud van handwerk, het afleiden van het pad uit de gamemappen, de start
-zonder UserProfiles-XML (scripts/launch-direct.py), de revisiecontrole en de Patreon-poort, en de XML als uitvoerformaat voor TeknoParrotUi.
+de importer (scripts/import-tp-profiles.py) met round-trip en behoud van handwerk, het afleiden van het pad uit de gamemappen, en de XML
+als uitvoerformaat voor TeknoParrotUi. (De start zelf, met de revisiecontrole, test tests/test_direct_launch.cpp; de Patreon-poort
+bestond alleen in scripts/launch-direct.py, dat weg is.)
 Raakt alleen tijdelijke mappen (geen wine, geen game). Uitvoeren: python3 -I tests/test_ownprofile.py"""
-import importlib.util
 import json
 import os
 import shutil
@@ -92,7 +92,6 @@ class Env(unittest.TestCase):
         write(os.path.join(self.tp, "GameProfiles", "A.xml"), template_xml())
         write(os.path.join(self.tp, "UserProfiles", "A.xml"), user_xml(self.exe, extra="<WineRunnerPath>%s</WineRunnerPath>" % wine))
         write(os.path.join(self.shipped, "A", "game.ini"), "; handwerk\n[Game]\nName = Spel A\n\n[Status]\n; mijn notitie\nStatus = playable\n")
-        self.ld = self.load_launcher()
 
     def tearDown(self):
         os.environ.clear()
@@ -102,28 +101,14 @@ class Env(unittest.TestCase):
     def set_library(self, folders):
         write(self.lib, json.dumps({"schema": 1, "folders": [{"path": f, "recursive": True} for f in folders]}))
 
-    def load_launcher(self):
-        spec = importlib.util.spec_from_file_location("ld_own_test", os.path.join(SCRIPTS, "launch-direct.py"))
-        m = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(m)
-        return m
-
     def importer(self, *args):
         r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "import-tp-profiles.py"), "--runtime", self.tp, "--out", self.shipped,
                             "--user", self.user] + list(args), capture_output=True, text=True, env=dict(os.environ))
         return r.returncode, r.stderr
 
-    def plan(self, tp=None, own=True, name="A"):
-        return self.ld.build_plan(name, tp or self.tp, base_env={"PATH": "/usr/bin:/bin", "HOME": self.home}, use_own=own)
-
-    def tp_without_xml(self):
-        """De runtime zonder UserProfiles (alleen sjablonen en laders): het eigen profiel moet zonder de XML starten."""
-        d = os.path.join(self.tmp, "tp-zonder-xml")
-        os.makedirs(os.path.join(d, "UserProfiles"))
-        for e in os.listdir(self.tp):
-            if e != "UserProfiles":
-                os.symlink(os.path.join(self.tp, e), os.path.join(d, e))
-        return d
+def located(name="A"):
+    """Waar de start de game vindt (ownprofile.locate_game: override, view of gamemappen)."""
+    return op.locate_game(name, gs.load_game(name).settings)[0]
 
 
 class ConfigValuesTest(Env):
@@ -214,7 +199,7 @@ class ImporterTest(Env):
         u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
         self.assertEqual(u["Game"]["GamePath"], gs.shrink_home(self.exe))
         # De override telt: de start vindt de game zonder gamemap.
-        self.assertEqual(self.plan()["game"], self.exe)
+        self.assertEqual(located(), self.exe)
 
     def test_game_folder_flag_needs_add_to_library(self):
         # --game-folder bepaalt de wortel van [Identify], maar alleen wat in library.json staat vindt de launcher straks terug.
@@ -230,7 +215,7 @@ class ImporterTest(Env):
         self.assertEqual(op.library_folders(), [self.games])
         u, _ = gs.read_ini(os.path.join(self.user, "A", "game.ini"))
         self.assertNotIn("GamePath", u.get("Game", {}))
-        self.assertEqual(self.plan()["game"], self.exe)
+        self.assertEqual(located(), self.exe)
 
     def test_no_secrets_and_no_input_assignments(self):
         write(os.path.join(self.tp, "UserProfiles", "A.xml"), user_xml(self.exe, extra="<ExtraParameters>-token=abc123</ExtraParameters><PatreonSerialKey>geheim</PatreonSerialKey>"))
@@ -383,89 +368,6 @@ class CheapLocateTest(Env):
             op.sha256_file = real
             op._hash_mem.clear()
             op._hash_loaded.clear()
-
-
-class LaunchTest(Env):
-    def setUp(self):
-        super().setUp()
-        self.assertEqual(self.importer("A", "--game-folder", self.games)[0], 0)
-
-    def test_start_without_user_profile_xml_equals_xml_start(self):
-        tp2 = self.tp_without_xml()
-        self.assertFalse(os.path.exists(os.path.join(tp2, "UserProfiles", "A.xml")))
-        own, xml = self.plan(tp2), self.plan(self.tp, own=False)
-        self.assertEqual(own["profile_source"], "game.ini")
-        self.assertEqual(xml["profile_source"], "UserProfiles/A.xml")
-        self.assertEqual(own["game_source"], "folders")
-        self.assertEqual([(os.path.basename(f), t) for f, t in own["files"]], [(os.path.basename(f), t) for f, t in xml["files"]])   # teknoparrot.ini byte voor byte
-        self.assertEqual(own["files"][0][1], "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=0\n"
-                                             "Keyboard/Button Axis=5\nNickname=Jan\n")
-        for k in ("argv", "cwd", "game", "wine", "prefix", "launch_env", "game_comms", "needs_activation", "emulator_type", "emulation_profile"):
-            fix = lambda v: json.loads(json.dumps(v).replace(tp2, self.tp).replace(tp2.replace("/", "\\\\"), self.tp.replace("/", "\\\\")))
-            a, b = fix(own[k]), xml[k]
-            if k == "launch_env":
-                a.pop("TP_LAUNCH_SESSION_ID"), b.pop("TP_LAUNCH_SESSION_ID")
-            self.assertEqual(a, b, k)
-
-    def test_check_via_cli_without_xml(self):
-        shutil.rmtree(os.path.join(self.tp, "UserProfiles"))
-        r = subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "launch-direct.py"), "A", "--check", "--tp", self.tp],
-                           capture_output=True, text=True, env=dict(os.environ))
-        self.assertEqual(r.returncode, 0, r.stderr)
-
-    def test_without_own_profile_falls_back_to_xml(self):
-        os.unlink(os.path.join(self.shipped, "A", "game.ini"))
-        shutil.rmtree(os.path.join(self.user, "A"))
-        self.assertEqual(self.plan()["profile_source"], "UserProfiles/A.xml")
-        os.unlink(os.path.join(self.tp, "UserProfiles", "A.xml"))
-        with self.assertRaises(self.ld.Unsupported):
-            self.plan()
-
-    def test_revision_check(self):
-        write(os.path.join(self.tp, "GameProfiles", "A.xml"), template_xml(rev="8"))
-        with self.assertRaises(self.ld.Unsupported) as cm:
-            self.plan()
-        self.assertIn("import-tp-profiles.py A", str(cm.exception))
-        self.assertIn("opnieuw", str(cm.exception))
-
-    def test_game_not_found_is_unsupported(self):
-        self.set_library([])
-        with self.assertRaises(self.ld.Unsupported) as cm:
-            self.plan()
-        self.assertIn("gamemap", str(cm.exception))
-
-    def set_user(self, text):
-        write(os.path.join(self.user, "A", "game.ini"), (read(os.path.join(self.user, "A", "game.ini")) if os.path.exists(os.path.join(self.user, "A", "game.ini")) else "") + text)
-
-    def test_patreon_gate(self):
-        # Het sjabloon zegt het niet, het eigen profiel ook niet: geen abonnement.
-        self.assertFalse(self.plan()["needs_activation"])
-        # Het eigen profiel (meegeleverd) zegt Patreon = true.
-        write(os.path.join(self.shipped, "A", "game.ini"), read(os.path.join(self.shipped, "A", "game.ini")).replace("[Game]\n", "[Game]\nPatreon = true\n", 1))
-        self.assertTrue(self.plan()["needs_activation"])
-        # De gebruikerslaag kan het niet uitzetten (niet met false en niet met een lege waarde).
-        for v in ("Patreon = false\n", "Patreon =\n"):
-            self.set_user("\n[Game]\n" + v)
-            self.assertTrue(self.plan()["needs_activation"], v)
-            write(os.path.join(self.user, "A", "game.ini"), read(os.path.join(self.user, "A", "game.ini")).replace("\n[Game]\n" + v, ""))
-        # De gebruikerslaag kan het wel aanzetten (zonder iets in het meegeleverde profiel).
-        write(os.path.join(self.shipped, "A", "game.ini"), read(os.path.join(self.shipped, "A", "game.ini")).replace("Patreon = true\n", ""))
-        self.assertFalse(self.plan()["needs_activation"])
-        self.set_user("\n[Game]\nPatreon = true\n")
-        self.assertTrue(self.plan()["needs_activation"])
-        write(os.path.join(self.user, "A", "game.ini"), read(os.path.join(self.user, "A", "game.ini")).replace("\n[Game]\nPatreon = true\n", ""))
-        # Het sjabloon van de runtime zegt true: het eigen profiel en de gebruikerslaag kunnen dat niet uitzetten (en de revisie klopt nog).
-        write(os.path.join(self.tp, "GameProfiles", "A.xml"), template_xml(patreon="true"))
-        self.assertTrue(self.plan()["needs_activation"])
-        self.set_user("\n[Game]\nPatreon = false\n")
-        self.assertTrue(self.plan()["needs_activation"])
-        self.assertTrue(self.plan(self.tp_without_xml())["needs_activation"])
-        # Zonder sjabloon-Patreon in het meegeleverde profiel (importer schreef het wel): ook dan blijft het sjabloon beslissend.
-        text = read(os.path.join(self.shipped, "A", "game.ini"))
-        write(os.path.join(self.shipped, "A", "game.ini"), "\n".join(l for l in text.splitlines() if not l.startswith("Patreon")) + "\n")
-        self.assertTrue(self.plan()["needs_activation"])
-        # De activering zelf wordt nergens gelezen of geschreven: check_activation blijft zoals hij was.
-        self.assertTrue(hasattr(self.ld, "check_activation"))
 
 
 class XmlOutputTest(Env):

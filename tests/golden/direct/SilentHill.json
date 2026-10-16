@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "SilentHill",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Gst32 = true, maar de 32-bits GStreamer staat niet klaar in @TMP@/home/.local/share/ravengun/gst32: draai scripts/setup-gst32.sh (leest hem uit Proton van Steam; docs/gst32.md)"
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "SilentHill",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Gst32 = true, maar de 32-bits GStreamer staat niet klaar in @TMP@/home/.local/share/ravengun/gst32: draai scripts/setup-gst32.sh (leest hem uit Proton van Steam; docs/gst32.md)"
+ }
+}
