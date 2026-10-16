@@ -15,13 +15,14 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand 2026-10-17 09:50: **49 van 56** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+Stand 2026-10-17 01:22: **50 van 56** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
 RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst) en Mighty Moto (4:3) zijn
 overgeslagen, dus 56 titels en 95% = 54. Erbij sinds de vorige stand: America's Army (native route aan), Lost Land Adventure
 (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise Lost en Friction (alle vijf: Windowed = 1 in
-gamescope; met 0 bleven ze zwart), Infinity Blade FX (matrix-exports op de ordinalen van het origineel, plus Windowed = 1). Nog niet:
+gamescope; met 0 bleven ze zwart), Infinity Blade FX (matrix-exports op de ordinalen van het origineel, plus Windowed = 1), Silent Scope: Bone Eater (TeknoMacaw met DXVK,
+indeling KonamiAcio, ViewTtcAsTtf voor de DynaFont-collecties). Nog niet:
 The House of the Dead III en Virtua Cop 3 (Chihiro; Cxbx-Reloaded blijft in segaboot op 0 FPS), Aliens: Extermination (stopt na een
-paar seconden, exitcode 5), Silent Scope: Bone Eater, Men in Black, Gunslinger Stratos 3 (geparkeerd: crash op 0x4FD8AED0 vóór de
+paar seconden, exitcode 5), Men in Black, Gunslinger Stratos 3 (geparkeerd: crash op 0x4FD8AED0 vóór de
 injectie), Star Trek Voyager (alleen 4:3, zelfde I/O als Police Trainer 2).
 
 ## Taken per familie
@@ -39,7 +40,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T5 | Werkende titels: open punten | Mario Kart DX (camera), Ghost Squad Evolution (wisselvallig), Point Blank X (attract-film), runtime-keuze zonder daemonherstart | open |
 | T6 | Linux native, nog niet geprobeerd | America's Army Arcade, Police Trainer 2, Crossfire: Maximum Paintball | open |
 | T7 | Windows met bescherming of crash | Aliens: Extermination, Block King Ball Shooter, Cooper's 9 | Cooper's 9 start (Windowed = 1); Block King overgeslagen (Japanse tekst); Aliens: Extermination open |
-| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 geparkeerd; Mighty Moto overgeslagen (4:3); rest open |
+| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 geparkeerd; Mighty Moto overgeslagen (4:3); Silent Scope: Bone Eater start; rest open |
 | T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | alleen meten of een passthrough-lader (Cxbx-achtig, x86 native) haalbaar is |
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
 | geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
@@ -116,7 +117,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
 | Men in Black | Windows PC | geparkeerd: twee versies, onderzoek ATTRACT-RUN.md |
 | Robin Hood | ICE PC Based | 2026-10-15 (meetdraad): D3D9 1280x720, hoofddraad in zijn berichtenlus, geen Present; 57% CPU in /proc-lezingen (GetThreadTimes) |
-| Silent Scope: Bone Eater | Konami PC-Based | Konami TeknoMacaw |
+| Silent Scope: Bone Eater | Konami PC-Based | 2026-10-17 start: TeknoMacaw64 + DXVK, regio Asia (Engels), attract met ranglijst; ViewTtcAsTtf (Wine's GDI+ neemt geen .ttc aan); invoer KonamiAcio nog niet gemeten |
 | Star Trek Voyager | Team Play PC Based | geen Lindbergh-game (Team Play-pc, trek.e4 onbekend voor lindbergh-loader): eigen native route nodig |
 | The House of the Dead 4 | SEGA Lindbergh Red | draait (stackalign): attract, munt, START, intro; tijdens het spel wit beeld (shaders uitgesloten), dan GAME OVER |
 | The House of the Dead 4 Special | SEGA Lindbergh Yellow | draait (stackalign, /var/tmp): ride-reset en 5 min attract; munt+START starten geen spel (ride-signalen) |

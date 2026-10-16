@@ -493,6 +493,23 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused("[Launch] ViewCopies vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de kopieën "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
     }
+    // 6c3. [Launch] ViewTtcAsTtf: een TrueType-collectie (.ttc) wordt in de view face 0 als losse font (ttc.hpp): Wine's
+    // GdipPrivateAddMemoryFont neemt geen collectie aan. Paden ten opzichte van de wortel van de view, zoals ViewRealDirs; de map
+    // eromheen moet in de view een echte map zijn (ViewRealDirs), want op de NAS wordt niets geschreven. Silent Scope: Bone Eater
+    // laadt zo zijn vier DynaFont-collecties (2026-10-17).
+    if (const std::string vt = trim(lini("ViewTtcAsTtf")); !vt.empty()) {
+        for (std::string r : nonempty_split(vt, ',')) {
+            r = trim(r);
+            std::replace(r.begin(), r.end(), '\\', '/');
+            const std::string n = normpath(r);
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
+                return setting_refused("[Launch] ViewTtcAsTtf = " + vt + " ('" + r + "': een pad binnen de gamemap, relatief en zonder ..)");
+            pl.view_ttc_fonts.push_back(normpath(pjoin(view_root, n)));
+        }
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewTtcAsTtf vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de fonts "
+                                   "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
+    }
     // 6d. [Launch] Dxvk: Direct3D 8 tot en met 11 via DXVK (Vulkan) in plaats van wined3d (OpenGL), per game in de view (docs/dxvk.md).
     // Mario Kart DX: met wined3d ontbrak de 2D-laag (geen tekst, geen menu's) en kwamen er duizenden GL-fouten; met DXVK niet.
     if (const std::string dx = lower(trim(lini("Dxvk"))); !dx.empty() && dx != "false" && dx != "0" && dx != "off") {

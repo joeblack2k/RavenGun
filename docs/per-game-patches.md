@@ -166,6 +166,7 @@ View =                        ; auto (leeg) | off | N: de lokale view van een ga
 ViewEmptyDirs =               ; mappen die in de view leeg en lokaal zijn (--empty-dir), bv. RSGame/Content/Movies
 ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink naar het bestand van B (zie "ViewLinks" hieronder)
 ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
+ViewTtcAsTtf =                ; A.ttc[, ...]: in de view wordt de TrueType-collectie A face 0 als losse font (Wine's GDI+ neemt geen .ttc aan; zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 
 [Display]
@@ -449,6 +450,22 @@ want dat is de stand van de game. Paden zijn relatief aan de map van de exe, zon
 weigert het plan. Mars Sortie (2026-10-15) schreef bij elke start `GameRecords1.dat` en `GameRecords2.dat`. Zonder `ViewCopies`
 kregen die bestanden op de NAS een nieuwe mtime; met `ViewCopies` blijft de NAS gelijk. In de engine: `place_view_copies` in
 `direct.cpp`, in het plan `view_copies`.
+
+**Een TrueType-collectie als losse font (`[Launch] ViewTtcAsTtf = A.ttc, B.ttc`).** Wine's `GdipPrivateAddMemoryFont` neemt alleen
+een losse TrueType- of OpenType-font aan (kop `0x00010000` of `OTTO`); bij een collectie (kop `ttcf`) vindt hij geen naam en blijft
+het aantal families 0. Silent Scope: Bone Eater (2026-10-17) stopte daarop met "No font loaded or no font families data in font file"
+(`WindowsFont.cpp`; gemeten met `[Wine] Debug = trace+gdiplus`: Fuji Extended laadde, `df_heiseigothic_w5.ttc` niet). Met
+`ViewTtcAsTtf` wordt de link in de view bij de start een lokaal bestand met face 0 van de collectie als losse font (`ttc.hpp`); het
+origineel op de NAS blijft gelijk en een lokaal bestand dat al een losse font is blijft staan. Paden zijn relatief aan de **wortel
+van de view** (zoals `ViewRealDirs`, niet aan de map van de exe), zonder `..`. De map eromheen moet in de view een echte map zijn:
+zet hem in `ViewRealDirs`, anders weigert de start (op de NAS wordt nooit geschreven). De naam mag in andere hoofdletters staan dan
+het spel vraagt (`data\Font\DF_HeiSeiGothic_W5.ttc`): in de lokale view zoekt Wine zelf hoofdletterongevoelig. In de engine:
+`place_view_ttc_fonts` in `direct_apply.cpp`, in het plan `view_ttc_fonts`.
+
+*Waarom niet in de schrijflaag (zoals zaaigoed)?* Gemeten 2026-10-17: de share van de NAS (cifs) is hoofdletterongevoelig. Wine
+probeert eerst het pad precies zoals het spel het vraagt, en de overlay vindt `data/Font/...` dan rechtstreeks in de onderlaag op de
+NAS. Een bestand in de bovenlaag met de naam zoals hij op de NAS staat (`data/font/...`) wordt dan overgeslagen. Dat geldt ook voor
+zaaigoed: een bestand onder `seed/` moet dezelfde hoofdletters hebben als het pad dat het spel opent.
 
 **Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
 een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.

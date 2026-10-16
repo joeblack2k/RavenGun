@@ -1494,61 +1494,61 @@
    ],
    "offscreen_margin": 0
   },
-   "LostLandAdventures": {
-    "description": "Lost Land Adventure (Namco ES3X, TeknoParrot-kern; profiel LostLandAdventures, TeknoParrotUi LostLandPipe). Control (offset 8): trekker speler 1 (0x1, TeknoParrot 'P2Button1') en speler 2 (0x2, 'P2Button2'). Aim: 4 kanalen van 1 byte met stride 4 op offset 12..24 (P1 X/Y = 12/16, P2 = 20/24). Start, munt en service (P1Button3/4, Coin1, Service1) zijn nog niet gemeten. Toegevoegd 2026-10-16.",
-    "size": 64,
-    "complete": false,
-    "mirror_bytes": [
-     0,
-     7
-    ],
-    "bits": [
-     {
-      "signal": "p1.trigger",
-      "offset": 8,
-      "bit": 0
-     },
-     {
-      "signal": "p2.trigger",
-      "offset": 8,
-      "bit": 1
-     }
-    ],
-    "axes": [
-     {
-      "signal": "p1.x",
-      "offset": 12,
-      "bytes": 1,
-      "min": 0,
-      "max": 255,
-      "invert": false
-     },
-     {
-      "signal": "p1.y",
-      "offset": 16,
-      "bytes": 1,
-      "min": 0,
-      "max": 255,
-      "invert": false
-     },
-     {
-      "signal": "p2.x",
-      "offset": 20,
-      "bytes": 1,
-      "min": 0,
-      "max": 255,
-      "invert": false
-     },
-     {
-      "signal": "p2.y",
-      "offset": 24,
-      "bytes": 1,
-      "min": 0,
-      "max": 255,
-      "invert": false
-     }
-    ]
-   },
+  "LostLandAdventures": {
+   "description": "Lost Land Adventure (Namco ES3X, TeknoParrot-kern; profiel LostLandAdventures, TeknoParrotUi LostLandPipe). Control (offset 8): trekker speler 1 (0x1, TeknoParrot 'P2Button1') en speler 2 (0x2, 'P2Button2'). Aim: 4 kanalen van 1 byte met stride 4 op offset 12..24 (P1 X/Y = 12/16, P2 = 20/24). Start, munt en service (P1Button3/4, Coin1, Service1) zijn nog niet gemeten. Toegevoegd 2026-10-16.",
+   "size": 64,
+   "complete": false,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "p2.trigger",
+     "offset": 8,
+     "bit": 1
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 12,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 16,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.x",
+     "offset": 20,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    },
+    {
+     "signal": "p2.y",
+     "offset": 24,
+     "bytes": 1,
+     "min": 0,
+     "max": 255,
+     "invert": false
+    }
+   ]
+  },
   "EADP": {
    "description": "Elevator Action Death Parade (Taito Type X2 via OpenParrot, profiel EADP). Control (offset 8; TeknoParrotUi EADPPipe): trekker speler 1 0x1 (TeknoParrot P1Button3), knop 4 speler 1 0x2 (bij ons herladen), trekker speler 2 0x4, knop 4 speler 2 0x8, volume omhoog 0x10 en omlaag 0x20. Aim: P1 X/Y = 12/16, P2 = 20/24, 1 byte, links/boven = 0. Start, munt, test, service en de actieknop lopen via de JVS-pipe (Route jvs, het bord van de daemon), zoals bij Music GunGun 2.",
    "size": 64,
@@ -1624,6 +1624,81 @@
     }
    ],
    "offscreen_margin": 0
+  },
+  "KonamiAcio": {
+   "description": "Konami-ACIO-games via TeknoMacaw (profiel KonamiAcio: Silent Scope: Bone Eater; TeknoParrotUi AcioPipe). Control (64 bit, offset 8): test 0x1, service 0x2, munt 0x4, start 0x8, P1Button1..6 = 0x10..0x200 (bij Silent Scope: omhoog, omlaag, links, rechts, zijknop links en rechts), P2Button1 0x400 (Silent Scope: trekker), P2Button2 0x800 (Silent Scope: scope). Kaart en systeemknoppen op byte 60 (niet gebruikt: kaart staat uit in regio Asia). Aim: 16 bit little-endian op offset 16 (X) en 20 (Y), links/boven = 0 (InvertedMouseAxis, Use16BitAnalog). Bij ons: granaat = scope, volume omhoog/omlaag = menu omhoog/omlaag, aux1 = zijknop links. Toegevoegd 2026-10-17.",
+   "size": 64,
+   "mirror_bytes": [
+    0,
+    7
+   ],
+   "bits": [
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 0
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 1
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "volume_up",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "volume_down",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p1.aux1",
+     "offset": 8,
+     "bit": 8
+    },
+    {
+     "signal": "p1.trigger",
+     "offset": 8,
+     "bit": 10
+    },
+    {
+     "signal": "p1.grenade",
+     "offset": 8,
+     "bit": 11
+    }
+   ],
+   "axes": [
+    {
+     "signal": "p1.x",
+     "offset": 16,
+     "bytes": 2,
+     "min": 0,
+     "max": 65535,
+     "invert": false,
+     "big_endian": false
+    },
+    {
+     "signal": "p1.y",
+     "offset": 20,
+     "bytes": 2,
+     "min": 0,
+     "max": 65535,
+     "invert": false,
+     "big_endian": false
+    }
+   ]
   }
  }
 }

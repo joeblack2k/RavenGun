@@ -63,7 +63,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (18)
+## Not tested yet (19)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -79,6 +79,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.
 - **Robin Hood**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (press start, free play). Play not measured.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
+- **Silent Scope: Bone Eater**: Starts by double-click (2026-10-17): TeknoMacaw64 with DXVK in gamescope, region Asia: English warning, then the attract (ranking, free play). Portrait picture centred in 16:9 (the cabinet has a portrait screen). Input not measured yet.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
 - **The House of the Dead 4**: Never started. Lindbergh route ready (2026-10-14, docs/lindbergh.md): the folder 'The House of the Dead 4' is Rev C (hod4M.elf, game ID 0xe213414d, clean ELF), NOT the Special; the library currently links that folder to HOTD4SP and must point it to HOTD4. Static study of the protection: BESCHERMING-STATUS.md.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.

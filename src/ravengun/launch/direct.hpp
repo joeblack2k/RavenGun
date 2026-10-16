@@ -93,6 +93,7 @@ struct DirectPlan {
     std::vector<DirectDrive> drives;                       // [Launch] Drives
     std::string exe_override;                              // [Launch] Exe: het Windows-pad dat de lader voor het spel krijgt
     std::vector<std::string> view_copies;                  // [Launch] ViewCopies: links in de view die een lokale kopie worden
+    std::vector<std::string> view_ttc_fonts;               // [Launch] ViewTtcAsTtf: links naar een .ttc die face 0 als losse font worden (ttc.hpp)
     std::vector<std::string> reg_files;                    // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de

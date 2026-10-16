@@ -18,6 +18,7 @@
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/direct_internal.hpp"
 #include "ravengun/launch/pe_stack.hpp"
+#include "ravengun/launch/ttc.hpp"
 
 namespace ravengun::launch {
 
@@ -190,6 +191,32 @@ bool place_view_copies(const DirectPlan& pl, const DirectPaths& p, std::vector<s
     return true;
 }
 
+// [Launch] ViewTtcAsTtf: een link in de view naar een TrueType-collectie wordt een lokaal bestand met face 0 als losse font (ttc.hpp).
+// Al een lokaal bestand zonder collectiekop: niets doen. De map van het bestand moet lokaal zijn (ViewRealDirs).
+bool place_view_ttc_fonts(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    for (const std::string& pad : pl.view_ttc_fonts) {
+        auto fout = [&](const std::string& m) {
+            log.push_back("ttc: FOUT: " + m + " -- de game wordt niet gestart");
+            err = "ttc: " + m;
+            return false;
+        };
+        std::string data;
+        if (lexists(pad) && !islink(pad) && read_file(pad, data) && !is_ttc(data)) { log.push_back("ttc: " + pad + " is al een losse font"); continue; }
+        if (!isfile(pad)) return fout(pad + " bestaat niet of is geen bestand");
+        if (on_nas(dirname(pad), p))
+            return fout(dirname(pad) + " ligt op de NAS (of is in de view een link); zet de map in [Launch] ViewRealDirs, daar wordt nooit iets geschreven");
+        const std::string bron = realpath_(pad);
+        if (!read_file(bron, data)) return fout(bron + " is niet te lezen");
+        std::string ttf, terr;
+        if (!ttc_face(data, 0, ttf, terr)) return fout(bron + ": " + terr);
+        ::unlink(pad.c_str());
+        std::string werr;
+        if (!write_atomic(pad, ttf, werr)) return fout(werr);
+        log.push_back("ttc: " + pad + " is nu face 0 van " + bron + " als losse font (" + std::to_string(ttf.size()) + " bytes)");
+    }
+    return true;
+}
+
 // [Launch] NativeDlls: de native DLL op zijn plaats in de prefix (nooit op de NAS). Staat er al precies deze DLL, dan niets.
 bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
     for (const auto& [bron, doel] : pl.native_dlls) {
@@ -266,6 +293,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
     }
     if (!place_view_links(pl, p, log, err)) return false;
     if (!place_view_copies(pl, p, log, err)) return false;
+    if (!place_view_ttc_fonts(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
     return place_stack_copy(pl, p, log, err);
 }
@@ -308,6 +336,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     strs("view_copies", pl.view_copies);
+    strs("view_ttc_fonts", pl.view_ttc_fonts);
     w.key("exe_override").value(pl.exe_override);
     w.key("drives").begin_array();
     for (const auto& d : pl.drives)
@@ -368,7 +397,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     }
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
-    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies);
+    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies); sv("view_ttc_fonts", pl.view_ttc_fonts);
     mp("env", pl.env); mp("launch_env", pl.launch_env);
     if (const auto* f = v.find("files"); f && f->is_array())
         for (const auto& e : f->arr)

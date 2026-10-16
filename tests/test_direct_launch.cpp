@@ -21,6 +21,7 @@
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
 #include "ravengun/launch/pe_stack.hpp"
+#include "ravengun/launch/ttc.hpp"
 
 namespace fs = std::filesystem;
 using namespace ravengun::launch;
@@ -461,6 +462,65 @@ int main() {
         fs::remove(ugi);
         fs::remove(vrec);
         fs::remove_all(home / "mnt/nas/spel/GameRecords1.dat");
+    }
+
+    // [Launch] ViewTtcAsTtf: een link naar een TrueType-collectie wordt in de view face 0 als losse font (Silent Scope: Bone Eater;
+    // Wine's GdipPrivateAddMemoryFont neemt geen .ttc aan). De NAS blijft gelijk, een losse font blijft staan, een map die nog een
+    // link is (geen ViewRealDirs) is een fout.
+    {
+        auto be32 = [](uint32_t v) { std::string b; for (int s = 24; s >= 0; s -= 8) b.push_back(char((v >> s) & 0xFF)); return b; };
+        // Collectie met twee faces: face 0 = tabellen head ("HEAD") en name ("nul"), face 1 = head en name ("een").
+        // Kop 12 + 2*4 = 20; tabelmappen van 12 + 2*16 = 44 bytes op 20 en 64; data vanaf 108.
+        auto rec = [&](const char* tag, uint32_t off, uint32_t len) { return std::string(tag, 4) + be32(0x1234) + be32(off) + be32(len); };
+        const std::string kop = std::string("\0\1\0\0", 4) + std::string("\0\2\0\0\0\0\0\0", 8);
+        std::string ttc = "ttcf" + be32(0x00010000) + be32(2) + be32(20) + be32(64);
+        ttc += kop + rec("head", 108, 4) + rec("name", 112, 3);
+        ttc += kop + rec("head", 108, 4) + rec("name", 116, 3);
+        ttc += std::string("HEAD") + std::string("nul\0", 4) + "een";
+        std::string f0, terr;
+        CHECK(is_ttc(ttc) && ttc_face(ttc, 0, f0, terr) && !is_ttc(f0) && f0.size() == 12 + 32 + 4 + 4);
+        CHECK(f0.compare(0, 4, std::string("\0\1\0\0", 4)) == 0 && f0.substr(44, 4) == "HEAD" && f0.substr(48, 3) == "nul");
+        CHECK(f0.substr(12 + 8, 4) == be32(44) && f0.substr(28 + 8, 4) == be32(48) && f0.substr(28 + 12, 4) == be32(3));
+        std::string f1;
+        CHECK(ttc_face(ttc, 1, f1, terr) && f1.substr(48, 3) == "een");
+        CHECK(!ttc_face(ttc, 2, f1, terr) && contains(terr, "bestaat niet"));
+        CHECK(!ttc_face(ttc.substr(0, 70), 0, f1, terr) && !ttc_face("OTTO....", 0, f1, terr) && contains(terr, "ttcf"));
+
+        const fs::path nas_font = home / "mnt/nas/spel/data/font/a.ttc";
+        write(nas_font, ttc);
+        const fs::path vfont = view / "data/font/a.ttc";
+        fs::create_directories(vfont.parent_path());
+        fs::create_symlink(nas_font, vfont);
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Launch]\nViewTtcAsTtf = data\\font\\a.ttc\n");
+        DirectPlan vp;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok && vp.view_ttc_fonts == std::vector<std::string>{vfont.string()});
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(vp), back, err) && back.view_ttc_fonts == vp.view_ttc_fonts);
+        }
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(vp, p, log, err));
+        CHECK(!fs::is_symlink(vfont) && slurp(vfont) == f0 && slurp(nas_font) == ttc);
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err) && slurp(vfont) == f0);
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "al een losse font"); }));
+        // De map is in de view nog een link naar de NAS: niet schrijven, niet starten.
+        fs::remove_all(view / "data");
+        fs::create_directories(view);
+        fs::create_symlink(home / "mnt/nas/spel/data", view / "data");
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok);
+        CHECK(!apply_direct(vp, p, log, err) && contains(err, "ViewRealDirs") && slurp(nas_font) == ttc);
+        for (const char* fout : {"../x.ttc", "/abs.ttc"}) {
+            write(ugi, std::string("[Launch]\nViewTtcAsTtf = ") + fout + "\n");
+            CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "ViewTtcAsTtf"));
+        }
+        fs::remove(ugi);
+        fs::remove(view / "data");
+        fs::remove_all(home / "mnt/nas/spel/data");
     }
 
     // [Launch] Dxvk: de DLL's van DXVK (bitbreedte van de game; Spel is 64 bits) als drop-ins in de view met <naam>=n. Bron: eerst
