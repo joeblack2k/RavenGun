@@ -12,6 +12,17 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -34,6 +45,7 @@
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
     "RG_JVS_TRANSPORT": "pipe",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -57,7 +69,7 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
@@ -72,6 +84,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -82,7 +105,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/SDR/Game.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "Game.exe",
      "role": "main",
      "wait_before": 0.0
@@ -108,6 +131,17 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -130,6 +164,7 @@
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
     "RG_JVS_TRANSPORT": "pipe",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -153,7 +188,7 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
@@ -168,6 +203,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -178,7 +224,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/SDR/Game.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "Game.exe",
      "role": "main",
      "wait_before": 0.0

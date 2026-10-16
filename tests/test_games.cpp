@@ -361,6 +361,34 @@ static void test_own_profile(const std::string& d) {
     write(d + "/tp-library.json", "{\"tp_dir\":null}");
     CHECK(library_tp_dir(d + "/tp-library.json", "/home/x").empty());
     CHECK(library_tp_dir(d + "/bestaat-niet.json", "/home/x").empty());
+    // De schrijflaag van de Wine-routes: een overlay per spelmap (geneste niet dubbel), eigen /tmp, en de unit start in bwrap.
+    {
+        Config w = c;
+        fs::create_directories(d + "/wl-games/Teknoparrot/Spel A");
+        fs::create_directories(d + "/wl-elders/Spel B");
+        write(d + "/wl-library.json", "{\"folders\":[{\"path\":\"" + d + "/wl-games\"},{\"path\":\"" + d + "/wl-games/Teknoparrot\"},"
+                                     "{\"path\":\"" + d + "/wl-bestaat-niet\"}]}");
+        w.library_file = d + "/wl-library.json";
+        CHECK(write_layer(w, "Spel").prefix.empty());                           // zonder write_layer_dir: geen laag (tests)
+        w.write_layer_dir = d + "/wl-laag";
+        w.bwrap = d + "/geen-bwrap";
+        CHECK(!write_layer(w, "Spel").error.empty());                           // bwrap ontbreekt: niet starten
+        w.bwrap = d + "/bwrap";
+        write(w.bwrap, "#!/bin/sh\n");
+        fs::permissions(w.bwrap, fs::perms::owner_all);
+        const WriteLayer wl = write_layer(w, "Spel", {d + "/wl-elders/Spel B"});
+        CHECK(wl.error.empty());
+        const std::vector<std::string> want{w.bwrap, "--dev-bind", "/", "/", "--tmpfs", "/tmp", "--dir", "/tmp/.X11-unix",
+                                            "--overlay-src", d + "/wl-elders/Spel B", "--overlay", d + "/wl-laag/Spel/0/upper", d + "/wl-laag/Spel/0/work", d + "/wl-elders/Spel B",
+                                            "--overlay-src", d + "/wl-games", "--overlay", d + "/wl-laag/Spel/1/upper", d + "/wl-laag/Spel/1/work", d + "/wl-games", "--"};
+        CHECK(wl.prefix == want);
+        CHECK(wl.dirs.size() == 4 && wl.log.size() == 2);
+        // De unit: systemd-run ... -- bwrap ... -- rg-direct --run <plan>.
+        w.direct_runner = "/x/rg-direct";
+        const auto argv = direct_unit_argv(w, "/p.json", "", wl.prefix);
+        const auto it = std::find(argv.begin(), argv.end(), w.bwrap);
+        CHECK(it != argv.end() && *(it - 1) == "--" && argv.back() == "/p.json" && *(argv.end() - 3) == "/x/rg-direct");
+    }
     // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
     write(c.views_dir + "/Elders/x.exe", "x");
     CHECK(list_games(c).size() == 2);

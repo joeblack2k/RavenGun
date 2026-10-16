@@ -12,6 +12,17 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -33,6 +44,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -44,7 +56,7 @@
    "files": [
     [
      "@TMP@/home/games/Gashaaaan/bin/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\nUseLocaleEmulator=1\nScreenFix=1\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\nUseLocaleEmulator=1\nScreenFix=1\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
@@ -56,7 +68,7 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
@@ -71,6 +83,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -81,7 +104,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
      "exe": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "ballshooting.exe",
      "role": "main",
      "wait_before": 0.0
@@ -107,6 +130,17 @@
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -128,6 +162,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -139,7 +174,7 @@
    "files": [
     [
      "@TMP@/home/games/Gashaaaan/bin/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=0\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\nUseLocaleEmulator=1\nScreenFix=1\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\nPlayer 2 Relative Sensitivity=8\nPlayer 3 Relative Sensitivity=8\nPlayer 4 Relative Sensitivity=8\nUseLocaleEmulator=1\nScreenFix=1\n[Crosshairs]\nEnable=0\n[Bezel]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
@@ -151,7 +186,7 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "WINEDEBUG": "-all",
@@ -166,6 +201,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
@@ -176,7 +222,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
      "exe": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "ballshooting.exe",
      "role": "main",
      "wait_before": 0.0

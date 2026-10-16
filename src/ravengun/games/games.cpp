@@ -428,7 +428,47 @@ bool unity_route(const Config& c, const std::string& profile, const std::string&
     return !(route && trim(*route) == "tp-shm");
 }
 
-std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log) {
+WriteLayer write_layer(const Config& c, const std::string& profile, const std::vector<std::string>& extra) {
+    WriteLayer w;
+    if (c.write_layer_dir.empty()) return w;
+    // De spelmappen (bestaande mappen, echte paden), zonder een die binnen een andere ligt.
+    std::vector<std::string> roots;
+    std::vector<std::string> cand = library_folders(c.library_file, c.home);
+    cand.insert(cand.end(), extra.begin(), extra.end());
+    for (const std::string& r : cand) {
+        std::error_code ec;
+        if (r.empty() || !fs::is_directory(r, ec)) continue;
+        const std::string real = fs::weakly_canonical(r, ec).string();
+        if (real.empty() || real == "/") continue;
+        roots.push_back(real);
+    }
+    std::sort(roots.begin(), roots.end());
+    roots.erase(std::unique(roots.begin(), roots.end()), roots.end());
+    std::vector<std::string> top;
+    for (const std::string& r : roots)
+        if (std::none_of(top.begin(), top.end(), [&](const std::string& t) { return r.compare(0, t.size() + 1, t + "/") == 0; })) top.push_back(r);
+    if (top.empty()) return w;
+    if (::access(c.bwrap.c_str(), X_OK) != 0) {
+        w.error = "bwrap ontbreekt (" + c.bwrap + "): zonder schrijflaag zou de game in zijn spelmap schrijven";
+        return w;
+    }
+    // /tmp/.X11-unix eigen en leeg: die van de host is van root, en root bestaat niet in de namespace ("not owned by root or us",
+    // gamescope weigerde, gemeten 2026-10-16). gamescope maakt zijn Xwayland-socket hier; een game zonder gamescope bereikt het
+    // X-scherm van de host via de abstracte socket (@/tmp/.X11-unix/X0; het netwerk blijft gedeeld).
+    w.prefix = {c.bwrap, "--dev-bind", "/", "/", "--tmpfs", "/tmp", "--dir", "/tmp/.X11-unix"};
+    for (size_t n = 0; n < top.size(); ++n) {
+        const std::string base = c.write_layer_dir + "/" + profile + "/" + std::to_string(n);
+        w.dirs.push_back(base + "/upper");
+        w.dirs.push_back(base + "/work");
+        w.prefix.insert(w.prefix.end(), {"--overlay-src", top[n], "--overlay", base + "/upper", base + "/work", top[n]});
+        w.log.push_back("schrijflaag: " + top[n] + " (alleen lezen) -> " + base + "/upper");
+    }
+    w.prefix.push_back("--");
+    return w;
+}
+
+std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log,
+                                         const std::vector<std::string>& wrap) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
                                "--description=RavenGun: game (Unity, gestart door de daemon)", "--property=TimeoutStopSec=10",
                                "--working-directory=" + plan.cwd};
@@ -440,6 +480,7 @@ std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch
         a.push_back("--property=StandardError=append:" + log);
     }
     a.push_back("--");
+    a.insert(a.end(), wrap.begin(), wrap.end());
     a.insert(a.end(), plan.argv.begin(), plan.argv.end());
     return a;
 }
@@ -512,7 +553,8 @@ ravengun::launch::EnvMap direct_session_env(const std::string& proc_root) {
     return e;
 }
 
-std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log) {
+std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log,
+                                          const std::vector<std::string>& wrap) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
                                "--description=RavenGun: game (direct, gestart door de daemon)", "--property=TimeoutStopSec=10",
                                "--working-directory=" + c.direct.tp};
@@ -522,7 +564,9 @@ std::vector<std::string> direct_unit_argv(const Config& c, const std::string& pl
         a.push_back("--property=StandardOutput=append:" + log);
         a.push_back("--property=StandardError=append:" + log);
     }
-    a.insert(a.end(), {"--", c.direct_runner, "--run", plan_file});
+    a.push_back("--");
+    a.insert(a.end(), wrap.begin(), wrap.end());
+    a.insert(a.end(), {c.direct_runner, "--run", plan_file});
     return a;
 }
 
@@ -767,6 +811,22 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     std::string err;
     if (!L::apply_direct(pl, c_.direct, placed, err)) return fail(profile + ": " + err);
     // 4. Het logboek en het plan voor rg-direct.
+    // De schrijflaag: wat de game in zijn spelmap schrijft komt lokaal (write_layer); ook de echte map achter de exe (een view linkt
+    // naar de NAS) als die buiten de spelmappen ligt. Een exe die echt in de view staat (lokaal) heeft geen laag nodig.
+    std::vector<std::string> wl_extra;
+    {
+        std::error_code ec;
+        const fs::path real = fs::weakly_canonical(pl.game, ec);
+        const std::string local = c_.home.empty() ? std::string() : c_.home + "/.local/";
+        if (!ec && !real.empty() && (local.empty() || real.string().compare(0, local.size(), local) != 0)) wl_extra.push_back(real.parent_path().string());
+    }
+    const WriteLayer wl = write_layer(c_, profile, wl_extra);
+    if (!wl.error.empty()) return fail(wl.error);
+    for (const std::string& d : wl.dirs) {
+        std::error_code ec;
+        fs::create_directories(d, ec);
+        if (ec) return fail("schrijflaag " + d + " maken: " + ec.message());
+    }
     std::string log, plan_file;
     {
         std::string dir = c_.native_log_dir;
@@ -789,14 +849,15 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         f << "plan: " << plan_file << "\n";
         f << "spel: " << pl.game << " (" << pl.game_source << ")\n";
         for (const std::string& l : placed) f << l << "\n";
+        for (const std::string& l : wl.log) f << l << "\n";
         f << "cmd:";
-        for (const std::string& a : direct_unit_argv(c_, plan_file, log)) f << " " << a;
+        for (const std::string& a : direct_unit_argv(c_, plan_file, log, wl.prefix)) f << " " << a;
         f << "\n";
     }
     if (cancel_.load()) return fail("de start is afgebroken");
     // 5. Starten in de unit van de game: rg-direct is het hoofdproces, op de plaats van launch-direct.py.
     std::string serr;
-    const int rc = spawn_(direct_unit_argv(c_, plan_file, log), serr);
+    const int rc = spawn_(direct_unit_argv(c_, plan_file, log, wl.prefix), serr);
     if (rc != 0) return fail(rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr);
     // 6. Wachten tot de lader of de game draait (of de unit al weer weg is).
     if (c_.tpui_procs.empty()) return {};
@@ -917,6 +978,16 @@ std::string GameService::run_unity(const std::string& profile) {
     }
     if (cancel_.load()) { if (c_.stop_inputs) c_.stop_inputs(); return "de start is afgebroken"; }
     // 4. Het logboek.
+    // De schrijflaag over de spelmappen en de map van de game (de view linkt naar de NAS): saves en logs komen lokaal.
+    const WriteLayer wl = write_layer(c_, profile, {g.nas_dir});
+    if (!wl.error.empty()) {
+        if (c_.stop_inputs) c_.stop_inputs();
+        return wl.error;
+    }
+    for (const std::string& d : wl.dirs) {
+        std::error_code ec;
+        fs::create_directories(d, ec);
+    }
     std::string log;
     if (!c_.native_log_dir.empty()) {
         std::error_code ec;
@@ -928,13 +999,15 @@ std::string GameService::run_unity(const std::string& profile) {
         f << "gegevens: " << g.source << (g.folder.empty() ? "" : "; map '" + g.folder + "' uit de gamemappen") << "\n";
         for (const std::string& l : view_log) f << l << "\n";
         for (const std::string& l : pl.notes) f << l << "\n";
+        for (const std::string& l : wl.log) f << l << "\n";
         f << "cmd:";
+        for (const std::string& a : wl.prefix) f << " " << a;
         for (const std::string& a : pl.argv) f << " " << a;
         f << "\n";
     }
     // 5. Starten in de unit van de game.
     std::string serr;
-    const int rc = spawn_(unity_unit_argv(c_, pl, log), serr);
+    const int rc = spawn_(unity_unit_argv(c_, pl, log, wl.prefix), serr);
     if (rc != 0) {
         if (c_.stop_inputs) c_.stop_inputs();
         return rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr;

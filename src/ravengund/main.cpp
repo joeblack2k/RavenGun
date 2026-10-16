@@ -477,6 +477,7 @@ int main(int argc, char** argv) {
         const std::string xdh = envs("XDG_DATA_HOME");
         const std::string data_dir = (!xdh.empty() && xdh[0] == '/' ? xdh : home + "/.local/share") + "/ravengun";
         np.data = data_dir;
+        games_cfg.write_layer_dir = data_dir + "/writelayer";   // de schrijflaag van de Wine-routes (write_layer in games.cpp)
         np.lib32 = data_dir + "/runtime/lib32";
         // @nas: de spelmappen van de app (library.json), bij elke start opnieuw gelezen (GameService); RAVENGUN_NAS_TP zet er een vast.
         np.nas = envs("RAVENGUN_NAS_TP");

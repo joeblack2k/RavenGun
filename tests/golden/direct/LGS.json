@@ -65,7 +65,7 @@
    "files": [
     [
      "@TMP@/home/.local/share/ravengun/runtime/views/LGS/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\n[FFB Blaster]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=1\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\n[FFB Blaster]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/GameSampR_RingWide.exe",
@@ -191,7 +191,7 @@
    "files": [
     [
      "@TMP@/home/.local/share/ravengun/runtime/views/LGS/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\n[FFB Blaster]\nEnable=0\n"
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nDongleRegion=USA\nPcbRegion=USA\nFreePlay=1\nWindowed=1\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\n[FFB Blaster]\nEnable=0\n"
     ]
    ],
    "game": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/GameSampR_RingWide.exe",

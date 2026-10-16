@@ -62,6 +62,9 @@ struct Config {
     ravengun::launch::NativePaths native;
     std::string native_log_dir;    // logs/native-<profiel>-<tijd>.log (leeg = geen logboek)
     std::string tpui_unit = "ravengun-tpui";   // de unit van de game (stoppen, OLED-bescherming en de IO-brug kijken daarnaar)
+    // De schrijflaag van de Wine-routes (write_layer): <data>/writelayer; leeg = geen (alleen tests). bwrap = het programma.
+    std::string write_layer_dir;
+    std::string bwrap = "/usr/bin/bwrap";
     std::function<bool()> lightgun_ready;      // Move verbonden, een muis als lightgun of een verbonden gamepad van een speler (leeg = niet wachten)
     std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
@@ -133,7 +136,21 @@ std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std
 // Gaat dit profiel via de Unity-route van de daemon? (patches/<Game>/unity.json, niet via TeknoParrotUi gevraagd, geen tp-shm in game.ini)
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch = "");
 // Het commando waarmee de daemon een Unity-game in de unit start: werkmap = de view, de omgeving van het plan, `log` = uitvoer.
-std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log);
+std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch::UnityPlan& plan, const std::string& log,
+                                         const std::vector<std::string>& wrap = {});
+// De schrijflaag van een Wine-game (directe en Unity-route; de native route heeft zijn eigen overlay): de unit start in bwrap met
+// de hele host (--dev-bind / /), een eigen /tmp (zo start er een eigen wineserver: Wine laat bestanden openen door wineserver, en
+// een wineserver van buiten zou de overlay omzeilen; een eigen lege /tmp/.X11-unix), en over elke spelmap van de app (library.json)
+// een overlay. Wat de game in zijn map schrijft (saves, logs, NVRAM), ook via de links van een view, komt in
+// <write_layer_dir>/<profiel>/<n>/upper; de spelmap (de NAS) blijft onaangeroerd. extra = mappen buiten de spelmappen (de echte
+// map van een game met een eigen GamePath). Geen spelmappen of geen write_layer_dir = geen voorvoegsel.
+struct WriteLayer {
+    std::vector<std::string> prefix;   // bwrap ... -- (leeg = zonder schrijflaag)
+    std::vector<std::string> dirs;     // te maken vóór de start: upper en work per spelmap
+    std::vector<std::string> log;      // regels voor het logboek
+    std::string error;                 // niet leeg = niet starten (bwrap ontbreekt)
+};
+WriteLayer write_layer(const Config& c, const std::string& profile, const std::vector<std::string>& extra = {});
 // Gaat deze start via de directe route van de daemon? Ok: de engine; Fallback: het script (why = reden, voor het logboek);
 // Refused: niet starten (why = de melding, zoals launch-direct.py --check met exit 5). launch zoals bij start().
 ravengun::launch::Verdict direct_route(const Config& c, const std::string& profile, const std::string& launch, std::string& why,
@@ -141,7 +158,8 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
 // De omgeving van een directe start: die van de daemon zonder de variabelen van zijn eigen unit, aangevuld met
 // XDG_RUNTIME_DIR, WAYLAND_DISPLAY, DISPLAY, DBUS_SESSION_BUS_ADDRESS en XAUTHORITY (van kwin_wayland).
 ravengun::launch::EnvMap direct_session_env(const std::string& proc_root = "/proc");
-std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log);
+std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log,
+                                          const std::vector<std::string>& wrap = {});
 
 // Voert een proces uit en wacht tot het klaar is (hoogstens 10 s). Geeft de exitcode, of -1 met `err`.
 int run_process(const std::vector<std::string>& argv, std::string& err);
