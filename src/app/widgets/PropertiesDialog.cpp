@@ -12,6 +12,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
@@ -47,6 +48,20 @@ const QRegularExpression& displayFieldRe() {
 
 // Velden die de app zelf bepaalt (de invoer loopt altijd via de virtuele RavenGun-apparaten).
 bool managedField(const QString& name) { return name == QStringLiteral("Input API"); }
+
+// Heeft deze game een native profiel dat aan staat (patches/<Game>/native.json, de gebruikerslaag eerst)? De native route kent nog
+// geen camera in het spel; [Camera] Use = game zou de game stil van die route halen (games::native_route).
+bool nativeProfileEnabled(const rg::GameContext& c) {
+    for (const std::string& d : {c.layers.user, c.layers.shipped}) {
+        if (d.empty()) continue;
+        QFile f(QString::fromStdString(d) + QLatin1Char('/') + c.profile + QStringLiteral("/native.json"));
+        if (!f.exists()) continue;
+        if (!f.open(QIODevice::ReadOnly)) return false;
+        const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        return doc.isObject() && doc.object().value(QStringLiteral("enabled")).toBool();
+    }
+    return false;
+}
 
 QLabel* hintLabel(const QString& text) {
     auto* l = new QLabel(text);
@@ -238,7 +253,7 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     const QString prof = ctx_.profile;
     const rg::RouteInfo ri = core_->gameData()->route(prof);
     // Keuze per game: de aanbevolen route (de meegeleverde patches/<Game>/game.ini) of een andere die voor deze game kan; bewaard
-    // als [Input] Route in het gebruikers-game.ini (~/.local/share/ravengun/patches), dat de engine en play-halo.sh bij de volgende
+    // als [Input] Route in het gebruikers-game.ini (~/.local/share/ravengun/patches), dat de engine bij de volgende
     // start lezen.
     route_combo_ = new QComboBox;
     const QStringList routes = core_->gameData()->availableRoutes(prof);
@@ -675,9 +690,11 @@ QWidget* PropertiesDialog::MakeDisplayPane() {
         if (camera->findData(*initialCam) < 0) camera->addItem(*initialCam, *initialCam);
         camera->setCurrentIndex(camera->findData(*initialCam));
         const rg::WriteCheck wc = rg::checkWritable(ctx_.userGameIni());
-        camera->setEnabled(wc.ok);
+        const bool native = nativeProfileEnabled(ctx_);
+        camera->setEnabled(wc.ok && !native);
         if (!wc.ok) camera->setToolTip(wc.reason);
         bl->addWidget(camera);
+        if (native) bl->addWidget(hintLabel(tr("This game runs natively; the native route cannot pass a camera to the game yet.")));
         auto* camStatus = hintLabel(tr("Which camera is used is set in Settings > Display > Camera for games; \"None\" there turns the "
                                        "camera off for every game."));
         bl->addWidget(camStatus);

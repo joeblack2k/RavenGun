@@ -378,16 +378,29 @@ static void test_own_profile(const std::string& d) {
         fs::permissions(w.bwrap, fs::perms::owner_all);
         const WriteLayer wl = write_layer(w, "Spel", {d + "/wl-elders/Spel B"});
         CHECK(wl.error.empty());
+        // De laag heet naar zijn spelmap (niet naar de plaats in de lijst): /a/b c -> a_b c.
+        auto naam = [](std::string r) { r.erase(0, 1); for (char& ch : r) if (ch == '/') ch = '_'; return r; };
+        const std::string la = d + "/wl-laag/Spel/" + naam(d + "/wl-elders/Spel B"), lb = d + "/wl-laag/Spel/" + naam(d + "/wl-games");
         const std::vector<std::string> want{w.bwrap, "--dev-bind", "/", "/", "--tmpfs", "/tmp", "--dir", "/tmp/.X11-unix",
-                                            "--overlay-src", d + "/wl-elders/Spel B", "--overlay", d + "/wl-laag/Spel/0/upper", d + "/wl-laag/Spel/0/work", d + "/wl-elders/Spel B",
-                                            "--overlay-src", d + "/wl-games", "--overlay", d + "/wl-laag/Spel/1/upper", d + "/wl-laag/Spel/1/work", d + "/wl-games", "--"};
+                                            "--overlay-src", d + "/wl-elders/Spel B", "--overlay", la + "/upper", la + "/work", d + "/wl-elders/Spel B",
+                                            "--overlay-src", d + "/wl-games", "--overlay", lb + "/upper", lb + "/work", d + "/wl-games", "--"};
         CHECK(wl.prefix == want);
         CHECK(wl.dirs.size() == 4 && wl.log.size() == 2);
+        // Een spelmap die onze datamap bevat (de schrijflaag ligt erin): de datamap komt na de overlays rechtstreeks terug.
+        {
+            Config w2 = w;
+            write(d + "/wl-library2.json", "{\"folders\":[{\"path\":\"" + d + "\"}]}");
+            w2.library_file = d + "/wl-library2.json";
+            w2.write_layer_dir = d + "/wl-data/writelayer";
+            const auto p2 = write_layer(w2, "Spel").prefix;
+            CHECK(p2.size() > 3 && *(p2.end() - 4) == "--bind" && *(p2.end() - 3) == d + "/wl-data" && *(p2.end() - 2) == d + "/wl-data" && p2.back() == "--");
+        }
         // De unit: systemd-run ... -- bwrap ... -- rg-direct --run <plan>.
         w.direct_runner = "/x/rg-direct";
         const auto argv = direct_unit_argv(w, "/p.json", "", wl.prefix);
         const auto it = std::find(argv.begin(), argv.end(), w.bwrap);
         CHECK(it != argv.end() && *(it - 1) == "--" && argv.back() == "/p.json" && *(argv.end() - 3) == "/x/rg-direct");
+        CHECK(std::find(argv.begin(), argv.end(), "--expand-environment=no") < it);   // systemd-run vervangt geen ${...} in paden
     }
     // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
     write(c.views_dir + "/Elders/x.exe", "x");
@@ -449,6 +462,12 @@ static void test_native_service(const std::string& d) {
     c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
     CHECK(native_route(c, "Nat"));
     CHECK(!native_route(c, "Script"));
+    {   // Een kapot native.json in de gebruikerslaag kiest toch de native route (die meldt de fout), niet stil een andere route.
+        Config k = c;
+        k.native.user_patches = b + "/kapot-laag";
+        write(k.native.user_patches + "/Kapot/native.json", "{kapot");
+        CHECK(native_route(k, "Kapot"));
+    }
     GameService svc(c, [&](const std::vector<std::string>& argv, std::string&) {
         std::lock_guard<std::mutex> g(m);
         calls.push_back(argv);

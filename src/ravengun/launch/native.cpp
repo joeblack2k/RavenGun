@@ -323,23 +323,6 @@ std::string profile_text(const NativePaths& p, const std::string& game) {
     return R"({"defaults":{"res":"1920x1080"},"games":{")" + game + "\":" + text + "}}";
 }
 
-std::string find_game_folder(const std::string& folder, const std::vector<std::string>& roots) {
-    if (folder.empty() || folder.find('/') != std::string::npos) return {};
-    for (const std::string& r : roots)
-        if (!r.empty() && is_dir(r + "/" + folder)) return r + "/" + folder;
-    for (const std::string& r : roots) {
-        if (r.empty()) continue;
-        std::vector<std::string> subs;
-        std::error_code ec;
-        for (const auto& d : fs::directory_iterator(r, fs::directory_options::skip_permission_denied, ec))
-            if (d.is_directory(ec)) subs.push_back(d.path().filename().string());
-        std::sort(subs.begin(), subs.end());
-        for (const std::string& sd : subs)
-            if (is_dir(r + "/" + sd + "/" + folder)) return r + "/" + sd + "/" + folder;
-    }
-    return {};
-}
-
 bool profile_enabled(const std::string& json_text, const std::string& game) {
     const auto r = json::parse(json_text);
     if (!r.ok) return false;

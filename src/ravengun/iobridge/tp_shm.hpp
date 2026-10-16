@@ -8,7 +8,7 @@
 // Er is geen code van TeknoParrotUI (GPL-3) overgenomen.
 //
 // Het bestand: de daemon beschrijft een eigen bestand (standaard /dev/shm/ravengun_JvsState). Een hulpprogramma in de
-// Wine-prefix (pipehelper.exe in zijn "shm"-modus; zie scripts/tp-shm-swap.sh) spiegelt dat bestand byte voor byte naar
+// Wine-prefix (pipehelper.exe of rg-jvsbridge.exe in zijn "shm"-modus, gestart door rg-direct) spiegelt dat bestand byte voor byte naar
 // de Windows-mapping "TeknoParrot_JvsState" die de kern leest. Zo is de daemon de enige schrijver van de invoervelden.
 #include <array>
 #include <cstdint>

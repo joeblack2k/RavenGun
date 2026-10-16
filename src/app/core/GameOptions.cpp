@@ -357,7 +357,7 @@ QString GameContext::expand(const QString& pattern) const {
     s.replace(QStringLiteral("{exe_dir}"), gameDir);
     s.replace(QStringLiteral("{real_game_dir}"), realGameDir.isEmpty() ? gameDir : realGameDir);
     s.replace(QStringLiteral("{view_dir}"), viewDir);
-    // De lokale schrijflaag van de native route (scripts/play-native.sh: de overlay van de eerste mount, meestal de gamemap).
+    // De lokale schrijflaag van de native route (launch::plan: de overlay van de eerste mount, meestal de gamemap).
     if (s.contains(QStringLiteral("{native_layer}")))
         s.replace(QStringLiteral("{native_layer}"), profile.isEmpty() ? QString() : AppPaths::dataDir() + QStringLiteral("/native/") + profile + QStringLiteral("/0/upper"));
     s.replace(QStringLiteral("{home}"), AppPaths::homeDir());

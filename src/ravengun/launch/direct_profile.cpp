@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // De directe route (A10): de instellingen en het profiel (gamesettings.py to_env/env_to_settings/load_for_profile, ownprofile.py
-// profile_from_settings), teknoparrot.ini en de geweer-ini van Taito, en de invoerroute (play-halo.sh). Zie direct.hpp.
+// profile_from_settings), teknoparrot.ini en de geweer-ini van Taito, en de invoerroute. Zie direct.hpp.
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -288,7 +288,7 @@ bool taito_gun_ini(const Profile& pr, std::string& name, std::string& text) {
 using namespace direct_detail;
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-// De invoer (play-halo.sh) en de omgeving van de game (gamesettings.py env)
+// De invoer en de omgeving van de game (gelijk aan gamesettings.py env)
 
 std::string launch_mode(const std::string& profile, const DirectPaths& p) {
     const gsn::Game g = load_for_profile(profile, p, nullptr, nullptr);

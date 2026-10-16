@@ -29,10 +29,8 @@
  * declaraties; de syscalls gaan rechtstreeks via syscall(). Bouwen kan zo met kaal
  * `gcc -m32 -shared -fPIC` -- zie gen.sh.
  *
- * GEBRUIK: bind het bestand in de sandbox en preload het, bijvoorbeeld in de native route:
- *   play-native.sh --game GoGoStrike --headless \
- *     --bind-ro .../tools/rg-oss-stub/librg-oss-stub.so /rg/lib/librg-oss-stub.so \
- *     --env LD_PRELOAD=/rg/lib/librg-oss-stub.so
+ * GEBRUIK: in de native route via patches/<Game>/native.json (docs/native-profiel.md): het bestand in "libs"
+ *   (verschijnt als /rg/lib/librg-oss-stub.so) en in "preload".
  * Zet RG_OSS_STUB_LOG=1 voor een regel per afgevangen ioctl (max 3 per verzoeknummer) in het logboek.
  */
 #include <stdarg.h>

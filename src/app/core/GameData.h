@@ -5,7 +5,7 @@
 // memory card uit patches/<Game>/options.json (gebruikerslaag eerst; een kapot bestand geeft geen opties).
 //
 // Invoerroute: [Input] in game.ini. De aanbevolen route is die van de meegeleverde laag; de keuze van de gebruiker (Properties >
-// General > Input route) is een sleutel in het gebruikers-game.ini. De engine en scripts/gamesettings.py (play-halo.sh) lezen
+// General > Input route) is een sleutel in het gebruikers-game.ini. De engine en scripts/gamesettings.py lezen
 // dezelfde bestanden met dezelfde regels.
 //
 // Status en notities: [Status] Status (working | playable | parked | untested; working = gecontroleerd op onze eigen loader en rechtstreeks

@@ -11,6 +11,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <thread>
+#include <pwd.h>
 #include <unistd.h>
 
 #include "aagames_service.hpp"
@@ -195,7 +196,9 @@ int main(int argc, char** argv) {
     double web_port = cfg.web.port;
     double hue = NAN, hue_tol = NAN, min_chroma = NAN;
     const char* home_env = std::getenv("HOME");
-    const std::string home = home_env ? home_env : "";
+    std::string home = home_env && *home_env ? home_env : "";
+    if (home.empty())   // zonder HOME: de thuismap van deze gebruiker volgens het systeem (zoals default_direct_paths)
+        if (const struct passwd* pw = ::getpwuid(::getuid()); pw && pw->pw_dir) home = pw->pw_dir;
     std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     bool tp_dir_given = false;   // --tp-dir; anders gaat de keuze van de app voor (tp_dir in library.json)
     std::string data_dir_opt;
@@ -602,8 +605,7 @@ int main(int argc, char** argv) {
         // Geen invloed van echte processen op de host (tests): geen cgroup van de unit, een niet-bestaande procesmap.
         games_cfg.tpui_procs.clear();
         games_cfg.proc_root = "/nonexistent-ravengun-proc";
-        // De directe route zet drop-ins en teknoparrot.ini in de view voordat hij iets start: in een droge run niet (via het script, dat
-        // hier ook niet echt draait).
+        // De directe route zet drop-ins en teknoparrot.ini in de view voordat hij iets start: in een droge run niet.
         games_cfg.direct_runner.clear();
         games_cfg.unity.patches.clear();   // de Unity-route zet de view klaar voordat hij iets start: in een droge run ook niet
         games_cfg.unity.user_patches.clear();

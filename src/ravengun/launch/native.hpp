@@ -12,6 +12,8 @@
 // nog geen eigen route (zie GameService).
 // Een profiel met een blok "lindbergh" is een Sega Lindbergh-game (LindberghSpec hieronder, docs/lindbergh.md).
 #include <string>
+
+#include "ravengun/launch/gamefolder.hpp"
 #include <utility>
 #include <vector>
 
@@ -72,18 +74,15 @@ struct NativeProfile {
 
 // Leest profiel `game` met de @-paden ingevuld. false + err (Nederlands) bij een fout, een onbekend profiel of een ongeldige waarde.
 bool load_profile(const std::string& json_text, const std::string& game, const NativePaths& p, NativeProfile& out, std::string& err);
-// Staat dit profiel in het bestand op enabled? (false bij elke fout)
 // Het bestand met het native profiel van een game: patches/<Game>/native.json, de gebruikerslaag eerst (die vervangt het
 // meegeleverde bestand als geheel), anders NativePaths::json (leeg = geen). Ook de regel `gegevens=` van de identiteit.
 std::string profile_file(const NativePaths& p, const std::string& game);
 // Dat profiel als tekst in de vorm {"defaults":{...},"games":{"<game>":{...}}} (wat profile_enabled en load_profile lezen).
 // Leeg = deze game heeft geen (leesbaar) native profiel; een kapot bestand in de gebruikerslaag valt niet terug op het meegeleverde.
 std::string profile_text(const NativePaths& p, const std::string& game);
+// Staat dit profiel in de tekst op enabled? (false bij elke fout)
 bool profile_enabled(const std::string& json_text, const std::string& game);
-// De map `folder` van een game in de spelmappen van de app: eerst <root>/<folder>, dan een niveau dieper (<root>/*/<folder>, op
-// naam gesorteerd; een spelmap die de map Teknoparrot zelf bevat). De naam moet exact kloppen (ook een spatie aan het eind).
-// Leeg = nergens (of een naam met '/'). Gedeeld door de native route (@nas) en de Unity-route (unity.json "folder").
-std::string find_game_folder(const std::string& folder, const std::vector<std::string>& roots);
+// find_game_folder (de map van een game in de spelmappen): ravengun/launch/gamefolder.hpp.
 
 struct LayerStep {
     enum class Kind { Mkdir, Seed, Link, Write } kind = Kind::Mkdir;

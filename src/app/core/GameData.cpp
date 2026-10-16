@@ -188,7 +188,7 @@ RouteInfo GameData::route(const QString& profile) const {
 }
 
 QStringList GameData::availableRoutes(const QString& profile) const {
-    // Unity-games starten altijd via hun plugin (play-halo.sh gaat naar play-unity.sh): geen andere keuze.
+    // Unity-games starten altijd via hun plugin (de Unity-route van de daemon): geen andere keuze.
     if (unity_.contains(profile)) return QStringList{QStringLiteral("unity-tcp")};
     const RouteInfo base = baseRoutes_.value(profile);
     const QString recommended = baseRoutes_.contains(profile) ? base.route : QStringLiteral("evdev");

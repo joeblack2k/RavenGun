@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "core/GameLibrary.h"
 
+#include "ravengun/launch/gamefolder.hpp"
+
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -400,21 +402,15 @@ ScanResult LibraryScanner::scan(const ScanInput& in, const std::atomic<bool>* ca
         if (!info.nasDir.isEmpty()) {
             u.dir = QDir::cleanPath(AppPaths::expandHome(info.nasDir));
         } else if (!info.folder.isEmpty()) {
-            for (const LibraryFolder& lf : in.folders) {
-                const QString root = QDir::cleanPath(AppPaths::expandHome(lf.path));
-                if (QFileInfo(root + QLatin1Char('/') + info.folder).isDir()) { u.dir = root + QLatin1Char('/') + info.folder; u.root = lf.path; break; }
+            // Dezelfde regel als de daemon (ravengun::launch::find_game_folder): <spelmap>/<map>, dan een niveau dieper.
+            std::vector<std::string> roots;
+            for (const LibraryFolder& lf : in.folders) roots.push_back(QDir::cleanPath(AppPaths::expandHome(lf.path)).toStdString());
+            const std::string found = ravengun::launch::find_game_folder(info.folder.toStdString(), roots);
+            if (!found.empty()) {
+                u.dir = QString::fromStdString(found);
+                for (int i = 0; i < in.folders.size(); ++i)
+                    if (found.compare(0, roots[static_cast<size_t>(i)].size() + 1, roots[static_cast<size_t>(i)] + "/") == 0) { u.root = in.folders[i].path; break; }
             }
-            if (u.dir.isEmpty())
-                for (const LibraryFolder& lf : in.folders) {
-                    const QString root = QDir::cleanPath(AppPaths::expandHome(lf.path));
-                    for (const QFileInfo& sub : QDir(root).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name))
-                        if (QFileInfo(sub.absoluteFilePath() + QLatin1Char('/') + info.folder).isDir()) {
-                            u.dir = sub.absoluteFilePath() + QLatin1Char('/') + info.folder;
-                            u.root = lf.path;
-                            break;
-                        }
-                    if (!u.dir.isEmpty()) break;
-                }
         }
         if (u.dir.isEmpty()) {
             r.log << QStringLiteral("Unity game %1: folder \"%2\" not found in the game folders").arg(info.key, info.folder);

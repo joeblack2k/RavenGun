@@ -262,10 +262,15 @@ def main(argv):
         return 77
     os.environ["RAVENGUN_LOADER_PATCHES_DIR"] = patches
     os.environ.pop("RAVENGUN_PATCHES_DIR", None)
+    tmp = tempfile.mkdtemp(prefix="rg-direct-golden-")
+    # Welke games meedoen volgt alleen uit de meegeleverde patches, niet uit de gebruikerslaag van deze machine (een proef daar zou
+    # anders een game toevoegen of weghalen).
+    leeg = os.path.join(tmp, "geen-gebruikerslaag")
+    os.makedirs(leeg, exist_ok=True)
+    os.environ["RAVENGUN_USER_PATCHES_DIR"] = leeg
     sys.path.insert(0, SCRIPTS)
     import gamesettings as gs   # noqa: E402
     profiles = sorted(n for n in gs.list_games() if gs.load_game(n).launch_mode == "direct" or n in FORCE_DIRECT)
-    tmp = tempfile.mkdtemp(prefix="rg-direct-golden-")
     try:
         env, tp, user, views = fixture(tmp, patches, profiles, gs)
         norm = Norm(tmp, patches)

@@ -71,7 +71,7 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
     }
     // Een game met een eigen profiel in game.ini (docs/per-game-patches.md): alles gaat naar de gebruikerslaag van game.ini, en alleen als het van
     // de meegeleverde waarde afwijkt (Dolphin: User/GameSettings). UserProfiles/<P>.xml en <P>.env worden niet geschreven; de XML voor een start via
-    // TeknoParrotUi maakt scripts/play-halo.sh uit game.ini.
+    // Een game met een eigen profiel leest alles uit game.ini; het TeknoParrotUi-profiel geldt alleen zonder eigen profiel.
     if (ctx.ownProfile) {
         if (ov.options.contains(QStringLiteral("display.gamescope"))) {
             const bool on = ov.options.value(QStringLiteral("display.gamescope")).toString() == QStringLiteral("1");
@@ -101,7 +101,7 @@ bool ProfileSync::apply(const GameEntry& g, const GameLibrary& lib, const GameDa
         }
         return ok;
     }
-    // Gamescope (Display): UserProfiles/<P>.env, zoals scripts/play-halo.sh en tp-add-game.py --gamescope het lezen.
+    // Gamescope (Display): UserProfiles/<P>.env (alleen zonder eigen profiel; anders [Display] Gamescope in game.ini).
     if (ov.options.contains(QStringLiteral("display.gamescope")) && QFileInfo::exists(ctx.userProfilePath())) {
         const bool on = ov.options.value(QStringLiteral("display.gamescope")).toString() == QStringLiteral("1");
         QFile f(ctx.envPath());

@@ -1,6 +1,6 @@
 #pragma once
 // Welke invoerroute geldt per game ([Input] in patches/<Game>/game.ini). Routes:
-//   evdev       zoals voorheen: de virtuele gun en het toetsenbord, TeknoParrotUi leest ze (geen brug in de daemon)
+//   evdev       alleen de virtuele gun en het toetsenbord (geen brug in de daemon); de game leest ze zelf
 //   tp-shm      de daemon schrijft het gedeelde geheugen van de TeknoParrot-kern zelf (dialect tp-shm)
 //   unity-tcp   de daemon is TCP-klant van de BepInEx-plugin in een Unity-game (dialect unity-tcp)
 //   hid-board   de daemon maakt het invoerbord van de game na als virtuele joystick/HID (dialect hid-board, hid-boards.json)
@@ -27,7 +27,7 @@ struct IoRoute {
     std::vector<std::string> boards;   // jvs: de borden van de keten in volgorde; hid-board: meerdere borden naast
                                        // elkaar, elk met zijn eigen transport (bv. de gun via uinput naast het
                                        // IO-bord via uhid). Leeg = alleen `board`.
-    std::string com_port;              // jvs: de COM-poort die de game opent (bv. COM4); voor het startscript, niet voor de daemon
+    std::string com_port;              // jvs: de COM-poort die de game opent (bv. COM4); voor de route, niet voor het bord van de daemon
     std::string layout;   // tp-shm: naam van het profiel in tp-shm-profiles.json (de EmulationProfile)
     // tp-shm: ook het rapport voor de besturingspipe TeknoParrotPipe (naam in control-pipe-profiles.json, bv. AllsUsbIo); leeg = geen.
     // Mag ook bij evdev staan (de directe start maakt van evdev met een Layout tp-shm); bij andere routes is het een fout.

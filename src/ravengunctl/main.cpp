@@ -247,7 +247,7 @@ std::string optical_text(const json::Value& s) {
 
 // Eén regel over de IO-brug (status.iobridge): route, game, dialect en de laatst geschreven waarden.
 std::string iobridge_text(const json::Value& a) {
-    if (!boolean(a, {"active"})) return "geen (invoer via de virtuele apparaten, TeknoParrotUi leest ze: route evdev)";
+    if (!boolean(a, {"active"})) return "geen (route evdev: alleen de virtuele apparaten)";
     std::string t = "route " + str(a, {"route"}) + " voor " + str(a, {"game"}) + ", dialect " + str(a, {"dialect"});
     if (const json::Value* d = path(a, {"detail"}); d && d->is_object() && d->find("nodes")) {
         // jvs: de daemon is het JVS-bord; poll- en identificatieteller laten zien of de game praat.

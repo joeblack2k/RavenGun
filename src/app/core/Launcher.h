@@ -10,9 +10,8 @@
 // Een game zonder eigen route start niet; de engine zegt waarom.
 // Het profiel van een game staat in game.ini (patches/<Game>/ met de gebruikerslaag; docs/per-game-patches.md). ProfileSync schrijft de
 // instellingen uit onze bibliotheek (library.json, options.json) daarheen, in de gebruikerslaag en alleen als ze van de meegeleverde
-// waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) is een uitvoerformaat voor een start via
-// TeknoParrotUi (scripts/play-halo.sh maakt het uit game.ini) en geldt alleen nog als terugval voor een game zonder eigen profiel: ProfileSync
-// schrijft dan, zoals voorheen, in dat bestand.
+// waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) geldt alleen nog voor een game zonder
+// eigen profiel: ProfileSync schrijft dan, zoals voorheen, in dat bestand.
 //
 // De TeknoParrot-runtime (laders en cores) blijft een afhankelijkheid; RuntimeCheck controleert de gekozen map.
 // De rest van de app praat alleen met GameLauncher en neemt nergens aan dat TeknoParrotUi draait.

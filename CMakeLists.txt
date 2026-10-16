@@ -49,6 +49,7 @@ add_library(ravengun STATIC
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
   src/ravengun/launch/native.cpp
+  src/ravengun/launch/gamefolder.cpp
   src/ravengun/launch/unity.cpp
   src/ravengun/launch/direct.cpp
   src/ravengun/launch/direct_util.cpp

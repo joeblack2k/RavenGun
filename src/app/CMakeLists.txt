@@ -30,6 +30,7 @@ add_library(ravengun_app_core STATIC
   core/TpProfile.cpp
   # Instellingen en patches per game: dezelfde lezer als de engine (alleen de standaardbibliotheek).
   "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamesettings.cpp"
+  "${PROJECT_SOURCE_DIR}/src/ravengun/launch/gamefolder.cpp"
   # De gamepad-indeling per game ([Gamepad] in game.ini; Properties en Controller Settings): dezelfde code als de engine.
   "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamepad_settings.cpp"
   "${PROJECT_SOURCE_DIR}/src/ravengun/output/gamepad.cpp")

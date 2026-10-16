@@ -290,7 +290,7 @@ bool profile_exists(const Config& c, const std::string& profile) {
         fs::path p = fs::path(c.tp_dir) / "UserProfiles" / (profile + ".xml");
         if (fs::is_regular_file(p, ec) && !ec) return true;
     }
-    // Een eigen profiel in game.ini: de XML is dan niet nodig (het startscript haalt het pad uit de gamemappen).
+    // Een eigen profiel in game.ini: de XML is dan niet nodig (de route haalt het pad uit de gamemappen).
     if (c.dirs.shipped.empty() && c.dirs.user.empty()) return false;
     return ravengun::gamesettings::has_own_profile(ravengun::gamesettings::load_game(c.dirs, profile).settings);
 }
@@ -397,17 +397,27 @@ std::string stamp(const char* fmt) {
 }  // namespace
 
 bool native_route(const Config& c, const std::string& profile) {
-    const std::string text = ravengun::launch::profile_text(c.native, profile);   // patches/<Game>/native.json, gebruikerslaag eerst
-    if (text.empty() || !ravengun::launch::profile_enabled(text, profile)) return false;
+    // patches/<Game>/native.json, gebruikerslaag eerst. Een bestand dat er is maar niet te lezen is, kiest ook de native route:
+    // run_native meldt dan de fout, in plaats van stil een andere route te nemen.
+    const std::string file = ravengun::launch::profile_file(c.native, profile);
+    std::error_code ec;
+    if (file.empty() || !fs::exists(file, ec)) return false;
+    const std::string text = ravengun::launch::profile_text(c.native, profile);
+    if (text.empty()) return true;
+    if (!ravengun::launch::profile_enabled(text, profile)) return false;
     // Een game die de camera IN het spel gebruikt heeft nog geen native route (het kiezen van het apparaat zit nog niet in de engine).
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     const std::string* cam = g.settings.find("Camera", "Use");
-    return !(cam && trim(*cam) == "game");
+    if (!cam) return true;
+    std::string use = trim(*cam);
+    for (char& ch : use) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return use != "game";
 }
 
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
-                               "--description=RavenGun: game (native, gestart door de daemon)", "--property=TimeoutStopSec=10"};
+                               "--description=RavenGun: game (native, gestart door de daemon)", "--property=TimeoutStopSec=10",
+                               "--expand-environment=no"};   // geen ${...}-vervanging in paden (systemd 254+)
     bool plain = !log.empty();
     for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
     if (plain) {
@@ -456,13 +466,25 @@ WriteLayer write_layer(const Config& c, const std::string& profile, const std::v
     // gamescope weigerde, gemeten 2026-10-16). gamescope maakt zijn Xwayland-socket hier; een game zonder gamescope bereikt het
     // X-scherm van de host via de abstracte socket (@/tmp/.X11-unix/X0; het netwerk blijft gedeeld).
     w.prefix = {c.bwrap, "--dev-bind", "/", "/", "--tmpfs", "/tmp", "--dir", "/tmp/.X11-unix"};
-    for (size_t n = 0; n < top.size(); ++n) {
-        const std::string base = c.write_layer_dir + "/" + profile + "/" + std::to_string(n);
+    // De laag per spelmap heet naar die map (niet naar zijn plaats in de lijst): een spelmap die erbij komt of wegvalt (een
+    // SD-kaart) verschuift dan niets, en de stand van de ene map komt nooit in de boom van een andere terecht.
+    auto layer_name = [](const std::string& root) {
+        std::string n;
+        for (char ch : root.substr(1)) n += ch == '/' ? '_' : ch;
+        return n.empty() ? std::string("_") : n;
+    };
+    for (const std::string& r : top) {
+        const std::string base = c.write_layer_dir + "/" + profile + "/" + layer_name(r);
         w.dirs.push_back(base + "/upper");
         w.dirs.push_back(base + "/work");
-        w.prefix.insert(w.prefix.end(), {"--overlay-src", top[n], "--overlay", base + "/upper", base + "/work", top[n]});
-        w.log.push_back("schrijflaag: " + top[n] + " (alleen lezen) -> " + base + "/upper");
+        w.prefix.insert(w.prefix.end(), {"--overlay-src", r, "--overlay", base + "/upper", base + "/work", r});
+        w.log.push_back("schrijflaag: " + r + " (alleen lezen) -> " + base + "/upper");
     }
+    // Ligt onze eigen datamap (prefixen, views, de schrijflaag zelf) binnen een spelmap (bv. de spelmap is ~), dan komt hij na de
+    // overlays weer rechtstreeks terug: wat de daemon buiten de unit in de prefix zet, moet de game zien.
+    const std::string data = fs::path(c.write_layer_dir).parent_path().string();
+    if (std::any_of(top.begin(), top.end(), [&](const std::string& t) { return data.compare(0, t.size() + 1, t + "/") == 0; }))
+        w.prefix.insert(w.prefix.end(), {"--bind", data, data});
     w.prefix.push_back("--");
     return w;
 }
@@ -471,6 +493,7 @@ std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch
                                          const std::vector<std::string>& wrap) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
                                "--description=RavenGun: game (Unity, gestart door de daemon)", "--property=TimeoutStopSec=10",
+                               "--expand-environment=no",
                                "--working-directory=" + plan.cwd};
     for (const auto& [k, v] : plan.env) a.push_back("--setenv=" + k + "=" + v);
     bool plain = !log.empty();
@@ -557,6 +580,7 @@ std::vector<std::string> direct_unit_argv(const Config& c, const std::string& pl
                                           const std::vector<std::string>& wrap) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
                                "--description=RavenGun: game (direct, gestart door de daemon)", "--property=TimeoutStopSec=10",
+                               "--expand-environment=no",
                                "--working-directory=" + c.direct.tp};
     bool plain = !log.empty();
     for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
@@ -885,7 +909,9 @@ std::string GameService::run_native(const std::string& profile) {
     // De spelmappen van de app (library.json) bij elke start opnieuw: een map die de gebruiker net toevoegde telt meteen mee.
     L::NativePaths np = c_.native;
     if (np.nas.empty()) np.nas_roots = library_folders(c_.library_file, c_.home);
+    if (np.nas.empty() && np.nas_roots.empty()) return "geen spelmappen in de app: voeg je spelmap toe (Add Folder)";
     const std::string text = L::profile_text(np, profile);
+    if (text.empty()) return "het native profiel " + L::profile_file(np, profile) + " is geen geldig JSON-object";
     L::NativeProfile pr;
     L::NativePlan pl;
     std::string err;
@@ -987,6 +1013,10 @@ std::string GameService::run_unity(const std::string& profile) {
     for (const std::string& d : wl.dirs) {
         std::error_code ec;
         fs::create_directories(d, ec);
+        if (ec) {
+            if (c_.stop_inputs) c_.stop_inputs();
+            return "schrijflaag " + d + " maken: " + ec.message();
+        }
     }
     std::string log;
     if (!c_.native_log_dir.empty()) {

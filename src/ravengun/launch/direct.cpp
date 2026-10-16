@@ -206,7 +206,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (e.enabled) return patch_refused(e.message);
     for (const auto& e : settings.patch_errors) pl.patch_lines.push_back("overgeslagen '" + e.name + "' @- [afgewezen: " + e.message + "]");
     for (const auto& pt : settings.patches) {
-        if (enabled[pt.name]) return engine("patch '" + pt.name + "' staat aan (de patchmotor draait alleen in launch-direct.py)");
+        if (enabled[pt.name]) return engine("patch '" + pt.name + "' staat aan; de engine past dit soort patch nog niet toe");
         const std::string plek = pt.kind() == "memory" ? (pt.get("Module").empty() ? "?" : pt.get("Module")) + "+" + (pt.get("Offset").empty() ? "?" : pt.get("Offset"))
                                                        : (pt.get("Target").empty() ? "-" : pt.get("Target"));
         pl.patch_lines.push_back("overgeslagen '" + pt.name + "' @" + plek + " [uit]");
@@ -403,7 +403,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     std::vector<std::string> gamescope;
     if (getenv_or(env, "TP_GAMESCOPE") == "1" && getenv_or(env, "TP_NO_GAMESCOPE") != "1") {
         std::pair<int, int> wh{1920, 1080};
-        static const std::regex res(R"(^(\d+)x(\d+)$)");
+        static const std::regex res(R"(^(\d{1,5})x(\d{1,5})$)");   // hoogstens 5 cijfers: std::stoi mag niet overlopen
         std::smatch m;
         const std::string rv = getenv_or(env, "RG_GAMESCOPE_RES");
         if (std::regex_match(rv, m, res)) wh = {std::stoi(m[1]), std::stoi(m[2])};

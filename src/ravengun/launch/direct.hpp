@@ -2,16 +2,15 @@
 // De directe route (A10) zonder scripts: het plan (profiel uit game.ini, Wine en prefix, lader en kern, eigen build, teknoparrot.ini,
 // drop-ins, omgeving, gamescope, de JVS-brug) en de invoerroute; tot 2026-10-16 deden scripts/launch-direct.py en play-halo.sh dat,
 // tests/golden/direct/ bewaart hun uitkomst. De daemon voert het plan uit (GameService): drop-ins en bestanden plaatsen, dan
-// `systemd-run --user --unit=ravengun-tpui -- rg-direct --run <plan.json>`. rg-direct (tools/rg-direct) is het C++-hoofdproces van de
-// unit op de plaats van launch-direct.py --run: gedeeld geheugen, de JVS-pipe (TCP-kant), pipehelper/rg-jvsbridge in de prefix, de lader,
-// het spel volgen tot het weg is, opruimen. Geen shell en geen Python in de keten.
+// `systemd-run --user --unit=ravengun-tpui -- bwrap ... -- rg-direct --run <plan.json>` (de schrijflaag: games::write_layer).
+// rg-direct (tools/rg-direct) is het C++-hoofdproces van de unit: gedeeld geheugen, de JVS-pipe (TCP-kant), pipehelper/rg-jvsbridge in
+// de prefix, de lader, het spel volgen tot het weg is, opruimen. Geen shell en geen Python in de keten.
 //
-// Gelijk aan launch-direct.py: dezelfde argv, dezelfde omgeving, dezelfde geplaatste bestanden (tests/direct_golden.py vergelijkt het
-// plan per game uit patches/ met dat van het script). Wat de engine (nog) niet doet, laat hij aan het script over (Verdict::Fallback,
-// met de reden): een profiel zonder eigen profiel in game.ini (alleen een UserProfiles-XML), een
-// ingeschakelde patch (de patchmotor), ExeSha256, [Launch] Exe en Drives, ontbrekende GStreamer-plug-ins (fetch-gst-wmv.sh), en de
-// invoerroutes unity-tcp en jvs over een COM-poort. Wat het script zou weigeren (exit 5: instelling of patch geweigerd, drop-in niet te
-// plaatsen) weigert de engine ook (Verdict::Refused): dan start er niets, ook geen TeknoParrotUi.
+// tests/golden/direct/ bewaart het plan per game uit patches/ (bij invoering gelijk aan dat van launch-direct.py). Wat de engine
+// (nog) niet doet, start niet (Verdict::Fallback, met de reden): een profiel zonder eigen profiel in game.ini (alleen een
+// UserProfiles-XML), een ingeschakelde patch van een soort die de engine niet toepast, ontbrekende GStreamer-plug-ins
+// (fetch-gst-wmv.sh), en de invoerroutes unity-tcp en jvs over een COM-poort. Een instelling of patch die geweigerd wordt, of een
+// drop-in die niet te plaatsen is, geeft Verdict::Refused. In beide gevallen start er niets.
 #include <functional>
 #include <map>
 #include <string>
@@ -41,7 +40,7 @@ DirectPaths default_direct_paths(const EnvMap& env);
 
 enum class Verdict {
     Ok,         // de engine start de game zelf
-    Fallback,   // via scripts/play-halo.sh (het script valt zelf terug op TeknoParrotUi als direct niet kan)
+    Fallback,   // de engine kan deze game (nog) niet direct starten: er start niets (de reden staat in why)
     Refused,    // niet starten: wat launch-direct.py met exit 5 weigert
 };
 const char* verdict_name(Verdict v);   // ok | fallback | refused
@@ -111,7 +110,7 @@ struct DirectPlan {
 };
 
 struct DirectOptions {
-    EnvMap base_env;            // os.environ van launch-direct.py: de omgeving van de unit (plus de extra variabelen van play-halo.sh)
+    EnvMap base_env;            // de omgeving van de unit (direct_session_env): die van de daemon, aangevuld met die van de sessie
     std::string shm_source;     // --shm-source (leeg = /dev/shm/TeknoParrot_JvsState)
     std::string control_source; // --control-source: het rapport van de besturingspipe (leeg = /dev/shm/ravengun_ControlPipe)
     bool log_full = false;      // --log-full
@@ -153,7 +152,7 @@ struct DirectInput {
     std::string note;           // "Directe start: invoer via tp-shm ..." als evdev is omgezet
     // Schrijft de daemon op deze route het gedeelde geheugen (/dev/shm/ravengun_JvsState), zodat de pipehelper dat bestand naar de
     // game spiegelt? tp-shm altijd; jvs als [Input] ook een Layout heeft (Let's Go Safari: het stuur komt alleen uit het gedeelde
-    // geheugen, de game vraagt nooit JVS 0x22). Zelfde regel als play-halo.sh (--shm-source).
+    // geheugen, de game vraagt nooit JVS 0x22). (Zo deed play-halo.sh het met --shm-source.)
     // Alleen tp-shm: bij jvs met een Layout schrijft de daemon zijn bytes in het bestand van rg-direct zelf (iobridge_service.cpp,
     // start_jvs), dus de spiegel blijft dat bestand lezen.
     bool writes_tp_shm() const { return route == "tp-shm"; }
@@ -164,7 +163,7 @@ struct DirectInput {
 Verdict direct_input(const std::string& profile, const DirectPaths& p, DirectInput& out, std::string& why);
 // [Launch] Mode van de game (direct | teknoparrot-ui | leeg), met de gebruikerslaag eroverheen.
 std::string launch_mode(const std::string& profile, const DirectPaths& p);
-// `gamesettings.py env PROFIEL`: de omgeving uit game.ini (met het oude .env als laag), zoals play-halo.sh hem leest.
+// De omgeving uit game.ini (met het oude .env als laag); gelijk aan `gamesettings.py env PROFIEL`.
 EnvMap profile_env(const std::string& profile, const DirectPaths& p);
 
 // --- hid-board: het bord krijgt joystick-id 0 in de prefix (tools/dev/wine-joyid.sh) -----------------------------------------------
