@@ -24,7 +24,7 @@ fi
 
 # De 32-bits bouw vraagt gnu/stubs-32.h. Die ontbreekt in lib32-glibc op SteamOS (dev-header, geen
 # runtime-bestand). Maak hem zo nodig zelf aan, met dezelfde inhoud als stubs-64.h -- dezelfde verouderde
-# BSD-stubs zijn op elke architectuur hetzelfde. Zo doet scripts/rt-glfix.sh het ook.
+# BSD-stubs zijn op elke architectuur hetzelfde. Zo doet tools/dev/rt-glfix.sh het ook.
 INC="$ROOT/tools/rg-elfloader/inc"
 if [[ ! -f /usr/include/gnu/stubs-32.h ]]; then
   mkdir -p "$INC/gnu"

@@ -4,7 +4,7 @@
 # niet-geauthenticeerde HID-apparaten worden dan niet meer op dat punt geweigerd.
 # Bewijs (btmon 2026-10-07): verbinding geaccepteerd, L2CAP PSM 17 -> "Authentication pending" -> "Authentication Failure".
 #
-# Gebruik:  sudo scripts/bluez-classic-bonded.sh --dry-run | --apply | --rollback
+# Gebruik:  sudo tools/dev/bluez-classic-bonded.sh --dry-run | --apply | --rollback
 set -euo pipefail
 MODE="${1:---dry-run}"
 [[ $EUID -eq 0 ]] || { echo "Start met sudo." >&2; exit 1; }

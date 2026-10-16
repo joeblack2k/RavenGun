@@ -4,7 +4,7 @@
 # of een Steam-controller. Wine bewaart de ids per product in HKCU\System\CurrentControlSet\Control\MediaProperties\
 # PrivateProperties\DirectInput\VID_xxxx&PID_xxxx\Calibration\N ("Joystick Id").
 #
-# Gebruik: scripts/wine-joyid.sh PREFIX VID:PID      (hex, bv. 1209:72F0; PREFIX = WINEPREFIX)
+# Gebruik: tools/dev/wine-joyid.sh PREFIX VID:PID      (hex, bv. 1209:72F0; PREFIX = WINEPREFIX)
 # Raakt alleen de sleutels "Joystick Id" aan; andere apparaten met id 0 krijgen het eerstvolgende vrije id. Draai het niet
 # terwijl een game in dezelfde prefix draait (het stopt de wineserver van de prefix niet).
 set -euo pipefail

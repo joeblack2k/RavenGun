@@ -131,7 +131,7 @@ Engine en app hangen niet meer van `~/projects/ravengun` af. Standaardprefix: `~
 
 - `bin/`: `ravengun` (de Qt-app), `ravengund` (de engine), `ravengunctl`. Rpath `$ORIGIN/../lib`.
 - `lib/`: `libpsmoveapi.so` (de enige niet-systeembibliotheek) en de LD_PRELOAD-hulpen `librg_comm_shim.so`, `lib32/librg_comm_shim.so` en `librg_rt_input.so`. Qt, hidapi, BlueZ, dbus en libudev komen van het systeem (Qt 6.11 of nieuwer).
-- `share/ravengun/` (de "datamap"): `scripts/`, `packaging/` (JSON-gegevens, sjablonen voor units en snelkoppelingen, udev-regels, icons, `containers/unity-plugin`), `docs/user-guide.md`, `plugins/unity/`, `third_party/` (readmes en licenties), `LICENSE`, `THIRD_PARTY.md`, `VERSION` (versie en commit) en bij een releasebouw `REQUIRES` (de glibc-eis) en `licenses/`. Niet mee: `scripts/build-app.sh`, `scripts/make-release.sh`, de containers van de Qt-app en de release, en de per-game snelkoppelingen van deze machine.
+- `share/ravengun/` (de "datamap"): `scripts/`, `packaging/` (JSON-gegevens, sjablonen voor units en snelkoppelingen, udev-regels, icons, `containers/unity-plugin`), `docs/user-guide.md`, `plugins/unity/`, `third_party/` (readmes en licenties), `LICENSE`, `THIRD_PARTY.md`, `VERSION` (versie en commit) en bij een releasebouw `REQUIRES` (de glibc-eis) en `licenses/`. Niet mee: `scripts/build-app.sh`, `tools/dev/make-release.sh`, de containers van de Qt-app en de release, en de per-game snelkoppelingen van deze machine.
 
 Zoekvolgorde voor de datamap (engine: `src/ravengun/paths.*`, app: `AppPaths::dataRoot`, scripts: `scripts/rg-paths.sh`; beide C++-kanten hebben tests: `ravengun_paths_tests` en `AppCoreTest::dataRootOrder`):
 
@@ -154,9 +154,9 @@ Verwijderen: `scripts/uninstall-user.sh` (in de geïnstalleerde kopie; `--help` 
 
 ## Release-artefact (A9)
 
-`scripts/make-release.sh` bouwt `dist/ravengun-<versie>-x86_64-steamos.tar.gz` plus `ravengun-<versie>-x86_64-steamos.sha256` (SHA-256 van het archief en van `ravengun-<versie>-source.tar.gz`, de broncode van dezelfde commit, voor de GPL):
+`tools/dev/make-release.sh` bouwt `dist/ravengun-<versie>-x86_64-steamos.tar.gz` plus `ravengun-<versie>-x86_64-steamos.sha256` (SHA-256 van het archief en van `ravengun-<versie>-source.tar.gz`, de broncode van dezelfde commit, voor de GPL):
 
-    scripts/make-release.sh                  # alles in containers; --no-test slaat ctest over, --rebuild-image bouwt de images opnieuw
+    tools/dev/make-release.sh                  # alles in containers; --no-test slaat ctest over, --rebuild-image bouwt de images opnieuw
 
 - Alleen de gecommitte bronnen (`git archive HEAD`) plus PSMoveAPI op de gepinde commit (uit `~/.cache/ravengun/src/psmoveapi`, anders gekloond; eenmalig netwerk op de host). Met niet-gecommitte wijzigingen weigert het script tenzij `--allow-dirty` (die wijzigingen komen er dan toch niet in).
 - Image `localhost/ravengun-release-build` (`packaging/containers/release/Containerfile`) bovenop `localhost/ravengun-qt-build` (Arch Linux Archive van 2026-07-01: Qt 6.11.1, glibc 2.43, GCC 16.1.1), met hidapi, libusb, glm, dbus, BlueZ- en systemd-headers. Het bouwen zelf draait zonder netwerk en mount alleen een tijdelijke werkmap (`/work`).
@@ -180,7 +180,7 @@ Een Flatpak valt om dezelfde redenen af, en doordat de sandbox uinput, udev, Blu
 
 ## Tests van de installatie (A9)
 
-`ctest` bevat `ravengun_paths_tests` (zoekvolgorde van de datamap), `ravengun_compat_list` (docs/compatibility.md is actueel; zie `scripts/gen-compatibility.py`) en `ravengun_install` (`tests/install_test.sh`; overgeslagen met exit 77 zolang `build-app/ravengun` ontbreekt). De installatietest werkt in een tijdelijke HOME met alle XDG-mappen daarbinnen, een namaak-`systemctl` en -`pkexec` die alleen loggen (`RAVENGUN_SYSTEMCTL`, `RAVENGUN_PKEXEC`) en draait de engine met een eigen `XDG_RUNTIME_DIR`:
+`ctest` bevat `ravengun_paths_tests` (zoekvolgorde van de datamap), `ravengun_compat_list` (docs/compatibility.md is actueel; zie `tools/dev/gen-compatibility.py`) en `ravengun_install` (`tests/install_test.sh`; overgeslagen met exit 77 zolang `build-app/ravengun` ontbreekt). De installatietest werkt in een tijdelijke HOME met alle XDG-mappen daarbinnen, een namaak-`systemctl` en -`pkexec` die alleen loggen (`RAVENGUN_SYSTEMCTL`, `RAVENGUN_PKEXEC`) en draait de engine met een eigen `XDG_RUNTIME_DIR`:
 
 - installeren vanuit de repo; controle van de bestanden, units en snelkoppelingen (geen repopad erin), rpath en `ldd`;
 - `ravengun --print-paths`, de engine (`--no-hid --no-camera`) en `ravengunctl status` vanuit de installatie, en de app offscreen met `--screenshot-dir` tegen die engine (minstens tien schermafdrukken);

@@ -22,6 +22,8 @@ ROOT = os.path.dirname(HERE)
 SCRIPTS = os.path.join(ROOT, "scripts")
 sys.dont_write_bytecode = True
 sys.path.insert(0, SCRIPTS)
+DEVTOOLS = os.path.join(ROOT, "tools", "dev")   # patchlayout
+sys.path.insert(0, DEVTOOLS)
 import gamesettings as gs        # noqa: E402
 import patchlayout as pl         # noqa: E402
 

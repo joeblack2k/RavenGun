@@ -3,11 +3,11 @@
 # rg-fmod-host.exe (Windows x86_64, onder Wine) uit rg_fmod_host.c met de mingw-kruiscompiler in ~/.cache/ravengun-mingw.
 # Er zit geen FMOD-code in; de echte FMOD komt van de gebruiker (een native drop-in, of de FMOD Studio 1.10.2 van een
 # TeknoParrot-installatie). De twee .so-bestanden bouwt cmake ook (doelen rg_fmod10 en rg_fmodstudio10, in build/fmod).
-#   scripts/build-fmod-bridge.sh [--lib MAP] [--exe MAP]
+#   tools/dev/build-fmod-bridge.sh [--lib MAP] [--exe MAP]
 #     --lib MAP  standaard build/fmod in de repo (de libdir @build/fmod van patches/Halo/native.json)
 #     --exe MAP  standaard patches/Halo/data/fmod in ../ravengun-patches (de levering per game)
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/tools/fmod-bridge"
 LIB="$ROOT/build/fmod"
 EXE="$ROOT/../ravengun-patches/patches/Halo/data/fmod"

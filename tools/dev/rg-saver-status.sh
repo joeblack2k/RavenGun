@@ -26,16 +26,16 @@
 # niet, dan staat er "Geen status beschikbaar" met de reden, nooit iets dat op "goed" lijkt.
 #
 # Gebruik:
-#   scripts/rg-saver-status.sh --spel Halo --bezig "Richten en schieten testen" --stand goed \
+#   tools/dev/rg-saver-status.sh --spel Halo --bezig "Richten en schieten testen" --stand goed \
 #        [--stap "3 van 5"] [--doel "..."] [--klaar "a; b"] [--nog "c; d"] [--gehaald "x; y"] \
 #        [--vraag "..."] [--doelen "a; b"] [--feed "wat er net gebeurde"]
-#   scripts/rg-saver-status.sh --feed "Halo gestart op de tv"     alleen een regel aan de activiteitenlijst toevoegen
-#   scripts/rg-saver-status.sh --show            wat het bord nu toont (exitcode 1 als de status ontbreekt of niet klopt)
-#   scripts/rg-saver-status.sh --check BESTAND   een bestand keuren zonder iets te schrijven
-#   scripts/rg-saver-status.sh --clear           het statusbestand weghalen (het bord zegt dan dat er geen status is)
-#   scripts/rg-saver-status.sh --clear-feed      de activiteitenlijst leegmaken
+#   tools/dev/rg-saver-status.sh --feed "Halo gestart op de tv"     alleen een regel aan de activiteitenlijst toevoegen
+#   tools/dev/rg-saver-status.sh --show            wat het bord nu toont (exitcode 1 als de status ontbreekt of niet klopt)
+#   tools/dev/rg-saver-status.sh --check BESTAND   een bestand keuren zonder iets te schrijven
+#   tools/dev/rg-saver-status.sh --clear           het statusbestand weghalen (het bord zegt dan dat er geen status is)
+#   tools/dev/rg-saver-status.sh --clear-feed      de activiteitenlijst leegmaken
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/scripts/rg-paths.sh"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun"
 FILE="$STATE/saver-status.txt"

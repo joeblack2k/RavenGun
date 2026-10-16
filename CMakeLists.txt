@@ -32,7 +32,7 @@ if(GIT_FOUND)
     set(RAVENGUN_GIT_COMMIT "${_rg_commit}")
   endif()
 endif()
-if(RAVENGUN_GIT_COMMIT_OVERRIDE)  # releasebouw uit een archief zonder .git (scripts/make-release.sh)
+if(RAVENGUN_GIT_COMMIT_OVERRIDE)  # releasebouw uit een archief zonder .git (tools/dev/make-release.sh)
   set(RAVENGUN_GIT_COMMIT "${RAVENGUN_GIT_COMMIT_OVERRIDE}")
 endif()
 set(RAVENGUN_BUILD_DEFS
@@ -206,7 +206,7 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     set_target_properties(rg_irtrack PROPERTIES PREFIX "lib" OUTPUT_NAME "rg_irtrack" C_VISIBILITY_PRESET default)
     # FMOD-wrapper voor Halo (tools/fmod-bridge): libfmod.so.10 en libfmodstudio.so.10 uit een bron, in build/fmod (de libdir van het
     # profiel). Echte FMOD: een native drop-in van de gebruiker, anders FMOD 1.10.2 onder Wine in rg-fmod-host.exe
-    # (scripts/build-fmod-bridge.sh, patches/Halo/data/fmod), anders stil.
+    # (tools/dev/build-fmod-bridge.sh, patches/Halo/data/fmod), anders stil.
     foreach(_fm fmod fmodstudio)
       add_library(rg_${_fm}10 SHARED tools/fmod-bridge/fmod_bridge.c)
       target_compile_options(rg_${_fm}10 PRIVATE -Wall -Wextra -Wno-pedantic -fvisibility=hidden)
@@ -380,7 +380,7 @@ if(RAVENGUN_BUILD_TESTS)
   # 64- en 32-bits, met tegenproef zonder de bibliotheek. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_ptylink COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/ptylink_test.sh")
   set_tests_properties(ravengun_ptylink PROPERTIES SKIP_RETURN_CODE 77)
-  # scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
+  # tools/dev/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
   add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
   add_test(NAME ravengun_elfloader_gnuhash COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_gnuhash_test.sh")
@@ -406,9 +406,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_camera_feed_tests tests/test_camera_feed.cpp)
   target_link_libraries(ravengun_camera_feed_tests PRIVATE ravengun)
   add_test(NAME ravengun_camera_feed_tests COMMAND ravengun_camera_feed_tests)
-  # docs/compatibility.md moet bij patches/<Game>/game.ini passen (scripts/gen-compatibility.py).
+  # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
-    add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-compatibility.py" --check)
+    add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
   endif()
   add_executable(ravengun_gamesettings_tests tests/test_gamesettings.cpp)
   target_link_libraries(ravengun_gamesettings_tests PRIVATE ravengun)
@@ -521,9 +521,9 @@ if(TARGET rg_comm_shim)
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
-# De datamap. Niet mee: scripts voor ontwikkeling en release (build-app.sh, make-release.sh) en de handmatige diagnose.
+# De datamap. Niet mee: build-app.sh (bouwt uit de bronboom). Ontwikkel- en benchgereedschap staat in tools/dev/ en wordt nooit geinstalleerd.
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
-  PATTERN "build-app.sh" EXCLUDE PATTERN "make-release.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
+  PATTERN "build-app.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
 # Instellingen en patches per game (docs/per-game-patches.md). Die staan in hun EIGEN repo
 # (ravengun-patches), niet in die van de loader: het is gebruikersinhoud en de loader hoort schoon
 # te zijn. Een verse kloon heeft deze map dus niet, en dan wordt er niets geinstalleerd -- de loader

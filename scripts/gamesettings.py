@@ -809,7 +809,7 @@ def load_for_profile(profile, tp=None, type_hint="", shipped=None, user=None, us
         if env:
             legacy = env_to_settings(env, profile_gamedir(tp, profile))
             if log:
-                log("legacy .env gelezen: %s (game.ini wint; migreer met scripts/migrate-game-settings.py)" % path)
+                log("legacy .env gelezen: %s (game.ini wint; migreer met tools/dev/migrate-game-settings.py)" % path)
     return load_game(profile, type_hint or profile_emulator_type(tp, profile), shipped, user, legacy)
 
 

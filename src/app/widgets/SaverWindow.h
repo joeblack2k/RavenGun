@@ -4,7 +4,7 @@
 // slecht, de hoeveelste stap is het, waar dient de test voor, wat is al gedaan en wat nog niet.
 //
 // Het bord komt uit twee kleine bestanden onder ~/.local/state/ravengun/ (XDG_STATE_HOME):
-//   saver-status.txt  de stand van het werk; de coordinator houdt het bij (scripts/rg-saver-status.sh).
+//   saver-status.txt  de stand van het werk; de coordinator houdt het bij (tools/dev/rg-saver-status.sh).
 //   saver-game.txt    draait er nu een spel; scripts/oled-saver.sh schrijft het elke paar seconden.
 //
 // Formaat van saver-status.txt: `sleutel: waarde` per regel, UTF-8; lege regels en regels met # tellen niet.
@@ -18,7 +18,7 @@
 //   gehaald: Rabbids; Luigi's Mansion             optioneel  (spellen die 5 minuten attract of spel haalden; met ;)
 //   vraag: Wil je Halo met of zonder kalibratie? optioneel  (een vraag voor de eigenaar: grote pulserende balk bovenaan)
 //   doelen: Alle 13 spellen halen; Wiki bijwerken optioneel  (de grotere doelen, klein getoond; met ;)
-// Daarnaast saver-feed.txt: een regel per gebeurtenis, `2026-10-14T21:03:11 tekst` (scripts/rg-saver-status.sh --feed);
+// Daarnaast saver-feed.txt: een regel per gebeurtenis, `2026-10-14T21:03:11 tekst` (tools/dev/rg-saver-status.sh --feed);
 // het bord toont de nieuwste paar met hun tijd. Ontbreekt dat bestand, dan is er gewoon geen activiteitenlijst.
 //
 // Een verkeerd gelezen status is erger dan geen status. Ontbreekt het bestand, mist er een verplichte sleutel of

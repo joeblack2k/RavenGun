@@ -27,7 +27,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "memory", "out")
-BUILD = os.path.join(ROOT, "scripts", "build-memory.sh")
+BUILD = os.path.join(ROOT, "tools", "dev", "build-memory.sh")
 
 MOTOR = os.path.join(OUT, "ravengun-patchmem.so")
 PROEF = os.path.join(OUT, "probe_linux")
@@ -121,7 +121,7 @@ def met_motor(proef, lijst, args=None, verbose=True, extra=None, preload=True):
 
 def setUpModule():
     if not os.path.exists(BUILD):
-        raise unittest.SkipTest("scripts/build-memory.sh ontbreekt; niets te testen")
+        raise unittest.SkipTest("tools/dev/build-memory.sh ontbreekt; niets te testen")
     if os.environ.get("RAVENGUN_MEMORY_SKIP_BUILD") != "1":
         r = subprocess.run(["bash", BUILD, "--no-windows", "--no-install", "--no-test"],
                            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -132,7 +132,7 @@ def setUpModule():
 
 def eis_proef(testcase, pad):
     if not os.path.exists(pad):
-        testcase.skipTest("%s ontbreekt (bouw met scripts/build-memory.sh)" % pad)
+        testcase.skipTest("%s ontbreekt (bouw met tools/dev/build-memory.sh)" % pad)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -515,7 +515,7 @@ def wine_beschikbaar():
         "ravengun-patchmem.dll", "ravengun-laat.dll", "probe_win.exe"))
 
 
-@unittest.skipUnless(wine_beschikbaar(), "geen Wine of geen PE-DLL's (bouw met scripts/build-memory.sh)")
+@unittest.skipUnless(wine_beschikbaar(), "geen Wine of geen PE-DLL's (bouw met tools/dev/build-memory.sh)")
 class TestWineMotor(unittest.TestCase):
     """WINEDLLOVERRIDES=<naam>=n laadt alleen een NATIVE DLL voor een module die het programma ook
     werkelijk importeert. Daarom importeert probe_win.exe de DLL: precies zoals een game dat doet."""

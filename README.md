@@ -70,7 +70,7 @@ More help is in the in-app user guide (**Help > User Guide**, or [docs/user-guid
 
 ## Build from source
 
-The build notes are in [docs/build.md](docs/build.md) (Dutch). In short: `scripts/build-app.sh` builds the app in a container with Qt 6.11, `cmake -S . -B build && cmake --build build` builds the engine, and `scripts/make-release.sh` builds the release archive reproducibly in containers.
+The build notes are in [docs/build.md](docs/build.md) (Dutch). In short: `scripts/build-app.sh` builds the app in a container with Qt 6.11, `cmake -S . -B build && cmake --build build` builds the engine, and `tools/dev/make-release.sh` builds the release archive reproducibly in containers.
 
 ## License
 

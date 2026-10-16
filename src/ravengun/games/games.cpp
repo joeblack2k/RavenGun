@@ -736,7 +736,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         if (!in.control_pipe.empty())
             prep.push_back("Plus besturingspipe " + in.control_pipe + " (de daemon schrijft het rapport, rg-direct stroomt het naar de pipe in de prefix).");
     } else if (in.route == "hid-board") {
-        // Het bord krijgt joystick-id 0 in de prefix van het profiel (scripts/wine-joyid.sh), anders opent de game de Move zelf.
+        // Het bord krijgt joystick-id 0 in de prefix van het profiel (tools/dev/wine-joyid.sh), anders opent de game de Move zelf.
         const std::string pfx = L::profile_env(profile, c_.direct)["RG_WINEPREFIX"];
         const std::string vidpid = c_.hid_vidpid ? c_.hid_vidpid(in.board) : std::string();
         if (!pfx.empty() && !vidpid.empty()) {

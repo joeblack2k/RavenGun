@@ -1,6 +1,6 @@
 # rg-compat: kleine Wine-fixes in het spelproces, en meten zonder debugger
 
-`tools/rg-compat/rg_compat.c` wordt `rg-compat.dll` (i686 of x86_64, `scripts/build-compat.sh --out patches/<Game>/dropin`).
+`tools/rg-compat/rg_compat.c` wordt `rg-compat.dll` (i686 of x86_64, `tools/dev/build-compat.sh --out patches/<Game>/dropin`).
 Een game krijgt hem als drop-in met `Preload = true` (`docs/dropins.md`): de OpenParrot-lader laadt hem via `TP_PRELOAD_DLL`
 na de kern in het spelproces. Let op: `TP_PRELOAD_DLL` neemt één DLL; een game met al een preload-drop-in kan er niet twee hebben.
 

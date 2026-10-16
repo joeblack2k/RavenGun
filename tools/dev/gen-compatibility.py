@@ -3,14 +3,14 @@
 [Game] Name en [Status] Status, NoteEN). De lijst is alleen een weergave van die bestanden: pas ze daar aan, draai dit script
 opnieuw en commit het resultaat. De gebruikerslaag telt hier niet mee (de lijst moet reproduceerbaar zijn).
 
-Gebruik: scripts/gen-compatibility.py            schrijft docs/compatibility.md
-         scripts/gen-compatibility.py --check    controleert dat docs/compatibility.md actueel is (exit 1 anders; voor ctest)
-         scripts/gen-compatibility.py --stdout   toont de tekst
+Gebruik: tools/dev/gen-compatibility.py            schrijft docs/compatibility.md
+         tools/dev/gen-compatibility.py --check    controleert dat docs/compatibility.md actueel is (exit 1 anders; voor ctest)
+         tools/dev/gen-compatibility.py --stdout   toont de tekst
 Geen markdown-tabellen (docs/ gebruikt lijsten)."""
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 import gamesettings as gs  # noqa: E402
@@ -47,7 +47,7 @@ def build():
     lines = [
         '# Game compatibility',
         '',
-        '<!-- Generated from patches/<Game>/game.ini by scripts/gen-compatibility.py. Do not edit by hand. -->',
+        '<!-- Generated from patches/<Game>/game.ini by tools/dev/gen-compatibility.py. Do not edit by hand. -->',
         '',
         'This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a '
         'snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.',
@@ -83,7 +83,7 @@ def main():
         except OSError:
             current = ''
         if current != text:
-            print('docs/compatibility.md is out of date: run scripts/gen-compatibility.py', file=sys.stderr)
+            print('docs/compatibility.md is out of date: run tools/dev/gen-compatibility.py', file=sys.stderr)
             return 1
         return 0
     with open(OUT, 'w', encoding='utf-8') as f:

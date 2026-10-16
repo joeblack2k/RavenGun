@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Bouwt rg-compat.dll (tools/rg-compat/rg_compat.c): kleine Wine-compatibiliteitsfixes in het spelproces (GetCharABCWidthsA met
 # een buffer van een ABC, IDirectInput::Initialize met een lege HINSTANCE). Met de mingw-kruiscompiler in ~/.cache/ravengun-mingw.
-#   scripts/build-compat.sh [--arch i686|x86_64] --out MAP [--out MAP]...      standaard i686; MAP is meestal patches/<Game>/dropin
+#   tools/dev/build-compat.sh [--arch i686|x86_64] --out MAP [--out MAP]...      standaard i686; MAP is meestal patches/<Game>/dropin
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/tools/rg-compat/rg_compat.c"
 MINGW="${RAVENGUN_MINGW:-$HOME/.cache/ravengun-mingw}"
 ARCH=i686

@@ -1,4 +1,4 @@
-# Bouwomgeving voor het releasearchief van RavenGun (scripts/make-release.sh): de Qt-app-image (Arch Linux Archive van 2026-07-01:
+# Bouwomgeving voor het releasearchief van RavenGun (tools/dev/make-release.sh): de Qt-app-image (Arch Linux Archive van 2026-07-01:
 # qt6-base 6.11.1, glibc 2.43, GCC 16.1.1, gelijk aan SteamOS 3.x) plus wat PSMoveAPI en de engine nodig hebben (hidapi, libusb,
 # glm, dbus, BlueZ- en systemd-headers). Zo draait het resultaat op SteamOS zonder dat er iets uit de container meegeleverd hoeft
 # te worden behalve libpsmoveapi.so.

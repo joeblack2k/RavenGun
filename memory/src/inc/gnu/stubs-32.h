@@ -1,4 +1,4 @@
-/* Lokaal gemaakt door scripts/build-memory.sh: gnu/stubs-32.h ontbreekt in lib32-glibc.
+/* Lokaal gemaakt door tools/dev/build-memory.sh: gnu/stubs-32.h ontbreekt in lib32-glibc.
    De inhoud is gelijk aan gnu/stubs-64.h; zie /usr/include/gnu/stubs.h voor de selectie. */
 #ifdef _LIBC
  #error Applications may not define the macro _LIBC

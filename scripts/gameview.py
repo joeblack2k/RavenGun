@@ -9,7 +9,7 @@ NAS). De C++-tweeling is src/ravengun/launch/gameview.*; tests/test_gameview.py 
 
 Nooit op de NAS schrijven: elke stap (map maken, link zetten of weghalen, bestand kopieren) controleert eerst of de map waarin hij
 schrijft lokaal is (on_nas, gevolgd); zo niet, dan stopt de opbouw met ViewFout. Na de opbouw controleert schrijf_fouten() onze
-schrijfpaden (zoals pruef_schrijfpaden in scripts/aagames-setup.py)."""
+schrijfpaden (zoals pruef_schrijfpaden in tools/dev/aagames-setup.py)."""
 import os
 import shutil
 

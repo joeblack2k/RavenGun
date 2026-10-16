@@ -3,8 +3,8 @@
 #
 # Bouwt de geheugen-motor van RavenGun uit memory/src/.
 #
-# Dit is het tweede deel van de patchmotor. Het eerste deel (scripts/patchfile.py +
-# scripts/addrmap.py) schrijft in een BESTAND; dit deel schrijft in het GEHEUGEN van een lopend
+# Dit is het tweede deel van de patchmotor. Het eerste deel (tools/dev/patchfile.py +
+# tools/dev/addrmap.py) schrijft in een BESTAND; dit deel schrijft in het GEHEUGEN van een lopend
 # proces. Zie docs/patchmotor.md, docs/memory-engine.md en docs/community-model.md paragraaf 3.
 #
 # Resultaat:
@@ -27,10 +27,10 @@
 # en schrijft niets naar de NAS: de motor werkt in procesgeheugen, niet in bestanden.
 #
 # Gebruik:
-#   scripts/build-memory.sh                alles bouwen + zelftest
-#   scripts/build-memory.sh --no-test      niet zelftesten
-#   scripts/build-memory.sh --no-windows   de PE-DLL's overslaan (geen podman nodig)
-#   scripts/build-memory.sh --no-install   alleen in memory/out/ bouwen
+#   tools/dev/build-memory.sh                alles bouwen + zelftest
+#   tools/dev/build-memory.sh --no-test      niet zelftesten
+#   tools/dev/build-memory.sh --no-windows   de PE-DLL's overslaan (geen podman nodig)
+#   tools/dev/build-memory.sh --no-install   alleen in memory/out/ bouwen
 #
 # Omgevingsvariabelen:
 #   RAVENGUN_MEMORY_LIB_DIR   waar de bibliotheken heen gaan
@@ -38,7 +38,7 @@
 #   CC                        de compiler (standaard gcc)
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$ROOT/memory/src"
 TEST="$ROOT/memory/test"
 OUTDIR="$ROOT/memory/out"
@@ -76,7 +76,7 @@ if [[ ! -e /usr/include/gnu/stubs-32.h ]]; then
   mkdir -p "$SRC/inc/gnu"
   if [[ ! -e "$SRC/inc/gnu/stubs-32.h" ]]; then
     {
-      echo "/* Lokaal gemaakt door scripts/build-memory.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
+      echo "/* Lokaal gemaakt door tools/dev/build-memory.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
       echo "   De inhoud is gelijk aan gnu/stubs-64.h; zie /usr/include/gnu/stubs.h voor de selectie. */"
       echo "#ifdef _LIBC"
       echo " #error Applications may not define the macro _LIBC"
@@ -181,7 +181,7 @@ if [[ "$DO_TEST" == 1 ]]; then
 
   lijst="$OUTDIR/zelftest.txt"
   {
-    echo "# zelftest van scripts/build-memory.sh -- gegenereerd, niet met de hand bijgehouden"
+    echo "# zelftest van tools/dev/build-memory.sh -- gegenereerd, niet met de hand bijgehouden"
     echo "$module|$doel_off|${doel_voor:0:8}|deadbeefdeadbeefdeadbeefdeadbeef"
   } > "$lijst"
 

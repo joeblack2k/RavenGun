@@ -11,7 +11,7 @@ shell (`src/ravengun/launch/native.*`).
 - **Wanneer de daemon het neemt.** Hij neemt de native route alleen bij `"enabled": true` en als de game geen camera in het spel
   gebruikt (`[Camera]` in `game.ini`). Een game zonder enige route start niet; de app meldt dan "nog geen eigen route".
 - **Logboek.** Het logboek van de start (`logs/native-<profiel>-<tijd>.log`) noemt het gelezen bestand met sha256 (`gegevens:`).
-- **Installatie.** De installatie neemt `native.json` mee (CMakeLists.txt, `scripts/patchlayout.py`).
+- **Installatie.** De installatie neemt `native.json` mee (CMakeLists.txt, `tools/dev/patchlayout.py`).
 
 Tot 2026-10-16 stonden alle profielen samen in `packaging/native-games.json`. Elk object daaruit is nu letterlijk zo'n
 `native.json`. De standaardresolutie (`defaults.res`) is vast 1920x1080.

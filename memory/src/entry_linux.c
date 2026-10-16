@@ -23,7 +23,7 @@
  *   RAVENGUN_PATCHMEM_GEEN_DLOPEN  gezet: dlopen niet onderscheppen (alleen voor de proef; dan doet
  *                              de achtergrondthread het werk)
  *
- * Bouwen: scripts/build-memory.sh
+ * Bouwen: tools/dev/build-memory.sh
  *   gcc -shared -fPIC -O2 -o ravengun-patchmem.so   src/patchmem.c src/entry_linux.c -lpthread -ldl
  *   gcc -m32 -shared -fPIC -O2 -o ravengun-patchmem32.so src/patchmem.c src/entry_linux.c -lpthread -ldl
  */

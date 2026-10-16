@@ -38,6 +38,7 @@ KIND_SCRIPTS = {
 }
 
 sys.path.insert(0, SCRIPTS)
+sys.path.insert(0, os.path.join(REPO, "tools", "dev"))   # patchfile
 sys.dont_write_bytecode = True
 
 

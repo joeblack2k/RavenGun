@@ -19,18 +19,18 @@
 # ingangspunt aan en leidt ze naar de emulator.
 #
 # Gebruik:
-#   scripts/build-hasphook.sh                  bouwen en naar alle games in GAMES leggen
-#   scripts/build-hasphook.sh --game <Naam>    alleen die game (herhaalbaar)
-#   scripts/build-hasphook.sh --no-place       alleen bouwen, niets wegschrijven
-#   scripts/build-hasphook.sh --check          alleen kijken of de geplaatste kopieën actueel zijn
-#   scripts/build-hasphook.sh --selftest       ook de zelftest draaien
+#   tools/dev/build-hasphook.sh                  bouwen en naar alle games in GAMES leggen
+#   tools/dev/build-hasphook.sh --game <Naam>    alleen die game (herhaalbaar)
+#   tools/dev/build-hasphook.sh --no-place       alleen bouwen, niets wegschrijven
+#   tools/dev/build-hasphook.sh --check          alleen kijken of de geplaatste kopieën actueel zijn
+#   tools/dev/build-hasphook.sh --selftest       ook de zelftest draaien
 #
 # Let op: de 32-bits bouw vraagt de dev-header gnu/stubs-32.h. Die ontbreekt in lib32-glibc op
 # SteamOS (het is een dev-header, geen runtime-bestand). Dit script gebruikt de kopie die
 # scripts/build-hasp.sh al aanmaakt in hasp/src/inc/gnu/, en maakt hem zo nodig zelf aan.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$ROOT/tools/rt-hasphook/hasp_inline_hook.c"
 CC="${CC:-gcc}"
 LIB32="libravengun-hasphook.so"
@@ -66,7 +66,7 @@ if [[ ! -e /usr/include/gnu/stubs-32.h ]]; then
   mkdir -p "$ROOT/hasp/src/inc/gnu"
   if [[ ! -e "$ROOT/hasp/src/inc/gnu/stubs-32.h" ]]; then
     {
-      echo "/* Lokaal gemaakt door scripts/build-hasphook.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
+      echo "/* Lokaal gemaakt door tools/dev/build-hasphook.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
       echo "   De inhoud is gelijk aan gnu/stubs-64.h; zie /usr/include/gnu/stubs.h voor de selectie. */"
       echo "#ifdef _LIBC"
       echo " #error Applications may not define the macro _LIBC"

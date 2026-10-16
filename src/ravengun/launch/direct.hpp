@@ -167,7 +167,7 @@ std::string launch_mode(const std::string& profile, const DirectPaths& p);
 // `gamesettings.py env PROFIEL`: de omgeving uit game.ini (met het oude .env als laag), zoals play-halo.sh hem leest.
 EnvMap profile_env(const std::string& profile, const DirectPaths& p);
 
-// --- hid-board: het bord krijgt joystick-id 0 in de prefix (scripts/wine-joyid.sh) -----------------------------------------------
+// --- hid-board: het bord krijgt joystick-id 0 in de prefix (tools/dev/wine-joyid.sh) -----------------------------------------------
 struct JoyId { std::string key; int id = 0; };
 // De regels van `wine reg query <DirectInput> /s`: per Calibration-sleutel het "Joystick Id".
 std::vector<JoyId> parse_joy_ids(const std::string& reg_query_output);

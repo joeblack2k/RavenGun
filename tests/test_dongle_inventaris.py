@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests voor scripts/gen-dongle-inventaris.py: de donglekolom komt uit het dongle.json in de drop-in van de game
+"""Tests voor tools/dev/gen-dongle-inventaris.py: de donglekolom komt uit het dongle.json in de drop-in van de game
 (patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json, veld kind, docs/dropins.md); een los patches/<Game>/dongle.json
 blijft ook werken. Een ontbrekend bestand betekent "geen dongle", en de rest van de tabel komt uit game.ini. Raakt alleen
 tijdelijke mappen. Uitvoeren: python3 -I tests/test_dongle_inventaris.py"""
@@ -28,7 +28,7 @@ def write(path, text):
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("inv", os.path.join(SCRIPTS, "gen-dongle-inventaris.py"))
+    spec = importlib.util.spec_from_file_location("inv", os.path.join(ROOT, "tools", "dev", "gen-dongle-inventaris.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

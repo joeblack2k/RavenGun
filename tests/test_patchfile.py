@@ -13,6 +13,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tools", "dev"))   # patchfile, addrmap
 sys.dont_write_bytecode = True
 
 import addrmap          # noqa: E402

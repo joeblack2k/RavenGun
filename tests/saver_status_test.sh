@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Het statusbord van de tv: scripts/rg-saver-status.sh (de stand van het werk) en scripts/oled-saver.sh --game-state
+# Het statusbord van de tv: tools/dev/rg-saver-status.sh (de stand van het werk) en scripts/oled-saver.sh --game-state
 # (draait er nu een spel). Hermetisch: een eigen statusmap, een namaak-proceslijst en een namaak-/proc.
 #
 # Wat hier wordt afgedwongen, omdat een verkeerd gelezen status erger is dan geen status:
@@ -20,7 +20,7 @@ FAILS=0
 fail() { echo "FAIL: $*"; FAILS=$((FAILS + 1)); }
 export XDG_STATE_HOME="$T/state" RAVENGUN_APP_BIN="$APP"
 F="$T/state/ravengun/saver-status.txt"
-S="$ROOT/scripts/rg-saver-status.sh"
+S="$ROOT/tools/dev/rg-saver-status.sh"
 
 # 1. Geen bestand: het bord zegt dat er geen status is.
 UIT=$("$S" --show 2>&1); RC=$?
@@ -137,7 +137,7 @@ staat zichtbaar <<'EOF'
 200 /x/bin/rg-direct --run /x/state/ravengun/direct/Halo.json
 EOF
 
-# 7. Een run heeft het scherm genomen (de houder van scripts/rg-tv-env.sh): het bord wijkt, welk programma er ook draait --
+# 7. Een run heeft het scherm genomen (de houder van tools/dev/rg-tv-env.sh): het bord wijkt, welk programma er ook draait --
 #    ook een dat het bord niet kent en dat zonder houder "geen spel" zou opleveren. Een houder van een proces dat weg is telt
 #    niet en wordt opgeruimd; een houder waarvan het pid nu van een ANDER proces is (andere starttijd) ook niet.
 mkdir -p "$T/hold" "$T/proc/300"

@@ -19,7 +19,7 @@
  * fmodstudio64.dll), WINEPREFIX, RG_FMOD_SPEAKERS ("5.1" standaard, "stereo", "7.1", "game" = wat de game vraagt),
  * RG_FMOD_LOG=1 (meldingen op stderr; het hulpprogramma schrijft dan ook naar stderr).
  *
- * BOUWEN: scripts/build-fmod-bridge.sh (libfmod.so.10 en libfmodstudio.so.10 uit deze bron).
+ * BOUWEN: tools/dev/build-fmod-bridge.sh (libfmod.so.10 en libfmodstudio.so.10 uit deze bron).
  */
 #define _GNU_SOURCE
 #include <errno.h>

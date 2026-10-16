@@ -3,7 +3,7 @@
 # bouwen en alleen uit de gecommitte bronnen (git archive van HEAD) plus PSMoveAPI op de vastgepinde commit. Zie docs/build.md,
 # "Release-artefact".
 #
-# Gebruik: scripts/make-release.sh [--version V] [--out MAP] [--rebuild-image] [--no-test] [--allow-dirty] [--psmoveapi-src MAP]
+# Gebruik: tools/dev/make-release.sh [--version V] [--out MAP] [--rebuild-image] [--no-test] [--allow-dirty] [--psmoveapi-src MAP]
 #   --version V         versie in de bestandsnaam (standaard: project(VERSION) uit CMakeLists.txt)
 #   --out MAP           uitvoermap (standaard dist/)
 #   --rebuild-image     de container-images opnieuw bouwen
@@ -15,7 +15,7 @@
 # tijdstempels, gzip zonder naam/tijd. Twee keer bouwen van dezelfde commit geeft dezelfde SHA-256 (zie docs/build.md voor de
 # voorwaarden: dezelfde images).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 IMG_QT=localhost/ravengun-qt-build
 IMG=localhost/ravengun-release-build
 PSM_PIN="$(sed -n 's/^set(RAVENGUN_PSMOVEAPI_PIN "\([0-9a-f]*\)".*/\1/p' "$ROOT/CMakeLists.txt")"

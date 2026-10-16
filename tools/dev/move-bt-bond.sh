@@ -6,7 +6,7 @@
 # Achtergrond: btmon toonde "Connection Rejected due to Unacceptable BD_ADDR (0x0f)" voor de Move.
 # Een ZCM1 gebruikt geen authenticatie; de toegevoegde koppelsleutel wordt door de Move nooit gebruikt.
 #
-# Gebruik:  sudo scripts/move-bt-bond.sh --dry-run | --apply | --rollback
+# Gebruik:  sudo tools/dev/move-bt-bond.sh --dry-run | --apply | --rollback
 set -euo pipefail
 MODE="${1:---dry-run}"
 [[ $EUID -eq 0 ]] || { echo "Start met sudo." >&2; exit 1; }

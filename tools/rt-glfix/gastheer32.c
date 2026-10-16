@@ -5,7 +5,7 @@
  * er in het logbestand staat. Zo is de bibliotheek te controleren zonder een spel te starten.
  *
  * Gebruik:
- *   scripts/rt-glfix.sh --selftest
+ *   tools/dev/rt-glfix.sh --selftest
  * of met de hand:
  *   RAVENGUN_GLFIX_LOG=/dev/stderr ./gastheer32 librt-glfix.so
  */

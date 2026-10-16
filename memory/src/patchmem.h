@@ -2,8 +2,8 @@
  *
  * patchmem.h — de geheugen-motor van RavenGun: bytepatches in een LOPEND proces.
  *
- * Dit is het tweede deel van de patchmotor. Het eerste deel (scripts/patchfile.py +
- * scripts/addrmap.py) schrijft in een BESTAND; zie docs/patchmotor.md. Dit deel schrijft in het
+ * Dit is het tweede deel van de patchmotor. Het eerste deel (tools/dev/patchfile.py +
+ * tools/dev/addrmap.py) schrijft in een BESTAND; zie docs/patchmotor.md. Dit deel schrijft in het
  * GEHEUGEN van een proces dat al draait, en wel om de drie gevallen die een bestandspatch niet
  * dekt (docs/community-model.md, paragraaf 3):
  *

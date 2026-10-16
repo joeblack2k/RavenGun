@@ -2,7 +2,7 @@
 # Read-only Bluetooth-diagnose voor de PS Move (vereist root voor /var/lib/bluetooth en btmon).
 # Wijzigt niets. Schrijft één logbestand naar de state-map van de gebruiker die sudo aanriep.
 #
-# Gebruik:  sudo ~/projects/ravengun/scripts/diag-move-bt.sh
+# Gebruik:  sudo ~/projects/ravengun/tools/dev/diag-move-bt.sh
 #           koppel daarna binnen 30 s de USB-kabel los en druk kort op de PS-knop.
 set -u
 [[ $EUID -eq 0 ]] || { echo "Start met sudo." >&2; exit 1; }

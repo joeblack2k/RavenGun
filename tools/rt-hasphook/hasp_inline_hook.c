@@ -63,7 +63,7 @@
  *   RAVENGUN_HASP_ELF_MS      poll-interval in milliseconden (standaard 5)
  *   RAVENGUN_HASP_ELF_UIT     "1": alleen meten, niets patchen
  *
- * Bouwen: scripts/build-hasphook.sh (gcc -m32 -shared -fPIC en 64-bits).
+ * Bouwen: tools/dev/build-hasphook.sh (gcc -m32 -shared -fPIC en 64-bits).
  */
 #define _GNU_SOURCE
 #include <dlfcn.h>

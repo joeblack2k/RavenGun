@@ -14,7 +14,7 @@ Plekken van onze artefacten die hier gecontroleerd worden (onafhankelijk van de 
   - Game_Data/Plugins met alles erin (daar komen de drop-ins).
 Eigen bestanden van de game (StreamingAssets, ControllerBaseConfig.json, ...) worden NIET gecontroleerd: dat die als symlink naar de
 NAS staan mag (expliciete test). De aagames-route zet er om gemak wel lokale kopieen van neer; dat staat in de docstring van
-scripts/aagames-setup.py en wordt hier als gedrag getest, niet als NAS-regel.
+tools/dev/aagames-setup.py en wordt hier als gedrag getest, niet als NAS-regel.
 
 De namaak-tests bouwen hun eigen NAS in een tijdelijke map. De test op de echte, al klaargezette views leest alleen
 (os.walk/readlink) en slaat zichzelf over als de view of de NAS er niet is.
@@ -57,7 +57,7 @@ def laad(naam, pad):
 
 
 def setup_module():
-    return laad("aagames_setup_onder_test", os.path.join(SCRIPTS, "aagames-setup.py"))
+    return laad("aagames_setup_onder_test", os.path.join(REPO, "tools", "dev", "aagames-setup.py"))
 
 
 def onder(pad, wortel):
@@ -321,9 +321,9 @@ class TestEchteViews(unittest.TestCase):
     def controleer(self, game):
         view = os.path.join(VIEWS_AAGAMES, game)
         if not os.path.isdir(view):
-            self.skipTest("view %s bestaat niet; draai scripts/aagames-setup.py %s" % (view, game))
+            self.skipTest("view %s bestaat niet; draai tools/dev/aagames-setup.py %s" % (view, game))
         self.assertEqual([], schendingen(view, ECHTE_NAS),
-                         "schrijfpaden van %s komen op de NAS uit; draai scripts/aagames-setup.py %s opnieuw" % (game, game))
+                         "schrijfpaden van %s komen op de NAS uit; draai tools/dev/aagames-setup.py %s opnieuw" % (game, game))
         plugins = os.path.join(view, "Game_Data", "Plugins")
         self.assertTrue(os.path.isdir(plugins) and not os.path.islink(plugins), "Game_Data/Plugins moet een echte map zijn")
         self.assertTrue([e for e in os.listdir(plugins) if os.path.isfile(os.path.join(plugins, e))],

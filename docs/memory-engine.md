@@ -1,7 +1,7 @@
 # De geheugen-motor
 
-*`memory/src/` + `scripts/build-memory.sh`, ronde 6. Dit is het TWEEDE deel van de patchmotor. Het
-eerste deel (`scripts/patchfile.py` + `scripts/addrmap.py`) schrijft in een **bestand**; zie
+*`memory/src/` + `tools/dev/build-memory.sh`, ronde 6. Dit is het TWEEDE deel van de patchmotor. Het
+eerste deel (`tools/dev/patchfile.py` + `tools/dev/addrmap.py`) schrijft in een **bestand**; zie
 `docs/patchmotor.md`. Dit deel schrijft in het **geheugen van een lopend proces**, en wel om de
 gevallen waarin een bestandspatch niet kan. Zie `docs/community-model.md` paragraaf 3 voor het
 waarom en `docs/dropins.md` voor de mapindeling.*
@@ -153,10 +153,10 @@ controleren dat het proefprogramma overeind blijft en de weigering meldt.
 ## 5. Bouwen
 
 ```bash
-scripts/build-memory.sh                # alles bouwen, installeren en zelftesten
-scripts/build-memory.sh --no-windows   # alleen de Linux-kant (geen podman nodig)
-scripts/build-memory.sh --no-install   # alleen in memory/out/ bouwen
-scripts/build-memory.sh --no-test      # niet zelftesten
+tools/dev/build-memory.sh                # alles bouwen, installeren en zelftesten
+tools/dev/build-memory.sh --no-windows   # alleen de Linux-kant (geen podman nodig)
+tools/dev/build-memory.sh --no-install   # alleen in memory/out/ bouwen
+tools/dev/build-memory.sh --no-test      # niet zelftesten
 ```
 
 Resultaat, in `${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/memory/`:
@@ -192,7 +192,7 @@ python3 tests/test_memory_engine.py        # 38 proeven, ~55 s (inclusief Wine)
 ### Proef 1 — een patch in het programma zelf (Linux, 64-bits)
 
 ```bash
-bash scripts/build-memory.sh
+bash tools/dev/build-memory.sh
 ```
 
 ```

@@ -36,8 +36,8 @@ Gebruik als module
 
 Gebruik als programma
 ---------------------
-    python3 scripts/patchfile.py --game JurassicPark --game-exe /pad/naar/game --check
-    python3 scripts/patchfile.py --game JurassicPark --game-exe /pad/naar/game --apply
+    python3 tools/dev/patchfile.py --game JurassicPark --game-exe /pad/naar/game --check
+    python3 tools/dev/patchfile.py --game JurassicPark --game-exe /pad/naar/game --apply
 """
 import argparse
 import hashlib
@@ -49,13 +49,14 @@ import sys
 sys.dont_write_bytecode = True
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))
+for _p in (os.path.join(ROOT, "scripts"), HERE):   # gamesettings (scripts/) en addrmap (naast dit bestand)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import addrmap                      # noqa: E402
 import gamesettings as gs           # noqa: E402
 
-ROOT = os.path.dirname(HERE)
 HOME = os.environ.get("HOME", "/home/deck")
 
 # Waar de NAS gemount is. Nooit beschrijven.

@@ -17,7 +17,7 @@ import fnmatch
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python3 -I neemt de scriptmap niet mee
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts"))   # gamesettings; python3 -I neemt de scriptmap niet mee
 
 REQUIRED = ("game.ini",)
 # hasp-haken.ini is de adreslijst die de HASP-ELF-hook bij het draaien leest (RAVENGUN_HASP_ELF_ADRESLIJST,

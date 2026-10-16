@@ -24,7 +24,7 @@ nodig heeft om te draaien is data in de map van die game, en de loader is een do
 | `dongle_gate()`, `DongleRefused`, exitcode 6 | er is geen poort meer om te bewaken |
 | de keuzelijst "Dongle source" en het vinkje "Use dongle" | de app toont geen dongle meer |
 | `scripts/dongle.py` (detectie van de fysieke dongle) | alleen de poort gebruikte hem |
-| `scripts/gen-dongle-inventaris.py` | de dongle-inventaris is geen loaderbegrip meer |
+| `tools/dev/gen-dongle-inventaris.py` | de dongle-inventaris is geen loaderbegrip meer |
 | `DONGLE_SOURCES`, `kDongleSources`, `dongleSources()` | de bronnenlijst bestaat niet meer |
 | `dropin_dongle()` en de `kind`-dispatch in `launch-direct.py` | de drop-in-motor doet het werk |
 

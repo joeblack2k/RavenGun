@@ -7,7 +7,7 @@
 //
 // Nooit op de NAS schrijven: elke stap (map maken, link zetten of weghalen, bestand kopieren) controleert eerst of de map waarin hij
 // schrijft lokaal is; zo niet, dan stopt de opbouw met een melding. Na de opbouw controleert view_write_errors() onze schrijfpaden
-// (zoals pruef_schrijfpaden in scripts/aagames-setup.py en nas_write_errors in unity.cpp).
+// (zoals pruef_schrijfpaden in tools/dev/aagames-setup.py en nas_write_errors in unity.cpp).
 #include <functional>
 #include <string>
 #include <vector>

@@ -11,10 +11,10 @@ alleen tussen de fysieke dongle van de eigenaar (`usb-passthrough`, de standaard
 meegeleverde laag laat die keuze aan de eigenaar (docs/per-game-patches.md, "Dongle per game").
 
 Gebruik:
-  scripts/gen-dongle-inventaris.py               schrijft docs/inventaris-dongle-per-game.md
-  scripts/gen-dongle-inventaris.py --out F       schrijft naar een ander bestand (bv. de NAS: findings/INVENTARIS-dongle-per-game.md)
-  scripts/gen-dongle-inventaris.py --stdout      toont de tekst
-  scripts/gen-dongle-inventaris.py --check       exit 1 als het bestand niet actueel is (niets schrijven; voor ctest)
+  tools/dev/gen-dongle-inventaris.py               schrijft docs/inventaris-dongle-per-game.md
+  tools/dev/gen-dongle-inventaris.py --out F       schrijft naar een ander bestand (bv. de NAS: findings/INVENTARIS-dongle-per-game.md)
+  tools/dev/gen-dongle-inventaris.py --stdout      toont de tekst
+  tools/dev/gen-dongle-inventaris.py --check       exit 1 als het bestand niet actueel is (niets schrijven; voor ctest)
 Opties: --patches DIR (de meegeleverde map; ook $RAVENGUN_PATCHES_DIR).
 """
 import argparse
@@ -24,7 +24,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.dont_write_bytecode = True
-sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "scripts"))   # gamesettings
 import gamesettings as gs  # noqa: E402
 
 ROOT = gs.ROOT
@@ -108,7 +108,7 @@ def render(rows):
         "# Inventaris: dongle en patches per game",
         "",
         "Automatisch gemaakt uit `patches/<Game>/game.ini` en het `dongle.json` in de drop-in van elke game door",
-        "`scripts/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.",
+        "`tools/dev/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.",
         "",
         "De kolom **Dongle** komt uit `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld `kind`); het bestaan van",
         "dat bestand betekent \"deze game vraagt een dongle\" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom",
@@ -160,7 +160,7 @@ def main(argv):
         print("%s is actueel" % os.path.relpath(a.out, ROOT))
         return 0
     if a.check:
-        print("%s is niet actueel; draai scripts/gen-dongle-inventaris.py" % os.path.relpath(a.out, ROOT), file=sys.stderr)
+        print("%s is niet actueel; draai tools/dev/gen-dongle-inventaris.py" % os.path.relpath(a.out, ROOT), file=sys.stderr)
         return 1
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out + ".tmp", "w", encoding="utf-8") as f:

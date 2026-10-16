@@ -16,10 +16,10 @@
 # tools/rt-glfix/, en dit script verdeelt hem. Zie docs/rt-glfix.md.
 #
 # Gebruik:
-#   scripts/rt-glfix.sh                 bouwen en naar alle games in GAMES leggen
-#   scripts/rt-glfix.sh --game <Naam>   alleen die game (herhaalbaar)
-#   scripts/rt-glfix.sh --no-place      alleen bouwen, niets wegschrijven
-#   scripts/rt-glfix.sh --check         alleen kijken of de geplaatste kopieën actueel zijn
+#   tools/dev/rt-glfix.sh                 bouwen en naar alle games in GAMES leggen
+#   tools/dev/rt-glfix.sh --game <Naam>   alleen die game (herhaalbaar)
+#   tools/dev/rt-glfix.sh --no-place      alleen bouwen, niets wegschrijven
+#   tools/dev/rt-glfix.sh --check         alleen kijken of de geplaatste kopieën actueel zijn
 #
 # Let op: de 32-bits bouw vraagt de dev-header gnu/stubs-32.h. Die ontbreekt in lib32-glibc op
 # SteamOS (het is een dev-header, geen runtime-bestand). Dit script maakt hem zo nodig zelf aan in
@@ -28,7 +28,7 @@
 # tegen de 32-bits libc die er wel is (/usr/lib32/libc.so.6). Zo doet scripts/build-hasp.sh het ook.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$ROOT/tools/rt-glfix/rt_glfix.c"
 CC="${CC:-gcc}"
 LIB="librt-glfix.so"
@@ -64,7 +64,7 @@ if [[ ! -e /usr/include/gnu/stubs-32.h ]]; then
   mkdir -p "$ROOT/tools/rt-glfix/inc/gnu"
   if [[ ! -e "$ROOT/tools/rt-glfix/inc/gnu/stubs-32.h" ]]; then
     {
-      echo "/* Lokaal gemaakt door scripts/rt-glfix.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
+      echo "/* Lokaal gemaakt door tools/dev/rt-glfix.sh: gnu/stubs-32.h ontbreekt in lib32-glibc."
       echo "   De inhoud is gelijk aan gnu/stubs-64.h; zie /usr/include/gnu/stubs.h voor de selectie. */"
       echo "#ifdef _LIBC"
       echo " #error Applications may not define the macro _LIBC"

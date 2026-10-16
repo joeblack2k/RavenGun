@@ -21,7 +21,7 @@
  *
  * Omgevingsvariabelen: zie entry_linux.c (dezelfde vier).
  *
- * Bouwen: scripts/build-memory.sh (mingw-w64 in de podman-image localhost/ravengun-mingw)
+ * Bouwen: tools/dev/build-memory.sh (mingw-w64 in de podman-image localhost/ravengun-mingw)
  *   x86_64-w64-mingw32-gcc -shared -O2 -o ravengun-patchmem.dll   src/patchmem.c src/entry_win.c
  *   i686-w64-mingw32-gcc   -shared -O2 -o ravengun-patchmem32.dll src/patchmem.c src/entry_win.c
  */

@@ -8,7 +8,7 @@
  *
  * De uitvoer is `sleutel=waarde` per regel, zodat tests/test_memory_engine.py hem kan lezen.
  *
- * Bouwen: zie scripts/build-memory.sh
+ * Bouwen: zie tools/dev/build-memory.sh
  *   x86_64-w64-mingw32-gcc -O2 -o probe_win.exe probe_win.c ravengun-patchmem.dll
  */
 #define _WIN32_WINNT 0x0600

@@ -4,8 +4,8 @@
 # Het master-adres in de controller moet vooraf naar deze host gezet zijn (via USB).
 # Vereist ClassicBondedOnly=false (zie bluez-classic-bonded.sh). Raakt alleen de map van dit apparaat.
 #
-# Gebruik: sudo scripts/bt-register-hid.sh --apply|--rollback|--dry-run ADRES NAAM CLASS PRODUCT_DEC
-#   bv.    sudo scripts/bt-register-hid.sh --apply 00:11:22:33:44:55 "Navigation Controller" 0x000508 1071
+# Gebruik: sudo tools/dev/bt-register-hid.sh --apply|--rollback|--dry-run ADRES NAAM CLASS PRODUCT_DEC
+#   bv.    sudo tools/dev/bt-register-hid.sh --apply 00:11:22:33:44:55 "Navigation Controller" 0x000508 1071
 set -euo pipefail
 MODE="${1:-}"; ADDR="${2:-}"; NAME="${3:-}"; CLASS="${4:-}"; PROD="${5:-}"
 [[ $EUID -eq 0 ]] || { echo "Start met sudo." >&2; exit 1; }

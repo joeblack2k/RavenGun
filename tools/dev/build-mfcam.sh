@@ -4,10 +4,10 @@
 # het camerabeeld komt van de daemon, src/ravengun/vision/camera_feed.hpp). MinGW-w64 (i686) in de gepinde podman-container van de
 # OpenParrot-build, zonder netwerk. Het resultaat is een drop-in (docs/dropins.md) en hoort in de map van elke game die hem gebruikt.
 #
-# Gebruik: scripts/build-mfcam.sh [--out DIR]...
+# Gebruik: tools/dev/build-mfcam.sh [--out DIR]...
 #   --out DIR   waar rg-mfcam.dll heen gaat (herhaalbaar); standaard patches/MarioKartDX/dropin
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/tools/rg-mfcam/rg_mfcam.cpp"
 HDR="$ROOT/src/ravengun/vision/camera_feed_format.h"
 CONTAINERFILE="$ROOT/packaging/containers/openparrot/Containerfile"

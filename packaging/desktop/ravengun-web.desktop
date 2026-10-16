@@ -2,7 +2,7 @@
 Type=Application
 Name=RavenGun (web)
 Comment=Games starten, instellingen, batterij, trillen en knoppen van de lightgun
-Exec=/home/deck/projects/ravengun/scripts/ravengun-app.sh
+Exec=/home/deck/projects/ravengun/tools/dev/ravengun-app.sh
 Icon=input-gaming
 Terminal=false
 Categories=Game;

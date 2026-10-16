@@ -7,7 +7,7 @@
 #
 # register: schrijft /var/lib/bluetooth/<adapter>/<ADRES>/info (Name, Class, Trusted=true, HID-service, DeviceID 054c/<product>
 #   en een koppelsleutel, zodat BlueZ de inkomende verbinding van een controller zonder eigen authenticatie accepteert; zie
-#   scripts/move-bt-bond.sh) en de SDP-cache (HID-beschrijving), en herstart bluetooth.service. Een bestaande registratie wordt
+#   tools/dev/move-bt-bond.sh) en de SDP-cache (HID-beschrijving), en herstart bluetooth.service. Een bestaande registratie wordt
 #   alleen overschreven als het een Sony-controller is (DeviceID Vendor=1356); de eerste versie gaat naar info.ravengun-backup.
 # unregister: verwijdert de map en de cache, maar alleen als het een Sony-HID-registratie is (Vendor=1356, product 981, 3166
 #   of 1071). Normaal ontkoppelt de daemon zonder root via D-Bus (Adapter1.RemoveDevice); dit is de terugval.

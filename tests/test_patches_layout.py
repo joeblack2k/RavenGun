@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Het schema van een gamemap (scripts/patchlayout.py; docs/per-game-patches.md, "Indeling van een gamemap") en de scheiding tussen
+"""Het schema van een gamemap (tools/dev/patchlayout.py; docs/per-game-patches.md, "Indeling van een gamemap") en de scheiding tussen
 levering en onderzoek. Uitvoeren: python3 -I tests/test_patches_layout.py
 
 Twee soorten tests:
@@ -21,6 +21,8 @@ ROOT = os.path.dirname(HERE)
 SCRIPTS = os.path.join(ROOT, "scripts")
 sys.dont_write_bytecode = True
 sys.path.insert(0, SCRIPTS)
+DEVTOOLS = os.path.join(ROOT, "tools", "dev")   # patchlayout
+sys.path.insert(0, DEVTOOLS)
 import gamesettings as gs  # noqa: E402
 import patchlayout as pl  # noqa: E402
 

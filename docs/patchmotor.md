@@ -1,6 +1,6 @@
 # De patchmotor
 
-*`scripts/patchfile.py` + `scripts/addrmap.py`, ronde 6 (2026-10-11). Dit is het stuk dat de
+*`tools/dev/patchfile.py` + `tools/dev/addrmap.py`, ronde 6 (2026-10-11). Dit is het stuk dat de
 patches in `patches/<Game>/patches.ini` ook echt toepast. Zie `docs/community-model.md` voor het
 waarom en `docs/dropins.md` voor de mapindeling.*
 
@@ -79,13 +79,13 @@ al". Zolang wij die kern niet vervangen mag de motor ze niet nog eens toepassen.
 
 ```bash
 # controleren (schrijft niets) -- dit is de standaard
-python3 scripts/patchfile.py --game JurassicPark --game-exe /pad/naar/game
+python3 tools/dev/patchfile.py --game JurassicPark --game-exe /pad/naar/game
 
 # ook echt toepassen
-python3 scripts/patchfile.py --game JurassicPark --game-exe /pad/naar/game --apply
+python3 tools/dev/patchfile.py --game JurassicPark --game-exe /pad/naar/game --apply
 
 # de patches van de kern overnemen (nodig zodra onze eigen kern die taak krijgt)
-python3 scripts/patchfile.py --game GaiaAttack4 --game-exe ... --take-over-core --apply
+python3 tools/dev/patchfile.py --game GaiaAttack4 --game-exe ... --take-over-core --apply
 ```
 
 Als module:

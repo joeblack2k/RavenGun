@@ -207,7 +207,7 @@ gsn::Game load_for_profile(const std::string& profile, const DirectPaths& p, std
         if (!env.empty()) {
             legacy = env_to_settings(env, profile_gamedir(profile, p), p, legacy_fpfix);
             have_legacy = true;
-            if (notes) notes->push_back("legacy .env gelezen: " + path + " (game.ini wint; migreer met scripts/migrate-game-settings.py)");
+            if (notes) notes->push_back("legacy .env gelezen: " + path + " (game.ini wint; migreer met tools/dev/migrate-game-settings.py)");
         }
     }
     return gsn::load_game(dirs, profile, hint, have_legacy ? &legacy : nullptr);

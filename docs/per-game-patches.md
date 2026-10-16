@@ -85,7 +85,7 @@ matrix en hasp):
 
 ### Indeling van een gamemap: levering en onderzoek
 
-Het schema staat in code (`scripts/patchlayout.py`) en wordt getest (`tests/test_patches_layout.py`). Eén regel beslist of een
+Het schema staat in code (`tools/dev/patchlayout.py`) en wordt getest (`tests/test_patches_layout.py`). Eén regel beslist of een
 gamemap van de patches-repo naar de `patches/` van de loader mag verhuizen: **verhuizen neemt alleen de levering mee, nooit het onderzoek.**
 
 | soort | wat | verplicht |
@@ -112,7 +112,7 @@ eerste groep als besmetting.
   of logs meesleept;
 - **geen onbekende namen** (`unknown-entry`) en **mapnaam = `[Game] Profile`** (`profile-mismatch`).
 
-`python3 scripts/patchlayout.py [wortel ...]` toont dezelfde afwijkingen.
+`python3 tools/dev/patchlayout.py [wortel ...]` toont dezelfde afwijkingen.
 
 **Een map of twee?** Op een ontwikkelmachine is `patches/` van de loader een koppeling naar `../ravengun-patches/patches`: dezelfde map. De
 test stelt dat vast met `st_dev`/`st_ino` (niet met de tekst van het pad), legt die ene map tegen het schema en meldt dat hij geen
@@ -522,7 +522,7 @@ Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN 
   IO-brug een game met `Use = game` en is de gekozen camera die van de daemon (`auto`, of hetzelfde `/dev/videoN`), dan schrijft de
   daemon het beeld van zijn camera (YUY2, de tracking loopt door) in `/dev/shm/ravengun_Camera`
   (`src/ravengun/vision/camera_feed_format.h`); stopt de route, dan is het bestand weg. In het spelproces biedt de drop-in
-  `rg-mfcam.dll` (`tools/rg-mfcam/`, bouwen met `scripts/build-mfcam.sh`, `Preload = true`) dat bestand aan als Media
+  `rg-mfcam.dll` (`tools/rg-mfcam/`, bouwen met `tools/dev/build-mfcam.sh`, `Preload = true`) dat bestand aan als Media
   Foundation-camera ("RavenGun camera"; YUY2, NV12 en RGB32). Eerste gebruiker: Mario Kart Arcade GP DX. Een tweede camera
   (niet die van de daemon) wordt op de Wine-route nog niet doorgegeven; het logboek van de daemon zegt dat
   (`camera voor het spel aan/uit: ...`). `ravengunctl --json camera` toont `game_feed`.
@@ -615,7 +615,7 @@ Regels:
 - **NAS-veiligheid.** Elke stap (map maken, link zetten of weghalen, bestand kopieren) controleert eerst dat de map waarin hij schrijft
   lokaal is (gevolgd); komt de view-map zelf op de NAS uit, dan weigert de start met een melding. Na het maken controleert de launcher
   onze schrijfpaden (de view, de mappen op weg naar de exe, `BepInEx/`, de lege mappen), zoals `pruef_schrijfpaden` in
-  `scripts/aagames-setup.py` en `nas_write_errors` in `unity.cpp`.
+  `tools/dev/aagames-setup.py` en `nas_write_errors` in `unity.cpp`.
 - **Droog plannen maakt niets.** `launch-direct.py --plan` en `rg-direct --plan` (en dus `tests/direct_golden.py`, ook `--real`) maken
   of verversen geen view: voor een game op de NAS zonder view rekent het plan dan met het pad op de NAS en meldt het "wordt bij de start
   gemaakt". Dat is het enige verschil met een start; `tests/direct_golden.py` plant hermetisch beide kanten nog eens met de views van
@@ -785,8 +785,8 @@ integriteits- of abonnementscontroles, en niets op uitgepakte beschermde code. D
 | app (`GameData`, `GameLibrary`, `PropertiesDialog`, `ProfileSync`) | `[Input]`, `[Dongle]` (Options > Dongle; status via `scripts/dongle.py --json`), `[Status]`, `[Game]`, `[Identify]`, `[Config*]`; de bibliotheek vindt games met een eigen profiel in de gamemappen; tab **Patches** (aan/uit per patch schrijft de gebruikerslaag, de reden als tooltip, de effectieve instellingen met hun laag, "Open user folder" en "Open shipped folder"); de routekeuze en alle opties (Options, Display) schrijven alleen verschillen naar de gebruikerslaag |
 | `scripts/tp-add-game.py` | schrijft het profiel (uit het sjabloon) en de keuzes in het gebruikers-`game.ini` (en `patches.ini`), plus `UserProfiles/<P>.xml` als uitvoerformaat; leest `[Bindings]` en `[NewGame]` |
 | `scripts/import-tp-profiles.py` | maakt de profieldelen van `game.ini` uit de runtime (zie "Importer") |
-| `scripts/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |
-| `scripts/migrate-game-settings.py` | maakt de meegeleverde bestanden uit de oude bronnen (zie "Overgang") |
+| `tools/dev/gen-compatibility.py` | `[Game] Name`, `[Status] Status` en `NoteEN` (alleen de meegeleverde laag) |
+| `tools/dev/migrate-game-settings.py` | maakt de meegeleverde bestanden uit de oude bronnen (zie "Overgang") |
 
 Gedeelde bibliotheken blijven centraal, zoals de controllerprofielen bij Dolphin: tp-shm-indelingen
 (`tp-shm-profiles.json`), JVS- en HID-borden (`jvs-boards.json`, `hid-boards.json`). Een game verwijst ernaar met een naam.
@@ -800,7 +800,7 @@ geschreven. Een game zonder eigen profiel gedraagt zich als voorheen.
 
 ## Overgang
 
-1. `scripts/migrate-game-settings.py` maakt `patches/<Game>/game.ini` (en `patches.ini`, `README.md`) uit `io-routes.json`,
+1. `tools/dev/migrate-game-settings.py` maakt `patches/<Game>/game.ini` (en `patches.ini`, `README.md`) uit `io-routes.json`,
    `games-notes.json` en de `.env`-bestanden. Het script is opnieuw te draaien en idempotent: het leidt per bron alleen de sleutels af die
    die bron kent, haalt die eerst weg en zet ze opnieuw; handwerk in andere sleutels en secties blijft staan. Waarden gelijk aan
    de standaard van het soort worden niet herhaald; ontbreekt een variabele die de standaard wel zet, dan komt de oude uitkomst

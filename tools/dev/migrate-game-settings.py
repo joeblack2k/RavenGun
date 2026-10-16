@@ -19,7 +19,7 @@ Er worden nooit geheimen overgenomen (variabelen met TOKEN, SECRET, PASSWORD, SE
 naar de NAS: de werkmap staat relatief aan de map van de game, paden onder $HOME als ~/... .
 De .env-bestanden en het runtimeprofiel worden alleen gelezen. Schrijft alleen onder --out (standaard patches/ in de repo).
 
-Gebruik: scripts/migrate-game-settings.py [--out DIR] [--io-routes F] [--notes F] [--rev REV] [--runtime TP] [--dry-run] [--check]
+Gebruik: tools/dev/migrate-game-settings.py [--out DIR] [--io-routes F] [--notes F] [--rev REV] [--runtime TP] [--dry-run] [--check]
 """
 import json
 import os
@@ -29,12 +29,12 @@ import sys
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "scripts"))   # gamesettings
 sys.dont_write_bytecode = True
 import gamesettings as gs  # noqa: E402
 
 ROOT = gs.ROOT
-GEN_MARK = "Gegenereerd door scripts/migrate-game-settings.py"
+GEN_MARK = "Gegenereerd door tools/dev/migrate-game-settings.py"
 
 # Spelnamen die game-options.json niet kent (eigen route of afwijkende naam); zelfde lijst als gen-compatibility.py vroeger had.
 EXTRA_TITLES = {

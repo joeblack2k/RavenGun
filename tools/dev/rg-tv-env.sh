@@ -6,11 +6,11 @@
 # scherm bekend. Dit script leest de schermomgeving uit de lopende bureaubladsessie en geeft die door.
 #
 # Gebruik:
-#   scripts/rg-tv-env.sh                 de export-regels (voor: eval "$(scripts/rg-tv-env.sh)")
-#   scripts/rg-tv-env.sh --check         hetzelfde, en controleer dat het scherm echt bereikbaar is (xrandr)
-#   scripts/rg-tv-env.sh -- CMD [ARG..]  start CMD met die omgeving, en NEEM HET SCHERM: het statusbord gaat weg en blijft weg
+#   tools/dev/rg-tv-env.sh                 de export-regels (voor: eval "$(tools/dev/rg-tv-env.sh)")
+#   tools/dev/rg-tv-env.sh --check         hetzelfde, en controleer dat het scherm echt bereikbaar is (xrandr)
+#   tools/dev/rg-tv-env.sh -- CMD [ARG..]  start CMD met die omgeving, en NEEM HET SCHERM: het statusbord gaat weg en blijft weg
 #                                        zolang CMD loopt (zie hieronder)
-#   scripts/rg-tv-env.sh --no-hold -- CMD  hetzelfde zonder het scherm te nemen (een schermafbeelding van het bord zelf)
+#   tools/dev/rg-tv-env.sh --no-hold -- CMD  hetzelfde zonder het scherm te nemen (een schermafbeelding van het bord zelf)
 #
 # HET SCHERM NEMEN. Het statusbord (scripts/oled-saver.sh) is het rustscherm van de tv. Een run die hierlangs start heeft
 # beeld, dus het bord moet wijken -- anders ligt het bord over het spel en meet je het bord (gebeurd op 2026-10-13: acht
@@ -108,7 +108,7 @@ case "$MODE" in
         echo "rg-tv-env: LET OP: $HD is niet te maken; het statusbord kan over het spel heen liggen" >&2
       fi
       # Het bord meteen weg, niet pas bij zijn volgende ronde (om de 3 s): anders liggen de eerste seconden van de run eronder.
-      SAVER="$(cd "$(dirname "$0")" && pwd)/oled-saver.sh"
+      SAVER="$(cd "$(dirname "$0")/../../scripts" && pwd)/oled-saver.sh"
       if [[ -x "$SAVER" && -z "${RG_TV_ENV_FROM_PID:-}" ]]; then env XDG_RUNTIME_DIR="${E[XDG_RUNTIME_DIR]}" "$SAVER" --stop-view >/dev/null 2>&1 || true; fi
     fi
     exec env "${ENVV[@]}" "${CMD[@]}"

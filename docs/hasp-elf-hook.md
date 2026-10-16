@@ -154,7 +154,7 @@ tools/rt-hasphook/
   hasp_zelftest.c      de zelftest: een 32-bits ELF die zijn eigen hasp-functies statisch in het
                        beeld heeft en ze via een zelf uitgerekend adres aanroept (net als de game)
   dynsym.py            leest de dynsym van een gepakte game (geen sectiekoppen) via PT_DYNAMIC
-scripts/build-hasphook.sh   bouwt beide breedtes en legt ze in patches/<Game>/dropin/
+tools/dev/build-hasphook.sh   bouwt beide breedtes en legt ze in patches/<Game>/dropin/
 patches/<Game>/dropin/libravengun-hasphook{,-x64}.so
 ```
 
@@ -223,11 +223,11 @@ niet: er is geen cliënt om aan te haken (§5).
 ### 3.3 Bouwen
 
 ```bash
-scripts/build-hasphook.sh                  # bouwen en naar alle games in GAMES leggen
-scripts/build-hasphook.sh --game <Naam>    # alleen die game
-scripts/build-hasphook.sh --no-place       # alleen bouwen
-scripts/build-hasphook.sh --check          # zijn de geplaatste kopieën actueel?
-scripts/build-hasphook.sh --selftest       # ook de zelftest draaien
+tools/dev/build-hasphook.sh                  # bouwen en naar alle games in GAMES leggen
+tools/dev/build-hasphook.sh --game <Naam>    # alleen die game
+tools/dev/build-hasphook.sh --no-place       # alleen bouwen
+tools/dev/build-hasphook.sh --check          # zijn de geplaatste kopieën actueel?
+tools/dev/build-hasphook.sh --selftest       # ook de zelftest draaien
 ```
 
 ---
@@ -286,7 +286,7 @@ dongle-image**, en de cliënt van de fabrikant wordt nul keer aangeroepen. De gr
 grootte 112 en de eerste bytes `2c 03 ab 63` zijn de waarden uit `patches/Halo/dongle.json` en
 `patches/Halo/dongle/memory/00000000000000001111111111110100`.
 
-`scripts/build-hasphook.sh --selftest` draait dit als onderdeel van de bouw.
+`tools/dev/build-hasphook.sh --selftest` draait dit als onderdeel van de bouw.
 
 ### 4.2 Het kanaal naar het spelproces (gemeten)
 
@@ -414,10 +414,10 @@ aparte bevinding, geen fout van de koppeling.
 cd ~/projects/ravengun
 
 # 1. bouwen (en de zelftest)
-scripts/build-hasphook.sh --no-place --selftest
+tools/dev/build-hasphook.sh --no-place --selftest
 
 # 2. de drop-in plaatsen
-scripts/build-hasphook.sh --game JurassicPark
+tools/dev/build-hasphook.sh --game JurassicPark
 
 # 3. de zelftest met de echte dongle van Halo Fireteam
 cd ~/.local/share/ravengun/runtime/hf-proef

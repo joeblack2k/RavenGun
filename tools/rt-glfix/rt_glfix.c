@@ -38,7 +38,7 @@
  *   RAVENGUN_GLFIX_MS        poll-interval in milliseconden (standaard 1)
  *   RAVENGUN_GLFIX_SECS      hoe lang blijven kijken (standaard 45)
  *
- * Bouwen: scripts/rt-glfix.sh (gcc -m32 -shared -fPIC).
+ * Bouwen: tools/dev/rt-glfix.sh (gcc -m32 -shared -fPIC).
  */
 #define _GNU_SOURCE
 #include <fcntl.h>

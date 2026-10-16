@@ -1,7 +1,7 @@
 # Inventaris: dongle en patches per game
 
 Automatisch gemaakt uit `patches/<Game>/game.ini` en het `dongle.json` in de drop-in van elke game door
-`scripts/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.
+`tools/dev/gen-dongle-inventaris.py`. Niet met de hand bijwerken: pas de map van de game aan en draai het script opnieuw.
 
 De kolom **Dongle** komt uit `patches/<Game>/dropin/ravengun-hasp/<Game>/dongle.json` (veld `kind`); het bestaan van
 dat bestand betekent "deze game vraagt een dongle" (`docs/dropins.md`). Ontbreekt het, dan is de dongle `-`. De kolom

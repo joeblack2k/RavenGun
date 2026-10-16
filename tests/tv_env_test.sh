@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# scripts/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv. Hermetisch: de "sessie" is een eigen
+# tools/dev/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv. Hermetisch: de "sessie" is een eigen
 # slaapproces met een bekende omgeving (RG_TV_ENV_FROM_PID) en xrandr is een nepje op het PATH. Er wordt geen scherm
 # aangeraakt en niets gestart.
 # Wat hier wordt afgedwongen: de variabelen komen heel door (ook met een spatie in een pad), een commando krijgt ze
 # mee, en ZONDER sessie of met een onbereikbaar scherm stopt het script luid in plaats van het commando toch te starten.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-S="$ROOT/scripts/rg-tv-env.sh"
+S="$ROOT/tools/dev/rg-tv-env.sh"
 T=$(mktemp -d) || exit 1
 FAILS=0
 fail() { echo "FAIL: $*"; FAILS=$((FAILS + 1)); }

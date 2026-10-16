@@ -2,7 +2,7 @@
 """Zet een Unity-game (Tomb Raider Arcade, Rabbids Hollywood Arcade) klaar om zonder TeknoParrot en zonder
 DemulShooter.exe te draaien: lokale game-view + eigen Wine-prefix. Zie docs/decisions.md (route 1 en route 2).
 
-Gebruik: python3 -I scripts/aagames-setup.py GAME [--plugin ravengun|demulshooter] [--version V] [--no-prefix]
+Gebruik: python3 -I tools/dev/aagames-setup.py GAME [--plugin ravengun|demulshooter] [--version V] [--no-prefix]
                                               [--print-view] [--reset-config] [--no-build]
   GAME     sleutel uit packaging/aagames-games.json (TombRaider, RabbidsHollywood)
   --plugin  welke BepInEx-plugin in de game komt: "ravengun" (route 2, onze eigen plugin uit plugins/unity/, standaard)
@@ -55,7 +55,7 @@ drop-in-materialisatie) worden vervangen.
 import glob, json, os, re, shutil, subprocess, sys
 
 HOME = os.path.expanduser('~')
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CFG = os.path.join(ROOT, 'packaging', 'aagames-games.json')
 DS = os.path.join(HOME, '.local/share/ravengun/demulshooter')
 BEPINEX = os.path.join(HOME, '.local/share/ravengun/bepinex')

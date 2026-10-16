@@ -3,7 +3,7 @@
 # langzaam bewegend statusbord (zwarte pixels staan op een OLED uit). Zodra er een game MET BEELD start, verdwijnt het
 # binnen enkele seconden. De tv kan niet uit vanwege de HDMI-handshake; daarom geen DPMS/blanking.
 # Het zwarte scherm is `ravengun --saver` (eigen Qt-venster); wat erop staat komt uit saver-status.txt
-# (scripts/rg-saver-status.sh) en uit saver-game.txt, dat dit script elke paar seconden schrijft.
+# (tools/dev/rg-saver-status.sh) en uit saver-game.txt, dat dit script elke paar seconden schrijft.
 #
 # Draait er nu een spel? Drie antwoorden (`--game-state`):
 #   zichtbaar    er draait een spel met beeld op de tv: het bord gaat weg, je ziet het spel zelf.
@@ -31,7 +31,7 @@ heeft_scherm() {
   [[ -r "$PROC/$1/environ" ]] || return 1
   tr '\0' '\n' < "$PROC/$1/environ" 2>/dev/null | grep -Eq '^(DISPLAY|WAYLAND_DISPLAY)=.' 
 }
-# Heeft een run het scherm genomen? scripts/rg-tv-env.sh schrijft voor een start met beeld een houder met het pid van die run
+# Heeft een run het scherm genomen? tools/dev/rg-tv-env.sh schrijft voor een start met beeld een houder met het pid van die run
 # (en de starttijd van het proces, zodat een later proces met hetzelfde pid niet telt). Leeft dat proces, dan staat er een spel
 # op de tv, welk programma het ook is; een houder van een proces dat weg is wordt opgeruimd.
 HOLD_DIR="${RG_SAVER_HOLD_DIR:-$XDG_RUNTIME_DIR/ravengun/tv-hold}"

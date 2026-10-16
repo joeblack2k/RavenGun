@@ -38,7 +38,7 @@ van 42 bytes (Tomb Raider) of 38 bytes (Rabbids), zonder kop. Uitvoer van de plu
 ## Instellingen
 
 BepInEx maakt bij de eerste start `BepInEx/config/nl.studiodamon.ravengun.<game>.cfg` aan (met uitleg bij elke instelling).
-`scripts/aagames-setup.py` schrijft dat bestand alleen als het ontbreekt (poort, resolutie, beeldvullend uit
+`tools/dev/aagames-setup.py` schrijft dat bestand alleen als het ontbreekt (poort, resolutie, beeldvullend uit
 `packaging/aagames-games.json`); daarna beheert de eigenaar het zelf. Met `--reset-config` wordt het opnieuw gemaakt.
 
 Voornaamste instellingen: `Kanaal/Poort` (standaard 33610), `Scherm/Breedte`, `Hoogte`, `Beeldvullend`, `ResolutieAfdwingen`,

@@ -1,6 +1,6 @@
 # rt-glfix — de cdecl-brug voor de 32-bits Raw Thrills-ELF's
 
-*RavenGun, 2026-10-11. Bron: `tools/rt-glfix/`. Bouwen: `scripts/rt-glfix.sh`. Levering: een drop-in
+*RavenGun, 2026-10-11. Bron: `tools/rt-glfix/`. Bouwen: `tools/dev/rt-glfix.sh`. Levering: een drop-in
 per game (`patches/<Game>/dropin/`), zie [dropins.md](dropins.md) voor de indeling en het contract —
 dat contract staat hier niet herhaald.*
 
@@ -162,7 +162,7 @@ Die zelftest heeft drie echte fouten in de brug gevangen, alle drie voordat de g
 Draaien zonder game:
 
 ```sh
-scripts/rt-glfix.sh --selftest
+tools/dev/rt-glfix.sh --selftest
 #   [rt-glfix zelftest] zelftest brug: goed
 ```
 
@@ -416,8 +416,8 @@ teller zelf is wel gebouwd en de zelftest van de brug blijft `goed`.
 
    Een verse kloon heeft dus een `dropin.ini` die naar een bestand wijst dat er niet is. Drie
    mogelijkheden: een uitzondering toevoegen (`!patches/*/dropin/*.so`), of het bestand bij het
-   installeren laten bouwen met `scripts/rt-glfix.sh`, of de drop-in-motor een ontbrekend bestand
-   laten melden en bouwen. Dat is een keuze voor de eigenaar; `scripts/rt-glfix.sh --check` meldt nu
+   installeren laten bouwen met `tools/dev/rt-glfix.sh`, of de drop-in-motor een ontbrekend bestand
+   laten melden en bouwen. Dat is een keuze voor de eigenaar; `tools/dev/rt-glfix.sh --check` meldt nu
    al of de geplaatste kopie actueel is.
 
 2. **`RG_DROPIN_PRELOAD` moet in `LD_AUDIT` terechtkomen** (zie §4). Zonder die ene regel in de

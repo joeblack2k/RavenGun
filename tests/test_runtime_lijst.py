@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(os.path.dirname(HERE), "scripts")
 sys.dont_write_bytecode = True
 sys.path.insert(0, SCRIPTS)
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tools", "dev"))   # patchfile
 
 import gamesettings as gs  # noqa: E402
 import patchfile as pf     # noqa: E402

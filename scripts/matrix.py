@@ -214,7 +214,7 @@ def _maak_map_lokaal(pad):
     """Vervangt een symbolische koppeling naar een map door een echte map met koppelingen naar dezelfde
     inhoud. Zo kan één bestand in de view een eigen bestand worden zonder dat de NAS wordt beschreven.
     Dat is dezelfde gedachte als scripts/launch-direct.py bij teknoparrot.ini en als link_game() in
-    scripts/aagames-setup.py."""
+    tools/dev/aagames-setup.py."""
     doel = os.path.realpath(pad)
     tijdelijk = pad + ".ravengun-lokaal"
     if os.path.exists(tijdelijk):

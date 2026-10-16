@@ -1,7 +1,7 @@
 #pragma once
 // De Unity-route zonder shellscripts (Tomb Raider Arcade, Rabbids Hollywood Arcade): de game draait direct onder GE-Proton met
 // onze BepInEx-plugin, en de daemon is de TCP-klant van die plugin (route unity-tcp, AagamesService). Dit verving
-// scripts/play-unity.sh (weg sinds 2026-10-16); scripts/aagames-setup.py blijft als benchgereedschap.
+// scripts/play-unity.sh (weg sinds 2026-10-16); tools/dev/aagames-setup.py blijft als benchgereedschap.
 //
 // Gelijk aan aagames-setup.py: de lokale view (~/.local/share/ravengun/runtime/views-aagames/<Game>) met symlinks naar de
 // game op de NAS, behalve BepInEx/, winhttp.dll en doorstop_config.ini (ons artefact, lokaal), Game_Data/ als echte map met

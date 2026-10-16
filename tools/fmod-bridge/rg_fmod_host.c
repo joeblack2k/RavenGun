@@ -8,7 +8,7 @@
  *
  *   rg-fmod-host.exe <DLL-map> [5.1|5.1-zonder-upmix|7.1|stereo|game] [log|stil]   (5.1 = met upmix van stereo)
  *
- * BOUWEN: scripts/build-fmod-bridge.sh (mingw-w64, x86_64).
+ * BOUWEN: tools/dev/build-fmod-bridge.sh (mingw-w64, x86_64).
  */
 #include <math.h>
 #include <stdarg.h>

@@ -1,6 +1,6 @@
 # Webinterface
 
-De daemon `ravengund` start zelf een kleine webserver in een eigen thread. Er is geen aparte applicatie, geen Electron en geen CDN. De pagina's staan in de binary. De pagina is een app met acht tabbladen (zie "De app" hieronder); `scripts/ravengun-app.sh` opent hem in een eigen venster, zoals de bureaubladsnelkoppeling doet. De web-API gebruikt dezelfde opdrachtafhandeling als de IPC-socket (`src/ravengund/commands.cpp`), dus filter, aim en recenter werken overal gelijk.
+De daemon `ravengund` start zelf een kleine webserver in een eigen thread. Er is geen aparte applicatie, geen Electron en geen CDN. De pagina's staan in de binary. De pagina is een app met acht tabbladen (zie "De app" hieronder); `tools/dev/ravengun-app.sh` opent hem in een eigen venster, zoals de bureaubladsnelkoppeling doet. De web-API gebruikt dezelfde opdrachtafhandeling als de IPC-socket (`src/ravengund/commands.cpp`), dus filter, aim en recenter werken overal gelijk.
 
 ## Opstarten en opties
 
@@ -144,7 +144,7 @@ De Navigation Controller wordt niet via PSMoveAPI gelezen. De batterij komt uit 
 
 ## Launcher
 
-`scripts/ravengun-app.sh` start de daemon als dat nodig is en opent de pagina met `flatpak run com.brave.Browser --app=...` in een eigen profiel (`~/.local/state/ravengun/app-browser`), venster 1280x860 op een vaste plek (onder Wayland beslist de vensterbeheerder). Vooraf worden in dat profiel de Brave-statistiekmeldingen (P3A, "privacy-preserving product analytics") uitgezet en als gelezen gemarkeerd (alleen als de browser dat profiel niet al gebruikt), en extra vlaggen zetten eerste-start-schermen, herstelbalken, vertalen, Rewards, VPN, Wallet en achtergrondverkeer uit. Of de balk daarmee echt weg is, is niet op de tv geprobeerd. De snelkoppeling is `packaging/desktop/ravengun.desktop`.
+`tools/dev/ravengun-app.sh` start de daemon als dat nodig is en opent de pagina met `flatpak run com.brave.Browser --app=...` in een eigen profiel (`~/.local/state/ravengun/app-browser`), venster 1280x860 op een vaste plek (onder Wayland beslist de vensterbeheerder). Vooraf worden in dat profiel de Brave-statistiekmeldingen (P3A, "privacy-preserving product analytics") uitgezet en als gelezen gemarkeerd (alleen als de browser dat profiel niet al gebruikt), en extra vlaggen zetten eerste-start-schermen, herstelbalken, vertalen, Rewards, VPN, Wallet en achtergrondverkeer uit. Of de balk daarmee echt weg is, is niet op de tv geprobeerd. De snelkoppeling is `packaging/desktop/ravengun.desktop`.
 
 ## Bouwen en testen
 

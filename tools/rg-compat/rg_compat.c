@@ -28,7 +28,7 @@
  *    weer WM_PAINT zodat de teken-stap nooit aan de beurt komt. De fix: UpdateWindow stuurt WM_PAINT een keer en maakt het venster
  *    dan geldig; na elk verdeeld WM_PAINT wordt het venster geldig gemaakt.
  *
- * BOUWEN: scripts/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
+ * BOUWEN: tools/dev/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
 #include <tlhelp32.h>

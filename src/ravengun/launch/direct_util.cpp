@@ -426,7 +426,7 @@ DirectPaths default_direct_paths(const EnvMap& env) {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-// hid-board: joystick-id 0 (scripts/wine-joyid.sh)
+// hid-board: joystick-id 0 (tools/dev/wine-joyid.sh)
 
 std::vector<JoyId> parse_joy_ids(const std::string& output) {
     std::vector<JoyId> out;
