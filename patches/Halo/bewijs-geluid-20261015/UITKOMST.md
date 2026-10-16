@@ -29,6 +29,20 @@ app-keuze-stereo-lpcm51.jpg). Gemeten via de app zelf: STEREO kiezen + Apply sch
 apply the next time the game starts.", app-opgeslagen.jpg). De daemon zet die waarde bij de start om in `RG_FMOD_SPEAKERS`
 (gemeten in het startcommando: `stereo` en `5.1`).
 
+## 2026-10-16: native FMOD als drop-in (zonder Wine)
+
+FMOD Studio 1.10.14 voor Linux uit Celeste (Steam, `lib64/libfmod.so.10`, `libfmodstudio.so.10`) in
+`~/.local/share/ravengun/patches/Halo/dropin/fmod/`. Logboek: "geluid via de native FMOD uit /rg/fmod-dropin-gebruiker (drop-in),
+uitvoer LPCM 5.1", "FMOD 1.10.14", "menging 6 (5.1)", "5.1-upmix ... aan". Geen Wine-proces. De stroom heet "PipeWire ALSA [game]",
+s16 6 kanalen, kaart FL FR RL RR FC LFE. Gemeten tijdens het spel (20 s, RMS dBFS, volledig / na laagdoorlaat 200 Hz):
+
+| FL | FR | RL | RR | FC | LFE |
+|---|---|---|---|---|---|
+| -18.9 / -21.2 | -25.1 / -28.6 | -29.2 / -31.1 | -29.2 / -31.1 | -25.8 / -28.3 | -25.8 / -26.1 |
+
+De LFE zit vrijwel geheel onder 200 Hz en op het lfe-kanaal: de volgorde van FMOD naar ALSA klopt. 5 minuten gespeeld
+(contact-lpcm51-native-fmod.jpg).
+
 ## Open
 
 - De muziek en wapens van het spel zelf pieken af en toe boven 0 dBFS op FL (enkele samples per 20-30 s; in de attract-muziek meer).
