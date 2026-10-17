@@ -38,6 +38,7 @@ public:
     void Play();
     void Stop();
     void ShowSetupWizard();
+    void ShowComponents();
     void ShowBigPicture();
 
 private:

@@ -31,6 +31,7 @@
 #include "widgets/ControllersWindow.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SaverWindow.h"
+#include "widgets/ComponentsPage.h"
 #include "widgets/SetupWizard.h"
 #include "widgets/SteamIntegration.h"
 
@@ -76,6 +77,7 @@ private Q_SLOTS:
     void bigPictureKeys();
     void aimStreamFallback();
     void wizardWithFakePkexec();
+    void componentsPage();
     void artwork();
     void addToSteamOnCopy();
     void saverWindow();
@@ -600,13 +602,13 @@ void AppWidgetTest::wizardWithFakePkexec() {
     ui::SetupWizard wiz(&core);
     wiz.show();
     QVERIFY(QTest::qWaitForWindowExposed(&wiz));
-    // Alle acht stappen doorlopen zonder iets aan te klikken.
+    // Alle negen stappen (met Components) doorlopen zonder iets aan te klikken.
     QList<int> seen{wiz.currentId()};
     for (int i = 1; i < ui::SetupWizard::Count; ++i) {
         wiz.next();
         seen << wiz.currentId();
     }
-    QCOMPARE(seen, (QList<int>{0, 1, 2, 3, 4, 5, 6, 7}));
+    QCOMPARE(seen, (QList<int>{0, 1, 2, 3, 4, 5, 6, 7, 8}));
     // Stap 2: Install start pkexec met precies het script en --apply.
     wiz.restart();
     wiz.next();
@@ -624,6 +626,29 @@ void AppWidgetTest::wizardWithFakePkexec() {
     ui::SetupWizard::MarkDone(false);
     wiz.done(QDialog::Accepted);
     QVERIFY(!ui::SetupWizard::ShouldShowAtStart());
+}
+
+void AppWidgetTest::componentsPage() {
+    // Lege datamap: alles wat niet bij Steam of de gebruiker hoort staat op "Missing"; Install All is aan; niets wordt geschreven.
+    const QString data = tmp_.filePath(QStringLiteral("components-data"));
+    QDir().mkpath(data);
+    qputenv("XDG_DATA_HOME", data.toUtf8());
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    ui::ComponentsPage page(&core);
+    page.initializePage();
+    auto* tree = page.findChild<QTreeWidget*>();
+    QVERIFY(tree);
+    QVERIFY(tree->topLevelItemCount() >= 4);
+    QList<QTreeWidgetItem*> wine = tree->findItems(QStringLiteral("Wine (Kron4ek proton-11.0-2)"), Qt::MatchRecursive | Qt::MatchExactly, 0);
+    QCOMPARE(wine.size(), 1);
+    QCOMPARE(wine.first()->text(3), QStringLiteral("Missing"));
+    QCOMPARE(wine.first()->text(2), QStringLiteral("79.0 MB"));
+    QPushButton* all = nullptr;
+    for (QPushButton* b : page.findChildren<QPushButton*>())
+        if (b->text() == QStringLiteral("Install All")) all = b;
+    QVERIFY(all && all->isEnabled());
+    QVERIFY(QDir(data).entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty());
+    qunsetenv("XDG_DATA_HOME");
 }
 
 void AppWidgetTest::artwork() {

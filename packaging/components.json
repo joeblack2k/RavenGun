@@ -1,0 +1,441 @@
+{
+ "schema": 1,
+ "components": [
+  {
+   "id": "wine",
+   "name": "Wine (Kron4ek proton-11.0-2)",
+   "group": "Runtime",
+   "version": "proton-11.0-2",
+   "kind": "download",
+   "description": "Wine build that starts the Windows games (plain Wine layout, no Proton script).",
+   "downloads": [
+    {
+     "name": "wine-proton-11.0-2-amd64.tar.xz",
+     "url": "https://github.com/Kron4ek/Wine-Builds/releases/download/proton-11.0-2/wine-proton-11.0-2-amd64.tar.xz",
+     "sha256": "51e1b54068c242c0a59c329674afe4b0ae03d313516a535be4acd1c5f3277e9b",
+     "size": 82800480,
+     "archive": "tar.xz"
+    }
+   ],
+   "strip": 1,
+   "dest": "wine/proton-11.0-2",
+   "detect": [
+    "wine/proton-11.0-2/bin/wine",
+    "wine/proton-11.0-2/bin/wineserver"
+   ]
+  },
+  {
+   "id": "dxvk",
+   "name": "DXVK 2.7.1",
+   "group": "Runtime",
+   "version": "2.7.1",
+   "kind": "download",
+   "description": "Direct3D 8/9/10/11 on Vulkan, used by games with Dxvk = true.",
+   "downloads": [
+    {
+     "name": "dxvk-2.7.1.tar.gz",
+     "url": "https://github.com/doitsujin/dxvk/releases/download/v2.7.1/dxvk-2.7.1.tar.gz",
+     "sha256": "d85ce7c79f57ecd765aaa1b9e7007cb875e6fde9f6d331df799bce73d513ce87",
+     "size": 10310666,
+     "archive": "tar.gz"
+    }
+   ],
+   "strip": 1,
+   "dest": "dxvk/dxvk-2.7.1",
+   "detect": [
+    "dxvk/current",
+    "dxvk/dxvk-2.7.1/x32/d3d9.dll",
+    "dxvk/dxvk-2.7.1/x64/d3d11.dll"
+   ],
+   "links": [
+    {
+     "path": "dxvk/current",
+     "target": "dxvk-2.7.1"
+    }
+   ],
+   "writeFiles": [
+    {
+     "path": "dxvk/dxvk-2.7.1/version",
+     "text": "dxvk 2.7.1 (release, sha256 d85ce7c79f57ecd765aaa1b9e7007cb875e6fde9f6d331df799bce73d513ce87)\n"
+    }
+   ]
+  },
+  {
+   "id": "bepinex-x64",
+   "name": "BepInEx 5.4.21.0 (x64)",
+   "group": "Runtime",
+   "version": "5.4.21.0",
+   "kind": "download",
+   "description": "Mod loader for Unity games with BepInEx = 5.4.21.0 (64-bit games).",
+   "downloads": [
+    {
+     "name": "BepInEx_x64_5.4.21.0.zip",
+     "url": "https://github.com/BepInEx/BepInEx/releases/download/v5.4.21/BepInEx_x64_5.4.21.0.zip",
+     "sha256": "2af69fe0aaf821e95c4cd3e4d53860e667c54648f97dca6f971a5bcd3c22aa34",
+     "size": 635038,
+     "archive": "zip"
+    }
+   ],
+   "dest": "bepinex/5.4.21.0/x64",
+   "detect": [
+    "bepinex/5.4.21.0/x64/BepInEx/core/BepInEx.Preloader.dll",
+    "bepinex/5.4.21.0/x64/winhttp.dll"
+   ]
+  },
+  {
+   "id": "bepinex-x86",
+   "name": "BepInEx 5.4.21.0 (x86)",
+   "group": "Runtime",
+   "version": "5.4.21.0",
+   "kind": "download",
+   "description": "Mod loader for Unity games with BepInEx = 5.4.21.0 (32-bit games).",
+   "downloads": [
+    {
+     "name": "BepInEx_x86_5.4.21.0.zip",
+     "url": "https://github.com/BepInEx/BepInEx/releases/download/v5.4.21/BepInEx_x86_5.4.21.0.zip",
+     "sha256": "f89f3f6b97e8f486ec8eeea489415d058233240fd6de79b3cbdd90e601fa6bbf",
+     "size": 634359,
+     "archive": "zip"
+    }
+   ],
+   "dest": "bepinex/5.4.21.0/x86",
+   "detect": [
+    "bepinex/5.4.21.0/x86/BepInEx/core/BepInEx.Preloader.dll",
+    "bepinex/5.4.21.0/x86/winhttp.dll"
+   ]
+  },
+  {
+   "id": "wine-prefix",
+   "name": "Shared Wine prefix",
+   "group": "Runtime",
+   "version": "1",
+   "kind": "wine",
+   "recipe": "wine-prefix",
+   "description": "Creates the shared Wine prefix with RavenGun's Wine (wineboot).",
+   "dependsOn": [
+    "wine"
+   ],
+   "dest": "prefixes/shared/wine",
+   "detect": [
+    "prefixes/shared/wine/system.reg"
+   ]
+  },
+  {
+   "id": "physx",
+   "name": "NVIDIA PhysX 9.12.0613",
+   "group": "Runtime",
+   "version": "9.12.0613",
+   "kind": "wine",
+   "recipe": "wine-physx",
+   "description": "PhysX system software in the shared prefix, for games with PhysX = true.",
+   "dependsOn": [
+    "wine",
+    "wine-prefix"
+   ],
+   "downloads": [
+    {
+     "name": "PhysX-9.12.0613-SystemSoftware.msi",
+     "url": "https://us.download.nvidia.com/Windows/9.12.0613/PhysX-9.12.0613-SystemSoftware.msi",
+     "sha256": "d363cb55d46d2534ba2ff39fec97cc4e1cd12ad769d96d60c3ee98187c4a77eb",
+     "size": 35648512,
+     "archive": "file"
+    }
+   ],
+   "dest": "prefixes/shared/wine",
+   "detect": [
+    "prefixes/shared/wine/drive_c/Program Files (x86)/NVIDIA Corporation/PhysX/Engine/v2.8.1/PhysXCore.dll"
+   ]
+  },
+  {
+   "id": "redist-directx",
+   "name": "DirectX redistributable DLLs",
+   "group": "From your Steam",
+   "version": "Jun2010",
+   "kind": "steam",
+   "recipe": "redist-directx",
+   "description": "XACT, XAudio2, D3DX9/10/11, d3dcompiler and XInput DLLs from Steam's own copy (Steamworks Shared).",
+   "dest": "redist",
+   "merge": true,
+   "detect": [
+    "redist/x86/d3dx9_43.dll",
+    "redist/x64/d3dx9_43.dll",
+    "redist/x86/xactengine3_7.dll"
+   ]
+  },
+  {
+   "id": "redist-vc2010",
+   "name": "Visual C++ 2010 DLLs",
+   "group": "From your Steam",
+   "version": "2010",
+   "kind": "steam",
+   "recipe": "redist-vc2010",
+   "description": "MFC and CRT 10.0 DLLs (mfc100u, msvcr100, ...) from Steam's own redistributable.",
+   "dest": "redist",
+   "merge": true,
+   "detect": [
+    "redist/x64/mfc100u.dll",
+    "redist/x86/mfc100u.dll"
+   ]
+  },
+  {
+   "id": "lib32-sniper",
+   "name": "32-bit libraries (Steam runtime)",
+   "group": "From your Steam",
+   "version": "1",
+   "kind": "steam",
+   "recipe": "lib32-sniper",
+   "description": "i386 libglut, SDL2, GLU and friends from the Steam Linux Runtime (sniper), for the native games.",
+   "dest": "runtime/lib32",
+   "merge": true,
+   "detect": [
+    "runtime/lib32/libglut.so.3",
+    "runtime/lib32/libSDL2-2.0.so.0"
+   ]
+  },
+  {
+   "id": "sdl12-compat",
+   "name": "32-bit SDL 1.2 (sdl12-compat)",
+   "group": "Downloads",
+   "version": "1.2.68-2",
+   "kind": "download",
+   "description": "lib32-sdl12-compat 1.2.68-2 from the SteamOS package repository, for Jurassic Park.",
+   "downloads": [
+    {
+     "name": "lib32-sdl12-compat-1.2.68-2-x86_64.pkg.tar.zst",
+     "url": "https://steamdeck-packages.steamos.cloud/archlinux-mirror/multilib-3.9/os/x86_64/lib32-sdl12-compat-1.2.68-2-x86_64.pkg.tar.zst",
+     "sha256": "1a616b8b473d10d61cc966712f5873006f69846c9d6449f5f2a0bc5d6b2b8750",
+     "size": 75510,
+     "archive": "pkg.tar.zst"
+    }
+   ],
+   "dest": "",
+   "merge": true,
+   "map": [
+    {
+     "from": "usr/lib32/libSDL-1.2.so.1.2.68",
+     "to": "runtime/lib32/libSDL-1.2.so.0"
+    }
+   ],
+   "detect": [
+    "runtime/lib32/libSDL-1.2.so.0"
+   ]
+  },
+  {
+   "id": "gst32",
+   "name": "32-bit GStreamer (from Proton)",
+   "group": "From your Steam",
+   "version": "1",
+   "kind": "steam",
+   "recipe": "gst32",
+   "description": "Links to the 32-bit GStreamer plug-ins of a Proton in Steam, for games that play movies (Gst32 = true).",
+   "dest": "gst32",
+   "detect": [
+    "gst32/plugins",
+    "gst32/proton"
+   ]
+  },
+  {
+   "id": "gst-wmv",
+   "name": "GStreamer WMV plug-ins (asf, libav)",
+   "group": "Downloads",
+   "version": "1.28.5-2",
+   "kind": "download",
+   "description": "gst-libav and gst-plugins-ugly 1.28.5-2 from the SteamOS package repository, for .wmv movies. Must match the system GStreamer.",
+   "downloads": [
+    {
+     "name": "gst-libav-1.28.5-2-x86_64.pkg.tar.zst",
+     "url": "https://steamdeck-packages.steamos.cloud/archlinux-mirror/extra-3.9/os/x86_64/gst-libav-1.28.5-2-x86_64.pkg.tar.zst",
+     "sha256": "bb9e53fbfdf55cafc483906b430d8232c744c74c42e5a7087cfb82ddacab59b4",
+     "size": 104610,
+     "archive": "pkg.tar.zst"
+    },
+    {
+     "name": "gst-plugins-ugly-1.28.5-2-x86_64.pkg.tar.zst",
+     "url": "https://steamdeck-packages.steamos.cloud/archlinux-mirror/extra-3.9/os/x86_64/gst-plugins-ugly-1.28.5-2-x86_64.pkg.tar.zst",
+     "sha256": "239820843d45e4a7bbd070a6922645086f161e85899c36bdb16bfb0dbb97fb4c",
+     "size": 188360,
+     "archive": "pkg.tar.zst"
+    }
+   ],
+   "dest": "",
+   "merge": true,
+   "map": [
+    {
+     "from": "usr/lib/gstreamer-1.0/libgstlibav.so",
+     "to": "tools/gst-extra/plugins/libgstlibav.so"
+    },
+    {
+     "from": "usr/lib/gstreamer-1.0/libgstasf.so",
+     "to": "tools/gst-extra/plugins/libgstasf.so"
+    }
+   ],
+   "detect": [
+    "tools/gst-extra/plugins/libgstlibav.so",
+    "tools/gst-extra/plugins/libgstasf.so"
+   ]
+  },
+  {
+   "id": "teknoparrot-runtime",
+   "name": "TeknoParrot runtime (your copy)",
+   "group": "TeknoParrot",
+   "version": "2.0.0.130",
+   "kind": "userfolder",
+   "description": "The TeknoParrotUi folder from your own games folder (profiles and the core DLLs the direct route uses). Copied, never changed at its source.",
+   "sourceNames": [
+    "TeknoParrotUi-*"
+   ],
+   "sourceRequire": [
+    "GameProfiles",
+    "TeknoParrot/TeknoParrot64.dll"
+   ],
+   "exclude": [
+    "*.log"
+   ],
+   "note": "Not found in your game folders. Add the folder that contains TeknoParrotUi-* (with its TeknoParrot core DLLs) in the Games step. There is no official pinned download: the core DLLs come from TeknoParrot's own updater.",
+   "dest": "runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+   "merge": true,
+   "detect": [
+    "runtime/TeknoParrotUi-2.0.0.130-linux-x64/GameProfiles",
+    "runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll"
+   ]
+  },
+  {
+   "id": "demulshooter",
+   "name": "DemulShooter v17.9 (Unity plug-ins)",
+   "group": "TeknoParrot",
+   "version": "17.9",
+   "kind": "download",
+   "description": "Official release by argonlefou; only the Unity plug-in folders are unpacked. Downloaded from the author, never redistributed by RavenGun.",
+   "downloads": [
+    {
+     "name": "DemulShooter_v17.9.zip",
+     "url": "https://github.com/argonlefou/DemulShooter/releases/download/v17.9/DemulShooter_v17.9.zip",
+     "sha256": "55f135fdd2a326c5dd58522bf51efb30d0347126358d6f9832306461ce7e9560",
+     "size": 48086000,
+     "archive": "zip"
+    }
+   ],
+   "include": [
+    "Unity/",
+    "Readme.txt",
+    "ChangeLog.txt"
+   ],
+   "dest": "demulshooter/v17.9",
+   "detect": [
+    "demulshooter/v17.9/Unity/TombRaider",
+    "demulshooter/v17.9/Unity/RabbidsHollywood"
+   ]
+  },
+  {
+   "id": "openparrot",
+   "name": "OpenParrot loader and cores",
+   "group": "Built by RavenGun",
+   "version": "fc8ba632",
+   "kind": "bundled",
+   "description": "RavenGun's own OpenParrot build (GPL-3.0).",
+   "dest": "openparrot",
+   "merge": true,
+   "detect": [
+    "openparrot/current"
+   ]
+  },
+  {
+   "id": "jvsbridge",
+   "name": "JVS bridge",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "rg-jvsbridge.exe, the JVS pipe bridge for Windows games.",
+   "dest": "jvsbridge",
+   "merge": true,
+   "detect": [
+    "jvsbridge/rg-jvsbridge.exe"
+   ]
+  },
+  {
+   "id": "lindbergh-loader",
+   "name": "Lindbergh loader",
+   "group": "Built by RavenGun",
+   "version": "0af606d8",
+   "kind": "bundled",
+   "description": "Lindbergh loader build for the Linux arcade games.",
+   "dest": "lindbergh-loader",
+   "merge": true,
+   "detect": [
+    "lindbergh-loader/current"
+   ]
+  },
+  {
+   "id": "rio",
+   "name": "RIO libraries",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "Raw Thrills RIO bridge libraries per game.",
+   "dest": "rio",
+   "merge": true,
+   "detect": [
+    "rio/NERF/librio.so"
+   ]
+  },
+  {
+   "id": "rg-pe-hook",
+   "name": "PE hook",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "rg-pe-hook.dll for Windows games.",
+   "dest": "rg-pe-hook",
+   "merge": true,
+   "detect": [
+    "rg-pe-hook/rg-pe-hook.dll"
+   ]
+  },
+  {
+   "id": "loaders",
+   "name": "Patched loaders",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "OpenParrotLoader with the floating-point fix.",
+   "dest": "loaders",
+   "merge": true,
+   "detect": [
+    "loaders/OpenParrotLoader-fpfix-2296185e0afa.exe"
+   ]
+  },
+  {
+   "id": "hasp",
+   "name": "HASP shims",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "Dongle shims (ravengun-hasp*.so). Dongle data is never bundled.",
+   "dest": "hasp",
+   "merge": true,
+   "detect": [
+    "hasp/ravengun-hasp.so",
+    "hasp/ravengun-hasp-x64.so"
+   ],
+   "exclude": [
+    "Halo Fireteam"
+   ]
+  },
+  {
+   "id": "memory",
+   "name": "Memory patch libraries",
+   "group": "Built by RavenGun",
+   "version": "1",
+   "kind": "bundled",
+   "description": "ravengun-patchmem DLLs and shared objects for patches.",
+   "dest": "memory",
+   "merge": true,
+   "detect": [
+    "memory/ravengun-patchmem.dll",
+    "memory/ravengun-patchmem32.dll",
+    "memory/ravengun-patchmem.so",
+    "memory/ravengun-patchmem32.so"
+   ]
+  }
+ ]
+}

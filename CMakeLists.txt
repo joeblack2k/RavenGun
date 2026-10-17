@@ -603,10 +603,11 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/VERSION" DESTINATION ${RAVENGUN_DATAD
 option(RAVENGUN_BUILD_APP "Bouw de Qt-app (ravengun) als Qt 6 beschikbaar is" ON)
 if(RAVENGUN_BUILD_APP)
   find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Widgets Network)
-  if(Qt6_FOUND AND Qt6Widgets_FOUND AND Qt6Network_FOUND)
+  find_package(LibArchive QUIET)   # onderdelen uitpakken zonder tar/unzip (src/app/core/ArchiveExtract); headers zitten in de buildcontainer
+  if(Qt6_FOUND AND Qt6Widgets_FOUND AND Qt6Network_FOUND AND LibArchive_FOUND)
     message(STATUS "Qt ${Qt6_VERSION}: de app (ravengun) wordt gebouwd")
     add_subdirectory(src/app)
   else()
-    message(STATUS "Qt 6 (met headers) niet gevonden: de app (ravengun) wordt niet gebouwd; zie docs/build.md")
+    message(STATUS "Qt 6 of libarchive (met headers) niet gevonden: de app (ravengun) wordt niet gebouwd; zie docs/build.md")
   endif()
 endif()

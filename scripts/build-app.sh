@@ -28,7 +28,7 @@ fi
 mkdir -p "$BUILD"
 
 TARGETS="ravengun_app"
-[[ $TEST -eq 1 ]] && TARGETS="ravengun_app ravengun_app_tests ravengun_app_widget_tests"
+[[ $TEST -eq 1 ]] && TARGETS="ravengun_app ravengun_app_tests ravengun_components_tests ravengun_app_widget_tests"
 # De repo wordt (op hetzelfde pad) gemount, plus de patches-repo als patches/ daarheen wijst (../ravengun-patches/patches; anders
 # is de koppeling in de container leeg en falen de app-tests die de meegeleverde game.ini lezen). Geen netwerk, image ongewijzigd.
 MOUNTS=(-v "$ROOT:$ROOT")
@@ -38,7 +38,7 @@ podman run --rm --network=none --userns=keep-id "${MOUNTS[@]}" -w "$ROOT" -e HOM
   set -e
   cmake -S '$ROOT' -B '$BUILD' -G Ninja -DCMAKE_BUILD_TYPE=Release -DRAVENGUN_BUILD_DAEMON=OFF -DRAVENGUN_BUILD_CAMPROBE=OFF >/dev/null
   cmake --build '$BUILD' --target $TARGETS -- -k 0
-  if [ $TEST -eq 1 ]; then QT_QPA_PLATFORM=offscreen '$BUILD/ravengun_app_tests' && QT_QPA_PLATFORM=offscreen RAVENGUN_NO_GAMEPAD=1 '$BUILD/ravengun_app_widget_tests'; fi
+  if [ $TEST -eq 1 ]; then QT_QPA_PLATFORM=offscreen '$BUILD/ravengun_app_tests' && QT_QPA_PLATFORM=offscreen '$BUILD/ravengun_components_tests' && QT_QPA_PLATFORM=offscreen RAVENGUN_NO_GAMEPAD=1 '$BUILD/ravengun_app_widget_tests'; fi
 "
 echo "Gebouwd: $BUILD/ravengun"
 
@@ -52,5 +52,6 @@ ldd "$BUILD/ravengun" | grep -E 'libQt6(Core|Widgets)' || true
 if [[ $TEST -eq 1 ]]; then
   echo "App-tests op de host (systeem-Qt):"
   QT_QPA_PLATFORM=offscreen "$BUILD/ravengun_app_tests"
+  QT_QPA_PLATFORM=offscreen "$BUILD/ravengun_components_tests"
   QT_QPA_PLATFORM=offscreen RAVENGUN_NO_GAMEPAD=1 "$BUILD/ravengun_app_widget_tests"
 fi

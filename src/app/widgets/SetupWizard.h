@@ -19,7 +19,7 @@ namespace rg::ui {
 class SetupWizard final : public QWizard {
     Q_OBJECT
 public:
-    enum Page { Welcome, Permissions, Service, Controllers, Calibration, Games, Steam, Done, Count };
+    enum Page { Welcome, Permissions, Service, Controllers, Calibration, Games, Components, Steam, Done, Count };
     explicit SetupWizard(rg::AppCore* core, QWidget* parent = nullptr);
 
     // Moet de wizard bij het starten verschijnen? (Desktop Mode en nog niet afgerond of overgeslagen)

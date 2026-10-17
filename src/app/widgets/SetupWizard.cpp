@@ -19,6 +19,7 @@
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
 #include "core/SystemControl.h"
+#include "widgets/ComponentsPage.h"
 #include "widgets/PairWizardDialog.h"
 #include "widgets/QtUtils.h"
 #include "widgets/SteamIntegration.h"
@@ -86,6 +87,7 @@ SetupWizard::SetupWizard(rg::AppCore* core, QWidget* parent) : QWizard(parent), 
     setPage(Controllers, MakeControllers());
     setPage(Calibration, MakeCalibration());
     setPage(Games, MakeGames());
+    setPage(Components, new ComponentsPage(core_));
     setPage(Steam, MakeSteam());
     setPage(Done, MakeDone());
     setStartId(Welcome);
