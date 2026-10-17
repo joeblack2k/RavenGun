@@ -511,6 +511,9 @@ if(RAVENGUN_BUILD_TESTS)
   # De JVS-omleiding van rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): COM3 -> pipe, sense-lijn.
   add_executable(ravengun_jvs_com_tests tests/test_jvs_com.cpp)
   add_test(NAME ravengun_jvs_com_tests COMMAND ravengun_jvs_com_tests)
+  # Het eigen ShareK-object van rg-mfcam.dll (tools/rg-mfcam/sharek_fake.h): CLSID/IID, slottabel van Mario Kart DX.
+  add_executable(ravengun_sharek_fake_tests tests/test_sharek_fake.cpp)
+  add_test(NAME ravengun_sharek_fake_tests COMMAND ravengun_sharek_fake_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
