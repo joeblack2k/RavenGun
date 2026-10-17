@@ -296,6 +296,8 @@ bool tp_free_settings(const gsn::Ini& s) {
     if (!gsn::has_own_profile(s)) return false;
     const std::string build = lower(trim(s.get("Loader", "Build"))), core = lower(trim(s.get("Loader", "Core"))), type = trim(s.get("Game", "Type"));
     if (core == "none") return true;   // Wine start de exe zelf
+    // Een eigen lader als drop-in ([Loader] Exe) bij een lader zonder kern-DLL (TeknoMacaw: Silent Scope: Bone Eater, rg-macaw.exe).
+    if (!trim(s.get("Loader", "Exe")).empty() && type == "TeknoMacaw") return true;
     if (build != "ravengun" || (type != "OpenParrot" && type != "TeknoParrot")) return false;   // de lader van TeknoParrot
     return core == "ravengun" || (core.empty() && type == "OpenParrot");                     // eigen kern (OpenParrot: volgt uit Build)
 }

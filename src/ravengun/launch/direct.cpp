@@ -223,8 +223,13 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     }
     // De lader en de kern die het plan gebruikt moeten er zijn; uit de TeknoParrot-map alleen wat daar echt vandaan komt.
     if (zonder_lader) loader.clear();
-    const bool lader_tp = !tp.empty() && !loader.empty() && binnen(abspath(loader), abspath(tp));
-    if (!loader.empty() && !isfile(loader))
+    // [Loader] Exe (8b hieronder): een eigen lader die als drop-in meekomt vervangt deze; dan hoeft die er niet te zijn en komt er
+    // niets uit de TeknoParrot-map. Alleen voor een lader zonder kern-DLL (TeknoMacaw) en niet samen met Core = none.
+    const std::string eigen_lader = zonder_lader ? std::string() : trim(settings.get("Loader", "Exe"));
+    if (!eigen_lader.empty() && et != "TeknoMacaw")
+        return setting_refused("[Loader] Exe = " + eigen_lader + ": een eigen lader als drop-in kan alleen bij EmulatorType TeknoMacaw (dit profiel: " + et + ")");
+    const bool lader_tp = eigen_lader.empty() && !tp.empty() && !loader.empty() && binnen(abspath(loader), abspath(tp));
+    if (eigen_lader.empty() && !loader.empty() && !isfile(loader))
         return unsupported("lader ontbreekt: " + loader + (lader_tp ? " (uit de TeknoParrot-map)" : ""));
     if (lader_tp) tp_bestand(relpath(abspath(loader), abspath(tp)));
     if (!dll_rel.empty()) {
@@ -827,6 +832,24 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         return Verdict::Refused;
     }
     merge_env(pl, dr.env);
+    // 8b. [Loader] Exe = <naam>: de eigen lader (een drop-in van deze game, To = .) komt in elke argv op de plaats van de lader.
+    if (!eigen_lader.empty()) {
+        const auto it = std::find_if(pl.dropin_files.begin(), pl.dropin_files.end(), [&](const DropinFile& f) { return f.name == eigen_lader; });
+        if (it == pl.dropin_files.end()) {
+            why = "Drop-in geweigerd: [Loader] Exe = " + eigen_lader + ", maar dropin.ini van " + name + " heeft geen sectie [" + eigen_lader + "]";
+            return Verdict::Refused;
+        }
+        const std::string oud = wine_path(loader);
+        auto vervang = [&](std::vector<std::string>& argv) {
+            for (auto& a : argv)
+                if (a == loader) a = it->dest;
+                else if (a == oud) a = wine_path(it->dest);
+        };
+        vervang(pl.argv);
+        for (auto& st : pl.starts) vervang(st.argv);
+        pl.notes.push_back("lader (eigen, [Loader] Exe): " + it->dest);
+        pl.loader = it->dest;
+    }
     // 9. gamescope heeft cap_sys_nice (setcap): de dynamische linker draait hem dan in secure-execution en haalt LD_LIBRARY_PATH,
     // LD_PRELOAD en LD_AUDIT uit zijn omgeving, dus ook uit die van de game. Achter "--" zet env ze terug. Operation G.H.O.S.T.:
     // zonder deze stap vond de 32-bits winegstreamer.so libgstaudio niet (Gst32) en faalde de WM-lezer op de titelfilm (2026-10-15).
