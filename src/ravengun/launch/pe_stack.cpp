@@ -1,6 +1,7 @@
 // De stapel van de hoofdthread in de PE-kop (zie pe_stack.hpp).
 #include "ravengun/launch/pe_stack.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -133,6 +134,44 @@ bool pe_keep_header_crc(std::string& data, uint32_t crc, std::string& err) {
     const uint32_t b = na ^ voor;
     for (int i = 0; i < 4; ++i) data[at + static_cast<size_t>(i)] = static_cast<char>((b >> (8 * i)) & 0xff);
     if (crc32_bytes(data, kHeaderCrcLength) != crc) { err = "CRC32 van de kop niet te herstellen"; return false; }
+    return true;
+}
+
+bool pe_fill_section_pages(std::string& data, std::vector<std::string>& changed, std::string& err) {
+    changed.clear();
+    size_t at = 0, width = 0;
+    if (!locate(data, at, width, err)) return false;
+    const uint32_t pe = rd32(data, 0x3c);
+    const size_t opt = static_cast<size_t>(pe) + 24;
+    const uint16_t nsec = rd16(data, pe + 6), opt_size = rd16(data, pe + 20);
+    const uint32_t sect_align = rd32(data, opt + 32), file_align = rd32(data, opt + 36);
+    const size_t tab = opt + opt_size;
+    if (tab + 40ull * nsec > data.size()) { err = "sectietabel buiten het bestand"; return false; }
+    if (file_align == 0 || sect_align == 0 || (file_align & (file_align - 1)) || (sect_align & (sect_align - 1))) { err = "onzinnige uitlijning"; return false; }
+    auto up = [](uint64_t v, uint64_t a) { return (v + a - 1) & ~(a - 1); };
+    auto wr32 = [&](size_t o, uint32_t v) { for (int i = 0; i < 4; ++i) data[o + static_cast<size_t>(i)] = static_cast<char>((v >> (8 * i)) & 0xff); };
+    for (uint16_t i = 0; i < nsec; ++i) {
+        const size_t s = tab + 40ull * i;
+        const uint32_t vsize = rd32(data, s + 8), raw = rd32(data, s + 16), ptr = rd32(data, s + 20);
+        if (raw == 0 || ptr == 0 || raw % file_align == 0) continue;
+        // De grens: de volgende FileAlignment-grens, maar niet voorbij het bestand of de ruwe data van een andere sectie.
+        uint64_t end = std::min<uint64_t>(up(static_cast<uint64_t>(ptr) + raw, file_align), data.size());
+        for (uint16_t j = 0; j < nsec; ++j) {
+            const uint32_t pj = rd32(data, tab + 40ull * j + 20);
+            if (j != i && pj > ptr && pj < end) end = pj;
+        }
+        uint64_t nraw = end - ptr;
+        const uint64_t vmax = up(vsize ? vsize : raw, sect_align);
+        if (nraw > vmax) nraw = vmax;
+        if (nraw <= raw) continue;
+        bool staart = false;
+        for (uint64_t k = static_cast<uint64_t>(ptr) + raw; k < ptr + nraw && !staart; ++k) staart = data[k] != 0;
+        if (!staart) continue;   // alleen nullen erachter: dat geeft Wine al
+        wr32(s + 16, static_cast<uint32_t>(nraw));
+        if (vsize < nraw) wr32(s + 8, static_cast<uint32_t>(nraw));
+        std::string name(data.data() + s, strnlen(data.data() + s, 8));
+        changed.push_back(name);
+    }
     return true;
 }
 

@@ -79,6 +79,9 @@ struct DirectPlan {
     // SizeOfStackReserve = stack_reserve (pe_stack.hpp). stack_src is het origineel: de koppeling <exe>.ravengun-orig als die er al
     // is, anders waar de koppeling van de view naar wijst, anders de exe zelf.
     long long stack_reserve = 0;
+    // [Launch] PeFillPages = true: in dezelfde lokale kopie lopen de secties tot hun bladzijde, zoals Windows ze mapt (pe_stack.hpp,
+    // pe_fill_section_pages). Samen met StackReserve één kopie.
+    bool pe_fill_pages = false;
     std::string stack_src, stack_dest;
     // [Launch] ViewLinks: per paar (link, doel), beide absolute paden in de view. apply_direct() maakt van de link een symlink naar
     // het bestand waar het doel naar wijst (realpath, meestal op de NAS); de mappen op de weg worden eerst lokaal. Alleen de view.

@@ -468,6 +468,18 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         pl.stack_dest = game;
         pl.stack_src = islink(orig) ? realpath_(orig) : islink(game) ? realpath_(game) : game;
     }
+    // 6b2. [Launch] PeFillPages = true: dezelfde lokale kopie, met secties tot hun bladzijde (pe_fill_section_pages). Wine wist de bytes
+    // na SizeOfRawData; Aliens: Extermination heeft daar zijn HASP-emulatie (page fault op 0x456DF1 onder Wine, 2026-10-17).
+    if (const std::string pf = lower(trim(lini("PeFillPages"))); !pf.empty() && pf != "false" && pf != "0" && pf != "off") {
+        if (pf != "true" && pf != "1" && pf != "on") return setting_refused("[Launch] PeFillPages = " + lini("PeFillPages") + " (true of false)");
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] PeFillPages vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de aangepaste "
+                                   "exe wordt een lokaal bestand in de view, nooit op de NAS; " + game + " ligt daar niet");
+        const std::string orig = game + kStackOrigSuffix;
+        pl.pe_fill_pages = true;
+        pl.stack_dest = game;
+        pl.stack_src = islink(orig) ? realpath_(orig) : islink(game) ? realpath_(game) : game;
+    }
     // 6c. [Launch] ViewLinks: een bestand in de view wordt een symlink naar een ander bestand van dezelfde game (alleen in de view;
     // Mario Kart DX: Polygon2D_D3D10.fx -> de meegeleverde voorgecompileerde Polygon2D_D3D10.cfx, NETWERK-INVOER-CAMERA.md 5d).
     if (const std::string vl = trim(lini("ViewLinks")); !vl.empty()) {

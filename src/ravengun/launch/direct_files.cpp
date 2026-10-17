@@ -210,7 +210,10 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
         leeg = fs::is_empty(view, ec) && !ec;
     }
     if (lexists(view) && !leeg) {
-        if (isfile(vgame) && samefile(vgame, game)) {
+        // De game in de view: een koppeling naar het origineel, of onze eigen lokale kopie ([Launch] StackReserve/PeFillPages) waarvan
+        // <exe>.ravengun-orig naar het origineel wijst.
+        const std::string vorig = vgame + kStackOrigSuffix;
+        if (isfile(vgame) && (samefile(vgame, game) || (!islink(vgame) && islink(vorig) && samefile(vorig, game)))) {
             if (make) {
                 std::vector<std::string> l;
                 if (!refresh_game_view(spec, nas, l, err)) { err = "view: " + err; return false; }

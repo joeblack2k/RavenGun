@@ -8,6 +8,7 @@
 // waarde uit game.ini lezen. De launcher (direct.cpp, apply_direct) schrijft de kopie in de view van de game, nooit op de NAS.
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace ravengun::launch {
 
@@ -29,6 +30,14 @@ bool pe_stack_reserve(const std::string& data, uint64_t& reserve, std::string& e
 // Zet SizeOfStackReserve in `data` op `reserve` (verder blijft elke byte gelijk; ook de controlesom, die Windows en Wine voor een exe
 // niet nakijken). false + err als het geen PE is of als de waarde niet in een PE32-veld past.
 bool pe_set_stack_reserve(std::string& data, uint64_t reserve, std::string& err);
+
+// [Launch] PeFillPages: Windows mapt een sectie met de hele laatste bladzijde uit het bestand; Wine zet alles na SizeOfRawData (en
+// VirtualSize) op nul. Aliens: Extermination ("aliens dehasped.exe") heeft zijn HASP-emulatie in die staart van .text staan
+// (SizeOfRawData 0x55DB6, 573 niet-nul bytes erachter) en sprong onder Wine in nullen (page fault op 0x456DF1, gemeten 2026-10-17).
+// Deze functie laat elke sectie met zo'n staart tot de volgende FileAlignment-grens lopen: SizeOfRawData en VirtualSize, maar nooit
+// voorbij het bestand, de ruwe data van de volgende sectie of de bladzijdegrens van VirtualSize (de indeling van het image blijft gelijk).
+// `changed` krijgt de namen van de verlengde secties. false + err als het geen PE is of de sectietabel buiten het bestand ligt.
+bool pe_fill_section_pages(std::string& data, std::vector<std::string>& changed, std::string& err);
 
 // De OpenParrot-kern herkent een game aan de CRC32 van de eerste 0x400 bytes van de exe in het geheugen (OpenParrot
 // GameDetect.cpp, GetCRC32(moduleBase, 0x400)); een ander veld in de kop zou die herkenning breken. Deze functie zet de vier bytes

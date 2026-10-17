@@ -168,6 +168,7 @@ ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink na
 ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
 ViewTtcAsTtf =                ; A.ttc[, ...]: in de view wordt de TrueType-collectie A face 0 als losse font (Wine's GDI+ neemt geen .ttc aan; zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
+PeFillPages =                 ; true: in dezelfde lokale kopie lopen de secties tot hun bladzijde, zoals Windows ze mapt (zie hieronder)
 BepInEx =                     ; versie (bv. 5.4.21.0): BepInEx naast de exe in de view, voor een eigen plugin als drop-in (zie hieronder)
 
 [Display]
@@ -467,6 +468,16 @@ het spel vraagt (`data\Font\DF_HeiSeiGothic_W5.ttc`): in de lokale view zoekt Wi
 probeert eerst het pad precies zoals het spel het vraagt, en de overlay vindt `data/Font/...` dan rechtstreeks in de onderlaag op de
 NAS. Een bestand in de bovenlaag met de naam zoals hij op de NAS staat (`data/font/...`) wordt dan overgeslagen. Dat geldt ook voor
 zaaigoed: een bestand onder `seed/` moet dezelfde hoofdletters hebben als het pad dat het spel opent.
+
+**Secties tot hun bladzijde (`[Launch] PeFillPages = true`).** Windows mapt de laatste bladzijde van een sectie helemaal uit het
+bestand; Wine zet alles na `SizeOfRawData` (en `VirtualSize`) op nul. Een exe die daar code heeft, springt onder Wine in nullen. Aliens:
+Extermination (`aliens dehasped.exe`, 2026-10-17) heeft zijn HASP-emulatie achter het einde van `.text` (`SizeOfRawData` 0x55DB6, 573
+niet-nul bytes tot de grens) en viel met een page fault op 0x456DF1. Met `PeFillPages` wordt de exe in de view een lokale kopie (dezelfde
+als bij `StackReserve`, beide in één kopie) waarin elke sectie met data in die staart tot de volgende `FileAlignment`-grens loopt
+(`pe_fill_section_pages` in `pe_stack.hpp`; nooit voorbij het bestand, de data van een andere sectie of de bladzijde van `VirtualSize`).
+De CRC32 van de eerste 0x400 bytes blijft gelijk (`pe_keep_header_crc`): met een gewijzigde kop zonder die correctie stopte de kern van
+TeknoParrot de game met exitcode 1337. Het origineel blijft bereikbaar als `<exe>.ravengun-orig`; de view geldt daarmee nog als de view van
+de game, ook als `[Identify]` een `Sha256` heeft.
 
 **BepInEx op de directe route (`[Launch] BepInEx = 5.4.21.0`).** Voor een Unity-game die met een kleine eigen plugin wel draait.
 De launcher zet de officiële release (Mono, de bitbreedte van de game) uit `<data>/bepinex/<versie>/<x64|x86>` naast de exe in de view:

@@ -376,6 +376,83 @@ int main() {
         write(vexe, oud);
     }
 
+    // [Launch] PeFillPages: Wine wist de bytes na SizeOfRawData, Windows mapt de hele bladzijde (Aliens: Extermination). Een sectie met
+    // data in die staart loopt in de lokale kopie tot de FileAlignment-grens; de CRC32 van de kop blijft gelijk.
+    {
+        auto le32 = [](std::string& d, size_t o, uint32_t v) { for (int i = 0; i < 4; ++i) d[o + static_cast<size_t>(i)] = static_cast<char>((v >> (8 * i)) & 0xff); };
+        auto rd = [](const std::string& d, size_t o) { uint32_t v = 0; for (int i = 3; i >= 0; --i) v = (v << 8) | static_cast<unsigned char>(d[o + static_cast<size_t>(i)]); return v; };
+        // PE32 met .text (VirtualSize = SizeOfRawData = 0x150 op 0x400) en .data (0x200 op 0x600); FileAlignment 0x200.
+        auto maak = [&](bool staart) {
+            std::string d(0x800, '\0');
+            d[0] = 'M'; d[1] = 'Z';
+            le32(d, 0x3c, 0x80);
+            d.replace(0x80, 4, std::string("PE\0\0", 4));
+            d[0x86] = 2;            // NumberOfSections
+            d[0x94] = char(0xE0);   // SizeOfOptionalHeader
+            const size_t opt = 0x98;
+            d[opt] = 0x0b; d[opt + 1] = 0x01;
+            le32(d, opt + 32, 0x1000);
+            le32(d, opt + 36, 0x200);
+            le32(d, opt + 72, 1u << 20);
+            const size_t tab = opt + 0xE0;
+            d.replace(tab, 5, ".text");
+            le32(d, tab + 8, 0x150); le32(d, tab + 12, 0x1000); le32(d, tab + 16, 0x150); le32(d, tab + 20, 0x400);
+            d.replace(tab + 40, 5, ".data");
+            le32(d, tab + 48, 0x10); le32(d, tab + 52, 0x2000); le32(d, tab + 56, 0x200); le32(d, tab + 60, 0x600);
+            for (size_t i = 0x400; i < 0x550; ++i) d[i] = static_cast<char>(0x90);
+            if (staart) for (size_t i = 0x5a0; i < 0x5c0; ++i) d[i] = static_cast<char>(0xc3);
+            return d;
+        };
+        const size_t tab = 0x98 + 0xE0;
+        std::string d = maak(true), perr;
+        std::vector<std::string> secties;
+        CHECK(pe_fill_section_pages(d, secties, perr) && secties == std::vector<std::string>{".text"});
+        CHECK(rd(d, tab + 16) == 0x200 && rd(d, tab + 8) == 0x200 && rd(d, tab + 56) == 0x200 && rd(d, tab + 48) == 0x10);
+        std::string zonder = maak(false);
+        CHECK(pe_fill_section_pages(zonder, secties, perr) && secties.empty() && zonder == maak(false));
+        std::string geen = "geen PE";
+        CHECK(!pe_fill_section_pages(geen, secties, perr));
+
+        const fs::path nas_exe = home / "mnt/nas/spel/spel.exe";
+        write(nas_exe, maak(true));
+        const fs::path vexe = view / "bin/spel.exe";
+        const std::string oud = slurp(vexe);
+        fs::remove(vexe);
+        fs::create_symlink(nas_exe, vexe);
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Identify]\nSize = 2048\n[Launch]\nPeFillPages = true\n");
+        DirectPlan fp;
+        std::string w;
+        Verdict fv = plan_direct("Spel", p, o, fp, w);
+        CHECK(fv == Verdict::Ok);
+        if (fv != Verdict::Ok) std::fprintf(stderr, "pefillplan: %s\n", w.c_str());
+        CHECK(fp.pe_fill_pages && fp.stack_reserve == 0 && fp.stack_dest == vexe.string() && fp.stack_src == fs::canonical(nas_exe).string());
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(fp), back, err) && back.pe_fill_pages && back.stack_src == fp.stack_src);
+        }
+        std::vector<std::string> log;
+        std::string err;
+        CHECK(apply_direct(fp, p, log, err));
+        CHECK(!fs::is_symlink(vexe) && fs::is_symlink(view / "bin/spel.exe.ravengun-orig"));
+        const std::string kopie = slurp(vexe);
+        CHECK(rd(kopie, tab + 16) == 0x200 && crc32_bytes(kopie, kHeaderCrcLength) == crc32_bytes(slurp(nas_exe), kHeaderCrcLength));
+        CHECK(rd(slurp(nas_exe), tab + 16) == 0x150);
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "secties tot de bladzijde (.text)"); }));
+        // Een volgende start: de view bevat onze kopie (met de -orig-koppeling) en die is al actueel.
+        CHECK(plan_direct("Spel", p, o, fp, w) == Verdict::Ok && fp.stack_src == fs::canonical(nas_exe).string());
+        log.clear();
+        CHECK(apply_direct(fp, p, log, err) && contains(log.back(), "is al actueel"));
+        write(ugi, "[Identify]\nSize = 2048\n[Launch]\nPeFillPages = misschien\n");
+        CHECK(plan_direct("Spel", p, o, fp, w) == Verdict::Refused && contains(w, "PeFillPages = misschien"));
+        fs::remove(ugi);
+        fs::remove(vexe);
+        fs::remove(view / "bin/spel.exe.ravengun-orig");
+        fs::remove(nas_exe);
+        write(vexe, oud);
+    }
+
     // [Launch] ViewLinks: een bestand in de view wordt een symlink naar een ander bestand van de game; de mappen op de weg worden lokaal
     // en de NAS blijft gelijk (Mario Kart DX: Polygon2D_D3D10.fx -> Polygon2D_D3D10.cfx).
     {
