@@ -15,6 +15,11 @@
 namespace ravengun::vision {
 
 inline constexpr const char* kCameraFeedPath = RG_CAMFEED_PATH_LINUX;
+// De luma waar het beeld voor het spel naartoe versterkt wordt (CameraFeedWriter::write) en de grootste versterking.
+inline constexpr double kFeedTargetLuma = 110.0;
+inline constexpr double kFeedMaxGain = 8.0;
+// De versterking die een beeld (YUY2) op kFeedTargetLuma zou brengen, tussen 1 en kFeedMaxGain.
+double feed_gain_target(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t stride);
 
 // Schrijft beelden in het bestand (mmap, seqlock). Niet thread-safe: een schrijver.
 class CameraFeedWriter {
@@ -31,6 +36,7 @@ public:
     // Dicht; unlink = het bestand ook weghalen (dan ziet het spel geen camera meer).
     void close(bool unlink);
     uint32_t frames() const { return frames_; }
+    double gain() const { return gain_; }   // de luma-versterking van het laatste beeld (1 = ongewijzigd)
     const std::string& path() const { return path_; }
     uint32_t width() const { return w_; }
     uint32_t height() const { return h_; }
@@ -39,6 +45,7 @@ private:
     uint8_t* map_ = nullptr;
     size_t len_ = 0;
     uint32_t w_ = 0, h_ = 0, stride_ = 0, seq_ = 0, frames_ = 0;
+    double gain_ = 1.0;
 };
 
 // Leest een beeld uit een kopie of mapping van het bestand (zuiver, voor de tests en als voorbeeld voor de lezer in het spelproces).

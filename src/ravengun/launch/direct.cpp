@@ -522,6 +522,63 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused("[Launch] ViewTtcAsTtf vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de fonts "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
     }
+    // 6c4. [Launch] Mod = <naam> | none: een mod uit [Mod <naam>] (docs/per-game-patches.md, "Mods"), opgehaald door scripts/fetch-mods.py
+    // naar <data>/mods/<Game>/<naam>/files. De lijst (List, de indeling van files.csv van de MKDX-patcher: doel in de map van de exe,
+    // bestand, offset of "replace") wordt hier gelezen; apply_direct() bouwt en linkt. Mario Kart DX: de Engelse fanvertaling (2026-10-17).
+    if (binnen(abspath(game), abspath(p.views())) && !on_nas(dirname(game), p)) {
+        std::string mr = getenv_or(env, "RAVENGUN_MODS_ROOT");
+        pl.mod_root = pjoin(mr.empty() ? pjoin(p.data, "mods") : mr, name);
+        // De doelen zijn paden in de map van de exe (zoals bij de patcher van de mod); het origineel staat naast de exe op de NAS.
+        pl.mod_view_root = dirname(game);
+        const std::string orig = game + kStackOrigSuffix;
+        pl.mod_game_root = dirname(islink(orig) ? realpath_(orig) : realpath_(game));
+    }
+    if (std::string mn = trim(lini("Mod")); !mn.empty() && lower(mn) != "none" && lower(mn) != "off" && lower(mn) != "false") {
+        if (pl.mod_root.empty())
+            return setting_refused("[Launch] Mod vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de bestanden van "
+                                   "de mod komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
+        const gsn::Section* ms = settings.settings.section("Mod " + mn);
+        if (!ms) return setting_refused("[Launch] Mod = " + mn + ", maar game.ini heeft geen [Mod " + mn + "]");
+        if (!isdir(pl.mod_game_root))
+            return setting_refused("[Launch] Mod = " + mn + ": de gamemap achter de view (" + pl.mod_game_root + ") is niet te vinden");
+        const std::string dir = pjoin(pl.mod_root, mn), files = pjoin(dir, "files");
+        std::string stamp;
+        read_file(pjoin(dir, "tree-sha256"), stamp);
+        pl.mod_tree = lower(trim(kv_get(ms->kv, "TreeSha256")));
+        if (pl.mod_tree.empty() || trim(stamp) != pl.mod_tree || !isdir(files))
+            return setting_refused("[Launch] Mod = " + mn + ": de mod staat niet (of niet in deze versie) in " + files + ": draai scripts/fetch-mods.py " + name);
+        pl.mod_name = mn;
+        pl.mod_built = pjoin(dir, "built");
+        pl.mod_exe = pjoin(pl.mod_game_root, basename(game));
+        pl.mod_exe_sha256 = lower(trim(kv_get(ms->kv, "ExeSha256")));
+        std::string list;
+        const std::string lijst = pjoin(files, trim(kv_get(ms->kv, "List", "files.csv")));
+        if (!read_file(lijst, list)) return setting_refused("[Launch] Mod = " + mn + ": " + lijst + " is niet te lezen");
+        int nr = 0;
+        for (std::string regel : nonempty_split(strip_bom(list), '\n')) {
+            ++nr;
+            if (!regel.empty() && regel.back() == '\r') regel.pop_back();
+            if (trim(regel).empty() || (nr == 1 && regel.starts_with("target,"))) continue;
+            std::vector<std::string> v = nonempty_split(regel, ',');
+            if (v.size() < 3) return setting_refused(lijst + ", regel " + std::to_string(nr) + ": geen doel,bestand,offset");
+            DirectPlan::ModEntry e;
+            for (int i = 0; i < 2; ++i) {
+                std::string r = trim(v[static_cast<size_t>(i)]);
+                std::replace(r.begin(), r.end(), '\\', '/');
+                const std::string n = normpath(r);
+                if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
+                    return setting_refused(lijst + ", regel " + std::to_string(nr) + ": '" + r + "' (een pad, relatief en zonder ..)");
+                (i == 0 ? e.target : e.src) = n;
+            }
+            e.src = pjoin(files, e.src);
+            if (!isfile(e.src)) return setting_refused(lijst + ", regel " + std::to_string(nr) + ": " + e.src + " ontbreekt");
+            const std::string off = lower(trim(v[2]));
+            if (off != "replace" && (!py_int(off, e.offset) || e.offset < 0))
+                return setting_refused(lijst + ", regel " + std::to_string(nr) + ": offset '" + v[2] + "' (een getal of replace)");
+            pl.mod_entries.push_back(std::move(e));
+        }
+        if (pl.mod_entries.empty()) return setting_refused("[Launch] Mod = " + mn + ": " + lijst + " is leeg");
+    }
     // 6d. [Launch] Dxvk: Direct3D 8 tot en met 11 via DXVK (Vulkan) in plaats van wined3d (OpenGL), per game in de view (docs/dxvk.md).
     // Mario Kart DX: met wined3d ontbrak de 2D-laag (geen tekst, geen menu's) en kwamen er duizenden GL-fouten; met DXVK niet.
     if (const std::string dx = lower(trim(lini("Dxvk"))); !dx.empty() && dx != "false" && dx != "0" && dx != "off") {

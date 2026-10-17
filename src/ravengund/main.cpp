@@ -707,6 +707,7 @@ int main(int argc, char** argv) {
     shared.camera_status = [&camera] { return camera.status_json(); };
     shared.set_game_camera = [&camera](bool on, const std::string& why) { camera.set_game_feed(on, why); };
     shared.game_camera_on = [&camera] { return camera.game_feed(); };
+    shared.set_game_camera_photo = [&camera](bool photo) { camera.set_game_photo(photo); };
     shared.camera_device = [&camera] { return camera.device_path(); };
     shared.camera_enabled = [&camera] { return camera.enabled(); };
     if (cam.enabled)
@@ -779,6 +780,7 @@ int main(int argc, char** argv) {
     shared.camera = nullptr;
     shared.camera_status = nullptr;
     shared.set_game_camera = nullptr;
+    shared.set_game_camera_photo = nullptr;
     shared.game_camera_on = nullptr;
     shared.camera_device = nullptr;
     shared.camera_enabled = nullptr;

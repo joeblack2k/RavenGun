@@ -100,7 +100,14 @@ struct DirectPlan {
     std::string exe_override;                              // [Launch] Exe: het Windows-pad dat de lader voor het spel krijgt
     std::vector<std::string> view_copies;                  // [Launch] ViewCopies: links in de view die een lokale kopie worden
     std::vector<std::string> view_ttc_fonts;               // [Launch] ViewTtcAsTtf: links naar een .ttc die face 0 als losse font worden (ttc.hpp)
-    std::vector<std::string> reg_files;                    // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
+    // [Launch] Mod = <naam> ([Mod <naam>] in game.ini, scripts/fetch-mods.py): per regel van de lijst van de mod het doel (pad in de
+    // gamemap), het bestand van de mod en de offset (-1 = vervangen). apply_direct() bouwt elk doel met een offset een keer in
+    // mod_built (een kopie van het origineel uit mod_game_root met de bestanden op hun offset) en linkt het doel in de view daarheen.
+    // mod_root (<data>/mods/<Game>) staat er ook zonder mod: links in de view die nog naar een mod wijzen gaan terug naar het origineel.
+    struct ModEntry { std::string target, src; long long offset = -1; };
+    std::string mod_name, mod_root, mod_built, mod_game_root, mod_view_root, mod_tree, mod_exe, mod_exe_sha256;
+    std::vector<ModEntry> mod_entries;
+    std::vector<std::string> reg_files;                   // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct

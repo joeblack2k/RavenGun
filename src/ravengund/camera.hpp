@@ -83,6 +83,9 @@ public:
     // bestand weg: het spel ziet geen camera. `why` komt in het logboek.
     void set_game_feed(bool on, const std::string& why, const std::string& path = {});
     bool game_feed() const;
+    // Foto-belichting voor een spel ([Camera] Exposure = photo): aan = de capture-thread onthoudt belichting, gain en de automaten
+    // en zet automatische belichting, gain en witbalans aan; uit = de onthouden waarden terug. Werkt asynchroon (geen wachten).
+    void set_game_photo(bool photo);
     // Het apparaat dat de daemon gebruikt (zoals gevonden bij het openen; leeg zolang er geen camera open is).
     std::string device_path() const;
 

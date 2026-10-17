@@ -12,11 +12,13 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <map>
 
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/direct_internal.hpp"
+#include "ravengun/launch/native.hpp"
 #include "ravengun/launch/pe_stack.hpp"
 #include "ravengun/launch/ttc.hpp"
 
@@ -155,33 +157,129 @@ bool place_stack_copy(const DirectPlan& pl, const DirectPaths& p, std::vector<st
 // [Launch] ViewLinks (launch-direct.py place_view_links): de link in de view wordt een symlink naar het bestand waar het doel naar
 // wijst (realpath). De mappen op de weg worden eerst echte lokale mappen (zoals bij een drop-in); een echt bestand op de plaats van de
 // link blijft staan (dan niet starten). Op de NAS verandert niets: alleen een symlink in een lokale map wordt vervangen.
+// Een link in de view naar `bron` (een absoluut pad); `stil` = "al actueel" niet melden (de mod heeft er honderd).
+bool link_in_view(const DirectPlan& pl, const DirectPaths& p, const std::string& link, const std::string& bron, const std::string& tag, bool stil,
+                  std::vector<std::string>& log, std::string& err) {
+    auto fout = [&](const std::string& m) {
+        log.push_back(tag + ": FOUT: " + m + " -- de game wordt niet gestart");
+        err = tag + ": " + m;
+        return false;
+    };
+    std::string waarom;
+    std::vector<std::string> lokaal;
+    if (!dropin_toets(pl.dropin_base, link, pl.dropin_root, waarom, lokaal)) return fout(link + ": " + waarom);
+    if (lokaal.empty() && islink(link)) {
+        std::error_code ec;
+        if (fs::read_symlink(link, ec).string() == bron && !ec) {
+            if (!stil) log.push_back(tag + ": " + link + " is al actueel (-> " + bron + ")");
+            return true;
+        }
+    }
+    if (lokaal.empty() && lexists(link) && !islink(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
+    std::string msg;
+    if (!dropin_materialiseer(pl.dropin_base, link, pl.dropin_root, log, msg)) return fout(msg);
+    if (on_nas(dirname(link), p)) return fout(dirname(link) + " ligt op de NAS; daar wordt nooit een link gezet");
+    if (lexists(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
+    if (::symlink(bron.c_str(), link.c_str()) != 0) return fout(link + ": " + std::strerror(errno));
+    if (!stil) log.push_back(tag + ": " + link + " -> " + bron + " (alleen in de view)");
+    return true;
+}
+
 bool place_view_links(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
     for (const auto& [link, doel] : pl.view_links) {
-        auto fout = [&](const std::string& m) {
-            log.push_back("viewlink: FOUT: " + m + " -- de game wordt niet gestart");
-            err = "viewlink: " + m;
+        if (!isfile(doel)) {
+            log.push_back("viewlink: FOUT: " + doel + " bestaat niet of is geen bestand -- de game wordt niet gestart");
+            err = "viewlink: " + doel + " bestaat niet of is geen bestand";
             return false;
-        };
-        if (!isfile(doel)) return fout(doel + " bestaat niet of is geen bestand");
-        const std::string bron = realpath_(doel);
-        std::string waarom;
-        std::vector<std::string> lokaal;
-        if (!dropin_toets(pl.dropin_base, link, pl.dropin_root, waarom, lokaal)) return fout(link + ": " + waarom);
-        if (lokaal.empty() && islink(link)) {
-            std::error_code ec;
-            if (fs::read_symlink(link, ec).string() == bron && !ec) {
-                log.push_back("viewlink: " + link + " is al actueel (-> " + bron + ")");
-                continue;
+        }
+        if (!link_in_view(pl, p, link, realpath_(doel), "viewlink", false, log, err)) return false;
+    }
+    return true;
+}
+
+// [Launch] Mod: elk doel met een offset wordt een keer gebouwd in mod_built (kopie van het origineel op de NAS, de bestanden van de mod
+// op hun offset; een stempel naast het bestand onthoudt grootte en mtime van het origineel en de boom van de mod), een doel met
+// "replace" linkt naar het bestand van de mod. Daarna wijzen de doelen in de view daarheen. Links in de view die nog naar een mod
+// van deze game wijzen maar niet meer gevraagd zijn (Mod = none, een andere mod) gaan terug naar het origineel.
+bool place_view_mod(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    if (pl.mod_root.empty() || pl.mod_view_root.empty()) return true;
+    auto fout = [&](const std::string& m) {
+        log.push_back("mod: FOUT: " + m + " -- de game wordt niet gestart");
+        err = "mod: " + m;
+        return false;
+    };
+    // Per doel in de view: waar het heen moet wijzen; per te bouwen doel: de regels in hun volgorde.
+    std::map<std::string, std::string> want;
+    std::map<std::string, std::vector<const DirectPlan::ModEntry*>> bouw;
+    for (const auto& e : pl.mod_entries) {
+        const std::string link = pjoin(pl.mod_view_root, e.target);
+        if (e.offset < 0) want[link] = e.src;
+        else { want[link] = pjoin(pl.mod_built, e.target); bouw[e.target].push_back(&e); }
+    }
+    // 1. Terug naar het origineel wat niet meer bij de gevraagde mod hoort (alleen echte mappen van de view, links niet volgen).
+    std::vector<std::string> terug;
+    {
+        std::error_code ec;
+        const std::string prefix = pl.mod_root + "/";
+        for (fs::recursive_directory_iterator it(pl.mod_view_root, ec), end; !ec && it != end; it.increment(ec)) {
+            std::error_code e2;
+            if (!it->is_symlink(e2)) continue;
+            const std::string link = it->path().string();
+            const std::string doel = fs::read_symlink(link, e2).string();
+            if (!e2 && doel.starts_with(prefix) && !want.count(link)) terug.push_back(link);
+        }
+    }
+    for (const std::string& link : terug) {
+        const std::string orig = pjoin(pl.mod_game_root, relpath(link, pl.mod_view_root));
+        if (::unlink(link.c_str()) != 0) return fout(link + ": " + std::strerror(errno));
+        if (lexists(orig) && ::symlink(orig.c_str(), link.c_str()) != 0) return fout(link + ": " + std::strerror(errno));
+    }
+    if (!terug.empty()) log.push_back("mod: " + std::to_string(terug.size()) + " link(s) in de view terug naar het origineel (" + pl.mod_game_root + ")");
+    if (pl.mod_name.empty()) return true;
+    // 2. Bouwen wat ontbreekt of verouderd is.
+    int gebouwd = 0;
+    bool exe_ok = false;
+    for (const auto& [target, regels] : bouw) {
+        const std::string orig = pjoin(pl.mod_game_root, target), uit = pjoin(pl.mod_built, target), stempel = uit + ".stamp";
+        struct stat st{};
+        if (::stat(orig.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) return fout(orig + " (het origineel) ontbreekt");
+        const std::string wil = std::to_string(st.st_size) + " " + std::to_string(st.st_mtime) + " " + pl.mod_tree + "\n";
+        std::string heeft;
+        if (isfile(uit) && read_file(stempel, heeft) && heeft == wil) continue;
+        if (!exe_ok && !pl.mod_exe_sha256.empty()) {
+            const std::string h = sha256_file(pl.mod_exe);
+            if (h != pl.mod_exe_sha256) return fout(pl.mod_exe + " is niet de versie van de mod (sha256 " + (h.empty() ? "niet te lezen" : h) + ", verwacht " + pl.mod_exe_sha256 + ")");
+            exe_ok = true;
+        }
+        std::error_code ec;
+        fs::create_directories(dirname(uit), ec);
+        const std::string tmp = uit + ".ravengun-tmp";
+        fs::copy_file(orig, tmp, fs::copy_options::overwrite_existing, ec);
+        if (ec) return fout(orig + " -> " + tmp + ": " + ec.message());
+        const int fd = ::open(tmp.c_str(), O_WRONLY);
+        if (fd < 0) return fout(tmp + ": " + std::strerror(errno));
+        for (const auto* r : regels) {
+            std::string data;
+            if (!read_file(r->src, data)) { ::close(fd); return fout(r->src + " is niet te lezen"); }
+            size_t klaar = 0;
+            while (klaar < data.size()) {
+                const ssize_t n = ::pwrite(fd, data.data() + klaar, data.size() - klaar, static_cast<off_t>(r->offset) + static_cast<off_t>(klaar));
+                if (n < 0 && errno == EINTR) continue;
+                if (n <= 0) { const int e = errno; ::close(fd); return fout(tmp + ": " + std::strerror(e)); }
+                klaar += static_cast<size_t>(n);
             }
         }
-        if (lokaal.empty() && lexists(link) && !islink(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
-        std::string msg;
-        if (!dropin_materialiseer(pl.dropin_base, link, pl.dropin_root, log, msg)) return fout(msg);
-        if (on_nas(dirname(link), p)) return fout(dirname(link) + " ligt op de NAS; daar wordt nooit een link gezet");
-        if (lexists(link)) return fout(link + " is een echt bestand in de view; niet vervangen");
-        if (::symlink(bron.c_str(), link.c_str()) != 0) return fout(link + ": " + std::strerror(errno));
-        log.push_back("viewlink: " + link + " -> " + bron + " (alleen in de view)");
+        if (::close(fd) != 0) return fout(tmp + ": " + std::strerror(errno));
+        if (std::rename(tmp.c_str(), uit.c_str()) != 0) return fout(uit + ": " + std::strerror(errno));
+        std::string werr;
+        if (!write_atomic(stempel, wil, werr)) return fout(werr);
+        ++gebouwd;
     }
+    // 3. De doelen in de view.
+    for (const auto& [link, bron] : want)
+        if (!link_in_view(pl, p, link, bron, "mod", true, log, err)) return false;
+    log.push_back("mod: " + pl.mod_name + ": " + std::to_string(want.size()) + " bestanden in de view (" + std::to_string(bouw.size()) + " gebouwd in " +
+                  pl.mod_built + (gebouwd ? ", " + std::to_string(gebouwd) + " nu opnieuw" : ", alle al actueel") + ")");
     return true;
 }
 
@@ -311,6 +409,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
     if (!place_view_links(pl, p, log, err)) return false;
     if (!place_view_copies(pl, p, log, err)) return false;
     if (!place_view_ttc_fonts(pl, p, log, err)) return false;
+    if (!place_view_mod(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
     return place_stack_copy(pl, p, log, err);
 }
@@ -337,9 +436,11 @@ std::string plan_to_json(const DirectPlan& pl) {
              {"loader", &pl.loader}, {"pipe_mode", &pl.pipe_mode}, {"shm_source", &pl.shm_source}, {"pipehelper", &pl.pipehelper},
              {"core_dll", &pl.core_dll}, {"core_source", &pl.core_source}, {"state", &pl.state}, {"dropin_base", &pl.dropin_base},
              {"dropin_root", &pl.dropin_root}, {"control_pipe", &pl.control_pipe}, {"control_pipe_name", &pl.control_pipe_name},
-             {"control_source", &pl.control_source}, {"stack_src", &pl.stack_src}, {"stack_dest", &pl.stack_dest}})
+             {"control_source", &pl.control_source}, {"stack_src", &pl.stack_src}, {"stack_dest", &pl.stack_dest}, {"mod_name", &pl.mod_name},
+             {"mod_root", &pl.mod_root}, {"mod_built", &pl.mod_built}, {"mod_game_root", &pl.mod_game_root}, {"mod_view_root", &pl.mod_view_root}})
         w.key(k).value(*v);
     w.key("stack_reserve").value(pl.stack_reserve);
+    w.key("mod_entries").value(static_cast<long long>(pl.mod_entries.size()));
     w.key("pe_fill_pages").value(pl.pe_fill_pages);
     w.key("control_size").value(pl.control_size).key("control_interval_ms").value(pl.control_interval_ms);
     w.key("is64").value(pl.is64).key("gamescope").value(pl.gamescope).key("windowed_override").value(pl.windowed_override);
@@ -407,6 +508,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     auto n = [&](const char* k, int& out) { const auto* x = v.find(k); if (x && x->is_number()) out = static_cast<int>(x->num); };
     n("control_size", pl.control_size); n("control_interval_ms", pl.control_interval_ms);
     s("stack_src", pl.stack_src); s("stack_dest", pl.stack_dest);
+    s("mod_name", pl.mod_name); s("mod_root", pl.mod_root); s("mod_built", pl.mod_built); s("mod_game_root", pl.mod_game_root); s("mod_view_root", pl.mod_view_root);
     if (const auto* x = v.find("stack_reserve"); x && x->is_number()) pl.stack_reserve = static_cast<long long>(x->num);
     if (const auto* x = v.find("pe_fill_pages"); x && x->is_bool()) pl.pe_fill_pages = x->b;
     if (pl.stack_reserve < 0 || static_cast<uint64_t>(pl.stack_reserve) > kStackReserveMax ||

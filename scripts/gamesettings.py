@@ -636,6 +636,8 @@ ENV_MAP = [
     ("Input", "JvsIdent", "RG_JVS_IDENT", ""),
     ("Input", "JvsFeatures", "RG_JVS_FEATURES", ""),
     ("Audio", "Speakers", "RG_FMOD_SPEAKERS", ""),
+    ("Launch", "Mod", "RG_MOD", ""),
+    ("Camera", "Exposure", "RG_CAMERA_EXPOSURE", ""),
 ]
 ENV_BY_VAR = {m[2]: m for m in ENV_MAP}
 # Variabele die alleen de patch "gedeelde lader-patch" aanzet (oude naam; alleen voor de .env-terugval en de migratie).

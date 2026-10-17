@@ -553,6 +553,8 @@ const EnvMapEntry kEnvMap[] = {
     {"Input", "JvsIdent", "RG_JVS_IDENT", ""},
     {"Input", "JvsFeatures", "RG_JVS_FEATURES", ""},
     {"Audio", "Speakers", "RG_FMOD_SPEAKERS", ""},   // FMOD-wrapper (tools/fmod-bridge): STEREO of LPCM 5.1
+    {"Launch", "Mod", "RG_MOD", ""},                 // [Launch] Mod: een mod uit [Mod <naam>] (scripts/fetch-mods.py) of none
+    {"Camera", "Exposure", "RG_CAMERA_EXPOSURE", ""},   // [Camera] Exposure: photo (automatische belichting) of tracking (de Move)
 };
 const size_t kEnvMapCount = sizeof(kEnvMap) / sizeof(kEnvMap[0]);
 

@@ -162,6 +162,9 @@ public:
     // de huidige stand, het apparaat van de daemon en of de camera aan staat. Leeg = geen camera-service (tests).
     std::function<void(bool on, const std::string& why)> set_game_camera;
     std::function<bool()> game_camera_on;
+    // [Camera] Exposure = photo: zolang het spel de camera heeft, automatische belichting, gain en witbalans (een foto in het spel);
+    // false = terug naar de eigen instellingen (het volgen van de Move). Leeg = geen camera-service.
+    std::function<void(bool photo)> set_game_camera_photo;
     std::function<std::string()> camera_device;
     std::function<bool()> camera_enabled;
     // Uitvoer (virtueel lightgun-apparaat); niet-eigenaar, geset door main vóór de threads starten.

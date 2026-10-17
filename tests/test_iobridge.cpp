@@ -1016,6 +1016,8 @@ void test_game_camera(const std::string& dir) {
     bool on = false;
     sh.set_game_camera = [&](bool v, const std::string& why) { calls.emplace_back(v, why); on = v; };
     sh.game_camera_on = [&] { return on; };
+    std::vector<bool> photo;
+    sh.set_game_camera_photo = [&](bool v) { photo.push_back(v); };
     sh.camera_device = [] { return std::string("/dev/video0"); };
     sh.camera_enabled = [] { return true; };
     IoBridgeService::Config cfg;
@@ -1030,9 +1032,11 @@ void test_game_camera(const std::string& dir) {
         // Mario Kart Arcade GP DX: [Camera] Use = game (patches/MarioKartDX/game.ini). Route evdev afgedwongen: geen bord nodig.
         CHECK(br.start("MarioKartDX", "evdev").empty());
         CHECK(calls.size() == 1 && calls.back().first && calls.back().second.find("MarioKartDX") != std::string::npos);
+        // [Camera] Exposure = photo (Mario Kart maakt een foto, de Move wordt niet gevolgd): foto-belichting aan.
+        CHECK(!photo.empty() && photo.back() && calls.back().second.find("foto-belichting") != std::string::npos);
         // Een game zonder [Camera]: uit.
         CHECK(br.start("TC5", "evdev").empty());
-        CHECK(calls.size() == 2 && !calls.back().first);
+        CHECK(calls.size() == 2 && !calls.back().first && !photo.back());
         // Nog een game zonder camera: geen nieuwe oproep (stond al uit).
         CHECK(br.start("HOTDSD", "evdev").empty());
         CHECK(calls.size() == 2);
@@ -1050,7 +1054,7 @@ void test_game_camera(const std::string& dir) {
         CHECK(calls.size() == 3 && on);
         // Stoppen: uit.
         br.stop();
-        CHECK(calls.size() == 4 && !calls.back().first && !on);
+        CHECK(calls.size() == 4 && !calls.back().first && !on && !photo.back());
         br.shutdown();
     }
     // Zonder camera-service (hooks leeg): niets, en geen fout.

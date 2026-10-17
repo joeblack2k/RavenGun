@@ -239,6 +239,8 @@ struct CameraService::Impl {
     // De virtuele camera voor een spel (set_game_feed): aan/uit en het pad; de tracker-thread schrijft (en is de enige die `feed` aanraakt).
     std::atomic<bool> feed_on{false};
     std::atomic<uint64_t> feed_gen{0};
+    // Foto-belichting (set_game_photo): gevraagd door de IO-brug, uitgevoerd door de capture-thread (de enige met de fd).
+    std::atomic<bool> photo_want{false};
     std::mutex fm;
     std::string feed_path = ravengun::vision::kCameraFeedPath;
     ravengun::vision::CameraFeedWriter feed;
@@ -466,7 +468,25 @@ struct CameraService::Impl {
         int fd = -1;
         int64_t next_try = 0;
         int64_t last_frame = 0;
+        bool photo_have = false;
+        CameraOptions saved;   // de instellingen van voor de foto-belichting
         while (run.load()) {
+            if (fd >= 0 && photo_want.load() != photo_have) {
+                CameraChange ch;
+                if (!photo_have) {
+                    { std::lock_guard<std::mutex> g(m); saved = opt; }
+                    ch.auto_exposure = true; ch.auto_gain = true; ch.auto_awb = true;
+                } else {
+                    ch.exposure = saved.exposure; ch.gain = saved.gain;
+                    ch.auto_exposure = saved.auto_exposure; ch.auto_gain = saved.auto_gain; ch.auto_awb = saved.auto_awb;
+                }
+                photo_have = !photo_have;
+                const CameraApplyResult r = do_apply(ch, fd, maps);
+                if (photo_have) logf("info", "camera: foto-belichting voor het spel aan (automatische belichting, gain en witbalans)%s", r.ok ? "" : (": " + r.message).c_str());
+                else logf("info", "camera: foto-belichting uit, terug naar belichting %d, gain %d%s", saved.exposure, saved.gain, r.ok ? "" : (": " + r.message).c_str());
+                last_frame = mono_ns();
+                continue;
+            }
             if (has_pending.load()) {
                 handle_pending(fd, maps);
                 last_frame = mono_ns();
@@ -711,6 +731,8 @@ void CameraService::set_game_feed(bool on, const std::string& why, const std::st
 }
 
 bool CameraService::game_feed() const { return d_->feed_on.load(); }
+
+void CameraService::set_game_photo(bool photo) { d_->photo_want.store(photo); }
 
 std::string CameraService::device_path() const {
     std::lock_guard<std::mutex> g(d_->m);

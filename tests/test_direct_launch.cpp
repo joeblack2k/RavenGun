@@ -600,6 +600,75 @@ int main() {
         fs::remove_all(home / "mnt/nas/spel/data");
     }
 
+    // [Launch] Mod = <naam>: de mod uit [Mod <naam>] (scripts/fetch-mods.py) wordt gebouwd in <data>/mods/<Game>/<naam>/built (origineel
+    // van de NAS, bestanden op hun offset) en in de view gelinkt; "replace" linkt naar het bestand van de mod. Mod = none zet de links
+    // terug naar het origineel. De NAS blijft gelijk (Mario Kart DX, Engelse vertaling, 2026-10-17).
+    {
+        const fs::path nas_root = home / "mnt/nas/spel";
+        write(nas_root / "spel.exe", "MZexe");
+        write(nas_root / "Data/x.pac", "0123456789");
+        write(nas_root / "Data/t.txbn", "japans");
+        write(nas_root / "Data/ander.pac", "blijft");
+        fs::create_symlink(nas_root / "spel.exe", view / "bin/spel.exe.ravengun-orig");
+        fs::create_symlink(nas_root / "Data", view / "bin/Data");
+        const fs::path mod = fs::path(p.data) / "mods/Spel/en";
+        write(mod / "files/files.csv", "target,file,offset,Test\r\nData\\x.pac,p\\a.dds,2,abc\r\nData\\t.txbn,t.txbn,replace,-\r\nData\\x.pac,p\\b.dds,8,-\r\n");
+        write(mod / "files/p/a.dds", "AB");
+        write(mod / "files/p/b.dds", "CD");
+        write(mod / "files/t.txbn", "english");
+        write(mod / "tree-sha256", "abc123\n");
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        const std::string sect = "[Mod en]\nTreeSha256 = ABC123\nList = files.csv\n";
+        write(ugi, "[Launch]\nMod = en\n" + sect + "ExeSha256 = 00\n");
+        DirectPlan vp;
+        std::string w;
+        Verdict vv = plan_direct("Spel", p, o, vp, w);
+        CHECK(vv == Verdict::Ok);
+        if (vv != Verdict::Ok) std::fprintf(stderr, "modplan: %s\n", w.c_str());
+        CHECK(vp.mod_name == "en" && vp.mod_entries.size() == 3 && vp.mod_game_root == fs::canonical(nas_root).string());
+        CHECK(vp.mod_entries[0].target == "Data/x.pac" && vp.mod_entries[0].offset == 2 && vp.mod_entries[1].offset == -1);
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(vp), back, err) && back.mod_name == "en" && back.mod_built == vp.mod_built);
+        }
+        std::vector<std::string> log;
+        std::string err;
+        // De exe is niet de versie van de mod: niet bouwen, niet starten.
+        CHECK(!apply_direct(vp, p, log, err) && contains(err, "niet de versie van de mod") && !fs::exists(mod / "built/Data/x.pac"));
+        write(ugi, "[Launch]\nMod = en\n" + sect);
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok);
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err));
+        const fs::path vx = view / "bin/Data/x.pac", vt = view / "bin/Data/t.txbn";
+        CHECK(!fs::is_symlink(view / "bin/Data") && fs::is_symlink(vx) && fs::read_symlink(vx) == mod / "built/Data/x.pac");
+        CHECK(slurp(vx) == "01AB4567CD" && slurp(vt) == "english" && slurp(view / "bin/Data/ander.pac") == "blijft");
+        CHECK(slurp(nas_root / "Data/x.pac") == "0123456789" && slurp(nas_root / "Data/t.txbn") == "japans");
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "mod: en: 2 bestanden") && contains(l, "1 nu opnieuw"); }));
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err) && std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "alle al actueel"); }));
+        // Mod = none: terug naar het origineel.
+        write(ugi, "[Launch]\nMod = none\n" + sect);
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok && vp.mod_name.empty() && vp.mod_entries.empty());
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err) && slurp(vx) == "0123456789" && slurp(vt) == "japans");
+        CHECK(fs::read_symlink(vx) == nas_root / "Data/x.pac");
+        CHECK(std::any_of(log.begin(), log.end(), [](const std::string& l) { return contains(l, "2 link(s) in de view terug naar het origineel"); }));
+        // Niet opgehaald (andere boom), geen sectie, een pad naar buiten: niet starten.
+        write(ugi, "[Launch]\nMod = en\n[Mod en]\nTreeSha256 = def456\n");
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "fetch-mods.py Spel"));
+        write(ugi, "[Launch]\nMod = fr\n" + sect);
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "[Mod fr]"));
+        write(mod / "files/files.csv", "target,file,offset,Test\n..\\x.pac,p\\a.dds,2,-\n");
+        write(ugi, "[Launch]\nMod = en\n" + sect);
+        CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Refused && contains(w, "zonder .."));
+        fs::remove(ugi);
+        fs::remove_all(view / "bin/Data");
+        fs::remove(view / "bin/spel.exe.ravengun-orig");
+        fs::remove_all(nas_root);
+        fs::remove_all(fs::path(p.data) / "mods");
+    }
+
     // [Launch] BepInEx = <versie>: de officiële release uit <data>/bepinex/<versie>/x64 (of RAVENGUN_BEPINEX_ROOT) als drop-ins naast de
     // exe, winhttp=n,b; zonder release niet starten (Men in Black, 2026-10-17).
     {

@@ -16,6 +16,7 @@
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
 #include "ravengun/output/key_table.hpp"
+#include "ravengun/strutil.hpp"
 #include "ravengun/vision/camera_feed.hpp"
 
 namespace ravengund {
@@ -408,10 +409,16 @@ void IoBridgeService::apply_game_camera(const std::string& game) {
         }
     }
     if (on && sh_.camera_enabled && !sh_.camera_enabled()) why += " (maar de camera van de daemon staat uit: --no-camera)";
+    // [Camera] Exposure = photo | tracking (standaard): een spel dat een foto maakt en de Move niet volgt (Mario Kart DX) krijgt
+    // automatische belichting; het beeld voor het volgen van de Move is daarvoor te donker.
+    const std::string exposure = ravengun::lower(g.settings.get("Camera", "Exposure"));
+    if (sh_.set_game_camera_photo) sh_.set_game_camera_photo(on && exposure == "photo");
+    if (on && exposure == "photo") why += ", foto-belichting";
     if (on || sh_.game_camera_on()) sh_.set_game_camera(on, why);
 }
 
 void IoBridgeService::stop_locked() {
+    if (sh_.set_game_camera_photo) sh_.set_game_camera_photo(false);
     if (sh_.game_camera_on && sh_.set_game_camera && sh_.game_camera_on()) sh_.set_game_camera(false, "de IO-brug stopt (game weg of gestopt)");
     if (!dialect_) return;
     apply_coin_keys(IoState{});   // vastgehouden munttoetsen loslaten

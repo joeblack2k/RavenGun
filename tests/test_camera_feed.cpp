@@ -79,7 +79,8 @@ void test_writer_reader(const std::string& dir) {
         CameraFeedFrame fr;
         CHECK(!camera_feed_read(f.data(), f.size(), fr));
     }
-    const uint8_t a[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    // Goed belichte beelden (luma rond kFeedTargetLuma): ongewijzigd doorgegeven.
+    const uint8_t a[16] = {111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126};
     w.write(a, 1234);
     {
         const auto f = slurp(path);
@@ -90,14 +91,14 @@ void test_writer_reader(const std::string& dir) {
         CHECK(fr.data.size() == 16 && std::memcmp(fr.data.data(), a, 16) == 0);
     }
     uint8_t b[16];
-    for (int i = 0; i < 16; ++i) b[i] = static_cast<uint8_t>(100 + i);
+    for (int i = 0; i < 16; ++i) b[i] = static_cast<uint8_t>(120 + i);
     w.write(b, 1250);
     uint32_t seq2 = 0;
     {
         const auto f = slurp(path);
         CameraFeedFrame fr;
         CHECK(camera_feed_read(f.data(), f.size(), fr));
-        CHECK(fr.head.frames == 2 && fr.data[0] == 100 && fr.data[15] == 115);
+        CHECK(fr.head.frames == 2 && fr.data[0] == 120 && fr.data[15] == 135 && w.gain() == 1.0);
         seq2 = fr.head.seq;
     }
     // Een beeld halverwege (seq oneven, zoals de lezer het tijdens het schrijven ziet): geweigerd.
@@ -116,6 +117,31 @@ void test_writer_reader(const std::string& dir) {
     CHECK(fs::file_size(path) == 64 + 8);
     w.close(true);
     CHECK(!fs::exists(path));   // uit = weg: het spel ziet geen camera meer
+}
+
+// Een donker beeld (de camera staat op het volgen van de Move) krijgt een versterkte luma, de chroma blijft; begrensd op kFeedMaxGain
+// en langzaam bijgesteld (Mario Kart DX, foto bijna zwart, 2026-10-17).
+void test_writer_gain(const std::string& dir) {
+    const std::string path = dir + "/ravengun_Camera_gain";
+    CameraFeedWriter w;
+    std::string err;
+    CHECK(w.open(path, 4, 2, 8, 60, 1, err));
+    uint8_t d[16];
+    for (int i = 0; i < 16; i += 2) { d[i] = 22; d[i + 1] = 100; }
+    CHECK(feed_gain_target(d, 4, 2, 8) == 5.0);
+    w.write(d, 1);
+    {
+        const auto f = slurp(path);
+        CameraFeedFrame fr;
+        CHECK(camera_feed_read(f.data(), f.size(), fr) && fr.data[0] == 110 && fr.data[1] == 100 && fr.data[14] == 110 && w.gain() == 5.0);
+    }
+    for (int i = 0; i < 16; i += 2) d[i] = 1;   // bijna zwart: hooguit kFeedMaxGain, en niet in een keer
+    CHECK(feed_gain_target(d, 4, 2, 8) == kFeedMaxGain);
+    w.write(d, 2);
+    CHECK(w.gain() > 5.0 && w.gain() < kFeedMaxGain);
+    for (int i = 0; i < 16; i += 2) d[i] = 250;  // fel: nooit donkerder maken
+    CHECK(feed_gain_target(d, 4, 2, 8) == 1.0);
+    w.close(true);
 }
 
 void test_choice() {
@@ -161,7 +187,7 @@ int main() {
     const char* d = ::mkdtemp(tmpl);
     CHECK(d != nullptr);
     test_header();
-    if (d) test_writer_reader(d);
+    if (d) { test_writer_reader(d); test_writer_gain(d); }
     test_choice();
     if (d) fs::remove_all(d);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

@@ -199,6 +199,12 @@ if [[ ! -f $BEPINEX_DIR/x64/BepInEx/core/BepInEx.Preloader.dll || ! -f $BEPINEX_
   bash "$DATA/scripts/fetch-bepinex.sh" 5.4.21.0 ||
     echo "BepInEx could not be fetched (no network?); games with BepInEx = ... need it: run $DATA/scripts/fetch-bepinex.sh." >&2
 fi
+# Mods uit [Mod <naam>] van game.ini (de Engelse vertaling van Mario Kart DX); een mod die al klaarstaat wordt overgeslagen.
+if [[ -f "$DATA/scripts/fetch-mods.py" && -d "$DATA/patches" ]] && grep -qs '^\[Mod ' "$DATA"/patches/*/game.ini; then
+  say "Fetching game mods (translations) described in the patches"
+  python3 -I "$DATA/scripts/fetch-mods.py" --patches "$DATA/patches" ||
+    echo "A mod could not be fetched (no network?); games with Mod = ... need it: run $DATA/scripts/fetch-mods.py." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"

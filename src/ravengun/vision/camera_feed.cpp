@@ -59,10 +59,32 @@ bool CameraFeedWriter::open(const std::string& path, uint32_t width, uint32_t he
     return true;
 }
 
+double feed_gain_target(const uint8_t* frame, uint32_t width, uint32_t height, uint32_t stride) {
+    // Gemiddelde luma over een rooster (elke 8e pixel, elke 8e regel); YUY2: Y op de even bytes.
+    uint64_t som = 0, n = 0;
+    for (uint32_t y = 0; y < height; y += 8)
+        for (uint32_t x = 0; x < width; x += 8) { som += frame[static_cast<size_t>(y) * stride + 2u * x]; ++n; }
+    const double mean = n ? static_cast<double>(som) / static_cast<double>(n) : kFeedTargetLuma;
+    return std::clamp(kFeedTargetLuma / std::max(mean, 1.0), 1.0, kFeedMaxGain);
+}
+
 void CameraFeedWriter::write(const uint8_t* frame, uint32_t t_ms) {
     if (!map_ || !frame) return;
     if ((seq_ & 1u) == 0) store_seq(map_, ++seq_);   // oneven: bezig
-    std::memcpy(map_ + RG_CAMFEED_HEADER, frame, static_cast<size_t>(stride_) * h_);
+    // De PS Eye staat afgesteld op het volgen van de Move (korte belichting, gain 0): een foto in het spel wordt dan bijna zwart
+    // (Mario Kart DX, gemiddelde luma 10 van 255, 2026-10-17). Het spel krijgt daarom een versterkte luma (gain_, langzaam naar
+    // feed_gain_target); de tracker leest de camera zelf en merkt er niets van. Een goed belicht beeld blijft gelijk (gain 1).
+    const double doel = feed_gain_target(frame, w_, h_, stride_);
+    gain_ = frames_ == 0 ? doel : gain_ + 0.1 * (doel - gain_);
+    if (gain_ <= 1.01) {
+        std::memcpy(map_ + RG_CAMFEED_HEADER, frame, static_cast<size_t>(stride_) * h_);
+    } else {
+        uint8_t lut[256];
+        for (int i = 0; i < 256; ++i) lut[i] = static_cast<uint8_t>(std::min(255.0, i * gain_ + 0.5));
+        const size_t n = static_cast<size_t>(stride_) * h_;
+        uint8_t* uit = map_ + RG_CAMFEED_HEADER;
+        for (size_t i = 0; i < n; i += 2) { uit[i] = lut[frame[i]]; uit[i + 1] = frame[i + 1]; }
+    }
     ++frames_;
     std::memcpy(map_ + 36, &frames_, 4);
     std::memcpy(map_ + 40, &t_ms, 4);

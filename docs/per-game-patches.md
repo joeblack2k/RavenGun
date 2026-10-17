@@ -170,6 +170,7 @@ ViewTtcAsTtf =                ; A.ttc[, ...]: in de view wordt de TrueType-colle
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 PeFillPages =                 ; true: in dezelfde lokale kopie lopen de secties tot hun bladzijde, zoals Windows ze mapt (zie hieronder)
 BepInEx =                     ; versie (bv. 5.4.21.0): BepInEx naast de exe in de view, voor een eigen plugin als drop-in (zie hieronder)
+Mod =                         ; naam | none: een mod uit [Mod <naam>] (bv. een vertaling), gebouwd in een lokale cache en in de view gelinkt (zie "Mods")
 
 [Display]
 AimAspect =                   ; bv. 4:3 of 1024x768: het beeld van het spel op de tv; de daemon legt de aim-ruimte van de lightgun
@@ -490,6 +491,20 @@ kast stopt de game zichzelf (`Application.Quit`); de plugin `RavenGun.MenInBlack
 `direct_files.cpp`, in het plan `bepinex_dir`; het logboek noemt `bepinex: <map>`. Let op: met de gesloten kern van TeknoParrot laadde
 BepInEx bij Men in Black niet (gemeten); de game draait daarom op onze kern (`[Loader] Core = ravengun`).
 
+**Mods (`[Launch] Mod = <naam>`, `[Mod <naam>]`).** Een mod van derden die bestanden van de game vervangt of op een offset
+overschrijft, zoals de Engelse fanvertaling van Mario Kart Arcade GP DX (MKDX English Mod 2023). `[Mod <naam>]` beschrijft hem:
+`Url` (een tar.gz van een vastgepinde commit), `Root` (de map in het archief), `List` (de lijst, standaard `files.csv`), `TreeSha256`
+(de boom na het uitpakken: sha256 over de regels `sha256  ./pad`, op pad gesorteerd) en `ExeSha256` (de exe waar de mod voor is;
+die van de NAS, niet de lokale kopie in de view). `scripts/fetch-mods.py [Game]` haalt hem op naar `<data>/mods/<Game>/<naam>/files`
+(niets in git; `install-user.sh` doet het ook). De lijst heeft de indeling van de patcher van de MKDX-mod: per regel doel (pad in de
+map van de exe), bestand (in `Root`) en `replace` of een offset; een kopregel `target,...` wordt overgeslagen. Bij de start bouwt de
+launcher elk doel met een offset een keer in `<data>/mods/<Game>/<naam>/built` (kopie van het origineel van de NAS met de bestanden
+op hun offset; een `.stamp` ernaast onthoudt grootte en mtime van het origineel en de boom), en linkt de doelen in de view daarheen
+(`replace`: naar het bestand van de mod). Op de NAS verandert niets. `Mod = none` (of een andere mod) zet de links die nog naar een mod
+van deze game wijzen terug naar het origineel. In de app: de optie "Language" (`launch_env` `RG_MOD`, kEnvMap `[Launch] Mod`). Mario
+Kart DX: 107 bestanden, 77 .pac-archieven gebouwd (1,1 GB, eerste start ongeveer een minuut). In de engine: `place_view_mod` in
+`direct_apply.cpp`, in het plan `mod_*`; het logboek noemt `mod: <naam>: N bestanden in de view`.
+
 **Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
 een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.
 Paden ten opzichte van de map van de exe, relatief, zonder `..`; meerdere paren gescheiden door komma's. Voorbeeld: Mario Kart
@@ -549,6 +564,8 @@ Use = game      ; game = gebruikt de camera tijdens het spelen: het beeld van de
                 ; presence = wil alleen dat er een camera IS: een virtuele met een kunstbeeld, NOOIT de echte
                 ; setup = alleen voor de inrichting: niets | none = niets (standaard)
 Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN = precies die | none
+Exposure =      ; tracking (standaard) = de instellingen van de daemon (donker, voor de bol van de Move)
+                ; photo = zolang het spel de camera heeft: automatische belichting, gain en witbalans (een foto in het spel)
 ```
 
 - Zonder `[Camera]` krijgt een spel geen camera en verandert er niets aan hoe het gestart wordt.
@@ -576,6 +593,12 @@ Device = auto   ; auto = de camera uit de instellingen van de app | /dev/videoN 
   Foundation-camera ("RavenGun camera"; YUY2, NV12 en RGB32). Eerste gebruiker: Mario Kart Arcade GP DX. Een tweede camera
   (niet die van de daemon) wordt op de Wine-route nog niet doorgegeven; het logboek van de daemon zegt dat
   (`camera voor het spel aan/uit: ...`). `ravengunctl --json camera` toont `game_feed`.
+- Het beeld voor het volgen van de Move is donker (korte belichting, gain 0, witbalans uit; Mario Kart DX: gemiddelde luma 10 van 255).
+  Met `Exposure = photo` zet de capture-thread van de daemon de camera, zolang het spel hem heeft, op automatische belichting, gain en
+  witbalans, en daarna de eigen waarden terug (`CameraService::set_game_photo`; logboek `camera: foto-belichting ...`). Dat is voor
+  een spel dat de Move niet volgt (Mario Kart: luma 90, een goede foto). Wat dan nog te donker is, krijgt in het bestand voor het spel
+  een versterkte luma (`CameraFeedWriter`, naar luma 110, hooguit 8x); de tracker leest de camera zelf en merkt daar niets van. In de app:
+  de optie "Camera exposure" (`launch_env` `RG_CAMERA_EXPOSURE`, kEnvMap `[Camera] Exposure`).
 
 **Twee exe's (`HasTwoExecutables`).** Een profiel met een los hulpprogramma naast het spel (een daemon) wordt door
 `launch-direct.py` in een vaste orde gestart: de tweede exe eerst als `LaunchSecondExecutableFirst = true`, anders het spel eerst;
