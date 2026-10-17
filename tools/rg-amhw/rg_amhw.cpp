@@ -113,7 +113,6 @@ constexpr DWORD kJvsReplyMs = 250;
 
 bool is_dev_path(const char* n, const char* tail) { return n && lstrcmpiA(n, tail) == 0; }
 
-void sram_write_all();
 void sram_load() {
     if (g_sram_loaded) return;
     g_sram_loaded = true;
@@ -123,11 +122,6 @@ void sram_load() {
         rg_log("mxsram: %s ingelezen (%lu van %lu bytes)", g_sram_path, static_cast<unsigned long>(n), static_cast<unsigned long>(g_sram.size()));
     } else {
         rg_log("mxsram: %s bestaat nog niet; leeg SRAM (%lu bytes)", g_sram_path, static_cast<unsigned long>(g_sram.size()));
-    }
-    // Een leeg SRAM heeft regio 0, en LGS stopt dan op "Error 0903 Wrong Region" (amhw_sysdata.h): zet een geldig AM_SYSDATA_STATIC met de regio van de keychip.
-    if (g_region && rg_amhw::seed_static_sysdata(g_sram, g_region)) {
-        rg_log("mxsram: AM_SYSDATA_STATIC ontbrak of was kapot; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
-        sram_write_all();
     }
 }
 void sram_flush(long long off, size_t n) {
@@ -147,10 +141,6 @@ void sram_flush(long long off, size_t n) {
         std::fwrite(g_sram.data() + off, 1, n, f);
     }
     std::fclose(f);
-}
-
-void sram_write_all() {
-    if (FILE* f = std::fopen(g_sram_path, "wb")) { std::fwrite(g_sram.data(), 1, g_sram.size(), f); std::fclose(f); }
 }
 
 HANDLE make_handle(Kind k, const char* name) {
@@ -225,6 +215,7 @@ const char* const kSmbusPath = "\\\\?\\rg-amhw-smbus";
 const GUID kSmbusGuid = {0x5C49E1FE, 0x3FEC, 0x4B8D, {0xA4, 0xB5, 0x76, 0xBE, 0x70, 0x25, 0xD8, 0x42}};
 bool is_smbus_guid(const GUID* g) { return g && std::memcmp(g, &kSmbusGuid, sizeof(GUID)) == 0; }
 
+void eeprom_flush(size_t off, size_t n);
 void hw_load() {
     if (g_hw) return;
     g_hw = new rg_amhw::HwRegs();
@@ -239,6 +230,12 @@ void hw_load() {
         rg_log("smbus: EEPROM %s ingelezen (%lu bytes)", g_eeprom_path, static_cast<unsigned long>(n));
     } else {
         rg_log("smbus: EEPROM %s bestaat nog niet; leeg (0xFF)", g_eeprom_path);
+    }
+    // AM_SYSDATA_STATIC staat in de EEPROM (amhw_sysdata.h). Een lege EEPROM heeft regio 0: LGS en SDR melden dan "Error 0903 Wrong Region" en GG valt terug op
+    // een andere taal. Zet een geldig record met de regio van de keychip als het ontbreekt, kapot is of regio 0 heeft.
+    if (g_region && rg_amhw::seed_static_sysdata(g_hw->eeprom, g_region)) {
+        rg_log("smbus: AM_SYSDATA_STATIC in de EEPROM ontbrak of was kapot; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
+        eeprom_flush(0, g_hw->eeprom.size());
     }
     rg_log("smbus: dipschakelaars %02X,%02X; Super I/O-chip-id A230 (type 1)", g_hw->i2c[0x20][4], g_hw->i2c[0x20][5]);
 }

@@ -856,3 +856,6 @@ TeknoParrot" (alleen Ghostbusters en Walking Dead overgeslagen) is voor de helft
   een echte dongle blijft de eerste keus waar die er is. De Patreon-poort van TeknoParrot (2026-10-12) blijft zoals besloten.
 - **Herzien.** De regels "geen dongle-laag" (2026-10-11, Reactie op OPDRACHT), "dongle, keychip, integriteit onaangeroerd"
   (2026-10-12) en "HOTDSD: geen eigen AM-diensten" (2026-10-11) gelden niet meer voor de eigen games; de rest van die besluiten wel.
+
+Aanvulling (meting 8, proef 10): AM_SYSDATA_STATIC staat in de EEPROM (gebied 0), niet in het SRAM; de SRAM-seeding is vervangen door EEPROM-seeding. De SMBus-opdracht [18 03 57 ..] is de "EEPROM klaar?"-controle
+(ACK = status 0) en moest beantwoord worden, anders faalt elke EEPROM-actie met -8. `RG_AMHW_REGION` komt uit `[Game] PcbRegion`, anders uit de keychip-regio. Geen nieuwe keychip-cryptografie toegevoegd.

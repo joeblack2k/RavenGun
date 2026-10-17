@@ -336,6 +336,32 @@ Nagebootst in `rg-amhw.dll` (`tools/rg-amhw/amhw_smbus.h`, protocollen daar uitg
 **LGI3D (0949, vóór de tabelfix):** de run van 18:36 stuurde `keychip.ds.compute=0FF918953DD880&page=3`, de game stuurde de echo terug en gaf `Verify MAC NG`. Met de tabel-antwoorden (Meting 6) en de echte
 `MACtbl/SBWB_Table.dat` klopt dat nu; test opnieuw.
 
+### Meting 8 (TV proef 10, 19:07-19:26): het record zit in de EEPROM, niet in het SRAM; en de EEPROM was niet "klaar"
+
+**Correctie op Meting 7.** In proef 10 stond in `views/LGS/rg-amhw.log` wel `AM_SYSDATA_STATIC ... regio 02 ... gezet` en bleef LGS toch op 0903. Reden [gelezen, LGS]: de gebiedstabel
+(`0x52FC30`, gekozen door `amPlatformGetBoardType`) heeft vier gebieden; **gebied 0 en 1 (4 KB elk) lezen en schrijven met `0x463000`/`0x4631C0` = amEepromRead/Write, gebied 2 en 3 (het SRAM)
+met `0x4679C0`/`0x467BD0` = amSramRead/Write**. Record 0 (AM_SYSDATA_STATIC, descriptor `0x52F51C`) ligt in gebied 0: EEPROM-offset 0 (en een kopie op 0x200), niet SRAM-offset 0. Het record
+(0x20 bytes, CRC32 + byte 0xC = regio) is dus naar de EEPROM verhuisd (`tools/rg-amhw/amhw_smbus.h` + `amhw_sysdata.h`, `mxeeprom.bin`); het SRAM wordt niet meer aangeraakt. Dit sluit aan op de
+TeknoParrot-instellingen: `DongleRegion` = `keychip.appboot.region`, `PcbRegion` = dit EEPROM-record (LGI noemt het `readRegionEeprom`/`readRegionBuSram`, OG `KeyRegion:`/`BoardRegion:`). `rg-direct` zet
+`RG_AMHW_REGION` uit `[Game] PcbRegion` en anders uit de keychip-regio.
+
+**Bitindeling [gelezen, LGI `0x674A3B`..`0x674B3E`]:** 01 = JPN, 02 = USA, 04 = EXP, 08 = CHN (`DefaultRegion` uit de `[AM]`-ini wordt naar die bits vertaald: "USA" -> 2, "EXP" -> 4, "CHN" -> 8, anders 1; de teksten
+"Region is JPN/USA/EXP/CHN" staan er bij). LGS accepteert 2, 4 en 8 (`0x414AF0`), SDR elke regio ongelijk 0 (en maskeert met de keychip-regio), de rest geen controle.
+
+**De opdracht `[18 03 57 00 00 00 00]` op ioctl 0x9C402004 [gelezen, OG `0x58EDC0`]:** dit is niet de EEPROM zelf maar de "is hij klaar?"-controle van amEeprom vóór elke lees- of schrijfactie
+(adres 0x57 = de EEPROM, opdracht 3 = adres-ACK). De game zet byte 0 op 0x18 (NAK), roept de ioctl aan en wacht hoogstens `[63B4EC]` ms (6) tot byte 0 nul wordt. Wij beantwoordden dat niet (FALSE), dus
+elke EEPROM-actie gaf -8: "GetInfo: Faild to backup.(code=-8)", daarna "Faild to init application data area" en OG stopte met 3005. LGI/LGI3D/GG/Transformers vroegen hem ook (honderden keren in `rg-amhw.log`).
+Nu: opdracht 3 geeft status 0 (ACK).
+
+**Per game na proef 10:**
+* **GG** speelt zonder TP maar met Chinese tekst. GG vraagt de keychip-regio nooit (`amDongleGetRegion` wordt in de exe nergens aangeroepen) en leest geen regio via `amLibGetRegion`; de enige regiebron is dus
+  het EEPROM-record, dat met de falende EEPROM regio 0 gaf. De dump is een Chinese uitvoering: regio 0 = geen bekende regio = Chinese tekst; TP gaf met `EXPORT` Engels. **Verwacht: met het record op 04 Engels.** Niet gemeten.
+* **LGS** 0903: record stond op het verkeerde medium (zie hierboven). **SDR** 0949: stelling niet te bewijzen zonder start; SDR vraagt alleen systemflag, version en region (de region komt in `0x805A6C` als masker),
+  nooit keyid/ds/ssd, en sluit 5 s later af (`mxmaster.foreground.next=3` is amMasterExit). De EEPROM-fout is de enige afwijking die we kennen; test opnieuw.
+* **OG** 3005: de EEPROM-ACK (zie boven). De volgende stap, `Faild to check application data area` (install, poort 40102), kan nog een eigen antwoord nodig hebben; staat het er dan nog, dan is dat de eerstvolgende plek.
+* **LGI, LGI3D**: de 3x `[18 03 57 ..]` ("niet nagebootst") waren precies deze EEPROM-controle; de nette stop op ~38 s hoort daarbij. Dat het bureaublad in beeld stond is een venster-kwestie (niet in `rg-amhw`).
+* **Transformers**: zwart beeld, wel JVS-verkeer en de keychip (ds/ssd uit de tabel); hetzelfde EEPROM-probleem is mogelijk de oorzaak, niet bevestigd.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

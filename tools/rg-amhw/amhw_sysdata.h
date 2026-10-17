@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// De "systeemgegevens" (amSysData) die de AM Library van de Sega Ring-games in het backup-SRAM bewaart, en dan vooral AM_SYSDATA_STATIC: daar staat de regio van
-// de KAST in (naast het serienummer). Gelezen in LGS (GameSampR_RingWide.exe, amSysData Ver.1.05):
+// De "systeemgegevens" (amSysData) die de AM Library van de Sega Ring-games in de EEPROM bewaart (gebied 0 en 1, 4 KB elk, lees/schrijf = amEepromRead/Write;
+// het SRAM is gebied 2 en 3), en dan vooral AM_SYSDATA_STATIC: daar staat de regio van de KAST in (naast het serienummer). Gelezen in LGS
+// (GameSampR_RingWide.exe, amSysData Ver.1.05; gebiedstabel 0x52FC30, lees-/schrijffuncties 0x463000/0x4631C0 = EEPROM, 0x4679C0/0x467BD0 = SRAM):
 //
 //   0x41B880  GetInfo: leest AM_SYSDATA_STATIC in ctx+0x68 via amBackupRecordReadDup (0x463AF0): eerst de eerste kopie, bij een CRC-fout de tweede.
 //             "GetInfo: AM_SYSDATA_STATIC broken.(code=%d, use default)" -> standaardwaarden (0x470C00): alles 0, serienummer "INVALID_SERIALNO".
@@ -8,7 +9,7 @@
 //   0x414A10  controle bij de start: de regio moet 2 (USA), 4 (Export) of 8 (China) zijn, anders fout 0x387 = "Error 0903 Wrong Region". Een leeg
 //             SRAM geeft dus 0 en dus 0903, ook als de keychip (keychip.appboot.region) een goede regio meldt: de twee zijn onafhankelijk.
 //
-// Opslag in het SRAM: record 0 (descriptor 0x52F51C): 0x20 bytes op SRAM-offset 0 en een tweede kopie op 0x200. Indeling van een record:
+// Opslag in de EEPROM: record 0 (descriptor 0x52F51C, gebied 0): 0x20 bytes op EEPROM-offset 0 en een tweede kopie op 0x200. Indeling van een record:
 //   [0..3]   CRC32 (IEEE, beginwaarde 0, zoals zlib.crc32) over bytes [4..0x20)         (amBackupRecordCheckValid 0x463710, tabel 0x475DD0)
 //   [4..0x1F] 0x1C bytes: byte 0xC = regio, byte 0xD = 0, vanaf 0xF het serienummer (17 bytes, "INVALID_SERIALNO" + NUL)
 // Alleen standaardbibliotheek; gebruikt door rg_amhw.cpp en de tests.
@@ -48,9 +49,9 @@ inline void make_static_record(uint8_t* out, uint8_t region, const char* serial 
     std::memcpy(out, &c, 4);
 }
 
-// Zet in een (leeg of kapot) SRAM een geldig AM_SYSDATA_STATIC met deze regio. Raakt een record met een geldige CRC en een regio die al 2/4/8/1 is
+// Zet in een (lege of kapotte) EEPROM-afbeelding een geldig AM_SYSDATA_STATIC met deze regio. Raakt een record met een geldige CRC en een regio die al 2/4/8/1 is
 // niet aan (de eigenaar kan de regio in het testmenu van de game hebben gezet). Geeft terug of er iets veranderd is.
-inline bool seed_static_sysdata(std::vector<uint8_t>& sram, uint8_t region) {
+inline bool seed_static_sysdata(std::vector<uint8_t>& sram, uint8_t region) {   // `sram` = de afbeelding van de EEPROM (naam uit de eerste versie)
     if (region == 0 || sram.size() < 0x200 + kStaticRecordSize) return false;
     bool good = false;
     for (size_t off : kStaticOffsets)

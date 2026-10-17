@@ -112,14 +112,25 @@ int main(int argc, char** argv) {
         ov.hEvent = CreateEventA(nullptr, FALSE, FALSE, nullptr);
         check(DeviceIoControl(sm, 0x9C402004, pk, 0x25, pko, 0x25, nullptr, &ov) && pko[0] == 0 && pko[5] == 0x70, "SMBus: dip-register 4 lezen (overlapped, direct klaar): 0x70");
         check(WaitForSingleObject(ov.hEvent, 0) == WAIT_OBJECT_0, "de gebeurtenis van de OVERLAPPED is gezet");
-        uint8_t eb[0x27] = {0, 8, 0x57, 0, 0x10, 0, 4, 0xDE, 0xAD, 0xBE, 0xEF};
+        uint8_t eb[0x27] = {0, 8, 0x57, 0, 0x00, 0x01, 4, 0xDE, 0xAD, 0xBE, 0xEF};
         check(DeviceIoControl(sm, 0x9C40200C, eb, 0x27, eb, 0x27, &sg, nullptr) && sg == 0x27 && eb[0] == 0, "SMBus: EEPROM schrijven (0x27 bytes terug)");
-        uint8_t er[0x27] = {0, 9, 0x57, 0, 0x10, 0, 4};
+        uint8_t er[0x27] = {0, 9, 0x57, 0, 0x00, 0x01, 4};
         check(DeviceIoControl(sm, 0x9C40200C, er, 0x27, er, 0x27, &sg, nullptr) && er[7] == 0xDE && er[10] == 0xEF, "SMBus: EEPROM terug lezen");
+        {   // AM_SYSDATA_STATIC in de EEPROM (RG_AMHW_REGION=02): gebied 0, offset 0 en 0x200, 0x20 bytes, CRC32 over de laatste 0x1C
+            for (size_t off : {size_t(0), size_t(0x200)}) {
+                uint8_t sd[0x27] = {0, 9, 0x57, 0, static_cast<uint8_t>(off & 0xFF), static_cast<uint8_t>(off >> 8), 0x20};
+                check(DeviceIoControl(sm, 0x9C40200C, sd, 0x27, sd, 0x27, &sg, nullptr) && rg_amhw::static_record_valid(sd + 7) && sd[7 + 0xC] == 2,
+                      off ? "EEPROM 0x200: geldig AM_SYSDATA_STATIC met regio 2 (tweede kopie)" : "EEPROM 0: geldig AM_SYSDATA_STATIC met regio 2");
+            }
+        }
+        {   // de ready-controle van amEeprom (OG 0x58EDC0): [18 03 57 ...] moet met status 0 terugkomen
+            uint8_t rp[0x25] = {0x18, 3, 0x57}, rpo[0x25] = {0x18};
+            check(DeviceIoControl(sm, 0x9C402004, rp, 0x25, rpo, 0x25, &sg, nullptr) && rpo[0] == 0, "SMBus: opdracht 3 (EEPROM klaar?) geeft status 0");
+        }
         CloseHandle(sm);
         FILE* ef = std::fopen((dir + "\\mxeeprom.bin").c_str(), "rb");
         check(ef != nullptr, "mxeeprom.bin staat naast de DLL");
-        if (ef) { std::fseek(ef, 0x10, SEEK_SET); uint8_t eg[4] = {}; std::fread(eg, 1, 4, ef); std::fclose(ef); check(eg[0] == 0xDE && eg[3] == 0xEF, "de geschreven EEPROM-bytes staan in het bestand"); }
+        if (ef) { std::fseek(ef, 0x100, SEEK_SET); uint8_t eg[4] = {}; std::fread(eg, 1, 4, ef); std::fclose(ef); check(eg[0] == 0xDE && eg[3] == 0xEF, "de geschreven EEPROM-bytes staan in het bestand"); }
         // Super I/O, zoals amHmProbeSuperIoDevice (OG 0x592F10): versie, chip-id 0xA230 (type 1), I2C-adres van de monitor.
         HANDLE su = CreateFileW(L"\\\\.\\mxsuperio", 0xC0000000, 3, nullptr, OPEN_EXISTING, 0x80, nullptr);
         check(su != INVALID_HANDLE_VALUE, "\\\\.\\mxsuperio is nagebootst");
@@ -153,15 +164,9 @@ int main(int argc, char** argv) {
     check(WriteFile(s, w, 0x200, &got, nullptr) && got == 0x200, "WriteFile 0x200");
     SetFilePointer(s, 0x4000, &hi, FILE_BEGIN);
     check(ReadFile(s, rd, 0x200, &got, nullptr) && got == 0x200 && std::memcmp(w, rd, 0x200) == 0, "ReadFile geeft terug wat er stond");
-    // Sector 0: de DLL heeft een geldig AM_SYSDATA_STATIC met regio 2 gezet (RG_AMHW_REGION=02), op 0 en op 0x200 (amhw_sysdata.h).
     SetFilePointer(s, 0, &hi, FILE_BEGIN);
     char z[0x200];
-    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200, "sector 0 lezen");
-    check(rg_amhw::static_record_valid(reinterpret_cast<const uint8_t*>(z)) && z[0xC] == 2, "sector 0: geldig AM_SYSDATA_STATIC met regio 2");
-    SetFilePointer(s, 0x200, &hi, FILE_BEGIN);
-    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && rg_amhw::static_record_valid(reinterpret_cast<const uint8_t*>(z)) && z[0xC] == 2, "de tweede kopie op 0x200 idem");
-    SetFilePointer(s, 0x1000, &hi, FILE_BEGIN);
-    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && z[0] == 0 && z[0x1FF] == 0, "een ander sector is nog leeg");
+    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && z[0] == 0 && z[0x1FF] == 0, "sector 0 van het SRAM is leeg (AM_SYSDATA_STATIC staat in de EEPROM, niet hier)");
     check(SetFilePointer(s, 0x200000, &hi, FILE_BEGIN) == 0x200000 && ReadFile(s, z, 0x200, &got, nullptr) && got == 0, "voorbij het einde: 0 bytes");
     CloseHandle(s);
     // Persistentie: een tweede open leest het bestand weer in (de DLL leest alleen bij het eerste open; dus bestandscontrole).
