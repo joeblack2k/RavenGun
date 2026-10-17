@@ -29,6 +29,29 @@
     {"signals": ["p2.aux1", "p2.btn1"], "unless": ["p2.trigger"], "offset": 30, "bit": 4},
     {"signals": ["p2.grenade"], "offset": 30, "bit": 1}
    ]
+  },
+  "FastIO": {
+   "description": "Taito Type X4 FastIO (EmulationProfile GunslingerStratos3, Theatrhythm; TeknoParrotUi FastIOPipe): 64 bytes elke ~15 ms. Byte 0: test 0x40, service 0x04, start speler 1 0x10, speler 2 0x20; byte 1: richtingen (speler 1 omhoog 0x01, omlaag 0x04, links 0x10, rechts 0x40); byte 2: knoppen 1-4 van speler 1 (0x01, 0x04, 0x10, 0x40) en 2 (0x02, 0x08, 0x20, 0x80); byte 4: munt 1 (1 zolang ingedrukt); bytes 8/9 de sticks van speler 1 (8 bits, nog niet ingevuld). Bij ons: volume omhoog/omlaag = menu omhoog/omlaag van speler 1. Toegevoegd 2026-10-17: Gunslinger Stratos 3 wacht op deze pipe.",
+   "pipe": "TeknoParrotPipe",
+   "size": 64,
+   "interval_ms": 15,
+   "bits": [
+    {"signals": ["test"], "offset": 0, "bit": 6},
+    {"signals": ["service"], "offset": 0, "bit": 2},
+    {"signals": ["p1.start"], "offset": 0, "bit": 4},
+    {"signals": ["p2.start"], "offset": 0, "bit": 5},
+    {"signals": ["coin1"], "offset": 4, "bit": 0},
+    {"signals": ["volume_up"], "offset": 1, "bit": 0},
+    {"signals": ["volume_down"], "offset": 1, "bit": 2},
+    {"signals": ["p1.trigger"], "offset": 2, "bit": 0},
+    {"signals": ["p1.reload"], "offset": 2, "bit": 2},
+    {"signals": ["p1.grenade"], "offset": 2, "bit": 4},
+    {"signals": ["p1.aux1"], "offset": 2, "bit": 6},
+    {"signals": ["p2.trigger"], "offset": 2, "bit": 1},
+    {"signals": ["p2.reload"], "offset": 2, "bit": 3},
+    {"signals": ["p2.grenade"], "offset": 2, "bit": 5},
+    {"signals": ["p2.aux1"], "offset": 2, "bit": 7}
+   ]
   }
  }
 }
