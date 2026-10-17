@@ -119,6 +119,25 @@ QString debDataMember(const QString& deb, const QString& outDir, QString* err) {
 }  // namespace
 
 bool extractArchive(const QString& file, const QString& destDir, const ExtractOptions& opt, QString* err) {
+    if (opt.nestedDebs) {
+        // Eerst alleen de .deb-leden naar een tijdelijke map (plat, geen paden uit het archief), dan elke deb met de gewone regels.
+        QTemporaryDir tmp;
+        if (!tmp.isValid()) { if (err) *err = QStringLiteral("cannot create a temporary folder"); return false; }
+        ExtractOptions outer;
+        outer.cancel = opt.cancel;
+        outer.flattenLower = true;
+        outer.nameFilterSuffix = QStringLiteral(".deb");
+        if (!extractArchive(file, tmp.path(), outer, err)) return false;
+        const QStringList debs = QDir(tmp.path()).entryList({QStringLiteral("*.deb")}, QDir::Files, QDir::Name);
+        if (debs.isEmpty()) { if (err) *err = QStringLiteral("%1 contains no .deb packages").arg(QFileInfo(file).fileName()); return false; }
+        ExtractOptions inner = opt;
+        inner.nestedDebs = false;
+        inner.progress = nullptr;
+        for (const QString& d : debs)
+            if (!extractArchive(tmp.path() + QLatin1Char('/') + d, destDir, inner, err)) return false;
+        if (opt.progress) opt.progress(QFileInfo(file).size(), QFileInfo(file).size());
+        return true;
+    }
     if (file.endsWith(QLatin1String(".deb"))) {
         QTemporaryDir tmp;
         if (!tmp.isValid()) { if (err) *err = QStringLiteral("cannot create a temporary folder"); return false; }

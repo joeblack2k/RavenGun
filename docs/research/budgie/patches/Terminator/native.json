@@ -1,0 +1,78 @@
+{
+  "title": "Terminator Salvation",
+  "enabled": false,
+  "status": "kandidaat",
+  "note": "KANDIDAAT (nooit gestart in deze vorm). Terminator is nu 'working' via de directe route (BudgieLoader onder Wine); dit profiel is de native vervanger, samengesteld uit wat de attract-runs van 2026-10-13 (patches/Terminator/ATTRACT-RUN.md, 19 min attract op rg-elfloader) als nodig aanwezen: de HASP-haak met adreslijst + emulator + de antwoordtafel hasp/ (dropin), /g3 = de spelmap als overlay (cwd van het spel, zoals op de kast; het spel schrijft er /g3/irgun en logbestanden, die in de laag landen en nooit op de NAS) en /T4User als overlay, de seriele JAMMA-lijn /dev/ttyS0 en /dev/sierra2 als pty-paar (librg_ptylink) met de bordkant erachter (librg-t4-jamma: nulmeting, leeglezen, flanken van toetsen; docs/research/budgie/src/rg_t4_jamma.c, nog niet in CMake), een stil /dev/dsp (librg-oss-stub), force_glsl_version=120 en de glutInit-herschrijving (RG_GLUT_DISPLAY_FROM_ENV, zit in rg_t4_jamma.c). OPEN: (1) richten: de geweren zitten niet in dit profiel (het spel zoekt een ttyUSB-poort via /g3/irgun, en /dev/js0 levert alleen assen); (2) /dev/js0 is hier /dev/null (zoals in de attract-runs; de lezers houden alleen asgebeurtenissen over) en /dev/ttyUSB* ontbreekt; (3) netwerk: het spel belt 67.217.33.130:8985 (de sandbox heeft --unshare-net); (4) de MUIS/Move-aansluiting en de trekker/pomp-schakelaars op de JAMMA-lijn zijn niet gekoppeld.",
+  "arch": "i386",
+  "loader": "rg-elfloader",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Terminator Salvation ",
+      "dst": "/g3",
+      "mode": "overlay"
+    },
+    {
+      "src": "@nas/Terminator Salvation /T4User",
+      "dst": "/T4User",
+      "mode": "overlay"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/Terminator/dropin/hasp-haken.ini",
+      "dst": "/rg/hasp-haken.ini"
+    },
+    {
+      "src": "/dev/null",
+      "dst": "/dev/js0"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/Terminator/dropin/ravengun-hasp",
+      "dst": "/g3/ravengun-hasp"
+    }
+  ],
+  "libs": [
+    "@lib32/libPhysXLoader.so.1",
+    "@lib32/libPhysXCore.so",
+    "@lib32/libNxCharacter.so.1",
+    "@lib32/libNxCooking.so",
+    "@lib32/libtheora.so.0",
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1",
+    "@build/lib32/librg_ptylink.so",
+    "@build/lib32/librg-oss-stub.so",
+    "@build/lib32/librg-t4-jamma.so",
+    "@patches/Terminator/dropin/libravengun-hasphook.so",
+    "@patches/Terminator/dropin/ravengun-hasp.so"
+  ],
+  "preload": "/rg/lib/librg_ptylink.so:/rg/lib/librg-oss-stub.so:/rg/lib/libravengun-hasphook.so:/rg/lib/librg-t4-jamma.so",
+  "env": {
+    "RG_PTYLINK": "/dev/ttyS0=/tmp/ttyJamma;/dev/sierra2=/tmp/ttySierra",
+    "RG_PTYLINK_LOG": "1",
+    "RG_T4_JAMMA_DEV": "/tmp/ttyJamma",
+    "RG_T4_AUTOSTART": "25",
+    "RG_T4_KBD": "/dev/input/ravengun-kbd",
+    "RG_T4_LOG": "1",
+    "RG_GLUT_DISPLAY_FROM_ENV": "1",
+    "force_glsl_version": "120",
+    "RG_ELF_PTRACER_ANY": "1",
+    "RAVENGUN_HASP_GAME": "Terminator",
+    "RAVENGUN_HASP_DIR": "/g3/ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+    "RAVENGUN_HASP_ELF_ADRESLIJST": "/rg/hasp-haken.ini",
+    "RAVENGUN_HASP_VERBOSE": "1"
+  },
+  "exe": "/g3/game",
+  "cwd": "/g3",
+  "home": "/g3",
+  "args": [
+    "-n",
+    "-f{res}"
+  ],
+  "res": "1360x768",
+  "route": "evdev"
+}

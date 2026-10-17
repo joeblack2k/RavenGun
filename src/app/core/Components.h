@@ -18,7 +18,7 @@ struct ComponentDownload {
     QString url;
     QString sha256;    // hex; leeg alleen voor mods (daar bewaakt TreeSha256 de inhoud)
     qint64 size = 0;   // bytes (0 = onbekend)
-    QString archive;   // tar.gz | tar.xz | zip | pkg.tar.zst | deb | cab | file (bestand ongewijzigd, bv. een msi)
+    QString archive;   // tar.gz | tar.xz | zip | pkg.tar.zst | deb | tar.gz+deb (tar.gz vol .deb's) | cab | file (bestand ongewijzigd, bv. een msi)
 };
 
 struct Component {

@@ -203,6 +203,7 @@ bool installExtract(const Component& c, const QStringList& files, const Componen
         o.subdir = c.subdir;
         o.include = c.include;
         o.map = c.map;
+        o.nestedDebs = d.archive == QLatin1String("tar.gz+deb");
         o.cancel = cancel;
         o.progress = [&](qint64 done, qint64 total) { if (progress) progress(QStringLiteral("Extracting"), done, total); };
         if (!extractArchive(files.at(i), st, o, err)) return false;

@@ -170,28 +170,53 @@ private slots:
             QVERIFY(c->downloads.first().url.startsWith(QStringLiteral("https://archive.ubuntu.com/")));
             QVERIFY(c->detect.contains(QString::fromLatin1(w.file)));
         }
-        // Nooit meer uit de TeknoParrot-map: ook de gebruikersonderdelen noemen alleen een eigen doelmap.
-        const Component* px = Components::find(all, QStringLiteral("physx-linux"));
+        // PhysX 2.8.1: NVIDIA's eigen tarball met debs, vastgepind; de vier bibliotheken onder de namen die de games laden.
+        Component* px = Components::find(all, QStringLiteral("physx-linux"));
         QVERIFY(px);
-        QCOMPARE(px->kind, QStringLiteral("userfolder"));
-        QCOMPARE(px->include.size(), 4);
-        QCOMPARE(px->dest, QStringLiteral("runtime/physx-2.8.1"));
+        QCOMPARE(px->kind, QStringLiteral("download"));
+        QCOMPARE(px->downloads.size(), 1);
+        QCOMPARE(px->downloads.first().archive, QStringLiteral("tar.gz+deb"));
+        QCOMPARE(px->downloads.first().sha256, QStringLiteral("2a4822f6f5ba9c00993e529392c6fd957bb0c5e07518e9a08bae9ee502428913"));
+        QVERIFY(px->downloads.first().url.startsWith(QStringLiteral("https://developer.download.nvidia.com/PhysX/")));
+        for (const char* n : {"libPhysXLoader.so.1", "libPhysXCore.so", "libNxCharacter.so.1", "libNxCooking.so"})
+            QVERIFY2(px->detect.contains(QStringLiteral("runtime/lib32/") + QString::fromLatin1(n)), n);
         QVERIFY(Components::find(all, QStringLiteral("fmod-win"))->optional);
 
-        // De bron van een userfolder-onderdeel met jokertekens in het midden van het pad, en alleen de genoemde bestanden gekopieerd.
+        // Uitpakken van een tar.gz vol debs (nagebootst): alleen de genoemde bestanden, onder de doelnamen, plus de licentietekst.
+        ExtractOptions o;
+        o.nestedDebs = true;
+        o.map = px->map;
+        const QString dir = tmp_.path() + QStringLiteral("/px");
+        QVERIFY2(extractArchive(arch(QStringLiteral("test-debs.tar.gz")), dir, o, &err), qPrintable(err));
+        QCOMPARE(readFile(dir + QStringLiteral("/runtime/lib32/libPhysXCore.so")), QByteArray("core\n"));
+        QCOMPARE(readFile(dir + QStringLiteral("/runtime/lib32/libNxCooking.so")), QByteArray("cook\n"));
+        QCOMPARE(readFile(dir + QStringLiteral("/runtime/lib32/libPhysXLoader.so.1")), QByteArray("loader\n"));
+        QCOMPARE(readFile(dir + QStringLiteral("/runtime/licenses/physx-2.8.1-copyright.txt")), QByteArray("licentie\n"));
+        QVERIFY(!QFileInfo::exists(dir + QStringLiteral("/usr")));
+        QVERIFY(!extractArchive(arch(QStringLiteral("test.tar.gz")), dir + QStringLiteral("2"), o, &err));   // geen debs erin
+
+        // Installeren met het onderdeel zelf (uit het bestand in plaats van het net): daarna staat alles onder runtime/lib32.
         ComponentEnv e = env();
+        QCOMPARE(Components::status(*px, e).state, ComponentState::Missing);
+        QVERIFY2(ComponentInstaller::installFromFiles(*px, {arch(QStringLiteral("test-debs.tar.gz"))}, e, nullptr, nullptr, &err), qPrintable(err));
+        QCOMPARE(readFile(e.path(QStringLiteral("runtime/lib32/libPhysXCore.so"))), QByteArray("core\n"));
+        QCOMPARE(readFile(e.path(QStringLiteral("runtime/lib32/libNxCharacter.so.1"))), QByteArray("char\n"));
+        QCOMPARE(Components::status(*px, e).state, ComponentState::Installed);
+
+        // Een userfolder-onderdeel (FMOD) met jokertekens in het midden van het pad: alleen de genoemde bestanden gekopieerd.
+        const Component* fm = Components::find(all, QStringLiteral("fmod-win"));
         const QString games = tmp_.path() + QStringLiteral("/nas/Teknoparrot/Some Game");
         QDir().mkpath(games);
-        const QString libs = tmp_.path() + QStringLiteral("/nas/Teknoparrot/TeknoParrotUi-9.9-x64/ElfLdr2/libs");
-        for (const QString& n : px->include) writeFile(libs + QLatin1Char('/') + n, n.toUtf8());
+        const QString libs = tmp_.path() + QStringLiteral("/nas/Teknoparrot/TeknoParrotUi-9.9-x64/ElfLdr2/x64/libs");
+        for (const QString& n : fm->include) writeFile(libs + QLatin1Char('/') + n, n.toUtf8());
         writeFile(libs + QStringLiteral("/libandere.so"), "nee");
         e.sourceRoots = {games};
-        Component* p = Components::find(all, QStringLiteral("physx-linux"));
+        Component* p = Components::find(all, QStringLiteral("fmod-win"));
         QCOMPARE(Components::status(*p, e).state, ComponentState::Missing);
         QCOMPARE(Components::status(*p, e).source, libs);
         QVERIFY2(ComponentInstaller::installFromFiles(*p, {}, e, nullptr, nullptr, &err), qPrintable(err));
-        QCOMPARE(readFile(e.path(QStringLiteral("runtime/physx-2.8.1/libPhysXCore.so"))), QByteArray("libPhysXCore.so"));
-        QVERIFY(!QFileInfo::exists(e.path(QStringLiteral("runtime/physx-2.8.1/libandere.so"))));
+        QCOMPARE(readFile(e.path(QStringLiteral("runtime/fmod-win/fmod64.dll"))), QByteArray("fmod64.dll"));
+        QVERIFY(!QFileInfo::exists(e.path(QStringLiteral("runtime/fmod-win/libandere.so"))));
         QCOMPARE(Components::status(*p, e).state, ComponentState::Installed);
     }
     void extractFormats() {
