@@ -110,6 +110,11 @@ struct DirectPlan {
     std::string mod_name, mod_root, mod_built, mod_game_root, mod_view_root, mod_tree, mod_exe, mod_exe_sha256;
     std::vector<ModEntry> mod_entries;
     std::vector<std::string> reg_files;                   // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
+    // [Launch] AmDaemon = true: rg-direct is voor de duur van de run de AM-daemon van de Sega Ring-games (amdaemon.hpp) op 127.0.0.1:
+    // am_ports, met de antwoorden in am_values (de standaardwaarden van amd::default_values met [AmDaemon] van game.ini erover).
+    bool am_daemon = false;
+    std::vector<std::string> am_ports;
+    EnvMap am_values;
     std::string pipe_mode, shm_source, pipehelper;         // de JVS-brug: "pipe" of "shm", bronbestand, rg-jvsbridge.exe of pipehelper.exe
     // De besturingspipe ([Input] ControlPipe op route tp-shm; leeg = geen): de indeling (control-pipe-profiles.json), de naam van de
     // pipe in de prefix (TeknoParrotPipe), het bestand dat de daemon schrijft, de grootte van een rapport en het tempo. rg-direct

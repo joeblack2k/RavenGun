@@ -466,6 +466,9 @@ std::string plan_to_json(const DirectPlan& pl) {
     for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     strs("reg_files", pl.reg_files);
+    w.key("am_daemon").value(pl.am_daemon);
+    strs("am_ports", pl.am_ports);
+    map("am_values", pl.am_values);
     w.key("dropin_files").begin_array();
     for (const auto& f : pl.dropin_files) w.begin_object().key("src").value(f.src).key("dest").value(f.dest).key("name").value(f.name).end_object();
     w.end_array();
@@ -518,6 +521,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
         err = "plan: stack_reserve buiten de grenzen of zonder bron en doel";
         return false;
     }
+    b("am_daemon", pl.am_daemon); sv("am_ports", pl.am_ports); mp("am_values", pl.am_values);
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
     sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies); sv("view_ttc_fonts", pl.view_ttc_fonts);
