@@ -1,3 +1,5 @@
+> **Historisch logboek van de rondes (2026-10-09 tot 2026-10-11).** De actuele stand per game staat in `docs/compatibility.md`.
+
 # Games in TeknoParrot: status na de tweede ronde (2026-10-09)
 
 > Stand 2026-10-11 (per-game instellingen): de verwijzingen hieronder naar `io-routes.json`, `games-notes.json` en `UserProfiles/<P>.env` beschrijven de toestand van de ronde zelf. Sindsdien staat alles per game in `patches/<Game>/game.ini` en `patches.ini` (`docs/per-game-patches.md`); `RG_LOADER_FPFIX` is de patch "OpenParrotLoader zonder CONTEXT_FLOATING_POINT" geworden.

@@ -1,6 +1,20 @@
 # RavenGun — status
 
-Actuele fase: G1 gehaald en fysiek bevestigd door de gebruiker (2026-10-07 ~16:35): Halo draait op de LG-tv met beeld en geluid via HDMI, en een speelsessie is gestart (Coin/Start via vinput). Getest in Desktop Mode; Gaming Mode en de Steam-snelkoppeling zijn nog niet getest. Fase 2 (Move, camera) loopt.
+## Stand 2026-10-17
+
+- **Per game:** `docs/compatibility.md` (gegenereerd uit de `[Status]` van `patches/<Game>/game.ini` met
+  `tools/dev/gen-compatibility.py`; dat is de bron, ook voor de app).
+- **Doel van de eigenaar** "95% van de games start, Raw Thrills uitgezonderd": gehaald, 52 van 54 (96%), door de eigenaar
+  bevestigd. Lijst en taken per familie: `docs/goal-90-native.md`.
+- **Geparkeerd:** SEGA Chihiro (The House of the Dead III, Virtua Cop 3; eigenaar). **Raw Thrills:** Crossfire speelt; Walking
+  Dead en Ghostbusters missen dongle-antwoorden in de dump, Aliens Armageddon mist modelbestanden.
+- **Overgeslagen** (Japanse tekst of alleen 4:3, regel van de eigenaar): zie de tabel "overgeslagen" in `docs/goal-90-native.md`.
+
+Alles hieronder is de geschiedenis van de eerste fases (2026-10-07 en later) en beschrijft niet de huidige stand.
+
+## Geschiedenis
+
+Fase toen: G1 gehaald en fysiek bevestigd door de gebruiker (2026-10-07 ~16:35): Halo draait op de LG-tv met beeld en geluid via HDMI, en een speelsessie is gestart (Coin/Start via vinput). Getest in Desktop Mode; Gaming Mode en de Steam-snelkoppeling zijn nog niet getest. Fase 2 (Move, camera) loopt.
 
 ## Bewezen resultaten (op deze host vastgesteld, 2026-10-07)
 
