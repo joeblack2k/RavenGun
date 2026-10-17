@@ -18,7 +18,8 @@
 //   - het testmenu leest de knoppen van het bord via get_num_by_hardware: die antwoorden komen ook uit het bordbeeld;
 //   - het toetsenbord van de game staat uit (de toetsenbordobjecten, Input.GetKey*/GetAxis), behalve de pijlen links/rechts: dat
 //     is het stuur (menu omhoog/omlaag van het bordbeeld, zoals het WartranTroopers-profiel van deze game: Wheel Left/Right);
-//   - venster en resolutie uit teknoparrot.ini (test_screen.Start).
+//   - venster en resolutie uit teknoparrot.ini (test_screen.Start);
+//   - de dongle (SenseLock Sense4, dog_hardware_sense_4; de oude DllBindFunc-route in dog_check) zegt ja.
 // Gebouwd tegen Assembly-CSharp.dll van de game (refs.txt), zodat de enums van de game de echte typen zijn; de rest gaat via
 // reflectie, zoals bij de andere plugins.
 using System;
@@ -64,6 +65,15 @@ namespace RavenGun.Bepinex.AfterDark2
             Haak(h, typeof(Input), "GetKey", new[] { typeof(KeyCode) }, "Onwaar", null);
             Haak(h, typeof(Input), "GetKeyUp", new[] { typeof(KeyCode) }, "Onwaar", null);
             Haak(h, typeof(Input), "GetKeyDown", new[] { typeof(KeyCode) }, "Stuur", null);
+            // De dongle: een SenseLock Sense4 (Sense4.dll, S4Enum/S4Open/S4VerifyPin) via dog_hardware_sense_4; zonder antwoord zet
+            // game_run_manage_dog het eigen scherm "Please insert the dongle and restart the game" neer en blijft staan (TV 2026-10-17).
+            // De oudere controles (dog_check: DllBindFunc) staan er ook nog in; die zeggen hier ook ja.
+            Haak(h, AccessTools.TypeByName("dog_hardware_sense_4"), "is_dog_ok_hareware", null, "Waar", null);
+            Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_in_start", null, "DongleBijStart", null);
+            Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_in_update", null, "Waar", null);
+            foreach (string m in new[] { "dog_is_ok", "dog_is_ok_real", "is_dog_ok_when_run", "is_dog_ok_when_run_core",
+                                         "is_dog_ok_when_game_run_update_work", "DongleVerify", "is_dog_ok_hareware" })
+                Haak(h, AccessTools.TypeByName("dog_check"), m, null, "Waar", null);
             L.LogMessage("RavenGun.AfterDark2: " + gezet + " van " + gevraagd + " haken gezet");
             verbergCursor = TpIni.Lees().Waar("General/HideCursor", true);
         }
@@ -79,6 +89,13 @@ namespace RavenGun.Bepinex.AfterDark2
         }
 
         static bool Overslaan() { return false; }
+
+        static bool DongleBijStart(ref bool __result)
+        {
+            AccessTools.Field(AccessTools.TypeByName("dog_check_new"), "myis_has_dog_in_update").SetValue(null, true);
+            __result = true;
+            return false;
+        }
         static bool Waar(ref bool __result) { __result = true; return false; }
         static bool Onwaar(ref bool __result) { __result = false; return false; }
         static bool Nul(ref float __result) { __result = 0f; return false; }
