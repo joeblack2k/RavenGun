@@ -1,0 +1,28 @@
+RavenGun-wijziging 0009 op OpenParrot: met RG_SHOWWINDOW=<n> in de omgeving start de lader de game met STARTF_USESHOWWINDOW en
+wShowWindow = n (1 = SW_SHOWNORMAL, zoals Verkenner). Zonder de variabele verandert er niets.
+Waarom: Aliens Extermination roept in WinMain main(nShowCmd, &lpCmdLine) aan en glutInit leest nShowCmd als argc; met de
+standaard SW_SHOWDEFAULT (10) leest glut 9 argumenten achter het eind van de lijst (toegangsfout in glut32+0x18a2c, 2026-10-17).
+diff -ru a/OpenParrotLoader/src/main.cpp b/OpenParrotLoader/src/main.cpp
+--- a/OpenParrotLoader/src/main.cpp	2026-10-17 17:45:34.022199155 +0200
++++ b/OpenParrotLoader/src/main.cpp	2026-10-17 17:45:46.127958082 +0200
+@@ -732,6 +732,20 @@
+ 		FilePEFile = getPEFileInformation(gamePathW);
+ 	}
+ 
++	// RavenGun: de venstertoestand die de game in WinMain krijgt (nShowCmd). Zonder STARTF_USESHOWWINDOW geeft de CRT
++	// SW_SHOWDEFAULT (10); Verkenner start met SW_SHOWNORMAL (1). Aliens Extermination geeft nShowCmd als argc aan glutInit.
++	{
++		wchar_t sw[16] = { 0 };
++		DWORD n = GetEnvironmentVariableW(L"RG_SHOWWINDOW", sw, 16);
++		if (n > 0 && n < 16)
++		{
++			si.cb = sizeof(si);
++			si.dwFlags |= STARTF_USESHOWWINDOW;
++			si.wShowWindow = (WORD)_wtoi(sw);
++			wprintf(L"RavenGun: wShowWindow = %u (RG_SHOWWINDOW)\n", (unsigned)si.wShowWindow);
++		}
++	}
++
+ 	// With arguments
+ 	if (argc == 4)
+ 	{

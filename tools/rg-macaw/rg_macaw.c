@@ -56,8 +56,9 @@ static void die(const char *fmt, ...)
 /* ---- de AVS-functies ------------------------------------------------------------------------------------------------- */
 
 typedef void *(*fn_property_create)(int flags, void *buf, uint32_t size);
-typedef int (*fn_property_read_query_memsize)(void *reader, intptr_t file, uint32_t *a, uint32_t *b);
-typedef int (*fn_property_insert_read)(void *prop, void *node, void *reader, intptr_t file);
+typedef int (*fn_reader)(uint32_t context, void *bytes, size_t nbytes);
+typedef int (*fn_property_read_query_memsize)(fn_reader reader, uint32_t context, uint32_t *a, uint32_t *b);
+typedef int (*fn_property_insert_read)(void *prop, void *node, fn_reader reader, uint32_t context);
 typedef void *(*fn_property_search)(void *prop, void *node, const char *path);
 typedef intptr_t (*fn_fs_open)(const char *path, int mode, int flags);
 typedef int (*fn_fs_close)(intptr_t file);
@@ -89,26 +90,46 @@ static FARPROC need(HMODULE m, const char *name, const char *what)
 
 #define PROPERTY_FLAGS_RWCA 0xF   /* lezen|schrijven|aanmaken|toevoegen (bemanitools property.h) */
 
-/* Een XML-bestand als AVS-property. Zoals spice2x: query de grootte met avs_fs_read als lezer, maak de property, lees in. */
+/* De lezer voor property_read_query_memsize/property_insert_read: (context, buffer, aantal) -> gelezen bytes. Wij lezen uit een
+ * buffer in het geheugen, zoals bemanitools (boot_property_fread) met stdio leest: avs_fs_read kan voor avs_boot nog niets lezen
+ * (gemeten 2026-10-17: property_read_query_memsize met avs_fs_read gaf 0x80092182 op een geldig bestand). */
+static struct { const char *buf; size_t len, pos; } g_mem[4];
+
+static int mem_read(uint32_t ctx, void *bytes, size_t n)
+{
+    size_t left;
+    if (ctx >= sizeof g_mem / sizeof g_mem[0] || !g_mem[ctx].buf) return -1;
+    left = g_mem[ctx].len - g_mem[ctx].pos;
+    if (n > left) n = left;
+    memcpy(bytes, g_mem[ctx].buf + g_mem[ctx].pos, n);
+    g_mem[ctx].pos += n;
+    return (int)n;
+}
+
+static char *slurp(const char *path, size_t *len, size_t extra);
+
+/* Een XML-bestand als AVS-property: grootte opvragen, de property maken en inlezen, telkens met mem_read als lezer. */
 static void *read_property(const char *path, int bufextra)
 {
-    intptr_t f;
+    static uint32_t next;
+    uint32_t slot = next++ % (uint32_t)(sizeof g_mem / sizeof g_mem[0]);
     int size;
     uint32_t q1 = 0, q2 = 0;
     void *buf, *prop;
-    f = A.fs_open(path, 1, 420);
-    if (f < 0) die("avs_fs_open(%s) faalde", path);
-    size = A.query_memsize(A.fs_read, f, &q1, &q2);
-    A.fs_close(f);
-    if (size <= 0) die("property_read_query_memsize(%s) = %d", path, size);
+    size_t len = 0;
+    char *xml = slurp(path, &len, 0);
+    if (!xml) die("kan %s niet lezen", path);
+    g_mem[slot].buf = xml; g_mem[slot].len = len; g_mem[slot].pos = 0;
+    size = A.query_memsize(mem_read, slot, &q1, &q2);
+    if (size <= 0) die("property_read_query_memsize(%s) = %d (0x%08x)", path, size, (unsigned)size);
     size += bufextra;
     buf = calloc(1, (size_t)size);
     prop = A.property_create(PROPERTY_FLAGS_RWCA, buf, (uint32_t)size);
     if (!prop) die("property_create(%s) faalde", path);
-    f = A.fs_open(path, 1, 420);
-    if (f < 0) die("avs_fs_open(%s) faalde (tweede keer)", path);
-    if (A.insert_read(prop, NULL, A.fs_read, f) < 0) die("property_insert_read(%s) faalde", path);
-    A.fs_close(f);
+    g_mem[slot].pos = 0;
+    if (A.insert_read(prop, NULL, mem_read, slot) < 0) die("property_insert_read(%s) faalde", path);
+    g_mem[slot].buf = NULL;
+    free(xml);
     lg("property gelezen: %s (%d bytes)", path, size);
     return prop;
 }
@@ -151,6 +172,10 @@ static const char *patched_copy(const char *src, const char *name, int kind, cha
     if (kind == 1) {          /* avs-config: geen NTP (sntp/ea_on = 0) zodat het opstarten niet op het netwerk wacht */
         if (rgm_text_replace(buf, len, cap, "<ea_on __type=\"bool\">1</ea_on>", "<ea_on __type=\"bool\">0</ea_on>") != (size_t)-1)
             lg("%s: sntp/ea_on = 0", name);
+        /* log/level staat er als __type="string"; dat type kent AVS niet ("str"), het inlezen gaf 0x80092182 (2026-10-17) */
+        len = strlen(buf);
+        if (rgm_text_replace(buf, len, cap, "__type=\"string\"", "__type=\"str\"") != (size_t)-1)
+            lg("%s: __type=\"string\" -> \"str\"", name);
     } else if (kind == 2) {   /* ark-config: geen USB-sleutel nodig (/config/nousbkey, "niet 0 = geen sleutel") */
         size_t n = rgm_text_replace(buf, len, cap, "<nousbkey __type=\"s32\">0</nousbkey>", "<nousbkey __type=\"s32\">1</nousbkey>");
         if (n != (size_t)-1) { lg("%s: nousbkey = 1", name); }

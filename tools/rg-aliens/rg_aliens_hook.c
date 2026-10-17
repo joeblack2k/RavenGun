@@ -153,6 +153,23 @@ static void io_fix(unsigned char* base) {
     }
 }
 
+/* De exe heeft geen OriginalFirstThunk (OFT = 0, gemeten 2026-10-17): na het laden staan in de IAT alleen adressen, geen namen meer,
+ * dus al_find_import vindt niets. Dan de plek zoeken waar het adres van de functie zelf staat. */
+static uint32_t find_import_by_addr(unsigned char* base, size_t size, const char* dll, const char* fn) {
+    HMODULE m = GetModuleHandleA(dll);
+    FARPROC want = m ? GetProcAddress(m, fn) : NULL;
+    uint32_t lf = *(uint32_t*)(base + 0x3c), imp = *(uint32_t*)(base + lf + 24 + 0x68), d;
+    if (!want || !imp) return 0;
+    for (d = imp; d + 20 <= size; d += 20) {
+        uint32_t nm = *(uint32_t*)(base + d + 12), ft = *(uint32_t*)(base + d + 16), t;
+        if (!nm) break;
+        if (nm >= size || ft >= size || !al_ieq((const char*)base + nm, dll)) continue;
+        for (t = ft; t + 4 <= size && *(uint32_t*)(base + t); t += 4)
+            if (*(uint32_t*)(base + t) == (uint32_t)(uintptr_t)want) return t;
+    }
+    return 0;
+}
+
 static DWORD WINAPI install(LPVOID unused) {
     unsigned char* base = (unsigned char*)GetModuleHandleA(NULL);
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
@@ -164,15 +181,27 @@ static DWORD WINAPI install(LPVOID unused) {
     logf2("rg-aliens-hook: hoofdmodule %p, ImageBase 0x%08X, SizeOfImage 0x%X", (void*)base, (unsigned)nt->OptionalHeader.ImageBase, (unsigned)size);
 
     /* Is dit de bekende exe? Dan mogen we zijn kalibratie lezen en het opstartscherm bijwerken. */
-    g_game_ok = base == (unsigned char*)0x400000 && size > 0x5989000u &&
+    /* SizeOfImage is een RVA-grootte: de importplekken liggen op RVA 0x55892b0..b8 (VA 0x59892b0..b8); 0x5989000 was de VA */
+    g_game_ok = base == (unsigned char*)0x400000 && size > 0x5589000u &&
                 al_getter_matches(base + AL_GETTER_GUNS_RVA, AL_COUNTER_GUNS_VA) && al_getter_matches(base + AL_GETTER_CARD_RVA, AL_COUNTER_CARD_VA);
     logf2("bekende exe (adressen en bytes): %s", g_game_ok ? "ja" : "NEE (alleen hoofdinvoer, geen kalibratie, geen opstartscherm)");
 
     rva = al_find_import(base, size, "winmm.dll", "joyGetPosEx");
+    if (!rva) rva = find_import_by_addr(base, size, "winmm.dll", "joyGetPosEx");
     if (rva && patch_slot(base, rva, (void*)hk_joyGetPosEx, &old)) { g_real_joy = (MMRESULT(WINAPI*)(UINT, LPJOYINFOEX))old; logf2("joyGetPosEx: importplek RVA 0x%X omgezet", (unsigned)rva); }
-    else logf2("joyGetPosEx: importplek NIET gevonden of niet te beschrijven");
+    else {
+        /* Meten in plaats van raden: wat staat er in het beeld waar de importtabel hoort (2026-10-17: niet gevonden op de tv). */
+        uint32_t lf = *(uint32_t*)(base + 0x3c), imp = *(uint32_t*)(base + lf + 24 + 0x68), d;
+        logf2("joyGetPosEx: importplek NIET gevonden of niet te beschrijven (rva %X); importtabel op RVA 0x%X", (unsigned)rva, (unsigned)imp);
+        for (d = imp; imp && d + 20 <= size && d < imp + 20 * 40; d += 20) {
+            uint32_t nm = *(uint32_t*)(base + d + 12);
+            if (!nm) break;
+            logf2("  import: %.40s (OFT 0x%X, FT 0x%X)", nm < size ? (const char*)base + nm : "?", *(unsigned*)(base + d), *(unsigned*)(base + d + 16));
+        }
+    }
     old = NULL;
     rva = al_find_import(base, size, "user32.dll", "GetAsyncKeyState");
+    if (!rva) rva = find_import_by_addr(base, size, "user32.dll", "GetAsyncKeyState");
     if (rva && patch_slot(base, rva, (void*)hk_GetAsyncKeyState, &old)) { g_real_gaks = (SHORT(WINAPI*)(int))old; logf2("GetAsyncKeyState: importplek RVA 0x%X omgezet", (unsigned)rva); }
     else logf2("GetAsyncKeyState: importplek NIET gevonden of niet te beschrijven");
 
