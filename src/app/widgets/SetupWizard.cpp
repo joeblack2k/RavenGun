@@ -2,6 +2,7 @@
 #include "widgets/SetupWizard.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -10,11 +11,13 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QPushButton>
 #include <QSettings>
 #include <QVBoxLayout>
 
 #include "core/AppPaths.h"
+#include "core/Install.h"
 #include "core/Launcher.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
@@ -66,10 +69,18 @@ QWizardPage* makePage(const QString& title, const QString& subtitle) {
     return p;
 }
 
+// Een taak op de achtergrond; de regels van de taak komen in `box`, het slot in de GUI-thread.
+void runAsyncInto(QPlainTextEdit* box, const std::function<rg::OpResult(const rg::LogFn&)>& work, const std::function<void(const rg::OpResult&)>& done) {
+    rg::runAsync(box, work, [box](const QString& s) { box->appendPlainText(s); }, done);
+}
+
 }  // namespace
 
 bool SetupWizard::ShouldShowAtStart() {
     if (rg::SetupChecks::isGameMode()) return false;
+    // Een uitgepakt releasearchief dat nog niet geïnstalleerd is: altijd de wizard (stap 1 installeert), ook als hij eerder is afgerond.
+    const QString tree = rg::Install::runningTreePrefix(rg::AppPaths::binDir());
+    if (!tree.isEmpty() && !rg::Install::runsFromPrefix(rg::AppPaths::binDir(), rg::InstallLayout::current().prefix)) return true;
     return !settings().value(QStringLiteral("wizard/done"), false).toBool();
 }
 
@@ -89,7 +100,7 @@ SetupWizard::SetupWizard(rg::AppCore* core, QWidget* parent) : QWizard(parent), 
     setPage(Steam, MakeSteam());
     setPage(Done, MakeDone());
     setStartId(Welcome);
-    resize(820, 600);
+    resize(820, 660);
     connect(core_->engine(), &rg::EngineClient::controllersUpdated, this, &SetupWizard::UpdateControllers);
     connect(core_->engine(), &rg::EngineClient::connectedChanged, this, [this] {
         RefreshChecks();
@@ -123,8 +134,24 @@ QWizardPage* SetupWizard::MakeWelcome() {
     QWizardPage* p = makePage(tr("Welcome to RavenGun"), tr("RavenGun turns a PlayStation Move into a lightgun for arcade games. "
                                                         "This wizard sets up everything once, here in Desktop Mode."));
     auto* v = static_cast<QVBoxLayout*>(p->layout());
+    // Installeren (alleen als dit een uitgepakt archief is) en verwijderen (alleen als dit de installatie is).
+    install_status_ = para(QString());
+    v->addWidget(install_status_);
+    install_button_ = new NonDefaultQPushButton(tr("Install RavenGun"));
+    uninstall_button_ = new NonDefaultQPushButton(tr("Uninstall RavenGun..."));
+    auto* ih = new QHBoxLayout;
+    ih->addWidget(install_button_);
+    ih->addWidget(uninstall_button_);
+    ih->addStretch(1);
+    v->addLayout(ih);
+    install_out_ = outputBox();
+    install_out_->setMaximumHeight(130);
+    install_out_->setVisible(false);
+    v->addWidget(install_out_);
+    connect(install_button_, &QPushButton::clicked, this, &SetupWizard::RunInstall);
+    connect(uninstall_button_, &QPushButton::clicked, this, &SetupWizard::RunUninstall);
     v->addWidget(para(tr("First a quick check of this PC:")));
-    for (QLabel** l : {&check_engine_, &check_running_, &check_perms_, &check_service_, &check_camera_, &check_runtime_, &check_steam_}) {
+    for (QLabel** l : {&check_install_, &check_engine_, &check_running_, &check_perms_, &check_service_, &check_camera_, &check_runtime_, &check_steam_}) {
         *l = para(QString());
         v->addWidget(*l);
     }
@@ -139,7 +166,92 @@ QWizardPage* SetupWizard::MakeWelcome() {
     return p;
 }
 
+void SetupWizard::UpdateInstallBox() {
+    if (!install_status_) return;
+    const rg::InstallLayout layout = rg::InstallLayout::current();
+    const QString bin = rg::AppPaths::binDir();
+    const QString tree = rg::Install::runningTreePrefix(bin);
+    const bool fromPrefix = rg::Install::runsFromPrefix(bin, layout.prefix);
+    const bool installed = rg::Install::isRavenGunTree(layout.prefix);
+    install_button_->setVisible(false);
+    uninstall_button_->setVisible(false);
+    if (fromPrefix) {
+        install_status_->setText(mark(1) + tr("RavenGun is installed in <tt>%1</tt>.").arg(layout.prefix.toHtmlEscaped()));
+        check_install_->setText(mark(1) + tr("<b>Installation</b>: %1").arg(layout.prefix.toHtmlEscaped()));
+        uninstall_button_->setVisible(true);
+    } else if (!tree.isEmpty()) {
+        const QString why = rg::Install::prefixIsSafe(layout.prefix, layout.home) ? QString() : tr(" (not possible with this folder)");
+        const QString text = installed
+            ? mark(-1) + tr("RavenGun is running from <tt>%1</tt>; another copy is installed in <tt>%2</tt>. <b>Update RavenGun</b> replaces "
+                            "that copy with this one and restarts from it.")
+            : mark(0) + tr("RavenGun is running from <tt>%1</tt> and is not installed yet. <b>Install RavenGun</b> copies it to <tt>%2</tt> "
+                           "(no password needed), adds a menu entry and a desktop icon, and starts the engine when you log in. Your "
+                           "settings and games are not touched.");
+        install_status_->setText(text.arg(tree.toHtmlEscaped(), layout.prefix.toHtmlEscaped()) + why);
+        check_install_->setText(mark(installed ? -1 : 0) + tr("<b>Installation</b>: %1").arg(installed ? tr("an older copy is installed") : tr("not installed yet")));
+        install_button_->setText(installed ? tr("Update RavenGun") : tr("Install RavenGun"));
+        install_button_->setVisible(true);
+        install_button_->setEnabled(why.isEmpty());
+        uninstall_button_->setVisible(installed);
+    } else {
+        install_status_->setText(mark(-1) + tr("RavenGun is running from a developer build (<tt>%1</tt>); installing is for release folders.").arg(bin.toHtmlEscaped()));
+        check_install_->setText(mark(-1) + tr("<b>Installation</b>: developer build"));
+        uninstall_button_->setVisible(installed);
+    }
+}
+
+void SetupWizard::RunInstall() {
+    const rg::InstallLayout layout = rg::InstallLayout::current();
+    const QString tree = rg::Install::runningTreePrefix(rg::AppPaths::binDir());
+    if (tree.isEmpty()) return;
+    install_button_->setEnabled(false);
+    uninstall_button_->setEnabled(false);
+    install_out_->setVisible(true);
+    install_out_->clear();
+    runAsyncInto(install_out_, [tree, layout](const rg::LogFn& log) { return rg::Install::installTree(tree, layout, {}, log); },
+                 [this, layout](const rg::OpResult& r) {
+                     install_button_->setEnabled(true);
+                     uninstall_button_->setEnabled(true);
+                     if (!r.ok) {
+                         install_out_->appendPlainText(tr("Not installed: %1").arg(r.error));
+                         return;
+                     }
+                     install_out_->appendPlainText(tr("Done. RavenGun now restarts from the installed copy."));
+                     // Opnieuw starten vanuit de geïnstalleerde kopie; de nieuwe app opent de wizard weer.
+                     if (qEnvironmentVariableIsEmpty("RAVENGUN_NO_RELAUNCH")) {
+                         QProcess::startDetached(layout.binDir() + QStringLiteral("/ravengun"), {QStringLiteral("--setup-wizard")});
+                         QMetaObject::invokeMethod(qApp, &QCoreApplication::quit, Qt::QueuedConnection);
+                     }
+                     RefreshChecks();
+                 });
+}
+
+void SetupWizard::RunUninstall() {
+    if (QMessageBox::question(this, tr("Uninstall RavenGun"),
+                              tr("Remove RavenGun from this PC?\n\nThe engine service, the menu entry and the program folder are removed, and "
+                                 "the device rules and Bluetooth helper (you are asked for your password). Your settings, library and games, "
+                                 "and the data in ~/.local/share/ravengun, are kept.")) != QMessageBox::Yes)
+        return;
+    const rg::InstallLayout layout = rg::InstallLayout::current();
+    rg::Install::UninstallOptions opt;
+    opt.systemPartsPresent = rg::SetupChecks::systemPartsInstalled();
+    const rg::CommandLine rm = rg::SetupChecks::permissionsRemove();
+    opt.setupHelper = rm.args.value(0);
+    opt.pkexec = rm.program;
+    install_button_->setEnabled(false);
+    uninstall_button_->setEnabled(false);
+    install_out_->setVisible(true);
+    install_out_->clear();
+    runAsyncInto(install_out_, [layout, opt](const rg::LogFn& log) { return rg::Install::uninstall(layout, opt, log); },
+                 [this](const rg::OpResult& r) {
+                     install_out_->appendPlainText(r.ok ? tr("\nRavenGun is removed. Close this window to quit.") : tr("\nNot removed: %1").arg(r.error));
+                     if (r.ok && qEnvironmentVariableIsEmpty("RAVENGUN_NO_RELAUNCH")) QMetaObject::invokeMethod(qApp, &QCoreApplication::quit, Qt::QueuedConnection);
+                     UpdateInstallBox();
+                 });
+}
+
 void SetupWizard::RefreshChecks() {
+    UpdateInstallBox();
     const QString engine = rg::SetupChecks::engineBinary();
     check_engine_->setText(mark(engine.isEmpty() ? 0 : 1) +
                            (engine.isEmpty() ? tr("<b>Engine program</b>: not found. Reinstall RavenGun or build it (see docs/build.md).")
@@ -194,13 +306,16 @@ QWizardPage* SetupWizard::MakePermissions() {
                          "<li><b>Bluetooth helper</b> (/opt/ravengun/bin/ravengun-bt-helper) with a rule in "
                          "/etc/sudoers.d/ravengun-bt-helper: RavenGun may pair and unpair PS Move controllers without asking "
                          "for a password. The rule allows only this one helper, nothing else.</li></ul>"
-                         "These survive SteamOS updates. To remove them later, run <tt>uninstall-user.sh</tt> (in the scripts folder "
-                         "of RavenGun), or <tt>install-permissions.sh --rollback</tt> with administrator rights.")));
+                         "Everything comes from one small program that RavenGun ships (ravengun-setup-helper); it also keeps a "
+                         "copy of itself in /opt/ravengun/bin, which only an administrator can change. These survive SteamOS "
+                         "updates. To remove them later, press <b>Remove</b> here or use <b>Uninstall</b> on the first page.")));
     perms_status_ = para(mark(-1) + tr("Checking..."));
     v->addWidget(perms_status_);
     perms_install_ = new NonDefaultQPushButton(tr("Install (asks for your password)"));
+    perms_remove_ = new NonDefaultQPushButton(tr("Remove (asks for your password)"));
     auto* h = new QHBoxLayout;
     h->addWidget(perms_install_);
+    h->addWidget(perms_remove_);
     h->addStretch(1);
     v->addLayout(h);
     perms_out_ = outputBox();
@@ -208,7 +323,7 @@ QWizardPage* SetupWizard::MakePermissions() {
     connect(perms_install_, &QPushButton::clicked, this, [this] {
         const rg::CommandLine c = rg::SetupChecks::permissionsInstall();
         if (!c.valid()) {
-            perms_out_->setPlainText(tr("scripts/install-permissions.sh was not found next to the app."));
+            perms_out_->setPlainText(tr("The program ravengun-setup-helper was not found next to the app. Reinstall RavenGun."));
             return;
         }
         perms_out_->setPlainText(QStringLiteral("$ %1 %2\n").arg(c.program, c.args.join(QLatin1Char(' '))));
@@ -217,7 +332,21 @@ QWizardPage* SetupWizard::MakePermissions() {
             RefreshChecks();
         }, 300000);
     });
+    connect(perms_remove_, &QPushButton::clicked, this, [this] { RunPermissionsRemove(); });
     return p;
+}
+
+void SetupWizard::RunPermissionsRemove() {
+    const rg::CommandLine c = rg::SetupChecks::permissionsRemove();
+    if (!c.valid()) {
+        perms_out_->setPlainText(tr("The program ravengun-setup-helper was not found next to the app. Reinstall RavenGun."));
+        return;
+    }
+    perms_out_->setPlainText(QStringLiteral("$ %1 %2\n").arg(c.program, c.args.join(QLatin1Char(' '))));
+    RunCommand(c.program, c.args, perms_out_, perms_remove_, [this](bool ok) {
+        perms_out_->appendPlainText(ok ? tr("\nRemoved.") : tr("\nNot removed (cancelled or failed)."));
+        RefreshChecks();
+    }, 300000);
 }
 
 void SetupWizard::RunCommand(const QString& program, const QStringList& args, QPlainTextEdit* out, QPushButton* button,
@@ -248,16 +377,28 @@ QWizardPage* SetupWizard::MakeService() {
     service_out_ = outputBox();
     v->addWidget(service_out_, 1);
     connect(service_install_, &QPushButton::clicked, this, [this] {
-        const rg::CommandLine c = rg::SetupChecks::serviceInstall();
-        if (!c.valid()) {
-            service_out_->setPlainText(tr("scripts/install-service.sh was not found next to the app."));
+        const QString data = rg::AppPaths::dataRoot();
+        if (data.isEmpty()) {
+            service_out_->setPlainText(tr("The RavenGun data folder (share/ravengun) was not found next to the app."));
             return;
         }
-        service_out_->setPlainText(QStringLiteral("$ %1\n").arg(c.args.join(QLatin1Char(' '))));
-        RunCommand(c.program, c.args, service_out_, service_install_, [this](bool) {
-            core_->engine()->refreshNow();
-            UpdateService();
-        }, 60000);
+        const QString bin = rg::Install::engineBinDirFor(data);
+        const rg::InstallLayout layout = rg::InstallLayout::current();
+        service_out_->clear();
+        service_install_->setEnabled(false);
+        runAsyncInto(service_out_,
+                     [layout, data, bin](const rg::LogFn& log) {
+                         rg::OpResult r = rg::Install::writeEngineUnit(layout, data, bin, log);
+                         if (r.ok) r = rg::Install::writeOledUnit(layout, data, bin, log);
+                         if (r.ok) r = rg::Install::enableEngine(true, log);
+                         return r;
+                     },
+                     [this](const rg::OpResult& r) {
+                         if (!r.ok) service_out_->appendPlainText(tr("Failed: %1").arg(r.error));
+                         service_install_->setEnabled(true);
+                         core_->engine()->refreshNow();
+                         UpdateService();
+                     });
     });
     return p;
 }

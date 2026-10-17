@@ -9,6 +9,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QProcess>
+#include <QThread>
 #include <QtTest>
 
 #include "core/AppPaths.h"
@@ -17,6 +19,7 @@
 #include "core/GameData.h"
 #include "core/GameLibrary.h"
 #include "core/GameOptions.h"
+#include "core/Install.h"
 #include "core/Launcher.h"
 #include "core/MemoryCard.h"
 #include "core/TextConfig.h"
@@ -27,6 +30,7 @@
 #include "core/SystemControl.h"
 
 #include <linux/input.h>
+#include <unistd.h>
 
 using namespace rg;
 
@@ -118,7 +122,14 @@ private Q_SLOTS:
     void steamAddOrUpdate();
     void steamNewFile();
     void steamUsersAndRunning();
-    // A6: commando's van de wizard
+    // A6: commando's van de wizard, installeren en de engine als service (zonder shell)
+    void installPathLogic();
+    void installUnitAndDesktopFiles();
+    void installSelfInstall();
+    void installEngineService();
+    void installUninstall();
+    void installAsyncRunner();
+    void installRealBinary();
     void setupCommands();
     void dataRootOrder();
 
@@ -1907,21 +1918,546 @@ void AppCoreTest::steamUsersAndRunning() {
     QVERIFY(SteamShortcuts::steamRunning(proc));
 }
 
-// --- A6: commando's van de wizard -------------------------------------------------------------------------------------
+// --- Installeren, de engine als service en verwijderen (core/Install.h): alles in een tijdelijke HOME met een nep-systemctl ---------
+
+namespace {
+
+void makeExecutable(const QString& path) {
+    QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup |
+                                    QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::ExeOther);
+}
+
+// Een nep-systemctl: schrijft zijn argumenten naar <dir>/systemctl.log. is-active ravengund.service is "active" als <dir>/active bestaat;
+// alles met enable faalt als <dir>/fail-enable bestaat. Zet $RAVENGUN_SYSTEMCTL erop (een test mag nooit het echte systemctl bereiken).
+QString makeFakeSystemctl(const QString& dir) {
+    const QString p = dir + QStringLiteral("/fake-systemctl");
+    writeFile(p, QStringLiteral("#!/bin/sh\necho \"$@\" >> '%1/systemctl.log'\n"
+                                "case \"$*\" in\n"
+                                "  *is-active*ravengund.service*) [ -e '%1/active' ] && exit 0; exit 1;;\n"
+                                "  *is-active*) exit 1;;\n"
+                                "  *enable*) [ -e '%1/fail-enable' ] && { echo 'boom'; exit 1; }; exit 0;;\n"
+                                "esac\nexit 0\n").arg(dir).toUtf8());
+    makeExecutable(p);
+    qputenv("RAVENGUN_SYSTEMCTL", p.toUtf8());
+    return p;
+}
+
+// Een uitgepakt releasearchief in klein: programma's (nepbestanden), een bibliotheek en de datamap met de echte sjablonen.
+QString makeFakeRelease(const QString& root, const QString& marker = QStringLiteral("v1"), const QString& needs = QStringLiteral("glibc 2.17\n")) {
+    QDir(root).removeRecursively();
+    for (const char* b : {"ravengun", "ravengund", "ravengunctl", "ravengun-setup-helper"}) {
+        const QString f = root + QStringLiteral("/bin/") + QLatin1String(b);
+        writeFile(f, QStringLiteral("#!/bin/sh\necho %1 %2\n").arg(QLatin1String(b), marker).toUtf8());
+        makeExecutable(f);
+    }
+    writeFile(root + QStringLiteral("/lib/libpsmoveapi.so"), "lib\n");
+    QFile::link(QStringLiteral("libpsmoveapi.so"), root + QStringLiteral("/lib/libpsmoveapi.so.1"));
+    const QString data = root + QStringLiteral("/share/ravengun");
+    writeFile(data + QStringLiteral("/packaging/tp-shm-profiles.json"), "{}\n");
+    for (const char* t : {"systemd/ravengund.service.in", "systemd/ravengun-oled-saver.service.in", "desktop/ravengun-qt.desktop.in"})
+        writeFile(data + QStringLiteral("/packaging/") + QLatin1String(t), readAll(QStringLiteral(RAVENGUN_SOURCE_DIR "/packaging/") + QLatin1String(t)).toUtf8());
+    writeFile(data + QStringLiteral("/scripts/oled-saver.sh"), "#!/bin/sh\n");
+    writeFile(data + QStringLiteral("/VERSION"), (marker + QStringLiteral("\n")).toUtf8());
+    if (!needs.isEmpty()) writeFile(data + QStringLiteral("/REQUIRES"), needs.toUtf8());
+    return root;
+}
+
+InstallLayout fakeLayout(const QString& home, const QString& prefix) {
+    return InstallLayout::forEnvironment(home, home + QStringLiteral("/.config"), home + QStringLiteral("/.local/share"),
+                                         home + QStringLiteral("/.local/state"), prefix);
+}
+
+QString readLog(const QString& dir) { return readAll(dir + QStringLiteral("/systemctl.log")); }
+
+}  // namespace
+
+void AppCoreTest::installPathLogic() {
+    const QString home = QStringLiteral("/home/deck");
+    QString why;
+    QVERIFY(Install::prefixIsSafe(home + QStringLiteral("/.local/opt/ravengun"), home, &why));
+    QVERIFY(Install::prefixIsSafe(QStringLiteral("/home/deck/apps/rg"), home));
+    for (const QString& bad : {QStringLiteral("relative/path"), QStringLiteral(""), QStringLiteral("/"), home, QStringLiteral("/home"), QStringLiteral("/opt"),
+                               QStringLiteral("/usr/local/ravengun"), QStringLiteral("/etc/rg"), QStringLiteral("/usr"), QStringLiteral("/var/lib/rg"),
+                               QStringLiteral("/home/deck/my games"), QStringLiteral("/home/deck/a%b"), QStringLiteral("/home/deck/a\"b"),
+                               QStringLiteral("/home/deck/a'b"), QStringLiteral("/home/deck/a\\b"), QStringLiteral("/home/deck/../etc"),
+                               QStringLiteral("/home/deck/x/.."), QStringLiteral("/home/deck/a\nb")}) {
+        why.clear();
+        QVERIFY2(!Install::prefixIsSafe(bad, home, &why), qPrintable(bad));
+        QVERIFY2(!why.isEmpty(), qPrintable(bad));
+    }
+    QVERIFY(!Install::prefixIsSafe(QStringLiteral("/home"), QStringLiteral("/home/deck")));
+    // Versies en de glibc-eis.
+    QCOMPARE(Install::compareVersions(QStringLiteral("2.38"), QStringLiteral("2.43.1")), -1);
+    QCOMPARE(Install::compareVersions(QStringLiteral("2.43"), QStringLiteral("2.43.0")), 0);
+    QCOMPARE(Install::compareVersions(QStringLiteral("2.100"), QStringLiteral("2.43")), 1);
+    QVERIFY(Install::glibcProblem(QStringLiteral("glibc 2.43\nQt 6.11 or newer\n"), QStringLiteral("2.43")).isEmpty());
+    QVERIFY(Install::glibcProblem(QStringLiteral("glibc 2.43\n"), QStringLiteral("2.45")).isEmpty());
+    QVERIFY(Install::glibcProblem(QStringLiteral("glibc 2.43\n"), QStringLiteral("2.38")).contains(QStringLiteral("needs glibc 2.43 or newer, but this system has 2.38")));
+    QVERIFY(Install::glibcProblem(QString(), QStringLiteral("2.38")).isEmpty());   // geen REQUIRES = geen eis
+    QVERIFY(Install::glibcProblem(QStringLiteral("glibc >= 2.43\n"), QStringLiteral("2.40")).contains(QStringLiteral("2.43")));
+    QVERIFY(!Install::runtimeGlibc().isEmpty());
+    // Pad voor een unit/snelkoppeling.
+    QVERIFY(Install::unitPathSafe(QStringLiteral("/home/deck/.local/opt/ravengun/bin")));
+    QVERIFY(!Install::unitPathSafe(QStringLiteral("/home/de ck/x")) && !Install::unitPathSafe(QStringLiteral("rel")) && !Install::unitPathSafe(QStringLiteral("/a%h")));
+    QCOMPARE(Install::renderTemplate(QStringLiteral("ExecStart=@BINDIR@/x\nData=@DATADIR@\n@BINDIR@"), QStringLiteral("/p/bin"), QStringLiteral("/p/share/ravengun")),
+             QStringLiteral("ExecStart=/p/bin/x\nData=/p/share/ravengun\n/p/bin"));
+    // Het bureaublad uit user-dirs.dirs.
+    QCOMPARE(Install::desktopDirFromUserDirs(QStringLiteral("# x\nXDG_DOWNLOAD_DIR=\"$HOME/Downloads\"\nXDG_DESKTOP_DIR=\"$HOME/Bureaublad\"\n"), home),
+             QStringLiteral("/home/deck/Bureaublad"));
+    QVERIFY(Install::desktopDirFromUserDirs(QStringLiteral("XDG_DESKTOP_DIR=\"relatief\"\n"), home).isEmpty());
+    QVERIFY(Install::desktopDirFromUserDirs(QString(), home).isEmpty());
+    // De plekken van een installatie volgen XDG.
+    const InstallLayout l = InstallLayout::forEnvironment(home, QString(), QStringLiteral("/data"), QStringLiteral("relatief"), QString());
+    QCOMPARE(l.prefix, home + QStringLiteral("/.local/opt/ravengun"));
+    QCOMPARE(l.unitDir, home + QStringLiteral("/.config/systemd/user"));
+    QCOMPARE(l.applicationsDir, QStringLiteral("/data/applications"));
+    QCOMPARE(l.userDataDir, QStringLiteral("/data/ravengun"));
+    QCOMPARE(l.stateDir, home + QStringLiteral("/.local/state/ravengun"));   // een relatieve XDG-waarde telt niet
+    QCOMPARE(l.engineUnitFile(), home + QStringLiteral("/.config/systemd/user/ravengund.service"));
+    QCOMPARE(l.binDir(), l.prefix + QStringLiteral("/bin"));
+    QCOMPARE(l.dataDir(), l.prefix + QStringLiteral("/share/ravengun"));
+    QCOMPARE(InstallLayout::forEnvironment(home, {}, {}, {}, QStringLiteral("/x/y/../z")).prefix, QStringLiteral("/x/z"));
+    // Waar ravengund staat bij een datamap: installatie of repo.
+    const QString base = tmp_.filePath(QStringLiteral("binfor"));
+    QDir().mkpath(base + QStringLiteral("/p/bin"));
+    QDir().mkpath(base + QStringLiteral("/p/share/ravengun"));
+    QCOMPARE(Install::engineBinDirFor(base + QStringLiteral("/p/share/ravengun")), base + QStringLiteral("/p/bin"));
+    QCOMPARE(Install::engineBinDirFor(base + QStringLiteral("/repo")), base + QStringLiteral("/repo/build"));
+    // Een boom herkennen.
+    const QString rel = makeFakeRelease(tmp_.filePath(QStringLiteral("tree1")));
+    QVERIFY(Install::isRavenGunTree(rel));
+    QCOMPARE(Install::runningTreePrefix(rel + QStringLiteral("/bin")), QFileInfo(rel).canonicalFilePath());
+    QVERIFY(Install::runningTreePrefix(base + QStringLiteral("/p/bin")).isEmpty());   // geen volledige boom
+    QVERIFY(Install::runningTreePrefix(QString()).isEmpty());
+    QVERIFY(Install::runningTreePrefix(rel + QStringLiteral("/share")).isEmpty());
+    QVERIFY(Install::runsFromPrefix(rel + QStringLiteral("/bin"), rel));
+    QVERIFY(!Install::runsFromPrefix(rel + QStringLiteral("/bin"), base));
+    QVERIFY(!Install::runsFromPrefix(QString(), rel));
+    // Een symlink naar de installatie telt als dezelfde map.
+    QVERIFY(QFile::link(rel, tmp_.filePath(QStringLiteral("tree1-link"))));
+    QVERIFY(Install::runsFromPrefix(tmp_.filePath(QStringLiteral("tree1-link/bin")), rel));
+    // Kopiëren behoudt rechten en symlinks.
+    QString err;
+    QVERIFY(Install::copyTree(rel, tmp_.filePath(QStringLiteral("tree1-copy")), &err));
+    QVERIFY(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/bin/ravengund"))).isExecutable());
+    QVERIFY(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so.1"))).isSymLink());
+    QCOMPARE(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so.1"))).symLinkTarget(), tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so")));
+    QVERIFY(!Install::copyTree(tmp_.filePath(QStringLiteral("bestaat-niet")), tmp_.filePath(QStringLiteral("x")), &err) && !err.isEmpty());
+}
+
+void AppCoreTest::installUnitAndDesktopFiles() {
+    const QString data = QStringLiteral(RAVENGUN_SOURCE_DIR);
+    QString err;
+    const QString engine = Install::engineUnitText(data, QStringLiteral("/home/deck/.local/opt/ravengun/bin"), &err);
+    QVERIFY2(!engine.isEmpty(), qPrintable(err));
+    QVERIFY(engine.contains(QStringLiteral("\nExecStart=/home/deck/.local/opt/ravengun/bin/ravengund\n")));
+    QVERIFY(engine.contains(QStringLiteral("WantedBy=graphical-session.target")) && engine.contains(QStringLiteral("StandardOutput=append:%h/.local/state/ravengun/logs/ravengund.log")));
+    QVERIFY(!engine.contains(QLatin1Char('@')));
+    const QString oled = Install::oledUnitText(data, QStringLiteral("/p/bin"), &err);
+    QVERIFY(oled.contains(QStringLiteral("ExecStart=") + data + QStringLiteral("/scripts/oled-saver.sh --loop")) && !oled.contains(QLatin1Char('@')));
+    const QString desktop = Install::desktopEntryText(data, QStringLiteral("/home/deck/.local/opt/ravengun/bin"), &err);
+    QVERIFY(desktop.startsWith(QStringLiteral("[Desktop Entry]\n")) && desktop.contains(QStringLiteral("\nExec=/home/deck/.local/opt/ravengun/bin/ravengun\n")));
+    QVERIFY(desktop.contains(QStringLiteral("\nStartupWMClass=ravengun-qt")) && desktop.contains(QStringLiteral("\nType=Application\n")) && !desktop.contains(QLatin1Char('@')));
+    // Een pad met spaties of een ontbrekend sjabloon geeft geen unit maar een uitleg.
+    err.clear();
+    QVERIFY(Install::engineUnitText(data, QStringLiteral("/home/de ck/bin"), &err).isEmpty() && err.contains(QStringLiteral("spaces")));
+    err.clear();
+    QVERIFY(Install::engineUnitText(tmp_.filePath(QStringLiteral("geen-datamap")), QStringLiteral("/p/bin"), &err).isEmpty() && err.contains(QStringLiteral("Template missing")));
+}
+
+void AppCoreTest::installSelfInstall() {
+    if (::geteuid() == 0) QSKIP("niet als root");
+    const QString base = tmp_.filePath(QStringLiteral("selfinstall"));
+    QDir().mkpath(base);
+    makeFakeSystemctl(base);
+    const QString home = base + QStringLiteral("/home");
+    QDir().mkpath(home + QStringLiteral("/Desktop"));
+    const QString prefix = home + QStringLiteral("/.local/opt/ravengun");
+    const InstallLayout layout = fakeLayout(home, prefix);
+    QCOMPARE(layout.desktopDir, home + QStringLiteral("/Desktop"));
+    const QString release = makeFakeRelease(base + QStringLiteral("/release"));
+    // Gebruikersgegevens die een installatie nooit mag aanraken.
+    writeFile(layout.configDir + QStringLiteral("/library.json"), "{\"mijn\":1}\n");
+    writeFile(layout.stateDir + QStringLiteral("/logs/oud.log"), "log\n");
+    writeFile(layout.userDataDir + QStringLiteral("/runtime/tp.txt"), "tp\n");
+
+    QStringList lines;
+    Install::InstallOptions opt;
+    opt.updateDesktopDatabase = QStringLiteral("/bin/true");
+    opt.procDir = base + QStringLiteral("/proc");
+    QDir().mkpath(opt.procDir);
+    OpResult r = Install::installTree(release, layout, opt, [&lines](const QString& s) { lines << s; });
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QCOMPARE(r.prefix, prefix);
+    // De boom staat er, uitvoerbaar, met de symlink; geen tijdelijke mappen ernaast.
+    QVERIFY(Install::isRavenGunTree(prefix));
+    for (const char* b : {"ravengun", "ravengund", "ravengunctl", "ravengun-setup-helper"}) QVERIFY(QFileInfo(prefix + QStringLiteral("/bin/") + QLatin1String(b)).isExecutable());
+    QVERIFY(QFileInfo(prefix + QStringLiteral("/lib/libpsmoveapi.so.1")).isSymLink());
+    QCOMPARE(QDir(QFileInfo(prefix).path()).entryList({QStringLiteral("ravengun.*")}, QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
+    // Units: wijzen naar de installatie, nooit naar het archief.
+    const QString unit = readAll(layout.engineUnitFile());
+    QVERIFY(unit.contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/bin/ravengund\n")));
+    QVERIFY(!unit.contains(release));
+    const QString oled = readAll(layout.oledUnitFile());
+    QVERIFY(oled.contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/share/ravengun/scripts/oled-saver.sh --loop")) && !oled.contains(release));
+    QCOMPARE(QFileInfo(layout.engineUnitFile()).permissions() & QFileDevice::WriteGroup, QFileDevice::Permissions());
+    // Menu-item, bureaubladpictogram, koppelingen.
+    for (const QString& d : {layout.desktopFile(), layout.desktopDir + QStringLiteral("/ravengun-qt.desktop")}) {
+        const QString t = readAll(d);
+        QVERIFY2(t.contains(QStringLiteral("\nExec=") + prefix + QStringLiteral("/bin/ravengun\n")), qPrintable(d));
+        QVERIFY(QFileInfo(d).isExecutable() && !t.contains(release));
+    }
+    QCOMPARE(QFileInfo(layout.localBinDir + QStringLiteral("/ravengun")).symLinkTarget(), prefix + QStringLiteral("/bin/ravengun"));
+    QVERIFY(QFileInfo(layout.localBinDir + QStringLiteral("/ravengunctl")).isSymLink());
+    QVERIFY(QFileInfo(layout.stateDir + QStringLiteral("/logs")).isDir());
+    // systemctl --user: opnieuw laden en activeren + starten (de engine liep nog niet).
+    const QString log = readLog(base);
+    QVERIFY(log.contains(QStringLiteral("--user daemon-reload\n")));
+    QVERIFY(log.contains(QStringLiteral("--user enable --now ravengund.service\n")));
+    QVERIFY(!log.contains(QStringLiteral("restart")));
+    // Gebruikersgegevens ongemoeid.
+    QCOMPARE(readAll(layout.configDir + QStringLiteral("/library.json")), QStringLiteral("{\"mijn\":1}\n"));
+    QCOMPARE(readAll(layout.stateDir + QStringLiteral("/logs/oud.log")), QStringLiteral("log\n"));
+    QCOMPARE(readAll(layout.userDataDir + QStringLiteral("/runtime/tp.txt")), QStringLiteral("tp\n"));
+    QVERIFY(!lines.isEmpty());
+
+    // Bijwerken met een nieuwere boom terwijl de engine draait en er geen game is: een bestand dat weg is, is weg; herstart (zonder --now).
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    { QFile f(base + QStringLiteral("/active")); QVERIFY(f.open(QIODevice::WriteOnly)); }
+    makeFakeRelease(base + QStringLiteral("/release"), QStringLiteral("v2"));
+    writeFile(base + QStringLiteral("/release/bin/nieuw"), "x");
+    r = Install::installTree(release, layout, opt, {});
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(readAll(prefix + QStringLiteral("/share/ravengun/VERSION")).startsWith(QStringLiteral("v2")));
+    QVERIFY(QFileInfo(prefix + QStringLiteral("/bin/nieuw")).exists());
+    const QString log2 = readLog(base);
+    QVERIFY(log2.contains(QStringLiteral("--user enable ravengund.service\n")) && !log2.contains(QStringLiteral("--now")));
+    QVERIFY(log2.contains(QStringLiteral("--user restart ravengund.service\n")));
+    QCOMPARE(QDir(QFileInfo(prefix).path()).entryList({QStringLiteral("ravengun.*")}, QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
+    QCOMPARE(readAll(layout.configDir + QStringLiteral("/library.json")), QStringLiteral("{\"mijn\":1}\n"));
+    // Draait er een game (wineserver in /proc), dan geen herstart.
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    writeFile(opt.procDir + QStringLiteral("/4242/comm"), "wineserver\n");
+    r = Install::installTree(release, layout, opt, {});
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(!readLog(base).contains(QStringLiteral("restart")));
+    QVERIFY(Install::gameRunning(opt.procDir));
+    QDir(opt.procDir + QStringLiteral("/4242")).removeRecursively();
+    QVERIFY(!Install::gameRunning(opt.procDir));
+    // Vanuit de installatie zelf: alleen de units en snelkoppelingen verversen.
+    r = Install::installTree(prefix, layout, opt, [&lines](const QString& s) { lines << s; });
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(lines.join(QLatin1Char('\n')).contains(QStringLiteral("already in")));
+    QVERIFY(Install::isRavenGunTree(prefix));
+    // --no-start: alleen activeren.
+    QFile::remove(base + QStringLiteral("/active"));
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    opt.start = false;
+    QVERIFY(Install::installTree(release, layout, opt, {}).ok);
+    QVERIFY(readLog(base).contains(QStringLiteral("--user enable ravengund.service\n")) && !readLog(base).contains(QStringLiteral("--now")));
+    opt.start = true;
+    opt.shortcuts = false;
+    QFile::remove(layout.desktopFile());
+    QVERIFY(Install::installTree(release, layout, opt, {}).ok && !QFileInfo::exists(layout.desktopFile()));
+    opt.shortcuts = true;
+
+    // Weigeringen laten de bestaande installatie intact.
+    const QString before = readAll(prefix + QStringLiteral("/share/ravengun/VERSION"));
+    makeFakeRelease(base + QStringLiteral("/release-oud"), QStringLiteral("v3"), QStringLiteral("glibc 99.0\n"));
+    r = Install::installTree(base + QStringLiteral("/release-oud"), layout, opt, {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("needs glibc 99.0")));
+    QCOMPARE(readAll(prefix + QStringLiteral("/share/ravengun/VERSION")), before);
+    QCOMPARE(QDir(QFileInfo(prefix).path()).entryList({QStringLiteral("ravengun.*")}, QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
+    r = Install::installTree(base + QStringLiteral("/geen-boom"), layout, opt, {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("not a complete RavenGun folder")));
+    QDir().mkpath(base + QStringLiteral("/geen-boom/bin"));
+    QVERIFY(!Install::installTree(base + QStringLiteral("/geen-boom"), layout, opt, {}).ok);
+    InstallLayout bad = layout;
+    bad.prefix = QStringLiteral("/usr/local/ravengun");
+    QVERIFY(!Install::installTree(release, bad, opt, {}).ok);
+    bad.prefix = home + QStringLiteral("/mijn map");
+    QVERIFY(!Install::installTree(release, bad, opt, {}).ok);
+    // Een bestaande map die niet van ons is, blijft met rust.
+    bad.prefix = home + QStringLiteral("/fotos");
+    writeFile(bad.prefix + QStringLiteral("/vakantie.jpg"), "jpg");
+    r = Install::installTree(release, bad, opt, {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("not a RavenGun installation")));
+    QCOMPARE(readAll(bad.prefix + QStringLiteral("/vakantie.jpg")), QStringLiteral("jpg"));
+    // Een lege bestaande map mag wel.
+    bad.prefix = home + QStringLiteral("/leeg");
+    QDir().mkpath(bad.prefix);
+    QVERIFY(Install::installTree(release, bad, opt, {}).ok && Install::isRavenGunTree(bad.prefix));
+}
+
+void AppCoreTest::installEngineService() {
+    if (::geteuid() == 0) QSKIP("niet als root");
+    const QString base = tmp_.filePath(QStringLiteral("engineservice"));
+    QDir().mkpath(base);
+    makeFakeSystemctl(base);
+    const QString home = base + QStringLiteral("/home");
+    const InstallLayout layout = fakeLayout(home, home + QStringLiteral("/.local/opt/ravengun"));
+    const QString data = makeFakeRelease(base + QStringLiteral("/tree")) + QStringLiteral("/share/ravengun");
+    const QString bin = base + QStringLiteral("/tree/bin");
+    // Het unitbestand wordt geschreven, de logmap gemaakt; geen systemctl nodig voor het schrijven.
+    OpResult r = Install::writeEngineUnit(layout, data, bin, {});
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(readAll(layout.engineUnitFile()).contains(QStringLiteral("ExecStart=") + bin + QStringLiteral("/ravengund\n")));
+    QVERIFY(QFileInfo(layout.stateDir + QStringLiteral("/logs")).isDir());
+    QVERIFY(Install::writeOledUnit(layout, data, bin, {}).ok);
+    QVERIFY(!QFileInfo::exists(base + QStringLiteral("/systemctl.log")));
+    // Ontbrekende engine: duidelijke fout, het bestaande unitbestand blijft.
+    const QString good = readAll(layout.engineUnitFile());
+    r = Install::writeEngineUnit(layout, data, base + QStringLiteral("/leeg"), {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("ravengund not found")));
+    QCOMPARE(readAll(layout.engineUnitFile()), good);
+    // Activeren: daemon-reload, dan enable --now (of alleen enable).
+    QVERIFY(Install::enableEngine(true, {}).ok);
+    QCOMPARE(readLog(base), QStringLiteral("--user daemon-reload\n--user enable --now ravengund.service\n"));
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    QVERIFY(Install::enableEngine(false, {}).ok);
+    QCOMPARE(readLog(base), QStringLiteral("--user daemon-reload\n--user enable ravengund.service\n"));
+    // Mislukt systemctl: de fout komt terug.
+    { QFile f(base + QStringLiteral("/fail-enable")); QVERIFY(f.open(QIODevice::WriteOnly)); }
+    r = Install::enableEngine(true, {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("enable --now ravengund.service")) && r.error.contains(QStringLiteral("boom")));
+    // Herstarten: alleen als er geen game draait.
+    const QString proc = base + QStringLiteral("/proc");
+    QDir().mkpath(proc);
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    QVERIFY(Install::restartEngineIfIdle(proc, {}));
+    QVERIFY(readLog(base).contains(QStringLiteral("--user restart ravengund.service")));
+    writeFile(proc + QStringLiteral("/77/comm"), "gamescope\n");
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    QVERIFY(!Install::restartEngineIfIdle(proc, {}));
+    QVERIFY(!readLog(base).contains(QStringLiteral("restart")));
+}
+
+void AppCoreTest::installUninstall() {
+    if (::geteuid() == 0) QSKIP("niet als root");
+    const QString base = tmp_.filePath(QStringLiteral("uninstall"));
+    QDir().mkpath(base);
+    makeFakeSystemctl(base);
+    // Nep-pkexec: schrijft zijn argumenten weg.
+    const QString pk = base + QStringLiteral("/fake-pkexec");
+    writeFile(pk, QStringLiteral("#!/bin/sh\necho \"$@\" >> '%1/pkexec.log'\necho verwijderd\n").arg(base).toUtf8());
+    makeExecutable(pk);
+    const QString home = base + QStringLiteral("/home");
+    QDir().mkpath(home + QStringLiteral("/Desktop"));
+    const QString prefix = home + QStringLiteral("/.local/opt/ravengun");
+    const InstallLayout layout = fakeLayout(home, prefix);
+    Install::InstallOptions io;
+    io.updateDesktopDatabase = QStringLiteral("/bin/true");
+    QVERIFY(Install::installTree(makeFakeRelease(base + QStringLiteral("/release")), layout, io, {}).ok);
+    writeFile(layout.configDir + QStringLiteral("/library.json"), "{}\n");
+    writeFile(layout.userDataDir + QStringLiteral("/runtime/tp.txt"), "tp\n");
+    // Een snelkoppeling die niet de onze is, blijft staan.
+    writeFile(layout.desktopDir + QStringLiteral("/ander.desktop"), "[Desktop Entry]\nExec=/usr/bin/ander\n");
+    QDir().mkpath(layout.unitDir + QStringLiteral("/ravengun-oled-saver.service.d"));
+    writeFile(layout.unitDir + QStringLiteral("/ravengun-oled-saver.service.d/ravengun-app.conf"), "[Service]\n");
+    QVERIFY(QFile::link(QStringLiteral("/usr/bin/ander"), layout.localBinDir + QStringLiteral("/ravengunctl-vreemd")));
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+
+    Install::UninstallOptions opt;
+    opt.keepRoot = true;
+    opt.systemPartsPresent = true;
+    opt.setupHelper = QStringLiteral("/opt/ravengun/bin/ravengun-setup-helper");
+    opt.pkexec = pk;
+    opt.updateDesktopDatabase = QStringLiteral("/bin/true");
+    // --keep-root: pkexec wordt niet aangeroepen.
+    InstallLayout other = layout;   // ander prefix: eerst een tweede installatie voor de keepRoot-proef
+    QStringList lines;
+    OpResult r = Install::uninstall(layout, opt, [&lines](const QString& s) { lines << s; });
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(!QFileInfo::exists(base + QStringLiteral("/pkexec.log")));
+    QVERIFY(lines.join(QLatin1Char('\n')).contains(QStringLiteral("Keeping the system parts")));
+    QVERIFY(!QFileInfo::exists(prefix));
+    QVERIFY(!QFileInfo::exists(layout.engineUnitFile()) && !QFileInfo::exists(layout.oledUnitFile()) && !QFileInfo::exists(layout.desktopFile()));
+    QVERIFY(!QFileInfo::exists(layout.desktopDir + QStringLiteral("/ravengun-qt.desktop")) && !QFileInfo::exists(layout.unitDir + QStringLiteral("/ravengun-oled-saver.service.d")));
+    QVERIFY(QFileInfo::exists(layout.desktopDir + QStringLiteral("/ander.desktop")));
+    QVERIFY(!QFileInfo(layout.localBinDir + QStringLiteral("/ravengun")).isSymLink() && !QFileInfo(layout.localBinDir + QStringLiteral("/ravengunctl")).isSymLink());
+    QVERIFY(QFileInfo(layout.localBinDir + QStringLiteral("/ravengunctl-vreemd")).isSymLink());
+    const QString log = readLog(base);
+    QVERIFY(log.contains(QStringLiteral("--user disable --now ravengund.service")) && log.contains(QStringLiteral("--user disable --now ravengun-oled-saver.service")));
+    QVERIFY(log.contains(QStringLiteral("--user daemon-reload")));
+    // Instellingen en gebruikersgegevens blijven.
+    QVERIFY(QFileInfo::exists(layout.configDir + QStringLiteral("/library.json")) && QFileInfo::exists(layout.userDataDir + QStringLiteral("/runtime/tp.txt")));
+
+    // Met de systeemonderdelen: pkexec <hulp> --rollback, en --remove-config haalt ook de instellingen weg.
+    QVERIFY(Install::installTree(base + QStringLiteral("/release"), layout, io, {}).ok);
+    opt.keepRoot = false;
+    opt.removeConfig = true;
+    r = Install::uninstall(layout, opt, {});
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QCOMPARE(readAll(base + QStringLiteral("/pkexec.log")), QStringLiteral("/opt/ravengun/bin/ravengun-setup-helper --rollback\n"));
+    QVERIFY(!QFileInfo::exists(prefix) && !QFileInfo::exists(layout.configDir) && !QFileInfo::exists(layout.stateDir));
+    QVERIFY(QFileInfo::exists(layout.userDataDir + QStringLiteral("/runtime/tp.txt")));   // nooit automatisch
+    // Het hulpprogramma ontbreekt of pkexec mislukt: de rest gaat door, met uitleg voor de gebruiker.
+    QVERIFY(Install::installTree(base + QStringLiteral("/release"), layout, io, {}).ok);
+    opt.setupHelper.clear();
+    lines.clear();
+    r = Install::uninstall(layout, opt, [&lines](const QString& s) { lines << s; });
+    QVERIFY(r.ok && lines.join(QLatin1Char('\n')).contains(QStringLiteral("could not be removed automatically")));
+    // Een onveilig prefix wordt geweigerd; dan blijft alles staan.
+    InstallLayout bad = layout;
+    bad.prefix = QStringLiteral("/usr");
+    QVERIFY(!Install::uninstall(bad, opt, {}).ok);
+    Q_UNUSED(other);
+}
+
+void AppCoreTest::installAsyncRunner() {
+    QObject ctx;
+    QStringList logs;
+    bool done = false;
+    OpResult got;
+    QThread* mainThread = QThread::currentThread();
+    bool doneInMain = false, workInOther = false;
+    runAsync(&ctx,
+             [&workInOther, mainThread](const LogFn& log) {
+                 workInOther = QThread::currentThread() != mainThread;
+                 log(QStringLiteral("een"));
+                 log(QStringLiteral("twee"));
+                 OpResult r;
+                 r.ok = true;
+                 r.prefix = QStringLiteral("/x");
+                 return r;
+             },
+             [&logs](const QString& s) { logs << s; },
+             [&](const OpResult& r) {
+                 done = true;
+                 got = r;
+                 doneInMain = QThread::currentThread() == mainThread;
+             });
+    QTRY_VERIFY_WITH_TIMEOUT(done, 5000);
+    QVERIFY(workInOther && doneInMain && got.ok && got.prefix == QStringLiteral("/x"));
+    QCOMPARE(logs, (QStringList{QStringLiteral("een"), QStringLiteral("twee")}));
+    // Verdwijnt de context eerder, dan komt er geen aanroep meer (en geen crash).
+    bool called = false;
+    {
+        auto* gone = new QObject;
+        runAsync(gone, [](const LogFn&) { QThread::msleep(100); return OpResult(); }, {}, [&called](const OpResult&) { called = true; });
+        delete gone;
+    }
+    QTest::qWait(300);
+    QVERIFY(!called);
+}
+
+// De echte app-binary uit een nagemaakt releasearchief: `ravengun --install` kopieert de boom, schrijft units en snelkoppelingen en de
+// geïnstalleerde kopie vindt zijn eigen datamap. Alles in een tijdelijke HOME met een nep-systemctl.
+void AppCoreTest::installRealBinary() {
+#ifdef RAVENGUN_APP_BIN
+    if (::geteuid() == 0) QSKIP("niet als root");
+    const QString base = tmp_.filePath(QStringLiteral("realbinary"));
+    QDir().mkpath(base);
+    makeFakeSystemctl(base);
+    const QString home = base + QStringLiteral("/home");
+    QDir().mkpath(home);
+    const QString release = makeFakeRelease(base + QStringLiteral("/release"));
+    QVERIFY(QFile::remove(release + QStringLiteral("/bin/ravengun")));
+    QVERIFY(QFile::copy(QStringLiteral(RAVENGUN_APP_BIN), release + QStringLiteral("/bin/ravengun")));
+    makeExecutable(release + QStringLiteral("/bin/ravengun"));
+    const QString prefix = home + QStringLiteral("/opt/rg");
+    QProcessEnvironment env;
+    env.insert(QStringLiteral("HOME"), home);
+    env.insert(QStringLiteral("XDG_CONFIG_HOME"), home + QStringLiteral("/.config"));
+    env.insert(QStringLiteral("XDG_DATA_HOME"), home + QStringLiteral("/.local/share"));
+    env.insert(QStringLiteral("XDG_STATE_HOME"), home + QStringLiteral("/.local/state"));
+    env.insert(QStringLiteral("XDG_RUNTIME_DIR"), base);
+    env.insert(QStringLiteral("RAVENGUN_PREFIX"), prefix);
+    env.insert(QStringLiteral("RAVENGUN_SYSTEMCTL"), base + QStringLiteral("/fake-systemctl"));
+    env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+    // Nooit het echte pkexec: de uninstall van de systeemonderdelen gaat naar een nep-pkexec dat alleen zijn argumenten bewaart.
+    const QString fakePkexec = base + QStringLiteral("/fake-pkexec");
+    writeFile(fakePkexec, QStringLiteral("#!/bin/sh\necho \"$@\" >> '%1/pkexec.log'\nexit 0\n").arg(base).toUtf8());
+    makeExecutable(fakePkexec);
+    env.insert(QStringLiteral("RAVENGUN_PKEXEC"), fakePkexec);
+    auto run = [&env](const QString& exe, const QStringList& args, QString* out) {
+        QProcess p;
+        p.setProcessEnvironment(env);
+        p.setProcessChannelMode(QProcess::MergedChannels);
+        p.start(exe, args);
+        if (!p.waitForFinished(60000)) { p.kill(); return -1; }
+        *out = QString::fromUtf8(p.readAll());
+        return p.exitCode();
+    };
+    QString out;
+    QCOMPARE(run(release + QStringLiteral("/bin/ravengun"), {QStringLiteral("--install")}, &out), 0);
+    QVERIFY2(Install::isRavenGunTree(prefix), qPrintable(out));
+    QVERIFY(out.contains(QStringLiteral("Installed in ") + prefix));
+    QVERIFY(readAll(home + QStringLiteral("/.config/systemd/user/ravengund.service")).contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/bin/ravengund")));
+    QVERIFY(readAll(home + QStringLiteral("/.local/share/applications/ravengun-qt.desktop")).contains(QStringLiteral("Exec=") + prefix + QStringLiteral("/bin/ravengun\n")));
+    QVERIFY(readLog(base).contains(QStringLiteral("--user enable --now ravengund.service")));
+    // De geïnstalleerde kopie draait en kent zijn eigen map.
+    QCOMPARE(run(prefix + QStringLiteral("/bin/ravengun"), {QStringLiteral("--print-paths")}, &out), 0);
+    QVERIFY2(out.contains(QStringLiteral("data-dir: ") + QFileInfo(prefix).canonicalFilePath() + QStringLiteral("/share/ravengun")), qPrintable(out));
+    QVERIFY(out.contains(QStringLiteral("setup-helper: ") + QFileInfo(prefix).canonicalFilePath() + QStringLiteral("/bin/ravengun-setup-helper")));
+    // Vanuit de installatie zelf: alleen verversen. Vanuit een ontwikkelbouw (geen volledige boom): een duidelijke fout.
+    QCOMPARE(run(prefix + QStringLiteral("/bin/ravengun"), {QStringLiteral("--install"), QStringLiteral("--no-start")}, &out), 0);
+    QVERIFY(out.contains(QStringLiteral("already in")));
+    QCOMPARE(run(QStringLiteral(RAVENGUN_APP_BIN), {QStringLiteral("--install")}, &out), 1);
+    QVERIFY(out.contains(QStringLiteral("not running from a complete release folder")));
+    // En de uninstall met dezelfde binary.
+    QFile::remove(base + QStringLiteral("/systemctl.log"));
+    QCOMPARE(run(prefix + QStringLiteral("/bin/ravengun"), {QStringLiteral("--uninstall")}, &out), 0);
+    QVERIFY2(!QFileInfo::exists(prefix) && !QFileInfo::exists(home + QStringLiteral("/.config/systemd/user/ravengund.service")), qPrintable(out));
+    QVERIFY(readLog(base).contains(QStringLiteral("--user disable --now ravengund.service")));
+    // De rootonderdelen zijn alleen via pkexec op het hulpprogramma van de installatie verwijderd (als deze machine ze heeft).
+    if (SetupChecks::systemPartsInstalled())
+        QVERIFY2(readAll(base + QStringLiteral("/pkexec.log")).endsWith(QStringLiteral("/bin/ravengun-setup-helper --rollback\n")), qPrintable(readAll(base + QStringLiteral("/pkexec.log"))));
+    else
+        QVERIFY(!QFileInfo::exists(base + QStringLiteral("/pkexec.log")));
+#else
+    QSKIP("RAVENGUN_APP_BIN is not defined");
+#endif
+}
+
+// --- A6: commando's van de wizard (pkexec op het eigen hulpprogramma) -------------------------------------------------------
 
 void AppCoreTest::setupCommands() {
     qputenv("RAVENGUN_ROOT", QByteArray(RAVENGUN_SOURCE_DIR));
+    qunsetenv("RAVENGUN_SETUP_HELPER");
     qputenv("RAVENGUN_PKEXEC", "/nep/pkexec");
+    // Zonder hulpprogramma naast de app (of in <repo>/build): geen commando's, dus ook geen pkexec met een raadpad.
+    const QString helperInRepo = QStringLiteral(RAVENGUN_SOURCE_DIR "/build/ravengun-setup-helper");
+    if (!QFileInfo(helperInRepo).isExecutable() && !QFileInfo(AppPaths::binDir() + QStringLiteral("/ravengun-setup-helper")).isExecutable()) {
+        QVERIFY(!SetupChecks::permissionsInstall().valid() && !SetupChecks::permissionsCheck().valid() && !SetupChecks::permissionsRemove().valid());
+        QVERIFY(SetupChecks::setupHelperBinary().isEmpty());
+    }
+    const QString fake = tmp_.filePath(QStringLiteral("setup-helper"));
+    writeFile(fake, "#!/bin/sh\n");
+    makeExecutable(fake);
+    qputenv("RAVENGUN_SETUP_HELPER", fake.toUtf8());
+    QCOMPARE(SetupChecks::setupHelperBinary(), fake);
     const CommandLine c = SetupChecks::permissionsInstall();
     QCOMPARE(c.program, QStringLiteral("/nep/pkexec"));
-    // Vast programma met absoluut pad en vaste argumenten; niets van de gebruiker.
-    QCOMPARE(c.args, (QStringList{QDir::cleanPath(QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/install-permissions.sh")), QStringLiteral("--apply")}));
+    // Vast programma met absoluut pad en vast argument; niets van de gebruiker, geen shell, geen script.
+    QCOMPARE(c.args, (QStringList{fake, QStringLiteral("--apply")}));
     QVERIFY(QDir::isAbsolutePath(c.args[0]));
+    QCOMPARE(SetupChecks::permissionsRemove().args, (QStringList{fake, QStringLiteral("--rollback")}));
     qunsetenv("RAVENGUN_PKEXEC");
     QCOMPARE(SetupChecks::permissionsInstall().program, QStringLiteral("pkexec"));
-    QCOMPARE(SetupChecks::permissionsCheck().args.last(), QStringLiteral("--check"));
-    QCOMPARE(SetupChecks::serviceInstall().args, (QStringList{QDir::cleanPath(QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/install-service.sh")),
-                                                              QStringLiteral("--apply")}));
+    // De controle zonder root draait het programma zelf, zonder pkexec.
+    QCOMPARE(SetupChecks::permissionsCheck().program, fake);
+    QCOMPARE(SetupChecks::permissionsCheck().args, (QStringList{QStringLiteral("--check")}));
+    // Een niet-uitvoerbaar $RAVENGUN_SETUP_HELPER telt niet.
+    qputenv("RAVENGUN_SETUP_HELPER", tmp_.filePath(QStringLiteral("bestaat-niet")).toUtf8());
+    QVERIFY(SetupChecks::setupHelperBinary().isEmpty() && !SetupChecks::permissionsInstall().valid());
+    qunsetenv("RAVENGUN_SETUP_HELPER");
+    // De root-kopie in /opt telt alleen als hij van root is en niemand anders hem kan schrijven: een bestand van de gebruiker niet.
+    const QString opt = tmp_.filePath(QStringLiteral("opt-ravengun"));
+    writeFile(opt + QStringLiteral("/bin/ravengun-setup-helper"), "#!/bin/sh\n");
+    makeExecutable(opt + QStringLiteral("/bin/ravengun-setup-helper"));
+    QVERIFY(SetupChecks::installedSetupHelper(opt).isEmpty());
+    QVERIFY(SetupChecks::installedSetupHelper(tmp_.filePath(QStringLiteral("geen-opt"))).isEmpty());
+    // Systeemonderdelen aanwezig? (udev-regel of de Bluetooth-hulp)
+    const QString rules = tmp_.filePath(QStringLiteral("rules.d"));
+    QDir().mkpath(rules);
+    const QString opt2 = tmp_.filePath(QStringLiteral("opt2"));
+    QVERIFY(!SetupChecks::systemPartsInstalled(rules, opt2));
+    writeFile(rules + QStringLiteral("/72-ravengun-dongle.rules"), "x");
+    QVERIFY(SetupChecks::systemPartsInstalled(rules, opt2));
+    QFile::remove(rules + QStringLiteral("/72-ravengun-dongle.rules"));
+    writeFile(opt2 + QStringLiteral("/bin/ravengun-bt-helper"), "x");
+    QVERIFY(SetupChecks::systemPartsInstalled(rules, opt2));
     // Camera via een nep-sysfs: PS3 Eye (1415:2000) wordt herkend.
     const QString sys = tmp_.filePath(QStringLiteral("sys"));
     writeFile(sys + QStringLiteral("/usb/1-1/idVendor"), "1415\n");

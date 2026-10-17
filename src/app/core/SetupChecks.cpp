@@ -66,40 +66,63 @@ bool SetupChecks::isGameMode() {
     return qEnvironmentVariableIntValue("SteamGamepadUI") == 1;
 }
 
-namespace {
-QString script(const QString& name) {
+QString SetupChecks::setupHelperBinary() {
+    const QString env = qEnvironmentVariable("RAVENGUN_SETUP_HELPER");
+    if (!env.isEmpty()) return QFileInfo(env).isExecutable() ? env : QString();
+    const QString bin = AppPaths::binDir();
+    if (!bin.isEmpty()) {
+        const QString p = bin + QStringLiteral("/ravengun-setup-helper");
+        if (QFileInfo(p).isExecutable()) return p;
+    }
     const QString root = AppPaths::dataRoot();
-    if (root.isEmpty()) return {};
-    const QString p = QDir(root).absoluteFilePath(QStringLiteral("scripts/") + name);
-    return QFileInfo(p).isFile() ? QDir::cleanPath(p) : QString();
+    if (!root.isEmpty()) {
+        const QString p = root + QStringLiteral("/build/ravengun-setup-helper");
+        if (QFileInfo(p).isExecutable()) return p;
+    }
+    return {};
+}
+
+QString SetupChecks::installedSetupHelper(const QString& optDir) {
+    const QFileInfo fi(optDir + QStringLiteral("/bin/ravengun-setup-helper"));
+    // Alleen een bestand van root dat niemand anders kan schrijven: dat is het hele nut van de kopie.
+    if (!fi.isFile() || !fi.isExecutable() || fi.isSymLink() || fi.ownerId() != 0) return {};
+    if (fi.permission(QFileDevice::WriteGroup | QFileDevice::WriteOther)) return {};
+    return fi.absoluteFilePath();
+}
+
+bool SetupChecks::systemPartsInstalled(const QString& etcRulesDir, const QString& optDir) {
+    for (const char* r : {"70-ravengun.rules", "71-ravengun-uhid.rules", "72-ravengun-dongle.rules"})
+        if (QFileInfo::exists(etcRulesDir + QLatin1Char('/') + QLatin1String(r))) return true;
+    return QFileInfo::exists(optDir + QStringLiteral("/bin/ravengun-bt-helper"));
+}
+
+namespace {
+CommandLine pkexecLine(const QString& helper, const QString& arg) {
+    if (helper.isEmpty()) return {};
+    QString pk = qEnvironmentVariable("RAVENGUN_PKEXEC");
+    if (pk.isEmpty()) pk = QStringLiteral("pkexec");
+    // pkexec vraagt een absoluut pad en geeft het programma een schone omgeving; het programma bepaalt de gebruiker uit PKEXEC_UID.
+    return {pk, {QDir::cleanPath(helper), arg}};
 }
 }  // namespace
 
-CommandLine SetupChecks::permissionsInstall() {
-    const QString s = script(QStringLiteral("install-permissions.sh"));
-    if (s.isEmpty()) return {};
-    QString pk = qEnvironmentVariable("RAVENGUN_PKEXEC");
-    if (pk.isEmpty()) pk = QStringLiteral("pkexec");
-    // pkexec vraagt een absoluut pad en geeft het programma een schone omgeving; het script bepaalt de gebruiker uit PKEXEC_UID.
-    return {pk, {s, QStringLiteral("--apply")}};
+CommandLine SetupChecks::permissionsInstall() { return pkexecLine(setupHelperBinary(), QStringLiteral("--apply")); }
+
+CommandLine SetupChecks::permissionsRemove() {
+    const QString installed = installedSetupHelper();
+    return pkexecLine(installed.isEmpty() ? setupHelperBinary() : installed, QStringLiteral("--rollback"));
 }
 
 CommandLine SetupChecks::permissionsCheck() {
-    const QString s = script(QStringLiteral("install-permissions.sh"));
-    if (s.isEmpty()) return {};
-    return {QStringLiteral("/bin/bash"), {s, QStringLiteral("--check")}};
-}
-
-CommandLine SetupChecks::serviceInstall() {
-    const QString s = script(QStringLiteral("install-service.sh"));
-    if (s.isEmpty()) return {};
-    return {QStringLiteral("/bin/bash"), {s, QStringLiteral("--apply")}};
+    const QString h = setupHelperBinary();
+    if (h.isEmpty()) return {};
+    return {QDir::cleanPath(h), {QStringLiteral("--check")}};
 }
 
 void SetupChecks::checkPermissions(QObject* context, std::function<void(bool, const QString&)> cb) {
     const CommandLine c = permissionsCheck();
     if (!c.valid()) {
-        cb(false, QStringLiteral("scripts/install-permissions.sh not found"));
+        cb(false, QStringLiteral("ravengun-setup-helper not found next to the app"));
         return;
     }
     SystemControl::run(c.program, c.args, context, [cb](int code, const QString& out) { cb(code == 0, out); }, 20000);

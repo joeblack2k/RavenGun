@@ -1,4 +1,4 @@
-# Gebruikersservice voor ravengund (geen root). Sjabloon: scripts/install-service.sh (en install-user.sh) vult @BINDIR@ in
+# Gebruikersservice voor ravengund (geen root). Sjabloon: de app (src/app/core/Install.cpp) vult @BINDIR@ in
 # (de map met ravengund: <prefix>/bin of <repo>/build) en schrijft het resultaat naar ~/.config/systemd/user/ravengund.service.
 [Unit]
 Description=RavenGun daemon (PS Move naar virtuele lightgun)

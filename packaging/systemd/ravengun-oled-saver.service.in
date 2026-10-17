@@ -1,5 +1,5 @@
 # OLED-bescherming: zwart scherm met bewegend klokje als er 10 minuten geen game draait (scripts/oled-saver.sh).
-# Sjabloon: scripts/install-user.sh vult @DATADIR@ in (de datamap met scripts/: <prefix>/share/ravengun of de repo).
+# Sjabloon: de app (src/app/core/Install.cpp) vult @DATADIR@ in (de datamap met scripts/: <prefix>/share/ravengun of de repo).
 [Unit]
 Description=RavenGun OLED-bescherming
 After=graphical-session.target

@@ -47,7 +47,7 @@ What you need:
 
 - The physical dongle, plugged in. The status line shows what RavenGun sees ("Dongle detected: <maker> <product> (vendor:product) — runtime: running", or "No dongle found"). It only reads the maker name, the product name and the USB vendor and product ID; it never reads or shows the serial number. **Refresh** checks again.
 - The **official runtime of the dongle's maker**. For Aladdin/SafeNet/Thales HASP and Sentinel dongles that is the "Sentinel LDK Runtime" from Thales (the `aksusbd` and `hasplmd` services; its License Manager listens on `localhost:1947`). For Wibu-Systems dongles it is the CodeMeter Runtime. RavenGun does not install, ship or download it: if it is missing, the status line says "not installed" and points to the maker's official installation page. If it is installed but not running, start its service.
-- Device access for the dongle: the setup wizard's **Permissions** step (or `scripts/install-permissions.sh`) installs a device rule (`72-ravengun-dongle.rules`) that lets you, as a normal user, use USB devices of these makers. If you updated RavenGun, run the permissions step once more.
+- Device access for the dongle: the setup wizard's **Permissions** step installs a device rule (`72-ravengun-dongle.rules`) that lets you, as a normal user, use USB devices of these makers. If you updated RavenGun, run the permissions step once more.
 
 With **Use dongle** on, RavenGun checks for the dongle and its runtime before every start. If either is missing the game does not start and tells you why (exit code 6 in the log). With the box off nothing is checked and nothing changes.
 
@@ -81,12 +81,13 @@ A mouse as lightgun moves the gun of that player (the desktop pointer moves too)
 
 The first time you start RavenGun on the desktop, a wizard helps you set everything up. You can open it again with **Tools > Setup Wizard**. It checks this PC, then walks you through:
 
-1. **Permissions**: one password prompt installs the device rules (so games see the virtual lightgun, and so you can use your own USB dongle) and the Bluetooth helper (so you can pair Moves without a password). Skip it if the check says everything is installed.
-2. **Engine**: install the engine as a service that starts when you log in.
-3. **Controllers**: pair your PS Move.
-4. **Calibration**: calibrate the compass of the Move on the TV.
-5. **Games**: add your game folder.
-6. **Steam**: add RavenGun to your Steam library.
+1. **Welcome and install**: if you started RavenGun from the unpacked download folder, press **Install RavenGun**. RavenGun copies itself to your home folder (`~/.local/opt/ravengun`), adds a menu entry and a desktop icon, sets up the engine to start when you log in, and restarts from the installed copy. No password is needed and your settings and games are not touched. If an older copy is installed, the button says **Update RavenGun** and replaces it. When RavenGun already runs from the installed copy, this step only shows where it is installed, and has **Uninstall RavenGun...** (removes the program, the engine service, the menu entry and, with your password, the device rules; your settings, library and games stay).
+2. **Permissions**: one password prompt installs the device rules (so games see the virtual lightgun, and so you can use your own USB dongle) and the Bluetooth helper (so you can pair Moves without a password). Skip it if the check says everything is installed. **Remove** takes them away again.
+3. **Engine**: install the engine as a service that starts when you log in.
+4. **Controllers**: pair your PS Move.
+5. **Calibration**: calibrate the compass of the Move on the TV.
+6. **Games**: add your game folder.
+7. **Steam**: add RavenGun to your Steam library.
 
 When you are done: reboot into Game Mode and start RavenGun from your library.
 

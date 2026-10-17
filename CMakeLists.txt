@@ -130,6 +130,35 @@ add_executable(ravengunctl src/ravengunctl/main.cpp src/ravengunctl/ctl_common.c
   src/ravengunctl/ctl_controllers.cpp src/ravengunctl/ctl_calibrate.cpp)
 target_link_libraries(ravengunctl PRIVATE ravengun)
 
+# De twee programma's met rootrechten (src/syshelper, docs/build.md "Rechten"): ravengun-bt-helper (sudo, door de daemon bij
+# het koppelen van een Move) en ravengun-setup-helper (pkexec, door de app bij het instellen: udev-regels, de Bluetooth-hulp en
+# de sudoers-regel). Klein, zonder Qt en zonder shell. De setup-helper bakt zijn inhoud (de udev-regels en ravengun-bt-helper)
+# in zichzelf, zodat hij als root niets uit een door de gebruiker beschrijfbare map leest.
+add_library(ravengun_syshelper STATIC src/syshelper/common.cpp src/syshelper/bt_core.cpp)
+target_include_directories(ravengun_syshelper PUBLIC src)
+set_target_properties(ravengun_syshelper PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_options(ravengun_syshelper PUBLIC -fstack-protector-strong)
+add_executable(ravengun-bt-helper src/syshelper/bt_main.cpp)
+target_link_libraries(ravengun-bt-helper PRIVATE ravengun_syshelper)
+set(_rg_embedded_cpp "${CMAKE_CURRENT_BINARY_DIR}/syshelper/embedded.cpp")
+add_custom_command(OUTPUT "${_rg_embedded_cpp}"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/syshelper"
+  COMMAND ${CMAKE_COMMAND} "-DOUT=${_rg_embedded_cpp}"
+    "-DITEMS=70-ravengun.rules=${CMAKE_CURRENT_SOURCE_DIR}/packaging/udev/70-ravengun.rules;71-ravengun-uhid.rules=${CMAKE_CURRENT_SOURCE_DIR}/packaging/udev/71-ravengun-uhid.rules;72-ravengun-dongle.rules=${CMAKE_CURRENT_SOURCE_DIR}/packaging/udev/72-ravengun-dongle.rules;ravengun-bt-helper=$<TARGET_FILE:ravengun-bt-helper>"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedBlobs.cmake"
+  DEPENDS ravengun-bt-helper packaging/udev/70-ravengun.rules packaging/udev/71-ravengun-uhid.rules packaging/udev/72-ravengun-dongle.rules
+          cmake/EmbedBlobs.cmake
+  VERBATIM)
+add_library(ravengun_syshelper_setup STATIC src/syshelper/setup_core.cpp src/syshelper/setup_content.cpp "${_rg_embedded_cpp}")
+target_link_libraries(ravengun_syshelper_setup PUBLIC ravengun_syshelper)
+add_executable(ravengun-setup-helper src/syshelper/setup_main.cpp)
+target_link_libraries(ravengun-setup-helper PRIVATE ravengun_syshelper_setup)
+foreach(_rg_h ravengun-bt-helper ravengun-setup-helper)
+  target_link_options(${_rg_h} PRIVATE -pie -static-libstdc++ -static-libgcc -Wl,-z,relro,-z,now -s)
+  set_target_properties(${_rg_h} PROPERTIES POSITION_INDEPENDENT_CODE ON INSTALL_RPATH "")
+endforeach()
+install(TARGETS ravengun-setup-helper RUNTIME DESTINATION bin)
+
 # ravengund: de daemon. PSMoveAPI wordt user-local verwacht (zie docs/build.md).
 option(RAVENGUN_BUILD_DAEMON "Bouw ravengund" ON)
 find_package(Threads REQUIRED)
@@ -335,6 +364,15 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_pairing_tests COMMAND ravengun_pairing_tests)
   add_test(NAME ravengun_bt_helper COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/bt_helper_test.sh")
   set_tests_properties(ravengun_bt_helper PROPERTIES SKIP_RETURN_CODE 77)
+  # De programma's met rootrechten (src/syshelper): argumentcontrole, de bestanden voor BlueZ in een tijdelijke map, de
+  # udev-regels/sudoers/Bluetooth-hulp in een tijdelijke root, en de echte programma's zonder root (nooit iets op het systeem).
+  add_executable(ravengun_syshelper_tests tests/test_syshelper.cpp)
+  target_link_libraries(ravengun_syshelper_tests PRIVATE ravengun_syshelper_setup)
+  target_compile_definitions(ravengun_syshelper_tests PRIVATE
+    "RG_BT_HELPER_BIN=\"$<TARGET_FILE:ravengun-bt-helper>\"" "RG_SETUP_HELPER_BIN=\"$<TARGET_FILE:ravengun-setup-helper>\""
+    "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+  add_dependencies(ravengun_syshelper_tests ravengun-bt-helper ravengun-setup-helper)
+  add_test(NAME ravengun_syshelper_tests COMMAND ravengun_syshelper_tests)
   # Instellingen en patches per game (scripts/gamesettings.py, migratie, tp-add-game): lagen, lege waarden, patches aan/uit.
   find_package(Python3 QUIET COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
