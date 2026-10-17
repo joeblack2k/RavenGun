@@ -69,7 +69,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (13)
+## Not tested yet (12)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -85,10 +85,10 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **The House of the Dead 4**: Never started. Lindbergh route ready (2026-10-14, docs/lindbergh.md): the folder 'The House of the Dead 4' is Rev C (hod4M.elf, game ID 0xe213414d, clean ELF), NOT the Special; the library currently links that folder to HOTD4SP and must point it to HOTD4. Static study of the protection: BESCHERMING-STATUS.md.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
-- **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (1)
+## Not working yet (2)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
-- **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
+- **Ghostbusters**: Skipped by the owner (2026-10-17, goal "everything without TeknoParrot"). The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
+- **Walking Dead**: Skipped by the owner (2026-10-17, goal "everything without TeknoParrot"). Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
