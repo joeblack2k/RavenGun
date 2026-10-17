@@ -31,6 +31,11 @@ bool valid_value(const std::string& v) {
     return std::all_of(v.begin(), v.end(), [](unsigned char c) { return is_word_char(c); });
 }
 
+bool valid_response_extra(const std::string& v) {
+    if (v.empty() || v.size() > 200) return false;
+    return std::all_of(v.begin(), v.end(), [](unsigned char c) { return is_word_char(c) || c == '&' || c == '='; });
+}
+
 const Unit* Request::find(const std::string& key) const {
     for (const Unit& u : units)
         if (u.key == key) return &u;
@@ -105,6 +110,20 @@ Reply Responder::answer(const Request& r) const {
         auto it = values_.find("mxmaster.foreground.getcount.count");
         out.line = key + "=" + mode + "&count=" + (it == values_.end() ? "1" : it->second);
         out.known = true;
+        return out;
+    }
+    if (key == "request") {
+        // De nieuwere AM Library (LGS, GG, OG, Transformers) praat op install (40102/3) en storage (40114/5) in de vorm
+        // `request=<naam>&...` en eist `response=<naam>&result=success` terug (responsecontrole in amInstall/amStorage).
+        // Extra velden per verzoek kunnen in [AmDaemon] als `response.<naam>` = `k=v&k2=v2` worden meegegeven.
+        const std::string name = u.has_value && !u.query ? u.value : std::string();
+        if (name.empty()) { out.note = "request zonder naam"; return out; }
+        out.line = "response=" + name + "&result=success";
+        auto ex = values_.find("response." + name);
+        if (ex != values_.end() && !ex->second.empty()) out.line += "&" + ex->second;
+        out.known = true;
+        out.note = "request=<naam>: result=success";
+        if (out.line.size() > kMaxMessage - 3) { out.note += "; antwoord te lang"; out.line.clear(); }
         return out;
     }
     auto it = values_.find(key);

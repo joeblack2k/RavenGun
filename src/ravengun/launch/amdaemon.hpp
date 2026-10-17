@@ -47,6 +47,8 @@ Request parse_request(const std::string& line);
 bool is_word_char(unsigned char c);
 // Mag deze tekst als waarde in een antwoord (woordtekens, geen CR/LF/&/=/> of spatie, hoogstens 200 tekens)?
 bool valid_value(const std::string& v);
+// `response.<naam>` in [AmDaemon]: extra velden `k=v&k2=v2` achter `response=<naam>&result=success` (de nieuwere AM Library, request=<naam>).
+bool valid_response_extra(const std::string& v);
 
 // De regio-naam van het TeknoParrot-profiel (JAPAN, USA, EXPORT, CHINA, JAP2N) als hex-bitveld voor keychip.appboot.region.
 std::string region_code(const std::string& name);

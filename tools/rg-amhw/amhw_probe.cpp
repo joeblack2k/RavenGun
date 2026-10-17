@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "amhw_dmi.h"
 #include "amhw_jvs.h"
@@ -67,6 +68,18 @@ int main(int argc, char** argv) {
     std::printf("     fabrikant '%s', OEM '%s', bordtype %d\n", r.vendor.c_str(), r.oem.c_str(), rg_amhw::board_type(r));
     check(r.vendor == (argc > 3 ? argv[3] : "Supermicro") && r.oem == (argc > 2 ? argv[2] : "AAM"), "fabrikant en platform-id kloppen");
     check(CloseHandle(c) != 0, "CloseHandle op het nagebootste handvat");
+    // De nieuwere AM Library (LGS, LGI3D) leest de BIOS-ruimte in stukken van 0x8010 en eist BytesReturned == de buffergrootte.
+    c = CreateFileW(L"\\\\.\\columba", 0xC0000000, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    {
+        std::vector<uint8_t> buf(0x8010);
+        uint32_t in[4] = {0xF0000, 0, 1, 0x8010};
+        DWORD got2 = 0;
+        check(DeviceIoControl(c, 0x9C406104, in, sizeof in, buf.data(), 0x8010, &got2, nullptr) && got2 == 0x8010 && std::memcmp(&buf[0x10], "_DMI_", 5) == 0,
+              "columba: buffer van 0x8010 -> 0x8010 bytes terug, _DMI_ op +0x10");
+        uint32_t in2[4] = {0xF0000 + 0x7FF0, 0, 1, 0x8010};
+        check(DeviceIoControl(c, 0x9C406104, in2, sizeof in2, buf.data(), 0x8010, &got2, nullptr) && got2 == 0x8010, "columba: tweede stuk (0xF7FF0) idem");
+    }
+    CloseHandle(c);
     check(CreateFileW(L"\\\\.\\mxsuperio", 0xC0000000, 0, nullptr, OPEN_EXISTING, 0, nullptr) == INVALID_HANDLE_VALUE, "\\\\.\\mxsuperio is (nog) niet nagebootst en faalt zoals voorheen");
 
     // mxsram: zoals amSramInit (LGI 0x4879F0) en amSramRead/Write
@@ -102,6 +115,37 @@ int main(int argc, char** argv) {
         check(n == 0x200 && std::memcmp(fb, w, 0x200) == 0, "het geschreven sector staat in mxsram.bin");
     }
 
+    {   // 0x9C406004: sectorgrootte van de nieuwere AM Library
+        HANDLE s2 = CreateFileW(L"\\\\.\\mxsram", 0xC0000000, 3, nullptr, OPEN_EXISTING, 0x80, nullptr);
+        uint32_t sec = 0;
+        DWORD g2 = 0;
+        check(DeviceIoControl(s2, 0x9C406004, nullptr, 0, &sec, 4, &g2, nullptr) && g2 == 4 && sec == 0x200, "mxsram: ioctl 0x9C406004 geeft sectorgrootte 0x200");
+        CloseHandle(s2);
+    }
+    // De tabel die de dongle-init leest (<spel-id>_Table.dat): ontbreekt hij, dan opent de game een vervangend bestand naast de DLL.
+    {
+        const std::string missing = dir + "\\nergens\\SBZZ_Table.dat";
+        HANDLE t = CreateFileA(missing.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0x80, nullptr);
+        check(t != INVALID_HANDLE_VALUE, "een ontbrekende SBZZ_Table.dat opent via de vervanging");
+        DWORD sz = t != INVALID_HANDLE_VALUE ? GetFileSize(t, nullptr) : 0;
+        check(sz == 1190000, "de vervanging is 1190000 bytes");
+        if (t != INVALID_HANDLE_VALUE) CloseHandle(t);
+        const std::wstring wmissing(missing.begin(), missing.end());
+        HANDLE tw = CreateFileW(wmissing.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0x80, nullptr);
+        check(tw != INVALID_HANDLE_VALUE, "idem via CreateFileW");
+        if (tw != INVALID_HANDLE_VALUE) CloseHandle(tw);
+        HANDLE other = CreateFileA((dir + "\\nergens\\iets.dat").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0x80, nullptr);
+        check(other == INVALID_HANDLE_VALUE, "een ander ontbrekend bestand blijft ontbreken");
+        check(GetFileAttributesA((dir + "\\rg-amhw-tables\\SBZZ_Table.dat").c_str()) != INVALID_FILE_ATTRIBUTES, "de vervanging staat in rg-amhw-tables naast de DLL, niet bij het opgegeven pad");
+    }
+    {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
+        auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+        auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
+        auto* sec = IMAGE_FIRST_SECTION(nt);
+        for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i)
+            if (std::memcmp(sec[i].Name, ".rdata", 6) == 0)
+                check(!(sec[i].Characteristics & IMAGE_SCN_MEM_WRITE), ".rdata staat niet meer op schrijfbaar in de kop");
+    }
     // mxjvs: zoals amJvstDriverSetup (LGI 0x490B30) en amJvstDriverSend/Receive (0x490780 / 0x4908A0)
     HANDLE j = CreateFileA("\\\\.\\mxjvs", 0xC0000000, 0, nullptr, OPEN_EXISTING, 0x40000000, nullptr);
     check(j != INVALID_HANDLE_VALUE, "CreateFileA(\\\\.\\mxjvs) geeft een handvat (de pipe van de brug)");
