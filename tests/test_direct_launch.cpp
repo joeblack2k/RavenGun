@@ -828,7 +828,11 @@ int main() {
         // [Loader] Core = none: Wine start de exe zelf, zonder lader en kern (een game zonder TeknoParrot-profiel). Deze game heeft
         // een drop-in met Preload: zonder lader is daar geen kanaal voor, dus geen start (en de melding zegt waarom).
         write(ugi, "[Loader]\nCore = none\n");
+        // Zonder lader ook geen TeknoParrot-map: de JVS-brug moet de onze zijn (geen pipehelper.exe uit die map).
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Fallback && contains(w, "rg-jvsbridge.exe"));
+        write(fs::path(p.data) / "jvsbridge/rg-jvsbridge.exe", "x");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "TP_PRELOAD_DLL"));
+        fs::remove(fs::path(p.data) / "jvsbridge/rg-jvsbridge.exe");
         write(ugi, "[Loader]\nCore = soms\n");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "of none"));
         // [Launch] Registry: een .reg uit de map van de game (gebruikerslaag eerst) in het plan; ontbreekt hij, of is het geen
@@ -979,13 +983,72 @@ int main() {
     // lader; ontbreekt hij, dan niet starten met de bouwhint (uit tests/launch_direct_test.sh).
     {
         const fs::path own_core = fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrot64.dll";
+        const fs::path brug = fs::path(p.data) / "jvsbridge/rg-jvsbridge.exe";
         write(own_core, "x");
         write(user, "[Loader]\nCore = ravengun\n");
+        // Eigen lader en kern: geen terugval op pipehelper.exe uit de TeknoParrot-map; zonder rg-jvsbridge noemt de melding het pad.
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Fallback && contains(why, brug.string()) && !contains(why, "pipehelper.exe"));
+        write(brug, "x");
         const Verdict cv = plan_direct("Spel", p, o, pl, why);
         CHECK(cv == Verdict::Ok);
         if (cv != Verdict::Ok) std::fprintf(stderr, "Core = ravengun: %s\n", why.c_str());
         CHECK(pl.argv.size() > 2 && pl.argv[1] == own.string() && pl.argv[2] == wine_path((fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrot64").string()));
         CHECK(pl.core_source == "ravengun" && pl.core_dll == own_core.string());
+
+        // --- zonder de TeknoParrot-map (2026-10-17, docs/loskoppelen-per-game.md "Centrale afhankelijkheden"): een plan met eigen lader
+        // en kern leest en gebruikt niets uit die map. Een "vergiftigde" map (ander sjabloon, andere sneltoetsen, een oud .env dat de
+        // omgeving zou veranderen) verandert het plan niet, en een lege of ontbrekende map ook niet.
+        write(fs::path(p.tp) / "GameProfiles/Spel.xml", "<GameProfile><GameProfileRevision>99</GameProfileRevision></GameProfile>");
+        write(fs::path(p.tp) / "ParrotData.xml", "<ParrotData><ExitGameKey>0x51</ExitGameKey></ParrotData>");
+        write(fs::path(p.tp) / "UserProfiles/Spel.env", "EIGEN=uit-de-tp-map\nWINEDLLOVERRIDES=vergif=n\n");
+        write(fs::path(p.tp) / "UserProfiles/Spel.xml", "<GameProfile><EmulatorType>OpenParrot</EmulatorType></GameProfile>");
+        DirectPlan met;
+        CHECK(plan_direct("Spel", p, o, met, why) == Verdict::Ok);
+        CHECK(met.tp.empty() && met.tp_files.empty() && plan_tp_refs(met, p.tp).empty());
+        CHECK(met.cwd == (view / "bin").string() && met.starts.size() == 1 && met.starts[0].cwd == met.cwd && plan_run_dir(met) == met.cwd);
+        CHECK(met.pipehelper == brug.string() && met.env.at("EIGEN") == "ja" && met.env.at("WINEDLLOVERRIDES") == "d3d11=n,b;hook=n");
+        CHECK(met.notes.empty() && !met.files.empty() && contains(met.files[0].second, "ExitKey=0x1B\nPauseKey=0x13\n"));
+        CHECK(plan_to_json(met).find(p.tp) == std::string::npos && plan_to_json(met).find(wine_path(p.tp)) == std::string::npos);
+        fs::create_directories(root / "leeg-tp");
+        for (const std::string& zonder_map : {(root / "leeg-tp").string(), (root / "bestaat-niet").string()}) {
+            DirectPaths q = p;
+            q.tp = zonder_map;
+            DirectPlan zonder;
+            const Verdict zv = plan_direct("Spel", q, o, zonder, why);
+            CHECK(zv == Verdict::Ok);
+            if (zv != Verdict::Ok) std::fprintf(stderr, "zonder TeknoParrot-map (%s): %s\n", zonder_map.c_str(), why.c_str());
+            CHECK(plan_to_json(zonder) == plan_to_json(met));
+            CHECK(plan_tp_refs(zonder, zonder_map).empty() && plan_to_json(zonder).find(zonder_map) == std::string::npos);
+        }
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(met), back, err) && back.tp.empty() && back.tp_files.empty() && back.cwd == met.cwd);
+        }
+        // Een plan met de kern van TeknoParrot (geen Core = ravengun): tp_files zegt precies wat het gebruikt en leest, de werkmap blijft
+        // de TeknoParrot-map (zoals altijd), en zonder de map noemt de melding het ontbrekende bestand.
+        write(fs::path(p.tp) / "GameProfiles/Spel.xml", "<GameProfile><GameProfileRevision>3</GameProfileRevision></GameProfile>");
+        write(fs::path(p.tp) / "ParrotData.xml", "\xEF\xBB\xBF<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapterName /></ParrotData>");
+        fs::remove(fs::path(p.tp) / "UserProfiles/Spel.env");
+        fs::remove(fs::path(p.tp) / "UserProfiles/Spel.xml");
+        write(user, "");
+        DirectPlan tpplan;
+        CHECK(plan_direct("Spel", p, o, tpplan, why) == Verdict::Ok);
+        CHECK(tpplan.tp == p.tp && tpplan.cwd == p.tp && plan_run_dir(tpplan) == p.tp && tpplan.pipehelper == brug.string());
+        CHECK((tpplan.tp_files == std::vector<std::string>{"GameProfiles/Spel.xml", "ParrotData.xml", "TeknoParrot/TeknoParrot64.dll"}));
+        CHECK((plan_tp_refs(tpplan, p.tp) == std::vector<std::string>{".", "GameProfiles/Spel.xml", "ParrotData.xml", "TeknoParrot/TeknoParrot64.dll"}));
+        {
+            DirectPaths q = p;
+            q.tp = (root / "bestaat-niet").string();
+            DirectPlan zonder;
+            CHECK(plan_direct("Spel", q, o, zonder, why) == Verdict::Fallback &&
+                  contains(why, "kern ontbreekt: " + q.tp + "/TeknoParrot/TeknoParrot64.dll") && contains(why, "Core = ravengun"));
+        }
+        // Zonder onze JVS-brug valt een plan dat de TeknoParrot-map al gebruikt nog terug op pipehelper.exe daaruit (en noemt hem).
+        fs::remove(brug);
+        CHECK(plan_direct("Spel", p, o, tpplan, why) == Verdict::Ok && tpplan.pipehelper == p.tp + "/pipehelper.exe" &&
+              std::count(tpplan.tp_files.begin(), tpplan.tp_files.end(), "pipehelper.exe") == 1);
+        write(user, "[Loader]\nCore = ravengun\n");
         fs::remove(own_core);
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "eigen OpenParrot-build ontbreekt") && contains(why, "build-openparrot.sh"));
     }

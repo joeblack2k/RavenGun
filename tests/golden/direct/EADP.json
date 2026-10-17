@@ -30,8 +30,8 @@
    ],
    "control_pipe": null,
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "cwd": "@TMP@/home/games/EADP",
+   "cwd_is_tp": false,
    "dropin_files": [],
    "dropin_lines": [],
    "dropin_materialise": [],
@@ -108,7 +108,7 @@
      "comms": [
       "game.exe"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/EADP",
      "exe": "@TMP@/home/games/EADP/Game.exe",
      "gamescope": true,
      "name": "Game.exe",
@@ -154,8 +154,8 @@
    ],
    "control_pipe": null,
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "cwd": "@TMP@/home/games/EADP",
+   "cwd_is_tp": false,
    "dropin_files": [],
    "dropin_lines": [],
    "dropin_materialise": [],
@@ -232,7 +232,7 @@
      "comms": [
       "game.exe"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/EADP",
      "exe": "@TMP@/home/games/EADP/Game.exe",
      "gamescope": true,
      "name": "Game.exe",

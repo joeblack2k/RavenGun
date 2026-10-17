@@ -484,10 +484,21 @@ bool build_view(const UnityGame& g, const UnityPaths& p, std::string& view, std:
     return true;
 }
 
+std::string default_unity_proton(const std::string& data, const std::string& home) {
+    const std::string eigen = data + "/proton/" + kUnityProtonName;
+    for (const std::string& d : {eigen, home + "/.local/share/Steam/compatibilitytools.d/" + kUnityProtonName,
+                                 home + "/.local/share/Steam/compatibilitytools.d/GE-Proton11-7"})
+        if (!d.empty() && ::access((d + "/proton").c_str(), X_OK) == 0) return d;
+    return eigen;
+}
+
 bool plan_unity(const UnityGame& g, const UnityPaths& p, const std::string& view, const UnityOptions& o, UnityPlan& out, std::string& err) {
     out = UnityPlan{};
     const std::string proton = p.proton + "/proton";
-    if (::access(proton.c_str(), X_OK) != 0) { err = "GE-Proton ontbreekt: " + proton; return false; }
+    if (::access(proton.c_str(), X_OK) != 0) {
+        err = "GE-Proton ontbreekt: " + proton + " (installeer het onderdeel GE-Proton 11-7 in de app: Components; packaging/components.json, id ge-proton)";
+        return false;
+    }
     out.prefix = p.data + "/prefixes/unity-aagames";
     out.cwd = view;
     out.comm = g.exe;

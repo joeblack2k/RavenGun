@@ -337,7 +337,7 @@ QWidget* SettingsWindow::MakePathsPane() {
     connect(rescan, &QPushButton::clicked, core_->library(), &rg::GameLibrary::rescan);
     connect(core_->library(), &rg::GameLibrary::foldersChanged, this, &SettingsWindow::RefreshFolders);
 
-    // De game-runtime (laders en cores van TeknoParrot) is een afhankelijkheid, zoals een emulatorcore voor een frontend.
+    // De game-runtime (laders en cores van TeknoParrot): alleen nog voor games op de lader of kern van TeknoParrot.
     auto* tp = new QGroupBox(tr("TeknoParrot runtime"));
     auto* grid = new QGridLayout(tp);
     grid->setColumnStretch(1, 1);
@@ -361,10 +361,10 @@ QWidget* SettingsWindow::MakePathsPane() {
     launcher->setCurrentIndex(std::max(0, launcher->findData(cur)));
     grid->addWidget(new QLabel(tr("Launch games with:")), 2, 0);
     grid->addWidget(launcher, 2, 1, 1, 3);
-    grid->addWidget(hint(tr("RavenGun manages your games itself; you never need to open TeknoParrotUi. The TeknoParrot runtime "
-                            "(its loaders and cores) is still needed to run the games. RavenGun writes the launch profiles in "
-                            "UserProfiles/ from its own settings. The engine uses its own setting for this folder (--tp-dir, "
-                            "default %1).")
+    grid->addWidget(hint(tr("RavenGun manages your games itself; you never need to open TeknoParrotUi. Games on RavenGun's own "
+                            "loader and core, native games and the Unity games start without this folder; only games that still "
+                            "use a TeknoParrot loader or core need it (the error message names the missing file). The engine uses "
+                            "its own setting for this folder (--tp-dir, default %1).")
                              .arg(rg::AppPaths::defaultTpDir())),
                     3, 0, 1, 4);
     layout->addWidget(tp);

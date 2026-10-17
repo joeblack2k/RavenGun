@@ -478,6 +478,7 @@ if(RAVENGUN_BUILD_TESTS)
   # De Unity-route zonder shellscripts (src/ravengun/launch/unity.*): de view met de NAS-controle en het Proton-commando.
   add_executable(ravengun_unity_launch_tests tests/test_unity_launch.cpp)
   target_link_libraries(ravengun_unity_launch_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_unity_launch_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_unity_launch_tests COMMAND ravengun_unity_launch_tests)
   # De directe route zonder scripts (src/ravengun/launch/direct.*, jvs_pipe.*, tools/rg-direct): plan, weigeren en terugvallen op het
   # script, drop-ins plaatsen zonder op de (nep-)NAS te schrijven, invoerroute, joystick-ids, en rg-direct --run met een nep-wine.

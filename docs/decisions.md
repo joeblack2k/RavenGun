@@ -749,3 +749,38 @@ controleerde voor die profielen dat de TeknoParrotUi-activering aanwezig was (`n
   `patches/Halo/dropin/fmod/` (liefst de gebruikerslaag); de wrapper laadt ze dan zelf (RTLD_GLOBAL) en stuurt elke aanroep
   rechtstreeks door, in het spelproces, zonder Wine. Volgorde: native drop-in, dan de Windows-FMOD van TeknoParrot onder Wine, dan
   stil. FMOD-bestanden gaan niet in git; ieder levert zijn eigen (zoals de Microsoft-DLL's).
+
+## 2026-10-17 — De directe route en de Unity-route zonder de TeknoParrot-map
+
+- **Doel van de eigenaar.** Elke game start zonder TeknoParrot: geen kern van TeknoParrot en geen bestand uit de map
+  `~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64` (of de downloads van TeknoParrotUi). De per-game delen porten
+  anderen; dit is het centrale deel. De inventaris staat in `docs/loskoppelen-per-game.md`, "Centrale afhankelijkheden van de
+  TeknoParrot-map, 2026-10-17".
+- **Gemeten vóór de wijziging.** Met `RAVENGUN_TP_DIR=/nonexistent` gaf `rg-direct --plan` voor alle negen games met onze eigen lader en kern
+  (Friction, SilentHill, GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2, LuigisMansion, EADP, MenInBlack) "lader ontbreekt:
+  /nonexistent/OpenParrot.../OpenParrotLoader.exe", terwijl de lader die ze gebruiken uit `<data>/openparrot/current` komt: de controle stond
+  vóór de keuze van de eigen build. Verder: de werkmap van de lader, van rg-direct (`systemd-run --working-directory`), van de JVS-brug en
+  van `wine reg import` was de TeknoParrot-map (een verborgen map = de unit start niet); de app weigerde elke start zonder geldige runtime-map
+  (`EngineBackend::available`); en de Unity-route nam GE-Proton uit `~/.local/share/TeknoParrotUI/proton`.
+- **Besluit: een plan vraagt alleen wat het gebruikt.** `plan_direct` controleert de lader en de kern pas na `[Loader] Build/Core`, en alleen
+  die het plan echt gebruikt; de melding noemt het bestand. Een game met eigen lader en kern of zonder lader (`tp_free_settings`: eigen profiel,
+  `Core = none`, of `Build = ravengun` met `Core = ravengun` of `Type = OpenParrot`) leest niets uit de TeknoParrot-map: geen
+  `GameProfiles/<P>.xml` (de revisiecontrole hoort bij de kern van TeknoParrot), geen `ParrotData.xml` (de sneltoetsen in `teknoparrot.ini`
+  worden de standaard 0x1B/0x13, gelijk aan wat `ParrotData.xml` hier zet), geen `UserProfiles/<P>.xml` of oud `.env` (gemeten: voor de vijf
+  eigen-kern-games met een `.env` is het plan zonder gelijk, game.ini had alles al) en geen `pipehelper.exe` (alleen onze `rg-jvsbridge.exe`;
+  ontbreekt die, dan geen start met het pad in de melding). Werkmap van de lader: de map van de game (OpenParrotLoader geeft het spel altijd
+  zijn eigen map of `TP_GAME_WORKING_DIRECTORY`; de werkmap van de lader telt alleen voor `FFBBlaster/` van TeknoParrot). Het plan zegt in
+  `tp_files` wat het uit de map gebruikt of leest; leeg = `tp` leeg en geen pad uit die map in het plan. Games op de kern van TeknoParrot
+  plannen precies als voorheen (de gouden plannen van `tests/direct_golden.py` zijn voor hen ongewijzigd).
+- **Besluit: GE-Proton als vastgepind onderdeel.** De Unity-route blijft op GE-Proton 11-7 (`proton run`, DXVK; alleen zo op de tv gemeten,
+  zie 2026-10-09); onze Kron4ek-Wine met DXVK als drop-in is voor Unity/D3D11 niet gemeten en wordt dus niet stil ingewisseld. GE-Proton komt
+  nu als onderdeel `ge-proton` uit `packaging/components.json` (de release `GE-Proton11-7-x86_64.tar.gz` van GloriousEggroll, sha256 uit de
+  GitHub-API, 563 784 602 bytes) in `<data>/proton/GE-Proton11-7-x86_64`; daarna Steam (`compatibilitytools.d/GE-Proton11-7[-x86_64]`). De kopie
+  van TeknoParrotUi telt niet meer. De prefix `unity-aagames` blijft: Proton vernieuwt bij een ander pad zelf de koppelingen
+  (`config_info`).
+- **Besluit: de app vraagt de runtime-map niet meer om te starten.** `EngineBackend::available` is altijd waar; de engine meldt per game wat
+  ontbreekt. De wizard en Settings > Paths tonen de map als optioneel.
+- **Meetinstrument.** `rg-direct --tp-refs [--json] [--expect-free A,B]` toont per game in `patches/` (route zoals de daemon hem kiest) welke
+  bestanden uit de TeknoParrot-map de start nog gebruikt. `tests/direct_golden.py` plant de negen eigen-kern-games met een TeknoParrot-map die
+  niet bestaat en eist ok, hetzelfde plan als met de volledige nep-map en geen pad uit die map, en draait `--tp-refs --expect-free` met
+  ook Tomb Raider en Rabbids Hollywood.

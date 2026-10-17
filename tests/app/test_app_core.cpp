@@ -1144,7 +1144,8 @@ void AppCoreTest::runtimeCheck() {
     writeFile(rt + QStringLiteral("/TeknoParrotUi"), "x");
     c = RuntimeCheck::check(rt);
     QVERIFY(c.ok && c.hasUi);
-    // Backends (A10): auto en direct hebben alleen laders en profielen nodig; TeknoParrotUi start RavenGun niet meer.
+    // Backends (A10): starten hangt niet meer af van de TeknoParrot-runtime (2026-10-17): een game met eigen lader en kern, native of
+    // Unity start zonder; de engine meldt per game welk bestand ontbreekt. TeknoParrotUi start RavenGun niet meer.
     GameLibrary lib(tmp_.filePath(QStringLiteral("launcher-lib.json")));
     lib.setTpDir(tmp_.filePath(QStringLiteral("leeg")));
     QString why;
@@ -1152,8 +1153,8 @@ void AppCoreTest::runtimeCheck() {
         const auto b = makeBackend(id, nullptr, &lib, nullptr);
         QCOMPARE(b->id(), id);
         why.clear();
-        QVERIFY(!b->available(&why));
-        QVERIFY(!why.isEmpty());
+        QVERIFY(b->available(&why));
+        QVERIFY(why.isEmpty());
     }
     QCOMPARE(backendIds(), (QStringList{QStringLiteral("auto"), QStringLiteral("direct")}));
     QCOMPARE(makeBackend(QStringLiteral("teknoparrot-ui"), nullptr, &lib, nullptr)->id(), QStringLiteral("auto"));   // oude keuze in library.json
