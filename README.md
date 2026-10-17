@@ -34,14 +34,9 @@ Not every game works. See [docs/compatibility.md](docs/compatibility.md) for wha
 
        sha256sum -c ravengun-<version>-x86_64-steamos.sha256 --ignore-missing
 
-3. Unpack and install. No root and no changes to the read-only system partition are needed:
-
-       tar xf ravengun-<version>-x86_64-steamos.tar.gz
-       cd ravengun-<version>-x86_64-steamos
-       ./install.sh
-
-   This installs into `~/.local/opt/ravengun`, adds a menu entry and a desktop icon, and starts the engine (the background service) at every login.
-4. Start **RavenGun** from the application menu. The first start opens the **setup wizard**. It installs the permissions (one password prompt), pairs your PS Move, calibrates it on the TV, adds your game folder and adds RavenGun to Steam.
+3. Unpack the archive (right-click > Extract, or `tar xf ravengun-<version>-x86_64-steamos.tar.gz`) and open the folder `ravengun-<version>-x86_64-steamos/bin`. Double-click **ravengun**.
+4. The first start opens the **setup wizard**. On its first page press **Install RavenGun**. No password and no changes to the read-only system partition are needed: RavenGun copies itself to `~/.local/opt/ravengun`, adds a menu entry and a desktop icon, starts the engine (the background service) at every login and restarts from the installed copy. You can delete the unpacked folder afterwards.
+5. Follow the rest of the wizard. It installs the permissions (one password prompt), pairs your PS Move, calibrates it on the TV, adds your game folder and adds RavenGun to Steam.
 
 ## Game Mode
 
@@ -49,17 +44,17 @@ When the wizard is done, restart into Game Mode and start **RavenGun** from your
 
 ## Update
 
-Download the new archive and run `./install.sh` again. The program files are replaced; your settings, library and calibration stay. If a game is running, the engine keeps running the old version until you restart it (**Engine > Restart** in the app).
+Unpack the new archive, double-click `bin/ravengun` in it and press **Update RavenGun** on the first page of the wizard. The program files are replaced; your settings, library and calibration stay. If a game is running, the engine keeps running the old version until you restart it (**Engine > Restart** in the app). If the update changes the device rules or the Bluetooth helper, press **Install** again on the Permissions page.
 
 ## Uninstall
 
-    ~/.local/opt/ravengun/share/ravengun/scripts/uninstall-user.sh
+Open **Tools > Setup Wizard** and press **Uninstall RavenGun...** on the first page (or run `ravengun --uninstall` in a terminal; add `--remove-config` to also delete your settings).
 
-This stops and removes the services and shortcuts and deletes the installation folder. It asks for your password once to remove the device rules and the Bluetooth helper that the wizard installed (use `--keep-root` to skip that). Your settings are kept unless you add `--remove-config`. Your games, the TeknoParrot runtime and other data in `~/.local/share/ravengun` are never removed. Remove the RavenGun entry from your Steam library yourself.
+This stops and removes the services and shortcuts and deletes the installation folder. It asks for your password once to remove the device rules and the Bluetooth helper that the wizard installed. Your settings are kept unless you ask otherwise. Your games, the TeknoParrot runtime and other data in `~/.local/share/ravengun` are never removed. Remove the RavenGun entry from your Steam library yourself.
 
 ## Troubleshooting
 
-- **The installer says libraries are missing or too old.** The app needs Qt 6.11 or newer. Update SteamOS, or on Arch install `qt6-base`.
+- **The installation says libraries are missing or too old.** The app needs Qt 6.11 or newer. Update SteamOS, or on Arch install `qt6-base`.
 - **The app says the engine is not running.** Use **Engine > Start Engine** in the app. In a terminal: `systemctl --user status ravengund` and the log `~/.local/state/ravengun/logs/ravengund.log`.
 - **The Move is not found.** Press its PS button. If it was never paired, use **Pair New Controller** in the **Controllers** window (USB cable, then PS button).
 - **A game does not see the gun.** Run the **Permissions** step of the wizard again (**Tools > Setup Wizard**). Then restart the game.

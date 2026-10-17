@@ -127,7 +127,7 @@ void SettingsWindow::RefreshEngine() {
             m_autostart->setChecked(enabled == QStringLiteral("enabled"));
         }
         m_autostart->setEnabled(enabled == QStringLiteral("enabled") || enabled == QStringLiteral("disabled"));
-        if (!m_autostart->isEnabled()) m_autostart->setToolTip(tr("The user service is not installed (%1). See scripts/install-service.sh.").arg(enabled));
+        if (!m_autostart->isEnabled()) m_autostart->setToolTip(tr("The user service is not installed (%1). Install it in Tools > Setup Wizard > Engine.").arg(enabled));
         m_engine_info->setText(tr("Socket: %1").arg(core_->engine()->socketPath()));
         if (connected) {
             core_->engine()->request(QStringLiteral("info"), {}, [this](const rg::EngineReply& r) {

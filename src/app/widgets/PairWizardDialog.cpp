@@ -23,8 +23,8 @@ QString PairWizardDialog::StepText(const QString& s, const QString& device) {
                   "button.");
     if (s == QStringLiteral("set_master")) return tr("Pairing %1 with this PC. Keep the cable connected.").arg(d);
     if (s == QStringLiteral("need_helper"))
-        return tr("The last step needs a small helper with administrator rights, installed once. Ask someone with the "
-                  "administrator password to run this command in a terminal, then press Try Again:");
+        return tr("The last step needs a small helper with administrator rights, installed once. Open this in RavenGun "
+                  "(it asks for your password once), then press Try Again:");
     if (s == QStringLiteral("register"))
         return tr("Setting up Bluetooth. Bluetooth restarts briefly; other controllers reconnect by themselves.");
     if (s == QStringLiteral("wait_unplug")) return tr("Unplug the USB cable.");

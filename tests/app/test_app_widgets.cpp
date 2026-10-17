@@ -76,6 +76,7 @@ private Q_SLOTS:
     void bigPictureKeys();
     void aimStreamFallback();
     void wizardWithFakePkexec();
+    void wizardEngineStep();
     void artwork();
     void addToSteamOnCopy();
     void saverWindow();
@@ -590,12 +591,22 @@ void AppWidgetTest::aimStreamFallback() {
 }
 
 void AppWidgetTest::wizardWithFakePkexec() {
-    // Nep-pkexec: schrijft zijn argumenten weg en eindigt met 0. Er wordt niets als root uitgevoerd.
+    // Nep-pkexec: schrijft zijn argumenten weg en eindigt met 0. Er wordt niets als root uitgevoerd. Het "hulpprogramma" is een nepbestand.
     const QString fake = tmp_.filePath(QStringLiteral("fake-pkexec"));
     const QString log = tmp_.filePath(QStringLiteral("fake-pkexec.args"));
     writeFile(fake, QStringLiteral("#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done > '%1'\necho nep-pkexec klaar\n").arg(log).toUtf8());
     QFile::setPermissions(fake, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    const QString helper = tmp_.filePath(QStringLiteral("fake-setup-helper"));
+    writeFile(helper, "#!/bin/sh\necho '== udev rules'\nexit 1\n");
+    QFile::setPermissions(helper, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     qputenv("RAVENGUN_PKEXEC", fake.toUtf8());
+    qputenv("RAVENGUN_SETUP_HELPER", helper.toUtf8());
+    // Een eigen HOME: of er op deze machine een installatie staat, mag de uitkomst niet bepalen.
+    struct HomeGuard {
+        QByteArray old = qgetenv("HOME");
+        ~HomeGuard() { qputenv("HOME", old); }
+    } homeGuard;
+    qputenv("HOME", tmp_.filePath(QStringLiteral("wizard-home")).toUtf8());
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
     ui::SetupWizard wiz(&core);
     wiz.show();
@@ -607,8 +618,18 @@ void AppWidgetTest::wizardWithFakePkexec() {
         seen << wiz.currentId();
     }
     QCOMPARE(seen, (QList<int>{0, 1, 2, 3, 4, 5, 6, 7}));
-    // Stap 2: Install start pkexec met precies het script en --apply.
+    // Stap 1: een ontwikkelbouw (geen volledige boom naast de app): geen installatieknop, wel de melding.
     wiz.restart();
+    for (QPushButton* b : wiz.findChildren<QPushButton*>()) {
+        const bool installButton = b->text() == QStringLiteral("Install RavenGun") || b->text() == QStringLiteral("Update RavenGun") ||
+                                   b->text() == QStringLiteral("Uninstall RavenGun...");
+        QVERIFY(!installButton || !b->isVisibleTo(&wiz));
+    }
+    bool sawDeveloperBuild = false;
+    for (QLabel* l : wiz.findChildren<QLabel*>())
+        if (l->text().contains(QStringLiteral("developer build"))) sawDeveloperBuild = true;
+    QVERIFY(sawDeveloperBuild);
+    // Stap 2: Install start pkexec met precies het hulpprogramma en --apply.
     wiz.next();
     QPushButton* install = nullptr;
     for (QPushButton* b : wiz.findChildren<QPushButton*>())
@@ -617,13 +638,59 @@ void AppWidgetTest::wizardWithFakePkexec() {
     install->click();
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(install->isEnabled(), 5000);
-    const QStringList args = readAll(log).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-    QCOMPARE(args, (QStringList{QDir::cleanPath(QStringLiteral(RAVENGUN_SOURCE_DIR "/scripts/install-permissions.sh")), QStringLiteral("--apply")}));
+    QCOMPARE(readAll(log).split(QLatin1Char('\n'), Qt::SkipEmptyParts), (QStringList{helper, QStringLiteral("--apply")}));
+    // De knop Remove doet --rollback (met de hulp bij de app, want er is geen root-kopie).
+    QFile::remove(log);
+    QPushButton* remove = nullptr;
+    for (QPushButton* b : wiz.findChildren<QPushButton*>())
+        if (b->text().startsWith(QStringLiteral("Remove (asks"))) remove = b;
+    QVERIFY(remove);
+    remove->click();
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(remove->isEnabled(), 5000);
+    QCOMPARE(readAll(log).split(QLatin1Char('\n'), Qt::SkipEmptyParts), (QStringList{helper, QStringLiteral("--rollback")}));
     qunsetenv("RAVENGUN_PKEXEC");
+    qunsetenv("RAVENGUN_SETUP_HELPER");
     // Afronden markeert de wizard als gedaan.
     ui::SetupWizard::MarkDone(false);
     wiz.done(QDialog::Accepted);
     QVERIFY(!ui::SetupWizard::ShouldShowAtStart());
+}
+
+void AppWidgetTest::wizardEngineStep() {
+    // Stap 3 schrijft het unitbestand uit het sjabloon (in de XDG-mappen van de test) en activeert het met een nep-systemctl.
+    const QString dir = tmp_.filePath(QStringLiteral("engine-step"));
+    QDir().mkpath(dir);
+    const QString fakeCtl = dir + QStringLiteral("/fake-systemctl");
+    writeFile(fakeCtl, QStringLiteral("#!/bin/sh\necho \"$@\" >> '%1/log'\nexit 0\n").arg(dir).toUtf8());
+    QFile::setPermissions(fakeCtl, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    const QString bin = dir + QStringLiteral("/bin");
+    writeFile(bin + QStringLiteral("/ravengund"), "#!/bin/sh\n");
+    QFile::setPermissions(bin + QStringLiteral("/ravengund"), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    qputenv("RAVENGUN_SYSTEMCTL", fakeCtl.toUtf8());
+    qputenv("RAVENGUN_BIN_DIR", bin.toUtf8());
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    ui::SetupWizard wiz(&core);
+    wiz.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&wiz));
+    wiz.restart();
+    wiz.next();
+    wiz.next();
+    QCOMPARE(wiz.currentId(), static_cast<int>(ui::SetupWizard::Service));
+    QPushButton* install = nullptr;
+    for (QPushButton* b : wiz.findChildren<QPushButton*>())
+        if (b->text() == QStringLiteral("Install and Start")) install = b;
+    QVERIFY(install);
+    const QString unit = tmp_.filePath(QStringLiteral("config/systemd/user/ravengund.service"));
+    QFile::remove(unit);
+    install->click();
+    QTRY_VERIFY_WITH_TIMEOUT(readAll(dir + QStringLiteral("/log")).contains(QStringLiteral("--user enable --now ravengund.service")), 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(install->isEnabled(), 5000);
+    QVERIFY(readAll(unit).contains(QStringLiteral("ExecStart=") + bin + QStringLiteral("/ravengund\n")));
+    QVERIFY(QFileInfo::exists(tmp_.filePath(QStringLiteral("config/systemd/user/ravengun-oled-saver.service"))));
+    QVERIFY(readAll(dir + QStringLiteral("/log")).startsWith(QStringLiteral("--user daemon-reload\n")));
+    qputenv("RAVENGUN_SYSTEMCTL", "/bin/false");
+    qunsetenv("RAVENGUN_BIN_DIR");
 }
 
 void AppWidgetTest::artwork() {

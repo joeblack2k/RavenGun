@@ -98,18 +98,17 @@ Voorwaarden: de daemon is na de merge opnieuw gebouwd en gestart (`ravengund`), 
 4. Begin de speelsessie met de Move 10 tot 60 s stil op tafel (de daemon leert de temperatuurhelling en de bias) en druk pas daarna PS; doe je dat niet, noteer het in de tag (bijvoorbeeld `halo-drift-koud`).
 5. Controle van de bewaarde bias: `./build/ravengunctl status` ("Gyro-bias: ... bewaard: hersteld bij start (tc ..); N keer bewaard in deze run"). Het bestand staat in `~/.local/state/ravengun/gyro-bias/`; verwijderen mag altijd (de volgende sessie begint dan koud). `ravengund --no-bias-store` zet laden en bewaren uit, `--bias-mode legacy` schakelt de nieuwe schatter uit.
 
-## Hulp voor het koppelen installeren (eenmalig, met sudo)
+## Hulp voor het koppelen installeren (eenmalig, vanuit de app)
 
-Nodig om vanuit de app of `ravengunctl pair` te koppelen. Niet nodig voor spelen of verwijderen. Zie `docs/decisions.md` ("Koppelen zonder terminal").
+Nodig om vanuit de app of `ravengunctl pair` te koppelen. Niet nodig voor spelen of verwijderen. Zie `docs/decisions.md` ("Koppelen zonder terminal") en `docs/build.md` ("Rechten").
 
-1. Controleren wat er gebeurt: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --dry-run`.
-2. Installeren: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --apply`. Dit zet `scripts/ravengun-bt-helper` als `/opt/ravengun/bin/ravengun-bt-helper` (root:root 0755) en schrijft `/etc/sudoers.d/ravengun-bt-helper` (0440, eerst met `visudo -cf` gecontroleerd) die alleen dat pad zonder wachtwoord toestaat.
-3. Controleren zonder sudo: `~/projects/ravengun/scripts/install-bt-helper.sh --check` (verwacht: "Hulp actueel" en "sudo: toegestaan zonder wachtwoord").
-4. Terugdraaien: `sudo ~/projects/ravengun/scripts/install-bt-helper.sh --rollback`.
+1. In de app: Tools > Setup Wizard > Permissions > Install (een beheerderswachtwoord). Dat start `pkexec <prefix>/bin/ravengun-setup-helper --apply`, dat `/opt/ravengun/bin/ravengun-bt-helper` (root:root 0755) zet en `/etc/sudoers.d/ravengun-bt-helper` (0440, eerst met `visudo -cf` gecontroleerd) schrijft die alleen dat pad zonder wachtwoord toestaat, naast de udev-regels.
+2. Controleren zonder root: `<prefix>/bin/ravengun-setup-helper --check` (exit 0 = alles actueel, ook "sudo: allowed without a password").
+3. Terugdraaien: de knop Remove in dezelfde stap, of `pkexec /opt/ravengun/bin/ravengun-setup-helper --rollback`.
 
-Na een wijziging van `scripts/ravengun-bt-helper` stap 2 opnieuw. De hulp logt naar de journal (`journalctl -t ravengun-bt-helper`) en naar `/var/log/ravengun-bt-helper.log`.
+Na een wijziging van `src/syshelper` of `packaging/udev` bouwen en stap 1 opnieuw (de inhoud zit in het programma ingebakken). De hulp logt naar de journal (`journalctl -t ravengun-bt-helper`) en naar `/var/log/ravengun-bt-helper.log`.
 
-Daarnaast (nieuw voor speler 2 tot 4) moet de udev-regel opnieuw: `sudo ~/projects/ravengun/scripts/udev-ravengun.sh --apply` (controle zonder sudo: `scripts/udev-ravengun.sh --check`). Zonder die regel heeft de gun van speler 2 geen by-id-link en geen leesrecht, en beweegt hij de desktopcursor.
+Daarnaast (nieuw voor speler 2 tot 4) moeten de udev-regels opnieuw: dezelfde stap Permissions > Install (controle zonder root: `ravengun-setup-helper --check`). Zonder die regel heeft de gun van speler 2 geen by-id-link en geen leesrecht, en beweegt hij de desktopcursor.
 
 ## Tweede Move koppelen en met twee spelers testen (ongeveer 15 minuten)
 
@@ -249,9 +248,10 @@ Steam leest en overschrijft `~/.local/share/Steam/userdata/<id>/config/shortcuts
 
 De wizard verschijnt bij de eerste start van de app in Desktop Mode (niet in Game Mode, niet bij `--fullscreen`) en staat in Tools > Setup Wizard (`build-app/ravengun --setup-wizard`). "Do not show this wizard at start again" staat in `~/.config/ravengun/ravengun-app.conf` (`wizard/done`).
 
-- Rechten: de knop "Install" start `pkexec <repo>/scripts/install-permissions.sh --apply` (één beheerdersprompt). Dat script doet `scripts/udev-ravengun.sh --apply` en `scripts/install-bt-helper.sh --apply` voor de gebruiker uit `PKEXEC_UID`. Controle zonder root: `scripts/install-permissions.sh --check` (exit 0 = alles actueel). Met de hand kan het ook: `sudo scripts/install-permissions.sh --apply`.
-- Engine-service: "Install and Start" is `scripts/install-service.sh --apply` (geen root).
-- Voor tests: `RAVENGUN_PKEXEC=<nep-programma>` vervangt pkexec, `RAVENGUN_SYSTEMCTL=/bin/false` systemctl.
+- Installeren: stap 1 ("Install RavenGun", alleen vanuit een uitgepakt archief) kopieert de boom naar `~/.local/opt/ravengun` en start de app daaruit opnieuw (`Install::installTree`; zie `docs/build.md`).
+- Rechten: de knop "Install" start `pkexec <prefix>/bin/ravengun-setup-helper --apply` (één beheerdersprompt) voor de gebruiker uit `PKEXEC_UID`; "Remove" doet `--rollback`. Controle zonder root: `ravengun-setup-helper --check` (exit 0 = alles actueel).
+- Engine-service: "Install and Start" schrijft `ravengund.service` en `ravengun-oled-saver.service` uit de sjablonen en doet `systemctl --user daemon-reload` en `enable --now ravengund.service` (geen root, geen script).
+- Voor tests: `RAVENGUN_PKEXEC=<nep-programma>` vervangt pkexec, `RAVENGUN_SETUP_HELPER=<programma>` het hulpprogramma, `RAVENGUN_SYSTEMCTL=/bin/false` systemctl, `RAVENGUN_PREFIX` de installatiemap.
 
 ## De fullscreen-modus proberen (A7)
 

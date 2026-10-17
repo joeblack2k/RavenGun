@@ -102,7 +102,7 @@ RunResult run_capture(const std::vector<std::string>& argv, int timeout_ms) {
 std::vector<std::string> default_psmoveapi_prefixes() {
     std::vector<std::string> v;
     if (const char* e = std::getenv("RAVENGUN_PSMOVEAPI_PREFIX"); e && *e) v.push_back(e);
-    // Installatie (scripts/install-user.sh): libpsmoveapi.so staat in <prefix>/lib naast <prefix>/bin/ravengunctl.
+    // Installatie (de app, core/Install.h): libpsmoveapi.so staat in <prefix>/lib naast <prefix>/bin/ravengunctl.
     if (const std::string pre = paths::prefix_of_exe(paths::env_from_process().exe); !pre.empty()) v.push_back(pre);
     std::string data;
     if (const char* x = std::getenv("XDG_DATA_HOME"); x && *x) data = x;
@@ -208,7 +208,7 @@ void probe_psmoveapi(const ProbeOptions& opt, Snapshot& snap) {
         if (!lib) continue;
         snap.psmoveapi_found = true;
         snap.psmoveapi_prefix = pre;
-        // RavenGun-installatie (scripts/install-user.sh): alleen de bibliotheek is nodig, geen headers of psmove-programma.
+        // RavenGun-installatie (de app, core/Install.h): alleen de bibliotheek is nodig, geen headers of psmove-programma.
         if (fs::exists(root / "share/ravengun/packaging", ec)) return;
         const bool hdr = fs::exists(root / "include/psmoveapi/psmove.h", ec) || fs::exists(root / "include/psmove.h", ec);
         if (!hdr) snap.psmoveapi_missing.push_back("include/psmoveapi/psmove.h");

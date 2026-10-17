@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 // Eerste-gebruik-wizard (A6), alleen in Desktop Mode: bij de eerste start of via Tools > Setup Wizard. Acht stappen:
-// 1 welkom en controle, 2 rechten (één beheerdersprompt via pkexec, of overslaan als het al in orde is), 3 engine als
-// gebruikersservice, 4 controllers koppelen, 5 kalibratie op de tv, 6 gamemap toevoegen en scannen, 7 toevoegen aan Steam,
-// 8 klaar. Alle systeemcommando's hebben vaste paden en argumenten (rg::SetupChecks); de wizard voert niets uit zonder klik.
+// 1 welkom, controle en installeren (draait de app uit een uitgepakt archief, dan kopieert "Install RavenGun" de boom naar
+// ~/.local/opt/ravengun en start de app daaruit opnieuw; rg::Install), 2 rechten (één beheerdersprompt via pkexec op
+// ravengun-setup-helper, of overslaan als het al in orde is), 3 engine als gebruikersservice (unitbestand uit het sjabloon +
+// systemctl --user), 4 controllers koppelen, 5 kalibratie op de tv, 6 gamemap toevoegen en scannen, 7 toevoegen aan Steam,
+// 8 klaar. Geen scripts: alles is C++ met vaste paden en argumenten (rg::Install, rg::SetupChecks); niets zonder klik.
 #include <QWizard>
 #include <functional>
 
@@ -44,9 +46,18 @@ private:
     void UpdateGames();
     void UpdateSteam();
     void UpdateService();
+    void UpdateInstallBox();   // stap 1: installeren/verwijderen van RavenGun zelf
+    void RunInstall();
+    void RunUninstall();
+    void RunPermissionsRemove();
 
     rg::AppCore* core_;
     // Stap 1
+    QLabel* install_status_ = nullptr;
+    QPushButton* install_button_ = nullptr;
+    QPushButton* uninstall_button_ = nullptr;
+    QPlainTextEdit* install_out_ = nullptr;
+    QLabel* check_install_ = nullptr;
     QLabel* check_engine_ = nullptr;
     QLabel* check_running_ = nullptr;
     QLabel* check_perms_ = nullptr;
@@ -58,6 +69,7 @@ private:
     QLabel* perms_status_ = nullptr;
     QPlainTextEdit* perms_out_ = nullptr;
     QPushButton* perms_install_ = nullptr;
+    QPushButton* perms_remove_ = nullptr;
     bool perms_ok_ = false;
     // Stap 3
     QLabel* service_status_ = nullptr;

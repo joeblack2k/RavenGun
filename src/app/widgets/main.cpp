@@ -8,6 +8,10 @@
 //   --steam-account ID     bij --add-to-steam: deze Steam-gebruiker (map onder userdata/) in plaats van de laatst ingelogde
 //   --list-steam-shortcuts de niet-Steam-games van de laatst ingelogde gebruiker tonen (alleen lezen) en stoppen
 //   --setup-wizard         de eerste-gebruik-wizard openen
+//   --install              RavenGun uit deze (uitgepakte) map naar ~/.local/opt/ravengun installeren, zonder venster (zoals de knop in de wizard) en stoppen
+//   --no-start             bij --install: de engine niet starten of herstarten
+//   --uninstall            RavenGun verwijderen (zoals de knop in de wizard; vraagt om het wachtwoord voor de systeemonderdelen) en stoppen
+//   --remove-config        bij --uninstall: ook de instellingen en de bibliotheek verwijderen
 //   --screenshot-dir MAP   maak schermafdrukken van alle vensters en stop (ontwikkelaars; zie widgets/Screenshots.h)
 //   --screenshot-game ID   game voor Properties in de schermafdrukken (standaard tp:Halo)
 //   --socket PAD           andere engine-socket (standaard $XDG_RUNTIME_DIR/ravengun/ravengund.sock)
@@ -30,6 +34,7 @@
 
 #include "core/AppCore.h"
 #include "core/AppPaths.h"
+#include "core/Install.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
@@ -72,6 +77,10 @@ int main(int argc, char** argv) {
     const QCommandLineOption listSteam(QStringLiteral("list-steam-shortcuts"), QStringLiteral("Show the non-Steam games of the Steam user and quit."));
     const QCommandLineOption printPaths(QStringLiteral("print-paths"), QStringLiteral("Show where RavenGun finds its scripts, data and engine, and quit."));
     const QCommandLineOption wizard(QStringLiteral("setup-wizard"), QStringLiteral("Open the setup wizard."));
+    const QCommandLineOption installCmd(QStringLiteral("install"), QStringLiteral("Install RavenGun from this folder into ~/.local/opt/ravengun (no window) and quit."));
+    const QCommandLineOption noStart(QStringLiteral("no-start"), QStringLiteral("With --install: do not start or restart the engine."));
+    const QCommandLineOption uninstall(QStringLiteral("uninstall"), QStringLiteral("Remove RavenGun (service, shortcuts, program folder, device rules) and quit."));
+    const QCommandLineOption removeConfig(QStringLiteral("remove-config"), QStringLiteral("With --uninstall: also remove your settings and library."));
     const QCommandLineOption shotDir(QStringLiteral("screenshot-dir"), QStringLiteral("Save screenshots of all windows to DIR and quit."),
                                      QStringLiteral("DIR"));
     const QCommandLineOption shotGame(QStringLiteral("screenshot-game"), QStringLiteral("Game id for the Properties screenshots."),
@@ -89,7 +98,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption saverSize(QStringLiteral("saver-size"), QStringLiteral("Size for --saver-snapshot, WxH."), QStringLiteral("WxH"),
                                        QStringLiteral("1920x1080"));
     p.addOptions({saverCheck, saverFile, saverSnap, saverSize});
-    p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
+    p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, installCmd, noStart, uninstall, removeConfig, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
     // Iconen uit het bureaubladthema (KDE: breeze) ook buiten een Plasma-sessie (bv. offscreen).
@@ -101,7 +110,33 @@ int main(int argc, char** argv) {
         std::printf("data-dir: %s\n", qPrintable(rg::AppPaths::dataRoot()));
         std::printf("bin-dir: %s\n", qPrintable(rg::AppPaths::binDir()));
         std::printf("engine: %s\n", qPrintable(rg::SetupChecks::engineBinary()));
+        std::printf("setup-helper: %s\n", qPrintable(rg::SetupChecks::setupHelperBinary()));
         return 0;
+    }
+    if (p.isSet(installCmd)) {
+        const QString tree = rg::Install::runningTreePrefix(rg::AppPaths::binDir());
+        if (tree.isEmpty()) {
+            std::fprintf(stderr, "Error: RavenGun is not running from a complete release folder (bin/, lib/ and share/ravengun): %s\n",
+                         qPrintable(rg::AppPaths::binDir()));
+            return 1;
+        }
+        rg::Install::InstallOptions io;
+        io.start = !p.isSet(noStart);
+        const rg::OpResult r = rg::Install::installTree(tree, rg::InstallLayout::current(), io, [](const QString& s) { std::printf("%s\n", qPrintable(s)); });
+        if (!r.ok) std::fprintf(stderr, "Error: %s\n", qPrintable(r.error));
+        return r.ok ? 0 : 1;
+    }
+    if (p.isSet(uninstall)) {
+        const rg::InstallLayout layout = rg::InstallLayout::current();
+        rg::Install::UninstallOptions opt;
+        opt.removeConfig = p.isSet(removeConfig);
+        opt.systemPartsPresent = rg::SetupChecks::systemPartsInstalled();
+        const rg::CommandLine rm = rg::SetupChecks::permissionsRemove();
+        opt.setupHelper = rm.args.value(0);
+        opt.pkexec = rm.program;
+        const rg::OpResult r = rg::Install::uninstall(layout, opt, [](const QString& s) { std::printf("%s\n", qPrintable(s)); });
+        if (!r.ok) std::fprintf(stderr, "Error: %s\n", qPrintable(r.error));
+        return r.ok ? 0 : 1;
     }
     if (p.isSet(listSteam)) {
         const QList<rg::SteamUser> users = rg::SteamShortcuts::users(rg::SteamShortcuts::steamRoot());

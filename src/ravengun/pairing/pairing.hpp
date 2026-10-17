@@ -10,7 +10,7 @@
 //       Navigation: feature 0xF5, [0xF5, 0x01, adapter-adres in leesvolgorde] (8 bytes; BlueZ plugins/sixaxis.c: baswap van
 //                   bdaddr_t, dus de hoogste byte eerst). Lezen: 0xF5 bytes 2..7 (master), 0xF2 bytes 4..9 (eigen adres).
 //  3. De registratie bij BlueZ (info-bestand met Trusted, Class, DeviceID en een koppelsleutel, plus de SDP-cache) vraagt
-//     root: dat doet de hulp scripts/ravengun-bt-helper via sudo (zie docs/decisions.md).
+//     root: dat doet de hulp ravengun-bt-helper (src/syshelper) via sudo (zie docs/decisions.md).
 //  4. "Haal de kabel eruit en druk op PS": de wizard wacht tot de controller via Bluetooth verbindt.
 // Een controller die al bij BlueZ bekend is en al naar deze pc wijst, geeft eerst de vraag "al gekoppeld; opnieuw koppelen?".
 #include <cstdint>
@@ -36,7 +36,8 @@ bool decode_nav_own(const uint8_t* buf, size_t n, std::string& own);
 
 // ---- De hulp met rootrechten ----
 inline constexpr const char* kBtHelperPath = "/opt/ravengun/bin/ravengun-bt-helper";
-inline constexpr const char* kBtHelperInstall = "sudo ~/projects/ravengun/scripts/install-bt-helper.sh --apply";
+// Waar de gebruiker de hulp installeert: in de app (een beheerderswachtwoord, eenmalig). Geen shellopdracht.
+inline constexpr const char* kBtHelperInstall = "RavenGun app: Tools > Setup Wizard > Permissions > Install";
 // Type voor de hulp: "move" (ZCM1), "move2" (ZCM2) of "navigation".
 std::string helper_type(const std::string& type, const std::string& model);
 // De volledige argumentenlijst voor execv: {"/usr/bin/sudo", "-n", <hulp>, "register", "AA:BB:..", <type>}. Leeg als het adres of
