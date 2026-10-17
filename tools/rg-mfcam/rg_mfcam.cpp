@@ -879,6 +879,12 @@ void hook_kernel32(const char* func, Fn repl, Fn& orig) {
 void setup_jvs_com() {
     char port[32];
     if (GetEnvironmentVariableA("RG_JVS_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // uit
+    // Met de gesloten TeknoParrot-kern in het proces (de game kiest Core = teknoparrot voor online spelen) haakt die kern COM3 zelf; twee
+    // omleidingen over elkaar helpen niet, dus dan blijft deze uit.
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("JVS-omleiding uit: de TeknoParrot-kern is geladen en doet COM3 zelf");
+        return;
+    }
     std::snprintf(g_jvs_port, sizeof g_jvs_port, "%s", port);
     char pipe[128];
     if (GetEnvironmentVariableA("RG_JVS_PIPE", pipe, sizeof pipe) > 0 && pipe[0]) std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", pipe);

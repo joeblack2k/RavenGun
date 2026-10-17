@@ -638,6 +638,7 @@ ENV_MAP = [
     ("Audio", "Speakers", "RG_FMOD_SPEAKERS", ""),
     ("Launch", "Mod", "RG_MOD", ""),
     ("Camera", "Exposure", "RG_CAMERA_EXPOSURE", ""),
+    ("Loader", "Core", "RG_LOADER_CORE", ""),   # [Loader] Core: de kern (teknoparrot | ravengun | none); de engine leest hem uit game.ini, de app schrijft hem via deze naam
 ]
 ENV_BY_VAR = {m[2]: m for m in ENV_MAP}
 # Variabele die alleen de patch "gedeelde lader-patch" aanzet (oude naam; alleen voor de .env-terugval en de migratie).

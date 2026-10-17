@@ -5,16 +5,17 @@
 nog de gesloten kern laden. **Niets hiervan is op de tv gemeten**: er is niets gestart (geen game, geen Wine); alles is statisch gelezen
 (objdump, strings, decompilatie van de Unity-assembly's, de open bronnen van TeknoParrotUI en OpenParrot) en gebouwd in de mingw-container.
 Kandidaat-configuraties staan in `docs/research/namco/<Game>.game.ini` en, met hun drop-ins, in `patches/<Game>/game.kandidaat.ini` en `patches/<Game>/dropin.kandidaat.d/`. De meegeleverde
-`patches/<Game>/game.ini` en `dropin/` zijn ongewijzigd: elke game blijft op de gesloten kern tot de tv het tegendeel laat zien.**
+`patches/<Game>/game.ini` en `dropin/` zijn ongewijzigd, **behalve Mario Kart DX** (besluit eigenaar 2026-10-17: standaard zonder TeknoParrot,
+de gesloten kern via de optie Online play); de andere blijven op de gesloten kern tot de tv het tegendeel laat zien.**
 
 ## Overzicht
 
 | Game | Wat de kern deed | Onze vervanging | Stand |
 |---|---|---|---|
 | Point Blank X | de USIO-laag (`Plugins/bnusio.dll`: bord via WinUSB, vuurwapen via COM) naar het gedeelde geheugen leiden; schijfletters F:/G: | **`bnusio.dll` van ons** (`tools/rg-usio`, drop-in op de plaats van het echte bestand) + onze kern (generiek, schijfletter-omleiding patch 0004) | **klaar om te testen** |
-| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; ALL.Net/AMAuthd (COM-server) beantwoorden en naar de TP-gemeenschapsserver wijzen; schijfletters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` (`tools/rg-mfcam/jvs_com.h`) + onze kern. **ALL.Net/online: niet te vervangen** | **kandidaat, offline** |
+| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; ALL.Net/AMAuthd (COM-server) beantwoorden en naar de TP-gemeenschapsserver wijzen; schijfletters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` + onze kern, **standaard** (offline). Optie "Online play" in Properties zet `[Loader] Core = teknoparrot` terug (online, vraagt TeknoParrot) | **standaard offline, klaar om te testen** |
 | Time Crisis 5 | WinUSB/SetupAPI-emulatie van het USIO-bord in het spelproces, injectie in het kindproces van `RSLauncher.exe`, de HASP-laag | HASP-drop-in bestaat al; USIO-emulatie niet gebouwd | **geblokkeerd** (zie TC5) |
-| HOTD Scarlet Dawn | platformgegevens voor `amdaemon.exe`, schijfletters AMFS/D/Y, USB-IO-bord (HID) uit de besturingspipe, twee-exe-start | niets gebouwd | **geblokkeerd + beslissing eigenaar** (zie HOTDSD) |
+| HOTD Scarlet Dawn | platformgegevens voor `amdaemon.exe` (register), schijfletters AMFS/D/Y, USB-IO-bord (HID) uit de besturingspipe, twee-exe-start | `platform.reg` (PlatformId) + onze kern; USB-IO-bord nog niet | **deel 1 klaar om te meten**, USB-IO open |
 
 ## Wat een lege Wine-start van deze games mist (de gemeenschappelijke grondslag)
 
@@ -96,7 +97,15 @@ anders `[Env] RG_USIO_FLIP_Y = 0`. (5) 5 minuten spelen. Bewijs van het laden: `
   `IAuth`: op het pad dat het spel zelf kent (vlag 0). Of het daarna tot de attract komt of na 2 minuten op de netwerkcontrole wacht
   (`ALL.NetCheck_TIMEOUT`, na 7200 = `0x1c20` ticks) is de vraag voor de tv.
 
-**Test op de tv.** (1) kandidaat activeren (`game.kandidaat.ini` + `dropin.kandidaat.d/`). (2) dubbelklik. (3) `rg-mfcam.log`: "JVS-omleiding
+**De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
+standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
+`[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
+zegt dat online spelen TeknoParrot vraagt (de map `TeknoParrotUi-2.0.0.130-linux-x64` in de runtime van RavenGun). Kiest iemand `teknoparrot`
+zonder die map, dan weigert de start met "kern ontbreekt: ...TeknoParrot.dll" (gemeten met `rg-direct --plan` zonder map). Met de gesloten kern
+zet `rg-mfcam.dll` zijn eigen JVS-omleiding uit (`GetModuleHandle("TeknoParrot.dll")`), zodat de kern COM3 zelf doet zoals voor deze wijziging.
+`--plan` gemeten: standaard `core: ravengun`, `RG_JVS_COMPORT=COM3`; met de override `core: teknoparrot` (of de weigering als de map ontbreekt).
+
+**Test op de tv.** (1) kandidaat activeren (alleen nodig als de standaard hierboven niet gewijzigd is; Mario Kart heeft ze nu als echte `game.ini`). (2) dubbelklik. (3) `rg-mfcam.log`: "JVS-omleiding
 aan: COM3 -> \\.\pipe\TeknoParrot_JVS", "JVS: CreateFileA(COM3) -> pipe ..., handvat ...", plus de bestaande camera- en d3dx10-regels.
 (4) `ravengunctl` toont JVS-verkeer; stuur/gas/Item werken zoals voor. (5) wat doet het spel met de ALL.Net-controle: attract binnen ~1 min,
 of netwerkfoutscherm? Bij een blokkade: eerst `Data/System/Config/NetConfig.csv` en `AMCUS/AMConfig.ini` bekijken (zie hieronder).
@@ -148,25 +157,45 @@ wisselen en de invoer kwijtraken.
 
 ## HOTD Scarlet Dawn (EmulationProfile `ALLSHOTDSD`, 64-bit UE4, twee exe's)
 
-**Gemeten (`patches/HOTDSD/METING-1-DAEMON.md`, `AB-UITKOMST.md`).** `amdaemon.exe` sterft rechtstreeks in 1 s op
-`amw_platform_manager.cpp:102`, `amPlatformGetPlatformInformation(). ErrCode 0.` (vóór mountletters en keychip). Met de lader plus
-een willekeurige geïnjecteerde DLL leeft hij >= 30 s zonder verder te komen (AMFS 0x); alleen met de gesloten kern raakt hij de
-mount-/appfile-laag (AMFS 95x, appfile 11x) en bereikt `Process state: Advertise`. Keychip (`FddDriver`) wordt in geen enkele arm
-geraakt. De invoer start/test/service/munt/subtrekker loopt als 64-byte-rapport over `\\.\pipe\TeknoParrotPipe` (`AllsUsbIo`), dat de
-kern in het **daemonproces** als USB-IO-bord (HID) presenteert; trekkers en aim lopen via het gedeelde geheugen (`HOTDSDPipe`).
+*Besluit eigenaar 2026-10-17: RavenGun mag de platformgegevens van `amdaemon.exe` zelf leveren.*
 
-**Wat de kern dus doet voor dit spel.** (1) De platformgegevens die `amPlatformGetPlatformInformation` verwacht (hardware-identiteit:
-`pxGetHwInfo.ini` noemt platform-id `ACA0`), (2) schijfletters `X:`/`Y:`/`D:` -> `AMDaemon/TeknoParrot/<L>` (gedekt door patch 0004),
-(3) het USB-IO-bord (HID/SetupAPI in `amdaemon.exe`), (4) de injectie in beide processen.
+**Waarom `amdaemon.exe` zonder kern in 1 s stopt: gevonden.** `am::platform::Manager::initialize()` (`amdaemon.exe` `0x1401e66a0`) roept
+`amPlatformGetPlatformInformation()` (`0x14022eec0`) aan. Die leest het register: `HKLM\System\SEGA\SystemProperty\Static`, waarde
+**`PlatformId`** (`0x140259f50` = `amsSystemPropertyStaticInit`; de sleutel- en waardenaam staan als UTF-16 in `.rdata`), eist een tekenreeks van
+precies 4 tekens (alfanumeriek op de vierde plaats) en vult daarmee {platform-id, cijfer}. Ontbreekt de waarde, dan neemt de functie het
+foutpad dat **0 teruggeeft met een leeg platform-id**; `initialize()` ziet "geen fout, maar platform-byte = 0" en gooit dan de
+uitzondering `... ErrCode 0.` die in `METING-1-DAEMON.md` staat. Dat verklaart ook "ErrCode 0" en dat de gesloten kern het oplost (hij haakt
+`RegQueryValueExW`; dezelfde strings staan in zijn geheugenbeeld). De waarde die dit spel verwacht: `ACA0` (`pxGetHwInfo.ini`).
 
-**Waarom niet gebouwd.** Punt 1 is het vervalsen van een hardware-identiteit voor Sega's platformcontrole in `amdaemon.exe`. De
-projectafspraak (`docs/decisions.md` 2026-10-11 "HOTD Scarlet Dawn: geen eigen AM-diensten"; `docs/per-game-patches.md` "Grenzen": geen
-patches op keychip-, regio-, integriteits- of dongle-controles) laat dat niet zonder beslissing van de eigenaar toe. Dat is een keuze,
-geen technisch gat: de functie is statisch te vinden (de uitzonderingsregel noemt bron en regel) en het hardware-oordeel zit in
-SetupAPI/CfgMgr-opsommingen (`setupapi` 45x, `cfgmgr32` 29x, `Display` 108x in het spoor). De delen 2 en 4 zijn al of bijna van ons; deel 3
-is het grootste bouwwerk (HID-apparaat met `hid.dll`/SetupDi/overlapped `ReadFile`, in een 64-bit daemon).
-**Vraag aan de eigenaar:** mag RavenGun de platformgegevens van `amdaemon.exe` nabootsen (de kern deed dat al; het is geen keychip), of
-blijft HOTDSD op de gesloten kern tot Sega's `minime`-achtige route er is? Tot dan: geen kandidaat.
+**Vervanging, deel 1: het platform (gebouwd).** `patches/HOTDSD/data/platform.reg` zet `PlatformId = "ACA0"`; `[Launch] Registry =
+data/platform.reg` (bestaand mechanisme, `docs/registry.md`: `wine reg import /reg:64`, eenmalig per prefix, de start weigert als het inlezen mislukt).
+Geen haak en geen DLL nodig. `game.kandidaat.ini` (kopie in `docs/research/namco/HOTDSD.game.ini`) zet daarnaast `[Loader] Core = ravengun`;
+`rg-direct --plan` is `ok`: kern `ravengun`, `reg_files`, starts `amdaemon.exe` en na 5 s `Hodzero-Win64-Shipping.exe`.
+
+**Wat nog ontbreekt (niet gebouwd, gemeten waar het kon).**
+
+1. **Het USB-IO-bord.** `config.json` eist `usb_io` node 0 en alle ingangen (`start`, `test`, `service`, `gun_select`, ...) zijn
+   `usb_switch` (geen andere invoersoort in `amdaemon.exe`). `libam`'s `amUsbio` zoekt het bord als HID-apparaat (`HidD_GetHidGuid`,
+   `SetupDi*`, `HidD_GetManufacturerString/ProductString`) en praat met **64-byte rapporten** (`HidD_GetInputReport`/`HidD_SetOutputReport`, `0x40`
+   bytes plus rapport-id) en een verzoek/bevestiging-protocol (`amUsbioSendRequest`/`RecvAcknowledge`, interrupt- en controlpijp). Die 64 bytes zijn
+   dezelfde indeling als het `AllsUsbIo`-rapport dat onze daemon al schrijft (8 analoge kanalen, munttellers op 24-25, schakelaars op 28-31,
+   `packaging/control-pipe-profiles.json`), dus de **invoerdata is er**; wat ontbreekt is het apparaat zelf (een HID-apparaat dat Wine aan
+   `amdaemon.exe` laat zien, of haken van `hid.dll`/`SetupDi*` in het daemonproces) en het antwoord op de verzoeken (knooppuntinformatie, functielijst
+   uit `config.json`). Dat is een eigen onderzoek van `amUsbio` (VID/PID- of tekenreeksfilter, verzoekcodes) en nog niet gedaan; de dichtstbijzijnde
+   bestaande bouwsteen is de uhid-route voor `hid-board` (`packaging/hid-boards.json`).
+2. **De schijfletters.** `amsSystemPropertyMountInit`/`GetMountAmfs` lezen `AMFS` en `APPDATA` onder `HKLM\System\SEGA\SystemProperty\mount`
+   (de daemon schrijft ze ook zelf, `SetMountAmfs/Appdata`). Welke letters de gesloten kern daar zette en of de daemon ze zonder kern zelf kiest
+   is niet vastgesteld; patch 0004 van onze kern leidt `<L>:\` om naar `.\TeknoParrot\<L>\`. `AMDaemon/TeknoParrot/` heeft `AMFS`, `D`, `Y` (en
+   `D\SDET\appfile.dat`, `AMFS\sysfile.dat`). Het volgende logboek (`amdaemon.log` met `-l`) zegt het meteen.
+3. **Meer registerwaarden.** De daemon leest verder `Static\SetupVersion` en `StorageVersion`, `Master\NextProcess` en `SystemError`,
+   `amVideo\name` (alle niet gezet in de gedeelde prefix; sommige maakt hij zelf). Niet geraden: eerst het logboek.
+
+**Waarschijnlijk resultaat van de eerste tv-proef:** de daemon komt voorbij de platformcontrole (niet meer "1 s en weg") en blijft staan
+bij het USB-IO-bord of de schijfletters; het spel start dan zonder invoer. Dat is winst om te meten, nog geen speelbare game.
+
+**Test op de tv.** (1) `patches/HOTDSD/game.kandidaat.ini` over `game.ini` (of in de gebruikerslaag), (2) dubbelklik, (3) `amdaemon.log` in de view
+(`AMDaemon/`) en het starts-logboek: staat er `Process state: setup Game Mode` en geen `amw_platform_manager.cpp`-uitzondering meer? Welke
+regel is de eerste fout daarna (`amUsbio`, `AMFS`, `appfile`, ...)? (4) `reg query HKLM\System\SEGA\SystemProperty\Static` in de prefix.
 
 ---
 
@@ -179,5 +208,5 @@ blijft HOTDSD op de gesloten kern tot Sega's `minime`-achtige route er is? Tot d
 | `tools/rg-mfcam/jvs_com.h`, `rg_mfcam.cpp` | JVS-over-COM-logica (getoetst) en de derde taak van `rg-mfcam.dll` |
 | `tools/dev/build-mfcam.sh` | kopieert nu ook `jvs_com.h` |
 | `tests/test_usio_model.cpp`, `tests/test_jvs_com.cpp` | ctest `ravengun_usio_model_tests`, `ravengun_jvs_com_tests` |
-| `patches/PointBlankX/` en `patches/MarioKartDX/`: `game.kandidaat.ini`, `dropin.kandidaat.d/` | kandidaat-`game.ini` + `dropin/` (ravengun-patches, ongecommit) |
-| `docs/research/namco/PointBlankX.game.ini`, `MarioKartDX.game.ini` | dezelfde kandidaat-`game.ini` in deze repo |
+| `patches/PointBlankX/`: `game.kandidaat.ini`, `dropin.kandidaat.d/`; `patches/MarioKartDX/` (nu de echte `game.ini`, `dropin/`, `options.json`); `patches/HOTDSD/game.kandidaat.ini` + `data/platform.reg` | kandidaat-`game.ini` + drop-ins (ravengun-patches, ongecommit) |
+| `docs/research/namco/PointBlankX.game.ini`, `MarioKartDX.game.ini`, `HOTDSD.game.ini` | dezelfde `game.ini` in deze repo |
