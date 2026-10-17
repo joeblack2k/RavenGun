@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QPalette>
 #include <QVBoxLayout>
 
 #include "core/AppPaths.h"
@@ -63,6 +64,13 @@ ControlsSetup::ControlsSetup(rg::AppCore* core, const QString& profile, QWidget*
       walk_(infoFor(profile, dirs_), baseLayout(core)) {
     setObjectName(QStringLiteral("ControlsSetup"));
     setAutoFillBackground(true);
+    // Een eigen donker palet: op het startscherm (PreLaunchWindow, zwarte achtergrond) erfden de titel en de uitleg anders zwarte
+    // tekst en bleven ze onzichtbaar (gemeten op de tv, 2026-10-17). Zo is het scherm overal hetzelfde: tv-leesbaar, licht op donker.
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, QColor(QStringLiteral("#0b0d10")));
+    pal.setColor(QPalette::WindowText, QColor(QStringLiteral("#f2f4f7")));
+    pal.setColor(QPalette::Text, QColor(QStringLiteral("#f2f4f7")));
+    setPalette(pal);
     setFocusPolicy(Qt::StrongFocus);
 
     auto* root = new QVBoxLayout(this);
