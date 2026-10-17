@@ -33,8 +33,10 @@ de **game** verwacht. Gelezen in de games zelf (Assembly-CSharp.dll met monodis/
 | **Een leveranciers-DLL als drop-in**, met de indeling als tabel per game | Rampage (Kaboom/Adrio) | `tools/rg-adrio/`, `patches/Rampage/dropin/rg-adrio.ini` |
 | **`[Loader] Core = none`** — geen lader en geen kern; de game draait in de map van zijn exe | de vier hierboven | `src/ravengun/launch/direct.cpp` (werkmap) |
 
-Volgende onderdelen (niet gebouwd, zie de tabel): een Konami-I/O-drop-in (`iob.dll` + `gunio.dll`/`ballio.dll`), een uhid-bord in de
-daemon voor UsbBP en het After Dark-bord, en een `RS_232_DLL.dll`-drop-in voor Drakons.
+Volgende onderdelen (niet gebouwd, zie de tabel): een UNIS-drop-in `UsbPluginsDll.dll` (de `BIND_*`-bibliotheek van UNIS: Raccoon
+Rampage en Elevator Action Invasion laden hem, Night Hunter heeft dezelfde familie als `DllBindFunc.dll`), een Konami-I/O-drop-in
+(`iob.dll` + `gunio.dll`/`ballio.dll`), een uhid-bord voor het After Dark-bord, een virtuele joystick voor Bug Busters en een
+`RS_232_DLL.dll`-drop-in voor Drakons.
 
 ## Per game
 
@@ -42,15 +44,15 @@ daemon voor UsbBP en het After Dark-bord, en een `RS_232_DLL.dll`-drop-in voor D
 |---|---|---|---|---|
 | **MarsSortie** | Unity Mono 64 | antwoorden voor MSTPPlugin (knoppen, richtpunt, resolutie); I/O-bord GMB en SuperDog worden door MSTPPlugin uitgezet | `RavenGun.MarsSortie`: vult `MRCQ.Hardware` (SetInputKey/GetInputAxis) uit het bordbeeld, zet GMB, GameLoader, SuperDog en bordfouten uit | **klaar om te testen** |
 | **WildWestShootout** | Unity 5.6 Mono 32 | serieel bord (trekker, munt, testmenu) nagebootst + antwoorden voor WWSTPPlugin (richtpunt); camera MVSDK en SuperDog uitgezet door WWSTPPlugin | `RavenGun.WildWestShootout`: richtpunt (`BaseGun.GetGunPos`), trekker (`BaseGun.OnShoot`), munt (`InCoinAction`), herladen, start, testmenu; camera, bord, dongle, witte flits uit; opstart meteen naar de attract | **klaar om te testen** (meeste risico: de opstart en het testmenu) |
-| **AfterDark2** (Night Hunter) | Unity Mono 64 | antwoorden voor NHAD2TPPlugin (muisroute, knoppen, resolutie) | `RavenGun.AfterDark2`: muisroute aan, richtpunt/trekker per speler, munt/start/speciaal/wapen/stuur/testmenu, toetsenbord uit | **klaar om te testen** |
-| **Rampage** | Unity Mono 64 | Kaboom/Adrio-bord (`KaboomAdrioFxPlusFourFeeders64.dll`) | eigen `KaboomAdrioFxPlusFourFeeders64.dll` (rg-adrio) + `rg-adrio.ini` | **klaar om te testen** |
+| **AfterDark2** (Night Hunter) | Unity Mono 64 | antwoorden voor NHAD2TPPlugin (muisroute, knoppen, resolutie) en de dongle: SenseLock Sense4 (`Sense4.dll`, `dog_hardware_sense_4`; oud: `DllBindFunc`) | `RavenGun.AfterDark2`: muisroute aan, richtpunt/trekker per speler, munt/start/speciaal/wapen/stuur/testmenu, toetsenbord uit, dongle zegt ja | TV 2026-10-17: "Please insert the dongle" (Sense4 niet afgehandeld); **dongle toegevoegd, opnieuw te testen** |
+| **Rampage** | Unity Mono 64 | Kaboom/Adrio-bord (`KaboomAdrioFxPlusFourFeeders64.dll`) | eigen `KaboomAdrioFxPlusFourFeeders64.dll` (rg-adrio) + `rg-adrio.ini` | TV 2026-10-17: beeld zwart, maar de game liep (Unity-logboek: "Kaboom Connected To Serial : 2", attract-scènes wisselen) en exclusief schermvullend zonder gamescope; **nu in gamescope, opnieuw te testen** |
 | **DrakonsRealmKeepers** | Unity **IL2CPP** 64 | serieel bord via `RS_232_DLL.dll` (`RS232_OpenComport/PollComport/SendBuf`); Kaboom-DLL's liggen er maar worden niet aangeroepen | eigen `RS_232_DLL.dll` die het bordprotocol spreekt | **geblokkeerd**: protocol staat in GameAssembly.dll (IL2CPP, geen BepInEx 5) |
-| **ElevatorActionInvasion** | UE4 64 (PDB aanwezig) | USB-HID-bord `UUsbBPLibrary` | uhid-bord in de daemon (hid-board, ondoorzichtig inputrapport) | **geblokkeerd**: rapportindeling nog niet gelezen (PDB 600 MB maakt het haalbaar) |
-| **RaccoonRampage** | UE4 64 (PDB aanwezig) | idem (`UUsbBPLibrary`, zelfde ontwikkelaar) | idem, een bord voor beide | **geblokkeerd**: als EAI |
+| **ElevatorActionInvasion** | UE4 64 (PDB aanwezig) | het UNIS-I/O-bord (USB-HID) via `ESGame/Plugins/UsbPluginsDll.dll` (Usb_ImportDLL laadt hem; 78 exports `BIND_*`: InitUnisIo, GetIoData, GetGunData, IsIoWorking, dongle InitDongle/IsDongleExist/IsDongleVerify, munten) | eigen `UsbPluginsDll.dll` (drop-in, zoals rg-adrio): `BIND_GetIoData`/`BIND_GetGunData` uit het bordbeeld, dongle ja, de rest stubs | **pad gevonden, niet gebouwd**: de indeling van de buffers van GetIoData/GetGunData moet uit de DLL (of de PDB van de game) gelezen worden |
+| **RaccoonRampage** | UE4 64 (PDB aanwezig) | idem: `RSGame/Plugins/UsbPluginsDll.dll` (UNIS, 110 exports; TeknoParrot heeft hem op 8 bytes aangepast, het origineel staat ernaast als `.original`) + `DewoDll.dll` (camera-scan) | dezelfde `UsbPluginsDll.dll`-drop-in als EAI | **pad gevonden, niet gebouwd** (als EAI) |
 | **AfterDark** | Virtools 32 | HID-bord `VID 0471 PID 485E` (HidD_Get/SetFeature) | uhid-bord met feature-rapporten | **geblokkeerd**: protocol in GamePlayer/CoFramework niet gelezen |
 | **LethalEnforcers3** | eigen 32 (Konami) | Konami `iob.dll` (60 exports) + `gunio.dll` (18) | eigen `iob.dll` + `gunio.dll`; Japanse locale via `LC_ALL` | **geblokkeerd**: structuren (`IOB_DIGITAL_IN_W`, `gunio_read_data`) nog niet uit de aanroepen gelezen |
 | **Gashaaaan** | eigen 32 (Konami) | Konami `iob.dll` + `ballio.dll` (bs2_*, ball_io_*) | als LE3 (zelfde familie, andere build van iob.dll) | **geblokkeerd**: als LE3 |
-| **BugBusters** | eigen 32 | alleen DirectInput8 en DDraw in de imports: de kern levert de invoer in het proces | een DirectInput-drop-in of een virtuele muis | **geblokkeerd**: welke aanroep de invoer draagt is niet gemeten |
+| **BugBusters** | eigen 32 | een eigen DirectInput8-laag die alle apparaten opsomt (muis 0x12, toetsenbord 0x13, joystick met `c_dfDIJoystick2`) en een `control.cfg` zoekt (staat niet op de NAS: standaard in de code); de kern levert de invoer in het proces | een virtuele joystick (hid-board, uinput, zoals Transformers) zodra bekend is welke assen/knoppen de game leest | **pad gevonden, niet gebouwd**: welke velden van DIJOYSTATE2 trekker/start/munt zijn |
 | **Coopers9** | eigen 32, ingepakt (lege importtabel) | HASP HL (statisch) + DirectInput8 | HASP-laag (bestaat voor ELF) + invoer | **geblokkeerd**: ingepakte exe |
 | **RobinHood** | eigen 32 | HASP HL (statisch) + DirectInput | als Coopers 9 | **geblokkeerd** |
 | **PigsMightFly** | Sega-shell + PigsMightFly.exe | Sega-shell (I/O-bord) + Dinkey (`dk2win32.dll`) | de route van Men in Black (game zonder shell) + Dinkey-laag | **geblokkeerd**: shell en Dinkey niet nagebouwd |
