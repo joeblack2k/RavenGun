@@ -239,6 +239,32 @@ verkeer ziet, dan is dat de eerste plek om te kijken.
 
 **mxsuperio en SMBus:** nog niet nodig gebleken voor deze crash. Pas meten als `JVS-pipe: game verbonden` er is: de volgende log laat zien of er foutbits zichtbaar worden.
 
+### Meting 5 (TV proef 8, 2026-10-17 18:05-18:13): vier foutschermen en twee stops, statisch ontleed
+
+Alle zeven draaiden met mxjvs 9c67e68 (eerste rg-amhw). Hieronder per game wat de exe doet [gelezen] en wat de aanpassing is. Geen game gestart.
+
+| Game | Gezien | Oorzaak [gelezen] | Aanpassing |
+|---|---|---|---|
+| LGS | Error 0949 Keychip Not Found | 949 = 0x3B5 uit fwAM; de keychip-vlag wordt pas gezet nadat `amDongleInit` de `<id>_Table.dat` las (`amDongleSetAuthConfig`). Op de NAS staat geen `SDAX_Table.dat`. Daarnaast leest de nieuwere AM Library de BIOS-ruimte in stukken van 0x8010 (0x474040/0x4741D0) en weigert een columba-antwoord waarvan `BytesReturned` niet gelijk is aan de buffer | `rg-amhw`: columba antwoordt met elke buffergrootte (tot 1 MB) en `BytesReturned` = buffer; een ontbrekende `_Table.dat` krijgt een vervanging |
+| SDR | ERROR 0949 KEYCHIP NOT FOUND | Zelfde: `SBXM_Table.dat` (in de exe op 0x38B3B0) ontbreekt | Vervangende tabel; gameid `SBXM` in de overlay |
+| OG | ERROR 3005 AMLIB INITIALZE FAILED | 3005 is het fatale pad van `AMLibContext::Init` (0x4AC2B0, `push 6; call 0x5106C0`): hij stopt bij de eerste mislukte stap. Eerste kandidaat is de dongle (`Dongle::Info` 0x4ACF00 -> `amDongleSetAuthConfig` 0x58CC90): `SBWA_Table.dat` ontbreekt. Daarna nog te verwachten: SMBus-EEPROM, hardwaremonitor (`\\.\mxsuperio`) en install/storage | Vervangende tabel; gameid `SBWA`. Of OG daarna verder komt is zonder start niet vast te stellen; zo niet, dan staat de volgende stap in `rg-amhw.log` als `niet nagebootst` |
+| Transformers | Windows-dialoog "Runtime Error! R6002 floating point support not loaded" | `TF_Gun_R_Ring_dumped.exe` heeft `.rdata` met kenmerken 0xC0000040 (lezen+SCHRIJVEN). De VC-opstartcode (`_cinit`) roept `_FPinit` alleen aan als `_IsNonwritableInCurrentImage` zegt dat het pointerveld in een NIET-schrijfbare sectie staat; hier dus niet. Onder de TP-kern gaat dit goed (hypothese: de TP-lader past de kenmerken aan), de generieke route niet. Ook heeft de gedumpte exe geen namentabel in de importtabel | `rg-amhw` zet vóór de CRT-start de schrijfbit van `.rdata` in de kop in het geheugen uit (`kop: .rdata stond op schrijfbaar ...` in de log); `patch_iat` valt terug op vergelijken met het adres van GetProcAddress |
+| LGI3D | exitcode 5 (0xC0000005) < 90 s | Zelfde columba-bufferweigering als LGS (RingEdge, `AAL`/NEC), met een nulwijzer als gevolg bij het bordtype | Columba-fix; komt er daarna weer een toegangsfout, dan geeft `+seh` het adres |
+| GG | exitcode 0 < 90 s | Een nette stop: `SBVE_Table.dat` (pad `..\fs\table\SBVE_Table.dat` t.o.v. de exe) ontbreekt, de init meldt dat en de game sluit af zonder scherm | Vervangende tabel; de DLL maakt hem in `rg-amhw-tables/` naast zichzelf |
+
+**De tabel.** De games lezen er blokken uit (aantal gecontroleerd, geen som over de inhoud). Een bestand van 1 190 000 bytes (de grootte van de echte tabellen van SBUH,
+SBWB, SBYR) met vaste pseudo-willekeurige bytes (zaad = FNV van de bestandsnaam) volstaat voor de leesstap [gelezen]; of de game de inhoud later nog beoordeelt, is NIET
+bevestigd. De DLL schrijft hem alleen naast zichzelf (in de view), nooit naar de NAS, en alleen als het opgegeven pad niet bestaat en het een leesopening is.
+
+**Install en storage (poorten 40102/3 en 40114/5).** De nieuwere AM Library (LGS, GG, OG, Transformers) gebruikt daar `request=<naam>&...` en verwacht
+`response=<naam>&result=success` terug (0x466CA0 install, 0x46C850 storage, resultaatcontrole 0x465520 / 0x46B810). De AM-daemon van rg-direct beantwoordt nu elk
+`request=<naam>` zo; extra velden per verzoek kunnen in `[AmDaemon]` als `response.<naam> = k=v&k2=v2` (alleen letters/cijfers en `. _ - : @ % / # { } \ & =`). Welke
+velden een verzoek nodig heeft is nog niet gemeten: staat er in het logboek van rg-direct een `request=<naam>` met de melding "result=success", maar loopt de game
+daarna vast, dan is dat de eerstvolgende plek om te kijken.
+
+**Onzeker:** (1) of de gedumpte Transformers-exe na R6002 nog andere dumpresten heeft; (2) of OG alleen op de tabel strandt of ook op EEPROM/hardwaremonitor;
+(3) de oorzaak van de GG-stop is uit de padstring en de volgorde in de init afgeleid, niet uit een meting van die run.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
@@ -251,6 +277,9 @@ Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen
    `cp docs/research/segajvs/patches/LGI/dropin/dropin.ini build-amhw/rg-amhw.dll ~/.local/share/ravengun/patches/LGI/dropin/`.
    Zet daarin ook `[Env]` `WINEDEBUG = -all,+seh` zolang je het crashadres wilt zien (haal het weg voor een gewone run).
 3. Controle voor de start: `build/rg-direct --plan LGI` toont bij `dropin_lines` `preload: rg-amhw.dll -> TP_PRELOAD_DLL=...`.
+   Voor meting 5 (LGS, SDR, OG, Transformers, LGI3D, GG): zoek in `rg-amhw.log` ook naar `columba: fysiek geheugen 0x000F0000 (lengte 0x... buffer 0x8010)`,
+   `tabel: ...SBxx_Table.dat ontbreekt; vervangen door ...\rg-amhw-tables\...` en, alleen bij Transformers, `kop: .rdata stond op schrijfbaar`. De AM-regels van
+   rg-direct tonen `request=<naam>` met "result=success".
 4. Dubbelklik. In de view (`~/.local/share/ravengun/runtime/views/LGI/`) verschijnt `rg-amhw.log`. Verwacht daarin: `rg-amhw geladen in ...LGI_RingW_F_safe.exe`,
    `importtabel: KERNEL32.dll!CreateFileW omgezet` (en DeviceIoControl, CloseHandle, SetFilePointer, ReadFile, WriteFile), `columba: fysiek geheugen
    0x000F0000 ... BIOS-ruimte met _DMI_`, dan `0x000E0000 ... DMI-tabel`, `mxsram: geopend`. Staat die log er niet, dan is de DLL niet geladen.

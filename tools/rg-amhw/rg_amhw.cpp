@@ -176,6 +176,34 @@ HANDLE open_jvs() {
     return h;
 }
 
+// De AM Library leest bij de dongle een "<spel-id>_Table.dat" (amDongleSetAuthConfig): in de games zonder zo'n bestand op de NAS (LGS, GG, OG, SDR) faalt de
+// init daarop ("Failed to set Auth Config File", dan "Keychip Not Found"). De game leest er alleen blokken uit (bytes aantal gecontroleerd, geen som):
+// een bestand van de goede grootte met vaste pseudo-willekeurige bytes volstaat. Wij maken het naast de DLL (de view; nooit de NAS) en laten de game
+// dat bestand openen als het opgegeven pad niet bestaat.
+bool is_table_name(const char* n) {
+    const size_t len = n ? std::strlen(n) : 0;
+    return len > 10 && lstrcmpiA(n + len - 10, "_Table.dat") == 0;
+}
+std::string g_table_dir;
+std::string table_fallback(const char* n) {
+    const char* base = std::strrchr(n, '\\');
+    const char* base2 = std::strrchr(n, '/');
+    if (base2 && (!base || base2 > base)) base = base2;
+    base = base ? base + 1 : n;
+    CreateDirectoryA(g_table_dir.c_str(), nullptr);
+    const std::string path = g_table_dir + "\\" + base;
+    if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        uint32_t x = 2166136261u;                                   // FNV van de naam als zaad: elk spel-id krijgt zijn eigen vaste bytes
+        for (const char* c = base; *c; ++c) x = (x ^ static_cast<uint8_t>(*c)) * 16777619u;
+        if (!x) x = 1;
+        std::vector<uint8_t> data(1190000);                         // de grootte van de echte tabellen (SBUH, SBWB, SBYR)
+        for (auto& b : data) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; b = static_cast<uint8_t>(x); }
+        if (FILE* f = std::fopen(path.c_str(), "wb")) { std::fwrite(data.data(), 1, data.size(), f); std::fclose(f); }
+        rg_log("tabel: %s ontbreekt; vervangen door %s (%lu bytes, vast patroon)", n, path.c_str(), static_cast<unsigned long>(data.size()));
+    }
+    return path;
+}
+
 HANDLE open_named_a(const char* n) {
     if (is_dev_path(n, "\\\\.\\columba")) return make_handle(Kind::Columba, "columba");
     if (is_dev_path(n, "\\\\.\\mxsram")) { sram_load(); return make_handle(Kind::Sram, "mxsram"); }
@@ -195,6 +223,14 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_AT
         SetLastError(e);
         return r;
     }
+    if (name && (acc & GENERIC_WRITE) == 0 && (disp == OPEN_EXISTING)) {
+        char a[300];
+        WideCharToMultiByte(CP_ACP, 0, name, -1, a, sizeof a, nullptr, nullptr);
+        if (is_table_name(a) && GetFileAttributesA(a) == INVALID_FILE_ATTRIBUTES) {
+            const std::string fb = table_fallback(a);
+            return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
+        }
+    }
     return g_create_w(name, acc, share, sa, disp, flags, tmpl);
 }
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
@@ -206,6 +242,10 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
         if (InterlockedIncrement(&n) <= 60) rg_log("CreateFileA(%s) niet nagebootst -> %p (fout %lu)", name, r, static_cast<unsigned long>(e));
         SetLastError(e);
         return r;
+    }
+    if (name && (acc & GENERIC_WRITE) == 0 && disp == OPEN_EXISTING && is_table_name(name) && GetFileAttributesA(name) == INVALID_FILE_ATTRIBUTES) {
+        const std::string fb = table_fallback(name);
+        return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
     }
     return g_create_a(name, acc, share, sa, disp, flags, tmpl);
 }
@@ -286,23 +326,32 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_n, LPVO
     }
     if (ret) *ret = 0;
     if (d.kind == Kind::Columba && code == kIoctlPhysRead) {
-        if (!in || in_n < 16 || !out || out_n < rg_amhw::kWindow) {
-            rg_log("columba: 0x%08lX met te kleine buffers (in %lu, uit %lu)", static_cast<unsigned long>(code), static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
+        // De uitvoerlengte is de lengte van de buffer van de aanroeper: LGI vraagt 0x10000 per keer, de nieuwere AM Library (LGS, LGI3D, ...) leest de
+        // BIOS-ruimte in stukken van 0x8010 (zodat "_DMI_" over een grens heen gevonden wordt) en daarna de tabel met 0x10000. De game eist dat
+        // lpBytesReturned gelijk is aan wat hij vroeg.
+        if (!in || in_n < 16 || !out || out_n == 0 || out_n > 0x100000) {
+            rg_log("columba: 0x%08lX met onbruikbare buffers (in %lu, uit %lu)", static_cast<unsigned long>(code), static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             return FALSE;
         }
         uint32_t req[4];
         std::memcpy(req, in, sizeof req);
-        rg_amhw::phys_read(g_platform, req[0], static_cast<uint8_t*>(out), rg_amhw::kWindow);
-        if (ret) *ret = static_cast<DWORD>(rg_amhw::kWindow);
+        rg_amhw::phys_read(g_platform, req[0], static_cast<uint8_t*>(out), out_n);
+        if (ret) *ret = out_n;
         static LONG n = 0;
-        if (InterlockedIncrement(&n) <= 4)
-            rg_log("columba: fysiek geheugen 0x%08lX (lengte 0x%lX) gelezen -> %s", static_cast<unsigned long>(req[0]), static_cast<unsigned long>(req[3]),
-                   req[0] == rg_amhw::kBiosBase ? "BIOS-ruimte met _DMI_" : req[0] == rg_amhw::kTableBase ? "DMI-tabel" : "nullen");
+        const LONG nr = InterlockedIncrement(&n);
+        if (nr <= 4 || (req[0] == rg_amhw::kBiosBase && nr <= 12) || req[0] == rg_amhw::kTableBase)
+            rg_log("columba: fysiek geheugen 0x%08lX (lengte 0x%lX, buffer 0x%lX) gelezen -> %s", static_cast<unsigned long>(req[0]), static_cast<unsigned long>(req[3]),
+                   static_cast<unsigned long>(out_n), req[0] == rg_amhw::kBiosBase ? "BIOS-ruimte met _DMI_" : req[0] == rg_amhw::kTableBase ? "DMI-tabel" : "nullen");
         return TRUE;
     }
     if (code == kIoctlVersion && out && out_n >= 4) {
         *static_cast<uint32_t*>(out) = 1;
+        if (ret) *ret = 4;
+        return TRUE;
+    }
+    if (d.kind == Kind::Sram && code == 0x9C406004 && out && out_n >= 4) {   // sectorgrootte (de nieuwere AM Library; faalt hij, dan geldt die uit de geometrie)
+        *static_cast<uint32_t*>(out) = 0x200;
         if (ret) *ret = 4;
         return TRUE;
     }
@@ -423,6 +472,9 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
             if (names && !(names[i].u1.Ordinal & IMAGE_ORDINAL_FLAG)) {
                 auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names[i].u1.AddressOfData);
                 hit = std::strcmp(reinterpret_cast<const char*>(ibn->Name), func) == 0;
+            } else if (!names) {   // gedumpte exe (Transformers): geen namentabel; vergelijk met het adres dat Wine al heeft ingevuld
+                HMODULE m = GetModuleHandleA(dll);
+                hit = m && reinterpret_cast<void*>(iat[i].u1.Function) == reinterpret_cast<void*>(GetProcAddress(m, func));
             }
             if (!hit) continue;
             void* old = reinterpret_cast<void*>(iat[i].u1.Function);
@@ -449,6 +501,28 @@ std::string env(const char* k, const char* def) {
     return n > 0 && n < sizeof b ? std::string(b) : std::string(def);
 }
 
+// Een gedumpte exe (Transformers: TF_Gun_R_Ring_dumped.exe) heeft de sectiekenmerken van het dumpprogramma: .rdata staat op lezen+SCHRIJVEN (0xC0000040).
+// De Visual C-opstartcode (_cinit) roept _FPinit alleen aan als _IsNonwritableInCurrentImage zegt dat het pointerveld in een NIET-schrijfbare sectie
+// staat; anders blijft de drijvende-komma-ondersteuning ongeladen en meldt de eerste printf met %f "R6002 - floating point support not loaded".
+// De kenmerken in de kop in het geheugen terugzetten naar alleen-lezen (de paginabeveiliging verandert er niet door) herstelt dat voor de CRT start.
+void fix_rdata_writable() {
+    auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return;
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+        if (std::memcmp(sec[i].Name, ".rdata\0\0", 8) != 0 || !(sec[i].Characteristics & IMAGE_SCN_MEM_WRITE)) continue;
+        DWORD prot = 0;
+        if (!VirtualProtect(&sec[i].Characteristics, sizeof(DWORD), PAGE_READWRITE, &prot)) { rg_log("kop: .rdata is schrijfbaar maar de kop is niet aan te passen"); return; }
+        const DWORD old = sec[i].Characteristics;
+        sec[i].Characteristics &= ~static_cast<DWORD>(IMAGE_SCN_MEM_WRITE);
+        VirtualProtect(&sec[i].Characteristics, sizeof(DWORD), prot, &prot);
+        rg_log("kop: .rdata stond op schrijfbaar (0x%08lX, een gedumpte exe); nu 0x%08lX zodat _FPinit (R6002) draait", static_cast<unsigned long>(old),
+               static_cast<unsigned long>(sec[i].Characteristics));
+    }
+}
+
 void setup() {
     InitializeCriticalSection(&g_cs);
     InitializeCriticalSection(&g_jvs_cs);
@@ -458,6 +532,7 @@ void setup() {
     const size_t slash = dir.find_last_of("\\/");
     dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
     std::snprintf(g_log_path, sizeof g_log_path, "%s\\rg-amhw.log", dir.c_str());
+    g_table_dir = dir + "\\rg-amhw-tables";
     std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", env("RG_AMHW_JVS_PIPE", g_jvs_pipe).c_str());
     g_platform.oem = env("RG_AMHW_OEM", "AAM");
     g_platform.vendor = env("RG_AMHW_VENDOR", "Supermicro");
@@ -470,6 +545,7 @@ void setup() {
     GetModuleFileNameA(nullptr, exe, MAX_PATH);
     rg_log("rg-amhw geladen in %s: platform %s, fabrikant %s, SRAM %d KB in %s", exe, g_platform.oem.c_str(), g_platform.vendor.c_str(), kb, g_sram_path);
     if (env("RG_AMHW_OFF", "") == "1") { rg_log("RG_AMHW_OFF=1: niets omgezet"); return; }
+    fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);
     hook("KERNEL32.dll", "DeviceIoControl", rg_DeviceIoControl, g_ioctl);

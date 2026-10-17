@@ -136,6 +136,17 @@ static void test_responder() {
     CHECK(!a.known && a.line == "iets.anders=7");
     a = rs.answer(parse_request("a b"));
     CHECK(!a.known && a.line.empty() && contains(a.note, "ongeldig"));
+    // De nieuwere AM Library (install/storage): request=<naam> -> response=<naam>&result=success, met extra velden uit response.<naam>.
+    a = rs.answer(parse_request("request=getinfo&cache=0"));
+    CHECK(a.known && a.line == "response=getinfo&result=success");
+    a = rs.answer(parse_request("request"));
+    CHECK(!a.known && a.line.empty());
+    {
+        auto w = default_values("JAPAN");
+        w["response.getinfo"] = "size=2000&sector=512";
+        CHECK(Responder(w).answer(parse_request("request=getinfo")).line == "response=getinfo&result=success&size=2000&sector=512");
+        CHECK(valid_response_extra("size=2000&sector=512") && !valid_response_extra("a b") && !valid_response_extra(""));
+    }
     // Een waarde uit game.ini wint en een ander count ook.
     auto v = default_values("JAPAN");
     v["keychip.appboot.gameid"] = "SBWB";

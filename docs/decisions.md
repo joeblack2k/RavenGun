@@ -823,3 +823,10 @@ Niet de AM-daemon: `keychip.appboot.platformid` wordt door de game nergens terug
 Aanvulling (meting 4, 18:01): de game kiest voor JVS de STUURPROGRAMMA-modus (`amJvsInitEx(2)`, `\\\\.\\mxjvs`, ioctl 0x9C402000 met volledige JVS-kaders), niet COM4; de crash op
 0x6EDF7E (`initCredit`) volgde uit de mislukte open (knooppunttabel leeg). `rg-amhw` bootst mxjvs nu na door het aan de JVS-pipe van de brug te koppelen (`amhw_jvs.h`);
 mxsuperio en SMBus blijven open tot gemeten is dat ze nodig zijn.
+
+Aanvulling (meting 5, 18:13): vier foutschermen en twee stops uit proef 8 zijn statisch ontleed (README, "Meting 5"). Besloten: (1) `rg-amhw` maakt een ontbrekende
+`<id>_Table.dat` (leesopening, alleen naast de DLL, nooit op de NAS) als 1 190 000 bytes vast patroon, omdat de dongle-init anders "Keychip Not Found" geeft en de keychip-
+vlag nooit gezet wordt; (2) columba antwoordt op elke buffergrootte met `BytesReturned` = buffer (de nieuwere AM Library leest in stukken van 0x8010); (3) voor de gedumpte
+Transformers-exe zet de DLL de schrijfbit van `.rdata` in de kop uit (R6002); (4) de AM-daemon beantwoordt `request=<naam>` met `response=<naam>&result=success`,
+extra velden via `[AmDaemon] response.<naam>`. Niet gekozen: de tabel uit de TP-map halen (die is weg; doel is zonder TeknoParrot) of de NAS beschrijven.
+Onbevestigd tot een TV-run: dat de inhoud van de tabel niet beoordeeld wordt, en of OG verder komt dan de dongle.

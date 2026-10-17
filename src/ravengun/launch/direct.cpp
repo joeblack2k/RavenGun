@@ -710,6 +710,12 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                     }
                     continue;
                 }
+                if (lower(k).rfind("response.", 0) == 0) {
+                    if (!amd::valid_response_extra(val))
+                        return setting_refused("[AmDaemon] " + k + " = " + val + " (extra velden k=v&k2=v2, hoogstens 200 tekens)");
+                    pl.am_values[k] = val;
+                    continue;
+                }
                 if (!amd::valid_value(val))
                     return setting_refused("[AmDaemon] " + k + " = " + val + " (een antwoord bestaat uit letters, cijfers en . _ - : @ % / # { } en een backslash, hoogstens 200 tekens)");
                 pl.am_values[k] = val;
