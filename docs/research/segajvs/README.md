@@ -113,6 +113,44 @@ in het logboek als `amDongleXxx() is failed` of een volgend verzoek; pas dan de 
 aan het eind `AM-daemon: gestopt (N verzoeken, waarvan M onbekend)`. Meer verzoeken dan we kennen (install, storage, network, amMaster
 `next/current/active`) verschijnen daar als eerste.
 
+### Meting 2 (LGI, 2026-10-17 14:29): alles beantwoord, daarna exitcode 5
+
+Het logboek `direct-LGI-20261017-142900.log` laat 10 verzoeken zien, 0 onbekend, in precies de volgorde van de code: `systemflag`, `version`
+(`amDongleSetupKeychip`), dan `billing.keyid`, `gameid`, `region`, `modeltype`, `systemflag`, `platformid` (`0x6F0D30`, de dongle-init van fwAM), en
+daarna 2x `mxmaster.foreground.getcount=2` op :40100 (de coordinator zag die niet, ze staan er wel: "meer verbindingen" kapt alleen de
+verbindingsregels af). Beide kregen `getcount=2&count=1`, en dat is wat `amMasterCheckResponse` wil (state 9: `atoi(waarde)==2`, `count`
+via `strtoul`, resultaat `count<=1`).
+
+**Geen enkele waarde is afgewezen.** Dat volgt uit de code, niet uit gokken: een afgewezen waarde geeft in de AM Library alleen een
+foutcode terug (`amDongleXxx() is failed` via de logger op 0x417E00, de init loopt door), en `ArcadeManager::initialize` (0x6EF7F0) vraagt na
+de dongle nog de hardwaremonitor (`6F0F60`) en `amMasterInit`/`getcount` (`483FA0`, `4844F0`). Dat getcount kwam, bewijst dat de dongle-init
+geslaagd terugkwam.
+
+**Er is geen `exit(5)`-pad in de exe.** WinMain (0x8ABF80) eindigt met `xor eax,eax`; van de 14 `exit`-aanroepen gebruiken 13 code 1 en de laatste (CRT) geeft de waarde van WinMain (0), een
+stapelcontrole geeft 0xC0000409 (laatste byte 9). OpenParrotLoader geeft in zijn standaardmodus (`TP_REMOTETHREAD` uit) de exitcode van de
+HOOFDTHREAD van de game terug (`GetExitCodeThread`), en Wine kort een uitzonderingscode af op de laatste byte: **5 = 0xC0000005, een
+toegangsfout in de game of in onze kern, ~2 s na het laatste AM-antwoord.** Er is dan ook geen "JVS-pipe: game verbonden": de game
+kwam niet bij zijn JVS-thread (`JvsManager::initialize` 0x6EE520 -> `amJvsInitEx` 0x4856E0, direct na `ArcadeManager::initialize`).
+
+**Waar de toegangsfout vermoedelijk zit** (statisch niet te bewijzen; de game moet hem laten zien): de AM Library opent op een echte kast
+stuurprogramma's die Wine niet heeft: `\\.\mxsram` (`amSramInit` 0x4879F0: `CreateFileW` + `DeviceIoControl` 0x9C406000 voor de
+versie, 0x70000 voor grootte en sectorgrootte), `\\.\mxsuperio` (hardwaremonitor), `\\.\columba` en via SetupDi een EEPROM
+(`AM_PCA9535_MUTEX`) en de dipschakelaars (smbus). Elke afzonderlijke mislukking wordt netjes teruggegeven (bit in het masker van
+`ArcadeManager::initialize`), maar de spelcode erna (`6E...`, `fwAM` BuSram/EEPROM-regio, foutschermen) kan een nul-wijzer gebruiken. De
+gesloten kern moet dit ook nabootsen; OpenParrot heeft er niets van. Dat is de volgende laag, in dezelfde vorm als de AM-daemon: data
+(welk apparaat, welke ioctl, welk antwoord) en een kleine hook in onze kern.
+
+**Het adres vinden (de volgende meting).** In `game.ini` van LGI in de gebruikerslaag:
+
+```ini
+[Env]
+WINEDEBUG = -all,+seh
+```
+
+Het logboek krijgt dan `dispatch_exception code=c0000005 ... addr=...` en daarvoor de laatste Windows-aanroepen. Het adres naar de
+functie: `python3 -I tools/dev/segajvs-scan.py <exe> --where 0x<adres>` (functiebegin, dichtstbijzijnde am*-functie, de tekenreeksen die de
+functie gebruikt). Staat het adres niet in `LGI_RingW_F_safe.exe` maar in `OpenParrot.dll` of een Wine-DLL, dan is het onze kern of Wine.
+
 ## De test per game (voor de TV)
 
 Voorwaarde voor elke test: de eigen OpenParrot-build staat in `~/.local/share/ravengun/openparrot/current/` (Win32-kern en lader) en

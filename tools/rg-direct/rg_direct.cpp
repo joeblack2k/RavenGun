@@ -1114,7 +1114,11 @@ int run_plan(const std::string& plan_file) {
     if (game.pid < 0) { have_rc = true; rc = 1; }
     // De lader kan eerder stoppen dan de game (OpenParrotLoader): volgen tot ook de game weg is.
     if (have_rc && !g_stop.load() && game.pid > 0) {
-        log("lader gestopt (exitcode " + std::to_string(rc) + "); de game volgen");
+        // OpenParrotLoader geeft de exitcode van de hoofdthread van de game terug; Wine kort een uitzonderingscode af op de laatste byte:
+        // 5 is dan 0xC0000005 (toegangsfout in de game), 9 is 0xC0000409 (stapelcontrole). Het adres staat met +seh in het logboek.
+        const char* hint = rc == 5 ? " [vermoedelijk 0xC0000005, een toegangsfout in de game; zet WINEDEBUG = -all,+seh in [Env] van game.ini voor het adres]"
+                           : rc == 9 ? " [vermoedelijk 0xC0000409, een stapelcontrole in de game; zie WINEDEBUG = -all,+seh]" : "";
+        log("lader gestopt (exitcode " + std::to_string(rc) + ")" + hint + "; de game volgen");
         const std::set<std::string> comms(plan.game_comms.begin(), plan.game_comms.end());
         int quiet = 0;
         while (!g_stop.load() && quiet < 3) {

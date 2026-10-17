@@ -107,6 +107,15 @@ class ScanTest(unittest.TestCase):
         rep = scan.scan(build_pe(text, self.rd))
         self.assertEqual(rep["ports"], {})
 
+    def test_where(self):
+        # Een adres midden in f1: functiebegin, de naam en de tekenreeks van de push.
+        w = scan.where(self.data, self.f_va(self.f1_off) + 6)
+        self.assertEqual(w["function_start"], self.f_va(self.f1_off))
+        self.assertEqual(w["named_before"]["name"], "amMasterOpen")
+        self.assertEqual(w["strings"], ["amMasterOpen"])
+        # Buiten de exe (bv. een adres in een DLL).
+        self.assertIn("error", scan.where(self.data, 0x7BE7E2F4))
+
     def test_not_a_pe(self):
         with self.assertRaises(ValueError):
             scan.PE(b"hello world")
