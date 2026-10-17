@@ -512,6 +512,7 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_rg_exec COMMAND sh -c "out=$(env FOO=1 DISPLAY=:9 \"$<TARGET_FILE:rg-exec>\" --keep DISPLAY -- /usr/bin/env) && test \"$out\" = DISPLAY=:9")
   add_executable(ravengun_native_launch_tests tests/test_native_launch.cpp)
   target_link_libraries(ravengun_native_launch_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_native_launch_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_native_launch_tests COMMAND ravengun_native_launch_tests)
   # De Unity-route zonder shellscripts (src/ravengun/launch/unity.*): de view met de NAS-controle en het Proton-commando.
   add_executable(ravengun_unity_launch_tests tests/test_unity_launch.cpp)

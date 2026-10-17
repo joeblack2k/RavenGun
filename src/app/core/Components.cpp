@@ -76,7 +76,7 @@ QList<Component> Components::parse(const QByteArray& json, QString* err) {
     static const QSet<QString> kinds{QStringLiteral("download"), QStringLiteral("bundled"), QStringLiteral("userfolder"),
                                      QStringLiteral("steam"), QStringLiteral("wine")};
     static const QSet<QString> archives{QStringLiteral("tar.gz"), QStringLiteral("tar.xz"), QStringLiteral("zip"),
-                                        QStringLiteral("pkg.tar.zst"), QStringLiteral("deb"), QStringLiteral("cab"), QStringLiteral("file")};
+                                        QStringLiteral("pkg.tar.zst"), QStringLiteral("deb"), QStringLiteral("tar.gz+deb"), QStringLiteral("cab"), QStringLiteral("file")};
     QList<Component> out;
     QSet<QString> ids;
     for (const QJsonValue& v : doc.object().value(QStringLiteral("components")).toArray()) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Uitpakken van tar.gz, tar.xz, zip, pkg.tar.zst, cab en deb (Debian/Ubuntu-pakketten: het data.tar-lid) met libarchive, zonder tar of unzip aan te roepen (geen shell). Veilig tegen
+// Uitpakken van tar.gz, tar.xz, zip, pkg.tar.zst, cab en deb (Debian/Ubuntu-pakketten: het data.tar-lid; ook .deb's in een tar.gz) met libarchive, zonder tar of unzip aan te roepen (geen shell). Veilig tegen
 // paden buiten de doelmap: ".." en absolute paden worden geweigerd, symlinks mogen niet naar buiten wijzen.
 #include <QList>
 #include <QPair>
@@ -16,6 +16,7 @@ struct ExtractOptions {
     QString subdir;                // alleen wat onder deze map staat (na strip), met die map eraf
     QStringList include;           // alleen paden die hiermee beginnen (na strip/subdir); zonder "/" aan het eind moet het pad exact passen
     QList<QPair<QString, QString>> map;   // exact pad in het archief -> doelpad (relatief aan de doelmap); werkt naast include
+    bool nestedDebs = false;       // het archief (tar.gz) bevat .deb-pakketten: pak die uit en pas include/map op hun inhoud toe (PhysX van NVIDIA)
     bool flattenLower = false;     // alleen bestanden, zonder mappen, bestandsnaam in kleine letters (cab-bestanden met DLL's)
     QString nameFilterSuffix;      // met flattenLower: alleen namen met dit achtervoegsel (bv. ".dll")
     const std::atomic_bool* cancel = nullptr;

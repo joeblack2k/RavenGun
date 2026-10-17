@@ -369,9 +369,9 @@ int main() {
     NativeProfile bad = pr;
     bad.libs.push_back(p.lib32 + "/libontbreekt.so");
     CHECK(!plan(bad, p, PlanOptions{}, pl, err) && err.find("bibliotheken ontbreken") != std::string::npos);
-    // De melding noemt het onderdeel dat de bibliotheek levert (Components in de app), ook voor PhysX uit @data/runtime.
+    // De melding noemt het onderdeel dat de bibliotheek levert (Components in de app), ook voor PhysX 2.8.1.
     NativeProfile nocomp = pr;
-    nocomp.libs = {p.lib32 + "/libstdc++.so.5", p.data + "/runtime/physx-2.8.1/libPhysXCore.so", p.lib32 + "/libglut.so.3", p.build + "/libonbekend.so"};
+    nocomp.libs = {p.lib32 + "/libstdc++.so.5", p.lib32 + "/libPhysXCore.so", p.lib32 + "/libglut.so.3", p.build + "/libonbekend.so"};
     CHECK(!plan(nocomp, p, PlanOptions{}, pl, err));
     CHECK(err.find("libstdc++.so.5 (onderdeel 'libstdcxx5'") != std::string::npos);
     CHECK(err.find("libPhysXCore.so (onderdeel 'physx-linux'") != std::string::npos);
@@ -448,6 +448,40 @@ int main() {
         q.nas_roots = {(root / "geen").string()};
         CHECK(load_profile(profile_text(q, "Lib"), "Lib", q, lp, err) && lp.mounts[0].src == (root / "geen").string() + "/Spel X/bin");
         CHECK(!plan(lp, q, PlanOptions{}, pl, err) && err.find("spelmappen") != std::string::npos);
+    }
+
+    // De kandidaat-profielen uit het onderzoek (docs/research/physx en docs/research/budgie) lezen als gewoon native.json; die voor
+    // PhysX halen de vier bibliotheken uit @lib32 (onderdeel physx-linux) en verwijzen nergens meer naar de TeknoParrot-map.
+    {
+        NativePaths q = p;
+        q.json.clear();
+        const std::string src = RAVENGUN_SOURCE_DIR;
+        auto lees = [&](const std::string& rel) {
+            std::ifstream f(src + "/" + rel, std::ios::binary);
+            return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+        };
+        for (const char* g : {"JurassicPark", "AliensArmageddon", "Terminator"}) {
+            const std::string tekst = lees(std::string("docs/research/physx/patches/") + g + "/native.json");
+            CHECK(!tekst.empty());
+            write(q.patches + "/" + g + "/native.json", tekst);
+            NativeProfile cp;
+            CHECK(load_profile(profile_text(q, g), g, q, cp, err));
+            int physx = 0;
+            for (const std::string& l : cp.libs) {
+                CHECK(l.find("/ElfLdr2/") == std::string::npos);
+                for (const char* n : {"libPhysXLoader.so.1", "libPhysXCore.so", "libNxCharacter.so.1", "libNxCooking.so"})
+                    if (l == q.lib32 + "/" + n) ++physx;
+            }
+            CHECK(physx == 4);
+        }
+        for (const char* g : {"Terminator", "CrossfirePaintball"}) {
+            const std::string tekst = lees(std::string("docs/research/budgie/patches/") + g + "/native.json");
+            CHECK(!tekst.empty());
+            write(q.patches + "/B" + g + "/native.json", tekst);
+            NativeProfile cp;
+            CHECK(load_profile(profile_text(q, std::string("B") + g), std::string("B") + g, q, cp, err));
+            CHECK(!cp.enabled);   // kandidaten staan uit tot de tv-proef
+        }
     }
 
     fs::remove_all(root);

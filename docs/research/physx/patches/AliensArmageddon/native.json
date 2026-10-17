@@ -1,0 +1,67 @@
+{
+  "title": "Aliens Armageddon",
+  "enabled": true,
+  "status": "niet-getest",
+  "arch": "i386",
+  "loader": "rg-elfloader",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Aliens Armageddon",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/AliensArmageddon/dropin/hasp-haken.ini",
+      "dst": "/rg/hasp-haken.ini"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/AliensArmageddon/dropin/ravengun-hasp",
+      "dst": "/pm/ravengun-hasp"
+    }
+  ],
+  "libs": [
+    "@lib32/libPhysXLoader.so.1",
+    "@lib32/libPhysXCore.so",
+    "@lib32/libNxCharacter.so.1",
+    "@lib32/libNxCooking.so",
+    "@lib32/libcsv.so",
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1",
+    "@lib32/libesd.so.0",
+    "@build/lib32/librg-threadprio.so",
+    "@build/lib32/librg_rio_bridge.so",
+    "@patches/AliensArmageddon/dropin/libravengun-hasphook.so",
+    "@patches/AliensArmageddon/dropin/ravengun-hasp.so",
+    "@build/lib32/librg-glslfix.so"
+  ],
+  "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so:/rg/lib/librg-glslfix.so",
+  "env": {
+    "RAVENGUN_HASP_GAME": "AliensArmageddon",
+    "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
+    "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+    "RAVENGUN_HASP_ELF_ADRESLIJST": "/rg/hasp-haken.ini",
+    "RAVENGUN_HASP_VERBOSE": "1",
+    "RG_RIO_LOG": "1",
+    "RG_ELF_PTRACER_ANY": "1",
+    "RG_GLSLFIX_LOG": "1"
+  },
+  "note": "Nooit gestart; statisch voorbereid (2026-10-14). i386, ongepakt (gewone PLT, 1421 dynamische symbolen), via onze lader omdat de game /usr/lib/libcsv.so met een absoluut pad vraagt (rg-elfloader zoekt dan de basisnaam in /rg/lib). Het lightgun-bord is de RIO van Jurassic Park in een oudere versie ZONDER versleuteling: de RIO-brug antwoordt als het bord over USB (patches/AliensArmageddon/rio-invoer.ini, versleuteling geen; adressen en rapport gemeten met objdump). Open, en de reden voor enabled=false: (1) de HASP-dongle zit statisch en klassiek in het beeld (aksusbd/NetHASP, zoals Terminator; patches/AliensArmageddon/BESCHERMING-STATUS.md), dus verwacht \"DongleInitialize() FAILED\"; (2) richten gaat bij deze kast via IR-camera's in de geweren (cmgr/FTDI, io_irtrack), niet via het RIO-bord; (3) welke schakelaar-id wat is, is van Jurassic Park overgenomen. args als utils/run_game.sh van de kast (-f<res> -e); `game` is de 1920x1080-build.",
+  "exe": "/pm/game",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": [
+    "-f{res}",
+    "-e"
+  ],
+  "res": "1920x1080",
+  "route": "tp-shm",
+  "extra_ro": [
+    "/dev/shm/ravengun_JvsState"
+  ]
+}

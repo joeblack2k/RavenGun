@@ -1,0 +1,44 @@
+{
+  "title": "Crossfire: Maximum Paintball",
+  "enabled": false,
+  "status": "kandidaat",
+  "note": "KANDIDAAT (nooit gestart in deze vorm). Nu 'working' via de directe route (BudgieLoader onder Wine). Native vraagt: (1) /dev/p37c, /dev/mjg en /dev/hda nadoen: librg-cf-io (docs/research/budgie/src/rg_cf_io.c, nog niet in CMake; getoetst met een eigen 32-bits toets, nooit in het spel); (2) /proc/version met de kernelregel die de game controleert (files-regel hieronder; bwrap mag over /proc/version heen binden, gemeten); (3) OSS /dev/dsp (librg-oss-stub); (4) de kastindeling: de spelmap als /home/pball (overlay; cwd van het kastscript 'run') en read-only als /data. OPEN: de coderingen van het MegaJamma-record (schakelaars op +0x04, geweren op +0x00 en +0x10..0x2f) zijn niet ontcijferd, dus met dit profiel zijn munt, START en geweren dood; het bord antwoordt stil. mlockall() zonder rechten en glutFullScreen op 640x480 zijn niet gemeten.",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Crossfire Maximum Paintball",
+      "dst": "/home/pball",
+      "mode": "overlay"
+    },
+    {
+      "src": "@nas/Crossfire Maximum Paintball",
+      "dst": "/data",
+      "mode": "ro"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/CrossfirePaintball/data/proc-version",
+      "dst": "/proc/version"
+    }
+  ],
+  "libs": [
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1",
+    "@build/lib32/librg-cf-io.so",
+    "@build/lib32/librg-oss-stub.so"
+  ],
+  "preload": "/rg/lib/librg-cf-io.so:/rg/lib/librg-oss-stub.so",
+  "env": {
+    "RG_CF_LOG": "1",
+    "RG_OSS_STUB_LOG": "1"
+  },
+  "exe": "/home/pball/med_pball",
+  "cwd": "/home/pball",
+  "home": "/home/pball",
+  "args": [],
+  "res": "640x480",
+  "route": "evdev"
+}

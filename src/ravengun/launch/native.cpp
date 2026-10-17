@@ -65,16 +65,17 @@ std::string base_name(const std::string& path) {
 bool contains(const std::string& s, const std::string& part) { return s.find(part) != std::string::npos; }
 
 // Bij een ontbrekend bibliotheekbestand: welk onderdeel (packaging/components.json, "Components" in de app) het levert. Leeg = onbekend.
-// De gepinde downloads staan in @lib32 (runtime/lib32); PhysX en de FMOD-DLL's van de gebruiker hebben een eigen map onder runtime/.
+// De gepinde downloads staan in @lib32 (runtime/lib32); PhysX 2.8.1 (van NVIDIA zelf) staat er ook; de FMOD-DLL's van de gebruiker hebben een eigen map onder runtime/.
 std::string component_hint(const std::string& path, const NativePaths& p) {
     static const std::pair<const char*, const char*> by_name[] = {
         {"libstdc++.so.5", "libstdcxx5"}, {"libcsv.so", "libcsv"},
         {"libssl.so.1.0.0", "openssl10-i386"}, {"libcrypto.so.1.0.0", "openssl10-i386"},
-        {"libSDL-1.2.so.0", "sdl12-compat"}};
+        {"libSDL-1.2.so.0", "sdl12-compat"},
+        {"libPhysXLoader.so.1", "physx-linux"}, {"libPhysXCore.so", "physx-linux"}, {"libNxCharacter.so.1", "physx-linux"},
+        {"libNxCooking.so", "physx-linux"}};
     const std::string name = base_name(path);
     for (const auto& [n, id] : by_name)
         if (name == n) return id;
-    if (contains(path, "/runtime/physx-2.8.1")) return "physx-linux";
     if (contains(path, "/runtime/fmod-win")) return "fmod-win";
     if (!p.lib32.empty() && path.rfind(p.lib32 + "/", 0) == 0) return "lib32-sniper";
     return {};

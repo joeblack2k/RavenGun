@@ -334,36 +334,49 @@
   },
   {
    "id": "physx-linux",
-   "name": "NVIDIA PhysX 2.8.1 for Linux (your copy)",
+   "name": "NVIDIA PhysX 2.8.1 for Linux",
    "group": "Downloads",
    "version": "2.8.1",
-   "kind": "userfolder",
-   "description": "The four 32-bit PhysX 2.8.1 libraries (libPhysXLoader.so.1, libPhysXCore.so, libNxCharacter.so.1, libNxCooking.so) for Jurassic Park, Aliens Armageddon and Terminator Salvation. Copied, never changed at its source.",
-   "sourceNames": [
-    "physx-2.8.1",
-    "PhysX-2.8.1",
-    "TeknoParrotUi-*/ElfLdr2/libs"
+   "kind": "download",
+   "description": "The four 32-bit PhysX 2.8.1 libraries (libPhysXLoader.so.1, libPhysXCore.so, libNxCharacter.so.1, libNxCooking.so) from NVIDIA's own download server, for Jurassic Park, Aliens Armageddon and Terminator Salvation. Free for evaluation, testing and non-commercial use under the AGEIA PhysX licence (a copy is saved as runtime/licenses/physx-2.8.1-copyright.txt).",
+   "downloads": [
+    {
+     "name": "PhysX_2.8.1_SDK_CoreLinux_deb.tar.gz",
+     "url": "https://developer.download.nvidia.com/PhysX/2.8.1/PhysX_2.8.1_SDK_CoreLinux_deb.tar.gz",
+     "sha256": "2a4822f6f5ba9c00993e529392c6fd957bb0c5e07518e9a08bae9ee502428913",
+     "size": 23211902,
+     "archive": "tar.gz+deb"
+    }
    ],
-   "sourceRequire": [
-    "libPhysXLoader.so.1",
-    "libPhysXCore.so",
-    "libNxCharacter.so.1",
-    "libNxCooking.so"
-   ],
-   "include": [
-    "libPhysXLoader.so.1",
-    "libPhysXCore.so",
-    "libNxCharacter.so.1",
-    "libNxCooking.so"
-   ],
-   "note": "Not found in your game folders. NVIDIA no longer offers the Linux PhysX 2.8.1 libraries for download (the SDK was behind a developer login), so there is no pinned download. Put the four files in a folder called physx-2.8.1 next to your games and add that folder in the Games step. They are only read once, at install.",
-   "dest": "runtime/physx-2.8.1",
+   "dest": "",
    "merge": true,
+   "map": [
+    {
+     "from": "usr/lib/libPhysXLoader.so.1",
+     "to": "runtime/lib32/libPhysXLoader.so.1"
+    },
+    {
+     "from": "usr/lib/PhysX/v2.8.1/libPhysXCore.so.1",
+     "to": "runtime/lib32/libPhysXCore.so"
+    },
+    {
+     "from": "usr/lib/PhysX/v2.8.1/libNxCharacter.so.1",
+     "to": "runtime/lib32/libNxCharacter.so.1"
+    },
+    {
+     "from": "usr/lib/PhysX/v2.8.1/libNxCooking.so.1",
+     "to": "runtime/lib32/libNxCooking.so"
+    },
+    {
+     "from": "usr/share/doc/libphysx-common/copyright",
+     "to": "runtime/licenses/physx-2.8.1-copyright.txt"
+    }
+   ],
    "detect": [
-    "runtime/physx-2.8.1/libPhysXLoader.so.1",
-    "runtime/physx-2.8.1/libPhysXCore.so",
-    "runtime/physx-2.8.1/libNxCharacter.so.1",
-    "runtime/physx-2.8.1/libNxCooking.so"
+    "runtime/lib32/libPhysXLoader.so.1",
+    "runtime/lib32/libPhysXCore.so",
+    "runtime/lib32/libNxCharacter.so.1",
+    "runtime/lib32/libNxCooking.so"
    ]
   },
   {
