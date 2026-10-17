@@ -34,9 +34,9 @@ de **game** verwacht. Gelezen in de games zelf (Assembly-CSharp.dll met monodis/
 | **`[Loader] Core = none`** — geen lader en geen kern; de game draait in de map van zijn exe | de vier hierboven | `src/ravengun/launch/direct.cpp` (werkmap) |
 
 Volgende onderdelen (niet gebouwd, zie de tabel): een UNIS-drop-in `UsbPluginsDll.dll` (de `BIND_*`-bibliotheek van UNIS: Raccoon
-Rampage en Elevator Action Invasion laden hem, Night Hunter heeft dezelfde familie als `DllBindFunc.dll`), een Konami-I/O-drop-in
-(`iob.dll` + `gunio.dll`/`ballio.dll`), een uhid-bord voor het After Dark-bord, een virtuele joystick voor Bug Busters en een
-`RS_232_DLL.dll`-drop-in voor Drakons.
+Rampage en Elevator Action Invasion laden hem, Night Hunter heeft dezelfde familie als `DllBindFunc.dll`), een uhid-bord voor het
+After Dark-bord, een virtuele joystick voor Bug Busters en een `RS_232_DLL.dll`-drop-in voor Drakons. De Konami-I/O-drop-in
+(`iob.dll` + `gunio.dll`/`ballio.dll`) is gebouwd: `tools/rg-konami/`, `docs/research/konami/`.
 
 ## Per game
 
@@ -50,8 +50,8 @@ Rampage en Elevator Action Invasion laden hem, Night Hunter heeft dezelfde famil
 | **ElevatorActionInvasion** | UE4 64 (PDB aanwezig) | het UNIS-I/O-bord (USB-HID) via `ESGame/Plugins/UsbPluginsDll.dll` (Usb_ImportDLL laadt hem; 78 exports `BIND_*`: InitUnisIo, GetIoData, GetGunData, IsIoWorking, dongle InitDongle/IsDongleExist/IsDongleVerify, munten) | eigen `UsbPluginsDll.dll` (drop-in, zoals rg-adrio): `BIND_GetIoData`/`BIND_GetGunData` uit het bordbeeld, dongle ja, de rest stubs | **pad gevonden, niet gebouwd**: de indeling van de buffers van GetIoData/GetGunData moet uit de DLL (of de PDB van de game) gelezen worden |
 | **RaccoonRampage** | UE4 64 (PDB aanwezig) | idem: `RSGame/Plugins/UsbPluginsDll.dll` (UNIS, 110 exports; TeknoParrot heeft hem op 8 bytes aangepast, het origineel staat ernaast als `.original`) + `DewoDll.dll` (camera-scan) | dezelfde `UsbPluginsDll.dll`-drop-in als EAI | **pad gevonden, niet gebouwd** (als EAI) |
 | **AfterDark** | Virtools 32 | HID-bord `VID 0471 PID 485E` (HidD_Get/SetFeature) | uhid-bord met feature-rapporten | **geblokkeerd**: protocol in GamePlayer/CoFramework niet gelezen |
-| **LethalEnforcers3** | eigen 32 (Konami) | Konami `iob.dll` (60 exports) + `gunio.dll` (18) | eigen `iob.dll` + `gunio.dll`; Japanse locale via `LC_ALL` | **geblokkeerd**: structuren (`IOB_DIGITAL_IN_W`, `gunio_read_data`) nog niet uit de aanroepen gelezen |
-| **Gashaaaan** | eigen 32 (Konami) | Konami `iob.dll` + `ballio.dll` (bs2_*, ball_io_*) | als LE3 (zelfde familie, andere build van iob.dll) | **geblokkeerd**: als LE3 |
+| **LethalEnforcers3** | eigen 32 (Konami) | Konami `iob.dll` (44 exports) + `gunio.dll` (18), beide over een seriele poort | eigen `iob.dll` + `gunio.dll` (`tools/rg-konami/`) + een eigen `SAVE/io.sav` (kalibratie bij onze ruwe waarden); Japanse locale via `[Env]` | **kandidaat, klaar om te testen**: structuren gelezen, zie `docs/research/konami/README.md` |
+| **Gashaaaan** | eigen 32 (Konami) | Konami `bin/iob.dll` (F24-familie, 30 exports) + `bin/ballio.dll` (63: bs2_*, ball_io_*) | eigen `iob.dll` + `ballio.dll` (`tools/rg-konami/`): een worp (trekker) wordt een balinslag op het richtpunt | **kandidaat, klaar om te testen**: zie `docs/research/konami/README.md` |
 | **BugBusters** | eigen 32 | een eigen DirectInput8-laag die alle apparaten opsomt (muis 0x12, toetsenbord 0x13, joystick met `c_dfDIJoystick2`) en een `control.cfg` zoekt (staat niet op de NAS: standaard in de code); de kern levert de invoer in het proces | een virtuele joystick (hid-board, uinput, zoals Transformers) zodra bekend is welke assen/knoppen de game leest | **pad gevonden, niet gebouwd**: welke velden van DIJOYSTATE2 trekker/start/munt zijn |
 | **Coopers9** | eigen 32, ingepakt (lege importtabel) | HASP HL (statisch) + DirectInput8 | HASP-laag (bestaat voor ELF) + invoer | **geblokkeerd**: ingepakte exe |
 | **RobinHood** | eigen 32 | HASP HL (statisch) + DirectInput | als Coopers 9 | **geblokkeerd** |

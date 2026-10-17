@@ -1,0 +1,23 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; De exports van gunio.dll van Lethal Enforcers 3: dezelfde namen en ordinalen als het origineel (objdump -p),
+; elk naar een eigen C-functie. Gegenereerd uit de exporttabel van het origineel; tools/rg-konami/test.sh vergelijkt ze.
+LIBRARY gunio.dll
+EXPORTS
+"?gunio_boot_status@@YAHH@Z"=le3_gunio_boot_status @1
+"?gunio_change_freq_id@@YAXH@Z"=le3_gunio_change_freq_id @2
+"?gunio_check_error@@YAHXZ"=le3_gunio_check_error @3
+"?gunio_dipsw_data@@YAXHPAE@Z"=le3_gunio_dipsw_data @4
+"?gunio_finish@@YAXXZ"=le3_gunio_finish @5
+"?gunio_get_calibration@@YAXHPAUT_GUNIO_CALIBRATION_DATA@@@Z"=le3_gunio_get_calibration @6
+"?gunio_get_data_error_count@@YAHHPAE@Z"=le3_gunio_get_data_error_count @7
+"?gunio_get_errorcode@@YAHPADH@Z"=le3_gunio_get_errorcode @8
+"?gunio_get_ledcheck_data@@YAXHPAG@Z"=le3_gunio_get_ledcheck_data @9
+"?gunio_get_serial_error_count@@YAHH@Z"=le3_gunio_get_serial_error_count @10
+"?gunio_get_ver@@YAHH@Z"=le3_gunio_get_ver @11
+"?gunio_init@@YAXHH@Z"=le3_gunio_init @12
+"?gunio_read_data@@YAXHPAM0PAH11@Z"=le3_gunio_read_data @13
+"?gunio_run@@YAXXZ"=le3_gunio_run @14
+"?gunio_set_calibration@@YAXHPAUT_GUNIO_CALIBRATION_DATA@@@Z"=le3_gunio_set_calibration @15
+"?gunio_stop@@YAXXZ"=le3_gunio_stop @16
+"?gunio_update_dipsw_data@@YAXXZ"=le3_gunio_update_dipsw_data @17
+"?gunio_update_ledcheck_data@@YAXXZ"=le3_gunio_update_ledcheck_data @18

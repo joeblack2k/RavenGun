@@ -1,0 +1,49 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; De exports van iob.dll van Lethal Enforcers 3: dezelfde namen en ordinalen als het origineel (objdump -p),
+; elk naar een eigen C-functie. Gegenereerd uit de exporttabel van het origineel; tools/rg-konami/test.sh vergelijkt ze.
+LIBRARY iob.dll
+EXPORTS
+"?iob_auto_ex_in_out_check_off@@YAXXZ"=le3_iob_auto_ex_in_out_check_off @1
+"?iob_auto_ex_in_out_check_on@@YAXXZ"=le3_iob_auto_ex_in_out_check_on @2
+"?iob_auto_gun_reaction_off@@YAXH@Z"=le3_iob_auto_gun_reaction_off @3
+"?iob_auto_gun_reaction_on@@YAXH@Z"=le3_iob_auto_gun_reaction_on @4
+"?iob_boot_wait@@YAHXZ"=le3_iob_boot_wait @5
+"?iob_check_coinctr_enable@@YAHXZ"=le3_iob_check_coinctr_enable @6
+"?iob_check_error@@YAIXZ"=le3_iob_check_error @7
+"?iob_check_initial_security_checked@@YAHXZ"=le3_iob_check_initial_security_checked @8
+"?iob_check_need_firm_update@@YAHXZ"=le3_iob_check_need_firm_update @9
+"?iob_end@@YAHXZ"=le3_iob_end @10
+"?iob_firm_update_start@@YAXXZ"=le3_iob_firm_update_start @11
+"?iob_firm_update_wait@@YAHXZ"=le3_iob_firm_update_wait @12
+"?iob_get_boot_error@@YAIXZ"=le3_iob_get_boot_error @13
+"?iob_get_digital_in@@YAHPAUIOB_DIGITAL_IN_W@@@Z"=le3_iob_get_digital_in @14
+"?iob_get_firmware_version@@YAHPAE00@Z"=le3_iob_get_firmware_version @15
+"?iob_get_id@@YAPBDH@Z"=le3_iob_get_id @16
+"?iob_get_model_code@@YAHQAE@Z"=le3_iob_get_model_code @17
+"?iob_get_version@@YAPADXZ"=le3_iob_get_version @18
+"?iob_init@@YAHQBUIOB_MODEL_CODE_W@@HH@Z"=le3_iob_init @19
+"?iob_loop_keeper_init@@YAXH@Z"=le3_iob_loop_keeper_init @20
+"?iob_loop_keeper_main@@YAXXZ"=le3_iob_loop_keeper_main @21
+"?iob_modify_gun_reaction@@YAHPAUIOB_GUN_REACTION_PARAM_W@@@Z"=le3_iob_modify_gun_reaction @22
+"?iob_modify_gun_reaction_init@@YAXXZ"=le3_iob_modify_gun_reaction_init @23
+"?iob_put_ckl@@YAXE@Z"=le3_iob_put_ckl @24
+"?iob_put_ex_led@@YAXE@Z"=le3_iob_put_ex_led @25
+"?iob_put_start_lamp@@YAXE@Z"=le3_iob_put_start_lamp @26
+"?iob_reset_now_gaming@@YAXXZ"=le3_iob_reset_now_gaming @27
+"?iob_set_1p_bass_shaker@@YAHEEEE@Z"=le3_iob_set_1p_bass_shaker @28
+"?iob_set_1p_bass_shaker_init@@YAXXZ"=le3_iob_set_1p_bass_shaker_init @29
+"?iob_set_2p_bass_shaker@@YAHEEEE@Z"=le3_iob_set_2p_bass_shaker @30
+"?iob_set_2p_bass_shaker_init@@YAXXZ"=le3_iob_set_2p_bass_shaker_init @31
+"?iob_set_coinctr_disable@@YAXXZ"=le3_iob_set_coinctr_disable @32
+"?iob_set_coinctr_enable@@YAXXZ"=le3_iob_set_coinctr_enable @33
+"?iob_set_footled@@YAHEE@Z"=le3_iob_set_footled @34
+"?iob_set_footled_init@@YAXXZ"=le3_iob_set_footled_init @35
+"?iob_set_frled@@YAHEEEE@Z"=le3_iob_set_frled @36
+"?iob_set_frled_init@@YAXXZ"=le3_iob_set_frled_init @37
+"?iob_set_game_continue_start@@YAXXZ"=le3_iob_set_game_continue_start @38
+"?iob_set_gun_reaction@@YAHH@Z"=le3_iob_set_gun_reaction @39
+"?iob_set_gun_reaction_init@@YAXH@Z"=le3_iob_set_gun_reaction_init @40
+"?iob_set_light@@YAHEE@Z"=le3_iob_set_light @41
+"?iob_set_light_init@@YAXXZ"=le3_iob_set_light_init @42
+"?iob_set_now_gaming@@YAXXZ"=le3_iob_set_now_gaming @43
+"?iob_start@@YAHXZ"=le3_iob_start @44

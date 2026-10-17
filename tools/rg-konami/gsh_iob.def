@@ -1,0 +1,35 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; De exports van iob.dll van Gashaaaan: dezelfde namen en ordinalen als het origineel (objdump -p),
+; elk naar een eigen C-functie. Gegenereerd uit de exporttabel van het origineel; tools/rg-konami/test.sh vergelijkt ze.
+LIBRARY iob.dll
+EXPORTS
+"?iob_boot@@YAXHPAD@Z"=gsh_iob_boot @1
+"?iob_check_plug@@YAHPAH@Z"=gsh_iob_check_plug @2
+"?iob_f24_add_coin_counter@@YAXHH@Z"=gsh_iob_f24_add_coin_counter @3
+"?iob_f24_ballout_go@@YAXHH@Z"=gsh_iob_f24_ballout_go @4
+"?iob_f24_ballout_status_get@@YAEHPAE00@Z"=gsh_iob_f24_ballout_status_get @5
+"?iob_f24_ballout_status_req@@YAEH@Z"=gsh_iob_f24_ballout_status_req @6
+"?iob_f24_ballout_stop@@YAXH@Z"=gsh_iob_f24_ballout_stop @7
+"?iob_f24_ballout_stop_immediate@@YAXH@Z"=gsh_iob_f24_ballout_stop_immediate @8
+"?iob_f24_button@@YAEH@Z"=gsh_iob_f24_button @9
+"?iob_f24_button_trg@@YAEH@Z"=gsh_iob_f24_button_trg @10
+"?iob_f24_nr_coin@@YAHHPAH@Z"=gsh_iob_f24_nr_coin @11
+"?iob_f24_set_black_light_status@@YAXEE@Z"=gsh_iob_f24_set_black_light_status @12
+"?iob_f24_set_coinblocker_status@@YAXHE@Z"=gsh_iob_f24_set_coinblocker_status @13
+"?iob_f24_set_lamp_status@@YAXHE@Z"=gsh_iob_f24_set_lamp_status @14
+"?iob_firmupdate_get_status@@YAHXZ"=gsh_iob_firmupdate_get_status @15
+"?iob_firmupdate_start@@YAXXZ"=gsh_iob_firmupdate_start @16
+"?iob_get_error_count@@YAXHPAH0@Z"=gsh_iob_get_error_count @17
+"?iob_get_firmware_version@@YAXHPADH@Z"=gsh_iob_get_firmware_version @18
+"?iob_get_hardware_id@@YAXPADHPAE@Z"=gsh_iob_get_hardware_id @19
+"?iob_get_last_error@@YAXPAW4E_IOB_ERROR@@PAI@Z"=gsh_iob_get_last_error @20
+"?iob_get_network_id@@YAEPADH@Z"=gsh_iob_get_network_id @21
+"?iob_get_software_id@@YAEPADH@Z"=gsh_iob_get_software_id @22
+"?iob_get_status@@YA?AW4E_IOB_STATUS@@XZ"=gsh_iob_get_status @23
+"?iob_reload_plug_init@@YAXXZ"=gsh_iob_reload_plug_init @24
+"?iob_reload_plug_wait@@YAEXZ"=gsh_iob_reload_plug_wait @25
+"?iob_shutdown@@YAXXZ"=gsh_iob_shutdown @26
+"?iob_step@@YAXXZ"=gsh_iob_step @27
+"?mujinkun_get_mode@@YAEXZ"=gsh_mujinkun_get_mode @28
+"?mujinkun_set_mode@@YAXE@Z"=gsh_mujinkun_set_mode @29
+GetDllStampStr=gsh_GetDllStampStr @30
