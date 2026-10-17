@@ -5,6 +5,43 @@
   "exe": "MK_AGP3_FINAL.exe",
   "options": [
     {
+      "key": "ravengun.mod",
+      "name_en": "Language",
+      "type": "enum",
+      "values": [
+        "english",
+        "none"
+      ],
+      "default": "english",
+      "target": {
+        "kind": "launch_env",
+        "name": "RG_MOD"
+      },
+      "description_en": "english = the MKDX English Mod 2023 fan translation (texts, menus and textures; Harm, Deidos, TattooHanz, Genjuro, Seam). none = the original Japanese game. RavenGun builds the translated files once in ~/.local/share/ravengun/mods/MarioKartDX (about 1 GB) and links them into the game's local view; the game on the NAS is never changed. Applies at the next start.",
+      "source": [
+        "github.com/Harmmmm/MKDX-English-Mod",
+        "ravengun:[Launch] Mod"
+      ]
+    },
+    {
+      "key": "ravengun.camera_exposure",
+      "name_en": "Camera exposure",
+      "type": "enum",
+      "values": [
+        "photo",
+        "tracking"
+      ],
+      "default": "photo",
+      "target": {
+        "kind": "launch_env",
+        "name": "RG_CAMERA_EXPOSURE"
+      },
+      "description_en": "photo = while the game runs the camera uses automatic exposure, gain and white balance, for a good player photo (the PS Move is not tracked; Mario Kart does not need it). tracking = the camera keeps its dark Move-tracking settings; the photo is then brightened in software and looks grainy. The camera itself is switched on in the game's test menu (Game settings > camera).",
+      "source": [
+        "ravengun:[Camera] Exposure"
+      ]
+    },
+    {
       "key": "general.input_api",
       "name_en": "Input API",
       "type": "enum",
