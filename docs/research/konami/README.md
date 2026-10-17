@@ -5,8 +5,8 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 11: I/O, beveiliging en geweerbord OK, daarna "SYSTEM DATA1 CHECK ERROR 2-1005-0001"; nu schijven D:/E:/F: en de originelen in `D22/`) | niet gemeten: of SYSTEM DATA2 en de films nu ook lopen, de kalibratie in de hoeken, Option/Reload |
-| **Gashaaaan** | **kandidaat, opnieuw te testen** (proef 11: DLL's laden, `SystemMain` stopt voor `iob_boot`; nu eigen `BALLS.INI` zonder schijfletters) | niet bewezen waar `SystemMain` stopt (meetvoorstel in "Proef 11"); venster/schermvullend, inslagcoordinaten |
+| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 13: met de films op D: 150 s zwart, voor de I/O; nu `D22/` zonder films) | niet gemeten: SYSTEM DATA1/2 OK, de films (meetvoorstel "Proef 13"), de kalibratie in de hoeken, Option/Reload |
+| **Gashaaaan** | **werkt zonder TeknoParrot tot het titelscherm** (proef 13, 2026-10-17) | niet gemeten: munt, START, worpen/inslagen per kwart, 5 minuten spelen |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
 `rg-jvsbridge.exe`. `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan <Game> --patches docs/research/konami/patches` geeft voor beide
@@ -193,6 +193,37 @@ AVS-logregels (`log_body_*` via OutputDebugString). Staat er niets van AVS: deze
 `WINEDEBUG=+relay,+seh` en `RelayInclude=kernel32.ExitProcess;kernel32.CreateFileA` (register `HKCU\Software\Wine\Debug`) geeft de
 plek van de `ExitProcess`.
 
+## Proef 13 (tv 2026-10-17 23:48, 1aac61f)
+
+**Gashaaaan werkt zonder TeknoParrot**: titelscherm ("投球王国ガシャーン", "コインを入れてください", CREDIT 0) na 45/90 s. De eigen
+`BALLS.INI` was het: de stop in proef 11 kwam door de schijfletters.
+
+**Lethal Enforcers 3**: schijven D:/E:/F: en de zes links in `D22/` stonden goed, maar 150 s zwart, en in `rg-konami.log` alleen de
+twee laadregels (geen `iob_init`, geen bordbeeld). De game blijft dus hangen voor zijn I/O-update, en die draait in de hoofdlus.
+Gelezen in `game.exe`, wat D: verandert:
+
+- **De films.** `0x523e60` maakt van elke film `D:\D22\DATA\movies\%s` (`0x523ea2`; alleen een pad met een schijfletter blijft
+  zoals het is). Zonder D: (proef 11) ging het openen mis, sloeg de game de films over en kwam hij tot de opstartcontrole. Met
+  `D22/DATA` als link naar de hele DATA-map bestaan de films nu. Onder de kern speelde de eerste film (bench 2026-10-15, met Gst32,
+  zonder gamescope). Nu draait hij in gamescope. Dit is het enige verschil met proef 11 dat voor de hoofdlus valt.
+- **Niet de CRC-controles**: SYSTEM DATA1/2 (`0x536a90`) en ROM CHECK (`0x541ec0`, tabel `0x64d938` met `DATA.a` van 349 MB en alle
+  films; alleen in het testmenu `CWtTmRomCheck`) lopen pas in de hoofdlus, in een eigen draad.
+- **Waarschijnlijk niet E:/F:**: `F:\SAVE` = `view/SAVE` (met onze `io.sav`); `io.sav` wordt pas na `gunio_boot_status` gelezen.
+  De volumevergrendeling `\\.\F:` (`0x51fcc0`, alleen bij een opslag) faalt hooguit en de game gaat dan door.
+- Wine noemt de werkmap nu `D:\` (laadregel: `werkmap D:\`): D:, E: en F: wijzen alle drie naar de view. Relatieve paden
+  blijven dezelfde bestanden. Waarschijnlijk geen oorzaak, maar wel een verschil.
+
+Nu in de kandidaat: `D22/` krijgt alleen wat SYSTEM DATA1/2 leest (`game.exe`, `iob.dll`, `gunio.dll`, `pmds.dll`, `msvcr71.dll`,
+`DATA/check.a`, `DATA/check.cc`, `DATA/testmode.a`) en **geen films**. Dat is voor de films dezelfde toestand als proef 11, plus een
+geslaagde DATA1. **Voor de run eerst `rm -r ~/.local/share/ravengun/runtime/views/LethalEnforcers3/D22`** (alleen links van proef
+13). Anders maakt het materialiseren van de oude link `D22/DATA` een map met alle inhoud van DATA, ook `movies`.
+
+Meetvoorstel voor de films (een aparte run, met `D22/DATA -> origineel:DATA` zoals in proef 13):
+`WINEDEBUG=+timestamp,+seh,+quartz,+strmbase,+mfplat,err+all` en `GST_DEBUG=2`. Te zoeken: blijft het hangen in
+`IGraphBuilder_RenderFile`/`IMediaControl_Run` of een `WaitForCompletion` (quartz), mist er een GStreamer-element (MPEG-1-demuxer
+`mpegpsdemux`, `mpeg2dec`), of loopt de film en blijft alleen het beeld zwart (dan de renderer in gamescope). Als vergelijking dezelfde
+run zonder gamescope (`[Display] Gamescope = false`): onder de kern speelde de film zonder gamescope.
+
 ## Niet bewezen / gegokt
 
 1. **LE3, de kalibratie in de praktijk**: de formule is uit de code gelezen en doorgerekend, niet op het scherm gezien. Klopt de hoek
@@ -234,7 +265,7 @@ Sinds proef 11 vraagt de LE3-kandidaat ook de nieuwe rg-direct (ViewLinks `origi
 
 **Proef 12, waar op te letten.** LE3, logboek van rg-direct: `schijfletter D: -> .../views/LethalEnforcers3` (en E:, F:),
 `viewlink: .../views/LethalEnforcers3/D22/iob.dll -> /home/deck/mnt/spidernas_emulation/Teknoparrot/Lethal Enforcers 3/iob.dll
-(alleen in de view)` (zes regels, de laatste voor `D22/DATA`). Op het scherm: `SYSTEM DATA1 CHECK OK` en daarna DATA2, dan de attract
+(alleen in de view)` (acht regels sinds proef 13: de laatste drie voor `D22/DATA/check.a`, `check.cc` en `testmode.a`; geen `movies`). Op het scherm: `SYSTEM DATA1 CHECK OK` en daarna DATA2, dan de attract
 met film. In `rg-konami.log` geen nieuwe regels nodig; wel moet het richtpunt nu bij de as passen (io.sav wordt gelezen: zonder F:/E:
 las de game hem in proef 11 niet). Faalt DATA1 weer: `ls -la views/LethalEnforcers3/D22` en de foutcode noteren (2-1005-0001 = DATA1,
 -0002 = DATA2). Gashaaaan, logboek van rg-direct: `drop-in: .../views/Gashaaaan/bin/BALLS.INI geschreven`; in `bin/rg-konami.log` na de
