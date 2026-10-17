@@ -120,7 +120,7 @@ void le3_iob_set_light_init(void) {}
 
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reden, LPVOID r)
 {
-    (void)r;
     if (reden == DLL_PROCESS_ATTACH) kb_dllmain_attach(h);
+    else if (reden == DLL_PROCESS_DETACH) kb_dllmain_detach(r);
     return TRUE;
 }

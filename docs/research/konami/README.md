@@ -5,8 +5,8 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **kandidaat, klaar om op de tv te testen** | richtpunt en knoppen zijn uit de game gelezen; niet gemeten: of de kalibratie in de hoeken klopt, de betekenis van Option/Reload in het spel, of de game zonder de kern dezelfde schermmodus krijgt |
-| **Gashaaaan** | **kandidaat, klaar om op de tv te testen** | knoppen en inslagen zijn uit de game gelezen; niet gemeten: venster/schermvullend zonder de kern (Windowed/ScreenFix waren kernfuncties), of de inslagcoordinaten op het beeld vallen |
+| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 8: zwart beeld zonder gamescope; nu in gamescope) | richtpunt en knoppen zijn uit de game gelezen; niet gemeten: of de game zonder de kern zijn I/O-code haalt, de kalibratie in de hoeken, Option/Reload |
+| **Gashaaaan** | **kandidaat, opnieuw te testen** (proef 8: binnen 1 s exitcode 0) | knoppen en inslagen zijn uit de game gelezen; niet gemeten: waarom hij stopte (zie "Proef 8"), venster/schermvullend zonder de kern, de inslagcoordinaten |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
 `rg-jvsbridge.exe`. `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan <Game> --patches docs/research/konami/patches` geeft voor beide
@@ -32,8 +32,9 @@ en schalen 192/176**: zo komen ze uit `game.exe 0x51d430` als alle gemeten ruwe 
 kalibratie geeft elke ruwe waarde een sprong van 192 pixels; de kern leverde het richtpunt dus **niet** als lineaire ruwe waarde via
 `gunio_read_data` (hij schreef waarschijnlijk zelf in de game). Daarom levert onze route een eigen `io.sav` mee (zie onder).
 
-Verder deed de kern (profiel/`teknoparrot.ini`): `UseLocaleEmulator` (nu `[Env] LANG/LC_ALL = ja_JP.UTF-8`; `ja_JP.utf8` staat op de
-machine), `Windowed`/`HideCursor`, en bij Gashaaaan `ScreenFix`. Die laatste drie hebben zonder kern geen vervanger (zie "niet bewezen").
+Verder deed de kern (profiel/`teknoparrot.ini`): `UseLocaleEmulator`, `Windowed`/`HideCursor`, en bij Gashaaaan `ScreenFix`. Die
+hebben zonder kern geen vervanger (zie "niet bewezen"); de eerste kandidaat zette de locale met `[Env] LANG/LC_ALL = ja_JP.UTF-8`, sinds
+proef 8 niet meer (een variabele minder; alle bestandsnamen van beide games zijn ASCII).
 
 ## Wat we vervangen: `tools/rg-konami/`
 
@@ -44,7 +45,17 @@ ook dat elke naam die een module van de game uit die DLL importeert bij ons best
 44/18/30/63 exports, alles gelijk, alleen systeem-imports.
 
 De logica staat los van Windows in `konami_logic.h` en heeft een eenheidstest (`test_konami.c`, 1968 controles). Elke DLL schrijft met
-`RG_KONAMI_LOG=rg-konami.log` een logboek naast zichzelf in de view.
+`RG_KONAMI_LOG=rg-konami.log` een logboek naast zichzelf in de view: een relatief pad is relatief aan de map van **de DLL** (niet aan de
+werkmap; hier zijn ze gelijk: LE3 de view-wortel, Gashaaaan `bin/`), lukt dat niet dan `%TEMP%\rg-konami.log` van de prefix. Sinds proef
+8 schrijft elke DLL al in `DllMain` een **laadregel** (DLL-pad, exe van het proces, werkmap) en bij het stoppen `DllMain: proces stopt
+normaal`; alleen kernel32, veilig onder de loader-lock.
+
+Geladen worden ze **statisch**: `game.exe` (LE3) en `system.dll` (Gashaaaan, statisch geimporteerd door `ballshooting.exe`, die alleen
+`SystemMain` aanroept) hebben `iob.dll`/`gunio.dll`/`ballio.dll` in hun importtabel; geen `LoadLibrary` met een pad. Wine zoekt ze eerst
+in de map van de exe, en daar zet de drop-in ze (de `dest` in het plan). `DllOverride = native` (`iob=n;gunio=n` / `iob=n;ballio=n`) is
+niet nodig (Wine heeft geen eigen versie) maar schaadt niet. Laadproef van de DLL's zelf (geen game): een eigen `laadtest.exe` in een
+lege wegwerp-prefix met de Proton-11-wine van RavenGun, zonder beeldscherm: `LoadLibrary` lukt, `iob_get_status()` = 3, en het logboek
+naast de DLL bevat de laadregel, de eerste aanroep en `DllMain: proces stopt normaal`.
 
 ### Lethal Enforcers 3: `iob.dll`
 
@@ -126,6 +137,15 @@ service bit 1. `iob_f24_nr_coin(mech, &modulo)`: 6-bits teller per muntproever (
   `bs2_environment_check` (twee floats, 0 = "O K" in `demo.dll 0x100027ab`). Functies die geen module importeert raken geen structuur
   aan.
 
+## Proef 8 (tv 2026-10-17 18:14-18:19, TP-map weg)
+
+| Game | Gezien | Uitkomst van het onderzoek | Veranderd |
+|---|---|---|---|
+| LE3 | `wine game.exe` zonder gamescope, 90 s zwart, geen `rg-konami.log` | De drop-ins stonden goed (`views/LethalEnforcers3/{iob,gunio}.dll` = onze sha256, `SAVE/io.sav` lokaal). `game.exe` importeert ze statisch: zonder onze DLL was het proces meteen gestopt, het draaide 90 s, dus ze waren geladen. Geen logregel omdat de toenmalige DLL pas schreef bij de eerste aanroep, en de game kwam in 90 s niet aan zijn I/O-update (`0x51ea80`) toe. Zelfde beeld als Rampage op deze route: zonder lader krijgt het exclusieve D3D-venster de voorgrond niet. De kandidaat had geen `[Display] Gamescope` (de route met de kern had die ook niet nodig). | `[Display] Gamescope = true`; laadregel in `DllMain` |
+| Gashaaaan | gamescope + `ballshooting.exe`, "lader gestopt (exitcode 0)" binnen 1 s, geen `rg-konami.log` | `ballshooting.exe` (40 kB) is geen starter van een tweede exe: hij roept alleen `system.dll!SystemMain` aan. Exitcode 0 is die van gamescope (ook bij AliensExtermination en Silent Scope vandaag: "Broken pipe" + 0 na een snel einde), dus over Wine zegt hij niets. In `SystemMain` (`0x10001170`) is de eerste stap `OpenMutexA("JONG4APPLICATION")` (`0x100014f0`): bestaat die al, dan `return 0` zonder melding, nog voor er iets van iob/ballio wordt aangeroepen. Dat is de enige stille uitgang met 0 zo vroeg; of het die was is niet te zien (geen laadregel toen). Ook een DLL die niet laadt geeft hier een stille stop (WINEDEBUG=-all). | laadregel in `DllMain`; `iob.dll` meldt in `DllMain` of `JONG4APPLICATION` al bestaat |
+
+Beide: de Japanse locale is uit de kandidaat (een variabele minder).
+
 ## Niet bewezen / gegokt
 
 1. **LE3, de kalibratie in de praktijk**: de formule is uit de code gelezen en doorgerekend, niet op het scherm gezien. Klopt de hoek
@@ -137,7 +157,8 @@ service bit 1. `iob_f24_nr_coin(mech, &modulo)`: 6-bits teller per muntproever (
 4. **Schermmodus zonder kern**: `Windowed`, `HideCursor` en (Gashaaaan) `ScreenFix` waren functies van de kern. LE3 draaide met
    `Windowed = 0` (de game zelf schermvullend), dus waarschijnlijk geen verschil. Gashaaaan draaide met `Windowed = 1` in gamescope;
    met de kern gaf `Windowed = 0` in gamescope zwart beeld. Zonder kern kiest de game zelf. **Meten.**
-5. **Japanse locale**: overgenomen van `UseLocaleEmulator = 1`; niet gemeten of de games hem nodig hebben.
+5. **Japanse locale**: `UseLocaleEmulator = 1` van de kern heeft geen vervanger meer; niet gemeten of de games hem nodig hebben
+   (verminkte tekst of een vroege stop: `[Env] LANG/LC_ALL = ja_JP.UTF-8` terugzetten en vergelijken).
 6. **Gashaaaan, schijfletters**: `bin/BALLS.INI` noemt `D:\TYPE.BIN`, `E:\` en `F:\`; de prefix heeft alleen `c:` en `z:`, ook op de
    huidige route (kern), en die werkt. `system.dll` heeft standaardpaden (`.\CONF\NVRAM`). Geen verandering verwacht.
 7. **LE3, bestandscontrole in het testmenu** (`0x536a90`: `DATA\check\iob.cc` tegen `D:\D22\iob.dll`): alleen in het testmenu, met
@@ -156,7 +177,9 @@ het bestand is van `docs/research/konami/patches/<Game>/game.ini.basis.sha256`):
     tools/rg-konami/test.sh                                             # 1968 controles, exports "in orde"
     RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan LethalEnforcers3   # en Gashaaaan: "verdict":"ok", "tp_files":[], "loader":"", "core_dll":""
 
-Een gebruikerslaag (`~/.local/share/ravengun/patches/<Game>/game.ini`) mag geen eigen `[Loader]` hebben. Starten: dubbelklik in de app.
+Een gebruikerslaag (`~/.local/share/ravengun/patches/<Game>/game.ini`) mag geen eigen `[Loader]` hebben. Voor Gashaaaan eerst controleren
+dat er geen oude `ballshooting.exe` meer in de gedeelde prefix draait (`ps -eo pid,args | grep -i '[b]allshooting'`). Voor de eerste run
+kan `WINEDEBUG=err+module` erbij (een DLL die niet laadt, staat dan in het logboek van rg-direct). Starten: dubbelklik in de app.
 
 **Bewijs per run** (beide games):
 
@@ -165,8 +188,14 @@ Een gebruikerslaag (`~/.local/share/ravengun/patches/<Game>/game.ini`) mag geen 
 - `/proc/<pid>/maps` van het spelproces: `views/LethalEnforcers3/iob.dll` en `gunio.dll` (resp. `views/Gashaaaan/bin/iob.dll` en
   `ballio.dll`) geladen, **geen** `TeknoParrot.dll`, `TeknoParrot64.dll`, `OpenParrot` en niets uit `TeknoParrotUi-2.0.0.130-linux-x64`.
 
-**Lethal Enforcers 3** — `views/LethalEnforcers3/rg-konami.log`, ongeveer in deze volgorde (de volgorde van de eerste regels hangt af
-van welke functie de game het eerst aanroept; de inhoud niet):
+**Lethal Enforcers 3** — `views/LethalEnforcers3/rg-konami.log`. De **laadregels** (bewijs dat Wine onze DLL's in het spelproces laadde)
+komen altijd, ook als de game daarna niets doet:
+
+    iob.dll(LE3): DllMain: geladen Z:\...\views\LethalEnforcers3\iob.dll in proces Z:\...\views\LethalEnforcers3\game.exe, werkmap Z:\...\views\LethalEnforcers3 (RavenGun rg-konami, zonder TeknoParrot)
+    gunio.dll(LE3): DllMain: geladen Z:\...\views\LethalEnforcers3\gunio.dll in proces ...\game.exe, werkmap ... (RavenGun rg-konami, zonder TeknoParrot)
+
+Dan, als de game zijn I/O-code haalt (ongeveer in deze volgorde; de volgorde van de eerste regels hangt af van welke functie de game het
+eerst aanroept):
 
     iob.dll(LE3): geladen: Z:\...\views\LethalEnforcers3\iob.dll (RavenGun, zonder TeknoParrot); eerste aanroep: iob_get_digital_in   (of iob_init)
     iob.dll(LE3): bordbeeld TeknoParrot_JvsState geopend
@@ -186,7 +215,16 @@ inslagen volgen de Move in alle vier de hoeken (meting 1: mik op de vier hoeken 
 buiten beeld richten + trekker herlaadt. Vijf minuten spelen (`Spel gehaald = 5 minuten`). Valt de kalibratie scheef of gespiegeld: de
 `richtpunt`-regel en de plaats op het scherm noteren; dat wordt een nieuwe `io.sav`, geen code.
 
-**Gashaaaan** — `views/Gashaaaan/bin/rg-konami.log` (zelfde kanttekening over de volgorde):
+**Gashaaaan** — `views/Gashaaaan/bin/rg-konami.log`. Laadregels:
+
+    iob.dll(Gashaaaan): DllMain: geladen Z:\...\views\Gashaaaan\bin\iob.dll in proces Z:\...\views\Gashaaaan\bin\ballshooting.exe, werkmap Z:\...\views\Gashaaaan\bin (RavenGun rg-konami, zonder TeknoParrot)
+    iob.dll(Gashaaaan): mutex JONG4APPLICATION bestaat nog niet (goed: system.dll maakt hem zelf)
+    ballio.dll(Gashaaaan): DllMain: geladen ...\bin\ballio.dll in proces ...\ballshooting.exe, werkmap ...
+
+Staat er `LET OP: de mutex JONG4APPLICATION bestaat al`, dan stopt de game om die reden (oude processen in de prefix stoppen). Komen
+de laadregels en daarna meteen `DllMain: proces stopt normaal (ExitProcess)` zonder `iob_boot`, dan stopte `SystemMain` vroeg om een
+andere reden (de AVS-opstart `0x10001f60`): dan `WINEDEBUG=+seh,err+module` meten. Komt er geen enkele regel, dan laadde onze DLL niet
+(of een van de andere DLL's in `bin/` niet): `WINEDEBUG=err+module`. Daarna, als de game doorloopt:
 
     iob.dll(Gashaaaan): geladen: ...\views\Gashaaaan\bin\iob.dll ...; eerste aanroep: iob_boot   (of iob_get_status)
     iob.dll(Gashaaaan): iob_boot(...): bord van RavenGun
