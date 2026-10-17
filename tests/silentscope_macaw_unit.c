@@ -61,6 +61,37 @@ static void t_text(void)
     CHECK(rgm_text_insert_before(b, strlen(b), sizeof b, "</nope>", "x") == (size_t)-1);
 }
 
+static void t_ea3(void)
+{
+    char b[1024], rep[256], v[64];
+    size_t n;
+    struct rgm_ea3_opts o = {"0000000000000001", "012199999999", NULL, NULL, NULL};
+    /* rgm_xml_set: platte tag, andere lengte, niet verwarren met <services_localstrap> */
+    strcpy(b, "<n><services_localstrap>L</services_localstrap><services>http://a/</services></n>");
+    n = rgm_xml_set(b, strlen(b), sizeof b, "services", "");
+    CHECK(n == strlen(b) && strcmp(b, "<n><services_localstrap>L</services_localstrap><services></services></n>") == 0);
+    n = rgm_xml_set(b, strlen(b), sizeof b, "services", "http://127.0.0.1:1/");
+    CHECK(n == strlen(b) && strstr(b, "<services>http://127.0.0.1:1/</services>") && strstr(b, "<services_localstrap>L<"));
+    CHECK(rgm_xml_set(b, strlen(b), sizeof b, "nietaanwezig", "x") == (size_t)-1);
+    CHECK(rgm_xml_set(b, strlen(b), 20, "services", "http://127.0.0.1:1/") == (size_t)-1);   /* past niet */
+    /* rgm_ea3_prepare op de dump-vorm: accountid en softid ontbreken, beide erbij */
+    strcpy(b, EA3);
+    n = rgm_ea3_prepare(b, strlen(b), sizeof b, &o, rep, sizeof rep);
+    CHECK(n == strlen(b));
+    CHECK(rgm_xml_value(b, "accountid", v, sizeof v) == 16 && strcmp(v, "0000000000000001") == 0);
+    CHECK(rgm_xml_value(b, "softid", v, sizeof v) == 12 && strcmp(v, "012199999999") == 0);
+    CHECK(strstr(rep, "accountid toegevoegd") && strstr(rep, "softid toegevoegd"));
+    /* tweede keer: niets meer te doen (de velden staan er al) */
+    n = rgm_ea3_prepare(b, strlen(b), sizeof b, &o, rep, sizeof rep);
+    CHECK(n == strlen(b) && rep[0] == 0);
+    /* overschrijven van pcbid en services; lege opts laten alles met rust */
+    strcpy(b, EA3);
+    { struct rgm_ea3_opts e = {NULL, NULL, NULL, NULL, NULL}; CHECK(rgm_ea3_prepare(b, strlen(b), sizeof b, &e, rep, sizeof rep) == strlen(EA3) && strcmp(b, EA3) == 0); }
+    { struct rgm_ea3_opts e = {NULL, NULL, NULL, "0123456789ABCDEF0123", NULL};
+      n = rgm_ea3_prepare(b, strlen(b), sizeof b, &e, rep, sizeof rep);
+      CHECK(rgm_xml_value(b, "pcbid", v, sizeof v) == 20 && strcmp(v, "0123456789ABCDEF0123") == 0 && strstr(rep, "pcbid = 0123")); }
+}
+
 static void t_avs(void)
 {
     const struct rgm_avs_syms *s = rgm_avs_syms_for("2.16.3,r7106");
@@ -153,7 +184,7 @@ static void t_exports(const char *list, const char *src)
 
 int main(int argc, char **argv)
 {
-    t_root(); t_xml(); t_text(); t_avs(); t_pack(); t_coin();
+    t_root(); t_xml(); t_text(); t_ea3(); t_avs(); t_pack(); t_coin();
     if (argc > 2) t_exports(argv[1], argv[2]);
     if (fails) { printf("%d mislukt\n", fails); return 1; }
     printf("silentscope_macaw: alles geslaagd\n");

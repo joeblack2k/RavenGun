@@ -137,6 +137,103 @@ static inline size_t rgm_text_insert_before(char *buf, size_t len, size_t cap, c
     return len + il;
 }
 
+/* Zet de tekst tussen <tag ...> en </tag> (eerste voorkomen, platte tag zonder kinderen) op value. Geeft de nieuwe lengte, of
+ * (size_t)-1 als de tag er niet staat / het niet past. */
+static inline size_t rgm_xml_set(char *buf, size_t len, size_t cap, const char *tag, const char *value)
+{
+    char open[64], close[64];
+    size_t tl = strlen(tag), vl = strlen(value), i, cl, from, to;
+    const char *gt = NULL;
+    if (tl + 4 > sizeof open) return (size_t)-1;
+    open[0] = '<'; memcpy(open + 1, tag, tl); open[tl + 1] = 0;
+    close[0] = '<'; close[1] = '/'; memcpy(close + 2, tag, tl); close[tl + 2] = '>'; close[tl + 3] = 0;
+    cl = tl + 3;
+    for (i = 0; i + tl + 2 <= len; i++) {
+        char after;
+        if (memcmp(buf + i, open, tl + 1) != 0) continue;
+        after = buf[i + tl + 1];
+        if (after != '>' && after != ' ' && after != '\t' && after != '\r' && after != '\n') continue;   /* <services_localstrap> is een andere tag */
+        gt = memchr(buf + i, '>', len - i);
+        break;
+    }
+    if (!gt || gt[-1] == '/') return (size_t)-1;
+    from = (size_t)(gt - buf) + 1;
+    for (to = from; to + cl <= len; to++)
+        if (memcmp(buf + to, close, cl) == 0) break;
+    if (to + cl > len) return (size_t)-1;
+    if (len - (to - from) + vl + 1 > cap) return (size_t)-1;
+    memmove(buf + from + vl, buf + to, len - to);
+    memcpy(buf + from, value, vl);
+    len = len - (to - from) + vl;
+    buf[len] = 0;
+    return len;
+}
+
+/* Wat de lader aan de ea3-configuratie doet om hem zonder e-amusement-server en zonder echte kast te laten booten. Alles is een
+ * tekstbewerking op de tijdelijke kopie; een lege waarde in opts laat het veld ongemoeid. Het rapport (een regel per ingreep)
+ * gaat naar rg-macaw.log.
+ *   accountid : ea3 (libavs-win64-ea3.dll 0x1800098a3) stopt met "boot: bad account ID(/)" als /ea3/id/accountid leeg is EN
+ *               de AVS-omgeving geen /env/profile/accountid heeft; de dump heeft het veld niet. Wij zetten hem.
+ *   softid    : ontbreekt in de dump; standaardwaarde van spice2x/bemanitools.
+ *   services  : de URL van de e-amusement-servers (netwerk/services); leeg laten = de waarde uit de dump.
+ *   pcbid     : 20 hex-tekens in hoofdletters (ea3 weigert oneven lengte of kleine letters: "bad pcbid"). */
+struct rgm_ea3_opts {
+    const char *accountid, *softid, *services, *pcbid, *hardid;
+};
+
+static inline size_t rgm_ea3_prepare(char *buf, size_t len, size_t cap, const struct rgm_ea3_opts *o, char *report, size_t rcap)
+{
+    size_t n, rl = 0;
+    char dummy[128];   /* groot genoeg voor de waarde: rgm_xml_value geeft -1 als hij niet past */
+    const char *sets[3][2];
+    size_t k;
+#define RGM_REPORT(txt) do { size_t tl_ = strlen(txt); if (report && rl + tl_ + 2 <= rcap) { memcpy(report + rl, txt, tl_); rl += tl_; report[rl++] = '\n'; report[rl] = 0; } } while (0)
+    if (report && rcap) report[0] = 0;
+    {
+        static const char *const ids[2] = {"accountid", "softid"};
+        const char *const vals[2] = {o->accountid, o->softid};
+        int j;
+        for (j = 0; j < 2; j++) {
+            char ins[200], line[64];
+            size_t il, vl;
+            if (!vals[j] || !vals[j][0] || rgm_xml_value(buf, ids[j], dummy, sizeof dummy) >= 0) continue;
+            vl = strlen(vals[j]);
+            il = 0;
+            ins[il++] = '<';
+            memcpy(ins + il, ids[j], strlen(ids[j])); il += strlen(ids[j]);
+            if (vl + 80 >= sizeof ins) continue;
+            memcpy(ins + il, " __type=\"str\">", 14); il += 14;
+            memcpy(ins + il, vals[j], vl); il += vl;
+            ins[il++] = '<'; ins[il++] = '/';
+            memcpy(ins + il, ids[j], strlen(ids[j])); il += strlen(ids[j]);
+            ins[il++] = '>'; ins[il] = 0;
+            n = rgm_text_insert_before(buf, len, cap, "</id>", ins);
+            if (n == (size_t)-1) continue;
+            len = n;
+            memcpy(line, ids[j], strlen(ids[j])); memcpy(line + strlen(ids[j]), " toegevoegd", 12);
+            RGM_REPORT(line);
+        }
+    }
+    sets[0][0] = "services"; sets[0][1] = o->services;
+    sets[1][0] = "pcbid";    sets[1][1] = o->pcbid;
+    sets[2][0] = "hardid";   sets[2][1] = o->hardid;
+    for (k = 0; k < 3; k++) {
+        if (!sets[k][1] || !sets[k][1][0]) continue;
+        n = rgm_xml_set(buf, len, cap, sets[k][0], sets[k][1]);
+        if (n != (size_t)-1) {
+            char line[200];
+            size_t ll = strlen(sets[k][0]), vl = strlen(sets[k][1]);
+            if (ll + vl + 6 < sizeof line) {
+                memcpy(line, sets[k][0], ll); memcpy(line + ll, " = ", 3); memcpy(line + ll + 3, sets[k][1], vl + 1);
+                RGM_REPORT(line);
+            }
+            len = n;
+        }
+    }
+#undef RGM_REPORT
+    return len;
+}
+
 /* ---- de namen in libavs-win64.dll / libavs-win64-ea3.dll -------------------------------------------------------------- */
 
 struct rgm_avs_syms {
