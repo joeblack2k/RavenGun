@@ -191,6 +191,14 @@ if [[ -d $SHARED_PFX/drive_c && ! -f "$SHARED_PFX/drive_c/Program Files (x86)/NV
   bash "$DATA/scripts/setup-physx.sh" "$SHARED_PFX" ||
     echo "PhysX could not be installed (no network?); games with PhysX = true need it: run $DATA/scripts/setup-physx.sh." >&2
 fi
+# BepInEx (officiële release) voor games met [Launch] BepInEx (Men in Black); de unity-route gebruikt dezelfde map.
+BEPINEX_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/ravengun/bepinex/5.4.21.0"
+if [[ ! -f $BEPINEX_DIR/x64/BepInEx/core/BepInEx.Preloader.dll || ! -f $BEPINEX_DIR/x86/BepInEx/core/BepInEx.Preloader.dll ]] &&
+   [[ -x "$DATA/scripts/fetch-bepinex.sh" ]]; then
+  say "Fetching BepInEx 5.4.21.0 for Unity games that need a plugin"
+  bash "$DATA/scripts/fetch-bepinex.sh" 5.4.21.0 ||
+    echo "BepInEx could not be fetched (no network?); games with BepInEx = ... need it: run $DATA/scripts/fetch-bepinex.sh." >&2
+fi
 # OLED-bescherming: alleen het unitbestand (aan/uit staat in de app: Settings > Display).
 say "Installing the optional OLED protection service"
 mkdir -p "$SYSDIR"

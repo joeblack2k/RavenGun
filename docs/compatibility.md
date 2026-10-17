@@ -63,7 +63,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (19)
+## Not tested yet (20)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -76,6 +76,7 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Far Cry Paradise Lost**: Starts by double-click (2026-10-17): under gamescope with Windowed = 1 the attract text shows (pull trigger to start, free play) on a black background. Play not measured.
 - **Friction**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (4:3). Play not measured.
 - **Lost Land Adventure**: Starts by double-click (2026-10-16): attract (DEMO PLAY) after ~2 min loading. Open: the text is Japanese; coin and start not measured.
+- **Men in Black**: Starts by double-click (2026-10-17): MIB.exe directly on our core with DXVK in gamescope, a BepInEx plugin that stops the self-exit, GStreamer for the films: logo, attract films, "press start button to join", free play; on screen for 2 minutes. Input not measured yet (on the cabinet it goes through the shell).
 - **Police Trainer 2**: Never started. Statically examined (2026-10-14): i386, unpacked, two programs (pt2s_g11 and the sound program pt2snd.f7, which TeknoParrot starts first). I/O through I/O ports (iopl; "port must be 37c") and the guns through the kernel driver /dev/mjg (light pulses), like Crossfire: Maximum Paintball. Open: as Crossfire, plus two programs in one sandbox.
 - **Robin Hood**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (press start, free play). Play not measured.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
@@ -87,10 +88,9 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Starts by double-click (2026-10-17): system init, then the attract (press start, free play). Needs Windowed = 1 under gamescope. Play, aim and the lever not yet measured.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (3)
+## Not working yet (2)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
 - **Gunslinger Stratos 3**: 2026-10-17: crashes right after launch (jump to an unmapped address) before the core is injected; likely the protection layer. Not a lightgun game. Parked.
-- **Men in Black**: Under investigation since 2026-10-14; see ATTRACT-RUN.md.

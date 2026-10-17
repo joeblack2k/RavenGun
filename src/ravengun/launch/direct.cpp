@@ -522,6 +522,23 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused(std::string("[Launch] Dxvk = true, maar DXVK (") + (is64 ? "64" : "32") + " bits) is niet gevonden: draai "
                                    "scripts/fetch-dxvk.sh, of installeer Proton in Steam (docs/dxvk.md)");
     }
+    // 6d2. [Launch] BepInEx = 5.4.21.0: BepInEx (Mono, met de doorstop winhttp.dll) naast de exe in de view, voor een eigen plugin als
+    // drop-in (dropin/, To = BepInEx/plugins). Bron: de officiële release in <data>/bepinex/<versie>/<x64|x86> (scripts/fetch-bepinex.sh),
+    // nooit in git. Men in Black stopt zichzelf zonder kast-shell (Application.Quit); onze plugin onderdrukt dat (2026-10-17).
+    if (const std::string bv = trim(lini("BepInEx")); !bv.empty()) {
+        if (bv.find_first_not_of("0123456789.") != std::string::npos || bv.front() == '.' || bv.back() == '.')
+            return setting_refused("[Launch] BepInEx = " + bv + " (een versie van BepInEx, bv. 5.4.21.0)");
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] BepInEx vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): BepInEx komt "
+                                   "naast de exe in de view, nooit op de NAS; " + game + " ligt daar niet");
+        std::string root = getenv_or(env, "RAVENGUN_BEPINEX_ROOT");
+        if (root.empty()) root = pjoin(p.data, "bepinex");
+        const std::string dir = pjoin(pjoin(root, bv), is64 ? "x64" : "x86");
+        if (!isfile(pjoin(dir, "BepInEx/core/BepInEx.Preloader.dll")) || !isfile(pjoin(dir, "winhttp.dll")) || !isfile(pjoin(dir, "doorstop_config.ini")))
+            return setting_refused("[Launch] BepInEx = " + bv + ", maar BepInEx " + bv + " (" + (is64 ? "64" : "32") + " bits) staat niet in " + dir +
+                                   ": draai scripts/fetch-bepinex.sh " + bv);
+        pl.bepinex_dir = dir;
+    }
     // 6f. [Launch] NativeDlls: Microsoft-DLL's die Steam al meebrengt (DirectX-herdistribueerbare in Steamworks Shared), klaargezet door
     // scripts/setup-redist.sh in <data>/redist; nooit in git. Operation G.H.O.S.T. viel in Wine's ingebouwde xactengine3_3 (2026-10-15).
     if (const std::string nd = trim(lini("NativeDlls")); !nd.empty()) {

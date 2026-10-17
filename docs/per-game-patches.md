@@ -168,6 +168,7 @@ ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink na
 ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
 ViewTtcAsTtf =                ; A.ttc[, ...]: in de view wordt de TrueType-collectie A face 0 als losse font (Wine's GDI+ neemt geen .ttc aan; zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
+BepInEx =                     ; versie (bv. 5.4.21.0): BepInEx naast de exe in de view, voor een eigen plugin als drop-in (zie hieronder)
 
 [Display]
 AimAspect =                   ; bv. 4:3 of 1024x768: het beeld van het spel op de tv; de daemon legt de aim-ruimte van de lightgun
@@ -466,6 +467,17 @@ het spel vraagt (`data\Font\DF_HeiSeiGothic_W5.ttc`): in de lokale view zoekt Wi
 probeert eerst het pad precies zoals het spel het vraagt, en de overlay vindt `data/Font/...` dan rechtstreeks in de onderlaag op de
 NAS. Een bestand in de bovenlaag met de naam zoals hij op de NAS staat (`data/font/...`) wordt dan overgeslagen. Dat geldt ook voor
 zaaigoed: een bestand onder `seed/` moet dezelfde hoofdletters hebben als het pad dat het spel opent.
+
+**BepInEx op de directe route (`[Launch] BepInEx = 5.4.21.0`).** Voor een Unity-game die met een kleine eigen plugin wel draait.
+De launcher zet de officiële release (Mono, de bitbreedte van de game) uit `<data>/bepinex/<versie>/<x64|x86>` naast de exe in de view:
+`winhttp.dll` (de doorstop, `winhttp=n,b`), `doorstop_config.ini` en `BepInEx/core/`; `RAVENGUN_BEPINEX_ROOT` kiest een andere map.
+Ontbreekt de release, dan weigert de start met de opdracht `scripts/fetch-bepinex.sh <versie>` (download van github.com/BepInEx met
+sha256-controle; niets in git). De plugin zelf is een gewone drop-in van de game (`dropin/`, `To = BepInEx/plugins`, relatief aan de map
+van de exe); de bron staat in `plugins/bepinex/<Game>/` en `scripts/build-bepinex-plugin.sh <Game>` bouwt hem in de Mono-container van
+de Unity-route. Een eigen drop-in met dezelfde naam (bv. een andere `winhttp.dll`) wint. Men in Black (2026-10-17): zonder de shell van de
+kast stopt de game zichzelf (`Application.Quit`); de plugin `RavenGun.MenInBlack` onderdrukt dat. In de engine: `dropin_plan` in
+`direct_files.cpp`, in het plan `bepinex_dir`; het logboek noemt `bepinex: <map>`. Let op: met de gesloten kern van TeknoParrot laadde
+BepInEx bij Men in Black niet (gemeten); de game draait daarom op onze kern (`[Loader] Core = ravengun`).
 
 **Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
 een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.

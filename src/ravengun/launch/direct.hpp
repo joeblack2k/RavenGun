@@ -86,6 +86,9 @@ struct DirectPlan {
     // [Launch] Dxvk = true: de map met de DXVK-DLL's van de bitbreedte van de game (d3d8, d3d9, d3d10core, d3d11, dxgi) en waar die
     // vandaan komt (docs/dxvk.md). dropin_plan() zet ze als drop-in in de view met WINEDLLOVERRIDES <naam>=n. Leeg = geen DXVK.
     std::string dxvk_dir, dxvk_from;
+    // [Launch] BepInEx = <versie>: de map met de officiële release (winhttp.dll, doorstop_config.ini, BepInEx/core) van de bitbreedte van
+    // de game. dropin_plan() zet die naast de exe in de view, winhttp=n,b. Leeg = geen BepInEx.
+    std::string bepinex_dir;
     // [Launch] NativeDlls: per DLL (bron in <data>/redist/<x86|x64>/, doel in system32/syswow64 van de prefix). apply_direct() zet de
     // native DLL op het doel (de ingebouwde van Wine eenmalig bewaard als <naam>.wine-bewaard) en WINEDLLOVERRIDES krijgt <naam>=n.
     // Voor COM-DLL's (XACT) die Wine altijd uit system32 laadt; zonder override blijft Wine zijn ingebouwde gebruiken (docs/redist.md).

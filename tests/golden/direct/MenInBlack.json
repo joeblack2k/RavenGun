@@ -3,198 +3,28 @@
   "input": {
    "board": "",
    "control_pipe": "",
-   "layout": "",
-   "route": "evdev",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
    "transport": "",
-   "verdict": "fallback",
-   "why": "route evdev zonder tp-shm-indeling"
+   "verdict": "ok",
+   "why": ""
   },
   "launch_mode": "direct",
-  "plan": {
-   "argv": [
-    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
-    "Z:@TMP@\\home\\games\\MenInBlack\\shell\\Shell.exe",
-    "/k=e6222935"
-   ],
-   "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
-   "dropin_materialise": [],
-   "env": {
-    "DISPLAY": ":97",
-    "HOME": "@TMP@/home",
-    "LANG": "C.UTF-8",
-    "PATH": "/usr/bin:/bin",
-    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
-    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
-    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-mib",
-    "WAYLAND_DISPLAY": "wayland-0",
-    "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d11,d3d10core,dxgi=n,b",
-    "XDG_CONFIG_HOME": "@TMP@/home/.config",
-    "XDG_DATA_HOME": "@TMP@/home/.local/share",
-    "XDG_RUNTIME_DIR": "@TMP@/run",
-    "XDG_STATE_HOME": "@TMP@/home/.local/state"
-   },
-   "files": [
-    [
-     "@TMP@/home/games/MenInBlack/shell/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n"
-    ]
-   ],
-   "game": "@TMP@/home/games/MenInBlack/shell/Shell.exe",
-   "game_comms": [
-    "budgieloader.ex",
-    "budgieloader_x6",
-    "mib.exe",
-    "openparrotloade",
-    "shell.exe",
-    "teknomacaw.exe",
-    "teknomacaw64.ex"
-   ],
-   "gamescope": false,
-   "launch_env": {
-    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "WINEDEBUG": "-all"
-   },
-   "patch_lines": [],
-   "pipe_mode": "pipe",
-   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
-   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-mib",
-   "shm_source": "/dev/shm/TeknoParrot_JvsState",
-   "stack": null,
-   "starts": [
-    {
-     "argv": [
-      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
-      "Z:@TMP@\\home\\games\\MenInBlack\\shell\\Shell.exe",
-      "/k=e6222935"
-     ],
-     "comms": [
-      "shell.exe",
-      "mib.exe"
-     ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-     "exe": "@TMP@/home/games/MenInBlack/shell/Shell.exe",
-     "gamescope": false,
-     "name": "Shell.exe",
-     "role": "main",
-     "wait_before": 0.0
-    }
-   ],
-   "view_links": [],
-   "windowed_override": false,
-   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
-  },
-  "verdict": "ok",
-  "why": ""
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Dxvk vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de DLL's van DXVK komen naast de exe in de view, nooit op de NAS; @TMP@/home/games/MenInBlack/MIB/MIB.exe ligt daar niet"
  },
  "start": {
   "input": {
    "board": "",
    "control_pipe": "",
-   "layout": "",
-   "route": "evdev",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
    "transport": "",
-   "verdict": "fallback",
-   "why": "route evdev zonder tp-shm-indeling"
+   "verdict": "ok",
+   "why": ""
   },
   "launch_mode": "direct",
-  "plan": {
-   "argv": [
-    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
-    "Z:@TMP@\\home\\games\\MenInBlack\\shell\\Shell.exe",
-    "/k=e6222935"
-   ],
-   "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
-   "dropin_materialise": [],
-   "env": {
-    "DISPLAY": ":97",
-    "HOME": "@TMP@/home",
-    "LANG": "C.UTF-8",
-    "PATH": "/usr/bin:/bin",
-    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
-    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
-    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-mib",
-    "WAYLAND_DISPLAY": "wayland-0",
-    "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d11,d3d10core,dxgi=n,b",
-    "XDG_CONFIG_HOME": "@TMP@/home/.config",
-    "XDG_DATA_HOME": "@TMP@/home/.local/share",
-    "XDG_RUNTIME_DIR": "@TMP@/run",
-    "XDG_STATE_HOME": "@TMP@/home/.local/state"
-   },
-   "files": [
-    [
-     "@TMP@/home/games/MenInBlack/shell/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n"
-    ]
-   ],
-   "game": "@TMP@/home/games/MenInBlack/shell/Shell.exe",
-   "game_comms": [
-    "budgieloader.ex",
-    "budgieloader_x6",
-    "mib.exe",
-    "openparrotloade",
-    "shell.exe",
-    "teknomacaw.exe",
-    "teknomacaw64.ex"
-   ],
-   "gamescope": false,
-   "launch_env": {
-    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "WINEDEBUG": "-all"
-   },
-   "patch_lines": [],
-   "pipe_mode": "pipe",
-   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
-   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-mib",
-   "shm_source": "/dev/shm/TeknoParrot_JvsState",
-   "stack": null,
-   "starts": [
-    {
-     "argv": [
-      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
-      "Z:@TMP@\\home\\games\\MenInBlack\\shell\\Shell.exe",
-      "/k=e6222935"
-     ],
-     "comms": [
-      "shell.exe",
-      "mib.exe"
-     ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-     "exe": "@TMP@/home/games/MenInBlack/shell/Shell.exe",
-     "gamescope": false,
-     "name": "Shell.exe",
-     "role": "main",
-     "wait_before": 0.0
-    }
-   ],
-   "view_links": [],
-   "windowed_override": false,
-   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
-  },
-  "verdict": "ok",
-  "why": ""
+  "verdict": "refused",
+  "why": "Instelling geweigerd: [Launch] Dxvk vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de DLL's van DXVK komen naast de exe in de view, nooit op de NAS; @TMP@/home/games/MenInBlack/MIB/MIB.exe ligt daar niet"
  }
 }

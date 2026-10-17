@@ -469,6 +469,27 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
             s.src = pjoin(pl.dxvk_dir, d);
             specs.push_back(std::move(s));
         }
+    // [Launch] BepInEx: de doorstop (winhttp.dll, n,b), doorstop_config.ini en BepInEx/core/ als drop-ins naast de exe; de plugin zelf is
+    // een gewone drop-in van de game (To = BepInEx/plugins). Een eigen drop-in met dezelfde naam wint.
+    if (!pl.bepinex_dir.empty()) {
+        std::vector<std::string> namen{"winhttp.dll", "doorstop_config.ini"}, kern;
+        std::error_code ec;
+        for (auto it = std::filesystem::recursive_directory_iterator(pjoin(pl.bepinex_dir, "BepInEx/core"), ec);
+             !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+            if (it->is_regular_file(ec)) kern.push_back(std::filesystem::relative(it->path(), pl.bepinex_dir, ec).generic_string());
+        std::sort(kern.begin(), kern.end());
+        namen.insert(namen.end(), kern.begin(), kern.end());
+        for (const std::string& n : namen) {
+            if (std::any_of(specs.begin(), specs.end(), [&](const DropinSpec& s) { return lower(s.name) == lower(n); })) continue;
+            DropinSpec s;
+            s.name = n;
+            s.to = ".";
+            if (n == "winhttp.dll") s.dll = "builtin,native";
+            s.ini = "[Launch] BepInEx";
+            s.src = pjoin(pl.bepinex_dir, n);
+            specs.push_back(std::move(s));
+        }
+    }
     const std::string base = dirname(pl.game), wortel = view_wortel(base, p);
     pl.dropin_base = base;
     pl.dropin_root = wortel;
@@ -559,6 +580,7 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
     for (const auto& f : pl.dropin_files) pl.dropin_lines.push_back(f.name + " -> " + f.dest);
     if (!r.overrides.empty()) pl.dropin_lines.push_back("WINEDLLOVERRIDES += " + join(r.overrides, ", "));
     if (!pl.dxvk_dir.empty()) pl.dropin_lines.push_back("dxvk: " + pl.dxvk_dir + " uit " + pl.dxvk_from);
+    if (!pl.bepinex_dir.empty()) pl.dropin_lines.push_back("bepinex: " + pl.bepinex_dir);
     std::set<std::string> geladen;
     for (const auto& k : r.kanalen) {
         if (k.loads) {

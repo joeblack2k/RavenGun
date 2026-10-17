@@ -523,6 +523,52 @@ int main() {
         fs::remove_all(home / "mnt/nas/spel/data");
     }
 
+    // [Launch] BepInEx = <versie>: de officiële release uit <data>/bepinex/<versie>/x64 (of RAVENGUN_BEPINEX_ROOT) als drop-ins naast de
+    // exe, winhttp=n,b; zonder release niet starten (Men in Black, 2026-10-17).
+    {
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        auto vul = [&](const fs::path& dir, const std::string& merk) {
+            for (const char* f : {"winhttp.dll", "doorstop_config.ini", "BepInEx/core/BepInEx.Preloader.dll", "BepInEx/core/BepInEx.dll"})
+                write(dir / f, merk + f);
+        };
+        write(ugi, "[Launch]\nBepInEx = 5.4.21.0\n");
+        DirectPlan bp;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, bp, w) == Verdict::Refused && contains(w, "fetch-bepinex.sh") && contains(w, "64 bits"));
+        vul(fs::path(p.data) / "bepinex/5.4.21.0/x64", "rel-");
+        CHECK(plan_direct("Spel", p, o, bp, w) == Verdict::Ok && bp.bepinex_dir == (fs::path(p.data) / "bepinex/5.4.21.0/x64").string());
+        const fs::path vbin = view / "bin";
+        auto heeft = [&](const DirectPlan& d, const fs::path& dest, const std::string& merk) {
+            return std::any_of(d.dropin_files.begin(), d.dropin_files.end(), [&](const DropinFile& f) {
+                return f.dest == dest.string() && slurp(f.src).rfind(merk, 0) == 0;
+            });
+        };
+        CHECK(heeft(bp, vbin / "winhttp.dll", "rel-") && heeft(bp, vbin / "doorstop_config.ini", "rel-"));
+        CHECK(heeft(bp, vbin / "BepInEx/core/BepInEx.Preloader.dll", "rel-") && heeft(bp, vbin / "BepInEx/core/BepInEx.dll", "rel-"));
+        CHECK(bp.env.count("WINEDLLOVERRIDES") && contains(bp.env.at("WINEDLLOVERRIDES"), "winhttp=n,b"));
+        CHECK(std::any_of(bp.dropin_lines.begin(), bp.dropin_lines.end(), [](const std::string& l) { return l.rfind("bepinex: ", 0) == 0; }));
+        // RAVENGUN_BEPINEX_ROOT gaat voor <data>/bepinex.
+        DirectOptions o2 = o;
+        o2.base_env["RAVENGUN_BEPINEX_ROOT"] = (root / "bep-eigen").string();
+        vul(root / "bep-eigen/5.4.21.0/x64", "eigen-");
+        CHECK(plan_direct("Spel", p, o2, bp, w) == Verdict::Ok && heeft(bp, vbin / "winhttp.dll", "eigen-"));
+        // Een eigen drop-in met dezelfde naam wint, en de plugin van de game is een gewone drop-in.
+        write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[winhttp.dll]\nTo = .\nDllOverride = native\n\n[RavenGun.Spel.dll]\nTo = BepInEx/plugins\n");
+        write(fs::path(p.dirs.user) / "Spel/dropin/winhttp.dll", "eigen winhttp");
+        write(fs::path(p.dirs.user) / "Spel/dropin/RavenGun.Spel.dll", "plugin");
+        CHECK(plan_direct("Spel", p, o, bp, w) == Verdict::Ok);
+        CHECK(std::count_if(bp.dropin_files.begin(), bp.dropin_files.end(), [](const DropinFile& f) { return f.name == "winhttp.dll"; }) == 1);
+        CHECK(heeft(bp, vbin / "winhttp.dll", "eigen winhttp") && heeft(bp, vbin / "BepInEx/plugins/RavenGun.Spel.dll", "plugin"));
+        fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
+        for (const char* fout : {"5.x", ".5", "5.4."}) {
+            write(ugi, std::string("[Launch]\nBepInEx = ") + fout + "\n");
+            CHECK(plan_direct("Spel", p, o, bp, w) == Verdict::Refused && contains(w, std::string("BepInEx = ") + fout));
+        }
+        fs::remove(ugi);
+        fs::remove_all(fs::path(p.data) / "bepinex");
+        fs::remove_all(root / "bep-eigen");
+    }
+
     // [Launch] Dxvk: de DLL's van DXVK (bitbreedte van de game; Spel is 64 bits) als drop-ins in de view met <naam>=n. Bron: eerst
     // RAVENGUN_DXVK, dan ~/.local/share/ravengun/dxvk/current, dan de nieuwste Proton van Steam; niets gevonden = niet starten.
     {
