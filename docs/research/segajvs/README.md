@@ -303,6 +303,39 @@ een antwoordcode -12 `Error Response KeychipError` (`0x48C327`). In deze run kwa
 vergelijkbare lees- en omzetcode afgeleid, niet gemeten; (3) de lengte van het antwoord bij een niet-gevonden uitdaging (nullen) is goed voor de willekeurige gevallen, een fout bij een
 verifieerbare uitdaging (tabel die de game anders laadt dan wij) geeft dezelfde 0949.
 
+### Meting 7 (TV proef 9, 18:41-18:50): "Wrong Region" bij LGS en SDR, GG/Transformers stoppen vroeg, OG blijft op 3005
+
+**0903 Wrong Region [gelezen]: dat is GEEN vergelijking tussen twee regio's.** De game controleert één byte, de regio van de KAST, en eist dat die in een toegestane set zit; de
+keychip-regio (`keychip.appboot.region`) doet er niet aan mee, en de SMBus-EEPROM ook niet.
+* LGS (`0x414A10`, GetRegion `0x415440`): byte 0xC van het record **AM_SYSDATA_STATIC** moet 2, 4 of 8 zijn (USA, Export, China), anders fout 0x387 = 903.
+* SDR (`0x4015A4`): `amLibGetRegion` (`0x7026F0`, leest byte `ctx+0x4C` = byte 0xC van hetzelfde record) wordt in `0x805A6E` gezet en getest met `test [0x805A6E], [0x805A6C]`;
+  het masker op `0x805A6C` begint op 0xFF, dus elke regio ongelijk 0 mag. Daarna `REGION=` uit de omgeving of config als overschrijving.
+* OG leest dezelfde byte (`[amlib+0x4C]`, standaard 1) alleen voor de taal (ja/en/ko/zh/ru), geen afwijzing.
+* Dat record staat in het backup-SRAM (`mxsram.bin`): 0x20 bytes op offset 0 en een kopie op 0x200, `[0..3]` = CRC32 (IEEE, beginwaarde 0) over bytes 4..0x1F, byte 0xC = regio, vanaf 0xF het
+  serienummer. Is het SRAM leeg of de CRC fout, dan meldt de game "GetInfo: AM_SYSDATA_STATIC broken (use default)" en gebruikt hij regio 0 en serienummer `INVALID_SERIALNO`:
+  regio 0 is voor LGS en SDR altijd fout. Op een echte kast zet de fabriek (of het testmenu, `0x42514E`..) dit record. Daarom hielp de keychip-regio 02 bij LGS niet.
+* **Oplossing:** `rg-amhw.dll` zet bij het eerste openen van `\\.\mxsram` een geldig record met de regio uit `RG_AMHW_REGION` op beide plekken, als het ontbreekt, kapot is of regio 0 heeft.
+  `rg-direct` zet `RG_AMHW_REGION` uit `[AmDaemon]`/`DongleRegion` (dezelfde waarde als de keychip: LGS = USA = 02, SDR = JAPAN = 01), tenzij een `[Env]` of drop-in hem al zet. Een record dat al
+  geldig is met een regio ongelijk 0 blijft staan (het testmenu mag hem veranderen). **De taal verandert niet:** die komt uit de gamebestanden en uit `Language`/`REGION`, niet uit dit byte
+  (alleen OG kiest er een taal mee, en OG krijgt 01 = ja zoals voorheen).
+* Gegokt: dat de bytes 4..0xB en 0xD..0xE nul mogen zijn (ze zijn dat in de standaardwaarden van de game zelf, `0x470C00`), en dat de CRC-lengte 0x1C is (zo leest de code hem; de CRC-routine is
+  gecontroleerd tegen `crc32("123456789")` en tegen de 508-nullen-CRC die de game zelf in het SRAM schreef).
+
+**GG, Transformers en OG: de SMBus-driver en de Super I/O ontbreken [gelezen].** Transformers komt nu voorbij R6002 (`kop: .rdata stond op schrijfbaar` in de log, JVS-verkeer, columba), maar de log eindigt
+bij `CreateFileW(\\.\mxsuperio) niet nagebootst` en de game sluit schoon af (exitcode 0), net als GG. OG meldt zelf de reden: `Init: Faild to init DipswLib. (amDipswInit() Faild)` en
+`EEPROMLib. (amEepromInit() Faild)` en stopt daarop met 3005 (`push 6; call 0x5106C0`); hetzelfde pad (`amHmInit`, "Hardware Monitor Device is not found") hoort bij `\\.\mxsuperio`.
+Nagebootst in `rg-amhw.dll` (`tools/rg-amhw/amhw_smbus.h`, protocollen daar uitgeschreven, gelezen in OG `0x58A870`, `0x58AAE0`, `0x58E9D0`, `0x592640`, `0x592F10`):
+* SetupDi (`SetupDiGetClassDevsA/EnumDeviceInterfaces/GetDeviceInterfaceDetailA/DestroyDeviceInfoList`) voor de SMBus-GUID levert één apparaat met het pad `\\?\rg-amhw-smbus`.
+* SMBus: versie (laag woord 1), pakket van 0x25 bytes voor de dipschakelaars (PCA9535 op 0x20; register 4 en 5 zijn de dip-bytes, standaard 0x70/0x00 = schermresolutie 1920x1080, `RG_AMHW_DIPSW=70,00`
+  past dat aan), blokopdracht van 0x27 bytes voor de EEPROM (adres 0x57, 64 KB, leeg = 0xFF, bewaard in `mxeeprom.bin` naast `mxsram.bin`). Opdrachten met een OVERLAPPED zijn direct klaar met de gebeurtenis gezet.
+* Super I/O (`\\.\mxsuperio`): versie, chip-id 0xA230 (type 1: één chip), hardwaremonitor-registers via LPC (lezen 0x9C40200C, schrijven 0x9C40A010) als registerbestand: de monitor meldt 0 graden en 0 volt en
+  alles leest terug wat het schreef (de `VerifyError`-controle in amHmWriteByte).
+* **Niet gemeten:** of de hardwaremonitor-init (`0x593CB0`, "Error BeepControlRegister Setting") met nulwaarden slaagt; of de waarde 0x70 voor de dipschakelaars de juiste is voor elke game
+  (OG gebruikt hem voor de resolutie; wat de andere games met de overige bits doen is niet gelezen); of GG/Transformers na deze stap nog een volgend apparaat missen. Elke `niet nagebootst`-regel in `rg-amhw.log` is de volgende stap.
+
+**LGI3D (0949, vóór de tabelfix):** de run van 18:36 stuurde `keychip.ds.compute=0FF918953DD880&page=3`, de game stuurde de echo terug en gaf `Verify MAC NG`. Met de tabel-antwoorden (Meting 6) en de echte
+`MACtbl/SBWB_Table.dat` klopt dat nu; test opnieuw.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
@@ -318,6 +351,8 @@ Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen
    Voor meting 5 (LGS, SDR, OG, Transformers, LGI3D, GG): zoek in `rg-amhw.log` ook naar `columba: fysiek geheugen 0x000F0000 (lengte 0x... buffer 0x8010)`,
    `tabel: ...SBxx_Table.dat ontbreekt; vervangen door ...\rg-amhw-tables\...` en, alleen bij Transformers, `kop: .rdata stond op schrijfbaar`. De AM-regels van
    rg-direct tonen `request=<naam>` met "result=success".
+   Meting 7: `smbus: dipschakelaars 70,00; Super I/O-chip-id A230`, `smbus: 0x9C402004 ... goed` (eerste 40 regels), `mxsram: AM_SYSDATA_STATIC ontbrak of was kapot; geldig record met regio 02 ...`
+   (alleen de eerste keer of als het record kapot is) en geen `niet nagebootst` meer voor `mxsuperio`/SMBus.
 4. Dubbelklik. In de view (`~/.local/share/ravengun/runtime/views/LGI/`) verschijnt `rg-amhw.log`. Verwacht daarin: `rg-amhw geladen in ...LGI_RingW_F_safe.exe`,
    `importtabel: KERNEL32.dll!CreateFileW omgezet` (en DeviceIoControl, CloseHandle, SetFilePointer, ReadFile, WriteFile), `columba: fysiek geheugen
    0x000F0000 ... BIOS-ruimte met _DMI_`, dan `0x000E0000 ... DMI-tabel`, `mxsram: geopend`. Staat die log er niet, dan is de DLL niet geladen.

@@ -10,7 +10,10 @@
 #include <string>
 #include <vector>
 
+#include "amhw_smbus.h"
+#include "amhw_sysdata.h"
 #include "amhw_table.h"
+#include <setupapi.h>
 
 #include "amhw_dmi.h"
 #include "amhw_jvs.h"
@@ -52,7 +55,10 @@ int main(int argc, char** argv) {
     g_srv = CreateNamedPipeA("\\\\.\\pipe\\rg_amhw_probe_jvs", PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, nullptr);
     check(g_srv != INVALID_HANDLE_VALUE, "nep-JVS-pipe gemaakt");
     CreateThread(nullptr, 0, jvs_server, nullptr, 0, nullptr);
+    SetEnvironmentVariableA("RG_AMHW_REGION", "02");
+    SetEnvironmentVariableA("RG_AMHW_DIPSW", "70,00");
     DeleteFileA((dir + "\\mxsram.bin").c_str());
+    DeleteFileA((dir + "\\mxeeprom.bin").c_str());
     HMODULE m = LoadLibraryA((dir + "\\rg-amhw.dll").c_str());
     check(m != nullptr, "rg-amhw.dll laadt");
     if (!m) return 1;
@@ -82,7 +88,53 @@ int main(int argc, char** argv) {
         check(DeviceIoControl(c, 0x9C406104, in2, sizeof in2, buf.data(), 0x8010, &got2, nullptr) && got2 == 0x8010, "columba: tweede stuk (0xF7FF0) idem");
     }
     CloseHandle(c);
-    check(CreateFileW(L"\\\\.\\mxsuperio", 0xC0000000, 0, nullptr, OPEN_EXISTING, 0, nullptr) == INVALID_HANDLE_VALUE, "\\\\.\\mxsuperio is (nog) niet nagebootst en faalt zoals voorheen");
+
+    // SMBus via SetupDi, zoals amDipswCreateDeviceFile (OG 0x58A870): GetClassDevs -> EnumDeviceInterfaces -> GetDeviceInterfaceDetail -> CreateFileA.
+    {
+        static const GUID guid = {0x5C49E1FE, 0x3FEC, 0x4B8D, {0xA4, 0xB5, 0x76, 0xBE, 0x70, 0x25, 0xD8, 0x42}};
+        HDEVINFO set = SetupDiGetClassDevsA(&guid, nullptr, nullptr, 0x12);
+        check(set != INVALID_HANDLE_VALUE, "SetupDiGetClassDevsA geeft een lijst");
+        SP_DEVICE_INTERFACE_DATA ifd = {};
+        ifd.cbSize = 0x1c;
+        check(SetupDiEnumDeviceInterfaces(set, nullptr, &guid, 0, &ifd), "SetupDiEnumDeviceInterfaces geeft apparaat 0");
+        check(!SetupDiEnumDeviceInterfaces(set, nullptr, &guid, 1, &ifd) && GetLastError() == ERROR_NO_MORE_ITEMS, "en geen apparaat 1");
+        union { SP_DEVICE_INTERFACE_DETAIL_DATA_A d; char raw[0x400]; } det = {};
+        det.d.cbSize = 5;
+        check(SetupDiGetDeviceInterfaceDetailA(set, &ifd, &det.d, 0x400, nullptr, nullptr), "SetupDiGetDeviceInterfaceDetailA geeft een pad");
+        std::printf("     pad %s\n", det.d.DevicePath);
+        HANDLE sm = CreateFileA(det.d.DevicePath, 0xC0000000, 3, nullptr, OPEN_EXISTING, 0x40000000, nullptr);
+        check(sm != INVALID_HANDLE_VALUE, "CreateFileA(pad) geeft een handvat");
+        SetupDiDestroyDeviceInfoList(set);
+        uint32_t sv = 0; DWORD sg = 0;
+        check(DeviceIoControl(sm, 0x9C406008, nullptr, 0, &sv, 4, &sg, nullptr) && sg == 4 && (sv & 0xFFFF) == 1, "SMBus: versie 0x9C406008, laag woord 1");
+        uint8_t pk[0x25] = {0, 5, 0x20, 4}, pko[0x25] = {};
+        OVERLAPPED ov = {};
+        ov.hEvent = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+        check(DeviceIoControl(sm, 0x9C402004, pk, 0x25, pko, 0x25, nullptr, &ov) && pko[0] == 0 && pko[5] == 0x70, "SMBus: dip-register 4 lezen (overlapped, direct klaar): 0x70");
+        check(WaitForSingleObject(ov.hEvent, 0) == WAIT_OBJECT_0, "de gebeurtenis van de OVERLAPPED is gezet");
+        uint8_t eb[0x27] = {0, 8, 0x57, 0, 0x10, 0, 4, 0xDE, 0xAD, 0xBE, 0xEF};
+        check(DeviceIoControl(sm, 0x9C40200C, eb, 0x27, eb, 0x27, &sg, nullptr) && sg == 0x27 && eb[0] == 0, "SMBus: EEPROM schrijven (0x27 bytes terug)");
+        uint8_t er[0x27] = {0, 9, 0x57, 0, 0x10, 0, 4};
+        check(DeviceIoControl(sm, 0x9C40200C, er, 0x27, er, 0x27, &sg, nullptr) && er[7] == 0xDE && er[10] == 0xEF, "SMBus: EEPROM terug lezen");
+        CloseHandle(sm);
+        FILE* ef = std::fopen((dir + "\\mxeeprom.bin").c_str(), "rb");
+        check(ef != nullptr, "mxeeprom.bin staat naast de DLL");
+        if (ef) { std::fseek(ef, 0x10, SEEK_SET); uint8_t eg[4] = {}; std::fread(eg, 1, 4, ef); std::fclose(ef); check(eg[0] == 0xDE && eg[3] == 0xEF, "de geschreven EEPROM-bytes staan in het bestand"); }
+        // Super I/O, zoals amHmProbeSuperIoDevice (OG 0x592F10): versie, chip-id 0xA230 (type 1), I2C-adres van de monitor.
+        HANDLE su = CreateFileW(L"\\\\.\\mxsuperio", 0xC0000000, 3, nullptr, OPEN_EXISTING, 0x80, nullptr);
+        check(su != INVALID_HANDLE_VALUE, "\\\\.\\mxsuperio is nagebootst");
+        check(DeviceIoControl(su, 0x9C406000, nullptr, 0, &sv, 4, &sg, nullptr) && sg == 4 && (sv & 0xFFFF) == 1, "Super I/O: versie");
+        uint8_t i1[4] = {0, 0x0B, 0x20, 0}, i2[4] = {0, 0x0B, 0x21, 0};
+        check(DeviceIoControl(su, 0x9C402004, i1, 4, i1, 4, &sg, nullptr) && sg == 4 && DeviceIoControl(su, 0x9C402004, i2, 4, i2, 4, &sg, nullptr), "Super I/O: chip-id lezen");
+        check((((i1[3] << 8) | i2[3]) & 0xFFF0) == 0xA230, "Super I/O: chip-id 0xA230");
+        uint8_t la[3] = {0, 0x48, 0};
+        check(DeviceIoControl(su, 0x9C40200C, la, 3, la, 3, &sg, nullptr) && sg == 3 && la[2] >= 0x10 && la[2] < 0x70, "Super I/O: I2C-adres van de monitor");
+        const uint8_t lw[3] = {0, 0x4E, 0x01};
+        uint8_t lr[3] = {0, 0x4E, 0};
+        check(DeviceIoControl(su, 0x9C40A010, const_cast<uint8_t*>(lw), 3, nullptr, 0, &sg, nullptr) && DeviceIoControl(su, 0x9C40200C, lr, 3, lr, 3, &sg, nullptr) && lr[2] == 1,
+              "Super I/O: schrijven en terug lezen");
+        CloseHandle(su);
+    }
 
     // mxsram: zoals amSramInit (LGI 0x4879F0) en amSramRead/Write
     HANDLE s = CreateFileW(L"\\\\.\\mxsram", 0xC0000000, 3, nullptr, OPEN_EXISTING, 0x80, nullptr);
@@ -101,8 +153,14 @@ int main(int argc, char** argv) {
     check(WriteFile(s, w, 0x200, &got, nullptr) && got == 0x200, "WriteFile 0x200");
     SetFilePointer(s, 0x4000, &hi, FILE_BEGIN);
     check(ReadFile(s, rd, 0x200, &got, nullptr) && got == 0x200 && std::memcmp(w, rd, 0x200) == 0, "ReadFile geeft terug wat er stond");
+    // Sector 0: de DLL heeft een geldig AM_SYSDATA_STATIC met regio 2 gezet (RG_AMHW_REGION=02), op 0 en op 0x200 (amhw_sysdata.h).
     SetFilePointer(s, 0, &hi, FILE_BEGIN);
     char z[0x200];
+    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200, "sector 0 lezen");
+    check(rg_amhw::static_record_valid(reinterpret_cast<const uint8_t*>(z)) && z[0xC] == 2, "sector 0: geldig AM_SYSDATA_STATIC met regio 2");
+    SetFilePointer(s, 0x200, &hi, FILE_BEGIN);
+    check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && rg_amhw::static_record_valid(reinterpret_cast<const uint8_t*>(z)) && z[0xC] == 2, "de tweede kopie op 0x200 idem");
+    SetFilePointer(s, 0x1000, &hi, FILE_BEGIN);
     check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && z[0] == 0 && z[0x1FF] == 0, "een ander sector is nog leeg");
     check(SetFilePointer(s, 0x200000, &hi, FILE_BEGIN) == 0x200000 && ReadFile(s, z, 0x200, &got, nullptr) && got == 0, "voorbij het einde: 0 bytes");
     CloseHandle(s);

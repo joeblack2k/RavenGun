@@ -392,6 +392,7 @@ int main() {
         CHECK(ap.am_values["keychip.appboot.gameid"] == "SBWB");           // [AmDaemon] wint
         CHECK(ap.am_values["keychip.appboot.region"].size() == 2);         // het bitveld voor DongleRegion; region_code() zelf staat in test_amdaemon.cpp
         CHECK(ap.am_values.count("keychip.version") == 1);
+        CHECK(ap.env.count("RG_AMHW_REGION") == 1 && ap.env["RG_AMHW_REGION"] == ap.am_values["keychip.appboot.region"]);   // rg-amhw.dll: AM_SYSDATA_STATIC (Wrong Region)
         CHECK(std::any_of(ap.notes.begin(), ap.notes.end(), [](const std::string& n) { return contains(n, "AM-daemon: rg-direct beantwoordt"); }));
         DirectPlan back;
         std::string err;
