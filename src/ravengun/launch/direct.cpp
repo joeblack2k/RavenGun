@@ -136,7 +136,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     else return unsupported("EmulatorType " + et + " wordt niet direct gestart (externe emulator of eigen voorbereiding)");
     const std::string gamedir = dirname(game);
     const bool elf_like = et == "ElfLdr2" || et == "N2" || et == "Lindbergh";
-    const std::string cwd = elf_like ? gamedir : tp;
+    std::string cwd = elf_like ? gamedir : tp;   // bij [Loader] Core = none hieronder de map van de exe
     std::string loader = pjoin(tp, exe_rel);
     if (elf_like && !(et == "ElfLdr2" && is64) && isfile(pjoin(gamedir, exe_rel))) loader = pjoin(gamedir, exe_rel);
     if (!isfile(loader)) return unsupported("lader ontbreekt: " + loader);
@@ -174,6 +174,10 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                 return setting_refused("[Loader] " + key + " = " + val + (key == "Core" ? " (kies teknoparrot, ravengun of none)" : " (kies teknoparrot of ravengun)"));
         if (core == "none") {
             zonder_lader = true;
+            // Zonder lader is er niemand die de game in zijn eigen map zet: Wine start de exe in de werkmap van het proces. Dan de map
+            // van de exe, zoals een dubbelklik in Windows (anders zag de game de map van de runtime als werkmap en schreef hij een
+            // bestand met een relatief pad daarheen).
+            cwd = gamedir;
             dll_rel.clear();
             core.clear();
             if (enabled.count(kFpfix)) enabled[kFpfix] = false;   // die patch hoort bij de lader
