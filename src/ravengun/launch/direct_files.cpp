@@ -631,7 +631,7 @@ void merge_env(DirectPlan& pl, const EnvMap& extra) {
 using namespace direct_detail;
 
 bool parse_view_links(const std::string& text, const std::string& base, std::vector<std::pair<std::string, std::string>>& out,
-                      std::string& err) {
+                      std::string& err, const std::string& orig_base) {
     out.clear();
     for (const std::string& ruw : split(text, ',')) {
         const std::string item = trim(ruw);
@@ -642,6 +642,13 @@ bool parse_view_links(const std::string& text, const std::string& base, std::vec
             return false;
         }
         std::string rel[2] = {trim(item.substr(0, pijl)), trim(item.substr(pijl + 2))};
+        // "origineel:<pad>": het bestand van de game zelf (orig_base, de map van de game op de NAS), niet wat er in de view staat.
+        static const std::string kOrigineel = "origineel:";
+        const bool origineel = rel[1].starts_with(kOrigineel);
+        if (origineel) {
+            rel[1] = trim(rel[1].substr(kOrigineel.size()));
+            if (orig_base.empty()) { err = "'" + item + "': origineel: vraagt de map van de game (geen view?)"; return false; }
+        }
         for (std::string& r : rel) {
             std::replace(r.begin(), r.end(), '\\', '/');
             const std::string n = normpath(r);
@@ -651,8 +658,8 @@ bool parse_view_links(const std::string& text, const std::string& base, std::vec
             }
             r = n;
         }
-        if (rel[0] == rel[1]) { err = "'" + item + "': link en doel zijn hetzelfde"; return false; }
-        out.emplace_back(normpath(pjoin(base, rel[0])), normpath(pjoin(base, rel[1])));
+        if (rel[0] == rel[1] && !origineel) { err = "'" + item + "': link en doel zijn hetzelfde"; return false; }
+        out.emplace_back(normpath(pjoin(base, rel[0])), normpath(pjoin(origineel ? orig_base : base, rel[1])));
     }
     if (out.empty()) { err = "geen link"; return false; }
     return true;

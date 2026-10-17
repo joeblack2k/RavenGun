@@ -152,9 +152,11 @@ struct DirectOptions {
 Verdict plan_direct(const std::string& profile, const DirectPaths& p, const DirectOptions& o, DirectPlan& out, std::string& why);
 
 // [Launch] ViewLinks = "<link> -> <doel>[, ...]": paden ten opzichte van `base` (de map van de exe), relatief en zonder "..".
+// Een doel "origineel:<pad>" is het bestand in de map van de game zelf (`orig_base`, op de NAS), ook als de view op die plaats een
+// drop-in heeft (Lethal Enforcers 3: D22/iob.dll -> origineel:iob.dll voor de bestandscontrole, terwijl de game onze iob.dll laadt).
 // out krijgt per paar de absolute paden. false + err (Nederlands) bij een onleesbare waarde.
 bool parse_view_links(const std::string& text, const std::string& base, std::vector<std::pair<std::string, std::string>>& out,
-                      std::string& err);
+                      std::string& err, const std::string& orig_base = std::string());
 
 // De drop-ins, de gegenereerde bestanden, de links van [Launch] ViewLinks en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
 // launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.

@@ -526,6 +526,15 @@ int main() {
         write(ugi, "[Launch]\nViewLinks = Data/Shader/a.fx -> Data/Shader/weg.cfx\n");
         CHECK(plan_direct("Spel", p, o, vp, w) == Verdict::Ok);
         CHECK(!apply_direct(vp, p, log, err) && contains(err, "bestaat niet"));
+        // "origineel:" en een map als doel (Lethal Enforcers 3: D22/DATA -> origineel:DATA): het doel staat in de map van de echte exe
+        // (realpath; op de kast de NAS, in deze opstelling is spel.exe zelf een lokaal bestand in view/bin) en mag een map zijn.
+        write(ugi, "[Launch]\nViewLinks = D22/Data -> origineel:Data\n");
+        vv = plan_direct("Spel", p, o, vp, w);
+        CHECK(vv == Verdict::Ok && vp.view_links.size() == 1 && vp.view_links[0].second == (fs::canonical(view / "bin") / "Data").string());
+        if (vv != Verdict::Ok) std::fprintf(stderr, "viewlink origineel: %s\n", w.c_str());
+        log.clear();
+        CHECK(apply_direct(vp, p, log, err));
+        CHECK(fs::is_symlink(view / "bin/D22/Data") && slurp(view / "bin/D22/Data/Shader/a.cfx") == "DXBC-voorgecompileerd");
         // Weigeren: buiten de gamemap, geen pijl, link gelijk aan doel.
         for (const char* fout : {"../x -> a", "/abs -> a", "a.fx", "a -> ./a", "a -> b -> c"}) {
             write(ugi, std::string("[Launch]\nViewLinks = ") + fout + "\n");
@@ -535,6 +544,11 @@ int main() {
         std::string perr;
         CHECK(parse_view_links("x\\y.fx -> y.cfx, , a -> b", "/v", twee, perr) && twee.size() == 2 && twee[0].first == "/v/x/y.fx" &&
               twee[1].second == "/v/b");
+        // "origineel:": het doel in de map van de game zelf, ook met dezelfde naam als de link (D22/iob.dll -> origineel:iob.dll).
+        CHECK(parse_view_links("D22/iob.dll -> origineel:iob.dll, iob.dll -> origineel: iob.dll", "/v", twee, perr, "/nas/spel") &&
+              twee.size() == 2 && twee[0].first == "/v/D22/iob.dll" && twee[0].second == "/nas/spel/iob.dll" && twee[1].second == "/nas/spel/iob.dll");
+        CHECK(!parse_view_links("a -> origineel:b", "/v", twee, perr) && contains(perr, "origineel"));
+        CHECK(!parse_view_links("a -> origineel:../b", "/v", twee, perr, "/nas/spel"));
         fs::remove(ugi);
         fs::remove_all(vdata);
         fs::remove_all(nas_data);

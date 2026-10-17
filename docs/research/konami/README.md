@@ -5,8 +5,8 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 8: zwart beeld zonder gamescope; nu in gamescope) | richtpunt en knoppen zijn uit de game gelezen; niet gemeten: of de game zonder de kern zijn I/O-code haalt, de kalibratie in de hoeken, Option/Reload |
-| **Gashaaaan** | **kandidaat, opnieuw te testen** (proef 8: binnen 1 s exitcode 0) | knoppen en inslagen zijn uit de game gelezen; niet gemeten: waarom hij stopte (zie "Proef 8"), venster/schermvullend zonder de kern, de inslagcoordinaten |
+| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 11: I/O, beveiliging en geweerbord OK, daarna "SYSTEM DATA1 CHECK ERROR 2-1005-0001"; nu schijven D:/E:/F: en de originelen in `D22/`) | niet gemeten: of SYSTEM DATA2 en de films nu ook lopen, de kalibratie in de hoeken, Option/Reload |
+| **Gashaaaan** | **kandidaat, opnieuw te testen** (proef 11: DLL's laden, `SystemMain` stopt voor `iob_boot`; nu eigen `BALLS.INI` zonder schijfletters) | niet bewezen waar `SystemMain` stopt (meetvoorstel in "Proef 11"); venster/schermvullend, inslagcoordinaten |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
 `rg-jvsbridge.exe`. `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan <Game> --patches docs/research/konami/patches` geeft voor beide
@@ -146,6 +146,53 @@ service bit 1. `iob_f24_nr_coin(mech, &modulo)`: 6-bits teller per muntproever (
 
 Beide: de Japanse locale is uit de kandidaat (een variabele minder).
 
+## Proef 11 (tv 2026-10-17 19:59, f12f0fe, TP-map weg)
+
+**Lethal Enforcers 3** liep 150 s met onze DLL's (laadregels, `iob_init`, `gunio_boot_status`, bordbeeld, richtpunten) en kwam tot
+de opstartcontrole: `I/O BOARD OK, I/O BOARD BIOS OK, SECURITY OK, GUN I/O OK, SYSTEM DATA1 CHECK`, dan rood `SYSTEM DATA1 CHECK
+ERROR 2-1005-0001`. Gelezen in `game.exe`:
+
+- Foutcode: tabel `0x691b14` (index 4 = `2-1005-0001`); de stap `0x533830(x, n)` start in een draad `0x536a90(n)` en toont bij een
+  fout index `n + 4`. `n = 0` is SYSTEM DATA1, `n = 1` SYSTEM DATA2.
+- `0x536a90(0)` controleert zes paren (tabel `0x649eec`): `D:\D22\DATA\check.cc` tegen `D:\D22\DATA\check.a`, en
+  `DATA\check\{game,iob,gunio,pmds,msvcr71}.cc` (uit het archief `check.a`) tegen `D:\D22\{game.exe,iob.dll,gunio.dll,pmds.dll,
+  msvcr71.dll}`. Een `.cc` is 8 bytes: CRC van de CRC en de CRC van het bestand (de CRC-32 met polynoom 0xEDB88340, dezelfde als van de
+  .sav-bestanden; `0x5318d0` controleert het eerste woord). `0x536a90(1)`: `DATA\check\testmode.cc` tegen `D:\D22\DATA\testmode.a`.
+  **Nagerekend op de NAS**: `check.cc` klopt met `check.a`, en de CRC's van de vijf originele bestanden en van `testmode.a` staan als
+  `.cc` in `check.a`. Het is een bestandscontrole met een CRC, geen dongle en geen sleutel.
+- Waarom het misging: de prefix heeft geen `D:` (de kern leidde `D:\D22` om naar de map van de game), en met de map van de game als
+  `D:\D22` zou de CRC van ONZE `iob.dll`/`gunio.dll` niet kloppen.
+- Dezelfde vaste paden elders: films `D:\D22\DATA\movies\*.m1v`, `D:\D22\DATA\DATA.a`, en de .sav-bestanden in twee kopieen
+  `F:\SAVE\` en `E:\SAVE\` (`0x51fd80`/`0x51fe20`; schrijven `0x520020` naar beide, lezen `0x5202d0` eerst F: dan E:). Zonder F:/E:
+  las de game in proef 11 dus ook onze `SAVE/io.sav` niet.
+
+Nu in de kandidaat: `[Launch] Drives = D=.; E=.; F=.` (alle drie de view, voor de duur van de run) en `[Launch] ViewLinks` voor
+`D22/{game.exe,iob.dll,gunio.dll,pmds.dll,msvcr71.dll,DATA}` naar de **originelen op de NAS**. Daarvoor kreeg ViewLinks in rg-direct
+het doel `origineel:<pad>` (het bestand of de map van de game zelf, ook als de view daar een drop-in heeft) en mag een doel een map
+zijn (`direct_files.cpp` `parse_view_links`, `direct_apply.cpp` `place_view_links`; test in `tests/test_direct_launch.cpp`; uitleg in
+`docs/per-game-patches.md`). De controle leest zo Konami's bestanden in `D:\D22`, de game laadt de onze uit zijn eigen map. Er wordt
+niets nagemaakt of omzeild.
+
+**Gashaaaan**: onze DLL's laden (`mutex JONG4APPLICATION bestaat nog niet`), daarna meteen `DllMain: proces stopt normaal` zonder
+`iob_boot`. `SystemMain` (`system.dll 0x10001170`) doet voor `iob_boot` (moduleboot stap 2, `0x10002460` → `0x100052e0`):
+mutex → `SetCurrentDirectoryA` (map van de exe) → `system_error_init`, `ime_util_init` → AVS-opstart `0x10001f60` (geeft altijd 0;
+`log_body_fatal` bij te weinig heap) → `load_inifile("BALLS.INI")` → `0x10001c70`: `NVRAM_DIR` als `/dev/nvram` en `RAW_DIR` als
+`/dev/raw` mounten (`gcreate_directory`) → `soft_config.dll` `security_code_init` (leest `ROMFILE` = `D:\TYPE.BIN`) en
+`soft_id_code_init` → moduleboot stap 0 en 1 (log, muis, COM, geheugen, draden, bestanden); een stap < 0 stopt. `BALLS.INI` zegt
+`F:\`, `E:\` en `D:\TYPE.BIN`; geen van die schijven bestaat zonder de kern. Onder de kern stond de NVRAM in `bin\NVRAM`
+(`info.bin` + mirrors `0..3`, in de schrijflaag), en de game maakte `bin\RAW` en `bin\LOG`: de kern leidde de schijven om. **Niet
+bewezen** dat dit de stop is (er komt geen eigen melding); het is de enige plek tussen het laden en `iob_boot` die van de omgeving
+afhangt. Nu in de kandidaat: een eigen `bin/BALLS.INI` (drop-in, tekst) met `NVRAM_DIR .\NVRAM\`, `RAW_DIR .\RAW\` en
+`ROMFILE ..\TYPE.BIN` (werkmap = `bin`), zodat de NVRAM van de route met de kern blijft gelden. **Gegokt**: dat AVS een relatief pad
+als bron van `/dev/nvram` aanneemt. Een schijfletter naar `bin/NVRAM` kan niet: die map is een koppeling naar de NAS en rg-direct zet
+geen schijf op de NAS.
+
+Meetvoorstel als Gashaaaan weer meteen stopt (een korte run, dus een klein logboek): `WINEDEBUG=+seh,+debugstr,warn+file,err+all`.
+Te zoeken: de laatste `CreateFile`/`GetFileAttributes` voor de exit (welk pad, welke fout), een uitzondering (`+seh`), en de
+AVS-logregels (`log_body_*` via OutputDebugString). Staat er niets van AVS: dezelfde run met `+relay` beperkt tot
+`WINEDEBUG=+relay,+seh` en `RelayInclude=kernel32.ExitProcess;kernel32.CreateFileA` (register `HKCU\Software\Wine\Debug`) geeft de
+plek van de `ExitProcess`.
+
 ## Niet bewezen / gegokt
 
 1. **LE3, de kalibratie in de praktijk**: de formule is uit de code gelezen en doorgerekend, niet op het scherm gezien. Klopt de hoek
@@ -159,10 +206,10 @@ Beide: de Japanse locale is uit de kandidaat (een variabele minder).
    met de kern gaf `Windowed = 0` in gamescope zwart beeld. Zonder kern kiest de game zelf. **Meten.**
 5. **Japanse locale**: `UseLocaleEmulator = 1` van de kern heeft geen vervanger meer; niet gemeten of de games hem nodig hebben
    (verminkte tekst of een vroege stop: `[Env] LANG/LC_ALL = ja_JP.UTF-8` terugzetten en vergelijken).
-6. **Gashaaaan, schijfletters**: `bin/BALLS.INI` noemt `D:\TYPE.BIN`, `E:\` en `F:\`; de prefix heeft alleen `c:` en `z:`, ook op de
-   huidige route (kern), en die werkt. `system.dll` heeft standaardpaden (`.\CONF\NVRAM`). Geen verandering verwacht.
-7. **LE3, bestandscontrole in het testmenu** (`0x536a90`: `DATA\check\iob.cc` tegen `D:\D22\iob.dll`): alleen in het testmenu, met
-   absolute `D:\D22`-paden die hier niet bestaan; faalde dus al. Onze iob.dll verandert daar niets aan.
+6. **Gashaaaan, schijfletters**: de kern leidde `D:`, `E:` en `F:` om (zie "Proef 11"); de eigen `BALLS.INI` vervangt dat met
+   relatieve paden. Niet gemeten.
+7. **LE3, bestandscontrole** (`0x536a90`): eerder dacht ik dat die alleen in het testmenu liep; het is de opstartstap SYSTEM DATA1
+   (zie "Proef 11"). Opgelost met de originelen in `D22/`, niet gemeten.
 
 ## Testrecept voor de tv
 
@@ -174,12 +221,25 @@ het bestand is van `docs/research/konami/patches/<Game>/game.ini.basis.sha256`):
     cp docs/research/konami/patches/LethalEnforcers3/dropin/dropin.ini patches/LethalEnforcers3/dropin/
     cp docs/research/konami/patches/Gashaaaan/game.ini                 patches/Gashaaaan/game.ini
     cp docs/research/konami/patches/Gashaaaan/dropin/dropin.ini        patches/Gashaaaan/dropin/
+    cp docs/research/konami/patches/Gashaaaan/dropin/BALLS.INI         patches/Gashaaaan/dropin/
     tools/rg-konami/test.sh                                             # 1968 controles, exports "in orde"
     RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan LethalEnforcers3   # en Gashaaaan: "verdict":"ok", "tp_files":[], "loader":"", "core_dll":""
 
 Een gebruikerslaag (`~/.local/share/ravengun/patches/<Game>/game.ini`) mag geen eigen `[Loader]` hebben. Voor Gashaaaan eerst controleren
 dat er geen oude `ballshooting.exe` meer in de gedeelde prefix draait (`ps -eo pid,args | grep -i '[b]allshooting'`). Voor de eerste run
 kan `WINEDEBUG=err+module` erbij (een DLL die niet laadt, staat dan in het logboek van rg-direct). Starten: dubbelklik in de app.
+
+Sinds proef 11 vraagt de LE3-kandidaat ook de nieuwe rg-direct (ViewLinks `origineel:` en mappen): eerst `cmake --build build`, dan
+`install-user.sh`, anders weigert het plan met "ViewLinks ... ('origineel:...')".
+
+**Proef 12, waar op te letten.** LE3, logboek van rg-direct: `schijfletter D: -> .../views/LethalEnforcers3` (en E:, F:),
+`viewlink: .../views/LethalEnforcers3/D22/iob.dll -> /home/deck/mnt/spidernas_emulation/Teknoparrot/Lethal Enforcers 3/iob.dll
+(alleen in de view)` (zes regels, de laatste voor `D22/DATA`). Op het scherm: `SYSTEM DATA1 CHECK OK` en daarna DATA2, dan de attract
+met film. In `rg-konami.log` geen nieuwe regels nodig; wel moet het richtpunt nu bij de as passen (io.sav wordt gelezen: zonder F:/E:
+las de game hem in proef 11 niet). Faalt DATA1 weer: `ls -la views/LethalEnforcers3/D22` en de foutcode noteren (2-1005-0001 = DATA1,
+-0002 = DATA2). Gashaaaan, logboek van rg-direct: `drop-in: .../views/Gashaaaan/bin/BALLS.INI geschreven`; in `bin/rg-konami.log` na de
+laadregels nu `iob_boot(...)`, `iob_get_status: 3`, `bs2_get_status: 2`; in de schrijflaag krijgt `bin/NVRAM/info.bin` een nieuwe
+tijd. Stopt hij weer meteen: het meetvoorstel uit "Proef 11".
 
 **Bewijs per run** (beide games):
 
@@ -205,7 +265,6 @@ eerst aanroept):
     gunio.dll(LE3): geladen: ...gunio.dll ...; eerste aanroep: gunio_init
     gunio.dll(LE3): gunio_init(1, 1): geweerbord van RavenGun
     gunio.dll(LE3): gunio_boot_status(0): 1 (CHECKING GUN...OK)
-    gunio.dll(LE3): gunio_run
     gunio.dll(LE3): bordbeeld TeknoParrot_JvsState geopend
     iob.dll(LE3): invoer: MUNT 1 ingedrukt / START P1 ingedrukt / TREKKER P1 ingedrukt
     gunio.dll(LE3): richtpunt geweer 1: as X,Y -> ruw 255-X,255-Y (scherm ~2.5X,1.875Y van 640x480)

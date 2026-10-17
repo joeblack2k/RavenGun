@@ -531,7 +531,11 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     // Mario Kart DX: Polygon2D_D3D10.fx -> de meegeleverde voorgecompileerde Polygon2D_D3D10.cfx, NETWERK-INVOER-CAMERA.md 5d).
     if (const std::string vl = trim(lini("ViewLinks")); !vl.empty()) {
         std::string verr;
-        if (!parse_view_links(vl, dirname(game), pl.view_links, verr)) return setting_refused("[Launch] ViewLinks = " + vl + " (" + verr + ")");
+        // De map van de game zelf (op de NAS), voor een doel "origineel:<pad>"; zoals mod_game_root hieronder.
+        const std::string orig_exe = game + kStackOrigSuffix;
+        const std::string orig_base = dirname(islink(orig_exe) ? realpath_(orig_exe) : realpath_(game));
+        if (!parse_view_links(vl, dirname(game), pl.view_links, verr, orig_base))
+            return setting_refused("[Launch] ViewLinks = " + vl + " (" + verr + ")");
         if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
             return setting_refused("[Launch] ViewLinks vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de links "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");

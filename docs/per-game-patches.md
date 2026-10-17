@@ -532,6 +532,10 @@ compileert de shadercompiler van Wine niet; de game levert hetzelfde effect voor
 - de mappen op weg naar `A` worden eerst echte lokale mappen met symlinks (zoals bij een drop-in), dan wordt `A` de symlink;
 - een volgende start schrijft niets als de link al klopt (`viewlink: ... is al actueel`); een ontbrekend `B`, of een echt (lokaal)
   bestand op de plaats van `A`, is een fout: dan start de game niet;
+- `B` mag ook een map zijn (dan wordt `A` een symlink naar die map);
+- `origineel:B` wijst naar het bestand of de map `B` in de map van de game zelf (op de NAS), ook als de view op die plaats een
+  drop-in heeft. Lethal Enforcers 3 controleert `D:\D22\iob.dll` tegen een CRC in `DATA\check.a` terwijl hij onze `iob.dll` uit
+  zijn eigen map laadt: `D22/iob.dll -> origineel:iob.dll` (met `[Launch] Drives = D=.`) geeft de controle het origineel;
 - ligt de game niet in een view, dan weigert het plan met exitcode 5. Terug naar het origineel: de sleutel weghalen en in de view
   `ln -sfn <gamemap>/A <view>/A`.
 

@@ -188,8 +188,10 @@ bool link_in_view(const DirectPlan& pl, const DirectPaths& p, const std::string&
 
 bool place_view_links(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
     for (const auto& [link, doel] : pl.view_links) {
-        if (!isfile(doel)) {
-            log.push_back("viewlink: FOUT: " + doel + " bestaat niet of is geen bestand -- de game wordt niet gestart");
+        // Een map mag ook (de link wordt een symlink naar die map): Lethal Enforcers 3 leest zijn films en archieven uit
+        // D:\D22\DATA, en D22/DATA -> origineel:DATA geeft hem de map van de game in een keer.
+        if (!isfile(doel) && !isdir(doel)) {
+            log.push_back("viewlink: FOUT: " + doel + " bestaat niet (geen bestand en geen map) -- de game wordt niet gestart");
             err = "viewlink: " + doel + " bestaat niet of is geen bestand";
             return false;
         }
