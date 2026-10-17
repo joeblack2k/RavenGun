@@ -133,8 +133,10 @@ static void test_responder() {
     // Onbekend: een voorzichtig antwoord, gemeld als onbekend.
     a = rs.answer(parse_request("keychip.zz.unknown=?&cache=0"));
     CHECK(!a.known && a.line == "keychip.zz.unknown=0" && contains(a.note, "onbekend"));
-    a = rs.answer(parse_request("mxmaster.foreground.next=1"));
-    CHECK(!a.known && a.line == "mxmaster.foreground.next=0");
+    a = rs.answer(parse_request("mxmaster.foreground.next=3"));   // amMasterExitA: de waarde terug (SDR 0x6FE3A6), geen gok
+    CHECK(a.known && a.line == "mxmaster.foreground.next=3");
+    a = rs.answer(parse_request("mxmaster.foreground.fault=1"));
+    CHECK(!a.known && a.line == "mxmaster.foreground.fault=0");
     a = rs.answer(parse_request("iets.anders=7"));
     CHECK(!a.known && a.line == "iets.anders=7");
     a = rs.answer(parse_request("a b"));

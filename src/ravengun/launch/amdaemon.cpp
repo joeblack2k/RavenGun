@@ -156,6 +156,15 @@ Reply Responder::answer(const Request& r) const {
         out.known = true;
         return out;
     }
+    if (key == "mxmaster.foreground.next") {
+        // amMasterExitA (SDR 0x6FE9F0..): het verzoek is `mxmaster.foreground.next=<n>` (n = de modus, 3 bij het afsluiten). amMasterCheckResponse (status 0xD,
+        // 0x6FE3A6) eist dat atoi(waarde) gelijk is aan wat de game stuurde, anders fout -5 en een nieuwe poging (honderden keren); een `size`-veld is niet nodig.
+        std::string n = u.has_value && !u.query ? u.value : std::string();
+        if (n.empty() || !std::all_of(n.begin(), n.end(), [](unsigned char c) { return std::isdigit(c); })) { out.note = "foreground.next zonder getal"; return out; }
+        out.line = key + "=" + n;
+        out.known = true;
+        return out;
+    }
     if (key == "keychip.ds.compute" || key == "keychip.ssd.proof") {
         // De game vergelijkt het antwoord met een waarde uit zijn <spel-id>_Table.dat (zie amhw_table.h). Een uitdaging die niet in de tabel staat is een
         // willekeurige: daar vergelijkt de game niet, elk antwoord van de juiste lengte (40 hexcijfers ds, 32 hexcijfers ssd) is goed.
