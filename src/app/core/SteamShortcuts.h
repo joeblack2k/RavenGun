@@ -91,7 +91,9 @@ public:
     static quint32 shortcutId(const QString& exe, const QString& appName);
     static QString quoted(const QString& path);
 
-    // Voegt de snelkoppeling toe of werkt een bestaande bij (zelfde appname of zelfde exe) in `vdfPath`. Eerst een back-up
+    // Voegt de snelkoppeling toe of werkt een bestaande bij (zelfde appname of zelfde exe; een snelkoppeling per game met
+    // LaunchOptions "--play PROFIEL" alleen bij zelfde exe en precies die opties, en RavenGun zelf nooit bij een item met --play) in
+    // `vdfPath`. Eerst een back-up
     // (<pad>.ravengun-bak-JJJJMMDD-HHMMSS), dan atomisch schrijven. Andere items blijven byte voor byte gelijk.
     static ShortcutResult addOrUpdate(const QString& vdfPath, const ShortcutSpec& spec);
     // Schrijft de grid-afbeeldingen (config/grid/<id>...) uit de gegeven plaatjes; bestaande bestanden krijgen een back-up.

@@ -624,8 +624,18 @@ int run_process(const std::vector<std::string>& argv, std::string& err) {
 
 GameService::GameService(Config c, Spawner s) : c_(std::move(c)), spawn_(std::move(s)) {}
 
-GameService::~GameService() {
-    join_worker();
+GameService::~GameService() { shutdown(); }
+
+void GameService::shutdown() {
+    std::thread t;
+    {
+        // De worker zelf neemt m_ aan het eind: hier alleen de thread overnemen, buiten het slot afwachten.
+        std::lock_guard<std::mutex> g(m_);
+        closed_ = true;
+        cancel_.store(true);
+        t = std::move(worker_);
+    }
+    if (t.joinable()) t.join();
     wait_own_games();
 }
 
@@ -653,6 +663,7 @@ Result GameService::start(const std::string& profile, const std::string& launch)
     // Toestand nu bepalen: er mag niets lopen.
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
     std::lock_guard<std::mutex> g(m_);
+    if (closed_) return {false, "unavailable", "de daemon stopt"};
     if (busy_.load())
         return {false, "unavailable", "er wordt al een game gestart of gestopt; wacht even of druk op Stoppen"};
     if (game_run) return {false, "unavailable", "er draait al een game; stop die eerst"};
@@ -737,18 +748,56 @@ Result GameService::stop() {
     return {};
 }
 
-// Een lightgun: een verbonden Move of een muis die als lightgun is toegewezen (zoals het script, maar zonder het script).
-std::string GameService::wait_lightgun() {
-    if (!c_.lightgun_ready || c_.lightgun_ready()) return {};
-    waiting_.store(true);
-    const int64_t until = now_ms() + c_.lightgun_wait_ms;
-    while (!c_.lightgun_ready()) {
+// De poort vóór de start (readiness.hpp): hoe staat het nu met de spelers van deze game? Zonder ready_inputs het oude gedrag: een
+// verbonden Move of een muis die als lightgun is toegewezen (lightgun_ready).
+readiness::Decision GameService::readiness_of(const std::string& profile, readiness::Inputs* inputs) {
+    namespace R = readiness;
+    const R::GameKind kind = c_.game_kind ? c_.game_kind(profile) : R::GameKind{};
+    if (c_.ready_inputs) {
+        const R::Inputs in = c_.ready_inputs();
+        if (inputs) *inputs = in;
+        return R::decide(kind, in);
+    }
+    R::Decision d;
+    d.game = kind;
+    if (kind.kind == R::Kind::Lightgun && c_.lightgun_ready && !c_.lightgun_ready()) {
+        d.ready = false;
+        d.waiting_any = true;
+    }
+    if (inputs) *inputs = {};
+    return d;
+}
+
+std::string GameService::ready_json(const std::string& profile) {
+    readiness::Inputs in;
+    const readiness::Decision d = readiness_of(profile, &in);
+    return readiness::decision_json(d, in);
+}
+
+// Wacht tot de spelers klaar zijn (de Move van speler 1 aan), hoogstens lightgun_wait_ms; stoppen breekt het af. Een pad-game wacht
+// niet. Elke 200 ms opnieuw kijken: de verbinding van een Move komt uit de HID-thread, er is geen gebeurtenis om op te wachten.
+std::string GameService::wait_lightgun(const std::string& profile) {
+    namespace R = readiness;
+    const int64_t t0 = now_ms();
+    for (;;) {
+        const R::Decision d = readiness_of(profile);
+        const R::WaitStep st = R::wait_step(d, t0, now_ms(), c_.lightgun_wait_ms);
+        if (st == R::WaitStep::Ready) { waiting_.store(false); return {}; }
+        if (st == R::WaitStep::TimedOut) {
+            waiting_.store(false);
+            const int s = c_.lightgun_wait_ms / 1000;
+            return "Geen PS Move aangezet binnen " + (s >= 120 ? std::to_string(s / 60) + " minuten" : std::to_string(s) + " s") +
+                   ". Zet de Move aan (PS-knop) en start opnieuw.";
+        }
+        {
+            std::lock_guard<std::mutex> g(m_);
+            waiting_players_ = d.waiting;
+            waiting_text_ = R::waiting_text(d);
+        }
+        waiting_.store(true);
         if (cancel_.load()) { waiting_.store(false); return "de start is afgebroken"; }
-        if (now_ms() > until) { waiting_.store(false); return "Geen Move gevonden binnen 2 minuten. Druk op PS en start opnieuw."; }
         ::usleep(200000);
     }
-    waiting_.store(false);
-    return {};
 }
 
 // [Display] AimAspect = 4:3 | 5:3 | 1024x768 | 1.333: het beeld van het spel op de tv. 0 = niet gezet of onleesbaar.
@@ -777,7 +826,7 @@ static std::string speakers_of(const ravengun::gamesettings::Dirs& dirs, const s
 std::string GameService::run_direct(const std::string& profile, const ravengun::launch::DirectInput& in) {
     namespace L = ravengun::launch;
     // 1. Een lightgun, dan wapenen; de virtuele lightgun en het toetsenbord moeten er zijn voordat de game zijn invoer opent.
-    if (std::string e = wait_lightgun(); !e.empty()) return e;
+    if (std::string e = wait_lightgun(profile); !e.empty()) return e;
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
     if (c_.set_aim_aspect) c_.set_aim_aspect(aim_aspect_of(c_.direct.dirs, profile));
     auto fail = [&](const std::string& m) { if (c_.stop_inputs) c_.stop_inputs(); return m; };
@@ -912,7 +961,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
 std::string GameService::run_native(const std::string& profile) {
     namespace L = ravengun::launch;
     // 1. Een lightgun.
-    if (const std::string e = wait_lightgun(); !e.empty()) return e;
+    if (const std::string e = wait_lightgun(profile); !e.empty()) return e;
     // 2. Het profiel en het commando.
     // De spelmappen van de app (library.json) bij elke start opnieuw: een map die de gebruiker net toevoegde telt meteen mee.
     L::NativePaths np = c_.native;
@@ -986,7 +1035,7 @@ std::string GameService::run_native(const std::string& profile) {
 std::string GameService::run_unity(const std::string& profile) {
     namespace L = ravengun::launch;
     // 1. Een lightgun.
-    if (const std::string e = wait_lightgun(); !e.empty()) return e;
+    if (const std::string e = wait_lightgun(profile); !e.empty()) return e;
     // 2. De game, de view (symlinks naar de NAS, BepInEx en onze plugin lokaal) en het commando.
     //    De map van de game komt uit de gamemappen van library.json (de bron van de app), niet uit een pad in het profiel.
     const char* po = std::getenv("RAVENGUN_UNITY_PLUGIN");
@@ -1070,12 +1119,14 @@ std::string GameService::run_unity(const std::string& profile) {
 std::string GameService::status_json() {
     const bool game_run = game_process_running(c_.proc_root) || unit_alive(c_.tpui_procs);
     std::string state, text, profile, message;
+    std::vector<int> waiting_players;
     bool have_profile = false;
     {
         std::lock_guard<std::mutex> g(m_);
         if (busy_.load() && !busy_stop_ && waiting_.load()) {
             state = "waiting_move";
-            text = "Wacht op de Move: druk op de PS-knop.";
+            text = waiting_text_.empty() ? std::string("Wacht op de Move: druk op de PS-knop.") : waiting_text_;
+            waiting_players = waiting_players_;
             have_profile = true;
             profile = profile_;
         } else if (busy_.load()) {
@@ -1108,6 +1159,10 @@ std::string GameService::status_json() {
     w.key("stoppable").value(game_run || state == "starting" || state == "waiting_move");
     if (have_profile && !profile.empty()) w.key("profile").value(profile); else w.key("profile").null();
     if (message.empty()) w.key("message").null(); else w.key("message").value(message);
+    // Op wiens Move de start wacht (leeg bij waiting_move = op een willekeurige lightgun); de app maakt er de Engelse melding van.
+    w.key("waiting_players").begin_array();
+    for (int p : waiting_players) w.value(p);
+    w.end_array();
     w.end_object();
     return w.str();
 }

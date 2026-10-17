@@ -279,6 +279,9 @@ void GameList::ShowContextMenu(const QPoint&) {
         menu->addSeparator();
     }
     menu->addAction(tr("Set as &Default Game"), this, &GameList::SetDefaultGame);
+    // Een eigen snelkoppeling in Steam (Game Mode): het startscherm (PS Move aan, kalibratie) en dan de game.
+    QAction* steam = menu->addAction(tr("Add to &Steam..."), this, &GameList::AddToSteam);
+    steam->setEnabled(g->hasProfile());
     menu->addAction(Resources::GetThemeIcon("folder"), tr("Open &Containing Folder"), this, &GameList::OpenContainingFolder);
     menu->addSeparator();
     menu->addAction(tr("&Remove from List"), this, &GameList::RemoveFromList);

@@ -167,6 +167,15 @@ bool MouseService::any_connected() const {
     return false;
 }
 
+void MouseService::player_state(int player, bool& assigned, bool& connected) const {
+    assigned = connected = false;
+    if (player < 1 || player > kPlayers) return;
+    std::lock_guard<std::mutex> g(m_);
+    const Slot& s = slots_[static_cast<size_t>(player - 1)];
+    assigned = !s.mouse.empty();
+    connected = assigned && s.connected;
+}
+
 std::string MouseService::mice_json() const {
     json::Writer w;
     w.begin_object().key("mice").begin_array();

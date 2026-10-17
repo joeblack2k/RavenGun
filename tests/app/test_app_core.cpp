@@ -19,6 +19,7 @@
 #include "core/GameOptions.h"
 #include "core/Launcher.h"
 #include "core/MemoryCard.h"
+#include "core/PreLaunch.h"
 #include "core/TextConfig.h"
 #include "core/TpProfile.h"
 #include "core/BigPicture.h"
@@ -117,6 +118,8 @@ private Q_SLOTS:
     void steamShortcutId();
     void steamAddOrUpdate();
     void steamNewFile();
+    void steamPerGameShortcuts();
+    void preLaunchPlan();
     void steamUsersAndRunning();
     // A6: commando's van de wizard
     void setupCommands();
@@ -1610,6 +1613,14 @@ void AppCoreTest::aimEvents() {
     QVERIFY(s.valid && s.trigger && s.ps && s.offScreen);
     QCOMPARE(s.pos, QPointF(0.25, 1.0));  // geklemd
     QCOMPARE(s.triggerPresses, 2);
+    QCOMPARE(s.psPresses, 0);
+    // Het startscherm: flanken van PS (centreren) en MOVE (overslaan).
+    QJsonObject edges = QJsonDocument::fromJson(R"({"v":1,"event":"aim","data":{"link":"fresh","aim":{"valid":true,"x":0.5,"y":0.5},
+        "down":[],"pressed":{"move":1,"ps":2},"released":{}}})").object();
+    QVERIFY(bigpicture::parseAimEvent(edges, &s));
+    QCOMPARE(s.movePresses, 1);
+    QCOMPARE(s.psPresses, 2);
+    QCOMPARE(s.triggerPresses, 0);
     // Volledig sample (oudere engine zonder lite).
     QJsonObject full = QJsonDocument::fromJson(R"({"v":1,"event":"sample","data":{"sample":{"link":"fresh","aim":{"valid":true,
         "x":0.5,"y":0.5,"x_clamped":0.6,"y_clamped":0.4,"off_screen":false},"buttons":{"down":["move"]}},
@@ -1849,6 +1860,99 @@ void AppCoreTest::steamAddOrUpdate() {
     ShortcutSpec rel;
     rel.exe = QStringLiteral("ravengun");
     QVERIFY(!SteamShortcuts::addOrUpdate(vdfPath, rel).ok);
+}
+
+// Een snelkoppeling per game (`ravengun --play PROFIEL`, docs/prelaunch.md) naast RavenGun zelf: zelfde programma, eigen item; bijwerken
+// vindt het eigen item terug, en RavenGun zelf neemt nooit het item van een game over (of andersom).
+void AppCoreTest::steamPerGameShortcuts() {
+    const QString vdfPath = tmp_.filePath(QStringLiteral("steam-pergame/shortcuts.vdf"));
+    ShortcutSpec rg;
+    rg.exe = QStringLiteral("/opt/ravengun/bin/ravengun");
+    rg.startDir = QStringLiteral("/opt/ravengun/bin");
+    ShortcutSpec halo = rg;
+    halo.appName = QStringLiteral("HALO Fireteam Raven");
+    halo.launchOptions = QStringLiteral("--play Halo");
+    ShortcutSpec mk = rg;
+    mk.appName = QStringLiteral("Mario Kart DX");
+    mk.launchOptions = QStringLiteral("--play MarioKartDX");
+    QVERIFY(SteamShortcuts::addOrUpdate(vdfPath, halo).ok);   // eerst een game, dan RavenGun: RavenGun komt ernaast
+    ShortcutResult r = SteamShortcuts::addOrUpdate(vdfPath, rg);
+    QVERIFY(r.ok && !r.updated);
+    r = SteamShortcuts::addOrUpdate(vdfPath, mk);
+    QVERIFY(r.ok && !r.updated);
+    QCOMPARE(SteamShortcuts::list(vdfPath).size(), 3);
+    // Opnieuw: elk werkt zijn eigen item bij (ook na een nieuwe naam van de game).
+    halo.appName = QStringLiteral("Halo");
+    r = SteamShortcuts::addOrUpdate(vdfPath, halo);
+    QVERIFY(r.ok && r.updated);
+    r = SteamShortcuts::addOrUpdate(vdfPath, rg);
+    QVERIFY(r.ok && r.updated);
+    const auto list = SteamShortcuts::list(vdfPath);
+    QCOMPARE(list.size(), 3);
+    QStringList opts;
+    for (const auto& e : list) opts << e.appName + QLatin1Char('|') + e.launchOptions;
+    QVERIFY(opts.contains(QStringLiteral("Halo|--play Halo")));
+    QVERIFY(opts.contains(QStringLiteral("RavenGun|--fullscreen")));
+    QVERIFY(opts.contains(QStringLiteral("Mario Kart DX|--play MarioKartDX")));
+    // Een niet-Steam-game van de gebruiker met dezelfde naam als een game blijft ongemoeid.
+    ShortcutSpec own;
+    own.appName = QStringLiteral("Doom");
+    own.exe = QStringLiteral("/usr/bin/doom");
+    own.launchOptions.clear();
+    QVERIFY(SteamShortcuts::addOrUpdate(vdfPath, own).ok);
+    ShortcutSpec doomGame = rg;
+    doomGame.appName = QStringLiteral("Doom");
+    doomGame.launchOptions = QStringLiteral("--play Doom");
+    r = SteamShortcuts::addOrUpdate(vdfPath, doomGame);
+    QVERIFY(r.ok && !r.updated);
+    QCOMPARE(SteamShortcuts::list(vdfPath).size(), 5);
+}
+
+// Het startscherm vóór een lightgun-game (core/PreLaunch.*): het antwoord op game_ready, de meldingen en wanneer er een scherm komt.
+void AppCoreTest::preLaunchPlan() {
+    using namespace rg::prelaunch;
+    // Een oudere engine (geen game_ready): geen scherm.
+    Plan p = parsePlan(QJsonObject{});
+    QVERIFY(!p.known);
+    QVERIFY(!needsScreen(p, true, true));
+    // Speler 1 heeft een Move die uit staat.
+    p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"gun_players":2,"source":"x","ready":false,"waiting":[1],
+        "waiting_any":false,"optional_off":[2],"calibrate":[],"players":[]})").object());
+    QVERIFY(p.known && p.lightgun && !p.ready);
+    QCOMPARE(p.gunPlayers, 2);
+    QCOMPARE(p.waiting, QList<int>{1});
+    QCOMPARE(p.optionalOff, QList<int>{2});
+    QVERIFY(needsScreen(p, false, false));   // wachten op de Move: altijd een scherm, ook zonder kalibratie
+    QCOMPARE(waitingText(p.waiting, p.waitingAny), QStringLiteral("Please turn on your PS Move controller"));
+    QCOMPARE(waitingText({2}, false), QStringLiteral("Player 2: please turn on your PS Move controller"));
+    QCOMPARE(waitingText({}, true), QStringLiteral("Please turn on your PS Move controller"));
+    QVERIFY(waitingText({}, false).isEmpty());
+    // De status van de engine (waiting_move).
+    QCOMPARE(waitingTextFromStatus(QJsonDocument::fromJson(R"({"state":"waiting_move","waiting_players":[1]})").object()),
+             QStringLiteral("Please turn on your PS Move controller"));
+    QCOMPARE(waitingTextFromStatus(QJsonDocument::fromJson(R"({"state":"waiting_move"})").object()),
+             QStringLiteral("Please turn on your PS Move controller"));
+    // Klaar, twee spelers aan: kalibreren als dat aan staat; met de kalibratie uit meteen starten.
+    p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"calibrate":[1,2],"optional_off":[]})").object());
+    QCOMPARE(p.calibrate, (QList<int>{1, 2}));
+    QVERIFY(needsScreen(p, true, false));
+    QVERIFY(!needsScreen(p, false, false));
+    QVERIFY(needsScreen(p, false, true));   // de uitleg van de knoppen (haak)
+    // Muismodus: klaar, niemand te kalibreren: geen scherm.
+    p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"ready":true,"calibrate":[]})").object());
+    QVERIFY(!needsScreen(p, true, false));
+    // Pad-game (Mario Kart): nooit een scherm, ook niet met de haak.
+    p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":false,"gun_players":0,"ready":true,"calibrate":[1]})").object());
+    QVERIFY(!p.lightgun);
+    QVERIFY(!needsScreen(p, true, true));
+    // Rommel in de lijsten wordt genegeerd.
+    p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"ready":false,"waiting":[0,1,"2",9]})").object());
+    QCOMPARE(p.waiting, QList<int>{1});
+    // Kleuren: speler 1 blauw, 2 rood (op de Move: de presets van de engine).
+    QCOMPARE(ledPreset(1), QStringLiteral("blauw"));
+    QCOMPARE(ledPreset(2), QStringLiteral("rood"));
+    QVERIFY(playerColor(1).blue() > playerColor(1).red() && playerColor(2).red() > playerColor(2).blue());
+    QVERIFY(ledPreset(4).isEmpty());
 }
 
 void AppCoreTest::steamNewFile() {

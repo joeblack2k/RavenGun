@@ -203,6 +203,8 @@ bool parseAimEvent(const QJsonObject& line, AimState* out) {
         if (b.toString() == QStringLiteral("ps")) s.ps = true;
     }
     s.triggerPresses = pressed.value(QStringLiteral("t")).toInt();
+    s.psPresses = pressed.value(QStringLiteral("ps")).toInt();
+    s.movePresses = pressed.value(QStringLiteral("move")).toInt();
     if (s.link == QStringLiteral("disconnected") || s.link == QStringLiteral("lost")) s.valid = false;
     *out = s;
     return true;
@@ -242,6 +244,18 @@ void AimStream::stop() {
     sock_.abort();
 }
 
+void AimStream::setPlayer(int player) {
+    player = std::clamp(player, 1, 4);
+    if (player == player_) return;
+    player_ = player;
+    state_ = {};
+    emit aimChanged(state_);
+    // Een watch loopt tot de verbinding sluit: opnieuw verbinden met de nieuwe speler.
+    if (sock_.state() != QLocalSocket::UnconnectedState) sock_.abort();
+    buf_.clear();
+    connectNow();
+}
+
 void AimStream::connectNow() {
     if (!running_ || path_.isEmpty() || sock_.state() != QLocalSocket::UnconnectedState) return;
     sock_.connectToServer(path_, QIODevice::ReadWrite);
@@ -249,7 +263,7 @@ void AimStream::connectNow() {
 
 void AimStream::subscribe() {
     QJsonObject o{{QStringLiteral("v"), 1}, {QStringLiteral("cmd"), QStringLiteral("watch")}, {QStringLiteral("rate_hz"), 60},
-                  {QStringLiteral("player"), 1}, {QStringLiteral("id"), lite_ ? 1 : 2}};
+                  {QStringLiteral("player"), player_}, {QStringLiteral("id"), lite_ ? 1 : 2}};
     if (lite_) o.insert(QStringLiteral("lite"), true);
     sock_.write(QJsonDocument(o).toJson(QJsonDocument::Compact) + '\n');
 }
@@ -270,6 +284,8 @@ void AimStream::onReadyRead() {
             if (bigpicture::parseAimEvent(o, &s)) {
                 // Flanken optellen over frames die in één keer binnenkomen.
                 s.triggerPresses += changed ? state_.triggerPresses : 0;
+                s.psPresses += changed ? state_.psPresses : 0;
+                s.movePresses += changed ? state_.movePresses : 0;
                 state_ = s;
                 changed = true;
             }

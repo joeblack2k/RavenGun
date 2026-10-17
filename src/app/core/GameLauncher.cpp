@@ -4,6 +4,7 @@
 #include <QJsonArray>
 
 #include "core/EngineClient.h"
+#include "core/PreLaunch.h"
 
 namespace rg {
 
@@ -23,7 +24,7 @@ void GameLauncher::setBackend(const QString& id) { backend_ = makeBackend(id, en
 
 QString GameLauncher::stateText(const QString& s, const QString& name, const QString& message) {
     const QString game = name.isEmpty() ? QStringLiteral("The game") : name;
-    if (s == QStringLiteral("waiting_move")) return QStringLiteral("Waiting for PS Move: press the PS button");
+    if (s == QStringLiteral("waiting_move")) return prelaunch::waitingText({}, true);
     if (s == QStringLiteral("starting")) return QStringLiteral("Starting %1...").arg(game);
     if (s == QStringLiteral("running")) return QStringLiteral("%1 is running").arg(game);
     if (s == QStringLiteral("stopping")) return QStringLiteral("Stopping...");
@@ -41,7 +42,9 @@ void GameLauncher::onGames(const QJsonObject& games) {
         const QJsonObject g = v.toObject();
         if (g.value(QStringLiteral("profile")).toString() == profile_) name = g.value(QStringLiteral("name")).toString();
     }
-    const QString text = stateText(s, name, st.value(QStringLiteral("message")).toString());
+    // waiting_move: op wiens Move de engine wacht (waiting_players), als "Please turn on your PS Move controller".
+    const QString text = s == QStringLiteral("waiting_move") ? prelaunch::waitingTextFromStatus(st)
+                                                             : stateText(s, name, st.value(QStringLiteral("message")).toString());
     State ns = State::Idle;
     if (s == QStringLiteral("waiting_move")) ns = State::WaitingMove;
     else if (s == QStringLiteral("starting")) ns = State::Starting;
@@ -97,7 +100,7 @@ void GameLauncher::play(const GameEntry& g) {
             set(State::Failed, QStringLiteral("Failed: %1").arg(err));
             emit message(QStringLiteral("Could not start %1: %2").arg(g.displayName(), err), true);
         } else {
-            emit message(QStringLiteral("Starting %1. Press the PS button on the Move when asked.").arg(g.displayName()), false);
+            emit message(QStringLiteral("Starting %1...").arg(g.displayName()), false);
         }
         engine_->refreshNow();
     });

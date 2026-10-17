@@ -61,6 +61,7 @@ signals:
     void SetDefaultGame();
     void RemoveFromList();
     void CreateProfile();
+    void AddToSteam();                  // de game als eigen niet-Steam-game (ravengun --play PROFIEL)
     void AddFolderRequested();
     void GameCountUpdated(int total, int visible);
 

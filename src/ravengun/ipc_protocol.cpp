@@ -47,6 +47,7 @@ const char* to_string(Cmd c) {
         case Cmd::Games: return "games";
         case Cmd::GameStart: return "game_start";
         case Cmd::GameStop: return "game_stop";
+        case Cmd::GameReady: return "game_ready";
         case Cmd::Controllers: return "controllers";
         case Cmd::SetController: return "set_controller";
         case Cmd::Blink: return "blink";
@@ -311,14 +312,23 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         }
     } else if (cmd == "set_led") {
         r.cmd = Cmd::SetLed;
-        if (!allowed(o, {"preset", "r", "g", "b"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        if (!allowed(o, {"preset", "r", "g", "b", "temporary", "restore"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
         if (!opt_string(o, "preset", r.led_preset, e, r.id_json)) return e;
         if (!opt_int(o, "r", 0, 255, r.led_r, e, r.id_json)) return e;
         if (!opt_int(o, "g", 0, 255, r.led_g, e, r.id_json)) return e;
         if (!opt_int(o, "b", 0, 255, r.led_b, e, r.id_json)) return e;
+        std::optional<bool> temp, restore;
+        if (!opt_bool(o, "temporary", temp, e, r.id_json)) return e;
+        if (!opt_bool(o, "restore", restore, e, r.id_json)) return e;
+        r.led_temporary = temp.value_or(false);
+        r.led_restore = restore.value_or(false);
         bool any_rgb = r.led_r || r.led_g || r.led_b, all_rgb = r.led_r && r.led_g && r.led_b;
-        if (!r.led_preset.empty() && any_rgb) return err("invalid_argument", "geef een 'preset' of r,g,b, niet allebei", r.id_json);
-        if (r.led_preset.empty() && !all_rgb)
+        if (r.led_restore) {
+            if (!r.led_preset.empty() || any_rgb || r.led_temporary)
+                return err("invalid_argument", "'restore' gaat zonder preset, r,g,b of temporary", r.id_json);
+        } else if (!r.led_preset.empty() && any_rgb) {
+            return err("invalid_argument", "geef een 'preset' of r,g,b, niet allebei", r.id_json);
+        } else if (r.led_preset.empty() && !all_rgb)
             return err("invalid_argument", "geef een 'preset' (cyaan, magenta, rood, groen, blauw, wit) of alle drie r, g en b (0..255)", r.id_json);
     } else if (cmd == "set_camera") {
         r.cmd = Cmd::SetCamera;
@@ -385,6 +395,14 @@ std::variant<Request, Error> parse_request(std::string_view line) {
     } else if (cmd == "games" || cmd == "game_stop") {
         r.cmd = cmd == "games" ? Cmd::Games : Cmd::GameStop;
         if (!allowed(o, {}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+    } else if (cmd == "game_ready") {
+        r.cmd = Cmd::GameReady;
+        if (!allowed(o, {"profile"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
+        const json::Value* p = o.find("profile");
+        if (!p || !p->is_string()) return err("invalid_argument", "'profile' (profielnaam) ontbreekt", r.id_json);
+        if (!games::valid_profile_name(p->str))
+            return err("invalid_argument", "ongeldige profielnaam (alleen letters, cijfers, _ en -, hoogstens 64 tekens)", r.id_json);
+        r.profile = p->str;
     } else if (cmd == "game_start") {
         r.cmd = Cmd::GameStart;
         if (!allowed(o, {"profile", "launch"}, bad)) return err("bad_request", "onbekend veld '" + bad + "'", r.id_json);
@@ -646,6 +664,8 @@ std::string make_request(const Request& r) {
             if (r.led_r) w.key("r").value(*r.led_r);
             if (r.led_g) w.key("g").value(*r.led_g);
             if (r.led_b) w.key("b").value(*r.led_b);
+            if (r.led_temporary) w.key("temporary").value(true);
+            if (r.led_restore) w.key("restore").value(true);
             break;
         case Cmd::SetCamera:
             if (r.exposure) w.key("exposure").value(*r.exposure);
@@ -675,6 +695,7 @@ std::string make_request(const Request& r) {
             w.end_object();
             break;
         case Cmd::GameStart:
+        case Cmd::GameReady:
             w.key("profile").value(r.profile);
             break;
         case Cmd::Games:

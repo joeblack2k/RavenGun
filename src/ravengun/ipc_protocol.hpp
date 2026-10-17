@@ -21,7 +21,7 @@ enum class Cmd { Status, Sample, Recenter, Watch, SetFilter, SetAim, Camera,
                  Record, CalibMag,
                  SetLed, SetCamera, SetWeb, Info, Settings, Diagnostics,
                  SetButtons, CalibrateUi, SetFusion, ClearTrim, SetClock, SetRumble, RumbleTest,
-                 SetGunButtons, Games, GameStart, GameStop,
+                 SetGunButtons, Games, GameStart, GameStop, GameReady,
                  Controllers, SetController, Blink, Unpair, Pair,
                  Aagames, OutputKey, Iobridge, Mice, SetMouseGun, Pads, SetPad };
 const char* to_string(Cmd c);
@@ -62,6 +62,10 @@ struct Request {
     // set_led: een preset (cyaan, magenta, rood, groen, blauw, wit) OF alle drie r,g,b (gehele getallen 0..255).
     std::string led_preset;
     std::optional<double> led_r, led_g, led_b;
+    // set_led met temporary: alleen live (niet bewaren, de trackertint blijft); met restore: live terug naar de bewaarde kleur van die
+    // speler (zonder preset of r,g,b). Voor het startscherm van de app (P1 blauw, P2 rood tijdens de kalibratie).
+    bool led_temporary = false;
+    bool led_restore = false;
     // set_camera: geheel getal exposure 0..255, gain 0..63; auto-vlaggen; modus "BxH@FPS" uit de toegestane lijst.
     std::optional<double> exposure, gain;
     std::optional<bool> auto_exposure, auto_gain, auto_awb;
@@ -72,7 +76,7 @@ struct Request {
     std::map<std::string, std::string> button_map;
     // set_gun_buttons: Move-knop (config::gun_map_buttons()) -> actie (canonieke vorm, zie config::check_gun_action()).
     std::map<std::string, std::string> gun_map;
-    // game_start: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
+    // game_start en game_ready: TeknoParrot-profielnaam ([A-Za-z0-9_-]{1,64}, een bestaand bestand in UserProfiles; de daemon controleert dat).
     std::string profile;
     // game_start: startwijze (A10), optioneel: "direct" (de directe route afdwingen) of leeg/"auto" (de route uit het profiel:
     // native, Unity of [Launch] Mode = direct in game.ini). De daemon start elke game zelf; zonder eigen route start er niets.

@@ -23,6 +23,7 @@ add_library(ravengun_app_core STATIC
   core/GameOptions.cpp
   core/Launcher.cpp
   core/MemoryCard.cpp
+  core/PreLaunch.cpp
   core/SetupChecks.cpp
   core/SteamShortcuts.cpp
   core/SystemControl.cpp
@@ -59,6 +60,7 @@ add_library(ravengun_app_widgets STATIC
   widgets/MenuBar.cpp
   widgets/MoveConfigDialog.cpp
   widgets/PairWizardDialog.cpp
+  widgets/PreLaunchWindow.cpp
   widgets/PropertiesDialog.cpp
   widgets/QtUtils.cpp
   widgets/Resources.cpp
@@ -72,6 +74,17 @@ add_library(ravengun_app_widgets STATIC
   widgets/ToolBar.cpp)
 target_link_libraries(ravengun_app_widgets PUBLIC ravengun_app_core Qt6::Widgets)
 target_compile_definitions(ravengun_app_widgets PRIVATE "RAVENGUN_APP_VERSION=\"${PROJECT_VERSION}\"")
+# HAAK van het startscherm (widgets/PreLaunchWindow.cpp, RunControlsSetupStep; docs/prelaunch.md): de uitleg van de knoppen vóór de
+# start. Staat widgets/ControlsSetup.cpp er, dan komt hij mee en zet RG_HAVE_CONTROLS_SETUP de stap aan; anders slaat de flow hem over.
+# De map is een configure-afhankelijkheid, zodat een nieuw bestand daar een nieuwe configuratie geeft.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/widgets")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/widgets/ControlsSetup.cpp")
+  get_target_property(_rg_widget_srcs ravengun_app_widgets SOURCES)
+  if(NOT "widgets/ControlsSetup.cpp" IN_LIST _rg_widget_srcs)
+    target_sources(ravengun_app_widgets PRIVATE widgets/ControlsSetup.cpp)
+  endif()
+  target_compile_definitions(ravengun_app_widgets PRIVATE RG_HAVE_CONTROLS_SETUP=1)
+endif()
 
 add_executable(ravengun_app
   widgets/main.cpp

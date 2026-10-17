@@ -72,6 +72,7 @@ struct FakeHid final : HidContext {
     core::PredictConfig predict() const override { return pc; }
     void set_predict(const core::PredictConfig& c) override { pc = c; ++predict_calls; }
     void set_led(bool en, uint8_t rr, uint8_t gg, uint8_t bb) override { ++led_calls; led_enabled = en; r = rr; g = gg; b = bb; }
+    bool led(bool& en, uint8_t rgb[3]) const override { en = led_enabled; rgb[0] = r; rgb[1] = g; rgb[2] = b; return true; }
     std::string record(const ipc::Request&) override { return "{}"; }
     std::string calib_mag(const ipc::Request&) override { return "{}"; }
     output::RumbleConfig rc;
@@ -179,6 +180,32 @@ static void test_set_led(const std::string& dir) {
     rig.call(R"({"v":1,"cmd":"set_led","r":300,"g":0,"b":0})", &ok, &code);
     CHECK(!ok && code == "invalid_argument");
     CHECK(rig.hid.led_calls == calls);  // niets naar de LED bij een fout
+
+    // Tijdelijke kleur (het startscherm van de app): alleen live, niets bewaard, de trackertint blijft; restore zet de kleur van vóór de
+    // eerste tijdelijke kleur terug (ook na twee tijdelijke kleuren achter elkaar).
+    {
+        rig.call(R"({"v":1,"cmd":"set_led","r":10,"g":20,"b":30})", &ok);
+        CHECK(ok);
+        const std::string saved = slurp(dir + "/led/config.json");
+        const double hue = cam.tracker().hue_deg;
+        r = rig.call(R"({"v":1,"cmd":"set_led","player":1,"preset":"blauw","temporary":true})", &ok);
+        CHECK(ok && r.find("temporary")->b && rig.hid.r == 0 && rig.hid.g == 0 && rig.hid.b == 255);
+        r = rig.call(R"({"v":1,"cmd":"set_led","player":1,"r":255,"g":0,"b":0,"temporary":true})", &ok);
+        CHECK(ok && rig.hid.r == 255 && rig.hid.b == 0);
+        CHECK(slurp(dir + "/led/config.json") == saved && cam.tracker().hue_deg == hue);
+        r = rig.call(R"({"v":1,"cmd":"set_led","player":1,"restore":true})", &ok);
+        CHECK(ok && r.find("restored")->b && rig.hid.r == 10 && rig.hid.g == 20 && rig.hid.b == 30);
+        r = rig.call(R"({"v":1,"cmd":"set_led","player":1,"restore":true})", &ok);
+        CHECK(ok && !r.find("restored")->b);   // niets meer te herstellen
+        rig.call(R"({"v":1,"cmd":"set_led","player":1,"restore":true,"preset":"rood"})", &ok, &code);
+        CHECK(!ok && code == "invalid_argument");
+        rig.call(R"({"v":1,"cmd":"set_led","controller":"default","preset":"rood","temporary":true})", &ok, &code);
+        CHECK(!ok && code == "invalid_argument");
+        rig.call(R"({"v":1,"cmd":"set_led","player":1,"temporary":true})", &ok, &code);
+        CHECK(!ok && code == "invalid_argument");
+        rig.call(R"({"v":1,"cmd":"set_led","player":1,"preset":"rood","temporary":"ja"})", &ok, &code);
+        CHECK(!ok && code == "invalid_argument");
+    }
 
     // Zonder camera-service of opslag: de LED werkt, de tracker-tint wordt alleen gemeld.
     Rig bare;
@@ -529,6 +556,16 @@ static void test_games_commands(const std::string& dir) {
     CHECK(r.find("games")->arr[1].find("note")->str == "Nog niet getest.");
     CHECK(r.find("status")->find("state")->str == "idle");
 
+    // De poort vóór de start (game_ready): zonder ready_inputs een lightgun voor elke speler en klaar (er is geen lightgun_ready).
+    r = rig.call(R"({"v":1,"cmd":"game_ready","profile":"Halo"})", &ok);
+    CHECK(ok && r.find("lightgun")->b && r.find("ready")->b && r.find("players")->arr.size() == 4);
+    rig.call(R"({"v":1,"cmd":"game_ready","profile":"Bestaatniet"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"game_ready"})", &ok, &code);
+    CHECK(!ok && code == "invalid_argument");
+    rig.call(R"({"v":1,"cmd":"game_ready","profile":"Halo","launch":"direct"})", &ok, &code);
+    CHECK(!ok && code == "bad_request");
+
     // Onbekende of ongeldige profielen worden geweigerd zonder dat er iets gespawnd wordt.
     rig.call(R"({"v":1,"cmd":"game_start","profile":"Bestaatniet"})", &ok, &code, &msg);
     CHECK(!ok && code == "invalid_argument" && contains(msg, "onbekend profiel"));
@@ -563,6 +600,8 @@ static void test_games_commands(const std::string& dir) {
     bare.call(R"({"v":1,"cmd":"games"})", &ok, &code);
     CHECK(!ok && code == "unavailable");
     bare.call(R"({"v":1,"cmd":"game_start","profile":"Halo"})", &ok, &code);
+    CHECK(!ok && code == "unavailable");
+    bare.call(R"({"v":1,"cmd":"game_ready","profile":"Halo"})", &ok, &code);
     CHECK(!ok && code == "unavailable");
 }
 

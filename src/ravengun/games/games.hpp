@@ -26,6 +26,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/games/readiness.hpp"
 #include "ravengun/games/seed.hpp"
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/launch/direct.hpp"
@@ -67,6 +68,11 @@ struct Config {
     std::string write_layer_dir;
     std::string bwrap = "/usr/bin/bwrap";
     std::function<bool()> lightgun_ready;      // Move verbonden, een muis als lightgun of een verbonden gamepad van een speler (leeg = niet wachten)
+    // De poort vóór de start (readiness.hpp, docs/prelaunch.md): per speler Move toegewezen/verbonden en muis. Gezet = deze beslissing
+    // in plaats van lightgun_ready; leeg = lightgun_ready (tests en oude aanroepers).
+    std::function<readiness::Inputs()> ready_inputs;
+    // Soort game (lightgun of pad) en aantal guns, uit [Input] en de indelingen van de IO-brug. Leeg = een lightgun voor elke speler.
+    std::function<readiness::GameKind(const std::string& profile)> game_kind;
     std::function<std::string()> arm;          // uitvoer wapenen; leeg resultaat = gelukt
     std::function<std::string(const std::string& game, const std::string& route)> start_route;   // IO-brug; leeg = gelukt
     std::function<void()> stop_inputs;         // IO-brug stoppen en ontwapenen (bij stoppen of een mislukte start)
@@ -76,7 +82,7 @@ struct Config {
     // De Unity-route: patches/<Game>/unity.json (UnityPaths::patches en user_patches), de gebruikerslaag eerst. Zonder beide lagen is er
     // geen enkele Unity-game.
     ravengun::launch::UnityPaths unity;
-    int lightgun_wait_ms = 120000;             // zo lang wachten op een Move of muis
+    int lightgun_wait_ms = static_cast<int>(readiness::kMoveWaitMs);   // zo lang wachten op een Move of muis
 
     // De directe route zonder script (A10). Leeg direct.tp of leeg direct_runner = elke directe start via het script.
     ravengun::launch::DirectPaths direct;
@@ -185,7 +191,14 @@ public:
     // "starting" en een weigering of fout eindigt in "failed" met de melding. Stoppen tijdens het plannen breekt de start af.
     Result start(const std::string& profile, const std::string& launch = "");
     Result stop();
-    std::string status_json();  // {"state":...,"text":...,"profile":...,"message":...}
+    // Afsluiten van de daemon: een start die nog wacht of plant afbreken en de worker afwachten, vóórdat de services die hij gebruikt
+    // (ready_inputs, game_kind, arm, ...) verdwijnen. Een lopende game blijft draaien (eigen unit). Idempotent.
+    void shutdown();
+    std::string status_json();  // {"state":...,"text":...,"profile":...,"message":...,"waiting_players":[...]}
+    // De poort voor dit profiel, nu (IPC game_ready): readiness::decision_json. Het startscherm van de app wacht en kalibreert hiermee
+    // vóór game_start; game_start zelf wacht met dezelfde beslissing (wait_lightgun).
+    std::string ready_json(const std::string& profile);
+    readiness::Decision readiness_of(const std::string& profile, readiness::Inputs* inputs = nullptr);
     // {"available":..,"games":[...],"status":{...}}. Zoekt niet zelf op de NAS: de games met een eigen profiel komen uit een cache die
     // een achtergrondthread ververst (ouder dan kOwnGamesTtlMs of nog leeg); tot de eerste keer klaar is ontbreken die games.
     std::string list_json();
@@ -199,7 +212,7 @@ private:
     std::string run_native(const std::string& profile);   // de native start in de worker; leeg = gelukt, anders de melding
     std::string run_unity(const std::string& profile);    // idem voor de Unity-route
     std::string run_direct(const std::string& profile, const ravengun::launch::DirectInput& in);   // idem, de directe route
-    std::string wait_lightgun();                          // wacht op een Move of muis; leeg = er is er een
+    std::string wait_lightgun(const std::string& profile); // de poort (readiness): wacht op de Move van speler 1; leeg = klaar
     Config c_;
     Spawner spawn_;
     std::mutex m_;
@@ -211,7 +224,10 @@ private:
     std::string failed_msg_, failed_profile_;
     bool native_ = false;                 // de daemon startte de laatste game zelf: native, Unity of direct (stoppen ruimt dan zelf op)
     std::atomic<bool> waiting_{false};    // de eigen start wacht op een lightgun
+    std::vector<int> waiting_players_;    // ... op de Move van deze spelers (onder m_; leeg = op een willekeurige lightgun)
+    std::string waiting_text_;            // ... met deze tekst (onder m_)
     std::atomic<bool> cancel_{false};     // stoppen tijdens een eigen start
+    bool closed_ = false;                 // shutdown(): geen nieuwe start meer (onder m_)
     // De cache van own_profile_games() voor list_json, ververst door own_thread_.
     std::mutex own_m_;
     std::vector<Game> own_games_;

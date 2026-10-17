@@ -48,6 +48,7 @@ add_library(ravengun STATIC
   src/ravengun/config/led_color.cpp
   src/ravengun/kiosk/kiosk.cpp
   src/ravengun/games/games.cpp
+  src/ravengun/games/readiness.cpp
   src/ravengun/games/seed.cpp
   src/ravengun/launch/native.cpp
   src/ravengun/launch/gamefolder.cpp
@@ -308,6 +309,11 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_games_tests tests/test_games.cpp)
   target_link_libraries(ravengun_games_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_games_tests COMMAND ravengun_games_tests)
+  # De poort vóór de start (games/readiness.*): lightgun of pad, wie wacht, wie kalibreert, de time-out; met de echte packaging-JSON.
+  add_executable(ravengun_readiness_tests tests/test_readiness.cpp)
+  target_link_libraries(ravengun_readiness_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_readiness_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+  add_test(NAME ravengun_readiness_tests COMMAND ravengun_readiness_tests)
   add_executable(ravengun_aagames_tests tests/test_aagames.cpp)
   target_link_libraries(ravengun_aagames_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_aagames_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")

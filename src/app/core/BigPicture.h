@@ -81,6 +81,8 @@ struct AimState {
     bool trigger = false;      // trekker ingedrukt (knop "t")
     int triggerPresses = 0;    // aantal trekkerdrukken sinds het vorige frame (flanken)
     bool ps = false;           // PS-knop ingedrukt
+    int psPresses = 0;         // ... flanken van de PS-knop en de MOVE-knop (het startscherm: PS centreert, MOVE slaat over)
+    int movePresses = 0;
     QString link;              // fresh, stale, lost, disconnected
 };
 // Leest een event-regel van de engine: lite ("event":"aim") of het volledige sample ("event":"sample"). false = geen aim-event.
@@ -88,8 +90,9 @@ bool parseAimEvent(const QJsonObject& line, AimState* out);
 
 }  // namespace bigpicture
 
-// Eigen verbinding met de engine voor de aim-stroom (watch met lite, 60 Hz, speler 1). Een oudere engine kent `lite` niet
-// (bad_request): dan valt hij terug op de volledige watch. Opnieuw verbinden elke 2 s.
+// Eigen verbinding met de engine voor de aim-stroom (watch met lite, 60 Hz, standaard speler 1; setPlayer kiest een andere speler,
+// voor de kalibratie per speler op het startscherm). Een oudere engine kent `lite` niet (bad_request): dan valt hij terug op de
+// volledige watch. Opnieuw verbinden elke 2 s.
 class AimStream : public QObject {
     Q_OBJECT
 public:
@@ -99,6 +102,9 @@ public:
     bool isActive() const { return sock_.state() == QLocalSocket::ConnectedState; }
     const bigpicture::AimState& state() const { return state_; }
     bool liteSupported() const { return lite_; }
+    // Volg de aim van speler 1..4 (een nieuwe watch op een nieuwe verbinding; de toestand begint leeg).
+    void setPlayer(int player);
+    int player() const { return player_; }
 
 signals:
     void aimChanged(const rg::bigpicture::AimState& state);
@@ -114,6 +120,7 @@ private:
     QTimer reconnect_;
     bool lite_ = true;
     bool running_ = false;
+    int player_ = 1;
     bigpicture::AimState state_;
 };
 

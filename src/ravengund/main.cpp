@@ -512,6 +512,34 @@ int main(int argc, char** argv) {
             // Een verbonden gamepad van een speler telt ook: een racespel (Mario Kart) speel je met de pad, niet met een Move.
             return move || (shared.mouse && shared.mouse->any_connected()) || (shared.gamepad && shared.gamepad->any_player_connected());
         };
+        // De poort vóór de start (games/readiness.hpp, docs/prelaunch.md): per speler een Move (config.json) en of die verbonden is,
+        // en een muis als lightgun. Speler 1 met een Move wacht op die Move; zonder Move geldt lightgun_ready hierboven.
+        games_cfg.ready_inputs = [&shared] {
+            ravengun::games::readiness::Inputs in;
+            const ravengun::config::Settings s = shared.settings ? shared.settings->get() : ravengun::config::Settings{};
+            const auto slots = shared.slot_infos();
+            for (int p = 1; p <= ravengun::games::readiness::kPlayers; ++p) {
+                auto& pi = in.players[static_cast<size_t>(p - 1)];
+                pi.move_assigned = !ravengun::config::move_for_player(s, p).empty();
+                const auto l = shared.get(p).sample.link;
+                pi.move_connected = slots[static_cast<size_t>(p - 1)].connected && l != ravengun::core::LinkState::Lost &&
+                                    l != ravengun::core::LinkState::Disconnected;
+                if (shared.mouse) shared.mouse->player_state(p, pi.mouse_assigned, pi.mouse_connected);
+                in.any_move_connected = in.any_move_connected || pi.move_connected;
+            }
+            in.any_pad_connected = shared.gamepad && shared.gamepad->any_player_connected();
+            return in;
+        };
+        // Lightgun of pad-game, en hoeveel guns: [Input] van game.ini en de indelingen van de IO-brug (tp-shm, JVS, hid-borden).
+        games_cfg.game_kind = [&shared, dirs = games_cfg.dirs](const std::string& profile) {
+            namespace R = ravengun::games::readiness;
+            const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(dirs, profile);
+            std::string err;
+            const ravengun::iobridge::IoRoute route = ravengun::iobridge::io_route_from_settings(g, err);
+            if (!shared.iobridge) return R::classify({});
+            const auto& ic = shared.iobridge->config();
+            return R::classify(R::input_info(&route, ic.profiles, ic.boards, ic.jvs_boards, g.get("Input", "GunPlayers")));
+        };
         games_cfg.arm = [&shared]() -> std::string {
             if (!shared.output) return "geen uitvoer";
             const auto r = shared.output->arm();
@@ -764,6 +792,7 @@ int main(int argc, char** argv) {
     sigwait(&set, &sig);
     logf("info", "signaal %s ontvangen, stoppen", sig == SIGINT ? "SIGINT" : "SIGTERM");
     shared.running.store(false);
+    games.shutdown();      // een start die nog op de Move wacht: afbreken; de worker gebruikt de services hieronder
     uint64_t one = 1;
     if (::write(wake, &one, sizeof one) < 0) { /* poll heeft ook een time-out */ }
     mouse.stop();          // geeft de knoppen van alle muisspelers vrij

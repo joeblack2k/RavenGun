@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // RavenGun: de app (Qt 6 Widgets). Opties:
 //   --fullscreen           fullscreen-modus ("big picture") voor Steam Game Mode en de tv, zonder het hoofdvenster
+//   --play PROFIEL         een game starten met het startscherm (PS Move aan, korte kalibratie; docs/prelaunch.md), schermvullend
+//                          en zonder hoofdvenster; het proces blijft tot de game stopt (Steam en snelkoppelingen). Exitcode 0 =
+//                          gespeeld, 1 = mislukt, 2 = afgebroken. SIGTERM (Steam: "Exit game") stopt de game.
 //   --saver                OLED-bescherming: zwart schermvullend venster met een bewegend statusbord (geen engine; stopt bij SIGTERM/SIGINT)
 //   --saver-snapshot PNG   het statusbord als PNG bewaren (zonder iets te tonen; --saver-size BxH, standaard 1920x1080) en stoppen
 //   --saver-check          toon wat het statusbord zou tonen en stop (exitcode 1 als het statusbestand ontbreekt of niet klopt)
@@ -35,6 +38,7 @@
 #include "widgets/BigPictureWindow.h"
 #include "widgets/ControllersWindow.h"
 #include "widgets/MainWindow.h"
+#include "widgets/PreLaunchWindow.h"
 #include "widgets/Resources.h"
 #include "widgets/SaverWindow.h"
 #include "widgets/Screenshots.h"
@@ -66,6 +70,10 @@ int main(int argc, char** argv) {
     p.addHelpOption();
     p.addVersionOption();
     const QCommandLineOption fullscreen(QStringLiteral("fullscreen"), QStringLiteral("Big Picture mode: full screen, for Steam Game Mode and the TV."));
+    const QCommandLineOption play(QStringLiteral("play"),
+                                  QStringLiteral("Start a game full screen after the pre-launch checks (PS Move on, short aim calibration) and "
+                                                 "stay until the game ends. For Steam and desktop shortcuts."),
+                                  QStringLiteral("PROFILE"));
     const QCommandLineOption addToSteam(QStringLiteral("add-to-steam"), QStringLiteral("Add RavenGun to the Steam library (Steam must be closed) and quit."));
     const QCommandLineOption steamAccount(QStringLiteral("steam-account"), QStringLiteral("Steam user (folder under userdata/) for --add-to-steam."),
                                           QStringLiteral("ID"));
@@ -89,7 +97,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption saverSize(QStringLiteral("saver-size"), QStringLiteral("Size for --saver-snapshot, WxH."), QStringLiteral("WxH"),
                                        QStringLiteral("1920x1080"));
     p.addOptions({saverCheck, saverFile, saverSnap, saverSize});
-    p.addOptions({saver, fullscreen, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
+    p.addOptions({saver, fullscreen, play, addToSteam, steamAccount, listSteam, printPaths, wizard, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
     // Iconen uit het bureaubladthema (KDE: breeze) ook buiten een Plasma-sessie (bv. offscreen).
@@ -172,6 +180,39 @@ int main(int argc, char** argv) {
     QObject::connect(core.engine(), &rg::EngineClient::connectedChanged, &core, [&core](bool c) {
         if (c) rg::ui::ControllersWindow::ReapplyMouseAssignments(&core);
     });
+
+    if (p.isSet(play) && !p.isSet(shotDir)) {
+        // Steam (Game Mode) en snelkoppelingen: alleen het startscherm en dan de game. Geen scan (de bibliotheek uit de cache).
+        const QString profile = p.value(play);
+        rg::GameEntry entry;
+        core.start(false);
+        for (const auto& g : core.library()->data().games)   // ook een verborgen game
+            if (g.hasProfile() && g.profile == profile) entry = g;
+        for (const auto& g : core.library()->visibleGames())   // met de eigen naam en instellingen van de gebruiker
+            if (g.hasProfile() && g.profile == profile) entry = g;
+        if (entry.profile.isEmpty()) {
+            // Niet (meer) in de bibliotheek: toch proberen, de engine kent het profiel of weigert met een melding.
+            entry.kind = rg::GameKind::TeknoParrot;
+            entry.id = QStringLiteral("tp:") + profile;
+            entry.profile = profile;
+            entry.name = profile;
+        }
+        rg::ui::PreLaunchWindow w(&core, entry, rg::ui::PreLaunchWindow::Mode::Play);
+        QObject::connect(&w, &rg::ui::PreLaunchWindow::Finished, &app, [](int code) { QApplication::exit(code); });
+        // Steam sluit een niet-Steam-game met SIGTERM ("Exit game"): de game draait in een eigen unit en moet dan mee stoppen.
+        if (pipe(g_sigPipe) == 0) {
+            auto* sn = new QSocketNotifier(g_sigPipe[0], QSocketNotifier::Read, &app);
+            QObject::connect(sn, &QSocketNotifier::activated, &w, [&w] { w.Abort(); });
+            struct sigaction sa {};
+            sa.sa_handler = onSignal;
+            sigemptyset(&sa.sa_mask);
+            sigaction(SIGTERM, &sa, nullptr);
+            sigaction(SIGINT, &sa, nullptr);
+            sigaction(SIGHUP, &sa, nullptr);
+        }
+        w.Begin();
+        return app.exec();
+    }
 
     if (p.isSet(fullscreen) && !p.isSet(shotDir)) {
         // Game Mode / tv: alleen de fullscreen-weergave. Exit sluit de app.

@@ -28,6 +28,7 @@
 
 #include "core/AppPaths.h"
 #include "core/Launcher.h"
+#include "core/PreLaunch.h"
 #include "core/SystemControl.h"
 #include "widgets/QtUtils.h"
 
@@ -246,6 +247,17 @@ QWidget* SettingsWindow::MakeDisplayPane() {
                          "runs without. Which games those are is a per-game setting.")));
     connect(m_game_camera, &QComboBox::currentIndexChanged, this,
             [this] { rg::SystemControl::setGameCamera(m_game_camera->currentData().toString()); });
+    // Het startscherm vóór een lightgun-game (docs/prelaunch.md): de korte kalibratie per speler aan of uit. Op de PS Move wachten
+    // doet het altijd.
+    auto* pre_box = new QGroupBox(tr("Before a lightgun game starts"));
+    auto* pre_form = new QFormLayout(pre_box);
+    auto* calibrate = new QCheckBox(tr("Calibrate the aim of each PS Move (aim at the centre and pull the trigger; MOVE skips)"));
+    calibrate->setChecked(rg::prelaunch::calibrateEnabled());
+    pre_form->addRow(calibrate);
+    v->addWidget(pre_box);
+    v->addWidget(hint(tr("RavenGun always waits until the PS Move of Player 1 is on (\"Please turn on your PS Move controller\"). "
+                         "Player 1 is blue and Player 2 red during the calibration. Racing games played with a gamepad skip all of this.")));
+    connect(calibrate, &QCheckBox::toggled, this, [](bool on) { rg::prelaunch::setCalibrateEnabled(on); });
     v->addStretch(1);
     rg::SystemControl::unitState(QLatin1String(rg::kOledUnit), this, [this](const QString& active, const QString& enabled) {
         m_oled->setChecked(active == QStringLiteral("active") || enabled == QStringLiteral("enabled"));

@@ -394,7 +394,15 @@ ShortcutResult SteamShortcuts::addOrUpdate(const QString& vdfPath, const Shortcu
         if (const VdfNode* x = e.child("exe")) kExe = x->key;
         const VdfNode* n = e.child("appname");
         const VdfNode* x = e.child("exe");
-        if ((n && n->text() == spec.appName) || (x && unquote(x->text()) == spec.exe)) entry = &e;
+        // Zelfde naam, of zelfde programma. Een snelkoppeling per game (`--play PROFIEL`, docs/prelaunch.md) heeft hetzelfde programma
+        // als RavenGun zelf: die herkent alleen zijn eigen opties terug, en RavenGun zelf neemt nooit een item van een game over.
+        const VdfNode* lo = e.child("LaunchOptions");
+        const QString opts = lo ? lo->text() : QString();
+        const bool sameExe = x && unquote(x->text()) == spec.exe;
+        const bool perGame = spec.launchOptions.startsWith(QStringLiteral("--play "));
+        const bool exeMatch = sameExe && (perGame ? opts == spec.launchOptions : !opts.startsWith(QStringLiteral("--play ")));
+        // Een game alleen op programma plus opties: een niet-Steam-game van de gebruiker met dezelfde naam blijft ongemoeid.
+        if (exeMatch || (!perGame && n && n->text() == spec.appName)) entry = &e;
     }
     res.updated = entry != nullptr;
     if (!entry) {

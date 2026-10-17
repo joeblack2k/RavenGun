@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QJsonDocument>
+#include <QKeyEvent>
 #include <QPixmap>
 #include <QTabWidget>
 #include <QTimer>
@@ -19,6 +21,7 @@
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SettingsWindow.h"
 #include "widgets/BigPictureWindow.h"
+#include "widgets/PreLaunchWindow.h"
 #include "widgets/SetupWizard.h"
 
 #include <QAbstractItemView>
@@ -244,6 +247,69 @@ void RunScreenshots(MainWindow* w, const QString& dir, const QString& gameId) {
                       }});
     steps->push_back({500, [big, dir] {
                           if (*big) save(*big, dir, QStringLiteral("fullscreen-exit"));
+                      }});
+    // Het startscherm vóór een lightgun-game (docs/prelaunch.md), met ingespeelde antwoorden van game_ready (Begin() wordt niet
+    // aangeroepen: er wordt nooit iets gestart): wachten op de Move, kalibratie van speler 1 met vizier, speler 2, meedoen.
+    auto pre = std::make_shared<QPointer<PreLaunchWindow>>();
+    auto prePlan = [](const char* json) { return QJsonDocument::fromJson(json).object(); };
+    steps->push_back({200, [w, big, pre, prePlan] {
+                          if (*big) (*big)->close();
+                          rg::GameEntry g;
+                          g.kind = rg::GameKind::TeknoParrot;
+                          g.id = QStringLiteral("tp:Halo");
+                          g.profile = QStringLiteral("Halo");
+                          g.name = QStringLiteral("HALO Fireteam Raven");
+                          *pre = new PreLaunchWindow(w->core(), g, PreLaunchWindow::Mode::Play);
+                          (*pre)->setAttribute(Qt::WA_DeleteOnClose);
+                          (*pre)->resize(1920, 1080);
+                          (*pre)->InjectPlan(prePlan(R"({"lightgun":true,"gun_players":2,"ready":false,"waiting":[1],"optional_off":[],"calibrate":[]})"));
+                      }});
+    steps->push_back({500, [pre, dir] {
+                          if (*pre) save(*pre, dir, QStringLiteral("prelaunch-wait-move"));
+                      }});
+    steps->push_back({100, [pre, prePlan] {
+                          if (*pre) (*pre)->InjectPlan(prePlan(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"optional_off":[],"calibrate":[1,2]})"));
+                      }});
+    steps->push_back({500, [pre] {
+                          if (!*pre) return;
+                          rg::bigpicture::AimState a;
+                          a.valid = true;
+                          a.pos = QPointF(0.56, 0.44);
+                          (*pre)->InjectAim(a);
+                      }});
+    steps->push_back({200, [pre, dir] {
+                          if (*pre) save(*pre, dir, QStringLiteral("prelaunch-calibrate-p1"));
+                      }});
+    steps->push_back({100, [pre] {
+                          QKeyEvent skip(QEvent::KeyPress, Qt::Key_S, Qt::NoModifier);
+                          if (*pre) QApplication::sendEvent(*pre, &skip);   // speler 1 overslaan
+                      }});
+    steps->push_back({500, [pre, dir] {
+                          if (*pre) save(*pre, dir, QStringLiteral("prelaunch-calibrate-p2"));
+                      }});
+    steps->push_back({100, [pre] {
+                          QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                          if (*pre) QApplication::sendEvent(*pre, &esc);   // afbreken, niets starten
+                      }});
+    steps->push_back({200, [w, pre, prePlan] {
+                          rg::GameEntry g;
+                          g.kind = rg::GameKind::TeknoParrot;
+                          g.id = QStringLiteral("tp:Halo");
+                          g.profile = QStringLiteral("Halo");
+                          g.name = QStringLiteral("HALO Fireteam Raven");
+                          *pre = new PreLaunchWindow(w->core(), g, PreLaunchWindow::Mode::Play);
+                          (*pre)->setAttribute(Qt::WA_DeleteOnClose);
+                          (*pre)->resize(1920, 1080);
+                          (*pre)->InjectPlan(prePlan(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"optional_off":[2],"calibrate":[1]})"));
+                      }});
+    steps->push_back({500, [pre] {
+                          QKeyEvent skip(QEvent::KeyPress, Qt::Key_S, Qt::NoModifier);
+                          if (*pre) QApplication::sendEvent(*pre, &skip);   // speler 1 overslaan: speler 2 mag meedoen
+                      }});
+    steps->push_back({1500, [pre, dir] {
+                          if (*pre) save(*pre, dir, QStringLiteral("prelaunch-join"));
+                          QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                          if (*pre) QApplication::sendEvent(*pre, &esc);
                       }});
     steps->push_back({200, [] { QApplication::quit(); }});
 

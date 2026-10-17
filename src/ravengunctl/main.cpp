@@ -87,6 +87,7 @@ void usage(FILE* f) {
         "              klant van de BepInEx-plugin in de game; GAME = TombRaider of RabbidsHollywood\n"
         "  game start PROFIEL|stop|status   een game starten of stoppen zoals een dubbelklik in de app (de daemon start hem zelf,\n"
         "              zonder script); status = de toestand van de laatste start\n"
+        "  game ready PROFIEL   de poort vóór de start: lightgun- of pad-game, op wiens PS Move de start wacht, wie kalibreert\n"
         "  iobridge start GAME [--route evdev|tp-shm|unity-tcp|hid-board|jvs] | stop | status | route GAME   IO-brug van de daemon: de\n"
         "              route van een game ([Input] in patches/<Game>/game.ini) starten of stoppen, de actieve route tonen\n"
         "  mice        gewone muizen (evdev) die als lightgun-bron kunnen dienen en de toewijzing per speler\n"
@@ -431,15 +432,32 @@ int main(int argc, char** argv) {
         }
         if (cmd == "game") {
             const std::string act = pos.empty() ? "status" : pos[0];
-            if (pos.size() > 2 || (act != "start" && act != "stop" && act != "status") || (act == "start") != (pos.size() == 2)) {
-                std::fprintf(stderr, "ravengunctl: game start PROFIEL | stop | status\n");
+            const bool with_profile = act == "start" || act == "ready";
+            if (pos.size() > 2 || (act != "start" && act != "stop" && act != "status" && act != "ready") || with_profile != (pos.size() == 2)) {
+                std::fprintf(stderr, "ravengunctl: game start PROFIEL | ready PROFIEL | stop | status\n");
                 return kExitUsage;
             }
-            rq.cmd = act == "start" ? ipc::Cmd::GameStart : act == "stop" ? ipc::Cmd::GameStop : ipc::Cmd::Games;
-            if (act == "start") rq.profile = pos[1];
+            rq.cmd = act == "start" ? ipc::Cmd::GameStart : act == "ready" ? ipc::Cmd::GameReady : act == "stop" ? ipc::Cmd::GameStop : ipc::Cmd::Games;
+            if (with_profile) rq.profile = pos[1];
             Reply r = call(c, rq);
             if (r.code != kExitOk) return r.code;
             if (json) { std::printf("%s\n", r.line.c_str()); return kExitOk; }
+            if (act == "ready") {
+                // De poort vóór de start (docs/prelaunch.md): soort game, wie klaar is, op wie de start zou wachten.
+                const json::Value* res = path(r.v, {"result"});
+                if (!res || !res->is_object()) return kExitProtocol;
+                auto ints = [&](const char* k) {
+                    std::string t;
+                    if (const json::Value* a = res->find(k); a && a->is_array())
+                        for (const auto& x : a->arr) t += (t.empty() ? "" : ",") + std::to_string(static_cast<int>(x.num));
+                    return t.empty() ? std::string("-") : t;
+                };
+                std::printf("%s (%s)\n", boolean(*res, {"lightgun"}) ? "lightgun-game" : "pad-game (geen Move nodig)", str(*res, {"source"}).c_str());
+                std::printf("klaar: %s; wacht op speler: %s%s; doet nog niet mee: %s; kalibratie: %s\n", boolean(*res, {"ready"}) ? "ja" : "nee",
+                            ints("waiting").c_str(), boolean(*res, {"waiting_any"}) ? " (een willekeurige lightgun)" : "",
+                            ints("optional_off").c_str(), ints("calibrate").c_str());
+                return kExitOk;
+            }
             const json::Value* st = act == "status" ? path(r.v, {"result", "status"}) : path(r.v, {"result"});
             if (!st || !st->is_object()) return kExitProtocol;
             const json::Value* text = st->find("text");

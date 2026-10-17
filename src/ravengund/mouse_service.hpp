@@ -60,6 +60,8 @@ public:
     std::string status_json() const;
     // Is er een muis als lightgun toegewezen en geopend (verbonden)? Zo ja, dan hoeft een start niet op een Move te wachten.
     bool any_connected() const;
+    // Speler 1..4: een muis toegewezen (assigned) en geopend (connected). Voor de poort vóór een start (games/readiness.hpp).
+    void player_state(int player, bool& assigned, bool& connected) const;
 
 private:
     struct Slot {
