@@ -34,8 +34,9 @@ de **game** verwacht. Gelezen in de games zelf (Assembly-CSharp.dll met monodis/
 | **`[Loader] Core = none`** — geen lader en geen kern; de game draait in de map van zijn exe | de vier hierboven | `src/ravengun/launch/direct.cpp` (werkmap) |
 
 Sinds 2026-10-17 gebouwd, nog niet op de tv: de UNIS-drop-in `UsbPluginsDll.dll` (`tools/rg-unis/`, zie sectie "UNIS"; Night Hunter heeft
-dezelfde familie als `DllBindFunc.dll`, die is nog niet gelezen). Volgende onderdelen (niet gebouwd, zie de tabel): een Konami-I/O-drop-in
-(`iob.dll` + `gunio.dll`/`ballio.dll`), een uhid-bord voor het After Dark-bord, een virtuele joystick voor Bug Busters en een invoerinjector voor Drakons.
+dezelfde familie als `DllBindFunc.dll`, die is nog niet gelezen) en de Konami-I/O-drop-in (`iob.dll` + `gunio.dll`/`ballio.dll`:
+`tools/rg-konami/`, `docs/research/konami/`). Volgende onderdelen (niet gebouwd, zie de tabel): een uhid-bord voor het After Dark-bord,
+een virtuele joystick voor Bug Busters en een invoerinjector voor Drakons.
 
 ## Per game
 
@@ -49,8 +50,8 @@ dezelfde familie als `DllBindFunc.dll`, die is nog niet gelezen). Volgende onder
 | **ElevatorActionInvasion** | UE4 64 (PDB aanwezig) | het UNIS-I/O-bord via `ESGame/Plugins/UsbPluginsDll.dll` (Usb_ImportDLL laadt hem; 75 exports `BIND_*`): `BIND_GetESIoData` (16 bytes, start/menu), `BIND_GetGunData` (FPACKET, 92 bytes), munttellers, dongle | `rg-unis` (`tools/rg-unis/`): eigen `UsbPluginsDll.dll` + `rg-unis.ini`, `[Loader] Core = none` | **kandidaat klaar (statisch bewezen, niet gestart)**: `patches/ElevatorActionInvasion/game.kandidaat.ini` + `dropin/`, tv-recept in sectie "UNIS" |
 | **RaccoonRampage** | UE4 64 (PDB aanwezig) | idem: `RSGame/Plugins/UsbPluginsDll.dll` (UNIS, 107 exports; TeknoParrot heeft hem op 8 bytes aangepast, het origineel staat ernaast als `.original`): `BIND_GetIoData` = 49 bytes met knoppen, trekkers en de ruwe aanwijspunten van vier geweren | dezelfde `rg-unis` | **kandidaat klaar (statisch bewezen, niet gestart)**: `patches/RaccoonRampage/game.kandidaat.ini` naast de huidige (die op de TP-kern blijft staan) |
 | **AfterDark** | Virtools 32 | HID-bord `VID 0471 PID 485E` (HidD_Get/SetFeature) | uhid-bord met feature-rapporten | **geblokkeerd**: protocol in GamePlayer/CoFramework niet gelezen |
-| **LethalEnforcers3** | eigen 32 (Konami) | Konami `iob.dll` (60 exports) + `gunio.dll` (18) | eigen `iob.dll` + `gunio.dll`; Japanse locale via `LC_ALL` | **geblokkeerd**: structuren (`IOB_DIGITAL_IN_W`, `gunio_read_data`) nog niet uit de aanroepen gelezen |
-| **Gashaaaan** | eigen 32 (Konami) | Konami `iob.dll` + `ballio.dll` (bs2_*, ball_io_*) | als LE3 (zelfde familie, andere build van iob.dll) | **geblokkeerd**: als LE3 |
+| **LethalEnforcers3** | eigen 32 (Konami) | Konami `iob.dll` (44 exports) + `gunio.dll` (18), beide over een seriele poort | eigen `iob.dll` + `gunio.dll` (`tools/rg-konami/`) + een eigen `SAVE/io.sav` (kalibratie bij onze ruwe waarden); Japanse locale via `[Env]` | **kandidaat, klaar om te testen**: structuren gelezen, zie `docs/research/konami/README.md` |
+| **Gashaaaan** | eigen 32 (Konami) | Konami `bin/iob.dll` (F24-familie, 30 exports) + `bin/ballio.dll` (63: bs2_*, ball_io_*) | eigen `iob.dll` + `ballio.dll` (`tools/rg-konami/`): een worp (trekker) wordt een balinslag op het richtpunt | **kandidaat, klaar om te testen**: zie `docs/research/konami/README.md` |
 | **BugBusters** | eigen 32 | een eigen DirectInput8-laag die alle apparaten opsomt (muis 0x12, toetsenbord 0x13, joystick met `c_dfDIJoystick2`) en een `control.cfg` zoekt (staat niet op de NAS: standaard in de code); de kern levert de invoer in het proces | een virtuele joystick (hid-board, uinput, zoals Transformers) zodra bekend is welke assen/knoppen de game leest | **pad gevonden, niet gebouwd**: welke velden van DIJOYSTATE2 trekker/start/munt zijn |
 | **Coopers9** | eigen 32, ingepakt (lege importtabel) | HASP HL (statisch) + DirectInput8 | HASP-laag (bestaat voor ELF) + invoer | **geblokkeerd**: ingepakte exe |
 | **RobinHood** | eigen 32 | HASP HL (statisch) + DirectInput | als Coopers 9 | **geblokkeerd** |
