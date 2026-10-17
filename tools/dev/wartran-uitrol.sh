@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Zet de vervangers van de gesloten TeknoParrot-kern voor de WartranTroopers-familie in de patchmappen (docs/research/wartran/):
-# bouwt de BepInEx-plugins (scripts/build-bepinex-plugin.sh) en rg-adrio (tools/dev/build-adrio.sh) en kopieert de klaargezette
-# game.ini, dropin.ini en tabellen uit docs/research/wartran/patches/<Game>/ naar <PATCHES>/<Game>/.
+# bouwt de BepInEx-plugins (scripts/build-bepinex-plugin.sh), rg-adrio (tools/dev/build-adrio.sh) en rg-dinput8 (tools/rg-dinput8/build.sh)
+# en kopieert de klaargezette game.ini, dropin.ini en tabellen uit docs/research/wartran/patches/<Game>/ naar <PATCHES>/<Game>/.
 #
 #   tools/dev/wartran-uitrol.sh [--patches DIR] [--nas DIR] [GAME ...]
 #     --patches  de patchwortel (standaard: patches/ van de repo, de link naar ravengun-patches/patches)
 #     --nas      de map met de spelmappen, voor Managed/ van de Unity-games (standaard ~/mnt/spidernas_emulation/Teknoparrot; alleen
 #                gelezen)
-#     GAME       MarsSortie WildWestShootout AfterDark2 Rampage (standaard alle vier)
+#     GAME       MarsSortie WildWestShootout AfterDark2 Rampage BugBusters (standaard alle vijf)
 #
 # Veiligheid: een game.ini (en de dropin.ini van Rampage) wordt alleen vervangen als het bestand in de patchmap nog precies het
 # bestand is waarop de klaargezette versie gebouwd is (<bestand>.basis.sha256). Is het intussen gewijzigd, dan stopt het script
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     *) GAMES+=("$1"); shift ;;
   esac
 done
-[[ ${#GAMES[@]} -gt 0 ]] || GAMES=(MarsSortie WildWestShootout AfterDark2 Rampage)
+[[ ${#GAMES[@]} -gt 0 ]] || GAMES=(MarsSortie WildWestShootout AfterDark2 Rampage BugBusters)
 [[ -d $PATCHES ]] || { echo "patchwortel $PATCHES bestaat niet" >&2; exit 1; }
 
 declare -A MANAGED=(
@@ -57,6 +57,8 @@ for g in "${GAMES[@]}"; do
   if [[ -f $src/dropin/dropin.ini.basis.sha256 ]] && ! basis_ok "$dst/dropin/dropin.ini" "$src/dropin/dropin.ini"; then fout=1; continue; fi
   if [[ $g == Rampage ]]; then
     "$ROOT/tools/dev/build-adrio.sh" --out "$dst/dropin"
+  elif [[ $g == BugBusters ]]; then
+    "$ROOT/tools/rg-dinput8/build.sh" --out "$dst/dropin"
   else
     "$ROOT/scripts/build-bepinex-plugin.sh" "$g" "$NAS/${MANAGED[$g]}"
     mkdir -p "$dst/dropin"
