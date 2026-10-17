@@ -61,13 +61,11 @@
     }
   ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
-    "@tpui/ElfLdr2/libs/libPhysXCore.so",
-    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
-    "@tpui/ElfLdr2/libs/libNxCooking.so",
+    "@lib32/libPhysXLoader.so.1",
+    "@lib32/libPhysXCore.so",
+    "@lib32/libNxCharacter.so.1",
+    "@lib32/libNxCooking.so",
     "@lib32/libtheora.so.0",
-    "@tpui/ElfLdr2/libs/libfmod.so.7",
-    "@tpui/ElfLdr2/libs/libfmodstudio.so.7",
     "@lib32/libglut.so.3",
     "@lib32/libXi.so.6",
     "@lib32/libGLU.so.1",

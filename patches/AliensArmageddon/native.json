@@ -25,11 +25,11 @@
     }
   ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
-    "@tpui/ElfLdr2/libs/libPhysXCore.so",
-    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
-    "@tpui/ElfLdr2/libs/libNxCooking.so",
-    "@tpui/ElfLdr2/libs/libcsv.so",
+    "@lib32/libPhysXLoader.so.1",
+    "@lib32/libPhysXCore.so",
+    "@lib32/libNxCharacter.so.1",
+    "@lib32/libNxCooking.so",
+    "@lib32/libcsv.so",
     "@lib32/libglut.so.3",
     "@lib32/libXi.so.6",
     "@lib32/libGLU.so.1",
