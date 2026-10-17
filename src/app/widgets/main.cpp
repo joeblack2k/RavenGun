@@ -67,6 +67,13 @@ int main(int argc, char** argv) {
     // van gamescope, die niet alle protocollen heeft. Een expliciete QT_QPA_PLATFORM gaat altijd voor.
     if (!std::getenv("QT_QPA_PLATFORM") && rg::SetupChecks::isGameMode() && std::getenv("DISPLAY")) setenv("QT_QPA_PLATFORM", "xcb", 1);
 
+    // Installeren en verwijderen zonder venster (ook vanaf een terminal of ssh zonder grafische sessie): dan het offscreen-platform,
+    // anders breekt QApplication af op een ontbrekend scherm (gemeten: --install deed zonder DISPLAY niets).
+    for (int i = 1; i < argc; ++i)
+        if ((std::strcmp(argv[i], "--install") == 0 || std::strcmp(argv[i], "--uninstall") == 0) && !std::getenv("QT_QPA_PLATFORM") &&
+            !std::getenv("DISPLAY") && !std::getenv("WAYLAND_DISPLAY"))
+            setenv("QT_QPA_PLATFORM", "offscreen", 1);
+
     // De unit van de OLED-bescherming: geen QApplication (en dus geen scherm) nodig. Alleen als eerste en enige argument.
     if (argc == 2 && std::strcmp(argv[1], "--saver-loop") == 0) return rg::saver::RunSaverLoop();
     if (argc == 2 && std::strcmp(argv[1], "--saver-stop-view") == 0) return rg::saver::RunStopView();

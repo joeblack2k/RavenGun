@@ -470,6 +470,12 @@ OpResult Install::installTree(const QString& sourcePrefixIn, const InstallLayout
     r = enableEngine(opt.start && !wasActive, log);
     if (!r.ok) return r;
     if (wasActive && opt.start) restartEngineIfIdle(opt.procDir, log);
+    // Een draaiende OLED-bescherming draait nog het oude programma (bij een update van het script naar ravengun --saver-loop
+    // gemeten: de unit was herschreven, de lus bleef het script): herstarten. Aan/uit blijft een keuze in de app.
+    if (opt.start && systemctlUser({QStringLiteral("is-active"), QStringLiteral("--quiet"), QStringLiteral("ravengun-oled-saver.service")}) == 0) {
+        if (systemctlUser({QStringLiteral("restart"), QStringLiteral("ravengun-oled-saver.service")}) == 0) say(log, QStringLiteral("OLED protection restarted."));
+        else say(log, QStringLiteral("The OLED protection could not be restarted; it uses the new program after the next login."));
+    }
     return success(prefix);
 }
 
