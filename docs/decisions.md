@@ -841,3 +841,18 @@ een leeg SRAM geeft 0. Besloten: rg-amhw zet bij het eerste open van mxsram een 
 het ontbreekt/kapot is/regio 0 heeft. GG, Transformers en OG missen de SMBus-driver (dipschakelaars, EEPROM) en `\\.\mxsuperio` (hardwaremonitor): die zijn nu als registerbestanden nagebootst
 (`tools/rg-amhw/amhw_smbus.h`), met SetupDi-haken voor de SMBus-GUID. Niet gekozen: de PCB-regio uit de EEPROM halen (in de gelezen controle van LGS en SDR komt de EEPROM niet voor), of de keychip-regio als bitveld 03/07 melden (de game leest dat
 veld niet voor deze controle en OG/LGS kiezen er een taal mee).
+
+## 2026-10-17 — Beveiliging nabootsen mag, voor de eigen games van de eigenaar (herziet 2026-10-11/12)
+
+Besluit van de eigenaar (2026-10-17, op de vraag of RavenGun dongle-, keychip- en beveiligingscontroles van zijn eigen games mag
+nabootsen of overslaan zoals TeknoParrot dat doet): **"Ja, voor mijn eigen games."** Aanleiding: het doel "alles start zonder
+TeknoParrot" (alleen Ghostbusters en Walking Dead overgeslagen) is voor de helft van de resterende games niet te halen zonder.
+
+- **Wat nu mag.** Dongle-lagen (HASP, Matrix, Sense4, UNIS-dongle), keychip-antwoorden (Sega Ring: `ds.compute`/`ssd.proof` uit de
+  `_Table.dat` van de game; ALLS: amDongle), regio/PCB-gegevens, en controles in de game overslaan (cd-rom, USB-sleutel) — als
+  drop-in, kernpatch of gegevens in `patches/<Game>/`, alleen lokaal voor de games van de eigenaar.
+- **Wat blijft.** Niets verspreiden wat niet van ons is: geen gedumpte sleutels, tabellen of spelbestanden in de repo's of de
+  release (ze komen uit de spelmap van de gebruiker of worden lokaal gemaakt). De NAS blijft alleen-lezen. USB-pass-through van
+  een echte dongle blijft de eerste keus waar die er is. De Patreon-poort van TeknoParrot (2026-10-12) blijft zoals besloten.
+- **Herzien.** De regels "geen dongle-laag" (2026-10-11, Reactie op OPDRACHT), "dongle, keychip, integriteit onaangeroerd"
+  (2026-10-12) en "HOTDSD: geen eigen AM-diensten" (2026-10-11) gelden niet meer voor de eigen games; de rest van die besluiten wel.
