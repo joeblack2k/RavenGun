@@ -267,11 +267,14 @@ def tp_vrij_check(rg, patches, gs, tmp):
     for n in sorted(set(TP_VRIJ_DIRECT + TP_VRIJ_UNITY) - alle):
         fails += 1
         print("  %-26s staat niet in patches/  <-- FOUT" % n)
-    env, tp, user, views = fixture(base, patches, names, gs)
+    # Een game die nog op de kern van TeknoParrot draait krijgt ook een view, zodat het meetinstrument met de nep-map iets vindt (sinds
+    # de native games geen @tpui meer hebben, 2026-10-17, waren er anders geen voorbeelden meer).
+    ijk = [n for n in ("AfterDark", "Transformers", "GG") if n in alle][:1]
+    env, tp, user, views = fixture(base, patches, names + ijk, gs)
     env = {k: v for k, v in env.items() if k != "RAVENGUN_TP_DIR"}   # de map gaat alleen via --tp mee, niet in de omgeving van het plan
     home = env["HOME"]
     data = os.path.join(home, ".local/share/ravengun")
-    for name in names:
+    for name in names + ijk:
         g = gs.load_game(name)
         path = (g.get("Identify", "Path", "") or g.get("Game", "Executable", "").split(";")[0]).replace("\\", "/").strip("/")
         exe = os.path.join(views, name, path)
@@ -283,7 +286,7 @@ def tp_vrij_check(rg, patches, gs, tmp):
         for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
             write(os.path.join(data, "dxvk/current", arch, dll), "x")
     for arch in ("x86", "x64"):
-        for dll in ("d3dx9_42.dll", "d3dcompiler_42.dll"):
+        for dll in ("d3dx9_41.dll", "d3dx9_42.dll", "d3dcompiler_42.dll"):
             write(os.path.join(data, "redist", arch, dll), "x")
         for f in ("BepInEx/core/BepInEx.Preloader.dll", "winhttp.dll", "doorstop_config.ini"):
             write(os.path.join(data, "bepinex/5.4.21.0", arch, f), "x")
