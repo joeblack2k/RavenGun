@@ -14,9 +14,14 @@
  * namen, rgm_avs_216 in rg_macaw_logic.h) en elke stap logt zijn uitkomst in rg-macaw.log; een naam die niet bestaat
  * of een stap die faalt stopt de lader met een duidelijke regel in plaats van door te gaan.
  *
- * Wat NIET bewezen is (er is nog niets gestart; zie docs/research/losse/SilentScopeBoneEater.md): de handtekeningen van
- * avs_boot / property_* / ea3_boot zijn die uit de spice2x-bron; het logboek laat bij de eerste start zien welke stap
- * afwijkt.
+ * Diagnose (2026-10-17, ea3_boot liet het proces stil verdwijnen): AVS logt standaard NIET (de standaard-schrijver in
+ * libavs-win64.dll is een kale "ret", 0x18009ed40) en log_fatal beeindigt het proces zonder iets te tonen. Daarom geeft de lader
+ * avs_boot een eigen log-schrijver mee (de AVS-meldingen komen als "AVS: ..." in rg-macaw.log), leidt hij stdout/stderr van het
+ * spel naar rg-macaw-stdio.log, en meldt hij elke ExitProcess/RtlExitUserProcess/TerminateProcess met de aanroepketen (module +
+ * offset) en elke ernstige uitzondering. Zo zegt het logboek zelf wie het proces stopt.
+ *
+ * Wat NIET bewezen is (zie docs/research/losse/SilentScopeBoneEater.md): de handtekeningen van property_* en ea3_boot zijn die
+ * uit de spice2x-bron; avs_boot is wel gemeten (disassemblage van 0x180030f90: 5e argument = log-schrijver, 6e = zijn context).
  *
  * Aanpassingen aan de configuratie gebeuren in een tijdelijke kopie (rg-macaw\*.xml in de werkmap), nooit op het
  * bestand zelf: de games staan op de NAS.
@@ -29,16 +34,200 @@
 #include "rg_macaw_logic.h"
 
 static FILE *g_log;
+static CRITICAL_SECTION g_lock;       /* AVS logt vanuit eigen threads; een regel mag niet door een andere onderbroken worden */
+
+static void lgv(const char *fmt, va_list ap)
+{
+    if (!g_log) return;
+    EnterCriticalSection(&g_lock);
+    vfprintf(g_log, fmt, ap);
+    fputc('\n', g_log);
+    fflush(g_log);
+    LeaveCriticalSection(&g_lock);
+}
 
 static void lg(const char *fmt, ...)
 {
     va_list ap;
-    if (!g_log) return;
     va_start(ap, fmt);
-    vfprintf(g_log, fmt, ap);
+    lgv(fmt, ap);
     va_end(ap);
-    fputc('\n', g_log);
-    fflush(g_log);
+}
+
+/* avs_log_writer_t (bemanitools, spice2x): void (*)(const char *chars, uint32_t nchars, void *ctx). Op x64 is er een aanroepconventie
+ * (Microsoft); MinGW gebruikt die standaard, dus een gewone C-functie volstaat. De tekst is een stuk logregel(s) van AVS, niet
+ * per se met een eindnul en met of zonder "\n". Wij knippen op regels en zetten er "AVS: " voor. */
+static volatile LONG g_avs_lines;
+
+static void avs_log_writer(const char *chars, uint32_t nchars, void *ctx)
+{
+    char line[1024];
+    size_t n, i, o = 0;
+    (void)ctx;
+    if (!chars) return;
+    n = nchars;
+    if (n == 0 || n > 8192) n = 8192;          /* geen geloofwaardige lengte: val terug op de eindnul */
+    n = strnlen(chars, n);
+    for (i = 0; i <= n; i++) {
+        char c = i < n ? chars[i] : '\n';
+        if (c == '\r') continue;
+        if (c == '\n') {
+            if (o) { line[o] = 0; lg("AVS: %s", line); InterlockedIncrement(&g_avs_lines); }
+            o = 0;
+        } else if (o + 1 < sizeof line) {
+            line[o++] = c;
+        }
+    }
+}
+
+/* ---- wie stopt het proces? ------------------------------------------------------------------------------------------ */
+
+/* "module.dll+0x1234" voor een adres, of het kale adres als er geen module bij hoort. */
+static void describe(void *addr, char *out, size_t cap)
+{
+    HMODULE hm = NULL;
+    char path[MAX_PATH];
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)addr, &hm) &&
+        GetModuleFileNameA(hm, path, sizeof path)) {
+        const char *b = strrchr(path, '\\');
+        snprintf(out, cap, "%s+0x%llx", b ? b + 1 : path, (unsigned long long)((uintptr_t)addr - (uintptr_t)hm));
+    } else {
+        snprintf(out, cap, "%p", addr);
+    }
+}
+
+static void log_backtrace(const char *what)
+{
+    void *fr[24];
+    USHORT n = RtlCaptureStackBackTrace(1, 24, fr, NULL), i;
+    lg("%s (thread %lu), aanroepketen:", what, GetCurrentThreadId());
+    for (i = 0; i < n; i++) {
+        char d[300];
+        describe(fr[i], d, sizeof d);
+        lg("    #%u %s", i, d);
+    }
+}
+
+/* Een haak op de eerste 12 bytes van een functie: "mov rax, handler; jmp rax". De haak logt, haalt zichzelf weg en roept het
+ * origineel. Alleen bedoeld om te loggen; hij verandert niets aan het gedrag. */
+struct hook { void *target; unsigned char orig[12]; };
+
+static int hook_on(struct hook *h, void *target, void *handler)
+{
+    unsigned char patch[12] = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};
+    DWORD old;
+    if (!target) return 0;
+    if (!VirtualProtect(target, sizeof patch, PAGE_EXECUTE_READWRITE, &old)) return 0;
+    h->target = target;
+    memcpy(h->orig, target, sizeof patch);
+    memcpy(patch + 2, &handler, 8);
+    memcpy(target, patch, sizeof patch);
+    FlushInstructionCache(GetCurrentProcess(), target, sizeof patch);
+    return 1;
+}
+
+static void hook_off(struct hook *h)
+{
+    if (!h->target) return;
+    memcpy(h->target, h->orig, sizeof h->orig);
+    FlushInstructionCache(GetCurrentProcess(), h->target, sizeof h->orig);
+}
+
+static struct hook H_exit, H_rtlexit, H_term;
+
+static VOID WINAPI hk_ExitProcess(UINT code)
+{
+    char w[64];
+    snprintf(w, sizeof w, "ExitProcess(%u)", code);
+    log_backtrace(w);
+    hook_off(&H_exit);
+    ((VOID(WINAPI *)(UINT))H_exit.target)(code);
+}
+
+static VOID NTAPI hk_RtlExitUserProcess(ULONG code)
+{
+    char w[64];
+    snprintf(w, sizeof w, "RtlExitUserProcess(0x%lx)", code);
+    log_backtrace(w);
+    hook_off(&H_rtlexit);
+    ((VOID(NTAPI *)(ULONG))H_rtlexit.target)(code);
+}
+
+static BOOL WINAPI hk_TerminateProcess(HANDLE h, UINT code)
+{
+    if (h == GetCurrentProcess() || h == (HANDLE)(intptr_t)-1) {
+        char w[64];
+        snprintf(w, sizeof w, "TerminateProcess(zichzelf, %u)", code);
+        log_backtrace(w);
+    }
+    hook_off(&H_term);
+    {
+        BOOL r = ((BOOL(WINAPI *)(HANDLE, UINT))H_term.target)(h, code);
+        hook_on(&H_term, H_term.target, (void *)hk_TerminateProcess);
+        return r;
+    }
+}
+
+static LONG g_exc_lines;
+
+static LONG CALLBACK veh(EXCEPTION_POINTERS *e)
+{
+    DWORD c = e->ExceptionRecord->ExceptionCode;
+    /* alleen de ernstige: C++-uitzonderingen, DbgPrint en threadnamen komen veel en zeggen niets */
+    if (c == 0xC0000005 || c == 0xC000001D || c == 0xC00000FD || c == 0xC0000094 || c == 0xC0000374 || c == 0xC0000409 ||
+        c == 0xC0000096 || c == 0xC000008C) {
+        if (InterlockedIncrement(&g_exc_lines) <= 40) {
+            char d[300];
+            describe(e->ExceptionRecord->ExceptionAddress, d, sizeof d);
+            lg("uitzondering 0x%08lx op %s (thread %lu), info %llx %llx", c, d, GetCurrentThreadId(),
+               (unsigned long long)e->ExceptionRecord->ExceptionInformation[0], (unsigned long long)e->ExceptionRecord->ExceptionInformation[1]);
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static LONG WINAPI last_chance(EXCEPTION_POINTERS *e)
+{
+    char d[300];
+    describe(e->ExceptionRecord->ExceptionAddress, d, sizeof d);
+    lg("ONAFGEHANDELDE uitzondering 0x%08lx op %s (thread %lu)", e->ExceptionRecord->ExceptionCode, d, GetCurrentThreadId());
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static void at_exit(void)
+{
+    lg("exit() via de C-runtime van de lader (AVS-regels gezien: %ld)", (long)g_avs_lines);
+}
+
+static void install_exit_watch(void)
+{
+    HMODULE k = GetModuleHandleA("kernel32.dll"), n = GetModuleHandleA("ntdll.dll");
+    int a = 0, b = 0, c = 0;
+    if (k) {
+        a = hook_on(&H_exit, (void *)GetProcAddress(k, "ExitProcess"), (void *)hk_ExitProcess);
+        c = hook_on(&H_term, (void *)GetProcAddress(k, "TerminateProcess"), (void *)hk_TerminateProcess);
+    }
+    if (n) b = hook_on(&H_rtlexit, (void *)GetProcAddress(n, "RtlExitUserProcess"), (void *)hk_RtlExitUserProcess);
+    AddVectoredExceptionHandler(1, veh);
+    SetUnhandledExceptionFilter(last_chance);
+    atexit(at_exit);
+    lg("uitgangswacht: ExitProcess %s, RtlExitUserProcess %s, TerminateProcess %s", a ? "aan" : "UIT", b ? "aan" : "UIT", c ? "aan" : "UIT");
+}
+
+/* stdout/stderr van wat hierna geladen wordt (de CRT van arkndd.dll en de AVS-bibliotheken lezen die bij het laden) naar een
+ * bestand, zodat een printf of assert van het spel ook in de view terechtkomt. RG_MACAW_STDIO=0 laat het zoals het was. */
+static void redirect_stdio(void)
+{
+    SECURITY_ATTRIBUTES sa = {sizeof sa, NULL, TRUE};
+    HANDLE f;
+    char *v = getenv("RG_MACAW_STDIO");
+    if (v && v[0] == '0') { lg("stdout/stderr van het spel: ongemoeid (RG_MACAW_STDIO=0)"); return; }
+    f = CreateFileA("rg-macaw-stdio.log", FILE_APPEND_DATA | FILE_GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS,
+                    FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) { lg("rg-macaw-stdio.log aanmaken faalde (%lu); stdout/stderr ongemoeid", GetLastError()); return; }
+    SetStdHandle(STD_OUTPUT_HANDLE, f);
+    SetStdHandle(STD_ERROR_HANDLE, f);
+    lg("stdout/stderr van het spel -> rg-macaw-stdio.log");
 }
 
 static void die(const char *fmt, ...)
@@ -62,7 +251,10 @@ typedef int (*fn_property_insert_read)(void *prop, void *node, fn_reader reader,
 typedef void *(*fn_property_search)(void *prop, void *node, const char *path);
 typedef intptr_t (*fn_fs_open)(const char *path, int mode, int flags);
 typedef int (*fn_fs_close)(intptr_t file);
-typedef int (*fn_boot)(void *config_node, void *heap, size_t heap_size, void *avs_heap, void *log_cb, HANDLE log_file);
+/* avs_boot (gemeten in libavs-win64.dll 2.16.3, 0x180030f90): (config, std_heap, std_heap_grootte, ?, log_schrijver, schrijver_context).
+ * Het 4e argument gaat naar een intern beheerblok en mag NULL (zo bootte het al); zonder log_schrijver gebruikt AVS een lege functie. */
+typedef void (*fn_avs_log_writer)(const char *chars, uint32_t nchars, void *ctx);
+typedef int (*fn_boot)(void *config_node, void *heap, size_t heap_size, void *avs_heap, fn_avs_log_writer log_writer, void *log_ctx);
 typedef int (*fn_ea3_boot)(void *ea3_node);
 typedef int (*fn_entry_init)(const char *sid, void *app_params);
 typedef int (*fn_entry_main)(void);
@@ -179,10 +371,24 @@ static const char *patched_copy(const char *src, const char *name, int kind, cha
     } else if (kind == 2) {   /* ark-config: geen USB-sleutel nodig (/config/nousbkey, "niet 0 = geen sleutel") */
         size_t n = rgm_text_replace(buf, len, cap, "<nousbkey __type=\"s32\">0</nousbkey>", "<nousbkey __type=\"s32\">1</nousbkey>");
         if (n != (size_t)-1) { lg("%s: nousbkey = 1", name); }
-    } else if (kind == 3) {   /* ea3-config: softid ontbreekt in de dump; zet de standaardwaarde van spice2x/bemanitools */
-        if (!strstr(buf, "<softid")) {
-            size_t n = rgm_text_insert_before(buf, len, cap, "</id>", "<softid __type=\"str\">012199999999</softid>");
-            if (n != (size_t)-1) lg("%s: softid toegevoegd", name);
+    } else if (kind == 3) {   /* ea3-config: ontbrekende velden aanvullen, zie rgm_ea3_prepare */
+        struct rgm_ea3_opts o;
+        char report[512];
+        const char *ev;
+        memset(&o, 0, sizeof o);
+        o.softid = "012199999999";                                   /* standaardwaarde van spice2x/bemanitools */
+        o.accountid = (ev = getenv("RG_MACAW_ACCOUNTID")) && ev[0] ? ev : "0000000000000001";
+        if (strcmp(o.accountid, "none") == 0) o.accountid = NULL;     /* proef: het veld weglaten zoals de dump (geeft "bad account ID") */
+        /* services: standaard de URL uit de dump (zoals onder TeknoParrot). "offline" = een loopback-adres waar niets luistert:
+         * ea3 meldt dan "connection fail" en boot gewoon door, zonder een e-amusement-server te benaderen. */
+        o.services = (ev = getenv("RG_MACAW_SERVICES")) && ev[0] ? ev : NULL;
+        if (o.services && strcmp(o.services, "offline") == 0) o.services = "http://127.0.0.1:1/";
+        o.pcbid = (ev = getenv("RG_MACAW_PCBID")) && ev[0] ? ev : NULL;
+        o.hardid = (ev = getenv("RG_MACAW_HARDID")) && ev[0] ? ev : NULL;
+        len = rgm_ea3_prepare(buf, len, cap, &o, report, sizeof report);
+        if (report[0]) {
+            char *l = report, *nl;
+            while (*l && (nl = strchr(l, '\n')) != NULL) { *nl = 0; lg("%s: %s", name, l); l = nl + 1; }
         }
     }
     CreateDirectoryA("rg-macaw", NULL);
@@ -232,12 +438,15 @@ int main(int argc, char **argv)
     void *heap;
     size_t heap_sz = (size_t)getenv_int("RG_MACAW_HEAP_MB", 64) << 20;
 
+    InitializeCriticalSection(&g_lock);
     if (argc < 2) { fprintf(stderr, "gebruik: rg-macaw.exe <pad naar modules\\arkndd.dll>\n"); return 2; }
     if (!rgm_module_root(argv[1], root, sizeof root)) die("kan de spelmap niet afleiden uit %s", argv[1]);
     if (!SetCurrentDirectoryA(root)) die("SetCurrentDirectory(%s) faalde", root);
     snprintf(path, sizeof path, "%s/rg-macaw.log", ".");
     g_log = fopen(path, "w");
     lg("rg-macaw start; spelmap %s; module %s", root, argv[1]);
+    install_exit_watch();
+    redirect_stdio();
     snprintf(modules, sizeof modules, "%s\\modules", root);
     SetDllDirectoryA(modules);
     lg("DLL-zoekpad: %s", modules);
@@ -271,8 +480,8 @@ int main(int argc, char **argv)
     if (!cfgnode) die("geen /config in avs-config.xml");
     heap = calloc(1, heap_sz);
     if (!heap) die("geen geheugen voor de AVS-heap (%zu bytes)", heap_sz);
-    lg("avs_boot (heap %zu MB)", heap_sz >> 20);
-    if (A.boot(cfgnode, heap, heap_sz, NULL, NULL, NULL) < 0) die("avs_boot gaf een fout");
+    lg("avs_boot (heap %zu MB, log-schrijver %p)", heap_sz >> 20, (void *)avs_log_writer);
+    if (A.boot(cfgnode, heap, heap_sz, NULL, avs_log_writer, NULL) < 0) die("avs_boot gaf een fout");
     lg("AVS gebooted");
     Sleep(100);
 
@@ -294,7 +503,17 @@ int main(int argc, char **argv)
     appnode = A.search(appprop, NULL, "/config");
     if (!appnode) die("geen /config in ark-config.xml");
 
-    /* 5. het spel laden en starten */
+    /* 5. het spel laden en starten (RG_MACAW_NOGAME=1: alleen AVS + ea3, zonder arkndd.dll te laden; voor proeven zonder spel) */
+    if (getenv_int("RG_MACAW_NOGAME", 0)) {
+        int secs = getenv_int("RG_MACAW_NOGAME_SECS", 15);
+        int r;
+        lg("NOGAME: het spel wordt niet geladen; ea3_boot(%p)", ea3node);
+        r = A.ea3_boot(ea3node);
+        lg("NOGAME: ea3_boot teruggekeerd (waarde %d, 0x%x); %d s wachten op AVS/ea3", r, (unsigned)r, secs);
+        Sleep((DWORD)secs * 1000);
+        lg("NOGAME: klaar (AVS-regels gezien: %ld)", (long)g_avs_lines);
+        return 0;
+    }
     game = LoadLibraryA(argv[1]);
     if (!game) die("LoadLibrary(%s) faalde (%lu)", argv[1], GetLastError());
     lg("spel geladen: %s", argv[1]);
@@ -303,9 +522,12 @@ int main(int argc, char **argv)
     if (!init || !main_) die("dll_entry_init/dll_entry_main ontbreken in %s", argv[1]);
     lg("dll_entry_init(%s)", sid);
     if (!init(sid, appnode)) die("dll_entry_init gaf false");
-    lg("ea3_boot");
-    if (A.ea3_boot(ea3node) < 0) die("ea3_boot gaf een fout");
-    lg("EA3 gebooted; dll_entry_main");
+    lg("dll_entry_init gelukt; ea3_boot");
+    {
+        /* de teruggave van ea3_boot is niet bevestigd (void of bool, afhankelijk van de AVS-versie): alleen loggen */
+        int r = A.ea3_boot(ea3node);
+        lg("EA3 gebooted (ea3_boot gaf %d, 0x%x); dll_entry_main", r, (unsigned)r);
+    }
     {
         int r = main_();
         lg("dll_entry_main gaf %d", r);
