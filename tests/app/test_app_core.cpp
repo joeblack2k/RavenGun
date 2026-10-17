@@ -2166,7 +2166,8 @@ void AppCoreTest::installUnitAndDesktopFiles() {
     QVERIFY(engine.contains(QStringLiteral("WantedBy=graphical-session.target")) && engine.contains(QStringLiteral("StandardOutput=append:%h/.local/state/ravengun/logs/ravengund.log")));
     QVERIFY(!engine.contains(QLatin1Char('@')));
     const QString oled = Install::oledUnitText(data, QStringLiteral("/p/bin"), &err);
-    QVERIFY(oled.contains(QStringLiteral("ExecStart=") + data + QStringLiteral("/scripts/oled-saver.sh --loop")) && !oled.contains(QLatin1Char('@')));
+    QVERIFY(oled.contains(QStringLiteral("ExecStart=/p/bin/ravengun --saver-loop\n")) && oled.contains(QStringLiteral("ExecStopPost=/p/bin/ravengun --saver-stop-view\n")));
+    QVERIFY(!oled.contains(QLatin1Char('@')) && !oled.contains(QStringLiteral("oled-saver.sh")));
     const QString desktop = Install::desktopEntryText(data, QStringLiteral("/home/deck/.local/opt/ravengun/bin"), &err);
     QVERIFY(desktop.startsWith(QStringLiteral("[Desktop Entry]\n")) && desktop.contains(QStringLiteral("\nExec=/home/deck/.local/opt/ravengun/bin/ravengun\n")));
     QVERIFY(desktop.contains(QStringLiteral("\nStartupWMClass=ravengun-qt")) && desktop.contains(QStringLiteral("\nType=Application\n")) && !desktop.contains(QLatin1Char('@')));
@@ -2211,7 +2212,7 @@ void AppCoreTest::installSelfInstall() {
     QVERIFY(unit.contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/bin/ravengund\n")));
     QVERIFY(!unit.contains(release));
     const QString oled = readAll(layout.oledUnitFile());
-    QVERIFY(oled.contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/share/ravengun/scripts/oled-saver.sh --loop")) && !oled.contains(release));
+    QVERIFY(oled.contains(QStringLiteral("ExecStart=") + prefix + QStringLiteral("/bin/ravengun --saver-loop")) && !oled.contains(release));
     QCOMPARE(QFileInfo(layout.engineUnitFile()).permissions() & QFileDevice::WriteGroup, QFileDevice::Permissions());
     // Menu-item, bureaubladpictogram, koppelingen.
     for (const QString& d : {layout.desktopFile(), layout.desktopDir + QStringLiteral("/ravengun-qt.desktop")}) {

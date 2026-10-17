@@ -581,7 +581,11 @@ void AppWidgetTest::preLaunchFlow() {
         QCOMPARE(w.CurrentStep(), Step::Calibrate);
         QCOMPARE(w.CurrentPlayer(), 2);
         QTest::qWait(400);
-        QTest::keyClick(&w, Qt::Key_S);   // speler 2 overslaan: dan de start (zonder engine: mislukt, met melding)
+        QTest::keyClick(&w, Qt::Key_S);   // speler 2 overslaan: dan de uitleg van de knoppen (Halo heeft [Controls], nog niet bevestigd)
+        QCOMPARE(w.CurrentStep(), Step::Controls);
+        auto* controls = w.findChild<ui::ControlsSetup*>();
+        QVERIFY(controls);
+        emit controls->finished(true);   // knoppen bevestigd: dan de start (zonder engine: mislukt, met melding)
         QCOMPARE(w.CurrentStep(), Step::Failed);
         QVERIFY(!w.grab().isNull());
         QCOMPARE(code, -1);
