@@ -179,7 +179,7 @@ static void test_listener() {
         ::send(c.fd, w.data(), w.size(), MSG_NOSIGNAL);
         std::string got = c.read_until_prompt();
         if (!contains(got, "dvdflag")) got += c.read_until_prompt();
-        CHECK(contains(got, "keychip.appboot.platformid=AAV\r\n") && contains(got, "keychip.appboot.dvdflag=00\r\n"));
+        CHECK(contains(got, "keychip.appboot.platformid=AAM\r\n") && contains(got, "keychip.appboot.dvdflag=00\r\n"));
         ::send(c.fd, "keychip.appboot.reg", 19, MSG_NOSIGNAL);
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         CHECK(c.ask("ion=?&cache=0") == "keychip.appboot.region=01\r\n>");

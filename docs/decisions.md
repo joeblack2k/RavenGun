@@ -794,7 +794,7 @@ Opdracht: deze zeven games starten zonder de gesloten kern. Uitwerking en bewijs
   in OpenParrot (`Ring_amLib/amJvs.cpp`, voor elke game zonder Type X) en dus in onze kern. De regio hoeft niets (32-bits kern kent
   `DongleRegion` niet, `enforced: false`). Wat blijft is de AM Library van de game (amMaster 40100, amDongle 40106/40107, bij de nieuwere
   ook install, netwerk, opslag): OpenParrot heeft daar niets van, de gesloten kern wel (volgens het TP-team in-proces).
-- **Kandidaten, geen omzetting.** `docs/research/segajvs/<Game>.game.ini` is een overlay met `[Loader] Core = ravengun`; `rg-direct --plan` geeft
+- **Kandidaten, geen omzetting.** `docs/research/segajvs/patches/<Game>/{game.ini,dropin/dropin.ini}` is een overlay met `[Loader] Core = ravengun`; `rg-direct --plan` geeft
   voor alle zeven lader en kern uit `openparrot/current` en geen TeknoParrot-bestand in de opdrachtregel. Geen `patches/<Game>/game.ini` is
   gewijzigd: elke game blijft op de gesloten kern tot een TV-test van 5 minuten slaagt.
 - **Meting en antwoord.** LGI op onze kern met alleen een luisteraar die `>` stuurt (TV, 2026-10-17): 3x `keychip.appboot.systemflag=?&cache=0` op
@@ -805,3 +805,17 @@ Opdracht: deze zeven games starten zonder de gesloten kern. Uitwerking en bewijs
   de daemon: de levensduur is die van de run, een tweede game kan er niet door gestoord worden en het logboek staat bij dat van de
   JVS-pipe. Onbekende sleutels krijgen een voorzichtig antwoord en staan als ONBEKEND in het logboek. Niet gekozen: in-proces hooks in de
   exe (per build andere adressen, niet te testen zonder de game te starten).
+
+## 2026-10-17 — Sega Ring-games: kastapparaten (rg-amhw) en de crash op het bordtype
+
+LGI crashte op 0x6F0515 (nulwijzer) in `teaArcade2`-initialize. Oorzaak [gelezen]: `amPlatformGetBoardType` leidt het bordtype af uit de DMI-tabel van
+het BIOS (fabrikant + OEM-tekenreeks 3), gelezen via het stuurprogramma `\\.\columba` (DeviceIoControl 0x9C406104, fysiek geheugen); onder Wine bestaat dat niet.
+Niet de AM-daemon: `keychip.appboot.platformid` wordt door de game nergens teruggelezen.
+
+- **Drop-in `rg-amhw.dll`** (`tools/rg-amhw/`, `tools/dev/build-amhw.sh`): importtabel-omleiding in de hoofdmodule (zoals rg-mfcam) voor `\\.\columba` (DMI-tabel,
+  `amhw_dmi.h`, per platform: AAM+Supermicro RingWide, AAL+NEC RingEdge, AAL2+NEC RingEdge 2) en `\\.\mxsram` (versie, geometrie, bestand `mxsram.bin` in de view).
+  Al het andere `\\.\...` en SetupDi wordt gelogd en doorgegeven. Niet gekozen: haken in onze OpenParrot-kern (de games zijn daar niet herkend; per-game gegevens
+  horen in `patches/<Game>/`), en inline-haken in kernel32 (botst met de MinGW-haken van de kern).
+- **Nog niet nagebootst:** `\\.\mxsuperio` (hardwaremonitor) en de SMBus-driver (EEPROM, dipschakelaars) via SetupDi: de init loopt zonder ze door met foutbits; de
+  structuur van de blokopdracht staat in het README. Eerst meten wat de game er zonder doet.
+- **Test zonder game:** `tools/dev/test-amhw-wine.sh` (wegwerp-Wine-prefix, kleine proef-exe) en `tests/test_amhw.cpp` (de DMI-bytes nagelezen zoals de game ze leest).

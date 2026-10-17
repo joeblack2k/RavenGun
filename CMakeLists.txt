@@ -484,6 +484,12 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_amdaemon_tests tests/test_amdaemon.cpp)
   target_link_libraries(ravengun_amdaemon_tests PRIVATE ravengun Threads::Threads)
   add_test(NAME ravengun_amdaemon_tests COMMAND ravengun_amdaemon_tests)
+  # De nagebootste DMI-tabel van rg-amhw (tools/rg-amhw/amhw_dmi.h), nagelezen zoals de AM Library van de Ring-games haar leest.
+  add_executable(ravengun_amhw_tests tests/test_amhw.cpp)
+  add_test(NAME ravengun_amhw_tests COMMAND ravengun_amhw_tests)
+  # De DLL zelf onder Wine zonder game (wegwerp-prefix, MinGW-container); slaat over (77) zonder podman, Wine of image.
+  add_test(NAME ravengun_amhw_wine COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/test-amhw-wine.sh")
+  set_tests_properties(ravengun_amhw_wine PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 200)
   # De camera voor een spel: het bestand van de daemon voor rg-mfcam.dll (src/ravengun/vision/camera_feed.*).
   add_executable(ravengun_camera_feed_tests tests/test_camera_feed.cpp)
   target_link_libraries(ravengun_camera_feed_tests PRIVATE ravengun)

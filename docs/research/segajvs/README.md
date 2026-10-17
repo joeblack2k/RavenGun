@@ -103,7 +103,7 @@ in de code, de afwijking per game in de data). Staat een poort al bezet (bv. `pc
 De volgorde van `amDongleSetupKeychip` is: systemflag, dan version, dan is de keychip "klaar"; daarna vraagt fwAM keyid, gameid, region,
 modeltype, systemflag en platformid (`0x6F0D30`). Elke mislukte vraag geeft in het spel een regel `amDongleXxx() is failed.`
 
-**Wat gegokt is** (de game vergelijkt het nergens, gelezen): `platformid` (AAV), `modeltype` (01), `version` (0101), `keyid`/`mainid`
+**Wat gegokt is** (de game vergelijkt het nergens, gelezen): `platformid` (AAM, voor RingEdge AAL), `modeltype` (01), `version` (0101), `keyid`/`mainid`
 (nullen), billing-tellers, `systemflag` (00), `getcount.count` (1). Het spel-id is gelezen uit `MACtbl/*_Table.dat` of `gameid.txt`
 (LGI SBUH, LGI3D SBWB, LGS SDAX, GG SBVE, Transformers SBYR; OG en SDR hebben er geen: onbekend). Als een gok de game laat afbreken staat dat
 in het logboek als `amDongleXxx() is failed` of een volgend verzoek; pas dan de waarde aan in `[AmDaemon]`.
@@ -151,13 +151,91 @@ Het logboek krijgt dan `dispatch_exception code=c0000005 ... addr=...` en daarvo
 functie: `python3 -I tools/dev/segajvs-scan.py <exe> --where 0x<adres>` (functiebegin, dichtstbijzijnde am*-functie, de tekenreeksen die de
 functie gebruikt). Staat het adres niet in `LGI_RingW_F_safe.exe` maar in `OpenParrot.dll` of een Wine-DLL, dan is het onze kern of Wine.
 
+## Kastapparaten: rg-amhw (de crash op 0x6F0515 en wat erna komt)
+
+*Meting 3 (LGI, 2026-10-17 17:32, `WINEDEBUG=-all,+seh`): toegangsfout op 0x006F0515 (`mov eax,[eax+8]`, eax = 0) in `teaArcade2`-initialize.
+De nul is het resultaat van de tabelkeuze op het BORDTYPE (0x489240), en dat komt niet uit de AM-daemon maar uit de DMI-tabel van het BIOS.*
+
+**Wat de game doet [gelezen, LGI]**
+
+| Stap | Waar | Wat |
+|---|---|---|
+| 1 | `amOemstringGetOemstring` 0x48F6E0 | `CreateFileW("\\\\.\\columba")`, dan `DeviceIoControl(0x9C406104)` met in = {adres, 0, 1, lengte} en uit = 0x10000 bytes: een lees-fysiek-geheugen-opdracht. Eerst adres 0xF0000 (de BIOS-ruimte): hij zoekt `_DMI_` (index < 0xFFF8), leest daar de tabellengte (+6) en het tabeladres (+8). Dan dezelfde opdracht op dat adres. Beide keren moet er EXACT 0x10000 bytes terugkomen. |
+| 2 | 0x48F660 (per tekenreeks) | structuur type 0: tekenreeks 2 = BIOS-versie, 3 = datum (hoogstens 10 tekens); type 1: tekenreeks 1 = **fabrikant**; type 11 (OEM-strings): tekenreeks 3 = **platform-id**. |
+| 3 | `amPlatformGetPlatformId` 0x489010 | is de OEM-string `AAL` of `AAM`, dan is dat het platform-id; anders leidt hij het af uit de fabrikant (NEC = AAL, Supermicro/Advantech = AAM). Onbekend = fout. |
+| 4 | `amPlatformGetBoardType` 0x488DF0 | AAL + NEC = 0; AAM + Supermicro = 1; AAM + Advantech = 2; **al het andere geeft een type waar de tabel van de game geen regel voor heeft**. LGI3D en Transformers kennen ook `AAL2` (RingEdge 2) = 3. |
+| 5 | `amPlatform...` 0x489240 | kiest met het bordtype de tabel voor de backup-opslag (EEPROM- en SRAM-gebieden; type 0 heeft 2 MB SRAM, 1 en 2 hebben 256 KB) en geeft 0 terug bij een onbekend type: de nulwijzer. |
+
+Onder Wine bestaat `\\.\columba` niet, dus stap 1 faalt en het bordtype is onbekend. De platformkeuze bij het `keychip.appboot.platformid` van de
+AM-daemon heeft hier niets mee te maken: de game leest die waarde nergens terug (in LGI: niets leest de platformid-plaats 0xC0D023 van de dongle-structuur;
+de andere zes niet nagelopen). Wel staat de standaard nu op `AAM` en op `AAL` voor RingEdge, zodat de twee verhalen niet tegenspreken.
+
+**Platform per game [gelezen: de exe's]** Alle zeven hebben dezelfde tekenreeksen (`AAL`, `NEC`, `AAM`, `Supermicro`, `Advantech`); LGI3D en
+Transformers hebben daarnaast `AAL2`. Wat een game zelf over zijn kast zegt: `mxGetHwInfo.ini` noemt RingWide (grafische chip 1002:94cb,
+256 KB SRAM) voor LGS en SDR, `app.ini` van LGI idem, Transformers RingEdge 2 (10de:1241, 2 MB SRAM). De game controleert het platform
+niet tegen zijn eigen soort; elke geldige combinatie start. Gekozen:
+
+| Game | OEM (platform-id) | Fabrikant | Bordtype | Reden |
+|---|---|---|---|---|
+| LGI, LGS, GG, OG, SDR | AAM | Supermicro | 1 | RingWide, 256 KB SRAM |
+| LGI3D | AAL | NEC | 0 | RingEdge (metadata); mislukt dit, probeer AAM/Supermicro |
+| Transformers | AAL2 | NEC | 3 | RingEdge 2, 2 MB SRAM; de nieuwere AM Library kent type 3 (0x69F5D0 heeft vier regels). NEC is nodig omdat `amPlatformGetPlatformId` er `AAL` uit afleidt |
+
+**De drop-in `rg-amhw.dll`** (`tools/rg-amhw/`, bouwen met `tools/dev/build-amhw.sh`, 292 KB, statisch gelinkt, MinGW i686): zoals `rg-mfcam` zet
+hij invoeren in de importtabel van de HOOFDmodule om (`CreateFileW/A`, `DeviceIoControl`, `CloseHandle`, `SetFilePointer`, `ReadFile`,
+`WriteFile`); in kernel32 zelf wordt niets gepatcht, dus geen conflict met de MinGW-haken van onze OpenParrot-kern. Hij wordt met
+`Preload = true` door de OpenParrot-lader geladen (`TP_PRELOAD_DLL`, na de kern en voor de game zijn eerste regel draait).
+
+* `\\.\columba`: de DMI-tabel uit `amhw_dmi.h` (BIOS, systeem, OEM-strings, einde; SMBIOS 2.4 met geldige controlesommen), met de fabrikant en het
+  platform-id uit `RG_AMHW_VENDOR` en `RG_AMHW_OEM`.
+* `\\.\mxsram`: versie (`0x9C406000`, laag woord 1), geometrie (`0x70000`: 2 MB, sectoren van 0x200) en gewoon `SetFilePointer`/`ReadFile`/`WriteFile`,
+  achter `mxsram.bin` in de map van de DLL (de view; nooit de NAS) zodat scores en instellingen een herstart overleven. Niet nodig om de crash te
+  vermijden, wel voor `amBackupRead` (de regio uit het backup-SRAM, de testmodus, hoge scores).
+* Alles wat de game verder met `\\.\...` probeert (en de eerste 20 `SetupDiGetClassDevsA`-aanroepen) wordt GELOGD in `rg-amhw.log` en onveranderd
+  doorgegeven: dat logboek is de lijst van wat er nog ontbreekt.
+
+**Wat er nog niet is, en of het nodig is [gelezen, niet gemeten]**
+
+| Apparaat | Waarvoor | Zonder | Nodig om voorbij de init te komen? |
+|---|---|---|---|
+| `\\.\mxsuperio` | hardwaremonitor (`amHmInit` 0x48D970: LPC-chip met bank-registers, temperaturen, fans) | `6F0F60` geeft 1, `ArcadeManager::initialize` zet bit 0x20 en logt "hardware monitor setup failed" | Nee voor de crash; waarschijnlijk wel een foutcode in beeld. Een LPC-chip nabootsen is werk van een dag; eerst kijken of het nodig is. |
+| SMBus-driver via SetupDi (GUID-klasse, mutex `AM_PCA9535_MUTEX`), ioctl `0x9C406008` versie, `0x9C40200C` blokken | EEPROM (`amEeprom*`, de eerste twee backup-gebieden) en de dipschakelaars (PCA9535, `amDipsw*`, asynchroon met `0x9C402004`) | `amEepromInit`/`amDipswInit` falen (bits 1 en 8); `readRegionEeprom` meldt ERR en de game valt terug op `DefaultRegion` | Nee voor de crash. Voor het testmenu en de dipschakelaars wel. De structuur van de blokopdracht is al gelezen (0x27 bytes: status/cmd 9 = lezen, 8 = schrijven, slave +2, register +4, lengte +6, data +7). |
+| `\\.\mxjvs` | JVS-stuurprogramma | de game valt terug op `COM4` | Nee: dat is de JVS-pipe van de kern/brug. |
+
+**Gemeten zonder game (Wine, wegwerp-prefix, `tools/dev/test-amhw-wine.sh`):** de DLL laadt, zet de importtabel om, geeft een handvat voor columba, de
+twee leesopdrachten leveren een tabel op waaruit dezelfde code als in de game `Supermicro`/`AAM`/type 1 haalt, mxsram doet versie, geometrie, schrijven,
+lezen en bestandsopslag, en een gewoon bestand loopt ongemoeid door de haken (alle 20 controles van de proef). De game zelf is niet gestart.
+
+## Testrecept (TV)
+
+Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
+
+1. Bouwen (container, geen netwerk): `tools/dev/build-amhw.sh` -> `build-amhw/rg-amhw.dll`; `cmake --build build` + `install-user` + daemon herstarten (voor
+   de AM-daemon en `rg-direct`, zoals eerder).
+2. Zetten in de gebruikerslaag (de meegeleverde `dropin.ini` met de dongle blijft staan: de secties worden samengevoegd):
+   `mkdir -p ~/.local/share/ravengun/patches/LGI/dropin`,
+   `cp docs/research/segajvs/patches/LGI/game.ini ~/.local/share/ravengun/patches/LGI/game.ini` (vervangt de vorige overlay),
+   `cp docs/research/segajvs/patches/LGI/dropin/dropin.ini build-amhw/rg-amhw.dll ~/.local/share/ravengun/patches/LGI/dropin/`.
+   Zet daarin ook `[Env]` `WINEDEBUG = -all,+seh` zolang je het crashadres wilt zien (haal het weg voor een gewone run).
+3. Controle voor de start: `build/rg-direct --plan LGI` toont bij `dropin_lines` `preload: rg-amhw.dll -> TP_PRELOAD_DLL=...`.
+4. Dubbelklik. In de view (`~/.local/share/ravengun/runtime/views/LGI/`) verschijnt `rg-amhw.log`. Verwacht daarin: `rg-amhw geladen in ...LGI_RingW_F_safe.exe`,
+   `importtabel: KERNEL32.dll!CreateFileW omgezet` (en DeviceIoControl, CloseHandle, SetFilePointer, ReadFile, WriteFile), `columba: fysiek geheugen
+   0x000F0000 ... BIOS-ruimte met _DMI_`, dan `0x000E0000 ... DMI-tabel`, `mxsram: geopend`. Staat die log er niet, dan is de DLL niet geladen.
+5. Slaagt: geen toegangsfout op 0x6F0515; in het logboek van rg-direct komen na de AM-regels `JVS-pipe: game verbonden` en pakketten. Stuur dan
+   `rg-amhw.log` en de laatste 40 regels van `direct-LGI-*.log`: elke `niet nagebootst`-regel is een volgend apparaat.
+6. Faalt het opnieuw met een toegangsfout: stuur het adres (`dispatch_exception ... addr=`) en de regels van `rg-amhw.log`; zoek de functie met
+   `python3 -I tools/dev/segajvs-scan.py <exe> --where 0x<adres>`.
+
+Per game verandert alleen de map; de verwachte `columba`/`mxsram`-regels zijn gelijk. GG en Transformers staan in `exe/` (de view-wortel is daar al
+`exe/`, dus `To = .`). SDR draait nu zonder view (`View = off`); de overlay zet `View =` (leeg = automatisch) omdat een drop-in een lokale view nodig heeft.
+
 ## De test per game (voor de TV)
 
 Voorwaarde voor elke test: de eigen OpenParrot-build staat in `~/.local/share/ravengun/openparrot/current/` (Win32-kern en lader) en
 `rg-jvsbridge.exe` in `~/.local/share/ravengun/jvsbridge/`; dat is wat `rg-direct --plan` voor de kandidaat al aanwijst (gecontroleerd,
 zie "Plan-controle").
 
-1. Overlay in de gebruikerslaag zetten: `mkdir -p ~/.local/share/ravengun/patches/LGI && cp docs/research/segajvs/LGI.game.ini ~/.local/share/ravengun/patches/LGI/game.ini`.
+1. Overlay in de gebruikerslaag zetten: `mkdir -p ~/.local/share/ravengun/patches/LGI && cp docs/research/segajvs/patches/LGI/game.ini ~/.local/share/ravengun/patches/LGI/game.ini (en de drop-in uit het Testrecept hierboven)`.
 2. Géén `pcp-listen.py` tegelijk: de AM-daemon van rg-direct gebruikt dezelfde poorten (een bezette poort wordt gemeld en overgeslagen).
    `pcp-listen.py` blijft het meetgereedschap om *zonder* onze antwoorden te zien wat een game vraagt (bv. een nieuwe game die nog geen
    `[AmDaemon]` heeft): start het dan vóór de game en laat `[Launch] AmDaemon` weg.

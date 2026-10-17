@@ -1,0 +1,357 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// rg-amhw.dll: de kastapparaten van een Sega Ring-kast voor de AM Library in de exe van LGI, LGI3D, LGS, GG, OG, SDR en Transformers,
+// zonder de gesloten TeknoParrot-kern. 32-bits Windows-DLL, geladen met Preload = true (TP_PRELOAD_DLL) door de OpenParrot-lader, nadat
+// de kern en voordat het spel zijn eerste regel draait. Zoals rg-mfcam zet hij invoeren in de importtabel van de HOOFDmodule om; er wordt
+// niets in kernel32 zelf gepatcht (en dus niets dat met de MinGW-haken van onze OpenParrot-kern botst).
+//
+// Wat hij nabootst (docs/research/segajvs/README.md, "Kastapparaten"):
+//   \\.\columba   het DMI/SMBIOS-apparaat: DeviceIoControl 0x9C406104 leest fysiek geheugen (amDongle? nee: amOemstring/amPlatform, zie
+//                 amhw_dmi.h). Zonder dit faalt het bordtype en crasht de game op een nulwijzer (LGI 0x6F0515).
+//   \\.\mxsram    het backup-SRAM: 0x9C406000 = stuurprogrammaversie (laag woord 1), 0x70000 = geometrie (0x18 bytes), daarna gewone
+//                 SetFilePointer/ReadFile/WriteFile in sectoren. Achter een bestand (mxsram.bin) naast deze DLL, zodat instellingen en
+//                 scores een herstart overleven (de view is lokaal; nooit de NAS).
+// Alles wat de game verder met `\\.\...` of SetupDi probeert wordt GELOGD en ongewijzigd doorgegeven: rg-amhw.log is de lijst van wat
+// er nog ontbreekt (mxsuperio = hardwaremonitor, de SMBus-driver voor EEPROM en dipschakelaars via SetupDi).
+//
+// Omgeving: RG_AMHW_OEM (platform-id: AAM RingWide, AAL RingEdge, AAL2 RingEdge 2; standaard AAM), RG_AMHW_VENDOR (Supermicro, NEC, Advantech;
+// standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <setupapi.h>
+
+#include <algorithm>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "amhw_dmi.h"
+
+namespace {
+
+HINSTANCE g_self = nullptr;
+CRITICAL_SECTION g_cs;
+char g_log_path[MAX_PATH] = "rg-amhw.log";
+
+void rg_log(const char* fmt, ...) {
+    EnterCriticalSection(&g_cs);
+    if (FILE* f = std::fopen(g_log_path, "a")) {
+        SYSTEMTIME t;
+        GetLocalTime(&t);
+        std::fprintf(f, "%02d:%02d:%02d.%03d ", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
+        va_list ap;
+        va_start(ap, fmt);
+        std::vfprintf(f, fmt, ap);
+        va_end(ap);
+        std::fputc('\n', f);
+        std::fclose(f);
+    }
+    LeaveCriticalSection(&g_cs);
+}
+
+// --- de apparaten --------------------------------------------------------------------------------------------------------------------
+enum class Kind { Columba, Sram };
+struct Dev {
+    Kind kind;
+    long long pos = 0;   // SRAM: de bestandspositie
+};
+std::map<HANDLE, Dev> g_devs;
+rg_amhw::Platform g_platform;
+std::vector<uint8_t> g_sram;
+char g_sram_path[MAX_PATH] = "mxsram.bin";
+bool g_sram_loaded = false;
+
+constexpr DWORD kIoctlVersion = 0x9C406000;   // mxsram, mxsuperio, SMBus: 4 bytes, laag woord 1
+constexpr DWORD kIoctlPhysRead = 0x9C406104;  // columba
+constexpr DWORD kIoctlSramGeometry = 0x70000;
+
+using CreateFileWFn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+using CreateFileAFn = HANDLE(WINAPI*)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+using DeviceIoControlFn = BOOL(WINAPI*)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using CloseHandleFn = BOOL(WINAPI*)(HANDLE);
+using SetFilePointerFn = DWORD(WINAPI*)(HANDLE, LONG, PLONG, DWORD);
+using ReadWriteFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using SetupGetClassDevsAFn = HDEVINFO(WINAPI*)(const GUID*, PCSTR, HWND, DWORD);
+CreateFileWFn g_create_w = CreateFileW;
+CreateFileAFn g_create_a = CreateFileA;
+DeviceIoControlFn g_ioctl = DeviceIoControl;
+CloseHandleFn g_close = CloseHandle;
+SetFilePointerFn g_seek = SetFilePointer;
+ReadWriteFn g_read = reinterpret_cast<ReadWriteFn>(ReadFile);
+ReadWriteFn g_write = reinterpret_cast<ReadWriteFn>(WriteFile);
+SetupGetClassDevsAFn g_setup_classdevs = nullptr;
+
+bool is_dev_path(const char* n, const char* tail) { return n && lstrcmpiA(n, tail) == 0; }
+
+void sram_load() {
+    if (g_sram_loaded) return;
+    g_sram_loaded = true;
+    if (FILE* f = std::fopen(g_sram_path, "rb")) {
+        const size_t n = std::fread(g_sram.data(), 1, g_sram.size(), f);
+        std::fclose(f);
+        rg_log("mxsram: %s ingelezen (%lu van %lu bytes)", g_sram_path, static_cast<unsigned long>(n), static_cast<unsigned long>(g_sram.size()));
+    } else {
+        rg_log("mxsram: %s bestaat nog niet; leeg SRAM (%lu bytes)", g_sram_path, static_cast<unsigned long>(g_sram.size()));
+    }
+}
+void sram_flush(long long off, size_t n) {
+    FILE* f = std::fopen(g_sram_path, "r+b");
+    if (!f) f = std::fopen(g_sram_path, "w+b");
+    if (!f) {
+        static bool once = false;
+        if (!once) { once = true; rg_log("mxsram: %s is niet te schrijven; het SRAM blijft alleen in het geheugen", g_sram_path); }
+        return;
+    }
+    std::fseek(f, 0, SEEK_END);
+    if (static_cast<size_t>(std::ftell(f)) < g_sram.size()) {
+        std::fseek(f, 0, SEEK_SET);
+        std::fwrite(g_sram.data(), 1, g_sram.size(), f);   // eerste keer: het hele bestand, daarna alleen wat verandert
+    } else {
+        std::fseek(f, static_cast<long>(off), SEEK_SET);
+        std::fwrite(g_sram.data() + off, 1, n, f);
+    }
+    std::fclose(f);
+}
+
+HANDLE make_handle(Kind k, const char* name) {
+    HANDLE h = CreateEventW(nullptr, FALSE, FALSE, nullptr);   // een echt, uniek handvat; CloseHandle werkt er gewoon op
+    if (!h) return INVALID_HANDLE_VALUE;
+    EnterCriticalSection(&g_cs);
+    g_devs[h] = Dev{k, 0};
+    LeaveCriticalSection(&g_cs);
+    rg_log("%s: geopend (nagebootst), handvat %p", name, h);
+    return h;
+}
+bool lookup(HANDLE h, Dev& d) {
+    EnterCriticalSection(&g_cs);
+    auto it = g_devs.find(h);
+    const bool found = it != g_devs.end();
+    if (found) d = it->second;
+    LeaveCriticalSection(&g_cs);
+    return found;
+}
+
+HANDLE open_named_a(const char* n) {
+    if (is_dev_path(n, "\\\\.\\columba")) return make_handle(Kind::Columba, "columba");
+    if (is_dev_path(n, "\\\\.\\mxsram")) { sram_load(); return make_handle(Kind::Sram, "mxsram"); }
+    return nullptr;
+}
+
+HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (name && name[0] == L'\\' && name[1] == L'\\' && (name[2] == L'.' || name[2] == L'?')) {
+        char a[260];
+        WideCharToMultiByte(CP_ACP, 0, name, -1, a, sizeof a, nullptr, nullptr);
+        if (HANDLE h = open_named_a(a)) return h;
+        HANDLE r = g_create_w(name, acc, share, sa, disp, flags, tmpl);
+        const DWORD e = GetLastError();
+        static LONG n = 0;
+        if (InterlockedIncrement(&n) <= 60) rg_log("CreateFileW(%s) niet nagebootst -> %p (fout %lu)", a, r, static_cast<unsigned long>(e));
+        SetLastError(e);
+        return r;
+    }
+    return g_create_w(name, acc, share, sa, disp, flags, tmpl);
+}
+HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (name && name[0] == '\\' && name[1] == '\\' && (name[2] == '.' || name[2] == '?')) {
+        if (HANDLE h = open_named_a(name)) return h;
+        HANDLE r = g_create_a(name, acc, share, sa, disp, flags, tmpl);
+        const DWORD e = GetLastError();
+        static LONG n = 0;
+        if (InterlockedIncrement(&n) <= 60) rg_log("CreateFileA(%s) niet nagebootst -> %p (fout %lu)", name, r, static_cast<unsigned long>(e));
+        SetLastError(e);
+        return r;
+    }
+    return g_create_a(name, acc, share, sa, disp, flags, tmpl);
+}
+
+BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
+    Dev d;
+    if (!lookup(h, d)) return g_ioctl(h, code, in, in_n, out, out_n, ret, ov);
+    if (ret) *ret = 0;
+    if (d.kind == Kind::Columba && code == kIoctlPhysRead) {
+        if (!in || in_n < 16 || !out || out_n < rg_amhw::kWindow) {
+            rg_log("columba: 0x%08lX met te kleine buffers (in %lu, uit %lu)", static_cast<unsigned long>(code), static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
+            SetLastError(ERROR_INSUFFICIENT_BUFFER);
+            return FALSE;
+        }
+        uint32_t req[4];
+        std::memcpy(req, in, sizeof req);
+        rg_amhw::phys_read(g_platform, req[0], static_cast<uint8_t*>(out), rg_amhw::kWindow);
+        if (ret) *ret = static_cast<DWORD>(rg_amhw::kWindow);
+        static LONG n = 0;
+        if (InterlockedIncrement(&n) <= 4)
+            rg_log("columba: fysiek geheugen 0x%08lX (lengte 0x%lX) gelezen -> %s", static_cast<unsigned long>(req[0]), static_cast<unsigned long>(req[3]),
+                   req[0] == rg_amhw::kBiosBase ? "BIOS-ruimte met _DMI_" : req[0] == rg_amhw::kTableBase ? "DMI-tabel" : "nullen");
+        return TRUE;
+    }
+    if (code == kIoctlVersion && out && out_n >= 4) {
+        *static_cast<uint32_t*>(out) = 1;
+        if (ret) *ret = 4;
+        return TRUE;
+    }
+    if (d.kind == Kind::Sram && code == kIoctlSramGeometry && out && out_n >= 0x18) {
+        // O+0x0/0x4: deler van het aantal sectoren (64 bit), O+0xC x O+0x10 = totaal in bytes, O+0x14 = sectorgrootte (hoogstens 0x800).
+        uint32_t g[6] = {1, 0, 0, 0x1000, 0, 0x200};
+        g[4] = static_cast<uint32_t>(g_sram.size() / 0x1000);   // O+0x10: 0x1000 x (size/0x1000) = size
+        std::memcpy(out, g, sizeof g);
+        if (ret) *ret = 0x18;
+        rg_log("mxsram: geometrie %lu bytes, sectoren van 0x200", static_cast<unsigned long>(g_sram.size()));
+        return TRUE;
+    }
+    rg_log("%s: onbekende DeviceIoControl 0x%08lX (in %lu, uit %lu); FALSE", d.kind == Kind::Columba ? "columba" : "mxsram", static_cast<unsigned long>(code),
+           static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
+    SetLastError(ERROR_INVALID_FUNCTION);
+    return FALSE;
+}
+
+BOOL WINAPI rg_CloseHandle(HANDLE h) {
+    Dev d;
+    if (lookup(h, d)) {
+        EnterCriticalSection(&g_cs);
+        g_devs.erase(h);
+        LeaveCriticalSection(&g_cs);
+        rg_log("%s: gesloten", d.kind == Kind::Columba ? "columba" : "mxsram");
+    }
+    return g_close(h);
+}
+
+DWORD WINAPI rg_SetFilePointer(HANDLE h, LONG lo, PLONG hi, DWORD method) {
+    Dev d;
+    if (!lookup(h, d) || d.kind != Kind::Sram) return g_seek(h, lo, hi, method);
+    long long off = (static_cast<long long>(hi ? *hi : 0) << 32) | static_cast<unsigned long>(lo);
+    EnterCriticalSection(&g_cs);
+    Dev& dd = g_devs[h];
+    if (method == FILE_BEGIN) dd.pos = off;
+    else if (method == FILE_CURRENT) dd.pos += off;
+    else dd.pos = static_cast<long long>(g_sram.size()) + off;
+    const long long p = dd.pos;
+    LeaveCriticalSection(&g_cs);
+    if (hi) *hi = static_cast<LONG>(p >> 32);
+    return static_cast<DWORD>(p & 0xFFFFFFFF);
+}
+
+BOOL sram_io(HANDLE h, LPVOID buf, DWORD n, LPDWORD done, bool write) {
+    EnterCriticalSection(&g_cs);
+    Dev& dd = g_devs[h];
+    long long pos = dd.pos;
+    DWORD got = 0;
+    if (pos >= 0 && static_cast<size_t>(pos) < g_sram.size()) {
+        got = static_cast<DWORD>(std::min<size_t>(n, g_sram.size() - static_cast<size_t>(pos)));
+        if (write) std::memcpy(g_sram.data() + pos, buf, got);
+        else std::memcpy(buf, g_sram.data() + pos, got);
+    }
+    dd.pos = pos + got;
+    LeaveCriticalSection(&g_cs);
+    if (write && got) sram_flush(pos, got);
+    if (done) *done = got;
+    return TRUE;
+}
+BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD done, LPOVERLAPPED ov) {
+    Dev d;
+    if (!lookup(h, d) || d.kind != Kind::Sram) return g_read(h, buf, n, done, ov);
+    return sram_io(h, buf, n, done, false);
+}
+BOOL WINAPI rg_WriteFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD done, LPOVERLAPPED ov) {
+    Dev d;
+    if (!lookup(h, d) || d.kind != Kind::Sram) return g_write(h, buf, n, done, ov);
+    return sram_io(h, buf, n, done, true);
+}
+
+HDEVINFO WINAPI rg_SetupDiGetClassDevsA(const GUID* g, PCSTR e, HWND w, DWORD f) {
+    HDEVINFO r = g_setup_classdevs(g, e, w, f);
+    const DWORD err = GetLastError();
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 20 && g)
+        rg_log("SetupDiGetClassDevsA({%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}, flags 0x%lX) -> %p (nog niet nagebootst: SMBus-driver voor EEPROM/dipschakelaars)",
+               g->Data1, g->Data2, g->Data3, g->Data4[0], g->Data4[1], g->Data4[2], g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7],
+               static_cast<unsigned long>(f), r);
+    SetLastError(err);
+    return r;
+}
+
+// --- de importtabel van het spel (gelijk aan rg-mfcam) ---------------------------------------------------------------------------------
+void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
+    auto* base = reinterpret_cast<BYTE*>(mod);
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return nullptr;
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    const IMAGE_DATA_DIRECTORY& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!dir.VirtualAddress) return nullptr;
+    for (auto* imp = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + dir.VirtualAddress); imp->Name; ++imp) {
+        if (lstrcmpiA(reinterpret_cast<const char*>(base + imp->Name), dll) != 0) continue;
+        auto* iat = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imp->FirstThunk);
+        auto* names = imp->OriginalFirstThunk ? reinterpret_cast<IMAGE_THUNK_DATA*>(base + imp->OriginalFirstThunk) : nullptr;
+        for (size_t i = 0; iat[i].u1.Function; ++i) {
+            bool hit = false;
+            if (names && !(names[i].u1.Ordinal & IMAGE_ORDINAL_FLAG)) {
+                auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names[i].u1.AddressOfData);
+                hit = std::strcmp(reinterpret_cast<const char*>(ibn->Name), func) == 0;
+            }
+            if (!hit) continue;
+            void* old = reinterpret_cast<void*>(iat[i].u1.Function);
+            DWORD prot = 0;
+            if (!VirtualProtect(&iat[i].u1.Function, sizeof(void*), PAGE_READWRITE, &prot)) return nullptr;
+            iat[i].u1.Function = reinterpret_cast<decltype(iat[i].u1.Function)>(repl);
+            VirtualProtect(&iat[i].u1.Function, sizeof(void*), prot, &prot);
+            return old;
+        }
+    }
+    return nullptr;
+}
+
+template <typename Fn>
+void hook(const char* dll, const char* func, Fn repl, Fn& orig) {
+    void* old = patch_iat(GetModuleHandleW(nullptr), dll, func, reinterpret_cast<void*>(repl));
+    if (old) orig = reinterpret_cast<Fn>(old);
+    rg_log("importtabel: %s!%s %s", dll, func, old ? "omgezet" : "niet in het spel");
+}
+
+std::string env(const char* k, const char* def) {
+    char b[260];
+    const DWORD n = GetEnvironmentVariableA(k, b, sizeof b);
+    return n > 0 && n < sizeof b ? std::string(b) : std::string(def);
+}
+
+void setup() {
+    InitializeCriticalSection(&g_cs);
+    char self[MAX_PATH] = {};
+    GetModuleFileNameA(g_self, self, MAX_PATH);
+    std::string dir(self);
+    const size_t slash = dir.find_last_of("\\/");
+    dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
+    std::snprintf(g_log_path, sizeof g_log_path, "%s\\rg-amhw.log", dir.c_str());
+    g_platform.oem = env("RG_AMHW_OEM", "AAM");
+    g_platform.vendor = env("RG_AMHW_VENDOR", "Supermicro");
+    const std::string sdir = env("RG_AMHW_DIR", dir.c_str());
+    std::snprintf(g_sram_path, sizeof g_sram_path, "%s\\mxsram.bin", sdir.c_str());
+    int kb = std::atoi(env("RG_AMHW_SRAM_KB", "2048").c_str());
+    if (kb < 256 || kb > 8192) kb = 2048;
+    g_sram.assign(static_cast<size_t>(kb) * 1024, 0);
+    char exe[MAX_PATH] = {};
+    GetModuleFileNameA(nullptr, exe, MAX_PATH);
+    rg_log("rg-amhw geladen in %s: platform %s, fabrikant %s, SRAM %d KB in %s", exe, g_platform.oem.c_str(), g_platform.vendor.c_str(), kb, g_sram_path);
+    if (env("RG_AMHW_OFF", "") == "1") { rg_log("RG_AMHW_OFF=1: niets omgezet"); return; }
+    hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
+    hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);
+    hook("KERNEL32.dll", "DeviceIoControl", rg_DeviceIoControl, g_ioctl);
+    hook("KERNEL32.dll", "CloseHandle", rg_CloseHandle, g_close);
+    hook("KERNEL32.dll", "SetFilePointer", rg_SetFilePointer, g_seek);
+    hook("KERNEL32.dll", "ReadFile", rg_ReadFile, g_read);
+    hook("KERNEL32.dll", "WriteFile", rg_WriteFile, g_write);
+    g_setup_classdevs = reinterpret_cast<SetupGetClassDevsAFn>(reinterpret_cast<void*>(GetProcAddress(LoadLibraryA("setupapi.dll"), "SetupDiGetClassDevsA")));
+    if (g_setup_classdevs) hook("SETUPAPI.dll", "SetupDiGetClassDevsA", rg_SetupDiGetClassDevsA, g_setup_classdevs);
+}
+
+}  // namespace
+
+extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_ATTACH) {
+        g_self = inst;
+        DisableThreadLibraryCalls(inst);
+        setup();
+    }
+    return TRUE;
+}

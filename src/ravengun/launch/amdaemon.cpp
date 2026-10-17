@@ -81,7 +81,7 @@ std::map<std::string, std::string> default_values(const std::string& region) {
         {"keychip.appboot.gameid", "SBUH"},           // tot 4 tekens; per game (de naam van de *_Table.dat in MACtbl, gameid.txt)
         {"keychip.appboot.modeltype", "01"},          // 1 byte hex
         {"keychip.appboot.region", region_code(region)},
-        {"keychip.appboot.platformid", "AAV"},        // tot 3 tekens
+        {"keychip.appboot.platformid", "AAM"},        // tot 3 tekens; RingWide AAM, RingEdge AAL (de game leest hem nergens terug; zie docs/research/segajvs/README.md)
         {"keychip.appboot.dvdflag", "00"},            // 1 byte hex
         {"keychip.appboot.networkaddr", "0.0.0.0"},   // inet_addr
         {"keychip.billing.keyid", "A000-00000000000"},   // tot 16 tekens
