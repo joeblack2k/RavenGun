@@ -45,9 +45,9 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T6 | Linux native, nog niet geprobeerd | America's Army Arcade, Police Trainer 2, Crossfire: Maximum Paintball | open |
 | T7 | Windows met bescherming of crash | Aliens: Extermination, Block King Ball Shooter, Cooper's 9 | Cooper's 9 start (Windowed = 1); Block King overgeslagen (Japanse tekst); Aliens: Extermination start (PeFillPages) |
 | T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 overgeslagen (Japanse tekst); Mighty Moto overgeslagen (4:3); Silent Scope: Bone Eater start; Star Trek Voyager overgeslagen (4:3); Men in Black start; rest open |
-| T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | alleen meten of een passthrough-lader (Cxbx-achtig, x86 native) haalbaar is |
+| T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | geparkeerd door de eigenaar (2026-10-17: "laat maar met Cxbx, het is het niet waard"). Laatste meting: onder GE-Proton10-34 (klassiek Wine) geen crash meer en 9-12 fps, maar zwart beeld |
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
-| geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
+| T11 | Raw Thrills / ICE | Police Trainer 2, Crossfire: Maximum Paintball (Raw Thrills-I/O, /dev/mjg en poort 0x37c); Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-17: weer open (na het parkeren van Chihiro). Walking Dead en Ghostbusters: dongle-antwoorden ontbreken in de dump; Aliens Armageddon: 16 .g6-modellen ontbreken; Police Trainer 2 en Crossfire nog niet geprobeerd |
 
 ## WORKING (41)
 
