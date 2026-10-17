@@ -13,3 +13,13 @@ Windows Registry Editor Version 5.00
 ; Let op: de prefix is de gedeelde prefix; de sleutel is van Sega's systeemlaag en wordt door geen andere game van ons gelezen.
 [HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\Static]
 "PlatformId"="ACA0"
+
+; De mountpunten die amsSystemPropertyGetMountAmfs / ...Appdata lezen (amdaemon.exe 0x140253d30 en 0x140253ea0: RegOpenKeyEx op
+; HKLM\System\SEGA\SystemProperty\mount, waarden AMFS en APPDATA). Ontbreekt de sleutel, dan faalt amSysFileInit met -5 (gemeten op de tv,
+; proef 8: "amw_nvram_context.cpp:95 amSysFileInit(). ErrCode -5"; de prefix had geen mount-sleutel). De daemon zet er "sysfile.dat" resp.
+; "<GameID>\appfile.dat" achter. GEGOKT: relatieve paden t.o.v. de werkmap van de daemon (AMDaemon\), waar TeknoParrot\AMFS en TeknoParrot\D
+; al staan (sysfile.dat van 0x6000 bytes, D\SDET\appfile.dat). Een letter als "D:\" zou door patch 0004 van onze kern naar .\TeknoParrot\D\ gaan.
+; Weigert de daemon een relatief pad ("Invalid root path"), gebruik dan een letter met [Launch] Drives of een absoluut Z:-pad.
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\mount]
+"AMFS"="TeknoParrot\\AMFS\\"
+"APPDATA"="TeknoParrot\\D\\"
