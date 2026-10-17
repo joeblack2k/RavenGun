@@ -362,6 +362,27 @@ Nu: opdracht 3 geeft status 0 (ACK).
 * **LGI, LGI3D**: de 3x `[18 03 57 ..]` ("niet nagebootst") waren precies deze EEPROM-controle; de nette stop op ~38 s hoort daarbij. Dat het bureaublad in beeld stond is een venster-kwestie (niet in `rg-amhw`).
 * **Transformers**: zwart beeld, wel JVS-verkeer en de keychip (ds/ssd uit de tabel); hetzelfde EEPROM-probleem is mogelijk de oorzaak, niet bevestigd.
 
+### Meting 9 (TV proef 12, 20:20-20:38): LGS, GG en OG spelen; SDR, Transformers, LGI en LGI3D nog niet
+
+**`mxmaster.foreground.next=<n>` [gelezen, SDR `0x6FE9F0` en `0x6FE3A6`]** is `amMasterExitA`: de game stuurt `next=3` bij het afsluiten en `amMasterCheckResponse` (status 0xD) eist dat
+`atoi(waarde)` gelijk is aan wat hij stuurde (`[ctx+0x6FC]`); bij ons antwoord `next=0` gaf dat fout -5 en probeerde de game het honderd keer (SDR 9900 verzoeken, LGI en LGI3D 10100: dat is de
+reden dat de lader pas 25-30 s na het sluiten van de JVS-pipe stopt, de "nette stop na ~37 s"). Een `size`-veld is niet nodig. De AM-daemon antwoordt nu met dezelfde waarde. Dit is dus het EINDE van
+de run, niet de oorzaak: de vraag is waarom de game begon af te sluiten.
+
+* **SDR:** de keychip-fase is goed (`systemflag`, `version`, `region` via `0x4E2361` voor het masker op `0x805A6C`; `0x4E22F0` geeft 0, dus geen 0949 via foutindex 0x10, en met record 01 en masker 0xFF ook geen
+  0903 via index 0x13). Na het eerste JVS-schakelaarpakket (20:34:03) en 3 s later sluit de game de pipe. SDR vraagt nooit keyid/ds/ssd. Waarom de hoofdlus eindigt (`0x4EB970`: bit 7 of 0x10000 in `0x348A288`,
+  of bit 0x80 in `[0x15CA798]+0x24`) is statisch niet te bepalen; een foto/regel van het scherm vlak voor het sluiten is nodig.
+* **Transformers 0949 [gemeten, geen tabelpad-kwestie]:** de tabel is de echte `fs/table/SBYR_Table.dat` (1 190 000 bytes, op het pad dat de game zelf opent; er is geen vervanging nodig). De ds-uitdaging
+  `57A141D9D40C9B` staat NIET in dat bestand, wel in de exe zelf: `TF_Gun_R_Ring_dumped.exe` bevat een ingebouwde kopie van de ds-records (87 bytes, 10000 stuks, VA `0xA40600`; de uitdaging is record 3408 op
+  `0xA88C30`) en de laadroutine (`0x686E40`..) kiest met een willekeurig bit tussen die kopie (`0x686E96`) en het bestand (`0x686EB0`). De daemon zocht alleen in het bestand, vond niets, hield de uitdaging voor
+  "willekeurig" en antwoordde met nullen; de game vergeleek wel (het was een tabelrecord) en meldde 0949. **Niet aangepast, op jouw instructie** (geen uitbreiding van ds/ssd): de aanpassing zou zijn dat de
+  AM-daemon de ds-records ook uit de exe leest (`[AmDaemon] auth.exe_table = 0xA40600`).
+* **LGI en LGI3D:** de AM-keten is nu volledig goed (SMBus/EEPROM, Super I/O, columba, mxsram: 0 regels `niet nagebootst`). Na het eerste JVS-schakelaarpakket begint de game af te sluiten (LGI: 100 ms later
+  `mxjvs: gesloten`). In `ArcadeManager::initialize` (LGI `0x6EF880`..) zet elke mislukte component een bit; het kan hier niet de keychip zijn (de ds-uitdaging van LGI staat in geen tabel en geen exe: een
+  willekeurige, onverifieerde; LGI3D kreeg een tabelantwoord). Blijft over: "Cpu Temperature High" (`0x6EF968`, bit 0x20000, uit `amHmGetCautionFlag`) of "hardware monitor setup failed" (bit 0x20). De
+  hardwaremonitor meldde overal 0, en `amHmUpdate` (`0x48DEC0`) vergelijkt temperatuur en drempels (75 en 90 graden) en leest daarvoor register 0x27 en bank 1/2 register 0x50. **Gewijzigd (gegokt):** de
+  monitor meldt nu 40 graden (register 0x27), 42 graden in bank 1 en 2 (register 0x50, bank via 0x4E) en ventilatortellers 0x40. Niet bevestigd dat dit de oorzaak was.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

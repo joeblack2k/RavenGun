@@ -162,6 +162,13 @@ int main() {
         CHECK(hw.superio_read(n1) && hw.superio_read(n2) && n1[3] == 0 && n2[3] == 0);
         uint8_t i2c[3] = {0, 0x48, 0};
         CHECK(hw.lpc_read(i2c) && i2c[2] >= 0x10 && i2c[2] < 0x70);                     // I2C-adres van de monitor binnen 0x10..0x6F
+        uint8_t t1[3] = {0, 0x27, 0}, t2[3] = {0, 0x50, 0};                                // temperaturen: 40 graden, bank 1: 42, bank 0: 0
+        CHECK(hw.lpc_read(t1) && t1[2] == 40);
+        const uint8_t bk1[3] = {0, 0x4E, 0x01};
+        CHECK(hw.lpc_write(bk1) && hw.lpc_read(t2) && t2[2] == 42);
+        const uint8_t bk0[3] = {0, 0x4E, 0x00};
+        uint8_t t3[3] = {0, 0x50, 0};
+        CHECK(hw.lpc_write(bk0) && hw.lpc_read(t3) && t3[2] == 0);
         const uint8_t lw[3] = {0, 0x4E, 0x01};
         uint8_t lr[3] = {0, 0x4E, 0};
         CHECK(hw.lpc_write(lw) && hw.lpc_read(lr) && lr[2] == 1);

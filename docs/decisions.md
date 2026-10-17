@@ -859,3 +859,7 @@ TeknoParrot" (alleen Ghostbusters en Walking Dead overgeslagen) is voor de helft
 
 Aanvulling (meting 8, proef 10): AM_SYSDATA_STATIC staat in de EEPROM (gebied 0), niet in het SRAM; de SRAM-seeding is vervangen door EEPROM-seeding. De SMBus-opdracht [18 03 57 ..] is de "EEPROM klaar?"-controle
 (ACK = status 0) en moest beantwoord worden, anders faalt elke EEPROM-actie met -8. `RG_AMHW_REGION` komt uit `[Game] PcbRegion`, anders uit de keychip-regio. Geen nieuwe keychip-cryptografie toegevoegd.
+
+Aanvulling (meting 9, proef 12): `mxmaster.foreground.next=<n>` wordt met dezelfde waarde beantwoord (amMasterExitA; een afwijkend antwoord liet de game 100 keer opnieuw proberen, waardoor de lader 25-30 s na het
+sluiten bleef hangen). De hardwaremonitor meldt gegokte rustige waarden (40/42 graden, ventilatoren) i.p.v. nullen. De Transformers-0949 komt doordat de ds-uitdaging uit een ingebouwde tabel in de exe komt; dat is
+bewust NIET opgelost (geen uitbreiding van ds/ssd zonder besluit).

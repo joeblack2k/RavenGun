@@ -40,11 +40,20 @@ constexpr size_t kEepromSize = 0x10000;
 struct HwRegs {
     uint8_t i2c[256][256];
     uint8_t lpc[2][256];
+    uint8_t lpc_bank[2][8][16];   // register 0x50..0x5F hangt van de bank in register 0x4E af (temperatuur 2 en 3)
     std::vector<uint8_t> eeprom;
 
     HwRegs() : eeprom(kEepromSize, 0xFF) {
         std::memset(i2c, 0, sizeof i2c);
         std::memset(lpc, 0, sizeof lpc);
+        std::memset(lpc_bank, 0, sizeof lpc_bank);
+        // Een hardwaremonitor die overal 0 meldt is verdacht (LGI/LGI3D stopten kort na de start, vermoedelijk op "Cpu Temperature High" of een monitorfout;
+        // niet bevestigd). Gegokte, rustige waarden in de indeling van de Winbond-achtige monitor die de games lezen (register 0x27 = temperatuur 1, bank 1 en 2
+        // register 0x50 = temperatuur 2 en 3, 0x28..0x2A = ventilatortellers): 40 graden en draaiende ventilatoren.
+        lpc[0][0x27] = 40;
+        lpc_bank[0][1][0] = 42;
+        lpc_bank[0][2][0] = 42;
+        lpc[0][0x28] = lpc[0][0x29] = lpc[0][0x2A] = 0x40;
         set_dip(0x70, 0x00);
         lpc[0][0x48] = 0x2D;   // I2C-adres van de hardwaremonitor (alleen gebruikt door type 2)
     }
@@ -88,12 +97,13 @@ struct HwRegs {
     }
     bool lpc_read(uint8_t* b) {
         if (b[0] > 1) return false;
-        b[2] = lpc[b[0]][b[1]];
+        b[2] = b[1] >= 0x50 && b[1] <= 0x5F ? lpc_bank[b[0]][lpc[b[0]][0x4E] & 7][b[1] - 0x50] : lpc[b[0]][b[1]];
         return true;
     }
     bool lpc_write(const uint8_t* b) {
         if (b[0] > 1) return false;
-        lpc[b[0]][b[1]] = b[2];
+        if (b[1] >= 0x50 && b[1] <= 0x5F) lpc_bank[b[0]][lpc[b[0]][0x4E] & 7][b[1] - 0x50] = b[2];
+        else lpc[b[0]][b[1]] = b[2];
         return true;
     }
 };
