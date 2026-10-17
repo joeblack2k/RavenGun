@@ -31,11 +31,21 @@
 //   De omzetting hier: de vier d3dx10-functies met een pHResult roepen het origineel aan en zetten daarna `*pHResult` op de uitkomst
 //   als er geen pump is (wat Windows ook doet).
 //
+// DERDE TAAK: JVS over COM3 naar de pipe (zonder de gesloten TeknoParrot-kern)
+//   Mario Kart opent zijn JVS-bord als `COM3` (CreateFileA op 0x8ac1f2, daarna SetCommState/SetCommTimeouts/SetupComm/PurgeComm en
+//   GetCommModemStatus als sense-lijn). Onder Wine is er geen COM3; de eigen brug (third_party/rg-jvsbridge) maakt \\.\pipe\TeknoParrot_JVS en
+//   de daemon is het bord erachter. Vroeger zette de gesloten kern COM3 om naar die pipe; hier doet deze DLL dat: CreateFileA op de
+//   ingestelde poort geeft een handvat op de pipe, en de comm-aanroepen op dat handvat slagen zonder iets te doen. GetCommModemStatus geeft
+//   de sense-lijn (0x10, na de adrestoekenning 0x30) uit byte 0 van het gedeelde geheugen TeknoParrot_JvsState. Alleen aan als
+//   RG_JVS_COMPORT gezet is (dropin.ini, Env). De beslislogica staat in jvs_com.h en is getoetst (tests/test_jvs_com.cpp).
+//
 // OMGEVING
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
 //   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
 //   RG_MFCAM_OFF=1   niets doen (alleen een regel in het logboek)
 //   RG_D3DX10_HRFIX=0  de pHResult-reparatie niet aanzetten
+//   RG_JVS_COMPORT    de COM-poort die het spel voor JVS opent (bv. COM3); leeg = JVS-omleiding uit
+//   RG_JVS_PIPE       de pipe van de brug (standaard \\.\pipe\TeknoParrot_JVS)
 //
 // Clean-room: alleen de openbare Media Foundation-interfaces en wat we zelf aan het spel en aan Wine gemeten hebben.
 #define WIN32_LEAN_AND_MEAN
@@ -60,6 +70,7 @@
 #include <vector>
 
 #include "../../src/ravengun/vision/camera_feed_format.h"
+#include "jvs_com.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -794,6 +805,95 @@ void setup_d3dx10_hrfix() {
     hook_d3dx10("D3DX10CreateShaderResourceViewFromMemory", &rg_SrvMem, g_srv_mem);
 }
 
+// --- JVS over COM3 naar de pipe (zie DERDE TAAK bovenaan) ---------------------------------------------------------------------------------
+char g_jvs_port[32];
+char g_jvs_pipe[128] = "\\\\.\\pipe\\TeknoParrot_JVS";
+volatile HANDLE g_jvs_handle = INVALID_HANDLE_VALUE;
+HANDLE g_jvs_map = nullptr;
+const volatile uint8_t* g_jvs_state = nullptr;
+
+using CreateFileAFn = HANDLE(WINAPI*)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+using SetCommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
+using GetCommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
+using SetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
+using GetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
+using SetupCommFn = BOOL(WINAPI*)(HANDLE, DWORD, DWORD);
+using PurgeCommFn = BOOL(WINAPI*)(HANDLE, DWORD);
+using GetCommModemStatusFn = BOOL(WINAPI*)(HANDLE, LPDWORD);
+CreateFileAFn g_create_file_a = nullptr;
+SetCommStateFn g_set_comm_state = nullptr;
+GetCommStateFn g_get_comm_state = nullptr;
+SetCommTimeoutsFn g_set_comm_timeouts = nullptr;
+GetCommTimeoutsFn g_get_comm_timeouts = nullptr;
+SetupCommFn g_setup_comm = nullptr;
+PurgeCommFn g_purge_comm = nullptr;
+GetCommModemStatusFn g_get_modem_status = nullptr;
+
+bool is_jvs(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_jvs_handle; }
+
+HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (!rg_jvscom::port_matches(name, g_jvs_port)) return g_create_file_a(name, access, share, sa, disp, flags, tmpl);
+    // De brug maakt de pipe pas als het spel hem nodig heeft of net daarvoor: even wachten tot hij er is (maximaal ~5 s).
+    HANDLE h = INVALID_HANDLE_VALUE;
+    for (int i = 0; i < 50; ++i) {
+        h = g_create_file_a(g_jvs_pipe, access, share, sa, OPEN_EXISTING, flags, nullptr);
+        if (h != INVALID_HANDLE_VALUE) break;
+        const DWORD e = GetLastError();
+        if (e == ERROR_PIPE_BUSY) WaitNamedPipeA(g_jvs_pipe, 100);
+        else Sleep(100);
+    }
+    if (h == INVALID_HANDLE_VALUE) {
+        const DWORD e = GetLastError();
+        rg_log("JVS: CreateFileA(%s) -> pipe %s NIET te openen (fout %lu)", name, g_jvs_pipe, static_cast<unsigned long>(e));
+        SetLastError(e);
+        return INVALID_HANDLE_VALUE;
+    }
+    g_jvs_handle = h;
+    rg_log("JVS: CreateFileA(%s) -> pipe %s, handvat %p", name, g_jvs_pipe, h);
+    return h;
+}
+BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_set_comm_state(h, d); }
+BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_get_comm_state(h, d); }
+BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_set_comm_timeouts(h, t); }
+BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_get_comm_timeouts(h, t); }
+BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_jvs(h) ? TRUE : g_setup_comm(h, i, o); }
+BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_jvs(h) ? TRUE : g_purge_comm(h, f); }
+BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
+    if (!is_jvs(h)) return g_get_modem_status(h, status);
+    if (!g_jvs_state) {
+        g_jvs_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+        if (g_jvs_map) g_jvs_state = static_cast<const volatile uint8_t*>(MapViewOfFile(g_jvs_map, FILE_MAP_READ, 0, 0, 64));
+    }
+    const bool addressed = g_jvs_state && g_jvs_state[0] != 0;
+    if (status) *status = rg_jvscom::modem_status(addressed);
+    return TRUE;
+}
+
+template <typename Fn>
+void hook_kernel32(const char* func, Fn repl, Fn& orig) {
+    void* old = patch_iat(GetModuleHandleW(nullptr), "KERNEL32.dll", func, reinterpret_cast<void*>(repl));
+    if (old) orig = reinterpret_cast<Fn>(old);
+    rg_log("importtabel: KERNEL32.dll!%s %s", func, old ? "omgezet (JVS-omleiding)" : "niet in het spel");
+}
+
+void setup_jvs_com() {
+    char port[32];
+    if (GetEnvironmentVariableA("RG_JVS_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // uit
+    std::snprintf(g_jvs_port, sizeof g_jvs_port, "%s", port);
+    char pipe[128];
+    if (GetEnvironmentVariableA("RG_JVS_PIPE", pipe, sizeof pipe) > 0 && pipe[0]) std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", pipe);
+    rg_log("JVS-omleiding aan: %s -> %s", g_jvs_port, g_jvs_pipe);
+    hook_kernel32("CreateFileA", &rg_CreateFileA, g_create_file_a);
+    hook_kernel32("SetCommState", &rg_SetCommState, g_set_comm_state);
+    hook_kernel32("GetCommState", &rg_GetCommState, g_get_comm_state);
+    hook_kernel32("SetCommTimeouts", &rg_SetCommTimeouts, g_set_comm_timeouts);
+    hook_kernel32("GetCommTimeouts", &rg_GetCommTimeouts, g_get_comm_timeouts);
+    hook_kernel32("SetupComm", &rg_SetupComm, g_setup_comm);
+    hook_kernel32("PurgeComm", &rg_PurgeComm, g_purge_comm);
+    hook_kernel32("GetCommModemStatus", &rg_GetCommModemStatus, g_get_modem_status);
+    if (!g_create_file_a) rg_log("JVS: CreateFileA staat niet in de importtabel van het spel; de omleiding kan niets vangen");
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Logboek naast deze DLL.
@@ -815,6 +915,7 @@ void setup() {
     WideCharToMultiByte(CP_UTF8, 0, g_source, -1, src8, MAX_PATH, nullptr, nullptr);
     rg_log("rg-mfcam geladen in %s (camerabestand %s, %d fps)", exe, src8, g_fps);
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
+    setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
