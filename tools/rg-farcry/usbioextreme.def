@@ -1,0 +1,31 @@
+LIBRARY Usbioextreme.dll
+EXPORTS
+    ??0CUSBIO@@QAE@XZ = rg_ctor @1
+    ??1CUSBIO@@QAE@XZ = rg_close @2
+    ??4CEnumerator@@QAEAAV0@ABV0@@Z = rg_assign_enum @3
+    ??4CUSBIO@@QAEAAV0@ABV0@@Z = rg_assign_usbio @4
+    ?CUSBIO_Close@CUSBIO@@QAEXXZ = rg_close @5
+    ?CUSBIO_GetLastError@CUSBIO@@QAEPADH@Z = rg_lasterror @6
+    ?CUSBIO_Init@CUSBIO@@QAEHXZ = rg_init @7
+    ?CUSBIO_Update@CUSBIO@@QAEXH@Z = rg_update @8
+    ?CloseHidDevice@CEnumerator@@QAEXPAU_HID_DEVICE@@@Z = rg_enum_close_hid @9
+    ?FindHidDevice@CEnumerator@@QAE_NPAPAU_HID_DEVICE@@PAK@Z = rg_enum_find_hid @10
+    ?GetCoinCounterMode@CUSBIO@@QAEEHE@Z = rg_get_coin_counter_mode @11
+    ?GetCoinMultiplier@CUSBIO@@QAEEHE@Z = rg_get_coin_multiplier @12
+    ?GetCoinPulseTime@CUSBIO@@QAEGH@Z = rg_get_coin_pulse_time @13
+    ?GetEncoderScale@CUSBIO@@QAEEH@Z = rg_get_encoder_scale @14
+    ?GetEncoderThreadState@CUSBIO@@QAEHXZ = rg_get_encoder_thread_state @15
+    ?GetID@CUSBIO@@QAEEH@Z = rg_get_id @16
+    ?GetInputMode@CUSBIO@@QAEEH@Z = rg_get_input_mode @17
+    ?GetMechanicalCoinMultiplier@CUSBIO@@QAEEHE@Z = rg_get_mech_coin_multiplier @18
+    ?OpenHidDevice@CEnumerator@@AAEEPAXPAU_SP_DEVICE_INTERFACE_DATA@@PAU_HID_DEVICE@@@Z = rg_enum_open_hid @19
+    ?ReadSPIMemory@CUSBIO@@QAEXHEPAE@Z = rg_read_spi @20
+    ?SetCoinCounterMode@CUSBIO@@QAEXHEE@Z = rg_set_coin_counter_mode @21
+    ?SetCoinMultiplier@CUSBIO@@QAEXHEE@Z = rg_set_coin_multiplier @22
+    ?SetCoinPulseTime@CUSBIO@@QAEXHG@Z = rg_set_coin_pulse_time @23
+    ?SetEncoderScale@CUSBIO@@QAEXHE@Z = rg_set_encoder_scale @24
+    ?SetEncoderThreadState@CUSBIO@@QAEXH@Z = rg_set_encoder_thread_state @25
+    ?SetInputMode@CUSBIO@@QAEXHE@Z = rg_set_input_mode @26
+    ?SetMechanicalCoinMultiplier@CUSBIO@@QAEXHEE@Z = rg_set_mech_coin_multiplier @27
+    ?SetOutputValue@CUSBIO@@QAEXHEEE@Z = rg_set_output_value @28
+    ?WriteSPIMemory@CUSBIO@@QAEXHEPAE@Z = rg_write_spi @29

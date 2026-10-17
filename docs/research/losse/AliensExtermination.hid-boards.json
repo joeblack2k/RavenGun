@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "comment": "FALLBACK (route B) voor Aliens Extermination: de twee geweren als virtuele joysticks (uinput), zonder haak-DLL en zonder lader. De game vraagt zijn geweren via winmm!joyGetPosEx(0) en (1) (gemeten uit 'aliens dehasped.exe', docs/research/losse/AliensExtermination.md); Wine geeft uinput-joysticks daaraan door. NIET in packaging/hid-boards.json gezet: dit is een kandidaat. Nadelen tegenover de haak-DLL (route A): (1) munt, start, test en volume komen in de game uit het TOETSENBORD (GetAsyncKeyState), niet van de joystick, dus die moeten via [Input] CoinKeys of de eigenaar komen; (2) wine_joystick_zero (src/ravengun/launch/direct_util.cpp) kent maar een VID:PID, dus speler 2 krijgt een willekeurig vrij joystick-id en is niet gegarandeerd id 1; (3) de HID-melding op het opstartscherm blijft staan, tenzij VID 04B4 / PID 6870 wordt gebruikt zoals hieronder (dan ziet de game het wel als zijn geweer). Kalibratie: de game zet zijn ruwe 16-bits waarden met zijn eigen min/max (ABH.ADJ); de assen lopen hier -32767..32767 en winmm schaalt dat naar 0..65535, wat de meegeleverde ABH.ADJ van speler 1 (0..65535) precies dekt.",
+  "boards": {
+    "AliensGun1": {
+      "description": "Aliens Extermination, geweer van speler 1 als joystick 0: X = horizontaal, Y = verticaal (dwXpos, dwYpos), knop 0 = trekker (spelmasker 0x10), knop 1 = special/granaat (0x20), knop 2 = vlam (0x40). VID/PID zijn die van het echte geweer (Cypress 04B4:6870), zodat de HID-telling van het opstartscherm hem ook ziet.",
+      "transport": "uinput",
+      "name": "RavenGun Aliens Gun 1",
+      "vendor": 1204,
+      "product": 26736,
+      "version": 1,
+      "button_count": 3,
+      "axes": [
+        { "name": "X", "signal": "p1.x", "min": -32767, "max": 32767 },
+        { "name": "Y", "signal": "p1.y", "min": -32767, "max": 32767 }
+      ],
+      "buttons": [
+        { "index": 0, "signal": "p1.trigger" },
+        { "index": 1, "signal": "p1.grenade" },
+        { "index": 2, "signal": "p1.aux1" }
+      ]
+    },
+    "AliensGun2": {
+      "description": "Aliens Extermination, geweer van speler 2 als joystick 1 (zelfde indeling als AliensGun1). Zelfde VID/PID als speler 1, zoals twee echte geweren; let op dat het joystick-id van de prefix dan niet door VID:PID te onderscheiden is.",
+      "transport": "uinput",
+      "name": "RavenGun Aliens Gun 2",
+      "vendor": 1204,
+      "product": 26736,
+      "version": 1,
+      "button_count": 3,
+      "axes": [
+        { "name": "X", "signal": "p2.x", "min": -32767, "max": 32767 },
+        { "name": "Y", "signal": "p2.y", "min": -32767, "max": 32767 }
+      ],
+      "buttons": [
+        { "index": 0, "signal": "p2.trigger" },
+        { "index": 1, "signal": "p2.grenade" },
+        { "index": 2, "signal": "p2.aux1" }
+      ]
+    }
+  }
+}
