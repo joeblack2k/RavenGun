@@ -793,6 +793,51 @@ cd ~/projects/ravengun && python3 scripts/hasp.py --game <Game> --json    # ok: 
 python3 scripts/launch-direct.py <Game> --plan                            # kijk naar de dropins-regel
 ```
 
+## Bediening per game (`[Controls]`)
+
+Een lightgun-game gebruikt niet alle knoppen van de lightgun-laag (trekker, reload, grenade, aux1, aux2). `[Controls]` in `game.ini`
+zegt welke de game gebruikt, wat ze in die game doen (voor het scherm "Press the button for: Reload") en welke Move-knop de speler
+ervoor koos. Eén sectie, drie soorten sleutels (`src/ravengun/gamesettings/controls_settings.*`, getest in `tests/test_controls.cpp`):
+
+```
+[Controls]
+trigger   = Shoot | Fires the gun.            ; <signaal> = Label | Uitleg  (meegeleverd, Engels: het is app-tekst)
+reload    = Reload | Reloads your weapon.
+grenade   = Grenade | Throws a grenade.
+offscreen = Reload off-screen | Point the gun away from the screen to reload.
+P1.Cross  = grenade                           ; P<n>.<knop> = <signaal>     (gebruikerslaag: de keuze van speler n)
+P1.Square = none
+Confirmed = true                              ; de speler heeft de rondgang doorlopen en bevestigd (zet de app)
+```
+
+- **Signalen** (`kControlSignals`): `trigger` (de analoge T-knop van de Move; alleen uitleg), `offscreen` (buiten het beeld richten;
+  alleen uitleg), en toewijsbaar `reload`, `grenade`, `aux1`, `aux2`, `start` (de Start-toets van de speler) en `coin` (toets 5).
+  Elk toewijsbaar signaal is een actie van de knoppenindeling (`config::check_gun_action`): `reload`, `grenade`, `aux1`, `aux2`,
+  `key:<speler>`, `key:5`. Een onbekend signaal geeft een waarschuwing en telt niet; een lege waarde haalt een signaal weg (zoals overal).
+- **Label | Uitleg**: gesplitst op de eerste `|`; zonder `|` is alles het label. Een label dat niet bevestigd is, zegt dat eerlijk
+  ("Used by the game; exact function not confirmed yet."). Een game noemt alleen de signalen die ze echt gebruikt: de indeling
+  (`tp-shm-profiles.json`) heeft er vaak meer dan de game.
+- **Keuzes**: `P<n>.<knop> = <waarde>`, n = 1..4, knop = `Triangle`, `Circle`, `Cross`, `Square`, `Select`, `Start`, `Move` (hoofdletters
+  maken niet uit; de PS-knop is altijd recenter en T is de trekker). De waarde is een toewijsbaar signaal, `none`, `recenter` of
+  `key:<naam>`. Een knop zonder keuze houdt zijn plek in de globale indeling (Move-instellingen), dus **zonder `P<n>.*` verandert niets**.
+- **Toepassen** (daemon): bij de start van elke route (native, direct, Unity) roept `games.cpp` `set_controls(profiel)` aan, naast
+  `set_aim_aspect`. `main.cpp` leest de samengevoegde `game.ini`, zet per speler de paren (knop, actie) in `SharedState::game_controls`
+  en past ze live toe (`apply_game_controls` in `commands.cpp`: globale indeling van die speler plus `config::with_gun_overrides`,
+  dan `MoveSlot::set_gun_buttons`). Een Move die tijdens de game wordt toegewezen krijgt ze via `MoveSlot::configure`. `stop_inputs`
+  (stoppen, mislukte start) zet de globale indeling terug. Heeft geen enkele speler een keuze en was er ook geen, dan doet de daemon niets.
+  De keuzes staan nooit in `config.json`; wijzigt de gebruiker tijdens een game de globale knoppen met `set_gun_buttons`, dan geldt
+  dat tot de volgende start.
+- **App**: `ControlsSetup::needsSetup(profiel)` (= `controls_need_setup`) is waar bij een game met minstens een toewijsbaar signaal
+  en zonder `Confirmed`. De widget `ControlsSetup` (`src/app/widgets/`) loopt de signalen langs (uitleg en "Press the button for: ..."),
+  luistert via de `watch`-stroom (`AimStream`, lite) naar de Move-knop (muis en toetsenbord kunnen ook), laat bevestigen en schrijft
+  met `save_user_controls`: de keuzes voor speler 1 (en 2..4 als "same buttons for every player" aanstaat, standaard) plus `Confirmed
+  = true`. Kiest de speler een knop voor een signaal dat al een andere knop had, dan krijgt de oude knop `none` (tenzij hij voor iets
+  anders gekozen is). **Properties > Controls** toont de signalen met de gekozen knop, "Set up controls..." en "Reset to defaults"
+  (`reset_user_controls`: wist `P<n>.*` en `Confirmed`).
+- **Geen lightgun-game** (Mario Kart): geen `[Controls]`, geen rondgang. Die bediening staat in `[Gamepad]` (docs/gamepad.md) en in de
+  opties; Properties > Controls verwijst ernaar.
+- Voorstel voor alle games: `docs/research/controls-per-game.ini` (nog niet in `patches/`).
+
 ## Zoals Dolphin
 
 Het model is Dolphin's GameSettings; dit zijn de overeenkomsten en de enige uitzondering:

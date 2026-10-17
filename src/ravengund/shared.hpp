@@ -11,6 +11,8 @@
 #include <future>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 #include <time.h>
 
 #include "ravengun/core/input_model.hpp"
@@ -192,10 +194,22 @@ public:
     GamepadService* gamepad = nullptr;
     // Bit p-1 gezet: de rumble van speler p komt uit de game (Recoil-vlag van de plugin) in plaats van uit de trekker.
     std::atomic<unsigned> game_rumble_mask{0};
+    // Per-game knopkeuzes ([Controls] in game.ini) per speler: (Move-knop, actie) over de globale indeling heen. Leeg = de globale
+    // indeling. Gezet bij de start van een game en gewist bij stoppen; MoveSlot::configure legt ze ook op een nieuw toegewezen Move.
+    std::vector<std::pair<std::string, std::string>> game_controls(int player) const {
+        std::lock_guard<std::mutex> g(controls_m_);
+        return controls_[static_cast<size_t>(clamp_player(player) - 1)];
+    }
+    void set_game_controls(int player, std::vector<std::pair<std::string, std::string>> v) {
+        std::lock_guard<std::mutex> g(controls_m_);
+        controls_[static_cast<size_t>(clamp_player(player) - 1)] = std::move(v);
+    }
     // Aantal Recoil-vlaggen per speler (door de klantthread opgehoogd, door de HID-thread gelezen).
     std::array<std::atomic<uint64_t>, kPlayers> game_recoil{};
 
 private:
+    mutable std::mutex controls_m_;
+    std::array<std::vector<std::pair<std::string, std::string>>, kPlayers> controls_{};
     mutable std::mutex m_;
     std::array<Snapshot, kPlayers> snap_{};
     std::array<ravengun::core::OpticalSample, kPlayers> optical_{};

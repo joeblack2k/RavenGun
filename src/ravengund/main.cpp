@@ -17,8 +17,10 @@
 #include "aagames_service.hpp"
 #include "iobridge_service.hpp"
 #include "camera.hpp"
+#include "commands.hpp"
 #include "controllers.hpp"
 #include "ravengun/games/aagames.hpp"
+#include "ravengun/gamesettings/controls_settings.hpp"
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/routes.hpp"
@@ -529,7 +531,22 @@ int main(int argc, char** argv) {
             shared.output->set_transform(t);
             logf("info", "games: aim-ruimte %s", a > 0 ? ("op het beeld van het spel (" + std::to_string(a).substr(0, 5) + ")").c_str() : "standaard");
         };
+        // [Controls] per game: de Move-knoppen van de gebruiker voor deze game over de indeling heen (apply_game_controls); stoppen zet
+        // de globale indeling terug. Een game zonder keuzes laat alles zoals het is.
+        games_cfg.set_controls = [&shared, dirs = games_cfg.dirs](const std::string& profile) {
+            std::array<std::vector<std::pair<std::string, std::string>>, ravengund::kPlayers> per;
+            const auto g = ravengun::gamesettings::load_game(dirs, profile);
+            for (int p = 1; p <= ravengund::kPlayers; ++p) {
+                std::vector<std::string> warn;
+                per[static_cast<size_t>(p - 1)] = ravengun::gamesettings::controls_overrides(g.settings, p, &warn);
+                for (const auto& w : warn) logf("waarschuwing", "games: %s: %s", profile.c_str(), w.c_str());
+            }
+            ravengund::apply_game_controls(shared, per);
+            for (int p = 1; p <= ravengund::kPlayers; ++p)
+                if (!per[static_cast<size_t>(p - 1)].empty()) logf("info", "games: eigen knoppen van %s voor speler %d (%zu)", profile.c_str(), p, per[static_cast<size_t>(p - 1)].size());
+        };
         games_cfg.stop_inputs = [&shared, basis_transform] {
+            ravengund::apply_game_controls(shared, {});   // de globale knoppenindeling terug (doet niets als er geen eigen knoppen waren)
             if (shared.iobridge) shared.iobridge->stop();
             if (shared.aagames) shared.aagames->stop();   // de TCP-klant van de Unity-plugin
             if (shared.output) {

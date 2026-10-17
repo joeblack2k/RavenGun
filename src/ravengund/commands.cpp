@@ -705,6 +705,25 @@ std::string handle_set_controller(SharedState& sh, const ipc::Request& r) {
 
 }  // namespace
 
+void apply_game_controls(SharedState& sh, const std::array<std::vector<std::pair<std::string, std::string>>, kPlayers>& per_player) {
+    for (int p = 1; p <= kPlayers; ++p) {
+        const auto& ov = per_player[static_cast<size_t>(p - 1)];
+        // Geen keuzes nu en geen eerdere: er verandert niets (de indeling blijft precies zoals de gebruiker hem had).
+        if (ov.empty() && sh.game_controls(p).empty()) continue;
+        sh.set_game_controls(p, ov);
+        config::GunButtonSettings g;
+        if (sh.settings) {
+            const config::Settings s = sh.settings->get();
+            g = config::effective(s, config::move_for_player(s, p)).gun_buttons;
+        }
+        const output::LiveButtonMap pm = output::build_live_map(config::with_gun_overrides(g, ov));
+        std::string err;
+        run_for(sh, p, [pm](HidContext& h) { h.set_gun_buttons(pm); return std::string("1"); }, err);   // geen Move op die plek: configure() doet het later
+        if (sh.output) sh.output->set_layout(p, pm.layout);
+    }
+    if (sh.output) sh.output->release_all();   // een toets die net een andere functie kreeg mag niet blijven hangen
+}
+
 std::string execute_command(SharedState& sh, const ipc::Request& r) {
     std::string err;
     // Per-controller-opdrachten: voor welke speler/controller (zie Target).

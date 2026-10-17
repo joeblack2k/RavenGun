@@ -203,6 +203,8 @@ bool parseAimEvent(const QJsonObject& line, AimState* out) {
         if (b.toString() == QStringLiteral("ps")) s.ps = true;
     }
     s.triggerPresses = pressed.value(QStringLiteral("t")).toInt();
+    for (auto it = pressed.begin(); it != pressed.end(); ++it)
+        if (it.value().toInt() > 0) s.pressed << it.key();
     if (s.link == QStringLiteral("disconnected") || s.link == QStringLiteral("lost")) s.valid = false;
     *out = s;
     return true;
@@ -249,7 +251,7 @@ void AimStream::connectNow() {
 
 void AimStream::subscribe() {
     QJsonObject o{{QStringLiteral("v"), 1}, {QStringLiteral("cmd"), QStringLiteral("watch")}, {QStringLiteral("rate_hz"), 60},
-                  {QStringLiteral("player"), 1}, {QStringLiteral("id"), lite_ ? 1 : 2}};
+                  {QStringLiteral("player"), player_}, {QStringLiteral("id"), lite_ ? 1 : 2}};
     if (lite_) o.insert(QStringLiteral("lite"), true);
     sock_.write(QJsonDocument(o).toJson(QJsonDocument::Compact) + '\n');
 }
@@ -270,6 +272,7 @@ void AimStream::onReadyRead() {
             if (bigpicture::parseAimEvent(o, &s)) {
                 // Flanken optellen over frames die in één keer binnenkomen.
                 s.triggerPresses += changed ? state_.triggerPresses : 0;
+                if (changed) s.pressed += state_.pressed;
                 state_ = s;
                 changed = true;
             }

@@ -5,6 +5,7 @@
 #include <QComboBox>
 #include <QCompleter>
 #include <QDesktopServices>
+#include <QDialog>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -33,7 +34,9 @@
 #include "core/GameOptions.h"
 #include "core/Launcher.h"
 #include "core/TextConfig.h"
+#include "widgets/ControlsSetup.h"
 #include "widgets/QtUtils.h"
+#include "ravengun/gamesettings/controls_settings.hpp"
 #include "ravengun/gamesettings/gamepad_settings.hpp"
 
 namespace rg::ui {
@@ -183,6 +186,7 @@ PropertiesDialog::PropertiesDialog(rg::AppCore* core, const rg::GameEntry& game,
 
     AddWrappedPane(MakeGeneralPane(), tr("General"));
     AddWrappedPane(MakeOptionsPane(), tr("Options"));
+    AddWrappedPane(MakeControlsPane(), tr("Controls"));
     AddWrappedPane(MakeDisplayPane(), tr("Display"));
     AddWrappedPane(MakePatchesPane(), tr("Patches"));
     AddPane(MakeMemoryCardPane(), tr("Memory Card"));
@@ -307,6 +311,86 @@ QWidget* PropertiesDialog::MakeGeneralPane() {
     note_edit_->setMaximumHeight(90);
     nl->addWidget(note_edit_);
     v->addWidget(notes);
+    v->addStretch(1);
+    return w;
+}
+
+// Controls: de bediening van een lightgun-game ([Controls] in game.ini, docs/per-game-patches.md): wat elke knop van de game doet en welke
+// Move-knop de speler ervoor koos (speler 1). "Set up controls..." start de rondgang (ControlsSetup); bij een gamepadgame (Mario Kart)
+// is er niets te kiezen en verwijst het tabblad naar de gamepad-indeling in General.
+QWidget* PropertiesDialog::MakeControlsPane() {
+    namespace gs = ravengun::gamesettings;
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    const QString prof = ctx_.profile;
+    const gs::Game g = gs::load_game(core_->gameData()->dirs(), prof.toStdString());
+    const gs::ControlsInfo ci = gs::controls_info(g.settings);
+    if (ci.entries.empty()) {
+        const bool pad = g.settings.section("Gamepad") != nullptr;
+        v->addWidget(hintLabel(pad ? tr("This game is played with a gamepad (or the Steam Controller, or an Xbox/PlayStation pad through Steam Input). "
+                                        "Set its buttons under Gamepad in General and its options under Options.")
+                                   : tr("This game has no lightgun buttons to set up.")));
+        v->addStretch(1);
+        return w;
+    }
+    auto* box = new QGroupBox(tr("Lightgun buttons"));
+    auto* bl = new QVBoxLayout(box);
+    bl->addWidget(hintLabel(tr("What each button does in this game, and the PS Move button you chose for it (player 1). Without a choice "
+                               "the buttons of your global button layout apply. Applies from the next start of the game.")));
+    controls_tree_ = new QTreeWidget;
+    controls_tree_->setHeaderLabels({tr("Action"), tr("What it does"), tr("Move button")});
+    controls_tree_->setRootIsDecorated(false);
+    controls_tree_->setSelectionMode(QAbstractItemView::NoSelection);
+    const auto ov = gs::controls_overrides(g.settings, 1);
+    for (const auto& s : ci.entries) {
+        auto* it = new QTreeWidgetItem(controls_tree_);
+        it->setText(0, QString::fromStdString(s.label));
+        it->setText(1, QString::fromStdString(s.explanation));
+        QString btn;
+        if (s.signal == "trigger") btn = tr("Trigger");
+        else if (s.signal == "offscreen") btn = tr("Aim off-screen");
+        else {
+            const std::string action = gs::control_action(s.signal, 1);
+            QStringList names;
+            for (const auto& kv : ov) if (kv.second == action) names << QString::fromStdString(rg::ControlsWalk::buttonName(kv.first));
+            btn = names.isEmpty() ? tr("Default") : names.join(QStringLiteral(" + "));
+        }
+        it->setText(2, btn);
+    }
+    for (int c = 0; c < 3; ++c) controls_tree_->resizeColumnToContents(c);
+    controls_tree_->setMinimumHeight(std::min(320, 28 + 24 * static_cast<int>(ci.entries.size())));
+    bl->addWidget(controls_tree_);
+    auto* row = new QHBoxLayout;
+    auto* setup = new QPushButton(tr("Set up controls..."));
+    auto* reset = new QPushButton(tr("Reset to defaults"));
+    row->addWidget(setup);
+    row->addWidget(reset);
+    row->addStretch(1);
+    bl->addLayout(row);
+    bl->addWidget(hintLabel(g.settings.has(gs::kControlsSection, "Confirmed") && ci.confirmed ? tr("You have set up the controls for this game.")
+                                                                                              : tr("The controls of this game have not been set up yet.")));
+    connect(setup, &QPushButton::clicked, this, [this, prof] {
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Set up controls"));
+        auto* lay = new QVBoxLayout(&dlg);
+        lay->setContentsMargins(0, 0, 0, 0);
+        auto* cs = new ControlsSetup(core_, prof, &dlg);
+        cs->setGameTitle(game_.displayName());
+        lay->addWidget(cs);
+        connect(cs, &ControlsSetup::finished, &dlg, [&dlg](bool ok) { ok ? dlg.accept() : dlg.reject(); });
+        dlg.resize(1100, 720);
+        // Het tabblad wordt niet opnieuw opgebouwd; na heropenen van Properties staan de nieuwe knoppen er.
+        if (dlg.exec() == QDialog::Accepted)
+            QMessageBox::information(this, tr("Controls"), tr("The new buttons apply from the next start of the game. Reopen Properties to see them here."));
+    });
+    connect(reset, &QPushButton::clicked, this, [this, prof] {
+        std::string err;
+        if (!gs::reset_user_controls(core_->gameData()->dirs(), prof.toStdString(), &err))
+            QMessageBox::warning(this, tr("Controls"), tr("Could not reset the controls: %1").arg(QString::fromStdString(err)));
+        else
+            QMessageBox::information(this, tr("Controls"), tr("The controls are back to the defaults. The walkthrough will be offered again."));
+    });
+    v->addWidget(box);
     v->addStretch(1);
     return w;
 }

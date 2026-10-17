@@ -63,6 +63,8 @@ MoveSlot::MoveSlot(int player, SharedState& sh, const HidOptions& base)
 void MoveSlot::configure(const std::string& address, const config::Settings& eff, const std::set<std::string>& cli_keys) {
     HidOptions o = opt_;
     apply_settings_to_options(eff, cli_keys, player_, o);
+    // Per-game knoppen ([Controls]) gelden ook voor een Move die tijdens de game wordt toegewezen.
+    if (const auto ov = sh_.game_controls(player_); !ov.empty()) o.gun_buttons = output::build_live_map(config::with_gun_overrides(eff.gun_buttons, ov));
     assigned_ = address;
     const auto& f = o.pipeline.filter;
     const auto& cf = pipe_.config().filter;

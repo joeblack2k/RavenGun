@@ -160,6 +160,17 @@ std::string check_gun_action(const std::string& action, std::string& canon) {
     return "onbekende actie '" + action + "' (reload, grenade, aux1, aux2, recenter, key:<naam> of none)";
 }
 
+GunButtonSettings with_gun_overrides(const GunButtonSettings& g, const std::vector<std::pair<std::string, std::string>>& overrides) {
+    GunButtonSettings out = g;
+    const auto& known = gun_map_buttons();
+    for (const auto& kv : overrides) {
+        std::string canon;
+        if (std::find(known.begin(), known.end(), kv.first) == known.end() || !check_gun_action(kv.second, canon).empty()) continue;
+        out.map[kv.first] = canon;
+    }
+    return out;
+}
+
 std::string validate_controllers(const Settings& s);
 
 // ---------------- Per-controller-instellingen ----------------

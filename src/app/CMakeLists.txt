@@ -12,6 +12,7 @@ set(CMAKE_AUTORCC ON)
 add_library(ravengun_app_core STATIC
   core/AppCore.cpp
   core/AppPaths.cpp
+  core/ControlsWalk.cpp
   core/DongleStatus.cpp
   core/BigPicture.cpp
   core/EngineClient.cpp
@@ -33,6 +34,7 @@ add_library(ravengun_app_core STATIC
   "${PROJECT_SOURCE_DIR}/src/ravengun/launch/gamefolder.cpp"
   # De gamepad-indeling per game ([Gamepad] in game.ini; Properties en Controller Settings): dezelfde code als de engine.
   "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamepad_settings.cpp"
+  "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/controls_settings.cpp"
   "${PROJECT_SOURCE_DIR}/src/ravengun/output/gamepad.cpp")
 target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(ravengun_app_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
@@ -53,6 +55,7 @@ file(WRITE "${_rg_qrc}" "${_rg_qrc_body}")
 add_library(ravengun_app_widgets STATIC
   widgets/BigPictureWindow.cpp
   widgets/ControllersWindow.cpp
+  widgets/ControlsSetup.cpp
   widgets/CreateProfileDialog.cpp
   widgets/GameList.cpp
   widgets/MainWindow.cpp
