@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "amhw_table.h"
+
 #include "amhw_dmi.h"
 #include "amhw_jvs.h"
 
@@ -129,6 +131,12 @@ int main(int argc, char** argv) {
         check(t != INVALID_HANDLE_VALUE, "een ontbrekende SBZZ_Table.dat opent via de vervanging");
         DWORD sz = t != INVALID_HANDLE_VALUE ? GetFileSize(t, nullptr) : 0;
         check(sz == 1190000, "de vervanging is 1190000 bytes");
+        {   // dezelfde bytes als de AM-daemon van rg-direct genereert (amhw_table.h), anders klopt het keychip-antwoord niet met de tabel van de game
+            std::vector<uint8_t> got(sz);
+            DWORD rd = 0;
+            if (t != INVALID_HANDLE_VALUE) ReadFile(t, got.data(), sz, &rd, nullptr);
+            check(rd == sz && got == rg_amhw::fake_table("SBZZ_Table.dat"), "de vervanging is byte voor byte rg_amhw::fake_table");
+        }
         if (t != INVALID_HANDLE_VALUE) CloseHandle(t);
         const std::wstring wmissing(missing.begin(), missing.end());
         HANDLE tw = CreateFileW(wmissing.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0x80, nullptr);

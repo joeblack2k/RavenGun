@@ -11,7 +11,12 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
+
+#include "../../../tools/rg-amhw/amhw_table.h"
 
 namespace ravengun::launch::amd {
 
@@ -98,6 +103,45 @@ std::map<std::string, std::string> default_values(const std::string& region) {
     };
 }
 
+struct AuthState {
+    bool tried = false;
+    std::unique_ptr<rg_amhw::AuthTable> table;
+    std::string source;
+};
+
+Responder::Responder(std::map<std::string, std::string> values, std::vector<std::string> table_dirs)
+    : values_(std::move(values)), table_dirs_(std::move(table_dirs)), auth_(std::make_shared<AuthState>()) {}
+
+static bool read_file(const std::string& path, std::vector<uint8_t>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    out.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    return true;
+}
+
+// Zoekt de tabel van deze game, eenmalig. Een bestand van de verkeerde grootte telt niet (de game leest het ook niet als tabel).
+static void load_table(AuthState& st, const std::map<std::string, std::string>& values, const std::vector<std::string>& dirs) {
+    st.tried = true;
+    std::string id = "SBUH";
+    if (auto it = values.find("keychip.appboot.gameid"); it != values.end()) id = it->second;
+    const std::string name = id + "_Table.dat";
+    std::vector<std::string> candidates;
+    if (auto it = values.find("auth.table"); it != values.end()) candidates.push_back(it->second);
+    for (const std::string& d : dirs) candidates.push_back(d + "/" + name);
+    for (const std::string& path : candidates) {
+        std::vector<uint8_t> data;
+        if (read_file(path, data) && data.size() == rg_amhw::kTableSize) {
+            st.table = std::make_unique<rg_amhw::AuthTable>(std::move(data));
+            st.source = path;
+            return;
+        }
+    }
+    st.table = std::make_unique<rg_amhw::AuthTable>(rg_amhw::fake_table(name));
+    st.source = "vervangende tabel (zoals rg-amhw.dll hem maakt) voor " + name + "; geen bestand gevonden";
+}
+
+std::string Responder::table_source() const { return auth_ && auth_->tried ? auth_->source : std::string(); }
+
 Reply Responder::answer(const Request& r) const {
     Reply out;
     if (!r.valid) { out.note = "ongeldig verzoek: " + r.error; return out; }
@@ -110,6 +154,27 @@ Reply Responder::answer(const Request& r) const {
         auto it = values_.find("mxmaster.foreground.getcount.count");
         out.line = key + "=" + mode + "&count=" + (it == values_.end() ? "1" : it->second);
         out.known = true;
+        return out;
+    }
+    if (key == "keychip.ds.compute" || key == "keychip.ssd.proof") {
+        // De game vergelijkt het antwoord met een waarde uit zijn <spel-id>_Table.dat (zie amhw_table.h). Een uitdaging die niet in de tabel staat is een
+        // willekeurige: daar vergelijkt de game niet, elk antwoord van de juiste lengte (40 hexcijfers ds, 32 hexcijfers ssd) is goed.
+        const bool ds = key == "keychip.ds.compute";
+        const std::string chal = u.has_value && !u.query ? u.value : std::string();
+        if (chal.empty() || !auth_) { out.note = "uitdaging ontbreekt"; return out; }
+        if (!auth_->tried) load_table(*auth_, values_, table_dirs_);
+        int page = 0;
+        if (const Unit* pg = r.find("page"); pg && pg->has_value && !pg->value.empty() && std::all_of(pg->value.begin(), pg->value.end(), [](unsigned char c) { return std::isdigit(c); }))
+            page = std::atoi(pg->value.c_str());
+        std::string ans = ds ? auth_->table->ds(chal, page) : auth_->table->ssd(chal);
+        out.known = true;
+        if (ans.empty()) {
+            ans = std::string(ds ? 40 : 32, '0');
+            out.note = "uitdaging niet in de tabel (willekeurig; de game vergelijkt niet)";
+        } else {
+            out.note = "antwoord uit de tabel (" + auth_->source + ")";
+        }
+        out.line = key + "=" + ans;
         return out;
     }
     if (key == "request") {
@@ -201,6 +266,7 @@ void Listener::handle_line(Conn& c, const std::string& line) {
     if (n <= 3 || n % 100 == 0 || !rep.known) {
         std::string m = "AM-daemon :" + std::to_string(c.port) + " <- " + line + "  -> " + (rep.line.empty() ? std::string("(geen antwoord)") : rep.line);
         if (!rep.known) m += "  [ONBEKEND" + (rep.note.empty() ? std::string() : ": " + rep.note) + "]";
+        else if (!rep.note.empty()) m += "  [" + rep.note + "]";
         if (n > 3) m += "  (#" + std::to_string(n) + ")";
         say(m);
     }
