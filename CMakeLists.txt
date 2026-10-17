@@ -410,6 +410,9 @@ if(RAVENGUN_BUILD_TESTS)
     # Het profiel van een Unity-game voor de scripts (scripts/unityprofile.py): lagen, mapnaam in de gamemappen, eigen pad, kapot = fout.
     add_test(NAME ravengun_unityprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_unityprofile.py")
     add_test(NAME ravengun_aagames_schrijfpaden COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_aagames_schrijfpaden.py")
+    # De BepInEx-plugins van de WartranTroopers-familie (plugins/bepinex/shared/Bordbeeld.cs) lezen het bordbeeld zelf: hun tabel is
+    # precies het profiel WartranTroopers uit packaging/tp-shm-profiles.json, en de plugins gebruiken alleen die tabel.
+    add_test(NAME ravengun_bepinex_bordbeeld COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_bepinex_bordbeeld.py")
   endif()
   # Het statusbord van de tv (ravengun --saver): ontbreekt het statusbestand of staat er onzin in, dan zegt het bord dat; een status
   # die niet klopt wordt niet geschreven; en "draait er nu een spel" (zichtbaar, onzichtbaar, geen). Skip (77) zonder app-build.
@@ -432,6 +435,12 @@ if(RAVENGUN_BUILD_TESTS)
   # en de tabellen van NERF. Geen spel nodig. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_rio_bridge COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rio_bridge_test.sh")
   set_tests_properties(ravengun_rio_bridge PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-adrio (tools/rg-adrio): de eigen KaboomAdrioFxPlusFourFeeders64.dll (Rampage; niet te verwarren met tools/rg-kaboom, het
+  # seriele Kaboom-bord van Infinity Blade FX). De rekenkern: de tabel per game lezen en in zijn geheel afkeuren, het voorbeeld is de
+  # standaard, bordbeeld naar paneel, spelersknoppen en muntentellers (flanken), en de meegeleverde tabellen in patches/. Geen spel
+  # en geen Windows nodig. Skip (77) zonder C-compiler.
+  add_test(NAME ravengun_adrio COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/adrio_test.sh")
+  set_tests_properties(ravengun_adrio PROPERTIES SKIP_RETURN_CODE 77)
   # De RIO-brug als USB-bord (32-bits): een nep-game zonder PIE met vier pmrt_usb-functies en een xrtea; handvat, trampolines,
   # rapport type 2 met tellers, kanaal en controlesom, met en zonder versleuteling (Aliens Armageddon/Walking Dead), afkeuren
   # zonder versleutelingsregel, niets bij een verkeerde handtekening, en de usb-tabellen in patches/. Skip (77) zonder gcc -m32.

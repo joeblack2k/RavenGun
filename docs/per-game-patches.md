@@ -496,7 +496,15 @@ van de exe); de bron staat in `plugins/bepinex/<Game>/` en `scripts/build-bepine
 de Unity-route. Een eigen drop-in met dezelfde naam (bv. een andere `winhttp.dll`) wint. Men in Black (2026-10-17): zonder de shell van de
 kast stopt de game zichzelf (`Application.Quit`); de plugin `RavenGun.MenInBlack` onderdrukt dat. In de engine: `dropin_plan` in
 `direct_files.cpp`, in het plan `bepinex_dir`; het logboek noemt `bepinex: <map>`. Let op: met de gesloten kern van TeknoParrot laadde
-BepInEx bij Men in Black niet (gemeten); de game draait daarom op onze kern (`[Loader] Core = ravengun`).
+BepInEx bij Men in Black niet (gemeten); de game draait daarom op onze kern (`[Loader] Core = ravengun`). De build neemt altijd
+`plugins/bepinex/shared/` mee (`Bordbeeld.cs`: het bordbeeld van RavenGun in het spelproces, de mapping `TeknoParrot_JvsState` van
+rg-jvsbridge, indeling WartranTroopers; `teknoparrot.ini` lezen; een TeknoParrot-plugin in de spelmap uitzetten), en met
+`plugins/bepinex/<Game>/refs.txt` ook assemblies van de game zelf (bv. `Assembly-CSharp.dll`). Zo draaien Mars Sortie, Wild West
+Shootout en Night Hunter zonder TeknoParrot (`[Loader] Core = none`, `docs/research/wartran/README.md`).
+
+**Zonder lader en kern (`[Loader] Core = none`).** Wine start de exe zelf, in de map van de exe (zoals een dubbelklik in Windows; met
+een lader is de werkmap die van de runtime en zet de lader de game in zijn map). Een `Preload = true`-drop-in heeft dan geen kanaal en
+weigert de start.
 
 **Mods (`[Launch] Mod = <naam>`, `[Mod <naam>]`).** Een mod van derden die bestanden van de game vervangt of op een offset
 overschrijft, zoals de Engelse fanvertaling van Mario Kart Arcade GP DX (MKDX English Mod 2023). `[Mod <naam>]` beschrijft hem:

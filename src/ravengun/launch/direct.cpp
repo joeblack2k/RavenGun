@@ -187,6 +187,8 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                 return setting_refused("[Loader] " + key + " = " + val + (key == "Core" ? " (kies teknoparrot, ravengun of none)" : " (kies teknoparrot of ravengun)"));
         if (core == "none") {
             zonder_lader = true;
+            // Zonder lader is er niemand die de game in zijn eigen map zet: Wine start de exe in de werkmap van het proces. Die is dan
+            // de map van de exe (cwd hieronder: geen lader of kern uit de TeknoParrot-map), zoals een dubbelklik in Windows.
             dll_rel.clear();
             core.clear();
             if (enabled.count(kFpfix)) enabled[kFpfix] = false;   // die patch hoort bij de lader

@@ -864,6 +864,14 @@ int main() {
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Fallback && contains(w, "rg-jvsbridge.exe"));
         write(fs::path(p.data) / "jvsbridge/rg-jvsbridge.exe", "x");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "TP_PRELOAD_DLL"));
+        // Zonder de preload (de gebruikerslaag gaat per naam voor) start hij wel, zonder lader en kern, en in de map van de exe: er is
+        // dan geen lader die de game in zijn eigen map zet (de WartranTroopers-familie zonder TeknoParrot, 2026-10-17).
+        write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[hook.dll]\nTo = .\n");
+        write(fs::path(p.dirs.user) / "Spel/dropin/hook.dll", "MZhook");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Ok);
+        CHECK(dp.loader.empty() && dp.core_dll.empty() && dp.cwd == fs::path(dp.game).parent_path().string());
+        CHECK(dp.argv.size() >= 2 && dp.argv[1] == wine_path(dp.game));
+        fs::remove_all(fs::path(p.dirs.user) / "Spel/dropin");
         fs::remove(fs::path(p.data) / "jvsbridge/rg-jvsbridge.exe");
         write(ugi, "[Loader]\nCore = soms\n");
         CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "of none"));
