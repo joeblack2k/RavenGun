@@ -995,6 +995,20 @@ int main() {
               pl.drives[0].link == (fs::path(basis.prefix) / "drive_c/PC/ALIENS").string() && !pl.drives[0].present);
         write(user, "[Launch]\nDrives = C:\\..\\x=.\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "zonder .."));
+        // [Launch] Install: een installatieprogramma uit de spelmap, eenmalig per prefix (Aliens: de meegeleverde DivX-codec).
+        write(view / "codec setup.exe", "MZ");
+        write(user, "[Launch]\nInstall = codec setup.exe\nInstallArgs = /S\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.install_cmd.size() == 3 && pl.install_cmd[2] == "/S" &&
+              contains(pl.install_cmd[1], "codec setup.exe") && contains(pl.install_mark, ".ravengun-install/codec setup.exe.2"));
+        {
+            DirectPlan back;
+            std::string jerr;
+            CHECK(plan_from_json(plan_to_json(pl), back, jerr) && back.install_cmd == pl.install_cmd && back.install_mark == pl.install_mark);
+        }
+        write(user, "[Launch]\nInstall = ../buiten.exe\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "zonder .."));
+        write(user, "[Launch]\nInstall = bestaat-niet.exe\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat niet"));
         write(user, "[Launch]\nDrives = X=.\nExe = Y:\\spel.exe\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat niet in de prefix"));
         write(user, "[Launch]\nDrives = X=.\nExe = X:\\bestaat-niet.exe\n");

@@ -686,6 +686,21 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused("[Launch] PhysX = true, maar de PhysX-systeemsoftware staat niet in " + prefix +
                                    ": draai scripts/setup-physx.sh " + prefix + " (docs/redist.md)");
     }
+    // 6f2. [Launch] Install = bestand uit de spelmap (relatief aan de view-wortel), InstallArgs = stille vlaggen: een installatieprogramma
+    // dat de game zelf meelevert, eenmalig per prefix (markering <prefix>/.ravengun-install/<naam>.<grootte>). Aliens Extermination:
+    // "divx60 (install for videos to work).exe" /S, anders "Failed To Open The AVI Frame" (2026-10-17).
+    if (std::string inst = trim(lini("Install")); !inst.empty()) {
+        if (inst.front() == '/' || inst.find("..") != std::string::npos)
+            return setting_refused("[Launch] Install = " + inst + " (een bestand in de map van de game, zonder ..)");
+        const std::string pad = pjoin(view_wortel(dirname(game), p), inst);
+        if (!isfile(pad)) return setting_refused("[Launch] Install: " + pad + " bestaat niet");
+        std::error_code fec;
+        const auto grootte = std::filesystem::file_size(pad, fec);
+        pl.install_cmd = {wine, wine_path(pad)};
+        for (const std::string& a : nonempty_split(trim(lini("InstallArgs")), ' ')) if (!trim(a).empty()) pl.install_cmd.push_back(trim(a));
+        pl.install_mark = pjoin(pjoin(prefix, ".ravengun-install"), basename(pad) + "." + std::to_string(static_cast<unsigned long long>(fec ? 0 : grootte)));
+        pl.notes.push_back("installatie: " + pad + " (eenmalig per prefix)");
+    }
     // 6g. [Launch] Registry: .reg-bestanden uit patches/<Game>/ (meestal data/; gebruikerslaag eerst) die rg-direct één keer per prefix inleest met
     // "wine reg import" in de registerweergave van de game (32 of 64 bits; docs/registry.md). Operation G.H.O.S.T.: .wmv via de
     // GStreamer-splitter in plaats van de ASF-lezer van Proton, die bij Stop vastliep (2026-10-15).

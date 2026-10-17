@@ -995,6 +995,24 @@ int run_plan(const std::string& plan_file) {
         }
     }
 
+    // 2a. [Launch] Install: het installatieprogramma uit de spelmap één keer per prefix (de markering zegt of het al gebeurd is).
+    if (!plan.install_cmd.empty() && ::access(plan.install_mark.c_str(), F_OK) != 0) {
+        log("installatie: " + join_quoted(plan.install_cmd));
+        Child c = spawn(plan.install_cmd, L::plan_run_dir(plan), env, true, false);
+        if (c.pid <= 0) return 1;
+        read_lines(c.out, [&](const std::string& l) { log("installatie: " + decode_console(l)); });
+        int st = 0;
+        ::waitpid(c.pid, &st, 0);
+        if (!WIFEXITED(st) || WEXITSTATUS(st) != 0) {
+            log("installatie mislukt (status " + std::to_string(st) + "); de game wordt niet gestart");
+            return 1;
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(plan.install_mark).parent_path(), ec);
+        if (FILE* f = std::fopen(plan.install_mark.c_str(), "w")) { std::fputs(plan.install_cmd.back().c_str(), f); std::fclose(f); }
+        log("installatie klaar: " + plan.install_mark);
+    } else if (!plan.install_cmd.empty()) log("installatie: al gedaan (" + plan.install_mark + ")");
+
     // 2b. [Launch] Registry: elk .reg-bestand één keer per prefix inlezen ("wine reg import" in de weergave van de game, 32 of 64
     // bits). Een markering <prefix>/.ravengun-reg/<naam>.<sha256>.<bits> houdt bij wat al is ingelezen; een gewijzigd bestand gaat
     // opnieuw. Lukt het inlezen niet, dan geen start: een run zonder zijn instelling is een ongeldige run (zoals bij de drop-ins).

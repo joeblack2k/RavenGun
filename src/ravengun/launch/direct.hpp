@@ -109,6 +109,8 @@ struct DirectPlan {
     struct ModEntry { std::string target, src; long long offset = -1; };
     std::string mod_name, mod_root, mod_built, mod_game_root, mod_view_root, mod_tree, mod_exe, mod_exe_sha256;
     std::vector<ModEntry> mod_entries;
+    std::vector<std::string> install_cmd;                 // [Launch] Install (+ InstallArgs): installatieprogramma uit de spelmap, eenmalig per prefix
+    std::string install_mark;                             // markering in de prefix (naam + grootte): bestaat hij, dan is het al gedaan
     std::vector<std::string> reg_files;                   // [Launch] Registry: .reg-bestanden die rg-direct in de prefix inleest
     // [Launch] AmDaemon = true: rg-direct is voor de duur van de run de AM-daemon van de Sega Ring-games (amdaemon.hpp) op 127.0.0.1:
     // am_ports, met de antwoorden in am_values (de standaardwaarden van amd::default_values met [AmDaemon] van game.ini erover).

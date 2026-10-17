@@ -466,6 +466,8 @@ std::string plan_to_json(const DirectPlan& pl) {
     for (const auto& [a, b] : pl.native_dlls) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     strs("reg_files", pl.reg_files);
+    strs("install_cmd", pl.install_cmd);
+    w.key("install_mark").value(pl.install_mark);
     w.key("am_daemon").value(pl.am_daemon);
     strs("am_ports", pl.am_ports);
     map("am_values", pl.am_values);
@@ -507,7 +509,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     };
     s("profile", pl.profile); s("tp", pl.tp); s("emulator_type", pl.emulator_type); s("emulation_profile", pl.emulation_profile);
     s("game", pl.game); s("game_source", pl.game_source); s("cwd", pl.cwd); s("wine", pl.wine); s("prefix", pl.prefix); s("loader", pl.loader);
-    s("pipe_mode", pl.pipe_mode); s("shm_source", pl.shm_source); s("pipehelper", pl.pipehelper); s("core_dll", pl.core_dll);
+    s("install_mark", pl.install_mark); s("pipe_mode", pl.pipe_mode); s("shm_source", pl.shm_source); s("pipehelper", pl.pipehelper); s("core_dll", pl.core_dll);
     s("core_source", pl.core_source); s("state", pl.state); s("dropin_base", pl.dropin_base); s("dropin_root", pl.dropin_root);
     s("control_pipe", pl.control_pipe); s("control_pipe_name", pl.control_pipe_name); s("control_source", pl.control_source);
     auto n = [&](const char* k, int& out) { const auto* x = v.find(k); if (x && x->is_number()) out = static_cast<int>(x->num); };
@@ -524,7 +526,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     b("am_daemon", pl.am_daemon); sv("am_ports", pl.am_ports); mp("am_values", pl.am_values);
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
-    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies); sv("view_ttc_fonts", pl.view_ttc_fonts);
+    sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("install_cmd", pl.install_cmd); sv("view_copies", pl.view_copies); sv("view_ttc_fonts", pl.view_ttc_fonts);
     sv("tp_files", pl.tp_files);
     mp("env", pl.env); mp("launch_env", pl.launch_env);
     if (const auto* f = v.find("files"); f && f->is_array())
