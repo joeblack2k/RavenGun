@@ -39,7 +39,17 @@
 //   de sense-lijn (0x10, na de adrestoekenning 0x30) uit byte 0 van het gedeelde geheugen TeknoParrot_JvsState. Alleen aan als
 //   RG_JVS_COMPORT gezet is (dropin.ini, Env). De beslislogica staat in jvs_com.h en is getoetst (tests/test_jvs_com.cpp).
 //
+// VIERDE TAAK: een eigen ShareK-object voor CoCreateInstance (zonder de gesloten TeknoParrot-kern)
+//   Mario Kart start bij het opstarten de ShareK-client (ShareKManager.cpp, content-distributie tussen kasten): CoCreateInstance van de
+//   .NET-COM-klasse {ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c} (ipccl.dll, op de echte kast met RegAsm geregistreerd) op 0x47e834. Die
+//   registratie bestaat in onze prefix niet: 0x80040154, een _com_error, en de catch-afhandelaar op 0x47e8f8 roept dan toch een methode
+//   aan op de lege interface (toegangsfout op 0x47e95e na ~15 s). Met RG_SHAREK_FAKE=1 zet deze DLL ole32!CoCreateInstance in de
+//   importtabel van het spel om; voor die ene CLSID komt een eigen in-proces object terug dat zegt "ShareK draait maar wacht op het
+//   netwerk" (status 2: de tick van het spel doet dan niets). Elke andere klasse, ook de IAuth van AMAuthd, gaat ongewijzigd naar de echte
+//   CoCreateInstance. Met de TeknoParrot-kern in het proces blijft dit uit (die beantwoordt het zelf). Logica en uitleg: sharek_fake.h.
+//
 // OMGEVING
+//   RG_SHAREK_FAKE=1  het eigen ShareK-object aan (dropin.ini, Env); leeg of 0 = uit
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
 //   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
 //   RG_MFCAM_OFF=1   niets doen (alleen een regel in het logboek)
@@ -71,6 +81,7 @@
 
 #include "../../src/ravengun/vision/camera_feed_format.h"
 #include "jvs_com.h"
+#include "sharek_fake.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -900,6 +911,157 @@ void setup_jvs_com() {
     if (!g_create_file_a) rg_log("JVS: CreateFileA staat niet in de importtabel van het spel; de omleiding kan niets vangen");
 }
 
+// --- een eigen ShareK-object (zie VIERDE TAAK bovenaan; logica en adressen in sharek_fake.h) -------------------------------------------------
+struct SharekObject {
+    const void* const* vtbl;
+    volatile LONG ref;
+};
+static_assert(sizeof(GUID) == sizeof(rg_sharek::Guid), "GUID en rg_sharek::Guid moeten dezelfde indeling hebben");
+const rg_sharek::Guid& as_guid(const GUID& g) { return *reinterpret_cast<const rg_sharek::Guid*>(&g); }
+
+void guid_text(const GUID& g, char* out, size_t n) {
+    std::snprintf(out, n, "{%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}", static_cast<unsigned long>(g.Data1), g.Data2, g.Data3, g.Data4[0],
+                  g.Data4[1], g.Data4[2], g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7]);
+}
+
+void* g_sharek_vtbl[rg_sharek::kVtableSize];
+SharekObject g_sharek = {nullptr, 1};
+volatile LONG g_sharek_seen[rg_sharek::kVtableSize];
+
+// Het eerste gebruik van elk slot in het logboek: zo staat er na een tv-run welke methodes het spel werkelijk aanriep.
+void sk_note(int slot) {
+    if (slot >= 0 && slot < rg_sharek::kVtableSize && InterlockedExchange(&g_sharek_seen[slot], 1) == 0) rg_log("ShareK-object: slot %d aangeroepen", slot);
+}
+
+HRESULT STDMETHODCALLTYPE sk_query_interface(SharekObject* self, REFIID riid, void** ppv) {
+    if (!ppv) return E_POINTER;
+    if (!rg_sharek::knows_iid(as_guid(riid))) {
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    *ppv = self;
+    InterlockedIncrement(&self->ref);
+    return S_OK;
+}
+ULONG STDMETHODCALLTYPE sk_add_ref(SharekObject* self) { return static_cast<ULONG>(InterlockedIncrement(&self->ref)); }
+// Het object is statisch en blijft bestaan; Release telt alleen af (nooit onder 1: het spel maakt na een herstart gewoon een nieuwe).
+ULONG STDMETHODCALLTYPE sk_release(SharekObject* self) {
+    const LONG r = InterlockedDecrement(&self->ref);
+    if (r < 1) {
+        InterlockedExchange(&self->ref, 1);
+        return 0;
+    }
+    return static_cast<ULONG>(r);
+}
+// IDispatch (slot 3..6): het spel gebruikt alleen de vtable-methodes; late binding bieden we niet aan.
+HRESULT STDMETHODCALLTYPE sk_get_type_info_count(SharekObject*, UINT* n) {
+    if (n) *n = 0;
+    return S_OK;
+}
+HRESULT STDMETHODCALLTYPE sk_get_type_info(SharekObject*, UINT, LCID, void**) { return E_NOTIMPL; }
+HRESULT STDMETHODCALLTYPE sk_get_ids_of_names(SharekObject*, REFIID, LPOLESTR*, UINT, LCID, DISPID*) { return E_NOTIMPL; }
+HRESULT STDMETHODCALLTYPE sk_invoke(SharekObject*, DISPID, REFIID, LCID, WORD, void*, void*, void*, UINT*) { return E_NOTIMPL; }
+
+template <int N>
+HRESULT STDMETHODCALLTYPE sk_nop8(SharekObject*, void*) {
+    sk_note(N);
+    return S_OK;
+}
+template <int N>
+HRESULT STDMETHODCALLTYPE sk_nop20(SharekObject*, void*, void*, void*, void*) {
+    sk_note(N);
+    return S_OK;
+}
+template <int N, rg_sharek::Kind K>
+HRESULT STDMETHODCALLTYPE sk_word(SharekObject*, int16_t* out) {
+    sk_note(N);
+    int16_t v = 0;
+    if (out && rg_sharek::out_word(K, v)) *out = v;
+    return S_OK;
+}
+
+template <int N>
+void sk_install(void** vt) {
+    constexpr const rg_sharek::Slot* s = rg_sharek::find_slot(N);
+    if constexpr (s == nullptr) {
+        vt[N] = reinterpret_cast<void*>(&sk_nop8<N>);   // ongebruikt slot: nooit aangeroepen door het spel
+    } else if constexpr (s->arg_bytes == 20) {
+        vt[N] = reinterpret_cast<void*>(&sk_nop20<N>);
+    } else if constexpr (s->kind == rg_sharek::Kind::Nop) {
+        vt[N] = reinterpret_cast<void*>(&sk_nop8<N>);
+    } else {
+        vt[N] = reinterpret_cast<void*>(&sk_word<N, s->kind>);
+    }
+}
+template <int N>
+struct SkFill {
+    static void run(void** vt) {
+        SkFill<N - 1>::run(vt);
+        sk_install<N>(vt);
+    }
+};
+template <>
+struct SkFill<2> {
+    static void run(void**) {}
+};
+
+void sk_build() {
+    g_sharek_vtbl[0] = reinterpret_cast<void*>(&sk_query_interface);
+    g_sharek_vtbl[1] = reinterpret_cast<void*>(&sk_add_ref);
+    g_sharek_vtbl[2] = reinterpret_cast<void*>(&sk_release);
+    SkFill<rg_sharek::kVtableSize - 1>::run(g_sharek_vtbl);
+    g_sharek_vtbl[3] = reinterpret_cast<void*>(&sk_get_type_info_count);
+    g_sharek_vtbl[4] = reinterpret_cast<void*>(&sk_get_type_info);
+    g_sharek_vtbl[5] = reinterpret_cast<void*>(&sk_get_ids_of_names);
+    g_sharek_vtbl[6] = reinterpret_cast<void*>(&sk_invoke);
+    g_sharek.vtbl = reinterpret_cast<const void* const*>(g_sharek_vtbl);
+}
+
+using CoCreateInstanceFn = HRESULT(WINAPI*)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
+CoCreateInstanceFn g_co_create_instance = nullptr;
+volatile LONG g_co_seen = 0;
+
+HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, REFIID riid, LPVOID* ppv) {
+    char c[48], i[48];
+    if (rg_sharek::wants_clsid(as_guid(clsid))) {
+        guid_text(clsid, c, sizeof c);
+        guid_text(riid, i, sizeof i);
+        if (outer) {
+            rg_log("ShareK: CoCreateInstance(%s) met aggregatie geweigerd", c);
+            return CLASS_E_NOAGGREGATION;
+        }
+        HRESULT hr = sk_query_interface(&g_sharek, riid, ppv);
+        rg_log("ShareK: CoCreateInstance(%s, ctx 0x%lx, %s) -> eigen object, hr 0x%08lx", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
+        return hr;
+    }
+    HRESULT hr = g_co_create_instance(clsid, outer, ctx, riid, ppv);
+    // Welke andere klassen vraagt het spel? (De IAuth van AMAuthd, {4603BB03-...}, hoort hier met zijn echte uitkomst te staan.)
+    if (InterlockedIncrement(&g_co_seen) <= 16) {
+        guid_text(clsid, c, sizeof c);
+        guid_text(riid, i, sizeof i);
+        rg_log("CoCreateInstance(%s, ctx 0x%lx, %s) -> hr 0x%08lx (echte aanroep)", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
+    }
+    return hr;
+}
+
+void setup_sharek_fake() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_SHAREK_FAKE", v, sizeof v) == 0 || v[0] != '1') return;   // uit
+    // De gesloten TeknoParrot-kern beantwoordt dit zelf (Core = teknoparrot, online spelen): daar blijft alles zoals het was.
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("ShareK-object uit: de TeknoParrot-kern is geladen");
+        return;
+    }
+    sk_build();
+    void* old = patch_iat(GetModuleHandleW(nullptr), "ole32.dll", "CoCreateInstance", reinterpret_cast<void*>(&rg_CoCreateInstance));
+    if (old) {
+        g_co_create_instance = reinterpret_cast<CoCreateInstanceFn>(old);
+        rg_log("importtabel: ole32.dll!CoCreateInstance omgezet (eigen ShareK-object, oud adres %p)", old);
+    } else {
+        rg_log("importtabel: ole32.dll!CoCreateInstance NIET gevonden in het spel; geen eigen ShareK-object");
+    }
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Logboek naast deze DLL.
@@ -922,6 +1084,7 @@ void setup() {
     rg_log("rg-mfcam geladen in %s (camerabestand %s, %d fps)", exe, src8, g_fps);
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
+    setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;

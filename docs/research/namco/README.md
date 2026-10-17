@@ -13,7 +13,7 @@ de gesloten kern via de optie Online play); de andere blijven op de gesloten ker
 | Game | Wat de kern deed | Onze vervanging | Stand |
 |---|---|---|---|
 | Point Blank X | de USIO-laag (`Plugins/bnusio.dll`: bord via WinUSB, vuurwapen via COM) naar het gedeelde geheugen leiden; schijfletters F:/G: | **`bnusio.dll` van ons** (`tools/rg-usio`, drop-in op de plaats van het echte bestand) + onze kern (generiek, schijfletter-omleiding patch 0004) | **klaar om te testen** |
-| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; ALL.Net/AMAuthd (COM-server) beantwoorden en naar de TP-gemeenschapsserver wijzen; schijfletters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` + onze kern, **standaard** (offline). Optie "Online play" in Properties zet `[Loader] Core = teknoparrot` terug (online, vraagt TeknoParrot) | **standaard offline, klaar om te testen** |
+| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; ALL.Net/AMAuthd (COM-server) beantwoorden en naar de TP-gemeenschapsserver wijzen; schijfletters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` + onze kern, **standaard** (offline). Optie "Online play" in Properties zet `[Loader] Core = teknoparrot` terug (online, vraagt TeknoParrot) | **standaard offline; crash na ~15 s is ShareK (niet IAuth), kandidaat: eigen ShareK-object in `rg-mfcam.dll`, zie "Mario Kart DX: de crash na ~15 s"** (`docs/research/namco/patches/MarioKartDX/`) |
 | Time Crisis 5 | WinUSB/SetupAPI-emulatie van het USIO-bord in het spelproces, injectie in het kindproces van `RSLauncher.exe`, de HASP-laag | HASP-drop-in bestaat al; USIO-emulatie niet gebouwd | **geblokkeerd** (zie TC5) |
 | HOTD Scarlet Dawn | platformgegevens voor `amdaemon.exe` (register), schijfletters AMFS/D/Y, USB-IO-bord (HID) uit de besturingspipe, twee-exe-start | `platform.reg` (PlatformId) + onze kern; USB-IO-bord nog niet | **deel 1 klaar om te meten**, USB-IO open |
 
@@ -91,11 +91,92 @@ anders `[Env] RG_USIO_FLIP_Y = 0`. (5) 5 minuten spelen. Bewijs van het laden: `
 * Kern: `[Loader] Core = ravengun` (generiek).
 * **Online werkt zonder de gesloten kern niet**, en wij bouwen het niet na: (a) het TPAUTH-protocol is dat van TeknoParrot's dienst en vraagt
   het account van de eigenaar; (b) een eigen `IAuth` (29 methodes, uitvoerstructuren die het spel veldgewijs leest) is zonder proef met het
-  echte spel niet betrouwbaar te maken; (c) `AMAuthd.exe` in `OFFLINE`-modus zou de eigen code van het spel gebruiken, maar vraagt een
+  echte spel niet betrouwbaar te maken; (c) (zie ook de crash-sectie hieronder: de eerste tv-crash was niet IAuth) `AMAuthd.exe` in `OFFLINE`-modus zou de eigen code van het spel gebruiken, maar vraagt een
   tweede-exe-start met COM-registratie (`iauthdll.dll` `DllRegisterServer`, `LocalServer32`) en een `AMConfig.ini`-kopie met
   `amdcfg-authType=OFFLINE`; of het spel die offline-auth accepteert is niet gemeten. De kandidaat start het spel dus **zonder**
   `IAuth`: op het pad dat het spel zelf kent (vlag 0). Of het daarna tot de attract komt of na 2 minuten op de netwerkcontrole wacht
   (`ALL.NetCheck_TIMEOUT`, na 7200 = `0x1c20` ticks) is de vraag voor de tv.
+
+### Mario Kart DX: de crash na ~15 s is ShareK, niet IAuth (statisch gemeten 2026-10-17)
+
+**Wat de tv-meting (`WINEDEBUG=+seh`, `direct-MarioKartDX-20261017-151925.log`, regel 1970-1990) werkelijk zegt.** Het logboek is binair
+(`grep -a`). De regel `*ERR* ComError Code = 80040154` komt van de catch-afhandelaar op `0x47E8F8`, en die hoort bij de functie op
+`0x47E7D0` (`StartIpcClient` in `..\AppSystem\Network\ShareK\ShareKManager.cpp`; bronpad op `0x9b2bfc`), niet bij de wikkel van `AMAuthd`. De `CoCreateInstance` in die functie
+(`0x47E834`) vraagt **CLSID `{ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c}`, IID `{c2116f7f-cf46-3c68-b187-9d0fe9f70ed0}`**, `CLSCTX` 0x17 (GUID's op
+`0x9b2bbc` / `0x9b2bac`). Dat zijn naam-gebaseerde GUID's (versie 3), zoals .NET ze voor een `ComVisible`-klasse zonder `[Guid]` afleidt; ze staan als
+bytes of tekst in geen enkel bestand van de spelmap behalve de exe (scan van de hele map, ook `ipccl.dll`, `ShareK/*`, `AMCUS/*`). Het zijn de COM-klasse van **ShareK**: `init_w10.ps1` (de echte opstartketen, UTF-16) doet
+`RegAsm.exe .\ipccl.dll` (de .NET-client) en start daarna `ShareK\ShareK.exe` via `sharek.ps1` in een lus; ShareK is de content-distributie tussen
+kasten (`NET_USE_SHAREK`, `NET_SHAREK_CHECK_MASTER_SLAVE_*` in `Data/System/Config/NetConfig.csv`). De registratie ontbreekt in onze prefix.
+
+| adres | wat |
+|---|---|
+| `0x47E7D0` (`StartIpcClient`, `ret` op `0x47E8E3`) | roept `0x47DF90` (Init, leest `NetConfig.csv` opnieuw) en doet dan **altijd** `CoInitialize` + `CoCreateInstance` (`0x47E834`), ook als Init de vlag `M+0x394` net op 0 zette |
+| `0x47E269`, `0x47E29D` | Init: `_waccess_s(L"G:/Contents")` / `_mkdir("G:/Contents")` mislukt, log `Zipダウンロードパス生成失敗.ShareKは強制的に未使用.` (regel 1923 van het logboek) en vlag `M+0x394 = 0` |
+| `0x47E870` | `call [vtbl+0x1c]` (`StartIpcClient`, `[out] VARIANT_BOOL`), `<0` gooit `_com_error` (throw-info `0xA32708`) |
+| `0x47E8F8` | catch: logt `ComError Code = %08lx` (`0x47E92C`), laadt `M[0]` (de interface, hier nog 0) en doet `0x47E95E: mov ecx,[eax]` -> **toegangsfout** (`call [vtbl+0x20]` volgt) |
+| `0x481031` | herstart (`state == 2`): dezelfde `CoCreateInstance` (`0x48107F`) met dezelfde catch-fout (`0x48114E`) |
+
+**IAuth (AMAuthd) is wel een tweede, aparte vraag.** `CoCreateInstance(CLSID {4603BB03-...}, ctx 4 = LOCAL_SERVER, IID {045A5150-...})` zit in
+de wikkel-constructor `0x401000` (`0x4010C0`) en **vangt zijn eigen mislukking af**: `hr < 0` -> logt (`0x4010CC`, via `0x6095C0`), `CoUninitialize`,
+vlag-byte `[wikkel+0] = 0` (`0x4010D9`); geen uitzondering, geen crash. De wikkel hangt aan `ds:0xec29fc`; alle 151 plaatsen die hem gebruiken testen
+eerst `cmp BYTE [wikkel],0` en gebruiken dan vaste waarden (`0x461910`: toestand 8, `0x461f71`: -1). De toestandsmachine op `0x461f1a..0x462033` telt
+frames in `[esi+0x10]`; bij `0x1c20` (7200, 2 minuten) zet ze toestand 6 en logt alleen `* ALL.NetCheck_TIMEOUT:auth_state:%d daemon_state:%d
+daemon_error:%d last_auth_error:%d last_lib_error:%d` (`0x9b08a8`). Het spel gebruikt negen van de 29 methodes (vtable-offsets `0x24` (56 plaatsen),
+`0x28`, `0x30`, `0x34`, `0x38` (PowerOn-structuur van 0x8a2 bytes: `uri`, `host`, ... op `0x461a47..0x461c9b`, offsets `+0x78 +0x179 +0x27a +0x37a +0x47a
++0x4fa +0x57a +0x59a +0x69a +0x79a`), `0x3c`, `0x4c`, `0x74`, `0x78`; geen volledige signaturen, alleen `this` + een uitvoerpointer is bewezen voor
+`0x24`/`0x28`/`0x38`). Het volledige IAuth-object is dus nodig voor een spel dat ALL.Net *volgt*, niet om op te starten.
+
+**Gekozen weg (met bewijs).** Voor deze crash is geen van de twee IAuth-wegen nodig; de oorzaak is ShareK. Gekozen: **een eigen in-proces ShareK-object**
+in `rg-mfcam.dll` (VIERDE TAAK, `tools/rg-mfcam/sharek_fake.h` + `rg_mfcam.cpp`), omdat (1) de oorzaak en de plek bewezen zijn (tabel hierboven),
+(2) de interface volledig uit de aanroepplekken af te lezen is (36 gebruikte vtable-slots in `0x47C000..0x483400`, alle argumentgroottes: 8 bytes, zes
+methodes 20 bytes), (3) een in-proces object geen tweede exe, COM-registratie of .NET (Mono) in de prefix vraagt, en (4) het gedrag erachter door het
+spel zelf gedefinieerd is: status 2 (`0x47EEA5`, "ネットワーク未初期化により自動復旧待機") laat de tick op `0x47ECD0` elke keer het werk overslaan
+(`0x47EEE3`). `NET_USE_SHAREK = FALSE` in `NetConfig.csv` zou de aanroep ook overslaan (`0x47E807` test de vlag), maar een bestand in de view is niet per kern te kiezen (een
+drop-in of `ViewCopies` geldt ook voor Online play) en `[Patch] Kind = file` raakt alleen de lader/kern, geen spelbestand. Het is wel de terugval als het object tegenvalt.
+
+**Het object** (`sharek_fake.h`): `CoCreateInstance` in de importtabel (`ole32.dll`, IAT `0x943870`) omgezet; alleen voor die ene CLSID komt een eigen object,
+al het andere (ook IAuth) gaat naar de echte functie en wordt (eerste 16 aanroepen) gelogd. Slot 7 `StartIpcClient` -> `VARIANT_TRUE`; slot 33 (+0x84) herstartvraag
+-> 0; slot 35 (+0x8c) status -> 2; alle andere gebruikte slots `S_OK` zonder te schrijven (de aanroeper zet hun uitvoer vooraf op 0: `mov [ebp-0x38],ebx`).
+`Release` telt nooit onder 1 (statisch object). Alleen aan met `RG_SHAREK_FAKE=1` (dropin.ini `Env`) **en** zonder `TeknoParrot.dll` in het proces.
+
+**Getoetst (zonder het spel).** `tests/test_sharek_fake.cpp` (176 controles: GUID-bytes zoals in de exe, de slottabel, 8/20 bytes, alleen slots 7/33/35 schrijven).
+Daarnaast een wegwerpprogramma (`sk_probe.exe`, geen spel, wegwerp-prefix in de scratchpad, MinGW i686) dat `rg-mfcam.dll` met `RG_SHAREK_FAKE=1` laadt, via
+`CoCreateInstance` het object vraagt en elk gebruikt slot aanroept zoals het spel (stdcall, 8 of 20 bytes) met een `esp`-controle: **0 mislukt**, IAuth gaat naar de
+echte aanroep (`0x80040154`), `QueryInterface` weigert vreemde IID's. Dit bewijst de stapelbalans en de logica; niet dat het spel er verder mee komt.
+
+**Online play (Core = teknoparrot) blijft ongemoeid.** (1) `game.ini` is ongewijzigd t.o.v. `patches/MarioKartDX/game.ini`; alleen `dropin.ini` kreeg
+`;RG_SHAREK_FAKE=1`; (2) de DLL zet de omleiding niet aan als `TeknoParrot.dll` of `TeknoParrot64.dll` in het proces staat (zelfde controle als de
+JVS-omleiding; logregel `ShareK-object uit: de TeknoParrot-kern is geladen`); (3) `--plan` met `[Loader] Core = teknoparrot` in de gebruikerslaag vraagt de kern uit de
+TeknoParrot-map zoals voorheen (`kern ontbreekt: /nonexistent/TeknoParrot/TeknoParrot.dll` met een map die niet bestaat). Niet gemeten: een echte Online
+play-run met deze DLL (de eigenaar speelt online; de TP-kern kent `CoCreateInstance` van ShareK/IAuth zelf, hoe is onbekend).
+
+**AMAuthd zelf als tweede exe (weg b) — waarom niet, bewijs.** `AMAuthd.exe` (280 KB) importeert KERNEL32/USER32/ADVAPI32/ole32/WS2_32/IPHLPAPI (geen
+setupapi, geen dongle-DLL), maar: `SetSystemTime`-rechten (`AdjustTokenPrivileges`), de ALL.Net-client `alAbEx`, MUCHA-geheugens (`muchaut_*`, daemon
+`.\MuchaBin\muchacd.exe` op `tcp:0.0.0.0:8765`), en leest `WritableConfig.ini` (`serialID`, `netID`, `mode`) dat `PreprocessAmAuth.exe` schrijft uit
+`HKLM\SOFTWARE\NBGI` (`ContentsPartitionPath`) en het schijfserienummer (`init_w10.ps1`: `Get-Disk ... SerialNumber`). `init_w10.ps1` start ook
+`AMUpdater.exe -wait` (exitcode 1 = 60 s wachten). Dat zijn vijf losse onderdelen met schrijfacties in `AMCUS/` (NAS: schrijflaag) plus
+`regsvr32 iauthdll.dll` in de prefix; niets daarvan is statisch te bewijzen werkend, en `rg-direct` kent geen COM-registratie (`[Patch] registry`
+wordt niet toegepast). Weg (a) (eigen IAuth, dezelfde techniek als hierboven, negen methodes) is de volgende stap als de tv na 2 minuten op de
+ALL.Net-controle vastloopt; de uitvoerstructuren (PowerOn) zijn bekend uit `0x4619D0..0x461E49`, de waarden die het spel als "OK" accepteert niet gemeten.
+
+**Niet bewezen.** (i) Dat het spel met het ShareK-object tot de attract komt: er kan een volgende blokkade zijn (de ALL.Net-timeout, E05-xx).
+(ii) De semantiek van de overige ShareK-slots; ze zijn `S_OK`/nul, wat de tick (status 2) nooit leest. (iii) `G:/Contents` aanmaken: het
+spel logt `Zip...生成失敗` zolang `_mkdir("G:/Contents")` mislukt (schijfletter G: in de prefix); met ShareK gedwongen "ongebruikt" is dat onschadelijk.
+(iv) Een volledige 5-minutenrun.
+
+**Exact tv-testrecept (aan de coördinator; de bench is niet van deze sessie).**
+1. Activeren: `docs/research/namco/patches/MarioKartDX/dropin/{dropin.ini,rg-mfcam.dll}` naar `~/projects/ravengun-patches/patches/MarioKartDX/dropin/`
+   (de dll staat niet in git (`*.dll` is genegeerd) maar in de werkboom; opnieuw bouwen: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`, reproduceerbaar, sha256 `3dca574ac7b1f6a97b53c1ec300c499308010c72f8f4de88271b2f7f9418b746`). Zorg dat de gebruikerslaag `~/.local/share/ravengun/patches/MarioKartDX/game.ini` voor deze run
+   **geen** `Core = teknoparrot` heeft (nu wel, voor het online spelen van de eigenaar; terugzetten daarna) en `[Wine] Debug = +seh` voor de spelmeldingen.
+2. Controle zonder TP: `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan MarioKartDX --patches <map>` (alle patches + deze `MarioKartDX`) geeft `ok`, `core_source
+   ravengun`, `RG_SHAREK_FAKE=1`, geen pad in de TeknoParrot-map.
+3. Dubbelklik in de app. In `rg-mfcam.log` (view): `importtabel: ole32.dll!CoCreateInstance omgezet (eigen ShareK-object ...)`, `ShareK: CoCreateInstance({CCC44B2A-709A-33A8-
+   A1B0-5DBE25B19C2C}, ctx 0x17, {C2116F7F-...}) -> eigen object, hr 0x00000000`, `ShareK-object: slot 7 aangeroepen` (en 33, 35), en
+   `CoCreateInstance({4603BB03-...}, ctx 0x4, {045A5150-...}) -> hr 0x80040154 (echte aanroep)` (de IAuth, bedoeld pad).
+4. Spellogboek: **geen** `*ERR* ComError Code = 80040154` en geen `c0000005` op `0x0047E95E`; wel `Startup ShareK-Client.` en `ShareKステータス変化：ネットワーク未初期化...`.
+5. 5 minuten attract/spel kijken, ook voorbij 2 minuten (`ALL.NetCheck_TIMEOUT` staat dan in het spellogboek): wat toont de tv (netwerkfoutscherm, E05-xx)?
+   Bewijs van het laden: `/proc/<pid>/maps` bevat `rg-mfcam.dll` en **geen** `TeknoParrot.dll`.
+6. Faalt het daarna op ALL.Net: eerst `rg-mfcam.log` (de regel van de echte `CoCreateInstance` van IAuth), dan weg (a) voor IAuth bouwen.
 
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
