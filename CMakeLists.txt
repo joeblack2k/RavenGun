@@ -514,6 +514,9 @@ if(RAVENGUN_BUILD_TESTS)
   # Het eigen ShareK-object van rg-mfcam.dll (tools/rg-mfcam/sharek_fake.h): CLSID/IID, slottabel van Mario Kart DX.
   add_executable(ravengun_sharek_fake_tests tests/test_sharek_fake.cpp)
   add_test(NAME ravengun_sharek_fake_tests COMMAND ravengun_sharek_fake_tests)
+  # De stalldump van rg-mfcam.dll (tools/rg-mfcam/stall_dump.h): welke stapelwaarden op een terugkeeradres lijken.
+  add_executable(ravengun_stall_dump_tests tests/test_stall_dump.cpp)
+  add_test(NAME ravengun_stall_dump_tests COMMAND ravengun_stall_dump_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)

@@ -48,7 +48,14 @@
 //   netwerk" (status 2: de tick van het spel doet dan niets). Elke andere klasse, ook de IAuth van AMAuthd, gaat ongewijzigd naar de echte
 //   CoCreateInstance. Met de TeknoParrot-kern in het proces blijft dit uit (die beantwoordt het zelf). Logica en uitleg: sharek_fake.h.
 //
+// VIJFDE TAAK: de stalldump (waar wacht het spel?)
+//   Met RG_STALL_DUMP=30,60,90 (seconden na het laden van deze DLL) zet een eigen draad op die tijdstippen elke andere draad van het proces
+//   even stil, leest EIP/ESP/EBP en zoekt de stapel af naar terugkeeradressen in de exe (alleen waarden waar een x86-aanroep aan voorafgaat,
+//   stall_dump.h). Alles in rg-mfcam.log, adressen als exe+RVA en als het VA dat objdump voor de exe toont. Voor een zwart beeld waar het
+//   spel niets meer logt; zonder gdb, en zonder dat het spel iets merkt (de draden draaien na de dump gewoon door).
+//
 // OMGEVING
+//   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
 //   RG_SHAREK_FAKE=1  het eigen ShareK-object aan (dropin.ini, Env); leeg of 0 = uit
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
 //   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
@@ -66,6 +73,7 @@
 #define _WIN32_WINNT 0x0601
 #endif
 #include <windows.h>
+#include <tlhelp32.h>
 #include <initguid.h>
 #include <cguid.h>
 #include <mfapi.h>
@@ -82,6 +90,7 @@
 #include "../../src/ravengun/vision/camera_feed_format.h"
 #include "jvs_com.h"
 #include "sharek_fake.h"
+#include "stall_dump.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -1062,6 +1071,118 @@ void setup_sharek_fake() {
     }
 }
 
+// --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
+// Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
+void where_text(DWORD a, char* out, size_t n) {
+    auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
+    const DWORD base = reinterpret_cast<DWORD>(exe), size = nt->OptionalHeader.SizeOfImage;
+    if (a >= base && a < base + size) {
+        std::snprintf(out, n, "exe+0x%lx (VA 0x%lx)", static_cast<unsigned long>(a - base), static_cast<unsigned long>(nt->OptionalHeader.ImageBase + (a - base)));
+        return;
+    }
+    HMODULE m = nullptr;
+    char name[MAX_PATH] = {};
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCSTR>(static_cast<uintptr_t>(a)), &m) &&
+        GetModuleFileNameA(m, name, MAX_PATH)) {
+        const char* b = std::strrchr(name, '\\');
+        std::snprintf(out, n, "%s+0x%lx", b ? b + 1 : name, static_cast<unsigned long>(a - reinterpret_cast<DWORD>(m)));
+    } else {
+        std::snprintf(out, n, "0x%lx", static_cast<unsigned long>(a));
+    }
+}
+
+bool read_self(DWORD addr, void* buf, SIZE_T n) {
+    SIZE_T got = 0;
+    return ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<uintptr_t>(addr)), buf, n, &got) && got == n;
+}
+
+void stall_dump_once(unsigned secs) {
+    rg_log("stalldump na %u s:", secs);
+    auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
+    const DWORD base = reinterpret_cast<DWORD>(exe), size = nt->OptionalHeader.SizeOfImage;
+    const DWORD pid = GetCurrentProcessId(), me = GetCurrentThreadId();
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) {
+        rg_log("  geen threadlijst (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        return;
+    }
+    THREADENTRY32 te = {};
+    te.dwSize = sizeof te;
+    int threads = 0;
+    for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+        if (te.th32OwnerProcessID != pid || te.th32ThreadID == me) continue;
+        ++threads;
+        HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
+        if (!h) {
+            rg_log("  thread %lu: niet te openen (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+            continue;
+        }
+        if (SuspendThread(h) == static_cast<DWORD>(-1)) {
+            rg_log("  thread %lu: SuspendThread mislukt (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+            CloseHandle(h);
+            continue;
+        }
+        CONTEXT c = {};
+        c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+        if (GetThreadContext(h, &c)) {
+            char w[160];
+            where_text(c.Eip, w, sizeof w);
+            rg_log("  thread %lu: EIP %s, ESP 0x%lx, EBP 0x%lx", static_cast<unsigned long>(te.th32ThreadID), w, static_cast<unsigned long>(c.Esp),
+                   static_cast<unsigned long>(c.Ebp));
+            // De stapel (ESP..+4 KiB): waarden in de exe waar een aanroep aan voorafgaat. Hoogstens 14 per draad.
+            BYTE stack[4096];
+            // In stukken van 32 bytes: dicht bij de top van de stapel zou een enkele grote lezing mislukken.
+            SIZE_T got = 0;
+            while (got + 32 <= sizeof stack && read_self(c.Esp + static_cast<DWORD>(got), stack + got, 32)) got += 32;
+            if (got >= 4) {
+                int shown = 0;
+                for (SIZE_T o = 0; o + 4 <= got && shown < 14; o += 4) {
+                    DWORD v;
+                    std::memcpy(&v, stack + o, 4);
+                    if (v < base + 8 || v >= base + size) continue;
+                    BYTE before[8];
+                    if (!read_self(v - 8, before, 8)) continue;
+                    if (!rg_stall::preceded_by_call(before + 8)) continue;   // leest p[-6]..p[-1]: de 8 bytes vlak voor v
+                    where_text(v, w, sizeof w);
+                    rg_log("      [ESP+0x%lx] %s", static_cast<unsigned long>(o), w);
+                    ++shown;
+                }
+            }
+        } else {
+            rg_log("  thread %lu: GetThreadContext mislukt (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+        }
+        ResumeThread(h);
+        CloseHandle(h);
+    }
+    CloseHandle(snap);
+    rg_log("  %d draden bekeken", threads);
+}
+
+DWORD WINAPI stall_thread(LPVOID) {
+    char spec[128];
+    if (GetEnvironmentVariableA("RG_STALL_DUMP", spec, sizeof spec) == 0) return 0;
+    const DWORD t0 = GetTickCount();
+    for (unsigned secs : rg_stall::parse_times(spec)) {
+        for (;;) {
+            const DWORD el = GetTickCount() - t0;
+            if (el >= secs * 1000u) break;
+            Sleep(static_cast<DWORD>(secs * 1000u - el > 500 ? 500 : secs * 1000u - el));
+        }
+        stall_dump_once(secs);
+    }
+    return 0;
+}
+
+void setup_stall_dump() {
+    char spec[128];
+    if (GetEnvironmentVariableA("RG_STALL_DUMP", spec, sizeof spec) == 0 || !spec[0]) return;
+    HANDLE t = CreateThread(nullptr, 0, &stall_thread, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+    rg_log("stalldump aan: %s s na het laden", spec);
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Logboek naast deze DLL.
@@ -1085,6 +1206,7 @@ void setup() {
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
+    setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
