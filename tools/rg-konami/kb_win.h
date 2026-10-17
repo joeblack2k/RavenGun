@@ -57,23 +57,24 @@ static const volatile uint8_t *kb_map;
 static DWORD kb_volgende_poging;
 static int kb_meldingen;   /* begrenst het aantal invoerregels in het logboek */
 
-/* Formaat zoals wsprintf: %d %u %x %s %c (geen %f en geen %p). */
-static void kb_log(const char *fmt, ...)
+/* Plakt s achter d (d is een afgesloten tekst in een buffer van lengte bytes). */
+static void kb_plak(char *d, size_t lengte, const char *s)
 {
-    char regel[1100];
-    va_list ap;
-    va_start(ap, fmt);
-    int n = wvsprintfA(regel, fmt, ap);   /* hoogstens 1024 tekens */
-    va_end(ap);
-    if (n < 0) return;
-    regel[n] = '\r';
-    regel[n + 1] = '\n';
-    regel[n + 2] = 0;
+    size_t n = kb_strlen(d);
+    if (n < lengte) kb_kopieer(d + n, lengte - n, s);
+}
+
+/* Schrijft een kant-en-klare regel (zonder regeleinde) naar het logboek. Alleen kernel32: veilig in DllMain.
+ * RG_KONAMI_LOG=pad; een relatief pad is relatief aan de map van DEZE DLL (niet aan de werkmap van het proces). Lukt het openen
+ * daar niet, dan %TEMP%\rg-konami.log. Zonder RG_KONAMI_LOG: OutputDebugString. */
+static void kb_schrijf(const char *regel)
+{
     char pad[MAX_PATH + 64];
     DWORD lp = GetEnvironmentVariableA("RG_KONAMI_LOG", pad, MAX_PATH);
     if (lp == 0 || lp >= MAX_PATH) {
         OutputDebugStringA(KB_NAAM ": ");
         OutputDebugStringA(regel);
+        OutputDebugStringA("\n");
         return;
     }
     if (!(pad[0] == '\\' || pad[0] == '/' || pad[1] == ':')) {   /* relatief: naast deze DLL */
@@ -87,11 +88,31 @@ static void kb_log(const char *fmt, ...)
         }
     }
     HANDLE f = CreateFileA(pad, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (f == INVALID_HANDLE_VALUE) return;
+    if (f == INVALID_HANDLE_VALUE) {
+        DWORD t = GetTempPathA(MAX_PATH, pad);
+        if (t == 0 || t >= MAX_PATH) return;
+        kb_plak(pad, sizeof pad, "rg-konami.log");
+        f = CreateFileA(pad, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (f == INVALID_HANDLE_VALUE) return;
+    }
     DWORD w;
     WriteFile(f, KB_NAAM ": ", (DWORD)kb_strlen(KB_NAAM ": "), &w, NULL);
     WriteFile(f, regel, (DWORD)kb_strlen(regel), &w, NULL);
+    WriteFile(f, "\r\n", 2, &w, NULL);
     CloseHandle(f);
+}
+
+/* Formaat zoals wsprintf: %d %u %x %s %c (geen %f en geen %p). Niet in DllMain gebruiken (user32). */
+static void kb_log(const char *fmt, ...)
+{
+    char regel[1100];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = wvsprintfA(regel, fmt, ap);   /* hoogstens 1024 tekens */
+    va_end(ap);
+    if (n < 0) return;
+    regel[n] = 0;
+    kb_schrijf(regel);
 }
 
 /* Leest het bordbeeld; zonder mapping een leeg beeld (alles los, niemand in beeld). */
@@ -108,15 +129,35 @@ static void kb_beeld_nu(kb_beeld *b)
     kb_lees(kb_map, b);
 }
 
+/* DllMain, DLL_PROCESS_ATTACH: de laadregel. Het bewijs dat Wine DEZE DLL in het spelproces laadde, ook als de game daarna nooit
+ * een functie aanroept: welke DLL, in welk proces (exe) en met welke werkmap. Alleen kernel32 (kb_schrijf), geen opmaak. */
 static void kb_dllmain_attach(HINSTANCE h)
 {
     kb_deze = h;
     DisableThreadLibraryCalls(h);
     InitializeCriticalSection(&kb_slot);
     kb_volgende_poging = GetTickCount();
+    char regel[3 * MAX_PATH + 160], stuk[MAX_PATH + 1];
+    kb_kopieer(regel, sizeof regel, "DllMain: geladen ");
+    if (!GetModuleFileNameA(h, stuk, MAX_PATH)) kb_kopieer(stuk, sizeof stuk, "?");
+    kb_plak(regel, sizeof regel, stuk);
+    kb_plak(regel, sizeof regel, " in proces ");
+    if (!GetModuleFileNameA(NULL, stuk, MAX_PATH)) kb_kopieer(stuk, sizeof stuk, "?");
+    kb_plak(regel, sizeof regel, stuk);
+    kb_plak(regel, sizeof regel, ", werkmap ");
+    if (!GetCurrentDirectoryA(MAX_PATH, stuk)) kb_kopieer(stuk, sizeof stuk, "?");
+    kb_plak(regel, sizeof regel, stuk);
+    kb_plak(regel, sizeof regel, " (RavenGun rg-konami, zonder TeknoParrot)");
+    kb_schrijf(regel);
 }
 
-/* De eerste regel van het logboek, bij de eerste aanroep van de game (niet in DllMain: daar geen bestanden onder de loader-lock). */
+/* DllMain, DLL_PROCESS_DETACH: het proces stopt (r != NULL) of de DLL wordt losgelaten. Na een crash komt deze regel niet. */
+static void kb_dllmain_detach(LPVOID r)
+{
+    kb_schrijf(r ? "DllMain: proces stopt normaal (ExitProcess)" : "DllMain: DLL losgelaten (FreeLibrary)");
+}
+
+/* De eerste aanroep van de game, als tweede bewijs: de game is tot zijn I/O-code gekomen. */
 static void kb_meld_geladen(const char *wat)
 {
     static int gemeld;

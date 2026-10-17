@@ -175,9 +175,24 @@ void gsh_mujinkun_set_mode(uint8_t m) { mujinkun = m; }
 
 const char *gsh_GetDllStampStr(void) { return "rg-konami iob.dll (RavenGun)"; }
 
+/* system.dll (SystemMain 0x10001170 -> 0x100014f0) opent als eerste de mutex "JONG4APPLICATION": bestaat die al (een andere
+ * ballshooting.exe in dezelfde prefix, ook een die is blijven hangen), dan geeft SystemMain meteen 0 terug en stopt de game zonder
+ * melding met exitcode 0, nog voor hij iets van iob.dll of ballio.dll aanroept. Wij laden eerder (statische import) en zeggen het. */
+static void controleer_mutex(void)
+{
+    HANDLE m = OpenMutexA(SYNCHRONIZE, FALSE, "JONG4APPLICATION");
+    if (m) {
+        CloseHandle(m);
+        kb_schrijf("LET OP: de mutex JONG4APPLICATION bestaat al: er draait nog een ballshooting.exe in deze prefix; system.dll stopt "
+                   "de game dan meteen met exitcode 0 (eerst die oude processen stoppen)");
+    } else {
+        kb_schrijf("mutex JONG4APPLICATION bestaat nog niet (goed: system.dll maakt hem zelf)");
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reden, LPVOID r)
 {
-    (void)r;
-    if (reden == DLL_PROCESS_ATTACH) kb_dllmain_attach(h);
+    if (reden == DLL_PROCESS_ATTACH) { kb_dllmain_attach(h); controleer_mutex(); }
+    else if (reden == DLL_PROCESS_DETACH) kb_dllmain_detach(r);
     return TRUE;
 }
