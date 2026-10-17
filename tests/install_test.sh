@@ -54,7 +54,7 @@ ls "$H"/.local/opt/ 2>/dev/null | grep -q '\.new\.\|\.old\.' && fail "tijdelijke
 # Units en snelkoppelingen wijzen naar de installatie, niet naar de repo.
 U="$H/.config/systemd/user"
 grep -qx "ExecStart=$P/bin/ravengund" "$U/ravengund.service" || fail "ravengund.service wijst niet naar $P/bin/ravengund"
-grep -qx "ExecStart=$D/scripts/oled-saver.sh --loop" "$U/ravengun-oled-saver.service" || fail "oled-saver-unit wijst niet naar de installatie"
+grep -qx "ExecStart=$P/bin/ravengun --saver-loop" "$U/ravengun-oled-saver.service" || fail "oled-saver-unit wijst niet naar de installatie"
 grep -qx "Exec=$P/bin/ravengun" "$H/.local/share/applications/ravengun-qt.desktop" || fail "menu-snelkoppeling wijst niet naar de installatie"
 grep -qx "Exec=$P/bin/ravengun" "$H/Desktop/ravengun-qt.desktop" || fail "bureaubladsnelkoppeling ontbreekt of wijst elders heen"
 [[ "$(readlink "$H/.local/bin/ravengun")" == "$P/bin/ravengun" ]] || fail "koppeling ~/.local/bin/ravengun ontbreekt"

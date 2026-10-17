@@ -5,7 +5,7 @@
 //
 // Het bord komt uit twee kleine bestanden onder ~/.local/state/ravengun/ (XDG_STATE_HOME):
 //   saver-status.txt  de stand van het werk; de coordinator houdt het bij (tools/dev/rg-saver-status.sh).
-//   saver-game.txt    draait er nu een spel; scripts/oled-saver.sh schrijft het elke paar seconden.
+//   saver-game.txt    draait er nu een spel; `ravengun --saver-loop` (core/SaverLoop.cpp) schrijft het elke paar seconden.
 //
 // Formaat van saver-status.txt: `sleutel: waarde` per regel, UTF-8; lege regels en regels met # tellen niet.
 //   spel:  Halo                                   verplicht

@@ -22,11 +22,14 @@
 #include "core/TextConfig.h"
 #include "core/TpProfile.h"
 #include "core/BigPicture.h"
+#include "core/SaverLoop.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
 #include "core/SystemControl.h"
 
 #include <linux/input.h>
+#include <unistd.h>
+#include <QProcess>
 
 using namespace rg;
 
@@ -121,6 +124,12 @@ private Q_SLOTS:
     // A6: commando's van de wizard
     void setupCommands();
     void dataRootOrder();
+    // OLED-bescherming (core/SaverLoop)
+    void saverClassify();
+    void saverStep();
+    void saverCommands();
+    void saverProcFiles();
+    void saverStopViewRuns();
 
 private:
     QTemporaryDir tmp_;
@@ -1973,6 +1982,204 @@ void AppCoreTest::dataRootOrder() {
     QCOMPARE(AppPaths::dataRootCandidates(QStringLiteral("/d"), QStringLiteral("/r"), QStringLiteral("/p/bin"), QStringLiteral("/h")),
              (QStringList{QStringLiteral("/d"), QStringLiteral("/p/share/ravengun"), QStringLiteral("/r"), QStringLiteral("/p"),
                           QStringLiteral("/h/projects/ravengun")}));
+}
+
+// ---- OLED-bescherming: de lus als C++ (core/SaverLoop), zelfde uitkomsten als scripts/oled-saver.sh ----
+void AppCoreTest::saverClassify() {
+    using namespace rg::saver;
+    auto classify = [](const std::vector<Proc>& p, bool taken = false, bool screen = false, bool tpui = false) {
+        GameProbe pr;
+        pr.screenTaken = taken;
+        pr.hasDisplay = [screen](int) { return screen; };
+        pr.tpuiActive = [tpui] { return tpui; };
+        return ClassifyGameState(p, pr);
+    };
+    // Niets, of alleen onszelf en gewone processen: geen.
+    QCOMPARE(classify({{1, "/usr/lib/systemd/systemd --user"}, {50, "/usr/bin/plasmashell"}, {60, "/x/bin/ravengun --saver-loop"},
+                       {61, "bash /x/scripts/oled-saver.sh --loop"}, {62, "/x/bin/ravengun --saver-stop-view"}}),
+             GameState::Geen);
+    // Een gewone gamescope: zichtbaar; headless: onzichtbaar; beide: zichtbaar gaat voor.
+    QCOMPARE(classify({{300, "gamescope -f -W 1920 -H 1080 -- /x/bwrap"}}), GameState::Zichtbaar);
+    QCOMPARE(classify({{300, "/usr/bin/gamescope -W 1280 -H 720 --backend wayland -- x"}}), GameState::Zichtbaar);
+    QCOMPARE(classify({{300, "gamescope --backend headless -W 1920 -- x"}}), GameState::Onzichtbaar);
+    QCOMPARE(classify({{300, "gamescope --backend headless -W 1 -- x"}, {301, "gamescope -f -- y"}}), GameState::Zichtbaar);
+    // Een naam die alleen op gamescope lijkt, telt niet.
+    QCOMPARE(classify({{300, "gamescopereaper x"}}), GameState::Geen);
+    // Zonder gamescope: eigen start met scherm = zichtbaar, zonder = onzichtbaar; --plan telt niet.
+    QCOMPARE(classify({{100, "/x/bin/rg-direct --run /x/Luigi.json"}}, false, true), GameState::Zichtbaar);
+    QCOMPARE(classify({{200, "/x/bin/rg-direct --run /x/Luigi.json"}}, false, false), GameState::Onzichtbaar);
+    QCOMPARE(classify({{200, "/x/bin/rg-direct --plan Luigi"}}), GameState::Geen);
+    QCOMPARE(classify({{200, "wine Z:\\game\\Game.exe"}}, false, false), GameState::Onzichtbaar);
+    // De houder en de unit ravengun-tpui gaan voor wat er verder draait; de houder zelfs voor een headless gamescope.
+    QCOMPARE(classify({{300, "gamescope --backend headless -- x"}}, true), GameState::Zichtbaar);
+    QCOMPARE(classify({}, false, false, true), GameState::Zichtbaar);
+    QCOMPARE(classify({{200, "/x/bin/rg-direct --run a.json"}}, false, false, true), GameState::Zichtbaar);
+    // Een headless gamescope wint van de unit (zoals het script).
+    QCOMPARE(classify({{300, "gamescope --backend headless -- x"}}, false, false, true), GameState::Onzichtbaar);
+    // De tpui-vraag wordt alleen gesteld als nodig.
+    bool asked = false;
+    GameProbe pr;
+    pr.tpuiActive = [&] { asked = true; return false; };
+    ClassifyGameState({{300, "gamescope -f -- x"}}, pr);
+    QVERIFY(!asked);
+    QCOMPARE(QString::fromStdString(GameStateFileText(GameState::Zichtbaar)), QStringLiteral("zichtbaar\n"));
+    QCOMPARE(QString::fromStdString(GameStateFileText(GameState::Onzichtbaar)), QStringLiteral("onzichtbaar\n"));
+    QCOMPARE(QString::fromStdString(GameStateFileText(GameState::Geen)), QStringLiteral("geen\n"));
+}
+
+void AppCoreTest::saverStep() {
+    using namespace rg::saver;
+    // Geen game: idle loopt in stappen van 3 s op; bij 600 s gaat het scherm aan.
+    int idle = 0;
+    for (int i = 0; i < 199; ++i) {
+        const Step s = NextStep(idle, 600, GameState::Geen, false);
+        idle = s.idle;
+        QCOMPARE(s.action, ViewAction::None);
+    }
+    QCOMPARE(idle, 597);
+    Step s = NextStep(idle, 600, GameState::Geen, false);
+    QCOMPARE(s.idle, 600);
+    QCOMPARE(s.action, ViewAction::Start);
+    s = NextStep(600, 600, GameState::Geen, true);  // staat al aan
+    QCOMPARE(s.action, ViewAction::None);
+    QCOMPARE(s.idle, 603);
+    // Zichtbaar: idle 0, scherm dicht alleen als het openstaat.
+    s = NextStep(500, 600, GameState::Zichtbaar, true);
+    QCOMPARE(s.idle, 0);
+    QCOMPARE(s.action, ViewAction::Stop);
+    QCOMPARE(NextStep(500, 600, GameState::Zichtbaar, false).action, ViewAction::None);
+    // Onzichtbaar: meteen open, idle op de drempel.
+    s = NextStep(0, 600, GameState::Onzichtbaar, false);
+    QCOMPARE(s.idle, 600);
+    QCOMPARE(s.action, ViewAction::Start);
+    QCOMPARE(NextStep(0, 600, GameState::Onzichtbaar, true).action, ViewAction::None);
+    // Na een game begint het aftellen opnieuw.
+    QCOMPARE(NextStep(0, 600, GameState::Geen, false).idle, 3);
+    // Een korte drempel (RG_SAVER_IDLE_S=5): twee rondes.
+    QCOMPARE(NextStep(0, 5, GameState::Geen, false).action, ViewAction::None);
+    QCOMPARE(NextStep(3, 5, GameState::Geen, false).action, ViewAction::Start);
+}
+
+void AppCoreTest::saverCommands() {
+    using namespace rg::saver;
+    // Omgeving: waarden van de unit, anders de standaardwaarden van het script.
+    auto none = [](const char*) -> const char* { return nullptr; };
+    ViewEnv e = ViewEnvFrom(none, 1000);
+    QCOMPARE(QString::fromStdString(e.runtimeDir), QStringLiteral("/run/user/1000"));
+    QCOMPARE(QString::fromStdString(e.waylandDisplay), QStringLiteral("wayland-0"));
+    QCOMPARE(QString::fromStdString(e.dbusAddress), QStringLiteral("unix:path=/run/user/1000/bus"));
+    auto set = [](const char* n) -> const char* {
+        const std::string k = n;
+        if (k == "XDG_RUNTIME_DIR") return "/run/user/7";
+        if (k == "WAYLAND_DISPLAY") return "wayland-1";
+        if (k == "DBUS_SESSION_BUS_ADDRESS") return "unix:path=/x/bus";
+        return nullptr;
+    };
+    e = ViewEnvFrom(set, 1000);
+    const std::vector<std::string> a = ViewStartArgs(e, "/p/bin/ravengun");
+    const std::vector<std::string> want{"--user", "--unit=ravengun-oled-view", "--collect", "--quiet", "-E", "XDG_RUNTIME_DIR=/run/user/7",
+                                        "-E", "WAYLAND_DISPLAY=wayland-1", "-E", "DBUS_SESSION_BUS_ADDRESS=unix:path=/x/bus",
+                                        "/p/bin/ravengun", "--saver"};
+    QVERIFY(a == want);
+    // Nooit een browser in de opdracht.
+    for (const std::string& x : a) QVERIFY(x.find("brave") == std::string::npos && x.find("chrom") == std::string::npos);
+    QVERIFY(ViewStopArgs() == (std::vector<std::string>{"--user", "stop", "ravengun-oled-view.service"}));
+    QVERIFY(ViewActiveArgs() == (std::vector<std::string>{"--user", "is-active", "--quiet", "ravengun-oled-view.service"}));
+    QCOMPARE(QString::fromStdString(LegacyBrowserProfileArg("/home/d")), QStringLiteral("--user-data-dir=/home/d/.local/state/ravengun/saver-browser"));
+}
+
+void AppCoreTest::saverProcFiles() {
+    using namespace rg::saver;
+    // ProcStartTime: veld 22, ook met spaties en haakjes in de naam.
+    QCOMPARE(QString::fromStdString(ProcStartTime("100 (my (odd) name) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 424242 23 24")),
+             QStringLiteral("424242"));
+    QVERIFY(ProcStartTime("kapot").empty());
+    // Een namaak-/proc.
+    QTemporaryDir t;
+    QVERIFY(t.isValid());
+    const QString proc = t.path() + QStringLiteral("/proc"), hold = t.path() + QStringLiteral("/hold");
+    auto put = [&](const QString& rel, const QByteArray& data) {
+        QDir().mkpath(QFileInfo(proc + rel).path());
+        QFile f(proc + rel);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(data);
+    };
+    put(QStringLiteral("/100/cmdline"), QByteArray("gamescope\0-f\0--\0x\0", 19));
+    put(QStringLiteral("/100/environ"), QByteArray("HOME=/x\0DISPLAY=:0\0", 19));
+    put(QStringLiteral("/100/stat"), QByteArray("100 (gs) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 777 23\n"));
+    put(QStringLiteral("/200/cmdline"), QByteArray("rg-direct\0--run\0a.json\0", 23));
+    put(QStringLiteral("/200/environ"), QByteArray("HOME=/x\0PATH=/bin\0DISPLAY=\0", 28));
+    put(QStringLiteral("/300/cmdline"), QByteArray());  // kernelthread-achtig: geen opdrachtregel
+    const auto procs = ListProcesses(proc.toStdString(), getuid());
+    QCOMPARE(int(procs.size()), 2);
+    bool seenGs = false, seenDirect = false;
+    for (const Proc& p : procs) {
+        if (p.pid == 100) { seenGs = true; QCOMPARE(QString::fromStdString(p.args), QStringLiteral("gamescope -f -- x")); }
+        if (p.pid == 200) { seenDirect = true; QCOMPARE(QString::fromStdString(p.args), QStringLiteral("rg-direct --run a.json")); }
+    }
+    QVERIFY(seenGs && seenDirect);
+    QVERIFY(ListProcesses(proc.toStdString(), getuid() + 1).empty());  // andermans processen tellen niet
+    QVERIFY(ProcHasDisplay(proc.toStdString(), 100));
+    QVERIFY(!ProcHasDisplay(proc.toStdString(), 200));  // DISPLAY= is leeg
+    QVERIFY(!ProcHasDisplay(proc.toStdString(), 999));  // niet te lezen
+    // Houders: levend + juiste starttijd = genomen; levend maar andere starttijd = opgeruimd; dood = opgeruimd.
+    QDir().mkpath(hold);
+    auto holder = [&](const QString& pid, const QByteArray& body) {
+        QFile f(hold + QStringLiteral("/") + pid);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(body);
+    };
+    QVERIFY(!rg::saver::ScreenTaken((t.path() + QStringLiteral("/geenmap")).toStdString(), proc.toStdString()));
+    holder(QStringLiteral("100"), "999\n12:00:00\n");  // andere starttijd
+    holder(QStringLiteral("555"), "1\n");               // proces bestaat niet
+    QVERIFY(!ScreenTaken(hold.toStdString(), proc.toStdString()));
+    QVERIFY(QDir(hold).isEmpty());
+    holder(QStringLiteral("100"), "777\n12:00:00\n");
+    QVERIFY(ScreenTaken(hold.toStdString(), proc.toStdString()));
+    QVERIFY(QFile::exists(hold + QStringLiteral("/100")));
+    holder(QStringLiteral("100"), "0\n");  // 0 = niet controleren
+    QVERIFY(ScreenTaken(hold.toStdString(), proc.toStdString()));
+}
+
+void AppCoreTest::saverStopViewRuns() {
+    using namespace rg::saver;
+    // RunStopView met een namaak-systemctl en een namaak-/proc: stopt de unit en alleen de oude browser-kiosk van het saver-profiel.
+    QTemporaryDir t;
+    QVERIFY(t.isValid());
+    const QString home = t.path() + QStringLiteral("/home"), log = t.path() + QStringLiteral("/systemctl.log"), proc = t.path() + QStringLiteral("/proc");
+    QDir().mkpath(home);
+    const QString fake = t.path() + QStringLiteral("/fake-systemctl");
+    {
+        QFile f(fake);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(("#!/bin/sh\necho \"$@\" >> '" + log + "'\n").toUtf8());
+        f.close();
+        QVERIFY(QFile::setPermissions(fake, QFile::permissions(fake) | QFileDevice::ExeUser));
+    }
+    QProcess kiosk, other;
+    kiosk.start(QStringLiteral("sleep"), {QStringLiteral("30")});
+    other.start(QStringLiteral("sleep"), {QStringLiteral("30")});
+    QVERIFY(kiosk.waitForStarted() && other.waitForStarted());
+    auto cmdline = [&](qint64 pid, const QStringList& args) {
+        QDir().mkpath(proc + QStringLiteral("/") + QString::number(pid));
+        QFile f(proc + QStringLiteral("/") + QString::number(pid) + QStringLiteral("/cmdline"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        for (const QString& a : args) f.write(a.toUtf8() + QByteArray(1, '\0'));
+    };
+    cmdline(kiosk.processId(), {QStringLiteral("brave"), QStringLiteral("--user-data-dir=") + home + QStringLiteral("/.local/state/ravengun/saver-browser"),
+                                QStringLiteral("--kiosk")});
+    cmdline(other.processId(), {QStringLiteral("brave"), QStringLiteral("--user-data-dir=/elders")});
+    qputenv("RAVENGUN_SYSTEMCTL", fake.toUtf8());
+    qputenv("RG_SAVER_PROC", proc.toUtf8());
+    qputenv("HOME", home.toUtf8());
+    QCOMPARE(RunStopView(), 0);
+    qunsetenv("RAVENGUN_SYSTEMCTL");
+    qunsetenv("RG_SAVER_PROC");
+    QVERIFY(kiosk.waitForFinished(5000));  // SIGTERM van de opruiming
+    QCOMPARE(other.state(), QProcess::Running);
+    other.kill();
+    other.waitForFinished(2000);
+    QCOMPARE(readAll(log).trimmed(), QStringLiteral("--user stop ravengun-oled-view.service"));
 }
 
 QTEST_GUILESS_MAIN(AppCoreTest)
