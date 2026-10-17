@@ -1,0 +1,39 @@
+--- a/src/ravengun/launch/direct.cpp	2026-10-17 13:08:11.071665865 +0200
++++ b/src/ravengun/launch/direct.cpp	2026-10-17 13:08:35.562793520 +0200
+@@ -139,7 +139,9 @@
+     const std::string cwd = elf_like ? gamedir : tp;
+     std::string loader = pjoin(tp, exe_rel);
+     if (elf_like && !(et == "ElfLdr2" && is64) && isfile(pjoin(gamedir, exe_rel))) loader = pjoin(gamedir, exe_rel);
+-    if (!isfile(loader)) return unsupported("lader ontbreekt: " + loader);
++    // [Loader] Exe (8b hieronder): een eigen lader als drop-in vervangt de runtime-lader, dus die hoeft er dan niet te zijn.
++    const bool eigen_lader = !trim(settings.get("Loader", "Exe")).empty();
++    if (!eigen_lader && !isfile(loader)) return unsupported("lader ontbreekt: " + loader);
+     if (!dll_rel.empty() && !isfile(pjoin(tp, dll_rel + ".dll"))) return unsupported("kern ontbreekt: " + pjoin(tp, dll_rel) + ".dll");
+ 
+     // 2. Omgeving, keuzes van het profiel, eigen build, patches.
+@@ -760,6 +762,25 @@
+         return Verdict::Refused;
+     }
+     merge_env(pl, dr.env);
++    // 8b. [Loader] Exe = <naam>: een eigen lader die als drop-in meekomt (bv. rg-macaw.exe voor Silent Scope: Bone Eater, EmulatorType
++    // TeknoMacaw) in plaats van de lader uit de TeknoParrot-runtime. De naam moet een drop-in van deze game zijn (dropin.ini, To = .);
++    // zijn plek in de view komt in elke argv op de plaats van de runtime-lader. Niet te combineren met Build/Core = ravengun.
++    {
++        const gsn::Section* ls = settings.settings.section("Loader");
++        const std::string lx = ls ? trim(kv_get(ls->kv, "Exe")) : std::string();
++        if (!lx.empty()) {
++            const auto it = std::find_if(pl.dropin_files.begin(), pl.dropin_files.end(), [&](const DropinFile& f) { return f.name == lx; });
++            if (it == pl.dropin_files.end()) {
++                why = "Drop-in geweigerd: [Loader] Exe = " + lx + ", maar patches/" + name + "/dropin/dropin.ini heeft geen sectie [" + lx + "]";
++                return Verdict::Refused;
++            }
++            auto vervang = [&](std::vector<std::string>& argv) { for (auto& a : argv) if (a == loader) a = it->dest; };
++            vervang(pl.argv);
++            for (auto& s : pl.starts) vervang(s.argv);
++            pl.notes.push_back("lader (eigen, [Loader] Exe): " + it->dest);
++            pl.loader = it->dest;
++        }
++    }
+     // 9. gamescope heeft cap_sys_nice (setcap): de dynamische linker draait hem dan in secure-execution en haalt LD_LIBRARY_PATH,
+     // LD_PRELOAD en LD_AUDIT uit zijn omgeving, dus ook uit die van de game. Achter "--" zet env ze terug. Operation G.H.O.S.T.:
+     // zonder deze stap vond de 32-bits winegstreamer.so libgstaudio niet (Gst32) en faalde de WM-lezer op de titelfilm (2026-10-15).

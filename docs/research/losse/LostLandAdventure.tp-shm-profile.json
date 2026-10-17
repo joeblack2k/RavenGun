@@ -1,0 +1,27 @@
+{
+  "_comment": "VOORSTEL voor packaging/tp-shm-profiles.json, profiel LostLandAdventures (vervangt het bestaande item in 'profiles'; bit 0/1 en de assen zijn ongewijzigd, bit 2..9 zijn nieuw). De TeknoParrot-kern leest alleen bit 0/1, dus achterwaarts compatibel. De nieuwe bits leest tools/rg-lostland/rg_wajv_map.h (RG_LL_BIT_*).",
+  "LostLandAdventures": {
+    "description": "Lost Land Adventure (Namco ES3X). Control (offset 8): trekker speler 1 (0x1) en 2 (0x2) zoals TeknoParrot's LostLandPipe; eigen uitbreiding voor onze wajvio.dll: service (0x4), munt (0x8), test (0x10), start 1 (0x20), start 2 (0x40), omhoog/omlaag testmenu (0x80, 0x100), Enter testmenu (0x200). Aim: 4 kanalen van 1 byte op offset 12/16/20/24 (P1 X/Y, P2 X/Y).",
+    "size": 64,
+    "mirror_bytes": [0, 7],
+    "complete": false,
+    "bits": [
+      {"signal": "p1.trigger", "offset": 8, "bit": 0},
+      {"signal": "p2.trigger", "offset": 8, "bit": 1},
+      {"signal": "service", "offset": 8, "bit": 2},
+      {"signal": "coin1", "offset": 8, "bit": 3},
+      {"signal": "test", "offset": 8, "bit": 4},
+      {"signal": "p1.start", "offset": 8, "bit": 5},
+      {"signal": "p2.start", "offset": 8, "bit": 6},
+      {"signal": "volume_up", "offset": 8, "bit": 7},
+      {"signal": "volume_down", "offset": 8, "bit": 8},
+      {"signal": "p1.reload", "offset": 8, "bit": 9}
+    ],
+    "axes": [
+      {"signal": "p1.x", "offset": 12, "bytes": 1, "min": 0, "max": 255, "invert": false},
+      {"signal": "p1.y", "offset": 16, "bytes": 1, "min": 0, "max": 255, "invert": false},
+      {"signal": "p2.x", "offset": 20, "bytes": 1, "min": 0, "max": 255, "invert": false},
+      {"signal": "p2.y", "offset": 24, "bytes": 1, "min": 0, "max": 255, "invert": false}
+    ]
+  }
+}
