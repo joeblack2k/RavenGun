@@ -15,7 +15,7 @@ podman image exists "$IMAGE" || { echo "image $IMAGE ontbreekt (tools/dev/build-
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src" "$TMP/out" "$TMP/prefix" "$TMP/run"
-cp "$ROOT/tools/rg-amhw/"{rg_amhw.cpp,amhw_dmi.h,amhw_probe.cpp} "$TMP/src/"
+cp "$ROOT/tools/rg-amhw/"{rg_amhw.cpp,amhw_dmi.h,amhw_jvs.h,amhw_probe.cpp} "$TMP/src/"
 podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE" bash -c '
   i686-w64-mingw32-g++ -std=c++17 -O2 -s -shared -Wall -Wextra -static -static-libgcc -static-libstdc++ /src/rg_amhw.cpp -o /out/rg-amhw.dll &&
   i686-w64-mingw32-g++ -std=c++17 -O2 -s -Wall -Wextra -static -static-libgcc -static-libstdc++ /src/amhw_probe.cpp -o /out/amhw_probe.exe'

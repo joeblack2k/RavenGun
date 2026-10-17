@@ -10,6 +10,8 @@
 //   \\.\mxsram    het backup-SRAM: 0x9C406000 = stuurprogrammaversie (laag woord 1), 0x70000 = geometrie (0x18 bytes), daarna gewone
 //                 SetFilePointer/ReadFile/WriteFile in sectoren. Achter een bestand (mxsram.bin) naast deze DLL, zodat instellingen en
 //                 scores een herstart overleven (de view is lokaal; nooit de NAS).
+//   \\.\mxjvs    de JVS-lijn (stuurprogramma-modus van amJvst): wordt de pipe van onze JVS-brug; DeviceIoControl 0x9C402000 = kader erheen, antwoordkader terug
+//                 (amhw_jvs.h), comm-aanroepen slagen, sense-lijn uit TeknoParrot_JvsState.
 // Alles wat de game verder met `\\.\...` of SetupDi probeert wordt GELOGD en ongewijzigd doorgegeven: rg-amhw.log is de lijst van wat
 // er nog ontbreekt (mxsuperio = hardwaremonitor, de SMBus-driver voor EEPROM en dipschakelaars via SetupDi).
 //
@@ -29,6 +31,7 @@
 #include <vector>
 
 #include "amhw_dmi.h"
+#include "amhw_jvs.h"
 
 namespace {
 
@@ -53,7 +56,8 @@ void rg_log(const char* fmt, ...) {
 }
 
 // --- de apparaten --------------------------------------------------------------------------------------------------------------------
-enum class Kind { Columba, Sram };
+enum class Kind { Columba, Sram, Jvs };
+const char* kind_name(Kind k) { return k == Kind::Columba ? "columba" : k == Kind::Sram ? "mxsram" : "mxjvs"; }
 struct Dev {
     Kind kind;
     long long pos = 0;   // SRAM: de bestandspositie
@@ -83,6 +87,21 @@ SetFilePointerFn g_seek = SetFilePointer;
 ReadWriteFn g_read = reinterpret_cast<ReadWriteFn>(ReadFile);
 ReadWriteFn g_write = reinterpret_cast<ReadWriteFn>(WriteFile);
 SetupGetClassDevsAFn g_setup_classdevs = nullptr;
+using CommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
+using CommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
+using SetupCommFn = BOOL(WINAPI*)(HANDLE, DWORD, DWORD);
+using PurgeCommFn = BOOL(WINAPI*)(HANDLE, DWORD);
+using ModemStatusFn = BOOL(WINAPI*)(HANDLE, LPDWORD);
+CommStateFn g_get_comm_state = GetCommState, g_set_comm_state = SetCommState;
+CommTimeoutsFn g_get_comm_timeouts = GetCommTimeouts, g_set_comm_timeouts = SetCommTimeouts;
+SetupCommFn g_setup_comm = SetupComm;
+PurgeCommFn g_purge_comm = PurgeComm;
+ModemStatusFn g_modem_status = GetCommModemStatus;
+CRITICAL_SECTION g_jvs_cs;                                 // een JVS-transactie (schrijven + antwoord lezen) tegelijk
+char g_jvs_pipe[128] = "\\\\.\\pipe\\TeknoParrot_JVS";      // de pipe van onze brug (rg-jvsbridge)
+HANDLE g_jvs_map = nullptr;
+const volatile uint8_t* g_jvs_state = nullptr;             // byte 0 = het bord heeft een adres (door de brug gespiegeld)
+constexpr DWORD kJvsReplyMs = 250;
 
 bool is_dev_path(const char* n, const char* tail) { return n && lstrcmpiA(n, tail) == 0; }
 
@@ -134,9 +153,33 @@ bool lookup(HANDLE h, Dev& d) {
     return found;
 }
 
+// \\.\mxjvs: het stuurprogramma van de I/O-kaart. Wij geven de pipe van onze JVS-brug; die is er pas als de brug draait, dus even wachten.
+HANDLE open_jvs() {
+    HANDLE h = INVALID_HANDLE_VALUE;
+    DWORD e = 0;
+    for (int i = 0; i < 50; ++i) {
+        h = g_create_a(g_jvs_pipe, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (h != INVALID_HANDLE_VALUE) break;
+        e = GetLastError();
+        if (e == ERROR_PIPE_BUSY) WaitNamedPipeA(g_jvs_pipe, 100);
+        else Sleep(100);
+    }
+    if (h == INVALID_HANDLE_VALUE) {
+        rg_log("mxjvs: de pipe %s is niet te openen (fout %lu); is de JVS-brug gestart?", g_jvs_pipe, static_cast<unsigned long>(e));
+        SetLastError(e);
+        return INVALID_HANDLE_VALUE;
+    }
+    EnterCriticalSection(&g_cs);
+    g_devs[h] = Dev{Kind::Jvs, 0};
+    LeaveCriticalSection(&g_cs);
+    rg_log("mxjvs: geopend -> pipe %s, handvat %p", g_jvs_pipe, h);
+    return h;
+}
+
 HANDLE open_named_a(const char* n) {
     if (is_dev_path(n, "\\\\.\\columba")) return make_handle(Kind::Columba, "columba");
     if (is_dev_path(n, "\\\\.\\mxsram")) { sram_load(); return make_handle(Kind::Sram, "mxsram"); }
+    if (is_dev_path(n, "\\\\.\\mxjvs")) return open_jvs();
     return nullptr;
 }
 
@@ -167,9 +210,80 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
     return g_create_a(name, acc, share, sa, disp, flags, tmpl);
 }
 
+// De JVS-transactie van het stuurprogramma (0x9C402000): de bytes van de bovenlaag naar de lijn, dan het antwoordkader terug, en de OVERLAPPED
+// meteen klaar (InternalHigh = aantal bytes, gebeurtenis gezet): Windows meldt een direct voltooide overlapped-opdracht ook met TRUE.
+BOOL jvs_transfer(HANDLE h, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
+    static LONG count = 0, timeouts = 0;
+    const LONG nr = InterlockedIncrement(&count);
+    uint8_t acc[1024];
+    size_t have = 0, got = 0;
+    DWORD wrote = 0;
+    EnterCriticalSection(&g_jvs_cs);
+    BOOL ok = in && in_n && WriteFile(h, in, in_n, &wrote, nullptr);
+    const DWORD werr = ok ? 0 : GetLastError();
+    const bool reply = ok && rg_amhw::expects_reply(static_cast<const uint8_t*>(in), in_n);
+    if (reply) {
+        const DWORD deadline = GetTickCount() + kJvsReplyMs;
+        for (;;) {
+            DWORD avail = 0;
+            if (!PeekNamedPipe(h, nullptr, 0, nullptr, &avail, nullptr)) break;
+            if (avail) {
+                DWORD r = 0;
+                if (!ReadFile(h, acc + have, static_cast<DWORD>(std::min<size_t>(avail, sizeof acc - have)), &r, nullptr) || !r) break;
+                have += r;
+                size_t skip = 0;
+                const size_t fl = rg_amhw::frame_length(acc, have, &skip);
+                if (fl) { std::memmove(acc, acc + skip, fl); have = fl; got = fl; break; }
+                if (have >= sizeof acc) break;
+            } else if (static_cast<LONG>(GetTickCount() - deadline) >= 0) {
+                break;
+            } else {
+                Sleep(1);
+            }
+        }
+    }
+    LeaveCriticalSection(&g_jvs_cs);
+    if (got > out_n) got = out_n;
+    if (got && out) std::memcpy(out, acc, got);
+    auto hex = [](const uint8_t* b, size_t n) {
+        std::string t;
+        char c[4];
+        for (size_t i = 0; i < n && i < 24; ++i) { std::snprintf(c, sizeof c, "%02X", b[i]); t += c; if (i + 1 < n) t += ' '; }
+        if (n > 24) t += "...";
+        return t;
+    };
+    if (!ok) {
+        rg_log("mxjvs: schrijven mislukt (fout %lu) bij %lu bytes", static_cast<unsigned long>(werr), static_cast<unsigned long>(in_n));
+        SetLastError(werr ? werr : ERROR_BROKEN_PIPE);
+        return FALSE;
+    }
+    if (reply && !got) {
+        const LONG t = InterlockedIncrement(&timeouts);
+        if (t <= 10 || t % 200 == 0)
+            rg_log("mxjvs: geen antwoord binnen %lu ms op [%s] (%ld keer)", static_cast<unsigned long>(kJvsReplyMs), hex(static_cast<const uint8_t*>(in), in_n).c_str(), static_cast<long>(t));
+    }
+    if (nr <= 6 || nr % 2000 == 0)
+        rg_log("mxjvs: #%ld [%s] -> %s [%s]", static_cast<long>(nr), hex(static_cast<const uint8_t*>(in), in_n).c_str(),
+               reply ? "antwoord" : "geen antwoord verwacht", hex(acc, got).c_str());
+    if (ret) *ret = static_cast<DWORD>(got);
+    if (ov) {
+        ov->Internal = 0;
+        ov->InternalHigh = static_cast<ULONG_PTR>(got);
+        if (ov->hEvent) SetEvent(ov->hEvent);
+    }
+    SetLastError(0);
+    return TRUE;
+}
+
 BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
     Dev d;
     if (!lookup(h, d)) return g_ioctl(h, code, in, in_n, out, out_n, ret, ov);
+    if (d.kind == Kind::Jvs) {
+        if (code == rg_amhw::kIoctlJvsTransfer) return jvs_transfer(h, in, in_n, out, out_n, ret, ov);
+        rg_log("mxjvs: onbekende DeviceIoControl 0x%08lX (in %lu, uit %lu); FALSE", static_cast<unsigned long>(code), static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
+        SetLastError(ERROR_INVALID_FUNCTION);
+        return FALSE;
+    }
     if (ret) *ret = 0;
     if (d.kind == Kind::Columba && code == kIoctlPhysRead) {
         if (!in || in_n < 16 || !out || out_n < rg_amhw::kWindow) {
@@ -201,7 +315,7 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_n, LPVO
         rg_log("mxsram: geometrie %lu bytes, sectoren van 0x200", static_cast<unsigned long>(g_sram.size()));
         return TRUE;
     }
-    rg_log("%s: onbekende DeviceIoControl 0x%08lX (in %lu, uit %lu); FALSE", d.kind == Kind::Columba ? "columba" : "mxsram", static_cast<unsigned long>(code),
+    rg_log("%s: onbekende DeviceIoControl 0x%08lX (in %lu, uit %lu); FALSE", kind_name(d.kind), static_cast<unsigned long>(code),
            static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n));
     SetLastError(ERROR_INVALID_FUNCTION);
     return FALSE;
@@ -213,7 +327,7 @@ BOOL WINAPI rg_CloseHandle(HANDLE h) {
         EnterCriticalSection(&g_cs);
         g_devs.erase(h);
         LeaveCriticalSection(&g_cs);
-        rg_log("%s: gesloten", d.kind == Kind::Columba ? "columba" : "mxsram");
+        rg_log("%s: gesloten", kind_name(d.kind));
     }
     return g_close(h);
 }
@@ -258,6 +372,26 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD done, LPOVERLAPP
     Dev d;
     if (!lookup(h, d) || d.kind != Kind::Sram) return g_write(h, buf, n, done, ov);
     return sram_io(h, buf, n, done, true);
+}
+
+bool is_jvs(HANDLE h) { Dev d; return lookup(h, d) && d.kind == Kind::Jvs; }
+BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_get_comm_state(h, d); }
+BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_set_comm_state(h, d); }
+BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_get_comm_timeouts(h, t); }
+BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_set_comm_timeouts(h, t); }
+BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_jvs(h) ? TRUE : g_setup_comm(h, i, o); }
+BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_jvs(h) ? TRUE : g_purge_comm(h, f); }
+// De sense-lijn: zolang het bord geen adres heeft staat alleen CTS (0x10) aan, na de adrestoekenning CTS en DSR (0x30); dezelfde waarden als
+// OpenParrot's amJvs.cpp voor een niet-Type-X-game. Byte 0 van TeknoParrot_JvsState wordt door de brug gespiegeld.
+BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
+    if (!is_jvs(h)) return g_modem_status(h, status);
+    if (!g_jvs_state) {
+        g_jvs_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+        if (g_jvs_map) g_jvs_state = static_cast<const volatile uint8_t*>(MapViewOfFile(g_jvs_map, FILE_MAP_READ, 0, 0, 64));
+    }
+    const bool addressed = g_jvs_state && g_jvs_state[0] != 0;
+    if (status) *status = addressed ? 0x30u : 0x10u;
+    return TRUE;
 }
 
 HDEVINFO WINAPI rg_SetupDiGetClassDevsA(const GUID* g, PCSTR e, HWND w, DWORD f) {
@@ -317,12 +451,14 @@ std::string env(const char* k, const char* def) {
 
 void setup() {
     InitializeCriticalSection(&g_cs);
+    InitializeCriticalSection(&g_jvs_cs);
     char self[MAX_PATH] = {};
     GetModuleFileNameA(g_self, self, MAX_PATH);
     std::string dir(self);
     const size_t slash = dir.find_last_of("\\/");
     dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
     std::snprintf(g_log_path, sizeof g_log_path, "%s\\rg-amhw.log", dir.c_str());
+    std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", env("RG_AMHW_JVS_PIPE", g_jvs_pipe).c_str());
     g_platform.oem = env("RG_AMHW_OEM", "AAM");
     g_platform.vendor = env("RG_AMHW_VENDOR", "Supermicro");
     const std::string sdir = env("RG_AMHW_DIR", dir.c_str());
@@ -341,6 +477,13 @@ void setup() {
     hook("KERNEL32.dll", "SetFilePointer", rg_SetFilePointer, g_seek);
     hook("KERNEL32.dll", "ReadFile", rg_ReadFile, g_read);
     hook("KERNEL32.dll", "WriteFile", rg_WriteFile, g_write);
+    hook("KERNEL32.dll", "GetCommState", rg_GetCommState, g_get_comm_state);
+    hook("KERNEL32.dll", "SetCommState", rg_SetCommState, g_set_comm_state);
+    hook("KERNEL32.dll", "GetCommTimeouts", rg_GetCommTimeouts, g_get_comm_timeouts);
+    hook("KERNEL32.dll", "SetCommTimeouts", rg_SetCommTimeouts, g_set_comm_timeouts);
+    hook("KERNEL32.dll", "SetupComm", rg_SetupComm, g_setup_comm);
+    hook("KERNEL32.dll", "PurgeComm", rg_PurgeComm, g_purge_comm);
+    hook("KERNEL32.dll", "GetCommModemStatus", rg_GetCommModemStatus, g_modem_status);
     g_setup_classdevs = reinterpret_cast<SetupGetClassDevsAFn>(reinterpret_cast<void*>(GetProcAddress(LoadLibraryA("setupapi.dll"), "SetupDiGetClassDevsA")));
     if (g_setup_classdevs) hook("SETUPAPI.dll", "SetupDiGetClassDevsA", rg_SetupDiGetClassDevsA, g_setup_classdevs);
 }
