@@ -76,7 +76,7 @@ Env = RAVENGUN_MATRIX_GAME=RabbidsHollywood
 
 | Sleutel | Betekenis |
 |---|---|
-| `To` | doelmap, relatief aan de view van de game (`. ` = de hoofdmap van de game) |
+| `To` | doelmap, relatief aan de map van de exe van de game (`. ` = die map zelf). Mag omhoog (`../../Plugins`) zolang het doel in de view blijft: Unreal Engine 4 zet de exe in `<Game>/Binaries/Win64` en laadt zijn plug-ins uit `<Game>/Plugins` |
 
 Het doel is **`To` + de sectienaam**, dus het pad staat maar één keer in het bestand. Staat het
 pad ook al in de sectienaam, dan komt het bestand dubbel in de view te staan:
