@@ -1,0 +1,26 @@
+{
+  "title": "The House of the Dead 4",
+  "nas_folder": "The House of the Dead 4",
+  "platform": "SEGA Lindbergh",
+  "exe": "/lb/elf/hod4M.elf",
+  "options": [
+    {
+      "key": "audio.speakers",
+      "name_en": "Audio output",
+      "type": "enum",
+      "values": [
+        "STEREO",
+        "LPCM 5.1"
+      ],
+      "default": "STEREO",
+      "target": {
+        "kind": "launch_env",
+        "name": "RG_FMOD_SPEAKERS"
+      },
+      "description_en": "STEREO mixes the game's sound to front left and right (works on every TV). LPCM 5.1 keeps the game's 6 channels (front, center, LFE, surround) for a surround receiver. Applies at the next start.",
+      "source": [
+        "ravengun:sdl-audio-channels"
+      ]
+    }
+  ]
+}
