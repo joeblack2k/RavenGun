@@ -24,8 +24,10 @@ het origineel, plus Windowed = 1), Silent Scope: Bone Eater (TeknoMacaw met DXVK
 DynaFont-collecties), Men in Black (MIB.exe zonder kast-shell op onze kern, BepInEx-plugin tegen het zelf-afsluiten, GStreamer voor de
 films), Aliens: Extermination (PeFillPages: Wine wiste de HASP-emulatie achter .text). Nog niet: The House of the Dead III en Virtua
 Cop 3 (Chihiro; Cxbx-Reloaded onder Proton 11: de Xbox-hoofdthread wacht, twee andere threads vallen op MOVAPS met een stapel die niet op
-16 bytes ligt, in code in het gespiegelde fysieke geheugen (0xF7xxxxxx, in beide spellen gelijk); onder GE-Proton10-34 start de
-emulatie niet).
+16 bytes ligt, in code in het gespiegelde fysieke geheugen (0xF7xxxxxx, in beide spellen gelijk, in geen enkel bestand op schijf);
+de crashende thread is geen Xbox-thread van PsCreateSystemThreadEx (een proxy die _beginthreadex/CreateThread van cxbxr-emu.dll
+verschoof veranderde niets) en een uitzonderingshandler die MOVAPS naar MOVUPS zet krijgt onder Proton 11 (WoW64) geen bruikbare
+foutgegevens; onder GE-Proton10-34 start de emulatie niet). Vervolg: Cxbx-Reloaded zelf aanpassen of een andere emulator.
 
 ## Taken per familie
 
