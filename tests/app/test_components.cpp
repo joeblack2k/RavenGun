@@ -133,6 +133,64 @@ private slots:
         QTest::newRow("zip") << "test.zip";
         QTest::newRow("pkg.tar.zst") << "test.pkg.tar.zst";
     }
+
+    // Een .deb: het data.tar-lid wordt uitgepakt, met map (Ubuntu/Debian-pakketten voor de libs van de native route).
+    void extractDeb() {
+        const QString dir = tmp_.path() + QStringLiteral("/deb");
+        ExtractOptions o;
+        o.map = {{QStringLiteral("usr/lib/i386-linux-gnu/libtest.so.1.2.3"), QStringLiteral("runtime/lib32/libtest.so")}};
+        QString err;
+        QVERIFY2(extractArchive(arch(QStringLiteral("test.deb")), dir, o, &err), qPrintable(err));
+        QCOMPARE(readFile(dir + QStringLiteral("/runtime/lib32/libtest.so")), QByteArray("hello\n"));
+        QVERIFY(!QFileInfo::exists(dir + QStringLiteral("/usr")));   // alleen wat de map noemt
+        QVERIFY(!extractArchive(arch(QStringLiteral("geen.deb")), dir, o, &err));   // geen deb
+    }
+
+    // De onderdelen voor de native route (los van TeknoParrot): gepinde Ubuntu-debs voor libs, PhysX/FMOD van de gebruiker.
+    void nativeLibComponents() {
+        QFile f(QStringLiteral(RAVENGUN_SOURCE_DIR "/packaging/components.json"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        QString err;
+        QList<Component> all = Components::parse(f.readAll(), &err);
+        QVERIFY2(err.isEmpty(), qPrintable(err));
+        struct Want { const char* id; const char* sha; const char* file; };
+        const Want debs[] = {
+            {"libstdcxx5", "cfb0e2db802c863026ec32dcac2edcbe76a509853c9a91cae500ad1f7af1dda0", "runtime/lib32/libstdc++.so.5"},
+            {"libcsv", "270c253ccf1f903089eeda7087f1e262f6e4f58136d61086fbaaa0b14ba0d0b8", "runtime/lib32/libcsv.so"},
+            {"openssl10-i386", "0cde06e210ec2fab8b42a380a46e50eeef4cbf900ed492eb84ff892cb5f25939", "runtime/lib32/libcrypto.so.1.0.0"}};
+        for (const Want& w : debs) {
+            const Component* c = Components::find(all, QString::fromLatin1(w.id));
+            QVERIFY2(c, w.id);
+            QCOMPARE(c->downloads.size(), 1);
+            QCOMPARE(c->downloads.first().archive, QStringLiteral("deb"));
+            QCOMPARE(c->downloads.first().sha256, QString::fromLatin1(w.sha));
+            QVERIFY(c->downloads.first().url.startsWith(QStringLiteral("https://archive.ubuntu.com/")));
+            QVERIFY(c->detect.contains(QString::fromLatin1(w.file)));
+        }
+        // Nooit meer uit de TeknoParrot-map: ook de gebruikersonderdelen noemen alleen een eigen doelmap.
+        const Component* px = Components::find(all, QStringLiteral("physx-linux"));
+        QVERIFY(px);
+        QCOMPARE(px->kind, QStringLiteral("userfolder"));
+        QCOMPARE(px->include.size(), 4);
+        QCOMPARE(px->dest, QStringLiteral("runtime/physx-2.8.1"));
+        QVERIFY(Components::find(all, QStringLiteral("fmod-win"))->optional);
+
+        // De bron van een userfolder-onderdeel met jokertekens in het midden van het pad, en alleen de genoemde bestanden gekopieerd.
+        ComponentEnv e = env();
+        const QString games = tmp_.path() + QStringLiteral("/nas/Teknoparrot/Some Game");
+        QDir().mkpath(games);
+        const QString libs = tmp_.path() + QStringLiteral("/nas/Teknoparrot/TeknoParrotUi-9.9-x64/ElfLdr2/libs");
+        for (const QString& n : px->include) writeFile(libs + QLatin1Char('/') + n, n.toUtf8());
+        writeFile(libs + QStringLiteral("/libandere.so"), "nee");
+        e.sourceRoots = {games};
+        Component* p = Components::find(all, QStringLiteral("physx-linux"));
+        QCOMPARE(Components::status(*p, e).state, ComponentState::Missing);
+        QCOMPARE(Components::status(*p, e).source, libs);
+        QVERIFY2(ComponentInstaller::installFromFiles(*p, {}, e, nullptr, nullptr, &err), qPrintable(err));
+        QCOMPARE(readFile(e.path(QStringLiteral("runtime/physx-2.8.1/libPhysXCore.so"))), QByteArray("libPhysXCore.so"));
+        QVERIFY(!QFileInfo::exists(e.path(QStringLiteral("runtime/physx-2.8.1/libandere.so"))));
+        QCOMPARE(Components::status(*p, e).state, ComponentState::Installed);
+    }
     void extractFormats() {
         QFETCH(QString, file);
         const QString dir = tmp_.path() + QStringLiteral("/x");
@@ -253,13 +311,16 @@ private slots:
         QSignalSpy fin(&inst, &ComponentInstaller::finished);
         QSignalSpy done(&inst, &ComponentInstaller::allFinished);
         inst.install(all, {QStringLiteral("wine"), QStringLiteral("dxvk"), QStringLiteral("bepinex-x64"), QStringLiteral("bepinex-x86"),
-                           QStringLiteral("sdl12-compat"), QStringLiteral("gst-wmv"), QStringLiteral("demulshooter")});
+                           QStringLiteral("sdl12-compat"), QStringLiteral("gst-wmv"), QStringLiteral("demulshooter"), QStringLiteral("libstdcxx5"),
+                           QStringLiteral("libcsv"), QStringLiteral("openssl10-i386")});
         QVERIFY(done.wait(600000));
         for (const auto& f : fin) qInfo().noquote() << f.at(0).toString() << f.at(1).toBool() << f.at(2).toString();
         QVERIFY(done.first().at(0).toBool());
         QVERIFY(QFileInfo(e.path(QStringLiteral("wine/proton-11.0-2/bin/wine"))).isExecutable());
         QVERIFY(QFileInfo(e.path(QStringLiteral("dxvk/current/x64/d3d11.dll"))).exists());
         QVERIFY(QFileInfo::exists(e.path(QStringLiteral("runtime/lib32/libSDL-1.2.so.0"))));
+        for (const char* f : {"libstdc++.so.5", "libcsv.so", "libssl.so.1.0.0", "libcrypto.so.1.0.0"})
+            QVERIFY(QFileInfo(e.path(QStringLiteral("runtime/lib32/") + QString::fromLatin1(f))).size() > 5000);
         QVERIFY(QFileInfo::exists(e.path(QStringLiteral("tools/gst-extra/plugins/libgstasf.so"))));
         QVERIFY(QFileInfo::exists(e.path(QStringLiteral("demulshooter/v17.9/Unity/TombRaider"))));
         for (const Component& c : all)

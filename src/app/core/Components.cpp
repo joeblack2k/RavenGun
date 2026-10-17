@@ -76,7 +76,7 @@ QList<Component> Components::parse(const QByteArray& json, QString* err) {
     static const QSet<QString> kinds{QStringLiteral("download"), QStringLiteral("bundled"), QStringLiteral("userfolder"),
                                      QStringLiteral("steam"), QStringLiteral("wine")};
     static const QSet<QString> archives{QStringLiteral("tar.gz"), QStringLiteral("tar.xz"), QStringLiteral("zip"),
-                                        QStringLiteral("pkg.tar.zst"), QStringLiteral("cab"), QStringLiteral("file")};
+                                        QStringLiteral("pkg.tar.zst"), QStringLiteral("deb"), QStringLiteral("cab"), QStringLiteral("file")};
     QList<Component> out;
     QSet<QString> ids;
     for (const QJsonValue& v : doc.object().value(QStringLiteral("components")).toArray()) {
@@ -262,6 +262,19 @@ QStringList Components::steamLibraries(const ComponentEnv& env) {
     return out;
 }
 
+// Mappen onder `base` die bij `pattern` passen. Elk onderdeel van het patroon mag een * hebben ("TeknoParrotUi-*/ElfLdr2/libs");
+// de uitkomst loopt van de laatste (hoogste) naam naar de eerste.
+static QStringList expandDirGlob(const QString& base, const QString& pattern) {
+    QStringList cur{base};
+    for (const QString& part : pattern.split(QLatin1Char('/'), Qt::SkipEmptyParts)) {
+        QStringList next;
+        for (const QString& d : cur)
+            for (const QString& h : QDir(d).entryList({part}, QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed)) next << d + QLatin1Char('/') + h;
+        cur = next;
+    }
+    return cur;
+}
+
 QString Components::findUserFolderSource(const Component& c, const ComponentEnv& env) {
     QStringList places;
     for (const QString& root : env.sourceRoots) {
@@ -272,12 +285,8 @@ QString Components::findUserFolderSource(const Component& c, const ComponentEnv&
     }
     places.removeDuplicates();
     for (const QString& place : places) {
-        QStringList globs;
-        for (const QString& n : c.sourceNames) globs << place + QLatin1Char('/') + n;
-        for (const QString& pattern : globs) {
-            const QFileInfo pi(pattern);
-            for (const QString& h : pi.dir().entryList({pi.fileName()}, QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::Reversed)) {
-                const QString dir = pi.dir().absoluteFilePath(h);
+        for (const QString& n : c.sourceNames) {
+            for (const QString& dir : expandDirGlob(place, n)) {
                 bool ok = true;
                 for (const QString& r : c.sourceRequire) ok = ok && exists(dir + QLatin1Char('/') + r);
                 if (ok) return dir;

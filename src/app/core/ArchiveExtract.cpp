@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QTemporaryDir>
 
 namespace rg {
 namespace {
@@ -83,7 +84,52 @@ QStringList listArchive(const QString& file, QString* err) {
     return out;
 }
 
+namespace {
+
+// Een .deb is een ar-archief met debian-binary, control.tar.* en data.tar.*. Schrijft het data.tar.*-lid naar `outDir` en geeft het
+// pad terug (leeg + err bij een fout of als het lid ontbreekt).
+QString debDataMember(const QString& deb, const QString& outDir, QString* err) {
+    archive* a = openReader(deb, err);
+    if (!a) return {};
+    ReadGuard rg{a};
+    archive_entry* e = nullptr;
+    while (archive_read_next_header(a, &e) == ARCHIVE_OK) {
+        const QString name = QString::fromUtf8(archive_entry_pathname(e));
+        if (!name.startsWith(QLatin1String("data.tar"))) continue;
+        const QString out = outDir + QLatin1Char('/') + name;   // naam uit een ar-lid: geen "/" mogelijk, toch controleren
+        if (name.contains(QLatin1Char('/'))) break;
+        QFile f(out);
+        if (!f.open(QIODevice::WriteOnly)) { if (err) *err = QStringLiteral("cannot write %1").arg(out); return {}; }
+        const void* buf;
+        size_t len;
+        la_int64_t off;
+        int rr;
+        while ((rr = archive_read_data_block(a, &buf, &len, &off)) != ARCHIVE_EOF) {
+            if (rr < ARCHIVE_WARN || f.write(static_cast<const char*>(buf), static_cast<qint64>(len)) != static_cast<qint64>(len)) {
+                if (err) *err = QStringLiteral("read error in %1").arg(deb);
+                return {};
+            }
+        }
+        return out;
+    }
+    if (err) *err = QStringLiteral("%1 has no data.tar member (not a .deb?)").arg(deb);
+    return {};
+}
+
+}  // namespace
+
 bool extractArchive(const QString& file, const QString& destDir, const ExtractOptions& opt, QString* err) {
+    if (file.endsWith(QLatin1String(".deb"))) {
+        QTemporaryDir tmp;
+        if (!tmp.isValid()) { if (err) *err = QStringLiteral("cannot create a temporary folder"); return false; }
+        const QString data = debDataMember(file, tmp.path(), err);
+        if (data.isEmpty()) return false;
+        ExtractOptions inner = opt;
+        inner.progress = nullptr;
+        const bool ok = extractArchive(data, destDir, inner, err);
+        if (ok && opt.progress) opt.progress(QFileInfo(file).size(), QFileInfo(file).size());
+        return ok;
+    }
     archive* a = openReader(file, err);
     if (!a) return false;
     ReadGuard rguard{a};
