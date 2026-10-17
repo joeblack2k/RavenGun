@@ -338,7 +338,9 @@ bool dropin_keten(const std::string& base_in, const std::string& dest_in, const 
                   std::vector<std::string>& delen, std::string& err) {
     const std::string base = abspath(base_in), dest = abspath(dest_in);
     wortel = wortel_in.empty() ? base : abspath(wortel_in);
-    if (!binnen(dest, base)) { err = "het doel " + dest + " ligt buiten de view " + base; return false; }
+    // Het doel mag buiten de map van de exe liggen (Unreal Engine 4: de exe staat in Binaries/Win64, de plug-ins in ../../Plugins), maar
+    // niet buiten de view.
+    if (!binnen(dest, wortel)) { err = "het doel " + dest + " ligt buiten de view " + wortel; return false; }
     if (!binnen(base, wortel)) { err = "de gamemap " + base + " ligt buiten de view " + wortel; return false; }
     if (wortel != base && islink(wortel)) {
         err = "de view " + wortel + " is zelf een symlink (naar " + realpath_(wortel) + "); maak de view opnieuw";
@@ -504,7 +506,10 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
                                "maak eerst een lokale view (scripts/tp-add-game.py " + pl.profile + " <pad> --view)");
             continue;
         }
-        if (!binnen(dest, base)) { r.errors.push_back(s.ini + " [" + s.name + "]: het doel " + dest + " ligt buiten de view " + base); continue; }
+        if (!binnen(dest, wortel.empty() ? base : wortel)) {
+            r.errors.push_back(s.ini + " [" + s.name + "]: het doel " + dest + " ligt buiten de view " + (wortel.empty() ? base : wortel));
+            continue;
+        }
         std::string waarom;
         std::vector<std::string> lokaal;
         if (!dropin_toets(base, dest, wortel, waarom, lokaal)) {
