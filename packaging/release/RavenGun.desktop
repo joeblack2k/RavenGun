@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RavenGun (start here)
+GenericName=Lightgun Games
+Comment=Start RavenGun: the setup wizard installs everything else
+Exec=sh -c 'exec "$(dirname "$(realpath "$1")")/bin/ravengun"' sh %k
+Icon=input-gaming
+Terminal=false
+Categories=Game;

@@ -10,6 +10,12 @@
 #   --no-test           de ctest-suites in de container overslaan
 #   --allow-dirty       ook bouwen als er niet-gecommitte wijzigingen zijn (die komen NIET in het archief: alleen HEAD)
 #   --psmoveapi-src MAP een git-kloon van thp/psmoveapi (standaard ~/.cache/ravengun/src/psmoveapi; ontbreekt die, dan wordt hij gekloond)
+#   --patches MAP       de patches-map van de patches-repo (standaard: ./patches, anders ../ravengun-patches/patches); alleen de levering gaat mee
+#   --no-components     de eigen runtime-onderdelen niet bouwen (snelle proef; het archief mist dan share/ravengun/components)
+#   --with-lindbergh    ook de Lindbergh-laag bouwen en meenemen (NIET voor verspreiding: CC BY-NC-SA-bron en Nvidia Cg; alleen eigen gebruik)
+#
+# Het archief heeft GEEN installatiescript: de gebruiker pakt uit en start bin/ravengun (of dubbelklikt op RavenGun.desktop); de wizard
+# installeert. Samenstelling: tools/dev/release-assemble.sh.
 #
 # Reproduceerbaar: vaste containerpaden (/work), SOURCE_DATE_EPOCH = de commit-tijd van HEAD, tar met vaste volgorde, eigenaar en
 # tijdstempels, gzip zonder naam/tijd. Twee keer bouwen van dezelfde commit geeft dezelfde SHA-256 (zie docs/build.md voor de
@@ -20,7 +26,7 @@ IMG_QT=localhost/ravengun-qt-build
 IMG=localhost/ravengun-release-build
 PSM_PIN="$(sed -n 's/^set(RAVENGUN_PSMOVEAPI_PIN "\([0-9a-f]*\)".*/\1/p' "$ROOT/CMakeLists.txt")"
 VERSION="$(sed -n 's/^project(RavenGun VERSION \([0-9.]*\).*/\1/p' "$ROOT/CMakeLists.txt")"
-OUT="$ROOT/dist"; REBUILD=0; TEST=1; DIRTY=0
+OUT="$ROOT/dist"; REBUILD=0; TEST=1; DIRTY=0; COMPONENTS=1; LINDBERGH=0; PATCHES=""
 PSM_SRC="${RAVENGUN_PSMOVEAPI_SRC:-$HOME/.cache/ravengun/src/psmoveapi}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -30,13 +36,21 @@ while [[ $# -gt 0 ]]; do
     --no-test) TEST=0 ;;
     --allow-dirty) DIRTY=1 ;;
     --psmoveapi-src) PSM_SRC="$2"; shift ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
-    *) echo "Gebruik: $0 [--version V] [--out MAP] [--rebuild-image] [--no-test] [--allow-dirty] [--psmoveapi-src MAP]" >&2; exit 2 ;;
+    --patches) PATCHES="$2"; shift ;;
+    --no-components) COMPONENTS=0 ;;
+    --with-lindbergh) LINDBERGH=1 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    *) echo "Gebruik: $0 [--version V] [--out MAP] [--rebuild-image] [--no-test] [--allow-dirty] [--psmoveapi-src MAP] [--patches MAP] [--no-components] [--with-lindbergh]" >&2; exit 2 ;;
   esac
   shift
 done
 [[ -n $PSM_PIN && -n $VERSION ]] || { echo "Kan versie of PSMoveAPI-pin niet uit CMakeLists.txt lezen" >&2; exit 1; }
 cd "$ROOT"
+if [[ -z $PATCHES ]]; then
+  for c in "$ROOT/patches" "$ROOT/../ravengun-patches/patches" "$HOME/projects/ravengun-patches/patches"; do [[ -d $c ]] && { PATCHES="$c"; break; }; done
+fi
+[[ -d $PATCHES ]] || { echo "Geen patches-map gevonden; geef --patches MAP (de map patches/ van de repo ravengun-patches)" >&2; exit 1; }
+PATCHES="$(cd "$PATCHES" && pwd -P)"
 if [[ -n "$(git status --porcelain --untracked-files=no)" && $DIRTY -eq 0 ]]; then
   echo "Er zijn niet-gecommitte wijzigingen; het archief bevat alleen HEAD. Commit ze, of gebruik --allow-dirty." >&2; exit 1
 fi
@@ -94,18 +108,48 @@ podman run --rm --network=none --userns=keep-id -v "$WORK:/work" -w /work -e HOM
 '
 [[ -x $WORK/stage/$NAME/bin/ravengund && -x $WORK/stage/$NAME/bin/ravengun ]] || { echo "Bouwen mislukt: ravengund of ravengun ontbreekt in de installatieboom" >&2; exit 1; }
 
+# --- Eigen runtime-onderdelen (packaging/components.json, kind "bundled") -----------------------------------------------------
+# Elk onderdeel komt in $COMP/<id>/ en gaat naar share/ravengun/components/<id>/; de wizard (stap Components) kopieert ze naar
+# ~/.local/share/ravengun/<dest>. Alleen wat van ons is en vrij te verspreiden is: TeknoParrot, DemulShooter en Wine blijven
+# downloads of eigen bestanden van de gebruiker. Bronnen en pinnen: docs/build.md, "Release-artefact".
+COMP="$WORK/components"; mkdir -p "$COMP"
+if [[ $COMPONENTS -eq 1 ]]; then
+  echo "== Onderdelen bouwen"
+  # openparrot: gepinde bron + gepinde container (haalt de bron op met git fetch in ~/.cache/ravengun/src).
+  OPC="$(sed -n 's/^OPENPARROT_COMMIT="\([0-9a-f]*\)".*/\1/p' "$ROOT/scripts/build-openparrot.sh")"
+  "$ROOT/scripts/build-openparrot.sh" --out "$COMP/openparrot/$OPC"
+  ln -s "$OPC" "$COMP/openparrot/current"
+  # jvsbridge en rg-pe-hook: mingw in dezelfde gepinde container, zonder netwerk.
+  "$ROOT/scripts/build-jvsbridge.sh" --out "$COMP/jvsbridge"
+  "$ROOT/tools/dev/build-pe-hook.sh" --out "$COMP/rg-pe-hook"
+  # hasp en memory: de Linux-delen met de compiler van de bouwmachine (gcc -m32), de Windows-delen in de lokale image
+  # localhost/ravengun-mingw. Nog niet hermetisch (zie docs/build.md).
+  RAVENGUN_HASP_LIB_DIR="$COMP/hasp" "$ROOT/scripts/build-hasp.sh" --no-test --no-dropin
+  RAVENGUN_MEMORY_LIB_DIR="$COMP/memory" "$ROOT/tools/dev/build-memory.sh" --no-test
+  rm -rf "$COMP/hasp/Halo Fireteam"   # dongle-gegevens gaan nooit in een archief
+  if [[ $LINDBERGH -eq 1 ]]; then
+    LLC="$(sed -n 's/^LL_COMMIT="\([0-9a-f]*\)".*/\1/p' "$ROOT/scripts/build-lindbergh-loader.sh")"
+    "$ROOT/scripts/build-lindbergh-loader.sh" --out "$COMP/lindbergh-loader/$LLC"
+    ln -s "$LLC" "$COMP/lindbergh-loader/current"
+  fi
+  # Bouwtijdstempels uit de BUILDINFO-bestanden (reproduceerbaar).
+  find "$COMP" -name BUILDINFO.txt -exec sed -i '/^gebouwd/d' {} +
+else
+  echo "== Onderdelen overgeslagen (--no-components)"
+fi
+
 # --- Archief samenstellen ------------------------------------------------------------------------------------------------------
 S="$WORK/stage/$NAME"
-install -m 755 "$ROOT/packaging/release/install.sh" "$S/install.sh"
-cp "$S/share/ravengun/LICENSE" "$S/LICENSE"
-cp "$ROOT/README.md" "$S/README.md" 2>/dev/null || true
 mkdir -p "$S/share/ravengun/licenses"
 cp "$WORK/PSMoveAPI-COPYING" "$S/share/ravengun/licenses/PSMoveAPI-COPYING"
 printf '%s\n%s\n' "$VERSION" "$COMMIT" > "$S/share/ravengun/VERSION"
-# Vaste rechten: mappen 755; bestanden 755 als ze uitvoerbaar zijn, anders 644.
-find "$S" -type d -exec chmod 755 {} +
-find "$S" -type f -perm -u+x -exec chmod 755 {} +
-find "$S" -type f ! -perm -u+x -exec chmod 644 {} +
+# Startbestand, README, LICENSE, onderdelen, patches (de levering) en vaste rechten.
+"$ROOT/tools/dev/release-assemble.sh" "$S" "$COMP" "$PATCHES"
+# Een overzicht van de meegeleverde onderdelen, met SHA-256 per bestand.
+if [[ -d $S/share/ravengun/components ]]; then
+  (cd "$S/share/ravengun/components" && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum) > "$S/share/ravengun/COMPONENTS.txt"
+  chmod 644 "$S/share/ravengun/COMPONENTS.txt"
+fi
 TARBALL="$OUT/$NAME.tar.gz"
 tar --sort=name --mtime="@$SDE" --owner=0 --group=0 --numeric-owner -C "$WORK/stage" -cf - "$NAME" | gzip -n -9 > "$TARBALL"
 # De bijbehorende bron (GPL): dezelfde commit.

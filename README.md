@@ -34,9 +34,9 @@ Not every game works. See [docs/compatibility.md](docs/compatibility.md) for wha
 
        sha256sum -c ravengun-<version>-x86_64-steamos.sha256 --ignore-missing
 
-3. Unpack the archive (right-click > Extract, or `tar xf ravengun-<version>-x86_64-steamos.tar.gz`) and open the folder `ravengun-<version>-x86_64-steamos/bin`. Double-click **ravengun**.
+3. Unpack the archive (right-click > Extract, or `tar xf ravengun-<version>-x86_64-steamos.tar.gz`) and open the folder `ravengun-<version>-x86_64-steamos`. Double-click **RavenGun** (the file `RavenGun.desktop`; if Dolphin asks, choose to trust and run it) or `bin/ravengun`. There is no installer script: the app does everything.
 4. The first start opens the **setup wizard**. On its first page press **Install RavenGun**. No password and no changes to the read-only system partition are needed: RavenGun copies itself to `~/.local/opt/ravengun`, adds a menu entry and a desktop icon, starts the engine (the background service) at every login and restarts from the installed copy. You can delete the unpacked folder afterwards.
-5. Follow the rest of the wizard. It installs the permissions (one password prompt), pairs your PS Move, calibrates it on the TV, adds your game folder and adds RavenGun to Steam.
+5. Follow the rest of the wizard. The steps are Install RavenGun, Permissions (one password prompt), Engine, Components (the wizard installs the RavenGun runtime pieces that come in the archive, such as the OpenParrot build and the per-game patches, and downloads Wine, DXVK and BepInEx with a checksum; TeknoParrot and the Steam redistributables come from your own files), Games (your game folder) and Steam (adds RavenGun to Steam).
 
 ## Game Mode
 

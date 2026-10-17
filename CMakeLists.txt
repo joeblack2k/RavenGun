@@ -544,6 +544,11 @@ if(RAVENGUN_BUILD_TESTS)
       COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"
               "${CMAKE_CURRENT_SOURCE_DIR}/build-app")
     set_tests_properties(ravengun_install PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+    # Indeling van het releasearchief (geen install.sh, startbestand, onderdelen, alleen de levering van de patches): hermetisch,
+    # zonder containers. tools/dev/release-assemble.sh, tests/release_layout_test.sh.
+    add_test(NAME ravengun_release_layout
+      COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/release_layout_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(ravengun_release_layout PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")

@@ -265,13 +265,13 @@ Achtergrond en indeling: `docs/build.md`, "Installatie-indeling" en "Release-art
 ### Een release maken (beheerder)
 
 1. Alles committen (het archief bevat alleen HEAD) en de versie in `CMakeLists.txt` (`project(RavenGun VERSION ...)`) goed zetten.
-2. `tools/dev/make-release.sh` (containers; duurt enkele minuten; de eerste keer wordt het image `localhost/ravengun-release-build` gebouwd). Resultaat in `dist/`: `ravengun-<versie>-x86_64-steamos.tar.gz`, `ravengun-<versie>-source.tar.gz` en `ravengun-<versie>-x86_64-steamos.sha256`.
-3. Proberen in een tijdelijke HOME voordat je publiceert: archief uitpakken en `HOME=$(mktemp -d) XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share XDG_STATE_HOME=$HOME/.local/state RAVENGUN_SYSTEMCTL=/bin/true ./install.sh --no-start` (geen systemd-unit van de echte sessie; zie ook `tests/install_test.sh`).
+2. `tools/dev/make-release.sh` (containers en de bouw van de eigen onderdelen; duurt een kwartier of meer; de eerste keer wordt het image `localhost/ravengun-release-build` gebouwd). Resultaat in `dist/`: `ravengun-<versie>-x86_64-steamos.tar.gz`, `ravengun-<versie>-source.tar.gz` en `ravengun-<versie>-x86_64-steamos.sha256`.
+3. Proberen in een tijdelijke HOME voordat je publiceert: archief uitpakken en `HOME=$(mktemp -d) XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share XDG_STATE_HOME=$HOME/.local/state RAVENGUN_SYSTEMCTL=/bin/true bin/ravengun --install --no-start` (geen systemd-unit van de echte sessie; zie ook `tests/install_test.sh`). De indeling van het archief controleert `tests/release_layout_test.sh` (geen `install.sh`, startbestand, onderdelen, alleen de levering van de patches).
 4. Publiceren op GitHub: een release met de drie bestanden (bijvoorbeeld `gh release create v<versie> dist/*`), met de SHA-256 in de beschrijving.
 
 ### Bijwerken en verwijderen (gebruiker)
 
-- Bijwerken: nieuw archief uitpakken en `./install.sh` opnieuw draaien. De prefix wordt vervangen (de oude blijft pas weg als de nieuwe klaarstaat), instellingen blijven. Een draaiende engine wordt alleen herstart als er geen game draait; anders meldt het script dat de oude versie nog draait.
+- Bijwerken: nieuw archief uitpakken, `bin/ravengun` starten en op de eerste pagina van de wizard "Update RavenGun" kiezen. De prefix wordt vervangen (de oude blijft pas weg als de nieuwe klaarstaat), instellingen blijven. Een draaiende engine wordt alleen herstart als er geen game draait; anders meldt de app dat de oude versie nog draait.
 - Verwijderen: `~/.local/opt/ravengun/share/ravengun/scripts/uninstall-user.sh` (opties: `--remove-config`, `--keep-root`, `--yes`). De systeemonderdelen gaan via één pkexec-prompt (`install-permissions.sh --rollback`).
 
 ### De echte installatie op deze machine overzetten (orchestrator)

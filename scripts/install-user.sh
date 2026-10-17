@@ -5,7 +5,7 @@
 # install-permissions.sh --apply`; dit script raakt ze niet aan.
 #
 # Twee manieren om dit script te gebruiken:
-#   1. Vanuit een uitgepakt releasearchief (ravengun-<versie>-x86_64-steamos/install.sh): de boom (bin/, lib/, share/) wordt naar
+#   1. Vanuit een uitgepakt releasearchief (ravengun-<versie>-x86_64-steamos/share/ravengun/scripts/install-user.sh; het productpad is de app, ravengun --install): de boom (bin/, lib/, share/) wordt naar
 #      de installatiemap gekopieerd.
 #   2. Vanuit de repo: `cmake --install` van de builds (build/ en build-app/) naar de installatiemap.
 # In beide gevallen wijzen de units en snelkoppelingen daarna naar de geïnstalleerde kopie, niet naar de repo of het archief.
