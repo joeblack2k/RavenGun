@@ -433,7 +433,7 @@ if(RAVENGUN_BUILD_TESTS)
   # Games zonder TeknoParrot (docs/research/losse/<Game>.md): de zuivere logica van de vervangende DLL's en laders per game, native
   # getest (protocol, afbeelding van het gedeelde geheugen, importtabel); de Windows-DLL's bouwen mee als de mingw-sysroot er is.
   # Geen spel en geen Wine nodig. Skip (77) zonder C-compiler.
-  foreach(rg_game_test kaboom aliens farcry_usbio silentscope_macaw ptt_wk lostland_wajv)
+  foreach(rg_game_test kaboom pqmt aliens farcry_usbio silentscope_macaw ptt_wk lostland_wajv)
     add_test(NAME ravengun_${rg_game_test} COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/${rg_game_test}_test.sh")
     set_tests_properties(ravengun_${rg_game_test} PROPERTIES SKIP_RETURN_CODE 77)
   endforeach()

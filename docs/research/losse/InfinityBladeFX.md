@@ -29,6 +29,30 @@ Stand 2026-10-17. Alleen statische metingen (objdump op `SwordGame.exe` en `Kabo
   De muntteller telt op bij de stijgende flank van bit 0x08 in het woord op offset 8 van `TeknoParrot_JvsState` (indeling `TimeCrisis5`, `coin1`).
 - Tests: `tests/kaboom_unit.c` via `tests/kaboom_test.sh` (pakketten, controlesom, munt-flank, kapotte pakketten, deellezen) en de DLL-bouw.
 
+## TouchFX / PQMTClient.dll (tv-meting 2026-10-17: wit scherm)
+
+Met `rg-kaboom.dll` slaagt Kaboom (`InitLib() succeeded`), maar het scherm blijft wit en `Launch.log` stopt 29 s na
+`TouchFX Error: ConnectServer() failed`. Statisch gemeten waarom:
+
+- "TouchFX" is de PQ-Labs-multitouchclient `PQMTClient.dll` (map van de game, 16 exports). De game (`SwordGame.exe` 0x1cde140) doet, allemaal cdecl:
+  `SetOnReceivePointFrame(0x1cde110, 0)`, `SetOnGetDeviceInfo(0x1cdc760, 0)`, `ConnectServer("<ip>" op 0x2c383e4, 0x5433)`; 0 = geslaagd, anders
+  `ConnectServer() failed`. Dan `SendRequest(&zero_struct{type=1})` en `SendThreshold(10)`, ook 0 = geslaagd.
+- De echte client opent een TCP-verbinding met een PQ-server (poort 0x5433 = 21555, ip uit de game); die server is er niet. De kern loste dat op door de client
+  of de verbinding over te nemen (de kern is gepakt; alleen het gevolg is gezien).
+- De aanraking komt via de callback `(frame_id, time_stamp, aantal, const TouchPoint*, ctx)` (cdecl). `TouchPoint` is 16 bytes `{gebeurtenis, x, y, rest}`;
+  de game bewaart van het eerste punt `u16 gebeurtenis (0 neer, 1 beweegt, 2 op)`, `u16 frame`, `x`, `y` in een globale (0x31e58a0) en gebruikt x/y als
+  muispositie in de client-rechthoek van het venster (zonder aanraking: `GetCursorPos` + `ScreenToClient`).
+
+Vervanging: `tools/rg-pqmt/` bouwt een eigen `PQMTClient.dll` (zelfde 16 exports met dezelfde ordinalen, alleen kernel32 en user32). ConnectServer, SendRequest
+en SendThreshold slagen; een draadje geeft de aanraking door uit het gedeelde geheugen: trekker (`p1.trigger`, 0x10) = vinger neer, `p1.x`/`p1.y` (offset 12/16)
+naar pixels van de client-rechthoek van het grootste zichtbare venster (of `RG_PQMT_W`/`_H`); buiten beeld (as <= 1 of >= 254) = vinger op. De logica
+(`pqmt_logic.h`) is native getest (`tests/pqmt_unit.c`, `tests/pqmt_test.sh`), de exports en de imports van de DLL ook. Sectie `[PQMTClient.dll]` in
+`InfinityBladeFX.dropin.ini` (`DllOverride = native`, logboek `rg-pqmt.log` in de view).
+
+Niet bewezen: of dit de enige reden van het witte scherm is (de volgende fout zou na de TouchFX-regel in `Launch.log` staan); of de game zijn aanraakpad
+gebruikt (er zijn twee globale vlaggen, 0x3103d74 en 0x307725c, die kiezen tussen de aanraking en de muis); de schaal van de coordinaten (aangenomen:
+pixels van de client-rechthoek).
+
 ## Niet bewezen
 
 - Of het nagebootste bord in de exe voldoet: de commandonummers 6, 8-0xD staan in de exe-kopie met dezelfde antwoordlengtes, maar ze zijn niet in een draaiende
