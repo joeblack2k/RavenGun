@@ -32,6 +32,8 @@
 
 #include "amhw_dmi.h"
 #include "amhw_jvs.h"
+#include "amhw_smbus.h"
+#include "amhw_sysdata.h"
 #include "amhw_table.h"
 
 namespace {
@@ -57,8 +59,10 @@ void rg_log(const char* fmt, ...) {
 }
 
 // --- de apparaten --------------------------------------------------------------------------------------------------------------------
-enum class Kind { Columba, Sram, Jvs };
-const char* kind_name(Kind k) { return k == Kind::Columba ? "columba" : k == Kind::Sram ? "mxsram" : "mxjvs"; }
+enum class Kind { Columba, Sram, Jvs, Smbus, Superio };
+const char* kind_name(Kind k) {
+    return k == Kind::Columba ? "columba" : k == Kind::Sram ? "mxsram" : k == Kind::Jvs ? "mxjvs" : k == Kind::Smbus ? "smbus" : "mxsuperio";
+}
 struct Dev {
     Kind kind;
     long long pos = 0;   // SRAM: de bestandspositie
@@ -68,6 +72,9 @@ rg_amhw::Platform g_platform;
 std::vector<uint8_t> g_sram;
 char g_sram_path[MAX_PATH] = "mxsram.bin";
 bool g_sram_loaded = false;
+uint8_t g_region = 0;                          // RG_AMHW_REGION: de regio van de kast voor AM_SYSDATA_STATIC (amhw_sysdata.h); 0 = niet zetten
+rg_amhw::HwRegs* g_hw = nullptr;               // SMBus (dipschakelaars, EEPROM) en Super I/O (hardwaremonitor): registerbestanden
+char g_eeprom_path[MAX_PATH] = "mxeeprom.bin";
 
 constexpr DWORD kIoctlVersion = 0x9C406000;   // mxsram, mxsuperio, SMBus: 4 bytes, laag woord 1
 constexpr DWORD kIoctlPhysRead = 0x9C406104;  // columba
@@ -106,6 +113,7 @@ constexpr DWORD kJvsReplyMs = 250;
 
 bool is_dev_path(const char* n, const char* tail) { return n && lstrcmpiA(n, tail) == 0; }
 
+void sram_write_all();
 void sram_load() {
     if (g_sram_loaded) return;
     g_sram_loaded = true;
@@ -115,6 +123,11 @@ void sram_load() {
         rg_log("mxsram: %s ingelezen (%lu van %lu bytes)", g_sram_path, static_cast<unsigned long>(n), static_cast<unsigned long>(g_sram.size()));
     } else {
         rg_log("mxsram: %s bestaat nog niet; leeg SRAM (%lu bytes)", g_sram_path, static_cast<unsigned long>(g_sram.size()));
+    }
+    // Een leeg SRAM heeft regio 0, en LGS stopt dan op "Error 0903 Wrong Region" (amhw_sysdata.h): zet een geldig AM_SYSDATA_STATIC met de regio van de keychip.
+    if (g_region && rg_amhw::seed_static_sysdata(g_sram, g_region)) {
+        rg_log("mxsram: AM_SYSDATA_STATIC ontbrak of was kapot; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
+        sram_write_all();
     }
 }
 void sram_flush(long long off, size_t n) {
@@ -134,6 +147,10 @@ void sram_flush(long long off, size_t n) {
         std::fwrite(g_sram.data() + off, 1, n, f);
     }
     std::fclose(f);
+}
+
+void sram_write_all() {
+    if (FILE* f = std::fopen(g_sram_path, "wb")) { std::fwrite(g_sram.data(), 1, g_sram.size(), f); std::fclose(f); }
 }
 
 HANDLE make_handle(Kind k, const char* name) {
@@ -201,10 +218,51 @@ std::string table_fallback(const char* n) {
     return path;
 }
 
+std::string env(const char* k, const char* def);
+
+// De SMBus-driver heeft geen vast pad: de game vraagt het via SetupDi (GUID {5C49E1FE-...}) en krijgt van ons dit pad.
+const char* const kSmbusPath = "\\\\?\\rg-amhw-smbus";
+const GUID kSmbusGuid = {0x5C49E1FE, 0x3FEC, 0x4B8D, {0xA4, 0xB5, 0x76, 0xBE, 0x70, 0x25, 0xD8, 0x42}};
+bool is_smbus_guid(const GUID* g) { return g && std::memcmp(g, &kSmbusGuid, sizeof(GUID)) == 0; }
+
+void hw_load() {
+    if (g_hw) return;
+    g_hw = new rg_amhw::HwRegs();
+    const std::string dip = env("RG_AMHW_DIPSW", "");   // "70,00": de twee dip-bytes in hex
+    if (!dip.empty()) {
+        unsigned a = 0x70, b = 0;
+        if (std::sscanf(dip.c_str(), "%x,%x", &a, &b) >= 1) g_hw->set_dip(static_cast<uint8_t>(a), static_cast<uint8_t>(b));
+    }
+    if (FILE* f = std::fopen(g_eeprom_path, "rb")) {
+        const size_t n = std::fread(g_hw->eeprom.data(), 1, g_hw->eeprom.size(), f);
+        std::fclose(f);
+        rg_log("smbus: EEPROM %s ingelezen (%lu bytes)", g_eeprom_path, static_cast<unsigned long>(n));
+    } else {
+        rg_log("smbus: EEPROM %s bestaat nog niet; leeg (0xFF)", g_eeprom_path);
+    }
+    rg_log("smbus: dipschakelaars %02X,%02X; Super I/O-chip-id A230 (type 1)", g_hw->i2c[0x20][4], g_hw->i2c[0x20][5]);
+}
+void eeprom_flush(size_t off, size_t n) {
+    FILE* f = std::fopen(g_eeprom_path, "r+b");
+    if (!f) f = std::fopen(g_eeprom_path, "w+b");
+    if (!f) return;
+    std::fseek(f, 0, SEEK_END);
+    if (static_cast<size_t>(std::ftell(f)) < g_hw->eeprom.size()) {
+        std::fseek(f, 0, SEEK_SET);
+        std::fwrite(g_hw->eeprom.data(), 1, g_hw->eeprom.size(), f);
+    } else {
+        std::fseek(f, static_cast<long>(off), SEEK_SET);
+        std::fwrite(g_hw->eeprom.data() + off, 1, n, f);
+    }
+    std::fclose(f);
+}
+
 HANDLE open_named_a(const char* n) {
     if (is_dev_path(n, "\\\\.\\columba")) return make_handle(Kind::Columba, "columba");
     if (is_dev_path(n, "\\\\.\\mxsram")) { sram_load(); return make_handle(Kind::Sram, "mxsram"); }
     if (is_dev_path(n, "\\\\.\\mxjvs")) return open_jvs();
+    if (is_dev_path(n, "\\\\.\\mxsuperio")) { hw_load(); return make_handle(Kind::Superio, "mxsuperio"); }
+    if (is_dev_path(n, kSmbusPath)) { hw_load(); return make_handle(Kind::Smbus, "smbus"); }
     return nullptr;
 }
 
@@ -342,7 +400,50 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_n, LPVO
                    static_cast<unsigned long>(out_n), req[0] == rg_amhw::kBiosBase ? "BIOS-ruimte met _DMI_" : req[0] == rg_amhw::kTableBase ? "DMI-tabel" : "nullen");
         return TRUE;
     }
-    if (code == kIoctlVersion && out && out_n >= 4) {
+    if ((d.kind == Kind::Smbus || d.kind == Kind::Superio) && code != kIoctlVersion && code != 0x9C406008) {
+        // Registerbestanden (amhw_smbus.h). Een opdracht met een OVERLAPPED wordt direct voltooid: gebeurtenis gezet, TRUE.
+        bool ok = false;
+        size_t eoff = 0, elen = 0;
+        EnterCriticalSection(&g_cs);
+        if (d.kind == Kind::Smbus && code == rg_amhw::kIoctlSmbusRequest && in_n >= rg_amhw::kSmbusPacket && in && out && out_n >= rg_amhw::kSmbusPacket) {
+            if (out != in) std::memcpy(out, in, rg_amhw::kSmbusPacket);
+            ok = g_hw->smbus_request(static_cast<uint8_t*>(out));
+            if (ok && ret) *ret = rg_amhw::kSmbusPacket;
+        } else if (d.kind == Kind::Smbus && code == rg_amhw::kIoctlSmbusBlock && in_n >= rg_amhw::kEepromPacket && in && out && out_n >= rg_amhw::kEepromPacket) {
+            if (out != in) std::memcpy(out, in, rg_amhw::kEepromPacket);
+            ok = g_hw->eeprom_block(static_cast<uint8_t*>(out), &eoff, &elen);
+            if (ok && ret) *ret = rg_amhw::kEepromPacket;
+        } else if (d.kind == Kind::Superio && code == rg_amhw::kIoctlSmbusRequest && in_n >= 4 && in && out && out_n >= 4) {
+            if (out != in) std::memcpy(out, in, 4);
+            ok = g_hw->superio_read(static_cast<uint8_t*>(out));
+            if (ok && ret) *ret = 4;
+        } else if (d.kind == Kind::Superio && code == rg_amhw::kIoctlSmbusBlock && in_n >= 3 && in && out && out_n >= 3) {
+            if (out != in) std::memcpy(out, in, 3);
+            ok = g_hw->lpc_read(static_cast<uint8_t*>(out));
+            if (ok && ret) *ret = 3;
+        } else if (d.kind == Kind::Superio && code == rg_amhw::kIoctlLpcWrite && in_n >= 3 && in) {
+            ok = g_hw->lpc_write(static_cast<const uint8_t*>(in));
+            if (ok && ret) *ret = 0;
+        }
+        LeaveCriticalSection(&g_cs);
+        if (ok && elen) eeprom_flush(eoff, elen);
+        static LONG nlog = 0;
+        if (InterlockedIncrement(&nlog) <= 40 || !ok) {
+            const uint8_t* b = static_cast<const uint8_t*>(in);
+            rg_log("%s: 0x%08lX (in %lu, uit %lu) [%02X %02X %02X %02X %02X %02X %02X] -> %s", kind_name(d.kind), static_cast<unsigned long>(code),
+                   static_cast<unsigned long>(in_n), static_cast<unsigned long>(out_n), b ? b[0] : 0, b ? b[1] : 0, b ? b[2] : 0, b ? b[3] : 0, b ? b[4] : 0, b ? b[5] : 0,
+                   b ? b[6] : 0, ok ? "goed" : "niet nagebootst");
+        }
+        if (!ok) { SetLastError(ERROR_INVALID_FUNCTION); return FALSE; }
+        if (ov) {
+            ov->Internal = 0;
+            ov->InternalHigh = ret ? *ret : 0;
+            if (ov->hEvent) SetEvent(ov->hEvent);
+        }
+        SetLastError(0);
+        return TRUE;
+    }
+    if ((code == kIoctlVersion || code == 0x9C406008) && out && out_n >= 4) {
         *static_cast<uint32_t*>(out) = 1;
         if (ret) *ret = 4;
         return TRUE;
@@ -440,12 +541,44 @@ BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
     return TRUE;
 }
 
+// De SMBus-driver (dipschakelaars, EEPROM, hardwaremonitor) zoekt zijn apparaat via SetupDi: wij geven een eigen lijst met een apparaat en het pad kSmbusPath.
+HDEVINFO const kFakeDevInfo = reinterpret_cast<HDEVINFO>(static_cast<uintptr_t>(0x52474D48));
+using SetupEnumFn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVINFO_DATA, const GUID*, DWORD, PSP_DEVICE_INTERFACE_DATA);
+using SetupDetailFn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA, PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD, PDWORD, PSP_DEVINFO_DATA);
+using SetupDestroyFn = BOOL(WINAPI*)(HDEVINFO);
+SetupEnumFn g_setup_enum = nullptr;
+SetupDetailFn g_setup_detail = nullptr;
+SetupDestroyFn g_setup_destroy = nullptr;
+BOOL WINAPI rg_SetupDiEnumDeviceInterfaces(HDEVINFO set, PSP_DEVINFO_DATA dd, const GUID* g, DWORD idx, PSP_DEVICE_INTERFACE_DATA data) {
+    if (set != kFakeDevInfo) return g_setup_enum(set, dd, g, idx, data);
+    if (idx != 0 || !data) { SetLastError(ERROR_NO_MORE_ITEMS); return FALSE; }
+    data->InterfaceClassGuid = kSmbusGuid;
+    data->Flags = SPINT_ACTIVE;
+    data->Reserved = 0;
+    return TRUE;
+}
+BOOL WINAPI rg_SetupDiGetDeviceInterfaceDetailA(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA data, PSP_DEVICE_INTERFACE_DETAIL_DATA_A detail, DWORD size, PDWORD req,
+                                                PSP_DEVINFO_DATA dd) {
+    if (set != kFakeDevInfo) return g_setup_detail(set, data, detail, size, req, dd);
+    const DWORD need = static_cast<DWORD>(offsetof(SP_DEVICE_INTERFACE_DETAIL_DATA_A, DevicePath) + std::strlen(kSmbusPath) + 1);
+    if (req) *req = need;
+    if (!detail || size < need) { SetLastError(ERROR_INSUFFICIENT_BUFFER); return FALSE; }
+    std::strcpy(detail->DevicePath, kSmbusPath);
+    return TRUE;
+}
+BOOL WINAPI rg_SetupDiDestroyDeviceInfoList(HDEVINFO set) { return set == kFakeDevInfo ? TRUE : g_setup_destroy(set); }
+
 HDEVINFO WINAPI rg_SetupDiGetClassDevsA(const GUID* g, PCSTR e, HWND w, DWORD f) {
+    if (is_smbus_guid(g)) {
+        static LONG nn = 0;
+        if (InterlockedIncrement(&nn) <= 4) rg_log("SetupDiGetClassDevsA(SMBus-GUID, flags 0x%lX) -> nagebootst apparaatlijst met %s", static_cast<unsigned long>(f), kSmbusPath);
+        return kFakeDevInfo;
+    }
     HDEVINFO r = g_setup_classdevs(g, e, w, f);
     const DWORD err = GetLastError();
     static LONG n = 0;
     if (InterlockedIncrement(&n) <= 20 && g)
-        rg_log("SetupDiGetClassDevsA({%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}, flags 0x%lX) -> %p (nog niet nagebootst: SMBus-driver voor EEPROM/dipschakelaars)",
+        rg_log("SetupDiGetClassDevsA({%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}, flags 0x%lX) -> %p (niet de SMBus-GUID: doorgegeven)",
                g->Data1, g->Data2, g->Data3, g->Data4[0], g->Data4[1], g->Data4[2], g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7],
                static_cast<unsigned long>(f), r);
     SetLastError(err);
@@ -535,6 +668,11 @@ void setup() {
     g_platform.vendor = env("RG_AMHW_VENDOR", "Supermicro");
     const std::string sdir = env("RG_AMHW_DIR", dir.c_str());
     std::snprintf(g_sram_path, sizeof g_sram_path, "%s\\mxsram.bin", sdir.c_str());
+    std::snprintf(g_eeprom_path, sizeof g_eeprom_path, "%s\\mxeeprom.bin", sdir.c_str());
+    {
+        unsigned r = 0;
+        if (std::sscanf(env("RG_AMHW_REGION", "").c_str(), "%x", &r) == 1 && r <= 0xFF) g_region = static_cast<uint8_t>(r);
+    }
     int kb = std::atoi(env("RG_AMHW_SRAM_KB", "2048").c_str());
     if (kb < 256 || kb > 8192) kb = 2048;
     g_sram.assign(static_cast<size_t>(kb) * 1024, 0);
@@ -557,8 +695,15 @@ void setup() {
     hook("KERNEL32.dll", "SetupComm", rg_SetupComm, g_setup_comm);
     hook("KERNEL32.dll", "PurgeComm", rg_PurgeComm, g_purge_comm);
     hook("KERNEL32.dll", "GetCommModemStatus", rg_GetCommModemStatus, g_modem_status);
-    g_setup_classdevs = reinterpret_cast<SetupGetClassDevsAFn>(reinterpret_cast<void*>(GetProcAddress(LoadLibraryA("setupapi.dll"), "SetupDiGetClassDevsA")));
+    HMODULE setupapi = LoadLibraryA("setupapi.dll");
+    g_setup_classdevs = reinterpret_cast<SetupGetClassDevsAFn>(reinterpret_cast<void*>(GetProcAddress(setupapi, "SetupDiGetClassDevsA")));
+    g_setup_enum = reinterpret_cast<SetupEnumFn>(reinterpret_cast<void*>(GetProcAddress(setupapi, "SetupDiEnumDeviceInterfaces")));
+    g_setup_detail = reinterpret_cast<SetupDetailFn>(reinterpret_cast<void*>(GetProcAddress(setupapi, "SetupDiGetDeviceInterfaceDetailA")));
+    g_setup_destroy = reinterpret_cast<SetupDestroyFn>(reinterpret_cast<void*>(GetProcAddress(setupapi, "SetupDiDestroyDeviceInfoList")));
     if (g_setup_classdevs) hook("SETUPAPI.dll", "SetupDiGetClassDevsA", rg_SetupDiGetClassDevsA, g_setup_classdevs);
+    if (g_setup_enum) hook("SETUPAPI.dll", "SetupDiEnumDeviceInterfaces", rg_SetupDiEnumDeviceInterfaces, g_setup_enum);
+    if (g_setup_detail) hook("SETUPAPI.dll", "SetupDiGetDeviceInterfaceDetailA", rg_SetupDiGetDeviceInterfaceDetailA, g_setup_detail);
+    if (g_setup_destroy) hook("SETUPAPI.dll", "SetupDiDestroyDeviceInfoList", rg_SetupDiDestroyDeviceInfoList, g_setup_destroy);
 }
 
 }  // namespace

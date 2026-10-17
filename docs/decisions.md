@@ -835,3 +835,9 @@ Aanvulling (meting 6, LGI proef 9, 18:33): mxjvs werkt; "Keychip Not Found" blee
 met een waarde uit zijn `<spel-id>_Table.dat` (`Verify SSD NG!!!` -> `C2D668 = 0` -> 0x3B5). Besloten: de AM-daemon beantwoordt `keychip.ds.compute` en `keychip.ssd.proof` uit dezelfde tabel
 (`tools/rg-amhw/amhw_table.h`, gedeeld met rg-amhw.dll); zonder bestand dezelfde vervangende tabel als de DLL maakt. Geen geheime sleutel nodig: de antwoorden staan in het bestand. Niet gekozen: elk
 antwoord goedkeuren (9 op 10 keer controleert de game), of de controle in de exe uitzetten (patch per build).
+
+Aanvulling (meting 7, proef 9 18:41-18:50): 0903 "Wrong Region" is geen vergelijking met de keychip maar een controle op de kastregio in AM_SYSDATA_STATIC (backup-SRAM, byte 0xC; LGS eist 2/4/8, SDR ongelijk 0);
+een leeg SRAM geeft 0. Besloten: rg-amhw zet bij het eerste open van mxsram een geldig record met de regio van de keychip (`RG_AMHW_REGION`, door rg-direct uit `keychip.appboot.region` gezet), alleen als
+het ontbreekt/kapot is/regio 0 heeft. GG, Transformers en OG missen de SMBus-driver (dipschakelaars, EEPROM) en `\\.\mxsuperio` (hardwaremonitor): die zijn nu als registerbestanden nagebootst
+(`tools/rg-amhw/amhw_smbus.h`), met SetupDi-haken voor de SMBus-GUID. Niet gekozen: de PCB-regio uit de EEPROM halen (in de gelezen controle van LGS en SDR komt de EEPROM niet voor), of de keychip-regio als bitveld 03/07 melden (de game leest dat
+veld niet voor deze controle en OG/LGS kiezen er een taal mee).

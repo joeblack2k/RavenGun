@@ -734,6 +734,10 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                 pl.am_values[k] = val;
             }
         }
+        // rg-amhw.dll zet hiermee AM_SYSDATA_STATIC in een leeg SRAM (tools/rg-amhw/amhw_sysdata.h): de regio van de kast. Zonder dat is de regio 0 en melden
+        // LGS en SDR "Wrong Region" ("Error 0903"), ook als de keychip een goede regio geeft. Dezelfde waarde als de keychip; een [Env] van game.ini of een
+        // drop-in wint.
+        if (auto it = pl.am_values.find("keychip.appboot.region"); it != pl.am_values.end() && !env.count("RG_AMHW_REGION")) env["RG_AMHW_REGION"] = it->second;
         if (ports.empty()) return setting_refused("[AmDaemon] Ports is leeg");
         for (int pt : ports) pl.am_ports.push_back(std::to_string(pt));
         pl.notes.push_back("AM-daemon: rg-direct beantwoordt " + std::to_string(pl.am_values.size()) + " sleutels op 127.0.0.1 poort " + join(pl.am_ports, ","));

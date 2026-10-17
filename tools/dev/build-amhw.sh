@@ -25,7 +25,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src" "$TMP/out"
-cp "$ROOT/tools/rg-amhw/rg_amhw.cpp" "$ROOT/tools/rg-amhw/amhw_dmi.h" "$ROOT/tools/rg-amhw/amhw_jvs.h" "$ROOT/tools/rg-amhw/amhw_table.h" "$TMP/src/"
+cp "$ROOT/tools/rg-amhw/rg_amhw.cpp" "$ROOT/tools/rg-amhw/amhw_dmi.h" "$ROOT/tools/rg-amhw/amhw_jvs.h" "$ROOT/tools/rg-amhw/amhw_table.h" "$ROOT/tools/rg-amhw/amhw_smbus.h" "$ROOT/tools/rg-amhw/amhw_sysdata.h" "$TMP/src/"
 podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE" \
   i686-w64-mingw32-g++ -std=c++17 -O2 -s -shared -Wall -Wextra -Werror \
   -static -static-libgcc -static-libstdc++ -Wl,--no-insert-timestamp \
@@ -35,4 +35,4 @@ for o in "${OUTS[@]}"; do
   cp "$TMP/out/rg-amhw.dll" "$o/rg-amhw.dll"
   echo "klaar: $o/rg-amhw.dll"
 done
-echo "bron: $(cat "$ROOT/tools/rg-amhw/rg_amhw.cpp" "$ROOT/tools/rg-amhw/amhw_dmi.h" "$ROOT/tools/rg-amhw/amhw_jvs.h" "$ROOT/tools/rg-amhw/amhw_table.h" | sha256sum | cut -c1-16); dll: $(sha256sum "$TMP/out/rg-amhw.dll" | cut -c1-16)"
+echo "bron: $(cat "$ROOT/tools/rg-amhw/rg_amhw.cpp" "$ROOT/tools/rg-amhw/amhw_dmi.h" "$ROOT/tools/rg-amhw/amhw_jvs.h" "$ROOT/tools/rg-amhw/amhw_table.h" "$ROOT/tools/rg-amhw/amhw_smbus.h" "$ROOT/tools/rg-amhw/amhw_sysdata.h" | sha256sum | cut -c1-16); dll: $(sha256sum "$TMP/out/rg-amhw.dll" | cut -c1-16)"
