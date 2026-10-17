@@ -58,6 +58,7 @@ void MenuBar::AddToolsMenu() {
     m->addAction(tr("&Set Up Game..."), this, &MenuBar::CreateProfile);
     m->addSeparator();
     m->addAction(tr("Setup &Wizard..."), this, &MenuBar::SetupWizard);
+    m->addAction(tr("&Components..."), this, &MenuBar::ShowComponents);
     m->addAction(tr("Add to &Steam..."), this, &MenuBar::AddToSteam);
     m->addSeparator();
     m->addAction(Resources::GetThemeIcon("folder"), tr("Open C&onfiguration Folder"), this, &MenuBar::OpenConfigFolder);

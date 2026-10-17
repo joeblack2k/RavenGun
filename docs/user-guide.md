@@ -87,9 +87,19 @@ The first time you start RavenGun on the desktop, a wizard helps you set everyth
 4. **Controllers**: pair your PS Move.
 5. **Calibration**: calibrate the compass of the Move on the TV.
 6. **Games**: add your game folder.
-7. **Steam**: add RavenGun to your Steam library.
+7. **Components**: downloads and sets up what RavenGun needs to run games (see below).
+8. **Steam**: add RavenGun to your Steam library.
 
 When you are done: reboot into Game Mode and start RavenGun from your library.
+
+## Components
+
+The **Components** step (also under **Tools > Components**) lists everything RavenGun needs next to the app, with its state (installed, missing, outdated or not available), the download size and a progress bar per item. **Install All** fetches and sets up what is missing; **Install Selected** does just the rows you picked; **Cancel** stops after the current file (a half-finished download is resumed next time). Nothing is installed system-wide: everything goes into `~/.local/share/ravengun`, and nothing needs a terminal.
+
+- **Downloaded and checked**: Wine, DXVK, BepInEx, the mods that your games' settings ask for (`[Mod ...]` in `game.ini`), PhysX, 32-bit SDL 1.2 and the WMV movie plug-ins, and DemulShooter's Unity plug-ins (from the author's own release page). Every file has a fixed SHA-256; a file that does not match is thrown away.
+- **Taken from your Steam**: the DirectX and Visual C++ 2010 DLLs (Steamworks Shared), 32-bit libraries (Steam Linux Runtime) and 32-bit GStreamer (a Proton in Steam). Nothing is downloaded for these; if Steam does not have them the row says "Not available" and tells what to install in Steam.
+- **Built by RavenGun**: the OpenParrot loader and cores, the JVS bridge and similar helpers; these come with the RavenGun download and are only copied into place.
+- **Your TeknoParrot folder**: the TeknoParrotUi folder from your own game folders (add the folder in the **Games** step first). It is copied, never changed at its source. There is no official download for it: TeknoParrot's core files come from TeknoParrot's own updater.
 
 ## Add to Steam
 

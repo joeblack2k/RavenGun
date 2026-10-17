@@ -32,6 +32,7 @@
 #include "widgets/Resources.h"
 #include "widgets/SearchBar.h"
 #include "widgets/SettingsWindow.h"
+#include "widgets/ComponentsPage.h"
 #include "widgets/SetupWizard.h"
 #include "widgets/SteamIntegration.h"
 #include "widgets/ToolBar.h"
@@ -155,6 +156,7 @@ void MainWindow::ConnectMenuBar() {
             [] { QDesktopServices::openUrl(QUrl::fromLocalFile(rg::AppPaths::configDir())); });
     connect(m_menu_bar, &MenuBar::ShowLog, this, &MainWindow::ShowLog);
     connect(m_menu_bar, &MenuBar::SetupWizard, this, &MainWindow::ShowSetupWizard);
+    connect(m_menu_bar, &MenuBar::ShowComponents, this, &MainWindow::ShowComponents);
     connect(m_menu_bar, &MenuBar::AddToSteam, this, [this] { AddToSteamInteractive(this); });
     connect(m_menu_bar, &MenuBar::BigPicture, this, &MainWindow::ShowBigPicture);
     connect(m_menu_bar, &MenuBar::ShowList, this, [this] { SetListView(true); });
@@ -398,6 +400,8 @@ void MainWindow::ShowSetupWizard() {
     SetupWizard w(core_, this);
     w.exec();
 }
+
+void MainWindow::ShowComponents() { ComponentsPage::ShowDialog(core_, this); }
 
 void MainWindow::ShowBigPicture() {
     // Dezelfde fullscreen-weergave als `ravengun --fullscreen`; Exit brengt je hier terug.

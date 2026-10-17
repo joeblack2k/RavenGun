@@ -41,6 +41,7 @@ signals:
     void OpenConfigFolder();
     void ShowLog();
     void SetupWizard();
+    void ShowComponents();
     void AddToSteam();
     // View
     void BigPicture();
