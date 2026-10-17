@@ -762,6 +762,11 @@ Opdracht: deze zeven games starten zonder de gesloten kern. Uitwerking en bewijs
 - **Kandidaten, geen omzetting.** `docs/research/segajvs/<Game>.game.ini` is een overlay met `[Loader] Core = ravengun`; `rg-direct --plan` geeft
   voor alle zeven lader en kern uit `openparrot/current` en geen TeknoParrot-bestand in de opdrachtregel. Geen `patches/<Game>/game.ini` is
   gewijzigd: elke game blijft op de gesloten kern tot een TV-test van 5 minuten slaagt.
-- **Meetgereedschap in plaats van een gok.** `tools/dev/pcp-listen.py` is een luisteraar op 127.0.0.1:40100..40115 die laat zien wat de
-  game vraagt (libpcp is tekst, antwoorden eindigen op een prompt `>`); een echte vervanging van de AM-daemon wordt pas gebouwd op die
-  verzoeken. Niet gekozen: een AM-daemon of in-proces hooks zonder meting (de games mochten niet gestart worden).
+- **Meting en antwoord.** LGI op onze kern met alleen een luisteraar die `>` stuurt (TV, 2026-10-17): 3x `keychip.appboot.systemflag=?&cache=0` op
+  :40106 en 2x `mxmaster.foreground.getcount=2` op :40100, geen antwoord, exitcode 5 na ~10 s. Het antwoordformaat en de waarden zijn
+  gelezen uit de AM Library van de LGI-exe (hexcijfers, tekstlengtes, region als bitveld 01/02/04/08, `getcount` echo plus `count`).
+  `tools/dev/pcp-listen.py` blijft het meetgereedschap voor een game zonder `[AmDaemon]`.
+- **De AM-daemon zit in rg-direct** (`src/ravengun/launch/amdaemon.*`, `[Launch] AmDaemon = true`, waarden in `[AmDaemon]` van game.ini), niet in
+  de daemon: de levensduur is die van de run, een tweede game kan er niet door gestoord worden en het logboek staat bij dat van de
+  JVS-pipe. Onbekende sleutels krijgen een voorzichtig antwoord en staan als ONBEKEND in het logboek. Niet gekozen: in-proces hooks in de
+  exe (per build andere adressen, niet te testen zonder de game te starten).

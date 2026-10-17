@@ -171,6 +171,11 @@ StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopi
 PeFillPages =                 ; true: in dezelfde lokale kopie lopen de secties tot hun bladzijde, zoals Windows ze mapt (zie hieronder)
 BepInEx =                     ; versie (bv. 5.4.21.0): BepInEx naast de exe in de view, voor een eigen plugin als drop-in (zie hieronder)
 Mod =                         ; naam | none: een mod uit [Mod <naam>] (bv. een vertaling), gebouwd in een lokale cache en in de view gelinkt (zie "Mods")
+AmDaemon =                    ; true: rg-direct beantwoordt de AM Library van een Sega Ring-game op 127.0.0.1:40100-40115 (docs/research/segajvs/README.md)
+
+[AmDaemon]                     ; alleen met [Launch] AmDaemon = true: het antwoord per sleutel van de AM-daemon (standaard in src/ravengun/launch/amdaemon.cpp)
+Ports =                       ; 40100,40106,...: de poorten (standaard 40100, 40102-40104, 40106-40108, 40114, 40115)
+keychip.appboot.gameid =      ; elke andere sleutel = waarde: letters, cijfers en . _ - : @ % / # { }, hoogstens 200 tekens
 
 [Display]
 AimAspect =                   ; bv. 4:3 of 1024x768: het beeld van het spel op de tv; de daemon legt de aim-ruimte van de lightgun

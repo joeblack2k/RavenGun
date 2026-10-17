@@ -17,6 +17,7 @@
 #include <sstream>
 
 #include "ravengun/iobridge/control_pipe.hpp"
+#include "ravengun/launch/amdaemon.hpp"
 #include "ravengun/launch/direct_internal.hpp"
 #include "ravengun/launch/pe_stack.hpp"
 
@@ -655,6 +656,35 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             pl.reg_files.push_back(pad);
             pl.notes.push_back("register: " + pad + " (wine reg import, eenmalig per prefix)");
         }
+    }
+    // 6h. [Launch] AmDaemon = true: rg-direct is tijdens de run de AM-daemon van de Sega Ring-games (amdaemon.hpp, docs/research/segajvs/):
+    // de game belt 127.0.0.1:40100..40115 en wacht op een tekstprotocol. De antwoorden zijn de standaardwaarden voor de regio uit
+    // [Game] DongleRegion, met [AmDaemon] van game.ini erover (sleutel = waarde; Ports = lijst met poorten, komma's).
+    if (ld_truthy(trim(lini("AmDaemon")))) {
+        pl.am_daemon = true;
+        pl.am_values = amd::default_values(trim(settings.get("Game", "DongleRegion")));
+        std::vector<int> ports(amd::kDefaultPorts, amd::kDefaultPorts + amd::kDefaultPortCount);
+        if (const gsn::Section* am = settings.settings.section("AmDaemon")) {
+            for (const auto& [k, v] : am->kv) {
+                const std::string val = trim(v);
+                if (lower(k) == "ports") {
+                    ports.clear();
+                    for (const std::string& pt : nonempty_split(val, ',')) {
+                        long long n = 0;
+                        if (!py_int(trim(pt), n) || n < 1024 || n > 65535)
+                            return setting_refused("[AmDaemon] Ports = " + val + " ('" + trim(pt) + "' is geen poort van 1024 tot 65535)");
+                        ports.push_back(static_cast<int>(n));
+                    }
+                    continue;
+                }
+                if (!amd::valid_value(val))
+                    return setting_refused("[AmDaemon] " + k + " = " + val + " (een antwoord bestaat uit letters, cijfers en . _ - : @ % / # { } en een backslash, hoogstens 200 tekens)");
+                pl.am_values[k] = val;
+            }
+        }
+        if (ports.empty()) return setting_refused("[AmDaemon] Ports is leeg");
+        for (int pt : ports) pl.am_ports.push_back(std::to_string(pt));
+        pl.notes.push_back("AM-daemon: rg-direct beantwoordt " + std::to_string(pl.am_values.size()) + " sleutels op 127.0.0.1 poort " + join(pl.am_ports, ","));
     }
     // 6e. [Launch] Gst32: een 32-bits GStreamer voor films via DirectShow/Media Foundation (docs/gst32.md). SteamOS heeft er geen; Proton
     // van Steam wel. scripts/setup-gst32.sh zet die klaar in <data>/ravengun/gst32 (proton/, plugins/, lib/). Bug Busters viel zonder

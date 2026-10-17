@@ -3,7 +3,10 @@
 // script gaan of weigeren, het plaatsen van drop-ins in een view met een koppeling naar de (nep-)NAS zonder op de NAS te schrijven, de
 // invoerroute, het JSON-plan, de joystick-ids van wine-joyid.sh, en rg-direct --run met een nep-wine (de JVS-pipe over TCP, de helper,
 // de lader, de omgeving van het spel). Alles in een tijdelijke map; start geen Wine en geen game, raakt /dev/shm/TeknoParrot_JvsState niet.
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <spawn.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -374,6 +377,35 @@ int main() {
         fs::remove(vexe);
         fs::remove(view / "bin/spel.exe.ravengun-orig");
         write(vexe, oud);
+    }
+
+    // [Launch] AmDaemon (amdaemon.hpp): de standaardwaarden voor de regio, [AmDaemon] van game.ini erover, de poorten, en het plan
+    // heen en terug als JSON; een waarde of poort die libpcp niet kan lezen weigert.
+    {
+        const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi, "[Launch]\nAmDaemon = true\n[AmDaemon]\nkeychip.appboot.gameid = SBWB\nPorts = 40100, 40106\n");
+        DirectPlan ap;
+        std::string w;
+        const Verdict av = plan_direct("Spel", p, o, ap, w);
+        CHECK(av == Verdict::Ok || (std::fprintf(stderr, "amdaemon-plan: %s\n", w.c_str()), false));
+        CHECK(ap.am_daemon && ap.am_ports == (std::vector<std::string>{"40100", "40106"}));
+        CHECK(ap.am_values["keychip.appboot.gameid"] == "SBWB");           // [AmDaemon] wint
+        CHECK(ap.am_values["keychip.appboot.region"].size() == 2);         // het bitveld voor DongleRegion; region_code() zelf staat in test_amdaemon.cpp
+        CHECK(ap.am_values.count("keychip.version") == 1);
+        CHECK(std::any_of(ap.notes.begin(), ap.notes.end(), [](const std::string& n) { return contains(n, "AM-daemon: rg-direct beantwoordt"); }));
+        DirectPlan back;
+        std::string err;
+        CHECK(plan_from_json(plan_to_json(ap), back, err) && back.am_daemon && back.am_ports == ap.am_ports && back.am_values == ap.am_values);
+        write(ugi, "[Launch]\nAmDaemon = true\n[AmDaemon]\nkeychip.appboot.gameid = SB UH\n");
+        CHECK(plan_direct("Spel", p, o, ap, w) == Verdict::Refused && contains(w, "[AmDaemon] keychip.appboot.gameid"));
+        write(ugi, "[Launch]\nAmDaemon = true\n[AmDaemon]\nPorts = 80\n");
+        CHECK(plan_direct("Spel", p, o, ap, w) == Verdict::Refused && contains(w, "geen poort"));
+        write(ugi, "[Launch]\nAmDaemon = false\n");
+        DirectPlan zonder;
+        const Verdict zv = plan_direct("Spel", p, o, zonder, w);
+        CHECK(zv == Verdict::Ok || (std::fprintf(stderr, "zonder AmDaemon: %s\n", w.c_str()), false));
+        CHECK(!zonder.am_daemon && zonder.am_values.empty());
+        fs::remove(ugi);
     }
 
     // [Launch] PeFillPages: Wine wist de bytes na SizeOfRawData, Windows mapt de hele bladzijde (Aliens: Extermination). Een sectie met
@@ -1427,6 +1459,77 @@ int main() {
         CHECK(run(log) == 3 && fs::is_symlink(xlink) && contains(log, "schijfletter X: staat al in de prefix"));
         fs::remove(xlink);
         if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (schijfletters) ---\n%s\n", log.c_str());
+        fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
+    }
+    // [Launch] AmDaemon: rg-direct --run luistert op de poorten van het plan zolang de run duurt; de nep-game belt, krijgt de prompt en het
+    // antwoord (zoals libpcp), en na de run luistert niemand meer. Het logboek heeft het verzoek met het antwoord.
+    {
+        const int f0 = g_failures;
+        const fs::path out = root / "out5";
+        fs::create_directories(out);
+        write(wine,
+              "#!/usr/bin/env bash\n"
+              "case \"$1\" in\n"
+              "  */pipehelper.exe|*/rg-jvsbridge.exe) echo \"pipehelper: pipe created\" >&2; exec sleep 30 ;;\n"
+              "  *) exec 3<>/dev/tcp/127.0.0.1/$AM_PORT || exit 4\n"
+              "     read -r -t 5 -n 1 prompt <&3\n"
+              "     printf 'keychip.appboot.region=?&cache=0\\r\\n' >&3\n"
+              "     IFS= read -r -t 5 line <&3\n"
+              "     printf '%s|%s' \"$prompt\" \"$line\" > \"$OUT/am\"; exit 3 ;;\n"
+              "esac\n",
+              true);
+        write(root / "src", std::string(64, '\0'));
+        int port = 0;
+        {
+            const int s = ::socket(AF_INET, SOCK_STREAM, 0);
+            sockaddr_in a{};
+            a.sin_family = AF_INET;
+            a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            ::bind(s, reinterpret_cast<sockaddr*>(&a), sizeof a);
+            socklen_t l = sizeof a;
+            ::getsockname(s, reinterpret_cast<sockaddr*>(&a), &l);
+            port = ntohs(a.sin_port);
+            ::close(s);
+        }
+        write(fs::path(p.dirs.user) / "Spel/game.ini",
+              "[Launch]\nAmDaemon = true\n[AmDaemon]\nPorts = " + std::to_string(port) + "\nkeychip.appboot.region = 04\n");
+        o.base_env["OUT"] = out.string();
+        o.base_env["AM_PORT"] = std::to_string(port);
+        o.control_source.clear();
+        DirectPlan ap;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, ap, w) == Verdict::Ok && ap.am_daemon);
+        ap.state = (root / "state5").string();
+        const fs::path planf = root / "plan5.json", logf = root / "run5.log";
+        write(planf, plan_to_json(ap));
+        posix_spawn_file_actions_t fa;
+        posix_spawn_file_actions_init(&fa);
+        posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        posix_spawn_file_actions_adddup2(&fa, 1, 2);
+        std::string bin = RG_DIRECT_BIN;
+        std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+        extern char** environ;
+        pid_t pid = 0;
+        CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), environ) == 0);
+        posix_spawn_file_actions_destroy(&fa);
+        int st = 0;
+        waitpid(pid, &st, 0);
+        const std::string log = slurp(logf);
+        CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 3);
+        CHECK(slurp(out / "am") == ">|keychip.appboot.region=04\r");   // de prompt, dan het antwoord met [AmDaemon] erover
+        CHECK(contains(log, "AM-daemon: luistert op 127.0.0.1 poort " + std::to_string(port)));
+        CHECK(contains(log, "<- keychip.appboot.region=?&cache=0  -> keychip.appboot.region=04"));
+        CHECK(contains(log, "AM-daemon: gestopt (1 verzoeken, waarvan 0 onbekend)"));
+        {
+            const int s = ::socket(AF_INET, SOCK_STREAM, 0);
+            sockaddr_in a{};
+            a.sin_family = AF_INET;
+            a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            a.sin_port = htons(static_cast<uint16_t>(port));
+            CHECK(::connect(s, reinterpret_cast<sockaddr*>(&a), sizeof a) != 0);   // na de run luistert niemand meer
+            ::close(s);
+        }
+        if (g_failures != f0) std::fprintf(stderr, "--- rg-direct log (AM-daemon) ---\n%s\n", log.c_str());
         fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
     }
 #endif

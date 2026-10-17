@@ -64,6 +64,7 @@
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/launch/direct.hpp"
+#include "ravengun/launch/amdaemon.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
 #include "ravengun/launch/native.hpp"
 
@@ -71,6 +72,9 @@ namespace L = ravengun::launch;
 namespace J = ravengun::launch::jvspipe;
 
 namespace {
+
+// De AM-daemon van de run (alleen met [Launch] AmDaemon = true); run_einde() stopt hem.
+std::unique_ptr<L::amd::Listener> g_am;
 
 constexpr const char* kShmName = "TeknoParrot_JvsState";
 // Het gedeelde geheugen van de kern. RG_DIRECT_SHM_PATH (alleen voor tests) verlegt het, zodat een test nooit het bestand van een
@@ -1041,6 +1045,16 @@ int run_plan(const std::string& plan_file) {
     helper.start(hargs, plan.tp, henv, "helper: ");
     if (!helper.wait_ready(20)) log("pipehelper meldde zich niet binnen 20 s; toch verder");
 
+    // 3a. De AM-daemon ([Launch] AmDaemon = true, voor de Sega Ring-games): rg-direct beantwoordt de AM Library van de game op
+    // 127.0.0.1:40100..40115 zolang de run duurt en logt elk verzoek met het antwoord. Hier en niet in de daemon: de levensduur is
+    // die van de run, een tweede game kan er niet door gestoord worden, en het logboek staat bij dat van de JVS-pipe.
+    if (plan.am_daemon) {
+        std::vector<int> ports;
+        for (const auto& pt : plan.am_ports) ports.push_back(std::atoi(pt.c_str()));
+        g_am = std::make_unique<L::amd::Listener>(L::amd::Responder(plan.am_values), ports, [](const std::string& m) { log(m); });
+        if (g_am->listen() == 0) log("AM-daemon: geen enkele poort beschikbaar; de game start toch (hij zal op zijn AM Library wachten)");
+    }
+
     // 3b. De besturingspipe (TeknoParrotPipe): de TCP-kant en een tweede helper die de pipe in de prefix maakt (vóór de game, zoals
     // TeknoParrotUi zijn ControlPipe start voordat het spel draait).
     std::unique_ptr<ControlSide> ctl;
@@ -1140,6 +1154,7 @@ int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, J
     a11.write(files);
     helper.stop();
     server.close();
+    if (g_am) { g_am->close(); g_am.reset(); }
     if (ctl) {
         ctl->helper.stop();
         if (ctl->server) ctl->server->close();

@@ -63,6 +63,7 @@ add_library(ravengun STATIC
   src/ravengun/launch/gameview.cpp
   src/ravengun/launch/gamefind.cpp
   src/ravengun/launch/jvs_pipe.cpp
+  src/ravengun/launch/amdaemon.cpp
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/gamesettings/gamepad_settings.cpp
@@ -455,6 +456,11 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_jvs_tests PRIVATE ravengun Threads::Threads)
   target_compile_definitions(ravengun_jvs_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_jvs_tests COMMAND ravengun_jvs_tests)
+  # De AM-daemon van de Sega Ring-games (src/ravengun/launch/amdaemon.*): verzoeken ontleden, antwoorden die de AM Library kan lezen, de
+  # luisteraar met een nepcliënt over loopback-sockets.
+  add_executable(ravengun_amdaemon_tests tests/test_amdaemon.cpp)
+  target_link_libraries(ravengun_amdaemon_tests PRIVATE ravengun Threads::Threads)
+  add_test(NAME ravengun_amdaemon_tests COMMAND ravengun_amdaemon_tests)
   # De camera voor een spel: het bestand van de daemon voor rg-mfcam.dll (src/ravengun/vision/camera_feed.*).
   add_executable(ravengun_camera_feed_tests tests/test_camera_feed.cpp)
   target_link_libraries(ravengun_camera_feed_tests PRIVATE ravengun)
