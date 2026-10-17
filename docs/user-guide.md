@@ -18,13 +18,23 @@ The *engine* is the background service that reads the PS Move and drives the vir
 Right-click a game for more:
 
 - **Play**, **Properties / Edit...**
+- **Add to Steam...**: the game gets its own entry in your Steam library (see "Add to Steam").
 - **Set Up Game...** for a game that is *Not set up*: RavenGun prepares it with the lightgun bindings. For a game on the NAS, keep "Use a local view" checked.
 - **Link to Known Game...** for an *Unconfigured* folder: pick the right game in Properties > General.
 - **Set as Default Game**, **Open Containing Folder**, **Remove from List** (no files are deleted; **View > Show Removed Games Again** brings them back).
 
 ## Playing
 
-Double-click a game, or select it and press **Play**. RavenGun asks you to switch on the PS Move ("Waiting for PS Move: press the PS button"), then starts the game. **Stop** ends the game.
+Double-click a game, or select it and press **Play**. **Stop** ends the game.
+
+Before a lightgun game starts, RavenGun makes sure you are ready, on a black full-screen page that you control with the PS Move alone:
+
+1. **PS Move on.** If Player 1 has a PS Move and it is off, the screen says **"Please turn on your PS Move controller"**. Press the PS button on the Move; the game starts only when the Move is on. Press B (gamepad) or Esc to cancel.
+2. **Aim calibration.** Each player whose Move is on aims at the target in the middle of the screen and pulls the trigger. During this step Player 1's Move glows blue and Player 2's red, so you know whose turn it is; afterwards they get their own color back. Press the MOVE button to skip a player (for example when you calibrated a minute ago).
+3. **Player 2 can join.** If the game has a second gun and Player 2's Move is off, you get 10 seconds to turn it on ("Player 2: turn on your PS Move to join"). Player 1 can pull the trigger to start right away. Player 2 never blocks the start: you can always play alone.
+4. The game starts.
+
+Racing games played with a gamepad (such as Mario Kart Arcade GP DX) skip all of this and start at once. So does a game when nothing needs to be done (the Move is already on and the calibration is turned off). To turn the calibration off, use **Config > Display > Before a lightgun game starts**; RavenGun then still waits for the Move.
 
 During play, the PS button recenters the aim: point at the middle of the screen and press PS.
 
@@ -106,12 +116,16 @@ The **Components** step (also under **Tools > Components**) lists everything Rav
 
 **Tools > Add to Steam** adds RavenGun to your Steam library as a non-Steam game that opens Big Picture Mode, with its own artwork. Steam has to be closed for a moment: RavenGun asks before it closes Steam. A backup of your list of non-Steam games is kept next to it. Doing it again updates the entry instead of adding a second one.
 
+To put a single game in your Steam library, right-click it and choose **Add to Steam...**. In Game Mode that entry shows the same ready check as above ("Please turn on your PS Move controller", then the aim calibration) and then starts the game; when you quit the game you are back in Steam. **Exit game** in the Steam menu stops the game too.
+
+A desktop shortcut can do the same: use `ravengun --play <profile>` as the command (for example `ravengun --play Halo`).
+
 ## Settings
 
 **Config** (toolbar) or **Options > Configuration...**:
 
 - **Engine**: start, stop or restart the engine, and start it automatically at login.
 - **Remote**: allow your phone to open the RavenGun web page on the home network, and see its address.
-- **Display**: OLED protection (a black screen with a small clock when no game runs) and its wait time.
+- **Display**: OLED protection (a black screen with a small clock when no game runs) and its wait time, the camera for games, and whether the aim is calibrated before a lightgun game starts.
 - **Paths**: game folders, the TeknoParrot runtime folder (RavenGun checks it and tells you if something is missing) and how games are launched.
 - **Advanced**: the engine log, the log of the last game start and the last library scan.

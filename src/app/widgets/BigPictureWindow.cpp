@@ -14,6 +14,7 @@
 
 #include "core/AppPaths.h"
 #include "core/GameListModel.h"
+#include "widgets/PreLaunchWindow.h"
 
 namespace rg::ui {
 
@@ -197,6 +198,14 @@ int BigPictureWindow::TargetAt(const QPointF& p) const {
 }
 
 void BigPictureWindow::OnAim(const rg::bigpicture::AimState& s) {
+    // Het startscherm ligt erover (docs/prelaunch.md): de trekker is daar voor de kalibratie, niet voor het menu eronder.
+    if (PreLaunchWindow::Active()) {
+        aim_state_ = s;
+        ignore_trigger_until_release_ = true;
+        confirm_.reset();
+        crosshair_visible_ = false;
+        return;
+    }
     const rg::bigpicture::AimState prev = aim_state_;
     aim_state_ = s;
     if (!s.trigger) ignore_trigger_until_release_ = false;
@@ -261,6 +270,7 @@ void BigPictureWindow::SetIdleForScreenshot(qint64 idleMs) {
 
 void BigPictureWindow::OnGamepad(int action) {
     using A = rg::GamepadInput::Action;
+    if (PreLaunchWindow::Active()) return;
     if (WakeIfIdle()) return;
     switch (static_cast<A>(action)) {
         case A::Left: MoveSelection(rg::bigpicture::Move::Left); break;
@@ -282,6 +292,7 @@ void BigPictureWindow::OnGamepad(int action) {
 }
 
 void BigPictureWindow::keyPressEvent(QKeyEvent* e) {
+    if (PreLaunchWindow::Active()) return;
     if (WakeIfIdle()) return;
     switch (e->key()) {
         case Qt::Key_Left: MoveSelection(rg::bigpicture::Move::Left); break;
@@ -371,7 +382,13 @@ void BigPictureWindow::Activate(int index) {
             }
             const rg::GameEntry g = games_.value(t.game);
             message_ = tr("Starting %1...").arg(g.displayName());
-            core_->launcher()->play(g);
+            // Het startscherm (PS Move aan, kalibratie per speler) als het nodig is, anders meteen; docs/prelaunch.md.
+            if (PreLaunchWindow* w = PlayWithPreLaunch(core_, g))
+                connect(w, &PreLaunchWindow::Finished, this, [this](int code) {
+                    ignore_trigger_until_release_ = true;
+                    if (code == PreLaunchWindow::kExitCancelled) message_.clear();
+                    update();
+                });
             break;
         }
         case Kind::ToggleAll:

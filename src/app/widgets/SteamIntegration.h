@@ -5,6 +5,7 @@
 // (nooit zonder bevestiging, en dan netjes met `steam -shutdown`), en het resultaat.
 #include <QString>
 
+#include "core/GameLibrary.h"
 #include "core/SteamShortcuts.h"
 
 class QWidget;
@@ -18,12 +19,15 @@ struct SteamAddOutcome {
 
 // De gegevens van de snelkoppeling voor deze installatie (pad van de app, startmap, icoon in ~/.local/share/ravengun).
 rg::ShortcutSpec RavenGunShortcutSpec(bool writeIcon = true);
+// Een snelkoppeling voor een game: dezelfde app met `--play PROFIEL` (het startscherm en dan de game; docs/prelaunch.md), de naam
+// van de game en zijn icoon.
+rg::ShortcutSpec GameShortcutSpec(const rg::GameEntry& game);
 
 // Zonder vragen (ook voor `ravengun --add-to-steam`): weigert als Steam draait. account leeg = de laatst ingelogde gebruiker.
 SteamAddOutcome AddToSteamQuiet(const QString& account = {});
 
-// Met vragen (Tools > Add to Steam en de wizard).
-SteamAddOutcome AddToSteamInteractive(QWidget* parent);
+// Met vragen (Tools > Add to Steam en de wizard; met een game: rechtsklik op een game > Add to Steam).
+SteamAddOutcome AddToSteamInteractive(QWidget* parent, const rg::GameEntry* game = nullptr);
 
 // Staat RavenGun al in de bibliotheek van de laatst ingelogde gebruiker? (alleen lezen)
 bool IsInSteam(QString* where = nullptr);

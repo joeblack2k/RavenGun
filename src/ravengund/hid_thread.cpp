@@ -264,6 +264,11 @@ void hid_thread_main(SharedState& shared, HidOptions opt) {
         PredictConfig predict() const override { return s().predict(); }
         void set_predict(const PredictConfig& c) override { s().set_predict(c); }
         void set_led(bool en, uint8_t r, uint8_t g, uint8_t b) override { s().set_led(en, r, g, b); }
+        bool led(bool& en, uint8_t rgb[3]) const override {
+            const HidOptions& o = s().options();
+            en = o.led_enabled; rgb[0] = o.led_r; rgb[1] = o.led_g; rgb[2] = o.led_b;
+            return true;
+        }
         ravengun::output::RumbleConfig rumble() const override { return s().rumble(); }
         void set_rumble(const ravengun::output::RumbleConfig& c) override { s().set_rumble(c); }
         std::string rumble_test(int ms) override { return s().rumble_test(ms); }

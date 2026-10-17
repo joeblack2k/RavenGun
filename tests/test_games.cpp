@@ -560,6 +560,77 @@ static void test_native_service(const std::string& d) {
     CHECK(state_of(svc, &msg) == "failed" && msg.find("afgebroken") != std::string::npos);
     { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
 
+    // De poort per speler (readiness.hpp): speler 1 heeft een Move die uit staat. Een gamepad helpt bij een lightgun-game niet; de
+    // status zegt op wie de start wacht. Zodra die Move aan is, gaat de start door. Een pad-game wacht niet.
+    {
+        namespace R = readiness;
+        Config rc = c;
+        std::mutex im;
+        R::Inputs inputs;
+        inputs.players[0].move_assigned = true;
+        inputs.any_pad_connected = true;
+        R::GameKind kind;
+        kind.gun_players = 2;
+        rc.ready_inputs = [&] { std::lock_guard<std::mutex> g(im); return inputs; };
+        rc.game_kind = [&](const std::string&) { std::lock_guard<std::mutex> g(im); return kind; };
+        rc.lightgun_ready = [] { return true; };   // telt niet meer als ready_inputs gezet is
+        GameService rs(rc, [&](const std::vector<std::string>& argv, std::string&) {
+            std::lock_guard<std::mutex> g(m);
+            calls.push_back(argv);
+            return 0;
+        });
+        { std::lock_guard<std::mutex> g(m); calls.clear(); events.clear(); }
+        auto ready = json::parse(rs.ready_json("Nat"));
+        CHECK(ready.ok && !ready.value.find("ready")->b && ready.value.find("waiting")->arr.size() == 1 && ready.value.find("lightgun")->b);
+        CHECK(rs.start("Nat").ok);
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        auto st = json::parse(rs.status_json());
+        CHECK(st.value.find("state")->str == "waiting_move");
+        CHECK(st.value.find("waiting_players")->arr.size() == 1 && st.value.find("waiting_players")->arr[0].num == 1);
+        CHECK(st.value.find("text")->str.find("speler 1") != std::string::npos);
+        { std::lock_guard<std::mutex> g(m); CHECK(calls.empty()); }
+        { std::lock_guard<std::mutex> g(im); inputs.players[0].move_connected = true; inputs.any_move_connected = true; }
+        for (int i = 0; i < 400 && (state_of(rs) == "waiting_move" || state_of(rs) == "starting"); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        CHECK(state_of(rs) != "failed");
+        { std::lock_guard<std::mutex> g(m); CHECK(calls.size() == 1); }
+        ready = json::parse(rs.ready_json("Nat"));
+        CHECK(ready.value.find("ready")->b && ready.value.find("calibrate")->arr.size() == 1);
+        CHECK(json::parse(rs.status_json()).value.find("waiting_players")->arr.empty());
+        CHECK(rs.stop().ok);
+        wait_idle_worker(rs);
+        // Pad-game: de Move van speler 1 staat uit, en toch geen wachten.
+        {
+            std::lock_guard<std::mutex> g(im);
+            inputs.players[0].move_connected = false;
+            inputs.any_move_connected = false;
+            inputs.any_pad_connected = false;
+            kind.kind = R::Kind::Pad;
+            kind.gun_players = 0;
+        }
+        { std::lock_guard<std::mutex> g(m); calls.clear(); }
+        CHECK(json::parse(rs.ready_json("Nat")).value.find("ready")->b);
+        CHECK(rs.start("Nat").ok);
+        for (int i = 0; i < 400 && state_of(rs) == "starting"; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        CHECK(state_of(rs) != "failed" && state_of(rs) != "waiting_move");
+        { std::lock_guard<std::mutex> g(m); CHECK(calls.size() == 1); }
+        CHECK(rs.stop().ok);
+        wait_idle_worker(rs);
+        // Time-out: de Move van speler 1 komt niet; na lightgun_wait_ms mislukt de start met een melding.
+        {
+            std::lock_guard<std::mutex> g(im);
+            kind.kind = R::Kind::Lightgun;
+            kind.gun_players = 2;
+        }
+        Config tc = rc;
+        tc.lightgun_wait_ms = 400;
+        GameService ts(tc, [&](const std::vector<std::string>&, std::string&) { return 0; });
+        CHECK(ts.start("Nat").ok);
+        for (int i = 0; i < 400 && (state_of(ts) == "waiting_move" || state_of(ts) == "starting"); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        CHECK(state_of(ts, &msg) == "failed" && msg.find("Geen PS Move") != std::string::npos);
+    }
+
     // Een game die de camera in het spel gebruikt, heeft (nog) geen native route.
     c.dirs.shipped = b + "/patches";
     write(b + "/patches/Nat/game.ini", "[Game]\nName = Nat\n[Camera]\nUse = game\n");

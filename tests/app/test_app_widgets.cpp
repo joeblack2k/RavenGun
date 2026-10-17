@@ -31,6 +31,7 @@
 #include "core/ControlsWalk.h"
 #include "widgets/ControllersWindow.h"
 #include "widgets/ControlsSetup.h"
+#include "widgets/PreLaunchWindow.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SaverWindow.h"
 #include "widgets/ComponentsPage.h"
@@ -81,6 +82,7 @@ private Q_SLOTS:
     void bigPictureLightgun();
     void bigPictureKeys();
     void aimStreamFallback();
+    void preLaunchFlow();
     void wizardWithFakePkexec();
     void wizardEngineStep();
     void componentsPage();
@@ -540,6 +542,77 @@ void AppWidgetTest::bigPictureKeys() {
     QTest::keyClick(&w, Qt::Key_Left);
     QTest::keyClick(&w, Qt::Key_Return);
     QVERIFY(exited);
+}
+
+// Het startscherm (docs/prelaunch.md) zonder engine: de antwoorden van game_ready en de Move worden ingespeeld. Wachten op de Move
+// van speler 1, dan de kalibratie van speler 1 en 2 (MOVE en S slaan over), dan de start; zonder engine mislukt die met een melding
+// op het scherm. Escape tijdens het wachten breekt af.
+void AppWidgetTest::preLaunchFlow() {
+    using Step = ui::PreLaunchWindow::Step;
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    GameEntry g;
+    g.kind = GameKind::TeknoParrot;
+    g.id = QStringLiteral("tp:Halo");
+    g.profile = QStringLiteral("Halo");
+    g.name = QStringLiteral("HALO Fireteam Raven");
+    auto plan = [](const char* json) { return QJsonDocument::fromJson(json).object(); };
+    {
+        ui::PreLaunchWindow w(&core, g, ui::PreLaunchWindow::Mode::Play);
+        int code = -1;
+        connect(&w, &ui::PreLaunchWindow::Finished, this, [&code](int c) { code = c; });
+        w.resize(1280, 720);
+        w.Begin();
+        QCOMPARE(w.CurrentStep(), Step::Connecting);
+        QVERIFY(w.isVisible());   // --play: meteen een scherm (Steam Game Mode)
+        w.InjectPlan(plan(R"({"lightgun":true,"gun_players":2,"ready":false,"waiting":[1],"waiting_any":false,"optional_off":[],"calibrate":[]})"));
+        QCOMPARE(w.CurrentStep(), Step::WaitMove);
+        QVERIFY(!w.grab().isNull());
+        w.InjectPlan(plan(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"optional_off":[],"calibrate":[1,2]})"));
+        QCOMPARE(w.CurrentStep(), Step::Calibrate);
+        QCOMPARE(w.CurrentPlayer(), 1);
+        QVERIFY(!w.grab().isNull());
+        bigpicture::AimState s;
+        s.valid = true;
+        s.movePresses = 1;
+        w.InjectAim(s);   // te vroeg na het begin van de stap: telt niet
+        QCOMPARE(w.CurrentPlayer(), 1);
+        QTest::qWait(400);
+        w.InjectAim(s);   // MOVE: speler 1 overslaan
+        QCOMPARE(w.CurrentStep(), Step::Calibrate);
+        QCOMPARE(w.CurrentPlayer(), 2);
+        QTest::qWait(400);
+        QTest::keyClick(&w, Qt::Key_S);   // speler 2 overslaan: dan de start (zonder engine: mislukt, met melding)
+        QCOMPARE(w.CurrentStep(), Step::Failed);
+        QVERIFY(!w.grab().isNull());
+        QCOMPARE(code, -1);
+        QTest::keyClick(&w, Qt::Key_Escape);
+        QCOMPARE(code, int(ui::PreLaunchWindow::kExitFailed));
+        QVERIFY(!w.isVisible());
+    }
+    {
+        ui::PreLaunchWindow w(&core, g, ui::PreLaunchWindow::Mode::Play);
+        int code = -1;
+        connect(&w, &ui::PreLaunchWindow::Finished, this, [&code](int c) { code = c; });
+        w.resize(1280, 720);
+        w.Begin();
+        w.InjectPlan(plan(R"({"lightgun":true,"ready":false,"waiting":[1],"calibrate":[]})"));
+        QCOMPARE(w.CurrentStep(), Step::WaitMove);
+        QVERIFY(ui::PreLaunchWindow::Active() == &w);
+        QTest::keyClick(&w, Qt::Key_Escape);
+        QCOMPARE(code, int(ui::PreLaunchWindow::kExitCancelled));
+        QVERIFY(ui::PreLaunchWindow::Active() == nullptr);
+    }
+    {
+        // Pad-game: geen scherm en meteen de start (zonder engine: mislukt; --play toont dat).
+        ui::PreLaunchWindow w(&core, g, ui::PreLaunchWindow::Mode::InApp);
+        int code = -1;
+        connect(&w, &ui::PreLaunchWindow::Finished, this, [&code](int c) { code = c; });
+        w.Begin();
+        QVERIFY(!w.isVisible());
+        w.InjectPlan(plan(R"({"lightgun":false,"gun_players":0,"ready":true,"calibrate":[]})"));
+        QVERIFY(!w.isVisible());
+        QCOMPARE(code, int(ui::PreLaunchWindow::kExitFailed));   // InApp: de app toont de melding zelf
+    }
 }
 
 void AppWidgetTest::aimStreamFallback() {

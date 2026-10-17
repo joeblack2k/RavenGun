@@ -205,6 +205,8 @@ bool parseAimEvent(const QJsonObject& line, AimState* out) {
     s.triggerPresses = pressed.value(QStringLiteral("t")).toInt();
     for (auto it = pressed.begin(); it != pressed.end(); ++it)
         if (it.value().toInt() > 0) s.pressed << it.key();
+    s.psPresses = pressed.value(QStringLiteral("ps")).toInt();
+    s.movePresses = pressed.value(QStringLiteral("move")).toInt();
     if (s.link == QStringLiteral("disconnected") || s.link == QStringLiteral("lost")) s.valid = false;
     *out = s;
     return true;
@@ -244,6 +246,18 @@ void AimStream::stop() {
     sock_.abort();
 }
 
+void AimStream::setPlayer(int player) {
+    player = std::clamp(player, 1, 4);
+    if (player == player_) return;
+    player_ = player;
+    state_ = {};
+    emit aimChanged(state_);
+    // Een watch loopt tot de verbinding sluit: opnieuw verbinden met de nieuwe speler.
+    if (sock_.state() != QLocalSocket::UnconnectedState) sock_.abort();
+    buf_.clear();
+    connectNow();
+}
+
 void AimStream::connectNow() {
     if (!running_ || path_.isEmpty() || sock_.state() != QLocalSocket::UnconnectedState) return;
     sock_.connectToServer(path_, QIODevice::ReadWrite);
@@ -273,6 +287,8 @@ void AimStream::onReadyRead() {
                 // Flanken optellen over frames die in één keer binnenkomen.
                 s.triggerPresses += changed ? state_.triggerPresses : 0;
                 if (changed) s.pressed += state_.pressed;
+                s.psPresses += changed ? state_.psPresses : 0;
+                s.movePresses += changed ? state_.movePresses : 0;
                 state_ = s;
                 changed = true;
             }

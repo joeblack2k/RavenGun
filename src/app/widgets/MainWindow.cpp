@@ -28,6 +28,7 @@
 #include "widgets/GameList.h"
 #include "widgets/MenuBar.h"
 #include "widgets/PairWizardDialog.h"
+#include "widgets/PreLaunchWindow.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/Resources.h"
 #include "widgets/SearchBar.h"
@@ -195,6 +196,14 @@ void MainWindow::ConnectGameList() {
     });
     connect(m_game_list, &GameList::CreateProfile, this, [this] { CreateProfile(m_game_list->GetSelectedGameId()); });
     connect(m_game_list, &GameList::AddFolderRequested, this, &MainWindow::AddFolder);
+    connect(m_game_list, &GameList::AddToSteam, this, [this] {
+        const QString id = m_game_list->GetSelectedGameId();
+        for (const rg::GameEntry& g : core_->library()->visibleGames())   // met de eigen naam van de gebruiker
+            if (g.id == id && g.hasProfile()) {
+                AddToSteamInteractive(this, &g);
+                return;
+            }
+    });
     connect(m_game_list, &GameList::GameCountUpdated, this, [this](int total, int visible) {
         if (total == visible) statusBar()->showMessage(tr("%n game(s)", nullptr, total), 4000);
         else statusBar()->showMessage(tr("Showing %1 of %2 games").arg(visible).arg(total), 4000);
@@ -313,7 +322,7 @@ void MainWindow::Play() {
         ShowPropertiesFor(g->id);
         return;
     }
-    core_->launcher()->play(*g);
+    PlayWithPreLaunch(core_, *g);   // het startscherm (PS Move aan, kalibratie) als het nodig is; docs/prelaunch.md
 }
 
 void MainWindow::Stop() {

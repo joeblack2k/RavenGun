@@ -1,9 +1,12 @@
 #include "commands.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <mutex>
 #include <unistd.h>
 
 #include "aagames_service.hpp"
@@ -229,10 +232,59 @@ void write_led_tracker(json::Writer& w, const config::LedChoice& c, double hue, 
     w.key("source").value(c.hue_source).key("changed").value(changed).key("applied_live").value(live).end_object();
 }
 
+// set_led met temporary of restore (het startscherm van de app: speler 1 blauw, speler 2 rood tijdens de kalibratie). Alleen live
+// bij de pijplijn van die speler: niets bewaren en de trackertint niet aanraken. De kleur van vóór de eerste tijdelijke kleur wordt
+// per speler onthouden; restore zet die terug (zonder onthouden kleur: niets te doen).
+std::string handle_set_led_temporary(SharedState& sh, const ipc::Request& r, const Target& tg) {
+    struct Saved { bool have = false, enabled = false; uint8_t rgb[3] = {0, 0, 0}; };
+    static std::mutex m;
+    static std::array<Saved, kPlayers> saved;
+    if (tg.all_defaults || tg.player < 1 || tg.player > kPlayers)
+        return ipc::error_response({"invalid_argument", "een tijdelijke LED-kleur geldt voor een speler (player of een Move met een speler)", r.id_json});
+    const int p = tg.player;
+    std::string err;
+    std::lock_guard<std::mutex> g(m);
+    Saved& sv = saved[static_cast<size_t>(p - 1)];
+    json::Writer w;
+    w.begin_object().key("player").value(p);
+    if (r.led_restore) {
+        if (sv.have) {
+            const Saved back = sv;
+            run_for(sh, p, [back](HidContext& h) { h.set_led(back.enabled, back.rgb[0], back.rgb[1], back.rgb[2]); return std::string("1"); }, err);
+            if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+            sv.have = false;
+            w.key("restored").value(true).key("rgb").begin_array().value(back.rgb[0]).value(back.rgb[1]).value(back.rgb[2]).end_array();
+        } else {
+            w.key("restored").value(false);
+        }
+        w.end_object();
+        return ipc::ok_response(r.id_json, w.str());
+    }
+    config::LedChoice c;
+    if (!r.led_preset.empty()) {
+        if (!config::resolve_led_preset(r.led_preset, c))
+            return ipc::error_response({"invalid_argument", "onbekende preset '" + r.led_preset + "' (cyaan, magenta, rood, groen, blauw, wit)", r.id_json});
+    } else {
+        c = config::resolve_led_rgb(static_cast<int>(*r.led_r), static_cast<int>(*r.led_g), static_cast<int>(*r.led_b));
+    }
+    const uint8_t cr = static_cast<uint8_t>(c.r), cg = static_cast<uint8_t>(c.g), cb = static_cast<uint8_t>(c.b);
+    const bool first = !sv.have;
+    const std::string res = run_for(sh, p, [first, cr, cg, cb, &sv](HidContext& h) {
+        if (first) { bool en = false; uint8_t rgb[3]; if (h.led(en, rgb)) { sv.have = true; sv.enabled = en; std::copy(rgb, rgb + 3, sv.rgb); } }
+        h.set_led(true, cr, cg, cb);
+        return std::string("1");
+    }, err);
+    (void)res;
+    if (!err.empty()) return ipc::error_response({"internal", err, r.id_json});
+    w.key("temporary").value(true).key("rgb").begin_array().value(c.r).value(c.g).value(c.b).end_array().end_object();
+    return ipc::ok_response(r.id_json, w.str());
+}
+
 std::string handle_set_led(SharedState& sh, const ipc::Request& r) {
     Target tg;
     ipc::Error te;
     if (!resolve_target(sh, r, tg, te)) return ipc::error_response(te);
+    if (r.led_temporary || r.led_restore) return handle_set_led_temporary(sh, r, tg);
     config::LedChoice c;
     if (!r.led_preset.empty()) {
         if (!config::resolve_led_preset(r.led_preset, c))
@@ -913,6 +965,12 @@ std::string execute_command(SharedState& sh, const ipc::Request& r) {
             games::Result res = sh.games->start(r.profile, r.launch);
             if (!res.ok) return game_error(r, res);
             return ipc::ok_response(r.id_json, sh.games->status_json());
+        }
+        case ipc::Cmd::GameReady: {
+            if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});
+            if (!games::profile_exists(sh.games->config(), r.profile))
+                return ipc::error_response({"invalid_argument", "onbekend profiel '" + r.profile + "'", r.id_json});
+            return ipc::ok_response(r.id_json, sh.games->ready_json(r.profile));
         }
         case ipc::Cmd::GameStop: {
             if (!sh.games) return ipc::error_response({"unavailable", "games zijn niet beschikbaar in deze daemon", r.id_json});

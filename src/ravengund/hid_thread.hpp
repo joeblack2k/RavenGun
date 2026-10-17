@@ -63,6 +63,8 @@ public:
     virtual std::string calib_mag(const ravengun::ipc::Request& r) = 0;
     // LED-kleur van de bol (getypeerd; de HID-thread stuurt hem meteen en daarna elke led_refresh_ms).
     virtual void set_led(bool enabled, uint8_t r, uint8_t g, uint8_t b) = 0;
+    // De LED-kleur die nu geldt (aan/uit en r, g, b), voor een tijdelijke kleur die later terug moet. false = onbekend.
+    virtual bool led(bool& enabled, uint8_t rgb[3]) const { (void)enabled; (void)rgb; return false; }
     // Trillen bij schieten: huidige instelling, live wijzigen, en een testpuls (ook ongewapend). rumble_test geeft "1"
     // of "!code|melding" (uitgeschakeld, geen Move).
     virtual ravengun::output::RumbleConfig rumble() const { return {}; }
