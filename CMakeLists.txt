@@ -291,6 +291,13 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-ptylink/rg_ptylink.c\" -ldl -lpthread || echo 'waarschuwing: 32-bit ptylink (librg_ptylink.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-ptylink/rg_ptylink.c VERBATIM)
     add_custom_target(rg_ptylink32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so")
+    # OSS-shim (tools/rg-oss-stub/): /dev/dsp en /dev/mixer voor i386-games in de sandbox. Target: Terror Gold crashte zonder /dev/dsp
+    # in zijn geluidsthread (SNDCTL_DSP_GETOSPACE op fd -1, ongevulde struct, memset met een onzinlengte; 2026-10-17). Header-vrij.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32"
+      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-oss-stub/rg_oss_stub.c\" || echo 'waarschuwing: 32-bit OSS-shim (librg-oss-stub.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-oss-stub/rg_oss_stub.c VERBATIM)
+    add_custom_target(rg_oss_stub32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so")
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
   endif()
@@ -610,6 +617,7 @@ if(TARGET rg_comm_shim)
   install(TARGETS rg_fmod10 rg_fmodstudio10 LIBRARY DESTINATION lib/fmod)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
