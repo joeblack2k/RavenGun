@@ -26,6 +26,7 @@
 #include <windows.h>
 #include <dinput.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -386,7 +387,8 @@ static HRESULT WINAPI dev_GetObjectInfo(void *s, LPDIDEVICEOBJECTINSTANCEA o, DW
 }
 static HRESULT WINAPI dev_GetDeviceInfo(void *s, LPDIDEVICEINSTANCEA di)
 {
-    if (!di) return DIERR_INVALIDPARAM;
+    /* Minstens DIDEVICEINSTANCE_DX3 (tot en met tszProductName): vul_instantie schrijft niet verder. */
+    if (!di || di->dwSize < offsetof(DIDEVICEINSTANCEA, guidFFDriver)) return DIERR_INVALIDPARAM;
     vul_instantie(D(s)->speler, di);
     return DI_OK;
 }
