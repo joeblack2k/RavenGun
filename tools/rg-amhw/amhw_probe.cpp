@@ -10,11 +10,33 @@
 #include <string>
 
 #include "amhw_dmi.h"
+#include "amhw_jvs.h"
 
 static int g_fail = 0;
 static void check(bool ok, const char* what) {
     std::printf("%s %s\n", ok ? "OK  " : "FOUT", what);
     if (!ok) ++g_fail;
+}
+
+// Een nep-JVS-bord achter een named pipe, zoals rg-jvsbridge het aanbiedt: leest ruwe bytes, antwoordt met een kader (adrestoekenning F1 en alles
+// anders), en zwijgt op een globale reset (FF F0).
+static HANDLE g_srv = INVALID_HANDLE_VALUE;
+static volatile LONG g_srv_frames = 0;
+static DWORD WINAPI jvs_server(LPVOID) {
+    ConnectNamedPipe(g_srv, nullptr);
+    uint8_t buf[512];
+    DWORD n = 0;
+    while (ReadFile(g_srv, buf, sizeof buf, &n, nullptr) && n) {
+        InterlockedIncrement(&g_srv_frames);
+        if (!rg_amhw::expects_reply(buf, n)) continue;
+        const uint8_t rep[] = {0xE0, 0x00, 0x03, 0x01, 0x01, 0x05};   // status 1, rapport 1, som
+        // In twee stukken sturen: het kader moet over meer dan een leesopdracht heen gelezen worden.
+        DWORD w = 0;
+        WriteFile(g_srv, rep, 4, &w, nullptr);
+        Sleep(15);
+        WriteFile(g_srv, rep + 4, 2, &w, nullptr);
+    }
+    return 0;
 }
 
 int main(int argc, char** argv) {
@@ -23,6 +45,10 @@ int main(int argc, char** argv) {
     SetEnvironmentVariableA("RG_AMHW_OEM", argc > 2 ? argv[2] : "AAM");
     SetEnvironmentVariableA("RG_AMHW_VENDOR", argc > 3 ? argv[3] : "Supermicro");
     SetEnvironmentVariableA("RG_AMHW_DIR", dir.c_str());
+    SetEnvironmentVariableA("RG_AMHW_JVS_PIPE", "\\\\.\\pipe\\rg_amhw_probe_jvs");
+    g_srv = CreateNamedPipeA("\\\\.\\pipe\\rg_amhw_probe_jvs", PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, nullptr);
+    check(g_srv != INVALID_HANDLE_VALUE, "nep-JVS-pipe gemaakt");
+    CreateThread(nullptr, 0, jvs_server, nullptr, 0, nullptr);
     DeleteFileA((dir + "\\mxsram.bin").c_str());
     HMODULE m = LoadLibraryA((dir + "\\rg-amhw.dll").c_str());
     check(m != nullptr, "rg-amhw.dll laadt");
@@ -75,6 +101,32 @@ int main(int argc, char** argv) {
         std::fclose(f);
         check(n == 0x200 && std::memcmp(fb, w, 0x200) == 0, "het geschreven sector staat in mxsram.bin");
     }
+
+    // mxjvs: zoals amJvstDriverSetup (LGI 0x490B30) en amJvstDriverSend/Receive (0x490780 / 0x4908A0)
+    HANDLE j = CreateFileA("\\\\.\\mxjvs", 0xC0000000, 0, nullptr, OPEN_EXISTING, 0x40000000, nullptr);
+    check(j != INVALID_HANDLE_VALUE, "CreateFileA(\\\\.\\mxjvs) geeft een handvat (de pipe van de brug)");
+    DCB dcb = {};
+    COMMTIMEOUTS to = {};
+    check(GetCommState(j, &dcb) && SetCommState(j, &dcb) && SetCommTimeouts(j, &to) && SetupComm(j, 0x400, 0x400) && PurgeComm(j, 0xF), "comm-aanroepen op mxjvs slagen");
+    DWORD ms = 0xFFFFFFFF;
+    check(GetCommModemStatus(j, &ms) && (ms == 0x10 || ms == 0x30), "modemstatus: sense-lijn (0x10 zonder adres)");
+    OVERLAPPED ov = {};
+    ov.hEvent = CreateEventA(nullptr, TRUE, FALSE, nullptr);
+    const uint8_t assign[] = {0xE0, 0xFF, 0x03, 0xF1, 0x01, 0xF4};   // adres 1 toekennen
+    uint8_t outb[0x100] = {};
+    BOOL ok = DeviceIoControl(j, 0x9C402000, const_cast<uint8_t*>(assign), sizeof assign, outb, 0x100, &got, &ov);
+    check(ok || GetLastError() == ERROR_IO_PENDING, "DeviceIoControl 0x9C402000 aanvaard (TRUE of ERROR_IO_PENDING)");
+    check(WaitForSingleObject(ov.hEvent, 2000) == WAIT_OBJECT_0, "de gebeurtenis van de OVERLAPPED wordt gezet");
+    check(ov.InternalHigh == 6 && outb[0] == 0xE0 && outb[5] == 0x05, "het antwoordkader (6 bytes, uit twee stukken) staat in de uitvoer, InternalHigh = 6");
+    const uint8_t reset[] = {0xE0, 0xFF, 0x03, 0xF0, 0xD9, 0xCB};
+    ResetEvent(ov.hEvent);
+    const DWORD t0 = GetTickCount();
+    ok = DeviceIoControl(j, 0x9C402000, const_cast<uint8_t*>(reset), sizeof reset, outb, 0x100, &got, &ov);
+    check(ok && ov.InternalHigh == 0 && GetTickCount() - t0 < 100 && WaitForSingleObject(ov.hEvent, 0) == WAIT_OBJECT_0, "globale reset: geen antwoord verwacht, meteen klaar met 0 bytes");
+    check(g_srv_frames == 2, "het nep-bord kreeg beide kaders");
+    check(!DeviceIoControl(j, 0x9C402004, nullptr, 0, nullptr, 0, &got, nullptr) && GetLastError() == ERROR_INVALID_FUNCTION, "een onbekende ioctl op mxjvs faalt (en wordt gelogd)");
+    CloseHandle(ov.hEvent);
+    CloseHandle(j);
 
     // Een gewoon bestand loopt ongemoeid door de haken.
     HANDLE n = CreateFileW((std::wstring(dir.begin(), dir.end()) + L"\\rg-amhw.dll").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);

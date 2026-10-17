@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "../tools/rg-amhw/amhw_dmi.h"
+#include "../tools/rg-amhw/amhw_jvs.h"
 
 using namespace rg_amhw;
 
@@ -85,6 +86,28 @@ int main() {
 
     // De tekenreeksen passen in de buffers van de game: fabrikant 31 + nul (c30acf, 0x20), OEM 31 (c30aef), datum 10 + nul (c30ac4, 0xb).
     CHECK(p.vendor.size() < 0x20 && p.oem.size() < 0x20 && p.bios_date.size() <= 10 && p.bios_version.size() < 0x20);
+    // JVS-kaders (amhw_jvs.h): lengte van het eerste complete kader, escapes, onvolledig, ruis ervoor, reset zonder antwoord.
+    {
+        const uint8_t ok[] = {0xE0, 0x00, 0x03, 0x01, 0x01, 0x05};
+        CHECK(rg_amhw::frame_length(ok, 6) == 6);
+        CHECK(rg_amhw::frame_length(ok, 5) == 0 && rg_amhw::frame_length(ok, 3) == 0 && rg_amhw::frame_length(ok, 1) == 0 && rg_amhw::frame_length(ok, 0) == 0);
+        const uint8_t noise[] = {0x00, 0x7F, 0xE0, 0x00, 0x03, 0x01, 0x01, 0x05, 0xAA};
+        size_t skip = 99;
+        CHECK(rg_amhw::frame_length(noise, 9, &skip) == 6 && skip == 2);      // twee bytes ruis, dan een kader, met een staart die blijft liggen
+        // D0 xx is een logische byte (xx + 1): aantal 4 = 4 logische bytes na het aantal, waarvan een geescapete E0 (D0 DF) en een D0 (D0 CF).
+        const uint8_t esc[] = {0xE0, 0x00, 0x04, 0xD0, 0xDF, 0xD0, 0xCF, 0x01, 0x77};
+        CHECK(rg_amhw::frame_length(esc, 9) == 9);
+        CHECK(rg_amhw::frame_length(esc, 8) == 0);                              // een D0 vlak voor het einde of een tekort aan bytes: nog niet compleet
+        const uint8_t cut[] = {0xE0, 0x00, 0x03, 0xD0};
+        CHECK(rg_amhw::frame_length(cut, 4) == 0);                              // D0 zonder volgende byte
+        const uint8_t resync[] = {0xE0, 0x00, 0xE0, 0x00, 0x03, 0x01, 0x01, 0x05};
+        CHECK(rg_amhw::frame_length(resync, 8) == 0);                           // een nieuwe E0 midden in een kader: kapot
+        const uint8_t reset[] = {0xE0, 0xFF, 0x03, 0xF0, 0xD9, 0xCB};
+        const uint8_t assign[] = {0xE0, 0xFF, 0x03, 0xF1, 0x01, 0xF4};
+        const uint8_t read1[] = {0xE0, 0x01, 0x02, 0x20, 0x23};
+        CHECK(!rg_amhw::expects_reply(reset, 6) && rg_amhw::expects_reply(assign, 6) && rg_amhw::expects_reply(read1, 5));
+        CHECK(rg_amhw::expects_reply(ok, 2));                                   // te kort om te beoordelen: wacht op een antwoord
+    }
     std::printf("amhw: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

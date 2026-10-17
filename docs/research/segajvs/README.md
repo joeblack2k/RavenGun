@@ -183,7 +183,7 @@ niet tegen zijn eigen soort; elke geldige combinatie start. Gekozen:
 
 **De drop-in `rg-amhw.dll`** (`tools/rg-amhw/`, bouwen met `tools/dev/build-amhw.sh`, 292 KB, statisch gelinkt, MinGW i686): zoals `rg-mfcam` zet
 hij invoeren in de importtabel van de HOOFDmodule om (`CreateFileW/A`, `DeviceIoControl`, `CloseHandle`, `SetFilePointer`, `ReadFile`,
-`WriteFile`); in kernel32 zelf wordt niets gepatcht, dus geen conflict met de MinGW-haken van onze OpenParrot-kern. Hij wordt met
+`WriteFile` en de comm-aanroepen); in kernel32 zelf wordt niets gepatcht, dus geen conflict met de MinGW-haken van onze OpenParrot-kern. Hij wordt met
 `Preload = true` door de OpenParrot-lader geladen (`TP_PRELOAD_DLL`, na de kern en voor de game zijn eerste regel draait).
 
 * `\\.\columba`: de DMI-tabel uit `amhw_dmi.h` (BIOS, systeem, OEM-strings, einde; SMBIOS 2.4 met geldige controlesommen), met de fabrikant en het
@@ -191,6 +191,7 @@ hij invoeren in de importtabel van de HOOFDmodule om (`CreateFileW/A`, `DeviceIo
 * `\\.\mxsram`: versie (`0x9C406000`, laag woord 1), geometrie (`0x70000`: 2 MB, sectoren van 0x200) en gewoon `SetFilePointer`/`ReadFile`/`WriteFile`,
   achter `mxsram.bin` in de map van de DLL (de view; nooit de NAS) zodat scores en instellingen een herstart overleven. Niet nodig om de crash te
   vermijden, wel voor `amBackupRead` (de regio uit het backup-SRAM, de testmodus, hoge scores).
+* `\\.\mxjvs`: de JVS-lijn naar de pipe van de brug (zie Meting 4).
 * Alles wat de game verder met `\\.\...` probeert (en de eerste 20 `SetupDiGetClassDevsA`-aanroepen) wordt GELOGD in `rg-amhw.log` en onveranderd
   doorgegeven: dat logboek is de lijst van wat er nog ontbreekt.
 
@@ -200,11 +201,43 @@ hij invoeren in de importtabel van de HOOFDmodule om (`CreateFileW/A`, `DeviceIo
 |---|---|---|---|
 | `\\.\mxsuperio` | hardwaremonitor (`amHmInit` 0x48D970: LPC-chip met bank-registers, temperaturen, fans) | `6F0F60` geeft 1, `ArcadeManager::initialize` zet bit 0x20 en logt "hardware monitor setup failed" | Nee voor de crash; waarschijnlijk wel een foutcode in beeld. Een LPC-chip nabootsen is werk van een dag; eerst kijken of het nodig is. |
 | SMBus-driver via SetupDi (GUID-klasse, mutex `AM_PCA9535_MUTEX`), ioctl `0x9C406008` versie, `0x9C40200C` blokken | EEPROM (`amEeprom*`, de eerste twee backup-gebieden) en de dipschakelaars (PCA9535, `amDipsw*`, asynchroon met `0x9C402004`) | `amEepromInit`/`amDipswInit` falen (bits 1 en 8); `readRegionEeprom` meldt ERR en de game valt terug op `DefaultRegion` | Nee voor de crash. Voor het testmenu en de dipschakelaars wel. De structuur van de blokopdracht is al gelezen (0x27 bytes: status/cmd 9 = lezen, 8 = schrijven, slave +2, register +4, lengte +6, data +7). |
-| `\\.\mxjvs` | JVS-stuurprogramma | de game valt terug op `COM4` | Nee: dat is de JVS-pipe van de kern/brug. |
+| `\\.\mxjvs` | JVS-stuurprogramma | JVS start niet; `c0c88c` (de knooppunten) blijft nul en `initCredit` stort in (0x6EDF7E) | **Ja, en nu nagebootst**: zie "Meting 4" hieronder. Eerder stond hier ten onrechte dat de game op `COM4` terugvalt. |
 
 **Gemeten zonder game (Wine, wegwerp-prefix, `tools/dev/test-amhw-wine.sh`):** de DLL laadt, zet de importtabel om, geeft een handvat voor columba, de
 twee leesopdrachten leveren een tabel op waaruit dezelfde code als in de game `Supermicro`/`AAM`/type 1 haalt, mxsram doet versie, geometrie, schrijven,
 lezen en bestandsopslag, en een gewoon bestand loopt ongemoeid door de haken (alle 20 controles van de proef). De game zelf is niet gestart.
+
+### Meting 4 (LGI, 2026-10-17 18:01): `\\.\mxjvs` en de toegangsfout op 0x6EDF7E
+
+*De game praat JVS NIET via COM4. `JvsManager::initialize` (0x6EE520) wordt met argument 1 aangeroepen (0x674987) en kiest daarmee de STUURPROGRAMMA-modus
+(`amJvsInitEx(2)`, 0x6EE56C); de COM-modus (`COM4`, 0x485767) is voor argument ongelijk aan 1 en wordt hier nooit gebruikt.*
+
+**Waar 0x6EDF7E zit [gelezen].** `JvsManager::initCredit` (0x6EDE80). De regio-tak (`unknown region` bij een leeg SRAM, maar dat is hier niet de oorzaak: dat
+logt alleen) loopt door naar `mov eax,[0xC0C88C]` en `mov eax,[eax]`: `0xC0C88C` is de tabel met JVS-knooppunten die `JvsManager::initialize` vult (0x6EE6D1) nadat
+`amJvsInitEx` slaagde en `amJvsGetNodes` een aantal gaf. Mislukt de open van `\\.\mxjvs`, dan blijft de tabel nul terwijl het knooppuntaantal (`0xC0C888`) op
+zijn beginwaarde staat; de crash is dus het gevolg van de mislukte open, niet van mxsram, mxsuperio of de SMBus.
+
+**Het stuurprogramma [gelezen, 0x490B30 / 0x490780 / 0x4908A0 / 0x4909B1].** Het is een seriele lijn met een eigen verkeersopdracht:
+* `CreateFileA("\\\\.\\mxjvs", GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED)`, dan `GetCommState`, `SetCommState` (115200 8N1),
+  `SetCommTimeouts`, `SetupComm(0x400,0x400)`, `PurgeComm(0xF)` op dat handvat.
+* Verkeer: een enkele `DeviceIoControl(h, 0x9C402000, in, inLen, out, 0x100, &n, &overlapped)`. `in` zijn de JVS-bytes die de bovenlaag bouwt: het volledige kader
+  (`E0`, knoop, aantal, gegevens, som, met `D0`-escapes), precies wat de COM-modus naar de lijn schrijft. `out` krijgt het antwoordkader (ook met `E0`; de
+  COM-modus ontleedt hetzelfde in 0x490110). Het aantal bytes leest de game uit `OVERLAPPED.InternalHigh` nadat de gebeurtenis van de OVERLAPPED gezet is.
+  Een globale reset (knoop FF, opdracht F0) krijgt geen antwoord.
+* Sense-lijn: `GetCommModemStatus`; zonder adres alleen CTS (0x10), na de adrestoekenning CTS+DSR (0x30), net als OpenParrot's amJvs.cpp.
+
+**Nagebootst in `rg-amhw.dll`** (`amhw_jvs.h` voor de kaderlogica, `jvs_transfer` in `rg_amhw.cpp`): `\\.\mxjvs` wordt de named pipe `\\.\pipe\TeknoParrot_JVS`
+van onze brug (rg-jvsbridge, wacht tot 5 s tot hij er is; `RG_AMHW_JVS_PIPE` verlegt hem). De comm-aanroepen op dat handvat slagen, de sense-lijn komt uit
+byte 0 van `TeknoParrot_JvsState`, en `0x9C402000` schrijft de bytes naar de pipe, leest het eerste complete kader terug (ruis ervoor wordt overgeslagen, `D0`-escapes
+tellen als een byte, hoogstens 250 ms) en voltooit de OVERLAPPED meteen (`InternalHigh` = aantal bytes, gebeurtenis gezet, TRUE). Een globale reset wacht niet.
+Dezelfde bytes dus als OpenParrot voor COM4 naar de pipe stuurt; de brug en `rg-direct` zijn ongewijzigd. In `rg-amhw.log` staan de eerste zes transacties
+met hun bytes (`mxjvs: #1 [E0 FF 03 F1 01 F4] -> antwoord [E0 00 03 01 01 05]`), daarna elke 2000e, en elke 200e keer zonder antwoord.
+
+**Onzeker, eerlijk:** dat het antwoordkader in de uitvoer van het echte stuurprogramma EXACT de lijnbytes zijn (met `E0`) volgt uit het feit dat de bovenlaag in
+beide modi dezelfde ontleding gebruikt; gemeten aan een echt stuurprogramma is het niet. Staat er in `rg-amhw.log` "geen antwoord binnen 250 ms" terwijl de brug wel
+verkeer ziet, dan is dat de eerste plek om te kijken.
+
+**mxsuperio en SMBus:** nog niet nodig gebleken voor deze crash. Pas meten als `JVS-pipe: game verbonden` er is: de volgende log laat zien of er foutbits zichtbaar worden.
 
 ## Testrecept (TV)
 

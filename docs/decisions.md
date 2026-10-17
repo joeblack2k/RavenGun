@@ -819,3 +819,7 @@ Niet de AM-daemon: `keychip.appboot.platformid` wordt door de game nergens terug
 - **Nog niet nagebootst:** `\\.\mxsuperio` (hardwaremonitor) en de SMBus-driver (EEPROM, dipschakelaars) via SetupDi: de init loopt zonder ze door met foutbits; de
   structuur van de blokopdracht staat in het README. Eerst meten wat de game er zonder doet.
 - **Test zonder game:** `tools/dev/test-amhw-wine.sh` (wegwerp-Wine-prefix, kleine proef-exe) en `tests/test_amhw.cpp` (de DMI-bytes nagelezen zoals de game ze leest).
+
+Aanvulling (meting 4, 18:01): de game kiest voor JVS de STUURPROGRAMMA-modus (`amJvsInitEx(2)`, `\\\\.\\mxjvs`, ioctl 0x9C402000 met volledige JVS-kaders), niet COM4; de crash op
+0x6EDF7E (`initCredit`) volgde uit de mislukte open (knooppunttabel leeg). `rg-amhw` bootst mxjvs nu na door het aan de JVS-pipe van de brug te koppelen (`amhw_jvs.h`);
+mxsuperio en SMBus blijven open tot gemeten is dat ze nodig zijn.
