@@ -366,19 +366,6 @@
    ]
   },
   {
-   "id": "rio",
-   "name": "RIO libraries",
-   "group": "Built by RavenGun",
-   "version": "1",
-   "kind": "bundled",
-   "description": "Raw Thrills RIO bridge libraries per game.",
-   "dest": "rio",
-   "merge": true,
-   "detect": [
-    "rio/NERF/librio.so"
-   ]
-  },
-  {
    "id": "rg-pe-hook",
    "name": "PE hook",
    "group": "Built by RavenGun",
@@ -389,19 +376,6 @@
    "merge": true,
    "detect": [
     "rg-pe-hook/rg-pe-hook.dll"
-   ]
-  },
-  {
-   "id": "loaders",
-   "name": "Patched loaders",
-   "group": "Built by RavenGun",
-   "version": "1",
-   "kind": "bundled",
-   "description": "OpenParrotLoader with the floating-point fix.",
-   "dest": "loaders",
-   "merge": true,
-   "detect": [
-    "loaders/OpenParrotLoader-fpfix-2296185e0afa.exe"
    ]
   },
   {
