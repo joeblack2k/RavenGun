@@ -8,7 +8,7 @@ op 127.0.0.1:40100..40115; de gesloten kern vervangt dat. Dit hulpmiddel haalt u
 een eigen vervanging moet kennen: de versies van de AM-modules, de poorten, de seriele poort/JVS-naam, en per functienaam het
 beginadres (zodat een hook of een meting erop kan wijzen).
 
-Gebruik:  python3 -I tools/dev/segajvs-scan.py <exe> [--json] [--names REGEX]
+Gebruik:  python3 -I tools/dev/segajvs-scan.py <exe> [--json] [--names REGEX] | --where 0xADRES
 
 Het zoekt geen verborgen gegevens: elke bevinding is een tekenreeks of een constante in de exe, met het adres erbij. Een
 functiebeginadres is een schatting (het eerste punt na een reeks int3-opvulling), geen disassemblage.
@@ -163,6 +163,32 @@ def named_functions(pe, name_rx=NAME_RX):
     return res
 
 
+def where(data, va):
+    """Wat staat er op `va` (bv. het crashadres uit WINEDEBUG=+seh)? Het geschatte functiebegin, de dichtstbijzijnde am*/pcp*-functie
+    die daarvoor begint, en de tekenreeksen die de functie tot dat punt via push gebruikt (foutmeldingen zeggen vaak genoeg)."""
+    pe = PE(data)
+    off = pe.va2off(va)
+    if off is None:
+        return {"va": va, "error": "adres ligt niet in de exe (misschien een DLL of de kern)"}
+    start = func_start(pe, off)
+    named = [(s, n) for n, ss in named_functions(pe).items() for s in ss if s <= va]
+    near = max(named) if named else None
+    strings = []
+    lo = pe.va2off(start)
+    hi = min(off + 0x40, lo + 0x600)
+    for i in range(lo, hi - 4):
+        if pe.d[i] == 0x68:
+            v = struct.unpack_from("<I", pe.d, i + 1)[0]
+            so = pe.va2off(v)
+            if so is None:
+                continue
+            m = re.match(rb"[\x20-\x7e]{4,120}", pe.d[so:so + 121])
+            if m and m.group().decode() not in strings:
+                strings.append(m.group().decode())
+    return {"va": va, "function_start": start, "named_before": {"va": near[0], "name": near[1]} if near else None,
+            "strings": strings[:10]}
+
+
 def scan(data, names_rx=None):
     pe = PE(data)
     d = pe.d
@@ -190,6 +216,17 @@ def main(argv):
     if "--names" in argv:
         names = argv[argv.index("--names") + 1]
         args = [a for a in args if a != names]
+    if "--where" in argv:
+        w = argv[argv.index("--where") + 1]
+        args = [a for a in args if a != w]
+        with open(args[0], "rb") as f:
+            rep = where(f.read(), int(w, 0))
+            print("adres 0x%x: functie ~0x%x" % (rep["va"], rep.get("function_start", 0)) if "error" not in rep else rep["error"])
+            if rep.get("named_before"):
+                print("  dichtstbijzijnde am*/pcp*-functie ervoor: %s @0x%x" % (rep["named_before"]["name"], rep["named_before"]["va"]))
+            for t in rep.get("strings", []):
+                print("  gebruikt: " + t)
+        return 0
     if len(args) != 1:
         print(__doc__)
         return 2
