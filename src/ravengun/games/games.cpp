@@ -998,7 +998,12 @@ std::string GameService::run_native(const std::string& profile) {
     if (const char* d = std::getenv("DISPLAY"); d && *d) po.host_display = d;
     if (const char* x = std::getenv("XAUTHORITY"); x && *x) po.host_xauthority = x;
     // Geluid (FMOD-wrapper, tools/fmod-bridge): de keuze uit de opties van de game ([Audio] Speakers in game.ini, de gebruikerslaag gaat voor).
-    if (const std::string spk = speakers_of(c_.direct.dirs, profile); !spk.empty()) po.env.emplace_back("RG_FMOD_SPEAKERS", spk);
+    if (const std::string spk = speakers_of(c_.direct.dirs, profile); !spk.empty()) {
+        po.env.emplace_back("RG_FMOD_SPEAKERS", spk);
+        // De Lindbergh-games (libsegaapi = FAudio op SDL3) mengen naar het kanaalaantal van SDL: STEREO = 2, LPCM 5.1 = 6. Zonder keuze
+        // geldt de standaard uit native.json (2; met 6 kanalen op de HDMI-sink hoorde de eigenaar bij HOTD4 niets, 2026-10-17).
+        po.env.emplace_back("SDL_AUDIO_CHANNELS", spk == "stereo" ? "2" : spk == "7.1" ? "8" : "6");
+    }
     if (!L::plan(pr, np, po, pl, err)) return err;
     // 3. Invoer: uitvoer wapenen, dan de route van het profiel (tp-shm: de daemon schrijft het bordbeeld; evdev: de brug dicht).
     if (c_.arm) { const std::string e = c_.arm(); if (!e.empty()) return "uitvoer wapenen: " + e; }
