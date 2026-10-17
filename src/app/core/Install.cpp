@@ -285,6 +285,10 @@ bool Install::copyTree(const QString& from, const QString& to, QString* err) {
         if (!ec) fs::permissions(dst, fs::status(src).permissions() | fs::perms::owner_write | fs::perms::owner_read | fs::perms::owner_exec, ec);
     } else if (fs::is_regular_file(st)) {
         fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec);
+        // De wijzigtijd meenemen (zoals cp -a): de engine vergelijkt een gebouwde plugin met zijn bron in share/ (verouderd = nieuwere
+        // bron). Zonder dit kreeg alles de installatietijd en leek de bron (later gekopieerd) nieuwer dan de DLL (gemeten 2026-10-17:
+        // Tomb Raider en Rabbids weigerden na ravengun --install met "plugin verouderd").
+        if (!ec) fs::last_write_time(dst, fs::last_write_time(src, ec), ec);
     } else {
         return true;  // sockets, apparaten e.d. horen niet in een installatie
     }

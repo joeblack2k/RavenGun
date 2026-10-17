@@ -3,6 +3,7 @@
 // options.json per game (met lagen), schrijven naar doelen (nooit naar de "NAS"), bibliotheek-scan op een nepmap, memory card,
 // ProfileSync en de runtime-controle. De "NAS" is een tijdelijke map via $RAVENGUN_NAS_PREFIXES.
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -2149,9 +2150,16 @@ void AppCoreTest::installPathLogic() {
     // Een symlink naar de installatie telt als dezelfde map.
     QVERIFY(QFile::link(rel, tmp_.filePath(QStringLiteral("tree1-link"))));
     QVERIFY(Install::runsFromPrefix(tmp_.filePath(QStringLiteral("tree1-link/bin")), rel));
-    // Kopiëren behoudt rechten en symlinks.
+    // Kopiëren behoudt rechten, symlinks en wijzigtijden (de engine vergelijkt een plugin met zijn bron op de wijzigtijd).
     QString err;
+    const QDateTime oud = QDateTime::currentDateTimeUtc().addDays(-3);
+    {
+        QFile f(rel + QStringLiteral("/bin/ravengund"));
+        QVERIFY(f.open(QIODevice::ReadWrite));
+        QVERIFY(f.setFileTime(oud, QFileDevice::FileModificationTime));
+    }
     QVERIFY(Install::copyTree(rel, tmp_.filePath(QStringLiteral("tree1-copy")), &err));
+    QVERIFY(qAbs(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/bin/ravengund"))).lastModified().toUTC().secsTo(oud)) <= 1);
     QVERIFY(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/bin/ravengund"))).isExecutable());
     QVERIFY(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so.1"))).isSymLink());
     QCOMPARE(QFileInfo(tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so.1"))).symLinkTarget(), tmp_.filePath(QStringLiteral("tree1-copy/lib/libpsmoveapi.so")));
