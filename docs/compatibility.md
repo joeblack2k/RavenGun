@@ -63,7 +63,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (20)
+## Not tested yet (19)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -77,7 +77,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Friction**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (4:3). Play not measured.
 - **Lost Land Adventure**: Starts by double-click (2026-10-16): attract (DEMO PLAY) after ~2 min loading. Open: the text is Japanese; coin and start not measured.
 - **Men in Black**: Starts by double-click (2026-10-17): MIB.exe directly on our core with DXVK in gamescope, a BepInEx plugin that stops the self-exit, GStreamer for the films: logo, attract films, "press start button to join", free play; on screen for 2 minutes. Input not measured yet (on the cabinet it goes through the shell).
-- **Police Trainer 2**: Starts by double-click (2026-10-17): direct route with TeknoParrot's ELF loader in gamescope; the sound program first, then the game; input tp-shm/RawThrillsGUN: high scores and attract. Picture 4:3 (640x480; the profile has a custom resolution option). Coin, start and shooting not measured yet.
 - **Robin Hood**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope the attract shows (press start, free play). Play not measured.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
 - **Silent Scope: Bone Eater**: Starts by double-click (2026-10-17): TeknoMacaw64 with DXVK in gamescope, region Asia: English warning, then the attract (ranking, free play). Portrait picture centred in 16:9 (the cabinet has a portrait screen). Input not measured yet.

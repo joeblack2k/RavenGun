@@ -47,7 +47,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 overgeslagen (Japanse tekst); Mighty Moto overgeslagen (4:3); Silent Scope: Bone Eater start; Star Trek Voyager overgeslagen (4:3); Men in Black start; rest open |
 | T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | geparkeerd door de eigenaar (2026-10-17: "laat maar met Cxbx, het is het niet waard"). Laatste meting: onder GE-Proton10-34 (klassiek Wine) geen crash meer en 9-12 fps, maar zwart beeld |
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
-| T11 | Raw Thrills / ICE | Police Trainer 2, Crossfire: Maximum Paintball (Raw Thrills-I/O, /dev/mjg en poort 0x37c); Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-17: weer open (na het parkeren van Chihiro). Walking Dead en Ghostbusters: dongle-antwoorden ontbreken in de dump; Aliens Armageddon: 16 .g6-modellen ontbreken; Police Trainer 2 en Crossfire starten (2026-10-17: directe route met de ELF-lader van TeknoParrot, tp-shm/RawThrillsGUN; 4:3; invoer niet gemeten) |
+| T11 | Raw Thrills / ICE | Crossfire: Maximum Paintball (Raw Thrills-I/O, /dev/mjg en poort 0x37c); Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-17: weer open (na het parkeren van Chihiro). Walking Dead en Ghostbusters: dongle-antwoorden ontbreken in de dump; Aliens Armageddon: 16 .g6-modellen ontbreken; Crossfire start en speelt (2026-10-17: directe route met de ELF-lader van TeknoParrot, tp-shm/RawThrillsGUN; munt, START, schieten met score; herladen = buiten beeld mikken; 4:3); Police Trainer 2 overgeslagen (eigenaar: 4:3) |
 
 ## WORKING (41)
 
@@ -104,7 +104,6 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | America's Army Arcade | Global VR PC Based | native (Global VR Linux, ElfLdr2) |
 | Crossfire: Maximum Paintball | Linux PC Based | native (Linux, recept NERF/JP) |
 | Friction | Unique PC Based | 2026-10-15: onder gamescope draait UpdateWindow eindeloos (zwart); zonder gamescope laadschermen met 60 fps, daarna zwart met 7 fps |
-| Police Trainer 2 | Phantom Systems PC Based | native (Linux, ElfLdr2) |
 | Walking Dead | RAW Thrills Linux PC Based | 2026-10-15 native: slottabel 806/806, RG_ELF_MAIN, libcaca-stub, dongle-hook; "Welcome to Walking Dead"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
 
 ## pass 2 (19)
@@ -128,7 +127,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (19)
+## overgeslagen (20)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -151,3 +150,4 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Mighty Moto | UNIS PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de eigen output_log.txt van de kast: desktop 1024x768; geen resolutie-optie); daarbij HASP SRM-envelope met volledig versleutelde code (.text entropie 8,0, "Unable to access HASP SRM Run-time Environment (H0033)"); profiel weg, map naar emulation/skipped |
 | Star Trek Voyager | Team Play PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de code van trek: venster glutInitWindowSize(600, 450), Glide-doel 640x480, volledig scherm zonder eigen modus; geen breedbeeld- of aspect-optie); map naar emulation/skipped |
 | Gunslinger Stratos 3 | Taito Type X4 | skip-regel eigenaar 2026-10-17, door de eigenaar bevestigd: Japanse tekst (gemeten in de eigen attract-film gs3_pv1.wmv en de standaard-tutorial; alleen 6 van de 21 tutorialfilms hebben een _en-versie); geen lightgun-spel. Daarvoor gemeten: herkenning vond eerst Cooper's 9 (Size ontbrak), native xaudio2_7, FastIO-pipe, daarna 60 fps zwart zonder assets; profiel weg, map naar emulation/skipped |
+| Police Trainer 2 | Phantom Systems PC Based | eigenaar 2026-10-17: 4:3, overslaan (gemeten 640x480 met balken; startte wel via de directe route met de ELF-lader van TeknoParrot); map naar emulation/skipped |
