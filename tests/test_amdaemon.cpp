@@ -8,6 +8,8 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <cstdlib>
+#include <fstream>
 #include <cstdio>
 #include <mutex>
 #include <string>
@@ -15,6 +17,7 @@
 #include <vector>
 
 #include "ravengun/launch/amdaemon.hpp"
+#include "../tools/rg-amhw/amhw_table.h"
 
 using namespace ravengun::launch::amd;
 
@@ -128,8 +131,8 @@ static void test_responder() {
     a = rs.answer(parse_request("mxmaster.foreground.getcount=3"));
     CHECK(a.line == "mxmaster.foreground.getcount=3&count=1");
     // Onbekend: een voorzichtig antwoord, gemeld als onbekend.
-    a = rs.answer(parse_request("keychip.ssd.proof=?&cache=0"));
-    CHECK(!a.known && a.line == "keychip.ssd.proof=0" && contains(a.note, "onbekend"));
+    a = rs.answer(parse_request("keychip.zz.unknown=?&cache=0"));
+    CHECK(!a.known && a.line == "keychip.zz.unknown=0" && contains(a.note, "onbekend"));
     a = rs.answer(parse_request("mxmaster.foreground.next=1"));
     CHECK(!a.known && a.line == "mxmaster.foreground.next=0");
     a = rs.answer(parse_request("iets.anders=7"));
@@ -154,6 +157,75 @@ static void test_responder() {
     Responder r2(v);
     CHECK(r2.answer(parse_request("keychip.appboot.gameid=?&cache=0")).line == "keychip.appboot.gameid=SBWB");
     CHECK(r2.answer(parse_request("mxmaster.foreground.getcount=2")).line == "mxmaster.foreground.getcount=2&count=0");
+}
+
+// keychip.ds.compute / keychip.ssd.proof: het antwoord is het verwachte antwoord uit <spel-id>_Table.dat (LGI 0x48D670/0x48D810: Verify MAC NG / SSD NG).
+static std::string hex_of(const std::vector<uint8_t>& d, size_t off, size_t n) { return rg_amhw::to_hex(&d[off], n); }
+
+static void test_auth() {
+    namespace T = rg_amhw;
+    // Een tabel met herkenbare bytes: byte i van het bestand is (i * 7 + 3) & 0xFF, zodat de verwisseling te volgen is.
+    std::vector<uint8_t> t(T::kTableSize);
+    for (size_t i = 0; i < t.size(); ++i) t[i] = static_cast<uint8_t>(i * 7 + 3);
+    char dir[] = "/tmp/rg-auth-XXXXXX";
+    CHECK(::mkdtemp(dir) != nullptr);
+    const std::string path = std::string(dir) + "/SBTT_Table.dat";
+    { std::ofstream f(path, std::ios::binary); f.write(reinterpret_cast<const char*>(t.data()), static_cast<std::streamsize>(t.size())); }
+    auto v = default_values("JAPAN");
+    v["keychip.appboot.gameid"] = "SBTT";
+    Responder rs(v, {"/nergens", dir});
+
+    // ds: record 5, pagina 2. Uitdaging = 7 ruwe bytes; antwoord = 20 bytes van de pagina met de verwisseling (byte 0 = bestand[15], byte 1 = bestand[5], ...).
+    const size_t rec = 5, page = 2, base = rec * 87 + 7 + page * 20;
+    Reply a = rs.answer(parse_request("keychip.ds.compute=" + hex_of(t, rec * 87, 7) + "&page=2"));
+    std::string want;
+    for (int idx : {15, 5, 13, 14, 10, 1, 2, 11, 16, 7, 4, 18, 12, 6, 3, 0, 17, 8, 19, 9}) want += hex_of(t, base + static_cast<size_t>(idx), 1);
+    CHECK(a.known && a.line == "keychip.ds.compute=" + want);
+    CHECK(a.line.size() == std::string("keychip.ds.compute=").size() + 40);
+    CHECK(rs.table_source() == path);
+    // Kleine letters in de uitdaging en een andere pagina.
+    std::string lower = hex_of(t, 9 * 87, 7);
+    for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    CHECK(rs.answer(parse_request("keychip.ds.compute=" + lower + "&page=0")).line.size() == std::string("keychip.ds.compute=").size() + 40);
+    // ssd: record 77; de uitdaging staat ruw op 870000 + 77*32, het antwoord (verwisseld) op +16.
+    const size_t so = 870000 + 77 * 32;
+    Reply b = rs.answer(parse_request("keychip.ssd.proof=" + hex_of(t, so, 16)));
+    std::string wants;
+    for (int idx : {6, 8, 4, 12, 7, 13, 1, 10, 2, 3, 11, 14, 15, 0, 5, 9}) wants += hex_of(t, so + 16 + static_cast<size_t>(idx), 1);
+    CHECK(b.known && b.line == "keychip.ssd.proof=" + wants);
+    // Een uitdaging die niet in de tabel staat (de willekeurige): geen foutmelding, een antwoord van de juiste lengte.
+    Reply c = rs.answer(parse_request("keychip.ds.compute=E0EC70DDDC7988&page=1"));
+    CHECK(c.known && c.line == "keychip.ds.compute=" + std::string(40, '0') && contains(c.note, "willekeurig"));
+    c = rs.answer(parse_request("keychip.ssd.proof=00112233445566778899AABBCCDDEEFF"));
+    CHECK(c.known && c.line == "keychip.ssd.proof=" + std::string(32, '0'));
+    // De vaste uitdaging (bit 0 van systemflag) en haar vier vaste antwoorden uit de exe.
+    CHECK(rs.answer(parse_request("keychip.ds.compute=2CFECBC71CF1E4&page=0")).line == "keychip.ds.compute=CA6ED736401682DD4411A27D2440AC4B478BAD8B");
+    CHECK(rs.answer(parse_request("keychip.ds.compute=2CFECBC71CF1E4&page=3")).line == "keychip.ds.compute=2F6D713DABDE3C43DF818491AB9467BA8BA0FED4");
+    // Zonder bestand: dezelfde vervangende tabel als rg-amhw.dll maakt. De game leest dan dezelfde bytes.
+    auto v2 = default_values("JAPAN");
+    v2["keychip.appboot.gameid"] = "SBZZ";
+    Responder fb(v2, {"/nergens"});
+    const std::vector<uint8_t> fake = T::fake_table("SBZZ_Table.dat");
+    CHECK(fake.size() == 1190000 && fake == T::fake_table("sbzz_table.dat") && fake != T::fake_table("SBYY_Table.dat"));
+    Reply d = fb.answer(parse_request("keychip.ssd.proof=" + hex_of(fake, 870000 + 3 * 32, 16)));
+    CHECK(d.known && d.line.size() == std::string("keychip.ssd.proof=").size() + 32 && d.line != "keychip.ssd.proof=" + std::string(32, '0'));
+    CHECK(contains(fb.table_source(), "vervangende tabel"));
+    // Het pad uit auth.table wint.
+    auto v3 = v2;
+    v3["auth.table"] = path;
+    Responder pt(v3, {});
+    CHECK(pt.answer(parse_request("keychip.ssd.proof=" + hex_of(t, so, 16))).line == "keychip.ssd.proof=" + wants);
+    // De echte tabel van LGI (alleen als hij er is): de uitdaging die de TV-run van 18:33 stuurde staat op record 9927 van het ssd-deel.
+    const char* home = std::getenv("HOME");
+    const std::string real = std::string(home ? home : "") + "/.local/share/ravengun/runtime/views/LGI/MACtbl/SBUH_Table.dat";
+    if (std::ifstream(real).good()) {
+        Responder rl(default_values("JAPAN"), {std::string(home) + "/.local/share/ravengun/runtime/views/LGI/MACtbl"});
+        Reply r = rl.answer(parse_request("keychip.ssd.proof=CCF8FFBACAC583ABBFCDF3010A45C039"));
+        CHECK(r.known && !contains(r.note, "willekeurig") && r.line.size() == std::string("keychip.ssd.proof=").size() + 32);
+        CHECK(r.line != "keychip.ssd.proof=CCF8FFBACAC583ABBFCDF3010A45C039");
+    }
+    std::remove(path.c_str());
+    ::rmdir(dir);
 }
 
 static void test_listener() {
@@ -204,11 +276,11 @@ static void test_listener() {
     CHECK(e.connect_to(p1) && e.read_until_prompt() == ">");
     CHECK(e.ask("keychip.appboot.systemflag=?&cache=0") == "keychip.appboot.systemflag=00\r\n>");
     // Een onbekende sleutel staat als ONBEKEND in het logboek met verzoek en antwoord.
-    CHECK(e.ask("keychip.ssd.proof=?&cache=0") == "keychip.ssd.proof=0\r\n>");
+    CHECK(e.ask("keychip.zz.unknown=?&cache=0") == "keychip.zz.unknown=0\r\n>");
     // Het logboek heeft elk verzoek met zijn antwoord.
     const std::string lg = all();
     CHECK(contains(lg, "<- keychip.appboot.systemflag=?&cache=0  -> keychip.appboot.systemflag=00"));
-    CHECK(contains(lg, "<- keychip.ssd.proof=?&cache=0  -> keychip.ssd.proof=0  [ONBEKEND"));
+    CHECK(contains(lg, "<- keychip.zz.unknown=?&cache=0  -> keychip.zz.unknown=0  [ONBEKEND"));
     CHECK(contains(lg, "game verbonden"));
     CHECK(l.requests() >= 8 && l.unknown() >= 2);   // de twee onbekende (ssd.proof, het ongeldige verzoek)
     // Herhaalde verzoeken vullen het logboek niet: na de derde keer alleen elke honderdste.
@@ -230,6 +302,7 @@ int main() {
     test_parse();
     test_values();
     test_responder();
+    test_auth();
     test_listener();
     std::printf("amdaemon: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

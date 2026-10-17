@@ -830,3 +830,8 @@ vlag nooit gezet wordt; (2) columba antwoordt op elke buffergrootte met `BytesRe
 Transformers-exe zet de DLL de schrijfbit van `.rdata` in de kop uit (R6002); (4) de AM-daemon beantwoordt `request=<naam>` met `response=<naam>&result=success`,
 extra velden via `[AmDaemon] response.<naam>`. Niet gekozen: de tabel uit de TP-map halen (die is weg; doel is zonder TeknoParrot) of de NAS beschrijven.
 Onbevestigd tot een TV-run: dat de inhoud van de tabel niet beoordeeld wordt, en of OG verder komt dan de dongle.
+
+Aanvulling (meting 6, LGI proef 9, 18:33): mxjvs werkt; "Keychip Not Found" bleef omdat de AM-daemon `keychip.ssd.proof` met de uitdaging zelf beantwoordde. De game vergelijkt dat antwoord
+met een waarde uit zijn `<spel-id>_Table.dat` (`Verify SSD NG!!!` -> `C2D668 = 0` -> 0x3B5). Besloten: de AM-daemon beantwoordt `keychip.ds.compute` en `keychip.ssd.proof` uit dezelfde tabel
+(`tools/rg-amhw/amhw_table.h`, gedeeld met rg-amhw.dll); zonder bestand dezelfde vervangende tabel als de DLL maakt. Geen geheime sleutel nodig: de antwoorden staan in het bestand. Niet gekozen: elk
+antwoord goedkeuren (9 op 10 keer controleert de game), of de controle in de exe uitzetten (patch per build).

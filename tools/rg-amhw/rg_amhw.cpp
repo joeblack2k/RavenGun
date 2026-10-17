@@ -32,6 +32,7 @@
 
 #include "amhw_dmi.h"
 #include "amhw_jvs.h"
+#include "amhw_table.h"
 
 namespace {
 
@@ -193,11 +194,7 @@ std::string table_fallback(const char* n) {
     CreateDirectoryA(g_table_dir.c_str(), nullptr);
     const std::string path = g_table_dir + "\\" + base;
     if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        uint32_t x = 2166136261u;                                   // FNV van de naam als zaad: elk spel-id krijgt zijn eigen vaste bytes
-        for (const char* c = base; *c; ++c) x = (x ^ static_cast<uint8_t>(*c)) * 16777619u;
-        if (!x) x = 1;
-        std::vector<uint8_t> data(1190000);                         // de grootte van de echte tabellen (SBUH, SBWB, SBYR)
-        for (auto& b : data) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; b = static_cast<uint8_t>(x); }
+        const std::vector<uint8_t> data = rg_amhw::fake_table(base);   // dezelfde bytes als de AM-daemon van rg-direct genereert (amhw_table.h)
         if (FILE* f = std::fopen(path.c_str(), "wb")) { std::fwrite(data.data(), 1, data.size(), f); std::fclose(f); }
         rg_log("tabel: %s ontbreekt; vervangen door %s (%lu bytes, vast patroon)", n, path.c_str(), static_cast<unsigned long>(data.size()));
     }

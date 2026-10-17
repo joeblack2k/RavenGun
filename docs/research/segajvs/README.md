@@ -265,6 +265,44 @@ daarna vast, dan is dat de eerstvolgende plek om te kijken.
 **Onzeker:** (1) of de gedumpte Transformers-exe na R6002 nog andere dumpresten heeft; (2) of OG alleen op de tabel strandt of ook op EEPROM/hardwaremonitor;
 (3) de oorzaak van de GG-stop is uit de padstring en de volgorde in de init afgeleid, niet uit een meting van die run.
 
+### Meting 6 (LGI, TV proef 9, 2026-10-17 18:33): mxjvs werkt, daarna "Error 0949 Keychip Not Found" door een fout keychip-antwoord
+
+mxjvs werkt (identificatie `SEGA CORPORATION;I/O ...`, ~60 polls/s met antwoord), geen crash. De AM-daemon zag twee onbekende sleutels op :40106 en stuurde de
+waarde terug: `keychip.ds.compute=E0EC70DDDC7988&page=1` en `keychip.ssd.proof=CCF8FFBACAC583ABBFCDF3010A45C039`.
+
+**Waar 0949 gezet wordt [gelezen, LGI_RingW_F_safe.exe].** `0x6719B0` (fwAM.cpp) vertaalt een code naar een tekst: `0x3B5` = "Keychip Not Found" (949 decimaal). De code wordt gezet
+in `0x671AD0` op `0x671AE8`: `call 0x6EF4C0; test al,al; jne ok; mov [esp+0x10],0x3B5`. `0x6EF4C0` leest byte `0xC0D02A` = `[keychip-object + 0x1E]`. Dat byte wordt door
+`0x6F0C70` / `0x6F0D30` gezet op `(0x48B270() == 1)`, en `0x48B270` is `[0xC2D664] != 0 && [0xC2D668] != 0`. Dus: de keychip-vlag is waar zolang amDongle denkt dat de keychip er
+is (`C2D664`) EN dat hij echt is (`C2D668`). Beide worden 1 aan het eind van `amDongleSetupKeychip` (`0x48B73F`/`0x48B745`, na systemflag, version, gameid, region, ...). `C2D668` gaat
+terug op 0 bij: `Verify MAC NG!!!` (`0x48B018`, ds.compute fout), `Verify SSD NG!!!` (`0x48B073`, ssd.proof fout), `PCP Connect Time Out Error` (`0x48BFEE`, geen antwoord) en
+een antwoordcode -12 `Error Response KeychipError` (`0x48C327`). In deze run kwam geen van de laatste twee voor (de AM-daemon antwoordde op alles): het is dus de ssd.proof-controle.
+
+**Wat de game met het antwoord doet [gelezen].**
+* Antwoordgrammatica (`amDongleResponseCheck`, `0x48C2F4`): de eerste sleutel moet gelijk zijn aan de gevraagde (`keychip.ds.compute` / `keychip.ssd.proof`), anders -5; de waarde
+  is hex (`0x48D4C0`: hoofd- of kleine letters), niet leeg; `code=` mag ontbreken. Lengte komt uit `strlen(waarde)/2`.
+* **Hij toetst het antwoord inhoudelijk, maar tegen een waarde die in zijn eigen bestand staat.** `amDongleUpdate` (`0x48AFA4`..`0x48B085`) vergelijkt het ontvangen antwoord dword voor
+  dword met een verwacht antwoord dat bij de uitdaging in het geheugen staat (`C2DBF7` voor ds, 20 bytes; `C2DBCC` voor ssd, 16 bytes). Beide komen uit `<spel-id>_Table.dat`
+  (LGI: `MACtbl/SBUH_Table.dat`, 1 190 000 bytes), geladen door `0x48D670` (ds) en `0x48D810` (ssd): 10000 records van 87 bytes (uitdaging 7 + 4 pagina's van 20) en daarna 10000 records
+  van 32 bytes (uitdaging 16 + antwoord 16); 100 willekeurige records gaan naar het geheugen en worden om de beurt gebruikt. Het verwachte antwoord is het bestandsantwoord met een vaste
+  byteverwisseling (ds: `uit[j] = bestand[{15,5,13,14,10,1,2,11,16,7,4,18,12,6,3,0,17,8,19,9}[j]]`, ssd: `{6,8,4,12,7,13,1,10,2,3,11,14,15,0,5,9}`); de uitdaging gaat ruw mee. Dezelfde
+  verwisselingen staan in LGI3D, LGS, GG, OG, SDR en TF (machinaal uit de code gehaald).
+* **Dus geen geheime sleutel nodig.** De echte keychip rekent, maar de game bevat alle verwachte antwoorden vooraf: een AM-daemon die dezelfde tabel leest antwoordt exact wat de game verwacht.
+  Dat is de oplossing: `keychip.ssd.proof=CCF8FF...` staat in de echte `SBUH_Table.dat` op byte 1187664 (= 870000 + 9927*32), dus een gewone verifieerbare uitdaging; wij stuurden haar terug
+  in plaats van het antwoord, daardoor `Verify SSD NG!!!`.
+* **Uitzondering: 1 op 10** (`rand() % 10 == 0`, `0x48B0C2`/`0x48B14C`) stuurt de game een willekeurige uitdaging en schakelt de vergelijking uit (`C2D678 = 1`). `E0EC70DDDC7988` staat
+  nergens in de tabel: dat was zo'n geval en zou dus ook met de echo goed zijn geweest.
+* **De vaste uitdaging** `2CFECBC71CF1E4` (alleen als bit 0 van `keychip.appboot.systemflag` gezet is, `C2D66C`) heeft vier vaste antwoorden in de exe (LGI `0x9506F8`), in alle zeven gelijk.
+
+**Wat nu gedaan wordt** (`tools/rg-amhw/amhw_table.h`, `src/ravengun/launch/amdaemon.*`): de AM-daemon antwoordt op `keychip.ds.compute` en `keychip.ssd.proof` uit de tabel. Hij zoekt
+`<spel-id>_Table.dat` (spel-id uit `keychip.appboot.gameid`) in `MACtbl/`, `fs/table/`, `rg-amhw-tables/` en `exe/rg-amhw-tables/` onder de werkmap, de exe-map en de map erboven, of in het pad uit
+`[AmDaemon] auth.table`. Staat hij nergens (LGS, GG, OG, SDR hebben op de NAS geen tabel), dan genereert hij byte voor byte dezelfde vervangende tabel als `rg-amhw.dll` aan de game geeft
+(`fake_table`, gecontroleerd in de Wine-proef). Een uitdaging die niet in de tabel staat (de willekeurige) krijgt nullen van de juiste lengte.
+
+**Gegokt of niet gemeten:** (1) de verwisselingen zijn uit de code gelezen en in zeven exe's gelijk gevonden, maar nooit tegen een echte keychip gecontroleerd; klopt er één niet, dan zie je
+`Verify SSD NG!!!`/`Verify MAC NG!!!` in het AM-logboek van de game (regel `amDongleUpdate`) en blijft 0949 staan; (2) of de tabel van een nieuwere AM Library dezelfde records heeft is uit de
+vergelijkbare lees- en omzetcode afgeleid, niet gemeten; (3) de lengte van het antwoord bij een niet-gevonden uitdaging (nullen) is goed voor de willekeurige gevallen, een fout bij een
+verifieerbare uitdaging (tabel die de game anders laadt dan wij) geeft dezelfde 0949.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

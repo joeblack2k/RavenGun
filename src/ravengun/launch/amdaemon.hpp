@@ -17,6 +17,7 @@
 #include <atomic>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -61,14 +62,23 @@ struct Reply {
     std::string note;
 };
 
+// `keychip.ds.compute` en `keychip.ssd.proof`: de game vergelijkt het antwoord met het verwachte antwoord uit <spel-id>_Table.dat (tools/rg-amhw/amhw_table.h).
+// De tabel wordt bij de eerste vraag gezocht in `table_dirs` (mappen, met <spel-id>_Table.dat erin), of staat in de waarde `auth.table` (een bestandspad);
+// ontbreekt hij overal, dan wordt dezelfde vervangende tabel gemaakt als rg-amhw.dll voor de game maakt.
+struct AuthState;
+
 class Responder {
 public:
-    explicit Responder(std::map<std::string, std::string> values) : values_(std::move(values)) {}
+    explicit Responder(std::map<std::string, std::string> values, std::vector<std::string> table_dirs = {});
     Reply answer(const Request& r) const;
     const std::map<std::string, std::string>& values() const { return values_; }
+    // Waar de tabel vandaan komt (leeg zolang er niet naar gevraagd is); voor het logboek en de tests.
+    std::string table_source() const;
 
 private:
     std::map<std::string, std::string> values_;
+    std::vector<std::string> table_dirs_;
+    std::shared_ptr<AuthState> auth_;
 };
 
 // De luisteraar: één thread die op alle poorten wacht, per verbinding de prompt stuurt, regels ontleedt en antwoordt. Een poort die

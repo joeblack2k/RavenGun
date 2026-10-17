@@ -1058,7 +1058,19 @@ int run_plan(const std::string& plan_file) {
     if (plan.am_daemon) {
         std::vector<int> ports;
         for (const auto& pt : plan.am_ports) ports.push_back(std::atoi(pt.c_str()));
-        g_am = std::make_unique<L::amd::Listener>(L::amd::Responder(plan.am_values), ports, [](const std::string& m) { log(m); });
+        // Waar <spel-id>_Table.dat kan staan (de keychip-antwoorden op ds.compute/ssd.proof komen uit die tabel, zie amhw_table.h): MACtbl/ (LGI,
+        // LGI3D), fs/table/ (GG, Transformers: ..\fs\table vanuit exe/) en rg-amhw-tables/ (de vervanging van rg-amhw.dll naast de DLL), onder de
+        // werkmap, de map van de exe en de map erboven.
+        std::vector<std::string> tdirs;
+        auto parent = [](const std::string& p) { const size_t k = p.find_last_of('/'); return k == std::string::npos || k == 0 ? std::string() : p.substr(0, k); };
+        for (const std::string& base : {plan.cwd, parent(plan.game), parent(parent(plan.game))}) {
+            if (base.empty()) continue;
+            for (const char* sub : {"MACtbl", "fs/table", "rg-amhw-tables", "exe/rg-amhw-tables", ""}) {
+                const std::string d = std::string(sub).empty() ? base : base + "/" + sub;
+                if (std::find(tdirs.begin(), tdirs.end(), d) == tdirs.end()) tdirs.push_back(d);
+            }
+        }
+        g_am = std::make_unique<L::amd::Listener>(L::amd::Responder(plan.am_values, tdirs), ports, [](const std::string& m) { log(m); });
         if (g_am->listen() == 0) log("AM-daemon: geen enkele poort beschikbaar; de game start toch (hij zal op zijn AM Library wachten)");
     }
 
