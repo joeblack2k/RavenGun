@@ -13,6 +13,7 @@ add_library(ravengun_app_core STATIC
   core/AppCore.cpp
   core/ArchiveExtract.cpp
   core/ComponentInstaller.cpp
+  core/ComponentsCli.cpp
   core/Components.cpp
   core/AppPaths.cpp
   core/ControlsWalk.cpp
@@ -114,7 +115,8 @@ if(RAVENGUN_BUILD_TESTS)
     target_link_libraries(ravengun_components_tests PRIVATE ravengun_app_core Qt6::Test)
     set_target_properties(ravengun_components_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
     target_compile_definitions(ravengun_components_tests PRIVATE "RAVENGUN_TEST_DATA=\"${PROJECT_SOURCE_DIR}/tests/app/data\""
-      "RAVENGUN_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"")
+      "RAVENGUN_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"" "RAVENGUN_APP_BIN=\"$<TARGET_FILE:ravengun_app>\"")
+    add_dependencies(ravengun_components_tests ravengun_app)
     add_test(NAME ravengun_components_tests COMMAND ravengun_components_tests)
     set_tests_properties(ravengun_components_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # Vensters met de echte patches/<Game>/options.json (alle games; patches/ in de repo of RAVENGUN_PATCHES_DIR), de fullscreen-modus, de wizard en Steam-afbeeldingen.
