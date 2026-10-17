@@ -749,3 +749,19 @@ controleerde voor die profielen dat de TeknoParrotUi-activering aanwezig was (`n
   `patches/Halo/dropin/fmod/` (liefst de gebruikerslaag); de wrapper laadt ze dan zelf (RTLD_GLOBAL) en stuurt elke aanroep
   rechtstreeks door, in het spelproces, zonder Wine. Volgorde: native drop-in, dan de Windows-FMOD van TeknoParrot onder Wine, dan
   stil. FMOD-bestanden gaan niet in git; ieder levert zijn eigen (zoals de Microsoft-DLL's).
+
+
+## 2026-10-17 — Sega JVS-games (LGI, LGI3D, LGS, GG, OG, SDR, Transformers) zonder TeknoParrot: stand en kandidaten
+
+Opdracht: deze zeven games starten zonder de gesloten kern. Uitwerking en bewijs: `docs/research/segajvs/README.md`.
+
+- **Gemeten/gelezen.** Alle zeven openen letterlijk `COM4` (`tools/dev/segajvs-scan.py`); de COM4-naar-pipe-omleiding en de comm-API's zitten al
+  in OpenParrot (`Ring_amLib/amJvs.cpp`, voor elke game zonder Type X) en dus in onze kern. De regio hoeft niets (32-bits kern kent
+  `DongleRegion` niet, `enforced: false`). Wat blijft is de AM Library van de game (amMaster 40100, amDongle 40106/40107, bij de nieuwere
+  ook install, netwerk, opslag): OpenParrot heeft daar niets van, de gesloten kern wel (volgens het TP-team in-proces).
+- **Kandidaten, geen omzetting.** `docs/research/segajvs/<Game>.game.ini` is een overlay met `[Loader] Core = ravengun`; `rg-direct --plan` geeft
+  voor alle zeven lader en kern uit `openparrot/current` en geen TeknoParrot-bestand in de opdrachtregel. Geen `patches/<Game>/game.ini` is
+  gewijzigd: elke game blijft op de gesloten kern tot een TV-test van 5 minuten slaagt.
+- **Meetgereedschap in plaats van een gok.** `tools/dev/pcp-listen.py` is een luisteraar op 127.0.0.1:40100..40115 die laat zien wat de
+  game vraagt (libpcp is tekst, antwoorden eindigen op een prompt `>`); een echte vervanging van de AM-daemon wordt pas gebouwd op die
+  verzoeken. Niet gekozen: een AM-daemon of in-proces hooks zonder meting (de games mochten niet gestart worden).

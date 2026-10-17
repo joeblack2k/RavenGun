@@ -388,6 +388,9 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_ownprofile_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ownprofile.py")
     # Dongle (USB pass-through): detectie via een nep-sysfs, runtime-controle, nooit een serienummer (scripts/dongle.py).
     add_test(NAME ravengun_dongle_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dongle.py")
+    # De hulpmiddelen voor de Sega Ring-spellen zonder TeknoParrot (docs/research/segajvs/README.md): de statische scan van de
+    # AM Library in een exe (poorten, versies, functiebegin) en de meetluisteraar voor 127.0.0.1:40100..40115; synthetische PE, geen spel.
+    add_test(NAME ravengun_segajvs_py COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_segajvs.py")
     # De zoekvolgorde van patches/<Game>/ (loader-patches/ onderaan, gebruiker, $RAVENGUN_PATCHES_DIR bovenaan; een plek, geen
     # tweede kopie in amdaemon/region/matrix/hasp) en het vinden van een game op [Game] Profile in plaats van op de mapnaam.
     add_test(NAME ravengun_patches_roots COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_patches_roots.py")
