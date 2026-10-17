@@ -13,7 +13,7 @@
     }
   ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libstdc++.so.5"
+    "@lib32/libstdc++.so.5"
   ],
   "preload": "",
   "exe": "/pm/System/armyops-bin",

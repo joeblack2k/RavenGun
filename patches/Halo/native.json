@@ -31,7 +31,7 @@
       "mode": "ro-try"
     },
     {
-      "src": "@tpui/ElfLdr2/x64/libs",
+      "src": "@data/runtime/fmod-win",
       "dst": "/rg/fmodwin",
       "mode": "ro-try"
     }

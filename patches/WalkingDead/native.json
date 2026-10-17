@@ -29,9 +29,9 @@
     }
   ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libcsv.so",
-    "@tpui/ElfLdr2/libs/libssl.so.1.0.0",
-    "@tpui/ElfLdr2/libs/libcrypto.so.1.0.0",
+    "@lib32/libcsv.so",
+    "@lib32/libssl.so.1.0.0",
+    "@lib32/libcrypto.so.1.0.0",
     "@lib32/libGLU.so.1",
     "@build/lib32/libcaca.so.0",
     "@build/lib32/librg-threadprio.so",

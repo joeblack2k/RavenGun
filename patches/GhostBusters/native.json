@@ -25,7 +25,7 @@
     }
   ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libcsv.so",
+    "@lib32/libcsv.so",
     "@lib32/libglut.so.3",
     "@lib32/libXi.so.6",
     "@lib32/libGLU.so.1",
