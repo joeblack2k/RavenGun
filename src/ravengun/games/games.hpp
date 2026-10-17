@@ -134,6 +134,8 @@ std::vector<std::pair<std::string, std::string>> load_notes(const ravengun::game
 bool game_process_running(const std::string& proc_root);
 // Draait er iets in de cgroup van de TeknoParrot-unit? (cgroup.procs niet leeg)
 bool unit_alive(const std::string& cgroup_procs);
+// Wacht tot de unit van de vorige game echt weg is (zijn cgroup-map), hooguit ms milliseconden; waar = weg.
+bool wait_unit_gone(const std::string& cgroup_procs, int ms);
 // Het standaardpad van cgroup.procs van ravengun-tpui.service voor deze gebruiker (user@UID.service/app.slice).
 std::string default_tpui_procs(unsigned uid);
 // Argumenten (zonder shell) voor het stoppen: systemctl --user stop <unit van de game>.service.

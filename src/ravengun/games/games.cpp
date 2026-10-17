@@ -337,6 +337,21 @@ bool unit_alive(const std::string& cgroup_procs) {
     return false;
 }
 
+// Na een stop staat de unit van de vorige game soms nog even (Wine-processen die SIGTERM negeren: "final-sigterm" tot de time-out,
+// gemeten 2026-10-17 bij Men in Black: 10 s). De daemon meldt dan al "geen game", maar systemd-run met dezelfde unitnaam mislukt
+// (code 1). Wacht daarom tot de cgroup-map van de unit weg is, hooguit `ms`. Waar = weg (of geen pad bekend).
+bool wait_unit_gone(const std::string& cgroup_procs, int ms) {
+    if (cgroup_procs.empty()) return true;
+    const std::string dir = std::filesystem::path(cgroup_procs).parent_path().string();
+    const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    std::error_code ec;
+    while (std::filesystem::exists(dir, ec)) {
+        if (std::chrono::steady_clock::now() >= until) return false;
+        ::usleep(200 * 1000);
+    }
+    return true;
+}
+
 std::string default_tpui_procs(unsigned uid) {
     const std::string u = std::to_string(uid);
     return "/sys/fs/cgroup/user.slice/user-" + u + ".slice/user@" + u + ".service/app.slice/ravengun-tpui.service/cgroup.procs";
@@ -942,6 +957,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     if (cancel_.load()) return fail("de start is afgebroken");
     // 5. Starten in de unit van de game: rg-direct is het hoofdproces, op de plaats van launch-direct.py.
     std::string serr;
+    if (!wait_unit_gone(c_.tpui_procs, 15000)) return fail("de vorige game stopt nog (de unit van de game is na 15 s nog niet weg); probeer het zo opnieuw");
     const int rc = spawn_(direct_unit_argv(c_, plan_file, log, wl.prefix, L::plan_run_dir(pl)), serr);
     if (rc != 0) return fail(rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr);
     // 6. Wachten tot de lader of de game draait (of de unit al weer weg is).
@@ -1015,6 +1031,10 @@ std::string GameService::run_native(const std::string& profile) {
     }
     // 5. Starten in de unit van de game.
     std::string serr;
+    if (!wait_unit_gone(c_.tpui_procs, 15000)) {
+        if (c_.stop_inputs) c_.stop_inputs();
+        return "de vorige game stopt nog (de unit van de game is na 15 s nog niet weg); probeer het zo opnieuw";
+    }
     const int rc = spawn_(native_unit_argv(c_, pl.argv, log), serr);
     if (rc != 0) {
         if (c_.stop_inputs) c_.stop_inputs();
@@ -1100,6 +1120,10 @@ std::string GameService::run_unity(const std::string& profile) {
     }
     // 5. Starten in de unit van de game.
     std::string serr;
+    if (!wait_unit_gone(c_.tpui_procs, 15000)) {
+        if (c_.stop_inputs) c_.stop_inputs();
+        return "de vorige game stopt nog (de unit van de game is na 15 s nog niet weg); probeer het zo opnieuw";
+    }
     const int rc = spawn_(unity_unit_argv(c_, pl, log, wl.prefix), serr);
     if (rc != 0) {
         if (c_.stop_inputs) c_.stop_inputs();

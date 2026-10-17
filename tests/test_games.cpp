@@ -283,6 +283,19 @@ static void test_unit_cgroup(const std::string& d) {
     write(f, "1234\n5678\n");
     CHECK(unit_alive(f));
     CHECK(default_tpui_procs(1000) == "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/ravengun-tpui.service/cgroup.procs");
+    // Wachten tot de unit van de vorige game weg is (zijn cgroup-map): weg na 300 ms = waar; blijft hij staan = onwaar na de tijd.
+    {
+        const std::string unit = d + "/unitwacht/ravengun-tpui.service";
+        fs::create_directories(unit);
+        write(unit + "/cgroup.procs", "123\n");
+        std::thread weg([unit] { ::usleep(300 * 1000); std::error_code ec; fs::remove_all(unit, ec); });
+        CHECK(wait_unit_gone(unit + "/cgroup.procs", 3000));
+        weg.join();
+        fs::create_directories(unit);
+        CHECK(!wait_unit_gone(unit + "/cgroup.procs", 300));
+        CHECK(wait_unit_gone("", 0));
+        fs::remove_all(unit);
+    }
 
     // Een game die buiten Budgie om draait (ander loader-proces) telt via de cgroup van de unit.
     Config c;
