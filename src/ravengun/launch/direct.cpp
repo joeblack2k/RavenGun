@@ -53,7 +53,6 @@ std::pair<int, int> xrandr_size(const EnvMap& env) {
 Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectOptions& o, DirectPlan& pl, std::string& why) {
     pl = DirectPlan{};
     pl.profile = name;
-    pl.tp = p.tp;
     pl.state = p.state;
     pl.log_full = o.log_full;
     const std::string& tp = p.tp;
@@ -68,9 +67,20 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     for (const auto& w : settings.warnings) pl.notes.push_back("instellingen: " + w);
     if (!gsn::has_own_profile(settings.settings))
         return engine("geen eigen profiel in patches/" + name + "/game.ini (alleen UserProfiles/" + name + ".xml)");
-    {   // load_own_profile(): de revisie van het sjabloon in de runtime
+    // Een eigen lader en kern (of geen lader): niets uit de TeknoParrot-map, ook niet lezen (tp_free_settings). Wat een plan met de
+    // TeknoParrot-map wel leest of gebruikt, komt in pl.tp_files.
+    const bool tp_vrij = tp_free_settings(settings.settings);
+    auto tp_bestand = [&](const std::string& rel) {
+        if (std::find(pl.tp_files.begin(), pl.tp_files.end(), rel) == pl.tp_files.end()) pl.tp_files.push_back(rel);
+    };
+    if (!tp_vrij) {
+        for (const char* ext : {".xml", ".env"})   // load_for_profile(): de hint voor [Game] Type en het oude .env
+            if (isfile(tp + "/UserProfiles/" + name + ext)) tp_bestand("UserProfiles/" + name + ext);
+    }
+    if (!tp_vrij) {   // load_own_profile(): de revisie van het sjabloon in de runtime
         std::string stock;
         if (read_file(tp + "/GameProfiles/" + name + ".xml", stock)) {
+            tp_bestand("GameProfiles/" + name + ".xml");
             const std::string want = xml_tag(strip_bom(stock), "GameProfileRevision"), have = settings.get("Game", "ProfileRevision");
             if (want != have)
                 return unsupported("profielrevisie " + (have.empty() ? std::string("(geen)") : have) + " in game.ini wijkt af van het sjabloon (" + want +
@@ -81,10 +91,13 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     std::string game = locate(name, settings.settings, p, &how);
     Profile pr = profile_from_settings(name, settings.settings, game, p);
     pl.game_source = how;
+    // ParrotData.xml (de sneltoetsen en de ElfLdr2-opties van TeknoParrotUi): alleen met de TeknoParrot-map. Zonder gelden de
+    // standaardwaarden van build_ini (ExitKey 0x1B, PauseKey 0x13), gelijk aan wat ParrotData.xml van 2.0.0.130 hier zet (gemeten 2026-10-17).
     std::map<std::string, std::string> pd;
-    {
+    if (!tp_vrij) {
         std::string x;
         if (read_file(tp + "/ParrotData.xml", x)) {
+            tp_bestand("ParrotData.xml");
             x = strip_bom(x);
             for (const char* k : {"ExitGameKey", "PauseGameKey", "ScoreSubmissionID", "ScoreCollapseGUIKey", "Elfldr2LogToFile", "Elfldr2NetworkAdapterName"}) {
                 bool found = false;
@@ -136,11 +149,10 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     else return unsupported("EmulatorType " + et + " wordt niet direct gestart (externe emulator of eigen voorbereiding)");
     const std::string gamedir = dirname(game);
     const bool elf_like = et == "ElfLdr2" || et == "N2" || et == "Lindbergh";
-    const std::string cwd = elf_like ? gamedir : tp;
+    // De lader uit de TeknoParrot-map (of naast een ELF-game); own_build() hieronder kan hem vervangen. Pas daarna wordt gecontroleerd of
+    // de lader en de kern die het plan echt gebruikt er zijn: een eigen build vraagt niets uit de TeknoParrot-map.
     std::string loader = pjoin(tp, exe_rel);
     if (elf_like && !(et == "ElfLdr2" && is64) && isfile(pjoin(gamedir, exe_rel))) loader = pjoin(gamedir, exe_rel);
-    if (!isfile(loader)) return unsupported("lader ontbreekt: " + loader);
-    if (!dll_rel.empty() && !isfile(pjoin(tp, dll_rel + ".dll"))) return unsupported("kern ontbreekt: " + pjoin(tp, dll_rel) + ".dll");
 
     // 2. Omgeving, keuzes van het profiel, eigen build, patches.
     EnvMap env = o.base_env;
@@ -181,7 +193,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (core.empty() && build == "ravengun" && et == "OpenParrot") core = "ravengun";
         if (build == "ravengun" || core == "ravengun") {
             const std::string pth = trim(lget("Path"));
-            const std::string base = expand_home(pth.empty() ? std::string("~/.local/share/ravengun/openparrot/current") : pth, p.home);
+            const std::string base = pth.empty() ? pjoin(p.data, "openparrot/current") : expand_home(pth, p.home);
             std::string own_loader, own_core_rel;
             const bool op_loader = lower(basename(exe_rel)).starts_with("openparrotloader");
             if (build == "ravengun") {
@@ -206,10 +218,24 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             }
         }
     }
+    // De lader en de kern die het plan gebruikt moeten er zijn; uit de TeknoParrot-map alleen wat daar echt vandaan komt.
+    if (zonder_lader) loader.clear();
+    const bool lader_tp = !tp.empty() && !loader.empty() && binnen(abspath(loader), abspath(tp));
+    if (!loader.empty() && !isfile(loader))
+        return unsupported("lader ontbreekt: " + loader + (lader_tp ? " (uit de TeknoParrot-map)" : ""));
+    if (lader_tp) tp_bestand(relpath(abspath(loader), abspath(tp)));
     if (!dll_rel.empty()) {
         pl.core_dll = pjoin(core_dir, dll_rel + ".dll");
         pl.core_source = core_dir == tp ? "runtime" : "ravengun";
+        if (!isfile(pl.core_dll))
+            return unsupported("kern ontbreekt: " + pl.core_dll + (core_dir == tp ? " (de kern van TeknoParrot; een eigen kern: [Loader] Core = ravengun)" : ""));
+        if (core_dir == tp) tp_bestand(dll_rel + ".dll");
     }
+    // De werkmap van de lader: bij een ELF-lader de map van de game; bij een lader of kern uit de TeknoParrot-map die map (zoals
+    // TeknoParrotUi); anders ook de map van de game. De game zelf krijgt van OpenParrotLoader altijd zijn eigen map (of
+    // TP_GAME_WORKING_DIRECTORY); de werkmap van de lader telt alleen voor FFBBlaster/ (TeknoParrot, niet voor lightgun-games).
+    const bool lader_of_kern_tp = lader_tp || (!dll_rel.empty() && core_dir == tp);
+    const std::string cwd = elf_like || !lader_of_kern_tp ? gamedir : tp;
     // plan_file_patches(): een afgewezen patch die aan staat weigert; een ingeschakelde patch past de engine (nog) niet toe.
     for (const auto& e : settings.patch_errors)
         if (e.enabled) return patch_refused(e.message);
@@ -680,10 +706,19 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
     pl.pipe_mode = no_pipe.count(emu) ? "shm" : "pipe";
     pl.shm_source = o.shm_source.empty() ? "/dev/shm/TeknoParrot_JvsState" : o.shm_source;
-    pl.pipehelper = p.home + "/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe";
-    if (!isfile(pl.pipehelper)) pl.pipehelper = pjoin(tp, "pipehelper.exe");
+    // De JVS-brug: onze rg-jvsbridge.exe (het onderdeel "JVS bridge"). pipehelper.exe uit de TeknoParrot-map alleen als terugval voor
+    // een plan dat die map toch al gebruikt.
+    const std::string eigen_brug = pjoin(p.data, "jvsbridge/rg-jvsbridge.exe");
+    pl.pipehelper = eigen_brug;
+    if (!isfile(pl.pipehelper) && !tp_vrij) {
+        pl.pipehelper = pjoin(tp, "pipehelper.exe");
+        if (isfile(pl.pipehelper)) tp_bestand("pipehelper.exe");
+    }
     if (!isfile(pl.pipehelper))
-        return unsupported("JVS-brug ontbreekt: bouw rg-jvsbridge (scripts/build-jvsbridge.sh) of zorg voor pipehelper.exe in de runtime-map");
+        return unsupported("JVS-brug ontbreekt: " + eigen_brug + " (bouw rg-jvsbridge: scripts/build-jvsbridge.sh, of installeer het onderdeel JVS bridge)" +
+                           (tp_vrij ? std::string() : "; ook geen " + pjoin(tp, "pipehelper.exe")));
+    if (et == "ElfLdr2" && !zonder_lader) tp_bestand("ElfLdr2/");   // de bibliotheken van ElfLdr2 in de view (plan_view)
+    pl.tp = pl.tp_files.empty() ? std::string() : tp;
     // De besturingspipe ([Input] ControlPipe op route tp-shm): de daemon schrijft het rapport, rg-direct stroomt het naar de pipe.
     {
         DirectInput din;

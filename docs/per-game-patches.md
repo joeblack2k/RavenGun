@@ -295,8 +295,10 @@ Tot nu toe stond het profiel van een game (de velden die TeknoParrotUi in `UserP
 `ConfigValues` die in `teknoparrot.ini` komen, het pad naar de game) alleen in dat XML-bestand. RavenGun heeft nu een eigen profiel per game,
 als onderdeel van `game.ini`: de meegeleverde laag bevat wat bij de game hoort (uit het sjabloon `GameProfiles/<P>.xml` van de runtime),
 de gebruikerslaag alleen wat op deze machine of door deze gebruiker afwijkt. `UserProfiles/<P>.xml` is niet meer nodig om te starten.
-De runtime van TeknoParrot (kernen, laders, `pipehelper.exe`, `ParrotData.xml`, de sjablonen in `GameProfiles/`) blijft nodig en wordt
-gelezen zoals voorheen.
+De runtime van TeknoParrot (kernen, laders, `pipehelper.exe`, `ParrotData.xml`, de sjablonen in `GameProfiles/`) is alleen nog nodig voor
+een game op de lader of kern van TeknoParrot. Een game met onze eigen lader en kern (`[Loader] Build = ravengun` met `Core = ravengun`, of
+`Type = OpenParrot`) of zonder lader (`Core = none`) leest er niets uit en start zonder die map (sinds 2026-10-17; `docs/loskoppelen-per-game.md`,
+"Centrale afhankelijkheden van de TeknoParrot-map"; `rg-direct --tp-refs` toont per game wat er nog gebruikt wordt).
 
 ```ini
 [Game]

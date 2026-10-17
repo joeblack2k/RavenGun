@@ -13,7 +13,8 @@
 // waarde afwijken. Het gebruikersprofiel van TeknoParrotUi (UserProfiles/<P>.xml en <P>.env) geldt alleen nog voor een game zonder
 // eigen profiel: ProfileSync schrijft dan, zoals voorheen, in dat bestand.
 //
-// De TeknoParrot-runtime (laders en cores) blijft een afhankelijkheid; RuntimeCheck controleert de gekozen map.
+// De TeknoParrot-runtime (laders en cores) is alleen nog nodig voor games op de lader of kern van TeknoParrot; RuntimeCheck toont de
+// gekozen map in Settings > Paths, maar starten hangt er niet meer van af (de engine zegt per game welk bestand ontbreekt).
 // De rest van de app praat alleen met GameLauncher en neemt nergens aan dat TeknoParrotUi draait.
 #include <QString>
 #include <QStringList>

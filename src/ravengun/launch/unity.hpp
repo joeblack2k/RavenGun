@@ -1,5 +1,6 @@
 #pragma once
-// De Unity-route zonder shellscripts (Tomb Raider Arcade, Rabbids Hollywood Arcade): de game draait direct onder GE-Proton met
+// De Unity-route zonder shellscripts (Tomb Raider Arcade, Rabbids Hollywood Arcade): de game draait direct onder GE-Proton (ons
+// onderdeel, niet die van TeknoParrotUi; default_unity_proton) met
 // onze BepInEx-plugin, en de daemon is de TCP-klant van die plugin (route unity-tcp, AagamesService). Dit verving
 // scripts/play-unity.sh (weg sinds 2026-10-16); tools/dev/aagames-setup.py blijft als benchgereedschap.
 //
@@ -31,8 +32,18 @@ struct UnityPaths {
     std::string data;                     // ~/.local/share/ravengun (views-aagames, prefixes, bepinex, demulshooter)
     std::vector<std::string> plugin_dirs; // mappen met <Game>/RavenGun.<Game>.dll; de eerste die hem heeft wint
     std::string plugin_src;               // plugins/unity/src (de plugin is verouderd als een .cs nieuwer is); leeg = niet controleren
-    std::string proton;                   // map van GE-Proton (met het programma `proton`)
+    std::string proton;                   // map van GE-Proton (met het programma `proton`); zie default_unity_proton
 };
+
+// De Proton van de Unity-route: GE-Proton 11-7, het onderdeel "ge-proton" van packaging/components.json (vastgepind op de release van
+// GloriousEggroll met sha256), uitgepakt in <data>/proton/GE-Proton11-7-x86_64. Tot 2026-10-17 kwam hij uit
+// ~/.local/share/TeknoParrotUI/proton (de download van TeknoParrotUi); dat is geen bron meer. Waarom GE-Proton en niet onze
+// Kron4ek-Wine: de route draait `proton run` (prefix, DXVK voor Unity/D3D11) en is alleen zo op de tv gemeten (docs/decisions.md).
+inline constexpr const char* kUnityProtonName = "GE-Proton11-7-x86_64";
+// De eerste die bestaat (met een uitvoerbaar `proton`): <data>/proton/<kUnityProtonName>, dan Steam
+// (<home>/.local/share/Steam/compatibilitytools.d/GE-Proton11-7-x86_64 of GE-Proton11-7). Geen = het pad in <data> (de foutmelding
+// noemt dan het onderdeel). Nooit de map van TeknoParrot(Ui).
+std::string default_unity_proton(const std::string& data, const std::string& home);
 
 // De instellingen die voor alle Unity-games gelden (packaging/unity-route.json).
 struct UnityRoute {

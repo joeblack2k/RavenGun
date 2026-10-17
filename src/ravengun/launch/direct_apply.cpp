@@ -12,6 +12,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <map>
 
 #include "ravengun/json.hpp"
@@ -473,6 +474,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     strs("game_comms", pl.game_comms);
     strs("patch_lines", pl.patch_lines);
     strs("notes", pl.notes);
+    strs("tp_files", pl.tp_files);
     w.key("starts").begin_array();
     for (const DirectStart& s : pl.starts) {
         w.begin_object().key("name").value(s.name).key("role").value(s.role).key("exe").value(s.exe).key("cwd").value(s.cwd);
@@ -519,6 +521,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     b("is64", pl.is64); b("gamescope", pl.gamescope); b("windowed_override", pl.windowed_override); b("log_full", pl.log_full); b("windows", pl.windows);
     sv("argv", pl.argv); sv("dropin_materialise", pl.dropin_materialise); sv("dropin_lines", pl.dropin_lines); sv("game_comms", pl.game_comms);
     sv("patch_lines", pl.patch_lines); sv("notes", pl.notes); sv("reg_files", pl.reg_files); sv("view_copies", pl.view_copies); sv("view_ttc_fonts", pl.view_ttc_fonts);
+    sv("tp_files", pl.tp_files);
     mp("env", pl.env); mp("launch_env", pl.launch_env);
     if (const auto* f = v.find("files"); f && f->is_array())
         for (const auto& e : f->arr)
@@ -570,6 +573,51 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
         return false;
     }
     return true;
+}
+
+std::string plan_run_dir(const DirectPlan& pl) { return pl.tp.empty() ? pl.cwd : pl.tp; }
+
+std::vector<std::string> plan_tp_refs(const DirectPlan& pl, const std::string& tp) {
+    std::vector<std::string> out(pl.tp_files.begin(), pl.tp_files.end());
+    std::string t = tp;
+    while (t.size() > 1 && t.back() == '/') t.pop_back();
+    if (!t.empty()) {
+        std::string w = wine_path(t);   // Z:\pad: argv en omgeving hebben paden ook in de Wine-vorm
+        auto kijk = [&](const std::string& s) {
+            for (int vorm = 0; vorm < 2; ++vorm) {
+                const std::string& basis = vorm == 0 ? t : w;
+                const char sep = vorm == 0 ? '/' : '\\';
+                for (size_t i = s.find(basis); i != std::string::npos; i = s.find(basis, i + 1)) {
+                    const size_t e = i + basis.size();
+                    if (e < s.size() && s[e] != sep) continue;   // /x/tp-ander is niet /x/tp
+                    // Het pad loopt tot een scheidingsteken van een lijst (;, :, spatie, aanhalingsteken) of het einde.
+                    size_t j = e;
+                    while (j < s.size() && s[j] != ';' && s[j] != ':' && s[j] != ' ' && s[j] != '"' && s[j] != '\n') ++j;
+                    std::string rel = s.substr(e < s.size() ? e + 1 : e, j > e ? j - e - 1 : 0);
+                    std::replace(rel.begin(), rel.end(), '\\', '/');
+                    out.push_back(rel.empty() ? std::string(".") : rel);
+                }
+            }
+        };
+        std::function<void(const json::Value&)> loop = [&](const json::Value& v) {
+            if (v.is_string()) kijk(v.str);
+            else if (v.is_array()) for (const auto& x : v.arr) loop(x);
+            else if (v.is_object()) for (const auto& [k, x] : v.obj) { kijk(k); loop(x); }
+        };
+        DirectPlan zonder = pl;
+        zonder.tp.clear();   // het veld tp zelf is geen gebruik: dat zegt tp_files
+        zonder.env.erase("RAVENGUN_TP_DIR");   // idem de keuze van de map in de omgeving van de daemon (die erft het plan mee)
+        const auto r = json::parse(plan_to_json(zonder));
+        if (r.ok) loop(r.value);
+        if (!pl.tp.empty() && pl.tp_files.empty()) out.push_back(".");   // tp gezet zonder bestanden: ook een verwijzing
+    }
+    std::sort(out.begin(), out.end());
+    out.erase(std::unique(out.begin(), out.end()), out.end());
+    // De kern staat in argv zonder .dll (Z:\...\TeknoParrot\TeknoParrot): een keer tellen, als het bestand.
+    const std::vector<std::string> alle = out;
+    out.erase(std::remove_if(out.begin(), out.end(), [&](const std::string& x) { return std::binary_search(alle.begin(), alle.end(), x + ".dll"); }),
+              out.end());
+    return out;
 }
 
 }  // namespace ravengun::launch

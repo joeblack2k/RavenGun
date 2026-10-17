@@ -25,6 +25,8 @@ map wordt @TMP@ (de nep-HOME is @TMP@/home), patches/ wordt @PATCHES@ en de repo
 Wat het plan bepaalt staat ook in patches/ (een eigen repo, ravengun-patches): een bewuste wijziging daar, of in de engine,
 verandert de gouden bestanden. Dan opnieuw vastleggen en het verschil nalezen:
     tests/direct_golden.py --rg-direct build/rg-direct --update
+Daarna (niet bij --update) de games van TP_VRIJ_DIRECT en TP_VRIJ_UNITY zonder de TeknoParrot-map (tp_vrij_check): een eigen opstelling,
+plannen met een map die niet bestaat, en rg-direct --tp-refs --expect-free (docs/loskoppelen-per-game.md, "Centrale afhankelijkheden").
 Gebruik: tests/direct_golden.py --rg-direct build/rg-direct [--patches patches] [--golden DIR] [--update] [--verbose]
 Exit 0 als alles gelijk is, 1 bij een verschil, 77 zonder patches/ of rg-direct."""
 import argparse
@@ -49,6 +51,12 @@ FORCE_DIRECT = ("HOTDSD",)   # twee exe's: amdaemon.exe eerst, 5 s wachten, dan 
 # (ALLS USB-IO-rapport naar \\.\pipe\TeknoParrotPipe).
 FORCE_INPUT = {"HOTDSD": "\n[Input]\nRoute = tp-shm\nLayout = HOTDSDPipe\nControlPipe = AllsUsbIo\n"}
 PARROT_DATA = "<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapterName /></ParrotData>"
+# Zonder de TeknoParrot-map (2026-10-17, docs/loskoppelen-per-game.md "Centrale afhankelijkheden"): deze games (eigen lader en kern,
+# of de Unity-route) plannen in een eigen opstelling met een TeknoParrot-map die niet bestaat: verdict ok, geen enkel pad uit die map,
+# en hetzelfde plan als met een volledige (nep-)map. Een game die later loskomt hoort hier bij; een game die terugvalt is een fout.
+TP_VRIJ_DIRECT = ("EADP", "Friction", "GaiaAttack4", "HauntedMuseum", "HauntedMuseumII", "LuigisMansion", "MenInBlack", "MusicGunGun2",
+                  "SilentHill")
+TP_VRIJ_UNITY = ("RabbidsHollywood", "TombRaider")
 
 
 def starts_view(s):
@@ -246,6 +254,96 @@ def jvs_check(rg, golden_dir):
     return len(g["cases"]), bad
 
 
+def tp_vrij_check(rg, patches, gs, tmp):
+    """TP_VRIJ_DIRECT en TP_VRIJ_UNITY zonder TeknoParrot-map. Een eigen opstelling (los van de gouden): elke game in een view (via
+    [Game] GamePath, zoals de app dat zet), met DXVK, Gst32, BepInEx, de redistributables, de GStreamer-plug-ins en ons GE-Proton zoals
+    op een ingerichte machine. Per game: rg-direct --plan met een niet-bestaande en met de volledige nep-map geeft ok, hetzelfde plan,
+    tp leeg, tp_files leeg en nergens een pad uit die map. Daarna rg-direct --tp-refs --expect-free over dezelfde opstelling (ook de
+    Unity-route). Geeft het aantal fouten."""
+    base = os.path.join(tmp, "zonder-tp")
+    alle = set(gs.list_games())
+    names = sorted(n for n in TP_VRIJ_DIRECT if n in alle)
+    fails = 0
+    for n in sorted(set(TP_VRIJ_DIRECT + TP_VRIJ_UNITY) - alle):
+        fails += 1
+        print("  %-26s staat niet in patches/  <-- FOUT" % n)
+    env, tp, user, views = fixture(base, patches, names, gs)
+    env = {k: v for k, v in env.items() if k != "RAVENGUN_TP_DIR"}   # de map gaat alleen via --tp mee, niet in de omgeving van het plan
+    home = env["HOME"]
+    data = os.path.join(home, ".local/share/ravengun")
+    for name in names:
+        g = gs.load_game(name)
+        path = (g.get("Identify", "Path", "") or g.get("Game", "Executable", "").split(";")[0]).replace("\\", "/").strip("/")
+        exe = os.path.join(views, name, path)
+        if not os.path.exists(exe):
+            sparse(exe, 64, b"MZ")
+        pth = os.path.join(user, name, "game.ini")
+        write(pth, (open(pth).read() if os.path.isfile(pth) else "") + "\n[Game]\nGamePath = %s\n" % exe)
+    for arch in ("x32", "x64"):
+        for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
+            write(os.path.join(data, "dxvk/current", arch, dll), "x")
+    for arch in ("x86", "x64"):
+        for dll in ("d3dx9_42.dll", "d3dcompiler_42.dll"):
+            write(os.path.join(data, "redist", arch, dll), "x")
+        for f in ("BepInEx/core/BepInEx.Preloader.dll", "winhttp.dll", "doorstop_config.ini"):
+            write(os.path.join(data, "bepinex/5.4.21.0", arch, f), "x")
+    write(os.path.join(data, "gst32/proton/libgstreamer-1.0.so.0"), "x")
+    os.makedirs(os.path.join(data, "gst32/plugins"), exist_ok=True)
+    write(os.path.join(data, "tools/gst-extra/plugins/libgstasf.so"), "x")
+    proton = os.path.join(data, "proton/GE-Proton11-7-x86_64/proton")
+    write(proton, "#!/bin/sh\n")
+    os.chmod(proton, 0o755)
+    geen_tp = os.path.join(base, "geen-teknoparrot")   # bestaat niet
+
+    def plan(name, tpdir):
+        r = subprocess.run([rg, "--plan", name, "--tp", tpdir, "--patches", patches, "--user", user, "--session-id", "x"],
+                           capture_output=True, text=True, env=env)
+        return json.loads(r.stdout) if r.returncode == 0 else {"verdict": "fout", "why": r.stderr.strip(), "plan": None}
+
+    print("zonder TeknoParrot-map (--tp %s, bestaat niet):" % geen_tp)
+    for name in names:
+        zonder, met = plan(name, geen_tp), plan(name, tp)
+        fout = []
+        if zonder["verdict"] != "ok":
+            fout.append("verdict %s: %s" % (zonder["verdict"], zonder["why"]))
+        if met["verdict"] != "ok":
+            fout.append("met de nep-map: verdict %s: %s" % (met["verdict"], met["why"]))
+        if zonder.get("plan") and met.get("plan"):
+            tekst = json.dumps(zonder["plan"])
+            for t in (geen_tp, tp):
+                for vorm in (t, ("Z:" + t).replace("/", "\\\\")):
+                    if vorm in tekst:
+                        fout.append("pad uit de TeknoParrot-map in het plan: %s" % vorm)
+            if zonder["plan"].get("tp") or zonder["plan"].get("tp_files"):
+                fout.append("tp=%r tp_files=%r" % (zonder["plan"].get("tp"), zonder["plan"].get("tp_files")))
+            if zonder["plan"] != met["plan"]:
+                verschil = diff(met["plan"], zonder["plan"])
+                fout.append("anders dan met de nep-map: %s" % "; ".join(verschil[:3]))
+        fails += bool(fout)
+        print("  %-26s %-8s %s" % (name, zonder["verdict"], "zonder TeknoParrot-map" if not fout else "<-- FOUT"))
+        for x in fout:
+            print("      " + x)
+    # Het meetinstrument zelf (rg-direct --tp-refs): de verwachte games hebben geen verwijzing, met en zonder de nep-map; met de nep-map
+    # vindt het bij een game op de kern van TeknoParrot wel iets (anders meet het niets).
+    expect = ",".join(names + [n for n in TP_VRIJ_UNITY if n in alle])
+    for tpdir in (geen_tp, tp):
+        r = subprocess.run([rg, "--tp-refs", "--json", "--tp", tpdir, "--patches", patches, "--user", user, "--expect-free", expect],
+                           capture_output=True, text=True, env=env)
+        try:
+            d = json.loads(r.stdout)
+        except ValueError:
+            d = {"games": [], "expect_free_failures": ["geen JSON: " + r.stderr.strip()]}
+        bad = d.get("expect_free_failures", [])
+        met_refs = [g["game"] for g in d.get("games", []) if g["refs"]]
+        ok = r.returncode == 0 and not bad and (tpdir == geen_tp or met_refs)
+        fails += not ok
+        print("  rg-direct --tp-refs --tp %s: %d games, %d met verwijzingen, verwacht zonder: %s" %
+              ("<bestaat niet>" if tpdir == geen_tp else "<nep-map>", len(d.get("games", [])), len(met_refs), "ok" if ok else "FOUT"))
+        for x in bad:
+            print("      " + x)
+    return fails
+
+
 def dump(path, obj):
     with open(path, "w") as f:
         json.dump(obj, f, indent=1, sort_keys=True, ensure_ascii=False)
@@ -331,6 +429,7 @@ def main(argv):
         print("JVS-pakketten: %d gevallen, %d verschillen" % (n, len(bad)))
         for x in bad[:10]:
             print("   ", x)
+        fails += tp_vrij_check(a.rg_direct, patches, gs, tmp)
         return 1 if fails or bad else 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

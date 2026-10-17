@@ -269,10 +269,11 @@ void SetupWizard::RefreshChecks() {
                             : cam.found ? tr("<b>Camera</b>: %1 (%2); a PlayStation Eye is optional").arg(cam.name.toHtmlEscaped(), cam.device)
                                         : tr("<b>Camera</b>: none (optional; aiming works without it)")));
     const rg::RuntimeCheck rc = rg::RuntimeCheck::check(core_->library()->tpDir());
-    check_runtime_->setText(mark(rc.ok ? 1 : 0) +
+    // Optioneel (2026-10-17): alleen games op de lader of kern van TeknoParrot hebben de map nog nodig.
+    check_runtime_->setText(mark(rc.ok ? 1 : -1) +
                             (rc.ok ? tr("<b>Game runtime</b> (TeknoParrot): %1").arg(rc.dir.toHtmlEscaped())
-                                               : tr("<b>Game runtime</b> (TeknoParrot): not found or incomplete. Choose it later in "
-                                                    "Settings > Paths.")));
+                                               : tr("<b>Game runtime</b> (TeknoParrot): not found (optional; only games that still use a "
+                                                    "TeknoParrot loader or core need it). Choose it later in Settings > Paths.")));
     const QString steamRoot = rg::SteamShortcuts::steamRoot();
     QString where;
     const bool inSteam = !steamRoot.isEmpty() && IsInSteam(&where);

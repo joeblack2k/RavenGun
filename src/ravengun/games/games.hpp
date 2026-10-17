@@ -87,7 +87,8 @@ struct Config {
     ravengun::launch::UnityPaths unity;
     int lightgun_wait_ms = static_cast<int>(readiness::kMoveWaitMs);   // zo lang wachten op een Move of muis
 
-    // De directe route zonder script (A10). Leeg direct.tp of leeg direct_runner = elke directe start via het script.
+    // De directe route zonder script (A10). Leeg direct_runner = geen directe start. direct.tp (de TeknoParrot-map) hoeft niet te
+    // bestaan: alleen een plan met de lader of kern van TeknoParrot vraagt bestanden daaruit (DirectPlan::tp_files).
     ravengun::launch::DirectPaths direct;
     std::string direct_runner;                 // rg-direct (tools/rg-direct): het hoofdproces van de unit
     std::string jvs_link;                      // de pty-koppeling van de IO-brug (jvs over de pipe: RG_JVS_PTY)
@@ -169,8 +170,9 @@ ravengun::launch::Verdict direct_route(const Config& c, const std::string& profi
 // De omgeving van een directe start: die van de daemon zonder de variabelen van zijn eigen unit, aangevuld met
 // XDG_RUNTIME_DIR, WAYLAND_DISPLAY, DISPLAY, DBUS_SESSION_BUS_ADDRESS en XAUTHORITY (van kwin_wayland).
 ravengun::launch::EnvMap direct_session_env(const std::string& proc_root = "/proc");
+// workdir: de werkmap van rg-direct (plan_run_dir: de TeknoParrot-map alleen als het plan die gebruikt, anders de map van de game).
 std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log,
-                                          const std::vector<std::string>& wrap = {});
+                                          const std::vector<std::string>& wrap, const std::string& workdir);
 
 // Voert een proces uit en wacht tot het klaar is (hoogstens 10 s). Geeft de exitcode, of -1 met `err`.
 int run_process(const std::vector<std::string>& argv, std::string& err);

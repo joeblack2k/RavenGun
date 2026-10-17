@@ -65,6 +65,8 @@ struct DirectDrive {
 };
 
 struct DirectPlan {
+    // tp: de TeknoParrot-map, alleen als het plan er iets uit gebruikt (tp_files); leeg bij een eigen lader en kern of zonder lader.
+    // cwd: de werkmap van de lader; de TeknoParrot-map alleen als de lader of kern daar vandaan komt, anders de map van de game.
     std::string profile, tp, emulator_type, emulation_profile, game, game_source, cwd, wine, prefix, loader;
     bool is64 = false, gamescope = false, windowed_override = false, log_full = false, windows = false;
     std::vector<std::string> argv;                         // het hele commando van de start ([gamescope ... --] wine lader [kern] spel [args])
@@ -118,6 +120,10 @@ struct DirectPlan {
     std::vector<std::string> game_comms;                   // procesnamen (comm, kleine letters, 15 tekens) die "de game draait" zijn
     std::vector<DirectStart> starts;                       // de starts in hun orde (een gewone game: een)
     std::string core_dll, core_source;                     // de kern (leeg = geen) en waar hij vandaan komt (runtime | ravengun)
+    // De bestanden uit de TeknoParrot-map (DirectPaths::tp) die dit plan gebruikt of gelezen heeft: lader, kern, pipehelper.exe,
+    // ParrotData.xml, GameProfiles/<P>.xml, UserProfiles/<P>.xml en .env, ElfLdr2/. Leeg = het plan heeft de map niet nodig; dan is
+    // `tp` ook leeg en staat er nergens in het plan een pad uit die map (docs/loskoppelen-per-game.md, "Centrale afhankelijkheden").
+    std::vector<std::string> tp_files;
     std::vector<std::string> patch_lines;                  // een regel per patch (ook uitgeschakelde), zoals launch-direct.py
     std::vector<std::string> notes;                        // extra regels voor het logboek (instellingen, legacy .env)
     std::string state;                                     // $XDG_STATE_HOME/ravengun (A11)
@@ -157,6 +163,20 @@ std::vector<std::string> plan_comms(const DirectPlan& plan);
 // Het plan als JSON voor rg-direct --run, en terug.
 std::string plan_to_json(const DirectPlan& plan);
 bool plan_from_json(const std::string& text, DirectPlan& out, std::string& err);
+
+// De map waarin rg-direct (systemd-run --working-directory), de JVS-brug en `wine reg import` draaien: de TeknoParrot-map als het plan
+// die gebruikt (zoals altijd), anders de werkmap van de lader. Nooit een pad uit de TeknoParrot-map bij een plan zonder tp_files.
+std::string plan_run_dir(const DirectPlan& plan);
+
+// Alle verwijzingen naar de TeknoParrot-map `tp` in het plan: tp_files plus elke tekst in het JSON-plan (argv, omgeving, bestanden,
+// ook in de Wine-vorm Z:\...) die in die map ligt. Relatief aan `tp`, gesorteerd, zonder dubbele. Leeg = los van TeknoParrot.
+std::vector<std::string> plan_tp_refs(const DirectPlan& plan, const std::string& tp);
+
+// Heeft deze game volgens zijn instellingen (game.ini met de gebruikerslaag, zonder het oude .env) de TeknoParrot-map niet nodig?
+// Een eigen profiel met [Loader] Core = none, of een eigen lader en eigen kern: Build = ravengun en Core = ravengun (bij
+// Type = OpenParrot volgt de eigen kern uit Build = ravengun). Dan leest het plan niets uit de TeknoParrot-map: geen
+// GameProfiles/UserProfiles, geen ParrotData.xml, geen oud UserProfiles/<P>.env.
+bool tp_free_settings(const ravengun::gamesettings::Ini& settings);
 
 // --- De invoer, zoals play-halo.sh die voor een directe start kiest ---------------------------------------------------------------
 struct DirectInput {

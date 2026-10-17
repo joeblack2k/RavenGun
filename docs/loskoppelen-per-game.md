@@ -552,6 +552,94 @@ De blokkades vallen in vier klassen. **Voor geen enkele game is de dongle de eni
 
 ---
 
+## Centrale afhankelijkheden van de TeknoParrot-map, 2026-10-17
+
+**Doel (eigenaar, 2026-10-17):** elke game start zonder TeknoParrot: geen kern van TeknoParrot en geen bestand uit
+`~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64` (hierna: de TP-map; RAVENGUN_TP_DIR, `--tp-dir` of `tp_dir` in
+library.json). Dit hoofdstuk is het centrale deel: wat de directe route, de Unity-route, de daemon en de app zelf uit die map halen,
+los van de per-game delen (die per familie geport worden). Besluit: `docs/decisions.md`, "De directe route en de Unity-route zonder de
+TeknoParrot-map".
+
+**Gemeten vóór de wijziging** (`RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan <Game> --patches ~/.local/opt/ravengun/share/ravengun/patches`):
+alle negen eigen-kern-games (Friction, SilentHill, GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2, LuigisMansion, EADP,
+MenInBlack) gaven `fallback` "lader ontbreekt: /nonexistent/OpenParrot.../OpenParrotLoader(64).exe", hoewel hun lader uit
+`<data>/openparrot/current` komt. Met de TP-map gaf het plan voor die negen `cwd` en `tp` = de TP-map, en voor vijf ervan een regel
+"legacy .env gelezen: <TP-map>/UserProfiles/<P>.env".
+
+### De tabel: elk gebruik van de TP-map, en wat er nu mee gebeurt
+
+Plan = bij het plannen (`plan_direct`, `rg-direct --plan`), start = bij het uitvoeren (`rg-direct --run`, de unit). "Eigen" = een game
+met eigen lader en kern of zonder lader (`tp_free_settings`: eigen profiel en `[Loader] Core = none`, of `Build = ravengun` met
+`Core = ravengun` of `Type = OpenParrot`).
+
+| # | Wat | Waar in de code | Wanneer | Vóór 2026-10-17 | Nu |
+|---|---|---|---|---|---|
+| 1 | Lader `OpenParrotWin32/OpenParrotLoader.exe`, `OpenParrotx64/OpenParrotLoader64.exe` | `direct.cpp` (resolve_loader) | plan (bestaat hij?), start (argv) | altijd op bestaan gecontroleerd, ook als `[Loader] Build = ravengun` hem verving: de fout van de meting hierboven | alleen gecontroleerd als het plan hem gebruikt; eigen lader uit `<data>/openparrot/current` (`[Loader] Path`) |
+| 2 | Lader `ElfLdr2/BudgieLoader(_x64).exe`, `TeknoParrot/BudgieLoader.exe`, `N2/`, `TeknoParrot/TeknoMacaw(64).exe`, `OpenParrotWin32/OpenParrotKonamiLoader.exe` | `direct.cpp` | plan, start | TP-map (of een `ElfLdr2`-link in de view) | ongewijzigd: geen eigen bouw; per familie (andere agents). Melding: "lader ontbreekt: <pad> (uit de TeknoParrot-map)" |
+| 3 | Kern `TeknoParrot/TeknoParrot(64).dll` | `direct.cpp` | plan, start (argv) | TP-map | ongewijzigd voor games zonder `Core = ravengun`; melding "kern ontbreekt: <pad> (de kern van TeknoParrot; een eigen kern: [Loader] Core = ravengun)" |
+| 4 | `pipehelper.exe` | `direct.cpp`, `rg_direct.cpp` | plan, start | terugval als `rg-jvsbridge.exe` ontbrak | eigen: alleen `<data>/jvsbridge/rg-jvsbridge.exe` (onderdeel "JVS bridge"), ontbreekt hij dan geen start met het pad; TP-plan: terugval zoals voorheen |
+| 5 | Werkmap van de lader (`cwd`, `starts[].cwd`) | `direct.cpp` | start | TP-map (behalve ELF-laders) | eigen: de map van de game. OpenParrotLoader geeft het spel altijd zijn eigen map of `TP_GAME_WORKING_DIRECTORY` (bron `OpenParrotLoader/src/main.cpp`, `CreateProcess(..., gameFolderW, ...)`); de werkmap van de lader telt alleen voor `FFBBlaster/` (TeknoParrot, `[FFB Blaster] Enable`) |
+| 6 | Werkmap van rg-direct (`systemd-run --working-directory`), de JVS-brug en `wine reg import` | `games.cpp` (direct_unit_argv), `rg_direct.cpp` | start | altijd de TP-map: een verborgen map = de unit start niet (chdir) | `plan_run_dir`: de TP-map alleen als het plan die gebruikt, anders de werkmap van de lader |
+| 7 | `ParrotData.xml` (ExitKey, PauseKey, score, `Elfldr2LogToFile`, `Elfldr2NetworkAdapterName`) | `direct.cpp` | plan (→ `teknoparrot.ini`, ElfLdr2-omgeving) | gelezen | eigen: niet gelezen; `teknoparrot.ini` krijgt de standaard 0x1B/0x13, gelijk aan wat `ParrotData.xml` op deze machine zet (gemeten) |
+| 8 | `GameProfiles/<P>.xml` (revisie van het sjabloon) | `direct.cpp` | plan | gelezen; afwijkende `ProfileRevision` = fallback | eigen: niet gelezen (de revisie hoort bij de kern van TeknoParrot) |
+| 9 | `UserProfiles/<P>.xml` (hint `EmulatorType`) en `UserProfiles/<P>.env` (oud .env onder game.ini) | `direct_profile.cpp` (load_for_profile) | plan, ook `launch_mode`, `direct_input`, `profile_env` | gelezen | eigen: niet gelezen. Gemeten met `RAVENGUN_NO_LEGACY_ENV=1`: voor GaiaAttack4, HauntedMuseum, HauntedMuseumII, MusicGunGun2 en LuigisMansion is het plan zonder het .env gelijk op de logregel na |
+| 10 | `ElfLdr2/` (bibliotheken in de view, `ElfLdr2`-link) | `direct_files.cpp` (plan_view) | plan bij een start | TP-map | ongewijzigd (ElfLdr2-games: Terminator, CrossfirePaintball); in `tp_files` als `ElfLdr2/` |
+| 11 | `@tpui/ElfLdr2/...` in `native.json` | `native.cpp` | plan, start | TP-map | ongewijzigd (native route; AAA, AliensArmageddon, Halo, JurassicPark; per familie) |
+| 12 | GE-Proton 11-7 van de Unity-route | `ravengund/main.cpp`, `unity.cpp` | start | `~/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64` (download van TeknoParrotUi) | onderdeel `ge-proton` (`packaging/components.json`, vastgepind op de release van GloriousEggroll met sha256) in `<data>/proton/GE-Proton11-7-x86_64`, dan Steam; de kopie van TeknoParrotUi telt niet (`default_unity_proton`) |
+| 13 | De app: starten alleen met een geldige runtime-map | `Launcher.cpp` (`EngineBackend::available`) | elke start | geen loader of `GameProfiles/` in de map = "The game runtime was not found", geen enkele game startte | altijd beschikbaar; de engine meldt per game het ontbrekende bestand. Wizard en Settings > Paths: de map is optioneel |
+| 14 | Lijst van games in de daemon (`UserProfiles/*.xml`, `Icons/`) en `available` van de webapp | `games.cpp` (list_games, list_json, read_icon) | lijst | lege `tp_dir` = lege lijst; zonder `UserProfiles/` "niet beschikbaar" | de games met een eigen profiel komen altijd in de lijst; beschikbaar = er is iets te spelen. Iconen uit `Icons/` blijven cosmetisch (zonder: geen icoon) |
+| 15 | De app: `UserProfiles/` (games zonder eigen profiel), `GameProfiles/` (sjablonen voor herkenning, naam), `Metadata/`, `Icons/` | `GameLibrary.cpp`, `GameData.cpp`, `CreateProfileDialog`, `PropertiesDialog` | scan, Properties | gelezen | ongewijzigd en niet nodig voor eigen-profiel- en Unity-games (die komen uit game.ini en unity.json); zonder de map: geen icoon, naam uit game.ini, geen herkenning van nieuwe games aan een sjabloon |
+| 16 | `teknoparrot.ini`, `MINIGUN.INI`/`MUSEUM.INI`/`HAUNTED2.INI` | `direct_profile.cpp` (build_ini, taito_gun_ini) | plan → view | al uit game.ini (`[Config*]`), behalve de sneltoetsen (#7) | uit game.ini; bij eigen games helemaal |
+| 17 | DLL's in `TeknoParrot/` (ffmpeg, FAudio, SDL2, TeknoDraw, …), `FFBBlaster/`, fonts | — | — | alleen geladen door de kern of de laders van TeknoParrot | niet gebruikt door eigen plannen (geen pad in het plan, gecontroleerd) |
+
+### Wat elk plan nog gebruikt: `rg-direct --tp-refs`
+
+Het plan zegt zelf wat het uit de TP-map gebruikt of leest (`tp_files`; leeg = `tp` leeg). `rg-direct --tp-refs [--json] [--patches DIR]
+[--tp DIR] [--expect-free A,B,...]` toont per game in `patches/` (route zoals de daemon hem kiest: native, Unity, direct) wat de start nog uit
+de TP-map gebruikt: `tp_files` plus elk pad uit die map in het plan (ook de Wine-vorm), de `@tpui/`-verwijzingen van `native.json`, de
+Proton van de Unity-route, of bij een plan dat niet lukt het pad in de melding. `.` = de map zelf (de werkmap). Alleen lezen.
+
+Gemeten 2026-10-17 op deze machine (met de echte TP-map; `--patches ~/.local/opt/ravengun/share/ravengun/patches`):
+
+| Groep | Games | Verwijzingen |
+|---|---|---|
+| Eigen lader en kern (directe route) | EADP, Friction, GaiaAttack4, HauntedMuseum, HauntedMuseumII, LuigisMansion, MenInBlack, MusicGunGun2, SilentHill | **0** (ook met `RAVENGUN_TP_DIR=/nonexistent`: ok en 0) |
+| Unity-route | RabbidsHollywood, TombRaider | **0**; verdict `fallback` tot het onderdeel `ge-proton` geïnstalleerd is (`<data>/proton/GE-Proton11-7-x86_64/proton`) |
+| Native zonder TP-map | 2Spicy, GSEVO, HOTD4, HOTD4SP, HOTDEX, LGJ, LGJS, NERF, Primevil, Rambo, TargetTerrorGold | 0 |
+| Native met `@tpui` | AAA (1), AliensArmageddon (5), Halo (1: `ElfLdr2/x64/libs`), JurassicPark (6) | `ElfLdr2/libs/...` |
+| Direct op de kern van TeknoParrot | AfterDark, AfterDark2, AliensExtermination, BugBusters, Coopers9, DrakonsRealmKeepers, ElevatorActionInvasion, FarCryParadiseLost, GG, LostLandAdventure, MarioKartDX, MarsSortie, OG, PullTheTrigger, RobinHood, SDR, Transformers, WildWestShootout | 3-4: `.`, `TeknoParrot/TeknoParrot(64).dll`, `ParrotData.xml`, meestal `GameProfiles/<P>.xml` |
+| idem, met oud `UserProfiles/<P>.env`/`.xml` | Gashaaaan, HOTDSD, InfinityBladeFX, LethalEnforcers3, LGI, LGI3D, LGS, PigsMightFly, PointBlankX, RaccoonRampage, Rampage, TransformersShadowsRising | 5-6 |
+| Lader van TeknoParrot | TC5 (`OpenParrotx64/OpenParrotLoader64.exe` + kern, 7), SilentScopeBoneEater (`TeknoParrot/TeknoMacaw64.exe`, 4) | |
+| ElfLdr2 (direct) | CrossfirePaintball (3), Terminator (5) | `ElfLdr2/`, `ParrotData.xml`, `GameProfiles/` |
+| Plan lukt hier niet (game niet gevonden) | Gashaaaan2, GoGoStrike | 0 (onbekend) |
+
+Totaal: 20 games ok zonder enige verwijzing, 38 met, 4 waarvan het plan hier niet lukt (2 Unity zonder het onderdeel, 2 niet gevonden).
+
+### Wat het bewijst (tests)
+
+- `tests/test_direct_launch.cpp`: een game met `Core = ravengun` plant met een "vergiftigde" TP-map (ander sjabloon, andere sneltoetsen,
+  een oud .env) precies zoals met een lege en een niet-bestaande map: ok, `tp` en `tp_files` leeg, geen pad uit de map, werkmap = map van
+  de game, eigen JVS-brug, `ExitKey=0x1B`. Een game op de kern van TeknoParrot: `tp_files` = sjabloon, `ParrotData.xml` en de kern, werkmap
+  = TP-map, en zonder de map "kern ontbreekt: <pad>". `Core = none` en `Core = ravengun` vallen niet terug op `pipehelper.exe`.
+- `tests/direct_golden.py` (ctest `ravengun_direct_golden`): de negen eigen-kern-games uit `patches/` in een eigen hermetische opstelling
+  (alles in een view, DXVK, Gst32, BepInEx, redistributables, GE-Proton): met een niet-bestaande TP-map ok, hetzelfde plan als met de
+  volledige nep-map, `tp`/`tp_files` leeg en geen pad uit de map; daarna `rg-direct --tp-refs --expect-free` met ook TombRaider en
+  RabbidsHollywood. De gouden plannen van alle games op de kern van TeknoParrot zijn ongewijzigd; die van EADP, GaiaAttack4,
+  HauntedMuseum(II) en LuigisMansion veranderen alleen in `cwd` (de map van de game).
+- `tests/test_unity_launch.cpp`: `default_unity_proton` kiest ons onderdeel, dan Steam, nooit de kopie van TeknoParrotUi; de echte
+  `unity.json` van TombRaider en RabbidsHollywood plannen zonder één pad met "TeknoParrot".
+- `tests/app/test_app_core.cpp`: de backends zijn beschikbaar zonder runtime-map.
+
+### Op de tv na te lopen (de eigenaar)
+
+1. In de app Components: "GE-Proton 11-7" installeren (563 MB); daarna staat `~/.local/share/ravengun/proton/GE-Proton11-7-x86_64/proton`.
+2. De TP-map verbergen (bv. `mv` naar een andere naam; ook `~/.local/share/TeknoParrotUI/proton` mag weg), de daemon herstarten.
+3. Elk van de negen eigen-kern-games en de twee Unity-games met dubbelklik starten en 5 minuten laten lopen. In het logboek
+   (`~/.local/state/ravengun/logs/direct-<P>-*.log`) staat bij `cmd:` `--working-directory=` de map van de game, en de regel
+   `pipehelper:` noemt `rg-jvsbridge.exe`. Unity: `unity-<P>-*.log`, `cmd:` begint met `.../ravengun/proton/GE-Proton11-7-x86_64/proton run`.
+   De eerste Unity-start met het nieuwe Proton vernieuwt de koppelingen in de prefix `unity-aagames` (Proton zelf, `config_info`).
+4. `build/rg-direct --tp-refs` met de verborgen map: de elf games staan op 0 (Unity op `ok` na stap 1).
+
 ## Wat er in dit document níet staat (en waarom)
 
 * **Geen dongle-emulatie uitgewerkt.** Dat is een projectafspraak:

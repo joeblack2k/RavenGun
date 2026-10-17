@@ -402,8 +402,9 @@ static void test_own_profile(const std::string& d) {
         }
         // De unit: systemd-run ... -- bwrap ... -- rg-direct --run <plan>.
         w.direct_runner = "/x/rg-direct";
-        const auto argv = direct_unit_argv(w, "/p.json", "", wl.prefix);
+        const auto argv = direct_unit_argv(w, "/p.json", "", wl.prefix, "/spel/map");
         const auto it = std::find(argv.begin(), argv.end(), w.bwrap);
+        CHECK(std::find(argv.begin(), argv.end(), "--working-directory=/spel/map") < it);   // de werkmap van het plan (plan_run_dir)
         CHECK(it != argv.end() && *(it - 1) == "--" && argv.back() == "/p.json" && *(argv.end() - 3) == "/x/rg-direct");
         CHECK(std::find(argv.begin(), argv.end(), "--expand-environment=no") < it);   // systemd-run vervangt geen ${...} in paden
         CHECK(wl.layers.size() == 2 && wl.layers[1].root == d + "/wl-games" && wl.layers[1].upper == lb + "/upper");

@@ -237,11 +237,12 @@ std::vector<Game> own_profile_games(const Config& c) {
 
 std::vector<Game> list_games(const Config& c, const std::vector<Game>* own_games) {
     std::vector<Game> out;
-    if (c.tp_dir.empty()) return out;
     std::error_code ec;
+    // De profielen van TeknoParrotUi (UserProfiles/*.xml) als die map er is; de games met een eigen profiel komen er hoe dan ook bij.
     fs::path profiles = fs::path(c.tp_dir) / "UserProfiles";
     auto notes = load_notes(c.dirs);
-    for (fs::directory_iterator it(profiles, ec), end; !ec && it != end; it.increment(ec)) {
+    if (c.tp_dir.empty()) ec = std::make_error_code(std::errc::no_such_file_or_directory);
+    for (fs::directory_iterator it = ec ? fs::directory_iterator() : fs::directory_iterator(profiles, ec), end; !ec && it != end; it.increment(ec)) {
         const fs::path& p = it->path();
         if (p.extension() != ".xml") continue;
         std::string stem = p.stem().string();
@@ -512,7 +513,9 @@ std::vector<std::string> unity_unit_argv(const Config& c, const ravengun::launch
 ravengun::launch::Verdict direct_route(const Config& c, const std::string& profile, const std::string& launch, std::string& why,
                                        ravengun::launch::DirectInput* input) {
     namespace L = ravengun::launch;
-    if (c.direct.tp.empty() || c.direct_runner.empty() || ::access(c.direct_runner.c_str(), X_OK) != 0) {
+    // De TeknoParrot-map is geen voorwaarde: een plan met een eigen lader en kern heeft hem niet nodig, en een plan dat hem wel nodig
+    // heeft noemt het ontbrekende bestand zelf (plan_direct).
+    if (c.direct_runner.empty() || ::access(c.direct_runner.c_str(), X_OK) != 0) {
         why = "rg-direct ontbreekt (" + c.direct_runner + ")";
         return L::Verdict::Fallback;
     }
@@ -578,11 +581,11 @@ ravengun::launch::EnvMap direct_session_env(const std::string& proc_root) {
 }
 
 std::vector<std::string> direct_unit_argv(const Config& c, const std::string& plan_file, const std::string& log,
-                                          const std::vector<std::string>& wrap) {
+                                          const std::vector<std::string>& wrap, const std::string& workdir) {
     std::vector<std::string> a{c.systemd_run, "--user", "--unit=" + c.tpui_unit, "--collect", "--quiet",
                                "--description=RavenGun: game (direct, gestart door de daemon)", "--property=TimeoutStopSec=10",
                                "--expand-environment=no",
-                               "--working-directory=" + c.direct.tp};
+                               "--working-directory=" + workdir};
     bool plain = !log.empty();
     for (unsigned char ch : log) if (ch <= 0x20 || ch == 0x7f || ch == '"' || ch == '\'' || ch == '\\') plain = false;
     if (plain) {
@@ -933,13 +936,13 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         for (const std::string& l : wl.log) f << l << "\n";
         for (const std::string& l : seeded) f << l << "\n";
         f << "cmd:";
-        for (const std::string& a : direct_unit_argv(c_, plan_file, log, wl.prefix)) f << " " << a;
+        for (const std::string& a : direct_unit_argv(c_, plan_file, log, wl.prefix, L::plan_run_dir(pl))) f << " " << a;
         f << "\n";
     }
     if (cancel_.load()) return fail("de start is afgebroken");
     // 5. Starten in de unit van de game: rg-direct is het hoofdproces, op de plaats van launch-direct.py.
     std::string serr;
-    const int rc = spawn_(direct_unit_argv(c_, plan_file, log, wl.prefix), serr);
+    const int rc = spawn_(direct_unit_argv(c_, plan_file, log, wl.prefix, L::plan_run_dir(pl)), serr);
     if (rc != 0) return fail(rc > 0 ? "het starten via systemd-run mislukte (code " + std::to_string(rc) + ")" : "het starten mislukte: " + serr);
     // 6. Wachten tot de lader of de game draait (of de unit al weer weg is).
     if (c_.tpui_procs.empty()) return {};
@@ -1172,10 +1175,8 @@ std::string GameService::status_json() {
 
 std::string GameService::list_json() {
     std::error_code ec;
-    const bool avail = !c_.tp_dir.empty() && fs::is_directory(fs::path(c_.tp_dir) / "UserProfiles", ec);
+    const bool tp_profiles = !c_.tp_dir.empty() && fs::is_directory(fs::path(c_.tp_dir) / "UserProfiles", ec);
     json::Writer w;
-    w.begin_object().key("available").value(avail);
-    if (!avail) w.key("message").value("De TeknoParrot-profielen zijn niet gevonden. Controleer of TeknoParrot is geinstalleerd.");
     // De games met een eigen profiel uit de cache; is die oud of leeg, dan zoekt een achtergrondthread opnieuw (het verzoek wacht niet).
     std::vector<Game> own;
     {
@@ -1193,8 +1194,14 @@ std::string GameService::list_json() {
             });
         }
     }
+    // Beschikbaar: er is iets te spelen (een eigen profiel in game.ini, of de profielen van TeknoParrotUi). De TeknoParrot-map is geen
+    // voorwaarde meer (een game met eigen lader en kern start zonder).
+    const std::vector<Game> games = list_games(c_, &own);
+    const bool avail = tp_profiles || !games.empty();
+    w.begin_object().key("available").value(avail);
+    if (!avail) w.key("message").value("Er zijn nog geen games gevonden. Voeg in de app je gamemap toe.");
     w.key("games").begin_array();
-    for (const auto& g : list_games(c_, &own)) {
+    for (const auto& g : games) {
         w.begin_object().key("profile").value(g.profile).key("name").value(g.name);
         if (g.icon_file.empty()) w.key("icon").null(); else w.key("icon").value("/api/game-icon/" + g.icon_file);
         if (g.note.empty()) w.key("note").null(); else w.key("note").value(g.note);

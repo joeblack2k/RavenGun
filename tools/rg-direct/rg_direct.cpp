@@ -8,6 +8,8 @@
  *                                      het plan als JSON tonen (geen bijwerkingen, behalve met --make-view: dan
  *                                      de view van een game op de NAS maken zoals een start; voor tests/direct_golden.py)
  *   rg-direct --jvs-check              per regel hex van stdin: de pakketten en de antwoorden van het standaard JVS-bord
+ *   rg-direct --tp-refs [--patches DIR] [--user DIR] [--tp DIR] [--json] [--expect-free GAME,...]
+ *                                      per game in patches/ de bestanden uit de TeknoParrot-map die de start nog gebruikt (alleen lezen)
  *
  * --run doet wat launch-direct.py in _run() doet nadat de drop-ins en teknoparrot.ini geplaatst zijn (dat deed de daemon al):
  *   1. /dev/shm/TeknoParrot_JvsState (64 bytes) aanmaken en wachten op het bronbestand (de IO-brug van de daemon);
@@ -60,6 +62,7 @@
 #include <thread>
 #include <vector>
 
+#include "ravengun/games/games.hpp"
 #include "ravengun/gamesettings/gamesettings.hpp"
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
@@ -998,7 +1001,7 @@ int run_plan(const std::string& plan_file) {
         if (::access(mark.c_str(), F_OK) == 0) { log("register: " + std::filesystem::path(reg).filename().string() + " is al ingelezen (" + bits + " bits)"); continue; }
         const std::vector<std::string> rargs{plan.wine, "reg", "import", L::wine_path(reg), "/reg:" + bits};
         log("register: " + join_quoted(rargs));
-        Child c = spawn(rargs, plan.tp, env, true, false);
+        Child c = spawn(rargs, L::plan_run_dir(plan), env, true, false);
         if (c.pid <= 0) return 1;
         read_lines(c.out, [&](const std::string& l) { log("register: " + decode_console(l)); });
         int st = 0;
@@ -1038,7 +1041,7 @@ int run_plan(const std::string& plan_file) {
     henv["TP_PIPEHELPER_OWNER_PID"] = std::to_string(::getpid());
     log("pipehelper: " + join_quoted(hargs, 1));
     Helper helper;
-    helper.start(hargs, plan.tp, henv, "helper: ");
+    helper.start(hargs, L::plan_run_dir(plan), henv, "helper: ");   // de TeknoParrot-map alleen als het plan die gebruikt
     if (!helper.wait_ready(20)) log("pipehelper meldde zich niet binnen 20 s; toch verder");
 
     // 3b. De besturingspipe (TeknoParrotPipe): de TCP-kant en een tweede helper die de pipe in de prefix maakt (vóór de game, zoals
@@ -1059,7 +1062,7 @@ int run_plan(const std::string& plan_file) {
         const std::vector<std::string> cargs{plan.wine, plan.pipehelper, plan.control_pipe_name, "127.0.0.1", std::to_string(ctl->server->port())};
         log("besturingspipe " + plan.control_pipe + ": " + join_quoted(cargs, 1) + " (rapport uit " + plan.control_source + ", elke " +
             std::to_string(plan.control_interval_ms) + " ms" + (prof ? "" : "; indeling onbekend in deze build, knoppen niet in het logboek") + ")");
-        ctl->helper.start(cargs, plan.tp, henv, "helper (" + plan.control_pipe_name + "): ");
+        ctl->helper.start(cargs, L::plan_run_dir(plan), henv, "helper (" + plan.control_pipe_name + "): ");
         if (!ctl->helper.wait_ready(20)) log("besturingspipe: de helper meldde zich niet binnen 20 s; toch verder");
     }
 
@@ -1124,6 +1127,7 @@ int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, J
         const std::time_t now = std::time(nullptr);
         for (const char* cand : {"teknoparrot_log.txt", "tp_log.txt", "TeknoParrot/teknoparrot_log.txt"})
             for (const std::string& base : {plan.cwd, plan.game.substr(0, plan.game.rfind('/')), plan.tp}) {
+                if (base.empty()) continue;   // een plan zonder TeknoParrot-map
                 const std::string pth = base + "/" + cand;
                 struct stat st{};
                 if (::stat(pth.c_str(), &st) == 0 && S_ISREG(st.st_mode) && st.st_mtime > now - 7200 &&
@@ -1200,6 +1204,140 @@ int show_plan(int argc, char** argv) {
     return 0;
 }
 
+// --tp-refs: per game in patches/ welke bestanden uit de TeknoParrot-map de start nog gebruikt (het doel: geen enkel; docs/loskoppelen-per-game.md,
+// "Centrale afhankelijkheden van de TeknoParrot-map"). De route zoals de daemon hem kiest (games::native_route, unity_route, anders
+// direct). Native: de "@tpui/..."-verwijzingen in native.json. Unity: de map van Proton (in de TeknoParrot-map of die van TeknoParrotUi
+// telt mee). Direct: plan_tp_refs van het plan, of bij een plan dat niet lukt de paden uit de TeknoParrot-map in de melding.
+// Alleen lezen; geen view maken. Met --expect-free A,B,...: exitcode 1 als een van die games niet "ok" is of nog iets verwijst.
+int show_tp_refs(int argc, char** argv) {
+    std::string tp, patches, user, expect;
+    bool as_json = false;
+    for (int i = 2; i < argc; ++i) {
+        const std::string a = argv[i];
+        auto next = [&](std::string& v) { if (i + 1 < argc) v = argv[++i]; };
+        if (a == "--tp") next(tp);
+        else if (a == "--patches") next(patches);
+        else if (a == "--user") next(user);
+        else if (a == "--expect-free") next(expect);
+        else if (a == "--json") as_json = true;
+        else { std::fprintf(stderr, "rg-direct: onbekende optie %s\n", a.c_str()); return 64; }
+    }
+    const L::EnvMap env = L::environ_map();
+    L::DirectPaths p = L::default_direct_paths(env);
+    if (!tp.empty()) p.tp = tp;
+    p.dirs = ravengun::gamesettings::default_dirs("");
+    if (!patches.empty()) p.dirs.shipped = patches;
+    if (!user.empty()) p.dirs.user = user;
+    ravengun::games::Config c;
+    c.dirs = p.dirs;
+    c.native.patches = p.dirs.shipped;
+    c.native.user_patches = p.dirs.user;
+    c.unity.patches = p.dirs.shipped;
+    c.unity.user_patches = p.dirs.user;
+    const std::string tpui_data = p.home + "/.local/share/TeknoParrotUI";   // de downloads van TeknoParrotUi (Proton)
+    const std::string proton = env_get(env, "RAVENGUN_UNITY_PROTON").empty() ? L::default_unity_proton(p.data, p.home) : env_get(env, "RAVENGUN_UNITY_PROTON");
+    auto onder = [](const std::string& pad, const std::string& map) {
+        return !map.empty() && (pad == map || (pad.size() > map.size() && pad.compare(0, map.size(), map) == 0 && pad[map.size()] == '/'));
+    };
+    // Paden uit de TeknoParrot-map in een tekst (een melding): de stukken tot een spatie of een haakje.
+    auto uit_tekst = [&](const std::string& s) {
+        std::vector<std::string> out;
+        for (size_t i = s.find(p.tp + "/"); !p.tp.empty() && i != std::string::npos; i = s.find(p.tp + "/", i + 1)) {
+            size_t j = i + p.tp.size() + 1;
+            while (j < s.size() && s[j] != ' ' && s[j] != ')' && s[j] != ';' && s[j] != '\n') ++j;
+            out.push_back(s.substr(i + p.tp.size() + 1, j - i - p.tp.size() - 1));
+        }
+        return out;
+    };
+    struct Rij { std::string game, route, verdict, why; std::vector<std::string> refs; };
+    std::vector<Rij> rijen;
+    for (const std::string& name : ravengun::gamesettings::list_games(p.dirs)) {
+        Rij r;
+        r.game = name;
+        if (ravengun::games::native_route(c, name)) {
+            r.route = "native";
+            r.verdict = "ok";
+            const std::string text = L::profile_text(c.native, name);
+            for (size_t i = text.find("@tpui/"); i != std::string::npos; i = text.find("@tpui/", i + 1)) {
+                size_t j = i + 6;
+                while (j < text.size() && text[j] != '"' && text[j] != ':' && text[j] != ' ') ++j;
+                r.refs.push_back(text.substr(i + 6, j - i - 6));
+            }
+            if (text.find("@tpui\"") != std::string::npos) r.refs.push_back(".");
+        } else if (ravengun::games::unity_route(c, name, "")) {
+            r.route = "unity";
+            r.verdict = ::access((proton + "/proton").c_str(), X_OK) == 0 ? "ok" : "fallback";
+            r.why = "Proton: " + proton;
+            if (onder(proton, p.tp)) r.refs.push_back(proton.substr(p.tp.size() + 1));
+            if (onder(proton, tpui_data)) r.refs.push_back("~/.local/share/TeknoParrotUI/" + proton.substr(tpui_data.size() + 1));
+        } else if (L::launch_mode(name, p) == "direct") {
+            r.route = "direct";
+            L::DirectOptions o;
+            o.base_env = env;
+            o.session_id = "tp-refs";
+            L::DirectPlan plan;
+            const L::Verdict v = L::plan_direct(name, p, o, plan, r.why);
+            r.verdict = L::verdict_name(v);
+            r.refs = v == L::Verdict::Ok ? L::plan_tp_refs(plan, p.tp) : uit_tekst(r.why);
+        } else {
+            r.route = "geen";   // geen eigen route ([Launch] Mode is niet direct en geen native.json of unity.json): start niet
+            r.verdict = "-";
+        }
+        std::sort(r.refs.begin(), r.refs.end());
+        r.refs.erase(std::unique(r.refs.begin(), r.refs.end()), r.refs.end());
+        rijen.push_back(std::move(r));
+    }
+    int rc = 0;
+    std::vector<std::string> fout;
+    std::vector<std::string> verwacht;
+    {
+        std::string cur;
+        for (char ch : expect + ",") {
+            if (ch != ',') { if (ch != ' ') cur += ch; continue; }
+            if (!cur.empty()) verwacht.push_back(cur);
+            cur.clear();
+        }
+    }
+    for (const std::string& g : verwacht) {
+        auto it = std::find_if(rijen.begin(), rijen.end(), [&](const Rij& r) { return r.game == g; });
+        if (it == rijen.end()) fout.push_back(g + ": geen game in patches/");
+        else if (it->verdict != "ok" || !it->refs.empty())
+            fout.push_back(g + ": " + it->verdict + (it->refs.empty() ? "" : ", " + std::to_string(it->refs.size()) + " verwijzing(en)") +
+                           (it->why.empty() ? "" : " (" + it->why + ")"));
+    }
+    if (!fout.empty()) rc = 1;
+    if (as_json) {
+        ravengun::json::Writer w;
+        w.begin_object().key("tp").value(p.tp).key("games").begin_array();
+        for (const Rij& r : rijen) {
+            w.begin_object().key("game").value(r.game).key("route").value(r.route).key("verdict").value(r.verdict).key("why").value(r.why);
+            w.key("refs").begin_array();
+            for (const auto& x : r.refs) w.value(x);
+            w.end_array().end_object();
+        }
+        w.end_array().key("expect_free_failures").begin_array();
+        for (const auto& f : fout) w.value(f);
+        w.end_array().end_object();
+        std::printf("%s\n", w.str().c_str());
+        return rc;
+    }
+    size_t vrij = 0, met = 0, niet_ok = 0;
+    std::printf("Verwijzingen naar de TeknoParrot-map (%s) per game:\n", p.tp.c_str());
+    for (const Rij& r : rijen) {
+        if (r.route == "geen") continue;
+        (!r.refs.empty() ? met : r.verdict == "ok" ? vrij : niet_ok) += 1;
+        std::string lijst;
+        for (const auto& x : r.refs) lijst += (lijst.empty() ? "" : ", ") + x;
+        std::printf("  %-26s %-7s %-9s %2zu  %s\n", r.game.c_str(), r.route.c_str(), r.verdict.c_str(), r.refs.size(), lijst.c_str());
+    }
+    std::string geen;
+    for (const Rij& r : rijen) if (r.route == "geen") geen += (geen.empty() ? "" : ", ") + r.game;
+    std::printf("zonder TeknoParrot-map (ok, 0 verwijzingen): %zu; met verwijzingen: %zu; plan lukt hier niet (zonder verwijzing in de melding): %zu; "
+                "geen eigen route: %s\n", vrij, met, niet_ok, geen.empty() ? "-" : geen.c_str());
+    for (const auto& f : fout) std::printf("VERWACHT ZONDER TP-MAP, MAAR: %s\n", f.c_str());
+    return rc;
+}
+
 int jvs_check() {
     const J::Board b = J::default_board();
     std::string line;
@@ -1227,6 +1365,8 @@ int main(int argc, char** argv) {
     if (argc >= 3 && std::strcmp(argv[1], "--run") == 0) return run_plan(argv[2]);
     if (argc >= 2 && std::strcmp(argv[1], "--plan") == 0) return show_plan(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "--jvs-check") == 0) return jvs_check();
-    std::fprintf(stderr, "gebruik: rg-direct --run PLAN.json | --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] | --jvs-check\n");
+    if (argc >= 2 && std::strcmp(argv[1], "--tp-refs") == 0) return show_tp_refs(argc, argv);
+    std::fprintf(stderr, "gebruik: rg-direct --run PLAN.json | --plan PROFIEL [--patches DIR] [--user DIR] [--tp DIR] | --jvs-check\n"
+                         "       rg-direct --tp-refs [--patches DIR] [--user DIR] [--tp DIR] [--json] [--expect-free GAME,...]\n");
     return 64;
 }

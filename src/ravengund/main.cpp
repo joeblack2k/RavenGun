@@ -596,10 +596,10 @@ int main(int argc, char** argv) {
         // (<prefix>/lib/unity-plugin bij een installatie, build/unity-plugin in de repo).
         up.plugin_dirs = {envs("RAVENGUN_UNITY_PLUGIN_OUT"), data_dir + "/unity-plugin", lib.empty() ? std::string() : lib + "/unity-plugin"};
         if (!data_root.empty()) up.plugin_src = data_root + "/plugins/unity/src";
-        up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON")
-                                                           : home + "/.local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64";
-        logf("info", "games: Unity-games uit patches/<Game>/unity.json (gebruikerslaag %s, meegeleverd %s), instellingen %s", up.user_patches.c_str(),
-             up.patches.c_str(), up.route_json.c_str());
+        // GE-Proton 11-7 als ons onderdeel (packaging/components.json, ge-proton), niet meer uit de map van TeknoParrotUi.
+        up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON") : ravengun::launch::default_unity_proton(data_dir, home);
+        logf("info", "games: Unity-games uit patches/<Game>/unity.json (gebruikerslaag %s, meegeleverd %s), instellingen %s, Proton %s", up.user_patches.c_str(),
+             up.patches.c_str(), up.route_json.c_str(), up.proton.c_str());
         // De directe route (A10, [Launch] Mode = direct): de daemon start zo'n game zelf met rg-direct als hoofdproces van de unit,
         // met rg-direct als hoofdproces. Wat de engine nog niet kan, start niet (de melding zegt waarom).
         ravengun::launch::DirectPaths& dp = games_cfg.direct;

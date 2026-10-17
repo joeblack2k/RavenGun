@@ -200,9 +200,14 @@ std::string profile_gamedir(const std::string& profile, const DirectPaths& p) {
 }  // namespace
 
 // gamesettings.load_for_profile(): de lagen met het oude UserProfiles/<P>.env eronder.
+// Een game die de TeknoParrot-map niet nodig heeft (tp_free_settings: eigen lader en kern, of geen lader) leest niets uit die map:
+// geen UserProfiles/<P>.xml (alleen een hint voor [Game] Type, dat zo'n game.ini zelf heeft) en geen oud .env. Gemeten 2026-10-17
+// met rg-direct --plan: voor Gaia Attack 4, Haunted Museum I en II, Music GunGun 2 en Luigi's Mansion (de eigen-kern-games met
+// een .env in de runtime) is het plan met en zonder dat .env gelijk op de logregel na; game.ini had alles al.
 gsn::Game load_for_profile(const std::string& profile, const DirectPaths& p, std::vector<std::string>* notes, bool* legacy_fpfix,
                            const gsn::Dirs* dirs_override) {
     const gsn::Dirs& dirs = dirs_override ? *dirs_override : p.dirs;
+    if (gsn::Game eigen = gsn::load_game(dirs, profile); tp_free_settings(eigen.settings)) return eigen;
     std::string hint, xml;
     if (read_file(user_xml(p, profile), xml)) hint = trim(xml_tag(strip_bom(xml), "EmulatorType"));
     gsn::Ini legacy;
@@ -286,6 +291,14 @@ bool taito_gun_ini(const Profile& pr, std::string& name, std::string& text) {
 }  // namespace direct_detail
 
 using namespace direct_detail;
+
+bool tp_free_settings(const gsn::Ini& s) {
+    if (!gsn::has_own_profile(s)) return false;
+    const std::string build = lower(trim(s.get("Loader", "Build"))), core = lower(trim(s.get("Loader", "Core"))), type = trim(s.get("Game", "Type"));
+    if (core == "none") return true;   // Wine start de exe zelf
+    if (build != "ravengun" || (type != "OpenParrot" && type != "TeknoParrot")) return false;   // de lader van TeknoParrot
+    return core == "ravengun" || (core.empty() && type == "OpenParrot");                     // eigen kern (OpenParrot: volgt uit Build)
+}
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 // De invoer en de omgeving van de game (gelijk aan gamesettings.py env)

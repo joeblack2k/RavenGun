@@ -166,11 +166,10 @@ EngineBackend::EngineBackend(EngineClient* engine, GameLibrary* library, GameDat
     : engine_(engine), library_(library), data_(data), launch_(std::move(launch)) {}
 
 bool EngineBackend::available(QString* why) const {
-    const RuntimeCheck c = RuntimeCheck::check(library_->tpDir());
-    if (!c.ok) {
-        if (why) *why = QStringLiteral("The game runtime was not found. Choose it in Settings > Paths.");
-        return false;
-    }
+    // De TeknoParrot-runtime is geen voorwaarde meer (2026-10-17): een game met onze eigen lader en kern, een native game en de
+    // Unity-games starten zonder. Een game die wel een bestand uit die map nodig heeft, krijgt van de engine een melding met het pad.
+    // Of de engine draait, controleert GameLauncher::play() zelf.
+    (void)why;
     return true;
 }
 

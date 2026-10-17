@@ -271,6 +271,85 @@ int main() {
     CHECK(plan_unity(g, p, view, o, pl, err) && pl.argv.size() == 3);
     CHECK(std::none_of(pl.env.begin(), pl.env.end(), [](const auto& kv) { return kv.first == "XAUTHORITY"; }));
 
+    // Zonder TeknoParrot (2026-10-17): Proton is ons onderdeel GE-Proton 11-7 (<data>/proton/...), dan die van Steam; de kopie van
+    // TeknoParrotUi (~/.local/share/TeknoParrotUI/proton) telt nooit, ook niet als hij de enige is. De echte unity.json van Tomb Raider en
+    // Rabbids Hollywood (patches/) plannen met een TeknoParrot-map die niet bestaat: geen pad met TeknoParrot erin.
+    {
+        const fs::path home2 = root / "home2", data2 = home2 / ".local/share/ravengun";
+        const fs::path tpui = home2 / ".local/share/TeknoParrotUI/proton/GE-Proton11-7-x86_64", steam = home2 / ".local/share/Steam/compatibilitytools.d/GE-Proton11-7";
+        const fs::path eigen = data2 / "proton" / kUnityProtonName;
+        write(tpui / "proton", "#!/bin/sh\n", true);
+        CHECK(default_unity_proton(data2.string(), home2.string()) == eigen.string());   // nooit die van TeknoParrotUi
+        write(steam / "proton", "#!/bin/sh\n", true);
+        CHECK(default_unity_proton(data2.string(), home2.string()) == steam.string());
+        write(eigen / "proton", "#!/bin/sh\n", true);
+        CHECK(default_unity_proton(data2.string(), home2.string()) == eigen.string());   // ons onderdeel gaat voor
+        fs::remove_all(steam);
+        {
+            UnityPaths q = p;
+            q.proton = (data2 / "proton/bestaat-niet").string();
+            UnityPlan x;
+            std::string e;
+            CHECK(!plan_unity(g, q, view, o, x, e) && e.find("ge-proton") != std::string::npos);
+        }
+        const fs::path src_patches = fs::path(RAVENGUN_SOURCE_DIR) / "patches";
+        if (!fs::is_regular_file(src_patches / "TombRaider/unity.json")) {
+            std::printf("unity launch: geen patches/ in de bron (%s); de echte Unity-games overgeslagen\n", src_patches.c_str());
+        } else {
+            UnityPaths q;
+            q.route_json = (fs::path(RAVENGUN_SOURCE_DIR) / "packaging/unity-route.json").string();
+            q.patches = src_patches.string();
+            q.user_patches = (root / "geen-gebruikerslaag").string();
+            q.home = home2.string();
+            q.data = data2.string();
+            q.plugin_dirs = {(root / "plugins2").string()};
+            q.proton = default_unity_proton(data2.string(), home2.string());
+            const std::string tp = (data2 / "runtime/TeknoParrotUi-2.0.0.130-linux-x64").string();   // bestaat niet
+            const fs::path spellen = root / "spellen";
+            write(data2 / "bepinex/5.4.21.0/x64/BepInEx/core/BepInEx.dll", "core");
+            write(data2 / "bepinex/5.4.21.0/x64/winhttp.dll", "bep-doorstop");
+            write(data2 / "bepinex/5.4.21.0/x64/doorstop_config.ini", "[General]\nenabled=true\n");
+            int gepland = 0;
+            for (const std::string& naam : {std::string("TombRaider"), std::string("RabbidsHollywood")}) {
+                UnityGame ug;
+                std::string e;
+                // De map uit unity.json ("folder") in de gamemap, met de exe en Game_Data.
+                const std::string tekst = slurp(src_patches / naam / "unity.json");
+                const size_t f = tekst.find("\"folder\"");
+                const size_t a = tekst.find('"', tekst.find(':', f) + 1), b = tekst.find('"', a + 1);
+                const std::string folder = f == std::string::npos ? naam : tekst.substr(a + 1, b - a - 1);
+                write(spellen / folder / "Game.exe", "MZ");
+                write(spellen / folder / "Game_Data/boot.config", "x");
+                write(root / "plugins2" / naam / ("RavenGun." + naam + ".dll"), "plugin");
+                CHECK(load_unity_game(q, {spellen.string()}, naam, "", ug, e));
+                if (!e.empty()) std::fprintf(stderr, "%s: %s\n", naam.c_str(), e.c_str());
+                std::string uview;
+                std::vector<std::string> ulog;
+                CHECK(build_view(ug, q, uview, ulog, e));
+                UnityPlan up;
+                UnityOptions uo;
+                uo.runtime_dir = "/run/user/1000";
+                CHECK(plan_unity(ug, q, uview, uo, up, e));
+                if (!e.empty()) std::fprintf(stderr, "%s: %s\n", naam.c_str(), e.c_str());
+                std::vector<std::string> alles = up.argv;
+                alles.insert(alles.end(), {up.cwd, up.prefix, uview});
+                alles.insert(alles.end(), ulog.begin(), ulog.end());
+                for (const auto& [k, val] : up.env) alles.push_back(k + "=" + val);
+                bool schoon = !up.argv.empty() && up.argv[0] == (eigen / "proton").string();
+                for (std::string s : alles) {
+                    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    if (s.find("teknoparrot") != std::string::npos || s.find(tp) != std::string::npos) {
+                        schoon = false;
+                        std::fprintf(stderr, "%s: verwijzing naar TeknoParrot: %s\n", naam.c_str(), s.c_str());
+                    }
+                }
+                CHECK(schoon);
+                gepland += schoon ? 1 : 0;
+            }
+            CHECK(gepland == 2);
+        }
+    }
+
     // XAUTHORITY uit de opdrachtregel van kwin_wayland (een nep-/proc).
     const fs::path proc = root / "proc";
     write(proc / "12/comm", "bash\n");

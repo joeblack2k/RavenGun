@@ -30,8 +30,8 @@
    ],
    "control_pipe": null,
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64",
+   "cwd_is_tp": false,
    "dropin_files": [
     [
      "@PATCHES@/LuigisMansion/dropin/rg-pe-hook.dll",
@@ -130,7 +130,7 @@
      "comms": [
       "vacuum.exe"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
      "gamescope": true,
      "name": "VACUUM.exe",
@@ -176,8 +176,8 @@
    ],
    "control_pipe": null,
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64",
+   "cwd_is_tp": false,
    "dropin_files": [
     [
      "@PATCHES@/LuigisMansion/dropin/rg-pe-hook.dll",
@@ -276,7 +276,7 @@
      "comms": [
       "vacuum.exe"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/VACUUM.exe",
      "gamescope": true,
      "name": "VACUUM.exe",
