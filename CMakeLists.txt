@@ -491,6 +491,12 @@ if(RAVENGUN_BUILD_TESTS)
   # Het USIO-model van rg-usio.dll (tools/rg-usio/usio_model.h): gedeeld geheugen -> wat Point Blank X via bnusio.dll leest.
   add_executable(ravengun_usio_model_tests tests/test_usio_model.cpp)
   add_test(NAME ravengun_usio_model_tests COMMAND ravengun_usio_model_tests)
+  # Het USIO-bordmodel van winusb.dll voor Time Crisis 5 (tools/rg-winusb/usio_board.h): 6-byte WinUSB-protocol, registers, schakelaars.
+  add_executable(ravengun_usio_board_tests tests/test_usio_board.cpp)
+  add_test(NAME ravengun_usio_board_tests COMMAND ravengun_usio_board_tests)
+  # Het USB-IO-protocol van rg-allsio.dll (tools/rg-allsio/allsio_proto.h): productstring, rapporten, AllsUsbIo-pijp -> ingangsrapport.
+  add_executable(ravengun_allsio_proto_tests tests/test_allsio_proto.cpp)
+  add_test(NAME ravengun_allsio_proto_tests COMMAND ravengun_allsio_proto_tests)
   # De JVS-omleiding van rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): COM3 -> pipe, sense-lijn.
   add_executable(ravengun_jvs_com_tests tests/test_jvs_com.cpp)
   add_test(NAME ravengun_jvs_com_tests COMMAND ravengun_jvs_com_tests)

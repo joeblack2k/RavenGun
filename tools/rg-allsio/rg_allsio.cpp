@@ -1,0 +1,449 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// rg-allsio.dll (RavenGun, 64-bit): het Sega ALLS USB-IO-bord voor amdaemon.exe (House of the Dead: Scarlet Dawn) zonder de gesloten
+// TeknoParrot-kern.
+//
+// WAAROM
+//   amdaemon.exe eist volgens config.json een USB-IO-bord (usb_io node 0) en vindt het als HID-apparaat (vid_0ca3, fabrikant "SEGA", product
+//   "I/O CONTROL BD;...") met 64-byte rapporten. Onder Wine is er geen bord. De gesloten kern bootst het na in het daemonproces en voedt het
+//   uit de besturingspijp TeknoParrotPipe (het AllsUsbIo-rapport dat onze daemon al schrijft). Deze DLL doet dat zelf.
+//
+// HOE
+//   De lader laadt deze DLL via TP_PRELOAD_DLL in elk proces van het spel; hij doet alleen iets in amdaemon.exe. Bij het laden zet hij in de
+//   importtabel van de daemon om: hid.dll (HidD_GetHidGuid, GetManufacturerString, GetProductString, GetInputReport, SetOutputReport),
+//   setupapi.dll (SetupDiGetClassDevsW, EnumDeviceInterfaces, GetDeviceInterfaceDetailW, DestroyDeviceInfoList: alleen de HID-GUID, de echte
+//   HID-apparaten van de machine blijven onzichtbaar voor de daemon) en kernel32 (CreateFileW voor ons pad, ReadFile / WriteFile /
+//   GetOverlappedResult / CancelIo voor ons handvat). Het protocol staat in allsio_proto.h (getoetst in tests/test_allsio_proto.cpp).
+//
+// LOGBOEK
+//   rg-allsio.log naast deze DLL: het laden, wat omgezet is, elke stap van de apparaatopsomming, elk verzoek van de daemon (de eerste bytes in
+//   hex; zo is het protocol te meten), de pijp van het AllsUsbIo-rapport en tellers. Zonder dat logboek is de DLL niet in de daemon geladen.
+//
+// OMGEVING
+//   RG_ALLSIO_PIPE       naam van de besturingspijp (standaard \\.\pipe\TeknoParrotPipe)
+//   RG_ALLSIO_PERIOD_MS  periode van het ingangsrapport (standaard 2)
+//   RG_ALLSIO_OFF=1      niets doen
+//
+// Clean-room: alleen de openbare HID-/SetupAPI-interfaces en wat we zelf aan amdaemon.exe en onze eigen besturingspijp hebben gemeten.
+#define WIN32_LEAN_AND_MEAN
+#ifndef WINVER
+#define WINVER 0x0601
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+#include <windows.h>
+
+#include <cstdarg>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+
+#include "allsio_proto.h"
+
+namespace {
+
+CRITICAL_SECTION g_cs;   // beschermt de toestand hieronder en het logboek
+bool g_cs_ready = false;
+wchar_t g_log_path[MAX_PATH];
+
+void rg_log(const char* fmt, ...) {
+    char line[640];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = std::snprintf(line, sizeof line, "[%10lu] ", static_cast<unsigned long>(GetTickCount()));
+    if (n < 0) n = 0;
+    int m = std::vsnprintf(line + n, sizeof line - static_cast<size_t>(n) - 3, fmt, ap);
+    va_end(ap);
+    size_t len = static_cast<size_t>(n) + (m < 0 ? 0 : static_cast<size_t>(m));
+    if (len > sizeof line - 3) len = sizeof line - 3;
+    line[len++] = '\r';
+    line[len++] = '\n';
+    HANDLE h = CreateFileW(g_log_path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h != INVALID_HANDLE_VALUE) {
+        DWORD w = 0;
+        WriteFile(h, line, static_cast<DWORD>(len), &w, nullptr);
+        CloseHandle(h);
+    }
+}
+
+// --- toestand van het nagebootste bord ---------------------------------------------------------------------------------------------
+const GUID kHidGuid = {0x4D1E55B2, 0xF16F, 0x11CF, {0x88, 0xCB, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30}};
+
+rg_allsio::Board g_board;
+HANDLE g_dev = nullptr;                  // ons "apparaatvoorwerp" (een gebeurtenis; sluitbaar met CloseHandle)
+LONG g_set_dummy = 0;                    // onze HDEVINFO
+uint8_t g_pipe_report[rg_allsio::kReport];   // het laatste AllsUsbIo-rapport
+bool g_have_pipe = false;
+uint8_t g_frame[rg_allsio::kReport];     // het ingangsrapport dat op een lezing wacht
+int g_queued = 0;                        // aantal rapporten dat op een lezing wacht (hooguit 8, allemaal het nieuwste beeld)
+// Een uitstaande ReadFile: de daemon geeft de buffer en de OVERLAPPED op en vraagt later met GetOverlappedResult.
+LPOVERLAPPED g_read_ov = nullptr;
+uint8_t* g_read_buf = nullptr;
+bool g_read_done = false;
+DWORD g_period_ms = 2;
+volatile LONG g_stop = 0;
+HANDLE g_thread_pipe = nullptr, g_thread_tick = nullptr;
+char g_pipe_name[128] = "\\\\.\\pipe\\TeknoParrotPipe";
+LONG g_n_read_complete = 0, g_n_read_pending = 0, g_n_frames = 0;
+LONG g_logged_req = 0;
+
+void hexline(char* out, size_t cap, const uint8_t* p, size_t n) {
+    size_t o = 0;
+    for (size_t i = 0; i < n && o + 3 < cap; ++i) o += static_cast<size_t>(std::snprintf(out + o, cap - o, "%02x", p[i]));
+    out[o] = 0;
+}
+
+// --- de importtabel van de daemon ----------------------------------------------------------------------------------------------------
+void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
+    auto* base = reinterpret_cast<BYTE*>(mod);
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return nullptr;
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    const IMAGE_DATA_DIRECTORY& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!dir.VirtualAddress) return nullptr;
+    // Een DLL kan in meer dan een beschrijving staan (setupapi.dll staat twee keer in amdaemon.exe): alle doorzoeken.
+    for (auto* imp = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + dir.VirtualAddress); imp->Name; ++imp) {
+        if (lstrcmpiA(reinterpret_cast<const char*>(base + imp->Name), dll) != 0) continue;
+        auto* iat = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imp->FirstThunk);
+        auto* names = imp->OriginalFirstThunk ? reinterpret_cast<IMAGE_THUNK_DATA*>(base + imp->OriginalFirstThunk) : nullptr;
+        if (!names) continue;
+        for (size_t i = 0; iat[i].u1.Function; ++i) {
+            if (names[i].u1.Ordinal & IMAGE_ORDINAL_FLAG) continue;
+            auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names[i].u1.AddressOfData);
+            if (std::strcmp(reinterpret_cast<const char*>(ibn->Name), func) != 0) continue;
+            void* old = reinterpret_cast<void*>(iat[i].u1.Function);
+            DWORD prot = 0;
+            if (!VirtualProtect(&iat[i].u1.Function, sizeof(void*), PAGE_READWRITE, &prot)) return nullptr;
+            iat[i].u1.Function = reinterpret_cast<decltype(iat[i].u1.Function)>(repl);
+            VirtualProtect(&iat[i].u1.Function, sizeof(void*), prot, &prot);
+            return old;
+        }
+    }
+    return nullptr;
+}
+
+// --- SetupAPI: de HID-GUID geeft precies een apparaat, het onze ----------------------------------------------------------------------
+struct SpDevIfData { DWORD cbSize; GUID InterfaceClassGuid; DWORD Flags; ULONG_PTR Reserved; };
+struct SpDevIfDetailW { DWORD cbSize; WCHAR DevicePath[1]; };
+
+using GetClassDevsWFn = HANDLE(WINAPI*)(const GUID*, PCWSTR, HWND, DWORD);
+using EnumDevIfFn = BOOL(WINAPI*)(HANDLE, void*, const GUID*, DWORD, SpDevIfData*);
+using GetDevIfDetailWFn = BOOL(WINAPI*)(HANDLE, SpDevIfData*, SpDevIfDetailW*, DWORD, PDWORD, void*);
+using DestroyFn = BOOL(WINAPI*)(HANDLE);
+using CreateFileWFn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+using ReadFileFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using WriteFileFn = BOOL(WINAPI*)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using GetOvResFn = BOOL(WINAPI*)(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
+using CancelIoFn = BOOL(WINAPI*)(HANDLE);
+using HidGuidFn = void(WINAPI*)(GUID*);
+using HidStrFn = BOOLEAN(WINAPI*)(HANDLE, PVOID, ULONG);
+using HidReportFn = BOOLEAN(WINAPI*)(HANDLE, PVOID, ULONG);
+
+GetClassDevsWFn g_real_getclass; EnumDevIfFn g_real_enum; GetDevIfDetailWFn g_real_detail; DestroyFn g_real_destroy;
+CreateFileWFn g_real_createfile; ReadFileFn g_real_readfile; WriteFileFn g_real_writefile; GetOvResFn g_real_getovres; CancelIoFn g_real_cancelio;
+HidGuidFn g_real_hidguid; HidStrFn g_real_manuf, g_real_prod; HidReportFn g_real_getin, g_real_setout;
+
+bool is_dev(HANDLE h) { return g_dev && h == g_dev; }
+
+HANDLE WINAPI rg_SetupDiGetClassDevsW(const GUID* g, PCWSTR en, HWND hwnd, DWORD flags) {
+    if (g && std::memcmp(g, &kHidGuid, sizeof(GUID)) == 0) {
+        rg_log("SetupDiGetClassDevsW(HID-GUID, 0x%lx) -> nagebootste lijst met een apparaat", static_cast<unsigned long>(flags));
+        return &g_set_dummy;
+    }
+    return g_real_getclass ? g_real_getclass(g, en, hwnd, flags) : INVALID_HANDLE_VALUE;
+}
+BOOL WINAPI rg_SetupDiEnumDeviceInterfaces(HANDLE set, void* info, const GUID* g, DWORD index, SpDevIfData* d) {
+    if (set == &g_set_dummy) {
+        if (index == 0 && d && d->cbSize >= sizeof(SpDevIfData)) {
+            d->InterfaceClassGuid = kHidGuid;
+            d->Flags = 1;
+            d->Reserved = 0;
+            return TRUE;
+        }
+        SetLastError(ERROR_NO_MORE_ITEMS);
+        return FALSE;
+    }
+    if (!g_real_enum) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    return g_real_enum(set, info, g, index, d);
+}
+BOOL WINAPI rg_SetupDiGetDeviceInterfaceDetailW(HANDLE set, SpDevIfData* d, SpDevIfDetailW* det, DWORD size, PDWORD req, void* dev) {
+    if (set == &g_set_dummy) {
+        const wchar_t* path = rg_allsio::device_path();
+        const DWORD bytes = static_cast<DWORD>((wcslen(path) + 1) * sizeof(wchar_t));
+        const DWORD need = static_cast<DWORD>(offsetof(SpDevIfDetailW, DevicePath)) + bytes;
+        if (req) *req = need;
+        if (!det || size < need) { SetLastError(ERROR_INSUFFICIENT_BUFFER); return FALSE; }
+        std::memcpy(det->DevicePath, path, bytes);
+        return TRUE;
+    }
+    if (!g_real_detail) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    return g_real_detail(set, d, det, size, req, dev);
+}
+BOOL WINAPI rg_SetupDiDestroyDeviceInfoList(HANDLE set) {
+    if (set == &g_set_dummy) return TRUE;
+    return g_real_destroy ? g_real_destroy(set) : FALSE;
+}
+
+// --- HID --------------------------------------------------------------------------------------------------------------------------------
+void WINAPI rg_HidD_GetHidGuid(GUID* g) { if (g) *g = kHidGuid; }
+
+BOOLEAN copy_string(const std::wstring& s, PVOID buf, ULONG bytes) {
+    const size_t need = (s.size() + 1) * sizeof(wchar_t);
+    if (!buf || bytes < need) return FALSE;
+    std::memcpy(buf, s.c_str(), need);
+    return TRUE;
+}
+BOOLEAN WINAPI rg_HidD_GetManufacturerString(HANDLE h, PVOID buf, ULONG len) {
+    if (!is_dev(h)) return g_real_manuf ? g_real_manuf(h, buf, len) : FALSE;
+    return copy_string(rg_allsio::manufacturer_string(), buf, len);
+}
+BOOLEAN WINAPI rg_HidD_GetProductString(HANDLE h, PVOID buf, ULONG len) {
+    if (!is_dev(h)) return g_real_prod ? g_real_prod(h, buf, len) : FALSE;
+    return copy_string(rg_allsio::product_string(), buf, len);
+}
+
+void log_request(const uint8_t* rpt, rg_allsio::Pipe via) {
+    const LONG n = InterlockedIncrement(&g_logged_req);
+    if (n > 400) return;   // het begin van de opstart zegt genoeg; daarna alleen de teller
+    char hex[200];
+    hexline(hex, sizeof hex, rpt, 24);
+    rg_log("verzoek #%ld via %s: %s", static_cast<long>(n), via == rg_allsio::Pipe::Control ? "besturing (SetOutputReport)" : "interrupt (WriteFile)", hex);
+}
+
+BOOLEAN WINAPI rg_HidD_SetOutputReport(HANDLE h, PVOID buf, ULONG len) {
+    if (!is_dev(h)) return g_real_setout ? g_real_setout(h, buf, len) : FALSE;
+    if (len < rg_allsio::kReport) { rg_log("HidD_SetOutputReport: lengte %lu (< 64)", static_cast<unsigned long>(len)); return FALSE; }
+    EnterCriticalSection(&g_cs);
+    const bool ok = g_board.on_output(static_cast<const uint8_t*>(buf), rg_allsio::Pipe::Control);
+    log_request(static_cast<const uint8_t*>(buf), rg_allsio::Pipe::Control);
+    LeaveCriticalSection(&g_cs);
+    return ok ? TRUE : FALSE;
+}
+BOOLEAN WINAPI rg_HidD_GetInputReport(HANDLE h, PVOID buf, ULONG len) {
+    if (!is_dev(h)) return g_real_getin ? g_real_getin(h, buf, len) : FALSE;
+    if (len < rg_allsio::kReport) return FALSE;
+    EnterCriticalSection(&g_cs);
+    g_board.control_ack(static_cast<uint8_t*>(buf));
+    LeaveCriticalSection(&g_cs);
+    return TRUE;
+}
+
+// --- CreateFileW / ReadFile / WriteFile / GetOverlappedResult / CancelIo voor ons handvat -------------------------------------------
+HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (name && _wcsicmp(name, rg_allsio::device_path()) == 0) {
+        EnterCriticalSection(&g_cs);
+        if (!g_dev) g_dev = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        HANDLE h = g_dev;
+        LeaveCriticalSection(&g_cs);
+        rg_log("CreateFileW(USB-IO-pad) -> handvat %p (toegang 0x%lx, vlaggen 0x%lx)", h, static_cast<unsigned long>(access), static_cast<unsigned long>(flags));
+        return h ? h : INVALID_HANDLE_VALUE;
+    }
+    return g_real_createfile(name, access, share, sa, disp, flags, tmpl);
+}
+
+BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, LPOVERLAPPED ov) {
+    if (!is_dev(h)) return g_real_writefile(h, buf, len, written, ov);
+    if (!buf || len < rg_allsio::kReport) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
+    EnterCriticalSection(&g_cs);
+    g_board.on_output(static_cast<const uint8_t*>(buf), rg_allsio::Pipe::Interrupt);
+    log_request(static_cast<const uint8_t*>(buf), rg_allsio::Pipe::Interrupt);
+    LeaveCriticalSection(&g_cs);
+    if (written) *written = len;
+    if (ov) {
+        ov->Internal = 0;
+        ov->InternalHigh = len;
+        if (ov->hEvent) SetEvent(reinterpret_cast<HANDLE>(reinterpret_cast<ULONG_PTR>(ov->hEvent) & ~static_cast<ULONG_PTR>(1)));
+    }
+    return TRUE;   // meteen klaar; de daemon wacht anders hooguit 16 ms op de gebeurtenis
+}
+
+BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVERLAPPED ov) {
+    if (!is_dev(h)) return g_real_readfile(h, buf, len, got, ov);
+    if (!buf || len < rg_allsio::kReport || !ov) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
+    EnterCriticalSection(&g_cs);
+    if (g_queued > 0) {
+        std::memcpy(buf, g_frame, rg_allsio::kReport);
+        --g_queued;
+        LeaveCriticalSection(&g_cs);
+        InterlockedIncrement(&g_n_read_complete);
+        if (got) *got = rg_allsio::kReport;
+        return TRUE;
+    }
+    // Nog geen nieuw rapport: de lezing blijft open staan en de tikdraad voltooit hem (zoals een echte interruptpijp).
+    g_read_ov = ov;
+    g_read_buf = static_cast<uint8_t*>(buf);
+    g_read_done = false;
+    ov->Internal = 0x103;   // STATUS_PENDING
+    ov->InternalHigh = 0;
+    LeaveCriticalSection(&g_cs);
+    InterlockedIncrement(&g_n_read_pending);
+    SetLastError(ERROR_IO_PENDING);
+    return FALSE;
+}
+
+BOOL WINAPI rg_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD n, BOOL wait) {
+    if (!is_dev(h)) return g_real_getovres(h, ov, n, wait);
+    for (int i = 0;; ++i) {
+        EnterCriticalSection(&g_cs);
+        const bool mine = ov && ov == g_read_ov;
+        const bool done = mine && g_read_done;
+        if (done) { g_read_ov = nullptr; g_read_buf = nullptr; g_read_done = false; }
+        LeaveCriticalSection(&g_cs);
+        if (!mine) { if (n) *n = ov ? static_cast<DWORD>(ov->InternalHigh) : 0; return TRUE; }   // schrijfverzoek: altijd klaar
+        if (done) { if (n) *n = rg_allsio::kReport; return TRUE; }
+        if (!wait || i > 200) { SetLastError(ERROR_IO_INCOMPLETE); return FALSE; }
+        Sleep(2);
+    }
+}
+
+BOOL WINAPI rg_CancelIo(HANDLE h) {
+    if (!is_dev(h)) return g_real_cancelio ? g_real_cancelio(h) : FALSE;
+    EnterCriticalSection(&g_cs);
+    g_read_ov = nullptr;
+    g_read_buf = nullptr;
+    g_read_done = false;
+    LeaveCriticalSection(&g_cs);
+    return TRUE;
+}
+
+// --- de draden: de besturingspijp lezen, het ingangsrapport tikken ------------------------------------------------------------------
+DWORD WINAPI pipe_thread(LPVOID) {
+    HANDLE p = INVALID_HANDLE_VALUE;
+    uint8_t acc[4096 + 64];
+    size_t have = 0;
+    bool announced = false;
+    while (!g_stop) {
+        if (p == INVALID_HANDLE_VALUE) {
+            p = CreateFileA(g_pipe_name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (p == INVALID_HANDLE_VALUE) { Sleep(250); continue; }
+            rg_log("besturingspijp %s geopend", g_pipe_name);
+            have = 0;
+        }
+        DWORD got = 0;
+        if (!ReadFile(p, acc + have, 4096, &got, nullptr) || got == 0) {
+            CloseHandle(p);
+            p = INVALID_HANDLE_VALUE;
+            rg_log("besturingspijp gesloten of leeg (fout %lu); opnieuw proberen", static_cast<unsigned long>(GetLastError()));
+            Sleep(250);
+            continue;
+        }
+        have += got;
+        // Records van 64 bytes; het nieuwste telt. Wat over is blijft voor de volgende lezing.
+        const size_t whole = have / rg_allsio::kReport * rg_allsio::kReport;
+        if (whole >= rg_allsio::kReport) {
+            EnterCriticalSection(&g_cs);
+            std::memcpy(g_pipe_report, acc + whole - rg_allsio::kReport, rg_allsio::kReport);
+            g_have_pipe = true;
+            LeaveCriticalSection(&g_cs);
+            if (!announced) {
+                char hex[200];
+                hexline(hex, sizeof hex, g_pipe_report, 40);
+                rg_log("eerste AllsUsbIo-rapport: %s", hex);
+                announced = true;
+            }
+            std::memmove(acc, acc + whole, have - whole);
+            have -= whole;
+        }
+    }
+    return 0;
+}
+
+DWORD WINAPI tick_thread(LPVOID) {
+    DWORD last_report = 0;
+    while (!g_stop) {
+        Sleep(g_period_ms);
+        EnterCriticalSection(&g_cs);
+        if (g_dev) {   // pas tikken als de daemon het apparaat heeft geopend
+            uint8_t frame[rg_allsio::kReport];
+            rg_allsio::Board::input_frame(g_have_pipe ? g_pipe_report : nullptr, frame);
+            InterlockedIncrement(&g_n_frames);
+            if (g_read_ov && !g_read_done && g_read_buf) {
+                std::memcpy(g_read_buf, frame, sizeof frame);
+                g_read_done = true;
+                g_read_ov->Internal = 0;
+                g_read_ov->InternalHigh = rg_allsio::kReport;
+                if (g_read_ov->hEvent) SetEvent(reinterpret_cast<HANDLE>(reinterpret_cast<ULONG_PTR>(g_read_ov->hEvent) & ~static_cast<ULONG_PTR>(1)));
+            } else {
+                std::memcpy(g_frame, frame, sizeof frame);
+                if (g_queued < 8) ++g_queued;
+            }
+        }
+        const DWORD now = GetTickCount();
+        const bool report = g_dev && now - last_report >= 10000;
+        if (report) last_report = now;
+        LeaveCriticalSection(&g_cs);
+        if (report)
+            rg_log("stand: verzoeken %lu (ongeldig %lu), ingangsrapporten %ld, lezingen direct %ld / wachtend %ld, pijp %s", static_cast<unsigned long>(g_board.requests()),
+                   static_cast<unsigned long>(g_board.bad()), static_cast<long>(g_n_frames), static_cast<long>(g_n_read_complete),
+                   static_cast<long>(g_n_read_pending), g_have_pipe ? "ja" : "nee");
+    }
+    return 0;
+}
+
+bool is_daemon() {
+    wchar_t exe[MAX_PATH];
+    if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return false;
+    const wchar_t* base = wcsrchr(exe, L'\\');
+    base = base ? base + 1 : exe;
+    return _wcsicmp(base, L"amdaemon.exe") == 0;
+}
+
+}  // namespace
+
+extern "C" __declspec(dllexport) int rg_allsio_present() { return 1; }
+
+extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(inst);
+        InitializeCriticalSection(&g_cs);
+        g_cs_ready = true;
+        wchar_t buf[MAX_PATH];
+        GetModuleFileNameW(inst, buf, MAX_PATH);
+        wchar_t* slash = wcsrchr(buf, L'\\');
+        if (slash) *slash = 0;
+        _snwprintf(g_log_path, MAX_PATH, L"%ls\\rg-allsio.log", buf);
+        if (!is_daemon()) return TRUE;   // het spel zelf (Hodzero-Win64-Shipping.exe) laadt de DLL ook: daar niets doen
+        char env[256];
+        if (GetEnvironmentVariableA("RG_ALLSIO_OFF", env, sizeof env) > 0 && env[0] == '1') { rg_log("RG_ALLSIO_OFF=1: niets doen"); return TRUE; }
+        if (GetEnvironmentVariableA("RG_ALLSIO_PIPE", env, sizeof env) > 0 && env[0]) std::snprintf(g_pipe_name, sizeof g_pipe_name, "%s", env);
+        if (GetEnvironmentVariableA("RG_ALLSIO_PERIOD_MS", env, sizeof env) > 0 && env[0]) {
+            const long v = std::strtol(env, nullptr, 10);
+            if (v >= 1 && v <= 100) g_period_ms = static_cast<DWORD>(v);
+        }
+        rg_log("rg-allsio geladen in amdaemon.exe (pid %lu); pijp %s, periode %lu ms; productstring: %ls", static_cast<unsigned long>(GetCurrentProcessId()), g_pipe_name,
+               static_cast<unsigned long>(g_period_ms), rg_allsio::product_string().c_str());
+        struct Hook { const char* dll; const char* fn; void* repl; void** orig; };
+        const Hook hooks[] = {
+            {"hid.dll", "HidD_GetHidGuid", reinterpret_cast<void*>(&rg_HidD_GetHidGuid), reinterpret_cast<void**>(&g_real_hidguid)},
+            {"hid.dll", "HidD_GetManufacturerString", reinterpret_cast<void*>(&rg_HidD_GetManufacturerString), reinterpret_cast<void**>(&g_real_manuf)},
+            {"hid.dll", "HidD_GetProductString", reinterpret_cast<void*>(&rg_HidD_GetProductString), reinterpret_cast<void**>(&g_real_prod)},
+            {"hid.dll", "HidD_GetInputReport", reinterpret_cast<void*>(&rg_HidD_GetInputReport), reinterpret_cast<void**>(&g_real_getin)},
+            {"hid.dll", "HidD_SetOutputReport", reinterpret_cast<void*>(&rg_HidD_SetOutputReport), reinterpret_cast<void**>(&g_real_setout)},
+            {"setupapi.dll", "SetupDiGetClassDevsW", reinterpret_cast<void*>(&rg_SetupDiGetClassDevsW), reinterpret_cast<void**>(&g_real_getclass)},
+            {"setupapi.dll", "SetupDiEnumDeviceInterfaces", reinterpret_cast<void*>(&rg_SetupDiEnumDeviceInterfaces), reinterpret_cast<void**>(&g_real_enum)},
+            {"setupapi.dll", "SetupDiGetDeviceInterfaceDetailW", reinterpret_cast<void*>(&rg_SetupDiGetDeviceInterfaceDetailW), reinterpret_cast<void**>(&g_real_detail)},
+            {"setupapi.dll", "SetupDiDestroyDeviceInfoList", reinterpret_cast<void*>(&rg_SetupDiDestroyDeviceInfoList), reinterpret_cast<void**>(&g_real_destroy)},
+            {"kernel32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_CreateFileW), reinterpret_cast<void**>(&g_real_createfile)},
+            {"kernel32.dll", "ReadFile", reinterpret_cast<void*>(&rg_ReadFile), reinterpret_cast<void**>(&g_real_readfile)},
+            {"kernel32.dll", "WriteFile", reinterpret_cast<void*>(&rg_WriteFile), reinterpret_cast<void**>(&g_real_writefile)},
+            {"kernel32.dll", "GetOverlappedResult", reinterpret_cast<void*>(&rg_GetOverlappedResult), reinterpret_cast<void**>(&g_real_getovres)},
+            {"kernel32.dll", "CancelIo", reinterpret_cast<void*>(&rg_CancelIo), reinterpret_cast<void**>(&g_real_cancelio)},
+        };
+        HMODULE exe = GetModuleHandleW(nullptr);
+        for (const Hook& h : hooks) {
+            void* old = patch_iat(exe, h.dll, h.fn, h.repl);
+            *h.orig = old;
+            rg_log("importtabel: %s!%s %s", h.dll, h.fn, old ? "omgezet" : "NIET in de daemon");
+        }
+        // Zonder omgezette CreateFileW/ReadFile/WriteFile/GetOverlappedResult zou de daemon ons handvat aan het echte systeem geven.
+        if (!g_real_createfile) g_real_createfile = &CreateFileW;
+        if (!g_real_readfile) g_real_readfile = &ReadFile;
+        if (!g_real_writefile) g_real_writefile = &WriteFile;
+        if (!g_real_getovres) g_real_getovres = &GetOverlappedResult;
+        g_thread_pipe = CreateThread(nullptr, 0, pipe_thread, nullptr, 0, nullptr);
+        g_thread_tick = CreateThread(nullptr, 0, tick_thread, nullptr, 0, nullptr);
+    } else if (reason == DLL_PROCESS_DETACH && g_cs_ready) {
+        InterlockedExchange(&g_stop, 1);
+    }
+    return TRUE;
+}
