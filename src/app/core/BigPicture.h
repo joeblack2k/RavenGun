@@ -98,7 +98,6 @@ class AimStream : public QObject {
     Q_OBJECT
 public:
     explicit AimStream(QString socketPath = {}, QObject* parent = nullptr);
-    void setPlayer(int player) { player_ = player < 1 ? 1 : player > 4 ? 4 : player; }   // vóór start(); standaard speler 1
     void start();
     void stop();
     bool isActive() const { return sock_.state() == QLocalSocket::ConnectedState; }
@@ -123,7 +122,6 @@ private:
     bool lite_ = true;
     int player_ = 1;
     bool running_ = false;
-    int player_ = 1;
     bigpicture::AimState state_;
 };
 
