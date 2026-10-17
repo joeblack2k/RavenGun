@@ -868,6 +868,11 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         for (auto& st : pl.starts) vervang(st.argv);
         pl.notes.push_back("lader (eigen, [Loader] Exe): " + it->dest);
         pl.loader = it->dest;
+        // Het spel draait in het proces van deze lader (Silent Scope: arkndd.dll in rg-macaw.exe): de daemon moet dat proces als "de game
+        // draait" zien, anders meldt hij na de wachttijd "niet gestart" terwijl het spel loopt (gemeten 2026-10-17).
+        std::string comm = lower(basename(it->dest));
+        if (comm.size() > 15) comm.resize(15);
+        if (std::find(pl.game_comms.begin(), pl.game_comms.end(), comm) == pl.game_comms.end()) pl.game_comms.push_back(comm);
     }
     // 9. gamescope heeft cap_sys_nice (setcap): de dynamische linker draait hem dan in secure-execution en haalt LD_LIBRARY_PATH,
     // LD_PRELOAD en LD_AUDIT uit zijn omgeving, dus ook uit die van de game. Achter "--" zet env ze terug. Operation G.H.O.S.T.:
