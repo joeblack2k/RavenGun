@@ -27,7 +27,8 @@
   ],
   "env": {
     "MESA_LOADER_DRIVER_OVERRIDE": "zink",
-    "LIBGL_KOPPER_DRI2": "1"
+    "LIBGL_KOPPER_DRI2": "1",
+    "SDL_AUDIO_CHANNELS": "2"
   },
   "exe": "/lb/elf/ramboM.elf",
   "cwd": "/lb/elf",
