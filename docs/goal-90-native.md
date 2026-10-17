@@ -15,7 +15,7 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand 2026-10-17 03:53: **52 van 54** starten (96%). Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+Stand 2026-10-17 03:53: **52 van 54** starten (96%): doel van de eigenaar gehaald (skip van Gunslinger Stratos 3 door de eigenaar bevestigd). Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
 RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst), Mighty Moto (4:3), Star Trek
 Voyager (4:3) en Gunslinger Stratos 3 (Japanse tekst) zijn overgeslagen, dus 54 titels en 95% = 52 (51,3). Erbij sinds de vorige stand:
 America's Army (native route aan), Lost Land Adventure (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise
@@ -150,4 +150,4 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Block King Ball Shooter | Type-X PC Based | skip-regel eigenaar 2026-10-16: Japanse tekst (gemeten); profiel weg, map naar emulation/skipped |
 | Mighty Moto | UNIS PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de eigen output_log.txt van de kast: desktop 1024x768; geen resolutie-optie); daarbij HASP SRM-envelope met volledig versleutelde code (.text entropie 8,0, "Unable to access HASP SRM Run-time Environment (H0033)"); profiel weg, map naar emulation/skipped |
 | Star Trek Voyager | Team Play PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de code van trek: venster glutInitWindowSize(600, 450), Glide-doel 640x480, volledig scherm zonder eigen modus; geen breedbeeld- of aspect-optie); map naar emulation/skipped |
-| Gunslinger Stratos 3 | Taito Type X4 | skip-regel eigenaar 2026-10-17: Japanse tekst (gemeten in de eigen attract-film gs3_pv1.wmv en de standaard-tutorial; alleen 6 van de 21 tutorialfilms hebben een _en-versie); geen lightgun-spel. Daarvoor gemeten: herkenning vond eerst Cooper's 9 (Size ontbrak), native xaudio2_7, FastIO-pipe, daarna 60 fps zwart zonder assets; profiel weg, map naar emulation/skipped |
+| Gunslinger Stratos 3 | Taito Type X4 | skip-regel eigenaar 2026-10-17, door de eigenaar bevestigd: Japanse tekst (gemeten in de eigen attract-film gs3_pv1.wmv en de standaard-tutorial; alleen 6 van de 21 tutorialfilms hebben een _en-versie); geen lightgun-spel. Daarvoor gemeten: herkenning vond eerst Cooper's 9 (Size ontbrak), native xaudio2_7, FastIO-pipe, daarna 60 fps zwart zonder assets; profiel weg, map naar emulation/skipped |
