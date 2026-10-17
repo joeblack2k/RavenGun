@@ -14,6 +14,9 @@
 //   --list-steam-shortcuts de niet-Steam-games van de laatst ingelogde gebruiker tonen (alleen lezen) en stoppen
 //   --setup-wizard         de eerste-gebruik-wizard openen
 //   --install              RavenGun uit deze (uitgepakte) map naar ~/.local/opt/ravengun installeren, zonder venster (zoals de knop in de wizard) en stoppen
+//   --components           de onderdelen (id, naam, versie, grootte, stand) tonen, zonder venster, en stoppen
+//   --install-component ID een onderdeel installeren (met wat het nodig heeft; herhaalbaar; "all" = alles wat ontbreekt), zonder venster;
+//                          --install-components id1,id2 kan ook. Exitcode 0 = gelukt, 1 = mislukt (reden op stderr)
 //   --no-start             bij --install: de engine niet starten of herstarten
 //   --uninstall            RavenGun verwijderen (zoals de knop in de wizard; vraagt om het wachtwoord voor de systeemonderdelen) en stoppen
 //   --remove-config        bij --uninstall: ook de instellingen en de bibliotheek verwijderen
@@ -39,6 +42,7 @@
 
 #include "core/AppCore.h"
 #include "core/AppPaths.h"
+#include "core/ComponentsCli.h"
 #include "core/Install.h"
 #include "core/SaverLoop.h"
 #include "core/SetupChecks.h"
@@ -70,7 +74,8 @@ int main(int argc, char** argv) {
     // Installeren en verwijderen zonder venster (ook vanaf een terminal of ssh zonder grafische sessie): dan het offscreen-platform,
     // anders breekt QApplication af op een ontbrekend scherm (gemeten: --install deed zonder DISPLAY niets).
     for (int i = 1; i < argc; ++i)
-        if ((std::strcmp(argv[i], "--install") == 0 || std::strcmp(argv[i], "--uninstall") == 0) && !std::getenv("QT_QPA_PLATFORM") &&
+        if ((std::strcmp(argv[i], "--install") == 0 || std::strcmp(argv[i], "--uninstall") == 0 || std::strcmp(argv[i], "--components") == 0 ||
+             std::strncmp(argv[i], "--install-component", 19) == 0) && !std::getenv("QT_QPA_PLATFORM") &&
             !std::getenv("DISPLAY") && !std::getenv("WAYLAND_DISPLAY"))
             setenv("QT_QPA_PLATFORM", "offscreen", 1);
 
@@ -100,6 +105,12 @@ int main(int argc, char** argv) {
     const QCommandLineOption printPaths(QStringLiteral("print-paths"), QStringLiteral("Show where RavenGun finds its scripts, data and engine, and quit."));
     const QCommandLineOption wizard(QStringLiteral("setup-wizard"), QStringLiteral("Open the setup wizard."));
     const QCommandLineOption installCmd(QStringLiteral("install"), QStringLiteral("Install RavenGun from this folder into ~/.local/opt/ravengun (no window) and quit."));
+    const QCommandLineOption componentsCmd(QStringLiteral("components"), QStringLiteral("List the components (id, name, version, size, state) without a window and quit."));
+    const QCommandLineOption installComponent(QStringLiteral("install-component"),
+                                              QStringLiteral("Install a component (and what it needs) without a window and quit; repeatable, \"all\" = everything missing. Exit 0 = ok, 1 = failed."),
+                                              QStringLiteral("ID"));
+    const QCommandLineOption installComponents(QStringLiteral("install-components"), QStringLiteral("Like --install-component, with a comma-separated list."),
+                                               QStringLiteral("ID,ID"));
     const QCommandLineOption noStart(QStringLiteral("no-start"), QStringLiteral("With --install: do not start or restart the engine."));
     const QCommandLineOption uninstall(QStringLiteral("uninstall"), QStringLiteral("Remove RavenGun (service, shortcuts, program folder, device rules) and quit."));
     const QCommandLineOption removeConfig(QStringLiteral("remove-config"), QStringLiteral("With --uninstall: also remove your settings and library."));
@@ -120,7 +131,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption saverSize(QStringLiteral("saver-size"), QStringLiteral("Size for --saver-snapshot, WxH."), QStringLiteral("WxH"),
                                        QStringLiteral("1920x1080"));
     p.addOptions({saverCheck, saverFile, saverSnap, saverSize});
-    p.addOptions({saver, fullscreen, play, addToSteam, steamAccount, listSteam, printPaths, wizard, installCmd, noStart, uninstall, removeConfig, shotDir, shotGame, socket, library, noScan});
+    p.addOptions({saver, fullscreen, play, addToSteam, steamAccount, listSteam, printPaths, wizard, installCmd, componentsCmd, installComponent, installComponents, noStart, uninstall, removeConfig, shotDir, shotGame, socket, library, noScan});
     p.process(app);
 
     // Iconen uit het bureaubladthema (KDE: breeze) ook buiten een Plasma-sessie (bv. offscreen).
@@ -147,6 +158,24 @@ int main(int argc, char** argv) {
         const rg::OpResult r = rg::Install::installTree(tree, rg::InstallLayout::current(), io, [](const QString& s) { std::printf("%s\n", qPrintable(s)); });
         if (!r.ok) std::fprintf(stderr, "Error: %s\n", qPrintable(r.error));
         return r.ok ? 0 : 1;
+    }
+    if (p.isSet(componentsCmd) || p.isSet(installComponent) || p.isSet(installComponents)) {
+        // Zonder venster, dezelfde code als de Components-pagina (ComponentInstaller).
+        QString cerr;
+        QList<rg::Component> all = rg::Components::catalogue(&cerr);
+        all += rg::Components::modComponents();
+        if (!cerr.isEmpty()) {
+            std::fprintf(stderr, "Error: catalogue: %s\n", qPrintable(cerr));
+            return 1;
+        }
+        const rg::ComponentEnv cenv = rg::ComponentEnv::standard();
+        if (p.isSet(componentsCmd)) return rg::ComponentsCli::list(all, cenv, stdout);
+        const QStringList ids = rg::ComponentsCli::splitIds(p.values(installComponent) + p.values(installComponents));
+        if (ids.isEmpty()) {
+            std::fprintf(stderr, "Error: no component id given\n");
+            return 1;
+        }
+        return rg::ComponentsCli::install(all, cenv, ids, stdout, stderr);
     }
     if (p.isSet(uninstall)) {
         const rg::InstallLayout layout = rg::InstallLayout::current();

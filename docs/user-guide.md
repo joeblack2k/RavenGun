@@ -108,6 +108,11 @@ When you are done: reboot into Game Mode and start RavenGun from your library.
 
 The **Components** step (also under **Tools > Components**) lists everything RavenGun needs next to the app, with its state (installed, missing, outdated or not available), the download size and a progress bar per item. **Install All** fetches and sets up what is missing; **Install Selected** does just the rows you picked; **Cancel** stops after the current file (a half-finished download is resumed next time). Nothing is installed system-wide: everything goes into `~/.local/share/ravengun`, and nothing needs a terminal.
 
+Without a window (ssh, scripts) the same code is available on the command line; no display is needed:
+
+- `ravengun --components` lists every component: id, name, version, download size and state (`installed`, `missing`, `outdated`, `not available`), tab-separated.
+- `ravengun --install-component ID [--install-component ID ...]` (or `--install-components id1,id2`) installs those components and what they depend on, prints progress (at most every 5%), checks the sha256 and exits 0 on success or 1 with the reason on stderr. `all` installs everything that is missing or outdated.
+
 - **Downloaded and checked**: Wine, DXVK, BepInEx, the mods that your games' settings ask for (`[Mod ...]` in `game.ini`), PhysX, 32-bit SDL 1.2 and the WMV movie plug-ins, and DemulShooter's Unity plug-ins (from the author's own release page). Every file has a fixed SHA-256; a file that does not match is thrown away.
 - **Taken from your Steam**: the DirectX and Visual C++ 2010 DLLs (Steamworks Shared), 32-bit libraries (Steam Linux Runtime) and 32-bit GStreamer (a Proton in Steam). Nothing is downloaded for these; if Steam does not have them the row says "Not available" and tells what to install in Steam.
 - **Built by RavenGun**: the OpenParrot loader and cores, the JVS bridge and similar helpers; these come with the RavenGun download and are only copied into place.

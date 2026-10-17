@@ -6,6 +6,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -13,6 +15,7 @@
 #include "core/ArchiveExtract.h"
 #include "core/ComponentInstaller.h"
 #include "core/Components.h"
+#include "core/ComponentsCli.h"
 
 using namespace rg;
 
@@ -521,6 +524,69 @@ private slots:
         QDir(e.path(QStringLiteral("wine"))).removeRecursively();
         QVERIFY(!ComponentInstaller::installFromFiles(p, {}, e, nullptr, nullptr, &err));
         QVERIFY(err.contains(QStringLiteral("Wine is not installed")));
+    }
+    // De opdrachtregel zonder venster: het echte programma met een nepcatalogus (RAVENGUN_DATA_DIR) en een nep-datamap (XDG_DATA_HOME).
+    // Niets raakt ~/.local/share/ravengun; de downloads komen via file://.
+    int runCli(const QStringList& args, QString* out, QString* errOut = nullptr) {
+        QProcess pr;
+        QProcessEnvironment pe = QProcessEnvironment::systemEnvironment();
+        pe.insert(QStringLiteral("XDG_DATA_HOME"), tmp_.path() + QStringLiteral("/xdg"));
+        pe.insert(QStringLiteral("RAVENGUN_DATA_DIR"), tmp_.path() + QStringLiteral("/root"));
+        pe.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+        pe.remove(QStringLiteral("DISPLAY"));
+        pe.remove(QStringLiteral("WAYLAND_DISPLAY"));
+        pr.setProcessEnvironment(pe);
+        pr.start(QStringLiteral(RAVENGUN_APP_BIN), args);
+        if (!pr.waitForFinished(60000)) { pr.kill(); return -1; }
+        *out = QString::fromUtf8(pr.readAllStandardOutput());
+        if (errOut) *errOut = QString::fromUtf8(pr.readAllStandardError());
+        return pr.exitCode();
+    }
+    void writeFakeCatalogue() {
+        const QString root = tmp_.path() + QStringLiteral("/root/packaging");
+        writeFile(root + QStringLiteral("/tp-shm-profiles.json"), "{}");
+        const QString good = QUrl::fromLocalFile(arch(QStringLiteral("test.tar.gz"))).toString();
+        const QString sha = Components::sha256File(arch(QStringLiteral("test.tar.gz")));
+        auto comp = [&](const QString& id, const QString& dest, const QString& shaV, const QString& deps) {
+            return QStringLiteral(R"({"id":"%1","name":"Fake %1","group":"Test","version":"1","kind":"download","dest":"%2","strip":1,)"
+                                  R"("detect":["%2/lib/data.txt"],"dependsOn":[%5],"downloads":[{"name":"%1.tar.gz","url":"%3","sha256":"%4","size":2048,"archive":"tar.gz"}]})")
+                .arg(id, dest, good, shaV, deps);
+        };
+        const QString json = QStringLiteral(R"({"schema":1,"components":[%1,%2,%3]})")
+                                 .arg(comp(QStringLiteral("base"), QStringLiteral("opt/base"), sha, QString()),
+                                      comp(QStringLiteral("top"), QStringLiteral("opt/top"), sha, QStringLiteral("\"base\"")),
+                                      comp(QStringLiteral("bad"), QStringLiteral("opt/bad"), QString(64, QLatin1Char('0')), QString()));
+        writeFile(root + QStringLiteral("/components.json"), json.toUtf8());
+    }
+
+    void cliSplitIds() {
+        QCOMPARE(ComponentsCli::splitIds({QStringLiteral("a,b"), QStringLiteral(" b , c,,")}), (QStringList{QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c")}));
+    }
+
+    void cliListAndInstall() {
+        writeFakeCatalogue();
+        QString out, err;
+        QCOMPARE(runCli({QStringLiteral("--components")}, &out), 0);
+        QVERIFY2(out.contains(QRegularExpression(QStringLiteral("base\tFake base\t1\t2\\.0 KiB\tmissing"))) || out.contains(QStringLiteral("base\tFake base\t1\t")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("missing")) && out.count(QLatin1Char('\n')) == 3, qPrintable(out));
+
+        // top haalt zijn afhankelijkheid base binnen
+        QCOMPARE(runCli({QStringLiteral("--install-component"), QStringLiteral("top")}, &out, &err), 0);
+        QVERIFY2(out.contains(QStringLiteral("[base] installed")) && out.contains(QStringLiteral("[top] installed")), qPrintable(out + err));
+        QVERIFY(QFileInfo::exists(tmp_.path() + QStringLiteral("/xdg/ravengun/opt/top/lib/data.txt")));
+        QVERIFY(QFileInfo::exists(tmp_.path() + QStringLiteral("/xdg/ravengun/opt/base/lib/data.txt")));
+        QCOMPARE(runCli({QStringLiteral("--components")}, &out), 0);
+        QVERIFY2(out.contains(QStringLiteral("top\tFake top\t1\t")) && out.contains(QStringLiteral("installed")), qPrintable(out));
+        QVERIFY(out.contains(QStringLiteral("bad\tFake bad\t1\t2.0 KiB\tmissing")) || out.contains(QStringLiteral("bad\tFake bad\t1\t")));
+        // opnieuw: niets te doen
+        QCOMPARE(runCli({QStringLiteral("--install-components"), QStringLiteral("base,top")}, &out), 0);
+        // all: alleen bad ontbreekt nog, en die heeft een foute sha256
+        QCOMPARE(runCli({QStringLiteral("--install-component"), QStringLiteral("all")}, &out, &err), 1);
+        QVERIFY2(err.contains(QStringLiteral("bad")) && err.contains(QStringLiteral("sha256")), qPrintable(err));
+        QVERIFY(!QFileInfo::exists(tmp_.path() + QStringLiteral("/xdg/ravengun/opt/bad")));
+        // onbekend id
+        QCOMPARE(runCli({QStringLiteral("--install-component"), QStringLiteral("nope")}, &out, &err), 1);
+        QVERIFY2(err.contains(QStringLiteral("unknown component: nope")), qPrintable(err));
     }
 };
 
