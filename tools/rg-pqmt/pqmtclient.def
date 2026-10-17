@@ -1,0 +1,18 @@
+LIBRARY PQMTClient.dll
+EXPORTS
+    ??4TouchClientRequest@PQ_SDK_MultiTouch@@QAEAAU01@ABU01@@Z = rg_op_clientrequest @1
+    ??4TouchDeviceInfo@PQ_SDK_MultiTouch@@QAEAAU01@ABU01@@Z = rg_op_deviceinfo @2
+    ??4TouchGesture@PQ_SDK_MultiTouch@@QAEAAU01@ABU01@@Z = rg_op_gesture @3
+    ??4TouchPoint@PQ_SDK_MultiTouch@@QAEAAU01@ABU01@@Z = rg_op_touchpoint @4
+    ConnectServer = rg_connect @5
+    DisconnectServer = rg_disconnect @6
+    GetGestureName = rg_gesturename @7
+    GetServerResolution = rg_getserverresolution @8
+    SendRequest = rg_sendrequest @9
+    SendThreshold = rg_sendthreshold @10
+    SetOnGetDeviceInfo = rg_setondeviceinfo @11
+    SetOnReceiveError = rg_setonreceiveerror @12
+    SetOnReceiveGesture = rg_setonreceivegesture @13
+    SetOnReceivePointFrame = rg_setonreceivepointframe @14
+    SetOnServerBreak = rg_setonserverbreak @15
+    SetRawDataResolution = rg_setrawdataresolution @16
