@@ -15,7 +15,7 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand 2026-10-17 03:53: **52 van 54** starten (96%): doel van de eigenaar gehaald (skip van Gunslinger Stratos 3 door de eigenaar bevestigd). Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+Stand 2026-10-17 03:53: **52 van 54** starten (96%): doel van de eigenaar gehaald en door de eigenaar als telling bevestigd (2026-10-17). Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
 RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst), Mighty Moto (4:3), Star Trek
 Voyager (4:3) en Gunslinger Stratos 3 (Japanse tekst) zijn overgeslagen, dus 54 titels en 95% = 52 (51,3). Erbij sinds de vorige stand:
 America's Army (native route aan), Lost Land Adventure (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise
