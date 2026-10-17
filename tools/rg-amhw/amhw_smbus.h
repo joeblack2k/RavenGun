@@ -6,6 +6,9 @@
 //   0x9C406008  versie: 4 bytes, laag woord moet 1 zijn ("Unknown SMBUS Driver Protocol")
 //   0x9C402004  pakket van 0x25 bytes, in en uit hetzelfde:  [0] status (0 = goed)  [1] opdracht: 5 = lees byte, 4 = schrijf byte
 //               [2] I2C-adres  [3] register  [5] gegevens (lees: uit, schrijf: in)  [6] 0xFF bij schrijven.
+//               Opdracht 3 (pakket [18 03 adres 0 0 0 0]) is de "is de EEPROM klaar?"-controle van amEeprom (OG 0x58EDC0, vóór elke lees- of schrijfactie): de game zet
+//               [0] op 0x18 (NAK) en wacht hoogstens [63B4EC] ms tot [0] 0 wordt (ACK). Beantwoordt het stuurprogramma dat niet, dan geeft amEepromRead -8 en faalt de
+//               init van de game ("GetInfo: Faild to backup (code=-8)", OG: 3005).
 //               Dipschakelaars: PCA9535 op adres 0x20 (amDipsw 0x58AAE0/0x58ACB0); register 4 en 5 zijn de twee dip-bytes, register 3 is een uitvoerpoort.
 //               De waarde (reg4 >> 4) & 7 kiest de schermresolutie (tabel 0x5F72A4 in OG: 640x480, 640x480, 1024x600, 1024x768, 1280x720, 1280x1024, 1360x768, 1920x1080).
 //   0x9C40200C  blokopdracht van 0x27 bytes (EEPROM, amEeprom 0x58E9D0/0x58EAE0):
@@ -51,6 +54,7 @@ struct HwRegs {
     // Een pakket van 0x25 bytes (lees/schrijf byte). Geeft false bij een opdracht die we niet kennen.
     bool smbus_request(uint8_t* b) {
         const uint8_t cmd = b[1], addr = b[2], reg = b[3];
+        if (cmd == 3) { b[0] = 0; return true; }   // adres-ACK ("klaar")
         if (cmd == 5) b[5] = i2c[addr][reg];
         else if (cmd == 4) i2c[addr][reg] = b[5];
         else return false;

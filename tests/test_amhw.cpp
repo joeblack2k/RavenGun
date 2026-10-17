@@ -137,6 +137,8 @@ int main() {
         CHECK(hw.smbus_request(w));
         uint8_t r[0x25] = {0, 5, 0x20, 3};
         CHECK(hw.smbus_request(r) && r[5] == 0x5A);
+        uint8_t rdy[0x25] = {0x18, 3, 0x57};                                            // 'EEPROM klaar?' (amEeprom 0x58EDC0): status 0x18 wordt 0
+        CHECK(hw.smbus_request(rdy) && rdy[0] == 0);
         uint8_t bad[0x25] = {0, 7, 0x20, 3};
         CHECK(!hw.smbus_request(bad));
         hw.set_dip(0x30, 0x01);
