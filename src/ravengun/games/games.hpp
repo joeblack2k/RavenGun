@@ -73,6 +73,9 @@ struct Config {
     // [Display] AimAspect van de game (breedte/hoogte van het beeld van het spel op de tv, bv. 4:3): de daemon legt de aim-ruimte
     // van de lightgun op dat deel van het scherm (pillarbox/letterbox). 0 = terug naar de standaard. Leeg = niet ondersteund.
     std::function<void(double content_aspect)> set_aim_aspect;
+    // [Controls] van de game (per-game Move-knoppen, gebruikerslaag): bij de start de keuzes van de game over de indeling heen; bij
+    // stoppen of een mislukte start (stop_inputs) komt de globale indeling terug. Leeg = niet ondersteund.
+    std::function<void(const std::string& profile)> set_controls;
     // De Unity-route: patches/<Game>/unity.json (UnityPaths::patches en user_patches), de gebruikerslaag eerst. Zonder beide lagen is er
     // geen enkele Unity-game.
     ravengun::launch::UnityPaths unity;

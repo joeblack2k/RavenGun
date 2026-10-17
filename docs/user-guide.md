@@ -30,10 +30,11 @@ During play, the PS button recenters the aim: point at the middle of the screen 
 
 ## Game properties
 
-**Properties** has six pages:
+**Properties** has seven pages:
 
 - **General**: name, folders, input route and your own note. The **Input route** is how the lightgun reaches the game. The recommended route is preselected; some games offer another one (for example the virtual lightgun instead of the I/O bridge). Your choice is saved at once and used the next time the game starts. Choose the recommended route again to undo it.
 - **Options**: the **Dongle** group (see below) and game settings such as free play or language. Click **Apply**; they take effect the next time the game starts. Settings of games stored on the NAS can only be changed when the game runs from a local view; otherwise they show "read-only (on NAS)".
+- **Controls**: for lightgun games, what each button does in this game and which PS Move button you chose for it (player 1). **Set up controls...** walks you through the game's buttons ("Press the button for: Reload"; press PS to keep the default, pull the trigger to save). **Reset to defaults** removes your choice. Games played with a gamepad (Mario Kart) have nothing to pick here: set their buttons under Gamepad in General and in Options. Your choice applies from the next start of the game and only for that game.
 - **Display**: resolution, window or full screen, and gamescope.
 - **Patches**: small fixes RavenGun can apply to a game, for example a changed byte in the game runtime that works around a Wine bug. Each patch has a check box and a description (hover over it or select it). Your choice is saved at once and used the next time the game starts. A patch only changes a copy of a file (never the original, never a file on the NAS) and refuses to run when the file is not the version it was made for. Below the list you see the settings that apply to the game and where each comes from (type default, shipped with RavenGun, or yours). **Open user folder** opens your own settings for this game (`~/.local/share/ravengun/patches/<Game>/`): a `game.ini` and a `patches.ini` there win over the shipped ones, key by key, and you can add your own patches. **Open shipped folder** shows the shipped files (read-only).
 - **Memory Card**: save data, NVRAM and high scores. Select files and press **Delete...** to reset them. Files on the NAS and files the game needs are read-only.

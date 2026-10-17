@@ -7,6 +7,9 @@ extra kastknoppen (camera, wissers, claxon, schakelen). De knoppen van de gamepa
 In de app: **Controllers > Gamepads** (toewijzen per speler, live weergave, de standaardindeling) en **Properties > General >
 Gamepad** (de indeling die een game gebruikt en waar elke regel vandaan komt).
 
+Een game die met een gamepad gespeeld wordt (Mario Kart) heeft geen bedieningsrondgang; de knoppen staan hier en in de opties. De
+lightgun-games hebben die rondgang wel ([Controls], docs/per-game-patches.md, "Bediening per game").
+
 ## Toewijzen
 
 - Hoogstens één gamepad per speler (1..4). De toewijzing staat in `config.json` (`"gamepads": {"1": "<id>", ...}`) en overleeft

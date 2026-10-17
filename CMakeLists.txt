@@ -65,6 +65,7 @@ add_library(ravengun STATIC
   src/ravengun/games/aagames.cpp
   src/ravengun/gamesettings/gamesettings.cpp
   src/ravengun/gamesettings/gamepad_settings.cpp
+  src/ravengun/gamesettings/controls_settings.cpp
   src/ravengun/iobridge/io_state.cpp
   src/ravengun/iobridge/tp_shm.cpp
   src/ravengun/iobridge/control_pipe.cpp
@@ -457,6 +458,11 @@ if(RAVENGUN_BUILD_TESTS)
   target_link_libraries(ravengun_gamesettings_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_gamesettings_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
   add_test(NAME ravengun_gamesettings_tests COMMAND ravengun_gamesettings_tests)
+  # Bediening per game ([Controls] in game.ini): formaat, keuzes per speler, opslaan, needsSetup, toepassen op de indeling.
+  add_executable(ravengun_controls_tests tests/test_controls.cpp)
+  target_link_libraries(ravengun_controls_tests PRIVATE ravengun)
+  target_compile_definitions(ravengun_controls_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+  add_test(NAME ravengun_controls_tests COMMAND ravengun_controls_tests)
   # De native route zonder shellscripts (src/ravengun/launch/native.*): profiel, commando, invoertabel, schrijflaag, sha256.
   # rg-exec: alleen de genoemde variabelen gaan mee (gamescope -> rg-exec --keep DISPLAY -> bwrap).
   add_test(NAME ravengun_rg_exec COMMAND sh -c "out=$(env FOO=1 DISPLAY=:9 \"$<TARGET_FILE:rg-exec>\" --keep DISPLAY -- /usr/bin/env) && test \"$out\" = DISPLAY=:9")

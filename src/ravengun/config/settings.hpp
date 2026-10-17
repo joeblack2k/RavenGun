@@ -124,6 +124,9 @@ struct GunButtonSettings {
 const std::vector<std::string>& gun_map_buttons();
 // Leeg = geldige actie, anders een Nederlandse foutmelding. Geeft de canonieke vorm terug in 'canon'.
 std::string check_gun_action(const std::string& action, std::string& canon);
+// De knoppenindeling met per-game keuzes (Move-knop, actie) eroverheen ([Controls] in game.ini, gamesettings/controls_settings.hpp).
+// Een onbekende knop of ongeldige actie wordt overgeslagen. Zonder keuzes: gelijk aan `g`.
+GunButtonSettings with_gun_overrides(const GunButtonSettings& g, const std::vector<std::pair<std::string, std::string>>& overrides);
 
 // De instellingen die per controller kunnen afwijken (LED en trackertint, richten, filter, voorspelling, fusie, trillen,
 // knoppenindeling). De globale waarden in Settings zijn de standaard voor elke controller.

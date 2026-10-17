@@ -81,6 +81,7 @@ struct AimState {
     bool trigger = false;      // trekker ingedrukt (knop "t")
     int triggerPresses = 0;    // aantal trekkerdrukken sinds het vorige frame (flanken)
     bool ps = false;           // PS-knop ingedrukt
+    QStringList pressed;       // knoppen met een druk (down-flank) sinds het vorige frame (move-namen: cross, t, ps, ...), voor ControlsSetup
     QString link;              // fresh, stale, lost, disconnected
 };
 // Leest een event-regel van de engine: lite ("event":"aim") of het volledige sample ("event":"sample"). false = geen aim-event.
@@ -94,6 +95,7 @@ class AimStream : public QObject {
     Q_OBJECT
 public:
     explicit AimStream(QString socketPath = {}, QObject* parent = nullptr);
+    void setPlayer(int player) { player_ = player < 1 ? 1 : player > 4 ? 4 : player; }   // vóór start(); standaard speler 1
     void start();
     void stop();
     bool isActive() const { return sock_.state() == QLocalSocket::ConnectedState; }
@@ -113,6 +115,7 @@ private:
     QByteArray buf_;
     QTimer reconnect_;
     bool lite_ = true;
+    int player_ = 1;
     bool running_ = false;
     bigpicture::AimState state_;
 };

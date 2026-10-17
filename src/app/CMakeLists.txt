@@ -15,6 +15,7 @@ add_library(ravengun_app_core STATIC
   core/ComponentInstaller.cpp
   core/Components.cpp
   core/AppPaths.cpp
+  core/ControlsWalk.cpp
   core/DongleStatus.cpp
   core/BigPicture.cpp
   core/EngineClient.cpp
@@ -37,6 +38,7 @@ add_library(ravengun_app_core STATIC
   "${PROJECT_SOURCE_DIR}/src/ravengun/launch/gamefolder.cpp"
   # De gamepad-indeling per game ([Gamepad] in game.ini; Properties en Controller Settings): dezelfde code als de engine.
   "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/gamepad_settings.cpp"
+  "${PROJECT_SOURCE_DIR}/src/ravengun/gamesettings/controls_settings.cpp"
   "${PROJECT_SOURCE_DIR}/src/ravengun/output/gamepad.cpp")
 target_include_directories(ravengun_app_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
 # libarchive: tar.gz/xz, zip, zst en cab uitpakken zonder tar/unzip (core/ArchiveExtract). Zit in de buildcontainer (pacman hangt eraan)
@@ -61,6 +63,7 @@ add_library(ravengun_app_widgets STATIC
   widgets/BigPictureWindow.cpp
   widgets/ControllersWindow.cpp
   widgets/ComponentsPage.cpp
+  widgets/ControlsSetup.cpp
   widgets/CreateProfileDialog.cpp
   widgets/GameList.cpp
   widgets/MainWindow.cpp

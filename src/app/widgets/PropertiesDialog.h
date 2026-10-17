@@ -66,6 +66,8 @@ public:
     QLabel* DongleStatusLabel() const { return dongle_status_; }
     // Voor tests: de gamepad-indeling in General (bediening, doel, herkomst).
     QTreeWidget* GamepadTree() const { return gamepad_tree_; }
+    // Voor tests: het tabblad Controls (signalen van de game, Move-knop van speler 1).
+    QTreeWidget* ControlsTree() const { return controls_tree_; }
     QPushButton* DongleRefreshButton() const { return dongle_refresh_; }
 
 private:
@@ -78,6 +80,7 @@ private:
     QWidget* MakePatchesPane();
     QWidget* MakeMemoryCardPane();
     QWidget* MakeInfoPane();
+    QWidget* MakeControlsPane();
     void RefreshMemoryCard();
     void RefreshPatches();
     void SaveGeneral();
@@ -90,6 +93,7 @@ private:
     // General
     QLineEdit* name_edit_ = nullptr;
     QTreeWidget* gamepad_tree_ = nullptr;
+    QTreeWidget* controls_tree_ = nullptr;   // Controls: de signalen van een lightgun-game met de gekozen Move-knop van speler 1
     QComboBox* template_combo_ = nullptr;
     QPlainTextEdit* note_edit_ = nullptr;
     QComboBox* route_combo_ = nullptr;

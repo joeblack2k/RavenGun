@@ -28,7 +28,9 @@
 #include "core/FileSafety.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
+#include "core/ControlsWalk.h"
 #include "widgets/ControllersWindow.h"
+#include "widgets/ControlsSetup.h"
 #include "widgets/PropertiesDialog.h"
 #include "widgets/SaverWindow.h"
 #include "widgets/ComponentsPage.h"
@@ -70,6 +72,9 @@ private Q_SLOTS:
     void patchesTab();
     void dongleGroup();
     void gamepadMapping();
+    void controlsWalkLogic();
+    void controlsSetupFlow();
+    void controlsTabInProperties();
 public Q_SLOTS:
     void recordUrl(const QUrl& u) { g_opened << u.toLocalFile(); }
 private Q_SLOTS:
@@ -944,6 +949,130 @@ void AppWidgetTest::saverQuestionAndFeed() {
     QVERIFY(w.SaveSnapshot(png, QSize(1280, 720)));
     QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("Vraag voor jou")));
     qunsetenv("XDG_STATE_HOME");
+}
+
+namespace {
+const char* kDemoControls =
+    "[Controls]\ntrigger = Shoot | Fires the gun.\nreload = Reload | Reloads.\ngrenade = Grenade | Throws a grenade.\n"
+    "offscreen = Off-screen | Aim away to reload.\n";
+std::map<std::string, std::string> demoBase() {
+    return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"}, {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}};
+}
+}  // namespace
+
+void AppWidgetTest::controlsWalkLogic() {
+    namespace gs = ravengun::gamesettings;
+    const gs::ControlsInfo info = gs::controls_info(gs::parse_ini(std::string("[Game]\nProfile = X\n") + kDemoControls));
+    ControlsWalk w(info, demoBase());
+    QCOMPARE(int(w.count()), 4);
+    QCOMPARE(QString::fromStdString(w.step().signal), QStringLiteral("trigger"));
+    QCOMPARE(int(w.press("cross")), int(ControlsWalk::Press::Advanced));   // uitleg: elke knop
+    QCOMPARE(QString::fromStdString(w.step().signal), QStringLiteral("reload"));
+    QCOMPARE(int(w.press("t")), int(ControlsWalk::Press::Ignored));       // de trekker kan niet
+    QCOMPARE(int(w.press("triangle")), int(ControlsWalk::Press::Picked));
+    QCOMPARE(QString::fromStdString(w.step().signal), QStringLiteral("grenade"));
+    QCOMPARE(int(w.press("triangle")), int(ControlsWalk::Press::Duplicate));
+    QCOMPARE(int(w.press("ps")), int(ControlsWalk::Press::Kept));   // standaard laten staan
+    QCOMPARE(QString::fromStdString(w.step().signal), QStringLiteral("offscreen"));
+    w.press("circle");
+    QVERIFY(w.done());
+    // reload kreeg Triangle: de oude knop (Cross) is vrij; grenade bleef op Move.
+    const auto c = w.choices();
+    QCOMPARE(int(c.size()), 2);
+    QCOMPARE(QString::fromStdString(c[0].first), QStringLiteral("triangle"));
+    QCOMPARE(QString::fromStdString(c[0].second), QStringLiteral("reload"));
+    QCOMPARE(QString::fromStdString(c[1].first), QStringLiteral("cross"));
+    QCOMPARE(QString::fromStdString(c[1].second), QStringLiteral("none"));
+    QVERIFY(w.unbound().empty());
+    // Back wist de keuze van die stap
+    w.back();
+    QVERIFY(!w.done());
+    // Een knop die voor het ene signaal gekozen is en het standaardknop van een overgeslagen signaal was: dat signaal staat zonder knop.
+    ControlsWalk w2(info, demoBase());
+    w2.press("t");
+    QCOMPARE(int(w2.press("move")), int(ControlsWalk::Press::Picked));   // reload krijgt Move (de granaatknop)
+    w2.press("ps");                                                       // grenade houdt de standaard (Move), maar die is nu van reload
+    QCOMPARE(int(w2.unbound().size()), 1);
+    // Zonder keuzes: niets te schrijven
+    ControlsWalk w3(info, demoBase());
+    for (int i = 0; i < 4; ++i) w3.press("ps");
+    QVERIFY(w3.done());
+    QVERIFY(w3.choices().empty());
+}
+
+void AppWidgetTest::controlsSetupFlow() {
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGI/game.ini"));
+    QFile::remove(user);
+    writeFile(user, kDemoControls);
+    QVERIFY(ui::ControlsSetup::needsSetup(QStringLiteral("LGI")));
+    QVERIFY(!ui::ControlsSetup::needsSetup(QStringLiteral("MarioKartDX")));
+    QVERIFY(!ui::ControlsSetup::needsSetup(QString()));
+    {
+        ui::ControlsSetup w(&core, QStringLiteral("LGI"));
+        w.setGameTitle(QStringLiteral("Let's Go Island"));
+        w.resize(1280, 720);
+        w.show();
+        QSignalSpy done(&w, &ui::ControlsSetup::finished);
+        auto press = [&](const char* b) { w.pressButton(QString::fromLatin1(b)); QTest::qWait(400); };
+        press("t");           // trigger-uitleg
+        press("triangle");    // reload
+        press("ps");          // grenade: standaard
+        press("t");           // offscreen-uitleg
+        QVERIFY(w.onConfirmPage());
+        QVERIFY(w.grab().width() > 0);   // tekent
+        press("t");           // bevestigen = opslaan
+        QCOMPARE(done.count(), 1);
+        QCOMPARE(done.at(0).at(0).toBool(), true);
+    }
+    const QString text = readAll(user);
+    QVERIFY(text.contains(QStringLiteral("P1.Triangle = reload")));
+    QVERIFY(text.contains(QStringLiteral("P1.Cross = none")));
+    QVERIFY(text.contains(QStringLiteral("P4.Triangle = reload")));   // dezelfde knoppen voor alle spelers
+    QVERIFY(text.contains(QStringLiteral("Confirmed = true")));
+    QVERIFY(!ui::ControlsSetup::needsSetup(QStringLiteral("LGI")));
+    // Afbreken bewaart niets
+    QFile::remove(user);
+    writeFile(user, kDemoControls);
+    {
+        ui::ControlsSetup w(&core, QStringLiteral("LGI"));
+        QSignalSpy done(&w, &ui::ControlsSetup::finished);
+        w.pressButton(QStringLiteral("t"));
+        QTest::keyClick(&w, Qt::Key_Escape);
+        QCOMPARE(done.count(), 1);
+        QCOMPARE(done.at(0).at(0).toBool(), false);
+    }
+    QVERIFY(!readAll(user).contains(QStringLiteral("Confirmed")));
+    QFile::remove(user);
+}
+
+void AppWidgetTest::controlsTabInProperties() {
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGI/game.ini"));
+    writeFile(user, QByteArray(kDemoControls) + "P1.Triangle = reload\nConfirmed = true\n");
+    GameEntry g;
+    g.id = QStringLiteral("tp:LGI");
+    g.kind = GameKind::TeknoParrot;
+    g.profile = QStringLiteral("LGI");
+    g.name = QStringLiteral("Let's Go Island");
+    {
+        ui::PropertiesDialog d(&core, g);
+        QTreeWidget* t = d.ControlsTree();
+        QVERIFY(t);
+        QCOMPARE(t->topLevelItemCount(), 4);
+        QCOMPARE(t->topLevelItem(1)->text(0), QStringLiteral("Reload"));
+        QCOMPARE(t->topLevelItem(1)->text(2), QStringLiteral("Triangle"));
+        QCOMPARE(t->topLevelItem(2)->text(2), QStringLiteral("Default"));
+    }
+    QFile::remove(user);
+    {   // een gamepadgame heeft geen lijst
+        GameEntry mk;
+        mk.id = QStringLiteral("tp:MarioKartDX");
+        mk.kind = GameKind::TeknoParrot;
+        mk.profile = QStringLiteral("MarioKartDX");
+        ui::PropertiesDialog d(&core, mk);
+        QVERIFY(d.ControlsTree() == nullptr);
+    }
 }
 
 QTEST_MAIN(AppWidgetTest)
