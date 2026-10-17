@@ -463,6 +463,12 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_camera_feed_tests tests/test_camera_feed.cpp)
   target_link_libraries(ravengun_camera_feed_tests PRIVATE ravengun)
   add_test(NAME ravengun_camera_feed_tests COMMAND ravengun_camera_feed_tests)
+  # Het USIO-model van rg-usio.dll (tools/rg-usio/usio_model.h): gedeeld geheugen -> wat Point Blank X via bnusio.dll leest.
+  add_executable(ravengun_usio_model_tests tests/test_usio_model.cpp)
+  add_test(NAME ravengun_usio_model_tests COMMAND ravengun_usio_model_tests)
+  # De JVS-omleiding van rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): COM3 -> pipe, sense-lijn.
+  add_executable(ravengun_jvs_com_tests tests/test_jvs_com.cpp)
+  add_test(NAME ravengun_jvs_com_tests COMMAND ravengun_jvs_com_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
