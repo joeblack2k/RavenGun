@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Uitpakken van tar.gz, tar.xz, zip, pkg.tar.zst en cab met libarchive, zonder tar of unzip aan te roepen (geen shell). Veilig tegen
+// Uitpakken van tar.gz, tar.xz, zip, pkg.tar.zst, cab en deb (Debian/Ubuntu-pakketten: het data.tar-lid) met libarchive, zonder tar of unzip aan te roepen (geen shell). Veilig tegen
 // paden buiten de doelmap: ".." en absolute paden worden geweigerd, symlinks mogen niet naar buiten wijzen.
 #include <QList>
 #include <QPair>

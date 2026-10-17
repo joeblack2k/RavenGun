@@ -244,6 +244,157 @@
    ]
   },
   {
+   "id": "libstdcxx5",
+   "name": "32-bit libstdc++ 5",
+   "group": "Downloads",
+   "version": "3.3.6-30ubuntu2",
+   "kind": "download",
+   "description": "libstdc++.so.5 (gcc 3.3.6, i386) from the Ubuntu archive, for America's Army Arcade.",
+   "downloads": [
+    {
+     "name": "libstdc++5_3.3.6-30ubuntu2_i386.deb",
+     "url": "https://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-3.3/libstdc++5_3.3.6-30ubuntu2_i386.deb",
+     "sha256": "cfb0e2db802c863026ec32dcac2edcbe76a509853c9a91cae500ad1f7af1dda0",
+     "size": 211172,
+     "archive": "deb"
+    }
+   ],
+   "dest": "",
+   "merge": true,
+   "map": [
+    {
+     "from": "usr/lib/i386-linux-gnu/libstdc++.so.5.0.7",
+     "to": "runtime/lib32/libstdc++.so.5"
+    }
+   ],
+   "detect": [
+    "runtime/lib32/libstdc++.so.5"
+   ]
+  },
+  {
+   "id": "libcsv",
+   "name": "32-bit libcsv",
+   "group": "Downloads",
+   "version": "3.0.3+dfsg-4",
+   "kind": "download",
+   "description": "libcsv 3.0.2 (i386, installed as libcsv.so) from the Ubuntu archive, for Aliens Armageddon, Ghostbusters and The Walking Dead.",
+   "downloads": [
+    {
+     "name": "libcsv3_3.0.3+dfsg-4_i386.deb",
+     "url": "https://archive.ubuntu.com/ubuntu/pool/universe/libc/libcsv/libcsv3_3.0.3+dfsg-4_i386.deb",
+     "sha256": "270c253ccf1f903089eeda7087f1e262f6e4f58136d61086fbaaa0b14ba0d0b8",
+     "size": 7116,
+     "archive": "deb"
+    }
+   ],
+   "dest": "",
+   "merge": true,
+   "map": [
+    {
+     "from": "usr/lib/i386-linux-gnu/libcsv.so.3.0.2",
+     "to": "runtime/lib32/libcsv.so"
+    }
+   ],
+   "detect": [
+    "runtime/lib32/libcsv.so"
+   ]
+  },
+  {
+   "id": "openssl10-i386",
+   "name": "32-bit OpenSSL 1.0.2",
+   "group": "Downloads",
+   "version": "1.0.2g-1ubuntu4.20",
+   "kind": "download",
+   "description": "libssl.so.1.0.0 and libcrypto.so.1.0.0 (i386) from the Ubuntu archive, for The Walking Dead.",
+   "downloads": [
+    {
+     "name": "libssl1.0.0_1.0.2g-1ubuntu4.20_i386.deb",
+     "url": "https://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.0.0_1.0.2g-1ubuntu4.20_i386.deb",
+     "sha256": "0cde06e210ec2fab8b42a380a46e50eeef4cbf900ed492eb84ff892cb5f25939",
+     "size": 908988,
+     "archive": "deb"
+    }
+   ],
+   "dest": "",
+   "merge": true,
+   "map": [
+    {
+     "from": "lib/i386-linux-gnu/libssl.so.1.0.0",
+     "to": "runtime/lib32/libssl.so.1.0.0"
+    },
+    {
+     "from": "lib/i386-linux-gnu/libcrypto.so.1.0.0",
+     "to": "runtime/lib32/libcrypto.so.1.0.0"
+    }
+   ],
+   "detect": [
+    "runtime/lib32/libssl.so.1.0.0",
+    "runtime/lib32/libcrypto.so.1.0.0"
+   ]
+  },
+  {
+   "id": "physx-linux",
+   "name": "NVIDIA PhysX 2.8.1 for Linux (your copy)",
+   "group": "Downloads",
+   "version": "2.8.1",
+   "kind": "userfolder",
+   "description": "The four 32-bit PhysX 2.8.1 libraries (libPhysXLoader.so.1, libPhysXCore.so, libNxCharacter.so.1, libNxCooking.so) for Jurassic Park, Aliens Armageddon and Terminator Salvation. Copied, never changed at its source.",
+   "sourceNames": [
+    "physx-2.8.1",
+    "PhysX-2.8.1",
+    "TeknoParrotUi-*/ElfLdr2/libs"
+   ],
+   "sourceRequire": [
+    "libPhysXLoader.so.1",
+    "libPhysXCore.so",
+    "libNxCharacter.so.1",
+    "libNxCooking.so"
+   ],
+   "include": [
+    "libPhysXLoader.so.1",
+    "libPhysXCore.so",
+    "libNxCharacter.so.1",
+    "libNxCooking.so"
+   ],
+   "note": "Not found in your game folders. NVIDIA no longer offers the Linux PhysX 2.8.1 libraries for download (the SDK was behind a developer login), so there is no pinned download. Put the four files in a folder called physx-2.8.1 next to your games and add that folder in the Games step. They are only read once, at install.",
+   "dest": "runtime/physx-2.8.1",
+   "merge": true,
+   "detect": [
+    "runtime/physx-2.8.1/libPhysXLoader.so.1",
+    "runtime/physx-2.8.1/libPhysXCore.so",
+    "runtime/physx-2.8.1/libNxCharacter.so.1",
+    "runtime/physx-2.8.1/libNxCooking.so"
+   ]
+  },
+  {
+   "id": "fmod-win",
+   "name": "FMOD Studio 1.x for Windows (your copy)",
+   "group": "Downloads",
+   "version": "1.x",
+   "kind": "userfolder",
+   "optional": true,
+   "description": "fmod64.dll and fmodstudio64.dll, only for the Wine fallback of Halo's sound (the native FMOD drop-in goes first). Copied, never changed at its source.",
+   "sourceNames": [
+    "fmod-win",
+    "TeknoParrotUi-*/ElfLdr2/x64/libs"
+   ],
+   "sourceRequire": [
+    "fmod64.dll",
+    "fmodstudio64.dll"
+   ],
+   "include": [
+    "fmod64.dll",
+    "fmodstudio64.dll"
+   ],
+   "note": "Optional. fmod.com requires a login, so there is no pinned download. Put fmod64.dll and fmodstudio64.dll (FMOD Studio API 1.x, Windows x64) in a folder called fmod-win next to your games and add that folder in the Games step.",
+   "dest": "runtime/fmod-win",
+   "merge": true,
+   "detect": [
+    "runtime/fmod-win/fmod64.dll",
+    "runtime/fmod-win/fmodstudio64.dll"
+   ]
+  },
+  {
    "id": "gst32",
    "name": "32-bit GStreamer (from Proton)",
    "group": "From your Steam",

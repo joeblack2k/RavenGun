@@ -232,7 +232,20 @@ bool installCopyTree(const Component& c, const ComponentEnv& env, const std::ato
     }
     const QString st = stagingDir(env, c.id);
     if (!freshDir(st, err)) return false;
-    if (!ComponentInstaller::copyTree(src, st, c.exclude, cancel, err)) return false;
+    if (c.kind == QLatin1String("userfolder") && !c.include.isEmpty()) {
+        // Alleen de genoemde bestanden (paden relatief aan de bron), plat in de doelmap: zo komt er niets mee dat niet bij het onderdeel hoort.
+        QDir().mkpath(st);
+        for (const QString& rel : c.include) {
+            if (cancelled(cancel)) { if (err) *err = QStringLiteral("cancelled"); return false; }
+            const QString from = src + QLatin1Char('/') + rel, to = st + QLatin1Char('/') + QFileInfo(rel).fileName();
+            if (!QFileInfo(from).isFile() || !QFile::copy(from, to)) {
+                if (err) *err = QStringLiteral("cannot copy %1").arg(from);
+                return false;
+            }
+        }
+    } else if (!ComponentInstaller::copyTree(src, st, c.exclude, cancel, err)) {
+        return false;
+    }
     return ComponentInstaller::placeStaging(st, env.path(c.dest), true, overwrite, err);
 }
 

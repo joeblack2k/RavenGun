@@ -369,6 +369,14 @@ int main() {
     NativeProfile bad = pr;
     bad.libs.push_back(p.lib32 + "/libontbreekt.so");
     CHECK(!plan(bad, p, PlanOptions{}, pl, err) && err.find("bibliotheken ontbreken") != std::string::npos);
+    // De melding noemt het onderdeel dat de bibliotheek levert (Components in de app), ook voor PhysX uit @data/runtime.
+    NativeProfile nocomp = pr;
+    nocomp.libs = {p.lib32 + "/libstdc++.so.5", p.data + "/runtime/physx-2.8.1/libPhysXCore.so", p.lib32 + "/libglut.so.3", p.build + "/libonbekend.so"};
+    CHECK(!plan(nocomp, p, PlanOptions{}, pl, err));
+    CHECK(err.find("libstdc++.so.5 (onderdeel 'libstdcxx5'") != std::string::npos);
+    CHECK(err.find("libPhysXCore.so (onderdeel 'physx-linux'") != std::string::npos);
+    CHECK(err.find("libglut.so.3 (onderdeel 'lib32-sniper'") != std::string::npos);
+    CHECK(err.find("libonbekend.so (onderdeel") == std::string::npos);
     NativePaths nonas = p;
     nonas.nas = (root / "geen-nas").string();
     CHECK(!plan(pr, nonas, PlanOptions{}, pl, err) && err.find("spelmap") != std::string::npos);

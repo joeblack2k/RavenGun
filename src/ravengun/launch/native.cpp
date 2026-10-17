@@ -64,6 +64,27 @@ std::string base_name(const std::string& path) {
 }
 bool contains(const std::string& s, const std::string& part) { return s.find(part) != std::string::npos; }
 
+// Bij een ontbrekend bibliotheekbestand: welk onderdeel (packaging/components.json, "Components" in de app) het levert. Leeg = onbekend.
+// De gepinde downloads staan in @lib32 (runtime/lib32); PhysX en de FMOD-DLL's van de gebruiker hebben een eigen map onder runtime/.
+std::string component_hint(const std::string& path, const NativePaths& p) {
+    static const std::pair<const char*, const char*> by_name[] = {
+        {"libstdc++.so.5", "libstdcxx5"}, {"libcsv.so", "libcsv"},
+        {"libssl.so.1.0.0", "openssl10-i386"}, {"libcrypto.so.1.0.0", "openssl10-i386"},
+        {"libSDL-1.2.so.0", "sdl12-compat"}};
+    const std::string name = base_name(path);
+    for (const auto& [n, id] : by_name)
+        if (name == n) return id;
+    if (contains(path, "/runtime/physx-2.8.1")) return "physx-linux";
+    if (contains(path, "/runtime/fmod-win")) return "fmod-win";
+    if (!p.lib32.empty() && path.rfind(p.lib32 + "/", 0) == 0) return "lib32-sniper";
+    return {};
+}
+
+std::string with_hint(const std::string& path, const NativePaths& p) {
+    const std::string id = component_hint(path, p);
+    return id.empty() ? path : path + " (onderdeel '" + id + "': installeer het bij Components in de app)";
+}
+
 // Een programma in PATH (zoals posix_spawnp het zou vinden); leeg = niet gevonden.
 std::string find_program(const std::string& name) {
     if (name.find('/') != std::string::npos) return ::access(name.c_str(), X_OK) == 0 ? name : std::string();
@@ -478,7 +499,7 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
             // ro-try: iets wat de gebruiker zelf heeft of niet (de FMOD-DLL's van een TeknoParrot-installatie); zonder bron start de
             // game gewoon, en wie de bron nodig heeft valt zelf terug (de FMOD-wrapper speelt dan stil).
             if (m.mode == "ro-try") { out.notes.push_back("bron ontbreekt, niet gekoppeld: " + m.src + " -> " + m.dst); continue; }
-            err = "bron ontbreekt: " + m.src;
+            err = "bron ontbreekt: " + with_hint(m.src, p);
             return false;
         }
         if (m.mode == "overlay") {
@@ -578,14 +599,14 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         bw.insert(bw.end(), {"--bind", vartmp, "/var/tmp"});
     }
     for (const SrcDst& l : pr.libdirs) {
-        if (!is_dir(l.src)) { err = "bibliotheekmap ontbreekt: " + l.src; return false; }
+        if (!is_dir(l.src)) { err = "bibliotheekmap ontbreekt: " + with_hint(l.src, p); return false; }
         bw.insert(bw.end(), {"--ro-bind", l.src, l.dst});
         ldpath += (ldpath.empty() ? "" : ":") + l.dst;
     }
     if (!pr.libs.empty()) {
         std::string missing;
         for (const std::string& l : pr.libs) {
-            if (!exists(l)) { missing += (missing.empty() ? "" : " ") + l; continue; }
+            if (!exists(l)) { missing += (missing.empty() ? "" : "; ") + with_hint(l, p); continue; }
             bw.insert(bw.end(), {"--ro-bind", l, "/rg/lib/" + base_name(l)});
             if ((!p.build.empty() && l.rfind(p.build + "/", 0) == 0) || (!p.patches.empty() && l.rfind(p.patches + "/", 0) == 0))
                 out.identity.push_back("bibliotheek=" + l);
