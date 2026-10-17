@@ -15,16 +15,17 @@ Stand: 41 van 68 titels WORKING (60%); doel 90% = 62 titels; sessiedoel (eigenaa
 Ghostbusters): 60 titels, 95% = 57. **Start** = dubbelklik in de app, en het spel komt in eigen beeld (logo, attract, titel of menu) op
 de tv; zwart, een foutmelding of een crash telt niet.
 
-Stand 2026-10-17 02:45: **52 van 55** starten. Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
-RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst), Mighty Moto (4:3) en Star Trek
-Voyager (4:3) zijn overgeslagen, dus 55 titels en 95% = 53. Erbij sinds de vorige stand: America's Army (native route aan), Lost Land
-Adventure (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise Lost en Friction (alle vijf: Windowed = 1
-in gamescope; met 0 bleven ze zwart), Infinity Blade FX (matrix-exports op de ordinalen van het origineel, plus Windowed = 1), Silent
-Scope: Bone Eater (TeknoMacaw met DXVK, indeling KonamiAcio, ViewTtcAsTtf voor de DynaFont-collecties), Men in Black (MIB.exe zonder
-kast-shell op onze kern, BepInEx-plugin tegen het zelf-afsluiten, GStreamer voor de films), Aliens: Extermination (PeFillPages:
-Wine wiste de HASP-emulatie achter .text). Nog niet: The House of the Dead III en Virtua Cop 3 (Chihiro; Cxbx-Reloaded onder Proton
-11 zwart op 0 FPS, met DXVK een MOVAPS-fout in een andere thread, onder GE-Proton10-34 nog eerder vast), Gunslinger Stratos 3
-(geparkeerd: crash op 0x4FD8AED0 vóór de injectie).
+Stand 2026-10-17 03:53: **52 van 54** starten (96%). Police Trainer 2 en Crossfire tellen als Raw Thrills (TeknoParrot-profiel
+RawThrillsGUN, Raw Thrills-I/O via /dev/mjg en poort 0x37c); Block King Ball Shooter (Japanse tekst), Mighty Moto (4:3), Star Trek
+Voyager (4:3) en Gunslinger Stratos 3 (Japanse tekst) zijn overgeslagen, dus 54 titels en 95% = 52 (51,3). Erbij sinds de vorige stand:
+America's Army (native route aan), Lost Land Adventure (mfc100u), Transformers: Human Alliance, Robin Hood, Cooper's 9, Far Cry Paradise
+Lost en Friction (alle vijf: Windowed = 1 in gamescope; met 0 bleven ze zwart), Infinity Blade FX (matrix-exports op de ordinalen van
+het origineel, plus Windowed = 1), Silent Scope: Bone Eater (TeknoMacaw met DXVK, indeling KonamiAcio, ViewTtcAsTtf voor de
+DynaFont-collecties), Men in Black (MIB.exe zonder kast-shell op onze kern, BepInEx-plugin tegen het zelf-afsluiten, GStreamer voor de
+films), Aliens: Extermination (PeFillPages: Wine wiste de HASP-emulatie achter .text). Nog niet: The House of the Dead III en Virtua
+Cop 3 (Chihiro; Cxbx-Reloaded onder Proton 11: de Xbox-hoofdthread wacht, twee andere threads vallen op MOVAPS met een stapel die niet op
+16 bytes ligt, in code in het gespiegelde fysieke geheugen (0xF7xxxxxx, in beide spellen gelijk); onder GE-Proton10-34 start de
+emulatie niet).
 
 ## Taken per familie
 
@@ -41,7 +42,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | T5 | Werkende titels: open punten | Mario Kart DX (camera), Ghost Squad Evolution (wisselvallig), Point Blank X (attract-film), runtime-keuze zonder daemonherstart | open |
 | T6 | Linux native, nog niet geprobeerd | America's Army Arcade, Police Trainer 2, Crossfire: Maximum Paintball | open |
 | T7 | Windows met bescherming of crash | Aliens: Extermination, Block King Ball Shooter, Cooper's 9 | Cooper's 9 start (Windowed = 1); Block King overgeslagen (Japanse tekst); Aliens: Extermination start (PeFillPages) |
-| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 geparkeerd; Mighty Moto overgeslagen (4:3); Silent Scope: Bone Eater start; Star Trek Voyager overgeslagen (4:3); Men in Black start; rest open |
+| T8 | Overige platforms | Luigi's Mansion Arcade, Mighty Moto, Silent Scope: Bone Eater, Infinity Blade FX, Men in Black, Gunslinger Stratos 3, Transformers: Human Alliance, Star Trek Voyager | Transformers en Infinity Blade FX starten; Gunslinger Stratos 3 overgeslagen (Japanse tekst); Mighty Moto overgeslagen (4:3); Silent Scope: Bone Eater start; Star Trek Voyager overgeslagen (4:3); Men in Black start; rest open |
 | T9 | SEGA Chihiro | The House of the Dead III, Virtua Cop 3 | alleen meten of een passthrough-lader (Cxbx-achtig, x86 native) haalbaar is |
 | T10 | Eén RavenGun-map | (structuur) | open: alles wat RavenGun op schijf zet zo veel mogelijk in één map, zoals de User-map van Dolphin |
 | geparkeerd | Raw Thrills / ICE | Walking Dead, Ghostbusters, Aliens Armageddon | eigenaar 2026-10-16: parkeren |
@@ -112,7 +113,6 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Elevator Action Death Parade | Taito Type X2 | 2026-10-16: JVS werkt (bord TaitoEADP), logo, dan crash: NxCreatePhysicsSDK(2.8.0) geeft NULL, de PhysX 2.8.1-kern (oude PhysX-systeemsoftware van NVIDIA) ontbreekt; 2.8.4 van Infinity Blade FX werkt niet; ook met DXVK. Eigenaar: PhysX 2.8.1 aanleveren of downloaden? |
 | Far Cry Paradise Lost | Global VR PC Based | 2026-10-16 (meetdraad): hoofddraad in zijn berichtenlus (PeekMessage), werkdraden wachten; geen D3D9-hang maar spellogica die op dongle of USB-IO wacht (gesloten kern TeknoParrot.dll) |
 | Ghostbusters | ICE/RT Linux PC Based | 2026-10-15 native: dongle-hook, RIO-brug; "Welcome to Ghostbusters"; GEBLOKKEERD: dongle-antwoordtafel (hasp/, hhl_mem.dmp) ontbreekt in de dump |
-| Gunslinger Stratos 3 | Taito Type X4 | 2026-10-16 geparkeerd: profiel en tussentijdse invoer, crash op 0x4FD8AED0 vóór de injectie |
 | Infinity Blade FX | ADRENALINE PC Based | 2026-10-16 start: "No Dongle!" weg met matrix-exports op de ordinalen van het origineel, wit beeld weg met Windowed = 1 |
 | Lost Land Adventure | Namco ES3X | Namco ES3X (zelfde familie als TC5) |
 | Luigi's Mansion Arcade | SEGA Nu 1.1 | invoer in het spelproces schrijven (rg-pe-hook, RVA 0x17E50); munt/test zoeken |
@@ -126,7 +126,7 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Transformers: Human Alliance | SEGA RingEdge 2 | SEGA RingEdge 2 |
 | Virtua Cop 3 | SEGA Chihiro | SEGA Chihiro (Xbox-emulatie) |
 
-## overgeslagen (18)
+## overgeslagen (19)
 
 | Titel | Platform | Volgende stap |
 |---|---|---|
@@ -148,3 +148,4 @@ tabellen hieronder; deze lijst zegt alleen wat de taak is en waar hij staat. Wer
 | Block King Ball Shooter | Type-X PC Based | skip-regel eigenaar 2026-10-16: Japanse tekst (gemeten); profiel weg, map naar emulation/skipped |
 | Mighty Moto | UNIS PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de eigen output_log.txt van de kast: desktop 1024x768; geen resolutie-optie); daarbij HASP SRM-envelope met volledig versleutelde code (.text entropie 8,0, "Unable to access HASP SRM Run-time Environment (H0033)"); profiel weg, map naar emulation/skipped |
 | Star Trek Voyager | Team Play PC Based | skip-regel eigenaar 2026-10-17: 4:3 (gemeten in de code van trek: venster glutInitWindowSize(600, 450), Glide-doel 640x480, volledig scherm zonder eigen modus; geen breedbeeld- of aspect-optie); map naar emulation/skipped |
+| Gunslinger Stratos 3 | Taito Type X4 | skip-regel eigenaar 2026-10-17: Japanse tekst (gemeten in de eigen attract-film gs3_pv1.wmv en de standaard-tutorial; alleen 6 van de 21 tutorialfilms hebben een _en-versie); geen lightgun-spel. Daarvoor gemeten: herkenning vond eerst Cooper's 9 (Size ontbrak), native xaudio2_7, FastIO-pipe, daarna 60 fps zwart zonder assets; profiel weg, map naar emulation/skipped |

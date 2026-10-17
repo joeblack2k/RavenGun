@@ -88,9 +88,8 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Transformers: Human Alliance**: Starts by double-click (2026-10-17): system init, then the attract (press start, free play). Needs Windowed = 1 under gamescope. Play, aim and the lever not yet measured.
 - **Walking Dead**: Never started. Statically examined (2026-10-14): i386, HASPE-packed like Jurassic Park (807 first-PLT stubs with 0xdeadbeef, GOT bound on the cabinet; game_ori is the envelope). Ready: rio-invoer.ini (RIO without encryption, same report as Jurassic Park). Open: (1) a first-PLT slot table like JurassicPark/dropin/eerste-plt-slots.tsv (probe/mktable.py with the cabinet's Ubuntu packages); (2) the HASP dongle (static, no hasp_ names in the dynsym, "Hardlock"); (3) libcaca.so.0 (i386) is missing from the runtime.
 
-## Not working yet (2)
+## Not working yet (1)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
 - **Ghostbusters**: The ElfLdr2 path check is solved. The loader requires all files of this game to be in a folder named pm (the Play Mechanix install root) with the path to the elf inside it; with [Identify] Path = pm/game and a view folder views/GhostBusters/pm with links to the game files it continues to "Starting Game". The game does not reach a picture yet; what blocks it then (dongle, OpenGL context) has not been measured. The pm folder is not a drop-in: its content is the owner's own dump (2.7 GB), see README.md.
-- **Gunslinger Stratos 3**: 2026-10-17: the earlier crash was Cooper's 9's game.exe (identification without Size); the real game.exe now runs, with native xaudio2_7 and the FastIO pipe, but the picture stays black (60 fps, nothing drawn, no assets loaded after 5 minutes). Not a lightgun game. Parked.
