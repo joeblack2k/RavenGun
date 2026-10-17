@@ -143,3 +143,53 @@ de aanroepketen, of `uitzondering 0x...`/`ONAFGEHANDELDE uitzondering ...` (het 
 Test zonder spel (geen tv): `tools/rg-macaw/build.sh --out <map>` en dan
 `tools/rg-macaw/nogame-test.sh "<NAS>/Silent Scope Bone Eater" <map>/rg-macaw.exe [RG_MACAW_SERVICES=offline]`; exit 0 = "ea3_boot: complete".
 Met `RG_MACAW_ACCOUNTID=none` komt de oorspronkelijke fout terug (`F:ea3: boot: bad account ID(NIL/NIL)`).
+
+## 6. Wit venster na een geslaagde ea3-boot (tv-meting 2026-10-17 18:52)
+
+**Stand van de meting:** ea3 bootte ("EA3 gebooted ... dll_entry_main"), het proces liep 4 minuten, maar het beeld bleef een wit staand venster.
+`xrpc: apply: cannot get url: "services"`, `boot_status: 1,2002,0` en `W:pkglist: ... no list` elke 20 s zijn de normale offline-meldingen (ook in de proef
+zonder spel); ze houden het spel niet tegen. Wat wel de oorzaak is, staat in hetzelfde log:
+
+```
+M:MiCmd: COM Port 1 Open Error
+M:MiCmd: Port 1 : Error 3 Node 1, step 1
+M:MiCmd: MiCmd ErrorOut 3 Node 1
+```
+`MiCmd` komt uit **Konami's eigen libacio.dll** (strings: alleen daar, niet in arkndd.dll). Het spel laadde dus het ORIGINELE `libacio.dll` van de NAS, geen
+`rg-libacio.log`, en `modules/libacio.dll` in de view was nog de symlink naar de NAS.
+
+**Oorzaak (gemeten):** de gebruikte `dropin.ini` had `[libacio.dll] To = modules`. `To` is relatief aan de map van het spel (`modules/`, `dirname(pl.game)` in
+`dropin_plan`), dus het bestand kwam in `modules/modules/libacio.dll` (zie `drop-in: libacio.dll -> .../modules/modules/libacio.dll` in het direct-log). Met `To = .`
+komt het op de plek van het origineel. (De kandidaat `SilentScopeBoneEater.dropin.ini` in deze map is gecorrigeerd.)
+
+**Waarom het venster dan wit blijft:** het spel heeft een IO-toestandsmachine (arkndd.dll 0x18000b240, toestand in 0x18018bcf0). Die moet via
+`ac_io_begin` -> `ac_io_is_active2`/`is_active_device` -> `*_create_get_status_thread` -> `ac_io_nddb_req_solenoide_control` -> COM2 -> ... toestand 9 komen
+voor de hoofdlus verder gaat. Met het origineel meldt `is_active2` dat er niets is (geen seriele poort 1), de machine blijft hangen en er wordt niets getekend.
+Onze `libacio.dll` beantwoordt alles met "aanwezig" (zie rg_libacio.c).
+
+**Wat daarna de volgende blokkade is (gemeten aan arkndd.dll, voorspeld):** in toestand 1 opent het spel zelf **"COM2"** (`CreateFileA`, 0x18000b32f), zet
+9600 8N1, stuurt elke frame 6 bytes (`03 8a 00 00 00 8d`) en leest 0x68 bytes antwoord (0x18000b910). Faalt het openen, dan roept het `DebugBreak` aan (0x18000b351).
+In Wine is `com2` -> `/dev/ttyS1` (root:uucp, niet te openen als gebruiker); onder TeknoParrot deed TeknoMacaw hier iets wat wij niet kennen. Uit de code
+volgt: het antwoord heeft geen kop en geen controlesom, alleen vier bytes (offset 0x63..0x66) gaan naar een statusdword. Daarom haakt `rg-macaw.exe` nu de
+Kernel32-imports van arkndd.dll (`install_fakecom`: CreateFileA, ReadFile, WriteFile, ClearCommError, SetupComm, PurgeComm, Get/SetCommState,
+Get/SetCommTimeouts, alleen de IAT van die ene module) en geeft een nep-handle als het echte openen van een COM-poort mislukt: schrijven lukt, lezen geeft een
+volle buffer nullen. **Gegokt:** dat een antwoord van nullen ("niets") door het spel als gezond apparaat wordt gezien; het echte apparaat (waarschijnlijk het
+geweer-/lampenbord) is niet nagebootst. Uitzetten: `RG_MACAW_FAKECOM=0`.
+
+**Nieuw in het log van de lader:**
+```
+libacio.dll: ONZE vervanger geladen (...\modules\libacio.dll)     <- of: WAARSCHUWING: libacio.dll is NIET onze vervanger ... To = .
+virtuele COM: 10 van 10 imports van het spel gehaakt (...)
+virtuele COM: CreateFileA(COM2) faalde (5); nep-handle ...         <- zodra het spel COM2 opent
+virtuele COM: eerste WriteFile (6 bytes: 03 8a 00 00 00 8d)
+virtuele COM: eerste ReadFile (104 bytes, nullen terug)
+```
+en `rg-libacio.log` in de hoofdmap van de view ("rg-libacio geladen", "ac_io_begin(poort=...)", "tp-shm gekoppeld"). Blijft het beeld dan toch wit, dan zeggen deze regels
+hoe ver de IO-machine kwam: ontbreekt "eerste WriteFile", dan bleef hij voor COM2 hangen (kijk in rg-libacio.log welke `eerste aanroep:`-regels er wel zijn).
+
+**Niet beoordeeld:** `Render As Landscape`, ScreenFix en de volledigscherminstelling van TeknoMacaw. Het witte venster past bij een swapchain die nooit gevuld wordt omdat de
+hoofdlus nog op de IO wacht; dat de venstergrootte (staand) er is, laat zien dat het spel zijn video-init wel deed. Pas als de IO-machine door is en het beeld
+dan nog wit/verkeerd staat, zijn dat de volgende verdachten.
+
+**Test zonder spel:** `tools/rg-macaw/fakecom-test.sh "<NAS>/Silent Scope Bone Eater" <map>/rg-macaw.exe` bouwt een nep-`arkndd.dll` (`fakecom_game.c`) die dezelfde
+seriele aanroepen doet, draait de hele route onder Wine in een wegwerpmap en controleert dat COM2 geopend, beschreven en gelezen kan worden (exit 0).

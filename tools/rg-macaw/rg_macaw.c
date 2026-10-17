@@ -405,6 +405,162 @@ static int getenv_int(const char *name, int def)
     return (n > 0 && n < sizeof b) ? atoi(b) : def;
 }
 
+/* ---- virtuele seriele poort (COM2) -------------------------------------------------------------------------------------- */
+
+/* arkndd.dll opent in zijn IO-initialisatie zelf een seriele poort, "COM2" (arkndd.dll 0x18000b2ed: CreateFileA, SetupComm, PurgeComm,
+ * GetCommState/SetCommState 9600 8N1, SetCommTimeouts), stuurt er elke frame 6 bytes heen (03 8a 00 00 00 8d, 0x18000b946) en leest
+ * 0x68 bytes antwoord; alleen vier bytes daaruit (offset 0x63..0x66) gaan naar een statusdword, er is geen kop of controlesom. Faalt het
+ * openen, dan roept het spel DebugBreak aan (0x18000b351). Op de Deck is /dev/ttyS1 (Wine: dosdevices/com2) niet te openen, en onder
+ * TeknoParrot deed TeknoMacaw hier iets wat wij niet kennen. Daarom: de lader haakt de Kernel32-imports van arkndd.dll (alleen de
+ * IAT van die ene module) en geeft, ALS het echte openen van een COM-poort mislukt, een nep-handle terug waarvoor schrijven lukt en
+ * lezen een volle buffer nullen geeft. RG_MACAW_FAKECOM=0 zet dit uit. */
+static HANDLE g_fakecom;
+static volatile LONG g_fc_writes, g_fc_reads;
+
+static HANDLE (WINAPI *o_CreateFileA)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+static BOOL (WINAPI *o_ReadFile)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+static BOOL (WINAPI *o_WriteFile)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+static BOOL (WINAPI *o_ClearCommError)(HANDLE, LPDWORD, LPCOMSTAT);
+static BOOL (WINAPI *o_SetupComm)(HANDLE, DWORD, DWORD);
+static BOOL (WINAPI *o_PurgeComm)(HANDLE, DWORD);
+static BOOL (WINAPI *o_GetCommState)(HANDLE, LPDCB);
+static BOOL (WINAPI *o_SetCommState)(HANDLE, LPDCB);
+static BOOL (WINAPI *o_GetCommTimeouts)(HANDLE, LPCOMMTIMEOUTS);
+static BOOL (WINAPI *o_SetCommTimeouts)(HANDLE, LPCOMMTIMEOUTS);
+
+static int is_com_path(const char *p)
+{
+    if (!p) return 0;
+    if (p[0] == '\\' && p[1] == '\\' && p[2] == '.' && p[3] == '\\') p += 4;
+    return (p[0] == 'C' || p[0] == 'c') && (p[1] == 'O' || p[1] == 'o') && (p[2] == 'M' || p[2] == 'm') && p[3] >= '0' && p[3] <= '9';
+}
+
+static HANDLE WINAPI h_CreateFileA(LPCSTR n, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD fl, HANDLE tmpl)
+{
+    HANDLE h = o_CreateFileA(n, acc, share, sa, disp, fl, tmpl);
+    if (h == INVALID_HANDLE_VALUE && is_com_path(n)) {
+        DWORD err = GetLastError();
+        if (!g_fakecom) g_fakecom = CreateEventA(NULL, TRUE, FALSE, NULL);
+        lg("virtuele COM: CreateFileA(%s) faalde (%lu); nep-handle %p", n, err, g_fakecom);
+        SetLastError(0);
+        return g_fakecom;
+    }
+    return h;
+}
+
+static BOOL WINAPI h_ReadFile(HANDLE h, LPVOID b, DWORD n, LPDWORD got, LPOVERLAPPED ov)
+{
+    if (g_fakecom && h == g_fakecom) {
+        memset(b, 0, n);
+        if (got) *got = n;
+        if (InterlockedIncrement(&g_fc_reads) == 1) lg("virtuele COM: eerste ReadFile (%lu bytes, nullen terug)", n);
+        return TRUE;
+    }
+    return o_ReadFile(h, b, n, got, ov);
+}
+
+static BOOL WINAPI h_WriteFile(HANDLE h, LPCVOID b, DWORD n, LPDWORD put, LPOVERLAPPED ov)
+{
+    if (g_fakecom && h == g_fakecom) {
+        if (put) *put = n;
+        if (InterlockedIncrement(&g_fc_writes) == 1) {
+            const unsigned char *p = (const unsigned char *)b;
+            lg("virtuele COM: eerste WriteFile (%lu bytes: %02x %02x %02x %02x %02x %02x)", n, n > 0 ? p[0] : 0, n > 1 ? p[1] : 0,
+               n > 2 ? p[2] : 0, n > 3 ? p[3] : 0, n > 4 ? p[4] : 0, n > 5 ? p[5] : 0);
+        }
+        return TRUE;
+    }
+    return o_WriteFile(h, b, n, put, ov);
+}
+
+static BOOL WINAPI h_ClearCommError(HANDLE h, LPDWORD e, LPCOMSTAT s)
+{
+    if (g_fakecom && h == g_fakecom) { if (e) *e = 0; if (s) memset(s, 0, sizeof *s); return TRUE; }
+    return o_ClearCommError(h, e, s);
+}
+static BOOL WINAPI h_SetupComm(HANDLE h, DWORD a, DWORD b) { return (g_fakecom && h == g_fakecom) ? TRUE : o_SetupComm(h, a, b); }
+static BOOL WINAPI h_PurgeComm(HANDLE h, DWORD f) { return (g_fakecom && h == g_fakecom) ? TRUE : o_PurgeComm(h, f); }
+static BOOL WINAPI h_GetCommState(HANDLE h, LPDCB d)
+{
+    if (g_fakecom && h == g_fakecom) { memset(d, 0, sizeof *d); d->DCBlength = sizeof *d; d->BaudRate = 9600; d->ByteSize = 8; return TRUE; }
+    return o_GetCommState(h, d);
+}
+static BOOL WINAPI h_SetCommState(HANDLE h, LPDCB d) { return (g_fakecom && h == g_fakecom) ? TRUE : o_SetCommState(h, d); }
+static BOOL WINAPI h_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t)
+{
+    if (g_fakecom && h == g_fakecom) { memset(t, 0, sizeof *t); return TRUE; }
+    return o_GetCommTimeouts(h, t);
+}
+static BOOL WINAPI h_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return (g_fakecom && h == g_fakecom) ? TRUE : o_SetCommTimeouts(h, t); }
+
+/* Vervangt in de importtabel van module m de import dll!fn door repl en bewaart het origineel in *orig. 1 = gedaan. */
+static int iat_patch(HMODULE m, const char *dll, const char *fn, void *repl, void **orig)
+{
+    BYTE *base = (BYTE *)m;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew);
+    IMAGE_DATA_DIRECTORY dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    IMAGE_IMPORT_DESCRIPTOR *d;
+    int done = 0;
+    if (!dd.VirtualAddress) return 0;
+    for (d = (IMAGE_IMPORT_DESCRIPTOR *)(base + dd.VirtualAddress); d->Name; d++) {
+        IMAGE_THUNK_DATA *names, *iat;
+        if (lstrcmpiA((const char *)(base + d->Name), dll) != 0) continue;
+        names = (IMAGE_THUNK_DATA *)(base + (d->OriginalFirstThunk ? d->OriginalFirstThunk : d->FirstThunk));
+        iat = (IMAGE_THUNK_DATA *)(base + d->FirstThunk);
+        for (; names->u1.AddressOfData; names++, iat++) {
+            DWORD old;
+            if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+            if (strcmp((const char *)((IMAGE_IMPORT_BY_NAME *)(base + names->u1.AddressOfData))->Name, fn) != 0) continue;
+            if (!VirtualProtect(&iat->u1.Function, sizeof(void *), PAGE_READWRITE, &old)) continue;
+            if (orig && !*orig) *orig = (void *)iat->u1.Function;
+            iat->u1.Function = (ULONG_PTR)repl;
+            VirtualProtect(&iat->u1.Function, sizeof(void *), old, &old);
+            done = 1;
+        }
+    }
+    return done;
+}
+
+static void install_fakecom(HMODULE game)
+{
+    int n = 0;
+    const char *k = "KERNEL32.dll";
+    if (getenv_int("RG_MACAW_FAKECOM", 1) == 0) { lg("virtuele COM uit (RG_MACAW_FAKECOM=0)"); return; }
+    n += iat_patch(game, k, "CreateFileA", (void *)h_CreateFileA, (void **)&o_CreateFileA);
+    n += iat_patch(game, k, "ReadFile", (void *)h_ReadFile, (void **)&o_ReadFile);
+    n += iat_patch(game, k, "WriteFile", (void *)h_WriteFile, (void **)&o_WriteFile);
+    n += iat_patch(game, k, "ClearCommError", (void *)h_ClearCommError, (void **)&o_ClearCommError);
+    n += iat_patch(game, k, "SetupComm", (void *)h_SetupComm, (void **)&o_SetupComm);
+    n += iat_patch(game, k, "PurgeComm", (void *)h_PurgeComm, (void **)&o_PurgeComm);
+    n += iat_patch(game, k, "GetCommState", (void *)h_GetCommState, (void **)&o_GetCommState);
+    n += iat_patch(game, k, "SetCommState", (void *)h_SetCommState, (void **)&o_SetCommState);
+    n += iat_patch(game, k, "GetCommTimeouts", (void *)h_GetCommTimeouts, (void **)&o_GetCommTimeouts);
+    n += iat_patch(game, k, "SetCommTimeouts", (void *)h_SetCommTimeouts, (void **)&o_SetCommTimeouts);
+    lg("virtuele COM: %d van 10 imports van het spel gehaakt (nep-COM alleen als het echte openen faalt)", n);
+}
+
+/* Is de libacio.dll die het spel geladen heeft de onze? De onze bevat de tekst "rg-libacio". Het origineel praat via COM1 met de
+ * kast en laat het spel op een IO-bord wachten dat er niet is (gemeten 2026-10-17: "MiCmd: COM Port 1 Open Error", wit venster). */
+static void check_libacio(void)
+{
+    HMODULE h = GetModuleHandleA("libacio.dll");
+    char path[MAX_PATH];
+    size_t len = 0;
+    char *b;
+    int ours = 0;
+    if (!h || !GetModuleFileNameA(h, path, sizeof path)) { lg("libacio.dll: niet geladen"); return; }
+    b = slurp(path, &len, 0);
+    if (b) {
+        size_t i;
+        for (i = 0; i + 10 <= len && !ours; i++)
+            if (memcmp(b + i, "rg-libacio", 10) == 0) ours = 1;
+        free(b);
+    }
+    if (ours) lg("libacio.dll: ONZE vervanger geladen (%s)", path);
+    else lg("WAARSCHUWING: libacio.dll is NIET onze vervanger maar het origineel (%s); het spel wacht dan op een IO-bord via COM1. "
+            "Controleer dropin.ini: [libacio.dll] moet To = . hebben (het pad is al relatief aan modules/)", path);
+}
+
 /* De bestandsversie van een DLL ("2.16.3,r7106"), via de versiebron; leeg als die er niet is. */
 static int file_version(const char *path, char *out, size_t cap)
 {
@@ -517,6 +673,8 @@ int main(int argc, char **argv)
     game = LoadLibraryA(argv[1]);
     if (!game) die("LoadLibrary(%s) faalde (%lu)", argv[1], GetLastError());
     lg("spel geladen: %s", argv[1]);
+    check_libacio();
+    install_fakecom(game);
     init = (fn_entry_init)GetProcAddress(game, "dll_entry_init");
     main_ = (fn_entry_main)GetProcAddress(game, "dll_entry_main");
     if (!init || !main_) die("dll_entry_init/dll_entry_main ontbreken in %s", argv[1]);
