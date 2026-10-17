@@ -193,3 +193,40 @@ dan nog wit/verkeerd staat, zijn dat de volgende verdachten.
 
 **Test zonder spel:** `tools/rg-macaw/fakecom-test.sh "<NAS>/Silent Scope Bone Eater" <map>/rg-macaw.exe` bouwt een nep-`arkndd.dll` (`fakecom_game.c`) die dezelfde
 seriele aanroepen doet, draait de hele route onder Wine in een wegwerpmap en controleert dat COM2 geopend, beschreven en gelezen kan worden (exit 0).
+
+## 7. Nog steeds wit na de goede libacio (tv-meting proef 10, 2026-10-17 19:26)
+
+**Wat de meting zegt:** libacio is de onze, COM2 wordt nagebootst, `rg-libacio.log` toont dat de IO-check geslaagd is: na `icca_cardunit_init_isfinished` en
+`ac_io_begin_get_status` volgen `ac_io_update`, `bmpu_update/get_control_status_buffer`, `get_rs232c_status`, `nddb_update/get_control_status_buffer`,
+`bmpu_control_led_bright`, `icca_req_uid(_isfinished)`, `bmpu_current_coinstock` en `bmpu_control_coin_blocker_close`. Dat zijn de aanroepen uit de
+loop van de IO-toestandsmachine (arkndd.dll 0x18000aca0: buitenste toestand 1 = init tot de binnenste toestand 9, daarna toestand 2 = lopend).
+**Het spel wacht dus niet op de IO-check, op de nddb-buffer of op de kaartlezer.** (Het DXVK-log toont bovendien dat er gepresenteerd wordt: drie vensters, `Presenter: Got
+VK_ERROR_OUT_OF_DATE_KHR` na het aanpassen van de venstergrootte.)
+
+* **COM2 (nullen = geen apparaat?):** het spel praat met twee opdrachten: `03 8a 00 00 00 8d` (6 bytes, antwoord 0x68 bytes, GEEN controle; arkndd.dll 0x18000b910)
+  en, elke 3 s vanuit de lus (0x18000bef0), `03 9b 00 00 03 00 00 0a ab` (9 bytes, antwoord 13 bytes). Dat antwoord MOET met `23 9b` beginnen, anders zet het spel
+  fout 6 (communicatiefout); daarna volgt een foutcode (antwoordbytes 8..11) die tegen een lijst "toegestane" codes uit een property wordt gehouden, anders fout 7
+  (`PROJERROR`, arkndd.dll 0x1800090d4, wordt overgeslagen als de projectorcontrole uit staat). Het apparaat is de **projector** van de kast
+  (`/config/console/noProjCheck`, "0 = projectorcommunicatie aan (geeft een projectorfout)"). Met nullen uit onze nep-COM2 kreeg het spel dus na ~3 s een
+  communicatiefout. Het foutscherm is een eigen scherm van het spel; of het hier wit is, is niet gemeten.
+* **NDDB:** `nddb` is het ACIO-bord van de kast zelf (NDD = de spelcode van dit spel): solenoide (terugslag) en pwm (lampen). Het spel gebruikt alleen de uitgangen
+  (`req_solenoide_control`, `control_pwm`); het statusblok wordt nergens gelezen (zie sectie 2). Daar zit geen wachtpunt.
+* **ICCA** is de kaartlezer: `init_isfinished` -> 4 (klaar), `req_uid_isfinished` -> 0, geen kaart. Met `noCard = 0` in de dump gebruikt het spel de lezer; dat werkt.
+
+**Wat de lader nu extra doet (alle drie aanpasbaar):**
+1. `ark-config.xml`: `noProjCheck = 1` in de tijdelijke kopie (`RG_MACAW_PROJCHECK=1` laat de dump staan). Zo gaat het spel nooit meer over COM2 praten
+   (de eerste opdracht in toestand 5 en de 3-secondencontrole worden overgeslagen) en bestaat PROJERROR niet. **Aanname:** dat de vlag die arkndd.dll bij 0x1801e896d
+   test (3 plaatsen) deze config is; de code leest `noProjCheck` en `noCard` vlak naast elkaar (0x180002685/0x18000269f) maar de kopie naar die globale plek is niet
+   regel voor regel gevolgd.
+2. De nep-COM2 antwoordt op de statusopdracht (`03 9b ...`) met een antwoord dat met `23 9b` begint (rest nullen), voor het geval projectorcontrole toch aan staat.
+3. `ark-config.xml`: `loglevel = information` (de dump heeft `disable`, `/config/loglevel`: system/debug/information/warning/error/disable). Het spel logt dan via
+   AVS (dus in `rg-macaw.log` als `AVS: ...`) zijn eigen voortgang en fouten; `RG_MACAW_ARKLOG=<niveau>` kiest een ander niveau, `disable` herstelt de dump. Als het
+   beeld wit blijft is dit het eerste dat zegt waar het spel staat; zet zo nodig `RG_MACAW_ARKLOG=debug` voor meer.
+
+**Wat niet gevonden is:** een wachtpunt na de IO-check. Overige verdachten (niet beoordeeld, geen bewijs): (a) TeknoMacaw maakte bij de TP-run een eigen
+1920x1080-venster (FIFO, "Render As Landscape" uit `teknoparrot.ini`) naast de vensters van het spel (800x1079, 800x480, 768x1366, 800x1280); wij tonen alleen het
+venster van het spel zelf, 800x1079; (b) iets uit het eigen setup van TeknoMacaw ("Set up custom values") dat wij niet kennen.
+
+**Testrecept zonder tv:** `tools/rg-macaw/fakecom-test.sh "<NAS>/Silent Scope Bone Eater" <map>/rg-macaw.exe` (controleert nu ook de regels
+`ark-config.xml: noProjCheck = 1` en `loglevel = information`). Op de tv: in `rg-macaw.log` komen `ark-config.xml: noProjCheck = 1 (geen projector)`,
+`ark-config.xml: loglevel = information` en daarna `AVS: ... I:ark:`-regels van het spel zelf.

@@ -34,3 +34,5 @@ grep -v "^AVS: " rg-macaw.log
 echo "--- fakecom-result.txt:"; cat fakecom-result.txt
 grep -q "virtuele COM: CreateFileA(COM2) faalde" rg-macaw.log
 grep -q "^OK" fakecom-result.txt   # de CRT schrijft CRLF
+grep -q "ark-config.xml: noProjCheck = 1" rg-macaw.log
+grep -q "ark-config.xml: loglevel = information" rg-macaw.log

@@ -355,6 +355,8 @@ static int spit(const char *path, const char *data, size_t n)
 
 /* Leest src, past aan (zie hieronder) en schrijft het naar rg-macaw\<naam>; geeft het pad van de kopie. De kopie wordt
  * gelezen door AVS, dat de padnaam met schuine strepen wil. */
+static int getenv_int(const char *name, int def);
+
 static const char *patched_copy(const char *src, const char *name, int kind, char *dst, size_t dstcap)
 {
     size_t len = 0, cap;
@@ -371,6 +373,25 @@ static const char *patched_copy(const char *src, const char *name, int kind, cha
     } else if (kind == 2) {   /* ark-config: geen USB-sleutel nodig (/config/nousbkey, "niet 0 = geen sleutel") */
         size_t n = rgm_text_replace(buf, len, cap, "<nousbkey __type=\"s32\">0</nousbkey>", "<nousbkey __type=\"s32\">1</nousbkey>");
         if (n != (size_t)-1) { lg("%s: nousbkey = 1", name); }
+        /* /config/console/noProjCheck (arkndd.dll 0x180002685): 0 = het spel praat over COM2 met de projector van de kast en meldt
+         * PROJERROR/een communicatiefout als die niet goed antwoordt; 1 = projectorcommunicatie uit. Er is geen projector. */
+        if (getenv_int("RG_MACAW_PROJCHECK", 0) == 0) {
+            n = rgm_text_replace(buf, len, cap, "<noProjCheck __type=\"s32\">0</noProjCheck>", "<noProjCheck __type=\"s32\">1</noProjCheck>");
+            if (n != (size_t)-1) { len = n; lg("%s: noProjCheck = 1 (geen projector)", name); }
+            else lg("%s: noProjCheck niet gevonden/aangepast", name);
+        }
+        /* /config/loglevel (system/debug/information/warning/error/disable): in de dump staat disable, waardoor het spel via AVS niets
+         * over zijn eigen voortgang meldt. Voor de diagnose staat hij op information; RG_MACAW_ARKLOG=disable herstelt de dump. */
+        {
+            const char *lv = getenv("RG_MACAW_ARKLOG");
+            char rep[96];
+            if (!lv || !lv[0]) lv = "information";
+            if (strcmp(lv, "disable") != 0 && strlen(lv) < 24) {
+                snprintf(rep, sizeof rep, "<loglevel __type=\"str\">%s</loglevel>", lv);
+                n = rgm_text_replace(buf, len, cap, "<loglevel __type=\"str\">disable</loglevel>", rep);
+                if (n != (size_t)-1) { len = n; lg("%s: loglevel = %s", name, lv); }
+            }
+        }
     } else if (kind == 3) {   /* ea3-config: ontbrekende velden aanvullen, zie rgm_ea3_prepare */
         struct rgm_ea3_opts o;
         char report[512];
@@ -416,6 +437,7 @@ static int getenv_int(const char *name, int def)
  * lezen een volle buffer nullen geeft. RG_MACAW_FAKECOM=0 zet dit uit. */
 static HANDLE g_fakecom;
 static volatile LONG g_fc_writes, g_fc_reads;
+static volatile unsigned char g_fc_cmd;      /* tweede byte van de laatste opdracht aan de nep-COM */
 
 static HANDLE (WINAPI *o_CreateFileA)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 static BOOL (WINAPI *o_ReadFile)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
@@ -452,6 +474,9 @@ static BOOL WINAPI h_ReadFile(HANDLE h, LPVOID b, DWORD n, LPDWORD got, LPOVERLA
 {
     if (g_fakecom && h == g_fakecom) {
         memset(b, 0, n);
+        /* na het opdrachtwoord 03 9b (9 bytes, de projectorstatus, arkndd.dll 0x18000bef0) eist het spel een antwoord dat met 23 9b begint
+         * (anders "communicatiefout", fout 6); de eerste opdracht (03 8a) heeft geen controle */
+        if (g_fc_cmd == 0x9b && n >= 2) { ((unsigned char *)b)[0] = 0x23; ((unsigned char *)b)[1] = 0x9b; }
         if (got) *got = n;
         if (InterlockedIncrement(&g_fc_reads) == 1) lg("virtuele COM: eerste ReadFile (%lu bytes, nullen terug)", n);
         return TRUE;
@@ -463,6 +488,7 @@ static BOOL WINAPI h_WriteFile(HANDLE h, LPCVOID b, DWORD n, LPDWORD put, LPOVER
 {
     if (g_fakecom && h == g_fakecom) {
         if (put) *put = n;
+        if (n >= 2) g_fc_cmd = ((const unsigned char *)b)[1];
         if (InterlockedIncrement(&g_fc_writes) == 1) {
             const unsigned char *p = (const unsigned char *)b;
             lg("virtuele COM: eerste WriteFile (%lu bytes: %02x %02x %02x %02x %02x %02x)", n, n > 0 ? p[0] : 0, n > 1 ? p[1] : 0,
