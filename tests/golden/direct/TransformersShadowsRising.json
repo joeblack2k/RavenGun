@@ -14,13 +14,13 @@
    "argv": [
     "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\games\\TransformersShadowsRising\\shell\\Shell.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/games/TransformersShadowsRising/shell",
+   "cwd_is_tp": false,
    "dropin_files": [],
    "dropin_lines": [],
    "dropin_materialise": [],
@@ -33,6 +33,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-tsr",
     "TP_POSTSTART_REMOTETHREAD_MS": "3000",
     "TP_REMOTETHREAD": "1",
@@ -76,14 +77,14 @@
      "argv": [
       "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\games\\TransformersShadowsRising\\shell\\Shell.exe"
      ],
      "comms": [
       "shell.exe",
       "transformers2.e"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/TransformersShadowsRising/shell",
      "exe": "@TMP@/home/games/TransformersShadowsRising/shell/Shell.exe",
      "gamescope": false,
      "name": "Shell.exe",
@@ -113,13 +114,13 @@
    "argv": [
     "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\games\\TransformersShadowsRising\\shell\\Shell.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/games/TransformersShadowsRising/shell",
+   "cwd_is_tp": false,
    "dropin_files": [],
    "dropin_lines": [],
    "dropin_materialise": [],
@@ -132,6 +133,7 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-tsr",
     "TP_POSTSTART_REMOTETHREAD_MS": "3000",
     "TP_REMOTETHREAD": "1",
@@ -175,14 +177,14 @@
      "argv": [
       "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\games\\TransformersShadowsRising\\shell\\Shell.exe"
      ],
      "comms": [
       "shell.exe",
       "transformers2.e"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/TransformersShadowsRising/shell",
      "exe": "@TMP@/home/games/TransformersShadowsRising/shell/Shell.exe",
      "gamescope": false,
      "name": "Shell.exe",
