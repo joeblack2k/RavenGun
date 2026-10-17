@@ -351,8 +351,19 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         const size_t is = stuk.find('=');
         if (is == std::string::npos) return setting_refused("schijfletter '" + stuk + "' is geen LETTER=MAP");
         std::string letter = upper(trim(stuk.substr(0, is)));
-        if (!letter.empty() && letter.back() == ':') letter.pop_back();
-        if (letter.size() != 1 || letter[0] < 'A' || letter[0] > 'Y' || letter == "C")
+        // C:\PC\ALIENS=. : een map op C: (de prefix) die de game met een vast pad opent, voor de duur van de run een koppeling naar
+        // een lokale map. Aliens Extermination laadt zijn shaders uit C:\PC\ALIENS\SHADERS\%s (2026-10-17); de TP-kern leidde dat om.
+        std::string cmap;
+        if (letter.size() > 3 && letter[0] == 'C' && letter[1] == ':' && (letter[2] == '\\' || letter[2] == '/')) {
+            cmap = trim(stuk.substr(3, is - 3));
+            std::replace(cmap.begin(), cmap.end(), '\\', '/');
+            while (!cmap.empty() && cmap.back() == '/') cmap.pop_back();
+            if (cmap.empty() || cmap.find("..") != std::string::npos || cmap[0] == '/')
+                return setting_refused("map '" + trim(stuk.substr(0, is)) + "' kan niet (een map onder C:\\, zonder ..)");
+            letter = "C:\\" + cmap;
+            std::replace(letter.begin(), letter.end(), '/', '\\');
+        } else if (!letter.empty() && letter.back() == ':') letter.pop_back();
+        if (cmap.empty() && (letter.size() != 1 || letter[0] < 'A' || letter[0] > 'Y' || letter == "C"))
             return setting_refused("schijfletter '" + trim(stuk.substr(0, is)) + "' kan niet (een letter van A tot Y, niet C)");
         std::string doel = trim(stuk.substr(is + 1));
         if (doel.starts_with("~/")) doel = p.home + doel.substr(1);
@@ -362,8 +373,10 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         DirectDrive d;
         d.letter = letter;
         d.target = doel;
-        d.link = pjoin(pjoin(prefix, "dosdevices"), lower(letter) + ":");
-        if (!isdir(pjoin(prefix, "dosdevices"))) return setting_refused("schijf " + letter + ": de prefix " + prefix + " heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)");
+        d.link = cmap.empty() ? pjoin(pjoin(prefix, "dosdevices"), lower(letter) + ":") : pjoin(pjoin(prefix, "drive_c"), cmap);
+        if (!cmap.empty() && !isdir(pjoin(prefix, "drive_c")))
+            return setting_refused("map " + letter + ": de prefix " + prefix + " heeft geen drive_c (nog niet aangemaakt; start het spel een keer zonder)");
+        if (cmap.empty() && !isdir(pjoin(prefix, "dosdevices"))) return setting_refused("schijf " + letter + ": de prefix " + prefix + " heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)");
         if (lexists(d.link)) {
             if (!islink(d.link) || realpath_(d.link) != realpath_(doel))
                 return setting_refused("schijf " + letter + ": bestaat al in de prefix " + prefix + " en wijst naar " + realpath_(d.link) + ", niet naar " + doel);

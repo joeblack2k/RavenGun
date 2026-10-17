@@ -1023,6 +1023,10 @@ int run_plan(const std::string& plan_file) {
     std::vector<std::string> gezette_letters;
     for (const auto& d : plan.drives) {
         if (d.present) { log("schijfletter " + d.letter + ": staat al in de prefix (-> " + d.target + ")"); continue; }
+        if (d.letter.size() > 1) {   // een map op C: (C:\PC\ALIENS): de bovenliggende mappen in drive_c aanmaken
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(d.link).parent_path(), ec);
+        }
         if (::symlink(d.target.c_str(), d.link.c_str()) != 0) {
             log("schijfletter " + d.letter + ": niet te zetten (" + d.link + "): " + std::strerror(errno) + "; de game wordt niet gestart");
             for (const auto& l : gezette_letters) ::unlink(l.c_str());

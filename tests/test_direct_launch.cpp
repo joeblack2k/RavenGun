@@ -987,6 +987,13 @@ int main() {
         fs::remove(xlink);
         write(user, "[Launch]\nDrives = C=.\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "niet C"));
+        // Een map op C: (Aliens Extermination: C:\PC\ALIENS\SHADERS): een koppeling in drive_c, voor de run.
+        fs::create_directories(fs::path(basis.prefix) / "drive_c");
+        write(user, "[Launch]\nDrives = C:\\PC\\ALIENS=.\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.drives.size() == 1 && pl.drives[0].letter == "C:\\PC\\ALIENS" &&
+              pl.drives[0].link == (fs::path(basis.prefix) / "drive_c/PC/ALIENS").string() && !pl.drives[0].present);
+        write(user, "[Launch]\nDrives = C:\\..\\x=.\n");
+        CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "zonder .."));
         write(user, "[Launch]\nDrives = X=.\nExe = Y:\\spel.exe\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "bestaat niet in de prefix"));
         write(user, "[Launch]\nDrives = X=.\nExe = X:\\bestaat-niet.exe\n");
