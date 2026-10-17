@@ -86,6 +86,7 @@ A mouse as lightgun moves the gun of that player (the desktop pointer moves too)
 - While a game runs, the menu hides. When the game ends, it comes back. **Stop Game** appears while a game is starting or running.
 - The top right corner shows your PS Moves: player, battery and whether they are on.
 - To protect OLED TVs, the screen stays black. After a while without input the icons dim and move slowly; after five minutes only a small moving text remains. Shoot or press a key to wake it.
+- Behind the scenes, the user service `ravengun-oled-saver` runs `ravengun --saver-loop` (no shell script involved). It shows the black saver only when no game is on the TV, and a game always takes the screen back within a few seconds.
 - **Exit** closes RavenGun (you are asked first).
 
 ## Setup Wizard

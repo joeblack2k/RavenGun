@@ -5,7 +5,9 @@
 //                          en zonder hoofdvenster; het proces blijft tot de game stopt (Steam en snelkoppelingen). Exitcode 0 =
 //                          gespeeld, 1 = mislukt, 2 = afgebroken. SIGTERM (Steam: "Exit game") stopt de game.
 //   --saver                OLED-bescherming: zwart schermvullend venster met een bewegend statusbord (geen engine; stopt bij SIGTERM/SIGINT)
-//   --saver-snapshot PNG   het statusbord als PNG bewaren (zonder iets te tonen; --saver-size BxH, standaard 1920x1080) en stoppen
+//   --saver-loop           de lus van de OLED-bescherming (unit ravengun-oled-saver; geen scherm nodig, zie core/SaverLoop.h)
+//   --saver-stop-view      het zwarte scherm (unit ravengun-oled-view) dichtdoen; ExecStopPost van diezelfde unit
+//   --saver-snapshot PNG  het statusbord als PNG bewaren (zonder iets te tonen; --saver-size BxH, standaard 1920x1080) en stoppen
 //   --saver-check          toon wat het statusbord zou tonen en stop (exitcode 1 als het statusbestand ontbreekt of niet klopt)
 //   --add-to-steam         RavenGun als niet-Steam-game toevoegen (zonder vragen; weigert als Steam draait) en stoppen
 //   --steam-account ID     bij --add-to-steam: deze Steam-gebruiker (map onder userdata/) in plaats van de laatst ingelogde
@@ -38,6 +40,7 @@
 #include "core/AppCore.h"
 #include "core/AppPaths.h"
 #include "core/Install.h"
+#include "core/SaverLoop.h"
 #include "core/SetupChecks.h"
 #include "core/SteamShortcuts.h"
 #include "widgets/BigPictureWindow.h"
@@ -63,6 +66,10 @@ int main(int argc, char** argv) {
     // Onder gamescope (Steam Game Mode) is Xwayland de betrouwbare weg: Qt kiest anders misschien de eigen Wayland-socket
     // van gamescope, die niet alle protocollen heeft. Een expliciete QT_QPA_PLATFORM gaat altijd voor.
     if (!std::getenv("QT_QPA_PLATFORM") && rg::SetupChecks::isGameMode() && std::getenv("DISPLAY")) setenv("QT_QPA_PLATFORM", "xcb", 1);
+
+    // De unit van de OLED-bescherming: geen QApplication (en dus geen scherm) nodig. Alleen als eerste en enige argument.
+    if (argc == 2 && std::strcmp(argv[1], "--saver-loop") == 0) return rg::saver::RunSaverLoop();
+    if (argc == 2 && std::strcmp(argv[1], "--saver-stop-view") == 0) return rg::saver::RunStopView();
 
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("RavenGun"));

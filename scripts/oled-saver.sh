@@ -11,6 +11,7 @@
 #                komt meteen en zegt dat er een spel draait -- anders zie je een leeg bureaublad terwijl er gemeten wordt.
 #   geen         er draait niets: het bord komt na IDLE_S seconden.
 # "Er draait een spel" zegt niets over de uitslag; die staat in saver-status.txt.
+# LET OP: het product draait deze lus nu als `ravengun --saver-loop` (src/app/core/SaverLoop.cpp); dit script is alleen nog voor ontwikkelaars.
 # Gebruik: scripts/oled-saver.sh --start | --stop | --status | --stop-view | --game-state   (draait als user-unit ravengun-oled-saver)
 set -euo pipefail
 IDLE_S="${RG_SAVER_IDLE_S:-600}"

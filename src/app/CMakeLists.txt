@@ -29,6 +29,7 @@ add_library(ravengun_app_core STATIC
   core/Launcher.cpp
   core/MemoryCard.cpp
   core/PreLaunch.cpp
+  core/SaverLoop.cpp
   core/SetupChecks.cpp
   core/SteamShortcuts.cpp
   core/SystemControl.cpp
