@@ -40,8 +40,8 @@ static HANDLE draad;
 static volatile LONG stoppen;
 
 static struct {
-    int muis, toetsen, trekker_bit, munt_bit, start_bit, x_off, y_off, munt_vk, start_vk, interval;
-} cfg = {1, 0, 7, 2, 6, 12, 13, '5', '1', 4};
+    int muis, toetsen, trekker_bit, munt_bit, start_bit, x_off, y_off, munt_vk, start_vk, interval, haak, trekker2_bit, x2_off, y2_off;
+} cfg = {1, 0, 7, 2, 6, 12, 13, '5', '1', 4, 1, 12, 14, 15};
 
 static void logf_(const char *fmt, ...)
 {
@@ -101,6 +101,10 @@ static void lees_ini(void)
         else if (!strcmp(k, "y_offset")) { doel = &cfg.y_off; hi = BEELD_GROOTTE - 1; }
         else if (!strcmp(k, "munt_toets")) { doel = &cfg.munt_vk; lo = 1; }
         else if (!strcmp(k, "start_toets")) { doel = &cfg.start_vk; lo = 1; }
+        else if (!strcmp(k, "haak")) { doel = &cfg.haak; hi = 1; }
+        else if (!strcmp(k, "trekker2_bit")) { doel = &cfg.trekker2_bit; hi = 31; }
+        else if (!strcmp(k, "x2_offset")) { doel = &cfg.x2_off; hi = BEELD_GROOTTE - 1; }
+        else if (!strcmp(k, "y2_offset")) { doel = &cfg.y2_off; hi = BEELD_GROOTTE - 1; }
         else if (!strcmp(k, "interval_ms")) { doel = &cfg.interval; lo = 1; hi = 100; }
         if (!doel) continue;
         if (w < lo || w > hi) { logf_("ini: %s = %ld buiten %d..%d, genegeerd", k, w, lo, hi); continue; }
@@ -173,6 +177,96 @@ static void toets(int vk, int omlaag)
     SendInput(1, &in, sizeof in);
 }
 
+/* ---- de haak in InputsManager.Update (IL2CPP) ----
+ * Gemeten aan GameAssembly.dll (imagebase 0x180000000, il2cpp-dump + objdump): InputsManager.Update (RVA 0x3F0100) loopt over playersData
+ * (veld +0x28, array: lengte +0x18, elementen +0x20); een PlayerData heeft ID (+0x10) en InputMode (+0x14; 0 Turret, 1 Mouse, 2 Gamepad). Zonder
+ * zitbank is de modus Mouse (PlayerData-ctor RVA 0x3F2D30 kiest Turret alleen als de zitbank bestaat). In Mouse-modus leest Update de OUDE Unity-
+ * invoer (Input.GetMouseButton(ID) en Input.mousePosition, icalls op RVA 0x16C4EB0 / 0x16C50B0), zet de muis om naar -1..1 en roept
+ * SendButtonEvent(this, ID, schiet) (RVA 0x3EFBE0) en SendPositionEvent(this, ID, &Vector3) (RVA 0x3EFCC0). SendInput kwam daar in Wine niet
+ * aan (tv-ronde 43: de trekker veranderde niets). Daarom vervangen we Update zelf: dezelfde twee aanroepen, maar met het bordbeeld als bron. */
+#define RVA_UPDATE 0x3F0100u
+#define RVA_SENDBUTTON 0x3EFBE0u
+#define RVA_SENDPOS 0x3EFCC0u
+typedef struct { float x, y, z; } Vec3;
+typedef void (*FnSendButton)(void *self, int speler, unsigned char schiet, void *mi);
+typedef void (*FnSendPos)(void *self, int speler, Vec3 *pos, void *mi);
+static const volatile uint8_t *g_beeld;
+static FnSendButton g_sendbutton;
+static FnSendPos g_sendpos;
+static volatile LONG g_haak_aan;
+static volatile LONG g_haak_aanroepen;
+
+static float as_ndc(uint8_t v, int omkeren)
+{
+    int p = v <= 1 ? 0 : (v >= 254 ? 255 : v);
+    float f = (float)p / 255.0f * 2.0f - 1.0f;
+    return omkeren ? -f : f;
+}
+
+static void haak_update(void *self, void *mi)
+{
+    (void)mi;
+    LONG n = InterlockedIncrement(&g_haak_aanroepen);
+    char *rij = *(char **)((char *)self + 0x28);
+    if (!rij) return;
+    int lengte = *(int *)(rij + 0x18);
+    const volatile uint8_t *b = g_beeld;
+    static int vorige[2] = {-1, -1};
+    for (int i = 0; i < lengte; i++) {
+        char *pd = *(char **)(rij + 0x20 + 8 * i);
+        if (!pd || *(int *)(pd + 0x14) != 1) continue;
+        int id = *(int *)(pd + 0x10);
+        int schiet = 0;
+        Vec3 v = {0.0f, 0.0f, 0.0f};
+        if (b && (id == 0 || id == 1)) {
+            uint32_t bits;
+            memcpy(&bits, (const void *)(b + 8), 4);
+            schiet = (int)((bits >> (id == 0 ? cfg.trekker_bit : cfg.trekker2_bit)) & 1);
+            v.x = as_ndc(b[id == 0 ? cfg.x_off : cfg.x2_off], 0);
+            v.y = as_ndc(b[id == 0 ? cfg.y_off : cfg.y2_off], 1);   /* bordbeeld: boven = 0; Unity: onder = -1 */
+        }
+        g_sendbutton(self, id, (unsigned char)schiet, NULL);
+        g_sendpos(self, id, &v, NULL);
+        if (id < 2 && vorige[id] != schiet) {
+            vorige[id] = schiet;
+            logf_("haak: speler %d schiet=%d pos %.2f,%.2f (aanroep %ld)", id, schiet, v.x, v.y, (long)n);
+        }
+    }
+}
+
+/* Schrijft 14 bytes (jmp [rip+0]; adres) op het begin van Update, eerst de staart en dan het eerste aangelijnde woord in een keer. */
+static int zet_haak(void)
+{
+    HMODULE ga = GetModuleHandleA("GameAssembly.dll");
+    if (!ga) return 0;
+    unsigned char *basis = (unsigned char *)ga;
+    unsigned char *doel = basis + RVA_UPDATE;
+    static const unsigned char verwacht[16] = {0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18, 0x57};
+    if (memcmp(doel, verwacht, 16) != 0) {
+        logf_("haak: bytes op GameAssembly+0x%x kloppen niet (andere build); GEEN haak, terugval op SendInput", RVA_UPDATE);
+        return -1;
+    }
+    g_sendbutton = (FnSendButton)(basis + RVA_SENDBUTTON);
+    g_sendpos = (FnSendPos)(basis + RVA_SENDPOS);
+    DWORD was;
+    if (!VirtualProtect(doel, 16, PAGE_EXECUTE_READWRITE, &was)) { logf_("haak: VirtualProtect mislukt (%lu)", (unsigned long)GetLastError()); return -1; }
+    uint64_t adres = (uint64_t)(uintptr_t)&haak_update;
+    unsigned char nieuw[16];
+    memcpy(nieuw, doel, 16);
+    nieuw[0] = 0xFF; nieuw[1] = 0x25; nieuw[2] = nieuw[3] = nieuw[4] = nieuw[5] = 0;
+    memcpy(nieuw + 6, &adres, 8);
+    uint64_t staart, kop;
+    memcpy(&staart, nieuw + 8, 8);
+    memcpy(&kop, nieuw, 8);
+    InterlockedExchange64((volatile LONG64 *)(doel + 8), (LONG64)staart);
+    InterlockedExchange64((volatile LONG64 *)doel, (LONG64)kop);
+    VirtualProtect(doel, 16, was, &was);
+    FlushInstructionCache(GetCurrentProcess(), doel, 16);
+    InterlockedExchange(&g_haak_aan, 1);
+    logf_("haak: InputsManager.Update (GameAssembly %p + 0x%x) omgeleid naar onze functie", (void *)basis, RVA_UPDATE);
+    return 1;
+}
+
 static const volatile uint8_t *open_beeld(void)
 {
     HANDLE m = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
@@ -190,11 +284,17 @@ static DWORD WINAPI lus(LPVOID arg)
     int gezien = 0, laatste_x = -1, laatste_y = -1, trekker = 0, munt = 0, start = 0, aantal_bewegingen = 0, aantal_knop = 0;
     uint32_t bits_vorig = 0;
     DWORD volgende_poging = 0, volgende_venster = 0;
-    int venster_gemeld = 0;
+    int venster_gemeld = 0, haak_gepoogd = 0;
+    DWORD volgende_haak = 0;
 
     while (!stoppen) {
         DWORD nu = GetTickCount();
-        if (!beeld && (LONG)(nu - volgende_poging) >= 0) { beeld = open_beeld(); volgende_poging = nu + 500; }
+        if (!beeld && (LONG)(nu - volgende_poging) >= 0) { beeld = open_beeld(); g_beeld = beeld; volgende_poging = nu + 500; }
+        if (cfg.haak && !haak_gepoogd && beeld && (LONG)(nu - volgende_haak) >= 0) {
+            int r = zet_haak();
+            if (r != 0) haak_gepoogd = 1;
+            volgende_haak = nu + 250;
+        }
         if (beeld) {
             uint32_t bits;
             memcpy(&bits, (const void *)(beeld + 8), 4);
@@ -216,7 +316,7 @@ static DWORD WINAPI lus(LPVOID arg)
                           GetForegroundWindow() == venster ? "ja" : "nee");
                     venster_gemeld = 1;
                 }
-                if (cfg.muis && venster) {
+                if (cfg.muis && venster && !g_haak_aan) {
                     if (ax != laatste_x || ay != laatste_y) {
                         RECT r;
                         POINT o = {0, 0};
