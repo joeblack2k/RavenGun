@@ -84,9 +84,26 @@ def preserve_user(src, dst):
         raw = open(original, encoding="utf-8-sig").read()
 
         def raw_section(text, name):
-            """De sectie zoals hij in het bestand staat, inclusief meerregelige waarden."""
-            m = re.search(r"(?ms)^[ \t]*\[" + re.escape(name) + r"\][ \t]*\r?\n(.*?)(?=^[ \t]*\[|\Z)", text)
-            return m.group(0) if m else None
+            """De sectie zoals hij in het bestand staat, inclusief meerregelige waarden en
+            opmerkingen. De grenzen zijn die van configparser: een regel waarvan de
+            afgetrimde vorm met '[' begint en een ']' bevat, is een nieuwe sectiekop. Een
+            kop met tekst erachter ('[x] ; toelichting') telt dus mee, en een regel die
+            zelf met '[' begint hoort niet meer bij de waarde (configparser ziet die ook
+            als nieuwe sectie)."""
+            kop = re.compile(r"^\[.*\]")
+            uit, binnen = [], False
+            for regel in text.splitlines(keepends=True):
+                schoon = regel.strip()
+                if kop.match(schoon):
+                    if binnen:
+                        break
+                    if schoon[1:schoon.rfind("]")] == name:
+                        binnen = True
+                        uit.append(regel)
+                    continue
+                if binnen:
+                    uit.append(regel)
+            return "".join(uit) if uit else None
 
         additions = []
         for section in needed:

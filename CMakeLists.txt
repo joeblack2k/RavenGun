@@ -41,6 +41,20 @@ set(RAVENGUN_BUILD_DEFS
 
 # rg-exec (tools/rg-exec): het hulpprogramma tussen gamescope en bwrap van de native route; laat alleen DISPLAY van gamescope door.
 add_executable(rg-exec tools/rg-exec/rg_exec.cpp)
+# Nooit in de gegevensmap van deze gebruiker installeren (~/.local/share/ravengun, dus
+# XDG_DATA_HOME): dat is de gebruikerslaag (patches/, views, prefixen) en niet de applicatie.
+# Dit staat als eerste installatieregel, zodat er dan nog niets geschreven is. De datamap heet
+# hieronder share/ravengun (RAVENGUN_DATADIR, pas verderop gezet).
+install(CODE "
+  set(_rg_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
+  set(_rg_data \"\$ENV{XDG_DATA_HOME}\")
+  if(NOT _rg_data)
+    set(_rg_data \"\$ENV{HOME}/.local/share\")
+  endif()
+  if(_rg_data AND \"\${_rg_prefix}/share/ravengun\" STREQUAL \"\${_rg_data}/ravengun\")
+    message(FATAL_ERROR \"prefix \${CMAKE_INSTALL_PREFIX} is de gegevensmap van deze gebruiker (\${_rg_data}/ravengun). Installeer daar niet: dat overschrijft de gebruikerslaag. Kies een eigen prefix, bijvoorbeeld ~/.local/opt/ravengun, of zet XDG_DATA_HOME op iets anders voor deze installatie.\")
+  endif()
+")
 install(TARGETS rg-exec RUNTIME DESTINATION bin)
 
 add_library(ravengun STATIC
@@ -765,6 +779,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
     elseif(IS_SYMLINK \"\${_rg_dm}\")
       # De productindeling staat er al; de bestanden zijn net in <prefix>/patches gezet.
     else()
+      # (Het installatiescript weigert al eerder een prefix die de gegevensmap van de gebruiker
+      # is; anders zou de rename hieronder ~/.local/share/ravengun/patches verplaatsen.)
       set(_rg_top \"\${_rg_prefix}/patches\")
       if(EXISTS \"\${_rg_top}\")
         file(REMOVE_RECURSE \"\${_rg_top}\")

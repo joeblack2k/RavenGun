@@ -146,5 +146,26 @@ if [[ -d "$REPO/patches" ]]; then
   echo "(echte patches: $GEKOPIEERD bestanden in de levering)"
 fi
 
+# De profielen komen uit de commit (git archive), niet uit de werkmap: een los bestand in de
+# werkmap mag nooit in een release belanden. Dit toetst de regel die make-release.sh gebruikt,
+# en dat de lezer (ship-patches.py) zo'n bestand wél meeneemt als hij het krijgt: de bron is de
+# enige plek waar het tegengehouden wordt.
+FIX="$T/head-fixture"; mkdir -p "$FIX/patches/GameA/dropin"
+printf '[Game]\nName = A\n' > "$FIX/patches/GameA/game.ini"
+printf 'gecommit\n' > "$FIX/patches/GameA/dropin/proef.dll"
+git -C "$FIX" init -q
+git -C "$FIX" add -A
+git -C "$FIX" -c user.email=t@t -c user.name=t commit -qm "profiel"
+printf 'los bestand, nooit in een release\n' > "$FIX/patches/GameA/dropin/los.dll"
+mkdir -p "$T/uit-commit"
+git -C "$FIX" archive --format=tar HEAD patches | tar -x -C "$T/uit-commit" --strip-components=1
+[[ -f "$T/uit-commit/GameA/game.ini" ]] || fail "git archive leverde het gecommitte profiel niet"
+[[ -f "$T/uit-commit/GameA/dropin/proef.dll" ]] || fail "git archive mist een gecommit leveringsbestand"
+[[ ! -e "$T/uit-commit/GameA/dropin/los.dll" ]] || fail "een los bestand uit de werkmap zit in het archief van HEAD"
+grep -q 'git archive --format=tar HEAD patches' "$REPO/tools/dev/make-release.sh" ||
+  fail "make-release.sh haalt de profielen niet uit git archive HEAD (losse bestanden lekken dan in de release)"
+python3 -I "$REPO/tools/dev/ship-patches.py" "$FIX/patches" "$T/uit-werkmap" > /dev/null || fail "patch-export faalde"
+[[ -f "$T/uit-werkmap/GameA/dropin/los.dll" ]] || fail "ship() laat een leveringsbestand liggen"
+
 echo "releaseindelingstest: alles in orde"
 exit 0

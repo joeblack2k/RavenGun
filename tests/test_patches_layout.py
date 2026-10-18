@@ -135,6 +135,30 @@ class Fixtures(unittest.TestCase):
         with open(os.path.join(user, "Goed/dropin/dropin.ini")) as f:
             self.assertEqual(f.read(), text)
 
+    def test_privebehoud_meerregelige_waarde_en_kopcommentaar(self):
+        # De privésectie wordt ONBEWERKT overgenomen: een meerregelige waarde blijft één waarde
+        # (geen rij sleutels) en een sectiekop met tekst erachter telt ook mee (configparser leest
+        # '[x] ; toelichting' als sectie x).
+        d = maak_game(self.root, "Goed")
+        write(os.path.join(self.root, "Goed/dropin/ravengun-hasp/memory/dump"), "private")
+        write(os.path.join(d, "dropin/dropin.ini"),
+              "[proef.dll]\nTo = .\n\n"
+              "[ravengun-hasp/memory/dump]  ; de dump van de kast\n"
+              "To = .\n"
+              "Sleutel = een\n"
+              "  vervolg = twee\n"
+              "  slot = drie\n")
+        user = os.path.join(self.tmp, "user")
+        write(os.path.join(user, "Goed/dropin/dropin.ini"), "[proef.dll]\nTo = custom\n")
+        pl._ship.preserve_user(self.root, user)
+        with open(os.path.join(user, "Goed/dropin/dropin.ini")) as f:
+            text = f.read()
+        self.assertIn("[ravengun-hasp/memory/dump]  ; de dump van de kast", text)
+        self.assertIn("Sleutel = een\n  vervolg = twee\n  slot = drie\n", text)
+        # De gebruikerslaag houdt zijn eigen sleutel en krijgt de privésectie erachter.
+        self.assertIn("To = custom", text)
+        self.assertLess(text.index("To = custom"), text.index("[ravengun-hasp/memory/dump]"))
+
     # ---- levering compleet ------------------------------------------------------------------------------------------
 
     def test_een_dropin_zonder_het_bestand_faalt(self):

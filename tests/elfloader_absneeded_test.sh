@@ -21,10 +21,13 @@ T=$(mktemp -d) || exit 1
 trap 'rm -rf "$T"' EXIT
 fail() { echo "FAIL: $*"; exit 1; }
 
-printf 'int main(void){return 0;}\n' > "$T/probe.c"
+# De probe moet dezelfde kopteksten gebruiken als de synthetische gast en libs: zonder 32-bits
+# libc-kopteksten (gnu/stubs-32.h) lukt 'gcc -m32' op een leeg bestand wel, maar het echte werk
+# niet. Zo'n systeem slaat deze test dus over in plaats van te falen.
+printf '#include <stdio.h>\n#include <unistd.h>\nint main(void){char b[8]; snprintf(b, sizeof b, "%%d", (int)getpid()); return b[0] == 0;}\n' > "$T/probe.c"
 INC=""
 [ -d "$ROOT/tools/rg-elfloader/inc" ] && INC="-I$ROOT/tools/rg-elfloader/inc"
-"$CC" -m32 $INC -o "$T/probe" "$T/probe.c" >/dev/null 2>&1 || { echo "geen 32-bits toolchain (gcc -m32)"; exit 77; }
+"$CC" -m32 $INC -o "$T/probe" "$T/probe.c" >/dev/null 2>&1 || { echo "skip: geen volledige 32-bits toolchain (gcc -m32 met 32-bits libc-kopteksten, gnu/stubs-32.h)"; exit 77; }
 
 mkdir -p "$T/kast/usr/lib" "$T/rglib"
 printf 'int csv_waarde(void) { return 42; }\n' > "$T/csv.c"

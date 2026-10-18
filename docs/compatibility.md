@@ -82,3 +82,9 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
+
+## Not working yet (1)
+
+These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
+
+- **GhostBusters**: On our own loader (rg-elfloader, own HASP hook, RIO bridge) the game reaches attract on 2026-10-18: TEST skips both gun calibrations, then "HOUSE CREEPING" and more than 9 minutes without a crash (screenshots). The ElfLdr2 path check is solved with the pm folder. The HASP responses that decrypt the data files live in the repository's private folder (patches/GhostBusters/private/ and dropin/ravengun-hasp/); without them the game stops at the RTDT defs. No TeknoParrot library or core is loaded.
