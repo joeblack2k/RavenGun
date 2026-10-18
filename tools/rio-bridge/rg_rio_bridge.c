@@ -117,6 +117,8 @@ static struct {
     /* Statusrapporten (type 1) tussen de rapporten van type 2: het bord meldt er o.a. de 12V-voeding mee (WD: rapportbyte 18,
        bit 3 moet gezet zijn, anders "Problem detected with 12v fuse/power supply"). */
     int st_aan, st_type, st_elke; uint8_t st_byte[64]; unsigned char st_gezet[64];
+    /* statusbit: een bit uit het bordbeeld zet een masker in een byte van het statusrapport (de bedieningsbits van de mounted guns). */
+    struct { int bit, byte; uint8_t mask; } st_bit[16]; int nst_bit;
     /* Het UMC-bord (Walking Dead): een tweede USB-apparaat, door de game als seriele poort /dev/umc gebruikt. */
     int umc_aan, umc_vid, umc_pid; char umc_pad[64];
 } U;
@@ -260,6 +262,11 @@ static int lees_tabel(const char *pad) {
             if (!getal(waarde(kv, nkv, "byte"), &a) || !waarde(kv, nkv, "waarde") || a < 3 || a >= 63) { fout = nr; continue; }
             w = strtol(waarde(kv, nkv, "waarde"), 0, 16);
             U.st_byte[(int)a] = (uint8_t)w; U.st_gezet[(int)a] = 1;
+        } else if (!strcmp(s, "statusbit") && U.nst_bit < 16) {
+            double m;
+            if (!getal(waarde(kv, nkv, "bit"), &a) || !getal(waarde(kv, nkv, "byte"), &b) || !waarde(kv, nkv, "mask") || a < 0 || a > 31 || b < 3 || b >= 63) { fout = nr; continue; }
+            m = strtol(waarde(kv, nkv, "mask"), 0, 16);
+            U.st_bit[U.nst_bit].bit = (int)a; U.st_bit[U.nst_bit].byte = (int)b; U.st_bit[U.nst_bit].mask = (uint8_t)m; U.nst_bit++;
         } else if (!strcmp(s, "umc")) {
             const char *v = waarde(kv, nkv, "vid"), *p = waarde(kv, nkv, "pid"), *pd = waarde(kv, nkv, "pad");
             if (!v || !p || !pd || strlen(pd) >= sizeof U.umc_pad) { fout = nr; continue; }
@@ -429,6 +436,8 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
     r[0] = (uint8_t)(status ? U.st_type : U.type); r[1] = (uint8_t)volgnr; r[2] = (uint8_t)(volgnr >> 8); volgnr++;
     if (status) {
         for (int i = 3; i < 63; i++) if (U.st_gezet[i]) r[i] = U.st_byte[i];
+        { uint32_t bits = atomic_load(&laatste_bits);
+          for (int i = 0; i < U.nst_bit; i++) if (bits >> U.st_bit[i].bit & 1) r[U.st_bit[i].byte] |= U.st_bit[i].mask; }
     } else
     for (int i = 0; i < U.nv; i++) {
         uint8_t nib = (uint8_t)(atomic_load(&teller[U.v[i].id]) & 0xf);
