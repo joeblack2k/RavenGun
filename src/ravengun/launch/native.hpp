@@ -70,6 +70,7 @@ struct NativeProfile {
     std::vector<SrcDst> files, seeds, links /* src = doel van de link */, libdirs, binds_rw;
     std::vector<std::string> libs, extra_ro, args;
     std::vector<std::pair<std::string, std::string>> env;
+    std::vector<std::string> notes;   // regels voor het logboek (bijvoorbeeld een samengevoegde patches-laag)
 };
 
 // Leest profiel `game` met de @-paden ingevuld. false + err (Nederlands) bij een fout, een onbekend profiel of een ongeldige waarde.

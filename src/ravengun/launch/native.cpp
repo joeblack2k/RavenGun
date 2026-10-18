@@ -55,6 +55,40 @@ std::string expand(std::string s, const NativePaths& p) {
     return s;
 }
 
+// De gebruikerslaag gaat per BESTAND voor op de meegeleverde laag. Zonder dit wint een map
+// in de gebruikerslaag op de hele meegeleverde map: een halve of verouderde
+// ravengun-hasp-map (of data/-map) verbergt dan de bestanden die een verse checkout wel
+// heeft, en de game start niet meer. Botst het, dan maken we in @data/merge-patches een
+// samengevoegde map: eerst de meegeleverde bestanden, daarna die van de gebruiker eroverheen.
+std::string merge_patches(const std::string& src, const NativePaths& p, std::vector<std::string>* notes) {
+    const auto meld = [&](const std::string& tekst) {
+        if (notes) notes->push_back(tekst);
+    };
+    if (p.user_patches.empty() || p.patches.empty() || p.data.empty()) return src;
+    const std::string up = p.user_patches + "/", sp = p.patches + "/";
+    std::string rel;
+    if (src.starts_with(up)) rel = src.substr(up.size());
+    else if (src.starts_with(sp)) rel = src.substr(sp.size());
+    else return src;
+    if (rel.empty()) return src;
+    const std::string user = p.user_patches + "/" + rel, shipped = p.patches + "/" + rel;
+    // Alleen bij twee mappen; is het een bestand, dan is de keuze van expand() al goed.
+    if (!is_dir(user) || !is_dir(shipped)) return src;
+    std::error_code ec;
+    if (fs::equivalent(user, shipped, ec) && !ec) return src;   // hetzelfde (bijvoorbeeld een koppeling)
+    const std::string dst = p.data + "/merge-patches/" + rel;
+    fs::remove_all(dst, ec);
+    ec.clear();
+    fs::create_directories(dst, ec);
+    if (ec) { meld("patches-laag samenvoegen mislukt (" + rel + "): " + ec.message()); return src; }
+    const auto opties = fs::copy_options::recursive | fs::copy_options::copy_symlinks | fs::copy_options::overwrite_existing;
+    fs::copy(shipped, dst, opties, ec);
+    if (!ec) fs::copy(user, dst, opties, ec);
+    if (ec) { meld("patches-laag samenvoegen mislukt (" + rel + "): " + ec.message()); return src; }
+    meld("patches-laag samengevoegd (meegeleverd + gebruikerslaag): " + rel);
+    return dst;
+}
+
 std::string str_of(const Value* v) { return v && v->is_string() ? v->str : std::string(); }
 
 bool exists(const std::string& path) {
@@ -397,7 +431,7 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
         for (const Value& e : v->arr) {
             const std::string s = str_of(e.find(a)), d = str_of(e.find(b));
             if (s.empty() || d.empty() || d[0] != '/') { err = game + ": '" + key + "' heeft een regel zonder " + a + " of met een relatief " + b; return false; }
-            to.push_back({std::string(a) == "target" ? s : expand(s, p), d});
+            to.push_back({std::string(a) == "target" ? s : merge_patches(expand(s, p), p, &out.notes), d});
         }
         return true;
     };
@@ -407,7 +441,7 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
         if (!v->is_array()) { err = game + ": '" + key + "' is geen lijst"; return false; }
         for (const Value& e : v->arr) {
             if (!e.is_string()) { err = game + ": '" + key + "' bevat iets anders dan tekst"; return false; }
-            to.push_back(exp ? expand(e.str, p) : e.str);
+            to.push_back(exp ? merge_patches(expand(e.str, p), p, &out.notes) : e.str);
         }
         return true;
     };
@@ -417,6 +451,7 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
             Mount mt{str_of(e.find("mode")), expand(str_of(e.find("src")), p), str_of(e.find("dst"))};
             if (mt.mode.empty()) mt.mode = "ro";
             if (mt.src.empty() || mt.dst.empty() || mt.dst[0] != '/') { err = game + ": een mount zonder src of met een relatief dst"; return false; }
+            mt.src = merge_patches(mt.src, p, &out.notes);
             out.mounts.push_back(mt);
         }
     }
@@ -469,6 +504,7 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
 
 bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, NativePlan& out, std::string& err) {
     out = NativePlan{};
+    out.notes = pr.notes;
     out.res = !o.res_override.empty() ? o.res_override : pr.res;
     const size_t x = out.res.find('x');
     if (x == std::string::npos || x == 0 || x + 1 >= out.res.size()) { err = "ongeldige resolutie: " + out.res; return false; }

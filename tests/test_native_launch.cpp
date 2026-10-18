@@ -444,6 +444,31 @@ int main() {
         CHECK(pp.mounts[0].src == q.patches + "/Private/data/shader");
     }
 
+    // Botst een MAP van de gebruikerslaag met een meegeleverde map, dan wint de gebruiker per
+    // bestand: een halve of verouderde ravengun-hasp-map verbergt niet meer de hele levering.
+    {
+        NativePaths q = p;
+        const std::string user = q.user_patches + "/Dir/dropin/ravengun-hasp";
+        const std::string shipped = q.patches + "/Dir/dropin/ravengun-hasp";
+        const std::string text = R"({"games":{"Dir":{"enabled":true,"exe":"/pm/game","mounts":[
+            {"src":"@patches/Dir/dropin/ravengun-hasp","dst":"/hasp","mode":"ro"}]}}})";
+        write(shipped + "/memory/dump", "shipped-dump");
+        write(shipped + "/dongle.json", "shipped-dongle");
+        write(user + "/memory/dump", "owner-dump");
+        NativeProfile pp;
+        CHECK(load_profile(text, "Dir", q, pp, err));
+        const std::string merged = pp.mounts[0].src;
+        CHECK(merged != user && merged != shipped);            // samengevoegd, niet een van de twee
+        CHECK(slurp(merged + "/memory/dump") == "owner-dump");        // de gebruiker wint per bestand
+        CHECK(slurp(merged + "/dongle.json") == "shipped-dongle");    // de rest komt uit de levering
+        CHECK(!pp.notes.empty());
+        // Alleen de gebruikersmap (niets meegeleverd): geen samenvoeging nodig.
+        fs::remove_all(shipped);
+        write(user + "/memory/dump", "owner-dump");
+        CHECK(load_profile(text, "Dir", q, pp, err));
+        CHECK(pp.mounts[0].src == user);
+    }
+
     // De spelmappen van de app: "@nas/<Map>" komt uit de eerste spelmap waarin <Map> staat (ook een niveau dieper); een vaste
     // spelmap (nas, RAVENGUN_NAS_TP) gaat voor; staat de map nergens, dan de eerste (de fout volgt bij de mount).
     {
