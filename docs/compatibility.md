@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (48)
+## Working (49)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -51,6 +51,7 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Silent Hill: The Arcade**: Playable from the app (double-click, 2026-10-15): coin and START, then stage 1 with the lightgun (aim, shoot, reload); played for 5.5 minutes. Our shaiolib.dll reads the input (tp-shm SilentHill); stereo sound. Open: a 16:9 patch and the e-AMUSEMENT PASS.
 - **Target: Terror Gold**: WORKING via double-click in the app (2026-10-15), native: title, START, Mission Select, played 5.5 min; shots arrive (reload, enemies down). Requires the virtual gun to have a USB phys path (libXshooter only takes devices with phys usb*). Picture 4:3 (1024x768); aiming on a 16:9 TV spans the whole TV, no pillarbox correction yet.
 - **Terminator Salvation**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, full screen through gamescope). Measured on the TV in mouse mode: START (hold key 1 briefly), mission select with the trigger, aim, shoot, reload (right button), a kill; ran 6:32 min. Not yet played with the real Move on this route.
+- **The House of the Dead 4**: Starts on the Lindbergh route (2026-10-18, measured): double-click The House of the Dead 4, lindbergh.so with stackalign, JVS through the daemon. Title 'The Pandora's box is opening' with PRESS START, then the attract/demo with P1, ammo and zombies; more than 5 minutes without a crash. The folder is Rev C (hod4M.elf, game ID 0xe213414d), not the Special. Coin, START and aiming have not been measured separately yet.
 - **The House of the Dead EX**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, hodexRI.elf with lindbergh.so and librg-stackalign.so (without the shim it died on an xcb assert in glXCreatePbuffer), /var/tmp per game, JVS through the daemon, zink. Played 5.5 min in mouse mode.
 - **Tomb Raider Arcade**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrot (daemon -> Proton with our BepInEx plugin, input over TCP). Measured on the TV in mouse mode: coin (key 5), START (hold key 1 briefly; a very short tap does not count), aim, trigger, a level played; ran 5:24 min. Not yet played with the real Move buttons.
 - **Too Spicy**: WORKING on the Lindbergh route (2026-10-15): double-click in RavenGun, apacheM.elf with lindbergh.so and librg-stackalign.so (old i386 code given a 16-byte aligned stack into SteamOS's GL libraries), a libsndio stub for OpenAL, JVS through the daemon. Played 5.5 min in mouse mode.
@@ -68,7 +69,7 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Pigs Might Fly**: Playable: start (key 1) and trigger (the lever that launches the pig) work; portrait picture in the middle of the TV. Test menu: TEST (key 0), service (F3). Runs in its own Wine prefix where C:\Sega points at the game.
 - **Time Crisis 5**: Playable through the I/O bridge (shared memory): aiming, trigger and left pedal (middle button) work; coin = the Move button for key 5 (the engine sends Shift+T to the game). Shoot '1-player solo' in the menu. The right pedal has not been checked on its own yet.
 
-## Not tested yet (10)
+## Not tested yet (9)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
@@ -79,7 +80,6 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **Men in Black**: Starts by double-click (2026-10-17): MIB.exe directly on our core with DXVK in gamescope, a BepInEx plugin that stops the self-exit, GStreamer for the films: logo, attract films, "press start button to join", free play; on screen for 2 minutes. Input not measured yet (on the cabinet it goes through the shell). Play test 2026-10-17 (mouse mode): coin and start do not arrive; on the cabinet input goes through the shell's I/O board, not emulated yet.
 - **Sega Game Shell**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). Sega Game Shell (NAS folder Sega): the dump is Transformers: Shadows Rising, shell build 180605; the dongle scan fails but does not block.
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
-- **The House of the Dead 4**: Never started. Lindbergh route ready (2026-10-14, docs/lindbergh.md): the folder 'The House of the Dead 4' is Rev C (hod4M.elf, game ID 0xe213414d, clean ELF), NOT the Special; the library currently links that folder to HOTD4SP and must point it to HOTD4. Static study of the protection: BESCHERMING-STATUS.md.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
 
