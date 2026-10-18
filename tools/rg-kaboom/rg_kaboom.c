@@ -233,6 +233,48 @@ static int leg_om(HMODULE mod) {
     return gedaan;
 }
 
+/* RG_KABOOM_PATCH=<rva>:<verwacht>:<nieuw> (hex, bv. 0x33e553:752e:9090): een bytepatch in de hoofdmodule, alleen als de verwachte bytes
+ * er staan. Voor Infinity Blade FX: de RHI-keuze van SwordGame.exe (0x73e553 = RVA 0x33e553) zonder D3D10 (zie patches/InfinityBladeFX/game.ini). */
+static int hex_bytes(const char** p, unsigned char* uit, int max) {
+    int n = 0;
+    while (**p && **p != ':' && n < max) {
+        unsigned hi, lo;
+        char c = **p;
+        hi = (c >= '0' && c <= '9') ? (unsigned)(c - '0') : ((c | 0x20) >= 'a' && (c | 0x20) <= 'f') ? (unsigned)((c | 0x20) - 'a' + 10) : 99u;
+        c = (*p)[1];
+        lo = (c >= '0' && c <= '9') ? (unsigned)(c - '0') : ((c | 0x20) >= 'a' && (c | 0x20) <= 'f') ? (unsigned)((c | 0x20) - 'a' + 10) : 99u;
+        if (hi > 15 || lo > 15) return -1;
+        uit[n++] = (unsigned char)(hi * 16 + lo);
+        *p += 2;
+    }
+    return n;
+}
+
+static void pas_patch_toe(void) {
+    char spec[160];
+    if (!GetEnvironmentVariableA("RG_KABOOM_PATCH", spec, sizeof spec) || !spec[0]) return;
+    const char* p = spec;
+    unsigned long rva = tot_getal(p);
+    while (*p && *p != ':') p++;
+    if (*p != ':') { logf_("patch: formaat <rva>:<verwacht>:<nieuw> klopt niet: %s", spec); return; }
+    p++;
+    unsigned char oud[16], nieuw[16];
+    int no = hex_bytes(&p, oud, 16);
+    if (no <= 0 || *p != ':') { logf_("patch: verwachte bytes kloppen niet: %s", spec); return; }
+    p++;
+    int nn = hex_bytes(&p, nieuw, 16);
+    if (nn != no || *p) { logf_("patch: nieuwe bytes kloppen niet (andere lengte of rommel): %s", spec); return; }
+    unsigned char* doel = (unsigned char*)GetModuleHandleA(NULL) + rva;
+    for (int i = 0; i < no; i++)
+        if (doel[i] != oud[i]) { logf_("patch: op rva 0x%x staat byte %d = 0x%x, verwacht 0x%x; NIET geschreven", (unsigned)rva, i, (unsigned)doel[i], (unsigned)oud[i]); return; }
+    DWORD was;
+    if (!VirtualProtect(doel, (SIZE_T)no, PAGE_EXECUTE_READWRITE, &was)) { logf_("patch: VirtualProtect mislukt (%u)", (unsigned)GetLastError()); return; }
+    for (int i = 0; i < no; i++) doel[i] = nieuw[i];
+    VirtualProtect(doel, (SIZE_T)no, was, &was);
+    FlushInstructionCache(GetCurrentProcess(), doel, (SIZE_T)no);
+    logf_("patch: rva 0x%x, %d bytes geschreven", (unsigned)rva, no);
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD why, LPVOID res) {
     (void)res;
     if (why != DLL_PROCESS_ATTACH) return TRUE;
@@ -258,6 +300,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD why, LPVOID res) {
     o_ClearCommError = (void*)GetProcAddress(k32, "ClearCommError");
     const int n = leg_om(GetModuleHandleA(NULL));
     logf_("rg-kaboom.dll geladen: %d kernel32-ingangen van de hoofdmodule omgelegd, poortfilter %u, muntmasker 0x%x", n, (unsigned)g_poort_filter, (unsigned)munt);
+    pas_patch_toe();
     CreateThread(NULL, 0, poll_draad, NULL, 0, NULL);
     return TRUE;
 }

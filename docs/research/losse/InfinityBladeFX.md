@@ -69,3 +69,26 @@ Kandidaat: `docs/research/losse/InfinityBladeFX.game.ini` plus de sectie uit `do
 Test: de twee bestanden in de gebruikerslaag zetten (of `game.ini`/`dropin.ini` vervangen), dubbelklik. Verwacht: UE3-opstartscherm, attract; in
 `views/InfinityBladeFX/Binaries/Win32/rg-kaboom.log` de regels `geladen: N kernel32-ingangen omgelegd` (N > 0), `CreateFileW COM9`, `pakket … beantwoord`;
 munt (toets 5) geeft `munt: teller nu 1` en `1/4 CREDITS` in plaats van `0/4`. In het logboek van de run mag `TeknoParrot.dll` niet meer voorkomen.
+
+## Wit beeld op de kandidaat: de opdrachtregel van de kern ontbrak (2026-10-18)
+
+Gemeten in de logboeken van de game (`SwordGame/Logs/Launch*.log`, in de schrijflaag en in de view; niets gestart):
+
+| Runs | `Init: Command line:` | `Shader platform (RHI):` | Beeld |
+|---|---|---|---|
+| 9 met de kern van TeknoParrot (11-17 okt) | `-Fullscreen -simmobileinput`, bij Windowed = 1 `-ResX=1280 -ResY=853 -Windowed -simmobileinput` | `PC-D3D-SM3` (D3D9) | Fullscreen: wit; Windowed: attract |
+| 2 op de kandidaat (17 okt 17:46, 18 okt 11:23) | leeg | `PC-D3D-SM4` + `Found D3D10 adapter 0: AMD Radeon RX 6950 XT (RADV NAVI21)` | wit, geluid wel |
+
+De gesloten kern gaf de game dus altijd een opdrachtregel mee; de generieke kern geeft er geen. Zonder `-Windowed` start UE3 exclusief
+schermvullend (in gamescope bleef dat al wit), en zonder `-simmobileinput` kiest de game de D3D10-weg.
+Statisch (SwordGame.exe, imagebase 0x400000, alleen gelezen): de RHI-keuze staat op VA 0x73e4d8..0x73e593 en is de enige aanroeper van zowel de
+D3D10-RHI (0x1c9b8c0, alleen vanaf 0x73e58c) als de D3D9-RHI (0x1cb9600, alleen vanaf 0x73e593). `ParseParam` (0x638090) test op een heel woord
+(na de naam moet een spatie, tab of einde volgen), dus `-simmobileinput` is NIET `-simmobile`. D3D10 wordt gekozen als het vlagwoord
+`ds:0x31af960` gezet is (cmp op 0x73e54d, `jne` op 0x73e553, bytes `75 2e`) of `-d3d10`/`-sm4` meekomt; dat woord wordt nergens met een absoluut adres
+beschreven (een enkele verwijzing in het hele bestand), het komt dus uit een tabel of struct (vermoedelijk `AllowD3D10=True` in
+`SwordGame/Config/SwordEngine.ini` r. 768, sectie SystemSettings). Welk deel van het verschil (SM3/SM4 of Windowed) het witte beeld veroorzaakt is niet
+gescheiden gemeten: de oplossing zet beide terug.
+
+Oplossing: `[Launch] Arguments = -ResX=1280 -ResY=853 -Windowed -simmobileinput` (de OpenParrot-lader krijgt alles als een parameter,
+`spel_argumenten`). Alternatief voor proef 2: `RG_KABOOM_PATCH=0x33e553:752e:9090` (rg-kaboom.dll) maakt van de `jne` twee nop's, zodat zonder
+`-d3d10`/`-sm4` altijd D3D9 gekozen wordt.
