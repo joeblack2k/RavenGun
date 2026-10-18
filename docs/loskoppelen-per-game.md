@@ -768,3 +768,27 @@ gamescope-venster kwam niet op de tv (HDMI-A-1) terecht. Zonder dat beeld is er 
 attract haalt, en een kernwissel zonder bewijs kan een spel dat nu met de gesloten kern werkt juist breken.
 Volgende stap per game: het venster op de tv krijgen (vergelijk `mxmaster.foreground.next` in het AM-logboek
 van SDR) en dan per game een minuut attract vastleggen voor de regel in het profiel komt.
+
+### Waarom de zes niet met een beeld bewezen konden worden (nacht 2026-10-18/19)
+
+De capture was niet het probleem. Gemeten met `ravengunctl game start <Game>` en `game status`:
+
+1. **De daemon wacht op invoer.** Al deze spellen zijn lightgun-spellen, en de gereedheidscontrole
+   (`src/ravengun/games/readiness.cpp`) start niets zolang speler 1 een Move heeft die niet aan staat:
+   "Zet de PS Move van speler 1 aan (druk op de PS-knop)". Gemeten voor AfterDark,
+   DrakonsRealmKeepers, LostLandAdventure en PigsMightFly; de Move (`00:07:04:8c:70:ac`, "Move 1")
+   staat in `~/.config/ravengun/config.json` op speler 1 en is niet verbonden (Bluetooth wel
+   gekoppeld, toestel uit). Tijdelijk de Move op "verwijderd" zetten helpt niet: dan geldt de
+   terugval "een Move, muis of gamepad", en er is geen van die drie aangesloten — een zelfgemaakte
+   virtuele gamepad (tools/dev/rg-fake-pad.c, uinput) telt niet mee, want de daemon kijkt alleen
+   naar de pad die in `gamepads` aan een speler is toegewezen. Met de Move aan is dit punt weg.
+2. **De OLED-saver dekt de tv af.** De saver (`ravengun-oled-view.service`, `ravengun --saver`)
+   staat als venster over het scherm; een spel dat via `ravengunctl` start komt daarachter. De app
+   zet de saver weg als de app zelf een spel start (SaverLoop), het daemon/ctl-pad doet dat niet.
+   Voor een foto is dat op te lossen met `systemctl --user stop ravengun-oled-view.service
+   ravengun-oled-saver.service` (zo is de isolatieproef van SDR gemaakt), maar het is ook een echt
+   gat: een spel dat de daemon start hoort de saver weg te zetten.
+3. **CrossfirePaintball is geen `Core = ravengun`-geval.** De engine weigert het met een duidelijke
+   reden: "een eigen kern bestaat alleen voor EmulatorType OpenParrot of TeknoParrot (dit is
+   ElfLdr2)". Dit spel hoort via de native route (`patches/CrossfirePaintball/native.json`, "kandidaat,
+   nog niet gestart"): i386, ongepakt, gewone ld.so. Dat is een eigen klus, geen regel.
