@@ -74,8 +74,17 @@
 //   De TP-kern past de tekenreeksen van het spel zelf aan (`F:/playdata/` wordt `./Fplaydata/`, zelfde lengte; het spel logt dat zelf); met RG_DRIVE_FIXUP doen
 //   we dat nu ook (drive_fix.h, patch_strings), voor de genoemde letters, in de niet-uitvoerbare secties van de exe. RG_DRIVE_STRINGS=0 laat dat weg.
 //
+// NEGENDE TAAK: venstermodus zoals TeknoParrot (Windowed=1)
+//   Het spel is DXUT (D3D10) en zet zelf volledig scherm als standaard: `mov [ebx+0x30],1` op 0x4057AD (constructor 0x405740 van het
+//   instellingenobject), wat "-fullscreen" voor DXUT (0x770656) en DXUTCreateDevice(bWindowed = 0) (0x846808) geeft. Onder onze kern doet DXVK dan een
+//   exclusieve modewissel ("Setting display mode: 1368x768@60", twee keer, alle proefruns van 2026-10-18 12:03-12:07) en keert de eerste PeekMessageW
+//   (0x83D7D4, DXUTMainLoop) niet meer terug: zwart beeld. Onder TeknoParrot (profiel Windowed=1) staat die regel er niet en presenteert de swapchain
+//   1360x768 in een venster (run 10:46). Met RG_WINDOWED=1 zet deze DLL die imm32 op 0 (patroon in window_mode.h, precies een treffer vereist), zodat het
+//   spel zelf "-windowed" kiest. Uit met de TeknoParrot-kern. Logboek: "venstermodus aan: ...".
+//
 // OMGEVING
-//   RG_MSGTRACE=1        de berichtenlus en vensters volgen
+//   RG_WINDOWED=1        het spel venstergewijs laten starten (NEGENDE TAAK)
+//   RG_MSGTRACE=1       de berichtenlus en vensters volgen
 //   RG_PEEK_DELAY_MS=N   (proef) de eerste PeekMessageW van het spel N ms uitstellen, bv. 25000 (TP doet er ~25 s over voor zijn eerste lus)
 //   RG_PEEK_SKIP_FIRST=1 (proef) de eerste PeekMessageW(PM_NOREMOVE) van het spel (0x83D7D4, maakt alleen de berichtenwachtrij) niet uitvoeren
 //   RG_DRIVE_STRINGS=0   bij RG_DRIVE_FIXUP de tekenreeksen niet aanpassen (alleen de API-omleiding)
@@ -120,6 +129,7 @@
 #include "stall_dump.h"
 #include "drive_fix.h"
 #include "bngrw_fake.h"
+#include "window_mode.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -1567,6 +1577,46 @@ void patch_drive_strings() {
     rg_log("schijfletter: %lu smalle en %lu brede tekenreeksen aangepast", static_cast<unsigned long>(total_n), static_cast<unsigned long>(total_w));
 }
 
+// --- venstermodus zoals TeknoParrot Windowed=1 (zie NEGENDE TAAK bovenaan) ----------------------------------------------------------------
+void setup_windowed() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_WINDOWED", v, sizeof v) == 0 || v[0] != '1') return;   // uit
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("venstermodus uit: de TeknoParrot-kern is geladen (die doet Windowed=1 zelf)");
+        return;
+    }
+    auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+        if (!(sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;   // alleen code
+        BYTE* start = exe + sec[i].VirtualAddress;
+        const DWORD size = sec[i].Misc.VirtualSize;
+        size_t first = 0;
+        const size_t hits = rg_winmode::find_pattern(start, size, first);
+        if (hits == 0) continue;
+        if (hits != 1) {
+            rg_log("venstermodus: patroon %lu keer gevonden, niets aangepast (verwacht precies 1)", static_cast<unsigned long>(hits));
+            return;
+        }
+        BYTE* imm = start + first + rg_winmode::kImmOffset;
+        DWORD old = 0;
+        if (!VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old)) {
+            rg_log("venstermodus: VirtualProtect mislukt (fout %lu), niets aangepast", static_cast<unsigned long>(GetLastError()));
+            return;
+        }
+        const DWORD zero = 0;
+        std::memcpy(imm, &zero, 4);
+        VirtualProtect(imm, 4, old, &old);
+        FlushInstructionCache(GetCurrentProcess(), imm, 4);
+        const DWORD at = static_cast<DWORD>(nt->OptionalHeader.ImageBase + (imm - 3 - exe));
+        rg_log("venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x%lx (DXUT krijgt -windowed, geen modewissel; zoals TeknoParrot Windowed=1)",
+               static_cast<unsigned long>(at));
+        return;
+    }
+    rg_log("venstermodus: patroon niet gevonden in de exe, niets aangepast (andere versie van het spel?)");
+}
+
 // --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
 // Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
@@ -1714,6 +1764,7 @@ void setup() {
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
     setup_bngrw();          // idem: alleen met RG_BNGRW
     setup_msg_trace();      // idem: alleen met RG_MSGTRACE=1
+    setup_windowed();       // idem: alleen met RG_WINDOWED=1
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
