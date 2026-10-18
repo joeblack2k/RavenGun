@@ -2073,7 +2073,10 @@ QString makeFakeSystemctl(const QString& dir) {
 }
 
 // Een uitgepakt releasearchief in klein: programma's (nepbestanden), een bibliotheek en de datamap met de echte sjablonen.
-QString makeFakeRelease(const QString& root, const QString& marker = QStringLiteral("v1"), const QString& needs = QStringLiteral("glibc 2.17\n")) {
+// Met profielen (patches/ direct in de map, zoals het releasearchief) tenzij withPatches uit staat:
+// installTree weigert een boom zonder profielen.
+QString makeFakeRelease(const QString& root, const QString& marker = QStringLiteral("v1"), const QString& needs = QStringLiteral("glibc 2.17\n"),
+                        bool withPatches = true) {
     QDir(root).removeRecursively();
     for (const char* b : {"ravengun", "ravengund", "ravengunctl", "ravengun-setup-helper"}) {
         const QString f = root + QStringLiteral("/bin/") + QLatin1String(b);
@@ -2089,6 +2092,7 @@ QString makeFakeRelease(const QString& root, const QString& marker = QStringLite
     writeFile(data + QStringLiteral("/scripts/oled-saver.sh"), "#!/bin/sh\n");
     writeFile(data + QStringLiteral("/VERSION"), (marker + QStringLiteral("\n")).toUtf8());
     if (!needs.isEmpty()) writeFile(data + QStringLiteral("/REQUIRES"), needs.toUtf8());
+    if (withPatches) writeFile(root + QStringLiteral("/patches/Example/game.ini"), "[Game]\nProfile = Example\n");
     return root;
 }
 
@@ -2337,6 +2341,28 @@ void AppCoreTest::installSelfInstall() {
     bad.prefix = home + QStringLiteral("/leeg");
     QDir().mkpath(bad.prefix);
     QVERIFY(Install::installTree(release, bad, opt, {}).ok && Install::isRavenGunTree(bad.prefix));
+
+    // De profielen staan in patches/ (de installatie, het releasearchief) of direct in share/ravengun/patches (de portabele map, een
+    // cmake-installatie in een systeemprefix); install-user.sh accepteert beide. Zonder profielen, of met een koppeling zonder doel,
+    // weigert de installatie en noemt de bron, niet de bestemming.
+    InstallLayout port = layout;
+    port.prefix = home + QStringLiteral("/portabel");
+    const QString src = makeFakeRelease(base + QStringLiteral("/release-portabel"), QStringLiteral("v4"), QStringLiteral("glibc 2.17\n"), false);
+    r = Install::installTree(src, port, opt, {});
+    QVERIFY(!r.ok && r.error.contains(QStringLiteral("share/ravengun/patches")) && r.error.contains(src) && !r.error.contains(port.prefix));
+    QVERIFY(!QFileInfo::exists(port.prefix));
+    QVERIFY(QFile::link(QStringLiteral("../../nergens"), src + QStringLiteral("/share/ravengun/patches")));   // koppeling zonder doel
+    QVERIFY(!Install::installTree(src, port, opt, {}).ok);
+    QVERIFY(QFile::remove(src + QStringLiteral("/share/ravengun/patches")));
+    writeFile(src + QStringLiteral("/share/ravengun/patches/Example/game.ini"), "[Game]\nProfile = Example\n");
+    r = Install::installTree(src, port, opt, {});
+    QVERIFY2(r.ok, qPrintable(r.error));
+    QVERIFY(QFileInfo(port.prefix + QStringLiteral("/share/ravengun/patches/Example/game.ini")).isFile());
+    QVERIFY(!QFileInfo(port.prefix + QStringLiteral("/patches")).exists());
+    QVERIFY(readAll(port.prefix + QStringLiteral("/share/ravengun/VERSION")).startsWith(QStringLiteral("v4")));
+    // En een koppeling met doel (zoals de installatie zelf: share/ravengun/patches -> ../../patches) blijft goed.
+    QVERIFY(Install::installTree(release, port, opt, {}).ok);
+    QVERIFY(QFileInfo(port.prefix + QStringLiteral("/share/ravengun/patches/Example/game.ini")).isFile());
 }
 
 void AppCoreTest::installEngineService() {
