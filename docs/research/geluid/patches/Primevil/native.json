@@ -1,0 +1,45 @@
+{
+  "title": "Primeval Hunt",
+  "enabled": true,
+  "status": "werkt",
+  "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/Primevil); aanraakscherm bewust afwezig. Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0048A; main.exe is een i386-ELF. Eén scherm zonder aanraakscherm (lindbergh.ini). Nog niet gestart. Geluid (2026-10-18): de CRI-geluidslaag (librnalindbergh_jr.so, ALSA direct) opent het vaste apparaat 'plughw:0, 0' (kaart 0 apparaat 0 van de arcadekast); hier is kaart 0 een HDMI-kaart zonder apparaat 0, dus snd_pcm_open gaf ENOENT en het spel bleef stil. data/alsa.conf (ALSA_CONFIG_PATH) leidt hw/plughw/default naar PulseAudio/PipeWire.",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "route": "jvs",
+  "lindbergh": {
+    "id": "0x6868215c",
+    "ini": "@patches/Primevil/lindbergh.ini",
+    "jvs": "passthrough",
+    "libcg": false
+  },
+  "mounts": [
+    {
+      "src": "@nas/Primeval Hunt",
+      "dst": "/lb",
+      "mode": "overlay"
+    }
+  ],
+  "libdirs": [
+    {
+      "src": "@lib32",
+      "dst": "/rg/lib32"
+    }
+  ],
+  "env": {
+    "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+    "LIBGL_KOPPER_DRI2": "1",
+    "SDL_AUDIO_CHANNELS": "2",
+    "ALSA_CONFIG_PATH": "/rg/alsa.conf"
+  },
+  "exe": "/lb/prog/main.exe",
+  "cwd": "/lb/prog",
+  "home": "/lb/prog",
+  "args": [],
+  "res": "640x480",
+  "files": [
+    {
+      "src": "@patches/Primevil/data/alsa.conf",
+      "dst": "/rg/alsa.conf"
+    }
+  ]
+}

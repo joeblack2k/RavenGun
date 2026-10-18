@@ -38,6 +38,12 @@
 extern long syscall(long, ...);
 extern int strcmp(const char *, const char *);
 extern char *getenv(const char *);
+extern void *dlopen(const char *, int);
+extern void *dlsym(void *, const char *);
+extern int pthread_create(unsigned long *, const void *, void *(*)(void *), void *);
+extern int pthread_detach(unsigned long);
+extern int usleep(unsigned int);
+extern int atoi(const char *);
 
 #define RG_NR_write   4
 #define RG_NR_close   6
@@ -59,6 +65,8 @@ static int g_log = 0;
 static int g_seq = 0;
 static int g_seq_gemeld = 0;
 static int g_klaar = 0;
+static int g_maxfrag_env = 0;
+static int g_play = 0; /* RG_OSS_PLAY=1: de DSP speelt echt af via PulseAudio (zie "Afspelen") */
 
 static void rg_init(void)
 {
@@ -67,6 +75,11 @@ static void rg_init(void)
     g_klaar = 1;
     g_log = getenv("RG_OSS_STUB_LOG") != 0;
     g_seq = getenv("RG_OSS_STUB_SEQ") != 0;
+    {
+        const char *pl = getenv("RG_OSS_PLAY"), *fr = getenv("RG_OSS_FRAGS");
+        g_play = pl && *pl && *pl != '0';
+        g_maxfrag_env = fr && *fr ? atoi(fr) : 0;
+    }
 }
 
 static const char *rg_naam(int k)
@@ -178,10 +191,236 @@ static int rg_nep_open(const char *pad, int flags, int mode, int dirfd)
 #define RG_IOC_NR(r)   ((unsigned)(r) & 0xffu)
 #define RG_IOC_DIR(r)  (((unsigned)(r) >> 30) & 3u)
 
+
+/* ===================== Afspelen (RG_OSS_PLAY=1) =====================
+ * Zonder dit is de DSP /dev/null: het spel hoort niets. Met RG_OSS_PLAY=1 houdt de shim de OSS-toestand bij
+ * (SPEED/SETFMT/CHANNELS/SETFRAGMENT), neemt write() op de DSP-fd over in een ringbuffer en speelt die met een eigen
+ * draad af via libpulse-simple (dlopen, 32-bit; PULSE_SERVER wijst in de sandbox naar de pulse-socket van de host).
+ * GETOSPACE meldt de werkelijke vrije ruimte van de ring, dus de pacing van het spel (Target: Terror Gold schrijft
+ * een fragment zodra GETOSPACE er een vrij meldt) loopt op het afspeeltempo. Is PulseAudio er niet, dan loopt de
+ * draad op een virtuele klok: de pacing blijft kloppen, er komt alleen geen geluid. Een stroom (de laatst geopende DSP).
+ */
+#define RG_RING 131072u            /* macht van twee; groter dan elk gevraagd fragmentenpakket */
+#define RG_PA_SAMPLE_U8     0
+#define RG_PA_SAMPLE_S16LE  3
+
+struct rg_pa_spec { int format; unsigned int rate; unsigned char channels; };
+struct rg_pa_attr { unsigned int maxlength, tlength, prebuf, minreq, fragsize; };
+
+static unsigned char g_ring[RG_RING];
+static unsigned int g_head = 0, g_tail = 0;   /* oplopende tellers (producent: write; consument: afspeeldraad) */
+static int g_rate = 44100, g_chan = 2, g_fmt = 0x10;
+static unsigned int g_fragsize = 4096, g_cap = 2 * 4096;  /* g_cap: gemelde ringgrootte in bytes (frag-veelvoud) */
+static int g_gestart = 0;
+static int g_conf_gen = 0;                   /* ophogen bij elke wijziging van rate/chan/fmt */
+
+static unsigned int rg_frame(void) { return (unsigned)(g_chan > 0 ? g_chan : 1) * (g_fmt == 0x08 ? 1u : 2u); }
+static unsigned int rg_vrij(void)
+{
+    unsigned int used = __atomic_load_n(&g_head, __ATOMIC_ACQUIRE) - __atomic_load_n(&g_tail, __ATOMIC_ACQUIRE);
+    return used >= g_cap ? 0 : g_cap - used;
+}
+
+static void rg_set_cap(unsigned int fragsize, int nfrag)
+{
+    if (fragsize < 256) fragsize = 256;
+    if (fragsize > 32768) fragsize = 32768;
+    if (nfrag < 2) nfrag = 2;
+    if (nfrag > (g_maxfrag_env >= 2 ? g_maxfrag_env : 2)) /* RG_OSS_FRAGS: bovengrens op het aantal fragmenten (latentie) */
+        nfrag = g_maxfrag_env >= 2 ? g_maxfrag_env : 2;
+    g_fragsize = fragsize;
+    g_cap = fragsize * (unsigned)nfrag;
+}
+
+static void rg_nu(unsigned long long *ns)
+{
+    struct { long s; long n; } t;
+    syscall(265 /* clock_gettime */, 1 /* CLOCK_MONOTONIC */, &t);
+    *ns = (unsigned long long)t.s * 1000000000ull + (unsigned long long)t.n;
+}
+
+static void *rg_speel_draad(void *arg)
+{
+    void *lib = dlopen("libpulse-simple.so.0", 2 /* RTLD_NOW */);
+    void *(*p_new)(const char *, const char *, int, const char *, const char *, const struct rg_pa_spec *, const void *,
+                   const struct rg_pa_attr *, int *) = 0;
+    int (*p_write)(void *, const void *, unsigned long, int *) = 0;
+    void (*p_free)(void *) = 0;
+    void *pa = 0;
+    int gen = -1, pa_geprobeerd = 0;
+    static unsigned char tmp[RG_RING];
+    unsigned long long vklok = 0;
+    (void)arg;
+    if (lib) {
+        p_new = (void *(*)(const char *, const char *, int, const char *, const char *, const struct rg_pa_spec *,
+                           const void *, const struct rg_pa_attr *, int *))dlsym(lib, "pa_simple_new");
+        p_write = (int (*)(void *, const void *, unsigned long, int *))dlsym(lib, "pa_simple_write");
+        p_free = (void (*)(void *))dlsym(lib, "pa_simple_free");
+    }
+    if (g_log && !(p_new && p_write))
+        rg_meld("libpulse-simple.so.0 niet te laden: virtuele klok, geen geluid", 0, 0, -1);
+    for (;;) {
+        unsigned int avail, n, frame, chunk;
+        if (gen != __atomic_load_n(&g_conf_gen, __ATOMIC_ACQUIRE)) {
+            gen = __atomic_load_n(&g_conf_gen, __ATOMIC_ACQUIRE);
+            if (pa && p_free) { p_free(pa); pa = 0; }
+            pa_geprobeerd = 0;
+        }
+        if (!pa && !pa_geprobeerd && p_new && p_write) {
+            struct rg_pa_spec ss;
+            struct rg_pa_attr at;
+            int err = 0;
+            const char *naam = getenv("RG_OSS_NAME");
+            ss.format = g_fmt == 0x08 ? RG_PA_SAMPLE_U8 : RG_PA_SAMPLE_S16LE;
+            ss.rate = (unsigned)g_rate;
+            ss.channels = (unsigned char)(g_chan < 1 ? 1 : g_chan > 2 ? 2 : g_chan);
+            at.maxlength = (unsigned)-1;
+            at.tlength = ((unsigned)g_rate / 12u) * rg_frame();   /* ~80 ms server-side buffer */
+            at.prebuf = 0;                 /* meteen afspelen; onderloop = korte stilte, geen wachten op volle buffer */
+            at.minreq = (unsigned)-1;
+            at.fragsize = (unsigned)-1;
+            pa_geprobeerd = 1;
+            pa = p_new(0, naam && *naam ? naam : "OSS /dev/dsp", 1 /* PA_STREAM_PLAYBACK */, 0, "OSS /dev/dsp", &ss, 0,
+                       &at, &err);
+            if (g_log) rg_meld(pa ? "pulse-stroom open" : "pulse-stroom FAALT (virtuele klok)", 0, (unsigned)g_rate, pa ? 0 : (long)err);
+        }
+        frame = rg_frame();
+        avail = __atomic_load_n(&g_head, __ATOMIC_ACQUIRE) - __atomic_load_n(&g_tail, __ATOMIC_ACQUIRE);
+        if (avail == 0) { usleep(2000); vklok = 0; continue; }
+        chunk = ((unsigned)g_rate / 100u) * frame;   /* 10 ms */
+        if (chunk < frame) chunk = frame;
+        n = avail < chunk ? avail : chunk;
+        if (n > frame) n -= n % frame;
+        {
+            unsigned int t = __atomic_load_n(&g_tail, __ATOMIC_RELAXED), i;
+            for (i = 0; i < n; i++) tmp[i] = g_ring[(t + i) & (RG_RING - 1)];
+        }
+        if (pa) {
+            int err = 0;
+            if (p_write(pa, tmp, n, &err) < 0) {
+                if (g_log) rg_meld("pulse_write faalt: virtuele klok", 0, 0, (long)err);
+                if (p_free) p_free(pa);
+                pa = 0; pa_geprobeerd = 1;
+            }
+        } else {
+            /* virtuele klok: n bytes duren n/(rate*frame) seconde */
+            unsigned long long nu, dur = (unsigned long long)n * 1000000000ull / ((unsigned long long)g_rate * frame);
+            rg_nu(&nu);
+            if (!vklok || vklok + 200000000ull < nu) vklok = nu;
+            vklok += dur;
+            if (vklok > nu) usleep((unsigned)((vklok - nu) / 1000ull));
+        }
+        __atomic_store_n(&g_tail, __atomic_load_n(&g_tail, __ATOMIC_RELAXED) + n, __ATOMIC_RELEASE);
+    }
+    return 0;
+}
+
+static void rg_start_draad(void)
+{
+    unsigned long th;
+    if (__atomic_exchange_n(&g_gestart, 1, __ATOMIC_ACQ_REL))
+        return;
+    if (pthread_create(&th, 0, rg_speel_draad, 0) == 0)
+        pthread_detach(th);
+    else
+        g_gestart = 0;
+}
+
+static long rg_play_write(const void *buf, unsigned long n)
+{
+    const unsigned char *b = (const unsigned char *)buf;
+    unsigned long klaar = 0;
+    int stil = 0;
+    rg_start_draad();
+    while (klaar < n) {
+        unsigned int vrij = rg_vrij(), k, h, i;
+        if (!vrij) {
+            if (++stil > 3000) break;   /* 3 s zonder voortgang: weggooien i.p.v. het spel te laten vastlopen */
+            usleep(1000);
+            continue;
+        }
+        stil = 0;
+        k = n - klaar < vrij ? (unsigned)(n - klaar) : vrij;
+        h = __atomic_load_n(&g_head, __ATOMIC_RELAXED);
+        for (i = 0; i < k; i++) g_ring[(h + i) & (RG_RING - 1)] = b[klaar + i];
+        __atomic_store_n(&g_head, h + k, __ATOMIC_RELEASE);
+        klaar += k;
+    }
+    return (long)n;
+}
+
+/* De DSP-ioctls in afspeelmodus. Geeft -2 terug voor "niet van ons" (dan volgt de stille afhandeling). */
+static long rg_dsp_play(unsigned long req, void *arg)
+{
+    int *ip = (int *)arg;
+    if (((unsigned)(req >> 8) & 0xffu) != 'P')
+        return 0;    /* mixer-ioctls ('M') op de DSP-fd (het spel doet SetMixer daarop): aannemen, niets aanpassen */
+    switch (RG_IOC_NR(req)) {
+    case 2:  /* SPEED */
+        if (ip) {
+            if (*ip < 4000 || *ip > 192000) *ip = 44100;
+            if (g_rate != *ip) { g_rate = *ip; __atomic_add_fetch(&g_conf_gen, 1, __ATOMIC_ACQ_REL); }
+        }
+        return 0;
+    case 3:  /* STEREO */
+        if (ip) {
+            int c = *ip ? 2 : 1;
+            if (g_chan != c) { g_chan = c; __atomic_add_fetch(&g_conf_gen, 1, __ATOMIC_ACQ_REL); }
+            *ip = c - 1;
+        }
+        return 0;
+    case 4:  /* GETBLKSIZE */
+        if (ip) *ip = (int)g_fragsize;
+        return 0;
+    case 5:  /* SETFMT: U8 en S16LE; de rest wordt S16LE */
+        if (ip) {
+            int f = (*ip == 0x08) ? 0x08 : 0x10;
+            if (g_fmt != f) { g_fmt = f; __atomic_add_fetch(&g_conf_gen, 1, __ATOMIC_ACQ_REL); }
+            *ip = f;
+        }
+        return 0;
+    case 6:  /* CHANNELS: 1 of 2 */
+        if (ip) {
+            int c = *ip == 1 ? 1 : 2;
+            if (g_chan != c) { g_chan = c; __atomic_add_fetch(&g_conf_gen, 1, __ATOMIC_ACQ_REL); }
+            *ip = c;
+        }
+        return 0;
+    case 10: /* SETFRAGMENT: hoge 16 bits = max aantal fragmenten, lage 16 = log2(grootte) */
+        if (ip) {
+            unsigned v = (unsigned)*ip, sh = v & 0xffffu;
+            rg_set_cap(sh >= 8 && sh <= 15 ? 1u << sh : 4096u, (int)(v >> 16));
+        }
+        return 0;
+    case 12: /* GETOSPACE */
+        if (ip) {
+            unsigned int vrij = rg_vrij();
+            ip[0] = (int)(vrij / g_fragsize);
+            ip[1] = (int)(g_cap / g_fragsize);
+            ip[2] = (int)g_fragsize;
+            ip[3] = (int)vrij;
+        }
+        return 0;
+    case 23: /* GETODELAY: bytes in de ring */
+        if (ip) *ip = (int)(g_cap - rg_vrij());
+        return 0;
+    case 0:  /* RESET: ring leegmaken */
+        __atomic_store_n(&g_tail, __atomic_load_n(&g_head, __ATOMIC_ACQUIRE), __ATOMIC_RELEASE);
+        return 0;
+    default:
+        return -2;
+    }
+}
+
 /* De verzoeken die deze liballeg werkelijk stuurt (gemeten met objdump -d op liballeg.so.4.0). */
 static long rg_dsp(unsigned long req, void *arg)
 {
     int *ip = (int *)arg;
+    if (g_play) {
+        long r = rg_dsp_play(req, arg);
+        if (r != -2)
+            return r;
+    }
     switch (RG_IOC_NR(req)) {
     case 2:  /* SNDCTL_DSP_SPEED: de gevraagde snelheid accepteren */
         if (ip && (*ip < 4000 || *ip > 192000))
@@ -370,6 +609,13 @@ int ioctl(int fd, unsigned long req, ...)
     if (fd < 0 || fd >= RG_MAXFD || !g_kind[fd])
         return (int)syscall(RG_NR_ioctl, fd, req, arg);
     return (int)rg_nep_ioctl(g_kind[fd], req, arg);
+}
+
+long write(int fd, const void *buf, unsigned long n)
+{
+    if (g_play && fd >= 0 && fd < RG_MAXFD && g_kind[fd] == 1)
+        return rg_play_write(buf, n);
+    return syscall(RG_NR_write, fd, buf, n);
 }
 
 int close(int fd)
