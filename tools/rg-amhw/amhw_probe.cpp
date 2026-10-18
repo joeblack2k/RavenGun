@@ -218,6 +218,14 @@ int main(int argc, char** argv) {
         check(GetFileAttributesA((dir + "\\debugout-spel.txt").c_str()) != INVALID_FILE_ATTRIBUTES, "de tekst staat in debugout-spel.txt");
         check(GetFileAttributesA((dir + "\\debugout.txt").c_str()) == INVALID_FILE_ATTRIBUTES, "debugout.txt zelf is niet aangemaakt");
     }
+    {   // dezelfde omleiding via fopen (de teaArcade2-games gebruiken fopen uit MSVCR90.dll)
+        DeleteFileA((dir + "\\debugout-spel.txt").c_str());
+        FILE* df = std::fopen((dir + "\\debugout.txt").c_str(), "w");
+        check(df != nullptr, "fopen(debugout.txt, w) opent");
+        if (df) { std::fputs("INFO  > fopen\n", df); std::fclose(df); }
+        check(GetFileAttributesA((dir + "\\debugout-spel.txt").c_str()) != INVALID_FILE_ATTRIBUTES, "fopen: de tekst staat in debugout-spel.txt");
+        check(GetFileAttributesA((dir + "\\debugout.txt").c_str()) == INVALID_FILE_ATTRIBUTES, "fopen: debugout.txt zelf is niet aangemaakt");
+    }
     {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
         auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
         auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);

@@ -25,7 +25,7 @@
 namespace ravengun::launch::amd {
 
 constexpr size_t kMaxMessage = 256;   // libpcp: het pakket past in 0x100 bytes
-extern const int kDefaultPorts[];     // 40100, 40102-40104, 40106-40108, 40114, 40115
+extern const int kDefaultPorts[];     // 40100, 40102-40104, 40106-40108, 40110, 40114, 40115
 extern const size_t kDefaultPortCount;
 
 struct Unit {

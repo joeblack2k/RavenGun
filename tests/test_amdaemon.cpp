@@ -146,6 +146,12 @@ static void test_responder() {
     CHECK(a.known && a.line == "response=getinfo&result=success");
     a = rs.answer(parse_request("request"));
     CHECK(!a.known && a.line.empty());
+    {   // de "catcher" (OG 0x594210) luistert op 40110; request=startcatcher krijgt het standaardantwoord
+        bool has = false;
+        for (size_t i = 0; i < kDefaultPortCount; ++i) has = has || kDefaultPorts[i] == 40110;
+        CHECK(has);
+        CHECK(Responder(default_values("JAPAN")).answer(parse_request("request=startcatcher")).line == "response=startcatcher&result=success");
+    }
     {   // query_appdata_status: status en id zijn verplicht voor de AM Library (OG 0x5910A0)
         auto w = default_values("JAPAN");
         w["keychip.appboot.gameid"] = "SBWA";

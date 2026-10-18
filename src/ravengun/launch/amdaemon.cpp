@@ -20,7 +20,8 @@
 
 namespace ravengun::launch::amd {
 
-const int kDefaultPorts[] = {40100, 40102, 40103, 40104, 40106, 40107, 40108, 40114, 40115};
+// 40110: de "catcher" van de nieuwere AM Library (OG 0x594210: `request=startcatcher`); zonder luisteraar probeert pcpaOpenClient het 60 s (timeout 0xEA60) en wacht de game zo lang.
+const int kDefaultPorts[] = {40100, 40102, 40103, 40104, 40106, 40107, 40108, 40110, 40114, 40115};
 const size_t kDefaultPortCount = sizeof kDefaultPorts / sizeof kDefaultPorts[0];
 
 bool is_word_char(unsigned char c) {
