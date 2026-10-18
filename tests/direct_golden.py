@@ -55,8 +55,8 @@ PARROT_DATA = "<ParrotData><ExitGameKey>0x1B</ExitGameKey><Elfldr2NetworkAdapter
 # of de Unity-route) plannen in een eigen opstelling met een TeknoParrot-map die niet bestaat: verdict ok, geen enkel pad uit die map,
 # en hetzelfde plan als met een volledige (nep-)map. Een game die later loskomt hoort hier bij; een game die terugvalt is een fout.
 # OG staat er niet in: ook zonder TP, maar het plan vraagt xactengine3_3.dll uit redist/ en die heeft deze opstelling niet.
-TP_VRIJ_DIRECT = ("Friction", "GaiaAttack4", "GG", "HauntedMuseum", "HauntedMuseumII", "LGI3D", "LGS", "LuigisMansion", "MenInBlack",
-                  "MusicGunGun2", "SilentHill")
+TP_VRIJ_DIRECT = ("Friction", "GaiaAttack4", "GG", "HauntedMuseum", "HauntedMuseumII", "LGI", "LGI3D", "LGS", "LuigisMansion",
+                  "MenInBlack", "MusicGunGun2", "PullTheTrigger", "SilentHill")
 TP_VRIJ_UNITY = ("RabbidsHollywood", "TombRaider")
 
 
