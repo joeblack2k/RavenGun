@@ -5,7 +5,7 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 16: crash ~10 s na de start, na SYSTEM DATA1, toen de films ontbraken; nu films terug + uitzonderingen in het logboek) | de attract met film, de wisselende hang voor de hoofdlus (waakhond), kalibratie, Option/Reload |
+| **LethalEnforcers3** | **loopt zonder TeknoParrot (invoer komt aan), beeld nog zwart of soms een hang in `PeekMessageA`** (proef 17) | beeld: A/B zonder gamescope en de nieuwe waakhond (meetpunten "Proef 17"); daarna kalibratie, Option/Reload |
 | **Gashaaaan** | **werkt zonder TeknoParrot tot het titelscherm** (proef 13, 2026-10-17) | niet gemeten: munt, START, worpen/inslagen per kwart, 5 minuten spelen |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
@@ -345,6 +345,43 @@ voor de hoofdlus (zie proef 14/15: 07:37 en 08:12, ook zonder films), niet de fi
 - Doorloop verwacht: SYSTEM DATA1/2 OK, de openingsfilm, de attract. Geen `uitzondering:`-regel, en na 30 s nog richtpunten.
 - Crasht hij weer: de `uitzondering:`-regels (code, adres, terugkeeradressen) doorgeven. Dan lees ik de plek in `game.exe` na.
 - Hangt hij voor de hoofdlus (geen `iob_init`): de `waakhond:`-regels doorgeven.
+
+## Proef 17 (tv 2026-10-18 08:53, 08:55, 09:08, dd5bbcc, films terug)
+
+Per run uit `rg-konami.log` (de tijden staan sinds c27ee29 in het logboek):
+
+| Run | Hoofdlus? | Wat het logboek zegt |
+|---|---|---|
+| 08:53 | nee | `[+15.003 s] waakhond: hoofddraad … eip=7abe1d38 terugkeer in de exe: 401cbf 401e5b 40a5f3 5599a7 54a4d6 54a36a`, daarna niets meer |
+| 08:55 | **ja**, 75 s | `iob_init` +1,0 s, `CHECKING GUN…OK`, richtpunten elke 10 s, `MUNT 1` +60,8 s, `START P1` +65,4 s, `TREKKER P1` +66,7 s … +74,6 s; **geen crash meer** (de films waren de oorzaak van de crash in proef 16) |
+| 09:08 | nee | als 08:53 (`[+15.000 s]`, zelfde adressen) |
+
+Nagelezen in `game.exe`: `54a36a`/`54a4d6` zijn de CRT-opstart en de terugkeer uit WinMain (`0x40a460`), `5599a7` hoort bij de
+opstart, `40a5f3` is WinMain (`call 0x401e40`), `401e5b` is `0x401e40` (eerst `0x4012c0`, daarna `0x401c70`). **`0x401c70` is de
+hoofdlus van de game**, een takenplanner op fibers: `PeekMessageA` (`0x401cb9`) → bericht verwerken, anders elke klare taak met
+`SwitchToFiber` (`0x401d1e`) laten lopen. De I/O-update (en al het andere van de game) zit in die taken. **`401cbf` is de terugkeer
+uit `PeekMessageA`**: de hoofddraad komt daar niet meer uit, met eip in een Wine-DLL. Dat de oude waakhond na de eerste regel stil
+bleef, past daarbij. Hij bleef hangen in `GetWindowTextA`, dat een bericht naar de hoofddraad stuurt, en dat bericht werd nooit
+verwerkt. De hoofddraad zit dus vast in de venster- of beeldlaag van Wine, niet in de game, niet in de I/O en niet in een bestand.
+
+Samen met de run van 08:55 (game loopt, invoer komt aan, maar het beeld is zwart): **beide verschijnselen zitten in de weg van het
+beeld** (een d3d8-spel met een volledig scherm van 640x480 in gamescope met Xwayland). De route met de kern liep zonder gamescope.
+
+**Gewijzigd: de waakhond** (onze iob.dll) meldt nu bij een hang elke 15 s (vier keer) **alle draden** van het proces: eip als
+`<module>+<offset>` en de terugkeeradressen op de stapel in elke module, ook Wine's eigen DLL's (`win32u.dll`, `user32.dll`,
+`winex11.drv`, `d3d8.dll`, `quartz.dll` …), plus de vensters van de hoofddraad. Daarbij geen aanroep die een bericht stuurt (alleen
+`GetClassNameA`, `GetWindowRect`, `IsWindowVisible`). Getest in een wegwerp-prefix: `draad 36 (hoofddraad) eip=ntdll.dll+d410
+terugkeer: kernelbase.dll+78611 waaktest.exe+1580 …` (Sleep in de proefexe).
+
+**Meetpunten proef 18** (LE3; `tools/rg-konami/build.sh --le3 patches/LethalEnforcers3/dropin`, `rg-konami.log` opzij):
+
+1. **A/B zonder gamescope**: dezelfde kandidaat met `[Display] Gamescope = false` (zo liep de route met de kern), twee starts, met
+   een schermfoto. Komt er beeld, dan is de oplossing de venstermodus en niet de I/O.
+2. **Met gamescope** (zoals nu), twee starts. Bij een hang de `waakhond: draad …`-regels doorgeven. Daaruit volgt in welke Wine-module
+   en welke draad hij wacht (bv. de hoofddraad in `win32u`/`winex11.drv`, en een andere draad in `d3d8`/`dxgi`/`winevulkan`). Bij
+   zwart zonder hang: een schermfoto.
+3. Alleen als 2 niet genoeg zegt: tijdens de hang `sudo gdb -p <pid van game.exe> -batch -ex 'thread apply all bt'` (alleen lezen).
+   Dat geeft de Linux-kant (xcb, futex, vulkan) van dezelfde draden.
 
 ## Niet bewezen / gegokt
 
