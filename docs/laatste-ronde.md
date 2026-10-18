@@ -1,6 +1,8 @@
 # Laatste ronde: alle games naar Working
 
-Stand 2026-10-17 (gegenereerd uit de patches en de tv-metingen van vandaag; bijwerken na elke proef).
+Stand 2026-10-17 (gegenereerd uit de patches; geluid en invoer gemeten in de speelproeven van 17/18-10, zonder TP-map, in muismodus: munt = `key 5`, start = `key 1`, schot = trigger op het midden).
+
+Overgeslagen (skipregel, niet 16:9 of 4:3): Silent Scope, Elevator Action Death Parade, America's Army Arcade.
 
 Lat van de eigenaar (2026-10-17): een game is **Working** als hij start via dubbelklik (zonder TeknoParrot), **geluid** heeft,
 de **invoer** werkt met muis en PS Move, en **alle game-specifieke instellingen** in Properties > Options staan (en ook iets doen
@@ -12,64 +14,62 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 
 | Game | Route | Zonder TP | Kandidaat | Beeld zonder TP | Geluid | Invoer (muis/Move) | Opties | Status |
 |---|---|---|---|---|---|---|---|---|
-| 2Spicy | native | ja |  | ja | nog meten | nog meten | 1 | working |
-| AAA | native | ja |  | ja | nog meten | nog meten | 8 | untested |
+| 2Spicy | native | ja |  | ja | ja | ja (munt, start, tutorial) | 1 | working |
 | AfterDark | direct | nee | nee | nog meten | nog meten | nog meten | 9 | working |
 | AfterDark2 | direct | nee | nee | nee (dongle) | nog meten | nog meten | 9 | working |
 | AliensArmageddon | native | ja |  | nog meten | nog meten | nog meten | 6 | untested |
-| AliensExtermination | direct | nee | ja | ja (attract, films) | nog meten | nog meten | 20 | working |
-| BugBusters | direct | nee | ja | ja (attract) | nog meten | nog meten | 7 | working |
+| AliensExtermination | direct | nee | ja | ja (attract, films) | ja | munt ja na fix (4 credits nodig) | 20 | working |
+| BugBusters | direct | nee | ja | ja (attract) | ja | ja (munt, start, schieten, zone 1) | 7 | working |
 | Coopers9 | direct | nee | nee | nog meten | nog meten | nog meten | 13 | untested |
 | CrossfirePaintball | direct | nee | nee | nog meten | nog meten | nog meten | 11 | working |
 | DrakonsRealmKeepers | direct | nee | nee | nog meten | nog meten | nog meten | 8 | working |
-| EADP | direct | ja |  | ja | nog meten | nog meten | 18 | playable |
-| ElevatorActionInvasion | direct | nee | ja | ja (attract) | nog meten | nog meten | 16 | working |
-| FarCryParadiseLost | direct | nee | nee | ja | nog meten | nog meten | 16 | working |
-| Friction | direct | ja |  | ja | nog meten | nog meten | 10 | working |
-| GaiaAttack4 | direct | ja |  | ja | nog meten | nog meten | 32 | working |
-| Gashaaaan | direct | nee | ja | ja (titel) | nog meten | nog meten | 27 | working |
-| GG | direct | nee | ja | ja (attract, Engels) | nog meten | nog meten | 10 | working |
-| GSEVO | native | ja |  | ja | nog meten | nog meten | 1 | working |
-| Halo | native | ja |  | ja | ja (FMOD-wrapper) | nog meten | 16 | working |
-| HauntedMuseum | direct | ja |  | ja | nog meten | nog meten | 28 | working |
-| HauntedMuseumII | direct | ja |  | ja | nog meten | nog meten | 28 | working |
-| HOTD4 | native | ja |  | ja (intro, HUD-tekst vaag) | stroom stereo (gemeten) | nog meten | 29 | untested |
-| HOTD4SP | native | ja |  | ja | nog meten | nog meten | 18 | untested |
-| HOTDEX | native | ja |  | ja | nog meten | nog meten | 12 | working |
+| ElevatorActionInvasion | direct | nee | ja | ja (attract) | ja | ja (start) | 16 | working |
+| FarCryParadiseLost | direct | nee | nee | ja | ja | nee (munt opent testmenu) | 16 | working |
+| Friction | direct | ja |  | ja | ja | munt ja, start? | 10 | working |
+| GaiaAttack4 | direct | ja |  | ja | ja | ja (munt, start, gebied/missie) | 32 | working |
+| Gashaaaan | direct | nee | ja | ja (titel) | ja | ja (munt, start, koers) | 27 | working |
+| GG | direct | nee | ja | ja (attract, Engels) | ja | munt ja (4 credits nodig) | 10 | working |
+| GSEVO | native | ja |  | ja | ja | ja (munt, start, kostuum) | 1 | working |
+| Halo | native | ja |  | ja | nee op 50 s (FMOD-wrapper, nagaan) | ? (startscherm na 60 s) | 16 | working |
+| HauntedMuseum | direct | ja |  | ja | ja | ja (munt, start) | 28 | working |
+| HauntedMuseumII | direct | ja |  | ja | ja | ja (munt, start) | 28 | working |
+| HOTD4 | native | ja |  | ja (intro, HUD-tekst vaag) | ja (stereo; 5.1 als optie) | ja (munt, start) | 29 | untested |
+| HOTD4SP | native | ja |  | ja | ja | ja (start; grijze textures) | 18 | untested |
+| HOTDEX | native | ja |  | ja | nee (geen stroom) | ja (munt, start) | 12 | working |
 | HOTDSD | direct | nee | ja | nee (ALLS-keychip) | nog meten | nog meten | 40 | working |
 | InfinityBladeFX | direct | nee | ja | nee (wit) | nog meten | nog meten | 10 | playable |
-| JurassicPark | native | ja |  | ja (attract) | nog meten | nog meten | 21 | working |
-| LethalEnforcers3 | direct | nee | ja | nee (zwart; eerder opstartcontrole) | nog meten | nog meten | 26 | working |
+| JurassicPark | native | ja |  | ja (attract) | nee (geen stroom op 50 s) | ja (start, missie) | 21 | working |
+| LethalEnforcers3 | direct | nee | ja | nee (zwart; eerder opstartcontrole) | ja (beeld nog zwart) | nog meten | 26 | working |
 | LGI | direct | nee | ja | nee (stopt ~37 s) | nog meten | nog meten | 24 | working |
 | LGI3D | direct | nee | ja | nee (stopt) | nog meten | nog meten | 34 | working |
-| LGJ | native | ja |  | ja | nog meten | nog meten | 18 | working |
-| LGJS | native | ja |  | ja | nog meten | nog meten | 13 | working |
-| LGS | direct | nee | ja | ja (attract, Engels) | nog meten | nog meten | 20 | working |
+| LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
+| LGJS | native | ja |  | ja | ja | ja (start, rit) | 13 | working |
+| LGS | direct | nee | ja | ja (attract, Engels) | ja | ja (rit) | 20 | working |
 | LostLandAdventure | direct | nee | nee | nog meten | nog meten | nog meten | 11 | untested |
-| LuigisMansion | direct | ja |  | ja | nog meten | nog meten | 23 | playable |
-| MarioKartDX | direct | ja |  | nee (zwart) | nog meten | nog meten | 45 | working |
-| MarsSortie | direct | ja |  | ja | nog meten | nog meten | 14 | working |
-| MenInBlack | direct | ja |  | ja | nog meten | nog meten | 0 | untested |
-| MusicGunGun2 | direct | ja |  | ja | nog meten | nog meten | 12 | working |
-| NERF | native | ja |  | ja | nog meten | nog meten | 15 | working |
-| OG | direct | nee | ja | ja (Presented by SEGA) | nog meten | nog meten | 35 | working |
-| PointBlankX | direct | ja |  | ja | nog meten | nog meten | 10 | working |
-| Primevil | native | ja |  | ja | nog meten | nog meten | 1 | working |
+| LuigisMansion | direct | ja |  | ja | ja | nee (munt komt niet aan) | 23 | playable |
+| MarioKartDX | direct | ja |  | nee (zwart) | ja (beeld nog zwart) | nog meten | 45 | working |
+| MarsSortie | direct | ja |  | ja | ja | ja (start, level) | 14 | working |
+| MenInBlack | direct | ja |  | ja | ja | nee (start komt niet aan) | 0 | untested |
+| MusicGunGun2 | direct | ja |  | ja | ja | ja (munt, start) | 12 | working |
+| NERF | native | ja |  | ja | ja | ja (start, schieten) | 15 | working |
+| OG | direct | nee | ja | ja (Presented by SEGA) | nee | ? (initialiseert) | 35 | working |
+| PointBlankX | direct | ja |  | ja | ja | nee (munt komt niet aan) | 10 | working |
+| Primevil | native | ja |  | ja | nee (geen stroom op 50 s) | ja (start, wapen, gebied) | 1 | working |
 | PullTheTrigger | direct | nee | nee | nog meten | nog meten | nog meten | 10 | working |
-| RabbidsHollywood | unity | ja |  | ja | nog meten | nog meten | 25 | working |
-| RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | nog meten | nog meten | 31 | working |
-| Rambo | native | ja |  | ja | nog meten | nog meten | 25 | working |
-| Rampage | direct | ja |  | ja (attract) | nog meten | nog meten | 6 | working |
+| RabbidsHollywood | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 25 | working |
+| RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | ja | ja (munt, start) | 31 | working |
+| Rambo | native | ja |  | ja | ja | ? (laadt na 80 s nog) | 25 | working |
+| Rampage | direct | ja |  | ja (attract) | ja | ? (start onduidelijk) | 6 | working |
 | RobinHood | direct | nee | nee | nog meten | nog meten | nog meten | 5 | working |
 | SDR | direct | nee | ja | nee (stopt) | nog meten | nog meten | 9 | working |
-| SilentHill | direct | ja |  | ja | nog meten | nog meten | 19 | working |
-| TargetTerrorGold | native | ja |  | ja (LOADING) | nog meten | nog meten | 12 | working |
-| TC5 | direct | nee | ja | ja (attract) | nog meten | nog meten | 48 | playable |
+| SilentHill | direct | ja |  | ja | ja | ja (start) | 19 | working |
+| TargetTerrorGold | native | ja |  | ja (LOADING) | nee (OSS-stub slikt het geluid) | ? (laadt na 80 s nog) | 12 | working |
+| TC5 | direct | nee | ja | ja (attract) | ja | munt ja (start = pedaal) | 48 | playable |
 | Terminator | direct | nee | nee | nog meten | nog meten | nog meten | 26 | working |
-| TombRaider | unity | ja |  | ja | nog meten | nog meten | 18 | working |
+| TombRaider | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 18 | working |
 | Transformers | direct | nee | ja | nee (0949 keychip) | nog meten | nog meten | 11 | working |
-| TransformersShadowsRising | direct | ja |  | ja | nog meten | nog meten | 31 | working |
-| WildWestShootout | direct | ja |  | ja | nog meten | nog meten | 10 | working |
+| TransformersShadowsRising | direct | ja |  | ja | ja | ? (laadt na 80 s nog) | 31 | working |
+| WildWestShootout | direct | ja |  | ja | ja | ja (start, kaart, level) | 10 | working |
 
 ## Hoe er gemeten wordt
 
