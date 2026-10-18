@@ -119,7 +119,9 @@ int main() {
         CHECK(rg_amhw::seed_static_sysdata(sram, 2));
         CHECK(rg_amhw::static_record_valid(&sram[0]) && rg_amhw::static_record_valid(&sram[0x200]));
         CHECK(sram[0xC] == 2 && sram[0x200 + 0xC] == 2 && std::memcmp(&sram[0xF], "INVALID_SERIALNO", 16) == 0 && sram[0x1F] == 0);
-        CHECK(!rg_amhw::seed_static_sysdata(sram, 4) && sram[0xC] == 2);                // een geldig record met regio blijft staan
+        CHECK(!rg_amhw::seed_static_sysdata(sram, 2) && sram[0xC] == 2);                // een geldig record met dezelfde regio blijft staan
+        CHECK(rg_amhw::seed_static_sysdata(sram, 4) && sram[0xC] == 4 && sram[0x200 + 0xC] == 4);   // een andere regio (de optie) wint
+        CHECK(rg_amhw::static_record_valid(&sram[0]) && rg_amhw::static_record_valid(&sram[0x200]));
         sram[0xC] = 0; sram[0x200 + 0xC] = 0;                                           // regio 0 is nooit geldig, ook niet met een goede CRC
         const uint32_t c = rg_amhw::crc32_ieee(&sram[4], 0x1C);
         std::memcpy(&sram[0], &c, 4); std::memcpy(&sram[0x200], &c, 4);

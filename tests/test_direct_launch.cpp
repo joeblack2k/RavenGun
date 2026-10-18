@@ -960,6 +960,14 @@ int main() {
     // Weigeren (launch-direct.py exit 5) en via het script.
     write(user, "[Game]\nDongleRegion = EUR\n");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "Instelling geweigerd") && contains(why, "JAPAN, USA"));
+    // De regio uit Properties ([Config] General/DongleRegion in de gebruikerslaag) wint van de vaste [Game]-regio van het meegeleverde game.ini.
+    write(user, "[Config]\nGeneral/DongleRegion = JAPAN\n");
+    {
+        const Verdict v = plan_direct("Spel", p, o, pl, why);
+        bool japan = false;
+        for (const auto& f : pl.files) japan = japan || contains(f.second, "DongleRegion=JAPAN");
+        CHECK(v == Verdict::Ok && japan);
+    }
     write(user, "[Loader]\nBuild = eigen\n");
     CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "kies teknoparrot of ravengun"));
     fs::rename(own, own.string() + ".weg");

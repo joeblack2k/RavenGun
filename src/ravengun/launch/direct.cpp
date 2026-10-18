@@ -157,9 +157,13 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
 
     // 2. Omgeving, keuzes van het profiel, eigen build, patches.
     EnvMap env = o.base_env;
+    // De keuze van de eigenaar in Properties > Options staat als [Config] General/<sleutel> in de GEBRUIKERSLAAG; die wint van een vaste
+    // [Game]-regio uit het meegeleverde game.ini (LGI, LGI3D, LGS, OG). Zonder deze regel deed de regio-optie bij die games niets.
+    const gsn::Ini user_layer = p.dirs.user.empty() ? gsn::Ini{} : gsn::read_layer(p.dirs.user, name);
     for (const char* key : {"DongleRegion", "PcbRegion"}) {   // apply_profile_choices()
         const std::string want = trim(settings.get("Game", key));
         if (want.empty()) continue;
+        if (trim(user_layer.get("Game", key)).empty() && !trim(user_layer.get("Config", std::string("General/") + key)).empty()) continue;
         Field* f = pr.field(key);
         if (!f) return setting_refused("game.ini zet " + std::string(key) + " = " + want + ", maar het profiel " + name + " heeft die optie niet");
         if (std::find(f->options.begin(), f->options.end(), want) == f->options.end())
@@ -736,10 +740,14 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     }
     // 6h. [Launch] AmDaemon = true: rg-direct is tijdens de run de AM-daemon van de Sega Ring-games (amdaemon.hpp, docs/research/segajvs/):
     // de game belt 127.0.0.1:40100..40115 en wacht op een tekstprotocol. De antwoorden zijn de standaardwaarden voor de regio uit
-    // [Game] DongleRegion, met [AmDaemon] van game.ini erover (sleutel = waarde; Ports = lijst met poorten, komma's).
+    // DongleRegion, met [AmDaemon] van game.ini erover (sleutel = waarde; Ports = lijst met poorten, komma's). De regio's komen uit de velden
+    // van het profiel: daar staan [Game] DongleRegion/PcbRegion (stap 2) en de keuze uit Properties > Options ([Config] General/...) al in,
+    // precies wat ook in teknoparrot.ini komt. Alleen [Game] lezen liet de optie in het menu op de route zonder TP niets doen (SDR: PcbRegion
+    // in het menu, toch regio 01 in de EEPROM en "ERROR 0903 WRONG REGION", gemeten 2026-10-18).
+    const auto field_value = [&pr](const char* k) { const Field* f = pr.field(k); return f ? trim(f->value) : std::string(); };
     if (ld_truthy(trim(lini("AmDaemon")))) {
         pl.am_daemon = true;
-        pl.am_values = amd::default_values(trim(settings.get("Game", "DongleRegion")));
+        pl.am_values = amd::default_values(field_value("DongleRegion"));
         std::vector<int> ports(amd::kDefaultPorts, amd::kDefaultPorts + amd::kDefaultPortCount);
         if (const gsn::Section* am = settings.settings.section("AmDaemon")) {
             for (const auto& [k, v] : am->kv) {
@@ -767,11 +775,11 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         }
         // rg-amhw.dll zet hiermee AM_SYSDATA_STATIC in de EEPROM (tools/rg-amhw/amhw_sysdata.h): de regio van de PRINTPLAAT (TeknoParrot: PcbRegion; de
         // keychip is DongleRegion). Een lege EEPROM heeft regio 0: LGS en SDR melden dan "Error 0903 Wrong Region" en GG toont de verkeerde taal. Standaard
-        // dezelfde waarde als de keychip; [Game] PcbRegion wint. Een [Env] van game.ini of een drop-in wint van beide.
+        // dezelfde waarde als de keychip; PcbRegion (veld van het profiel) wint. Een [Env] van game.ini of een drop-in wint van beide.
         if (!env.count("RG_AMHW_REGION")) {
             std::string reg;
             if (auto it = pl.am_values.find("keychip.appboot.region"); it != pl.am_values.end()) reg = it->second;
-            if (const std::string pcb = trim(settings.get("Game", "PcbRegion")); !pcb.empty()) reg = amd::region_code(pcb);
+            if (const std::string pcb = field_value("PcbRegion"); !pcb.empty()) reg = amd::region_code(pcb);
             if (!reg.empty()) env["RG_AMHW_REGION"] = reg;
         }
         if (ports.empty()) return setting_refused("[AmDaemon] Ports is leeg");

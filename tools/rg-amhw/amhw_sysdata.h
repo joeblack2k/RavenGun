@@ -49,13 +49,15 @@ inline void make_static_record(uint8_t* out, uint8_t region, const char* serial 
     std::memcpy(out, &c, 4);
 }
 
-// Zet in een (lege of kapotte) EEPROM-afbeelding een geldig AM_SYSDATA_STATIC met deze regio. Raakt een record met een geldige CRC en een regio die al 2/4/8/1 is
-// niet aan (de eigenaar kan de regio in het testmenu van de game hebben gezet). Geeft terug of er iets veranderd is.
+// Zet in de EEPROM-afbeelding een geldig AM_SYSDATA_STATIC met deze regio, als hij leeg of kapot is of een ANDERE regio heeft. De regio is
+// een optie in Properties (PcbRegion, via RG_AMHW_REGION) en die wint: eerst bleef een geldig record staan, en dan deed een andere keuze in
+// het menu niets meer (SDR hield regio 01 uit een eerdere run: "ERROR 0903 WRONG REGION", gemeten 2026-10-18). Een record met dezelfde
+// regio en een geldige CRC blijft ongemoeid (het serienummer erin blijft dan ook staan). Geeft terug of er iets veranderd is.
 inline bool seed_static_sysdata(std::vector<uint8_t>& sram, uint8_t region) {   // `sram` = de afbeelding van de EEPROM (naam uit de eerste versie)
     if (region == 0 || sram.size() < 0x200 + kStaticRecordSize) return false;
-    bool good = false;
+    bool good = true;
     for (size_t off : kStaticOffsets)
-        if (static_record_valid(&sram[off]) && sram[off + 0xC] != 0) good = true;
+        if (!static_record_valid(&sram[off]) || sram[off + 0xC] != region) good = false;
     if (good) return false;
     uint8_t rec[kStaticRecordSize];
     make_static_record(rec, region);

@@ -248,9 +248,9 @@ void hw_load() {
         rg_log("smbus: EEPROM %s bestaat nog niet; leeg (0xFF)", g_eeprom_path);
     }
     // AM_SYSDATA_STATIC staat in de EEPROM (amhw_sysdata.h). Een lege EEPROM heeft regio 0: LGS en SDR melden dan "Error 0903 Wrong Region" en GG valt terug op
-    // een andere taal. Zet een geldig record met de regio van de keychip als het ontbreekt, kapot is of regio 0 heeft.
+    // een andere taal. Zet een geldig record met de regio van de optie (PcbRegion, anders de keychip) als het ontbreekt, kapot is of een andere regio heeft.
     if (g_region && rg_amhw::seed_static_sysdata(g_hw->eeprom, g_region)) {
-        rg_log("smbus: AM_SYSDATA_STATIC in de EEPROM ontbrak of was kapot; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
+        rg_log("smbus: AM_SYSDATA_STATIC in de EEPROM ontbrak, was kapot of had een andere regio; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
         eeprom_flush(0, g_hw->eeprom.size());
     }
     rg_log("smbus: dipschakelaars %02X,%02X; invoerpoorten %02X,%02X (FF = niets ingedrukt); Super I/O-chip-id A230 (type 1)", g_hw->i2c[0x20][4], g_hw->i2c[0x20][5], g_hw->i2c[0x20][0], g_hw->i2c[0x20][1]);
