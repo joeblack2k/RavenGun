@@ -27,19 +27,10 @@ __pycache__/
 !patches/*/dropin/**
 
 # Meegeleverde profielen en eigen drop-ins horen bij deze repository.
-# Privégegevens uit de oude patchescheckout blijven lokaal; nooit toevoegen aan Git.
-/patches/**/ravengun-hasp/
-/patches/**/memory/
-/patches/**/dongle.json
-/patches/**/dongle.*.json
-/patches/**/data/shaders/
-/patches/**/dropin/SAVE/
-/patches/**/heap.tsv
-# Deze eigen DLL bevat een game-afgeleide ontsleutelde importtabel.
-/patches/**/WkWin32.dll
-/patches/FarCryParadiseLost/dropin/systemcfg.lua
-/patches/FarCryParadiseLost/dropin/Systemcfgoverride.lua
-/patches/FarCryParadiseLost/dropin/Arcade_Calibration.txt
+# De repo is privé: donglegegevens, HASP-antwoorden en andere privé-profielbestanden
+# gaan mee, zodat een verse kloon de games zonder extra stappen kan starten.
+# Alleen de game-installaties zelf (op de NAS) blijven buiten Git.
+!patches/**
 # Eigen gebouwde FMOD-host; niet de proprietary FMOD-bibliotheken.
 !/patches/Halo/data/fmod/rg-fmod-host.exe
 build-saver/

@@ -1,0 +1,3 @@
+# Gedumpte timeval-wijzer; constructeur 0x088acdb0 gebruikt operator new(8).
+# slot stale bytes allocator
+0x0900efcc 0x0a49e748 8 _Znwj

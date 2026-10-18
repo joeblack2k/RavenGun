@@ -1,0 +1,5 @@
+# Walking Dead v01.05 dump: 19165184 bytes, e_entry 0x08055d70.
+# Constructor 0x088acdb0 allocates eight bytes via operator new for gettimeofday.
+# First use at 0x088ac330 writes both fields; no old timeval state is needed.
+# slot stale bytes allocator
+0x0900efcc 0x0a49e748 8 _Znwj

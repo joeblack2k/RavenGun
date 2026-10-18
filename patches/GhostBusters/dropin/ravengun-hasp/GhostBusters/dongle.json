@@ -1,0 +1,7 @@
+{
+ "kind": "hasp",
+ "game": "GhostBusters",
+ "haspid": 1,
+ "memory": [],
+ "notes": "Ghostbusters (2026-10-15): voorlopig, om te meten wat de game vraagt. haspid 1 zoals bij Aliens Armageddon (zelfde engine: haspid 1 houdt de vlag van SysGetCryptoSeed op de vaste sleutel van de versleutelde databestanden). De spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp."
+}
