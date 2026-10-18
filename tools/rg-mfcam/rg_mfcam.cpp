@@ -54,7 +54,15 @@
 //   stall_dump.h). Alles in rg-mfcam.log, adressen als exe+RVA en als het VA dat objdump voor de exe toont. Voor een zwart beeld waar het
 //   spel niets meer logt; zonder gdb, en zonder dat het spel iets merkt (de draden draaien na de dump gewoon door).
 //
+// ZESDE TAAK: schijfletter-herleiding voor wat patch 0004 van de kern mist
+//   De eigen kern herleidt `F:/x` naar `.\TeknoParrot\F\x`, maar alleen voor CreateFile en CreateDirectory. Mario Kart hernoemt zijn
+//   `F:/system/<naam>.bin.tmp` met de CRT (`rename`) naar `<naam>.bin`, zoekt met FindFirstFileA/W en controleert met GetFileAttributesW en
+//   `_waccess_s`: die gaan er niet doorheen, dus elke start begint met lege instellingen (gemeten: alleen *.bin.tmp in de view). Met
+//   RG_DRIVE_FIXUP=F zet deze DLL die ingangen in de importtabel van het spel om naar dezelfde regel (drive_fix.h). Alleen de genoemde letters;
+//   G: blijft met rust (het spel zet ShareK dan uit, gewenst). Uit met de TeknoParrot-kern in het proces (die doet het op zijn eigen manier).
+//
 // OMGEVING
+//   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
 //   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
 //   RG_SHAREK_FAKE=1  het eigen ShareK-object aan (dropin.ini, Env); leeg of 0 = uit
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
@@ -85,12 +93,14 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <string>
 #include <vector>
 
 #include "../../src/ravengun/vision/camera_feed_format.h"
 #include "jvs_com.h"
 #include "sharek_fake.h"
 #include "stall_dump.h"
+#include "drive_fix.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -1071,6 +1081,123 @@ void setup_sharek_fake() {
     }
 }
 
+// --- aanvullende schijfletter-herleiding (zie ZESDE TAAK bovenaan; logica in drive_fix.h) ------------------------------------------------------
+char g_drive_letters[28];
+volatile LONG g_drive_logged = 0;
+
+std::string to_utf8(const wchar_t* w) {
+    char b[600];
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, b, sizeof b - 1, nullptr, nullptr);
+    return n > 0 ? std::string(b) : std::string("?");
+}
+void drive_note(const char* what, const std::string& from, const std::string& to, long result) {
+    if (InterlockedIncrement(&g_drive_logged) <= 40) rg_log("schijfletter: %s(%s) -> %s = %ld", what, from.c_str(), to.c_str(), result);
+}
+
+using RenameFn = int(__cdecl*)(const char*, const char*);
+using WRenameFn = int(__cdecl*)(const wchar_t*, const wchar_t*);
+using RemoveFn = int(__cdecl*)(const char*);
+using WRemoveFn = int(__cdecl*)(const wchar_t*);
+using WAccessSFn = int(__cdecl*)(const wchar_t*, int);
+using FindFirstAFn = HANDLE(WINAPI*)(LPCSTR, LPWIN32_FIND_DATAA);
+using FindFirstWFn = HANDLE(WINAPI*)(LPCWSTR, LPWIN32_FIND_DATAW);
+using GetAttrWFn = DWORD(WINAPI*)(LPCWSTR);
+RenameFn g_rename = nullptr;
+WRenameFn g_wrename = nullptr;
+RemoveFn g_remove = nullptr;
+WRemoveFn g_wremove = nullptr;
+WAccessSFn g_waccess_s = nullptr;
+FindFirstAFn g_find_first_a = nullptr;
+FindFirstWFn g_find_first_w = nullptr;
+GetAttrWFn g_get_attr_w = nullptr;
+
+// Geeft het herleide pad (in `buf`) of het oorspronkelijke.
+const char* fix_a(const char* in, char* buf, size_t n) { return rg_drivefix::redirect<char>(in, g_drive_letters, buf, n) ? buf : in; }
+const wchar_t* fix_w(const wchar_t* in, wchar_t* buf, size_t n) { return rg_drivefix::redirect<wchar_t>(in, g_drive_letters, buf, n) ? buf : in; }
+
+int __cdecl rg_rename(const char* a, const char* b) {
+    char x[520], y[520];
+    const char *pa = fix_a(a, x, sizeof x), *pb = fix_a(b, y, sizeof y);
+    const int r = g_rename(pa, pb);
+    if (pa != a || pb != b) drive_note("rename", std::string(a ? a : "") + " => " + (b ? b : ""), std::string(pa ? pa : "") + " => " + (pb ? pb : ""), r);
+    return r;
+}
+int __cdecl rg_wrename(const wchar_t* a, const wchar_t* b) {
+    wchar_t x[520], y[520];
+    const wchar_t *pa = fix_w(a, x, 520), *pb = fix_w(b, y, 520);
+    const int r = g_wrename(pa, pb);
+    if (pa != a || pb != b) drive_note("_wrename", to_utf8(a) + " => " + to_utf8(b), to_utf8(pa) + " => " + to_utf8(pb), r);
+    return r;
+}
+int __cdecl rg_remove(const char* a) {
+    char x[520];
+    const char* pa = fix_a(a, x, sizeof x);
+    const int r = g_remove(pa);
+    if (pa != a) drive_note("remove", a, pa, r);
+    return r;
+}
+int __cdecl rg_wremove(const wchar_t* a) {
+    wchar_t x[520];
+    const wchar_t* pa = fix_w(a, x, 520);
+    const int r = g_wremove(pa);
+    if (pa != a) drive_note("_wremove", to_utf8(a), to_utf8(pa), r);
+    return r;
+}
+int __cdecl rg_waccess_s(const wchar_t* a, int mode) {
+    wchar_t x[520];
+    const wchar_t* pa = fix_w(a, x, 520);
+    const int r = g_waccess_s(pa, mode);
+    if (pa != a) drive_note("_waccess_s", to_utf8(a), to_utf8(pa), r);
+    return r;
+}
+HANDLE WINAPI rg_FindFirstFileA(LPCSTR a, LPWIN32_FIND_DATAA d) {
+    char x[520];
+    const char* pa = fix_a(a, x, sizeof x);
+    HANDLE h = g_find_first_a(pa, d);
+    if (pa != a) drive_note("FindFirstFileA", a, pa, h == INVALID_HANDLE_VALUE ? -1L : 0L);
+    return h;
+}
+HANDLE WINAPI rg_FindFirstFileW(LPCWSTR a, LPWIN32_FIND_DATAW d) {
+    wchar_t x[520];
+    const wchar_t* pa = fix_w(a, x, 520);
+    HANDLE h = g_find_first_w(pa, d);
+    if (pa != a) drive_note("FindFirstFileW", to_utf8(a), to_utf8(pa), h == INVALID_HANDLE_VALUE ? -1L : 0L);
+    return h;
+}
+DWORD WINAPI rg_GetFileAttributesW(LPCWSTR a) {
+    wchar_t x[520];
+    const wchar_t* pa = fix_w(a, x, 520);
+    const DWORD r = g_get_attr_w(pa);
+    if (pa != a) drive_note("GetFileAttributesW", to_utf8(a), to_utf8(pa), static_cast<long>(r));
+    return r;
+}
+
+template <typename Fn>
+void hook_import(const char* dll, const char* func, void* repl, Fn& orig) {
+    void* old = patch_iat(GetModuleHandleW(nullptr), dll, func, repl);
+    if (old) orig = reinterpret_cast<Fn>(old);
+    rg_log("importtabel: %s!%s %s", dll, func, old ? "omgezet (schijfletter-herleiding)" : "niet in het spel");
+}
+
+void setup_drive_fix() {
+    char v[28];
+    if (GetEnvironmentVariableA("RG_DRIVE_FIXUP", v, sizeof v) == 0 || !v[0]) return;   // uit
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("schijfletter-herleiding uit: de TeknoParrot-kern is geladen");
+        return;
+    }
+    std::snprintf(g_drive_letters, sizeof g_drive_letters, "%s", v);
+    rg_log("schijfletter-herleiding aan voor: %s", g_drive_letters);
+    hook_import("MSVCR100.dll", "rename", reinterpret_cast<void*>(&rg_rename), g_rename);
+    hook_import("MSVCR100.dll", "_wrename", reinterpret_cast<void*>(&rg_wrename), g_wrename);
+    hook_import("MSVCR100.dll", "remove", reinterpret_cast<void*>(&rg_remove), g_remove);
+    hook_import("MSVCR100.dll", "_wremove", reinterpret_cast<void*>(&rg_wremove), g_wremove);
+    hook_import("MSVCR100.dll", "_waccess_s", reinterpret_cast<void*>(&rg_waccess_s), g_waccess_s);
+    hook_import("KERNEL32.dll", "FindFirstFileA", reinterpret_cast<void*>(&rg_FindFirstFileA), g_find_first_a);
+    hook_import("KERNEL32.dll", "FindFirstFileW", reinterpret_cast<void*>(&rg_FindFirstFileW), g_find_first_w);
+    hook_import("KERNEL32.dll", "GetFileAttributesW", reinterpret_cast<void*>(&rg_GetFileAttributesW), g_get_attr_w);
+}
+
 // --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
 // Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
@@ -1207,6 +1334,7 @@ void setup() {
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
+    setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
