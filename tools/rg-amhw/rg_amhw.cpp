@@ -193,6 +193,17 @@ bool is_table_name(const char* n) {
     return len > 10 && lstrcmpiA(n + len - 10, "_Table.dat") == 0;
 }
 std::string g_table_dir;
+std::string g_dir;
+// De Ring-games (teaArcade2) schrijven hun eigen log naar "debugout.txt" in de werkmap: ArcadeManager::initialize, Dongle, HwMonitor, JvsManager ... en de reden van
+// een mislukte start. In de view is dat een symlink naar de (alleen-lezen) NAS, dus de schrijfactie mislukt stil. Wij sturen schrijfacties naar een gewoon bestand
+// naast de DLL ("debugout-spel.txt"); gelezen wordt het origineel nog steeds van de NAS.
+bool is_debugout_write(const char* n, DWORD acc) {
+    if (!n || !(acc & (GENERIC_WRITE | FILE_APPEND_DATA | FILE_WRITE_DATA))) return false;
+    const char* b = std::strrchr(n, '\\');
+    const char* b2 = std::strrchr(n, '/');
+    if (b2 && (!b || b2 > b)) b = b2;
+    return lstrcmpiA(b ? b + 1 : n, "debugout.txt") == 0;
+}
 std::string table_fallback(const char* n) {
     const char* base = std::strrchr(n, '\\');
     const char* base2 = std::strrchr(n, '/');
@@ -275,6 +286,16 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_AT
         SetLastError(e);
         return r;
     }
+    if (name) {
+        char a[300];
+        WideCharToMultiByte(CP_ACP, 0, name, -1, a, sizeof a, nullptr, nullptr);
+        if (is_debugout_write(a, acc)) {
+            const std::string fb = g_dir + "\\debugout-spel.txt";
+            static LONG nd = 0;
+            if (InterlockedIncrement(&nd) <= 2) rg_log("debugout.txt (schrijven) omgeleid naar %s", fb.c_str());
+            return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
+        }
+    }
     if (name && (acc & GENERIC_WRITE) == 0 && (disp == OPEN_EXISTING)) {
         char a[300];
         WideCharToMultiByte(CP_ACP, 0, name, -1, a, sizeof a, nullptr, nullptr);
@@ -294,6 +315,12 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
         if (InterlockedIncrement(&n) <= 60) rg_log("CreateFileA(%s) niet nagebootst -> %p (fout %lu)", name, r, static_cast<unsigned long>(e));
         SetLastError(e);
         return r;
+    }
+    if (is_debugout_write(name, acc)) {
+        const std::string fb = g_dir + "\\debugout-spel.txt";
+        static LONG nd = 0;
+        if (InterlockedIncrement(&nd) <= 2) rg_log("debugout.txt (schrijven) omgeleid naar %s", fb.c_str());
+        return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
     }
     if (name && (acc & GENERIC_WRITE) == 0 && disp == OPEN_EXISTING && is_table_name(name) && GetFileAttributesA(name) == INVALID_FILE_ATTRIBUTES) {
         const std::string fb = table_fallback(name);
@@ -660,6 +687,7 @@ void setup() {
     dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
     std::snprintf(g_log_path, sizeof g_log_path, "%s\\rg-amhw.log", dir.c_str());
     g_table_dir = dir + "\\rg-amhw-tables";
+    g_dir = dir;
     std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", env("RG_AMHW_JVS_PIPE", g_jvs_pipe).c_str());
     g_platform.oem = env("RG_AMHW_OEM", "AAM");
     g_platform.vendor = env("RG_AMHW_VENDOR", "Supermicro");

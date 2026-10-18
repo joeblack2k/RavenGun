@@ -195,6 +195,12 @@ Reply Responder::answer(const Request& r) const {
         out.line = "response=" + name + "&result=success";
         auto ex = values_.find("response." + name);
         if (ex != values_.end() && !ex->second.empty()) out.line += "&" + ex->second;
+        else if (name == "query_appdata_status") {
+            // amInstallResponseCheck (OG 0x5910A0, 0x592108): `status=` is verplicht (available/restored/unknown/error/needed/checking/formatting; zonder dat
+            // fout -6 en "Faild to check application data area", OG 3005) en bij available/restored ook `id=` met het spel-id (4 tekens).
+            auto gi = values_.find("keychip.appboot.gameid");
+            out.line += "&status=available&id=" + (gi == values_.end() ? std::string("SBUH") : gi->second);
+        }
         out.known = true;
         out.note = "request=<naam>: result=success";
         if (out.line.size() > kMaxMessage - 3) { out.note += "; antwoord te lang"; out.line.clear(); }

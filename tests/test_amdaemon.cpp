@@ -146,6 +146,13 @@ static void test_responder() {
     CHECK(a.known && a.line == "response=getinfo&result=success");
     a = rs.answer(parse_request("request"));
     CHECK(!a.known && a.line.empty());
+    {   // query_appdata_status: status en id zijn verplicht voor de AM Library (OG 0x5910A0)
+        auto w = default_values("JAPAN");
+        w["keychip.appboot.gameid"] = "SBWA";
+        CHECK(Responder(w).answer(parse_request("request=query_appdata_status")).line == "response=query_appdata_status&result=success&status=available&id=SBWA");
+        w["response.query_appdata_status"] = "status=needed";
+        CHECK(Responder(w).answer(parse_request("request=query_appdata_status")).line == "response=query_appdata_status&result=success&status=needed");
+    }
     {
         auto w = default_values("JAPAN");
         w["response.getinfo"] = "size=2000&sector=512";

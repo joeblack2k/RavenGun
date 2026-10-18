@@ -863,3 +863,6 @@ Aanvulling (meting 8, proef 10): AM_SYSDATA_STATIC staat in de EEPROM (gebied 0)
 Aanvulling (meting 9, proef 12): `mxmaster.foreground.next=<n>` wordt met dezelfde waarde beantwoord (amMasterExitA; een afwijkend antwoord liet de game 100 keer opnieuw proberen, waardoor de lader 25-30 s na het
 sluiten bleef hangen). De hardwaremonitor meldt gegokte rustige waarden (40/42 graden, ventilatoren) i.p.v. nullen. De Transformers-0949 komt doordat de ds-uitdaging uit een ingebouwde tabel in de exe komt; dat is
 bewust NIET opgelost (geen uitbreiding van ds/ssd zonder besluit).
+
+Aanvulling (meting 10): OG 3005 bij de tweede run kwam doordat `request=query_appdata_status` zonder `status=` (en `id=`) werd beantwoord; de eerste run nam het formatteerpad. rg-amhw stuurt schrijfacties op `debugout.txt`
+(de eigen log van de teaArcade2-games, in de view een symlink naar de NAS) naar `debugout-spel.txt` naast de DLL, om de reden van de vroege stop van LGI/LGI3D te kunnen lezen.

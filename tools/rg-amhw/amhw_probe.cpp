@@ -209,6 +209,15 @@ int main(int argc, char** argv) {
         check(other == INVALID_HANDLE_VALUE, "een ander ontbrekend bestand blijft ontbreken");
         check(GetFileAttributesA((dir + "\\rg-amhw-tables\\SBZZ_Table.dat").c_str()) != INVALID_FILE_ATTRIBUTES, "de vervanging staat in rg-amhw-tables naast de DLL, niet bij het opgegeven pad");
     }
+    {   // debugout.txt (teaArcade2-log): schrijven gaat naar debugout-spel.txt naast de DLL, het origineel blijft ongemoeid
+        DeleteFileA((dir + "\\debugout-spel.txt").c_str());
+        HANDLE dbg = CreateFileA((dir + "\\debugout.txt").c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        check(dbg != INVALID_HANDLE_VALUE, "debugout.txt schrijven opent");
+        DWORD wr = 0;
+        if (dbg != INVALID_HANDLE_VALUE) { WriteFile(dbg, "INFO  > test\n", 13, &wr, nullptr); CloseHandle(dbg); }
+        check(GetFileAttributesA((dir + "\\debugout-spel.txt").c_str()) != INVALID_FILE_ATTRIBUTES, "de tekst staat in debugout-spel.txt");
+        check(GetFileAttributesA((dir + "\\debugout.txt").c_str()) == INVALID_FILE_ATTRIBUTES, "debugout.txt zelf is niet aangemaakt");
+    }
     {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
         auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
         auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);

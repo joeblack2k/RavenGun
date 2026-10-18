@@ -383,6 +383,24 @@ de run, niet de oorzaak: de vraag is waarom de game begon af te sluiten.
   hardwaremonitor meldde overal 0, en `amHmUpdate` (`0x48DEC0`) vergelijkt temperatuur en drempels (75 en 90 graden) en leest daarvoor register 0x27 en bank 1/2 register 0x50. **Gewijzigd (gegokt):** de
   monitor meldt nu 40 graden (register 0x27), 42 graden in bank 1 en 2 (register 0x50, bank via 0x4E) en ventilatortellers 0x40. Niet bevestigd dat dit de oorzaak was.
 
+### Meting 10 (TV 2026-10-17/18): OG 3005 bij de tweede run, LGI/LGI3D/SDR stoppen binnen 10 s
+
+**OG 3005 "Faild to check application data area" [gelezen, OG `0x4AD350`, `0x591280`, `0x5910A0`].** Het verschil tussen de eerste run (20:25, kwam tot "Presented by SEGA") en de volgende:
+* `MainStorage::Init` leest een markering uit de EEPROM/SRAM. Is die 0 (eerste run) dan formatteert de game (`request=format_appdata`) en meldt hoogstens "Faild to format" (niet fataal).
+  Is hij gezet (elke volgende run, de markering staat dan in `mxeeprom.bin`/`mxsram.bin`) dan stuurt hij `request=check_appdata&execute=0` en daarna `request=query_appdata_status`.
+* Het antwoord op `query_appdata_status` moet `status=<woord>` bevatten (available, restored, unknown, error, needed, checking, formatting) en bij available/restored ook `id=<spel-id>` (4 tekens).
+  Ons antwoord `result=success` had geen `status`: `0x5910A0` geeft dan -6, `0x591280` geeft dat door en de game meldt "Faild to check application data area" -> 3005.
+* Nu: de AM-daemon antwoordt `response=query_appdata_status&result=success&status=available&id=<gameid>` (te overschrijven met `[AmDaemon] response.query_appdata_status = status=needed`, enz.).
+  Dat dit het antwoord is dat de game wil is uit de ontleding gelezen, niet gemeten. "Geen geluidsstroom" bij OG is vermoedelijk een gevolg van het mislukken van deze init.
+
+**LGI, LGI3D, SDR: geen crash, wel een vroege nette stop.** Alle AM-apparaten zijn nagebootst (0 regels `niet nagebootst`), de keychip-fase is goed, de lader meldt exitcode 0. De game begint 0,1-3 s na het eerste
+JVS-schakelaarpakket af te sluiten (`mxjvs: gesloten`, daarna `mxmaster.foreground.next=3`). Wat hij beslist is statisch niet vast te stellen. Aanwijzingen:
+* LGI3D bevat op de NAS een eigen `debugout.txt` van een echte start met precies deze eindvolgorde: `ArcadeManager::initialize` -> `Dongle::initialize` -> `HwMonitor::initialize` -> `JvsManager::initialize` ->
+  `JvsManager::terminate` -> `ArcadeManager::terminate`: dus het afsluiten begint in of vlak na `JvsManager::initialize` (LGI `0x6EE520`: faalt op `amJvsSetupDevice`, of op `amJvsGetNodes` >= 4).
+* De games schrijven hun eigen reden naar `debugout.txt` in de werkmap. In de view is dat een symlink naar de alleen-lezen NAS, dus de schrijfactie mislukte stil. **Nieuw in rg-amhw:** een schrijfopening van
+  `debugout.txt` gaat naar `debugout-spel.txt` naast de DLL. Eén run van LGI of LGI3D laat dus de eigen foutregel van de game zien (`[teaArcade2] ... failed`).
+* Overige meetopties: `WINEDEBUG=err+all,warn+seh` (OutputDebugString-regels van OG verschijnen zo al in het logboek), en een schermfoto op 3-4 s na de start (de game sluit binnen ~6 s).
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
