@@ -164,6 +164,10 @@ git -C "$FIX" archive --format=tar HEAD patches | tar -x -C "$T/uit-commit" --st
 [[ ! -e "$T/uit-commit/GameA/dropin/los.dll" ]] || fail "een los bestand uit de werkmap zit in het archief van HEAD"
 grep -q 'git archive --format=tar HEAD patches' "$REPO/tools/dev/make-release.sh" ||
   fail "make-release.sh haalt de profielen niet uit git archive HEAD (losse bestanden lekken dan in de release)"
+# Hetzelfde voor de portabele map: scripts/make-portable.sh haalt de profielen ook uit git archive HEAD (RG_PORTABLE_PATCHES is alleen een
+# override voor tests; tests/make_portable_test.sh toetst het gedrag met een echte git-repo).
+grep -q -e 'archive --format=tar HEAD patches' "$REPO/scripts/make-portable.sh" ||
+  fail "make-portable.sh haalt de profielen niet uit git archive HEAD (losse bestanden lekken dan in de map)"
 python3 -I "$REPO/tools/dev/ship-patches.py" "$FIX/patches" "$T/uit-werkmap" > /dev/null || fail "patch-export faalde"
 [[ -f "$T/uit-werkmap/GameA/dropin/los.dll" ]] || fail "ship() laat een leveringsbestand liggen"
 
