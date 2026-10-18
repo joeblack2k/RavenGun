@@ -416,6 +416,19 @@ importtabel van de CRT). rg-amhw haakt nu `fopen`, `fopen_s`, `_fsopen` en `_wfo
 de CRT-DLL; een schrijfopening van `debugout.txt` gaat naar `debugout-spel.txt` naast de DLL (in `rg-amhw.log`: `debugout.txt (fopen, schrijven) omgeleid naar ...`). Wine-proef: de omleiding werkt voor `fopen` uit de UCRT
 (de probe) en voor `CreateFileA/W`. Dat de teaArcade2-games `fopen` gebruiken en niet `ofstream` (MSVCP90) is uit de importtabel afgeleid, niet gemeten.
 
+### Meting 12 (TV 2026-10-18 08:44-08:48): OG speelt; LGI/LGI3D loggen niet naar debugout.txt
+
+**debugout.txt [gelezen, LGI].** De namen `debugout.txt` en `debugoutW.txt` staan alleen in een gegevenstabel (`0x9EFAE0`, de logger-klasse `teaUtil::ILogger`), niets in de code verwijst ernaar: in de uitgebrachte exe
+wordt het bestand nooit geopend. Het `debugout.txt` op de NAS (met `ArcadeManager::initialize` .. `JvsManager::terminate`) komt van een ontwikkelversie. De uitgebrachte exe roept de logger wel aan, maar
+zonder sink gaat het bericht nergens heen: drie kleine functies (LGI `0x57B600`/`0x57B620`/`0x57B640` voor niveau 0/1/2; LGI3D `0x59AC00`/`0x59AC20`/`0x59AC40`) geven een bericht aan de sinks van een globale logger
+(`[0xA3B800]`), en zijn leeg zolang er geen sink is. De berichten bestaan dus wel ("[teaArcade2] JvsManager::initialize() failed.", "amJvsSetupDevice() returned error.", "Cpu Temperature High." ...), ze worden alleen
+niet uitgevoerd. (Aan: `%s/DevelopmentMode.txt` in de speelmap schakelt ontwikkelfuncties van het framework in, `0x6472D7`; niet getest en niet nodig hiermee.)
+
+**Nieuw in rg-amhw: `spellog`.** De DLL zoekt in de code van de game naar die logfunctie aan zijn bytes (`8B 0D <logger> 85 C9 74 0D 8B 44 24 04 50 6A <niveau> E8 <rel32> C3 B0 01 C3`; in alle zeven exe's komt dat
+patroon alleen in LGI en LGI3D voor, precies drie keer), zet een sprong op het begin naar een eigen stukje code dat het bericht in `rg-amhw.log` schrijft als `spel[<niveau>]: <tekst>`, en geeft net als het origineel
+"gelukt" terug. De game zelf verandert niet. Uitzetten: `RG_AMHW_GAMELOG=0`. In `rg-amhw.log` staat bij het laden `spellog: logfunctie voor niveau N op 0x... omgeleid`; staat dat er niet, dan is het patroon niet gevonden.
+Wine-proef: een nagebouwde functie met dezelfde bytes wordt gevonden en gelogd. Het debugout-pad (fopen/CreateFile naar `debugout-spel.txt`) blijft staan voor ontwikkelversies.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

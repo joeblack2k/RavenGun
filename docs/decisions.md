@@ -869,3 +869,6 @@ Aanvulling (meting 10): OG 3005 bij de tweede run kwam doordat `request=query_ap
 
 Aanvulling (meting 11): de 60 s wachttijd van OG tussen mxsuperio en mxjvs is `pcpaOpenClient` naar poort 40110 (de "catcher", `startcatcher`) zonder luisteraar; 40110 is een standaardpoort van de AM-daemon. De
 debugout-omleiding haakt fopen/fopen_s/_fsopen/_wfopen in de game-IAT omdat de CRT-DLL CreateFileW via zijn eigen importtabel aanroept.
+
+Aanvulling (meting 12): de uitgebrachte LGI/LGI3D openen debugout.txt nooit; hun log gaat via drie logfuncties zonder sink. rg-amhw leidt die om naar rg-amhw.log (`spel[niveau]: tekst`, aan de bytes herkend, uit met
+`RG_AMHW_GAMELOG=0`) zodat de reden van de vroege stop leesbaar wordt zonder de game aan te passen.

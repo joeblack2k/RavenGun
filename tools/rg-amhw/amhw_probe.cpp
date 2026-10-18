@@ -45,6 +45,14 @@ static DWORD WINAPI jvs_server(LPVOID) {
     return 0;
 }
 
+// Een nagebootste teaArcade2-logfunctie met precies de bytes van LGI 0x57B620 (niveau 1): rg-amhw moet hem aan zijn bytes vinden en omleiden.
+extern "C" int rgp_logger = 0;
+__asm__(".text\n.globl _rgp_fake_log\n_rgp_fake_log:\n"
+        ".byte 0x8B,0x0D\n.long _rgp_logger\n"
+        ".byte 0x85,0xC9,0x74,0x0D,0x8B,0x44,0x24,0x04,0x50,0x6A,0x01,0xE8\n.long 0\n"
+        ".byte 0xC3,0xB0,0x01,0xC3\n");
+extern "C" unsigned char __cdecl rgp_fake_log(const char*);
+
 int main(int argc, char** argv) {
     if (argc < 2) { std::printf("gebruik: amhw_probe.exe <map>\n"); return 2; }
     const std::string dir = argv[1];
@@ -225,6 +233,14 @@ int main(int argc, char** argv) {
         if (df) { std::fputs("INFO  > fopen\n", df); std::fclose(df); }
         check(GetFileAttributesA((dir + "\\debugout-spel.txt").c_str()) != INVALID_FILE_ATTRIBUTES, "fopen: de tekst staat in debugout-spel.txt");
         check(GetFileAttributesA((dir + "\\debugout.txt").c_str()) == INVALID_FILE_ATTRIBUTES, "fopen: debugout.txt zelf is niet aangemaakt");
+    }
+    {   // de log van de teaArcade2-games: het bericht komt in rg-amhw.log, de functie geeft nog steeds "gelukt" terug
+        const unsigned char r = rgp_fake_log("[teaArcade2] JvsManager::initialize() failed.\r\n");
+        check(r == 1, "teaArcade2-logfunctie: geeft nog steeds 1 terug");
+        FILE* lf = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
+        std::string txt;
+        if (lf) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf)) > 0) txt.append(buf, n); std::fclose(lf); }
+        check(txt.find("spel[1]: [teaArcade2] JvsManager::initialize() failed.") != std::string::npos, "teaArcade2-logfunctie: het bericht staat in rg-amhw.log");
     }
     {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
         auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
