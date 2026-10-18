@@ -24,8 +24,8 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | AliensExtermination | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: attract, films) | ja | munt ja (CREDITS 2/4) | 20 | working |
 | BugBusters | direct | nee | ja | ja (attract) | ja | ja (munt, start, schieten, zone 1) | 7 | working |
 | Coopers9 | direct | nee | nee | nog meten | nog meten | nog meten | 13 | untested |
-| CrossfirePaintball | direct | nee | nee | nog meten | nog meten | nog meten | 11 | working |
-| DrakonsRealmKeepers | direct | nee | nee | nog meten | nog meten | nog meten | 8 | working |
+| CrossfirePaintball | native (kandidaat) | nee | ja | nee (iButton en geweerdata ok; X-scherm :0.0 weigert) | - | - | 11 | working |
+| DrakonsRealmKeepers | direct | nee | ja | ja (zonder TP: attract, Matrix-dongle ok, Engels) | ja | munt ja; trekker komt niet in Unity aan (in bewerking) | 8 | working |
 | ElevatorActionInvasion | direct | nee | ja | ja (attract) | ja | ja (start) | 16 | working |
 | FarCryParadiseLost | direct | nee | nee | ja | ja | ja (munt, start, kaart) | 16 | working |
 | Friction | direct | ja |  | ja | ja | munt ja, start? | 10 | working |
@@ -41,7 +41,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | HOTD4SP | native | ja |  | ja | ja | ja (start; grijze textures) | 18 | untested |
 | HOTDEX | native | ja |  | ja | ja (ALSA->Pulse) | ja (munt, start) | 12 | working |
 | HOTDSD | direct | nee | ja | nee (ALLS-keychip) | nog meten | nog meten | 40 | working |
-| InfinityBladeFX | direct | nee | ja | nee (wit) | ja | - | 10 | playable |
+| InfinityBladeFX | direct | ja |  | ja (meegeleverd zonder TP: attract-film; wit was volledig scherm) | ja | munt ja (2/4 CREDITS) | 10 | working |
 | JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
 | LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
 | LGI | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: attract, munt, titel, kaart) | ja | ja (munt, start) | 24 | working |
@@ -51,7 +51,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | LGS | direct | ja |  | ja (attract, Engels) | ja | ja (rit) | 20 | working |
 | LostLandAdventure | direct | nee | ja | titel, dan "Please insert the dongle" (HASP) | nee | - | 11 | untested |
 | LuigisMansion | direct | ja |  | ja | ja | nee (munt komt niet aan) | 23 | playable |
-| MarioKartDX | direct | nee (zonder TP-kern) |  | zonder TP: venster + stuurbord ok, dan E19-10 USB-dongle (in bewerking) | ja | - | 45 | working |
+| MarioKartDX | direct | ja (zonder kern) |  | zonder TP: venster + stuurbord ok, dan E19-10 USB-dongle (nabootsen gestopt door veiligheidsfilter; alleen echte dongle) | ja | - | 45 | working |
 | MarsSortie | direct | ja |  | ja | ja | ja (start, level) | 14 | working |
 | MenInBlack | direct | ja |  | ja | ja | ja (start, PLAYER 1 READY, spel) | 0 | untested |
 | MusicGunGun2 | direct | ja |  | ja | ja | ja (munt, start) | 12 | working |
@@ -65,11 +65,11 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | Rambo | native | ja |  | ja (initialiseert >150 s) | ja | ? (opstart te lang voor de meting) | 25 | working |
 | Rampage | direct | ja |  | ja (attract) | ja | ? (start onduidelijk) | 6 | working |
 | RobinHood | direct | nee | nee | nog meten | nog meten | nog meten | 5 | working |
-| SDR | direct | nee | ja | nee (INITIALIZING...; hoofddraad spint in win32u zoals Mario Kart in volledig scherm) | - | - | 9 | working |
+| SDR | direct | nee | ja | nee (720p-venster: door PeekMessage; invoer start niet: SRAM-CRC-fout 0x15) | ja | - | 9 | working |
 | SilentHill | direct | ja |  | ja | ja | ja (start) | 19 | working |
 | TargetTerrorGold | native | ja |  | ja (Mission Select) | ja (OSS->Pulse, DEEPBIND) | ? | 12 | working |
-| TC5 | direct | nee | ja | ja (attract) | ja | munt ja (start = pedaal) | 48 | playable |
-| Terminator | direct | nee | nee | nog meten | nog meten | nog meten | 26 | working |
+| TC5 | direct | nee | ja | ja (zonder TP: attract, menu, stage, cover-uitleg) | ja | munt, pedaal ja; trekker/richten = serieel geweer COM1 (nagebouwd, ronde 45) | 48 | playable |
+| Terminator | native (kandidaat) | nee | ja | nee (stopt na dongle; richtpunt-controle klopt niet) | - | - | 26 | working |
 | TombRaider | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 18 | working |
 | Transformers | direct | nee | ja | nee (0949 keychip) | nog meten | nog meten | 11 | working |
 | TransformersShadowsRising | direct | ja |  | ja (attract, missie) | ja | ja (start, ROLL OUT) | 31 | working |
