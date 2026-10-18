@@ -7,7 +7,7 @@
   "launcher": "gamescope",
   "mounts": [
     {
-      "src": "@nas/GhostBusters",
+      "src": "@nas/GhostBusters/pm",
       "dst": "/pm",
       "mode": "overlay"
     }
@@ -57,7 +57,7 @@
   ],
   "res": "1920x1080",
   "route": "tp-shm",
-  "note": "Native route opgezet (2026-10-15), zelfde opzet als Aliens Armageddon: rg-elfloader, HASP-hook met adreslijst (anker: patch uit de map van Aliens Armageddon, zelfde bibliotheek, verschuiving +0x1c53a0), RIO-brug (haken met verschuiving -0x5F0C0 t.o.v. AA), RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: de game start, de dongleaanroepen komen binnen, \"Welcome to Ghostbusters v01.17\". GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer da13ebd0..., anders dan AA) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; zonder die antwoorden faalt \"Error Loading RTDT Defs File\" en valt de game om.",
+  "note": "Opnieuw gemeten 2026-10-17 21:52 via ravengund: dumpwortel gecorrigeerd naar GhostBusters/pm, Welcome v01.17 bereikt, HASP-tafelmissers en RTDT-fouten blijven; geen spelbeeld of vijf minuten werking. Log native-GhostBusters-20261017-215240.log. Native route opgezet (2026-10-15), zelfde opzet als Aliens Armageddon: rg-elfloader, HASP-hook met adreslijst (anker: patch uit de map van Aliens Armageddon, zelfde bibliotheek, verschuiving +0x1c53a0), RIO-brug (haken met verschuiving -0x5F0C0 t.o.v. AA), RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: de game start, de dongleaanroepen komen binnen, \"Welcome to Ghostbusters v01.17\". GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer da13ebd0..., anders dan AA) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; zonder die antwoorden faalt \"Error Loading RTDT Defs File\" en valt de game om.",
   "extra_ro": [
     "/dev/shm/ravengun_JvsState"
   ]

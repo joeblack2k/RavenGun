@@ -20,6 +20,10 @@
     {
       "src": "@patches/WalkingDead/dropin/hasp-haken.ini",
       "dst": "/rg/hasp-haken.ini"
+    },
+    {
+      "src": "@patches/WalkingDead/dropin/heap.tsv",
+      "dst": "/rg/heap.tsv"
     }
   ],
   "seed": [
@@ -43,6 +47,7 @@
   "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so:/rg/lib/librg-glslfix.so",
   "env": {
     "RG_ELF_SLOT_TABLE": "/rg/wd-slots.tsv",
+    "RG_ELF_HEAP_TABLE": "/rg/heap.tsv",
     "RAVENGUN_HASP_GAME": "WalkingDead",
     "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
     "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
@@ -53,7 +58,7 @@
     "RG_GLSLFIX_LOG": "1",
     "RG_ELF_MAIN": "1"
   },
-  "note": "Native route opgezet (2026-10-15): rg-elfloader met de eerste-PLT-slottabel (806/806, __pow_finite -> pow), RG_ELF_MAIN=1 (de dump is na de constructors gemaakt; main wordt als functie aangeroepen), eigen libcaca-stub, HASP-hook met adreslijst (anker: patch van Aliens Armageddon, verschuiving +0x15e970), RIO-brug, RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: \"Welcome to Walking Dead v01.05\", dongleaanroepen komen binnen. GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer f3348bcd..., c0f440bd...) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; 41 RTDT/adj-bestanden laden niet en de game valt om.",
+  "note": "Lokale native attractproef geslaagd 2026-10-17 23:25:11-23:30:12 (+02:00), zelfde PID 2581518, verse start zonder debugger. Log native-WalkingDead-20261017-232403.log en screenshots rg-walkingdead-proof-minute-1.png t/m -5.png. Heapherstel van het timeval-slot is nu vastgelegd in dropin/heap.tsv; decoderantwoorden staan uitsluitend lokaal in de schrijflaag en worden NIET meegeleverd. Daarom blijft deze algemene configuratie uitgeschakeld: een schone installatie heeft die gegevens niet. Kalibratie-, UMC- en 12V-waarschuwingen blijven; volledige bediening en herstart zonder aanwezige TP-runtime niet bewezen. Historische meting: opnieuw gemeten 2026-10-17 21:55 via ravengund: openssl10-i386 via de app uit Ubuntu geinstalleerd, 806 PLT-slots op naam gezet, Welcome v01.05 bereikt; HASP-tafelmissers en RTDT-fouten blijven, niet speelbaar. Log native-WalkingDead-20261017-215556.log. Native route opgezet (2026-10-15): rg-elfloader met de eerste-PLT-slottabel (806/806, __pow_finite -> pow), RG_ELF_MAIN=1 (de dump is na de constructors gemaakt; main wordt als functie aangeroepen), eigen libcaca-stub, HASP-hook met adreslijst (anker: patch van Aliens Armageddon, verschuiving +0x15e970), RIO-brug, RG_ELF_PTRACER_ANY, rg-glslfix. Gemeten: \"Welcome to Walking Dead v01.05\", dongleaanroepen komen binnen. GEBLOKKEERD op gegevens: de game ontsleutelt zijn databestanden via hasp_decrypt/hasp_encrypt (invoer f3348bcd..., c0f440bd...) en de spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; 41 RTDT/adj-bestanden laden niet en de game valt om.",
   "exe": "/pm/game",
   "cwd": "/pm",
   "home": "/pm",

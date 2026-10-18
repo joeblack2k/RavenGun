@@ -5,6 +5,24 @@
   "exe": "MK_AGP3_FINAL.exe",
   "options": [
     {
+      "key": "ravengun.core",
+      "name_en": "Online play",
+      "type": "enum",
+      "values": [
+        "ravengun",
+        "teknoparrot"
+      ],
+      "default": "ravengun",
+      "target": {
+        "kind": "launch_env",
+        "name": "RG_LOADER_CORE"
+      },
+      "description_en": "ravengun = RavenGun's own core, no TeknoParrot needed: the game starts and plays offline (no ALL.Net, no online races). teknoparrot = the closed TeknoParrot core: the only way to play online (National Battle on TeknoParrot's community server, with your Mario Kart ID under Network > PlayerId). This needs TeknoParrot: the TeknoParrot folder (TeknoParrotUi-2.0.0.130-linux-x64) must be installed in RavenGun's runtime folder (Components step of the setup). Applies at the next start.",
+      "source": [
+        "ravengun:[Loader] Core"
+      ]
+    },
+    {
       "key": "ravengun.mod",
       "name_en": "Language",
       "type": "enum",
