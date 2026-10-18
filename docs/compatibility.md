@@ -57,11 +57,10 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **Transformers: Shadows Rising**: WORKING via double-click in the app (2026-10-15): ~2 min loading, then played 6.5 min in mouse mode: coin, START, aim and shoot, continue, boss, score 29402. The freeze of 2026-10-14 (~1 min after START) did not return in two runs. Open: the lever ('PUSH THE LEVER') is not emulated; the game carries on without it.
 - **Wild West Shootout**: WORKING (2026-10-15): rg-direct with DXVK (Vulkan) and winhttp=n,b for BepInEx (plugin WWS 1.4, the input). Played 5.5 min in mouse mode: coin (5), START (1), shooting, boss.
 
-## Playable (7)
+## Playable (6)
 
 These games start from RavenGun and can be played with the lightgun. Some are not yet confirmed with a real PS Move in every detail; the note says what was tested.
 
-- **Elevator Action Death Parade**: 2026-10-16: starts by double-click (JVS, PhysX 2.8 system software) and runs its attract. Open: the picture is a narrow portrait strip; controls and calibration not yet measured.
 - **Gashaaaan Refill!!!!**: Playable after a one-time setup in the test menu (clock, screen, free play; now stored in the game's save data). Then start, aiming and trigger (the ball) work. Test menu: key 0, select with start, execute with P1 aux1.
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **Infinity Blade FX**: Starts by double-click (2026-10-17): DXVK, dongle passes, then the attract (are you ready, 0/4 credits). Needs Windowed = 1 under gamescope. The cabinet I/O (Kaboom: coins, keypad, tickets) still fails; play not measured. Play test 2026-10-17 (mouse mode): coins do not arrive (0/4 credits); the cabinet's Kaboom I/O fails.
