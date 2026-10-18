@@ -16,7 +16,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 |---|---|---|---|---|---|---|---|---|
 | 2Spicy | native | ja |  | ja | ja | ja (munt, start, tutorial) | 1 | working |
 | AfterDark | direct | nee | nee | nog meten | nog meten | nog meten | 9 | working |
-| AfterDark2 | direct | nee | ja | nee (zwart; Sense4: `S4VerifyPin ret=2`, BepInEx laadde niet) | ja (stroom) | - | 9 | working |
+| AfterDark2 | direct | ja |  | ja (zonder TP: attract, titel, start, spel; plugin + Sense4-haak, BepInEx-ingang MonoBehaviour) | ja | start ja (Free Play) | 9 | working |
 | AliensArmageddon | native | ja |  | nog meten | nog meten | nog meten | 6 | untested |
 | AliensExtermination | direct | nee | ja | ja (attract, films) | ja | munt ja na fix (4 credits nodig) | 20 | working |
 | BugBusters | direct | nee | ja | ja (attract) | ja | ja (munt, start, schieten, zone 1) | 7 | working |
@@ -42,7 +42,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
 | LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
 | LGI | direct | nee | ja | nee (dipschakelaars nu goed; halt bij "Initializing Passenger Seat", COM1) | ja (stroom) | - | 24 | working |
-| LGI3D | direct | ja |  | ja (attract, titel, 3D CALIBRATION) | ja | ja (munt, start) | 34 | working |
+| LGI3D | direct | ja |  | ja (meegeleverd zonder TP, ronde 23: attract, titel, 3D CALIBRATION) | ja | ja (munt, start) | 34 | working |
 | LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
 | LGJS | native | ja |  | ja | ja | ja (start, rit) | 13 | working |
 | LGS | direct | ja |  | ja (attract, Engels) | ja | ja (rit) | 20 | working |
@@ -70,7 +70,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | TombRaider | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 18 | working |
 | Transformers | direct | nee | ja | nee (0949 keychip) | nog meten | nog meten | 11 | working |
 | TransformersShadowsRising | direct | ja |  | ja (attract, missie) | ja | ja (start, ROLL OUT) | 31 | working |
-| WalkingDead | native | ja |  | ja (testmenu: guns not calibrated, UMC board not connected, 12V) | ja | - | 0 | parked |
+| WalkingDead | native | ja |  | ja (attract; 12V en UMC opgelost; banners "gun not calibrated") | ja | munt ja (Money In $0.50) | 0 (adj-opties in de maak) | parked |
 | WildWestShootout | direct | ja |  | ja | ja | ja (start, kaart, level) | 10 | working |
 
 ## Hoe er gemeten wordt
