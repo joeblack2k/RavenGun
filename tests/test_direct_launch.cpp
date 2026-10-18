@@ -1002,6 +1002,21 @@ int main() {
         fs::remove(xlink);
         write(user, "[Launch]\nDrives = C=.\n");
         CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Refused && contains(why, "niet C"));
+        // Een map ONDER de view die er nog niet is (Point Blank X: F=TeknoParrot/F): in --plan een melding, bij een start gemaakt;
+        // een ontbrekende map buiten de view blijft een weigering.
+        {
+            write(user, "[Launch]\nDrives = F=TeknoParrot/F\n");
+            const fs::path tf = view / "TeknoParrot/F";
+            fs::remove_all(view / "TeknoParrot");
+            CHECK(plan_direct("Spel", p, o, pl, why) == Verdict::Ok && pl.drives.size() == 1 && pl.drives[0].letter == "F" &&
+                  pl.drives[0].target == tf.string() && !fs::exists(tf) && std::any_of(pl.notes.begin(), pl.notes.end(), [](const std::string& n) { return contains(n, "bij de start gemaakt"); }));
+            DirectOptions om = o;
+            om.make_view = true;
+            CHECK(plan_direct("Spel", p, om, pl, why) == Verdict::Ok && fs::is_directory(tf));
+            fs::remove_all(view / "TeknoParrot");
+            write(user, "[Launch]\nDrives = F=../bestaat-niet\n");
+            CHECK(plan_direct("Spel", p, om, pl, why) == Verdict::Refused && contains(why, "bestaat niet"));
+        }
         // Een map op C: (Aliens Extermination: C:\PC\ALIENS\SHADERS): een koppeling in drive_c, voor de run.
         fs::create_directories(fs::path(basis.prefix) / "drive_c");
         write(user, "[Launch]\nDrives = C:\\PC\\ALIENS=.\n");

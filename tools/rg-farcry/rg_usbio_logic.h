@@ -147,4 +147,39 @@ static void rg_usbio_fill(rg_usbio_state *s, const unsigned char *shm, unsigned 
     rg_usbio_put32(rec, RG_REC_MODE, 2);
 }
 
+/* ------------------------------------------------------------------------------------------------------------------------------ */
+/* Het toetsenbord van de game (DirectInput8): de toetsen die de daemon op zijn virtuele toetsenbord drukt, mogen er niet door.
+ * De daemon drukt bij elke bordknop OOK een toets (munt = '5', start = '1'/'2', test = '0'/F2, service F3, menu F4/F5); bij Global VR
+ * is '5' op het toetsenbord TEST (zelfde conventie als Aliens Extermination), dus de muntknop opende het testmenu. Het bord geeft de
+ * knoppen al uit het bordbeeld. DIK-codes: 1 2 = 0x02 0x03, 5 6 = 0x06 0x07, 0 = 0x0b, F2..F5 = 0x3c..0x3f. */
+static int rg_usbio_dik_blocked(unsigned dik)
+{
+    return dik == 0x02 || dik == 0x03 || dik == 0x06 || dik == 0x07 || dik == 0x0b || (dik >= 0x3c && dik <= 0x3f);
+}
+
+/* De toetsenbordtoestand (256 bytes, bit 7 = ingedrukt): wist de geblokkeerde toetsen. Geeft het aantal gewiste toetsen. */
+static unsigned rg_usbio_filter_state(unsigned char *st256)
+{
+    unsigned k, n = 0;
+    for (k = 0; k < 256; k++)
+        if (rg_usbio_dik_blocked(k) && (st256[k] & 0x80)) { st256[k] = 0; n++; }
+    return n;
+}
+
+/* De gebufferde gebeurtenissen (DIDEVICEOBJECTDATA's van cb bytes, dwOfs = de DIK-code op byte 0): laat de geblokkeerde toetsen weg en
+ * schuift de rest op. Geeft het nieuwe aantal. */
+static unsigned rg_usbio_filter_data(unsigned char *p, unsigned n, unsigned cb)
+{
+    unsigned i, b, uit = 0;
+    if (cb < 4 || cb > 64) return n;
+    for (i = 0; i < n; i++) {
+        const unsigned char *e = p + (unsigned long)i * cb;
+        unsigned ofs = (unsigned)e[0] | ((unsigned)e[1] << 8) | ((unsigned)e[2] << 16) | ((unsigned)e[3] << 24);
+        if (rg_usbio_dik_blocked(ofs)) continue;
+        if (uit != i) for (b = 0; b < cb; b++) p[(unsigned long)uit * cb + b] = e[b];
+        uit++;
+    }
+    return uit;
+}
+
 #endif

@@ -77,3 +77,9 @@ hernoemen naar `dropin.ini` + de `[Loader]`-sectie van de kandidaat in `game.ini
 * Welke van de vier bedienknoppen test/selecteren/omhoog/omlaag is; de richting van de Y-as; of het 1..255-bereik de randen haalt.
 * Venstermodus via `systemcfg`: niet gemeten of `Systemcfgoverride.lua` na `systemcfg.lua` gelezen wordt (daarom staat de waarde in beide).
 * Startknoppen (P1/P2 start van de app) hebben geen bord-bit en doen niets; de game start op de trekker.
+
+## Muntknop opent het testmenu (2026-10-18)
+
+Gemeten op de tv: `key 5` opent het testmenu (Game Settings, Audio, Monitor, ..., Coin Test). Oorzaak en oplossing: `docs/research/invoer/README.md`, punt 1.
+Kort: de '5' van het virtuele toetsenbord van de daemon komt via DirectInput8 in de game en is daar TEST; onze `Usbioextreme.dll` haakt DirectInput en
+haalt de toetsen van de daemon (1 2 5 6 0 F2..F5) uit het toetsenbord van de game (`RG_USBIO_KEYS=1` zet dat uit). Proef: `tools/rg-farcry/wine-proef.sh`.
