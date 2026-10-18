@@ -30,7 +30,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src/tools/rg-mfcam" "$TMP/src/src/ravengun/vision" "$TMP/out"
-cp "$SRC" "$ROOT/tools/rg-mfcam/jvs_com.h" "$ROOT/tools/rg-mfcam/sharek_fake.h" "$ROOT/tools/rg-mfcam/stall_dump.h" "$ROOT/tools/rg-mfcam/drive_fix.h" "$ROOT/tools/rg-mfcam/bngrw_fake.h" "$TMP/src/tools/rg-mfcam/"
+cp "$SRC" "$ROOT/tools/rg-mfcam/jvs_com.h" "$ROOT/tools/rg-mfcam/sharek_fake.h" "$ROOT/tools/rg-mfcam/stall_dump.h" "$ROOT/tools/rg-mfcam/drive_fix.h" "$ROOT/tools/rg-mfcam/bngrw_fake.h" "$ROOT/tools/rg-mfcam/window_mode.h" "$TMP/src/tools/rg-mfcam/"
 cp "$HDR" "$TMP/src/src/ravengun/vision/"
 # Statisch gelinkt (geen libstdc++/libgcc-DLL's nodig in het spelproces); geen tijdstempel voor reproduceerbaarheid.
 podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE" \

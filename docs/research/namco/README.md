@@ -322,6 +322,26 @@ Andere draden: 20 werkers in `Sleep(30)` (`0x8527FB`), pollers (`SleepEx`), de i
 3. **Overslaproef**: `RG_PEEK_SKIP_FIRST = 1`. Staat de volgende `PeekMessageW` (vlaggen 0x1) er dan ook binnen zonder terug, dan blokkeert elke PeekMessage van deze draad (kandidaat 1 of 2), niet alleen de eerste.
 4. Zonder gamescope: `[Display] Gamescope = false` (alleen zoals gemeten in run 1; scheidt kandidaat 2 van de rest).
 
+### Mario Kart DX: oorzaak van het zwarte beeld is volledig scherm (DXUT), TP draait in een venster (statisch + logboeken 2026-10-18)
+
+**Bewezen.** (1) Het DXVK-logboek van de TP-run (`direct-MarioKartDX-20261018-104617.log`) heeft geen `Setting display mode` en de D3D10-swapchain presenteert
+1360x768 (`Presenter: Actual swapchain properties ... Buffer size: 1360x768`); alle vier de eigen runs (`...-120315/120437/120559/120720`) loggen twee keer
+`Setting display mode: 1368x768@60` en nooit een `Presenter`-regel. Het TP-profiel zet `Windowed=1` (`teknoparrot.ini` in de view); onze kern leest dat niet.
+(2) Het spel is DXUT (D3D10): `0x83D630` is `DXUTMainLoop` (eerste `PeekMessageW(PM_NOREMOVE)`, dan de `PM_REMOVE`-lus, anders `0x8451E0` =
+`DXUTRender3DEnvironment`), `0x86D2..` de DXUT-modusopsomming, `0x843D10` de `WH_KEYBOARD_LL`-hook van `DXUTAllowShortcutKeys` (alleen in volledig scherm).
+(3) Volledig scherm is een vaste standaard: de constructor `0x405740` van het instellingenobject (`ds:0xEC29C8`) zet `+0x28 = 1360`, `+0x2c = 768`,
+`+0x30 = 1` (`0x4057AD`); alleen `LAGUAGE_ID` komt uit `config.csv`. De byte gaat via `[0xEC29C0]+0xC` naar de DXUT-opdrachtregel (`0x770656`:
+`"-forceapi:10 -fullscreen -forcevsync:1 noerrormsgboxes -forcehal"`, anders `-windowed`) en naar `DXUTCreateDevice(bWindowed = byte != 1, 1360, 768)` (`0x846808`).
+(4) De hoofddraad blokkeert niet maar draait (proc-threads: `running`/`R`, 6-7 s cpu in 28 s) in de Unix-kant van `NtUserPeekMessage`.
+**Niet bewezen:** welk Wine-mechanisme in volledig scherm de lus vasthoudt (modewissel, LL-hook of iets anders); dat is zonder Wine-trace niet te zien.
+
+**Gebouwd: NEGENDE TAAK van `rg-mfcam.dll` (`window_mode.h`).** `RG_WINDOWED=1` zoekt het patroon `mov [ebx+0x28],0x550; mov [ebx+0x2c],0x300; mov [ebx+0x30],1`
+in de code van de exe (precies een treffer, ook in het origineel op de NAS) en zet de imm32 op 0: het spel kiest dan zelf `-windowed`, zonder modewissel, zoals TP.
+Uit met de TeknoParrot-kern. Getoetst: `tests/test_window_mode.cpp` (12 controles). Niet getoetst: het spel zelf.
+
+**Testrecept.** Kandidaat zoals de 12:03-runs, plus `RG_WINDOWED=1` in de `Env` van `dropin.ini`. In `rg-mfcam.log`: `venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x4057ad`;
+in het run-logboek **geen** `Setting display mode` en wel `Presenter: Actual swapchain properties` met `Buffer size: 1360x768`; `PeekMessageW #1: ... terug`; beeld (NOW LOADING).
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie

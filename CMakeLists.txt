@@ -526,6 +526,9 @@ if(RAVENGUN_BUILD_TESTS)
   # Het eigen Banapass-kaartlezer-antwoord van rg-mfcam.dll (tools/rg-mfcam/bngrw_fake.h).
   add_executable(ravengun_bngrw_fake_tests tests/test_bngrw_fake.cpp)
   add_test(NAME ravengun_bngrw_fake_tests COMMAND ravengun_bngrw_fake_tests)
+  # De venstermodus van rg-mfcam.dll (tools/rg-mfcam/window_mode.h): het patroon van de volledig-scherm-standaard van Mario Kart DX.
+  add_executable(ravengun_window_mode_tests tests/test_window_mode.cpp)
+  add_test(NAME ravengun_window_mode_tests COMMAND ravengun_window_mode_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
