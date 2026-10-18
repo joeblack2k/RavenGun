@@ -1228,8 +1228,10 @@ static void start_spel(struct beeld *b, int argc, char **argv)
     if (base == MAP_FAILED)
         fatal("kan startstack niet mappen");
     stack = base + (4u * 1024 * 1024 / 4);           /* top */
-    /* esp 16-byte uitgelijnd op argc: reken terug */
-    sp = stack - woorden;
+    /* esp 16-byte uitgelijnd op argc: reken terug. 64 KiB marge boven het startframe: bij de kernel staan daar de argv/env-teksten,
+       dus code die iets boven zijn eigen frame leest raakt nog gemapt geheugen. Ghostbusters kopieert bij de start 0x320 bytes van
+       vlak onder esp; met het frame tegen de top lag het einde soms in ongemapt geheugen (SIGSEGV, CR2 = de top; gemeten 2026-10-18). */
+    sp = stack - (64u * 1024 / 4) - woorden;
     sp = (uint32_t *)((uintptr_t)sp & ~0xfu);
 
     {
