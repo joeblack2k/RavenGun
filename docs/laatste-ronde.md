@@ -19,9 +19,9 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 |---|---|---|---|---|---|---|---|---|
 | 2Spicy | native | ja |  | ja | ja | ja (munt, start, tutorial) | 1 | working |
 | AfterDark | direct | nee | nee | nog meten | nog meten | nog meten | 9 | working |
-| AfterDark2 | direct | ja |  | ja (zonder TP: attract, titel, start, spel; plugin + Sense4-haak, BepInEx-ingang MonoBehaviour) | ja | start ja (Free Play) | 9 | working |
+| AfterDark2 | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: ranglijst, titel, spel) | ja | start ja (Free Play) | 9 | working |
 | AliensArmageddon | native | ja |  | nog meten | nog meten | nog meten | 6 | untested |
-| AliensExtermination | direct | nee | ja | ja (attract, films) | ja | munt ja na fix (4 credits nodig) | 20 | working |
+| AliensExtermination | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: attract, films) | ja | munt ja (CREDITS 2/4) | 20 | working |
 | BugBusters | direct | nee | ja | ja (attract) | ja | ja (munt, start, schieten, zone 1) | 7 | working |
 | Coopers9 | direct | nee | nee | nog meten | nog meten | nog meten | 13 | untested |
 | CrossfirePaintball | direct | nee | nee | nog meten | nog meten | nog meten | 11 | working |
@@ -44,7 +44,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | InfinityBladeFX | direct | nee | ja | nee (wit) | ja | - | 10 | playable |
 | JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
 | LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
-| LGI | direct | nee | ja | ja (kandidaat als STD-kast: attract, titel, kaart) | ja | ja (munt, start) | 24 | working |
+| LGI | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: attract, munt, titel, kaart) | ja | ja (munt, start) | 24 | working |
 | LGI3D | direct | ja |  | ja (meegeleverd zonder TP, ronde 23: attract, titel, 3D CALIBRATION) | ja | ja (munt, start) | 34 | working |
 | LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
 | LGJS | native | ja |  | ja | ja | ja (start, rit) | 13 | working |
@@ -59,7 +59,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | OG | direct | ja |  | ja (Japanse build: ook met regio USA de Japanse waarschuwing; Presented by SEGA) | ja | ja (munt, start, CREDIT(S) 10) | 35 | working |
 | PointBlankX | direct | ja |  | ja | ja | munt ja (3 credits nodig) | 10 | working |
 | Primevil | native | ja |  | ja | ja (ALSA->Pulse) | ja (start, wapen, gebied) | 1 | working |
-| PullTheTrigger | direct | nee | ja | ja (zonder TP: titel, munt via Ins, start naar PULL BACK) | ja | munt ja, start ja; herladen/schieten in proef | 10 | working |
+| PullTheTrigger | direct | ja |  | ja (meegeleverd zonder TP, ronde 36: munt, PULL BACK/RELEASE; ronde 33: PLAYER SELECT) | ja | ja (munt Ins, start = schieten, herladen) | 10 | working |
 | RabbidsHollywood | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 25 | working |
 | RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | ja | ja (munt, start) | 31 | working |
 | Rambo | native | ja |  | ja (initialiseert >150 s) | ja | ? (opstart te lang voor de meting) | 25 | working |
