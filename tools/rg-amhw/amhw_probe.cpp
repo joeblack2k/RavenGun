@@ -56,6 +56,7 @@ extern "C" unsigned char __cdecl rgp_fake_log(const char*);
 __asm__(".text\n.globl _rgp_fake_exit\n_rgp_fake_exit:\n .byte 0x8B,0x41,0x04,0x83,0x48,0x04,0x01,0xC3\n");
 
 
+static volatile unsigned g_peek_var = 0x5EAD1234;
 int main(int argc, char** argv) {
     if (argc < 2) { std::printf("gebruik: amhw_probe.exe <map>\n"); return 2; }
     const std::string dir = argv[1];
@@ -71,6 +72,8 @@ int main(int argc, char** argv) {
     SetEnvironmentVariableA("RG_AMHW_DIPIN", "FE,FF");        // LGI: dipschakelaar 0 aan = standaardkast zonder passagiersstoel (de standaard FF,FF staat in test_amhw)
     SetEnvironmentVariableA("RG_AMHW_NOREPARSE", "1");
     SetEnvironmentVariableA("RG_AMHW_WINDOW", "0,0,800,600,popup");   // het eerste grote hoofdvenster wordt 800x600 zonder rand
+    SetEnvironmentVariableA("RG_AMHW_AMLOG", "1");            // geen SDR-logger in dit proefprogramma: moet netjes melden en niets zetten
+    { char pk[40]; std::snprintf(pk, sizeof pk, "%lX", static_cast<unsigned long>(reinterpret_cast<uintptr_t>(&g_peek_var))); SetEnvironmentVariableA("RG_AMHW_PEEK", pk); }
     SetEnvironmentVariableA("RG_AMHW_WATCHDOG", "1");        // de bewaker: na 1 s de plek van elke thread (hier o.a. de nep-JVS-thread)
     DeleteFileA((dir + "\\mxsram.bin").c_str());
     DeleteFileA((dir + "\\mxeeprom.bin").c_str());
@@ -349,6 +352,8 @@ int main(int argc, char** argv) {
         check(wl.find("venster: CreateWindowExA klasse 'STATIC'") != std::string::npos, "CreateWindowExA staat in rg-amhw.log (klasse, stijl, maat)");
         check(wl.find("CreateWindowExA (aangepast; spel vroeg stijl/maat 0x00CF0000 / 1926x1112)") != std::string::npos && wl.find("stijl 0x80000000 ex 0x00000000 op 0,0 maat 800x600") != std::string::npos,
               "RG_AMHW_WINDOW: het grote venster wordt 800x600 als popup (CreateWindowExA gelogd met de vraag van het spel)");
+        check(wl.find("am: RG_AMHW_AMLOG=1, maar 0x70B5B0 heeft de bytes van de SDR-logger niet") != std::string::npos, "RG_AMHW_AMLOG: een andere game dan SDR krijgt niets gezet en een melding");
+        check(wl.find("bewaker 1: geheugen: 0x") != std::string::npos && wl.find("=0x5EAD1234") != std::string::npos, "RG_AMHW_PEEK: de bewaker toont het dword op het opgegeven adres");
         check(wl.find("bewaker 1: PeekMessage 1 aangeroepen, 1 teruggekeerd, 1 zonder bericht") != std::string::npos, "de bewaker toont de berichtenteller (1 PeekMessage aangeroepen en teruggekeerd, leeg)");
     }
     std::printf("%s\n", g_fail ? "MISLUKT" : "ALLES OK");
