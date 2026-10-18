@@ -737,3 +737,34 @@ Deze punten heb ik gevonden maar niet kunnen afmaken; ze staan hier zodat een vo
   per-game dongle-bewijsregels.
 * [loskoppelen-laders-en-kern.md](research/loskoppelen-laders-en-kern.md) — de ladertabel, de
   `resolve_loader()`-regels, de eigen build (`BUILDINFO.txt`) en de dekking van de open OpenParrot-bron.
+
+## Stand 2026-10-19 (nacht): welke profielen wijzen nog naar de TeknoParrot-map
+
+Gemeten met de eigen engine, met de runtime-map die de launcher zou vinden
+(`rg-direct --tp-refs --tp ~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64.verborgen`):
+**52 games zonder verwijzingen, 7 met**. Zonder bestaande TeknoParrot-map blijft daar 1 van over
+(TC5, want dat profiel pint de lader van de runtime met `[Loader] Build = teknoparrot`).
+
+| Game | Wat het plan uit de TeknoParrot-map haalt |
+|---|---|
+| AfterDark | `TeknoParrot/TeknoParrot.dll` (gesloten kern), `GameProfiles/AfterDark.xml`, `ParrotData.xml` |
+| Coopers9 | idem |
+| CrossfirePaintball | `ElfLdr2/BudgieLoader.exe` (gesloten ElfLdr2-lader) |
+| DrakonsRealmKeepers | `TeknoParrot/TeknoParrot64.dll` |
+| LostLandAdventure | `TeknoParrot/TeknoParrot64.dll` |
+| PigsMightFly | `TeknoParrot/TeknoParrot.dll`, `UserProfiles/PigsMightFly.{xml,env}` |
+| TC5 | `OpenParrotx64/OpenParrotLoader64.exe` + `TeknoParrot64.dll` + de profielbestanden |
+
+**De gemeten oplossing voor zes van de zeven is één regel in de gebruikerslaag** (`[Loader] Core = ravengun`
+in `~/.local/share/ravengun/patches/<Game>/game.ini`, hetzelfde als bij RobinHood sinds 93bee71): daarna zakt
+het aantal games met verwijzingen van 7 naar 1. TC5 heeft `[Loader] Build = ravengun` nodig (het profiel pint
+nu de lader van de runtime).
+
+**Waarom dat nog niet in de profielen staat:** de profielen zijn nog niet met een beeld bewezen. PigsMightFly
+is met `Core = ravengun` wel gestart en bleef 75 s leven op de eigen kern (`kern (ravengun):
+openparrot/current/OpenParrotWin32/OpenParrot.dll`, gamescope patcht 800x1280 -> 1920x1080 en de
+JVS-pipehelper liep), maar de opname van de tv toonde het bureaublad in plaats van het spel: het
+gamescope-venster kwam niet op de tv (HDMI-A-1) terecht. Zonder dat beeld is er geen bewijs dat de game de
+attract haalt, en een kernwissel zonder bewijs kan een spel dat nu met de gesloten kern werkt juist breken.
+Volgende stap per game: het venster op de tv krijgen (vergelijk `mxmaster.foreground.next` in het AM-logboek
+van SDR) en dan per game een minuut attract vastleggen voor de regel in het profiel komt.
