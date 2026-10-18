@@ -122,8 +122,12 @@ for f in GameA/game.ini GameA/patches.ini GameA/native.json GameA/options.json G
          GameA/data/x/y.rules GameA/seed/CFG.dat _defaults/OpenParrot.patches.ini GameB/game.ini; do
   [[ -f $D/$f ]] || fail "patches: $f ontbreekt in het archief"
 done
-for f in GameA/NOTES.md GameA/shot.png GameA/run.log GameA/meet.sh GameA/meet.py GameA/uitvoer.txt GameA/logs-run1 GameA/bewijs-1 TOP-LEVEL.md probe.py GameA/dropin/ravengun-hasp GameA/data/shaders GameA/dropin/SAVE; do
+for f in GameA/NOTES.md GameA/shot.png GameA/run.log GameA/meet.sh GameA/meet.py GameA/uitvoer.txt GameA/logs-run1 GameA/bewijs-1 TOP-LEVEL.md probe.py; do
   [[ ! -e $D/$f ]] || fail "patches: dossierbestand $f zit in het archief"
+done
+# De repository is privé: dongle- en HASP-bestanden horen juist WEL in het archief.
+for f in GameA/dropin/ravengun-hasp/memory/dump GameA/dropin/ravengun-hasp/dongle.json GameA/data/shaders/game.shader GameA/dropin/SAVE/io.sav; do
+  [[ -e $D/$f ]] || fail "patches: privébestand $f ontbreekt in het archief"
 done
 [[ -z "$(find "$D" -type d -empty)" ]] || fail "patches: lege mappen"
 
@@ -131,12 +135,12 @@ done
 if [[ -d "$REPO/patches" ]]; then
   R="$T/real"; mkdir -p "$T/stage2"
   python3 -I "$REPO/tools/dev/ship-patches.py" "$REPO/patches" "$R" > /dev/null || fail "ship-patches.py faalde op de echte patches"
-  VREEMD="$(cd "$R" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' || true)"
+  VREEMD="$(cd "$R" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md|heap\.tsv)$|^[^/]+/(dropin|data|seed|private)/' || true)"
   [[ -z $VREEMD ]] || { echo "$VREEMD" | head >&2; fail "echte patches: iets buiten de levering meegekomen"; }
   BEWIJS="$(cd "$R" && find . -type f \( -name '*.png' -o -name '*.log' -o -name '*.md' ! -name README.md \) | grep -v '/dropin/\|/data/\|/seed/' || true)"
   [[ -z $BEWIJS ]] || { echo "$BEWIJS" | head >&2; fail "echte patches: bewijsbestanden meegekomen"; }
   [[ -f $R/LGI/game.ini ]] || fail "echte patches: LGI/game.ini ontbreekt"
-  NODIG="$(python3 -I -c 'import importlib.util,os,sys; s=importlib.util.spec_from_file_location("ship",sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); root=sys.argv[2]; print(sum(bool(m.LEVERING.match(r)) and not m.user_supplied(r) for dp,_,fs in os.walk(root) for f in fs for r in [os.path.relpath(os.path.join(dp,f),root)]))' "$REPO/tools/dev/ship-patches.py" "$REPO/patches")"
+  NODIG="$(python3 -I -c 'import importlib.util,os,sys; s=importlib.util.spec_from_file_location("ship",sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); root=sys.argv[2]; print(sum(bool(m.LEVERING.match(r)) for dp,_,fs in os.walk(root) for f in fs for r in [os.path.relpath(os.path.join(dp,f),root)]))' "$REPO/tools/dev/ship-patches.py" "$REPO/patches")"
   GEKOPIEERD="$(cd "$R" && find . -type f | wc -l)"
   [[ $NODIG -eq $GEKOPIEERD ]] || fail "echte patches: $GEKOPIEERD bestanden gekopieerd, $NODIG verwacht"
   echo "(echte patches: $GEKOPIEERD bestanden in de levering)"

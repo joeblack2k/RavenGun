@@ -10,6 +10,9 @@ Alles daarbuiten (logboeken, metingen, foto's, notities, meetscripts) is dossier
 Gebruik: ship-patches.py BRON DOEL      (BRON = de patches-map, een koppeling mag; DOEL wordt aangemaakt)
 Migratie: ship-patches.py --adopt-checkout BRON DOEL  (vervangt alleen een koppeling naar BRON; BRON blijft intact)
 Privé: ship-patches.py --preserve-user BRON GEBRUIKERSLAAG  (kopieert alleen ontbrekende privébestanden, wijzigt geen bestaande sleutels)
+De repository is privé: dongle- en HASP-bestanden horen juist IN de levering (een verse kloon moet de games
+zonder extra stappen kunnen starten). preserve_user() blijft bestaan om een checkout die nog geen privébestanden
+heeft bij te werken vanuit een gebruikerslaag.
 """
 import configparser
 import os
@@ -17,7 +20,7 @@ import re
 import shutil
 import sys
 
-LEVERING = re.compile(r"^[^/]+/(?:[^/]+\.ini|native\.json|unity\.json|options\.json|README\.md)$|^[^/]+/(?:dropin|data|seed)/")
+LEVERING = re.compile(r"^[^/]+/(?:[^/]+\.ini|native\.json|unity\.json|options\.json|README\.md|heap\.tsv)$|^[^/]+/(?:dropin|data|seed|private)/")
 
 
 def user_supplied(rel):
@@ -38,7 +41,9 @@ def ship(src, dst):
         for f in sorted(fns):
             p = os.path.join(dp, f)
             rel = os.path.relpath(p, src)
-            if not LEVERING.match(rel) or user_supplied(rel) or not os.path.exists(p):
+            # user_supplied() bepaalt alleen wat preserve_user() uit een gebruikerslaag haalt;
+            # de levering zelf bevat alles wat de lader leest, privégegevens inbegrepen.
+            if not LEVERING.match(rel) or not os.path.exists(p):
                 continue
             t = os.path.join(dst, rel)
             os.makedirs(os.path.dirname(t), exist_ok=True)
@@ -76,11 +81,20 @@ def preserve_user(src, dst):
         current = configparser.RawConfigParser(strict=False)
         current.optionxform = str
         current.read(out, encoding="utf-8-sig")
+        raw = open(original, encoding="utf-8-sig").read()
+
+        def raw_section(text, name):
+            """De sectie zoals hij in het bestand staat, inclusief meerregelige waarden."""
+            m = re.search(r"(?ms)^[ \t]*\[" + re.escape(name) + r"\][ \t]*\r?\n(.*?)(?=^[ \t]*\[|\Z)", text)
+            return m.group(0) if m else None
+
         additions = []
         for section in needed:
             if current.has_section(section):
                 continue
-            additions.append("\n[" + section + "]\n" + "".join(k + " = " + v + "\n" for k, v in cp.items(section)))
+            block = raw_section(raw, section)
+            if block:
+                additions.append("\n" + block.strip("\r\n") + "\n")
         if additions:
             os.makedirs(os.path.dirname(out), exist_ok=True)
             # Append only: bestaande sleutels, opmerkingen en benchinstellingen blijven intact.
@@ -109,18 +123,23 @@ if __name__ == "__main__":
         stage = dst + ".import"
         if os.path.lexists(stage):
             sys.exit("importmap bestaat al: " + stage)
-        n = ship(src, stage)
-        if not n:
-            sys.exit("lege import geweigerd")
-        target = os.readlink(dst)
-        os.unlink(dst)
         try:
-            os.rename(stage, dst)
-        except OSError:
-            os.symlink(target, dst)
+            n = ship(src, stage)
+            if not n:
+                raise SystemExit("lege import geweigerd")
+            target = os.readlink(dst)
+            os.unlink(dst)
+            try:
+                os.rename(stage, dst)
+            except OSError:
+                os.symlink(target, dst)
+                raise
+        except BaseException:
+            # Nooit een halve importmap achterlaten (dan mislukt de volgende poging op "bestaat al").
+            shutil.rmtree(stage, ignore_errors=True)
             raise
     else:
         n = ship(src, dst)
     if n == 0:
-        sys.exit("geen enkel bestand in de levering gevonden in " + sys.argv[1])
+        sys.exit("geen enkel bestand in de levering gevonden in " + src)
     print("%d patchbestanden naar %s" % (n, dst))

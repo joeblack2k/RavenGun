@@ -64,7 +64,7 @@ if grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" 2>/de
   grep -rIl "$REPO" "$U" "$H/.local/share/applications" "$H/Desktop" "$P" >&2; fail "de installatie noemt het repopad $REPO"
 fi
 # De patches per game: in de installatie staat ALLEEN wat de lader, de daemon en de app lezen (<Game>/*.ini,
-# <Game>/native.json, <Game>/unity.json, <Game>/options.json, <Game>/dongle.json, <Game>/README.md, <Game>/dropin/ en <Game>/data/: wat het native profiel in de sandbox zet; <Game>/seed/: zaaigoed voor de schrijflaag). De patches-repo is ook het dossier (logboeken van benchruns,
+# <Game>/native.json, <Game>/unity.json, <Game>/options.json, <Game>/dongle.json, <Game>/README.md, <Game>/dropin/ en <Game>/data/: wat het native profiel in de sandbox zet; <Game>/seed/: zaaigoed voor de schrijflaag). De repository is privé, dus de dongle- en HASP-bestanden horen er juist in: een verse kloon moet de games zonder extra stappen kunnen starten. De patches-repo is ook het dossier (logboeken van benchruns,
 # metingen, meetscripts, notities, foto's); dat is bewijs en gaat niet mee. De controle op het repopad hierboven blijft
 # over de HELE installatie gaan, dus ook over deze bestanden: een game.ini of een drop-in die een ontwikkelpad noemt
 # is een echt lek. Deze controle hieronder zorgt dat het dossier die test niet meer kan breken, en dat er niets
@@ -72,15 +72,17 @@ fi
 if [[ -d "$REPO/patches" ]]; then
   SRC="$(cd "$REPO/patches" && pwd -P)"
   [[ -d "$D/patches" ]] || fail "de patches per game zijn niet geinstalleerd"
-  VREEMD="$(cd "$D/patches" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' || true)"
+  VREEMD="$(cd "$D/patches" && find . -type f | sed 's|^\./||' | grep -Ev '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md|heap\.tsv)$|^[^/]+/(dropin|data|seed|private)/' || true)"
   [[ -z "$VREEMD" ]] || { echo "$VREEMD" | head -20 >&2; fail "in de installatie staat iets uit de patches-repo dat de lader niet leest (dossier hoort niet mee)"; }
   LEEG="$(find "$D/patches" -type d -empty)"
   [[ -z "$LEEG" ]] || { echo "$LEEG" | head >&2; fail "lege mappen in de geinstalleerde patches"; }
-  # Niets kwijt: elk bestand dat de lader leest staat er, met dezelfde inhoud.
-  # Vergelijk CMake met de publieke exporter, inclusief uitsluiting van lokale privébestanden.
+  # Niets kwijt: elk bestand dat de lader leest staat er, met dezelfde inhoud (privégegevens inbegrepen).
   python3 -I "$REPO/tools/dev/ship-patches.py" "$SRC" "$T/expected-patches" >/dev/null || fail "patch-export mislukt"
   NODIG="$(cd "$T/expected-patches" && find . -type f | sed 's|^\./||' | sort)"
-  [[ ! -e $P/patches/Halo/dropin/ravengun-hasp && ! -e $P/patches/JurassicPark/data/shaders ]] || fail "privébestanden meegeleverd"
+  # De repository is privé: juist deze bestanden moeten MEE (anders start een verse kloon de games niet).
+  for f in Halo/dropin/ravengun-hasp JurassicPark/data/shaders LethalEnforcers3/dropin/SAVE PullTheTrigger/dropin/WkWin32.dll; do
+    [[ -e $P/patches/$f ]] || fail "privébestand ontbreekt in de installatie: patches/$f"
+  done
   [[ -n "$NODIG" ]] || fail "de patches-map bevat geen enkele game.ini"
   while IFS= read -r f; do
     cmp -s "$SRC/$f" "$D/patches/$f" || fail "ontbreekt of wijkt af in de installatie: patches/$f"

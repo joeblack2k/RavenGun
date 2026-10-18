@@ -34,9 +34,10 @@ REQUIRED = ("game.ini",)
 # lindbergh.ini zijn de instellingen van de Lindbergh-laag die de daemon bij elke start aanvult en aan lindbergh.so geeft
 # (docs/lindbergh.md): levering.
 SHIP_FILES = ("game.ini", "patches.ini", "native.json", "unity.json", "options.json", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini",
-              "lindbergh.ini")
+              "lindbergh.ini", "heap.tsv")   # heap.tsv: de heap-indeling die de HASP-hook van Walking Dead leest
 # seed/ is zaaigoed voor de schrijflaag van de Wine-routes (src/ravengun/games/seed.hpp): levering.
-SHIP_TREES = ("dropin", "data", "seed")
+# private/ is de antwoordcache van de HASP-emulatie (native.json zaait die in de schrijflaag), dus levering.
+SHIP_TREES = ("dropin", "data", "seed", "private")
 
 # De gereserveerde naam op het hoogste niveau van een wortel: shared/ bevat GEDEELD materiaal (meer dan een game), geen
 # gamemap. game_folders() slaat hem over. Moet gelijk zijn aan gamesettings.SHARED_DIR (test: test_shared_items).

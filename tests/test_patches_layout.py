@@ -116,7 +116,10 @@ class Fixtures(unittest.TestCase):
         write(os.path.join(d, "dropin/dropin.ini"), "[proef.dll]\nTo = .\n[" + private.split("/dropin/", 1)[1] + "]\nTo = .\n")
         public = os.path.join(self.tmp, "public")
         self.assertGreater(pl._ship.ship(self.root, public), 0)
-        self.assertFalse(os.path.exists(os.path.join(public, private)))
+        # De repository is privé: dongle- en HASP-gegevens horen juist in de levering.
+        self.assertTrue(os.path.exists(os.path.join(public, private)))
+        with open(os.path.join(public, private)) as f:
+            self.assertEqual(f.read(), "private")
         self.assertEqual(pl.validate_game_folder(os.path.join(public, "Goed")), [])
         user = os.path.join(self.tmp, "user")
         write(os.path.join(user, private), "owner")

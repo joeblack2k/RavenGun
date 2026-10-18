@@ -712,25 +712,28 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # zodra iemand een nieuwe bewijsmap een nieuwe naam geeft (probe/, logs-*/, measurements/, probes/, ...), en dan
   # breekt de installatietest op iets wat geen lek is. Een nieuw soort bestand dat de lader WEL moet lezen komt hier bij.
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
-  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION patches
+  # De repository is privé: dongle- en HASP-bestanden horen juist IN de levering,
+  # zodat een verse kloon de games zonder extra stappen kan starten. Het dossier
+  # (logboeken van benchruns, metingen, foto's) valt buiten de vaste lijst hieronder.
+  # Een systeeminstallatie (/usr of /) krijgt geen losse /usr/patches: dan gaan de
+  # profielen naar <prefix>/share/ravengun/patches, waar de lader ze ook leest.
+  set(_rg_patches_dest "patches")
+  set(_rg_patches_compat TRUE)
+  if(CMAKE_INSTALL_PREFIX STREQUAL "/" OR CMAKE_INSTALL_PREFIX MATCHES "^/usr(/.*)?$")
+    set(_rg_patches_dest "${RAVENGUN_DATADIR}/patches")
+    set(_rg_patches_compat FALSE)
+  endif()
+  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${_rg_patches_dest}
     FILES_MATCHING
     REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/"
     REGEX "^${_rg_patches_rx}/[^/]+/seed/"
-    # Ook lokaal genegeerde privébestanden mogen niet via cmake --install lekken.
-    PATTERN "ravengun-hasp" EXCLUDE
-    PATTERN "memory" EXCLUDE
-    PATTERN "shaders" EXCLUDE
-    PATTERN "SAVE" EXCLUDE
-    PATTERN "dongle.json" EXCLUDE
-    PATTERN "dongle.*.json" EXCLUDE
-    PATTERN "heap.tsv" EXCLUDE
-    PATTERN "WkWin32.dll" EXCLUDE
-    REGEX "/FarCryParadiseLost/dropin/(systemcfg\\.lua|Systemcfgoverride\\.lua|Arcade_Calibration\\.txt)$" EXCLUDE)
+    REGEX "^${_rg_patches_rx}/[^/]+/private/"
+    REGEX "^${_rg_patches_rx}/[^/]+/heap\\.tsv$")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
   install(CODE "
-    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/patches\")
+    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_rg_patches_dest}\")
     foreach(_rg_ronde RANGE 12)
       file(GLOB_RECURSE _rg_d LIST_DIRECTORIES true \"\${_rg_p}/*\")
       set(_rg_weg FALSE)
@@ -748,6 +751,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
       endif()
     endforeach()
   ")
+  if(_rg_patches_compat)
   install(CODE "
     set(_rg_compat \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
     if(EXISTS \"\${_rg_compat}\" OR IS_SYMLINK \"\${_rg_compat}\")
@@ -755,6 +759,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
     endif()
     file(CREATE_LINK \"../../patches\" \"\${_rg_compat}\" SYMBOLIC)
   ")
+  endif()
 else()
   message(FATAL_ERROR "patches/-map ontbreekt: profielen horen bij de applicatiecheckout")
 endif()

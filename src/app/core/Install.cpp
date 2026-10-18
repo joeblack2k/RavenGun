@@ -419,6 +419,12 @@ OpResult Install::installTree(const QString& sourcePrefixIn, const InstallLayout
                 return fail(QStringLiteral("Copying failed: %1").arg(err));
             }
         }
+        // De profielen per game horen bij de installatie; een bron met patches/ die
+        // daarna ontbreken (of een boom zonder profielen) is geen complete RavenGun.
+        if (!QFileInfo(stage + QStringLiteral("/patches")).isDir()) {
+            cleanup();
+            return fail(QStringLiteral("The per-game profiles (patches/) are missing in %1; the tree to install is not complete.").arg(prefix));
+        }
         if (!isRavenGunTree(stage)) {
             cleanup();
             return fail(QStringLiteral("ravengund, ravengunctl or the data folder (share/ravengun, with packaging/) is missing in the tree to install."));

@@ -46,11 +46,8 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n $PSM_PIN && -n $VERSION ]] || { echo "Kan versie of PSMoveAPI-pin niet uit CMakeLists.txt lezen" >&2; exit 1; }
 cd "$ROOT"
-if [[ -z $PATCHES ]]; then
-  PATCHES="$ROOT/patches"
-fi
-[[ -d $PATCHES ]] || { echo "Geen patches-map gevonden; geef --patches MAP (de map patches/ van RavenGun)" >&2; exit 1; }
-PATCHES="$(cd "$PATCHES" && pwd -P)"
+# Zonder --patches komen de profielen uit de commit zelf (git archive, hieronder):
+# losse bestanden in de werkmap mogen nooit in een release belanden.
 if [[ -n "$(git status --porcelain --untracked-files=no)" && $DIRTY -eq 0 ]]; then
   echo "Er zijn niet-gecommitte wijzigingen; het archief bevat alleen HEAD. Commit ze, of gebruik --allow-dirty." >&2; exit 1
 fi
@@ -64,6 +61,13 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/ravengun-release.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/src" "$WORK/psmoveapi-src" "$WORK/stage"
 git archive --format=tar HEAD | tar -x -C "$WORK/src"
+if [[ -z $PATCHES ]]; then
+  mkdir -p "$WORK/patches"
+  git archive --format=tar HEAD patches | tar -x -C "$WORK/patches" --strip-components=1
+  PATCHES="$WORK/patches"
+fi
+[[ -d $PATCHES ]] || { echo "Geen patches-map gevonden; geef --patches MAP (de map patches/ van RavenGun)" >&2; exit 1; }
+PATCHES="$(cd "$PATCHES" && pwd -P)"
 if [[ ! -d $PSM_SRC/.git ]]; then
   echo "PSMoveAPI-bron ontbreekt; klonen naar $PSM_SRC"
   mkdir -p "$(dirname "$PSM_SRC")"; git clone https://github.com/thp/psmoveapi "$PSM_SRC"
