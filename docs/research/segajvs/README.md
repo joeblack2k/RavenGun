@@ -429,6 +429,24 @@ patroon alleen in LGI en LGI3D voor, precies drie keer), zet een sprong op het b
 "gelukt" terug. De game zelf verandert niet. Uitzetten: `RG_AMHW_GAMELOG=0`. In `rg-amhw.log` staat bij het laden `spellog: logfunctie voor niveau N op 0x... omgeleid`; staat dat er niet, dan is het patroon niet gevonden.
 Wine-proef: een nagebouwde functie met dezelfde bytes wordt gevonden en gelogd. Het debugout-pad (fopen/CreateFile naar `debugout-spel.txt`) blijft staan voor ontwikkelversies.
 
+### Meting 13 (LGI/LGI3D 2026-10-18 09:05): de game vraagt zelf om af te sluiten; waar dat begint [gelezen, LGI]
+
+**De afsluitketen, van onder naar boven.**
+1. `[teaGfx] user terminate done` (`0x5E7141`) is het begin van `teaGfx::terminate` (`0x5E7140`), aangeroepen vanuit de virtuele afsluit-methode `0x5E7DB0`. Die wacht op de gebeurtenis `[gfx+0x40]` en draait dus pas als
+   iemand de gebeurtenis zet: dat doet `0x5E72D0`/`0x5E7310` (zet bit 2 in `[0xA3BA28]`, `SetEvent`), aangeroepen door de berichtenpomp `0x5E7390` zodra de byte `[0xA3BA2C]` staat.
+2. `[0xA3BA2C]` wordt gezet door: `WM_CLOSE` in de vensterprocedure (`0x5E72A6`, en in een tweede vensterprocedure `0x57D4B1`), `GetMessage` = WM_QUIT (`0x5E7825`), of de functie `0x5E7040`/`0x57E400` ("sluiten aangevraagd"), die
+   `0x57D450` aanroept vanuit de app-lus `0x66C430`/`0x66C480` zodra `fwFraw::isExitRequested` waar is (`0x645850`: bit 0 van `[[fraw+4]+4]`).
+3. Dat bit zet `fwFraw::requestExit` (`0x645830`). Direct aangeroepen op 13 plekken; de belangrijkste zijn de scene-flow van de game: bij `0x677040`..`0x677083` lijkt de flow de volgende scene op te zoeken (`0x6F1926` met tabel
+   `0xA28640`) en **roept hij `requestExit` aan als dat niets oplevert** (uit de code gelezen, niet gemeten); bij `0x679345`..`0x6793CC` doen de flow-opdrachten `exit` (`0x65786974`), `save` en `next` hetzelfde.
+   Een scene-flow die zijn volgende scene niet vindt komt in de praktijk door een gegevensbestand dat niet te laden is.
+
+**Wat dat uitsluit.** Het is niet de keychip (ds-uitdaging en antwoord zijn wisselend, ook goed, en de afsluiting volgt toch), niet een venstergebeurtenis die we zelf zien (de keten loopt via `requestExit`, niet via WM_CLOSE;
+niet bevestigd) en niet een AM-opdracht: `mxmaster.foreground.next=3` valt samen met het sluiten van mxjvs (de AM-lib wordt afgebroken in `ArcadeManager::terminate`), dus het is het gevolg en niet de aanleiding (volgorde binnen dezelfde seconde, niet scherper gemeten).
+
+**Nieuw in rg-amhw: `bestand mislukt:`.** Elke mislukte open van een gewoon bestand (CreateFileA/W, ook uit de CRT-importtabel, en `fopen` uit de game) komt eenmalig per pad in `rg-amhw.log` als
+`bestand mislukt: <pad> (fout N)` (2/3 = bestaat niet, 5 = geen toegang, 32 = gedeeld), de eerste 400. Het laatste ontbrekende bestand vlak voor de `spel[2]: [teaGfx] user terminate`-regels is de kandidaat voor
+"de scene-flow kan niet verder". Bestanden die de game optioneel probeert (`mxsram.bin` bij een eerste start enz.) staan er ook tussen.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

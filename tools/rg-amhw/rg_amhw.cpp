@@ -274,6 +274,20 @@ HANDLE open_named_a(const char* n) {
     return nullptr;
 }
 
+// Welke bestanden kan de game niet openen? LGI en LGI3D sluiten zich na de start zonder foutmelding af (de scene-flow vindt zijn volgende scene niet,
+// LGI 0x677040 -> 0x645830); een bestand dat niet te lezen is geeft precies dat. We loggen de eerste mislukte opens van gewone bestanden (niet de \\.\-apparaten),
+// elk pad een keer: "bestand mislukt: <pad> (fout N)" (2/3 = bestaat niet, 5 = geen toegang, 32 = gedeeld).
+void log_open_fail(const char* path, DWORD err) {
+    if (!path || !*path || (path[0] == '\\' && path[1] == '\\' && (path[2] == '.' || path[2] == '?'))) return;
+    if (err != ERROR_FILE_NOT_FOUND && err != ERROR_PATH_NOT_FOUND && err != ERROR_ACCESS_DENIED && err != ERROR_SHARING_VIOLATION && err != ERROR_INVALID_NAME) return;
+    static LONG n = 0;
+    static std::map<std::string, int> seen;
+    EnterCriticalSection(&g_cs);
+    const bool fresh = seen.emplace(path, 1).second;
+    LeaveCriticalSection(&g_cs);
+    if (fresh && InterlockedIncrement(&n) <= 400) rg_log("bestand mislukt: %s (fout %lu)", path, static_cast<unsigned long>(err));
+}
+
 HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     if (name && name[0] == L'\\' && name[1] == L'\\' && (name[2] == L'.' || name[2] == L'?')) {
         char a[260];
@@ -304,7 +318,15 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_AT
             return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
         }
     }
-    return g_create_w(name, acc, share, sa, disp, flags, tmpl);
+    HANDLE r = g_create_w(name, acc, share, sa, disp, flags, tmpl);
+    if (r == INVALID_HANDLE_VALUE && name) {
+        const DWORD e = GetLastError();
+        char a2[300];
+        WideCharToMultiByte(CP_ACP, 0, name, -1, a2, sizeof a2, nullptr, nullptr);
+        log_open_fail(a2, e);
+        SetLastError(e);
+    }
+    return r;
 }
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     if (name && name[0] == '\\' && name[1] == '\\' && (name[2] == '.' || name[2] == '?')) {
@@ -326,7 +348,13 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
         const std::string fb = table_fallback(name);
         return g_create_a(fb.c_str(), acc, share, sa, disp, flags, tmpl);
     }
-    return g_create_a(name, acc, share, sa, disp, flags, tmpl);
+    HANDLE r = g_create_a(name, acc, share, sa, disp, flags, tmpl);
+    if (r == INVALID_HANDLE_VALUE) {
+        const DWORD e = GetLastError();
+        log_open_fail(name, e);
+        SetLastError(e);
+    }
+    return r;
 }
 
 // De Ring-games (teaArcade2) schrijven debugout.txt met fopen uit MSVCR90.dll (dynamische CRT): dat roept CreateFileW aan via de EIGEN importtabel van msvcr90, niet
@@ -349,7 +377,9 @@ std::string debugout_target(const char* path, const char* mode) {
 }
 void* __cdecl rg_fopen(const char* path, const char* mode) {
     const std::string t = debugout_target(path, mode);
-    return g_fopen(t.empty() ? path : t.c_str(), mode);
+    void* f = g_fopen(t.empty() ? path : t.c_str(), mode);
+    if (!f) log_open_fail(path, ERROR_FILE_NOT_FOUND);
+    return f;
 }
 int __cdecl rg_fopen_s(void** f, const char* path, const char* mode) {
     const std::string t = debugout_target(path, mode);
