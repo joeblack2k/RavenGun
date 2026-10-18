@@ -567,3 +567,28 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 | `tools/rg-allsio/allsio_proto.h`, `rg_allsio.cpp`, `tools/dev/build-allsio.sh`, `tests/test_allsio_proto.cpp` | HOTDSD: ALLS USB-IO-protocol (getoetst) en `rg-allsio.dll` (x64, preload) |
 | `docs/research/namco/patches/TC5/`, `docs/research/namco/patches/HOTDSD/` | volledige kandidaten: `game.ini`, `dropin/` (met `dropin.ini`), HOTDSD ook `data/platform.reg`; de DLL's zijn door `.gitignore` uitgesloten en worden met de build-scripts gemaakt |
 | `tools/dev/namco-candidates-check.sh` | legt de kandidaten over de echte patches-map (tijdelijke kopie) en maakt een `rg-direct --plan` zonder TeknoParrot-map |
+
+### Vervolgmeting 2026-10-18/19: wat ShareK nodig heeft (en waar het beeld nog zwart blijft)
+
+De twee dingen die `init_w10.ps1` op de kast doet, zijn nu ook hier gemeten:
+
+1. **`ShareK\ShareK.exe` eist echt .NET, geen mono.** Onder wine-mono valt hij meteen om:
+   `System.NullReferenceException at ShareK.Program.Main [0x0002d]` (ook los, met `ShareK.exe.config`
+   ernaast; vermoedelijk struikelt mono over `ConfigurationManager.AppSettings`). Met
+   `winetricks -q dotnet48` in de prefix **loopt hij wel** (blijft leven, herschrijft
+   `E:\WritableConfig.ini`, logt `ntsync: up and running`). Let op twee dingen: winetricks zet de
+   Windows-versie van de prefix op win7 (deze prefix stond op 6.3/win8.1 -- terugzetten met
+   `winetricks -q win81`, gemeten), en de installatie kost ~2 minuten en ~1 GB.
+2. **De COM-registratie ontbrak inderdaad.** `RegAsm.exe /codebase ipccl.dll` zegt "Types registered
+   successfully"; daarvoor stopte het spel meteen zodra onze fake-client uit stond, daarna loopt het
+   door (>70 s).
+
+Verder: de engine kan `ShareK\ShareK.exe` als tweede programma starten (`HasTwoExecutables`,
+`LaunchSecondExecutableFirst`, `[Identify] Path2`, `[Launch] SecondWait`), buiten gamescope en in
+dezelfde view, prefix en omgeving. Met de fake-client aan (`RG_SHAREK_FAKE=1`) blijft het spel
+wachten: die fake geeft op slot 7 (`StartIpcClient`) -1 terug en slot 35 (status) wordt nooit
+aangeroepen, dus de client komt nooit verder. **Het beeld blijft zwart**, ook met het echte .NET,
+de registratie, de echte client en de server ernaast: de volgende vraag is waar de client op wacht
+(luistert `ShareK.exe` wel op de poort/pijp die `ipccl.dll` zoekt? `ShareK` schrijft geen
+`ShareKLog.log`; `LogPath = E:/` in `ShareK.exe.config` is op de kast een schrijfbare schijf en
+`E:` is bij ons niet gemapt).

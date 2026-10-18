@@ -268,9 +268,11 @@ def tp_vrij_check(rg, patches, gs, tmp):
     for n in sorted(set(TP_VRIJ_DIRECT + TP_VRIJ_UNITY) - alle):
         fails += 1
         print("  %-26s staat niet in patches/  <-- FOUT" % n)
-    # Een game die nog op de kern van TeknoParrot draait krijgt ook een view, zodat het meetinstrument met de nep-map iets vindt (sinds
-    # de native games geen @tpui meer hebben, 2026-10-17, waren er anders geen voorbeelden meer).
-    ijk = [n for n in ("AfterDark", "Transformers", "GG") if n in alle][:1]
+    # Een game die nog naar de TeknoParrot-map wijst krijgt ook een view, zodat het meetinstrument met de nep-map iets vindt. Sinds
+    # 2026-10-19 draaien AfterDark, DrakonsRealmKeepers, LostLandAdventure, PigsMightFly en MarioKartDX op onze eigen kern (en de
+    # native games hebben geen @tpui meer, 2026-10-17): Coopers9 (gesloten kern), CrossfirePaintball (ElfLdr2-lader) en TC5 (lader
+    # van de runtime) zijn de voorbeelden die overblijven.
+    ijk = [n for n in ("Coopers9", "CrossfirePaintball", "TC5") if n in alle][:1]
     env, tp, user, views = fixture(base, patches, names + ijk, gs)
     env = {k: v for k, v in env.items() if k != "RAVENGUN_TP_DIR"}   # de map gaat alleen via --tp mee, niet in de omgeving van het plan
     home = env["HOME"]
