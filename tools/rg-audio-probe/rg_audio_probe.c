@@ -52,6 +52,56 @@ static pcm_open_fn r_pcm_open;
 static pcm_writei_fn r_pcm_writei;
 static int pa_fmt;
 
+/* De mainloop-API van pulse (pa_stream_*): SDL 1.2.15 gebruikt pa_simple_new alleen voor de "Test stream" in Audio_Available() (U8,
+   11025 Hz, mono) en speelt zelf via pa_stream_new/connect_playback/write. Gemeten 2026-10-18 op Ghostbusters: pa_simple_new
+   gelogd maar nooit pa_simple_write, terwijl er wel een stroom "Simple DirectMedia Layer" bestond. */
+typedef void *(*st_new_fn)(void *, const char *, const ss_t *, const void *);
+typedef int (*st_conn_fn)(void *, const char *, const void *, int, const void *, void *);
+typedef int (*st_write_fn)(void *, const void *, size_t, void *, int64_t, int);
+typedef size_t (*st_wsize_fn)(void *);
+static st_new_fn r_st_new; static st_conn_fn r_st_conn; static st_write_fn r_st_write; static st_wsize_fn r_st_wsize;
+static int st_fmt;
+static void *w_st_new(void *c, const char *nm, const ss_t *ss, const void *map) {
+    void *r = r_st_new(c, nm, ss, map);
+    if (ss) st_fmt = ss->format;
+    meld("pa_stream_new(\"%s\") formaat=%d rate=%u kanalen=%u -> %s", nm ? nm : "?", ss ? ss->format : -1, ss ? ss->rate : 0,
+         ss ? ss->channels : 0, r ? "GELUKT" : "MISLUKT");
+    return r;
+}
+static int w_st_conn(void *s, const char *dev, const void *at, int fl, const void *vol, void *sync) {
+    int r = r_st_conn(s, dev, at, fl, vol, sync);
+    meld("pa_stream_connect_playback(vlaggen 0x%x) -> %d", fl, r);
+    return r;
+}
+static size_t w_st_wsize(void *s) {
+    static uint64_t t0, n, min = (uint64_t)-1;
+    size_t r = r_st_wsize(s);
+    n++; if (r < min) min = r;
+    uint64_t t = nu_ms();
+    if (!t0) t0 = t;
+    if (t - t0 >= 2000) { meld("pa_stream_writable_size: %llu aanroepen in 2 s, kleinste %llu", (unsigned long long)n, (unsigned long long)min); t0 = t; n = 0; min = (uint64_t)-1; }
+    return r;
+}
+static int w_st_write(void *s, const void *data, size_t n, void *cb, int64_t off, int seek) {
+    static uint64_t t0, bytes, piek, aantal;
+    if (st_fmt == 3 /* S16LE */) {
+        const int16_t *p = data; size_t k = n / 2;
+        for (size_t i = 0; i < k; i++) { uint64_t v = p[i] < 0 ? (uint64_t)-p[i] : (uint64_t)p[i]; if (v > piek) piek = v; }
+    } else if (st_fmt == 0 /* U8 */) {
+        const uint8_t *p = data;
+        for (size_t i = 0; i < n; i++) { uint64_t v = p[i] > 128 ? p[i] - 128u : 128u - p[i]; if (v > piek) piek = v; }
+    }
+    bytes += n; aantal++;
+    uint64_t t = nu_ms();
+    if (!t0) t0 = t;
+    if (t - t0 >= 2000) {
+        meld("pa_stream_write: %llu aanroepen, %llu bytes in 2 s, piek %llu (S16: max 32767, U8: max 128)", (unsigned long long)aantal,
+             (unsigned long long)bytes, (unsigned long long)piek);
+        t0 = t; bytes = piek = aantal = 0;
+    }
+    return r_st_write(s, data, n, cb, off, seek);
+}
+
 static void *w_pa_new(const char *srv, const char *nm, int dir, const char *dev, const char *sn, const ss_t *ss, const void *map, const void *at, int *err) {
     int e = 0;
     void *r = r_pa_new(srv, nm, dir, dev, sn, ss, map, at, err ? err : &e);
@@ -110,6 +160,10 @@ __attribute__((visibility("default"))) void *dlsym(void *h, const char *n) {
     if (p && n) {
         if (!strcmp(n, "pa_simple_new")) { memcpy(&r_pa_new, &p, sizeof p); pa_new_fn w = w_pa_new; memcpy(&p, &w, sizeof p); }
         else if (!strcmp(n, "pa_simple_write")) { memcpy(&r_pa_write, &p, sizeof p); pa_write_fn w = w_pa_write; memcpy(&p, &w, sizeof p); }
+        else if (!strcmp(n, "pa_stream_new")) { memcpy(&r_st_new, &p, sizeof p); st_new_fn w = w_st_new; memcpy(&p, &w, sizeof p); }
+        else if (!strcmp(n, "pa_stream_connect_playback")) { memcpy(&r_st_conn, &p, sizeof p); st_conn_fn w = w_st_conn; memcpy(&p, &w, sizeof p); }
+        else if (!strcmp(n, "pa_stream_write")) { memcpy(&r_st_write, &p, sizeof p); st_write_fn w = w_st_write; memcpy(&p, &w, sizeof p); }
+        else if (!strcmp(n, "pa_stream_writable_size")) { memcpy(&r_st_wsize, &p, sizeof p); st_wsize_fn w = w_st_wsize; memcpy(&p, &w, sizeof p); }
         else if (!strcmp(n, "snd_pcm_open")) { memcpy(&r_pcm_open, &p, sizeof p); pcm_open_fn w = w_pcm_open; memcpy(&p, &w, sizeof p); }
         else if (!strcmp(n, "snd_pcm_writei")) { memcpy(&r_pcm_writei, &p, sizeof p); pcm_writei_fn w = w_pcm_writei; memcpy(&p, &w, sizeof p); }
     }
