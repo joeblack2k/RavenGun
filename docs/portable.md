@@ -47,29 +47,38 @@ dist/RavenGun/ravengun.sh app     # start from the folder
 ```
 
 `make-portable.sh` copies `bin/`, `lib/` and `share/ravengun/` from the install
-(replacing them, not merging), copies the shipped part of `patches/` from the repository (`tools/dev/ship-patches.py`, so a
-fresh checkout has the newest profiles but no dossier or untracked files), copies the settings from `~/.config/ravengun`
+(replacing them, not merging), copies the shipped part of `patches/` from the committed repository (`git archive HEAD patches` and then
+`tools/dev/ship-patches.py`, like `make-release.sh`: no dossier, no untracked or uncommitted files), copies the settings from `~/.config/ravengun`
 into `User/config/ravengun` - without `web-token` and the `backups/*.bak` - and
 copies the whole runtime and game state (`wine`, `proton`, `prefixes`,
 `openparrot`, `runtime`, `native`, `writelayer`, `patches`, ...) from
 `~/.local/share/ravengun` into `User/share/ravengun/`. That big copy runs with
-`rsync -a` into `User.new` next to `User/`, after a check for `rsync` and free space; only after the links have been
+`rsync -aX` into `User.new` next to `User/`, after a check for `rsync` and free space; only after the links have been
 rewritten and checked is `User.new` renamed to `User/`. A failed or interrupted run (an
 rsync error other than "files vanished", Ctrl-C, no space) therefore never leaves a half-built `User/`
 and never touches an existing one; the script exits non-zero. A re-run with an existing
 `User/` only refreshes the application and the profiles, and never
 touches the user's state (only `--reset-user` rebuilds it, keeping the old `User/` until the end, so it
 needs room for two copies). Unreadable overlay work directories (mode 000, made by games that run from the folder)
-are repaired before anything is copied or deleted. Only `bench-captures`
+are made readable before anything is copied (only `u+r`/`u+rx` on the source runtime, never a write bit: Wine reads a missing write
+bit as read-only) and are removed with write permission only from trees the script owns. The overlay state of the write layers
+(`writelayer/`, `native/*/upper`: whiteouts are character devices 0:0, plus `user.overlay.*` xattrs; bwrap mounts them as kernel
+overlayfs in a user namespace) is carried over too: an unprivileged rsync skips the devices, so
+`scripts/portable_tools.py whiteouts` recreates them with `mknod` (allowed for 0:0 without privileges) and the script stops if the
+counts or xattrs differ. A kept `User/` is neither scanned nor modified. Only `bench-captures`
 (the proof screenshots) and `halo-overlay` (a root-owned overlay work dir) are
 skipped. The game installations themselves are never touched.
 
 After copying, every symbolic link that points into `~/.local` or into the
 repository is rewritten to a relative link inside the folder (or dereferenced when
 the target is not part of the folder, e.g. the gstreamer plugins of a Steam
-Proton); a link into a renamed directory (`.verborgen`) is pointed at that
-directory. The script ends with a check over the whole folder and exits non-zero if a link still points into
-`~/.local` (also through a chain of links) or if a relative link points out of the folder; absolute links to the game
+Proton, also through a chain of directory links); a link into a renamed directory (`.verborgen`) is pointed at that
+directory, a link to the root of the runtime/install/config itself too. A directory link becomes an EMPTY directory only
+for a target on the allow list (`RG_PORTABLE_EMPTY_OK`, default the Steam `appcache`, which Steam refills); any other
+directory is really copied (up to `RG_PORTABLE_MAX_EXTRACT`, 2 GiB) or the script stops. This is one pass
+(`scripts/portable_tools.py links`) that rewrites and checks at once, lexically, so the thousands of NAS links are never
+stat-ed. It exits non-zero if a link still points into
+`~/.local` or if a relative link points out of the folder; absolute links to the game
 installations on the NAS are left as they are. The absolute paths in `library.json` (and `config.json`) are rewritten
 to the folder, and `ravengun.sh` repeats that on every start so the folder may be
 moved. The Wine wrappers in `User/share/ravengun/wrappers/` resolve the runtime
