@@ -1,0 +1,127 @@
+{
+  "title": "Halo: Fireteam Raven",
+  "enabled": true,
+  "status": "werkt",
+  "note": "Native (eigen lader: ld.so in bwrap, geen Wine, geen TeknoParrot), gemeten 2026-10-15: start met een dubbelklik in de attract (geen WELCOME-wizard, geen 'Factory Setup', geen 'GUN NOT CONNECTED'); Story Mode 5,5 minuten gespeeld met trekker, richtpunt en herladen. Geweren: tools/rt-irtrack doet twee IRTrack-camera's (FTDI) na in het spel en geeft het richtpunt rechtstreeks (patches/Halo/irtrack.ini, IRTRACK-PROTOCOL.md); het kasttype 8 (STANDARD MOUNTED) komt uit dezelfde tabel. Kastinvoer: tools/rt-input-shim (rt-invoer.ini), met de vlag 'fabrieksinstelling klaar' (0x174a220). Seeds in de schrijflaag: freeplay, hardware/p1gun en p2gun (zonder p%igun doet een speler niet mee) en de kalibratie-audits gun0/gun1Calibration (zonder die audits toont het spel bij elke start de WELCOME-wizard). De rechterspeler is in deze kast intern speler 3 (CabStart3, gun 1, p2gun). Geluid: de FMOD-wrapper (tools/fmod-bridge, zie libdirs), gemeten 2026-10-15/16: LPCM 5.1 of STEREO via [Audio] Speakers (bewijs-geluid-20261015/). QR-scanners: tools/v4l2-fake (fake_video: 2). TIJDELIJK (geluidsmeting 2026-10-18): RG_FMOD_LOG=1 in het profiel-env (een shell-variabele bereikt de sandbox niet) zet de aanroeplogboekregels van de FMOD-wrapper aan; weghalen na de meting.",
+  "arch": "x86_64",
+  "mounts": [
+    {
+      "src": "@nas/Halo Fireteam/g7/halo",
+      "dst": "/pm/g7/halo",
+      "mode": "overlay"
+    },
+    {
+      "src": "@nas/Halo Fireteam/g7/dump",
+      "dst": "/pm/g7/dump",
+      "mode": "ro"
+    },
+    {
+      "src": "@data/patches/Halo/dropin/fmod",
+      "dst": "/rg/fmod-dropin-gebruiker",
+      "mode": "ro-try"
+    },
+    {
+      "src": "@patches/Halo/dropin/fmod",
+      "dst": "/rg/fmod-dropin",
+      "mode": "ro-try"
+    },
+    {
+      "src": "@data/wine/proton-11.0-2",
+      "dst": "/rg/wine",
+      "mode": "ro-try"
+    },
+    {
+      "src": "@data/runtime/fmod-win",
+      "dst": "/rg/fmodwin",
+      "mode": "ro-try"
+    }
+  ],
+  "files": [
+    {
+      "src": "@nas/Halo Fireteam/g7/halo/utils/rtinit_original",
+      "dst": "/pm/g7/halo/utils/rtinit"
+    },
+    {
+      "src": "@nas/Halo Fireteam/g7/halo/utils/run_game.sh_original",
+      "dst": "/pm/g7/halo/utils/run_game.sh"
+    },
+    {
+      "src": "@nas/Halo Fireteam/g7/halo/game",
+      "dst": "/pm/g7/bin/game",
+      "note": "de uitgepakte game draait vanaf een eigen pad"
+    },
+    {
+      "src": "@nas/Halo Fireteam/g7/halo/game_original",
+      "dst": "/pm/g7/halo/game",
+      "note": "de bestandstest van de game leest /pm/g7/halo/game: zo ziet hij het origineel en slaagt hij (gemeten 2026-10-15; met de uitgepakte game: 'FileSystem integrity test failed!' en wachten op START)"
+    }
+  ],
+  "libdirs": [
+    {
+      "src": "@build/fmod",
+      "dst": "/rg/libfmod",
+      "note": "FMOD-wrapper (tools/fmod-bridge): met de native FMOD Studio 1.10 van de gebruiker als drop-in (patches/Halo/dropin/fmod/: libfmod.so.10 en libfmodstudio.so.10, Linux x86_64, bv. uit lib64/ van Celeste) gaat alles rechtstreeks naar die FMOD, zonder Wine; zonder drop-in naar rg-fmod-host.exe, dat onder Wine de Windows-FMOD 1.10.2 van een TeknoParrot-installatie draait; zonder beide stil. STEREO of LPCM 5.1 via de opties van de game ([Audio] Speakers)"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/Halo/data/adj/hardware",
+      "dst": "/pm/g7/halo/pmuser/adj/save/hardware"
+    },
+    {
+      "src": "@patches/Halo/data/adj/playerCost",
+      "dst": "/pm/g7/halo/pmuser/adj/save/playerCost"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun0Calibration.0.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.0.xml"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun0Calibration.1.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.1.xml"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun0Calibration.2.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun0Calibration.2.xml"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun1Calibration.0.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.0.xml"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun1Calibration.1.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.1.xml"
+    },
+    {
+      "src": "@patches/Halo/data/aud/gun1Calibration.2.xml",
+      "dst": "/pm/g7/halo/pmuser/aud/save/gun1Calibration.2.xml"
+    }
+  ],
+  "preload": "/rg/lib/librg_rt_input.so:/rg/lib/librg_v4l2_fake.so:/rg/lib/librg_irtrack.so:/pm/g7/halo/halo.so",
+  "exe": "/pm/g7/bin/game",
+  "cwd": "/pm/g7/halo",
+  "home": "/pm/g7/halo",
+  "args": [
+    "-f{res}",
+    "-n"
+  ],
+  "route": "tp-shm",
+  "libs": [
+    "@build/librg_rt_input.so",
+    "@build/librg_v4l2_fake.so",
+    "@build/librg_irtrack.so",
+    "@patches/Halo/data/fmod/rg-fmod-host.exe"
+  ],
+  "env": {
+    "RG_FMOD_NATIVE_DIRS": "/rg/fmod-dropin-gebruiker:/rg/fmod-dropin",
+    "RG_FMOD_WINE": "/rg/wine/bin/wine",
+    "RG_FMOD_HOST": "/rg/lib/rg-fmod-host.exe",
+    "RG_FMOD_DLLDIR": "/rg/fmodwin",
+    "WINEPREFIX": "/pm/g7/halo/rg-fmod-prefix",
+    "RG_FMOD_LOG": "1"
+  },
+  "extra_ro": [
+    "/dev/shm/ravengun_JvsState"
+  ],
+  "fake_video": 2
+}

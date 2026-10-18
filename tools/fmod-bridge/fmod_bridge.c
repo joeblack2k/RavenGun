@@ -653,8 +653,27 @@ static void doe_callbacks(rd_t *rd) {
         }
     }
 }
+/* Hartslag (altijd aan, direct-modus): elke 10 s een regel met het aantal updates en spelende kanalen, zodat in het logboek staat of de
+   game FMOD blijft aansturen en of er iets speelt (de logboekregels hierboven staan er alleen bij RG_FMOD_LOG=1 in het profiel-env). */
+static void hartslag(void *studio, int r) {
+    static unsigned long n; static time_t t0;
+    time_t nu = time(NULL);
+    n++;
+    if (!t0) t0 = nu;
+    if (nu - t0 < 10) return;
+    t0 = nu;
+    int ch = -1, real = -1; void *ll = NULL;
+    int (*getll)(void *, void **) = nat_sym("FMOD_Studio_System_GetLowLevelSystem");
+    int (*playing)(void *, int *, int *) = nat_sym("FMOD_System_GetChannelsPlaying");
+    if (getll && playing && !getll(studio, &ll) && ll) playing(ll, &ch, &real);
+    fprintf(stderr, "rg_fmod: hartslag: %lu updates, kanalen spelend %d (echt %d), laatste update-resultaat %d\n", n, ch, real, r);
+}
 EXPORT int _ZN4FMOD6Studio6System6updateEv(void *self) {
-    DIRECT(_ZN4FMOD6Studio6System6updateEv, self);
+    if (direct_aan()) {
+        static __typeof__(&_ZN4FMOD6Studio6System6updateEv) d_;
+        if (!d_) d_ = (__typeof__(&_ZN4FMOD6Studio6System6updateEv))nat_sym("_ZN4FMOD6Studio6System6updateEv");
+        if (d_) { int r = d_(self); hartslag(self, r); return r; }
+    }
     B; put_u64(&b, self);
     unsigned char *a; size_t n;
     int r = stuur(RG_FM_UPDATE, &b, &a, &n);
@@ -665,6 +684,7 @@ EXPORT int _ZN4FMOD6Studio6System6updateEv(void *self) {
     return r;
 }
 EXPORT int _ZN4FMOD6Studio6System7releaseEv(void *self) {
+    if (direct_aan()) fprintf(stderr, "rg_fmod: de game roept Studio::System::release aan (FMOD gaat dicht: de uitvoerstroom verdwijnt)\n");
     DIRECT(_ZN4FMOD6Studio6System7releaseEv, self); B; put_u64(&b, self); int r = stuur(RG_FM_STUDIO_RELEASE, &b, NULL, NULL); return r < 0 ? FMOD_OK : r; }
 EXPORT int _ZNK4FMOD6Studio6System17getLowLevelSystemEPPNS_6SystemE(const void *self, void **ll) {
     DIRECT(_ZNK4FMOD6Studio6System17getLowLevelSystemEPPNS_6SystemE, self, ll);
