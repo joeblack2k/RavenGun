@@ -24,7 +24,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | CrossfirePaintball | direct | nee | nee | nog meten | nog meten | nog meten | 11 | working |
 | DrakonsRealmKeepers | direct | nee | nee | nog meten | nog meten | nog meten | 8 | working |
 | ElevatorActionInvasion | direct | nee | ja | ja (attract) | ja | ja (start) | 16 | working |
-| FarCryParadiseLost | direct | nee | nee | ja | ja | nee (munt opent testmenu) | 16 | working |
+| FarCryParadiseLost | direct | nee | nee | ja | ja | ja (munt, start, kaart) | 16 | working |
 | Friction | direct | ja |  | ja | ja | munt ja, start? | 10 | working |
 | GaiaAttack4 | direct | ja |  | ja | ja | ja (munt, start, gebied/missie) | 32 | working |
 | Gashaaaan | direct | nee | ja | ja (titel) | ja | ja (munt, start, koers) | 27 | working |
@@ -35,11 +35,11 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | HauntedMuseumII | direct | ja |  | ja | ja | ja (munt, start) | 28 | working |
 | HOTD4 | native | ja |  | ja (intro, HUD-tekst vaag) | ja (stereo; 5.1 als optie) | ja (munt, start) | 29 | untested |
 | HOTD4SP | native | ja |  | ja | ja | ja (start; grijze textures) | 18 | untested |
-| HOTDEX | native | ja |  | ja | nee (geen stroom) | ja (munt, start) | 12 | working |
+| HOTDEX | native | ja |  | ja | ja (ALSA->Pulse) | ja (munt, start) | 12 | working |
 | HOTDSD | direct | nee | ja | nee (ALLS-keychip) | nog meten | nog meten | 40 | working |
-| InfinityBladeFX | direct | nee | ja | nee (wit) | nog meten | nog meten | 10 | playable |
-| JurassicPark | native | ja |  | ja (attract) | nee (geen stroom op 50 s) | ja (start, missie) | 21 | working |
-| LethalEnforcers3 | direct | nee | ja | nee (zwart; eerder opstartcontrole) | ja (beeld nog zwart) | nog meten | 26 | working |
+| InfinityBladeFX | direct | nee | ja | nee (wit) | ja | - | 10 | playable |
+| JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
+| LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
 | LGI | direct | nee | ja | nee (stopt ~37 s) | nog meten | nog meten | 24 | working |
 | LGI3D | direct | nee | ja | nee (stopt) | nog meten | nog meten | 34 | working |
 | LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
@@ -47,28 +47,28 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | LGS | direct | nee | ja | ja (attract, Engels) | ja | ja (rit) | 20 | working |
 | LostLandAdventure | direct | nee | nee | nog meten | nog meten | nog meten | 11 | untested |
 | LuigisMansion | direct | ja |  | ja | ja | nee (munt komt niet aan) | 23 | playable |
-| MarioKartDX | direct | ja |  | nee (zwart) | ja (beeld nog zwart) | nog meten | 45 | working |
+| MarioKartDX | direct | ja |  | nee (zwart; F:-paden zoals TP in proef) | ja | - | 45 | working |
 | MarsSortie | direct | ja |  | ja | ja | ja (start, level) | 14 | working |
-| MenInBlack | direct | ja |  | ja | ja | nee (start komt niet aan) | 0 | untested |
+| MenInBlack | direct | ja |  | ja | ja | ja (start, PLAYER 1 READY, spel) | 0 | untested |
 | MusicGunGun2 | direct | ja |  | ja | ja | ja (munt, start) | 12 | working |
 | NERF | native | ja |  | ja | ja | ja (start, schieten) | 15 | working |
-| OG | direct | nee | ja | ja (Presented by SEGA) | nee | ? (initialiseert) | 35 | working |
-| PointBlankX | direct | ja |  | ja | ja | nee (munt komt niet aan) | 10 | working |
-| Primevil | native | ja |  | ja | nee (geen stroom op 50 s) | ja (start, wapen, gebied) | 1 | working |
+| OG | direct | nee | ja | ja (Presented by SEGA) | ja | ja (munt, start) | 35 | working |
+| PointBlankX | direct | ja |  | ja | ja | munt ja (3 credits nodig) | 10 | working |
+| Primevil | native | ja |  | ja | ja (ALSA->Pulse) | ja (start, wapen, gebied) | 1 | working |
 | PullTheTrigger | direct | nee | nee | nog meten | nog meten | nog meten | 10 | working |
 | RabbidsHollywood | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 25 | working |
 | RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | ja | ja (munt, start) | 31 | working |
-| Rambo | native | ja |  | ja | ja | ? (laadt na 80 s nog) | 25 | working |
+| Rambo | native | ja |  | ja (initialiseert >150 s) | ja | ? (opstart te lang voor de meting) | 25 | working |
 | Rampage | direct | ja |  | ja (attract) | ja | ? (start onduidelijk) | 6 | working |
 | RobinHood | direct | nee | nee | nog meten | nog meten | nog meten | 5 | working |
-| SDR | direct | nee | ja | nee (stopt) | nog meten | nog meten | 9 | working |
+| SDR | direct | nee | ja | nee (stopt) | - | - | 9 | working |
 | SilentHill | direct | ja |  | ja | ja | ja (start) | 19 | working |
-| TargetTerrorGold | native | ja |  | ja (LOADING) | nee (OSS-stub slikt het geluid) | ? (laadt na 80 s nog) | 12 | working |
+| TargetTerrorGold | native | ja |  | ja (LOADING >80 s) | ja (OSS->Pulse, DEEPBIND) | ? | 12 | working |
 | TC5 | direct | nee | ja | ja (attract) | ja | munt ja (start = pedaal) | 48 | playable |
 | Terminator | direct | nee | nee | nog meten | nog meten | nog meten | 26 | working |
 | TombRaider | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 18 | working |
 | Transformers | direct | nee | ja | nee (0949 keychip) | nog meten | nog meten | 11 | working |
-| TransformersShadowsRising | direct | ja |  | ja | ja | ? (laadt na 80 s nog) | 31 | working |
+| TransformersShadowsRising | direct | ja |  | ja (attract, missie) | ja | ja (start, ROLL OUT) | 31 | working |
 | WildWestShootout | direct | ja |  | ja | ja | ja (start, kaart, level) | 10 | working |
 
 ## Hoe er gemeten wordt
