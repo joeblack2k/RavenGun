@@ -211,6 +211,11 @@ mkdir -p "$SYSDIR"
 sed -e "s|@DATADIR@|$DATA|g" -e "s|@BINDIR@|$PREFIX/bin|g" "$DATA/packaging/systemd/ravengun-oled-saver.service.in" > "$SYSDIR/ravengun-oled-saver.service"
 chmod 644 "$SYSDIR/ravengun-oled-saver.service"
 "$SYSTEMCTL" --user daemon-reload || true
+# Draaide de bescherming al, dan opnieuw starten: de lus draait anders door op het vervangen programma en vond het bord niet
+# meer ("ravengun-app niet gevonden", 2026-10-18: anderhalf uur de app stil op de oled).
+if "$SYSTEMCTL" --user is-active --quiet ravengun-oled-saver.service 2>/dev/null; then
+  "$SYSTEMCTL" --user restart ravengun-oled-saver.service || true
+fi
 
 # --- 4. Snelkoppelingen ------------------------------------------------------------------------------------------------------
 if [[ $NODESKTOP -eq 0 ]]; then

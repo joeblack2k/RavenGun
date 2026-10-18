@@ -95,7 +95,17 @@ std::string ViewBinary() {
     if (o && *o) return o;
     char buf[4096];
     const ssize_t n = readlink("/proc/self/exe", buf, sizeof buf - 1);  // dit is `ravengun` zelf
-    return n > 0 ? std::string(buf, static_cast<size_t>(n)) : std::string();
+    std::string bin = n > 0 ? std::string(buf, static_cast<size_t>(n)) : std::string();
+    // Na een installatie draait deze lus nog op het vervangen bestand: /proc/self/exe wijst dan naar de oude map met " (deleted)"
+    // erachter en het bord kwam nooit meer (2026-10-18 12:45-13:21: anderhalf uur de app stil op de oled). Dan de geinstalleerde
+    // `ravengun` van nu nemen: de map van de installatie ($RAVENGUN_PREFIX/bin, anders ~/.local/opt/ravengun/bin).
+    static const std::string kDeleted = " (deleted)";
+    if (bin.empty() || access(bin.c_str(), X_OK) != 0 ||
+        (bin.size() > kDeleted.size() && bin.compare(bin.size() - kDeleted.size(), kDeleted.size(), kDeleted) == 0)) {
+        const std::string prefix = EnvOr("RAVENGUN_PREFIX", EnvOr("HOME", "/") + "/.local/opt/ravengun");
+        bin = prefix + "/bin/ravengun";
+    }
+    return bin;
 }
 
 void ViewStart() {
