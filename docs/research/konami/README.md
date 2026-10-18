@@ -258,6 +258,57 @@ run zonder gamescope (`[Display] Gamescope = false`): onder de kern speelde de f
    gamescope het niet). Of het een venster- of schermkwestie is, valt af te lezen aan `Executable name: game.exe` in de gamescope-regels
    (die is er) en aan of `Present` loopt.
 
+## Proef 15 (tv 2026-10-18 08:12 en 08:13, `_CPUP*.sav` opzij)
+
+Uit `rg-konami.log` en de SAVE-map (alleen gelezen; het logboek had nog geen tijden, de blokken zijn met de bestandstijden en de
+logboeken van rg-direct uit elkaar gehaald):
+
+| Run | Hoofdlus? | SAVE | Einde |
+|---|---|---|---|
+| 23:48 (proef 13) | nee (alleen laadregels) | - | na 150 s gestopt |
+| 00:05 | **ja** (`iob_init` … richtpunt) | maakt 60 `_CPUP*.sav` + bookkeeping om +4 s | stopt zelf, +11 s |
+| 07:37 (proef 14, met `_CPUP`) | nee | - | na 70 s gestopt |
+| 08:12 (zonder `_CPUP`, bureaublad op de tv) | nee | maakt niets | na 70 s gestopt |
+| 08:13 (zonder `_CPUP`) | **ja** | maakt 60 `_CPUP*.sav` + bookkeeping om +4 s | stopt zelf, +12 s |
+
+1. **Run 1 (08:12) kwam niet in de hoofdlus** en maakte niets aan. Run 2 (08:13) wel: hoofdlus, `_CPUP` en bookkeeping om +4 s,
+   en daarna stopte hij zelf (`DllMain: proces stopt normaal`). De `_CPUP`-bestanden beslissen het dus niet: met én zonder die
+   bestanden komt hij soms wel en soms niet in de hoofdlus. Er zijn **twee losse verschijnselen**: (a) soms geen hoofdlus (en dan zwart
+   of het bureaublad), (b) als hij wel loopt, stopt hij na ~12 s zelf.
+2. **Venster**: gamescope staat in plan en argv (`/usr/bin/gamescope -W 1920 -H 1080 -S fit -f --backend wayland -- ...`), en
+   gamescope zag `explorer.exe` en `game.exe`. Het bureaublad op de tv betekent dat gamescope geen beeld van de game liet zien. Dat
+   past bij (a): de game hangt voor zijn hoofdlus. De game maakt zelf een volledig scherm met d3d8 (`CreateWindowExA`, geen
+   `DestroyWindow`). Waar hij hangt, zegt het nieuwe meetinstrument hieronder.
+3. **Waarom hij stopt (b)**: `game.exe` stopt op drie manieren. WM_DESTROY (venster dicht) → `PostQuitMessage` + vlag `0x694100` →
+   einde van WinMain (`0x40a3b0`, `0x404cb5`). `exit(1)` uit de foutroutine van libjpeg (`0x44f584`, een kapotte JPEG). `exit()` als
+   een draad niet start (`0x5325a8`). Welke het was, is zonder stapel niet te zien.
+4. **`boot.exe` starten kan niet zomaar.** Hij praat zelf met het I/O-bord (geen `iob.dll`: "io_ready", "io_check_error"),
+   controleert een MAC-adres (`iphlpapi`, "mac addr error"), zoekt updates op `F:\UP`/`E:\UP` en start dan `D:\D22\game.exe` met
+   `CreateProcessA`. Opnieuw starten na een eerste start zou een optie van rg-direct worden ("start de exe opnieuw als hij met code X
+   stopt"). Dat bouw ik pas als de afsluitregel laat zien dat het een bedoelde herstart is.
+
+**Gewijzigd: een meetinstrument in onze iob.dll** (alleen kernel32 en user32, geen gedrag van de game veranderd):
+
+- elke regel in `rg-konami.log` krijgt de tijd sinds de start: `[+12.345 s]`;
+- **waakhond**: komt `iob_get_digital_in` (de hoofdlus) niet binnen 15 s, dan elke 15 s (vier keer) `waakhond: hoofddraad, geen
+  hoofdlus na 15 s: eip=<adres> terugkeer in de exe: <adres> <adres> ...`, plus per venster van de hoofddraad `waakhond: venster
+  <hwnd> klasse '...' titel '...' zichtbaar <0/1> voorgrond <0/1> rect ... stijl ...`. De hoofddraad wordt daarvoor heel even
+  stilgezet (SuspendThread/GetThreadContext);
+- **afsluitregel**: bij het stoppen `DllMain: wie stopt het proces terugkeer in de exe: <adres> ...`. Staat daarin `44f59e`, dan was
+  het libjpeg (`exit(1)`). Een adres rond `54a4e1`/`54a4e6` is het einde van WinMain (venster dicht).
+
+Getest in een wegwerp-prefix met een eigen proef-exe (geen game): de waakhond meldde na 15,0 s het juiste terugkeeradres in de
+wachtfunctie, en de afsluitregel na `exit(3)` het adres in de stopfunctie.
+
+**Testrecept proef 16** (LE3; eerst `tools/rg-konami/build.sh --le3 patches/LethalEnforcers3/dropin`, de oude
+`views/LethalEnforcers3/rg-konami.log` opzij zetten zodat het logboek alleen deze runs bevat; `_CPUP*.sav` laten staan zoals ze zijn):
+
+1. Twee of drie starts achter elkaar, elk tot hij stopt of 90 s.
+2. Per run uit `rg-konami.log` doorgeven: de `waakhond:`-regels (eip, terugkeeradressen, vensters) of, als hij in de hoofdlus kwam,
+   de `wie stopt het proces`-regel met zijn tijd.
+3. Ik lees die adressen in `game.exe` na en lever dan de wijziging: een omleiding van wat hem tegenhoudt (a), of een herstart in
+   rg-direct als (b) een bedoelde herstart is.
+
 ## Niet bewezen / gegokt
 
 1. **LE3, de kalibratie in de praktijk**: de formule is uit de code gelezen en doorgerekend, niet op het scherm gezien. Klopt de hoek

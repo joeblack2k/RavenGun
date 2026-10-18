@@ -56,6 +56,18 @@ static CRITICAL_SECTION kb_slot;
 static const volatile uint8_t *kb_map;
 static DWORD kb_volgende_poging;
 static int kb_meldingen;   /* begrenst het aantal invoerregels in het logboek */
+static DWORD kb_start_tick;   /* GetTickCount bij het laden: elke regel krijgt de tijd sinds de start van het proces */
+
+/* Een getal als tekst (zonder opmaakfuncties: ook bruikbaar in DllMain). */
+static void kb_getal(char *d, size_t lengte, unsigned long v, int basis)
+{
+    char t[16];
+    int n = 0;
+    do { unsigned c = (unsigned)(v % (unsigned)basis); t[n++] = (char)(c < 10 ? '0' + c : 'a' + c - 10); v /= (unsigned)basis; } while (v && n < 15);
+    size_t i = 0;
+    while (n > 0 && i + 1 < lengte) d[i++] = t[--n];
+    if (lengte) d[i] = 0;
+}
 
 /* Plakt s achter d (d is een afgesloten tekst in een buffer van lengte bytes). */
 static void kb_plak(char *d, size_t lengte, const char *s)
@@ -96,6 +108,16 @@ static void kb_schrijf(const char *regel)
         if (f == INVALID_HANDLE_VALUE) return;
     }
     DWORD w;
+    char tijd[32] = "[+";
+    char ms[16];
+    const DWORD verstreken = GetTickCount() - kb_start_tick;
+    kb_getal(ms, sizeof ms, verstreken / 1000, 10);
+    kb_plak(tijd, sizeof tijd, ms);
+    kb_plak(tijd, sizeof tijd, ".");
+    kb_getal(ms, sizeof ms, 1000 + verstreken % 1000, 10);
+    kb_plak(tijd, sizeof tijd, ms + 1);
+    kb_plak(tijd, sizeof tijd, " s] ");
+    WriteFile(f, tijd, (DWORD)kb_strlen(tijd), &w, NULL);
     WriteFile(f, KB_NAAM ": ", (DWORD)kb_strlen(KB_NAAM ": "), &w, NULL);
     WriteFile(f, regel, (DWORD)kb_strlen(regel), &w, NULL);
     WriteFile(f, "\r\n", 2, &w, NULL);
@@ -133,6 +155,7 @@ static void kb_beeld_nu(kb_beeld *b)
  * een functie aanroept: welke DLL, in welk proces (exe) en met welke werkmap. Alleen kernel32 (kb_schrijf), geen opmaak. */
 static void kb_dllmain_attach(HINSTANCE h)
 {
+    kb_start_tick = GetTickCount();
     kb_deze = h;
     DisableThreadLibraryCalls(h);
     InitializeCriticalSection(&kb_slot);
@@ -151,10 +174,121 @@ static void kb_dllmain_attach(HINSTANCE h)
     kb_schrijf(regel);
 }
 
-/* DllMain, DLL_PROCESS_DETACH: het proces stopt (r != NULL) of de DLL wordt losgelaten. Na een crash komt deze regel niet. */
+/* ---- Meetinstrument: wie roept wat aan. De code van de exe (de uitvoerbare secties van het hoofdmodule) en of een adres op de
+ * stapel een terugkeeradres is (de bytes ervoor zijn een call). Alleen kernel32; bruikbaar in DllMain. ---- */
+static uintptr_t kb_code_lo, kb_code_hi;
+
+static void kb_zoek_code(void)
+{
+    const uint8_t *b = (const uint8_t *)GetModuleHandleA(NULL);
+    if (!b || b[0] != 'M' || b[1] != 'Z') return;
+    const IMAGE_NT_HEADERS32 *nt = (const IMAGE_NT_HEADERS32 *)(b + *(const LONG *)(b + 0x3c));
+    const IMAGE_SECTION_HEADER *sec = IMAGE_FIRST_SECTION(nt);
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; i++)
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) {
+            const uintptr_t lo = (uintptr_t)b + sec[i].VirtualAddress, hi = lo + sec[i].Misc.VirtualSize;
+            if (!kb_code_lo || lo < kb_code_lo) kb_code_lo = lo;
+            if (hi > kb_code_hi) kb_code_hi = hi;
+        }
+}
+
+static int kb_is_terugkeer(uintptr_t a)
+{
+    if (a < kb_code_lo + 7 || a >= kb_code_hi) return 0;
+    const uint8_t *q = (const uint8_t *)a;
+    if (q[-5] == 0xE8) return 1;                                   /* call rel32 */
+    if (q[-6] == 0xFF && (q[-5] & 0x38) == 0x10) return 1;         /* call [mem] (ff 15 / ff 9x) */
+    if (q[-2] == 0xFF && (q[-1] & 0xF8) == 0xD0) return 1;         /* call reg */
+    if (q[-3] == 0xFF && (q[-2] & 0x38) == 0x10) return 1;         /* call [reg+disp8] */
+    return 0;
+}
+
+/* Schrijft "<wat>: eip=... terugkeer: a b c ..." voor een stapel van esp tot top (hoogstens 64 KB, 24 adressen). */
+static void kb_meld_stapel(const char *wat, uintptr_t eip, uintptr_t esp, uintptr_t top)
+{
+    char regel[600], getal[16];
+    kb_kopieer(regel, sizeof regel, wat);
+    if (eip) {
+        kb_plak(regel, sizeof regel, ": eip=");
+        kb_getal(getal, sizeof getal, eip, 16);
+        kb_plak(regel, sizeof regel, getal);
+    }
+    kb_plak(regel, sizeof regel, " terugkeer in de exe:");
+    if (top > esp + 0x10000) top = esp + 0x10000;
+    int n = 0;
+    for (uintptr_t a = esp & ~(uintptr_t)3; a + 4 <= top && n < 24; a += 4) {
+        const uintptr_t v = *(const uintptr_t *)a;
+        if (!kb_is_terugkeer(v)) continue;
+        kb_plak(regel, sizeof regel, " ");
+        kb_getal(getal, sizeof getal, v, 16);
+        kb_plak(regel, sizeof regel, getal);
+        n++;
+    }
+    kb_schrijf(regel);
+}
+
+/* ---- Waakhond (alleen als kb_waakhond_start is aangeroepen): komt de hoofdlus van de game niet binnen 15 s (kb_hoofdlus_gezien
+ * blijft 0), dan elke 15 s (vier keer) waar de hoofddraad staat (eip + terugkeeradressen in de exe) en welke vensters hij heeft. ---- */
+static volatile LONG kb_hoofdlus_gezien;
+static HANDLE kb_hoofddraad;
+static DWORD kb_hoofd_tid;
+static uintptr_t kb_hoofd_top;
+
+static BOOL CALLBACK kb_meld_venster(HWND w, LPARAM l)
+{
+    (void)l;
+    char klasse[64], titel[64];
+    if (!GetClassNameA(w, klasse, sizeof klasse)) klasse[0] = 0;
+    if (!GetWindowTextA(w, titel, sizeof titel)) titel[0] = 0;
+    RECT r = {0, 0, 0, 0};
+    GetWindowRect(w, &r);
+    kb_log("waakhond: venster %x klasse '%s' titel '%s' zichtbaar %d voorgrond %d rect %d,%d-%d,%d stijl %x",
+           (unsigned)(uintptr_t)w, klasse, titel, IsWindowVisible(w) ? 1 : 0, GetForegroundWindow() == w ? 1 : 0,
+           (int)r.left, (int)r.top, (int)r.right, (int)r.bottom, (unsigned)GetWindowLongA(w, GWL_STYLE));
+    return TRUE;
+}
+
+static DWORD WINAPI kb_waakhond(LPVOID arg)
+{
+    (void)arg;
+    for (int ronde = 0; ronde < 4; ronde++) {
+        Sleep(15000);
+        if (kb_hoofdlus_gezien) return 0;
+        CONTEXT c;
+        memset(&c, 0, sizeof c);
+        c.ContextFlags = CONTEXT_CONTROL;
+        if (SuspendThread(kb_hoofddraad) == (DWORD)-1) { kb_log("waakhond: SuspendThread faalt (%u)", (unsigned)GetLastError()); return 0; }
+        const BOOL ok = GetThreadContext(kb_hoofddraad, &c);
+        if (ok) kb_meld_stapel("waakhond: hoofddraad, geen hoofdlus na 15 s", c.Eip, c.Esp, kb_hoofd_top);
+        ResumeThread(kb_hoofddraad);
+        if (!ok) kb_log("waakhond: GetThreadContext faalt (%u)", (unsigned)GetLastError());
+        EnumThreadWindows(kb_hoofd_tid, kb_meld_venster, 0);
+    }
+    return 0;
+}
+
+/* Aanroepen in DllMain (DLL_PROCESS_ATTACH) van een DLL die de exe statisch importeert: dan is dit de hoofddraad. */
+static __attribute__((unused)) void kb_waakhond_start(void)
+{
+    kb_zoek_code();
+    kb_hoofd_tid = GetCurrentThreadId();
+    kb_hoofd_top = (uintptr_t)((NT_TIB *)NtCurrentTeb())->StackBase;
+    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &kb_hoofddraad,
+                         THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, 0)) return;
+    HANDLE t = CreateThread(NULL, 0, kb_waakhond, NULL, 0, NULL);   /* start pas na de loader-lock */
+    if (t) CloseHandle(t);
+}
+
+/* DllMain, DLL_PROCESS_DETACH: het proces stopt (r != NULL) of de DLL wordt losgelaten. Na een crash komt deze regel niet. Bij het
+ * stoppen ook wie ExitProcess aanriep (terugkeeradressen in de exe op de stapel van deze draad): bv. de foutroutine van libjpeg
+ * (game.exe 0x44f584: exit(1)) of het einde van WinMain. */
 static void kb_dllmain_detach(LPVOID r)
 {
     kb_schrijf(r ? "DllMain: proces stopt normaal (ExitProcess)" : "DllMain: DLL losgelaten (FreeLibrary)");
+    if (r && kb_code_hi) {
+        uintptr_t hier = (uintptr_t)&r;
+        kb_meld_stapel("DllMain: wie stopt het proces", 0, hier, (uintptr_t)((NT_TIB *)NtCurrentTeb())->StackBase);
+    }
 }
 
 /* De eerste aanroep van de game, als tweede bewijs: de game is tot zijn I/O-code gekomen. */

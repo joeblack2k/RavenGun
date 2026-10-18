@@ -34,6 +34,7 @@ static void meld_flanken(const kb_beeld *nu, const kb_beeld *vorig)
 
 int le3_iob_get_digital_in(uint8_t *uit)
 {
+    kb_hoofdlus_gezien = 1;   /* de hoofdlus van game.exe (0x51ea80) roept dit elk beeld aan: de waakhond kan stoppen */
     kb_meld_geladen("iob_get_digital_in");
     kb_beeld b;
     kb_beeld_nu(&b);
@@ -120,7 +121,7 @@ void le3_iob_set_light_init(void) {}
 
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reden, LPVOID r)
 {
-    if (reden == DLL_PROCESS_ATTACH) kb_dllmain_attach(h);
+    if (reden == DLL_PROCESS_ATTACH) { kb_dllmain_attach(h); kb_waakhond_start(); }
     else if (reden == DLL_PROCESS_DETACH) kb_dllmain_detach(r);
     return TRUE;
 }
