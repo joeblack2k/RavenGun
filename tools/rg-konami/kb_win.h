@@ -12,6 +12,7 @@
 #define RG_KONAMI_WIN_H
 
 #include <windows.h>
+#include <tlhelp32.h>
 #include <stdarg.h>
 
 #include "konami_logic.h"
@@ -228,40 +229,121 @@ static void kb_meld_stapel(const char *wat, uintptr_t eip, uintptr_t esp, uintpt
 }
 
 /* ---- Waakhond (alleen als kb_waakhond_start is aangeroepen): komt de hoofdlus van de game niet binnen 15 s (kb_hoofdlus_gezien
- * blijft 0), dan elke 15 s (vier keer) waar de hoofddraad staat (eip + terugkeeradressen in de exe) en welke vensters hij heeft. ---- */
+ * blijft 0), dan elke 15 s (vier keer) ALLE draden van het proces: eip als <module>+<offset> en de terugkeeradressen op de stapel in
+ * elke module (ook Wine's eigen DLL's), plus de vensters van de hoofddraad. Proef 17 (2026-10-18): de hoofddraad stond in de hoofdlus
+ * van game.exe (0x401c70) in PeekMessageA (terugkeer 401cbf) met eip in een Wine-DLL; de vorige waakhond bleef daarna hangen in
+ * GetWindowTextA (dat stuurt een bericht naar de hoofddraad). Nu niets wat een bericht stuurt. ---- */
 static volatile LONG kb_hoofdlus_gezien;
 static HANDLE kb_hoofddraad;
 static DWORD kb_hoofd_tid;
 static uintptr_t kb_hoofd_top;
 
+/* "<module>+<offset>" voor een adres, of het getal zelf als het in geen module ligt. */
+static void kb_naam_van(uintptr_t a, char *uit, size_t lengte)
+{
+    HMODULE m = NULL;
+    char pad[MAX_PATH], getal[16];
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)a, &m) && m &&
+        GetModuleFileNameA(m, pad, MAX_PATH)) {
+        const char *naam = pad;
+        for (const char *q = pad; *q; q++) if (*q == '\\' || *q == '/') naam = q + 1;
+        kb_kopieer(uit, lengte, naam);
+        kb_plak(uit, lengte, "+");
+        kb_getal(getal, sizeof getal, a - (uintptr_t)m, 16);
+        kb_plak(uit, lengte, getal);
+        return;
+    }
+    kb_getal(uit, lengte, a, 16);
+}
+
+/* Een terugkeeradres in een willekeurige module: het adres ligt in een module (niet in onze eigen DLL) en de bytes ervoor zijn een
+ * call. De module is helemaal ingeladen, dus de 6 bytes ervoor zijn leesbaar als het adres minstens 0x1000 voorbij het begin ligt. */
+static int kb_is_terugkeer_ergens(uintptr_t a)
+{
+    HMODULE m = NULL;
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)a, &m) || !m)
+        return 0;
+    if (m == kb_deze || a < (uintptr_t)m + 0x1000) return 0;
+    const uint8_t *q = (const uint8_t *)a;
+    return q[-5] == 0xE8 || (q[-6] == 0xFF && (q[-5] & 0x38) == 0x10) || (q[-2] == 0xFF && (q[-1] & 0xF8) == 0xD0) ||
+           (q[-3] == 0xFF && (q[-2] & 0x38) == 0x10);
+}
+
+static void kb_meld_draad(DWORD tid, int hoofd)
+{
+    HANDLE h = hoofd ? kb_hoofddraad : OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, tid);
+    if (!h) return;
+    CONTEXT c;
+    memset(&c, 0, sizeof c);
+    c.ContextFlags = CONTEXT_CONTROL;
+    uintptr_t terug[16];
+    int n = 0;
+    BOOL ok = FALSE;
+    if (SuspendThread(h) != (DWORD)-1) {
+        ok = GetThreadContext(h, &c);
+        if (ok) {
+            /* De stapel: van esp tot het einde van het vastgelegde geheugengebied (VirtualQuery), hoogstens 32 KB. */
+            MEMORY_BASIC_INFORMATION mi;
+            uintptr_t top = c.Esp + 0x8000;
+            if (VirtualQuery((LPCVOID)c.Esp, &mi, sizeof mi) && mi.State == MEM_COMMIT) {
+                const uintptr_t eind = (uintptr_t)mi.BaseAddress + mi.RegionSize;
+                if (eind < top) top = eind;
+                for (uintptr_t a = c.Esp & ~(uintptr_t)3; a + 4 <= top && n < 16; a += 4) {
+                    const uintptr_t v = *(const uintptr_t *)a;
+                    if (kb_is_terugkeer_ergens(v)) terug[n++] = v;
+                }
+            }
+        }
+        ResumeThread(h);   /* pas na het lezen van de stapel; daarna pas loggen (dat kan locks pakken) */
+    }
+    if (!hoofd) CloseHandle(h);
+    if (!ok) return;
+    char regel[1400], stuk[80];
+    kb_kopieer(regel, sizeof regel, "waakhond: draad ");
+    kb_getal(stuk, sizeof stuk, tid, 10);
+    kb_plak(regel, sizeof regel, stuk);
+    kb_plak(regel, sizeof regel, hoofd ? " (hoofddraad) eip=" : " eip=");
+    kb_naam_van(c.Eip, stuk, sizeof stuk);
+    kb_plak(regel, sizeof regel, stuk);
+    kb_plak(regel, sizeof regel, " terugkeer:");
+    for (int i = 0; i < n; i++) {
+        kb_plak(regel, sizeof regel, " ");
+        kb_naam_van(terug[i], stuk, sizeof stuk);
+        kb_plak(regel, sizeof regel, stuk);
+    }
+    kb_schrijf(regel);
+}
+
 static BOOL CALLBACK kb_meld_venster(HWND w, LPARAM l)
 {
     (void)l;
-    char klasse[64], titel[64];
-    if (!GetClassNameA(w, klasse, sizeof klasse)) klasse[0] = 0;
-    if (!GetWindowTextA(w, titel, sizeof titel)) titel[0] = 0;
+    char klasse[64];
+    if (!GetClassNameA(w, klasse, sizeof klasse)) klasse[0] = 0;   /* lokaal; geen bericht naar de draad van het venster */
     RECT r = {0, 0, 0, 0};
     GetWindowRect(w, &r);
-    kb_log("waakhond: venster %x klasse '%s' titel '%s' zichtbaar %d voorgrond %d rect %d,%d-%d,%d stijl %x",
-           (unsigned)(uintptr_t)w, klasse, titel, IsWindowVisible(w) ? 1 : 0, GetForegroundWindow() == w ? 1 : 0,
-           (int)r.left, (int)r.top, (int)r.right, (int)r.bottom, (unsigned)GetWindowLongA(w, GWL_STYLE));
+    kb_log("waakhond: venster %x klasse '%s' zichtbaar %d voorgrond %d rect %d,%d-%d,%d stijl %x", (unsigned)(uintptr_t)w, klasse,
+           IsWindowVisible(w) ? 1 : 0, GetForegroundWindow() == w ? 1 : 0, (int)r.left, (int)r.top, (int)r.right, (int)r.bottom,
+           (unsigned)GetWindowLongA(w, GWL_STYLE));
     return TRUE;
 }
 
 static DWORD WINAPI kb_waakhond(LPVOID arg)
 {
     (void)arg;
+    const DWORD ik = GetCurrentThreadId(), pid = GetCurrentProcessId();
     for (int ronde = 0; ronde < 4; ronde++) {
         Sleep(15000);
         if (kb_hoofdlus_gezien) return 0;
-        CONTEXT c;
-        memset(&c, 0, sizeof c);
-        c.ContextFlags = CONTEXT_CONTROL;
-        if (SuspendThread(kb_hoofddraad) == (DWORD)-1) { kb_log("waakhond: SuspendThread faalt (%u)", (unsigned)GetLastError()); return 0; }
-        const BOOL ok = GetThreadContext(kb_hoofddraad, &c);
-        if (ok) kb_meld_stapel("waakhond: hoofddraad, geen hoofdlus na 15 s", c.Eip, c.Esp, kb_hoofd_top);
-        ResumeThread(kb_hoofddraad);
-        if (!ok) kb_log("waakhond: GetThreadContext faalt (%u)", (unsigned)GetLastError());
+        kb_log("waakhond: ronde %d, geen hoofdlus na %d s; alle draden:", ronde + 1, 15 * (ronde + 1));
+        kb_meld_draad(kb_hoofd_tid, 1);
+        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (snap != INVALID_HANDLE_VALUE) {
+            THREADENTRY32 te;
+            te.dwSize = sizeof te;
+            for (BOOL door = Thread32First(snap, &te); door; door = Thread32Next(snap, &te))
+                if (te.th32OwnerProcessID == pid && te.th32ThreadID != ik && te.th32ThreadID != kb_hoofd_tid) kb_meld_draad(te.th32ThreadID, 0);
+            CloseHandle(snap);
+        }
         EnumThreadWindows(kb_hoofd_tid, kb_meld_venster, 0);
     }
     return 0;
