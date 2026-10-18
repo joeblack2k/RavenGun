@@ -465,6 +465,77 @@ void hook_game_log() {
     if (!found) rg_log("spellog: geen teaArcade2-logfunctie gevonden (geen LGI/LGI3D?)");
 }
 
+// --- wie vraagt om af te sluiten? --------------------------------------------------------------------------------------------------------
+// LGI en LGI3D sluiten zichzelf af via fwFraw::requestExit (LGI 0x645830, LGI3D 0x656660): `mov eax,[ecx+4] ; or dword [eax+4],1 ; ret`. Dertien plekken in de game
+// roepen die aan (scene-flow, flow-opdrachten, ...). We zetten een sprong op het begin van die functie naar een stukje code dat eerst de aanroeper en de stapel
+// logt ("afsluiten: requestExit vanaf 0x..; stapel: ...") en dan de oorspronkelijke 7 bytes uitvoert en terugspringt: de functie doet hetzelfde als voorheen.
+extern "C" void __cdecl rg_exit_trace(const uint32_t* sp) {
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) > 30) return;
+    auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    uintptr_t lo = 0, hi = 0;
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i)
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) {
+            if (!lo) lo = reinterpret_cast<uintptr_t>(base) + sec[i].VirtualAddress;
+            hi = reinterpret_cast<uintptr_t>(base) + sec[i].VirtualAddress + sec[i].Misc.VirtualSize;
+        }
+    const uintptr_t top = reinterpret_cast<uintptr_t>(reinterpret_cast<NT_TIB*>(NtCurrentTeb())->StackBase);
+    char line[900];
+    int len = std::snprintf(line, sizeof line, "afsluiten: requestExit vanaf 0x%08lX (thread %lu); stapel:", static_cast<unsigned long>(sp[0]), static_cast<unsigned long>(GetCurrentThreadId()));
+    int found = 0;
+    for (int i = 1; i < 256 && found < 14 && len < 820; ++i) {
+        if (reinterpret_cast<uintptr_t>(sp + i + 1) > top) break;
+        const uintptr_t v = sp[i];
+        if (v < lo + 6 || v >= hi) continue;
+        const BYTE* c = reinterpret_cast<const BYTE*>(v);
+        if (c[-5] == 0xE8 || c[-6] == 0xFF || c[-2] == 0xFF || c[-3] == 0xFF) {   // lijkt op een terugkeeradres (na call rel32 / call [..] / call reg)
+            len += std::snprintf(line + len, sizeof line - len, " 0x%08lX", static_cast<unsigned long>(v));
+            ++found;
+        }
+    }
+    rg_log("%s", line);
+}
+
+void hook_exit_trace() {
+    static const unsigned char pat[] = {0x8B, 0x41, 0x04, 0x83, 0x48, 0x04, 0x01, 0xC3};
+    auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    int found = 0;
+    for (unsigned si = 0; si < nt->FileHeader.NumberOfSections; ++si) {
+        if (!(sec[si].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        BYTE* lo = base + sec[si].VirtualAddress;
+        const size_t len = sec[si].Misc.VirtualSize;
+        for (size_t off = 0; off + sizeof pat <= len; ++off) {
+            BYTE* q = lo + off;
+            if (std::memcmp(q, pat, sizeof pat) != 0) continue;
+            if (found) continue;   // alleen de eerste (in LGI en LGI3D is het patroon uniek)
+            auto* stub = static_cast<BYTE*>(VirtualAlloc(nullptr, 96, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+            if (!stub) return;
+            BYTE* c = stub;
+            *c++ = 0x9C; *c++ = 0x60;                                       // pushfd ; pushad
+            *c++ = 0x8D; *c++ = 0x44; *c++ = 0x24; *c++ = 0x24;             // lea eax,[esp+0x24]  (adres van het terugkeeradres)
+            *c++ = 0x50;                                                    // push eax
+            *c++ = 0xE8; { const int rel = static_cast<int>(reinterpret_cast<BYTE*>(&rg_exit_trace) - (c + 4)); std::memcpy(c, &rel, 4); c += 4; }
+            *c++ = 0x83; *c++ = 0xC4; *c++ = 0x04;                          // add esp,4
+            *c++ = 0x61; *c++ = 0x9D;                                       // popad ; popfd
+            std::memcpy(c, q, 7); c += 7;                                   // de oorspronkelijke instructies (mov eax,[ecx+4] ; or [eax+4],1)
+            *c++ = 0xE9; { const int rel = static_cast<int>((q + 7) - (c + 4)); std::memcpy(c, &rel, 4); c += 4; }
+            DWORD prot = 0;
+            if (!VirtualProtect(q, 5, PAGE_EXECUTE_READWRITE, &prot)) continue;
+            q[0] = 0xE9;
+            const int jr = static_cast<int>(stub - (q + 5));
+            std::memcpy(q + 1, &jr, 4);
+            VirtualProtect(q, 5, prot, &prot);
+            FlushInstructionCache(GetCurrentProcess(), q, 8);
+            rg_log("afsluitspoor: requestExit op 0x%08lX gevolgd", static_cast<unsigned long>(reinterpret_cast<uintptr_t>(q)));
+            ++found;
+        }
+    }
+}
+
 // De JVS-transactie van het stuurprogramma (0x9C402000): de bytes van de bovenlaag naar de lijn, dan het antwoordkader terug, en de OVERLAPPED
 // meteen klaar (InternalHigh = aantal bytes, gebeurtenis gezet): Windows meldt een direct voltooide overlapped-opdracht ook met TRUE.
 BOOL jvs_transfer(HANDLE h, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
@@ -857,6 +928,7 @@ void setup() {
         }
     }
     if (env("RG_AMHW_GAMELOG", "1") != "0") hook_game_log();
+    if (env("RG_AMHW_GAMELOG", "1") != "0") hook_exit_trace();
     hook("KERNEL32.dll", "DeviceIoControl", rg_DeviceIoControl, g_ioctl);
     hook("KERNEL32.dll", "CloseHandle", rg_CloseHandle, g_close);
     hook("KERNEL32.dll", "SetFilePointer", rg_SetFilePointer, g_seek);

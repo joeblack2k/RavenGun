@@ -52,6 +52,9 @@ __asm__(".text\n.globl _rgp_fake_log\n_rgp_fake_log:\n"
         ".byte 0x85,0xC9,0x74,0x0D,0x8B,0x44,0x24,0x04,0x50,0x6A,0x01,0xE8\n.long 0\n"
         ".byte 0xC3,0xB0,0x01,0xC3\n");
 extern "C" unsigned char __cdecl rgp_fake_log(const char*);
+// En een nagebootste fwFraw::requestExit (LGI 0x645830): mov eax,[ecx+4] ; or dword [eax+4],1 ; ret
+__asm__(".text\n.globl _rgp_fake_exit\n_rgp_fake_exit:\n .byte 0x8B,0x41,0x04,0x83,0x48,0x04,0x01,0xC3\n");
+
 
 int main(int argc, char** argv) {
     if (argc < 2) { std::printf("gebruik: amhw_probe.exe <map>\n"); return 2; }
@@ -241,6 +244,16 @@ int main(int argc, char** argv) {
         std::string txt;
         if (lf) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf)) > 0) txt.append(buf, n); std::fclose(lf); }
         check(txt.find("spel[1]: [teaArcade2] JvsManager::initialize() failed.") != std::string::npos, "teaArcade2-logfunctie: het bericht staat in rg-amhw.log");
+    }
+    {   // het afsluitspoor: requestExit logt zijn aanroeper en doet daarna wat het deed (bit 0 van [[ecx+4]+4])
+        unsigned flags[2] = {0, 0};
+        void* self[2] = {nullptr, flags};
+        __asm__ volatile("call _rgp_fake_exit" : : "c"(self) : "eax", "memory", "cc");
+        check((flags[1] & 1) == 1, "requestExit zet nog steeds bit 0");
+        FILE* lf3 = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
+        std::string txt3;
+        if (lf3) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf3)) > 0) txt3.append(buf, n); std::fclose(lf3); }
+        check(txt3.find("afsluiten: requestExit vanaf 0x") != std::string::npos, "het afsluitspoor staat in rg-amhw.log");
     }
     {   // mislukte opens van gewone bestanden komen in rg-amhw.log (zodat te zien is welk bestand een game mist)
         HANDLE mh = CreateFileA((dir + "\\bestaat-niet\\scene.dat").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);

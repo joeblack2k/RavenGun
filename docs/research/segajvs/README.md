@@ -447,6 +447,14 @@ niet bevestigd) en niet een AM-opdracht: `mxmaster.foreground.next=3` valt samen
 `bestand mislukt: <pad> (fout N)` (2/3 = bestaat niet, 5 = geen toegang, 32 = gedeeld), de eerste 400. Het laatste ontbrekende bestand vlak voor de `spel[2]: [teaGfx] user terminate`-regels is de kandidaat voor
 "de scene-flow kan niet verder". Bestanden die de game optioneel probeert (`mxsram.bin` bij een eerste start enz.) staan er ook tussen.
 
+### Meting 14 (LGI/LGI3D 2026-10-18 10:38): het afsluitspoor
+
+Het bestandslog (`bestand mislukt:`) toonde alleen `hints.dat` en `data\Fraw\DevelopmentMode.txt` (optioneel): geen ontbrekend gegevensbestand. rg-amhw zet nu een spoor op `fwFraw::requestExit` (bytes
+`8B 41 04 83 48 04 01 C3`, uniek in LGI `0x645830` en LGI3D `0x656660`, in geen andere game). De functie doet wat ze deed; ervoor schrijft het spoor in `rg-amhw.log`:
+`afsluitspoor: requestExit op 0x... gevolgd` (bij het laden) en bij elke aanroep `afsluiten: requestExit vanaf 0x<aanroeper> (thread N); stapel: 0x... 0x...` (de eerste 30; de stapel bevat de waarden die op een
+terugkeeradres in de code lijken, de aanroeper-keten). Het eerste `afsluiten:`-regel is de aanroeper; zoek zijn adres op met `python3 -I tools/dev/segajvs-scan.py <exe> --where 0x<adres>` en lees de voorwaarde ervoor. Uit met
+`RG_AMHW_GAMELOG=0`. Komt er GEEN `afsluiten:`-regel voor de `terminate`-regels, dan loopt de afsluiting via `WM_CLOSE`/`WM_QUIT` (de byte `[0xA3BA2C]`, LGI `0x5E72A6`/`0x5E7825`) en is het venster de aanleiding.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
