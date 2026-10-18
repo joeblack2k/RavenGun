@@ -5,202 +5,192 @@
   "exe": "game",
   "options": [
     {
-      "key": "general.input_api",
-      "name_en": "Input API",
-      "type": "enum",
-      "values": [
-        "DirectInput",
-        "XInput",
-        "RawInput"
-      ],
-      "default": "RawInput",
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Input API",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Input API"
-        }
-      },
-      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.hidecursor",
-      "name_en": "Hide Cursor",
-      "type": "bool",
-      "default": true,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "HideCursor",
-        "also_in_ini": {
-          "section": "General",
-          "key": "HideCursor"
-        }
-      },
-      "description_en": "Hide the mouse cursor over the game window.",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.windowed",
-      "name_en": "Windowed",
-      "type": "bool",
-      "default": true,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Windowed",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Windowed"
-        }
-      },
-      "description_en": "Run the game in a window instead of fullscreen.",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.use_relative_input",
-      "name_en": "Use Relative Input",
+      "key": "adj.freeplay",
+      "name_en": "Free play",
       "type": "bool",
       "default": false,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Use Relative Input",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Use Relative Input"
-        }
-      },
-      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.player_1_relative_sensitivity",
-      "name_en": "Player 1 Relative Sensitivity",
-      "type": "int",
-      "min": 1,
-      "max": 50,
-      "default": 8,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Player 1 Relative Sensitivity",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Player 1 Relative Sensitivity"
-        }
-      },
-      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.player_2_relative_sensitivity",
-      "name_en": "Player 2 Relative Sensitivity",
-      "type": "int",
-      "min": 1,
-      "max": 50,
-      "default": 8,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Player 2 Relative Sensitivity",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Player 2 Relative Sensitivity"
-        }
-      },
-      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "general.automatic_mode",
-      "name_en": "Automatic Mode",
-      "type": "bool",
-      "default": true,
-      "target": {
-        "kind": "tp_profile_field",
-        "profile": "GhostBusters",
-        "category": "General",
-        "field": "Automatic Mode",
-        "also_in_ini": {
-          "section": "General",
-          "key": "Automatic Mode"
-        }
-      },
-      "description_en": "TeknoParrot profile setting 'Automatic Mode' (the profile gives no description).",
-      "source": [
-        "tp_profile:GhostBusters"
-      ]
-    },
-    {
-      "key": "launch.wine_runner",
-      "name_en": "Wine runner",
-      "type": "string",
-      "default": "",
-      "target": {
-        "kind": "tp_profile_attr",
-        "profile": "GhostBusters",
-        "element": "WineRunnerPath"
-      },
-      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
-      "source": [
-        "findings/antwoorden.md",
-        "repo:packaging/games-status.md"
-      ]
-    },
-    {
-      "key": "launch.gamescope",
-      "name_en": "Run inside gamescope",
-      "type": "bool",
-      "default": false,
-      "target": {
-        "kind": "launch_env",
-        "file": "UserProfiles/GhostBusters.env",
-        "name": "TP_GAMESCOPE",
-        "companion": "TP_GAMESCOPE_PATH=/usr/bin/gamescope"
-      },
-      "description_en": "Wrap the Wine call in gamescope to get a borderless fullscreen picture (used for Terminator Salvation).",
-      "source": [
-        "repo:packaging/games-status.md"
-      ]
-    },
-    {
-      "key": "arg.resolution",
-      "name_en": "Resolution argument",
-      "type": "string",
-      "default": "1280x720",
       "target": {
         "kind": "game_config_file",
-        "path": "utils/run_game.sh",
-        "base": "game_dir",
-        "format": "shell_arg",
-        "key": "resolution"
+        "path": "g6/ghostb/pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "freeplay",
+        "edit_outside_game": true
       },
-      "description_en": "Value of the -f switch in run_game.sh (${PMDIR}/game -f1280x720 -e -mg).",
+      "description_en": "Free play: no credits needed to start a game. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
       "source": [
-        "findings/config_inventory.md (GhostBusters/utils/run_game.sh)",
-        "findings/scripts_dump.md"
+        "gamemap:g6/ghostb/data/prod/adj/game/defs/playerCost/freeplay.txt",
+        "elf strings: freeplay, playerCost"
+      ]
+    },
+    {
+      "key": "adj.game_cost",
+      "name_en": "Game cost (cents)",
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/playerCost/gameCost.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "gameCost",
+        "edit_outside_game": true
+      },
+      "description_en": "Price of one game in cents (100 = one dollar). With coin value 25 a game costs four coins. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/game/defs/playerCost/gameCost.txt",
+        "elf strings: gameCost"
+      ]
+    },
+    {
+      "key": "adj.continue_cost",
+      "name_en": "Continue cost (cents)",
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/playerCost/continueCost.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "continueCost",
+        "edit_outside_game": true
+      },
+      "description_en": "Price of one continue in cents (100 = one dollar). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/game/defs/playerCost/continueCost.txt"
+      ]
+    },
+    {
+      "key": "adj.coin1_value",
+      "name_en": "Coin 1 value (cents)",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/coin/coin1Value.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "coin1Value",
+        "edit_outside_game": true
+      },
+      "description_en": "Value of coin mechanism 1 in cents (25 = one quarter). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/core/defs/coin/coin1Value.txt",
+        "write layer: g6/ghostb/pmuser/adj/save/coin/coin1Value.{0,1,2}.txt"
+      ]
+    },
+    {
+      "key": "adj.game_volume",
+      "name_en": "Game volume",
+      "type": "int",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/sound/gameVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "gameVolume",
+        "edit_outside_game": true
+      },
+      "description_en": "Game sound volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/core/defs/sound/gameVolume.txt",
+        "elf strings: gameVolume"
+      ]
+    },
+    {
+      "key": "adj.attract_volume",
+      "name_en": "Attract volume",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/sound/attractVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "attractVolume",
+        "edit_outside_game": true
+      },
+      "description_en": "Attract-mode volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/core/defs/sound/attractVolume.txt",
+        "elf strings: attractVolume"
+      ]
+    },
+    {
+      "key": "adj.use_ball_mechs",
+      "name_en": "Ball shooter hardware",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/gameplay/useBallMechs.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "useBallMechs",
+        "edit_outside_game": true
+      },
+      "description_en": "Use the cabinet's ball shooter mechanisms. Off silences the \"CHECK LEFT/RIGHT BALL SHOOTER\" messages on a setup without the hardware (RavenGun ships it off). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/game/defs/gameplay/useBallMechs.txt",
+        "elf strings: useBallMechs, ballShootMode, BallShootProc",
+        "patches/GhostBusters/data/adj/gameplay/useBallMechs.{0,1,2}.txt (val = 0)"
+      ]
+    },
+    {
+      "key": "adj.set_difficulty",
+      "name_en": "Difficulty",
+      "type": "enum",
+      "default": 2,
+      "values": [
+        {
+          "value": 0,
+          "label_en": "Easy"
+        },
+        {
+          "value": 1,
+          "label_en": "Medium easy"
+        },
+        {
+          "value": 2,
+          "label_en": "Medium"
+        },
+        {
+          "value": 3,
+          "label_en": "Medium hard"
+        },
+        {
+          "value": 4,
+          "label_en": "Hard"
+        }
+      ],
+      "note_en": "The five levels follow the game's own audit categories; the TEST menu shows the authoritative list.",
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/ghostb/pmuser/adj/save/gameplay/setDifficulty.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "setDifficulty",
+        "edit_outside_game": true
+      },
+      "description_en": "Game difficulty. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/ghostb/data/prod/adj/game/defs/gameplay/setDifficulty.txt",
+        "gamemap:g6/ghostb/data/prod/adj/game/luts/setDifficultyLUT.txt",
+        "elf strings: setDifficulty, DiagMenuAdj_gameplay_setDifficulty, audit categories Easy/MEasy/Med/MHard/Hard"
       ]
     }
   ],
