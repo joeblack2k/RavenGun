@@ -2,7 +2,7 @@
   "title": "Jurassic Park Arcade",
   "enabled": true,
   "status": "werkt",
-  "note": "Speelbaar op onze eigen lader, gestart met een dubbelklik in de app (2026-10-14; patches/JurassicPark/bewijs-speelbaar-20261014/). Het lightgun-bord (RIO, USB 0c70:0780) antwoordt als het bord zelf: de RIO-brug (32-bits lib32/librg_rio_bridge.so, tabel patches/JurassicPark/rio-invoer.ini) haakt de vier pmrt_usb-functies van het spelbeeld aan en geeft de leesdraad van de game versleutelde invoerrapporten uit het bordbeeld van de IO-brug (route tp-shm, indeling RawThrillsGUN); geen 'RIO Disconnected' meer. Verder brengt dit profiel mee: de slottabel van het gedumpte beeld (RG_ELF_SLOT_TABLE, onze lader rg-elfloader), de HASP-haak met emulator en de dongle (eenmalig in de schrijflaag gezet: het spel houdt er zijn muntenteller in bij), de draadhulp (librg-threadprio.so), de udev-regels, de ontsleutelde scripts van de dump (programs_dec) over programs_enc, SDL1.2-OpenGL-schaling uit, OpenGL via Vulkan (Mesa zink op RADV: de keuze van de eigenaar; het spel zelf kent alleen OpenGL; weghalen = gewone OpenGL), vier glow-shaders die Mesa weigerde omdat ze gl_FragData mengen met out_Bloom (data/shaders, gemaakt door maak-shaders.py; NVIDIA liet dat toe), en de koppeling g5/dino/pmuser -> ../../pmuser in de schrijflaag. force_glsl_version=120 moet UIT (crash). Niet gemeten: de trekker van speler 2, een echte muis, de PS Move.",
+  "note": "Speelbaar op onze eigen lader, gestart met een dubbelklik in de app (2026-10-14; patches/JurassicPark/bewijs-speelbaar-20261014/). Het lightgun-bord (RIO, USB 0c70:0780) antwoordt als het bord zelf: de RIO-brug (32-bits lib32/librg_rio_bridge.so, tabel patches/JurassicPark/rio-invoer.ini) haakt de vier pmrt_usb-functies van het spelbeeld aan en geeft de leesdraad van de game versleutelde invoerrapporten uit het bordbeeld van de IO-brug (route tp-shm, indeling RawThrillsGUN); geen 'RIO Disconnected' meer. Verder brengt dit profiel mee: de slottabel van het gedumpte beeld (RG_ELF_SLOT_TABLE, onze lader rg-elfloader), de HASP-haak met emulator en de dongle (eenmalig in de schrijflaag gezet: het spel houdt er zijn muntenteller in bij), de draadhulp (librg-threadprio.so), de udev-regels, de ontsleutelde scripts van de dump (programs_dec) over programs_enc, SDL1.2-OpenGL-schaling uit, OpenGL via Vulkan (Mesa zink op RADV: de keuze van de eigenaar; het spel zelf kent alleen OpenGL; weghalen = gewone OpenGL), vier glow-shaders die Mesa weigerde omdat ze gl_FragData mengen met out_Bloom (data/shaders, gemaakt door maak-shaders.py; NVIDIA liet dat toe), en de koppeling g5/dino/pmuser -> ../../pmuser in de schrijflaag. force_glsl_version=120 moet UIT (crash). Niet gemeten: de trekker van speler 2, een echte muis, de PS Move. Geluid (2026-10-18): het spel heeft twee geluidspaden. Het JPS-pad (jpsdrvr_init, dezelfde Raw Thrills-code als Target: Terror Gold) opent OSS /dev/dsp en meldt in de sandbox 'JPS: jpsdrvr_init(): Could not open DEV_DSP' (alle effecten en muziek van dat pad blijven stil); librg-oss-stub.so met RG_OSS_PLAY=1 speelt dat nu via PulseAudio af. Het spel laadt geen FMOD (geen 'libfmod' in de binary; 'fmod' is de libm-functienaam).",
   "arch": "i386",
   "loader": "rg-elfloader",
   "launcher": "gamescope",
@@ -80,9 +80,10 @@
     "@patches/JurassicPark/dropin/libravengun-hasphook.so",
     "@patches/JurassicPark/dropin/ravengun-hasp.so",
     "@build/lib32/librg-threadprio.so",
-    "@build/lib32/librg_rio_bridge.so"
+    "@build/lib32/librg_rio_bridge.so",
+    "@build/lib32/librg-oss-stub.so"
   ],
-  "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so",
+  "preload": "/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so:/rg/lib/librg-oss-stub.so",
   "env": {
     "RG_ELF_SLOT_TABLE": "/rg/jp-slots.tsv",
     "SDL12COMPAT_OPENGL_SCALING": "0",
@@ -90,7 +91,10 @@
     "RAVENGUN_HASP_DIR": "/pm/ravengun-hasp",
     "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
     "MESA_LOADER_DRIVER_OVERRIDE": "zink",
-    "RG_RIO_LOG": "1"
+    "RG_RIO_LOG": "1",
+    "RG_OSS_PLAY": "1",
+    "RG_OSS_NAME": "Jurassic Park Arcade",
+    "RG_OSS_STUB_LOG": "1"
   },
   "exe": "/pm/game",
   "cwd": "/pm",
