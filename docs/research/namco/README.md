@@ -270,6 +270,33 @@ RG_STALL_DUMP = 10,20,30,45
 2. `rg-mfcam.log` van de TP-run vanaf de laatste `rg-mfcam geladen`: de stalldumps bij 10/20/30/45 s (staat de hoofdthread nog in `0x83D7D6` of dieper in een scène?) en of `MFEnumDeviceSources`/de 500 `D3DX10CreateEffectFromFileA` verschijnen en op welke seconde.
 3. Of er beeld is op 10 s, 20 s en 30 s (en wat).
 
+### Mario Kart DX: TP-basislijn gelezen (2026-10-18 10:46); eigen kern hangt in de eerste PeekMessageW
+
+**Wat de TP-run laat zien** (`game-log-order.py`, stalldump 20/45 s):
+* **TP past de tekenreeksen van het spel aan, niet de API's.** Het spel logt zelf het pad dat het gebruikt: onder TP `./Fplaydata/1812/`, onder onze kern `F:/playdata/1812/` (de exe-constante staat op `0x9b2954`). Dus `F:/` wordt in het geheugen `./F`
+  (zelfde lengte). Daardoor liggen alle bestanden in de view-wortel (`FTestMode/`, `Fsystem/`, `Fplaydata/`, `GBookkeeping/` ...: de oude TP-bestanden) en gebruikt het spel overal hetzelfde pad (CreateFile, rename, FindFirstFile, ifstream, `_mkdir`).
+  In de exe staan als F:-/G:-tekenreeksen: `F:/system/` (`0x9b0c88`), `F:/income/` (`0x9b2284`), `F:/playdata/` (`0x9b2724`), `F:/playdata/1812/` (`0x9b2954`), `F:/` (`0x9b5340`, plus `Bookkeeping/...`), `F:/RecordRanking/` (`0x9f4250`), `G:/Contents`
+  (`0x9b2d04`) en breed `F:\income\Income_*.bin`, `F:/playdata/1812/`, `F:\playdata\*`, `G:/Contents...`; de `F:\workspace\...` zijn bronpaden (__FILE__) en blijven; `G:/ H:/ ... M:/` (`0xa11444`) is een stationlijst.
+* **Geen ShareK-regels onder TP** en de TP-run staat 20 s lang in `0x4B6E50` (de laadstappen van `0x4B7500`, bij stap 9, `fgetc` per byte door `ifstream`) binnen de init `0x770770`; bij 45 s draait de hoofdlus (scheduler `0x8451E0`, taak
+  `0x841C31`). De init duurt dus ~20 s ("NOW LOADING"), en daarna begint de lus.
+* **Onze kern staat bij 20 s én 45 s in de EERSTE `PeekMessageW`** (`0x83D7D4`, vóór de lus): `EIP win32u+0x11d38`, `ESP`/stapel identiek in alle dumps (07:42, 08:14, 08:38). Een lus met ticks zou verschillende plekken laten zien; dit is een
+  blokkerende syscall. Onze init was na ~10 s klaar (ShareK-regel 10 s na het laden van de dll; de TP-run zit na 20 s nog in de laadstappen, dus TP is trager: zie de laadstappen hieronder) en liep tegen een `PeekMessageW` die niet terugkeert.
+  Dat verklaart zwart (geen `Present`), JVS dicht en de ontbrekende `bngrw`-aanroepen: de lus start nooit.
+
+**Gebouwd (ACHTSTE TAAK van `rg-mfcam.dll`, `drive_fix.h` `patch_strings`).**
+1. **Dezelfde schijfletter-aanpassing als TP** (`RG_DRIVE_FIXUP=F`): `patch_strings` zet `F:/` en `F:\` aan het begin van een tekenreeks (smal en breed, in de niet-uitvoerbare secties van de exe) om naar `./F` en `.\F`, behalve bronpaden
+   (`workspace`) en de stationlijst. `RG_DRIVE_STRINGS=0` zet dat uit. G blijft ongemoeid (ShareK blijft uit); de API-omleiding uit de vorige stap blijft als vangnet. Getoetst: `tests/test_drive_fix.cpp` (41 controles, met de echte gevallen) en een wegwerpprogramma onder Wine.
+2. **`RG_MSGTRACE=1`** (nu in `dropin.ini`): omhulsels om `PeekMessageW`, `DispatchMessageW`, `ShowWindow`, `SetWindowPos`, `CreateWindowExW`. `rg-mfcam.log` krijgt: de eerste vijf `PeekMessageW`-aanroepen met `binnen` en `terug met N na X ms`
+   (staat er `binnen` zonder `terug`, dan blokkeert de aanroep), de vensters van de draad bij de eerste aanroep (`zichtbaar`, `iconic`, afmetingen, voorgrond/actief/focus), `CreateWindowExW`/`ShowWindow`/`SetWindowPos` met de uitkomst, de eerste 40 berichten
+   en elke 5 s een samenvatting (alleen zolang de lus draait).
+
+**Waarom de tv-run nu iets bewijst:** blijft `PeekMessageW #1: binnen` zonder `terug`, dan is dit een Wine/gamescope-probleem (venster nog niet klaar, of een wacht op de venstermanager) en niet de logica van het spel; dan is het volgende
+experiment de kern erbuiten houden (andere `gamescope`-vlaggen, `WINE_NO_...`) of de eerste `PeekMessageW` pas na een vertraging (zoals de ~20 s laadtijd van TP) laten lopen; keert hij terug en draait de lus, dan volgt uit de samenvatting wat de lus doet.
+**Niet getoetst:** het spel zelf, en of de ~20 s TP-laadtijd (die wij niet hebben) iets verbergt: onze init is korter dan die van TP (10 s tegen > 20 s); als de laadstappen bij ons zonder instellingen/bestanden minder werk doen, is dat een verschil dat met de TP-bestanden in de view-wortel (nu gevonden) kan verdwijnen.
+
+**Testrecept.** `Core = ravengun` (haal `Core = teknoparrot` uit de gebruikerslaag), dropin + dll van deze commit, `[Wine] Debug = -all,warn+seh`, `[Env] RG_STALL_DUMP = 10,20,30,45`, `DXVK_HUD = fps`. Dubbelklik, 50 s. Lever (1) `game-log-order.py` van deze run
+tegen de TP-run (`...104617`): nu moet `./Fplaydata/1812/` gelijk zijn en het eerste verschil volgt; (2) de regels van `rg-mfcam.log` vanaf `berichtenlus volgen aan`: `PeekMessageW #1 binnen/terug`, de vensters, de samenvattingen; (3) de stalldumps; (4) beeld ja/nee.
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
