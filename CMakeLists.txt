@@ -683,6 +683,11 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_make_portable
       COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/make_portable_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
     set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+    # OLED-bescherming: een spel dat de daemon (of de web-UI, of de ctl) start moet het saver-venster wegzetten.
+    # Draait de echte lus met een nagemaakte /proc en nagemaakte systemctl/systemd-run. Skip (77) zonder de app.
+    add_test(NAME ravengun_oled_saver
+      COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/oled_saver_test.sh")
+    set_tests_properties(ravengun_oled_saver PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
