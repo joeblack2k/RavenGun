@@ -3,7 +3,7 @@
 """Kopieert uit de patches-map ALLEEN de levering (wat de lader, de daemon en de app lezen) naar een doelmap.
 
 Dezelfde lijst als de install(DIRECTORY patches ...)-regel in CMakeLists.txt en de controle in tests/install_test.sh:
-<Game>/*.ini, native.json, unity.json, options.json, README.md, en eigen bestanden onder <Game>/dropin/, data/ en seed/.
+<Game>/*.ini, native.json, unity.json, options.json, dongle.json, README.md, heap.tsv, en eigen bestanden onder <Game>/dropin/, data/ en seed/.
 Privé-donglegegevens, game-shaders, saves en game-afgeleide configuratie gaan nooit mee, ook niet als ze lokaal aanwezig zijn.
 Alles daarbuiten (logboeken, metingen, foto's, notities, meetscripts) is dossier en gaat niet mee. Lege mappen ontstaan niet.
 
@@ -20,7 +20,9 @@ import re
 import shutil
 import sys
 
-LEVERING = re.compile(r"^[^/]+/(?:[^/]+\.ini|native\.json|unity\.json|options\.json|README\.md|heap\.tsv)$|^[^/]+/(?:dropin|data|seed|private)/")
+# Gelijk aan de install(DIRECTORY patches ...)-regels in CMakeLists.txt en de controles in tests/install_test.sh en
+# tests/release_layout_test.sh (tests/test_patches_layout.py vergelijkt ze met de CMake-lijst).
+LEVERING = re.compile(r"^[^/]+/(?:[^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md|heap\.tsv)$|^[^/]+/(?:dropin|data|seed|private)/")
 
 
 def user_supplied(rel):
@@ -85,22 +87,37 @@ def preserve_user(src, dst):
 
         def raw_section(text, name):
             """De sectie zoals hij in het bestand staat, inclusief meerregelige waarden en
-            opmerkingen. De grenzen zijn die van configparser: een regel waarvan de
-            afgetrimde vorm met '[' begint en een ']' bevat, is een nieuwe sectiekop. Een
-            kop met tekst erachter ('[x] ; toelichting') telt dus mee, en een regel die
-            zelf met '[' begint hoort niet meer bij de waarde (configparser ziet die ook
-            als nieuwe sectie)."""
+            opmerkingen. De grenzen zijn die van configparser: een regel is een nieuwe
+            sectiekop als hij NIET een voortzetting van de vorige waarde is en zijn afgetrimde
+            vorm met '[' begint en een ']' bevat. Een kop met tekst erachter
+            ('[x] ; toelichting') telt dus mee. Een voortzetting is een regel die verder
+            ingesprongen is dan de sleutelregel erboven: '  [0x10] = 1' onder 'k = a' hoort bij
+            de waarde van k en is geen kop. Lege regels en commentaarregels veranderen daar niets
+            aan."""
             kop = re.compile(r"^\[.*\]")
             uit, binnen = [], False
+            optie, inspringing = False, 0   # staat er een sleutelregel open, en hoe ver sprong die in
             for regel in text.splitlines(keepends=True):
                 schoon = regel.strip()
+                if not schoon or schoon[0] in "#;":
+                    if binnen:
+                        uit.append(regel)
+                    continue
+                diepte = len(regel) - len(regel.lstrip())
+                if optie and diepte > inspringing:
+                    if binnen:
+                        uit.append(regel)
+                    continue
+                inspringing = diepte
                 if kop.match(schoon):
+                    optie = False
                     if binnen:
                         break
                     if schoon[1:schoon.rfind("]")] == name:
                         binnen = True
                         uit.append(regel)
                     continue
+                optie = True
                 if binnen:
                     uit.append(regel)
             return "".join(uit) if uit else None
