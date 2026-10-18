@@ -1,0 +1,35 @@
+{
+  "kind": "hasp",
+  "game": "Halo Fireteam",
+  "haspid": 748675309,
+  "features": [
+    0,
+    60
+  ],
+  "keycaps": [
+    "hasphl",
+    "newintf",
+    "hasp4",
+    "aes",
+    "sentinelhl"
+  ],
+  "memory": [
+    {
+      "name": "read/write",
+      "fileid": 65524,
+      "size": 112,
+      "file": "memory/00000000000000001111111111110100"
+    },
+    {
+      "name": "read-only",
+      "fileid": 65525,
+      "size": 112,
+      "file": "memory/00000000000000001111111111110101"
+    }
+  ],
+  "port": {
+    "type": "USB",
+    "address": 196608
+  },
+  "notes": "Halo Fireteam Raven (ElfLdr2, 64-bits) vraagt een HASP-HL-dongle. De images komen uit de spelmap (g7/halo) en zijn gelijk aan de twee fileids uit de dongle-beschrijving van de game. Deze map hoort bij de drop-in: de bibliotheek (ravengun-hasp-x64.so in dropin/) zoekt zijn gegevens met RAVENGUN_HASP_DIR + RAVENGUN_HASP_GAME, dus ravengun-hasp/Halo/dongle.json. De paden in memory[].file zijn relatief aan DEZE map (hasp/src/dongle.c: snprintf(path, ..., \"%s/%s\", d->dir, m->file)). LET OP: de hasp-aanroepen van deze game zijn statisch gelinkt, dus de emulator wordt geladen maar nog niet aangesproken; zie docs/hasp-layer.md."
+}

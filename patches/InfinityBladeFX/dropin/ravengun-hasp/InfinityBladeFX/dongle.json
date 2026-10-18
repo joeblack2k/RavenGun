@@ -1,0 +1,30 @@
+{
+  "kind": "matrix",
+  "game": "InfinityBladeFX",
+  "title": "Infinity Blade FX",
+  "platform": "Adrenaline PC, Unreal Engine 3, native 32-bits",
+  "library": "matrix32.dll",
+  "dongles": 2,
+  "sernr": 69420,
+  "port": null,
+  "api": [
+    "Init_MatrixAPI",
+    "Dongle_Count",
+    "Dongle_ReadSerNr"
+  ],
+  "answers": {
+    "Init_MatrixAPI()": 0,
+    "Dongle_Count(...)": 2,
+    "Dongle_ReadSerNr(...)": 69420
+  },
+  "evidence": {
+    "import_table": "Binaries/Win32/SwordGame.exe importeert de module matrix32.dll met precies drie ordinalen: #40, #55 en #61 (image base 0x400000, IAT op RVA 0x21c5dc0/0x21c5dc4/0x21c5dc8). Dit is de enige game in de inventaris met matrix32.dll in zijn importtabel.",
+    "ordinals": "De exporttabel van het originele matrix32.dll (bewaard als Binaries/Win32/matrix32.TEKNOPARROT.dll, 114688 bytes, md5 6e75f453dca9380144620d80f467a0e6, ordinal base 1, 113 namen) geeft #40 = Init_MatrixAPI, #55 = Dongle_Count, #61 = Dongle_ReadSerNr.",
+    "teknoParrot_dll": "Binaries/Win32/matrix32.dll is TeknoParrot's eigen emulator (109056 bytes, md5 3a5bed5fc3de3797073fced37b33d41f). Zijn exports op die drie ordinalen zijn met objdump gelezen: #40 `33 c0 c3` = xor eax,eax; ret -> 0; #55 `b8 02 00 00 00 c3` = mov eax,2; ret -> 2; #61 `b8 2c 0f 01 00 c3` = mov eax,0x10f2c; ret -> 69420.",
+    "readme": "Binaries/Win32/readme.txt beschrijft de werkende route: hernoem matrix32.dll naar matrix32.TEKNOPARROT.dll en zet TeknoParrot's matrix32.dll, dinput8.dll en TPFIX.ini in dezelfde map.",
+    "strings": "SwordGame.exe bevat de UTF-16 teksten \"Failed to initialize the MatrixAPI\", \"No Dongle Present. ERROR\" en \"No Dongle! ERROR\": de game controleert de MatrixAPI zelf en meldt het als er geen dongle is.",
+    "port_not_measured": "De poort is NIET gemeten. De drie imports zijn aanwezig, maar er staat geen statische aanroep naar in het beeld: geen `call dword ptr [<IAT>]`, geen E8-aanroep naar de import-thunk, en de IAT- en thunk-adressen komen nergens anders in het bestand voor (ook niet in .reloc). De aanroepen worden tijdens het draaien opgelost.",
+    "enforcement_not_measured": "Of de game zich zonder dongle afsluit is niet gemeten: hij is geparkeerd op een ander probleem (UE3 start, daarna wit of zwart beeld; het log stopt bij 'Kaboom: InitLib() failed', findings/InfinityBladeFX.md). Er is daarom geen enforced-claim."
+  },
+  "notes": "De enige game in de inventaris die de Matrix-API native importeert in plaats van via de managed MatrixDLLCSharp-wrapper. De waarden 2 en 69420 zijn geen aanname: het zijn de antwoorden van TeknoParrot's eigen matrix32.dll, die voor deze game in deze map staat. Het serienummer 69420 is geen serienummer van de eigenaar maar de vaste waarde 0x10F2C. De poort is bewust niet ingevuld (zie evidence.port_not_measured); de bibliotheek gebruikt dan haar standaardwaarde en dat verandert niets aan het antwoord."
+}
