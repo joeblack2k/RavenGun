@@ -1,14 +1,17 @@
 #include "ravengun/launch/native.hpp"
 
+#include <signal.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -65,7 +68,9 @@ std::uint64_t tree_fingerprint(const std::string& root) {
     for (; !ec && it != end; it.increment(ec)) {
         std::error_code e2;
         const fs::file_status st = it->symlink_status(e2);
-        std::string r = fs::relative(it->path(), root, e2).string();
+        // lexically_relative: fs::relative gaat via weakly_canonical en volgt dus de koppelingen (een koppeling kreeg het pad van haar
+        // doel, en twee verschillende bomen konden dezelfde afdruk krijgen).
+        std::string r = it->path().lexically_relative(root).string();
         if (fs::is_symlink(st)) r += "|l|" + fs::read_symlink(it->path(), e2).string();
         else if (fs::is_directory(st)) r += "|d";
         else r += "|f|" + std::to_string(fs::file_size(it->path(), e2)) + "|" + std::to_string(fs::last_write_time(it->path(), e2).time_since_epoch().count());
@@ -78,6 +83,28 @@ std::uint64_t tree_fingerprint(const std::string& root) {
         h ^= '\n'; h *= 1099511628211ULL;
     }
     return h;
+}
+
+// Wat een eerdere samenvoeging naast dst liet liggen. <dst>.nieuw.<pid> is een halve bouw van een proces dat gestorven is (een
+// lopend proces mag hem houden); <dst>.oud.<tijd>.<pid> is de vorige map, opzij gezet omdat een draaiende game hem nog gemount kan
+// hebben (leeghalen onder zijn voeten maakt de game stuk). Die laatste ruimen we pas na een week op.
+void sweep_merge_leftovers(const std::string& dst) {
+    std::error_code ec;
+    const fs::path d(dst);
+    const std::string base = d.filename().string(), nieuw = base + ".nieuw.", oud = base + ".oud.";
+    const long now = static_cast<long>(std::time(nullptr));
+    std::vector<fs::path> weg;
+    for (fs::directory_iterator it(d.parent_path(), ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string n = it->path().filename().string();
+        if (n.starts_with(nieuw)) {
+            const long pid = std::strtol(n.c_str() + nieuw.size(), nullptr, 10);
+            if (pid > 0 && pid != static_cast<long>(::getpid()) && ::kill(static_cast<pid_t>(pid), 0) != 0 && errno == ESRCH) weg.push_back(it->path());
+        } else if (n.starts_with(oud)) {
+            const long tijd = std::strtol(n.c_str() + oud.size(), nullptr, 10);
+            if (tijd > 0 && now - tijd > 7L * 24 * 3600) weg.push_back(it->path());
+        }
+    }
+    for (const fs::path& w : weg) fs::remove_all(w, ec);
 }
 
 std::string hex64(std::uint64_t v) {
@@ -130,6 +157,7 @@ std::string merge_patches(const std::string& src, const NativePaths& p, std::vec
         return shipped;
     };
     const std::string nieuw = dst + ".nieuw." + std::to_string(::getpid());
+    sweep_merge_leftovers(dst);
     fs::remove_all(nieuw, ec);
     ec.clear();
     fs::create_directories(nieuw, ec);
@@ -139,11 +167,26 @@ std::string merge_patches(const std::string& src, const NativePaths& p, std::vec
     if (!ec) fs::copy(user, nieuw, opties, ec);
     if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
     // Op zijn plek: eerst de stempel weg (een onderbreking laat nooit een stempel bij een halve map achter), dan wisselen.
+    // De oude map gaat opzij (rename), niet weg: een draaiende game kan hem nog gemount hebben en remove_all zou hem onder zijn voeten
+    // leeghalen. De kopie van de gamestart blijft zo bruikbaar; sweep_merge_leftovers ruimt hem later op.
     fs::remove(stempel, ec);
-    fs::remove_all(dst, ec);
+    std::string opzij;
+    if (fs::exists(fs::symlink_status(dst, ec))) {
+        const std::string basis = dst + ".oud." + std::to_string(static_cast<long>(std::time(nullptr))) + "." + std::to_string(::getpid());
+        opzij = basis;
+        for (int n = 1; fs::exists(fs::symlink_status(opzij, ec)) && n < 1000; ++n) opzij = basis + "." + std::to_string(n);   // twee keer in dezelfde seconde
+        ec.clear();
+        fs::rename(dst, opzij, ec);
+        if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
+    }
     ec.clear();
     fs::rename(nieuw, dst, ec);
-    if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
+    if (ec) {
+        const std::string m = ec.message();
+        fs::remove_all(nieuw, ec);
+        if (!opzij.empty()) fs::rename(opzij, dst, ec);   // de vorige map terug, liever een verouderde dan geen
+        return terugval(m);
+    }
     std::ofstream(stempel, std::ios::trunc) << vingerafdruk << "\n";
     meld("patches-laag samengevoegd (meegeleverd + gebruikerslaag): " + rel);
     if (merged) *merged = true;
@@ -833,9 +876,12 @@ bool apply_layer(const NativePlan& pl, std::vector<std::string>& log, std::strin
             fs::recursive_directory_iterator it(s.from, fs::directory_options::skip_permission_denied, ec), end;
             for (; !ec && it != end; it.increment(ec)) {
                 std::error_code e2;
-                const fs::path doel = fs::path(s.to) / fs::relative(it->path(), s.from, e2);
-                if (fs::exists(fs::symlink_status(doel, e2))) continue;   // bestaat al: blijft
+                // lexically_relative: fs::relative volgt koppelingen (weakly_canonical); een koppeling met een ../-doel gaf dan een pad
+                // buiten de schrijflaag en copy_symlink schreef daar.
+                const fs::path doel = fs::path(s.to) / it->path().lexically_relative(s.from);
                 const fs::file_status st = it->symlink_status(e2);
+                if (!fs::is_directory(st)) it.disable_recursion_pending();   // alleen echte mappen in; een koppeling (ook naar een map) is een los item
+                if (fs::exists(fs::symlink_status(doel, e2))) continue;   // bestaat al: blijft
                 if (fs::is_directory(st)) fs::create_directories(doel, e2);
                 else if (fs::is_symlink(st)) fs::copy_symlink(it->path(), doel, e2);
                 else fs::copy_file(it->path(), doel, fs::copy_options::skip_existing, e2);

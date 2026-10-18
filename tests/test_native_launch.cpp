@@ -2,6 +2,7 @@
 // (env -i -> gamescope -> bwrap -> rg-elfloader -> game), de invoertabel (gebruikerslaag voor meegeleverd), de schrijflaag (seed en
 // link alleen als het pad er nog niet is) en sha256. Gebouwd met tijdelijke mappen en nep-programma's in PATH; start niets.
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -380,6 +381,27 @@ int main() {
         CHECK(apply_layer(plm, lg, e3));
         CHECK(slurp(up + "/dongle/Game/nieuw.json") == "door het spel");
         CHECK(std::none_of(lg.begin(), lg.end(), [](const std::string& l) { return l.find("aangevuld") != std::string::npos; }));
+        // Koppelingen in de samengevoegde map (naar een bestaand bestand, een bestaande map, en eentje die uit de boom wijst): de aanvulling
+        // zet ze als koppeling op dezelfde plek in de schrijflaag. (fs::relative volgde de koppeling en gaf het pad van haar DOEL: die
+        // bestond al, dus werd ze overgeslagen, of het pad lag buiten de laag en copy_symlink schreef daar.)
+        fs::create_symlink("dongle.json", p.patches + "/Game/dropin/dongle/Game/ln");
+        fs::create_symlink("../Game", p.patches + "/Game/dropin/dongle/Game/ldir");
+        fs::create_symlink("../../buiten-doel", p.patches + "/Game/dropin/dongle/Game/lbuiten");
+        {
+            NativeProfile pl2;
+            NativePlan plk;
+            CHECK(load_profile(json, "Game", p, pl2, e3) && pl2.seeds.size() == 1 && pl2.seeds[0].merged);
+            CHECK(fs::is_symlink(pl2.seeds[0].src + "/Game/ln"));                       // de samenvoeging nam de koppeling mee
+            CHECK(plan(pl2, p, PlanOptions{}, plk, e3));
+            lg.clear();
+            CHECK(apply_layer(plk, lg, e3));
+            CHECK(fs::is_symlink(up + "/dongle/Game/ln") && fs::read_symlink(up + "/dongle/Game/ln") == "dongle.json");
+            CHECK(fs::is_symlink(up + "/dongle/Game/ldir") && fs::read_symlink(up + "/dongle/Game/ldir") == "../Game");
+            CHECK(fs::is_symlink(up + "/dongle/Game/lbuiten") && fs::read_symlink(up + "/dongle/Game/lbuiten") == "../../buiten-doel");
+            CHECK(!fs::exists(fs::symlink_status(up + "/buiten-doel")) && !fs::exists(fs::symlink_status(up + "/dongle/buiten-doel")));
+            CHECK(!fs::exists(fs::symlink_status(p.data + "/native/Game/buiten-doel")));
+        }
+        for (const char* l : {"ln", "ldir", "lbuiten"}) fs::remove(p.patches + "/Game/dropin/dongle/Game/" + l);
         // Een seed uit een gewone (niet samengevoegde) bron blijft zoals hij was: bestaat het doel, dan niets.
         fs::remove_all(p.user_patches + "/Game/dropin");
         fs::remove(p.patches + "/Game/dropin/dongle/Game/nieuw.json");
@@ -513,6 +535,33 @@ int main() {
         write(user + "/memory/nieuw", "owner-nieuw");
         CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged && gemeld(p2, "samengevoegd"));
         CHECK(!fs::exists(merged + "/.teken") && slurp(merged + "/memory/nieuw") == "owner-nieuw" && slurp(merged + "/memory/dump") == "owner-dump");
+        // De oude map ging OPZIJ (een draaiende game kan hem gemount hebben; leeghalen zou hem onder zijn voeten wegnemen), niet weg.
+        const auto zusters = [&](const std::string& deel) {
+            std::vector<std::string> r;
+            const std::string naam = fs::path(merged).filename().string() + deel;
+            for (const auto& e : fs::directory_iterator(fs::path(merged).parent_path()))
+                if (e.path().filename().string().rfind(naam, 0) == 0) r.push_back(e.path().string());
+            return r;
+        };
+        const auto oud = zusters(".oud.");
+        CHECK(oud.size() == 1 && fs::exists(oud[0] + "/.teken") && slurp(oud[0] + "/memory/dump") == "owner-dump");
+        // Een halve bouw van een gestorven proces en een week oude opzij-map worden bij de volgende samenvoeging opgeruimd; een bouw van
+        // een lopend proces (de ouder van deze test) en een verse opzij-map blijven staan.
+        const pid_t dood = ::fork();
+        if (dood == 0) ::_exit(0);
+        ::waitpid(dood, nullptr, 0);
+        const std::string levend = merged + ".nieuw." + std::to_string(::getppid());
+        write(merged + ".nieuw." + std::to_string(dood) + "/halve", "x");
+        write(levend + "/levend", "x");
+        write(merged + ".oud.1.1/oud", "x");
+        write(user + "/memory/nieuw2", "x");
+        CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged && gemeld(p2, "samengevoegd"));
+        CHECK(!fs::exists(merged + ".nieuw." + std::to_string(dood)));
+        CHECK(fs::exists(levend + "/levend"));
+        CHECK(!fs::exists(merged + ".oud.1.1"));
+        CHECK(fs::exists(oud[0] + "/.teken") || zusters(".oud.").size() >= 1);
+        fs::remove_all(levend);
+        fs::remove(user + "/memory/nieuw2");
         fs::remove(user + "/memory/nieuw");
         // Lukt het samenvoegen niet (hier: @data is geen map), dan de MEEGELEVERDE map, met een melding, en niet de halve gebruikersmap.
         {
