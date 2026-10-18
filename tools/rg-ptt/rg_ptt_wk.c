@@ -12,7 +12,8 @@
  *
  * DE NEGEN AANROEPEN (per ordinaal opgezocht door de stub; naam uit de echte WkWin32.dll 3.x)
  *   33 WkbGetVersion2(0)                      -> AX; de stub wil (AL<<8 | AH) >= 0x300
- *   72 WkbGetVersion3(0)                      -> uitkomst wordt genegeerd
+ *   72 WkbGetVersion3(0)                      -> alleen als versie2 >= 0x23c; de uitkomst VERVANGT dan die van versie2 en moet
+ *                                               zelf >= 0x300 zijn (0x4d2044..0x4d2051; met 0 kwam "requires WKWIN32.DLL 3.00", gemeten)
  *   45 WkbAccess2(0x101, &gegevens)           -> handvat != 0
  *   34 WkbOpen2(hnd, 0, 0x122, 0, 250010, 13) -> handvat != 0
  *   47 WkbQueryEntry2(hnd, 0x120, buf, 0xd0)  -> niet aangeroepen (tellers 0), toch beantwoord
@@ -66,7 +67,7 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r)
 }
 
 WORD WINAPI rg_WkbGetVersion2(DWORD a) { (void)a; first(0, "WkbGetVersion2 -> 0x3003"); return 0x3003; }
-DWORD WINAPI rg_WkbGetVersion3(DWORD a) { (void)a; first(1, "WkbGetVersion3 -> 0"); return 0; }
+DWORD WINAPI rg_WkbGetVersion3(DWORD a) { (void)a; first(1, "WkbGetVersion3 -> 0x330"); return 0x330; }
 HANDLE WINAPI rg_WkbAccess2(DWORD a, void *b) { (void)a; (void)b; first(2, "WkbAccess2 -> handvat"); return H_ACCESS; }
 HANDLE WINAPI rg_WkbOpen2(HANDLE h, DWORD a, DWORD flags, DWORD b, DWORD firm, DWORD user)
 {
