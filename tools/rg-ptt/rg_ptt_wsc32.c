@@ -50,6 +50,16 @@ static volatile LONG g_stop;
 static LONG g_seen[40];
 static unsigned g_logged_tx, g_logged_rx;
 static unsigned g_posted, g_gets_calls, g_gets_bytes;
+static unsigned g_msg_logged;
+static HWND g_hwnd;                       /* het spelvenster (laatste niet-nul venster van SioMessage) */
+/* MUNT. Het spel kent geen munt-pakket (statisch: alleen de toetsen uit de tabel op 0x41e889 en de muis). Een muntdruk uit de shm wordt
+ * daarom een toetsdruk naar het spelvenster. Welke toets de munt telt is niet vastgesteld: standaard een PROEF die per muntdruk de volgende
+ * kandidaat stuurt (en logt); RG_PTT_COIN_VK=<hex> kiest er een vast. */
+static const unsigned g_coin_probe[] = { 0x35, 0x70, 0x71, 0x20, 0x24, 0x23, 0x2d, 0x2e, 0x21, 0x22, 0xbf, 0x53, 0x31, 0x32, 0x0d };
+static unsigned g_coin_fixed;             /* 0 = proef */
+static unsigned g_coin_n;
+static UINT g_keyup_vk;
+static DWORD g_keyup_at;
 
 static void log_raw(const char *s, unsigned len)
 {
@@ -102,6 +112,27 @@ static void post_if_armed(int port)
     }
 }
 
+static void send_key(HWND h, unsigned vk, int down)
+{
+    LPARAM scan = (LPARAM)MapVirtualKeyA(vk, 0) << 16;
+    PostMessageA(h, down ? WM_KEYDOWN : WM_KEYUP, (WPARAM)vk, down ? (1 | scan) : (LPARAM)(0xC0000001u | (DWORD)scan));
+    if (down && vk >= 0x30 && vk <= 0x39) PostMessageA(h, WM_CHAR, (WPARAM)vk, 1 | scan);
+}
+
+static void coin_pulse(unsigned n)
+{
+    while (n--) {
+        unsigned vk = g_coin_fixed ? g_coin_fixed : g_coin_probe[g_coin_n % (sizeof g_coin_probe / sizeof g_coin_probe[0])];
+        g_coin_n++;
+        if (!g_hwnd) { logf("munt #%u: nog geen spelvenster (SioMessage kreeg nog geen venster); toets 0x%02x niet gestuurd", g_coin_n, vk); continue; }
+        if (g_keyup_vk) send_key(g_hwnd, g_keyup_vk, 0);
+        send_key(g_hwnd, vk, 1);
+        g_keyup_vk = vk;
+        g_keyup_at = GetTickCount() + 60;
+        logf("munt #%u: toets VK 0x%02x naar venster %p (%s)", g_coin_n, vk, g_hwnd, g_coin_fixed ? "vast" : "proef: kijk of COIN(S) omhoog gaat");
+    }
+}
+
 static DWORD WINAPI poll_thread(LPVOID unused)
 {
     unsigned char copy[PTT_SHM_SIZE];
@@ -132,15 +163,20 @@ static DWORD WINAPI poll_thread(LPVOID unused)
                     g_logged_rx++;
                 }
                 if (g_gun_port >= 0 && g_gun_port < NPORT) post_if_armed(g_gun_port);
+                {
+                    unsigned c = ptt_board_take_coin(&g_board);
+                    if (c) coin_pulse(c);
+                }
             }
             LeaveCriticalSection(&g_cs);
         }
+        if (g_keyup_vk && g_hwnd && (LONG)(GetTickCount() - g_keyup_at) >= 0) { send_key(g_hwnd, g_keyup_vk, 0); g_keyup_vk = 0; }
         if (GetTickCount() - last_stat >= 5000) {
             last_stat = GetTickCount();
             EnterCriticalSection(&g_cs);
-            logf("tellers: spel->bord T %u + %u G %u H %u B %u C %u rommel %u | bord->spel F %u X %u d %u t %u weggevallen %u | berichten %u, SioGets %u (%u bytes)",
+            logf("tellers: spel->bord T %u + %u G %u H %u B %u C %u rommel %u | bord->spel F %u X %u d %u t %u weggevallen %u | F overgeslagen (richting stil) %u, munt %u | berichten %u, SioGets %u (%u bytes)",
                  g_board.n_cmd[0], g_board.n_cmd[1], g_board.n_cmd[2], g_board.n_cmd[3], g_board.n_cmd[4], g_board.n_cmd[5], g_board.n_junk,
-                 g_board.n_pkt_f, g_board.n_pkt_x, g_board.n_pkt_d, g_board.n_pkt_t, g_board.n_dropped, g_posted, g_gets_calls, g_gets_bytes);
+                 g_board.n_pkt_f, g_board.n_pkt_x, g_board.n_pkt_d, g_board.n_pkt_t, g_board.n_dropped, g_board.n_f_skipped, g_coin_n, g_posted, g_gets_calls, g_gets_bytes);
             LeaveCriticalSection(&g_cs);
         }
         Sleep(4);
@@ -171,6 +207,13 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r)
         ptt_board_init(&g_board);
         if (GetEnvironmentVariableA("RG_PTT_SHM", env, sizeof env) > 0 && env[0]) lstrcpynA(g_shm_name, env, sizeof g_shm_name);
         if (GetEnvironmentVariableA("RG_PTT_GUN_PORT", env, sizeof env) > 0 && env[0] >= '0' && env[0] <= '9') g_gun_port = env[0] - '0';
+        if (GetEnvironmentVariableA("RG_PTT_COIN_VK", env, sizeof env) > 0 && env[0]) {
+            unsigned v = 0;
+            const char *q = env;
+            if (q[0] == '0' && (q[1] == 'x' || q[1] == 'X')) q += 2;
+            for (; *q; q++) v = v * 16 + (unsigned)(*q >= 'a' ? *q - 'a' + 10 : *q >= 'A' ? *q - 'A' + 10 : *q - '0');
+            g_coin_fixed = v;
+        }
         logf("rg-wsc32: geladen (vervanger van wsc32.dll voor Pull The Trigger); geweerbord op poort %d (COM%d), geheugenkaart op poort %d, shm %s",
              g_gun_port, g_gun_port + 1, PTT_PORT_CARD, g_shm_name);
     } else if (why == DLL_PROCESS_DETACH) {
@@ -184,6 +227,7 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r)
 /* 17 SioReset(poort, rx, tx): 0 = gelukt (negatief = fout, dat is wat het spel op Wine zonder COM-poort kreeg). */
 int WINAPI rg_SioReset(int port, int rx, int tx)
 {
+    if (port == -1) { logf("SioReset(-1, %d, %d) -> 0 (0x41e80b, voor de poort-opens: alle poorten/bibliotheek; genegeerd)", rx, tx); return 0; }
     if (!PORT_OK(port)) { logf("SioReset(%d, %d, %d) -> -1 (ongeldige poort)", port, rx, tx); return -1; }
     EnterCriticalSection(&g_cs);
     g_port[port].open = 1;
@@ -231,12 +275,13 @@ int WINAPI rg_SioMessage(int port, HWND hwnd, UINT msg, DWORD mask)
     if (!PORT_OK(port)) return -1;
     EnterCriticalSection(&g_cs);
     g_port[port].hwnd = hwnd;
+    if (hwnd) g_hwnd = hwnd;
     g_port[port].msg = msg;
     g_port[port].mask = mask;
     g_port[port].pending = 0;
     if (port == g_gun_port) post_if_armed(port);
     LeaveCriticalSection(&g_cs);
-    if (first(15 + (port & 3))) logf("SioMessage(poort %d, venster %p, bericht 0x%x, masker %lu) -> 0", port, hwnd, msg, mask);
+    if (g_msg_logged++ < 8) logf("SioMessage(poort %d, venster %p, bericht 0x%x, masker %lu) -> 0", port, hwnd, msg, mask);
     return 0;
 }
 

@@ -89,6 +89,27 @@ int main(void)
     n = drain(&b, buf, sizeof buf, &valid);
     CHECK(n == 4 && valid && buf[2] == 0 && buf[3] == 0, "buiten beeld: X met (0,0)");
 
+    /* 7b. muismodus: de richting in de shm staat stil -> een trekkerdruk geeft GEEN F/X (de muis doet het schot), wel een teller */
+    ptt_board_init(&b);
+    shm_set(shm, 0, 128, 128); ptt_board_poll(&b, shm);
+    shm_set(shm, PTT_BIT_P1_TRIGGER, 128, 128); ptt_board_poll(&b, shm);
+    shm_set(shm, 0, 128, 128); ptt_board_poll(&b, shm);
+    shm_set(shm, PTT_BIT_P1_TRIGGER, 128, 128); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_rx_count(&b) == 0 && b.n_f_skipped == 2, "stilstaande richting: trekker wordt overgeslagen");
+    shm_set(shm, 0, 130, 128); ptt_board_poll(&b, shm); ptt_board_rx_clear(&b);
+    shm_set(shm, PTT_BIT_P1_TRIGGER, 130, 128); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_rx_count(&b) == 6 && b.n_pkt_f == 1, "zodra de richting beweegt wel: F + X");
+
+    /* 7c. munt: randen worden geteld en afgehaald */
+    ptt_board_init(&b);
+    shm_set(shm, 0, 100, 100); ptt_board_poll(&b, shm);
+    shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
+    shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
+    shm_set(shm, 0, 100, 100); ptt_board_poll(&b, shm);
+    shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_take_coin(&b) == 2 && ptt_board_take_coin(&b) == 0, "twee muntranden");
+    CHECK(ptt_board_rx_count(&b) == 0, "munt geeft geen pakket");
+
     /* 8. commando's van het spel: 'TTTTT' -> antwoord t,3,1; '+++++' -> t,3,0; ook in stukken en met rommel ervoor */
     ptt_board_init(&b);
     CHECK(ptt_board_tx(&b, (const unsigned char *)"TTTTT", 5) == 1, "TTTTT is een commando");

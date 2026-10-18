@@ -55,6 +55,9 @@ typedef struct {
     unsigned cmd_n;
     unsigned char out_state[3];        /* laatst gevraagde stand van de uitgangen T / G / B (0 = uit) */
     int have_prev;                     /* is er al een monster van de shm geweest? */
+    int aim_live;                      /* heeft de richting in de shm ooit bewogen? (anders: muismodus, de shm staat stil) */
+    unsigned coin_edges;               /* opgaande randen van munt 1, door de DLL afgehaald (ptt_board_take_coin) */
+    unsigned n_f_skipped;              /* trekker-randen zonder levende richting: de muis doet het schot */
     unsigned prev_ctl;
     unsigned char prev_x, prev_y;
     /* tellers (logboek en test) */
@@ -175,13 +178,20 @@ static void ptt_board_poll(ptt_board *b, const unsigned char *shm)
     }
     rise = ctl & ~b->prev_ctl;
     moved = (x != b->prev_x) || (y != b->prev_y);
+    if (moved) b->aim_live = 1;
+    if (rise & PTT_BIT_COIN1) b->coin_edges++;
     if (moved && !(rise & PTT_BIT_P1_TRIGGER)) ptt_board_push_aim(b, x, y);
     if (rise & PTT_BIT_P1_TRIGGER) {
-        unsigned char f[2];
-        f[0] = 0x46; f[1] = 0x02;
-        if (moved) ptt_board_push_aim(b, x, y);   /* eerst de nieuwe richting, dan de trekker, dan weer de richting voor het schot */
-        if (ptt_board_push(b, f, 2)) b->n_pkt_f++;
-        ptt_board_push_aim(b, x, y);
+        /* Staat de richting in de shm stil (muismodus: de daemon zet de trekker, de muis zet de richting), dan zou F + X het schot op het
+         * vaste punt van de shm leggen in plaats van onder de muis. Dan doet WM_LBUTTONDOWN (0x41f2aa) het schot en sturen wij niets. */
+        if (!b->aim_live) b->n_f_skipped++;
+        else {
+            unsigned char f[2];
+            f[0] = 0x46; f[1] = 0x02;
+            if (moved) ptt_board_push_aim(b, x, y);   /* eerst de nieuwe richting, dan de trekker, dan weer de richting voor het schot */
+            if (ptt_board_push(b, f, 2)) b->n_pkt_f++;
+            ptt_board_push_aim(b, x, y);
+        }
     }
     if (rise & PTT_BIT_P1_RELOAD) {
         unsigned char d[3];
@@ -190,6 +200,9 @@ static void ptt_board_poll(ptt_board *b, const unsigned char *shm)
     }
     b->prev_ctl = ctl; b->prev_x = x; b->prev_y = y;
 }
+
+/* Munt 1 (shm bit 2): het spel kent geen munt-pakket; de DLL haalt de randen op en stuurt een toets (rg_ptt_wsc32.c). */
+static unsigned ptt_board_take_coin(ptt_board *b) { unsigned n = b->coin_edges; b->coin_edges = 0; return n; }
 
 /* De kaartlezer: CTS is altijd actief (1) -> alle gelezen bits 0 -> "geen kaart". Negatief zou een fout zijn. */
 static int ptt_card_cts(void) { return 1; }
