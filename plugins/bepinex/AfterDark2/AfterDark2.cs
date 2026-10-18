@@ -68,13 +68,23 @@ namespace RavenGun.Bepinex.AfterDark2
             // De dongle: een SenseLock Sense4 (Sense4.dll, S4Enum/S4Open/S4VerifyPin) via dog_hardware_sense_4; zonder antwoord zet
             // game_run_manage_dog het eigen scherm "Please insert the dongle and restart the game" neer en blijft staan (TV 2026-10-17).
             // De oudere controles (dog_check: DllBindFunc) staan er ook nog in; die zeggen hier ook ja.
-            Haak(h, AccessTools.TypeByName("dog_hardware_sense_4"), "is_dog_ok_hareware", null, "Waar", null);
+            // Gelezen in Assembly-CSharp.dll (2026-10-18): de game kijkt enkel naar de teruggegeven code (S4VerifyPin == 0); er komt
+            // geen door de dongle berekende waarde in de game terecht. Wij zeggen dus alleen "ja" op die ene controle; de dongle zelf
+            // (S4Execute, sleutels, dongle-gegevens) wordt niet nagebootst.
+            Haak(h, AccessTools.TypeByName("dog_hardware_sense_4"), "is_dog_ok_hareware", null, "DongleSense4", null);
+            Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_hareware", null, "DongleSense4", null);
+            Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_check_real", null, "DongleSense4", null);
             Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_in_start", null, "DongleBijStart", null);
             Haak(h, AccessTools.TypeByName("dog_check_new"), "is_dog_ok_in_update", null, "Waar", null);
+            // De oude DllBindFunc-route hoeft niet eens meer te starten (BIND_InitDongle e.d.): overslaan.
+            foreach (string m in new[] { "init_dog_work", "init_dog_work_real", "init_dog_when_run" })
+                Haak(h, AccessTools.TypeByName("dog_check"), m, null, "Overslaan", null);
             foreach (string m in new[] { "dog_is_ok", "dog_is_ok_real", "is_dog_ok_when_run", "is_dog_ok_when_run_core",
                                          "is_dog_ok_when_game_run_update_work", "DongleVerify", "is_dog_ok_hareware" })
                 Haak(h, AccessTools.TypeByName("dog_check"), m, null, "Waar", null);
             L.LogMessage("RavenGun.AfterDark2: " + gezet + " van " + gevraagd + " haken gezet");
+            // Ook in output_log.txt van Unity, voor als het schijflogboek van BepInEx ontbreekt.
+            Debug.Log("RavenGun.AfterDark2: geladen, " + gezet + " van " + gevraagd + " haken gezet");
             verbergCursor = TpIni.Lees().Waar("General/HideCursor", true);
         }
 
@@ -83,9 +93,13 @@ namespace RavenGun.Bepinex.AfterDark2
             gevraagd++;
             MethodInfo m = t == null ? null : (args == null ? AccessTools.Method(t, naam) : AccessTools.Method(t, naam, args));
             if (m == null) { L.LogWarning("niet gevonden: " + (t == null ? "?" : t.FullName) + "." + naam); return; }
-            h.Patch(m, prefix: prefix == null ? null : new HarmonyMethod(typeof(Plugin), prefix),
-                    postfix: postfix == null ? null : new HarmonyMethod(typeof(Plugin), postfix));
-            gezet++;
+            try
+            {
+                h.Patch(m, prefix: prefix == null ? null : new HarmonyMethod(typeof(Plugin), prefix),
+                        postfix: postfix == null ? null : new HarmonyMethod(typeof(Plugin), postfix));
+                gezet++;
+            }
+            catch (Exception e) { L.LogWarning("haak mislukt: " + t.FullName + "." + naam + ": " + e.Message); }
         }
 
         static bool Overslaan() { return false; }
@@ -94,6 +108,20 @@ namespace RavenGun.Bepinex.AfterDark2
         {
             AccessTools.Field(AccessTools.TypeByName("dog_check_new"), "myis_has_dog_in_update").SetValue(null, true);
             __result = true;
+            return false;
+        }
+        static bool dongleGemeld;
+        // De dongle-controle (S4Enum/S4Open/S4VerifyPin == 0) zegt ja; een keer in het logboek, als bewijs dat de game niet bij het
+        // dongle-scherm blijft staan.
+        static bool DongleSense4(ref bool __result)
+        {
+            __result = true;
+            if (!dongleGemeld)
+            {
+                dongleGemeld = true;
+                L.LogMessage("dongle: de Sense4-controle (S4VerifyPin) is overgeslagen en zegt ja");
+                Debug.Log("RavenGun.AfterDark2: dongle: Sense4-controle zegt ja");
+            }
             return false;
         }
         static bool Waar(ref bool __result) { __result = true; return false; }
