@@ -301,3 +301,22 @@ origineel, allemaal "geen poort") start bij het laden een draad die `TeknoParrot
 `SetCursorPos` + `SendInput` (absoluut) de muis in het clientgebied van het `UnityWndClass`-venster zet; trekker (bit 7) is de linkerknop. Munt (toets 5) en start (toets 1)
 levert het virtuele toetsenbord van RavenGun al aan het systeem; `rg-drakons.ini` heeft `toetsen = 1` als terugval (SendInput) voor het geval dat in Wine niet aankomt.
 Beperking: 8 bit per as (256 stappen, ~7,5 px op 1920) en alleen speler 1; speler 2 (gamepad-modus) is niet gedaan.
+
+### RobinHood: waar de HASP-controle in de exe zit (statisch gemeten 2026-10-19)
+
+Op onze eigen lader en kern (`[Loader] Core = ravengun`) komt RobinHood tot het scherm
+**ERROR / SECURITY CHECK BAD**; zonder dongle-inhoud is de HASP-reactie niet na te bootsen, dus de
+controle in `data/game.exe` (2.671.104 bytes, NAS) moet gepatcht worden. Waar die zit:
+
+* `SECURITY CHECK BAD` staat op bestandsoffset `0x21acac`, sectie `.rdata`, VA `0x61c4ac`.
+* Die VA wordt **niet** direct in code gepusht maar staat in een berichtentabel in `.data`
+  (o.a. VA `0x68cfe0`, `0x68cfec`, `0x68d088`, `0x68d094`; elk item begint met de stringpointer
+  gevolgd door nog een pointer, bijvoorbeeld `ac c4 61 00` -> `57 73 ...`).
+* Geen `hasp_login`/`hasp_decrypt`-tekst in de exe; de HASP-API wordt dus niet op naam gezocht
+  (de XML-teksten `haspformat`/`haspscope` staan er wel, op `0x22fba4` en verder).
+
+Volgende stap voor een echte patch: de gebruiker van die berichtentabel vinden (kruisverwijzingen
+op de tabel-VA's in `.text`, dan terug omhoog naar de tak die de HASP-uitkomst test), en de
+terugkeerwaarde van die tak op "goed" dwingen. Hulpmiddel: `/tmp/pe-stringref.py` (PE-secties,
+string-VA en de verwijzingen ernaar; read-only). Dat is een sessie op zich, geen kwestie van een
+regel, en zonder dongle-dump blijft het de enige route.
