@@ -482,10 +482,46 @@ extern "C" void __cdecl rg_exit_trace(const uint32_t* sp) {
             hi = reinterpret_cast<uintptr_t>(base) + sec[i].VirtualAddress + sec[i].Misc.VirtualSize;
         }
     const uintptr_t top = reinterpret_cast<uintptr_t>(reinterpret_cast<NT_TIB*>(NtCurrentTeb())->StackBase);
-    char line[900];
-    int len = std::snprintf(line, sizeof line, "afsluiten: requestExit vanaf 0x%08lX (thread %lu); stapel:", static_cast<unsigned long>(sp[0]), static_cast<unsigned long>(GetCurrentThreadId()));
+    // De knoop (this = ecx bij het begin van requestExit, door de stub bewaard): klassenaam uit de RTTI en de naam van de knoop (std::string op [[this+4]+12], MSVC 9).
+    std::string node;
+    {
+        const uint32_t self = sp[-3];
+        auto ok = [](uintptr_t a, size_t n) { return a > 0x10000 && !IsBadReadPtr(reinterpret_cast<const void*>(a), n); };
+        if (ok(self, 8)) {
+            const uintptr_t vt = *reinterpret_cast<const uint32_t*>(self);
+            if (ok(vt - 4, 8)) {
+                const uintptr_t col = *reinterpret_cast<const uint32_t*>(vt - 4);
+                if (ok(col, 16)) {
+                    const uintptr_t td = *reinterpret_cast<const uint32_t*>(col + 12);
+                    if (ok(td, 40)) {
+                        char nm[96] = {};
+                        std::strncpy(nm, reinterpret_cast<const char*>(td + 8), sizeof nm - 1);
+                        for (char& ch : nm) if (ch && (ch < 0x20 || ch > 0x7E)) ch = '?';
+                        node += nm;
+                    }
+                }
+            }
+            const uintptr_t st = *reinterpret_cast<const uint32_t*>(self + 4);
+            if (ok(st, 0x30)) {
+                const uint32_t size = *reinterpret_cast<const uint32_t*>(st + 0x1C), res = *reinterpret_cast<const uint32_t*>(st + 0x20);
+                const uintptr_t strp = res >= 16 ? *reinterpret_cast<const uint32_t*>(st + 12) : st + 12;
+                if (size > 0 && size < 120 && ok(strp, size)) {
+                    char nm[128] = {};
+                    std::memcpy(nm, reinterpret_cast<const void*>(strp), size);
+                    for (char& ch : nm) if (ch && (ch < 0x20 || ch > 0x7E)) ch = '?';
+                    node += std::string(" '") + nm + "'";
+                }
+            }
+            char tail[40];
+            std::snprintf(tail, sizeof tail, " this=0x%08lX vtable=0x%08lX", static_cast<unsigned long>(self), static_cast<unsigned long>(vt));
+            node += tail;
+        }
+    }
+    char line[1100];
+    int len = std::snprintf(line, sizeof line, "afsluiten: requestExit vanaf 0x%08lX (thread %lu) knoop: %s; stapel:", static_cast<unsigned long>(sp[0]),
+                            static_cast<unsigned long>(GetCurrentThreadId()), node.c_str());
     int found = 0;
-    for (int i = 1; i < 256 && found < 14 && len < 820; ++i) {
+    for (int i = 1; i < 256 && found < 14 && len < 1000; ++i) {
         if (reinterpret_cast<uintptr_t>(sp + i + 1) > top) break;
         const uintptr_t v = sp[i];
         if (v < lo + 6 || v >= hi) continue;

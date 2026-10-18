@@ -455,6 +455,17 @@ Het bestandslog (`bestand mislukt:`) toonde alleen `hints.dat` en `data\Fraw\Dev
 terugkeeradres in de code lijken, de aanroeper-keten). Het eerste `afsluiten:`-regel is de aanroeper; zoek zijn adres op met `python3 -I tools/dev/segajvs-scan.py <exe> --where 0x<adres>` en lees de voorwaarde ervoor. Uit met
 `RG_AMHW_GAMELOG=0`. Komt er GEEN `afsluiten:`-regel voor de `terminate`-regels, dan loopt de afsluiting via `WM_CLOSE`/`WM_QUIT` (de byte `[0xA3BA2C]`, LGI `0x5E72A6`/`0x5E7825`) en is het venster de aanleiding.
 
+### Meting 15 (LGI 2026-10-18 11:38): de afsluiting komt uit de module-boom van het Fraw-framework [gelezen, LGI]
+
+Het afsluitspoor gaf twee aanroepers van `requestExit` (`0x645830`): `0x645D69` en `0x645C94`, beide terugkeeradressen na een `call edx` in de module-boom (`fwModule.cpp`, "Module [%s] must be called super class method"):
+* `0x645D00` (`fwModule::terminateAll`) roept voor elke module in de boom, tenzij bit 2 of bit 6 van de vlaggen `[S+0xB8]/[S+0xBC]` staat, **`[vtable+4]`** aan (`0x645D62..0x645D67`) en zet de toestand `[S]` op 2.
+* `0x645C50` (`fwModule::update`) roept **`[vtable+0x14]`** (`0x645C8B..0x645C92`) aan, tenzij bit 1 van de vlaggen staat; bit 5 slaat de aanroep over.
+* De module-klassen `AppPowerOnTest`, `DrawInitialize`, `GameInitialize` en `SoundInitialize` hebben als `vtable[1]` een eigen functie die alleen `jmp requestExit` is (`0x7189B0`, `0x7188D0`, `0x7187F0`, `0x718260`; de andere zes slots zijn
+  `dtor`, twee echte methoden, een `xor al,al; ret 8` en twee lege `ret`). Voor `AppPowerOnTest` etc. betekent `vtable[1]`: "als deze module wordt beeindigd, sluit de app af". Een module die zijn werk niet afmaakt (de vlag voor
+  "klaar" staat niet) sluit dus de hele app af. Welke module het in onze run is, weet ik niet; `AppPowerOnTest` is de kandidaat voor een mislukte opstart-hardwarecontrole.
+* De volgende regel in `rg-amhw.log` geeft de klasse: het spoor schrijft nu `knoop: <RTTI-klassenaam> '<modulenaam>' this=0x.. vtable=0x..` achter `afsluiten: requestExit vanaf ...`. Met de klassenaam is de module te vinden; dan
+  lezen we in zijn `update`/`terminate` welke voorwaarde (JVS-waarde, TEST/SERVICE, hardwarecontrole) het eindigt.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.
