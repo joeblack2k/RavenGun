@@ -1,8 +1,11 @@
 # Laatste ronde: alle games naar Working
 
-Stand 2026-10-18 12:40 (gegenereerd uit de patches; geluid en invoer gemeten in de speelproeven van 17/18-10, zonder TP-map, in muismodus: munt = `key 5`, start = `key 1`, schot = trigger op het midden).
+Stand 2026-10-18 13:45 (gegenereerd uit de patches; geluid en invoer gemeten in de speelproeven van 17/18-10, zonder TP-map, in muismodus: munt = `key 5`, start = `key 1`, schot = trigger op het midden).
 
 Overgeslagen (skipregel, niet 16:9 of 4:3): Silent Scope, Elevator Action Death Parade, America's Army Arcade.
+
+**TP ten strengste verboden** (eigenaar 2026-10-18): elke meting zonder de TeknoParrot-kern en met de TP-map weg (verborgen);
+wat eerder met TP gemeten was, is opnieuw gemeten (ronde 32/33).
 
 Lat van de eigenaar (2026-10-17): een game is **Working** als hij start via dubbelklik (zonder TeknoParrot), **geluid** heeft,
 de **invoer** werkt met muis en PS Move, en **alle game-specifieke instellingen** in Properties > Options staan (en ook iets doen
@@ -29,7 +32,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | GaiaAttack4 | direct | ja |  | ja | ja | ja (munt, start, gebied/missie) | 32 | working |
 | Gashaaaan | direct | nee | ja | ja (titel) | ja | ja (munt, start, koers) | 27 | working |
 | GG | direct | ja |  | ja (attract, Engels) | ja | ja (munt, start, Shoot to Select) | 10 | working |
-| GhostBusters | native | ja |  | ja (na stapelreparatie rg-elfloader; kalibratie, CHECK BALL SHOOTER) | stroom ja, eigenaar hoort niets | nog meten | 10 | parked |
+| GhostBusters | native | ja |  | ja (zonder TP, ronde 32: attract, geen ballenschieter-melding) | deels (hoofdvolume was 0; seeds attractSoundFreq/volume; meter ziet pieken) | munt ja (P1); start en trekker nog niet gekoppeld (sweep loopt) | 8 (adj) | parked |
 | GSEVO | native | ja |  | ja | ja | ja (munt, start, kostuum) | 1 | working |
 | Halo | native | ja |  | ja | nee op 50 s (FMOD-wrapper, nagaan) | ? (startscherm na 60 s) | 16 | working |
 | HauntedMuseum | direct | ja |  | ja | ja | ja (munt, start) | 28 | working |
@@ -41,14 +44,14 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | InfinityBladeFX | direct | nee | ja | nee (wit) | ja | - | 10 | playable |
 | JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
 | LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
-| LGI | direct | nee | ja | nee (dipschakelaars nu goed; halt bij "Initializing Passenger Seat", COM1) | ja (stroom) | - | 24 | working |
+| LGI | direct | nee | ja | ja (kandidaat als STD-kast: attract, titel, kaart) | ja | ja (munt, start) | 24 | working |
 | LGI3D | direct | ja |  | ja (meegeleverd zonder TP, ronde 23: attract, titel, 3D CALIBRATION) | ja | ja (munt, start) | 34 | working |
 | LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
 | LGJS | native | ja |  | ja | ja | ja (start, rit) | 13 | working |
 | LGS | direct | ja |  | ja (attract, Engels) | ja | ja (rit) | 20 | working |
 | LostLandAdventure | direct | nee | ja | titel, dan "Please insert the dongle" (HASP) | nee | - | 11 | untested |
 | LuigisMansion | direct | ja |  | ja | ja | nee (munt komt niet aan) | 23 | playable |
-| MarioKartDX | direct | ja |  | ja in venstermodus (NOW LOADING), dan E22-12 STR PCB-fout (stuurbord) | ja | - | 45 | working |
+| MarioKartDX | direct | nee (zonder TP-kern) |  | zonder TP: venster + stuurbord ok, dan E19-10 USB-dongle (in bewerking) | ja | - | 45 | working |
 | MarsSortie | direct | ja |  | ja | ja | ja (start, level) | 14 | working |
 | MenInBlack | direct | ja |  | ja | ja | ja (start, PLAYER 1 READY, spel) | 0 | untested |
 | MusicGunGun2 | direct | ja |  | ja | ja | ja (munt, start) | 12 | working |
@@ -56,13 +59,13 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | OG | direct | ja |  | ja (Japanse build: ook met regio USA de Japanse waarschuwing; Presented by SEGA) | ja | ja (munt, start, CREDIT(S) 10) | 35 | working |
 | PointBlankX | direct | ja |  | ja | ja | munt ja (3 credits nodig) | 10 | working |
 | Primevil | native | ja |  | ja | ja (ALSA->Pulse) | ja (start, wapen, gebied) | 1 | working |
-| PullTheTrigger | direct | nee | ja | nee (WibuKey voorbij; "Memory Card Port Open Error!") | nog meten | geen (geweerbord WSC32 nog niet nagebouwd) | 10 | working |
+| PullTheTrigger | direct | nee | ja | ja (zonder TP: titel, munt via Ins, start naar PULL BACK) | ja | munt ja, start ja; herladen/schieten in proef | 10 | working |
 | RabbidsHollywood | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 25 | working |
 | RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | ja | ja (munt, start) | 31 | working |
 | Rambo | native | ja |  | ja (initialiseert >150 s) | ja | ? (opstart te lang voor de meting) | 25 | working |
 | Rampage | direct | ja |  | ja (attract) | ja | ? (start onduidelijk) | 6 | working |
 | RobinHood | direct | nee | nee | nog meten | nog meten | nog meten | 5 | working |
-| SDR | direct | nee | ja | nee (regio nu goed, USA; daarna zwart beeld, JVS antwoordt, COM2/3 fout 5) | ja (stroom) | - | 9 | working |
+| SDR | direct | nee | ja | nee (INITIALIZING...; hoofddraad spint in win32u zoals Mario Kart in volledig scherm) | - | - | 9 | working |
 | SilentHill | direct | ja |  | ja | ja | ja (start) | 19 | working |
 | TargetTerrorGold | native | ja |  | ja (Mission Select) | ja (OSS->Pulse, DEEPBIND) | ? | 12 | working |
 | TC5 | direct | nee | ja | ja (attract) | ja | munt ja (start = pedaal) | 48 | playable |
