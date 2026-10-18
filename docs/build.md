@@ -67,6 +67,14 @@ App tests: `ravengun_app_tests` (core, without windows: options, library, routes
 
 The wizard step "Components" (also Tools > Components) fetches everything that belongs in the user folder (`~/.local/share/ravengun`): Wine (Kron4ek `proton-11.0-2`), DXVK, BepInEx, mods, PhysX, the DLLs from Steam, 32-bit libraries, our own components and the user's TeknoParrot runtime. The catalogue is data: `packaging/components.json` (embedded in the binary, the files in the data map take precedence), read by `src/app/core/Components.*`; installation is done by `core/ComponentInstaller.*`; the page is `widgets/ComponentsPage.*`. Without a window (no display needed, offscreen): `ravengun --components` (list: id, name, version, size, state) and `ravengun --install-component ID` (repeatable; or `--install-components a,b`; `all` = everything missing or outdated; exit code 0/1, progress at most every 5%), in `core/ComponentsCli.*` with the same `ComponentInstaller`. Test: `ravengun_components_tests` runs the real program with a fake catalogue (`RAVENGUN_DATA_DIR`), `XDG_DATA_HOME` in a temporary folder and `file://` downloads.
 
+- Eigen prefix per game: staat er een map `prefixes/<Game>/system.reg`, dan gebruikt de engine die
+  (of zet `[Wine] PrefixMode = Isolated` in het profiel). Nodig als één game iets in de prefix zet
+  dat de andere niet moeten hebben. Voorbeeld: Mario Kart DX, waarvan de ShareK-server echt .NET
+  eist en de ShareK-client een COM-registratie:
+  `cp -a prefixes/shared/wine prefixes/MarioKartDX`, dan
+  `winetricks -q dotnet48` (zet de prefix op win7, dus daarna `winetricks -q win81`) en
+  `RegAsm.exe /codebase <view>/ipccl.dll`. De gedeelde prefix blijft dan schoon; zie ook
+  docs/research/namco/README.md.
 - Types: `download` (https, sha256 pinned, resume with Range, `.part` -> check -> rename), `bundled` (ships in `<datamap>/components/<id>/`, is copied), `userfolder` (searched in the user's game folders, copied without overwriting anything), `steam` (recipes `redist-directx`, `redist-vc2010`, `gst32`, `lib32-sniper`: read from the Steam installation) and `wine` (`wine-prefix`, `wine-physx`: start RavenGun's Wine directly).
 - Mods are not in the catalogue but come from `[Mod <name>]` in the `game.ini` of the games the app knows (search order of `gamesettings`, so also in a release without `patches/` in the repo); `TreeSha256` guards the content, as in the old `scripts/fetch-mods.py`.
 - Staging: everything is first unpacked in `<data>/components/.staging/<id>` and only moved into place with a `rename` after the check (an existing folder is moved aside first and then removed). An installation gets a stamp in `<data>/components/<id>.json`; a manually prepared component that satisfies `detect` counts as installed, a different version in the stamp as outdated.
