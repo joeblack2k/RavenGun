@@ -46,10 +46,19 @@ dist/RavenGun/ravengun.sh app  # start from the folder
 ```
 
 `make-portable.sh` copies `bin/`, `lib/` and `share/ravengun/` from the install,
-copies `patches/` from the repository (so a fresh checkout has the newest profiles)
-and takes over the large runtime (`wine`, `proton`, `prefixes`, `openparrot`,
-`runtime`, ...) with symbolic links from `~/.local/share/ravengun` into
-`User/share/ravengun/`. It never touches the game installations.
+copies `patches/` from the repository (so a fresh checkout has the newest profiles),
+copies the settings from `~/.config/ravengun` into `User/config/ravengun` and copies
+the whole runtime and game state (`wine`, `proton`, `prefixes`, `openparrot`,
+`runtime`, `native`, `writelayer`, `patches`, ...) from `~/.local/share/ravengun`
+into `User/share/ravengun/`. Everything is a real copy: after that the folder needs
+nothing from `~/.local` anymore. Only `bench-captures` (the proof screenshots) and
+`halo-overlay` (a root-owned overlay work dir) are skipped, and a directory that
+cannot be read is reported and left out instead of aborting the copy. The game
+installations themselves are never touched.
+
+Measured (2026-10-18): `dist/RavenGun` is about 18 GB (almost all of it Wine, the
+prefixes and the OpenParrot build), the daemon and `ravengunctl` run straight from
+the folder and SDR reached the attract from it for more than a minute.
 
 ## What the user adds themselves
 

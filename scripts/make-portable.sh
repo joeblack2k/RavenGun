@@ -11,10 +11,10 @@
 #   <map>/User                     per-gebruiker: config/, state/, cache/ en share/ (wine, prefixes, openparrot, ...)
 #   <map>/ravengun.sh              de starter die de omgeving op de map zet en een binary kiest
 #
-# De grote runtime (wine/proton, de prefixen, de OpenParrot-build) hoort in
-# <map>/User/share/ravengun. Dit script neemt hem over met symbolische koppelingen
-# als hij al in ~/.local/share/ravengun staat; anders moet de gebruiker hem daar
-# neerzetten (docs/portable.md, "Wat de gebruiker zelf toevoegt").
+# De map is zelfstandig: de runtime (wine/proton, de prefixen, de OpenParrot-build),
+# de staat van de games (views, schrijflagen, SRAM/regiogegevens, HASP-antwoorden) en
+# de configuratie worden ECHT gekopieerd, niet gekoppeld. Na het kopiëren heeft
+# ~/.local niets meer nodig; alleen de spelinstallaties (de NAS) blijven buiten de map.
 #
 # Gebruik: scripts/make-portable.sh [DOEL]
 #   DOEL   de map om te vullen (standaard dist/RavenGun); wordt aangemaakt.
@@ -24,6 +24,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${1:-$ROOT/dist/RavenGun}"
 INSTALL="$HOME/.local/opt/ravengun"
 RUNTIME="$HOME/.local/share/ravengun"
+CONFIG="$HOME/.config/ravengun"
 
 if [[ ! -x "$INSTALL/bin/ravengund" ]]; then
     echo "make-portable: $INSTALL/bin/ravengund ontbreekt; bouw en installeer eerst (scripts/build-app.sh)" >&2
@@ -47,61 +48,36 @@ if [[ -e "$INSTALL/share" ]]; then
 fi
 
 # 2. De profielen en drop-ins uit de repo (in de installatie kunnen ze ouder zijn).
+# De installatie legt share/ravengun/patches als koppeling naar ../../patches neer;
+# in de portabele map moet het een echte map zijn.
 if [[ -d "$ROOT/patches" ]]; then
     rm -f "$DEST/share/ravengun/patches"
     mkdir -p "$DEST/share/ravengun/patches"
     cp -a "$ROOT/patches/." "$DEST/share/ravengun/patches/"
 fi
 
-# 3. De gebruikersmap met de XDG-mappen.
+# 3. De gebruikersmap met de XDG-mappen en de configuratie van deze gebruiker.
 mkdir -p "$DEST/User"/{config,state,cache,share/ravengun}
+if [[ -d "$CONFIG" ]]; then
+    rm -rf "$DEST/User/config/ravengun"
+    cp -a "$CONFIG" "$DEST/User/config/ravengun"
+    echo "  config: $CONFIG -> User/config/ravengun"
+fi
 
-# 4. De grote runtime overnemen (symbolisch; geen tweede kopie van gigabytes).
-# runtime/, native/, writelayer/ en patches/ worden ECHTE mappen: daarin maakt de
-# engine views en schrijflagen, en een koppeling naar buiten weigert hij (terecht:
-# een drop-in mag nooit buiten de map terechtkomen).
-# De staat van de games (per-game schrijflagen, SRAM/regiogegevens, HASP-antwoorden,
-# views) is klein genoeg om mee te nemen; die kopiëren we hard (geen tweede bytes).
-# De grote runtime (wine, proton, prefixen) krijgt een koppeling.
-copy_state() {
-    local name="$1"
-    local src="$RUNTIME/$name"
-    local dst="$DEST/User/share/ravengun/$name"
-    [[ -e "$src" ]] || return 0
-    [[ -L "$dst" ]] && rm -f "$dst"
-    if [[ -e "$dst" ]]; then
-        cp -al "$src/." "$dst/" 2>/dev/null || cp -a "$src/." "$dst/"
-    else
-        cp -al "$src" "$dst" 2>/dev/null || cp -a "$src" "$dst"
-    fi
-    echo "  staat: $name (harde koppelingen)"
-}
-link_runtime() {
-    local name="$1"
-    local src="$RUNTIME/$name"
-    local dst="$DEST/User/share/ravengun/$name"
-    [[ -e "$src" ]] || return 0
-    if [[ -e "$dst" && ! -L "$dst" ]]; then
-        echo "make-portable: $dst bestaat al en is geen koppeling; laat staan" >&2
-        return 0
-    fi
-    ln -sfn "$src" "$dst"
-    echo "  runtime: $name -> $src"
-}
-for name in native writelayer patches runtime hasp memory; do
-    copy_state "$name"
-done
-for name in wine proton prefixes openparrot runtime dxvk redist psmoveapi gst32 bepinex demulshooter cxbx lindbergh-loader loaders mods wrappers jvsbridge hasp memory rio tap tools shortcuts components bin native writelayer; do
-    link_runtime "$name"
-done
-# Wat er verder nog in de gebruikersmap staat (nieuwe onderdelen) ook overnemen.
+# 4. De runtime en de staat van de games: echte kopieën, geen koppelingen.
+# bench-captures (de bewijsschermafbeeldingen, enkele GB's) doen niet mee.
+mkdir -p "$DEST/User/share/ravengun"
 for path in "$RUNTIME"/*; do
     [[ -e "$path" ]] || continue
     name="$(basename "$path")"
-    case "$name" in native|writelayer|patches|runtime|hasp|memory) continue ;; esac
-    link_runtime "$name"
+    case "$name" in bench-captures|halo-overlay) continue ;; esac
+    rm -rf "$DEST/User/share/ravengun/$name"
+    if cp -a "$path" "$DEST/User/share/ravengun/$name"; then
+        echo "  gekopieerd: $name"
+    else
+        echo "make-portable: $name niet volledig gekopieerd (overgeslagen)" >&2
+    fi
 done
-mkdir -p "$DEST/User/share/ravengun/"{runtime,native,writelayer,patches}
 
 # 5. De starter: zet de omgeving op de map en kies een binary.
 cat > "$DEST/ravengun.sh" <<'EOF'
