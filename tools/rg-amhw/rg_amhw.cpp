@@ -235,6 +235,11 @@ void hw_load() {
         unsigned a = 0x70, b = 0;
         if (std::sscanf(dip.c_str(), "%x,%x", &a, &b) >= 1) g_hw->set_dip(static_cast<uint8_t>(a), static_cast<uint8_t>(b));
     }
+    const std::string dipin = env("RG_AMHW_DIPIN", "");   // "FF,FF": de invoerpoorten 0 en 1 (dipschakelaars en drukknoppen; actief laag)
+    if (!dipin.empty()) {
+        unsigned a = 0xFF, b = 0xFF;
+        if (std::sscanf(dipin.c_str(), "%x,%x", &a, &b) >= 1) { g_hw->i2c[0x20][0] = static_cast<uint8_t>(a); g_hw->i2c[0x20][1] = static_cast<uint8_t>(b); }
+    }
     if (FILE* f = std::fopen(g_eeprom_path, "rb")) {
         const size_t n = std::fread(g_hw->eeprom.data(), 1, g_hw->eeprom.size(), f);
         std::fclose(f);
@@ -248,7 +253,7 @@ void hw_load() {
         rg_log("smbus: AM_SYSDATA_STATIC in de EEPROM ontbrak of was kapot; geldig record met regio %02X op offset 0 en 0x200 gezet", g_region);
         eeprom_flush(0, g_hw->eeprom.size());
     }
-    rg_log("smbus: dipschakelaars %02X,%02X; Super I/O-chip-id A230 (type 1)", g_hw->i2c[0x20][4], g_hw->i2c[0x20][5]);
+    rg_log("smbus: dipschakelaars %02X,%02X; invoerpoorten %02X,%02X (FF = niets ingedrukt); Super I/O-chip-id A230 (type 1)", g_hw->i2c[0x20][4], g_hw->i2c[0x20][5], g_hw->i2c[0x20][0], g_hw->i2c[0x20][1]);
 }
 void eeprom_flush(size_t off, size_t n) {
     FILE* f = std::fopen(g_eeprom_path, "r+b");

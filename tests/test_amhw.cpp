@@ -133,6 +133,12 @@ int main() {
         uint8_t p[0x25] = {0, 5, 0x20, 4, 0, 0, 0};                                    // lees dip-register 4 van de PCA9535 op 0x20
         CHECK(hw.smbus_request(p) && p[0] == 0 && p[5] == 0x70);
         CHECK(((p[5] >> 4) & 7) == 7);                                                  // resolutie-index 7 = 1920x1080 (OG-tabel 0x5F72A4)
+        uint8_t in0[0x25] = {0, 5, 0x20, 0}, in1[0x25] = {0, 5, 0x20, 1};          // invoerpoorten met pull-up: 0xFF = geen schakelaar aan (de game keert ze om)
+        CHECK(hw.smbus_request(in0) && in0[5] == 0xFF && hw.smbus_request(in1) && in1[5] == 0xFF);
+        uint8_t wr0[0x25] = {0, 4, 0x20, 0, 0, 0x00, 0xFF};
+        CHECK(hw.smbus_request(wr0));
+        uint8_t in0b[0x25] = {0, 5, 0x20, 0};
+        CHECK(hw.smbus_request(in0b) && in0b[5] == 0xFF);                           // schrijven naar een invoerpoort verandert niets
         uint8_t w[0x25] = {0, 4, 0x20, 3, 0, 0x5A, 0xFF};                               // schrijf register 3, lees terug
         CHECK(hw.smbus_request(w));
         uint8_t r[0x25] = {0, 5, 0x20, 3};
