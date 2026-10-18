@@ -297,6 +297,32 @@ void log_open_fail(const char* path, DWORD err) {
     if (fresh && InterlockedIncrement(&n) <= 400) rg_log("bestand mislukt: %s (fout %lu)", path, static_cast<unsigned long>(err));
 }
 
+// GAME.INI (SDR): welke waarden ziet de game? Bij de eerste fopen van een bestand met die naam leest rg-amhw het zelf en logt de schermsleutels.
+void log_game_ini(const char* path) {
+    const char* b = std::strrchr(path, '\\');
+    const char* b2 = std::strrchr(path, '/');
+    if (b2 && (!b || b2 > b)) b = b2;
+    if (lstrcmpiA(b ? b + 1 : path, "GAME.INI") != 0) return;
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) > 2) return;
+    char full[MAX_PATH] = {};
+    GetFullPathNameA(path, sizeof full, full, nullptr);
+    std::string keys;
+    if (FILE* f = std::fopen(path, "rb")) {
+        char line[200];
+        while (std::fgets(line, sizeof line, f)) {
+            for (char* c = line; *c; ++c) if (*c == '\r' || *c == '\n') *c = 0;
+            if (!std::strncmp(line, "FULLSCREEN", 10) || !std::strncmp(line, "SCREEN_", 7) || !std::strncmp(line, "ENABLE_VSYNC", 12) || !std::strncmp(line, "SEATENABLE", 10)) {
+                for (char* c = line; *c; ++c) if (*c == '\t') *c = '=';
+                for (char* c = line; *c; ++c) if (*c == ' ') *c = '=';
+                keys += std::string(" [") + line + "]";
+            }
+        }
+        std::fclose(f);
+    }
+    rg_log("GAME.INI geopend door het spel: %s;%s", full, keys.empty() ? " (niet te lezen)" : keys.c_str());
+}
+
 HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     if (name && name[0] == L'\\' && name[1] == L'\\' && (name[2] == L'.' || name[2] == L'?')) {
         char a[260];
@@ -362,6 +388,8 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
         const DWORD e = GetLastError();
         log_open_fail(name, e);
         SetLastError(e);
+    } else if (name && (acc & GENERIC_WRITE) == 0) {
+        log_game_ini(name);
     }
     return r;
 }
@@ -384,9 +412,34 @@ std::string debugout_target(const char* path, const char* mode) {
     if (InterlockedIncrement(&nd) <= 2) rg_log("debugout.txt (fopen, schrijven) omgeleid naar %s", fb.c_str());
     return fb;
 }
+// Vensters van het spel: stijl, grootte, ouder (de eerste zes). Alleen loggen.
+using CreateWinAFn = HWND(WINAPI*)(DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID);
+using CreateWinWFn = HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID);
+CreateWinAFn g_createwin_a = CreateWindowExA;
+CreateWinWFn g_createwin_w = CreateWindowExW;
+void log_window(const char* api, const char* cls, const char* title, DWORD ex, DWORD style, int x, int y, int w, int h, HWND parent, HWND r) {
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) > 6) return;
+    rg_log("venster: %s klasse '%s' titel '%s' stijl 0x%08lX ex 0x%08lX op %d,%d maat %dx%d ouder %p -> %p", api, cls, title, static_cast<unsigned long>(style),
+           static_cast<unsigned long>(ex), x, y, w, h, static_cast<void*>(parent), static_cast<void*>(r));
+}
+HWND WINAPI rg_CreateWindowExA(DWORD ex, LPCSTR c, LPCSTR t, DWORD st, int x, int y, int w, int h, HWND p, HMENU m, HINSTANCE i, LPVOID l) {
+    HWND r = g_createwin_a(ex, c, t, st, x, y, w, h, p, m, i, l);
+    log_window("CreateWindowExA", reinterpret_cast<uintptr_t>(c) > 0xFFFF && c ? c : "(atoom)", t ? t : "", ex, st, x, y, w, h, p, r);
+    return r;
+}
+HWND WINAPI rg_CreateWindowExW(DWORD ex, LPCWSTR c, LPCWSTR t, DWORD st, int x, int y, int w, int h, HWND p, HMENU m, HINSTANCE i, LPVOID l) {
+    HWND r = g_createwin_w(ex, c, t, st, x, y, w, h, p, m, i, l);
+    char ca[100] = "(atoom)", ta[100] = "";
+    if (reinterpret_cast<uintptr_t>(c) > 0xFFFF && c) WideCharToMultiByte(CP_ACP, 0, c, -1, ca, sizeof ca, nullptr, nullptr);
+    if (t) WideCharToMultiByte(CP_ACP, 0, t, -1, ta, sizeof ta, nullptr, nullptr);
+    log_window("CreateWindowExW", ca, ta, ex, st, x, y, w, h, p, r);
+    return r;
+}
 void* __cdecl rg_fopen(const char* path, const char* mode) {
     const std::string t = debugout_target(path, mode);
     void* f = g_fopen(t.empty() ? path : t.c_str(), mode);
+    if (f && path && !mode_writes(mode)) log_game_ini(path);
     if (!f) log_open_fail(path, ERROR_FILE_NOT_FOUND);
     return f;
 }
@@ -993,15 +1046,15 @@ using PeekMsgWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 PeekMsgAFn g_peek_a = PeekMessageA;
 PeekMsgWFn g_peek_w = PeekMessageW;
 volatile LONG g_msg_count[0x400];
-volatile LONG g_msg_other = 0, g_peek_calls = 0, g_peek_empty = 0;
+volatile LONG g_msg_other = 0, g_peek_calls = 0, g_peek_empty = 0, g_peek_enter = 0;
 void count_msg(BOOL r, const MSG* m) {
     InterlockedIncrement(&g_peek_calls);
     if (!r) { InterlockedIncrement(&g_peek_empty); return; }
     if (m->message < 0x400) InterlockedIncrement(&g_msg_count[m->message]);
     else InterlockedIncrement(&g_msg_other);
 }
-BOOL WINAPI rg_PeekMessageA(LPMSG m, HWND w, UINT a, UINT b, UINT f) { const BOOL r = g_peek_a(m, w, a, b, f); if (m) count_msg(r, m); return r; }
-BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND w, UINT a, UINT b, UINT f) { const BOOL r = g_peek_w(m, w, a, b, f); if (m) count_msg(r, m); return r; }
+BOOL WINAPI rg_PeekMessageA(LPMSG m, HWND w, UINT a, UINT b, UINT f) { InterlockedIncrement(&g_peek_enter); const BOOL r = g_peek_a(m, w, a, b, f); if (m) count_msg(r, m); return r; }
+BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND w, UINT a, UINT b, UINT f) { InterlockedIncrement(&g_peek_enter); const BOOL r = g_peek_w(m, w, a, b, f); if (m) count_msg(r, m); return r; }
 void log_msgs(int round) {
     std::string t;
     char b[48];
@@ -1016,8 +1069,8 @@ void log_msgs(int round) {
         g_msg_count[best] = -g_msg_count[best];   // tijdelijk wegzetten
     }
     for (int i = 0; i < 0x400; ++i) if (g_msg_count[i] < 0) g_msg_count[i] = -g_msg_count[i];
-    rg_log("bewaker %d: PeekMessage %ld keer, %ld zonder bericht, ander (>=0x400) %ld; berichten (0x0F=WM_PAINT 0x05=WM_SIZE 0x06=WM_ACTIVATE 0x1C=WM_ACTIVATEAPP 0x113=WM_TIMER 0x200=WM_MOUSEMOVE):%s", round,
-           static_cast<long>(g_peek_calls), static_cast<long>(g_peek_empty), static_cast<long>(g_msg_other), t.c_str());
+    rg_log("bewaker %d: PeekMessage %ld aangeroepen, %ld teruggekeerd, %ld zonder bericht, ander (>=0x400) %ld; berichten (0x0F=WM_PAINT 0x05=WM_SIZE 0x06=WM_ACTIVATE 0x1C=WM_ACTIVATEAPP 0x113=WM_TIMER 0x200=WM_MOUSEMOVE):%s", round,
+           static_cast<long>(g_peek_enter), static_cast<long>(g_peek_calls), static_cast<long>(g_peek_empty), static_cast<long>(g_msg_other), t.c_str());
 }
 
 std::string where(uintptr_t a) {
@@ -1145,6 +1198,8 @@ void setup() {
     hook("KERNEL32.dll", "SetCurrentDirectoryW", rg_SetCurrentDirectoryW, g_setcwd_w);
     hook("USER32.dll", "PeekMessageA", rg_PeekMessageA, g_peek_a);
     hook("USER32.dll", "PeekMessageW", rg_PeekMessageW, g_peek_w);
+    hook("USER32.dll", "CreateWindowExA", rg_CreateWindowExA, g_createwin_a);
+    hook("USER32.dll", "CreateWindowExW", rg_CreateWindowExW, g_createwin_w);
     fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);

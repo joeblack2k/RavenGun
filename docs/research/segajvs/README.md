@@ -528,6 +528,14 @@ Het scherm `Type [STD]`; de bewegende stoel is er niet (er is ook geen stoel).
 * `FULLSCREEN` (`0x40F876`, standaard 1, `Game.ini` zegt 1) wordt `[0xA4BC34]` (`0x4043A9`) en kiest de D3D9-parameters (`0x405B4E`: venster- of schermvullende modus). Zelfde patroon als Mario Kart DX: een schermwissel in DXVK-exclusive-modus levert een stroom vensterberichten op. Dat het WM_PAINT is dat nooit geldig wordt is niet bewezen.
 * **Wijziging:** een lokale `Game.ini` met alleen `FULLSCREEN 0` via de drop-in (`[Game.ini] To = .` in `dropin/dropin.ini`, bron `dropin/Game.ini`; de motor vervangt de link naar de NAS door het bestand: `direct_apply.cpp`, `unlink` + `write_atomic`); gamescope vult het scherm. rg-amhw telt nu ook de berichten (`bewaker N: PeekMessage ... berichten: 0x0F=...`), zodat ook een mislukte proef zegt welk bericht de lus vult.
 
+### Meting 21 (SDR 2026-10-18 13:45, ronde 34): `FULLSCREEN 0` veranderde niets; de hoofdthread komt NOOIT uit zijn eerste `PeekMessageA` [gemeten + gelezen]
+
+* De drop-in werkte: `drop-in: ...\\views\\SDR\\Game.ini geschreven (194 bytes)` staat in `direct-SDR-20261018-134508.log` (regel 8 van de kop), de view heeft een lokale `Game.ini`, en er is geen `bestand mislukt: GAME.INI`. Dat de game de waarde `FULLSCREEN 0` echt ziet was niet gelogd; rg-amhw doet dat nu (`GAME.INI geopend door het spel: <pad>; [FULLSCREEN=0] ...`).
+* De teller meldde "PeekMessage 0 keer" terwijl de haak WEL in de importtabel stond (`importtabel: USER32.dll!PeekMessageA omgezet`): de teller telde pas na de terugkeer. **Hij telde dus niets omdat de eerste aanroep nooit terugkeert**, niet omdat de haak de verkeerde slot raakte (de game roept `[0x735378]` aan; `patch_iat` zet precies die tabel van de hoofdmodule om).
+* `win32u.dll+0x11D38` ligt in de export `NtUserPeekMessage` (Proton 11, `i386-windows/win32u.dll`: export `0x11D2C`, dus de syscall-stub): de thread zit IN de syscall en rekent daar (60% van een kern, vooral kerneltijd), niet in de game en niet in een vensterprocedure (dan stond zijn `eip` in de game).
+* Dus niet "een stroom berichten" (Meting 20: die verklaring is hiermee onwaarschijnlijk) maar een blijvend hangende of draaiende `NtUserPeekMessage` in Wine: wachtend op het venster- of schermstuurprogramma, of een lus in `win32u.so` (`win32u.so` heeft symbolen).
+* Nu gelogd (rg-amhw): `PeekMessage N aangeroepen, M teruggekeerd` (N > M = vast binnen de aanroep), de eerste zes `CreateWindowEx` (`venster: ... stijl 0x... op x,y maat WxH ouder ...`), en `GAME.INI geopend door het spel`. Dynamisch, midden in de hang: `tools/dev/proc-threads.py Game.exe` (toestand, wchan, syscall) en `sudo gdb -p <pid> -batch -ex 'thread apply all bt 15'` (alleen lezen; de Unix-stapel van de rekenende thread met functienamen uit `win32u.so`).
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

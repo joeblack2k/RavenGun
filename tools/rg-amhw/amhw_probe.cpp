@@ -325,6 +325,15 @@ int main(int argc, char** argv) {
     check(n != INVALID_HANDLE_VALUE && ReadFile(n, buf, 2, &got, nullptr) && got == 2 && buf[0] == 'M' && buf[1] == 'Z', "en lezen ook");
     if (n != INVALID_HANDLE_VALUE) CloseHandle(n);
     {   // de bewaker (RG_AMHW_WATCHDOG=1): ronde 1 na 1 s; de nep-JVS-thread wacht in ReadFile
+        {   // GAME.INI (SDR): fopen en CreateFileA van een bestand met die naam loggen de schermsleutels; en een venster wordt gelogd
+            FILE* gi = std::fopen((dir + "\\GAME.INI").c_str(), "wb");
+            if (gi) { std::fputs("JVSENABLE\t1\r\nFULLSCREEN 0\r\nSCREEN_WIDTH 1920\r\n", gi); std::fclose(gi); }
+            FILE* gr = std::fopen((dir + "\\GAME.INI").c_str(), "r");
+            if (gr) std::fclose(gr);
+            HANDLE gh = CreateFileA((dir + "\\GAME.INI").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (gh != INVALID_HANDLE_VALUE) CloseHandle(gh);
+            CreateWindowExA(0, "STATIC", "rg-amhw-probe", WS_POPUP, 0, 0, 64, 48, nullptr, nullptr, nullptr, nullptr);
+        }
         MSG pm = {};
         PeekMessageA(&pm, nullptr, 0, 0, PM_REMOVE);   // de berichtenteller telt deze aanroep (geen bericht)
         Sleep(1500);
@@ -333,7 +342,9 @@ int main(int argc, char** argv) {
         if (wf) { char buf[4096]; size_t k; while ((k = std::fread(buf, 1, sizeof buf, wf)) > 0) wl.append(buf, k); std::fclose(wf); }
         check(wl.find("bewaker 1: thread ") != std::string::npos && wl.find("bewaker 1: ") != std::string::npos && wl.find("threads bekeken") != std::string::npos,
               "de bewaker schreef na 1 s de threads (plek + terugkeeradressen) in rg-amhw.log");
-        check(wl.find("bewaker 1: PeekMessage 1 keer, 1 zonder bericht") != std::string::npos, "de bewaker toont de berichtenteller (1 PeekMessage, leeg)");
+        check(wl.find("GAME.INI geopend door het spel:") != std::string::npos && wl.find("[FULLSCREEN=0]") != std::string::npos && wl.find("[SCREEN_WIDTH=1920]") != std::string::npos, "GAME.INI: het spel-pad en FULLSCREEN=0 staan in rg-amhw.log");
+        check(wl.find("venster: CreateWindowExA klasse 'STATIC'") != std::string::npos, "CreateWindowExA staat in rg-amhw.log (klasse, stijl, maat)");
+        check(wl.find("bewaker 1: PeekMessage 1 aangeroepen, 1 teruggekeerd, 1 zonder bericht") != std::string::npos, "de bewaker toont de berichtenteller (1 PeekMessage aangeroepen en teruggekeerd, leeg)");
     }
     std::printf("%s\n", g_fail ? "MISLUKT" : "ALLES OK");
     return g_fail ? 1 : 0;
