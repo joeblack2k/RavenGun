@@ -872,3 +872,6 @@ debugout-omleiding haakt fopen/fopen_s/_fsopen/_wfopen in de game-IAT omdat de C
 
 Aanvulling (meting 12): de uitgebrachte LGI/LGI3D openen debugout.txt nooit; hun log gaat via drie logfuncties zonder sink. rg-amhw leidt die om naar rg-amhw.log (`spel[niveau]: tekst`, aan de bytes herkend, uit met
 `RG_AMHW_GAMELOG=0`) zodat de reden van de vroege stop leesbaar wordt zonder de game aan te passen.
+
+Aanvulling (meting 13): LGI/LGI3D sluiten via `fwFraw::requestExit` (de scene-flow vindt zijn volgende scene niet, of een flow-opdracht `exit`); rg-amhw logt nu mislukte bestandsopens (`bestand mislukt:`) om te zien welk
+gegevensbestand ontbreekt.

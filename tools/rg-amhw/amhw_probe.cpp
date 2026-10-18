@@ -242,6 +242,16 @@ int main(int argc, char** argv) {
         if (lf) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf)) > 0) txt.append(buf, n); std::fclose(lf); }
         check(txt.find("spel[1]: [teaArcade2] JvsManager::initialize() failed.") != std::string::npos, "teaArcade2-logfunctie: het bericht staat in rg-amhw.log");
     }
+    {   // mislukte opens van gewone bestanden komen in rg-amhw.log (zodat te zien is welk bestand een game mist)
+        HANDLE mh = CreateFileA((dir + "\\bestaat-niet\\scene.dat").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        check(mh == INVALID_HANDLE_VALUE, "een ontbrekend bestand blijft ontbreken");
+        FILE* mf = std::fopen((dir + "\\ook-niet.txt").c_str(), "r");
+        check(mf == nullptr, "fopen van een ontbrekend bestand geeft NULL");
+        FILE* lf2 = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
+        std::string txt2;
+        if (lf2) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf2)) > 0) txt2.append(buf, n); std::fclose(lf2); }
+        check(txt2.find("bestand mislukt:") != std::string::npos && txt2.find("scene.dat") != std::string::npos, "het ontbrekende bestand staat in rg-amhw.log");
+    }
     {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
         auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
         auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
