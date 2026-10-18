@@ -123,6 +123,10 @@ static struct {
     int umc_aan, umc_vid, umc_pid; char umc_pad[64];
 } U;
 static _Atomic int usb_klaar;
+/* Onderzoek (statusbit live): RG_RIO_SPROBE=pad, regels "bit byte masker(hex)", elke 250 ms herlezen: extra statusbits bovenop de tabel,
+   om in het Test-menu (switch test) te zien welke byte/bit van het type-1-rapport welke schakelaar van de game is. */
+static struct { int bit, byte; uint8_t mask; } sprobe[16];
+static _Atomic int nsprobe;
 static _Atomic uint32_t n_open, n_lees, n_schrijf, n_sluit;
 
 static int actief, log_on;
@@ -435,9 +439,10 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
     /* Zolang een statusbit gezet is (en nog 12 rapporten na het loslaten, ~48 ms) gaat er om de twee rapporten een statusrapport uit,
        zodat een korte druk niet tussen twee statusrapporten van 1 op elke `elke` valt; anders om de `elke` rapporten. */
     static int houd;
-    if (U.st_aan && U.nst_bit) {
+    if (U.st_aan && (U.nst_bit || atomic_load(&nsprobe))) {
         uint32_t bb = atomic_load(&laatste_bits); int actief_nu = 0;
         for (int i = 0; i < U.nst_bit; i++) if (bb >> U.st_bit[i].bit & 1) actief_nu = 1;
+        for (int i = 0, n = atomic_load(&nsprobe); i < n; i++) if (bb >> sprobe[i].bit & 1) actief_nu = 1;
         if (actief_nu) houd = 12; else if (houd > 0) houd--;
     }
     int status = U.st_aan && (houd > 0 ? (++st_teller & 1) == 0 : ++st_teller % (unsigned)U.st_elke == 0);
@@ -445,7 +450,8 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
     if (status) {
         for (int i = 3; i < 63; i++) if (U.st_gezet[i]) r[i] = U.st_byte[i];
         { uint32_t bits = atomic_load(&laatste_bits);
-          for (int i = 0; i < U.nst_bit; i++) if (bits >> U.st_bit[i].bit & 1) r[U.st_bit[i].byte] |= U.st_bit[i].mask; }
+          for (int i = 0; i < U.nst_bit; i++) if (bits >> U.st_bit[i].bit & 1) r[U.st_bit[i].byte] |= U.st_bit[i].mask;
+          for (int i = 0, n = atomic_load(&nsprobe); i < n; i++) if (bits >> sprobe[i].bit & 1) r[sprobe[i].byte] |= sprobe[i].mask; }
     } else
     for (int i = 0; i < U.nv; i++) {
         uint8_t nib = (uint8_t)(atomic_load(&teller[U.v[i].id]) & 0xf);
@@ -597,10 +603,26 @@ static void lees_probe(const char *pad) {
     if (!n) snprintf(m + o, sizeof m - o, " (leeg)");
     meld(m);
 }
+static void lees_sprobe(const char *pad) {
+    int b, by; unsigned m; int n = 0;
+    FILE *f = fopen(pad, "r");
+    static struct { int bit, byte; uint8_t mask; } nieuw[16];
+    if (f) { while (n < 16 && fscanf(f, "%d %d %x", &b, &by, &m) == 3) if (b >= 0 && b < 32 && by >= 3 && by < 63) { nieuw[n].bit = b; nieuw[n].byte = by; nieuw[n].mask = (uint8_t)m; n++; } fclose(f); }
+    int nu = atomic_load(&nsprobe);
+    if (n == nu && !memcmp(nieuw, sprobe, sizeof(nieuw[0]) * (size_t)n)) return;
+    atomic_store(&nsprobe, 0);
+    memcpy(sprobe, nieuw, sizeof(nieuw[0]) * (size_t)n);
+    atomic_store(&nsprobe, n);
+    char mm[200]; int o = snprintf(mm, sizeof mm, "sprobe:");
+    for (int i = 0; i < n && o < 180; i++) o += snprintf(mm + o, sizeof mm - (size_t)o, " bit %d -> byte %d masker %02x", sprobe[i].bit, sprobe[i].byte, sprobe[i].mask);
+    if (!n) snprintf(mm + o, sizeof mm - (size_t)o, " (leeg)");
+    meld(mm);
+}
 static void *werker(void *arg) {
     (void)arg;
     const char *shm = getenv("RG_RIO_SHM"); if (!shm) shm = "/dev/shm/ravengun_JvsState";
     const char *probepad = getenv("RG_RIO_PROBE");
+    const char *sprobepad = getenv("RG_RIO_SPROBE"); uint64_t volgende_sprobe = 0;
     uint8_t buf[RG_BEELD]; int fd = -1;
     uint64_t start = nu_ms(), volgende_log = start + 5000, volgende_zoek = 0, volgende_probe = 0;
     int usb_gedaan = !U.aan || atomic_load(&usb_haken_gezet);
@@ -614,6 +636,7 @@ static void *werker(void *arg) {
             if (!usb_gedaan && t - start > 120000) { meld("usb: na 120 s geen spelbeeld met deze bytes (ander binair?) -- het bord wordt NIET nagedaan"); usb_gedaan = 1; }
         }
         if (probepad && t >= volgende_probe) { lees_probe(probepad); volgende_probe = t + 250; }
+        if (sprobepad && t >= volgende_sprobe) { lees_sprobe(sprobepad); volgende_sprobe = t + 250; }
         if (fd < 0) {
             fd = open(shm, O_RDONLY | O_CLOEXEC);           /* pread, geen mmap: een schrijver die afkapt geeft anders SIGBUS */
             if (fd >= 0) { char b[300]; snprintf(b, sizeof b, "bordbeeld gekoppeld: %s", shm); meld(b); }
