@@ -243,6 +243,33 @@ is bewust niet nagebouwd (alleen "geen kaart").
 dan uit). Kijk (a) in welke volgorde de `*INF*`-regels van het spel na `Startup ShareK-Client.` komen en op welke seconde de eerste daarna staat, (b) of de hoofdthread bij 10/20 s ook in `0x83D7D6` staat of al in een scène zit, (c) de tijd tot de camera-regel en de 500
 effect-aanroepen in `rg-mfcam.log`. Het eerste verschil in de `*INF*`-volgorde wijst de ontbrekende stap aan.
 
+### Mario Kart DX: de kaartlezer wordt niet bereikt; recept voor de TP-basislijn (08:38-meting)
+
+**Meting 08:38 (`RG_BNGRW=fake`).** `bngrw: Init (nep)` staat 2,4 s na het laden van de dll, 7 ms voor de ShareK-regel (`BngRwInit` zit in de init op `0x771C7D`, dus de init loopt tot en met ShareK door). Daarna **geen enkele** andere `bngrw:`-regel:
+de kaartlezer-toestandsmachine (`0x601550`) wordt dus niet aangeroepen, en de hoofdthread staat bij 20 s en 45 s onveranderd in `PeekMessageW` (`0x83D7D6`, stapel identiek aan die van 07:42). Dat maakt de kaartlezer **niet** de blokkade: hij is
+een stap die pas aan de beurt komt als iets eerder in de opstartvolgorde gebeurt. Wat dat is, staat niet in onze code (de TP-kern is gesloten) en is statisch niet af te lezen zonder te weten welke taak de scheduler (`0x8451E0`) hoort te krijgen.
+Daarom de TP-basislijn: dezelfde game, dezelfde dropin, met de gesloten kern.
+
+**Recept (gebruikerslaag `~/.local/share/ravengun/patches/MarioKartDX/game.ini`, naast wat er al staat: `[Config] Network/PlayerId` en `[Loader] Core = teknoparrot`).** Voeg toe:
+
+```ini
+[Wine]
+Debug = -all,warn+seh
+
+[Env]
+RG_STALL_DUMP = 10,20,30,45
+```
+
+* `Core = teknoparrot` (staat er al) is de basislijn; laat `RG_SHAREK_FAKE`, `RG_DRIVE_FIXUP`, `RG_BNGRW` en `RG_JVS_COMPORT` in de dropin staan: `rg-mfcam.dll` zet ze zelf uit zodra `TeknoParrot.dll` in het proces staat (logregels `... uit: de TeknoParrot-kern is geladen`). De stalldump draait wel.
+* Zet **niets anders** (geen `RG_BNGRW`, geen andere dropin-wijziging) en gebruik dezelfde dll (`0e3b6e5d...`) en dezelfde view; de TP-run moet precies de eigen run zijn met alleen de kern gewisseld.
+* Dubbelklik in de app, 50 s laten lopen, stoppen. De eigenaar speelt hier online: het spel mag verbinding maken.
+* Daarna de gebruikerslaag terugzetten (de twee regels `Debug` en `RG_STALL_DUMP` weg).
+
+**Wat te sturen** (twee runs: eigen kern zoals 08:38, en TP):
+1. De spelmeldingen in volgorde: `tools/dev/game-log-order.py <logboek-eigen> <logboek-TP>` (decodeert Shift-JIS, toont de gemeenschappelijke kop en het eerste verschil; zonder tweede argument alle meldingen van een run). Het eerste verschil is de eerste stap die onder TP wel gebeurt.
+2. `rg-mfcam.log` van de TP-run vanaf de laatste `rg-mfcam geladen`: de stalldumps bij 10/20/30/45 s (staat de hoofdthread nog in `0x83D7D6` of dieper in een scène?) en of `MFEnumDeviceSources`/de 500 `D3DX10CreateEffectFromFileA` verschijnen en op welke seconde.
+3. Of er beeld is op 10 s, 20 s en 30 s (en wat).
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
