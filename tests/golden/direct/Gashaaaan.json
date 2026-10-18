@@ -24,16 +24,32 @@
     "wayland",
     "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
     "Z:@TMP@\\home\\games\\Gashaaaan\\bin\\ballshooting.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "core_dll": "",
+   "cwd": "@TMP@/home/games/Gashaaaan/bin",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Gashaaaan/dropin/iob.dll",
+     "@TMP@/home/games/Gashaaaan/bin/iob.dll"
+    ],
+    [
+     "@PATCHES@/Gashaaaan/dropin/ballio.dll",
+     "@TMP@/home/games/Gashaaaan/bin/ballio.dll"
+    ],
+    [
+     "@PATCHES@/Gashaaaan/dropin/BALLS.INI",
+     "@TMP@/home/games/Gashaaaan/bin/BALLS.INI"
+    ]
+   ],
+   "dropin_lines": [
+    "iob.dll -> @TMP@/home/games/Gashaaaan/bin/iob.dll",
+    "ballio.dll -> @TMP@/home/games/Gashaaaan/bin/ballio.dll",
+    "BALLS.INI -> @TMP@/home/games/Gashaaaan/bin/BALLS.INI",
+    "WINEDLLOVERRIDES += iob=n, ballio=n"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -44,9 +60,12 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_KONAMI_LOG": "rg-konami.log",
+    "RG_LOADER_CORE": "none",
     "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "iob=n;ballio=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -71,7 +90,9 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_KONAMI_LOG": "rg-konami.log",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "iob=n;ballio=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -95,14 +116,12 @@
       "wayland",
       "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
       "Z:@TMP@\\home\\games\\Gashaaaan\\bin\\ballshooting.exe"
      ],
      "comms": [
       "ballshooting.ex"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/Gashaaaan/bin",
      "exe": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
      "gamescope": true,
      "name": "ballshooting.exe",
@@ -142,16 +161,32 @@
     "wayland",
     "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
     "Z:@TMP@\\home\\games\\Gashaaaan\\bin\\ballshooting.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "core_dll": "",
+   "cwd": "@TMP@/home/games/Gashaaaan/bin",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Gashaaaan/dropin/iob.dll",
+     "@TMP@/home/games/Gashaaaan/bin/iob.dll"
+    ],
+    [
+     "@PATCHES@/Gashaaaan/dropin/ballio.dll",
+     "@TMP@/home/games/Gashaaaan/bin/ballio.dll"
+    ],
+    [
+     "@PATCHES@/Gashaaaan/dropin/BALLS.INI",
+     "@TMP@/home/games/Gashaaaan/bin/BALLS.INI"
+    ]
+   ],
+   "dropin_lines": [
+    "iob.dll -> @TMP@/home/games/Gashaaaan/bin/iob.dll",
+    "ballio.dll -> @TMP@/home/games/Gashaaaan/bin/ballio.dll",
+    "BALLS.INI -> @TMP@/home/games/Gashaaaan/bin/BALLS.INI",
+    "WINEDLLOVERRIDES += iob=n, ballio=n"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -162,9 +197,12 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_KONAMI_LOG": "rg-konami.log",
+    "RG_LOADER_CORE": "none",
     "TP_GAMESCOPE": "1",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "iob=n;ballio=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -189,7 +227,9 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_KONAMI_LOG": "rg-konami.log",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "iob=n;ballio=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -213,14 +253,12 @@
       "wayland",
       "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
       "Z:@TMP@\\home\\games\\Gashaaaan\\bin\\ballshooting.exe"
      ],
      "comms": [
       "ballshooting.ex"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/Gashaaaan/bin",
      "exe": "@TMP@/home/games/Gashaaaan/bin/ballshooting.exe",
      "gamescope": true,
      "name": "ballshooting.exe",

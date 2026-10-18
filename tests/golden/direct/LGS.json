@@ -25,21 +25,27 @@
     "--",
     "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\GameSampR_RingWide.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LGS",
+   "cwd_is_tp": false,
    "dropin_files": [
     [
      "@PATCHES@/LGS/dropin/ravengun-hasp/LGS/dongle.json",
      "@TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json"
+    ],
+    [
+     "@PATCHES@/LGS/dropin/rg-amhw.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll"
     ]
    ],
    "dropin_lines": [
-    "ravengun-hasp/LGS/dongle.json -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json"
+    "ravengun-hasp/LGS/dongle.json -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json",
+    "rg-amhw.dll -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
    "env": {
@@ -51,10 +57,16 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "02",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
     "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-lgs",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
@@ -80,6 +92,10 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll",
     "WINEDEBUG": "-all"
    },
    "patch_lines": [],
@@ -104,13 +120,13 @@
       "--",
       "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\GameSampR_RingWide.exe"
      ],
      "comms": [
       "gamesampr_ringw"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LGS",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/GameSampR_RingWide.exe",
      "gamescope": true,
      "name": "GameSampR_RingWide.exe",
@@ -151,21 +167,27 @@
     "--",
     "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\GameSampR_RingWide.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LGS",
+   "cwd_is_tp": false,
    "dropin_files": [
     [
      "@PATCHES@/LGS/dropin/ravengun-hasp/LGS/dongle.json",
      "@TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json"
+    ],
+    [
+     "@PATCHES@/LGS/dropin/rg-amhw.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll"
     ]
    ],
    "dropin_lines": [
-    "ravengun-hasp/LGS/dongle.json -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json"
+    "ravengun-hasp/LGS/dongle.json -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/ravengun-hasp/LGS/dongle.json",
+    "rg-amhw.dll -> @TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
    "env": {
@@ -177,10 +199,16 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "02",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
     "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-lgs",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
@@ -206,6 +234,10 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\rg-amhw.dll",
     "WINEDEBUG": "-all"
    },
    "patch_lines": [],
@@ -230,13 +262,13 @@
       "--",
       "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\LGS\\GameSampR_RingWide.exe"
      ],
      "comms": [
       "gamesampr_ringw"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/LGS",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/LGS/GameSampR_RingWide.exe",
      "gamescope": true,
      "name": "GameSampR_RingWide.exe",
