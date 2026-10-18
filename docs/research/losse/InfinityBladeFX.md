@@ -92,3 +92,13 @@ gescheiden gemeten: de oplossing zet beide terug.
 Oplossing: `[Launch] Arguments = -ResX=1280 -ResY=853 -Windowed -simmobileinput` (de OpenParrot-lader krijgt alles als een parameter,
 `spel_argumenten`). Alternatief voor proef 2: `RG_KABOOM_PATCH=0x33e553:752e:9090` (rg-kaboom.dll) maakt van de `jne` twee nop's, zodat zonder
 `-d3d10`/`-sm4` altijd D3D9 gekozen wordt.
+
+### Correctie na tv-ronde 40 (2026-10-18 14:10)
+
+De kandidaat met `Arguments = -ResX=1280 -ResY=853 -Windowed -simmobileinput` WERKT (attract, munt 0/4 -> 2/4, geluid). Het echte logboek van die run staat NIET in de view
+(`views/InfinityBladeFX/SwordGame/Logs/Launch.log` is daar nog een koppeling naar het oude NAS-bestand van 11 okt, met `-Fullscreen -simmobileinput` en SM3) maar in de
+schrijflaag: `~/.local/share/ravengun/writelayer/InfinityBladeFX/home_deck_mnt_spidernas_emulation_Teknoparrot/upper/Infinity Blade FX/SwordGame/Logs/Launch.log`. Daar staat:
+`Init: Command line: -ResX=1280 -ResY=853 -Windowed -simmobileinput`, `Shader platform (RHI): PC-D3D-SM4`, `Kaboom: InitLib() succeeded`. De launcher
+heeft de argumenten dus niet vervangen. SM4 (D3D10 via DXVK) is NIET de oorzaak van het witte beeld; de oorzaak was het ontbreken van `-Windowed` (exclusief
+schermvullend in gamescope). De SM3/SM4-redenering hierboven is daarmee weerlegd; de `RG_KABOOM_PATCH` (alt-variant) is niet nodig. Open: `ViewRealDirs = SwordGame/Logs`
+maakt de logmap niet echt lokaal (Launch.log blijft een koppeling; de game schrijft via de schrijflaag), dus lees dat logboek daar.
