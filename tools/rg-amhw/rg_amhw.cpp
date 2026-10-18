@@ -16,7 +16,9 @@
 // er nog ontbreekt (mxsuperio = hardwaremonitor, de SMBus-driver voor EEPROM en dipschakelaars via SetupDi).
 //
 // Omgeving: RG_AMHW_OEM (platform-id: AAM RingWide, AAL RingEdge, AAL2 RingEdge 2; standaard AAM), RG_AMHW_VENDOR (Supermicro, NEC, Advantech;
-// standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1.
+// standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1,
+// RG_AMHW_DIPIN ("FE,FF": invoerpoorten 0 en 1 van de PCA9535, actief laag; LGI: bit 0 aan = standaardkast zonder passagiersstoel),
+// RG_AMHW_NOREPARSE=1 (een gelinkte map meldt GetFileAttributes als 0x10 in plaats van 0x410; terugval voor SDR, zie "de werkmap van het spel").
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
@@ -857,6 +859,59 @@ HDEVINFO WINAPI rg_SetupDiGetClassDevsA(const GUID* g, PCSTR e, HWND w, DWORD f)
     return r;
 }
 
+// --- de werkmap van het spel (SDR) ------------------------------------------------------------------------------------------------------
+// Dream Raiders (Game.exe 0x4019C0, vlak na de start) doet: `if (GetFileAttributesA(".\data") != 0x10) SetCurrentDirectoryA("..\")`: de game is bedoeld om uit een
+// submap (`prg\`) te draaien en gaat een map omhoog als `.\data` er niet is. In een view is `Data` een link naar de NAS en Proton meldt zo'n gelinkte map als
+// map plus reparse point (0x410, gemeten 2026-10-16): de game stapt dan uit de view, en elk relatief pad (GAME.INI, .\data\displabel.txt, het geluid) faalt.
+// Wij loggen de werkmap bij het laden en elke SetCurrentDirectory van het spel, en de eerste attributen met een reparse-bit op een map. Met
+// RG_AMHW_NOREPARSE=1 (alleen als terugval; de nette oplossing is [Launch] ViewRealDirs) maken we van 0x410 weer 0x10, zoals een gewone map op Windows.
+using GetFileAttrAFn = DWORD(WINAPI*)(LPCSTR);
+using GetFileAttrWFn = DWORD(WINAPI*)(LPCWSTR);
+using SetCurDirAFn = BOOL(WINAPI*)(LPCSTR);
+using SetCurDirWFn = BOOL(WINAPI*)(LPCWSTR);
+GetFileAttrAFn g_getattr_a = GetFileAttributesA;
+GetFileAttrWFn g_getattr_w = GetFileAttributesW;
+SetCurDirAFn g_setcwd_a = SetCurrentDirectoryA;
+SetCurDirWFn g_setcwd_w = SetCurrentDirectoryW;
+bool g_noreparse = false;
+void log_cwd(const char* what, const char* arg) {
+    char cwd[MAX_PATH] = {};
+    GetCurrentDirectoryA(sizeof cwd, cwd);
+    rg_log("werkmap: %s%s%s -> nu %s", what, arg ? " " : "", arg ? arg : "", cwd);
+}
+DWORD attr_filter(const char* name, DWORD r) {
+    if (r == INVALID_FILE_ATTRIBUTES || !(r & FILE_ATTRIBUTE_DIRECTORY) || !(r & FILE_ATTRIBUTE_REPARSE_POINT)) return r;
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 12)
+        rg_log("attributen: map %s is 0x%lX (map + reparse point, een gelinkte map)%s", name, static_cast<unsigned long>(r),
+               g_noreparse ? "; RG_AMHW_NOREPARSE=1: doorgegeven als 0x10" : "");
+    return g_noreparse ? (r & ~static_cast<DWORD>(FILE_ATTRIBUTE_REPARSE_POINT)) : r;
+}
+DWORD WINAPI rg_GetFileAttributesA(LPCSTR p) { return attr_filter(p ? p : "", g_getattr_a(p)); }
+DWORD WINAPI rg_GetFileAttributesW(LPCWSTR p) {
+    const DWORD r = g_getattr_w(p);
+    if (r == INVALID_FILE_ATTRIBUTES || !(r & FILE_ATTRIBUTE_REPARSE_POINT)) return r;
+    char a[300] = {};
+    if (p) WideCharToMultiByte(CP_ACP, 0, p, -1, a, sizeof a, nullptr, nullptr);
+    return attr_filter(a, r);
+}
+BOOL WINAPI rg_SetCurrentDirectoryA(LPCSTR p) {
+    const BOOL r = g_setcwd_a(p);
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 20) log_cwd(r ? "SetCurrentDirectoryA" : "SetCurrentDirectoryA (mislukt)", p);
+    return r;
+}
+BOOL WINAPI rg_SetCurrentDirectoryW(LPCWSTR p) {
+    const BOOL r = g_setcwd_w(p);
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 20) {
+        char a[300] = {};
+        if (p) WideCharToMultiByte(CP_ACP, 0, p, -1, a, sizeof a, nullptr, nullptr);
+        log_cwd(r ? "SetCurrentDirectoryW" : "SetCurrentDirectoryW (mislukt)", a);
+    }
+    return r;
+}
+
 // --- de importtabel van het spel (gelijk aan rg-mfcam) ---------------------------------------------------------------------------------
 void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
     auto* base = reinterpret_cast<BYTE*>(mod);
@@ -953,6 +1008,12 @@ void setup() {
     GetModuleFileNameA(nullptr, exe, MAX_PATH);
     rg_log("rg-amhw geladen in %s: platform %s, fabrikant %s, SRAM %d KB in %s", exe, g_platform.oem.c_str(), g_platform.vendor.c_str(), kb, g_sram_path);
     if (env("RG_AMHW_OFF", "") == "1") { rg_log("RG_AMHW_OFF=1: niets omgezet"); return; }
+    g_noreparse = env("RG_AMHW_NOREPARSE", "") == "1";
+    log_cwd("bij het laden", nullptr);
+    hook("KERNEL32.dll", "GetFileAttributesA", rg_GetFileAttributesA, g_getattr_a);
+    hook("KERNEL32.dll", "GetFileAttributesW", rg_GetFileAttributesW, g_getattr_w);
+    hook("KERNEL32.dll", "SetCurrentDirectoryA", rg_SetCurrentDirectoryA, g_setcwd_a);
+    hook("KERNEL32.dll", "SetCurrentDirectoryW", rg_SetCurrentDirectoryW, g_setcwd_w);
     fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);
