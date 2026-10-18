@@ -506,3 +506,22 @@ int ioctl(int fd, unsigned long verzoek, ...)
     if (g_kind[fd] == K_MJG) { melding_hex("ioctl /dev/mjg ", (unsigned int)verzoek, 7); return 0; }
     return 0;
 }
+
+/* glutInit: de game geeft GLUT hard "-display :0.0" mee (0x806b9d8/0x806ba18) en kan dan niet verbinden met het scherm van gamescope
+   ("Authorization required ... failed to open display ':0.0'", bench 2026-10-18). Met RG_GLUT_DISPLAY_FROM_ENV=1 wordt de waarde achter
+   "-display" $DISPLAY. */
+extern void *dlsym(void *, const char *);
+extern void *dlopen(const char *, int);
+void glutInit(int *argcp, char **argv)
+{
+    static void (*echt)(int *, char **);
+    if (!echt) echt = (void (*)(int *, char **))dlsym((void *)-1l /* RTLD_NEXT */, "glutInit");
+    if (!echt) { void *h = dlopen("libglut.so.3", 0x102 /* RTLD_NOW|RTLD_GLOBAL */); if (h) echt = (void (*)(int *, char **))dlsym(h, "glutInit"); }
+    init();
+    const char *d = getenv("DISPLAY");
+    if (argcp && argv && getenv("RG_GLUT_DISPLAY_FROM_ENV") && d && *d)
+        for (int i = 0; i + 1 < *argcp; i++)
+            if (argv[i] && !strcmp(argv[i], "-display")) argv[i + 1] = (char *)d;
+    melding(echt ? "glutInit aangeroepen (echte functie gevonden)" : "glutInit aangeroepen: echte functie NIET gevonden", 14);
+    if (echt) echt(argcp, argv);
+}

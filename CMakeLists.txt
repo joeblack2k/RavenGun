@@ -309,7 +309,7 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     # Header-vrij (geen 32-bits glibc-headers nodig). 32-bits, zoals het spel.
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so"
       COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32"
-      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-cf-io/rg_cf_io.c\" || echo 'waarschuwing: 32-bit Crossfire-kast (librg-cf-io.so) niet gebouwd (gcc -m32)'"
+      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-cf-io/rg_cf_io.c\" -ldl || echo 'waarschuwing: 32-bit Crossfire-kast (librg-cf-io.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-cf-io/rg_cf_io.c VERBATIM)
     add_custom_target(rg_cf_io32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so")
     # OSS-shim (tools/rg-oss-stub/): /dev/dsp en /dev/mixer voor i386-games in de sandbox. Target: Terror Gold crashte zonder /dev/dsp
