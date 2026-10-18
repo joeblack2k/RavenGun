@@ -48,9 +48,27 @@
 
 namespace {
 
-CRITICAL_SECTION g_cs;   // beschermt de toestand hieronder en het logboek
+CRITICAL_SECTION g_cs;   // beschermt de toestand hieronder; het logboek heeft een eigen, lock-vrij handvat
 bool g_cs_ready = false;
 wchar_t g_log_path[MAX_PATH];
+// Eén logboekhandvat voor de hele levensduur van de DLL, lui geopend. Voorheen opende en sloot rg_log het bestand bij elke regel,
+// vaak terwijl de aanroeper g_cs hield: elke DeviceIoControl/ReadFile die logde wachtte dan op twee extra systeemaanroepen onder
+// de vergrendeling. FILE_APPEND_DATA zonder bestandspositie: elke WriteFile komt aan het eind, ook met een tweede proces (Hodzero
+// en amdaemon laden dezelfde DLL naast hetzelfde logboek). Het handvat blijft open tot het proces eindigt.
+std::atomic<HANDLE> g_log_handle{INVALID_HANDLE_VALUE};
+
+HANDLE log_handle() {
+    HANDLE h = g_log_handle.load(std::memory_order_acquire);
+    if (h != INVALID_HANDLE_VALUE) return h;
+    h = CreateFileW(g_log_path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return h;   // volgende regel probeert het opnieuw
+    HANDLE expected = INVALID_HANDLE_VALUE;
+    if (!g_log_handle.compare_exchange_strong(expected, h, std::memory_order_acq_rel)) {
+        CloseHandle(h);   // een andere draad was ons voor
+        return expected;
+    }
+    return h;
+}
 
 void rg_log(const char* fmt, ...) {
     char line[640];
@@ -64,11 +82,11 @@ void rg_log(const char* fmt, ...) {
     if (len > sizeof line - 3) len = sizeof line - 3;
     line[len++] = '\r';
     line[len++] = '\n';
-    HANDLE h = CreateFileW(g_log_path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    // Eén WriteFile met de hele regel: regels van verschillende draden lopen niet door elkaar.
+    const HANDLE h = log_handle();
     if (h != INVALID_HANDLE_VALUE) {
         DWORD w = 0;
         WriteFile(h, line, static_cast<DWORD>(len), &w, nullptr);
-        CloseHandle(h);
     }
 }
 
@@ -423,24 +441,31 @@ using CloseFn = BOOL(WINAPI*)(HANDLE);
 IoctlFn g_real_ioctl = &DeviceIoControl;
 CloseFn g_real_close = &CloseHandle;
 bool g_platform_enabled = false;
-struct PlatformHandle { HANDLE handle = nullptr; rg_allsio::PlatformDevice device; };
-PlatformHandle g_platform_handles[16] = {};
+// De platformhandvatten (FddDriver, sghwmonitor, sghwreset). Het handvat is atomair en wordt pas gepubliceerd nadat `device` gezet
+// is (release); DeviceIoControl en CloseHandle zoeken zonder g_cs. g_platform_open telt de geopende handvatten: staat die op 0 (het
+// spel opent ze meestal pas na het laden, en sluit ze weer), dan is er niets te vergelijken en slaan beide hooks de zoektocht over.
+// Het opschrijven (CreateFileW) blijft onder g_cs: dat gebeurt een paar keer per run.
+struct PlatformHandle { std::atomic<HANDLE> handle{nullptr}; rg_allsio::PlatformDevice device = rg_allsio::PlatformDevice::Keychip; };
+PlatformHandle g_platform_handles[16];
+std::atomic<int> g_platform_open{0};
 LONG g_platform_logs = 0;
 bool platform_device(HANDLE handle, rg_allsio::PlatformDevice& device) {
-    bool found = false;
-    EnterCriticalSection(&g_cs);
+    if (!handle || g_platform_open.load(std::memory_order_acquire) == 0) return false;
     for (const auto& entry : g_platform_handles) {
-        if (entry.handle && entry.handle == handle) { device = entry.device; found = true; break; }
+        if (entry.handle.load(std::memory_order_acquire) == handle) { device = entry.device; return true; }
     }
-    LeaveCriticalSection(&g_cs);
-    return found;
+    return false;
 }
 BOOL WINAPI rg_CloseHandle(HANDLE h) {
-    EnterCriticalSection(&g_cs);
-    for (auto& entry : g_platform_handles) {
-        if (entry.handle == h) { entry.handle = nullptr; break; }
+    if (h && g_platform_open.load(std::memory_order_acquire) > 0) {
+        for (auto& entry : g_platform_handles) {
+            HANDLE expected = h;
+            if (entry.handle.compare_exchange_strong(expected, nullptr, std::memory_order_acq_rel)) {
+                g_platform_open.fetch_sub(1, std::memory_order_release);
+                break;
+            }
+        }
     }
-    LeaveCriticalSection(&g_cs);
     return g_real_close(h);
 }
 BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_len,
@@ -592,7 +617,13 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY
             bool stored = false;
             EnterCriticalSection(&g_cs);
             for (auto& entry : g_platform_handles) {
-                if (!entry.handle) { entry.handle = h; entry.device = device; stored = true; break; }
+                if (!entry.handle.load(std::memory_order_relaxed)) {
+                    entry.device = device;                                   // eerst het apparaat,
+                    entry.handle.store(h, std::memory_order_release);        // dan pas het handvat zichtbaar maken
+                    g_platform_open.fetch_add(1, std::memory_order_release);
+                    stored = true;
+                    break;
+                }
             }
             LeaveCriticalSection(&g_cs);
             if (!stored) { CloseHandle(h); SetLastError(ERROR_TOO_MANY_OPEN_FILES); return INVALID_HANDLE_VALUE; }

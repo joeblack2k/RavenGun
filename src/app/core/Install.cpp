@@ -419,11 +419,15 @@ OpResult Install::installTree(const QString& sourcePrefixIn, const InstallLayout
                 return fail(QStringLiteral("Copying failed: %1").arg(err));
             }
         }
-        // De profielen per game horen bij de installatie; een bron met patches/ die
-        // daarna ontbreken (of een boom zonder profielen) is geen complete RavenGun.
-        if (!QFileInfo(stage + QStringLiteral("/patches")).isDir()) {
+        // De profielen per game horen bij de installatie; een boom zonder profielen is geen
+        // complete RavenGun. Ze staan in patches/ (een release- of installatiemap, met in
+        // de datamap een relatieve koppeling erheen) of direct in share/ravengun/patches
+        // (de portabele map, een cmake-installatie in een systeemprefix), zoals
+        // scripts/install-user.sh ook accepteert. isDir() volgt een koppeling, een koppeling
+        // zonder doel telt dus niet.
+        if (!QFileInfo(stage + QStringLiteral("/patches")).isDir() && !QFileInfo(stage + QStringLiteral("/share/ravengun/patches")).isDir()) {
             cleanup();
-            return fail(QStringLiteral("The per-game profiles (patches/) are missing in %1; the tree to install is not complete.").arg(prefix));
+            return fail(QStringLiteral("The per-game profiles (patches/ or share/ravengun/patches) are missing in %1; the tree to install is not complete.").arg(src));
         }
         if (!isRavenGunTree(stage)) {
             cleanup();

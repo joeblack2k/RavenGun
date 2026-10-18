@@ -47,25 +47,30 @@ dist/RavenGun/ravengun.sh app     # start from the folder
 ```
 
 `make-portable.sh` copies `bin/`, `lib/` and `share/ravengun/` from the install
-(replacing them, not merging), copies `patches/` from the repository (so a fresh
-checkout has the newest profiles), copies the settings from `~/.config/ravengun`
+(replacing them, not merging), copies the shipped part of `patches/` from the repository (`tools/dev/ship-patches.py`, so a
+fresh checkout has the newest profiles but no dossier or untracked files), copies the settings from `~/.config/ravengun`
 into `User/config/ravengun` - without `web-token` and the `backups/*.bak` - and
 copies the whole runtime and game state (`wine`, `proton`, `prefixes`,
 `openparrot`, `runtime`, `native`, `writelayer`, `patches`, ...) from
 `~/.local/share/ravengun` into `User/share/ravengun/`. That big copy runs with
-`rsync -a --delete` into a temporary directory next to the destination and is then
-renamed into place, after a free-space check with `df`; a re-run with an existing
-`User/` therefore only refreshes the application and the profiles, and never
-touches the user's state (only `--reset-user` rebuilds it). Only `bench-captures`
+`rsync -a` into `User.new` next to `User/`, after a check for `rsync` and free space; only after the links have been
+rewritten and checked is `User.new` renamed to `User/`. A failed or interrupted run (an
+rsync error other than "files vanished", Ctrl-C, no space) therefore never leaves a half-built `User/`
+and never touches an existing one; the script exits non-zero. A re-run with an existing
+`User/` only refreshes the application and the profiles, and never
+touches the user's state (only `--reset-user` rebuilds it, keeping the old `User/` until the end, so it
+needs room for two copies). Unreadable overlay work directories (mode 000, made by games that run from the folder)
+are repaired before anything is copied or deleted. Only `bench-captures`
 (the proof screenshots) and `halo-overlay` (a root-owned overlay work dir) are
-skipped, and a directory that cannot be read is reported and left out instead of
-aborting the copy. The game installations themselves are never touched.
+skipped. The game installations themselves are never touched.
 
 After copying, every symbolic link that points into `~/.local` or into the
 repository is rewritten to a relative link inside the folder (or dereferenced when
 the target is not part of the folder, e.g. the gstreamer plugins of a Steam
 Proton); a link into a renamed directory (`.verborgen`) is pointed at that
-directory. The absolute paths in `library.json` (and `config.json`) are rewritten
+directory. The script ends with a check over the whole folder and exits non-zero if a link still points into
+`~/.local` (also through a chain of links) or if a relative link points out of the folder; absolute links to the game
+installations on the NAS are left as they are. The absolute paths in `library.json` (and `config.json`) are rewritten
 to the folder, and `ravengun.sh` repeats that on every start so the folder may be
 moved. The Wine wrappers in `User/share/ravengun/wrappers/` resolve the runtime
 relative to themselves, and the engine's fallbacks for the wine binary, the

@@ -37,7 +37,10 @@ struct NativePaths {
 };
 
 struct Mount { std::string mode, src, dst; };
-struct SrcDst { std::string src, dst; };
+struct SrcDst {
+    std::string src, dst;
+    bool merged = false;   // src is een samengevoegde map uit patches (gebruikerslaag over de levering), zie merge_patches()
+};
 
 // De Lindbergh-route (docs/lindbergh.md): een Sega Lindbergh-game is een gewone i386-ELF die zonder lader draait, met
 // lindbergh.so van lindbergh-loader in LD_PRELOAD (baseboard, EEPROM, dongle, GPU-patches) en de JVS-lijn van het baseboard
@@ -91,6 +94,7 @@ struct LayerStep {
     std::string to;     // het pad in de schrijflaag (of de map bij Mkdir); Write: het bestand op de host (elke start opnieuw)
     std::string lower;  // Seed/Link: hetzelfde pad op de NAS (onderlaag); bestaat het daar, dan niets doen
     std::string label;  // het pad in de sandbox, voor het logboek
+    bool merged = false;   // Seed uit een samengevoegde patches-map: een bestaand doel wordt aangevuld met wat ontbreekt
 };
 
 struct PlanOptions {
