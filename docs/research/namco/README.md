@@ -342,6 +342,23 @@ Uit met de TeknoParrot-kern. Getoetst: `tests/test_window_mode.cpp` (12 controle
 **Testrecept.** Kandidaat zoals de 12:03-runs, plus `RG_WINDOWED=1` in de `Env` van `dropin.ini`. In `rg-mfcam.log`: `venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x4057ad`;
 in het run-logboek **geen** `Setting display mode` en wel `Presenter: Actual swapchain properties` met `Buffer size: 1360x768`; `PeekMessageW #1: ... terug`; beeld (NOW LOADING).
 
+### Mario Kart DX: E22-12 "STR PCB 通信エラー" is het stuurbord op COM1 (statisch 2026-10-18, na de tv-run van 12:35)
+
+**Tv 12:35 (venstermodus):** beeld, "NOW LOADING", daarna het rode kader E22-12 "STR PCB 通信エラー". In `rg-mfcam.log` geen `JVS: CreateFileA(COM3)`: de IO-controle wordt niet bereikt.
+
+**Bewezen (objdump).** (1) Het STR-object (constructor `0x5F5F40`) heeft op `+0x188` een seriele verbinding met poortindex 1 en baudindex 2 (`0x5F5FD9`/`0x5F5FEA`); de seriele klasse
+(vtable `0xA11764`) opent `\\.\COM<n>` (tabel `0xA1166C`) met `FILE_FLAG_OVERLAPPED` (`0x853E1D`), `SetupComm(0x2000,0x2000)`, `GetCommState`, `BuildCommDCBA`
+(tabellen `0x98BC10..0x98BC7C`: `COM1: baud=19200 parity=N data=8 stop=1`), `SetCommState`, `PurgeComm(0xF)`; lezen/schrijven met `ReadFileEx`/`WriteFileEx` en
+`WaitForSingleObjectEx(INFINITE, alertable)`. Het bord hangt dus **niet** aan JVS. (2) De leesdraad (`0x5F57D0`) leest per ronde 3 bytes (`0x5F5D00`): `"C01"` zet
+`+0x49` (verbonden), `"C06"` wist hem, `"E00"` zet `+0x4A`; andere `E`-codes zijn fouten (`0x56..0x5B`, `0x5C..`, `"E20"` = `0x61`). Pas na de opstartcontrole
+(`+0x4B = 1`, `0x602EC4`) stuurt het spel eerst 10 bytes per ronde (`0x5F5C80`). (3) De opstartcontrole (`0x602DA6..0x602EE2`): wacht op `"E00"`, dan op `"C01"`;
+na `0x12C0` ticks zonder verbinding fout `0x61` (`0x602E39`), met de schermteksten `反力ＯＦＦ` en `ステアリングに手を触れないで下さい` (`0x9B5940`, `0x9B5950`). Daarna volgt de kaartlezer (`0x602E8C`).
+**Niet bewezen:** dat `0x61` op het scherm E22-12 heet (de koppeling foutnummer -> E-code is niet gevolgd); wel is `0x61` de enige fout die deze controle geeft.
+
+**Gebouwd: TIENDE TAAK van `rg-mfcam.dll` (`str_board.h`).** `RG_STR_COMPORT=COM1`: `CreateFileA("\\.\COM1")` geeft het clienteinde van een eigen pipe (overlapped, zoals het spel
+opent); een draad is het bord: `C01`, `E00`, dan `C01` uit zichzelf zolang het spel niets stuurt, daarna per 10 bytes een `C01`. De comm-aanroepen slagen op dat handvat
+(dezelfde omhulsels als JVS, nu een keer omgezet voor beide). Uit met de TeknoParrot-kern. Getoetst: `tests/test_str_board.cpp` (23 controles). Niet getoetst: het spel.
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
