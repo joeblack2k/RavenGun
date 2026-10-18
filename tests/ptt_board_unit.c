@@ -104,11 +104,20 @@ int main(void)
     ptt_board_init(&b);
     shm_set(shm, 0, 100, 100); ptt_board_poll(&b, shm);
     shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_take_rises(&b) == PTT_BIT_COIN1, "munt: opgaande rand");
     shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_take_rises(&b) == 0, "munt vastgehouden: geen tweede rand");
     shm_set(shm, 0, 100, 100); ptt_board_poll(&b, shm);
-    shm_set(shm, PTT_BIT_COIN1, 100, 100); ptt_board_poll(&b, shm);
-    CHECK(ptt_board_take_coin(&b) == 2 && ptt_board_take_coin(&b) == 0, "twee muntranden");
-    CHECK(ptt_board_rx_count(&b) == 0, "munt geeft geen pakket");
+    shm_set(shm, PTT_BIT_COIN1 | PTT_BIT_P1_START | PTT_BIT_TEST, 100, 100); ptt_board_poll(&b, shm);
+    CHECK(ptt_board_take_rises(&b) == (PTT_BIT_COIN1 | PTT_BIT_P1_START | PTT_BIT_TEST), "munt, start en test samen");
+    CHECK(ptt_board_rx_count(&b) == 0, "munt/start/test geven geen pakket");
+    {
+        unsigned bits = 0, i2;
+        for (i2 = 0; i2 < PTT_KEY_COUNT; i2++) bits |= ptt_key_map[i2].bit;
+        CHECK(ptt_key_map[0].bit == PTT_BIT_COIN1 && ptt_key_map[0].vk == 0x2d, "munt = Insert");
+        CHECK(bits == (PTT_BIT_COIN1 | PTT_BIT_P1_START | PTT_BIT_TEST | PTT_BIT_SERVICE), "toetsentabel");
+        for (i2 = 0; i2 < PTT_KEY_COUNT; i2++) CHECK(ptt_key_map[i2].vk != 0x2e, "nooit Del sturen");
+    }
 
     /* 8. commando's van het spel: 'TTTTT' -> antwoord t,3,1; '+++++' -> t,3,0; ook in stukken en met rommel ervoor */
     ptt_board_init(&b);
