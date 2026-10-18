@@ -432,7 +432,15 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
     if (volgende > nu) usleep((useconds_t)(volgende - nu));
     uint8_t r[64] = {0};
     static unsigned st_teller;
-    int status = U.st_aan && ++st_teller % (unsigned)U.st_elke == 0;
+    /* Zolang een statusbit gezet is (en nog 12 rapporten na het loslaten, ~48 ms) gaat er om de twee rapporten een statusrapport uit,
+       zodat een korte druk niet tussen twee statusrapporten van 1 op elke `elke` valt; anders om de `elke` rapporten. */
+    static int houd;
+    if (U.st_aan && U.nst_bit) {
+        uint32_t bb = atomic_load(&laatste_bits); int actief_nu = 0;
+        for (int i = 0; i < U.nst_bit; i++) if (bb >> U.st_bit[i].bit & 1) actief_nu = 1;
+        if (actief_nu) houd = 12; else if (houd > 0) houd--;
+    }
+    int status = U.st_aan && (houd > 0 ? (++st_teller & 1) == 0 : ++st_teller % (unsigned)U.st_elke == 0);
     r[0] = (uint8_t)(status ? U.st_type : U.type); r[1] = (uint8_t)volgnr; r[2] = (uint8_t)(volgnr >> 8); volgnr++;
     if (status) {
         for (int i = 3; i < 63; i++) if (U.st_gezet[i]) r[i] = U.st_byte[i];
