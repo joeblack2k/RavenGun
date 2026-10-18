@@ -129,6 +129,20 @@ int main() {
         std::vector<uint8_t> small(16, 0);
         CHECK(!rg_amhw::seed_static_sysdata(small, 2) && !rg_amhw::seed_static_sysdata(sram, 0));
     }
+    // Een leeg backup-record (SDR record 7: 0x200 bytes op 0 en 0x1000): CRC 0x0FBB6D54 + nullen; een geldige kopie blijft ongemoeid.
+    {
+        std::vector<uint8_t> m(0x2000, 0);
+        CHECK(!rg_amhw::backup_record_valid(m, 0, 0x200));
+        CHECK(rg_amhw::seed_empty_backup_record(m, 0, 0x1000, 0x200));
+        uint32_t c0, c1;
+        std::memcpy(&c0, &m[0], 4); std::memcpy(&c1, &m[0x1000], 4);
+        CHECK(c0 == 0x0FBB6D54u && c1 == 0x0FBB6D54u && rg_amhw::backup_record_valid(m, 0, 0x200) && rg_amhw::backup_record_valid(m, 0x1000, 0x200));
+        m[0x10] = 7;                                                                   // eerste kopie kapot, tweede geldig: niets zetten (de game herstelt hem zelf)
+        CHECK(!rg_amhw::backup_record_valid(m, 0, 0x200) && !rg_amhw::seed_empty_backup_record(m, 0, 0x1000, 0x200) && m[0x10] == 7);
+        m[0x1010] = 9;                                                                 // beide kapot: wel
+        CHECK(rg_amhw::seed_empty_backup_record(m, 0, 0x1000, 0x200) && m[0x10] == 0 && m[0x1010] == 0);
+        CHECK(!rg_amhw::seed_empty_backup_record(m, 0, 0x1F80, 0x200) && !rg_amhw::seed_empty_backup_record(m, 0, 0x1000, 4));
+    }
     // SMBus en Super I/O (amhw_smbus.h).
     {
         rg_amhw::HwRegs hw;

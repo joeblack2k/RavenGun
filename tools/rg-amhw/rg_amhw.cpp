@@ -119,6 +119,30 @@ constexpr DWORD kJvsReplyMs = 250;
 
 bool is_dev_path(const char* n, const char* tail) { return n && lstrcmpiA(n, tail) == 0; }
 
+void sram_flush(long long off, size_t n);
+std::string env(const char* k, const char* def);
+// RG_AMHW_SRAMSEED="A+B:SIZE[,A+B:SIZE]" (hex): een backup-record met kopieen op A en B dat geen geldige kopie heeft wordt een leeg record (CRC + nullen, amhw_sysdata.h).
+// SDR: "0+1000:200" = record 7 (de invoerstart leest het zonder terugval).
+void sram_seed_records() {
+    const std::string v = env("RG_AMHW_SRAMSEED", "");
+    size_t i = 0;
+    while (i < v.size()) {
+        const size_t j = v.find(',', i);
+        const std::string t = v.substr(i, j == std::string::npos ? std::string::npos : j - i);
+        unsigned a = 0, b = 0, sz = 0;
+        if (std::sscanf(t.c_str(), "%x+%x:%x", &a, &b, &sz) == 3) {
+            if (rg_amhw::seed_empty_backup_record(g_sram, a, b, sz)) {
+                rg_log("mxsram: backup-record 0x%X+0x%X (0x%X bytes) had geen geldige kopie: leeg record (CRC + nullen) gezet", a, b, sz);
+                sram_flush(a, sz);
+                sram_flush(b, sz);
+            } else {
+                rg_log("mxsram: backup-record 0x%X+0x%X (0x%X bytes): niets gezet (al een geldige kopie, of buiten het SRAM)", a, b, sz);
+            }
+        }
+        if (j == std::string::npos) break;
+        i = j + 1;
+    }
+}
 void sram_load() {
     if (g_sram_loaded) return;
     g_sram_loaded = true;
@@ -129,6 +153,7 @@ void sram_load() {
     } else {
         rg_log("mxsram: %s bestaat nog niet; leeg SRAM (%lu bytes)", g_sram_path, static_cast<unsigned long>(g_sram.size()));
     }
+    sram_seed_records();
 }
 void sram_flush(long long off, size_t n) {
     FILE* f = std::fopen(g_sram_path, "r+b");

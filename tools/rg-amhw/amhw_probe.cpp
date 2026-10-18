@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     SetEnvironmentVariableA("RG_AMHW_DIPSW", "70,00");
     SetEnvironmentVariableA("RG_AMHW_DIPIN", "FE,FF");        // LGI: dipschakelaar 0 aan = standaardkast zonder passagiersstoel (de standaard FF,FF staat in test_amhw)
     SetEnvironmentVariableA("RG_AMHW_NOREPARSE", "1");
+    SetEnvironmentVariableA("RG_AMHW_SRAMSEED", "8000+9000:200");   // SDR record 7 ("0+1000:200"): hier op andere plekken zodat sector 0 leeg blijft
     SetEnvironmentVariableA("RG_AMHW_WINDOW", "0,0,800,600,popup");   // het eerste grote hoofdvenster wordt 800x600 zonder rand
     SetEnvironmentVariableA("RG_AMHW_AMLOG", "1");            // geen SDR-logger in dit proefprogramma: moet netjes melden en niets zetten
     { char pk[40]; std::snprintf(pk, sizeof pk, "%lX", static_cast<unsigned long>(reinterpret_cast<uintptr_t>(&g_peek_var))); SetEnvironmentVariableA("RG_AMHW_PEEK", pk); }
@@ -187,6 +188,13 @@ int main(int argc, char** argv) {
     SetFilePointer(s, 0, &hi, FILE_BEGIN);
     char z[0x200];
     check(ReadFile(s, z, 0x200, &got, nullptr) && got == 0x200 && z[0] == 0 && z[0x1FF] == 0, "sector 0 van het SRAM is leeg (AM_SYSDATA_STATIC staat in de EEPROM, niet hier)");
+    {   // RG_AMHW_SRAMSEED: een leeg backup-record (CRC 0x0FBB6D54 + nullen) op beide kopieen
+        uint8_t sd[8] = {};
+        SetFilePointer(s, 0x9000, &hi, FILE_BEGIN);
+        check(ReadFile(s, sd, 8, &got, nullptr) && got == 8 && sd[0] == 0x54 && sd[1] == 0x6D && sd[2] == 0xBB && sd[3] == 0x0F && sd[4] == 0 && sd[7] == 0, "RG_AMHW_SRAMSEED: de kopie op 0x9000 is een leeg backup-record (CRC 0x0FBB6D54)");
+        SetFilePointer(s, 0x8000, &hi, FILE_BEGIN);
+        check(ReadFile(s, sd, 4, &got, nullptr) && got == 4 && sd[0] == 0x54 && sd[3] == 0x0F, "en de kopie op 0x8000");
+    }
     check(SetFilePointer(s, 0x200000, &hi, FILE_BEGIN) == 0x200000 && ReadFile(s, z, 0x200, &got, nullptr) && got == 0, "voorbij het einde: 0 bytes");
     CloseHandle(s);
     // Persistentie: een tweede open leest het bestand weer in (de DLL leest alleen bij het eerste open; dus bestandscontrole).
