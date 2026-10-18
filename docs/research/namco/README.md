@@ -297,6 +297,31 @@ experiment de kern erbuiten houden (andere `gamescope`-vlaggen, `WINE_NO_...`) o
 **Testrecept.** `Core = ravengun` (haal `Core = teknoparrot` uit de gebruikerslaag), dropin + dll van deze commit, `[Wine] Debug = -all,warn+seh`, `[Env] RG_STALL_DUMP = 10,20,30,45`, `DXVK_HUD = fps`. Dubbelklik, 50 s. Lever (1) `game-log-order.py` van deze run
 tegen de TP-run (`...104617`): nu moet `./Fplaydata/1812/` gelijk zijn en het eerste verschil volgt; (2) de regels van `rg-mfcam.log` vanaf `berichtenlus volgen aan`: `PeekMessageW #1 binnen/terug`, de vensters, de samenvattingen; (3) de stalldumps; (4) beeld ja/nee.
 
+### Mario Kart DX: de eerste PeekMessageW blokkeert echt (11:44-meting); diagnose en proeven
+
+**Bewezen (11:44, `RG_MSGTRACE=1`).** `PeekMessageW #1: binnen (hwnd 0, 0..0, vlaggen 0x0)` staat 6,1 s na `CreateWindowExW(ex 0x8 [TOPMOST], mkart3, stijl 0x90000000 [POPUP|VISIBLE], 1360x768) -> 0001006e` + `ShowWindow(.., 1)`
+(+2,4 s na het laden) en direct na het ShareK-object; **er komt nooit een `terug`**. Op dat moment is het venster `0001006e` zichtbaar, niet iconic, voorgrond = actief = focus (rect 0,0 1368x768), plus `Wine IME` en `IME` (1x1, onzichtbaar, van imm32).
+De aanroep is dus een blokkerende syscall in Wine (`win32u+0x11d38`), de hoofdthread wacht niet op logica van het spel; in alle dumps staan geen wndproc-frames van de exe boven de aanroep, dus een berichtafhandelaar van het spel zelf blokkeert niet.
+Andere draden: 20 werkers in `Sleep(30)` (`0x8527FB`), pollers (`SleepEx`), de invoerdraad, audio; geen draad in een SendMessage-wacht van het spel zelf zichtbaar (alleen exe-frames werden getoond).
+
+**Kandidaten waarom `NtUserPeekMessage` blokkeert** (nog niet te onderscheiden):
+1. een **laag-niveau hook** (WH_KEYBOARD_LL/WH_MOUSE_LL, bijvoorbeeld van `dinput8` of de DirectInput-haken van de kern, `HookIDirectInput8` staat in `OpenParrot.dll`): Wine roept zo'n hook aan *in* de PeekMessage van de installerende draad;
+   blokkeert de hookprocedure op een slot dat een andere draad vasthoudt, dan hangt PeekMessage zonder exe-frames;
+2. de **X11-driver** die in `PeekMessage` een roundtrip naar de X-server doet (gamescope/Xwayland) die niet antwoordt (venster net gemapt, 6 s later; TP komt er pas na ~25 s, na zijn lange laadstappen);
+3. een **cross-thread SendMessage** naar een venster van deze draad vanuit een draad die zelf wacht (bijvoorbeeld de camera of audio) of een **imm32/IME**-wissel.
+
+**Nieuw gereedschap.**
+* `tools/dev/proc-threads.py [NAAM]` (alleen lezen uit `/proc`): per draad van het spelproces `wchan`, toestand, cpu-ticks en, als `/proc/<pid>/task/<tid>/syscall` leesbaar is, de syscall met het bestand achter de fd. **Draai het midden in de hang** (bij 20-30 s).
+  `futex_do_wait` op alle draden zonder socket = een sloten-deadlock (kandidaat 1/3); een draad in `poll`/`recvmsg` op de X/Wayland-socket = kandidaat 2.
+* De stalldump toont nu per draad ook terugkeeradressen in **andere modules** (`(module) user32.dll+0x...`, `dinput8.dll`, `OpenParrot.dll`, `win32u.dll`, `kernelbase.dll`) naast de exe-adressen. Een hoofddraad met `dinput8`/`OpenParrot` boven `win32u` bevestigt kandidaat 1.
+* `RG_PEEK_DELAY_MS=N` en `RG_PEEK_SKIP_FIRST=1` (nu in `rg-mfcam.dll`; niet in `dropin.ini` aangezet): proeven die de aanroep uitstellen of overslaan.
+
+**Testrecept (drie korte runs; steeds `Core = ravengun`, `RG_MSGTRACE=1`, `RG_STALL_DUMP = 10,20,30,45`, `WINEDEBUG = -all,warn+seh`).**
+1. **Diagnose** (geen proef-env): start, wacht tot 25 s en draai dan `tools/dev/proc-threads.py` (stuur de uitvoer), laat de run doorlopen tot na de dump van 30 s. Stuur het stalldump-blok van 20 s en 30 s uit `rg-mfcam.log` (hoofddraad plus alle draden met `(module)`-regels).
+2. **Race-proef**: `RG_PEEK_DELAY_MS = 25000` in `[Env]`. Komt er na 25 s een `terug` en een lus en beeld, dan was het een race tussen vensteropbouw en de eerste PeekMessageW (dan: een kleine vaste vertraging of wachten op een gebeurtenis in de dll als echte oplossing).
+3. **Overslaproef**: `RG_PEEK_SKIP_FIRST = 1`. Staat de volgende `PeekMessageW` (vlaggen 0x1) er dan ook binnen zonder terug, dan blokkeert elke PeekMessage van deze draad (kandidaat 1 of 2), niet alleen de eerste.
+4. Zonder gamescope: `[Display] Gamescope = false` (alleen zoals gemeten in run 1; scheidt kandidaat 2 van de rest).
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie

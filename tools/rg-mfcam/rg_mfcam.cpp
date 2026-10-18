@@ -76,6 +76,8 @@
 //
 // OMGEVING
 //   RG_MSGTRACE=1        de berichtenlus en vensters volgen
+//   RG_PEEK_DELAY_MS=N   (proef) de eerste PeekMessageW van het spel N ms uitstellen, bv. 25000 (TP doet er ~25 s over voor zijn eerste lus)
+//   RG_PEEK_SKIP_FIRST=1 (proef) de eerste PeekMessageW(PM_NOREMOVE) van het spel (0x83D7D4, maakt alleen de berichtenwachtrij) niet uitvoeren
 //   RG_DRIVE_STRINGS=0   bij RG_DRIVE_FIXUP de tekenreeksen niet aanpassen (alleen de API-omleiding)
 //   RG_BNGRW=trace|fake  de kaartlezer volgen of nabootsen; leeg = uit
 //   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
@@ -1442,6 +1444,8 @@ volatile LONG g_peek_n = 0, g_peek_msgs = 0, g_disp_n = 0;
 volatile LONG g_peek_slow = 0;
 DWORD g_peek_max_ms = 0;
 DWORD g_peek_last_sum = 0;
+DWORD g_peek_delay_ms = 0;       // RG_PEEK_DELAY_MS: de eerste PeekMessageW zoveel ms uitstellen (proef: een race met het venster?)
+bool g_peek_skip_first = false;  // RG_PEEK_SKIP_FIRST=1: de eerste PeekMessageW (PM_NOREMOVE) niet uitvoeren (proef)
 
 using PeekMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 using DispatchMessageWFn = LRESULT(WINAPI*)(const MSG*);
@@ -1474,6 +1478,15 @@ BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND h, UINT a, UINT b, UINT f) {
     if (n <= 5) {
         rg_log("PeekMessageW #%ld: binnen (hwnd %p, %u..%u, vlaggen 0x%x)", static_cast<long>(n), h, a, b, f);
         if (n == 1) window_state("eerste PeekMessageW");
+    }
+    if (n == 1 && g_peek_delay_ms) {
+        rg_log("PeekMessageW #1: %lu ms uitgesteld (RG_PEEK_DELAY_MS)", static_cast<unsigned long>(g_peek_delay_ms));
+        Sleep(g_peek_delay_ms);
+    }
+    if (n == 1 && g_peek_skip_first && f == 0) {   // de eerste PeekMessageW(PM_NOREMOVE) van het spel (0x83D7D4) maakt alleen de berichtenwachtrij; msg blijft leeg
+        rg_log("PeekMessageW #1 overgeslagen (RG_PEEK_SKIP_FIRST): FALSE zonder de echte aanroep");
+        if (m) std::memset(m, 0, sizeof *m);
+        return FALSE;
     }
     const DWORD t0 = GetTickCount();
     const BOOL r = g_peek_w(m, h, a, b, f);
@@ -1519,7 +1532,10 @@ HWND WINAPI rg_CreateWindowExW(DWORD ex, LPCWSTR cls, LPCWSTR name, DWORD style,
 void setup_msg_trace() {
     char v[8];
     if (GetEnvironmentVariableA("RG_MSGTRACE", v, sizeof v) == 0 || v[0] != '1') return;   // uit
-    rg_log("berichtenlus volgen aan");
+    char pv[16];
+    if (GetEnvironmentVariableA("RG_PEEK_DELAY_MS", pv, sizeof pv) > 0) g_peek_delay_ms = static_cast<DWORD>(std::strtoul(pv, nullptr, 10));
+    if (GetEnvironmentVariableA("RG_PEEK_SKIP_FIRST", pv, sizeof pv) > 0 && pv[0] == '1') g_peek_skip_first = true;
+    rg_log("berichtenlus volgen aan (uitstel %lu ms, eerste overslaan %d)", static_cast<unsigned long>(g_peek_delay_ms), g_peek_skip_first ? 1 : 0);
     hook_import("USER32.dll", "PeekMessageW", reinterpret_cast<void*>(&rg_PeekMessageW), g_peek_w);
     hook_import("USER32.dll", "DispatchMessageW", reinterpret_cast<void*>(&rg_DispatchMessageW), g_dispatch_w);
     hook_import("USER32.dll", "ShowWindow", reinterpret_cast<void*>(&rg_ShowWindow), g_show_window);
@@ -1617,17 +1633,25 @@ void stall_dump_once(unsigned secs) {
             SIZE_T got = 0;
             while (got + 32 <= sizeof stack && read_self(c.Esp + static_cast<DWORD>(got), stack + got, 32)) got += 32;
             if (got >= 4) {
-                int shown = 0;
-                for (SIZE_T o = 0; o + 4 <= got && shown < 14; o += 4) {
+                int shown = 0, shown_other = 0;
+                for (SIZE_T o = 0; o + 4 <= got && (shown < 14 || shown_other < 16); o += 4) {
                     DWORD v;
                     std::memcpy(&v, stack + o, 4);
-                    if (v < base + 8 || v >= base + size) continue;
+                    const bool in_exe = v >= base + 8 && v < base + size;
+                    if (in_exe ? shown >= 14 : shown_other >= 16) continue;
+                    if (!in_exe) {
+                        // andere modules (user32, win32u, winex11-brug, dinput8, d3d11, ...): alleen echte code in een geladen image
+                        if (v < 0x10000 || v >= 0x7ff00000) continue;
+                        MEMORY_BASIC_INFORMATION mbi = {};
+                        if (!VirtualQuery(reinterpret_cast<LPCVOID>(static_cast<uintptr_t>(v)), &mbi, sizeof mbi) || mbi.Type != MEM_IMAGE) continue;
+                        if (!(mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) continue;
+                    }
                     BYTE before[8];
                     if (!read_self(v - 8, before, 8)) continue;
                     if (!rg_stall::preceded_by_call(before + 8)) continue;   // leest p[-6]..p[-1]: de 8 bytes vlak voor v
                     where_text(v, w, sizeof w);
-                    rg_log("      [ESP+0x%lx] %s", static_cast<unsigned long>(o), w);
-                    ++shown;
+                    rg_log("      [ESP+0x%lx] %s%s", static_cast<unsigned long>(o), in_exe ? "" : "(module) ", w);
+                    if (in_exe) ++shown; else ++shown_other;
                 }
             }
         } else {
