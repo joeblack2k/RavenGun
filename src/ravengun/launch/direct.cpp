@@ -368,8 +368,20 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         std::string doel = trim(stuk.substr(is + 1));
         if (doel.starts_with("~/")) doel = p.home + doel.substr(1);
         doel = normpath(doel.size() && doel[0] == '/' ? doel : pjoin(view_root, doel));
-        if (!isdir(doel)) return setting_refused("schijf " + letter + ": de map " + doel + " bestaat niet");
-        if (on_nas(doel, p)) return setting_refused("schijf " + letter + ": de map " + doel + " ligt op de NAS; een schijfletter van ons wijst naar een lokale map (de view van het spel, of een eigen map)");
+        if (!isdir(doel)) {
+            // Een map ONDER de view die er nog niet is (Point Blank X: F=TeknoParrot/F, de map waar de schijfletter-omleiding van de kern
+            // naartoe wijst) wordt bij een echte start gemaakt; in --plan blijft het bij een melding. Elders of op de NAS: weigeren.
+            const bool onder_view = abspath(doel) != abspath(view_root) && binnen(abspath(doel), abspath(view_root)) && !on_nas(doel, p);
+            if (!onder_view) return setting_refused("schijf " + letter + ": de map " + doel + " bestaat niet");
+            if (o.make_view) {
+                std::error_code mec;
+                fs::create_directories(doel, mec);
+                if (!isdir(doel)) return setting_refused("schijf " + letter + ": de map " + doel + " kon niet gemaakt worden: " + mec.message());
+            } else {
+                pl.notes.push_back("schijf " + letter + ": de map " + doel + " bestaat nog niet; hij wordt bij de start gemaakt");
+            }
+        }
+        if (isdir(doel) && on_nas(doel, p)) return setting_refused("schijf " + letter + ": de map " + doel + " ligt op de NAS; een schijfletter van ons wijst naar een lokale map (de view van het spel, of een eigen map)");
         DirectDrive d;
         d.letter = letter;
         d.target = doel;

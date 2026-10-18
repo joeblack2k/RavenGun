@@ -17,6 +17,14 @@
  *   RG_USBIO_OPS     vier letters uit T S U D: welke bedienknop op welk van de vier overige knopbits zit (standaard TSUD).
  *   RG_USBIO_INVERT  "x", "y" of "xy": as omdraaien.
  *   RG_USBIO_LOG     0 = geen logboek; anders pad van het logboek (standaard rg-usbio.log naast de DLL).
+ *   RG_USBIO_KEYS    1 = de toetsen van het virtuele toetsenbord van de daemon (1 2 5 6 0 F2..F5) WEL aan de game laten zien.
+ *
+ * DE TOETSEN VAN DE DAEMON (speelproef 2026-10-18: de muntknop opende het testmenu). Voor elke speler- en systeemknop drukt de daemon
+ * OOK een toets op zijn virtuele toetsenbord (de TeknoParrot-afspraak: munt = '5', start = '1', test = '0'/F2). De game leest naast
+ * het bord ook het toetsenbord via DirectInput8 (CryInput), en bij Global VR is '5' daar TEST (zelfde conventie als Aliens
+ * Extermination, waar hetzelfde gebeurde). Het bord krijgt de knoppen al uit het bordbeeld; het toetsenbord moet ze daarom NIET zien.
+ * De DLL haakt DirectInput8Create in de importtabel van de exe, daarna CreateDevice van de IDirectInput8 en GetDeviceState /
+ * GetDeviceData van elk toetsenbordapparaat, en haalt die toetsen eruit. Muis en joysticks blijven ongemoeid.
  */
 #include <windows.h>
 #include "rg_usbio_logic.h"
@@ -248,6 +256,194 @@ FC void *rg_assign_enum(void *self, int shadow_edx, const void *src)
     return self;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* DirectInput8: de toetsen van het virtuele toetsenbord van de daemon verbergen                      */
+
+typedef HRESULT (WINAPI *di_create_fn)(HINSTANCE, DWORD, const GUID *, void **, void *);
+typedef HRESULT (WINAPI *di_createdev_fn)(void *, const GUID *, void **, void *);
+typedef HRESULT (WINAPI *dev_getstate_fn)(void *, DWORD, void *);
+typedef HRESULT (WINAPI *dev_getdata_fn)(void *, DWORD, void *, DWORD *, DWORD);
+
+#define VT_MAX 6
+static struct { void **vtbl; void *orig; } g_vt_dev[VT_MAX];     /* vtables van IDirectInput8A/W: originele CreateDevice */
+static struct { void **vtbl; void *gs, *gd; } g_vt_kb[VT_MAX];   /* vtables van apparaten: originele GetDeviceState/GetDeviceData */
+static void *g_kb_dev[16];                                      /* apparaten waarvan we weten dat het toetsenborden zijn */
+static di_create_fn g_real_create;
+static int g_keys_pass;
+static int g_key_logged[256];
+
+static void patch_slot(void **vtbl, int slot, void *nieuw)
+{
+    DWORD prot;
+    if (!VirtualProtect(&vtbl[slot], sizeof(void *), PAGE_READWRITE, &prot)) return;
+    vtbl[slot] = nieuw;
+    VirtualProtect(&vtbl[slot], sizeof(void *), prot, &prot);
+}
+
+static int is_kb(void *dev)
+{
+    int i;
+    for (i = 0; i < 16; i++) if (g_kb_dev[i] == dev) return 1;
+    return 0;
+}
+
+static void mark_kb(void *dev)
+{
+    int i;
+    if (is_kb(dev)) return;
+    for (i = 0; i < 16; i++) if (!g_kb_dev[i]) { g_kb_dev[i] = dev; return; }
+}
+
+static void note_key(unsigned k)
+{
+    if (k < 256 && !g_key_logged[k]) {
+        g_key_logged[k] = 1;
+        logf3("toets uit DirectInput onderdrukt (DIK)", k, 0, 0);
+    }
+}
+
+static void *kb_orig(void *self, int gd)
+{
+    int i;
+    void **vt = *(void ***)self;
+    for (i = 0; i < VT_MAX; i++) if (g_vt_kb[i].vtbl == vt) return gd ? g_vt_kb[i].gd : g_vt_kb[i].gs;
+    return 0;
+}
+
+static HRESULT WINAPI hk_GetDeviceState(void *self, DWORD cb, void *data)
+{
+    dev_getstate_fn orig = (dev_getstate_fn)kb_orig(self, 0);
+    HRESULT hr;
+    if (!orig) return E_FAIL;
+    hr = orig(self, cb, data);
+    if (hr >= 0 && cb == 256 && data && !g_keys_pass) {      /* 256 bytes = toetsenbordtoestand (c_dfDIKeyboard) */
+        unsigned char *st = (unsigned char *)data;
+        unsigned k;
+        mark_kb(self);
+        for (k = 0; k < 256; k++)
+            if (rg_usbio_dik_blocked(k) && (st[k] & 0x80)) note_key(k);
+        rg_usbio_filter_state(st);
+    }
+    return hr;
+}
+
+static HRESULT WINAPI hk_GetDeviceData(void *self, DWORD cbobj, void *rgdod, DWORD *inout, DWORD flags)
+{
+    dev_getdata_fn orig = (dev_getdata_fn)kb_orig(self, 1);
+    HRESULT hr;
+    if (!orig) return E_FAIL;
+    hr = orig(self, cbobj, rgdod, inout, flags);
+    if (hr >= 0 && is_kb(self) && !g_keys_pass && rgdod && inout && cbobj >= 4 && cbobj <= 64) {
+        unsigned char *p = (unsigned char *)rgdod;
+        DWORD n = *inout, i;
+        for (i = 0; i < n; i++) {
+            const unsigned char *e = p + (size_t)i * cbobj;
+            DWORD ofs = *(const DWORD *)e;
+            if (rg_usbio_dik_blocked(ofs)) note_key(ofs);
+        }
+        *inout = rg_usbio_filter_data(p, n, cbobj);
+    }
+    return hr;
+}
+
+static int is_kb_guid(const GUID *g)
+{
+    if (!g) return 0;
+    return (g->Data1 == 0x6F1D2B61u || g->Data1 == 0x6F1D2B82u || g->Data1 == 0x6F1D2B83u) && g->Data2 == 0xD5A0 && g->Data3 == 0x11CF;
+}
+
+static HRESULT WINAPI hk_CreateDevice(void *self, const GUID *guid, void **ppdev, void *outer)
+{
+    di_createdev_fn orig = 0;
+    HRESULT hr;
+    int i;
+    void **vt = *(void ***)self;
+    for (i = 0; i < VT_MAX; i++) if (g_vt_dev[i].vtbl == vt) orig = (di_createdev_fn)g_vt_dev[i].orig;
+    if (!orig) return E_FAIL;
+    hr = orig(self, guid, ppdev, outer);
+    if (hr >= 0 && ppdev && *ppdev) {
+        void **dvt = *(void ***)*ppdev;
+        int known = 0, free_i = -1;
+        for (i = 0; i < VT_MAX; i++) {
+            if (g_vt_kb[i].vtbl == dvt) known = 1;
+            else if (!g_vt_kb[i].vtbl && free_i < 0) free_i = i;
+        }
+        if (!known && free_i >= 0) {       /* een vtable (A of W) die we nog niet hadden: haken */
+            g_vt_kb[free_i].vtbl = dvt;
+            g_vt_kb[free_i].gs = dvt[9];
+            g_vt_kb[free_i].gd = dvt[10];
+            patch_slot(dvt, 9, (void *)hk_GetDeviceState);
+            patch_slot(dvt, 10, (void *)hk_GetDeviceData);
+        }
+        if (is_kb_guid(guid)) { mark_kb(*ppdev); logf3("toetsenbordapparaat gehaakt", (unsigned)(UINT_PTR)*ppdev, 0, 0); }
+    }
+    return hr;
+}
+
+static HRESULT WINAPI hk_DirectInput8Create(HINSTANCE h, DWORD ver, const GUID *riid, void **out, void *outer)
+{
+    HRESULT hr = g_real_create ? g_real_create(h, ver, riid, out, outer) : E_FAIL;
+    if (hr >= 0 && out && *out) {
+        void **vt = *(void ***)*out;
+        int i, known = 0, free_i = -1;
+        for (i = 0; i < VT_MAX; i++) {
+            if (g_vt_dev[i].vtbl == vt) known = 1;
+            else if (!g_vt_dev[i].vtbl && free_i < 0) free_i = i;
+        }
+        if (!known && free_i >= 0) {
+            g_vt_dev[free_i].vtbl = vt;
+            g_vt_dev[free_i].orig = vt[3];
+            patch_slot(vt, 3, (void *)hk_CreateDevice);
+            logf3("IDirectInput8 gehaakt", (unsigned)(UINT_PTR)vt, 0, 0);
+        }
+    }
+    return hr;
+}
+
+static int same_name_nocase(const char *a, const char *b)
+{
+    for (;; a++, b++) {
+        char x = *a, y = *b;
+        if (x >= 'A' && x <= 'Z') x = (char)(x + 32);
+        if (y >= 'A' && y <= 'Z') y = (char)(y + 32);
+        if (x != y) return 0;
+        if (!x) return 1;
+    }
+}
+
+/* Zet DirectInput8Create in de importtabel van de exe om. Staat dinput8 (nog) niet in het proces of vindt de tabel hem niet, dan gebeurt er niets. */
+static void hook_dinput(void)
+{
+    HMODULE di = GetModuleHandleA("dinput8.dll");
+    unsigned char *base = (unsigned char *)GetModuleHandleA(NULL);
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
+    IMAGE_NT_HEADERS32 *nt;
+    IMAGE_DATA_DIRECTORY dd;
+    IMAGE_IMPORT_DESCRIPTOR *imp;
+    int gehaakt = 0;
+    if (!di || !base || dos->e_magic != IMAGE_DOS_SIGNATURE) { logf3("dinput8 niet gehaakt: module ontbreekt", 0, 0, 0); return; }
+    g_real_create = (di_create_fn)(void *)GetProcAddress(di, "DirectInput8Create");
+    nt = (IMAGE_NT_HEADERS32 *)(base + dos->e_lfanew);
+    dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!g_real_create || !dd.VirtualAddress) { logf3("dinput8 niet gehaakt: geen DirectInput8Create of importtabel", 0, 0, 0); return; }
+    for (imp = (IMAGE_IMPORT_DESCRIPTOR *)(base + dd.VirtualAddress); imp->Name; imp++) {
+        IMAGE_THUNK_DATA32 *t;
+        if (!same_name_nocase((const char *)(base + imp->Name), "dinput8.dll")) continue;
+        for (t = (IMAGE_THUNK_DATA32 *)(base + imp->FirstThunk); t->u1.Function; t++) {
+            if ((void *)(UINT_PTR)t->u1.Function == (void *)g_real_create) {
+                DWORD prot;
+                if (VirtualProtect(&t->u1.Function, sizeof(DWORD), PAGE_READWRITE, &prot)) {
+                    t->u1.Function = (DWORD)(UINT_PTR)hk_DirectInput8Create;
+                    VirtualProtect(&t->u1.Function, sizeof(DWORD), prot, &prot);
+                    gehaakt++;
+                }
+            }
+        }
+    }
+    logf3("dinput8: DirectInput8Create omgezet in de importtabel", (unsigned)gehaakt, g_keys_pass, 0);
+}
+
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID res)
 {
     char env[16];
@@ -265,7 +461,9 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID res)
                 if (env[i] == 'y' || env[i] == 'Y') g_st.invert_y = 1;
             }
         }
+        if (GetEnvironmentVariableA("RG_USBIO_KEYS", env, sizeof env) && env[0] == '1') g_keys_pass = 1;
         logf3("geladen (rg-usbio, Far Cry)", g_st.ops[0], g_st.invert_x, g_st.invert_y);
+        hook_dinput();
     }
     return TRUE;
 }

@@ -28,6 +28,13 @@ if [[ -x "$SR/usr/bin/i686-w64-mingw32-gcc" ]] && command -v objdump >/dev/null;
   # de aangeroepene ruimt de stapel op zoals het origineel: Update en GetLastError "ret 4", Init en Close "ret"
   objdump -d -M intel "$T/Usbioextreme.dll" | grep -qE 'ret +0x4$' || { echo "FAIL: geen 'ret 0x4' in de DLL (Update/GetLastError)"; exit 1; }
   echo "farcry_usbio_dll: ok (29 exports)"
+  # de toetsenbordfilter onder Wine (wegwerpprefix, zonder scherm; een halve minuut): alleen op verzoek, RG_WINE_PROEF=1
+  if [[ "${RG_WINE_PROEF:-0}" == 1 ]]; then
+    "$ROOT/tools/rg-farcry/wine-proef.sh" >"$T/wine.out" 2>&1; rc=$?
+    if [[ $rc -eq 77 ]]; then echo "overgeslagen: geen Wine voor de filterproef"
+    elif [[ $rc -ne 0 ]]; then cat "$T/wine.out"; echo "FAIL: de toetsenbordfilterproef onder Wine (exitcode $rc)"; exit 1
+    else echo "farcry_usbio_wine: ok (toetsenbordfilter)"; fi
+  fi
 else
   echo "overgeslagen: geen mingw-keten (alleen de eenheidstest gedraaid)"
 fi

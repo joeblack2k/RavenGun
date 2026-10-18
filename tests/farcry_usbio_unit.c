@@ -139,6 +139,27 @@ int main(void)
     rg_usbio_fill(&s, shm, rec, 0);
     CHECK(rec[0] == 0 && rec[1] == 0 && rec[2] == 0 && rec[3] == 0 && rec[4] == 0 && rec[5] == 0);
 
+    /* het toetsenbord van de game: de toetsen van de daemon (1 2 5 6 0 F2..F5) eruit, de rest blijft */
+    {
+        unsigned char st[256], ev[6 * 8];
+        unsigned n, i;
+        memset(st, 0, sizeof st);
+        st[0x06] = 0x80; st[0x02] = 0x80; st[0x0b] = 0x80; st[0x3e] = 0x80;   /* 5, 1, 0, F4: weg */
+        st[0x11] = 0x80; st[0x39] = 0x80; st[0x0a] = 0x80; st[0x3b] = 0x80;   /* W, spatie, 9, F1: blijven */
+        CHECK(rg_usbio_filter_state(st) == 4);
+        CHECK(st[0x06] == 0 && st[0x02] == 0 && st[0x0b] == 0 && st[0x3e] == 0);
+        CHECK(st[0x11] == 0x80 && st[0x39] == 0x80 && st[0x0a] == 0x80 && st[0x3b] == 0x80);
+        CHECK(rg_usbio_filter_state(st) == 0);
+        CHECK(!rg_usbio_dik_blocked(0x01) && !rg_usbio_dik_blocked(0x04) && !rg_usbio_dik_blocked(0x08) && !rg_usbio_dik_blocked(0x0c) &&
+              !rg_usbio_dik_blocked(0x3b) && !rg_usbio_dik_blocked(0x40));
+        /* gebufferd: DIDEVICEOBJECTDATA's van 8 bytes (dwOfs, dwData); 5-neer, W-neer, 5-op, F3-neer, spatie-neer, 6-neer */
+        memset(ev, 0, sizeof ev);
+        { static const unsigned char ofs[6] = {0x06, 0x11, 0x06, 0x3d, 0x39, 0x07}; for (i = 0; i < 6; i++) { ev[i * 8] = ofs[i]; ev[i * 8 + 4] = (unsigned char)(i + 1); } }
+        n = rg_usbio_filter_data(ev, 6, 8);
+        CHECK(n == 2 && ev[0] == 0x11 && ev[4] == 2 && ev[8] == 0x39 && ev[12] == 5);
+        CHECK(rg_usbio_filter_data(ev, 2, 2) == 2);   /* een onmogelijke objectgrootte: ongemoeid */
+    }
+
     if (fails) { printf("%d fout(en)\n", fails); return 1; }
     printf("farcry_usbio_unit: ok\n");
     return 0;
