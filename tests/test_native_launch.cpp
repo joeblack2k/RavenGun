@@ -356,6 +356,45 @@ int main() {
     log.clear();
     CHECK(apply_layer(pl, log, err));
     CHECK(!fs::exists(up + "/g5/dino/pmuser"));
+    // Een seed uit een samengevoegde patches-map vult een bestaande schrijflaag aan met wat ontbreekt (een eerdere start zaaide uit een
+    // halve of verouderde gebruikersmap); wat er staat blijft, ook als het afwijkt.
+    {
+        write(p.user_patches + "/Game/dropin/dongle/Game/eigen.json", "owner");
+        write(p.patches + "/Game/dropin/dongle/Game/nieuw.json", "shipped-nieuw");
+        NativeProfile pm;
+        NativePlan plm;
+        std::string e3;
+        CHECK(load_profile(json, "Game", p, pm, e3));
+        CHECK(pm.seeds.size() == 1 && pm.seeds[0].merged && pm.seeds[0].src.find("/merge-patches/") != std::string::npos);
+        CHECK(plan(pm, p, PlanOptions{}, plm, e3));
+        CHECK(fs::exists(up + "/dongle/Game/dongle.json") && !fs::exists(up + "/dongle/Game/nieuw.json") && !fs::exists(up + "/dongle/Game/eigen.json"));
+        std::vector<std::string> lg;
+        CHECK(apply_layer(plm, lg, e3));
+        CHECK(slurp(up + "/dongle/Game/nieuw.json") == "shipped-nieuw");     // ontbrak: aangevuld uit de levering
+        CHECK(slurp(up + "/dongle/Game/eigen.json") == "owner");             // ontbrak: aangevuld uit de gebruikerslaag
+        CHECK(slurp(up + "/dongle/Game/dongle.json") == "door het spel bijgewerkt");   // stond er al: blijft
+        CHECK(std::any_of(lg.begin(), lg.end(), [](const std::string& l) { return l.find("2 ontbrekende bestanden aangevuld") != std::string::npos; }));
+        // Nog eens: niets meer aan te vullen en niets overschreven.
+        write(up + "/dongle/Game/nieuw.json", "door het spel");
+        lg.clear();
+        CHECK(apply_layer(plm, lg, e3));
+        CHECK(slurp(up + "/dongle/Game/nieuw.json") == "door het spel");
+        CHECK(std::none_of(lg.begin(), lg.end(), [](const std::string& l) { return l.find("aangevuld") != std::string::npos; }));
+        // Een seed uit een gewone (niet samengevoegde) bron blijft zoals hij was: bestaat het doel, dan niets.
+        fs::remove_all(p.user_patches + "/Game/dropin");
+        fs::remove(p.patches + "/Game/dropin/dongle/Game/nieuw.json");
+        fs::remove_all(p.data + "/merge-patches");
+        NativeProfile pg;
+        NativePlan plg;
+        CHECK(load_profile(json, "Game", p, pg, e3) && !pg.seeds[0].merged);
+        CHECK(plan(pg, p, PlanOptions{}, plg, e3));
+        write(up + "/dongle/Game/ander.json", "x");
+        fs::remove(up + "/dongle/Game/eigen.json");
+        lg.clear();
+        CHECK(apply_layer(plg, lg, e3));
+        CHECK(!fs::exists(up + "/dongle/Game/eigen.json") && lg.size() == 2 && lg[0].find("bestaat al") != std::string::npos);
+        fs::remove(up + "/dongle/Game/ander.json");
+    }
     // Het identiteitsblok noemt het profiel, de lader, onze bibliotheken, de meegegeven bestanden en de tabel, met sha256.
     const auto id = identity_lines(pl);
     auto has_line = [&](const std::string& part) { return std::any_of(id.begin(), id.end(), [&](const std::string& l) { return l.find(part) != std::string::npos; }); };
@@ -462,6 +501,29 @@ int main() {
         CHECK(slurp(merged + "/memory/dump") == "owner-dump");        // de gebruiker wint per bestand
         CHECK(slurp(merged + "/dongle.json") == "shipped-dongle");    // de rest komt uit de levering
         CHECK(!pp.notes.empty());
+        const auto gemeld = [](const NativeProfile& np, const char* deel) {
+            return std::any_of(np.notes.begin(), np.notes.end(), [&](const std::string& n) { return n.find(deel) != std::string::npos; });
+        };
+        // Dezelfde bronnen nog eens: de map wordt niet opnieuw gebouwd (een draaiende game houdt hem gemount). Een wijziging aan een
+        // bron bouwt hem wel opnieuw, zonder resten van de oude map.
+        write(merged + "/.teken", "x");
+        NativeProfile p2;
+        CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged);
+        CHECK(fs::exists(merged + "/.teken") && !gemeld(p2, "samengevoegd"));
+        write(user + "/memory/nieuw", "owner-nieuw");
+        CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged && gemeld(p2, "samengevoegd"));
+        CHECK(!fs::exists(merged + "/.teken") && slurp(merged + "/memory/nieuw") == "owner-nieuw" && slurp(merged + "/memory/dump") == "owner-dump");
+        fs::remove(user + "/memory/nieuw");
+        // Lukt het samenvoegen niet (hier: @data is geen map), dan de MEEGELEVERDE map, met een melding, en niet de halve gebruikersmap.
+        {
+            NativePaths bad = q;
+            bad.data = (root / "data-is-een-bestand").string();
+            write(bad.data, "geen map");
+            NativeProfile pf;
+            CHECK(load_profile(text, "Dir", bad, pf, err) && pf.mounts[0].src == shipped);
+            CHECK(gemeld(pf, "samenvoegen mislukt") && gemeld(pf, "gebruikerslaag"));
+            fs::remove(bad.data);
+        }
         // Alleen de gebruikersmap (niets meegeleverd): geen samenvoeging nodig.
         fs::remove_all(shipped);
         write(user + "/memory/dump", "owner-dump");

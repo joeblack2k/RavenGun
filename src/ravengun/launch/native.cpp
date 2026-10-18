@@ -55,15 +55,53 @@ std::string expand(std::string s, const NativePaths& p) {
     return s;
 }
 
+// Een vingerafdruk van een boom: relatieve paden, soort, grootte en wijzigingstijd van de bestanden en het doel van de
+// koppelingen (geen inhoud; een samenvoeging hoeft maar opnieuw als er iets aan de bronnen veranderd is). Gesorteerd, want de
+// volgorde van een map is niet vastgelegd.
+std::uint64_t tree_fingerprint(const std::string& root) {
+    std::vector<std::string> regels;
+    std::error_code ec;
+    fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec), end;
+    for (; !ec && it != end; it.increment(ec)) {
+        std::error_code e2;
+        const fs::file_status st = it->symlink_status(e2);
+        std::string r = fs::relative(it->path(), root, e2).string();
+        if (fs::is_symlink(st)) r += "|l|" + fs::read_symlink(it->path(), e2).string();
+        else if (fs::is_directory(st)) r += "|d";
+        else r += "|f|" + std::to_string(fs::file_size(it->path(), e2)) + "|" + std::to_string(fs::last_write_time(it->path(), e2).time_since_epoch().count());
+        regels.push_back(std::move(r));
+    }
+    std::sort(regels.begin(), regels.end());
+    std::uint64_t h = 1469598103934665603ULL;   // FNV-1a
+    for (const std::string& r : regels) {
+        for (unsigned char c : r) { h ^= c; h *= 1099511628211ULL; }
+        h ^= '\n'; h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+std::string hex64(std::uint64_t v) {
+    char b[17];
+    std::snprintf(b, sizeof b, "%016llx", static_cast<unsigned long long>(v));
+    return b;
+}
+
 // De gebruikerslaag gaat per BESTAND voor op de meegeleverde laag. Zonder dit wint een map
 // in de gebruikerslaag op de hele meegeleverde map: een halve of verouderde
 // ravengun-hasp-map (of data/-map) verbergt dan de bestanden die een verse checkout wel
 // heeft, en de game start niet meer. Botst het, dan maken we in @data/merge-patches een
 // samengevoegde map: eerst de meegeleverde bestanden, daarna die van de gebruiker eroverheen.
-std::string merge_patches(const std::string& src, const NativePaths& p, std::vector<std::string>* notes) {
+//
+// De samenvoeging wordt NIET bij elke aanroep opnieuw gebouwd: naast de map staat een stempel met de vingerafdruk van beide
+// bronnen, en zolang die klopt blijft de map zoals hij is (een draaiende game houdt hem gemount). Een nieuwe samenvoeging komt
+// in een eigen map en wordt pas op zijn plek gezet als hij af is. Lukt het samenvoegen niet, dan vallen we terug op de MEEGELEVERDE
+// map (die is compleet en klopt met de repo; de gebruikerslaag kan halfverouderd zijn en was juist de reden voor de samenvoeging),
+// met een melding dat de bestanden uit de gebruikerslaag dan ontbreken. *merged zegt of het resultaat de samengevoegde map is.
+std::string merge_patches(const std::string& src, const NativePaths& p, std::vector<std::string>* notes, bool* merged = nullptr) {
     const auto meld = [&](const std::string& tekst) {
         if (notes) notes->push_back(tekst);
     };
+    if (merged) *merged = false;
     if (p.user_patches.empty() || p.patches.empty() || p.data.empty()) return src;
     const std::string up = p.user_patches + "/", sp = p.patches + "/";
     std::string rel;
@@ -76,16 +114,39 @@ std::string merge_patches(const std::string& src, const NativePaths& p, std::vec
     if (!is_dir(user) || !is_dir(shipped)) return src;
     std::error_code ec;
     if (fs::equivalent(user, shipped, ec) && !ec) return src;   // hetzelfde (bijvoorbeeld een koppeling)
-    const std::string dst = p.data + "/merge-patches/" + rel;
+    const std::string dst = p.data + "/merge-patches/" + rel, stempel = dst + ".stempel";
+    const std::string vingerafdruk = "1 " + hex64(tree_fingerprint(shipped)) + " " + hex64(tree_fingerprint(user));
+    {
+        std::ifstream f(stempel);
+        std::string oud;
+        if (f && std::getline(f, oud) && oud == vingerafdruk && is_dir(dst)) {
+            if (merged) *merged = true;
+            return dst;
+        }
+    }
+    const auto terugval = [&](const std::string& waarom) {
+        meld("patches-laag samenvoegen mislukt (" + rel + "): " + waarom + "; de meegeleverde map wordt gebruikt, bestanden uit de gebruikerslaag (" + user +
+             ") ontbreken daardoor");
+        return shipped;
+    };
+    const std::string nieuw = dst + ".nieuw." + std::to_string(::getpid());
+    fs::remove_all(nieuw, ec);
+    ec.clear();
+    fs::create_directories(nieuw, ec);
+    if (ec) return terugval(ec.message());
+    const auto opties = fs::copy_options::recursive | fs::copy_options::copy_symlinks | fs::copy_options::overwrite_existing;
+    fs::copy(shipped, nieuw, opties, ec);
+    if (!ec) fs::copy(user, nieuw, opties, ec);
+    if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
+    // Op zijn plek: eerst de stempel weg (een onderbreking laat nooit een stempel bij een halve map achter), dan wisselen.
+    fs::remove(stempel, ec);
     fs::remove_all(dst, ec);
     ec.clear();
-    fs::create_directories(dst, ec);
-    if (ec) { meld("patches-laag samenvoegen mislukt (" + rel + "): " + ec.message()); return src; }
-    const auto opties = fs::copy_options::recursive | fs::copy_options::copy_symlinks | fs::copy_options::overwrite_existing;
-    fs::copy(shipped, dst, opties, ec);
-    if (!ec) fs::copy(user, dst, opties, ec);
-    if (ec) { meld("patches-laag samenvoegen mislukt (" + rel + "): " + ec.message()); return src; }
+    fs::rename(nieuw, dst, ec);
+    if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
+    std::ofstream(stempel, std::ios::trunc) << vingerafdruk << "\n";
     meld("patches-laag samengevoegd (meegeleverd + gebruikerslaag): " + rel);
+    if (merged) *merged = true;
     return dst;
 }
 
@@ -431,7 +492,9 @@ bool load_profile(const std::string& json_text, const std::string& game, const N
         for (const Value& e : v->arr) {
             const std::string s = str_of(e.find(a)), d = str_of(e.find(b));
             if (s.empty() || d.empty() || d[0] != '/') { err = game + ": '" + key + "' heeft een regel zonder " + a + " of met een relatief " + b; return false; }
-            to.push_back({std::string(a) == "target" ? s : merge_patches(expand(s, p), p, &out.notes), d});
+            bool gemerged = false;
+            const std::string bron = std::string(a) == "target" ? s : merge_patches(expand(s, p), p, &out.notes, &gemerged);
+            to.push_back({bron, d, gemerged});
         }
         return true;
     };
@@ -579,7 +642,7 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
         std::string up, low;
         if (!exists(s.src)) { err = "seed-bron ontbreekt: " + s.src; return false; }
         if (!in_layer(s.dst, up, low)) { err = "seed " + s.dst + " valt niet onder een overlay-mount"; return false; }
-        out.layer.push_back({LayerStep::Kind::Seed, s.src, up, low, s.dst});
+        out.layer.push_back({LayerStep::Kind::Seed, s.src, up, low, s.dst, s.merged});
     }
     for (const SrcDst& l : pr.links) {
         std::string up, low;
@@ -763,6 +826,27 @@ bool apply_layer(const NativePlan& pl, std::vector<std::string>& log, std::strin
             continue;
         }
         const std::string what = s.kind == LayerStep::Kind::Seed ? "seed" : "link";
+        // Een seed uit een samengevoegde patches-map: een eerdere start kan de schrijflaag gezaaid hebben uit een verouderde of halve
+        // gebruikersmap. Wat er staat blijft (het spel kan het bijgewerkt hebben), maar wat ontbreekt wordt aangevuld.
+        if (s.kind == LayerStep::Kind::Seed && s.merged && exists(s.to) && !exists(s.lower) && is_dir(s.from) && is_dir(s.to)) {
+            int erbij = 0;
+            fs::recursive_directory_iterator it(s.from, fs::directory_options::skip_permission_denied, ec), end;
+            for (; !ec && it != end; it.increment(ec)) {
+                std::error_code e2;
+                const fs::path doel = fs::path(s.to) / fs::relative(it->path(), s.from, e2);
+                if (fs::exists(fs::symlink_status(doel, e2))) continue;   // bestaat al: blijft
+                const fs::file_status st = it->symlink_status(e2);
+                if (fs::is_directory(st)) fs::create_directories(doel, e2);
+                else if (fs::is_symlink(st)) fs::copy_symlink(it->path(), doel, e2);
+                else fs::copy_file(it->path(), doel, fs::copy_options::skip_existing, e2);
+                if (e2) { err = "seed " + s.label + ": aanvullen mislukt (" + doel.string() + "): " + e2.message(); return false; }
+                if (!fs::is_directory(st)) ++erbij;
+            }
+            if (ec) { err = "seed " + s.label + ": aanvullen mislukt: " + ec.message(); return false; }
+            log.push_back("seed: " + s.label + " bestaat al (blijft)" +
+                          (erbij ? ", " + std::to_string(erbij) + " ontbrekende bestanden aangevuld uit " + s.from : std::string()));
+            continue;
+        }
         if (exists(s.to) || exists(s.lower)) { log.push_back(what + ": " + s.label + " bestaat al (blijft)"); continue; }
         fs::create_directories(fs::path(s.to).parent_path(), ec);
         if (ec) { err = what + " " + s.label + ": map maken: " + ec.message(); return false; }
