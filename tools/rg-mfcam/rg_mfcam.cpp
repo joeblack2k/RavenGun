@@ -61,7 +61,14 @@
 //   RG_DRIVE_FIXUP=F zet deze DLL die ingangen in de importtabel van het spel om naar dezelfde regel (drive_fix.h). Alleen de genoemde letters;
 //   G: blijft met rust (het spel zet ShareK dan uit, gewenst). Uit met de TeknoParrot-kern in het proces (die doet het op zijn eigen manier).
 //
+// ZEVENDE TAAK: de Banapass-kaartlezer (bngrw.dll) volgen of nabootsen
+//   Het spel importeert bngrw.dll uit de spelmap (de echte bibliotheek, die COM4/COM2 opent) en stuurt twee lezers aan in de opstartcontroles,
+//   vlak voor de IO-controle die COM3 opent. De gesloten TeknoParrot-kern vervangt die functies; onze kern niet. Met RG_BNGRW=trace zet deze DLL
+//   de elf importen van bngrw.dll om naar logger-omhulsels rond de echte functies (argumenten, uitkomst en elke callback van de bibliotheek); met
+//   RG_BNGRW=fake geeft hij zelf antwoord: twee lezers zonder kaart (bngrw_fake.h). Uit met de TeknoParrot-kern.
+//
 // OMGEVING
+//   RG_BNGRW=trace|fake  de kaartlezer volgen of nabootsen; leeg = uit
 //   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
 //   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
 //   RG_SHAREK_FAKE=1  het eigen ShareK-object aan (dropin.ini, Env); leeg of 0 = uit
@@ -101,6 +108,7 @@
 #include "sharek_fake.h"
 #include "stall_dump.h"
 #include "drive_fix.h"
+#include "bngrw_fake.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -1198,6 +1206,224 @@ void setup_drive_fix() {
     hook_import("KERNEL32.dll", "GetFileAttributesW", reinterpret_cast<void*>(&rg_GetFileAttributesW), g_get_attr_w);
 }
 
+// --- de Banapass-kaartlezer (zie ZEVENDE TAAK bovenaan; logica in bngrw_fake.h) ----------------------------------------------------------------
+bool g_bng_fake = false;
+rg_bngrw::Fake g_bng;
+CRITICAL_SECTION g_bng_cs;
+volatile LONG g_bng_logged = 0;
+
+#define BNG_LOG(...) do { if (InterlockedIncrement(&g_bng_logged) <= 400) rg_log(__VA_ARGS__); } while (0)
+
+// De callbacks van de bibliotheek zijn cdecl: (lezer, resultaat, user) of, bij ReqWaitTouch, (lezer, resultaat, kaart, user).
+using BngCb3 = void(__cdecl*)(int, int, void*);
+using BngCb4 = void(__cdecl*)(int, int, void*, void*);
+struct BngThunk {
+    void* cb;
+    void* user;
+    int reader;
+    const char* what;
+};
+void __cdecl bng_thunk3(int a, int b, void* t_) {
+    auto* t = static_cast<BngThunk*>(t_);
+    BNG_LOG("bngrw: callback %s(lezer %d): a=%d b=0x%x", t->what, t->reader, a, static_cast<unsigned>(b));
+    reinterpret_cast<BngCb3>(t->cb)(a, b, t->user);
+}
+void __cdecl bng_thunk4(int a, int b, void* c, void* t_) {
+    auto* t = static_cast<BngThunk*>(t_);
+    BNG_LOG("bngrw: callback %s(lezer %d): a=%d b=0x%x kaart=%p", t->what, t->reader, a, static_cast<unsigned>(b), c);
+    reinterpret_cast<BngCb4>(t->cb)(a, b, c, t->user);
+}
+BngThunk* bng_thunk(void* cb, void* user, int reader, const char* what) {
+    return new BngThunk{cb, user, reader, what};   // klein, bewust niet vrijgegeven: de bibliotheek kan de callback later nog aanroepen
+}
+
+using BngInitFn = int(__stdcall*)();
+using BngFinFn = int(__stdcall*)();
+using BngAttachFn = int(__stdcall*)(int, const char*, int, int, void*, void*);
+using BngIsExecFn = int(__stdcall*)(int);
+using BngLedPowerFn = int(__stdcall*)(int, int, int);
+using BngDevResetFn = int(__stdcall*)(int, void*, void*);
+using BngReq4Fn = int(__stdcall*)(int, int, void*, void*);   // ReqLed, ReqBeep
+using BngWaitTouchFn = int(__stdcall*)(int, int, int, void*, void*);
+using BngCancelFn = int(__stdcall*)(int);
+using BngSendUrlFn = int(__stdcall*)(int, int, int, void*, void*, const char*, void*, void*);
+BngInitFn g_bng_init = nullptr;
+BngFinFn g_bng_fin = nullptr;
+BngAttachFn g_bng_attach = nullptr;
+BngIsExecFn g_bng_is_exec = nullptr;
+BngLedPowerFn g_bng_led_power = nullptr;
+BngDevResetFn g_bng_dev_reset = nullptr;
+BngReq4Fn g_bng_req_led = nullptr;
+BngReq4Fn g_bng_req_beep = nullptr;
+BngWaitTouchFn g_bng_wait_touch = nullptr;
+BngCancelFn g_bng_cancel = nullptr;
+BngSendUrlFn g_bng_send_url = nullptr;
+
+// Nep: roep de callback meteen met resultaat 0 aan.
+void bng_done(void* cb, void* user, int reader) {
+    if (cb) reinterpret_cast<BngCb3>(cb)(reader, rg_bngrw::kResultOk, user);
+}
+
+int __stdcall rg_BngRwInit() {
+    if (g_bng_fake) {
+        BNG_LOG("bngrw: Init (nep)");
+        return 0;
+    }
+    const int r = g_bng_init();
+    BNG_LOG("bngrw: Init -> %d", r);
+    return r;
+}
+int __stdcall rg_BngRwFin() {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        g_bng.fin();
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: Fin (nep)");
+        return 0;
+    }
+    const int r = g_bng_fin();
+    BNG_LOG("bngrw: Fin -> %d", r);
+    return r;
+}
+int __stdcall rg_BngRwAttach(int reader, const char* port, int a3, int a4, void* cb, void* user) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.attach(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: Attach(lezer %d, %s, %d, 0x%x) -> %d (nep)", reader, port ? port : "?", a3, a4, r);
+        if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
+        return r;
+    }
+    BngThunk* t = bng_thunk(cb, user, reader, "Attach");
+    const int r = g_bng_attach(reader, port, a3, a4, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
+    BNG_LOG("bngrw: Attach(lezer %d, %s, %d, 0x%x) -> %d", reader, port ? port : "?", a3, a4, r);
+    return r;
+}
+int __stdcall rg_BngRwIsCmdExec(int reader) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.is_cmd_exec(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        return r;
+    }
+    const int r = g_bng_is_exec(reader);
+    static LONG last[4] = {-2, -2, -2, -2};   // alleen veranderingen loggen: het spel vraagt dit elke tik
+    if (reader >= 0 && reader < 4 && InterlockedExchange(&last[reader], r) != r) BNG_LOG("bngrw: IsCmdExec(lezer %d) -> %d", reader, r);
+    return r;
+}
+int __stdcall rg_BngRwSetLedPower(int a, int b, int c) {
+    if (g_bng_fake) {
+        BNG_LOG("bngrw: SetLedPower(%d, %d, %d) (nep)", a, b, c);
+        return 0;
+    }
+    const int r = g_bng_led_power(a, b, c);
+    BNG_LOG("bngrw: SetLedPower(%d, %d, %d) -> %d", a, b, c, r);
+    return r;
+}
+int __stdcall rg_BngRwDevReset(int reader, void* cb, void* user) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.dev_reset(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: DevReset(lezer %d) -> %d (nep)", reader, r);
+        if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
+        return r;
+    }
+    BngThunk* t = bng_thunk(cb, user, reader, "DevReset");
+    const int r = g_bng_dev_reset(reader, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
+    BNG_LOG("bngrw: DevReset(lezer %d) -> %d", reader, r);
+    return r;
+}
+int bng_req4(const char* name, BngReq4Fn real, int reader, int v, void* cb, void* user) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.simple_request(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: %s(lezer %d, %d) -> %d (nep)", name, reader, v, r);
+        if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
+        return r;
+    }
+    BngThunk* t = bng_thunk(cb, user, reader, name);
+    const int r = real(reader, v, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
+    BNG_LOG("bngrw: %s(lezer %d, %d) -> %d", name, reader, v, r);
+    return r;
+}
+int __stdcall rg_BngRwReqLed(int reader, int v, void* cb, void* user) { return bng_req4("ReqLed", g_bng_req_led, reader, v, cb, user); }
+int __stdcall rg_BngRwReqBeep(int reader, int v, void* cb, void* user) { return bng_req4("ReqBeep", g_bng_req_beep, reader, v, cb, user); }
+int __stdcall rg_BngRwReqWaitTouch(int reader, int timeout, int mode, void* cb, void* user) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.wait_touch(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: ReqWaitTouch(lezer %d, %d, 0x%x) -> %d (nep, geen kaart)", reader, timeout, mode, r);
+        return r;
+    }
+    BngThunk* t = bng_thunk(cb, user, reader, "WaitTouch");
+    const int r = g_bng_wait_touch(reader, timeout, mode, cb ? reinterpret_cast<void*>(&bng_thunk4) : nullptr, t);
+    BNG_LOG("bngrw: ReqWaitTouch(lezer %d, %d, 0x%x) -> %d", reader, timeout, mode, r);
+    return r;
+}
+int __stdcall rg_BngRwReqCancel(int reader) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const bool was = g_bng.cancel(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: ReqCancel(lezer %d) -> %d (nep)", reader, was ? 1 : 0);
+        return rg_bngrw::kAccepted;
+    }
+    const int r = g_bng_cancel(reader);
+    BNG_LOG("bngrw: ReqCancel(lezer %d) -> %d", reader, r);
+    return r;
+}
+int __stdcall rg_BngRwReqSendUrlTo(int reader, int a2, int a3, void* a4, void* a5, const char* url, void* cb, void* user) {
+    if (g_bng_fake) {
+        EnterCriticalSection(&g_bng_cs);
+        const int r = g_bng.simple_request(reader);
+        LeaveCriticalSection(&g_bng_cs);
+        BNG_LOG("bngrw: ReqSendUrlTo(lezer %d, %s) -> %d (nep)", reader, url ? url : "?", r);
+        if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
+        return r;
+    }
+    BngThunk* t = bng_thunk(cb, user, reader, "SendUrlTo");
+    const int r = g_bng_send_url(reader, a2, a3, a4, a5, url, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
+    BNG_LOG("bngrw: ReqSendUrlTo(lezer %d, %s) -> %d", reader, url ? url : "?", r);
+    return r;
+}
+
+template <typename Fn>
+void hook_bng(const char* name, void* repl, Fn& orig) {
+    void* old = patch_iat(GetModuleHandleW(nullptr), "bngrw.dll", name, repl);
+    if (old) orig = reinterpret_cast<Fn>(old);
+    rg_log("importtabel: bngrw.dll!%s %s", name, old ? "omgezet (kaartlezer)" : "niet in het spel");
+}
+
+void setup_bngrw() {
+    char v[16];
+    if (GetEnvironmentVariableA("RG_BNGRW", v, sizeof v) == 0 || !v[0]) return;   // uit
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("kaartlezer-omhulsel uit: de TeknoParrot-kern is geladen");
+        return;
+    }
+    g_bng_fake = std::strcmp(v, "fake") == 0;
+    if (!g_bng_fake && std::strcmp(v, "trace") != 0) {
+        rg_log("RG_BNGRW=%s onbekend (kies trace of fake); uit", v);
+        return;
+    }
+    InitializeCriticalSection(&g_bng_cs);
+    rg_log("kaartlezer: %s", g_bng_fake ? "eigen antwoord (twee lezers zonder kaart)" : "de echte bngrw.dll volgen");
+    hook_bng("_BngRwInit@0", reinterpret_cast<void*>(&rg_BngRwInit), g_bng_init);
+    hook_bng("_BngRwFin@0", reinterpret_cast<void*>(&rg_BngRwFin), g_bng_fin);
+    hook_bng("_BngRwAttach@24", reinterpret_cast<void*>(&rg_BngRwAttach), g_bng_attach);
+    hook_bng("_BngRwIsCmdExec@4", reinterpret_cast<void*>(&rg_BngRwIsCmdExec), g_bng_is_exec);
+    hook_bng("_BngRwSetLedPower@12", reinterpret_cast<void*>(&rg_BngRwSetLedPower), g_bng_led_power);
+    hook_bng("_BngRwDevReset@12", reinterpret_cast<void*>(&rg_BngRwDevReset), g_bng_dev_reset);
+    hook_bng("_BngRwReqLed@16", reinterpret_cast<void*>(&rg_BngRwReqLed), g_bng_req_led);
+    hook_bng("_BngRwReqBeep@16", reinterpret_cast<void*>(&rg_BngRwReqBeep), g_bng_req_beep);
+    hook_bng("_BngRwReqWaitTouch@20", reinterpret_cast<void*>(&rg_BngRwReqWaitTouch), g_bng_wait_touch);
+    hook_bng("_BngRwReqCancel@4", reinterpret_cast<void*>(&rg_BngRwReqCancel), g_bng_cancel);
+    hook_bng("_BngRwReqSendUrlTo@32", reinterpret_cast<void*>(&rg_BngRwReqSendUrlTo), g_bng_send_url);
+}
+
 // --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
 // Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
@@ -1335,6 +1561,7 @@ void setup() {
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
+    setup_bngrw();          // idem: alleen met RG_BNGRW
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
