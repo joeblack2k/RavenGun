@@ -267,9 +267,43 @@ static DWORD WINAPI kb_waakhond(LPVOID arg)
     return 0;
 }
 
+/* Uitzonderingen: proef 16 (LE3) stopte drie keer na ~10 s via de __except van de CRT-opstart (game.exe 0x54a501: _exit met de
+ * uitzonderingscode), dus een crash in de hoofddraad. Een vectored handler ziet elke uitzondering eerst: hier de eerste 12 echte
+ * (geen C++-throw 0xE06D7363, geen draadnaam 0x406D1388, geen debugtekst 0x4001000x) met code, adres, eventueel het geheugenadres
+ * van een toegangsfout, en de terugkeeradressen in de exe. Hij laat de uitzondering door (EXCEPTION_CONTINUE_SEARCH). */
+static volatile LONG kb_uitzonderingen;
+
+static LONG CALLBACK kb_uitzondering(EXCEPTION_POINTERS *e)
+{
+    const EXCEPTION_RECORD *r = e->ExceptionRecord;
+    const DWORD code = r->ExceptionCode;
+    if (code == 0xE06D7363u || code == 0x406D1388u || (code & 0xFFFFFFF0u) == 0x40010000u) return EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedIncrement(&kb_uitzonderingen) > 12) return EXCEPTION_CONTINUE_SEARCH;
+    char regel[160], getal[16];
+    kb_kopieer(regel, sizeof regel, "uitzondering: code ");
+    kb_getal(getal, sizeof getal, code, 16);
+    kb_plak(regel, sizeof regel, getal);
+    kb_plak(regel, sizeof regel, " op ");
+    kb_getal(getal, sizeof getal, (uintptr_t)r->ExceptionAddress, 16);
+    kb_plak(regel, sizeof regel, getal);
+    if (code == 0xC0000005u && r->NumberParameters >= 2) {
+        kb_plak(regel, sizeof regel, r->ExceptionInformation[0] ? (r->ExceptionInformation[0] == 8 ? " (uitvoeren " : " (schrijven ") : " (lezen ");
+        kb_getal(getal, sizeof getal, (uintptr_t)r->ExceptionInformation[1], 16);
+        kb_plak(regel, sizeof regel, getal);
+        kb_plak(regel, sizeof regel, ")");
+    }
+    kb_plak(regel, sizeof regel, " draad ");
+    kb_getal(getal, sizeof getal, GetCurrentThreadId(), 10);
+    kb_plak(regel, sizeof regel, getal);
+    kb_plak(regel, sizeof regel, GetCurrentThreadId() == kb_hoofd_tid ? " (hoofddraad)" : "");
+    kb_meld_stapel(regel, e->ContextRecord->Eip, e->ContextRecord->Esp, (uintptr_t)((NT_TIB *)NtCurrentTeb())->StackBase);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 /* Aanroepen in DllMain (DLL_PROCESS_ATTACH) van een DLL die de exe statisch importeert: dan is dit de hoofddraad. */
 static __attribute__((unused)) void kb_waakhond_start(void)
 {
+    AddVectoredExceptionHandler(1, kb_uitzondering);
     kb_zoek_code();
     kb_hoofd_tid = GetCurrentThreadId();
     kb_hoofd_top = (uintptr_t)((NT_TIB *)NtCurrentTeb())->StackBase;
