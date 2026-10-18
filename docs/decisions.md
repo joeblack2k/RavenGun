@@ -875,3 +875,6 @@ Aanvulling (meting 12): de uitgebrachte LGI/LGI3D openen debugout.txt nooit; hun
 
 Aanvulling (meting 13): LGI/LGI3D sluiten via `fwFraw::requestExit` (de scene-flow vindt zijn volgende scene niet, of een flow-opdracht `exit`); rg-amhw logt nu mislukte bestandsopens (`bestand mislukt:`) om te zien welk
 gegevensbestand ontbreekt.
+
+Aanvulling (meting 16): de PCA9535-invoerpoorten (dipschakelaars en drukknoppen, register 0 en 1) lezen 0xFF zoals een kast met open schakelaars; de games keren de waarde om, 0x00 meldde alles ingedrukt en startte in LGI/LGI3D
+de power-on-testmodule (die de app afsluit).

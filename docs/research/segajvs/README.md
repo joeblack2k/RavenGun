@@ -466,6 +466,18 @@ Het afsluitspoor gaf twee aanroepers van `requestExit` (`0x645830`): `0x645D69` 
 * De volgende regel in `rg-amhw.log` geeft de klasse: het spoor schrijft nu `knoop: <RTTI-klassenaam> '<modulenaam>' this=0x.. vtable=0x..` achter `afsluiten: requestExit vanaf ...`. Met de klassenaam is de module te vinden; dan
   lezen we in zijn `update`/`terminate` welke voorwaarde (JVS-waarde, TEST/SERVICE, hardwarecontrole) het eindigt.
 
+### Meting 16 (LGI/LGI3D 2026-10-18 11:45): AppPowerOnTest start door een dipschakelaar die "aan" lijkt te staan [gelezen, LGI]
+
+* `AppPowerOnTest` is een lege module (vtable `0x9831A0`: destructor, `jmp requestExit` in slot 1, twee korte methoden, de rest leeg); de module-namen staan op `0x978E88`: `BootSeq`, `MainSeq`, `AppPowerOnTest`,
+  `JVSInitialize`, `MechatroInitialize`, `DrawInitialize`, `SoundInitialize`, `GameInitialize`, `TESTMODE`, `CreditModule`. Hij wordt dus gestart voor de power-on-testmodus en sluit de app af zodra hij eindigt.
+* De keuze zit in `BaseModule` (singleton `0xC20028`, constructor `0x7246E0`): `[BaseModule+8] = fwAM::isDipsw(0)` (`0x72474C` -> `0x671F40`: `(dipsw >> bit) & 1`). Vijf plekken in de boot-sequenties (`0x71662F`, `0x7326CA`, `0x737191`, `0x73733E`,
+  `0x852731`) kiezen met `BaseModule+8 == 0` het normale pad.
+* `dipsw` komt uit `amDipswGetDipsw` (`0x488480`): het leest PCA9535-register 0 en **keert het om** (`not cl`, `0x4884CA`); de drukknoppen (`amDipswRequestGetPushsw`, TEST/SERVICE) idem met register 1.
+  Onze nagebootste invoerpoorten gaven 0x00; op de echte kast (pull-ups, actief laag, open schakelaars) is dat 0xFF. De game zag dus ELKE dipschakelaar en ELKE drukknop als ingedrukt, ook dipschakelaar 0 = power-on-test, en
+  de TEST/SERVICE-knop.
+* **Wijziging:** register 0 en 1 van de PCA9535 (adres 0x20) lezen nu 0xFF en zijn alleen-lezen (`RG_AMHW_DIPIN="FF,FF"` voor een andere waarde). Gevolg: `dipsw = 0` (niets aan). **Let op:** LGS/GG/OG lazen tot nu toe 0x00
+  (dus alles aan) en draaiden zo; ze krijgen nu de normale kast. Controleren dat ze nog starten.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

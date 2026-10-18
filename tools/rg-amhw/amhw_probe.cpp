@@ -123,6 +123,8 @@ int main(int argc, char** argv) {
         ov.hEvent = CreateEventA(nullptr, FALSE, FALSE, nullptr);
         check(DeviceIoControl(sm, 0x9C402004, pk, 0x25, pko, 0x25, nullptr, &ov) && pko[0] == 0 && pko[5] == 0x70, "SMBus: dip-register 4 lezen (overlapped, direct klaar): 0x70");
         check(WaitForSingleObject(ov.hEvent, 0) == WAIT_OBJECT_0, "de gebeurtenis van de OVERLAPPED is gezet");
+        uint8_t pin[0x25] = {0, 5, 0x20, 0}, pino[0x25] = {};
+        check(DeviceIoControl(sm, 0x9C402004, pin, 0x25, pino, 0x25, nullptr, &ov) && pino[5] == 0xFF, "SMBus: invoerpoort 0 (dipschakelaars) leest 0xFF (niets aan)");
         uint8_t eb[0x27] = {0, 8, 0x57, 0, 0x00, 0x01, 4, 0xDE, 0xAD, 0xBE, 0xEF};
         check(DeviceIoControl(sm, 0x9C40200C, eb, 0x27, eb, 0x27, &sg, nullptr) && sg == 0x27 && eb[0] == 0, "SMBus: EEPROM schrijven (0x27 bytes terug)");
         uint8_t er[0x27] = {0, 9, 0x57, 0, 0x00, 0x01, 4};

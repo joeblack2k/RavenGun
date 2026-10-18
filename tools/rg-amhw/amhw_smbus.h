@@ -55,6 +55,11 @@ struct HwRegs {
         lpc_bank[0][2][0] = 42;
         lpc[0][0x28] = lpc[0][0x29] = lpc[0][0x2A] = 0x40;
         set_dip(0x70, 0x00);
+        // De invoerpoorten van de PCA9535 (register 0 en 1) hebben pull-ups: met open schakelaars lezen ze 0xFF (actief laag). De Ring-games draaien ze om
+        // (amDipswGetDipsw: dipsw = ~register 0; amDipswRequestGetPushsw: register 1): 0x00 zou ELKE dipschakelaar en ELKE drukknop (TEST/SERVICE) "aan" melden.
+        // LGI/LGI3D lazen zo dipschakelaar 0 als aan en startten de power-on-test-module, die de app direct afsluit (BaseModule+8 = dipsw bit 0, LGI 0x72474C).
+        i2c[0x20][0] = 0xFF;
+        i2c[0x20][1] = 0xFF;
         lpc[0][0x48] = 0x2D;   // I2C-adres van de hardwaremonitor (alleen gebruikt door type 2)
     }
     // PCA9535 op 0x20: register 4 en 5 zijn de dip-bytes. 0x70 = resolutie 1920x1080.
@@ -65,7 +70,7 @@ struct HwRegs {
         const uint8_t cmd = b[1], addr = b[2], reg = b[3];
         if (cmd == 3) { b[0] = 0; return true; }   // adres-ACK ("klaar")
         if (cmd == 5) b[5] = i2c[addr][reg];
-        else if (cmd == 4) i2c[addr][reg] = b[5];
+        else if (cmd == 4) { if (!(addr == 0x20 && reg < 2)) i2c[addr][reg] = b[5]; }   // invoerpoorten zijn alleen-lezen
         else return false;
         b[0] = 0;
         return true;
