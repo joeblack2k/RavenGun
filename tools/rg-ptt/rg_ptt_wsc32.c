@@ -52,14 +52,10 @@ static unsigned g_logged_tx, g_logged_rx;
 static unsigned g_posted, g_gets_calls, g_gets_bytes;
 static unsigned g_msg_logged;
 static HWND g_hwnd;                       /* het spelvenster (laatste niet-nul venster van SioMessage) */
-/* MUNT. Het spel kent geen munt-pakket (statisch: alleen de toetsen uit de tabel op 0x41e889 en de muis). Een muntdruk uit de shm wordt
- * daarom een toetsdruk naar het spelvenster. Welke toets de munt telt is niet vastgesteld: standaard een PROEF die per muntdruk de volgende
- * kandidaat stuurt (en logt); RG_PTT_COIN_VK=<hex> kiest er een vast. */
-static const unsigned g_coin_probe[] = { 0x35, 0x70, 0x71, 0x20, 0x24, 0x23, 0x2d, 0x2e, 0x21, 0x22, 0xbf, 0x53, 0x31, 0x32, 0x0d };
-static unsigned g_coin_fixed;             /* 0 = proef */
+/* MUNT/START/TEST/SERVICE: toetsen naar het spelvenster, zie ptt_key_map in ptt_board.h. RG_PTT_COIN_VK=<hex> vervangt de toets van de munt. */
+static unsigned g_coin_fixed;
 static unsigned g_coin_n;
-static UINT g_keyup_vk;
-static DWORD g_keyup_at;
+static struct { unsigned vk; DWORD at; } g_up[8];
 
 static void log_raw(const char *s, unsigned len)
 {
@@ -119,17 +115,20 @@ static void send_key(HWND h, unsigned vk, int down)
     if (down && vk >= 0x30 && vk <= 0x39) PostMessageA(h, WM_CHAR, (WPARAM)vk, 1 | scan);
 }
 
-static void coin_pulse(unsigned n)
+static void key_pulse(unsigned rises)
 {
-    while (n--) {
-        unsigned vk = g_coin_fixed ? g_coin_fixed : g_coin_probe[g_coin_n % (sizeof g_coin_probe / sizeof g_coin_probe[0])];
-        g_coin_n++;
-        if (!g_hwnd) { logf("munt #%u: nog geen spelvenster (SioMessage kreeg nog geen venster); toets 0x%02x niet gestuurd", g_coin_n, vk); continue; }
-        if (g_keyup_vk) send_key(g_hwnd, g_keyup_vk, 0);
+    unsigned i, k;
+    for (i = 0; i < PTT_KEY_COUNT; i++) {
+        unsigned vk = ptt_key_map[i].vk;
+        if (!(rises & ptt_key_map[i].bit)) continue;
+        if (ptt_key_map[i].bit == PTT_BIT_COIN1) { g_coin_n++; if (g_coin_fixed) vk = g_coin_fixed; }
+        if (!g_hwnd) { logf("%s: nog geen spelvenster; toets 0x%02x niet gestuurd", ptt_key_map[i].name, vk); continue; }
+        for (k = 0; k < 8 && g_up[k].vk; k++) {}
+        if (k == 8) k = 7;
         send_key(g_hwnd, vk, 1);
-        g_keyup_vk = vk;
-        g_keyup_at = GetTickCount() + 60;
-        logf("munt #%u: toets VK 0x%02x naar venster %p (%s)", g_coin_n, vk, g_hwnd, g_coin_fixed ? "vast" : "proef: kijk of COIN(S) omhoog gaat");
+        g_up[k].vk = vk;
+        g_up[k].at = GetTickCount() + 60;
+        logf("%s: toets VK 0x%02x naar venster %p", ptt_key_map[i].name, vk, g_hwnd);
     }
 }
 
@@ -164,13 +163,14 @@ static DWORD WINAPI poll_thread(LPVOID unused)
                 }
                 if (g_gun_port >= 0 && g_gun_port < NPORT) post_if_armed(g_gun_port);
                 {
-                    unsigned c = ptt_board_take_coin(&g_board);
-                    if (c) coin_pulse(c);
+                    unsigned c = ptt_board_take_rises(&g_board);
+                    if (c) key_pulse(c);
                 }
             }
             LeaveCriticalSection(&g_cs);
         }
-        if (g_keyup_vk && g_hwnd && (LONG)(GetTickCount() - g_keyup_at) >= 0) { send_key(g_hwnd, g_keyup_vk, 0); g_keyup_vk = 0; }
+        for (i = 0; i < 8; i++)
+            if (g_up[i].vk && g_hwnd && (LONG)(GetTickCount() - g_up[i].at) >= 0) { send_key(g_hwnd, g_up[i].vk, 0); g_up[i].vk = 0; }
         if (GetTickCount() - last_stat >= 5000) {
             last_stat = GetTickCount();
             EnterCriticalSection(&g_cs);
