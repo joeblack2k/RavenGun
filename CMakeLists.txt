@@ -284,6 +284,13 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -fno-stack-protector -D_FILE_OFFSET_BITS=64 -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rio-bridge/rg_rio_bridge.c\" -lpthread -lm -ldl || echo 'waarschuwing: 32-bit RIO-brug niet gebouwd (gcc -m32)'"
       DEPENDS tools/rio-bridge/rg_rio_bridge.c VERBATIM)
     add_custom_target(rg_rio_bridge32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so")
+    # Geluidsmeter voor 32-bits games met een ingebouwde SDL 1.2 (tools/rg-audio-probe/): meldt welke geluidsdriver laadt en of er
+    # samples komen; verandert niets aan het geluid.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_audio_probe.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -fno-stack-protector -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_audio_probe.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-audio-probe/rg_audio_probe.c\" -ldl || echo 'waarschuwing: 32-bit geluidsmeter niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-audio-probe/rg_audio_probe.c VERBATIM)
+    add_custom_target(rg_audio_probe32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_audio_probe.so")
     # Twee paden als één seriële verbinding (tools/rg-ptylink/): Target: Terror Gold koppelde /dev/ttyS0 van de game en
     # /tmp/ttyJamma van zijn bordemulator met socat; dit doet dat zonder socat en zonder shell. 32-bits, zoals het spel.
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"

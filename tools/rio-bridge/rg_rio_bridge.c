@@ -76,6 +76,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -101,17 +102,23 @@ static struct {
     struct rg_kanaal k[RG_MAX_KANAAL]; int nk;
 } T;
 
-enum { HAAK_OPEN, HAAK_LEES, HAAK_SCHRIJF, HAAK_SLUIT, HAAK_N };
+/* HAAK_N = de vier verplichte haken van het bord zelf; TEL en SERIEEL zijn optioneel (het UMC-bord, zie `umc` in de tabel). */
+enum { HAAK_OPEN, HAAK_LEES, HAAK_SCHRIJF, HAAK_SLUIT, HAAK_N, HAAK_TEL = HAAK_N, HAAK_SERIEEL, HAAK_ALLES };
 struct rg_haak { int gezet; uintptr_t adres; unsigned char sig[16]; int nsig; void *trampoline; };
 struct rg_veld { int id, byte, hoog; };
 struct rg_adcveld { int ch, hbyte, hhoog, lbyte; };
 static struct {
     int aan, vid, pid, interval, type, lengte, som;
-    struct rg_haak h[HAAK_N];
+    struct rg_haak h[HAAK_ALLES];
     uintptr_t xrtea, sleutel; unsigned char xsig[16]; int nxsig;
     int zonder;                     /* `versleuteling geen`: de bibliotheek van de game versleutelt niet */
     struct rg_veld v[RG_MAX_SW]; int nv;
     struct rg_adcveld a[RG_MAX_KANAAL]; int na;
+    /* Statusrapporten (type 1) tussen de rapporten van type 2: het bord meldt er o.a. de 12V-voeding mee (WD: rapportbyte 18,
+       bit 3 moet gezet zijn, anders "Problem detected with 12v fuse/power supply"). */
+    int st_aan, st_type, st_elke; uint8_t st_byte[64]; unsigned char st_gezet[64];
+    /* Het UMC-bord (Walking Dead): een tweede USB-apparaat, door de game als seriele poort /dev/umc gebruikt. */
+    int umc_aan, umc_vid, umc_pid; char umc_pad[64];
 } U;
 static _Atomic int usb_klaar;
 static _Atomic uint32_t n_open, n_lees, n_schrijf, n_sluit;
@@ -238,12 +245,25 @@ static int lees_tabel(const char *pad) {
         } else if (!strcmp(s, "haak")) {
             const char *r = waarde(kv, nkv, "rol"), *ad = waarde(kv, nkv, "adres"), *g = waarde(kv, nkv, "sig");
             int rol = !r ? -1 : !strcmp(r, "open") ? HAAK_OPEN : !strcmp(r, "lees") ? HAAK_LEES : !strcmp(r, "schrijf") ? HAAK_SCHRIJF
-                    : !strcmp(r, "sluit") ? HAAK_SLUIT : -1;
+                    : !strcmp(r, "sluit") ? HAAK_SLUIT
+                    : !strcmp(r, "tel") ? HAAK_TEL : !strcmp(r, "seriel") ? HAAK_SERIEEL : -1;
             if (rol < 0 || !ad || !g) { fout = nr; continue; }
             struct rg_haak *h = &U.h[rol];
             h->adres = (uintptr_t)strtoul(ad, 0, 16); h->nsig = hexbytes(g, h->sig, sizeof h->sig);
             if (!h->adres || h->nsig < 5) { fout = nr; continue; }
             h->gezet = 1;
+        } else if (!strcmp(s, "status")) {
+            if (!getal(waarde(kv, nkv, "type"), &a) || !getal(waarde(kv, nkv, "elke"), &b) || a < 0 || a > 255 || b < 2 || b > 10000) { fout = nr; continue; }
+            U.st_type = (int)a; U.st_elke = (int)b; U.st_aan = 1;
+        } else if (!strcmp(s, "statusbyte")) {
+            double w;
+            if (!getal(waarde(kv, nkv, "byte"), &a) || !waarde(kv, nkv, "waarde") || a < 3 || a >= 63) { fout = nr; continue; }
+            w = strtol(waarde(kv, nkv, "waarde"), 0, 16);
+            U.st_byte[(int)a] = (uint8_t)w; U.st_gezet[(int)a] = 1;
+        } else if (!strcmp(s, "umc")) {
+            const char *v = waarde(kv, nkv, "vid"), *p = waarde(kv, nkv, "pid"), *pd = waarde(kv, nkv, "pad");
+            if (!v || !p || !pd || strlen(pd) >= sizeof U.umc_pad) { fout = nr; continue; }
+            U.umc_vid = (int)strtol(v, 0, 16); U.umc_pid = (int)strtol(p, 0, 16); snprintf(U.umc_pad, sizeof U.umc_pad, "%s", pd); U.umc_aan = 1;
         } else if (!strcmp(s, "versleuteling") && nkv == 1 && !strcmp(kv[0], "geen")) {
             U.zonder = 1; U.xrtea = 0; U.nxsig = 0;
         } else if (!strcmp(s, "versleuteling")) {
@@ -404,12 +424,17 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
     volgende += (uint64_t)U.interval * 1000;
     if (volgende > nu) usleep((useconds_t)(volgende - nu));
     uint8_t r[64] = {0};
-    r[0] = (uint8_t)U.type; r[1] = (uint8_t)volgnr; r[2] = (uint8_t)(volgnr >> 8); volgnr++;
+    static unsigned st_teller;
+    int status = U.st_aan && ++st_teller % (unsigned)U.st_elke == 0;
+    r[0] = (uint8_t)(status ? U.st_type : U.type); r[1] = (uint8_t)volgnr; r[2] = (uint8_t)(volgnr >> 8); volgnr++;
+    if (status) {
+        for (int i = 3; i < 63; i++) if (U.st_gezet[i]) r[i] = U.st_byte[i];
+    } else
     for (int i = 0; i < U.nv; i++) {
         uint8_t nib = (uint8_t)(atomic_load(&teller[U.v[i].id]) & 0xf);
         r[U.v[i].byte] |= U.v[i].hoog ? (uint8_t)(nib << 4) : nib;
     }
-    for (int i = 0; i < U.na; i++) {
+    if (!status) for (int i = 0; i < U.na; i++) {
         int32_t v = atomic_load(&kwaarde[U.a[i].ch]); if (v < 0) v = 0; if (v > 4095) v = 4095;
         uint8_t hoog = (uint8_t)((v >> 8) & 0xf);
         r[U.a[i].hbyte] |= U.a[i].hhoog ? (uint8_t)(hoog << 4) : hoog;
@@ -440,19 +465,60 @@ static intptr_t usb_sluit(intptr_t dev, intptr_t b, intptr_t c, intptr_t d, intp
     return 0;
 }
 
+/* --- het UMC-bord (Walking Dead) ------------------------------------------------------------------------------------------ */
+/* De game zoekt het UMC-bord met pmrt_usb_count(0c70, 0784) en opent het dan als seriele poort /dev/umc (open + termios, niet-
+   blokkerend lezen/schrijven van een ASCII-protocol "W...z"). "Verbonden" is voor de game: de poort is geopend. De hulp laat
+   de telling 1 geven en geeft bij het openen van /dev/umc het ene eind van een socketpaar (geen tty nodig, dus ook in de
+   sandbox); het andere eind wordt leeggelezen en niets terug gestuurd. Wat de game schrijft staat (RG_RIO_LOG=1) in hex in het logboek. */
+static int umc_meester = -1;
+static void *umc_afvoer(void *arg) {
+    (void)arg; uint8_t b[256]; uint32_t totaal = 0;
+    for (;;) {
+        ssize_t n = read(umc_meester, b, sizeof b);
+        if (n <= 0) return 0;
+        if (log_on && totaal < 512) {
+            char m[700]; int o = snprintf(m, sizeof m, "umc: de game schrijft %d bytes:", (int)n);
+            for (ssize_t i = 0; i < n && i < 48 && o < 650; i++) o += snprintf(m + o, sizeof m - o, " %02x", b[i]);
+            meld(m);
+        }
+        totaal += (uint32_t)n;
+    }
+}
+static intptr_t usb_tel(intptr_t vid, intptr_t pid, intptr_t c, intptr_t d, intptr_t e) {
+    if (U.umc_aan && (vid & 0xffff) == U.umc_vid && (pid & 0xffff) == U.umc_pid) return 1;
+    return echt(HAAK_TEL)(vid, pid, c, d, e);
+}
+/* serial_open(int *handvat, const char *pad, baud, 0, int *fout): 0 = gelukt */
+static intptr_t usb_seriel(intptr_t h, intptr_t pad, intptr_t c, intptr_t d, intptr_t e) {
+    if (U.umc_aan && h && pad && !strcmp((const char *)pad, U.umc_pad)) {
+        int sp[2];
+        if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, sp) == 0) {
+            if (umc_meester >= 0) close(umc_meester);
+            umc_meester = sp[0];
+            pthread_t th; if (pthread_create(&th, 0, umc_afvoer, 0) == 0) pthread_detach(th);
+            *(int *)h = sp[1]; if (e) *(int *)e = 0;
+            meld("umc: /dev/umc geopend (ons uiteinde van een socketpaar)");
+            return 0;
+        }
+    }
+    return echt(HAAK_SERIEEL)(h, pad, c, d, e);
+}
+
 static int lees_mem(uintptr_t a, void *b, size_t n) { return memfd >= 0 && pread(memfd, b, n, (off_t)a) == (ssize_t)n; }
 /* Haakt aan zodra het spelbeeld er is (de lader zet het pas na deze constructor). Alles of niets. 1 = klaar (gelukt of
    opgegeven), 0 = nog niet. */
 static int usb_aanhaken(void) {
     unsigned char b[16];
     if (memfd < 0) memfd = open("/proc/self/mem", O_RDWR | O_CLOEXEC);
-    for (int i = 0; i < HAAK_N; i++) if (!lees_mem(U.h[i].adres, b, (size_t)U.h[i].nsig) || memcmp(b, U.h[i].sig, (size_t)U.h[i].nsig)) return 0;
+    for (int i = 0; i < HAAK_ALLES; i++) if (U.h[i].gezet && (!lees_mem(U.h[i].adres, b, (size_t)U.h[i].nsig) || memcmp(b, U.h[i].sig, (size_t)U.h[i].nsig))) return 0;
     if (!U.zonder && (!lees_mem(U.xrtea, b, (size_t)U.nxsig) || memcmp(b, U.xsig, (size_t)U.nxsig))) return 0;
     /* Hier wordt geen code van de game uitgevoerd: alleen sprongen geschreven (via /proc/self/mem, dus ongeacht de rechten). */
     unsigned char *tr = mmap(0, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (tr == MAP_FAILED) { meld("usb: geen geheugen voor de trampolines -- het bord wordt NIET nagedaan"); return 1; }
-    uintptr_t vervangers[HAAK_N] = {(uintptr_t)usb_open, (uintptr_t)usb_lees, (uintptr_t)usb_schrijf, (uintptr_t)usb_sluit};
-    for (int i = 0; i < HAAK_N; i++) {               /* trampoline: de gekopieerde eerste instructies, dan terug in de functie */
+    uintptr_t vervangers[HAAK_ALLES] = {(uintptr_t)usb_open, (uintptr_t)usb_lees, (uintptr_t)usb_schrijf, (uintptr_t)usb_sluit,
+                                        (uintptr_t)usb_tel, (uintptr_t)usb_seriel};
+    for (int i = 0; i < HAAK_ALLES; i++) {
+        if (!U.h[i].gezet) continue;             /* trampoline: de gekopieerde eerste instructies, dan terug in de functie */
         unsigned char *t = tr + 64 * i;
         memcpy(t, U.h[i].sig, (size_t)U.h[i].nsig);
         t[U.h[i].nsig] = 0xe9;
@@ -461,7 +527,8 @@ static int usb_aanhaken(void) {
         U.h[i].trampoline = t;
     }
     __builtin___clear_cache((char *)tr, (char *)tr + 4096);
-    for (int i = 0; i < HAAK_N; i++) {
+    for (int i = 0; i < HAAK_ALLES; i++) {
+        if (!U.h[i].gezet) continue;
         unsigned char j[5] = {0xe9}; int32_t rel = (int32_t)(vervangers[i] - (U.h[i].adres + 5)); memcpy(j + 1, &rel, 4);
         if (pwrite(memfd, j, 5, (off_t)U.h[i].adres) != 5) { meld("usb: een haak kon niet geschreven worden"); }
     }
