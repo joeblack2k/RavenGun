@@ -5,11 +5,10 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (49)
+## Working (48)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
-- **After Dark**: WORKING via double-click in the app (2026-10-15): attract with movie, coin, START, two stages (Silent Valley, Castle of Shadows), continue, score 69000; played 5.5 min in mouse mode. Recipe: rg-compat (DirectInput with a NULL HINSTANCE), Gst32 + data/wmv-asyncreader.reg (movie), DXVK + Microsoft d3dx9_41 (without those the world renders black), gamescope. Open: the owner heard audio hitches in the first run (wined3d); not re-checked after DXVK.
 - **Aliens Extermination**: WORKING (2026-10-17, played in mouse mode for 5.5 min: high scores, press start, mission select by shooting, aiming and shooting in the game). Starts by double-click (2026-10-17): PeFillPages (the HASP emulation behind .text that Wine cleared), gamescope with Windowed = 1 at 1920x1080: boot screen, Global VR and PlayMechanix logos, attract with free play / press start. Open: the boot screen reports no GVRIO card and no Aliens guns; input not measured yet.
 - **Bug Busters**: WORKING (2026-10-15): double-click in RavenGun, rg-direct with the 32-bit GStreamer from Proton ([Launch] Gst32, docs/gst32.md) for the MPEG-1 videos; without it the game died after MODE SELECT. Played 5.5 min in mouse mode. Runs in a window (taskbar visible).
 - **Crossfire: Maximum Paintball**: WORKING (2026-10-17, played in mouse mode for 5.5 min: coin, start, color select, in the game with score; reload = aim off screen). Starts by double-click (2026-10-17): direct route with TeknoParrot's ELF loader in gamescope, input tp-shm/RawThrillsGUN: high scores, tutorial, demo, insert coin. Picture 4:3. Coin, start and shooting not measured yet.
@@ -83,8 +82,9 @@ These games are set up, but nobody has tried them with the lightgun yet.
 - **The House of the Dead 4 Special**: Measured 2026-10-15 (Lindbergh route, stackalign, /var/tmp): double-click, ride reset with START, then more than 5 min of attract without a crash. Coin and START do not start a game: the ride version most likely waits for seat signals (seat belts, the ride's start button; lindbergh-loader's rideBoard.c). Not playable yet.
 - **TNXK0O~C (unidentified Sega title)**: Never started: only a static study of the protection (BESCHERMING-STATUS.md). TNXK0O~C: unidentified Sega title (keychip Ver.1.12, SDDV_Table.dat, RingWide); the game's name is inferred, not established.
 
-## Not working yet (1)
+## Not working yet (2)
 
 These games do not start, or are blocked by something RavenGun does not work around (for example copy protection). They are listed so you know what to expect; they may start working in a later version.
 
+- **After Dark**: PARKED since 2026-10-19: on our own core ([Loader] Core = ravengun) the game starts and reaches its own dongle check, "Init Dongle Failed!"; the attract needs the dongle answers and we do not have them (bench-captures/AfterDark/20261019-dongle.png). With the closed TeknoParrot core it did play -- WORKING via double-click in the app (2026-10-15): attract with movie, coin, START, two stages (Silent Valley, Castle of Shadows), continue, score 69000; played 5.5 min in mouse mode. Recipe: rg-compat (DirectInput with a NULL HINSTANCE), Gst32 + data/wmv-asyncreader.reg (movie), DXVK + Microsoft d3dx9_41 (without those the world renders black), gamescope. Open: the owner heard audio hitches in the first run (wined3d); not re-checked after DXVK.
 - **GhostBusters**: On our own loader (rg-elfloader, own HASP hook, RIO bridge) the game reaches attract on 2026-10-18: TEST skips both gun calibrations, then "HOUSE CREEPING" and more than 9 minutes without a crash (screenshots). The ElfLdr2 path check is solved with the pm folder. The HASP responses that decrypt the data files live in the repository's private folder (patches/GhostBusters/private/ and dropin/ravengun-hasp/); without them the game stops at the RTDT defs. No TeknoParrot library or core is loaded.
