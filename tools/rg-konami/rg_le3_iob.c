@@ -13,6 +13,7 @@
  */
 #define KB_NAAM "iob.dll(LE3)"
 #include "kb_win.h"
+#include "le3_venster.h"
 
 static le3_iob_staat staat;
 static int muntteller_aan = 1;
@@ -121,7 +122,7 @@ void le3_iob_set_light_init(void) {}
 
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reden, LPVOID r)
 {
-    if (reden == DLL_PROCESS_ATTACH) { kb_dllmain_attach(h); kb_waakhond_start(); }
+    if (reden == DLL_PROCESS_ATTACH) { kb_dllmain_attach(h); kb_waakhond_start(); le3_venster_start(); }
     else if (reden == DLL_PROCESS_DETACH) kb_dllmain_detach(r);
     return TRUE;
 }

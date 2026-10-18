@@ -5,7 +5,7 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **loopt zonder TeknoParrot (invoer komt aan), beeld nog zwart of soms een hang in `PeekMessageA`** (proef 17) | beeld: A/B zonder gamescope en de nieuwe waakhond (meetpunten "Proef 17"); daarna kalibratie, Option/Reload |
+| **LethalEnforcers3** | **kandidaat, opnieuw te testen**: loopt zonder TeknoParrot en de invoer komt aan; het beeld (exclusief volledig scherm 640x480 per adapter) gaat nu via een venster (proef 18) | beeld met de venstermodus, kalibratie, Option/Reload |
 | **Gashaaaan** | **werkt zonder TeknoParrot tot het titelscherm** (proef 13, 2026-10-17) | niet gemeten: munt, START, worpen/inslagen per kwart, 5 minuten spelen |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
@@ -382,6 +382,52 @@ terugkeer: kernelbase.dll+78611 waaktest.exe+1580 …` (Sleep in de proefexe).
    zwart zonder hang: een schermfoto.
 3. Alleen als 2 niet genoeg zegt: tijdens de hang `sudo gdb -p <pid van game.exe> -batch -ex 'thread apply all bt'` (alleen lezen).
    Dat geeft de Linux-kant (xcb, futex, vulkan) van dezelfde draden.
+
+## Proef 18 (tv 2026-10-18 10:43 en 10:44, 9802c22, `Gamescope = false`)
+
+Zwart beeld, ook zonder gamescope. De nieuwe waakhond (`le3-rg-konami-nogs.log`) zag de hoofddraad in
+`win32u.dll+11d38 ← user32.dll+5844f ← game.exe+1cbf` (PeekMessageA in de hoofdlus `0x401c70`), een draad in `wined3d.dll`
+(dus wined3d, niet DXVK), dinput8, dsound/mmdevapi/winmm, en het venster `GAME` zichtbaar en op de voorgrond, 1280x480, stijl
+`94080000` (WS_POPUP | WS_VISIBLE).
+
+**Hoe game.exe zijn beeld aanvraagt** (WinMain `0x40a460`):
+
+- `CreateWindowExA(0x40008, "GAME", …, 0x90000000 (WS_POPUP|WS_VISIBLE), 0, 0, 640, 480)` (`0x40a2c4`);
+- `IDirect3D8::GetAdapterCount()` (vtable +0x10, `0x40a4f5`), begrensd op 2: **een apparaat per beeldscherm** (de kast: twee schermen
+  van 640x480 naast elkaar);
+- `GetAdapterDisplayMode(0)` voor het formaat, dan D3DPRESENT_PARAMETERS (`0x40a512..0x40a575`): achterbuffer 640x480 in dat formaat,
+  1 buffer, SwapEffect 4 (COPY_VSYNC), hDeviceWindow = het spelvenster, **Windowed = 0**, auto-dieptebuffer D24S8, 60 Hz, interval
+  ONE;
+- `CreateDevice(adapter i, HAL, venster, 0x40, &pp)` per adapter (`0x42af0c`);
+- `SetWindowPos(venster, 0, 0, 0, 1280, 480, NOZORDER|FRAMECHANGED)` (`0x40a5d5`): het venster beslaat beide schermen.
+
+Het vermoeden van de coördinator klopt in de kern: een exclusief volledig scherm op een modus die de uitgang niet heeft. Het is 640x480
+per adapter (niet 1280x480), en zonder gamescope telt Wine mogelijk twee adapters (de tv en het scherm van de Deck), dus twee
+volledige schermen. Beide komen bij Wine/X11 uit op een modusomschakeling, en de hoofddraad wacht dan in de vensterlaag.
+
+**Gewijzigd: venstermodus in onze iob.dll** (`tools/rg-konami/le3_venster.h`, aan met `RG_KONAMI_VENSTER=1` in
+`dropin/dropin.ini`):
+
+- in `DllMain` worden twee imports van `game.exe` omgeleid (alleen in het geheugen van dit proces): `d3d8!Direct3DCreate8` en
+  `user32!SetWindowPos`. De imports van de exe zijn dan al ingevuld; d3d8 en user32 staan in de importtabel voor iob;
+- het IDirect3D8-object krijgt een eigen kopie van zijn vtable: `GetAdapterCount` geeft 1, en `CreateDevice` zet `Windowed = TRUE`,
+  `FullScreen_RefreshRateInHz = 0` en `FullScreen_PresentationInterval = 0` (zo wil D3D8 een venster). Lukt dat niet, dan nogmaals
+  met de parameters van de game. Het apparaat krijgt ook een eigen kopie van zijn vtable, met dezelfde aanpassing in `Reset`;
+- `SetWindowPos` naar 1280x480 wordt 640x480. Gamescope (weer aan in de kandidaat) schaalt dat venster naar de tv.
+
+Getest in een wegwerp-prefix met een proef-exe die de stappen van WinMain naspeelt, tegen een nep-d3d8 (zonder beeldscherm kan wined3d
+hier geen apparaat maken): `GetAdapterCount = 2, de game krijgt 1`, `CreateDevice … windowed 1 hz 0 interval 0` en `SetWindowPos
+1280x480 -> 640x480`. `Reset` is nog niet getest: de proef-exe crashte erna, op de nagemaakte aanroepen van de nep-d3d8 zelf.
+
+**Testrecept proef 19** (LE3): `tools/rg-konami/build.sh --le3 patches/LethalEnforcers3/dropin`, de nieuwe `game.ini` (`Gamescope =
+true`) en `dropin/dropin.ini` (met `RG_KONAMI_VENSTER=1`) kopiëren, `rg-konami.log` opzij. Twee starts.
+
+- In `rg-konami.log` direct na de laadregels: `venster: RG_KONAMI_VENSTER=1, d3d8 en SetWindowPos omgeleid (venster 640x480)`, daarna
+  `venster: Direct3DCreate8(220) = …`, `venster: GetAdapterCount = N, de game krijgt 1`, `venster: CreateDevice(adapter 0, 640x480
+  fmt … swap 4, venster) = 0` en `venster: SetWindowPos 1280x480 -> 640x480`. Dan `iob_init`, richtpunten en geen `waakhond:`.
+- Op de tv: de opstartcontrole (I/O OK, GUN I/O OK, SYSTEM DATA1/2), dan de openingsfilm en de attract, beeldvullend in 4:3.
+- Staat er `CreateDevice met de parameters van de game (volledig scherm)`, dan weigerde wined3d het venster: de code (`= …`)
+  doorgeven.
 
 ## Niet bewezen / gegokt
 
