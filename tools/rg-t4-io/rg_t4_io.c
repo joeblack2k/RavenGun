@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -209,9 +210,9 @@ static void *draad(void *arg)
     g_lo = env_d("RG_T4_AIM_X0", 0.0); g_hi = env_d("RG_T4_AIM_X1", 1.0); g_ylo = env_d("RG_T4_AIM_Y0", 0.0); g_yhi = env_d("RG_T4_AIM_Y1", 1.0);
     if (g_hi <= g_lo) { g_lo = 0.0; g_hi = 1.0; }
     if (g_yhi <= g_ylo) { g_ylo = 0.0; g_yhi = 1.0; }
-    int bk = aim_aan ? build_klopt() : 0;
-    int aim_ok = aim_aan && bk && in_maps(AIM_BASE, 2 * AIM_STAP, 1);
-    fprintf(stderr, "rg-t4-io: lijn %s, richtpunt %s (build %s)\n", dev, aim_ok ? "AAN" : "UIT", !aim_aan ? "n.v.t." : bk ? "klopt" : "klopt NIET");
+    /* De lader legt het spelbeeld pas NA het laden van deze bibliotheek neer: de build-controle wordt herhaald tot het beeld er staat. */
+    int aim_ok = 0, aim_gemeld = 0;
+    fprintf(stderr, "rg-t4-io: lijn %s, richtpunt %s\n", dev, aim_aan ? "wacht op het spelbeeld" : "UIT (RG_T4_AIM=0)");
     uint32_t vorig = 0;
     float laatst[4] = {-9, -9, -9, -9};
     struct timespec t0;
@@ -243,7 +244,14 @@ static void *draad(void *arg)
                 }
             }
         }
+        if (aim_aan && !aim_ok && (tel % 50) == 0) {
+            if (in_maps(AIM_GETTER, sizeof AIM_SIG, 0)) {
+                if (build_klopt() && in_maps(AIM_BASE, 2 * AIM_STAP, 1)) { aim_ok = 1; fprintf(stderr, "rg-t4-io: richtpunt AAN (build klopt)\n"); }
+                else if (!aim_gemeld) { aim_gemeld = 1; fprintf(stderr, "rg-t4-io: richtpunt UIT: spelbeeld aanwezig maar de bytes op 0x%x kloppen NIET\n", AIM_GETTER); }
+            }
+        }
         if (sfd < 0 && (tel++ % 100) == 0) sfd = open(shm, O_RDONLY);
+        else tel++;
         if (sfd >= 0) {
             uint8_t beeld[64];
             if (pread(sfd, beeld, sizeof beeld, 0) == (ssize_t)sizeof beeld) {
@@ -269,6 +277,8 @@ void glutInit(int *argcp, char **argv)
 {
     static void (*echt)(int *, char **);
     if (!echt) echt = (void (*)(int *, char **))dlsym(RTLD_NEXT, "glutInit");
+    if (!echt) { void *h = dlopen("libglut.so.3", RTLD_NOW | RTLD_GLOBAL); if (h) echt = (void (*)(int *, char **))dlsym(h, "glutInit"); }
+    if (g_log) fprintf(stderr, "rg-t4-io: glutInit aangeroepen (echte functie %s, DISPLAY=%s)\n", echt ? "gevonden" : "NIET gevonden", getenv("DISPLAY") ? getenv("DISPLAY") : "-");
     const char *d = getenv("DISPLAY");
     if (argcp && argv && getenv("RG_GLUT_DISPLAY_FROM_ENV") && d && *d)
         for (int i = 0; i + 1 < *argcp; i++)
@@ -276,9 +286,31 @@ void glutInit(int *argcp, char **argv)
     if (echt) echt(argcp, argv);
 }
 
+/* Onderzoek (RG_T4_DIAG=1): wie sluit het spel af? Een regel met het terugkeeradres, voor de echte exit. */
+void exit(int code)
+{
+    static void (*echt)(int);
+    if (!echt) echt = (void (*)(int))dlsym(RTLD_NEXT, "exit");
+    if (getenv("RG_T4_DIAG")) fprintf(stderr, "rg-t4-io: exit(%d) aangeroepen vanaf %p\n", code, __builtin_return_address(0));
+    echt(code);
+    for (;;) {}
+}
+void _exit(int code)
+{
+    static void (*echt)(int);
+    if (!echt) echt = (void (*)(int))dlsym(RTLD_NEXT, "_exit");
+    if (getenv("RG_T4_DIAG")) { char b[64]; int n = snprintf(b, sizeof b, "rg-t4-io: _exit(%d) vanaf %p\n", code, __builtin_return_address(0)); if (write(2, b, (size_t)n) < 0) {} }
+    echt(code);
+    for (;;) {}
+}
+
 __attribute__((constructor)) static void start(void)
 {
     g_log = getenv("RG_T4_LOG") != NULL;
+    if (getenv("RG_T4_DIAG")) {   /* onderzoek: kan een kind van het spel zijn vader aanhaken? */
+        long dump = prctl(3 /* PR_GET_DUMPABLE */, 0, 0, 0, 0);
+        fprintf(stderr, "rg-t4-io: pid %d uid %d dumpable %ld\n", (int)getpid(), (int)getuid(), dump);
+    }
 #ifdef RG_T4_TEST
     const char *m = getenv("RG_T4_TEST_MEM");
     if (m) g_mem = (uintptr_t)strtoul(m, NULL, 16);

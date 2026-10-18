@@ -10,7 +10,7 @@ T=$(mktemp -d) || exit 1
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/inc32/gnu"
 [ -f /usr/include/gnu/stubs-32.h ] || : >"$T/inc32/gnu/stubs-32.h"
-if ! { "$CC" -m32 -shared -fPIC -O2 -Wall -Wextra -DRG_CF_TEST -o "$T/librg-cf-io.so" "$ROOT/tools/rg-cf-io/rg_cf_io.c" 2>"$T/err" \
+if ! { "$CC" -m32 -shared -fPIC -O2 -Wall -Wextra -DRG_CF_TEST -o "$T/librg-cf-io.so" "$ROOT/tools/rg-cf-io/rg_cf_io.c" -ldl 2>"$T/err" \
   && "$CC" -m32 -I"$T/inc32" -O1 -Wall -o "$T/cf_io_unit" "$ROOT/tests/cf_io_unit.c" -lm 2>>"$T/err"; }; then
   cat "$T/err"; echo "overgeslagen: geen gcc -m32"; exit 77
 fi
