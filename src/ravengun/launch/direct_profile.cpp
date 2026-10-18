@@ -22,7 +22,7 @@ namespace ravengun::launch {
 namespace direct_detail {
 
 // --- gamesettings.py: het oude .env, to_env, env_to_settings -----------------------------------------------------------------------
-std::string prefixes_dir(const DirectPaths& p) { return p.home + "/.local/share/ravengun/prefixes"; }
+std::string prefixes_dir(const DirectPaths& p) { return p.data + "/prefixes"; }
 std::string shared_prefix(const DirectPaths& p) { return prefixes_dir(p) + "/shared/wine"; }
 
 namespace {

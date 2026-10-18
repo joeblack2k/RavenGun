@@ -410,7 +410,7 @@ DirectPaths default_direct_paths(const EnvMap& env) {
     p.data = (xd.starts_with("/") ? xd : p.home + "/.local/share") + "/ravengun";
     p.state = (xs.empty() ? p.home + "/.local/state" : xs) + "/ravengun";
     p.tp = getenv_or(env, "RAVENGUN_TP_DIR");
-    if (p.tp.empty()) p.tp = p.home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+    if (p.tp.empty()) p.tp = p.data + "/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     p.library_file = getenv_or(env, "RAVENGUN_LIBRARY_FILE");
     if (p.library_file.empty()) p.library_file = (xc.starts_with("/") ? xc : p.home + "/.config") + "/ravengun/library.json";
     return p;

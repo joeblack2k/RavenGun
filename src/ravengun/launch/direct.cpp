@@ -262,7 +262,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
 
     // 3. Wine en de prefix.
     std::string wine = pr.get("WineRunnerPath");
-    if (!(!wine.empty() && isfile(wine))) wine = isfile(getenv_or(env, "TP_WINE")) ? getenv_or(env, "TP_WINE") : p.home + "/.local/share/ravengun/wine/proton-11.0-2/bin/wine";
+    if (!(!wine.empty() && isfile(wine))) wine = isfile(getenv_or(env, "TP_WINE")) ? getenv_or(env, "TP_WINE") : p.data + "/wine/proton-11.0-2/bin/wine";
     {
         const std::string bindir = dirname(wine);
         if (basename(dirname(bindir)) == "files" && isfile(pjoin(dirname(dirname(bindir)), "proton")))
@@ -680,7 +680,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (const std::string nd = trim(lini("NativeDlls")); !nd.empty()) {
         const std::string arch = is64 ? "x64" : "x86";
         std::string rd = getenv_or(env, "RAVENGUN_REDIST");
-        if (rd.empty()) rd = p.home + "/.local/share/ravengun/redist";
+        if (rd.empty()) rd = p.data + "/redist";
         const std::string sysdir = pjoin(prefix, std::string("drive_c/windows/") + (is64 ? "system32" : "syswow64"));
         std::vector<std::string> ov;
         for (std::string naam : nonempty_split(nd, ',')) {

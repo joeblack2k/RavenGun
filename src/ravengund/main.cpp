@@ -201,7 +201,10 @@ int main(int argc, char** argv) {
     std::string home = home_env && *home_env ? home_env : "";
     if (home.empty())   // zonder HOME: de thuismap van deze gebruiker volgens het systeem (zoals default_direct_paths)
         if (const struct passwd* pw = ::getpwuid(::getuid()); pw && pw->pw_dir) home = pw->pw_dir;
-    std::string tp_dir = home.empty() ? std::string() : home + "/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
+    const char* xd0 = std::getenv("XDG_DATA_HOME");
+    const std::string data_base = (xd0 && *xd0 == '/') ? std::string(xd0) : home + "/.local/share";
+    std::string tp_dir = home.empty() && data_base.empty() ? std::string()
+                                                            : data_base + "/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     bool tp_dir_given = false;   // --tp-dir; anders gaat de keuze van de app voor (tp_dir in library.json)
     std::string data_dir_opt;
     std::string aagames_config;

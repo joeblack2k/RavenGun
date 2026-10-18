@@ -875,7 +875,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
         const std::string vidpid = c_.hid_vidpid ? c_.hid_vidpid(in.board) : std::string();
         if (!pfx.empty() && !vidpid.empty()) {
             std::string wine = base.count("RG_WINE") ? base["RG_WINE"] : std::string();
-            if (wine.empty()) wine = c_.direct.home + "/.local/share/ravengun/wine/proton-11.0-2/bin/wine";
+            if (wine.empty()) wine = c_.direct.data + "/wine/proton-11.0-2/bin/wine";
             L::wine_joystick_zero(wine, pfx, vidpid, base, c_.capture, prep);
         }
         prep.push_back("Invoerroute: hid-board (de daemon is het invoerbord van de game).");
