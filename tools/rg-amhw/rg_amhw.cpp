@@ -19,6 +19,7 @@
 // standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1,
 // RG_AMHW_DIPIN ("FE,FF": invoerpoorten 0 en 1 van de PCA9535, actief laag; LGI: bit 0 aan = standaardkast zonder passagiersstoel),
 // RG_AMHW_WINDOW="X,Y,W,H[,popup]" (het eerste hoofdvenster van het spel krijgt die plek/maat, zie "venster"),
+// RG_AMHW_AMLOG=1 en RG_AMHW_PEEK="0xADRES,..." (SDR: logboek van de AM Library en game-geheugen in de bewaker),
 // RG_AMHW_WATCHDOG=N (na N en 2N s de plek van elke thread in het logboek),
 // RG_AMHW_NOREPARSE=1 (een gelinkte map meldt GetFileAttributes als 0x10 in plaats van 0x410; terugval voor SDR, zie "de werkmap van het spel").
 #define WIN32_LEAN_AND_MEAN
@@ -1130,6 +1131,64 @@ void log_msgs(int round) {
            static_cast<long>(g_peek_enter), static_cast<long>(g_peek_calls), static_cast<long>(g_peek_empty), static_cast<long>(g_msg_other), t.c_str());
 }
 
+// --- de logboeken van de AM Library van SDR ----------------------------------------------------------------------------------------------
+// Game.exe (Dream Raiders, AM Library 1.08) heeft een logger (0x70B5B0 -> 0x70B480) die alleen schrijft als een niveauvariabele van de module >= 1 is, en dan naar een
+// sink-functie op [0xA21048] (leeg: naar stderr). In de uitgebrachte exe staan alle niveaus op 0. RG_AMHW_AMLOG=1 zet de veertien niveaus die voor een logaanroep op 1
+// gelezen worden op 1 (alleen als de bytes van 0x70B5B0 kloppen) en zet een eigen sink; elke regel staat in rg-amhw.log als `am: ...`. RG_AMHW_PEEK="0xADRES,..." logt
+// bij elke bewaker-ronde de dwords op die adressen (SDR: 0x348A090/0x348A094 = foutcode/-detail van de invoerstart, 0x348A0BC = vlaggen, 0xA07FD8 = AM-invoer klaar).
+extern "C" void __cdecl rg_am_sink(const char* msg) {
+    static LONG n = 0;
+    if (!msg || InterlockedIncrement(&n) > 600) return;
+    char b[500];
+    size_t i = 0;
+    for (; msg[i] && i < sizeof b - 1; ++i) b[i] = (msg[i] == '\r' || msg[i] == '\n') ? ' ' : msg[i];
+    b[i] = 0;
+    rg_log("am: %s", b);
+}
+void amlog_enable() {
+    static const uint8_t sig[] = {0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x54, 0x24, 0x08, 0x8D, 0x44, 0x24, 0x10, 0x50, 0x8B, 0x44, 0x24, 0x08};
+    static const uintptr_t levels[] = {0xA07F90, 0xA07F98, 0xA082B8, 0xA08548, 0xA08554, 0xA08558, 0xA148A8, 0xA14CB8, 0xA14ED0, 0xA14ED8, 0xA18DA8, 0xA18E30, 0xA1CE10, 0xA21058};
+    const uintptr_t logger = 0x70B5B0, sink = 0xA21048;
+    if (IsBadReadPtr(reinterpret_cast<const void*>(logger), sizeof sig) || std::memcmp(reinterpret_cast<const void*>(logger), sig, sizeof sig) != 0) {
+        rg_log("am: RG_AMHW_AMLOG=1, maar 0x70B5B0 heeft de bytes van de SDR-logger niet (andere game?); niets gezet");
+        return;
+    }
+    int set = 0;
+    for (uintptr_t a : levels) {
+        DWORD prot = 0;
+        auto* p = reinterpret_cast<volatile LONG*>(a);
+        if (IsBadWritePtr(const_cast<LONG*>(p), 4) && !VirtualProtect(const_cast<LONG*>(p), 4, PAGE_READWRITE, &prot)) continue;
+        if (*p < 1) *p = 1;
+        ++set;
+    }
+    auto* sk = reinterpret_cast<volatile uintptr_t*>(sink);
+    if (!IsBadWritePtr(const_cast<uintptr_t*>(sk), 4)) *sk = reinterpret_cast<uintptr_t>(&rg_am_sink);
+    rg_log("am: logniveaus van %d modules op 1 gezet en een eigen sink op 0xA21048 (regels als `am: ...`)", set);
+}
+std::vector<uintptr_t> g_peek;
+void parse_peek() {
+    const std::string v = env("RG_AMHW_PEEK", "");
+    size_t i = 0;
+    while (i < v.size()) {
+        const size_t j = v.find(',', i);
+        const std::string t = v.substr(i, j == std::string::npos ? std::string::npos : j - i);
+        if (!t.empty()) g_peek.push_back(static_cast<uintptr_t>(std::strtoul(t.c_str(), nullptr, 16)));
+        if (j == std::string::npos) break;
+        i = j + 1;
+    }
+}
+void log_peek(int round) {
+    if (g_peek.empty()) return;
+    std::string t;
+    char b[48];
+    for (uintptr_t a : g_peek) {
+        if (IsBadReadPtr(reinterpret_cast<const void*>(a), 4)) std::snprintf(b, sizeof b, " 0x%lX=?", static_cast<unsigned long>(a));
+        else std::snprintf(b, sizeof b, " 0x%lX=0x%lX", static_cast<unsigned long>(a), static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(a)));
+        t += b;
+    }
+    rg_log("bewaker %d: geheugen:%s", round, t.c_str());
+}
+
 std::string where(uintptr_t a) {
     HMODULE m = nullptr;
     char nm[MAX_PATH] = "?";
@@ -1204,6 +1263,7 @@ void dump_threads(int round) {
         rg_log("%s", line.c_str());
     }
     log_msgs(round);
+    log_peek(round);
     rg_log("bewaker %d: %d threads bekeken", round, n);
 }
 DWORD WINAPI watchdog(LPVOID arg) {
@@ -1258,6 +1318,8 @@ void setup() {
     hook("USER32.dll", "CreateWindowExA", rg_CreateWindowExA, g_createwin_a);
     hook("USER32.dll", "CreateWindowExW", rg_CreateWindowExW, g_createwin_w);
     parse_winforce();
+    parse_peek();
+    if (env("RG_AMHW_AMLOG", "") == "1") amlog_enable();
     hook("USER32.dll", "SetWindowPos", rg_SetWindowPos, g_setwinpos);
     hook("USER32.dll", "ShowWindow", rg_ShowWindow, g_showwin);
     hook("USER32.dll", "SetWindowLongA", rg_SetWindowLongA, g_setwinlong_a);
