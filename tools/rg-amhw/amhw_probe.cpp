@@ -325,12 +325,15 @@ int main(int argc, char** argv) {
     check(n != INVALID_HANDLE_VALUE && ReadFile(n, buf, 2, &got, nullptr) && got == 2 && buf[0] == 'M' && buf[1] == 'Z', "en lezen ook");
     if (n != INVALID_HANDLE_VALUE) CloseHandle(n);
     {   // de bewaker (RG_AMHW_WATCHDOG=1): ronde 1 na 1 s; de nep-JVS-thread wacht in ReadFile
+        MSG pm = {};
+        PeekMessageA(&pm, nullptr, 0, 0, PM_REMOVE);   // de berichtenteller telt deze aanroep (geen bericht)
         Sleep(1500);
         FILE* wf = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
         std::string wl;
         if (wf) { char buf[4096]; size_t k; while ((k = std::fread(buf, 1, sizeof buf, wf)) > 0) wl.append(buf, k); std::fclose(wf); }
         check(wl.find("bewaker 1: thread ") != std::string::npos && wl.find("bewaker 1: ") != std::string::npos && wl.find("threads bekeken") != std::string::npos,
               "de bewaker schreef na 1 s de threads (plek + terugkeeradressen) in rg-amhw.log");
+        check(wl.find("bewaker 1: PeekMessage 1 keer, 1 zonder bericht") != std::string::npos, "de bewaker toont de berichtenteller (1 PeekMessage, leeg)");
     }
     std::printf("%s\n", g_fail ? "MISLUKT" : "ALLES OK");
     return g_fail ? 1 : 0;

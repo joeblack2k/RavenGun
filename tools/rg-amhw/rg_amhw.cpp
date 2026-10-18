@@ -986,6 +986,40 @@ void fix_rdata_writable() {
 // RG_AMHW_WATCHDOG=N (seconden; standaard uit): na N en na 2N seconden schrijft een eigen thread van elke andere thread van het proces het adres waar hij staat
 // (module+offset) en de terugkeeradressen die op de stapel lijken (zoals het afsluitspoor), in rg-amhw.log. Een thread die wacht staat in ntdll; de terugkeeradressen in
 // de game wijzen dan naar de functie die wacht. Alleen lezen: elke thread wordt kort stilgezet en weer gestart.
+// Berichtenteller: SDR bleef in zijn berichtenlus hangen (PeekMessageA geeft steeds een bericht, de game tekent nooit een beeld; 0x401600). De bewaker toont welke berichten
+// het zijn (WM_PAINT = 0x0F zonder dat het venster ooit geldig wordt, WM_SIZE/WM_ACTIVATE bij een schermwissel, ...). Alleen tellen; het bericht gaat ongewijzigd door.
+using PeekMsgAFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
+using PeekMsgWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
+PeekMsgAFn g_peek_a = PeekMessageA;
+PeekMsgWFn g_peek_w = PeekMessageW;
+volatile LONG g_msg_count[0x400];
+volatile LONG g_msg_other = 0, g_peek_calls = 0, g_peek_empty = 0;
+void count_msg(BOOL r, const MSG* m) {
+    InterlockedIncrement(&g_peek_calls);
+    if (!r) { InterlockedIncrement(&g_peek_empty); return; }
+    if (m->message < 0x400) InterlockedIncrement(&g_msg_count[m->message]);
+    else InterlockedIncrement(&g_msg_other);
+}
+BOOL WINAPI rg_PeekMessageA(LPMSG m, HWND w, UINT a, UINT b, UINT f) { const BOOL r = g_peek_a(m, w, a, b, f); if (m) count_msg(r, m); return r; }
+BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND w, UINT a, UINT b, UINT f) { const BOOL r = g_peek_w(m, w, a, b, f); if (m) count_msg(r, m); return r; }
+void log_msgs(int round) {
+    std::string t;
+    char b[48];
+    for (int pass = 0; pass < 6; ++pass) {   // de zes meest voorkomende berichten
+        int best = -1;
+        LONG bc = 0;
+        for (int i = 0; i < 0x400; ++i)
+            if (g_msg_count[i] > bc) { bc = g_msg_count[i]; best = i; }
+        if (best < 0) break;
+        std::snprintf(b, sizeof b, " 0x%X=%ld", best, static_cast<long>(bc));
+        t += b;
+        g_msg_count[best] = -g_msg_count[best];   // tijdelijk wegzetten
+    }
+    for (int i = 0; i < 0x400; ++i) if (g_msg_count[i] < 0) g_msg_count[i] = -g_msg_count[i];
+    rg_log("bewaker %d: PeekMessage %ld keer, %ld zonder bericht, ander (>=0x400) %ld; berichten (0x0F=WM_PAINT 0x05=WM_SIZE 0x06=WM_ACTIVATE 0x1C=WM_ACTIVATEAPP 0x113=WM_TIMER 0x200=WM_MOUSEMOVE):%s", round,
+           static_cast<long>(g_peek_calls), static_cast<long>(g_peek_empty), static_cast<long>(g_msg_other), t.c_str());
+}
+
 std::string where(uintptr_t a) {
     HMODULE m = nullptr;
     char nm[MAX_PATH] = "?";
@@ -1059,6 +1093,7 @@ void dump_threads(int round) {
         }
         rg_log("%s", line.c_str());
     }
+    log_msgs(round);
     rg_log("bewaker %d: %d threads bekeken", round, n);
 }
 DWORD WINAPI watchdog(LPVOID arg) {
@@ -1108,6 +1143,8 @@ void setup() {
     hook("KERNEL32.dll", "GetFileAttributesW", rg_GetFileAttributesW, g_getattr_w);
     hook("KERNEL32.dll", "SetCurrentDirectoryA", rg_SetCurrentDirectoryA, g_setcwd_a);
     hook("KERNEL32.dll", "SetCurrentDirectoryW", rg_SetCurrentDirectoryW, g_setcwd_w);
+    hook("USER32.dll", "PeekMessageA", rg_PeekMessageA, g_peek_a);
+    hook("USER32.dll", "PeekMessageW", rg_PeekMessageW, g_peek_w);
     fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);
