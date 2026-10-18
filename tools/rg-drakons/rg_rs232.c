@@ -277,7 +277,20 @@ EXPORT int __cdecl RS232_SendBuf(int poort, unsigned char *buf, int grootte) { (
 EXPORT void __cdecl RS232_CloseComport(int poort) { (void)poort; }
 EXPORT void __cdecl RS232_cputs(int poort, const char *tekst) { (void)poort; (void)tekst; }
 EXPORT int __cdecl RS232_GetPortnr(const char *naam) { (void)naam; return -1; }
-EXPORT int __cdecl RS232_GetPortIndexByName(const char *naam) { (void)naam; return -1; }
+/* Gemeten aan de originele DLL (objdump, RVA 0x1080): een lineaire, exacte vergelijking met een tabel van 48 namen "\\.\COM1".."\\.\COM48";
+ * gevonden = de 0-gebaseerde plaats, anders 48 (de tabellengte), NOOIT -1. De game gebruikt het getal als index in een array
+ * (SBK.RS232.RS232DLL.UsedPort): -1 gaf in tv-ronde 40 "IndexOutOfRangeException" in RS232DLL.Open en hield het laden tegen. De game geeft
+ * de naam zonder voorvoegsel ("COM2") door, dus het origineel gaf 48 en de game sloeg die poort over. */
+EXPORT int __cdecl RS232_GetPortIndexByName(const char *naam)
+{
+    if (naam && !strncmp(naam, "\\\\.\\COM", 7)) {
+        int n = 0, i = 7;
+        if (naam[i] < '1' || naam[i] > '9') return 48;
+        while (naam[i] >= '0' && naam[i] <= '9' && n < 1000) n = n * 10 + (naam[i++] - '0');
+        if (!naam[i] && n >= 1 && n <= 48) return n - 1;
+    }
+    return 48;
+}
 EXPORT int __cdecl RS232_IsDCDEnabled(int poort) { (void)poort; return 0; }
 EXPORT int __cdecl RS232_IsRINGEnabled(int poort) { (void)poort; return 0; }
 EXPORT int __cdecl RS232_IsCTSEnabled(int poort) { (void)poort; return 0; }
