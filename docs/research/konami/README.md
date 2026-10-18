@@ -5,7 +5,7 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **meten** (proef 14: de eerste start maakte SAVE-data aan en sloot af, de tweede bleef zwart met geluid, voor de hoofdlus) | meetvoorstellen in "Proef 14"; daarna SYSTEM DATA1/2, films, kalibratie, Option/Reload |
+| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 16: crash ~10 s na de start, na SYSTEM DATA1, toen de films ontbraken; nu films terug + uitzonderingen in het logboek) | de attract met film, de wisselende hang voor de hoofdlus (waakhond), kalibratie, Option/Reload |
 | **Gashaaaan** | **werkt zonder TeknoParrot tot het titelscherm** (proef 13, 2026-10-17) | niet gemeten: munt, START, worpen/inslagen per kwart, 5 minuten spelen |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
@@ -308,6 +308,43 @@ wachtfunctie, en de afsluitregel na `exit(3)` het adres in de stopfunctie.
    de `wie stopt het proces`-regel met zijn tijd.
 3. Ik lees die adressen in `game.exe` na en lever dan de wijziging: een omleiding van wat hem tegenhoudt (a), of een herstart in
    rg-direct als (b) een bedoelde herstart is.
+
+## Proef 16 (tv 2026-10-18 08:40, 08:41, 08:43, c27ee29)
+
+Alle drie de starts kwamen in de hoofdlus (`iob_init` op +1,0 s) en stopten zelf op +9,4 tot +10,2 s, met dezelfde afsluitregel
+(`54a9cc 5314fc 565b4d 5279f2 521eb7 54a95d 54a962 41b60c 54a962 54f405 54f40b 54b70c 54b84b 54b882 54a513 54a36a`). Geen
+waakhond-regel. Nagelezen in `game.exe` (de buitenste ramen staan achteraan):
+
+- `54a36a`: de CRT-opstart (`__tmainCRTStartup`, `0x54a33c`).
+- **`54a513`**: na `call 0x54b875` op `0x54a50e`. Dat is het **`__except`-blok** van de CRT-opstart: `0x54a501` zet `esp` terug,
+  `edi = uitzonderingscode`, en `_exit(edi)`. Het normale einde van WinMain zou `54a4e6` zijn (na `exit` op `0x54a4e1`), en dat
+  adres staat er niet in.
+- `54b882` → `54b84b` → `54b70c`: `_exit` → `doexit` → `__crtExitProcess` → `ExitProcess`. De lagere adressen (`54f405`, `41b60c`,
+  `5279f2`, `565b4d`, `5314fc`, `54a9cc`) zijn opruimwerk tijdens `doexit` of oude waarden op de stapel.
+
+**Het is dus een crash in de hoofddraad** (een niet-afgevangen uitzondering, exitcode = de uitzonderingscode). Geen venster dat dichtgaat,
+geen JPEG-fout (`44f59e` staat er niet in), geen draad die niet start. Het gebeurt ~10 s na de start: na SYSTEM DATA1 en het
+aanmaken van de SAVE-gegevens, waar de game naar de attract met de openingsfilm gaat. Sinds proef 14 staan de films niet meer in
+`D22/DATA` (`D:\D22\DATA\movies\*.m1v`, `0x523ea2`). Onder de kern waren ze er altijd. Zonder D: (proef 11) kwam de game
+nooit voorbij SYSTEM DATA1, dus hij kwam ook nooit bij de films. **Herziening van proef 13**: het zwart daar was de wisselende hang
+voor de hoofdlus (zie proef 14/15: 07:37 en 08:12, ook zonder films), niet de films.
+
+**Gewijzigd:**
+
+1. **De films en `data.a` terug** in de kandidaat: `D22/DATA/movies -> origineel:DATA/movies` en `D22/DATA/data.a ->
+   origineel:DATA/data.a`, als links in de bestaande lokale map `D22/DATA`. Geen `rm` nodig: de drie links van proef 14 blijven.
+2. **Uitzonderingen in het logboek** (onze iob.dll, een vectored handler; laat elke uitzondering door): `uitzondering: code <code> op
+   <adres> (lezen|schrijven|uitvoeren <adres>) draad <id> (hoofddraad): eip=... terugkeer in de exe: ...`, de eerste 12. Een
+   C++-throw, een draadnaam en debugtekst worden overgeslagen. Getest met een eigen proef-exe (schrijven naar 0x10): code `c0000005`,
+   het juiste adres en het terugkeeradres in `main`.
+
+**Testrecept proef 17** (LE3): `tools/rg-konami/build.sh --le3 patches/LethalEnforcers3/dropin`, de nieuwe `game.ini` kopiëren, de oude
+`rg-konami.log` opzij. Twee starts.
+
+- rg-direct-log: tien `viewlink:`-regels, waaronder `D22/DATA/movies -> …/Lethal Enforcers 3/DATA/movies`.
+- Doorloop verwacht: SYSTEM DATA1/2 OK, de openingsfilm, de attract. Geen `uitzondering:`-regel, en na 30 s nog richtpunten.
+- Crasht hij weer: de `uitzondering:`-regels (code, adres, terugkeeradressen) doorgeven. Dan lees ik de plek in `game.exe` na.
+- Hangt hij voor de hoofdlus (geen `iob_init`): de `waakhond:`-regels doorgeven.
 
 ## Niet bewezen / gegokt
 
