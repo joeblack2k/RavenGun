@@ -17,9 +17,12 @@
 //     nagebootst, al het andere (ook de USB-hostcontroller-GUID van de apparaatinventaris, CM_*) gaat ongemoeid naar de echte functies.
 //   * De registers staan in usio_board.h (getoetst in tests/test_usio_board.cpp). Het schakelaarwoord en de aim komen uit het gedeelde
 //     geheugen TeknoParrot_JvsState (indeling TimeCrisis5), net als bij de gesloten kern.
-//   * Het richten en de trekker: het spel leest zijn muis (UTCMouseInterfacePlayerInput, GetCursorPos + WM_LBUTTON), niet het bord.
-//     Een draad in dit proces zet de aim uit het gedeelde geheugen met SendInput om in een absolute muisbeweging en de trekker in
-//     de linkermuisknop (RG_TC5_AIM=off / RG_TC5_TRIGGER=off zetten dat uit). DIT IS EEN GOK: niet op de tv gemeten.
+//   * Het richten en de trekker: ZE LOPEN NIET OVER HET BORD EN NIET VIA DE MUIS. Het spel praat met een geweer op een seriele poort (COM1,
+//     COM2, COM15 .. COM3; 38400 baud 8O1; eenbyte-opdracht 0x08 -> kader van 11 bytes met X1, Y1, vlaggen en controlesom; zie gun_com.h met de
+//     adressen). Opent geen enkele poort, dan valt het spel terug op de muis met relatieve delta's en zonder trekker (tv-proef 2026-10-18). Deze
+//     DLL doet daarom een nagebootste COM1: CreateFileW("COM1") geeft een gebeurtenis-handvat, en ReadFile, WriteFile, CloseHandle, PurgeComm,
+//     ClearCommError, Get/SetCommState en Get/SetCommTimeouts van het spel gedragen zich op dat handvat als het geweer (aim en trekker uit het
+//     gedeelde geheugen). RG_TC5_GUN=off zet dat uit. SendInput (absolute muis + linkerknop) is alleen nog een noodtrap: RG_TC5_AIM=on / RG_TC5_TRIGGER=on.
 //
 // LOGBOEK
 //   rg-winusb.log naast deze DLL: het laden, welke importen omgezet zijn, elke stap van de apparaatopsomming en het openen, de eerste
@@ -29,8 +32,9 @@
 // OMGEVING
 //   RG_USIO_SHM       naam van het gedeelde geheugen (standaard TeknoParrot_JvsState)
 //   RG_TC5_BITS       toewijzing overschrijven: "pedal_l=0x800,pedal_r=0x400,gun=0x800000,trigger=0,coin=1" (zie usio_board.h)
-//   RG_TC5_AIM=off    geen muisbeweging via SendInput
-//   RG_TC5_TRIGGER=off geen linkermuisknop via SendInput
+//   RG_TC5_GUN        "off" = geen nagebootste COM1; of de afbeelding: "x0=0,x1=1023,y0=0,y1=1023,flipy=1,oof=1,trig=0x20" (zie gun_com.h)
+//   RG_TC5_AIM=on     muisbeweging via SendInput (standaard uit)
+//   RG_TC5_TRIGGER=on linkermuisknop via SendInput (standaard uit)
 //
 // Clean-room: alleen de openbare WinUSB-/SetupAPI-interfaces en wat we zelf aan het spel hebben gemeten (docs/research/namco/README.md).
 #define WIN32_LEAN_AND_MEAN
@@ -47,6 +51,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "gun_com.h"
 #include "usio_board.h"
 
 namespace {
@@ -94,12 +99,16 @@ const wchar_t kFakePath[] = L"\\\\?\\usb#vid_0b9a&pid_0c20#rgusio000001#{e54bf30
 constexpr UCHAR kPipeOut = 0x01, kPipeIn = 0x82, kPipeIntr = 0x83;
 
 rg_usio5::Board g_board;
+rg_usio5::GunCom g_gun;
+bool g_gun_on = true;
+HANDLE g_com = nullptr;   // ons nagebootste COM-handvat (een gebeurtenis); nullptr = niet open
+uint32_t g_gun_log_raw = 0xFFFFFFFFu;
 HANDLE g_map = nullptr;
 const uint8_t* g_view = nullptr;
 HANDLE g_thread = nullptr;
 volatile LONG g_stop = 0;
 char g_shm_name[128] = "TeknoParrot_JvsState";
-bool g_aim_on = true, g_trigger_on = true;
+bool g_aim_on = false, g_trigger_on = false;   // SendInput: noodtrap, standaard uit
 uint32_t g_last_sw = 0xFFFFFFFFu;
 uint32_t g_last_ctl = 0xFFFFFFFFu;
 LONG g_iface_dummy = 0;   // het adres hiervan is onze WINUSB_INTERFACE_HANDLE
@@ -120,12 +129,25 @@ void sample_locked() {
     uint8_t copy[rg_usio5::kShmSize];
     std::memcpy(copy, g_view, sizeof copy);
     g_board.update(copy);
+    g_gun.update(copy);
     const uint32_t sw = g_board.switches(), ctl = g_board.control();
     if (sw != g_last_sw || ctl != g_last_ctl) {
         rg_log("invoer: schakelaarwoord 0x%08lx (daemon-bits 0x%08lx), aim %u,%u", static_cast<unsigned long>(sw), static_cast<unsigned long>(ctl),
                g_board.aim_x(), g_board.aim_y());
         g_last_sw = sw;
         g_last_ctl = ctl;
+    }
+    const uint32_t raw = static_cast<uint32_t>(g_gun.raw_x()) | (static_cast<uint32_t>(g_gun.raw_y()) << 10) | (static_cast<uint32_t>(g_gun.flags()) << 20);
+    if (g_com && raw != g_gun_log_raw) {
+        // Alleen loggen als een vlag wisselt of het geweer ver verschuift (anders loopt het logboek vol).
+        const uint32_t old = g_gun_log_raw;
+        const int dx = static_cast<int>(g_gun.raw_x()) - static_cast<int>(old & 0x3FFu);
+        const int dy = static_cast<int>(g_gun.raw_y()) - static_cast<int>((old >> 10) & 0x3FFu);
+        if (old == 0xFFFFFFFFu || (old >> 20) != (raw >> 20) || dx > 48 || dx < -48 || dy > 48 || dy < -48) {
+            rg_log("geweer: X1=%u Y1=%u vlaggen 0x%02x (trekker %s, buiten beeld %s)", g_gun.raw_x(), g_gun.raw_y(), g_gun.flags(),
+                   g_gun.trigger() ? "ja" : "nee", g_gun.out_of_frame() ? "ja" : "nee");
+            g_gun_log_raw = raw;
+        }
     }
 }
 
@@ -229,13 +251,151 @@ BOOL WINAPI rg_SetupDiDestroyDeviceInfoList(HANDLE set) {
 }
 
 // CreateFileW: ons nagebootste pad geeft een gewoon, sluitbaar handvat (een gebeurtenis); al het andere gaat naar het echte CreateFileW.
+bool is_com1(LPCWSTR name) {
+    if (!name) return false;
+    if (_wcsnicmp(name, L"\\\\.\\", 4) == 0) name += 4;
+    return _wcsicmp(name, L"COM1") == 0;
+}
+
 HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (g_gun_on && is_com1(name)) {
+        // Het spel probeert COM1, COM2, COM15 .. COM3 en houdt de eerste die antwoordt (0x140a54c30). Wij zijn COM1.
+        EnterCriticalSection(&g_cs);
+        if (g_com) {
+            LeaveCriticalSection(&g_cs);
+            rg_log("CreateFileW(COM1): al open, geweigerd (zoals een poort die in gebruik is)");
+            SetLastError(ERROR_ACCESS_DENIED);
+            return INVALID_HANDLE_VALUE;
+        }
+        HANDLE h = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        g_com = h;
+        g_gun_log_raw = 0xFFFFFFFFu;
+        g_gun.purge();
+        LeaveCriticalSection(&g_cs);
+        rg_log("CreateFileW(COM1) -> nagebootst geweer, handvat %p (toegang 0x%lx)", h, static_cast<unsigned long>(access));
+        return h ? h : INVALID_HANDLE_VALUE;
+    }
     if (name && _wcsicmp(name, kFakePath) == 0) {
         HANDLE h = CreateEventW(nullptr, TRUE, FALSE, nullptr);
         rg_log("CreateFileW(USIO-pad) -> handvat %p (toegang 0x%lx, vlaggen 0x%lx)", h, static_cast<unsigned long>(access), static_cast<unsigned long>(flags));
         return h ? h : INVALID_HANDLE_VALUE;
     }
     return g_real_createfile(name, access, share, sa, disp, flags, tmpl);
+}
+
+// --- het nagebootste geweer: de seriele API's van het spel op ons COM1-handvat --------------------------------------------------
+using ReadFileFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using WriteFileFn = BOOL(WINAPI*)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using CloseHandleFn = BOOL(WINAPI*)(HANDLE);
+using PurgeCommFn = BOOL(WINAPI*)(HANDLE, DWORD);
+using ClearCommErrorFn = BOOL(WINAPI*)(HANDLE, LPDWORD, LPCOMSTAT);
+using GetCommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
+using SetCommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
+using GetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
+using SetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
+
+ReadFileFn g_real_readfile = nullptr;
+WriteFileFn g_real_writefile = nullptr;
+CloseHandleFn g_real_closehandle = nullptr;
+PurgeCommFn g_real_purge = nullptr;
+ClearCommErrorFn g_real_clearerr = nullptr;
+GetCommStateFn g_real_getstate = nullptr;
+SetCommStateFn g_real_setstate = nullptr;
+GetCommTimeoutsFn g_real_gettimeouts = nullptr;
+SetCommTimeoutsFn g_real_settimeouts = nullptr;
+
+bool is_gun(HANDLE h) { return g_com != nullptr && h == g_com; }
+
+// De aantallen per soort aanroep (voor het logboek: "eerste aanroep" en een eindtelling bij het sluiten).
+LONG g_com_n_write = 0, g_com_n_read = 0;
+
+BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD written, LPOVERLAPPED ov) {
+    if (!is_gun(h)) return g_real_writefile(h, buf, n, written, ov);
+    EnterCriticalSection(&g_cs);
+    sample_locked();   // het kader moet het nieuwste beeld van de daemon dragen
+    const size_t got = g_gun.write(static_cast<const uint8_t*>(buf), n);
+    const uint8_t code = n ? static_cast<const uint8_t*>(buf)[0] : 0;
+    LeaveCriticalSection(&g_cs);
+    const LONG k = InterlockedIncrement(&g_com_n_write);
+    if (k <= 3 || got == 0) rg_log("geweer: WriteFile %lu byte(s), code 0x%02x -> antwoord van %lu bytes%s", static_cast<unsigned long>(n), code,
+                                   static_cast<unsigned long>(got), got ? "" : " (ONBEKENDE CODE: het spel telt dat als mislukte transactie)");
+    if (written) *written = n;
+    if (ov) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }   // het spel gebruikt hier geen OVERLAPPED
+    return TRUE;
+}
+
+BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD read, LPOVERLAPPED ov) {
+    if (!is_gun(h)) return g_real_readfile(h, buf, n, read, ov);
+    EnterCriticalSection(&g_cs);
+    const size_t got = g_gun.read(static_cast<uint8_t*>(buf), n);
+    LeaveCriticalSection(&g_cs);
+    const LONG k = InterlockedIncrement(&g_com_n_read);
+    if (k <= 3 || got == 0) rg_log("geweer: ReadFile %lu byte(s) gevraagd -> %lu geleverd", static_cast<unsigned long>(n), static_cast<unsigned long>(got));
+    if (read) *read = static_cast<DWORD>(got);
+    if (ov) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
+    return TRUE;
+}
+
+BOOL WINAPI rg_CloseHandle(HANDLE h) {
+    if (is_gun(h)) {
+        EnterCriticalSection(&g_cs);
+        g_com = nullptr;
+        g_gun.purge();
+        LeaveCriticalSection(&g_cs);
+        rg_log("CloseHandle(geweer-COM1): %ld WriteFile, %ld ReadFile, %lu kaders gepold", static_cast<long>(g_com_n_write), static_cast<long>(g_com_n_read),
+               static_cast<unsigned long>(g_gun.polls()));
+    }
+    return g_real_closehandle(h);
+}
+
+BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD flags) {
+    if (!is_gun(h)) return g_real_purge(h, flags);
+    EnterCriticalSection(&g_cs);
+    g_gun.purge();
+    LeaveCriticalSection(&g_cs);
+    return TRUE;
+}
+
+BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD errors, LPCOMSTAT stat) {
+    if (!is_gun(h)) return g_real_clearerr(h, errors, stat);
+    if (errors) *errors = 0;
+    if (stat) {
+        std::memset(stat, 0, sizeof *stat);
+        EnterCriticalSection(&g_cs);
+        stat->cbInQue = static_cast<DWORD>(g_gun.pending());
+        LeaveCriticalSection(&g_cs);
+    }
+    return TRUE;
+}
+
+BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB dcb) {
+    if (!is_gun(h)) return g_real_getstate(h, dcb);
+    if (dcb) {
+        std::memset(dcb, 0, sizeof *dcb);
+        dcb->DCBlength = sizeof *dcb;
+        dcb->BaudRate = 38400;
+        dcb->ByteSize = 8;
+    }
+    return TRUE;
+}
+
+BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB dcb) {
+    if (!is_gun(h)) return g_real_setstate(h, dcb);
+    rg_log("geweer: SetCommState %lu baud, %u databits, pariteit %u, stopbits %u", dcb ? static_cast<unsigned long>(dcb->BaudRate) : 0ul,
+           dcb ? static_cast<unsigned>(dcb->ByteSize) : 0u, dcb ? static_cast<unsigned>(dcb->Parity) : 0u, dcb ? static_cast<unsigned>(dcb->StopBits) : 0u);
+    return TRUE;
+}
+
+BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) {
+    if (!is_gun(h)) return g_real_gettimeouts(h, t);
+    if (t) std::memset(t, 0, sizeof *t);
+    return TRUE;
+}
+
+BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) {
+    if (!is_gun(h)) return g_real_settimeouts(h, t);
+    (void)t;
+    return TRUE;
 }
 
 // --- de invoerdraad: gedeeld geheugen -> bordmodel, aim en trekker -> SendInput -----------------------------------------------------
@@ -419,8 +579,17 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         _snwprintf(g_log_path, MAX_PATH, L"%ls\\rg-winusb.log", buf);
         char env[256];
         if (GetEnvironmentVariableA("RG_USIO_SHM", env, sizeof env) > 0 && env[0]) std::snprintf(g_shm_name, sizeof g_shm_name, "%s", env);
-        if (GetEnvironmentVariableA("RG_TC5_AIM", env, sizeof env) > 0 && _stricmp(env, "off") == 0) g_aim_on = false;
-        if (GetEnvironmentVariableA("RG_TC5_TRIGGER", env, sizeof env) > 0 && _stricmp(env, "off") == 0) g_trigger_on = false;
+        if (GetEnvironmentVariableA("RG_TC5_AIM", env, sizeof env) > 0 && _stricmp(env, "on") == 0) g_aim_on = true;
+        if (GetEnvironmentVariableA("RG_TC5_TRIGGER", env, sizeof env) > 0 && _stricmp(env, "on") == 0) g_trigger_on = true;
+        rg_usio5::GunMap gm;
+        int gun_unknown = 0, gun_applied = 0;
+        if (GetEnvironmentVariableA("RG_TC5_GUN", env, sizeof env) > 0 && env[0]) {
+            if (_stricmp(env, "off") == 0) g_gun_on = false;
+            else gun_applied = rg_usio5::parse_gunmap(env, gm, &gun_unknown);
+        }
+        g_gun.set_map(gm);
+        rg_log("geweer (nagebootste COM1): %s; X1 %d..%d, Y1 %d..%d, Y omgekeerd %s, buiten-beeld-vlag %s, trekkervlag 0x%02x; RG_TC5_GUN: %d toegepast, %d onbekend",
+               g_gun_on ? "aan" : "UIT", gm.x0, gm.x1, gm.y0, gm.y1, gm.flip_y ? "ja" : "nee", gm.oof ? "aan" : "uit", gm.trig_flag, gun_applied, gun_unknown);
         rg_usio5::Mapping m;
         int unknown = 0, applied = 0;
         if (GetEnvironmentVariableA("RG_TC5_BITS", env, sizeof env) > 0 && env[0]) applied = rg_usio5::parse_mapping(env, m, &unknown);
@@ -441,6 +610,15 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
             {"SETUPAPI.dll", "SetupDiGetDeviceInterfaceDetailW", reinterpret_cast<void*>(&rg_SetupDiGetDeviceInterfaceDetailW), reinterpret_cast<void**>(&g_real_detail)},
             {"SETUPAPI.dll", "SetupDiDestroyDeviceInfoList", reinterpret_cast<void*>(&rg_SetupDiDestroyDeviceInfoList), reinterpret_cast<void**>(&g_real_destroy)},
             {"KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_CreateFileW), reinterpret_cast<void**>(&g_real_createfile)},
+            {"KERNEL32.dll", "ReadFile", reinterpret_cast<void*>(&rg_ReadFile), reinterpret_cast<void**>(&g_real_readfile)},
+            {"KERNEL32.dll", "WriteFile", reinterpret_cast<void*>(&rg_WriteFile), reinterpret_cast<void**>(&g_real_writefile)},
+            {"KERNEL32.dll", "CloseHandle", reinterpret_cast<void*>(&rg_CloseHandle), reinterpret_cast<void**>(&g_real_closehandle)},
+            {"KERNEL32.dll", "PurgeComm", reinterpret_cast<void*>(&rg_PurgeComm), reinterpret_cast<void**>(&g_real_purge)},
+            {"KERNEL32.dll", "ClearCommError", reinterpret_cast<void*>(&rg_ClearCommError), reinterpret_cast<void**>(&g_real_clearerr)},
+            {"KERNEL32.dll", "GetCommState", reinterpret_cast<void*>(&rg_GetCommState), reinterpret_cast<void**>(&g_real_getstate)},
+            {"KERNEL32.dll", "SetCommState", reinterpret_cast<void*>(&rg_SetCommState), reinterpret_cast<void**>(&g_real_setstate)},
+            {"KERNEL32.dll", "GetCommTimeouts", reinterpret_cast<void*>(&rg_GetCommTimeouts), reinterpret_cast<void**>(&g_real_gettimeouts)},
+            {"KERNEL32.dll", "SetCommTimeouts", reinterpret_cast<void*>(&rg_SetCommTimeouts), reinterpret_cast<void**>(&g_real_settimeouts)},
         };
         for (const Hook& h : hooks) {
             void* old = patch_iat(exe, h.dll, h.fn, h.repl);
@@ -450,6 +628,15 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         // Als CreateFileW ontbreekt moet er toch een echte functie zijn om naar door te verwijzen.
         // (Het adres van CreateFileW in deze DLL is dat van kernel32: onze eigen importtabel is niet omgezet.)
         if (!g_real_createfile) g_real_createfile = &CreateFileW;
+        if (!g_real_readfile) g_real_readfile = &ReadFile;
+        if (!g_real_writefile) g_real_writefile = &WriteFile;
+        if (!g_real_closehandle) g_real_closehandle = &CloseHandle;
+        if (!g_real_purge) g_real_purge = &PurgeComm;
+        if (!g_real_clearerr) g_real_clearerr = &ClearCommError;
+        if (!g_real_getstate) g_real_getstate = &GetCommState;
+        if (!g_real_setstate) g_real_setstate = &SetCommState;
+        if (!g_real_gettimeouts) g_real_gettimeouts = &GetCommTimeouts;
+        if (!g_real_settimeouts) g_real_settimeouts = &SetCommTimeouts;
     } else if (reason == DLL_PROCESS_DETACH && g_cs_ready) {
         InterlockedExchange(&g_stop, 1);
     }

@@ -28,7 +28,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src/tools/rg-winusb" "$TMP/out"
-cp "$ROOT/tools/rg-winusb/rg_winusb.cpp" "$ROOT/tools/rg-winusb/usio_board.h" "$TMP/src/tools/rg-winusb/"
+cp "$ROOT/tools/rg-winusb/rg_winusb.cpp" "$ROOT/tools/rg-winusb/usio_board.h" "$ROOT/tools/rg-winusb/gun_com.h" "$TMP/src/tools/rg-winusb/"
 # Statisch gelinkt (geen libstdc++/libgcc-DLL's in het spelproces); geen tijdstempel voor reproduceerbaarheid. user32 voor SendInput.
 podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE" \
   x86_64-w64-mingw32-g++ -std=c++17 -O2 -s -shared -Wall -Wextra -Werror \
