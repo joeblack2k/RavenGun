@@ -1,6 +1,6 @@
 # Laatste ronde: alle games naar Working
 
-Stand 2026-10-17 (gegenereerd uit de patches; geluid en invoer gemeten in de speelproeven van 17/18-10, zonder TP-map, in muismodus: munt = `key 5`, start = `key 1`, schot = trigger op het midden).
+Stand 2026-10-18 12:40 (gegenereerd uit de patches; geluid en invoer gemeten in de speelproeven van 17/18-10, zonder TP-map, in muismodus: munt = `key 5`, start = `key 1`, schot = trigger op het midden).
 
 Overgeslagen (skipregel, niet 16:9 of 4:3): Silent Scope, Elevator Action Death Parade, America's Army Arcade.
 
@@ -16,7 +16,7 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 |---|---|---|---|---|---|---|---|---|
 | 2Spicy | native | ja |  | ja | ja | ja (munt, start, tutorial) | 1 | working |
 | AfterDark | direct | nee | nee | nog meten | nog meten | nog meten | 9 | working |
-| AfterDark2 | direct | nee | nee | nee (dongle) | nog meten | nog meten | 9 | working |
+| AfterDark2 | direct | nee | ja | nee (zwart; Sense4: `S4VerifyPin ret=2`, BepInEx laadde niet) | ja (stroom) | - | 9 | working |
 | AliensArmageddon | native | ja |  | nog meten | nog meten | nog meten | 6 | untested |
 | AliensExtermination | direct | nee | ja | ja (attract, films) | ja | munt ja na fix (4 credits nodig) | 20 | working |
 | BugBusters | direct | nee | ja | ja (attract) | ja | ja (munt, start, schieten, zone 1) | 7 | working |
@@ -28,7 +28,8 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | Friction | direct | ja |  | ja | ja | munt ja, start? | 10 | working |
 | GaiaAttack4 | direct | ja |  | ja | ja | ja (munt, start, gebied/missie) | 32 | working |
 | Gashaaaan | direct | nee | ja | ja (titel) | ja | ja (munt, start, koers) | 27 | working |
-| GG | direct | nee | ja | ja (attract, Engels) | ja | munt ja (4 credits nodig) | 10 | working |
+| GG | direct | ja |  | ja (attract, Engels) | ja | ja (munt, start, Shoot to Select) | 10 | working |
+| GhostBusters | native | ja |  | ja (na stapelreparatie rg-elfloader; kalibratie, CHECK BALL SHOOTER) | stroom ja, eigenaar hoort niets | nog meten | 10 | parked |
 | GSEVO | native | ja |  | ja | ja | ja (munt, start, kostuum) | 1 | working |
 | Halo | native | ja |  | ja | nee op 50 s (FMOD-wrapper, nagaan) | ? (startscherm na 60 s) | 16 | working |
 | HauntedMuseum | direct | ja |  | ja | ja | ja (munt, start) | 28 | working |
@@ -40,35 +41,36 @@ het onderzoek wel; *beeld* = zonder TP-map eigen beeld op de tv; *opties* = aant
 | InfinityBladeFX | direct | nee | ja | nee (wit) | ja | - | 10 | playable |
 | JurassicPark | native | ja |  | ja (attract) | ja (OSS->Pulse) | ja (start, missie) | 21 | working |
 | LethalEnforcers3 | direct | nee | ja | nee (zwart; venstermodus in proef) | ja | ja (bord, munt, start, trekker in het log) | 26 | working |
-| LGI | direct | nee | ja | nee (stopt ~37 s) | nog meten | nog meten | 24 | working |
-| LGI3D | direct | nee | ja | nee (stopt) | nog meten | nog meten | 34 | working |
+| LGI | direct | nee | ja | nee (dipschakelaars nu goed; halt bij "Initializing Passenger Seat", COM1) | ja (stroom) | - | 24 | working |
+| LGI3D | direct | ja |  | ja (attract, titel, 3D CALIBRATION) | ja | ja (munt, start) | 34 | working |
 | LGJ | native | ja |  | ja | ja | ja (munt, start, rit) | 18 | working |
 | LGJS | native | ja |  | ja | ja | ja (start, rit) | 13 | working |
-| LGS | direct | nee | ja | ja (attract, Engels) | ja | ja (rit) | 20 | working |
-| LostLandAdventure | direct | nee | nee | nog meten | nog meten | nog meten | 11 | untested |
+| LGS | direct | ja |  | ja (attract, Engels) | ja | ja (rit) | 20 | working |
+| LostLandAdventure | direct | nee | ja | titel, dan "Please insert the dongle" (HASP) | nee | - | 11 | untested |
 | LuigisMansion | direct | ja |  | ja | ja | nee (munt komt niet aan) | 23 | playable |
-| MarioKartDX | direct | ja |  | nee (zwart; F:-paden zoals TP in proef) | ja | - | 45 | working |
+| MarioKartDX | direct | ja |  | ja in venstermodus (NOW LOADING), dan E22-12 STR PCB-fout (stuurbord) | ja | - | 45 | working |
 | MarsSortie | direct | ja |  | ja | ja | ja (start, level) | 14 | working |
 | MenInBlack | direct | ja |  | ja | ja | ja (start, PLAYER 1 READY, spel) | 0 | untested |
 | MusicGunGun2 | direct | ja |  | ja | ja | ja (munt, start) | 12 | working |
 | NERF | native | ja |  | ja | ja | ja (start, schieten) | 15 | working |
-| OG | direct | nee | ja | ja (Presented by SEGA) | ja | ja (munt, start) | 35 | working |
+| OG | direct | ja |  | ja (Japanse build: ook met regio USA de Japanse waarschuwing; Presented by SEGA) | ja | ja (munt, start, CREDIT(S) 10) | 35 | working |
 | PointBlankX | direct | ja |  | ja | ja | munt ja (3 credits nodig) | 10 | working |
 | Primevil | native | ja |  | ja | ja (ALSA->Pulse) | ja (start, wapen, gebied) | 1 | working |
-| PullTheTrigger | direct | nee | nee | nog meten | nog meten | nog meten | 10 | working |
+| PullTheTrigger | direct | nee | ja | nee (WibuKey voorbij; "Memory Card Port Open Error!") | nog meten | geen (geweerbord WSC32 nog niet nagebouwd) | 10 | working |
 | RabbidsHollywood | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 25 | working |
 | RaccoonRampage | direct | nee | ja | ja (attract, banner kalibratie) | ja | ja (munt, start) | 31 | working |
 | Rambo | native | ja |  | ja (initialiseert >150 s) | ja | ? (opstart te lang voor de meting) | 25 | working |
 | Rampage | direct | ja |  | ja (attract) | ja | ? (start onduidelijk) | 6 | working |
 | RobinHood | direct | nee | nee | nog meten | nog meten | nog meten | 5 | working |
-| SDR | direct | nee | ja | nee (stopt) | - | - | 9 | working |
+| SDR | direct | nee | ja | nee (regio nu goed, USA; daarna zwart beeld, JVS antwoordt, COM2/3 fout 5) | ja (stroom) | - | 9 | working |
 | SilentHill | direct | ja |  | ja | ja | ja (start) | 19 | working |
-| TargetTerrorGold | native | ja |  | ja (LOADING >80 s) | ja (OSS->Pulse, DEEPBIND) | ? | 12 | working |
+| TargetTerrorGold | native | ja |  | ja (Mission Select) | ja (OSS->Pulse, DEEPBIND) | ? | 12 | working |
 | TC5 | direct | nee | ja | ja (attract) | ja | munt ja (start = pedaal) | 48 | playable |
 | Terminator | direct | nee | nee | nog meten | nog meten | nog meten | 26 | working |
 | TombRaider | unity | ja |  | ja | ja | munt ja (4 credits nodig) | 18 | working |
 | Transformers | direct | nee | ja | nee (0949 keychip) | nog meten | nog meten | 11 | working |
 | TransformersShadowsRising | direct | ja |  | ja (attract, missie) | ja | ja (start, ROLL OUT) | 31 | working |
+| WalkingDead | native | ja |  | ja (testmenu: guns not calibrated, UMC board not connected, 12V) | ja | - | 0 | parked |
 | WildWestShootout | direct | ja |  | ja | ja | ja (start, kaart, level) | 10 | working |
 
 ## Hoe er gemeten wordt
