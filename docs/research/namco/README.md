@@ -216,6 +216,33 @@ Getoetst: `tests/test_drive_fix.cpp` (24 controles) en een wegwerpprogramma onde
 5. Zwart beeld blijft met `.bin`-bestanden en een fps-teller: dan is het volgende meetvoorstel de TP-basislijn (dezelfde `warn+seh`-run met de TP-kern; de volgorde van de `*INF*`-regels na `Startup ShareK-Client.`
    en het eerste verschil is het antwoord), of een tweede stalldump-reeks (5, 10, 15, 30 s) om te zien of de `0x8451E0`-scheduler ooit werk vindt.
 
+### Mario Kart DX: de volgende stap in de opstartvolgorde is de Banapass-kaartlezer (statisch + 08:14-meting)
+
+**Wat de 08:14-meting laat zien.** De schijfletter-herleiding werkt (45 `schijfletter:`-regels, de FindFirstFile-zoekopdrachten vinden de overgenomen TP-bestanden); ongeveer 31 s na de ShareK-init
+schrijft het spel een `bookkeeping_*.bin.tmp`, hernoemt die succesvol (`rename ... = 0`) en ruimt oude `bookkeeping*`-resten op. De hoofdlus is dezelfde (`PeekMessageW` in `0x83D630`), JVS blijft dicht.
+De `system/*.bin` die de coordinator zocht horen niet bij deze stap: de opstart schrijft alleen bookkeeping, dus het ontbreken daarvan zegt niets.
+
+**Wat de opstartvolgorde bepaalt (statisch).** De enige code die `COM3` opent is `0x8AC1B0`, alleen bereikt via `0x8AB880` <- `0x6022D0` (toestand `[esi+0x3c] = 2` in de opstartcontroles op `0x6027D0..0x604xxx`, met `[esi]` = het
+systeemobject `ds:0xEC2A08`). In dezelfde familie (`0x601360..0x603300`) zit de **Banapass-kaartlezer-toestandsmachine**: `0x601550` met twaalf toestanden (`[lezer+0xF0]`, sprongtabel `0x601970`), die `bngrw.dll`
+aanroept: `BngRwInit` (`0x771C7D`, in de init), `BngRwAttach` (`0x601426`, `0x602D5B`, `0x603210`; lezer 0 = `COM4`, lezer 1 = `COM2`), `DevReset`, `SetLedPower`, `ReqLed`, `ReqBeep`, `ReqWaitTouch`, `ReqCancel`, `ReqSendUrlTo`, `IsCmdExec`.
+Elke aanvraag wacht op een callback (cdecl: lezer, resultaat, user) die het resultaatslot `{resultaat, lezer}` vult vanaf `{-1, 2}`; `-301` (`0xFFFFFED3`) of `-400` (`0xFFFFFE70`) is een fout die het spel met code `0x43/0x45`
+(`0x6095C0`) logt en de "lezer aanwezig"-vlaggen `[0xEC2A08]+0x194/0x195` op 0 zet. **Dit is een component die onder de TP-kern anders werkt dan onder onze kern** (TP vervangt hem, wij niet), en hij zit vlak voor de stap die we missen: de echte `bngrw.dll` (in de spelmap; strings `SetCommState`, `SetCommMask`, `PurgeComm`) opent `COM4`/`COM2`, die onder Wine niet bestaan; de gesloten TP-kern vervangt de bibliotheek (Banapass-emulatie, kaartknop =
+bit 0 van byte 8 van `TeknoParrot_JvsState`). Of het spel zonder lezer vastloopt of na een time-out (~30 s: de tweede bookkeeping-schrijfactie) naar een foutscherm gaat, is niet gemeten. **Niet bewezen** dat dit het zwarte beeld verklaart; wel
+dat het de eerste ontbrekende emulatie op het pad naar de IO-controle is, maar de volgorde van de opstartcontroles (kaartlezer eerst, IO daarna) is uit de code afgeleid en niet bewezen.
+
+**Gebouwd: ZEVENDE TAAK van `rg-mfcam.dll` (`bngrw_fake.h`, `rg_mfcam.cpp`).** `RG_BNGRW=trace` zet de elf `bngrw.dll`-importen om naar logger-omhulsels rond de echte functies (argumenten, uitkomst, en elke callback die de
+bibliotheek geeft, met het resultaat dat het spel te zien krijgt); `RG_BNGRW=fake` geeft zelf antwoord: twee lezers die er zijn en geen kaart hebben (Attach/DevReset/ReqLed/ReqBeep/ReqSendUrlTo slagen met callback-resultaat 0;
+ReqWaitTouch blijft open tot ReqCancel, `IsCmdExec` = 1 zolang). Uit met de TP-kern (`TeknoParrot.dll` geladen). Getoetst: `tests/test_bngrw_fake.cpp` (21 controles) en een wegwerpprogramma onder Wine tegen een stub-`bngrw.dll` met de
+echte exportnamen (`_BngRwAttach@24` enz.): beide modi, stapelcontrole na elke aanroep, 0 mislukt. Niet getoetst: het spel zelf. De terugkeerwaarde/het resultaat dat het spel na `ReqCancel` verwacht en wat het met een kaart wil
+is bewust niet nagebouwd (alleen "geen kaart").
+
+**Testrecept 1 (eerst, onschadelijk): trace.** Dropin als nu (`RG_BNGRW=trace`), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=20,45,90`. In `rg-mfcam.log` regels `bngrw: ...`: wat geeft de echte bibliotheek? `Attach(lezer 0, COM4,...) -> 1` en daarna een
+`callback Attach(lezer 0): a=0 b=0x...`? Een `b=0xfffffed3` of geen callback = de lezer ontbreekt en het spel wacht/faalt daar. Blijft `IsCmdExec(lezer N) -> 1` staan, dan wacht het spel erop.
+**Testrecept 2: fake.** `RG_BNGRW=fake` in de `Env`; kijk of `JVS: CreateFileA(COM3)` verschijnt (dan is de lezer de blokkade geweest) en of er beeld komt; zo niet: de nieuwe stalldump.
+**Testrecept 3: TP-basislijn (alleen als 1 en 2 niets geven).** Zelfde dropin, `Core = teknoparrot` (de eigenaar heeft TP), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=10,20,30` (de stalldump werkt ook onder TP; ShareK/JVS/drive/bngrw staan
+dan uit). Kijk (a) in welke volgorde de `*INF*`-regels van het spel na `Startup ShareK-Client.` komen en op welke seconde de eerste daarna staat, (b) of de hoofdthread bij 10/20 s ook in `0x83D7D6` staat of al in een scène zit, (c) de tijd tot de camera-regel en de 500
+effect-aanroepen in `rg-mfcam.log`. Het eerste verschil in de `*INF*`-volgorde wijst de ontbrekende stap aan.
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
