@@ -515,6 +515,9 @@ if(RAVENGUN_BUILD_TESTS)
   # Het USIO-bordmodel van winusb.dll voor Time Crisis 5 (tools/rg-winusb/usio_board.h): 6-byte WinUSB-protocol, registers, schakelaars.
   add_executable(ravengun_usio_board_tests tests/test_usio_board.cpp)
   add_test(NAME ravengun_usio_board_tests COMMAND ravengun_usio_board_tests)
+  # Het seriele geweer van TC5 (tools/rg-winusb/gun_com.h): opdrachtbyte -> kader met X1, Y1, vlaggen en controlesom; afbeelding van tp-shm.
+  add_executable(ravengun_tc5_guncom_tests tests/test_tc5_guncom.cpp)
+  add_test(NAME ravengun_tc5_guncom_tests COMMAND ravengun_tc5_guncom_tests)
   # Het USB-IO-protocol van rg-allsio.dll (tools/rg-allsio/allsio_proto.h): productstring, rapporten, AllsUsbIo-pijp -> ingangsrapport.
   add_executable(ravengun_allsio_proto_tests tests/test_allsio_proto.cpp)
   add_test(NAME ravengun_allsio_proto_tests COMMAND ravengun_allsio_proto_tests)
