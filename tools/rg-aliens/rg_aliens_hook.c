@@ -78,17 +78,22 @@ static float rd_float(DWORD va) {
     return *(const volatile float*)(ULONG_PTR)va;
 }
 
+static int g_real_keys = -1;   /* RG_ALIENS_REAL_KEYS=1: de echte toetsen van de speltabel ook doorlaten (standaard niet) */
+
 static SHORT WINAPI hk_GetAsyncKeyState(int vk) {
     SHORT r = g_real_gaks ? g_real_gaks(vk) : 0;
+    if (g_real_keys < 0) g_real_keys = env_on("RG_ALIENS_REAL_KEYS");
     if (vk >= 0 && vk < 256) {
         int i;
         for (i = 0; i < AL_NKEYS; ++i)
             if (al_keys[i].vk == (unsigned)vk) {
                 if (al_key_down(ctl_now(), (unsigned)vk)) {
                     if (!InterlockedExchange(&g_key_logged[i], 1)) logf2("toets: %s (VK 0x%02X) komt uit tp-shm", al_keys[i].name, vk);
-                    return (SHORT)(r | 0x8001);
+                    return (SHORT)0x8001;
                 }
-                break;
+                /* Een toets van de speltabel komt alleen uit tp-shm. De daemon drukt voor de munt ook '5' op zijn virtuele toetsenbord
+                 * (de TeknoParrot-afspraak), en '5' is in deze game TEST: de munt opende het testmenu (gemeten 2026-10-18). */
+                return g_real_keys ? r : (SHORT)0;
             }
     }
     return r;
