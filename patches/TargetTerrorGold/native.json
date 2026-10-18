@@ -34,7 +34,9 @@
     "TTG_FULLSCREEN": "1",
     "TTG_CROSSHAIR": "1",
     "XSHOOTER_DBG": "1",
-    "RG_OSS_STUB_LOG": "1"
+    "RG_OSS_STUB_LOG": "1",
+    "RG_OSS_PLAY": "1",
+    "RG_OSS_NAME": "Target: Terror Gold"
   },
   "exe": "/pm/game",
   "cwd": "/pm",
