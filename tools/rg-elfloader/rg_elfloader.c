@@ -1141,6 +1141,53 @@ static void pas_slottabel_toe(struct beeld *b)
         pad, ok, nietgevonden, anders, zwak, buiten);
 }
 
+/* Gedumpte heapwijzers: per-game gegevens, niet opnieuw alle constructors draaien.
+ * RG_ELF_HEAP_TABLE: slot stale grootte allocator (hex, hex, decimaal, symbool).
+ * Alleen een exact overeenkomende wijzer in een schrijfbaar PT_LOAD wordt vervangen.
+ * De gast initialiseert de nieuwe, nulgevulde opslag zelf bij het eerste gebruik. */
+static void herstel_heap(struct beeld *b)
+{
+    const char *pad = getenv("RG_ELF_HEAP_TABLE");
+    char regel[512], naam[128], extra;
+    unsigned slot, stale, grootte, rij = 0, gezet = 0;
+    FILE *f;
+    if (!pad || !*pad) return;
+    f = fopen(pad, "r");
+    if (!f) fatal("kan heaptabel %s niet openen", pad);
+    while (fgets(regel, sizeof regel, f)) {
+        int geldig = 0;
+        void *sym, *nieuw;
+        ++rij;
+        if (regel[0] == '#' || regel[0] == '\n') continue;
+        if (sscanf(regel, "%x %x %u %127s %c", &slot, &stale, &grootte, naam, &extra) != 4 ||
+            !grootte || grootte > 16u * 1024 * 1024 || (slot & 3))
+            fatal("ongeldige heaptabel %s rij %u", pad, rij);
+        for (int i = 0; i < b->phnum; ++i) {
+            const Elf32_Phdr *p = &b->ph[i];
+            if (p->p_type == PT_LOAD && (p->p_flags & PF_W) && p->p_memsz >= 4 &&
+                slot >= p->p_vaddr && (uint64_t)slot + 4 <= (uint64_t)p->p_vaddr + p->p_memsz)
+                geldig = 1;
+        }
+        if (!geldig) fatal("heaptabel %s rij %u: slot buiten schrijfbaar segment", pad, rij);
+        if (*(uint32_t *)(uintptr_t)slot != stale)
+            fatal("heaptabel %s rij %u: onverwachte oorspronkelijke wijzer", pad, rij);
+        if (strcmp(naam, "malloc") && strcmp(naam, "_Znwj"))
+            fatal("heaptabel %s rij %u: onbekende allocator", pad, rij);
+        sym = zoek_symbool(naam);
+        if (!sym) fatal("heaptabel: allocator %s ontbreekt", naam);
+        if (rg_ontleed) continue; /* analysemodus maakt geen nieuwe gasttoestand */
+        nieuw = ((void *(*)(size_t))sym)(grootte);
+        if (!nieuw) fatal("heaptabel: allocatie mislukt");
+        memset(nieuw, 0, grootte);
+        *(uint32_t *)(uintptr_t)slot = (uint32_t)(uintptr_t)nieuw;
+        say("heapwijzer %#x: %#x -> %p (%u bytes, %s)", slot, stale, nieuw, grootte, naam);
+        ++gezet;
+    }
+    if (ferror(f)) fatal("heaptabel %s niet volledig gelezen", pad);
+    fclose(f);
+    say("heaptabel %s: %u wijzers hersteld", pad, gezet);
+}
+
 /* ------------------------------------------------------------------ de startstack + sprong */
 
 extern char **environ;
@@ -1347,6 +1394,7 @@ int main(int argc, char **argv)
     pas_slottabel_toe(&b);       /* gepakte klasse: namen uit de slottabel van de game (patches/<Game>/), indien gegeven */
     repareer_eerste_plt(&b, &d);   /* gepakte klasse: eerste-PLT-slots op naam herstellen (gemapt => veilig) */
 
+    herstel_heap(&b);            /* opt-in, met versiecontrole per schrijfbaar slot */
     if (rg_ontleed) {
         toon_ontleding(&d, game);
         munmap(file, flen);

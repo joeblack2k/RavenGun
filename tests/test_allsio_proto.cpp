@@ -38,6 +38,38 @@ void test_productstring() {
     CHECK(manufacturer_string().compare(0, 4, L"SEGA") == 0);
 }
 
+void test_platformidentiteit() {
+    CHECK(valid_main_id("RAVENGUN0000001"));
+    CHECK(valid_main_id("RG-000000000001"));
+    CHECK(!valid_main_id(nullptr));
+    CHECK(!valid_main_id(""));
+    CHECK(!valid_main_id("steamdeck"));
+    CHECK(!valid_main_id("RAVENGUN00000001"));
+    CHECK(!valid_main_id("ravengun0000001"));
+    CHECK(!valid_main_id("RAVENGUN000000!"));
+    CHECK(!valid_main_id("RAVENGUN00000 1"));
+}
+
+void test_platformapparaten() {
+    uint8_t out[12];
+    std::memset(out, 0xcc, sizeof out);
+    size_t written = 123;
+    CHECK(platform_ioctl(PlatformDevice::Keychip, 0x22a114, nullptr, 0, written) == IoctlResult::Ok);
+    CHECK(written == 0);
+    CHECK(platform_ioctl(PlatformDevice::Hwmon, 0x80006000, out, 3, written) == IoctlResult::ShortBuffer);
+    CHECK(written == 0 && out[0] == 0xcc);
+    CHECK(platform_ioctl(PlatformDevice::Hwmon, 0x80006000, nullptr, 4, written) == IoctlResult::ShortBuffer);
+    CHECK(platform_ioctl(PlatformDevice::Hwmon, 0x80006000, out, 4, written) == IoctlResult::Ok);
+    CHECK(written == 4 && out[0] == 52 && out[1] == 0 && out[4] == 0xcc);
+    CHECK(platform_ioctl(PlatformDevice::Keychip, 0x22e24c, out, 8, written) == IoctlResult::Ok);
+    CHECK(written == 8 && out[0] == 10 && out[4] == 0 && out[5] == 16 && out[8] == 0xcc);
+    CHECK(platform_ioctl(PlatformDevice::Keychip, 0xdeadbeef, out, sizeof out, written) == IoctlResult::Unsupported);
+    CHECK(written == 0);
+    CHECK(platform_ioctl(PlatformDevice::Hwmon, 0x22a114, out, sizeof out, written) == IoctlResult::Unsupported);
+    CHECK(platform_ioctl(PlatformDevice::Reset, 0x80002000, out, 4, written) == IoctlResult::Ok);
+    CHECK(written == 4 && out[0] == 1);
+}
+
 void test_pad() {
     // amdaemon zet het pad in kleine letters en zoekt "vid_0ca3".
     const std::wstring path = device_path();
@@ -93,6 +125,8 @@ void test_ingang() {
 
 int main() {
     test_productstring();
+    test_platformidentiteit();
+    test_platformapparaten();
     test_pad();
     test_verzoeken();
     test_ingang();

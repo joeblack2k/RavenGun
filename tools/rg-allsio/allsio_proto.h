@@ -42,6 +42,55 @@ inline std::wstring manufacturer_string() { return L"SEGA"; }
 // Het pad dat de SetupDi-nabootsing teruggeeft (kleine letters, bevat "vid_0ca3").
 inline const wchar_t* device_path() { return L"\\\\?\\hid#vid_0ca3&pid_0021#7&rgio&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}"; }
 
+// amLibGetMainSerialId (daemon 2437, 0x140234030) gebruikt GetComputerNameA en
+// weigert elke lengte behalve 15. Alleen een expliciet ingestelde ASCII-naam
+// gebruiken; geen gedeelde Wine-computernaam of hostidentiteit veranderen.
+inline bool valid_main_id(const char* name) {
+    if (!name || std::strlen(name) != 15) return false;
+    for (size_t i = 0; i < 15; ++i) {
+        const unsigned char c = static_cast<unsigned char>(name[i]);
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-')) return false;
+    }
+    return true;
+}
+
+// Openbare platform-IOCTLs, vergeleken met segatools platform/{nusec,hwmon}.c
+// en de aanroepen in daemon 2437. Geen sleutels of cryptografische antwoorden.
+// Onbekende opdrachten worden nooit als geslaagd behandeld.
+enum class PlatformDevice { Keychip, Hwmon, Reset };
+enum class IoctlResult { Ok, Unsupported, ShortBuffer };
+inline IoctlResult platform_ioctl(PlatformDevice device, uint32_t code,
+                                  void* output, size_t capacity, size_t& written) {
+    written = 0;
+    uint32_t values[2] = {};
+    size_t count = 1;
+    if (device == PlatformDevice::Hwmon && code == 0x80006000) {
+        values[0] = 52; // sensorwaarde; de aanroeper past zijn temperatuurbias toe
+    } else if (device == PlatformDevice::Reset && code == 0x80002000) {
+        values[0] = 1; // alleen bevestigen, nooit de host herstarten
+    } else if (device == PlatformDevice::Keychip) {
+        switch (code) {
+        case 0x22a114: return IoctlResult::Ok; // ping: geen antwoordpayload
+        case 0x22e150: values[0] = 0; break; // speelteller
+        case 0x22e204: values[0] = 1024; break; // speellimiet
+        case 0x22e20c: values[0] = 0x00010200; break; // nearfull
+        case 0x22e19c: values[0] = 7154; break; // vrije logrecords
+        case 0x22e24c: values[0] = 10; values[1] = 4096; count = 2; break;
+        case 0x22e198: count = 2; break; // lege trace: aantal, staart
+        default: return IoctlResult::Unsupported;
+        }
+    } else {
+        return IoctlResult::Unsupported;
+    }
+    const size_t need = count * sizeof(uint32_t);
+    if (!output || capacity < need) return IoctlResult::ShortBuffer;
+    auto* bytes = static_cast<uint8_t*>(output);
+    for (size_t i = 0; i < need; ++i)
+        bytes[i] = static_cast<uint8_t>(values[i / 4] >> (8 * (i % 4)));
+    written = need;
+    return IoctlResult::Ok;
+}
+
 enum class Pipe { Control, Interrupt };
 
 struct Request {

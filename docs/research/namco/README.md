@@ -281,7 +281,11 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 ## HOTD Scarlet Dawn (EmulationProfile `ALLSHOTDSD`, 64-bit UE4, twee exe's)
 
 *Besluit eigenaar 2026-10-17: RavenGun mag de platformgegevens van `amdaemon.exe` zelf leveren.*
-*Stand 2026-10-17 (tweede ronde): platform (register) + **USB-IO-bord als HID-nabootsing gebouwd en op de host getoetst**; niet gestart. Kandidaat: `docs/research/namco/patches/HOTDSD/`.*
+*Stand 2026-10-17 (bench 21:48): kandidaat via ravengund gestart, beide exe's laden onze kern en rg-allsio.dll. Wit beeld en fout 4105; NIET speelbaar. Kandidaat: `docs/research/namco/patches/HOTDSD/`.*
+
+**Actuele meting.** `direct-HOTDSD-20261017-214823.log`: registerimport en preload slagen, de besturingspijp levert 64 bytes. `OSVersion` op de hoofdsleutel `HKLM\System\SEGA\SystemProperty` wordt via `RegQueryValueExA` gelezen (`0x14022edc0`), daarna als `%u_%u_%u` ontleed. De expliciet synthetische benchwaarde `1_0_0` verwijdert de bijbehorende fout. `amLibGetMainSerialId` (`0x140234030`) gebruikt `GetComputerNameA` en eist 15 tekens. `RG_ALLSIO_MAIN_ID=RAVENGUN0000001` haakt alleen de daemon-API aan; de hostnaam en gedeelde Wine-computernaam veranderen niet. De serial-id-fout verdwijnt. De validator verwerpt ongeldige waarden en behoudt dan de echte API; 179 protocol-/identiteitscontroles slagen.
+
+**Resterende blokkades.** `amDongleInit -16`, `amHmInit -5`, ongeldige game-id en afhankelijke NVRAM-fouten blijven. De donglelaag opent `\??\FddDriver` (`0x14025e120`, `CreateFileW`, overlapped, lezen/schrijven); apparaatprotocol en hardwaremonitor zijn niet nagebouwd. Fout 4105 is hiermee nog niet exact aan één oorzaak gekoppeld. Het DLL-log bewijst hookinstallatie en pijpontvangst, niet dat HID-enumeratie of bordinitialisatie al is bereikt. Geen vijf minuten attract/spel en geen live bewijs met hernoemde TP-map. Tijdelijke actieve user-overrides en benchmuis zijn na de proeven uitgeschakeld; het werkende meegeleverde profiel is niet vervangen.
 
 **Waarom `amdaemon.exe` zonder kern in 1 s stopt: gevonden (eerste ronde).** `am::platform::Manager::initialize()` (`amdaemon.exe` `0x1401e66a0`) roept
 `amPlatformGetPlatformInformation()` (`0x14022eec0`) aan; die leest `HKLM\System\SEGA\SystemProperty\Static`, waarde **`PlatformId`** (4 tekens,
@@ -322,7 +326,7 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 4. **Cadans.** De daemon wil per ronde minstens een rapport; bij een te lage periode (`RG_ALLSIO_PERIOD_MS`, standaard 2 ms) kan een ronde leeg zijn.
 5. **De schijfletters AMFS/D/Y.** `HKLM\System\SEGA\SystemProperty\mount` wordt door de daemon zelf geschreven; of `<L>:\` van patch 0004 volstaat is niet vastgesteld
    (zonder kern raakte de daemon de mountlaag niet, A3g). Het eerste logboek zegt het: `amdaemon.log` (met `-l`).
-6. De sleutelchip-/dongle-laag (`\??\FddDriver`) is in geen enkele meting aangeraakt; het blijft een mogelijke volgende blokkade.
+6. De sleutelchip-/dongle-laag (`\??\FddDriver`) is in de bench van 21:48 een actuele blokkade: `amDongleInit -16`; de hardwaremonitor meldt daarnaast `amHmInit -5`. Geen van beide apparaatprotocollen is nagebouwd.
 
 **Test op de tv (exact).**
 

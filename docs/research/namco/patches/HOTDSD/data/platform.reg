@@ -11,6 +11,12 @@ Windows Registry Editor Version 5.00
 ;
 ; Waarde: ACA0 = het platform-id uit pxGetHwInfo.ini van de game (platform-id = ACA0, ALLS).
 ; Let op: de prefix is de gedeelde prefix; de sleutel is van Sega's systeemlaag en wordt door geen andere game van ons gelezen.
+; amPlatformGetOsVersion (0x14022edc0) leest OSVersion op de hoofdsleutel via RegQueryValueExA;
+; de aanroeper gebruikt %u_%u_%u. Synthetische benchwaarde, geen originele kastversie.
+; Gemeten 2026-10-17 21:48: de OSVersion-fout verdwijnt, dongle/hardwaremonitor blijven geblokkeerd.
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty]
+"OSVersion"="1_0_0"
+
 [HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\Static]
 "PlatformId"="ACA0"
 

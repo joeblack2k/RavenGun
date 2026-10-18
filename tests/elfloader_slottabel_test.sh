@@ -48,6 +48,7 @@ cat > "$T/gast.c" <<'C'
 int fakelib_c(void);
 extern uint32_t rg_slot_a, rg_slot_b, rg_slot_c;
 int rg_stub_a(void);
+unsigned *rg_heap = (unsigned *)0x0a49e748;
 __asm__(
     ".data\n"
     ".globl rg_slot_a\nrg_slot_a: .long 0xb7001000\n"
@@ -63,6 +64,12 @@ int main(void) {
     fprintf(f, "a=%08x b=%08x c=%08x\n", rg_slot_a, rg_slot_b, rg_slot_c);
     if (rg_slot_a != 0xb7001000u)                       /* alleen aanroepbaar als het slot hersteld is */
         fprintf(f, "stub_a=%d\n", rg_stub_a());
+    if (rg_heap != (unsigned *)0x0a49e748) {
+        fprintf(f, "heap=%u,%u\n", rg_heap[0], rg_heap[1]);
+        rg_heap[1] = 42;
+        fprintf(f, "heap_write=%u\n", rg_heap[1]);
+        free(rg_heap);
+    }
     fclose(f);
     return fakelib_c();
 }
@@ -117,4 +124,25 @@ OUT=$(RG_ELF_SLOT_TABLE="$T/bestaat-niet.tsv" LD_LIBRARY_PATH="$T" "$T/rg-elfloa
 [ -e "$T/marker" ] && fail "ontbrekende tabel: de gast is toch gestart"
 echo "$OUT" | grep -q 'kan slottabel' || fail "ontbrekende tabel: geen melding"
 
-echo "OK: slottabel (zonder tabel onaangeroerd; met tabel 1 gezet, andere stale en onbekende naam onaangeroerd; ontbrekende tabel fataal)"
+# Heapstatus uit een dump: expliciete versiecontrole, verse schrijfbare opslag.
+HEAP=$(adr rg_heap)
+printf '%s 0x0a49e748 8 malloc\n' "$HEAP" > "$T/heap.tsv"
+OUT=$(RG_ELF_HEAP_TABLE="$T/heap.tsv" LD_LIBRARY_PATH="$T" "$T/rg-elfloader" --ontleed-alleen "$T/gast" 2>&1); RC=$?
+[ "$RC" -eq 0 ] || { echo "$OUT"; fail "heap: analysemodus faalt"; }
+[ ! -e "$T/marker" ] || fail "heap: analysemodus start gast"
+echo "$OUT" | grep -q 'heapwijzer ' && fail "heap: analysemodus alloceert gastopslag"
+OUT=$(RG_ELF_HEAP_TABLE="$T/heap.tsv" LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast" 2>&1); RC=$?
+[ "$RC" -eq 3 ] || { echo "$OUT"; fail "heap: rc=$RC"; }
+grep -q '^heap=0,0$' "$T/marker" || fail "heap niet nulgevuld"
+grep -q '^heap_write=42$' "$T/marker" || fail "heap niet schrijfbaar"
+rm -f "$T/marker"
+for ROW in "$HEAP 0x11111111 8 malloc" "0x10 0x0a49e748 8 malloc" "$HEAP 0x0a49e748 0 malloc" "$HEAP 0x0a49e748 8 system" "rommel"; do
+    printf '%s\n' "$ROW" > "$T/heap.tsv"
+    OUT=$(RG_ELF_HEAP_TABLE="$T/heap.tsv" LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast" 2>&1); RC=$?
+    [ "$RC" -eq 127 ] || { echo "$OUT"; fail "ongeldige heaprij niet geweigerd: $ROW"; }
+    [ ! -e "$T/marker" ] || fail "gast gestart na ongeldige heaprij"
+done
+OUT=$(RG_ELF_HEAP_TABLE="$T/ontbreekt" LD_LIBRARY_PATH="$T" "$T/rg-elfloader" "$T/gast" 2>&1); RC=$?
+[ "$RC" -eq 127 ] || fail "ontbrekende heaptabel niet fataal"
+
+echo "OK: slottabel en gecontroleerd herstel van gedumpte heapstatus"

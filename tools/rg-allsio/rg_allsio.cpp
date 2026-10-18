@@ -21,6 +21,7 @@
 // OMGEVING
 //   RG_ALLSIO_PIPE       naam van de besturingspijp (standaard \\.\pipe\TeknoParrotPipe)
 //   RG_ALLSIO_PERIOD_MS  periode van het ingangsrapport (standaard 2)
+//   RG_ALLSIO_MAIN_ID   optionele 15-teken moederbordidentiteit, alleen in amdaemon
 //   RG_ALLSIO_OFF=1      niets doen
 //
 // Clean-room: alleen de openbare HID-/SetupAPI-interfaces en wat we zelf aan amdaemon.exe en onze eigen besturingspijp hebben gemeten.
@@ -145,6 +146,54 @@ HidGuidFn g_real_hidguid; HidStrFn g_real_manuf, g_real_prod; HidReportFn g_real
 
 bool is_dev(HANDLE h) { return g_dev && h == g_dev; }
 
+using IoctlFn = BOOL(WINAPI*)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using CloseFn = BOOL(WINAPI*)(HANDLE);
+IoctlFn g_real_ioctl = &DeviceIoControl;
+CloseFn g_real_close = &CloseHandle;
+bool g_platform_enabled = false;
+struct PlatformHandle { HANDLE handle = nullptr; rg_allsio::PlatformDevice device; };
+PlatformHandle g_platform_handles[16] = {};
+LONG g_platform_logs = 0;
+bool platform_device(HANDLE handle, rg_allsio::PlatformDevice& device) {
+    bool found = false;
+    EnterCriticalSection(&g_cs);
+    for (const auto& entry : g_platform_handles) {
+        if (entry.handle && entry.handle == handle) { device = entry.device; found = true; break; }
+    }
+    LeaveCriticalSection(&g_cs);
+    return found;
+}
+BOOL WINAPI rg_CloseHandle(HANDLE h) {
+    EnterCriticalSection(&g_cs);
+    for (auto& entry : g_platform_handles) {
+        if (entry.handle == h) { entry.handle = nullptr; break; }
+    }
+    LeaveCriticalSection(&g_cs);
+    return g_real_close(h);
+}
+BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_len,
+                               LPVOID out, DWORD out_len, LPDWORD got, LPOVERLAPPED ov) {
+    rg_allsio::PlatformDevice device;
+    if (!platform_device(h, device)) return g_real_ioctl(h, code, in, in_len, out, out_len, got, ov);
+    size_t bytes = 0;
+    const auto result = rg_allsio::platform_ioctl(device, code, out, out_len, bytes);
+    if (InterlockedIncrement(&g_platform_logs) <= 300)
+        rg_log("platform IOCTL apparaat=%d code=0x%08lx in=%lu uit=%lu -> %d (%lu bytes)",
+               static_cast<int>(device), static_cast<unsigned long>(code), static_cast<unsigned long>(in_len),
+               static_cast<unsigned long>(out_len), static_cast<int>(result), static_cast<unsigned long>(bytes));
+    if (got) *got = static_cast<DWORD>(bytes);
+    if (result != rg_allsio::IoctlResult::Ok) {
+        SetLastError(result == rg_allsio::IoctlResult::Unsupported ? ERROR_INVALID_FUNCTION : ERROR_INSUFFICIENT_BUFFER);
+        return FALSE;
+    }
+    if (ov) {
+        ov->Internal = 0;
+        ov->InternalHigh = bytes;
+        if (ov->hEvent) SetEvent(reinterpret_cast<HANDLE>(reinterpret_cast<ULONG_PTR>(ov->hEvent) & ~static_cast<ULONG_PTR>(1)));
+    }
+    return TRUE;
+}
+
 HANDLE WINAPI rg_SetupDiGetClassDevsW(const GUID* g, PCWSTR en, HWND hwnd, DWORD flags) {
     if (g && std::memcmp(g, &kHidGuid, sizeof(GUID)) == 0) {
         rg_log("SetupDiGetClassDevsW(HID-GUID, 0x%lx) -> nagebootste lijst met een apparaat", static_cast<unsigned long>(flags));
@@ -182,6 +231,23 @@ BOOL WINAPI rg_SetupDiGetDeviceInterfaceDetailW(HANDLE set, SpDevIfData* d, SpDe
 BOOL WINAPI rg_SetupDiDestroyDeviceInfoList(HANDLE set) {
     if (set == &g_set_dummy) return TRUE;
     return g_real_destroy ? g_real_destroy(set) : FALSE;
+}
+
+// Optionele platformidentiteit. De echte API blijft voor alle andere gevallen intact.
+using GetComputerNameAFn = BOOL(WINAPI*)(LPSTR, LPDWORD);
+GetComputerNameAFn g_real_computername = &GetComputerNameA;
+char g_main_id[16] = {};
+BOOL WINAPI rg_GetComputerNameA(LPSTR name, LPDWORD size) {
+    if (!g_main_id[0]) return g_real_computername(name, size);
+    if (!size) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
+    if (!name || *size < sizeof g_main_id) {
+        *size = sizeof g_main_id;
+        SetLastError(ERROR_BUFFER_OVERFLOW);
+        return FALSE;
+    }
+    std::memcpy(name, g_main_id, sizeof g_main_id);
+    *size = sizeof g_main_id - 1;
+    return TRUE;
 }
 
 // --- HID --------------------------------------------------------------------------------------------------------------------------------
@@ -238,7 +304,36 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY
         rg_log("CreateFileW(USB-IO-pad) -> handvat %p (toegang 0x%lx, vlaggen 0x%lx)", h, static_cast<unsigned long>(access), static_cast<unsigned long>(flags));
         return h ? h : INVALID_HANDLE_VALUE;
     }
-    return g_real_createfile(name, access, share, sa, disp, flags, tmpl);
+    if (g_platform_enabled && name) {
+        rg_allsio::PlatformDevice device;
+        bool match = true;
+        if (_wcsicmp(name, L"\\??\\FddDriver") == 0 || _wcsicmp(name, L"\\\\.\\FddDriver") == 0)
+            device = rg_allsio::PlatformDevice::Keychip;
+        else if (_wcsicmp(name, L"\\\\.\\sghwmonitor") == 0)
+            device = rg_allsio::PlatformDevice::Hwmon;
+        else if (_wcsicmp(name, L"\\\\.\\sghwreset") == 0)
+            device = rg_allsio::PlatformDevice::Reset;
+        else match = false;
+        if (match) {
+            HANDLE h = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            if (!h) return INVALID_HANDLE_VALUE;
+            bool stored = false;
+            EnterCriticalSection(&g_cs);
+            for (auto& entry : g_platform_handles) {
+                if (!entry.handle) { entry.handle = h; entry.device = device; stored = true; break; }
+            }
+            LeaveCriticalSection(&g_cs);
+            if (!stored) { CloseHandle(h); SetLastError(ERROR_TOO_MANY_OPEN_FILES); return INVALID_HANDLE_VALUE; }
+            rg_log("platform open %ls -> %p", name, h);
+            return h;
+        }
+    }
+    HANDLE h = g_real_createfile(name, access, share, sa, disp, flags, tmpl);
+    const DWORD error = GetLastError();
+    if (name && h == INVALID_HANDLE_VALUE && (wcsstr(name, L"sghw") || wcsstr(name, L"Fdd")))
+        rg_log("apparaat open mislukt %ls fout %lu", name, static_cast<unsigned long>(error));
+    SetLastError(error);
+    return h;
 }
 
 BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, LPOVERLAPPED ov) {
@@ -430,6 +525,28 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
             {"kernel32.dll", "CancelIo", reinterpret_cast<void*>(&rg_CancelIo), reinterpret_cast<void**>(&g_real_cancelio)},
         };
         HMODULE exe = GetModuleHandleW(nullptr);
+        const DWORD id_len = GetEnvironmentVariableA("RG_ALLSIO_MAIN_ID", env, sizeof env);
+        if (id_len > 0) {
+            if (id_len < sizeof env && rg_allsio::valid_main_id(env)) {
+                void* old = patch_iat(exe, "kernel32.dll", "GetComputerNameA", reinterpret_cast<void*>(&rg_GetComputerNameA));
+                if (old) {
+                    g_real_computername = reinterpret_cast<GetComputerNameAFn>(old);
+                    std::memcpy(g_main_id, env, sizeof g_main_id);
+                }
+                rg_log("platformidentiteit: GetComputerNameA %s", old ? "omgezet (15 tekens)" : "NIET in de daemon");
+            } else {
+                rg_log("RG_ALLSIO_MAIN_ID ongeldig: verwacht 15 tekens A-Z, 0-9 of '-'; echte computernaam behouden");
+            }
+        }
+        g_platform_enabled = GetEnvironmentVariableA("RG_ALLSIO_PLATFORM", env, sizeof env) == 1 && env[0] == '1';
+        if (g_platform_enabled) {
+            void* old = patch_iat(exe, "kernel32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_DeviceIoControl));
+            if (old) g_real_ioctl = reinterpret_cast<IoctlFn>(old);
+            void* close = patch_iat(exe, "kernel32.dll", "CloseHandle", reinterpret_cast<void*>(&rg_CloseHandle));
+            if (close) g_real_close = reinterpret_cast<CloseFn>(close);
+            g_platform_enabled = old && close;
+            rg_log("platformapparaten %s", g_platform_enabled ? "ingeschakeld" : "NIET ingeschakeld: import ontbreekt");
+        }
         for (const Hook& h : hooks) {
             void* old = patch_iat(exe, h.dll, h.fn, h.repl);
             *h.orig = old;

@@ -60,6 +60,19 @@ Naast `native.json` leest de daemon de invoertabellen `rt-invoer.ini`, `rio-invo
 daar gaat de gebruikerslaag voor. Een tabel geldt alleen als de bijbehorende invoerhulp in `preload` staat
 (`librg_rt_input.so`, `librg_rio_bridge.so`, `librg_irtrack.so`) en het profiel de variabele niet zelf in `env` zet.
 
+## Heapstatus uit een gedumpt beeld
+
+Een dump kan naast stale imports ook heapwijzers van de kast bevatten. `RG_ELF_HEAP_TABLE` wijst optioneel naar een
+tekstbestand met per regel `slot stale bytes allocator` (adressen hexadecimaal, grootte decimaal). Alleen `malloc` en
+`_Znwj` (i386 operator new) zijn toegestaan. De lader controleert een uitgelijnd slot in een schrijfbaar PT_LOAD en de exacte
+oude waarde, maakt nulgevulde opslag en vervangt alleen die wijzer. Onjuiste gegevens of een ontbrekende tabel breken de
+start af. Zonder variabele verandert niets; `--ontleed-alleen` valideert maar alloceert niet. Zet geen adressen in de ladercode.
+
+Dit is uitsluitend voor gemeten, losse buffers die de gast daarna zelf initialiseert. Het herstelt geen willekeurige C++-objecten,
+vtabellen of de volledige oude heap. Voor Walking Dead is de eerste gemeten buffer een timeval van acht bytes; de normale
+constructor gebruikt operator new, en de eerste aanroep schrijft beide velden met gettimeofday. Alle constructors opnieuw
+uitvoeren op de overige gedumpte toestand is geen vervanging voor dit gerichte herstel.
+
 ## Een nieuwe game
 
 1. Maak `patches/<Game>/native.json` met `mounts`, `exe`, `cwd`, `args` en `enabled: false`. Zet het eerst in de gebruikerslaag;
