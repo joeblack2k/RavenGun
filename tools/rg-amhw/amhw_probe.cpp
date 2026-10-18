@@ -70,6 +70,7 @@ int main(int argc, char** argv) {
     SetEnvironmentVariableA("RG_AMHW_DIPSW", "70,00");
     SetEnvironmentVariableA("RG_AMHW_DIPIN", "FE,FF");        // LGI: dipschakelaar 0 aan = standaardkast zonder passagiersstoel (de standaard FF,FF staat in test_amhw)
     SetEnvironmentVariableA("RG_AMHW_NOREPARSE", "1");
+    SetEnvironmentVariableA("RG_AMHW_WATCHDOG", "1");        // de bewaker: na 1 s de plek van elke thread (hier o.a. de nep-JVS-thread)
     DeleteFileA((dir + "\\mxsram.bin").c_str());
     DeleteFileA((dir + "\\mxeeprom.bin").c_str());
     HMODULE m = LoadLibraryA((dir + "\\rg-amhw.dll").c_str());
@@ -323,6 +324,14 @@ int main(int argc, char** argv) {
     char buf[2] = {};
     check(n != INVALID_HANDLE_VALUE && ReadFile(n, buf, 2, &got, nullptr) && got == 2 && buf[0] == 'M' && buf[1] == 'Z', "en lezen ook");
     if (n != INVALID_HANDLE_VALUE) CloseHandle(n);
+    {   // de bewaker (RG_AMHW_WATCHDOG=1): ronde 1 na 1 s; de nep-JVS-thread wacht in ReadFile
+        Sleep(1500);
+        FILE* wf = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
+        std::string wl;
+        if (wf) { char buf[4096]; size_t k; while ((k = std::fread(buf, 1, sizeof buf, wf)) > 0) wl.append(buf, k); std::fclose(wf); }
+        check(wl.find("bewaker 1: thread ") != std::string::npos && wl.find("bewaker 1: ") != std::string::npos && wl.find("threads bekeken") != std::string::npos,
+              "de bewaker schreef na 1 s de threads (plek + terugkeeradressen) in rg-amhw.log");
+    }
     std::printf("%s\n", g_fail ? "MISLUKT" : "ALLES OK");
     return g_fail ? 1 : 0;
 }

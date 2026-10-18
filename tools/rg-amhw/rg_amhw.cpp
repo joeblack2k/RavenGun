@@ -18,10 +18,12 @@
 // Omgeving: RG_AMHW_OEM (platform-id: AAM RingWide, AAL RingEdge, AAL2 RingEdge 2; standaard AAM), RG_AMHW_VENDOR (Supermicro, NEC, Advantech;
 // standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1,
 // RG_AMHW_DIPIN ("FE,FF": invoerpoorten 0 en 1 van de PCA9535, actief laag; LGI: bit 0 aan = standaardkast zonder passagiersstoel),
+// RG_AMHW_WATCHDOG=N (na N en 2N s de plek van elke thread in het logboek),
 // RG_AMHW_NOREPARSE=1 (een gelinkte map meldt GetFileAttributes als 0x10 in plaats van 0x410; terugval voor SDR, zie "de werkmap van het spel").
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <setupapi.h>
+#include <tlhelp32.h>
 
 #include <algorithm>
 #include <cstdarg>
@@ -980,6 +982,94 @@ void fix_rdata_writable() {
     }
 }
 
+// --- de bewaker: waar staan de threads van een game die vastzit? -----------------------------------------------------------------------
+// RG_AMHW_WATCHDOG=N (seconden; standaard uit): na N en na 2N seconden schrijft een eigen thread van elke andere thread van het proces het adres waar hij staat
+// (module+offset) en de terugkeeradressen die op de stapel lijken (zoals het afsluitspoor), in rg-amhw.log. Een thread die wacht staat in ntdll; de terugkeeradressen in
+// de game wijzen dan naar de functie die wacht. Alleen lezen: elke thread wordt kort stilgezet en weer gestart.
+std::string where(uintptr_t a) {
+    HMODULE m = nullptr;
+    char nm[MAX_PATH] = "?";
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCSTR>(a), &m) && m) {
+        GetModuleFileNameA(m, nm, sizeof nm);
+        const char* b = std::strrchr(nm, '\\');
+        char o[64];
+        std::snprintf(o, sizeof o, "+0x%lX", static_cast<unsigned long>(a - reinterpret_cast<uintptr_t>(m)));
+        return std::string(b ? b + 1 : nm) + o;
+    }
+    char o[32];
+    std::snprintf(o, sizeof o, "0x%08lX", static_cast<unsigned long>(a));
+    return o;
+}
+void dump_threads(int round) {
+    auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + reinterpret_cast<IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    const uintptr_t lo = reinterpret_cast<uintptr_t>(base), hi = lo + nt->OptionalHeader.SizeOfImage;
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) { rg_log("bewaker: geen threadlijst (fout %lu)", static_cast<unsigned long>(GetLastError())); return; }
+    struct Seen { DWORD tid; uintptr_t eip, esp; uintptr_t ret[10]; int nret; unsigned long long user_ms, kern_ms; };
+    static Seen seen[64];   // vast geheugen: een stilgezette thread kan de heap-slot vasthouden, dus tussen Suspend en Resume geen allocatie en geen logboek
+    int n = 0;
+    THREADENTRY32 te = {};
+    te.dwSize = sizeof te;
+    for (BOOL ok = Thread32First(snap, &te); ok && n < 64; ok = Thread32Next(snap, &te)) {
+        if (te.th32OwnerProcessID != GetCurrentProcessId() || te.th32ThreadID == GetCurrentThreadId()) continue;
+        HANDLE th = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
+        if (!th) continue;
+        if (SuspendThread(th) == static_cast<DWORD>(-1)) { CloseHandle(th); continue; }
+        CONTEXT c = {};
+        c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+        if (GetThreadContext(th, &c)) {
+            Seen& e = seen[n++];
+            e.tid = te.th32ThreadID; e.eip = c.Eip; e.esp = c.Esp; e.nret = 0; e.user_ms = e.kern_ms = 0;
+            const uintptr_t* sp = reinterpret_cast<const uintptr_t*>(c.Esp);
+            for (int i = 0; i < 1024 && e.nret < 10; ++i) {
+                if (IsBadReadPtr(sp + i, sizeof(uintptr_t))) break;
+                const uintptr_t v = sp[i];
+                if (v < lo + 6 || v >= hi || IsBadReadPtr(reinterpret_cast<const void*>(v - 6), 6)) continue;
+                const BYTE* q = reinterpret_cast<const BYTE*>(v);
+                if (q[-5] == 0xE8 || q[-6] == 0xFF || q[-2] == 0xFF || q[-3] == 0xFF) e.ret[e.nret++] = v;   // lijkt op een terugkeeradres (na call)
+            }
+        }
+        {   // processortijd van de thread: een thread die rekent heeft een groeiende user-tijd, een thread die wacht niet (twee rondes vergelijken)
+            FILETIME cr, ex, kt, ut;
+            if (n > 0 && seen[n - 1].tid == te.th32ThreadID && GetThreadTimes(th, &cr, &ex, &kt, &ut)) {
+                seen[n - 1].user_ms = ((static_cast<unsigned long long>(ut.dwHighDateTime) << 32) | ut.dwLowDateTime) / 10000;
+                seen[n - 1].kern_ms = ((static_cast<unsigned long long>(kt.dwHighDateTime) << 32) | kt.dwLowDateTime) / 10000;
+            }
+        }
+        ResumeThread(th);
+        CloseHandle(th);
+    }
+    CloseHandle(snap);
+    {
+        IO_COUNTERS io = {};
+        if (GetProcessIoCounters(GetCurrentProcess(), &io))
+            rg_log("bewaker %d: proces leest %llu bytes in %llu opdrachten, schrijft %llu bytes", round, static_cast<unsigned long long>(io.ReadTransferCount),
+                   static_cast<unsigned long long>(io.ReadOperationCount), static_cast<unsigned long long>(io.WriteTransferCount));
+    }
+    for (int i = 0; i < n; ++i) {
+        std::string line = "bewaker " + std::to_string(round) + ": thread " + std::to_string(seen[i].tid) + " op " + where(seen[i].eip);
+        char t[128];
+        std::snprintf(t, sizeof t, " (esp 0x%08lX, user %llu ms, kern %llu ms); terugkeer:", static_cast<unsigned long>(seen[i].esp), seen[i].user_ms, seen[i].kern_ms);
+        line += t;
+        for (int k = 0; k < seen[i].nret; ++k) {
+            char r[24];
+            std::snprintf(r, sizeof r, " 0x%08lX", static_cast<unsigned long>(seen[i].ret[k]));
+            line += r;
+        }
+        rg_log("%s", line.c_str());
+    }
+    rg_log("bewaker %d: %d threads bekeken", round, n);
+}
+DWORD WINAPI watchdog(LPVOID arg) {
+    const DWORD secs = static_cast<DWORD>(reinterpret_cast<uintptr_t>(arg));
+    for (int round = 1; round <= 2; ++round) {
+        Sleep(secs * 1000);
+        dump_threads(round);
+    }
+    return 0;
+}
+
 void setup() {
     InitializeCriticalSection(&g_cs);
     InitializeCriticalSection(&g_jvs_cs);
@@ -1009,6 +1099,10 @@ void setup() {
     rg_log("rg-amhw geladen in %s: platform %s, fabrikant %s, SRAM %d KB in %s", exe, g_platform.oem.c_str(), g_platform.vendor.c_str(), kb, g_sram_path);
     if (env("RG_AMHW_OFF", "") == "1") { rg_log("RG_AMHW_OFF=1: niets omgezet"); return; }
     g_noreparse = env("RG_AMHW_NOREPARSE", "") == "1";
+    if (const int w = std::atoi(env("RG_AMHW_WATCHDOG", "0").c_str()); w > 0 && w <= 600) {
+        CreateThread(nullptr, 0, watchdog, reinterpret_cast<LPVOID>(static_cast<uintptr_t>(w)), 0, nullptr);
+        rg_log("bewaker: aan, na %d en %d s", w, 2 * w);
+    }
     log_cwd("bij het laden", nullptr);
     hook("KERNEL32.dll", "GetFileAttributesA", rg_GetFileAttributesA, g_getattr_a);
     hook("KERNEL32.dll", "GetFileAttributesW", rg_GetFileAttributesW, g_getattr_w);
