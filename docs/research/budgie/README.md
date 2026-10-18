@@ -1,5 +1,14 @@
 # Terminator en Crossfire zonder BudgieLoader (onderzoek 2026-10-17)
 
+> **Vervolg 2026-10-18.** De skeletten hieronder zijn opgevolgd door `tools/rg-t4-io/rg_t4_io.c` (Terminator: JAMMA-bordkant uit het
+> bordbeeld, richtpunt, glutInit) en `tools/rg-cf-io/rg_cf_io.c` (Crossfire: `/dev/mjg`-records uit het bordbeeld, `/dev/hda`, `/dev/p37c`
+> met de iButton), met toetsen `tests/t4_io_test.sh` en `tests/cf_io_test.sh`. Nieuw ten opzichte van de tekst hieronder: (1) Terminators
+> richtpunt zit in twee floats per geweer op 0x8b0da00 + geweer*0x30 (game-functie 0x842e36f, 800x600) en is dus zonder de IR-camerageweren
+> (cmgr/ttyUSB) te schrijven; (2) Crossfire heeft een iButton (Dallas DS1991) op `/dev/p37c` als opstartcontrole (0x805e7ca; zonder komt de
+> game niet voorbij de opstart), `/dev/p37c` is dus geen stom registerbeeld; de irq-teller op record +0x0c moet strikt oplopen (0x804aa40);
+> het richtpunt is lichtpuls-samples (x | y<<12) met scherm_x = raw*0.6946-170, scherm_y = raw-25 (0x804a63b). De profielen voor de patches-repo
+> staan in `patches-out/<Game>/` (nog `enabled: false`).
+
 **Vraag:** twee games gebruiken op de directe route nog `ElfLdr2/BudgieLoader.exe` uit de TeknoParrot-map (`rg-direct --tp-refs`:
 Terminator 5 verwijzingen, CrossfirePaintball 3). Wat is er nodig om ze via de native route (`native.json`, `rg-elfloader`) te starten
 zoals JP/NERF/Halo?

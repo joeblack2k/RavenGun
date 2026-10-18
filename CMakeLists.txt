@@ -298,6 +298,20 @@ if(RAVENGUN_BUILD_WINE_SHIM)
       COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-ptylink/rg_ptylink.c\" -ldl -lpthread || echo 'waarschuwing: 32-bit ptylink (librg_ptylink.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-ptylink/rg_ptylink.c VERBATIM)
     add_custom_target(rg_ptylink32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so")
+    # De kast van Terminator Salvation (tools/rg-t4-io/): bordkant van de seriele JAMMA-lijn (schakelaars uit het bordbeeld), het
+    # richtpunt en de glutInit-herschrijving. Nodig zodat Terminator zonder TeknoParrot/BudgieLoader op de native route draait. 32-bits.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-t4-io.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32" "${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu"
+      COMMAND sh -c "{ [ -f /usr/include/gnu/stubs-32.h ] || : > \"${CMAKE_CURRENT_BINARY_DIR}/inc32/gnu/stubs-32.h\"; } && \"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -I\"${CMAKE_CURRENT_BINARY_DIR}/inc32\" -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-t4-io.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-t4-io/rg_t4_io.c\" -ldl -lpthread || echo 'waarschuwing: 32-bit Terminator-kast (librg-t4-io.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-t4-io/rg_t4_io.c VERBATIM)
+    add_custom_target(rg_t4_io32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-t4-io.so")
+    # De kast van Crossfire: Maximum Paintball (tools/rg-cf-io/): /dev/mjg-records uit het bordbeeld, /dev/hda, /dev/p37c met de iButton, iopl.
+    # Header-vrij (geen 32-bits glibc-headers nodig). 32-bits, zoals het spel.
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32"
+      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-cf-io/rg_cf_io.c\" || echo 'waarschuwing: 32-bit Crossfire-kast (librg-cf-io.so) niet gebouwd (gcc -m32)'"
+      DEPENDS tools/rg-cf-io/rg_cf_io.c VERBATIM)
+    add_custom_target(rg_cf_io32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so")
     # OSS-shim (tools/rg-oss-stub/): /dev/dsp en /dev/mixer voor i386-games in de sandbox. Target: Terror Gold crashte zonder /dev/dsp
     # in zijn geluidsthread (SNDCTL_DSP_GETOSPACE op fd -1, ongevulde struct, memset met een onzinlengte; 2026-10-17). Header-vrij.
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so"
@@ -472,6 +486,12 @@ if(RAVENGUN_BUILD_TESTS)
   # 64- en 32-bits, met tegenproef zonder de bibliotheek. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_ptylink COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/ptylink_test.sh")
   set_tests_properties(ravengun_ptylink PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-t4-io: de JAMMA-bordkant en het richtpunt van Terminator Salvation (frames op een proef-pty uit een proef-bordbeeld, richtpunt-floats).
+  add_test(NAME ravengun_t4_io COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/t4_io_test.sh")
+  set_tests_properties(ravengun_t4_io PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-cf-io: de kast van Crossfire (iButton over /dev/p37c, /dev/mjg-records uit het bordbeeld, /dev/hda); 32-bits, met eigen geheugen onder de game-adressen.
+  add_test(NAME ravengun_cf_io COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/cf_io_test.sh")
+  set_tests_properties(ravengun_cf_io PROPERTIES SKIP_RETURN_CODE 77)
   # tools/dev/rg-tv-env.sh: de schermomgeving voor een run met beeld op de tv; stopt luid zonder sessie of zonder bereikbaar scherm.
   add_test(NAME ravengun_tv_env COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/tv_env_test.sh")
   # rg-elfloader: gast/libs met alleen DT_GNU_HASH (geen DT_HASH) + analysemodus --ontleed-alleen (start de gast niet).
@@ -663,8 +683,8 @@ if(TARGET rg_comm_shim)
   install(TARGETS rg_fmod10 rg_fmodstudio10 LIBRARY DESTINATION lib/fmod)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_comm_shim.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-threadprio.so"
                 "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_rio_bridge.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg_ptylink.so"
-                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so"
-                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-t4-io.so"
+                "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-cf-io.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-glslfix.so" "${CMAKE_CURRENT_BINARY_DIR}/lib32/libcaca.so.0"
           DESTINATION lib/lib32 OPTIONAL)
 endif()
 # De datamap. Niet mee: build-app.sh (bouwt uit de bronboom). Ontwikkel- en benchgereedschap staat in tools/dev/ en wordt nooit geinstalleerd.
