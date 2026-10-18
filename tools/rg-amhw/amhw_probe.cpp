@@ -68,6 +68,8 @@ int main(int argc, char** argv) {
     CreateThread(nullptr, 0, jvs_server, nullptr, 0, nullptr);
     SetEnvironmentVariableA("RG_AMHW_REGION", "02");
     SetEnvironmentVariableA("RG_AMHW_DIPSW", "70,00");
+    SetEnvironmentVariableA("RG_AMHW_DIPIN", "FE,FF");        // LGI: dipschakelaar 0 aan = standaardkast zonder passagiersstoel (de standaard FF,FF staat in test_amhw)
+    SetEnvironmentVariableA("RG_AMHW_NOREPARSE", "1");
     DeleteFileA((dir + "\\mxsram.bin").c_str());
     DeleteFileA((dir + "\\mxeeprom.bin").c_str());
     HMODULE m = LoadLibraryA((dir + "\\rg-amhw.dll").c_str());
@@ -124,7 +126,7 @@ int main(int argc, char** argv) {
         check(DeviceIoControl(sm, 0x9C402004, pk, 0x25, pko, 0x25, nullptr, &ov) && pko[0] == 0 && pko[5] == 0x70, "SMBus: dip-register 4 lezen (overlapped, direct klaar): 0x70");
         check(WaitForSingleObject(ov.hEvent, 0) == WAIT_OBJECT_0, "de gebeurtenis van de OVERLAPPED is gezet");
         uint8_t pin[0x25] = {0, 5, 0x20, 0}, pino[0x25] = {};
-        check(DeviceIoControl(sm, 0x9C402004, pin, 0x25, pino, 0x25, nullptr, &ov) && pino[5] == 0xFF, "SMBus: invoerpoort 0 (dipschakelaars) leest 0xFF (niets aan)");
+        check(DeviceIoControl(sm, 0x9C402004, pin, 0x25, pino, 0x25, nullptr, &ov) && pino[5] == 0xFE, "SMBus: invoerpoort 0 (RG_AMHW_DIPIN=FE,FF) leest 0xFE (dipschakelaar 0 aan)");
         uint8_t eb[0x27] = {0, 8, 0x57, 0, 0x00, 0x01, 4, 0xDE, 0xAD, 0xBE, 0xEF};
         check(DeviceIoControl(sm, 0x9C40200C, eb, 0x27, eb, 0x27, &sg, nullptr) && sg == 0x27 && eb[0] == 0, "SMBus: EEPROM schrijven (0x27 bytes terug)");
         uint8_t er[0x27] = {0, 9, 0x57, 0, 0x00, 0x01, 4};
@@ -266,6 +268,20 @@ int main(int argc, char** argv) {
         std::string txt2;
         if (lf2) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, lf2)) > 0) txt2.append(buf, n); std::fclose(lf2); }
         check(txt2.find("bestand mislukt:") != std::string::npos && txt2.find("scene.dat") != std::string::npos, "het ontbrekende bestand staat in rg-amhw.log");
+    }
+    {   // de werkmap van het spel (SDR): een gelinkte map meldt GetFileAttributes als 0x410 (Proton); met RG_AMHW_NOREPARSE=1 komt 0x10 terug, en elke
+        // SetCurrentDirectory van het spel staat in rg-amhw.log. De map `linkdir` (een link naar `realdir`) maakt tools/dev/test-amhw-wine.sh; zonder: overgeslagen.
+        const DWORD la = GetFileAttributesA((dir + "\\linkdir").c_str());
+        if (la == INVALID_FILE_ATTRIBUTES) std::printf("     (geen linkdir: de proef met een gelinkte map is overgeslagen)\n");
+        else check(la == FILE_ATTRIBUTE_DIRECTORY, "gelinkte map: GetFileAttributes geeft 0x10 (geen reparse-bit) met RG_AMHW_NOREPARSE=1");
+        char cwd0[MAX_PATH] = {};
+        GetCurrentDirectoryA(sizeof cwd0, cwd0);
+        check(SetCurrentDirectoryA((dir + "\\realdir").c_str()) || SetCurrentDirectoryA(dir.c_str()), "SetCurrentDirectoryA werkt nog");
+        SetCurrentDirectoryA(cwd0);
+        FILE* cf = std::fopen((dir + "\\rg-amhw.log").c_str(), "rb");
+        std::string cl;
+        if (cf) { char buf[4096]; size_t n; while ((n = std::fread(buf, 1, sizeof buf, cf)) > 0) cl.append(buf, n); std::fclose(cf); }
+        check(cl.find("werkmap: bij het laden") != std::string::npos && cl.find("werkmap: SetCurrentDirectoryA") != std::string::npos, "rg-amhw.log: de werkmap bij het laden en de SetCurrentDirectoryA staan erin");
     }
     {   // .rdata van een gedumpte exe: schrijfbaar in de kop -> de DLL zet het terug (alleen zichtbaar als het proefprogramma zo gebouwd is)
         auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));

@@ -478,6 +478,42 @@ Het afsluitspoor gaf twee aanroepers van `requestExit` (`0x645830`): `0x645D69` 
 * **Wijziging:** register 0 en 1 van de PCA9535 (adres 0x20) lezen nu 0xFF en zijn alleen-lezen (`RG_AMHW_DIPIN="FF,FF"` voor een andere waarde). Gevolg: `dipsw = 0` (niets aan). **Let op:** LGS/GG/OG lazen tot nu toe 0x00
   (dus alles aan) en draaiden zo; ze krijgen nu de normale kast. Controleren dat ze nog starten.
 
+### Meting 17 (LGI 2026-10-18): "Initializing Passenger Seat." + `halt!` = de passagiersstoel van een DX-kast [gelezen, LGI; statisch, niets gestart]
+
+**Wat de game doet.** Foto's speelproef 19/20: `Initializing Passenger Seat.` en een berichtvenster `[.\src\MainSeq\BaseModule.cpp (149)] halt!`; `rg-amhw.log` toont daarvoor `COM2`, `COM3` (fout 5) en daarna `COM1`.
+
+| Stap | Waar (LGI_RingW_F_safe.exe) | Wat |
+|---|---|---|
+| 1 | `0x72474C` -> `0x671F40` | `BaseModule+8 = isDipsw(0)` = dipschakelaar 0 (PCA9535 register 0, omgekeerd). De tekenreeksen zeggen wat het is: `0x716634` kiest `CabinetSettingDX` (bit 0 uit) of `CabinetSettingSTD` (bit 0 aan); `0x7326CA`, `0x737191` en `0x73733E` kiezen `ExplanationSeq` of `GameStageSelectSeq` en het achtervoegsel `_STD` (de films `explainGame_STD_ENG.wmv` staan in `data/movie`). **Dipschakelaar 0 = standaardkast (STD) of luxe kast met bewegende stoel (DX).** |
+| 2 | `0x852731` | `[0xC1FF2E] = (BaseModule+8 == 0)`: alleen een DX-kast maakt een `SeatManager` (`0x852710` -> `0x851B00`, scherm "Type [MOV]/[STD]"). LGI3D zet dezelfde byte onvoorwaardelijk op 0 (`0x86B386`): geen stoel. |
+| 3 | `0x851B00` | de `SeatManager` maakt twee `SeatMotor`s (`0x850270`): **Pitch = COM2, Roll = COM3** (`push 2/push 0` en `push 3/push 1` op `0x851BA0`/`0x851BD0`; het tweede argument 0/1 kiest de tekst `(PITCH)`/`(ROLL)`). `0x8523E0` opent `COM%d` uit de tabel `0x968F34` (`COM1`, `COM2`, `COM3`, anders `COM5`) met `CreateFileA(GENERIC_READ\|GENERIC_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED)`, `SetupComm(0x1000,0x1000)`, `PurgeComm(0xF)`, `SetCommTimeouts` (interval -1, constante 500 ms), `GetCommState`/`SetCommState` (**38400 baud, 8N1**, `0x8525D6`: `[0x3C]=0x9600`). Mislukt het openen, dan blijft het handvat -1 ("Port None"). |
+| 4 | `0x7184A0` (`MechatroInitialize`) | per beeld `SeatManager::update` (`0x851DE0`) en dan `0x8514B0`: klaar pas als beide motoren `[0xFD]&&[0xFE]` hebben. De start (`0x84E590`, toestand `[0xD4]`, sprongtabel `0x84E948`) stuurt `FF 00 00`, wacht, stuurt `FD 00 00` en wacht **4,0 s** (`0x96D190`) op een antwoord; zonder antwoord gaat de motor naar toestand "mode 4" (`0x84E62D`). |
+| 5 | `0x84FC30` | de gezondheidscontrole: mode 4 met `[0xFD]&&[0xFE]` en geen lopende verzoek geeft toestand 1 = `Unable to recognize SEAT MOTOR DRIVE BD.(PITCH)` (tekst `0x96905C`, tabel `0x969034`). `0x850910` stuurt dat naar `0x850790`, en omdat de motor nog nooit klaar was (`0x84FAD0` = onwaar) is het "fataal": `0x85081F` -> `0x724530` -> `0x724579` roept de assert `BaseModule.cpp`, regel `0x95` = **149**, `halt!` aan. Dat is het venster. |
+
+**Dus.** Dipschakelaar 0 stond uit (sinds meting 16: `FF,FF`), dus LGI dacht een **DX-kast met bewegende stoel** te zijn, vond de stoelbesturing niet op COM2/COM3 en stopte. TeknoParrot zal die schakelaar of de COM-poorten anders beantwoorden; wij hoeven alleen te kiezen
+wat voor kast dit is.
+
+**COM1 is niet de oorzaak.** Het is een tweede seriele klasse (`0x41D020`, 115200 baud, JVS-achtig kader met sync `E0`/escape `D0`, `0x41D1B0`) in de `MechatroManager`. In LGI3D faalt COM1 ook (`bestand mislukt: COM1` om 12:52:09.642) en `MechatroInitialize` eindigt 1 ms later.
+
+**Wijziging (geen code).** Een standaardkast: `RG_AMHW_DIPIN=FE,FF` (invoerpoort 0 bit 0 laag = schakelaar aan, `dipsw = 0x01`) in de `Env` van `dropin/dropin.ini`. Dan geen `SeatManager`, geen COM2/COM3, en `MechatroInitialize` eindigt direct zoals bij LGI3D.
+Het scherm `Type [STD]`; de bewegende stoel is er niet (er is ook geen stoel).
+
+**Wat een nagebootste stoel (DX) zou moeten kunnen** (niet gebouwd; alleen als de DX-kast ooit gewenst is):
+* Pakket naar het bord, 4 bytes: `[cmd][b1][b2][chk]` met `chk = (cmd & 0x7F) ^ b1 ^ b2` (`0x84DAC0`, `WriteFile`). Opdrachten: `FF` reset, `FD` status, `FC 00 40`, `FA 00 1F` (elk beeld in de lopende toestand), `80` servo/richting, `81 40 7F`, `82 00 54`, `83 40 04`, `84` koppel (`dl=1,cl=koppel` of `dl=0,cl=koppel-0x80`), `85` golfparameters.
+* Antwoorden worden niet gekaderd of op een som gecontroleerd: `0x852250` doet `ClearCommError` (`cbInQue`), `ReadFile` (0x40, overlapped), `WaitForSingleObject(ev, 1)` en `GetOverlappedResult`. Eerste `FD`: minstens 1 byte. Tweede `FD`: laatste byte `00`, geen `44` (bezig) of `11` (fout). Lopend: een byte `11`/`22`/`33` is encoder-/overstroom-/oververhittingsfout (`0x84FD7B`), en meer dan 60 beelden zonder enige byte is "Unable to recognize" (`[0xC8] > 0x3C`, `0x84FC97`).
+* De stoelpotmeters (`PICH`, `ROLL`) komen niet van de seriele poort maar uit **JVS-analoogkanaal 4 en 5** (`0x87F4E0`: `2*[this+0x170] + 4/5`, `0x6EEB10`): vanaf 0,25 s in mode 2 (`0x850166`) moet de waarde binnen (0x1000, 0xEFFF) blijven, tijdens "Init Volume" (5 s, `0x850070`) minstens 0xFFF bewegen (`0x84FC30`, `[0x130]`, `[0x168..0x174]`) en bij vastgehouden volle koppel (300 beelden) bewegen, anders "SEAT VOLUME is abnormal". Dat vraagt dus ook een aanpassing van de JVS-antwoorden.
+
+### Meting 18 (SDR 2026-10-18): zwart beeld, 7 JVS-pakketten in 70 s = de game stapt uit zijn map [gelezen, SDR; statisch + het logboek van rg-direct]
+
+* `direct-SDR-20261018-123953.log`: de JVS-pipe zag **7 pakketten in 70 s** (`verbinding dicht (71 bytes van de game, 7 pakketten ...)`), LGI3D ruim 40 per seconde (#2000 na 45 s). De hoofdlus draait dus niet; er is geen afsluiting, en na `mxjvs: #6` schrijft `rg-amhw.log` niets meer.
+* `rg-amhw.log` van dezelfde run: `bestand mislukt: GAME.INI (fout 2)`, `.\data\displabel.txt (fout 3)`, `.\data\texture\tex.lst (fout 3)` terwijl `Game.ini` en `Data\Displabel.txt` op de NAS staan: **elk relatief pad faalt, de werkmap is niet de view.**
+* **Oorzaak (Game.exe `0x4019C0`, aangeroepen op `0x4011AB`, vlak na de start):** `GetFileAttributesA(".\data")` (`0x401B59`), en `!= 0x10` (`cmp eax,0x10` op `0x401B5F`) geeft `SetCurrentDirectoryA("..\")` (`0x401B64`; tekenreeksen `0x782BC0`/`0x782BC8`). De game is bedoeld om uit een submap `prg\` te draaien (`Game.bat`: `start /wait prg\game.exe`). In de view is
+  `Data` een link naar de NAS; Proton meldt die als map + reparse point (**0x410**, ook gemeten met `tools/dev/test-amhw-wine.sh`, zonder spel), dus stapt de game uit de view. Het is hetzelfde als bij Haunted Museum II (`ViewRealDirs`) en verklaart het oude `ERROR 0906 SOUND FUNCTION NOT FOUND`
+  (`data\sound\` niet te vinden; foutentabel `0x805C18`, code 0x38A) vanuit de view en dat het vanuit de gamemap (`View = off`) wel start (`Data` is daar een echte map). Zonder `GAME.INI` gelden ook de standaardwaarden (`SEATENABLE`, `REGION`, `JVSENABLE`; `Game.ini` zegt `SEATENABLE 0`).
+* **Niet de oorzaak:** COM2/COM3 (zelfde `SeatMotor` als LGI, `0x4DC290`/`0x4E0309`; de constructor zet de foutcontrole uit als vier vlaggen op `0x158F4A0`.. nul zijn, `0x4E03B8`-`0x4E03E6`; vermoedelijk de `SEATENABLE`-waarden, afgeleid), de AM-daemon (vier verzoeken, geen `onbekend`) of het geluid (`0x5BA670` kiest `data\sounde\` en valt bij een ontbrekende map terug op `data\sound\`).
+* **Wijziging:** `[Launch] ViewRealDirs = Data` in `game.ini` (de nette oplossing; de view krijgt een echte map `Data` met links, `GetFileAttributes` = 0x10). Terugval: `RG_AMHW_NOREPARSE=1` in de `Env` van `dropin/dropin.ini`: rg-amhw meldt een gelinkte map als 0x10. rg-amhw logt nu ook de werkmap bij het laden (`werkmap: bij het laden`), elke `SetCurrentDirectory`
+  van de game (`werkmap: SetCurrentDirectoryA ..\ -> nu ...`) en de eerste gelinkte mappen (`attributen: map ... is 0x410`).
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

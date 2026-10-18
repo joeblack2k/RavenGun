@@ -21,6 +21,7 @@ podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE"
   i686-w64-mingw32-g++ -std=c++17 -O2 -s -Wall -Wextra -static -static-libgcc -static-libstdc++ /src/amhw_probe.cpp -o /out/amhw_probe.exe -lsetupapi &&
   i686-w64-mingw32-objcopy --set-section-flags .rdata=alloc,load,data /out/amhw_probe.exe   # als een gedumpte exe: .rdata schrijfbaar'
 cp "$TMP/out/rg-amhw.dll" "$TMP/out/amhw_probe.exe" "$TMP/run/"
+mkdir "$TMP/run/realdir" && ln -s "$TMP/run/realdir" "$TMP/run/linkdir"   # een gelinkte map, zoals Data in een view (SDR: RG_AMHW_NOREPARSE)
 export WINEPREFIX="$TMP/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree,mshtml="
 unset DISPLAY WAYLAND_DISPLAY
 OUT="$(timeout 120 "$WINE" "$TMP/run/amhw_probe.exe" 'Z:'"${TMP//\//\\}"'\run' "${1:-AAM}" "${2:-Supermicro}" 2>&1)" || RC=$?
