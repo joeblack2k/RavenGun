@@ -56,9 +56,27 @@ Dat is een meting, geen luiheid:
 
 De stub meldt de sequencer dus alleen en laat hem aan de kernel (`ENOENT`).
 
+## Afspelen (RG_OSS_PLAY=1, 2026-10-18)
+
+Zonder `RG_OSS_PLAY` levert de stub **geen geluid**: de DSP is `/dev/null` en de ioctl-antwoorden zijn vaste, plausibele
+waarden (genoeg voor GoGoStrike, dat alleen zijn initialisatie moet afmaken). Met `RG_OSS_PLAY=1` speelt hij echt af, voor
+de games met de Raw Thrills-geluidscode (`jpsdrvr_init`/`jpsdrvr_proc`: Target: Terror Gold, Jurassic Park):
+
+* de shim onthoudt SPEED/SETFMT/CHANNELS/SETFRAGMENT (TTG: 22050 Hz, S16LE, mono, 3 x 4096) en negeert de mixer-ioctls
+  (`'M'`) die het spel op de DSP-fd doet;
+* `write()` op de DSP-fd gaat in een ring; een eigen draad speelt de ring af via `libpulse-simple.so.0` (dlopen, 32-bit;
+  `PULSE_SERVER` wijst in de bwrap naar de pulse-socket van de host). De stroom heet `RG_OSS_NAME` (anders "OSS /dev/dsp");
+* `GETOSPACE` meldt de werkelijk vrije ruimte van de ring, dus het tempo van het spel loopt op het afspeeltempo (TTG schrijft
+  een fragment zodra er een vrij is). De ring houdt hoogstens `RG_OSS_FRAGS` (standaard 2) fragmenten vast: lage vertraging;
+* is er geen PulseAudio, dan loopt de draad op een virtuele klok: de pacing klopt, er komt alleen geen geluid.
+
+Toets: `tests/oss_stub_test.sh` (ctest `ravengun_oss_stub`) en `oss_probe.c` hier, dat de init- en schrijflus van TTG nabootst:
+`gcc -m32 -O2 -o oss_probe oss_probe.c -lm && LD_PRELOAD=./librg-oss-stub.so RG_OSS_PLAY=1 RG_OSS_STUB_LOG=1 ./oss_probe 4 1500`
+(seconden, amplitude); in `pactl list sink-inputs` staat dan een stroom van 1 kanaal / 22050 Hz.
+
 ## Wat de stub niet doet
 
-Hij levert **geen geluid**: de DSP is `/dev/null` en de ioctl-antwoorden zijn vaste, plausibele waarden.
-Voor de native route is dat genoeg — het spel moet zijn initialisatie afmaken, niet hoorbaar zijn.
+De PAOKAI-apparaten (`/dev/w040101_*`) en de seriële poorten (`/dev/ttyS0`) vallen buiten deze stub; die
+zijn de volgende hobbel (zie `/home/deck/_gogostrike-hobbel2.md`, sectie "Wat open blijft"). Opnemen (`/dev/dsp` lezen) en mmap-trigger zijn niet nagebootst.
 De PAOKAI-apparaten (`/dev/w040101_*`) en de seriële poorten (`/dev/ttyS0`) vallen buiten deze stub; die
 zijn de volgende hobbel (zie `/home/deck/_gogostrike-hobbel2.md`, sectie "Wat open blijft").

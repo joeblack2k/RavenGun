@@ -359,6 +359,14 @@ static void nat_na_initialize(void *studio) {
     if (getfmt) getfmt(ll, &sr, &sm, &raw);
     if (getout) getout(ll, &out);
     fprintf(stderr, "rg_fmod: FMOD klaar: uitvoer %d, menging %d (%s), %d Hz\n", out, sm, sm == 6 ? "5.1" : sm == 3 ? "stereo" : sm == 7 ? "7.1" : "?", sr);
+    {   /* Welk apparaat FMOD kreeg: bij "geen stroom" in pactl list sink-inputs weet je dan of de uitvoer (11 = ALSA, 10 = PulseAudio) leeft. */
+        int (*getdrv)(void *, int *) = nat_sym("FMOD_System_GetDriver");
+        int (*getinfo)(void *, int, char *, int, void *, int *, int *, int *) = nat_sym("FMOD_System_GetDriverInfo");
+        int drv = -1, dr = 0, dm = 0, dc = 0;
+        char dn[128] = "?";
+        if (getdrv && !getdrv(ll, &drv) && getinfo && !getinfo(ll, drv, dn, sizeof dn, NULL, &dr, &dm, &dc))
+            fprintf(stderr, "rg_fmod: apparaat %d '%s' (%d Hz, modus %d, %d kanalen)\n", drv, dn, dr, dm, dc);
+    }
     if (upmix && sm == 6) {
         int f[3];
         int ok = rg_upmix_installeer(ll, sr > 0 ? sr : 48000, (int (*)(void *, const void *, void **))nat_sym("FMOD_System_CreateDSP"),

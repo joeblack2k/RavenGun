@@ -295,9 +295,12 @@ if(RAVENGUN_BUILD_WINE_SHIM)
     # in zijn geluidsthread (SNDCTL_DSP_GETOSPACE op fd -1, ongevulde struct, memset met een onzinlengte; 2026-10-17). Header-vrij.
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so"
       COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/lib32"
-      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-oss-stub/rg_oss_stub.c\" || echo 'waarschuwing: 32-bit OSS-shim (librg-oss-stub.so) niet gebouwd (gcc -m32)'"
+      COMMAND sh -c "\"${CMAKE_C_COMPILER}\" -m32 -shared -fPIC -O2 -Wall -o \"${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so\" \"${CMAKE_CURRENT_SOURCE_DIR}/tools/rg-oss-stub/rg_oss_stub.c\" -ldl -lpthread || echo 'waarschuwing: 32-bit OSS-shim (librg-oss-stub.so) niet gebouwd (gcc -m32)'"
       DEPENDS tools/rg-oss-stub/rg_oss_stub.c VERBATIM)
     add_custom_target(rg_oss_stub32 ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/lib32/librg-oss-stub.so")
+    # Met RG_OSS_PLAY=1 speelt de shim het geluid van de OSS-games (Target: Terror Gold, Jurassic Park) via PulseAudio af; de test meet de pacing.
+    add_test(NAME ravengun_oss_stub COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/oss_stub_test.sh")
+    set_tests_properties(ravengun_oss_stub PROPERTIES SKIP_RETURN_CODE 77)
   else()
     message(WARNING "Geen C-compiler: de LD_PRELOAD-hulp voor de jvs-route wordt niet gebouwd")
   endif()

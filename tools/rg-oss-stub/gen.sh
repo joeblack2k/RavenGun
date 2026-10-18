@@ -4,6 +4,6 @@
 # (op deze machine ontbreekt /usr/include/gnu/stubs-32.h; een gewone -m32-bouw met <dlfcn.h> stopt daarop).
 set -euo pipefail
 HIER="$(cd "$(dirname "$0")" && pwd)"
-gcc -m32 -shared -fPIC -O2 -Wall -Wextra -o "$HIER/librg-oss-stub.so" "$HIER/rg_oss_stub.c"
+gcc -m32 -shared -fPIC -O2 -Wall -Wextra -o "$HIER/librg-oss-stub.so" "$HIER/rg_oss_stub.c" -ldl -lpthread
 file "$HIER/librg-oss-stub.so"
-nm -D --defined-only "$HIER/librg-oss-stub.so" | grep -E ' T (open|open64|openat|openat64|ioctl|close)$'
+nm -D --defined-only "$HIER/librg-oss-stub.so" | grep -E ' T (open|open64|openat|openat64|ioctl|close|write)$'
