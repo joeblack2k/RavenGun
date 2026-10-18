@@ -178,6 +178,44 @@ spel logt `Zip...生成失敗` zolang `_mkdir("G:/Contents")` mislukt (schijflet
    Bewijs van het laden: `/proc/<pid>/maps` bevat `rg-mfcam.dll` en **geen** `TeknoParrot.dll`.
 6. Faalt het daarna op ALL.Net: eerst `rg-mfcam.log` (de regel van de echte `CoCreateInstance` van IAuth), dan weg (a) voor IAuth bouwen.
 
+### Mario Kart DX: de stalldump van 2026-10-18 07:42 gelezen (hoofdlus draait; schijfletter-herleiding aangevuld)
+
+**Wat de dump zegt** (`rg-mfcam.log`, 20 s en 45 s, identiek):
+
+* **Hoofddraad.** `EIP win32u.dll+0x11d38` (de syscall-stub; Wine geeft een in een syscall opgeschorte draad dit adres), op de stapel `0x83D7D6`, `0x77070A/0x77070F`.
+  `0x83D7D6` is de terugkeer na `call [0x943600]` = **`PeekMessageW`** in de berichtenlus van `0x83D630` (bij `0x83D7D4`; de lus daarna: `PeekMessageW(PM_REMOVE)`,
+  `TranslateMessage`, `DispatchMessageW`, anders `call 0x8451E0`); `0x77070A` is de aanroep van die lus vanuit de hoofdfunctie (`0x77070F` = terugkeer).
+  De hoofdthread wacht dus **niet** op een venster, bericht of gebeurtenis: hij draait de gewone lus, en `0x8451E0` (de scheduler) vindt kennelijk niets te doen
+  (een tweede dump gaf hetzelfde EIP en dezelfde ESP: de lus is vrijwel helemaal PeekMessage).
+* **Werkers wachten, niemand werkt.** 20 draden slapen in de werkerspool (`Sleep(30)` op `0x8527FB`), vier in `SleepEx`-pollinglussen (`0x607C1D`, `0x8040EC` (10 s), `0x5F88C7`, `0x5F534A`),
+  de invoerdraad (`0x5F5310`, `SleepEx(8)`, leest de JVS-invoer via `0x8AB990`) en audiodraden (`mmdevapi`): dat verklaart de geluidsstroom, niet het beeld.
+* **JVS is nooit geopend.** `COM3` staat hard in `0x8AC1B0`, aangeroepen via `0x8AB880` (alleen vanuit `0x6022D0`, een toestandsmachine die `[esi+0x3c] = 2` zet: de IO-controle van de
+  opstartcontroles). Geen `JVS: CreateFileA(COM3)` in `rg-mfcam.log` van enige run met onze kern: de opstartcontroles bereiken die stap niet. De invoerdraad draait wel; `ds:0xec2470` (0 = JVS niet open, 1 na het openen op `0x8AB8F8`) is niet gemeten.
+* **De camera-opstart (`0x84BEC0`) draait wel** (hij zit in `0x770770`, na `StartIpcClient`), maar `MFEnumDeviceSources` (`0x84BF5A`) wordt alleen aangeroepen als de camera in het testmenu aan staat.
+  Dat testmenu-bestand (`TestMode/testmode_*.bin`) wordt nooit gelezen (zie hieronder): de camera staat dus uit. Dat is de verklaring voor het ontbreken van de camera-regel, niet een blokkade.
+* **37,5 s na de init schrijft het spel een tweede `bookkeeping_*.bin.tmp`** (00:02:09 in de run van 00:01:31; 07:43:25 in die van 07:42:48) en daarna niets meer. Er gebeurt dus precies één ding op
+  ~37,5 s (bij ~190 lus-ticks per seconde 7200 ticks = de `0x1c20` van `ALL.NetCheck_TIMEOUT`, maar die regel staat niet in het spellogboek). Niet onderzocht wat het is.
+
+**Wat dit niet bewijst:** waarom het beeld zwart is. Een wachtende draad die iets blokkeert is er niet; de hoofdlus draait en de scheduler heeft geen werk. De eerste scène (opstartcontroles)
+komt niet op gang. Kandidaten, in volgorde van bewijs: (1) de instellingen/dongle-staat die elke start leeg is (hieronder, gemeten); (2) de ALL.Net-controle zonder IAuth (toestand 6 zou een `*ERR*` loggen: niet gezien);
+(3) iets in de TP-kern dat het spel anders aanbiedt (de TP-kern is gesloten, niet onderzoekbaar).
+
+**Gebouwd: de schijfletter-herleiding aangevuld (ZESDE TAAK van `rg-mfcam.dll`, `drive_fix.h`).** Dezelfde regel als patch 0004 (`<L>:\` of `<L>:/` voor L niet C/Z naar `.\TeknoParrot\<L>\rest`) voor
+de ingangen die de kern mist en die het spel wel gebruikt: `MSVCR100.dll!rename/_wrename/remove/_wremove/_waccess_s` en `KERNEL32.dll!FindFirstFileA/W/GetFileAttributesW`. Aan met
+`RG_DRIVE_FIXUP=F` (nu in `dropin.ini`); alleen letter F: `G:/Contents` blijft zoals hij was (het spel zet ShareK uit). Uit zodra `TeknoParrot.dll` in het proces staat (Online play ongemoeid).
+Getoetst: `tests/test_drive_fix.cpp` (24 controles) en een wegwerpprogramma onder Wine (`rename("F:/system/x.bin.tmp","F:/system/x.bin")` met `msvcr100`, `FindFirstFileA/W`, `GetFileAttributesW`,
+`_waccess_s`, `remove`: alles landt in `.\TeknoParrot\F\system\`, `G:` niet; 0 mislukt). Niet getoetst: het spel zelf.
+
+**Testrecept (aan de coördinator).**
+1. dll en `dropin.ini` uit `docs/research/namco/patches/MarioKartDX/dropin/` activeren (bouwen: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`); daarna `RG_STALL_DUMP=20,45,90`
+   weer achter de `Env`-regel (of `--env`), `WINEDEBUG=-all,warn+seh`, `DXVK_HUD=fps` (of `frametimes`): een teller op de tv bewijst dat het spel `Present` aanroept.
+2. Eerste run: in `rg-mfcam.log` `schijfletter: rename(F:/system/... => ...)` en in `TeknoParrot/F/{system,TestMode,Bookkeeping,DongleData}` nu `.bin` zonder `.tmp` (de oude `.tmp`-resten mogen blijven of weg).
+3. Tweede run: de spelregels `ShareKSaveErrorInfo/ContentsInfo*/... load failed` moeten weg zijn (de bestanden worden nu gevonden en geladen). Verandert het beeld? Zo niet: de stalldump van die run.
+4. Optioneel, alleen als de eigenaar zijn oude instellingen wil terug (camera aan, free play): `cp FTestMode/testmode_*.bin TeknoParrot/F/TestMode/` en idem `FBookkeeping`, `FDongleData`, `Fsystem` naar hun
+   `TeknoParrot/F/`-map (view-data, geen NAS). Niet bewezen dat het spel dat nieuwste-bestand-eerst kiest; daarom niet automatisch.
+5. Zwart beeld blijft met `.bin`-bestanden en een fps-teller: dan is het volgende meetvoorstel de TP-basislijn (dezelfde `warn+seh`-run met de TP-kern; de volgorde van de `*INF*`-regels na `Startup ShareK-Client.`
+   en het eerste verschil is het antwoord), of een tweede stalldump-reeks (5, 10, 15, 30 s) om te zien of de `0x8451E0`-scheduler ooit werk vindt.
+
 **De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
 standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
 `[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie

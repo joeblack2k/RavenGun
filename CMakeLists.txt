@@ -517,6 +517,9 @@ if(RAVENGUN_BUILD_TESTS)
   # De stalldump van rg-mfcam.dll (tools/rg-mfcam/stall_dump.h): welke stapelwaarden op een terugkeeradres lijken.
   add_executable(ravengun_stall_dump_tests tests/test_stall_dump.cpp)
   add_test(NAME ravengun_stall_dump_tests COMMAND ravengun_stall_dump_tests)
+  # De aanvullende schijfletter-herleiding van rg-mfcam.dll (tools/rg-mfcam/drive_fix.h): rename/Find/Attributes voor F:.
+  add_executable(ravengun_drive_fix_tests tests/test_drive_fix.cpp)
+  add_test(NAME ravengun_drive_fix_tests COMMAND ravengun_drive_fix_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
