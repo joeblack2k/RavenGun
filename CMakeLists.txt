@@ -694,8 +694,9 @@ endif()
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
   PATTERN "build-app.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
 # Profielen en eigen drop-ins staan in dezelfde repository als de applicatie.
-# Installatie: <prefix>/patches, direct naast bin/, lib/ en share/.
-# De relatieve compatibiliteitskoppeling houdt bestaande lezers en gebruikerslagen werkend.
+# Installatie: de bestanden in de datamap (<prefix>/share/ravengun/patches) en, voor een gewone prefix,
+# ook als <prefix>/patches direct naast bin/, lib/ en share/. De relatieve compatibiliteitskoppeling in de
+# datamap houdt bestaande lezers en gebruikerslagen werkend.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # Gebruik het echte bronpad, ook als de hele checkout via een workspacekoppeling wordt geopend.
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
@@ -712,28 +713,27 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # zodra iemand een nieuwe bewijsmap een nieuwe naam geeft (probe/, logs-*/, measurements/, probes/, ...), en dan
   # breekt de installatietest op iets wat geen lek is. Een nieuw soort bestand dat de lader WEL moet lezen komt hier bij.
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
-  # De repository is privé: dongle- en HASP-bestanden horen juist IN de levering,
-  # zodat een verse kloon de games zonder extra stappen kan starten. Het dossier
-  # (logboeken van benchruns, metingen, foto's) valt buiten de vaste lijst hieronder.
-  # Een systeeminstallatie (/usr of /) krijgt geen losse /usr/patches: dan gaan de
-  # profielen naar <prefix>/share/ravengun/patches, waar de lader ze ook leest.
-  set(_rg_patches_dest "patches")
-  set(_rg_patches_compat TRUE)
-  if(CMAKE_INSTALL_PREFIX STREQUAL "/" OR CMAKE_INSTALL_PREFIX MATCHES "^/usr(/.*)?$")
-    set(_rg_patches_dest "${RAVENGUN_DATADIR}/patches")
-    set(_rg_patches_compat FALSE)
-  endif()
-  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${_rg_patches_dest}
+  # De profielen per game horen bij de applicatie. Ze worden in de datamap gezet
+  # (<prefix>/share/ravengun/patches), waar de lader, de daemon en de app ze lezen.
+  # Daarna maakt het installatiescript de productindeling voor een gewone (eigen)
+  # prefix: <prefix>/patches als echte map naast bin/, lib/ en share/, met de
+  # relatieve compatibiliteitskoppeling terug naar de datamap. Een systeeminstallatie
+  # (/usr of /) houdt het bij de datamap: geen losse /usr/patches. Welk van de twee het
+  # wordt hangt van het echte installatieprefix af (cmake --install --prefix ...), dus
+  # die keuze valt in het installatiescript en niet bij het configureren.
+  # Mee: ALLES wat de lader, de daemon en de app lezen, privégegevens inbegrepen (de
+  # repository is privé, dus een verse kloon moet de games zonder extra stappen kunnen
+  # starten). Alleen het dossier valt buiten de vaste lijst hieronder.
+  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
     FILES_MATCHING
-    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md)$"
+    REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md|heap\\.tsv)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/"
     REGEX "^${_rg_patches_rx}/[^/]+/seed/"
-    REGEX "^${_rg_patches_rx}/[^/]+/private/"
-    REGEX "^${_rg_patches_rx}/[^/]+/heap\\.tsv$")
+    REGEX "^${_rg_patches_rx}/[^/]+/private/")
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
   install(CODE "
-    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_rg_patches_dest}\")
+    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
     foreach(_rg_ronde RANGE 12)
       file(GLOB_RECURSE _rg_d LIST_DIRECTORIES true \"\${_rg_p}/*\")
       set(_rg_weg FALSE)
@@ -751,15 +751,22 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
       endif()
     endforeach()
   ")
-  if(_rg_patches_compat)
   install(CODE "
-    set(_rg_compat \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
-    if(EXISTS \"\${_rg_compat}\" OR IS_SYMLINK \"\${_rg_compat}\")
-      file(REMOVE_RECURSE \"\${_rg_compat}\")
+    set(_rg_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
+    set(_rg_dm \"\${_rg_prefix}/${RAVENGUN_DATADIR}/patches\")
+    if(CMAKE_INSTALL_PREFIX STREQUAL \"/\" OR CMAKE_INSTALL_PREFIX MATCHES \"^/usr(/.*)?$\")
+      # Systeeminstallatie: de datamap is de enige plek (geen /usr/patches).
+    elseif(IS_SYMLINK \"\${_rg_dm}\")
+      # De productindeling staat er al; de bestanden zijn net in <prefix>/patches gezet.
+    else()
+      set(_rg_top \"\${_rg_prefix}/patches\")
+      if(EXISTS \"\${_rg_top}\")
+        file(REMOVE_RECURSE \"\${_rg_top}\")
+      endif()
+      file(RENAME \"\${_rg_dm}\" \"\${_rg_top}\")
+      file(CREATE_LINK \"../../patches\" \"\${_rg_dm}\" SYMBOLIC)
     endif()
-    file(CREATE_LINK \"../../patches\" \"\${_rg_compat}\" SYMBOLIC)
   ")
-  endif()
 else()
   message(FATAL_ERROR "patches/-map ontbreekt: profielen horen bij de applicatiecheckout")
 endif()

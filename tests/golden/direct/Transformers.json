@@ -25,15 +25,23 @@
     "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\games\\Transformers\\exe\\TF_Gun_R_Ring_dumped.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/games/Transformers/exe",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Transformers/dropin/rg-amhw.dll",
+     "@TMP@/home/games/Transformers/exe/rg-amhw.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-amhw.dll -> @TMP@/home/games/Transformers/exe/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -44,11 +52,18 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "02",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Transformers/exe/rg-amhw.dll",
     "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
-    "WINEDEBUG": "-all",
+    "WINEDEBUG": "-all,+seh",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -73,7 +88,11 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "WINEDEBUG": "-all",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Transformers/exe/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -98,13 +117,13 @@
       "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\games\\Transformers\\exe\\TF_Gun_R_Ring_dumped.exe"
      ],
      "comms": [
       "tf_gun_r_ring_d"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/Transformers/exe",
      "exe": "@TMP@/home/games/Transformers/exe/TF_Gun_R_Ring_dumped.exe",
      "gamescope": true,
      "name": "TF_Gun_R_Ring_dumped.exe",
@@ -145,15 +164,23 @@
     "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\games\\Transformers\\exe\\TF_Gun_R_Ring_dumped.exe"
    ],
    "control_pipe": null,
-   "core_dll": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll",
-   "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
-   "cwd_is_tp": true,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/games/Transformers/exe",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/Transformers/dropin/rg-amhw.dll",
+     "@TMP@/home/games/Transformers/exe/rg-amhw.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-amhw.dll -> @TMP@/home/games/Transformers/exe/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -164,11 +191,18 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "02",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Transformers/exe/rg-amhw.dll",
     "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
-    "WINEDEBUG": "-all",
+    "WINEDEBUG": "-all,+seh",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -193,7 +227,11 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
-    "WINEDEBUG": "-all",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/Transformers/exe/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\Transformers\\exe\\rg-amhw.dll",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -218,13 +256,13 @@
       "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\TeknoParrotUi-2.0.0.130-linux-x64\\TeknoParrot\\TeknoParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\games\\Transformers\\exe\\TF_Gun_R_Ring_dumped.exe"
      ],
      "comms": [
       "tf_gun_r_ring_d"
      ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+     "cwd": "@TMP@/home/games/Transformers/exe",
      "exe": "@TMP@/home/games/Transformers/exe/TF_Gun_R_Ring_dumped.exe",
      "gamescope": true,
      "name": "TF_Gun_R_Ring_dumped.exe",

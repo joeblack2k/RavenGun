@@ -103,8 +103,9 @@ grep -q '"min_cutoff_hz":2' "$CFG" || fail "filter niet bewaard"
 grep -q '"preset":"custom"' "$CFG" || fail "LED niet bewaard"
 grep -q '"port":18999' "$CFG" || fail "web-poort niet bewaard"
 ls "$XDG_CONFIG_HOME/ravengun" | grep -q '\.tmp\.' && fail "tijdelijk bestand achtergebleven"
-# De tabbladen worden door de app-code gebouwd; de pagina laadt app-core.js voor app.js en bevat alle zeven vlakken.
-for p in "Overzicht" "Richten" "Trillen" "Knoppen" "LED en camera" "Games" "Info (technisch)"; do
+# De tabbladen worden door de app-code gebouwd (sinds de Engelse web-UI in src/ravengund/web/app-core.js);
+# de pagina laadt app-core.js voor app.js en bevat alle acht vlakken.
+for p in "Overview" "Aiming" "Rumble" "Buttons" "LED and camera" "Games" "Controllers" "Info (technical)"; do
   curl -s "$B/app-core.js" | grep -q "label: '$p'" || fail "tab $p ontbreekt"
 done
 for p in overzicht richten trillen knoppen led games info; do
