@@ -1283,6 +1283,22 @@ void AppCoreTest::realGameOptions() {
     const GameOptionsEntry* halo = db.find(QStringLiteral("Halo"));
     QVERIFY(halo);
     for (const GameOption& o : halo->options) QVERIFY2(o.target.kind != OptionTarget::Kind::TpField, qPrintable(o.key));
+    // Ghostbusters en The Walking Dead (Raw Thrills, native route): alleen eigen instellingen van de game (rtdt_adjval in de schrijflaag),
+    // het pad begint bij de wortel van de game in /pm (g6/<game>/pmuser) en de sleutel is de naam van het instellingenbestand.
+    for (const char* name : {"GhostBusters", "WalkingDead"}) {
+        const GameOptionsEntry* rt = db.find(QString::fromLatin1(name));
+        if (!rt) continue;  // een patches-map zonder deze games
+        QVERIFY2(!rt->options.isEmpty(), name);
+        for (const GameOption& o : rt->options) {
+            const QString id = QString::fromLatin1(name) + QLatin1Char('/') + o.key;
+            QVERIFY2(o.target.kind == OptionTarget::Kind::AdjVal, qPrintable(id));
+            QCOMPARE(o.target.section, QStringLiteral("native_layer"));
+            QVERIFY2(o.target.file.startsWith(QStringLiteral("g6/")) && o.target.file.contains(QStringLiteral("/pmuser/adj/save/")), qPrintable(id));
+            QVERIFY2(o.target.file.endsWith(QLatin1Char('/') + o.target.field + QStringLiteral(".{0,1,2}.txt")), qPrintable(id));
+            if (o.type == QStringLiteral("int")) QVERIFY2(o.hasRange && o.min <= o.max, qPrintable(id));
+            if (o.type == QStringLiteral("enum")) QVERIFY2(o.values.contains(o.defaultValue), qPrintable(id));
+        }
+    }
     const GameOptionsEntry* tsr = db.find(QStringLiteral("TransformersShadowsRising"));
     QVERIFY(tsr);
     bool sawOnOff = false;
