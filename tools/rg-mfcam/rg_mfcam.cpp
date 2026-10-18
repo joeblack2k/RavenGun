@@ -82,7 +82,15 @@
 //   1360x768 in een venster (run 10:46). Met RG_WINDOWED=1 zet deze DLL die imm32 op 0 (patroon in window_mode.h, precies een treffer vereist), zodat het
 //   spel zelf "-windowed" kiest. Uit met de TeknoParrot-kern. Logboek: "venstermodus aan: ...".
 //
+// TIENDE TAAK: het STR-bord (stuur en krachtterugkoppeling) op COM1 nabootsen (zonder de gesloten TeknoParrot-kern)
+//   Na het venster stopt het spel op E22-12 "STR PCB 通信エラー" (tv 2026-10-18 12:35). Het STR-bord hangt niet aan JVS maar aan \\.\COM1, 19200 8N1
+//   (overlapped, ReadFileEx/WriteFileEx); het meldt zijn status in drie bytes ("C01" verbonden, "E00" geen fout) en het spel geeft E22-12 als na 4800
+//   ticks geen "C01" kwam (0x602E39). Met RG_STR_COMPORT=COM1 geeft CreateFileA voor die poort het clienteinde van een eigen pipe; een draad in deze DLL
+//   is het bord (str_board.h): status "C01", "E00", dan "C01", en per opdracht van 10 bytes een "C01". De comm-aanroepen slagen op dat handvat (zoals bij
+//   JVS). Uit met de TeknoParrot-kern. Logboek: "STR-bord: ...".
+//
 // OMGEVING
+//   RG_STR_COMPORT=COM1  het STR-bord nabootsen (TIENDE TAAK)
 //   RG_WINDOWED=1        het spel venstergewijs laten starten (NEGENDE TAAK)
 //   RG_MSGTRACE=1       de berichtenlus en vensters volgen
 //   RG_PEEK_DELAY_MS=N   (proef) de eerste PeekMessageW van het spel N ms uitstellen, bv. 25000 (TP doet er ~25 s over voor zijn eerste lus)
@@ -130,6 +138,7 @@
 #include "drive_fix.h"
 #include "bngrw_fake.h"
 #include "window_mode.h"
+#include "str_board.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -890,8 +899,16 @@ GetCommModemStatusFn g_get_modem_status = nullptr;
 
 bool is_jvs(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_jvs_handle; }
 
+// Het nagebootste STR-bord (TIENDE TAAK); de functies staan verderop.
+char g_str_port[32];
+volatile HANDLE g_str_handle = INVALID_HANDLE_VALUE;
+bool is_str(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_str_handle; }
+bool is_fake_com(HANDLE h) { return is_jvs(h) || is_str(h); }
+HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags);
+
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
-    if (!rg_jvscom::port_matches(name, g_jvs_port)) return g_create_file_a(name, access, share, sa, disp, flags, tmpl);
+    if (g_str_port[0] && rg_jvscom::port_matches(name, g_str_port)) return str_open(name, access, sa, flags);
+    if (!g_jvs_port[0] || !rg_jvscom::port_matches(name, g_jvs_port)) return g_create_file_a(name, access, share, sa, disp, flags, tmpl);
     // De brug maakt de pipe pas als het spel hem nodig heeft of net daarvoor: even wachten tot hij er is (maximaal ~5 s).
     HANDLE h = INVALID_HANDLE_VALUE;
     for (int i = 0; i < 50; ++i) {
@@ -911,13 +928,17 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_
     rg_log("JVS: CreateFileA(%s) -> pipe %s, handvat %p", name, g_jvs_pipe, h);
     return h;
 }
-BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_set_comm_state(h, d); }
-BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB d) { return is_jvs(h) ? TRUE : g_get_comm_state(h, d); }
-BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_set_comm_timeouts(h, t); }
-BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_jvs(h) ? TRUE : g_get_comm_timeouts(h, t); }
-BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_jvs(h) ? TRUE : g_setup_comm(h, i, o); }
-BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_jvs(h) ? TRUE : g_purge_comm(h, f); }
+BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB d) { return is_fake_com(h) ? TRUE : g_set_comm_state(h, d); }
+BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB d) { return is_fake_com(h) ? TRUE : g_get_comm_state(h, d); }
+BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_fake_com(h) ? TRUE : g_set_comm_timeouts(h, t); }
+BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_fake_com(h) ? TRUE : g_get_comm_timeouts(h, t); }
+BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_fake_com(h) ? TRUE : g_setup_comm(h, i, o); }
+BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_fake_com(h) ? TRUE : g_purge_comm(h, f); }
 BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
+    if (is_str(h)) {
+        if (status) *status = 0x30;   // CTS en DSR: het bord is er
+        return TRUE;
+    }
     if (!is_jvs(h)) return g_get_modem_status(h, status);
     if (!g_jvs_state) {
         g_jvs_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
@@ -932,7 +953,24 @@ template <typename Fn>
 void hook_kernel32(const char* func, Fn repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), "KERNEL32.dll", func, reinterpret_cast<void*>(repl));
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: KERNEL32.dll!%s %s", func, old ? "omgezet (JVS-omleiding)" : "niet in het spel");
+    rg_log("importtabel: KERNEL32.dll!%s %s", func, old ? "omgezet (COM-omleiding)" : "niet in het spel");
+}
+
+// CreateFileA en de comm-aanroepen een keer omzetten, voor de JVS-omleiding en het STR-bord samen (twee keer omzetten zou de omhulsels op
+// zichzelf laten wijzen).
+void hook_comm_once() {
+    static bool done = false;
+    if (done) return;
+    done = true;
+    hook_kernel32("CreateFileA", &rg_CreateFileA, g_create_file_a);
+    hook_kernel32("SetCommState", &rg_SetCommState, g_set_comm_state);
+    hook_kernel32("GetCommState", &rg_GetCommState, g_get_comm_state);
+    hook_kernel32("SetCommTimeouts", &rg_SetCommTimeouts, g_set_comm_timeouts);
+    hook_kernel32("GetCommTimeouts", &rg_GetCommTimeouts, g_get_comm_timeouts);
+    hook_kernel32("SetupComm", &rg_SetupComm, g_setup_comm);
+    hook_kernel32("PurgeComm", &rg_PurgeComm, g_purge_comm);
+    hook_kernel32("GetCommModemStatus", &rg_GetCommModemStatus, g_get_modem_status);
+    if (!g_create_file_a) rg_log("COM: CreateFileA staat niet in de importtabel van het spel; de omleiding kan niets vangen");
 }
 
 void setup_jvs_com() {
@@ -948,15 +986,128 @@ void setup_jvs_com() {
     char pipe[128];
     if (GetEnvironmentVariableA("RG_JVS_PIPE", pipe, sizeof pipe) > 0 && pipe[0]) std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", pipe);
     rg_log("JVS-omleiding aan: %s -> %s", g_jvs_port, g_jvs_pipe);
-    hook_kernel32("CreateFileA", &rg_CreateFileA, g_create_file_a);
-    hook_kernel32("SetCommState", &rg_SetCommState, g_set_comm_state);
-    hook_kernel32("GetCommState", &rg_GetCommState, g_get_comm_state);
-    hook_kernel32("SetCommTimeouts", &rg_SetCommTimeouts, g_set_comm_timeouts);
-    hook_kernel32("GetCommTimeouts", &rg_GetCommTimeouts, g_get_comm_timeouts);
-    hook_kernel32("SetupComm", &rg_SetupComm, g_setup_comm);
-    hook_kernel32("PurgeComm", &rg_PurgeComm, g_purge_comm);
-    hook_kernel32("GetCommModemStatus", &rg_GetCommModemStatus, g_get_modem_status);
-    if (!g_create_file_a) rg_log("JVS: CreateFileA staat niet in de importtabel van het spel; de omleiding kan niets vangen");
+    hook_comm_once();
+}
+
+// --- het nagebootste STR-bord op COM1 (zie TIENDE TAAK bovenaan; logica in str_board.h) ------------------------------------------------------
+// Het spel krijgt het clienteinde van een eigen pipe (overlapped, zoals het de COM-poort opent); een draad in deze DLL is het bord aan het
+// servereinde. Sluit het spel het handvat (opnieuw verbinden), dan eindigt die draad en maakt de volgende CreateFileA een nieuw paar.
+LONG g_str_serial = 0;
+
+bool str_write(HANDLE pipe, HANDLE ev, const char* data) {
+    OVERLAPPED ov = {};
+    ov.hEvent = ev;
+    ResetEvent(ev);
+    DWORD done = 0;
+    if (!WriteFile(pipe, data, static_cast<DWORD>(rg_strpcb::kReplyLen), nullptr, &ov) && GetLastError() != ERROR_IO_PENDING) return false;
+    return GetOverlappedResult(pipe, &ov, &done, TRUE) && done == rg_strpcb::kReplyLen;
+}
+
+struct StrPair {
+    HANDLE server, client;
+};
+
+DWORD WINAPI str_board_thread(LPVOID arg) {
+    auto* pair = static_cast<StrPair*>(arg);
+    HANDLE pipe = pair->server;
+    HANDLE rd_ev = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE wr_ev = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    rg_strpcb::Board board;
+    uint8_t buf[256];
+    OVERLAPPED ov = {};
+    bool pending = false, ok = true;
+    unsigned logged = 0;
+    DWORD last_summary = GetTickCount();
+    while (ok) {
+        if (!pending) {
+            ov = OVERLAPPED{};
+            ov.hEvent = rd_ev;
+            ResetEvent(rd_ev);
+            if (!ReadFile(pipe, buf, sizeof buf, nullptr, &ov) && GetLastError() != ERROR_IO_PENDING) break;   // gesloten
+            pending = true;
+        }
+        const DWORD w = WaitForSingleObject(rd_ev, 20);
+        if (w == WAIT_OBJECT_0) {
+            pending = false;
+            DWORD got = 0;
+            if (!GetOverlappedResult(pipe, &ov, &got, FALSE)) break;   // het spel heeft het handvat gesloten
+            if (logged < 5) {
+                char hex[16 * 3 + 1] = {};
+                for (DWORD i = 0; i < got && i < 16; ++i) std::snprintf(hex + 3 * i, 4, "%02x ", buf[i]);
+                rg_log("STR-bord: opdracht van het spel (%lu bytes): %s", static_cast<unsigned long>(got), hex);
+                ++logged;
+            }
+            const unsigned due = board.on_bytes(got);
+            for (unsigned i = 0; i < due && ok; ++i) ok = str_write(pipe, wr_ev, rg_strpcb::Board::reply());
+        } else if (w == WAIT_TIMEOUT) {
+            if (const char* st = board.idle_status()) {
+                if (board.status_sent <= 3) rg_log("STR-bord: status %s gestuurd", st);
+                ok = str_write(pipe, wr_ev, st);
+            }
+        } else {
+            break;
+        }
+        if (GetTickCount() - last_summary >= 10000) {
+            last_summary = GetTickCount();
+            rg_log("STR-bord: %u statusmeldingen, %lu opdrachtbytes, %lu antwoorden", board.status_sent,
+                   static_cast<unsigned long>(board.rx_bytes), static_cast<unsigned long>(board.replies));
+        }
+    }
+    rg_log("STR-bord: verbinding dicht (%u statusmeldingen, %lu opdrachtbytes, %lu antwoorden)", board.status_sent,
+           static_cast<unsigned long>(board.rx_bytes), static_cast<unsigned long>(board.replies));
+    if (pending) {
+        CancelIoEx(pipe, &ov);
+        DWORD got = 0;
+        GetOverlappedResult(pipe, &ov, &got, TRUE);   // de geannuleerde lezing afwachten voor buf en ov van de stapel gaan
+    }
+    CloseHandle(pipe);
+    CloseHandle(rd_ev);
+    CloseHandle(wr_ev);
+    // Het spel heeft het clienteinde gesloten: dat handvatnummer kan straks iets anders zijn (bv. het JVS-handvat), dus niet meer als STR herkennen.
+    InterlockedCompareExchangePointer(reinterpret_cast<PVOID volatile*>(&g_str_handle), INVALID_HANDLE_VALUE, pair->client);
+    delete pair;
+    return 0;
+}
+
+HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags) {
+    char pipe_name[96];
+    std::snprintf(pipe_name, sizeof pipe_name, "\\\\.\\pipe\\rg_str_%lu_%ld", static_cast<unsigned long>(GetCurrentProcessId()),
+                  static_cast<long>(InterlockedIncrement(&g_str_serial)));
+    HANDLE server = CreateNamedPipeA(pipe_name, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                     PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 0x2000, 0x2000, 0, nullptr);
+    if (server == INVALID_HANDLE_VALUE) {
+        rg_log("STR-bord: CreateNamedPipe mislukt (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        SetLastError(ERROR_FILE_NOT_FOUND);
+        return INVALID_HANDLE_VALUE;
+    }
+    HANDLE client = g_create_file_a(pipe_name, access, 0, sa, OPEN_EXISTING, flags, nullptr);
+    if (client == INVALID_HANDLE_VALUE) {
+        rg_log("STR-bord: clienteinde niet te openen (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        CloseHandle(server);
+        SetLastError(ERROR_FILE_NOT_FOUND);
+        return INVALID_HANDLE_VALUE;
+    }
+    OVERLAPPED ov = {};
+    ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ConnectNamedPipe(server, &ov) && GetLastError() == ERROR_IO_PENDING) WaitForSingleObject(ov.hEvent, 1000);   // de client is er al
+    CloseHandle(ov.hEvent);
+    g_str_handle = client;
+    HANDLE t = CreateThread(nullptr, 0, &str_board_thread, new StrPair{server, client}, 0, nullptr);
+    if (t) CloseHandle(t);
+    rg_log("STR-bord: CreateFileA(%s, vlaggen 0x%lx) -> eigen bord (pipe %s), handvat %p", name, static_cast<unsigned long>(flags), pipe_name, client);
+    return client;
+}
+
+void setup_str_board() {
+    char port[32];
+    if (GetEnvironmentVariableA("RG_STR_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // uit
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("STR-bord uit: de TeknoParrot-kern is geladen (die beantwoordt het stuurbord zelf)");
+        return;
+    }
+    std::snprintf(g_str_port, sizeof g_str_port, "%s", port);
+    rg_log("STR-bord aan: %s (19200 8N1) wordt een eigen bord dat C01/E00 meldt", g_str_port);
+    hook_comm_once();
 }
 
 // --- een eigen ShareK-object (zie VIERDE TAAK bovenaan; logica en adressen in sharek_fake.h) -------------------------------------------------
@@ -1759,6 +1910,7 @@ void setup() {
     rg_log("rg-mfcam geladen in %s (camerabestand %s, %d fps)", exe, src8, g_fps);
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
+    setup_str_board();      // idem: alleen met RG_STR_COMPORT
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP

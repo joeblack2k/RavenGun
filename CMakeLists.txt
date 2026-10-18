@@ -536,6 +536,9 @@ if(RAVENGUN_BUILD_TESTS)
   # De venstermodus van rg-mfcam.dll (tools/rg-mfcam/window_mode.h): het patroon van de volledig-scherm-standaard van Mario Kart DX.
   add_executable(ravengun_window_mode_tests tests/test_window_mode.cpp)
   add_test(NAME ravengun_window_mode_tests COMMAND ravengun_window_mode_tests)
+  # Het nagebootste STR-bord van rg-mfcam.dll (tools/rg-mfcam/str_board.h): status C01/E00 en een antwoord per opdracht van 10 bytes.
+  add_executable(ravengun_str_board_tests tests/test_str_board.cpp)
+  add_test(NAME ravengun_str_board_tests COMMAND ravengun_str_board_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
