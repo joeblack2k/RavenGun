@@ -40,8 +40,8 @@ static HANDLE draad;
 static volatile LONG stoppen;
 
 static struct {
-    int muis, toetsen, trekker_bit, munt_bit, start_bit, x_off, y_off, munt_vk, start_vk, interval, haak, trekker2_bit, x2_off, y2_off;
-} cfg = {1, 0, 7, 2, 6, 12, 13, '5', '1', 4, 1, 12, 14, 15};
+    int muis, toetsen, trekker_bit, munt_bit, start_bit, x_off, y_off, munt_vk, start_vk, interval, haak, trekker2_bit, x2_off, y2_off, herlaad_bit, herlaad2_bit;
+} cfg = {1, 0, 7, 2, 6, 12, 13, '5', '1', 4, 1, 12, 14, 15, 8, 13};
 
 static void logf_(const char *fmt, ...)
 {
@@ -105,6 +105,8 @@ static void lees_ini(void)
         else if (!strcmp(k, "trekker2_bit")) { doel = &cfg.trekker2_bit; hi = 31; }
         else if (!strcmp(k, "x2_offset")) { doel = &cfg.x2_off; hi = BEELD_GROOTTE - 1; }
         else if (!strcmp(k, "y2_offset")) { doel = &cfg.y2_off; hi = BEELD_GROOTTE - 1; }
+        else if (!strcmp(k, "herlaad_bit")) { doel = &cfg.herlaad_bit; hi = 31; }
+        else if (!strcmp(k, "herlaad2_bit")) { doel = &cfg.herlaad2_bit; hi = 31; }
         else if (!strcmp(k, "interval_ms")) { doel = &cfg.interval; lo = 1; hi = 100; }
         if (!doel) continue;
         if (w < lo || w > hi) { logf_("ini: %s = %ld buiten %d..%d, genegeerd", k, w, lo, hi); continue; }
@@ -196,6 +198,36 @@ static FnSendPos g_sendpos;
 static volatile LONG g_haak_aan;
 static volatile LONG g_haak_aanroepen;
 
+/* ---- de zitbankgebeurtenis TurretManager.EventTurretButtonsState (v4) ----
+ * "PRESS TRIGGER" (TriggerInputPress, RVA 0x40F810 Start / 0x40F7B0 OnReceiveBoutons / 0x40F890 Update) luistert NIET op SendButtonEvent maar op
+ * de statische Callback van EventTurretButtonsState (de knoppen van de zitbank; ook de menu's en InputsManager.OnReceiveTurretButtonsState).
+ * Die klasse: ctor(int id, byte knoppen) RVA 0x394E10 (Buttons = bool[2]: bit 0 en bit 1), Invoke() RVA 0x394DB0 (roept Callback?.Invoke(this)).
+ * TriggerInputPress zet canTrigger pas bij een bericht ZONDER ingedrukte knop; daarom sturen we ook losgelaten-berichten (bij loslaten en als hartslag). */
+#define RVA_EVT_CTOR 0x394E10u
+#define RVA_EVT_INVOKE 0x394DB0u
+#define RVA_EVT_SLOT 0x1EF1C90u
+#define RVA_INIT_SLOT 0x1CEEB0u
+typedef void *(*FnObjNew)(void *klass);
+typedef void (*FnEvtCtor)(void *self, int id, unsigned char knoppen, void *mi);
+typedef void (*FnEvtInvoke)(void *self, void *mi);
+typedef void (*FnInitSlot)(void *slot);
+static unsigned char *g_ga;
+static FnObjNew g_objnew;
+static int g_evt_ok;
+
+static void stuur_zitbankknoppen(int id, unsigned char knoppen)
+{
+    if (!g_evt_ok) return;
+    void **slot = (void **)(g_ga + RVA_EVT_SLOT);
+    if (!*slot) ((FnInitSlot)(g_ga + RVA_INIT_SLOT))(slot);
+    void *klass = *slot;
+    if (!klass) { g_evt_ok = 0; logf_("haak: EventTurretButtonsState-klasse niet op te lossen; geen zitbankberichten"); return; }
+    void *obj = g_objnew(klass);
+    if (!obj) return;
+    ((FnEvtCtor)(g_ga + RVA_EVT_CTOR))(obj, id, knoppen, NULL);
+    ((FnEvtInvoke)(g_ga + RVA_EVT_INVOKE))(obj, NULL);
+}
+
 static float as_ndc(uint8_t v, int omkeren)
 {
     int p = v <= 1 ? 0 : (v >= 254 ? 255 : v);
@@ -212,21 +244,40 @@ static void haak_update(void *self, void *mi)
     int lengte = *(int *)(rij + 0x18);
     const volatile uint8_t *b = g_beeld;
     static int vorige[2] = {-1, -1};
+    static unsigned char knop_vorige[2] = {0xFF, 0xFF};
+    static int hartslag[2], rauw_gelogd[2];
+    static uint8_t rauw_vorige[2][2];
     for (int i = 0; i < lengte; i++) {
         char *pd = *(char **)(rij + 0x20 + 8 * i);
         if (!pd || *(int *)(pd + 0x14) != 1) continue;
         int id = *(int *)(pd + 0x10);
-        int schiet = 0;
+        int schiet = 0, herlaad = 0;
         Vec3 v = {0.0f, 0.0f, 0.0f};
         if (b && (id == 0 || id == 1)) {
             uint32_t bits;
             memcpy(&bits, (const void *)(b + 8), 4);
             schiet = (int)((bits >> (id == 0 ? cfg.trekker_bit : cfg.trekker2_bit)) & 1);
+            herlaad = (int)((bits >> (id == 0 ? cfg.herlaad_bit : cfg.herlaad2_bit)) & 1);
+            uint8_t rx = b[id == 0 ? cfg.x_off : cfg.x2_off], ry = b[id == 0 ? cfg.y_off : cfg.y2_off];
+            if ((rx != rauw_vorige[id][0] || ry != rauw_vorige[id][1]) && rauw_gelogd[id] < 30) {
+                rauw_gelogd[id]++;
+                logf_("haak: speler %d rauwe as %u,%u", id, rx, ry);
+            }
+            rauw_vorige[id][0] = rx; rauw_vorige[id][1] = ry;
             v.x = as_ndc(b[id == 0 ? cfg.x_off : cfg.x2_off], 0);
             v.y = as_ndc(b[id == 0 ? cfg.y_off : cfg.y2_off], 1);   /* bordbeeld: boven = 0; Unity: onder = -1 */
         }
         g_sendbutton(self, id, (unsigned char)schiet, NULL);
         g_sendpos(self, id, &v, NULL);
+        if (id < 2) {
+            unsigned char kn = (unsigned char)((schiet ? 1 : 0) | (herlaad ? 2 : 0));
+            if (kn != knop_vorige[id] || (kn == 0 && ++hartslag[id] >= 30)) {
+                if (kn != knop_vorige[id] && (kn || knop_vorige[id] != 0xFF)) logf_("haak: zitbankknoppen speler %d = %u", id, (unsigned)kn);
+                hartslag[id] = 0;
+                knop_vorige[id] = kn;
+                stuur_zitbankknoppen(id, kn);
+            }
+        }
         if (id < 2 && vorige[id] != schiet) {
             vorige[id] = schiet;
             logf_("haak: speler %d schiet=%d pos %.2f,%.2f (aanroep %ld)", id, schiet, v.x, v.y, (long)n);
@@ -245,6 +296,15 @@ static int zet_haak(void)
     if (memcmp(doel, verwacht, 16) != 0) {
         logf_("haak: bytes op GameAssembly+0x%x kloppen niet (andere build); GEEN haak, terugval op SendInput", RVA_UPDATE);
         return -1;
+    }
+    {
+        static const unsigned char ctor_verwacht[15] = {0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xec, 0x20};
+        static const unsigned char invoke_verwacht[8] = {0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x80, 0x3d};
+        FARPROC on = GetProcAddress(ga, "il2cpp_object_new");
+        g_ga = basis;
+        g_objnew = (FnObjNew)(void *)on;
+        g_evt_ok = on && !memcmp(basis + RVA_EVT_CTOR, ctor_verwacht, sizeof ctor_verwacht) && !memcmp(basis + RVA_EVT_INVOKE, invoke_verwacht, sizeof invoke_verwacht);
+        logf_("haak: zitbankberichten (EventTurretButtonsState) %s", g_evt_ok ? "aan" : "UIT (bytes of il2cpp_object_new kloppen niet)");
     }
     g_sendbutton = (FnSendButton)(basis + RVA_SENDBUTTON);
     g_sendpos = (FnSendPos)(basis + RVA_SENDPOS);
