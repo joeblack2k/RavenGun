@@ -22,3 +22,16 @@ echo "$OUT"
 BPS=$(echo "$OUT" | sed -n 's/.*= \([0-9]*\) B\/s.*/\1/p')
 [[ -n "$BPS" && "$BPS" -ge 36000 && "$BPS" -le 54000 ]] || { echo "FAIL: pacing $BPS B/s buiten 36000..54000"; exit 1; }
 echo "OK: pacing $BPS B/s"
+
+# Target: Terror Gold exporteert in zijn exe een eigen gettimeofday die geen 0 teruggeeft; libpulse (pa_gettimeofday) brak daarop
+# af ("Assertion 'gettimeofday(tv, NULL) == 0' failed"). Met RTLD_DEEPBIND voor libpulse-simple moet het proefprogramma met zo'n
+# gettimeofday toch spelen. Alleen als er een echte pulse-server is (er wordt stilte afgespeeld).
+SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native"
+if [[ -S "$SOCK" ]] && "$CC" -m32 -O2 -DBREAK_GTOD -rdynamic -o "$T/probe_bad" "$ROOT/tools/rg-oss-stub/oss_probe.c" -lm 2>/dev/null; then
+  OUT2=$(PULSE_SERVER="unix:$SOCK" LD_PRELOAD="$T/stub.so" RG_OSS_PLAY=1 RG_OSS_STUB_LOG=1 "$T/probe_bad" 2 0 2>&1)
+  echo "$OUT2" | grep -q "Assertion" && { echo "$OUT2"; echo "FAIL: libpulse struikelt over de gettimeofday van de exe"; exit 1; }
+  echo "$OUT2" | grep -q "pulse-stroom open" || { echo "$OUT2"; echo "FAIL: geen pulse-stroom met de kapotte gettimeofday"; exit 1; }
+  echo "OK: pulse-stroom ook met een kapotte gettimeofday in de exe"
+else
+  echo "overgeslagen: gettimeofday-proef (geen pulse-server)"
+fi

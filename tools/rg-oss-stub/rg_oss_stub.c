@@ -241,7 +241,9 @@ static void rg_nu(unsigned long long *ns)
 
 static void *rg_speel_draad(void *arg)
 {
-    void *lib = dlopen("libpulse-simple.so.0", 2 /* RTLD_NOW */);
+    /* RTLD_DEEPBIND: libpulse bindt eerst aan zijn eigen libc, niet aan symbolen van de game-exe. De exe van Target: Terror Gold
+     * exporteert een eigen gettimeofday (via ftime, geeft geen 0 terug) en libpulse (pa_gettimeofday) stopte erop met een assert. */
+    void *lib = dlopen("libpulse-simple.so.0", 2 /* RTLD_NOW */ | 8 /* RTLD_DEEPBIND */);
     void *(*p_new)(const char *, const char *, int, const char *, const char *, const struct rg_pa_spec *, const void *,
                    const struct rg_pa_attr *, int *) = 0;
     int (*p_write)(void *, const void *, unsigned long, int *) = 0;
