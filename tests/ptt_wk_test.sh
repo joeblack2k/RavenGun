@@ -10,4 +10,7 @@ T=$(mktemp -d) || exit 1
 trap 'rm -rf "$T"' EXIT
 "$CC" -O1 -Wall -Wextra -I"$ROOT/tools/rg-ptt" -o "$T/ptt_wk_unit" "$ROOT/tests/ptt_wk_unit.c" 2>"$T/err" || { cat "$T/err"; echo "FAIL: bouwt niet"; exit 1; }
 "$T/ptt_wk_unit" || exit 1
+# Het geweerbord en de kaartlezer van wsc32.dll (tools/rg-ptt/ptt_board.h): pakketten, commando's, kalibratie.
+"$CC" -O1 -Wall -Wextra -I"$ROOT/tools/rg-ptt" -o "$T/ptt_board_unit" "$ROOT/tests/ptt_board_unit.c" -lm 2>"$T/err" || { cat "$T/err"; echo "FAIL: bouwt niet (ptt_board_unit)"; exit 1; }
+"$T/ptt_board_unit" || exit 1
 python3 -I "$ROOT/tests/ptt_imports_test.py" || exit 1

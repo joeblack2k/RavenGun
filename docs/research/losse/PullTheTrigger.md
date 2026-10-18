@@ -69,3 +69,29 @@ Plan (met `rg-direct --plan`, kandidaat-`game.ini` + drop-in in een tijdelijke p
 * Of er verderop in het spel nog een WibuKey- of ander controlepunt zit (de code roept de stub niet aan; andere controles zijn niet gezocht).
 * Of Wine `LoadLibraryA("WKWIN32.dll")` de DLL uit de view pakt (zou moeten: map van de exe eerst).
 * `COM`-nummer van het geweerbord en de baudcode 7 (WSC32-codering) zijn niet vastgesteld.
+
+## 6. De seriele poorten (2026-10-18): "Memory Card Port Open Error!" en het geweerbord
+
+**Oorzaak (gemeten aan PTW.exe, niets gestart).** Het spel opent twee seriele poorten via WSC32.dll (die intern `CreateFileA("COMx")` doet): poort 0 =
+geheugenkaartlezer (`0x47e140` -> `0x47e0f0`: `SioReset(0,0x400,0x200)`, `SioFlow('N')`, `SioBaud(7)`), poort 1 = geweerbord (`0x47d560`, vanaf
+`0x41e84e`: `SioReset(1,0x400,0x200)`, `SioBaud(6)`, `SioRxClear`, `SioFlow('N')`, `SioInfo('V')`, `SioMessage(1,hwnd,0x400,1)`). Faalt `SioReset(0)` (geen COM1
+onder Wine), dan toont `0x41e87c` het berichtvenster "Memory Card Port Open Error!"; faalt poort 1, dan alleen `OutputDebugString("iolink setup fail..")`.
+De IAT-slots van WSC32 (0x4b1364..0x4b1394) zijn per ordinaal: 17 Reset, 25 TxQue, 8 DTR, 3 CTS, 19 RTS, 29 Message, 1 Baud, 9 Flow, 12 Info, 20 RxClear, 11 Gets, 6 Done, 15 Puts.
+
+**Geheugenkaart.** Bit-banging: `SioPuts`/`SioTxQue` (0x47f540), `SioRTS('S'/'C')`/`SioDTR('S')` als klok en data, `SioCTS` als invoer (0x47f070: bit is 1 als
+CTS == 0). Twee blokken van 16 bytes (adres 0 en 0x10) die allebei nul zijn geven -100 (0x47e1d0), en dat behandelt `0x42b380` als "geen kaart, verder". Dus: open
+slaagt, alles geeft 0, `SioCTS` geeft altijd 1 (actief) -> alle bits 0 -> "geen kaart". Meer is niet nodig.
+
+**Geweerbord.** Pakketten [type][lengte][...]; lengtetabel `0x47dad8` + `0x47da40`; de vensterprocedure verwerkt ze bij bericht 0x400 (`0x41ecb4`), tabel `0x41f7a0`:
+`F` (2 bytes) trekker, `X`/`U`/`x` (4 bytes: `px`, `255-py`) richting, `d` (3) herladen (= toets S, gebeurtenis 0x1adb1), `t` (3) antwoord op `T`/`+`.
+Het spel stuurt 5 gelijke tekens: `T`/`+` (0x42b0b0) en `G`/`H`, `B`/`C`; het herhaalt `T`/`+` tot het `t`-antwoord er is (0x41ff40), dus dat antwoord is verplicht.
+Het schot gebeurt bij het X-pakket na een `F` (0x41ef88). Munt en start komen NIET als pakket: er is geen munt-pakket, het spel kent alleen de toetsen uit de tabel op `0x41e889`
+(space, F1/F2, Home/End/Ins/Del/PgUp/PgDn, `/`, S) en de muis (WM_MOUSEMOVE `0x41ea47`, WM_LBUTTONDOWN `0x41f2aa`). Kalibratie van de richting: `correctionV2.txt`
+(`640 480 10  x1 y1 .. x4 y4  offX offY`, 13 getallen); wij leveren een rechthoek zodat byte -> scherm lineair is (afleiding in `ptt_board.h`).
+
+**Wat we gebouwd hebben.** `tools/rg-ptt/rg_ptt_wsc32.c` + `ptt_board.h` (model, getest in `tests/ptt_board_unit.c`, in `tests/ptt_wk_test.sh`), `build-wsc32.sh`; de drop-ins staan in
+`PullTheTrigger.dropin.ini` (`wsc32.dll`, `correctionV2.txt`). Geen COM-poort, geen CreateFile-hook: de DLL IS WSC32.
+
+**Open.** (1) Niets onder Wine gedraaid: de DLL is alleen gebouwd en statisch gecontroleerd (export-ordinalen en `ret N`), de logica is native getest. (2) Munt/start via de shm hebben
+geen pakket: de eigenaar kan die nu alleen via toetsen geven (spel start al op de trekker; of munt nodig is, is niet gemeten). (3) Of `d` een enkele of een dubbele stap van het herladen
+is ("PULL BACK/RELEASE") en of de offsets 1,1 in `correctionV2.txt` de richting goed zetten: te meten met het logboek en de tv.
