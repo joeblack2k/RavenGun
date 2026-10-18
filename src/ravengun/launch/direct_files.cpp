@@ -404,7 +404,7 @@ bool dxvk_compleet(const std::string& dir) {
 
 }  // namespace
 
-// Waar DXVK staat, in deze volgorde: RAVENGUN_DXVK (een map met x32/ en x64/), ~/.local/share/ravengun/dxvk/current
+// Waar DXVK staat, in deze volgorde: RAVENGUN_DXVK (een map met x32/ en x64/), <data>/dxvk/current (p.data, standaard ~/.local/share/ravengun)
 // (scripts/fetch-dxvk.sh), en anders de nieuwste Proton van Steam (compatibilitytools.d/*, steamapps/common/Proton*:
 // files/lib/wine/dxvk/{i386,x86_64}-windows). `from` zegt welke het werd, met de versie als die erbij staat.
 std::string find_dxvk(const DirectPaths& p, const EnvMap& env, bool is64, std::string& from) {
@@ -415,7 +415,7 @@ std::string find_dxvk(const DirectPaths& p, const EnvMap& env, bool is64, std::s
         t = trim(t.substr(0, t.find('\n')));
         return t.empty() ? std::string() : " (" + t + ")";
     };
-    for (const std::string& root : {getenv_or(env, "RAVENGUN_DXVK"), p.home + "/.local/share/ravengun/dxvk/current"}) {
+    for (const std::string& root : {getenv_or(env, "RAVENGUN_DXVK"), p.data + "/dxvk/current"}) {
         if (root.empty() || !dxvk_compleet(pjoin(root, sub))) continue;
         from = realpath_(root) + versie(pjoin(root, "version"));
         return pjoin(root, sub);

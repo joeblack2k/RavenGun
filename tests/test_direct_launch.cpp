@@ -763,7 +763,7 @@ int main() {
     }
 
     // [Launch] Dxvk: de DLL's van DXVK (bitbreedte van de game; Spel is 64 bits) als drop-ins in de view met <naam>=n. Bron: eerst
-    // RAVENGUN_DXVK, dan ~/.local/share/ravengun/dxvk/current, dan de nieuwste Proton van Steam; niets gevonden = niet starten.
+    // RAVENGUN_DXVK, dan <data>/dxvk/current (p.data), dan de nieuwste Proton van Steam; niets gevonden = niet starten.
     {
         const fs::path ugi = fs::path(p.dirs.user) / "Spel/game.ini";
         const char* dlls[] = {"d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"};
@@ -799,6 +799,21 @@ int main() {
         CHECK(plan_direct("Spel", p, o2, dp, w) == Verdict::Ok && dp.dxvk_dir == (eigen / "x64").string() && contains(dp.dxvk_from, "9.9"));
         fs::remove(eigen / "x64/dxgi.dll");
         CHECK(plan_direct("Spel", p, o2, dp, w) == Verdict::Ok && contains(dp.dxvk_dir, "Proton 10.0"));
+        // De standaardplek volgt p.data (XDG_DATA_HOME; de portabele map zet die op User/share), niet <home>/.local/share. Met een
+        // andere p.data wint die map, en een DXVK op de oude plek in de thuismap telt dan niet mee.
+        {
+            DirectPaths pd = p;
+            pd.data = (root / "xdg-data/ravengun").string();
+            // De rest van de datamap (view, OpenParrot, wine) blijft dezelfde; alleen de plek van DXVK en GStreamer verschilt.
+            fs::create_directories(pd.data);
+            for (const char* sub : {"runtime", "openparrot", "wine"}) fs::create_directory_symlink(fs::path(p.data) / sub, fs::path(pd.data) / sub);
+            vul(home / ".local/share/ravengun/dxvk/current/x64", "thuis-");
+            CHECK(plan_direct("Spel", pd, o, dp, w) == Verdict::Ok && contains(dp.dxvk_dir, "Proton 10.0"));
+            vul(fs::path(pd.data) / "dxvk/current/x64", "xdg-");
+            CHECK(plan_direct("Spel", pd, o, dp, w) == Verdict::Ok && dp.dxvk_dir == (fs::path(pd.data) / "dxvk/current/x64").string());
+            fs::remove_all(root / "xdg-data");
+            fs::remove_all(home / ".local/share/ravengun/dxvk");
+        }
         // Een eigen drop-in met dezelfde naam wint van DXVK.
         write(fs::path(p.dirs.user) / "Spel/dropin/dropin.ini", "[d3d9.dll]\nTo = .\nDllOverride = builtin,native\n");
         write(fs::path(p.dirs.user) / "Spel/dropin/d3d9.dll", "eigen d3d9");
@@ -825,6 +840,22 @@ int main() {
         CHECK(dp.env.count("LD_LIBRARY_PATH") && dp.env.at("LD_LIBRARY_PATH") == (gst / "proton").string() + ":" + (gst / "lib").string() + ":/al/eerder");
         CHECK(dp.env.count("GST_PLUGIN_SYSTEM_PATH_1_0") && dp.env.at("GST_PLUGIN_SYSTEM_PATH_1_0") == (gst / "plugins").string());
         CHECK(dp.launch_env.count("GST_REGISTRY_1_0"));
+        // Zonder RAVENGUN_GST32 staat hij in <p.data>/gst32, ook als dat niet <home>/.local/share/ravengun is.
+        {
+            DirectPaths pd = p;
+            pd.data = (root / "xdg-data/ravengun").string();
+            // De rest van de datamap (view, OpenParrot, wine) blijft dezelfde; alleen de plek van DXVK en GStreamer verschilt.
+            fs::create_directories(pd.data);
+            for (const char* sub : {"runtime", "openparrot", "wine"}) fs::create_directory_symlink(fs::path(p.data) / sub, fs::path(pd.data) / sub);
+            CHECK(plan_direct("Spel", pd, o, dp, w) == Verdict::Refused && contains(w, (fs::path(pd.data) / "gst32").string()));
+            const fs::path g2 = fs::path(pd.data) / "gst32";
+            write(g2 / "proton/libgstreamer-1.0.so.0", "x");
+            fs::create_directories(g2 / "plugins");
+            fs::create_directories(g2 / "lib");
+            CHECK(plan_direct("Spel", pd, o, dp, w) == Verdict::Ok);
+            CHECK(dp.env.count("GST_PLUGIN_SYSTEM_PATH_1_0") && dp.env.at("GST_PLUGIN_SYSTEM_PATH_1_0") == (g2 / "plugins").string());
+            fs::remove_all(root / "xdg-data");
+        }
         write(ugi, "[Launch]\nGst32 = soms\n");
         CHECK(plan_direct("Spel", p, o3, dp, w) == Verdict::Refused && contains(w, "Gst32 = soms"));
         fs::remove_all(gst);

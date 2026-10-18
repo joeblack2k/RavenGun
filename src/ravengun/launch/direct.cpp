@@ -792,7 +792,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     if (const std::string gs = lower(trim(lini("Gst32"))); !gs.empty() && gs != "false" && gs != "0" && gs != "off") {
         if (gs != "true" && gs != "1" && gs != "on") return setting_refused("[Launch] Gst32 = " + lini("Gst32") + " (true of false)");
         std::string g = getenv_or(env, "RAVENGUN_GST32");
-        if (g.empty()) g = p.home + "/.local/share/ravengun/gst32";
+        if (g.empty()) g = p.data + "/gst32";  // p.data volgt XDG_DATA_HOME (de portabele map zet die op User/share)
         if (!isdir(pjoin(g, "plugins")) || !isdir(pjoin(g, "proton")) || !isfile(pjoin(g, "proton/libgstreamer-1.0.so.0")))
             return setting_refused("[Launch] Gst32 = true, maar de 32-bits GStreamer staat niet klaar in " + g +
                                    ": draai scripts/setup-gst32.sh (leest hem uit Proton van Steam; docs/gst32.md)");
