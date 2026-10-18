@@ -5,7 +5,7 @@
 
 | Game | Stand | Wat er nog open is |
 |---|---|---|
-| **LethalEnforcers3** | **kandidaat, opnieuw te testen** (proef 13: met de films op D: 150 s zwart, voor de I/O; nu `D22/` zonder films) | niet gemeten: SYSTEM DATA1/2 OK, de films (meetvoorstel "Proef 13"), de kalibratie in de hoeken, Option/Reload |
+| **LethalEnforcers3** | **meten** (proef 14: de eerste start maakte SAVE-data aan en sloot af, de tweede bleef zwart met geluid, voor de hoofdlus) | meetvoorstellen in "Proef 14"; daarna SYSTEM DATA1/2, films, kalibratie, Option/Reload |
 | **Gashaaaan** | **werkt zonder TeknoParrot tot het titelscherm** (proef 13, 2026-10-17) | niet gemeten: munt, START, worpen/inslagen per kwart, 5 minuten spelen |
 
 Beide: `[Loader] Core = none` (geen lader, geen kern), eigen DLL's als drop-in, invoer uit het bordbeeld `TeknoParrot_JvsState` van onze
@@ -223,6 +223,40 @@ Meetvoorstel voor de films (een aparte run, met `D22/DATA -> origineel:DATA` zoa
 `IGraphBuilder_RenderFile`/`IMediaControl_Run` of een `WaitForCompletion` (quartz), mist er een GStreamer-element (MPEG-1-demuxer
 `mpegpsdemux`, `mpeg2dec`), of loopt de film en blijft alleen het beeld zwart (dan de renderer in gamescope). Als vergelijking dezelfde
 run zonder gamescope (`[Display] Gamescope = false`): onder de kern speelde de film zonder gamescope.
+
+## Proef 14 (tv 2026-10-18 07:37, 4b63ae7, D22 zonder films)
+
+70 s een geluidsstroom van `game.exe`, het beeld zwart, ook na munt, START en schot. Uit de logboeken (alleen gelezen):
+
+- `rg-konami.log` van deze run (laatst geschreven 07:37:26,56, een halve seconde na de start) bevat alleen de twee laadregels. Er is
+  geen `iob_get_digital_in`, geen `iob_init` en geen richtpunt. De game kwam in 70 s **niet in zijn hoofdlus** (die roept elk beeld
+  `iob_get_digital_in` aan). Munt, START en schot konden dus niets doen.
+- Er was nog een run met precies dezelfde kandidaat (`direct-LethalEnforcers3-20261018-000505`: D:/E:/F:, acht links, gamescope).
+  Die kwam **wel** in de hoofdlus: `iob_init`, `iob_boot_wait: 1`, `gunio_boot_status(0): 1`, het eerste richtpunt per geweer. Om
+  00:05:10 (4 s na de start) schreef hij `bookkeeping`, `bookkeeping_playdata` en `ranking_data` (in de schrijflaag) en 60 nieuwe
+  bestanden `SAVE/_CPUP{0,1}ST{0..5}NO{000..004}.sav` (elk 129.688 bytes, kop `CDSV`, CRC's kloppen; `CWtCpuDataManager`). Daarna
+  stopte hij zelf, normaal (`DllMain: proces stopt normaal (ExitProcess)`, 00:05:17). Onder de kern stonden die `_CPUP`-bestanden
+  nooit in SAVE.
+- Dus: eerste start met een lege SAVE → data aanmaken en afsluiten. Op de kast start `boot.exe` daarna `D:\D22\game.exe` opnieuw
+  (`boot.exe` heeft `CreateProcessA` en de string `D:\D22\game.exe`). Tweede start, mét de 60 `_CPUP`-bestanden → zwart met geluid,
+  geen hoofdlus. Het verschil tussen de twee runs zit in SAVE, niet in de opstelling.
+- Wat er sinds proef 11 nog meer veranderde, behalve D:/E:/F:: de game vindt via F:/E: nu ook zijn SAVE. In proef 11 las en schreef
+  hij die niet; daar dus geen `_CPUP`-bestanden en geen `io.sav`.
+
+**Meetvoorstellen** (geen code: zonder een meting is niet te zien waar de tweede start hangt):
+
+1. **A/B op SAVE:** zet de 60 `_CPUP*.sav` in `views/LethalEnforcers3/SAVE/` opzij (het zijn lokale bestanden, niet op de NAS).
+   Verwacht: zoals de run van 00:05 (hoofdlus, data aanmaken, na ~10 s afsluiten). Daarna nog een run zonder iets te verplaatsen.
+   Komt de zwarte toestand dan terug, dan is het de tweede start met CPU-data.
+2. **Waar hangt hij:** tijdens het zwarte beeld de draden van het proces dumpen. Met gdb: `sudo gdb -p <pid van game.exe> -batch
+   -ex 'thread apply all bt'` (alleen lezen, mag volgens de eigenaar). Of met Wine zelf: `WINEPREFIX=<prefix>
+   ~/.local/share/ravengun/wine/proton-11.0-2/bin/wine winedbg --command "info thread"` en per draad `bt`. Te zoeken: hangt de
+   hoofddraad in d3d8/dxgi (`Present`, `Reset`, `CreateDevice`), in quartz of strmbase (een film), in `ReadFile` of `CreateFileA`
+   (SAVE), of in een eigen wachtlus van `game.exe` (adres in `0x401000..0x626000`; dat adres doorgeven, dan lees ik het na).
+3. **Kort spoor van dezelfde run:** `WINEDEBUG=+timestamp,+seh,warn+file,+quartz,+d3d8,err+all`. Kijk naar de laatste
+   bestandsopen/fout voor het beeld zwart blijft, en of `d3d8` een apparaat maakt en `Present` aanroept (dan tekent hij wel, maar ziet
+   gamescope het niet). Of het een venster- of schermkwestie is, valt af te lezen aan `Executable name: game.exe` in de gamescope-regels
+   (die is er) en aan of `Present` loopt.
 
 ## Niet bewezen / gegokt
 
