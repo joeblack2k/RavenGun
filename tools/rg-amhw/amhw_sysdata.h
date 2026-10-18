@@ -65,4 +65,25 @@ inline bool seed_static_sysdata(std::vector<uint8_t>& sram, uint8_t region) {   
     return true;
 }
 
+// Een leeg backup-record (amBackup, "BACKUP DATA CLEAR"): [CRC32 over de rest][size-4 nulbytes]. De game zelf schrijft dat voor zijn eigen records (LGS: SRAM op 0,
+// 0x200 bytes, CRC 0x0FBB6D54), en alleen SDR heeft een record dat hij nooit zelf aanmaakt: record 7 (Game.exe 0x4DB9F5: SRAM 0x0 en kopie 0x1000, 0x200 bytes) wordt bij
+// de invoerstart (0x4DB990) alleen GELEZEN; is het ongeldig dan stopt de start met fout 0x15 (0x4DAF30), na `amBackupRecordCheckValid: Line329 crc error`.
+// Zet dit record (beide kopieen, offsets a en b) als het geen enkele geldige kopie heeft; een geldige kopie blijft ongemoeid (de game herstelt de andere zelf).
+inline bool backup_record_valid(const std::vector<uint8_t>& m, size_t off, size_t size) {
+    if (size < 8 || off + size > m.size()) return false;
+    uint32_t stored;
+    std::memcpy(&stored, &m[off], 4);
+    return stored == crc32_ieee(&m[off + 4], size - 4);
+}
+inline bool seed_empty_backup_record(std::vector<uint8_t>& m, size_t a, size_t b, size_t size) {
+    if (size < 8 || a + size > m.size() || b + size > m.size()) return false;
+    if (backup_record_valid(m, a, size) || backup_record_valid(m, b, size)) return false;
+    for (size_t off : {a, b}) {
+        std::memset(&m[off], 0, size);
+        const uint32_t c = crc32_ieee(&m[off + 4], size - 4);
+        std::memcpy(&m[off], &c, 4);
+    }
+    return true;
+}
+
 }  // namespace rg_amhw
