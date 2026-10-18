@@ -43,7 +43,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/prctl.h>
+#include <ucontext.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -304,12 +306,54 @@ void _exit(int code)
     for (;;) {}
 }
 
+
+/* Onderzoek (RG_T4_DIAG=1): een dodelijk signaal met adres en eip melden, voor het proces eraan gaat (bench 46: het spel stierf voor main
+   zonder een regel). Alleen write() en eigen hex, geen stdio; draait op een eigen stapel. */
+static void hexw(char *b, int *n, unsigned long v) { static const char H[] = "0123456789abcdef"; b[(*n)++] = '0'; b[(*n)++] = 'x'; for (int s = 28; s >= 0; s -= 4) b[(*n)++] = H[(v >> s) & 15]; }
+static void dood(int sig, siginfo_t *si, void *uc)
+{
+    char b[400];
+    int n = 0;
+    const char *t = "rg-t4-io: DODELIJK signaal ";
+    while (*t) b[n++] = *t++;
+    b[n++] = (char)('0' + sig / 10); b[n++] = (char)('0' + sig % 10);
+    t = " adres "; while (*t) b[n++] = *t++;
+    hexw(b, &n, (unsigned long)si->si_addr);
+    t = " eip "; while (*t) b[n++] = *t++;
+    ucontext_t *u = (ucontext_t *)uc;
+    hexw(b, &n, (unsigned long)u->uc_mcontext.gregs[REG_EIP]);
+    t = " esp "; while (*t) b[n++] = *t++;
+    hexw(b, &n, (unsigned long)u->uc_mcontext.gregs[REG_ESP]);
+    t = " ebp "; while (*t) b[n++] = *t++;
+    hexw(b, &n, (unsigned long)u->uc_mcontext.gregs[REG_EBP]);
+    t = " terug:"; while (*t) b[n++] = *t++;
+    unsigned long *fp = (unsigned long *)u->uc_mcontext.gregs[REG_EBP];
+    for (int i = 0; i < 6 && fp && ((unsigned long)fp & 3) == 0 && (unsigned long)fp > 0x10000; i++) { b[n++] = ' '; hexw(b, &n, fp[1]); fp = (unsigned long *)fp[0]; }
+    b[n++] = '\n';
+    if (write(2, b, (size_t)n) < 0) {}
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+static void diag_signalen(void)
+{
+    static char stapel[65536];
+    stack_t ss = {.ss_sp = stapel, .ss_size = sizeof stapel, .ss_flags = 0};
+    sigaltstack(&ss, NULL);
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = dood;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
+    int sigs[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP};
+    for (unsigned i = 0; i < sizeof sigs / sizeof sigs[0]; i++) sigaction(sigs[i], &sa, NULL);
+}
+
 __attribute__((constructor)) static void start(void)
 {
     g_log = getenv("RG_T4_LOG") != NULL;
     if (getenv("RG_T4_DIAG")) {   /* onderzoek: kan een kind van het spel zijn vader aanhaken? */
         long dump = prctl(3 /* PR_GET_DUMPABLE */, 0, 0, 0, 0);
         fprintf(stderr, "rg-t4-io: pid %d uid %d dumpable %ld\n", (int)getpid(), (int)getuid(), dump);
+        diag_signalen();
     }
 #ifdef RG_T4_TEST
     const char *m = getenv("RG_T4_TEST_MEM");

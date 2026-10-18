@@ -61,12 +61,13 @@ enum { K_NONE = 0, K_P37C = 1, K_MJG = 2, K_HDA = 3 };
 static unsigned char g_kind[MAXFD];
 
 static int g_log, g_klaar, g_gemeld[16];
+static unsigned int g_cyc[16], g_ncyc, g_cyc_i, g_cyc_n, g_cyc_was;
 static unsigned long g_mem;   /* 0 voor de game; de toets legt er een eigen geheugen onder (RG_CF_TEST_MEM) */
 
 /* ----- logboek -------------------------------------------------------------------------------------------------------- */
 static void melding(const char *wat, int soort)
 {
-    if (!g_log || soort < 0 || soort >= 16 || g_gemeld[soort]++ >= 3) return;
+    if (!g_log || soort < 0 || soort >= 16 || g_gemeld[soort]++ >= (soort == 15 ? 60 : soort >= 12 && soort <= 13 ? 60 : 3)) return;
     char b[120];
     unsigned int p = 0;
     const char *v = "rg-cf-io: ";
@@ -245,8 +246,8 @@ static void map_standaard(void)
     static const struct { int bit; unsigned int mask; } S[] = {
         {2, 0x200000u},   /* munt 1 */
         {3, 0x100000u},   /* munt 2 */
-        {4, 0x80000u},    /* START 1 */
-        {8, 0x40000u},    /* START 2 */
+        {4, 0xc0000u},    /* START 1: beide bits (bench 46: 0x80000 alleen deed niets; de game vraagt per speler-index een eigen bit, 0x80000 of 0x40000) */
+        {8, 0xc0000u},    /* START 2 */
     };
     for (unsigned int i = 0; i < sizeof S / sizeof S[0]; i++) { g_map[g_nmap].bit = S[i].bit; g_map[g_nmap].mask = S[i].mask; g_nmap++; }
 }
@@ -307,6 +308,7 @@ static void init(void)
     g_vast = sw ? hexwaarde(sw) : 0;
     const char *mp = getenv("RG_CF_MAP");
     if (mp && *mp) map_van_env(mp); else map_standaard();
+    { const char *cy = getenv("RG_CF_CYCLE"); while (cy && *cy && g_ncyc < 16) { g_cyc[g_ncyc++] = hexwaarde(cy); while (*cy && *cy != ',') ++cy; if (*cy == ',') ++cy; } }
     g_w = env_d("RG_CF_W", 640); g_h = env_d("RG_CF_H", 480);
     g_x0 = env_d("RG_CF_AIM_X0", 0); g_x1 = env_d("RG_CF_AIM_X1", 1); g_y0 = env_d("RG_CF_AIM_Y0", 0); g_y1 = env_d("RG_CF_AIM_Y1", 1);
     if (g_x1 <= g_x0) { g_x0 = 0; g_x1 = 1; }
@@ -368,6 +370,17 @@ static void vul_record(unsigned char *rec)
         bits = (unsigned int)beeld[8] | ((unsigned int)beeld[9] << 8) | ((unsigned int)beeld[10] << 16) | ((unsigned int)beeld[11] << 24);
         for (int i = 0; i < g_nmap; i++) if ((bits >> g_map[i].bit) & 1u) sw |= g_map[i].mask;
     }
+    /* Onderzoek (RG_CF_CYCLE=hex,hex,...): elke stijgende flank van START 1 (bord-bit 4) zet de volgende masker uit de lijst i.p.v. de
+       tabel; een regel per druk. Zo is in een run te zien welke bit de game als START leest. */
+    if (g_ncyc) {
+        sw = 0;   /* de tabel blijft voor munten; START komt uit de lijst */
+        for (int i = 0; i < g_nmap; i++) if (g_map[i].bit != 4 && g_map[i].bit != 8 && ((bits >> g_map[i].bit) & 1u)) sw |= g_map[i].mask;
+        sw |= g_vast;
+        unsigned int nu = (bits >> 4) & 1u;
+        if (nu && !g_cyc_was) { g_cyc_i = (g_cyc_n++) % g_ncyc; melding_hex("CYCLE: START-druk gebruikt masker ", g_cyc[g_cyc_i], 15 + (g_cyc_n % 1)); }
+        g_cyc_was = nu;
+        if (nu) sw |= g_cyc[g_cyc_i];
+    }
     /* de muntentellers: stijgende flanken, zoals mjg.o ze telt (0x200000 -> teller 0, 0x100000 -> teller 1) */
     if ((sw & ~g_prev_sw) & 0x200000u) g_coin[0]++;
     if ((sw & ~g_prev_sw) & 0x100000u) g_coin[1]++;
@@ -386,7 +399,12 @@ static void vul_record(unsigned char *rec)
             *(unsigned int *)(rec + 0x10 + 16 * g) = s;
             misc |= g ? (1u << 4) : 1u;   /* een sample */
         }
-        if (g_fire[g]) { misc |= g ? 0x2000u : 0x1000u; g_fire[g] = 0; melding(g ? "schot geweer 2" : "schot geweer 1", 12 + g); }
+        if (g_fire[g]) {
+            misc |= g ? 0x2000u : 0x1000u; g_fire[g] = 0;
+            melding(g ? "schot geweer 2" : "schot geweer 1", 12 + g);
+            if (inbeeld) { melding_hex("  schot op spelbeeld-x ", (unsigned int)x, 12 + g); melding_hex("  schot op spelbeeld-y ", (unsigned int)y, 12 + g); }
+            else melding("  schot buiten beeld (herladen)", 12 + g);
+        }
     }
     *(unsigned int *)(rec + 0x00) = misc;
     *(unsigned int *)(rec + 0x04) = sw;
