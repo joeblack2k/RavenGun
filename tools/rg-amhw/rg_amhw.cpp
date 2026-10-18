@@ -370,6 +370,71 @@ void* __cdecl rg_wfopen(const wchar_t* path, const wchar_t* mode) {
     return g_wfopen(w, mode);
 }
 
+// --- de log van de teaArcade2-games -------------------------------------------------------------------------------------------------------
+// LGI en LGI3D loggen ("[teaArcade2] JvsManager::initialize() failed.", ...) via drie kleine functies die een bericht aan de sinks van een globale logger geven
+// (LGI 0x57B600/0x57B620/0x57B640 voor niveau 0/1/2); in de uitgebrachte exe is er geen sink, dus de tekst gaat nergens heen en debugout.txt wordt niet
+// geschreven. Wij vinden die functies aan hun bytes (ze staan op andere adressen in LGI3D), zetten een sprong naar een eigen stukje code op hun begin, en
+// schrijven het bericht in rg-amhw.log. Alleen lezen wat de game al zegt: de game zelf verandert niet (de functie geeft nog steeds "gelukt" terug).
+//   8B 0D <logger>    mov  ecx,[logger]
+//   85 C9 74 0D       test ecx,ecx ; je .. (uit)
+//   8B 44 24 04       mov  eax,[esp+4]
+//   50 6A <niveau>    push eax ; push niveau
+//   E8 <rel32>        call dispatch
+//   C3 B0 01 C3       ret ; mov al,1 ; ret
+extern "C" void __cdecl rg_game_log(int level, const char* msg) {
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) > 4000 || !msg) return;
+    char b[700];
+    size_t i = 0;
+    for (; msg[i] && i < sizeof b - 1; ++i) b[i] = (msg[i] == '\r' || msg[i] == '\n') ? ' ' : msg[i];
+    b[i] = 0;
+    while (i > 0 && b[i - 1] == ' ') b[--i] = 0;
+    rg_log("spel[%d]: %s", level, b);
+}
+
+void hook_game_log() {
+    static const unsigned char pat[] = {0x8B, 0x0D, 0, 0, 0, 0, 0x85, 0xC9, 0x74, 0x0D, 0x8B, 0x44, 0x24, 0x04, 0x50, 0x6A, 0, 0xE8, 0, 0, 0, 0, 0xC3, 0xB0, 0x01, 0xC3};
+    static const bool wild[sizeof pat] = {false, false, true, true, true, true, false, false, false, false, false, false, false, false, false, false, true, false, true, true, true, true, false, false, false, false};
+    auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return;
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    int found = 0;
+    for (unsigned si = 0; si < nt->FileHeader.NumberOfSections; ++si) {
+        if (!(sec[si].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        BYTE* lo = base + sec[si].VirtualAddress;
+        const size_t len = sec[si].Misc.VirtualSize;
+        for (size_t off = 0; off + sizeof pat <= len; ++off) {
+            BYTE* q = lo + off;
+            bool ok = true;
+            for (size_t k = 0; k < sizeof pat; ++k)
+                if (!wild[k] && q[k] != pat[k]) { ok = false; break; }
+            if (!ok) continue;
+            const int level = q[16];
+            if (level < 0 || level > 3) continue;
+            auto* stub = static_cast<BYTE*>(VirtualAlloc(nullptr, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+            if (!stub) return;
+            BYTE* c = stub;
+            *c++ = 0xFF; *c++ = 0x74; *c++ = 0x24; *c++ = 0x04;                           // push [esp+4]
+            *c++ = 0x68; const int lv = level; std::memcpy(c, &lv, 4); c += 4;            // push niveau
+            *c++ = 0xE8; const int rel = static_cast<int>(reinterpret_cast<BYTE*>(&rg_game_log) - (c + 4)); std::memcpy(c, &rel, 4); c += 4;
+            *c++ = 0x83; *c++ = 0xC4; *c++ = 0x08;                                        // add esp,8
+            *c++ = 0xB0; *c++ = 0x01; *c++ = 0xC3;                                        // mov al,1 ; ret
+            DWORD prot = 0;
+            if (!VirtualProtect(q, 5, PAGE_EXECUTE_READWRITE, &prot)) continue;
+            q[0] = 0xE9;
+            const int jr = static_cast<int>(stub - (q + 5));
+            std::memcpy(q + 1, &jr, 4);
+            VirtualProtect(q, 5, prot, &prot);
+            FlushInstructionCache(GetCurrentProcess(), q, 5);
+            rg_log("spellog: logfunctie voor niveau %d op 0x%08lX omgeleid naar rg-amhw.log", level, static_cast<unsigned long>(reinterpret_cast<uintptr_t>(q)));
+            ++found;
+        }
+    }
+    if (!found) rg_log("spellog: geen teaArcade2-logfunctie gevonden (geen LGI/LGI3D?)");
+}
+
 // De JVS-transactie van het stuurprogramma (0x9C402000): de bytes van de bovenlaag naar de lijn, dan het antwoordkader terug, en de OVERLAPPED
 // meteen klaar (InternalHigh = aantal bytes, gebeurtenis gezet): Windows meldt een direct voltooide overlapped-opdracht ook met TRUE.
 BOOL jvs_transfer(HANDLE h, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
@@ -761,6 +826,7 @@ void setup() {
             rg_log("importtabel van %s: CreateFileW %s, CreateFileA %s", crt, w ? "omgezet" : "niet gevonden", a ? "omgezet" : "niet gevonden");
         }
     }
+    if (env("RG_AMHW_GAMELOG", "1") != "0") hook_game_log();
     hook("KERNEL32.dll", "DeviceIoControl", rg_DeviceIoControl, g_ioctl);
     hook("KERNEL32.dll", "CloseHandle", rg_CloseHandle, g_close);
     hook("KERNEL32.dll", "SetFilePointer", rg_SetFilePointer, g_seek);
